@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -56,6 +56,7 @@ with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Stand;    use Stand;
+with Stringt;  use Stringt;
 with Snames;   use Snames;
 with Tbuild;   use Tbuild;
 with Ttypes;   use Ttypes;
@@ -1032,13 +1033,14 @@ package body Exp_Ch3 is
    --  end;
 
    function Build_Initialization_Call
-     (Loc          : Source_Ptr;
-      Id_Ref       : Node_Id;
-      Typ          : Entity_Id;
-      In_Init_Proc : Boolean := False;
-      Enclos_Type  : Entity_Id := Empty;
-      Discr_Map    : Elist_Id := New_Elmt_List)
-      return         List_Id
+     (Loc               : Source_Ptr;
+      Id_Ref            : Node_Id;
+      Typ               : Entity_Id;
+      In_Init_Proc      : Boolean := False;
+      Enclos_Type       : Entity_Id := Empty;
+      Discr_Map         : Elist_Id := New_Elmt_List;
+      With_Default_Init : Boolean := False)
+      return              List_Id
    is
       First_Arg      : Node_Id;
       Args           : List_Id;
@@ -1076,7 +1078,6 @@ package body Exp_Ch3 is
       --  honest. Actually it isn't quite type honest, because there can be
       --  conflicts of views in the private type case. That is why we set
       --  Conversion_OK in the conversion node.
-
       if (Is_Record_Type (Typ)
            or else Is_Array_Type (Typ)
            or else Is_Private_Type (Typ))
@@ -1110,12 +1111,28 @@ package body Exp_Ch3 is
 
          Append_To (Args, Make_Identifier (Loc, Name_uChain));
 
-         Decls := Build_Task_Image_Decls (Loc, Id_Ref, Enclos_Type);
-         Decl  := Last (Decls);
+         --  Ada0Y (AI-287): In case of default initialized components
+         --  with tasks, we generate a null string actual parameter.
+         --  This is just a workaround that must be improved later???
 
-         Append_To (Args,
-           New_Occurrence_Of (Defining_Identifier (Decl), Loc));
-         Append_List (Decls, Res);
+         if With_Default_Init then
+            declare
+               S           : String_Id;
+               Null_String : Node_Id;
+            begin
+               Start_String;
+               S := End_String;
+               Null_String := Make_String_Literal (Loc, Strval => S);
+               Append_To (Args, Null_String);
+            end;
+         else
+            Decls := Build_Task_Image_Decls (Loc, Id_Ref, Enclos_Type);
+            Decl  := Last (Decls);
+
+            Append_To (Args,
+              New_Occurrence_Of (Defining_Identifier (Decl), Loc));
+            Append_List (Decls, Res);
+         end if;
 
       else
          Decls := No_List;
@@ -1202,7 +1219,22 @@ package body Exp_Ch3 is
                end if;
             end if;
 
-            Append_To (Args, Arg);
+            --  Ada0Y (AI-287) In case of default initialized components, we
+            --  need to generate the corresponding selected component node
+            --  to access the discriminant value. In other cases this is not
+            --  required because we are inside the init proc and we use the
+            --  corresponding formal.
+
+            if With_Default_Init
+              and then Nkind (Id_Ref) = N_Selected_Component
+            then
+               Append_To (Args,
+                 Make_Selected_Component (Loc,
+                   Prefix => New_Copy_Tree (Prefix (Id_Ref)),
+                   Selector_Name => Arg));
+            else
+               Append_To (Args, Arg);
+            end if;
 
             Next_Discriminant (Discr);
          end loop;
@@ -1495,7 +1527,7 @@ package body Exp_Ch3 is
          --  aggregate that will be expanded inline
 
          if Kind = N_Qualified_Expression then
-            Kind := Nkind (Parent (N));
+            Kind := Nkind (Expression (N));
          end if;
 
          if Controlled_Type (Typ)
@@ -1905,7 +1937,8 @@ package body Exp_Ch3 is
          Decl := First_Non_Pragma (Component_Items (Comp_List));
          while Present (Decl) loop
             Loc := Sloc (Decl);
-            Build_Record_Checks (Subtype_Indication (Decl), Check_List);
+            Build_Record_Checks
+              (Subtype_Indication (Component_Definition (Decl)), Check_List);
 
             Id := Defining_Identifier (Decl);
             Typ := Etype (Id);
@@ -2693,7 +2726,10 @@ package body Exp_Ch3 is
       Comp_Decl :=
         Make_Component_Declaration (Loc,
           Defining_Identifier => Parent_N,
-          Subtype_Indication  => New_Reference_To (Par_Subtype, Loc));
+          Component_Definition =>
+            Make_Component_Definition (Loc,
+              Aliased_Present => False,
+              Subtype_Indication => New_Reference_To (Par_Subtype, Loc)));
 
       if Null_Present (Rec_Ext_Part) then
          Set_Component_List (Rec_Ext_Part,
@@ -2850,7 +2886,7 @@ package body Exp_Ch3 is
 
    begin
       --  Don't do anything for deferred constants. All proper actions will
-      --  be expanded during the redeclaration.
+      --  be expanded during the full declaration.
 
       if No (Expr) and Constant_Present (N) then
          return;
@@ -2986,7 +3022,7 @@ package body Exp_Ch3 is
          --  When we have the appropriate type of aggregate in the
          --  expression (it has been determined during analysis of the
          --  aggregate by setting the delay flag), let's perform in
-         --  place assignment and thus avoid creating a temporay.
+         --  place assignment and thus avoid creating a temporary.
 
          if Is_Delayed_Aggregate (Expr_Q) then
             Convert_Aggr_In_Object_Decl (N);
@@ -3270,7 +3306,10 @@ package body Exp_Ch3 is
       Comp_Decl :=
         Make_Component_Declaration (Loc,
           Defining_Identifier =>  Ent,
-          Subtype_Indication  => New_Reference_To (Controller_Type, Loc));
+          Component_Definition =>
+            Make_Component_Definition (Loc,
+              Aliased_Present => False,
+              Subtype_Indication => New_Reference_To (Controller_Type, Loc)));
 
       if Null_Present (Comp_List)
         or else Is_Empty_List (Component_Items (Comp_List))
@@ -3361,8 +3400,10 @@ package body Exp_Ch3 is
       Comp_Decl :=
         Make_Component_Declaration (Sloc_N,
           Defining_Identifier => Tag_Component (T),
-          Subtype_Indication  =>
-            New_Reference_To (RTE (RE_Tag), Sloc_N));
+          Component_Definition =>
+            Make_Component_Definition (Sloc_N,
+              Aliased_Present => False,
+              Subtype_Indication => New_Reference_To (RTE (RE_Tag), Sloc_N)));
 
       if Null_Present (Comp_List)
         or else Is_Empty_List (Component_Items (Comp_List))
@@ -3378,7 +3419,7 @@ package body Exp_Ch3 is
       --  already been analyzed previously. Here we just insure that the
       --  tree is coherent with the semantic decoration
 
-      Find_Type (Subtype_Indication (Comp_Decl));
+      Find_Type (Subtype_Indication (Component_Definition (Comp_Decl)));
 
    exception
       when RE_Not_Available =>
@@ -3428,8 +3469,8 @@ package body Exp_Ch3 is
             --  initialize scalars mode, and these types are treated specially
             --  and do not need initialization procedures.
 
-            elsif Base = Standard_String
-              or else Base = Standard_Wide_String
+            elsif Root_Type (Base) = Standard_String
+              or else Root_Type (Base) = Standard_Wide_String
             then
                null;
 
@@ -3547,7 +3588,10 @@ package body Exp_Ch3 is
                           High_Bound =>
                             Make_Integer_Literal (Loc, Num - 1))))),
 
-              Subtype_Indication => New_Reference_To (Typ, Loc)),
+              Component_Definition =>
+                Make_Component_Definition (Loc,
+                  Aliased_Present => False,
+                  Subtype_Indication => New_Reference_To (Typ, Loc))),
 
           Expression =>
             Make_Aggregate (Loc,

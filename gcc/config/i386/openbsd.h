@@ -1,5 +1,5 @@
 /* Configuration for an OpenBSD i386 target.
-   Copyright (C) 1999, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -90,7 +90,7 @@ Boston, MA 02111-1307, USA.  */
 /* Assembler format: exception region output.  */
 
 /* All configurations that don't use elf must be explicit about not using
-   dwarf unwind information. */
+   dwarf unwind information.  */
 #define DWARF2_UNWIND_INFO 0
 
 #undef ASM_PREFERRED_EH_DATA_FORMAT

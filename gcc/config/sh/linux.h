@@ -1,5 +1,5 @@
 /* Definitions for SH running Linux-based GNU systems using ELF
-   Copyright (C) 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Kazumoto Kojima <kkojima@rr.iij4u.or.jp>
 
 This file is part of GCC.
@@ -27,7 +27,7 @@ Boston, MA 02111-1307, USA.  */
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
 
-/* This was defined in linux.h.  Define it here also. */
+/* This was defined in linux.h.  Define it here also.  */
 #define HANDLE_PRAGMA_PACK_PUSH_POP
 
 /* Don't assume anything about the header files.  */
@@ -41,6 +41,8 @@ Boston, MA 02111-1307, USA.  */
 #undef DWARF2_UNWIND_INFO
 #define DWARF2_UNWIND_INFO 1
 
+/* ??? Current SH linux linker has a problem for DW_EH_PE_textrel.  */
+#undef ASM_PREFERRED_EH_DATA_FORMAT
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL)                      \
   (flag_pic                                                             \
     ? ((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4 \
@@ -57,6 +59,8 @@ do { \
   builtin_define_std ("unix"); \
   builtin_define ("__gnu_linux__"); \
   builtin_define_std ("linux"); \
+  builtin_assert ("system=linux"); \
+  builtin_assert ("system=unix"); \
   builtin_assert ("system=posix"); \
 } while (0)
 

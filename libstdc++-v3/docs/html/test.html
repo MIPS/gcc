@@ -34,6 +34,7 @@
    <li><a href="#util">Utilities: abicheck and libv3test</a></li>
    <li><a href="#new">How to write a new test case</a></li>
    <li><a href="#check">Options for running the tests</a></li>
+   <li><a href="#debug">Running debug-mode tests</a></li>
    <li><a href="#future">Future</a></li>
    <li><a href="#internals">DejaGNU internals</a></li>
 </ul>
@@ -391,6 +392,12 @@ Example 3: Testing for expected warnings on line 36
 Example 4: Testing for compilation errors on line 41
 // { dg-do compile }
 // { dg-error "no match for" "" { target *-*-* } 41 }
+
+Example 5: Testing with special command line settings, or without the
+use of pre-compiled headers, in particular the stdc++.h.gch file. Any
+options here will override the DEFAULT_CXXFLAGS set up in the
+normal.exp file.
+// { dg-options "-O0" { target *-*-* } }
 </pre>
 
    <p>
@@ -470,11 +477,11 @@ or
 make check-target-libstdc++-v3 RUNTESTFLAGS="-v -v"
 </pre>
 
+
 There are two ways to run on a simulator: set up DEJAGNU to point to a
 specially crafted site.exp, or pass down --target_board flags.
 
 Example flags to pass down for various embedded builds are as follows:
-
 <pre>
 --target=powerpc-eabism (libgloss/sim)
 make check-target-libstdc++-v3 RUNTESTFLAGS="--target_board=powerpc-sim"
@@ -485,7 +492,14 @@ make check-target-libstdc++-v3 RUNTESTFLAGS="--target_board=calmrisc32-sid"
 --target=xscale-elf (newlib/sim)
 make check-target-libstdc++-v3 RUNTESTFLAGS="--target_board=arm-sim"
 </pre>
-   
+
+<p> Also, here is an example of how to run the libstdc++ testsuite for a
+multilibed build directory with different ABI settings:
+</p>
+<pre>
+make check-target-libstdc++-v3 RUNTESTFLAGS='--target_board \"unix{-mabi=32,,-mabi=64}\"'
+</pre>
+ 
   <p> To run a subset of the library tests, simply edit the generated
   file, <em>testsuite_files </em>, to include only the files that are
   desired instead of all available test cases.
@@ -543,6 +557,19 @@ make check-target-libstdc++-v3 RUNTESTFLAGS="--target_board=arm-sim"
       testsuite; please see <a href="faq/index.html#2_4">FAQ 2.4</a>
       for which files to examine.
    </p>
+
+<hr/>
+<h2><a name="debug">Running debug-mode tests</a></h2>
+<p>To run the libstdc++ test suite under the <a
+  href="debug.html#safe">debug mode</a>,
+  edit <code>libstdc++/scripts/testsuite_flags</code> to add the
+  compile-time flag <code>-D_GLIBCXX_DEBUG</code> to the result
+  printed by the <code>--build-cxx</code> option. Additionally, add
+  the <code>-D_GLIBCXX_DEBUG_PEDANTIC</code> flag to turn on pedantic
+  checking. The libstdc++ test suite should produce precisely the same
+  results under debug mode that it does under release mode: any
+  deviation indicates an error in either the library or the test
+  suite.</p>
 
 <hr />
 <h2><a name="future">Future</a></h2>

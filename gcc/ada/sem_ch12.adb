@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -543,22 +543,22 @@ package body Sem_Ch12 is
    --  those nodes that contain global information. At instantiation, the
    --  information from the associated node is placed on the new copy, so
    --  that name resolution is not repeated.
-
+   --
    --  Three kinds of source nodes have associated nodes:
-
+   --
    --    a) those that can reference (denote) entities, that is identifiers,
    --       character literals, expanded_names, operator symbols, operators,
    --       and attribute reference nodes. These nodes have an Entity field
    --       and are the set of nodes that are in N_Has_Entity.
-
+   --
    --    b) aggregates (N_Aggregate and N_Extension_Aggregate)
-
+   --
    --    c) selected components (N_Selected_Component)
-
+   --
    --  For the first class, the associated node preserves the entity if it is
-   --  global. If the generic contains nested instantiations, the associated_
+   --  global. If the generic contains nested instantiations, the associated
    --  node itself has been recopied, and a chain of them must be followed.
-
+   --
    --  For aggregates, the associated node allows retrieval of the type, which
    --  may otherwise not appear in the generic. The view of this type may be
    --  different between generic and instantiation, and the full view can be
@@ -566,14 +566,14 @@ package body Sem_Ch12 is
    --  type extensions, the same view exchange may have to be performed for
    --  some of the ancestor types, if their view is private at the point of
    --  instantiation.
-
+   --
    --  Nodes that are selected components in the parse tree may be rewritten
    --  as expanded names after resolution, and must be treated as potential
    --  entity holders. which is why they also have an Associated_Node.
-
+   --
    --  Nodes that do not come from source, such as freeze nodes, do not appear
    --  in the generic tree, and need not have an associated node.
-
+   --
    --  The associated node is stored in the Associated_Node field. Note that
    --  this field overlaps Entity, which is fine, because the whole point is
    --  that we don't need or want the normal Entity field in this situation.
@@ -757,9 +757,11 @@ package body Sem_Ch12 is
       F_Copy  : List_Id)
       return    List_Id
    is
-      Actual_Types    : constant Elist_Id := New_Elmt_List;
-      Assoc           : constant List_Id  := New_List;
-      Defaults        : constant Elist_Id := New_Elmt_List;
+      Actual_Types    : constant Elist_Id  := New_Elmt_List;
+      Assoc           : constant List_Id   := New_List;
+      Defaults        : constant Elist_Id  := New_Elmt_List;
+      Gen_Unit        : constant Entity_Id := Defining_Entity
+                                                (Parent (F_Copy));
       Actuals         : List_Id;
       Actual          : Node_Id;
       Formal          : Node_Id;
@@ -985,8 +987,12 @@ package body Sem_Ch12 is
                       Defining_Identifier (Analyzed_Formal));
 
                   if No (Match) then
-                     Error_Msg_NE ("missing actual for instantiation of &",
-                        Instantiation_Node, Defining_Identifier (Formal));
+                     Error_Msg_Sloc := Sloc (Gen_Unit);
+                     Error_Msg_NE
+                       ("missing actual&",
+                         Instantiation_Node, Defining_Identifier (Formal));
+                     Error_Msg_NE ("\in instantiation of & declared#",
+                         Instantiation_Node, Gen_Unit);
                      Abandon_Instantiation (Instantiation_Node);
 
                   else
@@ -1070,10 +1076,12 @@ package body Sem_Ch12 is
                       Defining_Identifier (Original_Node (Analyzed_Formal)));
 
                   if No (Match) then
+                     Error_Msg_Sloc := Sloc (Gen_Unit);
                      Error_Msg_NE
-                       ("missing actual for instantiation of&",
-                        Instantiation_Node,
-                        Defining_Identifier (Formal));
+                       ("missing actual&",
+                         Instantiation_Node, Defining_Identifier (Formal));
+                     Error_Msg_NE ("\in instantiation of & declared#",
+                         Instantiation_Node, Gen_Unit);
 
                      Abandon_Instantiation (Instantiation_Node);
 
@@ -1105,8 +1113,19 @@ package body Sem_Ch12 is
          end loop;
 
          if Num_Actuals > Num_Matched then
-            Error_Msg_N
-              ("unmatched actuals in instantiation", Instantiation_Node);
+            Error_Msg_Sloc := Sloc (Gen_Unit);
+
+            if Present (Selector_Name (Actual)) then
+               Error_Msg_NE
+                 ("unmatched actual&",
+                    Actual, Selector_Name (Actual));
+               Error_Msg_NE ("\in instantiation of& declared#",
+                    Actual, Gen_Unit);
+            else
+               Error_Msg_NE
+                 ("unmatched actual in instantiation of& declared#",
+                   Actual, Gen_Unit);
+            end if;
          end if;
 
       elsif Present (Actuals) then
@@ -1195,12 +1214,13 @@ package body Sem_Ch12 is
          Error_Msg_N ("premature usage of incomplete type", Def);
 
       elsif Is_Internal (Component_Type (T))
-        and then Nkind (Original_Node (Subtype_Indication (Def)))
+        and then Nkind (Original_Node
+                        (Subtype_Indication (Component_Definition (Def))))
           /= N_Attribute_Reference
       then
          Error_Msg_N
            ("only a subtype mark is allowed in a formal",
-              Subtype_Indication (Def));
+              Subtype_Indication (Component_Definition (Def)));
       end if;
 
    end Analyze_Formal_Array_Type;
@@ -1447,7 +1467,10 @@ package body Sem_Ch12 is
       end if;
 
       if K = E_Generic_In_Parameter then
-         if Is_Limited_Type (T) then
+
+         --  Ada0Y (AI-287): Limited aggregates allowed in generic formals
+
+         if not Extensions_Allowed and then Is_Limited_Type (T) then
             Error_Msg_N
               ("generic formal of mode IN must not be of limited type", N);
             Explain_Limited_Type (T, N);
@@ -1582,6 +1605,27 @@ package body Sem_Ch12 is
              Gen_Id);
          Restore_Env;
          return;
+
+      elsif In_Open_Scopes (Gen_Unit) then
+         if Is_Compilation_Unit (Gen_Unit)
+           and then Is_Child_Unit (Current_Scope)
+         then
+            --  Special-case the error when the formal is a parent, and
+            --  continue analysis to minimize cascaded errors.
+
+            Error_Msg_N
+              ("generic parent cannot be used as formal package "
+                & "of a child unit",
+                Gen_Id);
+
+         else
+            Error_Msg_N
+              ("generic package cannot be used as a formal package "
+                & "within itself",
+                Gen_Id);
+            Restore_Env;
+            return;
+         end if;
       end if;
 
       --  Check for a formal package that is a package renaming.
@@ -2332,8 +2376,17 @@ package body Sem_Ch12 is
          return;
 
       elsif Ekind (Gen_Unit) /= E_Generic_Package then
-         Error_Msg_N
-           ("expect name of generic package in instantiation", Gen_Id);
+
+         --  Ada0Y (AI-50217): Instance can not be used in limited with_clause
+
+         if From_With_Type (Gen_Unit) then
+            Error_Msg_N
+              ("cannot instantiate a limited withed package", Gen_Id);
+         else
+            Error_Msg_N
+              ("expect name of generic package in instantiation", Gen_Id);
+         end if;
+
          Restore_Env;
          return;
       end if;
@@ -2546,7 +2599,7 @@ package body Sem_Ch12 is
 
             if In_Open_Scopes (Scope (Scope (Gen_Unit))) then
                declare
-                  Decl : Node_Id :=
+                  Decl : constant Node_Id :=
                            Original_Node
                              (Unit_Declaration_Node (Scope (Gen_Unit)));
                begin
@@ -2887,7 +2940,7 @@ package body Sem_Ch12 is
                --  Remove entities in current scopes from visibility, so
                --  than instance body is compiled in a clean environment.
 
-               Save_Scope_Stack;
+               Save_Scope_Stack (Handle_Use => False);
 
                if Is_Child_Unit (S) then
 
@@ -2951,7 +3004,7 @@ package body Sem_Ch12 is
                end loop;
             end if;
 
-            Restore_Scope_Stack;
+            Restore_Scope_Stack (Handle_Use => False);
          end if;
 
          --  Restore use clauses. For a child unit, use clauses in the
@@ -4634,19 +4687,37 @@ package body Sem_Ch12 is
          else
             --  If the associated node is still defined, the entity in
             --  it is global, and must be copied to the instance.
+            --  If this copy is being made for a body to inline, it is
+            --  applied to an instantiated tree, and the entity is already
+            --  present and must be also preserved.
 
-            if Present (Get_Associated_Node (N)) then
-               if Nkind (Get_Associated_Node (N)) = Nkind (N) then
-                  Set_Entity (New_N, Entity (Get_Associated_Node (N)));
-                  Check_Private_View (N);
+            declare
+               Assoc : constant Node_Id := Get_Associated_Node (N);
+            begin
+               if Present (Assoc) then
+                  if Nkind (Assoc) = Nkind (N) then
+                     Set_Entity (New_N, Entity (Assoc));
+                     Check_Private_View (N);
 
-               elsif Nkind (Get_Associated_Node (N)) = N_Function_Call then
-                  Set_Entity (New_N, Entity (Name (Get_Associated_Node (N))));
+                  elsif Nkind (Assoc) = N_Function_Call then
+                     Set_Entity (New_N, Entity (Name (Assoc)));
 
-               else
-                  Set_Entity (New_N, Empty);
+                  elsif (Nkind (Assoc) = N_Defining_Identifier
+                          or else Nkind (Assoc) = N_Defining_Character_Literal
+                          or else Nkind (Assoc) = N_Defining_Operator_Symbol)
+                    and then Expander_Active
+                  then
+                     --  Inlining case: we are copying a tree that contains
+                     --  global entities, which are preserved in the copy
+                     --  to be used for subsequent inlining.
+
+                     null;
+
+                  else
+                     Set_Entity (New_N, Empty);
+                  end if;
                end if;
-            end if;
+            end;
          end if;
 
          --  For expanded name, we must copy the Prefix and Selector_Name
@@ -5611,6 +5682,8 @@ package body Sem_Ch12 is
       Generic_Flags.Init;
       Generic_Renamings_HTable.Reset;
       Circularity_Detected := False;
+      Exchanged_Views      := No_Elist;
+      Hidden_Entities      := No_Elist;
    end Initialize;
 
    ----------------------------
@@ -6197,7 +6270,7 @@ package body Sem_Ch12 is
          Gen_Anc  : Entity_Id)
          return     Boolean
       is
-         Gen_Par : Entity_Id := Generic_Parent (Act_Spec);
+         Gen_Par : constant Entity_Id := Generic_Parent (Act_Spec);
 
       begin
          if No (Gen_Par) then
@@ -6578,9 +6651,12 @@ package body Sem_Ch12 is
          end if;
 
       else
+         Error_Msg_Sloc := Sloc (Scope (Analyzed_S));
          Error_Msg_NE
-           ("missing actual for instantiation of &",
-                                 Instantiation_Node, Formal_Sub);
+           ("missing actual&", Instantiation_Node, Formal_Sub);
+         Error_Msg_NE
+           ("\in instantiation of & declared#",
+              Instantiation_Node, Scope (Analyzed_S));
          Abandon_Instantiation (Instantiation_Node);
       end if;
 
@@ -6702,6 +6778,9 @@ package body Sem_Ch12 is
       Subt_Decl : Node_Id := Empty;
 
    begin
+      --  Sloc for error message on missing actual.
+      Error_Msg_Sloc := Sloc (Scope (Defining_Identifier (Analyzed_Formal)));
+
       if Get_Instance_Of (Formal_Id) /= Formal_Id then
          Error_Msg_N ("duplicate instantiation of generic parameter", Actual);
       end if;
@@ -6722,8 +6801,12 @@ package body Sem_Ch12 is
 
          if No (Actual) then
             Error_Msg_NE
-              ("missing actual for instantiation of &",
+              ("missing actual&",
                Instantiation_Node, Formal_Id);
+            Error_Msg_NE
+              ("\in instantiation of & declared#",
+                 Instantiation_Node,
+                   Scope (Defining_Identifier (Analyzed_Formal)));
             Abandon_Instantiation (Instantiation_Node);
          end if;
 
@@ -6886,8 +6969,11 @@ package body Sem_Ch12 is
 
          else
             Error_Msg_NE
-              ("missing actual for instantiation of &",
-               Instantiation_Node, Formal_Id);
+              ("missing actual&",
+                Instantiation_Node, Formal_Id);
+            Error_Msg_NE ("\in instantiation of & declared#",
+              Instantiation_Node,
+                Scope (Defining_Identifier (Analyzed_Formal)));
 
             if Is_Scalar_Type
                  (Etype (Defining_Identifier (Analyzed_Formal)))
@@ -7704,8 +7790,7 @@ package body Sem_Ch12 is
 
                begin
                   Decl := First (Actual_Decls);
-
-                  while (Present (Decl)) loop
+                  while Present (Decl) loop
                      if Nkind (Decl) = N_Subtype_Declaration
                        and then Chars (Defining_Identifier (Decl)) =
                                                     Chars (Etype (A_Gen_T))

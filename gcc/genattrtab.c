@@ -1,6 +1,6 @@
 /* Generate code from machine description to compute values of attributes.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -99,6 +99,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define ATTR_CURR_SIMPLIFIED_P(RTX) (RTX_FLAG((RTX), in_struct))
 #define ATTR_PERMANENT_P(RTX) (RTX_FLAG((RTX), integrated))
 #define ATTR_EQ_ATTR_P(RTX) (RTX_FLAG((RTX), volatil))
+
+#if 0
+#define strcmp_check(S1, S2) ((S1) == (S2)		\
+			      ? 0			\
+			      : (strcmp ((S1), (S2))	\
+				 ? 1			\
+				 : (abort (), 0)))
+#else
+#define strcmp_check(S1, S2) ((S1) != (S2))
+#endif
 
 #include "bconfig.h"
 #include "system.h"
@@ -339,6 +349,10 @@ static rtx true_rtx, false_rtx;
 /* Used to reduce calls to `strcmp' */
 
 static char *alternative_name;
+static const char *length_str;
+static const char *delay_type_str;
+static const char *delay_1_0_str;
+static const char *num_delay_slots_str;
 
 /* Indicate that REG_DEAD notes are valid if dead_or_set_p is ever
    called.  */
@@ -364,6 +378,8 @@ int optimize = 0;
       && XSTR ((EXP), 0) == alternative_name)			\
     (EXP) = (XSTR ((EXP), 1) == current_alternative_string	\
 	    ? true_rtx : false_rtx);
+
+#define DEF_ATTR_STRING(S) (attr_string ((S), strlen (S)))
 
 /* These are referenced by rtlanal.c and hence need to be defined somewhere.
    They won't actually be used.  */
@@ -407,7 +423,6 @@ static rtx test_for_current_value (struct dimension *, int);
 static rtx simplify_with_current_value (rtx, struct dimension *, int);
 static rtx simplify_with_current_value_aux (rtx);
 static void clear_struct_flag (rtx);
-static int count_sub_rtxs    (rtx, int);
 static void remove_insn_ent  (struct attr_value *, struct insn_ent *);
 static void insert_insn_ent  (struct attr_value *, struct insn_ent *);
 static rtx insert_right_side	(enum rtx_code, rtx, rtx, int, int);
@@ -450,7 +465,7 @@ static int write_expr_attr_cache (rtx, struct attr_desc *);
 static void write_toplevel_expr	(rtx);
 static void write_const_num_delay_slots (void);
 static char *next_comma_elt	(const char **);
-static struct attr_desc *find_attr (const char *, int);
+static struct attr_desc *find_attr (const char **, int);
 static struct attr_value *find_most_used  (struct attr_desc *);
 static rtx find_single_value	(struct attr_desc *);
 static void extend_range	(struct range *, int, int);
@@ -459,6 +474,13 @@ static const char *attr_numeral	(int);
 static int attr_equal_p		(rtx, rtx);
 static rtx attr_copy_rtx	(rtx);
 static int attr_rtx_cost	(rtx);
+static bool attr_alt_subset_p (rtx, rtx);
+static bool attr_alt_subset_of_compl_p (rtx, rtx);
+static rtx attr_alt_intersection (rtx, rtx);
+static rtx attr_alt_union (rtx, rtx);
+static rtx attr_alt_complement (rtx);
+static bool attr_alt_bit_p (rtx, int);
+static rtx mk_attr_alt (int);
 
 #define oballoc(size) obstack_alloc (hash_obstack, size)
 
@@ -606,8 +628,7 @@ attr_rtx_1 (enum rtx_code code, va_list p)
     {
       char *arg0 = va_arg (p, char *);
 
-      if (code == SYMBOL_REF)
-	arg0 = attr_string (arg0, strlen (arg0));
+      arg0 = DEF_ATTR_STRING (arg0);
 
       hashcode = ((HOST_WIDE_INT) code + RTL_HASH (arg0));
       for (h = attr_hash_table[hashcode % RTL_HASH_SIZE]; h; h = h->next)
@@ -736,14 +757,13 @@ attr_printf (unsigned int len, const char *fmt, ...)
   vsprintf (str, fmt, p);
   va_end (p);
 
-  return attr_string (str, strlen (str));
+  return DEF_ATTR_STRING (str);
 }
 
 static rtx
 attr_eq (const char *name, const char *value)
 {
-  return attr_rtx (EQ_ATTR, attr_string (name, strlen (name)),
-		   attr_string (value, strlen (value)));
+  return attr_rtx (EQ_ATTR, DEF_ATTR_STRING (name), DEF_ATTR_STRING (value));
 }
 
 static const char *
@@ -916,16 +936,11 @@ check_attr_test (rtx exp, int is_const, int lineno)
 
       else if (n_comma_elts (XSTR (exp, 1)) == 1)
 	{
-	  attr = find_attr (XSTR (exp, 0), 0);
+	  attr = find_attr (&XSTR (exp, 0), 0);
 	  if (attr == NULL)
 	    {
 	      if (! strcmp (XSTR (exp, 0), "alternative"))
-		{
-		  XSTR (exp, 0) = alternative_name;
-		  /* This can't be simplified any further.  */
-		  ATTR_IND_SIMPLIFIED_P (exp) = 1;
-		  return exp;
-		}
+		return mk_attr_alt (1 << atoi (XSTR (exp, 1)));
 	      else
 		fatal ("unknown attribute `%s' in EQ_ATTR", XSTR (exp, 0));
 	    }
@@ -965,16 +980,29 @@ check_attr_test (rtx exp, int is_const, int lineno)
 	}
       else
 	{
-	  /* Make an IOR tree of the possible values.  */
-	  orexp = false_rtx;
-	  name_ptr = XSTR (exp, 1);
-	  while ((p = next_comma_elt (&name_ptr)) != NULL)
+	  if (! strcmp (XSTR (exp, 0), "alternative"))
 	    {
-	      newexp = attr_eq (XSTR (exp, 0), p);
-	      orexp = insert_right_side (IOR, orexp, newexp, -2, -2);
-	    }
+	      int set = 0;
 
-	  return check_attr_test (orexp, is_const, lineno);
+	      name_ptr = XSTR (exp, 1);
+	      while ((p = next_comma_elt (&name_ptr)) != NULL)
+		set |= 1 << atoi (p);
+
+	      return mk_attr_alt (set);
+	    }
+	  else
+	    {
+	      /* Make an IOR tree of the possible values.  */
+	      orexp = false_rtx;
+	      name_ptr = XSTR (exp, 1);
+	      while ((p = next_comma_elt (&name_ptr)) != NULL)
+		{
+		  newexp = attr_eq (XSTR (exp, 0), p);
+		  orexp = insert_right_side (IOR, orexp, newexp, -2, -2);
+		}
+
+	      return check_attr_test (orexp, is_const, lineno);
+	    }
 	}
       break;
 
@@ -1127,7 +1155,7 @@ check_attr_value (rtx exp, struct attr_desc *attr)
 	  have_error = 1;
 	  break;
 	}
-      /* FALLTHRU */
+      /* Fall through.  */
 
     case IOR:
     case AND:
@@ -1166,7 +1194,7 @@ check_attr_value (rtx exp, struct attr_desc *attr)
 
     case ATTR:
       {
-	struct attr_desc *attr2 = find_attr (XSTR (exp, 0), 0);
+	struct attr_desc *attr2 = find_attr (&XSTR (exp, 0), 0);
 	if (attr2 == NULL)
 	  {
 	    message_with_line (attr ? attr->lineno : 0,
@@ -1326,7 +1354,7 @@ check_defs (void)
 	  if (value == NULL_RTX)
 	    continue;
 
-	  if ((attr = find_attr (XSTR (XEXP (value, 0), 0), 0)) == NULL)
+	  if ((attr = find_attr (&XSTR (XEXP (value, 0), 0), 0)) == NULL)
 	    {
 	      message_with_line (id->lineno, "unknown attribute %s",
 				 XSTR (XEXP (value, 0), 0));
@@ -1364,6 +1392,8 @@ make_canonical (struct attr_desc *attr, rtx exp)
 	    fatal ("(attr_value \"*\") used in invalid context");
 	  exp = attr->default_val->value;
 	}
+      else
+	XSTR (exp, 0) = DEF_ATTR_STRING (XSTR (exp, 0));
 
       break;
 
@@ -1424,6 +1454,17 @@ copy_boolean (rtx exp)
   if (GET_CODE (exp) == AND || GET_CODE (exp) == IOR)
     return attr_rtx (GET_CODE (exp), copy_boolean (XEXP (exp, 0)),
 		     copy_boolean (XEXP (exp, 1)));
+  if (GET_CODE (exp) == MATCH_OPERAND)
+    {
+      XSTR (exp, 1) = DEF_ATTR_STRING (XSTR (exp, 1));
+      XSTR (exp, 2) = DEF_ATTR_STRING (XSTR (exp, 2));
+    }
+  else if (GET_CODE (exp) == EQ_ATTR)
+    {
+      XSTR (exp, 0) = DEF_ATTR_STRING (XSTR (exp, 0));
+      XSTR (exp, 1) = DEF_ATTR_STRING (XSTR (exp, 1));
+    }
+
   return exp;
 }
 
@@ -1504,7 +1545,7 @@ expand_delays (void)
 	= make_numeric_value (XVECLEN (delay->def, 1) / 3);
     }
 
-  make_internal_attr ("*num_delay_slots", condexp, ATTR_NONE);
+  make_internal_attr (num_delay_slots_str, condexp, ATTR_NONE);
 
   /* If more than one delay type, do the same for computing the delay type.  */
   if (num_delays > 1)
@@ -1519,7 +1560,7 @@ expand_delays (void)
 	  XVECEXP (condexp, 0, i + 1) = make_numeric_value (delay->num);
 	}
 
-      make_internal_attr ("*delay_type", condexp, ATTR_SPECIAL);
+      make_internal_attr (delay_type_str, condexp, ATTR_SPECIAL);
     }
 
   /* For each delay possibility and delay slot, compute an eligibility
@@ -2186,6 +2227,7 @@ encode_units_mask (rtx x)
     case PC:
     case CC0:
     case EQ_ATTR:
+    case EQ_ATTR_ALT:
       return x;
 
     default:
@@ -2239,8 +2281,8 @@ fill_attr (struct attr_desc *attr)
       value = NULL;
       if (XVEC (id->def, id->vec_idx))
 	for (i = 0; i < XVECLEN (id->def, id->vec_idx); i++)
-	  if (! strcmp (XSTR (XEXP (XVECEXP (id->def, id->vec_idx, i), 0), 0),
-			attr->name))
+	  if (! strcmp_check (XSTR (XEXP (XVECEXP (id->def, id->vec_idx, i), 0), 0),
+			      attr->name))
 	    value = XEXP (XVECEXP (id->def, id->vec_idx, i), 1);
 
       if (value == NULL)
@@ -2337,9 +2379,12 @@ substitute_address (rtx exp, rtx (*no_address_fn) (rtx),
 static void
 make_length_attrs (void)
 {
-  static const char *const new_names[] = {"*insn_default_length",
-				      "*insn_variable_length_p",
-				      "*insn_current_length"};
+  static const char *new_names[] =
+    {
+      "*insn_default_length",
+      "*insn_variable_length_p",
+      "*insn_current_length"
+    };
   static rtx (*const no_address_fn[]) (rtx) = {identity_fn, zero_fn, zero_fn};
   static rtx (*const address_fn[]) (rtx) = {max_fn, one_fn, identity_fn};
   size_t i;
@@ -2349,7 +2394,7 @@ make_length_attrs (void)
 
   /* See if length attribute is defined.  If so, it must be numeric.  Make
      it special so we don't output anything for it.  */
-  length_attr = find_attr ("length", 0);
+  length_attr = find_attr (&length_str, 0);
   if (length_attr == 0)
     return;
 
@@ -2366,7 +2411,7 @@ make_length_attrs (void)
 			  substitute_address (length_attr->default_val->value,
 					      no_address_fn[i], address_fn[i]),
 			  ATTR_NONE);
-      new_attr = find_attr (new_names[i], 0);
+      new_attr = find_attr (&new_names[i], 0);
       for (av = length_attr->first_value; av; av = av->next)
 	for (ie = av->first_insn; ie; ie = ie->next)
 	  {
@@ -2412,7 +2457,7 @@ max_fn (rtx exp)
 static void
 write_length_unit_log (void)
 {
-  struct attr_desc *length_attr = find_attr ("length", 0);
+  struct attr_desc *length_attr = find_attr (&length_str, 0);
   struct attr_value *av;
   struct insn_ent *ie;
   unsigned int length_unit_log, length_or;
@@ -2496,6 +2541,7 @@ simplify_cond (rtx exp, int insn_code, int insn_index)
 	  /* If test is false, discard it and its value.  */
 	  for (j = i; j < len - 2; j++)
 	    tests[j] = tests[j + 2];
+	  i -= 2;
 	  len -= 2;
 	}
 
@@ -2512,6 +2558,7 @@ simplify_cond (rtx exp, int insn_code, int insn_index)
 	  for (j = i; j < len - 2; j++)
 	    tests[j] = tests[j + 2];
 	  len -= 2;
+	  i -= 2;
 	}
 
       else
@@ -2682,6 +2729,16 @@ compute_alternative_mask (rtx exp, enum rtx_code code)
 	   && XSTR (exp, 0) == alternative_name)
     string = XSTR (exp, 1);
 
+  else if (GET_CODE (exp) == EQ_ATTR_ALT)
+    {
+      if (code == AND && XINT (exp, 1))
+	return XINT (exp, 0);
+
+      if (code == IOR && !XINT (exp, 1))
+	return XINT (exp, 0);
+
+      return 0;
+    }
   else
     return 0;
 
@@ -2696,17 +2753,7 @@ compute_alternative_mask (rtx exp, enum rtx_code code)
 static rtx
 make_alternative_compare (int mask)
 {
-  rtx newexp;
-  int i;
-
-  /* Find the bit.  */
-  for (i = 0; (mask & (1 << i)) == 0; i++)
-    ;
-
-  newexp = attr_rtx (EQ_ATTR, alternative_name, attr_numeral (i));
-  ATTR_IND_SIMPLIFIED_P (newexp) = 1;
-
-  return newexp;
+  return mk_attr_alt (mask);
 }
 
 /* If we are processing an (eq_attr "attr" "value") test, we find the value
@@ -2728,7 +2775,7 @@ evaluate_eq_attr (rtx exp, rtx value, int insn_code, int insn_index)
 
   if (GET_CODE (value) == CONST_STRING)
     {
-      if (! strcmp (XSTR (value, 0), XSTR (exp, 1)))
+      if (! strcmp_check (XSTR (value, 0), XSTR (exp, 1)))
 	newexp = true_rtx;
       else
 	newexp = false_rtx;
@@ -2752,7 +2799,7 @@ evaluate_eq_attr (rtx exp, rtx value, int insn_code, int insn_index)
 
       newexp = attr_rtx (EQ, value,
 			 attr_rtx (SYMBOL_REF,
-				   attr_string (string, strlen (string))));
+				   DEF_ATTR_STRING (string)));
     }
   else if (GET_CODE (value) == COND)
     {
@@ -2853,7 +2900,7 @@ simplify_and_tree (rtx exp, rtx *pterm, int insn_code, int insn_index)
       right = simplify_and_tree (XEXP (exp, 1), pterm, insn_code, insn_index);
       if (left != XEXP (exp, 0) || right != XEXP (exp, 1))
 	{
-	  newexp = attr_rtx (GET_CODE (exp), left, right);
+	  newexp = attr_rtx (AND, left, right);
 
 	  exp = simplify_test_exp_in_temp (newexp, insn_code, insn_index);
 	}
@@ -2876,7 +2923,7 @@ simplify_and_tree (rtx exp, rtx *pterm, int insn_code, int insn_index)
 
       if (left != XEXP (exp, 0) || right != XEXP (exp, 1))
 	{
-	  newexp = attr_rtx (GET_CODE (exp), left, right);
+	  newexp = attr_rtx (IOR, left, right);
 
 	  exp = simplify_test_exp_in_temp (newexp, insn_code, insn_index);
 	}
@@ -2894,12 +2941,26 @@ simplify_and_tree (rtx exp, rtx *pterm, int insn_code, int insn_index)
   else if (GET_CODE (*pterm) == NOT && exp == XEXP (*pterm, 0))
     return false_rtx;
 
+  else if (GET_CODE (exp) == EQ_ATTR_ALT && GET_CODE (*pterm) == EQ_ATTR_ALT)
+    {
+      if (attr_alt_subset_p (*pterm, exp))
+	return true_rtx;
+
+      if (attr_alt_subset_of_compl_p (*pterm, exp))
+	return false_rtx;
+
+      if (attr_alt_subset_p (exp, *pterm))
+	*pterm = true_rtx;
+	
+      return exp;
+    }
+
   else if (GET_CODE (exp) == EQ_ATTR && GET_CODE (*pterm) == EQ_ATTR)
     {
       if (XSTR (exp, 0) != XSTR (*pterm, 0))
 	return exp;
 
-      if (! strcmp (XSTR (exp, 1), XSTR (*pterm, 1)))
+      if (! strcmp_check (XSTR (exp, 1), XSTR (*pterm, 1)))
 	return true_rtx;
       else
 	return false_rtx;
@@ -2911,7 +2972,7 @@ simplify_and_tree (rtx exp, rtx *pterm, int insn_code, int insn_index)
       if (XSTR (*pterm, 0) != XSTR (XEXP (exp, 0), 0))
 	return exp;
 
-      if (! strcmp (XSTR (*pterm, 1), XSTR (XEXP (exp, 0), 1)))
+      if (! strcmp_check (XSTR (*pterm, 1), XSTR (XEXP (exp, 0), 1)))
 	return false_rtx;
       else
 	return true_rtx;
@@ -2923,7 +2984,7 @@ simplify_and_tree (rtx exp, rtx *pterm, int insn_code, int insn_index)
       if (XSTR (exp, 0) != XSTR (XEXP (*pterm, 0), 0))
 	return exp;
 
-      if (! strcmp (XSTR (exp, 1), XSTR (XEXP (*pterm, 0), 1)))
+      if (! strcmp_check (XSTR (exp, 1), XSTR (XEXP (*pterm, 0), 1)))
 	return false_rtx;
       else
 	*pterm = true_rtx;
@@ -3037,9 +3098,13 @@ attr_rtx_cost (rtx x)
 	return 10;
       else
 	return 0;
+
+    case EQ_ATTR_ALT:
+      return 0;
+
     case EQ_ATTR:
       /* Alternatives don't result into function call.  */
-      if (!strcmp (XSTR (x, 0), "alternative"))
+      if (!strcmp_check (XSTR (x, 0), alternative_name))
 	return 0;
       else
 	return 5;
@@ -3087,6 +3152,146 @@ simplify_test_exp_in_temp (rtx exp, int insn_code, int insn_index)
   return attr_copy_rtx (x);
 }
 
+/* Returns true if S1 is a subset of S2.  */
+
+static bool
+attr_alt_subset_p (rtx s1, rtx s2)
+{
+  switch ((XINT (s1, 1) << 1) | XINT (s2, 1))
+    {
+    case (0 << 1) | 0:
+      return !(XINT (s1, 0) &~ XINT (s2, 0));
+
+    case (0 << 1) | 1:
+      return !(XINT (s1, 0) & XINT (s2, 0));
+
+    case (1 << 1) | 0:
+      return false;
+
+    case (1 << 1) | 1:
+      return !(XINT (s2, 0) &~ XINT (s1, 0));
+
+    default:
+      abort ();
+    }
+}
+
+/* Returns true if S1 is a subset of complement of S2.  */
+
+static bool attr_alt_subset_of_compl_p (rtx s1, rtx s2)
+{
+  switch ((XINT (s1, 1) << 1) | XINT (s2, 1))
+    {
+    case (0 << 1) | 0:
+      return !(XINT (s1, 0) & XINT (s2, 0));
+
+    case (0 << 1) | 1:
+      return !(XINT (s1, 0) & ~XINT (s2, 0));
+
+    case (1 << 1) | 0:
+      return !(XINT (s2, 0) &~ XINT (s1, 0));
+
+    case (1 << 1) | 1:
+      return false;
+
+    default:
+      abort ();
+    }
+}
+
+/* Return EQ_ATTR_ALT expression representing intersection of S1 and S2.  */
+
+static rtx
+attr_alt_intersection (rtx s1, rtx s2)
+{
+  rtx result = rtx_alloc (EQ_ATTR_ALT);
+
+  switch ((XINT (s1, 1) << 1) | XINT (s2, 1))
+    {
+    case (0 << 1) | 0:
+      XINT (result, 0) = XINT (s1, 0) & XINT (s2, 0);
+      break;
+    case (0 << 1) | 1:
+      XINT (result, 0) = XINT (s1, 0) & ~XINT (s2, 0);
+      break;
+    case (1 << 1) | 0:
+      XINT (result, 0) = XINT (s2, 0) & ~XINT (s1, 0);
+      break;
+    case (1 << 1) | 1:
+      XINT (result, 0) = XINT (s1, 0) | XINT (s2, 0);
+      break;
+    default:
+      abort ();
+    }
+  XINT (result, 1) = XINT (s1, 1) & XINT (s2, 1);
+
+  return result;
+}
+
+/* Return EQ_ATTR_ALT expression representing union of S1 and S2.  */
+
+static rtx
+attr_alt_union (rtx s1, rtx s2)
+{
+  rtx result = rtx_alloc (EQ_ATTR_ALT);
+
+  switch ((XINT (s1, 1) << 1) | XINT (s2, 1))
+    {
+    case (0 << 1) | 0:
+      XINT (result, 0) = XINT (s1, 0) | XINT (s2, 0);
+      break;
+    case (0 << 1) | 1:
+      XINT (result, 0) = XINT (s2, 0) & ~XINT (s1, 0);
+      break;
+    case (1 << 1) | 0:
+      XINT (result, 0) = XINT (s1, 0) & ~XINT (s2, 0);
+      break;
+    case (1 << 1) | 1:
+      XINT (result, 0) = XINT (s1, 0) & XINT (s2, 0);
+      break;
+    default:
+      abort ();
+    }
+
+  XINT (result, 1) = XINT (s1, 1) | XINT (s2, 1);
+  return result;
+}
+
+/* Return EQ_ATTR_ALT expression representing complement of S.  */
+
+static rtx
+attr_alt_complement (rtx s)
+{
+  rtx result = rtx_alloc (EQ_ATTR_ALT);
+
+  XINT (result, 0) = XINT (s, 0);
+  XINT (result, 1) = 1 - XINT (s, 1);
+
+  return result;
+}
+
+/* Tests whether a bit B belongs to the set represented by S.  */
+
+static bool
+attr_alt_bit_p (rtx s, int b)
+{
+  return XINT (s, 1) ^ ((XINT (s, 0) >> b) & 1);
+}
+
+/* Return EQ_ATTR_ALT expression representing set containing elements set
+   in E.  */
+
+static rtx
+mk_attr_alt (int e)
+{
+  rtx result = rtx_alloc (EQ_ATTR_ALT);
+
+  XINT (result, 0) = e;
+  XINT (result, 1) = 0;
+
+  return result;
+}
+
 /* Given an expression, see if it can be simplified for a particular insn
    code based on the values of other attributes being tested.  This can
    eliminate nested get_attr_... calls.
@@ -3105,6 +3310,7 @@ simplify_test_exp (rtx exp, int insn_code, int insn_index)
   struct insn_ent *ie;
   int i;
   rtx newexp = exp;
+  bool left_alt, right_alt;
 
   /* Don't re-simplify something we already simplified.  */
   if (ATTR_IND_SIMPLIFIED_P (exp) || ATTR_CURR_SIMPLIFIED_P (exp))
@@ -3121,6 +3327,13 @@ simplify_test_exp (rtx exp, int insn_code, int insn_index)
       SIMPLIFY_ALTERNATIVE (right);
       if (left == false_rtx)
 	return false_rtx;
+
+      if (GET_CODE (left) == EQ_ATTR_ALT
+	  && GET_CODE (right) == EQ_ATTR_ALT)
+	{
+	  exp = attr_alt_intersection (left, right);
+	  return simplify_test_exp (exp, insn_code, insn_index);
+	}
 
       /* If either side is an IOR and we have (eq_attr "alternative" ..")
 	 present on both sides, apply the distributive law since this will
@@ -3161,15 +3374,25 @@ simplify_test_exp (rtx exp, int insn_code, int insn_index)
       /* See if all or all but one of the insn's alternatives are specified
 	 in this tree.  Optimize if so.  */
 
-      else if (insn_code >= 0
-	       && (GET_CODE (left) == AND
-		   || (GET_CODE (left) == NOT
-		       && GET_CODE (XEXP (left, 0)) == EQ_ATTR
-		       && XSTR (XEXP (left, 0), 0) == alternative_name)
-		   || GET_CODE (right) == AND
-		   || (GET_CODE (right) == NOT
-		       && GET_CODE (XEXP (right, 0)) == EQ_ATTR
-		       && XSTR (XEXP (right, 0), 0) == alternative_name)))
+      if (GET_CODE (left) == NOT)
+	left_alt = (GET_CODE (XEXP (left, 0)) == EQ_ATTR
+		    && XSTR (XEXP (left, 0), 0) == alternative_name);
+      else
+	left_alt = (GET_CODE (left) == EQ_ATTR_ALT
+		    && XINT (left, 1));
+
+      if (GET_CODE (right) == NOT)
+	right_alt = (GET_CODE (XEXP (right, 0)) == EQ_ATTR
+		     && XSTR (XEXP (right, 0), 0) == alternative_name);
+      else
+	right_alt = (GET_CODE (right) == EQ_ATTR_ALT
+		     && XINT (right, 1));
+
+      if (insn_code >= 0
+	  && (GET_CODE (left) == AND
+	      || left_alt
+	      || GET_CODE (right) == AND
+	      || right_alt))
 	{
 	  i = compute_alternative_mask (exp, AND);
 	  if (i & ~insn_alternatives[insn_code])
@@ -3211,6 +3434,13 @@ simplify_test_exp (rtx exp, int insn_code, int insn_index)
       if (right == true_rtx)
 	return true_rtx;
 
+      if (GET_CODE (left) == EQ_ATTR_ALT
+	  && GET_CODE (right) == EQ_ATTR_ALT)
+	{
+	  exp = attr_alt_union (left, right);
+	  return simplify_test_exp (exp, insn_code, insn_index);
+	}
+
       right = simplify_or_tree (right, &left, insn_code, insn_index);
       if (left == XEXP (exp, 0) && right == XEXP (exp, 1))
 	left = simplify_or_tree (left, &right, insn_code, insn_index);
@@ -3249,9 +3479,13 @@ simplify_test_exp (rtx exp, int insn_code, int insn_index)
 
       else if (insn_code >= 0
 	       && (GET_CODE (left) == IOR
+		   || (GET_CODE (left) == EQ_ATTR_ALT
+		       && !XINT (left, 1))
 		   || (GET_CODE (left) == EQ_ATTR
 		       && XSTR (left, 0) == alternative_name)
 		   || GET_CODE (right) == IOR
+		   || (GET_CODE (right) == EQ_ATTR_ALT
+		       && !XINT (right, 1))
 		   || (GET_CODE (right) == EQ_ATTR
 		       && XSTR (right, 0) == alternative_name)))
 	{
@@ -3301,11 +3535,17 @@ simplify_test_exp (rtx exp, int insn_code, int insn_index)
 
       if (left == false_rtx)
 	return true_rtx;
-      else if (left == true_rtx)
+      if (left == true_rtx)
 	return false_rtx;
 
+      if (GET_CODE (left) == EQ_ATTR_ALT)
+	{
+	  exp = attr_alt_complement (left);
+	  return simplify_test_exp (exp, insn_code, insn_index);
+	}
+
       /* Try to apply De`Morgan's laws.  */
-      else if (GET_CODE (left) == IOR)
+      if (GET_CODE (left) == IOR)
 	{
 	  newexp = attr_rtx (AND,
 			     attr_rtx (NOT, XEXP (left, 0)),
@@ -3327,16 +3567,30 @@ simplify_test_exp (rtx exp, int insn_code, int insn_index)
 	}
       break;
 
+    case EQ_ATTR_ALT:
+      if (current_alternative_string)
+	return attr_alt_bit_p (exp, atoi (current_alternative_string)) ? true_rtx : false_rtx;
+
+      if (!XINT (exp, 0))
+	return XINT (exp, 1) ? true_rtx : false_rtx;
+      break;
+
     case EQ_ATTR:
       if (current_alternative_string && XSTR (exp, 0) == alternative_name)
 	return (XSTR (exp, 1) == current_alternative_string
 		? true_rtx : false_rtx);
 
+      if (XSTR (exp, 0) == alternative_name)
+	{
+	  newexp = mk_attr_alt (1 << atoi (XSTR (exp, 1)));
+	  break;
+	}
+
       /* Look at the value for this insn code in the specified attribute.
 	 We normally can replace this comparison with the condition that
 	 would give this insn the values being tested for.  */
       if (XSTR (exp, 0) != alternative_name
-	  && (attr = find_attr (XSTR (exp, 0), 0)) != NULL)
+	  && (attr = find_attr (&XSTR (exp, 0), 0)) != NULL)
 	for (av = attr->first_value; av; av = av->next)
 	  for (ie = av->first_insn; ie; ie = ie->next)
 	    if (ie->insn_code == insn_code)
@@ -3500,7 +3754,10 @@ simplify_by_exploding (rtx exp)
       const char *name = XSTR (XEXP (list, 0), 0);
       rtx *prev;
 
-      if ((space[ndim].attr = find_attr (name, 0)) == 0
+      space[ndim].attr = find_attr (&name, 0);
+      XSTR (XEXP (list, 0), 0) = name;
+
+      if (space[ndim].attr == 0
 	  || space[ndim].attr->is_numeric)
 	{
 	  unmark_used_attributes (list, space, ndim);
@@ -3512,7 +3769,7 @@ simplify_by_exploding (rtx exp)
       space[ndim].values = 0;
       prev = &list;
       for (link = list; link; link = *prev)
-	if (! strcmp (XSTR (XEXP (link, 0), 0), name))
+	if (! strcmp_check (XSTR (XEXP (link, 0), 0), name))
 	  {
 	    space[ndim].num_values++;
 	    *prev = XEXP (link, 1);
@@ -3954,65 +4211,6 @@ clear_struct_flag (rtx x)
     }
 }
 
-/* Return the number of RTX objects making up the expression X.
-   But if we count more than MAX objects, stop counting.  */
-
-static int
-count_sub_rtxs (rtx x, int max)
-{
-  int i;
-  int j;
-  enum rtx_code code;
-  const char *fmt;
-  int total = 0;
-
-  code = GET_CODE (x);
-
-  switch (code)
-    {
-    case REG:
-    case QUEUED:
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_VECTOR:
-    case SYMBOL_REF:
-    case CODE_LABEL:
-    case PC:
-    case CC0:
-    case EQ_ATTR:
-    case ATTR_FLAG:
-      return 1;
-
-    default:
-      break;
-    }
-
-  /* Compare the elements.  If any pair of corresponding elements
-     fail to match, return 0 for the whole things.  */
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (total >= max)
-	return total;
-
-      switch (fmt[i])
-	{
-	case 'V':
-	case 'E':
-	  for (j = 0; j < XVECLEN (x, i); j++)
-	    total += count_sub_rtxs (XVECEXP (x, i, j), max);
-	  break;
-
-	case 'e':
-	  total += count_sub_rtxs (XEXP (x, i), max);
-	  break;
-	}
-    }
-  return total;
-
-}
-
 /* Create table entries for DEFINE_ATTR.  */
 
 static void
@@ -4025,7 +4223,7 @@ gen_attr (rtx exp, int lineno)
 
   /* Make a new attribute structure.  Check for duplicate by looking at
      attr->default_val, since it is initialized by this routine.  */
-  attr = find_attr (XSTR (exp, 0), 1);
+  attr = find_attr (&XSTR (exp, 0), 1);
   if (attr->default_val)
     {
       message_with_line (lineno, "duplicate definition for attribute %s",
@@ -4067,7 +4265,7 @@ gen_attr (rtx exp, int lineno)
       XEXP (exp, 2) = XEXP (XEXP (exp, 2), 0);
     }
 
-  if (! strcmp (attr->name, "length") && ! attr->is_numeric)
+  if (! strcmp_check (attr->name, length_str) && ! attr->is_numeric)
     {
       message_with_line (lineno,
 			 "`length' attribute must take numeric values");
@@ -4311,6 +4509,8 @@ gen_unit (rtx def, int lineno)
       unit->first_lineno = lineno;
       units = unit;
     }
+  else
+    XSTR (def, 0) = unit->name;
 
   /* Make a new operation class structure entry and initialize it.  */
   op = oballoc (sizeof (struct function_unit_op));
@@ -4490,6 +4690,52 @@ write_test_expr (rtx exp, int flags)
       write_test_expr (XEXP (exp, 0), flags);
       break;
 
+    case EQ_ATTR_ALT:
+	{
+	  int set = XINT (exp, 0), bit = 0;
+
+	  if (flags & 1)
+	    fatal ("EQ_ATTR_ALT not valid inside comparison");
+
+	  if (!set)
+	    fatal ("Empty EQ_ATTR_ALT should be optimized out");
+
+	  if (!(set & (set - 1)))
+	    {
+	      if (!(set & 0xffff))
+		{
+		  bit += 16;
+		  set >>= 16;
+		}
+	      if (!(set & 0xff))
+		{
+		  bit += 8;
+		  set >>= 8;
+		}
+	      if (!(set & 0xf))
+		{
+		  bit += 4;
+		  set >>= 4;
+		}
+	      if (!(set & 0x3))
+		{
+		  bit += 2;
+		  set >>= 2;
+		}
+	      if (!(set & 1))
+		bit++;
+
+	      printf ("which_alternative %s= %d",
+		      XINT (exp, 1) ? "!" : "=", bit);
+	    }
+	  else
+	    {
+	      printf ("%s((1 << which_alternative) & 0x%x)",
+		      XINT (exp, 1) ? "!" : "", set);
+	    }
+	}
+      break;
+
     /* Comparison test of an attribute with a value.  Most of these will
        have been removed by optimization.   Handle "alternative"
        specially and give error if EQ_ATTR present inside a comparison.  */
@@ -4503,7 +4749,7 @@ write_test_expr (rtx exp, int flags)
 	  break;
 	}
 
-      attr = find_attr (XSTR (exp, 0), 0);
+      attr = find_attr (&XSTR (exp, 0), 0);
       if (! attr)
 	abort ();
 
@@ -4710,10 +4956,14 @@ walk_attr_value (rtx exp)
       must_extract = 1;
       return;
 
+    case EQ_ATTR_ALT:
+      must_extract = must_constrain = 1;
+      break;
+
     case EQ_ATTR:
       if (XSTR (exp, 0) == alternative_name)
 	must_extract = must_constrain = 1;
-      else if (strcmp (XSTR (exp, 0), "length") == 0)
+      else if (strcmp_check (XSTR (exp, 0), length_str) == 0)
 	length_used = 1;
       return;
 
@@ -5176,7 +5426,7 @@ write_attr_value (struct attr_desc *attr, rtx value)
 
     case ATTR:
       {
-	struct attr_desc *attr2 = find_attr (XSTR (value, 0), 0);
+	struct attr_desc *attr2 = find_attr (&XSTR (value, 0), 0);
 	printf ("get_attr_%s (%s)", attr2->name,
 		(attr2->is_const ? "" : "insn"));
       }
@@ -5250,6 +5500,7 @@ write_eligible_delay (const char *kind)
   struct delay_desc *delay;
   int max_slots;
   char str[50];
+  const char *pstr;
   struct attr_desc *attr;
   struct attr_value *av, *common_av;
   int i;
@@ -5278,7 +5529,7 @@ write_eligible_delay (const char *kind)
 
   if (num_delays > 1)
     {
-      attr = find_attr ("*delay_type", 0);
+      attr = find_attr (&delay_type_str, 0);
       if (! attr)
 	abort ();
       common_av = find_most_used (attr);
@@ -5307,7 +5558,7 @@ write_eligible_delay (const char *kind)
       printf ("  switch (recog_memoized (insn))\n");
       printf ("    {\n");
 
-      attr = find_attr ("*delay_1_0", 0);
+      attr = find_attr (&delay_1_0_str, 0);
       if (! attr)
 	abort ();
       common_av = find_most_used (attr);
@@ -5337,7 +5588,8 @@ write_eligible_delay (const char *kind)
 	    printf ("\t{\n");
 
 	    sprintf (str, "*%s_%d_%d", kind, delay->num, i / 3);
-	    attr = find_attr (str, 0);
+	    pstr = str;
+	    attr = find_attr (&pstr, 0);
 	    if (! attr)
 	      abort ();
 	    common_av = find_most_used (attr);
@@ -5441,6 +5693,7 @@ write_complex_function (struct function_unit *unit,
   struct attr_value *av, *common_av;
   rtx value;
   char str[256];
+  const char *pstr;
   int using_case;
   int i;
 
@@ -5458,7 +5711,8 @@ write_complex_function (struct function_unit *unit,
   if (strlen (unit->name) + sizeof "*_cases" > 256)
     abort ();
   sprintf (str, "*%s_cases", unit->name);
-  case_attr = find_attr (str, 0);
+  pstr = str;
+  case_attr = find_attr (&pstr, 0);
   if (! case_attr)
     abort ();
   common_av = find_most_used (case_attr);
@@ -5492,7 +5746,8 @@ write_complex_function (struct function_unit *unit,
 
       printf ("    case %d:\n", i);
       sprintf (str, "*%s_%s_%d", unit->name, connection, i);
-      attr = find_attr (str, 0);
+      pstr = str;
+      attr = find_attr (&pstr, 0);
       if (! attr)
 	abort ();
 
@@ -5544,13 +5799,15 @@ next_comma_elt (const char **pstr)
 }
 
 /* Return a `struct attr_desc' pointer for a given named attribute.  If CREATE
-   is nonzero, build a new attribute, if one does not exist.  */
+   is nonzero, build a new attribute, if one does not exist.  *NAME_P is
+   replaced by a pointer to a canonical copy of the string.  */
 
 static struct attr_desc *
-find_attr (const char *name, int create)
+find_attr (const char **name_p, int create)
 {
   struct attr_desc *attr;
   int index;
+  const char *name = *name_p;
 
   /* Before we resort to using `strcmp', see if the string address matches
      anywhere.  In most cases, it should have been canonicalized to do so.  */
@@ -5565,18 +5822,23 @@ find_attr (const char *name, int create)
   /* Otherwise, do it the slow way.  */
   for (attr = attrs[index]; attr; attr = attr->next)
     if (name[0] == attr->name[0] && ! strcmp (name, attr->name))
-      return attr;
+      {
+	*name_p = attr->name;
+	return attr;
+      }
 
   if (! create)
     return NULL;
 
   attr = oballoc (sizeof (struct attr_desc));
-  attr->name = attr_string (name, strlen (name));
+  attr->name = DEF_ATTR_STRING (name);
   attr->first_value = attr->default_val = NULL;
   attr->is_numeric = attr->negative_ok = attr->is_const = attr->is_special = 0;
   attr->unsigned_p = attr->func_units_p = attr->blockage_p = attr->static_p = 0;
   attr->next = attrs[index];
   attrs[index] = attr;
+
+  *name_p = attr->name;
 
   return attr;
 }
@@ -5588,7 +5850,7 @@ make_internal_attr (const char *name, rtx value, int special)
 {
   struct attr_desc *attr;
 
-  attr = find_attr (name, 1);
+  attr = find_attr (&name, 1);
   if (attr->default_val)
     abort ();
 
@@ -5693,7 +5955,7 @@ copy_rtx_unchanging (rtx orig)
 static void
 write_const_num_delay_slots (void)
 {
-  struct attr_desc *attr = find_attr ("*num_delay_slots", 0);
+  struct attr_desc *attr = find_attr (&num_delay_slots_str, 0);
   struct attr_value *av;
   struct insn_ent *ie;
 
@@ -5751,7 +6013,11 @@ main (int argc, char **argv)
   ATTR_IND_SIMPLIFIED_P (true_rtx) = ATTR_IND_SIMPLIFIED_P (false_rtx) = 1;
   ATTR_PERMANENT_P (true_rtx) = ATTR_PERMANENT_P (false_rtx) = 1;
 
-  alternative_name = attr_string ("alternative", strlen ("alternative"));
+  alternative_name = DEF_ATTR_STRING ("alternative");
+  length_str = DEF_ATTR_STRING ("length");
+  delay_type_str = DEF_ATTR_STRING ("*delay_type");
+  delay_1_0_str = DEF_ATTR_STRING ("*delay_1_0");
+  num_delay_slots_str = DEF_ATTR_STRING ("*num_delay_slots");
 
   printf ("/* Generated automatically by the program `genattrtab'\n\
 from the machine description file `md'.  */\n\n");
@@ -5934,7 +6200,7 @@ from the machine description file `md'.  */\n\n");
 
 	    insn_alts_p
 	      = (attr->name [0] == '*'
-		 && strcmp (&attr->name [1], INSN_ALTS_FUNC_NAME) == 0);
+		 && strcmp (&attr->name[1], INSN_ALTS_FUNC_NAME) == 0);
 	    if (insn_alts_p)
 	      printf ("\n#if AUTOMATON_ALTS\n");
 	    write_attr_get (attr);

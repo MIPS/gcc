@@ -1881,7 +1881,7 @@ package body Sem_Ch13 is
       Biased  : Boolean;
 
       Max_Bit_So_Far : Uint;
-      --  Records the maximum bit position so far. If all field positoins
+      --  Records the maximum bit position so far. If all field positions
       --  are monotonically increasing, then we can skip the circuit for
       --  checking for overlap, since no overlap is possible.
 
@@ -2153,33 +2153,9 @@ package body Sem_Ch13 is
                               CC, Rectype);
                         end if;
 
-                        --  Test for large object that is not on a storage unit
-                        --  boundary, defined as a large packed array not
-                        --  represented by a modular type, or an object for
-                        --  which a size of greater than 64 bits is specified.
-
-                        if Fbit mod SSU /= 0 then
-                           if (Is_Packed_Array_Type (Etype (Comp))
-                                and then Is_Array_Type
-                                     (Packed_Array_Type (Etype (Comp))))
-                             or else Esize (Etype (Comp)) > Max_Unaligned_Field
-                           then
-                              if SSU = 8 then
-                                 Error_Msg_N
-                                   ("large component must be on byte boundary",
-                                    First_Bit (CC));
-                              else
-                                 Error_Msg_N
-                                   ("large component must be on word boundary",
-                                    First_Bit (CC));
-                              end if;
-                           end if;
-                        end if;
-
-                        --  This information is also set in the
-                        --  corresponding component of the base type,
-                        --  found by accessing the Original_Record_Component
-                        --  link if it is present.
+                        --  This information is also set in the corresponding
+                        --  component of the base type, found by accessing the
+                        --  Original_Record_Component link if it is present.
 
                         Ocomp := Original_Record_Component (Comp);
 
@@ -2602,6 +2578,9 @@ package body Sem_Ch13 is
       --------------------------
 
       procedure Check_Expr_Constants (Nod : Node_Id) is
+         Loc_U_Ent : constant Source_Ptr := Sloc (U_Ent);
+         Ent       : Entity_Id           := Empty;
+
       begin
          if Nkind (Nod) in N_Has_Etype
            and then Etype (Nod) = Any_Type
@@ -2614,6 +2593,7 @@ package body Sem_Ch13 is
                return;
 
             when N_Identifier | N_Expanded_Name =>
+               Ent := Entity (Nod);
 
                --  We need to look at the original node if it is different
                --  from the node, since we may have rewritten things and
@@ -2627,85 +2607,92 @@ package body Sem_Ch13 is
                   --  is not constant, even if the constituents might be
                   --  acceptable, as in  A'Address + offset.
 
-                  if Ekind (Entity (Nod)) = E_Variable
-                    and then Nkind (Declaration_Node (Entity (Nod)))
+                  if Ekind (Ent) = E_Variable
+                    and then Nkind (Declaration_Node (Ent))
                       = N_Object_Declaration
                     and then
-                      No (Expression (Declaration_Node (Entity (Nod))))
+                      No (Expression (Declaration_Node (Ent)))
+                  then
+                     Error_Msg_NE
+                       ("invalid address clause for initialized object &!",
+                        Nod, U_Ent);
+
+                  --  If entity is constant, it may be the result of expanding
+                  --  a check. We must verify that its declaration appears
+                  --  before the object in question, else we also reject the
+                  --  address clause.
+
+                  elsif Ekind (Ent) = E_Constant
+                    and then In_Same_Source_Unit (Ent, U_Ent)
+                    and then Sloc (Ent) > Loc_U_Ent
                   then
                      Error_Msg_NE
                        ("invalid address clause for initialized object &!",
                         Nod, U_Ent);
                   end if;
+
                   return;
                end if;
 
                --  Otherwise look at the identifier and see if it is OK.
 
-               declare
-                  Ent       : constant Entity_Id  := Entity (Nod);
-                  Loc_Ent   : constant Source_Ptr := Sloc (Ent);
-                  Loc_U_Ent : constant Source_Ptr := Sloc (U_Ent);
+               if Ekind (Ent) = E_Named_Integer
+                    or else
+                  Ekind (Ent) = E_Named_Real
+                    or else
+                  Is_Type (Ent)
+               then
+                  return;
 
-               begin
-                  if Ekind (Ent) = E_Named_Integer
-                       or else
-                     Ekind (Ent) = E_Named_Real
-                       or else
-                     Is_Type (Ent)
-                  then
+               elsif
+                  Ekind (Ent) = E_Constant
+                    or else
+                  Ekind (Ent) = E_In_Parameter
+               then
+                  --  This is the case where we must have Ent defined
+                  --  before U_Ent. Clearly if they are in different
+                  --  units this requirement is met since the unit
+                  --  containing Ent is already processed.
+
+                  if not In_Same_Source_Unit (Ent, U_Ent) then
                      return;
 
-                  elsif
-                     Ekind (Ent) = E_Constant
-                       or else
-                     Ekind (Ent) = E_In_Parameter
-                  then
-                     --  This is the case where we must have Ent defined
-                     --  before U_Ent. Clearly if they are in different
-                     --  units this requirement is met since the unit
-                     --  containing Ent is already processed.
+                  --  Otherwise location of Ent must be before the
+                  --  location of U_Ent, that's what prior defined means.
 
-                     if not In_Same_Source_Unit (Ent, U_Ent) then
-                        return;
-
-                     --  Otherwise location of Ent must be before the
-                     --  location of U_Ent, that's what prior defined means.
-
-                     elsif Loc_Ent < Loc_U_Ent then
-                        return;
-
-                     else
-                        Error_Msg_NE
-                          ("invalid address clause for initialized object &!",
-                           Nod, U_Ent);
-                        Error_Msg_Name_1 := Chars (Ent);
-                        Error_Msg_Name_2 := Chars (U_Ent);
-                        Error_Msg_N
-                          ("\% must be defined before % ('R'M 13.1(22))!",
-                           Nod);
-                     end if;
-
-                  elsif Nkind (Original_Node (Nod)) = N_Function_Call then
-                     Check_Expr_Constants (Original_Node (Nod));
+                  elsif Sloc (Ent) < Loc_U_Ent then
+                     return;
 
                   else
                      Error_Msg_NE
                        ("invalid address clause for initialized object &!",
                         Nod, U_Ent);
-
-                     if Comes_From_Source (Ent) then
-                        Error_Msg_Name_1 := Chars (Ent);
-                        Error_Msg_N
-                          ("\reference to variable% not allowed"
-                             & " ('R'M 13.1(22))!", Nod);
-                     else
-                        Error_Msg_N
-                          ("non-static expression not allowed"
-                             & " ('R'M 13.1(22))!", Nod);
-                     end if;
+                     Error_Msg_Name_1 := Chars (Ent);
+                     Error_Msg_Name_2 := Chars (U_Ent);
+                     Error_Msg_N
+                       ("\% must be defined before % ('R'M 13.1(22))!",
+                        Nod);
                   end if;
-               end;
+
+               elsif Nkind (Original_Node (Nod)) = N_Function_Call then
+                  Check_Expr_Constants (Original_Node (Nod));
+
+               else
+                  Error_Msg_NE
+                    ("invalid address clause for initialized object &!",
+                     Nod, U_Ent);
+
+                  if Comes_From_Source (Ent) then
+                     Error_Msg_Name_1 := Chars (Ent);
+                     Error_Msg_N
+                       ("\reference to variable% not allowed"
+                          & " ('R'M 13.1(22))!", Nod);
+                  else
+                     Error_Msg_N
+                       ("non-static expression not allowed"
+                          & " ('R'M 13.1(22))!", Nod);
+                  end if;
+               end if;
 
             when N_Integer_Literal   |
                  N_Real_Literal      |
@@ -2860,21 +2847,70 @@ package body Sem_Ch13 is
    begin
       Biased := False;
 
-      --  Immediate return if size is same as standard size or if composite
-      --  item, or generic type, or type with previous errors.
+      --  Dismiss cases for generic types or types with previous errors
 
       if No (UT)
         or else UT = Any_Type
         or else Is_Generic_Type (UT)
         or else Is_Generic_Type (Root_Type (UT))
-        or else Is_Composite_Type (UT)
-        or else (Known_Esize (UT) and then Siz = Esize (UT))
       then
          return;
 
+      --  Check case of bit packed array
+
+      elsif Is_Array_Type (UT)
+        and then Known_Static_Component_Size (UT)
+        and then Is_Bit_Packed_Array (UT)
+      then
+         declare
+            Asiz : Uint;
+            Indx : Node_Id;
+            Ityp : Entity_Id;
+
+         begin
+            Asiz := Component_Size (UT);
+            Indx := First_Index (UT);
+            loop
+               Ityp := Etype (Indx);
+
+               --  If non-static bound, then we are not in the business of
+               --  trying to check the length, and indeed an error will be
+               --  issued elsewhere, since sizes of non-static array types
+               --  cannot be set implicitly or explicitly.
+
+               if not Is_Static_Subtype (Ityp) then
+                  return;
+               end if;
+
+               --  Otherwise accumulate next dimension
+
+               Asiz := Asiz * (Expr_Value (Type_High_Bound (Ityp)) -
+                               Expr_Value (Type_Low_Bound  (Ityp)) +
+                               Uint_1);
+
+               Next_Index (Indx);
+               exit when No (Indx);
+            end loop;
+
+            if Asiz <= Siz then
+               return;
+            else
+               Error_Msg_Uint_1 := Asiz;
+               Error_Msg_NE
+                 ("size for& too small, minimum allowed is ^", N, T);
+               Set_Esize   (T, Asiz);
+               Set_RM_Size (T, Asiz);
+            end if;
+         end;
+
+      --  All other composite types are ignored
+
+      elsif Is_Composite_Type (UT) then
+         return;
+
       --  For fixed-point types, don't check minimum if type is not frozen,
-      --  since type is not known till then
-      --  at freeze time.
+      --  since we don't know all the characteristics of the type that can
+      --  affect the size (e.g. a specified small) till freeze time.
 
       elsif Is_Fixed_Point_Type (UT)
         and then not Is_Frozen (UT)
@@ -2884,6 +2920,14 @@ package body Sem_Ch13 is
       --  Cases for which a minimum check is required
 
       else
+         --  Ignore if specified size is correct for the type
+
+         if Known_Esize (UT) and then Siz = Esize (UT) then
+            return;
+         end if;
+
+         --  Otherwise get minimum size
+
          M := UI_From_Int (Minimum_Size (UT));
 
          if Siz < M then
@@ -2897,6 +2941,8 @@ package body Sem_Ch13 is
                Error_Msg_Uint_1 := M;
                Error_Msg_NE
                  ("size for& too small, minimum allowed is ^", N, T);
+               Set_Esize (T, M);
+               Set_RM_Size (T, M);
             else
                Biased := True;
             end if;

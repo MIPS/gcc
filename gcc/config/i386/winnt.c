@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Windows NT.
    Contributed by Douglas Rupp (drupp@cs.washington.edu)
-   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -63,80 +63,6 @@ static void i386_pe_mark_dllimport (tree);
 #define DLL_EXPORT_PREFIX "#e."
 #endif
 
-/* Handle a "dllimport" or "dllexport" attribute;
-   arguments as in struct attribute_spec.handler.  */
-tree
-ix86_handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
-			   bool *no_add_attrs)
-{
-  tree node = *pnode;
-
-  /* These attributes may apply to structure and union types being created,
-     but otherwise should pass to the declaration involved.  */
-  if (!DECL_P (node))
-    {
-      if (flags & ((int) ATTR_FLAG_DECL_NEXT | (int) ATTR_FLAG_FUNCTION_NEXT
-		   | (int) ATTR_FLAG_ARRAY_NEXT))
-	{
-	  *no_add_attrs = true;
-	  return tree_cons (name, args, NULL_TREE);
-	}
-      if (TREE_CODE (node) != RECORD_TYPE && TREE_CODE (node) != UNION_TYPE)
-	{
-	  warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	  *no_add_attrs = true;
-	}
-
-      return NULL_TREE;
-    }
-
-  /* Report error on dllimport ambiguities seen now before they cause
-     any damage.  */
-  else if (is_attribute_p ("dllimport", name))
-    {
-      /* Like MS, treat definition of dllimported variables and
-	 non-inlined functions on declaration as syntax errors.
-	 We allow the attribute for function definitions if declared
-	 inline, but just ignore it in i386_pe_dllimport_p.  */
-      if (TREE_CODE (node) == FUNCTION_DECL  && DECL_INITIAL (node)
-          && !DECL_INLINE (node))
-	{
-	  error ("%Jfunction `%D' definition is marked dllimport.", node, node);
-	  *no_add_attrs = true;
-	}
-
-      else if (TREE_CODE (node) == VAR_DECL)
-	{
-	  if (DECL_INITIAL (node))
-	    {
-	      error ("%Jvariable `%D' definition is marked dllimport.",
-		     node, node);
-	      *no_add_attrs = true;
-	    }
-
-	  /* `extern' needn't be specified with dllimport.
-	     Specify `extern' now and hope for the best.  Sigh.  */
-	  DECL_EXTERNAL (node) = 1;
-	  /* Also, implicitly give dllimport'd variables declared within
-	     a function global scope, unless declared static.  */
-	  if (current_function_decl != NULL_TREE && !TREE_STATIC (node))
-	    TREE_PUBLIC (node) = 1;
-	}
-    }
-
-  /*  Report error if symbol is not accessible at global scope. */
-  if (!TREE_PUBLIC (node)
-      && (TREE_CODE (node) == VAR_DECL
-	  || TREE_CODE (node) == FUNCTION_DECL))
-    {
-      error ("%Jexternal linkage required for symbol '%D' because of "
-	     "'%s' attribute.", node, node, IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
-}
-
 /* Handle a "shared" attribute;
    arguments as in struct attribute_spec.handler.  */
 tree
@@ -171,7 +97,8 @@ associated_type (tree decl)
 	 dtor's are not affected by class status but virtual and
 	 non-virtual thunks are.  */
       if (!DECL_ARTIFICIAL (decl) || DECL_COMDAT (decl))
-	t = TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (decl))));
+	t = TYPE_MAIN_VARIANT
+	  (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (decl)))));
     }
   else if (DECL_CONTEXT (decl)
 	   && TREE_CODE_CLASS (TREE_CODE (DECL_CONTEXT (decl))) == 't')
@@ -251,7 +178,7 @@ i386_pe_dllimport_p (tree decl)
 
       /* We ignore the dllimport attribute for inline member functions.
 	 This differs from MSVC behavior which treats it like GNUC
-	 'extern inline' extension.   */
+	 'extern inline' extension.  */
       else if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))
         {
 	  if (extra_warnings)
@@ -374,7 +301,7 @@ i386_pe_mark_dllimport (tree decl)
     }
   else if (i386_pe_dllimport_name_p (oldname))
     {
-      /* Already done, but do a sanity check to prevent assembler errors. */
+      /* Already done, but do a sanity check to prevent assembler errors.  */
       if (!DECL_EXTERNAL (decl) || !TREE_PUBLIC (decl))
 	{
 	  error ("%Jfailure in redeclaration of '%D': dllimport'd "
@@ -705,7 +632,8 @@ i386_pe_section_type_flags (tree decl, const char *name, int reloc)
 }
 
 void
-i386_pe_asm_named_section (const char *name, unsigned int flags)
+i386_pe_asm_named_section (const char *name, unsigned int flags, 
+			   tree decl ATTRIBUTE_UNUSED)
 {
   char flagchars[8], *f = flagchars;
 

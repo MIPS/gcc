@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on Ubicom IP2022
    Communications Controller.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc and Ubicom, Inc.
 
    This file is part of GCC.
@@ -54,35 +54,33 @@
    the stack offsets.  Isolate the decision process into a simple macro.  */
 #define CHAIN_FRAMES (frame_pointer_needed || FRAME_POINTER_REQUIRED)
 
-static int ip2k_naked_function_p PARAMS ((tree));
+static int ip2k_naked_function_p (tree);
 #ifdef IP2K_MD_REORG_PASS
-static void mdr_resequence_xy_yx PARAMS ((rtx));
-static void mdr_pres_replace_and_recurse PARAMS ((rtx, rtx, rtx));
-static void mdr_propagate_reg_equivs_sequence PARAMS ((rtx, rtx, rtx));
-static void mdr_propagate_reg_equivs PARAMS ((rtx));
-static int track_dp_reload PARAMS ((rtx , rtx *, int , int));
-static void mdr_try_dp_reload_elim PARAMS ((rtx));
-static void mdr_try_move_dp_reload PARAMS ((rtx));
-static void mdr_try_move_pushes PARAMS ((rtx));
-static void mdr_try_propagate_clr_sequence PARAMS ((rtx, unsigned int));
-static void mdr_try_propagate_clr PARAMS ((rtx));
-static void mdr_try_propagate_move_sequence PARAMS ((rtx, rtx, rtx));
-static void mdr_try_propagate_move PARAMS ((rtx));
-static void mdr_try_remove_redundant_insns PARAMS ((rtx));
-static int track_w_reload PARAMS ((rtx, rtx *, int , int));
-static void mdr_try_wreg_elim PARAMS ((rtx));
+static void mdr_resequence_xy_yx (rtx);
+static void mdr_pres_replace_and_recurse (rtx, rtx, rtx);
+static void mdr_propagate_reg_equivs_sequence (rtx, rtx, rtx);
+static void mdr_propagate_reg_equivs (rtx);
+static int track_dp_reload (rtx , rtx *, int , int);
+static void mdr_try_dp_reload_elim (rtx);
+static void mdr_try_move_dp_reload (rtx);
+static void mdr_try_move_pushes (rtx);
+static void mdr_try_propagate_clr_sequence (rtx, unsigned int);
+static void mdr_try_propagate_clr (rtx);
+static void mdr_try_propagate_move_sequence (rtx, rtx, rtx);
+static void mdr_try_propagate_move (rtx);
+static void mdr_try_remove_redundant_insns (rtx);
+static int track_w_reload (rtx, rtx *, int , int);
+static void mdr_try_wreg_elim (rtx);
 #endif /* IP2K_MD_REORG_PASS */
-static void ip2k_reorg PARAMS ((void));
-static int ip2k_check_can_adjust_stack_ref PARAMS ((rtx, int));
-static void ip2k_adjust_stack_ref PARAMS ((rtx *, int));
-static int ip2k_xexp_not_uses_reg_for_mem PARAMS ((rtx, unsigned int));
-static tree ip2k_handle_progmem_attribute PARAMS ((tree *, tree, tree, int,
-						   bool *));
-static tree ip2k_handle_fndecl_attribute PARAMS ((tree *, tree, tree, int,
-						  bool *));
-static bool ip2k_rtx_costs PARAMS ((rtx, int, int, int *));
-static int ip2k_address_cost PARAMS ((rtx));
-static void ip2k_init_libfuncs PARAMS ((void));
+static void ip2k_reorg (void);
+static int ip2k_check_can_adjust_stack_ref (rtx, int);
+static void ip2k_adjust_stack_ref (rtx *, int);
+static int ip2k_xexp_not_uses_reg_for_mem (rtx, unsigned int);
+static tree ip2k_handle_progmem_attribute (tree *, tree, tree, int, bool *);
+static tree ip2k_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
+static bool ip2k_rtx_costs (rtx, int, int, int *);
+static int ip2k_address_cost (rtx);
+static void ip2k_init_libfuncs (void);
 
 const struct attribute_spec ip2k_attribute_table[];
 
@@ -145,8 +143,7 @@ int ip2k_reorg_merge_qimode = 0;
 /* Set up local allocation order.  */
 
 void
-ip2k_init_local_alloc (rao)
-     int * rao;
+ip2k_init_local_alloc (int *rao)
 {
   static const int alloc_order[] = REG_ALLOC_ORDER;
 
@@ -161,10 +158,7 @@ ip2k_init_local_alloc (rao)
    SIZE is the number of bytes of arguments passed on the stack.  */
 
 int
-ip2k_return_pops_args (fundecl, funtype, size)
-     tree fundecl ATTRIBUTE_UNUSED;
-     tree funtype;
-     int size;
+ip2k_return_pops_args (tree fundecl ATTRIBUTE_UNUSED, tree funtype, int size)
 {
   if (TREE_CODE (funtype) == IDENTIFIER_NODE)
     return size;
@@ -179,8 +173,7 @@ ip2k_return_pops_args (fundecl, funtype, size)
 /* Return nonzero if FUNC is a naked function.  */
 
 static int
-ip2k_naked_function_p (func)
-     tree func;
+ip2k_naked_function_p (tree func)
 {
   tree a;
 
@@ -193,9 +186,7 @@ ip2k_naked_function_p (func)
 
 /* Output function prologue.  */
 void
-function_prologue (file, size)
-     FILE *file;
-     HOST_WIDE_INT size;
+function_prologue (FILE *file, HOST_WIDE_INT size)
 {
   int leaf_func_p;
   int main_p;
@@ -211,7 +202,7 @@ function_prologue (file, size)
     }
 
   leaf_func_p = leaf_function_p ();
-  main_p = ! strcmp ("main", current_function_name);
+  main_p = MAIN_NAME_P (DECL_NAME (current_function_decl));
 
   /* For now, we compute all these facts about the function, but don't
      take any action based on the information.  */
@@ -316,9 +307,7 @@ function_prologue (file, size)
 
 /* Output function epilogue.  */
 void
-function_epilogue (file, size)
-     FILE *file;
-     HOST_WIDE_INT size;
+function_epilogue (FILE *file, HOST_WIDE_INT size)
 {
   int leaf_func_p;
   int reg,savelimit;
@@ -370,7 +359,7 @@ function_epilogue (file, size)
 	      OUT_AS2 (mov, w, %L0);
 	      OUT_AS2 (add, spl, w);
 	      epilogue_size += 4;
-	      /* fall-thru  */
+	      /* fall-through  */
 	    case 0:
 	      break;
 	    case 1:
@@ -385,7 +374,7 @@ function_epilogue (file, size)
 		OUT_AS2 (mov, w, %H0);
 	      OUT_AS2 (add, sph, w);
 	      epilogue_size += 4;
-	      /* fall-thru  */
+	      /* fall-through  */
 	    case 0:
 	      break;
 	    case 0x100:
@@ -500,7 +489,7 @@ function_epilogue (file, size)
 	  OUT_AS2 (mov, w, %L0);
 	  OUT_AS2 (add, spl, w);
 	  epilogue_size += 4;
-	  /* fall-thru  */
+	  /* fall-through  */
 
 	case 0:
 	  break;
@@ -517,7 +506,7 @@ function_epilogue (file, size)
 	    OUT_AS2 (mov, w, %H0);
 	  OUT_AS2 (add, sph, w);
 	  epilogue_size += 4;
-	  /* fall-thru  */
+	  /* fall-through  */
 
 	case 0:
 	  break;
@@ -552,9 +541,7 @@ function_epilogue (file, size)
 	STACK ALLOCATION
 		<------ SP ($6:$7)  */
 int
-ip2k_init_elim_offset (from, to)
-     int from;
-     int to;
+ip2k_init_elim_offset (int from, int to)
 {
   int leaf_func_p = leaf_function_p ();
   int no_saved_pc = leaf_func_p
@@ -599,10 +586,7 @@ ip2k_init_elim_offset (from, to)
    machine for a memory operand of mode MODE.  */
 
 int
-legitimate_address_p (mode, x, strict)
-     enum machine_mode mode;
-     rtx x;
-     int strict;
+legitimate_address_p (enum machine_mode mode, rtx x, int strict)
 {
   int off;
 
@@ -617,7 +601,7 @@ legitimate_address_p (mode, x, strict)
       if (REGNO (x) == REG_IP)
 	return (GET_MODE_SIZE (mode) == 1) ? 'R' : 0;
 
-      /* We can indirect thru DP or SP register.  */
+      /* We can indirect through DP or SP register.  */
       if (strict ? REG_OK_FOR_BASE_STRICT_P (x)
 	         : REG_OK_FOR_BASE_NOSTRICT_P (x))
 	return 'S';
@@ -638,7 +622,7 @@ legitimate_address_p (mode, x, strict)
 	    op2 = tmp;
 	  }
 
-	/* Don't let anything but R+I thru..  */
+	/* Don't let anything but R+I through..  */
 	if (! REG_P (op1)
 	    || REG_P (op2)
 	    || GET_CODE (op2) != CONST_INT)
@@ -691,8 +675,7 @@ legitimate_address_p (mode, x, strict)
 
 /* Is ADDR mode dependent?  */
 int
-ip2k_mode_dependent_address (addr)
-     rtx addr;
+ip2k_mode_dependent_address (rtx addr)
 {
   switch (GET_CODE (addr))
     {
@@ -714,11 +697,8 @@ ip2k_mode_dependent_address (addr)
    memory address for an operand of mode MODE.  */
 
 rtx
-legitimize_address (x, oldx, mode, scratch)
-     rtx x;
-     rtx oldx ATTRIBUTE_UNUSED;
-     rtx scratch;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
+		    enum machine_mode mode ATTRIBUTE_UNUSED, rtx scratch)
 {
   rtx reg;
 
@@ -749,8 +729,7 @@ legitimize_address (x, oldx, mode, scratch)
    data and stack variables reside in data memory.  Only code is believed
    to be in PRAM or FLASH.  */
 int
-is_regfile_address (x)
-     rtx x;
+is_regfile_address (rtx x)
 {
   while (1)
     switch (GET_CODE (x))
@@ -777,15 +756,13 @@ is_regfile_address (x)
 /* Output ADDR to FILE as address.  */
 
 void
-print_operand_address (file, addr)
-     FILE *file;
-     rtx addr;
+print_operand_address (FILE *file, rtx addr)
 {
   switch (GET_CODE (addr))
     {
     case SUBREG:
       addr = alter_subreg (&addr);
-      /* fall-thru  */
+      /* fall-through  */
 
     case REG:
       fprintf (file, "(%s)",
@@ -850,10 +827,7 @@ print_operand_address (file, addr)
 /* Output X as assembler operand to file FILE.  */
      
 void
-print_operand (file, x, code)
-     FILE *file;
-     rtx x;
-     int code;
+print_operand (FILE *file, rtx x, int code)
 {
   int abcd = 0;
   unsigned long value;
@@ -908,7 +882,7 @@ print_operand (file, x, code)
     {
     case SUBREG:
       x = alter_subreg (&x);
-      /* fall-thru  */
+      /* fall-through  */
 
     case REG:
       fprintf (file, reg_names[true_regnum (x) + abcd]);
@@ -1103,9 +1077,7 @@ print_operand (file, x, code)
 
 /* Remember the operands for the compare.  */
 const char *
-ip2k_set_compare (x, y)
-     rtx x;
-     rtx y;
+ip2k_set_compare (rtx x, rtx y)
 {
   ip2k_compare_operands[0] = x;
   ip2k_compare_operands[1] = y;
@@ -1114,10 +1086,7 @@ ip2k_set_compare (x, y)
 
 /* Emit the code for sCOND instructions.  */
 const char *
-ip2k_gen_sCOND (insn, code, dest)
-     rtx insn ATTRIBUTE_UNUSED;
-     enum rtx_code code;
-     rtx dest;
+ip2k_gen_sCOND (rtx insn ATTRIBUTE_UNUSED, enum rtx_code code, rtx dest)
 {
 #define operands ip2k_compare_operands
   enum machine_mode mode;
@@ -1328,10 +1297,7 @@ ip2k_gen_sCOND (insn, code, dest)
 }
 
 const char *
-ip2k_gen_signed_comp_branch (insn, code, label)
-     rtx insn;
-     enum rtx_code code;
-     rtx label;
+ip2k_gen_signed_comp_branch (rtx insn, enum rtx_code code, rtx label)
 {
 #define operands ip2k_compare_operands
   enum machine_mode mode;
@@ -1677,10 +1643,7 @@ ip2k_gen_signed_comp_branch (insn, code, label)
 }
 
 const char *
-ip2k_gen_unsigned_comp_branch (insn, code, label)
-     rtx insn;
-     enum rtx_code code;
-     rtx label;
+ip2k_gen_unsigned_comp_branch (rtx insn, enum rtx_code code, rtx label)
 {
 #define operands ip2k_compare_operands
   enum machine_mode mode;
@@ -1759,7 +1722,7 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 
         case GTU:			
           code = NE;			/* Anything nonzero is GTU.  */
-          /* fall-thru  */
+          /* fall-through  */
 
         case EQ:
         case NE:			/* Test all the bits, result in
@@ -2079,7 +2042,7 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	case GTU:
 	  if (imm_sub)
 	    {
-	      /* > 0xffff never suceeds!  */
+	      /* > 0xffff never succeeds!  */
 	      if ((INTVAL (operands[1]) & 0xffff) != 0xffff)
 		{
 	          operands[3] = GEN_INT (INTVAL (operands[1]) + 1);
@@ -2179,7 +2142,7 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	    {
 	      if ((INTVAL (operands[1]) & 0xffff) == 0xffff)
 	        {
-		  /* <= 0xffff always suceeds.  */
+		  /* <= 0xffff always succeeds.  */
 		  OUT_AS1 (page, %2);
 	          OUT_AS1 (jmp, %2);
 		}
@@ -2308,7 +2271,7 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	case GTU:
 	  if (imm_sub)
 	    {
-	      /* > 0xffffffff never suceeds!  */
+	      /* > 0xffffffff never succeeds!  */
 	      if ((unsigned HOST_WIDE_INT)(INTVAL (operands[1]) & 0xffffffff)
 		  != 0xffffffff)
 		{
@@ -2438,7 +2401,7 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	      if ((unsigned HOST_WIDE_INT)(INTVAL (operands[1]) & 0xffffffff)
 		  == 0xffffffff)
 	        {
-		  /* <= 0xffffffff always suceeds.  */
+		  /* <= 0xffffffff always succeeds.  */
 		  OUT_AS1 (page, %2);
 	          OUT_AS1 (jmp, %2);
 		}
@@ -3045,9 +3008,7 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 /* Output rtx VALUE as .byte to file FILE.  */
 
 void
-asm_output_char(file, value)
-     FILE *file;
-     rtx value;
+asm_output_char (FILE *file, rtx value)
 {
   fprintf (file, "\t.byte ");
   output_addr_const (file, value);
@@ -3058,9 +3019,7 @@ asm_output_char(file, value)
 /* Output VALUE as .byte to file FILE.  */
 
 void
-asm_output_byte (file,value)
-     FILE *file;
-     int value;
+asm_output_byte (FILE *file, int value)
 {
   fprintf (file, "\t.byte 0x%x\n",value & 0xff);
 }
@@ -3069,9 +3028,7 @@ asm_output_byte (file,value)
 /* Output rtx VALUE as .word to file FILE.  */
 
 void
-asm_output_short (file, value)
-     FILE *file;
-     rtx value;
+asm_output_short (FILE *file, rtx value)
 {
   fprintf (file, "\t.word ");
   output_addr_const (file, (value));
@@ -3082,9 +3039,7 @@ asm_output_short (file, value)
 /* Output real N to file FILE.  */
 
 void
-asm_output_float (file, n)
-     FILE *file;
-     REAL_VALUE_TYPE n;
+asm_output_float (FILE *file, REAL_VALUE_TYPE n)
 {
   long val;
   char dstr[100];
@@ -3098,9 +3053,7 @@ asm_output_float (file, n)
 /* Sets section name for declaration DECL.  */
   
 void
-unique_section (decl, reloc)
-     tree decl;
-     int reloc ATTRIBUTE_UNUSED;
+unique_section (tree decl, int reloc ATTRIBUTE_UNUSED)
 {
   int len;
   const char *name;
@@ -3129,26 +3082,12 @@ unique_section (decl, reloc)
     }
 }
 
-
-/* Output section name to file FILE.  */
-
-void
-asm_output_section_name(file, decl, name, reloc)
-     FILE *file;
-     tree decl ATTRIBUTE_UNUSED;
-     const char *name;
-     int reloc ATTRIBUTE_UNUSED;
-{
-  fprintf (file, ".section %s\n", name);
-}
-
 /* Return value is nonzero if pseudos that have been
    assigned to registers of class CLASS would likely be spilled
    because registers of CLASS are needed for spill registers.  */
 
 enum reg_class
-class_likely_spilled_p(c)
-     int c;
+class_likely_spilled_p (int c)
 {
   return (c == IP_REGS
 	  || c == IPL_REGS
@@ -3178,12 +3117,10 @@ const struct attribute_spec ip2k_attribute_table[] =
 /* Handle a "progmem" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
-ip2k_handle_progmem_attribute (node, name, args, flags, no_add_attrs)
-     tree *node;
-     tree name;
-     tree args ATTRIBUTE_UNUSED;
-     int flags ATTRIBUTE_UNUSED;
-     bool *no_add_attrs;
+ip2k_handle_progmem_attribute (tree *node, tree name,
+			       tree args ATTRIBUTE_UNUSED,
+			       int flags ATTRIBUTE_UNUSED,
+			       bool *no_add_attrs)
 {
   if (DECL_P (*node))
     {
@@ -3222,12 +3159,10 @@ ip2k_handle_progmem_attribute (node, name, args, flags, no_add_attrs)
 /* Handle an attribute requiring a FUNCTION_DECL; arguments as in
    struct attribute_spec.handler.  */
 static tree
-ip2k_handle_fndecl_attribute (node, name, args, flags, no_add_attrs)
-     tree *node;
-     tree name;
-     tree args ATTRIBUTE_UNUSED;
-     int flags ATTRIBUTE_UNUSED;
-     bool *no_add_attrs;
+ip2k_handle_fndecl_attribute (tree *node, tree name,
+			      tree args ATTRIBUTE_UNUSED,
+			      int flags ATTRIBUTE_UNUSED,
+			      bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
@@ -3246,10 +3181,7 @@ ip2k_handle_fndecl_attribute (node, name, args, flags, no_add_attrs)
    scanned.  In either case, *TOTAL contains the cost result.  */
 
 static bool
-ip2k_rtx_costs (x, code, outer_code, total)
-     rtx x;
-     int code, outer_code;
-     int *total;
+ip2k_rtx_costs (rtx x, int code, int outer_code, int *total)
 {
   enum machine_mode mode = GET_MODE (x);
   int extra_cost = 0;
@@ -3382,8 +3314,7 @@ ip2k_rtx_costs (x, code, outer_code, total)
 /* Calculate the cost of a memory address.  */
 
 static int
-ip2k_address_cost (x)
-     rtx x;
+ip2k_address_cost (rtx x)
 {
   switch (legitimate_address_p (VOIDmode, x, 0))
     {
@@ -3858,7 +3789,7 @@ track_dp_reload (insn, dp_current, dp_current_ok, modifying)
 /* As part of the machine-dependent reorg we scan loads and reloads of
    DP to see where any are redundant.  This does happens because we
    are able to subsequently transform things in interesting ways.  Sometimes
-   gcc also does unecessary reloads too so we try to eliminate these too.  */
+   gcc also does unnecessary reloads too so we try to eliminate these too.  */
 
 static void
 mdr_try_dp_reload_elim (first_insn)
@@ -4019,7 +3950,7 @@ mdr_try_dp_reload_elim (first_insn)
         }
 
       /* When we're looking to see if we've finished we count the number of
-         paths throught the code labels where we weren't able to definitively
+         paths through the code labels where we weren't able to definitively
 	 track DP.
 	 This number is used to see if we're converging on a solution.
 	 If this hits zero then we've fully converged, but if this stays the
@@ -4162,9 +4093,7 @@ mdr_try_move_dp_reload (first_insn)
    a fixed constant, offset.  If it definitely can then returns nonzero.  */
 
 static int
-ip2k_check_can_adjust_stack_ref (x, offset)
-     rtx x;
-     int offset;
+ip2k_check_can_adjust_stack_ref (rtx x, int offset)
 {
   if (GET_RTX_CLASS (GET_CODE (x)) == '2'
       || GET_RTX_CLASS (GET_CODE (x)) == 'c')
@@ -4210,9 +4139,7 @@ ip2k_check_can_adjust_stack_ref (x, offset)
    a fixed offset.  */
 
 static void
-ip2k_adjust_stack_ref (x, offset)
-     rtx *x;
-     int offset;
+ip2k_adjust_stack_ref (rtx *x, int offset)
 {
   if (GET_RTX_CLASS (GET_CODE (*x)) == '2'
       || GET_RTX_CLASS (GET_CODE (*x)) == 'c')
@@ -4701,9 +4628,7 @@ mdr_try_propagate_clr (first_insn)
    nonzero if we definitely don't have such a memory ref.  */
 
 static int
-ip2k_xexp_not_uses_reg_for_mem (x, regno)
-     rtx x;
-     unsigned int regno;
+ip2k_xexp_not_uses_reg_for_mem (rtx x, unsigned int regno)
 {
   if (regno & 1)
     regno &= 0xfffffffe;
@@ -5264,7 +5189,7 @@ mdr_try_wreg_elim (first_insn)
         }
 
       /* When we're looking to see if we've finished we count the number of
-         paths throught the code labels where we weren't able to definitively
+         paths through the code labels where we weren't able to definitively
 	 track WREG.  This number is used to see if we're converging on a
 	 solution.
 	 If this hits zero then we've fully converged, but if this stays the
@@ -5318,7 +5243,7 @@ mdr_try_wreg_elim (first_insn)
    making the subsequent runs continue to win.  */
 
 static void
-ip2k_reorg ()
+ip2k_reorg (void)
 {
 #ifdef IP2K_MD_REORG_PASS
   rtx first_insn, insn, set;
@@ -5520,8 +5445,7 @@ ip2k_init_libfuncs (void)
 /* Returns a bit position if mask contains only a single bit.  Returns -1 if
    there were zero or more than one set bits.  */
 int
-find_one_set_bit_p (mask)
-     HOST_WIDE_INT mask;
+find_one_set_bit_p (HOST_WIDE_INT mask)
 {
   int i;
   unsigned HOST_WIDE_INT n = mask;
@@ -5542,8 +5466,7 @@ find_one_set_bit_p (mask)
 /* Returns a bit position if mask contains only a single clear bit.
    Returns -1 if there were zero or more than one clear bits.  */
 int
-find_one_clear_bit_p (mask)
-     HOST_WIDE_INT mask;
+find_one_clear_bit_p (HOST_WIDE_INT mask)
 {
   int i;
   unsigned HOST_WIDE_INT n = mask;
@@ -5570,10 +5493,8 @@ find_one_clear_bit_p (mask)
    and OPERANDS[5].  */
 
 void
-ip2k_split_words (nmode, omode, operands)
-     enum machine_mode nmode;
-     enum machine_mode omode;
-     rtx *operands;
+ip2k_split_words (enum machine_mode nmode, enum machine_mode omode,
+		  rtx *operands)
 {
   rtx dl, dh;			/* src/dest pieces.  */
   rtx sl, sh;
@@ -5761,9 +5682,7 @@ ip2k_split_words (nmode, omode, operands)
 
 /* Get the low half of an operand.  */
 rtx
-ip2k_get_low_half (x, mode)
-     rtx x;
-     enum machine_mode mode;
+ip2k_get_low_half (rtx x, enum machine_mode mode)
 {
   switch (GET_CODE (x))
     {
@@ -5862,9 +5781,7 @@ ip2k_get_low_half (x, mode)
 
 /* Get the high half of an operand.  */
 rtx
-ip2k_get_high_half (x, mode)
-     rtx x;
-     enum machine_mode mode;
+ip2k_get_high_half (rtx x, enum machine_mode mode)
 {
   switch (GET_CODE (x))
     {
@@ -5964,9 +5881,7 @@ ip2k_get_high_half (x, mode)
    or REG_FP.  */
 
 int
-ip2k_address_uses_reg_p (x, r)
-     rtx x;
-     unsigned int r;
+ip2k_address_uses_reg_p (rtx x, unsigned int r)
 {
   if (GET_CODE (x) != MEM)
     return 0;
@@ -6013,10 +5928,7 @@ ip2k_address_uses_reg_p (x, r)
    that it doesn't then we return TRUE otherwise we assume FALSE.  */
 
 int
-ip2k_xexp_not_uses_reg_p (x, r, rsz)
-     rtx x;
-     unsigned int r;
-     int rsz;
+ip2k_xexp_not_uses_reg_p (rtx x, unsigned int r, int rsz)
 {
   switch (GET_CODE (x))
     {
@@ -6049,10 +5961,7 @@ ip2k_xexp_not_uses_reg_p (x, r, rsz)
    that it doesn't then we return TRUE otherwise we assume FALSE.  */
 
 int
-ip2k_composite_xexp_not_uses_reg_p (x, r, rsz)
-     rtx x;
-     unsigned int r;
-     int rsz;
+ip2k_composite_xexp_not_uses_reg_p (rtx x, unsigned int r, int rsz)
 {
   if (GET_RTX_CLASS (GET_CODE (x)) == 'b')
     return (ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 0), r, rsz)
@@ -6076,8 +5985,7 @@ ip2k_composite_xexp_not_uses_reg_p (x, r, rsz)
    it doesn't then we return TRUE otherwise we assume FALSE.  */
 
 int
-ip2k_composite_xexp_not_uses_cc0_p (x)
-     rtx x;
+ip2k_composite_xexp_not_uses_cc0_p (rtx x)
 {
   if (GET_RTX_CLASS (GET_CODE (x)) == 'b')
     return (ip2k_composite_xexp_not_uses_cc0_p (XEXP (x, 0))
@@ -6098,17 +6006,13 @@ ip2k_composite_xexp_not_uses_cc0_p (x)
 }
 
 int
-ip2k_split_dest_operand (x, mode)
-     rtx x;
-     enum machine_mode mode;
+ip2k_split_dest_operand (rtx x, enum machine_mode mode)
 {
   return nonimmediate_operand (x, mode) || push_operand (x, mode);
 }
 
 int
-ip2k_nonptr_operand (x, mode)
-     rtx x;
-     enum machine_mode mode;
+ip2k_nonptr_operand (rtx x, enum machine_mode mode)
 {
   return register_operand (x, mode) && !ip2k_ptr_operand (x, mode);
 }
@@ -6116,9 +6020,7 @@ ip2k_nonptr_operand (x, mode)
 /* Is X a reference to IP or DP or SP?  */
 
 int
-ip2k_ptr_operand (x, mode)
-     rtx x;
-     enum machine_mode mode;
+ip2k_ptr_operand (rtx x, enum machine_mode mode)
 
 {
   if (GET_CODE (x) == SUBREG)
@@ -6132,18 +6034,14 @@ ip2k_ptr_operand (x, mode)
 }
 
 int
-ip2k_sp_operand (x, mode)
-     rtx x;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+ip2k_sp_operand (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED)
 
 {
   return REG_P (x) && REGNO (x) == REG_SP;
 }
 
 int
-ip2k_ip_operand (x, mode)
-     rtx x;
-     enum machine_mode mode;
+ip2k_ip_operand (rtx x, enum machine_mode mode)
 
 {
   if (GET_CODE (x) != MEM)
@@ -6165,9 +6063,7 @@ ip2k_ip_operand (x, mode)
 
 /* Is X a memory address suitable for SP or DP relative addressing?  */
 int
-ip2k_short_operand (x, mode)
-     rtx x;
-     enum machine_mode mode;
+ip2k_short_operand (rtx x, enum machine_mode mode)
 {
   int r;
   unsigned int offs = 0;
@@ -6193,7 +6089,7 @@ ip2k_short_operand (x, mode)
 
       x = XEXP (x, 0);
 
-      /* fall thru  */
+      /* fall through  */
 
     case REG:
       if (IS_PSEUDO_P (x))
@@ -6213,9 +6109,7 @@ ip2k_short_operand (x, mode)
 }
 
 int
-ip2k_nonsp_reg_operand (x, mode)
-     rtx x;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+ip2k_nonsp_reg_operand (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   if (GET_CODE (x) == SUBREG)
     x = SUBREG_REG (x);
@@ -6224,9 +6118,7 @@ ip2k_nonsp_reg_operand (x, mode)
 }
 
 int
-ip2k_gen_operand (x, mode)
-     rtx x;
-     enum machine_mode mode;
+ip2k_gen_operand (rtx x, enum machine_mode mode)
 {
   return ip2k_short_operand (x, mode)
     || (GET_CODE (x) == SUBREG
@@ -6235,9 +6127,7 @@ ip2k_gen_operand (x, mode)
 }
 
 int
-ip2k_extra_constraint (x, c)
-     rtx x;
-     int c;
+ip2k_extra_constraint (rtx x, int c)
 { 
   switch (c)
     {
@@ -6256,18 +6146,14 @@ ip2k_extra_constraint (x, c)
 }
 
 int
-ip2k_unary_operator (op, mode)
-     rtx op;
-     enum machine_mode mode;
+ip2k_unary_operator (rtx op, enum machine_mode mode)
 {
   return ((mode == VOIDmode || GET_MODE (op) == mode)
 	  && GET_RTX_CLASS (GET_CODE (op)) == '1');
 }
 
 int
-ip2k_binary_operator (op, mode)
-     rtx op;
-     enum machine_mode mode;
+ip2k_binary_operator (rtx op, enum machine_mode mode)
 {
   return ((mode == VOIDmode || GET_MODE (op) == mode)
 	  && (GET_RTX_CLASS (GET_CODE (op)) == 'c'
@@ -6275,9 +6161,7 @@ ip2k_binary_operator (op, mode)
 }
 
 int
-ip2k_symbol_ref_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+ip2k_symbol_ref_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   /* We define an IP2k symbol ref to be either a direct reference or one
      with a constant offset.  */
@@ -6288,18 +6172,14 @@ ip2k_symbol_ref_operand (op, mode)
 }
 
 int
-ip2k_signed_comparison_operator (op, mode)
-     rtx op;
-     enum machine_mode mode;
+ip2k_signed_comparison_operator (rtx op, enum machine_mode mode)
 {
   return (comparison_operator (op, mode)
     && signed_condition (GET_CODE (op)) == GET_CODE (op));
 }
 
 int
-ip2k_unsigned_comparison_operator (op, mode)
-     rtx op;
-     enum machine_mode mode;
+ip2k_unsigned_comparison_operator (rtx op, enum machine_mode mode)
 {
   return (comparison_operator (op, mode)
           && unsigned_condition (GET_CODE (op)) == GET_CODE (op));

@@ -10,7 +10,8 @@
    <meta name="DESCRIPTION" content="Configuration options for libstdc++-v3." />
    <meta name="GENERATOR" content="vi and eight fingers" />
    <title>libstdc++-v3 configure options</title>
-<link rel="StyleSheet" href="lib3styles.css" />
+<link rel="StyleSheet" href="lib3styles.css" type="text/css" />
+<link rel="Copyright" href="17_intro/license.html" type="text/html" />
 </head>
 <body>
 
@@ -32,7 +33,7 @@ options</a></h1>
 <p>Here are some of the non-obvious options to libstdc++'s configure.
    Keep in mind that
    <!-- This SECnn should be the "Choosing Package Options" section. -->
-   <a href="http://www.gnu.org/manual/autoconf/html_node/Package-Options.html#Package%20Options">they
+   <a href="http://www.gnu.org/software/autoconf/manual/autoconf-2.57/html_node/autoconf_131.html#SEC131">they
    all have opposite forms as well</a>
    (enable/disable and with/without).  The defaults are for current
    development sources.
@@ -123,11 +124,27 @@ options</a></h1>
      </p>
  </dd>
 
+ <dt><code>--enable-libstdcxx-allocator  </code></dt>
+ <dd><p>This is an abbreviated form of
+        <code>'--enable-libstdcxx-allocator=auto'</code> (described
+        next). This option can change the library ABI.
+     </p>
+ </dd>
+
+ <dt><code>--enable-libstdcxx-allocator=OPTION  </code></dt>
+ <dd><p>Select a target-specific underlying std::allocator.  The
+        choices are 'new' to specify a wrapper for new, 'malloc' to
+        specify a wrapper for malloc, 'mt' for a fixed power of two allocator
+        (<a href="ext/mt_allocator.html">documented</a> under extensions) or
+        'bitmap' for a bitmap allocator. This option can change the
+        library ABI.
+     </p>
+ </dd>
+
  <dt><code>--enable-cheaders=OPTION  </code></dt>
  <dd><p>This allows the user to define what kind of C headers are
-        used.  Options are: c, c_std, and c_shadow. These correspond
-        to the source directory's include/c, include/c_std, and
-        include/c_shadow directories.  The default is c_std.
+        used.  Options are c and c_std.  These correspond to the source
+	directory's include/c and include/c_std.  The default is c_std.
      </p>
  </dd>
 
@@ -239,6 +256,14 @@ options</a></h1>
         the flag is -D_ISOC99_SOURCE, which is added automatically via
         CPLUSPLUS_CPP_SPEC's addition of _GNU_SOURCE).
         This option can change the library ABI. 
+     </p>
+ </dd>
+
+ <dt><code>--enable-fully-dynamic-string  </code></dt>
+ <dd><p>This option enables a special version of basic_string avoiding
+        the optimization that allocates empty objects in static memory.
+	Mostly useful together with shared memory allocators, see PR
+	libstdc++/16612 for details.
      </p>
  </dd>
 

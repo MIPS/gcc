@@ -1,6 +1,8 @@
 /* "Bag-of-pages" zone garbage collector for the GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
-   Contributed by Richard Henderson (rth@redhat.com) and Daniel Berlin (dberlin@dberlin.org)
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
+   Contributed by Richard Henderson (rth@redhat.com) and Daniel Berlin
+   (dberlin@dberlin.org) 
 
 
 This file is part of GCC.
@@ -36,7 +38,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "bitmap.h"
 
 #ifdef ENABLE_VALGRIND_CHECKING
-#include <valgrind/memcheck.h>
+# ifdef HAVE_VALGRIND_MEMCHECK_H
+#  include <valgrind/memcheck.h>
+# elif defined HAVE_MEMCHECK_H
+#  include <memcheck.h>
+# else
+#  include <valgrind.h>
+# endif
 #else
 /* Avoid #ifdef:s when we can help it.  */
 #define VALGRIND_DISCARD(x)
@@ -70,7 +78,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #endif
 
 #ifndef USING_MMAP
-#define USING_MALLOC_PAGE_GROUPS
+#error "Zone collector requires mmap"
 #endif
 
 #if (GCC_VERSION < 3001)
@@ -83,7 +91,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    If we track inter-zone pointers, we can mark single zones at a
    time.
    If we have a zone where we guarantee no inter-zone pointers, we
-   could mark that zone seperately.
+   could mark that zone separately.
    The garbage zone should not be marked, and we should return 1 in
    ggc_set_mark for any object in the garbage zone, which cuts off
    marking quickly.  */
@@ -137,7 +145,8 @@ struct alloc_chunk {
   unsigned int magic;
 #endif
   unsigned int type:1;
-  unsigned int typecode:15;
+  unsigned int typecode:14;
+  unsigned int large:1;
   unsigned int size:15;
   unsigned int mark:1;
   union {
@@ -164,7 +173,7 @@ struct alloc_chunk {
    Similar with increasing max_free_bin_size without increasing num_free_bins.
 
    After much histogramming of allocation sizes and time spent on gc,
-   on a powerpc G4 7450 - 667 mhz, and an pentium 4 - 2.8ghz,
+   on a PowerPC G4 7450 - 667 mhz, and a Pentium 4 - 2.8ghz,
    these were determined to be the optimal values.  */
 #define NUM_FREE_BINS		64
 #define MAX_FREE_BIN_SIZE	256
@@ -205,40 +214,7 @@ struct max_alignment {
 
 #define ROUND_UP(x, f) (CEIL (x, f) * (f))
 
-/* A two-level tree is used to look up the page-entry for a given
-   pointer.  Two chunks of the pointer's bits are extracted to index
-   the first and second levels of the tree, as follows:
 
-				   HOST_PAGE_SIZE_BITS
-			   32		|      |
-       msb +----------------+----+------+------+ lsb
-			    |    |      |
-			 PAGE_L1_BITS   |
-				 |      |
-			       PAGE_L2_BITS
-
-   The bottommost HOST_PAGE_SIZE_BITS are ignored, since page-entry
-   pages are aligned on system page boundaries.  The next most
-   significant PAGE_L2_BITS and PAGE_L1_BITS are the second and first
-   index values in the lookup table, respectively.
-
-   For 32-bit architectures and the settings below, there are no
-   leftover bits.  For architectures with wider pointers, the lookup
-   tree points to a list of pages, which must be scanned to find the
-   correct one.  */
-
-#define PAGE_L1_BITS	(8)
-#define PAGE_L2_BITS	(32 - PAGE_L1_BITS - G.lg_pagesize)
-#define PAGE_L1_SIZE	((size_t) 1 << PAGE_L1_BITS)
-#define PAGE_L2_SIZE	((size_t) 1 << PAGE_L2_BITS)
-
-#define LOOKUP_L1(p) \
-  (((size_t) (p) >> (32 - PAGE_L1_BITS)) & ((1 << PAGE_L1_BITS) - 1))
-
-#define LOOKUP_L2(p) \
-  (((size_t) (p) >> G.lg_pagesize) & ((1 << PAGE_L2_BITS) - 1))
-
-struct alloc_zone;
 /* A page_entry records the status of an allocation page.  */
 typedef struct page_entry
 {
@@ -256,68 +232,20 @@ typedef struct page_entry
   /* The address at which the memory is allocated.  */
   char *page;
 
-#ifdef USING_MALLOC_PAGE_GROUPS
-  /* Back pointer to the page group this page came from.  */
-  struct page_group *group;
-#endif
-
-  /* Number of bytes on the page unallocated.  Only used during
-     collection, and even then large pages merely set this non-zero.  */
-  size_t bytes_free;
-
   /* Context depth of this page.  */
   unsigned short context_depth;
 
   /* Does this page contain small objects, or one large object?  */
   bool large_p;
 
+  /* The zone that this page entry belongs to.  */
   struct alloc_zone *zone;
 } page_entry;
 
-#ifdef USING_MALLOC_PAGE_GROUPS
-/* A page_group describes a large allocation from malloc, from which
-   we parcel out aligned pages.  */
-typedef struct page_group
-{
-  /* A linked list of all extant page groups.  */
-  struct page_group *next;
-
-  /* The address we received from malloc.  */
-  char *allocation;
-
-  /* The size of the block.  */
-  size_t alloc_size;
-
-  /* A bitmask of pages in use.  */
-  unsigned int in_use;
-} page_group;
-#endif
-
-#if HOST_BITS_PER_PTR <= 32
-
-/* On 32-bit hosts, we use a two level page table, as pictured above.  */
-typedef page_entry **page_table[PAGE_L1_SIZE];
-
-#else
-
-/* On 64-bit hosts, we use the same two level page tables plus a linked
-   list that disambiguates the top 32-bits.  There will almost always be
-   exactly one entry in the list.  */
-typedef struct page_table_chain
-{
-  struct page_table_chain *next;
-  size_t high_bits;
-  page_entry **table[PAGE_L1_SIZE];
-} *page_table;
-
-#endif
 
 /* The global variables.  */
 static struct globals
 {
-  /* The page lookup table.  A single page can only belong to one
-     zone.  This means free pages are zone-specific ATM.  */
-  page_table lookup;
   /* The linked list of zones.  */
   struct alloc_zone *zones;
 
@@ -368,15 +296,14 @@ struct alloc_zone
   /* A cache of free system pages.  */
   page_entry *free_pages;
 
-#ifdef USING_MALLOC_PAGE_GROUPS
-  page_group *page_groups;
-#endif
-
   /* Next zone in the linked list of zones.  */
   struct alloc_zone *next_zone;
 
-  /* Return true if this zone was collected during this collection.  */
+  /* True if this zone was collected during this collection.  */
   bool was_collected;
+
+  /* True if this zone should be destroyed after the next collection.  */
+  bool dead;
 } main_zone;
 
 struct alloc_zone *rtl_zone;
@@ -390,15 +317,8 @@ struct alloc_zone *tree_zone;
 #define GGC_QUIRE_SIZE 16
 
 static int ggc_allocated_p (const void *);
-static page_entry *lookup_page_table_entry (const void *);
-static void set_page_table_entry (void *, page_entry *);
 #ifdef USING_MMAP
 static char *alloc_anon (char *, size_t, struct alloc_zone *);
-#endif
-#ifdef USING_MALLOC_PAGE_GROUPS
-static size_t page_group_index (char *, char *);
-static void set_page_group_in_use (page_group *, char *);
-static void clear_page_group_in_use (page_group *, char *);
 #endif
 static struct page_entry * alloc_small_page ( struct alloc_zone *);
 static struct page_entry * alloc_large_page (size_t, struct alloc_zone *);
@@ -416,94 +336,17 @@ static void check_cookies (void);
 static inline int
 ggc_allocated_p (const void *p)
 {
-  page_entry ***base;
-  size_t L1, L2;
-
-#if HOST_BITS_PER_PTR <= 32
-  base = &G.lookup[0];
-#else
-  page_table table = G.lookup;
-  size_t high_bits = (size_t) p & ~ (size_t) 0xffffffff;
-  while (1)
-    {
-      if (table == NULL)
-	return 0;
-      if (table->high_bits == high_bits)
-	break;
-      table = table->next;
-    }
-  base = &table->table[0];
+  struct alloc_chunk *chunk;
+  chunk = (struct alloc_chunk *) ((char *)p - CHUNK_OVERHEAD);
+#ifdef COOKIE_CHECKING
+  if (chunk->magic != CHUNK_MAGIC)
+    abort ();
 #endif
-
-  /* Extract the level 1 and 2 indices.  */
-  L1 = LOOKUP_L1 (p);
-  L2 = LOOKUP_L2 (p);
-
-  return base[L1] && base[L1][L2];
+  if (chunk->type == 1)
+    return true;  
+  return false;
 }
 
-/* Traverse the page table and find the entry for a page.
-   Die (probably) if the object wasn't allocated via GC.  */
-
-static inline page_entry *
-lookup_page_table_entry(const void *p)
-{
-  page_entry ***base;
-  size_t L1, L2;
-
-#if HOST_BITS_PER_PTR <= 32
-  base = &G.lookup[0];
-#else
-  page_table table = G.lookup;
-  size_t high_bits = (size_t) p & ~ (size_t) 0xffffffff;
-  while (table->high_bits != high_bits)
-    table = table->next;
-  base = &table->table[0];
-#endif
-
-  /* Extract the level 1 and 2 indices.  */
-  L1 = LOOKUP_L1 (p);
-  L2 = LOOKUP_L2 (p);
-
-  return base[L1][L2];
-
-}
-
-/* Set the page table entry for a page.  */
-
-static void
-set_page_table_entry(void *p, page_entry *entry)
-{
-  page_entry ***base;
-  size_t L1, L2;
-
-#if HOST_BITS_PER_PTR <= 32
-  base = &G.lookup[0];
-#else
-  page_table table;
-  size_t high_bits = (size_t) p & ~ (size_t) 0xffffffff;
-  for (table = G.lookup; table; table = table->next)
-    if (table->high_bits == high_bits)
-      goto found;
-
-  /* Not found -- allocate a new table.  */
-  table = (page_table) xcalloc (1, sizeof(*table));
-  table->next = G.lookup;
-  table->high_bits = high_bits;
-  G.lookup = table;
-found:
-  base = &table->table[0];
-#endif
-
-  /* Extract the level 1 and 2 indices.  */
-  L1 = LOOKUP_L1 (p);
-  L2 = LOOKUP_L2 (p);
-
-  if (base[L1] == NULL)
-    base[L1] = (page_entry **) xcalloc (PAGE_L2_SIZE, sizeof (page_entry *));
-
-  base[L1][L2] = entry;
-}
 
 #ifdef USING_MMAP
 /* Allocate SIZE bytes of anonymous memory, preferably near PREF,
@@ -538,42 +381,15 @@ alloc_anon (char *pref ATTRIBUTE_UNUSED, size_t size, struct alloc_zone *zone)
   return page;
 }
 #endif
-#ifdef USING_MALLOC_PAGE_GROUPS
-/* Compute the index for this page into the page group.  */
-
-static inline size_t
-page_group_index (char *allocation, char *page)
-{
-  return (size_t) (page - allocation) >> G.lg_pagesize;
-}
-
-/* Set and clear the in_use bit for this page in the page group.  */
-
-static inline void
-set_page_group_in_use (page_group *group, char *page)
-{
-  group->in_use |= 1 << page_group_index (group->allocation, page);
-}
-
-static inline void
-clear_page_group_in_use (page_group *group, char *page)
-{
-  group->in_use &= ~(1 << page_group_index (group->allocation, page));
-}
-#endif
 
 /* Allocate a new page for allocating objects of size 2^ORDER,
-   and return an entry for it.  The entry is not added to the
-   appropriate page_table list.  */
+   and return an entry for it.  */
 
 static inline struct page_entry *
 alloc_small_page (struct alloc_zone *zone)
 {
   struct page_entry *entry;
   char *page;
-#ifdef USING_MALLOC_PAGE_GROUPS
-  page_group *group;
-#endif
 
   page = NULL;
 
@@ -585,9 +401,7 @@ alloc_small_page (struct alloc_zone *zone)
       zone->free_pages = entry->next;
       page = entry->page;
 
-#ifdef USING_MALLOC_PAGE_GROUPS
-      group = entry->group;
-#endif
+
     }
 #ifdef USING_MMAP
   else
@@ -614,96 +428,16 @@ alloc_small_page (struct alloc_zone *zone)
       zone->free_pages = f;
     }
 #endif
-#ifdef USING_MALLOC_PAGE_GROUPS
-  else
-    {
-      /* Allocate a large block of memory and serve out the aligned
-	 pages therein.  This results in much less memory wastage
-	 than the traditional implementation of valloc.  */
-
-      char *allocation, *a, *enda;
-      size_t alloc_size, head_slop, tail_slop;
-      int multiple_pages = (entry_size == G.pagesize);
-
-      if (multiple_pages)
-	alloc_size = GGC_QUIRE_SIZE * G.pagesize;
-      else
-	alloc_size = entry_size + G.pagesize - 1;
-      allocation = xmalloc (alloc_size);
-      VALGRIND_MALLOCLIKE_BLOCK(addr, alloc_size, 0, 0);
-
-      page = (char *) (((size_t) allocation + G.pagesize - 1) & -G.pagesize);
-      head_slop = page - allocation;
-      if (multiple_pages)
-	tail_slop = ((size_t) allocation + alloc_size) & (G.pagesize - 1);
-      else
-	tail_slop = alloc_size - entry_size - head_slop;
-      enda = allocation + alloc_size - tail_slop;
-
-      /* We allocated N pages, which are likely not aligned, leaving
-	 us with N-1 usable pages.  We plan to place the page_group
-	 structure somewhere in the slop.  */
-      if (head_slop >= sizeof (page_group))
-	group = (page_group *)page - 1;
-      else
-	{
-	  /* We magically got an aligned allocation.  Too bad, we have
-	     to waste a page anyway.  */
-	  if (tail_slop == 0)
-	    {
-	      enda -= G.pagesize;
-	      tail_slop += G.pagesize;
-	    }
-	  if (tail_slop < sizeof (page_group))
-	    abort ();
-	  group = (page_group *)enda;
-	  tail_slop -= sizeof (page_group);
-	}
-
-      /* Remember that we allocated this memory.  */
-      group->next = G.page_groups;
-      group->allocation = allocation;
-      group->alloc_size = alloc_size;
-      group->in_use = 0;
-      zone->page_groups = group;
-      G.bytes_mapped += alloc_size;
-
-      /* If we allocated multiple pages, put the rest on the free list.  */
-      if (multiple_pages)
-	{
-	  struct page_entry *e, *f = G.free_pages;
-	  for (a = enda - G.pagesize; a != page; a -= G.pagesize)
-	    {
-	      e = (struct page_entry *) xmalloc (sizeof (struct page_entry));
-	      e->bytes = G.pagesize;
-	      e->page = a;
-	      e->group = group;
-	      e->next = f;
-	      f = e;
-	    }
-	  zone->free_pages = f;
-	}
-    }
-#endif
-
   if (entry == NULL)
     entry = (struct page_entry *) xmalloc (sizeof (struct page_entry));
 
   entry->next = 0;
   entry->bytes = G.pagesize;
-  entry->bytes_free = G.pagesize;
   entry->page = page;
   entry->context_depth = zone->context_depth;
   entry->large_p = false;
   entry->zone = zone;
   zone->context_depth_allocations |= (unsigned long)1 << zone->context_depth;
-
-#ifdef USING_MALLOC_PAGE_GROUPS
-  entry->group = group;
-  set_page_group_in_use (group, page);
-#endif
-
-  set_page_table_entry (page, entry);
 
   if (GGC_DEBUG_LEVEL >= 2)
     fprintf (G.debug_file,
@@ -712,6 +446,9 @@ alloc_small_page (struct alloc_zone *zone)
 
   return entry;
 }
+/* Compute the smallest multiple of F that is >= X.  */
+
+#define ROUND_UP(x, f) (CEIL (x, f) * (f))
 
 /* Allocate a large page of size SIZE in ZONE.  */
 
@@ -720,23 +457,17 @@ alloc_large_page (size_t size, struct alloc_zone *zone)
 {
   struct page_entry *entry;
   char *page;
-
+  size =  ROUND_UP (size, 1024);
   page = (char *) xmalloc (size + CHUNK_OVERHEAD + sizeof (struct page_entry));
   entry = (struct page_entry *) (page + size + CHUNK_OVERHEAD);
 
   entry->next = 0;
   entry->bytes = size;
-  entry->bytes_free = LARGE_OBJECT_SIZE + CHUNK_OVERHEAD;
   entry->page = page;
   entry->context_depth = zone->context_depth;
   entry->large_p = true;
   entry->zone = zone;
   zone->context_depth_allocations |= (unsigned long)1 << zone->context_depth;
-
-#ifdef USING_MALLOC_PAGE_GROUPS
-  entry->group = NULL;
-#endif
-  set_page_table_entry (page, entry);
 
   if (GGC_DEBUG_LEVEL >= 2)
     fprintf (G.debug_file,
@@ -757,8 +488,6 @@ free_page (page_entry *entry)
 	     "Deallocating %s page at %p, data %p-%p\n", entry->zone->name, (PTR) entry,
 	     entry->page, entry->page + entry->bytes - 1);
 
-  set_page_table_entry (entry->page, NULL);
-
   if (entry->large_p)
     {
       free (entry->page);
@@ -769,10 +498,6 @@ free_page (page_entry *entry)
       /* Mark the page as inaccessible.  Discard the handle to
 	 avoid handle leak.  */
       VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS (entry->page, entry->bytes));
-
-#ifdef USING_MALLOC_PAGE_GROUPS
-      clear_page_group_in_use (entry->group, entry->page);
-#endif
 
       entry->next = entry->zone->free_pages;
       entry->zone->free_pages = entry;
@@ -813,34 +538,6 @@ release_pages (struct alloc_zone *zone)
     }
 
   zone->free_pages = NULL;
-#endif
-#ifdef USING_MALLOC_PAGE_GROUPS
-  page_entry **pp, *p;
-  page_group **gp, *g;
-
-  /* Remove all pages from free page groups from the list.  */
-  pp = &(zone->free_pages);
-  while ((p = *pp) != NULL)
-    if (p->group->in_use == 0)
-      {
-	*pp = p->next;
-	free (p);
-      }
-    else
-      pp = &p->next;
-
-  /* Remove all free page groups, and release the storage.  */
-  gp = &(zone->page_groups);
-  while ((g = *gp) != NULL)
-    if (g->in_use == 0)
-      {
-	*gp = g->next;
-	zone->bytes_mapped -= g->alloc_size;
-	free (g->allocation);
-	VALGRIND_FREELIKE_BLOCK(g->allocation, 0);
-      }
-    else
-      gp = &g->next;
 #endif
 }
 
@@ -887,15 +584,16 @@ ggc_alloc_zone_1 (size_t size, struct alloc_zone *zone, short type)
   /* Large objects are handled specially.  */
   if (size >= G.pagesize - 2*CHUNK_OVERHEAD - FREE_BIN_DELTA)
     {
+      size = ROUND_UP (size, 1024);
       entry = alloc_large_page (size, zone);
       entry->survived = 0;
       entry->next = entry->zone->pages;
       entry->zone->pages = entry;
 
-
       chunk = (struct alloc_chunk *) entry->page;
       VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (chunk, sizeof (struct alloc_chunk)));
-      chunk->size = LARGE_OBJECT_SIZE;
+      chunk->large = 1;
+      chunk->size = CEIL (size, 1024);
 
       goto found;
     }
@@ -934,11 +632,13 @@ ggc_alloc_zone_1 (size_t size, struct alloc_zone *zone, short type)
       chunk = (struct alloc_chunk *) entry->page;
       VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (chunk, sizeof (struct alloc_chunk)));
       chunk->size = G.pagesize - CHUNK_OVERHEAD;
+      chunk->large = 0;
     }
   else
     {
       *pp = chunk->u.next_free;
       VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (chunk, sizeof (struct alloc_chunk)));
+      chunk->large = 0;
     }
   /* Release extra memory from a chunk that's too big.  */
   lsize = chunk->size - size;
@@ -956,6 +656,7 @@ ggc_alloc_zone_1 (size_t size, struct alloc_zone *zone, short type)
       lchunk->type = 0;
       lchunk->mark = 0;
       lchunk->size = lsize;
+      lchunk->large = 0;
       free_chunk (lchunk, lsize, zone);
     }
   /* Calculate the object's address.  */
@@ -995,20 +696,26 @@ ggc_alloc_zone_1 (size_t size, struct alloc_zone *zone, short type)
   return result;
 }
 
-/* Allocate a SIZE of chunk memory of GTE type, into an approriate zone
+/* Allocate a SIZE of chunk memory of GTE type, into an appropriate zone
    for that type.  */
 
 void *
 ggc_alloc_typed (enum gt_types_enum gte, size_t size)
 {
-  if (gte == gt_ggc_e_14lang_tree_node)
-    return ggc_alloc_zone_1 (size, tree_zone, gte);
-  else if (gte == gt_ggc_e_7rtx_def)
-    return ggc_alloc_zone_1 (size, rtl_zone, gte);
-  else if (gte == gt_ggc_e_9rtvec_def)
-    return ggc_alloc_zone_1 (size, rtl_zone, gte);
-  else
-    return ggc_alloc_zone_1 (size, &main_zone, gte);
+  switch (gte)
+    {
+    case gt_ggc_e_14lang_tree_node:
+      return ggc_alloc_zone_1 (size, tree_zone, gte);
+
+    case gt_ggc_e_7rtx_def:
+      return ggc_alloc_zone_1 (size, rtl_zone, gte);
+
+    case gt_ggc_e_9rtvec_def:
+      return ggc_alloc_zone_1 (size, rtl_zone, gte);
+
+    default:
+      return ggc_alloc_zone_1 (size, &main_zone, gte);
+    }
 }
 
 /* Normal ggc_alloc simply allocates into the main zone.  */
@@ -1034,16 +741,8 @@ ggc_alloc_zone (size_t size, struct alloc_zone *zone)
 int
 ggc_set_mark (const void *p)
 {
-  page_entry *entry;
   struct alloc_chunk *chunk;
 
-#ifdef ENABLE_CHECKING
-  /* Look up the page on which the object is alloced.  If the object
-     wasn't allocated by the collector, we'll probably die.  */
-  entry = lookup_page_table_entry (p);
-  if (entry == NULL)
-    abort ();
-#endif
   chunk = (struct alloc_chunk *) ((char *)p - CHUNK_OVERHEAD);
 #ifdef COOKIE_CHECKING
   if (chunk->magic != CHUNK_MAGIC)
@@ -1052,17 +751,6 @@ ggc_set_mark (const void *p)
   if (chunk->mark)
     return 1;
   chunk->mark = 1;
-
-#ifndef ENABLE_CHECKING
-  entry = lookup_page_table_entry (p);
-#endif
-
-  /* Large pages are either completely full or completely empty. So if
-     they are marked, they are completely full.  */
-  if (entry->large_p)
-    entry->bytes_free = 0;
-  else
-    entry->bytes_free -= chunk->size + CHUNK_OVERHEAD;
 
   if (GGC_DEBUG_LEVEL >= 4)
     fprintf (G.debug_file, "Marking %p\n", p);
@@ -1079,14 +767,6 @@ ggc_marked_p (const void *p)
 {
   struct alloc_chunk *chunk;
 
-#ifdef ENABLE_CHECKING
-  {
-    page_entry *entry = lookup_page_table_entry (p);
-    if (entry == NULL)
-      abort ();
-  }
-#endif
-
   chunk = (struct alloc_chunk *) ((char *)p - CHUNK_OVERHEAD);
 #ifdef COOKIE_CHECKING
   if (chunk->magic != CHUNK_MAGIC)
@@ -1101,52 +781,30 @@ size_t
 ggc_get_size (const void *p)
 {
   struct alloc_chunk *chunk;
-  struct page_entry *entry;
-
-#ifdef ENABLE_CHECKING
-  entry = lookup_page_table_entry (p);
-  if (entry == NULL)
-    abort ();
-#endif
 
   chunk = (struct alloc_chunk *) ((char *)p - CHUNK_OVERHEAD);
 #ifdef COOKIE_CHECKING
   if (chunk->magic != CHUNK_MAGIC)
     abort ();
 #endif
-  if (chunk->size == LARGE_OBJECT_SIZE)
-    {
-#ifndef ENABLE_CHECKING
-      entry = lookup_page_table_entry (p);
-#endif
-      return entry->bytes;
-    }
+  if (chunk->large)
+    return chunk->size * 1024;
 
   return chunk->size;
 }
 
 /* Initialize the ggc-zone-mmap allocator.  */
 void
-init_ggc ()
+init_ggc (void)
 {
-  /* Create the zones.  */
+  /* Set up the main zone by hand.  */
   main_zone.name = "Main zone";
   G.zones = &main_zone;
 
-  rtl_zone = xcalloc (1, sizeof (struct alloc_zone));
-  rtl_zone->name = "RTL zone";
-  /* The main zone's connected to the ... rtl_zone */
-  G.zones->next_zone = rtl_zone;
-
-  garbage_zone = xcalloc (1, sizeof (struct alloc_zone));
-  garbage_zone->name = "Garbage zone";
-  /* The rtl zone's connected to the ... garbage zone */
-  rtl_zone->next_zone = garbage_zone;
-
-  tree_zone = xcalloc (1, sizeof (struct alloc_zone));
-  tree_zone->name = "Tree zone";
-  /* The garbage zone's connected to ... the tree zone */
-  garbage_zone->next_zone = tree_zone;
+  /* Allocate the default zones.  */
+  rtl_zone = new_ggc_zone ("RTL zone");
+  tree_zone = new_ggc_zone ("Tree zone");
+  garbage_zone = new_ggc_zone ("Garbage zone");
 
   G.pagesize = getpagesize();
   G.lg_pagesize = exact_log2 (G.pagesize);
@@ -1191,11 +849,42 @@ init_ggc ()
 #endif
 }
 
+/* Start a new GGC zone.  */
+
+struct alloc_zone *
+new_ggc_zone (const char * name)
+{
+  struct alloc_zone *new_zone = xcalloc (1, sizeof (struct alloc_zone));
+  new_zone->name = name;
+  new_zone->next_zone = G.zones->next_zone;
+  G.zones->next_zone = new_zone;
+  return new_zone;
+}
+
+/* Destroy a GGC zone.  */
+void
+destroy_ggc_zone (struct alloc_zone * dead_zone)
+{
+  struct alloc_zone *z;
+
+  for (z = G.zones; z && z->next_zone != dead_zone; z = z->next_zone)
+    /* Just find that zone.  */ ;
+
+#ifdef ENABLE_CHECKING
+  /* We should have found the zone in the list.  Anything else is fatal.  */
+  if (!z)
+    abort ();
+#endif
+
+  /* z is dead, baby. z is dead.  */
+  z->dead= true;
+}
+
 /* Increment the `GC context'.  Objects allocated in an outer context
    are never freed, eliminating the need to register their roots.  */
 
 void
-ggc_push_context ()
+ggc_push_context (void)
 {
   struct alloc_zone *zone;
   for (zone = G.zones; zone; zone = zone->next_zone)
@@ -1228,22 +917,20 @@ ggc_pop_context_1 (struct alloc_zone *zone)
   /* Any remaining pages in the popped context are lowered to the new
      current context; i.e. objects allocated in the popped context and
      left over are imported into the previous context.  */
-    for (p = zone->pages; p != NULL; p = p->next)
-      if (p->context_depth > depth)
-	p->context_depth = depth;
+  for (p = zone->pages; p != NULL; p = p->next)
+    if (p->context_depth > depth)
+      p->context_depth = depth;
 }
 
 /* Pop all the zone contexts.  */
 
 void
-ggc_pop_context ()
+ggc_pop_context (void)
 {
   struct alloc_zone *zone;
   for (zone = G.zones; zone; zone = zone->next_zone)
     ggc_pop_context_1 (zone);
 }
-
-
 /* Poison the chunk.  */
 #ifdef ENABLE_GC_CHECKING
 #define poison_chunk(CHUNK, SIZE) \
@@ -1260,7 +947,7 @@ sweep_pages (struct alloc_zone *zone)
   page_entry **pp, *p, *next;
   struct alloc_chunk *chunk, *last_free, *end;
   size_t last_free_size, allocated = 0;
-
+  bool nomarksinpage;
   /* First, reset the free_chunks lists, since we are going to
      re-free free chunks in hopes of coalescing them into large chunks.  */
   memset (zone->free_chunks, 0, sizeof (zone->free_chunks));
@@ -1268,32 +955,27 @@ sweep_pages (struct alloc_zone *zone)
   for (p = zone->pages; p ; p = next)
     {
       next = p->next;
-
-      /* For empty pages, just free the page.  */
-      if (p->bytes_free == G.pagesize && p->context_depth == zone->context_depth)
+      /* Large pages are all or none affairs. Either they are
+	 completely empty, or they are completely full.
+	 
+	 XXX: Should we bother to increment allocated.  */
+      if (p->large_p)
 	{
-	  *pp = next;
+	  if (((struct alloc_chunk *)p->page)->mark == 1)
+	    {
+	      ((struct alloc_chunk *)p->page)->mark = 0;
+	    }
+	  else
+	    {
+	      *pp = next;
 #ifdef ENABLE_GC_CHECKING
 	  /* Poison the page.  */
 	  memset (p->page, 0xb5, p->bytes);
 #endif
-	  free_page (p);
+	      free_page (p);
+	    }
 	  continue;
 	}
-
-      /* Large pages are all or none affairs. Either they are
-	 completely empty, or they are completeley full.
-	 Thus, if the above didn't catch it, we need not do anything
-	 except remove the mark and reset the bytes_free.
-
-	 XXX: Should we bother to increment allocated.  */
-      else if (p->large_p)
-	{
-	  p->bytes_free = p->bytes;
-	  ((struct alloc_chunk *)p->page)->mark = 0;
-	  continue;
-	}
-      pp = &p->next;
 
       /* This page has now survived another collection.  */
       p->survived++;
@@ -1307,12 +989,13 @@ sweep_pages (struct alloc_zone *zone)
       end = (struct alloc_chunk *)(p->page + G.pagesize);
       last_free = NULL;
       last_free_size = 0;
-
+      nomarksinpage = true;
       do
 	{
 	  prefetch ((struct alloc_chunk *)(chunk->u.data + chunk->size));
 	  if (chunk->mark || p->context_depth < zone->context_depth)
 	    {
+	      nomarksinpage = false;
 	      if (last_free)
 		{
 		  last_free->type = 0;
@@ -1325,13 +1008,8 @@ sweep_pages (struct alloc_zone *zone)
 	      if (chunk->mark)
 	        {
 	          allocated += chunk->size + CHUNK_OVERHEAD;
- 	          p->bytes_free += chunk->size + CHUNK_OVERHEAD;
 		}
 	      chunk->mark = 0;
-#ifdef ENABLE_CHECKING
-	      if (p->bytes_free > p->bytes)
-		abort ();
-#endif
 	    }
 	  else
 	    {
@@ -1350,7 +1028,17 @@ sweep_pages (struct alloc_zone *zone)
 	}
       while (chunk < end);
 
-      if (last_free)
+      if (nomarksinpage)
+	{
+	  *pp = next;
+#ifdef ENABLE_GC_CHECKING
+	  /* Poison the page.  */
+	  memset (p->page, 0xb5, p->bytes);
+#endif
+	  free_page (p);
+	  continue;
+	}
+      else if (last_free)
 	{
 	  last_free->type = 0;
 	  last_free->size = last_free_size;
@@ -1358,6 +1046,7 @@ sweep_pages (struct alloc_zone *zone)
 	  poison_chunk (last_free, last_free_size);
 	  free_chunk (last_free, last_free_size, zone);
 	}
+      pp = &p->next;
     }
 
   zone->allocated = allocated;
@@ -1371,19 +1060,24 @@ sweep_pages (struct alloc_zone *zone)
 static bool
 ggc_collect_1 (struct alloc_zone *zone, bool need_marking)
 {
-  /* Avoid frequent unnecessary work by skipping collection if the
-     total allocations haven't expanded much since the last
-     collection.  */
-  float allocated_last_gc =
-    MAX (zone->allocated_last_gc, (size_t)PARAM_VALUE (GGC_MIN_HEAPSIZE) * 1024);
+  if (!zone->dead)
+    {
+      /* Avoid frequent unnecessary work by skipping collection if the
+	 total allocations haven't expanded much since the last
+	 collection.  */
+      float allocated_last_gc =
+	MAX (zone->allocated_last_gc,
+	     (size_t) PARAM_VALUE (GGC_MIN_HEAPSIZE) * 1024);
 
-  float min_expand = allocated_last_gc * PARAM_VALUE (GGC_MIN_EXPAND) / 100;
+      float min_expand = allocated_last_gc * PARAM_VALUE (GGC_MIN_EXPAND) / 100;
 
-  if (zone->allocated < allocated_last_gc + min_expand)
-    return false;
+      if (zone->allocated < allocated_last_gc + min_expand)
+	return false;
+    }
 
   if (!quiet_flag)
-    fprintf (stderr, " {%s GC %luk -> ", zone->name, (unsigned long) zone->allocated / 1024);
+    fprintf (stderr, " {%s GC %luk -> ",
+	     zone->name, (unsigned long) zone->allocated / 1024);
 
   /* Zero the total allocated bytes.  This will be recalculated in the
      sweep phase.  */
@@ -1401,7 +1095,6 @@ ggc_collect_1 (struct alloc_zone *zone, bool need_marking)
   sweep_pages (zone);
   zone->was_collected = true;
   zone->allocated_last_gc = zone->allocated;
-
 
   if (!quiet_flag)
     fprintf (stderr, "%luk}", (unsigned long) zone->allocated / 1024);
@@ -1430,10 +1123,12 @@ calculate_average_page_survival (struct alloc_zone *zone)
    structures.  */
 
 static inline void
-check_cookies ()
+check_cookies (void)
 {
 #ifdef COOKIE_CHECKING
   page_entry *p;
+  struct alloc_zone *zone;
+
   for (zone = G.zones; zone; zone = zone->next_zone)
     {
       for (p = zone->pages; p; p = p->next)
@@ -1454,12 +1149,10 @@ check_cookies ()
     }
 #endif
 }
-
-
 /* Top level collection routine.  */
 
 void
-ggc_collect ()
+ggc_collect (void)
 {
   struct alloc_zone *zone;
   bool marked = false;
@@ -1470,6 +1163,7 @@ ggc_collect ()
   /* Start by possibly collecting the main zone.  */
   main_zone.was_collected = false;
   marked |= ggc_collect_1 (&main_zone, true);
+
   /* In order to keep the number of collections down, we don't
      collect other zones unless we are collecting the main zone.  This
      gives us roughly the same number of collections as we used to
@@ -1481,36 +1175,30 @@ ggc_collect ()
 
   if (main_zone.was_collected)
     {
-      check_cookies ();
-      rtl_zone->was_collected = false;
-      marked |= ggc_collect_1 (rtl_zone, !marked);
-      check_cookies ();
-      tree_zone->was_collected = false;
-      marked |= ggc_collect_1 (tree_zone, !marked);
-      check_cookies ();
-      garbage_zone->was_collected = false;
-      marked |= ggc_collect_1 (garbage_zone, !marked);
+      struct alloc_zone *zone;
+
+      for (zone = main_zone.next_zone; zone; zone = zone->next_zone)
+	{
+	  check_cookies ();
+	  zone->was_collected = false;
+	  marked |= ggc_collect_1 (zone, !marked);
+	}
     }
 
   /* Print page survival stats, if someone wants them.  */
   if (GGC_DEBUG_LEVEL >= 2)
     {
-      if (rtl_zone->was_collected)
+      for (zone = G.zones; zone; zone = zone->next_zone)
 	{
-	  f = calculate_average_page_survival (rtl_zone);
-	  printf ("Average RTL page survival is %f\n", f);
-	}
-      if (main_zone.was_collected)
-	{
-	  f = calculate_average_page_survival (&main_zone);
-	  printf ("Average main page survival is %f\n", f);
-	}
-      if (tree_zone->was_collected)
-	{
-	  f = calculate_average_page_survival (tree_zone);
-	  printf ("Average tree page survival is %f\n", f);
+	  if (zone->was_collected)
+	    {
+	      f = calculate_average_page_survival (zone);
+	      printf ("Average page survival in zone `%s' is %f\n",
+		      zone->name, f);
+	    }
 	}
     }
+
   /* Since we don't mark zone at a time right now, marking in any
      zone means marking in every zone. So we have to clear all the
      marks in all the zones that weren't collected already.  */
@@ -1532,12 +1220,6 @@ ggc_collect ()
 		    prefetch ((struct alloc_chunk *)(chunk->u.data + chunk->size));
 		    if (chunk->mark || p->context_depth < zone->context_depth)
 		      {
-		        if (chunk->mark)
-		 	  p->bytes_free += chunk->size + CHUNK_OVERHEAD;
-#ifdef ENABLE_CHECKING
-			if (p->bytes_free > p->bytes)
-			  abort ();
-#endif
 			chunk->mark = 0;
 		      }
 		    chunk = (struct alloc_chunk *)(chunk->u.data + chunk->size);
@@ -1546,19 +1228,39 @@ ggc_collect ()
 	      }
 	    else
 	      {
-		p->bytes_free = p->bytes;
 		((struct alloc_chunk *)p->page)->mark = 0;
 	      }
 	  }
       }
     }
+
+  /* Free dead zones.  */
+  for (zone = G.zones; zone && zone->next_zone; zone = zone->next_zone)
+    {
+      if (zone->next_zone->dead)
+	{
+	  struct alloc_zone *dead_zone = zone->next_zone;
+
+	  printf ("Zone `%s' is dead and will be freed.\n", dead_zone->name);
+
+	  /* The zone must be empty.  */
+	  if (dead_zone->allocated != 0)
+	    abort ();
+
+	  /* Unchain the dead zone, release all its pages and free it.  */
+	  zone->next_zone = zone->next_zone->next_zone;
+	  release_pages (dead_zone);
+	  free (dead_zone);
+	}
+    }
+
   timevar_pop (TV_GC);
 }
 
 /* Print allocation statistics.  */
 
 void
-ggc_print_statistics ()
+ggc_print_statistics (void)
 {
 }
 
@@ -1570,7 +1272,6 @@ struct ggc_pch_data
   } d;
   size_t base;
   size_t written;
-
 };
 
 /* Initialize the PCH datastructure.  */
@@ -1622,7 +1323,7 @@ ggc_pch_alloc_object (struct ggc_pch_data *d, void *x,
   if (!is_string)
     {
       struct alloc_chunk *chunk = (struct alloc_chunk *) ((char *)x - CHUNK_OVERHEAD);
-      if (chunk->size == LARGE_OBJECT_SIZE)
+      if (chunk->large)
 	d->base += ggc_get_size (x) + CHUNK_OVERHEAD;
       else
 	d->base += chunk->size + CHUNK_OVERHEAD;
@@ -1655,7 +1356,7 @@ ggc_pch_write_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
   if (!is_string)
     {
       struct alloc_chunk *chunk = (struct alloc_chunk *) ((char *)x - CHUNK_OVERHEAD);
-      size = chunk->size;
+      size = ggc_get_size (x);
       if (fwrite (chunk, size + CHUNK_OVERHEAD, 1, f) != 1)
 	fatal_error ("can't write PCH file: %m");
       d->written += size + CHUNK_OVERHEAD;
@@ -1678,24 +1379,20 @@ ggc_pch_finish (struct ggc_pch_data *d, FILE *f)
     fatal_error ("can't write PCH file: %m");
   free (d);
 }
-
-
 void
 ggc_pch_read (FILE *f, void *addr)
 {
   struct ggc_pch_ondisk d;
   struct page_entry *entry;
-  char *pte;
+  struct alloc_zone *pch_zone;
   if (fread (&d, sizeof (d), 1, f) != 1)
     fatal_error ("can't read PCH file: %m");
   entry = xcalloc (1, sizeof (struct page_entry));
   entry->bytes = d.total;
   entry->page = addr;
   entry->context_depth = 0;
-  entry->zone = &main_zone;
-  for (pte = entry->page;
-       pte < entry->page + entry->bytes;
-       pte += G.pagesize)
-    set_page_table_entry (pte, entry);
-
+  pch_zone = new_ggc_zone ("PCH zone");
+  entry->zone = pch_zone;
+  entry->next = entry->zone->pages;
+  entry->zone->pages = entry;
 }

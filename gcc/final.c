@@ -1,6 +1,6 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -111,6 +111,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define HAVE_READONLY_DATA_SECTION 0
 #endif
 
+/* Bitflags used by final_scan_insn.  */
+#define SEEN_BB		1
+#define SEEN_NOTE	2
+#define SEEN_EMITTED	4
+
 /* Last insn processed by final_scan_insn.  */
 static rtx debug_insn;
 rtx current_output_insn;
@@ -170,9 +175,15 @@ CC_STATUS cc_prev_status;
 
 char regs_ever_live[FIRST_PSEUDO_REGISTER];
 
+/* Like regs_ever_live, but 1 if a reg is set or clobbered from an asm.
+   Unlike regs_ever_live, elements of this array corresponding to
+   eliminable regs like the frame pointer are set if an asm sets them.  */
+
+char regs_asm_clobbered[FIRST_PSEUDO_REGISTER];
+
 /* Nonzero means current function must be given a frame pointer.
-   Set in stmt.c if anything is allocated on the stack there.
-   Set in reload1.c if anything is allocated on the stack there.  */
+   Initialized in function.c to 0.  Set only in reload1.c as per
+   the needs of the function.  */
 
 int frame_pointer_needed;
 
@@ -194,10 +205,6 @@ rtx final_sequence;
 /* Number of the assembler dialect to use, starting at 0.  */
 static int dialect_number;
 #endif
-
-/* Indexed by line number, nonzero if there is a note for that line.  */
-
-static char *line_note_exists;
 
 #ifdef HAVE_conditional_execution
 /* Nonnull if the insn currently being emitted was a COND_EXEC pattern.  */
@@ -667,7 +674,7 @@ compute_alignments (void)
 
   FOR_EACH_BB (bb)
     {
-      rtx label = bb->head;
+      rtx label = BB_HEAD (bb);
       int fallthru_frequency = 0, branch_frequency = 0, has_fallthru = 0;
       edge e;
 
@@ -729,12 +736,6 @@ compute_alignments (void)
 
 /* Make a pass over all insns and compute their actual lengths by shortening
    any branches of variable length if possible.  */
-
-/* Give a default value for the lowest address in a function.  */
-
-#ifndef FIRST_INSN_ADDRESS
-#define FIRST_INSN_ADDRESS 0
-#endif
 
 /* shorten_branches might be called multiple times:  for example, the SH
    port splits out-of-range conditional branches in MACHINE_DEPENDENT_REORG.
@@ -965,7 +966,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 #endif /* CASE_VECTOR_SHORTEN_MODE */
 
   /* Compute initial lengths, addresses, and varying flags for each insn.  */
-  for (insn_current_address = FIRST_INSN_ADDRESS, insn = first;
+  for (insn_current_address = 0, insn = first;
        insn != 0;
        insn_current_address += insn_lengths[uid], insn = NEXT_INSN (insn))
     {
@@ -1066,7 +1067,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
     {
       something_changed = 0;
       insn_current_align = MAX_CODE_ALIGN - 1;
-      for (insn_current_address = FIRST_INSN_ADDRESS, insn = first;
+      for (insn_current_address = 0, insn = first;
 	   insn != 0;
 	   insn = NEXT_INSN (insn))
 	{
@@ -1336,19 +1337,6 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
 
   this_is_asm_operands = 0;
 
-#ifdef NON_SAVING_SETJMP
-  /* A function that calls setjmp should save and restore all the
-     call-saved registers on a system where longjmp clobbers them.  */
-  if (NON_SAVING_SETJMP && current_function_calls_setjmp)
-    {
-      int i;
-
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (!call_used_regs[i])
-	  regs_ever_live[i] = 1;
-    }
-#endif
-
   last_filename = locator_file (prologue_locator);
   last_linenum = locator_line (prologue_locator);
 
@@ -1356,7 +1344,7 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
 
   (*debug_hooks->begin_prologue) (last_linenum, last_filename);
 
-#if defined (DWARF2_UNWIND_INFO) || defined (IA64_UNWIND_INFO)
+#if defined (DWARF2_UNWIND_INFO) || defined (TARGET_UNWIND_INFO)
   if (write_symbols != DWARF2_DEBUG && write_symbols != VMS_AND_DWARF2_DEBUG)
     dwarf2out_begin_prologue (0, NULL);
 #endif
@@ -1437,7 +1425,7 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
   function_section (current_function_decl);
 
 #if defined(ASM_OUTPUT_REG_PUSH)
-  if (sval && GET_CODE (svrtx) == REG)
+  if (sval && svrtx != NULL_RTX && GET_CODE (svrtx) == REG)
     ASM_OUTPUT_REG_PUSH (file, REGNO (svrtx));
 #endif
 
@@ -1468,7 +1456,7 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
 #endif
 
 #if defined(ASM_OUTPUT_REG_PUSH)
-  if (sval && GET_CODE (svrtx) == REG)
+  if (sval && svrtx != NULL_RTX && GET_CODE (svrtx) == REG)
     ASM_OUTPUT_REG_POP (file, REGNO (svrtx));
 #endif
 }
@@ -1513,16 +1501,15 @@ void
 final (rtx first, FILE *file, int optimize, int prescan)
 {
   rtx insn;
-  int max_line = 0;
   int max_uid = 0;
+  int seen = 0;
 
   last_ignored_compare = 0;
 
-  /* Make a map indicating which line numbers appear in this function.
-     When producing SDB debugging info, delete troublesome line number
+#ifdef SDB_DEBUGGING_INFO
+  /* When producing SDB debugging info, delete troublesome line number
      notes from inlined functions in other files as well as duplicate
      line number notes.  */
-#ifdef SDB_DEBUGGING_INFO
   if (write_symbols == SDB_DEBUG)
     {
       rtx last = 0;
@@ -1531,34 +1518,22 @@ final (rtx first, FILE *file, int optimize, int prescan)
 	  {
 	    if ((RTX_INTEGRATED_P (insn)
 		 && strcmp (NOTE_SOURCE_FILE (insn), main_input_filename) != 0)
-		 || (last != 0
-		     && NOTE_LINE_NUMBER (insn) == NOTE_LINE_NUMBER (last)
-		     && NOTE_SOURCE_FILE (insn) == NOTE_SOURCE_FILE (last)))
+		|| (last != 0
+		    && NOTE_LINE_NUMBER (insn) == NOTE_LINE_NUMBER (last)
+		    && NOTE_SOURCE_FILE (insn) == NOTE_SOURCE_FILE (last)))
 	      {
 		delete_insn (insn);	/* Use delete_note.  */
 		continue;
 	      }
 	    last = insn;
-	    if (NOTE_LINE_NUMBER (insn) > max_line)
-	      max_line = NOTE_LINE_NUMBER (insn);
 	  }
     }
-  else
 #endif
-    {
-      for (insn = first; insn; insn = NEXT_INSN (insn))
-	if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > max_line)
-	  max_line = NOTE_LINE_NUMBER (insn);
-    }
-
-  line_note_exists = xcalloc (max_line + 1, sizeof (char));
 
   for (insn = first; insn; insn = NEXT_INSN (insn))
     {
       if (INSN_UID (insn) > max_uid)       /* Find largest UID.  */
 	max_uid = INSN_UID (insn);
-      if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > 0)
-	line_note_exists[NOTE_LINE_NUMBER (insn)] = 1;
 #ifdef HAVE_cc0
       /* If CC tracking across branches is enabled, record the insn which
 	 jumps to each branch only reached from one place.  */
@@ -1594,27 +1569,23 @@ final (rtx first, FILE *file, int optimize, int prescan)
 	insn_current_address = INSN_ADDRESSES (INSN_UID (insn));
 #endif /* HAVE_ATTR_length */
 
-      insn = final_scan_insn (insn, file, optimize, prescan, 0);
+      insn = final_scan_insn (insn, file, optimize, prescan, 0, &seen);
     }
-
-  free (line_note_exists);
-  line_note_exists = NULL;
 }
 
 const char *
 get_insn_template (int code, rtx insn)
 {
-  const void *output = insn_data[code].output;
   switch (insn_data[code].output_format)
     {
     case INSN_OUTPUT_FORMAT_SINGLE:
-      return (const char *) output;
+      return insn_data[code].output.single;
     case INSN_OUTPUT_FORMAT_MULTI:
-      return ((const char *const *) output)[which_alternative];
+      return insn_data[code].output.multi[which_alternative];
     case INSN_OUTPUT_FORMAT_FUNCTION:
       if (insn == NULL)
 	abort ();
-      return (*(insn_output_fn) output) (recog_data.operand, insn);
+      return (*insn_data[code].output.function) (recog_data.operand, insn);
 
     default:
       abort ();
@@ -1658,11 +1629,18 @@ output_alternate_entry_point (FILE *file, rtx insn)
    Value returned is the next insn to be scanned.
 
    NOPEEPHOLES is the flag to disallow peephole processing (currently
-   used for within delayed branch sequence output).  */
+   used for within delayed branch sequence output).
+
+   SEEN is used to track the end of the prologue, for emitting
+   debug information.  We force the emission of a line note after
+   both NOTE_INSN_PROLOGUE_END and NOTE_INSN_FUNCTION_BEG, or
+   at the beginning of the second basic block, whichever comes
+   first.  */
 
 rtx
 final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
-		 int prescan, int nopeepholes ATTRIBUTE_UNUSED)
+		 int prescan, int nopeepholes ATTRIBUTE_UNUSED,
+		 int *seen)
 {
 #ifdef HAVE_cc0
   rtx set;
@@ -1695,12 +1673,21 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_BASIC_BLOCK:
-#ifdef IA64_UNWIND_INFO
-	  IA64_UNWIND_EMIT (asm_out_file, insn);
+#ifdef TARGET_UNWIND_INFO
+	  targetm.asm_out.unwind_emit (asm_out_file, insn);
 #endif
 	  if (flag_debug_asm)
 	    fprintf (asm_out_file, "\t%s basic block %d\n",
 		     ASM_COMMENT_START, NOTE_BASIC_BLOCK (insn)->index);
+
+	  if ((*seen & (SEEN_EMITTED | SEEN_BB)) == SEEN_BB)
+	    {
+	      *seen |= SEEN_EMITTED;
+	      last_filename = NULL;
+	    }
+	  else
+	    *seen |= SEEN_BB;
+
 	  break;
 
 	case NOTE_INSN_EH_REGION_BEG:
@@ -1716,6 +1703,15 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	case NOTE_INSN_PROLOGUE_END:
 	  (*targetm.asm_out.function_end_prologue) (file);
 	  profile_after_prologue (file);
+
+	  if ((*seen & (SEEN_EMITTED | SEEN_NOTE)) == SEEN_NOTE)
+	    {
+	      *seen |= SEEN_EMITTED;
+	      last_filename = NULL;
+	    }
+	  else
+	    *seen |= SEEN_NOTE;
+
 	  break;
 
 	case NOTE_INSN_EPILOGUE_BEG:
@@ -1725,6 +1721,15 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	case NOTE_INSN_FUNCTION_BEG:
 	  app_disable ();
 	  (*debug_hooks->end_prologue) (last_linenum, last_filename);
+
+	  if ((*seen & (SEEN_EMITTED | SEEN_NOTE)) == SEEN_NOTE)
+	    {
+	      *seen |= SEEN_EMITTED;
+	      last_filename = NULL;
+	    }
+	  else
+	    *seen |= SEEN_NOTE;
+
 	  break;
 
 	case NOTE_INSN_BLOCK_BEG:
@@ -1847,10 +1852,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
       if (prescan > 0)
 	break;
 
-#ifdef FINAL_PRESCAN_LABEL
-      FINAL_PRESCAN_INSN (insn, NULL, 0);
-#endif
-
       if (LABEL_NAME (insn))
 	(*debug_hooks->label) (insn);
 
@@ -1918,7 +1919,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	/* An INSN, JUMP_INSN or CALL_INSN.
 	   First check for special kinds that recog doesn't recognize.  */
 
-	if (GET_CODE (body) == USE /* These are just declarations */
+	if (GET_CODE (body) == USE /* These are just declarations.  */
 	    || GET_CODE (body) == CLOBBER)
 	  break;
 
@@ -2102,7 +2103,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	       thought unnecessary.  If that happens, cancel this sequence
 	       and cause that insn to be restored.  */
 
-	    next = final_scan_insn (XVECEXP (body, 0, 0), file, 0, prescan, 1);
+	    next = final_scan_insn (XVECEXP (body, 0, 0), file, 0, prescan, 1, seen);
 	    if (next != XVECEXP (body, 0, 1))
 	      {
 		final_sequence = 0;
@@ -2116,7 +2117,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		/* We loop in case any instruction in a delay slot gets
 		   split.  */
 		do
-		  insn = final_scan_insn (insn, file, 0, prescan, 1);
+		  insn = final_scan_insn (insn, file, 0, prescan, 1, seen);
 		while (insn != next);
 	      }
 #ifdef DBR_OUTPUT_SEQEND
@@ -2153,10 +2154,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	if (optimize)
 	  {
-#if 0
-	    rtx set = single_set (insn);
-#endif
-
 	    if (set
 		&& GET_CODE (SET_DEST (set)) == CC0
 		&& insn != last_ignored_compare)
@@ -2324,7 +2321,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 		for (note = NEXT_INSN (insn); note != next;
 		     note = NEXT_INSN (note))
-		  final_scan_insn (note, file, optimize, prescan, nopeepholes);
+		  final_scan_insn (note, file, optimize, prescan, nopeepholes, seen);
 
 		/* In case this is prescan, put the notes
 		   in proper position for later rescan.  */
@@ -2444,11 +2441,14 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	if (prescan > 0)
 	  break;
 
-#ifdef IA64_UNWIND_INFO
-	IA64_UNWIND_EMIT (asm_out_file, insn);
+#ifdef TARGET_UNWIND_INFO
+	/* ??? This will put the directives in the wrong place if
+	   get_insn_template outputs assembly directly.  However calling it
+	   before get_insn_template breaks if the insns is split.  */
+	targetm.asm_out.unwind_emit (asm_out_file, insn);
 #endif
-	/* Output assembler code from the template.  */
 
+	/* Output assembler code from the template.  */
 	output_asm_insn (template, recog_data.operand);
 
 	/* If necessary, report the effect that the instruction has on
@@ -3794,7 +3794,7 @@ leaf_renumber_regs_insn (rtx in_rtx)
    calls into this file, i.e., dbxout_symbol, dbxout_parms, and dbxout_reg_params.
    Those routines may also be called from a higher level intercepted routine. So
    to prevent recording data for an inner call to one of these for an intercept,
-   we maintain a intercept nesting counter (debug_nesting). We only save the
+   we maintain an intercept nesting counter (debug_nesting). We only save the
    intercepted arguments if the nesting is 1.  */
 int debug_nesting = 0;
 

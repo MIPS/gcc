@@ -1,6 +1,6 @@
 // Stream buffer classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -56,8 +56,7 @@ namespace std
   */
   template<typename _CharT, typename _Traits>
     streamsize
-    __copy_streambufs(basic_ios<_CharT, _Traits>& _ios,
-		      basic_streambuf<_CharT, _Traits>* __sbin,
+    __copy_streambufs(basic_streambuf<_CharT, _Traits>* __sbin,
 		      basic_streambuf<_CharT, _Traits>* __sbout);
   
   /**
@@ -153,8 +152,8 @@ namespace std
       friend class ostreambuf_iterator<char_type, traits_type>;
 
       friend streamsize
-      __copy_streambufs<>(basic_ios<char_type, traits_type>& __ios,
-			  __streambuf_type* __sbin,__streambuf_type* __sbout);
+      __copy_streambufs<>(__streambuf_type* __sbin,
+			  __streambuf_type* __sbout);
       
     protected:
       //@{
@@ -200,6 +199,7 @@ namespace std
       {
 	locale __tmp(this->getloc());
 	this->imbue(__loc);
+	_M_buf_locale = __loc;
 	return __tmp;
       }
 
@@ -538,15 +538,13 @@ namespace std
        *  are changed by this call.  The standard adds, "Between invocations
        *  of this function a class derived from streambuf can safely cache
        *  results of calls to locale functions and to members of facets
-       *  so obtained."  This function simply stores the new locale for use
-       *  by derived classes.
+       *  so obtained."
+       *
+       *  @note  Base class version does nothing.
       */
       virtual void 
-      imbue(const locale& __loc) 
-      { 
-	if (_M_buf_locale != __loc)
-	  _M_buf_locale = __loc;
-      }
+      imbue(const locale&) 
+      { }
 
       // [27.5.2.4.2] buffer management and positioning
       /**
@@ -764,10 +762,15 @@ namespace std
       }
 #endif
 
-    // _GLIBCXX_RESOLVE_LIB_DEFECTS
-    // Side effect of DR 50. 
     private:
-      basic_streambuf(const __streambuf_type&) { }; 
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // Side effect of DR 50. 
+      basic_streambuf(const __streambuf_type& __sb)
+      : _M_in_beg(__sb._M_in_beg), _M_in_cur(__sb._M_in_cur), 
+      _M_in_end(__sb._M_in_end), _M_out_beg(__sb._M_out_beg), 
+      _M_out_cur(__sb._M_out_cur), _M_out_end(__sb._M_out_cur),
+      _M_buf_locale(__sb._M_buf_locale) 
+      { }
 
       __streambuf_type& 
       operator=(const __streambuf_type&) { return *this; };

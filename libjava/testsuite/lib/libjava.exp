@@ -109,10 +109,11 @@ proc bytecompile_file { file objdir {classpath {}} } {
     }
     set here [pwd]
     cd $dirname
+    send_log "byte compile: $javac [list $file] -d $objdir 2>@ stdout\n"
     if {[catch {
 	set q [eval exec "$javac [list $file] -d $objdir 2>@ stdout"]
     } msg]} then {
-	verbose "couldn't compile $file: $msg"
+	send_log "couldn't compile $file: $msg\n"
 	set r 0
     } else {
 	set r 1
@@ -137,6 +138,7 @@ proc libjava_init { args } {
     global env libgcj_jar
     global tool_root_dir
     global libjava_libgcc_s_path
+    global target_triplet
 
     if { $libjava_initialized == 1 } { return; }
 
@@ -173,12 +175,20 @@ proc libjava_init { args } {
 
     if [info exists env(LD_LIBRARY_PATH)] {
 	set original_ld_library_path $env(LD_LIBRARY_PATH)
+	# For HP-UX.
+    } elseif [info exists env(SHLIB_PATH)] {
+	set original_ld_library_path $env(SHLIB_PATH)
+	# For Darwin.
+    } elseif [info exists env(DYLD_LIBRARY_PATH)] {
+	set original_ld_library_path $env(DYLD_LIBRARY_PATH)
+	# For Solaris 32 bit.
+    } elseif [info exists env(LD_LIBRARY_PATH_32)] {
+	set original_ld_library_path $env(LD_LIBRARY_PATH_32)
+	# For Solaris 64 bit.
+    } elseif [info exists env(LD_LIBRARY_PATH_64)] {
+	set original_ld_library_path $env(LD_LIBRARY_PATH_64)
     } else {
-	if [info exists env(SHLIB_PATH)] {
-	    set original_ld_library_path $env(SHLIB_PATH)
-	} else {
-	    set original_ld_library_path ""
-	}
+	set original_ld_library_path ""
     }
 
     set wrapper_file "";
@@ -196,7 +206,13 @@ proc libjava_init { args } {
     # Finally, add the gcc build directory so that we can find the
     # shared libgcc.  This, like much of dejagnu, is hideous.
     set libjava_libgcc_s_path {}
-    set gccdir [lookfor_file $tool_root_dir gcc/libgcc_s.so]
+    
+    if { [string match "powerpc-*-darwin*" $target_triplet] } {
+	set so_extension "dylib"
+    } else {
+	set so_extension "so"
+    }
+    set gccdir [lookfor_file $tool_root_dir gcc/libgcc_s.${so_extension}]
     if {$gccdir != ""} {
 	set gccdir [file dirname $gccdir]
 	lappend libjava_libgcc_s_path $gccdir
@@ -210,7 +226,7 @@ proc libjava_init { args } {
 		if { "$mldir" == "." } {
 		    continue
 		}
-		if { [llength [glob -nocomplain ${gccdir}/${mldir}/libgcc_s*.so.*]] == 1 } {
+		if { [llength [glob -nocomplain ${gccdir}/${mldir}/libgcc_s*.${so_extension}.*]] >= 1 } {
 		    lappend libjava_libgcc_s_path "${gccdir}/${mldir}"
 		}
 	    }
@@ -228,7 +244,7 @@ proc libjava_init { args } {
 # paths.  However we can't simply use those libraries; we still need
 # libtool for linking.
 # Don't return the the lib${name}.la files here, since this causes the
-# libraries to be linked twice: once as lib${name}.so and another time
+# libraries to be linked twice: once as lib${name}.so/dylib and another time
 # via gcj's implicit -l${name}.  This is both unnecessary and causes the
 # Solaris ld to warn: attempted multiple inclusion of file.  This warning
 # is not ignored by the dejagnu framework and cannot be disabled.
@@ -351,7 +367,6 @@ proc libjava_arguments {{mode compile}} {
     # Set variables the dynamic linker looks at.
     global original_ld_library_path
     setenv LD_LIBRARY_PATH "$ld_library_path:$original_ld_library_path"
-    setenv SHLIB_PATH "$ld_library_path:$original_ld_library_path"
 
     verbose "LD_LIBRARY_PATH = $env(LD_LIBRARY_PATH)"
 
@@ -401,9 +416,13 @@ proc libjava_arguments {{mode compile}} {
     # Avoid libtool wrapper scripts when possible.
     # but not if libtool warnings results in FAILs
     if {$mode == "link"} {
-        if {! [istarget "*-*-cygwin*"] && ! [istarget "*-*-mingw*"] } {
-            lappend args "additional_flags=-no-install"
-        }
+	if {! [istarget "*-*-cygwin*"] && ! [istarget "*-*-mingw*"] } {
+	    lappend args "additional_flags=-no-install"
+	}
+	if { [istarget "*-*-darwin*"] } {
+	    lappend args "additional_flags=-bind_at_load"
+	    lappend args "additional_flags=-multiply_defined suppress"
+	}
     }
 
     return $args
@@ -443,7 +462,6 @@ proc gcj_invoke {program expectFile ld_library_additions} {
   append newval :$lib_path
 
   setenv LD_LIBRARY_PATH $newval
-  setenv SHLIB_PATH $newval
 
   verbose "LD_LIBRARY_PATH=$env(LD_LIBRARY_PATH)"
 
@@ -453,7 +471,6 @@ proc gcj_invoke {program expectFile ld_library_additions} {
 
   # Restore setting
   setenv LD_LIBRARY_PATH $lib_path
-  setenv SHLIB_PATH $lib_path
 
   if {$status != "pass"} {
     verbose "got $output"
@@ -890,12 +907,17 @@ proc default_libjava_start { } {
 # called LD_LIBRARYN32_PATH (for the N32 ABI) and LD_LIBRARY64_PATH
 # (for the 64-bit ABI).  The right way to do this would be to modify
 # unix.exp -- but that's not an option since it's part of DejaGNU
-# proper, so we do it here, by trickery.  We really only need to do 
-# this on IRIX, but it shouldn't hurt to do it anywhere else.
-
+# proper, so we do it here, by trickery.
+# The same applies to darwin (DYLD_LIBRARY_PATH), solaris 32 bit
+# (LD_LIBRARY_PATH_32), solaris 64 bit (LD_LIBRARY_PATH_64), and HP-UX
+# (SHLIB_PATH).
 proc ${tool}_set_ld_library_path { name element op } {
   setenv LD_LIBRARYN32_PATH [getenv LD_LIBRARY_PATH]
   setenv LD_LIBRARY64_PATH [getenv LD_LIBRARY_PATH]
+  setenv SHLIB_PATH [getenv LD_LIBRARY_PATH]
+  setenv DYLD_LIBRARY_PATH [getenv LD_LIBRARY_PATH]
+  setenv LD_LIBRARY_PATH_32 [getenv LD_LIBRARY_PATH]
+  setenv LD_LIBRARY_PATH_64 [getenv LD_LIBRARY_PATH]
 }
 
 trace variable env(LD_LIBRARY_PATH) w ${tool}_set_ld_library_path

@@ -65,6 +65,7 @@ with Sinfo;    use Sinfo;
 with Snames;   use Snames;
 with Stand;    use Stand;
 with Tbuild;   use Tbuild;
+with Ttypes;   use Ttypes;
 with Uintp;    use Uintp;
 with Validsw;  use Validsw;
 
@@ -539,9 +540,15 @@ package body Exp_Ch6 is
 
          if Nkind (Actual) = N_Type_Conversion then
             V_Typ := Etype (Expression (Actual));
-            Var   := Make_Var (Expression (Actual));
-            Crep  := not Same_Representation
-                       (Etype (Formal), Etype (Expression (Actual)));
+
+            --  If the formal is an (in-)out parameter, capture the name
+            --  of the variable in order to build the post-call assignment.
+
+            Var := Make_Var (Expression (Actual));
+
+            Crep := not Same_Representation
+                          (Etype (Formal), Etype (Expression (Actual)));
+
          else
             V_Typ := Etype (Actual);
             Var   := Make_Var (Actual);
@@ -1521,8 +1528,16 @@ package body Exp_Ch6 is
          if Validity_Checks_On then
             if Ekind (Formal) = E_In_Parameter
               and then Validity_Check_In_Params
-              and then Is_Entity_Name (Actual)
             then
+               --  If the actual is an indexed component of a packed
+               --  type, it has not been expanded yet. It will be
+               --  copied in the validity code that follows, and has
+               --  to be expanded appropriately, so reanalyze it.
+
+               if Nkind (Actual) = N_Indexed_Component then
+                  Set_Analyzed (Actual, False);
+               end if;
+
                Ensure_Valid (Actual);
 
             elsif Ekind (Formal) = E_In_Out_Parameter
@@ -1925,6 +1940,7 @@ package body Exp_Ch6 is
                Bod         : Node_Id;
                Must_Inline : Boolean := False;
                Spec        : constant Node_Id := Unit_Declaration_Node (Subp);
+               Scop        : constant Entity_Id := Scope (Subp);
 
             begin
                --  Verify that the body to inline has already been seen,
@@ -1935,6 +1951,26 @@ package body Exp_Ch6 is
                if No (Spec)
                  or else Nkind (Spec) /= N_Subprogram_Declaration
                  or else No (Body_To_Inline (Spec))
+               then
+                  Must_Inline := False;
+
+               --  If this an inherited function that returns a private
+               --  type, do not inline if the full view is an unconstrained
+               --  array, because such calls cannot be inlined.
+
+               elsif Present (Orig_Subp)
+                 and then Is_Array_Type (Etype (Orig_Subp))
+                 and then not Is_Constrained (Etype (Orig_Subp))
+               then
+                  Must_Inline := False;
+
+               --  If the subprogram comes from an instance in the same
+               --  unit, and the instance is not yet frozen, inlining might
+               --  trigger order-of-elaboration problems in gigi.
+
+               elsif Is_Generic_Instance (Scop)
+                 and then Present (Freeze_Node (Scop))
+                 and then not Analyzed (Freeze_Node (Scop))
                then
                   Must_Inline := False;
 
@@ -2515,7 +2551,8 @@ package body Exp_Ch6 is
             Temp_Typ := Etype (A);
          end if;
 
-         --  Comments needed here ???
+         --  If the actual is a simple name or a literal, no need to
+         --  create a temporary, object can be used directly.
 
          if (Is_Entity_Name (A)
               and then
@@ -2849,6 +2886,8 @@ package body Exp_Ch6 is
 
    --  Reset Pure indication if any parameter has root type System.Address
 
+   --  Wrap thread body
+
    procedure Expand_N_Subprogram_Body (N : Node_Id) is
       Loc      : constant Source_Ptr := Sloc (N);
       H        : constant Node_Id    := Handled_Statement_Sequence (N);
@@ -2866,6 +2905,9 @@ package body Exp_Ch6 is
       --  the latter test is not critical, it does not matter if we add a
       --  few extra returns, since they get eliminated anyway later on.
 
+      procedure Expand_Thread_Body;
+      --  Perform required expansion of a thread body
+
       ----------------
       -- Add_Return --
       ----------------
@@ -2881,6 +2923,165 @@ package body Exp_Ch6 is
             Append_To (S, Make_Return_Statement (Sloc (End_Label (H))));
          end if;
       end Add_Return;
+
+      ------------------------
+      -- Expand_Thread_Body --
+      ------------------------
+
+      --  The required expansion of a thread body is as follows
+
+      --  procedure <thread body procedure name> is
+
+      --    _Secondary_Stack : aliased
+      --       Storage_Elements.Storage_Array
+      --         (1 .. Storage_Offset (Sec_Stack_Size));
+      --    for _Secondary_Stack'Alignment use Standard'Maximum_Alignment;
+
+      --    _Process_ATSD : aliased System.Threads.ATSD;
+
+      --  begin
+      --     System.Threads.Thread_Body_Enter;
+      --       (_Secondary_Stack'Address,
+      --        _Secondary_Stack'Length,
+      --        _Process_ATSD'Address);
+
+      --     declare
+      --        <user declarations>
+      --     begin
+      --        <user statements>
+      --     <user exception handlers>
+      --     end;
+
+      --    System.Threads.Thread_Body_Leave;
+
+      --  exception
+      --     when E : others =>
+      --       System.Threads.Thread_Body_Exceptional_Exit (E);
+      --  end;
+
+      --  Note the exception handler is omitted if pragma Restriction
+      --  No_Exception_Handlers is currently active.
+
+      procedure Expand_Thread_Body is
+         User_Decls    : constant List_Id := Declarations (N);
+         Sec_Stack_Len : Node_Id;
+
+         TB_Pragma  : constant Node_Id :=
+                        Get_Rep_Pragma (Spec_Id, Name_Thread_Body);
+
+         Ent_SS   : Entity_Id;
+         Ent_ATSD : Entity_Id;
+         Ent_EO   : Entity_Id;
+
+         Decl_SS   : Node_Id;
+         Decl_ATSD : Node_Id;
+
+         Excep_Handlers : List_Id;
+
+      begin
+         New_Scope (Spec_Id);
+
+         --  Get proper setting for secondary stack size
+
+         if List_Length (Pragma_Argument_Associations (TB_Pragma)) = 2 then
+            Sec_Stack_Len :=
+              Expression (Last (Pragma_Argument_Associations (TB_Pragma)));
+         else
+            Sec_Stack_Len :=
+              New_Occurrence_Of (RTE (RE_Default_Secondary_Stack_Size), Loc);
+         end if;
+
+         Sec_Stack_Len := Convert_To (RTE (RE_Storage_Offset), Sec_Stack_Len);
+
+         --  Build and set declarations for the wrapped thread body
+
+         Ent_SS   := Make_Defining_Identifier (Loc, Name_uSecondary_Stack);
+         Ent_ATSD := Make_Defining_Identifier (Loc, Name_uProcess_ATSD);
+
+         Decl_SS :=
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => Ent_SS,
+             Aliased_Present     => True,
+             Object_Definition   =>
+               Make_Subtype_Indication (Loc,
+                 Subtype_Mark =>
+                   New_Occurrence_Of (RTE (RE_Storage_Array), Loc),
+                 Constraint   =>
+                   Make_Index_Or_Discriminant_Constraint (Loc,
+                     Constraints => New_List (
+                       Make_Range (Loc,
+                         Low_Bound  => Make_Integer_Literal (Loc, 1),
+                         High_Bound => Sec_Stack_Len)))));
+
+         Decl_ATSD :=
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => Ent_ATSD,
+             Aliased_Present     => True,
+             Object_Definition   => New_Occurrence_Of (RTE (RE_ATSD), Loc));
+
+         Set_Declarations (N, New_List (Decl_SS, Decl_ATSD));
+         Analyze (Decl_SS);
+         Analyze (Decl_ATSD);
+         Set_Alignment (Ent_SS, UI_From_Int (Maximum_Alignment));
+
+         --  Create new exception handler
+
+         if Restrictions (No_Exception_Handlers) then
+            Excep_Handlers := No_List;
+
+         else
+            Check_Restriction (No_Exception_Handlers, N);
+
+            Ent_EO := Make_Defining_Identifier (Loc, Name_uE);
+
+            Excep_Handlers := New_List (
+              Make_Exception_Handler (Loc,
+                Choice_Parameter => Ent_EO,
+                Exception_Choices => New_List (
+                  Make_Others_Choice (Loc)),
+                Statements => New_List (
+                  Make_Procedure_Call_Statement (Loc,
+                    Name =>
+                      New_Occurrence_Of
+                        (RTE (RE_Thread_Body_Exceptional_Exit), Loc),
+                    Parameter_Associations => New_List (
+                      New_Occurrence_Of (Ent_EO, Loc))))));
+         end if;
+
+         --  Now build new handled statement sequence and analyze it
+
+         Set_Handled_Statement_Sequence (N,
+           Make_Handled_Sequence_Of_Statements (Loc,
+             Statements => New_List (
+
+               Make_Procedure_Call_Statement (Loc,
+                 Name => New_Occurrence_Of (RTE (RE_Thread_Body_Enter), Loc),
+                 Parameter_Associations => New_List (
+
+                   Make_Attribute_Reference (Loc,
+                     Prefix => New_Occurrence_Of (Ent_SS, Loc),
+                     Attribute_Name => Name_Address),
+
+                   Make_Attribute_Reference (Loc,
+                     Prefix => New_Occurrence_Of (Ent_SS, Loc),
+                     Attribute_Name => Name_Length),
+
+                   Make_Attribute_Reference (Loc,
+                     Prefix => New_Occurrence_Of (Ent_ATSD, Loc),
+                     Attribute_Name => Name_Address))),
+
+               Make_Block_Statement (Loc,
+                 Declarations => User_Decls,
+                 Handled_Statement_Sequence => H),
+
+               Make_Procedure_Call_Statement (Loc,
+                 Name => New_Occurrence_Of (RTE (RE_Thread_Body_Leave), Loc))),
+
+             Exception_Handlers => Excep_Handlers));
+
+         Analyze (Handled_Statement_Sequence (N));
+         End_Scope;
+      end Expand_Thread_Body;
 
    --  Start of processing for Expand_N_Subprogram_Body
 
@@ -2915,7 +3116,16 @@ package body Exp_Ch6 is
 
       --  If this is a Pure function which has any parameters whose root
       --  type is System.Address, reset the Pure indication, since it will
-      --  likely cause incorrect code to be generated.
+      --  likely cause incorrect code to be generated as the parameter is
+      --  probably a pointer, and the fact that the same pointer is passed
+      --  does not mean that the same value is being referenced.
+
+      --  Note that if the programmer gave an explicit Pure_Function pragma,
+      --  then we believe the programmer, and leave the subprogram Pure.
+
+      --  This code should probably be at the freeze point, so that it
+      --  happens even on a -gnatc (or more importantly -gnatt) compile
+      --  so that the semantic tree has Is_Pure set properly ???
 
       if Is_Pure (Spec_Id)
         and then Is_Subprogram (Spec_Id)
@@ -3148,6 +3358,12 @@ package body Exp_Ch6 is
                Next_Formal (Formal);
             end loop;
          end;
+      end if;
+
+      --  Deal with thread body
+
+      if Is_Thread_Body (Spec_Id) then
+         Expand_Thread_Body;
       end if;
 
       --  If the subprogram does not have pending instantiations, then we

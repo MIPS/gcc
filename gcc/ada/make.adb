@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -23,12 +23,6 @@
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
-
-with Ada.Exceptions;   use Ada.Exceptions;
-with Ada.Command_Line; use Ada.Command_Line;
-
-with GNAT.Directory_Operations; use GNAT.Directory_Operations;
-with GNAT.Case_Util;            use GNAT.Case_Util;
 
 with ALI;      use ALI;
 with ALI.Util; use ALI.Util;
@@ -61,9 +55,16 @@ with Sinput.P;
 with Snames;   use Snames;
 with Switch;   use Switch;
 with Switch.M; use Switch.M;
-with System.HTable;
 with Targparm;
 with Tempdir;
+
+with Ada.Exceptions;            use Ada.Exceptions;
+with Ada.Command_Line;          use Ada.Command_Line;
+
+with GNAT.Directory_Operations; use GNAT.Directory_Operations;
+with GNAT.Case_Util;            use GNAT.Case_Util;
+
+with System.HTable;
 
 package body Make is
 
@@ -312,6 +313,11 @@ package body Make is
    Main_Project : Prj.Project_Id := No_Project;
    --  The project id of the main project file, if any
 
+   Project_Object_Directory : Project_Id := No_Project;
+   --  The object directory of the project for the last compilation.
+   --  Avoid calling Change_Dir if the current working directory is already
+   --  this directory
+
    --  Packages of project files where unknown attributes are errors.
 
    Naming_String   : aliased String := "naming";
@@ -343,6 +349,10 @@ package body Make is
 
    procedure Add_Object_Directories is
      new Prj.Env.For_All_Object_Dirs (Action => Add_Object_Dir);
+
+   procedure Change_To_Object_Directory (Project : Project_Id);
+   --  Change to the object directory of project Project, if this is not
+   --  already the current working directory.
 
    type Bad_Compilation_Info is record
       File  : File_Name_Type;
@@ -382,6 +392,14 @@ package body Make is
 
    Bind_Shared_Known : Boolean := False;
    --  Set to True after the first time Bind_Shared is computed
+
+   Shared_Libgcc : aliased String := "-shared-libgcc";
+
+   No_Shared_Libgcc_Switch : aliased Argument_List := (1 .. 0 => null);
+   Shared_Libgcc_Switch    : aliased Argument_List :=
+                               (1 => Shared_Libgcc'Access);
+   Link_With_Shared_Libgcc : Argument_List_Access :=
+                               No_Shared_Libgcc_Switch'Access;
 
    procedure Make_Failed (S1 : String; S2 : String := ""; S3 : String := "");
    --  Delete all temp files created by Gnatmake and call Osint.Fail,
@@ -479,6 +497,9 @@ package body Make is
    ----------------------
    -- Marking Routines --
    ----------------------
+
+   Marking_Label : Byte := 1;
+   --  Value to mark the source files
 
    procedure Mark (Source_File : File_Name_Type);
    --  Mark Source_File. Marking is used to signal that Source_File has
@@ -1104,6 +1125,36 @@ package body Make is
       end if;
    end Bind;
 
+   --------------------------------
+   -- Change_To_Object_Directory --
+   --------------------------------
+
+   procedure Change_To_Object_Directory (Project : Project_Id) is
+   begin
+      --  Nothing to do if the current working directory is alresdy the one
+      --  we want.
+
+      if Project_Object_Directory /= Project then
+         Project_Object_Directory := Project;
+
+         --  If in a real project, set the working directory to the object
+         --  directory of the project.
+
+         if Project /= No_Project then
+            Change_Dir
+              (Get_Name_String (Projects.Table (Project).Object_Directory));
+
+         --  Otherwise, for sources outside of any project, set the working
+         --  directory to the object directory of the main project.
+
+         elsif Main_Project /= No_Project then
+            Change_Dir
+              (Get_Name_String
+                 (Projects.Table (Main_Project).Object_Directory));
+         end if;
+      end if;
+   end Change_To_Object_Directory;
+
    -----------
    -- Check --
    -----------
@@ -1314,7 +1365,7 @@ package body Make is
             return;
 
          elsif ALIs.Table (ALI).Ver (1 .. ALIs.Table (ALI).Ver_Len) /=
-                                                          Library_Version
+                 Verbose_Library_Version
          then
             Verbose_Msg (Full_Lib_File, "compiled with old GNAT version");
             ALI := No_ALI_Id;
@@ -2201,28 +2252,23 @@ package body Make is
                end;
             end if;
 
-            --  Change to the object directory of the project file, if it is
-            --  not the main project file.
+            --  Change to the object directory of the project file,
+            --  if necessary.
 
-            if Arguments_Project /= Main_Project then
-               Change_Dir
-                 (Get_Name_String
-                    (Projects.Table (Arguments_Project).Object_Directory));
-            end if;
+            Change_To_Object_Directory (Arguments_Project);
 
             Pid := Compile (Arguments_Path_Name, Lib_File,
                             Arguments (1 .. Last_Argument));
 
-            --  Change back to the object directory of the main project file,
-            --  if necessary.
+         else
+            --  If this is a source outside of any project file, make sure
+            --  it will be compiled in the object directory of the main project
+            --  file.
 
-            if Arguments_Project /= Main_Project then
-               Change_Dir
-                 (Get_Name_String
-                    (Projects.Table (Main_Project).Object_Directory));
+            if Main_Project /= No_Project then
+               Change_To_Object_Directory (Arguments_Project);
             end if;
 
-         else
             Pid := Compile (Full_Source_File, Lib_File,
                             Arguments (1 .. Last_Argument));
          end if;
@@ -2233,7 +2279,9 @@ package body Make is
       -------------
 
       function Compile
-        (S : Name_Id; L : Name_Id; Args : Argument_List) return Process_Id
+        (S    : Name_Id;
+         L    : Name_Id;
+         Args : Argument_List) return Process_Id
       is
          Comp_Args : Argument_List (Args'First .. Args'Last + 8);
          Comp_Next : Integer := Args'First;
@@ -3001,7 +3049,8 @@ package body Make is
          if Global_Attribute_Present then
             declare
                Path : constant String :=
-                        Absolute_Path (Global_Attribute.Value, Main_Project);
+                        Absolute_Path
+                          (Global_Attribute.Value, Global_Attribute.Project);
             begin
                if not Is_Regular_File (Path) then
                   Make_Failed
@@ -3033,7 +3082,8 @@ package body Make is
          if Local_Attribute_Present then
             declare
                Path : constant String :=
-                 Absolute_Path (Local_Attribute.Value, For_Project);
+                        Absolute_Path
+                          (Local_Attribute.Value, Local_Attribute.Project);
             begin
                if not Is_Regular_File (Path) then
                   Make_Failed
@@ -3224,7 +3274,7 @@ package body Make is
    --------------------------
 
    procedure Enter_Into_Obsoleted (F : Name_Id) is
-      Name  : String := Get_Name_String (F);
+      Name  : constant String := Get_Name_String (F);
       First : Natural := Name'Last;
       F2    : Name_Id := F;
 
@@ -3341,6 +3391,7 @@ package body Make is
       Make.Initialize;
 
       Bind_Shared := No_Shared_Switch'Access;
+      Link_With_Shared_Libgcc := No_Shared_Libgcc_Switch'Access;
       Bind_Shared_Known := False;
 
       Failed_Links.Set_Last (0);
@@ -3357,13 +3408,64 @@ package body Make is
          Opt.Check_Object_Consistency := False;
       end if;
 
-      if Main_Project /= No_Project then
+      --  Special case when switch -B was specified
+
+      if Build_Bind_And_Link_Full_Project then
+
+         --  When switch -B is specified, there must be a project file
+
+         if Main_Project = No_Project then
+            Make_Failed ("-B cannot be used without a project file");
+
+         --  No main program may be specified on the command line
+
+         elsif Osint.Number_Of_Files /= 0 then
+            Make_Failed ("-B cannot be used with a main specified on " &
+                         "the command line");
+
+         --  And the project file cannot be a library project file
+
+         elsif Projects.Table (Main_Project).Library then
+            Make_Failed ("-B cannot be used for a library project file");
+
+         else
+            Insert_Project_Sources
+              (The_Project  => Main_Project,
+               All_Projects => Unique_Compile_All_Projects,
+               Into_Q       => False);
+
+            --  If there are no sources to compile, we fail
+
+            if Osint.Number_Of_Files = 0 then
+               Make_Failed ("no sources to compile");
+            end if;
+
+            --  Specify -n for gnatbind and add the ALI files of all the
+            --  sources, except the one which is a fake main subprogram:
+            --  this is the one for the binder generated file and it will be
+            --  transmitted to gnatlink. These sources are those that are
+            --  in the queue.
+
+            Add_Switch ("-n", Binder, And_Save => True);
+
+            for J in Q.First .. Q.Last - 1 loop
+               Add_Switch
+                 (Get_Name_String
+                    (Lib_File_Name (Q.Table (J).File)),
+                  Binder, And_Save => True);
+            end loop;
+         end if;
+
+      elsif Main_Project /= No_Project then
 
          --  If the main project file is a library project file, main(s)
          --  cannot be specified on the command line.
 
          if Osint.Number_Of_Files /= 0 then
-            if Projects.Table (Main_Project).Library then
+            if Projects.Table (Main_Project).Library
+              and then not Unique_Compile
+              and then ((not Make_Steps) or else Bind_Only or else Link_Only)
+            then
                Make_Failed ("cannot specify a main program " &
                             "on the command line for a library project file");
 
@@ -3386,7 +3488,7 @@ package body Make is
 
                   loop
                      declare
-                        Main      : constant String := Mains.Next_Main;
+                        Main : constant String := Mains.Next_Main;
                         --  The name specified on the command line may include
                         --  directory information.
 
@@ -3416,7 +3518,7 @@ package body Make is
                            if Main /= File_Name then
                               declare
                                  Data : constant Project_Data :=
-                                   Projects.Table (Main_Project);
+                                          Projects.Table (Main_Project);
 
                                  Project_Path : constant String :=
                                    Prj.Env.File_Name_Of_Library_Unit_Body
@@ -3478,12 +3580,14 @@ package body Make is
                            end if;
 
                            if not Unique_Compile then
+
                               --  Record the project, if it is the first main
 
                               if Real_Main_Project = No_Project then
                                  Real_Main_Project := Proj;
 
                               elsif Proj /= Real_Main_Project then
+
                                  --  Fail, as the current main is not a source
                                  --  of the same project as the first main.
 
@@ -3556,12 +3660,16 @@ package body Make is
                   --  all the sources of the project.
 
                   declare
-                     Data : Project_Data := Projects.Table (Main_Project);
-                     Languages : Variable_Value :=
-                       Prj.Util.Value_Of
-                         (Name_Languages, Data.Decl.Attributes);
+                     Data : constant Project_Data :=
+                              Projects.Table (Main_Project);
+
+                     Languages : constant Variable_Value :=
+                                   Prj.Util.Value_Of
+                                     (Name_Languages, Data.Decl.Attributes);
+
                      Current : String_List_Id;
                      Element : String_Element;
+
                      Foreign_Language  : Boolean := False;
                      At_Least_One_Main : Boolean := False;
 
@@ -3587,14 +3695,14 @@ package body Make is
                         end loop Look_For_Foreign;
                      end if;
 
-                     --  The, find all mains, or if there is a foreign
+                     --  Then, find all mains, or if there is a foreign
                      --  language, all the Ada mains.
 
                      while Value /= Prj.Nil_String loop
                         Get_Name_String (String_Elements.Table (Value).Value);
 
-                        --  To know if a main is an Ada main, get its project;
-                        --  it should be the project specified on the command
+                        --  To know if a main is an Ada main, get its project.
+                        --  It should be the project specified on the command
                         --  line.
 
                         if (not Foreign_Language) or else
@@ -3612,28 +3720,12 @@ package body Make is
                      end loop;
 
                      --  If we did not get any main, it means that all mains
-                     --  in attribute Mains are in a foreign language. So,
-                     --  we put all sources of the main project in the Q.
+                     --  in attribute Mains are in a foreign language and -B
+                     --  was not specified to gnatmake; so, we fail.
 
                      if not At_Least_One_Main then
-                        --  First make sure that the binder and the linker
-                        --  will not be invoked.
-
-                        Do_Bind_Step := False;
-                        Do_Link_Step := False;
-
-                        --  Put all the sources in the queue
-
-                        Insert_Project_Sources
-                          (The_Project  => Main_Project,
-                           All_Projects => Unique_Compile_All_Projects,
-                           Into_Q       => False);
-
-                        --  If there are no sources to compile, we fail
-
-                        if Osint.Number_Of_Files = 0 then
-                           Make_Failed ("no sources to compile");
-                        end if;
+                        Make_Failed
+                          ("no Ada mains; use -B to build foreign main");
                      end if;
                   end;
 
@@ -3646,7 +3738,7 @@ package body Make is
          Write_Eol;
          Write_Str ("GNATMAKE ");
          Write_Str (Gnatvsn.Gnat_Version_String);
-         Write_Str (" Copyright 1995-2003 Free Software Foundation, Inc.");
+         Write_Str (" Copyright 1995-2004 Free Software Foundation, Inc.");
          Write_Eol;
       end if;
 
@@ -3679,7 +3771,7 @@ package body Make is
          else
             --  Output usage information if no files to compile
 
-            Makeusg;
+            Usage;
             Exit_Program (E_Fatal);
          end if;
       end if;
@@ -3714,6 +3806,16 @@ package body Make is
                         And_Save => False);
          end if;
 
+      else
+         --  If we use a project file, we have already checked that a main
+         --  specified on the command line with directory information has the
+         --  path name corresponding to a correct source in the project tree.
+         --  So, we don't need the directory information to be taken into
+         --  account by Find_File, and in fact it may lead to take the wrong
+         --  sources for other compilation units, when there are extending
+         --  projects.
+
+         Opt.Look_In_Primary_Dir := False;
       end if;
 
       --  If the user wants a program without a main subprogram, add the
@@ -3733,12 +3835,50 @@ package body Make is
          --  project.
 
          begin
-            Change_Dir
-              (Get_Name_String
-                 (Projects.Table (Main_Project).Object_Directory));
+            Project_Object_Directory := No_Project;
+            Change_To_Object_Directory (Main_Project);
 
          exception
             when Directory_Error =>
+
+               --  This should never happen. But, if it does, display the
+               --  content of the parent directory of the obj dir.
+
+               declare
+                  Parent : constant Dir_Name_Str :=
+                    Dir_Name
+                      (Get_Name_String
+                           (Projects.Table (Main_Project).Object_Directory));
+                  Dir : Dir_Type;
+                  Str : String (1 .. 200);
+                  Last : Natural;
+
+               begin
+                  Write_Str ("Contents of directory """);
+                  Write_Str (Parent);
+                  Write_Line (""":");
+
+                  Open (Dir, Parent);
+
+                  loop
+                     Read (Dir, Str, Last);
+                     exit when Last = 0;
+                     Write_Str ("   ");
+                     Write_Line (Str (1 .. Last));
+                  end loop;
+
+                  Close (Dir);
+
+               exception
+                  when X : others =>
+                     Write_Line ("(unexpected exception)");
+                     Write_Line (Exception_Information (X));
+
+                     if Is_Open (Dir) then
+                        Close (Dir);
+                     end if;
+               end;
+
                Make_Failed ("unable to change working directory to """,
                             Get_Name_String
                              (Projects.Table (Main_Project).Object_Directory),
@@ -4166,6 +4306,18 @@ package body Make is
 
       Multiple_Main_Loop : for N_File in 1 .. Osint.Number_Of_Files loop
 
+         --  Increase the marking label to be sure to check sources
+         --  for all executables.
+
+         Marking_Label := Marking_Label + 1;
+
+         --  Make sure it is not 0, which is the default value for
+         --  a file that has never been marked.
+
+         if Marking_Label = 0 then
+            Marking_Label := 1;
+         end if;
+
          --  First, find the executable name and path
 
          Executable          := No_File;
@@ -4451,6 +4603,7 @@ package body Make is
                    or not Do_Bind_Step
                    or not Is_Main_Unit)
                  and then not No_Main_Subprogram
+                 and then not Build_Bind_And_Link_Full_Project
                then
                   if Osint.Number_Of_Files = 1 then
                      exit Multiple_Main_Loop;
@@ -4544,6 +4697,13 @@ package body Make is
             end Recursive_Compilation_Step;
          end if;
 
+         --  For binding and linking, we need to be in the object directory of
+         --  the main project.
+
+         if Main_Project /= No_Project then
+            Change_To_Object_Directory (Main_Project);
+         end if;
+
          --  If we are here, it means that we need to rebuilt the current
          --  main. So we set Executable_Obsolete to True to make sure that
          --  the subsequent mains will be rebuilt.
@@ -4618,6 +4778,12 @@ package body Make is
                           Projects.Table (Proj).Library_Kind /= Static
                         then
                            Bind_Shared := Shared_Switch'Access;
+
+                           if GCC_Version >= 3 then
+                              Link_With_Shared_Libgcc :=
+                                Shared_Libgcc_Switch'Access;
+                           end if;
+
                            exit;
                         end if;
                      end loop;
@@ -5125,7 +5291,9 @@ package body Make is
                   --  And invoke the linker
 
                   begin
-                     Link (Main_ALI_File, Args (Args'First .. Last_Arg));
+                     Link (Main_ALI_File,
+                           Link_With_Shared_Libgcc.all &
+                           Args (Args'First .. Last_Arg));
                      Successful_Links.Increment_Last;
                      Successful_Links.Table (Successful_Links.Last) :=
                        Main_ALI_File;
@@ -5511,7 +5679,7 @@ package body Make is
       end loop Scan_Args;
 
       if Usage_Requested then
-         Makeusg;
+         Usage;
       end if;
 
       --  Test for trailing -P switch
@@ -5633,6 +5801,14 @@ package body Make is
                Make_Failed (Exception_Message (Err));
          end;
       end if;
+
+      --  Make sure no project object directory is recorded
+
+      Project_Object_Directory := No_Project;
+
+      --  Set the marking label to a value that is not zero
+
+      Marking_Label := 1;
    end Initialize;
 
    -----------------------------------
@@ -5645,10 +5821,11 @@ package body Make is
       Into_Q       : Boolean)
    is
       Put_In_Q : Boolean := Into_Q;
-      Unit  : Com.Unit_Data;
-      Sfile : Name_Id;
+      Unit     : Com.Unit_Data;
+      Sfile    : Name_Id;
+
       Extending : constant Boolean :=
-        Projects.Table (The_Project).Extends /= No_Project;
+                    Projects.Table (The_Project).Extends /= No_Project;
 
       function Check_Project (P : Project_Id) return Boolean;
       --  Returns True if P is The_Project or a project extended by
@@ -5867,7 +6044,7 @@ package body Make is
 
       else
          declare
-            Name  : String := Get_Name_String (F);
+            Name  : constant String := Get_Name_String (F);
             First : Natural := Name'Last;
             F2    : Name_Id := F;
 
@@ -5982,7 +6159,7 @@ package body Make is
 
    function Is_Marked (Source_File : File_Name_Type) return Boolean is
    begin
-      return Get_Name_Table_Byte (Source_File) /= 0;
+      return Get_Name_Table_Byte (Source_File) = Marking_Label;
    end Is_Marked;
 
    ----------
@@ -6166,7 +6343,7 @@ package body Make is
 
    procedure Mark (Source_File : File_Name_Type) is
    begin
-      Set_Name_Table_Byte (Source_File, 1);
+      Set_Name_Table_Byte (Source_File, Marking_Label);
    end Mark;
 
    --------------------
@@ -6489,7 +6666,6 @@ package body Make is
          then
             Add_Switch (Argv, Compiler, And_Save => And_Save);
             Add_Switch (Argv, Binder, And_Save => And_Save);
-            Add_Switch (Argv, Linker, And_Save => And_Save);
 
             if Argv'Length <= 6 or else Argv (6) /= '=' then
                Make_Failed ("missing path for --RTS");
@@ -6798,11 +6974,13 @@ package body Make is
             --  linking with all standard library files.
 
             Opt.No_Stdlib := True;
+
+            Add_Switch (Argv, Compiler, And_Save => And_Save);
             Add_Switch (Argv, Binder, And_Save => And_Save);
 
          elsif Argv (2 .. Argv'Last) = "nostdinc" then
 
-            --  Pass -nostdinv to the Compiler and to gnatbind
+            --  Pass -nostdinc to the Compiler and to gnatbind
 
             Opt.No_Stdinc := True;
             Add_Switch (Argv, Compiler, And_Save => And_Save);

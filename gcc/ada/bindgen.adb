@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -518,9 +518,10 @@ package body Bindgen is
          Write_Statement_Buffer;
 
          --  Generate call to Install_Handler
+
          WBI ("");
          WBI ("      if Handler_Installed = 0 then");
-         WBI ("        Install_Handler;");
+         WBI ("         Install_Handler;");
          WBI ("      end if;");
       end if;
 
@@ -533,6 +534,17 @@ package body Bindgen is
          Set_String ("', '");
          Set_Char (Initialize_Scalars_Mode2);
          Set_String ("');");
+         Write_Statement_Buffer;
+      end if;
+
+      --  Generate assignment of default secondary stack size if set
+
+      if Sec_Stack_Used and then Default_Sec_Stack_Size /= -1 then
+         WBI ("");
+         Set_String ("      System.Secondary_Stack.");
+         Set_String ("Default_Secondary_Stack_Size := ");
+         Set_Int (Opt.Default_Sec_Stack_Size);
+         Set_Char (';');
          Write_Statement_Buffer;
       end if;
 
@@ -612,6 +624,13 @@ package body Bindgen is
 
          Set_String (""";");
          Write_Statement_Buffer;
+
+         --  Generate declaration for secondary stack default if needed
+
+         if Sec_Stack_Used and then Default_Sec_Stack_Size /= -1 then
+            WBI ("   extern int system__secondary_stack__" &
+                 "default_secondary_stack_size;");
+         end if;
 
          WBI ("");
 
@@ -739,6 +758,17 @@ package body Bindgen is
          Set_String ("', '");
          Set_Char (Initialize_Scalars_Mode2);
          Set_String ("');");
+         Write_Statement_Buffer;
+      end if;
+
+      --  Generate assignment of default secondary stack size if set
+
+      if Sec_Stack_Used and then Default_Sec_Stack_Size /= -1 then
+         WBI ("");
+         Set_String ("   system__secondary_stack__");
+         Set_String ("default_secondary_stack_size = ");
+         Set_Int (Opt.Default_Sec_Stack_Size);
+         Set_Char (';');
          Write_Statement_Buffer;
       end if;
 
@@ -1774,22 +1804,18 @@ package body Bindgen is
          end if;
       end loop;
 
-      --  Add a "-Ldir" for each directory in the object path. We skip this
-      --  in Configurable_Run_Time mode, where we want more precise control
-      --  of exactly what goes into the resulting object file
+      --  Add a "-Ldir" for each directory in the object path
 
-      if not Configurable_Run_Time_Mode then
-         for J in 1 .. Nb_Dir_In_Obj_Search_Path loop
-            declare
-               Dir : constant String_Ptr := Dir_In_Obj_Search_Path (J);
-            begin
-               Name_Len := 0;
-               Add_Str_To_Name_Buffer ("-L");
-               Add_Str_To_Name_Buffer (Dir.all);
-               Write_Linker_Option;
-            end;
-         end loop;
-      end if;
+      for J in 1 .. Nb_Dir_In_Obj_Search_Path loop
+         declare
+            Dir : constant String_Ptr := Dir_In_Obj_Search_Path (J);
+         begin
+            Name_Len := 0;
+            Add_Str_To_Name_Buffer ("-L");
+            Add_Str_To_Name_Buffer (Dir.all);
+            Write_Linker_Option;
+         end;
+      end loop;
 
       --  Sort linker options
 
@@ -1845,7 +1871,7 @@ package body Bindgen is
       --  files. The reason for this decision is that libraries referenced
       --  by internal routines may reference these standard library entries.
 
-      if not (Configurable_Run_Time_Mode or else Opt.No_Stdlib) then
+      if not Opt.No_Stdlib then
          Name_Len := 0;
 
          if Opt.Shared_Libgnat then
@@ -1866,12 +1892,24 @@ package body Bindgen is
 
          if With_GNARL then
             Name_Len := 0;
-            Add_Str_To_Name_Buffer ("-lgnarl");
+
+            if Opt.Shared_Libgnat then
+               Add_Str_To_Name_Buffer (Shared_Lib ("gnarl"));
+            else
+               Add_Str_To_Name_Buffer ("-lgnarl");
+            end if;
+
             Write_Linker_Option;
          end if;
 
          Name_Len := 0;
-         Add_Str_To_Name_Buffer ("-lgnat");
+
+         if Opt.Shared_Libgnat then
+            Add_Str_To_Name_Buffer (Shared_Lib ("gnat"));
+         else
+            Add_Str_To_Name_Buffer ("-lgnat");
+         end if;
+
          Write_Linker_Option;
       end if;
 
@@ -1894,8 +1932,7 @@ package body Bindgen is
    ---------------------
 
    procedure Gen_Output_File (Filename : String) is
-      Public_Version : constant Boolean := Gnat_Version_Type = "PUBLIC ";
-      --  Set true if this is the public version of GNAT
+      Is_Public_Version : constant Boolean := Get_Gnat_Build_Type = Public;
 
    begin
       --  Acquire settings for Interrupt_State pragmas
@@ -1929,7 +1966,7 @@ package body Bindgen is
 
       --  Get the time stamp of the former bind for public version warning
 
-      if Public_Version then
+      if Is_Public_Version then
          Record_Time_From_Last_Bind;
       end if;
 
@@ -1944,7 +1981,7 @@ package body Bindgen is
       --  Periodically issue a warning when the public version is used on
       --  big projects
 
-      if Public_Version then
+      if Is_Public_Version then
          Public_Version_Warning;
       end if;
    end Gen_Output_File;
@@ -1986,6 +2023,12 @@ package body Bindgen is
 
       if Initialize_Scalars_Used then
          WBI ("with System.Scalar_Values;");
+      end if;
+
+      --  Generate with of System.Secondary_Stack if active
+
+      if Sec_Stack_Used and then Default_Sec_Stack_Size /= -1 then
+         WBI ("with System.Secondary_Stack;");
       end if;
 
       Resolve_Binder_Options;
@@ -2703,7 +2746,6 @@ package body Bindgen is
    ----------------------------
 
    procedure Public_Version_Warning is
-
       Time : constant Int := Time_From_Last_Bind;
 
       --  Constants to help defining periods
@@ -2743,12 +2785,17 @@ package body Bindgen is
       --  Do not emit the message if the last message was emitted in the
       --  specified period taking into account the number of units.
 
+      pragma Warnings (Off);
+      --  Turn off warning of constant condition, which may happen here
+      --  depending on the choice of constants in the above declarations.
+
       if Nb_Unit < Large and then Time <= Period_Small then
          return;
-
       elsif Time <= Period_Large then
          return;
       end if;
+
+      pragma Warnings (On);
 
       Write_Eol;
       Write_Str ("IMPORTANT NOTICE:");

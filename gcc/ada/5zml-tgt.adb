@@ -67,7 +67,7 @@ package body MLib.Tgt is
    -- Archive_Ext --
    -----------------
 
-   function Archive_Ext return  String is
+   function Archive_Ext return String is
    begin
       return "a";
    end Archive_Ext;
@@ -93,6 +93,7 @@ package body MLib.Tgt is
       Interfaces   : Argument_List;
       Lib_Filename : String;
       Lib_Dir      : String;
+      Symbol_Data  : Symbol_Record;
       Driver_Name  : Name_Id := No_Name;
       Lib_Address  : String  := "";
       Lib_Version  : String  := "";
@@ -106,6 +107,7 @@ package body MLib.Tgt is
       pragma Unreferenced (Interfaces);
       pragma Unreferenced (Lib_Filename);
       pragma Unreferenced (Lib_Dir);
+      pragma Unreferenced (Symbol_Data);
       pragma Unreferenced (Driver_Name);
       pragma Unreferenced (Lib_Address);
       pragma Unreferenced (Lib_Version);
@@ -148,11 +150,13 @@ package body MLib.Tgt is
    -----------------------------
 
    function Get_Target_Suffix return String is
-      Target_Name : String_Ptr := Sdefault.Target_Name;
+      Target_Name : constant String_Ptr := Sdefault.Target_Name;
       Index       : Positive   := Target_Name'First;
+
    begin
-      while ((Index < Target_Name'Last) and then
-               (Target_Name (Index + 1) /= '-')) loop
+      while Index < Target_Name'Last
+        and then Target_Name (Index + 1) /= '-'
+      loop
          Index := Index + 1;
       end loop;
 

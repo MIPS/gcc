@@ -459,7 +459,7 @@ getParameter(String paramName, String mimeString)
   if (idx == -1)
     return(null);
 
-  String value = mimeString.substring(idx + paramName.length() + 2);
+  String value = mimeString.substring(idx + paramName.length() + 1);
 
   idx = value.indexOf(" ");
   if (idx == -1)
@@ -723,9 +723,6 @@ equals(DataFlavor flavor)
 public boolean
 equals(Object obj)
 {
-  if (obj == null)
-    return(false);
-
   if (!(obj instanceof DataFlavor))
     return(false);
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -87,6 +87,11 @@ package body Sem_Res is
    procedure Ambiguous_Character (C : Node_Id);
    --  Give list of candidate interpretations when a character literal cannot
    --  be resolved.
+
+   procedure Check_Direct_Boolean_Op (N : Node_Id);
+   --  N is a binary operator node which may possibly operate on Boolean
+   --  operands. If the operator does have Boolean operands, then a call is
+   --  made to check the restriction No_Direct_Boolean_Operators.
 
    procedure Check_Discriminant_Use (N : Node_Id);
    --  Enforce the restrictions on the use of discriminants when constraining
@@ -342,6 +347,17 @@ package body Sem_Res is
       end if;
    end Analyze_And_Resolve;
 
+   -----------------------------
+   -- Check_Direct_Boolean_Op --
+   -----------------------------
+
+   procedure Check_Direct_Boolean_Op (N : Node_Id) is
+   begin
+      if Root_Type (Etype (Left_Opnd (N))) = Standard_Boolean then
+         Check_Restriction (No_Direct_Boolean_Operators, N);
+      end if;
+   end Check_Direct_Boolean_Op;
+
    ----------------------------
    -- Check_Discriminant_Use --
    ----------------------------
@@ -366,7 +382,7 @@ package body Sem_Res is
 
          if Nkind (P) = N_Range_Constraint
            and then Nkind (Parent (P)) = N_Subtype_Indication
-           and then Nkind (Parent (Parent (P))) = N_Component_Declaration
+           and then Nkind (Parent (Parent (P))) = N_Component_Definition
          then
             Error_Msg_N ("discriminant cannot constrain scalar type", N);
 
@@ -392,9 +408,10 @@ package body Sem_Res is
               and then Scope (Disc) = Current_Scope
               and then not
                 (Nkind (Parent (P)) = N_Subtype_Indication
-                 and then
-                  (Nkind (Parent (Parent (P))) = N_Component_Declaration
-                   or else Nkind (Parent (Parent (P))) = N_Subtype_Declaration)
+                   and then
+                    (Nkind (Parent (Parent (P))) = N_Component_Definition
+                       or else
+                     Nkind (Parent (Parent (P))) = N_Subtype_Declaration)
                   and then Paren_Count (N) = 0)
             then
                Error_Msg_N
@@ -403,8 +420,9 @@ package body Sem_Res is
             end if;
 
             --   Detect a common beginner error:
+
             --   type R (D : Positive := 100) is record
-            --     Name: String (1 .. D);
+            --     Name : String (1 .. D);
             --   end record;
 
             --  The default value causes an object of type R to be
@@ -543,7 +561,7 @@ package body Sem_Res is
 
          if (Nkind (P) = N_Subtype_Indication
               and then
-                (Nkind (Parent (P)) = N_Component_Declaration
+                (Nkind (Parent (P)) = N_Component_Definition
                    or else
                  Nkind (Parent (P)) = N_Derived_Type_Definition)
               and then D = Constraint (P))
@@ -1816,7 +1834,24 @@ package body Sem_Res is
             --  doesn't think of them this way!)
 
             if Typ = Standard_Void_Type then
-               Error_Msg_N ("expect procedure name in procedure call", N);
+
+               --  Special case message if function used as a procedure
+
+               if Nkind (N) = N_Procedure_Call_Statement
+                 and then Is_Entity_Name (Name (N))
+                 and then Ekind (Entity (Name (N))) = E_Function
+               then
+                  Error_Msg_NE
+                    ("cannot use function & in a procedure call",
+                     Name (N), Entity (Name (N)));
+
+               --  Otherwise give general message (not clear what cases
+               --  this covers, but no harm in providing for them!)
+
+               else
+                  Error_Msg_N ("expect procedure name in procedure call", N);
+               end if;
+
                Found := True;
 
             --  Otherwise we do have a subexpression with the wrong type
@@ -1940,9 +1975,25 @@ package body Sem_Res is
                if Is_Overloaded (N)
                  and then Nkind (N) = N_Function_Call
                then
-                  Error_Msg_Node_2 := Typ;
-                  Error_Msg_NE ("no visible interpretation of&" &
-                    " matches expected type&", N, Name (N));
+                  declare
+                     Subp_Name : Node_Id;
+                  begin
+                     if Is_Entity_Name (Name (N)) then
+                        Subp_Name := Name (N);
+
+                     elsif Nkind (Name (N)) = N_Selected_Component then
+
+                        --  Protected operation: retrieve operation name.
+
+                        Subp_Name := Selector_Name (Name (N));
+                     else
+                        raise Program_Error;
+                     end if;
+
+                     Error_Msg_Node_2 := Typ;
+                     Error_Msg_NE ("no visible interpretation of&" &
+                       " matches expected type&", N, Subp_Name);
+                  end;
 
                   if All_Errors_Mode then
                      declare
@@ -3315,7 +3366,6 @@ package body Sem_Res is
       --  dereference made explicit in Analyze_Call.
 
       if Ekind (Etype (Subp)) = E_Subprogram_Type then
-
          if not Is_Overloaded (Subp) then
             Nam := Etype (Subp);
 
@@ -3421,6 +3471,12 @@ package body Sem_Res is
                end if;
             end loop;
          end;
+      end if;
+
+      --  Cannot call thread body directly
+
+      if Is_Thread_Body (Nam) then
+         Error_Msg_N ("cannot call thread body directly", N);
       end if;
 
       --  If the subprogram is not global, then kill all checks. This is
@@ -3690,6 +3746,13 @@ package body Sem_Res is
          Establish_Transient_Scope
            (N, Sec_Stack => not Functions_Return_By_DSP_On_Target);
 
+         --  If the call appears within the bounds of a loop, it will
+         --  be rewritten and reanalyzed, nothing left to do here.
+
+         if Nkind (N) /= N_Function_Call then
+            return;
+         end if;
+
       elsif Is_Init_Proc (Nam)
         and then not Within_Init_Proc
       then
@@ -3831,6 +3894,8 @@ package body Sem_Res is
       T : Entity_Id;
 
    begin
+      Check_Direct_Boolean_Op (N);
+
       --  If this is an intrinsic operation which is not predefined, use
       --  the types of its declared arguments to resolve the possibly
       --  overloaded operands. Otherwise the operands are unambiguous and
@@ -4570,6 +4635,8 @@ package body Sem_Res is
    --  Start of processing for Resolve_Equality_Op
 
    begin
+      Check_Direct_Boolean_Op (N);
+
       Set_Etype (N, Base_Type (Typ));
       Generate_Reference (T, N, ' ');
 
@@ -4951,6 +5018,8 @@ package body Sem_Res is
       B_Typ : Entity_Id;
 
    begin
+      Check_Direct_Boolean_Op (N);
+
       --  Predefined operations on scalar types yield the base type. On
       --  the other hand, logical operations on arrays yield the type of
       --  the arguments (and the context).
@@ -6157,6 +6226,12 @@ package body Sem_Res is
                Error_Msg_N ("\as Duration, and will lose precision?", Rop);
             end if;
 
+         elsif Is_Numeric_Type (Typ)
+           and then Nkind (Operand) in N_Op
+           and then Unique_Fixed_Point_Type (N) /= Any_Type
+         then
+            Set_Etype (Operand, Standard_Duration);
+
          else
             Error_Msg_N ("invalid context for mixed mode operation", N);
             Set_Etype (Operand, Any_Type);
@@ -6479,10 +6554,10 @@ package body Sem_Res is
          Subtype_Id := Create_Itype (E_String_Literal_Subtype, N);
       end if;
 
-      Set_String_Literal_Length    (Subtype_Id,
-        UI_From_Int (String_Length (Strval (N))));
-      Set_Etype                    (Subtype_Id, Base_Type (Typ));
-      Set_Is_Constrained           (Subtype_Id);
+      Set_String_Literal_Length (Subtype_Id, UI_From_Int
+                                               (String_Length (Strval (N))));
+      Set_Etype                 (Subtype_Id, Base_Type (Typ));
+      Set_Is_Constrained        (Subtype_Id);
 
       --  The low bound is set from the low bound of the corresponding
       --  index type. Note that we do not store the high bound in the

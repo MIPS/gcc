@@ -1,5 +1,6 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -317,7 +318,10 @@ cris_commutative_orth_op (rtx x, enum machine_mode mode)
 	   || code == IOR || code == AND || code == UMIN));
 }
 
-/* Check if MODE is same as mode for X, and X is PLUS or MINUS or UMIN.  */
+/* Check if MODE is same as mode for X, and X is PLUS or MINUS or UMIN.
+   By the name, you might think we should include MULT.  We don't because
+   it doesn't accept the same addressing modes as the others (ony
+   registers) and there's also the problem of handling TARGET_MUL_BUG.  */
 
 int
 cris_operand_extend_operator (rtx x, enum machine_mode mode)
@@ -484,7 +488,11 @@ cris_op_str (rtx x)
       break;
 
     case MULT:
-      return "mul";
+      /* This function is for retrieving a part of an instruction name for
+	 an operator, for immediate output.  If that ever happens for
+	 MULT, we need to apply TARGET_MUL_BUG in the caller.  Make sure
+	 we notice.  */
+      abort ();
       break;
 
     case DIV:
@@ -1259,7 +1267,7 @@ cris_target_asm_function_epilogue (FILE *file, HOST_WIDE_INT size)
 
       /* Output the delay-slot-insn the mandated way.  */
       final_scan_insn (XEXP (current_function_epilogue_delay_list, 0),
-		       file, 1, -2, 1);
+		       file, 1, -2, 1, NULL);
     }
   else if (file)
     {
@@ -1375,6 +1383,23 @@ cris_print_operand (FILE *file, rtx x, int code)
 	 This method stolen from the sparc files.  */
       if (dbr_sequence_length () == 0)
 	fputs ("\n\tnop", file);
+      return;
+
+    case '!':
+      /* Output directive for alignment padded with "nop" insns.
+	 Optimizing for size, it's plain 4-byte alignment, otherwise we
+	 align the section to a cache-line (32 bytes) and skip at max 2
+	 bytes, i.e. we skip if it's the last insn on a cache-line.  The
+	 latter is faster by a small amount (for two test-programs 99.6%
+	 and 99.9%) and larger by a small amount (ditto 100.1% and
+	 100.2%).  This is supposed to be the simplest yet performance-
+	 wise least intrusive way to make sure the immediately following
+	 (supposed) muls/mulu insn isn't located at the end of a
+	 cache-line.  */
+      if (TARGET_MUL_BUG)
+	fputs (optimize_size
+	       ? ".p2alignw 2,0x050f\n\t"
+	       : ".p2alignw 5,0x050f,2\n\t", file);
       return;
 
     case 'H':
@@ -2400,12 +2425,13 @@ cris_reg_overlap_mentioned_p (rtx x, rtx in)
    We just dispatch to the functions for ELF and a.out.  */
 
 void
-cris_target_asm_named_section (const char *name, unsigned int flags)
+cris_target_asm_named_section (const char *name, unsigned int flags,
+			       tree decl)
 {
   if (! TARGET_ELF)
-    default_no_named_section (name, flags);
+    default_no_named_section (name, flags, decl);
   else
-    default_elf_asm_named_section (name, flags);
+    default_elf_asm_named_section (name, flags, decl);
 }
 
 /* The LEGITIMATE_PIC_OPERAND_P worker.  */

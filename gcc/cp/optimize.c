@@ -1,5 +1,6 @@
 /* Perform optimizations on tree structure.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004
+   Free Software Foundation, Inc.
    Written by Mark Michell (mark@codesourcery.com).
 
 This file is part of GCC.
@@ -33,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "varray.h"
 #include "params.h"
 #include "hashtab.h"
+#include "target.h"
 #include "debug.h"
 #include "tree-inline.h"
 
@@ -129,11 +131,6 @@ maybe_clone_body (tree fn)
   /* Emit the DWARF1 abstract instance.  */
   (*debug_hooks->deferred_inline_function) (fn);
 
-  /* Our caller does not expect collection to happen, which it might if
-     we decide to compile the function to rtl now.  Arrange for a new
-     gc context to be created if so.  */
-  function_depth++;
-
   /* We know that any clones immediately follow FN in the TYPE_METHODS
      list.  */
   for (clone = TREE_CHAIN (fn);
@@ -158,6 +155,8 @@ maybe_clone_body (tree fn)
       DECL_INTERFACE_KNOWN (clone) = DECL_INTERFACE_KNOWN (fn);
       DECL_NOT_REALLY_EXTERN (clone) = DECL_NOT_REALLY_EXTERN (fn);
       TREE_PUBLIC (clone) = TREE_PUBLIC (fn);
+      DECL_VISIBILITY (clone) = DECL_VISIBILITY (fn);
+      DECL_VISIBILITY_SPECIFIED (clone) = DECL_VISIBILITY_SPECIFIED (fn);
 
       /* Adjust the parameter names and locations.  */
       parm = DECL_ARGUMENTS (fn);
@@ -232,12 +231,15 @@ maybe_clone_body (tree fn)
 	    }
 	}
 
+      if (targetm.cxx.cdtor_returns_this ())
+	{
+	  parm = DECL_RESULT (fn);
+	  clone_parm = DECL_RESULT (clone);
+	  splay_tree_insert (decl_map, (splay_tree_key) parm,
+			     (splay_tree_value) clone_parm);
+	}
       /* Clone the body.  */
       clone_body (clone, fn, decl_map);
-
-      /* There are as many statements in the clone as in the
-	 original.  */
-      DECL_ESTIMATED_INSNS (clone) = DECL_ESTIMATED_INSNS (fn);
 
       /* Clean up.  */
       splay_tree_delete (decl_map);
@@ -251,8 +253,6 @@ maybe_clone_body (tree fn)
       expand_or_defer_fn (clone);
       pop_from_top_level ();
     }
-
-  function_depth--;
 
   /* We don't need to process the original function any further.  */
   return 1;

@@ -96,8 +96,8 @@ package body Switch.C is
 
             when False =>
 
-            --  There are only two front-end switches that
-            --  do not start with -gnat, namely -I and --RTS
+            --  There are few front-end switches that
+            --  do not start with -gnat: -I, --RTS
 
                if Switch_Chars (Ptr) = 'I' then
                   Store_Switch := False;
@@ -216,6 +216,10 @@ package body Switch.C is
                Ptr := Ptr + 1;
                Operating_Mode := Check_Semantics;
 
+               if Tree_Output then
+                  ASIS_Mode := True;
+               end if;
+
             --  Processing for d switch
 
             when 'd' =>
@@ -284,12 +288,13 @@ package body Switch.C is
                Xref_Active := False;
                Set_Debug_Flag ('g');
 
-            --  Processing for e switch
+            --  -gnate? (extended switches)
 
             when 'e' =>
-               --  Only -gnateD and -gnatep= are stored
-
                Ptr := Ptr + 1;
+
+               --  The -gnate? switches are all double character switches
+               --  so we must always have a character after the e.
 
                if Ptr > Max then
                   raise Bad_Switch;
@@ -297,7 +302,7 @@ package body Switch.C is
 
                case Switch_Chars (Ptr) is
 
-                  --  Configuration pragmas
+                  --  -gnatec (configuration pragmas)
 
                   when 'c' =>
                      Store_Switch := False;
@@ -347,7 +352,7 @@ package body Switch.C is
 
                      return;
 
-                  --  Symbol definition
+                  --  -gnateD switch (symbol definition)
 
                   when 'D' =>
                      Store_Switch := False;
@@ -369,7 +374,7 @@ package body Switch.C is
                               (Storing'First .. First_Stored + Max - Ptr + 2));
                      return;
 
-                  --  Full source path for brief error messages
+                  --  -gnatef (full source path for brief error messages)
 
                   when 'f' =>
                      Store_Switch := False;
@@ -377,7 +382,7 @@ package body Switch.C is
                      Full_Path_Name_For_Brief_Errors := True;
                      return;
 
-                  --  Mapping file
+                  --  -gnatem (mapping file)
 
                   when 'm' =>
                      Store_Switch := False;
@@ -398,7 +403,7 @@ package body Switch.C is
                        new String'(Switch_Chars (Ptr .. Max));
                      return;
 
-                  --  Preprocessing data file
+                  --  -gnatep (preprocessing data file)
 
                   when 'p' =>
                      Store_Switch := False;
@@ -433,19 +438,21 @@ package body Switch.C is
                         Store_Compilation_Switch (To_Store);
                      end;
 
-                     return;
+                  return;
+
+                  --  All other -gnate? switches are unassigned
 
                   when others =>
                      raise Bad_Switch;
                end case;
 
-            --  Processing for E switch
+            --  -gnatE (dynamic elaboration checks)
 
             when 'E' =>
                Ptr := Ptr + 1;
                Dynamic_Elaboration_Checks := True;
 
-            --  Processing for f switch
+            --  -gnatf (full error messages)
 
             when 'f' =>
                Ptr := Ptr + 1;
@@ -462,13 +469,27 @@ package body Switch.C is
 
             when 'g' =>
                Ptr := Ptr + 1;
-               GNAT_Mode                  := True;
-               Identifier_Character_Set   := 'n';
-               Warning_Mode               := Treat_As_Error;
-               Check_Unreferenced         := True;
-               Check_Withs                := True;
-               Check_Unreferenced_Formals := True;
-               System_Extend_Unit         := Empty;
+               GNAT_Mode := True;
+               Identifier_Character_Set := 'n';
+               System_Extend_Unit := Empty;
+               Warning_Mode := Treat_As_Error;
+
+               --  Set default warnings (basically -gnatwa)
+
+               Check_Unreferenced           := True;
+               Check_Unreferenced_Formals   := True;
+               Check_Withs                  := True;
+               Constant_Condition_Warnings  := True;
+               Implementation_Unit_Warnings := True;
+               Ineffective_Inline_Warnings  := True;
+               Warn_On_Constant             := True;
+               Warn_On_Export_Import        := True;
+               Warn_On_Modified_Unread      := True;
+               Warn_On_No_Value_Assigned    := True;
+               Warn_On_Obsolescent_Feature  := True;
+               Warn_On_Redundant_Constructs := True;
+               Warn_On_Unchecked_Conversion := True;
+               Warn_On_Unrecognized_Pragma  := True;
 
                Set_Default_Style_Check_Options;
 
@@ -633,12 +654,22 @@ package body Switch.C is
                Ptr := Ptr + 1;
                Operating_Mode := Check_Syntax;
 
+            --  Processing for S switch
+
+            when 'S' =>
+               Print_Standard := True;
+               Ptr := Ptr + 1;
+
             --  Processing for t switch
 
             when 't' =>
                Ptr := Ptr + 1;
                Tree_Output := True;
-               ASIS_Mode := True;
+
+               if Operating_Mode = Check_Semantics then
+                  ASIS_Mode := True;
+               end if;
+
                Back_Annotate_Rep_Info := True;
 
             --  Processing for T switch

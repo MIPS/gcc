@@ -1,6 +1,6 @@
 // prims.cc - Code for core of runtime environment.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -25,6 +25,7 @@ details.  */
 #include <jvm.h>
 #include <java-signal.h>
 #include <java-threads.h>
+#include <java-interp.h>
 
 #ifdef ENABLE_JVMPI
 #include <jvmpi.h>
@@ -905,6 +906,10 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   _Jv_InitThreads ();
   _Jv_InitGC ();
   _Jv_InitializeSyncMutex ();
+  
+#ifdef INTERPRETER
+  _Jv_InitInterpreter ();
+#endif  
 
   /* Initialize Utf8 constants declared in jvm.h. */
   void_signature = _Jv_makeUtf8Const ("()V", 3);
@@ -927,15 +932,24 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   _Jv_InitClass (&java::lang::VMThrowable::class$);
   java::lang::VMThrowable::trace_enabled = 0;
   
+  // We have to initialize this fairly early, to avoid circular class
+  // initialization.  In particular we want to start the
+  // initialization of ClassLoader before we start the initialization
+  // of VMClassLoader.
+  _Jv_InitClass (&java::lang::ClassLoader::class$);
+  // Once the bootstrap loader is in place, change it into a kind of
+  // system loader, by having it read the class path.
+  gnu::gcj::runtime::VMClassLoader::initialize();
+
   INIT_SEGV;
 #ifdef HANDLE_FPE
   INIT_FPE;
 #endif
   
   no_memory = new java::lang::OutOfMemoryError;
-  
+
   java::lang::VMThrowable::trace_enabled = 1;
-  
+
 #ifdef USE_LTDL
   LTDL_SET_PRELOADED_SYMBOLS ();
 #endif
@@ -947,8 +961,7 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   _Jv_GCInitializeFinalizers (&::gnu::gcj::runtime::FinalizerThread::finalizerReady);
 
   // Start the GC finalizer thread.  A VirtualMachineError can be
-  // thrown by the runtime if, say, threads aren't available.  In this
-  // case finalizers simply won't run.
+  // thrown by the runtime if, say, threads aren't available.
   try
     {
       using namespace gnu::gcj::runtime;
@@ -987,12 +1000,6 @@ _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv,
 #else      
       arg_vec = JvConvertArgv (argc - 1, argv + 1);
 #endif
-
-      // We have to initialize this fairly early, to avoid circular
-      // class initialization.  In particular we want to start the
-      // initialization of ClassLoader before we start the
-      // initialization of VMClassLoader.
-      _Jv_InitClass (&java::lang::ClassLoader::class$);
 
       using namespace gnu::gcj::runtime;
       if (klass)

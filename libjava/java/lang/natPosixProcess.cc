@@ -1,6 +1,6 @@
 // natPosixProcess.cc - Native side of POSIX process code.
 
-/* Copyright (C) 1998, 1999, 2000, 2002  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -82,7 +82,7 @@ new_string (jstring string)
 {
   jsize s = _Jv_GetStringUTFLength (string);
   char *buf = (char *) _Jv_Malloc (s + 1);
-  _Jv_GetStringUTFRegion (string, 0, s, buf);
+  _Jv_GetStringUTFRegion (string, 0, string->length(), buf);
   buf[s] = '\0';
   return buf;
 }
@@ -207,7 +207,7 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
 	      char *path_val = getenv ("PATH");
 	      char *ld_path_val = getenv ("LD_LIBRARY_PATH");
 	      environ = env;
-	      if (getenv ("PATH") == NULL)
+	      if (path_val && getenv ("PATH") == NULL)
 		{
 		  char *path_env = (char *) _Jv_Malloc (strlen (path_val)
 							+ 5 + 1);
@@ -215,7 +215,7 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
 		  strcat (path_env, path_val);
 		  putenv (path_env);
 		}
-	      if (getenv ("LD_LIBRARY_PATH") == NULL)
+	      if (ld_path_val && getenv ("LD_LIBRARY_PATH") == NULL)
 		{
 		  char *ld_path_env
 		    = (char *) _Jv_Malloc (strlen (ld_path_val) + 16 + 1);

@@ -35,15 +35,16 @@
 #include "system.h"
 #else
 #include <stdio.h>
+#include <ctype.h>
+#define ISDIGIT(c) isdigit(c)
 #define PARMS(ARGS) ARGS
 #endif
 
-#include "ctype.h"
 #include "adadecode.h"
 
-static void add_verbose	PARAMS ((const char *, char *));
-static int has_prefix	PARAMS ((const char *, const char *));
-static int has_suffix	PARAMS ((const char *, const char *));
+static void add_verbose (const char *, char *);
+static int has_prefix (const char *, const char *);
+static int has_suffix (const char *, const char *);
 
 /* This is a safe version of strcpy that can be used with overlapped
    pointers. Does nothing if s2 <= s1.  */
@@ -55,9 +56,7 @@ static int verbose_info;
 /* Add TEXT to end of ADA_NAME, putting a leading " (" or ", ", depending
    on VERBOSE_INFO.  */
 
-static void add_verbose (text, ada_name)
-     const char *text;
-     char *ada_name;
+static void add_verbose (const char *text, char *ada_name)
 {
   strcat (ada_name, verbose_info ? ", " : " (");
   strcat (ada_name, text);
@@ -68,9 +67,7 @@ static void add_verbose (text, ada_name)
 /* Returns 1 if NAME starts with PREFIX.  */
 
 static int
-has_prefix (name, prefix)
-     const char *name;
-     const char *prefix;
+has_prefix (const char *name, const char *prefix)
 {
   return strncmp (name, prefix, strlen (prefix)) == 0;
 }
@@ -78,9 +75,7 @@ has_prefix (name, prefix)
 /* Returns 1 if NAME ends with SUFFIX.  */
 
 static int
-has_suffix (name, suffix)
-     const char *name;
-     const char *suffix;
+has_suffix (const char *name, const char *suffix)
 {
   int nlen = strlen (name);
   int slen = strlen (suffix);
@@ -147,10 +142,7 @@ ostrcpy (char *s1, char *s2)
   x__Oexpon               "**"     */
 
 void
-__gnat_decode (coded_name, ada_name, verbose)
-     const char *coded_name;
-     char *ada_name;
-     int verbose;
+__gnat_decode (const char *coded_name, char *ada_name, int verbose)
 {
   int lib_subprog = 0;
   int overloaded = 0;
@@ -216,7 +208,7 @@ __gnat_decode (coded_name, ada_name, verbose)
     int n_digits = 0;
 
     if (len > 1)
-      while (isdigit ((int) ada_name[(int) len - 1 - n_digits]))
+      while (ISDIGIT ((int) ada_name[(int) len - 1 - n_digits]))
 	n_digits++;
 
     /* Check if we have $ or __ before digits.  */
@@ -322,8 +314,7 @@ __gnat_decode (coded_name, ada_name, verbose)
 }
 
 char *
-ada_demangle (coded_name)
-     const char *coded_name;
+ada_demangle (const char *coded_name)
 {
   char ada_name[2048];
 

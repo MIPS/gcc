@@ -155,9 +155,6 @@ static void note_btr_set (rtx, rtx, void *);
    migrating branch target load instructions.  */
 static struct obstack migrate_btrl_obstack;
 
-/* Basic block dominator information used when migrating PT instructions */
-static dominance_info dom;
-
 /* Array indexed by basic block number, giving the set of registers
    live in that block.  */
 static HARD_REG_SET *btrs_live;
@@ -477,7 +474,7 @@ compute_defs_uses_and_gen (fibheap_t all_btr_defs, btr_def *def_array,
 	    && REGNO_REG_SET_P (bb->global_live_at_start, reg))
 	  SET_HARD_REG_BIT (info.btrs_live_in_block, reg);
 
-      for (insn = bb->head, last = NEXT_INSN (bb->end);
+      for (insn = BB_HEAD (bb), last = NEXT_INSN (BB_END (bb));
 	   insn != last;
 	   insn = NEXT_INSN (insn), insn_luid++)
 	{
@@ -629,7 +626,7 @@ link_btr_uses (btr_def *def_array, btr_user *use_array, sbitmap *bb_out,
       rtx last;
 
       sbitmap_union_of_preds (reaching_defs, bb_out, i);
-      for (insn = bb->head, last = NEXT_INSN (bb->end);
+      for (insn = BB_HEAD (bb), last = NEXT_INSN (BB_END (bb));
 	   insn != last;
 	   insn = NEXT_INSN (insn))
 	{
@@ -840,9 +837,9 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
 
   tos = worklist = xmalloc (sizeof (basic_block) * (n_basic_blocks + 1));
 
-  if (dominated_by_p (dom, new_bb, head_bb))
+  if (dominated_by_p (CDI_DOMINATORS, new_bb, head_bb))
     *tos++ = new_bb;
-  else if (dominated_by_p (dom, head_bb, new_bb))
+  else if (dominated_by_p (CDI_DOMINATORS, head_bb, new_bb))
     {
       edge e;
       int new_block = new_bb->index;
@@ -974,7 +971,7 @@ combine_btr_defs (btr_def def, HARD_REG_SET *btrs_live_in_range)
       if (other_def != def
 	  && other_def->uses != NULL
 	  && ! other_def->has_ambiguous_use
-	  && dominated_by_p (dom, other_def->bb, def->bb))
+	  && dominated_by_p (CDI_DOMINATORS, other_def->bb, def->bb))
 	{
 	  /* def->bb dominates the other def, so def and other_def could
 	     be combined.  */
@@ -1058,7 +1055,7 @@ move_btr_def (basic_block new_def_bb, int btr, btr_def def, bitmap live_range,
      Replace all uses of the old target register definition by
      uses of the new definition.  Delete the old definition.  */
   basic_block b = new_def_bb;
-  rtx insp = b->head;
+  rtx insp = BB_HEAD (b);
   rtx old_insn = def->insn;
   rtx src;
   rtx btr_rtx;
@@ -1131,7 +1128,7 @@ move_btr_def (basic_block new_def_bb, int btr, btr_def def, bitmap live_range,
 static int
 can_move_up (basic_block bb, rtx insn, int n_insns)
 {
-  while (insn != bb->head && n_insns > 0)
+  while (insn != BB_HEAD (bb) && n_insns > 0)
     {
       insn = PREV_INSN (insn);
       /* ??? What if we have an anti-dependency that actually prevents the
@@ -1226,9 +1223,9 @@ migrate_btr_def (btr_def def, int min_cost)
 
   def_basic_block_freq = basic_block_freq (def->bb);
 
-  for (try = get_immediate_dominator (dom, def->bb);
+  for (try = get_immediate_dominator (CDI_DOMINATORS, def->bb);
        !give_up && try && try != ENTRY_BLOCK_PTR && def->cost >= min_cost;
-       try = get_immediate_dominator (dom, try))
+       try = get_immediate_dominator (CDI_DOMINATORS, try))
     {
       /* Try to move the instruction that sets the target register into
 	 basic block TRY.  */
@@ -1299,7 +1296,7 @@ migrate_btr_defs (enum reg_class btr_class, int allow_callee_save)
 	    "Basic block %d: count = " HOST_WIDEST_INT_PRINT_DEC
 	    " loop-depth = %d idom = %d\n",
 	    i, (HOST_WIDEST_INT) bb->count, bb->loop_depth,
-	    get_immediate_dominator (dom, bb)->index);
+	    get_immediate_dominator (CDI_DOMINATORS, bb)->index);
 	}
     }
 
@@ -1367,12 +1364,12 @@ branch_target_load_optimize (rtx insns, bool after_prologue_epilogue_gen)
       life_analysis (insns, NULL, 0);
 
       /* Dominator info is also needed for migrate_btr_def.  */
-      dom = calculate_dominance_info (CDI_DOMINATORS);
+      calculate_dominance_info (CDI_DOMINATORS);
       migrate_btr_defs (class,
 		       ((*targetm.branch_target_register_callee_saved)
 			(after_prologue_epilogue_gen)));
 
-      free_dominance_info (dom);
+      free_dominance_info (CDI_DOMINATORS);
 
       update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
 			PROP_DEATH_NOTES | PROP_REG_INFO);

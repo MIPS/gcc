@@ -1,6 +1,6 @@
-/* Subroutines for insn-output.c for Hitachi H8/300.
+/* Subroutines for insn-output.c for Renesas H8/300.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -52,7 +52,7 @@ static int h8300_interrupt_function_p (tree);
 static int h8300_saveall_function_p (tree);
 static int h8300_monitor_function_p (tree);
 static int h8300_os_task_function_p (tree);
-static void dosize (int, unsigned int);
+static void h8300_emit_stack_adjustment (int, unsigned int);
 static int round_frame_size (int);
 static unsigned int compute_saved_regs (void);
 static void push (int);
@@ -63,7 +63,7 @@ static tree h8300_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
 static tree h8300_handle_eightbit_data_attribute (tree *, tree, tree, int, bool *);
 static tree h8300_handle_tiny_data_attribute (tree *, tree, tree, int, bool *);
 #ifndef OBJECT_FORMAT_ELF
-static void h8300_asm_named_section (const char *, unsigned int);
+static void h8300_asm_named_section (const char *, unsigned int, tree);
 #endif
 static int h8300_and_costs (rtx);
 static int h8300_shift_costs (rtx);
@@ -338,6 +338,9 @@ byte_reg (rtx x, int b)
     "r4l", "r4h", "r5l", "r5h", "r6l", "r6h", "r7l", "r7h"
   };
 
+  if (!REG_P (x))
+    abort ();
+
   return names_small[REGNO (x) * 2 + b];
 }
 
@@ -365,9 +368,7 @@ byte_reg (rtx x, int b)
    SIZE to adjust the stack pointer.  */
 
 static void
-dosize (sign, size)
-     int sign;
-     unsigned int size;
+h8300_emit_stack_adjustment (int sign, unsigned int size)
 {
   /* H8/300 cannot add/subtract a large constant with a single
      instruction.  If a temporary register is available, load the
@@ -436,8 +437,10 @@ push (int rn)
 
   if (TARGET_H8300)
     x = gen_push_h8300 (reg);
+  else if (!TARGET_NORMAL_MODE)
+    x = gen_push_h8300hs_advanced (reg);
   else
-    x = gen_push_h8300hs (reg);
+    x = gen_push_h8300hs_normal (reg);
   x = emit_insn (x);
   REG_NOTES (x) = gen_rtx_EXPR_LIST (REG_INC, stack_pointer_rtx, 0);
 }
@@ -452,8 +455,10 @@ pop (int rn)
 
   if (TARGET_H8300)
     x = gen_pop_h8300 (reg);
+  else if (!TARGET_NORMAL_MODE)
+    x = gen_pop_h8300hs_advanced (reg);
   else
-    x = gen_pop_h8300hs (reg);
+    x = gen_pop_h8300hs_normal (reg);
   x = emit_insn (x);
   REG_NOTES (x) = gen_rtx_EXPR_LIST (REG_INC, stack_pointer_rtx, 0);
 }
@@ -504,7 +509,7 @@ h8300_expand_prologue (void)
     }
 
   /* Leave room for locals.  */
-  dosize (-1, round_frame_size (get_frame_size ()));
+  h8300_emit_stack_adjustment (-1, round_frame_size (get_frame_size ()));
 
   /* Push the rest of the registers in ascending order.  */
   saved_regs = compute_saved_regs ();
@@ -629,7 +634,7 @@ h8300_expand_epilogue (void)
     }
 
   /* Deallocate locals.  */
-  dosize (1, round_frame_size (get_frame_size ()));
+  h8300_emit_stack_adjustment (1, round_frame_size (get_frame_size ()));
 
   /* Pop frame pointer if we had one.  */
   if (frame_pointer_needed)
@@ -1554,7 +1559,7 @@ final_prescan_insn (rtx insn, rtx *operand ATTRIBUTE_UNUSED,
 /* Prepare for an SI sized move.  */
 
 int
-do_movsi (rtx operands[])
+h8300_expand_movsi (rtx operands[])
 {
   rtx src = operands[1];
   rtx dst = operands[0];
@@ -1979,7 +1984,7 @@ compute_mov_length (rtx *operands)
 
 		  if (val == (val & 0x00ff) || val == (val & 0xff00))
 		    return 4;
-		  
+
 		  switch (val & 0xffffffff)
 		    {
 		    case 0xffffffff:
@@ -4376,7 +4381,8 @@ output_simode_bld (int bild, rtx operands[])
 
 #ifndef OBJECT_FORMAT_ELF
 static void
-h8300_asm_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED)
+h8300_asm_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED,
+			 tree decl)
 {
   /* ??? Perhaps we should be using default_coff_asm_named_section.  */
   fprintf (asm_out_file, "\t.section %s\n", name);
@@ -4514,6 +4520,26 @@ same_cmp_preceding_p (rtx i3)
 	  && any_condjump_p (i2) && onlyjump_p (i2));
 }
 
+/* Return nonzero if we have the same comparison insn as I1 two insns
+   after I1.  I1 is assumed to be a comparison insn.  */
+
+int
+same_cmp_following_p (rtx i1)
+{
+  rtx i2, i3;
+
+  /* Make sure we have a sequence of three insns.  */
+  i2 = next_nonnote_insn (i1);
+  if (i2 == NULL_RTX)
+    return 0;
+  i3 = next_nonnote_insn (i2);
+  if (i3 == NULL_RTX)
+    return 0;
+
+  return (INSN_P (i3) && rtx_equal_p (PATTERN (i1), PATTERN (i3))
+	  && any_condjump_p (i2) && onlyjump_p (i2));
+}
+
 /* Return nonzero if register OLD_REG can be renamed to register NEW_REG.  */
 
 int
@@ -4528,7 +4554,7 @@ h8300_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
       && !regs_ever_live[new_reg])
     return 0;
 
-   return 1;
+  return 1;
 }
 
 /* Perform target dependent optabs initialization.  */
@@ -4540,6 +4566,13 @@ h8300_init_libfuncs (void)
   set_optab_libfunc (udiv_optab, HImode, "__udivhi3");
   set_optab_libfunc (smod_optab, HImode, "__modhi3");
   set_optab_libfunc (umod_optab, HImode, "__umodhi3");
+}
+
+static bool
+h8300_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+{
+  return (TYPE_MODE (type) == BLKmode
+	  || GET_MODE_SIZE (TYPE_MODE (type)) > (TARGET_H8300 ? 4 : 8));
 }
 
 /* Initialize the GCC target structure.  */
@@ -4568,5 +4601,10 @@ h8300_init_libfuncs (void)
 
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS h8300_init_libfuncs
+
+#undef TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
+#undef TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY h8300_return_in_memory
 
 struct gcc_target targetm = TARGET_INITIALIZER;

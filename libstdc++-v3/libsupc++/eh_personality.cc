@@ -35,6 +35,10 @@
 
 using namespace __cxxabiv1;
 
+#ifdef __ARM_EABI_UNWINDER__
+#define NO_SIZE_OF_ENCODED_VALUE
+#endif
+
 #include "unwind-pe.h"
 
 
@@ -84,6 +88,67 @@ parse_lsda_header (_Unwind_Context *context, const unsigned char *p,
   return p;
 }
 
+#ifdef __ARM_EABI_UNWINDER__
+static const std::type_info*
+get_ttype_entry(lsda_header_info* info, _Unwind_Word i)
+{
+  _Unwind_Ptr ptr;
+
+  ptr = (_Unwind_Ptr) (info->TType - (i * 4));
+  ptr = _Unwind_decode_target2(ptr);
+  
+  return reinterpret_cast<const std::type_info *>(ptr);
+}
+
+/* The ABI provides a routine for matching exception object types.  */
+typedef _Unwind_Control_Block _throw_typet;
+#define get_adjusted_ptr(catch_type, throw_type, thrown_ptr_p) \
+  (__cxa_type_match (throw_type, catch_type, false, thrown_ptr_p) \
+   != ctm_failed)
+
+// Return true if THROW_TYPE matches one if the filter types.
+
+static bool
+check_exception_spec(lsda_header_info* info, _throw_typet* throw_type,
+		     void* thrown_ptr, _Unwind_Sword filter_value)
+{
+  const _Unwind_Word* e = ((const _Unwind_Word*) info->TType)
+			  - filter_value - 1;
+
+  while (1)
+    {
+      const std::type_info* catch_type;
+      _Unwind_Word tmp;
+
+      tmp = *e;
+      
+      // Zero signals the end of the list.  If we've not found
+      // a match by now, then we've failed the specification.
+      if (tmp == 0)
+        return false;
+
+      tmp = _Unwind_decode_target2((_Unwind_Word) e);
+
+      // Match a ttype entry.
+      catch_type = reinterpret_cast<const std::type_info*>(tmp);
+
+      // ??? There is currently no way to ask the RTTI code about the
+      // relationship between two types without reference to a specific
+      // object.  There should be; then we wouldn't need to mess with
+      // thrown_ptr here.
+      if (get_adjusted_ptr(catch_type, throw_type, &thrown_ptr))
+	return true;
+
+      /* Advance to the next entry.  */
+      e++;
+    }
+}
+#else
+typedef const std::type_info _throw_typet;
+
+
+// Return an element from a type table.
+
 static const std::type_info *
 get_ttype_entry (lsda_header_info *info, _Unwind_Word i)
 {
@@ -127,8 +192,8 @@ get_adjusted_ptr (const std::type_info *catch_type,
 // Return true if THROW_TYPE matches one if the filter types.
 
 static bool
-check_exception_spec (lsda_header_info *info, const std::type_info *throw_type,
-		      void *thrown_ptr, _Unwind_Sword filter_value)
+check_exception_spec(lsda_header_info* info, _throw_typet* throw_type,
+		      void* thrown_ptr, _Unwind_Sword filter_value)
 {
   const unsigned char *e = info->TType - filter_value - 1;
 
@@ -155,6 +220,7 @@ check_exception_spec (lsda_header_info *info, const std::type_info *throw_type,
 	return true;
     }
 }
+#endif
 
 // Return true if the filter spec is empty, ie throw().
 
@@ -168,6 +234,20 @@ empty_exception_spec (lsda_header_info *info, _Unwind_Sword filter_value)
   return tmp == 0;
 }
 
+#ifdef __ARM_EABI_UNWINDER__
+// ARM EABI personality routines must also unwind the stack.
+#define CONTINUE_UNWINDING \
+  do								\
+    {								\
+      if (__gnu_unwind_frame(ue_header, context) != _URC_OK)	\
+	return _URC_FAILURE;					\
+      return _URC_CONTINUE_UNWIND;				\
+    }								\
+  while (0)
+#else
+#define CONTINUE_UNWINDING return _URC_CONTINUE_UNWIND
+#endif
+
 // Using a different personality function name causes link failures
 // when trying to mix code using different exception handling models.
 #ifdef _GLIBCXX_SJLJ_EXCEPTIONS
@@ -178,14 +258,18 @@ empty_exception_spec (lsda_header_info *info, _Unwind_Sword filter_value)
 #endif
 
 extern "C" _Unwind_Reason_Code
+#ifdef __ARM_EABI_UNWINDER__
+PERSONALITY_FUNCTION (_Unwind_State state,
+		      struct _Unwind_Exception* ue_header,
+		      struct _Unwind_Context* context)
+#else
 PERSONALITY_FUNCTION (int version,
 		      _Unwind_Action actions,
 		      _Unwind_Exception_Class exception_class,
 		      struct _Unwind_Exception *ue_header,
 		      struct _Unwind_Context *context)
+#endif
 {
-  __cxa_exception *xh = __get_exception_header_from_ue (ue_header);
-
   enum found_handler_type
   {
     found_nothing,
@@ -200,19 +284,66 @@ PERSONALITY_FUNCTION (int version,
   const unsigned char *p;
   _Unwind_Ptr landing_pad, ip;
   int handler_switch_value;
-  void *thrown_ptr = xh + 1;
+  void* thrown_ptr = ue_header + 1;
+  bool foreign_exception;
+
+#ifdef __ARM_EABI_UNWINDER__
+  _Unwind_Action actions;
+
+  switch (state)
+    {
+    case _US_VIRTUAL_UNWIND_FRAME:
+      actions = _UA_SEARCH_PHASE;
+      break;
+
+    case _US_UNWIND_FRAME_STARTING:
+      actions = _UA_CLEANUP_PHASE;
+      if (ue_header->barrier_cache.sp == _Unwind_GetGR(context, 13))
+	actions |= _UA_HANDLER_FRAME;
+      break;
+
+    case _US_UNWIND_FRAME_RESUME:
+      CONTINUE_UNWINDING;
+      break;
+
+    default:
+      abort();
+    }
+
+  /* We don't know which runtime we're working with, so can't check this.
+     However the ABI routines hide this from us, and we don't actually need
+     to know.  */
+  foreign_exception = false;
+
+  /* The dwarf unwinder assumes the context structure holds things like the
+     function and LSDA pointers.  The ARM implementation caches these in
+     the exception header (UCB).  To avoid rewriting everything we make the
+     virtual IP register point at the UCB.  */
+  ip = (_Unwind_Ptr) ue_header;
+  _Unwind_SetGR(context, 12, ip);
+#else
+  __cxa_exception* xh = __get_exception_header_from_ue(ue_header);
 
   // Interface version check.
   if (version != 1)
     return _URC_FATAL_PHASE1_ERROR;
+  foreign_exception = !__is_gxx_exception_class(exception_class);
+#endif
 
   // Shortcut for phase 2 found handler for domestic exception.
   if (actions == (_UA_CLEANUP_PHASE | _UA_HANDLER_FRAME)
-      && exception_class == __gxx_exception_class)
+      && !foreign_exception)
     {
+#ifdef __ARM_EABI_UNWINDER__
+      handler_switch_value = (int) ue_header->barrier_cache.bitpattern[1];
+      language_specific_data =
+	(const unsigned char*) ue_header->barrier_cache.bitpattern[2];
+      landing_pad = (_Unwind_Ptr) ue_header->barrier_cache.bitpattern[3];
+#else
       handler_switch_value = xh->handlerSwitchValue;
       language_specific_data = xh->languageSpecificData;
       landing_pad = (_Unwind_Ptr) xh->catchTemp;
+#endif
       found_type = (landing_pad == 0 ? found_terminate : found_handler);
       goto install_context;
     }
@@ -222,11 +353,11 @@ PERSONALITY_FUNCTION (int version,
 
   // If no LSDA, then there are no handlers or cleanups.
   if (! language_specific_data)
-    return _URC_CONTINUE_UNWIND;
+    CONTINUE_UNWINDING;
 
   // Parse the LSDA header.
   p = parse_lsda_header (context, language_specific_data, &info);
-  info.ttype_base = base_of_encoded_value (info.ttype_encoding, context);
+  info.ttype_base = 0;
   ip = _Unwind_GetIP (context) - 1;
   landing_pad = 0;
   action_record = 0;
@@ -312,7 +443,8 @@ PERSONALITY_FUNCTION (int version,
       // Otherwise we have a catch handler or exception specification.
 
       _Unwind_Sword ar_filter, ar_disp;
-      const std::type_info *throw_type, *catch_type;
+      const std::type_info* catch_type;
+      _throw_typet* throw_type;
       bool saw_cleanup = false;
       bool saw_handler = false;
 
@@ -320,11 +452,15 @@ PERSONALITY_FUNCTION (int version,
       // exception class, there's no exception type.
       // ??? What to do about GNU Java and GNU Ada exceptions.
 
+#ifdef __ARM_EABI_UNWINDER__
+      throw_type = ue_header;
+#else
       if ((actions & _UA_FORCE_UNWIND)
-	  || exception_class != __gxx_exception_class)
+	  || foreign_exception)
 	throw_type = 0;
       else
 	throw_type = xh->exceptionType;
+#endif
 
       while (1)
 	{
@@ -387,16 +523,25 @@ PERSONALITY_FUNCTION (int version,
 
  do_something:
    if (found_type == found_nothing)
-     return _URC_CONTINUE_UNWIND;
+     CONTINUE_UNWINDING;
 
   if (actions & _UA_SEARCH_PHASE)
     {
       if (found_type == found_cleanup)
-	return _URC_CONTINUE_UNWIND;
+	CONTINUE_UNWINDING;
 
       // For domestic exceptions, we cache data from phase 1 for phase 2.
-      if (exception_class == __gxx_exception_class)
+      if (!foreign_exception)
         {
+#ifdef __ARM_EABI_UNWINDER__
+	  ue_header->barrier_cache.sp = _Unwind_GetGR(context, 13);
+	  ue_header->barrier_cache.bitpattern[0] = (_uw) thrown_ptr;
+	  ue_header->barrier_cache.bitpattern[1]
+	    = (_uw) handler_switch_value;
+	  ue_header->barrier_cache.bitpattern[2]
+	    = (_uw) language_specific_data;
+	  ue_header->barrier_cache.bitpattern[3] = (_uw) landing_pad;
+#else
           xh->handlerSwitchValue = handler_switch_value;
           xh->actionRecord = action_record;
           xh->languageSpecificData = language_specific_data;
@@ -405,16 +550,19 @@ PERSONALITY_FUNCTION (int version,
           // ??? Completely unknown what this field is supposed to be for.
           // ??? Need to cache TType encoding base for call_unexpected.
           xh->catchTemp = landing_pad;
+#endif
 	}
       return _URC_HANDLER_FOUND;
     }
 
  install_context:
+  
+#ifndef __ARM_EABI_UNWINDER__
   // We can't use any of the cxa routines with foreign exceptions,
   // because they all expect ue_header to be a struct __cxa_exception.
   // So in that case, call terminate or unexpected directly.
   if ((actions & _UA_FORCE_UNWIND)
-      || exception_class != __gxx_exception_class)
+      || foreign_exception)
     {
       if (found_type == found_terminate)
 	std::terminate ();
@@ -427,30 +575,56 @@ PERSONALITY_FUNCTION (int version,
 	}
     }
   else
+#endif
     {
       if (found_type == found_terminate)
-	{
-	  __cxa_begin_catch (&xh->unwindHeader);
-	  __terminate (xh->terminateHandler);
-	}
+	__cxa_call_terminate(ue_header);
 
       // Cache the TType base value for __cxa_call_unexpected, as we won't
       // have an _Unwind_Context then.
       if (handler_switch_value < 0)
 	{
 	  parse_lsda_header (context, language_specific_data, &info);
+
+#ifdef __ARM_EABI_UNWINDER__
+	  const _Unwind_Word* e;
+	  _Unwind_Word n;
+	  
+	  e = ((const _Unwind_Word*) info.TType) - handler_switch_value - 1;
+	  /* Count the number of rtti objects.  */
+	  n = 0;
+	  while (e[n] != 0)
+	    n++;
+
+	  // Count.
+	  ue_header->barrier_cache.bitpattern[1] = n;
+	  // Base (obsolete)
+	  ue_header->barrier_cache.bitpattern[2] = 0;
+	  // Stride.
+	  ue_header->barrier_cache.bitpattern[3] = 4;
+	  // List head.
+	  ue_header->barrier_cache.bitpattern[4] = (_Unwind_Word) e;
+#else
 	  xh->catchTemp = base_of_encoded_value (info.ttype_encoding, context);
+#endif
 	}
     }
 
+  /* For targets with pointers smaller than the word size, we must extend the
+     pointer, and this extension is target dependent.  */
   _Unwind_SetGR (context, __builtin_eh_return_data_regno (0),
-		 (_Unwind_Ptr) &xh->unwindHeader);
+		 __builtin_extend_pointer (ue_header));
   _Unwind_SetGR (context, __builtin_eh_return_data_regno (1),
 		 handler_switch_value);
   _Unwind_SetIP (context, landing_pad);
+#ifdef __ARM_EABI_UNWINDER__
+  if (found_type == found_cleanup)
+    __cxa_begin_cleanup(ue_header);
+#endif
   return _URC_INSTALL_CONTEXT;
 }
 
+#ifndef __ARM_EABI_UNWINDER__
 extern "C" void
 __cxa_call_unexpected (void *exc_obj_in)
 {
@@ -511,3 +685,4 @@ __cxa_call_unexpected (void *exc_obj_in)
       __terminate (xh_terminate_handler);
     }
 }
+#endif // !__ARM_EABI_UNWINDER__

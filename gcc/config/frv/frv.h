@@ -1,5 +1,6 @@
 /* Target macros for the FRV port of GCC.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Red Hat Inc.
 
    This file is part of GCC.
@@ -538,7 +539,7 @@ extern int target_flags;
 /* Define this macro if debugging can be performed even without a frame
    pointer.  If this macro is defined, GCC will turn on the
    `-fomit-frame-pointer' option whenever `-O' is specified.  */
-/* Frv needs a specific frame layout that includes the frame pointer */
+/* Frv needs a specific frame layout that includes the frame pointer.  */
 
 #define CAN_DEBUG_WITHOUT_FP
 
@@ -1885,7 +1886,7 @@ struct machine_function GTY(())
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED)		\
   frv_function_arg_partial_nregs (&CUM, MODE, TYPE, NAMED)
 
-/* extern int frv_function_arg_partial_nregs PARAMS ((CUMULATIVE_ARGS, int, Tree, int));  */
+/* extern int frv_function_arg_partial_nregs (CUMULATIVE_ARGS, int, Tree, int);  */
 
 /* A C expression that indicates when an argument must be passed by reference.
    If nonzero for an argument, a copy of that argument is made in memory and a
@@ -1945,7 +1946,7 @@ struct machine_function GTY(())
    being processed.  Thus, each time this macro is called, either LIBNAME or
    FNTYPE is nonzero, but never both of them at once.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
   frv_init_cumulative_args (&CUM, FNTYPE, LIBNAME, FNDECL, FALSE)
 
 /* Like `INIT_CUMULATIVE_ARGS' but overrides it for the purposes of finding the
@@ -2180,11 +2181,7 @@ struct machine_function GTY(())
 extern int _write (int, const void *, unsigned);			\
 									\
 void									\
-__trampoline_setup (addr, size, fnaddr, sc)				\
-     short * addr;							\
-     int size;								\
-     int fnaddr;							\
-     int sc;								\
+__trampoline_setup (short * addr, int size, int fnaddr, int sc)		\
 {									\
   extern short __trampoline_template[];					\
   short * to = addr;							\
@@ -2427,7 +2424,7 @@ __asm__("\n"								\
         #define REVERSIBLE_CC_MODE(MODE)  ((MODE) != CCFPEmode)  */
 
 /* On frv, don't consider floating point comparisons to be reversible.  In
-   theory, fp equality comparisons can be reversible */
+   theory, fp equality comparisons can be reversible.  */
 #define REVERSIBLE_CC_MODE(MODE) ((MODE) == CCmode || (MODE) == CC_UNSmode)
 
 /* Frv CCR_MODE's are not reversible.  */
@@ -2565,7 +2562,7 @@ __asm__("\n"								\
 
 #define SDATA_SECTION_FUNCTION						\
 void									\
-sdata_section ()							\
+sdata_section (void)							\
 {									\
   if (in_section != in_sdata)						\
     {									\
@@ -2576,7 +2573,7 @@ sdata_section ()							\
 
 #define FIXUP_SECTION_FUNCTION						\
 void									\
-fixup_section ()							\
+fixup_section (void)							\
 {									\
   if (in_section != in_fixup)						\
     {									\
@@ -2970,6 +2967,9 @@ do {                                                                    \
 #define ASM_OUTPUT_ALIGN(STREAM, POWER) \
   fprintf ((STREAM), "\t.p2align %d\n", (POWER))
 
+/* Inside the text section, align with unpacked nops rather than zeros.  */
+#define ASM_OUTPUT_ALIGN_WITH_NOP(STREAM, POWER) \
+  fprintf ((STREAM), "\t.p2alignl %d,0x80880000\n", (POWER))
 
 /* Macros Affecting all Debug Formats.  */
 

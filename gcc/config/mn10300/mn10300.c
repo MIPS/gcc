@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Matsushita MN10300 series
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
@@ -65,10 +65,10 @@ int mn10300_protect_label;
 				|| regs_ever_live[16] || regs_ever_live[17]))
 
 
-static int mn10300_address_cost_1 PARAMS ((rtx, int *));
-static int mn10300_address_cost PARAMS ((rtx));
-static bool mn10300_rtx_costs PARAMS ((rtx, int, int, int *));
-static void mn10300_file_start PARAMS ((void));
+static int mn10300_address_cost_1 (rtx, int *);
+static int mn10300_address_cost (rtx);
+static bool mn10300_rtx_costs (rtx, int, int, int *);
+static void mn10300_file_start (void);
 
 
 /* Initialize the GCC target structure.  */
@@ -92,7 +92,7 @@ static void mn10300_encode_section_info (tree, rtx, int);
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 static void
-mn10300_file_start ()
+mn10300_file_start (void)
 {
   default_file_start ();
 
@@ -107,10 +107,7 @@ mn10300_file_start ()
    FILE.  */
 
 void
-print_operand (file, x, code)
-     FILE *file;
-     rtx x;
-     int code;
+print_operand (FILE *file, rtx x, int code)
 {
   switch (code)
     {
@@ -437,9 +434,7 @@ print_operand (file, x, code)
 /* Output assembly language output for the address ADDR to FILE.  */
 
 void
-print_operand_address (file, addr)
-     FILE *file;
-     rtx addr;
+print_operand_address (FILE *file, rtx addr)
 {
   switch (GET_CODE (addr))
     {
@@ -477,7 +472,7 @@ print_operand_address (file, addr)
 
 /* Count the number of FP registers that have to be saved.  */
 static int
-fp_regs_to_save ()
+fp_regs_to_save (void)
 {
   int i, n = 0;
 
@@ -495,12 +490,10 @@ fp_regs_to_save ()
    Register K is saved if bit K of MASK is set.  The data and address
    registers can be stored individually, but the extended registers cannot.
    We assume that the mask alread takes that into account.  For instance,
-   bits 14 to 17 must have the same value. */
+   bits 14 to 17 must have the same value.  */
 
 void
-mn10300_print_reg_list (file, mask)
-     FILE *file;
-     int mask;
+mn10300_print_reg_list (FILE *file, int mask)
 {
   int need_comma;
   int i;
@@ -531,7 +524,7 @@ mn10300_print_reg_list (file, mask)
 }
 
 int
-can_use_return_insn ()
+can_use_return_insn (void)
 {
   /* size includes the fixed stack space needed for function calls.  */
   int size = get_frame_size () + current_function_outgoing_args_size;
@@ -555,10 +548,10 @@ can_use_return_insn ()
 
 /* Returns the set of live, callee-saved registers as a bitmask.  The
    callee-saved extended registers cannot be stored individually, so
-   all of them will be included in the mask if any one of them is used. */
+   all of them will be included in the mask if any one of them is used.  */
 
 int
-mn10300_get_live_callee_saved_regs ()
+mn10300_get_live_callee_saved_regs (void)
 {
   int mask;
   int i;
@@ -593,8 +586,7 @@ mn10300_get_live_callee_saved_regs ()
 	      (reg:SI R1))) */
 
 void
-mn10300_gen_multiple_store (mask)
-     int mask;
+mn10300_gen_multiple_store (int mask)
 {
   if (mask != 0)
     {
@@ -603,17 +595,17 @@ mn10300_gen_multiple_store (mask)
       rtx par;
       int pari;
 
-      /* Count how many registers need to be saved. */
+      /* Count how many registers need to be saved.  */
       count = 0;
       for (i = 0; i <= LAST_EXTENDED_REGNUM; i++)
 	if ((mask & (1 << i)) != 0)
 	  count += 1;
 
       /* We need one PARALLEL element to update the stack pointer and
-	 an additional element for each register that is stored. */
+	 an additional element for each register that is stored.  */
       par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count + 1));
 
-      /* Create the instruction that updates the stack pointer. */
+      /* Create the instruction that updates the stack pointer.  */
       XVECEXP (par, 0, 0)
 	= gen_rtx_SET (SImode,
 		       stack_pointer_rtx,
@@ -621,7 +613,7 @@ mn10300_gen_multiple_store (mask)
 				     stack_pointer_rtx,
 				     GEN_INT (-count * 4)));
 
-      /* Create each store. */
+      /* Create each store.  */
       pari = 1;
       for (i = LAST_EXTENDED_REGNUM; i >= 0; i--)
 	if ((mask & (1 << i)) != 0)
@@ -642,7 +634,7 @@ mn10300_gen_multiple_store (mask)
 }
 
 void
-expand_prologue ()
+expand_prologue (void)
 {
   HOST_WIDE_INT size;
 
@@ -650,7 +642,7 @@ expand_prologue ()
   size = get_frame_size () + current_function_outgoing_args_size;
   size += (current_function_outgoing_args_size ? 4 : 0);
 
-  /* If we use any of the callee-saved registers, save them now. */
+  /* If we use any of the callee-saved registers, save them now.  */
   mn10300_gen_multiple_store (mn10300_get_live_callee_saved_regs ());
 
   if (TARGET_AM33_2 && fp_regs_to_save ())
@@ -776,7 +768,7 @@ expand_prologue ()
 	}
 
       /* Consider alternative save_a0_no_merge if the user hasn't
-	 changed the calling conventions of a0. */
+	 changed the calling conventions of a0.  */
       if (call_used_regs[FIRST_ADDRESS_REGNUM]
 	  && ! fixed_regs[FIRST_ADDRESS_REGNUM])
 	{
@@ -824,10 +816,10 @@ expand_prologue ()
 				 stack_pointer_rtx,
 				 GEN_INT (-(size + 4 * num_regs_to_save))));
 	  /* We'll have to adjust FP register saves according to the
-	     frame size. */
+	     frame size.  */
 	  xsize = size;
 	  /* Since we've already created the stack frame, don't do it
-	     again at the end of the function. */
+	     again at the end of the function.  */
 	  size = 0;
 	  break;
 
@@ -917,7 +909,7 @@ expand_prologue ()
 }
 
 void
-expand_epilogue ()
+expand_epilogue (void)
 {
   HOST_WIDE_INT size;
 
@@ -977,7 +969,7 @@ expand_epilogue ()
 	  /* Insn: fmov (##,sp),fs#, for each fs# to be restored.  */
 	  this_strategy_size += SIZE_FMOV_SP (0, num_regs_to_save);
 	  /* We're going to use ret to release the FP registers
-		 save area, so, no savings. */
+		 save area, so, no savings.  */
 
 	  if (this_strategy_size < strategy_size)
 	    {
@@ -1000,7 +992,7 @@ expand_epilogue ()
 						  - 4 * num_regs_to_save,
 						  num_regs_to_save);
 	      /* We're going to use ret to release the FP registers
-		 save area, so, no savings. */
+		 save area, so, no savings.  */
 
 	      if (this_strategy_size < strategy_size)
 		{
@@ -1088,7 +1080,7 @@ expand_epilogue ()
 	    else if (size)
 	      {
 		/* If we aren't using a post-increment register, use an
-		   SP offset. */
+		   SP offset.  */
 		addr = gen_rtx_PLUS (SImode,
 				     stack_pointer_rtx,
 				     GEN_INT (size));
@@ -1155,9 +1147,7 @@ expand_epilogue ()
 /* Update the condition code from the insn.  */
 
 void
-notice_update_cc (body, insn)
-     rtx body;
-     rtx insn;
+notice_update_cc (rtx body, rtx insn)
 {
   switch (get_attr_cc (insn))
     {
@@ -1220,9 +1210,7 @@ notice_update_cc (body, insn)
    registers it saves.  Return 0 otherwise.  */
 
 int
-store_multiple_operation (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+store_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   int count;
   int mask;
@@ -1245,7 +1233,7 @@ store_multiple_operation (op, mode)
   /* Check that A is the stack pointer and B is the expected stack size.
      For OP to match, each subsequent instruction should push a word onto
      the stack.  We therefore expect the first instruction to create
-     COUNT-1 stack slots. */
+     COUNT-1 stack slots.  */
   elt = SET_SRC (elt);
   if (GET_CODE (XEXP (elt, 0)) != REG
       || REGNO (XEXP (elt, 0)) != STACK_POINTER_REGNUM
@@ -1259,12 +1247,12 @@ store_multiple_operation (op, mode)
      store a lower-numbered register to the slot below.
 
      LAST keeps track of the smallest-numbered register stored so far.
-     MASK is the set of stored registers. */
+     MASK is the set of stored registers.  */
   last = LAST_EXTENDED_REGNUM + 1;
   mask = 0;
   for (i = 1; i < count; i++)
     {
-      /* Check that element i is a (set (mem M) R) and that R is valid. */
+      /* Check that element i is a (set (mem M) R) and that R is valid.  */
       elt = XVECEXP (op, 0, i);
       if (GET_CODE (elt) != SET
 	  || GET_CODE (SET_DEST (elt)) != MEM
@@ -1273,7 +1261,7 @@ store_multiple_operation (op, mode)
 	return 0;
 
       /* R was OK, so provisionally add it to MASK.  We return 0 in any
-	 case if the rest of the instruction has a flaw. */
+	 case if the rest of the instruction has a flaw.  */
       last = REGNO (SET_SRC (elt));
       mask |= (1 << last);
 
@@ -1287,7 +1275,7 @@ store_multiple_operation (op, mode)
 	return 0;
     }
 
-  /* All or none of the callee-saved extended registers must be in the set. */
+  /* All or none of the callee-saved extended registers must be in the set.  */
   if ((mask & 0x3c000) != 0
       && (mask & 0x3c000) != 0x3c000)
     return 0;
@@ -1298,9 +1286,7 @@ store_multiple_operation (op, mode)
 /* Return true if OP is a valid call operand.  */
 
 int
-call_address_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+call_address_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   if (flag_pic)
     return (EXTRA_CONSTRAINT (op, 'S') || GET_CODE (op) == REG);
@@ -1313,10 +1299,7 @@ call_address_operand (op, mode)
 
    We might be able to simplify this.  */
 enum reg_class
-secondary_reload_class (class, mode, in)
-     enum reg_class class;
-     enum machine_mode mode;
-     rtx in;
+secondary_reload_class (enum reg_class class, enum machine_mode mode, rtx in)
 {
   /* Memory loads less than a full word wide can't have an
      address or stack pointer destination.  They must use
@@ -1372,8 +1355,7 @@ secondary_reload_class (class, mode, in)
 }
 
 int
-initial_offset (from, to)
-     int from, to;
+initial_offset (int from, int to)
 {
   /* The difference between the argument pointer and the frame pointer
      is the size of the callee register save area.  */
@@ -1426,7 +1408,7 @@ initial_offset (from, to)
 /* Flush the argument registers to the stack for a stdarg function;
    return the new argument pointer.  */
 rtx
-mn10300_builtin_saveregs ()
+mn10300_builtin_saveregs (void)
 {
   rtx offset, mem;
   tree fntype = TREE_TYPE (current_function_decl);
@@ -1456,17 +1438,14 @@ mn10300_builtin_saveregs ()
 }
 
 void
-mn10300_va_start (valist, nextarg)
-     tree valist;
-     rtx nextarg;
+mn10300_va_start (tree valist, rtx nextarg)
 {
   nextarg = expand_builtin_saveregs ();
   std_expand_builtin_va_start (valist, nextarg);
 }
 
 rtx
-mn10300_va_arg (valist, type)
-     tree valist, type;
+mn10300_va_arg (tree valist, tree type)
 {
   HOST_WIDE_INT align, rsize;
   tree t, ptr, pptr;
@@ -1505,11 +1484,8 @@ mn10300_va_arg (valist, type)
    from a function.  If the result is 0, the argument is pushed.  */
 
 rtx
-function_arg (cum, mode, type, named)
-     CUMULATIVE_ARGS *cum;
-     enum machine_mode mode;
-     tree type;
-     int named ATTRIBUTE_UNUSED;
+function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+	      tree type, int named ATTRIBUTE_UNUSED)
 {
   rtx result = 0;
   int size, align;
@@ -1558,11 +1534,8 @@ function_arg (cum, mode, type, named)
    in registers and partially in memory.  */
 
 int
-function_arg_partial_nregs (cum, mode, type, named)
-     CUMULATIVE_ARGS *cum;
-     enum machine_mode mode;
-     tree type;
-     int named ATTRIBUTE_UNUSED;
+function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+			    tree type, int named ATTRIBUTE_UNUSED)
 {
   int size, align;
 
@@ -1599,8 +1572,7 @@ function_arg_partial_nregs (cum, mode, type, named)
 
 /* Output a tst insn.  */
 const char *
-output_tst (operand, insn)
-     rtx operand, insn;
+output_tst (rtx operand, rtx insn)
 {
   rtx temp;
   int past_call = 0;
@@ -1629,7 +1601,7 @@ output_tst (operand, insn)
 	  continue;
 	}
 
-      /* It must be an insn, see if it is a simple set. */
+      /* It must be an insn, see if it is a simple set.  */
       set = single_set (temp);
       if (!set)
 	{
@@ -1689,9 +1661,7 @@ output_tst (operand, insn)
 }
 
 int
-impossible_plus_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+impossible_plus_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   if (GET_CODE (op) != PLUS)
     return 0;
@@ -1707,9 +1677,7 @@ impossible_plus_operand (op, mode)
    for the btst insn which may examine memory or a register (the memory
    variant only allows an unsigned 8 bit integer).  */
 int
-const_8bit_operand (op, mode)
-    register rtx op;
-    enum machine_mode mode ATTRIBUTE_UNUSED;
+const_8bit_operand (register rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   return (GET_CODE (op) == CONST_INT
 	  && INTVAL (op) >= 0
@@ -1718,9 +1686,7 @@ const_8bit_operand (op, mode)
 
 /* Return true if the operand is the 1.0f constant.  */
 int
-const_1f_operand (op, mode)
-    register rtx op;
-    enum machine_mode mode ATTRIBUTE_UNUSED;
+const_1f_operand (register rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   return (op == CONST1_RTX (SFmode));
 }
@@ -1728,9 +1694,7 @@ const_1f_operand (op, mode)
 /* Similarly, but when using a zero_extract pattern for a btst where
    the source operand might end up in memory.  */
 int
-mask_ok_for_mem_btst (len, bit)
-     int len;
-     int bit;
+mask_ok_for_mem_btst (int len, int bit)
 {
   unsigned int mask = 0;
 
@@ -1752,9 +1716,7 @@ mask_ok_for_mem_btst (len, bit)
    expressions will have one of a few well defined forms, so
    we need only check those forms.  */
 int
-symbolic_operand (op, mode)
-     register rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+symbolic_operand (register rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   switch (GET_CODE (op))
     {
@@ -1787,10 +1749,8 @@ symbolic_operand (op, mode)
    But on a few ports with segmented architectures and indexed addressing
    (mn10300, hppa) it is used to rewrite certain problematical addresses.  */
 rtx
-legitimize_address (x, oldx, mode)
-     rtx x;
-     rtx oldx ATTRIBUTE_UNUSED;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
+		    enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   if (flag_pic && ! legitimate_pic_operand_p (x))
     x = legitimize_pic_address (oldx, NULL_RTX);
@@ -1826,11 +1786,9 @@ legitimize_address (x, oldx, mode)
 }
 
 /* Convert a non-PIC address in `orig' to a PIC address using @GOT or
-   @GOTOFF in `reg'. */
+   @GOTOFF in `reg'.  */
 rtx
-legitimize_pic_address (orig, reg)
-     rtx orig;
-     rtx reg;
+legitimize_pic_address (rtx orig, rtx reg)
 {
   if (GET_CODE (orig) == LABEL_REF
       || (GET_CODE (orig) == SYMBOL_REF
@@ -1857,8 +1815,7 @@ legitimize_pic_address (orig, reg)
 /* Return zero if X references a SYMBOL_REF or LABEL_REF whose symbol
    isn't protected by a PIC unspec; nonzero otherwise.  */
 int
-legitimate_pic_operand_p (x)
-     rtx x;
+legitimate_pic_operand_p (rtx x)
 {
   register const char *fmt;
   register int i;
@@ -1895,9 +1852,7 @@ legitimate_pic_operand_p (x)
 }
 
 static int
-mn10300_address_cost_1 (x, unsig)
-     rtx x;
-     int *unsig;
+mn10300_address_cost_1 (rtx x, int *unsig)
 {
   switch (GET_CODE (x))
     {
@@ -1976,18 +1931,14 @@ mn10300_address_cost_1 (x, unsig)
 }
 
 static int
-mn10300_address_cost (x)
-     rtx x;
+mn10300_address_cost (rtx x)
 {
   int s = 0;
   return mn10300_address_cost_1 (x, &s);
 }
 
 static bool
-mn10300_rtx_costs (x, code, outer_code, total)
-     rtx x;
-     int code, outer_code;
-     int *total;
+mn10300_rtx_costs (rtx x, int code, int outer_code, int *total)
 {
   switch (code)
     {
@@ -2039,8 +1990,7 @@ mn10300_rtx_costs (x, code, outer_code, total)
    movdf and movdi.  */
 
 bool
-mn10300_wide_const_load_uses_clr (operands)
-     rtx operands[2];
+mn10300_wide_const_load_uses_clr (rtx operands[2])
 {
   long val[2];
 
@@ -2085,10 +2035,7 @@ mn10300_wide_const_load_uses_clr (operands)
    may access it using GOTOFF instead of GOT.  */
 
 static void
-mn10300_encode_section_info (decl, rtl, first)
-     tree decl;
-     rtx rtl;
-     int first;
+mn10300_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
 {
   rtx symbol;
 

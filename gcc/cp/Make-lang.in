@@ -25,7 +25,7 @@
 # foo.all.build, foo.all.cross, foo.start.encap, foo.rest.encap,
 # foo.install-normal, foo.install-common, foo.install-man,
 # foo.uninstall,
-# foo.mostlyclean, foo.clean, foo.distclean, foo.extraclean,
+# foo.mostlyclean, foo.clean, foo.distclean,
 # foo.maintainer-clean, foo.stage1, foo.stage2, foo.stage3, foo.stage4
 #
 # where `foo' is the name of the language.
@@ -37,14 +37,10 @@
 # - define the names for selecting the language in LANGUAGES.
 
 # Actual names to use when installing a native compiler.
-CXX_INSTALL_NAME = `echo c++|sed '$(program_transform_name)'`
-GXX_INSTALL_NAME = `echo g++|sed '$(program_transform_name)'`
-CXX_TARGET_INSTALL_NAME = $(target_noncanonical)-`echo c++|sed '$(program_transform_name)'`
-GXX_TARGET_INSTALL_NAME = $(target_noncanonical)-`echo g++|sed '$(program_transform_name)'`
-
-# Actual names to use when installing a cross-compiler.
-CXX_CROSS_NAME = `echo c++|sed '$(program_transform_cross_name)'`
-GXX_CROSS_NAME = `echo g++|sed '$(program_transform_cross_name)'`
+CXX_INSTALL_NAME := $(shell echo c++|sed '$(program_transform_name)')
+GXX_INSTALL_NAME := $(shell echo g++|sed '$(program_transform_name)')
+CXX_TARGET_INSTALL_NAME := $(target_noncanonical)-$(shell echo c++|sed '$(program_transform_name)')
+GXX_TARGET_INSTALL_NAME := $(target_noncanonical)-$(shell echo g++|sed '$(program_transform_name)')
 
 #
 # Define the names for selecting c++ in LANGUAGES.
@@ -61,8 +57,6 @@ g++spec.o: $(srcdir)/cp/g++spec.c $(SYSTEM_H) coretypes.h $(TM_H) $(GCC_H) $(CON
 	SHLIB_MULTILIB='$(SHLIB_MULTILIB)'; \
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(DRIVER_DEFINES) \
 		$(INCLUDES) $(srcdir)/cp/g++spec.c)
-
-po-generated:
 
 # Create the compiler driver for g++.
 GXX_OBJS = gcc.o g++spec.o intl.o prefix.o version.o 
@@ -112,11 +106,22 @@ c++.all.build: g++$(exeext)
 c++.all.cross: g++-cross$(exeext)
 c++.start.encap: g++$(exeext)
 c++.rest.encap:
+c++.info:
+c++.srcinfo:
+c++.srcextra:
 
 c++.tags: force
-	cd $(srcdir)/cp; etags *.c *.h
+	cd $(srcdir)/cp; etags -o TAGS.sub *.c *.h --language=none \
+	  --regex='/DEFTREECODE [(]\([A-Z_]+\)/\1/' cp-tree.def; \
+	etags --include TAGS.sub --include ../TAGS.sub
 
-generated-manpages:: cp/g++.1
+c++.man: doc/g++.1
+
+c++.srcman: doc/g++.1
+	-cp -p $^ $(srcdir)/doc
+
+check-c++ : check-g++
+lang_checks += check-g++
 
 #
 # Install hooks:
@@ -128,14 +133,14 @@ c++.install-normal:
 # Install the driver program as $(target)-g++
 # and also as either g++ (if native) or $(tooldir)/bin/g++.
 c++.install-common: installdirs
+	-rm -f $(DESTDIR)$(bindir)/$(GXX_INSTALL_NAME)$(exeext)
+	-$(INSTALL_PROGRAM) g++$(exeext) $(DESTDIR)$(bindir)/$(GXX_INSTALL_NAME)$(exeext)
+	-chmod a+x $(DESTDIR)$(bindir)/$(GXX_INSTALL_NAME)$(exeext)
+	-rm -f $(DESTDIR)$(bindir)/$(CXX_INSTALL_NAME)$(exeext)
+	-( cd $(DESTDIR)$(bindir) && \
+	      $(LN) $(GXX_INSTALL_NAME)$(exeext) $(CXX_INSTALL_NAME)$(exeext) )
 	-if [ -f cc1plus$(exeext) ] ; then \
 	  if [ -f g++-cross$(exeext) ] ; then \
-	    rm -f $(DESTDIR)$(bindir)/$(GXX_CROSS_NAME)$(exeext); \
-	    $(INSTALL_PROGRAM) g++-cross$(exeext) $(DESTDIR)$(bindir)/$(GXX_CROSS_NAME)$(exeext); \
-	    chmod a+x $(DESTDIR)$(bindir)/$(GXX_CROSS_NAME)$(exeext); \
-	    rm -f $(DESTDIR)$(bindir)/$(CXX_CROSS_NAME)$(exeext); \
-	    ( cd $(DESTDIR)$(bindir) && \
-	      $(LN) $(GXX_CROSS_NAME)$(exeext) $(CXX_CROSS_NAME)$(exeext) ); \
 	    if [ -d $(DESTDIR)$(gcc_tooldir)/bin/. ] ; then \
 	      rm -f $(DESTDIR)$(gcc_tooldir)/bin/g++$(exeext); \
 	      $(INSTALL_PROGRAM) g++-cross$(exeext) $(DESTDIR)$(gcc_tooldir)/bin/g++$(exeext); \
@@ -144,12 +149,6 @@ c++.install-common: installdirs
 	        $(LN) g++$(exeext) c++$(exeext) ); \
 	    else true; fi; \
 	  else \
-	    rm -f $(DESTDIR)$(bindir)/$(GXX_INSTALL_NAME)$(exeext); \
-	    $(INSTALL_PROGRAM) g++$(exeext) $(DESTDIR)$(bindir)/$(GXX_INSTALL_NAME)$(exeext); \
-	    chmod a+x $(DESTDIR)$(bindir)/$(GXX_INSTALL_NAME)$(exeext); \
-	    rm -f $(DESTDIR)$(bindir)/$(CXX_INSTALL_NAME)$(exeext); \
-	    ( cd $(DESTDIR)$(bindir) && \
-	      $(LN) $(GXX_INSTALL_NAME)$(exeext) $(CXX_INSTALL_NAME)$(exeext) ); \
 	    rm -f $(DESTDIR)$(bindir)/$(GXX_TARGET_INSTALL_NAME)$(exeext); \
 	    ( cd $(DESTDIR)$(bindir) && \
 	      $(LN) $(GXX_INSTALL_NAME)$(exeext) $(GXX_TARGET_INSTALL_NAME)$(exeext) ); \
@@ -159,47 +158,34 @@ c++.install-common: installdirs
 	  fi ; \
 	fi
 
-cp/g++.1:
-	-rm -f $@
-	if [ "$(ALL)" = all.cross ]; then \
-	  echo ".so man1/$(GCC_CROSS_NAME).1" > $@ ; \
-	else \
-	  echo ".so man1/$(GCC_INSTALL_NAME).1" > $@ ; \
-	fi
+# We can't use links because not everyone supports them, and we can't use
+# .so because Irix 6.5 doesn't support them.  So just copy the manpage.
+doc/g++.1: doc/gcc.1
+	cp doc/gcc.1 doc/g++.1
 
-c++.install-man: installdirs cp/g++.1
-	-if [ -f cc1plus$(exeext) ] ; then \
-	  if [ -f g++-cross$(exeext) ] ; then \
-	    rm -f $(DESTDIR)$(man1dir)/$(GXX_CROSS_NAME)$(man1ext); \
-	    $(INSTALL_DATA) cp/g++.1 $(DESTDIR)$(man1dir)/$(GXX_CROSS_NAME)$(man1ext); \
-	    chmod a-x $(DESTDIR)$(man1dir)/$(GXX_CROSS_NAME)$(man1ext); \
-	  else \
-	    rm -f $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext); \
-	    $(INSTALL_DATA) cp/g++.1 $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext); \
-	    chmod a-x $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext); \
-	  fi; \
-	else true; fi
+c++.install-man: installdirs $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext) 
+
+$(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext): doc/g++.1
+	-rm -f $@
+	-$(INSTALL_DATA) $< $@
+	-chmod a-x $@
 
 c++.uninstall:
 	-rm -rf $(DESTDIR)$(bindir)/$(CXX_INSTALL_NAME)$(exeext)
-	-rm -rf $(DESTDIR)$(bindir)/$(CXX_CROSS_NAME)$(exeext)
 	-rm -rf $(DESTDIR)$(bindir)/$(GXX_INSTALL_NAME)$(exeext)
-	-rm -rf $(DESTDIR)$(bindir)/$(GXX_CROSS_NAME)$(exeext)
 	-rm -rf $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext)
-	-rm -rf $(DESTDIR)$(man1dir)/$(GXX_CROSS_NAME)$(man1ext)
 #
 # Clean hooks:
 # A lot of the ancillary files are deleted by the main makefile.
 # We just have to delete files specific to us.
 
 c++.mostlyclean:
-	-rm -f cp/g++.1
+	-rm -f doc/g++.1
 	-rm -f cp/*$(objext)
 	-rm -f cp/*$(coverageexts)
 c++.clean:
 c++.distclean:
 	-rm -f cp/config.status cp/Makefile
-c++.extraclean:
 c++.maintainer-clean:
 #
 # Stage hooks:
@@ -247,7 +233,7 @@ cp/call.o: cp/call.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h $(RTL_H) $(EXPR_H) \
      diagnostic.h intl.h gt-cp-call.h convert.h target.h
 cp/friend.o: cp/friend.c $(CXX_TREE_H) $(TM_H) flags.h $(RTL_H) toplev.h $(EXPR_H)
 cp/init.o: cp/init.c $(CXX_TREE_H) $(TM_H) flags.h $(RTL_H) $(EXPR_H) toplev.h \
-  except.h
+  except.h $(TARGET_H)
 cp/method.o: cp/method.c $(CXX_TREE_H) $(TM_H) toplev.h $(RTL_H) $(EXPR_H) \
   $(TM_P_H) $(TARGET_H) gt-cp-method.h
 cp/cvt.o: cp/cvt.c $(CXX_TREE_H) $(TM_H) cp/decl.h flags.h toplev.h convert.h
@@ -268,11 +254,12 @@ cp/repo.o: cp/repo.c $(CXX_TREE_H) $(TM_H) toplev.h diagnostic.h \
   gt-cp-repo.h
 cp/semantics.o: cp/semantics.c $(CXX_TREE_H) $(TM_H) cp/lex.h except.h toplev.h \
   flags.h debug.h output.h $(RTL_H) $(TIMEVAR_H) $(EXPR_H) \
-  tree-inline.h cgraph.h
+  tree-inline.h cgraph.h $(TARGET_H)
 cp/dump.o: cp/dump.c $(CXX_TREE_H) $(TM_H) tree-dump.h
 cp/optimize.o: cp/optimize.c $(CXX_TREE_H) $(TM_H) rtl.h integrate.h insn-config.h \
   input.h $(PARAMS_H) debug.h tree-inline.h
-cp/mangle.o: cp/mangle.c $(CXX_TREE_H) $(TM_H) toplev.h real.h gt-cp-mangle.h $(TM_P_H)
+cp/mangle.o: cp/mangle.c $(CXX_TREE_H) $(TM_H) toplev.h real.h gt-cp-mangle.h \
+  $(TARGET_H) $(TM_P_H)
 
 cp/parser.o: cp/parser.c $(CXX_TREE_H) $(TM_H) diagnostic.h gt-cp-parser.h output.h
 

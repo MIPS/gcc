@@ -1,5 +1,5 @@
 # Makefile for GNU Ada Compiler (GNAT).
-#   Copyright (C) 1994-2003 Free Software Foundation, Inc.
+#   Copyright (C) 1994-2004 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -109,25 +109,7 @@ LS = ls
 RANLIB = ranlib
 # Test to use to see whether ranlib exists on the system.
 RANLIB_TEST = [ -f /usr/bin/ranlib -o -f /bin/ranlib ]
-CC = cc
 
-BISON = bison
-BISONFLAGS =
-ECHO = echo
-LEX = flex
-LEXFLAGS =
-CHMOD = chmod
-CP = cp -p
-MV = mv -f
-RM = rm -f
-RMDIR = rm -rf
-MKDIR = mkdir -p
-AR = ar
-AR_FLAGS = rc
-# How to invoke ranlib.
-RANLIB = ranlib
-# Test to use to see whether ranlib exists on the system.
-RANLIB_TEST = [ -f /usr/bin/ranlib -o -f /bin/ranlib ]
 SHELL = @SHELL@
 PWD_COMMAND = $${PWDCMD-pwd}
 # How to copy preserving the date
@@ -393,6 +375,8 @@ PREFIX_REAL_OBJS = ../prefix.o \
   ../../libiberty/xstrdup.o    \
   ../../libiberty/xexit.o
 
+LIB_VERSION = $(strip $(shell grep ' Library_Version :' $(fsrcpfx)gnatvsn.ads | sed -e 's/.*"\(.*\)".*/\1/'))
+
 # $(filter-out PATTERN...,TEXT) removes all PATTERN words from TEXT.
 # $(strip STRING) removes leading and trailing spaces from STRING.
 # If what's left is null then it's a match.
@@ -468,7 +452,7 @@ ifeq ($(strip $(filter-out %86 sysv5uw%,$(arch) $(osys))),)
   PREFIX_OBJS=$(PREFIX_REAL_OBJS)
   SO_OPTS = -Wl,-h,
   GNATLIB_SHARED = gnatlib-shared-dual
-  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+  LIBRARY_VERSION := $(LIB_VERSION)
 endif
 
 ifeq ($(strip $(filter-out alpha% dec vx%,$(targ))),)
@@ -479,6 +463,7 @@ ifeq ($(strip $(filter-out alpha% dec vx%,$(targ))),)
   a-numaux.ads<4znumaux.ads \
   s-inmaop.adb<7sinmaop.adb \
   s-interr.adb<5zinterr.adb \
+  s-intman.ads<5zintman.ads \
   s-intman.adb<5zintman.adb \
   s-osinte.adb<5zosinte.adb \
   s-osinte.ads<5zosinte.ads \
@@ -505,6 +490,7 @@ ifeq ($(strip $(filter-out m68k% wrs vx%,$(targ))),)
   a-numaux.ads<4znumaux.ads \
   s-inmaop.adb<7sinmaop.adb \
   s-interr.adb<5zinterr.adb \
+  s-intman.ads<5zintman.ads \
   s-intman.adb<5zintman.adb \
   s-osinte.adb<5zosinte.adb \
   s-osinte.ads<5zosinte.ads \
@@ -542,6 +528,7 @@ ifeq ($(strip $(filter-out powerpc% wrs vxworks,$(targ))),)
   a-numaux.ads<4znumaux.ads \
   s-inmaop.adb<7sinmaop.adb \
   s-interr.adb<5zinterr.adb \
+  s-intman.ads<5zintman.ads \
   s-intman.adb<5zintman.adb \
   s-osinte.adb<5zosinte.adb \
   s-osinte.ads<5zosinte.ads \
@@ -592,127 +579,6 @@ ifeq ($(strip $(filter-out powerpc% wrs vxworks,$(targ))),)
   s-vxwork.ads<5pvxwork.ads \
   a-taside.adb<1ataside.adb \
 
-  CERT_LEVEL_B_TARGET_PAIRS=\
-  a-tags.ads<1atags.ads     \
-  a-tags.adb<1atags.adb     \
-  a-except.adb<2aexcept.adb \
-  a-except.ads<2aexcept.ads \
-  a-excach.adb<2aexcach.adb \
-  i-c.ads<1ic.ads           \
-  g-io.adb<2gio.adb         \
-  s-init.ads<2sinit.ads     \
-  s-init.adb<5zinit.adb     \
-  s-memory.adb<2smemory.adb \
-  s-memory.ads<2smemory.ads \
-  s-osinte.ads<2sosinte.ads \
-  s-secsta.ads<2ssecsta.ads \
-  s-secsta.adb<2ssecsta.adb \
-  s-soflin.adb<2ssoflin.adb \
-  s-soflin.ads<2ssoflin.ads \
-  s-stalib.adb<1sstalib.adb \
-  s-stalib.ads<1sstalib.ads \
-  s-thrini.ads<2sthrini.ads \
-  s-thrini.adb<5zthrini.adb \
-  s-tiitho.adb<5ztiitho.adb \
-  s-traceb.adb<2straceb.adb \
-  s-traceb.ads<2straceb.ads \
-  system.ads<5isystem.ads
-
-  ifeq ($(strip $(filter-out yes,$(TRACE))),)
-    LIBGNAT_TARGET_PAIRS += \
-    s-traces.adb<7straces.adb \
-    s-trafor.adb<7strafor.adb \
-    s-trafor.ads<7strafor.ads \
-    s-tratas.adb<7stratas.adb \
-    s-tfsetr.adb<5ztfsetr.adb 
-  endif
-endif
-
-
-ifeq ($(strip $(filter-out powerpc% wrs vxworksae,$(targ))),)
-  LIBGNAT_TARGET_PAIRS = \
-  a-sytaco.ads<4zsytaco.ads \
-  a-sytaco.adb<4zsytaco.adb \
-  a-intnam.ads<4zintnam.ads \
-  a-numaux.ads<4znumaux.ads \
-  s-inmaop.adb<7sinmaop.adb \
-  s-interr.adb<5zinterr.adb \
-  s-intman.adb<5zintman.adb \
-  s-osinte.adb<5zosinte.adb \
-  s-osinte.ads<5zosinte.ads \
-  s-osprim.adb<5zosprim.adb \
-  s-parame.ads<5yparame.ads \
-  s-taprop.adb<5ztaprop.adb \
-  s-taspri.ads<5ztaspri.ads \
-  s-tpopsp.adb<5ztpopsp.adb \
-  s-vxwork.ads<5pvxwork.ads \
-  g-soccon.ads<3zsoccon.ads \
-  g-socthi.ads<3zsocthi.ads \
-  g-socthi.adb<3zsocthi.adb \
-  system.ads<5ysystem.ads
-
-  TOOLS_TARGET_PAIRS=mlib-tgt.adb<5zml-tgt.adb
-
-  EXTRA_HIE_NONE_TARGET_PAIRS= \
-  system.ads<50system.ads
-
-  EXTRA_RAVEN_SOURCES=i-vxwork.ads s-vxwork.ads
-  EXTRA_RAVEN_OBJS=i-vxwork.o s-vxwork.o
-  EXTRA_GNATRTL_NONTASKING_OBJS=i-vxwork.o i-vxwoio.o
-  EXTRA_GNATRTL_TASKING_OBJS=i-vthrea.o s-tpae65.o s-vxwork.o
-  HIE_RAVEN_TARGET_PAIRS=\
-  $(HIE_NONE_TARGET_PAIRS) \
-  a-reatim.ads<1areatim.ads \
-  a-reatim.adb<1areatim.adb \
-  a-retide.adb<1aretide.adb \
-  a-interr.adb<1ainterr.adb \
-  s-interr.ads<1sinterr.ads \
-  s-interr.adb<1sinterr.adb \
-  s-taskin.ads<1staskin.ads \
-  s-taskin.adb<1staskin.adb \
-  s-tarest.adb<1starest.adb \
-  s-tposen.ads<1stposen.ads \
-  s-tposen.adb<1stposen.adb \
-  s-osinte.adb<1sosinte.adb \
-  s-taprop.ads<1staprop.ads \
-  s-taprop.adb<1staprop.adb \
-  s-taprob.ads<1staprob.ads \
-  s-taprob.adb<1staprob.adb \
-  a-sytaco.ads<1asytaco.ads \
-  a-sytaco.adb<1asytaco.adb \
-  a-intnam.ads<4zintnam.ads \
-  s-osinte.ads<5zosinte.ads \
-  s-parame.ads<5zparame.ads \
-  s-taspri.ads<5ztaspri.ads \
-  s-vxwork.ads<5pvxwork.ads \
-  a-taside.adb<1ataside.adb \
-
-  CERT_LEVEL_B_TARGET_PAIRS=\
-  a-tags.ads<1atags.ads     \
-  a-tags.adb<1atags.adb     \
-  a-except.adb<2aexcept.adb \
-  a-except.ads<2aexcept.ads \
-  a-excach.adb<2aexcach.adb \
-  i-c.ads<1ic.ads           \
-  g-io.adb<2gio.adb         \
-  s-init.ads<2sinit.ads     \
-  s-init.adb<5zinit.adb     \
-  s-memory.adb<2smemory.adb \
-  s-memory.ads<2smemory.ads \
-  s-osinte.ads<2sosinte.ads \
-  s-secsta.ads<2ssecsta.ads \
-  s-secsta.adb<2ssecsta.adb \
-  s-soflin.adb<2ssoflin.adb \
-  s-soflin.ads<2ssoflin.ads \
-  s-stalib.adb<1sstalib.adb \
-  s-stalib.ads<1sstalib.ads \
-  s-thrini.ads<2sthrini.ads \
-  s-thrini.adb<5zthrini.adb \
-  s-tiitho.adb<5ytiitho.adb \
-  s-traceb.adb<2straceb.adb \
-  s-traceb.ads<2straceb.ads \
-  system.ads<5isystem.ads
-
   ifeq ($(strip $(filter-out yes,$(TRACE))),)
     LIBGNAT_TARGET_PAIRS += \
     s-traces.adb<7straces.adb \
@@ -728,8 +594,7 @@ ifeq ($(strip $(filter-out powerpc% unknown elf,$(targ))),)
   system.ads<59system.ads
 
   LIBGNAT_TARGET_PAIRS = \
-  $(HIE_NONE_TARGET_PAIRS) \
-  $(EXTRA_HIE_NONE_TARGET_PAIRS)
+  $(HIE_NONE_TARGET_PAIRS)
 endif
 
 ifeq ($(strip $(filter-out sparc% unknown elf,$(targ))),)
@@ -737,8 +602,7 @@ ifeq ($(strip $(filter-out sparc% unknown elf,$(targ))),)
   system.ads<5rsystem.ads
 
   LIBGNAT_TARGET_PAIRS = \
-  $(HIE_NONE_TARGET_PAIRS) \
-  $(EXTRA_HIE_NONE_TARGET_PAIRS)
+  $(HIE_NONE_TARGET_PAIRS)
 endif
 
 ifeq ($(strip $(filter-out sparc% wrs vx%,$(targ))),)
@@ -749,6 +613,7 @@ ifeq ($(strip $(filter-out sparc% wrs vx%,$(targ))),)
   a-numaux.ads<4znumaux.ads \
   s-inmaop.adb<7sinmaop.adb \
   s-interr.adb<5zinterr.adb \
+  s-intman.ads<5zintman.ads \
   s-intman.adb<5zintman.adb \
   s-osinte.adb<5zosinte.adb \
   s-osinte.ads<5zosinte.ads \
@@ -777,6 +642,7 @@ ifeq ($(strip $(filter-out xscale% coff wrs vx%,$(targ))),)
   a-numaux.ads<4znumaux.ads \
   s-inmaop.adb<7sinmaop.adb \
   s-interr.adb<5zinterr.adb \
+  s-intman.ads<5zintman.ads \
   s-intman.adb<5zintman.adb \
   s-osinte.adb<5zosinte.adb \
   s-osinte.ads<5zosinte.ads \
@@ -805,6 +671,7 @@ ifeq ($(strip $(filter-out mips% wrs vx%,$(targ))),)
   a-numaux.ads<4znumaux.ads \
   s-inmaop.adb<7sinmaop.adb \
   s-interr.adb<5zinterr.adb \
+  s-intman.ads<5zintman.ads \
   s-intman.adb<5zintman.adb \
   s-osinte.adb<5zosinte.adb \
   s-osinte.ads<5zosinte.ads \
@@ -852,7 +719,7 @@ ifeq ($(strip $(filter-out sparc sun solaris%,$(targ))),)
   GNATLIB_SHARED = gnatlib-shared-dual
   GMEM_LIB = gmemlib
   PREFIX_OBJS = $(PREFIX_REAL_OBJS)
-  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+  LIBRARY_VERSION := $(LIB_VERSION)
 
   ifeq ($(strip $(filter-out fsu FSU,$(THREAD_KIND))),)
     LIBGNAT_TARGET_PAIRS = \
@@ -936,7 +803,7 @@ ifeq ($(strip $(filter-out %86 solaris2%,$(arch) $(osys))),)
   SO_OPTS = -Wl,-h,
   GNATLIB_SHARED = gnatlib-shared-dual
   PREFIX_OBJS = $(PREFIX_REAL_OBJS)
-  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+  LIBRARY_VERSION := $(LIB_VERSION)
 endif
 
 ifeq ($(strip $(filter-out %86 linux%,$(arch) $(osys))),)
@@ -945,7 +812,7 @@ ifeq ($(strip $(filter-out %86 linux%,$(arch) $(osys))),)
   a-numaux.adb<86numaux.adb \
   a-numaux.ads<86numaux.ads \
   s-inmaop.adb<7sinmaop.adb \
-  s-intman.adb<5lintman.adb \
+  s-intman.adb<7sintman.adb \
   s-mastop.adb<5omastop.adb \
   s-osinte.adb<5iosinte.adb \
   s-osinte.ads<5iosinte.ads \
@@ -962,7 +829,7 @@ ifeq ($(strip $(filter-out %86 linux%,$(arch) $(osys))),)
   GNATLIB_SHARED = gnatlib-shared-dual
   GMEM_LIB = gmemlib
   PREFIX_OBJS = $(PREFIX_REAL_OBJS)
-  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+  LIBRARY_VERSION := $(LIB_VERSION)
 
   ifeq ($(strip $(filter-out fsu FSU,$(THREAD_KIND))),)
     LIBGNAT_TARGET_PAIRS = \
@@ -970,7 +837,7 @@ ifeq ($(strip $(filter-out %86 linux%,$(arch) $(osys))),)
     a-numaux.adb<86numaux.adb \
     a-numaux.ads<86numaux.ads \
     s-inmaop.adb<7sinmaop.adb \
-    s-intman.adb<5lintman.adb \
+    s-intman.adb<7sintman.adb \
     s-mastop.adb<5omastop.adb \
     s-osinte.adb<7sosinte.adb \
     s-osinte.ads<5losinte.ads \
@@ -982,6 +849,25 @@ ifeq ($(strip $(filter-out %86 linux%,$(arch) $(osys))),)
 
     THREADSLIB = -lgthreads -lmalloc
   endif
+endif
+
+ifeq ($(strip $(filter-out %86 freebsd%,$(arch) $(osys))),)
+  LIBGNAT_TARGET_PAIRS = \
+  a-intnam.ads<45intnam.ads \
+  g-soccon.ads<35soccon.ads \
+  s-inmaop.adb<7sinmaop.adb \
+  s-intman.adb<7sintman.adb \
+  s-mastop.adb<5omastop.adb \
+  s-osinte.adb<55osinte.adb \
+  s-osinte.ads<55osinte.ads \
+  s-osprim.adb<7sosprim.adb \
+  s-taprop.adb<7staprop.adb \
+  s-taspri.ads<7staspri.ads \
+  s-tpopsp.adb<7stpopsp.adb \
+  system.ads<56system.ads
+
+  THREADSLIB=
+  LIBRARY_VERSION := $(LIB_VERSION)
 endif
 
 ifeq ($(strip $(filter-out mips sgi irix%,$(targ))),)
@@ -1027,7 +913,7 @@ ifeq ($(strip $(filter-out mips sgi irix%,$(targ))),)
     g-soccon.ads<3gsoccon.ads \
     system.ads<5fsystem.ads
 
-    THREADSLIB = -lathread
+    THREADSLIB =
   endif
 
   TOOLS_TARGET_PAIRS = mlib-tgt.adb<5gml-tgt.adb
@@ -1035,7 +921,7 @@ ifeq ($(strip $(filter-out mips sgi irix%,$(targ))),)
   MISCLIB = -lexc
   SO_OPTS = -Wl,-all,-set_version,sgi1.0,-update_registry,../so_locations,-soname,
   PREFIX_OBJS = $(PREFIX_REAL_OBJS)
-  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+  LIBRARY_VERSION := $(LIB_VERSION)
 endif
 
 ifeq ($(strip $(filter-out hppa% hp hpux10%,$(targ))),)
@@ -1083,7 +969,7 @@ ifeq ($(strip $(filter-out hppa% hp hpux11%,$(targ))),)
   SO_OPTS = -Wl,+h,
   PREFIX_OBJS = $(PREFIX_REAL_OBJS)
   GNATLIB_SHARED = gnatlib-shared-dual
-  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+  LIBRARY_VERSION := $(LIB_VERSION)
 
   ifeq ($(strip $(filter-out dce DCE,$(THREAD_KIND))),)
     LIBGNAT_TARGET_PAIRS = \
@@ -1234,10 +1120,10 @@ ifeq ($(strip $(filter-out alpha% dec osf%,$(targ))),)
   THREADSLIB = -lpthread -lmach -lexc -lrt
   PREFIX_OBJS = $(PREFIX_REAL_OBJS)
   GNATLIB_SHARED = gnatlib-shared-default
-  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+  LIBRARY_VERSION := $(LIB_VERSION)
 endif
 
-ifeq ($(strip $(filter-out alpha% dec vms% openvms% alphavms%,$(host))),)
+ifeq ($(strip $(filter-out alpha% ia64 dec vms% openvms% alphavms%,$(host))),)
 
 soext  = .exe
 
@@ -1248,15 +1134,30 @@ soext  = .exe
 endif
 
 ifeq ($(strip $(filter-out alpha% ia64 dec hp vms% openvms% alphavms%,$(targ))),)
-ifeq ($(strip $(filter-out alpha64% dec vms% openvms% alphavms%,$(targ))),)
-  LIBGNAT_TARGET_PAIRS_AUX =
+
+ifeq ($(strip $(filter-out ia64% hp vms% openvms%,$(targ))),)
+  LIBGNAT_TARGET_PAIRS_AUX = \
+  s-osinte.adb<5xosinte.adb \
+  s-osinte.ads<5xosinte.ads \
+  s-parame.ads<5vparame.ads
+else
+ifeq ($(strip $(filter-out alpha64% dec hp vms% openvms% alphavms%,$(targ))),)
+  LIBGNAT_TARGET_PAIRS_AUX = \
+  s-osinte.adb<5vosinte.adb \
+  s-osinte.ads<5vosinte.ads \
+  s-parame.ads<5vparame.ads
 else
 ifeq ($(strip $(filter-out express EXPRESS,$(THREAD_KIND))),)
   LIBGNAT_TARGET_PAIRS_AUX = \
+  s-osinte.adb<5vosinte.adb \
+  s-osinte.ads<5vosinte.ads \
   s-parame.ads<5xparame.ads
 else
   LIBGNAT_TARGET_PAIRS_AUX = \
+  s-osinte.adb<5vosinte.adb \
+  s-osinte.ads<5vosinte.ads \
   s-parame.ads<5vparame.ads
+endif
 endif
 endif
 
@@ -1266,6 +1167,7 @@ endif
   a-calend.ads<4vcalend.ads \
   a-excpol.adb<4wexcpol.adb \
   a-intnam.ads<4vintnam.ads \
+  a-numaux.ads<4vnumaux.ads \
   g-expect.adb<3vexpect.adb \
   g-soccon.ads<3vsoccon.ads \
   g-socthi.ads<3vsocthi.ads \
@@ -1275,12 +1177,11 @@ endif
   i-cpp.adb<6vcpp.adb \
   interfac.ads<6vinterf.ads \
   s-asthan.adb<5vasthan.adb \
+  s-crtl.ads<5vcrtl.ads \
   s-inmaop.adb<5vinmaop.adb \
   s-interr.adb<5vinterr.adb \
   s-intman.adb<5vintman.adb \
   s-intman.ads<5vintman.ads \
-  s-osinte.adb<5vosinte.adb \
-  s-osinte.ads<5vosinte.ads \
   s-osprim.adb<5vosprim.adb \
   s-osprim.ads<5vosprim.ads \
   s-taprop.adb<5vtaprop.adb \
@@ -1304,9 +1205,9 @@ endif
      ../../gnatlbr$(exeext) \
      ,,/../gnatsym$(exeext)
   # This command transforms (YYYYMMDD) into YY,MMDD
-  GSMATCH_VERSION := $(shell grep "^ *Gnat_Version_String" $(fsrcpfx)gnatvsn.ads | sed -e 's/.*(\(.*\)).*/\1/' -e 's/\(..\)\(..\)\(....\)/\2,\3/')
-  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/' -e 's/\./_/g'))
+  GSMATCH_VERSION := $(shell grep "^ *Gnat_Static_Version_String" $(fsrcpfx)gnatvsn.ads | sed -e 's/.*(\(.*\)).*/\1/' -e 's/\(..\)\(..\)\(....\)/\2,\3/')
   TOOLS_LIBS_LO := --for-linker=sys\\$$\$$library:trace.exe
+  LIBRARY_VERSION := $(subst .,_,$(LIB_VERSION))
 endif
 
 ifeq ($(strip $(filter-out cygwin32% mingw32% pe,$(osys))),)
@@ -1338,19 +1239,20 @@ ifeq ($(strip $(filter-out cygwin32% mingw32% pe,$(osys))),)
   GMEM_LIB = gmemlib
   PREFIX_OBJS = $(PREFIX_REAL_OBJS)
   EXTRA_GNATTOOLS = ../../gnatdll$(exeext)
-  GNAT_WRAPPER_TOOL = ../../gnat_wrapper$(exeext)
   EXTRA_GNATMAKE_OBJS = mdll.o mdll-utl.o mdll-fil.o
   EXTRA_GNATRTL_NONTASKING_OBJS = g-regist.o
   soext = .dll
+# ??? This will be replaced by gnatlib-shared-dual-win32 when GNAT auto-import
+# support for array/record will be done.
   GNATLIB_SHARED = gnatlib-shared-win32
-  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+  LIBRARY_VERSION := $(LIB_VERSION)
 endif
 
 ifeq ($(strip $(filter-out %ia64 linux%,$(arch) $(osys))),)
   LIBGNAT_TARGET_PAIRS = \
   a-intnam.ads<4lintnam.ads \
   s-inmaop.adb<7sinmaop.adb \
-  s-intman.adb<5lintman.adb \
+  s-intman.adb<7sintman.adb \
   s-osinte.ads<5iosinte.ads \
   s-osinte.adb<5iosinte.adb \
   s-osprim.adb<7sosprim.adb \
@@ -1364,7 +1266,30 @@ ifeq ($(strip $(filter-out %ia64 linux%,$(arch) $(osys))),)
   THREADSLIB=-lpthread
   GNATLIB_SHARED=gnatlib-shared-dual
   PREFIX_OBJS=$(PREFIX_REAL_OBJS)
-  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+  LIBRARY_VERSION := $(LIB_VERSION)
+endif
+
+ifeq ($(strip $(filter-out %x86_64 linux%,$(arch) $(osys))),)
+  LIBGNAT_TARGET_PAIRS = \
+  a-intnam.ads<4lintnam.ads \
+  a-numaux.adb<86numaux.adb \
+  a-numaux.ads<86numaux.ads \
+  s-inmaop.adb<7sinmaop.adb \
+  s-intman.adb<7sintman.adb \
+  s-osinte.ads<5iosinte.ads \
+  s-osinte.adb<5iosinte.adb \
+  s-osprim.adb<7sosprim.adb \
+  s-taprop.adb<5itaprop.adb \
+  s-tpopsp.adb<5atpopsp.adb \
+  s-taspri.ads<5itaspri.ads \
+  system.ads<5nsystem.ads
+
+  TOOLS_TARGET_PAIRS=mlib-tgt.adb<5lml-tgt.adb
+  MISCLIB=
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  PREFIX_OBJS=$(PREFIX_REAL_OBJS)
+  LIBRARY_VERSION := $(LIB_VERSION)
 endif
 
 # The runtime library for gnat comprises two directories.  One contains the
@@ -1519,80 +1444,6 @@ RAVEN_OBJS = \
  a-sytaco.o \
  a-taside.o $(EXTRA_RAVEN_OBJS)
 
-
-# Files which are needed for the cert level B runtime
-
-COMPILABLE_CERT_LEVEL_B_SOURCES = \
-$(COMPILABLE_HIE_SOURCES) \
- a-except.adb \
- a-except.ads \
- a-exctra.ads \
- a-exctra.adb \
- s-init.adb   \
- s-init.ads   \
- s-memory.adb \
- s-memory.ads \
- s-osinte.ads \
- s-soflin.adb \
- s-soflin.ads \
- s-stalib.adb \
- s-stalib.ads \
- s-thrini.adb \
- s-thrini.ads \
- s-assert.adb \
- s-assert.ads \
- s-exnint.adb \
- s-exnint.ads \
- s-strops.adb \
- s-strops.ads \
- s-thread.adb \
- s-thread.ads \
- s-traceb.adb \
- s-traceb.ads \
- s-traent.ads \
- s-traent.adb \
- g-debuti.ads \
- g-debuti.adb \
- g-io.adb     \
- g-io.ads     \
- $(EXTRA_CERT_LEVEL_B_SOURCES)
-
-NON_COMPILABLE_CERT_LEVEL_B_SOURCES= \
- a-excach.adb \
- s-tiitho.adb \
- $(NON_COMPILABLE_HIE_SOURCES)
-
-CERT_LEVEL_B_SOURCES = \
-$(NON_COMPILABLE_CERT_LEVEL_B_SOURCES) \
-$(COMPILABLE_CERT_LEVEL_B_SOURCES)
-
-# Objects to generate for the cert level B run time
-
-CERT_LEVEL_B_OBJS = \
- $(HIE_OBJS) \
- a-except.o  \
- a-excach.o  \
- s-init.o    \
- s-memory.o  \
- s-soflin.o  \
- s-stalib.o  \
- s-tiitho.o  \
- s-thrini.o  \
- s-traceb.o  \
- s-assert.o  \
- s-exnint.o  \
- s-strops.o  \
- s-thread.o  \
- g-debuti.o  \
- g-io.o      \
- $(EXTRA_CERT_LEVEL_B_OBJS)
-
-# C files for the cert level B run time (without the .c extension)
-
-CERT_LEVEL_B_C_FILES = \
-2raise \
-$(EXTRA_CERT_LEVEL_B_C_FILES)
-
 # Default run time files
 
 ADA_INCLUDE_SRCS =\
@@ -1678,11 +1529,10 @@ gnattools2: ../stamp-tools
 	  TOOLSCASE=native \
 	  ../../gnatchop$(exeext) ../../gnat$(exeext) ../../gnatkr$(exeext) \
 	  ../../gnatls$(exeext) ../../gnatprep$(exeext) \
-	  ../../gnatpsta$(exeext) ../../gnatxref$(exeext) \
+	  ../../gnatxref$(exeext) \
 	  ../../gnatfind$(exeext) ../../gnatname$(exeext) \
 	  ../../gnatclean$(exeext) \
-	  ../../gprcmd$(exeext)   ../../gpr2make$(exeext) \
-	  $(GNAT_WRAPPER_TOOL)
+	  ../../gprcmd$(exeext)   ../../gpr2make$(exeext)
 
 # These tools are only built for the native version.
 gnattools3: ../stamp-tools
@@ -1735,12 +1585,6 @@ gnattools4: ../stamp-tools
 	$(GNATLINK) -v gnatprep -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
 		    $(TOOLS_LIBS)
 
-../../gnatpsta$(exeext): deftarg.o ../stamp-tools
-#	$(GNATMAKE) -c $(ADA_INCLUDES) gnatpsta --GCC="$(CC) $(ALL_ADAFLAGS)"
-#	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatpsta 
-#	$(GNATLINK) -v gnatpsta -o $@ --GCC="$(CC) $(ADA_INCLUDES)"\
-#                      ../targtyps.o deftarg.o $(TOOLS_LIBS)
-
 ../../gnatxref$(exeext): ../stamp-tools
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatxref --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatxref 
@@ -1777,12 +1621,6 @@ endif
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatdll --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) $(GNATBIND_FLAGS) gnatdll
 	$(GNATLINK) -v gnatdll -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		$(TOOLS_LIBS)
-
-../../gnat_wrapper$(exeext): ../stamp-tools
-	$(GNATMAKE) -c -O2 -gnatpn $(ADA_INCLUDES) gnat_wrapper --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnat_wrapper
-	$(GNATLINK) -v gnat_wrapper -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
 		$(TOOLS_LIBS)
 
 ../../gprcmd$(exeext): ../stamp-tools
@@ -1855,7 +1693,7 @@ install-gnatlib: ../stamp-gnatlib
 	-$(INSTALL_DATA) rts/Makefile.prolog $(DESTDIR)$(ADA_SHARE_MAKE_DIR)
 	-$(INSTALL_DATA) rts/Makefile.generic $(DESTDIR)$(ADA_SHARE_MAKE_DIR)
 	for file in rts/*.ali; do \
-	    $(INSTALL_DATA) $$file $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
+	    $(INSTALL_DATA_DATE) $$file $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
 	done
 	-$(INSTALL_DATA) rts/g-trasym$(objext) $(DESTDIR)$(ADA_RTL_OBJ_DIR)
 	-for file in rts/*$(arext);do \
@@ -1865,20 +1703,16 @@ install-gnatlib: ../stamp-gnatlib
 #     of $(INSTALL_DATA). The latter may force a mode inappropriate
 #     for shared libraries on some targets, e.g. on HP-UX where the x
 #     permission is required.
-ifeq ($(strip $(filter-out alpha% dec vms% openvms% alphavms%,$(targ))),)
-	-for file in rts/lib*$(soext);do \
-	    $(INSTALL) $$file $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
+	for file in gnat gnarl; do \
+	   if [ -f rts/lib$$file-$(LIBRARY_VERSION)$(soext) ]; then \
+	      $(INSTALL) rts/lib$$file-$(LIBRARY_VERSION)$(soext) \
+			 $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
+	   fi; \
+	   if [ -f rts/lib$$file$(soext) ]; then \
+	      $(LN_S) lib$$file-$(LIBRARY_VERSION)$(soext) \
+	      $(DESTDIR)$(ADA_RTL_OBJ_DIR)/lib$$file$(soext); \
+	   fi; \
 	done
-else
-	-for file in rts/lib*-*$(soext);do \
-	    $(INSTALL) $$file $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
-	done
-endif
-	if [ -f rts/libgnat-*$(soext) ]; then \
-	   (cd $(DESTDIR)$(ADA_RTL_OBJ_DIR) && \
-	    $(LN_S) libgnat-*$(soext) libgnat$(soext) && \
-	    $(LN_S) libgnarl-*$(soext) libgnarl$(soext)) \
-	fi
 # This copy must be done preserving the date on the original file.
 	for file in rts/*.adb rts/*.ads; do \
 	    $(INSTALL_DATA_DATE) $$file $(DESTDIR)$(ADA_INCLUDE_DIR); \
@@ -2023,27 +1857,10 @@ rts-zfp: force
 	   RTS_TARGET_PAIRS="$(HIE_NONE_TARGET_PAIRS)" \
 	   COMPILABLE_SOURCES="$(COMPILABLE_HIE_SOURCES)" 
 	-$(GNATMAKE) -Prts-zfp/zfp.gpr --GCC="../../../xgcc -B../../../"
+	cd rts-zfp/adalib/ ; $(AR) r libgnat.a *.o
 	$(RM) rts-zfp/adalib/*.o
 	$(CHMOD) a-wx rts-zfp/adalib/*.ali
-
-rts-cert: force
-# First compile the Ada files ...
-	$(MAKE) $(FLAGS_TO_PASS) prepare-rts \
-	   RTS_NAME=cert RTS_SRCS="$(CERT_LEVEL_B_SOURCES)" \
-	   RTS_TARGET_PAIRS="$(CERT_LEVEL_B_TARGET_PAIRS)" \
-	   COMPILABLE_SOURCES="$(COMPILABLE_CERT_LEVEL_B_SOURCES)" 
-	-$(GNATMAKE) -Prts-cert/cert.gpr --GCC="../../../xgcc -B../../../"
-	$(CHMOD) a-wx rts-cert/adalib/*.ali
-# ... then the C files. This section will eventually be removed.
-	$(foreach f,$(CERT_LEVEL_B_C_FILES), \
-	  $(CP) $(fsrcpfx)$(f).c rts-cert/adainclude/ ;)
-	cd rts-cert/adalib ; \
-	$(foreach f,$(CERT_LEVEL_B_C_FILES), \
-	../../../$(GCC_FOR_TARGET) -B../../../ $(TARGET_LIBGCC2_CFLAGS) \
-	$(ALL_CFLAGS) $(GNATLIBCFLAGS_FOR_C) -c ../adainclude/$(f).c \
-	-I../adainclude $(INCLUDES_FOR_SUBDIR) -I../../../ ;) \
-	$(AR) $(AR_FLAGS) libgnat$(arext) \
-	   $(addsuffix .o,$(CERT_LEVEL_B_C_FILES))
+	$(CHMOD) a-wx rts-zfp/adalib/libgnat.a
 
 rts-none: force
 	$(MAKE) $(FLAGS_TO_PASS) prepare-rts \
@@ -2061,7 +1878,10 @@ rts-ravenscar: force
 	   COMPILABLE_SOURCES="$(COMPILABLE_RAVEN_SOURCES)" 
 	-$(GNATMAKE) -Prts-ravenscar/ravenscar.gpr \
 	   --GCC="../../../xgcc -B../../../"
+	cd rts-ravenscar/adalib/ ; $(AR) r libgnat.a *.o
+	$(RM) rts-ravenscar/adalib/*.o
 	$(CHMOD) a-wx rts-ravenscar/adalib/*.ali
+	$(CHMOD) a-wx rts-ravenscar/adalib/libgnat.a
 
 # Warning: this target assumes that LIBRARY_VERSION has been set correctly.
 gnatlib-shared-default:
@@ -2097,10 +1917,25 @@ gnatlib-shared-dual:
              gnatlib
 	$(MV) libgna*$(soext) rts
 
-# Note that on Win32 the auto-import does not work for DLL, so on the
-# platform we have a specific setup. The libgnat.dll contains only
-# non-tasking objects and libgnarl.dll contains tasking and non-tasking
-# objects. A tasking program must be linked with libgnarl.dll only.
+gnatlib-shared-dual-win32:
+	$(MAKE) $(FLAGS_TO_PASS) \
+             GNATLIBFLAGS="$(GNATLIBFLAGS)" \
+	     GNATLIBCFLAGS="$(GNATLIBCFLAGS) $(TARGET_LIBGCC2_CFLAGS)" \
+	     THREAD_KIND="$(THREAD_KIND)" \
+             gnatlib-shared-win32
+	$(MV) rts/libgna*$(soext) .
+	$(RM) ../stamp-gnatlib2
+	$(MAKE) $(FLAGS_TO_PASS) \
+             GNATLIBFLAGS="$(GNATLIBFLAGS)" \
+	     GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
+	     THREAD_KIND="$(THREAD_KIND)" \
+             gnatlib
+	$(MV) libgna*$(soext) rts
+
+# ??? we need to add the option to support auto-import of arrays/records to
+# the GNATLIBFLAGS when this will be supported by GNAT. At this point we will
+# use the gnatlib-shared-dual-win32 target to build the GNAT runtimes on
+# Windows.
 gnatlib-shared-win32:
 	$(MAKE) $(FLAGS_TO_PASS) \
              GNATLIBFLAGS="$(GNATLIBFLAGS)" \
@@ -2117,8 +1952,6 @@ gnatlib-shared-win32:
 		$(GNATRTL_TASKING_OBJS) \
 		$(SO_OPTS)libgnarl-$(LIBRARY_VERSION)$(soext) \
 		$(THREADSLIB) -Wl,libgnat-$(LIBRARY_VERSION)$(soext)
-	cd rts; $(LN_S) libgnat-$(LIBRARY_VERSION)$(soext) libgnat$(soext)
-	cd rts; $(LN_S) libgnarl-$(LIBRARY_VERSION)$(soext) libgnarl$(soext)
 
 gnatlib-shared-vms:
 	$(MAKE) $(FLAGS_TO_PASS) \
@@ -2132,7 +1965,7 @@ gnatlib-shared-vms:
 	$(SHLIB_SYMVEC) >> SYMVEC_$$$$.opt && \
 	echo "case_sensitive=NO" >> SYMVEC_$$$$.opt && \
 	../../xgcc -g -B../../ -nostartfiles -shared -shared-libgcc \
-	   -o libgnat_s$(soext) libgnat.a \
+	   -o libgnat_$(LIBRARY_VERSION)$(soext) libgnat.a \
 	   sys\$$library:trace.exe \
 	   --for-linker=/noinform \
 	   --for-linker=SYMVEC_$$$$.opt \
@@ -2142,8 +1975,8 @@ gnatlib-shared-vms:
 	$(SHLIB_SYMVEC) >> SYMVEC_$$$$.opt && \
 	echo "case_sensitive=NO" >> SYMVEC_$$$$.opt && \
 	../../xgcc -g -B../../ -nostartfiles -shared -shared-libgcc \
-	   -o libgnarl_s$(soext) \
-	   libgnarl.a libgnat_s$(soext) \
+	   -o libgnarl_$(LIBRARY_VERSION)$(soext) \
+	   libgnarl.a libgnat_$(LIBRARY_VERSION)$(soext) \
 	   sys\$$library:trace.exe \
 	   --for-linker=/noinform \
 	   --for-linker=SYMVEC_$$$$.opt \
@@ -2188,7 +2021,7 @@ b_gnatm.o : b_gnatm.c
 
 ADA_INCLUDE_DIR = $(libsubdir)/adainclude
 ADA_RTL_OBJ_DIR = $(libsubdir)/adalib
-ADA_SHARE_MAKE_DIR = $(prefix)/share/make
+ADA_SHARE_MAKE_DIR = $(prefix)/share/gnat
 
 # force no sibling call optimization on s-traceb.o so the number of stack
 # frames to be skipped when computing a call chain is not modified by

@@ -75,13 +75,16 @@ public abstract class AbstractSelectableChannel extends SelectableChannel
   /**
    * Adjusts this channel's blocking mode.
    */
-  public final SelectableChannel configureBlocking (boolean block)
+  public final SelectableChannel configureBlocking (boolean blocking)
     throws IOException
   {
-    synchronized (LOCK)
+    synchronized (blockingLock())
       {
-        blocking = true;
-        implConfigureBlocking (block);
+        if (this.blocking != blocking)
+          {
+            implConfigureBlocking(blocking);
+            this.blocking = blocking;
+          }
       }
     
     return this;
@@ -187,7 +190,7 @@ public abstract class AbstractSelectableChannel extends SelectableChannel
     SelectionKey key = null;
     AbstractSelector selector = (AbstractSelector) selin;
 
-    synchronized (LOCK)
+    synchronized (blockingLock())
       {
         key = locate (selector);
 

@@ -1,6 +1,6 @@
 // 2001-11-19 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -36,9 +36,8 @@ void test04()
   typedef num_put<wchar_t, iter_type> num_put_type;
   const locale loc_c = locale::classic();
   const wstring str(L"1798 Lady Elgin");
-  const wstring str2(L"0 true 0xbffff74c Mary Nisbet");
-  const wstring x(15, L'x'); // have to have allocated wstring!
-  wstring res;
+  const wstring x(18, L'x'); // have to have allocated wstring!
+  wstring res;               // allow for "0x" + 16 hex digits (64-bit pointer)
 
   wostringstream oss; 
   oss.imbue(locale(loc_c, new num_put_type));
@@ -54,33 +53,33 @@ void test04()
   // 01 put(long)
   const long l = 1798;
   res = x;
-  iter_type ret1 = tp.put(res.begin(), oss, ' ', l);
+  iter_type ret1 = tp.put(res.begin(), oss, L' ', l);
   wstring sanity1(res.begin(), ret1);
-  VERIFY( res == L"1798xxxxxxxxxxx" );
+  VERIFY( res == L"1798xxxxxxxxxxxxxx" );
   VERIFY( sanity1 == L"1798" );
 
   // 02 put(long double)
   const long double ld = 1798.0;
   res = x;
-  iter_type ret2 = tp.put(res.begin(), oss, ' ', ld);
+  iter_type ret2 = tp.put(res.begin(), oss, L' ', ld);
   wstring sanity2(res.begin(), ret2);
-  VERIFY( res == L"1798xxxxxxxxxxx" );
+  VERIFY( res == L"1798xxxxxxxxxxxxxx" );
   VERIFY( sanity2 == L"1798" );
 
   // 03 put(bool)
   bool b = 1;
   res = x;
-  iter_type ret3 = tp.put(res.begin(), oss, ' ', b);
+  iter_type ret3 = tp.put(res.begin(), oss, L' ', b);
   wstring sanity3(res.begin(), ret3);
-  VERIFY( res == L"1xxxxxxxxxxxxxx" );
+  VERIFY( res == L"1xxxxxxxxxxxxxxxxx" );
   VERIFY( sanity3 == L"1" );
 
   b = 0;
   res = x;
   oss.setf(ios_base::boolalpha);
-  iter_type ret4 = tp.put(res.begin(), oss, ' ', b);
+  iter_type ret4 = tp.put(res.begin(), oss, L' ', b);
   wstring sanity4(res.begin(), ret4);
-  VERIFY( res == L"falsexxxxxxxxxx" );
+  VERIFY( res == L"falsexxxxxxxxxxxxx" );
   VERIFY( sanity4 == L"false" );
 
   // 04 put(void*)
@@ -88,10 +87,10 @@ void test04()
   const void* cv = &ld;
   res = x;
   oss.setf(ios_base::fixed, ios_base::floatfield);
-  iter_type ret5 = tp.put(res.begin(), oss, ' ', cv);
+  iter_type ret5 = tp.put(res.begin(), oss, L' ', cv);
   wstring sanity5(res.begin(), ret5);
   VERIFY( sanity5.size() );
-  VERIFY( sanity5[1] == 'x' );
+  VERIFY( sanity5[1] == L'x' );
 }
 
 int main()
@@ -99,5 +98,3 @@ int main()
   test04();
   return 0;
 }
-
-

@@ -1,5 +1,5 @@
 /* Handle #pragma, system V.4 style.  Supports #pragma weak and #pragma pack.
-   Copyright (C) 1992, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1992, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -273,7 +273,7 @@ apply_pragma_weak (tree decl, tree value)
     }
 
   if (SUPPORTS_WEAK && DECL_EXTERNAL (decl) && TREE_USED (decl)
-      && !DECL_WEAK (decl) /* don't complain about a redundant #pragma */
+      && !DECL_WEAK (decl) /* Don't complain about a redundant #pragma.  */
       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
     warning ("%Japplying #pragma weak '%D' after first use results "
              "in unspecified behavior", decl, decl);
@@ -377,12 +377,13 @@ handle_pragma_redefine_extname (cpp_reader *dummy ATTRIBUTE_UNUSED)
     warning ("junk at end of #pragma redefine_extname");
 
   decl = identifier_global_value (oldname);
-  if (decl && TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')
+  if (decl && (TREE_CODE (decl) == FUNCTION_DECL
+	       || TREE_CODE (decl) == VAR_DECL))
     {
       if (DECL_ASSEMBLER_NAME_SET_P (decl)
 	  && DECL_ASSEMBLER_NAME (decl) != newname)
         warning ("#pragma redefine_extname conflicts with declaration");
-      SET_DECL_ASSEMBLER_NAME (decl, newname);
+      change_decl_assembler_name (decl, newname);
     }
   else
     add_to_renaming_pragma_list(oldname, newname);
@@ -480,6 +481,85 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
   return asmname;
 }
 
+#ifdef HANDLE_PRAGMA_VISIBILITY
+static void handle_pragma_visibility (cpp_reader *);
+
+/* Sets the default visibility for symbols to something other than that
+   specified on the command line.  */
+static void
+handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
+{ /* Form is #pragma GCC visibility push(hidden)|pop */
+  static int visstack [16], visidx;
+  tree x;
+  enum cpp_ttype token;
+  enum { bad, push, pop } action = bad;
+ 
+  token = c_lex (&x);
+  if (token == CPP_NAME)
+    {
+      const char *op = IDENTIFIER_POINTER (x);
+      if (!strcmp (op, "push"))
+        action = push;
+      else if (!strcmp (op, "pop"))
+        action = pop;
+    }
+  if (bad == action)
+    GCC_BAD ("#pragma GCC visibility must be followed by push or pop");
+  else
+    {
+      if (pop == action)
+        {
+          if (!visidx)
+            {
+              GCC_BAD ("No matching push for '#pragma GCC visibility pop'");
+            }
+          else
+            {
+              default_visibility = visstack[--visidx];
+              visibility_options.inpragma = (visidx>0);
+            }
+        }
+      else
+        {
+          if (c_lex (&x) != CPP_OPEN_PAREN)
+            GCC_BAD ("missing '(' after '#pragma GCC visibility push' - ignored");
+          token = c_lex (&x);
+          if (token != CPP_NAME)
+            {
+              GCC_BAD ("malformed #pragma GCC visibility push");
+            }
+          else if (visidx >= 16)
+            {
+              GCC_BAD ("No more than sixteen #pragma GCC visibility pushes allowed at once");
+            }
+          else
+            {
+              const char *str = IDENTIFIER_POINTER (x);
+              visstack[visidx++] = default_visibility;
+              if (!strcmp (str, "default"))
+                default_visibility = VISIBILITY_DEFAULT;
+              else if (!strcmp (str, "internal"))
+                default_visibility = VISIBILITY_INTERNAL;
+              else if (!strcmp (str, "hidden"))
+                default_visibility = VISIBILITY_HIDDEN;  
+              else if (!strcmp (str, "protected"))
+                default_visibility = VISIBILITY_PROTECTED;
+              else
+                {
+                  GCC_BAD ("#pragma GCC visibility push() must specify default, internal, hidden or protected");
+                }
+              visibility_options.inpragma = 1;
+            }
+          if (c_lex (&x) != CPP_CLOSE_PAREN)
+            GCC_BAD ("missing '(' after '#pragma GCC visibility push' - ignored");
+        }
+    }
+  if (c_lex (&x) != CPP_EOF)
+    warning ("junk at end of '#pragma GCC visibility'");
+}
+
+#endif
+
 /* Front-end wrapper for pragma registration to avoid dragging
    cpplib.h in almost everywhere.  */
 void
@@ -499,6 +579,10 @@ init_pragma (void)
 #ifdef HANDLE_PRAGMA_WEAK
   c_register_pragma (0, "weak", handle_pragma_weak);
 #endif
+#ifdef HANDLE_PRAGMA_VISIBILITY
+  c_register_pragma ("GCC", "visibility", handle_pragma_visibility);
+#endif
+
 #ifdef HANDLE_PRAGMA_REDEFINE_EXTNAME
   c_register_pragma (0, "redefine_extname", handle_pragma_redefine_extname);
 #endif

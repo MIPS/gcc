@@ -20,6 +20,18 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+/* We need to have MOTOROLA always defined (either 0 or 1) because we use
+   if-statements and ?: on it.  This way we have compile-time error checking
+   for both the MOTOROLA and MIT code paths.  We do rely on the host compiler
+   to optimize away all constant tests.  */
+#ifdef MOTOROLA
+# undef MOTOROLA
+# define MOTOROLA 1  /* Use the Motorola assembly syntax.  */
+# define TARGET_VERSION fprintf (stderr, " (68k, Motorola syntax)")
+#else
+# define TARGET_VERSION fprintf (stderr, " (68k, MIT syntax)")
+# define MOTOROLA 0  /* Use the MIT assembly syntax.  */
+#endif
 
 /* Note that some other tm.h files include this one and then override
    many of the definitions that relate to assembler syntax.  */
@@ -102,13 +114,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* Set the default */
 #define INT_OP_GROUP INT_OP_DOT_WORD
-
-/* Print subsidiary information on the compiler version in use.  */
-#ifdef MOTOROLA
-#define TARGET_VERSION fprintf (stderr, " (68k, Motorola syntax)");
-#else
-#define TARGET_VERSION fprintf (stderr, " (68k, MIT syntax)");
-#endif
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
@@ -208,7 +213,7 @@ extern int target_flags;
 #define MASK_RTD	(1<<16)
 #define TARGET_RTD	(target_flags & MASK_RTD)
 
-/* Support A5 relative data seperate from text.
+/* Support A5 relative data separate from text.
  * This option implies -fPIC, however it inhibits the generation of the
  * A5 save/restore in functions and the loading of a5 with a got pointer.
  */
@@ -260,7 +265,7 @@ extern int target_flags;
     { "noshort", - MASK_SHORT,						\
       N_("Consider type `int' to be 32 bits wide") },			\
     { "68881", MASK_68881, "" },					\
-    { "soft-float", - (MASK_68040_ONLY|MASK_68881),			\
+    { "soft-float", - MASK_68881,					\
       N_("Generate code with library calls for floating point") },	\
     { "68020-40", -(MASK_ALL_CF_BITS|MASK_68060|MASK_68040_ONLY),	\
       N_("Generate code for a 68040, without any new instructions") },	\
@@ -384,9 +389,9 @@ extern int target_flags;
 #define LONG_DOUBLE_TYPE_SIZE 96
 
 /* Set the value of FLT_EVAL_METHOD in float.h.  When using 68040 fp
-   instructions, we get proper intermediate rounding, otherwise we 
+   instructions, we get proper intermediate rounding, otherwise we
    get extended precision results.  */
-#define TARGET_FLT_EVAL_METHOD (TARGET_68040_ONLY ? 0 : 2)
+#define TARGET_FLT_EVAL_METHOD ((TARGET_68040_ONLY || ! TARGET_68881) ? 0 : 2)
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.
@@ -482,7 +487,10 @@ extern int target_flags;
                                \
   /* Floating point registers  \
      (if available).  */       \
-  0, 0, 0, 0, 0, 0, 0, 0 }
+  0, 0, 0, 0, 0, 0, 0, 0,      \
+                               \
+  /* Arg pointer.  */          \
+  1 }
 
 /* 1 for registers not available across function calls.
    These must include the FIXED_REGISTERS and also any
@@ -493,7 +501,18 @@ extern int target_flags;
 #define CALL_USED_REGISTERS \
  {1, 1, 0, 0, 0, 0, 0, 0,   \
   1, 1, 0, 0, 0, 0, 0, 1,   \
-  1, 1, 0, 0, 0, 0, 0, 0 }
+  1, 1, 0, 0, 0, 0, 0, 0, 1 }
+
+#define REG_ALLOC_ORDER		\
+{ /* d0/d1/a0/a1 */		\
+  0, 1, 8, 9,			\
+  /* d2-d7 */			\
+  2, 3, 4, 5, 6, 7,		\
+  /* a2-a7/arg */		\
+  10, 11, 12, 13, 14, 15, 24,	\
+  /* fp0-fp7 */			\
+  16, 17, 18, 19, 20, 21, 22, 23\
+}
 
 
 /* Make sure everything's fine if we *don't* have a given processor.
@@ -528,6 +547,12 @@ extern int target_flags;
 #define HARD_REGNO_NREGS(REGNO, MODE)   \
   ((REGNO) >= 16 ? GET_MODE_NUNITS (MODE)	\
    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
+
+/* A C expression that is nonzero if hard register NEW_REG can be
+   considered for use as a rename register for OLD_REG register.  */
+
+#define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG) \
+  m68k_hard_regno_rename_ok (OLD_REG, NEW_REG)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    On the 68000, the cpu registers can hold any mode but the 68881 registers
@@ -632,12 +657,12 @@ enum reg_class {
 {					\
   {0x00000000},  /* NO_REGS */		\
   {0x000000ff},  /* DATA_REGS */	\
-  {0x0000ff00},  /* ADDR_REGS */	\
+  {0x0100ff00},  /* ADDR_REGS */	\
   {0x00ff0000},  /* FP_REGS */		\
-  {0x0000ffff},  /* GENERAL_REGS */	\
+  {0x0100ffff},  /* GENERAL_REGS */	\
   {0x00ff00ff},  /* DATA_OR_FP_REGS */	\
-  {0x00ffff00},  /* ADDR_OR_FP_REGS */	\
-  {0x00ffffff},  /* ALL_REGS */		\
+  {0x01ffff00},  /* ADDR_OR_FP_REGS */	\
+  {0x01ffffff},  /* ALL_REGS */		\
 }
 
 /* The same information, inverted:
@@ -645,7 +670,8 @@ enum reg_class {
    reg number REGNO.  This could be a conditional expression
    or could index an array.  */
 
-#define REGNO_REG_CLASS(REGNO) (((REGNO)>>3)+1)
+extern enum reg_class regno_reg_class[];
+#define REGNO_REG_CLASS(REGNO) (regno_reg_class[(REGNO)])
 
 /* The class value for index registers, and the one for base regs.  */
 
@@ -716,7 +742,8 @@ enum reg_class {
 
    `Q' means address register indirect addressing mode.
    `S' is for operands that satisfy 'm' when -mpcrel is in effect.
-   `T' is for operands that satisfy 's' when -mpcrel is not in effect.  */
+   `T' is for operands that satisfy 's' when -mpcrel is not in effect.
+   `U' is for register offset addressing.  */
 
 #define EXTRA_CONSTRAINT(OP,CODE)			\
   (((CODE) == 'S')					\
@@ -736,7 +763,13 @@ enum reg_class {
    ? (GET_CODE (OP) == MEM 				\
       && GET_CODE (XEXP (OP, 0)) == REG)		\
    :							\
-   0)))
+  (((CODE) == 'U')					\
+   ? (GET_CODE (OP) == MEM 				\
+      && GET_CODE (XEXP (OP, 0)) == PLUS		\
+      && GET_CODE (XEXP (XEXP (OP, 0), 0)) == REG	\
+      && GET_CODE (XEXP (XEXP (OP, 0), 1)) == CONST_INT) \
+   :							\
+   0))))
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
@@ -896,7 +929,7 @@ enum reg_class {
 
    On the m68k, the offset starts at 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM) = 0)
 
 /* Update the data in CUM to advance over an argument
@@ -1399,11 +1432,11 @@ __transfer_from_trampoline ()					\
 #define NOTICE_UPDATE_CC(EXP,INSN) notice_update_cc (EXP, INSN)
 
 #define OUTPUT_JUMP(NORMAL, FLOAT, NO_OV)  \
-{ if (cc_prev_status.flags & CC_IN_68881)			\
+do { if (cc_prev_status.flags & CC_IN_68881)			\
     return FLOAT;						\
   if (cc_prev_status.flags & CC_NO_OVERFLOW)			\
     return NO_OV;						\
-  return NORMAL; }
+  return NORMAL; } while (0)
 
 /* Control the assembler format that we output.  */
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -548,9 +548,9 @@ package body Sem_Ch3 is
    --  Create new modular type. Verify that modulus is in  bounds and is
    --  a power of two (implementation restriction).
 
-   procedure New_Binary_Operator (Op_Name : Name_Id; Typ : Entity_Id);
+   procedure New_Concatenation_Op (Typ : Entity_Id);
    --  Create an abbreviated declaration for an operator in order to
-   --  materialize minimally operators on derived types.
+   --  materialize concatenation on array types.
 
    procedure Ordinary_Fixed_Point_Type_Declaration
      (T   : Entity_Id;
@@ -690,6 +690,10 @@ package body Sem_Ch3 is
       --  if the designated type is.
 
       Set_Is_Public          (Anon_Type, Is_Public (Scope (Anon_Type)));
+
+      --  Ada0Y (AI-50217): Propagate the attribute that indicates that the
+      --  designated type comes from the limited view (for back-end purposes).
+
       Set_From_With_Type     (Anon_Type, From_With_Type (Desig_Type));
 
       --  The context is either a subprogram declaration or an access
@@ -857,9 +861,9 @@ package body Sem_Ch3 is
       --  access type is also imported, and therefore restricted in its use.
       --  The access type may already be imported, so keep setting otherwise.
 
-      --  If the non-limited view of the designated type is available, use
-      --  it as the designated type of the access type, so that the back-end
-      --  gets a usable entity.
+      --  Ada0Y (AI-50217): If the non-limited view of the designated type is
+      --  available, use it as the designated type of the access type, so that
+      --  the back-end gets a usable entity.
 
       if From_With_Type (Desig) then
          Set_From_With_Type (T);
@@ -902,7 +906,8 @@ package body Sem_Ch3 is
    begin
       Generate_Definition (Id);
       Enter_Name (Id);
-      T := Find_Type_Of_Object (Subtype_Indication (N), N);
+      T := Find_Type_Of_Object (Subtype_Indication (Component_Definition (N)),
+                                N);
 
       --  If the subtype is a constrained subtype of the enclosing record,
       --  (which must have a partial view) the back-end does not handle
@@ -912,15 +917,16 @@ package body Sem_Ch3 is
       --  removed from discriminant constraints.
 
       if Ekind (T) = E_Access_Subtype
-        and then Is_Entity_Name (Subtype_Indication (N))
+        and then Is_Entity_Name (Subtype_Indication (Component_Definition (N)))
         and then Comes_From_Source (T)
         and then Nkind (Parent (T)) = N_Subtype_Declaration
         and then Etype (Directly_Designated_Type (T)) = Current_Scope
       then
          Rewrite
-           (Subtype_Indication (N),
+           (Subtype_Indication (Component_Definition (N)),
              New_Copy_Tree (Subtype_Indication (Parent (T))));
-         T := Find_Type_Of_Object (Subtype_Indication (N), N);
+         T := Find_Type_Of_Object
+                 (Subtype_Indication (Component_Definition (N)), N);
       end if;
 
       --  If the component declaration includes a default expression, then we
@@ -940,7 +946,7 @@ package body Sem_Ch3 is
       if Is_Indefinite_Subtype (T) and then Chars (Id) /= Name_uParent then
          Error_Msg_N
            ("unconstrained subtype in component declaration",
-            Subtype_Indication (N));
+            Subtype_Indication (Component_Definition (N)));
 
       --  Components cannot be abstract, except for the special case of
       --  the _Parent field (case of extending an abstract tagged type)
@@ -950,9 +956,9 @@ package body Sem_Ch3 is
       end if;
 
       Set_Etype (Id, T);
-      Set_Is_Aliased (Id, Aliased_Present (N));
+      Set_Is_Aliased (Id, Aliased_Present (Component_Definition (N)));
 
-      --  If the this component is private (or depends on a private type),
+      --  If this component is private (or depends on a private type),
       --  flag the record type to indicate that some operations are not
       --  available.
 
@@ -2448,9 +2454,11 @@ package body Sem_Ch3 is
    begin
       Prev := Find_Type_Name (N);
 
-      --  The full view, if present, now points to the current type. If the
-      --  type was previously decorated when imported through a LIMITED WITH
-      --  clause, it appears as incomplete but has no full view.
+      --  The full view, if present, now points to the current type
+
+      --  Ada0Y (AI-50217): If the type was previously decorated when imported
+      --  through a LIMITED WITH clause, it appears as incomplete but has no
+      --  full view.
 
       if Ekind (Prev) = E_Incomplete_Type
         and then Present (Full_View (Prev))
@@ -2721,7 +2729,7 @@ package body Sem_Ch3 is
    ----------------------------
 
    procedure Array_Type_Declaration (T : in out Entity_Id; Def : Node_Id) is
-      Component_Def : constant Node_Id := Subtype_Indication (Def);
+      Component_Def : constant Node_Id := Component_Definition (Def);
       Element_Type  : Entity_Id;
       Implicit_Base : Entity_Id;
       Index         : Node_Id;
@@ -2758,7 +2766,8 @@ package body Sem_Ch3 is
          Nb_Index := Nb_Index + 1;
       end loop;
 
-      Element_Type := Process_Subtype (Component_Def, P, Related_Id, 'C');
+      Element_Type := Process_Subtype (Subtype_Indication (Component_Def),
+                                       P, Related_Id, 'C');
 
       --  Constrained array case
 
@@ -2824,7 +2833,7 @@ package body Sem_Ch3 is
 
       Set_Component_Type (Base_Type (T), Element_Type);
 
-      if Aliased_Present (Def) then
+      if Aliased_Present (Component_Definition (Def)) then
          Set_Has_Aliased_Components (Etype (T));
       end if;
 
@@ -2859,7 +2868,7 @@ package body Sem_Ch3 is
       if Number_Dimensions (T) = 1
          and then not Is_Packed_Array_Type (T)
       then
-         New_Binary_Operator (Name_Op_Concat, T);
+         New_Concatenation_Op (T);
       end if;
 
       --  In the case of an unconstrained array the parser has already
@@ -2868,12 +2877,13 @@ package body Sem_Ch3 is
 
       if Is_Indefinite_Subtype (Element_Type) then
          Error_Msg_N
-           ("unconstrained element type in array declaration ",
-            Component_Def);
+           ("unconstrained element type in array declaration",
+            Subtype_Indication (Component_Def));
 
       elsif Is_Abstract (Element_Type) then
-         Error_Msg_N ("The type of a component cannot be abstract ",
-              Component_Def);
+         Error_Msg_N
+           ("The type of a component cannot be abstract",
+            Subtype_Indication (Component_Def));
       end if;
 
    end Array_Type_Declaration;
@@ -2894,15 +2904,15 @@ package body Sem_Ch3 is
       Discr_Con_Elist : Elist_Id;
       Discr_Con_El    : Elmt_Id;
 
-      Subt            : Entity_Id;
+      Subt : Entity_Id;
 
    begin
       --  Set the designated type so it is available in case this is
       --  an access to a self-referential type, e.g. a standard list
       --  type with a next pointer. Will be reset after subtype is built.
 
-      Set_Directly_Designated_Type (Derived_Type,
-        Designated_Type (Parent_Type));
+      Set_Directly_Designated_Type
+        (Derived_Type, Designated_Type (Parent_Type));
 
       Subt := Process_Subtype (S, N);
 
@@ -3055,14 +3065,21 @@ package body Sem_Ch3 is
       --  declared in a closed scope (e.g., a subprogram), then we
       --  need to explicitly introduce the new type's concatenation
       --  operator since Derive_Subprograms will not inherit the
-      --  parent's operator.
+      --  parent's operator. If the parent type is unconstrained, the
+      --  operator is of the unconstrained base type.
 
       if Number_Dimensions (Parent_Type) = 1
         and then not Is_Limited_Type (Parent_Type)
         and then not Is_Derived_Type (Parent_Type)
         and then not Is_Package (Scope (Base_Type (Parent_Type)))
       then
-         New_Binary_Operator (Name_Op_Concat, Derived_Type);
+         if not Is_Constrained (Parent_Type)
+           and then Is_Constrained (Derived_Type)
+         then
+            New_Concatenation_Op (Implicit_Base);
+         else
+            New_Concatenation_Op (Derived_Type);
+         end if;
       end if;
    end Build_Derived_Array_Type;
 
@@ -5579,10 +5596,10 @@ package body Sem_Ch3 is
                if Discrim_Present then
                   null;
 
-               elsif Nkind (Parent (Def)) = N_Component_Declaration
+               elsif Nkind (Parent (Parent (Def))) = N_Component_Declaration
                  and then
                    Has_Per_Object_Constraint
-                     (Defining_Identifier (Parent (Def)))
+                     (Defining_Identifier (Parent (Parent (Def))))
                then
                   null;
 
@@ -6233,10 +6250,21 @@ package body Sem_Ch3 is
       if (Is_Limited_Type (T)
            or else Is_Limited_Composite (T))
         and then not In_Instance
+        and then not In_Inlined_Body
       then
-         Error_Msg_N
-           ("cannot initialize entities of limited type", Exp);
-         Explain_Limited_Type (T, Exp);
+         --  Ada0Y (AI-287): Relax the strictness of the front-end in case of
+         --  limited aggregates and extension aggregates.
+
+         if Extensions_Allowed
+           and then (Nkind (Exp) = N_Aggregate
+                     or else Nkind (Exp) = N_Extension_Aggregate)
+         then
+            null;
+         else
+            Error_Msg_N
+              ("cannot initialize entities of limited type", Exp);
+            Explain_Limited_Type (T, Exp);
+         end if;
       end if;
    end Check_Initialization;
 
@@ -7691,8 +7719,8 @@ package body Sem_Ch3 is
          if not Error_Posted (S)
            and then
              (Nkind (S) /= N_Range
-               or else Base_Type (T) /= Base_Type (Etype (Low_Bound (S)))
-               or else Base_Type (T) /= Base_Type (Etype (High_Bound (S))))
+               or else not Covers (T, (Etype (Low_Bound (S))))
+               or else not Covers (T, (Etype (High_Bound (S)))))
          then
             if Base_Type (T) /= Any_Type
               and then Etype (Low_Bound (S)) /= Any_Type
@@ -8415,18 +8443,6 @@ package body Sem_Ch3 is
 
       Init_Size_Align (Implicit_Base);
 
-      --  Complete entity for first subtype
-
-      Set_Ekind          (T, E_Decimal_Fixed_Point_Subtype);
-      Set_Etype          (T, Implicit_Base);
-      Set_Size_Info      (T, Implicit_Base);
-      Set_First_Rep_Item (T, First_Rep_Item (Implicit_Base));
-      Set_Digits_Value   (T, Digs_Val);
-      Set_Delta_Value    (T, Delta_Val);
-      Set_Small_Value    (T, Delta_Val);
-      Set_Scale_Value    (T, Scale_Val);
-      Set_Is_Constrained (T);
-
       --  If there are bounds given in the declaration use them as the
       --  bounds of the first named subtype.
 
@@ -8469,6 +8485,17 @@ package body Sem_Ch3 is
          Set_Fixed_Range (T, Loc, -Bound_Val, Bound_Val);
       end if;
 
+      --  Complete entity for first subtype
+
+      Set_Ekind          (T, E_Decimal_Fixed_Point_Subtype);
+      Set_Etype          (T, Implicit_Base);
+      Set_Size_Info      (T, Implicit_Base);
+      Set_First_Rep_Item (T, First_Rep_Item (Implicit_Base));
+      Set_Digits_Value   (T, Digs_Val);
+      Set_Delta_Value    (T, Delta_Val);
+      Set_Small_Value    (T, Delta_Val);
+      Set_Scale_Value    (T, Scale_Val);
+      Set_Is_Constrained (T);
    end Decimal_Fixed_Point_Type_Declaration;
 
    -----------------------
@@ -9502,11 +9529,18 @@ package body Sem_Ch3 is
       Related_Nod : Node_Id) return Entity_Id
    is
       Def_Kind : constant Node_Kind := Nkind (Obj_Def);
-      P        : constant Node_Id   := Parent (Obj_Def);
+      P        : Node_Id := Parent (Obj_Def);
       T        : Entity_Id;
       Nam      : Name_Id;
 
    begin
+      --  If the parent is a component_definition node we climb to the
+      --  component_declaration node
+
+      if Nkind (P) = N_Component_Definition then
+         P := Parent (P);
+      end if;
+
       --  Case of an anonymous array subtype
 
       if Def_Kind = N_Constrained_Array_Definition
@@ -10929,11 +10963,11 @@ package body Sem_Ch3 is
 
    end Modular_Type_Declaration;
 
-   -------------------------
-   -- New_Binary_Operator --
-   -------------------------
+   --------------------------
+   -- New_Concatenation_Op --
+   --------------------------
 
-   procedure New_Binary_Operator (Op_Name : Name_Id; Typ : Entity_Id) is
+   procedure New_Concatenation_Op (Typ : Entity_Id) is
       Loc : constant Source_Ptr := Sloc (Typ);
       Op  : Entity_Id;
 
@@ -10955,26 +10989,26 @@ package body Sem_Ch3 is
          return Formal;
       end Make_Op_Formal;
 
-   --  Start of processing for New_Binary_Operator
+   --  Start of processing for New_Concatenation_Op
 
    begin
-      Op := Make_Defining_Operator_Symbol (Loc, Op_Name);
+      Op := Make_Defining_Operator_Symbol (Loc, Name_Op_Concat);
 
       Set_Ekind                   (Op, E_Operator);
       Set_Scope                   (Op, Current_Scope);
       Set_Etype                   (Op, Typ);
-      Set_Homonym                 (Op, Get_Name_Entity_Id (Op_Name));
+      Set_Homonym                 (Op, Get_Name_Entity_Id (Name_Op_Concat));
       Set_Is_Immediately_Visible  (Op);
       Set_Is_Intrinsic_Subprogram (Op);
       Set_Has_Completion          (Op);
       Append_Entity               (Op, Current_Scope);
 
-      Set_Name_Entity_Id (Op_Name, Op);
+      Set_Name_Entity_Id (Name_Op_Concat, Op);
 
       Append_Entity (Make_Op_Formal (Typ, Op), Op);
       Append_Entity (Make_Op_Formal (Typ, Op), Op);
 
-   end New_Binary_Operator;
+   end New_Concatenation_Op;
 
    -------------------------------------------
    -- Ordinary_Fixed_Point_Type_Declaration --

@@ -82,7 +82,7 @@ public class InetAddress implements Serializable
       }
     
     byte[] zeros = { 0, 0, 0, 0 };
-    ANY_IF = new InetAddress (zeros, null);
+    ANY_IF = new InetAddress (zeros, "0.0.0.0");
   }
 
   /**
@@ -476,8 +476,7 @@ public class InetAddress implements Serializable
    */
   public boolean equals (Object obj)
   {
-    if (obj == null
-        || ! (obj instanceof InetAddress))
+    if (! (obj instanceof InetAddress))
       return false;
     
     // "The Java Class Libraries" 2nd edition says "If a machine has

@@ -1,6 +1,6 @@
 // std::numpunct implementation details, GNU version -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -49,36 +49,41 @@ namespace std
 	{
 	  // "C" locale
 	  _M_data->_M_grouping = "";
+	  _M_data->_M_grouping_size = 0;
 	  _M_data->_M_use_grouping = false;
 
 	  _M_data->_M_decimal_point = '.';
 	  _M_data->_M_thousands_sep = ',';
 
-	  for (size_t i = 0; i < __num_base::_S_oend; ++i)
-	    _M_data->_M_atoms_out[i] = __num_base::_S_atoms_out[i];
-	  _M_data->_M_atoms_out[__num_base::_S_oend] = char();
+	  for (size_t __i = 0; __i < __num_base::_S_oend; ++__i)
+	    _M_data->_M_atoms_out[__i] = __num_base::_S_atoms_out[__i];
 
-	  for (size_t i = 0; i < __num_base::_S_iend; ++i)
-	    _M_data->_M_atoms_in[i] = __num_base::_S_atoms_in[i];
-	  _M_data->_M_atoms_in[__num_base::_S_iend] = char();
+	  for (size_t __j = 0; __j < __num_base::_S_iend; ++__j)
+	    _M_data->_M_atoms_in[__j] = __num_base::_S_atoms_in[__j];
 	}
       else
 	{
 	  // Named locale.
-	  _M_data->_M_decimal_point = *(__nl_langinfo_l(RADIXCHAR, __cloc));
-	  _M_data->_M_thousands_sep = *(__nl_langinfo_l(THOUSEP, __cloc));
+	  _M_data->_M_decimal_point = *(__nl_langinfo_l(DECIMAL_POINT, 
+							__cloc));
+	  _M_data->_M_thousands_sep = *(__nl_langinfo_l(THOUSANDS_SEP, 
+							__cloc));
 
 	  // Check for NULL, which implies no grouping.
 	  if (_M_data->_M_thousands_sep == '\0')
 	    _M_data->_M_grouping = "";
 	  else
 	    _M_data->_M_grouping = __nl_langinfo_l(GROUPING, __cloc);
+	  _M_data->_M_grouping_size = strlen(_M_data->_M_grouping);
 	}
+
       // NB: There is no way to extact this info from posix locales.
       // _M_truename = __nl_langinfo_l(YESSTR, __cloc);
       _M_data->_M_truename = "true";
+      _M_data->_M_truename_size = strlen(_M_data->_M_truename);
       // _M_falsename = __nl_langinfo_l(NOSTR, __cloc);
       _M_data->_M_falsename = "false";
+      _M_data->_M_falsename_size = strlen(_M_data->_M_falsename);
     }
  
   template<> 
@@ -97,6 +102,7 @@ namespace std
 	{
 	  // "C" locale
 	  _M_data->_M_grouping = "";
+	  _M_data->_M_grouping_size = 0;
 	  _M_data->_M_use_grouping = false;
 
 	  _M_data->_M_decimal_point = L'.';
@@ -107,19 +113,17 @@ namespace std
 #endif
 	  // Use ctype::widen code without the facet...
 	  unsigned char uc;
-	  for (size_t i = 0; i < __num_base::_S_oend; ++i)
+	  for (size_t __i = 0; __i < __num_base::_S_oend; ++__i)
 	    {
-	      uc = static_cast<unsigned char>(__num_base::_S_atoms_out[i]);
-	      _M_data->_M_atoms_out[i] = btowc(uc);
+	      uc = static_cast<unsigned char>(__num_base::_S_atoms_out[__i]);
+	      _M_data->_M_atoms_out[__i] = btowc(uc);
 	    }
-	  _M_data->_M_atoms_out[__num_base::_S_oend] = wchar_t();
 
-	  for (size_t i = 0; i < __num_base::_S_iend; ++i)
+	  for (size_t __j = 0; __j < __num_base::_S_iend; ++__j)
 	    {
-	      uc = static_cast<unsigned char>(__num_base::_S_atoms_in[i]);
-	      _M_data->_M_atoms_in[i] = btowc(uc);
+	      uc = static_cast<unsigned char>(__num_base::_S_atoms_in[__j]);
+	      _M_data->_M_atoms_in[__j] = btowc(uc);
 	    }
-	  _M_data->_M_atoms_in[__num_base::_S_iend] = wchar_t();
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
 	  __uselocale(__old);
 #endif
@@ -138,12 +142,16 @@ namespace std
 	    _M_data->_M_grouping = "";
 	  else
 	    _M_data->_M_grouping = __nl_langinfo_l(GROUPING, __cloc);
+	  _M_data->_M_grouping_size = strlen(_M_data->_M_grouping);
 	}
+
       // NB: There is no way to extact this info from posix locales.
       // _M_truename = __nl_langinfo_l(YESSTR, __cloc);
       _M_data->_M_truename = L"true";
+      _M_data->_M_truename_size = wcslen(_M_data->_M_truename);
       // _M_falsename = __nl_langinfo_l(NOSTR, __cloc);
       _M_data->_M_falsename = L"false";
+      _M_data->_M_falsename_size = wcslen(_M_data->_M_falsename);
     }
 
   template<> 

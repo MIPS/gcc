@@ -72,6 +72,7 @@
 #include "rtl.h"
 #include "basic-block.h"
 #include "flags.h"
+#include "timevar.h"
 #include "output.h"
 #include "cfglayout.h"
 #include "fibheap.h"
@@ -312,7 +313,7 @@ rotate_loop (edge back_edge, struct trace *trace, int trace_n)
 
 	      /* Duplicate HEADER if it is a small block containing cond jump
 		 in the end.  */
-	      if (any_condjump_p (header->end) && copy_bb_p (header, 0))
+	      if (any_condjump_p (BB_END (header)) && copy_bb_p (header, 0))
 		{
 		  copy_bb (header, prev_bb->succ, prev_bb, trace_n);
 		}
@@ -414,8 +415,10 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 	  /* Select the successor that will be placed after BB.  */
 	  for (e = bb->succ; e; e = e->succ_next)
 	    {
+#ifdef ENABLE_CHECKING
 	      if (e->flags & EDGE_FAKE)
 		abort ();
+#endif
 
 	      if (e->dest == EXIT_BLOCK_PTR)
 		continue;
@@ -1000,6 +1003,8 @@ copy_bb_p (basic_block bb, int code_may_grow)
   int size = 0;
   int max_size = uncond_jump_length;
   rtx insn;
+  int n_succ;
+  edge e;
 
   if (!bb->frequency)
     return false;
@@ -1008,10 +1013,19 @@ copy_bb_p (basic_block bb, int code_may_grow)
   if (!cfg_layout_can_duplicate_bb_p (bb))
     return false;
 
+  /* Avoid duplicating blocks which have many successors (PR/13430).  */
+  n_succ = 0;
+  for (e = bb->succ; e; e = e->succ_next)
+    {
+      n_succ++;
+      if (n_succ > 8)
+	return false;
+    }
+
   if (code_may_grow && maybe_hot_bb_p (bb))
     max_size *= 8;
 
-  for (insn = bb->head; insn != NEXT_INSN (bb->end);
+  for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb));
        insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
@@ -1049,10 +1063,11 @@ get_uncond_jump_length (void)
   return length;
 }
 
-/* Reorder basic blocks.  The main entry point to this file.  */
+/* Reorder basic blocks.  The main entry point to this file.  FLAGS is
+   the set of flags to pass to cfg_layout_initialize().  */
 
 void
-reorder_basic_blocks (void)
+reorder_basic_blocks (unsigned int flags)
 {
   int n_traces;
   int i;
@@ -1064,7 +1079,9 @@ reorder_basic_blocks (void)
   if ((* targetm.cannot_modify_jumps_p) ())
     return;
 
-  cfg_layout_initialize ();
+  timevar_push (TV_REORDER_BLOCKS);
+
+  cfg_layout_initialize (flags);
 
   set_edge_can_fallthru_flag ();
   mark_dfs_back_edges ();
@@ -1096,4 +1113,6 @@ reorder_basic_blocks (void)
     dump_flow_info (rtl_dump_file);
 
   cfg_layout_finalize ();
+
+  timevar_pop (TV_REORDER_BLOCKS);
 }

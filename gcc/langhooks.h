@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -47,7 +47,7 @@ struct lang_hooks_for_tree_inlining
   bool (*var_mod_type_p) (tree);
   int (*start_inlining) (tree);
   void (*end_inlining) (tree);
-  tree (*convert_parm_for_inlining) (tree, tree, tree);
+  tree (*convert_parm_for_inlining) (tree, tree, tree, int);
   int (*estimate_num_insns) (tree);
 };
 
@@ -205,6 +205,15 @@ struct lang_hooks_for_decls
 
   /* True if this decl may be called via a sibcall.  */
   bool (*ok_for_sibcall) (tree);
+
+  /* Return the COMDAT group into which this DECL should be placed.
+     It is known that the DECL belongs in *some* COMDAT group when
+     this hook is called.  The return value will be used immediately,
+     but not explicitly deallocated, so implementations should not use
+     xmalloc to allocate the string returned.  (Typically, the return
+     value will be the string already stored in an
+     IDENTIFIER_NODE.)  */
+  const char * (*comdat_group) (tree);
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */
@@ -283,7 +292,7 @@ struct lang_hooks
 
   /* Called by expand_expr for language-specific tree codes.
      Fourth argument is actually an enum expand_modifier.  */
-  rtx (*expand_expr) (tree, rtx, enum machine_mode, int);
+  rtx (*expand_expr) (tree, rtx, enum machine_mode, int, rtx *);
 
   /* Prepare expr to be an argument of a TRUTH_NOT_EXPR or other logical
      operation.

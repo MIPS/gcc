@@ -258,6 +258,8 @@ package body Rtsfind is
       for J in RE_Id loop
          RE_Table (J) := Empty;
       end loop;
+
+      RTE_Is_Available := False;
    end Initialize;
 
    ------------
@@ -439,6 +441,7 @@ package body Rtsfind is
 
       if S /= "not found"
         or else not Configurable_Run_Time_Mode
+        or else All_Errors_Mode
       then
          M (1 .. 6) := "\file ";
          P := 6;
@@ -539,6 +542,12 @@ package body Rtsfind is
          return;
       end if;
 
+      --  Note if secondary stack is used
+
+      if U_Id = System_Secondary_Stack then
+         Opt.Sec_Stack_Used := True;
+      end if;
+
       --  Otherwise we need to load the unit, First build unit name
       --  from the enumeration literal name in type RTU_Id.
 
@@ -548,7 +557,6 @@ package body Rtsfind is
       declare
          Loaded : Boolean;
          pragma Warnings (Off, Loaded);
-
       begin
          Loaded := Is_Loaded (U.Uname);
       end;
@@ -567,7 +575,6 @@ package body Rtsfind is
 
       if U.Unum = No_Unit then
          Load_Fail ("not found", U_Id, Id);
-
       elsif Fatal_Error (U.Unum) then
          Load_Fail ("had parser errors", U_Id, Id);
       end if;
@@ -599,7 +606,6 @@ package body Rtsfind is
          Set_Analyzed (Cunit (Current_Sem_Unit), True);
 
          if not Analyzed (Cunit (U.Unum)) then
-
             Save_Private_Visibility;
             Semantics (Cunit (U.Unum));
             Restore_Private_Visibility;

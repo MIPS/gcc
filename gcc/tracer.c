@@ -45,6 +45,7 @@
 #include "cfglayout.h"
 #include "fibheap.h"
 #include "flags.h"
+#include "timevar.h"
 #include "params.h"
 #include "coverage.h"
 
@@ -85,7 +86,9 @@ count_insns (basic_block bb)
   rtx insn;
   int n = 0;
 
-  for (insn = bb->head; insn != NEXT_INSN (bb->end); insn = NEXT_INSN (insn))
+  for (insn = BB_HEAD (bb);
+       insn != NEXT_INSN (BB_END (bb));
+       insn = NEXT_INSN (insn))
     if (active_insn_p (insn))
       n++;
   return n;
@@ -351,14 +354,18 @@ layout_superblocks (void)
     }
 }
 
-/* Main entry point to this file.  */
+/* Main entry point to this file.  FLAGS is the set of flags to pass
+   to cfg_layout_initialize().  */
 
 void
-tracer (void)
+tracer (unsigned int flags)
 {
   if (n_basic_blocks <= 1)
     return;
-  cfg_layout_initialize ();
+
+  timevar_push (TV_TRACER);
+
+  cfg_layout_initialize (flags);
   mark_dfs_back_edges ();
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
@@ -367,6 +374,9 @@ tracer (void)
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
   cfg_layout_finalize ();
+
   /* Merge basic blocks in duplicated traces.  */
   cleanup_cfg (CLEANUP_EXPENSIVE);
+
+  timevar_pop (TV_TRACER);
 }

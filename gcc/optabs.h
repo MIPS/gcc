@@ -1,5 +1,5 @@
 /* Definitions for code generation pass of GNU compiler.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -197,6 +197,13 @@ enum optab_index
   /* Conditional add instruction.  */
   OTI_addcc,
 
+  /* Set specified field of vector operand.  */
+  OTI_vec_set,
+  /* Extract specified field of vector operand.  */
+  OTI_vec_extract,
+  /* Initialize vector operand.  */
+  OTI_vec_init,
+
   OTI_MAX
 };
 
@@ -280,6 +287,10 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define cstore_optab (optab_table[OTI_cstore])
 #define push_optab (optab_table[OTI_push])
 #define addcc_optab (optab_table[OTI_addcc])
+
+#define vec_set_optab (optab_table[OTI_vec_set])
+#define vec_extract_optab (optab_table[OTI_vec_extract])
+#define vec_init_optab (optab_table[OTI_vec_init])
 
 /* Conversion optabs have their own table and indexes.  */
 enum convert_optab_index
@@ -365,6 +376,11 @@ extern rtx sign_expand_binop (enum machine_mode, optab, optab, rtx, rtx,
 
 /* Generate code to perform an operation on two operands with two results.  */
 extern int expand_twoval_binop (optab, rtx, rtx, rtx, rtx, int);
+
+/* Generate code to perform an operation on two operands with two
+   results, using a library function.  */
+extern bool expand_twoval_binop_libfunc (optab, rtx, rtx, rtx, rtx, 
+					 enum rtx_code);
 
 /* Expand a unary arithmetic operation given optab rtx operand.  */
 extern rtx expand_unop (enum machine_mode, optab, rtx, rtx, int);

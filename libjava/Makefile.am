@@ -52,6 +52,8 @@ jar_DATA = libgcj-@gcc_version@.jar
 
 ## FIXME: Using libdir violates GNU coding standards.
 secdir = $(libdir)/security
+## Where to install default logging property file.
+propdir = $(libdir)
 
 ## For now, only on native systems.  FIXME.
 if NATIVE
@@ -166,10 +168,23 @@ libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLDFLAGS) $(THREADLIBS) \
 	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
 libgcj_la_LINK = $(LIBLINK)
 
+# Gtk/Cairo JNI sources.
+if GTK_CAIRO
+gtk_cairo_c_source_files = \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
+else
+gtk_cairo_c_source_files = 
+endif
+
 ## Gtk JNI sources.
 gtk_c_source_files = \
+$(gtk_cairo_c_source_files) \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.c \
@@ -204,8 +219,13 @@ jni/classpath/primlib.c
 
 ## Java sources for Gtk peers.
 gtk_awt_peer_sources = \
+gnu/java/awt/peer/gtk/GdkClasspathFontPeer.java \
+gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.java \
 gnu/java/awt/peer/gtk/GdkFontMetrics.java \
+gnu/java/awt/peer/gtk/GdkGlyphVector.java \
 gnu/java/awt/peer/gtk/GdkGraphics.java \
+gnu/java/awt/peer/gtk/GdkGraphics2D.java \
+gnu/java/awt/peer/gtk/GdkPixbufDecoder.java \
 gnu/java/awt/peer/gtk/GtkArg.java \
 gnu/java/awt/peer/gtk/GtkArgList.java \
 gnu/java/awt/peer/gtk/GtkButtonPeer.java \
@@ -260,7 +280,10 @@ jni/classpath/jnilink.h	\
 jni/classpath/native_state.h \
 jni/classpath/primlib.h
 
-lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS)
+lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
+lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
+## The mysterious backslash is consumed by make.
+	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 lib_org_w3c_dom_la_SOURCES = org/w3c/dom/Attr.java \
 org/w3c/dom/CDATASection.java \
@@ -287,6 +310,11 @@ org/w3c/dom/traversal/DocumentTraversal.java \
 org/w3c/dom/traversal/NodeFilter.java \
 org/w3c/dom/traversal/NodeIterator.java \
 org/w3c/dom/traversal/TreeWalker.java
+## See jv_convert_LDADD.
+lib_org_w3c_dom_la_LIBADD = -L$(here)/.libs libgcj.la
+lib_org_w3c_dom_la_LDFLAGS = -rpath $(toolexeclibdir) \
+## The mysterious backslash is consumed by make.
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 lib_org_xml_sax_la_SOURCES = org/xml/sax/ext/DeclHandler.java \
 org/xml/sax/ext/LexicalHandler.java \
@@ -318,6 +346,11 @@ org/xml/sax/SAXNotSupportedException.java \
 org/xml/sax/SAXParseException.java \
 org/xml/sax/XMLFilter.java \
 org/xml/sax/XMLReader.java
+## See jv_convert_LDADD.
+lib_org_xml_sax_la_LIBADD = -L$(here)/.libs libgcj.la
+lib_org_xml_sax_la_LDFLAGS = -rpath $(toolexeclibdir) \
+## The mysterious backslash is consumed by make.
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 lib_gnu_awt_xlib_la_SOURCES = $(x_nat_source_files)
 EXTRA_lib_gnu_awt_xlib_la_SOURCES = $(x_java_source_files)
@@ -419,6 +452,13 @@ $(nat_files) $(x_nat_files): %.lo: %.cc
 $(c_files): %.lo: %.c
 	$(LTCOMPILE) -c -o $@ $<
 
+## A special rule for interpret.lo for the time being.  Our current
+## approach to stack-trace handling is fragile and will not work with
+## unit-at-a-time.  So, for now we disable it.  This will be fixed by
+## a larger patch in the future.
+interpret.lo: interpret.cc
+	$(LTCXXCOMPILE) -fno-unit-at-a-time -c -o $@ $<
+
 $(extra_cc_files): %.lo: %.cc
 	$(LTCXXCOMPILE) -c -o $@ $<
 
@@ -426,16 +466,26 @@ $(c_files): java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h
 
 ## FIXME: see above
 $(gtk_c_files): %.lo: %.c
-	$(LTCOMPILE) -c -Ijniinclude -I$(srcdir)/jni/classpath -I$(srcdir)/jni/gtk-peer $(GTK_CFLAGS) $(LIBART_CFLAGS) -o $@ $<
+	$(LTCOMPILE) -c -Ijniinclude -I$(srcdir)/jni/classpath -I$(srcdir)/jni/gtk-peer \
+	$(GTK_CFLAGS) $(LIBART_CFLAGS) $(CAIRO_LIBS) $(PANGOFT2_LIBS) -o $@ $<
 
 $(gtk_c_files): $(gtk_c_headers)
 
 ## FIXME: see above.
-$(javao_files) $(x_javao_files) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS): %.lo: %.java
+
+## Note: we omit StackTrace here, since it has an explicit rule a bit
+## later, and GNU make will warn in this case.
+$(filter-out gnu/gcj/runtime/StackTrace.lo, $(javao_files)) $(x_javao_files) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS): %.lo: %.java
 	$(GCJCOMPILE) -o $@ $<
 
 $(gtk_awt_peer_sources:.java=.lo): %.lo: %.java
 	$(GCJCOMPILE) -fjni -o $@ $<
+
+## A special case.  The sibcall optimization can change the number of
+## frames on the stack, and StackTrace makes assumptions about this
+## number.
+gnu/gcj/runtime/StackTrace.lo: gnu/gcj/runtime/StackTrace.java
+	$(GCJCOMPILE) -fno-optimize-sibling-calls -o $@ $<
 
 ## Pass the list of object files to libtool in a temporary file to 
 ## avoid tripping platform command line length limits.
@@ -473,6 +523,7 @@ inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	gnu/java/net/PlainSocketImpl$$SocketOutputStream.h
 
 nat_headers = $(ordinary_nat_headers) $(inner_nat_headers)
+nat_headers_install = $(ordinary_nat_headers)
 
 x_nat_headers = $(x_java_source_files:.java=.h)
 
@@ -576,7 +627,7 @@ install-data-local:
 ## We use a GNU make trick here so that we don't go over the command
 ## length limit of some shells.
 	@echo Creating list of headers to install...
-	@: $(call write_entries_to_file,$(nat_headers) $(extra_headers),tmp-ilist)
+	@: $(call write_entries_to_file,$(nat_headers_install) $(extra_headers),tmp-ilist)
 	@cat tmp-ilist | while read f; do \
 	  d="`echo $$f | sed -e 's,/[^/]*$$,,'`"; \
 	  $(mkinstalldirs) $(DESTDIR)$(includedir)/$$d; \
@@ -592,6 +643,14 @@ install-data-local:
 	  echo " $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f"; \
 	  $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f; \
 	done
+## Install inner class headers.
+	$(INSTALL_DATA) 'java/io/ObjectOutputStream$$PutField.h' $(DESTDIR)$(includedir)/java/io/
+	$(INSTALL_DATA) 'java/io/ObjectInputStream$$GetField.h' $(DESTDIR)$(includedir)/java/io/
+	$(INSTALL_DATA) 'java/lang/reflect/Proxy$$ProxyData.h' $(DESTDIR)$(includedir)/java/lang/reflect/
+	$(INSTALL_DATA) 'java/lang/reflect/Proxy$$ProxyType.h' $(DESTDIR)$(includedir)/java/lang/reflect/
+	$(INSTALL_DATA) 'gnu/java/net/PlainSocketImpl$$SocketInputStream.h' $(DESTDIR)$(includedir)/gnu/java/net/
+	$(INSTALL_DATA) 'gnu/java/net/PlainSocketImpl$$SocketOutputStream.h' $(DESTDIR)$(includedir)/gnu/java/net/
+	$(INSTALL_DATA) $(srcdir)/java/util/logging/logging.properties $(DESTDIR)$(propdir)/logging.properties
 
 ## ################################################################
 
@@ -818,7 +877,9 @@ gnu/awt/j2d/IntegerGraphicsState.java \
 gnu/awt/j2d/MappedRaster.java \
 gnu/java/awt/BitMaskExtent.java \
 gnu/java/awt/Buffers.java \
+gnu/java/awt/BitwiseXORComposite.java \
 gnu/java/awt/ComponentDataBlitOp.java \
+gnu/java/awt/ClasspathToolkit.java \
 gnu/java/awt/EmbeddedWindow.java \
 gnu/java/awt/EmbeddedWindowSupport.java \
 gnu/java/awt/EventModifier.java \
@@ -826,6 +887,7 @@ gnu/java/awt/image/ImageDecoder.java \
 gnu/java/awt/image/XBMDecoder.java \
 gnu/java/awt/peer/EmbeddedWindowPeer.java \
 gnu/java/awt/peer/GLightweightPeer.java \
+gnu/java/awt/peer/ClasspathFontPeer.java \
 gnu/java/beans/editors/ColorEditor.java	\
 gnu/java/beans/editors/FontEditor.java \
 gnu/java/beans/editors/NativeBooleanEditor.java	\
@@ -1607,6 +1669,7 @@ gnu/java/rmi/server/RMIDefaultSocketFactory.java \
 gnu/java/rmi/server/RMIHashes.java \
 gnu/java/rmi/server/RMIObjectInputStream.java \
 gnu/java/rmi/server/RMIObjectOutputStream.java \
+gnu/java/rmi/server/RMIVoidValue.java \
 gnu/java/rmi/server/UnicastConnection.java \
 gnu/java/rmi/server/UnicastConnectionManager.java \
 gnu/java/rmi/server/UnicastRef.java \
@@ -1729,7 +1792,60 @@ javax/naming/ldap/UnsolicitedNotificationListener.java \
 javax/naming/OperationNotSupportedException.java \
 javax/print/attribute/Attribute.java \
 javax/print/attribute/AttributeSet.java \
+javax/print/attribute/AttributeSetUtilities.java \
+javax/print/attribute/DateTimeSyntax.java \
+javax/print/attribute/DocAttribute.java \
+javax/print/attribute/DocAttributeSet.java \
+javax/print/attribute/EnumSyntax.java \
+javax/print/attribute/HashAttributeSet.java \
+javax/print/attribute/HashDocAttributeSet.java \
+javax/print/attribute/HashPrintJobAttributeSet.java \
+javax/print/attribute/HashPrintRequestAttributeSet.java \
+javax/print/attribute/HashPrintServiceAttributeSet.java \
+javax/print/attribute/IntegerSyntax.java \
+javax/print/attribute/PrintJobAttribute.java \
+javax/print/attribute/PrintJobAttributeSet.java \
+javax/print/attribute/PrintRequestAttribute.java \
 javax/print/attribute/PrintRequestAttributeSet.java \
+javax/print/attribute/PrintServiceAttribute.java \
+javax/print/attribute/PrintServiceAttributeSet.java \
+javax/print/attribute/ResolutionSyntax.java \
+javax/print/attribute/SetOfIntegerSyntax.java \
+javax/print/attribute/Size2DSyntax.java \
+javax/print/attribute/SupportedValuesAttribute.java \
+javax/print/attribute/TextSyntax.java \
+javax/print/attribute/UnmodifiableSetException.java \
+javax/print/attribute/URISyntax.java \
+javax/print/attribute/standard/Copies.java \
+javax/print/attribute/standard/DateTimeAtCompleted.java \
+javax/print/attribute/standard/DateTimeAtCreation.java \
+javax/print/attribute/standard/DateTimeAtProcessing.java \
+javax/print/attribute/standard/DocumentName.java \
+javax/print/attribute/standard/JobHoldUntil.java \
+javax/print/attribute/standard/JobImpressions.java \
+javax/print/attribute/standard/JobImpressionsCompleted.java \
+javax/print/attribute/standard/JobKOctets.java \
+javax/print/attribute/standard/JobKOctetsProcessed.java \
+javax/print/attribute/standard/JobMediaSheets.java \
+javax/print/attribute/standard/JobMediaSheetsCompleted.java \
+javax/print/attribute/standard/JobMessageFromOperator.java \
+javax/print/attribute/standard/JobName.java \
+javax/print/attribute/standard/JobOriginatingUserName.java \
+javax/print/attribute/standard/JobPriority.java \
+javax/print/attribute/standard/JobPrioritySupported.java \
+javax/print/attribute/standard/NumberOfDocuments.java \
+javax/print/attribute/standard/NumberOfInterveningJobs.java \
+javax/print/attribute/standard/NumberUp.java \
+javax/print/attribute/standard/OutputDeviceAssigned.java \
+javax/print/attribute/standard/PagesPerMinute.java \
+javax/print/attribute/standard/PagesPerMinuteColor.java \
+javax/print/attribute/standard/PrinterInfo.java \
+javax/print/attribute/standard/PrinterLocation.java \
+javax/print/attribute/standard/PrinterMakeAndModel.java \
+javax/print/attribute/standard/PrinterMessageFromOperator.java \
+javax/print/attribute/standard/PrinterName.java \
+javax/print/attribute/standard/QueuedJobCount.java \
+javax/print/attribute/standard/RequestingUserName.java \
 javax/security/auth/x500/X500Principal.java \
 javax/sql/ConnectionEvent.java \
 javax/sql/ConnectionEventListener.java \
@@ -1942,6 +2058,7 @@ java/util/Collection.java \
 java/util/Collections.java \
 java/util/Comparator.java \
 java/util/ConcurrentModificationException.java \
+java/util/Currency.java \
 java/util/Date.java \
 java/util/Dictionary.java \
 java/util/EmptyStackException.java \
@@ -1988,6 +2105,22 @@ java/util/TreeSet.java \
 java/util/TooManyListenersException.java \
 java/util/Vector.java \
 java/util/WeakHashMap.java \
+java/util/logging/ConsoleHandler.java \
+java/util/logging/ErrorManager.java \
+java/util/logging/FileHandler.java \
+java/util/logging/Filter.java \
+java/util/logging/Formatter.java \
+java/util/logging/Handler.java \
+java/util/logging/Level.java \
+java/util/logging/Logger.java \
+java/util/logging/LoggingPermission.java \
+java/util/logging/LogManager.java \
+java/util/logging/LogRecord.java \
+java/util/logging/MemoryHandler.java \
+java/util/logging/SimpleFormatter.java \
+java/util/logging/SocketHandler.java \
+java/util/logging/StreamHandler.java \
+java/util/logging/XMLFormatter.java \
 java/util/prefs/NodeChangeListener.java \
 java/util/prefs/Preferences.java \
 java/util/prefs/PreferenceChangeListener.java \
@@ -2173,8 +2306,10 @@ gnu/java/locale/LocaleInformation_zh_HK.java \
 gnu/java/locale/LocaleInformation_zh_SG.java \
 gnu/java/locale/LocaleInformation_zh_TW.java \
 gnu/java/math/MPN.java \
+gnu/java/net/HeaderFieldHelper.java \
 gnu/java/net/PlainDatagramSocketImpl.java \
 gnu/java/net/PlainSocketImpl.java \
+gnu/java/net/URLParseError.java \
 gnu/java/net/protocol/core/Connection.java \
 gnu/java/net/protocol/core/Handler.java \
 gnu/java/net/protocol/core/CoreInputStream.java \
@@ -2193,6 +2328,10 @@ gnu/java/nio/NIOConstants.java \
 gnu/java/nio/NIODatagramSocket.java \
 gnu/java/nio/NIOServerSocket.java \
 gnu/java/nio/NIOSocket.java \
+gnu/java/nio/ChannelInputStream.java \
+gnu/java/nio/ChannelOutputStream.java \
+gnu/java/nio/InputStreamChannel.java \
+gnu/java/nio/OutputStreamChannel.java \
 gnu/java/nio/PipeImpl.java \
 gnu/java/nio/SelectionKeyImpl.java \
 gnu/java/nio/SelectorImpl.java \
@@ -2580,6 +2719,7 @@ java/text/DecimalFormat.java \
 java/text/DecimalFormatSymbols.java \
 java/text/FieldPosition.java \
 java/text/Format.java \
+java/text/FormatCharacterIterator.java \
 java/text/MessageFormat.java \
 java/text/NumberFormat.java \
 java/text/ParseException.java \

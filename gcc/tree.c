@@ -1,6 +1,6 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -106,7 +106,6 @@ static int type_hash_eq (const void *, const void *);
 static hashval_t type_hash_hash (const void *);
 static void print_type_hash_statistics (void);
 static void finish_vector_type (tree);
-static tree make_vector (enum machine_mode, tree, int);
 static int type_hash_marked_p (const void *);
 
 tree global_trees[TI_MAX];
@@ -1622,6 +1621,7 @@ unsafe_for_reeval (tree expr)
     {
     case SAVE_EXPR:
     case RTL_EXPR:
+    case TRY_CATCH_EXPR:
       return 2;
 
     case TREE_LIST:
@@ -1641,6 +1641,13 @@ unsafe_for_reeval (tree expr)
     case TARGET_EXPR:
       unsafeness = 1;
       break;
+
+    case EXIT_BLOCK_EXPR:
+      /* EXIT_BLOCK_LABELED_BLOCK, a.k.a. TREE_OPERAND (expr, 0), holds
+	 a reference to an ancestor LABELED_BLOCK, so we need to avoid
+	 unbounded recursion in the 'e' traversal code below.  */
+      exp = EXIT_BLOCK_RETURN (expr);
+      return exp ? unsafe_for_reeval (exp) : 0;
 
     default:
       tmp = (*lang_hooks.unsafe_for_reeval) (expr);
@@ -2294,6 +2301,7 @@ build (enum tree_code code, tree tt, ...)
   int fro;
   int constant;
   va_list p;
+  tree node;
 
   va_start (p, tt);
 
@@ -2380,10 +2388,17 @@ build (enum tree_code code, tree tt, ...)
     {
       /* Calls have side-effects, except those to const or
 	 pure functions.  */
-      tree fn = get_callee_fndecl (t);
-
-      if (!fn || (!DECL_IS_PURE (fn) && !TREE_READONLY (fn)))
+      i = call_expr_flags (t);
+      if (!(i & (ECF_CONST | ECF_PURE)))
 	TREE_SIDE_EFFECTS (t) = 1;
+
+      /* And even those have side-effects if their arguments do.  */
+      else for (node = TREE_OPERAND (t, 1); node; node = TREE_CHAIN (node))
+	if (TREE_SIDE_EFFECTS (TREE_VALUE (node)))
+	  {
+	    TREE_SIDE_EFFECTS (t) = 1;
+	    break;
+	  }
     }
 
   return t;
@@ -2548,6 +2563,11 @@ build_decl (enum tree_code code, tree name, tree type)
     layout_decl (t, 0);
   else if (code == FUNCTION_DECL)
     DECL_MODE (t) = FUNCTION_MODE;
+    
+  /* Set default visibility to whatever the user supplied with
+     visibility_specified depending on #pragma GCC visibility.  */
+  DECL_VISIBILITY (t) = default_visibility;
+  DECL_VISIBILITY_SPECIFIED (t) = visibility_options.inpragma;
 
   return t;
 }
@@ -2800,7 +2820,7 @@ merge_decl_attributes (tree olddecl, tree newdecl)
 			   DECL_ATTRIBUTES (newdecl));
 }
 
-#ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 
 /* Specialization of merge_decl_attributes for various Windows targets.
 
@@ -2851,6 +2871,81 @@ merge_dllimport_decl_attributes (tree old, tree new)
     }
 
   return a;
+}
+
+/* Handle a "dllimport" or "dllexport" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+tree
+handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
+		      bool *no_add_attrs)
+{
+  tree node = *pnode;
+
+  /* These attributes may apply to structure and union types being created,
+     but otherwise should pass to the declaration involved.  */
+  if (!DECL_P (node))
+    {
+      if (flags & ((int) ATTR_FLAG_DECL_NEXT | (int) ATTR_FLAG_FUNCTION_NEXT
+		   | (int) ATTR_FLAG_ARRAY_NEXT))
+	{
+	  *no_add_attrs = true;
+	  return tree_cons (name, args, NULL_TREE);
+	}
+      if (TREE_CODE (node) != RECORD_TYPE && TREE_CODE (node) != UNION_TYPE)
+	{
+	  warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+	  *no_add_attrs = true;
+	}
+
+      return NULL_TREE;
+    }
+
+  /* Report error on dllimport ambiguities seen now before they cause
+     any damage.  */
+  if (is_attribute_p ("dllimport", name))
+    {
+      /* Like MS, treat definition of dllimported variables and
+	 non-inlined functions on declaration as syntax errors.  We
+	 allow the attribute for function definitions if declared
+	 inline.  */
+      if (TREE_CODE (node) == FUNCTION_DECL  && DECL_INITIAL (node)
+          && !DECL_DECLARED_INLINE_P (node))
+	{
+	  error ("%Jfunction `%D' definition is marked dllimport.", node, node);
+	  *no_add_attrs = true;
+	}
+
+      else if (TREE_CODE (node) == VAR_DECL)
+	{
+	  if (DECL_INITIAL (node))
+	    {
+	      error ("%Jvariable `%D' definition is marked dllimport.",
+		     node, node);
+	      *no_add_attrs = true;
+	    }
+
+	  /* `extern' needn't be specified with dllimport.
+	     Specify `extern' now and hope for the best.  Sigh.  */
+	  DECL_EXTERNAL (node) = 1;
+	  /* Also, implicitly give dllimport'd variables declared within
+	     a function global scope, unless declared static.  */
+	  if (current_function_decl != NULL_TREE && !TREE_STATIC (node))
+	    TREE_PUBLIC (node) = 1;
+	}
+    }
+
+  /*  Report error if symbol is not accessible at global scope.  */
+  if (!TREE_PUBLIC (node)
+      && (TREE_CODE (node) == VAR_DECL
+	  || TREE_CODE (node) == FUNCTION_DECL))
+    {
+      error ("%Jexternal linkage required for symbol '%D' because of "
+	     "'%s' attribute.", node, node, IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
 }
 
 #endif /* TARGET_DLLIMPORT_DECL_ATTRIBUTES  */
@@ -4115,10 +4210,10 @@ get_unwidened (tree op, tree for_type)
 	 The resulting extension to its nominal type (a fullword type)
 	 must fit the same conditions as for other extensions.  */
 
-      if (innerprec < TYPE_PRECISION (TREE_TYPE (op))
+      if (type != 0
+	  && INT_CST_LT_UNSIGNED (TYPE_SIZE (type), TYPE_SIZE (TREE_TYPE (op)))
 	  && (for_type || ! DECL_BIT_FIELD (TREE_OPERAND (op, 1)))
-	  && (! uns || final_prec <= innerprec || unsignedp)
-	  && type != 0)
+	  && (! uns || final_prec <= innerprec || unsignedp))
 	{
 	  win = build (COMPONENT_REF, type, TREE_OPERAND (op, 0),
 		       TREE_OPERAND (op, 1));
@@ -4841,6 +4936,10 @@ build_common_tree_nodes (int signed_char)
   unsigned_intSI_type_node = make_unsigned_type (GET_MODE_BITSIZE (SImode));
   unsigned_intDI_type_node = make_unsigned_type (GET_MODE_BITSIZE (DImode));
   unsigned_intTI_type_node = make_unsigned_type (GET_MODE_BITSIZE (TImode));
+  
+  access_public_node = get_identifier ("public");
+  access_protected_node = get_identifier ("protected");
+  access_private_node = get_identifier ("private");
 }
 
 /* Call this function after calling build_common_tree_nodes and set_sizetype.
@@ -4916,8 +5015,7 @@ build_common_tree_nodes_2 (int short_double)
   layout_type (complex_long_double_type_node);
 
   {
-    tree t;
-    BUILD_VA_LIST_TYPE (t);
+    tree t = (*targetm.build_builtin_va_list) ();
 
     /* Many back-ends define record types without setting TYPE_NAME.
        If we copied the record type here, we'd keep the original
@@ -4965,10 +5063,56 @@ build_common_tree_nodes_2 (int short_double)
   V4DF_type_node = make_vector (V4DFmode, double_type_node, 0);
 }
 
+/* HACK.  GROSS.  This is absolutely disgusting.  I wish there was a
+   better way.
+
+   If we requested a pointer to a vector, build up the pointers that
+   we stripped off while looking for the inner type.  Similarly for
+   return values from functions.
+
+   The argument TYPE is the top of the chain, and BOTTOM is the
+   new type which we will point to.  */
+
+tree
+reconstruct_complex_type (tree type, tree bottom)
+{
+  tree inner, outer;
+
+  if (POINTER_TYPE_P (type))
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_pointer_type (inner);
+    }
+  else if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_array_type (inner, TYPE_DOMAIN (type));
+    }
+  else if (TREE_CODE (type) == FUNCTION_TYPE)
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_function_type (inner, TYPE_ARG_TYPES (type));
+    }
+  else if (TREE_CODE (type) == METHOD_TYPE)
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_method_type_directly (TYPE_METHOD_BASETYPE (type),
+					 inner,
+					 TYPE_ARG_TYPES (type));
+    }
+  else
+    return bottom;
+
+  TREE_READONLY (outer) = TREE_READONLY (type);
+  TREE_THIS_VOLATILE (outer) = TREE_THIS_VOLATILE (type);
+
+  return outer;
+}
+
 /* Returns a vector tree node given a vector mode, the inner type, and
    the signness.  */
 
-static tree
+tree
 make_vector (enum machine_mode mode, tree innertype, int unsignedp)
 {
   tree t;
@@ -5004,6 +5148,11 @@ initializer_zerop (tree init)
 	    && ! REAL_VALUE_MINUS_ZERO (TREE_REAL_CST (TREE_IMAGPART (init))));
     case CONSTRUCTOR:
       {
+	/* Set is empty if it has no elements.  */
+        if ((TREE_CODE (TREE_TYPE (init)) == SET_TYPE)
+             && CONSTRUCTOR_ELTS (init))
+	  return false;
+
 	if (AGGREGATE_TYPE_P (TREE_TYPE (init)))
 	  {
 	    tree aggr_init = CONSTRUCTOR_ELTS (init);

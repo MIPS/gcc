@@ -16,27 +16,6 @@ if test $ac_cv_header_stdbool_h = yes; then
 fi
 ])
 
-dnl Fixed AC_CHECK_TYPE that doesn't need anything in acconfig.h.
-dnl Remove after migrating to 2.5x.
-AC_DEFUN([gcc_AC_CHECK_TYPE],
-[AC_REQUIRE([AC_HEADER_STDC])dnl
-AC_MSG_CHECKING(for $1)
-AC_CACHE_VAL(ac_cv_type_$1,
-[AC_EGREP_CPP(dnl
-changequote(<<,>>)dnl
-<<(^|[^a-zA-Z_0-9])$1[^a-zA-Z_0-9]>>dnl
-changequote([,]), [#include <sys/types.h>
-#if STDC_HEADERS
-#include <stdlib.h>
-#include <stddef.h>
-#endif], ac_cv_type_$1=yes, ac_cv_type_$1=no)])dnl
-AC_MSG_RESULT($ac_cv_type_$1)
-if test $ac_cv_type_$1 = no; then
-  AC_DEFINE($1, $2, [Define as \`$2' if <sys/types.h> doesn't define.])
-fi
-])
-
-
 dnl See whether we can include both string.h and strings.h.
 AC_DEFUN([gcc_AC_HEADER_STRING],
 [AC_CACHE_CHECK([whether string.h and strings.h may both be included],
@@ -318,46 +297,36 @@ AC_SUBST(INSTALL_DATA)dnl
 
 dnl Test for GNAT.
 dnl We require the gnatbind program, and a compiler driver that
-dnl understands Ada.  The user may set the driver name explicitly
-dnl with ADAC; also, the user's CC setting is tried.  Failing that,
-dnl we try gcc and cc, then a sampling of names known to be used for
-dnl the Ada driver on various systems.
+dnl understands Ada.  We use the user's CC setting, already found.
 dnl
 dnl Sets the shell variable have_gnat to yes or no as appropriate, and
-dnl substitutes GNATBIND and ADAC.
+dnl substitutes GNATBIND.
 AC_DEFUN([gcc_AC_PROG_GNAT],
 [AC_REQUIRE([AC_CHECK_TOOL_PREFIX])
+AC_REQUIRE([AC_PROG_CC])
 AC_CHECK_TOOL(GNATBIND, gnatbind, no)
-AC_CACHE_CHECK([for compiler driver that understands Ada],
-		 gcc_cv_prog_adac,
+AC_CACHE_CHECK([whether compiler driver understands Ada],
+		 gcc_cv_cc_supports_ada,
 [cat >conftest.adb <<EOF
 procedure conftest is begin null; end conftest;
 EOF
-gcc_cv_prog_adac=no
-# Have to do ac_tool_prefix and user overrides by hand.
-for cand in ${ADAC+"$ADAC"} ${CC+"$CC"}	\
-	    ${ac_tool_prefix}gcc	gcc		\
-	    ${ac_tool_prefix}cc		cc		\
-	    ${ac_tool_prefix}gnatgcc	gnatgcc		\
-	    ${ac_tool_prefix}gnatcc	gnatcc		\
-	    ${ac_tool_prefix}adagcc	adagcc		\
-	    ${ac_tool_prefix}adacc	adacc		; do
-  # There is a bug in all released versions of GCC which causes the
-  # driver to exit successfully when the appropriate language module
-  # has not been installed.  This is fixed in 2.95.4, 3.0.2, and 3.1.
-  # Therefore we must check for the error message as well as an
-  # unsuccessful exit.
-  errors=`($cand -c conftest.adb) 2>&1 || echo failure`
-  if test x"$errors" = x; then
-    gcc_cv_prog_adac=$cand
-    break
-  fi
-done
+gcc_cv_cc_supports_ada=no
+# There is a bug in old released versions of GCC which causes the
+# driver to exit successfully when the appropriate language module
+# has not been installed.  This is fixed in 2.95.4, 3.0.2, and 3.1.
+# Therefore we must check for the error message as well as an
+# unsuccessful exit.
+# Other compilers, like HP Tru64 UNIX cc, exit successfully when
+# given a .adb file, but produce no object file.  So we must check
+# if an object file was really produced to guard against this.
+errors=`(${CC} -c conftest.adb) 2>&1 || echo failure`
+if test x"$errors" = x && test -f conftest.$ac_objext; then
+  gcc_cv_cc_supports_ada=yes
+  break
+fi
 rm -f conftest.*])
-ADAC=$gcc_cv_prog_adac
-AC_SUBST(ADAC)
 
-if test x$GNATBIND != xno && test x$ADAC != xno; then
+if test x$GNATBIND != xno && test x$gcc_cv_cc_supports_ada != xno; then
   have_gnat=yes
 else
   have_gnat=no
@@ -424,7 +393,7 @@ else
    # read() to the same fd.  The only system known to have a problem here
    # is VMS, where text files have record structure.
    case "$host_os" in
-     vms*) 
+     vms* | ultrix*) 
         gcc_cv_func_mmap_file=no ;;
      *)
         gcc_cv_func_mmap_file=yes;;
@@ -620,6 +589,8 @@ AC_DEFUN([AM_ICONV],
     done
    ])
 
+  AC_CHECK_HEADERS([iconv.h])
+
   AC_CACHE_CHECK(for iconv, am_cv_func_iconv, [
     am_cv_func_iconv="no, consider installing GNU libiconv"
     am_cv_lib_iconv=no
@@ -705,7 +676,7 @@ for f in $gcc_cv_as_bfd_srcdir/configure \
          $gcc_cv_as_gas_srcdir/configure \
          $gcc_cv_as_gas_srcdir/configure.in \
          $gcc_cv_as_gas_srcdir/Makefile.in ; do
-  gcc_cv_gas_version=`grep '^VERSION=[[0-9]]*\.[[0-9]]*' $f`
+  gcc_cv_gas_version=`sed -n -e 's/^[[ 	]]*\(VERSION=[[0-9]]*\.[[0-9]]*.*\)/\1/p' < $f`
   if test x$gcc_cv_gas_version != x; then
     break
   fi
@@ -764,7 +735,7 @@ AC_DEFUN([gcc_GAS_CHECK_FEATURE],
   if test $in_tree_gas = yes; then
     gcc_GAS_VERSION_GTE_IFELSE($3, [[$2]=yes])
   el])if test x$gcc_cv_as != x; then
-    echo ifelse(substr([$5],0,1),[$], "[$5]", '[$5]') > conftest.s
+    echo ifelse(m4_substr([$5],0,1),[$], "[$5]", '[$5]') > conftest.s
     if AC_TRY_COMMAND([$gcc_cv_as $4 -o conftest.o conftest.s >&AC_FD_CC])
     then
 	ifelse([$6],, [$2]=yes, [$6])

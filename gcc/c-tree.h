@@ -44,12 +44,12 @@ struct lang_identifier GTY(())
 
 /* The resulting tree type.  */
 
-union lang_tree_node 
+union lang_tree_node
   GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
        chain_next ("TREE_CODE (&%h.generic) == INTEGER_TYPE ? (union lang_tree_node *)TYPE_NEXT_VARIANT (&%h.generic) : (union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
 {
-  union tree_node GTY ((tag ("0"), 
-			desc ("tree_node_structure (&%h)"))) 
+  union tree_node GTY ((tag ("0"),
+			desc ("tree_node_structure (&%h)")))
     generic;
   struct lang_identifier GTY ((tag ("1"))) identifier;
 };
@@ -106,7 +106,7 @@ struct lang_decl GTY(())
 /* In a RECORD_TYPE, a sorted array of the fields of the type.  */
 struct lang_type GTY(())
 {
-  struct sorted_fields_type * GTY ((reorder ("resort_sorted_fields"))) s; 
+  struct sorted_fields_type * GTY ((reorder ("resort_sorted_fields"))) s;
 };
 
 /* Record whether a type or decl was written with nonconstant size.
@@ -152,6 +152,22 @@ struct lang_type GTY(())
 #define KEEP_YES	1
 #define KEEP_MAYBE	2
 
+/* Save and restore the variables in this file and elsewhere
+   that keep track of the progress of compilation of the current function.
+   Used for nested functions.  */
+
+struct language_function GTY(())
+{
+  struct c_language_function base;
+  int returns_value;
+  int returns_null;
+  int returns_abnormally;
+  int warn_about_return_type;
+  int extern_inline;
+  int x_in_iteration_stmt;
+  int x_in_case_stmt;
+};
+
 
 /* in c-parse.in */
 extern void c_parse_init (void);
@@ -160,6 +176,9 @@ extern void c_parse_init (void);
 extern void gen_aux_info_record (tree, int, int, int);
 
 /* in c-decl.c */
+extern int c_in_iteration_stmt;
+extern int c_in_case_stmt;
+
 extern int global_bindings_p (void);
 extern tree getdecls (void);
 extern void pushlevel (int);
@@ -249,7 +268,7 @@ extern tree build_array_ref (tree, tree);
 extern tree build_external_ref (tree, int);
 extern tree parser_build_binary_op (enum tree_code, tree, tree);
 extern int c_tree_expr_nonnegative_p (tree);
-extern void readonly_warning (tree, const char *);
+extern void readonly_error (tree, const char *);
 extern tree build_conditional_expr (tree, tree, tree);
 extern tree build_compound_expr (tree);
 extern tree c_cast_expr (tree, tree);
@@ -273,7 +292,7 @@ extern tree c_start_case (tree);
 extern void c_finish_case (void);
 extern tree simple_asm_stmt (tree);
 extern tree build_asm_stmt (tree, tree, tree, tree, tree);
-extern tree c_convert_parm_for_inlining (tree, tree, tree);
+extern tree c_convert_parm_for_inlining (tree, tree, tree, int);
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */

@@ -78,6 +78,7 @@ struct vbase_info
   tree inits;
 };
 
+static int is_subobject_of_p (tree, tree);
 static tree dfs_check_overlap (tree, void *);
 static tree dfs_no_overlap_yet (tree, int, void *);
 static base_kind lookup_base_r (tree, tree, base_access, bool, tree *);
@@ -97,7 +98,6 @@ static struct search_level *pop_search_level (struct stack_level *);
 static tree bfs_walk (tree, tree (*) (tree, void *),
 		      tree (*) (tree, int, void *), void *);
 static tree lookup_field_queue_p (tree, int, void *);
-static int shared_member_p (tree);
 static tree lookup_field_r (tree, void *);
 static tree dfs_accessible_queue_p (tree, int, void *);
 static tree dfs_accessible_p (tree, void *);
@@ -125,7 +125,7 @@ push_search_level (struct stack_level *stack, struct obstack *obstack)
 static struct search_level *
 pop_search_level (struct stack_level *obstack)
 {
-  register struct search_level *stack = pop_stack_level (obstack);
+  struct search_level *stack = pop_stack_level (obstack);
 
   return stack;
 }
@@ -232,7 +232,7 @@ lookup_base_r (tree binfo, tree base, base_access access,
 }
 
 /* Returns true if type BASE is accessible in T.  (BASE is known to be
-   a base class of T.)  */
+   a (possibly non-proper) base class of T.)  */
 
 bool
 accessible_base_p (tree t, tree base)
@@ -242,7 +242,12 @@ accessible_base_p (tree t, tree base)
   /* [class.access.base]
 
      A base class is said to be accessible if an invented public
-     member of the base class is accessible.  */
+     member of the base class is accessible.  
+
+     If BASE is a non-proper base, this condition is trivially
+     true.  */
+  if (same_type_p (t, base))
+    return true;
   /* Rather than inventing a public member, we use the implicit
      public typedef created in the scope of every class.  */
   decl = TYPE_FIELDS (base);
@@ -422,7 +427,7 @@ get_dynamic_cast_base_type (tree subtype, tree target)
 tree
 lookup_field_1 (tree type, tree name, bool want_type)
 {
-  register tree field;
+  tree field;
 
   if (TREE_CODE (type) == TEMPLATE_TYPE_PARM
       || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM
@@ -578,6 +583,16 @@ at_class_scope_p (void)
 {
   tree cs = current_scope ();
   return cs && TYPE_P (cs);
+}
+
+/* Returns true if the innermost active scope is a namespace scope.  */
+
+bool
+at_namespace_scope_p (void)
+{
+  /* We are in a namespace scope if we are not it a class scope or a
+     function scope.  */
+  return !current_scope();
 }
 
 /* Return the scope of DECL, as appropriate when doing name-lookup.  */
@@ -876,10 +891,26 @@ friend_accessible_p (tree scope, tree decl, tree binfo)
 
       /* Or an instantiation of something which is a friend.  */
       if (DECL_TEMPLATE_INFO (scope))
-	return friend_accessible_p (DECL_TI_TEMPLATE (scope), decl, binfo);
+	{
+	  int ret;
+	  /* Increment processing_template_decl to make sure that
+	     dependent_type_p works correctly.  */
+	  ++processing_template_decl;
+	  ret = friend_accessible_p (DECL_TI_TEMPLATE (scope), decl, binfo);
+	  --processing_template_decl;
+	  return ret;
+	}
     }
   else if (CLASSTYPE_TEMPLATE_INFO (scope))
-    return friend_accessible_p (CLASSTYPE_TI_TEMPLATE (scope), decl, binfo);
+    {
+      int ret;
+      /* Increment processing_template_decl to make sure that
+	 dependent_type_p works correctly.  */
+      ++processing_template_decl;
+      ret = friend_accessible_p (CLASSTYPE_TI_TEMPLATE (scope), decl, binfo);
+      --processing_template_decl;
+      return ret;
+    }
 
   return 0;
 }
@@ -895,6 +926,7 @@ accessible_p (tree type, tree decl)
 {
   tree binfo;
   tree t;
+  tree scope;
   access_kind access;
 
   /* Nonzero if it's OK to access DECL if it has protected
@@ -904,6 +936,11 @@ accessible_p (tree type, tree decl)
   /* If this declaration is in a block or namespace scope, there's no
      access control.  */
   if (!TYPE_P (context_for_name_lookup (decl)))
+    return 1;
+
+  /* There is no need to perform access checks inside a thunk.  */
+  scope = current_scope ();
+  if (scope && DECL_THUNK_P (scope))
     return 1;
 
   /* In a template declaration, we cannot be sure whether the
@@ -948,7 +985,7 @@ accessible_p (tree type, tree decl)
 
   /* Now, loop through the classes of which we are a friend.  */
   if (!protected_ok)
-    protected_ok = friend_accessible_p (current_scope (), decl, binfo);
+    protected_ok = friend_accessible_p (scope, decl, binfo);
 
   /* Standardize the binfo that access_in_type will use.  We don't
      need to know what path was chosen from this point onwards.  */
@@ -1037,7 +1074,6 @@ template_self_reference_p (tree type, tree decl)
 	   && DECL_NAME (decl) == constructor_name (type));
 }
 
-
 /* Nonzero for a class member means that it is shared between all objects
    of that class.
 
@@ -1048,7 +1084,7 @@ template_self_reference_p (tree type, tree decl)
 
    This function checks that T contains no nonstatic members.  */
 
-static int
+int
 shared_member_p (tree t)
 {
   if (TREE_CODE (t) == VAR_DECL || TREE_CODE (t) == TYPE_DECL \
@@ -1063,6 +1099,27 @@ shared_member_p (tree t)
 	    return 0;
 	}
       return 1;
+    }
+  return 0;
+}
+
+/* Routine to see if the sub-object denoted by the binfo PARENT can be
+   found as a base class and sub-object of the object denoted by
+   BINFO.  */
+
+static int
+is_subobject_of_p (tree parent, tree binfo)
+{
+  tree probe;
+  
+  for (probe = parent; probe; probe = BINFO_INHERITANCE_CHAIN (probe))
+    {
+      if (probe == binfo)
+	return 1;
+      if (TREE_VIA_VIRTUAL (probe))
+	return (purpose_member (BINFO_TYPE (probe),
+				CLASSTYPE_VBASECLASSES (BINFO_TYPE (binfo)))
+		!= NULL_TREE);
     }
   return 0;
 }
@@ -1134,12 +1191,14 @@ lookup_field_r (tree binfo, void *data)
 
   /* If the lookup already found a match, and the new value doesn't
      hide the old one, we might have an ambiguity.  */
-  if (lfi->rval_binfo && !original_binfo (lfi->rval_binfo, binfo))
+  if (lfi->rval_binfo
+      && !is_subobject_of_p (lfi->rval_binfo, binfo))
+    
     {
       if (nval == lfi->rval && shared_member_p (nval))
 	/* The two things are really the same.  */
 	;
-      else if (original_binfo (binfo, lfi->rval_binfo))
+      else if (is_subobject_of_p (binfo, lfi->rval_binfo))
 	/* The previous value hides the new one.  */
 	;
       else

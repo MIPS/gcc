@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC,
    for SuperH with targeting the VXWorks run time environment. 
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by CodeSourcery, LLC.
    
 This file is part of GCC.
@@ -32,7 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #define LIB_SPEC 	""
 
 /* VxWorks uses object files, not loadable images.  Make the linker just
-   combine objects. */
+   combine objects.  */
 #undef  LINK_SPEC
 #define LINK_SPEC 	"-r"
 

@@ -1,5 +1,5 @@
 // -*- C++ -*- Exception handling routines for catching.
-// Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -35,19 +35,20 @@ using namespace __cxxabiv1;
 
 
 extern "C" void *
-__cxa_begin_catch (void *exc_obj_in)
+__cxxabiv1::__cxa_begin_catch (void *exc_obj_in) throw()
 {
   _Unwind_Exception *exceptionObject
     = reinterpret_cast <_Unwind_Exception *>(exc_obj_in);
   __cxa_eh_globals *globals = __cxa_get_globals ();
   __cxa_exception *prev = globals->caughtExceptions;
   __cxa_exception *header = __get_exception_header_from_ue (exceptionObject);
+  void* objectp;
 
   // Foreign exceptions can't be stacked here.  If the exception stack is
   // empty, then fine.  Otherwise we really have no choice but to terminate.
   // Note that this use of "header" is a lie.  It's fine so long as we only
   // examine header->unwindHeader though.
-  if (header->unwindHeader.exception_class != __gxx_exception_class)
+  if (!__is_gxx_exception_class(header->unwindHeader.exception_class))
     {
       if (prev != 0)
 	std::terminate ();
@@ -65,22 +66,30 @@ __cxa_begin_catch (void *exc_obj_in)
     // This exception was rethrown from an immediately enclosing region.
     count = -count + 1;
   else
-    count += 1;
+    {
+      count += 1;
+      globals->uncaughtExceptions -= 1;
+    }
   header->handlerCount = count;
 
-  globals->uncaughtExceptions -= 1;
   if (header != prev)
     {
       header->nextException = prev;
       globals->caughtExceptions = header;
     }
 
-  return header->adjustedPtr;
+#ifdef __ARM_EABI_UNWINDER__
+  objectp = (void*) exceptionObject->barrier_cache.bitpattern[0];
+  _Unwind_Complete(exceptionObject);
+#else
+  objectp = header->adjustedPtr;
+#endif
+  return objectp;
 }
 
 
 extern "C" void
-__cxa_end_catch ()
+__cxxabiv1::__cxa_end_catch ()
 {
   __cxa_eh_globals *globals = __cxa_get_globals_fast ();
   __cxa_exception *header = globals->caughtExceptions;
@@ -92,7 +101,7 @@ __cxa_end_catch ()
 
   // A foreign exception couldn't have been stacked (see above),
   // so by definition processing must be complete.
-  if (header->unwindHeader.exception_class != __gxx_exception_class)
+  if (!__is_gxx_exception_class(header->unwindHeader.exception_class))
     {
       globals->caughtExceptions = 0;
       _Unwind_DeleteException (&header->unwindHeader);

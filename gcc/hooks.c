@@ -1,5 +1,5 @@
 /* General-purpose hooks.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -41,7 +41,14 @@ hook_bool_void_false (void)
   return false;
 }
 
-/* The same, but formally returning NO_REGS.  */
+/* Generic hook that takes no arguments and returns true.  */
+bool
+hook_bool_void_true (void)
+{
+  return true;
+}
+
+/* Generic hook that takes no arguments and returns NO_REGS. */
 int
 hook_int_void_no_regs (void)
 {
@@ -177,6 +184,13 @@ hook_bool_rtx_false (rtx a ATTRIBUTE_UNUSED)
 }
 
 bool
+hook_bool_uintp_uintp_false (unsigned int *a ATTRIBUTE_UNUSED,
+			     unsigned int *b ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
+bool
 hook_bool_rtx_int_int_intp_false (rtx a ATTRIBUTE_UNUSED,
 				  int b ATTRIBUTE_UNUSED,
 				  int c ATTRIBUTE_UNUSED,
@@ -219,4 +233,11 @@ hook_bool_voidp_size_t_false (void * a ATTRIBUTE_UNUSED,
 			      size_t b ATTRIBUTE_UNUSED)
 {
   return false;
+}
+
+/* Generic hook that takes a tree and returns a NULL string.  */
+const char *
+hook_constcharptr_tree_null (tree t ATTRIBUTE_UNUSED)
+{
+  return NULL;
 }

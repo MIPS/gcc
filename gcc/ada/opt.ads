@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -165,6 +165,11 @@ package Opt is
    --  Force brief error messages to standard error, even if verbose mode is
    --  set (so that main error messages go to standard output).
 
+   Build_Bind_And_Link_Full_Project : Boolean := False;
+   --  GNATMAKE
+   --  Set to True to build, bind and link all the sources of a project file
+   --  (switch -B)
+
    Check_Object_Consistency : Boolean := False;
    --  GNATBIND, GNATMAKE
    --  Set to True to check whether every object file is consistent with
@@ -259,6 +264,13 @@ package Opt is
    --  Set True (-gnatD switch) to debug generated expanded code instead
    --  of the original source code. Causes debugging information to be
    --  written with respect to the generated code file that is written.
+
+   Default_Sec_Stack_Size : Int := -1;
+   --  GNATBIND
+   --  Set to default secondary stack size in units of kilobytes. Set by
+   --  the -Dnnn switch for the binder. A value of -1 indicates that no
+   --  default was set by the binder, and that the default should be the
+   --  initial value of System.Secondary_Stack.Default_Secondary_Stack_Size.
 
    Display_Compilation_Progress : Boolean := False;
    --  GNATMAKE
@@ -431,6 +443,15 @@ package Opt is
    Full_List : Boolean := False;
    --  GNAT
    --  Set True to generate full source listing with embedded errors
+
+   function get_gcc_version return Int;
+   pragma Import (C, get_gcc_version, "get_gcc_version");
+
+   GCC_Version : constant Nat := get_gcc_version;
+   --  GNATMAKE
+   --  Indicates which version of gcc is in use (2 = 2.8.1, 3 = 3.x).
+   --  Used in particular to decide if gcc switch -shared-libgcc should be
+   --  used (it cannot be used for 2.8.1).
 
    Global_Discard_Names : Boolean := False;
    --  GNAT, GNATBIND
@@ -719,6 +740,11 @@ package Opt is
    --  Set to True to enable output of generated code in source form. This
    --  flag is set by the -gnatG switch.
 
+   Print_Standard : Boolean := False;
+   --  GNAT
+   --  Set to true to enable printing of package standard in source form.
+   --  This flag is set by the -gnatS switch
+
    Propagate_Exceptions : Boolean := False;
    --  GNAT
    --  Indicates if subprogram descriptor exception tables should be
@@ -761,6 +787,11 @@ package Opt is
    Run_Path_Option : Boolean := True;
    --  GNATMAKE, GNATLINK
    --  Set to False when no run_path_option should be issued to the linker
+
+   Sec_Stack_Used : Boolean := False;
+   --  GNAT, GBATBIND
+   --  Set True if generated code uses the System.Secondary_Stack package.
+   --  For the binder, set if any unit uses the secondary stack package.
 
    Shared_Libgnat : Boolean;
    --  GNATBIND

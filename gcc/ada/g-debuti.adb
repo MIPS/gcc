@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---           Copyright (C) 1997-2003 Ada Core Technologies, Inc.            --
+--           Copyright (C) 1997-2004 Ada Core Technologies, Inc.            --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,9 +39,11 @@ package body GNAT.Debug_Utilities is
       H : constant array (0 .. 15) of Character := "0123456789ABCDEF";
       --  Table of hex digits
 
-   --------------------------
-   -- Image (address case) --
-   --------------------------
+   -----------
+   -- Image --
+   -----------
+
+   --  Address case
 
    function Image (A : Address) return Image_String is
       S : Image_String;
@@ -71,9 +73,11 @@ package body GNAT.Debug_Utilities is
       return S;
    end Image;
 
-   -------------------------
-   -- Image (string case) --
-   -------------------------
+   -----------
+   -- Image --
+   -----------
+
+   --  String case
 
    function Image (S : String) return String is
       W : String (1 .. 2 * S'Length + 2);
@@ -149,7 +153,7 @@ package body GNAT.Debug_Utilities is
 
          --  Ada form based literal
 
-         elsif C = '#' or C = ':' then
+         elsif C = '#' or else C = ':' then
             Base := Res;
             Res  := 0;
 

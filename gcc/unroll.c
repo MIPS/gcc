@@ -2797,8 +2797,9 @@ find_splittable_givs (const struct loop *loop, struct iv_class *bl,
 		{
 		  rtx tem = gen_reg_rtx (v->mode);
 		  record_base_value (REGNO (tem), v->add_val, 0);
-		  loop_iv_add_mult_hoist (loop, bl->initial_value, v->mult_val,
-					  v->add_val, tem);
+		  loop_iv_add_mult_hoist (loop, 
+				extend_value_for_giv (v, bl->initial_value), 
+				v->mult_val, v->add_val, tem);
 		  value = tem;
 		}
 
@@ -3421,7 +3422,20 @@ loop_iterations (struct loop *loop)
 		 "Loop iterations: Iteration var not an integer.\n");
       return 0;
     }
-  else if (REG_IV_TYPE (ivs, REGNO (iteration_var)) == BASIC_INDUCT)
+
+  /* Try swapping the comparison to identify a suitable iv.  */
+  if (REG_IV_TYPE (ivs, REGNO (iteration_var)) != BASIC_INDUCT
+      && REG_IV_TYPE (ivs, REGNO (iteration_var)) != GENERAL_INDUCT
+      && GET_CODE (comparison_value) == REG
+      && REGNO (comparison_value) < ivs->n_regs)
+    {
+      rtx temp = comparison_value;
+      comparison_code = swap_condition (comparison_code);
+      comparison_value = iteration_var;
+      iteration_var = temp;
+    }
+
+  if (REG_IV_TYPE (ivs, REGNO (iteration_var)) == BASIC_INDUCT)
     {
       if (REGNO (iteration_var) >= ivs->n_regs)
 	abort ();

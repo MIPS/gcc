@@ -521,7 +521,7 @@ package Einfo is
 --       representation clause is present for the corresponding record
 --       type a that specifies a position for the component, then the
 --       Component_Clause field of the E_Component entity points to the
---       N_Component_Claue node. Set to Empty if no record representation
+--       N_Component_Clause node. Set to Empty if no record representation
 --       clause was present, or if there was no specification for this
 --       component.
 
@@ -930,7 +930,7 @@ package Einfo is
 --       the record that is the fat pointer representation of an RAST.
 
 --    Esize (Uint12)
---       Present in all types and subtypes, an also for components, constants,
+--       Present in all types and subtypes, and also for components, constants,
 --       and variables. Contains the Object_Size of the type or of the object.
 --       A value of zero indicates that the value is not yet known.
 --
@@ -1162,6 +1162,9 @@ package Einfo is
 --       types, i.e. record types (Java classes) that hold pointers to each
 --       other. If such a type is an access type, it has no explicit freeze
 --       node, so that the back-end does not attempt to elaborate it.
+--       Currently this flag is also used to implement Ada0Y (AI-50217).
+--       It will be renamed to From_Limited_With after removal of the current
+--       GNAT with_type clause???
 
 --    Full_View (Node11)
 --       Present in all type and subtype entities and in deferred constants.
@@ -1660,9 +1663,9 @@ package Einfo is
 --    Is_Bit_Packed_Array (Flag122) [implementation base type only]
 --       Present in all entities. This flag is set for a packed array
 --       type that is bit packed (i.e. the component size is known by the
---       front end and is in the range 1-7, 9-15, or 17-31). Is_Packed is
---       always set if Is_Bit_Packed_Array is set, but it is possible for
---       Is_Packed to be set without Is_Bit_Packed_Array or the case of an
+--       front end and is in the range 1-7, 9-15, 17-31, or 33-63). Is_Packed
+--       is always set if Is_Bit_Packed_Array is set, but it is possible for
+--       Is_Packed to be set without Is_Bit_Packed_Array for the case of an
 --       array having one or more index types that are enumeration types
 --       with non-standard enumeration representations.
 
@@ -2276,6 +2279,10 @@ package Einfo is
 --    Is_Task_Type (synthesized)
 --       Applies to all entities, true for task types and subtypes
 
+--    Is_Thread_Body (Flag77)
+--       Applies to subprogram entities. Set if a valid Thread_Body pragma
+--       applies to this subprogram, which is thus a thread body.
+
 --    Is_True_Constant (Flag163)
 --       This flag is set in constants and variables which have an initial
 --       value specified but which are never assigned, partially or in the
@@ -2381,8 +2388,7 @@ package Einfo is
 --       Present in non-generic package entities that are not instances.
 --       The elements of this list are the shadow entities created for the
 --       types and local packages that are declared in a package that appears
---       in a limited_with clause. This list and Non_Limited_Views are built
---       at the same time, and their elements are in one-one correspondence.
+--       in a limited_with clause (Ada0Y: AI-50217)
 
 --    Lit_Indexes (Node15)
 --       Present in enumeration types and subtypes. Non-empty only for the
@@ -2551,14 +2557,9 @@ package Einfo is
 --       is other than a power of 2.
 
 --    Non_Limited_View (Node17)
---       Present in incomplete types, and local packages that are the
---       shadow entities created when analyzing a limited_with_clause.
---       Points to the definining entity in the original declaration.
-
---    Non_Limited_Views (Elist8)
---       Present in non-generic packages that are not instances. The elements
---       of this list are defining identifiers for types and local packages
---       declared within a package that appears in a limited_with clause.
+--       Present in incomplete types that are the shadow entities created
+--       when analyzing a limited_with_clause (Ada0Y: AI-50217). Points to
+--       the defining entity in the original declaration.
 
 --    Nonzero_Is_True (Flag162) [base type only]
 --       Present in enumeration types. True if any non-zero value is to be
@@ -2580,6 +2581,7 @@ package Einfo is
 --       Present in components and discriminants. Indicates the normalized
 --       value of First_Bit for the component, i.e. the offset within the
 --       lowest addressed storage unit containing part or all of the field.
+--       Set to No_Uint if no first bit position is assigned yet.
 
 --    Normalized_Position (Uint14)
 --       Present in components and discriminants. Indicates the normalized
@@ -2832,7 +2834,7 @@ package Einfo is
 --       Present in all type and subtype entities. Contains the value of
 --       type'Size as defined in the RM. See also the Esize field and
 --       and the description on "Handling of Type'Size Values". A value
---       of zero for in this field for a non-discrete type means that
+--       of zero in this field for a non-discrete type means that
 --       the front end has not yet determined the size value. For the
 --       case of a discrete type, this field is always set by the front
 --       end and zero is a legitimate value for a type with one value.
@@ -4258,6 +4260,7 @@ package Einfo is
    --    Is_Overriding_Operation       (Flag39)   (non-generic case only)
    --    Is_Private_Descendant         (Flag53)
    --    Is_Pure                       (Flag44)
+   --    Is_Thread_Body                (Flag77)   (non-generic case only)
    --    Is_Visible_Child_Unit         (Flag116)
    --    Needs_No_Actuals              (Flag22)
    --    Return_Present                (Flag54)
@@ -4388,7 +4391,6 @@ package Einfo is
    --  E_Package
    --  E_Generic_Package
    --    Dependent_Instances           (Elist8)   (for an instance)
-   --    Non_Limited_Views             (Elist8)   (non-generic, not instance)
    --    Renaming_Map                  (Uint9)
    --    Handler_Records               (List10)   (non-generic case only)
    --    Generic_Homonym               (Node11)   (generic case only)
@@ -4503,6 +4505,7 @@ package Einfo is
    --    Is_Overriding_Operation       (Flag39)   (non-generic case only)
    --    Is_Private_Descendant         (Flag53)
    --    Is_Pure                       (Flag44)
+   --    Is_Thread_Body                (Flag77)   (non-generic case only)
    --    Is_Valued_Procedure           (Flag127)
    --    Is_Visible_Child_Unit         (Flag116)
    --    Needs_No_Actuals              (Flag22)
@@ -5124,6 +5127,7 @@ package Einfo is
    function Is_Statically_Allocated            (Id : E) return B;
    function Is_Tag                             (Id : E) return B;
    function Is_Tagged_Type                     (Id : E) return B;
+   function Is_Thread_Body                     (Id : E) return B;
    function Is_True_Constant                   (Id : E) return B;
    function Is_Unchecked_Union                 (Id : E) return B;
    function Is_Unsigned_Type                   (Id : E) return B;
@@ -5152,7 +5156,6 @@ package Einfo is
    function No_Return                          (Id : E) return B;
    function Non_Binary_Modulus                 (Id : E) return B;
    function Non_Limited_View                   (Id : E) return E;
-   function Non_Limited_Views                  (Id : E) return L;
    function Nonzero_Is_True                    (Id : E) return B;
    function Normalized_First_Bit               (Id : E) return U;
    function Normalized_Position                (Id : E) return U;
@@ -5597,6 +5600,7 @@ package Einfo is
    procedure Set_Is_Statically_Allocated       (Id : E; V : B := True);
    procedure Set_Is_Tag                        (Id : E; V : B := True);
    procedure Set_Is_Tagged_Type                (Id : E; V : B := True);
+   procedure Set_Is_Thread_Body                (Id : E; V : B := True);
    procedure Set_Is_True_Constant              (Id : E; V : B := True);
    procedure Set_Is_Unchecked_Union            (Id : E; V : B := True);
    procedure Set_Is_Unsigned_Type              (Id : E; V : B := True);
@@ -5624,7 +5628,6 @@ package Einfo is
    procedure Set_No_Return                     (Id : E; V : B := True);
    procedure Set_Non_Binary_Modulus            (Id : E; V : B := True);
    procedure Set_Non_Limited_View              (Id : E; V : E);
-   procedure Set_Non_Limited_Views             (Id : E; V : L);
    procedure Set_Nonzero_Is_True               (Id : E; V : B := True);
    procedure Set_Normalized_First_Bit          (Id : E; V : U);
    procedure Set_Normalized_Position           (Id : E; V : U);
@@ -6120,6 +6123,7 @@ package Einfo is
    pragma Inline (Is_Subprogram);
    pragma Inline (Is_Tag);
    pragma Inline (Is_Tagged_Type);
+   pragma Inline (Is_Thread_Body);
    pragma Inline (Is_True_Constant);
    pragma Inline (Is_Task_Type);
    pragma Inline (Is_Type);
@@ -6150,7 +6154,6 @@ package Einfo is
    pragma Inline (No_Return);
    pragma Inline (Non_Binary_Modulus);
    pragma Inline (Non_Limited_View);
-   pragma Inline (Non_Limited_Views);
    pragma Inline (Nonzero_Is_True);
    pragma Inline (Normalized_First_Bit);
    pragma Inline (Normalized_Position);
@@ -6428,6 +6431,7 @@ package Einfo is
    pragma Inline (Set_Is_Statically_Allocated);
    pragma Inline (Set_Is_Tag);
    pragma Inline (Set_Is_Tagged_Type);
+   pragma Inline (Set_Is_Thread_Body);
    pragma Inline (Set_Is_True_Constant);
    pragma Inline (Set_Is_Unchecked_Union);
    pragma Inline (Set_Is_Unsigned_Type);
@@ -6455,7 +6459,6 @@ package Einfo is
    pragma Inline (Set_No_Return);
    pragma Inline (Set_Non_Binary_Modulus);
    pragma Inline (Set_Non_Limited_View);
-   pragma Inline (Set_Non_Limited_Views);
    pragma Inline (Set_Nonzero_Is_True);
    pragma Inline (Set_Normalized_First_Bit);
    pragma Inline (Set_Normalized_Position);

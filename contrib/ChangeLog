@@ -1,3 +1,80 @@
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-09-06  Release Manager
+
+	* GCC 3.4.2 released.
+
+2004-08-26  Matthias Klose  <doko@debian.org>
+
+	* texi2pod.pl: keep references of the form @ref{...}, print them bold.
+
+2004-08-26  Matthias Klose  <doko@debian.org>
+
+	* test_summary: Include baseline used for libstdc++-v3 abi check
+	in test summary.
+
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-06-09  Arnaud Charlet  <charlet@act-europe.fr>
+
+	PR ada/14150
+	* gcc_update (files_and_dependencies): Remove gcc/ada/*.texi.
+
+2004-05-15  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gennews: Update for GCC 3.4.
+
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-01-09  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* gcc_update (files_and_dependencies): Update fastjar/configure.in
+	to fastjar/configure.ac
+
+2004-01-07  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* gcc_update (files_and_dependencies): Remove non-existant files.
+
+2004-01-05  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* gcc_update (files_generated): Revert 2003-12-18 change.
+
+2004-01-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc_update (files_and_dependencies): For gcc directory,
+	rename configure.in to configure.ac.
+
+2003-12-19  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* gcc_update (files_and_dependencies): For libjava/libltdl directory,
+	remove acconfig.h. No longer used.
+
+2003-12-18  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* gcc_update (files_generated): Add in gcc/ada/stamp-xgnatug and update
+	gcc/ada/gnat_ug_* to use it.
+
+2003-12-16  James E Wilson  <wilson@specifixinc.com>
+
+	* gcc_update (files_and_dependencies): For libjava/libltdl directory,
+	rename configure.in to configure.ac, and stamp-h.in to config-h.in.
+
+2003-12-11  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* gcc_update (files_and_dependencies): Correct typo in the filename
+	gnat_ug_wnt.texi.
+
+2003-12-08  Arnaud Charlet  <charlet@act-europe.fr
+
+	* gcc_update: Remove handling of sinfo.h, einfo.h, nmake.ads,
+	treeprs.ads.
+
 2003-10-16  Mark Mitchell  <mark@codesourcery.com>
 
 	* gennews (files): Add GCC 3.3 files.

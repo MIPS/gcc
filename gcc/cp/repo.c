@@ -53,8 +53,8 @@ static const char *old_args, *old_dir, *old_main;
 
 static struct obstack temporary_obstack;
 
-#define IDENTIFIER_REPO_USED(NODE)   (TREE_LANG_FLAG_3 (NODE))
-#define IDENTIFIER_REPO_CHOSEN(NODE) (TREE_LANG_FLAG_4 (NODE))
+#define IDENTIFIER_REPO_USED(NODE)   (TREE_LANG_FLAG_5 (NODE))
+#define IDENTIFIER_REPO_CHOSEN(NODE) (TREE_LANG_FLAG_6 (NODE))
 
 #if 0
 /* Record the flags used to compile this translation unit.  */
@@ -211,6 +211,12 @@ extract_string (char **pp)
   int backquote = 0;
   int inside = 0;
 
+#if defined(_WIN32) && !defined(__CYGWIN__)
+#define QUOTE_CHAR '"'
+#else
+#define QUOTE_CHAR '\''
+#endif
+
   for (;;)
     {
       char c = *p;
@@ -223,7 +229,7 @@ extract_string (char **pp)
 	break;
       else if (! inside && c == '\\')
 	backquote = 1;
-      else if (c == '\'')
+      else if (c == QUOTE_CHAR)
 	inside = !inside;
       else
 	obstack_1grow (&temporary_obstack, c);
@@ -267,7 +273,7 @@ get_base_filename (const char *filename)
 static void
 open_repo_file (const char *filename)
 {
-  register const char *p;
+  const char *p;
   const char *s = get_base_filename (filename);
 
   if (s == NULL)

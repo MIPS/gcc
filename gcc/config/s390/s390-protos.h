@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390.
-   Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com)
 
 This file is part of GCC.
@@ -23,14 +23,15 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 extern void optimization_options (int, int);
 extern void override_options (void);
-extern int s390_arg_frame_offset (void);
+extern HOST_WIDE_INT s390_arg_frame_offset (void);
 extern void s390_load_got (int);
 extern void s390_emit_prologue (void);
 extern void s390_emit_epilogue (void);
 extern void s390_function_profiler (FILE *, int);
 
 #ifdef RTX_CODE
-extern int s390_extra_constraint (rtx, int);
+extern int s390_extra_constraint_str (rtx, int, const char *);
+extern int s390_const_ok_for_constraint_p (HOST_WIDE_INT, int, const char *);
 extern int const0_operand (rtx, enum machine_mode);
 extern int consttable_operand (rtx, enum machine_mode);
 extern int larl_operand (rtx, enum machine_mode);
@@ -40,10 +41,8 @@ extern int shift_count_operand (rtx, enum machine_mode);
 extern int bras_sym_operand (rtx, enum machine_mode);
 extern int load_multiple_operation (rtx, enum machine_mode);
 extern int store_multiple_operation (rtx, enum machine_mode);
-extern int s390_single_hi (rtx, enum machine_mode, int);
-extern int s390_extract_hi (rtx, enum machine_mode, int);
-extern int s390_single_qi (rtx, enum machine_mode, int);
-extern int s390_extract_qi (rtx, enum machine_mode, int);
+extern int s390_single_part (rtx, enum machine_mode, enum machine_mode, int);
+extern unsigned HOST_WIDE_INT s390_extract_part (rtx, enum machine_mode, int);
 extern bool s390_split_ok_p (rtx, rtx, enum machine_mode, int);
 extern int tls_symbolic_operand (rtx);
 
@@ -97,9 +96,9 @@ extern int s390_agen_dep_p (rtx, rtx);
 extern int s390_function_arg_pass_by_reference (enum machine_mode, tree);
 extern void s390_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				       tree, int);
-extern tree s390_build_va_list (void);
 #ifdef RTX_CODE
 extern rtx s390_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
+extern rtx s390_function_value (tree, enum machine_mode);
 extern void s390_va_start (tree, rtx);
 extern rtx s390_va_arg (tree, tree);
 #endif /* RTX_CODE */

@@ -1,6 +1,7 @@
 /* Get common system includes and various definitions and declarations based
    on autoconf macros.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -251,28 +252,6 @@ extern int errno;
 #include <sys/wait.h>
 #endif
 
-#ifndef WIFSIGNALED
-#define WIFSIGNALED(S) (((S) & 0xff) != 0 && ((S) & 0xff) != 0x7f)
-#endif
-#ifndef WTERMSIG
-#define WTERMSIG(S) ((S) & 0x7f)
-#endif
-#ifndef WIFEXITED
-#define WIFEXITED(S) (((S) & 0xff) == 0)
-#endif
-#ifndef WEXITSTATUS
-#define WEXITSTATUS(S) (((S) & 0xff00) >> 8)
-#endif
-#ifndef WSTOPSIG
-#define WSTOPSIG WEXITSTATUS
-#endif
-#ifndef WCOREDUMP
-#define WCOREDUMP(S) ((S) & WCOREFLG)
-#endif
-#ifndef WCOREFLG
-#define WCOREFLG 0200
-#endif
-
 /* The HAVE_DECL_* macros are three-state, undefined, 0 or 1.  If they
    are defined to 0 then we must provide the relevant declaration
    here.  These checks will be in the undefined state while configure
@@ -485,16 +464,21 @@ extern int snprintf (char *, size_t, const char *, ...);
 #define HOST_BIT_BUCKET "/dev/null"
 #endif
 
-/* Be conservative and only use enum bitfields with GCC.  Likewise for
-   char bitfields.
+/* Be conservative and only use enum bitfields with GCC.
    FIXME: provide a complete autoconf test for buggy enum bitfields.  */
 
 #if (GCC_VERSION > 2000)
-#define ENUM_BITFIELD(TYPE) enum TYPE
-#define CHAR_BITFIELD unsigned char
+#define ENUM_BITFIELD(TYPE) __extension__ enum TYPE
 #else
 #define ENUM_BITFIELD(TYPE) unsigned int
-#define CHAR_BITFIELD unsigned int
+#endif
+
+/* We only use bool bitfields with gcc3.  Some supposedly C99
+   compilers don't handle them correctly.  */
+#if (GCC_VERSION >= 3000)
+#define BOOL_BITFIELD _Bool
+#else
+#define BOOL_BITFIELD unsigned int
 #endif
 
 #ifndef offsetof
@@ -553,7 +537,7 @@ typedef char _Bool;
 #define really_call_calloc calloc
 #define really_call_realloc realloc
 
-#if defined(FLEX_SCANNER) || defined(YYBISON)
+#if defined(FLEX_SCANNER) || defined(YYBISON) || defined(YYBYACC)
 /* Flex and bison use malloc and realloc.  Yuk.  Note that this means
    really_call_* cannot be used in a .l or .y file.  */
 #define malloc xmalloc
@@ -594,7 +578,9 @@ typedef char _Bool;
 	ASM_SIMPLIFY_DWARF_ADDR INIT_TARGET_OPTABS INIT_SUBTARGET_OPTABS \
 	INIT_GOFAST_OPTABS MULSI3_LIBCALL MULDI3_LIBCALL DIVSI3_LIBCALL \
 	DIVDI3_LIBCALL UDIVSI3_LIBCALL UDIVDI3_LIBCALL MODSI3_LIBCALL	\
-	MODDI3_LIBCALL UMODSI3_LIBCALL UMODDI3_LIBCALL
+	MODDI3_LIBCALL UMODSI3_LIBCALL UMODDI3_LIBCALL BUILD_VA_LIST_TYPE \
+	PRETEND_OUTGOING_VARARGS_NAMED STRUCT_VALUE_INCOMING_REGNUM	\
+	SPLIT_COMPLEX_ARGS
 
 /* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have
@@ -618,7 +604,12 @@ typedef char _Bool;
 	DBX_WORKING_DIRECTORY INSN_CACHE_DEPTH INSN_CACHE_SIZE		   \
 	INSN_CACHE_LINE_WIDTH INIT_SECTION_PREAMBLE NEED_ATEXIT ON_EXIT	   \
 	EXIT_BODY OBJECT_FORMAT_ROSE MULTIBYTE_CHARS MAP_CHARACTER	   \
-	LIBGCC_NEEDS_DOUBLE
+	LIBGCC_NEEDS_DOUBLE FINAL_PRESCAN_LABEL DEFAULT_CALLER_SAVES	   \
+	LOAD_ARGS_REVERSED MAX_INTEGER_COMPUTATION_MODE			   \
+	CONVERT_HARD_REGISTER_TO_SSA_P ASM_OUTPUT_MAIN_SOURCE_FILENAME	   \
+	FIRST_INSN_ADDRESS TEXT_SECTION SHARED_BSS_SECTION_ASM_OP	   \
+	PROMOTED_MODE EXPAND_BUILTIN_VA_END				   \
+	LINKER_DOES_NOT_WORK_WITH_DWARF2 PROMOTE_FOR_CALL_ONLY
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\

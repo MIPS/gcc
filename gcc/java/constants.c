@@ -1,5 +1,5 @@
 /* Handle the constant pool of the Java(TM) Virtual Machine.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -37,6 +37,7 @@ static int find_class_or_string_constant (CPool *, int, tree);
 static int find_name_and_type_constant (CPool *, tree, tree);
 static tree get_tag_node (int);
 static tree build_constant_data_ref (void);
+static CPool *cpool_for_class (tree);
 
 /* Set the INDEX'th constant in CPOOL to have the given TAG and VALUE. */
 
@@ -315,8 +316,6 @@ write_constant_pool (CPool *cpool, unsigned char *buffer, int length)
     abort ();
 }
 
-CPool *outgoing_cpool;
-
 static GTY(()) tree tag_nodes[13];
 static tree
 get_tag_node (int tag)
@@ -328,6 +327,21 @@ get_tag_node (int tag)
   return tag_nodes[tag];
 }
 
+/* Given a class, return its constant pool, creating one if necessary.  */
+
+static CPool *
+cpool_for_class (tree class)
+{
+  CPool *cpool = TYPE_CPOOL (class);
+
+  if (cpool == NULL)
+    {
+      cpool = ggc_alloc_cleared (sizeof (struct CPool));
+      TYPE_CPOOL (class) = cpool;
+    }
+  return cpool;
+}
+
 /* Look for a constant pool entry that matches TAG and NAME.
    Creates a new entry if not found.
    TAG is one of CONSTANT_Utf8, CONSTANT_String or CONSTANT_Class.
@@ -337,6 +351,7 @@ get_tag_node (int tag)
 int
 alloc_name_constant (int tag, tree name)
 {
+  CPool *outgoing_cpool = cpool_for_class (output_class);
   return find_tree_constant (outgoing_cpool, tag, name);
 }
 
@@ -378,19 +393,19 @@ build_constant_data_ref (void)
 {
   tree cpool_data_ref = NULL_TREE;
 
-  if (TYPE_CPOOL_DATA_REF (current_class))
-    cpool_data_ref = TYPE_CPOOL_DATA_REF (current_class);
+  if (TYPE_CPOOL_DATA_REF (output_class))
+    cpool_data_ref = TYPE_CPOOL_DATA_REF (output_class);
 
   if (cpool_data_ref == NULL_TREE)
     {
       tree decl;
-      tree decl_name = mangled_classname ("_CD_", current_class);
+      tree decl_name = mangled_classname ("_CD_", output_class);
       decl = build_decl (VAR_DECL, decl_name,
 			 build_array_type (ptr_type_node,
 					   one_elt_array_domain_type));
       TREE_STATIC (decl) = 1;
       make_decl_rtl (decl, NULL);
-      TYPE_CPOOL_DATA_REF (current_class) = cpool_data_ref
+      TYPE_CPOOL_DATA_REF (output_class) = cpool_data_ref
 	= build1 (ADDR_EXPR, ptr_type_node, decl);
     }
   return cpool_data_ref;
@@ -414,6 +429,7 @@ build_ref_from_constant_pool (int index)
 tree
 build_constants_constructor (void)
 {
+  CPool *outgoing_cpool = cpool_for_class (current_class);
   tree tags_value, data_value;
   tree cons;
   tree tags_list = NULL_TREE;

@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package java.net;
 
+import gnu.java.net.URLParseError;
 import java.io.InputStream;
 import java.io.IOException;
 import java.io.Serializable;
@@ -56,7 +57,8 @@ import java.util.StringTokenizer;
   * This final class represents an Internet Uniform Resource Locator (URL).
   * For details on the syntax of URL's and what they can be used for,
   * refer to RFC 1738, available from <a 
-  * href="http://ds.internic.net/rfcs/rfc1738.txt">http://ds.internic.net/rfcs/rfc1738.txt</a>
+  * href="http://ds.internic.net/rfcs/rfc1738.txt">
+  * http://ds.internic.net/rfcs/rfc1738.txt</a>
   * <p>
   * There are a great many protocols supported by URL's such as "http",
   * "ftp", and "file".  This object can handle any arbitrary URL for which
@@ -73,10 +75,10 @@ import java.util.StringTokenizer;
   * If this property is set, it is assumed to be a "|" separated list of
   * package names in which to attempt locating protocol handlers.  The
   * protocol handler is searched for by appending the string 
-  * ".<protocol>.Handler" to each packed in the list until a hander is found.
-  * If a protocol handler is not found in this list of packages, or if the
-  * property does not exist, then the default protocol handler of
-  * "gnu.java.net.<protocol>.Handler" is tried.  If this is
+  * ".&lt;protocol&gt;.Handler" to each packed in the list until a hander is
+  * found. If a protocol handler is not found in this list of packages, or if
+  * the property does not exist, then the default protocol handler of
+  * "gnu.java.net.&lt;protocol&gt;.Handler" is tried.  If this is
   * unsuccessful, a MalformedURLException is thrown.
   * <p>
   * All of the constructor methods of URL attempt to load a protocol
@@ -310,7 +312,7 @@ public final class URL implements Serializable
     this((URL) null, spec, (URLStreamHandler) null);
   }
 
-  /*
+  /**
    * This method parses a String representation of a URL within the
    * context of an existing URL.  Principally this means that any
    * fields not present the URL are inheritied from the context URL.
@@ -394,6 +396,8 @@ public final class URL implements Serializable
 	    host = context.host;
 	    port = context.port;
 	    file = context.file;
+	    if (file == null || file.length() == 0)
+	      file = "/";
 	    authority = context.authority;
 	  }
       }
@@ -406,6 +410,8 @@ public final class URL implements Serializable
 	host = context.host;
 	port = context.port;
 	file = context.file;
+	if (file == null || file.length() == 0)
+	  file = "/";
         authority = context.authority;
       }
     else	// Protocol NOT specified in spec. and no context available.
@@ -431,8 +437,17 @@ public final class URL implements Serializable
     // is to be excluded by passing the 'limit' as the indexOf the '#'
     // if one exists, otherwise pass the end of the string.
     int hashAt = spec.indexOf('#', colon + 1);
-    this.ph.parseURL(this, spec, colon + 1,
-		     hashAt < 0 ? spec.length() : hashAt);
+
+    try
+      {
+	this.ph.parseURL(this, spec, colon + 1,
+			 hashAt < 0 ? spec.length() : hashAt);
+      }
+    catch (URLParseError e)
+      {
+	throw new MalformedURLException(e.getMessage());
+      }
+    
     if (hashAt >= 0)
       ref = spec.substring(hashAt + 1);
 
@@ -451,7 +466,7 @@ public final class URL implements Serializable
    */
   public boolean equals (Object obj)
   {
-    if (obj == null || ! (obj instanceof URL))
+    if (! (obj instanceof URL))
       return false;
 
     return ph.equals (this, (URL) obj);
@@ -475,6 +490,10 @@ public final class URL implements Serializable
   /**
    * Gets the contents of this URL
    *
+   * @param classes The allow classes for the content object.
+   *
+   * @return a context object for this URL.
+   *
    * @exception IOException If an error occurs
    */
   public final Object getContent (Class[] classes) throws IOException
@@ -487,6 +506,8 @@ public final class URL implements Serializable
    * Returns the file portion of the URL.
    * Defined as <code>path[?query]</code>.
    * Returns the empty string if there is no file portion.
+   *
+   * @return The filename specified in this URL.
    */
   public String getFile()
   {
@@ -497,6 +518,8 @@ public final class URL implements Serializable
    * Returns the path of the URL. This is the part of the file before any '?'
    * character.
    *
+   * @return The path specified in this URL.
+   * 
    * @since 1.3
    */
   public String getPath()
@@ -507,6 +530,8 @@ public final class URL implements Serializable
 
   /**
    * Returns the authority of the URL
+   *
+   * @return The authority specified in this URL.
    * 
    * @since 1.3
    */
@@ -517,6 +542,8 @@ public final class URL implements Serializable
 
   /**
    * Returns the host of the URL
+   *
+   * @return The host specified in this URL.
    */
   public String getHost()
   {
@@ -540,6 +567,8 @@ public final class URL implements Serializable
   /**
    * Returns the default port of the URL. If the StreamHandler for the URL
    * protocol does not define a default port it returns -1.
+   *
+   * @return The default port of the current protocol.
    */
   public int getDefaultPort()
   {
@@ -548,6 +577,8 @@ public final class URL implements Serializable
 
   /**
    * Returns the protocol of the URL
+   *
+   * @return The specified protocol.
    */
   public String getProtocol()
   {
@@ -591,6 +622,8 @@ public final class URL implements Serializable
 
   /**
    * Returns a hashcode computed by the URLStreamHandler of this URL
+   *
+   * @return The hashcode for this URL.
    */
   public int hashCode()
   {
@@ -606,6 +639,7 @@ public final class URL implements Serializable
    * openConnection() method of the protocol handler
    *
    * @return A URLConnection for this URL
+   *
    * @exception IOException If an error occurs
    */
   public URLConnection openConnection() throws IOException
@@ -617,6 +651,8 @@ public final class URL implements Serializable
    * Opens a connection to this URL and returns an InputStream for reading
    * from that connection
    *
+   * @return An <code>InputStream</code> for this URL.
+   * 
    * @exception IOException If an error occurs
    */
   public final InputStream openStream() throws IOException
@@ -672,6 +708,15 @@ public final class URL implements Serializable
    * Sets the specified fields of the URL. This is not a public method so
    * that only URLStreamHandlers can modify URL fields. URLs are otherwise
    * constant.
+   *
+   * @param protocol The protocol name for this URL.
+   * @param host The hostname or IP address for this URL.
+   * @param port The port number of this URL.
+   * @param authority The authority of this URL.
+   * @param userInfo The user and password (if needed) of this URL.
+   * @param path The "path" portion of this URL.
+   * @param query The query of this URL.
+   * @param ref The anchor portion of this URL.
    *
    * @since 1.3
    */
@@ -800,7 +845,8 @@ public final class URL implements Serializable
 	// to it, along with the JDK specified default as a last resort.
 	// Except in very unusual environments the JDK specified one shouldn't
 	// ever be needed (or available).
-	String ph_search_path = System.getProperty ("java.protocol.handler.pkgs");
+	String ph_search_path =
+	  System.getProperty("java.protocol.handler.pkgs");
 
 	// Tack our default package on at the ends.
 	if (ph_search_path != null)
@@ -813,7 +859,8 @@ public final class URL implements Serializable
         
 	do
           {
-            String clsName = pkgPrefix.nextToken() + "." + protocol + ".Handler";
+            String clsName = (pkgPrefix.nextToken() + "."
+			      + protocol + ".Handler");
          
             try
               {
@@ -826,11 +873,11 @@ public final class URL implements Serializable
               }
             catch (Exception e)
               {
-                // Can't instantiate; handler still null, go on to next element.
+                // Can't instantiate; handler still null,
+		// go on to next element.
               }
           }
-	while ((ph == null ||
-		!(ph instanceof URLStreamHandler))
+	while ((! (ph instanceof URLStreamHandler))
                && pkgPrefix.hasMoreTokens());
       }
 

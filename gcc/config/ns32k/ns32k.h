@@ -383,14 +383,7 @@ while (0)
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
    If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
-   for any hard reg, then this must be 0 for correct output.
-
-   Early documentation says SI and DI are not tieable if some reg can
-   be OK for SI but not for DI. However other ports (mips, i860, mvs
-   and tahoe) don't meet the above criterion. Evidently the real
-   requirement is somewhat laxer. Documentation was changed for gcc
-   2.8 but was not picked up by egcs (at least egcs 1.0). Having all
-   integer modes tieable definitely generates faster code. */
+   for any hard reg, then this must be 0 for correct output. */
 
 #define MODES_TIEABLE_P(MODE1, MODE2)					\
   ((FLOAT_MODE_P(MODE1) && FLOAT_MODE_P(MODE2)				\
@@ -682,7 +675,7 @@ enum reg_class
 
    On the ns32k, the offset starts at 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM) = 0)
 
 /* Update the data in CUM to advance over an argument
@@ -767,20 +760,25 @@ enum reg_class
    of a trampoline, leaving space for the variable parts.  */
 
 /* On the 32k, the trampoline looks like this:
-     addr  0(pc),r2
-     jump  @__trampoline
-     .int STATIC
-     .int FUNCTION
-Doing trampolines with a library assist function is easier than figuring
-out how to do stores to memory in reverse byte order (the way immediate
-operands on the 32k are stored).  */
+
+	addr    0(pc),r2
+        movd    16(r2),tos
+        movd    12(r2),r1
+        ret     0
+	.align 4
+	.int STATIC
+	.int FUNCTION
+  
+   Putting the data in following data is easier than figuring out how to
+   do stores to memory in reverse byte order (the way immediate operands
+   on the 32k are stored).  */
 
 #define TRAMPOLINE_TEMPLATE(FILE)					\
 {									\
-  fprintf (FILE, "\taddr 0(pc),r2\n" );					\
-  fprintf (FILE, "\tjump " );						\
-  PUT_ABSOLUTE_PREFIX (FILE);						\
-  fprintf (FILE, "__trampoline\n" );					\
+  fprintf (FILE, "\taddr 0(pc),r2\n");					\
+  fprintf (FILE, "\tmovd 16(r2),tos\n");				\
+  fprintf (FILE, "\tmovd 12(r2),r1\n");					\
+  fprintf (FILE, "\tret 0\n");						\
   assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);		\
   assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);		\
 }
@@ -797,24 +795,6 @@ operands on the 32k are stored).  */
 {									     \
   emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 12)), CXT);    \
   emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 16)), FNADDR); \
-}
-
-/* This is the library routine that is used
-   to transfer control from the trampoline
-   to the actual nested function.  */
-
-/* The function name __transfer_from_trampoline is not actually used.
-   The function definition just permits use of "asm with operands"
-   (though the operand list is empty).  */
-#define TRANSFER_FROM_TRAMPOLINE	\
-void					\
-__transfer_from_trampoline ()		\
-{					\
-  asm (".globl __trampoline");		\
-  asm ("__trampoline:");		\
-  asm ("movd 16(r2),tos");		\
-  asm ("movd 12(r2),r1");		\
-  asm ("ret 0");			\
 }
 
 /* Addressing modes, and classification of registers for them.  */

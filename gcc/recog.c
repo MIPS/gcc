@@ -1,6 +1,6 @@
 /* Subroutines used by or related to instruction recognition.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -476,16 +476,38 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
       return;
     }
 
-  /* Call ourself recursively to perform the replacements.  */
+  /* Call ourself recursively to perform the replacements.
+     We must not replace inside already replaced expression, otherwise we
+     get infinite recursion for replacements like (reg X)->(subreg (reg X))
+     done by regmove, so we must special case shared ASM_OPERANDS.  */
 
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+  if (GET_CODE (x) == PARALLEL)
     {
-      if (fmt[i] == 'e')
-	validate_replace_rtx_1 (&XEXP (x, i), from, to, object);
-      else if (fmt[i] == 'E')
-	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  validate_replace_rtx_1 (&XVECEXP (x, i, j), from, to, object);
+      for (j = XVECLEN (x, 0) - 1; j >= 0; j--)
+	{
+	  if (j && GET_CODE (XVECEXP (x, 0, j)) == SET
+	      && GET_CODE (SET_SRC (XVECEXP (x, 0, j))) == ASM_OPERANDS)
+	    {
+	      /* Verify that operands are really shared.  */
+	      if (ASM_OPERANDS_INPUT_VEC (SET_SRC (XVECEXP (x, 0, 0))) !=
+		  ASM_OPERANDS_INPUT_VEC (SET_SRC (XVECEXP (x, 0, j))))
+		abort ();
+	      validate_replace_rtx_1 (&SET_DEST (XVECEXP (x, 0, j)),
+				      from, to, object);
+	    }
+	  else
+	    validate_replace_rtx_1 (&XVECEXP (x, 0, j), from, to, object);
+	}
     }
+  else
+    for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+      {
+	if (fmt[i] == 'e')
+	  validate_replace_rtx_1 (&XEXP (x, i), from, to, object);
+	else if (fmt[i] == 'E')
+	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	    validate_replace_rtx_1 (&XVECEXP (x, i, j), from, to, object);
+      }
 
   /* If we didn't substitute, there is nothing more to do.  */
   if (num_changes == prev_changes)
@@ -1685,7 +1707,7 @@ asm_operand_ok (rtx op, const char *constraint)
 	      || (GET_CODE (op) == CONST_DOUBLE
 		  && GET_MODE (op) == VOIDmode))
 	    break;
-	  /* FALLTHRU */
+	  /* Fall through.  */
 
 	case 'i':
 	  if (CONSTANT_P (op)
@@ -1746,6 +1768,7 @@ asm_operand_ok (rtx op, const char *constraint)
 
 	case 'X':
 	  result = 1;
+	  break;
 
 	case 'g':
 	  if (general_operand (op, VOIDmode))
@@ -1764,20 +1787,16 @@ asm_operand_ok (rtx op, const char *constraint)
 		result = 1;
 	    }
 #ifdef EXTRA_CONSTRAINT_STR
-	  if (EXTRA_CONSTRAINT_STR (op, c, constraint))
+	  else if (EXTRA_CONSTRAINT_STR (op, c, constraint))
 	    result = 1;
-	  if (EXTRA_MEMORY_CONSTRAINT (c, constraint))
-	    {
-	      /* Every memory operand can be reloaded to fit.  */
-	      if (memory_operand (op, VOIDmode))
-	        result = 1;
-	    }
-	  if (EXTRA_ADDRESS_CONSTRAINT (c, constraint))
-	    {
-	      /* Every address operand can be reloaded to fit.  */
-	      if (address_operand (op, VOIDmode))
-	        result = 1;
-	    }
+	  else if (EXTRA_MEMORY_CONSTRAINT (c, constraint)
+		   /* Every memory operand can be reloaded to fit.  */
+		   && memory_operand (op, VOIDmode))
+	    result = 1;
+	  else if (EXTRA_ADDRESS_CONSTRAINT (c, constraint)
+		   /* Every address operand can be reloaded to fit.  */
+		   && address_operand (op, VOIDmode))
+	    result = 1;
 #endif
 	  break;
 	}
@@ -1970,7 +1989,7 @@ extract_insn_cached (rtx insn)
   extract_insn (insn);
   recog_data.insn = insn;
 }
-/* Do cached extract_insn, constrain_operand and complain about failures.
+/* Do cached extract_insn, constrain_operands and complain about failures.
    Used by insn_attrtab.  */
 void
 extract_constrain_insn_cached (rtx insn)
@@ -1980,7 +1999,7 @@ extract_constrain_insn_cached (rtx insn)
       && !constrain_operands (reload_completed))
     fatal_insn_not_found (insn);
 }
-/* Do cached constrain_operand and complain about failures.  */
+/* Do cached constrain_operands and complain about failures.  */
 int
 constrain_operands_cached (int strict)
 {
@@ -2096,7 +2115,10 @@ preprocess_constraints (void)
 {
   int i;
 
-  memset (recog_op_alt, 0, sizeof recog_op_alt);
+  for (i = 0; i < recog_data.n_operands; i++)
+    memset (recog_op_alt[i], 0, (recog_data.n_alternatives
+				 * sizeof (struct operand_alternative)));
+
   for (i = 0; i < recog_data.n_operands; i++)
     {
       int j;
@@ -2423,12 +2445,25 @@ constrain_operands (int strict)
 		break;
 
 	      case 'm':
-		if (GET_CODE (op) == MEM
-		    /* Before reload, accept what reload can turn into mem.  */
-		    || (strict < 0 && CONSTANT_P (op))
-		    /* During reload, accept a pseudo  */
-		    || (reload_in_progress && GET_CODE (op) == REG
-			&& REGNO (op) >= FIRST_PSEUDO_REGISTER))
+		/* Memory operands must be valid, to the extent
+		   required by STRICT.  */
+		if (GET_CODE (op) == MEM)
+		  {
+		    if (strict > 0
+			&& !strict_memory_address_p (GET_MODE (op),
+						     XEXP (op, 0)))
+		      break;
+		    if (strict == 0
+			&& !memory_address_p (GET_MODE (op), XEXP (op, 0)))
+		      break;
+		    win = 1;
+		  }
+		/* Before reload, accept what reload can turn into mem.  */
+		else if (strict < 0 && CONSTANT_P (op))
+		  win = 1;
+		/* During reload, accept a pseudo  */
+		else if (reload_in_progress && GET_CODE (op) == REG
+			 && REGNO (op) >= FIRST_PSEUDO_REGISTER)
 		  win = 1;
 		break;
 
@@ -2535,27 +2570,20 @@ constrain_operands (int strict)
 		  else if (EXTRA_CONSTRAINT_STR (op, c, p))
 		    win = 1;
 
-		  if (EXTRA_MEMORY_CONSTRAINT (c, p))
-		    {
-		      /* Every memory operand can be reloaded to fit.  */
-		      if (strict < 0 && GET_CODE (op) == MEM)
-			win = 1;
-
-		      /* Before reload, accept what reload can turn into mem.  */
-		      if (strict < 0 && CONSTANT_P (op))
-			win = 1;
-
-		      /* During reload, accept a pseudo  */
-		      if (reload_in_progress && GET_CODE (op) == REG
-			  && REGNO (op) >= FIRST_PSEUDO_REGISTER)
-			win = 1;
-		    }
-		  if (EXTRA_ADDRESS_CONSTRAINT (c, p))
-		    {
-		      /* Every address operand can be reloaded to fit.  */
-		      if (strict < 0)
-		        win = 1;
-		    }
+		  else if (EXTRA_MEMORY_CONSTRAINT (c, p)
+			   /* Every memory operand can be reloaded to fit.  */
+			   && ((strict < 0 && GET_CODE (op) == MEM)
+			       /* Before reload, accept what reload can turn
+				  into mem.  */
+			       || (strict < 0 && CONSTANT_P (op))
+			       /* During reload, accept a pseudo  */
+			       || (reload_in_progress && GET_CODE (op) == REG
+				   && REGNO (op) >= FIRST_PSEUDO_REGISTER)))
+		    win = 1;
+		  else if (EXTRA_ADDRESS_CONSTRAINT (c, p)
+			   /* Every address operand can be reloaded to fit.  */
+			   && strict < 0)
+		    win = 1;
 #endif
 		  break;
 		}
@@ -2649,61 +2677,42 @@ reg_fits_class_p (rtx operand, enum reg_class class, int offset,
   return 0;
 }
 
-/* Split single instruction.  Helper function for split_all_insns.
-   Return last insn in the sequence if successful, or NULL if unsuccessful.  */
+/* Split single instruction.  Helper function for split_all_insns and
+   split_all_insns_noflow.  Return last insn in the sequence if successful,
+   or NULL if unsuccessful.  */
+
 static rtx
 split_insn (rtx insn)
 {
-  rtx set;
-  if (!INSN_P (insn))
-    ;
-  /* Don't split no-op move insns.  These should silently
-     disappear later in final.  Splitting such insns would
-     break the code that handles REG_NO_CONFLICT blocks.  */
+  /* Split insns here to get max fine-grain parallelism.  */
+  rtx first = PREV_INSN (insn);
+  rtx last = try_split (PATTERN (insn), insn, 1);
 
-  else if ((set = single_set (insn)) != NULL && set_noop_p (set))
-    {
-      /* Nops get in the way while scheduling, so delete them
-         now if register allocation has already been done.  It
-         is too risky to try to do this before register
-         allocation, and there are unlikely to be very many
-         nops then anyways.  */
-      if (reload_completed)
-	delete_insn_and_edges (insn);
-    }
-  else
-    {
-      /* Split insns here to get max fine-grain parallelism.  */
-      rtx first = PREV_INSN (insn);
-      rtx last = try_split (PATTERN (insn), insn, 1);
+  if (last == insn)
+    return NULL_RTX;
 
-      if (last != insn)
+  /* try_split returns the NOTE that INSN became.  */
+  PUT_CODE (insn, NOTE);
+  NOTE_SOURCE_FILE (insn) = 0;
+  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+
+  /* ??? Coddle to md files that generate subregs in post-reload
+     splitters instead of computing the proper hard register.  */
+  if (reload_completed && first != last)
+    {
+      first = NEXT_INSN (first);
+      for (;;)
 	{
-	  /* try_split returns the NOTE that INSN became.  */
-	  PUT_CODE (insn, NOTE);
-	  NOTE_SOURCE_FILE (insn) = 0;
-	  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-
-	  /* ??? Coddle to md files that generate subregs in post-
-	     reload splitters instead of computing the proper
-	     hard register.  */
-	  if (reload_completed && first != last)
-	    {
-	      first = NEXT_INSN (first);
-	      while (1)
-		{
-		  if (INSN_P (first))
-		    cleanup_subreg_operands (first);
-		  if (first == last)
-		    break;
-		  first = NEXT_INSN (first);
-		}
-	    }
-	  return last;
+	  if (INSN_P (first))
+	    cleanup_subreg_operands (first);
+	  if (first == last)
+	    break;
+	  first = NEXT_INSN (first);
 	}
     }
-  return NULL_RTX;
+  return last;
 }
+
 /* Split all insns in the function.  If UPD_LIFE, update life info after.  */
 
 void
@@ -2722,26 +2731,54 @@ split_all_insns (int upd_life)
       rtx insn, next;
       bool finish = false;
 
-      for (insn = bb->head; !finish ; insn = next)
+      for (insn = BB_HEAD (bb); !finish ; insn = next)
 	{
-	  rtx last;
-
 	  /* Can't use `next_real_insn' because that might go across
 	     CODE_LABELS and short-out basic blocks.  */
 	  next = NEXT_INSN (insn);
-	  finish = (insn == bb->end);
-	  last = split_insn (insn);
-	  if (last)
+	  finish = (insn == BB_END (bb));
+	  if (INSN_P (insn))
 	    {
-	      /* The split sequence may include barrier, but the
-		 BB boundary we are interested in will be set to previous
-		 one.  */
+	      rtx set = single_set (insn);
 
-	      while (GET_CODE (last) == BARRIER)
-		last = PREV_INSN (last);
-	      SET_BIT (blocks, bb->index);
-	      changed = true;
-	      insn = last;
+	      /* Don't split no-op move insns.  These should silently
+		 disappear later in final.  Splitting such insns would
+		 break the code that handles REG_NO_CONFLICT blocks.  */
+	      if (set && set_noop_p (set))
+		{
+		  /* Nops get in the way while scheduling, so delete them
+		     now if register allocation has already been done.  It
+		     is too risky to try to do this before register
+		     allocation, and there are unlikely to be very many
+		     nops then anyways.  */
+		  if (reload_completed)
+		    {
+		      /* If the no-op set has a REG_UNUSED note, we need
+			 to update liveness information.  */
+		      if (find_reg_note (insn, REG_UNUSED, NULL_RTX))
+			{
+			  SET_BIT (blocks, bb->index);
+			  changed = true;
+			}
+		      /* ??? Is life info affected by deleting edges?  */
+		      delete_insn_and_edges (insn);
+		    }
+		}
+	      else
+		{
+		  rtx last = split_insn (insn);
+		  if (last)
+		    {
+		      /* The split sequence may include barrier, but the
+			 BB boundary we are interested in will be set to
+			 previous one.  */
+
+		      while (GET_CODE (last) == BARRIER)
+			last = PREV_INSN (last);
+		      SET_BIT (blocks, bb->index);
+		      changed = true;
+		    }
+		}
 	    }
 	}
     }
@@ -2778,9 +2815,28 @@ split_all_insns_noflow (void)
   for (insn = get_insns (); insn; insn = next)
     {
       next = NEXT_INSN (insn);
-      split_insn (insn);
+      if (INSN_P (insn))
+	{
+	  /* Don't split no-op move insns.  These should silently
+	     disappear later in final.  Splitting such insns would
+	     break the code that handles REG_NO_CONFLICT blocks.  */
+	  rtx set = single_set (insn);
+	  if (set && set_noop_p (set))
+	    {
+	      /* Nops get in the way while scheduling, so delete them
+		 now if register allocation has already been done.  It
+		 is too risky to try to do this before register
+		 allocation, and there are unlikely to be very many
+		 nops then anyways.
+
+		 ??? Should we use delete_insn when the CFG isn't valid?  */
+	      if (reload_completed)
+		delete_insn_and_edges (insn);
+	    }
+	  else
+	    split_insn (insn);
+	}
     }
-  return;
 }
 
 #ifdef HAVE_peephole2
@@ -3021,7 +3077,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
       pbi = init_propagate_block_info (bb, live, NULL, NULL, PROP_DEATH_NOTES);
 #endif
 
-      for (insn = bb->end; ; insn = prev)
+      for (insn = BB_END (bb); ; insn = prev)
 	{
 	  prev = PREV_INSN (insn);
 	  if (INSN_P (insn))
@@ -3137,7 +3193,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 						     XEXP (note, 0),
 						     REG_NOTES (x));
 
-			    if (x != bb->end && eh_edge)
+			    if (x != BB_END (bb) && eh_edge)
 			      {
 				edge nfte, nehe;
 				int flags;
@@ -3221,7 +3277,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 		}
 	    }
 
-	  if (insn == bb->head)
+	  if (insn == BB_HEAD (bb))
 	    break;
 	}
 

@@ -1,6 +1,6 @@
 /* Procedure integration for GCC.
    Copyright (C) 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -172,6 +172,9 @@ function_cannot_inline_p (tree fndecl)
   if (current_function_calls_alloca)
     return N_("function using alloca cannot be inline");
 
+  if (current_function_calls_longjmp)
+    return N_("function using longjmp cannot be inline");
+  
   if (current_function_calls_setjmp)
     return N_("function using setjmp cannot be inline");
 
@@ -768,7 +771,7 @@ expand_inline_function (tree fndecl, tree parms, rtx target, int ignore,
 		abort ();
 
 	      /* The mode if LOC and ARG can differ if LOC was a variable
-		 that had its mode promoted via PROMOTED_MODE.  */
+		 that had its mode promoted.  */
 	      arg_vals[i] = convert_modes (pmode,
 					   TYPE_MODE (TREE_TYPE (arg)),
 					   expand_expr (arg, NULL_RTX, mode,
@@ -1418,7 +1421,7 @@ copy_insn_list (rtx insns, struct inline_remap *map, rtx static_chain_value)
 		  gen_rtx_MEM (GET_MODE (static_chain_incoming_rtx),
 			       SET_DEST (set));
 
-	      /* emit the instruction in case it is used for something
+	      /* Emit the instruction in case it is used for something
 		 other than setting the static chain; if it's not used,
 		 it can always be removed as dead code */
 	      copy = emit_insn (copy_rtx_and_substitute (pattern, map, 0));
@@ -2087,7 +2090,7 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
       if (NOTE_LINE_NUMBER (orig) != NOTE_INSN_DELETED_LABEL)
 	break;
 
-      /* ... FALLTHRU ...  */
+      /* Fall through.  */
     case CODE_LABEL:
       LABEL_PRESERVE_P (get_label_from_map (map, CODE_LABEL_NUMBER (orig)))
 	= LABEL_PRESERVE_P (orig);

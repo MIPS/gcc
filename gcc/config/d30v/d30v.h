@@ -1,5 +1,5 @@
 /* Definitions of target machine for Mitsubishi D30V.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
@@ -1216,7 +1216,7 @@ typedef struct d30v_stack {
    being processed.  Thus, each time this macro is called, either LIBNAME or
    FNTYPE is nonzero, but never both of them at once.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
   d30v_init_cumulative_args (&CUM, FNTYPE, LIBNAME, FNDECL, FALSE)
 
 /* Like `INIT_CUMULATIVE_ARGS' but overrides it for the purposes of finding the
@@ -1407,13 +1407,6 @@ typedef struct machine_function GTY(())
   d30v_setup_incoming_varargs (&ARGS_SO_FAR, (int) MODE, TYPE,		\
 			       &PRETEND_ARGS_SIZE, SECOND_TIME)
 
-/* Build up the stdarg/varargs va_list type tree, assinging it to NODE.  If not
-   defined, it is assumed that va_list is a void * pointer.  */
-
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = d30v_build_va_list ()
-
-
 /* Implement the stdarg/varargs va_start macro.  STDARG_P is nonzero if this
    is stdarg.h instead of varargs.h.  VALIST is the tree of the va_list
    variable to initialize.  NEXTARG is the machine independent notion of the
@@ -1428,13 +1421,6 @@ typedef struct machine_function GTY(())
 
 #define EXPAND_BUILTIN_VA_ARG(VALIST, TYPE)				\
 (d30v_expand_builtin_va_arg (VALIST, TYPE))
-
-/* Implement the stdarg/varargs va_end macro.
-   VALIST is the variable of type va_list as a tree.  */
-
-/* #define EXPAND_BUILTIN_VA_END(VALIST) */
-
-
 
 /* Trampolines for Nested Functions.  */
 

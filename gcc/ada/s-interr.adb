@@ -346,8 +346,7 @@ package body System.Interrupts is
    ---------------------
 
    function Current_Handler
-     (Interrupt : Interrupt_ID)
-      return      Parameterless_Handler
+     (Interrupt : Interrupt_ID) return Parameterless_Handler
    is
    begin
       if Is_Reserved (Interrupt) then
@@ -455,21 +454,17 @@ package body System.Interrupts is
    --  Need comments as to why these always return True
 
    function Has_Interrupt_Or_Attach_Handler
-     (Object : access Dynamic_Interrupt_Protection)
-      return   Boolean
+     (Object : access Dynamic_Interrupt_Protection) return Boolean
    is
       pragma Unreferenced (Object);
-
    begin
       return True;
    end Has_Interrupt_Or_Attach_Handler;
 
    function Has_Interrupt_Or_Attach_Handler
-     (Object : access Static_Interrupt_Protection)
-      return   Boolean
+     (Object : access Static_Interrupt_Protection) return Boolean
    is
       pragma Unreferenced (Object);
-
    begin
       return True;
    end Has_Interrupt_Or_Attach_Handler;
@@ -598,7 +593,7 @@ package body System.Interrupts is
 
       Ptr := Registered_Handler_Head;
 
-      while (Ptr /= null) loop
+      while Ptr /= null loop
          if Ptr.H = Fat.Handler_Addr then
             return True;
          end if;
@@ -686,8 +681,7 @@ package body System.Interrupts is
    ------------------
 
    function Unblocked_By
-     (Interrupt : Interrupt_ID)
-      return      System.Tasking.Task_ID
+     (Interrupt : Interrupt_ID) return System.Tasking.Task_ID
    is
    begin
       if Is_Reserved (Interrupt) then
@@ -946,7 +940,7 @@ package body System.Interrupts is
             Server_ID (Interrupt) := To_System (Access_Hold.all'Identity);
          end if;
 
-         if (New_Handler = null) then
+         if New_Handler = null then
             if Old_Handler /= null then
                Unbind_Handler (Interrupt);
             end if;
@@ -1255,7 +1249,7 @@ package body System.Interrupts is
    task body Server_Task is
       Intwait_Mask    : aliased IMNG.Interrupt_Mask;
       Ret_Interrupt   : Interrupt_ID;
-      Self_ID         : Task_ID := Self;
+      Self_ID         : constant Task_ID := Self;
       Tmp_Handler     : Parameterless_Handler;
       Tmp_ID          : Task_ID;
       Tmp_Entry_Index : Task_Entry_Index;

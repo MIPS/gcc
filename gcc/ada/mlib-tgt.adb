@@ -79,6 +79,7 @@ package body MLib.Tgt is
       Interfaces   : Argument_List;
       Lib_Filename : String;
       Lib_Dir      : String;
+      Symbol_Data  : Symbol_Record;
       Driver_Name  : Name_Id := No_Name;
       Lib_Address  : String  := "";
       Lib_Version  : String  := "";
@@ -92,6 +93,7 @@ package body MLib.Tgt is
       pragma Unreferenced (Interfaces);
       pragma Unreferenced (Lib_Filename);
       pragma Unreferenced (Lib_Dir);
+      pragma Unreferenced (Symbol_Data);
       pragma Unreferenced (Driver_Name);
       pragma Unreferenced (Lib_Address);
       pragma Unreferenced (Lib_Version);
@@ -135,7 +137,6 @@ package body MLib.Tgt is
 
    function Is_Object_Ext (Ext : String) return Boolean is
       pragma Unreferenced (Ext);
-
    begin
       return False;
    end Is_Object_Ext;
@@ -146,7 +147,6 @@ package body MLib.Tgt is
 
    function Is_C_Ext (Ext : String) return Boolean is
       pragma Unreferenced (Ext);
-
    begin
       return False;
    end Is_C_Ext;
@@ -157,7 +157,6 @@ package body MLib.Tgt is
 
    function Is_Archive_Ext (Ext : String) return Boolean is
       pragma Unreferenced (Ext);
-
    begin
       return False;
    end Is_Archive_Ext;
@@ -177,7 +176,6 @@ package body MLib.Tgt is
 
    function Library_Exists_For (Project : Project_Id) return Boolean is
       pragma Unreferenced (Project);
-
    begin
       return False;
    end Library_Exists_For;
@@ -188,7 +186,6 @@ package body MLib.Tgt is
 
    function Library_File_Name_For (Project : Project_Id) return Name_Id is
       pragma Unreferenced (Project);
-
    begin
       return No_Name;
    end Library_File_Name_For;

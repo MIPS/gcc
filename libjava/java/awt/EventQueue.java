@@ -269,12 +269,17 @@ public class EventQueue
   }
 
   /**
-   * Return true if the current thread is the AWT event dispatch
+   * Return true if the current thread is the current AWT event dispatch
    * thread.
    */
   public static boolean isDispatchThread()
   {
-    EventQueue eq = Toolkit.getDefaultToolkit().getSystemEventQueue(); 
+    EventQueue eq = Toolkit.getDefaultToolkit().getSystemEventQueue();
+    
+    /* Find last EventQueue in chain */ 
+    while (eq.next != null)
+      eq = eq.next;
+
     return (Thread.currentThread() == eq.dispatchThread);
   }
 
@@ -296,8 +301,8 @@ public class EventQueue
   /**
    * Allows a custom EventQueue implementation to replace this one. 
    * All pending events are transferred to the new queue. Calls to postEvent,
-   * getNextEvent, and peekEvent are forwarded to the pushed queue until it
-   * is removed with a pop().
+   * getNextEvent, and peekEvent and others are forwarded to the pushed queue
+   * until it is removed with a pop().
    *
    * @exception NullPointerException if newEventQueue is null.
    */
@@ -305,6 +310,19 @@ public class EventQueue
   {
     if (newEventQueue == null)
       throw new NullPointerException ();
+
+    /* Make sure we are at the top of the stack because callers can
+       only get a reference to the one at the bottom using
+       Toolkit.getDefaultToolkit().getSystemEventQueue() */
+    if (next != null)
+      {
+        next.push (newEventQueue);
+        return;
+      }
+
+    /* Make sure we have a live dispatch thread to drive the queue */
+    if (dispatchThread == null)
+      dispatchThread = new EventDispatchThread(this);
 
     int i = next_out;
     while (i != next_in)
@@ -347,6 +365,13 @@ public class EventQueue
             if (++i == queue.length)
               i = 0;
           }
+	// Empty the queue so it can be reused
+	next_in = 0;
+	next_out = 0;
+
+        // Tell our EventDispatchThread that it can end execution
+        dispatchThread.interrupt ();
+	dispatchThread = null;
       }
   }
 

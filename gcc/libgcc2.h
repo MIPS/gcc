@@ -30,6 +30,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_LIBGCC2_H
 #define GCC_LIBGCC2_H
 
+#pragma GCC visibility push(default)
+
 extern int __gcc_bcmp (const unsigned char *, const unsigned char *, size_t);
 extern void __clear_cache (char *, char *);
 extern void __eprintf (const char *, const char *, unsigned int, const char *)
@@ -69,15 +71,15 @@ typedef unsigned int UQItype	__attribute__ ((mode (QI)));
 typedef		 int HItype	__attribute__ ((mode (HI)));
 typedef unsigned int UHItype	__attribute__ ((mode (HI)));
 #if MIN_UNITS_PER_WORD > 1
-/* These typedefs are usually forbidden on dsp's with UNITS_PER_WORD 1 */
+/* These typedefs are usually forbidden on dsp's with UNITS_PER_WORD 1.  */
 typedef 	 int SItype	__attribute__ ((mode (SI)));
 typedef unsigned int USItype	__attribute__ ((mode (SI)));
 #if LONG_LONG_TYPE_SIZE > 32
-/* These typedefs are usually forbidden on archs with UNITS_PER_WORD 2 */
+/* These typedefs are usually forbidden on archs with UNITS_PER_WORD 2.  */
 typedef		 int DItype	__attribute__ ((mode (DI)));
 typedef unsigned int UDItype	__attribute__ ((mode (DI)));
 #if MIN_UNITS_PER_WORD > 4
-/* These typedefs are usually forbidden on archs with UNITS_PER_WORD 4 */
+/* These typedefs are usually forbidden on archs with UNITS_PER_WORD 4.  */
 typedef		 int TItype	__attribute__ ((mode (TI)));
 typedef unsigned int UTItype	__attribute__ ((mode (TI)));
 #endif
@@ -306,5 +308,22 @@ typedef union
 } DWunion;
 
 #include "longlong.h"
+
+#undef int
+extern int __clzDI2 (UDWtype);
+extern int __clzSI2 (UWtype);
+extern int __ctzSI2 (UWtype);
+extern int __ffsSI2 (UWtype);
+extern int __ffsDI2 (DWtype);
+extern int __ctzDI2 (UDWtype);
+extern int __popcountSI2 (UWtype);
+extern int __popcountDI2 (UDWtype);
+extern int __paritySI2 (UWtype);
+extern int __parityDI2 (UDWtype);
+#define int bogus_type
+
+extern void __enable_execute_stack (void *);
+
+#pragma GCC visibility pop
 
 #endif /* ! GCC_LIBGCC2_H */

@@ -11,6 +11,16 @@ details.  */
 #ifndef __JV_WIN32_H__
 #define __JV_WIN32_H__
 
+// Enable UNICODE Support.?
+
+#ifdef MINGW_LIBGCJ_UNICODE
+#define UNICODE
+#define _UNICODE
+#endif // MINGW_LIBGCJ_UNICODE
+
+#include <tchar.h>
+
+// Includes
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #undef WIN32_LEAN_AND_MEAN
@@ -22,6 +32,43 @@ details.  */
 #include <java/util/Properties.h>
 
 #include <io.h>
+
+/* Begin UNICODE Support Classes and Functions */
+
+/* Helper class which creates a temporary, null-terminated,
+   wide-character C string. */
+class _Jv_Win32TempString
+{
+public:
+  _Jv_Win32TempString(jstring jstr);
+  ~_Jv_Win32TempString();
+
+// Accessors
+  operator LPCTSTR() const
+  {
+    return buf_;
+  }
+  LPCTSTR buf() const
+  {
+    return buf_;
+  }
+  LPTSTR buf()
+  {
+    return buf_;
+  }
+
+private:
+  TCHAR stackbuf_[500];
+  LPTSTR buf_;
+};
+
+// Mimics the JV_TEMP_STRING_UTF macro in jvm.h
+#define JV_TEMP_STRING_WIN32(x,y) _Jv_Win32TempString x(y);
+
+// Creates a jstring from a LPCTSTR
+extern jstring _Jv_Win32NewString (LPCTSTR pcsz);
+
+/* End UNICODE Helpers */
 
 // Prefix and suffix for shared libraries.
 #define _Jv_platform_solib_prefix ""
@@ -46,25 +93,36 @@ details.  */
 /* Useful helper classes and methods. */
 
 /* A C++ wrapper around a WSAEVENT which closes the event
-	 in its destructor. If dwSelFlags is non-zero, we also
-	 issue an WSAEventSelect on the socket descriptor with
-	 the given flags; this is undone by a corresponding call
-	 to WSAEventSelect(fd, 0, 0) in our destructor. */
+   in its destructor. If dwSelFlags is non-zero, we also
+   issue an WSAEventSelect on the socket descriptor with
+   the given flags; this is undone by a corresponding call
+   to WSAEventSelect(fd, 0, 0) in our destructor. */
 class WSAEventWrapper
 {
 public:
-	WSAEventWrapper(int fd, DWORD dwSelFlags);
-	~WSAEventWrapper();
+  // Default constructor. Call init() after this.
+  WSAEventWrapper();
+  WSAEventWrapper(int fd, DWORD dwSelFlags);
+  ~WSAEventWrapper();
 
-	WSAEVENT getEventHandle()
-	{
-		return m_hEvent;
-	}
+  // Used for two-step initialization after calling
+  // default constructor.
+  void init(int fd, DWORD dwSelFlags);
+
+  int getFD()
+  {
+    return m_fd;
+  }
+
+  WSAEVENT getEventHandle()
+  {
+    return m_hEvent;
+  }
 
 private:
-	WSAEVENT m_hEvent;
-	int m_fd;
-	DWORD m_dwSelFlags;
+  WSAEVENT m_hEvent;
+  int m_fd;
+  DWORD m_dwSelFlags;
 };
 
 // Error string text. The int argument is compatible
@@ -94,14 +152,10 @@ _Jv_ThrowSocketException ();
 extern void _Jv_platform_initialize (void);
 extern void _Jv_platform_initProperties (java::util::Properties*);
 extern jlong _Jv_platform_gettimeofday ();
-extern int _Jv_select (int n, fd_set *, fd_set *, fd_set *, struct timeval *);
 extern int _Jv_pipe (int filedes[2]);
 
-inline void
-_Jv_platform_close_on_exec (jint)
-{
-  // Ignore.
-}
+extern void
+_Jv_platform_close_on_exec (HANDLE h);
 
 #ifdef JV_HASH_SYNCHRONIZATION
 /* Suspends the execution of the current thread for the specified

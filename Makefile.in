@@ -100,6 +100,7 @@ SET_LIB_PATH = @SET_LIB_PATH@
 # Some platforms don't like blank entries, so we remove duplicate,
 # leading and trailing colons.
 REALLY_SET_LIB_PATH = \
+  @SET_GCC_LIB_PATH@ \
   $(RPATH_ENVVAR)=`echo "$(HOST_LIB_PATH):$(TARGET_LIB_PATH):$$$(RPATH_ENVVAR)" | sed 's,::*,:,g;s,^:*,,;s,:*$$,,'`; export $(RPATH_ENVVAR);
 
 # This is the list of directories to be built for the build system.
@@ -446,6 +447,7 @@ BASE_FLAGS_TO_PASS = \
 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" \
 	"RANLIB_FOR_TARGET=$(RANLIB_FOR_TARGET)" \
 	"WINDRES_FOR_TARGET=$(WINDRES_FOR_TARGET)" \
+	"CONFIG_SHELL=$(SHELL)" \
 	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" 
 
 # For any flags above that may contain shell code that varies from one
@@ -522,7 +524,8 @@ EXTRA_GCC_FLAGS = \
 	"`echo 'LIBGCC2_DEBUG_CFLAGS=$(LIBGCC2_DEBUG_CFLAGS)' | sed -e s/.*=$$/XFOO=/`" \
 	"`echo 'LIBGCC2_INCLUDES=$(LIBGCC2_INCLUDES)' | sed -e s/.*=$$/XFOO=/`" \
 	"`echo 'STAGE1_CFLAGS=$(STAGE1_CFLAGS)' | sed -e s/.*=$$/XFOO=/`" \
-	"`echo 'BOOT_CFLAGS=$(BOOT_CFLAGS)' | sed -e s/.*=$$/XFOO=/`"
+	"`echo 'BOOT_CFLAGS=$(BOOT_CFLAGS)' | sed -e s/.*=$$/XFOO=/`" \
+	"`echo 'BOOT_ADAFLAGS=$(BOOT_ADAFLAGS)' | sed -e s/.*=$$/XFOO=/`"
 
 GCC_FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS)
 
@@ -17607,6 +17610,7 @@ configure-build-libiberty:
 	AS="$(AS_FOR_BUILD)"; export AS; \
 	CC="$(CC_FOR_BUILD)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_BUILD)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX_FOR_BUILD)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_BUILD)"; export CXXFLAGS; \
 	GCJ="$(GCJ_FOR_BUILD)"; export GCJ; \
@@ -17678,6 +17682,7 @@ configure-ash:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -17744,6 +17749,7 @@ configure-autoconf:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -17810,6 +17816,7 @@ configure-automake:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -17876,6 +17883,7 @@ configure-bash:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -17942,6 +17950,7 @@ configure-bfd:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -18008,6 +18017,7 @@ configure-opcodes:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -18074,6 +18084,7 @@ configure-binutils:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -18140,6 +18151,7 @@ configure-bison:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -18209,6 +18221,7 @@ configure-byacc:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -18278,6 +18291,7 @@ configure-bzip2:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -18344,6 +18358,7 @@ configure-dejagnu:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -18410,6 +18425,7 @@ configure-diff:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -18476,6 +18492,7 @@ configure-dosutils:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -18538,6 +18555,7 @@ configure-etc:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -18604,6 +18622,7 @@ configure-fastjar:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -18673,6 +18692,7 @@ configure-fileutils:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -18739,6 +18759,7 @@ configure-findutils:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -18805,6 +18826,7 @@ configure-find:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -18871,6 +18893,7 @@ configure-flex:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -18940,6 +18963,7 @@ configure-gas:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -19006,6 +19030,7 @@ configure-gawk:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -19072,6 +19097,7 @@ configure-gettext:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -19138,6 +19164,7 @@ configure-gnuserv:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -19204,6 +19231,7 @@ configure-gprof:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -19270,6 +19298,7 @@ configure-gzip:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -19336,6 +19365,7 @@ configure-hello:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -19402,6 +19432,7 @@ configure-indent:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -19468,6 +19499,7 @@ configure-intl:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -19534,6 +19566,7 @@ configure-tcl:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -19600,6 +19633,7 @@ configure-itcl:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -19666,6 +19700,7 @@ configure-ld:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -19732,6 +19767,7 @@ configure-libgui:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -19798,6 +19834,7 @@ configure-libiberty:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -19864,6 +19901,7 @@ configure-libtool:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -19930,6 +19968,7 @@ configure-m4:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -19996,6 +20035,7 @@ configure-make:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -20062,6 +20102,7 @@ configure-mmalloc:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -20124,6 +20165,7 @@ configure-patch:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -20190,6 +20232,7 @@ configure-perl:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -20256,6 +20299,7 @@ configure-prms:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -20322,6 +20366,7 @@ configure-rcs:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -20388,6 +20433,7 @@ configure-readline:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -20454,6 +20500,7 @@ configure-release:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -20512,6 +20559,7 @@ configure-recode:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -20578,6 +20626,7 @@ configure-sed:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -20644,6 +20693,7 @@ configure-send-pr:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -20710,6 +20760,7 @@ configure-shellutils:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -20776,6 +20827,7 @@ configure-sid:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -20842,6 +20894,7 @@ configure-sim:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -20908,6 +20961,7 @@ configure-tar:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -20974,6 +21028,7 @@ configure-texinfo:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -21036,6 +21091,7 @@ configure-textutils:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -21102,6 +21158,7 @@ configure-time:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -21168,6 +21225,7 @@ configure-uudecode:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -21234,6 +21292,7 @@ configure-wdiff:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -21300,6 +21359,7 @@ configure-zip:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -21369,6 +21429,7 @@ configure-zlib:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -21427,6 +21488,7 @@ configure-gdb:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -21493,6 +21555,7 @@ configure-expect:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -21559,6 +21622,7 @@ configure-guile:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -21625,6 +21689,7 @@ configure-tk:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -21691,6 +21756,7 @@ configure-tix:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -21757,6 +21823,7 @@ configure-libtermcap:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -21819,6 +21886,7 @@ configure-utils:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -21896,6 +21964,7 @@ configure-target-libstdc++-v3: $(TARGET_SUBDIR)/libstdc++-v3/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXX_FOR_TARGET="$(RAW_CXX_FOR_TARGET)"; export CXX_FOR_TARGET; \
 	CXX="$(RAW_CXX_FOR_TARGET)"; export CXX; \
@@ -21907,6 +21976,8 @@ configure-target-libstdc++-v3: $(TARGET_SUBDIR)/libstdc++-v3/multilib.out
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in $(TARGET_SUBDIR)/libstdc++-v3; \
 	cd "$(TARGET_SUBDIR)/libstdc++-v3" || exit 1; \
 	case $(srcdir) in \
@@ -21918,30 +21989,8 @@ configure-target-libstdc++-v3: $(TARGET_SUBDIR)/libstdc++-v3/multilib.out
 	      *) topdir="../../$(srcdir)" ;; \
 	    esac ;; \
 	esac; \
-	if [ "$(srcdir)" = "." ] ; then \
-	  if [ "$(TARGET_SUBDIR)" != "." ] ; then \
-	    if $(SHELL) $$s/symlink-tree $${topdir}/libstdc++-v3 "no-such-file" ; then \
-	      if [ -f Makefile ]; then \
-	        if $(MAKE) distclean; then \
-	          true; \
-	        else \
-	          exit 1; \
-	        fi; \
-	      else \
-	        true; \
-	      fi; \
-	    else \
-	      exit 1; \
-	    fi; \
-	  else \
-	    true; \
-	  fi; \
-	  srcdiroption="--srcdir=."; \
-	  libsrcdir="."; \
-	else \
 	  srcdiroption="--srcdir=$${topdir}/libstdc++-v3"; \
 	  libsrcdir="$$s/libstdc++-v3"; \
-	fi; \
 	rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
 	  $(TARGET_CONFIGARGS) $${srcdiroption} \
@@ -21998,6 +22047,7 @@ configure-target-newlib: $(TARGET_SUBDIR)/newlib/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
@@ -22008,6 +22058,8 @@ configure-target-newlib: $(TARGET_SUBDIR)/newlib/multilib.out
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in $(TARGET_SUBDIR)/newlib; \
 	cd "$(TARGET_SUBDIR)/newlib" || exit 1; \
 	case $(srcdir) in \
@@ -22019,30 +22071,8 @@ configure-target-newlib: $(TARGET_SUBDIR)/newlib/multilib.out
 	      *) topdir="../../$(srcdir)" ;; \
 	    esac ;; \
 	esac; \
-	if [ "$(srcdir)" = "." ] ; then \
-	  if [ "$(TARGET_SUBDIR)" != "." ] ; then \
-	    if $(SHELL) $$s/symlink-tree $${topdir}/newlib "no-such-file" ; then \
-	      if [ -f Makefile ]; then \
-	        if $(MAKE) distclean; then \
-	          true; \
-	        else \
-	          exit 1; \
-	        fi; \
-	      else \
-	        true; \
-	      fi; \
-	    else \
-	      exit 1; \
-	    fi; \
-	  else \
-	    true; \
-	  fi; \
-	  srcdiroption="--srcdir=."; \
-	  libsrcdir="."; \
-	else \
 	  srcdiroption="--srcdir=$${topdir}/newlib"; \
 	  libsrcdir="$$s/newlib"; \
-	fi; \
 	rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
 	  $(TARGET_CONFIGARGS) $${srcdiroption} \
@@ -22099,6 +22129,7 @@ configure-target-libf2c: $(TARGET_SUBDIR)/libf2c/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
@@ -22109,6 +22140,8 @@ configure-target-libf2c: $(TARGET_SUBDIR)/libf2c/multilib.out
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in $(TARGET_SUBDIR)/libf2c; \
 	cd "$(TARGET_SUBDIR)/libf2c" || exit 1; \
 	case $(srcdir) in \
@@ -22120,30 +22153,8 @@ configure-target-libf2c: $(TARGET_SUBDIR)/libf2c/multilib.out
 	      *) topdir="../../$(srcdir)" ;; \
 	    esac ;; \
 	esac; \
-	if [ "$(srcdir)" = "." ] ; then \
-	  if [ "$(TARGET_SUBDIR)" != "." ] ; then \
-	    if $(SHELL) $$s/symlink-tree $${topdir}/libf2c "no-such-file" ; then \
-	      if [ -f Makefile ]; then \
-	        if $(MAKE) distclean; then \
-	          true; \
-	        else \
-	          exit 1; \
-	        fi; \
-	      else \
-	        true; \
-	      fi; \
-	    else \
-	      exit 1; \
-	    fi; \
-	  else \
-	    true; \
-	  fi; \
-	  srcdiroption="--srcdir=."; \
-	  libsrcdir="."; \
-	else \
 	  srcdiroption="--srcdir=$${topdir}/libf2c"; \
 	  libsrcdir="$$s/libf2c"; \
-	fi; \
 	rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
 	  $(TARGET_CONFIGARGS) $${srcdiroption} \
@@ -22200,6 +22211,7 @@ configure-target-libobjc: $(TARGET_SUBDIR)/libobjc/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
@@ -22210,6 +22222,8 @@ configure-target-libobjc: $(TARGET_SUBDIR)/libobjc/multilib.out
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in $(TARGET_SUBDIR)/libobjc; \
 	cd "$(TARGET_SUBDIR)/libobjc" || exit 1; \
 	case $(srcdir) in \
@@ -22221,30 +22235,8 @@ configure-target-libobjc: $(TARGET_SUBDIR)/libobjc/multilib.out
 	      *) topdir="../../$(srcdir)" ;; \
 	    esac ;; \
 	esac; \
-	if [ "$(srcdir)" = "." ] ; then \
-	  if [ "$(TARGET_SUBDIR)" != "." ] ; then \
-	    if $(SHELL) $$s/symlink-tree $${topdir}/libobjc "no-such-file" ; then \
-	      if [ -f Makefile ]; then \
-	        if $(MAKE) distclean; then \
-	          true; \
-	        else \
-	          exit 1; \
-	        fi; \
-	      else \
-	        true; \
-	      fi; \
-	    else \
-	      exit 1; \
-	    fi; \
-	  else \
-	    true; \
-	  fi; \
-	  srcdiroption="--srcdir=."; \
-	  libsrcdir="."; \
-	else \
 	  srcdiroption="--srcdir=$${topdir}/libobjc"; \
 	  libsrcdir="$$s/libobjc"; \
-	fi; \
 	rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
 	  $(TARGET_CONFIGARGS) $${srcdiroption} \
@@ -22301,6 +22293,7 @@ configure-target-libtermcap: $(TARGET_SUBDIR)/libtermcap/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
@@ -22311,6 +22304,8 @@ configure-target-libtermcap: $(TARGET_SUBDIR)/libtermcap/multilib.out
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in $(TARGET_SUBDIR)/libtermcap; \
 	cd "$(TARGET_SUBDIR)/libtermcap" || exit 1; \
 	case $(srcdir) in \
@@ -22398,6 +22393,7 @@ configure-target-winsup: $(TARGET_SUBDIR)/winsup/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
@@ -22408,6 +22404,8 @@ configure-target-winsup: $(TARGET_SUBDIR)/winsup/multilib.out
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in $(TARGET_SUBDIR)/winsup; \
 	cd "$(TARGET_SUBDIR)/winsup" || exit 1; \
 	case $(srcdir) in \
@@ -22419,30 +22417,8 @@ configure-target-winsup: $(TARGET_SUBDIR)/winsup/multilib.out
 	      *) topdir="../../$(srcdir)" ;; \
 	    esac ;; \
 	esac; \
-	if [ "$(srcdir)" = "." ] ; then \
-	  if [ "$(TARGET_SUBDIR)" != "." ] ; then \
-	    if $(SHELL) $$s/symlink-tree $${topdir}/winsup "no-such-file" ; then \
-	      if [ -f Makefile ]; then \
-	        if $(MAKE) distclean; then \
-	          true; \
-	        else \
-	          exit 1; \
-	        fi; \
-	      else \
-	        true; \
-	      fi; \
-	    else \
-	      exit 1; \
-	    fi; \
-	  else \
-	    true; \
-	  fi; \
-	  srcdiroption="--srcdir=."; \
-	  libsrcdir="."; \
-	else \
 	  srcdiroption="--srcdir=$${topdir}/winsup"; \
 	  libsrcdir="$$s/winsup"; \
-	fi; \
 	rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
 	  $(TARGET_CONFIGARGS) $${srcdiroption} \
@@ -22499,6 +22475,7 @@ configure-target-libgloss: $(TARGET_SUBDIR)/libgloss/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
@@ -22509,6 +22486,8 @@ configure-target-libgloss: $(TARGET_SUBDIR)/libgloss/multilib.out
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in $(TARGET_SUBDIR)/libgloss; \
 	cd "$(TARGET_SUBDIR)/libgloss" || exit 1; \
 	case $(srcdir) in \
@@ -22520,30 +22499,8 @@ configure-target-libgloss: $(TARGET_SUBDIR)/libgloss/multilib.out
 	      *) topdir="../../$(srcdir)" ;; \
 	    esac ;; \
 	esac; \
-	if [ "$(srcdir)" = "." ] ; then \
-	  if [ "$(TARGET_SUBDIR)" != "." ] ; then \
-	    if $(SHELL) $$s/symlink-tree $${topdir}/libgloss "no-such-file" ; then \
-	      if [ -f Makefile ]; then \
-	        if $(MAKE) distclean; then \
-	          true; \
-	        else \
-	          exit 1; \
-	        fi; \
-	      else \
-	        true; \
-	      fi; \
-	    else \
-	      exit 1; \
-	    fi; \
-	  else \
-	    true; \
-	  fi; \
-	  srcdiroption="--srcdir=."; \
-	  libsrcdir="."; \
-	else \
 	  srcdiroption="--srcdir=$${topdir}/libgloss"; \
 	  libsrcdir="$$s/libgloss"; \
-	fi; \
 	rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
 	  $(TARGET_CONFIGARGS) $${srcdiroption} \
@@ -22596,6 +22553,7 @@ configure-target-libiberty: $(TARGET_SUBDIR)/libiberty/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
@@ -22606,6 +22564,8 @@ configure-target-libiberty: $(TARGET_SUBDIR)/libiberty/multilib.out
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in $(TARGET_SUBDIR)/libiberty; \
 	cd "$(TARGET_SUBDIR)/libiberty" || exit 1; \
 	case $(srcdir) in \
@@ -22697,6 +22657,7 @@ configure-target-gperf: $(TARGET_SUBDIR)/gperf/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
@@ -22707,6 +22668,8 @@ configure-target-gperf: $(TARGET_SUBDIR)/gperf/multilib.out
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in $(TARGET_SUBDIR)/gperf; \
 	cd "$(TARGET_SUBDIR)/gperf" || exit 1; \
 	case $(srcdir) in \
@@ -22718,30 +22681,8 @@ configure-target-gperf: $(TARGET_SUBDIR)/gperf/multilib.out
 	      *) topdir="../../$(srcdir)" ;; \
 	    esac ;; \
 	esac; \
-	if [ "$(srcdir)" = "." ] ; then \
-	  if [ "$(TARGET_SUBDIR)" != "." ] ; then \
-	    if $(SHELL) $$s/symlink-tree $${topdir}/gperf "no-such-file" ; then \
-	      if [ -f Makefile ]; then \
-	        if $(MAKE) distclean; then \
-	          true; \
-	        else \
-	          exit 1; \
-	        fi; \
-	      else \
-	        true; \
-	      fi; \
-	    else \
-	      exit 1; \
-	    fi; \
-	  else \
-	    true; \
-	  fi; \
-	  srcdiroption="--srcdir=."; \
-	  libsrcdir="."; \
-	else \
 	  srcdiroption="--srcdir=$${topdir}/gperf"; \
 	  libsrcdir="$$s/gperf"; \
-	fi; \
 	rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
 	  $(TARGET_CONFIGARGS) $${srcdiroption} \
@@ -22798,6 +22739,7 @@ configure-target-examples: $(TARGET_SUBDIR)/examples/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
@@ -22808,6 +22750,8 @@ configure-target-examples: $(TARGET_SUBDIR)/examples/multilib.out
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in $(TARGET_SUBDIR)/examples; \
 	cd "$(TARGET_SUBDIR)/examples" || exit 1; \
 	case $(srcdir) in \
@@ -22819,30 +22763,8 @@ configure-target-examples: $(TARGET_SUBDIR)/examples/multilib.out
 	      *) topdir="../../$(srcdir)" ;; \
 	    esac ;; \
 	esac; \
-	if [ "$(srcdir)" = "." ] ; then \
-	  if [ "$(TARGET_SUBDIR)" != "." ] ; then \
-	    if $(SHELL) $$s/symlink-tree $${topdir}/examples "no-such-file" ; then \
-	      if [ -f Makefile ]; then \
-	        if $(MAKE) distclean; then \
-	          true; \
-	        else \
-	          exit 1; \
-	        fi; \
-	      else \
-	        true; \
-	      fi; \
-	    else \
-	      exit 1; \
-	    fi; \
-	  else \
-	    true; \
-	  fi; \
-	  srcdiroption="--srcdir=."; \
-	  libsrcdir="."; \
-	else \
 	  srcdiroption="--srcdir=$${topdir}/examples"; \
 	  libsrcdir="$$s/examples"; \
-	fi; \
 	rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
 	  $(TARGET_CONFIGARGS) $${srcdiroption} \
@@ -22891,6 +22813,7 @@ configure-target-libffi: $(TARGET_SUBDIR)/libffi/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
@@ -22901,6 +22824,8 @@ configure-target-libffi: $(TARGET_SUBDIR)/libffi/multilib.out
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in $(TARGET_SUBDIR)/libffi; \
 	cd "$(TARGET_SUBDIR)/libffi" || exit 1; \
 	case $(srcdir) in \
@@ -22912,30 +22837,8 @@ configure-target-libffi: $(TARGET_SUBDIR)/libffi/multilib.out
 	      *) topdir="../../$(srcdir)" ;; \
 	    esac ;; \
 	esac; \
-	if [ "$(srcdir)" = "." ] ; then \
-	  if [ "$(TARGET_SUBDIR)" != "." ] ; then \
-	    if $(SHELL) $$s/symlink-tree $${topdir}/libffi "no-such-file" ; then \
-	      if [ -f Makefile ]; then \
-	        if $(MAKE) distclean; then \
-	          true; \
-	        else \
-	          exit 1; \
-	        fi; \
-	      else \
-	        true; \
-	      fi; \
-	    else \
-	      exit 1; \
-	    fi; \
-	  else \
-	    true; \
-	  fi; \
-	  srcdiroption="--srcdir=."; \
-	  libsrcdir="."; \
-	else \
 	  srcdiroption="--srcdir=$${topdir}/libffi"; \
 	  libsrcdir="$$s/libffi"; \
-	fi; \
 	rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
 	  $(TARGET_CONFIGARGS) $${srcdiroption} \
@@ -22992,6 +22895,7 @@ configure-target-libjava: $(TARGET_SUBDIR)/libjava/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXX_FOR_TARGET="$(RAW_CXX_FOR_TARGET)"; export CXX_FOR_TARGET; \
 	CXX="$(RAW_CXX_FOR_TARGET)"; export CXX; \
@@ -23003,6 +22907,8 @@ configure-target-libjava: $(TARGET_SUBDIR)/libjava/multilib.out
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in $(TARGET_SUBDIR)/libjava; \
 	cd "$(TARGET_SUBDIR)/libjava" || exit 1; \
 	case $(srcdir) in \
@@ -23014,30 +22920,8 @@ configure-target-libjava: $(TARGET_SUBDIR)/libjava/multilib.out
 	      *) topdir="../../$(srcdir)" ;; \
 	    esac ;; \
 	esac; \
-	if [ "$(srcdir)" = "." ] ; then \
-	  if [ "$(TARGET_SUBDIR)" != "." ] ; then \
-	    if $(SHELL) $$s/symlink-tree $${topdir}/libjava "no-such-file" ; then \
-	      if [ -f Makefile ]; then \
-	        if $(MAKE) distclean; then \
-	          true; \
-	        else \
-	          exit 1; \
-	        fi; \
-	      else \
-	        true; \
-	      fi; \
-	    else \
-	      exit 1; \
-	    fi; \
-	  else \
-	    true; \
-	  fi; \
-	  srcdiroption="--srcdir=."; \
-	  libsrcdir="."; \
-	else \
 	  srcdiroption="--srcdir=$${topdir}/libjava"; \
 	  libsrcdir="$$s/libjava"; \
-	fi; \
 	rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
 	  $(TARGET_CONFIGARGS) $${srcdiroption} \
@@ -23094,6 +22978,7 @@ configure-target-zlib: $(TARGET_SUBDIR)/zlib/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
@@ -23104,6 +22989,8 @@ configure-target-zlib: $(TARGET_SUBDIR)/zlib/multilib.out
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in $(TARGET_SUBDIR)/zlib; \
 	cd "$(TARGET_SUBDIR)/zlib" || exit 1; \
 	case $(srcdir) in \
@@ -23195,6 +23082,7 @@ configure-target-boehm-gc: $(TARGET_SUBDIR)/boehm-gc/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
@@ -23205,6 +23093,8 @@ configure-target-boehm-gc: $(TARGET_SUBDIR)/boehm-gc/multilib.out
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in $(TARGET_SUBDIR)/boehm-gc; \
 	cd "$(TARGET_SUBDIR)/boehm-gc" || exit 1; \
 	case $(srcdir) in \
@@ -23216,30 +23106,8 @@ configure-target-boehm-gc: $(TARGET_SUBDIR)/boehm-gc/multilib.out
 	      *) topdir="../../$(srcdir)" ;; \
 	    esac ;; \
 	esac; \
-	if [ "$(srcdir)" = "." ] ; then \
-	  if [ "$(TARGET_SUBDIR)" != "." ] ; then \
-	    if $(SHELL) $$s/symlink-tree $${topdir}/boehm-gc "no-such-file" ; then \
-	      if [ -f Makefile ]; then \
-	        if $(MAKE) distclean; then \
-	          true; \
-	        else \
-	          exit 1; \
-	        fi; \
-	      else \
-	        true; \
-	      fi; \
-	    else \
-	      exit 1; \
-	    fi; \
-	  else \
-	    true; \
-	  fi; \
-	  srcdiroption="--srcdir=."; \
-	  libsrcdir="."; \
-	else \
 	  srcdiroption="--srcdir=$${topdir}/boehm-gc"; \
 	  libsrcdir="$$s/boehm-gc"; \
-	fi; \
 	rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
 	  $(TARGET_CONFIGARGS) $${srcdiroption} \
@@ -23296,6 +23164,7 @@ configure-target-qthreads: $(TARGET_SUBDIR)/qthreads/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
@@ -23306,6 +23175,8 @@ configure-target-qthreads: $(TARGET_SUBDIR)/qthreads/multilib.out
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in $(TARGET_SUBDIR)/qthreads; \
 	cd "$(TARGET_SUBDIR)/qthreads" || exit 1; \
 	case $(srcdir) in \
@@ -23317,30 +23188,8 @@ configure-target-qthreads: $(TARGET_SUBDIR)/qthreads/multilib.out
 	      *) topdir="../../$(srcdir)" ;; \
 	    esac ;; \
 	esac; \
-	if [ "$(srcdir)" = "." ] ; then \
-	  if [ "$(TARGET_SUBDIR)" != "." ] ; then \
-	    if $(SHELL) $$s/symlink-tree $${topdir}/qthreads "no-such-file" ; then \
-	      if [ -f Makefile ]; then \
-	        if $(MAKE) distclean; then \
-	          true; \
-	        else \
-	          exit 1; \
-	        fi; \
-	      else \
-	        true; \
-	      fi; \
-	    else \
-	      exit 1; \
-	    fi; \
-	  else \
-	    true; \
-	  fi; \
-	  srcdiroption="--srcdir=."; \
-	  libsrcdir="."; \
-	else \
 	  srcdiroption="--srcdir=$${topdir}/qthreads"; \
 	  libsrcdir="$$s/qthreads"; \
-	fi; \
 	rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
 	  $(TARGET_CONFIGARGS) $${srcdiroption} \
@@ -23397,6 +23246,7 @@ configure-target-rda: $(TARGET_SUBDIR)/rda/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
@@ -23407,6 +23257,8 @@ configure-target-rda: $(TARGET_SUBDIR)/rda/multilib.out
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in $(TARGET_SUBDIR)/rda; \
 	cd "$(TARGET_SUBDIR)/rda" || exit 1; \
 	case $(srcdir) in \
@@ -23418,30 +23270,8 @@ configure-target-rda: $(TARGET_SUBDIR)/rda/multilib.out
 	      *) topdir="../../$(srcdir)" ;; \
 	    esac ;; \
 	esac; \
-	if [ "$(srcdir)" = "." ] ; then \
-	  if [ "$(TARGET_SUBDIR)" != "." ] ; then \
-	    if $(SHELL) $$s/symlink-tree $${topdir}/rda "no-such-file" ; then \
-	      if [ -f Makefile ]; then \
-	        if $(MAKE) distclean; then \
-	          true; \
-	        else \
-	          exit 1; \
-	        fi; \
-	      else \
-	        true; \
-	      fi; \
-	    else \
-	      exit 1; \
-	    fi; \
-	  else \
-	    true; \
-	  fi; \
-	  srcdiroption="--srcdir=."; \
-	  libsrcdir="."; \
-	else \
 	  srcdiroption="--srcdir=$${topdir}/rda"; \
 	  libsrcdir="$$s/rda"; \
-	fi; \
 	rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
 	  $(TARGET_CONFIGARGS) $${srcdiroption} \
@@ -23489,6 +23319,9 @@ install-target-rda: installdirs
 # build modules.  So GCC is a sort of hybrid.
 
 # gcc is the only module which uses GCC_FLAGS_TO_PASS.
+# Don't use shared host config.cache, as it will confuse later
+# directories; GCC wants slightly different values for some
+# precious variables.  *sigh*
 .PHONY: configure-gcc maybe-configure-gcc
 maybe-configure-gcc:
 configure-gcc:
@@ -23498,6 +23331,7 @@ configure-gcc:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
@@ -23511,6 +23345,8 @@ configure-gcc:
 	WINDRES="$(WINDRES)"; export WINDRES; \
 	OBJCOPY="$(OBJCOPY)"; export OBJCOPY; \
 	OBJDUMP="$(OBJDUMP)"; export OBJDUMP; \
+	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
+	@SET_GCC_LIB_PATH@ \
 	echo Configuring in gcc; \
 	cd gcc || exit 1; \
 	case $(srcdir) in \
@@ -23593,18 +23429,18 @@ profiledbootstrap: all-bootstrap configure-gcc
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
-	echo "Bootstrapping the compiler"; \
+	echo "Bootstrapping training compiler"; \
 	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) stageprofile_build
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}` ; export s; \
-	$(SET_LIB_PATH) \
-	echo "Building runtime libraries and training compiler"; \
-	$(MAKE) $(BASE_FLAGS_TO_PASS) $(RECURSE_FLAGS) all
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
 	echo "Building feedback based compiler"; \
 	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) stagefeedback_build
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}` ; export s; \
+	$(SET_LIB_PATH) \
+	echo "Building runtime libraries"; \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) $(RECURSE_FLAGS) all
 
 .PHONY: cross
 cross: all-texinfo all-bison all-byacc all-binutils all-gas all-ld
@@ -23831,7 +23667,7 @@ Makefile: $(srcdir)/Makefile.in config.status
 	CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
 config.status: configure $(gcc_version_trigger)
-	$(SHELL) ./config.status --recheck
+	CONFIG_SHELL="$(SHELL)" $(SHELL) ./config.status --recheck
 
 # Rebuilding configure.
 AUTOCONF = autoconf

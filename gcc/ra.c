@@ -455,9 +455,7 @@ init_ra (void)
 #endif
   int need_fp
     = (! flag_omit_frame_pointer
-#ifdef EXIT_IGNORE_STACK
        || (current_function_calls_alloca && EXIT_IGNORE_STACK)
-#endif
        || FRAME_POINTER_REQUIRED);
 
   ra_colorize_init ();
@@ -665,7 +663,7 @@ reg_alloc (void)
       for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
 	{
 	  basic_block bb = e->src;
-	  last = bb->end;
+	  last = BB_END (bb);
 	  if (!INSN_P (last) || GET_CODE (PATTERN (last)) != USE)
 	    {
 	      rtx insns;

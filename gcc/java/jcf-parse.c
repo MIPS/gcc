@@ -1,5 +1,5 @@
 /* Parser for Java(TM) .class files.
-   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -71,10 +71,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "jcf.h"
 
 extern struct obstack temporary_obstack;
-
-/* Set to nonzero value in order to emit class initialization code
-   before static field references.  */
-extern int always_initialize_class_p;
 
 static GTY(()) tree parse_roots[3];
 
@@ -153,7 +149,7 @@ set_source_filename (JCF *jcf, int index)
 
 #define HANDLE_CLASS_INFO(ACCESS_FLAGS, THIS, SUPER, INTERFACES_COUNT) \
 { tree super_class = SUPER==0 ? NULL_TREE : get_class_constant (jcf, SUPER); \
-  current_class = give_name_to_class (jcf, THIS); \
+  output_class = current_class = give_name_to_class (jcf, THIS); \
   set_super_info (ACCESS_FLAGS, current_class, super_class, INTERFACES_COUNT);}
 
 #define HANDLE_CLASS_INTERFACE(INDEX) \
@@ -472,6 +468,7 @@ read_class (tree name)
   JCF this_jcf, *jcf;
   tree icv, class = NULL_TREE;
   tree save_current_class = current_class;
+  tree save_output_class = output_class;
   location_t save_location = input_location;
   JCF *save_current_jcf = current_jcf;
 
@@ -509,7 +506,7 @@ read_class (tree name)
 	wfl_operator = build_expr_wfl (NULL_TREE, NULL, 0, 0);
       EXPR_WFL_FILENAME_NODE (wfl_operator) = file;
       input_filename = ggc_strdup (filename);
-      current_class = NULL_TREE;
+      output_class = current_class = NULL_TREE;
       current_function_decl = NULL_TREE;
       if (!HAS_BEEN_ALREADY_PARSED_P (file))
 	{
@@ -531,7 +528,7 @@ read_class (tree name)
 	{
 	  java_parser_context_save_global ();
 	  java_push_parser_context ();
-	  current_class = class;
+	  output_class = current_class = class;
 	  input_filename = current_jcf->filename;
 	  if (JCF_SEEN_IN_ZIP (current_jcf))
 	    read_zip_member(current_jcf,
@@ -549,6 +546,7 @@ read_class (tree name)
       load_inner_classes (class);
     }
 
+  output_class = save_output_class;
   current_class = save_current_class;
   input_location = save_location;
   current_jcf = save_current_jcf;
@@ -693,12 +691,6 @@ load_inner_classes (tree cur_class)
     }
 }
 
-void
-init_outgoing_cpool (void)
-{
-  outgoing_cpool = ggc_alloc_cleared (sizeof (struct CPool));
-}
-
 static void
 parse_class_file (void)
 {
@@ -710,11 +702,12 @@ parse_class_file (void)
   input_filename = DECL_SOURCE_FILE (TYPE_NAME (current_class));
   input_line = 0;
   (*debug_hooks->start_source_file) (input_line, input_filename);
-  init_outgoing_cpool ();
 
   /* Currently we always have to emit calls to _Jv_InitClass when
      compiling from class files.  */
   always_initialize_class_p = 1;
+
+  gen_indirect_dispatch_tables (current_class);
 
   java_mark_class_local (current_class);
 
@@ -760,8 +753,8 @@ parse_class_file (void)
       input_line = 0;
       if (DECL_LINENUMBERS_OFFSET (method))
 	{
-	  register int i;
-	  register unsigned char *ptr;
+	  int i;
+	  unsigned char *ptr;
 	  JCF_SEEK (jcf, DECL_LINENUMBERS_OFFSET (method));
 	  linenumber_count = i = JCF_readu2 (jcf);
 	  linenumber_table = ptr = jcf->read_ptr;
@@ -917,9 +910,9 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
       finput = NULL;
     }
   else
-    list = xstrdup (input_filename);
+    list = input_filename ? xstrdup (input_filename) : 0;
 
-  do 
+  while (list)
     {
       for (next = list; ; )
 	{
@@ -998,7 +991,6 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	}
       list = next;
     }
-  while (next);
 
   if (filename_count == 0)
     warning ("no input file specified");
@@ -1106,7 +1098,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
       input_filename = IDENTIFIER_POINTER (TREE_VALUE (node));
       if (CLASS_FILE_P (node))
 	{
-	  current_class = TREE_PURPOSE (node);
+	  output_class = current_class = TREE_PURPOSE (node);
 	  current_jcf = TYPE_JCF (current_class);
 	  layout_class (current_class);
 	  load_inner_classes (current_class);
@@ -1126,18 +1118,6 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 
       /* Emit the .jcf section.  */
       emit_register_classes ();
-      if (flag_indirect_dispatch)
-	{
-	  otable_decl 
-	    = emit_symbol_table 
-	    (get_identifier ("otable"), 
-	     otable_decl, otable_methods, otable_syms_decl, integer_type_node);
-	  atable_decl 
-	    = emit_symbol_table 
-	    (get_identifier ("atable"), 
-	     atable_decl, atable_methods, atable_syms_decl, ptr_type_node);
-	}
-      emit_catch_table ();
     }
 
   write_resource_constructor ();
@@ -1172,10 +1152,9 @@ classify_zip_file (struct ZipDirectory *zdir)
 		   ".class", 6))
     return 1;
 
-  /* For now we drop the manifest and other information.  Maybe it
-     would make more sense to compile it in?  */
-  if (zdir->filename_length > 8
-      && !strncmp (class_name_in_zip_dir, "META-INF/", 9))
+  /* For now we drop the manifest, but not other information.  */
+  if (zdir->filename_length == 20
+      && !strncmp (class_name_in_zip_dir, "META-INF/MANIFEST.MF", 20))
     return 0;
 
   /* Drop directory entries.  */
@@ -1209,7 +1188,7 @@ parse_zip_file_entries (void)
 	    class = lookup_class (get_identifier (class_name));
 	    FREE (class_name);
 	    current_jcf = TYPE_JCF (class);
-	    current_class = class;
+	    output_class = current_class = class;
 
 	    if (! CLASS_LOADED_P (class))
 	      {

@@ -202,9 +202,34 @@ package Osint is
       return           String_Access;
    --  Convert a canonical syntax file specification to host syntax.
 
+   function Relocate_Path
+     (Prefix : String;
+      Path   : String) return String_Ptr;
+   --  Given an absolute path and a prefix, if Path starts with Prefix,
+   --  replace the Prefix substring with the root installation directory.
+   --  By default, try to compute the root installation directory by looking
+   --  at the executable name as it was typed on the command line and, if
+   --  needed, use the PATH environment variable.
+   --  If the above computation fails, return Path.
+   --  This function assumes that Prefix'First = Path'First
+
+   function Shared_Lib (Name : String) return String;
+   --  Returns the runtime shared library in the form -l<name>-<version> where
+   --  version is the GNAT runtime library option for the platform. For example
+   --  this routine called with Name set to "gnat" will return "-lgnat-5.02"
+   --  on UNIX and Windows and -lgnat_5_02 on VMS.
+
    -------------------------
    -- Search Dir Routines --
    -------------------------
+
+   function Include_Dir_Default_Prefix return String;
+   --  Return the directory of the run-time library sources, as modified
+   --  by update_path.
+
+   function Object_Dir_Default_Prefix return String;
+   --  Return the directory of the run-time library ALI and object files, as
+   --  modified by update_path.
 
    procedure Add_Default_Search_Dirs;
    --  This routine adds the default search dirs indicated by the

@@ -1,6 +1,6 @@
 /* Allocate registers within a basic block, for GNU compiler.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -108,7 +108,7 @@ struct qty
 
   /* Number of words needed to hold the data in given quantity.
      This depends on its machine mode.  It is used for these purposes:
-     1. It is used in computing the relative importances of qtys,
+     1. It is used in computing the relative importance of qtys,
 	which determines the order in which we look for regs for them.
      2. It is used in rules that prevent tying several registers of
 	different sizes in a way that is geometrically impossible
@@ -538,7 +538,7 @@ equiv_init_varies_p (rtx x)
       if (MEM_VOLATILE_P (x))
 	return 1;
 
-      /* FALLTHROUGH */
+      /* Fall through.  */
 
     default:
       break;
@@ -603,7 +603,7 @@ equiv_init_movable_p (rtx x, int regno)
       if (MEM_VOLATILE_P (x))
 	return 0;
 
-      /* FALLTHROUGH */
+      /* Fall through.  */
 
     default:
       break;
@@ -809,7 +809,9 @@ update_equiv_regs (void)
     {
       loop_depth = bb->loop_depth;
 
-      for (insn = bb->head; insn != NEXT_INSN (bb->end); insn = NEXT_INSN (insn))
+      for (insn = BB_HEAD (bb);
+	   insn != NEXT_INSN (BB_END (bb));
+	   insn = NEXT_INSN (insn))
 	{
 	  rtx note;
 	  rtx set;
@@ -1023,7 +1025,9 @@ update_equiv_regs (void)
   FOR_EACH_BB_REVERSE (bb)
     {
       loop_depth = bb->loop_depth;
-      for (insn = bb->end; insn != PREV_INSN (bb->head); insn = PREV_INSN (insn))
+      for (insn = BB_END (bb);
+	   insn != PREV_INSN (BB_HEAD (bb));
+	   insn = PREV_INSN (insn))
 	{
 	  rtx link;
 
@@ -1117,8 +1121,8 @@ update_equiv_regs (void)
 		      REG_N_CALLS_CROSSED (regno) = 0;
 		      REG_LIVE_LENGTH (regno) = 2;
 
-		      if (insn == bb->head)
-			bb->head = PREV_INSN (insn);
+		      if (insn == BB_HEAD (bb))
+			BB_HEAD (bb) = PREV_INSN (insn);
 
 		      /* Remember to clear REGNO from all basic block's live
 			 info.  */
@@ -1204,13 +1208,13 @@ block_alloc (int b)
 
   /* Count the instructions in the basic block.  */
 
-  insn = BLOCK_END (b);
+  insn = BB_END (BASIC_BLOCK (b));
   while (1)
     {
       if (GET_CODE (insn) != NOTE)
 	if (++insn_count > max_uid)
 	  abort ();
-      if (insn == BLOCK_HEAD (b))
+      if (insn == BB_HEAD (BASIC_BLOCK (b)))
 	break;
       insn = PREV_INSN (insn);
     }
@@ -1227,7 +1231,7 @@ block_alloc (int b)
      and assigns quantities to registers.
      It computes which registers to tie.  */
 
-  insn = BLOCK_HEAD (b);
+  insn = BB_HEAD (BASIC_BLOCK (b));
   while (1)
     {
       if (GET_CODE (insn) != NOTE)
@@ -1459,7 +1463,7 @@ block_alloc (int b)
       IOR_HARD_REG_SET (regs_live_at[2 * insn_number], regs_live);
       IOR_HARD_REG_SET (regs_live_at[2 * insn_number + 1], regs_live);
 
-      if (insn == BLOCK_END (b))
+      if (insn == BB_END (BASIC_BLOCK (b)))
 	break;
 
       insn = NEXT_INSN (insn);
@@ -2289,11 +2293,7 @@ post_mark_life (int regno, enum machine_mode mode, int life, int birth,
 		int death)
 {
   int j = HARD_REGNO_NREGS (regno, mode);
-#ifdef HARD_REG_SET
-  /* Declare it register if it's a scalar.  */
-  register
-#endif
-    HARD_REG_SET this_reg;
+  HARD_REG_SET this_reg;
 
   CLEAR_HARD_REG_SET (this_reg);
   while (--j >= 0)
@@ -2412,7 +2412,7 @@ requires_inout (const char *p)
 	  if (REG_CLASS_FROM_CONSTRAINT (c, p) == NO_REGS
 	      && !EXTRA_ADDRESS_CONSTRAINT (c, p))
 	    break;
-	  /* FALLTHRU */
+	  /* Fall through.  */
 	case 'p':
 	case 'g': case 'r':
 	  reg_allowed = 1;

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC, for SPARC running Solaris 2
-   Copyright 1992, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright 1992, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2004
    Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@netcom.com).
    Additional changes by David V. Henkel-Wallace (gumby@cygnus.com).
@@ -36,11 +36,16 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_CPU_DEFAULT_SPEC "-xarch=v8plusa"
 #endif
 
+#if TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc3
+#undef ASM_CPU_DEFAULT_SPEC
+#define ASM_CPU_DEFAULT_SPEC "-xarch=v8plusb"
+#endif
+
 #undef ASM_CPU_SPEC
 #define ASM_CPU_SPEC "\
-%{mcpu=v8plus:-xarch=v8plus} \
 %{mcpu=v9:-xarch=v8plus} \
 %{mcpu=ultrasparc:-xarch=v8plusa} \
+%{mcpu=ultrasparc3:-xarch=v8plusb} \
 %{!mcpu*:%(asm_cpu_default)} \
 "
 
@@ -81,6 +86,33 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf ((LABEL), "*.L%s%ld", (PREFIX), (long)(NUM))
 
+/* The native TLS-enabled assembler requires the directive #tls_object
+   to be put on objects in TLS sections (as of v7.1).  This is not
+   required by the GNU assembler but supported on SPARC.  */
+#undef  ASM_DECLARE_OBJECT_NAME
+#define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)		\
+  do								\
+    {								\
+      HOST_WIDE_INT size;					\
+								\
+      if (DECL_THREAD_LOCAL (DECL))				\
+	ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "tls_object");	\
+      else							\
+	ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");	\
+								\
+      size_directive_output = 0;				\
+      if (!flag_inhibit_size_directive				\
+	  && (DECL) && DECL_SIZE (DECL))			\
+	{							\
+	  size_directive_output = 1;				\
+	  size = int_size_in_bytes (TREE_TYPE (DECL));		\
+	  ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, size);		\
+	}							\
+								\
+      ASM_OUTPUT_LABEL (FILE, NAME);				\
+    }								\
+  while (0)
+
 
 
 #undef  ENDFILE_SPEC
@@ -98,6 +130,10 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)		\
   ((flag_pic || GLOBAL) ? DW_EH_PE_aligned : DW_EH_PE_absptr)
 #endif
+
+/* The Solaris linker doesn't understand constructor priorities.  */
+#undef SUPPORTS_INIT_PRIORITY
+#define SUPPORTS_INIT_PRIORITY 0
 
 /* ??? This does not work in SunOS 4.x, so it is not enabled in sparc.h.
    Instead, it is enabled here, because it does work under Solaris.  */
@@ -114,8 +150,11 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_BUGGY_QP_LIB
 #define TARGET_BUGGY_QP_LIB	1
 
-#undef SOLARIS_CONVERSION_LIBFUNCS
-#define SOLARIS_CONVERSION_LIBFUNCS 1
+#undef SUN_CONVERSION_LIBFUNCS
+#define SUN_CONVERSION_LIBFUNCS 1
+
+#undef DITF_CONVERSION_LIBFUNCS
+#define DITF_CONVERSION_LIBFUNCS 1
 
 #undef SUN_INTEGER_MULTIPLY_64
 #define SUN_INTEGER_MULTIPLY_64 1

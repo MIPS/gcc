@@ -1,5 +1,5 @@
 /* Declarations for C++ name lookup routines.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -211,11 +211,11 @@ struct cp_binding_level GTY(())
     /* The kind of scope that this object represents.  However, a
        SK_TEMPLATE_SPEC scope is represented with KIND set to
        SK_TEMPALTE_PARMS and EXPLICIT_SPEC_P set to true.  */
-    enum scope_kind kind : 4;
+    ENUM_BITFIELD (scope_kind) kind : 4;
 
     /* True if this scope is an SK_TEMPLATE_SPEC scope.  This field is
        only valid if KIND == SK_TEMPLATE_PARMS.  */
-    bool explicit_spec_p : 1;
+    BOOL_BITFIELD explicit_spec_p : 1;
 
     /* true means make a BLOCK for this level regardless of all else.  */
     unsigned keep : 1;
@@ -264,11 +264,10 @@ extern void print_binding_stack	(void);
 extern void print_binding_level	(cxx_scope *);
 extern void push_to_top_level (void);
 extern void pop_from_top_level (void);
-extern void maybe_push_to_top_level (int);
 extern void pop_everything (void);
 extern void keep_next_level (bool);
 extern bool is_ancestor (tree, tree);
-extern void push_scope (tree);
+extern bool push_scope (tree);
 extern void pop_scope (tree);
 
 extern void push_namespace (tree);
@@ -301,11 +300,13 @@ extern tree current_decl_namespace (void);
 extern void push_decl_namespace (tree);
 extern void pop_decl_namespace (void);
 extern void do_namespace_alias (tree, tree);
-extern void do_toplevel_using_decl (tree);
-extern void do_local_using_decl (tree);
+extern void do_toplevel_using_decl (tree, tree, tree);
+extern void do_local_using_decl (tree, tree, tree);
 extern tree do_class_using_decl (tree);
 extern void do_using_directive (tree);
 extern tree lookup_arg_dependent (tree, tree, tree);
+extern bool is_associated_namespace (tree, tree);
+extern void parse_using_directive (tree, tree);
 
 
 /* Set *DECL to the (non-hidden) declaration for ID at global scope,

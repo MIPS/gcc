@@ -2,16 +2,13 @@ std::allocator
 
   - switch to mt_allocator with --enable-threads=posix. 
 
-  - Try to figure out a way to switch allocators in a more elegant
-    manner, and make the default allocator configurable.
-
   - persistent allocator
 
   - global/extern allocator
 
 std::string 
 
-  - re-design for multi-paradigm, meta string class solution incorporating COW
+  - Policy-based design incorporating COW
     vs. deep copy issues, MT scalability
     See Andrei Alexandrescu, June 2001, C/C++ Users Journal
     "Generic<Programming>: A Policy-Based basic_string Implementation"
@@ -36,25 +33,29 @@ std::locale
     functions and and LANG environment variable dependencies.
 
   - use localedata to implement generic named (non-MT-safe) locales?
-    Figure out a way to use ICU data, like libjava? Need a generic locale
-    model that does something besides the "C" locale.
+    Figure out a way to use ICU data, like libjava? Re-package and use
+    the glibc localedata, even if we aren't on linux? Need a generic
+    locale model that does something besides the "C" locale.
 
   - make locale::classic() separate from named locale code. This will
     improve the static linkage situation, but will require new
-    initialization code.
+    initialization code. In particular, we need lazy-initialization of
+    locale::classic(), and maybe the has_facet/use_facet functions for all
+    the required facets. The end goal is a self-contained
+    locale_init.cc, or one with transitive closure without the locale
+    instantiations (locale-inst.cc) or the named locale bits
+    (localename.cc).
 
   - Jerry(?)/Paolo(?) work on __float_to_char.
 
   - minimize ctype convertion in data facets, see numpunct/num_put/num_get
 
-  - finish caching data facets and using the caches
-
 std::basic_filebuf, 27_io
 
   - wfilebuf, get variable-encoding working and tested, including
-    positioning and seeking.
+    positioning and seeking. (I think this may be done now)
 
-  - wfilebuf testsuite
+  - wfilebuf testsuite (getting there...)
 
   - look ahead for unbuffered io, so know when multiple putc's can be
     coalesced.
@@ -80,26 +81,32 @@ testsuite
 
   - diffing generated output files
 
+  - provide testsuites for numerics.
+
   - make check-abi needs to have full symbol checking. Scope the LSB
     testsuite, see what's going on with the typeinfo etc. bits.
-
-  - provide testsuites for numerics.
 
   - try to do a better job of ABI testing, with instantiations of all
     standard-specified types checked, not just exported symbols.
 
 g++/binutils
 
-  - compression for wide versions of basic types
+  - compression for wide versions of basic types, not just narrow
 
-- get Apple's debug mode, or something with equivalent functionality, in.
+threads
+
+  - create MT abstraction layer for atomicity to pthreads.
+
+  - solution for threads + C++.
 
 - audit for places where __builtin_expect can be used.
 
 - relocations, work on getting these down
 
 - issues with __builtin_memcpy and std::copy from Jerry Quinn
-  http://gcc.gnu.org/ml/libstdc++/2003-02/msg00076.html
+  http://gcc.gnu.org/ml/libstdc++/2003-02/msg00056.html
+  http://gcc.gnu.org/ml/libstdc++/2003-02/msg00302.html
+  http://gcc.gnu.org/ml/gcc/2003-10/msg01305.html
 
 - fix dependency tracking for includes (.h, .tcc) during build process.
 
@@ -128,9 +135,6 @@ Nathan's commentary on cantrip, http://www.cantrip.org/cheaders.html
 - auto_ptr: seems to be some disagreement on what is
 standards-conformant behavior, specially on conversion operators.
 
-- looks like deque::get_allocator not standards conformant or deque
-allocator non-standard.
-
 - list::assignment operator needs const_cast
 
 - a cleaner division between pointers-to-value_type and true iterators
@@ -154,8 +158,6 @@ sources, with macro-guards. Also, same with the TR.
   - replace typedef'd non-deprecated types with more type-safe equivalents.
 
 - add feature-test macros for non-standard extensions
-
-- create MT abstraction layer for atomicity to pthreads.
 
 - add MT support for locale, string, istream, ostream
 

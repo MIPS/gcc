@@ -330,8 +330,10 @@ static int
 call_ends_block_p (rtx insn, rtx end)
 {
   rtx new_insn;
+
   /* END might be a note, so get the last nonnote insn of the block.  */
-  end = next_nonnote_insn (PREV_INSN (end));
+  if (NOTE_P (end))
+    end = prev_nonnote_insn (end);
 
   /* If the call was the end of the block, then we're OK.  */
   if (insn == end)
@@ -597,7 +599,7 @@ optimize_sibling_and_tail_recursive_calls (void)
 
       /* Walk forwards through the last normal block and see if it
 	 does nothing except fall into the exit block.  */
-      for (insn = EXIT_BLOCK_PTR->prev_bb->head;
+      for (insn = BB_HEAD (EXIT_BLOCK_PTR->prev_bb);
 	   insn;
 	   insn = NEXT_INSN (insn))
 	{
@@ -685,7 +687,7 @@ optimize_sibling_and_tail_recursive_calls (void)
 		  && call_block->succ->dest != alternate_exit)
 	      /* If this call doesn't end the block, there are operations at
 		 the end of the block which we must execute after returning.  */
-	      || ! call_ends_block_p (insn, call_block->end))
+	      || ! call_ends_block_p (insn, BB_END (call_block)))
 	    sibcall = 0, tailrecursion = 0;
 
 	  /* Select a set of insns to implement the call and emit them.

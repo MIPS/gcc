@@ -1,7 +1,7 @@
 /* Declarations for insn-output.c.  These functions are defined in recog.c,
    final.c, and varasm.c.
    Copyright (C) 1987, 1991, 1994, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -71,7 +71,7 @@ extern void final (rtx, FILE *, int, int);
 /* The final scan for one insn, INSN.  Args are same as in `final', except
    that INSN is the insn being scanned.  Value returned is the next insn to
    be scanned.  */
-extern rtx final_scan_insn (rtx, FILE *, int, int, int);
+extern rtx final_scan_insn (rtx, FILE *, int, int, int, int *);
 
 /* Replace a SUBREG with a REG or a MEM, based on the thing it is a
    subreg of.  */
@@ -477,15 +477,17 @@ extern void no_asm_to_stream (FILE *);
 
 extern unsigned int get_named_section_flags (const char *);
 extern bool set_named_section_flags (const char *, unsigned int);
-extern void named_section_flags (const char *, unsigned int);
+#define named_section_flags(NAME, FLAGS) \
+  named_section_real((NAME), (FLAGS), /*decl=*/NULL_TREE)
+extern void named_section_real (const char *, unsigned int, tree);
 extern bool named_section_first_declaration (const char *);
 extern unsigned int default_section_type_flags (tree, const char *, int);
 extern unsigned int default_section_type_flags_1 (tree, const char *, int, int);
 
-extern void default_no_named_section (const char *, unsigned int);
-extern void default_elf_asm_named_section (const char *, unsigned int);
-extern void default_coff_asm_named_section (const char *, unsigned int);
-extern void default_pe_asm_named_section (const char *, unsigned int);
+extern void default_no_named_section (const char *, unsigned int, tree);
+extern void default_elf_asm_named_section (const char *, unsigned int, tree);
+extern void default_coff_asm_named_section (const char *, unsigned int, tree);
+extern void default_pe_asm_named_section (const char *, unsigned int, tree);
 
 extern void default_stabs_asm_out_destructor (rtx, int);
 extern void default_named_section_asm_out_destructor (rtx, int);

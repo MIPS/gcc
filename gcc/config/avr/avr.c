@@ -1,5 +1,6 @@
 /* Subroutines for insn-output.c for ATMEL AVR micro controllers
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004
+   Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
    This file is part of GCC.
@@ -39,6 +40,7 @@
 #include "obstack.h"
 #include "function.h"
 #include "recog.h"
+#include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -66,7 +68,6 @@ static void avr_file_start (void);
 static void avr_file_end (void);
 static void avr_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void avr_output_function_epilogue (FILE *, HOST_WIDE_INT);
-static void avr_unique_section (tree, int);
 static void avr_insert_attributes (tree, tree *);
 static unsigned int avr_section_type_flags (tree, const char *, int);
 
@@ -77,18 +78,14 @@ static int default_rtx_costs (rtx, enum rtx_code, enum rtx_code);
 static bool avr_rtx_costs (rtx, int, int, int *);
 static int avr_address_cost (rtx);
 
-/* Allocate registers from r25 to r8 for parameters for function calls */
+/* Allocate registers from r25 to r8 for parameters for function calls.  */
 #define FIRST_CUM_REG 26
 
 /* Temporary register RTX (gen_rtx (REG,QImode,TMP_REGNO)) */
-rtx tmp_reg_rtx;
+static GTY(()) rtx tmp_reg_rtx;
 
 /* Zeroed register RTX (gen_rtx (REG,QImode,ZERO_REGNO)) */
-rtx zero_reg_rtx;
-
-/* RTX for register which will be used for loading immediate values to
-   r0-r15 registers.  */
-rtx ldi_reg_rtx;
+static GTY(()) rtx zero_reg_rtx;
 
 /* AVR register names {"r0", "r1", ..., "r31"} */
 static const char *const avr_regnames[] = REGISTER_NAMES;
@@ -232,8 +229,6 @@ int avr_case_values_threshold = 30000;
 #define TARGET_ASM_FUNCTION_EPILOGUE avr_output_function_epilogue
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE avr_attribute_table
-#undef TARGET_ASM_UNIQUE_SECTION
-#define TARGET_ASM_UNIQUE_SECTION avr_unique_section
 #undef TARGET_INSERT_ATTRIBUTES
 #define TARGET_INSERT_ATTRIBUTES avr_insert_attributes
 #undef TARGET_SECTION_TYPE_FLAGS
@@ -274,31 +269,12 @@ avr_override_options (void)
 
   if (optimize && !TARGET_NO_TABLEJUMP)
     avr_case_values_threshold = (!AVR_MEGA || TARGET_CALL_PROLOGUES) ? 8 : 17;
+
+  tmp_reg_rtx  = gen_rtx_REG (QImode, TMP_REGNO);
+  zero_reg_rtx = gen_rtx_REG (QImode, ZERO_REGNO);
 }
 
-#if 0 /* Does not play nice with GC.  FIXME. */
-/* Initialize TMP_REG_RTX and ZERO_REG_RTX */
-void
-avr_init_once (void)
-{
-  tmp_reg_rtx = xcalloc (1, sizeof (struct rtx_def) + 1 * sizeof (rtunion));
-  PUT_CODE (tmp_reg_rtx, REG);
-  PUT_MODE (tmp_reg_rtx, QImode);
-  XINT (tmp_reg_rtx, 0) = TMP_REGNO;
-
-  zero_reg_rtx = xcalloc (1, sizeof (struct rtx_def) + 1 * sizeof (rtunion));
-  PUT_CODE (zero_reg_rtx, REG);
-  PUT_MODE (zero_reg_rtx, QImode);
-  XINT (zero_reg_rtx, 0) = ZERO_REGNO;
-
-  ldi_reg_rtx = xcalloc (1, sizeof (struct rtx_def) + 1 * sizeof (rtunion));
-  PUT_CODE (ldi_reg_rtx, REG);
-  PUT_MODE (ldi_reg_rtx, QImode);
-  XINT (ldi_reg_rtx, 0) = LDI_REG_REGNO;
-}
-#endif
-
-/*  return register class from register number */
+/*  return register class from register number.  */
 
 static const int reg_class_tab[]={
   GENERAL_REGS,GENERAL_REGS,GENERAL_REGS,GENERAL_REGS,GENERAL_REGS,
@@ -314,7 +290,7 @@ static const int reg_class_tab[]={
   STACK_REG,STACK_REG           /* SPL,SPH */
 };
 
-/* Return register class for register R */
+/* Return register class for register R.  */
 
 enum reg_class
 avr_regno_reg_class (int r)
@@ -437,7 +413,7 @@ avr_regs_to_save (HARD_REG_SET *set)
   return count;
 }
 
-/* Compute offset between arg_pointer and frame_pointer */
+/* Compute offset between arg_pointer and frame_pointer.  */
 
 int
 initial_elimination_offset (int from, int to)
@@ -468,7 +444,7 @@ avr_simple_epilogue (void)
 	  && ! TREE_THIS_VOLATILE (current_function_decl));
 }
 
-/* This function checks sequence of live registers */
+/* This function checks sequence of live registers.  */
 
 static int
 sequent_regs_live (void)
@@ -625,7 +601,7 @@ out_set_stack_ptr (FILE *file, int before, int after)
 }
 
 
-/* Output function prologue */
+/* Output function prologue.  */
 
 static void
 avr_output_function_prologue (FILE *file, HOST_WIDE_INT size)
@@ -684,13 +660,14 @@ avr_output_function_prologue (FILE *file, HOST_WIDE_INT size)
     }
   else if (minimize && (frame_pointer_needed || live_seq > 6)) 
     {
+      const char *cfun_name = current_function_name ();
       fprintf (file, ("\t"
 		      AS1 (ldi, r26) ",lo8(" HOST_WIDE_INT_PRINT_DEC ")" CR_TAB
 		      AS1 (ldi, r27) ",hi8(" HOST_WIDE_INT_PRINT_DEC ")" CR_TAB), size, size);
 
       fprintf (file, (AS2 (ldi, r30, pm_lo8(.L_%s_body)) CR_TAB
-		      AS2 (ldi, r31, pm_hi8(.L_%s_body)) CR_TAB)
-	       ,current_function_name, current_function_name);
+		      AS2 (ldi, r31, pm_hi8(.L_%s_body)) CR_TAB),
+	       cfun_name, cfun_name);
       
       prologue_size += 4;
       
@@ -706,7 +683,7 @@ avr_output_function_prologue (FILE *file, HOST_WIDE_INT size)
 		   (18 - live_seq) * 2);
 	  ++prologue_size;
 	}
-      fprintf (file, ".L_%s_body:\n", current_function_name);
+      fprintf (file, ".L_%s_body:\n", cfun_name);
     }
   else
     {
@@ -722,32 +699,30 @@ avr_output_function_prologue (FILE *file, HOST_WIDE_INT size)
 	}
       if (frame_pointer_needed)
 	{
-	  {
-	    fprintf (file, "\t"
-		     AS1 (push,r28) CR_TAB
-		     AS1 (push,r29) CR_TAB
-		     AS2 (in,r28,__SP_L__) CR_TAB
-		     AS2 (in,r29,__SP_H__) "\n");
-	    prologue_size += 4;
-	    if (size)
-	      {
-		fputs ("\t", file);
-		prologue_size += out_adj_frame_ptr (file, size);
+	  fprintf (file, "\t"
+		   AS1 (push,r28) CR_TAB
+		   AS1 (push,r29) CR_TAB
+		   AS2 (in,r28,__SP_L__) CR_TAB
+		   AS2 (in,r29,__SP_H__) "\n");
+	  prologue_size += 4;
+	  if (size)
+	    {
+	      fputs ("\t", file);
+	      prologue_size += out_adj_frame_ptr (file, size);
 
-		if (interrupt_func_p)
-		  {
-		    prologue_size += out_set_stack_ptr (file, 1, 1);
-		  }
-		else if (signal_func_p)
-		  {
-		    prologue_size += out_set_stack_ptr (file, 0, 0);
-		  }
-		else
-		  {
-		    prologue_size += out_set_stack_ptr (file, -1, -1);
-		  }
-	      }
-	  }
+	      if (interrupt_func_p)
+		{
+		  prologue_size += out_set_stack_ptr (file, 1, 1);
+		}
+	      else if (signal_func_p)
+		{
+		  prologue_size += out_set_stack_ptr (file, 0, 0);
+		}
+	      else
+		{
+		  prologue_size += out_set_stack_ptr (file, -1, -1);
+		}
+	    }
 	}
     }
 
@@ -755,7 +730,7 @@ avr_output_function_prologue (FILE *file, HOST_WIDE_INT size)
   fprintf (file, "/* prologue end (size=%d) */\n", prologue_size);
 }
 
-/* Output function epilogue */
+/* Output function epilogue.  */
 
 static void
 avr_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
@@ -895,7 +870,7 @@ avr_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
 
  out:
   fprintf (file, "/* epilogue end (size=%d) */\n", epilogue_size);
-  fprintf (file, "/* function %s size %d (%d) */\n", current_function_name,
+  fprintf (file, "/* function %s size %d (%d) */\n", current_function_name (),
 	   prologue_size + function_size + epilogue_size, function_size);
   commands_in_file += prologue_size + function_size + epilogue_size;
   commands_in_prologues += prologue_size;
@@ -1002,7 +977,7 @@ legitimize_address (rtx x, rtx oldx, enum machine_mode mode)
 }
 
 
-/* Return a pointer register name as a string */
+/* Return a pointer register name as a string.  */
 
 static const char *
 ptrreg_to_str (int regno)
@@ -1049,7 +1024,7 @@ cond_string (enum rtx_code code)
     }
 }
 
-/* Output ADDR to FILE as address */
+/* Output ADDR to FILE as address.  */
 
 void
 print_operand_address (FILE *file, rtx addr)
@@ -1083,7 +1058,7 @@ print_operand_address (FILE *file, rtx addr)
 }
 
 
-/* Output X as assembler operand to file FILE */
+/* Output X as assembler operand to file FILE.  */
      
 void
 print_operand (FILE *file, rtx x, int code)
@@ -1154,7 +1129,7 @@ print_operand (FILE *file, rtx x, int code)
     print_operand_address (file, x);
 }
 
-/* Recognize operand OP of mode MODE used in call instructions */
+/* Recognize operand OP of mode MODE used in call instructions.  */
 
 int
 call_insn_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
@@ -1476,7 +1451,7 @@ avr_num_arg_regs (enum machine_mode mode, tree type)
 }
 
 /* Controls whether a function argument is passed
-   in a register, and which register. */
+   in a register, and which register.  */
 
 rtx
 function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
@@ -2614,7 +2589,7 @@ out_movhi_mr_r (rtx insn, rtx op[], int *l)
   return "";
 }
 
-/* Return 1 if frame pointer for current function required */
+/* Return 1 if frame pointer for current function required.  */
 
 int
 frame_pointer_required_p (void)
@@ -2670,7 +2645,7 @@ compare_eq_p (rtx insn)
 }
 
 
-/* Output test instruction for HImode */
+/* Output test instruction for HImode.  */
 
 const char *
 out_tsthi (rtx insn, int *l)
@@ -2683,7 +2658,7 @@ out_tsthi (rtx insn, int *l)
   if (reg_unused_after (insn, SET_SRC (PATTERN (insn)))
       && compare_eq_p (insn))
     {
-      /* faster than sbiw if we can clobber the operand */
+      /* Faster than sbiw if we can clobber the operand.  */
       if (l) *l = 1;
       return AS2 (or,%A0,%B0);
     }
@@ -2698,7 +2673,7 @@ out_tsthi (rtx insn, int *l)
 }
 
 
-/* Output test instruction for SImode */
+/* Output test instruction for SImode.  */
 
 const char *
 out_tstsi (rtx insn, int *l)
@@ -4237,7 +4212,7 @@ adjust_insn_length (rtx insn, int len)
   return len;
 }
 
-/* Return nonzero if register REG dead after INSN */
+/* Return nonzero if register REG dead after INSN.  */
 
 int
 reg_unused_after (rtx insn, rtx reg)
@@ -4368,44 +4343,12 @@ avr_assemble_integer (rtx x, unsigned int size, int aligned_p)
   return default_assemble_integer (x, size, aligned_p);
 }
 
-/* Sets section name for declaration DECL */
-  
-static void
-avr_unique_section (tree decl, int reloc ATTRIBUTE_UNUSED)
-{
-  int len;
-  const char *name, *prefix;
-  char *string;
-
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  name = (* targetm.strip_name_encoding) (name);
-
-  if (TREE_CODE (decl) == FUNCTION_DECL)
-    {
-      if (flag_function_sections)
-	prefix = ".text.";
-      else
-	prefix = ".text";
-    }
-  else 
-    abort ();
-
-  if (flag_function_sections)
-    {
-      len = strlen (name) + strlen (prefix);
-      string = alloca (len + 1);
-      sprintf (string, "%s%s", prefix, name);
-      DECL_SECTION_NAME (decl) = build_string (len, string);
-    }
-}
-
-
 /* The routine used to output NUL terminated strings.  We use a special
    version of this for most svr4 targets because doing so makes the
    generated assembly code more compact (and thus faster to assemble)
    as well as more readable, especially for targets like the i386
    (where the only alternative is to output character sequences as
-   comma separated lists of numbers).   */
+   comma separated lists of numbers).  */
 
 void
 gas_output_limited_string(FILE *file, const char *str)
@@ -4589,7 +4532,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
    if found return 1, otherwise 0.  */
 
 int
-avr_progmem_p (tree decl)
+avr_progmem_p (tree decl, tree attributes)
 {
   tree a;
 
@@ -4597,7 +4540,7 @@ avr_progmem_p (tree decl)
     return 0;
 
   if (NULL_TREE
-      != lookup_attribute ("progmem", DECL_ATTRIBUTES (decl)))
+      != lookup_attribute ("progmem", attributes))
     return 1;
 
   a=decl;
@@ -4621,7 +4564,7 @@ avr_insert_attributes (tree node, tree *attributes)
 {
   if (TREE_CODE (node) == VAR_DECL
       && (TREE_STATIC (node) || DECL_EXTERNAL (node))
-      && avr_progmem_p (node))
+      && avr_progmem_p (node, *attributes))
     {
       static const char dsec[] = ".progmem.data";
       *attributes = tree_cons (get_identifier ("section"),
@@ -4860,7 +4803,7 @@ avr_rtx_costs (rtx x, int code, int outer_code, int *total)
     }
 }
 
-/* Calculate the cost of a memory address */
+/* Calculate the cost of a memory address.  */
 
 static int
 avr_address_cost (rtx x)
@@ -4925,7 +4868,7 @@ extra_constraint (rtx x, int c)
   return 0;
 }
 
-/* Convert condition code CONDITION to the valid AVR condition code */
+/* Convert condition code CONDITION to the valid AVR condition code.  */
 
 RTX_CODE
 avr_normalize_condition (RTX_CODE condition)
@@ -4970,7 +4913,7 @@ avr_reorg (void)
 	{
 	  if (GET_CODE (SET_SRC (pattern)) == COMPARE)
 	    {
-	      /* Now we work under compare insn */
+	      /* Now we work under compare insn.  */
 	      
 	      pattern = SET_SRC (pattern);
 	      if (true_regnum (XEXP (pattern,0)) >= 0
@@ -5389,3 +5332,4 @@ avr_asm_out_dtor (rtx symbol, int priority)
   default_dtor_section_asm_out_destructor (symbol, priority);
 }
 
+#include "gt-avr.h"

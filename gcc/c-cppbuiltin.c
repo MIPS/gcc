@@ -1,5 +1,5 @@
 /* Define builtin-in macros for the C family front ends.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -193,6 +193,16 @@ builtin_define_float_constants (const char *name_prefix, const char *fp_suffix, 
     if (i < n)
       *p++ = "08ce"[n - i];
     sprintf (p, "p%d", fmt->emax * fmt->log2_b);
+    if (fmt->pnan < fmt->p)
+      {
+	/* This is an IBM extended double format made up of two IEEE
+	   doubles.  The value of the long double is the sum of the
+	   values of the two parts.  The most significant part is
+	   required to be the value of the long double rounded to the
+	   nearest double.  Rounding means we need a slightly smaller
+	   value for LDBL_MAX.  */
+	buf[4 + fmt->pnan / 4] = "7bde"[fmt->pnan % 4];
+      }
   }
   sprintf (name, "__%s_MAX__", name_prefix);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix);
@@ -308,9 +318,25 @@ c_cpp_builtins (cpp_reader *pfile)
   if (flag_exceptions)
     cpp_define (pfile, "__EXCEPTIONS");
 
-  /* represents the C++ ABI version, always defined so it can be used while
+  /* Represents the C++ ABI version, always defined so it can be used while
      preprocessing C and assembler.  */
-  cpp_define (pfile, "__GXX_ABI_VERSION=102");
+  if (flag_abi_version == 0)
+    /* Use a very large value so that:
+
+         #if __GXX_ABI_VERSION >= <value for version X>
+
+       will work whether the user explicitly says "-fabi-version=x" or
+       "-fabi-version=0".  Do not use INT_MAX because that will be
+       different from system to system.  */
+    builtin_define_with_int_value ("__GXX_ABI_VERSION", 999999);
+  else if (flag_abi_version == 1)
+    /* Due to an historical accident, this version had the value
+       "102".  */
+    builtin_define_with_int_value ("__GXX_ABI_VERSION", 102);
+  else
+    /* Newer versions have values 1002, 1003, ....  */
+    builtin_define_with_int_value ("__GXX_ABI_VERSION", 
+				   1000 + flag_abi_version);
 
   /* libgcc needs to know this.  */
   if (USING_SJLJ_EXCEPTIONS)
@@ -391,6 +417,15 @@ c_cpp_builtins (cpp_reader *pfile)
   TARGET_CPU_CPP_BUILTINS ();
   TARGET_OS_CPP_BUILTINS ();
   TARGET_OBJFMT_CPP_BUILTINS ();
+
+  /* Support the __declspec keyword by turning them into attributes.
+     Note that the current way we do this may result in a collision
+     with predefined attributes later on.  This can be solved by using
+     one attribute, say __declspec__, and passing args to it.  The
+     problem with that approach is that args are not accumulated: each
+     new appearance would clobber any existing args.  */
+  if (TARGET_DECLSPEC)
+    builtin_define ("__declspec(x)=__attribute__((x))");
 }
 
 /* Pass an object-like macro.  If it doesn't lie in the user's

@@ -1,4 +1,5 @@
 dnl Process this with autoconf to create configure
+AC_PREREQ(2.13)
 AC_INIT(fficonfig.h.in)
 AM_CONFIG_HEADER(fficonfig.h)
 
@@ -45,6 +46,10 @@ AM_MAINTAINER_MODE
 AC_PROG_CC
 
 AC_PROG_LIBTOOL
+
+AC_CHECK_HEADERS(sys/mman.h)
+AC_CHECK_FUNCS(mmap)
+AC_FUNC_MMAP_BLACKLIST
 
 dnl The -no-testsuite modules omit the test subdir.
 AM_CONDITIONAL(TESTSUBDIR, test -d $srcdir/testsuite)
@@ -230,6 +235,17 @@ case $multi_os_directory in
 esac
 AC_SUBST(toolexecdir)
 AC_SUBST(toolexeclibdir)
+
+#Figure out where generated headers like ffitarget.h get installed.
+changequote(,)dnl
+gcc_version_trigger=${srcdir}/../gcc/version.c
+gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*\"\([^\"]*\)\".*/\1/'`
+gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
+tool_include_dir='$(libdir)/gcc/$(target_alias)/'${gcc_version}/include
+changequote([,])dnl
+AC_SUBST(tool_include_dir)
+AC_SUBST(gcc_version)
+
 
 if test "${multilib}" = "yes"; then
   multilib_arg="--enable-multilib"
