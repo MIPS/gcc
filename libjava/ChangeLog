@@ -1,3 +1,15 @@
+2005-01-04  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java: Replace direct
+	references to event queue q with method call q().
+	* gnu/java/awt/peer/gtk/GtkDialogPeer.java: Likewise.
+	* gnu/java/awt/peer/gtk/GtkFramePeer.java: Likewise.
+	* gnu/java/awt/peer/gtk/GtkScrollbarPeer.java: Likewise.
+	* gnu/java/awt/peer/gtk/GtkTextComponentPeer.java: Likewise.
+	* gnu/java/awt/peer/gtk/GtkWindowPeer.java: Likewise.
+	* gnu/java/awt/peer/gtk/GtkGenericPeer.java: Likewise.
+	(q): New method.
+
 2005-01-04  Graydon Hoare  <graydon@redhat.com>
 
 	* gnu/java/awt/ClasspathToolkit.java 
