@@ -997,10 +997,12 @@ copy_cfg_body (inline_data *id)
       for (tsi = tsi_start (bb->stmt_list)
 	   , tsi_copy = tsi_start (new_bb->stmt_list);
 	   !tsi_end_p (tsi_copy);
-	   tsi_next (&tsi), tsi_next (&tsi_copy))
+	   tsi_next (&tsi))
 	{
 	  orig_stmt = tsi_stmt (tsi);
 	  copy_stmt = tsi_stmt (tsi_copy);
+	  /* Do this before the possible split_block.  */
+	  tsi_next (&tsi_copy);
 	  /* If this tree could throw an exception,
 	     and it doesn't have a region associated with it,
 	     and there is a "current region,"
@@ -1017,7 +1019,9 @@ copy_cfg_body (inline_data *id)
 			    orig_stmt) <= 0
 	      && get_eh_cur_region (caller_cfun) > 0)
 	    {
+	      unsigned int i;
 	      struct eh_status *saved_eh = cfun->eh;
+	      basic_block copied_call_bb = new_bb;
 	      cfun->eh = caller_cfun->eh;
 	      add_stmt_to_eh_region (copy_stmt,
 				     get_eh_cur_region (caller_cfun));
@@ -1030,6 +1034,9 @@ copy_cfg_body (inline_data *id)
 		}
 	      make_eh_edges (copy_stmt);
 	      cfun->eh = saved_eh;
+	      for (i = 0; i < VARRAY_ACTIVE_SIZE (eh_dst); i++)
+	        make_edge (copied_call_bb, VARRAY_BB (eh_dst, i), 
+			    EDGE_EH | EDGE_ABNORMAL);
 	    }
 	  /* If this tree could throw an exception,
 	     and the original call that we're inlining had EH
@@ -2332,7 +2339,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 
     for (bsi = bsi_start (second_half_bb) ; !bsi_end_p (bsi) ; bsi_next (&bsi))
       {
-	if (tree_could_throw_p (bsi_stmt (bsi)))
+	if (tree_could_throw_p (bsi_stmt (bsi)) || TREE_CODE (bsi_stmt (bsi)) == RESX_EXPR)
 	  {
 	    for (eh_dst_index = VARRAY_ACTIVE_SIZE (eh_dst); eh_dst_index; )
 	      {
@@ -2340,8 +2347,6 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 		make_edge (second_half_bb, VARRAY_BB (eh_dst, eh_dst_index),
 			   EDGE_ABNORMAL | EDGE_EH);
 	      }
-	    make_edge (second_half_bb, VARRAY_BB (eh_dst, eh_dst_index), 
-		       EDGE_ABNORMAL | EDGE_EH);
 	    break;
 	  }
       }
