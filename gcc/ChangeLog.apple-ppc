@@ -1,3 +1,15 @@
+2005-01-09  Mike Stump  <mrs@apple.com>
+
+	Radar 3926955
+	* c-opts.c (c_common_handle_option): Remove wrong -faltivec code.
+	* c.opt (faltivec): Remove wrong set 0.
+	config/rs6000/rs6000.c (rs6000_altivec_switch): Move -maltivec back
+	into TARGET_SWITCHES.
+	(rs6000_override_options): Likewise.
+	* config/rs6000/rs6000.h (TARGET_SWITCHES): Likewise.
+	(TARGET_OPTIONS): Likewise.
+	(rs6000_altivec_switch): Likewise.
+
 2005-01-10  Stuart Hastings  <stuart@apple.com>
 
         Radar 3236762

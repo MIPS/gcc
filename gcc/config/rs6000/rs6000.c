@@ -267,7 +267,6 @@ static GTY(()) tree pixel_V8HI_type_node;	/* __vector __pixel */
 int rs6000_warn_altivec_long = 1;		/* On by default. */
 const char *rs6000_warn_altivec_long_switch;
 /* APPLE LOCAL begin AltiVec */
-const char *rs6000_altivec_switch;
 int rs6000_altivec_pim = 0;
 const char *rs6000_altivec_pim_switch;
 /* APPLE LOCAL end AltiVec */
@@ -1320,48 +1319,6 @@ rs6000_override_options (const char *default_cpu)
   }
   /* APPLE LOCAL end -fast */
 
-  /* APPLE LOCAL begin AltiVec */
-  /* Handle -m(no-)pim-altivec.  */
-  if (rs6000_altivec_pim_switch)
-    {
-      const char *base = rs6000_altivec_pim_switch;
-      while (base[-1] != 'm') base--;
-
-      if (*rs6000_altivec_pim_switch != '\0')
-	error ("invalid option `%s'", base);
-      rs6000_altivec_pim = (base[0] != 'n');
-      /* If '-faltivec' or '-mpim-altivec' has been specified, disable
-	 certain unsafe AltiVec optimizations and codegen so that the
-	 resulting binary can run on a G3.  These may be re-enabled by
-	 subsequently specifying '-maltivec' or '-mcpu=xxx', where xxx
-	 supports AltiVec instructions.  */
-      if (rs6000_altivec_pim)
-	{
-	  target_flags |= MASK_ALTIVEC;
-	  flag_disable_opts_for_faltivec = 1;
-	}
-      else
-	target_flags &= ~MASK_ALTIVEC;
-    }
-
-  /* Handle -m(no-)altivec.  */
-  if (rs6000_altivec_switch)
-    {
-      const char *base = rs6000_altivec_switch;
-      while (base[-1] != 'm') base--;
-
-      if (*rs6000_altivec_switch != '\0')
-	error ("invalid option `%s'", base);
-      if (base[0] != 'n')
-	/* If '-maltivec' has been specified, enable AltiVec codegen and
-	   optimizations, even if previously turned off via '-faltivec'
-	   or '-mpim-altivec'.  */
-	target_flags |= MASK_ALTIVEC, flag_disable_opts_for_faltivec = 0;
-      else
-	target_flags &= ~MASK_ALTIVEC;
-    }
-  /* APPLE LOCAL end AltiVec */
-
   for (i = 0; i < ARRAY_SIZE (rs6000_select); i++)
     {
       ptr = &rs6000_select[i];
@@ -1381,14 +1338,6 @@ rs6000_override_options (const char *default_cpu)
 		    /* APPLE LOCAL begin -fast */
 		    mcpu_cpu = processor_target_table[j].processor;
 		    /* APPLE LOCAL end -fast */
-		    /* APPLE LOCAL begin AltiVec */
-		    /* If '-mcpu=xxx' has been specified, where xxx supports
-		       AltiVec instructions, enable AltiVec codegen and
-		       optimizations, even if previously turned off via
-		       '-faltivec' or '-mpim-altivec'.  */
-		    if (processor_target_table[j].target_enable & MASK_ALTIVEC)
-		      flag_disable_opts_for_faltivec = 0;
-		    /* APPLE LOCAL end AltiVec */
 		  }
 		break;
 	      }
@@ -1397,6 +1346,41 @@ rs6000_override_options (const char *default_cpu)
 	    error ("bad value (%s) for %s switch", ptr->string, ptr->name);
 	}
     }
+
+  /* APPLE LOCAL begin AltiVec */
+  /* If '-maltivec' has been specified or if anything else turns on
+     AltiVec, enable AltiVec optimizations, even if previously turned
+     off via '-faltivec'.  */
+  if (TARGET_ALTIVEC)
+    flag_disable_opts_for_faltivec = 0;
+
+  /* Handle -m(no-)pim-altivec.  */
+  if (rs6000_altivec_pim_switch)
+    {
+      const char *base = rs6000_altivec_pim_switch - strlen ("pim-altivec");;
+      while (base[-1] != 'm') base--;
+      if (*rs6000_altivec_pim_switch != '\0')
+	error ("invalid option `%s'", base);
+
+      rs6000_altivec_pim = (base[0] != 'n');
+      /* If '-faltivec' or '-mpim-altivec' has been specified and we
+	 have not already selected AltiVec codegen, disable certain
+	 unsafe AltiVec optimizations so that the resulting binary can
+	 run on a G3.  These may be re-enabled by subsequently
+	 specifying '-maltivec' or '-mcpu=xxx', where xxx supports
+	 AltiVec instructions.  */
+      if (rs6000_altivec_pim)
+	{
+	  if (! TARGET_ALTIVEC)
+	    {
+	      flag_disable_opts_for_faltivec = 1;
+	      target_flags |= MASK_ALTIVEC;
+	    }
+	}
+      else
+	target_flags &= ~MASK_ALTIVEC;
+    }
+  /* APPLE LOCAL end AltiVec */
 
   /* APPLE LOCAL begin -fast */
   if (flag_fast || flag_fastf || flag_fastcp)

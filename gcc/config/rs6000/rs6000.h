@@ -312,7 +312,10 @@ extern int target_flags;
 			N_("Use PowerPC-64 instruction set")},		\
   {"no-powerpc64",	- MASK_POWERPC64,				\
 			N_("Do not use PowerPC-64 instruction set")},	\
-  /* APPLE LOCAL AltiVec */						\
+  {"altivec",		MASK_ALTIVEC ,					\
+			N_("Use AltiVec instructions")},		\
+  {"no-altivec",	- MASK_ALTIVEC ,					\
+			N_("Do not use AltiVec instructions")},	\
   /* '-m(no-)altivec' handling moved to rs6000c:rs6000_override_options(). */	\
   {"new-mnemonics",	MASK_NEW_MNEMONICS,				\
 			N_("Use new mnemonics for PowerPC architecture")},\
@@ -498,10 +501,6 @@ enum group_termination
    {"pim-altivec", &rs6000_altivec_pim_switch, \
     N_("Enable use of Motorola AltiVec PIM operations and predicates"), 0}, \
    {"no-pim-altivec", &rs6000_altivec_pim_switch, "", 0}, \
-   {"altivec", &rs6000_altivec_switch, \
-    N_("Use AltiVec instructions"), 0}, \
-   {"no-altivec", &rs6000_altivec_switch, \
-    N_("Do not use AltiVec instructions"), 0}, \
    /* APPLE LOCAL end AltiVec */					\
    SUBTARGET_OPTIONS							\
 }
@@ -566,7 +565,6 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 extern int rs6000_warn_altivec_long;
 extern const char *rs6000_warn_altivec_long_switch;
 /* APPLE LOCAL begin AltiVec */
-extern const char *rs6000_altivec_switch;
 extern int rs6000_altivec_pim;
 extern const char *rs6000_altivec_pim_switch;
 /* APPLE LOCAL end AltiVec */

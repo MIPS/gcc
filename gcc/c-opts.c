@@ -554,12 +554,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	set_std_cxx98 (true);
       break;
 
-      /* APPLE LOCAL begin Altivec 3840704 */
-    case OPT_faltivec:
-      flag_disable_opts_for_faltivec = true;
-      break;
-      /* APPLE LOCAL end Altivec 3840704 */
-
       /* APPLE LOCAL begin fat builds */
     case OPT_arch:
       break;
