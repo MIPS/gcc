@@ -5509,25 +5509,27 @@ process_options ()
 
   /* Now we know which debug output will be used so we can set
      flag_var_tracking if user has not specified it.  */
+  if (debug_info_level < DINFO_LEVEL_NORMAL
+      || debug_hooks->var_location == do_nothing_debug_hooks.var_location)
+    {
+      if (flag_var_tracking == 1)
+        {
+	  if (debug_info_level < DINFO_LEVEL_NORMAL)
+	    warning ("variable tracking requested, but useless unless "
+		     "producing debug info");
+	  else
+	    warning ("variable tracking requested, but not supported "
+		     "by this debug format");
+	}
+      flag_var_tracking = 0;
+    }
+
   if (flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING)
     {
       /* User has not specified -f(no-)var-tracking so autodetect it.  */
       flag_var_tracking
 	= (optimize >= 1 && debug_info_level >= DINFO_LEVEL_NORMAL
 	   && debug_hooks->var_location != do_nothing_debug_hooks.var_location);
-
-      /* Temporarily disable variable tracking on big-endian machines.  */
-      if (flag_var_tracking && (WORDS_BIG_ENDIAN || BYTES_BIG_ENDIAN))
-	flag_var_tracking = 0;
-    }
-  else
-    {
-      /* Temporarily disable variable tracking on big-endian machines.  */
-      if (flag_var_tracking && (WORDS_BIG_ENDIAN || BYTES_BIG_ENDIAN))
-	{
-	  warning ("-fvar-tracking not supported for this target");
-	  flag_var_tracking = 0;
-	}
     }
 
   /* If auxiliary info generation is desired, open the output file.

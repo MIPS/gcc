@@ -1,5 +1,11 @@
 2004-06-05  Josef Zlomek  <zlomekj@suse.cz>
 
+	* toplev.c (process_options): Enable variable tracking also on big
+	endian machines.  Warn if var-tracking requested but not supported
+	or useless.
+
+2004-06-05  Josef Zlomek  <zlomekj@suse.cz>
+
 	Backport from mainline:
 	2004-05-27  Josef Zlomek  <zlomekj@suse.cz>
 
