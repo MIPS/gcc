@@ -10,7 +10,7 @@
 	* decl.c (java_dup_lang_specific_decl): All lang_decl structures
 	are now the same size.
 	(lang_mark_tree): Use gengtype to mark TYPE_LANG_SPECIFIC;
-	use descriminator to mark DECL_LANG_SPECIFIC.
+	use discriminator to mark DECL_LANG_SPECIFIC.
 
 2002-04-09  Geoffrey Keating  <geoffk@redhat.com>
 
