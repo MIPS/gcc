@@ -128,6 +128,7 @@ cgraph_node (tree decl)
 			        (DECL_ASSEMBLER_NAME (decl)), INSERT);
   if (*slot)
     return *slot;
+
   node = cgraph_create_node ();
   node->decl = decl;
   *slot = node;
@@ -309,7 +310,8 @@ cgraph_remove_node (struct cgraph_node *node)
 
       for (n = *slot; n; n = n->next_clone)
 	if (n->global.inlined_to
-	    || (!n->global.inlined_to && !TREE_ASM_WRITTEN (n->decl)))
+	    || (!n->global.inlined_to
+		&& !TREE_ASM_WRITTEN (n->decl) && !DECL_EXTERNAL (n->decl)))
 	  break;
       if (!n && !dump_enabled_p (TDI_all))
         DECL_SAVED_TREE (node->decl) = NULL;

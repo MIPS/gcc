@@ -411,7 +411,8 @@ verify_cgraph_node (struct cgraph_node *node)
     }
   
   if (node->analyzed
-      && DECL_SAVED_TREE (node->decl) && !TREE_ASM_WRITTEN (node->decl))
+      && DECL_SAVED_TREE (node->decl) && !TREE_ASM_WRITTEN (node->decl)
+      && (!DECL_EXTERNAL (node->decl) || node->global.inlined_to))
     {
       walk_tree_without_duplicates (&DECL_SAVED_TREE (node->decl),
 				    verify_cgraph_node_1, node);
@@ -550,9 +551,9 @@ cgraph_finalize_compilation_unit (void)
 
       if (!node->reachable && DECL_SAVED_TREE (decl))
 	{
-	  cgraph_remove_node (node);
 	  if (cgraph_dump_file)
 	    fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
+	  cgraph_remove_node (node);
 	}
     }
   if (cgraph_dump_file)
@@ -594,7 +595,7 @@ cgraph_mark_functions_to_output (void)
 	node->output = 1;
       /* We should've reclaimed all functions that are not needed.  */
       else if (!node->global.inlined_to && DECL_SAVED_TREE (decl)
-	       && !node->origin)
+	       && !node->origin && !DECL_EXTERNAL (decl))
 	{
 	  dump_cgraph_node (stderr, node);
 	  abort ();
@@ -689,6 +690,91 @@ cgraph_postorder (struct cgraph_node **order)
       }
   free (stack);
   return order_pos;
+}
+
+/* Perform reachability analysis and reclaim all unreachable nodes.  */
+static bool
+cgraph_remove_unreachable_nodes (void)
+{
+  static struct cgraph_node footer;
+  struct cgraph_node *first = &footer;
+  struct cgraph_node *node;
+  bool changed = false;
+  int insns = 0;
+
+  if (cgraph_dump_file)
+    fprintf (cgraph_dump_file, "\nReclaiming functions:");
+  for (node = cgraph_nodes; node; node = node->next)
+    if (node->needed
+	&& (!DECL_EXTERNAL (node->decl) || !DECL_SAVED_TREE (node->decl)))
+      {
+	node->aux = first;
+	first = node;
+      }
+    else if (node->aux)
+      abort ();
+
+  /* Perform reachability analysis.  As a special case do not consider
+     extern inline functions not inlined as live because we won't output
+     them at all.  */
+  while (first != &footer)
+    {
+      struct cgraph_edge *e;
+      node = first;
+      first = first->aux;
+
+      for (e = node->callees; e; e = e->next_callee)
+	if (!e->callee->aux
+	    && (e->inline_call || !DECL_SAVED_TREE (e->callee->decl)
+		|| !DECL_EXTERNAL (e->callee->decl)))
+	  {
+	    e->callee->aux = first;
+	    first = e->callee;
+	  }
+    }
+
+  /* Remove unreachable nodes.  Extern inline functions need special care;
+     when they are still called from some existing edge, we only can make
+     them extern and release their body.  */
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      if (!node->aux)
+	{
+	  struct cgraph_edge *e = NULL;
+
+	  if (cgraph_dump_file)
+	    fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
+	  insns += node->local.self_insns;
+
+	  if (DECL_EXTERNAL (node->decl) && DECL_SAVED_TREE (node->decl))
+	    {
+	      for (e = node->callers; e; e = e->next_caller)
+		if (e->caller->aux)
+		  break;
+	    }
+	  if (e || node->needed)
+	    {
+	      struct cgraph_node *clone;
+
+	      for (clone = node->next_clone; clone; clone = clone->next_clone)
+		if (clone->aux)
+		  break;
+	      if (!clone)
+	        DECL_SAVED_TREE (node->decl) == NULL_TREE;
+	      while (node->callees)
+	        cgraph_remove_edge (node->callees);
+	    }
+	  else
+	    cgraph_remove_node (node);
+	  changed = true;
+	}
+    }
+  for (node = cgraph_nodes; node; node = node->next)
+    node->aux = NULL;
+  if (cgraph_dump_file)
+    fprintf (cgraph_dump_file, "\nReclaimed %i insns:", insns);
+  verify_cgraph ();
+  return changed;
 }
 
 /* Estimate size of the function after inlining WHAT into TO.  */
@@ -1254,15 +1340,7 @@ cgraph_decide_inlining (void)
   /* We will never output extern functions we didn't inline. 
      ??? Perhaps we can prevent accounting of growth of external
      inline functions.  */
-  for (node = cgraph_nodes; node; node = node->next)
-    {
-      if (node->global.inlined_to
-	  && DECL_EXTERNAL (node->global.inlined_to->decl))
-        cgraph_remove_node (node);
-      if (!node->global.inlined_to && DECL_EXTERNAL (node->decl)
-	  && !dump_enabled_p (TDI_all))
-	DECL_SAVED_TREE (node->decl) = NULL_TREE;
-    }
+  cgraph_remove_unreachable_nodes ();
 
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file,
@@ -1459,6 +1537,7 @@ cgraph_optimize (void)
 	       right.  It probably does not worth the effort as these functions
 	       should go away soon.  */
 	    && !node->origin
+	    && !DECL_EXTERNAL (node->decl)
 	    && (node->global.inlined_to
 	        || DECL_SAVED_TREE (node->decl)))
 	  {

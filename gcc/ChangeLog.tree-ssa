@@ -1,3 +1,14 @@
+2003-12-16  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_remove_node): Ignore DECL_EXTERNAL clones.
+	* cgraphunit.c (verify_cgraph_node): Do not insist on unemmited extern
+	inline functions to be valid.
+	(cgraph_finalize_compilation_unit):  Fix ordering.
+	(cgraph_mark_functions_to_output): Do not insist on DECL_EXTERNAL
+	nodes to be reclaimed.
+	(cgraph_remove_unreachable_nodes): New function.
+	(cgraph_decide_inlining): use it.
+
 2003-12-15  Andrew MacLeod  <amacleod@redhat.com>
 
 	* Makefile.in (TREE_FLOW_H): Add dependence on tree-ssa-operands.h
