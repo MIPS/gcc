@@ -85,15 +85,16 @@ public abstract class AbstractDocument
 
   public abstract Element getDefaultRootElement();
 
-  protected Element createBranchElement(Element parent, AttributeSet a)
+  protected Element createBranchElement(Element parent,
+					AttributeSet attributes)
   {
-    return new BranchElement(parent, a, 0, 0);
+    return new BranchElement(parent, attributes);
   }
 
-  protected Element createLeafElement(Element parent, AttributeSet a, int p0,
-                                      int p1)
+  protected Element createLeafElement(Element parent, AttributeSet attributes,
+				      int start, int end)
   {
-    return new LeafElement(parent, a, p0, p1 - p0);
+    return new LeafElement(parent, attributes, start, end);
   }
 
   public Position createPosition(final int offset) throws BadLocationException
@@ -200,7 +201,9 @@ public abstract class AbstractDocument
 
   public Element[] getRootElements()
   {
-    return null;
+    Element[] elements = new Element[1];
+    elements[0] = getDefaultRootElement();
+    return elements;
   }
 
   public Position getStartPosition()
@@ -577,16 +580,12 @@ public abstract class AbstractDocument
   public class BranchElement extends AbstractElement
   {
     private static final long serialVersionUID = -8595176318868717313L;
-    private int start;
-    private int end;
+    
     private Vector children = new Vector();
 
-    public BranchElement(Element parent, AttributeSet attributes, int start,
-                         int end)
+    public BranchElement(Element parent, AttributeSet attributes)
     {
       super(parent, attributes);
-      this.start = start;
-      this.end = end;
     }
 
     public Enumeration children()
@@ -616,7 +615,7 @@ public abstract class AbstractDocument
 
     public int getEndOffset()
     {
-      return end;
+      return ((Element) children.lastElement()).getEndOffset();
     }
 
     public String getName()
@@ -626,7 +625,7 @@ public abstract class AbstractDocument
 
     public int getStartOffset()
     {
-      return start;
+      return ((Element) children.firstElement()).getStartOffset();
     }
 
     public boolean isLeaf()

@@ -99,8 +99,8 @@ public class Utilities
 	    // In case we have a tab, we just 'jump' over the tab.
 	    // When we have no tab expander we just use the width of 'm'.
 	    if (e != null)
-	      pixelX += (int) e.nextTabStop((float) pixelX,
-					    startOffset + offset - s.offset);
+	      pixelX = (int) e.nextTabStop((float) pixelX,
+					   startOffset + offset - s.offset);
 	    else
 	      pixelX += metrics.charWidth('m');
 	    break;
@@ -155,8 +155,8 @@ public class Utilities
 	    // In case we have a tab, we just 'jump' over the tab.
 	    // When we have no tab expander we just use the width of 'm'.
 	    if (e != null)
-	      pixelX += (int) e.nextTabStop((float) pixelX,
-					    startOffset + offset - s.offset);
+	      pixelX = (int) e.nextTabStop((float) pixelX,
+					   startOffset + offset - s.offset);
 	    else
 	      pixelX += metrics.charWidth('m');
 	    break;

@@ -191,7 +191,7 @@ public class DefaultCaret extends Rectangle
     if (visible)
       {
 	g.setColor(textComponent.getCaretColor());
-	g.drawRect(rect.x, rect.y, 2, rect.height);
+	g.drawLine(rect.x, rect.y, rect.x, rect.y + rect.height);
       }
   }
 

@@ -873,8 +873,8 @@ public abstract class JTextComponent extends JComponent
   {
     try
       {
-	getDocument().remove(0, doc.getLength());
-	getDocument().insertString(0, text, null);
+	doc.remove(0, doc.getLength());
+	doc.insertString(0, text, null);
       }
     catch (BadLocationException e)
       {

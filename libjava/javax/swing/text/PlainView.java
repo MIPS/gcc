@@ -170,10 +170,18 @@ public class PlainView extends View
     return 8;
   }
 
+  /**
+   * Returns the next tab stop position after a given reference position.
+   *
+   * This implementation ignores the <code>tabStop</code> argument.
+   * 
+   * @param x the current x position in pixels
+   * @param tabStop the position within the text stream that the tab occured at
+   */
   public float nextTabStop(float x, int tabStop)
   {
-    System.out.println("Michael: PlainView.nextTabpStop: missing implementation");
-    return x;
+    float tabSizePixels = getTabSize() + metrics.charWidth('m');
+    return (float) (Math.floor(x / tabSizePixels) + 1) * tabSizePixels;
   }
 
   public float getPreferredSpan(int axis)

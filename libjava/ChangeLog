@@ -1,3 +1,24 @@
+2004-08-25  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/text/AbstractDocument.java
+	(createBranchElement): Use new constructor of BranchElement.
+	(createLeafElement): Renamed arguments.
+	(getRootElements): Implemented.
+	(BranchElement.start): Removed.
+	(BranchElement.end): Likewise.
+	(BranchElement.BranchElement): Fixed arguments.
+	(BranchElement.getEndOffset): Reimplemented.
+	(BranchElement.getStartOffset): Likewis.
+	* javax/swing/text/DefaultCaret.java
+	(paint): Draw simple vertical line as caret instead of a rectangle.
+	* javax/swing/text/JTextComponent.java
+	(setText): Use doc directly.
+	* javax/swing/text/PlainView.java
+	(nextTabStop): Implemented.
+	* javax/swing/text/Utilities.java
+	(drawTabbedText): nextTabStop() returns an absolute x position.
+	(getTabbedTextWidth): Likewise.
+
 2004-08-24  Graydon Hoare  <graydon@redhat.com>
 
 	* java/awt/Component.java 
