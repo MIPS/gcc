@@ -782,7 +782,7 @@ gfc_trans_iolength (gfc_code * c ATTRIBUTE_UNUSED)
   gfc_todo_error ("IOLENGTH statement");
 }
 
-gfc_expr *
+static gfc_expr *
 gfc_new_nml_name_expr (char * name)
 {
    gfc_expr * nml_name;
@@ -797,7 +797,7 @@ gfc_new_nml_name_expr (char * name)
    return nml_name;
 }
 
-gfc_expr *
+static gfc_expr *
 get_new_var_expr(gfc_symbol * sym)
 {
   gfc_expr * nml_var;

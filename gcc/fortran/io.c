@@ -180,6 +180,7 @@ format_lex (void)
     }
   while (gfc_is_whitespace (c));
 
+  negative_flag = 0;
   switch (c)
     {
     case '-':
@@ -416,6 +417,7 @@ check_format (void)
   use_last_char = 0;
   saved_token = FMT_NONE;
   level = 0;
+  repeat = 0;
   rv = SUCCESS;
 
   t = format_lex ();
