@@ -2068,9 +2068,6 @@ ccp_fold_builtin (tree stmt, tree fn)
     case BUILT_IN_STRNCPY:
       strlen_arg = 2;
       break;
-    case BUILT_IN_STRCMP:
-    case BUILT_IN_STRNCMP:
-      strlen_arg = 3;
     default:
       return NULL_TREE;
     }
@@ -2102,10 +2099,6 @@ ccp_fold_builtin (tree stmt, tree fn)
       return simplify_builtin_strcpy (arglist, strlen_val[1]);
     case BUILT_IN_STRNCPY:
       return simplify_builtin_strncpy (arglist, strlen_val[1]);
-    case BUILT_IN_STRCMP:
-      return simplify_builtin_strcmp (arglist, strlen_val[0], strlen_val[1]);
-    case BUILT_IN_STRNCMP:
-      return simplify_builtin_strncmp (arglist, strlen_val[0], strlen_val[1]);
     case BUILT_IN_FPUTS:
       return simplify_builtin_fputs (arglist,
 				     TREE_CODE (stmt) != MODIFY_EXPR, 0,

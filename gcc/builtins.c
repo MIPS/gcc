@@ -169,6 +169,8 @@ static tree fold_builtin_strncmp (tree);
 static tree fold_builtin_signbit (tree);
 
 static tree simplify_builtin_memcmp (tree);
+static tree simplify_builtin_strcmp (tree);
+static tree simplify_builtin_strncmp (tree);
 static tree simplify_builtin_strpbrk (tree);
 static tree simplify_builtin_strstr (tree);
 static tree simplify_builtin_strchr (tree);
@@ -7576,10 +7578,10 @@ simplify_builtin (tree exp, int ignore)
       val = simplify_builtin_strncpy (arglist, NULL_TREE);
       break;
     case BUILT_IN_STRCMP:
-      val = simplify_builtin_strcmp (arglist, NULL_TREE, NULL_TREE);
+      val = simplify_builtin_strcmp (arglist);
       break;
     case BUILT_IN_STRNCMP:
-      val = simplify_builtin_strncmp (arglist, NULL_TREE, NULL_TREE);
+      val = simplify_builtin_strncmp (arglist);
       break;
     case BUILT_IN_STRPBRK:
       val = simplify_builtin_strpbrk (arglist);
@@ -8067,10 +8069,10 @@ simplify_builtin_memcmp (tree arglist)
    COMPOUND_EXPR in the chain will contain the tree for the simplified
    form of the builtin function call.  */
 
-tree
-simplify_builtin_strcmp (tree arglist, tree len1, tree len2)
+static tree
+simplify_builtin_strcmp (tree arglist)
 {
-  tree arg1, arg2, fn;
+  tree arg1, arg2;
   const char *p1, *p2;
 
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
@@ -8078,6 +8080,10 @@ simplify_builtin_strcmp (tree arglist, tree len1, tree len2)
 
   arg1 = TREE_VALUE (arglist);
   arg2 = TREE_VALUE (TREE_CHAIN (arglist));
+
+  /* If both arguments are equal (and not volatile), return zero.  */
+  if (operand_equal_p (arg1, arg2, 0))
+    return integer_zero_node;
 
   p1 = c_getstr (arg1);
   p2 = c_getstr (arg2);
@@ -8107,49 +8113,7 @@ simplify_builtin_strcmp (tree arglist, tree len1, tree len2)
       return fold (build (MINUS_EXPR, integer_type_node, ind1, ind2));
     }
 
-  if (!len1)
-    len1 = c_strlen (arg1, 0);
-  if (len1)
-    len1 = size_binop (PLUS_EXPR, ssize_int (1), len1);
-
-  if (!len2)
-    len2 = c_strlen (arg2, 0);
-  if (len2)
-    len2 = size_binop (PLUS_EXPR, ssize_int (1), len2);
-
-  /* If we don't have a constant length for the first, use the length
-     of the second, if we know it.  We don't require a constant for
-     this case; some cost analysis could be done if both are available
-     but neither is constant.  For now, assume they're equally cheap
-     unless one has side effects.
-
-     If both strings have constant lengths, use the smaller.  This
-     could arise if optimization results in strcpy being called with
-     two fixed strings, or if the code was machine-generated.  We should
-     add some code to the `memcmp' handler below to deal with such
-     situations, someday.  */
-
-  if (!len1 || TREE_CODE (len1) != INTEGER_CST)
-    {
-      if (len2 && !TREE_SIDE_EFFECTS (len2))
-	len1 = len2;
-      else if (len1 == 0)
-	return 0;
-    }
-  else if (len2 && TREE_CODE (len2) == INTEGER_CST
-	   && tree_int_cst_lt (len2, len1))
-    len2 = len2;
-
-  /* If both arguments have side effects, we cannot optimize.  */
-  if (TREE_SIDE_EFFECTS (len1))
-    return 0;
-
-  fn = implicit_built_in_decls[BUILT_IN_MEMCMP];
-  if (!fn)
-    return 0;
-
-  chainon (arglist, build_tree_list (NULL_TREE, len1));
-  return build_function_call_expr (fn, arglist);
+  return 0;
 }
 
 /* Simplify a call to the strncmp builtin.
@@ -8169,10 +8133,9 @@ simplify_builtin_strcmp (tree arglist, tree len1, tree len2)
    COMPOUND_EXPR in the chain will contain the tree for the simplified
    form of the builtin function call.  */
 
-tree
-simplify_builtin_strncmp (tree arglist, tree len1, tree len2)
+static tree
+simplify_builtin_strncmp (tree arglist)
 {
-  tree fn, newarglist, len = 0;
   tree arg1, arg2, arg3;
   const char *p1, *p2;
 
@@ -8185,13 +8148,20 @@ simplify_builtin_strncmp (tree arglist, tree len1, tree len2)
   arg3 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
 
   /* If the len parameter is zero, return zero.  */
-  if (host_integerp (arg3, 1) && tree_low_cst (arg3, 1) == 0)
+  if (integer_zerop (arg3))
     {
       /* Evaluate and ignore arg1 and arg2 in case they have
 	 side-effects.  */
       return build (COMPOUND_EXPR, integer_type_node, arg1,
 		    build (COMPOUND_EXPR, integer_type_node,
 			   arg2, integer_zero_node));
+    }
+
+  /* If arg1 and arg2 are equal (and not volatile), return zero.  */
+  if (operand_equal_p (arg1, arg2, 0))
+    {
+      /* Evaluate and ignore arg3 in case it has side-effects.  */
+      return build (COMPOUND_EXPR, integer_type_node, arg3, integer_zero_node);
     }
 
   p1 = c_getstr (arg1);
@@ -8226,41 +8196,7 @@ simplify_builtin_strncmp (tree arglist, tree len1, tree len2)
       return fold (build (MINUS_EXPR, integer_type_node, ind1, ind2));
     }
 
-  /* If c_strlen can determine an expression for one of the string
-     lengths, and it doesn't have side effects, then call
-     expand_builtin_memcmp() using length MIN(strlen(string)+1, arg3).  */
-
-  /* Perhaps one of the strings is really constant, if so prefer
-     that constant length over the other string's length.  */
-  if (p1)
-    len = len1 ? len1 : c_strlen (arg1, 0);
-  else if (p2)
-    len = len2 ? len2 : c_strlen (arg2, 0);
-
-  /* If we still don't have a len, try either string arg as long
-     as they don't have side effects.  */
-  if (!len && !TREE_SIDE_EFFECTS (arg1))
-    len = c_strlen (arg1, 0);
-  if (!len && !TREE_SIDE_EFFECTS (arg2))
-    len = c_strlen (arg2, 0);
-  /* If we still don't have a length, punt.  */
-  if (!len)
-    return 0;
-
-  fn = implicit_built_in_decls[BUILT_IN_MEMCMP];
-  if (!fn)
-    return 0;
-
-  /* Add one to the string length.  */
-  len = fold (size_binop (PLUS_EXPR, len, ssize_int (1)));
-
-  /* The actual new length parameter is MIN(len,arg3).  */
-  len = fold (build (MIN_EXPR, TREE_TYPE (len), len, arg3));
-
-  newarglist = build_tree_list (NULL_TREE, len);
-  newarglist = tree_cons (NULL_TREE, arg2, newarglist);
-  newarglist = tree_cons (NULL_TREE, arg1, newarglist);
-  return build_function_call_expr (fn, newarglist);
+  return 0;
 }
 
 /* Simplify a call to the strcat builtin.
