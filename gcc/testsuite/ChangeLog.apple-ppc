@@ -1,5 +1,16 @@
 2005-02-02  Ziemowit Laski  <zlaski@apple.com>
 
+	Radar 3984534
+	* g++.dg/ext/lvalue-cast-1.cpp: Rename to
+	g++.dg/ext/lvalue-cast-1.C.
+	* g++.dg/ext/lvalue-cast-2.cpp: Rename to
+	g++.dg/ext/lvalue-cast-2.C.
+	* g++.dg/ext/lvalue-cond-1.cpp: Remove duplicated
+	lines; rename to g++.dg/ext/lvalue-cond-1.C; mark
+	warnings as bogus.
+
+2005-02-02  Ziemowit Laski  <zlaski@apple.com>
+
 	Radar 3978104
 	* obj-c++.dg/extra-semi.mm: New.
 	* objc.dg/extra-semi.m: New.
