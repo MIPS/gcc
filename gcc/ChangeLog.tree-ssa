@@ -1,3 +1,8 @@
+2004-02-27  Dale Johannesen  <dalej@apple.com>
+	* config/darwin.c (machopic_output_possible_stub_label):  Remove.
+	config/darwin-protos.h:  Ditto.
+	config/darwin.h:  Remove call to it.
+
 2004-02-27  Richard Henderson  <rth@redhat.com>
 
 	PR middle-end/14310
