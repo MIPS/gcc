@@ -1,3 +1,8 @@
+2004-12-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_tree.h (_Rb_tree_rebalance,
+	_Rb_tree_rebalance_for_erase): Remove unreasonable 'inline'.
+
 2004-11-01  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/basic_string.tcc (_M_mutate, _Rep::_M_clone): Use
