@@ -742,7 +742,6 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 	}
 
       /* Mark this PHI node as interesting for the rename process.  */
-      REWRITE_THIS_STMT (phi) = 1;
       REGISTER_DEFS_IN_THIS_STMT (phi) = 1;
     }
 }
@@ -895,8 +894,7 @@ rewrite_initialize_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {
       tree result = PHI_RESULT (phi);
-      if (REWRITE_THIS_STMT (phi))
-	register_new_def (result, &block_defs_stack);
+      register_new_def (result, &block_defs_stack);
     }
 }
 

@@ -1,3 +1,12 @@
+2005-02-27  Diego Novillo  <dnovillo@redhat.com>
+
+	Merge from mainline
+
+		PR tree-optimization/20204
+		* tree-into-ssa.c (insert_phi_nodes_for): Do not use
+		REWRITE_THIS_STMT markers on PHI nodes.
+		(rewrite_initialize_block): Likewise.
+
 2005-02-23  Diego Novillo  <dnovillo@redhat.com>
 
 	Merge from mainline (tree-cleanup-merge-20050223).
