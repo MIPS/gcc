@@ -6235,8 +6235,7 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
   switch (TREE_CODE (arg))
     {
     case INTEGER_CST:
-      /* APPLE LOCAL 32-bit HOST_WIDE_INT */
-      sprintf (buf + strlen (buf), "%lld", (long long int)tree_low_cst (arg, 0));
+      sprintf (buf + strlen (buf), HOST_WIDE_INT_PRINT_DEC, tree_low_cst (arg, 0));
       break;
 
     case IDENTIFIER_NODE:
