@@ -3801,6 +3801,11 @@ fold_truthop (enum tree_code code, tree truth_type, tree lhs, tree rhs)
 		      truth_type, ll_arg, lr_arg);
     }
 
+#if 0
+  /* Tree SSA FIXME:
+     This is disabled for tree-ssa, because on the branch we may actually
+     lose the opportunity to propagate constants into the branches of a
+     conditional.  */
   /* If the RHS can be evaluated unconditionally and its operands are
      simple, it wins to evaluate the RHS unconditionally on machines
      with expensive branches.  In this case, this isn't a comparison
@@ -3834,6 +3839,7 @@ fold_truthop (enum tree_code code, tree truth_type, tree lhs, tree rhs)
 
       return build (code, truth_type, lhs, rhs);
     }
+#endif
 
   /* See if the comparisons can be merged.  Then get all the parameters for
      each side.  */

@@ -139,15 +139,6 @@ static tree_stmt_iterator bsi_link_after (tree_stmt_iterator *, tree,
 /* Set the pending stmt field.  */
 #define SET_PENDING_STMT(e, t)	((e->insns) = (rtx)t)
 
-
-/* Remove any COMPOUND_EXPR container from NODE.  */
-#define STRIP_CONTAINERS(NODE)					\
-  do {								\
-    while (TREE_CODE (NODE) == COMPOUND_EXPR)			\
-      NODE = TREE_OPERAND (NODE, 0);				\
-  } while (0)
-
-
 /*---------------------------------------------------------------------------
 			      Create basic blocks
 ---------------------------------------------------------------------------*/
