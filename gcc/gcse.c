@@ -5317,11 +5317,12 @@ delete_null_pointer_checks_1 (delete_list, block_reg, nonnull_avin,
 	{
 	  rtx new_jump;
 
-	  new_jump = emit_jump_insn_before (gen_jump (JUMP_LABEL (last_insn)),
-					    last_insn);
+	  new_jump = emit_jump_insn_after (gen_jump (JUMP_LABEL (last_insn)),
+					   last_insn);
 	  JUMP_LABEL (new_jump) = JUMP_LABEL (last_insn);
 	  LABEL_NUSES (JUMP_LABEL (new_jump))++;
 	  emit_barrier_after (new_jump);
+	  delete_insn (last_insn);
 	}
       if (!*delete_list)
 	VARRAY_RTX_INIT (*delete_list, 10, "delete_list");

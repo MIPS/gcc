@@ -2977,11 +2977,15 @@ rest_of_compilation (decl)
       if_convert (0);
       timevar_pop (TV_IFCVT);
 
-      /* CFG is no longer maintained up-to-date.  */
-      free_bb_for_insn ();
       /* Try to identify useless null pointer tests and delete them.  */
       if (flag_delete_null_pointer_checks)
-	delete_null_pointer_checks (insns);
+	{
+	  delete_null_pointer_checks (insns);
+	  purge_all_dead_edges (0);
+	}
+#ifdef ENABLE_CHECKING
+      verify_flow_info ();
+#endif
     }
 
   /* Jump optimization, and the removal of NULL pointer checks, may
@@ -3009,6 +3013,7 @@ rest_of_compilation (decl)
       reg_scan (insns, max_reg_num (), 1);
 
       tem = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+      purge_all_dead_edges (0);
 
       /* If we are not running more CSE passes, then we are no longer
 	 expecting CSE to be run.  But always rerun it in a cheap mode.  */
@@ -3018,28 +3023,23 @@ rest_of_compilation (decl)
 	{
 	  timevar_push (TV_JUMP);
 	  rebuild_jump_labels (insns);
-	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 	  timevar_pop (TV_JUMP);
-	  /* CFG is no longer maintained up-to-date.  */
-	  free_bb_for_insn ();
 	}
 
       /* Run this after jump optmizations remove all the unreachable code
 	 so that unreachable code will not keep values live.  */
-      delete_trivially_dead_insns (insns, max_reg_num (), 0);
+      delete_trivially_dead_insns (insns, max_reg_num (), 1);
 
       /* Try to identify useless null pointer tests and delete them.  */
       if (flag_delete_null_pointer_checks)
 	{
 	  timevar_push (TV_JUMP);
-	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
 	  delete_null_pointer_checks (insns);
-	  /* CFG is no longer maintained up-to-date.  */
-	  free_bb_for_insn ();
+	  purge_all_dead_edges (0);
 	  timevar_pop (TV_JUMP);
 	}
 
@@ -3048,12 +3048,14 @@ rest_of_compilation (decl)
       renumber_insns (rtl_dump_file);
 
       timevar_pop (TV_CSE);
-      close_dump_file (DFI_cse, print_rtl, insns);
+      close_dump_file (DFI_cse, print_rtl_with_bb, insns);
     }
 
   open_dump_file (DFI_addressof, decl);
 
   purge_addressof (insns);
+  if (optimize)
+    purge_all_dead_edges (0);
   reg_scan (insns, max_reg_num (), 1);
 
   close_dump_file (DFI_addressof, print_rtl, insns);
@@ -3070,7 +3072,6 @@ rest_of_compilation (decl)
       timevar_push (TV_GCSE);
       open_dump_file (DFI_gcse, decl);
 
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       tem = gcse_main (insns, rtl_dump_file);
 
@@ -3078,8 +3079,6 @@ rest_of_compilation (decl)
       save_cfj = flag_cse_follow_jumps;
       flag_cse_skip_blocks = flag_cse_follow_jumps = 0;
 
-      /* CFG is no longer maintained up-to-date.  */
-      free_bb_for_insn ();
       /* If -fexpensive-optimizations, re-run CSE to clean up things done
 	 by gcse.  */
       if (flag_expensive_optimizations)
@@ -3087,6 +3086,7 @@ rest_of_compilation (decl)
 	  timevar_push (TV_CSE);
 	  reg_scan (insns, max_reg_num (), 1);
 	  tem2 = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+	  purge_all_dead_edges (0);
 	  timevar_pop (TV_CSE);
 	  cse_not_expected = !flag_rerun_cse_after_loop;
 	}
@@ -3098,11 +3098,9 @@ rest_of_compilation (decl)
 	  tem = tem2 = 0;
 	  timevar_push (TV_JUMP);
 	  rebuild_jump_labels (insns);
-	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
-	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+	  delete_trivially_dead_insns (insns, max_reg_num (), 1);
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 	  /* CFG is no longer maintained up-to-date.  */
-	  free_bb_for_insn ();
 	  timevar_pop (TV_JUMP);
 
 	  if (flag_expensive_optimizations)
@@ -3114,12 +3112,13 @@ rest_of_compilation (decl)
 	    }
 	}
 
-      close_dump_file (DFI_gcse, print_rtl, insns);
+      close_dump_file (DFI_gcse, print_rtl_with_bb, insns);
       timevar_pop (TV_GCSE);
 
       ggc_collect ();
       flag_cse_skip_blocks = save_csb;
       flag_cse_follow_jumps = save_cfj;
+      free_bb_for_insn ();
      }
 
   /* Move constant computations out of loops.  */
@@ -3203,12 +3202,12 @@ rest_of_compilation (decl)
     {
       timevar_push (TV_BRANCH_PROB);
       open_dump_file (DFI_bp, decl);
-      close_dump_file (DFI_bp, print_rtl_with_bb, insns);
 
       /* Estimate using heuristics if no profiling info is available.  */
       if (flag_guess_branch_prob)
 	estimate_probability (&loops);
 
+      close_dump_file (DFI_bp, print_rtl_with_bb, insns);
       timevar_pop (TV_BRANCH_PROB);
     }
   if (optimize)
@@ -3243,13 +3242,11 @@ rest_of_compilation (decl)
 
 	  timevar_push (TV_IFCVT);
 
-	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 	  cleanup_cfg (CLEANUP_EXPENSIVE);
 	  if_convert (0);
 
 	  timevar_pop(TV_IFCVT);
 
-	  /* CFG is no longer maintained up-to-date.  */
 	  reg_scan (insns, max_reg_num (), 0);
 	  tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
 	  purge_all_dead_edges (false);
@@ -3259,12 +3256,11 @@ rest_of_compilation (decl)
 	      timevar_push (TV_JUMP);
 	      rebuild_jump_labels (insns);
 	      cleanup_cfg (CLEANUP_EXPENSIVE);
-	      /* CFG is no longer maintained up-to-date.  */
 	      timevar_pop (TV_JUMP);
 	    }
 	}
 
-      close_dump_file (DFI_cse2, print_rtl, insns);
+      close_dump_file (DFI_cse2, print_rtl_with_bb, insns);
       timevar_pop (TV_CSE2);
 
       ggc_collect ();
