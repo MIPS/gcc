@@ -1,3 +1,133 @@
+2003-04-03  Jason Merrill  <jason@redhat.com>
+
+	PR c/10175
+	* jump.c (never_reached_warning): Look backwards for a line note.
+
+2003-04-02  Richard Henderson  <rth@redhat.com>
+
+	* dwarf2out.c (output_call_frame_info): Ignore fde->nothrow as an
+	optimization when flag_exceptions not enabled.
+
+2003-03-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR other/6955
+	* collect2.c (collect_wait): Use WCOREDUMP and fix output message.
+	* system.h (WCOREDUMP, WCOREFLG): Define if necessary.
+
+2003-03-29  Arpad Beszedes <beszedes@cc.u-szeged.hu>
+
+	PR middle-end/9967
+	* builtins.c (expand_builtin_fputs): When optimizing for size,
+	don't transform fputs into fwrite.
+
+2003-03-29  Albert Chin-A-Young  <china@thewrittenword.com>
+	DJ Delorie  <dj at redhat dot com>,
+	Bruce Korb  <bkorb at gnu dot org>
+
+	* fixinc/inclhack.def (solaris_mutex_init_1): New; Fix
+	buggy Solaris mutex/cond initializers.
+	(solaris_mutex_init): Rename to solaris_mutex_init_2.
+	* fixinc/fixincl.x: Regenerate.
+	* fixinc/tests/base/pthread.h: Update.
+
+2003-03-29  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* fixinc/fixinc.interix: Remove completely dead code
+
+2003-03-29  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/7784
+	* reload.c (maybe_memory_address_p): New function.
+	(find_reloads_address): Use it instead of memory_address_p.
+
+2003-03-29  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.h (FUNCTION_VALUE_REGNO_P): Respect
+	TARGET_HARD_FLOAT.  Reformat.
+	(FUNCTION_ARG_REGNO_P): Likewise, and remove unneeded casts.
+
+2003-03-29  Glen Nakamura <glen@imodulo.com>
+
+	PR c/8224
+	* fold-const.c (extract_muldiv_1): Don't pass through type conversions
+	when signedness changes for division or modulus.
+
+2003-03-29  Alan Modra  <amodra@bigpond.net.au>
+
+	* reload1.c (reload_as_needed): Allow a USE in asm reloads.
+
+2003-03-28  Olivier Hainque  <hainque@act-europe.fr>
+
+	PR ada/9953
+	* ada/Makefile.in (gnatlib configuration for HPUX): Split
+	the general section for HPUX into specific sections for
+	HPUX 10 and HPUX 11.
+
+2003-03-28  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/10067
+	* config/sparc/sparc.md (jump pattern): Correct order
+	when issuing the annuling marker.
+
+2003-03-28  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/8281
+	* config/sparc/sparc.md (movdi_insn_sp32_v9): Remove 'f-f' alternative.
+	(movdi reg/reg split): Match only on sparc32, and v9 when int regs.
+
+2003-03-28  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Richard Henderson  <rth@redhat.com>
+
+	PR target/10114 and PR target/10084
+	* dwarf2out.c (mem_loc_descriptor): Handle LO_SUM.
+
+2003-03-27  Janis Johnson  <janis187@us.ibm.com>
+
+	PR sw-bug/10234
+	* system.h (GCCBUGURL): Reference GCC web site.
+
+2003-03-26  Richard Henderson  <rth@redhat.com>
+
+	* cfgrtl.c (try_redirect_by_replacing_jump): Disable removing
+	tablejumps with no optimization.
+
+2003-03-27  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/mips/iris6.h (CPLUSPLUS_CPP_SPEC): Define __c99.
+
+	* fixinc/inclhack.def (irix___restrict): Don't change __restrict
+	for C++ on IRIX 6.5.1[89].
+	* fixinc/tests/base/internal/sgimacros.h: New file.
+
+	* fixinc/inclhack.def (irix_wcsftime): Use XPG5 variant for C99.
+	* fixinc/fixincl.x: Regenerate.
+	* fixinc/tests/base/internal/wchar_core.h: New file.
+
+2003-03-26  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/7784
+	* reload.c (find_reloads_address): Handle
+	(PLUS (PLUS (REG) (REG)) (CONST_INT)) form for
+	all base registers.
+
+2003-03-25  Jason Merrill  <jason@redhat.com>
+
+	PR optimization/10171
+	* unroll.c (unroll_loop): Don't delete the jump at the end unless
+	we also delete a jump at the beginning.
+
+2003-03-25  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/passes.texi (Passes): Properly document that we do not
+	perform jump2 any longer; remove command-line option -dJ.
+
+2003-03-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/8746
+	* config/i386/i386.md (and promoting splitters): Disable HImode to
+	SImode promoting when the sign bit matters and is not preserved.
+	Disable promoting when optimizing for size.
+
 2003-04-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/ia64/unwind-ia64.c (uw_update_reg_address): Handle
