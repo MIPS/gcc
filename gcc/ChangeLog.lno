@@ -1,5 +1,9 @@
 2004-01-05  Andreas Jaeger  <aj@suse.de>
 
+	* tree-vectorizer.h: Follow coding standards, remove extra
+	whitespace.
+	* tree-vectorizer.c: Likewise.
+
 	* tree-vectorizer.c (vectorize_loops): Output statistics to
 	dump_file, fix printf string.
 	(vect_transform_loop): Replace DBG_VECT code with code dumping

@@ -72,7 +72,7 @@ static inline void
 set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info)
 {
   if (ann)
-    ann->aux = (char *)stmt_info;
+    ann->aux = (char *) stmt_info;
 }
 
 static inline stmt_vec_info
@@ -129,8 +129,8 @@ typedef struct _loop_vec_info {
 /*-----------------------------------------------------------------*/
 
 /* Main driver.  */
-extern void vectorize_loops (tree, bitmap, struct loops *, varray_type, 
-				enum tree_dump_index);
+extern void vectorize_loops (tree, bitmap, struct loops *, varray_type,
+			     enum tree_dump_index);
 
 /* creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
@@ -138,7 +138,8 @@ extern void destroy_loop_vec_info (loop_vec_info);
 extern stmt_vec_info new_stmt_vec_info (tree stmt);
 
 /* From the monev analyzer  */
-extern bool vec_array_base_name_differ_p (struct data_reference *, struct data_reference *);
+extern bool vec_array_base_name_differ_p (struct data_reference *,
+					  struct data_reference *);
 extern struct data_reference *vec_analyze_array (struct loop *, tree, tree);
 
 /* FORNOW: analyze and then vectorize each loop, rather than first analyzing all
