@@ -1,5 +1,5 @@
 /* Definitions for Sun Sparc64 running FreeBSD using the ELF format
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
    Contributed by David E. O'Brien <obrien@FreeBSD.org> and BSDi.
 
 This file is part of GNU CC.
@@ -26,7 +26,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #undef  CPP_PREDEFINES
 #define CPP_PREDEFINES FBSD_CPP_PREDEFINES
 
-#define LINK_SPEC "-m elf64_sparc %(link_arch)				\
+#define LINK_SPEC "%(link_arch)						\
   %{!mno-relax:%{!r:-relax}}						\
   %{p:%e`-p' not supported; use `-pg' and gprof(1)}			\
   %{Wl,*:%*}								\
@@ -92,7 +92,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #undef  TARGET_DEFAULT
 #define TARGET_DEFAULT \
   (MASK_V9 + MASK_64BIT + MASK_PTR64 /* + MASK_FASTER_STRUCTS */ \
-   + MASK_STACK_BIAS + MASK_APP_REGS + MASK_EPILOGUE + MASK_FPU \
+   + MASK_STACK_BIAS + MASK_APP_REGS + MASK_FPU \
    + MASK_LONG_DOUBLE_128 /* + MASK_HARD_QUAD */)
 
 /* The default code model.  */
@@ -101,6 +101,9 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 
 /************************[  Assembler stuff  ]********************************/
+
+#undef	LOCAL_LABEL_PREFIX
+#define LOCAL_LABEL_PREFIX  "."
 
 /* XXX2 */
 /* This is how to output a definition of an internal numbered label where

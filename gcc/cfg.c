@@ -1,6 +1,6 @@
 /* Control flow graph manipulation code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -472,7 +472,7 @@ dump_flow_info (file)
 	if (REG_N_SETS (i))
 	  fprintf (file, "; set %d time%s", REG_N_SETS (i),
 		   (REG_N_SETS (i) == 1) ? "" : "s");
-	if (REG_USERVAR_P (regno_reg_rtx[i]))
+	if (regno_reg_rtx[i] != NULL && REG_USERVAR_P (regno_reg_rtx[i]))
 	  fprintf (file, "; user var");
 	if (REG_N_DEATHS (i) != 1)
 	  fprintf (file, "; dies in %d places", REG_N_DEATHS (i));
@@ -480,7 +480,8 @@ dump_flow_info (file)
 	  fprintf (file, "; crosses 1 call");
 	else if (REG_N_CALLS_CROSSED (i))
 	  fprintf (file, "; crosses %d calls", REG_N_CALLS_CROSSED (i));
-	if (PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
+	if (regno_reg_rtx[i] != NULL
+	    && PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
 	  fprintf (file, "; %d bytes", PSEUDO_REGNO_BYTES (i));
 
 	class = reg_preferred_class (i);
@@ -497,7 +498,7 @@ dump_flow_info (file)
 		       reg_class_names[(int) altclass]);
 	  }
 
-	if (REG_POINTER (regno_reg_rtx[i]))
+	if (regno_reg_rtx[i] != NULL && REG_POINTER (regno_reg_rtx[i]))
 	  fprintf (file, "; pointer");
 	fprintf (file, ".\n");
       }
@@ -507,6 +508,8 @@ dump_flow_info (file)
     {
       basic_block bb = BASIC_BLOCK (i);
       edge e;
+      int sum;
+      gcov_type lsum;
 
       fprintf (file, "\nBasic block %d: first insn %d, last %d, ",
 	       i, INSN_UID (bb->head), INSN_UID (bb->end));
@@ -529,6 +532,37 @@ dump_flow_info (file)
       dump_regset (bb->global_live_at_end, file);
 
       putc ('\n', file);
+
+      /* Check the consistency of profile information.  We can't do that
+	 in verify_flow_info, as the counts may get invalid for incompletely
+	 solved graphs, later elliminating of conditionals or roundoff errors.
+	 It is still practical to have them reported for debugging of simple
+	 testcases.  */
+      sum = 0;
+      for (e = bb->succ; e; e = e->succ_next)
+	sum += e->probability;
+      if (bb->succ && abs (sum - REG_BR_PROB_BASE) > 100)
+	fprintf (file, "Invalid sum of outgoing probabilities %.1f%%\n",
+		 sum * 100.0 / REG_BR_PROB_BASE);
+      sum = 0;
+      for (e = bb->pred; e; e = e->pred_next)
+	sum += EDGE_FREQUENCY (e);
+      if (abs (sum - bb->frequency) > 100)
+	fprintf (file,
+		 "Invalid sum of incomming frequencies %i, should be %i\n",
+		 sum, bb->frequency);
+      lsum = 0;
+      for (e = bb->pred; e; e = e->pred_next)
+	lsum += e->count;
+      if (lsum - bb->count > 100 || lsum - bb->count < -100)
+	fprintf (file, "Invalid sum of incomming counts %i, should be %i\n",
+		 (int)lsum, (int)bb->count);
+      lsum = 0;
+      for (e = bb->succ; e; e = e->succ_next)
+	lsum += e->count;
+      if (bb->succ && (lsum - bb->count > 100 || lsum - bb->count < -100))
+	fprintf (file, "Invalid sum of incomming counts %i, should be %i\n",
+		 (int)lsum, (int)bb->count);
     }
 
   putc ('\n', file);

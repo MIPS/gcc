@@ -34,6 +34,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "c-common.h"
 
+struct diagnostic_context;
+
 /* Usage of TREE_LANG_FLAG_?:
    0: BINFO_MARKED (BINFO nodes).
       IDENTIFIER_MARKED (IDENTIFIER_NODEs)
@@ -322,8 +324,6 @@ typedef struct ptrmem_cst
   set_namespace_binding ((NODE), current_namespace, (VAL))
 
 #define CLEANUP_P(NODE)         TREE_LANG_FLAG_0 (TRY_BLOCK_CHECK (NODE))
-#define CLEANUP_DECL(NODE)      TREE_OPERAND (CLEANUP_STMT_CHECK (NODE), 0)
-#define CLEANUP_EXPR(NODE)      TREE_OPERAND (CLEANUP_STMT_CHECK (NODE), 1)
 
 /* Returns nonzero iff TYPE1 and TYPE2 are the same type, in the usual
    sense of `same'.  */
@@ -733,6 +733,7 @@ struct saved_scope
   tree x_saved_tree;
   tree incomplete;
   tree lookups;
+  tree last_parms;
 
   HOST_WIDE_INT x_processing_template_decl;
   int x_processing_specialization;
@@ -1360,8 +1361,14 @@ struct lang_type
    either a FUNCTION_DECL, a TEMPLATE_DECL, or an OVERLOAD.  All
    functions with the same name end up in the same slot.  The first
    two elements are for constructors, and destructors, respectively.
-   Any conversion operators are next, followed by ordinary member
-   functions.  There may be empty entries at the end of the vector.  */
+   All template conversion operators to innermost template dependent
+   types are overloaded on the next slot, if they exist.  Note, the
+   names for these functions will not all be the same.  The
+   non-template conversion operators & templated conversions to
+   non-innermost template types are next, followed by ordinary member
+   functions.  There may be empty entries at the end of the vector.
+   The conversion operators are unsorted. The ordinary member
+   functions are sorted, once the class is complete.  */
 #define CLASSTYPE_METHOD_VEC(NODE) (TYPE_LANG_SPECIFIC (NODE)->methods)
 
 /* The slot in the CLASSTYPE_METHOD_VEC where constructors go.  */
@@ -1594,7 +1601,7 @@ struct lang_type
 #define CLEAR_BINFO_MARKED(NODE)		\
   (TREE_VIA_VIRTUAL (NODE)			\
    ? CLEAR_CLASSTYPE_MARKED (BINFO_TYPE (NODE))	\
-   : (TREE_LANG_FLAG_0 (NODE) = 0))
+   : (void)(TREE_LANG_FLAG_0 (NODE) = 0))
 
 /* Nonzero means that this class is on a path leading to a new vtable.  */
 #define BINFO_VTABLE_PATH_MARKED(NODE)		\
@@ -1633,12 +1640,10 @@ struct lang_type
 #define SET_BINFO_PUSHDECLS_MARKED(NODE) SET_BINFO_VTABLE_PATH_MARKED (NODE)
 #define CLEAR_BINFO_PUSHDECLS_MARKED(NODE) CLEAR_BINFO_VTABLE_PATH_MARKED (NODE)
 
-/* Nonzero if this BINFO is a primary base class.
+/* Nonzero if this BINFO is a primary base class.  Note, this can be
+   set for non-canononical virtual bases. For a virtual primary base
+   you might also need to check whether it is canonical.  */
 
-   In the TYPE_BINFO hierarchy, this flag is never set for a base
-   class of a non-primary virtual base.  This flag is only valid for
-   paths (given by BINFO_INHERITANCE_CHAIN) that really exist in the
-   final object.  */
 #define BINFO_PRIMARY_P(NODE) \
   (BINFO_PRIMARY_BASE_OF (NODE) != NULL_TREE)
 
@@ -1763,7 +1768,9 @@ struct lang_decl_flags
   unsigned global_dtor_p : 1;
   unsigned assignment_operator_p : 1;
   unsigned anticipated_p : 1;
-  /* Four unused bits.  */
+  unsigned template_conv_p : 1;
+  
+  unsigned unused : 3; /* Three unused bits.  */
 
   union {
     /* In a FUNCTION_DECL, VAR_DECL, TYPE_DECL, or TEMPLATE_DECL, this
@@ -1950,6 +1957,12 @@ struct lang_decl
 /* Non-zero if NODE is a user-defined conversion operator.  */
 #define DECL_CONV_FN_P(NODE) \
   (IDENTIFIER_TYPENAME_P (DECL_NAME (NODE)))
+
+/* Non-zero if NODE, which is a TEMPLATE_DECL, is a template
+   conversion operator to a type dependent on the innermost template
+   args.  */
+#define DECL_TEMPLATE_CONV_FN_P(NODE) \
+  (DECL_LANG_SPECIFIC (NODE)->decl_flags.template_conv_p)
 
 /* Set the overloaded operator code for NODE to CODE.  */
 #define SET_OVERLOADED_OPERATOR_CODE(NODE, CODE) \
@@ -3615,6 +3628,8 @@ extern void cxx_print_xnode			PARAMS ((FILE *, tree, int));
 extern void cxx_print_decl			PARAMS ((FILE *, tree, int));
 extern void cxx_print_type			PARAMS ((FILE *, tree, int));
 extern void cxx_print_identifier		PARAMS ((FILE *, tree, int));
+extern void cxx_print_error_function	PARAMS ((struct diagnostic_context *,
+						 const char *));
 extern void cxx_set_yydebug			PARAMS ((int));
 extern void build_self_reference		PARAMS ((void));
 extern int same_signature_p			PARAMS ((tree, tree));
@@ -3646,12 +3661,21 @@ extern void clone_function_decl                 PARAMS ((tree, int));
 extern void adjust_clone_args			PARAMS ((tree));
 
 /* decl.c */
-/* resume_binding_level */
+extern int global_bindings_p			PARAMS ((void));
+extern int kept_level_p				PARAMS ((void));
+extern tree getdecls				PARAMS ((void));
+extern void pushlevel				PARAMS ((int));
+extern tree poplevel				PARAMS ((int,int, int));
+extern void insert_block			PARAMS ((tree));
+extern void set_block				PARAMS ((tree));
+extern tree pushdecl				PARAMS ((tree));
 extern void cxx_init_decl_processing		PARAMS ((void));
+extern void cxx_mark_tree			PARAMS ((tree));
+extern void cxx_insert_default_attributes	PARAMS ((tree));
+extern bool cxx_mark_addressable		PARAMS ((tree));
 extern int toplevel_bindings_p			PARAMS ((void));
 extern int namespace_bindings_p			PARAMS ((void));
 extern void keep_next_level			PARAMS ((int));
-extern int kept_level_p				PARAMS ((void));
 extern int template_parm_scope_p		PARAMS ((void));
 extern void set_class_shadows			PARAMS ((tree));
 extern void maybe_push_cleanup_level		PARAMS ((tree));
@@ -3889,8 +3913,10 @@ extern void check_handlers			PARAMS ((tree));
 extern void choose_personality_routine		PARAMS ((enum languages));
 
 /* in expr.c */
-extern void init_cplus_expand			PARAMS ((void));
 extern int extract_init				PARAMS ((tree, tree));
+extern rtx cxx_expand_expr			PARAMS ((tree, rtx,
+							 enum machine_mode,
+							 int));
 extern tree cplus_expand_constant               PARAMS ((tree));
 
 /* friend.c */
@@ -3900,7 +3926,6 @@ extern void add_friend                          PARAMS ((tree, tree));
 extern tree do_friend				PARAMS ((tree, tree, tree, tree, tree, enum overload_flags, tree, int));
 
 /* in init.c */
-extern void init_init_processing		PARAMS ((void));
 extern void emit_base_init			PARAMS ((tree, tree));
 extern tree expand_member_init			PARAMS ((tree, tree, tree));
 extern tree build_aggr_init			PARAMS ((tree, tree, int));
@@ -3951,7 +3976,7 @@ extern tree build_lang_decl			PARAMS ((enum tree_code, tree, tree));
 extern void retrofit_lang_decl			PARAMS ((tree));
 extern tree copy_decl                           PARAMS ((tree));
 extern tree copy_type                           PARAMS ((tree));
-extern tree cp_make_lang_type			PARAMS ((enum tree_code));
+extern tree cxx_make_type			PARAMS ((enum tree_code));
 extern tree make_aggr_type			PARAMS ((enum tree_code));
 extern void compiler_error			PARAMS ((const char *, ...))
   ATTRIBUTE_PRINTF_1;
@@ -4062,8 +4087,6 @@ extern int types_overlap_p			PARAMS ((tree, tree));
 extern tree get_vbase				PARAMS ((tree, tree));
 extern tree get_dynamic_cast_base_type          PARAMS ((tree, tree));
 extern void type_access_control			PARAMS ((tree, tree));
-extern void skip_type_access_control            PARAMS ((void));
-extern void reset_type_access_control           PARAMS ((void));
 extern int accessible_p                         PARAMS ((tree, tree));
 extern tree lookup_field			PARAMS ((tree, tree, int, int));
 extern int lookup_fnfields_1                    PARAMS ((tree, tree));
@@ -4099,8 +4122,6 @@ extern tree dfs_walk_real                      PARAMS ((tree,
 extern tree dfs_unmark                          PARAMS ((tree, void *));
 extern tree markedp                             PARAMS ((tree, void *));
 extern tree unmarkedp                           PARAMS ((tree, void *));
-extern tree dfs_skip_nonprimary_vbases_unmarkedp PARAMS ((tree, void *));
-extern tree dfs_skip_nonprimary_vbases_markedp  PARAMS ((tree, void *));
 extern tree dfs_unmarked_real_bases_queue_p     PARAMS ((tree, void *));
 extern tree dfs_marked_real_bases_queue_p       PARAMS ((tree, void *));
 extern tree dfs_skip_vbases                     PARAMS ((tree, void *));
@@ -4171,6 +4192,7 @@ extern tree finish_qualified_call_expr          PARAMS ((tree, tree));
 extern tree finish_unary_op_expr                PARAMS ((enum tree_code, tree));
 extern tree finish_id_expr                      PARAMS ((tree));
 extern void save_type_access_control		PARAMS ((tree));
+extern void reset_type_access_control           PARAMS ((void));
 extern void decl_type_access_control		PARAMS ((tree));
 extern int begin_function_definition            PARAMS ((tree, tree));
 extern tree begin_constructor_declarator        PARAMS ((tree, tree));
@@ -4222,6 +4244,9 @@ extern void replace_defarg			PARAMS ((tree, tree));
 extern void end_input				PARAMS ((void));
 
 /* in tree.c */
+extern tree stabilize_expr		PARAMS ((tree, tree *));
+extern tree cxx_unsave_expr_now		PARAMS ((tree));
+extern tree cxx_maybe_build_cleanup		PARAMS ((tree));
 extern void init_tree			        PARAMS ((void));
 extern int pod_type_p				PARAMS ((tree));
 extern tree canonical_type_variant              PARAMS ((tree));
@@ -4250,7 +4275,7 @@ extern tree build_overload                      PARAMS ((tree, tree));
 extern tree function_arg_chain			PARAMS ((tree));
 extern int promotes_to_aggr_type		PARAMS ((tree, enum tree_code));
 extern int is_aggr_type_2			PARAMS ((tree, tree));
-extern const char *lang_printable_name		PARAMS ((tree, int));
+extern const char *cxx_printable_name		PARAMS ((tree, int));
 extern tree build_exception_variant		PARAMS ((tree, tree));
 extern tree bind_template_template_parm		PARAMS ((tree, tree));
 extern tree array_type_nelts_total		PARAMS ((tree));
@@ -4355,6 +4380,7 @@ extern tree pfn_from_ptrmemfunc                 PARAMS ((tree));
 extern tree type_after_usual_arithmetic_conversions PARAMS ((tree, tree));
 extern tree composite_pointer_type              PARAMS ((tree, tree, tree, tree,
 						       const char*));
+extern tree merge_types				PARAMS ((tree, tree));
 extern tree check_return_expr                   PARAMS ((tree));
 #define cp_build_binary_op(code, arg1, arg2) \
   build_binary_op(code, arg1, arg2, 1)

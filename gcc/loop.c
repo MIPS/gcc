@@ -1446,10 +1446,13 @@ combine_movables (movables, regs)
 
   /* Regs that are set more than once are not allowed to match
      or be matched.  I'm no longer sure why not.  */
+  /* Only pseudo registers are allowed to match or be matched,
+     since move_movables does not validate the change.  */
   /* Perhaps testing m->consec_sets would be more appropriate here?  */
 
   for (m = movables->head; m; m = m->next)
     if (m->match == 0 && regs->array[m->regno].n_times_set == 1
+	&& m->regno >= FIRST_PSEUDO_REGISTER
 	&& !m->partial)
       {
 	struct movable *m1;
@@ -1461,11 +1464,9 @@ combine_movables (movables, regs)
 	/* We want later insns to match the first one.  Don't make the first
 	   one match any later ones.  So start this loop at m->next.  */
 	for (m1 = m->next; m1; m1 = m1->next)
-	  /* ??? HACK!  move_movables does not verify that the replacement
-	     is valid, which can have disasterous effects with hard regs
-	     and match_dup.  Turn combination off for now.  */
-	  if (0 && m != m1 && m1->match == 0
+	  if (m != m1 && m1->match == 0
 	      && regs->array[m1->regno].n_times_set == 1
+	      && m1->regno >= FIRST_PSEUDO_REGISTER
 	      /* A reg used outside the loop mustn't be eliminated.  */
 	      && !m1->global
 	      /* A reg used for zero-extending mustn't be eliminated.  */
@@ -5225,13 +5226,13 @@ strength_reduce (loop, flags)
   /* In case number of iterations is known, drop branch prediction note
      in the branch.  Do that only in second loop pass, as loop unrolling
      may change the number of iterations performed.  */
-  if ((flags & LOOP_BCT)
-      && loop_info->n_iterations / loop_info->unroll_number > 1)
+  if (flags & LOOP_BCT)
     {
-      int n = loop_info->n_iterations / loop_info->unroll_number;
-      predict_insn (PREV_INSN (loop->end),
-		    PRED_LOOP_ITERATIONS,
-		    REG_BR_PROB_BASE - REG_BR_PROB_BASE / n);
+      unsigned HOST_WIDE_INT n
+	= loop_info->n_iterations / loop_info->unroll_number;
+      if (n > 1)
+	predict_insn (PREV_INSN (loop->end), PRED_LOOP_ITERATIONS,
+		      REG_BR_PROB_BASE - REG_BR_PROB_BASE / n);
     }
 
   if (loop_dump_stream)
@@ -6214,10 +6215,11 @@ basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val, location)
     case CONST:
       /* convert_modes aborts if we try to convert to or from CCmode, so just
          exclude that case.  It is very unlikely that a condition code value
-	 would be a useful iterator anyways.  */
+	 would be a useful iterator anyways.  convert_modes aborts if we try to
+	 convert a float mode to non-float or vice versa too.  */
       if (loop->level == 1
-	  && GET_MODE_CLASS (mode) != MODE_CC
-	  && GET_MODE_CLASS (GET_MODE (dest_reg)) != MODE_CC)
+	  && GET_MODE_CLASS (mode) == GET_MODE_CLASS (GET_MODE (dest_reg))
+	  && GET_MODE_CLASS (mode) != MODE_CC)
 	{
 	  /* Possible bug here?  Perhaps we don't know the mode of X.  */
 	  *inc_val = convert_modes (GET_MODE (dest_reg), mode, x, 0);

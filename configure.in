@@ -15,7 +15,7 @@
 ## for 'Autoconf' (autoconf.texi) and 'Configure' (configure.texi).  
 
 #   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-#   1999, 2000 Free Software Foundation, Inc.
+#   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -623,6 +623,7 @@ case "${target}" in
 
     # Skip some stuff that's unsupported on some NetBSD configurations.
     case "${target}" in
+      i*86-*-netbsdelf*) ;;
       *)
 	noconfigdirs="$noconfigdirs ${libgcj}"
 	;;
@@ -641,7 +642,7 @@ case "${target}" in
     # ld works, but does not support shared libraries.  emacs doesn't
     # work.  newlib is not 64 bit ready.  I'm not sure about fileutils.
     # gas doesn't generate exception information.
-    noconfigdirs="$noconfigdirs gas ld emacs fileutils target-newlib target-libgloss ${libgcj}"
+    noconfigdirs="$noconfigdirs gas ld emacs fileutils target-newlib target-libgloss"
     ;;
   alpha*-*-*vms*)
     noconfigdirs="$noconfigdirs gdb ld target-newlib target-libgloss ${libgcj}"
@@ -725,7 +726,7 @@ case "${target}" in
     fi
     ;;
   xscale-*-elf)
-    noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
+    noconfigdirs="$noconfigdirs target-libgloss target-libffi target-qthreads"
     if [ x${is_cross_compiler} != xno ] ; then
 	   target_configdirs="${target_configdirs} target-bsp target-cygmon"
     fi
@@ -866,6 +867,11 @@ case "${target}" in
 	   target_configdirs="${target_configdirs} target-bsp target-cygmon"
     fi
     ;;
+  mcore-*-pe*)
+  # The EPOC C++ environment does not support exceptions or rtti,
+  # and so building libstdc++-v3 tends not to always work.
+    noconfigdirs="$noconfigdirs target-libstdc++-v3"
+    ;;
   mmix-*-*)
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
@@ -951,6 +957,9 @@ case "${target}" in
     noconfigdirs="$noconfigdirs gprof ${libgcj}"   # same as generic mips
     target_configdirs="${target_configdirs} target-bsp target-libstub target-cygmon"
    ;;
+  mips*-*-linux*)
+    noconfigdirs="$noconfigdirs target-libffi"
+    ;;
   mips*-*-*)
     noconfigdirs="$noconfigdirs gprof ${libgcj}"
     ;;

@@ -257,7 +257,7 @@ cp/cp-lang.o: cp/cp-lang.c $(CXX_TREE_H) toplev.h langhooks.h langhooks-def.h \
   c-common.h
 cp/decl.o: cp/decl.c $(CXX_TREE_H) flags.h cp/lex.h cp/decl.h stack.h \
   output.h $(EXPR_H) except.h toplev.h hash.h $(GGC_H) $(RTL_H) \
-  cp/operators.def $(TM_P_H) tree-inline.h diagnostic.h
+  cp/operators.def $(TM_P_H) tree-inline.h diagnostic.h c-pragma.h
 cp/decl2.o: cp/decl2.c $(CXX_TREE_H) flags.h cp/lex.h cp/decl.h $(EXPR_H) \
   output.h except.h toplev.h $(GGC_H) $(RTL_H)
 cp/typeck2.o: cp/typeck2.c $(CXX_TREE_H) flags.h toplev.h output.h $(TM_P_H) \
@@ -284,7 +284,8 @@ cp/expr.o: cp/expr.c $(CXX_TREE_H) $(RTL_H) flags.h $(EXPR_H) toplev.h \
   except.h $(TM_P_H)
 cp/pt.o: cp/pt.c $(CXX_TREE_H) cp/decl.h cp/parse.h cp/lex.h toplev.h \
   $(GGC_H) $(RTL_H) except.h tree-inline.h
-cp/error.o: cp/error.c $(CXX_TREE_H) toplev.h diagnostic.h flags.h real.h
+cp/error.o: cp/error.c $(CXX_TREE_H) toplev.h diagnostic.h flags.h real.h \
+  langhooks-def.h
 cp/repo.o: cp/repo.c $(CXX_TREE_H) toplev.h $(GGC_H) diagnostic.h
 cp/semantics.o: cp/semantics.c $(CXX_TREE_H) cp/lex.h except.h toplev.h \
   flags.h $(GGC_H) debug.h output.h $(RTL_H) $(TIMEVAR_H) $(EXPR_H) \

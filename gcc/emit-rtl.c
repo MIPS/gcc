@@ -355,6 +355,14 @@ gen_rtx_CONST_INT (mode, arg)
   return (rtx) *slot;
 }
 
+rtx
+gen_int_mode (c, mode)
+     HOST_WIDE_INT c;
+     enum machine_mode mode;
+{
+  return GEN_INT (trunc_int_for_mode (c, mode));
+}
+
 /* CONST_DOUBLEs needs special handling because their length is known
    only at run-time.  */
 
@@ -1858,8 +1866,9 @@ adjust_address_1 (memref, mode, offset, validate, adjust)
      lowest-order set bit in OFFSET, but don't change the alignment if OFFSET
      if zero.  */
   if (offset != 0)
-    memalign = MIN (memalign,
-		    (unsigned int) (offset & -offset) * BITS_PER_UNIT);
+    memalign
+      = MIN (memalign,
+	     (unsigned HOST_WIDE_INT) (offset & -offset) * BITS_PER_UNIT);
 
   /* We can compute the size in a number of ways.  */
   if (GET_MODE (new) != BLKmode)
@@ -1929,7 +1938,7 @@ offset_address (memref, offset, pow2)
   MEM_ATTRS (new)
     = get_mem_attrs (MEM_ALIAS_SET (memref), MEM_EXPR (memref), 0, 0,
 		     MIN (MEM_ALIGN (memref),
-			  (unsigned int) pow2 * BITS_PER_UNIT),
+			  (unsigned HOST_WIDE_INT) pow2 * BITS_PER_UNIT),
 		     GET_MODE (new));
   return new;
 }
@@ -2238,6 +2247,109 @@ reset_used_decls (blk)
     reset_used_decls (t);
 }
 
+/* Similar to `copy_rtx' except that if MAY_SHARE is present, it is
+   placed in the result directly, rather than being copied.  MAY_SHARE is
+   either a MEM of an EXPR_LIST of MEMs.  */
+
+rtx
+copy_most_rtx (orig, may_share)
+     rtx orig;
+     rtx may_share;
+{
+  rtx copy;
+  int i, j;
+  RTX_CODE code;
+  const char *format_ptr;
+
+  if (orig == may_share
+      || (GET_CODE (may_share) == EXPR_LIST
+	  && in_expr_list_p (may_share, orig)))
+    return orig;
+
+  code = GET_CODE (orig);
+
+  switch (code)
+    {
+    case REG:
+    case QUEUED:
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case CONST_VECTOR:
+    case SYMBOL_REF:
+    case CODE_LABEL:
+    case PC:
+    case CC0:
+      return orig;
+    default:
+      break;
+    }
+
+  copy = rtx_alloc (code);
+  PUT_MODE (copy, GET_MODE (orig));
+  copy->in_struct = orig->in_struct;
+  copy->volatil = orig->volatil;
+  copy->unchanging = orig->unchanging;
+  copy->integrated = orig->integrated;
+  copy->frame_related = orig->frame_related;
+
+  format_ptr = GET_RTX_FORMAT (GET_CODE (copy));
+
+  for (i = 0; i < GET_RTX_LENGTH (GET_CODE (copy)); i++)
+    {
+      switch (*format_ptr++)
+	{
+	case 'e':
+	  XEXP (copy, i) = XEXP (orig, i);
+	  if (XEXP (orig, i) != NULL && XEXP (orig, i) != may_share)
+	    XEXP (copy, i) = copy_most_rtx (XEXP (orig, i), may_share);
+	  break;
+
+	case 'u':
+	  XEXP (copy, i) = XEXP (orig, i);
+	  break;
+
+	case 'E':
+	case 'V':
+	  XVEC (copy, i) = XVEC (orig, i);
+	  if (XVEC (orig, i) != NULL)
+	    {
+	      XVEC (copy, i) = rtvec_alloc (XVECLEN (orig, i));
+	      for (j = 0; j < XVECLEN (copy, i); j++)
+		XVECEXP (copy, i, j)
+		  = copy_most_rtx (XVECEXP (orig, i, j), may_share);
+	    }
+	  break;
+
+	case 'w':
+	  XWINT (copy, i) = XWINT (orig, i);
+	  break;
+
+	case 'n':
+	case 'i':
+	  XINT (copy, i) = XINT (orig, i);
+	  break;
+
+	case 't':
+	  XTREE (copy, i) = XTREE (orig, i);
+	  break;
+
+	case 's':
+	case 'S':
+	  XSTR (copy, i) = XSTR (orig, i);
+	  break;
+
+	case '0':
+	  /* Copy this through the wide int field; that's safest.  */
+	  X0WINT (copy, i) = X0WINT (orig, i);
+	  break;
+
+	default:
+	  abort ();
+	}
+    }
+  return copy;
+}
+
 /* Mark ORIG as in use, and return a copy of it if it was already in use.
    Recursively does the same for subexpressions.  */
 
@@ -2466,6 +2578,17 @@ rtx
 get_insns ()
 {
   return first_insn;
+}
+
+/* Specify a new insn as the first in the chain.  */
+
+void
+set_first_insn (insn)
+     rtx insn;
+{
+  if (PREV_INSN (insn) != 0)
+    abort ();
+  first_insn = insn;
 }
 
 /* Return the last insn emitted in current sequence or current function.  */
@@ -2962,7 +3085,7 @@ try_split (pat, trial, last)
 
 	  tem = emit_insn_after (seq, trial);
 
-	  delete_related_insns (trial);
+	  delete_insn (trial);
 	  if (has_barrier)
 	    emit_barrier_after (tem);
 
@@ -3128,7 +3251,7 @@ add_insn_after (insn, after)
     }
 
   if (basic_block_for_insn
-      && (unsigned int)INSN_UID (after) < basic_block_for_insn->num_elements
+      && (unsigned int) INSN_UID (after) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (after)))
     {
       set_block_for_insn (insn, bb);
@@ -3197,7 +3320,7 @@ add_insn_before (insn, before)
     }
 
   if (basic_block_for_insn
-      && (unsigned int)INSN_UID (before) < basic_block_for_insn->num_elements
+      && (unsigned int) INSN_UID (before) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (before)))
     {
       set_block_for_insn (insn, bb);
@@ -3277,15 +3400,15 @@ remove_insn (insn)
 	abort ();
     }
   if (basic_block_for_insn
-      && (unsigned int)INSN_UID (insn) < basic_block_for_insn->num_elements
+      && (unsigned int) INSN_UID (insn) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (insn)))
     {
       if (INSN_P (insn))
         bb->flags |= BB_DIRTY;
       if (bb->head == insn)
 	{
-	  /* Never ever delete the basic block note without deleting whole basic
-	     block.  */
+	  /* Never ever delete the basic block note without deleting whole
+	     basic block.  */
 	  if (GET_CODE (insn) == NOTE)
 	    abort ();
 	  bb->head = next;
@@ -3355,14 +3478,15 @@ reorder_insns (from, to, after)
   reorder_insns_nobb (from, to, after);
 
   if (basic_block_for_insn
-      && (unsigned int)INSN_UID (after) < basic_block_for_insn->num_elements
+      && (unsigned int) INSN_UID (after) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (after)))
     {
       rtx x;
       bb->flags |= BB_DIRTY;
  
       if (basic_block_for_insn
-	  && (unsigned int)INSN_UID (from) < basic_block_for_insn->num_elements
+	  && ((unsigned int) INSN_UID (from)
+	      < basic_block_for_insn->num_elements)
 	  && (bb2 = BLOCK_FOR_INSN (from)))
 	{
 	  if (bb2->end == to)
@@ -3889,7 +4013,7 @@ emit_insns_after (first, after)
     return after;
 
   if (basic_block_for_insn
-      && (unsigned int)INSN_UID (after) < basic_block_for_insn->num_elements
+      && (unsigned int) INSN_UID (after) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (after)))
     {
       bb->flags |= BB_DIRTY;
@@ -4798,23 +4922,17 @@ init_emit_once (line_numbers)
 
   for (i = 0; i <= 2; i++)
     {
+      REAL_VALUE_TYPE *r =
+	(i == 0 ? &dconst0 : i == 1 ? &dconst1 : &dconst2);
+
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
 	   mode = GET_MODE_WIDER_MODE (mode))
 	{
 	  rtx tem = rtx_alloc (CONST_DOUBLE);
-	  union real_extract u;
-
-	  /* Zero any holes in a structure.  */
-	  memset ((char *) &u, 0, sizeof u);
-	  u.d = i == 0 ? dconst0 : i == 1 ? dconst1 : dconst2;
-
-	  /* Avoid trailing garbage in the rtx.  */
-	  if (sizeof (u) < sizeof (HOST_WIDE_INT))
-	    CONST_DOUBLE_LOW (tem) = 0;
-	  if (sizeof (u) < 2 * sizeof (HOST_WIDE_INT))
-	    CONST_DOUBLE_HIGH (tem) = 0;
-
-	  memcpy (&CONST_DOUBLE_LOW (tem), &u, sizeof u);
+ 
+	  /* Can't use CONST_DOUBLE_FROM_REAL_VALUE here; that uses the
+	     tables we're setting up right now.  */
+	  memcpy (&CONST_DOUBLE_LOW (tem), r, sizeof (REAL_VALUE_TYPE));
 	  CONST_DOUBLE_CHAIN (tem) = NULL_RTX;
 	  PUT_MODE (tem, mode);
 

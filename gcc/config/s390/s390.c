@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on IBM S/390 and zSeries
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
 
@@ -44,7 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 #include "debug.h"
-
+#include "langhooks.h"
 
 static bool s390_assemble_integer PARAMS ((rtx, unsigned int, int));
 static int s390_adjust_cost PARAMS ((rtx, rtx, rtx, int));
@@ -344,7 +344,7 @@ s390_branch_condition_mnemonic (code, inv)
      rtx code;
      int inv;
 {
-  static const char *mnemonic[16] =
+  static const char *const mnemonic[16] =
     {
       NULL, "o", "h", "nle",
       "l", "nhe", "lh", "ne",
@@ -600,7 +600,7 @@ override_options ()
 
 /* Map for smallest class containing reg regno.  */
 
-enum reg_class regclass_map[FIRST_PSEUDO_REGISTER] =
+const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER] =
 { GENERAL_REGS, ADDR_REGS, ADDR_REGS, ADDR_REGS,
   ADDR_REGS,    ADDR_REGS, ADDR_REGS, ADDR_REGS,
   ADDR_REGS,    ADDR_REGS, ADDR_REGS, ADDR_REGS,
@@ -1169,14 +1169,23 @@ s390_plus_operand (op, mode)
    SCRATCH may be used as scratch register.  */
 
 void
-s390_expand_plus_operand (target, src, scratch)
+s390_expand_plus_operand (target, src, scratch_in)
      register rtx target;
      register rtx src;
-     register rtx scratch;
+     register rtx scratch_in;
 {
-  /* src must be a PLUS; get its two operands.  */
-  rtx sum1, sum2;
+  rtx sum1, sum2, scratch;
 
+  /* ??? reload apparently does not ensure that the scratch register
+     and the target do not overlap.  We absolutely require this to be
+     the case, however.  Therefore the reload_in[sd]i patterns ask for
+     a double-sized scratch register, and if one part happens to be
+     equal to the target, we use the other one.  */
+  scratch = gen_rtx_REG (Pmode, REGNO (scratch_in));
+  if (rtx_equal_p (scratch, target))
+    scratch = gen_rtx_REG (Pmode, REGNO (scratch_in) + 1);
+
+  /* src must be a PLUS; get its two operands.  */
   if (GET_CODE (src) != PLUS || GET_MODE (src) != Pmode)
     abort ();
 
@@ -3168,15 +3177,15 @@ s390_emit_epilogue ()
 
       if (frame.save_fprs_p)
 	for (i = 24; i < 32; i++)
-	  if (regs_ever_live[i])
+	  if (regs_ever_live[i] && !global_regs[i])
 	    restore_fpr (frame_pointer, 
 			 offset - 64 + (i-24) * 8, i);
     }
   else
     {
-      if (regs_ever_live[18])
+      if (regs_ever_live[18] && !global_regs[18])
 	restore_fpr (frame_pointer, offset + STACK_POINTER_OFFSET - 16, 18);
-      if (regs_ever_live[19]) 
+      if (regs_ever_live[19] && !global_regs[19])
 	restore_fpr (frame_pointer, offset + STACK_POINTER_OFFSET - 8, 19);
     }
 
@@ -3189,6 +3198,24 @@ s390_emit_epilogue ()
   if (frame.first_restore_gpr != -1)
     {
       rtx addr;
+      int i;
+
+      /* Check for global register and save them 
+	 to stack location from where they get restored.  */
+
+      for (i = frame.first_restore_gpr; 
+	   i <= frame.last_save_gpr;
+	   i++)
+	{
+	  if (global_regs[i])
+	    {
+	      addr = plus_constant (frame_pointer, 
+		     offset + i * UNITS_PER_WORD);
+	      addr = gen_rtx_MEM (Pmode, addr);
+	      set_mem_alias_set (addr, s390_sr_alias_set);
+	      emit_move_insn (addr, gen_rtx_REG (Pmode, i));
+	    }  
+	}
 
       /* Fetch return address from stack before load multiple,
 	 this will do good for scheduling.  */
@@ -3393,7 +3420,7 @@ s390_build_va_list ()
 {
   tree f_gpr, f_fpr, f_ovf, f_sav, record, type_decl;
 
-  record = make_lang_type (RECORD_TYPE);
+  record = (*lang_hooks.types.make_type) (RECORD_TYPE);
 
   type_decl =
     build_decl (TYPE_DECL, get_identifier ("__va_list_tag"), record);

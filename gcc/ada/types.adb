@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -128,10 +127,9 @@ package body Types is
    -- Get_Character --
    -------------------
 
-   --  Note: raises Constraint_Error if checks on and C out of range
-
    function Get_Character (C : Char_Code) return Character is
    begin
+      pragma Assert (C <= 255);
       return Character'Val (C);
    end Get_Character;
 

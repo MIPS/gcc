@@ -44,7 +44,6 @@ static tree no_linkage_helper PARAMS ((tree *, int *, void *));
 static tree build_srcloc PARAMS ((const char *, int));
 static tree mark_local_for_remap_r PARAMS ((tree *, int *, void *));
 static tree cp_unsave_r PARAMS ((tree *, int *, void *));
-static void cp_unsave PARAMS ((tree *));
 static tree build_target_expr PARAMS ((tree, tree));
 static tree count_trees_r PARAMS ((tree *, int *, void *));
 static tree verify_stmt_tree_r PARAMS ((tree *, int *, void *));
@@ -235,7 +234,7 @@ build_target_expr (decl, value)
   tree t;
 
   t = build (TARGET_EXPR, TREE_TYPE (decl), decl, value, 
-	     maybe_build_cleanup (decl), NULL_TREE);
+	     cxx_maybe_build_cleanup (decl), NULL_TREE);
   /* We always set TREE_SIDE_EFFECTS so that expand_expr does not
      ignore the TARGET_EXPR.  If there really turn out to be no
      side-effects, then the optimizer should be able to get rid of
@@ -293,7 +292,7 @@ build_cplus_new (type, init)
   return rval;
 }
 
-/* Buidl a TARGET_EXPR using INIT to initialize a new temporary of the
+/* Build a TARGET_EXPR using INIT to initialize a new temporary of the
    indicated TYPE.  */
 
 tree
@@ -1032,7 +1031,6 @@ cp_statement_code_p (code)
   switch (code)
     {
     case SUBOBJECT:
-    case CLEANUP_STMT:
     case CTOR_STMT:
     case CTOR_INITIALIZER:
     case RETURN_INIT:
@@ -1051,7 +1049,7 @@ cp_statement_code_p (code)
 #define PRINT_RING_SIZE 4
 
 const char *
-lang_printable_name (decl, v)
+cxx_printable_name (decl, v)
      tree decl;
      int v;
 {
@@ -2133,7 +2131,7 @@ cp_cannot_inline_tree_fn (fnp)
 {
   tree fn = *fnp;
 
-  if (optimize == 0
+  if (flag_really_no_inline
       && lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) == NULL)
     return 1;
 
@@ -2296,8 +2294,6 @@ cp_end_inlining (fn)
 void
 init_tree ()
 {
-  make_lang_type_fn = cp_make_lang_type;
-  lang_unsave = cp_unsave;
   lang_statement_code_p = cp_statement_code_p;
   lang_set_decl_assembler_name = mangle_decl;
   list_hash_table = htab_create (31, list_hash, list_hash_eq, NULL);
@@ -2389,12 +2385,11 @@ cp_unsave_r (tp, walk_subtrees, data)
   return NULL_TREE;
 }
 
-/* Called by unsave_expr_now whenever an expression (*TP) needs to be
-   unsaved.  */
+/* Called whenever an expression needs to be unsaved.  */
 
-static void
-cp_unsave (tp)
-     tree *tp;
+tree
+cxx_unsave_expr_now (tp)
+     tree tp;
 {
   splay_tree st;
 
@@ -2403,13 +2398,15 @@ cp_unsave (tp)
   st = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
 
   /* Walk the tree once figuring out what needs to be remapped.  */
-  walk_tree (tp, mark_local_for_remap_r, st, NULL);
+  walk_tree (&tp, mark_local_for_remap_r, st, NULL);
 
   /* Walk the tree again, copying, remapping, and unsaving.  */
-  walk_tree (tp, cp_unsave_r, st, NULL);
+  walk_tree (&tp, cp_unsave_r, st, NULL);
 
   /* Clean up.  */
   splay_tree_delete (st);
+
+  return tp;
 }
 
 /* Returns the kind of special function that DECL (a FUNCTION_DECL)

@@ -350,6 +350,9 @@ fi
 AC_SUBST(NO_MINUS_C_MINUS_O)
 AC_SUBST(OUTPUT_OPTION)
 
+# See if GNAT has been installed
+gcc_AC_PROG_GNAT
+
 AC_CACHE_CHECK(whether ${CC-cc} accepts -Wno-long-long,
 ac_cv_prog_cc_no_long_long,
 [save_CFLAGS="$CFLAGS"
@@ -357,8 +360,26 @@ CFLAGS="-Wno-long-long"
 AC_TRY_COMPILE(,,ac_cv_prog_cc_no_long_long=yes,
 	       ac_cv_prog_cc_no_long_long=no)
 CFLAGS="$save_CFLAGS"])
+
+if test x$have_gnat != xno ; then 
+AC_CACHE_CHECK(whether ${ADAC} accepts -Wno-long-long,
+ac_cv_prog_adac_no_long_long,
+[cat >conftest.adb <<EOF
+procedure conftest is begin null; end conftest;
+EOF
+if $ADAC -Wno-long-long -c conftest.adb 1>&5 2>&5 ; then
+  ac_cv_prog_adac_no_long_long=yes
+else
+  ac_cv_prog_adac_no_long_long=no
+fi
+rm -f conftest*])
+else
+  ac_cv_prog_adac_no_long_long=yes
+fi
+
 strict1_warn=
-if test $ac_cv_prog_cc_no_long_long = yes; then
+if test $ac_cv_prog_cc_no_long_long = yes && \
+    test $ac_cv_prog_adac_no_long_long = yes ; then
   strict1_warn="-pedantic -Wno-long-long"
 fi
 AC_SUBST(strict1_warn)
@@ -478,9 +499,6 @@ gcc_AC_C_CHAR_BIT
 gcc_AC_C_COMPILE_ENDIAN
 gcc_AC_C_FLOAT_FORMAT
 
-# See if GNAT has been installed
-gcc_AC_PROG_GNAT
-
 # See if we have the mktemp command.
 AC_CHECK_PROG(have_mktemp_command, mktemp, yes, no)
 
@@ -494,7 +512,7 @@ else
   # that we can use it.
   gcc_AC_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
   [GNU texinfo.* \([0-9][0-9.]*\)],
-  [4.*])
+  [4.[1-9]*])
 fi
 
 if test $gcc_cv_prog_makeinfo_modern = no; then
@@ -1204,8 +1222,7 @@ changequote(,)dnl
 changequote([,])dnl
 fi
 
-if test "x$gcc_cv_as" = x -a x$host = x$target; then
-	# Native build.
+if test "x$gcc_cv_as" = x -a x$build = x$host; then
 	# Search the same directories that the installed compiler will
 	# search.  Else we may find the wrong assembler and lose.  If we
 	# do not find a suitable assembler binary, then try the user's
@@ -1230,14 +1247,21 @@ if test "x$gcc_cv_as" = x -a x$host = x$target; then
 	# If the loop below does not find an assembler, then use whatever
 	# one we can find in the users's path.
 	# user's path.
-	gcc_cv_as=as$host_exeext
+	if test "x$program_prefix" != xNONE; then
+		gcc_cv_as=${program_prefix}as$host_exeext
+	else
+		gcc_cv_as=`echo as | sed ${program_transform_name}`$host_exeext
+	fi
 
-	test_dirs="$test_prefix/lib/gcc-lib/$target/$gcc_version \
-		   $test_prefix/lib/gcc-lib/$target \
-		   /usr/lib/gcc/$target/$gcc_version \
-		   /usr/lib/gcc/$target \
-		   $test_prefix/$target/bin/$target/$gcc_version \
-		   $test_prefix/$target/bin \
+	test_dirs="$test_prefix/lib/gcc-lib/$target_alias/$gcc_version \
+		   $test_prefix/lib/gcc-lib/$target_alias \
+		   /usr/lib/gcc/$target_alias/$gcc_version \
+		   /usr/lib/gcc/$target_alias \
+		   $test_prefix/$target_alias/bin/$target_alias/$gcc_version \
+		   $test_prefix/$target_alias/bin"
+
+	if test x$host = x$target; then
+	    test_dirs="$test_dirs \
 		   /usr/libexec \
 		   /usr/ccs/gcc \
 		   /usr/ccs/bin \
@@ -1248,9 +1272,10 @@ if test "x$gcc_cv_as" = x -a x$host = x$target; then
 		   /sysv/usr/lib/cmplrs/cc \
 		   /svr4/usr/lib/cmplrs/cc \
 		   /usr/bin"
+	fi
 
 	for dir in $test_dirs; do
-		if test -f $dir/as$host_exeext; then
+		if test -x $dir/as$host_exeext; then
 			gcc_cv_as=$dir/as$host_exeext
 			break;
 		fi
@@ -1293,8 +1318,7 @@ changequote(,)dnl
 changequote([,])dnl
 fi
 
-if test "x$gcc_cv_ld" = x -a x$host = x$target; then
-	# Native build.
+if test "x$gcc_cv_ld" = x -a x$build = x$host; then
 	# Search the same directories that the installed compiler will
 	# search.  Else we may find the wrong linker and lose.  If we
 	# do not find a suitable linker binary, then try the user's
@@ -1319,14 +1343,21 @@ if test "x$gcc_cv_ld" = x -a x$host = x$target; then
 	# If the loop below does not find an linker, then use whatever
 	# one we can find in the users's path.
 	# user's path.
-	gcc_cv_ld=ld$host_exeext
+	if test "x$program_prefix" != xNONE; then
+		gcc_cv_ld=${program_prefix}ld$host_exeext
+	else
+		gcc_cv_ld=`echo ld | sed ${program_transform_name}`$host_exeext
+	fi
 
-	test_dirs="$test_prefix/lib/gcc-lib/$target/$gcc_version \
-		   $test_prefix/lib/gcc-lib/$target \
-		   /usr/lib/gcc/$target/$gcc_version \
-		   /usr/lib/gcc/$target \
-		   $test_prefix/$target/bin/$target/$gcc_version \
-		   $test_prefix/$target/bin \
+	test_dirs="$test_prefix/lib/gcc-lib/$target_alias/$gcc_version \
+		   $test_prefix/lib/gcc-lib/$target_alias \
+		   /usr/lib/gcc/$target_alias/$gcc_version \
+		   /usr/lib/gcc/$target_alias \
+		   $test_prefix/$target_alias/bin/$target_alias/$gcc_version \
+		   $test_prefix/$target_alias/bin"
+
+	if test x$host = x$target; then
+	    test_dirs="$test_dirs \
 		   /usr/libexec \
 		   /usr/ccs/gcc \
 		   /usr/ccs/bin \
@@ -1337,9 +1368,10 @@ if test "x$gcc_cv_ld" = x -a x$host = x$target; then
 		   /sysv/usr/lib/cmplrs/cc \
 		   /svr4/usr/lib/cmplrs/cc \
 		   /usr/bin"
+	fi
 
 	for dir in $test_dirs; do
-		if test -f $dir/ld$host_exeext; then
+		if test -x $dir/ld$host_exeext; then
 			gcc_cv_ld=$dir/ld$host_exeext
 			break;
 		fi
@@ -1355,9 +1387,12 @@ fi
 AC_MSG_CHECKING(what nm to use)
 if test -x nm$host_exeext; then
 	gcc_cv_nm=./nm$host_exeext
-elif test x$host = x$target; then
-	# Native build.
-	gcc_cv_nm=nm$host_exeext
+elif test x$build = x$host; then
+	if test "x$program_prefix" != xNONE; then
+		gcc_cv_nm=${program_prefix}nm$host_exeext
+	else
+		gcc_cv_nm=`echo nm | sed ${program_transform_name}`$host_exeext
+	fi
 fi
 AC_MSG_RESULT($gcc_cv_nm)
 
@@ -1365,9 +1400,12 @@ AC_MSG_RESULT($gcc_cv_nm)
 AC_MSG_CHECKING(what objdump to use)
 if test -x objdump$host_exeext; then
 	gcc_cv_objdump=./objdump$host_exeext
-elif test x$host = x$target; then
-	# Native build.
-	gcc_cv_objdump=objdump$host_exeext
+elif test x$build = x$host; then
+	if test "x$program_prefix" != xNONE; then
+		gcc_cv_objdump=${program_prefix}objdump$host_exeext
+	else
+		gcc_cv_objdump=`echo objdump | sed ${program_transform_name}`$host_exeext
+	fi
 fi
 AC_MSG_RESULT($gcc_cv_objdump)
 

@@ -86,40 +86,6 @@ Boston, MA 02111-1307, USA.  */
 #define OBJC_FORWARDING_MIN_OFFSET 0
 #endif
 
-/* Define the special tree codes that we use.  */
-
-/* Table indexed by tree code giving a string containing a character
-   classifying the tree code.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
-
-static const char objc_tree_code_type[] = {
-  'x',
-#include "objc-tree.def"
-};
-#undef DEFTREECODE
-
-/* Table indexed by tree code giving number of expression
-   operands beyond the fixed part of the node structure.
-   Not used for types or decls.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
-
-static const int objc_tree_code_length[] = {
-  0,
-#include "objc-tree.def"
-};
-#undef DEFTREECODE
-
-/* Names of tree components.
-   Used for printing out the tree and error messages.  */
-#define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
-
-static const char * const objc_tree_code_name[] = {
-  "@@dummy",
-#include "objc-tree.def"
-};
-#undef DEFTREECODE
 
 /* Set up for use of obstacks.  */
 
@@ -199,7 +165,6 @@ static int check_methods_accessible		PARAMS ((tree, tree,
 static void encode_aggregate_within		PARAMS ((tree, int, int,
 					               int, int));
 static const char *objc_demangle		PARAMS ((const char *));
-static const char *objc_printable_name		PARAMS ((tree, int));
 static void objc_expand_function_end            PARAMS ((void));
 
 /* Hash tables to manage the global pool of method prototypes.  */
@@ -270,7 +235,6 @@ static void dump_interface			PARAMS ((FILE *, tree));
 
 /* Everything else.  */
 
-static void add_objc_tree_codes			PARAMS ((void));
 static tree define_decl				PARAMS ((tree, tree));
 static tree lookup_method_in_protocol_list	PARAMS ((tree, tree, int));
 static tree lookup_protocol_in_reflist		PARAMS ((tree, tree));
@@ -511,9 +475,6 @@ objc_init (filename)
      const char *filename;
 {
   filename = c_objc_common_init (filename);
-  add_objc_tree_codes ();
-
-  decl_printable_name = objc_printable_name;
 
   /* Force the line number back to 0; check_newline will have
      raised it to 1, which will make the builtin functions appear
@@ -1173,7 +1134,7 @@ synth_module_prologue ()
 	  /* Suppress outputting debug symbols, because
 	     dbxout_init hasn'r been called yet.  */
 	  enum debug_info_type save_write_symbols = write_symbols;
-	  struct gcc_debug_hooks *save_hooks = debug_hooks;
+	  const struct gcc_debug_hooks *const save_hooks = debug_hooks;
 	  write_symbols = NO_DEBUG;
 	  debug_hooks = &do_nothing_debug_hooks;
 
@@ -1770,7 +1731,7 @@ build_module_descriptor ()
 
     c_expand_expr_stmt (decelerator);
 
-    finish_function (0);
+    finish_function (0, 0);
 
     return XEXP (DECL_RTL (init_function_decl), 0);
   }
@@ -7304,7 +7265,7 @@ void
 finish_method_def ()
 {
   lang_expand_function_end = objc_expand_function_end;
-  finish_function (0);
+  finish_function (0, 1);
   lang_expand_function_end = NULL;
 
   /* Required to implement _msgSuper. This must be done AFTER finish_function,
@@ -8064,28 +8025,12 @@ objc_demangle (mangled)
     return mangled;             /* not an objc mangled name */
 }
 
-static const char *
+const char *
 objc_printable_name (decl, kind)
      tree decl;
      int kind ATTRIBUTE_UNUSED;
 {
   return objc_demangle (IDENTIFIER_POINTER (DECL_NAME (decl)));
-}
-
-/* Adds the tree codes specific to the ObjC/ObjC++ front end to the
-   list of all tree codes.  */
-
-static void
-add_objc_tree_codes ()
-{
-  int add = (int) LAST_OBJC_TREE_CODE - (int) LAST_BASE_TREE_CODE;
-
-  memcpy (tree_code_type + (int) LAST_BASE_TREE_CODE,
-	  objc_tree_code_type, add);
-  memcpy (tree_code_length + (int) LAST_BASE_TREE_CODE,
-	  objc_tree_code_length, add * sizeof (int));
-  memcpy (tree_code_name + (int) LAST_BASE_TREE_CODE,
-	  objc_tree_code_name, add * sizeof (char *));
 }
 
 static void
@@ -8361,7 +8306,7 @@ handle_impent (impent)
       tree decl, init;
 
       init = build_int_2 (0, 0);
-      TREE_TYPE (init) = type_for_size (BITS_PER_WORD, 1);
+      TREE_TYPE (init) = c_common_type_for_size (BITS_PER_WORD, 1);
       decl = build_decl (VAR_DECL, get_identifier (string), TREE_TYPE (init));
       TREE_PUBLIC (decl) = 1;
       TREE_READONLY (decl) = 1;

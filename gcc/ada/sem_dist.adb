@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -658,7 +657,6 @@ package body Sem_Dist is
       elsif Ekind (Typ) = E_Record_Type
         and then Present (Corresponding_Remote_Type (Typ))
       then
-
          --  This is a record type representing a RAS type, this must be
          --  expanded.
 

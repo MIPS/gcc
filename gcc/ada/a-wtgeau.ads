@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.3 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -52,8 +51,7 @@ package Ada.Wide_Text_IO.Generic_Aux is
    --  so one of these two routines must be called first.
 
    procedure Check_End_Of_Field
-     (File  : File_Type;
-      Buf   : String;
+     (Buf   : String;
       Stop  : Integer;
       Ptr   : Integer;
       Width : Field);

@@ -1240,7 +1240,7 @@ expand_inline_function (fndecl, parms, target, ignore, type,
        this block to the list of blocks at this binding level.  We
        can't do it the way it's done for function-at-a-time mode the
        superblocks have not been created yet.  */
-    insert_block (block);
+    (*lang_hooks.decls.insert_block) (block);
   else
     {
       BLOCK_CHAIN (block)
@@ -2971,7 +2971,7 @@ output_inline_function (fndecl)
 {
   struct function *old_cfun = cfun;
   enum debug_info_type old_write_symbols = write_symbols;
-  struct gcc_debug_hooks *old_debug_hooks = debug_hooks;
+  const struct gcc_debug_hooks *const old_debug_hooks = debug_hooks;
   struct function *f = DECL_SAVED_INSNS (fndecl);
 
   cfun = f;

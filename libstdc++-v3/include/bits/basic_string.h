@@ -162,7 +162,7 @@ namespace std
 
 	_CharT* 
 	_M_refdata() throw()
-	{ return reinterpret_cast<_CharT*> (this + 1); }
+	{ return reinterpret_cast<_CharT*>(this + 1); }
 
 	_CharT& 
 	operator[](size_t __s) throw()
@@ -170,8 +170,10 @@ namespace std
 
 	_CharT* 
 	_M_grab(const _Alloc& __alloc1, const _Alloc& __alloc2)
-	{ return (!_M_is_leaked() && __alloc1 == __alloc2) ?
-	    _M_refcopy() : _M_clone(__alloc1);  }
+	{ 
+	  return (!_M_is_leaked() && __alloc1 == __alloc2) 
+	          ? _M_refcopy() : _M_clone(__alloc1);  
+	}
 
 	// Create & Destroy
 	static _Rep* 
@@ -731,7 +733,7 @@ namespace std
       // string::iterator, _CharT*, etc.
       template<class _FwdIter>
         static _CharT*
-        _S_construct(_FwdIter __end, _FwdIter __beg, const _Alloc& __a,
+        _S_construct(_FwdIter __beg, _FwdIter __end, const _Alloc& __a,
 		     forward_iterator_tag);
 
       static _CharT* 
@@ -879,15 +881,14 @@ namespace std
       int 
       compare(const _CharT* __s) const;
 
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
-// 5. String::compare specification questionable
+      // _GLIBCPP_RESOLVE_LIB_DEFECTS
+      // 5. String::compare specification questionable
       int 
       compare(size_type __pos, size_type __n1, const _CharT* __s) const;
 
       int 
       compare(size_type __pos, size_type __n1, const _CharT* __s, 
 	      size_type __n2) const;
-#endif
   };
 
 

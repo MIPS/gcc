@@ -77,12 +77,11 @@ static int skip_line_comment PARAMS ((cpp_reader *));
 static void adjust_column PARAMS ((cpp_reader *));
 static int skip_whitespace PARAMS ((cpp_reader *, cppchar_t));
 static cpp_hashnode *parse_identifier PARAMS ((cpp_reader *));
-static cpp_hashnode *parse_identifier_slow PARAMS ((cpp_reader *,
-						    const U_CHAR *));
-static void parse_number PARAMS ((cpp_reader *, cpp_string *, cppchar_t, int));
+static U_CHAR *parse_slow PARAMS ((cpp_reader *, const U_CHAR *, int,
+				   unsigned int *));
+static void parse_number PARAMS ((cpp_reader *, cpp_string *, int));
 static int unescaped_terminator_p PARAMS ((cpp_reader *, const U_CHAR *));
 static void parse_string PARAMS ((cpp_reader *, cpp_token *, cppchar_t));
-static void unterminated PARAMS ((cpp_reader *, int));
 static bool trigraph_p PARAMS ((cpp_reader *));
 static void save_comment PARAMS ((cpp_reader *, cpp_token *, const U_CHAR *));
 static int name_p PARAMS ((cpp_reader *, const cpp_string *));
@@ -412,13 +411,13 @@ name_p (pfile, string)
    seen:unseen identifiers in normal code; the distribution is
    Poisson-like).  Second most common case is a new identifier, not
    split and no dollar sign.  The other possibilities are rare and
-   have been relegated to parse_identifier_slow.  */
+   have been relegated to parse_slow.  */
 static cpp_hashnode *
 parse_identifier (pfile)
      cpp_reader *pfile;
 {
   cpp_hashnode *result;
-  const U_CHAR *cur;
+  const U_CHAR *cur, *base;
 
   /* Fast-path loop.  Skim over a normal identifier.
      N.B. ISIDNUM does not include $.  */
@@ -428,13 +427,19 @@ parse_identifier (pfile)
 
   /* Check for slow-path cases.  */
   if (*cur == '?' || *cur == '\\' || *cur == '$')
-    result = parse_identifier_slow (pfile, cur);
+    {
+      unsigned int len;
+
+      base = parse_slow (pfile, cur, 0, &len);
+      result = (cpp_hashnode *)
+	ht_lookup (pfile->hash_table, base, len, HT_ALLOCED);
+    }
   else
     {
-      const U_CHAR *base = pfile->buffer->cur - 1;
+      base = pfile->buffer->cur - 1;
+      pfile->buffer->cur = cur;
       result = (cpp_hashnode *)
 	ht_lookup (pfile->hash_table, base, cur - base, HT_ALLOC);
-      pfile->buffer->cur = cur;
     }
 
   /* Rarely, identifiers require diagnostics when lexed.
@@ -458,30 +463,55 @@ parse_identifier (pfile)
   return result;
 }
 
-/* Slow path.  This handles identifiers which have been split, and
-   identifiers which contain dollar signs.  The part of the identifier
-   from PFILE->buffer->cur-1 to CUR has already been scanned.  */
-static cpp_hashnode *
-parse_identifier_slow (pfile, cur)
+/* Slow path.  This handles numbers and identifiers which have been
+   split, or contain dollar signs.  The part of the token from
+   PFILE->buffer->cur-1 to CUR has already been scanned.  NUMBER_P is
+   1 if it's a number, and 2 if it has a leading period.  Returns a
+   pointer to the token's NUL-terminated spelling in permanent
+   storage, and sets PLEN to its length.  */
+static U_CHAR *
+parse_slow (pfile, cur, number_p, plen)
      cpp_reader *pfile;
      const U_CHAR *cur;
+     int number_p;
+     unsigned int *plen;
 {
   cpp_buffer *buffer = pfile->buffer;
   const U_CHAR *base = buffer->cur - 1;
   struct obstack *stack = &pfile->hash_table->stack;
-  unsigned int c, saw_dollar = 0, len;
+  unsigned int c, prevc, saw_dollar = 0;
+
+  /* Place any leading period.  */
+  if (number_p == 2)
+    obstack_1grow (stack, '.');
 
   /* Copy the part of the token which is known to be okay.  */
   obstack_grow (stack, base, cur - base);
 
   /* Now process the part which isn't.  We are looking at one of
      '$', '\\', or '?' on entry to this loop.  */
+  prevc = cur[-1];
   c = *cur++;
   buffer->cur = cur;
-  do
+  for (;;)
     {
-      while (is_idchar (c))
+      /* Potential escaped newline?  */
+      buffer->backup_to = buffer->cur - 1;
+      if (c == '?' || c == '\\')
+	c = skip_escaped_newlines (pfile);
+
+      if (!is_idchar (c))
+	{
+	  if (!number_p)
+	    break;
+	  if (c != '.' && !VALID_SIGN (c, prevc))
+	    break;
+	}
+
+      /* Handle normal identifier characters in this loop.  */
+      do
         {
+	  prevc = c;
           obstack_1grow (stack, c);
 
           if (c == '$')
@@ -489,14 +519,8 @@ parse_identifier_slow (pfile, cur)
 
           c = *buffer->cur++;
         }
-
-      /* Potential escaped newline?  */
-      buffer->backup_to = buffer->cur - 1;
-      if (c != '?' && c != '\\')
-        break;
-      c = skip_escaped_newlines (pfile);
+      while (is_idchar (c));
     }
-  while (is_idchar (c));
 
   /* Step back over the unwanted char.  */
   BACKUP ();
@@ -505,94 +529,48 @@ parse_identifier_slow (pfile, cur)
      accepted as an extension.  Don't warn about it in skipped
      conditional blocks.  */
   if (saw_dollar && CPP_PEDANTIC (pfile) && ! pfile->state.skipping)
-    cpp_pedwarn (pfile, "'$' character(s) in identifier");
+    cpp_pedwarn (pfile, "'$' character(s) in identifier or number");
 
-  /* Identifiers are null-terminated.  */
-  len = obstack_object_size (stack);
+  /* Identifiers and numbers are null-terminated.  */
+  *plen = obstack_object_size (stack);
   obstack_1grow (stack, '\0');
-
-  return (cpp_hashnode *)
-    ht_lookup (pfile->hash_table, obstack_finish (stack), len, HT_ALLOCED);
+  return obstack_finish (stack);
 }
 
 /* Parse a number, beginning with character C, skipping embedded
    backslash-newlines.  LEADING_PERIOD is non-zero if there was a "."
    before C.  Place the result in NUMBER.  */
 static void
-parse_number (pfile, number, c, leading_period)
+parse_number (pfile, number, leading_period)
      cpp_reader *pfile;
      cpp_string *number;
-     cppchar_t c;
      int leading_period;
 {
-  cpp_buffer *buffer = pfile->buffer;
-  unsigned char *dest, *limit;
+  const U_CHAR *cur;
 
-  dest = BUFF_FRONT (pfile->u_buff);
-  limit = BUFF_LIMIT (pfile->u_buff);
+  /* Fast-path loop.  Skim over a normal number.
+     N.B. ISIDNUM does not include $.  */
+  cur = pfile->buffer->cur;
+  while (ISIDNUM (*cur) || *cur == '.' || VALID_SIGN (*cur, cur[-1]))
+    cur++;
 
-  /* Place a leading period.  */
-  if (leading_period)
+  /* Check for slow-path cases.  */
+  if (*cur == '?' || *cur == '\\' || *cur == '$')
+    number->text = parse_slow (pfile, cur, 1 + leading_period, &number->len);
+  else
     {
-      if (dest == limit)
-	{
-	  _cpp_extend_buff (pfile, &pfile->u_buff, 1);
-	  dest = BUFF_FRONT (pfile->u_buff);
-	  limit = BUFF_LIMIT (pfile->u_buff);
-	}
-      *dest++ = '.';
-    }
-  
-  do
-    {
-      do
-	{
-	  /* Need room for terminating null.  */
-	  if ((size_t) (limit - dest) < 2)
-	    {
-	      size_t len_so_far = dest - BUFF_FRONT (pfile->u_buff);
-	      _cpp_extend_buff (pfile, &pfile->u_buff, 2);
-	      dest = BUFF_FRONT (pfile->u_buff) + len_so_far;
-	      limit = BUFF_LIMIT (pfile->u_buff);
-	    }
-	  *dest++ = c;
+      const U_CHAR *base = pfile->buffer->cur - 1;
+      U_CHAR *dest;
 
-	  c = *buffer->cur++;
-	}
-      while (is_numchar (c) || c == '.' || VALID_SIGN (c, dest[-1]));
+      number->len = cur - base + leading_period;
+      dest = _cpp_unaligned_alloc (pfile, number->len + 1);
+      dest[number->len] = '\0';
+      number->text = dest;
 
-      /* Potential escaped newline?  */
-      buffer->backup_to = buffer->cur - 1;
-      if (c != '?' && c != '\\')
-	break;
-      c = skip_escaped_newlines (pfile);
-    }
-  while (is_numchar (c) || c == '.' || VALID_SIGN (c, dest[-1]));
-
-  /* Step back over the unwanted char.  */
-  BACKUP ();
-
-  /* Null-terminate the number.  */
-  *dest = '\0';
-
-  number->text = BUFF_FRONT (pfile->u_buff);
-  number->len = dest - number->text;
-  BUFF_FRONT (pfile->u_buff) = dest + 1;
-}
-
-/* Subroutine of parse_string.  Emits error for unterminated strings.  */
-static void
-unterminated (pfile, term)
-     cpp_reader *pfile;
-     int term;
-{
-  cpp_error (pfile, "missing terminating %c character", term);
-
-  if (term == '\"' && pfile->mls_line && pfile->mls_line != pfile->line)
-    {
-      cpp_error_with_line (pfile, pfile->mls_line, pfile->mls_col,
-			   "possible start of unterminated string literal");
-      pfile->mls_line = 0;
+      if (leading_period)
+	*dest++ = '.';
+      memcpy (dest, base, cur - base);
+      pfile->buffer->cur = cur;
     }
 }
 
@@ -622,7 +600,6 @@ unescaped_terminator_p (pfile, dest)
    name.  Handles embedded trigraphs and escaped newlines.  The stored
    string is guaranteed NUL-terminated, but it is not guaranteed that
    this is the first NUL since embedded NULs are preserved.
-   Multi-line strings are allowed, but they are deprecated.
 
    When this function returns, buffer->cur points to the next
    character to be processed.  */
@@ -635,7 +612,7 @@ parse_string (pfile, token, terminator)
   cpp_buffer *buffer = pfile->buffer;
   unsigned char *dest, *limit;
   cppchar_t c;
-  bool warned_nulls = false, warned_multi = false;
+  bool warned_nulls = false;
 
   dest = BUFF_FRONT (pfile->u_buff);
   limit = BUFF_LIMIT (pfile->u_buff);
@@ -663,49 +640,20 @@ parse_string (pfile, token, terminator)
 	}
       else if (is_vspace (c))
 	{
-	  /* In assembly language, silently terminate string and
-	     character literals at end of line.  This is a kludge
-	     around not knowing where comments are.  */
-	  if (CPP_OPTION (pfile, lang) == CLK_ASM && terminator != '>')
-	    {
-	      buffer->cur--;
-	      break;
-	    }
-
-	  /* Character constants and header names may not extend over
-	     multiple lines.  In Standard C, neither may strings.
-	     Unfortunately, we accept multiline strings as an
-	     extension, except in #include family directives.  */
-	  if (terminator != '"' || pfile->state.angled_headers)
-	    {
-	      unterminated (pfile, terminator);
-	      buffer->cur--;
-	      break;
-	    }
-
-	  if (!warned_multi)
-	    {
-	      warned_multi = true;
-	      cpp_pedwarn (pfile, "multi-line string literals are deprecated");
-	    }
-
-	  if (pfile->mls_line == 0)
-	    {
-	      pfile->mls_line = token->line;
-	      pfile->mls_col = token->col;
-	    }
-	      
-	  handle_newline (pfile);
-	  c = '\n';
+	  /* No string literal may extend over multiple lines.  In
+	     assembly language, suppress the error except for <>
+	     includes.  This is a kludge around not knowing where
+	     comments are.  */
+	unterminated:
+	  if (CPP_OPTION (pfile, lang) != CLK_ASM || terminator == '>')
+	    cpp_error (pfile, "missing terminating %c character", terminator);
+	  buffer->cur--;
+	  break;
 	}
       else if (c == '\0')
 	{
 	  if (buffer->cur - 1 == buffer->rlimit)
-	    {
-	      unterminated (pfile, terminator);
-	      buffer->cur--;
-	      break;
-	    }
+	    goto unterminated;
 	  if (!warned_nulls)
 	    {
 	      warned_nulls = true;
@@ -978,7 +926,7 @@ _cpp_lex_direct (pfile)
     case '0': case '1': case '2': case '3': case '4':
     case '5': case '6': case '7': case '8': case '9':
       result->type = CPP_NUMBER;
-      parse_number (pfile, &result->val.str, c, 0);
+      parse_number (pfile, &result->val.str, 0);
       break;
 
     case 'L':
@@ -1171,7 +1119,7 @@ _cpp_lex_direct (pfile)
       else if (ISDIGIT (c))
 	{
 	  result->type = CPP_NUMBER;
-	  parse_number (pfile, &result->val.str, c, 1);
+	  parse_number (pfile, &result->val.str, 1);
 	}
       else if (c == '*' && CPP_OPTION (pfile, cplusplus))
 	result->type = CPP_DOT_STAR;

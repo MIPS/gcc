@@ -33,6 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-inline.h"
 #include "varray.h"
 #include "ggc.h"
+#include "langhooks.h"
 
 static int c_tree_printer PARAMS ((output_buffer *));
 static tree inline_forbidden_p PARAMS ((tree *, int *, void *));
@@ -145,7 +146,7 @@ c_cannot_inline_tree_fn (fnp)
   tree fn = *fnp;
   tree t;
 
-  if (optimize == 0
+  if (flag_really_no_inline
       && lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) == NULL)
     return 1;
 
@@ -216,13 +217,12 @@ c_objc_common_init (filename)
   c_init_decl_processing ();
 
   filename = c_common_init (filename);
-
-  add_c_tree_codes ();
+  if (filename == NULL)
+    return NULL;
 
   save_lang_status = &push_c_function_context;
   restore_lang_status = &pop_c_function_context;
   mark_lang_status = &mark_c_function_context;
-  lang_expand_expr = c_expand_expr;
   lang_expand_decl_stmt = c_expand_decl_stmt;
 
   /* These were not defined in the Objective-C front end, but I'm
@@ -324,7 +324,7 @@ finish_cdtor (body)
 
   RECHAIN_STMTS (body, COMPOUND_BODY (body));
 
-  finish_function (0);
+  finish_function (0, 0);
 }
 
 /* Called at end of parsing, but before end-of-file processing.  */
@@ -392,7 +392,7 @@ c_tree_printer (buffer)
     case 'T':
       {
         const char *n = DECL_NAME (t)
-          ? (*decl_printable_name) (t, 2)
+          ? (*lang_hooks.decl_printable_name) (t, 2)
           : "({anonymous})";
         output_add_string (buffer, n);
       }

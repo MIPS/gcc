@@ -308,6 +308,9 @@ struct cpp_options
      traditional C.  */
   unsigned char warn_traditional;
 
+  /* Nonzero means warn about text after an #endif (or #else).  */
+  unsigned char warn_endif_labels;
+
   /* Nonzero means turn warnings into errors.  */
   unsigned char warnings_are_errors;
 
@@ -592,10 +595,16 @@ extern void cpp_forall_identifiers	PARAMS ((cpp_reader *,
 /* In cppmacro.c */
 extern void cpp_scan_nooutput		PARAMS ((cpp_reader *));
 extern int  cpp_sys_macro_p		PARAMS ((cpp_reader *));
+extern unsigned char *cpp_quote_string	PARAMS ((unsigned char *,
+						 const unsigned char *,
+						 unsigned int));
 
 /* In cppfiles.c */
 extern int cpp_included	PARAMS ((cpp_reader *, const char *));
 extern void cpp_make_system_header PARAMS ((cpp_reader *, int, int));
+
+/* In cppmain.c */
+extern void cpp_preprocess_file PARAMS ((cpp_reader *));
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,5 @@
 /* Prototypes for exported functions defined in m68hc11.c
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Stephane Carrez (stcarrez@worldnet.fr)
 
 This file is part of GNU CC.
@@ -49,6 +49,7 @@ extern rtx m68hc11_compare_op0;
 extern rtx m68hc11_compare_op1;
 extern rtx m68hc11_soft_tmp_reg;
 extern rtx iy_reg;
+extern rtx ix_reg;
 extern rtx d_reg;
 
 extern void m68hc11_initialize_trampoline PARAMS((rtx, rtx, rtx));
@@ -96,7 +97,8 @@ extern rtx m68hc11_gen_highpart PARAMS((enum machine_mode, rtx));
 #ifdef HAVE_MACHINE_MODES
 extern int m68hc11_memory_move_cost PARAMS((enum machine_mode, enum reg_class,
                                            int));
-extern int m68hc11_register_move_cost PARAMS((enum reg_class, enum reg_class));
+extern int m68hc11_register_move_cost PARAMS((enum machine_mode,
+					      enum reg_class, enum reg_class));
 extern int m68hc11_rtx_costs PARAMS((rtx, enum rtx_code, enum rtx_code));
 extern int m68hc11_address_cost PARAMS((rtx));
 
@@ -105,6 +107,8 @@ extern void m68hc11_emit_libcall PARAMS((const char*, enum rtx_code,
                                          enum machine_mode, enum machine_mode,
                                          int, rtx*));
 extern int m68hc11_small_indexed_indirect_p PARAMS((rtx, enum machine_mode));
+extern int m68hc11_symbolic_p PARAMS((rtx, enum machine_mode));
+extern int m68hc11_indirect_p PARAMS((rtx, enum machine_mode));
 extern int go_if_legitimate_address2 PARAMS((rtx, enum machine_mode, int));
 
 extern int reg_or_indexed_operand PARAMS((rtx,enum machine_mode));

@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -427,13 +426,13 @@ package body Tchk is
       --  place to suggest the possibility of a "C" confusion :-)
 
       elsif Token = Tok_Vertical_Bar then
-         Error_Msg_SC ("unexpected occurrence of ""|"", did you mean OR'?");
+         Error_Msg_SC ("unexpected occurrence of ""'|"", did you mean OR'?");
          Resync_Past_Semicolon;
 
       --  Otherwise we really do have a missing semicolon
 
       else
-         Error_Msg_AP ("missing "";""");
+         Error_Msg_AP ("|missing "";""");
          return;
       end if;
 

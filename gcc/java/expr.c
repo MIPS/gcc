@@ -48,7 +48,7 @@ static tree pop_value PARAMS ((tree));
 static void java_stack_swap PARAMS ((void));
 static void java_stack_dup PARAMS ((int, int));
 static void build_java_athrow PARAMS ((tree));
-static void build_java_jsr PARAMS ((tree, tree));
+static void build_java_jsr PARAMS ((int, int));
 static void build_java_ret PARAMS ((tree));
 static void expand_java_multianewarray PARAMS ((tree, int));
 static void expand_java_arraystore PARAMS ((tree));
@@ -607,15 +607,18 @@ build_java_athrow (node)
 /* Implementation for jsr/ret */
 
 static void
-build_java_jsr (where, ret)
-    tree where;
-    tree ret;
+build_java_jsr (target_pc, return_pc)
+     int target_pc, return_pc;
 {
+  tree where =  lookup_label (target_pc);
+  tree ret = lookup_label (return_pc);
   tree ret_label = fold (build1 (ADDR_EXPR, return_address_type_node, ret));
   push_value (ret_label);
   flush_quick_stack ();
   emit_jump (label_rtx (where));
   expand_label (ret);
+  if (instruction_bits [return_pc] & BCODE_VERIFIED)
+    load_type_state (ret);
 }
 
 static void
@@ -808,7 +811,7 @@ build_java_arraystore_check (array, object)
    tree array; 
    tree object;
 {
-  tree check, element_type;
+  tree check, element_type, source;
   tree array_type_p = TREE_TYPE (array);
   tree object_type = TYPE_NAME (TREE_TYPE (TREE_TYPE (object)));
 
@@ -834,11 +837,17 @@ build_java_arraystore_check (array, object)
 	  || CLASS_FINAL (element_type)))
     return build1 (NOP_EXPR, array_type_p, array);
   
+  /* OBJECT might be wrapped by a SAVE_EXPR. */
+  if (TREE_CODE (object) == SAVE_EXPR)
+    source = TREE_OPERAND (object, 0);
+  else
+    source = object;
+  
   /* Avoid the check if OBJECT was just loaded from the same array. */
-  if (TREE_CODE (object) == ARRAY_REF)
+  if (TREE_CODE (source) == ARRAY_REF)
     {
       tree target;
-      tree source = TREE_OPERAND (object, 0); /* COMPONENT_REF. */
+      source = TREE_OPERAND (source, 0); /* COMPONENT_REF. */
       source = TREE_OPERAND (source, 0); /* INDIRECT_REF. */
       source = TREE_OPERAND (source, 0); /* Source array's DECL or SAVE_EXPR. */
       if (TREE_CODE (source) == SAVE_EXPR)
@@ -1386,7 +1395,7 @@ build_java_binop (op, type, arg1, arg2)
     {
     case URSHIFT_EXPR:
       {
-	tree u_type = unsigned_type (type);
+	tree u_type = java_unsigned_type (type);
 	arg1 = convert (u_type, arg1);
 	arg1 = build_java_binop (RSHIFT_EXPR, u_type, arg1, arg2);
 	return convert (type, arg1);
@@ -1508,16 +1517,6 @@ lookup_field (typep, name)
 	if (DECL_NAME (field) == name)
 	  return field;
 
-      /* If *typep is an innerclass, lookup the field in its enclosing
-         contexts */
-      if (INNER_CLASS_TYPE_P (*typep))
-	{
-	  tree outer_type = TREE_TYPE (DECL_CONTEXT (TYPE_NAME (*typep)));
-
-	  if ((field = lookup_field (&outer_type, name)))
-	    return field;
-	}
-
       /* Process implemented interfaces. */
       basetype_vec = TYPE_BINFO_BASETYPES (*typep);
       n = TREE_VEC_LENGTH (basetype_vec);
@@ -1573,6 +1572,10 @@ build_field_ref (self_value, self_class, name)
     }
   else
     {
+      int check = (flag_check_references
+		   && ! (DECL_P (self_value)
+			 && DECL_NAME (self_value) == this_identifier_node));
+
       tree base_handle_type = promote_type (base_class);
       if (base_handle_type != TREE_TYPE (self_value))
 	self_value = fold (build1 (NOP_EXPR, base_handle_type, self_value));
@@ -1580,7 +1583,7 @@ build_field_ref (self_value, self_class, name)
       self_value = unhand_expr (self_value);
 #endif
       self_value = build_java_indirect_ref (TREE_TYPE (TREE_TYPE (self_value)),
-					    self_value, flag_check_references);
+					    self_value, check);
       return fold (build (COMPONENT_REF, TREE_TYPE (field_decl),
 			  self_value, field_decl));
     }
@@ -2126,12 +2129,13 @@ expand_invoke (opcode, method_ref_index, nargs)
 	 method's `this'.  In other cases we just rely on an
 	 optimization pass to eliminate redundant checks.  FIXME:
 	 Unfortunately there doesn't seem to be a way to determine
-	 what the current method is right now.  */
+	 what the current method is right now.
+	 We do omit the check if we're calling <init>.  */
       /* We use a SAVE_EXPR here to make sure we only evaluate
 	 the new `self' expression once.  */
       tree save_arg = save_expr (TREE_VALUE (arg_list));
       TREE_VALUE (arg_list) = save_arg;
-      check = java_check_reference (save_arg, 1);
+      check = java_check_reference (save_arg, ! DECL_INIT_P (method));
       func = build_known_method_ref (method, method_type, self_type,
 				     method_signature, arg_list);
     }
@@ -2477,11 +2481,11 @@ get_primitive_array_vtable (tree elt)
 }
 
 struct rtx_def *
-java_lang_expand_expr (exp, target, tmode, modifier)
+java_expand_expr (exp, target, tmode, modifier)
      register tree exp;
      rtx target;
      enum machine_mode tmode;
-     enum expand_modifier modifier;
+     int modifier; /* Actually an enum expand_modifier.  */
 {
   tree current;
 
@@ -2968,13 +2972,8 @@ process_jvm_instruction (PC, byte_ops, length)
     build_java_ret (find_local_variable (index, ptr_type_node, oldpc));	\
   }
 
-#define JSR(OPERAND_TYPE, OPERAND_VALUE)		\
-  {							\
-    tree where = lookup_label (oldpc+OPERAND_VALUE);	\
-    tree ret   = lookup_label (PC);			\
-    build_java_jsr (where, ret);			\
-    load_type_state (ret);				\
-  }
+#define JSR(OPERAND_TYPE, OPERAND_VALUE) \
+  build_java_jsr (oldpc+OPERAND_VALUE, PC);
 
 /* Push a constant onto the stack. */
 #define PUSHC(OPERAND_TYPE, OPERAND_VALUE) \

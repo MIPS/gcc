@@ -36,7 +36,6 @@
 #include <istream>
 #include <ostream>
 #include <vector>
-#include <memory>      // for auto_ptr
 #ifdef _GLIBCPP_USE_WCHAR_T  
 # include <cwctype>     // for towupper, etc.
 #endif
@@ -64,7 +63,7 @@ namespace std
   const size_t 			locale::_S_num_categories;
   const size_t 			locale::_S_num_facets;
 
-  // Definitions for locale::id of standard facets. 
+  // Definitions for locale::id of standard facets that are specialized.
   locale::id ctype<char>::id;
   locale::id codecvt<char, char, mbstate_t>::id;
 

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  64 bit ABI support.
-   Copyright (C) 1994, 1995, 1996, 1998, 1999, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1998, 1999, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -86,110 +86,18 @@ Boston, MA 02111-1307, USA.  */
 	      || GET_MODE_CLASS (MODE) == MODE_INT)))			\
       ? downward : upward))
 
-/* Under the old (i.e., 32 and O64 ABIs) all BLKmode objects are
-   returned in memory.  Under the new (N32 and 64-bit MIPS ABIs) small
-   structures are returned in a register.  Objects with varying size
-   must still be returned in memory, of course.  */
-#undef RETURN_IN_MEMORY
-#define RETURN_IN_MEMORY(TYPE)						 \
-  ((mips_abi == ABI_32 || mips_abi == ABI_O64)				 \
-   ? TYPE_MODE (TYPE) == BLKmode					 \
-   : ((int_size_in_bytes (TYPE)						 \
-       > (2 * UNITS_PER_WORD)) 						 \
-      || (int_size_in_bytes (TYPE) == -1)))
-
-#undef FUNCTION_VALUE
-#define FUNCTION_VALUE(VALTYPE, FUNC)	mips_function_value (VALTYPE, FUNC)
-
-/* For varargs, we must save the current argument, because it is the fake
-   argument va_alist, and will need to be converted to the real argument.
-   For stdarg, we do not need to save the current argument, because it
-   is a real argument.  */
-#define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL)	\
-{ unsigned int mips_off							\
-    = (! current_function_varargs) && (! (CUM).last_arg_fp);		\
-    unsigned int mips_fp_off						\
-    = (! current_function_varargs) && ((CUM).last_arg_fp); 		\
-  if (((mips_abi != ABI_32 && mips_abi != ABI_O64)			\
-       && (CUM).arg_words < MAX_ARGS_IN_REGISTERS - mips_off)		\
-      || (mips_abi == ABI_EABI						\
-	  && ! TARGET_SOFT_FLOAT					\
-	  && (CUM).fp_arg_words < MAX_ARGS_IN_REGISTERS - mips_fp_off))	\
-    {									\
-      int mips_save_gp_regs						\
-        = MAX_ARGS_IN_REGISTERS - (CUM).arg_words - mips_off;		\
-      int mips_save_fp_regs						\
-        = (mips_abi != ABI_EABI ? 0					\
-	   : MAX_ARGS_IN_REGISTERS - (CUM).fp_arg_words - mips_fp_off);	\
-									\
-      if (mips_save_gp_regs < 0)					\
-	mips_save_gp_regs = 0;						\
-      if (mips_save_fp_regs < 0)					\
-	mips_save_fp_regs = 0;						\
-      PRETEND_SIZE = ((mips_save_gp_regs * UNITS_PER_WORD)		\
-		      + (mips_save_fp_regs * UNITS_PER_FPREG));		\
-									\
-      if (! (NO_RTL))							\
-	{								\
-	  if ((CUM).arg_words < MAX_ARGS_IN_REGISTERS - mips_off)	\
-	    {								\
-	      rtx ptr, mem;						\
-	      if (mips_abi != ABI_EABI)					\
-		ptr = virtual_incoming_args_rtx;			\
-	      else							\
-		ptr = plus_constant (virtual_incoming_args_rtx,		\
-				     - (mips_save_gp_regs		\
-					* UNITS_PER_WORD));		\
-	      mem = gen_rtx_MEM (BLKmode, ptr);			\
-	      /* va_arg is an array access in this case, which causes	\
-		 it to get MEM_IN_STRUCT_P set.  We must set it here	\
-		 so that the insn scheduler won't assume that these	\
-		 stores can't possibly overlap with the va_arg loads.  */ \
-	      if (mips_abi != ABI_EABI && BYTES_BIG_ENDIAN)		\
-	        MEM_SET_IN_STRUCT_P (mem, 1);				\
-	      move_block_from_reg					\
-		((CUM).arg_words + GP_ARG_FIRST + mips_off,		\
-		 mem,							\
-		 mips_save_gp_regs,					\
-		 mips_save_gp_regs * UNITS_PER_WORD);			\
-	    }								\
-	  if (mips_abi == ABI_EABI					\
-	      && ! TARGET_SOFT_FLOAT					\
-	      && (CUM).fp_arg_words < MAX_ARGS_IN_REGISTERS - mips_fp_off) \
-	    {								\
-	      enum machine_mode mode = TARGET_SINGLE_FLOAT ? SFmode : DFmode; \
-	      int size = GET_MODE_SIZE (mode);				\
-	      int off;							\
-	      int i;							\
-	      /* We can't use move_block_from_reg, because it will use	\
-                 the wrong mode.  */					\
-	      off = - (mips_save_gp_regs * UNITS_PER_WORD);		\
-	      if (! TARGET_SINGLE_FLOAT)				\
-	        off &= ~ 7;						\
-	      if (! TARGET_FLOAT64 || TARGET_SINGLE_FLOAT)		\
-		off -= (mips_save_fp_regs / 2) * size;			\
-	      else							\
-		off -= mips_save_fp_regs * size;			\
-	      for (i = 0; i < mips_save_fp_regs; i++)			\
-		{							\
-		  rtx tem =						\
-		    gen_rtx_MEM (mode,					\
-				 plus_constant (virtual_incoming_args_rtx, \
-						off));			\
-		  emit_move_insn (tem,					\
-				  gen_rtx_REG (mode,			\
-					       ((CUM).fp_arg_words	\
-						+ FP_ARG_FIRST		\
-						+ i			\
-						+ mips_fp_off)));	\
-		  off += size;						\
-		  if (! TARGET_FLOAT64 || TARGET_SINGLE_FLOAT)		\
-		    ++i;						\
-		}							\
-	    }								\
-	}								\
-    }									\
-}
+/* Modified version of the macro in expr.h.  */
+#define MUST_PASS_IN_STACK(MODE,TYPE)			\
+  ((TYPE) != 0						\
+   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST	\
+       || TREE_ADDRESSABLE (TYPE)			\
+       || ((MODE) == BLKmode 				\
+	   && mips_abi != ABI_32 && mips_abi != ABI_O64 \
+	   && ! ((TYPE) != 0 && TREE_CODE (TYPE_SIZE (TYPE)) == INTEGER_CST \
+		 && 0 == (int_size_in_bytes (TYPE)	\
+			  % (PARM_BOUNDARY / BITS_PER_UNIT))) \
+	   && (FUNCTION_ARG_PADDING (MODE, TYPE)	\
+	       == (BYTES_BIG_ENDIAN ? upward : downward)))))
 
 #define STRICT_ARGUMENT_NAMING (mips_abi != ABI_32 && mips_abi != ABI_O64)
 
@@ -213,25 +121,6 @@ Boston, MA 02111-1307, USA.  */
 #define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED)		\
   (mips_abi == ABI_EABI && (NAMED)					\
    && FUNCTION_ARG_PASS_BY_REFERENCE (CUM, MODE, TYPE, NAMED))
-
-/* Define LONG_MAX correctly for all users.  We need to handle 32 bit EABI,
-   64 bit EABI, N32, and N64 as possible defaults.  The checks performed here
-   are the same as the checks in override_options in mips.c that determines
-   whether MASK_LONG64 will be set.
-
-   This does not handle inappropriate options or ununusal option
-   combinations.  */
-
-#undef LONG_MAX_SPEC
-#if ((MIPS_ABI_DEFAULT == ABI_64) || ((MIPS_ABI_DEFAULT == ABI_EABI) && ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_64BIT)))
-#define LONG_MAX_SPEC \
-  "%{!mabi=32:%{!mabi=n32:%{!mlong32:%{!mgp32:%{!mips1:%{!mips2:-D__LONG_MAX__=9223372036854775807L}}}}}}"
-#else
-#define LONG_MAX_SPEC \
-  "%{mabi=64:-D__LONG_MAX__=9223372036854775807L} \
-   %{mlong64:-D__LONG_MAX__=9223372036854775807L} \
-   %{mgp64:-D__LONG_MAX__=9223372036854775807L}"
-#endif
 
 /* ??? Unimplemented stuff follows.  */
 

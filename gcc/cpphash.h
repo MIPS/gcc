@@ -152,9 +152,6 @@ struct lexer_state
 
   /* Nonzero when parsing arguments to a function-like macro.  */
   unsigned char parsing_args;
-
-  /* Nonzero when in a # NUMBER directive.  */
-  unsigned char line_extension;
 };
 
 /* Special nodes - identifiers with predefined significance.  */
@@ -268,11 +265,6 @@ struct cpp_reader
 
   /* Error counter for exit code.  */
   unsigned int errors;
-
-  /* Line and column where a newline was first seen in a string
-     constant (multi-line strings).  */
-  unsigned int mls_line;
-  unsigned int mls_col;
 
   /* Buffer to hold macro definition string.  */
   unsigned char *macro_buffer;

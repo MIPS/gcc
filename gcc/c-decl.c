@@ -47,6 +47,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-optimize.h"
 #include "timevar.h"
 #include "c-common.h"
+#include "c-pragma.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -461,6 +462,50 @@ c_decode_option (argc, argv)
   int strings_processed;
   char *p = argv[0];
 
+  static const struct {
+      /* The name of the option.  */
+      const char *option;
+      /* If non-NULL, a flag variable to set to 0 or 1.  If NULL,
+         this means that cpp handles this option.  */
+      int *flag;
+  } warn_options[] = {
+    /* This list is in alphabetical order.  Keep it like that.  */
+    { "bad-function-cast", &warn_bad_function_cast },
+    { "cast-qual", &warn_cast_qual },
+    { "char-subscripts", &warn_char_subscripts },
+    { "comment", NULL },
+    { "comments", NULL },
+    { "conversion", &warn_conversion },
+    { "div-by-zero", &warn_div_by_zero },
+    { "float-equal", &warn_float_equal },
+    { "format-extra-args", &warn_format_extra_args },
+    { "format-nonliteral", &warn_format_nonliteral },
+    { "format-security", &warn_format_security },
+    { "format-y2k", &warn_format_y2k },
+    { "implicit-function-declaration", &mesg_implicit_function_declaration },
+    { "implicit-int", &warn_implicit_int },
+    { "import", NULL },
+    { "long-long", &warn_long_long },
+    { "main", &warn_main },
+    { "missing-braces", &warn_missing_braces },
+    { "missing-declarations", &warn_missing_declarations },
+    { "missing-format-attribute", &warn_missing_format_attribute },
+    { "missing-prototypes", &warn_missing_prototypes },
+    { "multichar", &warn_multichar },
+    { "nested-externs", &warn_nested_externs },
+    { "parentheses", &warn_parentheses },
+    { "pointer-arith", &warn_pointer_arith },
+    { "redundant-decls", &warn_redundant_decls },
+    { "return-type", &warn_return_type },
+    { "sequence-point", &warn_sequence_point },
+    { "sign-compare", &warn_sign_compare },
+    { "strict-prototypes", &warn_strict_prototypes },
+    { "traditional", &warn_traditional },
+    { "trigraphs", NULL },
+    { "undef", NULL },
+    { "write-strings", &flag_const_strings }
+  };
+
   strings_processed = cpp_handle_option (parse_in, argc, argv, 0);
 
   if (!strcmp (p, "-fhosted") || !strcmp (p, "-fno-freestanding"))
@@ -537,6 +582,8 @@ c_decode_option (argc, argv)
 	  flag_isoc99 = 1;
 	  flag_isoc94 = 1;
 	}
+      else if (!strcmp (argstart, "c++98"))
+	; /* Handled by cpplib.  */
       else
 	error ("unknown C standard `%s'", argstart);
     }
@@ -596,14 +643,12 @@ c_decode_option (argc, argv)
     goto iso_1990;
   else if (!strcmp (p, "-Werror-implicit-function-declaration"))
     mesg_implicit_function_declaration = 2;
-  else if (!strcmp (p, "-Wimplicit-function-declaration"))
-    mesg_implicit_function_declaration = 1;
-  else if (!strcmp (p, "-Wno-implicit-function-declaration"))
-    mesg_implicit_function_declaration = 0;
-  else if (!strcmp (p, "-Wimplicit-int"))
-    warn_implicit_int = 1;
-  else if (!strcmp (p, "-Wno-implicit-int"))
-    warn_implicit_int = 0;
+  else if (!strncmp (p, "-Wformat=", 9))
+    set_Wformat (atoi (p + 9));
+  else if (!strcmp (p, "-Wformat"))
+    set_Wformat (1);
+  else if (!strcmp (p, "-Wno-format"))
+    set_Wformat (0);
   else if (!strcmp (p, "-Wimplicit"))
     {
       warn_implicit_int = 1;
@@ -612,142 +657,8 @@ c_decode_option (argc, argv)
     }
   else if (!strcmp (p, "-Wno-implicit"))
     warn_implicit_int = 0, mesg_implicit_function_declaration = 0;
-  else if (!strcmp (p, "-Wlong-long"))
-    warn_long_long = 1;
-  else if (!strcmp (p, "-Wno-long-long"))
-    warn_long_long = 0;
-  else if (!strcmp (p, "-Wwrite-strings"))
-    flag_const_strings = 1;
-  else if (!strcmp (p, "-Wno-write-strings"))
-    flag_const_strings = 0;
-  else if (!strcmp (p, "-Wcast-qual"))
-    warn_cast_qual = 1;
-  else if (!strcmp (p, "-Wno-cast-qual"))
-    warn_cast_qual = 0;
-  else if (!strcmp (p, "-Wbad-function-cast"))
-    warn_bad_function_cast = 1;
-  else if (!strcmp (p, "-Wno-bad-function-cast"))
-    warn_bad_function_cast = 0;
-  else if (!strcmp (p, "-Wno-missing-noreturn"))
-    warn_missing_noreturn = 0;
-  else if (!strcmp (p, "-Wmissing-format-attribute"))
-    warn_missing_format_attribute = 1;
-  else if (!strcmp (p, "-Wno-missing-format-attribute"))
-    warn_missing_format_attribute = 0;
-  else if (!strcmp (p, "-Wpointer-arith"))
-    warn_pointer_arith = 1;
-  else if (!strcmp (p, "-Wno-pointer-arith"))
-    warn_pointer_arith = 0;
-  else if (!strcmp (p, "-Wstrict-prototypes"))
-    warn_strict_prototypes = 1;
-  else if (!strcmp (p, "-Wno-strict-prototypes"))
-    warn_strict_prototypes = 0;
-  else if (!strcmp (p, "-Wmissing-prototypes"))
-    warn_missing_prototypes = 1;
-  else if (!strcmp (p, "-Wno-missing-prototypes"))
-    warn_missing_prototypes = 0;
-  else if (!strcmp (p, "-Wmissing-declarations"))
-    warn_missing_declarations = 1;
-  else if (!strcmp (p, "-Wno-missing-declarations"))
-    warn_missing_declarations = 0;
-  else if (!strcmp (p, "-Wredundant-decls"))
-    warn_redundant_decls = 1;
-  else if (!strcmp (p, "-Wno-redundant-decls"))
-    warn_redundant_decls = 0;
-  else if (!strcmp (p, "-Wnested-externs"))
-    warn_nested_externs = 1;
-  else if (!strcmp (p, "-Wno-nested-externs"))
-    warn_nested_externs = 0;
-  else if (!strcmp (p, "-Wtraditional"))
-    warn_traditional = 1;
-  else if (!strcmp (p, "-Wno-traditional"))
-    warn_traditional = 0;
-  else if (!strncmp (p, "-Wformat=", 9))
-    set_Wformat (atoi (p + 9));
-  else if (!strcmp (p, "-Wformat"))
-    set_Wformat (1);
-  else if (!strcmp (p, "-Wno-format"))
-    set_Wformat (0);
-  else if (!strcmp (p, "-Wformat-y2k"))
-    warn_format_y2k = 1;
-  else if (!strcmp (p, "-Wno-format-y2k"))
-    warn_format_y2k = 0;
-  else if (!strcmp (p, "-Wformat-extra-args"))
-    warn_format_extra_args = 1;
-  else if (!strcmp (p, "-Wno-format-extra-args"))
-    warn_format_extra_args = 0;
-  else if (!strcmp (p, "-Wformat-nonliteral"))
-    warn_format_nonliteral = 1;
-  else if (!strcmp (p, "-Wno-format-nonliteral"))
-    warn_format_nonliteral = 0;
-  else if (!strcmp (p, "-Wformat-security"))
-    warn_format_security = 1;
-  else if (!strcmp (p, "-Wno-format-security"))
-    warn_format_security = 0;
-  else if (!strcmp (p, "-Wchar-subscripts"))
-    warn_char_subscripts = 1;
-  else if (!strcmp (p, "-Wno-char-subscripts"))
-    warn_char_subscripts = 0;
-  else if (!strcmp (p, "-Wconversion"))
-    warn_conversion = 1;
-  else if (!strcmp (p, "-Wno-conversion"))
-    warn_conversion = 0;
-  else if (!strcmp (p, "-Wparentheses"))
-    warn_parentheses = 1;
-  else if (!strcmp (p, "-Wno-parentheses"))
-    warn_parentheses = 0;
-  else if (!strcmp (p, "-Wreturn-type"))
-    warn_return_type = 1;
-  else if (!strcmp (p, "-Wno-return-type"))
-    warn_return_type = 0;
-  else if (!strcmp (p, "-Wsequence-point"))
-    warn_sequence_point = 1;
-  else if (!strcmp (p, "-Wno-sequence-point"))
-    warn_sequence_point = 0;
-  else if (!strcmp (p, "-Wcomment"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wno-comment"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wcomments"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wno-comments"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wtrigraphs"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wno-trigraphs"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wundef"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wno-undef"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wimport"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wno-import"))
-    ; /* cpp handles this one.  */
-  else if (!strcmp (p, "-Wmissing-braces"))
-    warn_missing_braces = 1;
-  else if (!strcmp (p, "-Wno-missing-braces"))
-    warn_missing_braces = 0;
-  else if (!strcmp (p, "-Wmain"))
-    warn_main = 1;
   else if (!strcmp (p, "-Wno-main"))
     warn_main = -1;
-  else if (!strcmp (p, "-Wsign-compare"))
-    warn_sign_compare = 1;
-  else if (!strcmp (p, "-Wno-sign-compare"))
-    warn_sign_compare = 0;
-  else if (!strcmp (p, "-Wfloat-equal"))
-    warn_float_equal = 1;
-  else if (!strcmp (p, "-Wno-float-equal"))
-    warn_float_equal = 0;
-  else if (!strcmp (p, "-Wmultichar"))
-    warn_multichar = 1;
-  else if (!strcmp (p, "-Wno-multichar"))
-    warn_multichar = 0;
-  else if (!strcmp (p, "-Wdiv-by-zero"))
-    warn_div_by_zero = 1;
-  else if (!strcmp (p, "-Wno-div-by-zero"))
-    warn_div_by_zero = 0;
   else if (!strcmp (p, "-Wunknown-pragmas"))
     /* Set to greater than 1, so that even unknown pragmas in system
        headers will be warned about.  */
@@ -777,8 +688,23 @@ c_decode_option (argc, argv)
       /* Only warn about unknown pragmas that are not in system headers.  */
       warn_unknown_pragmas = 1;
     }
+  else if (!strcmp (p, "-E"))
+    flag_preprocess_only = 1;
   else
-    return strings_processed;
+    {
+      size_t i;
+      for (i = 0; i < sizeof (warn_options) / sizeof (warn_options[0]); i++)
+	if (strncmp (p, "-W", 2) == 0 
+	    && warn_options[i].flag
+	    && (strcmp (p+2, warn_options[i].option) == 0
+		|| (strncmp (p+2, "no-", 3) == 0
+		    && strcmp (p+5, warn_options[i].option) == 0)))
+	  {
+	    *(warn_options[i].flag) = strncmp (p+2, "no-", 3) != 0;
+	    return 1;
+	  }
+      return strings_processed;
+    }
 
   return 1;
 }
@@ -809,7 +735,7 @@ c_print_identifier (file, node, indent)
    for a top-level tentative array defn that wasn't complete before.  */
 
 void
-finish_incomplete_decl (decl)
+c_finish_incomplete_decl (decl)
      tree decl;
 {
   if (TREE_CODE (decl) == VAR_DECL)
@@ -3060,8 +2986,6 @@ c_init_decl_processing ()
   make_fname_decl = c_make_fname_decl;
   start_fname_decls ();
 
-  incomplete_decl_finalize_hook = finish_incomplete_decl;
-
   /* Record our roots.  */
 
   ggc_add_tree_root (c_global_trees, CTI_MAX);
@@ -3162,7 +3086,7 @@ builtin_function (name, type, function_code, class, library_name)
    attributes.  */
 
 void
-insert_default_attributes (decl)
+c_insert_default_attributes (decl)
      tree decl;
 {
   if (!TREE_PUBLIC (decl))
@@ -3483,6 +3407,10 @@ start_decl (declarator, declspecs, initialized, attributes)
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
   decl_attributes (&decl, attributes, 0);
 
+  /* If #pragma weak was used, mark the decl weak now.  */
+  if (current_binding_level == global_binding_level)
+    maybe_apply_pragma_weak (decl);
+
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_DECLARED_INLINE_P (decl)
       && DECL_UNINLINABLE (decl)
@@ -3528,6 +3456,8 @@ finish_decl (decl, init, asmspec_tree)
   const char *asmspec = 0;
 
   /* If a name was specified, get the string.  */
+  if (current_binding_level == global_binding_level)
+    asmspec_tree = maybe_apply_renaming_pragma (decl, asmspec_tree);
   if (asmspec_tree)
     asmspec = TREE_STRING_POINTER (asmspec_tree);
 
@@ -3724,17 +3654,6 @@ finish_decl (decl, init, asmspec_tree)
      computing them in the following function definition.  */
   if (current_binding_level == global_binding_level)
     get_pending_sizes ();
-}
-
-/* If DECL has a cleanup, build and return that cleanup here.
-   This is a callback called by expand_expr.  */
-
-tree
-maybe_build_cleanup (decl)
-     tree decl ATTRIBUTE_UNUSED;
-{
-  /* There are no cleanups in C.  */
-  return NULL_TREE;
 }
 
 /* Given a parsed parameter declaration,
@@ -4242,7 +4161,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
       else if (type == char_type_node)
 	type = unsigned_char_type_node;
       else if (typedef_decl)
-	type = unsigned_type (type);
+	type = c_common_unsigned_type (type);
       else
 	type = unsigned_type_node;
     }
@@ -4452,7 +4371,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  tree itype = NULL_TREE;
 	  tree size = TREE_OPERAND (declarator, 1);
 	  /* The index is a signed object `sizetype' bits wide.  */
-	  tree index_type = signed_type (sizetype);
+	  tree index_type = c_common_signed_type (sizetype);
 
 	  array_ptr_quals = TREE_TYPE (declarator);
 	  array_parm_static = TREE_STATIC (declarator);
@@ -5104,7 +5023,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
        Otherwise, the fact that those components are volatile
        will be ignored, and would even crash the compiler.  */
     if (C_TYPE_FIELDS_VOLATILE (TREE_TYPE (decl)))
-      mark_addressable (decl);
+      c_mark_addressable (decl);
 
     decl_attributes (&decl, returned_attrs, 0);
 
@@ -5924,7 +5843,7 @@ finish_enum (enumtype, values, attributes)
 		   min_precision (maxnode, unsign));
   if (TYPE_PACKED (enumtype) || precision > TYPE_PRECISION (integer_type_node))
     {
-      tree narrowest = type_for_size (precision, unsign);
+      tree narrowest = c_common_type_for_size (precision, unsign);
       if (narrowest == 0)
 	{
 	  warning ("enumeration values exceed range of largest integer");
@@ -5937,7 +5856,7 @@ finish_enum (enumtype, values, attributes)
     precision = TYPE_PRECISION (integer_type_node);
 
   if (precision == TYPE_PRECISION (integer_type_node))
-    enum_value_type = type_for_size (precision, 0);
+    enum_value_type = c_common_type_for_size (precision, 0);
   else
     enum_value_type = enumtype;
 
@@ -6065,10 +5984,11 @@ build_enumerator (name, value)
   /* Now create a declaration for the enum value name.  */
 
   type = TREE_TYPE (value);
-  type = type_for_size (MAX (TYPE_PRECISION (type),
-			     TYPE_PRECISION (integer_type_node)),
-			(TYPE_PRECISION (type) >= TYPE_PRECISION (integer_type_node)
-			 && TREE_UNSIGNED (type)));
+  type = c_common_type_for_size (MAX (TYPE_PRECISION (type),
+				      TYPE_PRECISION (integer_type_node)),
+				 (TYPE_PRECISION (type)
+				  >= TYPE_PRECISION (integer_type_node)
+				  && TREE_UNSIGNED (type)));
 
   decl = build_decl (CONST_DECL, name, type);
   DECL_INITIAL (decl) = convert (type, value);
@@ -6121,6 +6041,10 @@ start_function (declspecs, declarator, attributes)
     }
 
   decl_attributes (&decl1, attributes, 0);
+
+  /* If #pragma weak was used, mark the decl weak now.  */
+  if (current_binding_level == global_binding_level)
+    maybe_apply_pragma_weak (decl1);
 
   if (DECL_DECLARED_INLINE_P (decl1)
       && DECL_UNINLINABLE (decl1)
@@ -6763,17 +6687,21 @@ store_parm_decls ()
 
    This is called after parsing the body of the function definition.
 
-   NESTED is nonzero if the function being finished is nested in another.  */
+   NESTED is nonzero if the function being finished is nested in another.
+   CAN_DEFER_P is nonzero if the function may be deferred.  */
 
 void
-finish_function (nested)
+finish_function (nested, can_defer_p)
      int nested;
+     int can_defer_p;
 {
   tree fndecl = current_function_decl;
 
-/*  TREE_READONLY (fndecl) = 1;
-    This caused &foo to be of type ptr-to-const-function
-    which then got a warning when stored in a ptr-to-function variable.  */
+#if 0
+  /* This caused &foo to be of type ptr-to-const-function which then
+     got a warning when stored in a ptr-to-function variable.  */
+  TREE_READONLY (fndecl) = 1;
+#endif
 
   poplevel (1, 0, 1);
   BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
@@ -6834,7 +6762,8 @@ finish_function (nested)
   if (! nested)
     {
       /* Generate RTL for the body of this function.  */
-      c_expand_body (fndecl, nested, 1);
+      c_expand_body (fndecl, nested, can_defer_p);
+
       /* Let the error reporting routines know that we're outside a
 	 function.  For a nested function, this value is used in
 	 pop_c_function_context and then reset via pop_function_context.  */
@@ -7276,7 +7205,7 @@ c_dup_lang_specific_decl (decl)
 /* Mark the language specific bits in T for GC.  */
 
 void
-lang_mark_tree (t)
+c_mark_tree (t)
      tree t;
 {
   if (TREE_CODE (t) == IDENTIFIER_NODE)

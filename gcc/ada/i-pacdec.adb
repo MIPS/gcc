@@ -7,7 +7,6 @@
 --                                 B o d y                                  --
 --            (Version for IBM Mainframe Packed Decimal Format)             --
 --                                                                          --
---                            $Revision: 1.1 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -209,6 +208,7 @@ package body Interfaces.Packed_Decimal is
       --  Cases where all nibbles are used
 
       else
+         V := 0;
          J := 1;
       end if;
 
@@ -294,6 +294,7 @@ package body Interfaces.Packed_Decimal is
 
       else
          J := 1;
+         V := 0;
       end if;
 
       --  Loop to process bytes containing two digit nibbles

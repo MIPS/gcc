@@ -68,18 +68,17 @@ Boston, MA 02111-1307, USA.  */
 static int apparent_fsize;
 static int actual_fsize;
 
-/* Number of live general or floating point registers needed to be saved
-   (as 4-byte quantities).  This is only done if TARGET_EPILOGUE.  */
+/* Number of live general or floating point registers needed to be
+   saved (as 4-byte quantities).  */
 static int num_gfregs;
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
-
 rtx sparc_compare_op0, sparc_compare_op1;
 
-/* We may need an epilogue if we spill too many registers.
-   If this is non-zero, then we branch here for the epilogue.  */
-static rtx leaf_label;
+/* Coordinate with the md file wrt special insns created by
+   sparc_nonflat_function_epilogue.  */
+bool sparc_emitting_epilogue;
 
 #ifdef LEAF_REGISTERS
 
@@ -432,12 +431,6 @@ sparc_override_options ()
   /* Do various machine dependent initializations.  */
   sparc_init_modes ();
 
-  if ((profile_flag)
-      && sparc_cmodel != CM_32 && sparc_cmodel != CM_MEDLOW)
-    {
-      error ("profiling does not support code models other than medlow");
-    }
-
   /* Register global variables with the garbage collector.  */
   sparc_add_gc_roots ();
 }
@@ -606,6 +599,27 @@ fcc_reg_operand (op, mode)
 #else
   return (unsigned) REGNO (op) - SPARC_FIRST_V9_FCC_REG < 4;
 #endif
+}
+
+/* Nonzero if OP is a floating point condition code fcc0 register.  */
+
+int
+fcc0_reg_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  /* This can happen when recog is called from combine.  Op may be a MEM.
+     Fail instead of calling abort in this case.  */
+  if (GET_CODE (op) != REG)
+    return 0;
+
+  if (mode != VOIDmode && mode != GET_MODE (op))
+    return 0;
+  if (mode == VOIDmode
+      && (GET_MODE (op) != CCFPmode && GET_MODE (op) != CCFPEmode))
+    return 0;
+
+  return REGNO (op) == SPARC_FCC_REG;
 }
 
 /* Nonzero if OP is an integer or floating point condition code register.  */
@@ -878,10 +892,33 @@ noov_compare_op (op, mode)
   if (GET_RTX_CLASS (code) != '<')
     return 0;
 
-  if (GET_MODE (XEXP (op, 0)) == CC_NOOVmode)
+  if (GET_MODE (XEXP (op, 0)) == CC_NOOVmode
+      || GET_MODE (XEXP (op, 0)) == CCX_NOOVmode)
     /* These are the only branches which work with CC_NOOVmode.  */
     return (code == EQ || code == NE || code == GE || code == LT);
   return 1;
+}
+
+/* Return 1 if this is a 64-bit comparison operator.  This allows the use of
+   MATCH_OPERATOR to recognize all the branch insns.  */
+
+int
+noov_compare64_op (op, mode)
+    register rtx op;
+    enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  enum rtx_code code = GET_CODE (op);
+
+  if (! TARGET_V9)
+    return 0;
+
+  if (GET_RTX_CLASS (code) != '<')
+    return 0;
+
+  if (GET_MODE (XEXP (op, 0)) == CCX_NOOVmode)
+    /* These are the only branches which work with CCX_NOOVmode.  */
+    return (code == EQ || code == NE || code == GE || code == LT);
+  return (GET_MODE (XEXP (op, 0)) == CCXmode);
 }
 
 /* Nonzero if OP is a comparison operator suitable for use in v9
@@ -964,10 +1001,10 @@ arith_4096_operand (op, mode)
      rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  int val;
   if (GET_CODE (op) != CONST_INT)
     return 0;
-  return val == 4096;
+  else
+    return INTVAL (op) == 4096;
 }
 
 /* Return true if OP is suitable as second operand for add/sub */
@@ -2299,16 +2336,7 @@ gen_v9_scc (compare_code, operands)
 	  || GET_MODE (operands[0]) == DImode))
     return 0;
 
-  /* Handle the case where operands[0] == sparc_compare_op0.
-     We "early clobber" the result.  */
-  if (REGNO (operands[0]) == REGNO (sparc_compare_op0))
-    {
-      op0 = gen_reg_rtx (GET_MODE (sparc_compare_op0));
-      emit_move_insn (op0, sparc_compare_op0);
-    }
-  else
-    op0 = sparc_compare_op0;
-  /* For consistency in the following.  */
+  op0 = sparc_compare_op0;
   op1 = sparc_compare_op1;
 
   /* Try to use the movrCC insns.  */
@@ -2318,14 +2346,12 @@ gen_v9_scc (compare_code, operands)
       && v9_regcmp_p (compare_code))
     {
       /* Special case for op0 != 0.  This can be done with one instruction if
-	 operands[0] == sparc_compare_op0.  We don't assume they are equal
-	 now though.  */
+	 operands[0] == sparc_compare_op0.  */
 
       if (compare_code == NE
 	  && GET_MODE (operands[0]) == DImode
-	  && GET_MODE (op0) == DImode)
+	  && rtx_equal_p (op0, operands[0]))
 	{
-	  emit_insn (gen_rtx_SET (VOIDmode, operands[0], op0));
 	  emit_insn (gen_rtx_SET (VOIDmode, operands[0],
 			      gen_rtx_IF_THEN_ELSE (DImode,
 				       gen_rtx_fmt_ee (compare_code, DImode,
@@ -2333,6 +2359,14 @@ gen_v9_scc (compare_code, operands)
 				       const1_rtx,
 				       operands[0])));
 	  return 1;
+	}
+
+      if (reg_overlap_mentioned_p (operands[0], op0))
+	{
+	  /* Handle the case where operands[0] == sparc_compare_op0.
+	     We "early clobber" the result.  */
+	  op0 = gen_reg_rtx (GET_MODE (sparc_compare_op0));
+	  emit_move_insn (op0, sparc_compare_op0);
 	}
 
       emit_insn (gen_rtx_SET (VOIDmode, operands[0], const0_rtx));
@@ -2416,6 +2450,26 @@ int
 leaf_return_peephole_ok ()
 {
   return (actual_fsize == 0);
+}
+
+/* Return nonzero if a branch/jump/call instruction will be emitting
+   nop into its delay slot.  */
+
+int
+empty_delay_slot (insn)
+     rtx insn;
+{
+  rtx seq;
+
+  /* If no previous instruction (should not happen), return true.  */
+  if (PREV_INSN (insn) == NULL)
+    return 1;
+
+  seq = NEXT_INSN (PREV_INSN (insn));
+  if (GET_CODE (PATTERN (seq)) == SEQUENCE)
+    return 0;
+
+  return 1;
 }
 
 /* Return nonzero if TRIAL can go into the function epilogue's
@@ -3337,30 +3391,27 @@ compute_frame_size (size, leaf_function)
   int outgoing_args_size = (current_function_outgoing_args_size
 			    + REG_PARM_STACK_SPACE (current_function_decl));
 
-  if (TARGET_EPILOGUE)
+  /* N_REGS is the number of 4-byte regs saved thus far.  This applies
+     even to v9 int regs to be consistent with save_regs/restore_regs.  */
+
+  if (TARGET_ARCH64)
     {
-      /* N_REGS is the number of 4-byte regs saved thus far.  This applies
-	 even to v9 int regs to be consistent with save_regs/restore_regs.  */
-
-      if (TARGET_ARCH64)
-	{
-	  for (i = 0; i < 8; i++)
-	    if (regs_ever_live[i] && ! call_used_regs[i])
-	      n_regs += 2;
-	}
-      else
-	{
-	  for (i = 0; i < 8; i += 2)
-	    if ((regs_ever_live[i] && ! call_used_regs[i])
-		|| (regs_ever_live[i+1] && ! call_used_regs[i+1]))
-	      n_regs += 2;
-	}
-
-      for (i = 32; i < (TARGET_V9 ? 96 : 64); i += 2)
+      for (i = 0; i < 8; i++)
+	if (regs_ever_live[i] && ! call_used_regs[i])
+	  n_regs += 2;
+    }
+  else
+    {
+      for (i = 0; i < 8; i += 2)
 	if ((regs_ever_live[i] && ! call_used_regs[i])
 	    || (regs_ever_live[i+1] && ! call_used_regs[i+1]))
 	  n_regs += 2;
     }
+
+  for (i = 32; i < (TARGET_V9 ? 96 : 64); i += 2)
+    if ((regs_ever_live[i] && ! call_used_regs[i])
+	|| (regs_ever_live[i+1] && ! call_used_regs[i+1]))
+      n_regs += 2;
 
   /* Set up values for use in `function_epilogue'.  */
   num_gfregs = n_regs;
@@ -3585,24 +3636,9 @@ sparc_nonflat_function_prologue (file, size, leaf_function)
 	  base = frame_base_name;
 	}
 
-      n_regs = 0;
-      if (TARGET_EPILOGUE && ! leaf_function)
-	/* ??? Originally saved regs 0-15 here.  */
-	n_regs = save_regs (file, 0, 8, base, offset, 0, real_offset);
-      else if (leaf_function)
-	/* ??? Originally saved regs 0-31 here.  */
-	n_regs = save_regs (file, 0, 8, base, offset, 0, real_offset);
-      if (TARGET_EPILOGUE)
-	save_regs (file, 32, TARGET_V9 ? 96 : 64, base, offset, n_regs,
-		   real_offset);
-    }
-
-  leaf_label = 0;
-  if (leaf_function && actual_fsize != 0)
-    {
-      /* warning ("leaf procedure with frame size %d", actual_fsize); */
-      if (! TARGET_EPILOGUE)
-	leaf_label = gen_label_rtx ();
+      n_regs = save_regs (file, 0, 8, base, offset, 0, real_offset);
+      save_regs (file, 32, TARGET_V9 ? 96 : 64, base, offset, n_regs,
+		 real_offset);
     }
 }
 
@@ -3629,15 +3665,8 @@ output_restore_regs (file, leaf_function)
       base = frame_base_name;
     }
 
-  n_regs = 0;
-  if (TARGET_EPILOGUE && ! leaf_function)
-    /* ??? Originally saved regs 0-15 here.  */
-    n_regs = restore_regs (file, 0, 8, base, offset, 0);
-  else if (leaf_function)
-    /* ??? Originally saved regs 0-31 here.  */
-    n_regs = restore_regs (file, 0, 8, base, offset, 0);
-  if (TARGET_EPILOGUE)
-    restore_regs (file, 32, TARGET_V9 ? 96 : 64, base, offset, n_regs);
+  n_regs = restore_regs (file, 0, 8, base, offset, 0);
+  restore_regs (file, 32, TARGET_V9 ? 96 : 64, base, offset, n_regs);
 }
 
 /* This function generates the assembly code for function exit,
@@ -3670,12 +3699,6 @@ sparc_nonflat_function_epilogue (file, size, leaf_function)
 {
   const char *ret;
 
-  if (leaf_label)
-    {
-      emit_label_after (leaf_label, get_last_insn ());
-      final_scan_insn (get_last_insn (), file, 0, 0, 1);
-    }
-
   if (current_function_epilogue_delay_list == 0)
     {
       /* If code does not drop into the epilogue, we need
@@ -3696,95 +3719,93 @@ sparc_nonflat_function_epilogue (file, size, leaf_function)
   else
     ret = (SKIP_CALLERS_UNIMP_P ? "jmp\t%i7+12" : "ret");
 
-  if (TARGET_EPILOGUE || leaf_label)
+  if (! leaf_function)
     {
-      int old_target_epilogue = TARGET_EPILOGUE;
-      target_flags &= ~old_target_epilogue;
-
-      if (! leaf_function)
+      if (current_function_calls_eh_return)
 	{
-	  if (current_function_calls_eh_return)
-	    {
-	      if (current_function_epilogue_delay_list)
-		abort ();
-	      if (SKIP_CALLERS_UNIMP_P)
-		abort ();
+	  if (current_function_epilogue_delay_list)
+	    abort ();
+	  if (SKIP_CALLERS_UNIMP_P)
+	    abort ();
 
-	      fputs ("\trestore\n\tretl\n\tadd\t%sp, %g1, %sp\n", file);
-	    }
-	  /* If we wound up with things in our delay slot, flush them here.  */
-	  else if (current_function_epilogue_delay_list)
-	    {
-	      rtx delay = PATTERN (XEXP (current_function_epilogue_delay_list, 0));
-
-	      if (TARGET_V9 && ! epilogue_renumber (&delay, 1))
-		{
-		  epilogue_renumber (&delay, 0);
-		  fputs (SKIP_CALLERS_UNIMP_P
-			 ? "\treturn\t%i7+12\n"
-			 : "\treturn\t%i7+8\n", file);
-		  final_scan_insn (XEXP (current_function_epilogue_delay_list, 0), file, 1, 0, 0);
-		}
-	      else
-		{
-		  rtx insn = emit_jump_insn_after (gen_rtx_RETURN (VOIDmode),
-						   get_last_insn ());
-		  rtx src;
-
-		  if (GET_CODE (delay) != SET)
-		    abort();
-
-		  src = SET_SRC (delay);
-		  if (GET_CODE (src) == ASHIFT)
-		    {
-		      if (XEXP (src, 1) != const1_rtx)
-			abort();
-		      SET_SRC (delay) = gen_rtx_PLUS (GET_MODE (src), XEXP (src, 0),
-						      XEXP (src, 0));
-		    }
-
-		  PATTERN (insn) = gen_rtx_PARALLEL (VOIDmode,
-					gen_rtvec (2, delay, PATTERN (insn)));
-		  final_scan_insn (insn, file, 1, 0, 1);
-		}
-	    }
-	  else if (TARGET_V9 && ! SKIP_CALLERS_UNIMP_P)
-	    fputs ("\treturn\t%i7+8\n\tnop\n", file);
-	  else
-	    fprintf (file, "\t%s\n\trestore\n", ret);
+	  fputs ("\trestore\n\tretl\n\tadd\t%sp, %g1, %sp\n", file);
 	}
-      else if (current_function_calls_eh_return)
-	abort ();
-      /* All of the following cases are for leaf functions.  */
+      /* If we wound up with things in our delay slot, flush them here.  */
       else if (current_function_epilogue_delay_list)
 	{
-	  /* eligible_for_epilogue_delay_slot ensures that if this is a
-	     leaf function, then we will only have insn in the delay slot
-	     if the frame size is zero, thus no adjust for the stack is
-	     needed here.  */
-	  if (actual_fsize != 0)
-	    abort ();
-	  fprintf (file, "\t%s\n", ret);
-	  final_scan_insn (XEXP (current_function_epilogue_delay_list, 0),
-			   file, 1, 0, 1);
+	  rtx delay = PATTERN (XEXP (current_function_epilogue_delay_list, 0));
+
+	  if (TARGET_V9 && ! epilogue_renumber (&delay, 1))
+	    {
+	      epilogue_renumber (&delay, 0);
+	      fputs (SKIP_CALLERS_UNIMP_P
+		     ? "\treturn\t%i7+12\n"
+		     : "\treturn\t%i7+8\n", file);
+	      final_scan_insn (XEXP (current_function_epilogue_delay_list, 0),
+			       file, 1, 0, 0);
+	    }
+	  else
+	    {
+	      rtx insn, src;
+
+	      if (GET_CODE (delay) != SET)
+		abort();
+
+	      src = SET_SRC (delay);
+	      if (GET_CODE (src) == ASHIFT)
+		{
+		  if (XEXP (src, 1) != const1_rtx)
+		    abort();
+		  SET_SRC (delay)
+		    = gen_rtx_PLUS (GET_MODE (src), XEXP (src, 0),
+				    XEXP (src, 0));
+		}
+
+	      insn = gen_rtx_PARALLEL (VOIDmode,
+				       gen_rtvec (2, delay,
+						  gen_rtx_RETURN (VOIDmode)));
+	      insn = emit_jump_insn (insn);
+
+	      sparc_emitting_epilogue = true;
+	      final_scan_insn (insn, file, 1, 0, 1);
+	      sparc_emitting_epilogue = false;
+	    }
 	}
-      /* Output 'nop' instead of 'sub %sp,-0,%sp' when no frame, so as to
-	 avoid generating confusing assembly language output.  */
-      else if (actual_fsize == 0)
-	fprintf (file, "\t%s\n\tnop\n", ret);
-      else if (actual_fsize <= 4096)
-	fprintf (file, "\t%s\n\tsub\t%%sp, -%d, %%sp\n", ret, actual_fsize);
-      else if (actual_fsize <= 8192)
-	fprintf (file, "\tsub\t%%sp, -4096, %%sp\n\t%s\n\tsub\t%%sp, -%d, %%sp\n",
-		 ret, actual_fsize - 4096);
-      else if ((actual_fsize & 0x3ff) == 0)
-	fprintf (file, "\tsethi\t%%hi(%d), %%g1\n\t%s\n\tadd\t%%sp, %%g1, %%sp\n",
-		 actual_fsize, ret);
-      else		 
-	fprintf (file, "\tsethi\t%%hi(%d), %%g1\n\tor\t%%g1, %%lo(%d), %%g1\n\t%s\n\tadd\t%%sp, %%g1, %%sp\n",
-		 actual_fsize, actual_fsize, ret);
-      target_flags |= old_target_epilogue;
+      else if (TARGET_V9 && ! SKIP_CALLERS_UNIMP_P)
+	fputs ("\treturn\t%i7+8\n\tnop\n", file);
+      else
+	fprintf (file, "\t%s\n\trestore\n", ret);
     }
+  /* All of the following cases are for leaf functions.  */
+  else if (current_function_calls_eh_return)
+    abort ();
+  else if (current_function_epilogue_delay_list)
+    {
+      /* eligible_for_epilogue_delay_slot ensures that if this is a
+	 leaf function, then we will only have insn in the delay slot
+	 if the frame size is zero, thus no adjust for the stack is
+	 needed here.  */
+      if (actual_fsize != 0)
+	abort ();
+      fprintf (file, "\t%s\n", ret);
+      final_scan_insn (XEXP (current_function_epilogue_delay_list, 0),
+		       file, 1, 0, 1);
+    }
+  /* Output 'nop' instead of 'sub %sp,-0,%sp' when no frame, so as to
+	 avoid generating confusing assembly language output.  */
+  else if (actual_fsize == 0)
+    fprintf (file, "\t%s\n\tnop\n", ret);
+  else if (actual_fsize <= 4096)
+    fprintf (file, "\t%s\n\tsub\t%%sp, -%d, %%sp\n", ret, actual_fsize);
+  else if (actual_fsize <= 8192)
+    fprintf (file, "\tsub\t%%sp, -4096, %%sp\n\t%s\n\tsub\t%%sp, -%d, %%sp\n",
+	     ret, actual_fsize - 4096);
+  else if ((actual_fsize & 0x3ff) == 0)
+    fprintf (file, "\tsethi\t%%hi(%d), %%g1\n\t%s\n\tadd\t%%sp, %%g1, %%sp\n",
+	     actual_fsize, ret);
+  else		 
+    fprintf (file, "\tsethi\t%%hi(%d), %%g1\n\tor\t%%g1, %%lo(%d), %%g1\n\t%s\n\tadd\t%%sp, %%g1, %%sp\n",
+	     actual_fsize, actual_fsize, ret);
 
  output_vectors:
   sparc_output_deferred_case_vectors ();
@@ -4224,7 +4245,10 @@ function_arg_record_value_1 (type, startbitpos, parms)
 
 	  if (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE)
 	    function_arg_record_value_1 (TREE_TYPE (field), bitpos, parms);
-	  else if (TREE_CODE (TREE_TYPE (field)) == REAL_TYPE
+	  else if ((TREE_CODE (TREE_TYPE (field)) == REAL_TYPE
+		    || (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE
+			&& (TREE_CODE (TREE_TYPE (TREE_TYPE (field)))
+			    == REAL_TYPE)))
 	           && TARGET_FPU
 	           && ! packed_p
 	           && parms->named)
@@ -4247,6 +4271,8 @@ function_arg_record_value_1 (type, startbitpos, parms)
 	      /* There's no need to check this_slotno < SPARC_FP_ARG MAX.
 		 If it wasn't true we wouldn't be here.  */
 	      parms->nregs += 1;
+	      if (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE)
+		parms->nregs += 1;
 	    }
 	  else
 	    {
@@ -4350,24 +4376,45 @@ function_arg_record_value_2 (type, startbitpos, parms)
 
 	  if (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE)
 	    function_arg_record_value_2 (TREE_TYPE (field), bitpos, parms);
-	  else if (TREE_CODE (TREE_TYPE (field)) == REAL_TYPE
+	  else if ((TREE_CODE (TREE_TYPE (field)) == REAL_TYPE
+		    || (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE
+			&& (TREE_CODE (TREE_TYPE (TREE_TYPE (field)))
+			    == REAL_TYPE)))
 	           && TARGET_FPU
 	           && ! packed_p
 	           && parms->named)
 	    {
 	      int this_slotno = parms->slotno + bitpos / BITS_PER_WORD;
+	      int regno;
+	      enum machine_mode mode = DECL_MODE (field);
 	      rtx reg;
 
 	      function_arg_record_value_3 (bitpos, parms);
-
-	      reg = gen_rtx_REG (DECL_MODE (field),
-			         (SPARC_FP_ARG_FIRST + this_slotno * 2
-			          + (DECL_MODE (field) == SFmode
-				     && (bitpos & 32) != 0)));
+	      regno = SPARC_FP_ARG_FIRST + this_slotno * 2
+		      + ((mode == SFmode || mode == SCmode)
+			 && (bitpos & 32) != 0);
+	      switch (mode)
+		{
+		case SCmode: mode = SFmode; break;
+		case DCmode: mode = DFmode; break;
+		case TCmode: mode = TFmode; break;
+		default: break;
+		}
+	      reg = gen_rtx_REG (mode, regno);
 	      XVECEXP (parms->ret, 0, parms->nregs)
 		= gen_rtx_EXPR_LIST (VOIDmode, reg,
 			   GEN_INT (bitpos / BITS_PER_UNIT));
 	      parms->nregs += 1;
+	      if (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE)
+		{
+		  regno += GET_MODE_SIZE (mode) / 4;
+	  	  reg = gen_rtx_REG (mode, regno);
+		  XVECEXP (parms->ret, 0, parms->nregs)
+		    = gen_rtx_EXPR_LIST (VOIDmode, reg,
+			GEN_INT ((bitpos + GET_MODE_BITSIZE (mode))
+				 / BITS_PER_UNIT));
+		  parms->nregs += 1;
+		}
 	    }
 	  else
 	    {
@@ -4695,8 +4742,9 @@ function_arg_pass_by_reference (cum, mode, type, named)
       return ((type && TREE_CODE (type) == ARRAY_TYPE)
 	      /* Consider complex values as aggregates, so care for TCmode.  */
 	      || GET_MODE_SIZE (mode) > 16
-	      || (type && AGGREGATE_TYPE_P (type)
-		  && int_size_in_bytes (type) > 16));
+	      || (type
+		  && AGGREGATE_TYPE_P (type)
+		  && (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 16));
     }
 }
 
@@ -4897,7 +4945,7 @@ sparc_va_arg (valist, type)
 
       if (AGGREGATE_TYPE_P (type))
 	{
-	  if (size > 16)
+	  if ((unsigned HOST_WIDE_INT) size > 16)
 	    {
 	      indirect = 1;
 	      size = rsize = UNITS_PER_WORD;
@@ -4996,25 +5044,43 @@ sparc_va_arg (valist, type)
    INSN, if set, is the insn.  */
 
 char *
-output_cbranch (op, label, reversed, annul, noop, insn)
-     rtx op;
+output_cbranch (op, dest, label, reversed, annul, noop, insn)
+     rtx op, dest;
      int label;
      int reversed, annul, noop;
      rtx insn;
 {
-  static char string[32];
+  static char string[50];
   enum rtx_code code = GET_CODE (op);
   rtx cc_reg = XEXP (op, 0);
   enum machine_mode mode = GET_MODE (cc_reg);
-  static char v8_labelno[] = "%lX";
-  static char v9_icc_labelno[] = "%%icc, %lX";
-  static char v9_xcc_labelno[] = "%%xcc, %lX";
-  static char v9_fcc_labelno[] = "%%fccX, %lY";
-  char *labelno;
-  const char *branch;
-  int labeloff, spaces = 8;
+  const char *labelno, *branch;
+  int spaces = 8, far;
+  char *p;
 
-  if (reversed)
+  /* v9 branches are limited to +-1MB.  If it is too far away,
+     change
+
+     bne,pt %xcc, .LC30
+
+     to
+
+     be,pn %xcc, .+12
+     nop
+     ba .LC30
+
+     and
+
+     fbne,a,pn %fcc2, .LC29
+
+     to
+
+     fbe,pt %fcc2, .+16
+     nop
+     ba .LC29  */
+
+  far = get_attr_length (insn) >= 3;
+  if (reversed ^ far)
     {
       /* Reversal of FP compares takes care -- an ordered compare
 	 becomes an unordered compare and vice versa.  */
@@ -5097,7 +5163,7 @@ output_cbranch (op, label, reversed, annul, noop, insn)
 	  branch = "be";
 	  break;
 	case GE:
-	  if (mode == CC_NOOVmode)
+	  if (mode == CC_NOOVmode || mode == CCX_NOOVmode)
 	    branch = "bpos";
 	  else
 	    branch = "bge";
@@ -5109,7 +5175,7 @@ output_cbranch (op, label, reversed, annul, noop, insn)
 	  branch = "ble";
 	  break;
 	case LT:
-	  if (mode == CC_NOOVmode)
+	  if (mode == CC_NOOVmode || mode == CCX_NOOVmode)
 	    branch = "bneg";
 	  else
 	    branch = "bl";
@@ -5133,54 +5199,89 @@ output_cbranch (op, label, reversed, annul, noop, insn)
       strcpy (string, branch);
     }
   spaces -= strlen (branch);
+  p = strchr (string, '\0');
 
   /* Now add the annulling, the label, and a possible noop.  */
-  if (annul)
+  if (annul && ! far)
     {
-      strcat (string, ",a");
+      strcpy (p, ",a");
+      p += 2;
       spaces -= 2;
     }
 
   if (! TARGET_V9)
-    {
-      labeloff = 2;
-      labelno = v8_labelno;
-    }
+    labelno = "";
   else
     {
       rtx note;
+      int v8 = 0;
 
-      if (insn && (note = find_reg_note (insn, REG_BR_PRED, NULL_RTX)))
+      if (! far && insn && INSN_ADDRESSES_SET_P ())
 	{
-	  strcat (string,
-		  INTVAL (XEXP (note, 0)) & ATTR_FLAG_likely ? ",pt" : ",pn");
-	  spaces -= 3;
+	  int delta = (INSN_ADDRESSES (INSN_UID (dest))
+		       - INSN_ADDRESSES (INSN_UID (insn)));
+	  /* Leave some instructions for "slop".  */
+	  if (delta < -260000 || delta >= 260000)
+	    v8 = 1;
 	}
 
-      labeloff = 9;
       if (mode == CCFPmode || mode == CCFPEmode)
 	{
-	  labeloff = 10;
-	  labelno = v9_fcc_labelno;
+	  static char v9_fcc_labelno[] = "%%fccX, ";
 	  /* Set the char indicating the number of the fcc reg to use.  */
-	  labelno[5] = REGNO (cc_reg) - SPARC_FIRST_V9_FCC_REG + '0';
+	  v9_fcc_labelno[5] = REGNO (cc_reg) - SPARC_FIRST_V9_FCC_REG + '0';
+	  labelno = v9_fcc_labelno;
+	  if (v8)
+	    {
+	      if (REGNO (cc_reg) == SPARC_FCC_REG)
+		labelno = "";
+	      else
+		abort ();
+	    }
 	}
       else if (mode == CCXmode || mode == CCX_NOOVmode)
-	labelno = v9_xcc_labelno;
+	{
+	  labelno = "%%xcc, ";
+	  if (v8)
+	    abort ();
+	}
       else
-	labelno = v9_icc_labelno;
+	{
+	  labelno = "%%icc, ";
+	  if (v8)
+	    labelno = "";
+	}
+
+      if (*labelno && insn && (note = find_reg_note (insn, REG_BR_PROB, NULL_RTX)))
+	{
+	  strcpy (p,
+		  ((INTVAL (XEXP (note, 0)) >= REG_BR_PROB_BASE / 2) ^ far)
+		  ? ",pt" : ",pn");
+	  p += 3;
+	  spaces -= 3;
+	}
     }
+  if (spaces > 0)
+    *p++ = '\t';
+  else
+    *p++ = ' ';
+  strcpy (p, labelno);
+  p = strchr (p, '\0');
+  if (far)
+    {
+      strcpy (p, ".+12\n\tnop\n\tb\t");
+      if (annul || noop)
+        p[3] = '6';
+      p += 13;
+    }
+  *p++ = '%';
+  *p++ = 'l';
   /* Set the char indicating the number of the operand containing the
      label_ref.  */
-  labelno[labeloff] = label + '0';
-  if (spaces > 0)
-    strcat (string, "\t");
-  else
-    strcat (string, " ");
-  strcat (string, labelno);
-
+  *p++ = label + '0';
+  *p = '\0';
   if (noop)
-    strcat (string, "\n\tnop");
+    strcpy (p, "\n\tnop");
 
   return string;
 }
@@ -5326,6 +5427,42 @@ sparc_emit_float_lib_cmp (x, y, comparison)
     }
 }
 
+/* Generate an unsigned DImode to FP conversion.  This is the same code
+   optabs would emit if we didn't have TFmode patterns.  */
+
+void
+sparc_emit_floatunsdi (operands)
+     rtx operands[2];
+{
+  rtx neglab, donelab, i0, i1, f0, in, out;
+  enum machine_mode mode;
+
+  out = operands[0];
+  in = force_reg (DImode, operands[1]);
+  mode = GET_MODE (out);
+  neglab = gen_label_rtx ();
+  donelab = gen_label_rtx ();
+  i0 = gen_reg_rtx (DImode);
+  i1 = gen_reg_rtx (DImode);
+  f0 = gen_reg_rtx (mode);
+
+  emit_cmp_and_jump_insns (in, const0_rtx, LT, const0_rtx, DImode, 0, neglab);
+
+  emit_insn (gen_rtx_SET (VOIDmode, out, gen_rtx_FLOAT (mode, in)));
+  emit_jump_insn (gen_jump (donelab));
+  emit_barrier ();
+
+  emit_label (neglab);
+
+  emit_insn (gen_lshrdi3 (i0, in, const1_rtx));
+  emit_insn (gen_anddi3 (i1, in, const1_rtx));
+  emit_insn (gen_iordi3 (i0, i0, i1));
+  emit_insn (gen_rtx_SET (VOIDmode, f0, gen_rtx_FLOAT (mode, i0)));
+  emit_insn (gen_rtx_SET (VOIDmode, out, gen_rtx_PLUS (mode, f0, f0)));
+
+  emit_label (donelab);
+}
+
 /* Return the string to output a conditional branch to LABEL, testing
    register REG.  LABEL is the operand number of the label; REG is the
    operand number of the reg.  OP is the conditional expression.  The mode
@@ -5338,22 +5475,45 @@ sparc_emit_float_lib_cmp (x, y, comparison)
    NOOP is non-zero if we have to follow this branch by a noop.  */
 
 char *
-output_v9branch (op, reg, label, reversed, annul, noop, insn)
-     rtx op;
+output_v9branch (op, dest, reg, label, reversed, annul, noop, insn)
+     rtx op, dest;
      int reg, label;
      int reversed, annul, noop;
      rtx insn;
 {
-  static char string[20];
+  static char string[50];
   enum rtx_code code = GET_CODE (op);
   enum machine_mode mode = GET_MODE (XEXP (op, 0));
-  static char labelno[] = "%X, %lX";
   rtx note;
-  int spaces = 8;
+  int far;
+  char *p;
+
+  /* branch on register are limited to +-128KB.  If it is too far away,
+     change
+     
+     brnz,pt %g1, .LC30
+     
+     to
+     
+     brz,pn %g1, .+12
+     nop
+     ba,pt %xcc, .LC30
+     
+     and
+     
+     brgez,a,pn %o1, .LC29
+     
+     to
+     
+     brlz,pt %o1, .+16
+     nop
+     ba,pt %xcc, .LC29  */
+
+  far = get_attr_length (insn) >= 3;
 
   /* If not floating-point or if EQ or NE, we can just reverse the code.  */
-  if (reversed)
-    code = reverse_condition (code), reversed = 0;
+  if (reversed ^ far)
+    code = reverse_condition (code);
 
   /* Only 64 bit versions of these instructions exist.  */
   if (mode != DImode)
@@ -5365,62 +5525,90 @@ output_v9branch (op, reg, label, reversed, annul, noop, insn)
     {
     case NE:
       strcpy (string, "brnz");
-      spaces -= 4;
       break;
 
     case EQ:
       strcpy (string, "brz");
-      spaces -= 3;
       break;
 
     case GE:
       strcpy (string, "brgez");
-      spaces -= 5;
       break;
 
     case LT:
       strcpy (string, "brlz");
-      spaces -= 4;
       break;
 
     case LE:
       strcpy (string, "brlez");
-      spaces -= 5;
       break;
 
     case GT:
       strcpy (string, "brgz");
-      spaces -= 4;
       break;
 
     default:
       abort ();
     }
 
+  p = strchr (string, '\0');
+
   /* Now add the annulling, reg, label, and nop.  */
-  if (annul)
+  if (annul && ! far)
     {
-      strcat (string, ",a");
-      spaces -= 2;
+      strcpy (p, ",a");
+      p += 2;
     }
 
-  if (insn && (note = find_reg_note (insn, REG_BR_PRED, NULL_RTX)))
+  if (insn && (note = find_reg_note (insn, REG_BR_PROB, NULL_RTX)))
     {
-      strcat (string,
-	      INTVAL (XEXP (note, 0)) & ATTR_FLAG_likely ? ",pt" : ",pn");
-      spaces -= 3;
+      strcpy (p,
+	      ((INTVAL (XEXP (note, 0)) >= REG_BR_PROB_BASE / 2) ^ far)
+	      ? ",pt" : ",pn");
+      p += 3;
     }
 
-  labelno[1] = reg + '0';
-  labelno[6] = label + '0';
-  if (spaces > 0)
-    strcat (string, "\t");
-  else
-    strcat (string, " ");
-  strcat (string, labelno);
+  *p = p < string + 8 ? '\t' : ' ';
+  p++;
+  *p++ = '%';
+  *p++ = '0' + reg;
+  *p++ = ',';
+  *p++ = ' ';
+  if (far)
+    {
+      int veryfar = 1, delta;
+
+      if (INSN_ADDRESSES_SET_P ())
+	{
+	  delta = (INSN_ADDRESSES (INSN_UID (dest))
+		   - INSN_ADDRESSES (INSN_UID (insn)));
+	  /* Leave some instructions for "slop".  */
+	  if (delta >= -260000 && delta < 260000)
+	    veryfar = 0;
+	}
+
+      strcpy (p, ".+12\n\tnop\n\t");
+      if (annul || noop)
+        p[3] = '6';
+      p += 11;
+      if (veryfar)
+	{
+	  strcpy (p, "b\t");
+	  p += 2;
+	}
+      else
+	{
+	  strcpy (p, "ba,pt\t%%xcc, ");
+	  p += 13;
+	}
+    }
+  *p++ = '%';
+  *p++ = 'l';
+  *p++ = '0' + label;
+  *p = '\0';
 
   if (noop)
-    strcat (string, "\n\tnop");
+    strcpy (p, "\n\tnop");
 
   return string;
 }
@@ -5502,87 +5690,6 @@ epilogue_renumber (where, test)
 	return 1;
     }
   return 0;
-}
-
-/* Output assembler code to return from a function.  */
-
-const char *
-output_return (operands)
-     rtx *operands;
-{
-  rtx delay = final_sequence ? XVECEXP (final_sequence, 0, 1) : 0;
-
-  if (leaf_label)
-    {
-      operands[0] = leaf_label;
-      return "b%* %l0%(";
-    }
-  else if (current_function_uses_only_leaf_regs)
-    {
-      /* No delay slot in a leaf function.  */
-      if (delay)
-	abort ();
-
-      /* If we didn't allocate a frame pointer for the current function,
-	 the stack pointer might have been adjusted.  Output code to
-	 restore it now.  */
-
-      operands[0] = GEN_INT (actual_fsize);
-
-      /* Use sub of negated value in first two cases instead of add to
-	 allow actual_fsize == 4096.  */
-
-      if (actual_fsize <= 4096)
-	{
-	  if (SKIP_CALLERS_UNIMP_P)
-	    return "jmp\t%%o7+12\n\tsub\t%%sp, -%0, %%sp";
-	  else
-	    return "retl\n\tsub\t%%sp, -%0, %%sp";
-	}
-      else if (actual_fsize <= 8192)
-	{
-	  operands[0] = GEN_INT (actual_fsize - 4096);
-	  if (SKIP_CALLERS_UNIMP_P)
-	    return "sub\t%%sp, -4096, %%sp\n\tjmp\t%%o7+12\n\tsub\t%%sp, -%0, %%sp";
-	  else
-	    return "sub\t%%sp, -4096, %%sp\n\tretl\n\tsub\t%%sp, -%0, %%sp";
-	}
-      else if (SKIP_CALLERS_UNIMP_P)
-	{
-	  if ((actual_fsize & 0x3ff) != 0)
-	    return "sethi\t%%hi(%a0), %%g1\n\tor\t%%g1, %%lo(%a0), %%g1\n\tjmp\t%%o7+12\n\tadd\t%%sp, %%g1, %%sp";
-	  else
-	    return "sethi\t%%hi(%a0), %%g1\n\tjmp\t%%o7+12\n\tadd\t%%sp, %%g1, %%sp";
-	}
-      else
-	{
-	  if ((actual_fsize & 0x3ff) != 0)
-	    return "sethi\t%%hi(%a0), %%g1\n\tor\t%%g1, %%lo(%a0), %%g1\n\tretl\n\tadd\t%%sp, %%g1, %%sp";
-	  else
-	    return "sethi\t%%hi(%a0), %%g1\n\tretl\n\tadd\t%%sp, %%g1, %%sp";
-	}
-    }
-  else if (TARGET_V9)
-    {
-      if (delay)
-	{
-	  epilogue_renumber (&SET_DEST (PATTERN (delay)), 0);
-	  epilogue_renumber (&SET_SRC (PATTERN (delay)), 0);
-	}
-      if (SKIP_CALLERS_UNIMP_P)
-	return "return\t%%i7+12%#";
-      else
-	return "return\t%%i7+8%#";
-    }
-  else
-    {
-      if (delay)
-	abort ();
-      if (SKIP_CALLERS_UNIMP_P)
-	return "jmp\t%%i7+12\n\trestore";
-      else
-	return "ret\n\trestore";
-    }
 }
 
 /* Leaf functions and non-leaf functions have different needs.  */
@@ -8397,60 +8504,24 @@ sparc_v8plus_shift (operands, insn, opcode)
   else
     return strcat (asm_code, "\t%3, %2, %3\n\tsrlx\t%3, 32, %H0\n\tmov\t%3, %L0");
 }
-
-
-/* Return 1 if DEST and SRC reference only global and in registers.  */
-
-int
-sparc_return_peephole_ok (dest, src)
-     rtx dest, src;
-{
-  if (! TARGET_V9)
-    return 0;
-  if (current_function_uses_only_leaf_regs)
-    return 0;
-  if (GET_CODE (src) != CONST_INT
-      && (GET_CODE (src) != REG || ! IN_OR_GLOBAL_P (src)))
-    return 0;
-  return IN_OR_GLOBAL_P (dest);
-}
 
-/* Output assembler code to FILE to increment profiler label # LABELNO
-   for profiling a function entry.
-
-   32 bit sparc uses %g2 as the STATIC_CHAIN_REGNUM which gets clobbered
-   during profiling so we need to save/restore it around the call to mcount.
-   We're guaranteed that a save has just been done, and we use the space
-   allocated for intreg/fpreg value passing.  */
+/* Output rtl to increment the profiler label LABELNO
+   for profiling a function entry.  */
 
 void
-sparc_function_profiler (file, labelno)
-     FILE *file;
+sparc_profile_hook (labelno)
      int labelno;
 {
   char buf[32];
+  rtx lab, fun;
+
   ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
+  lab = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+  fun = gen_rtx_SYMBOL_REF (Pmode, MCOUNT_FUNCTION);
 
-  if (! TARGET_ARCH64)
-    fputs ("\tst\t%g2, [%fp-4]\n", file);
-
-  fputs ("\tsethi\t%hi(", file);
-  assemble_name (file, buf);
-  fputs ("), %o0\n", file);
-
-  fputs ("\tcall\t", file);
-  assemble_name (file, MCOUNT_FUNCTION);
-  putc ('\n', file);
-
-  fputs ("\t or\t%o0, %lo(", file);
-  assemble_name (file, buf);
-  fputs ("), %o0\n", file);
-
-  if (! TARGET_ARCH64)
-    fputs ("\tld\t[%fp-4], %g2\n", file);
+  emit_library_call (fun, 0, VOIDmode, 1, lab, Pmode);
 }
-
-
+
 /* Mark ARG, which is really a struct ultrasparc_pipline_state *, for
    GC.  */
 
@@ -8474,7 +8545,6 @@ sparc_add_gc_roots ()
 {
   ggc_add_rtx_root (&sparc_compare_op0, 1);
   ggc_add_rtx_root (&sparc_compare_op1, 1);
-  ggc_add_rtx_root (&leaf_label, 1);
   ggc_add_rtx_root (&global_offset_table, 1);
   ggc_add_rtx_root (&get_pc_symbol, 1);
   ggc_add_rtx_root (&sparc_addr_diff_list, 1);

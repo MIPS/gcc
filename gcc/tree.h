@@ -46,7 +46,7 @@ enum tree_code {
    and `x' for anything else (TREE_LIST, IDENTIFIER, etc).  */
 
 #define MAX_TREE_CODES 256
-extern char tree_code_type[MAX_TREE_CODES];
+extern const char tree_code_type[];
 #define TREE_CODE_CLASS(CODE)	tree_code_type[(int) (CODE)]
 
 /* Returns non-zero iff CLASS is the tree-code class of an
@@ -57,12 +57,12 @@ extern char tree_code_type[MAX_TREE_CODES];
 
 /* Number of argument-words in each kind of tree-node.  */
 
-extern int tree_code_length[MAX_TREE_CODES];
+extern const unsigned char tree_code_length[];
 #define TREE_CODE_LENGTH(CODE)	tree_code_length[(int) (CODE)]
 
 /* Names of tree components.  */
 
-extern const char *tree_code_name[MAX_TREE_CODES];
+extern const char *const tree_code_name[];
 
 /* Classify which part of the compiler has defined a given builtin function.
    Note that we assume below that this is no more than two bits.  */
@@ -2069,8 +2069,6 @@ extern size_t tree_size			PARAMS ((tree));
    to zero except for a few of the common fields.  */
 
 extern tree make_node			PARAMS ((enum tree_code));
-extern tree make_lang_type		PARAMS ((enum tree_code));
-extern tree (*make_lang_type_fn)		PARAMS ((enum tree_code));
 
 /* Make a copy of a node, with all the same contents except
    for TREE_PERMANENT.  (The copy is permanent
@@ -2128,7 +2126,6 @@ extern tree make_signed_type		PARAMS ((int));
 extern tree make_unsigned_type		PARAMS ((int));
 extern void initialize_sizetypes	PARAMS ((void));
 extern void set_sizetype		PARAMS ((tree));
-extern tree signed_or_unsigned_type 	PARAMS ((int, tree));
 extern void fixup_unsigned_type		PARAMS ((tree));
 extern tree build_pointer_type		PARAMS ((tree));
 extern tree build_reference_type 	PARAMS ((tree));
@@ -2551,26 +2548,10 @@ extern tree unsave_expr			PARAMS ((tree));
 
 extern void unsave_expr_1               PARAMS ((tree));
 
-/* Like unsave_expr_1, but recurses into all subtrees.  */
-
-extern tree unsave_expr_now		PARAMS ((tree));
-
-/* If non-null, these are language-specific helper functions for
-   unsave_expr_now.  If present, LANG_UNSAVE is called before its
-   argument (an UNSAVE_EXPR) is to be unsaved, and all other
-   processing in unsave_expr_now is aborted.  LANG_UNSAVE_EXPR_NOW is
-   called from unsave_expr_1 for language-specific tree codes.  */
-extern void (*lang_unsave)              PARAMS ((tree *));
-extern void (*lang_unsave_expr_now)     PARAMS ((tree));
-
 /* Return 0 if it is safe to evaluate EXPR multiple times,
    return 1 if it is safe if EXPR is unsaved afterward, or
    return 2 if it is completely unsafe.  */
 extern int unsafe_for_reeval		PARAMS ((tree));
-
-/* If non-null, these are language-specific helper functions for
-   unsafe_for_reeval.  Return negative to not handle some tree.  */
-extern int (*lang_unsafe_for_reeval)	PARAMS ((tree));
 
 /* Return 1 if EXP contains a PLACEHOLDER_EXPR; i.e., if it represents a size
    or offset that depends on a field within a record.
@@ -2625,40 +2606,6 @@ extern tree get_unwidened		PARAMS ((tree, tree));
    or 0 if the value should be sign-extended.  */
 
 extern tree get_narrower		PARAMS ((tree, int *));
-
-/* Given MODE and UNSIGNEDP, return a suitable type-tree
-   with that mode.
-   The definition of this resides in language-specific code
-   as the repertoire of available types may vary.  */
-
-extern tree type_for_mode		PARAMS ((enum machine_mode, int));
-
-/* Given PRECISION and UNSIGNEDP, return a suitable type-tree
-   for an integer type with at least that precision.
-   The definition of this resides in language-specific code
-   as the repertoire of available types may vary.  */
-
-extern tree type_for_size		PARAMS ((unsigned, int));
-
-/* Given an integer type T, return a type like T but unsigned.
-   If T is unsigned, the value is T.
-   The definition of this resides in language-specific code
-   as the repertoire of available types may vary.  */
-
-extern tree unsigned_type		PARAMS ((tree));
-
-/* Given an integer type T, return a type like T but signed.
-   If T is signed, the value is T.
-   The definition of this resides in language-specific code
-   as the repertoire of available types may vary.  */
-
-extern tree signed_type			PARAMS ((tree));
-
-/* This function must be defined in the language-specific files.
-   expand_expr calls it to build the cleanup-expression for a TARGET_EXPR.
-   This is defined in a language-specific file.  */
-
-extern tree maybe_build_cleanup		PARAMS ((tree));
 
 /* Given an expression EXP that may be a COMPONENT_REF or an ARRAY_REF,
    look for nested component-refs or array-refs at constant positions
@@ -2726,21 +2673,6 @@ extern tree current_function_func_begin_label;
 
 extern int all_types_permanent;
 
-/* Pointer to function to compute the name to use to print a declaration.
-   DECL is the declaration in question.
-   VERBOSITY determines what information will be printed:
-     0: DECL_NAME, demangled as necessary.
-     1: and scope information.
-     2: and any other information that might be interesting, such as function
-        parameter types in C++.  */
-
-extern const char *(*decl_printable_name)	PARAMS ((tree, int));
-
-/* Pointer to function to finish handling an incomplete decl at the
-   end of compilation.  */
-
-extern void (*incomplete_decl_finalize_hook)	PARAMS ((tree));
-
 /* Declare a predefined function.  Return the declaration.  This function is
    provided by each language frontend.  */
 extern tree builtin_function			PARAMS ((const char *, tree, int,
@@ -2757,6 +2689,8 @@ extern tree get_set_constructor_bytes		PARAMS ((tree,
 extern tree get_callee_fndecl                   PARAMS ((tree));
 extern void set_decl_assembler_name             PARAMS ((tree));
 extern int type_num_arguments                   PARAMS ((tree));
+extern tree lhd_unsave_expr_now		PARAMS ((tree));
+
 
 /* In stmt.c */
 
@@ -2868,32 +2802,6 @@ extern tree invert_truthvalue	PARAMS ((tree));
 extern tree (*lang_type_promotes_to)	PARAMS ((tree));
 extern tree fold_builtin		PARAMS ((tree));
 
-/* The language front-end must define these functions.  */
-
-/* Function called with no arguments to parse and compile the input.  */
-extern int yyparse				PARAMS ((void));
-/* Functions for processing symbol declarations.  */
-/* Function to enter a new lexical scope.
-   Takes one argument: always zero when called from outside the front end.  */
-extern void pushlevel				PARAMS ((int));
-/* Function to exit a lexical scope.  It returns a BINDING for that scope.
-   Takes three arguments:
-     KEEP -- nonzero if there were declarations in this scope.
-     REVERSE -- reverse the order of decls before returning them.
-     FUNCTIONBODY -- nonzero if this level is the body of a function.  */
-extern tree poplevel				PARAMS ((int, int, int));
-/* Set the BLOCK node for the current scope level.  */
-extern void set_block				PARAMS ((tree));
-/* Function to add a decl to the current scope level.
-   Takes one argument, a decl to add.
-   Returns that decl, or, if the same symbol is already declared, may
-   return a different decl for that name.  */
-extern tree pushdecl				PARAMS ((tree));
-/* Function to return the chain of decls so far in the current scope level.  */
-extern tree getdecls				PARAMS ((void));
-/* Function to return the chain of structure tags in the current scope level.  */
-extern tree gettags				PARAMS ((void));
-
 extern tree build_range_type PARAMS ((tree, tree, tree));
 
 /* In alias.c */
@@ -3029,10 +2937,6 @@ extern tree decl_attributes		PARAMS ((tree *, tree, int));
 /* The following function must be provided by front ends
    using attribs.c.  */
 
-/* Possibly apply default attributes to a function (represented by
-   a FUNCTION_DECL).  */
-extern void insert_default_attributes PARAMS ((tree));
-
 /* Table of machine-independent attributes for checking formats, if used.  */
 extern const struct attribute_spec *format_attribute_table;
 
@@ -3044,11 +2948,8 @@ extern int lang_attribute_common;
 
 /* In front end.  */
 
-extern int mark_addressable		PARAMS ((tree));
 extern void incomplete_type_error	PARAMS ((tree, tree));
 extern tree truthvalue_conversion	PARAMS ((tree));
-extern int global_bindings_p		PARAMS ((void));
-extern void insert_block		PARAMS ((tree));
 
 /* In integrate.c */
 extern void save_for_inline		PARAMS ((tree));

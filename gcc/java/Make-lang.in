@@ -43,6 +43,7 @@
 
 # Actual names to use when installing a native compiler.
 JAVA_INSTALL_NAME = `echo gcj|sed '$(program_transform_name)'`
+JAVA_TARGET_INSTALL_NAME = $(target_alias)-`echo gcj|sed '$(program_transform_name)'`
 
 # Actual names to use when installing a cross-compiler.
 JAVA_CROSS_NAME = `echo gcj|sed '$(program_transform_cross_name)'`
@@ -170,6 +171,8 @@ java.install-common: installdirs
 	    rm -f $(bindir)/$(JAVA_INSTALL_NAME)$(exeext); \
 	    $(INSTALL_PROGRAM) $(GCJ)$(exeext) $(bindir)/$(JAVA_INSTALL_NAME)$(exeext); \
 	    chmod a+x $(bindir)/$(JAVA_INSTALL_NAME)$(exeext); \
+	    rm -f $(bindir)/$(JAVA_TARGET_INSTALL_NAME)$(exeext); \
+	    $(LN) $(bindir)/$(JAVA_INSTALL_NAME)$(exeext) $(bindir)/$(JAVA_TARGET_INSTALL_NAME)$(exeext); \
 	  fi ; \
 	fi ; \
         for tool in $(JAVA_TARGET_INDEPENDENT_BIN_TOOLS); do \
@@ -258,7 +261,7 @@ java/boehm.o: java/boehm.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(JAVA_TREE_H) \
   java/parse.h toplev.h
 java/buffer.o: java/buffer.c $(CONFIG_H) java/buffer.h $(SYSTEM_H) toplev.h
 java/builtins.o: java/builtins.c $(CONFIG_H) $(SYSTEM_H) $(JAVA_TREE_H) \
-  $(GGC_H) flags.h
+  $(GGC_H) flags.h builtin-types.def langhooks.h
 java/check-init.o: java/check-init.c $(CONFIG_H) \
   $(JAVA_TREE_H) $(SYSTEM_H) toplev.h
 java/class.o: java/class.c $(CONFIG_H) $(JAVA_TREE_H) $(RTL_H) java/jcf.h \

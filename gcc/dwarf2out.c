@@ -3102,7 +3102,7 @@ static void dwarf2out_abstract_function PARAMS ((tree));
 
 /* The debug hooks structure.  */
 
-struct gcc_debug_hooks dwarf2_debug_hooks =
+const struct gcc_debug_hooks dwarf2_debug_hooks =
 {
   dwarf2out_init,
   dwarf2out_finish,
@@ -6493,16 +6493,16 @@ output_comp_unit (die)
     unmark_dies (die);
 }
 
-/* The DWARF2 pubname for a nested thingy looks like "A::f".  The output
-   of decl_printable_name for C++ looks like "A::f(int)".  Let's drop the
-   argument list, and maybe the scope.  */
+/* The DWARF2 pubname for a nested thingy looks like "A::f".  The
+   output of lang_hooks.decl_printable_name for C++ looks like
+   "A::f(int)".  Let's drop the argument list, and maybe the scope.  */
 
 static const char *
 dwarf2_name (decl, scope)
      tree decl;
      int scope;
 {
-  return (*decl_printable_name) (decl, scope ? 1 : 0);
+  return (*lang_hooks.decl_printable_name) (decl, scope ? 1 : 0);
 }
 
 /* Add a new entry to .debug_pubnames if appropriate.  */
@@ -11947,13 +11947,6 @@ dwarf2out_define (lineno, buffer)
      unsigned lineno ATTRIBUTE_UNUSED;
      const char *buffer ATTRIBUTE_UNUSED;
 {
-  static int initialized = 0;
-  if (!initialized)
-    {
-      dwarf2out_start_source_file (0, primary_filename);
-      initialized = 1;
-    }
-
   if (debug_info_level >= DINFO_LEVEL_VERBOSE)
     {
       named_section_flags (DEBUG_MACINFO_SECTION, SECTION_DEBUG);

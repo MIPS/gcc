@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -324,10 +323,6 @@ package body Sem_Ch11 is
 
          if Is_Entity_Name (Exception_Id) then
             Exception_Name := Entity (Exception_Id);
-
-            if Present (Renamed_Object (Exception_Name)) then
-               Set_Entity (Exception_Id, Renamed_Object (Exception_Name));
-            end if;
          end if;
 
          if No (Exception_Name)

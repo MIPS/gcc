@@ -93,6 +93,11 @@ static struct globals
   /* An array of the current substitution candidates, in the order
      we've seen them.  */
   varray_type substitutions;
+
+  /* We are mangling an internal symbol. It is important to keep those
+     involving template parmeters distinct by distinguishing their level
+     and, for non-type parms, their type.  */
+  bool internal_mangling_p;
 } G;
 
 /* Indices into subst_identifiers.  These are identifiers used in
@@ -1106,7 +1111,7 @@ write_integer_cst (cst)
 	  chunk *= chunk;
 	}
       
-      type = signed_or_unsigned_type (1, TREE_TYPE (cst));
+      type = c_common_signed_or_unsigned_type (1, TREE_TYPE (cst));
       base = build_int_2 (chunk, 0);
       n = build_int_2 (TREE_INT_CST_LOW (cst), TREE_INT_CST_HIGH (cst));
       TREE_TYPE (n) = TREE_TYPE (base) = type;
@@ -1506,8 +1511,8 @@ write_CV_qualifiers_for_type (type)
                     ::= m   # unsigned long
                     ::= x   # long long, __int64
                     ::= y   # unsigned long long, __int64  
-                    ::= n   # __int128            [not supported]
-                    ::= o   # unsigned __int128   [not supported] 
+                    ::= n   # __int128
+                    ::= o   # unsigned __int128
                     ::= f   # float
                     ::= d   # double
                     ::= e   # long double, __float80 
@@ -1552,15 +1557,24 @@ write_builtin_type (type)
 		write_char (integer_type_codes[itk]);
 		break;
 	      }
-	  
+
 	  if (itk == itk_none)
 	    {
-	      tree t = type_for_mode (TYPE_MODE (type), TREE_UNSIGNED (type));
+	      tree t = c_common_type_for_mode (TYPE_MODE (type),
+					       TREE_UNSIGNED (type));
 	      if (type == t)
-		/* Couldn't find this type.  */
-		abort ();
-	      type = t;
-	      goto iagain;
+		{
+		  if (TYPE_PRECISION (type) == 128)
+		    write_char (TREE_UNSIGNED (type) ? 'o' : 'n');
+		  else
+		    /* Couldn't find this type.  */
+		    abort ();
+		}
+	      else
+		{
+		  type = t;
+		  goto iagain;
+		}
 	    }
 	}
       break;
@@ -1780,6 +1794,16 @@ write_expression (expr)
       code = TREE_CODE (expr);
     }
 
+  /* Skip NOP_EXPRs.  They can occur when (say) a pointer argument
+     is converted (via qualification conversions) to another
+     type.  */
+  while (TREE_CODE (expr) == NOP_EXPR
+	 || TREE_CODE (expr) == NON_LVALUE_EXPR)
+    {
+      expr = TREE_OPERAND (expr, 0);
+      code = TREE_CODE (expr);
+    }
+
   /* Handle template parameters. */
   if (code == TEMPLATE_TYPE_PARM 
       || code == TEMPLATE_TEMPLATE_PARM
@@ -1798,15 +1822,6 @@ write_expression (expr)
   else
     {
       int i;
-
-      /* Skip NOP_EXPRs.  They can occur when (say) a pointer argument
-	 is converted (via qualification conversions) to another
-	 type.  */
-      while (TREE_CODE (expr) == NOP_EXPR)
-	{
-	  expr = TREE_OPERAND (expr, 0);
-	  code = TREE_CODE (expr);
-	}
 
       /* When we bind a variable or function to a non-type template
 	 argument with reference type, we create an ADDR_EXPR to show
@@ -2040,13 +2055,22 @@ write_pointer_to_member_type (type)
    TEMPLATE_TEMPLATE_PARM, BOUND_TEMPLATE_TEMPLATE_PARM or a
    TEMPLATE_PARM_INDEX.
 
-     <template-param> ::= T </parameter/ number> _  */
+     <template-param> ::= T </parameter/ number> _
+
+   If we are internally mangling then we distinguish level and, for
+   non-type parms, type too. The mangling appends
+   
+     </level/ number> _ </non-type type/ type> _
+
+   This is used by mangle_conv_op_name_for_type.  */
 
 static void
 write_template_param (parm)
      tree parm;
 {
   int parm_index;
+  int parm_level;
+  tree parm_type = NULL_TREE;
 
   MANGLE_TRACE_TREE ("template-parm", parm);
 
@@ -2056,10 +2080,13 @@ write_template_param (parm)
     case TEMPLATE_TEMPLATE_PARM:
     case BOUND_TEMPLATE_TEMPLATE_PARM:
       parm_index = TEMPLATE_TYPE_IDX (parm);
+      parm_level = TEMPLATE_TYPE_LEVEL (parm);
       break;
 
     case TEMPLATE_PARM_INDEX:
       parm_index = TEMPLATE_PARM_IDX (parm);
+      parm_level = TEMPLATE_PARM_LEVEL (parm);
+      parm_type = TREE_TYPE (TEMPLATE_PARM_DECL (parm));
       break;
 
     default:
@@ -2072,6 +2099,15 @@ write_template_param (parm)
   if (parm_index > 0)
     write_unsigned_number (parm_index - 1);
   write_char ('_');
+  if (G.internal_mangling_p)
+    {
+      if (parm_level > 0)
+	write_unsigned_number (parm_level - 1);
+      write_char ('_');
+      if (parm_type)
+	write_type (parm_type);
+      write_char ('_');
+    }
 }
 
 /*  <template-template-param>
@@ -2398,15 +2434,26 @@ mangle_conv_op_name_for_type (type)
      tree type;
 {
   tree identifier;
+  const char *mangled_type;
+  char *op_name;
 
-  /* Build the mangling for TYPE.  */
-  const char *mangled_type = mangle_type_string (type);
+  /* Build the internal mangling for TYPE.  */
+  G.internal_mangling_p = true;
+  mangled_type = mangle_type_string (type);
+  G.internal_mangling_p = false;
+  
   /* Allocate a temporary buffer for the complete name.  */
-  char *op_name = concat ("operator ", mangled_type, NULL);
+  op_name = concat ("operator ", mangled_type, NULL);
   /* Find or create an identifier.  */
   identifier = get_identifier (op_name);
   /* Done with the temporary buffer.  */
   free (op_name);
+
+  /* It had better be a unique mangling for the type.  */
+  my_friendly_assert (!IDENTIFIER_TYPENAME_P (identifier)
+		      || same_type_p (type, TREE_TYPE (identifier)),
+		      20011230);
+  
   /* Set bits on the identifier so we know later it's a conversion.  */
   IDENTIFIER_OPNAME_P (identifier) = 1;
   IDENTIFIER_TYPENAME_P (identifier) = 1;

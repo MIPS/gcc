@@ -1,3 +1,71 @@
+2002-03-28  Andrew Haley  <aph@redhat.com>
+
+	* libjava.lang/Throw_2.java: New.
+	* libjava.lang/Throw_2.out: New.
+
+2002-03-27  Anthony Green  <green@redhat.com>
+
+	* libjava.lang/InvokeReturn.java: Modify test for targets
+	which do not yet support reflection.
+
+2002-03-27  Anthony Green  <green@redhat.com>
+
+	* libjava.jni/jni.exp (gcj_jni_run): Fix cross build test.
+
+2002-03-27  Anthony Green  <green@redhat.com>
+
+	* lib/libjava.exp: Add the wrapper link options only when we're
+	linking.
+
+2002-03-26  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.mauve/mauve.exp (test_mauve): Use correct stderr
+	redirection code.
+
+2002-03-22  Eric Blake  <ebb9@email.byu.edu>
+
+	For PR java/6026:
+	* libjava.compile/PR6026.java: New file.
+
+2002-03-21  Andrew Haley  <aph@redhat.com>
+
+	* libjava.lang/Thread_Interrupt.java (Looper.calibrate): New.
+	(yields): New.
+
+2002-03-18  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jni/jni.exp (gcj_jni_test_one): Find libstdc++ in build
+	tree.
+	(gcj_invoke): Added ld_library_additions argument.
+
+2002-03-17  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jni/jni.exp (gcj_jni_build_header): Use local_exec, not
+	target_compile.  Fixes PR other/5874.
+
+2002-03-15  Eric Blake  <ebb9@email.byu.edu>
+
+	For PR java/5902:
+	* libjava.compile/PR5902.java: Does not need to execute.
+	For PR java/5913:
+	* libjava.compile/PR5913.java: Ditto.
+
+2002-03-12  Tom Tromey  <tromey@redhat.com>
+
+	Test for PR java/5848:
+	* libjava.compile/PR5848.xfail: New file.
+	* libjava.compile/PR5848.java: New file.
+
+2002-03-12  Eric Blake  <ebb9@email.byu.edu>
+
+	* libjava.compile/PR5913.java: Expand test.
+
+2002-03-11  Eric Blake  <ebb9@email.byu.edu>
+
+	* libjava.compile/PR5902.java: New file.
+	* libjava.compile/PR5913.java: New file.
+	* libjava.compile/PR5913.xfail: New file.
+
 2002-02-23  Jeff Sturm  <jsturm@one-point.com>
 
 	* libjava.lang/InvokeReturn.java: New file.

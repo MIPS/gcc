@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -2354,6 +2353,27 @@ package body Atree is
                return OK;
             end if;
 
+         when OK_Orig =>
+            declare
+               Onode : constant Node_Id := Original_Node (Node);
+
+            begin
+               if Traverse_Field (Union_Id (Field1 (Onode))) = Abandon
+                    or else
+                  Traverse_Field (Union_Id (Field2 (Onode))) = Abandon
+                    or else
+                  Traverse_Field (Union_Id (Field3 (Onode))) = Abandon
+                    or else
+                  Traverse_Field (Union_Id (Field4 (Onode))) = Abandon
+                    or else
+                  Traverse_Field (Union_Id (Field5 (Onode))) = Abandon
+               then
+                  return Abandon;
+
+               else
+                  return OK_Orig;
+               end if;
+            end;
       end case;
 
    end Traverse_Func;

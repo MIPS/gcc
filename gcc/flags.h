@@ -1,5 +1,5 @@
 /* Compilation switch flag definitions for GCC.
-   Copyright (C) 1987, 1988, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Copyright (C) 1987, 1988, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -126,9 +126,19 @@ extern int warn_unknown_pragmas;
 
 extern int warn_shadow;
 
-/* Warn if a switch on an enum fails to have a case for every enum value.  */
+/* Warn if a switch on an enum, that does not have a default case,
+   fails to have a case for every enum value.  */
 
 extern int warn_switch;
+
+/* Warn if a switch does not have a default case.  */
+
+extern int warn_switch_default;
+
+/* Warn if a switch on an enum fails to have a case for every enum
+   value (regardless of the presence or otherwise of a default case).  */
+
+extern int warn_switch_enum;
 
 /* Nonzero means warn about function definitions that default the return type
    or that use a null return and have a return-type other than void.  */
@@ -379,6 +389,11 @@ extern int flag_keep_inline_functions;
    does the right thing with #pragma interface.  */
 
 extern int flag_no_inline;
+
+/* Nonzero means that we don't want inlining by virtue of -fno-inline,
+   not just because the tree inliner turned us off.  */
+
+extern int flag_really_no_inline;
 
 /* Nonzero if we are only using compiler to check syntax errors.  */
 
@@ -635,5 +650,28 @@ extern int flag_tree_ssa;
 
 /* Nonzero means put zero initialized data in the bss section.  */
 extern int flag_zero_initialized_in_bss;
+
+/* True if the given mode has a NaN representation and the treatment of
+   NaN operands is important.  Certain optimizations, such as folding
+   x * 0 into x, are not correct for NaN operands, and are normally
+   disabled for modes with NaNs.  The user can ask for them to be
+   done anyway using the -funsafe-math-optimizations switch.  */
+#define HONOR_NANS(MODE) \
+  (MODE_HAS_NANS (MODE) && !flag_unsafe_math_optimizations)
+
+/* As for HONOR_NANS, but true if the mode can represent infinity and
+   the treatment of infinite values is important.  */
+#define HONOR_INFINITIES(MODE) \
+  (MODE_HAS_INFINITIES (MODE) && !flag_unsafe_math_optimizations)
+
+/* Like HONOR_NANS, but true if the given mode distinguishes between
+   postive and negative zero, and the sign of zero is important.  */
+#define HONOR_SIGNED_ZEROS(MODE) \
+  (MODE_HAS_SIGNED_ZEROS (MODE) && !flag_unsafe_math_optimizations)
+
+/* Like HONOR_NANS, but true if given mode supports sign-dependent rounding,
+   and the rounding mode is important.  */
+#define HONOR_SIGN_DEPENDENT_ROUNDING(MODE) \
+  (MODE_HAS_SIGN_DEPENDENT_ROUNDING (MODE) && !flag_unsafe_math_optimizations)
 
 #endif /* ! GCC_FLAGS_H */

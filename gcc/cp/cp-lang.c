@@ -29,6 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks-def.h"
 
 static HOST_WIDE_INT cxx_get_alias_set PARAMS ((tree));
+static bool ok_to_generate_alias_set_for_type PARAMS ((tree));
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C++"
@@ -48,10 +49,26 @@ static HOST_WIDE_INT cxx_get_alias_set PARAMS ((tree));
 #define LANG_HOOKS_GET_ALIAS_SET cxx_get_alias_set
 #undef LANG_HOOKS_EXPAND_CONSTANT
 #define LANG_HOOKS_EXPAND_CONSTANT cplus_expand_constant
+#undef LANG_HOOKS_EXPAND_EXPR
+#define LANG_HOOKS_EXPAND_EXPR cxx_expand_expr
 #undef LANG_HOOKS_SAFE_FROM_P
 #define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
+#undef LANG_HOOKS_PARSE_FILE
+#define LANG_HOOKS_PARSE_FILE c_common_parse_file
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL cxx_dup_lang_specific_decl
+#undef LANG_HOOKS_UNSAVE_EXPR_NOW
+#define LANG_HOOKS_UNSAVE_EXPR_NOW cxx_unsave_expr_now
+#undef LANG_HOOKS_MAYBE_BUILD_CLEANUP
+#define LANG_HOOKS_MAYBE_BUILD_CLEANUP cxx_maybe_build_cleanup
+#undef LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES
+#define LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES cxx_insert_default_attributes
+#undef LANG_HOOKS_MARK_TREE
+#define LANG_HOOKS_MARK_TREE cxx_mark_tree
+#undef LANG_HOOKS_UNSAFE_FOR_REEVAL
+#define LANG_HOOKS_UNSAFE_FOR_REEVAL c_common_unsafe_for_reeval
+#undef LANG_HOOKS_MARK_ADDRESSABLE
+#define LANG_HOOKS_MARK_ADDRESSABLE cxx_mark_addressable
 #undef LANG_HOOKS_PRINT_STATISTICS
 #define LANG_HOOKS_PRINT_STATISTICS cxx_print_statistics
 #undef LANG_HOOKS_PRINT_XNODE
@@ -62,6 +79,10 @@ static HOST_WIDE_INT cxx_get_alias_set PARAMS ((tree));
 #define LANG_HOOKS_PRINT_TYPE cxx_print_type
 #undef LANG_HOOKS_PRINT_IDENTIFIER
 #define LANG_HOOKS_PRINT_IDENTIFIER cxx_print_identifier
+#undef LANG_HOOKS_DECL_PRINTABLE_NAME
+#define LANG_HOOKS_DECL_PRINTABLE_NAME	cxx_printable_name
+#undef LANG_HOOKS_PRINT_ERROR_FUNCTION
+#define LANG_HOOKS_PRINT_ERROR_FUNCTION	cxx_print_error_function
 #undef LANG_HOOKS_SET_YYDEBUG
 #define LANG_HOOKS_SET_YYDEBUG cxx_set_yydebug
 
@@ -94,8 +115,114 @@ static HOST_WIDE_INT cxx_get_alias_set PARAMS ((tree));
 #undef LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN
 #define LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN cp_type_quals
 
+#undef LANG_HOOKS_MAKE_TYPE
+#define LANG_HOOKS_MAKE_TYPE cxx_make_type
+#undef LANG_HOOKS_TYPE_FOR_MODE
+#define LANG_HOOKS_TYPE_FOR_MODE c_common_type_for_mode
+#undef LANG_HOOKS_TYPE_FOR_SIZE
+#define LANG_HOOKS_TYPE_FOR_SIZE c_common_type_for_size
+#undef LANG_HOOKS_SIGNED_TYPE
+#define LANG_HOOKS_SIGNED_TYPE c_common_signed_type
+#undef LANG_HOOKS_UNSIGNED_TYPE
+#define LANG_HOOKS_UNSIGNED_TYPE c_common_unsigned_type
+#undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
+#define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE c_common_signed_or_unsigned_type
+
 /* Each front end provides its own hooks, for toplev.c.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
+
+/* Check if a C++ type is safe for aliasing.
+   Return TRUE if T safe for aliasing FALSE otherwise.  */
+
+static bool
+ok_to_generate_alias_set_for_type (t)
+     tree t;
+{
+  if (TYPE_PTRMEMFUNC_P (t))
+    return true;
+  if (AGGREGATE_TYPE_P (t))
+    {
+      if ((TREE_CODE (t) == RECORD_TYPE) || (TREE_CODE (t) == UNION_TYPE))
+	{
+	  tree fields;
+	  /* PODs are safe.  */
+	  if (! CLASSTYPE_NON_POD_P(t))
+	    return true;
+	  /* Classes with virtual baseclasses are not.  */
+	  if (TYPE_USES_VIRTUAL_BASECLASSES (t))
+	    return false;
+	  /* Recursively check the base classes.  */
+	  if (TYPE_BINFO (t) != NULL && TYPE_BINFO_BASETYPES (t) != NULL)
+	    {
+	      int i;
+	      for (i = 0; i < TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (t)); i++)
+		{
+		  tree binfo = TREE_VEC_ELT (TYPE_BINFO_BASETYPES (t), i);
+		  if (!ok_to_generate_alias_set_for_type (BINFO_TYPE (binfo)))
+		    return false;
+		}
+	    }
+	  /* Check all the fields.  */
+	  for (fields = TYPE_FIELDS (t); fields; fields = TREE_CHAIN (fields))
+	    {
+	      if (TREE_CODE (fields) != FIELD_DECL)
+		continue;
+	      if (! ok_to_generate_alias_set_for_type (TREE_TYPE (fields)))
+		return false;
+	    }
+	  return true;
+	}
+      else if (TREE_CODE (t) == ARRAY_TYPE)
+	return ok_to_generate_alias_set_for_type (TREE_TYPE (t));
+      else
+	/* This should never happen, we dealt with all the aggregate
+	   types that can appear in C++ above.  */
+	abort ();
+    }
+  else
+    return true;
+}
+
+/* Tree code classes. */
+
+#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
+
+const char tree_code_type[] = {
+#include "tree.def"
+  'x',
+#include "c-common.def"
+  'x',
+#include "cp-tree.def"
+};
+#undef DEFTREECODE
+
+/* Table indexed by tree code giving number of expression
+   operands beyond the fixed part of the node structure.
+   Not used for types or decls.  */
+
+#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
+
+const unsigned char tree_code_length[] = {
+#include "tree.def"
+  0,
+#include "c-common.def"
+  0,
+#include "cp-tree.def"
+};
+#undef DEFTREECODE
+
+/* Names of tree components.
+   Used for printing out the tree and error messages.  */
+#define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
+
+const char *const tree_code_name[] = {
+#include "tree.def"
+  "@@dummy",
+#include "c-common.def"
+  "@@dummy",
+#include "cp-tree.def"
+};
+#undef DEFTREECODE
 
 /* Special routine to get the alias set for C++.  */
 
@@ -103,9 +230,8 @@ static HOST_WIDE_INT
 cxx_get_alias_set (t)
      tree t;
 {
-  /* It's not yet safe to use alias sets for classes in C++ because
-     the TYPE_FIELDs list for a class doesn't mention base classes.  */
-  if (AGGREGATE_TYPE_P (t))
+  /* It's not yet safe to use alias sets for classes in C++.  */
+  if (!ok_to_generate_alias_set_for_type(t))
     return 0;
 
   return c_common_get_alias_set (t);

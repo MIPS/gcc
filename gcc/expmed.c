@@ -33,6 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "optabs.h"
 #include "real.h"
 #include "recog.h"
+#include "langhooks.h"
 
 static void store_fixed_bit_field	PARAMS ((rtx, unsigned HOST_WIDE_INT,
 						 unsigned HOST_WIDE_INT,
@@ -392,6 +393,15 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, total_size)
       }
   }
 
+  /* We may be accessing data outside the field, which means
+     we can alias adjacent data.  */
+  if (GET_CODE (op0) == MEM)
+    {
+      op0 = shallow_copy_rtx (op0);
+      set_mem_alias_set (op0, 0);
+      set_mem_expr (op0, 0);
+    }
+
   /* If OP0 is a register, BITPOS must count within a word.
      But as we have it, it counts within whatever size OP0 now has.
      On a bigendian machine, these are not the same, so convert.  */
@@ -647,7 +657,7 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, total_size)
 		value1 = gen_lowpart (maxmode, value1);
 	    }
 	  else if (GET_CODE (value) == CONST_INT)
-	    value1 = GEN_INT (trunc_int_for_mode (INTVAL (value), maxmode));
+	    value1 = gen_int_mode (INTVAL (value), maxmode);
 	  else if (!CONSTANT_P (value))
 	    /* Parse phase is supposed to make VALUE's data type
 	       match that of the component reference, which is a type
@@ -1068,6 +1078,15 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
 	  abort ();
       }
   }
+
+  /* We may be accessing data outside the field, which means
+     we can alias adjacent data.  */
+  if (GET_CODE (op0) == MEM)
+    {
+      op0 = shallow_copy_rtx (op0);
+      set_mem_alias_set (op0, 0);
+      set_mem_expr (op0, 0);
+    }
 
   /* ??? We currently assume TARGET is at least as big as BITSIZE.
      If that's wrong, the solution is to test for it and set TARGET to 0
@@ -2771,7 +2790,7 @@ expand_mult_highpart (mode, op0, cnst1, target, unsignedp, max_cost)
   if (size > HOST_BITS_PER_WIDE_INT)
     abort ();
 
-  op1 = GEN_INT (trunc_int_for_mode (cnst1, mode));
+  op1 = gen_int_mode (cnst1, mode);
 
   wide_op1
     = immed_double_const (cnst1,
@@ -3255,7 +3274,7 @@ expand_divmod (rem_flag, code, mode, op0, op1, target, unsignedp)
 		if (rem_flag && d < 0)
 		  {
 		    d = abs_d;
-		    op1 = GEN_INT (trunc_int_for_mode (abs_d, compute_mode));
+		    op1 = gen_int_mode (abs_d, compute_mode);
 		  }
 
 		if (d == 1)
@@ -3294,8 +3313,8 @@ expand_divmod (rem_flag, code, mode, op0, op1, target, unsignedp)
 			t1 = copy_to_mode_reg (compute_mode, op0);
 			do_cmp_and_jump (t1, const0_rtx, GE,
 					 compute_mode, label);
-			expand_inc (t1, GEN_INT (trunc_int_for_mode
-						 (abs_d - 1, compute_mode)));
+			expand_inc (t1, gen_int_mode (abs_d - 1,
+						      compute_mode));
 			emit_label (label);
 			quotient = expand_shift (RSHIFT_EXPR, compute_mode, t1,
 						 build_int_2 (lgup, 0),
@@ -3835,8 +3854,7 @@ expand_divmod (rem_flag, code, mode, op0, op1, target, unsignedp)
 	    t1 = expand_shift (RSHIFT_EXPR, compute_mode, op0,
 			       build_int_2 (pre_shift, 0), NULL_RTX, unsignedp);
 	    quotient = expand_mult (compute_mode, t1,
-				    GEN_INT (trunc_int_for_mode
-					     (ml, compute_mode)),
+				    gen_int_mode (ml, compute_mode),
 				    NULL_RTX, 0);
 
 	    insn = get_last_insn ();
@@ -4090,21 +4108,22 @@ make_tree (type, x)
 			  make_tree (type, XEXP (x, 1))));
 
     case LSHIFTRT:
+      t = (*lang_hooks.types.unsigned_type) (type);
       return fold (convert (type,
-			    build (RSHIFT_EXPR, unsigned_type (type),
-				   make_tree (unsigned_type (type),
-					      XEXP (x, 0)),
+			    build (RSHIFT_EXPR, t,
+				   make_tree (t, XEXP (x, 0)),
 				   make_tree (type, XEXP (x, 1)))));
 
     case ASHIFTRT:
+      t = (*lang_hooks.types.signed_type) (type);
       return fold (convert (type,
-			    build (RSHIFT_EXPR, signed_type (type),
-				   make_tree (signed_type (type), XEXP (x, 0)),
+			    build (RSHIFT_EXPR, t,
+				   make_tree (t, XEXP (x, 0)),
 				   make_tree (type, XEXP (x, 1)))));
 
     case DIV:
       if (TREE_CODE (type) != REAL_TYPE)
-	t = signed_type (type);
+	t = (*lang_hooks.types.signed_type) (type);
       else
 	t = type;
 
@@ -4113,7 +4132,7 @@ make_tree (type, x)
 				   make_tree (t, XEXP (x, 0)),
 				   make_tree (t, XEXP (x, 1)))));
     case UDIV:
-      t = unsigned_type (type);
+      t = (*lang_hooks.types.unsigned_type) (type);
       return fold (convert (type,
 			    build (TRUNC_DIV_EXPR, t,
 				   make_tree (t, XEXP (x, 0)),
@@ -4151,9 +4170,10 @@ expand_mult_add (x, target, mult, add, mode, unsignedp)
      enum machine_mode mode;
      int unsignedp;
 {
-  tree type = type_for_mode (mode, unsignedp);
+  tree type = (*lang_hooks.types.type_for_mode) (mode, unsignedp);
   tree add_type = (GET_MODE (add) == VOIDmode
-		   ? type : type_for_mode (GET_MODE (add), unsignedp));
+		   ? type: (*lang_hooks.types.type_for_mode) (GET_MODE (add),
+							      unsignedp));
   tree result =  fold (build (PLUS_EXPR, type,
 			      fold (build (MULT_EXPR, type,
 					   make_tree (type, x),
@@ -4278,7 +4298,8 @@ emit_store_flag (target, code, op0, op1, mode, unsignedp, normalizep)
      the comparison into one involving a single word.  */
   if (GET_MODE_BITSIZE (mode) == BITS_PER_WORD * 2
       && GET_MODE_CLASS (mode) == MODE_INT
-      && op1 == const0_rtx)
+      && op1 == const0_rtx
+      && (GET_CODE (op0) != MEM || ! MEM_VOLATILE_P (op0)))
     {
       if (code == EQ || code == NE)
 	{

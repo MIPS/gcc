@@ -70,6 +70,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
+#include "langhooks.h"
 
 /* Provide defaults for stuff that may not be defined when using
    sjlj exceptions.  */
@@ -383,7 +384,7 @@ init_eh ()
     {
       tree f_jbuf, f_per, f_lsda, f_prev, f_cs, f_data, tmp;
 
-      sjlj_fc_type_node = make_lang_type (RECORD_TYPE);
+      sjlj_fc_type_node = (*lang_hooks.types.make_type) (RECORD_TYPE);
       ggc_add_tree_root (&sjlj_fc_type_node, 1);
 
       f_prev = build_decl (FIELD_DECL, get_identifier ("__prev"),
@@ -395,7 +396,8 @@ init_eh ()
       DECL_FIELD_CONTEXT (f_cs) = sjlj_fc_type_node;
 
       tmp = build_index_type (build_int_2 (4 - 1, 0));
-      tmp = build_array_type (type_for_mode (word_mode, 1), tmp);
+      tmp = build_array_type ((*lang_hooks.types.type_for_mode) (word_mode, 1),
+			      tmp);
       f_data = build_decl (FIELD_DECL, get_identifier ("__data"), tmp);
       DECL_FIELD_CONTEXT (f_data) = sjlj_fc_type_node;
 
@@ -1401,6 +1403,23 @@ find_exception_handler_labels ()
   exception_handler_labels = list;
 }
 
+bool
+current_function_has_exception_handlers ()
+{
+  int i;
+
+  for (i = cfun->eh->last_region_number; i > 0; --i)
+    {
+      struct eh_region *region = cfun->eh->region_array[i];
+
+      if (! region || region->region_number != i)
+	continue;
+      if (region->type != ERT_THROW)
+	return true;
+    }
+
+  return false;
+}
 
 static struct eh_region *
 duplicate_eh_region_1 (o, map)

@@ -28,6 +28,7 @@
 # SHLIB_LINK
 # SHLIB_MULTILIB
 # SHLIB_MKMAP
+# SHLIB_MKMAP_OPTS
 # SHLIB_MAPFILES
 # SHLIB_NM_FLAGS
 # SHLIB_INSTALL
@@ -231,6 +232,7 @@ for file in $LIB2ADD_ST; do
 done
 
 # SHLIB_MKMAP
+# SHLIB_MKMAP_OPTS
 # SHLIB_MAPFILES
 for ml in $MULTILIBS; do
   dir=`echo ${ml} | sed -e 's/;.*$//' -e 's/=/$(EQ)/g'`
@@ -259,7 +261,7 @@ for ml in $MULTILIBS; do
     mapfile="libgcc.map"
     echo ""
     echo "${mapfile}: $SHLIB_MKMAP $SHLIB_MAPFILES $libgcc_sh_objs"
-    echo '	{ $(NM_FOR_TARGET)'" $SHLIB_NM_FLAGS $libgcc_sh_objs; echo %%; cat $SHLIB_MAPFILES; } | "'$(AWK)'" -f $SHLIB_MKMAP > "'tmp-$@'
+    echo '	{ $(NM_FOR_TARGET)'" $SHLIB_NM_FLAGS $libgcc_sh_objs; echo %%; cat $SHLIB_MAPFILES; } | "'$(AWK)'" -f $SHLIB_MKMAP $SHLIB_MKMAP_OPTS > "'tmp-$@'
     echo '	mv tmp-$@ $@'
   fi
   shlib_deps="$shlib_deps $mapfile"
@@ -272,14 +274,14 @@ for ml in $MULTILIBS; do
 
   libgcc_a_objs="$libgcc_objs $libgcc_st_objs"
 
-  if [ "@libgcc_visibility@" = yes ]; then
+  if [ "@libgcc_visibility@" = yes -a "$SHLIB_LINK" ]; then
     libgcc_a_objs=
     echo ""
     for o in $libgcc_objs $libgcc_st_objs; do
       # .oS objects will have all non-local symbol definitions .hidden
       oS=`echo ${o} | sed s~${objext}'$~.oS~g'`
       echo "${oS}: stmp-dirs ${o}"
-      echo '	@$(NM_FOR_TARGET) '${SHLIB_NM_FLAGS} ${o}' | $(AWK) '\''NF == 3 { print ".hidden", $$3 }'\'' | $(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) -r -nostdinc -nostdlib -o $@ '${o}' -xassembler -'
+      echo '	@$(NM_FOR_TARGET) '${SHLIB_NM_FLAGS} ${o}' | $(AWK) '\''NF == 3 { print "\t.hidden", $$3 }'\'' | $(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) '${flags}' -r -nostdinc -nostdlib -o $@ '${o}' -xassembler -'
       libgcc_a_objs="${libgcc_a_objs} ${oS}"
     done
   fi

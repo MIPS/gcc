@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "flags.h"
 #include "diagnostic.h"
+#include "langhooks-def.h"
 
 enum pad { none, before, after };
 
@@ -104,8 +105,6 @@ static void dump_scope PARAMS ((tree, int));
 static void dump_template_parms PARAMS ((tree, int, int));
 
 static const char *function_category PARAMS ((tree));
-static void lang_print_error_function PARAMS ((diagnostic_context *,
-                                               const char *));
 static void maybe_print_instantiation_context PARAMS ((output_buffer *));
 static void print_instantiation_full_context PARAMS ((output_buffer *));
 static void print_instantiation_partial_context PARAMS ((output_buffer *, tree,
@@ -125,7 +124,6 @@ static tree locate_error PARAMS ((const char *, va_list));
 void
 init_error ()
 {
-  print_error_function = lang_print_error_function;
   diagnostic_starter (global_dc) = cp_diagnostic_starter;
   diagnostic_finalizer (global_dc) = cp_diagnostic_finalizer;
   diagnostic_format_decoder (global_dc) = cp_printer;
@@ -387,7 +385,7 @@ dump_type (t, flags)
 	   which has no name and is not very useful for diagnostics.  So
 	   look up the equivalent C type and print its name.  */
 	tree elt = TREE_TYPE (t);
-	elt = type_for_mode (TYPE_MODE (elt), TREE_UNSIGNED (elt));
+	elt = c_common_type_for_mode (TYPE_MODE (elt), TREE_UNSIGNED (elt));
 	dump_type (elt, flags);
       }
       break;
@@ -459,7 +457,8 @@ dump_type (t, flags)
       break;
     }
     case TYPENAME_TYPE:
-      output_add_string (scratch_buffer, "typename ");
+      if (!IMPLICIT_TYPENAME_P (t))
+        output_add_string (scratch_buffer, "typename ");
       dump_typename (t, flags);
       break;
 
@@ -1507,9 +1506,6 @@ dump_expr (t, flags)
       break;
 
     case REAL_CST:
-#ifndef REAL_IS_NOT_DOUBLE
-      sprintf (digit_buffer, "%g", TREE_REAL_CST (t));
-#else
       {
 	const unsigned char *p = (const unsigned char *) &TREE_REAL_CST (t);
 	size_t i;
@@ -1517,7 +1513,6 @@ dump_expr (t, flags)
 	for (i = 0; i < sizeof TREE_REAL_CST (t); i++)
 	  sprintf (digit_buffer + 2 + 2*i, "%02x", *p++);
       }
-#endif
       output_add_string (scratch_buffer, digit_buffer);
       break;
 
@@ -2132,7 +2127,7 @@ context_as_string (context, flags)
   return output_finalize_message (scratch_buffer);
 }
 
-/* Generate the three forms of printable names for lang_printable_name.  */
+/* Generate the three forms of printable names for cxx_printable_name.  */
 
 const char *
 lang_decl_name (decl, v)
@@ -2378,14 +2373,15 @@ cv_to_string (p, v)
   return output_finalize_message (scratch_buffer);
 }
 
-static void
-lang_print_error_function (context, file)
+/* Langhook for print_error_function.  */
+void
+cxx_print_error_function (context, file)
      diagnostic_context *context;
      const char *file;
 {
   output_state os;
 
-  default_print_error_function (context, file);
+  lhd_print_error_function (context, file);
   os = output_buffer_state (context);
   output_set_prefix ((output_buffer *)context, file);
   maybe_print_instantiation_context ((output_buffer *)context);
@@ -2436,7 +2432,7 @@ cp_print_error_function (buffer, dc)
       else
         output_printf
           (buffer, "In %s `%s':", function_category (current_function_decl),
-           (*decl_printable_name) (current_function_decl, 2));
+           cxx_printable_name (current_function_decl, 2));
       output_add_newline (buffer);
 
       record_last_error_function ();

@@ -320,12 +320,13 @@ extern int (*lang_statement_code_p)             PARAMS ((enum tree_code));
 extern void (*lang_expand_stmt)                 PARAMS ((tree));
 extern void (*lang_expand_decl_stmt)            PARAMS ((tree));
 extern void (*lang_expand_function_end)         PARAMS ((void));
+extern tree gettags				PARAMS ((void));
 
 /* Callback that determines if it's ok for a function to have no
    noreturn attribute.  */
 extern int (*lang_missing_noreturn_ok_p)	PARAMS ((tree));
 
-
+extern int yyparse				PARAMS ((void));
 extern stmt_tree current_stmt_tree              PARAMS ((void));
 extern tree *current_scope_stmt_stack           PARAMS ((void));
 extern void begin_stmt_tree                     PARAMS ((tree *));
@@ -370,6 +371,9 @@ extern void c_mark_lang_decl                    PARAMS ((struct c_lang_decl *));
    front-end defines this variable.  */
 
 extern c_language_kind c_language;
+
+/* Nonzero if prepreprocessing only.  */
+extern int flag_preprocess_only;
 
 /* Nonzero means give string constants the type `const char *', rather
    than `char *'.  */
@@ -503,6 +507,12 @@ extern tree handle_format_attribute		PARAMS ((tree *, tree, tree,
 extern tree handle_format_arg_attribute		PARAMS ((tree *, tree, tree,
 							 int, bool *));
 extern void c_common_insert_default_attributes	PARAMS ((tree));
+extern tree c_common_type_for_mode		PARAMS ((enum machine_mode,
+							 int));
+extern tree c_common_type_for_size		PARAMS ((unsigned int, int));
+extern tree c_common_unsigned_type		PARAMS ((tree));
+extern tree c_common_signed_type		PARAMS ((tree));
+extern tree c_common_signed_or_unsigned_type	PARAMS ((int, tree));
 extern void c_apply_type_quals_to_decl		PARAMS ((int, tree));
 extern tree c_sizeof				PARAMS ((tree));
 extern tree c_alignof				PARAMS ((tree));
@@ -552,6 +562,7 @@ extern void c_common_init_options		PARAMS ((enum c_language_kind));
 extern void c_common_post_options		PARAMS ((void));
 extern const char *c_common_init		PARAMS ((const char *));
 extern void c_common_finish			PARAMS ((void));
+extern void c_common_parse_file			PARAMS ((void));
 extern HOST_WIDE_INT c_common_get_alias_set	PARAMS ((tree));
 extern bool c_promoting_integer_type_p		PARAMS ((tree));
 extern int self_promoting_args_p		PARAMS ((tree));
@@ -693,6 +704,13 @@ extern tree strip_array_types                   PARAMS ((tree));
 #define ASM_VOLATILE_P(NODE)			\
   (ASM_CV_QUAL (ASM_STMT_CHECK (NODE)) != NULL_TREE)
 
+/* The VAR_DECL to clean up in a CLEANUP_STMT.  */
+#define CLEANUP_DECL(NODE) \
+  TREE_OPERAND (CLEANUP_STMT_CHECK (NODE), 0)
+/* The cleanup to run in a CLEANUP_STMT.  */
+#define CLEANUP_EXPR(NODE) \
+  TREE_OPERAND (CLEANUP_STMT_CHECK (NODE), 1)
+
 /* The filename we are changing to as of this FILE_STMT.  */
 #define FILE_STMT_FILENAME_NODE(NODE) \
   (TREE_OPERAND (FILE_STMT_CHECK (NODE), 0))
@@ -728,7 +746,6 @@ enum c_tree_code {
 
 #undef DEFTREECODE
 
-extern void add_c_tree_codes		        PARAMS ((void));
 extern void genrtl_do_pushlevel                 PARAMS ((void));
 extern void genrtl_goto_stmt                    PARAMS ((tree));
 extern void genrtl_expr_stmt                    PARAMS ((tree));
@@ -831,18 +848,15 @@ extern tree finish_label_address_expr		PARAMS ((tree));
    different implementations.  Used in c-common.c.  */
 extern tree lookup_label			PARAMS ((tree));
 
-/* enum expand_modified is in expr.h, as is the macro below.  */
-
-#ifdef QUEUED_VAR
-extern rtx c_expand_expr            PARAMS ((tree, rtx, enum machine_mode,
-					     enum expand_modifier));
-#endif
+extern rtx c_expand_expr			PARAMS ((tree, rtx,
+							 enum machine_mode,
+							 int));
 
 extern int c_safe_from_p                        PARAMS ((rtx, tree));
 
 extern int c_staticp                            PARAMS ((tree));
 
-extern int c_unsafe_for_reeval			PARAMS ((tree));
+extern int c_common_unsafe_for_reeval		PARAMS ((tree));
 
 /* Information recorded about each file examined during compilation.  */
 

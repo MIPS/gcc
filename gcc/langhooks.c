@@ -1,5 +1,5 @@
 /* Default language-specific hooks.
-   Copyright 2001 Free Software Foundation, Inc.
+   Copyright 2001, 2002 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GNU CC.
@@ -56,6 +56,15 @@ lhd_return_tree (t)
   return t;
 }
 
+/* Do nothing (return NULL_TREE).  */
+
+tree
+lhd_return_null_tree (t)
+     tree t ATTRIBUTE_UNUSED;
+{
+  return NULL_TREE;
+}
+
 /* Do nothing; the default hook to decode an option.  */
 
 int
@@ -86,6 +95,15 @@ lhd_safe_from_p (x, exp)
   return 1;
 }
 
+/* Called from unsafe_for_reeval.  */
+
+int
+lhd_unsafe_for_reeval (t)
+     tree t ATTRIBUTE_UNUSED;
+{
+  return -1;
+}
+
 /* Called from staticp.  */
 
 int
@@ -110,7 +128,7 @@ lhd_set_yydebug (value)
 void
 lhd_clear_binding_stack ()
 {
-  while (! global_bindings_p ())
+  while (! (*lang_hooks.decls.global_bindings_p) ())
     poplevel (0, 0, 0);
 }
 
@@ -132,6 +150,28 @@ hook_get_alias_set_0 (t)
      tree t ATTRIBUTE_UNUSED;
 {
   return 0;
+}
+
+/* This is the default expand_expr function.  */
+
+rtx
+lhd_expand_expr (t, r, mm, em)
+     tree t ATTRIBUTE_UNUSED;
+     rtx r ATTRIBUTE_UNUSED;
+     enum machine_mode mm ATTRIBUTE_UNUSED;
+     int em ATTRIBUTE_UNUSED;
+{
+  abort ();
+}
+
+/* This is the default decl_printable_name function.  */
+
+const char *
+lhd_decl_printable_name (decl, verbosity)
+     tree decl;
+     int verbosity ATTRIBUTE_UNUSED;
+{
+  return IDENTIFIER_POINTER (DECL_NAME (decl));
 }
 
 /* lang_hooks.tree_inlining.walk_subtrees is called by walk_tree()
@@ -164,7 +204,7 @@ int
 lhd_tree_inlining_cannot_inline_tree_fn (fnp)
      tree *fnp;
 {
-  if (optimize == 0
+  if (flag_really_no_inline
       && lookup_attribute ("always_inline", DECL_ATTRIBUTES (*fnp)) == NULL)
     return 1;
 
@@ -275,6 +315,18 @@ void
 lhd_tree_inlining_end_inlining (fn)
      tree fn ATTRIBUTE_UNUSED;
 {
+}
+
+/* lang_hooks.tree_inlining.convert_parm_for_inlining performs any
+   language-specific conversion before assigning VALUE to PARM.  */
+
+tree
+lhd_tree_inlining_convert_parm_for_inlining (parm, value, fndecl)
+     tree parm ATTRIBUTE_UNUSED;
+     tree value;
+     tree fndecl ATTRIBUTE_UNUSED;
+{
+  return value;
 }
 
 /* lang_hooks.tree_dump.dump_tree:  Dump language-specific parts of tree 

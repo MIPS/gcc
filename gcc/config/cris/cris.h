@@ -477,8 +477,6 @@ extern int target_flags;
 
 #define UNITS_PER_WORD 4
 
-#define POINTER_SIZE 32
-
 /* A combination of defining PROMOTE_MODE, PROMOTE_FUNCTION_ARGS,
    PROMOTE_FOR_CALL_ONLY and *not* defining PROMOTE_PROTOTYPES gives the
    best code size and speed for gcc, ipps and products in gcc-2.7.2.  */
@@ -1470,7 +1468,7 @@ call_ ## FUNC (void)						\
 
 /* Node: PIC */
 
-#define PIC_OFFSET_TABLE_REGNUM 0
+#define PIC_OFFSET_TABLE_REGNUM (flag_pic ? 0 : INVALID_REGNUM)
 
 #define LEGITIMATE_PIC_OPERAND_P(X) cris_legitimate_pic_operand (X)
 

@@ -1,5 +1,5 @@
 /* If-conversion support.
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -1295,12 +1295,11 @@ noce_try_minmax (if_info)
   if (no_new_pseudos)
     return FALSE;
 
-  /* ??? Reject FP modes since we don't know how 0 vs -0 or NaNs
-     will be resolved with an SMIN/SMAX.  It wouldn't be too hard
+  /* ??? Reject modes with NaNs or signed zeros since we don't know how
+     they will be resolved with an SMIN/SMAX.  It wouldn't be too hard
      to get the target to tell us...  */
-  if (FLOAT_MODE_P (GET_MODE (if_info->x))
-      && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT
-      && ! flag_unsafe_math_optimizations)
+  if (HONOR_SIGNED_ZEROS (GET_MODE (if_info->x))
+      || HONOR_NANS (GET_MODE (if_info->x)))
     return FALSE;
 
   cond = noce_get_alt_condition (if_info, if_info->a, &earliest);
@@ -1554,35 +1553,6 @@ noce_operand_ok (op)
 
   if (side_effects_p (op))
     return FALSE;
-
-  /* ??? Unfortuantely may_trap_p can't look at flag_trapping_math, due to
-     being linked into the genfoo programs.  This is probably a mistake.
-     With finite operands, most fp operations don't trap.  */
-  if (!flag_trapping_math && FLOAT_MODE_P (GET_MODE (op)))
-    switch (GET_CODE (op))
-      {
-      case DIV:
-      case MOD:
-      case UDIV:
-      case UMOD:
-	/* ??? This is kinda lame -- almost every target will have forced
-	   the constant into a register first.  But given the expense of
-	   division, this is probably for the best.  */
-	return (CONSTANT_P (XEXP (op, 1))
-		&& XEXP (op, 1) != CONST0_RTX (GET_MODE (op))
-		&& ! may_trap_p (XEXP (op, 0)));
-
-      default:
-	switch (GET_RTX_CLASS (GET_CODE (op)))
-	  {
-	  case '1':
-	    return ! may_trap_p (XEXP (op, 0));
-	  case 'c':
-	  case '2':
-	    return ! may_trap_p (XEXP (op, 0)) && ! may_trap_p (XEXP (op, 1));
-	  }
-	break;
-      }
 
   return ! may_trap_p (op);
 }
@@ -2434,7 +2404,7 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
      basic_block new_dest;
      int reversep;
 {
-  rtx head, end, jump, earliest, old_dest, new_label;
+  rtx head, end, jump, earliest, old_dest, new_label = NULL_RTX;
 
   jump = test_bb->end;
 
@@ -2731,6 +2701,8 @@ if_convert (x_life_data_ok)
   if (rtl_dump_file)
     fflush (rtl_dump_file);
 
+  clear_aux_for_blocks ();
+
   /* Rebuild life info for basic blocks that require it.  */
   if (num_removed_blocks && life_data_ok)
     {
@@ -2744,7 +2716,6 @@ if_convert (x_life_data_ok)
 					PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
 					| PROP_KILL_DEAD_CODE);
     }
-  clear_aux_for_blocks ();
 
   /* Write the final stats.  */
   if (rtl_dump_file && num_possible_if_blocks > 0)

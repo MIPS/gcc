@@ -1264,7 +1264,7 @@ cris_print_operand (file, x, code)
   rtx operand = x;
 
   /* Size-strings corresponding to MULT expressions.  */
-  static const char *mults[] = { "BAD:0", ".b", ".w", "BAD:3", ".d" };
+  static const char *const mults[] = { "BAD:0", ".b", ".w", "BAD:3", ".d" };
 
   /* New code entries should just be added to the switch below.  If
      handling is finished, just return.  If handling was just a
@@ -1452,7 +1452,8 @@ cris_print_operand (file, x, code)
 	}
       else if (HOST_BITS_PER_WIDE_INT > 32 && GET_CODE (operand) == CONST_INT)
 	{
-	  fprintf (file, "0x%x", (unsigned int)(INTVAL (x) & 0xffffffff));
+	  fprintf (file, "0x%x",
+		   INTVAL (x) & ((unsigned int) 0x7fffffff * 2 + 1));
 	  return;
 	}
       /* Otherwise the least significant part equals the normal part,
@@ -2612,32 +2613,69 @@ cris_expand_builtin_va_arg (valist, type)
 {
   tree addr_tree, t;
   rtx addr;
-  enum machine_mode mode = TYPE_MODE (type);
-  int passed_size;
+  tree passed_size = size_zero_node;
+  tree type_size = NULL;
+  tree size3 = size_int (3);
+  tree size4 = size_int (4);
+  tree size8 = size_int (8);
+  tree rounded_size;
 
   /* Get AP.  */
   addr_tree = valist;
 
-  /* Check if the type is passed by value or by reference.  */
-  if (MUST_PASS_IN_STACK (mode, type)
-      || CRIS_FUNCTION_ARG_SIZE (mode, type) > 8)
-    {
-      tree type_ptr = build_pointer_type (type);
-      addr_tree = build1 (INDIRECT_REF, type_ptr, addr_tree);
-      passed_size = 4;
-    }
+  if (type == error_mark_node
+      || (type_size = TYPE_SIZE_UNIT (TYPE_MAIN_VARIANT (type))) == NULL
+      || TREE_OVERFLOW (type_size))
+    /* Presumable an error; the size isn't computable.  A message has
+       supposedly been emitted elsewhere.  */
+    rounded_size = size_zero_node;
   else
-    passed_size = (CRIS_FUNCTION_ARG_SIZE (mode, type) > 4) ? 8 : 4;
+    rounded_size
+      = fold (build (MULT_EXPR, sizetype,
+		     fold (build (TRUNC_DIV_EXPR, sizetype,
+				  fold (build (PLUS_EXPR, sizetype,
+					       type_size, size3)),
+				  size4)),
+		     size4));
+
+  if (!integer_zerop (rounded_size))
+    {
+      /* Check if the type is passed by value or by reference.  This test must
+	 be different than the call-site test and be done at run-time:
+	 gcc.c-torture/execute/20020307-2.c.  Hence the tree stuff.
+
+	 Values up to 8 bytes are passed by-value, padded to register-size
+	 (4 bytes).  Larger values are passed by-reference.  */
+      passed_size
+	= fold (build (COND_EXPR, sizetype,
+		       fold (build (GT_EXPR, sizetype,
+				    rounded_size,
+				    size8)),
+		       size4,
+		       rounded_size));
+
+      addr_tree
+       = fold (build (COND_EXPR, TREE_TYPE (addr_tree),
+		      fold (build (GT_EXPR, sizetype,
+				   rounded_size,
+				   size8)),
+		      build1 (INDIRECT_REF, build_pointer_type (type),
+			      addr_tree),
+		      addr_tree));
+    }
 
   addr = expand_expr (addr_tree, NULL_RTX, Pmode, EXPAND_NORMAL);
   addr = copy_to_reg (addr);
 
-  /* Compute new value for AP.  */
-  t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
-	     build (PLUS_EXPR, TREE_TYPE (valist), valist,
-		    build_int_2 (passed_size, 0)));
-  TREE_SIDE_EFFECTS (t) = 1;
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+  if (!integer_zerop (rounded_size))
+    {
+      /* Compute new value for AP.  */
+      t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
+		 build (PLUS_EXPR, TREE_TYPE (valist), valist,
+			passed_size));
+      TREE_SIDE_EFFECTS (t) = 1;
+      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+    }
 
   return addr;
 }
@@ -3008,11 +3046,13 @@ cris_encode_section_info (exp, first)
       if (DECL_P (exp))
 	{
 	  if (TREE_CODE (exp) == FUNCTION_DECL
-	      && (TREE_PUBLIC (exp) || DECL_WEAK (exp)))
+	      && (TREE_PUBLIC (exp) || DECL_WEAK (exp))
+	      && ! MODULE_LOCAL_P (exp))
 	    SYMBOL_REF_FLAG (XEXP (DECL_RTL (exp), 0)) = 0;
 	  else
 	    SYMBOL_REF_FLAG (XEXP (DECL_RTL (exp), 0))
-	      = ! TREE_PUBLIC (exp) && ! DECL_WEAK (exp);
+	      = ((! TREE_PUBLIC (exp) && ! DECL_WEAK (exp))
+		 || MODULE_LOCAL_P (exp));
 	}
       else
 	/* Others are local entities.  */

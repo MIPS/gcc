@@ -1037,6 +1037,14 @@ struct lang_type
 #define JCF_u2 unsigned short
 
 extern void java_set_yydebug PARAMS ((int));
+extern void java_parse_file PARAMS ((void));
+extern void java_mark_tree PARAMS ((tree));
+extern bool java_mark_addressable PARAMS ((tree));
+extern tree java_type_for_mode PARAMS ((enum machine_mode, int));
+extern tree java_type_for_size PARAMS ((unsigned int, int));
+extern tree java_unsigned_type PARAMS ((tree));
+extern tree java_signed_type PARAMS ((tree));
+extern tree java_signed_or_unsigned_type PARAMS ((int, tree));
 extern void add_assume_compiled PARAMS ((const char *, int));
 extern tree lookup_class PARAMS ((tree));
 extern tree lookup_java_constructor PARAMS ((tree, tree));
@@ -1071,6 +1079,14 @@ extern tree ident_subst PARAMS ((const char*, int,
 				const char*, int, int, const char*));
 extern tree identifier_subst PARAMS ((const tree,
 				     const char *, int, int, const char *));
+extern int global_bindings_p			PARAMS ((void));
+extern int kept_level_p				PARAMS ((void));
+extern tree getdecls				PARAMS ((void));
+extern void pushlevel				PARAMS ((int));
+extern tree poplevel				PARAMS ((int,int, int));
+extern void insert_block			PARAMS ((tree));
+extern void set_block				PARAMS ((tree));
+extern tree pushdecl				PARAMS ((tree));
 extern void java_init_decl_processing PARAMS ((void));
 extern void java_dup_lang_specific_decl PARAMS ((tree));
 extern tree build_java_signature PARAMS ((tree));
@@ -1237,12 +1253,10 @@ extern void append_gpp_mangled_name PARAMS ((const char *, int));
 extern void add_predefined_file PARAMS ((tree));
 extern int predefined_filename_p PARAMS ((tree));
 
-/* We use ARGS_SIZE_RTX to indicate that gcc/expr.h has been included
-   to declare `enum expand_modifier'. */
-#if defined (TREE_CODE) && defined(RTX_CODE) && defined (HAVE_MACHINE_MODES) && defined (ARGS_SIZE_RTX)
-struct rtx_def * java_lang_expand_expr PARAMS ((tree, rtx, enum machine_mode,
-					       enum expand_modifier)); 
-#endif /* TREE_CODE && RTX_CODE && HAVE_MACHINE_MODES && ARGS_SIZE_RTX */
+#if defined(RTX_CODE) && defined (HAVE_MACHINE_MODES)
+struct rtx_def * java_expand_expr PARAMS ((tree, rtx, enum machine_mode,
+					   int)); 
+#endif
 
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 

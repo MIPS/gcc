@@ -333,9 +333,10 @@ static void einfin	PARAMS ((UEMUSHORT *));
 static void enan	PARAMS ((UEMUSHORT *, int));
 static void einan	PARAMS ((UEMUSHORT *));
 static int eiisnan	PARAMS ((const UEMUSHORT *));
-static int eiisneg	PARAMS ((const UEMUSHORT *));
 static void make_nan	PARAMS ((UEMUSHORT *, int, enum machine_mode));
 #endif
+static int eiisneg	PARAMS ((const UEMUSHORT *));
+static void saturate	PARAMS ((UEMUSHORT *, int, int, int));
 static void emovi	PARAMS ((const UEMUSHORT *, UEMUSHORT *));
 static void emovo	PARAMS ((const UEMUSHORT *, UEMUSHORT *));
 static void ecleaz	PARAMS ((UEMUSHORT *));
@@ -606,16 +607,9 @@ earith (value, icode, r1, r2)
       break;
 
     case RDIV_EXPR:
-#ifndef REAL_INFINITY
+#ifndef INFINITY
       if (ecmp (d2, ezero) == 0)
-	{
-#ifdef NANS
-	enan (v, eisneg (d1) ^ eisneg (d2));
-	break;
-#else
 	abort ();
-#endif
-	}
 #endif
       ediv (d2, d1, v);	/* d1/d2 */
       break;
@@ -1882,7 +1876,6 @@ eiisnan (x)
 
 /* Return nonzero if sign of exploded e-type X is nonzero.  */
 
-#ifdef NANS
 static int
 eiisneg (x)
      const UEMUSHORT x[];
@@ -1890,7 +1883,6 @@ eiisneg (x)
 
   return x[0] != 0;
 }
-#endif /* NANS */
 
 #if 0
 /* Fill exploded e-type X with infinity pattern.
@@ -2871,7 +2863,7 @@ eadd1 (a, b, c)
       esubm (ai, bi);
       subflg = 1;
     }
-  emdnorm (bi, lost, subflg, ltb, 64);
+  emdnorm (bi, lost, subflg, ltb, !ROUND_TOWARDS_ZERO);
 
  done:
   emovo (bi, c);
@@ -2967,7 +2959,7 @@ ediv (a, b, c)
   i = edivm (ai, bi);
   /* calculate exponent */
   lt = ltb - lta + EXONE;
-  emdnorm (bi, i, 0, lt, 64);
+  emdnorm (bi, i, 0, lt, !ROUND_TOWARDS_ZERO);
   emovo (bi, c);
 
  divsign:
@@ -3064,7 +3056,7 @@ emul (a, b, c)
   j = emulm (ai, bi);
   /* calculate exponent */
   lt = lta + ltb - (EXONE - 1);
-  emdnorm (bi, j, 0, lt, 64);
+  emdnorm (bi, j, 0, lt, !ROUND_TOWARDS_ZERO);
   emovo (bi, c);
 
  mulsign:
@@ -3445,7 +3437,7 @@ e24toe (pe, y)
   yy[M] = (r & 0x7f) | 0200;
   r &= ~0x807f;			/* strip sign and 7 significand bits */
 #ifdef INFINITY
-  if (r == 0x7f80)
+  if (!LARGEST_EXPONENT_IS_NORMAL (32) && r == 0x7f80)
     {
 #ifdef NANS
       if (REAL_WORDS_BIG_ENDIAN)
@@ -3536,7 +3528,7 @@ etoe113 (x, e)
   /* round off to nearest or even */
   rndsav = rndprc;
   rndprc = 113;
-  emdnorm (xi, 0, 0, exp, 64);
+  emdnorm (xi, 0, 0, exp, !ROUND_TOWARDS_ZERO);
   rndprc = rndsav;
 #ifdef INFINITY
  nonorm:
@@ -3632,7 +3624,7 @@ etoe64 (x, e)
   /* round off to nearest or even */
   rndsav = rndprc;
   rndprc = 64;
-  emdnorm (xi, 0, 0, exp, 64);
+  emdnorm (xi, 0, 0, exp, !ROUND_TOWARDS_ZERO);
   rndprc = rndsav;
 #ifdef INFINITY
  nonorm:
@@ -3852,7 +3844,7 @@ etoe53 (x, e)
   /* round off to nearest or even */
   rndsav = rndprc;
   rndprc = 53;
-  emdnorm (xi, 0, 0, exp, 64);
+  emdnorm (xi, 0, 0, exp, !ROUND_TOWARDS_ZERO);
   rndprc = rndsav;
 #ifdef INFINITY
  nonorm:
@@ -3877,6 +3869,11 @@ toe53 (x, y)
       return;
     }
 #endif
+  if (LARGEST_EXPONENT_IS_NORMAL (64) && x[1] > 2047)
+    {
+      saturate (y, eiisneg (x), 64, 1);
+      return;
+    }
   p = &x[0];
 #ifdef IEEE
   if (! REAL_WORDS_BIG_ENDIAN)
@@ -4031,7 +4028,7 @@ etoe24 (x, e)
   /* round off to nearest or even */
   rndsav = rndprc;
   rndprc = 24;
-  emdnorm (xi, 0, 0, exp, 64);
+  emdnorm (xi, 0, 0, exp, !ROUND_TOWARDS_ZERO);
   rndprc = rndsav;
 #ifdef INFINITY
  nonorm:
@@ -4056,6 +4053,11 @@ toe24 (x, y)
       return;
     }
 #endif
+  if (LARGEST_EXPONENT_IS_NORMAL (32) && x[1] > 255)
+    {
+      saturate (y, eiisneg (x), 32, 1);
+      return;
+    }
   p = &x[0];
 #ifdef IEEE
   if (! REAL_WORDS_BIG_ENDIAN)
@@ -4070,7 +4072,7 @@ toe24 (x, y)
 
   i = *p++;
 /* Handle overflow cases.  */
-  if (i >= 255)
+  if (!LARGEST_EXPONENT_IS_NORMAL (32) && i >= 255)
     {
 #ifdef INFINITY
       *y |= (UEMUSHORT) 0x7f80;
@@ -5628,7 +5630,7 @@ eldexp (x, pwr2, y)
   li = xi[1];
   li += pwr2;
   i = 0;
-  emdnorm (xi, i, i, li, 64);
+  emdnorm (xi, i, i, li, !ROUND_TOWARDS_ZERO);
   emovo (xi, y);
 }
 
@@ -5826,7 +5828,7 @@ etodec (x, d)
   /* Round off to nearest or even.  */
   rndsav = rndprc;
   rndprc = 56;
-  emdnorm (xi, 0, 0, exp, 64);
+  emdnorm (xi, 0, 0, exp, !ROUND_TOWARDS_ZERO);
   rndprc = rndsav;
   todec (xi, d);
 }
@@ -5938,7 +5940,7 @@ etoibm (x, d, mode)
 							/* round off to nearest or even */
   rndsav = rndprc;
   rndprc = 56;
-  emdnorm (xi, 0, 0, exp, 64);
+  emdnorm (xi, 0, 0, exp, !ROUND_TOWARDS_ZERO);
   rndprc = rndsav;
   toibm (xi, d, mode);
 }
@@ -6136,7 +6138,7 @@ etoc4x (x, d, mode)
   /* Round off to nearest or even.  */
   rndsav = rndprc;
   rndprc = mode == QFmode ? 24 : 32;
-  emdnorm (xi, 0, 0, exp, 64);
+  emdnorm (xi, 0, 0, exp, !ROUND_TOWARDS_ZERO);
   rndprc = rndsav;
   toc4x (xi, d, mode);
 }
@@ -6298,7 +6300,15 @@ make_nan (nan, sign, mode)
 {
   int n;
   const UEMUSHORT *p;
+  int size;
 
+  size = GET_MODE_BITSIZE (mode);
+  if (LARGEST_EXPONENT_IS_NORMAL (size))
+    {
+      warning ("%d-bit floats cannot hold NaNs", size);
+      saturate (nan, sign, size, 0);
+      return;
+    }
   switch (mode)
     {
 /* Possibly the `reserved operand' patterns on a VAX can be
@@ -6352,6 +6362,34 @@ make_nan (nan, sign, mode)
     *nan = (sign << 15) | (*p & 0x7fff);
 }
 #endif /* NANS */
+
+
+/* Create a saturation value for a SIZE-bit float, assuming that
+   LARGEST_EXPONENT_IS_NORMAL (SIZE).
+
+   If SIGN is true, fill X with the most negative value, otherwise fill
+   it with the most positive value.  WARN is true if the function should
+   warn about overflow.  */
+
+static void
+saturate (x, sign, size, warn)
+     UEMUSHORT *x;
+     int sign, size, warn;
+{
+  int i;
+
+  if (warn && extra_warnings)
+    warning ("value exceeds the range of a %d-bit float", size);
+
+  /* Create the most negative value.  */
+  for (i = 0; i < size / EMUSHORT_SIZE; i++)
+    x[i] = 0xffff;
+
+  /* Make it positive, if necessary.  */
+  if (!sign)
+    x[REAL_WORDS_BIG_ENDIAN? 0 : i - 1] = 0x7fff;
+}
+
 
 /* This is the inverse of the function `etarsingle' invoked by
    REAL_VALUE_TO_TARGET_SINGLE.  */
@@ -6876,7 +6914,7 @@ esqrt (x, y)
     k |= (int) num[i];
 
   /* Renormalize and round off.  */
-  emdnorm (sq, k, 0, exp, 64);
+  emdnorm (sq, k, 0, exp, !ROUND_TOWARDS_ZERO);
   emovo (sq, y);
 }
 #endif

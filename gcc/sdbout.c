@@ -58,6 +58,7 @@ AT&T C compiler.  From the example below I would conclude the following:
 #include "tm_p.h"
 #include "gsyms.h"
 #include "debug.h"
+#include "langhooks.h"
 
 /* 1 if PARM is passed to this function in memory.  */
 
@@ -299,7 +300,7 @@ static struct sdb_file *current_file;
 #endif /* MIPS_DEBUGGING_INFO */
 
 /* The debug hooks structure.  */
-struct gcc_debug_hooks sdb_debug_hooks =
+const struct gcc_debug_hooks sdb_debug_hooks =
 {
   sdbout_init,			/* init */
   sdbout_finish,		/* finish */
@@ -1516,7 +1517,7 @@ static void
 sdbout_finish (main_filename)
      const char *main_filename ATTRIBUTE_UNUSED;
 {
-  tree decl = getdecls ();
+  tree decl = (*lang_hooks.decls.getdecls) ();
   unsigned int len = list_length (decl);
   tree *vec = (tree *) xmalloc (sizeof (tree) * len);
   unsigned int i;
@@ -1754,7 +1755,7 @@ sdbout_init (input_file_name)
 
 #ifdef RMS_QUICK_HACK_1
   tree t;
-  for (t = getdecls (); t; t = TREE_CHAIN (t))
+  for (t = (*lang_hooks.decls.getdecls) (); t; t = TREE_CHAIN (t))
     if (DECL_NAME (t) && IDENTIFIER_POINTER (DECL_NAME (t)) != 0
 	&& !strcmp (IDENTIFIER_POINTER (DECL_NAME (t)), "__vtbl_ptr_type"))
       sdbout_symbol (t, 0);

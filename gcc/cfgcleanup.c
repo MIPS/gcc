@@ -54,7 +54,8 @@ enum bb_flags
 {
     /* Set if BB is the forwarder block to avoid too many
        forwarder_block_p calls.  */
-    BB_FORWARDER_BLOCK = 1
+    BB_FORWARDER_BLOCK = 1,
+    BB_NONTHREADABLE_BLOCK = 2
 };
 
 #define BB_FLAGS(BB) (enum bb_flags) (BB)->aux
@@ -89,6 +90,7 @@ static edge thread_jump			PARAMS ((int, edge, basic_block));
 static bool mark_effect			PARAMS ((rtx, bitmap));
 static void notice_new_block		PARAMS ((basic_block));
 static void update_forwarder_flag	PARAMS ((basic_block));
+static int mentions_nonequal_regs	PARAMS ((rtx *, void *));
 
 /* Set flags for newly created block.  */
 
@@ -235,6 +237,32 @@ mark_effect (exp, nonequal)
 	return false;
     }
 }
+
+/* Return nonzero if X is an register set in regset DATA.
+   Called via for_each_rtx.  */
+static int
+mentions_nonequal_regs (x, data)
+     rtx *x;
+     void *data;
+{
+  regset nonequal = (regset) data;
+  if (REG_P (*x))
+    {
+      int regno;
+
+      regno = REGNO (*x);
+      if (REGNO_REG_SET_P (nonequal, regno))
+	return 1;
+      if (regno < FIRST_PSEUDO_REGISTER)
+	{
+	  int n = HARD_REGNO_NREGS (regno, GET_MODE (*x));
+	  while (--n > 0)
+	    if (REGNO_REG_SET_P (nonequal, regno + n))
+	      return 1;
+	}
+    }
+  return 0;
+}
 /* Attempt to prove that the basic block B will have no side effects and
    allways continues in the same edge if reached via E.  Return the edge
    if exist, NULL otherwise.  */
@@ -252,17 +280,28 @@ thread_jump (mode, e, b)
   regset nonequal;
   bool failed = false;
 
+  if (BB_FLAGS (b) & BB_NONTHREADABLE_BLOCK)
+    return NULL;
+
   /* At the moment, we do handle only conditional jumps, but later we may
      want to extend this code to tablejumps and others.  */
   if (!e->src->succ->succ_next || e->src->succ->succ_next->succ_next)
     return NULL;
   if (!b->succ || !b->succ->succ_next || b->succ->succ_next->succ_next)
-    return NULL;
+    {
+      BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
+      return NULL;
+    }
 
   /* Second branch must end with onlyjump, as we will eliminate the jump.  */
-  if (!any_condjump_p (e->src->end) || !any_condjump_p (b->end)
-      || !onlyjump_p (b->end))
+  if (!any_condjump_p (e->src->end))
     return NULL;
+  
+  if (!any_condjump_p (b->end) || !onlyjump_p (b->end))
+    {
+      BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
+      return NULL;
+    }
 
   set1 = pc_set (e->src->end);
   set2 = pc_set (b->end);
@@ -297,7 +336,10 @@ thread_jump (mode, e, b)
   for (insn = NEXT_INSN (b->head); insn != NEXT_INSN (b->end);
        insn = NEXT_INSN (insn))
     if (INSN_P (insn) && side_effects_p (PATTERN (insn)))
-      return NULL;
+      {
+	BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
+	return NULL;
+      }
 
   cselib_init ();
 
@@ -336,6 +378,14 @@ thread_jump (mode, e, b)
   /* Later we should clear nonequal of dead registers.  So far we don't
      have life information in cfg_cleanup.  */
   if (failed)
+    {
+      BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
+      goto failed_exit;
+    }
+
+  /* cond2 must not mention any register that is not equal to the
+     former block.  */
+  if (for_each_rtx (&cond2, mentions_nonequal_regs, nonequal))
     goto failed_exit;
 
   /* In case liveness information is available, we need to prove equivalence
@@ -1084,9 +1134,20 @@ outgoing_edges_match (mode, bb1, bb2)
 
       if (!bb2->succ
           || !bb2->succ->succ_next
-	  || bb1->succ->succ_next->succ_next
+	  || bb2->succ->succ_next->succ_next
 	  || !any_condjump_p (bb2->end)
-	  || !onlyjump_p (bb1->end))
+	  || !onlyjump_p (bb2->end))
+	return false;
+
+      /* Do not crossjump across loop boundaries.  This is a temporary
+	 workaround for the common scenario in which crossjumping results
+	 in killing the duplicated loop condition, making bb-reorder rotate
+	 the loop incorectly, leaving an extra unconditional jump inside
+	 the loop.
+
+	 This check should go away once bb-reorder knows how to duplicate
+	 code in this case or rotate the loops to avoid this scenario.  */
+      if (bb1->loop_depth != bb2->loop_depth)
 	return false;
 
       b1 = BRANCH_EDGE (bb1);
@@ -1162,9 +1223,10 @@ outgoing_edges_match (mode, bb1, bb2)
 	    /* Do not use f2 probability as f2 may be forwarded.  */
 	    prob2 = REG_BR_PROB_BASE - b2->probability;
 
-	  /* Fail if the difference in probabilities is
-	     greater than 5%.  */
-	  if (abs (b1->probability - prob2) > REG_BR_PROB_BASE / 20)
+	  /* Fail if the difference in probabilities is greater than 50%.
+	     This rules out two well-predicted branches with opposite
+	     outcomes.  */
+	  if (abs (b1->probability - prob2) > REG_BR_PROB_BASE / 2)
 	    {
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file,
@@ -1321,6 +1383,8 @@ try_crossjump_to_edge (mode, e1, e2)
 
   redirect_to->count += src1->count;
   redirect_to->frequency += src1->frequency;
+  /* We may have some registers visible trought the block.  */
+  redirect_to->flags |= BB_DIRTY;
 
   /* Recompute the frequencies and counts of outgoing edges.  */
   for (s = redirect_to->succ; s; s = s->succ_next)
@@ -1421,6 +1485,7 @@ try_crossjump_bb (mode, bb)
 {
   edge e, e2, nexte2, nexte, fallthru;
   bool changed;
+  int n = 0;
 
   /* Nothing to do if there is not at least two incoming edges.  */
   if (!bb->pred || !bb->pred->pred_next)
@@ -1429,9 +1494,13 @@ try_crossjump_bb (mode, bb)
   /* It is always cheapest to redirect a block that ends in a branch to
      a block that falls through into BB, as that adds no branches to the
      program.  We'll try that combination first.  */
-  for (fallthru = bb->pred; fallthru; fallthru = fallthru->pred_next)
-    if (fallthru->flags & EDGE_FALLTHRU)
-      break;
+  for (fallthru = bb->pred; fallthru; fallthru = fallthru->pred_next, n++)
+    {
+      if (fallthru->flags & EDGE_FALLTHRU)
+	break;
+      if (n > 100)
+	return false;
+    }
 
   changed = false;
   for (e = bb->pred; e; e = nexte)
@@ -1510,7 +1579,6 @@ try_optimize_cfg (mode)
   bool changed_overall = false;
   bool changed;
   int iterations = 0;
-  sbitmap blocks;
 
   if (mode & CLEANUP_CROSSJUMP)
     add_noreturn_fake_exit_edges ();
@@ -1673,13 +1741,7 @@ try_optimize_cfg (mode)
   if (mode & CLEANUP_CROSSJUMP)
     remove_fake_edges ();
 
-  if ((mode & CLEANUP_UPDATE_LIFE) && changed_overall)
-    update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL,
-				      PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
-				      | PROP_KILL_DEAD_CODE | PROP_LOG_LINKS);
-
-  for (i = 0; i < n_basic_blocks; i++)
-    BASIC_BLOCK (i)->aux = NULL;
+  clear_aux_for_blocks ();
 
   return changed_overall;
 }
@@ -1720,9 +1782,39 @@ cleanup_cfg (mode)
   bool changed = false;
 
   timevar_push (TV_CLEANUP_CFG);
-  changed = delete_unreachable_blocks ();
-  if (try_optimize_cfg (mode))
-    delete_unreachable_blocks (), changed = true;
+  if (delete_unreachable_blocks ())
+    {
+      changed = true;
+      /* We've possibly created trivially dead code.  Cleanup it right
+	 now to introduce more oppurtunities for try_optimize_cfg.  */
+      if (!(mode & (CLEANUP_UPDATE_LIFE | CLEANUP_PRE_SIBCALL))
+	  && !reload_completed)
+	delete_trivially_dead_insns (get_insns(), max_reg_num ());
+    }
+  while (try_optimize_cfg (mode))
+    {
+      delete_unreachable_blocks (), changed = true;
+      if (mode & CLEANUP_UPDATE_LIFE)
+	{
+	  /* Cleaning up CFG introduces more oppurtunities for dead code
+	     removal that in turn may introduce more oppurtunities for
+	     cleaning up the CFG.  */
+	  if (!update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
+						 PROP_DEATH_NOTES
+						 | PROP_SCAN_DEAD_CODE
+						 | PROP_KILL_DEAD_CODE
+						 | PROP_LOG_LINKS))
+	    break;
+	}
+      else if (!(mode & CLEANUP_PRE_SIBCALL) && !reload_completed)
+	{
+	  if (!delete_trivially_dead_insns (get_insns(), max_reg_num ()))
+	    break;
+	}
+      else
+	break;
+      delete_dead_jumptables ();
+    }
 
   /* Kill the data we won't maintain.  */
   free_EXPR_LIST_list (&label_value_list);

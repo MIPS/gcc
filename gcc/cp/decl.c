@@ -46,6 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "target.h"
 #include "c-common.h"
+#include "c-pragma.h"
 #include "diagnostic.h"
 
 extern const struct attribute_spec *lang_attribute_table;
@@ -86,6 +87,8 @@ static tree lookup_tag PARAMS ((enum tree_code, tree,
 static void set_identifier_type_value_with_scope
 	PARAMS ((tree, tree, struct binding_level *));
 static void record_unknown_type PARAMS ((tree, const char *));
+static tree builtin_function_1 PARAMS ((const char *, tree, tree, int,
+                                      enum built_in_class, const char *));
 static tree build_library_fn_1 PARAMS ((tree, enum tree_code, tree));
 static int member_function_or_else PARAMS ((tree, tree, enum overload_flags));
 static void bad_specifiers PARAMS ((tree, const char *, int, int, int, int,
@@ -2500,6 +2503,7 @@ maybe_push_to_top_level (pseudo)
   s->bindings = b;
   s->need_pop_function_context = need_pop;
   s->function_decl = current_function_decl;
+  s->last_parms = last_function_parms;
 
   scope_chain = s;
   current_function_decl = NULL_TREE;
@@ -2541,6 +2545,7 @@ pop_from_top_level ()
   if (s->need_pop_function_context)
     pop_function_context_from (NULL_TREE);
   current_function_decl = s->function_decl;
+  last_function_parms = s->last_parms;
 
   free (s);
 }
@@ -3142,6 +3147,10 @@ duplicate_decls (newdecl, olddecl)
     {
       if (TREE_CODE (newdecl) != FUNCTION_DECL)
 	{
+          /* Avoid warnings redeclaring anticipated built-ins.  */
+          if (DECL_ANTICIPATED (olddecl))
+            return 0;
+
 	  /* If you declare a built-in or predefined function name as static,
 	     the old definition is overridden, but optionally warn this was a
 	     bad choice of name.  */
@@ -3169,7 +3178,10 @@ duplicate_decls (newdecl, olddecl)
 	}
       else if (!types_match)
 	{
-	  if ((DECL_EXTERN_C_P (newdecl)
+          /* Avoid warnings redeclaring anticipated built-ins.  */
+          if (DECL_ANTICIPATED (olddecl))
+            ;  /* Do nothing yet.  */
+	  else if ((DECL_EXTERN_C_P (newdecl)
 	       && DECL_EXTERN_C_P (olddecl))
 	      || compparms (TYPE_ARG_TYPES (TREE_TYPE (newdecl)),
 			    TYPE_ARG_TYPES (TREE_TYPE (olddecl))))
@@ -3190,6 +3202,9 @@ duplicate_decls (newdecl, olddecl)
 	  else
 	    /* Discard the old built-in function.  */
 	    return 0;
+
+	  /* Replace the old RTL to avoid problems with inlining.  */
+	  SET_DECL_RTL (olddecl, DECL_RTL (newdecl));
 	}
 
       if (DECL_THIS_STATIC (newdecl) && !DECL_THIS_STATIC (olddecl))
@@ -3514,16 +3529,16 @@ duplicate_decls (newdecl, olddecl)
       tree newtype;
 
       /* Merge the data types specified in the two decls.  */
-      newtype = common_type (TREE_TYPE (newdecl), TREE_TYPE (olddecl));
+      newtype = merge_types (TREE_TYPE (newdecl), TREE_TYPE (olddecl));
 
-      /* If common_type produces a non-typedef type, just use the old type.  */
+      /* If merge_types produces a non-typedef type, just use the old type.  */
       if (TREE_CODE (newdecl) == TYPE_DECL
 	  && newtype == DECL_ORIGINAL_TYPE (newdecl))
 	newtype = oldtype;
 
       if (TREE_CODE (newdecl) == VAR_DECL)
 	DECL_THIS_EXTERN (newdecl) |= DECL_THIS_EXTERN (olddecl);
-      /* Do this after calling `common_type' so that default
+      /* Do this after calling `merge_types' so that default
 	 parameters don't confuse us.  */
       else if (TREE_CODE (newdecl) == FUNCTION_DECL
 	  && (TYPE_RAISES_EXCEPTIONS (TREE_TYPE (newdecl))
@@ -3781,7 +3796,7 @@ duplicate_decls (newdecl, olddecl)
       memcpy ((char *) olddecl + sizeof (struct tree_common),
 	      (char *) newdecl + sizeof (struct tree_common),
 	      sizeof (struct tree_decl) - sizeof (struct tree_common)
-	      + tree_code_length [(int)TREE_CODE (newdecl)] * sizeof (char *));
+	      + TREE_CODE_LENGTH (TREE_CODE (newdecl)) * sizeof (char *));
     }
 
   DECL_UID (olddecl) = olddecl_uid;
@@ -5504,7 +5519,12 @@ lookup_namespace_name (namespace, name)
       /* If we have a single function from a using decl, pull it out.  */
       if (TREE_CODE (val) == OVERLOAD && ! really_overloaded_fn (val))
 	val = OVL_FUNCTION (val);
-      return val;
+
+      /* Ignore built-in functions that haven't been prototyped yet.  */
+      if (!val || !DECL_P(val)
+          || !DECL_LANG_SPECIFIC(val)
+          || !DECL_ANTICIPATED (val))
+        return val;
     }
 
   error ("`%D' undeclared in namespace `%D'", name, namespace);
@@ -5783,14 +5803,6 @@ select_decl (binding, flags)
   tree val;
   val = BINDING_VALUE (binding);
 
-  /* When we implicitly declare some builtin entity, we mark it
-     DECL_ANTICIPATED, so that we know to ignore it until it is
-     really declared.  */
-  if (val && DECL_P (val)
-      && DECL_LANG_SPECIFIC (val)
-      && DECL_ANTICIPATED (val))
-    return NULL_TREE;
-
   if (LOOKUP_NAMESPACES_ONLY (flags))
     {
       /* We are not interested in types. */
@@ -5840,9 +5852,21 @@ unqualified_namespace_lookup (name, flags, spacesp)
 	*spacesp = tree_cons (scope, NULL_TREE, *spacesp);
       val = binding_for_name (name, scope);
 
-      /* Initialize binding for this context. */
-      BINDING_VALUE (b) = BINDING_VALUE (val);
-      BINDING_TYPE (b) = BINDING_TYPE (val);
+      /* Ignore anticipated built-in functions.  */
+      if (val && BINDING_VALUE (val)
+          && DECL_P (BINDING_VALUE (val))
+          && DECL_LANG_SPECIFIC (BINDING_VALUE (val))
+          && DECL_ANTICIPATED (BINDING_VALUE (val)))
+        {
+          BINDING_VALUE (b) = NULL_TREE;
+          BINDING_TYPE (b) = NULL_TREE;
+        }
+      else
+        {
+          /* Initialize binding for this context. */
+          BINDING_VALUE (b) = BINDING_VALUE (val);
+          BINDING_TYPE (b) = BINDING_TYPE (val);
+        }
 
       /* Add all _DECLs seen through local using-directives. */
       for (level = current_binding_level;
@@ -6432,12 +6456,6 @@ cxx_init_decl_processing ()
       flag_inline_functions = 0;
     }
 
-  /* In C++, we never create builtin functions whose name does not
-     begin with `__'.  Users should be using headers to get prototypes
-     in C++.  It would be nice if we could warn when `-fbuiltin' is
-     used explicitly, but we do not have that information.  */
-  flag_no_builtin = 1;
-
   /* Initially, C.  */
   current_lang_name = lang_name_c;
 
@@ -6586,7 +6604,6 @@ cxx_init_decl_processing ()
 
   /* Perform other language dependent initializations.  */
   init_class_processing ();
-  init_init_processing ();
   init_search_processing ();
   init_rtti_processing ();
 
@@ -6702,10 +6719,9 @@ cp_make_fname_decl (id, type_dep)
   return decl;
 }
 
-/* Entry point for the benefit of c_common_nodes_and_builtins.
-
-   Make a definition for a builtin function named NAME and whose data type
-   is TYPE.  TYPE should be a function type with argument types.
+/* Make a definition for a builtin function named NAME in the current
+   namespace, whose data type is TYPE and whose context is CONTEXT.
+   TYPE should be a function type with argument types.
 
    CLASS and CODE tell later passes how to compile calls to this function.
    See tree.h for possible values.
@@ -6713,10 +6729,11 @@ cp_make_fname_decl (id, type_dep)
    If LIBNAME is nonzero, use that for DECL_ASSEMBLER_NAME,
    the name to be called if we can't opencode the function.  */
 
-tree
-builtin_function (name, type, code, class, libname)
+static tree
+builtin_function_1 (name, type, context, code, class, libname)
      const char *name;
      tree type;
+     tree context;
      int code;
      enum built_in_class class;
      const char *libname;
@@ -6724,23 +6741,13 @@ builtin_function (name, type, code, class, libname)
   tree decl = build_library_fn_1 (get_identifier (name), ERROR_MARK, type);
   DECL_BUILT_IN_CLASS (decl) = class;
   DECL_FUNCTION_CODE (decl) = code;
+  DECL_CONTEXT (decl) = context;
 
   /* The return builtins leave the current function.  */
   if (code == BUILT_IN_RETURN || code == BUILT_IN_EH_RETURN)
     TREE_THIS_VOLATILE (decl) = 1;
 
-  my_friendly_assert (DECL_CONTEXT (decl) == NULL_TREE, 392);
-
-  /* All builtins that don't begin with an `_' should go in the `std'
-     namespace.  */
-  if (name[0] != '_')
-    {
-      push_namespace (std_identifier);
-      DECL_CONTEXT (decl) = std_node;
-    }
   pushdecl (decl);
-  if (name[0] != '_')
-    pop_namespace ();
 
   /* Since `pushdecl' relies on DECL_ASSEMBLER_NAME instead of DECL_NAME,
      we cannot change DECL_ASSEMBLER_NAME until we have installed this
@@ -6758,6 +6765,39 @@ builtin_function (name, type, code, class, libname)
   decl_attributes (&decl, NULL_TREE, 0);
 
   return decl;
+}
+
+/* Entry point for the benefit of c_common_nodes_and_builtins.
+
+   Make a defintion for a builtin function named NAME and whose data type
+   is TYPE.  TYPE should be a function type with argument types.  This
+   function places the anticipated declaration in the global namespace
+   and additionally in the std namespace if appropriate.
+
+   CLASS and CODE tell later passes how to compile calls to this function.
+   See tree.h for possible values.
+
+   If LIBNAME is nonzero, use that for DECL_ASSEMBLER_NAME,
+   the name to be called if we can't opencode the function.  */
+
+tree
+builtin_function (name, type, code, class, libname)
+     const char *name;
+     tree type;
+     int code;
+     enum built_in_class class;
+     const char *libname;
+{
+  /* All builtins that don't begin with an '_' should additionally
+     go in the 'std' namespace.  */
+  if (name[0] != '_')
+    {
+      push_namespace (std_identifier);
+      builtin_function_1 (name, type, std_node, code, class, libname);
+      pop_namespace ();
+    }
+
+  return builtin_function_1 (name, type, NULL_TREE, code, class, libname);
 }
 
 /* Generate a FUNCTION_DECL with the typical flags for a runtime library
@@ -6884,7 +6924,7 @@ push_throw_library_fn (name, type)
    attributes.  */
 
 void
-insert_default_attributes (decl)
+cxx_insert_default_attributes (decl)
      tree decl;
 {
   if (!DECL_EXTERN_C_FUNCTION_P (decl))
@@ -7256,6 +7296,10 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
 
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
   cplus_decl_attributes (&decl, attributes, 0);
+
+  /* If #pragma weak was used, mark the decl weak now.  */
+  if (current_binding_level == global_binding_level)
+    maybe_apply_pragma_weak (decl);
 
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_DECLARED_INLINE_P (decl)
@@ -7857,18 +7901,21 @@ make_rtl_for_nonlocal_decl (decl, init, asmspec)
      DECL_STMT is expanded.  */
   defer_p = DECL_FUNCTION_SCOPE_P (decl) || DECL_VIRTUAL_P (decl);
 
-  /* We try to defer namespace-scope static constants so that they are
-     not emitted into the object file unnecessarily.  */
-  if (!DECL_VIRTUAL_P (decl)
-      && TREE_READONLY (decl)
-      && DECL_INITIAL (decl) != NULL_TREE
-      && DECL_INITIAL (decl) != error_mark_node
-      && ! EMPTY_CONSTRUCTOR_P (DECL_INITIAL (decl))
-      && toplev
-      && !TREE_PUBLIC (decl))
+  /* We try to defer namespace-scope static constants and template
+     instantiations so that they are not emitted into the object file
+     unnecessarily.  */
+  if ((!DECL_VIRTUAL_P (decl)
+       && TREE_READONLY (decl)
+       && DECL_INITIAL (decl) != NULL_TREE
+       && DECL_INITIAL (decl) != error_mark_node
+       && ! EMPTY_CONSTRUCTOR_P (DECL_INITIAL (decl))
+       && toplev
+       && !TREE_PUBLIC (decl))
+      || DECL_COMDAT (decl))
     {
-      /* Fool with the linkage according to #pragma interface.  */
-      if (!interface_unknown)
+      /* Fool with the linkage of static consts according to #pragma
+	 interface.  */
+      if (!interface_unknown && !TREE_PUBLIC (decl))
 	{
 	  TREE_PUBLIC (decl) = 1;
 	  DECL_EXTERNAL (decl) = interface_only;
@@ -8025,11 +8072,10 @@ destroy_local_var (decl)
     return;
 
   /* Compute the cleanup.  */
-  cleanup = maybe_build_cleanup (decl);
+  cleanup = cxx_maybe_build_cleanup (decl);
 
   /* Record the cleanup required for this declaration.  */
-  if (DECL_SIZE (decl) && TREE_TYPE (decl) != error_mark_node
-      && cleanup)
+  if (DECL_SIZE (decl) && cleanup)
     finish_decl_cleanup (decl, cleanup);
 }
 
@@ -8063,8 +8109,10 @@ cp_finish_decl (decl, init, asmspec_tree, flags)
     }
 
   /* If a name was specified, get the string.  */
+  if (current_binding_level == global_binding_level)
+    asmspec_tree = maybe_apply_renaming_pragma (decl, asmspec_tree);
   if (asmspec_tree)
-      asmspec = TREE_STRING_POINTER (asmspec_tree);
+    asmspec = TREE_STRING_POINTER (asmspec_tree);
 
   if (init && TREE_CODE (init) == NAMESPACE_DECL)
     {
@@ -8498,7 +8546,7 @@ register_dtor_fn (decl)
   end_cleanup_fn ();
 
   /* Call atexit with the cleanup function.  */
-  mark_addressable (cleanup);
+  cxx_mark_addressable (cleanup);
   cleanup = build_unary_op (ADDR_EXPR, cleanup, 0);
   if (flag_use_cxa_atexit)
     {
@@ -10279,7 +10327,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
       else if (type == char_type_node)
 	type = unsigned_char_type_node;
       else if (typedef_decl)
-	type = unsigned_type (type);
+	type = c_common_unsigned_type (type);
       else
 	type = unsigned_type_node;
     }
@@ -11293,9 +11341,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
 	  /* Only try to do this stuff if we didn't already give up.  */
 	  if (type != integer_type_node)
 	    {
-	      /* DR 209. The friendly class does not need to be accessible
-                 in the scope of the class granting friendship. */
-	      skip_type_access_control ();
+	      decl_type_access_control (TYPE_NAME (type));
 
 	      /* A friendly class?  */
 	      if (current_class_type)
@@ -11557,33 +11603,32 @@ friend declaration requires class-key, i.e. `friend %#T'",
 	if (friendp)
 	  {
 	    /* Friends are treated specially.  */
-            tree t = NULL_TREE;
-	    
-	    /* DR 209. The friend does not need to be accessible at this
-               point. */
-	    skip_type_access_control ();
-	    
 	    if (ctype == current_class_type)
 	      warning ("member functions are implicitly friends of their class");
-
-            if (decl && DECL_NAME (decl))
-              {
-                if (template_class_depth (current_class_type) == 0)
-                  {
-              	    decl = check_explicit_specialization
-              	            (declarator, decl,
-              	             template_count, 2 * (funcdef_flag != 0) + 4);
-              	    if (decl == error_mark_node)
-              	      return error_mark_node;
-                  }
-              
-                t = do_friend (ctype, declarator, decl,
-              		       last_function_parms, *attrlist, flags, quals,
-              		       funcdef_flag);
-              }
-            if (t && funcdef_flag)
-              return t;
-	    return void_type_node;
+ 	    else
+ 	      {
+ 		tree t = NULL_TREE;
+ 		if (decl && DECL_NAME (decl))
+ 		  {
+ 		    if (template_class_depth (current_class_type) == 0)
+ 		      {
+ 			decl
+ 			  = check_explicit_specialization
+ 			  (declarator, decl,
+ 			   template_count, 2 * (funcdef_flag != 0) + 4);
+ 			if (decl == error_mark_node)
+ 			  return error_mark_node;
+ 		      }
+		    
+ 		    t = do_friend (ctype, declarator, decl,
+ 				   last_function_parms, *attrlist,
+				   flags, quals, funcdef_flag);
+ 		  }
+ 		if (t && funcdef_flag)
+ 		  return t;
+  
+ 		return void_type_node;
+ 	      }
 	  }
 
 	/* Structure field.  It may not be a function, except for C++ */
@@ -12861,19 +12906,6 @@ xref_tag (code_type_node, name, globalize)
 	redeclare_class_template (ref, current_template_parms);
     }
 
-  /* Until the type is defined, tentatively accept whatever
-     structure tag the user hands us.  */
-  if (!COMPLETE_TYPE_P (ref)
-      && ref != current_class_type
-      /* Have to check this, in case we have contradictory tag info.  */
-      && IS_AGGR_TYPE_CODE (TREE_CODE (ref)))
-    {
-      if (tag_code == class_type)
-	CLASSTYPE_DECLARED_CLASS (ref) = 1;
-      else if (tag_code == record_type)
-	CLASSTYPE_DECLARED_CLASS (ref) = 0;
-    }
-
   TYPE_ATTRIBUTES (ref) = attributes;
 
   return ref;
@@ -13116,9 +13148,6 @@ start_enum (name)
       pushtag (name, enumtype, 0);
     }
 
-  if (current_class_type)
-    TREE_ADDRESSABLE (b->tags) = 1;
-
   return enumtype;
 }
 
@@ -13220,7 +13249,7 @@ finish_enum (enumtype)
   if (flag_short_enums || (precision > TYPE_PRECISION (integer_type_node)))
     /* Use the width of the narrowest normal C type which is wide
        enough.  */
-    TYPE_PRECISION (enumtype) = TYPE_PRECISION (type_for_size
+    TYPE_PRECISION (enumtype) = TYPE_PRECISION (c_common_type_for_size
 						(precision, 1));
   else
     TYPE_PRECISION (enumtype) = TYPE_PRECISION (integer_type_node);
@@ -13492,6 +13521,10 @@ start_function (declspecs, declarator, attrs, flags)
 	return 0;
 
       cplus_decl_attributes (&decl1, attrs, 0);
+
+      /* If #pragma weak was used, mark the decl weak now.  */
+      if (current_binding_level == global_binding_level)
+	maybe_apply_pragma_weak (decl1);
 
       fntype = TREE_TYPE (decl1);
 
@@ -14456,7 +14489,7 @@ hack_incomplete_structures (type)
 		{
 		  tree cleanup;
 		  expand_decl (decl);
-		  cleanup = maybe_build_cleanup (decl);
+		  cleanup = cxx_maybe_build_cleanup (decl);
 		  expand_decl_init (decl);
 		  if (! expand_decl_cleanup (decl, cleanup))
 		    error ("parser lost in parsing declaration of `%D'",
@@ -14484,7 +14517,7 @@ hack_incomplete_structures (type)
    here.  */
 
 tree
-maybe_build_cleanup (decl)
+cxx_maybe_build_cleanup (decl)
      tree decl;
 {
   tree type = TREE_TYPE (decl);
@@ -14498,7 +14531,7 @@ maybe_build_cleanup (decl)
 	rval = decl;
       else
 	{
-	  mark_addressable (decl);
+	  cxx_mark_addressable (decl);
 	  rval = build_unary_op (ADDR_EXPR, decl, 0);
 	}
 
@@ -14517,7 +14550,7 @@ maybe_build_cleanup (decl)
 
       return rval;
     }
-  return 0;
+  return NULL_TREE;
 }
 
 /* When a stmt has been parsed, this function is called.  */
@@ -14629,7 +14662,7 @@ mark_cp_function_context (f)
 }
 
 void
-lang_mark_tree (t)
+cxx_mark_tree (t)
      tree t;
 {
   enum tree_code code = TREE_CODE (t);

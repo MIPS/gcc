@@ -1,3 +1,89 @@
+Mon Apr  1 21:39:36 2002  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* com.c (LANG_HOOKS_MARK_ADDRESSABLE): Redefine.
+	(mark_addressable): Rename.
+	(ffecom_arrayref_, ffecom_1): Update.
+
+Mon Apr  1 09:59:53 2002  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* com.c (LANG_HOOKS_SIGNED_TYPE, LANG_HOOKS_UNSIGNED_TYPE,
+	LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE): New.
+	(unsigned_type, signed_type, signed_or_unsigned_type): Rename.
+
+Sun Mar 31 23:50:22 2002  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* com.c (lang_print_error_function): Rename.
+	(LANG_HOOKS_PRINT_ERROR_FUNCTION): Redefine.
+	(ffe_init): Don't set hook.
+
+Fri Mar 29 21:59:15 2002  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* com.c (LANG_HOOKS_TYPE_FOR_MODE, LANG_HOOKS_TYPE_FOR_SIZE):
+	Redefine.
+	(type_for_mode, type_for_size): Rename.
+	(signed_or_unsigned_type, signed_type, truthvalue_conversion,
+	unsigned_type):	Use new hooks.
+
+Tue Mar 26 10:30:05 2002  Andrew Cagney  <ac131313@redhat.com>
+
+	* invoke.texi (Warning Options): Mention -Wswitch-enum.
+	Fix PR c/5044.
+
+Tue Mar 26 07:30:51 2002  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* com.c (LANG_HOOKS_MARK_TREE): Redefine.
+	(lang_mark_tree): Rename ffe_mark_tree, make static.
+
+Mon Mar 25 19:27:11 2002  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* com.c (maybe_build_cleanup): Remove.
+
+2002-03-23  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* com.c (ffecom_check_size_overflow_): Add a test
+	so that arrays too large for 32-bit byte-offset
+	addressing get caught.
+	* news.texi: Document the fixing of this problem.
+
+Sat Mar 23 11:18:17 2002  Andrew Cagney  <ac131313@redhat.com>
+
+	* invoke.texi (Warning Options): Mention -Wswitch-default.
+
+Thu Mar 21 18:55:41 2002  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-tree.h (pushdecl, pushlevel, poplevel, set_block,
+	insert_block, getdecls, global_bindings_p): New.
+
+Wed Mar 20 08:03:42 2002  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* com.c (lang_printable_name): Rename.
+	(LANG_HOOKS_DECL_PRINTABLE_NAME): Redefine.
+	(ffe_init): Don't use old hook.
+
+Sun Mar 17 18:50:15 2002  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* com.h (ffe_parse_file): Prototype.
+
+Sun Mar 17 20:57:30 2002  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* com.c (LANG_HOOKS_PARSE_FILE): Redefine.
+	* com.h (ffe_parse_file): New.
+	* parse.c (NAME_OF_STDIN): Remove.
+	(yyparse): Rename ffe_parse_file.
+
+Tue Mar 12 20:23:18 2002  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* com.c (tree_code_type, tree_code_length, tree_code_name):
+	Define.
+
+Sun Mar 10 12:37:42 2002  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* target.c (ffetarget_print_hex): Const-ify.
+
+2002-03-06  Phil Edwards  <pme@gcc.gnu.org>
+
+	* version.c:  Fix misplaced leading blanks on first line.
+
 2002-03-03  Zack Weinberg  <zack@codesourcery.com>
 
 	* com.c, target.h: Remove all #ifndef REAL_ARITHMETIC

@@ -464,8 +464,8 @@ namespace std
 // 129. Need error indication from seekp() and seekg()
 	  if (__err == pos_type(off_type(-1)))
 	    this->setstate(ios_base::failbit);
-	}
 #endif
+	}
       return *this;
     }
 
@@ -481,7 +481,7 @@ namespace std
 	  try 
 	    {
 	      streamsize __w = __out.width();
-	      _CharT* __pads = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __w));
+	      _CharT* __pads = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * (__w + 1)));
 	      __pads[0] = __c;
 	      streamsize __len = 1;
 	      if (__w > __len)

@@ -1,3 +1,12 @@
+2002-03-25  Zack Weinberg  <zack@codesourcery.com>
+
+	* texi2pod.pl: Handle @end ftable and @end vtable.
+
+2002-03-11  Zack Weinberg  <zack@codesourcery.com>
+
+	* texi2pod.pl: Handle @include, @ftable, @vtable.
+	Reformat some code for clarity.
+
 2002-02-24  Christian Jönsson  <c.christian.joensson@telia.com>
 
 	* test_summary: Additional to XPASS and FAIL, add UNRESOLVED,

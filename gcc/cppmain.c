@@ -1,4 +1,4 @@
-/* CPP main program, using CPP Library.
+/* Preprocess only, using cpplib.
    Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
@@ -38,10 +38,7 @@ struct printer
   unsigned char printed;	/* Nonzero if something output at line.  */
 };
 
-int main		PARAMS ((int, char **));
-static void general_init PARAMS ((const char *));
-static void do_preprocessing PARAMS ((int, char **));
-static void setup_callbacks PARAMS ((void));
+static void setup_callbacks PARAMS ((cpp_reader *));
 
 /* General output routines.  */
 static void scan_translation_unit PARAMS ((cpp_reader *));
@@ -64,74 +61,15 @@ static void cb_ident	  PARAMS ((cpp_reader *, unsigned int,
 static void cb_file_change PARAMS ((cpp_reader *, const struct line_map *));
 static void cb_def_pragma PARAMS ((cpp_reader *, unsigned int));
 
-const char *progname;		/* Needs to be global.  */
-static cpp_reader *pfile;	/* An opaque handle.  */
 static cpp_options *options;	/* Options of pfile.  */
 static struct printer print;
 
-int
-main (argc, argv)
-     int argc;
-     char **argv;
+/* Preprocess and output.  */
+void
+cpp_preprocess_file (pfile)
+     cpp_reader *pfile;
 {
-  general_init (argv[0]);
-
-  /* Construct a reader with default language GNU C89.  */
-  pfile = cpp_create_reader (CLK_GNUC89);
   options = cpp_get_options (pfile);
-  
-  do_preprocessing (argc, argv);
-
-  if (cpp_destroy (pfile))
-    return FATAL_EXIT_CODE;
-
-  return SUCCESS_EXIT_CODE;
-}
-
-/* Store the program name, and set the locale.  */
-static void
-general_init (argv0)
-     const char *argv0;
-{
-  progname = argv0 + strlen (argv0);
-
-  while (progname != argv0 && ! IS_DIR_SEPARATOR (progname[-1]))
-    --progname;
-
-  xmalloc_set_program_name (progname);
-
-  hex_init ();
-  gcc_init_libintl ();
-}
-
-/* Handle switches, preprocess and output.  */
-static void
-do_preprocessing (argc, argv)
-     int argc;
-     char **argv;
-{
-  int argi = 1;  /* Next argument to handle.  */
-
-  argi += cpp_handle_options (pfile, argc - argi , argv + argi);
-  if (CPP_FATAL_ERRORS (pfile))
-    return;
-
-  if (argi < argc)
-    {
-      cpp_fatal (pfile, "invalid option %s", argv[argi]);
-      return;
-    }
-
-  cpp_post_options (pfile);
-  if (CPP_FATAL_ERRORS (pfile))
-    return;
-
-  /* If cpp_handle_options saw --help or --version on the command
-     line, it will have set pfile->help_only to indicate this.  Exit
-     successfully.  [The library does not exit itself, because
-     e.g. cc1 needs to print its own --help message at this point.]  */
-  if (options->help_only)
-    return;
 
   /* Initialize the printer structure.  Setting print.line to -1 here
      is a trick to guarantee that the first token of the file will
@@ -156,7 +94,7 @@ do_preprocessing (argc, argv)
 	}
     }
 
-  setup_callbacks ();
+  setup_callbacks (pfile);
 
   if (cpp_read_main_file (pfile, options->in_fname, NULL))
     {
@@ -172,29 +110,37 @@ do_preprocessing (argc, argv)
       /* -dM command line option.  Should this be in cpp_finish?  */
       if (options->dump_macros == dump_only)
 	cpp_forall_identifiers (pfile, dump_macro, NULL);
-
-      cpp_finish (pfile);
     }
 
   /* Flush any pending output.  */
   if (print.printed)
     putc ('\n', print.outf);
 
-  if (ferror (print.outf) || fclose (print.outf))
-    cpp_notice_from_errno (pfile, options->out_fname);
+  /* Don't close stdout (dependencies have yet to be output).  */
+  if (print.outf != stdout)
+    {
+      if (ferror (print.outf) || fclose (print.outf))
+	cpp_notice_from_errno (pfile, options->out_fname);
+    }
 }
 
 /* Set up the callbacks as appropriate.  */
 static void
-setup_callbacks ()
+setup_callbacks (pfile)
+     cpp_reader *pfile;
 {
   cpp_callbacks *cb = cpp_get_callbacks (pfile);
 
   if (! options->no_output)
     {
       cb->line_change = cb_line_change;
-      cb->ident      = cb_ident;
-      cb->def_pragma = cb_def_pragma;
+      /* Don't emit #pragma or #ident directives if we are processing
+	 assembly language; the assembler may choke on them.  */
+      if (options->lang != CLK_ASM)
+	{
+	  cb->ident      = cb_ident;
+	  cb->def_pragma = cb_def_pragma;
+	}
       if (! options->no_line_commands)
 	cb->file_change = cb_file_change;
     }
@@ -254,8 +200,7 @@ scan_translation_unit (pfile)
       print.prev = token;
       cpp_output_token (token, print.outf);
 
-      if (token->type == CPP_STRING || token->type == CPP_WSTRING
-	  || token->type == CPP_COMMENT)
+      if (token->type == CPP_COMMENT)
 	check_multiline_token (&token->val.str);
     }
 }
@@ -316,8 +261,17 @@ print_line (map, line, special_flags)
   print.line = line;
   if (! options->no_line_commands)
     {
+      size_t to_file_len = strlen (map->to_file);
+      unsigned char *to_file_quoted = alloca (to_file_len * 4 + 1);
+      unsigned char *p;
+      
+      /* cpp_quote_string does not nul-terminate, so we have to do it
+	 ourselves.  */
+      p = cpp_quote_string (to_file_quoted,
+			    (unsigned char *)map->to_file, to_file_len);
+      *p = '\0';
       fprintf (print.outf, "# %u \"%s\"%s",
-	       SOURCE_LINE (map, print.line), map->to_file, special_flags);
+	       SOURCE_LINE (map, print.line), to_file_quoted, special_flags);
 
       if (map->sysp == 2)
 	fputs (" 3 4", print.outf);

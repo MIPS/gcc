@@ -194,7 +194,7 @@ dump_prediction (predictor, probability, bb, used)
   if (!rtl_dump_file)
     return;
 
-  while (e->flags & EDGE_FALLTHRU)
+  while (e && (e->flags & EDGE_FALLTHRU))
     e = e->succ_next;
 
   fprintf (rtl_dump_file, "  %s heuristics%s: %.1f%%",
@@ -205,9 +205,12 @@ dump_prediction (predictor, probability, bb, used)
     {
       fprintf (rtl_dump_file, "  exec ");
       fprintf (rtl_dump_file, HOST_WIDEST_INT_PRINT_DEC, bb->count);
-      fprintf (rtl_dump_file, " hit ");
-      fprintf (rtl_dump_file, HOST_WIDEST_INT_PRINT_DEC, e->count);
-      fprintf (rtl_dump_file, " (%.1f%%)", e->count * 100.0 / bb->count);
+      if (e)
+	{
+	  fprintf (rtl_dump_file, " hit ");
+	  fprintf (rtl_dump_file, HOST_WIDEST_INT_PRINT_DEC, e->count);
+	  fprintf (rtl_dump_file, " (%.1f%%)", e->count * 100.0 / bb->count);
+	}
     }
 
   fprintf (rtl_dump_file, "\n");
@@ -874,8 +877,6 @@ estimate_bb_frequencies (loops)
   for (i = 0; i < n_basic_blocks; i++)
     {
       rtx last_insn = BLOCK_END (i);
-      int probability;
-      edge fallthru, branch;
 
       if (GET_CODE (last_insn) != JUMP_INSN || !any_condjump_p (last_insn)
 	  /* Avoid handling of conditional jumps jumping to fallthru edge.  */
@@ -896,20 +897,6 @@ estimate_bb_frequencies (loops)
 	  if (!e)
 	    for (e = BASIC_BLOCK (i)->succ; e; e = e->succ_next)
 	      e->probability = (REG_BR_PROB_BASE + nedges / 2) / nedges;
-	}
-      else
-	{
-	  probability = INTVAL (XEXP (find_reg_note (last_insn,
-						     REG_BR_PROB, 0), 0));
-	  fallthru = BASIC_BLOCK (i)->succ;
-	  if (!fallthru->flags & EDGE_FALLTHRU)
-	    fallthru = fallthru->succ_next;
-	  branch = BASIC_BLOCK (i)->succ;
-	  if (branch->flags & EDGE_FALLTHRU)
-	    branch = branch->succ_next;
-
-	  branch->probability = probability;
-	  fallthru->probability = REG_BR_PROB_BASE - probability;
 	}
     }
 

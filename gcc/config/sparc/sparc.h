@@ -369,34 +369,11 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 /* ??? This should be 32 bits for v9 but what can we do?  */
 #define WCHAR_TYPE "short unsigned int"
 #define WCHAR_TYPE_SIZE 16
-#define MAX_WCHAR_TYPE_SIZE 16
 
 /* Show we can debug even without a frame pointer.  */
 #define CAN_DEBUG_WITHOUT_FP
 
-/* To make profiling work with -f{pic,PIC}, we need to emit the profiling
-   code into the rtl.  Also, if we are profiling, we cannot eliminate
-   the frame pointer (because the return address will get smashed).  */
-
-#define OVERRIDE_OPTIONS \
-  do {									\
-    if (profile_flag || profile_arc_flag)				\
-      {									\
-	if (flag_pic)							\
-	  {								\
-	    const char *const pic_string = (flag_pic == 1) ? "-fpic" : "-fPIC";\
-	    warning ("%s and profiling conflict: disabling %s",		\
-		     pic_string, pic_string);				\
-	    flag_pic = 0;						\
-	  }								\
-	flag_omit_frame_pointer = 0;					\
-      }									\
-    sparc_override_options ();						\
-    SUBTARGET_OVERRIDE_OPTIONS;						\
-  } while (0)
-
-/* This is meant to be redefined in the host dependent files.  */
-#define SUBTARGET_OVERRIDE_OPTIONS
+#define OVERRIDE_OPTIONS  sparc_override_options ()
 
 /* Generate DBX debugging information.  */
 
@@ -409,11 +386,6 @@ extern int target_flags;
 /* Nonzero if we should generate code to use the fpu.  */
 #define MASK_FPU 1
 #define TARGET_FPU (target_flags & MASK_FPU)
-
-/* Nonzero if we should use function_epilogue().  Otherwise, we
-   use fast return insns, but lose some generality.  */
-#define MASK_EPILOGUE 2
-#define TARGET_EPILOGUE (target_flags & MASK_EPILOGUE)
 
 /* Nonzero if we should assume that double pointers might be unaligned.
    This can happen when linking gcc compiled code with other compilers,
@@ -558,10 +530,6 @@ extern int target_flags;
     {"soft-float", -MASK_FPU,						\
      N_("Do not use hardware fp") },					\
     {"soft-float", MASK_FPU_SET,			NULL },		\
-    {"epilogue", MASK_EPILOGUE,						\
-     N_("Use function_epilogue()") },					\
-    {"no-epilogue", -MASK_EPILOGUE,					\
-     N_("Do not use function_epilogue()") }, 				\
     {"unaligned-doubles", MASK_UNALIGNED_DOUBLES,			\
      N_("Assume possible double misalignment") },			\
     {"no-unaligned-doubles", -MASK_UNALIGNED_DOUBLES,			\
@@ -630,7 +598,7 @@ extern int target_flags;
 /* MASK_APP_REGS must always be the default because that's what
    FIXED_REGISTERS is set to and -ffixed- is processed before
    CONDITIONAL_REGISTER_USAGE is called (where we process -mno-app-regs).  */
-#define TARGET_DEFAULT (MASK_APP_REGS + MASK_EPILOGUE + MASK_FPU)
+#define TARGET_DEFAULT (MASK_APP_REGS + MASK_FPU)
 
 /* This is meant to be redefined in target specific files.  */
 #define SUBTARGET_SWITCHES
@@ -984,7 +952,7 @@ if (TARGET_ARCH64				\
 #define CONDITIONAL_REGISTER_USAGE				\
 do								\
   {								\
-    if (flag_pic)						\
+    if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)		\
       {								\
 	fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
 	call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
@@ -1139,16 +1107,6 @@ extern int sparc_mode_class[];
       || !leaf_function_p ())				\
    : ! (leaf_function_p () && only_leaf_regs_used ()))
 
-/* C statement to store the difference between the frame pointer
-   and the stack pointer values immediately after the function prologue.
-
-   Note, we always pretend that this is a leaf function because if
-   it's not, there's no point in trying to eliminate the
-   frame pointer.  If it is a leaf function, we guessed right!  */
-#define INITIAL_FRAME_POINTER_OFFSET(VAR) \
-  ((VAR) = (TARGET_FLAT ? sparc_flat_compute_frame_size (get_frame_size ()) \
-	    : compute_frame_size (get_frame_size (), 1)))
-
 /* Base register for access to arguments of the function.  */
 #define ARG_POINTER_REGNUM FRAME_POINTER_REGNUM
 
@@ -1159,7 +1117,7 @@ extern int sparc_mode_class[];
 /* Register which holds offset table for position-independent
    data references.  */
 
-#define PIC_OFFSET_TABLE_REGNUM 23
+#define PIC_OFFSET_TABLE_REGNUM (flag_pic ? 23 : INVALID_REGNUM)
 
 /* Pick a default value we can notice from override_options:
    !v9: Default is on.
@@ -1577,12 +1535,33 @@ extern const char leaf_reg_remap[];
 /* ??? In TARGET_FLAT mode we needn't have a hard frame pointer.  */
    
 #define ELIMINABLE_REGS \
-  {{ FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM}}
+  {{ FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}, \
+   { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM} }
 
-#define CAN_ELIMINATE(FROM, TO) 1
+/* The way this is structured, we can't eliminate SFP in favor of SP
+   if the frame pointer is required: we want to use the SFP->HFP elimination
+   in that case.  But the test in update_eliminables doesn't know we are
+   assuming below that we only do the former elimination.  */
+#define CAN_ELIMINATE(FROM, TO) \
+  ((TO) == HARD_FRAME_POINTER_REGNUM || !FRAME_POINTER_REQUIRED)
 
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) \
-  ((OFFSET) = SPARC_STACK_BIAS)
+  do {								\
+    (OFFSET) = 0;						\
+    if ((TO) == STACK_POINTER_REGNUM)				\
+      {								\
+	/* Note, we always pretend that this is a leaf function	\
+	   because if it's not, there's no point in trying to	\
+	   eliminate the frame pointer.  If it is a leaf	\
+	   function, we guessed right!  */			\
+	if (TARGET_FLAT)					\
+	  (OFFSET) =						\
+	    sparc_flat_compute_frame_size (get_frame_size ());	\
+	else							\
+	  (OFFSET) = compute_frame_size (get_frame_size (), 1);	\
+      }								\
+    (OFFSET) += SPARC_STACK_BIAS;				\
+  } while (0)
 
 /* Keep the stack pointer constant throughout the function.
    This is both an optimization and a necessity: longjmp
@@ -1844,14 +1823,13 @@ do {									\
 #endif
 
 
-/* Output assembler code to FILE to increment profiler label # LABELNO
-   for profiling a function entry.  */
+/* Emit rtl for profiling.  */
+#define PROFILE_HOOK(LABEL)   sparc_profile_hook (LABEL)
 
-#define FUNCTION_PROFILER(FILE, LABELNO) \
-  sparc_function_profiler(FILE, LABELNO)
+/* All the work done in PROFILE_HOOK, but still required.  */
+#define FUNCTION_PROFILER(FILE, LABELNO) do { } while (0)
 
 /* Set the name of the mcount function for the system.  */
-
 #define MCOUNT_FUNCTION "*mcount"
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
@@ -1949,7 +1927,8 @@ do {									\
    ? gen_rtx_REG (Pmode, 31)			\
    : gen_rtx_MEM (Pmode,			\
 		  memory_address (Pmode, plus_constant (frame, \
-							15 * UNITS_PER_WORD))))
+							15 * UNITS_PER_WORD \
+							+ SPARC_STACK_BIAS))))
 
 /* Before the prologue, the return address is %o7 + 8.  OK, sometimes it's
    +12, but always using +8 is close enough for frame unwind purposes.
@@ -2643,14 +2622,6 @@ do {                                                                    \
   case FLOAT:						\
   case FIX:						\
     return 19;
-
-/* Conditional branches with empty delay slots have a length of two.  */
-#define ADJUST_INSN_LENGTH(INSN, LENGTH)				\
-do {									\
-  if (GET_CODE (INSN) == CALL_INSN					\
-      || (GET_CODE (INSN) == JUMP_INSN && ! simplejump_p (insn)))	\
-    LENGTH += 1;							\
-} while (0)
 
 /* Control the assembler format that we output.  */
 
@@ -2967,6 +2938,7 @@ do {									\
 {"fp_zero_operand", {CONST_DOUBLE}},					\
 {"intreg_operand", {SUBREG, REG}},					\
 {"fcc_reg_operand", {REG}},						\
+{"fcc0_reg_operand", {REG}},						\
 {"icc_or_fcc_reg_operand", {REG}},					\
 {"restore_operand", {REG}},						\
 {"call_operand", {MEM}},						\
@@ -2984,6 +2956,7 @@ do {									\
 {"eq_or_neq", {EQ, NE}},						\
 {"normal_comp_operator", {GE, GT, LE, LT, GTU, LEU}},			\
 {"noov_compare_op", {NE, EQ, GE, GT, LE, LT, GEU, GTU, LEU, LTU}},	\
+{"noov_compare64_op", {NE, EQ, GE, GT, LE, LT, GEU, GTU, LEU, LTU}},	\
 {"v9_regcmp_op", {EQ, NE, GE, LT, LE, GT}},				\
 {"extend_op", {SIGN_EXTEND, ZERO_EXTEND}},				\
 {"cc_arithop", {AND, IOR, XOR}},					\

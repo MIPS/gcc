@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -88,6 +87,8 @@ package body Ada.Wide_Text_IO is
      (Control_Block : Wide_Text_AFCB)
       return          FCB.AFCB_Ptr
    is
+      pragma Warnings (Off, Control_Block);
+
    begin
       return new Wide_Text_AFCB;
    end AFCB_Allocate;

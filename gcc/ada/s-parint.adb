@@ -7,9 +7,8 @@
 --                                  B o d y                                 --
 --                   (Dummy body for non-distributed case)                  --
 --                                                                          --
---                             $Revision: 1.1 $
 --                                                                          --
---          Copyright (C) 1995-2000 Free Software Foundation, Inc.          --
+--          Copyright (C) 1995-2001 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -35,6 +34,8 @@
 ------------------------------------------------------------------------------
 
 package body System.Partition_Interface is
+
+   pragma Warnings (Off); -- supress warnings for unreferenced formals
 
    M : constant := 7;
 

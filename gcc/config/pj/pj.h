@@ -134,10 +134,6 @@ extern int target_flags;
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD  4
 
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE  32
-
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY   32
 
@@ -734,7 +730,7 @@ struct pj_args
 
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)                             \
 {                                                                             \
-  static int off[4] = { 1, 0, 4, 3 };                                         \
+  static const int off[4] = { 1, 0, 4, 3 };                                   \
   int i;                                                                      \
                                                                               \
   /* Move the FNADDR and CXT into the instruction stream. Do this byte        \

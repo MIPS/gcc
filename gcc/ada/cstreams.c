@@ -6,7 +6,6 @@
  *                                                                          *
  *              Auxiliary C functions for Interfaces.C.Streams              *
  *                                                                          *
- *                              $Revision: 1.2 $
  *                                                                          *
  *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
  *                                                                          *
@@ -53,7 +52,7 @@
 int max_path_len = _MAX_PATH;
 #elif defined (VMS)
 #include <unixlib.h>
-int max_path_len = 255; /* PATH_MAX */
+int max_path_len = 4096; /* PATH_MAX */
 
 #elif defined (__vxworks) || defined (__OPENNT)
 
@@ -182,7 +181,7 @@ __gnat_full_name (nam, buffer)
 #if defined(__EMX__) || defined (__MINGW32__)
   /* If this is a device file return it as is; under Windows NT and
      OS/2 a device file end with ":".  */
-  if (nam [strlen (nam) - 1] == ':')
+  if (nam[strlen (nam) - 1] == ':')
     strcpy (buffer, nam);
   else
     {
@@ -211,7 +210,7 @@ __gnat_full_name (nam, buffer)
     strcpy (buffer, __gnat_to_host_file_spec (buffer));
   else
     {
-      char nambuffer [MAXPATHLEN];
+      char *nambuffer = alloca (max_path_len);
 
       strcpy (nambuffer, buffer);
       strcpy (buffer, getcwd (buffer, max_path_len, 0));

@@ -33,6 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "timevar.h"
 #include "sbitmap.h"
+#include "langhooks.h"
 
 #if !defined FUNCTION_OK_FOR_SIBCALL
 #define FUNCTION_OK_FOR_SIBCALL(DECL) 1
@@ -1511,13 +1512,8 @@ precompute_arguments (flags, num_actuals, args)
 	if (TREE_ADDRESSABLE (TREE_TYPE (args[i].tree_value)))
 	  abort ();
 
-	push_temp_slots ();
-
 	args[i].value
 	  = expand_expr (args[i].tree_value, NULL_RTX, VOIDmode, 0);
-
-	preserve_temp_slots (args[i].value);
-	pop_temp_slots ();
 
 	/* ANSI doesn't require a sequence point here,
 	   but PCC has one, so this will avoid some problems.  */
@@ -1907,7 +1903,7 @@ try_to_integrate (fndecl, actparms, target, ignore, type, structure_value_addr)
       warning_with_decl (fndecl, "inlining failed in call to `%s'");
       warning ("called from here");
     }
-  mark_addressable (fndecl);
+  (*lang_hooks.mark_addressable) (fndecl);
   return (rtx) (size_t) - 1;
 }
 
@@ -2213,7 +2209,7 @@ expand_call (exp, target, ignore)
 	      warning_with_decl (fndecl, "can't inline call to `%s'");
 	      warning ("called from here");
 	    }
-	  mark_addressable (fndecl);
+	  (*lang_hooks.mark_addressable) (fndecl);
 	}
 
       flags |= flags_from_decl_or_type (fndecl);
@@ -2259,7 +2255,7 @@ expand_call (exp, target, ignore)
 	    /* In case this is a static function, note that it has been
 	       used.  */
 	    if (! TREE_ADDRESSABLE (fndecl))
-	      mark_addressable (fndecl);
+	      (*lang_hooks.mark_addressable) (fndecl);
 	    is_integrable = 0;
 	  }
       }
@@ -2680,10 +2676,6 @@ expand_call (exp, target, ignore)
 	 so that the pop is deleted or moved with the call.  */
       if (pass && (flags & ECF_LIBCALL_BLOCK))
 	NO_DEFER_POP;
-
-      /* Push the temporary stack slot level so that we can free any
-	 temporaries we make.  */
-      push_temp_slots ();
 
 #ifdef FINAL_REG_PARM_STACK_SPACE
       reg_parm_stack_space = FINAL_REG_PARM_STACK_SPACE (args_size.constant,
@@ -3334,8 +3326,6 @@ expand_call (exp, target, ignore)
       if ((flags & ECF_MAY_BE_ALLOCA) && nonlocal_goto_handler_slots != 0)
 	emit_stack_save (SAVE_NONLOCAL, &nonlocal_goto_stack_level, NULL_RTX);
 
-      pop_temp_slots ();
-
       /* Free up storage we no longer need.  */
       for (i = 0; i < num_actuals; ++i)
 	if (args[i].aligned_regs)
@@ -3487,6 +3477,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
   int reg_parm_stack_space = 0;
   int needed;
   rtx before_call;
+  tree tfom;			/* type_for_mode (outmode, 0) */
 
 #ifdef REG_PARM_STACK_SPACE
   /* Define the boundary of the register parm stack space that needs to be
@@ -3548,27 +3539,31 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 
   /* If this kind of value comes back in memory,
      decide where in memory it should come back.  */
-  if (outmode != VOIDmode && aggregate_value_p (type_for_mode (outmode, 0)))
+  if (outmode != VOIDmode)
     {
+      tfom = (*lang_hooks.types.type_for_mode) (outmode, 0);
+      if (aggregate_value_p (tfom))
+	{
 #ifdef PCC_STATIC_STRUCT_RETURN
-      rtx pointer_reg
-	= hard_function_value (build_pointer_type (type_for_mode (outmode, 0)),
-			       0, 0);
-      mem_value = gen_rtx_MEM (outmode, pointer_reg);
-      pcc_struct_value = 1;
-      if (value == 0)
-	value = gen_reg_rtx (outmode);
+	  rtx pointer_reg
+	    = hard_function_value (build_pointer_type (tfom), 0, 0);
+	  mem_value = gen_rtx_MEM (outmode, pointer_reg);
+	  pcc_struct_value = 1;
+	  if (value == 0)
+	    value = gen_reg_rtx (outmode);
 #else /* not PCC_STATIC_STRUCT_RETURN */
-      struct_value_size = GET_MODE_SIZE (outmode);
-      if (value != 0 && GET_CODE (value) == MEM)
-	mem_value = value;
-      else
-	mem_value = assign_temp (type_for_mode (outmode, 0), 0, 1, 1);
+	  struct_value_size = GET_MODE_SIZE (outmode);
+	  if (value != 0 && GET_CODE (value) == MEM)
+	    mem_value = value;
+	  else
+	    mem_value = assign_temp (tfom, 0, 1, 1);
 #endif
-
-      /* This call returns a big structure.  */
-      flags &= ~(ECF_CONST | ECF_PURE | ECF_LIBCALL_BLOCK);
+	  /* This call returns a big structure.  */
+	  flags &= ~(ECF_CONST | ECF_PURE | ECF_LIBCALL_BLOCK);
+	}
     }
+  else
+    tfom = void_type_node;
 
   /* ??? Unfinished: must pass the memory address as an argument.  */
 
@@ -3681,12 +3676,13 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	    slot = val;
 	  else if (must_copy)
 	    {
-	      slot = assign_temp (type_for_mode (mode, 0), 0, 1, 1);
+	      slot = assign_temp ((*lang_hooks.types.type_for_mode) (mode, 0),
+				  0, 1, 1);
 	      emit_move_insn (slot, val);
 	    }
 	  else
 	    {
-	      tree type = type_for_mode (mode, 0);
+	      tree type = (*lang_hooks.types.type_for_mode) (mode, 0);
 
 	      slot = gen_rtx_MEM (mode,
 				  expand_expr (build1 (ADDR_EXPR,
@@ -4053,8 +4049,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 
   emit_call_1 (fun,
 	       get_identifier (XSTR (orgfun, 0)),
-	       build_function_type (outmode == VOIDmode ? void_type_node
-				    : type_for_mode (outmode, 0), NULL_TREE),
+	       build_function_type (tfom, NULL_TREE),
 	       original_args_size.constant, args_size.constant,
 	       struct_value_size,
 	       FUNCTION_ARG (args_so_far, VOIDmode, void_type_node, 1),
