@@ -40,6 +40,9 @@ static void function_unify PARAMS ((alias_type, alias_type));
 static varray_type function_pointsto PARAMS ((alias_type));
 
 /* BOTTOM */
+extern GTY(()) alias_type alias_bottom;
+#include "gt-tree-alias-type.h"
+
 alias_type alias_bottom = NULL;
 
 void

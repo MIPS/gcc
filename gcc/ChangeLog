@@ -1,3 +1,21 @@
+2002-07-18  Daniel Berlin  <dberlin@dberlin.org>
+
+	* gengtype.c (get_base_file_bitmap): Mark tree-alias-* and
+	disjoint-set* as c/c++/objc files only.
+
+	* Makefile.in (gt-tree-alias-type.h): Add.
+	(tree-alias-type.o): Add dependency on gt-tree-alias-type.h.
+
+	* tree-alias-type.c: Include gt-tree-alias-type.h.
+	(alias_bottom): Add a GTY marked version of alias_bottom here.
+
+	* tree-alias-type.h: Remove the GTY marker from alias_bottom.
+
+2002-07-17  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-alias-ecr.c (ECR_union_pending_sets): Only clear bitmap if
+	it's not NULL.  
+
 2002-07-16  Jason Merrill  <jason@redhat.com>
 
 	* c-simplify.c (add_tree): Build an EXPR_STMT immediately.

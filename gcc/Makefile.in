@@ -1376,7 +1376,7 @@ print-tree.o : print-tree.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(GGC_H) \
    langhooks.h real.h
 disjoint-set.o: disjoint-set.c disjoint-set.h $(SYSTEM_H) $(CONFIG_H) $(GGC_H) 
 tree-alias-ecr.o: tree-alias-ecr.c tree-alias-ecr.h disjoint-set.h tree-alias-type.h  $(SYSTEM_H) $(CONFIG_H) $(GGC_H)
-tree-alias-type.o: tree-alias-type.c tree-alias-type.h $(SYSTEM_H) $(CONFIG_H) $(GGC_H)
+tree-alias-type.o: tree-alias-type.c tree-alias-type.h $(SYSTEM_H) $(CONFIG_H) $(GGC_H) gt-tree-alias-type.h
 tree-alias-steen.o: tree-alias-steen.c tree-alias-steen.h $(SYSTEM_H) $(CONFIG_H) $(GGC_H) gt-tree-alias-steen.h tree-flow.h 
 tree-ssa.o : tree-ssa.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) $(C_COMMON_H) \
@@ -1881,6 +1881,7 @@ gt-reg-stack.h gt-dependence.h : s-gtype ; @true
 gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h : s-gtype; @true
 gt-c-objc-common.h gtype-c.h : s-gtype ; @true
 gt-tree-alias-steen.h : s-gtype ; @true
+gt-tree-alias-type.h : s-gtype ; @true
 
 s-gtype: gengtype$(build_exeext) $(GTFILES)
 	./gengtype $(GTFILES)

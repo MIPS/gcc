@@ -103,7 +103,7 @@ union alias_type_def GTY ((desc ("%0.common.kind")))
 #define ALIAS_FTYPE_ARGUMENTS(x) ((x)->function.arguments)
 #define ALIAS_FTYPE_RETVAL(x) ((x)->function.retval)
 
-extern GTY (()) alias_type alias_bottom;
+extern alias_type alias_bottom;
 
 alias_type alias_vtype_new PARAMS ((void));
 alias_type alias_vtype_new_with_lf PARAMS ((ECR, ECR));

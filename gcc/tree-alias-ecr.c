@@ -109,15 +109,17 @@ ECR_union_pending_sets (e1, e2, e3)
     }
 
   if (e3 != e1)
-  {
-    bitmap_clear (e1->pending);
-    e1->pending = NULL;
-  }
+    {
+      if (e1->pending)
+	bitmap_clear (e1->pending);
+      e1->pending = NULL;
+    }
   if (e3 != e2)
-  {
-    bitmap_clear (e2->pending);
-    e2->pending = NULL;
-  }
+    {
+      if (e2->pending)
+	bitmap_clear (e2->pending);
+      e2->pending = NULL;
+    }
 }
 
 static void

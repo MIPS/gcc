@@ -714,6 +714,10 @@ get_base_file_bitmap (input_file)
       |  1 << BASE_FILE_TREELANG | 1 << BASE_FILE_COBOL;
   else if (startswith (len, basename, "c-"))
     return 1 << BASE_FILE_C | 1 << BASE_FILE_OBJC | 1 << BASE_FILE_CPLUSPLUS;
+  else if (startswith (len, basename, "tree-alias-"))
+    return 1 << BASE_FILE_C | 1 << BASE_FILE_OBJC | 1 << BASE_FILE_CPLUSPLUS;
+  else if (startswith (len, basename, "disjoint-set"))
+    return 1 << BASE_FILE_C | 1 << BASE_FILE_OBJC | 1 << BASE_FILE_CPLUSPLUS;
   else
     return (1 << NUM_BASE_FILES) - 1;
   abort ();
