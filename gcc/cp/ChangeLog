@@ -1,3 +1,77 @@
+2002-04-27  Geoffrey Keating  <geoffk@redhat.com>
+
+	* class.c (duplicate_tag_error): Reset discriminator.
+	(check_bases_and_members): Update for data structure changes.
+	* cp-tree.h (struct lang_id2): Use gengtype.
+	(flagged_type_tree): Likewise.
+	(SET_LANG_ID): Use GGC on struct lang_id2.
+	(struct cp_language_function): Use gengtype.  Remove field
+	'x_vcalls_possible_p'.
+	(current_vcalls_possible_p): Delete.
+	(struct lang_type_header): New.
+	(struct lang_type_class): Rename from struct lang_type.  Include
+	struct lang_type_header.
+	(struct lang_type_ptrmem): New.
+	(struct lang_type): New.
+	(LANG_TYPE_CLASS_CHECK): New.  Use it in all the appropriate macros.
+	(LANG_TYPE_PTRMEM_CHECK): New.  Use it in all the appropriate macros.
+	(TYPE_SET_PTRMEMFUNC_TYPE): Set discriminator, update for changes.
+	(struct lang_decl_flags): Use gengtype.  Add discriminators.
+	(struct lang_decl): Use gengtype.  Add and use discriminators.
+	Update the macros that reference moved fields.
+	(LANG_DECL_U2_CHECK): New function.  Use it when appropriate.
+	(SET_DECL_THUNK_P): Set discriminator too.
+	(clear_inline_text_obstack): Delete prototype.
+	(finish_inline_definitions): Delete prototype.
+	(mark_pending_inlines): Delete prototype.
+	(lang_check_failed): New prototype.
+	* decl.c (struct named_label_use_list): Use gengtype.
+	(struct named_label_list): Likewise.
+	(mark_binding_level): Delete.
+	(mark_named_label_lists): Delete.
+	(push_local_name): Set discriminator on DECL_LANG_SPECIFIC.
+	(cxx_init_decl_processing): Use generated marker routine.
+	(begin_destructor_body): Delete dead set to
+	current_vcalls_possible_p.
+	(mark_lang_function): Delete.
+	(mark_cp_function_context): Delete.
+	(lang_mark_tree): Use generated marker routines.
+	* decl2.c (start_objects): Set discriminator when setting
+	GLOBAL_INIT_PRIORITY.
+	* lex.c (retrofit_lang_decl): Set discriminators.
+	(copy_lang_type): Update for changes to lang_type structure.
+	(cp_make_lang_type): Set discriminator.
+	* parse.y: Use gengtype on YYLVAL.  Don't use dots in identifiers.
+	* search.c: Include ggc.h.
+	* semantics.c (anon_aggr_type_p): Use the macro, don't hand-code it.
+	(finish_inline_definitions): Delete.
+	* spew.c (struct token): Use gengtype.
+	(struct token_chunk): New.
+	(struct unparsed_text): Use gengtype.  Store tokens in chunks.
+	(struct feed): Use gengtype.
+	(feed_obstack): Delete.
+	(feed): Mark as GC root.
+	(pending_inlines): Mark as GC root.
+	(pending_inlines_tail): Likewise.
+	(processing_these_inlines): Likewise.
+	(token_obstack): Make static.
+	(first_token): Likewise.
+	(init_spew): Don't initialise deleted things; use gengtype for roots.
+	(clear_inline_text_obstack): Delete.
+	(feed_input): Use GC for struct feed.  Update for changes to
+	struct unparsed_text.
+	(mark_pending_inlines): Delete.
+	(next_token): Rename from add_token.  Change all callers.  Update
+	for changes to struct unparsed_text.
+	(space_for_token): New.
+	(remove_last_token): New.
+	(alloc_unparsed_text): New.
+	(snarf_block): Take an unparsed_text.  Update for changes to struct
+	unparsed_text.
+	(snarf_method): Update for changes to struct unparsed_text.
+	(snarf_defarg): Update for changes to struct unparsed_text.
+	* tree.c (lang_check_failed): New.
+
 2002-04-09  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Make-lang.in (gt-cp-call.h gt-cp-decl2.h gt-cp-parse.h

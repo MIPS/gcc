@@ -52,7 +52,7 @@ WS	[[:space:]]+
 IWORD	short|long|(un)?signed|char|int|HOST_WIDE_INT
 ITYPE	{IWORD}({WS}{IWORD})*
 
-%x in_struct in_struct_comment in_comment
+%x in_struct in_struct_comment in_comment in_yacc_escape
 %option warn noyywrap nounput nodefault perf-report
 %option 8bit never-interactive
 %%
@@ -91,6 +91,7 @@ ITYPE	{IWORD}({WS}{IWORD})*
 }
 
 [^[:alnum:]_]typedef{WS}{ITYPE}{WS}{ID}{WS}?";" {
+
   char *namestart;
   size_t namelen;
   struct type *t;
@@ -163,12 +164,21 @@ ITYPE	{IWORD}({WS}{IWORD})*
 
 [^[:alnum:]_](extern|static){WS}/"GTY" {
   BEGIN(in_struct);
+  update_lineno (yytext, yyleng);
   return ENT_EXTERNSTATIC;
+}
+
+^"%union"{WS}"{"{WS}/"GTY" {
+  BEGIN(in_struct);
+  update_lineno (yytext, yyleng);
+  return ENT_YACCUNION;
 }
 
 <in_struct>{
 
 "/*"				{ BEGIN(in_struct_comment); }
+
+^"%{"				{ BEGIN(in_yacc_escape); }
 
 {WS}				{ update_lineno (yytext, yyleng); }
 
@@ -206,8 +216,16 @@ ITYPE	{IWORD}({WS}{IWORD})*
   yylval.s = xmemdup (yytext+1, yyleng-2, yyleng-1);
   return ARRAY;
 }
+^"%"{ID}			{
+  yylval.s = xmemdup (yytext+1, yyleng-1, yyleng);
+  return PERCENT_ID;
+}
+"'"("\\".|[^\\])"'"		{
+  yylval.s = xmemdup (yytext+1, yyleng-2, yyleng);
+  return CHAR;
+}
 
-[(){},*:]			{ return yytext[0]; }
+[(){},*:<>]			{ return yytext[0]; }
 
 [;=]				{
   if (lexer_toplevel_done)
@@ -216,6 +234,11 @@ ITYPE	{IWORD}({WS}{IWORD})*
       lexer_toplevel_done = 0;
     }
   return yytext[0];
+}
+
+^"%%"				{
+  BEGIN(INITIAL);
+  return PERCENTPERCENT;
 }
 
 .				{
@@ -238,6 +261,19 @@ ITYPE	{IWORD}({WS}{IWORD})*
 }
 <in_comment>"*/"	{ BEGIN(INITIAL); } 
 <in_struct_comment>"*/"	{ BEGIN(in_struct); }
+
+<in_yacc_escape>{
+\n		{ lexer_line.line++; }
+[^%]{16}	|
+[^%]		/* do nothing */
+"%"/[^}]	/* do nothing */
+"%}"		{ BEGIN(in_struct); }
+"%"		{
+  error_at_line (&lexer_line, 
+		 "unterminated %{; unexpected EOF");
+}
+}
+
 
 ["/]    		|
 <in_struct_comment,in_comment>"*"	{

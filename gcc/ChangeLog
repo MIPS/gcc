@@ -1,5 +1,15 @@
 2002-04-27  Geoffrey Keating  <geoffk@redhat.com>
 
+	* gengtype.h (note_yacc_type): Add prototype.
+	* gengtype.c (note_yacc_type): New function.
+	* gengtype-lex.l: Add lexer support for yacc files.
+	* gengtype-yacc.y (start): Extract union from yacc files.
+	(yacc_union): New rule.
+	(yacc_typematch): New rule.
+	(yacc_ids): New rule.
+	(enum_items): Tweak for efficiency.
+	(optionseq): Likewise.
+
 	* c-common.h (struct language_function): Use gengtype.
 	(struct c_lang_decl): Likewise.
 	* c-tree.h (struct lang_decl): Likewise.

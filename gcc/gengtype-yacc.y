@@ -36,18 +36,22 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 %token <t>ENT_TYPEDEF_STRUCT
 %token <t>ENT_STRUCT
 %token ENT_EXTERNSTATIC
+%token ENT_YACCUNION
 %token GTY_TOKEN "GTY"
 %token UNION "union"
 %token STRUCT "struct"
 %token ENUM "enum"
 %token VARRAY_TYPE "varray_type"
 %token NUM
+%token PERCENTPERCENT "%%"
 %token <t>SCALAR
 %token <s>ID
 %token <s>STRING
 %token <s>ARRAY
+%token <s>PERCENT_ID
+%token <s>CHAR
 
-%type <p> struct_fields
+%type <p> struct_fields yacc_ids yacc_typematch
 %type <t> type lasttype
 %type <o> optionsopt options option optionseq optionseqopt
 
@@ -56,6 +60,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 start: /* empty */
        | typedef_struct start
        | externstatic start
+       | yacc_union start
 
 typedef_struct: ENT_TYPEDEF_STRUCT options 
 		   { 
@@ -105,6 +110,71 @@ lasttype: type
 
 semiequal: ';'
 	   | '='
+	   ;
+
+yacc_union: ENT_YACCUNION options struct_fields '}' yacc_typematch PERCENTPERCENT
+	      {
+	        note_yacc_type ($2, $3, $5, &lexer_line);
+	      }
+
+yacc_typematch: /* empty */
+		   { $$ = NULL; }
+		| yacc_typematch PERCENT_ID yacc_ids
+		   { 
+		     pair_p p;
+		     for (p = $3; p->next != NULL; p = p->next)
+		       {
+		         p->name = NULL;
+			 p->type = NULL;
+		       }
+		     p->name = NULL;
+		     p->type = NULL;
+		     p->next = $1;
+		     $$ = $3;
+		   }
+		| yacc_typematch PERCENT_ID '<' ID '>' yacc_ids
+		   {
+		     pair_p p;
+		     type_p newtype = NULL;
+		     if (strcmp ($2, "type") == 0)
+		       newtype = (type_p) 1;
+		     for (p = $6; p->next != NULL; p = p->next)
+		       {
+		         p->name = $4;
+		         p->type = newtype;
+		       }
+		     p->name = $4;
+		     p->next = $1;
+		     p->type = newtype;
+		     $$ = $6;
+		   }
+		;
+
+yacc_ids: /* empty */
+	{ $$ = NULL; }
+     | yacc_ids ID
+        { 
+	  pair_p p = xcalloc (1, sizeof (*p));
+	  p->next = $1;
+	  p->line = lexer_line;
+	  p->opt = xmalloc (sizeof (*(p->opt)));
+	  p->opt->name = "tag";
+	  p->opt->next = NULL;
+	  p->opt->info = $2;
+	  $$ = p;
+	}
+     | yacc_ids CHAR
+        {
+	  pair_p p = xcalloc (1, sizeof (*p));
+	  p->next = $1;
+	  p->line = lexer_line;
+	  p->opt = xmalloc (sizeof (*(p->opt)));
+	  p->opt->name = "tag";
+	  p->opt->next = NULL;
+	  p->opt->info = xmalloc (3 + strlen ($2));
+	  sprintf (p->opt->info, "'%s'", $2);
+	  $$ = p;
+	}
 
 struct_fields: { $$ = NULL; }
 	       | type optionsopt ID bitfieldopt ';' struct_fields
@@ -193,9 +263,13 @@ type: SCALAR
          { $$ = create_scalar_type ($2, strlen ($2)); }
 
 enum_items: /* empty */
-	    | ID '=' NUM ',' enum_items {}
-	    | ID ',' enum_items {}
-	    | ID enum_items {}
+	    | ID '=' NUM ',' enum_items
+	      { }
+	    | ID ',' enum_items
+	      { }
+	    | ID enum_items
+	      { }
+	    ;
 
 optionsopt: { $$ = NULL; }
 	    | options { $$ = $1; }
@@ -222,10 +296,10 @@ optionseq: option
 	        $1->next = NULL;
 		$$ = $1;
 	      }
-	    | option ',' optionseq
+	    | optionseq ',' option
 	      {
-	        $1->next = $3;
-		$$ = $1;
+	        $3->next = $1;
+		$$ = $3;
 	      }
 
 optionseqopt: { $$ = NULL }

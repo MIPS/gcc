@@ -111,7 +111,7 @@ int
 anon_aggr_type_p (node)
      tree node;
 {
-  return (CLASS_TYPE_P (node) && TYPE_LANG_SPECIFIC(node)->anon_aggr);
+  return ANON_AGGR_TYPE_P (node);
 }
 
 /* Finish a scope.  */
@@ -1906,16 +1906,6 @@ begin_inline_definitions ()
 {
   if (current_scope () == current_function_decl)
     do_pending_inlines ();
-}
-
-/* Finish processing the inline function definitions cached during the
-   processing of a class definition.  */
-
-void
-finish_inline_definitions ()
-{
-  if (current_class_type == NULL_TREE)
-    clear_inline_text_obstack (); 
 }
 
 /* Finish processing the declaration of a member class template

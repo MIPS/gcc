@@ -2165,6 +2165,7 @@ duplicate_tag_error (t)
       memset ((char *) TYPE_LANG_SPECIFIC (t), 0, sizeof (struct lang_type));
       BINFO_BASETYPES(binfo) = NULL_TREE;
 
+      TYPE_LANG_SPECIFIC (t)->u.h.is_lang_type_class = 1;
       TYPE_BINFO (t) = binfo;
       CLASSTYPE_INTERFACE_ONLY (t) = interface_only;
       SET_CLASSTYPE_INTERFACE_UNKNOWN_X (t, interface_unknown);
@@ -4380,7 +4381,7 @@ check_bases_and_members (t, empty_p)
 
   /* Figure out whether or not we will need a cookie when dynamically
      allocating an array of this type.  */
-  TYPE_LANG_SPECIFIC (t)->vec_new_uses_cookie
+  TYPE_LANG_SPECIFIC (t)->u.c.vec_new_uses_cookie
     = type_requires_array_cookie (t);
 }
 

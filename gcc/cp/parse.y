@@ -226,7 +226,7 @@ check_class_key (key, aggr)
 
 %start program
 
-%union {
+%union { GTY(())
   long itype; 
   tree ttype; 
   char *strtype; 
@@ -339,7 +339,7 @@ check_class_key (key, aggr)
 %type <ttype> paren_expr_or_null nontrivial_exprlist SELFNAME
 %type <ttype> expr_no_commas expr_no_comma_rangle
 %type <ttype> cast_expr unary_expr primary string STRING
-%type <ttype> reserved_declspecs boolean.literal
+%type <ttype> reserved_declspecs boolean_literal
 %type <ttype> reserved_typespecquals
 %type <ttype> SCSPEC TYPESPEC CV_QUALIFIER maybe_cv_qualifier
 %type <ttype> init initlist maybeasm maybe_init defarg defarg1
@@ -387,13 +387,13 @@ check_class_key (key, aggr)
 %token <ttype> PRE_PARSED_CLASS_DECL DEFARG DEFARG_MARKER
 %token <pi> PRE_PARSED_FUNCTION_DECL 
 %type <ttype> component_constructor_declarator
-%type <ttype> fn.def2 return_id constructor_declarator
-%type <ttype> .begin_function_body
+%type <ttype> fn_def2 return_id constructor_declarator
+%type <ttype> begin_function_body_
 %type <ttype> class_head class_head_apparent_template
 %type <ftype> class_head_decl class_head_defn
 %type <ttype> base_class_list
 %type <ttype> base_class_access_list
-%type <ttype> base_class maybe_base_class_list base_class.1
+%type <ttype> base_class maybe_base_class_list base_class_1
 %type <ttype> exception_specification_opt ansi_raise_identifier ansi_raise_identifiers
 %type <ttype> operator_name
 %type <ttype> object aggr
@@ -421,7 +421,7 @@ check_class_key (key, aggr)
 %token TYPENAME_DEFN IDENTIFIER_DEFN PTYPENAME_DEFN
 %type <ttype> identifier_defn IDENTIFIER_DEFN TYPENAME_DEFN PTYPENAME_DEFN
 %type <ttype> handler_args
-%type <ttype> self_template_type .finish_template_type
+%type <ttype> self_template_type finish_template_type_
 
 %token NSNAME
 %type <ttype> NSNAME
@@ -765,7 +765,7 @@ eat_saved_input:
    mem-initializer-list, so we open one there and suppress the one that
    actually corresponds to the curly braces.  */
 function_body:
-	  .begin_function_body ctor_initializer_opt save_lineno '{'
+	  begin_function_body_ ctor_initializer_opt save_lineno '{'
 		{ $<ttype>$ = begin_compound_stmt (/*has_no_scope=*/1); }
 	  compstmtend 
                 {
@@ -859,7 +859,7 @@ component_constructor_declarator:
 
 /* more C++ complexity.  See component_decl for a comment on the
    reduce/reduce conflict introduced by these rules.  */
-fn.def2:
+fn_def2:
 	  declmods component_constructor_declarator
 		{ $$ = parse_method ($2, $1.t, $1.lookups);
 		 rest_of_mdef:
@@ -913,7 +913,7 @@ base_init:
 		}
 	;
 
-.begin_function_body:
+begin_function_body_:
 	  /* empty */
 		{
 		  $$ = begin_function_body ();
@@ -1043,10 +1043,10 @@ end_explicit_instantiation:
 
 template_type:
 	  PTYPENAME '<' template_arg_list_opt template_close_bracket
-	    .finish_template_type
+	    finish_template_type_
                 { $$ = $5; }
 	| TYPENAME  '<' template_arg_list_opt template_close_bracket
-	    .finish_template_type
+	    finish_template_type_
                 { $$ = $5; }
 	| self_template_type
 	;
@@ -1054,16 +1054,16 @@ template_type:
 apparent_template_type:
 	  template_type
 	| identifier '<' template_arg_list_opt '>'
-	    .finish_template_type
+	    finish_template_type_
 		{ $$ = $5; }
 
 self_template_type:
 	  SELFNAME  '<' template_arg_list_opt template_close_bracket
-	    .finish_template_type
+	    finish_template_type_
                 { $$ = $5; }
 	;
 
-.finish_template_type:
+finish_template_type_:
                 { 
 		  if (yychar == YYEMPTY)
 		    yychar = YYLEX;
@@ -1560,7 +1560,7 @@ primary:
 		    $$ = finish_id_expr ($1);
 		}		
 	| CONSTANT
-	| boolean.literal
+	| boolean_literal
 	| string
 		{
 		  $$ = combine_strings ($$);
@@ -1758,7 +1758,7 @@ delete:
 		{ got_scope = NULL_TREE; $$ = 1; }
 	;
 
-boolean.literal:
+boolean_literal:
 	  CXX_TRUE
 		{ $$ = boolean_true_node; }
 	| CXX_FALSE
@@ -2322,7 +2322,6 @@ structsp:
 		}
 	  pending_inlines
                 {
-		  finish_inline_definitions ();
 		  $$.t = $<ttype>8;
 		  $$.new_type_flag = 1; 
 		}
@@ -2500,13 +2499,13 @@ base_class_list:
 	;
 
 base_class:
-	  base_class.1
+	  base_class_1
 		{ $$ = finish_base_specifier (access_default_node, $1); }
-	| base_class_access_list see_typename base_class.1
+	| base_class_access_list see_typename base_class_1
                 { $$ = finish_base_specifier ($1, $3); }
 	;
 
-base_class.1:
+base_class_1:
 	  typename_sub
 		{ if (!TYPE_P ($$))
 		    $$ = error_mark_node; }
@@ -2582,13 +2581,13 @@ component_decl:
 		  yyungetc ('}', 0); }
 	/* C++: handle constructors, destructors and inline functions */
 	/* note that INLINE is like a TYPESPEC */
-	| fn.def2 ':' /* base_init compstmt */
+	| fn_def2 ':' /* base_init compstmt */
 		{ $$ = finish_method ($$); }
-	| fn.def2 TRY /* base_init compstmt */
+	| fn_def2 TRY /* base_init compstmt */
 		{ $$ = finish_method ($$); }
-	| fn.def2 RETURN_KEYWORD /* base_init compstmt */
+	| fn_def2 RETURN_KEYWORD /* base_init compstmt */
 		{ $$ = finish_method ($$); }
-	| fn.def2 '{' /* nodecls compstmt */
+	| fn_def2 '{' /* nodecls compstmt */
 		{ $$ = finish_method ($$); }
 	| ';'
 		{ $$ = NULL_TREE; }

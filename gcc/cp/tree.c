@@ -2529,3 +2529,18 @@ stabilize_expr (exp, initp)
   *initp = init_expr;
   return exp;
 }
+
+#if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
+/* Complain that some language-specific thing hanging off a tree
+   node has been accessed improperly.  */
+
+void
+lang_check_failed (file, line, function)
+     const char *file;
+     int line;
+     const char *function;
+{
+  internal_error ("lang_* check: failed in %s, at %s:%d",
+		  function, trim_filename (file), line);
+}
+#endif /* ENABLE_TREE_CHECKING */

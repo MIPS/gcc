@@ -2721,6 +2721,7 @@ start_objects (method_type, initp)
     DECL_GLOBAL_CTOR_P (current_function_decl) = 1;
   else
     DECL_GLOBAL_DTOR_P (current_function_decl) = 1;
+  DECL_LANG_SPECIFIC (current_function_decl)->decl_flags.u2sel = 1;
   GLOBAL_INIT_PRIORITY (current_function_decl) = initp;
 
   body = begin_compound_stmt (/*has_no_scope=*/0);

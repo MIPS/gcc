@@ -100,6 +100,8 @@ extern type_p create_array PARAMS ((type_p t, const char *len));
 extern type_p adjust_field_type PARAMS ((type_p, options_p));
 extern void note_variable PARAMS ((const char *s, type_p t, options_p o,
 				   struct fileloc *pos));
+extern void note_yacc_type PARAMS ((options_p o, pair_p fields,
+				    pair_p typeinfo, struct fileloc *pos));
 
 /* Lexer and parser routines, most automatically generated.  */
 extern int yylex PARAMS((void));

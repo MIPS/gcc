@@ -126,10 +126,6 @@ static tree check_initializer PARAMS ((tree, tree));
 static void make_rtl_for_nonlocal_decl PARAMS ((tree, tree, const char *));
 static void push_cp_function_context PARAMS ((struct function *));
 static void pop_cp_function_context PARAMS ((struct function *));
-static void mark_binding_level PARAMS ((void *));
-static void mark_named_label_lists PARAMS ((void *, void *));
-static void mark_cp_function_context PARAMS ((void *));
-static void mark_lang_function PARAMS ((struct cp_language_function *));
 static void save_function_data PARAMS ((tree));
 static void check_function_type PARAMS ((tree, tree));
 static void destroy_local_var PARAMS ((tree));
@@ -216,7 +212,7 @@ static int only_namespace_names;
 /* Used only for jumps to as-yet undefined labels, since jumps to
    defined labels can have their validity checked immediately.  */
 
-struct named_label_use_list
+struct named_label_use_list GTY(())
 {
   struct cp_binding_level *binding_level;
   tree names_in_scope;
@@ -249,7 +245,7 @@ tree last_function_parms;
    we can clear out their names' definitions at the end of the
    function, and so we can check the validity of jumps to these labels.  */
 
-struct named_label_list
+struct named_label_list GTY(())
 {
   struct cp_binding_level *binding_level;
   tree names_in_scope;
@@ -1928,36 +1924,6 @@ wrapup_globals_for_namespace (namespace, data)
 }
 
 
-/* Mark ARG (which is really a struct cp_binding_level **) for GC.  */
-
-static void
-mark_binding_level (arg)
-     void *arg;
-{
-  gt_ggc_m_cp_binding_level (*(struct cp_binding_level **)arg);
-}
-
-static void
-mark_named_label_lists (labs, uses)
-     void *labs;
-     void *uses;
-{
-  struct named_label_list *l = *(struct named_label_list **)labs;
-  struct named_label_use_list *u = *(struct named_label_use_list **)uses;
-
-  for (; l; l = l->next)
-    {
-      ggc_mark (l);
-      mark_binding_level (l->binding_level);
-      ggc_mark_tree (l->old_value);
-      ggc_mark_tree (l->label_decl);
-      ggc_mark_tree (l->bad_decls);
-    }
-
-  for (; u; u = u->next)
-    ggc_mark (u);
-}
-
 /* For debugging.  */
 static int no_print_functions = 0;
 static int no_print_builtins = 0;
@@ -2688,6 +2654,7 @@ push_local_name (decl)
 	{
 	  if (!DECL_LANG_SPECIFIC (decl))
 	    retrofit_lang_decl (decl);
+	  DECL_LANG_SPECIFIC (decl)->decl_flags.u2sel = 1;
 	  if (DECL_LANG_SPECIFIC (t))
 	    DECL_DISCRIMINATOR (decl) = DECL_DISCRIMINATOR (t) + 1;
 	  else
@@ -3575,7 +3542,8 @@ duplicate_decls (newdecl, olddecl)
       /* Don't really know how much of the language-specific
 	 values we should copy from old to new.  */
       DECL_IN_AGGR_P (newdecl) = DECL_IN_AGGR_P (olddecl);
-      DECL_ACCESS (newdecl) = DECL_ACCESS (olddecl);
+      DECL_LANG_SPECIFIC (newdecl)->decl_flags.u2 = 
+	DECL_LANG_SPECIFIC (olddecl)->decl_flags.u2;
       DECL_NONCONVERTING_P (newdecl) = DECL_NONCONVERTING_P (olddecl);
       DECL_TEMPLATE_INFO (newdecl) = DECL_TEMPLATE_INFO (olddecl);
       DECL_INITIALIZED_IN_CLASS_P (newdecl)
@@ -6345,7 +6313,7 @@ cxx_init_decl_processing ()
   /* Fill in back-end hooks.  */
   init_lang_status = &push_cp_function_context;
   free_lang_status = &pop_cp_function_context;
-  mark_lang_status = &mark_cp_function_context;
+  mark_lang_status = &gt_ggc_m_cp_language_function;
   lang_missing_noreturn_ok_p = &cp_missing_noreturn_ok_p;
 
   init_decl2 ();
@@ -13856,7 +13824,6 @@ begin_destructor_body ()
      appropriately, so we just assume that we always need to
      initialize the vtables.)  */
   finish_if_stmt_cond (boolean_true_node, if_stmt);
-  current_vcalls_possible_p = &IF_COND (if_stmt);
 
   compound_stmt = begin_compound_stmt (/*has_no_scope=*/0);
 
@@ -14484,37 +14451,6 @@ pop_cp_function_context (f)
   f->language = 0;
 }
 
-/* Mark P for GC.  */
-
-static void
-mark_lang_function (p)
-     struct cp_language_function *p;
-{
-  if (!p)
-    return;
-
-  mark_c_language_function (&p->base);
-
-  ggc_mark_tree (p->x_dtor_label);
-  ggc_mark_tree (p->x_current_class_ptr);
-  ggc_mark_tree (p->x_current_class_ref);
-  ggc_mark_tree (p->x_eh_spec_block);
-  ggc_mark_tree_varray (p->x_local_names);
-
-  mark_named_label_lists (&p->x_named_labels, &p->x_named_label_uses);
-  mark_binding_level (&p->bindings);
-  mark_pending_inlines (&p->unparsed_inlines);
-}
-
-/* Mark the language-specific data in F for GC.  */
-
-static void
-mark_cp_function_context (language)
-     void *language;
-{
-  mark_lang_function ((struct cp_language_function *) language);
-}
-
 void
 lang_mark_tree (t)
      tree t;
@@ -14523,23 +14459,16 @@ lang_mark_tree (t)
   if (code == IDENTIFIER_NODE)
     {
       struct lang_identifier *li = (struct lang_identifier *) t;
-      struct lang_id2 *li2 = li->x;
       ggc_mark_tree (li->namespace_bindings);
       ggc_mark_tree (li->bindings);
       ggc_mark_tree (li->class_value);
       ggc_mark_tree (li->class_template_info);
-
-      if (li2)
-	{
-	  ggc_mark_tree (li2->label_value);
-	  ggc_mark_tree (li2->implicit_decl);
-	  ggc_mark_tree (li2->error_locus);
-	}
+      gt_ggc_m_lang_id2 (li->x);
     }
   else if (code == CPLUS_BINDING)
     {
       if (BINDING_HAS_LEVEL_P (t))
-	mark_binding_level (&BINDING_LEVEL (t));
+	gt_ggc_m_cp_binding_level (&BINDING_LEVEL (t));
       else
 	ggc_mark_tree (BINDING_SCOPE (t));
       ggc_mark_tree (BINDING_VALUE (t));
@@ -14548,63 +14477,10 @@ lang_mark_tree (t)
     ggc_mark_tree (OVL_FUNCTION (t));
   else if (code == TEMPLATE_PARM_INDEX)
     ggc_mark_tree (TEMPLATE_PARM_DECL (t));
-  else if (TREE_CODE_CLASS (code) == 'd')
-    {
-      struct lang_decl *ld = DECL_LANG_SPECIFIC (t);
-
-      if (ld)
-	{
-	  ggc_mark (ld);
-	  c_mark_lang_decl (&ld->decl_flags.base);
-	  if (!DECL_GLOBAL_CTOR_P (t)
-	      && !DECL_GLOBAL_DTOR_P (t)
-	      && !DECL_THUNK_P (t)
-	      && !DECL_DISCRIMINATOR_P (t))
-	    ggc_mark_tree (ld->decl_flags.u2.access);
-	  else if (DECL_THUNK_P (t))
-	    ggc_mark_tree (ld->decl_flags.u2.vcall_offset);
-	  if (TREE_CODE (t) != NAMESPACE_DECL)
-	    ggc_mark_tree (ld->decl_flags.u.template_info);
-	  else
-	    mark_binding_level (&NAMESPACE_LEVEL (t));
-	  if (CAN_HAVE_FULL_LANG_DECL_P (t))
-	    {
-	      ggc_mark_tree (ld->befriending_classes);
-	      ggc_mark_tree (ld->context);
-	      ggc_mark_tree (ld->cloned_function);
-	      if (TREE_CODE (t) == TYPE_DECL)
-		ggc_mark_tree (ld->u.sorted_fields);
-	      else if (TREE_CODE (t) == FUNCTION_DECL
-		       && !DECL_PENDING_INLINE_P (t))
-		mark_lang_function (DECL_SAVED_FUNCTION_DATA (t));
-	    }
-	}
-    }
-  else if (TREE_CODE_CLASS (code) == 't')
-    {
-      struct lang_type *lt = TYPE_LANG_SPECIFIC (t);
-
-      if (lt && !(TREE_CODE (t) == POINTER_TYPE
-		  && TREE_CODE (TREE_TYPE (t)) == METHOD_TYPE))
-	{
-	  ggc_mark (lt);
-	  ggc_mark_tree (lt->primary_base);
-	  ggc_mark_tree (lt->vfields);
-	  ggc_mark_tree (lt->vbases);
-	  ggc_mark_tree (lt->tags);
-	  ggc_mark_tree (lt->size);
-	  ggc_mark_tree (lt->pure_virtuals);
-	  ggc_mark_tree (lt->friend_classes);
-	  ggc_mark_tree (lt->rtti);
-	  ggc_mark_tree (lt->methods);
-	  ggc_mark_tree (lt->template_info);
-	  ggc_mark_tree (lt->befriending_classes);
-	}
-      else if (lt)
-	/* In the case of pointer-to-member function types, the
-	   TYPE_LANG_SPECIFIC is really just a tree.  */
-	ggc_mark_tree ((tree) lt);
-    }
+   else if (TYPE_P (t))
+    gt_ggc_m_lang_type (TYPE_LANG_SPECIFIC (t));
+  else if (DECL_P (t))
+    gt_ggc_m_lang_decl (DECL_LANG_SPECIFIC (t));
 }
 
 /* Return the IDENTIFIER_GLOBAL_VALUE of T, for use in common code, since
