@@ -5337,7 +5337,16 @@ characteristics of an instruction.
 @end smallexample
 
 @var{default_latency} is a number giving latency time of the
-instruction.
+instruction.  There is an important difference between the old
+description and the automaton based pipeline description.  The latency
+time is used for all dependencies when we use the old description.  In
+the automaton based pipeline description, given latency time is used
+only for true dependencies.  The cost of anti-dependencies is always
+zero and the cost of output dependencies is the difference between
+latency times of the producing and consuming insns (if the difference
+is negative, the cost is considered to be zero).  You always can
+change the default costs for any description by using target hook
+@code{TARGET_SCHED_ADJUST_COST} (@pxref{Scheduling}).
 
 @var{insn-names} is a string giving internal name of the insn.  The
 internal names are used in constructions @code{define_bypass} and in
@@ -5346,7 +5355,16 @@ name has nothing common with the names in @code{define_insn}.  It is a
 good practice to use insn classes described in the processor manual.
 
 @var{condition} defines what RTL insns are described by this
-construction.
+construction.  You should remember that you will be in trouble if
+@var{condition} for two or more different
+@code{define_insn_reservation} constructions is TRUE for an insn.  In
+this case what reservation will be used for the insn is not defined.
+Such cases are not checked during generation of the pipeline hazards
+recognizer because in general recognizing that two conditions may have
+the same value is quite difficult (especially if the conditions
+contain @code{symbol_ref}).  It is also not checked during the
+pipeline hazard recognizer work because it would slow down the
+recognizer considerably.
 
 @var{regexp} is a string describing reservation of the cpu functional
 units by the instruction.  The reservations are described by a regular

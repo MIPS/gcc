@@ -5332,7 +5332,8 @@ data-dependence.  If the scheduler using the automaton based pipeline
 description, the cost of anti-dependence is zero and the cost of
 output-dependence is maximum of one and the difference of latency
 times of the first and the second insns.  If these values are not
-acceptable, you could use the hook to modify them too.
+acceptable, you could use the hook to modify them too.  See also
+@pxref{Automaton pipeline description}.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_SCHED_ADJUST_PRIORITY (rtx @var{insn}, int @var{priority})
