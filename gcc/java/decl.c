@@ -450,6 +450,20 @@ java_init_decl_processing ()
   integer_four_node = build_int_2 (4, 0);
   integer_minus_one_node = build_int_2 (-1, -1);
 
+  /* A few values used for range checking in the lexer.  */
+  decimal_int_max = build_int_2 (0x80000000, 0);
+  TREE_TYPE (decimal_int_max) = unsigned_int_type_node;
+#if HOST_BITS_PER_WIDE_INT == 64
+  decimal_long_max = build_int_2 (0x8000000000000000, 0);
+#else
+#if HOST_BITS_PER_WIDE_INT == 32
+  decimal_long_max = build_int_2 (0, 0x80000000);
+#else
+ #error "unsupported size"
+#endif
+#endif
+  TREE_TYPE (decimal_long_max) = unsigned_long_type_node;
+
   size_zero_node = size_int (0);
   size_one_node = size_int (1);
   bitsize_zero_node = bitsize_int (0);

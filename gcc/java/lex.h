@@ -185,7 +185,7 @@ extern void java_destroy_lexer PARAMS ((java_lexer *));
 #define SET_LVAL_NODE_TYPE(NODE, TYPE)
 #define BUILD_ID_WFL(EXP) (EXP)
 #define JAVA_FLOAT_RANGE_ERROR(S) {}
-#define JAVA_INTEGRAL_RANGE_ERROR(S) {}
+#define JAVA_INTEGRAL_RANGE_ERROR(S) do { } while (0)
 
 #else
 
@@ -237,12 +237,12 @@ extern void java_destroy_lexer PARAMS ((java_lexer *));
     ctxp->c_line->current = i;						  \
   }
 #define JAVA_INTEGRAL_RANGE_ERROR(m)		\
-  {						\
+  do {						\
     int i = ctxp->c_line->current;		\
     ctxp->c_line->current = number_beginning;	\
     java_lex_error (m, 0);			\
     ctxp->c_line->current = i;			\
-  }
+  } while (0)
 
 #endif /* Definitions for jc1 compilation only */
 
