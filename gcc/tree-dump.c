@@ -685,7 +685,7 @@ static const struct dump_option_value_info dump_options[] =
   {"blocks", TDF_BLOCKS},
   {"alias", TDF_ALIAS},
   {"vops", TDF_VOPS},
-  {"all", ~0},
+  {"all", ~(TDF_RAW | TDF_SLIM)},
   {NULL, 0}
 };
 

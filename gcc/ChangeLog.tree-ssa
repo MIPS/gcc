@@ -1,3 +1,8 @@
+2003-07-30  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-dump.c (dump_option_value_in): "all" is now everything but TDF_RAW
+	and TDF_SLIM.
+
 2003-07-30  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-simple.c (is_gimple_const): Accept CONST + CONST expressions
