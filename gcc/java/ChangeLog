@@ -1,5 +1,12 @@
 2005-03-03  Tom Tromey  <tromey@redhat.com>
 
+	* decl.cc (initialize_builtin_functions): Fixed type of
+	_Jv_MonitorEnter and _Jv_MonitorExit.
+	(initialize_builtin_functions): Fixed type of first
+	argument to _Jv_NewPrimArray.
+
+2005-03-03  Tom Tromey  <tromey@redhat.com>
+
 	* classobj.cc (handle_interfaces): Correctly set up constructor.
 
 2005-03-03  Tom Tromey  <tromey@redhat.com>

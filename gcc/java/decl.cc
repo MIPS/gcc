@@ -566,7 +566,7 @@ initialize_builtin_functions ()
   builtin_Jv_Throw
     = build_address_of (builtin_Jv_Throw);
 
-  t = build_function_type (type_jint, void_list_node);
+  t = build_function_type (void_type_node, void_list_node);
   builtin_Jv_MonitorEnter 
     = gcjx::builtin_function ("_Jv_MonitorEnter", t, 0, NOT_BUILT_IN,
 			      NULL, NULL_TREE);
@@ -578,11 +578,11 @@ initialize_builtin_functions ()
   builtin_Jv_MonitorExit
     = build_address_of (builtin_Jv_MonitorExit);
 
-  t = tree_cons (NULL_TREE, type_jint, 
+  t = tree_cons (NULL_TREE, type_class_ptr,
 		 tree_cons (NULL_TREE, type_jint, void_list_node));
   builtin_Jv_NewPrimArray
     = gcjx::builtin_function ("_Jv_NewPrimArray",
-			      build_function_type(ptr_type_node, t),
+			      build_function_type (ptr_type_node, t),
 			      0, NOT_BUILT_IN, NULL, NULL_TREE);
   DECL_IS_MALLOC (builtin_Jv_NewPrimArray) = 1;
   builtin_Jv_NewPrimArray
