@@ -889,7 +889,10 @@ do_identifier (token, parsing, args)
 
   if (!id || (TREE_CODE (id) == FUNCTION_DECL
 	      && DECL_ANTICIPATED (id)))
-    unqualified_name_lookup_error (id);
+    {
+      unqualified_name_lookup_error (token);
+      return error_mark_node;
+    }
 
   id = check_for_out_of_scope_variable (id);
 

@@ -84,7 +84,7 @@ typedef struct cp_token
   int line_number;
 } cp_token;
 
-/* The cp_lexer structure repesents the C++ lexer.  It is responsible
+/* The cp_lexer structure represents the C++ lexer.  It is responsible
    for managing the token stream from the preprocessor and supplying
    it to the parser.  */
 
@@ -962,9 +962,9 @@ cp_lexer_stop_debugging (lexer)
    way, a close relative of parsing) are the only parts of the
    compiler that should be calling push_scope and pop_scope, or
    related functions.  The parser (and template instantiation code)
-   keep track of what scope is presently active; everything else
+   keeps track of what scope is presently active; everything else
    should simply honor that.  (The code that generates static
-   initializers may also need to set the scope in order to check
+   initializers may also need to set the scope, in order to check
    access control correctly when emitting the initializers.)
 
    Methodology
@@ -999,7 +999,7 @@ cp_lexer_stop_debugging (lexer)
        identifier requires multiple recursive calls.
 
      - We could often eliminate the need to parse tentatively by
-       looking ahead a little bit.  In some places, this appraoch
+       looking ahead a little bit.  In some places, this approach
        might not entirely eliminate the need to parse tentatively, but
        it might still speed up the average case.
 
@@ -1239,7 +1239,7 @@ typedef struct cp_parser
      progress.  */
   unsigned num_classes_being_defined;
 
-  /* Te number of template parameter lists that apply directly to the
+  /* The number of template parameter lists that apply directly to the
      current declaration.  */
   unsigned num_template_parameter_lists;
 } cp_parser;
@@ -1262,8 +1262,8 @@ static void cp_parser_delete
    than NULL_TREE) if a parse error occurs, unless otherwise noted.
    Sometimes, they will return an ordinary node if error-recovery was
    attempted, even though a parse error occurrred.  So, to check
-   whether or not a parse error ocurrred, you should always use
-   cp_parser_error_ocurred.  If the construct is optional (indicated
+   whether or not a parse error occurred, you should always use
+   cp_parser_error_occurred.  If the construct is optional (indicated
    either by an `_opt' in the name of the function that does the
    parsing or via a FLAGS parameter), then NULL_TREE is returned if
    the construct is not present.  */
@@ -2343,7 +2343,12 @@ cp_parser_primary_expression (parser, idk)
 		     && !processing_template_decl)
 	      {
 		if (!parser->scope)
-		  unqualified_name_lookup_error (id_expression);
+		  {
+		    /* It may be resolvable as a koenig lookup function
+		       call.  */
+		    *idk = CP_PARSER_ID_KIND_UNQUALIFIED;
+		    return id_expression;
+		  }
 		else
 		  cp_error ("`%D' has not been declared", 
 			    id_expression);
@@ -3215,9 +3220,17 @@ cp_parser_postfix_expression (parser)
   /* Keep looping until the postfix-expression is complete.  */
   while (true)
     {
+      if (TREE_CODE (postfix_expression) == IDENTIFIER_NODE
+	  && cp_lexer_next_token_is_not (parser->lexer, CPP_OPEN_PAREN))
+	{
+	  /* It is not a koenig lookup function call. */
+	  unqualified_name_lookup_error (postfix_expression);
+	  postfix_expression = error_mark_node;
+	}
+      
       /* Peek at the next token.  */
       token = cp_lexer_peek_token (parser->lexer);
-      
+
       switch (token->type)
 	{
 	case CPP_OPEN_SQUARE:
@@ -3278,11 +3291,16 @@ cp_parser_postfix_expression (parser)
 
 		/* Since we are going to do Koenig lookup, get back
 		   the original unqualified name.  */
-		if (is_overloaded_fn (postfix_expression))
-		  postfix_expression = get_first_fn (postfix_expression);
-		identifier = (DECL_P (postfix_expression)
-			      ? DECL_NAME (postfix_expression)
-			      : postfix_expression);
+		if (TREE_CODE (postfix_expression) == IDENTIFIER_NODE)
+		  identifier = postfix_expression;
+		else
+		  {
+		    if (is_overloaded_fn (postfix_expression))
+		      postfix_expression = get_first_fn (postfix_expression);
+		    identifier = (DECL_P (postfix_expression)
+				  ? DECL_NAME (postfix_expression)
+				  : postfix_expression);
+		  }
 		
 		postfix_expression
 		  = finish_call_expr (identifier, args, /*koenig=*/1);
