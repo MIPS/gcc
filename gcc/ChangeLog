@@ -1,3 +1,7 @@
+2004-04-08  Paul Brook  <paul@codesourcery.com>
+
+	* arm.h (CLASS_LIKELY_SPILLED_P): Define.
+
 2004-04-01  Mark Mitchell  <mark@codesourcery.com>
 
 	PR target/14040
