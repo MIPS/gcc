@@ -1,3 +1,44 @@
+2005-03-08  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* tree.def (SAT_REDUC_PLUS_EXPR): Removed.
+	(REDUC_MAX_EXPR, REDUC_MIN_EXPR): New.
+	* expr.c (expand_expr_real_1): Remove SAT_REDUC_PLUS_EXPR case. Add new
+	cases for REDUC_MAX_EXPR, REDUC_MIN_EXPR.
+	* tree-ssa-operands.c (get_expr_operands): Likewise.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	(op_symbol): Remove SAT_REDUC_PLUS_EXPR case.
+	* optabs.c (optab_for_tree_code): Remove SAT_REDUC_PLUS_EXPR case. Add
+	new cases for REDUC_MAX_EXPR, REDUC_MIN_EXPR.
+	(init_optabs): Remove sat_reduc_plus_optab initialization. Initialize
+	reduc_smax_optab, reduc_umax_optab, reduc_smin_optab, reduc_umin_optab.
+	* optabs.h (OTI_sat_reduc_plus): Removed.
+	(OTI_reduc_smax, OTI_reduc_umax, OTI_reduc_smin, OTI_reduc_umin): New.
+	(sat_reduc_plus_optab): Removed.
+	(reduc_smax_optab, reduc_umax_optab, reduc_smin_optab, 
+	reduc_umin_optab): New.
+	* genopinit.c (sat_reduc_plus_optab): Optab removed.
+	(reduc_smax_optab, reduc_umax_optab, reduc_smin_optab, 
+	reduc_umin_optab): New optabs.
+	* tree-vectorizer.h (vect_is_simple_reduction): Remove last argument.
+	(reduction_code_for_scalar_code): Remove last argument.
+	* tree-vectorizer.c (reduction_code_for_scalar_code): Remove argument
+	sat_p. Handle MAX_EXPR and MIN_EXPR.
+	(vect_is_simple_reduction): Remove argument sat_p. Check for flag_trapv
+	instead of flag_wrapv.
+	* tree-vect-analyze.c (vect_analyze_scalar_cycles): Remove argument
+	sat_p from call to vect_is_simple_reduction.
+	* tree-vect-transform.c	(vectorizable_reduction): Likewise.
+	* tree-vect-transform.c: Include tree.h.
+	(get_initial_def_for_reduction): New.
+	(vect_get_vec_def_for_operand): Return the scalar def instead of a 
+	vector def in case of reduction.
+	(vectorizable_reduction): Bitpos used for BIT_FIELD_REF depends on 
+	endianess. Correctly adjust the result with the initial value of the
+	reduction variable.
+	* config/rs6000/altivec.md (sat_reduc_plus_v4si): Removed.
+	(reduc_smax_v4si, reduc_smax_v4sf, reduc_umax_v4si, reduc_smin_v4si, 
+	reduc_smin_v4sf, reduc_umin_v4si): New.
+
 2005-03-02  Devang Patel  <dpatel@apple.com>
 
 	* tree-vect-analyze.c (vect_build_dist_vector): Use loop_nest's depth.
@@ -20,9 +61,9 @@
 	new_stmt_vec_info, vect_analyze_loop, vectorizable_load,
 	vectorizable_store, vectorizable_operation, vectorizable_assignment,
 	vect_transform_loop, vect_print_dump_info, vect_set_verbosity_level,
-	find_loop_location, vect_is_simple_reduction, reduction_code_for_scalar_code,
-	vect_recog_unsigned_subsat_pattern, vectorizable_reduction, 
-	vectorizable_select): Likewise.
+	find_loop_location, vect_is_simple_reduction, 
+	reduction_code_for_scalar_code, vect_recog_unsigned_subsat_pattern, 
+	vectorizable_reduction, vectorizable_select): Likewise.
 
 	* tree-vectorizer.c (langhooks.h): #include removed.
 	(slpeel_tree_peel_loop_to_edge): Function externalized. Declaration
@@ -33,7 +74,7 @@
 	vect_is_simple_iv_evolution, vect_can_force_dr_alignment_p,
 	vect_supportable_dr_alignment, new_loop_vec_info,
 	destroy_loop_vec_info, new_stmt_vec_info, vect_print_dump_info,
-	vect_set_verbosity_level, find_loop_location, vect_is_simple_reduction): 
+	vect_set_verbosity_level, find_loop_location, vect_is_simple_reduction):
 	Likewise.
 
 	(vect_analyze_loop): Function externalized. Declaration moved to
@@ -49,24 +90,27 @@
 	vect_analyze_data_ref_access, vect_analyze_pointer_ref_access,
 	vect_can_advance_ivs_p, vect_get_ptr_offset, vect_analyze_offset_expr,
 	vect_base_addr_differ_p, vect_object_analysis, vect_address_analysis,
-	vect_get_memtag, vect_recog_unsigned_subsat_pattern, vect_build_dist_vector,
-	vect_determine_vectorization_factor, vect_update_misalignment_for_peel,
-	vect_pattern_recog, vect_pattern_recog_1): Likewise.
+	vect_get_memtag, vect_recog_unsigned_subsat_pattern, 
+	vect_build_dist_vector, vect_determine_vectorization_factor, 
+	vect_update_misalignment_for_peel, vect_pattern_recog, 
+	vect_pattern_recog_1): Likewise.
 
 	(vectorizable_load): Function externalized. Declaration moved to
 	tree-vectorized.h. Function definition moved to tree-vect-transform.c.
 	(vectorizable_store, vectorizable_operation, vectorizable_assignment,
-	vectorizable_reduction, vectorizable_select, vect_transform_loop): Likewise.
+	vectorizable_reduction, vectorizable_select, vect_transform_loop):
+	 Likewise.
 	(vect_transform_stmt): Moved to tree-vect-transform.c.
 	(vect_align_data_ref, vect_create_destination_var,
 	vect_create_data_ref_ptr, vect_create_index_for_vector_ref,
 	vect_create_addr_base_for_vector_ref, vect_get_new_vect_var,
-	vect_get_vec_def_for_operand, vect_init_vector, update_vuses_to_preheader,
-	vect_finish_stmt_generation, vect_generate_tmps_on_preheader,
-	vect_build_loop_niters, vect_update_ivs_after_vectorizer,
-	vect_gen_niters_for_prolog_loop, vect_update_init_of_dr,
-	vect_update_inits_of_drs, vect_do_peeling_for_alignment,
-	vect_do_peeling_for_loop_bound, vect_is_simple_cond): Likewise.
+	vect_get_vec_def_for_operand, vect_init_vector,
+	update_vuses_to_preheader, vect_finish_stmt_generation, 
+	vect_generate_tmps_on_preheader, vect_build_loop_niters, 
+	vect_update_ivs_after_vectorizer, vect_gen_niters_for_prolog_loop, 
+	vect_update_init_of_dr, vect_update_inits_of_drs, 
+	vect_do_peeling_for_alignment, vect_do_peeling_for_loop_bound, 
+	vect_is_simple_cond): Likewise.
 
 	* tree-vect-analyze.c: New file.
 	* tree-vect-transform.c: New file.

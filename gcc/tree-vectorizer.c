@@ -1847,15 +1847,39 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
 
 bool
 reduction_code_for_scalar_code (enum tree_code code, 
-				enum tree_code *reduc_code, bool sat_p)
+				enum tree_code *reduc_code)
 {
   switch (code)
   {
-  case PLUS_EXPR:
-    *reduc_code = sat_p ? SAT_REDUC_PLUS_EXPR: REDUC_PLUS_EXPR;
+#if 0 /* TODO */
+  case BIT_AND_EXPR:
+    *reduc_code = REDUC_BIT_AND_EXPR;
     return true;
 
-  /* TODO: support more codes.  */
+  case BIT_IOR_EXPR:
+    *reduc_code = REDUC_BIT_IOR_EXPR;
+    return true;
+
+  case BIT_XOR_EXPR:
+    *reduc_code = REDUC_BIT_XOR_EXPR;
+    return true;
+
+  case MULT_EXPR:
+    *reduc_code = REDUC_MULT_EXPR;
+    return true;
+#endif
+
+  case MAX_EXPR:
+    *reduc_code = REDUC_MAX_EXPR;
+    return true;
+
+  case MIN_EXPR:
+    *reduc_code = REDUC_MIN_EXPR;
+    return true;
+
+  case PLUS_EXPR:
+    *reduc_code = REDUC_PLUS_EXPR;
+    return true;
 
   default:
     return false;
@@ -1878,7 +1902,7 @@ reduction_code_for_scalar_code (enum tree_code code,
    2. no uses for a2 in the loop (elsewhere)  */
 
 tree
-vect_is_simple_reduction (struct loop *loop, tree phi, bool *sat_p)
+vect_is_simple_reduction (struct loop *loop, tree phi)
 {
   edge latch_e = loop_latch_edge (loop);
   tree loop_arg = PHI_ARG_DEF_FROM_EDGE (phi, latch_e);
@@ -1887,8 +1911,6 @@ vect_is_simple_reduction (struct loop *loop, tree phi, bool *sat_p)
   int op_type;
   tree operation, op1, op2;
   tree type;
-
-  *sat_p = false;
 
   if (TREE_CODE (loop_arg) != SSA_NAME)
     {
@@ -1980,7 +2002,7 @@ vect_is_simple_reduction (struct loop *loop, tree phi, bool *sat_p)
     	}
       return NULL_TREE;
     }
-  else if (INTEGRAL_TYPE_P (type) && !TYPE_UNSIGNED (type) && !flag_wrapv)
+  else if (INTEGRAL_TYPE_P (type) && !TYPE_UNSIGNED (type) && flag_trapv)
     {  
       /* Changing the order of operations changes the sematics.  */
       if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
@@ -1988,8 +2010,7 @@ vect_is_simple_reduction (struct loop *loop, tree phi, bool *sat_p)
 	  fprintf (vect_dump, "reduction: unsafe int math optimization: ");
 	  print_generic_expr (vect_dump, operation, TDF_SLIM);
     	}
-      *sat_p = true;
-      /* return NULL_TREE; */
+      return NULL_TREE;
     }
 
   /* reduction is safe. we're dealing with one of the following:

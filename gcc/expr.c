@@ -8179,7 +8179,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
         return temp;
       }
 
-    case SAT_REDUC_PLUS_EXPR:
+    case REDUC_MAX_EXPR:
+    case REDUC_MIN_EXPR:
     case REDUC_PLUS_EXPR:
       {
 	op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, VOIDmode, 0);

@@ -441,7 +441,6 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block bb = loop->header;
   tree dummy;
-  bool sat_p;
 
   if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
     fprintf (vect_dump, "=== vect_analyze_scalar_cycles ===");
@@ -495,7 +494,7 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 
       /* TODO: handle invariant phis  */
 
-      reduc_stmt = vect_is_simple_reduction (loop, phi, &sat_p);
+      reduc_stmt = vect_is_simple_reduction (loop, phi);
       if (reduc_stmt)
         {
 	  if (vect_print_dump_info (REPORT_DETAILS, LOOP_LOC (loop_vinfo)))

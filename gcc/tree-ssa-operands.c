@@ -1193,8 +1193,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case TRUTH_NOT_EXPR:
     case BIT_FIELD_REF:
     case VIEW_CONVERT_EXPR:
+    case REDUC_MAX_EXPR:
+    case REDUC_MIN_EXPR:
     case REDUC_PLUS_EXPR:
-    case SAT_REDUC_PLUS_EXPR:
     do_unary:
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
       return;

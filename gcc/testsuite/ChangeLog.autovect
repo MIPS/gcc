@@ -1,3 +1,16 @@
+2005-03-08  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-reduc-1.c: Also test min/max reduction. Initialize
+	the reduction variable to nonzero value to test for correct handling of
+	initial value.
+	* gcc.dg/vect/vect-reduc-2.c: Likewise.
+	* gcc.dg/vect/vect-reduc-4.c: Likewise.
+	* gcc.dg/vect/vect-reduc-5.c: Likewise.
+	* gcc.dg/vect/vect-reduc-6.c: Likewise.
+	
+	* gcc.dg/vect/vect-reduc-2.c: Remove -fwrap.
+	* gcc.dg/vect/vect-reduc-3.c: Add -ftrapv. Changed to compile test.
+	
 2005-03-01  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* gfortran.dg/vect: New.

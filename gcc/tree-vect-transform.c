@@ -43,6 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "tree-pass.h"
 #include "toplev.h"
+#include "real.h"
 
 /* Utility functions for the code transformation.  */
 static bool vect_transform_stmt (tree, block_stmt_iterator *);
@@ -71,6 +72,7 @@ static void vect_update_inits_of_drs (loop_vec_info, tree);
 static void vect_do_peeling_for_alignment (loop_vec_info, struct loops *);
 static void vect_do_peeling_for_loop_bound 
   (loop_vec_info, tree *, struct loops *);
+static tree get_initial_def_for_reduction (tree, tree, bool *);
 
 /* Function vect_get_new_vect_var.
 
@@ -552,6 +554,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
       op = PHI_ARG_DEF_FROM_EDGE (def_stmt, loop_preheader_edge (loop));
       gcc_assert (vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt));
       gcc_assert (dt == vect_constant_def || dt == vect_invariant_def);
+      return op;
     }
 
   switch (dt)
@@ -638,6 +641,120 @@ vect_finish_stmt_generation (tree stmt, tree vec_stmt, block_stmt_iterator *bsi)
 #endif
 }
 
+#define ADJUST_IN_EPILOG 1
+
+/* Function get_initial_def_for_reduction
+
+   Input:
+   STMT - stmt that performs a reduciton operation in the loop.
+   OP - the initial value of the reduction variable
+
+   Output:
+   Return a vector variable initialized according to the operation.
+
+   Under ADJUST_IN_EPILOG mode we return:
+     add:         [0,0,...,0,0]
+     mult:        [1,1,...,1,1]
+     min/max:     [op,op,..,op,op]
+     bit and/or:  [op,op,..,op,op]
+   and when necessary, we also let the caller know that it needs to 
+   adjust the result by op.
+
+   Otherwise, we return:
+     add:         [0,0,...,0,op]
+     mult:        [1,1,...,1,op]
+     min/max:     [op,op,...,op]
+     bit and/or:  [op,op,...,op]
+   and no adjustments are needed.
+
+   For example, for the following code:
+
+   s = 2;
+   for (i=0;i<n;i++)
+     s = s + a[i]; 
+
+   STMT is 's = s + a[i]', and the reduction variable is 's'.
+   OP (the initial value) is 2.
+   For a vector of 4 units, we want to return either [0,0,0,2], 
+   or [0,0,0,0] and let the caller know that it needs to adjust 
+   the result at the end by '2'.
+
+*/
+
+static tree
+get_initial_def_for_reduction (tree stmt, tree op, bool *need_epilog_adjust)
+{
+  stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
+  int nunits = GET_MODE_NUNITS (TYPE_MODE (vectype));
+  int nelements = nunits;
+  tree operation = TREE_OPERAND (stmt, 1);
+  enum tree_code code = TREE_CODE (operation);
+  tree type = TREE_TYPE (operation);
+  tree def;
+  tree vec, t = NULL_TREE;
+  int i;
+
+  gcc_assert (INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type));
+
+  *need_epilog_adjust = false;
+
+  switch (code)
+  {
+  case PLUS_EXPR:
+    def = INTEGRAL_TYPE_P (type) ? integer_zero_node :
+				   build_real (type, dconst0);
+#ifdef ADJUST_IN_EPILOG
+    *need_epilog_adjust = true;
+#else
+    nelements = nunits - 1;
+#endif
+    break;
+
+  /* (Not supported yet)  */
+  case MULT_EXPR:
+    def = INTEGRAL_TYPE_P (type) ? integer_one_node : 
+				   build_real (type, dconst1);
+#ifdef ADJUST_IN_EPILOG
+    *need_epilog_adjust = true;
+#else
+    nelements = nunits - 1;
+#endif
+    break;
+
+  case MIN_EXPR:
+  case MAX_EXPR:
+    def = op;
+    *need_epilog_adjust = false; 
+    break;
+
+  default:
+    gcc_unreachable ();
+  }
+
+  /* Note: if nelemnts == nunits, could use a "VEC_DUP_EXPR"  */
+  for (i = nelements - 1; i >= 0; --i)
+    {
+      t = tree_cons (NULL_TREE, def, t);
+    }
+
+#ifndef ADJUST_IN_EPILOG
+  if (nelements == nunits - 1)
+    {
+      t = tree_cons (NULL_TREE, op, t);
+      nelements += 1;
+    }
+  gcc_assert (nelements == nunits);
+#endif
+
+  if (TREE_CODE (op) == INTEGER_CST || TREE_CODE (op) == REAL_CST)
+    vec = build_vector (vectype, t);
+  else
+    vec = build_constructor (vectype, t);
+
+  return vect_init_vector (stmt, vec);
+}
+
 
 /* Function vectorizable_reduction.
 
@@ -652,7 +769,8 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   tree vec_dest;
   tree scalar_dest;
   tree op0, op1;
-  tree vec_oprnd0, vec_oprnd1;
+  tree scalar_initial_def, loop_vec_def, vec_initial_def;
+  bool need_epilog_adjust = false;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
@@ -672,7 +790,7 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   basic_block exit_bb;
   block_stmt_iterator exit_bsi;
   tree orig_name;
-  bool sat_p;
+  tree scalar_type;
 
   /* Is vectorizable reduction?  */
   
@@ -702,6 +820,7 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   op0 = TREE_OPERAND (operation, 0);
   op1 = TREE_OPERAND (operation, 1);
   scalar_dest = TREE_OPERAND (stmt, 0);
+  scalar_type = TREE_TYPE (scalar_dest);
 
   /* Check the first operand. It is expected to be defined inside the loop.  */
   gcc_assert (vect_is_simple_use (op0, loop_vinfo, &def_stmt0, &def0, &dt0));
@@ -711,7 +830,7 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   gcc_assert (dt1 == vect_reduction_def);
   gcc_assert (TREE_CODE (def_stmt1) == PHI_NODE);
 #endif
-  gcc_assert (stmt == vect_is_simple_reduction (loop, def_stmt1, &sat_p));
+  gcc_assert (stmt == vect_is_simple_reduction (loop, def_stmt1));
   if (STMT_VINFO_LIVE_P (vinfo_for_stmt (def_stmt1)))
    return false;
 
@@ -732,7 +851,7 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       return false;
     }
   /* check support for the epilog operation  */
-  if (!reduction_code_for_scalar_code (code, &reduc_code, sat_p))
+  if (!reduction_code_for_scalar_code (code, &reduc_code))
     return false;
   reduc_optab = optab_for_tree_code (reduc_code, vectype);
   if (!reduc_optab)
@@ -762,16 +881,29 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   vec_dest = vect_create_destination_var (scalar_dest, vectype);
 
   /* Handle uses.  */
-  vec_oprnd0 = vect_get_vec_def_for_operand (op0, stmt);
-  vec_oprnd1 = vect_get_vec_def_for_operand (op1, stmt);
+
+  /* oprnd 0 is expected to be defined in the loop */
+  loop_vec_def = vect_get_vec_def_for_operand (op0, stmt);
+  gcc_assert (VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (loop_vec_def))));
+
+  /* For iteration i, oprnd 1 is expected to be defined:
+     i=first_iteration: 	before the loop
+     i>first_iteration:		by the previous iteration. 
+     For the case of reduction, vect_get_vec_def_for_operand returns 
+     the scalar def before the loop, that defines the initial value 
+     of the reduction variable.  */
+  scalar_initial_def = vect_get_vec_def_for_operand (op1, stmt);
+  gcc_assert (!VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (scalar_initial_def))));
 
   /* Create preheader code and phi  */
   new_phi = create_phi_node (vec_dest, loop->header);
-  add_phi_arg (new_phi, vec_oprnd1, loop->entry_edges[0]);
+  vec_initial_def = get_initial_def_for_reduction (stmt, scalar_initial_def, 
+						   &need_epilog_adjust); 
+  add_phi_arg (new_phi, vec_initial_def, loop->entry_edges[0]);
 
   /* Create the new vector stmt.  */
   *vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest,
-                build2 (code, vectype, vec_oprnd0, PHI_RESULT (new_phi)));
+                build2 (code, vectype, loop_vec_def, PHI_RESULT (new_phi)));
   new_temp = make_ssa_name (vec_dest, *vec_stmt);
   TREE_OPERAND (*vec_stmt, 0) = new_temp;
   vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
@@ -806,15 +938,18 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 
   /* 1. Create new loop-exit-phi to preserve loop-closed form: 
 	v_out1 = phi <v_loop>  */
+
   exit_bb = loop->single_exit->dest;
   new_phi = create_phi_node (vec_dest, exit_bb);
   SET_PHI_ARG_DEF (new_phi, loop->single_exit->dest_idx, new_temp);
   
   exit_bsi = bsi_start (exit_bb);
 
+
   /* 2. Create: 
 	v_out2 = reduc_expr <v_out1>
         s_out3 = extract_field <v_out2, 0>  */
+
   vec_dest = vect_create_destination_var (scalar_dest, vectype);
   epilog_stmt = build2 (MODIFY_EXPR, vectype, vec_dest,
                		 build1 (reduc_code, vectype, PHI_RESULT (new_phi)));
@@ -829,17 +964,18 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
     }
 
   new_scalar_dest = vect_create_destination_var (scalar_dest, NULL);
-  bitsize = TYPE_SIZE (TREE_TYPE (scalar_dest));
-  /* FIXME: This should probably be target dependent.  */
-  if (!sat_p)
-    bitpos = bitsize_zero_node;
-  else
+  bitsize = TYPE_SIZE (scalar_type);
+
+  /* The result is in the low order bits.  */
+  if (BITS_BIG_ENDIAN)
     bitpos = size_binop (MULT_EXPR,
 		       bitsize_int (TYPE_VECTOR_SUBPARTS (vectype) - 1),
-		       TYPE_SIZE (TREE_TYPE (scalar_dest)));
+		       TYPE_SIZE (scalar_type));
+  else
+    bitpos = bitsize_zero_node;
 
-  epilog_stmt = build2 (MODIFY_EXPR, TREE_TYPE (scalar_dest), new_scalar_dest,
-               	 build3 (BIT_FIELD_REF, TREE_TYPE (scalar_dest), 
+  epilog_stmt = build2 (MODIFY_EXPR, scalar_type, new_scalar_dest,
+               	 build3 (BIT_FIELD_REF, scalar_type, 
 			 new_temp, bitsize, bitpos));
   new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
   TREE_OPERAND (epilog_stmt, 0) = new_temp;
@@ -848,16 +984,48 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
     print_generic_expr (vect_dump, epilog_stmt, TDF_SLIM);
 
-  /* 3. Remove the original scalar exit phi:
-	s_out0 = phi <s_loop>
-	and instead create a new assignment to define s_out0:
-	s_out0 = new_temp  */
-        
-  exit_phi = STMT_VINFO_EXTERNAL_USE (stmt_info);
-  orig_name = PHI_RESULT (exit_phi);  
 
-  /* CHECKME */
+#ifdef ADJUST_IN_EPILOG
+  /* 3. If needed, consider the initial value of the reduction variable. 
+	Create:
+	 s_out = scalar_expr <s_out, scalar_initial_def>  */
+
+  if (need_epilog_adjust)
+    {
+      epilog_stmt = build2 (MODIFY_EXPR, scalar_type, new_scalar_dest,
+		      build2 (code, scalar_type, new_temp, scalar_initial_def));
+      new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
+      TREE_OPERAND (epilog_stmt, 0) = new_temp;
+      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+	print_generic_expr (vect_dump, epilog_stmt, TDF_SLIM);
+    }
+#endif
+
+
+  /* 4. Replace uses of s_out0 with uses of s_out3  */ 
+
+  exit_phi = STMT_VINFO_EXTERNAL_USE (stmt_info);
+  orig_name = PHI_RESULT (exit_phi);
   replace_immediate_uses (orig_name, new_temp);
+  
+  /* CHECKME: Alternative solution:
+        Remove the original scalar exit phi:
+          s_out0 = phi <s_loop>
+        and instead create a new assignment to define s_out0:
+          s_out0 = s_out3 
+
+  remove_phi_node_keeping_name (exit_phi, NULL_TREE, exit_bb);
+
+  epilog_stmt = build2 (MODIFY_EXPR, TREE_TYPE (scalar_dest), orig_name,
+                        new_temp);
+  SSA_NAME_DEF_STMT (orig_name) = epilog_stmt;
+  bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
+    
+  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+    print_generic_expr (vect_dump, epilog_stmt, TDF_SLIM);
+  */
 
   return true;
 }

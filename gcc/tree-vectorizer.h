@@ -323,12 +323,11 @@ extern tree get_vectype_for_scalar_type (tree);
 extern bool vect_is_simple_use (tree, loop_vec_info, tree *, tree *, 
 				enum vect_def_type *);
 extern bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *);
-extern tree vect_is_simple_reduction (struct loop *, tree, bool *);
+extern tree vect_is_simple_reduction (struct loop *, tree);
 extern bool vect_can_force_dr_alignment_p (tree, unsigned int);
 extern enum dr_alignment_support vect_supportable_dr_alignment
   (struct data_reference *);
-extern bool reduction_code_for_scalar_code (enum tree_code, enum tree_code *, 
-					    bool);
+extern bool reduction_code_for_scalar_code (enum tree_code, enum tree_code *);
 
 /* Creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
