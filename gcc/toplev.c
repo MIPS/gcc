@@ -2925,6 +2925,7 @@ rest_of_compilation (decl)
 
 	  /* We only want to perform unrolling once.  */
 
+	  rebuild_jump_labels (insns);
 	  loop_optimize (insns, rtl_dump_file, 0);
 
 	  /* The first call to loop_optimize makes some instructions
@@ -2938,6 +2939,7 @@ rest_of_compilation (decl)
 	  reg_scan (insns, max_reg_num (), 1);
 	}
       cleanup_barriers ();
+      rebuild_jump_labels (insns);
       loop_optimize (insns, rtl_dump_file,
 		     (flag_unroll_loops ? LOOP_UNROLL : 0) | LOOP_BCT
 		     | (flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0));
