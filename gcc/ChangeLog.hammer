@@ -1,3 +1,19 @@
+2004-01-22  Hartmut Penner  <hpenner@de.ibm.com>
+	Backport from mainline.
+	2004-02-11  Hartmut Penner  <hpenner@de.ibm.com>
+	* config/rs6000/altivec.md (*movv4si_internal): At least one
+	operand must be register_operand.
+	(*movv8hi_internal1): Likewise.
+	(*movv16qi_internal1): Likewise.
+	(*movv4sf_internal1): Likewise.
+
+	2004-02-11  Hartmut Penner  <hpenner@de.ibm.com>
+	* gcc/config/rs6000/rs6000.c (rs6000_override_options)
+	Set AltiVec ABI and vrsave as default for ppc64 linux.
+	(init_cumulative_args): Post error, if try to return
+	value in AltiVec register without enable AltiVec.
+	(function_arg_advance): Ditto for passing arguments. 
+
 2004-02-11  Josef Zlomek  <zlomekj@suse.cz>
 
 	Ulrich Weigand  <uweigand@de.ibm.com>
