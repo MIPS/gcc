@@ -909,10 +909,8 @@ comptypes (t1, t2, strict)
   if (t1 == t2)
     return 1;
 
-  /* This should never happen.  */
-  my_friendly_assert (t1 != error_mark_node, 307);
-
-  if (t2 == error_mark_node)
+  /* Suppress errors caused by previously reported errors */
+  if (t1 == error_mark_node || t2 == error_mark_node)
     return 0;
 
   /* If either type is the internal version of sizetype, return the
@@ -1405,7 +1403,7 @@ compparms (parms1, parms2)
 	 they fail to match.  */
       if (t1 == 0 || t2 == 0)
 	return 0;
-      if (!same_type_p (TREE_VALUE (t2), TREE_VALUE (t1)))
+      if (!same_type_p (TREE_VALUE (t1), TREE_VALUE (t2)))
 	return 0;
 
       t1 = TREE_CHAIN (t1);
@@ -2174,8 +2172,13 @@ finish_class_member_access_expr (tree object, tree name)
 
 	  /* Find the base of OBJECT_TYPE corresponding to SCOPE.  */
 	  access_path = lookup_base (object_type, scope, ba_check, NULL);
-	  if (!access_path || access_path == error_mark_node)
+	  if (access_path == error_mark_node)
 	    return error_mark_node;
+	  if (!access_path)
+	    {
+	      error ("`%T' is not a base of `%T'", scope, object_type);
+	      return error_mark_node;
+	    }
 
 	  /* Look up the member.  */
 	  member = lookup_member (access_path, name, /*protect=*/1, 
@@ -5293,8 +5296,9 @@ build_modify_expr (lhs, modifycode, rhs)
     {
       if (TREE_CODE (rhs) == CONSTRUCTOR)
 	{
-	  my_friendly_assert (same_type_p (TREE_TYPE (rhs), lhstype),
-			      20011220);
+	  if (! same_type_p (TREE_TYPE (rhs), lhstype))
+	    /* Call convert to generate an error; see PR 11063.  */
+	    rhs = convert (lhstype, rhs);
 	  result = build (INIT_EXPR, lhstype, lhs, rhs);
 	  TREE_SIDE_EFFECTS (result) = 1;
 	  return result;

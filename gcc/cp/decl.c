@@ -12340,7 +12340,10 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	       members of other classes.  */
 	    /* All method decls are public, so tell grokfndecl to set
 	       TREE_PUBLIC, also.  */
-	    decl = grokfndecl (ctype, type, declarator, declarator,
+	    decl = grokfndecl (ctype, type,
+			       TREE_CODE (declarator) != TEMPLATE_ID_EXPR
+			       ? declarator : dname,
+			       declarator,
 			       virtualp, flags, quals, raises,
 			       friendp ? -1 : 0, friendp, 1, 0, funcdef_flag,
 			       template_count, in_namespace);
@@ -14289,7 +14292,7 @@ start_function (declspecs, declarator, attrs, flags)
     }
   else
     {
-      decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1, NULL);
+      decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1, &attrs);
       /* If the declarator is not suitable for a function definition,
 	 cause a syntax error.  */
       if (decl1 == NULL_TREE || TREE_CODE (decl1) != FUNCTION_DECL)

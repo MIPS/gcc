@@ -1,3 +1,32 @@
+2003-10-20  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/10081
+	* include/bits/basic_ios.h (basic_ios::basic_ios): Initialize
+	_M_fctype, _M_fnumput, _M_fnumget.
+
+2003-10-16  Release Manager
+
+	* GCC 3.3.2 Released.
+
+2003-10-07  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/11740
+	* config/locale/gnu/ctype_members.cc (ctype<wchar_t>::do_is):
+	Fix to actually return (M & m) != 0 as per 22.2.1.1.2.
+	* config/locale/generic/ctype_members.cc: Same.
+
+2003-10-02  Harald Boehme  <boehme@informatik.hu-berlin.de>
+
+	PR libstdc++/12451
+	* libsupc++/cxxabi.h: Move forward declaration of __class_type_info.
+	
+2003-10-01  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.target: Handle Solaris 2.5 micro releases explicitly.
+	Remove wildcards from Solaris 2.6, 7-9: there were no
+	micro releases.
+	Treat Solaris 10 and up like 7-9.
+
 2003-09-30  Paolo Carlini  <pcarlini@unitus.it>
 
 	PR libstdc++/12296

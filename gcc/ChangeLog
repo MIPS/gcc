@@ -1,3 +1,210 @@
+2003-10-22  David Taylor <dtaylor@emc.com>
+
+	PR debug/12500
+	* dbxout.c (dbxout_typedefs): Use COMPLETE_OR_VOID_TYPE_P.
+
+2003-10-20  Zack Weinberg  <zack@codesourcery.com>
+
+	* fixinc/inclhack.def (hpux11_snprintf): New edit.
+	* fixinc/fixincl.x: Regenerate.
+	* fixinc/tests/base/stdio.h: Add test for hpux11_snprintf.
+
+2003-05-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/ia64/unwind-ia64.c (uw_update_reg_address): Handle
+	.save XX, r0.
+
+2003-10-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* doc/include/gcc-common.texi: Bump version number.
+	* version.c (version_string): Reset to prerelease format.
+
+2003-10-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/extend.texi: Fix typos.
+
+2003-10-16  Release Manager
+
+	* GCC 3.3.2 Released.
+
+2003-10-14  Jason Merrill  <jason@redhat.com>
+
+	PR c/11885
+	* stor-layout.c (update_alignment_for_field): Packed non-bit-fields 
+	get byte alignment.
+
+2003-10-14  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* fixinc/inclhack.def (alpha_pthread_gcc): New fix.
+	* fixinc/fixincl.x: Regenerate.
+	* fixinc/tests/base/pthread.h [ALPHA_PTHREAD_GCC_CHECK]: New
+	testcase. 
+	Fixes PR bootstrap/9330.
+
+2003-10-14  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR target/11087
+	Backport from gcc-3_3-rhl-branch and mainline.
+
+	2003-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* loop.c (basic_induction_var): Check if convert_modes
+	emitted any instructions. Remove them and return 0 if so.
+
+2003-10-13  Matt Kraai <kraai@alumni.cmu.edu>
+
+	PR target/11949
+	Backport from mainline:
+
+	2003-05-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* testsuite/gcc.c-torture/compile/simd-6.c: New.
+	* c-typeck.c (digest_init): Handle arrays of vector constants.
+
+2003-10-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/12544
+	* function.c (put_var_into_stack): Don't generate ADDRESSOFs
+	for DECL_NONLOCAL decls.
+
+2003-10-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/12510
+	Backport from mainline:
+
+	2003-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* toplev.c (rest_of_compilation): Call split_all_insns before
+	regstack if optimizing but not scheduling after reload.
+
+2003-10-09  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* fixinc/inclhack.def (stdio_va_list): Removed _ap fix.
+	(irix_stdio_va_list): Don't require leading printf, IRIX 6.5.21
+	introduced some multi-line prototypes.
+	* fixinc/fixincl.x: Regenerate.
+	Fixes PR libf2c/12263.
+
+2003-10-08  Timo Kokkonen  <tjko@iki.fi>
+            Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR bootstrap/12490
+	* scan-decls.c (MAX_EXTERN_C_BRACES): New preprocessor constant
+	to define the size of the extern_C_braces array.  Set it to 200.
+	(scan_decls): Abort when extern_C_braces_length is out-of-bounds.
+
+2003-10-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/12215
+	* cse.c (cse_set_around_loop): Emit the move at the beginning
+	of the next basic block for trapping sets.
+
+2003-10-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/11637
+	* combine.c (adjust_for_new_dest): New function to adjust the
+	notes and LOG_LINKS when the dest of an insn has changed.
+	(try_combine): Use it when deleting the first insn of a two-insn
+	parallel or splitting a two-load parallel.
+
+2003-10-04  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/t-m68hc11-gas (MULTILIB_MATCHES): m68hcs12 is
+	identical to m68hc12 as far as libraries are concerned.
+
+2003-10-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/12446
+	* c-typeck.c (convert_for_assignment): Issue an error for
+	array to pointer assignment after default conversion.
+	(digest_init): Likewise.
+
+2003-10-03  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/extend.texi (Function Attributes): Fix title of GNU C
+	Preprocessor manual.
+	(C++ Extensions): Fix reference to "Predefined Macros" in the
+	GNU C Preprocessor manual.
+
+2003-10-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR/11883
+	* cfgloop.c (flow_loops_find): Fix handling of abnormal edges.
+
+2003-10-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR optimization/12180
+	* c-objc-common.c (inline_forbidden_p): Do not permit inlining of
+	functions containing calls to __builtin_next_arg.
+
+2003-10-02  Josef Zlomek  <zlomekj@suse.cz>
+
+	PR/12292
+	* combine.c (make_field_assignment): Check whether rtx's code
+	is CONST_INT before using INTVAL.
+
+2003-10-02  Josef Zlomek  <zlomekj@suse.cz>
+
+	Waldek Hebisch <hebisch@math.uni.wroc.pl>
+	PR/12072
+	* varasm.c (compare_constant): Fix thinko.
+
+2003-10-01  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* aclocal.m4: Add hpux10* and hpux11.00 to /dev/zero blacklist.
+	* configure: Rebuilt.
+
+2003-10-01  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* aclocal.m4: Add ultrix* to /dev/zero blacklist.
+	* configure: Rebuilt.
+
+2003-10-01  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config.gcc (sparc-*-solaris2*): Handle Solaris 10 and up like
+	Solaris 7-9.
+
+	* fixinc/inclhack.def (solaris_widec): Replace solaris2.[0-5]* by
+	wildcards which explicitly match micro versions.
+	* fixinc/fixincl.x: Regenerate.
+
+2003-10-01  Richard Henderson  <rth@redhat.com>
+
+	* dwarf2out.c (expand_builtin_init_dwarf_reg_sizes): Honor
+	DWARF_ALT_FRAME_RETURN_COLUMN.
+	* unwind-dw2.c (dwarf_reg_size_table): Expand by one.
+	(_Unwind_GetGR, _Unwind_SetGR): Validate lookup column.
+	(uw_frame_state_for): Return end-of-stack for null return address.
+
+	* config/alpha/alpha.c (alpha_sa_mask): Add r31 for eh_return.
+	(alpha_expand_prologue): Store a zero for it.
+	(alpha_expand_epilogue): Don't reload it.
+	* config/alpha/alpha.h (DWARF_ALT_FRAME_RETURN_COLUMN): New.
+	* config/alpha/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Use column 64
+	for the sigframe return address.
+
+2003-10-01  Nick Clifton  <nickc@redhat.com>
+
+	* Import this patch from mainline:
+	
+	2003-02-01  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* collect2.c (pexecute_pid): Rename to pid.
+	(collect_wait, collect_execute, scan_prog_file, scan_libraries): Use
+	pid.
+
+2003-09-23  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/linux.h (LINK_GCC_C_SEQUENCE_SPEC): Undefine
+	before redefining.
+	* config/sparc/linux64.h (LINK_GCC_C_SEQUENCE_SPEC): Likewise.
+
+2003-10-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/11753
+	* config/sparc/sparc.md (length attribute) [fcc branch]: Add 1 to
+	the length in the non-V9 case.
+
 2003-07-09  Mark Mitchell  <mark@codesourcery.com>
 
 	* cp-tree.h (break_out_calls): Remove declaration.
@@ -90,7 +297,7 @@
 	* config.gcc (mips*-*-rtems*): Use config/mips/t-rtems.
 
 2003-09-19  T. Papadopoulo <Theodore.Papadopoulo@sophia.inria.fr>
-            Eric Botcazou <ebotcazou@libertysurf.fr>
+	    Eric Botcazou <ebotcazou@libertysurf.fr>
 
 	PR target/12166
 	* config/sparc/sol2-c1.asm (start): Set __Argv if GCRT1.
@@ -163,15 +370,15 @@
 2003-09-09  Richard Henderson  <rth@redhat.com>
 
 	PR target/12224:
-        * config/ia64/ia64.c (ia64_expand_move): Properly truncate
-        result when op0 is SImode.
+	* config/ia64/ia64.c (ia64_expand_move): Properly truncate
+	result when op0 is SImode.
 
 2003-09-09  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
 	* configure.in (gcc_cv_as_ix86_cmov_sun_syntax): Check if
 	assembler supports Sun syntax for cmov.
 	* configure: Regenerate.
-	* config.in: Likewise.
+	* config.in: Li{ewise.
 	* config/i386/i386.c: Rename CMOV_SUN_AS_SYNTAX to
 	HAVE_AS_IX86_CMOV_SUN_SYNTAX. 
 	* config/i386/sol2.h (CMOV_SUN_AS_SYNTAX): Remove.
@@ -340,9 +547,9 @@ Sat Sep  6 23:16:35 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-08-25  Richard Henderson  <rth@redhat.com>
 
-        * config/i386.i386.c (ix86_return_in_memory): Reformat.  Return true
-        for 16-byte vector modes if sse not enabled; warn for abi change.
-        (ix86_value_regno): Only return xmm0 for 16-byte vector types.
+	* config/i386.i386.c (ix86_return_in_memory): Reformat.  Return true
+	for 16-byte vector modes if sse not enabled; warn for abi change.
+	(ix86_value_regno): Only return xmm0 for 16-byte vector types.
 
 2003-08-25  Zack Weinberg  <zack@codesourcery.com>
 
@@ -1103,7 +1310,7 @@ Sat Sep  6 23:16:35 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	* c-decl.c (duplicate_decls): Re-invoke make_decl_rtl if
 	the old decl had instantiated DECL_RTL.
 
-	2003-05-21  Danny Smith  <dannysmith@users.sourceforge.net>
+	2003-05-21  Danny Smith  <dannysmitx@users.sourceforge.net>
 
 	PR c++/9738
 	* config/i386/winnt.c (i386_pe_encode_section_info): Enable
@@ -2902,7 +3109,7 @@ Sun Apr 20 18:23:18 CEST 2003  Richard Henderson  <rth@redhat.com>
 
 2003-04-21  Mark Mitchell  <mark@codesourcery.com>
 
-	* config/i386/winnt.c (i386_pe_mark_dllimport): Make the new RTL
+	* config/i386/winnt.c (i386_pe_}ark_dllimport): Make the new RTL
 	have the same form as the old RTL.
 
 2003-04-18  Mark Mitchell  <mark@codesourcery.com>
@@ -5780,7 +5987,7 @@ Mon Apr  7 15:56:30 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-01-16  Stephane Carrez  <stcarrez@nerim.fr>
 
-	* config/m68hc11/m68hc11.c (expand_prologue): Use push/pop to
+	* config/m68hs11/m68hc11.c (expand_prologue): Use push/pop to
 	allocate 4-bytes of locals on 68HC11.
 	(expand_epilogue): Likewise.
 	(m68hc11_memory_move_cost): Increase cost of HI/QI soft registers.

@@ -5,7 +5,7 @@
  * files which are fixed to work correctly with ANSI C and placed in a
  * directory that GNU C will search.
  *
- * This file contains 161 fixup descriptions.
+ * This file contains 163 fixup descriptions.
  *
  * See README for more information.
  *
@@ -905,6 +905,46 @@ static tTestDesc aAlpha_ParensTests[] = {
 static const char* apzAlpha_ParensPatch[] = {
     "format",
     "#ifndef __mips64",
+    (char*)NULL };
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * *
+ *
+ *  Description of Alpha_Pthread_Gcc fix
+ */
+tSCC zAlpha_Pthread_GccName[] =
+     "alpha_pthread_gcc";
+
+/*
+ *  File name selection pattern
+ */
+tSCC zAlpha_Pthread_GccList[] =
+  "|pthread.h|";
+/*
+ *  Machine/OS name selection pattern
+ */
+tSCC* apzAlpha_Pthread_GccMachs[] = {
+        "alpha*-dec-osf*",
+        (const char*)NULL };
+
+/*
+ *  content selection pattern - do fix if pattern found
+ */
+tSCC zAlpha_Pthread_GccSelect0[] =
+       "#else\n\
+# error <pthread.h>: unrecognized compiler.";
+
+#define    ALPHA_PTHREAD_GCC_TEST_CT  1
+static tTestDesc aAlpha_Pthread_GccTests[] = {
+  { TT_EGREP,    zAlpha_Pthread_GccSelect0, (regex_t*)NULL }, };
+
+/*
+ *  Fix Command Arguments for Alpha_Pthread_Gcc
+ */
+static const char* apzAlpha_Pthread_GccPatch[] = {
+    "format",
+    "#elif defined (__GNUC__)\n\
+# define _PTHREAD_ENV_GCC\n\
+%0",
     (char*)NULL };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -2212,6 +2252,41 @@ static const char* apzHpux11_VsnprintfPatch[] = {
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * *
  *
+ *  Description of Hpux11_Snprintf fix
+ */
+tSCC zHpux11_SnprintfName[] =
+     "hpux11_snprintf";
+
+/*
+ *  File name selection pattern
+ */
+tSCC zHpux11_SnprintfList[] =
+  "|stdio.h|";
+/*
+ *  Machine/OS name selection pattern
+ */
+#define apzHpux11_SnprintfMachs (const char**)NULL
+
+/*
+ *  content selection pattern - do fix if pattern found
+ */
+tSCC zHpux11_SnprintfSelect0[] =
+       "(extern int snprintf *\\(char *\\*, *(|__|_hpux_)size_t,) *(char *\\*, *\\.\\.\\.\\);)";
+
+#define    HPUX11_SNPRINTF_TEST_CT  1
+static tTestDesc aHpux11_SnprintfTests[] = {
+  { TT_EGREP,    zHpux11_SnprintfSelect0, (regex_t*)NULL }, };
+
+/*
+ *  Fix Command Arguments for Hpux11_Snprintf
+ */
+static const char* apzHpux11_SnprintfPatch[] = {
+    "format",
+    "%1 const %3",
+    (char*)NULL };
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * *
+ *
  *  Description of Hpux8_Bogus_Inlines fix
  */
 tSCC zHpux8_Bogus_InlinesName[] =
@@ -2722,7 +2797,7 @@ tSCC zIrix_Stdio_Va_ListList[] =
  *  content selection pattern - do fix if pattern found
  */
 tSCC zIrix_Stdio_Va_ListSelect0[] =
-       "(printf\\(.*), /\\* va_list \\*/ char \\*";
+       "/\\* va_list \\*/ char \\*";
 
 #define    IRIX_STDIO_VA_LIST_TEST_CT  1
 static tTestDesc aIrix_Stdio_Va_ListTests[] = {
@@ -2733,7 +2808,7 @@ static tTestDesc aIrix_Stdio_Va_ListTests[] = {
  */
 static const char* apzIrix_Stdio_Va_ListPatch[] = {
     "format",
-    "%1, __gnuc_va_list",
+    "__gnuc_va_list",
     (char*)NULL };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -4329,7 +4404,8 @@ tSCC zSolaris_WidecList[] =
  *  Machine/OS name selection pattern
  */
 tSCC* apzSolaris_WidecMachs[] = {
-        "*-*-solaris2.[0-5]*",
+        "*-*-solaris2.[0-5]",
+        "*-*-solaris2.[0-5].*",
         (const char*)NULL };
 
 /*
@@ -4462,7 +4538,6 @@ static tTestDesc aStdio_Va_ListTests[] = {
 static const char* apzStdio_Va_ListPatch[] = { "sed",
     "-e", "s@ va_list @ __gnuc_va_list @\n\
 s@ va_list)@ __gnuc_va_list)@\n\
-s@va_list _ap;@__gnuc_va_list _ap;@\n\
 s@(va_list)&@(__gnuc_va_list)\\&@\n\
 s@ _VA_LIST_));@ __gnuc_va_list));@\n\
 s@ __VA_LIST__));@ __gnuc_va_list));@\n\
@@ -6334,9 +6409,9 @@ static const char* apzX11_SprintfPatch[] = {
  *
  *  List of all fixes
  */
-#define REGEX_COUNT          175
+#define REGEX_COUNT          177
 #define MACH_LIST_SIZE_LIMIT 261
-#define FIX_COUNT            161
+#define FIX_COUNT            163
 
 /*
  *  Enumerate the fixes
@@ -6362,6 +6437,7 @@ typedef enum {
     ALPHA_ASSERT_FIXIDX,
     ALPHA_GETOPT_FIXIDX,
     ALPHA_PARENS_FIXIDX,
+    ALPHA_PTHREAD_GCC_FIXIDX,
     ALPHA_SBRK_FIXIDX,
     ARM_NORCROFT_HINT_FIXIDX,
     ARM_WCHAR_FIXIDX,
@@ -6395,6 +6471,7 @@ typedef enum {
     HPUX11_SIZE_T_FIXIDX,
     HPUX11_UINT32_C_FIXIDX,
     HPUX11_VSNPRINTF_FIXIDX,
+    HPUX11_SNPRINTF_FIXIDX,
     HPUX8_BOGUS_INLINES_FIXIDX,
     HPUX_CTYPE_MACROS_FIXIDX,
     HPUX_LONG_DOUBLE_FIXIDX,
@@ -6606,6 +6683,11 @@ tFixDesc fixDescList[ FIX_COUNT ] = {
      ALPHA_PARENS_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
      aAlpha_ParensTests,   apzAlpha_ParensPatch, 0 },
 
+  {  zAlpha_Pthread_GccName,    zAlpha_Pthread_GccList,
+     apzAlpha_Pthread_GccMachs,
+     ALPHA_PTHREAD_GCC_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
+     aAlpha_Pthread_GccTests,   apzAlpha_Pthread_GccPatch, 0 },
+
   {  zAlpha_SbrkName,    zAlpha_SbrkList,
      apzAlpha_SbrkMachs,
      ALPHA_SBRK_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
@@ -6770,6 +6852,11 @@ tFixDesc fixDescList[ FIX_COUNT ] = {
      apzHpux11_VsnprintfMachs,
      HPUX11_VSNPRINTF_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
      aHpux11_VsnprintfTests,   apzHpux11_VsnprintfPatch, 0 },
+
+  {  zHpux11_SnprintfName,    zHpux11_SnprintfList,
+     apzHpux11_SnprintfMachs,
+     HPUX11_SNPRINTF_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
+     aHpux11_SnprintfTests,   apzHpux11_SnprintfPatch, 0 },
 
   {  zHpux8_Bogus_InlinesName,    zHpux8_Bogus_InlinesList,
      apzHpux8_Bogus_InlinesMachs,

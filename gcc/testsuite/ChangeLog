@@ -1,4 +1,89 @@
-2003-10-01  Jakub Jelinek  <jakub@redhat.com>
+2003-10-16  Release Manager
+
+	* GCC 3.3.2 Released.
+
+2003-10-15  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/12369
+	* g++.dg/template/friend25.C: New test.
+
+2003-10-15  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/7939
+	* g++.dg/template/crash11.C: New test.
+
+2003-10-14  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* g++.dg/tls/init-2.C: Fix. Expect two warnings.
+
+2003-10-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20031011-1.c: New test.
+
+2003-10-09  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* gcc.dg/20031009-1.c: New test.
+
+2003-10-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/ext/attrib8.C: Only run it on x86 targets.
+
+2003-10-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/template/ptrmem4.C: Revise in view of fixes for PR
+	c++/10147.
+
+2003-10-06  Bob Wilson  <bob.wilson@acm.org>
+
+	* g++.dg/template/spec10.C: Set exit value to zero on success.  Fix
+	indentation.
+
+2003-10-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/12337
+	* g++.dg/init/new9.C: New test.
+	
+	PR c++/12334, c++/12236, c++/8656
+	* g++.dg/ext/attrib8.C: New test.
+
+2003-10-06  Wolfgang Bangerth  <bangerth@ticam.utexas.edu>
+
+	* g++.dg/opt/cfg2.C: New test.
+
+2003-10-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/float1.C: New test.
+
+2003-10-04  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/11409
+	* g++.dg/overload/builtin3.C: New test case.
+
+2003-10-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/c90-array-lval-6.c: New test.
+	* gcc.dg/c99-array-lval-6.c: New test.
+
+2003-10-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR optimization/12180
+	* gcc.dg/20031002-1.c: New test.
+
+2003-10-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/12486
+	* g++.dg/inherit/error1.C: New test.
+	
+2003-10-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/parse/parameter-declaration-1.C: Fix line number of
+	expected error message.
+
+2003-10-02  Josef Zlomek  <zlomekj@suse.cz>
+
+	* gcc.c-torture/compile/20031002-1.c: New test.
+
+2003-10-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/opt/cond1.C: New test.
 

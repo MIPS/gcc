@@ -3479,7 +3479,6 @@ rest_of_compilation (decl)
 #endif
 
 #ifdef STACK_REGS
-
 #if defined (HAVE_ATTR_length)
   /* If flow2 creates new instructions which need splitting
      and scheduling after reload is not done, they might not be
