@@ -1,3 +1,6 @@
+/* { dg-do run } */
+/* { dg-options "-Wno-long-long" } */
+
 long long foo()
 {
   static long long rat = (1LL<<62);
