@@ -334,8 +334,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 {
   unsigned int unit
     = (MEM_P (str_rtx)) ? BITS_PER_UNIT : BITS_PER_WORD;
-  unsigned HOST_WIDE_INT offset = bitnum / unit;
-  unsigned HOST_WIDE_INT bitpos = bitnum % unit;
+  unsigned HOST_WIDE_INT offset, bitpos;
   rtx op0 = str_rtx;
   int byte_offset;
   rtx orig_value;
@@ -349,11 +348,15 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	 meaningful at a much higher level; when structures are copied
 	 between memory and regs, the higher-numbered regs
 	 always get higher addresses.  */
-      offset += (SUBREG_BYTE (op0) / UNITS_PER_WORD);
-      /* We used to adjust BITPOS here, but now we do the whole adjustment
-	 right after the loop.  */
+      bitnum += SUBREG_BYTE (op0) * BITS_PER_UNIT;
       op0 = SUBREG_REG (op0);
     }
+
+  /* No action is needed if the target is a register and if the field
+     lies completely outside that register.  This can occur if the source
+     code contains an out-of-bounds access to a small array.  */
+  if (REG_P (op0) && bitnum >= GET_MODE_BITSIZE (GET_MODE (op0)))
+    return value;
 
   /* Use vec_set patterns for inserting parts of vectors whenever
      available.  */
@@ -416,6 +419,8 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
      done with a simple store.  For targets that support fast unaligned
      memory, any naturally sized, unit aligned field can be done directly.  */
 
+  offset = bitnum / unit;
+  bitpos = bitnum % unit;
   byte_offset = (bitnum % BITS_PER_WORD) / BITS_PER_UNIT
                 + (offset * UNITS_PER_WORD);
 
@@ -1077,8 +1082,7 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 {
   unsigned int unit
     = (MEM_P (str_rtx)) ? BITS_PER_UNIT : BITS_PER_WORD;
-  unsigned HOST_WIDE_INT offset = bitnum / unit;
-  unsigned HOST_WIDE_INT bitpos = bitnum % unit;
+  unsigned HOST_WIDE_INT offset, bitpos;
   rtx op0 = str_rtx;
   rtx spec_target = target;
   rtx spec_target_subreg = 0;
@@ -1093,14 +1097,15 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
   while (GET_CODE (op0) == SUBREG)
     {
-      bitpos += SUBREG_BYTE (op0) * BITS_PER_UNIT;
-      if (bitpos > unit)
-	{
-	  offset += (bitpos / unit);
-	  bitpos %= unit;
-	}
+      bitnum += SUBREG_BYTE (op0) * BITS_PER_UNIT;
       op0 = SUBREG_REG (op0);
     }
+
+  /* If we have an out-of-bounds access to a register, just return an
+     uninitialised register of the required mode.  This can occur if the
+     source code contains an out-of-bounds access to a small array.  */
+  if (REG_P (op0) && bitnum >= GET_MODE_BITSIZE (GET_MODE (op0)))
+    return gen_reg_rtx (tmode);
 
   if (REG_P (op0)
       && mode == GET_MODE (op0)
@@ -1195,7 +1200,9 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
      A subword value in the least significant part of a register
      can also be extracted with a SUBREG.  For this, we need the
      byte offset of the value in op0.  */
-
+ 
+  bitpos = bitnum % unit;
+  offset = bitnum / unit;
   byte_offset = bitpos / BITS_PER_UNIT + offset * UNITS_PER_WORD;
 
   /* If OP0 is a register, BITPOS must count within a word.
