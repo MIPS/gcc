@@ -1034,8 +1034,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 
   formal = sym->formal;
   /* Use g77 calling convention if neccessary.  */
-  g77 = (gfc_option.flag_g77_calls
-	 && !sym->attr.always_explicit);
+  g77 = (gfc_option.flag_g77_calls);
   /* Evaluate the arguments.  */
   for (; arg != NULL; arg = arg->next, formal = formal ? formal->next : NULL)
     {
@@ -1090,7 +1089,19 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
                 }
             }
 	  else
-            gfc_conv_array_parameter (&parmse, arg->expr, argss, g77);
+	    {
+	      /* If the procedure requires explicit interface, actual argument
+	         is passed according to corresponing formal argument.  We
+		 do not use g77 method and the address of array descriptor
+		 is passed if corresponing formal is pointer or
+		 assumed-shape,  Otherwise use g77 method.  */
+	      int f;
+	      f = (formal != NULL)
+		  && !formal->sym->attr.pointer
+		  && formal->sym->as->type != AS_ASSUMED_SHAPE;
+	      f = g77 && (f || !sym->attr.always_explicit);
+	      gfc_conv_array_parameter (&parmse, arg->expr, argss, f);
+	    } 
 	}
 
       gfc_add_block_to_block (&se->pre, &parmse.pre);

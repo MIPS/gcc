@@ -3736,7 +3736,37 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, gfc_ss * ss, int g77)
   tree desc;
   tree tmp;
   tree stmt;
+  gfc_symbol *sym;
   stmtblock_t block;
+
+  /* Passing address of the array if it is not pointer or assumed-shape.  */
+  if (expr->expr_type == EXPR_VARIABLE
+       && expr->ref->u.ar.type == AR_FULL && g77)
+    {
+      sym = expr->symtree->n.sym;
+      tmp = gfc_get_symbol_decl (sym);
+      if (!sym->attr.pointer && sym->as->type != AS_ASSUMED_SHAPE 
+          && !sym->attr.allocatable && !sym->attr.in_common)
+        {
+          if (!sym->attr.dummy)
+	    se->expr = build1 (ADDR_EXPR,
+			       build_pointer_type (TREE_TYPE (tmp)),
+			       tmp);
+          else
+            se->expr = tmp;  
+	  return;
+        }
+      if (sym->attr.allocatable)
+        {
+          se->expr = gfc_conv_array_data (tmp);
+          return;
+        }
+      if (sym->attr.in_common)
+        {
+          se->expr = TREE_OPERAND (tmp, 0);
+          return;
+        }
+    }
 
   se->want_pointer = 1;
   gfc_conv_expr_descriptor (se, expr, ss);

@@ -461,8 +461,7 @@ gfc_is_nodesc_array (gfc_symbol * sym)
 
   if (sym->attr.dummy)
     {
-      if (gfc_option.flag_g77_calls
-          && !sym->ns->proc_name->attr.always_explicit)
+      if (gfc_option.flag_g77_calls && sym->as->type != AS_ASSUMED_SHAPE)
         return 1;
       else
         return 0;
