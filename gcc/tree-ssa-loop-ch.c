@@ -150,7 +150,7 @@ static void
 duplicate_blocks (varray_type bbs_to_duplicate)
 {
   unsigned i;
-  edge preheader_edge, e, e1;
+  edge preheader_edge, e;
   basic_block header, new_header;
   tree phi, new_phi, var;
 
@@ -195,11 +195,11 @@ duplicate_blocks (varray_type bbs_to_duplicate)
       /* Add the phi arguments to the outgoing edges.  */
       FOR_EACH_EDGE (e, header->succ, ix)
 	{
+	  edge e1;
 	  unsigned ix1;
-          for (ix1 = 0;
-	       (e1 = *(VEC_iterate(edge, new_header->succ, ix1))) && e1->dest != e->dest;
-	       ix1++)
-	    continue;
+	  FOR_EACH_EDGE (e1, new_header->succ, ix1)
+	    if (e1->dest == e->dest)
+	      break;
 
 	  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
 	    {

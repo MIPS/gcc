@@ -1049,14 +1049,15 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
       /* We can't redirect the entry block.  Create an empty block at the
          start of the function which we use to add the new jump.  */
       edge tmp;
-      bool found;
       unsigned ix;
+      bool found = false;
+
       basic_block bb = create_basic_block (BB_HEAD (e->dest), NULL, ENTRY_BLOCK_PTR);
 
       /* Change the existing edge's source to be the new block, and add
 	 a new edge from the entry block to the new block.  */
       e->src = bb;
-      for (found = false, ix = 0; (tmp = *(VEC_iterate(edge, ENTRY_BLOCK_PTR->succ, ix))); ix++)
+      FOR_EACH_EDGE (tmp, ENTRY_BLOCK_PTR->succ, ix)
         if (tmp == e)
           {
             VEC_ordered_remove (edge, ENTRY_BLOCK_PTR->succ, ix);

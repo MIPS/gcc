@@ -392,10 +392,10 @@ redirect_edge_succ (edge e, basic_block new_succ)
 {
   edge tmp;
   unsigned ix;
-  bool found;
+  bool found = false;
 
   /* Disconnect the edge from the old successor block.  */
-  for (found = false, ix = 0; (tmp = *(VEC_iterate(edge, e->dest->pred, ix))); ix++)
+  FOR_EACH_EDGE (tmp, e->dest->pred, ix)
     if (tmp == e)
       {
 	VEC_ordered_remove (edge, e->dest->pred, ix);	
@@ -446,11 +446,11 @@ void
 redirect_edge_pred (edge e, basic_block new_pred)
 {
   edge tmp;
-  bool found;
   unsigned ix;
+  bool found = false;
 
   /* Disconnect the edge from the old predecessor block.  */
-  for (found = false, ix = 0; (tmp = *(VEC_iterate(edge, e->src->succ, ix))); ix++)
+  FOR_EACH_EDGE (tmp, e->src->succ, ix)
     if (tmp == e)
       {
 	VEC_ordered_remove (edge, e->src->succ, ix);

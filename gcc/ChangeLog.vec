@@ -1,3 +1,10 @@
+2004-07-22  Ben Elliston  <bje@au.ibm.com>
+
+	* cfg.c (redirect_edge_succ): Use FOR_EACH_EDGE for consistency.
+	(redirect_edge_pred): Likewise.
+	* cfgrtl.c (force_nonfallthru_and_redirect): Likewise.
+	* tree-ssa-loop-ch.c (duplicate_blocks): Likewise.
+
 2004-07-22  Steven Bosscher  <stevenb@suse.de>
 
 	* var-tracking.c (vt_stack_adjustments): Fix stack push thinko.
