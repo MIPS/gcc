@@ -610,6 +610,48 @@ cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *node)
   node->needed = 1;
 }
 
+/* Determine if variable DECL is needed.  That is, visible to something
+   either outside this translation unit, something magic in the system
+   configury, or (if not doing unit-at-a-time) to something we haven't
+   seen yet.  */
+
+static bool
+decide_is_variable_needed (struct cgraph_varpool_node *node, tree decl)
+{
+  /* If we decided it was needed before, but at the time we didn't have
+     the body of the function available, then it's still needed.  We have
+     to go back and re-check its dependencies now.  */
+  if (node->needed)
+    return true;
+
+  /* Externally visible functions must be output.  The exception is
+     COMDAT functions that must be output only when they are needed.  */
+  if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
+    return true;
+
+  /* If the user told us it is used, then it must be so.  */
+  if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
+    return true;
+
+  /* ??? If the assembler name is set by hand, it is possible to assemble
+     the name later after finalizing the function and the fact is noticed
+     in assemble_name then.  This is arguably a bug.  */
+  if (DECL_ASSEMBLER_NAME_SET_P (decl)
+      && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+    return true;
+
+  if (flag_unit_at_a_time)
+    return false;
+
+  /* If not doing unit at a time, then we'll only defer this function
+     if its marked for inlining.  Otherwise we want to emit it now.  */
+
+  /* We want to emit COMDAT variables only when absolutely necessary.  */
+  if (DECL_COMDAT (decl))
+    return false;
+  return true;
+}
+
 void
 cgraph_varpool_finalize_decl (tree decl)
 {
@@ -620,22 +662,19 @@ cgraph_varpool_finalize_decl (tree decl)
      or local (in C, has internal linkage).  So do nothing more
      if this function has already run.  */
   if (node->finalized)
-    return;
+    {
+      if (cgraph_global_info_ready || !flag_unit_at_a_time)
+	cgraph_varpool_assemble_pending_decls ();
+      return;
+    }
   if (node->needed)
     enqueue_needed_varpool_node (node);
   node->finalized = true;
 
-  if (/* Externally visible variables must be output.  The exception are
-	 COMDAT functions that must be output only when they are needed.  */
-      (TREE_PUBLIC (decl) && !DECL_COMDAT (decl))
-      /* Function whose name is output to the assembler file must be produced.
-	 It is possible to assemble the name later after finalizing the function
-	 and the fact is noticed in assemble_name then.  */
-      || (DECL_ASSEMBLER_NAME_SET_P (decl)
-	  && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
-    {
-      cgraph_varpool_mark_needed_node (node);
-    }
+  if (decide_is_variable_needed (node, decl))
+    cgraph_varpool_mark_needed_node (node);
+  if (cgraph_global_info_ready || !flag_unit_at_a_time)
+    cgraph_varpool_assemble_pending_decls ();
 }
 
 

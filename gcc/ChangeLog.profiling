@@ -1,3 +1,17 @@
+2004-10-16  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (decide_is_variable_needed): New function.
+	(cgraph_varpool_finalize_decl): Use it.
+	* cgraphunit.c (cgraph_optimize): Assemble_pending_decls when not doing
+	unit-at-a-time.
+	* final.c (output_addr_const): Do not call mark_referenced.
+	* passes.c (rest_of_decl_compilation): ifdef out DECL_RTL_SET_P hack;
+	always go via cgraph.
+	* toplev.c (wrapup_global_declarations): Kill non-unit-at-a-time code.
+	(check_global_declarations): Ifdef out code clearing DECL_RTL.
+	* tree-optimize.c (execute_inline): Mark functions called.
+	* i386.c (output_pic_addr_const): Do not call mark_decl_referenced.
+
 2004-10-11  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c (cgraph_varpool_first_unanalyzed_node): New global voriable

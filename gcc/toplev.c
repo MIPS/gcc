@@ -774,9 +774,9 @@ wrapup_global_declarations (tree *vec, int len)
 	      bool needed = 1;
 	      node = cgraph_varpool_node (decl);
 
-	      if (flag_unit_at_a_time && node->finalized)
+	      if (node->finalized)
 		needed = 0;
-	      else if ((flag_unit_at_a_time && !cgraph_global_info_ready)
+	      else if (!cgraph_global_info_ready
 		       && (TREE_USED (decl)
 			   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
 		/* needed */;
@@ -818,12 +818,14 @@ check_global_declarations (tree *vec, int len)
     {
       decl = vec[i];
 
+#if 0
       if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl)
 	  && ! TREE_ASM_WRITTEN (decl))
 	/* Cancel the RTL for this decl so that, if debugging info
 	   output for global variables is still to come,
 	   this one will be omitted.  */
 	SET_DECL_RTL (decl, NULL_RTX);
+#endif
 
       /* Warn about any function
 	 declared static but not defined.

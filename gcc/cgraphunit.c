@@ -2834,7 +2834,10 @@ cgraph_optimize (void)
   verify_cgraph ();
 #endif
   if (!flag_unit_at_a_time)
-    return;
+    {
+      cgraph_varpool_assemble_pending_decls ();
+      return;
+    }
   if (flag_ipa_cp && flag_ipa_no_cloning)
     ipcp_driver ();
   timevar_push (TV_CGRAPHOPT);

@@ -1234,6 +1234,7 @@ make_local_function_alias (tree method)
   SET_DECL_ASSEMBLER_NAME (alias, DECL_NAME (alias));
   TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (alias)) = 1;
   cgraph_mark_needed_node (cgraph_node (alias));
+  cgraph_mark_needed_node (cgraph_node (method));
   if (!flag_syntax_only)
     assemble_alias (alias, DECL_ASSEMBLER_NAME (method));
   return alias;
@@ -2345,8 +2346,11 @@ emit_register_classes (tree *list_p)
       named_section_flags (JCR_SECTION_NAME, SECTION_WRITE);
       assemble_align (POINTER_SIZE);
       for (t = registered_class; t; t = TREE_CHAIN (t))
-	assemble_integer (XEXP (DECL_RTL (t), 0),
-			  POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
+	{
+	  mark_decl_referenced (t);
+	  assemble_integer (XEXP (DECL_RTL (t), 0),
+			    POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
+	}
 #else
       abort ();
 #endif

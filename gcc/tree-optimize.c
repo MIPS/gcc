@@ -83,7 +83,13 @@ execute_inline (void)
   /* We are not going to maintain the cgraph edges up to date.
      Kill it so it won't confuse us.  */
   while (node->callees)
-    cgraph_remove_edge (node->callees);
+    {
+      /* In non-unit-at-a-time we must mark all referenced functions as needed.
+         */
+      if (node->callees->callee->analyzed && !flag_unit_at_a_time)
+        cgraph_mark_needed_node (node->callees->callee);
+      cgraph_remove_edge (node->callees);
+    }
 }
 
 static struct tree_opt_pass pass_inline = 
