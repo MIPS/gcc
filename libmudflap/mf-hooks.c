@@ -82,8 +82,7 @@ WRAPPER(void *, malloc, size_t c)
   if (LIKELY(result))
     {
       result += __mf_opts.crumple_zone;
-      __mf_register (result, c,
-		     __MF_TYPE_HEAP, "malloc region");
+      __mf_register (result, c, __MF_TYPE_HEAP, "malloc region");
     }
 
   return result;
@@ -115,8 +114,7 @@ WRAPPER(void *, calloc, size_t c, size_t n)
   if (LIKELY(result))
     {
       result += __mf_opts.crumple_zone;
-      __mf_register (result, c*n, /* XXX: CLAMPMUL */
-		     __MF_TYPE_HEAP, "calloc region");
+      __mf_register (result, c*n /* XXX: clamp */, __MF_TYPE_HEAP_I, "calloc region");
     }
   
   return result;
@@ -155,8 +153,7 @@ WRAPPER(void *, realloc, void *buf, size_t c)
   if (LIKELY(result))
     {
       result += __mf_opts.crumple_zone;
-      __mf_register (result, c, 
-		     __MF_TYPE_HEAP, "realloc region");
+      __mf_register (result, c, __MF_TYPE_HEAP_I, "realloc region");
     }
 
   /* Restore previous setting.  */
@@ -293,7 +290,7 @@ WRAPPER(void *, mmap,
 	  /* XXX: Unaccassed HEAP pages are reported as leaks.  Is this
 	     appropriate for unaccessed mmap pages? */
 	  __mf_register ((void *) CLAMPADD (base, offset), ps,
-			 __MF_TYPE_HEAP, "mmap page");
+			 __MF_TYPE_HEAP_I, "mmap page");
 	}
     }
 
@@ -620,8 +617,7 @@ WRAPPER2(char *, strdup, const char *s)
   memcpy (result, s, n);
   result[n] = '\0';
 
-  __mf_register (result, CLAMPADD(n,1), 
-		 __MF_TYPE_HEAP, "strdup region");
+  __mf_register (result, CLAMPADD(n,1), __MF_TYPE_HEAP_I, "strdup region");
   return result;
 }
 #endif
@@ -647,7 +643,7 @@ WRAPPER2(char *, strndup, const char *s, size_t n)
   memcpy (result, s, n);
   result[n] = '\0';
 
-  __mf_register (result, CLAMPADD(n,1), __MF_TYPE_HEAP, "strndup region");
+  __mf_register (result, CLAMPADD(n,1), __MF_TYPE_HEAP_I, "strndup region");
   return result;
 }
 #endif

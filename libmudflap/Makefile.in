@@ -1,6 +1,6 @@
-# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
+# Makefile.in generated automatically by automake 1.4 from Makefile.am
 
-# Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
+# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -86,7 +86,7 @@ enable_shared = @enable_shared@
 enable_static = @enable_static@
 libtool_VERSION = @libtool_VERSION@
 
-AUTOMAKE_OPTIONS = 1.3 cygnus
+AUTOMAKE_OPTIONS = 1.3 foreign
 MAINT_CHARSET = latin1
 SUBDIRS = testsuite
 
@@ -220,6 +220,7 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = gtar
 GZIP_ENV = --best
+DEP_FILES =  .deps/mf-heuristics.P .deps/mf-runtime.P
 SOURCES = $(libmudflap_la_SOURCES)
 OBJECTS = $(libmudflap_la_OBJECTS)
 
@@ -227,9 +228,9 @@ all: all-redirect
 .SUFFIXES:
 .SUFFIXES: .S .c .lo .o .obj .s
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
-	cd $(top_srcdir) && $(AUTOMAKE) --cygnus Makefile
+	cd $(top_srcdir) && $(AUTOMAKE) --foreign Makefile
 
-Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status $(BUILT_SOURCES)
 	cd $(top_builddir) \
 	  && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
@@ -294,9 +295,6 @@ uninstall-libLTLIBRARIES:
 	  $(LIBTOOL)  --mode=uninstall rm -f $(DESTDIR)$(libdir)/$$p; \
 	done
 
-.c.o:
-	$(COMPILE) -c $<
-
 # FIXME: We should only use cygpath when building on Windows,
 # and only if it is available.
 .c.obj:
@@ -318,9 +316,6 @@ distclean-compile:
 	-rm -f *.tab.c
 
 maintainer-clean-compile:
-
-.c.lo:
-	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
 
 .s.lo:
 	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
@@ -366,7 +361,7 @@ uninstall-includeHEADERS:
 @SET_MAKE@
 
 all-recursive install-data-recursive install-exec-recursive \
-installdirs-recursive install-recursive uninstall-recursive install-info-recursive \
+installdirs-recursive install-recursive uninstall-recursive  \
 check-recursive installcheck-recursive info-recursive dvi-recursive:
 	@set fnord $(MAKEFLAGS); amf=$$2; \
 	dot_seen=no; \
@@ -392,7 +387,7 @@ maintainer-clean-recursive:
 	dot_seen=no; \
 	rev=''; list='$(SUBDIRS)'; for subdir in $$list; do \
 	  rev="$$subdir $$rev"; \
-	  test "$$subdir" != "." || dot_seen=yes; \
+	  test "$$subdir" = "." && dot_seen=yes; \
 	done; \
 	test "$$dot_seen" = "no" && rev=". $$rev"; \
 	target=`echo $@ | sed s/-recursive//`; \
@@ -483,8 +478,13 @@ distdir: $(DISTFILES)
 	-rm -rf $(distdir)
 	mkdir $(distdir)
 	-chmod 777 $(distdir)
+	here=`cd $(top_builddir) && pwd`; \
+	top_distdir=`cd $(distdir) && pwd`; \
+	distdir=`cd $(distdir) && pwd`; \
+	cd $(top_srcdir) \
+	  && $(AUTOMAKE) --include-deps --build-dir=$$here --srcdir-name=$(top_srcdir) --output-dir=$$top_distdir --foreign Makefile
 	@for file in $(DISTFILES); do \
-	  if test -f $$file; then d=.; else d=$(srcdir); fi; \
+	  d=$(srcdir); \
 	  if test -d $$d/$$file; then \
 	    cp -pr $$d/$$file $(distdir)/$$file; \
 	  else \
@@ -503,16 +503,46 @@ distdir: $(DISTFILES)
 	      || exit 1; \
 	  fi; \
 	done
+
+DEPS_MAGIC := $(shell mkdir .deps > /dev/null 2>&1 || :)
+
+-include $(DEP_FILES)
+
+mostlyclean-depend:
+
+clean-depend:
+
+distclean-depend:
+	-rm -rf .deps
+
+maintainer-clean-depend:
+
+%.o: %.c
+	@echo '$(COMPILE) -c $<'; \
+	$(COMPILE) -Wp,-MD,.deps/$(*F).pp -c $<
+	@-cp .deps/$(*F).pp .deps/$(*F).P; \
+	tr ' ' '\012' < .deps/$(*F).pp \
+	  | sed -e 's/^\\$$//' -e '/^$$/ d' -e '/:$$/ d' -e 's/$$/ :/' \
+	    >> .deps/$(*F).P; \
+	rm .deps/$(*F).pp
+
+%.lo: %.c
+	@echo '$(LTCOMPILE) -c $<'; \
+	$(LTCOMPILE) -Wp,-MD,.deps/$(*F).pp -c $<
+	@-sed -e 's/^\([^:]*\)\.o[ 	]*:/\1.lo \1.o :/' \
+	  < .deps/$(*F).pp > .deps/$(*F).P; \
+	tr ' ' '\012' < .deps/$(*F).pp \
+	  | sed -e 's/^\\$$//' -e '/^$$/ d' -e '/:$$/ d' -e 's/$$/ :/' \
+	    >> .deps/$(*F).P; \
+	rm -f .deps/$(*F).pp
 info-am:
 info: info-recursive
 dvi-am:
 dvi: dvi-recursive
-check-am:
+check-am: all-am
 check: check-recursive
 installcheck-am:
 installcheck: installcheck-recursive
-install-info-am: 
-install-info: install-info-recursive
 all-recursive-am: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
@@ -547,18 +577,18 @@ distclean-generic:
 maintainer-clean-generic:
 mostlyclean-am:  mostlyclean-hdr mostlyclean-libLTLIBRARIES \
 		mostlyclean-compile mostlyclean-libtool \
-		mostlyclean-tags mostlyclean-generic
+		mostlyclean-tags mostlyclean-depend mostlyclean-generic
 
 mostlyclean: mostlyclean-recursive
 
 clean-am:  clean-hdr clean-libLTLIBRARIES clean-compile clean-libtool \
-		clean-tags clean-generic mostlyclean-am
+		clean-tags clean-depend clean-generic mostlyclean-am
 
 clean: clean-recursive
 
 distclean-am:  distclean-hdr distclean-libLTLIBRARIES distclean-compile \
-		distclean-libtool distclean-tags distclean-generic \
-		clean-am
+		distclean-libtool distclean-tags distclean-depend \
+		distclean-generic clean-am
 	-rm -f libtool
 
 distclean: distclean-recursive
@@ -567,8 +597,8 @@ distclean: distclean-recursive
 maintainer-clean-am:  maintainer-clean-hdr \
 		maintainer-clean-libLTLIBRARIES \
 		maintainer-clean-compile maintainer-clean-libtool \
-		maintainer-clean-tags maintainer-clean-generic \
-		distclean-am
+		maintainer-clean-tags maintainer-clean-depend \
+		maintainer-clean-generic distclean-am
 	@echo "This command is intended for maintainers to use;"
 	@echo "it deletes files that may require special tools to rebuild."
 
@@ -588,26 +618,24 @@ uninstalldirs-recursive all-recursive check-recursive \
 installcheck-recursive info-recursive dvi-recursive \
 mostlyclean-recursive distclean-recursive clean-recursive \
 maintainer-clean-recursive tags tags-recursive mostlyclean-tags \
-distclean-tags clean-tags maintainer-clean-tags distdir info-am info \
-dvi-am dvi check check-am installcheck-am installcheck install-info-am \
-install-info all-recursive-am install-exec-am install-exec \
-install-data-am install-data install-am install uninstall-am uninstall \
-all-redirect all-am all installdirs-am installdirs mostlyclean-generic \
-distclean-generic clean-generic maintainer-clean-generic clean \
-mostlyclean distclean maintainer-clean
+distclean-tags clean-tags maintainer-clean-tags distdir \
+mostlyclean-depend distclean-depend clean-depend \
+maintainer-clean-depend info-am info dvi-am dvi check check-am \
+installcheck-am installcheck all-recursive-am install-exec-am \
+install-exec install-data-am install-data install-am install \
+uninstall-am uninstall all-redirect all-am all installdirs-am \
+installdirs mostlyclean-generic distclean-generic clean-generic \
+maintainer-clean-generic clean mostlyclean distclean maintainer-clean
 
 
-mf-runtime.o: mf-runtime.h mf-impl.h
-mf-hooks.o: mf-runtime.h mf-impl.h
-mf-heuristics.o: mf-runtime.h mf-impl.h
+mf-runtime.h: mf-runtime.h.in $(top_builddir)/config.status
+	cd $(top_builddir) \
+	  && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
-.NOTPARALLEL:
+#.NOTPARALLEL: # Otherwise the following loop will be executed in parallel!
 $(HOOKOBJS): mf-hooks.c mf-runtime.h mf-impl.h
-	set -e; \
-	for i in $(HOOKOBJS); do \
-	     hook=`basename $$i -hook.lo`; \
-	     $(LTCOMPILE) -DWRAP_$$hook -c $(srcdir)/mf-hooks.c -o $$i; \
-	done
+	hook=`basename $@ -hook.lo`; \
+	$(LTCOMPILE) -DWRAP_$$hook -c $(srcdir)/mf-hooks.c -o $@
 
 # Multilib support.
 .PHONY: all-multi mostlyclean-multi clean-multi distclean-multi \

@@ -1,10 +1,10 @@
 ## Makefile for the toplevel directory of the mudflap library.
 ##
-## Copyright (C) 2002
+## Copyright (C) 2002, 2003
 ## Free Software Foundation, Inc.
 ##
 
-AUTOMAKE_OPTIONS = 1.3 cygnus
+AUTOMAKE_OPTIONS = 1.3 foreign
 MAINT_CHARSET = latin1
 SUBDIRS = testsuite
 
@@ -13,9 +13,9 @@ AM_CFLAGS = -ansi -Wall -O3 -g -freorder-blocks
 lib_LTLIBRARIES = libmudflap.la
 include_HEADERS = mf-runtime.h
 
-mf-runtime.o: mf-runtime.h mf-impl.h
-mf-hooks.o: mf-runtime.h mf-impl.h
-mf-heuristics.o: mf-runtime.h mf-impl.h
+mf-runtime.h: mf-runtime.h.in $(top_builddir)/config.status
+	cd $(top_builddir) \
+	  && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
 libmudflap_la_SOURCES = \
 	mf-runtime.c \
@@ -58,14 +58,10 @@ HOOKOBJS = \
  munmap-hook.lo \
  alloca-hook.lo
 
-
-.NOTPARALLEL:
+#.NOTPARALLEL: # Otherwise the following loop will be executed in parallel!
 $(HOOKOBJS): mf-hooks.c mf-runtime.h mf-impl.h
-	set -e; \
-	for i in $(HOOKOBJS); do \
-	     hook=`basename $$i -hook.lo`; \
-	     $(LTCOMPILE) -DWRAP_$$hook -c $(srcdir)/mf-hooks.c -o $$i; \
-	done
+	hook=`basename $@ -hook.lo`; \
+	$(LTCOMPILE) -DWRAP_$$hook -c $(srcdir)/mf-hooks.c -o $@
 
 libmudflap_la_LDFLAGS = 
 libmudflap_la_LIBADD = $(HOOKOBJS)

@@ -35,9 +35,10 @@ extern unsigned char __mf_lc_shift;
 
 #define __MF_TYPE_NOACCESS 0
 #define __MF_TYPE_HEAP 1
-#define __MF_TYPE_STACK 2
-#define __MF_TYPE_STATIC 3
-#define __MF_TYPE_GUESS 4
+#define __MF_TYPE_HEAP_I 2
+#define __MF_TYPE_STACK 3
+#define __MF_TYPE_STATIC 4
+#define __MF_TYPE_GUESS 5
 
 
 /* The public mudflap API */

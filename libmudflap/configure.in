@@ -37,12 +37,12 @@ else
 fi
 AC_SUBST(LIBMUDFLAP_PICFLAGS)
 
-AC_OUTPUT([testsuite/Makefile Makefile], [
+AC_OUTPUT([Makefile testsuite/Makefile], [
 (
  echo '#ifndef __MF_RUNTIME_H'
  echo '#define __MF_RUNTIME_H'
  egrep 'HAVE_(STDINT|UINTPTR)' < config.h
- cat $srcdir/mf-runtime.h.in
+ cat $top_srcdir/mf-runtime.h.in
  echo '#endif'
 ) > mf-runtime.h
 echo creating mf-runtime.h

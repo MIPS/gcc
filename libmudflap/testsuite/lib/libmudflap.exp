@@ -71,7 +71,7 @@ proc libmudflap-init { compiler } {
     set cxx $compiler
     set libs "-L../.libs -L../../libstdc++-v3/src/.libs -L../../../gcc"
     set cxxflags "-ggdb3 -DDEBUG_ASSERT"
-    set includes "-I${srcdir}"
+    set includes "-I${srcdir} -I.."
 
     verbose "ld_library_path=$ld_library_path"
     setenv  LD_LIBRARY_PATH     $ld_library_path

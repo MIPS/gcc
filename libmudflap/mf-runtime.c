@@ -637,9 +637,13 @@ void __mf_check (void *ptr, size_t sz, int type, const char *location)
 		      judgement = -1;
 		    else if (UNLIKELY (obj->watching_p))
 		      judgement = -2; /* trigger VIOL_WATCH */
-		    else if (UNLIKELY (__mf_opts.check_initialization &&
-				       type == __MF_CHECK_READ &&
-				       obj->write_count == 0))
+		    else if (UNLIKELY (__mf_opts.check_initialization
+				       /* reading */
+				       && type == __MF_CHECK_READ
+				       /* not written */
+				       && obj->write_count == 0
+				       /* uninitialized (heap) */
+				       && obj->type == __MF_TYPE_HEAP))
 		      judgement = -1;
 		    else
 		      {
@@ -724,8 +728,14 @@ void __mf_check (void *ptr, size_t sz, int type, const char *location)
 			unsigned written_count = 0;
 
 			for (i=0; i<obj_count; i++)
-			  if (all_ovr_objs[i]->data.write_count)
-			    written_count ++;
+			  {
+			    __mf_object_t *obj = & all_ovr_objs[i]->data;
+
+			    if (obj->write_count
+				|| obj->type == __MF_TYPE_HEAP_I
+				|| obj->type == __MF_TYPE_GUESS)
+			      written_count ++;
+			  }
 			
 			/* Check for ALL pieces having been written-to.
 			   XXX: should this be ANY instead?  */
@@ -806,13 +816,9 @@ __mf_insert_new_object (uintptr_t low, uintptr_t high, int type,
   new_obj->data.type = type;
   new_obj->data.name = name;
   new_obj->data.alloc_pc = pc;
-  if (type == __MF_TYPE_STATIC || 
-      type == __MF_TYPE_STACK || /* XXX */
-      type == __MF_TYPE_GUESS)
-    new_obj->data.write_count = 1; /* assume initialized */
   gettimeofday (& new_obj->data.alloc_time, NULL);
   
-  if (__mf_opts.backtrace > 0 && type == __MF_TYPE_HEAP)
+  if (__mf_opts.backtrace > 0 && (type == __MF_TYPE_HEAP || type == __MF_TYPE_HEAP_I))
     new_obj->data.alloc_backtrace_size = 
       __mf_backtrace (& new_obj->data.alloc_backtrace,
 		      (void *) pc, 2);
@@ -857,7 +863,7 @@ __mf_register (void *ptr, size_t sz, int type, const char *name)
 {
   /* if (UNLIKELY (!(__mf_state == active || __mf_state == starting))) return; */
 
-  TRACE ("mf: register ptr=%08lx size=%lu type=%d name='%s'\n", ptr, sz, 
+  TRACE ("mf: register ptr=%08lx size=%lu type=%x name='%s'\n", ptr, sz, 
 	type, name ? name : "");
 
   if (__mf_opts.collect_stats)
@@ -909,10 +915,10 @@ __mf_register (void *ptr, size_t sz, int type, const char *name)
 	    /* Quietly accept a single duplicate registration for
 	       static objects, since these may come from distinct
 	       compilation units.  */
-	    if (type == __MF_TYPE_STATIC &&
-		ovr_obj->data.type == __MF_TYPE_STATIC &&
-		ovr_obj->data.low == low &&
-		ovr_obj->data.high == high)
+	    if (type == __MF_TYPE_STATIC
+		&& ovr_obj->data.type == __MF_TYPE_STATIC
+		&& ovr_obj->data.low == low
+		&& ovr_obj->data.high == high)
 	      {
 		/* do nothing */
 		VERBOSE_TRACE ("mf: duplicate static reg %08lx-%08lx `%s'\n", 
@@ -1098,8 +1104,9 @@ __mf_unregister (void *ptr, size_t sz)
 	__mf_uncache_object (& old_obj->data);
 
 	/* Wipe buffer contents if desired.  */
-	if ((__mf_opts.wipe_stack && old_obj->data.type == __MF_TYPE_STACK) ||
-	    (__mf_opts.wipe_heap && old_obj->data.type == __MF_TYPE_HEAP))
+	if ((__mf_opts.wipe_stack && old_obj->data.type == __MF_TYPE_STACK)
+	    || (__mf_opts.wipe_heap && (old_obj->data.type == __MF_TYPE_HEAP 
+					|| old_obj->data.type == __MF_TYPE_HEAP_I)))
 	  {
 	    memset ((void *) old_obj->data.low,
 		    0,
@@ -1147,7 +1154,8 @@ __mf_unregister (void *ptr, size_t sz)
 	if (__mf_opts.print_leaks)
 	  {
 	    if ((old_obj->data.read_count + old_obj->data.write_count) == 0 &&
-		old_obj->data.type == __MF_TYPE_HEAP)
+		(old_obj->data.type == __MF_TYPE_HEAP 
+		 || old_obj->data.type == __MF_TYPE_HEAP_I))
 	      {
 		fprintf (stderr, 
 			 "*******\n"
@@ -1639,11 +1647,13 @@ __mf_describe_object (__mf_object_t *obj)
 	   "alloc time=%lu.%06lu pc=%08lx\n",
 	   (uintptr_t) obj, (obj->name ? obj->name : ""), 
 	   obj->low, obj->high, (obj->high - obj->low + 1),
-	   (obj->type == __MF_TYPE_HEAP ? "heap" :
+	   (obj->type == __MF_TYPE_NOACCESS ? "no-access" :
+	    obj->type == __MF_TYPE_HEAP ? "heap" :
+	    obj->type == __MF_TYPE_HEAP_I ? "heap-init" :
 	    obj->type == __MF_TYPE_STACK ? "stack" :
 	    obj->type == __MF_TYPE_STATIC ? "static" :
 	    obj->type == __MF_TYPE_GUESS ? "guess" :
-	    "no-access"),
+	    "unknown"),
 	   obj->read_count, obj->write_count, obj->liveness, obj->watching_p,
 	   obj->alloc_time.tv_sec, obj->alloc_time.tv_usec, obj->alloc_pc);
 
@@ -1681,7 +1691,8 @@ __mf_report_leaks (__mf_object_tree_t *node)
 
   /* Inorder traversal. */
   __mf_report_leaks (node->left);
-  if (node->data.type == __MF_TYPE_HEAP)
+  if (node->data.type == __MF_TYPE_HEAP
+      || node->data.type == __MF_TYPE_HEAP_I)
     {
       count ++;
       fprintf (stderr, "Leaked object %u:\n", count);
@@ -1847,7 +1858,7 @@ __mf_backtrace (char ***symbols, void *guess_pc, unsigned guess_omit_levels)
     for (i = 0; i < remaining_size; i++)
       {
 	pointers[i] = chars;
-	sprintf (chars, "[%08lx]", pc_array [omitted_size + i]);
+	sprintf (chars, "[0x%08lx]", pc_array [omitted_size + i]);
 	chars = chars + perline;
       }
     *symbols = pointers;
@@ -1896,8 +1907,7 @@ __mf_violation (void *ptr, size_t sz, uintptr_t pc,
 	      (type == __MF_VIOL_WRITE) ? "check/write" :
 	      (type == __MF_VIOL_REGISTER) ? "register" :
 	      (type == __MF_VIOL_UNREGISTER) ? "unregister" :
-	      (type == __MF_VIOL_WATCH) ? "watch" :
-	      "unknown"),
+	      (type == __MF_VIOL_WATCH) ? "watch" : "unknown"),
 	     now.tv_sec, now.tv_usec, 
 	     ptr, sz, pc,
 	     (location != NULL ? " location=`" : ""),

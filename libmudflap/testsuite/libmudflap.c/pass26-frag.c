@@ -5,7 +5,7 @@ int main ()
 {
 int *p;
 
-__mf_set_options ("-wipe-stack");
+__mf_set_options ("-wipe-stack -no-check-initialization");
 
 {
   int array [10];

@@ -1,3 +1,21 @@
+2003-03-10  Frank Ch. Eigler  <fche@redhat.com>
+
+	* Makefile.am: Reorganize hook file building.  Add auto dependencies.
+	* configure.in: Tweak generation of mf-runtime.h.
+	* mf-runtime.h.in: Add new __MF_TYPE_HEAP_I.
+	* mf-hooks.c (*): Adapt to initialized-heap object type.
+	* mf-impl.h: Tweak cemetary boundaries.
+	* mf-runtime.c (__mf_check): Adapt to new initialized-heap object
+	type.
+	(__mf_insert_new_object, __mf_register, __mf_unregister): Ditto.
+	(__mf_describe_object, __mf_report_leaks, __mf_violation): Ditto.
+	* testsuite/lib/libmudflap.exp (includes): Include build tree.
+	* testsuite/libmudflap.c/pass{26,5}: Further adapt to initialization
+	checking.
+	* testsuite/.../fail{25,26}-frag.c: New tests.
+	* testsuite/.../pass{32,33,34,35}-frag.c: New tests.
+	* Makefile.in, configure: Regenerated.
+
 2003-03-05  Frank Ch. Eigler  <fche@redhat.com>
 
 	* mf-runtime.c (__mf_set_default_options): Turn on initialization

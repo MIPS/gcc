@@ -20,7 +20,7 @@
 
 /* Private definitions related to mf-runtime.h  */
 
-#define __MF_TYPE_MAX_CEM  3  /* the largest type stored in the cemetary */
+#define __MF_TYPE_MAX_CEM  __MF_TYPE_STACK  /* largest type# for the cemetary */
 #define __MF_TYPE_MAX __MF_TYPE_GUESS
 
 
