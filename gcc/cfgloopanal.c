@@ -1021,6 +1021,7 @@ average_num_loop_insns (loop)
   unsigned i, binsns, ninsns, ratio;
   rtx insn;
 
+  ninsns = 0;
   bbs = get_loop_body (loop);
   for (i = 0; i < loop->num_nodes; i++)
     {

@@ -1,3 +1,7 @@
+2002-12-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloopanal.c (average_num_loop_insns): Fix.
+
 2002-12-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Makefile.in (loop.o): Add cfgloop.h dependency.
