@@ -801,7 +801,7 @@ reg_alloc (void)
 	  /* And new insns.  */
 	  compute_bb_for_insn ();
 	  /* Some of them might be dead.  */
-	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+	  delete_trivially_dead_insns (get_insns (), max_reg_num (), 1);
 	  /* Those new pseudos need to have their REFS count set.  */
 	  reg_scan_update (get_insns (), NULL, max_regno);
 	  max_regno = max_reg_num ();

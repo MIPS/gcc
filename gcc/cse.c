@@ -7505,16 +7505,37 @@ dead_libcall_p (rtx insn, int *counts)
   return false;
 }
 
+static regset_head trivially_dead_nonlocal_regs;
+
+/* Called via note_stores.  */
+void
+note_dead_set (rtx dest, rtx pat, void *data)
+{
+  basic_block bb = data;
+
+  if ((GET_CODE (pat) == SET && set_noop_p (pat))
+      || GET_CODE (dest) != REG
+      || ! REGNO_REG_SET_P (bb->global_live_at_end, REGNO (dest)))
+    return;
+  SET_REGNO_REG_SET (&trivially_dead_nonlocal_regs, REGNO (dest));
+}
+
 /* Scan all the insns and delete any that are dead; i.e., they store a register
    that is never used or they copy a register to itself.
 
    This is used to remove insns made obviously dead by cse, loop or other
    optimizations.  It improves the heuristics in loop since it won't try to
    move dead invariants out of loops or make givs for dead quantities.  The
-   remaining passes of the compilation are also sped up.  */
+   remaining passes of the compilation are also sped up.
+
+   When UPDATE_LIFE_P is nonzero, when we remove the sets of a register
+   that is not referenced anymore, also remove it from the liveness
+   information of all basic blocks.  Note, unlike update_life_info,
+   delete_trivially_dead_insns can find registers are set outside a loop
+   and used to, but are no longer referenced in the loop.  */
 
 int
-delete_trivially_dead_insns (rtx insns, int nreg)
+delete_trivially_dead_insns (rtx insns, int nreg, int update_life_p)
 {
   int *counts;
   rtx insn, prev;
@@ -7522,6 +7543,12 @@ delete_trivially_dead_insns (rtx insns, int nreg)
   int ndead = 0, nlastdead, niterations = 0;
 
   timevar_push (TV_DELETE_TRIVIALLY_DEAD);
+
+  if (update_life_p)
+    INIT_REG_SET (&trivially_dead_nonlocal_regs);
+  if (update_life_p)
+    compute_bb_for_insn ();
+
   /* First count the number of times each register is used.  */
   counts = xcalloc (nreg, sizeof (int));
   for (insn = next_real_insn (insns); insn; insn = next_real_insn (insn))
@@ -7569,6 +7596,9 @@ delete_trivially_dead_insns (rtx insns, int nreg)
 
 	  if (! live_insn)
 	    {
+	      if (update_life_p)
+		note_stores (PATTERN (insn), note_dead_set,
+			     BLOCK_FOR_INSN (insn));
 	      count_reg_usage (insn, counts, NULL_RTX, -1);
 	      delete_insn_and_edges (insn);
 	      ndead++;
@@ -7587,6 +7617,19 @@ delete_trivially_dead_insns (rtx insns, int nreg)
     fprintf (dump_file, "Deleted %i trivially dead insns; %i iterations\n",
 	     ndead, niterations);
   /* Clean up.  */
+  if (update_life_p)
+    {
+      basic_block bb;
+
+      FOR_EACH_BB (bb)
+	{
+	  AND_COMPL_REG_SET (bb->global_live_at_start,
+			     &trivially_dead_nonlocal_regs);
+	  AND_COMPL_REG_SET (bb->global_live_at_end,
+			     &trivially_dead_nonlocal_regs);
+	}
+      CLEAR_REG_SET (&trivially_dead_nonlocal_regs);
+    }
   free (counts);
   timevar_pop (TV_DELETE_TRIVIALLY_DEAD);
   return ndead;

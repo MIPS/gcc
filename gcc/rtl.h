@@ -2113,7 +2113,7 @@ extern int no_new_pseudos;
 extern int rtx_to_tree_code (enum rtx_code);
 
 /* In cse.c */
-extern int delete_trivially_dead_insns (rtx, int);
+extern int delete_trivially_dead_insns (rtx, int, int);
 #ifdef BUFSIZ
 extern int cse_main (rtx, int, int, FILE *);
 #endif

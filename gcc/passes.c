@@ -575,7 +575,7 @@ rest_of_handle_new_regalloc (tree decl, rtx insns)
 {
   int failure;
 
-  delete_trivially_dead_insns (insns, max_reg_num ());
+  delete_trivially_dead_insns (insns, max_reg_num (), 1);
   reg_alloc ();
 
   timevar_pop (TV_LOCAL_ALLOC);
@@ -824,7 +824,7 @@ rest_of_handle_gcse2 (tree decl, rtx insns)
 
   gcse_after_reload_main (insns, dump_file);
   rebuild_jump_labels (insns);
-  delete_trivially_dead_insns (insns, max_reg_num ());
+  delete_trivially_dead_insns (insns, max_reg_num (), 1);
   close_dump_file (DFI_gcse2, print_rtl_with_bb, insns);
 
   ggc_collect ();
@@ -908,7 +908,7 @@ rest_of_handle_web (tree decl, rtx insns)
   open_dump_file (DFI_web, decl);
   timevar_push (TV_WEB);
   web_main ();
-  delete_trivially_dead_insns (insns, max_reg_num ());
+  delete_trivially_dead_insns (insns, max_reg_num (), 0);
   cleanup_cfg (CLEANUP_EXPENSIVE);
 
   timevar_pop (TV_WEB);
@@ -1017,7 +1017,7 @@ rest_of_handle_jump_bypass (tree decl, rtx insns)
     {
       rebuild_jump_labels (insns);
       cleanup_cfg (CLEANUP_EXPENSIVE);
-      delete_trivially_dead_insns (insns, max_reg_num ());
+      delete_trivially_dead_insns (insns, max_reg_num (), 0);
     }
 
   close_dump_file (DFI_bypass, print_rtl_with_bb, insns);
@@ -1124,7 +1124,7 @@ rest_of_handle_cse (tree decl, rtx insns)
   if (purge_all_dead_edges (0))
     delete_unreachable_blocks ();
 
-  delete_trivially_dead_insns (insns, max_reg_num ());
+  delete_trivially_dead_insns (insns, max_reg_num (), 0);
 
   /* If we are not running more CSE passes, then we are no longer
      expecting CSE to be run.  But always rerun it in a cheap mode.  */
@@ -1157,7 +1157,7 @@ rest_of_handle_cse2 (tree decl, rtx insns)
   cse_condition_code_reg ();
 
   purge_all_dead_edges (0);
-  delete_trivially_dead_insns (insns, max_reg_num ());
+  delete_trivially_dead_insns (insns, max_reg_num (), 0);
 
   if (tem)
     {
@@ -1184,7 +1184,7 @@ rest_of_handle_gcse (tree decl, rtx insns)
 
   tem = gcse_main (insns, dump_file);
   rebuild_jump_labels (insns);
-  delete_trivially_dead_insns (insns, max_reg_num ());
+  delete_trivially_dead_insns (insns, max_reg_num (), 0);
 
   save_csb = flag_cse_skip_blocks;
   save_cfj = flag_cse_follow_jumps;
@@ -1198,7 +1198,7 @@ rest_of_handle_gcse (tree decl, rtx insns)
       reg_scan (insns, max_reg_num (), 1);
       tem2 = cse_main (insns, max_reg_num (), 0, dump_file);
       purge_all_dead_edges (0);
-      delete_trivially_dead_insns (insns, max_reg_num ());
+      delete_trivially_dead_insns (insns, max_reg_num (), 0);
       timevar_pop (TV_CSE);
       cse_not_expected = !flag_rerun_cse_after_loop;
     }
@@ -1219,7 +1219,7 @@ rest_of_handle_gcse (tree decl, rtx insns)
 	  reg_scan (insns, max_reg_num (), 1);
 	  tem2 = cse_main (insns, max_reg_num (), 0, dump_file);
 	  purge_all_dead_edges (0);
-	  delete_trivially_dead_insns (insns, max_reg_num ());
+	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
 	  timevar_pop (TV_CSE);
 	}
     }
@@ -1267,7 +1267,7 @@ rest_of_handle_loop_optimize (tree decl, rtx insns)
 	 trivially dead.  We delete those instructions now in the
 	 hope that doing so will make the heuristics in loop work
 	 better and possibly speed up compilation.  */
-      delete_trivially_dead_insns (insns, max_reg_num ());
+      delete_trivially_dead_insns (insns, max_reg_num (), 0);
 
       /* The regscan pass is currently necessary as the alias
 	 analysis code depends on this information.  */
@@ -1277,7 +1277,7 @@ rest_of_handle_loop_optimize (tree decl, rtx insns)
   loop_optimize (insns, dump_file, do_unroll | do_prefetch);
 
   /* Loop can create trivially dead instructions.  */
-  delete_trivially_dead_insns (insns, max_reg_num ());
+  delete_trivially_dead_insns (insns, max_reg_num (), 0);
   close_dump_file (DFI_loop, print_rtl, insns);
   timevar_pop (TV_LOOP);
   find_basic_blocks (insns, max_reg_num (), dump_file);
@@ -1337,7 +1337,7 @@ rest_of_handle_loop2 (tree decl, rtx insns)
   cfg_layout_finalize ();
 
   cleanup_cfg (CLEANUP_EXPENSIVE);
-  delete_trivially_dead_insns (insns, max_reg_num ());
+  delete_trivially_dead_insns (insns, max_reg_num (), 0);
   reg_scan (insns, max_reg_num (), 0);
   if (dump_file)
     dump_flow_info (dump_file);
@@ -1524,7 +1524,7 @@ rest_of_compilation (tree decl)
   reg_scan (insns, max_reg_num (), 0);
   rebuild_jump_labels (insns);
   find_basic_blocks (insns, max_reg_num (), dump_file);
-  delete_trivially_dead_insns (insns, max_reg_num ());
+  delete_trivially_dead_insns (insns, max_reg_num (), 0);
   if (dump_file)
     dump_flow_info (dump_file);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP

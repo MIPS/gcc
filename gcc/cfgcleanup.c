@@ -2044,6 +2044,7 @@ bool
 cleanup_cfg (int mode)
 {
   bool changed = false;
+  bool have_live_info = EXIT_BLOCK_PTR->global_live_at_start != NULL;
 
   timevar_push (TV_CLEANUP_CFG);
   if (delete_unreachable_blocks ())
@@ -2053,7 +2054,8 @@ cleanup_cfg (int mode)
 	 now to introduce more opportunities for try_optimize_cfg.  */
       if (!(mode & (CLEANUP_NO_INSN_DEL | CLEANUP_UPDATE_LIFE))
 	  && !reload_completed)
-	delete_trivially_dead_insns (get_insns(), max_reg_num ());
+	delete_trivially_dead_insns (get_insns(), max_reg_num (),
+				     have_live_info);
     }
 
   compact_blocks ();
@@ -2078,7 +2080,8 @@ cleanup_cfg (int mode)
 	       && (mode & CLEANUP_EXPENSIVE)
 	       && !reload_completed)
 	{
-	  if (!delete_trivially_dead_insns (get_insns(), max_reg_num ()))
+	  if (!delete_trivially_dead_insns (get_insns(), max_reg_num (),
+					    have_live_info))
 	    break;
 	}
       else

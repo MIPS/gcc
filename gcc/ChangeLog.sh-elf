@@ -1,5 +1,13 @@
 2004-06-11  J"orn Rennecke <joern.rennecke@superh.com>
 
+	* rtl.h (delete_trivially_dead_insns): Add third parameter.
+	* cse.c (trivially_dead_nonlocal_regs): New variable.
+	(note_dead_set): New function.
+	(delete_trivially_dead_insns): Add third parameter, update_life_p.
+	* passes.c,
+	* cfgcleanup.c,
+	* ra.c: Changed all callers.
+
 	Back out this patch:
 	  2003-10-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 	  PR optimization/12142
