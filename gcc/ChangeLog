@@ -1,3 +1,10 @@
+2004-11-25  Gabor Loki  <loki@gcc.gnu.org>
+
+	* Makefile.in (seqabstr.o): Depend on $(PARAMS_H) $(EXPR_H) $(TM_P_H).
+	* tree-dump.c,tree.h,passes.c(rest_of_factoring): Dump local factoring.
+	* seqabstr.c (): Fix indirect jumps, label storing and register 
+	allocation.
+
 2004-11-15  Gabor Loki  <loki@gcc.gnu.org>
 
 	Open cfo-branch

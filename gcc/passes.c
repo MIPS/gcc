@@ -343,9 +343,13 @@ static void
 rest_of_factoring (void)
 {
   timevar_push (TV_FACTORING);
+  open_dump_file (DFI_lfact, current_function_decl);
+  
   rtl_lfact (0, LFD_HOISTING);
   rtl_lfact (0, LFD_SINKING);
+  
   cleanup_cfg (CLEANUP_EXPENSIVE);
+  close_dump_file (DFI_lfact, print_rtl_with_bb, get_insns ());
   timevar_pop (TV_FACTORING);
   ggc_collect ();
 }
@@ -1483,7 +1487,7 @@ rest_of_handle_seqabstr (void)
 
   /* Abstract out common insn sequences. */
   seqabstr_optimize (dump_file);
-  
+
   cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
   close_dump_file (DFI_seqabstr, print_rtl_with_bb, get_insns ());
   timevar_pop (TV_SEQABSTR);

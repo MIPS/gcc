@@ -24,9 +24,10 @@
 #include "basic-block.h"
 #include "ggc.h"
 #include "regs.h"
-#include "fact-common.h"
-#include "stdio.h"
 #include "params.h"
+#include "expr.h"
+#include "tm_p.h"
+#include "fact-common.h"
 
 /* TODO:
    - Use length attribute of insns to calculate gain. (Count insns only if
@@ -75,8 +76,7 @@ typedef struct matching_seq_def
 
   /* The next sequence in the chain matching the same pattern.  */
   struct matching_seq_def *next_matching_seq;
-}
- *matching_seq;
+} *matching_seq;
 
 
 /* A pattern instruction sequence.  */
@@ -100,8 +100,7 @@ typedef struct pattern_seq_def
 
   /* The next pattern sequence in the chain.  */
   struct pattern_seq_def *next_pattern_seq;
-}
- *pattern_seq;
+} *pattern_seq;
 
 
 /* A block of a pattern sequence.  */
@@ -119,8 +118,7 @@ typedef struct seq_block_def
   /* The next block in the chain. The blocks are sorted by LENGTH in
      ascending order.  */
   struct seq_block_def *next_seq_block;
-}
- *seq_block;
+} *seq_block;
 
 
 /* The pattern sequences collected from the current functions.  */
@@ -276,11 +274,11 @@ collect_pattern_seqs (void)
     /* Skip that bb when its first succ. bb has more incoming edge than
        PARAM_MAX_CROSSJUMP_EDGES. The same checks as in crossjump.  */
     if (EDGE_COUNT (pbb->succs)
-        && (EDGE_SUCC (pbb, 0))->dest
-        && EDGE_COUNT ((EDGE_SUCC (pbb, 0))->dest->preds) > 
-           (unsigned long)PARAM_VALUE (PARAM_MAX_CROSSJUMP_EDGES))
+	&& (EDGE_SUCC (pbb, 0))->dest
+	&& EDGE_COUNT ((EDGE_SUCC (pbb, 0))->dest->preds) >
+	(unsigned long) PARAM_VALUE (PARAM_MAX_CROSSJUMP_EDGES))
       continue;
-    
+
     for (pinsn = BB_HEAD (pbb);; pinsn = NEXT_INSN (pinsn))
       {
 	if (ABSTRACTABLE_INSN_P (pinsn)
@@ -401,10 +399,10 @@ recompute_gain_for_pattern_seq (pattern_seq pseq)
   SET_HARD_REG_SET (linkregs);
   pseq->link_reg = NULL_RTX;
   pseq->abstracted_length = 0;
-  pseq->gain = -(CALL_COST - 1 + RETURN_COST);	/* FIXME: Substract 1 from
-						   CALL_COST since no
-						   call-jump required in the
-						   pattern sequence.  */
+
+  /* FIXME: Substract 1 from CALL_COST since no call-jump required in the 
+     pattern sequence.  */
+  pseq->gain = -(CALL_COST - 1 + RETURN_COST);
 
   /* Determine ABSTRACTED_LENGTH for matching sequences of PSEQ.
      ABSTRACTED_LENGTH may be less than MATCHING_LENGTH if sequences in the
@@ -486,11 +484,14 @@ recompute_gain_for_pattern_seq (pattern_seq pseq)
      function but was not used before (since saving it can invalidate already 
      computed frame pointer offsets), or - the register cannot be used as a
      base register.  */
+
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (fixed_regs[i]
 	|| (hascall && call_used_regs[i])
 	|| (!call_used_regs[i] && !regs_ever_live[i])
-	|| !REGNO_MODE_OK_FOR_BASE_P (i, Pmode))
+	|| !REGNO_MODE_OK_FOR_BASE_P (i, Pmode)
+	|| (REG_CLASS_FROM_CONSTRAINT ('l', 0) != NO_REGS
+	    && REG_CLASS_FROM_CONSTRAINT ('l', 0) != REGNO_REG_CLASS (i)))
       CLEAR_HARD_REG_BIT (linkregs, i);
 
   /* Find an appropriate register to be used as the link register.  */
@@ -791,11 +792,8 @@ split_pattern_seq (void)
 
   /* Emit an indirect jump via the link register after the sequence acting
      as the return insn.  Also emit a barrier and update the basic block.  */
-  retjmp =
-    emit_jump_insn_after (gen_rtx_SET (Pmode, pc_rtx, pattern_seqs->link_reg),
-			  insn);
-  BLOCK_FOR_INSN (retjmp) = bb;
-  BB_END (bb) = retjmp;
+  retjmp = emit_jump_insn_after (gen_indirect_jump (pattern_seqs->link_reg),
+				 BB_END (bb));
   emit_barrier_after (BB_END (bb));
 
   /* Replace all outgoing edges with a new one to the block of RETLABEL.  */
@@ -816,12 +814,9 @@ split_pattern_seq (void)
 
   /* Emit an insn saving the return address to the link register before the
      sequence.  */
-  saveinsn =
-    emit_insn_after (gen_rtx_SET
-		     (Pmode, pattern_seqs->link_reg,
-		      gen_symbol_ref_rtx_for_label (retlabel)), BB_END (bb));
-  BLOCK_FOR_INSN (saveinsn) = bb;
-  BB_END (bb) = saveinsn;
+  saveinsn = emit_insn_after (gen_move_insn (pattern_seqs->link_reg,
+					     gen_symbol_ref_rtx_for_label
+					     (retlabel)), BB_END (bb));
   /* Update liveness info.  */
   SET_REGNO_REG_SET (bb->global_live_at_end, REGNO (pattern_seqs->link_reg));
 }
@@ -859,11 +854,10 @@ erase_matching_seqs (void)
 
 	  /* Emit an insn saving the return address to the link register
 	     before the deleted sequence.  */
-	  saveinsn =
-	    emit_insn_after (gen_rtx_SET
-			     (Pmode, pattern_seqs->link_reg,
-			      gen_symbol_ref_rtx_for_label (retlabel)),
-			     BB_END (bb));
+	  saveinsn = emit_insn_after (gen_move_insn (pattern_seqs->link_reg,
+						     gen_symbol_ref_rtx_for_label
+						     (retlabel)),
+				      BB_END (bb));
 	  BLOCK_FOR_INSN (saveinsn) = bb;
 
 	  /* Emit a jump to the appropriate part of the pattern sequence
@@ -881,6 +875,7 @@ erase_matching_seqs (void)
 	  make_single_succ_edge (bb, BLOCK_FOR_INSN (sb->label), 0);
 	  IOR_REG_SET (bb->global_live_at_end,
 		       BLOCK_FOR_INSN (sb->label)->global_live_at_start);
+
 	  make_edge (BLOCK_FOR_INSN (seq_blocks->label),
 		     BLOCK_FOR_INSN (retlabel), EDGE_ABNORMAL);
 	}

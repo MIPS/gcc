@@ -2182,7 +2182,7 @@ hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(HOOKS_H)
 pretty-print.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h intl.h $(PRETTY_PRINT_H) \
    $(TREE_H)
 seqabstr.o: seqabstr.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
-   $(BASIC_BLOCK_H) $(GGC_H) $(REGS_H) fact-common.h
+   $(BASIC_BLOCK_H) $(GGC_H) $(REGS_H) $(PARAMS_H) $(EXPR_H) $(TM_P_H) fact-common.h
 errors.o : errors.c $(CONFIG_H) $(SYSTEM_H) errors.h
 
 $(out_object_file): $(out_file) $(CONFIG_H) coretypes.h $(TM_H) $(TREE_H) $(GGC_H) \

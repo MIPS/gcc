@@ -3856,6 +3856,7 @@ enum tree_dump_index
   DFI_sched2,
   DFI_stack,
   DFI_vartrack,
+  DFI_lfact,
   DFI_mach,
   DFI_dbr,
 

@@ -716,8 +716,9 @@ static struct dump_file_info dump_files[TDI_end] =
   { ".sched2", "rtl-sched2",		TDF_RTL, 0, 33, 'R'},
   { ".stack", "rtl-stack",		TDF_RTL, 0, 34, 'k'},
   { ".vartrack", "rtl-vartrack",	TDF_RTL, 0, 35, 'V'},
-  { ".mach", "rtl-mach",		TDF_RTL, 0, 36, 'M'},
-  { ".dbr", "rtl-dbr",			TDF_RTL, 0, 37, 'd'}
+  { ".lfact", "rtl-lfact",		TDF_RTL, 0, 37, 'q'},
+  { ".mach", "rtl-mach",		TDF_RTL, 0, 38, 'M'},
+  { ".dbr", "rtl-dbr",			TDF_RTL, 0, 39, 'd'}
 };
 
 /* Dynamically registered tree dump files and switches.  */
