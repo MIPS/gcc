@@ -1,5 +1,10 @@
 2004-12-28  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/Window.java (AccessibleAWTWindow): Implement.
+	(isActive, isFocused, getAccessibleContext): Implement.
+
+2004-12-28  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/MenuItem.java (getAccessibleContext): Implement.
 	* java/awt/MenuComponent.java (accessibleContext): Make package
 	visible.
