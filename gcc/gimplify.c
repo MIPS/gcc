@@ -51,7 +51,7 @@ static void simplify_call_expr       PARAMS ((tree *, tree *, tree *,
 static void simplify_tree_list       PARAMS ((tree *, tree *, tree *));
 static void simplify_modify_expr     PARAMS ((tree *, tree *, tree *, int));
 static void simplify_compound_expr   PARAMS ((tree *, tree *));
-static void simplify_save_expr       PARAMS ((tree *, tree *));
+static void simplify_save_expr       PARAMS ((tree *, tree *, tree *));
 static void simplify_addr_expr       PARAMS ((tree *, tree *, tree *));
 static void simplify_self_mod_expr   PARAMS ((tree *, tree *, tree *));
 static void simplify_cond_expr       PARAMS ((tree *, tree *, tree));
@@ -76,7 +76,7 @@ static void gimple_push_condition	PARAMS ((void));
 static void gimple_pop_condition	PARAMS ((tree *));
 static void gimple_push_cleanup		PARAMS ((tree, tree *));
 static void gimplify_loop_expr		PARAMS ((tree *));
-static void gimplify_exit_expr		PARAMS ((tree *, tree *));
+static void gimplify_exit_expr		PARAMS ((tree *));
 static void gimplify_switch_expr (tree *, tree *);
 static void gimple_add_case_label (tree);
 static hashval_t gimple_tree_hash (const void *);
@@ -84,6 +84,7 @@ static int gimple_tree_eq (const void *, const void *);
 static tree lookup_tmp_var (tree, bool);
 static tree internal_get_tmp_var (tree, tree *, bool);
 static tree build_and_jump (tree *);
+static tree shortcut_cond_expr (tree);
 
 static struct gimplify_ctx
 {
@@ -521,7 +522,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  break;
 
 	case EXIT_EXPR:
-	  gimplify_exit_expr (expr_p, pre_p);
+	  gimplify_exit_expr (expr_p);
 	  break;
 
 	case GOTO_EXPR:
@@ -569,7 +570,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  /* SAVE_EXPR nodes are converted into a SIMPLE identifier and
 	     eliminated.  */
 	case SAVE_EXPR:
-	  simplify_save_expr (expr_p, pre_p);
+	  simplify_save_expr (expr_p, pre_p, post_p);
 	  break;
 
 	case BIT_FIELD_REF:
@@ -1000,6 +1001,10 @@ gimple_add_case_label (tree expr)
 static tree
 build_and_jump (tree *label_p)
 {
+  if (label_p == NULL)
+    /* If there's nowhere to jump, just fall through.  */
+    return build_empty_stmt ();
+
   if (*label_p == NULL_TREE)
     {
       tree label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
@@ -1016,14 +1021,11 @@ build_and_jump (tree *label_p)
    gimplify_loop_expr through gimplify_ctxp->exit_label.  */
 
 static void
-gimplify_exit_expr (expr_p, pre_p)
+gimplify_exit_expr (expr_p)
      tree *expr_p;
-     tree *pre_p;
 {
   tree cond = TREE_OPERAND (*expr_p, 0);
   tree expr;
-
-  simplify_expr (&cond, pre_p, NULL, is_simple_condexpr, fb_rvalue);
 
   expr = build_and_jump (&gimplify_ctxp->exit_label);
   expr = build (COND_EXPR, void_type_node, cond, expr, build_empty_stmt ());
@@ -1445,27 +1447,107 @@ simplify_tree_list (expr_p, pre_p, post_p)
 }
 
 /* Handle shortcut semantics in the predicate operand of a COND_EXPR by
-   rewriting it into multiple COND_EXPRs, and possibly GOTO_EXPRs.  */
+   rewriting it into multiple COND_EXPRs, and possibly GOTO_EXPRs.
+
+   TRUE_LABEL_P and FALSE_LABEL_P point to the labels to jump to if the
+   condition is true or false, respectively.  If null, we should generate
+   our own to skip over the evaluation of this specific expression.
+
+   This function is the tree equivalent of do_jump.
+
+   shortcut_cond_r should only be called by shortcut_cond_expr.  */
 
 static tree
-shortcut_cond_r (tree expr, tree *false_label_p)
+shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p)
+{
+  tree local_label = NULL_TREE;
+  tree one, two, expr;
+
+  /* OK, it's not a simple case; we need to pull apart the COND_EXPR to
+     retain the shortcut semantics.  Just insert the gotos here;
+     shortcut_cond_expr will append the real blocks later.  */
+  if (TREE_CODE (pred) == TRUTH_ANDIF_EXPR)
+    {
+      /* Turn if (a && b) into
+
+         if (a); else goto no;
+	 if (b) goto yes; else goto no;
+         (no:) */
+
+      if (false_label_p == NULL)
+	false_label_p = &local_label;
+
+      one = shortcut_cond_r (TREE_OPERAND (pred, 0), NULL, false_label_p);
+      two = shortcut_cond_r (TREE_OPERAND (pred, 1), true_label_p,
+			     false_label_p);
+      expr = add_stmt_to_compound (one, two);
+    }
+  else if (TREE_CODE (pred) == TRUTH_ORIF_EXPR)
+    {
+      /* Turn if (a || b) into
+
+         if (a) goto yes;
+	 if (b) goto yes; else goto no;
+         (yes:) */
+
+      if (true_label_p == NULL)
+	true_label_p = &local_label;
+
+      one = shortcut_cond_r (TREE_OPERAND (pred, 0), true_label_p, NULL);
+      two = shortcut_cond_r (TREE_OPERAND (pred, 1), true_label_p,
+			     false_label_p);
+      expr = add_stmt_to_compound (one, two);
+    }
+  else if (TREE_CODE (pred) == COND_EXPR)
+    {
+      /* As long as we're messing with gotos, turn if (a ? b : c) into
+	 if (a)
+	   if (b) goto yes; else goto no;
+	 else
+	   if (c) goto yes; else goto no;  */
+      one = shortcut_cond_r (TREE_OPERAND (pred, 1), true_label_p,
+			     false_label_p);
+      two = shortcut_cond_r (TREE_OPERAND (pred, 2), true_label_p,
+			     false_label_p);
+      expr = build (COND_EXPR, void_type_node, TREE_OPERAND (pred, 0),
+		    one, two);
+    }
+  else
+    {
+      expr = build (COND_EXPR, void_type_node, pred,
+		    build_and_jump (true_label_p),
+		    build_and_jump (false_label_p));
+    }
+
+  if (local_label)
+    add_tree (build1 (LABEL_EXPR, void_type_node, local_label), &expr);
+
+  return expr;
+}
+
+static tree
+shortcut_cond_expr (tree expr)
 {
   tree pred = TREE_OPERAND (expr, 0);
-  tree t;
+  tree then_ = TREE_OPERAND (expr, 1);
+  tree else_ = TREE_OPERAND (expr, 2);
+  tree false_label, end_label;
+  bool emit_end;
 
-  if (!TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 2)))
+  /* First do simple transformations.  */
+  if (!TREE_SIDE_EFFECTS (else_))
     {
       /* If there is no 'else', turn (a && b) into if (a) if (b).  */
       while (TREE_CODE (pred) == TRUTH_ANDIF_EXPR)
 	{
 	  TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
-	  expr = shortcut_cond_r (expr, false_label_p);
+	  then_ = shortcut_cond_expr (expr);
 	  pred = TREE_OPERAND (pred, 0);
-	  expr = build (COND_EXPR, void_type_node, pred, expr,
+	  expr = build (COND_EXPR, void_type_node, pred, then_,
 			build_empty_stmt ());
 	}
     }
-  if (!TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
+  if (!TREE_SIDE_EFFECTS (then_))
     {
       /* If there is no 'then', turn
 	   if (a || b); else d
@@ -1474,66 +1556,56 @@ shortcut_cond_r (tree expr, tree *false_label_p)
       while (TREE_CODE (pred) == TRUTH_ORIF_EXPR)
 	{
 	  TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
-	  expr = shortcut_cond_r (expr, false_label_p);
+	  else_ = shortcut_cond_expr (expr);
 	  pred = TREE_OPERAND (pred, 0);
 	  expr = build (COND_EXPR, void_type_node, pred,
-			build_empty_stmt (), expr);
+			build_empty_stmt (), else_);
 	}
     }
 
-  /* Don't do these other transformations yet.  */
-  return expr;
+  /* If we're done, great.  */
+  if (TREE_CODE (pred) != TRUTH_ANDIF_EXPR
+      && TREE_CODE (pred) != TRUTH_ORIF_EXPR)
+    return expr;
 
-  if (TREE_CODE (pred) == TRUTH_ANDIF_EXPR)
+  /* Otherwise we need to mess with gotos.  Change
+       if (a) c; else d;
+     to
+       if (a); else goto no;
+       c; goto end;
+       no: d; end:
+     and recursively simplify the condition.  */
+
+  false_label = end_label = NULL_TREE;
+  emit_end = true;  
+
+  /* If our subexpression already has a terminal label, reuse it.  */
+  if (TREE_SIDE_EFFECTS (else_))
+    expr = expr_last (else_);
+  else
+    expr = expr_last (then_);
+  if (TREE_CODE (expr) == LABEL_EXPR)
     {
-      /* Turn if (a && b) c; else d; into
-
-      if (a); else goto no;
-      if (b) c; else { no: d; }  */
-
-      TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
-      expr = shortcut_cond_r (expr, false_label_p);
-
-      t = build (COND_EXPR, void_type_node, TREE_OPERAND (pred, 0),
-		 build_empty_stmt (), build_and_jump (false_label_p));
-      t = shortcut_cond_r (t, false_label_p);
-
-      expr = add_stmt_to_compound (t, expr);
-    }
-  else if (TREE_CODE (pred) == TRUTH_ORIF_EXPR)
-    {
-      /* Turn if (a || b) c; else d; into
-
-      if (a || b); else goto no;
-      if (1) c; else { no: d; } */
-      TREE_OPERAND (expr, 0) = integer_one_node;
-
-      t = build (COND_EXPR, void_type_node, pred,
-		 build_empty_stmt (), build_and_jump (false_label_p));
-      t = shortcut_cond_r (t, false_label_p);
-
-      expr = add_stmt_to_compound (t, expr);
+      emit_end = false;
+      end_label = LABEL_EXPR_LABEL (expr);
+      if (!TREE_SIDE_EFFECTS (else_))
+	false_label = end_label;
     }
 
-  return expr;
-}
+  expr = shortcut_cond_r (pred, NULL, &false_label);
 
-static tree
-shortcut_cond_expr (tree expr)
-{
-  tree false_label = NULL_TREE;
-  tree *false_branch_p = &TREE_OPERAND (expr, 2);
-
-  expr = shortcut_cond_r (expr, &false_label);
-
-  if (false_label)
+  add_tree (then_, &expr);
+  if (TREE_SIDE_EFFECTS (else_))
     {
-      false_label = build1 (LABEL_EXPR, void_type_node, false_label);
-      if (TREE_SIDE_EFFECTS (*false_branch_p))
-	*false_branch_p = add_stmt_to_compound (false_label, *false_branch_p);
-      else
-	expr = add_stmt_to_compound (expr, false_label);
+      add_tree (build_and_jump (&end_label), &expr);
+      add_tree (build1 (LABEL_EXPR, void_type_node, false_label), &expr);
+      add_tree (else_, &expr);
     }
+  else
+    end_label = false_label;
+
+  if (emit_end)
+    add_tree (build1 (LABEL_EXPR, void_type_node, end_label), &expr);
 
   return expr;
 }
@@ -1560,13 +1632,12 @@ simplify_cond_expr (expr_p, pre_p, target)
      tree target;
 {
   tree expr = *expr_p;
+  tree tmp;
 
   /* If this COND_EXPR has a value, copy the values into a temporary within
      the arms.  */
   if (! VOID_TYPE_P (TREE_TYPE (expr)))
     {
-      tree tmp;
-
       if (target)
 	tmp = target;
       else
@@ -1594,8 +1665,16 @@ simplify_cond_expr (expr_p, pre_p, target)
       return;
     }
 
-  /* Turn if (a && b) into if (a) if (b).  This only works if there is no
-     'else'.  */
+  /* Rewrite "if (a); else b" to "if (!a) b"  */
+  if (!TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
+    {
+      TREE_OPERAND (expr, 0) = invert_truthvalue (TREE_OPERAND (expr, 0));
+      tmp = TREE_OPERAND (expr, 1);
+      TREE_OPERAND (expr, 1) = TREE_OPERAND (expr, 2);
+      TREE_OPERAND (expr, 2) = tmp;
+    }
+
+  /* Break apart && and || conditions.  */
   if (TREE_CODE (TREE_OPERAND (expr, 0)) == TRUTH_ANDIF_EXPR
       || TREE_CODE (TREE_OPERAND (expr, 0)) == TRUTH_ORIF_EXPR)
     {
@@ -1852,24 +1931,31 @@ simplify_compound_expr (expr_p, pre_p)
         *EXPR_P should be stored.  */
 
 static void
-simplify_save_expr (expr_p, pre_p)
+simplify_save_expr (expr_p, pre_p, post_p)
      tree *expr_p;
      tree *pre_p;
+     tree *post_p;
 {
+  tree val;
+
 #if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != SAVE_EXPR)
     abort ();
 #endif
 
+  val = TREE_OPERAND (*expr_p, 0);
+
   /* If the operand is already a SIMPLE temporary, just re-write the
      SAVE_EXPR node.  */
-  if (is_simple_tmp_var (TREE_OPERAND (*expr_p, 0)))
-    *expr_p = TREE_OPERAND (*expr_p, 0);
+  if (is_simple_tmp_var (val))
+    *expr_p = val;
   else
     {
-      TREE_OPERAND (*expr_p, 0) =
-	get_initialized_tmp_var (TREE_OPERAND (*expr_p, 0), pre_p);
-      *expr_p = TREE_OPERAND (*expr_p, 0);
+      /* Simplify this now so post-effects go on the normal postqueue.  */
+      simplify_expr (&val, pre_p, post_p, is_simple_rhs, fb_rvalue);
+      val = get_initialized_tmp_var (val, pre_p);
+      TREE_OPERAND (*expr_p, 0) = val;
+      *expr_p = val;
     }
 }
 
@@ -2406,8 +2492,9 @@ mostly_copy_tree_r (tp, walk_subtrees, data)
      void *data;
 {
   enum tree_code code = TREE_CODE (*tp);
-  /* Don't unshare types and SAVE_EXPR nodes.  */
+  /* Don't unshare types, constants and SAVE_EXPR nodes.  */
   if (TREE_CODE_CLASS (code) == 't'
+      || TREE_CODE_CLASS (code) == 'c'
       || code == SAVE_EXPR)
     *walk_subtrees = 0;
   else if (code == BIND_EXPR)

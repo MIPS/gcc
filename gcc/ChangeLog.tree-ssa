@@ -1,3 +1,16 @@
+2003-05-20  Jason Merrill  <jason@redhat.com>
+
+	* gimplify.c (shortcut_cond_expr, shortcut_cond_r): Rewrite.
+	(simplify_cond_expr): Also invert ifs with no 'then'.
+	(build_and_jump): New fn, split out from...
+	(gimplify_exit_expr): ...here.  Don't bother gimplifying the
+	condition.
+
+	* gimplify.c (simplify_save_expr): Add post-effects to the
+	postqueue.
+
+	* gimplify.c (mostly_copy_tree_r): Don't unshare constants.
+
 2003-05-20  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (make_loop_expr_blocks): Do not accept next_block_link
