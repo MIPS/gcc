@@ -1,3 +1,120 @@
+2004-02-26  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* testsuite/demangle/abi_examples/01.cc: Expect error -2.
+	* testsuite/demangle/abi_examples/02.cc: Likewise.
+	* testsuite/demangle/regression/cw-11.cc: Likewise.
+	* testsuite/demangle/regression/cw-16.cc: Change two expected
+	results to match libiberty demangler output.
+
+2003-12-05  Carlo Wood  <carlo@alinoe.com>
+
+	PR libstdc++/13045
+	* testsuite/demangle/regression/cw-16.cc: Updated two
+	and added three tests.
+
+2003-11-12  Carlo Wood  <carlo@alinoe.com>
+
+	PR libstdc++/12947
+	* testsuite/demangle/regression/cw-16.cc: Added tests for the
+	added functionality.
+	* testsuite/demangle/regression/3111-2.cc: sizeof now has a space
+	appended.
+
+2003-11-07  Carlo Wood  <carlo@alinoe.com>
+
+	PR libstdc++/12736
+	* testsuite/demangle/abi_text/01.cc: Reordered CV-qualifiers.
+	* testsuite/demangle/regression/cw-16.cc: New.
+
+2003-10-14  Carlo Wood  <carlo@alinoe.com>
+
+	PR libstdc++/12600
+	* testsuite/demangle/regression/cw-15.cc: New.
+
+2003-10-02  Carlo Wood  <carlo@alinoe.com>
+
+	* testsuite/demangle/regression/cw-13.cc: Adjust for new output.
+
+2003-02-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/testsuite_hooks.h
+	(__gnu_cxx_test::verify_demangle): New.
+
+2003-02-27  Benjamin Kosnik  <bkoz@redhat.com>
+	    Carlo Wood  <carlo@alinoe.com>
+
+	* testsuite/demangle/abi_examples/01.cc: New.
+	* testsuite/demangle/abi_examples/02.cc: New.
+	* testsuite/demangle/abi_examples/03.cc: New.
+	* testsuite/demangle/abi_examples/04.cc: New.
+	* testsuite/demangle/abi_examples/05.cc: New.
+	* testsuite/demangle/abi_examples/06.cc: New.
+	* testsuite/demangle/abi_examples/07.cc: New.
+	* testsuite/demangle/abi_examples/08.cc: New.
+	* testsuite/demangle/abi_examples/09.cc: New.
+	* testsuite/demangle/abi_examples/10.cc: New.
+	* testsuite/demangle/abi_examples/11.cc: New.
+	* testsuite/demangle/abi_examples/12.cc: New.
+	* testsuite/demangle/abi_examples/13.cc: New.
+	* testsuite/demangle/abi_examples/14.cc: New.
+	* testsuite/demangle/abi_examples/15.cc: New.
+	* testsuite/demangle/abi_examples/16.cc: New.
+	* testsuite/demangle/abi_examples/17.cc: New.
+	* testsuite/demangle/abi_examples/18.cc: New.
+	* testsuite/demangle/abi_examples/19.cc: New.
+	* testsuite/demangle/abi_examples/20.cc: New.
+	* testsuite/demangle/abi_examples/21.cc: New.
+	* testsuite/demangle/abi_examples/22.cc: New.
+	* testsuite/demangle/abi_examples/23.cc: New.
+	* testsuite/demangle/abi_examples/24.cc: New.
+	* testsuite/demangle/abi_examples/25.cc: New.
+	* testsuite/demangle/abi_examples/26.cc: New.
+	* testsuite/demangle/abi_text/01.cc: New.
+	* testsuite/demangle/abi_text/02.cc: New.
+	* testsuite/demangle/abi_text/03.cc: New.
+	* testsuite/demangle/abi_text/04.cc: New.
+	* testsuite/demangle/abi_text/05.cc: New.
+	* testsuite/demangle/abi_text/06.cc: New.
+	* testsuite/demangle/abi_text/07.cc: New.
+	* testsuite/demangle/abi_text/08.cc: New.
+	* testsuite/demangle/abi_text/09.cc: New.
+	* testsuite/demangle/abi_text/10.cc: New.
+	* testsuite/demangle/abi_text/11.cc: New.
+	* testsuite/demangle/abi_text/12.cc: New.
+	* testsuite/demangle/abi_text/13.cc: New.
+	* testsuite/demangle/abi_text/14.cc: New.
+	* testsuite/demangle/regression/3111-1.cc: New.
+	* testsuite/demangle/regression/3111-2.cc: New.
+	* testsuite/demangle/regression/7986-01.cc: New.
+	* testsuite/demangle/regression/7986-02.cc: New.
+	* testsuite/demangle/regression/7986-03.cc: New.
+	* testsuite/demangle/regression/7986-04.cc: New.
+	* testsuite/demangle/regression/7986-05.cc: New.
+	* testsuite/demangle/regression/7986-06.cc: New.
+	* testsuite/demangle/regression/7986-07.cc: New.
+	* testsuite/demangle/regression/7986-08.cc: New.
+	* testsuite/demangle/regression/7986-09.cc: New.
+	* testsuite/demangle/regression/7986-10.cc: New.
+	* testsuite/demangle/regression/7986-11.cc: New.
+	* testsuite/demangle/regression/7986-12.cc: New.
+	* testsuite/demangle/regression/7986.cc: New.
+	* testsuite/demangle/regression/8897.cc: New.
+	* testsuite/demangle/regression/cw-01.cc: New.
+	* testsuite/demangle/regression/cw-02.cc: New.
+	* testsuite/demangle/regression/cw-03.cc: New.
+	* testsuite/demangle/regression/cw-04.cc: New.
+	* testsuite/demangle/regression/cw-05.cc: New.
+	* testsuite/demangle/regression/cw-06.cc: New.
+	* testsuite/demangle/regression/cw-07.cc: New.
+	* testsuite/demangle/regression/cw-08.cc: New.
+	* testsuite/demangle/regression/cw-09.cc: New.
+	* testsuite/demangle/regression/cw-10.cc: New.
+	* testsuite/demangle/regression/cw-11.cc: New.
+	* testsuite/demangle/regression/cw-12.cc: New.
+	* testsuite/demangle/regression/cw-13.cc: New.
+	* testsuite/demangle/regression/cw-14.cc: New.
+	* testsuite/demangle/regression/old.cc: New.
+
 2003-09-26  Benjamin Kosnik  <bkoz@redhat.com>
 
 	2003-03-09  Paolo Carlini  <pcarlini@unitus.it>

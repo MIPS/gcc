@@ -113,9 +113,9 @@ cxa_demangle.c:
 	rm -f $@
 	$(LN_S) $(toplevel_srcdir)/libiberty/cp-demangle.c $@
 cxa_demangle.lo: cxa_demangle.c
-	$(LTCOMPILE) -DIN_GLIBCPP_V3 -Wno-error -c $<
+	$(LTCOMPILE) -I$(toplevel_srcdir)/libiberty -DIN_GLIBCPP_V3 -Wno-error -c $<
 cxa_demangle.o: cxa_demangle.c
-	$(C_COMPILE) -DIN_GLIBCPP_V3 -Wno-error -c $<
+	$(C_COMPILE) -I$(toplevel_srcdir)/libiberty -DIN_GLIBCPP_V3 -Wno-error -c $<
 dyn-string.c:
 	rm -f $@
 	$(LN_S) $(toplevel_srcdir)/libiberty/dyn-string.c $@
