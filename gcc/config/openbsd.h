@@ -109,7 +109,7 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_SPEC "%{fpic:-k} %{fPIC:-k -K}"
 #endif
 
-/* Since we use gas, stdin -> - is a good idea.  &/
+/* Since we use gas, stdin -> - is a good idea.  */
 #define AS_NEEDS_DASH_FOR_PIPED_INPUT
 
 /* LINK_SPEC appropriate for OpenBSD.  Support for GCC options 

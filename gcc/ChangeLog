@@ -1,3 +1,7 @@
+2002-09-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* openbsd.h: Fix typo in last change.
+
 2002-09-26  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* varasm.c (force_data_section): Remove.
