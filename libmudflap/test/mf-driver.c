@@ -1,5 +1,7 @@
 #include <signal.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 /* this is a simplistic test driver for memory fault detection using
    mudflap. you include this file in your mudflapped test case and define a
@@ -20,7 +22,7 @@ static const int should_fail = 0;
 static void test ();
 
 void
-abort_handler ()
+abort_handler (int _ignored)
 {
   if (should_fail)
     {

@@ -1,5 +1,5 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
    and Graydon Hoare <graydon@redhat.com>
 
@@ -12,7 +12,9 @@ XXX: libgcc license?
 #include <stdlib.h>
 #include <sys/time.h>
 #include <unistd.h>
+#ifdef HAVE_EXECINFO_H
 #include <execinfo.h>
+#endif
 #include <assert.h>
 
 #include <string.h>
@@ -276,6 +278,8 @@ __mf_set_options (const char *optstr)
   DECLARE (int, strncmp, const char *s1, const char *s2, size_t n);
   DECLARE (void *, memset, void *s, int c, size_t n);
 
+  /* XXX: bounds-check for optstr! */
+
   while (*optstr)
     {
       switch (*optstr) {
@@ -291,14 +295,15 @@ __mf_set_options (const char *optstr)
 	    int negate = 0;
 	    optstr++;
 
-	    if (*optstr == '?' || strcmp (optstr, "help") == 0)
+	    if (*optstr == '?' || 
+		CALL_REAL (strncmp, optstr, "help", 4) == 0)
 	      {
 		/* Caller will print help and exit.  */
 		rc = -1;
 		break;
 	      }
 	    
-	    if (strncmp (optstr, "no-", 3) == 0)
+	    if (CALL_REAL (strncmp, optstr, "no-", 3) == 0)
 	      {
 		negate = 1;
 		optstr = & optstr[3];
@@ -1747,9 +1752,37 @@ __mf_backtrace (char ***symbols, void *guess_pc, unsigned guess_omit_levels)
   unsigned i;
   DECLARE (void, free, void *ptr);
   DECLARE (void *, calloc, size_t c, size_t n);
+  DECLARE (void *, malloc, size_t n);
 
   pc_array = CALL_REAL (calloc, pc_array_size, sizeof (void *));
+#ifdef HAVE_BACKTRACE
   pc_array_size = backtrace (pc_array, pc_array_size);
+#else
+#define FETCH(n) do { if (pc_array_size >= n) { \
+                 pc_array[n] = __builtin_return_address(n); \
+                 if (pc_array[n] == 0) pc_array_size = n; } } while (0)
+
+  /* Unroll some calls __builtin_return_address because this function
+     only takes a literal integer parameter.  */
+  FETCH (0);
+#if 0
+  /* XXX: __builtin_return_address sometimes crashes (!) on >0 arguments,
+     rather than simply returning 0.  :-(  */
+  FETCH (1);
+  FETCH (2);
+  FETCH (3);
+  FETCH (4);
+  FETCH (5);
+  FETCH (6);
+  FETCH (7);
+  FETCH (8);
+  if (pc_array_size > 8) pc_array_size = 9;
+#else
+  if (pc_array_size > 0) pc_array_size = 1;
+#endif
+
+#undef FETCH
+#endif
 
   /* We want to trim the first few levels of the stack traceback,
      since they contain libmudflap wrappers and junk.  If pc_array[]
@@ -1768,7 +1801,29 @@ __mf_backtrace (char ***symbols, void *guess_pc, unsigned guess_omit_levels)
 
   remaining_size = pc_array_size - omitted_size;
 
+#ifdef HAVE_BACKTRACE_SYMBOLS
   *symbols = backtrace_symbols (pc_array + omitted_size, remaining_size);
+#else
+  {
+    /* Let's construct a buffer by hand.  It will have <remaining_size>
+       char*'s at the front, pointing at individual strings immediately
+       afterwards.  */
+    void *buffer;
+    char *chars;
+    char **pointers;
+    enum { perline = 30 };
+    buffer = CALL_REAL (malloc, remaining_size * (perline + sizeof(char *)));
+    pointers = (char **) buffer;
+    chars = (char *)buffer + (remaining_size * sizeof (char *));
+    for (i = 0; i < remaining_size; i++)
+      {
+	pointers[i] = chars;
+	sprintf (chars, "[%08lx]", pc_array [omitted_size + i]);
+	chars = chars + perline;
+      }
+    *symbols = pointers;
+  }
+#endif
   CALL_REAL (free, pc_array);
 
   return remaining_size;

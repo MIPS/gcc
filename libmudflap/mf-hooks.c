@@ -1,5 +1,5 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
    and Graydon Hoare <graydon@redhat.com>
 
@@ -13,7 +13,6 @@ XXX: libgcc license?
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <execinfo.h>
 #include <assert.h>
 
 #include "mf-runtime.h"

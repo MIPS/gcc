@@ -26,7 +26,8 @@ AC_SUBST(enable_shared)
 AC_SUBST(enable_static)
 
 dnl Should check for this header for the host/target, not the build platform
-AC_CHECK_HEADERS(stdint.h)
+AC_CHECK_HEADERS(stdint.h execinfo.h)
+AC_CHECK_FUNCS(backtrace backtrace_symbols)
 
 if ${CONFIG_SHELL-/bin/sh} ./libtool --tag CC --features |
    grep "enable shared" > /dev/null; then

@@ -1,3 +1,16 @@
+2003-01-06  Frank Ch. Eigler  <fche@redhat.com>
+
+	Portability improvements.
+	* configure.in: Look for glibc backtrace headers/functions.
+	* mf-hooks.c: Don't include <execinfo.h> any more.
+	* mf-runtime.c (__mf_set_options): Call more stdlib functions
+	via CALL_REAL.
+	(__mf_backtrace): Provide alternate baby implementation in 
+	absence of glibc.
+	* test/mf-driver.c: Portability tweaks.
+	* acinclude.m4: New file, containing top level libtool.m4.
+	* aclocal.m4, configure, Makefile.in, config.h.in: Regenerated.
+
 2002-12-19  Frank Ch. Eigler  <fche@redhat.com>
 
 	* mf-runtime.h.in (HAVE_UINTPTR_T): Define unconditionally.

@@ -65,20 +65,20 @@ target_alias = @target_alias@
 target_triplet = @target@
 AS = @AS@
 CC = @CC@
+CXX = @CXX@
+CXXCPP = @CXXCPP@
 DLLTOOL = @DLLTOOL@
-ECHO = @ECHO@
 EXEEXT = @EXEEXT@
+GCJ = @GCJ@
+GCJFLAGS = @GCJFLAGS@
 LIBMUDFLAP_PICFLAGS = @LIBMUDFLAP_PICFLAGS@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
-MAINT = @MAINT@
-MAKEINFO = @MAKEINFO@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 RANLIB = @RANLIB@
 STRIP = @STRIP@
-VERSION = @VERSION@
 enable_shared = @enable_shared@
 enable_static = @enable_static@
 libtool_VERSION = @libtool_VERSION@
@@ -186,6 +186,7 @@ HEADERS =  $(include_HEADERS)
 DIST_COMMON =  ./stamp-h.in ChangeLog Makefile.am Makefile.in aclocal.m4 \
 config.h.in configure configure.in
 
+VERSION = @VERSION@
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
@@ -204,8 +205,6 @@ Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
 	cd $(top_builddir) \
 	  && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
-$(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ configure.in 
-	cd $(srcdir) && $(ACLOCAL)
 
 config.status: $(srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	$(SHELL) ./config.status --recheck
