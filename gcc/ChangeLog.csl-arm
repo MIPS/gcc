@@ -1,3 +1,9 @@
+2005-03-28  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/arm.c (arm_handle_notshared_attribute): Protect
+	prototype and implementation with preprocessor conditional.
+	(arm_pad_reg_upwards): Add ATTRIBUTE_UNUSED.
+
 2005-03-28  Daniel Jacobowitz  <dan@codesourcery.com>
 	    Phil Blundell  <philb@gnu.org>
 

@@ -113,7 +113,9 @@ static unsigned long arm_isr_value (tree);
 static unsigned long arm_compute_func_type (void);
 static tree arm_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
 static tree arm_handle_isr_attribute (tree *, tree, tree, int, bool *);
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 static tree arm_handle_notshared_attribute (tree *, tree, tree, int, bool *);
+#endif
 static void arm_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void arm_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void thumb_output_function_prologue (FILE *, HOST_WIDE_INT);
@@ -2706,7 +2708,8 @@ arm_pad_arg_upward (enum machine_mode mode, tree type)
  * upwards.  */
 
 bool
-arm_pad_reg_upward (enum machine_mode mode, tree type, int first)
+arm_pad_reg_upward (enum machine_mode mode ATTRIBUTE_UNUSED,
+                    tree type, int first ATTRIBUTE_UNUSED)
 {
   if (TARGET_AAPCS_BASED
       && BYTES_BIG_ENDIAN
@@ -2859,6 +2862,7 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
   return NULL_TREE;
 }
 
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 /* Handle the "notshared" attribute.  This attribute is another way of
    requesting hidden visibility.  ARM's compiler supports
    "__declspec(notshared)"; we support the same thing via an
@@ -2881,6 +2885,7 @@ arm_handle_notshared_attribute (tree *node,
     }
   return NULL_TREE;
 }
+#endif
 
 /* Return 0 if the attributes for two types are incompatible, 1 if they
    are compatible, and 2 if they are nearly compatible (which causes a
