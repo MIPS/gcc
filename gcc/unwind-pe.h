@@ -1,5 +1,5 @@
 /* Exception handling and frame unwind runtime interface routines.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -22,7 +22,7 @@
    compatibility problems with the base ABI.  This is slightly better
    than duplicating code, however.  */
 
-/* If using C++, references to abort have to be qualified with std::. */
+/* If using C++, references to abort have to be qualified with std::.  */
 #if __cplusplus
 #define __gxx_abort std::abort
 #else
@@ -183,10 +183,10 @@ read_encoded_value_with_base (unsigned char encoding, _Unwind_Ptr base,
 
   if (encoding == DW_EH_PE_aligned)
     {
-      _Unwind_Ptr a = (_Unwind_Ptr)p;
+      _Unwind_Ptr a = (_Unwind_Ptr) p;
       a = (a + sizeof (void *) - 1) & - sizeof(void *);
       result = *(_Unwind_Ptr *) a;
-      p = (const unsigned char *)(a + sizeof (void *));
+      p = (const unsigned char *) (a + sizeof (void *));
     }
   else
     {
@@ -201,7 +201,7 @@ read_encoded_value_with_base (unsigned char encoding, _Unwind_Ptr base,
 	  {
 	    _Unwind_Word tmp;
 	    p = read_uleb128 (p, &tmp);
-	    result = (_Unwind_Ptr)tmp;
+	    result = (_Unwind_Ptr) tmp;
 	  }
 	  break;
 
@@ -209,7 +209,7 @@ read_encoded_value_with_base (unsigned char encoding, _Unwind_Ptr base,
 	  {
 	    _Unwind_Sword tmp;
 	    p = read_sleb128 (p, &tmp);
-	    result = (_Unwind_Ptr)tmp;
+	    result = (_Unwind_Ptr) tmp;
 	  }
 	  break;
 
@@ -246,9 +246,9 @@ read_encoded_value_with_base (unsigned char encoding, _Unwind_Ptr base,
       if (result != 0)
 	{
 	  result += ((encoding & 0x70) == DW_EH_PE_pcrel
-		     ? (_Unwind_Ptr)u : base);
+		     ? (_Unwind_Ptr) u : base);
 	  if (encoding & DW_EH_PE_indirect)
-	    result = *(_Unwind_Ptr *)result;
+	    result = *(_Unwind_Ptr *) result;
 	}
     }
 

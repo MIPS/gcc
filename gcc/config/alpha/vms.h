@@ -1,5 +1,6 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1996, 1997, 1998, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -375,6 +376,59 @@ do {									\
 #define DWARF2_DEBUGGING_INFO
 #define VMS_DEBUGGING_INFO
 
+#define DWARF2_UNWIND_INFO 1
+
+#undef EH_RETURN_HANDLER_RTX
+#define EH_RETURN_HANDLER_RTX \
+  gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx, 8))
+
+#define LINK_EH_SPEC "vms-dwarf2eh.o%s "
+
+#ifdef IN_LIBGCC2
+#include <libicb.h>
+#include <pdscdef.h>
+
+#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
+ do {									\
+  unsigned long handle;							\
+  PDSCDEF *pv;								\
+  INVO_CONTEXT_BLK invo;						\
+									\
+  memset (&invo, 0, sizeof (INVO_CONTEXT_BLK));				\
+									\
+  invo.libicb$q_ireg [29] = *((long long *) (CONTEXT)->reg [29]);	\
+  invo.libicb$q_ireg [30] = (long long) (CONTEXT)->cfa;			\
+  handle = LIB$GET_INVO_HANDLE (&invo);					\
+  LIB$GET_INVO_CONTEXT (handle, &invo);					\
+  pv = (PDSCDEF *) invo.libicb$ph_procedure_descriptor;			\
+									\
+  if (pv && ((pv->pdsc$w_flags & 0xf) == PDSC$K_KIND_FP_STACK))		\
+    {									\
+      int i, j;								\
+									\
+      (FS)->cfa_offset = pv->pdsc$l_size;				\
+      (FS)->cfa_reg = pv->pdsc$w_flags & PDSC$M_BASE_REG_IS_FP ? 29 : 30; \
+      (FS)->retaddr_column = 26;					\
+      (FS)->cfa_how = CFA_REG_OFFSET;					\
+      (FS)->regs.reg[27].loc.offset = -pv->pdsc$l_size;			\
+      (FS)->regs.reg[27].how = REG_SAVED_OFFSET;			\
+      (FS)->regs.reg[26].loc.offset					\
+	 = -(pv->pdsc$l_size - pv->pdsc$w_rsa_offset);			\
+      (FS)->regs.reg[26].how = REG_SAVED_OFFSET;			\
+									\
+      for (i = 0, j = 0; i < 32; i++)					\
+	if (1<<i & pv->pdsc$l_ireg_mask)				\
+	  {								\
+	    (FS)->regs.reg[i].loc.offset				\
+	      = -(pv->pdsc$l_size - pv->pdsc$w_rsa_offset - 8 * ++j);	\
+	    (FS)->regs.reg[i].how = REG_SAVED_OFFSET;			\
+	  }								\
+									\
+      goto SUCCESS;							\
+    }									\
+} while (0)
+#endif
+
 /* This is how to output an assembler line
    that says to advance the location counter
    to a multiple of 2**LOG bytes.  */
@@ -451,8 +505,14 @@ do {									\
 #define UMODSI3_LIBCALL "OTS$REM_UI"
 #define UMODDI3_LIBCALL "OTS$REM_UL"
 
-/* crt0 calls __main */
-#define HAS_INIT_SECTION
+#define NAME__MAIN "__gccmain"
+#define SYMBOL__MAIN __gccmain
 
-/* XXX Really? Even with modern CRTL? */
-#define NEED_ATEXIT
+/* Specify the list of include file directories.  */
+#define INCLUDE_DEFAULTS		\
+{					\
+  { "/gnu_gxx_include", 0, 1, 1 },	\
+  { "/gnu_cc_include", 0, 0, 0 },	\
+  { "/gnu/include", 0, 0, 0 },	        \
+  { 0, 0, 0, 0 }			\
+}

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, Mitsubishi M32R cpu.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -1388,7 +1388,7 @@ do { \
  && RTX_OK_FOR_BASE_P (XEXP (X, 0)))
 
 /* Local to this file.  */
-/* Is this a increment/decrement and store operation.  */
+/* Is this an increment/decrement and store operation.  */
 #define STORE_PREINC_PREDEC_P(MODE, X)					\
 (((MODE) == SImode || (MODE) == SFmode)					\
  && (GET_CODE (X) == PRE_INC || GET_CODE (X) == PRE_DEC)		\
@@ -1989,12 +1989,6 @@ extern char m32r_punct_chars[256];
    be the code that says which one of the two operations is implicitly
    done, NIL if none.  */
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
-
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
 
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */

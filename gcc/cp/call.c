@@ -1,6 +1,6 @@
 /* Functions related to invoking methods and overloaded functions.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
 
@@ -47,8 +47,10 @@ static int joust PARAMS ((struct z_candidate *, struct z_candidate *, int));
 static int compare_ics PARAMS ((tree, tree));
 static tree build_over_call PARAMS ((struct z_candidate *, tree, int));
 static tree build_java_interface_fn_ref PARAMS ((tree, tree));
-#define convert_like(CONV, EXPR) convert_like_real (CONV, EXPR, NULL_TREE, 0, 0)
-#define convert_like_with_context(CONV, EXPR, FN, ARGNO) convert_like_real (CONV, EXPR, FN, ARGNO, 0)
+#define convert_like(CONV, EXPR) \
+  convert_like_real ((CONV), (EXPR), NULL_TREE, 0, 0)
+#define convert_like_with_context(CONV, EXPR, FN, ARGNO) \
+  convert_like_real ((CONV), (EXPR), (FN), (ARGNO), 0)
 static tree convert_like_real PARAMS ((tree, tree, tree, int, int));
 static void op_error PARAMS ((enum tree_code, enum tree_code, tree, tree,
 			    tree, const char *));
@@ -204,7 +206,7 @@ check_dtor_name (basetype, name)
   else if (DECL_CLASS_TEMPLATE_P (name))
     return 0;
   else
-    my_friendly_abort (980605);
+    abort ();
 
   if (name && TYPE_MAIN_VARIANT (basetype) == TYPE_MAIN_VARIANT (name))
     return 1;
@@ -405,7 +407,10 @@ build_call (function, parms)
      throw without being declared throw().  */
   nothrow = ((decl && TREE_NOTHROW (decl))
 	     || TYPE_NOTHROW_P (TREE_TYPE (TREE_TYPE (function))));
-  
+
+  if (decl && TREE_DEPRECATED (decl))
+    warn_deprecated_use (decl);
+
   if (decl && DECL_CONSTRUCTOR_P (decl))
     is_constructor = 1;
 
@@ -418,7 +423,7 @@ build_call (function, parms)
 	  || !strncmp (IDENTIFIER_POINTER (DECL_NAME (decl)), "__", 2))
 	mark_used (decl);
       else
-	my_friendly_abort (990125);
+	abort ();
     }
 
   /* Don't pass empty class objects by value.  This is useful
@@ -564,7 +569,7 @@ struct z_candidate {
 #define BAD_RANK 7
 
 #define ICS_RANK(NODE)				\
-  (ICS_BAD_FLAG (NODE) ? BAD_RANK   \
+  (ICS_BAD_FLAG (NODE) ? BAD_RANK   		\
    : ICS_ELLIPSIS_FLAG (NODE) ? ELLIPSIS_RANK	\
    : ICS_USER_FLAG (NODE) ? USER_RANK		\
    : ICS_STD_RANK (NODE))
@@ -578,7 +583,7 @@ struct z_candidate {
 
 /* In a REF_BIND or a BASE_CONV, this indicates that a temporary
    should be created to hold the result of the conversion.  */
-#define NEED_TEMPORARY_P(NODE) (TREE_LANG_FLAG_4 ((NODE)))
+#define NEED_TEMPORARY_P(NODE) TREE_LANG_FLAG_4 (NODE)
 
 #define USER_CONV_CAND(NODE) \
   ((struct z_candidate *)WRAPPER_PTR (TREE_OPERAND (NODE, 1)))
@@ -1927,7 +1932,7 @@ add_builtin_candidate (candidates, code, code2, fnname, type1, type2,
 	  return candidates;
 
 	default:
-	  my_friendly_abort (367);
+	  abort ();
 	}
       type1 = build_reference_type (type1);
       break;
@@ -1971,7 +1976,7 @@ add_builtin_candidate (candidates, code, code2, fnname, type1, type2,
       return candidates;
 
     default:
-      my_friendly_abort (367);
+      abort ();
     }
 
   /* If we're dealing with two pointer types or two enumeral types,
@@ -3255,7 +3260,7 @@ build_new_op (code, flags, arg1, arg2, arg3)
     case VEC_DELETE_EXPR:
     case DELETE_EXPR:
       /* Use build_op_new_call and build_op_delete_call instead. */
-      my_friendly_abort (981018);
+      abort ();
 
     case CALL_EXPR:
       return build_object_call (arg1, arg2);
@@ -3293,13 +3298,12 @@ build_new_op (code, flags, arg1, arg2, arg3)
   if (code == POSTINCREMENT_EXPR || code == POSTDECREMENT_EXPR)
     arg2 = integer_zero_node;
 
-  if (arg2 && arg3)
-    arglist = tree_cons (NULL_TREE, arg1, tree_cons
-		      (NULL_TREE, arg2, build_tree_list (NULL_TREE, arg3)));
-  else if (arg2)
-    arglist = tree_cons (NULL_TREE, arg1, build_tree_list (NULL_TREE, arg2));
-  else
-    arglist = build_tree_list (NULL_TREE, arg1);
+  arglist = NULL_TREE;
+  if (arg3)
+    arglist = tree_cons (NULL_TREE, arg3, arglist);
+  if (arg2)
+    arglist = tree_cons (NULL_TREE, arg2, arglist);
+  arglist = tree_cons (NULL_TREE, arg1, arglist);
 
   fns = lookup_function_nonclass (fnname, arglist);
 
@@ -3561,7 +3565,7 @@ builtin:
       return NULL_TREE;
 
     default:
-      my_friendly_abort (367);
+      abort ();
       return NULL_TREE;
     }
 }
@@ -4443,7 +4447,7 @@ in_charge_arg_for_name (name)
 
   /* This function should only be called with one of the names listed
      above.  */
-  my_friendly_abort (20000411);
+  abort ();
   return NULL_TREE;
 }
 
@@ -5148,7 +5152,7 @@ source_type (t)
 	  || TREE_CODE (t) == IDENTITY_CONV)
 	return TREE_TYPE (t);
     }
-  my_friendly_abort (1823);
+  abort ();
 }
 
 /* Note a warning about preferring WINNER to LOSER.  We do this by storing
@@ -5232,7 +5236,7 @@ joust (cand1, cand2, warn)
 	  --len;
 	}
       else
-	my_friendly_abort (42);
+	abort ();
     }
 
   for (i = 0; i < len; ++i)

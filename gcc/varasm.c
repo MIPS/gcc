@@ -1,6 +1,6 @@
 /* Output variables, constants and external declarations, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -133,7 +133,7 @@ tree last_assemble_variable_decl;
    So giving constant the alias set for the type will allow such
    initializations to appear to conflict with the load of the constant.  We
    avoid this by giving all constants an alias set for just constants.
-   Since there will be no stores to that a alias set, nothing will ever
+   Since there will be no stores to that alias set, nothing will ever
    conflict with them.  */
 
 static HOST_WIDE_INT const_alias_set;
@@ -840,10 +840,8 @@ make_decl_rtl (decl, asmspec)
     {
       /* If the old RTL had the wrong mode, fix the mode.  */
       if (GET_MODE (DECL_RTL (decl)) != DECL_MODE (decl))
-	{
-	  rtx rtl = DECL_RTL (decl);
-	  PUT_MODE (rtl, DECL_MODE (decl));
-	}
+	SET_DECL_RTL (decl, adjust_address_nv (DECL_RTL (decl),
+					       DECL_MODE (decl), 0));
 
       /* ??? Another way to do this would be to do what halfpic.c does
 	 and maintain a hashed table of such critters.  */
@@ -900,14 +898,11 @@ make_decl_rtl (decl, asmspec)
 
 	  /* If the user specified one of the eliminables registers here,
 	     e.g., FRAME_POINTER_REGNUM, we don't want to get this variable
-	     confused with that register and be eliminated.  Although this
-	     usage is somewhat suspect, we nevertheless use the following
-	     kludge to avoid setting DECL_RTL to frame_pointer_rtx.  */
+	     confused with that register and be eliminated.  This usage is
+	     somewhat suspect...  */
 
-	  SET_DECL_RTL (decl,
-			gen_rtx_REG (DECL_MODE (decl),
-				     FIRST_PSEUDO_REGISTER));
-	  REGNO (DECL_RTL (decl)) = reg_number;
+	  SET_DECL_RTL (decl, gen_rtx_raw_REG (DECL_MODE (decl), reg_number));
+	  ORIGINAL_REGNO (DECL_RTL (decl)) = reg_number;
 	  REG_USERVAR_P (DECL_RTL (decl)) = 1;
 
 	  if (TREE_STATIC (decl))
@@ -2366,7 +2361,9 @@ decode_addr_const (exp, value)
     case COMPLEX_CST:
     case CONSTRUCTOR:
     case INTEGER_CST:
-      x = TREE_CST_RTL (target);
+      /* This constant should have been output already, but we can't simply
+	 use TREE_CST_RTL since INTEGER_CST doesn't have one.  */
+      x = output_constant_def (target, 1);
       break;
 
     default:
@@ -2428,7 +2425,7 @@ static struct constant_descriptor *const_hash_table[MAX_HASH_TABLE];
    they are actually used.  This will be if something takes its address or if
    there is a usage of the string in the RTL of a function.  */
 
-#define STRHASH(x) ((hashval_t)((long)(x) >> 3))
+#define STRHASH(x) ((hashval_t) ((long) (x) >> 3))
 
 struct deferred_string
 {
@@ -2593,7 +2590,7 @@ const_hash (exp)
 	else if (GET_CODE (value.base) == LABEL_REF)
 	  hi = value.offset + CODE_LABEL_NUMBER (XEXP (value.base, 0)) * 13;
 	else
-	  abort();
+	  abort ();
 
 	hi &= (1 << HASHBITS) - 1;
 	hi %= MAX_HASH_TABLE;
@@ -2687,7 +2684,7 @@ compare_constant_1 (exp, p)
       if ((enum machine_mode) *p++ != TYPE_MODE (TREE_TYPE (exp)))
 	return 0;
 
-      strp = (const unsigned char *)TREE_STRING_POINTER (exp);
+      strp = (const unsigned char *) TREE_STRING_POINTER (exp);
       len = TREE_STRING_LENGTH (exp);
       if (memcmp ((char *) &TREE_STRING_LENGTH (exp), p,
 		  sizeof TREE_STRING_LENGTH (exp)))

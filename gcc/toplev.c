@@ -1,6 +1,6 @@
 /* Top level of GNU C compiler
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -114,10 +114,6 @@ vms_fopen (fname, type)
 
 #define fopen vms_fopen
 #endif	/* VMS  */
-
-#if defined (HAVE_DECL_ENVIRON) && !HAVE_DECL_ENVIRON
-extern char **environ;
-#endif
 
 /* Carry information from ASM_DECLARE_OBJECT_NAME
    to ASM_FINISH_DECLARE_OBJECT.  */
@@ -1469,6 +1465,11 @@ int warn_disabled_optimization;
 
 int warn_missing_noreturn;
 
+/* Nonzero means warn about uses of __attribute__((deprecated)) 
+   declarations.  */
+
+int warn_deprecated_decl = 1;
+
 /* Likewise for -W.  */
 
 static const lang_independent_options W_options[] =
@@ -1507,6 +1508,8 @@ static const lang_independent_options W_options[] =
    N_("Warn when padding is required to align struct members") },
   {"disabled-optimization", &warn_disabled_optimization, 1,
    N_("Warn when an optimization pass is disabled") },
+  {"deprecated-declarations", &warn_deprecated_decl, 1,
+   N_("Warn about uses of __attribute__((deprecated)) declarations") },
   {"missing-noreturn", &warn_missing_noreturn, 1,
    N_("Warn about functions which might be candidates for attribute noreturn") }
 };
@@ -1699,8 +1702,8 @@ set_float_handler (handler)
 
 int
 do_float_handler (fn, data)
-  void (*fn) PARAMS ((PTR));
-  PTR data;
+     void (*fn) PARAMS ((PTR));
+     PTR data;
 {
   jmp_buf buf;
 
@@ -2368,11 +2371,6 @@ rest_of_compilation (decl)
   if (!cfun->x_whole_function_mode_p)
     identify_blocks ();
 
-  /* Then remove any notes we don't need.  That will make iterating
-     over the instruction sequence faster, and allow the garbage
-     collector to reclaim the memory used by the notes.  */
-  remove_unnecessary_notes ();
-
   /* In function-at-a-time mode, we do not attempt to keep the BLOCK
      tree in sensible shape.  So, we just recalculate it here.  */
   if (cfun->x_whole_function_mode_p)
@@ -2509,6 +2507,29 @@ rest_of_compilation (decl)
       if (DECL_EXTERNAL (decl))
 	goto exit_rest_of_compilation;
     }
+
+  /* If we're emitting a nested function, make sure its parent gets
+     emitted as well.  Doing otherwise confuses debug info.  */
+  {
+    tree parent;
+    for (parent = DECL_CONTEXT (current_function_decl);
+	 parent != NULL_TREE;
+	 parent = get_containing_scope (parent))
+      if (TREE_CODE (parent) == FUNCTION_DECL)
+	TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (parent)) = 1;
+  }
+
+  /* We are now committed to emitting code for this function.  Do any
+     preparation, such as emitting abstract debug info for the inline
+     before it gets mangled by optimization.  */
+  if (DECL_INLINE (decl))
+    (*debug_hooks->outlining_inline_function) (decl);
+
+  /* Remove any notes we don't need.  That will make iterating
+     over the instruction sequence faster, and allow the garbage
+     collector to reclaim the memory used by the notes.  */
+  remove_unnecessary_notes ();
+  reorder_blocks ();
 
   ggc_collect ();
 
@@ -2794,6 +2815,7 @@ rest_of_compilation (decl)
       find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       tem = gcse_main (insns, rtl_dump_file);
+      rebuild_jump_labels (insns);
 
       save_csb = flag_cse_skip_blocks;
       save_cfj = flag_cse_follow_jumps;
@@ -2841,7 +2863,7 @@ rest_of_compilation (decl)
       ggc_collect ();
       flag_cse_skip_blocks = save_csb;
       flag_cse_follow_jumps = save_cfj;
-     }
+    }
 
   /* Move constant computations out of loops.  */
 
@@ -2946,7 +2968,7 @@ rest_of_compilation (decl)
   open_dump_file (DFI_cfg, decl);
 
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0
+  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
 	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
   check_function_return_warnings ();
 
@@ -3007,7 +3029,7 @@ rest_of_compilation (decl)
       if (initialize_uninitialized_subregs ())
 	{
 	  /* Insns were inserted, so things might look a bit different.  */
-	  insns = get_insns();
+	  insns = get_insns ();
 	  life_analysis (insns, rtl_dump_file, 
 			 (PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES));
 	}
@@ -3684,7 +3706,7 @@ display_help ()
 static void
 display_target_options ()
 {
-  int undoc,i;
+  int undoc, i;
   static bool displayed = false;
 
   /* Avoid double printing for --help --target-help.  */
@@ -3833,9 +3855,9 @@ decode_f_option (arg)
     }
 
   if (!strcmp (arg, "fast-math"))
-    set_fast_math_flags();
+    set_fast_math_flags ();
   else if (!strcmp (arg, "no-fast-math"))
-    set_no_fast_math_flags();
+    set_no_fast_math_flags ();
   else if ((option_value = skip_leading_substring (arg, "inline-limit-"))
 	   || (option_value = skip_leading_substring (arg, "inline-limit=")))
     {
@@ -4650,7 +4672,7 @@ parse_options_and_default_flags (argc, argv)
       flag_omit_frame_pointer = 1;
 #endif
       flag_guess_branch_prob = 1;
-      /* flag_cprop_registers = 1; */
+      flag_cprop_registers = 1;
     }
 
   if (optimize >= 2)
@@ -4972,6 +4994,14 @@ process_options ()
       flag_prefetch_loop_arrays = 0;
     }
 #endif
+
+  /* This combination of options isn't handled for i386 targets and doesn't
+     make much sense anyway, so don't allow it.  */
+  if (flag_prefetch_loop_arrays && optimize_size)
+    {
+      warning ("-fprefetch-loop-arrays is not supported with -Os");
+      flag_prefetch_loop_arrays = 0;
+    }
 
 #ifndef OBJECT_FORMAT_ELF
   if (flag_function_sections && write_symbols != NO_DEBUG)

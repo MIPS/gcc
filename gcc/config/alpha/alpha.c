@@ -116,6 +116,10 @@ int alpha_this_gpdisp_sequence_number;
 /* Declarations of static functions.  */
 static bool decl_in_text_section
   PARAMS ((tree));
+static int some_small_symbolic_mem_operand_1
+  PARAMS ((rtx *, void *));
+static int split_small_symbolic_mem_operand_1
+  PARAMS ((rtx *, void *));
 static bool local_symbol_p
   PARAMS ((rtx));
 static void alpha_set_memflags_1
@@ -768,7 +772,7 @@ some_operand (op, mode)
   switch (GET_CODE (op))
     {
     case REG:  case MEM:  case CONST_DOUBLE:  case CONST_INT:  case LABEL_REF:
-    case SYMBOL_REF:  case CONST:
+    case SYMBOL_REF:  case CONST:  case HIGH:
       return 1;
 
     case SUBREG:
@@ -816,10 +820,21 @@ input_operand (op, mode)
     case SYMBOL_REF:
     case CONST:
       if (TARGET_EXPLICIT_RELOCS)
-	return 0;
+	{
+	  /* We don't split symbolic operands into something unintelligable
+	     until after reload, but we do not wish non-small, non-global
+	     symbolic operands to be reconstructed from their high/lo_sum
+	     form.  */
+	  return (small_symbolic_operand (op, mode)
+		  || global_symbolic_operand (op, mode));
+	}
 
       /* This handles both the Windows/NT and OSF cases.  */
       return mode == ptr_mode || mode == DImode;
+
+    case HIGH:
+      return (TARGET_EXPLICIT_RELOCS
+	      && local_symbolic_operand (XEXP (op, 0), mode));
 
     case REG:
     case ADDRESSOF:
@@ -891,7 +906,7 @@ direct_call_operand (op, mode)
      but is approximately correct for the OSF ABIs.  Don't know
      what to do for VMS, NT, or UMK.  */
   if (! TARGET_PROFILING_NEEDS_GP
-      && ! profile_flag)
+      && ! current_function_profile)
     return 0;
 
   return 1;
@@ -1330,7 +1345,7 @@ reg_no_subreg_operand (op, mode)
      register rtx op;
      enum machine_mode mode;
 {
-  if (GET_CODE (op) == SUBREG)
+  if (GET_CODE (op) != REG)
     return 0;
   return register_operand (op, mode);
 }
@@ -1352,6 +1367,100 @@ addition_operation (op, mode)
       && CONST_OK_FOR_LETTER_P (INTVAL (XEXP (op, 1)), 'K'))
     return 1;
   return 0;
+}
+
+/* Implements CONST_OK_FOR_LETTER_P.  Return true if the value matches
+   the range defined for C in [I-P].  */
+
+bool
+alpha_const_ok_for_letter_p (value, c)
+     HOST_WIDE_INT value;
+     int c;
+{
+  switch (c)
+    {
+    case 'I':
+      /* An unsigned 8 bit constant.  */
+      return (unsigned HOST_WIDE_INT) value < 0x100;
+    case 'J':
+      /* The constant zero.  */
+      return value == 0;
+    case 'K':
+      /* A signed 16 bit constant.  */
+      return (unsigned HOST_WIDE_INT) (value + 0x8000) < 0x10000;
+    case 'L':
+      /* A shifted signed 16 bit constant appropriate for LDAH.  */
+      return ((value & 0xffff) == 0
+              && ((value) >> 31 == -1 || value >> 31 == 0));
+    case 'M':
+      /* A constant that can be AND'ed with using a ZAP insn.  */
+      return zap_mask (value);
+    case 'N':
+      /* A complemented unsigned 8 bit constant.  */
+      return (unsigned HOST_WIDE_INT) (~ value) < 0x100;
+    case 'O':
+      /* A negated unsigned 8 bit constant.  */
+      return (unsigned HOST_WIDE_INT) (- value) < 0x100;
+    case 'P':
+      /* The constant 1, 2 or 3.  */
+      return value == 1 || value == 2 || value == 3;
+
+    default:
+      return false;
+    }
+}
+
+/* Implements CONST_DOUBLE_OK_FOR_LETTER_P.  Return true if VALUE
+   matches for C in [GH].  */
+
+bool
+alpha_const_double_ok_for_letter_p (value, c)
+     rtx value;
+     int c;
+{
+  switch (c)
+    {
+    case 'G':
+      /* The floating point zero constant.  */
+      return (GET_MODE_CLASS (GET_MODE (value)) == MODE_FLOAT
+	      && value == CONST0_RTX (GET_MODE (value)));
+
+    case 'H':
+      /* A valid operand of a ZAP insn.  */
+      return (GET_MODE (value) == VOIDmode
+	      && zap_mask (CONST_DOUBLE_LOW (value))
+	      && zap_mask (CONST_DOUBLE_HIGH (value)));
+
+    default:
+      return false;
+    }
+}
+
+/* Implements CONST_DOUBLE_OK_FOR_LETTER_P.  Return true if VALUE
+   matches for C.  */
+
+bool
+alpha_extra_constraint (value, c)
+     rtx value;
+     int c;
+{
+  switch (c)
+    {
+    case 'Q':
+      return normal_memory_operand (value, VOIDmode);
+    case 'R':
+      return direct_call_operand (value, Pmode);
+    case 'S':
+      return (GET_CODE (value) == CONST_INT
+	      && (unsigned HOST_WIDE_INT) INTVAL (value) < 64);
+    case 'T':
+      return GET_CODE (value) == HIGH;
+    case 'U':
+      return TARGET_ABI_UNICOSMK && symbolic_operand (value, VOIDmode);
+
+    default:
+      return false;
+    }
 }
 
 /* Return 1 if this function can directly return via $26.  */
@@ -1628,28 +1737,35 @@ alpha_legitimate_address_p (mode, x, strict)
 	return true;
     }
 
-  /* If we're managing explicit relocations, LO_SUM is valid.  */
-  else if (TARGET_EXPLICIT_RELOCS && GET_CODE (x) == LO_SUM)
+  /* If we're managing explicit relocations, LO_SUM is valid, as
+     are small data symbols.  */
+  else if (TARGET_EXPLICIT_RELOCS)
     {
-      rtx ofs = XEXP (x, 1);
-      x = XEXP (x, 0);
-
-      /* Discard non-paradoxical subregs.  */
-      if (GET_CODE (x) == SUBREG
-          && (GET_MODE_SIZE (GET_MODE (x))
-	      < GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)))))
-	x = SUBREG_REG (x);
-
-      /* Must have a valid base register.  */
-      if (! (REG_P (x)
-	     && (strict
-		 ? STRICT_REG_OK_FOR_BASE_P (x)
-		 : NONSTRICT_REG_OK_FOR_BASE_P (x))))
-	return false;
-
-      /* The symbol must be local.  */
-      if (local_symbolic_operand (ofs, Pmode))
+      if (small_symbolic_operand (x, Pmode))
 	return true;
+
+      if (GET_CODE (x) == LO_SUM)
+	{
+	  rtx ofs = XEXP (x, 1);
+	  x = XEXP (x, 0);
+
+	  /* Discard non-paradoxical subregs.  */
+	  if (GET_CODE (x) == SUBREG
+	      && (GET_MODE_SIZE (GET_MODE (x))
+		  < GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)))))
+	    x = SUBREG_REG (x);
+
+	  /* Must have a valid base register.  */
+	  if (! (REG_P (x)
+		 && (strict
+		     ? STRICT_REG_OK_FOR_BASE_P (x)
+		     : NONSTRICT_REG_OK_FOR_BASE_P (x))))
+	    return false;
+
+	  /* The symbol must be local.  */
+	  if (local_symbolic_operand (ofs, Pmode))
+	    return true;
+	}
     }
 
   return false;
@@ -1659,9 +1775,9 @@ alpha_legitimate_address_p (mode, x, strict)
    to be legitimate.  If we find one, return the new, valid address.  */
 
 rtx
-alpha_legitimize_address (x, oldx, mode)
+alpha_legitimize_address (x, scratch, mode)
      rtx x;
-     rtx oldx ATTRIBUTE_UNUSED;
+     rtx scratch;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   HOST_WIDE_INT addend;
@@ -1683,7 +1799,8 @@ alpha_legitimize_address (x, oldx, mode)
      part of the CONST_INT.  Then load FOO plus any high-order part of the
      CONST_INT into a register.  Our address is (plus reg low-part-const).
      This is done to reduce the number of GOT entries.  */
-  if (GET_CODE (x) == CONST
+  if (!no_new_pseudos
+      && GET_CODE (x) == CONST
       && GET_CODE (XEXP (x, 0)) == PLUS
       && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
     {
@@ -1695,7 +1812,8 @@ alpha_legitimize_address (x, oldx, mode)
   /* If we have a (plus reg const), emit the load as in (2), then add
      the two registers, and finally generate (plus reg low-part-const) as
      our address.  */
-  if (GET_CODE (x) == PLUS
+  if (!no_new_pseudos
+      && GET_CODE (x) == PLUS
       && GET_CODE (XEXP (x, 0)) == REG
       && GET_CODE (XEXP (x, 1)) == CONST
       && GET_CODE (XEXP (XEXP (x, 1), 0)) == PLUS
@@ -1711,33 +1829,18 @@ alpha_legitimize_address (x, oldx, mode)
   /* If this is a local symbol, split the address into HIGH/LO_SUM parts.  */
   if (TARGET_EXPLICIT_RELOCS && symbolic_operand (x, Pmode))
     {
-      rtx scratch;
       if (local_symbolic_operand (x, Pmode))
 	{
 	  if (small_symbolic_operand (x, Pmode))
-	    scratch = pic_offset_table_rtx;
+	    return x;
 	  else
 	    {
-	      rtx insn, tmp;
-
-	      scratch = gen_reg_rtx (Pmode);
-
-	      tmp = gen_rtx_HIGH (Pmode, x);
-	      tmp = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, tmp);
-              insn = emit_insn (gen_rtx_SET (VOIDmode, scratch, tmp));
-	      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, tmp,
-						    REG_NOTES (insn));
+	      if (!no_new_pseudos)
+	        scratch = gen_reg_rtx (Pmode);
+	      emit_insn (gen_rtx_SET (VOIDmode, scratch,
+				      gen_rtx_HIGH (Pmode, x)));
+	      return gen_rtx_LO_SUM (Pmode, scratch, x);
 	    }
-
-	  return gen_rtx_LO_SUM (Pmode, scratch, x);
-	}
-      else
-	{
-	  scratch = gen_reg_rtx (Pmode);
-	  emit_insn (gen_movdi_er_high_g (scratch, pic_offset_table_rtx,
-					  x, const0_rtx));
-	  /* ??? FIXME: Tag the use of scratch with a lituse.  */
-	  return scratch;
 	}
     }
 
@@ -1745,12 +1848,87 @@ alpha_legitimize_address (x, oldx, mode)
 
  split_addend:
   {
-    HOST_WIDE_INT lowpart = (addend & 0xffff) - 2 * (addend & 0x8000);
-    HOST_WIDE_INT highpart = addend - lowpart;
-    x = expand_simple_binop (Pmode, PLUS, x, GEN_INT (highpart),
-			     NULL_RTX, 1, OPTAB_LIB_WIDEN);
-    return plus_constant (x, lowpart);
+    HOST_WIDE_INT low, high;
+
+    low = ((addend & 0xffff) ^ 0x8000) - 0x8000;
+    addend -= low;
+    high = ((addend & 0xffffffff) ^ 0x80000000) - 0x80000000;
+    addend -= high;
+
+    if (addend)
+      x = expand_simple_binop (Pmode, PLUS, x, GEN_INT (addend),
+			       (no_new_pseudos ? scratch : NULL_RTX),
+			       1, OPTAB_LIB_WIDEN);
+    if (high)
+      x = expand_simple_binop (Pmode, PLUS, x, GEN_INT (high),
+			       (no_new_pseudos ? scratch : NULL_RTX),
+			       1, OPTAB_LIB_WIDEN);
+
+    return plus_constant (x, low);
   }
+}
+
+/* For TARGET_EXPLICIT_RELOCS, we don't obfuscate a SYMBOL_REF to a
+   small symbolic operand until after reload.  At which point we need
+   to replace (mem (symbol_ref)) with (mem (lo_sum $29 symbol_ref))
+   so that sched2 has the proper dependency information.  */
+
+int
+some_small_symbolic_mem_operand (x, mode)
+     rtx x;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return for_each_rtx (&x, some_small_symbolic_mem_operand_1, NULL);
+}
+
+static int
+some_small_symbolic_mem_operand_1 (px, data)
+     rtx *px;
+     void *data ATTRIBUTE_UNUSED;
+{
+  rtx x = *px;
+
+  if (GET_CODE (x) != MEM)
+    return 0;
+  x = XEXP (x, 0);
+
+  /* If this is an ldq_u type address, discard the outer AND.  */
+  if (GET_CODE (x) == AND)
+    x = XEXP (x, 0);
+
+  return small_symbolic_operand (x, Pmode) ? 1 : -1;
+}
+
+rtx
+split_small_symbolic_mem_operand (x)
+     rtx x;
+{
+  x = copy_insn (x);
+  for_each_rtx (&x, split_small_symbolic_mem_operand_1, NULL);
+  return x;
+}
+
+static int
+split_small_symbolic_mem_operand_1 (px, data)
+     rtx *px;
+     void *data ATTRIBUTE_UNUSED;
+{
+  rtx x = *px;
+
+  if (GET_CODE (x) != MEM)
+    return 0;
+
+  px = &XEXP (x, 0), x = *px;
+  if (GET_CODE (x) == AND)
+    px = &XEXP (x, 0), x = *px;
+
+  if (small_symbolic_operand (x, Pmode))
+    {
+      x = gen_rtx_LO_SUM (Pmode, pic_offset_table_rtx, x);
+      *px = x;
+    }
+
+  return -1;
 }
 
 /* Try a machine-dependent way of reloading an illegitimate address
@@ -1884,6 +2062,39 @@ get_unaligned_address (ref, extra_offset)
     offset += INTVAL (XEXP (base, 1)), base = XEXP (base, 0);
 
   return plus_constant (base, offset + extra_offset);
+}
+
+/* On the Alpha, all (non-symbolic) constants except zero go into
+   a floating-point register via memory.  Note that we cannot 
+   return anything that is not a subset of CLASS, and that some
+   symbolic constants cannot be dropped to memory.  */
+
+enum reg_class
+alpha_preferred_reload_class(x, class)
+     rtx x;
+     enum reg_class class;
+{
+  /* Zero is present in any register class.  */
+  if (x == CONST0_RTX (GET_MODE (x)))
+    return class;
+
+  /* These sorts of constants we can easily drop to memory.  */
+  if (GET_CODE (x) == CONST_INT || GET_CODE (x) == CONST_DOUBLE)
+    {
+      if (class == FLOAT_REGS)
+	return NO_REGS;
+      if (class == ALL_REGS)
+	return GENERAL_REGS;
+      return class;
+    }
+
+  /* All other kinds of constants should not (and in the case of HIGH
+     cannot) be dropped to memory -- instead we use a GENERAL_REGS
+     secondary reload.  */
+  if (CONSTANT_P (x))
+    return (class == ALL_REGS ? GENERAL_REGS : class);
+
+  return class;
 }
 
 /* Loading and storing HImode or QImode values to and from memory
@@ -2294,35 +2505,14 @@ alpha_expand_mov (mode, operands)
       && ! reg_or_0_operand (operands[1], mode))
     operands[1] = force_reg (mode, operands[1]);
 
-  if (TARGET_EXPLICIT_RELOCS && symbolic_operand (operands[1], mode))
+  /* Allow legitimize_address to perform some simplifications.  */
+  if (mode == Pmode && symbolic_operand (operands[1], mode))
     {
-      if (local_symbolic_operand (operands[1], mode))
+      rtx tmp = alpha_legitimize_address (operands[1], operands[0], mode);
+      if (tmp)
 	{
-	  rtx scratch;
-
-	  if (small_symbolic_operand (operands[1], Pmode))
-	    scratch = pic_offset_table_rtx;
-	  else
-	    {
-	      rtx insn, tmp;
-
-	      scratch = no_new_pseudos ? operands[0] : gen_reg_rtx (Pmode);
-
-	      tmp = gen_rtx_HIGH (Pmode, operands[1]);
-	      tmp = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, tmp);
-              insn = emit_insn (gen_rtx_SET (VOIDmode, scratch, tmp));
-	      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, tmp,
-						    REG_NOTES (insn));
-	    }
-
-          operands[1] = gen_rtx_LO_SUM (Pmode, scratch, operands[1]);
+	  operands[1] = tmp;
 	  return false;
-	}
-      else
-	{
-	  emit_insn (gen_movdi_er_high_g (operands[0], pic_offset_table_rtx,
-					  operands[1], const0_rtx));
-	  return true;
 	}
     }
 
@@ -3004,6 +3194,9 @@ alpha_split_conditional_move (code, dest, cond, t_rtx, f_rtx)
       else
 	subtarget = target;
     }
+  /* Below, we must be careful to use copy_rtx on target and subtarget
+     in intermediate insns, as they may be a subreg rtx, which may not
+     be shared.  */
 
   if (f == 0 && exact_log2 (diff) > 0
       /* On EV6, we've got enough shifters to make non-arithmatic shifts
@@ -3012,33 +3205,35 @@ alpha_split_conditional_move (code, dest, cond, t_rtx, f_rtx)
       && (diff <= 8 || alpha_cpu == PROCESSOR_EV6))
     {
       tmp = gen_rtx_fmt_ee (code, DImode, cond, const0_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, subtarget, tmp));
+      emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (subtarget), tmp));
 
-      tmp = gen_rtx_ASHIFT (DImode, subtarget, GEN_INT (exact_log2 (t)));
+      tmp = gen_rtx_ASHIFT (DImode, copy_rtx (subtarget),
+			    GEN_INT (exact_log2 (t)));
       emit_insn (gen_rtx_SET (VOIDmode, target, tmp));
     }
   else if (f == 0 && t == -1)
     {
       tmp = gen_rtx_fmt_ee (code, DImode, cond, const0_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, subtarget, tmp));
+      emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (subtarget), tmp));
 
-      emit_insn (gen_negdi2 (target, subtarget));
+      emit_insn (gen_negdi2 (target, copy_rtx (subtarget)));
     }
   else if (diff == 1 || diff == 4 || diff == 8)
     {
       rtx add_op;
 
       tmp = gen_rtx_fmt_ee (code, DImode, cond, const0_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, subtarget, tmp));
+      emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (subtarget), tmp));
 
       if (diff == 1)
-	emit_insn (gen_adddi3 (target, subtarget, GEN_INT (f)));
+	emit_insn (gen_adddi3 (target, copy_rtx (subtarget), GEN_INT (f)));
       else
 	{
 	  add_op = GEN_INT (f);
 	  if (sext_add_operand (add_op, mode))
 	    {
-	      tmp = gen_rtx_MULT (DImode, subtarget, GEN_INT (diff));
+	      tmp = gen_rtx_MULT (DImode, copy_rtx (subtarget),
+				  GEN_INT (diff));
 	      tmp = gen_rtx_PLUS (DImode, tmp, add_op);
 	      emit_insn (gen_rtx_SET (VOIDmode, target, tmp));
 	    }
@@ -4969,6 +5164,16 @@ print_operand (file, x, code)
 	output_operand_lossage ("invalid %%H value");
       break;
 
+    case 'J':
+      if (GET_CODE (x) == CONST_INT)
+	{
+	  if (INTVAL (x) != 0)
+	    fprintf (file, "\t\t!lituse_jsr!%d", (int) INTVAL (x));
+	}
+      else
+	output_operand_lossage ("invalid %%J value");
+      break;
+
     case 'r':
       /* If this operand is the constant zero, write it as "$31".  */
       if (GET_CODE (x) == REG)
@@ -5850,7 +6055,7 @@ alpha_does_function_need_gp ()
   if (! TARGET_ABI_OSF)
     return 0;
 
-  if (TARGET_PROFILING_NEEDS_GP && profile_flag)
+  if (TARGET_PROFILING_NEEDS_GP && current_function_profile)
     return 1;
 
 #ifdef ASM_OUTPUT_MI_THUNK
@@ -5995,7 +6200,7 @@ alpha_expand_prologue ()
      the call to mcount ourselves, rather than having the linker do it
      magically in response to -pg.  Since _mcount has special linkage,
      don't represent the call as a call.  */
-  if (TARGET_PROFILING_NEEDS_GP && profile_flag)
+  if (TARGET_PROFILING_NEEDS_GP && current_function_profile)
     emit_insn (gen_prologue_mcount ());
 
   if (TARGET_ABI_UNICOSMK)

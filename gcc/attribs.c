@@ -1,6 +1,6 @@
 /* Functions dealing with attribute handling, used by most front ends.
-   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
-   Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
+   2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -82,6 +82,8 @@ static tree handle_no_limit_stack_attribute PARAMS ((tree *, tree, tree, int,
 						     bool *));
 static tree handle_pure_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
+static tree handle_deprecated_attribute	PARAMS ((tree *, tree, tree, int,
+						 bool *));
 static tree handle_vector_size_attribute PARAMS ((tree *, tree, tree, int,
 						  bool *));
 static tree vector_size_helper PARAMS ((tree, tree));
@@ -138,6 +140,8 @@ static const struct attribute_spec c_common_attribute_table[] =
 			      handle_no_limit_stack_attribute },
   { "pure",                   0, 0, true,  false, false,
 			      handle_pure_attribute },
+  { "deprecated",             0, 0, false, false, false,
+			      handle_deprecated_attribute },
   { "vector_size",	      1, 1, false, true, false,
 			      handle_vector_size_attribute },
   { NULL,                     0, 0, false, false, false, NULL }
@@ -334,8 +338,15 @@ decl_attributes (node, attributes, flags)
 	    }
 	}
 
+      /* If we require a type, but were passed a decl, set up to make a
+	 new type and update the one in the decl.  ATTR_FLAG_TYPE_IN_PLACE
+	 would have applied if we'd been passed a type, but we cannot modify
+	 the decl's type in place here.  */
       if (spec->type_required && DECL_P (*anode))
-	anode = &TREE_TYPE (*anode);
+	{
+	  anode = &TREE_TYPE (*anode);
+	  flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
+	}
 
       if (spec->function_type_required && TREE_CODE (*anode) != FUNCTION_TYPE
 	  && TREE_CODE (*anode) != METHOD_TYPE)
@@ -1131,6 +1142,67 @@ handle_pure_attribute (node, name, args, flags, no_add_attrs)
   return NULL_TREE;
 }
 
+/* Handle a "deprecated" attribute; arguments as in
+   struct attribute_spec.handler.  */
+   
+static tree
+handle_deprecated_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags;
+     bool *no_add_attrs;
+{
+  tree type = NULL_TREE;
+  int warn = 0;
+  const char *what = NULL;
+  
+  if (DECL_P (*node))
+    {
+      tree decl = *node;
+      type = TREE_TYPE (decl);
+      
+      if (TREE_CODE (decl) == TYPE_DECL
+	  || TREE_CODE (decl) == PARM_DECL
+	  || TREE_CODE (decl) == VAR_DECL
+	  || TREE_CODE (decl) == FUNCTION_DECL
+	  || TREE_CODE (decl) == FIELD_DECL)
+	TREE_DEPRECATED (decl) = 1;
+      else
+	warn = 1;
+    }
+  else if (TYPE_P (*node))
+    {
+      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
+	*node = build_type_copy (*node);
+      TREE_DEPRECATED (*node) = 1;
+      type = *node;
+    }
+  else
+    warn = 1;
+  
+  if (warn)
+    {
+      *no_add_attrs = true;
+      if (type && TYPE_NAME (type))
+	{
+	  if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
+	    what = IDENTIFIER_POINTER (TYPE_NAME (*node));
+	  else if (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
+		   && DECL_NAME (TYPE_NAME (type)))
+	    what = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
+	}
+      if (what)
+	warning ("`%s' attribute ignored for `%s'",
+		  IDENTIFIER_POINTER (name), what);
+      else
+	warning ("`%s' attribute ignored", 
+		      IDENTIFIER_POINTER (name));
+    }
+
+  return NULL_TREE;
+}
+
 /* Handle a "vector_size" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -1142,20 +1214,20 @@ handle_vector_size_attribute (node, name, args, flags, no_add_attrs)
      int flags ATTRIBUTE_UNUSED;
      bool *no_add_attrs;
 {
-  unsigned int vecsize, nunits;
+  unsigned HOST_WIDE_INT vecsize, nunits;
   enum machine_mode mode, orig_mode, new_mode;
   tree type = *node, new_type;
 
   *no_add_attrs = true;
 
-  if (TREE_CODE (TREE_VALUE (args)) != INTEGER_CST)
+  if (! host_integerp (TREE_VALUE (args), 1))
     {
       warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
       return NULL_TREE;
     }
 
   /* Get the vector size (in bytes).  */
-  vecsize = TREE_INT_CST_LOW (TREE_VALUE (args));
+  vecsize = tree_low_cst (TREE_VALUE (args), 1);
 
   /* We need to provide for vector pointers, vector arrays, and
      functions returning vectors.  For example:
@@ -1173,9 +1245,10 @@ handle_vector_size_attribute (node, name, args, flags, no_add_attrs)
   /* Get the mode of the type being modified.  */
   orig_mode = TYPE_MODE (type);
 
-  if (TREE_CODE (type) == RECORD_TYPE ||
-      (GET_MODE_CLASS (orig_mode) != MODE_FLOAT
-       && GET_MODE_CLASS (orig_mode) != MODE_INT))
+  if (TREE_CODE (type) == RECORD_TYPE
+      || (GET_MODE_CLASS (orig_mode) != MODE_FLOAT
+	  && GET_MODE_CLASS (orig_mode) != MODE_INT)
+      || ! host_integerp (TYPE_SIZE_UNIT (type), 1))
     {
       error ("invalid vector type for attribute `%s'",
 	     IDENTIFIER_POINTER (name));
@@ -1183,7 +1256,7 @@ handle_vector_size_attribute (node, name, args, flags, no_add_attrs)
     }
 
   /* Calculate how many units fit in the vector.  */
-  nunits = vecsize / TREE_INT_CST_LOW (TYPE_SIZE_UNIT (type));
+  nunits = vecsize / tree_low_cst (TYPE_SIZE_UNIT (type), 1);
 
   /* Find a suitably sized vector.  */
   new_mode = VOIDmode;
@@ -1192,7 +1265,8 @@ handle_vector_size_attribute (node, name, args, flags, no_add_attrs)
 					: MODE_VECTOR_FLOAT);
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if (vecsize == GET_MODE_SIZE (mode)	&& nunits == GET_MODE_NUNITS (mode))
+    if (vecsize == GET_MODE_SIZE (mode)
+	&& nunits == (unsigned HOST_WIDE_INT) GET_MODE_NUNITS (mode))
       {
 	new_mode = mode;
 	break;

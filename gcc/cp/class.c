@@ -1,6 +1,6 @@
 /* Functions related to building classes and their related objects.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001  Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002  Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -218,8 +218,8 @@ static bool type_requires_array_cookie PARAMS ((tree));
 /* Macros for dfs walking during vtt construction. See
    dfs_ctor_vtable_bases_queue_p, dfs_build_secondary_vptr_vtt_inits
    and dfs_fixup_binfo_vtbls.  */
-#define VTT_TOP_LEVEL_P(node) TREE_UNSIGNED(node)
-#define VTT_MARKED_BINFO_P(node) TREE_USED(node)
+#define VTT_TOP_LEVEL_P(NODE) TREE_UNSIGNED (NODE)
+#define VTT_MARKED_BINFO_P(NODE) TREE_USED (NODE)
 
 /* Variables shared between class.c and call.c.  */
 
@@ -252,7 +252,7 @@ build_base_path (code, expr, binfo, nonnull)
      int nonnull;
 {
   tree v_binfo = NULL_TREE;
-  tree t;
+  tree d_binfo = NULL_TREE;
   tree probe;
   tree offset;
   tree target_type;
@@ -263,11 +263,13 @@ build_base_path (code, expr, binfo, nonnull)
 
   if (expr == error_mark_node || binfo == error_mark_node || !binfo)
     return error_mark_node;
-  
-  for (probe = binfo; probe;
-       t = probe, probe = BINFO_INHERITANCE_CHAIN (probe))
-    if (!v_binfo && TREE_VIA_VIRTUAL (probe))
-      v_binfo = probe;
+
+  for (probe = binfo; probe; probe = BINFO_INHERITANCE_CHAIN (probe))
+    {
+      d_binfo = probe;
+      if (!v_binfo && TREE_VIA_VIRTUAL (probe))
+	v_binfo = probe;
+    }
 
   probe = TYPE_MAIN_VARIANT (TREE_TYPE (expr));
   if (want_pointer)
@@ -276,13 +278,13 @@ build_base_path (code, expr, binfo, nonnull)
   my_friendly_assert (code == MINUS_EXPR
 		      ? same_type_p (BINFO_TYPE (binfo), probe)
 		      : code == PLUS_EXPR
-		      ? same_type_p (BINFO_TYPE (t), probe)
+		      ? same_type_p (BINFO_TYPE (d_binfo), probe)
 		      : false, 20010723);
   
   if (code == MINUS_EXPR && v_binfo)
     {
       error ("cannot convert from base `%T' to derived type `%T' via virtual base `%T'",
-		BINFO_TYPE (binfo), BINFO_TYPE (t), BINFO_TYPE (v_binfo));
+	     BINFO_TYPE (binfo), BINFO_TYPE (d_binfo), BINFO_TYPE (v_binfo));
       return error_mark_node;
     }
 
@@ -303,12 +305,12 @@ build_base_path (code, expr, binfo, nonnull)
   if (v_binfo && !fixed_type_p)
     {
       /* Going via virtual base V_BINFO.  We need the static offset
-         from V_BINFO to BINFO, and the dynamic offset from T to
-         V_BINFO.  That offset is an entry in T's vtable.  */
+         from V_BINFO to BINFO, and the dynamic offset from D_BINFO to
+         V_BINFO.  That offset is an entry in D_BINFO's vtable.  */
       tree v_offset = build_vfield_ref (build_indirect_ref (expr, NULL),
 					TREE_TYPE (TREE_TYPE (expr)));
       
-      v_binfo = binfo_for_vbase (BINFO_TYPE (v_binfo), BINFO_TYPE (t));
+      v_binfo = binfo_for_vbase (BINFO_TYPE (v_binfo), BINFO_TYPE (d_binfo));
       
       v_offset = build (PLUS_EXPR, TREE_TYPE (v_offset),
 			v_offset,  BINFO_VPTR_FIELD (v_binfo));
@@ -326,7 +328,7 @@ build_base_path (code, expr, binfo, nonnull)
 	offset = v_offset;
     }
 
-  target_type = code == PLUS_EXPR ? BINFO_TYPE (binfo) : BINFO_TYPE (t);
+  target_type = code == PLUS_EXPR ? BINFO_TYPE (binfo) : BINFO_TYPE (d_binfo);
   
   target_type = cp_build_qualified_type
     (target_type, cp_type_quals (TREE_TYPE (TREE_TYPE (expr))));
@@ -2494,6 +2496,7 @@ update_vtable_entry_for_fn (t, binfo, fn, virtuals)
   tree delta;
   tree virtual_base;
   tree first_defn;
+  bool lost = false;
 
   /* Find the nearest primary base (possibly binfo itself) which defines
      this function; this is the class the caller will convert to when
@@ -2502,6 +2505,10 @@ update_vtable_entry_for_fn (t, binfo, fn, virtuals)
     {
       if (look_for_overrides_here (BINFO_TYPE (b), fn))
 	break;
+
+      /* The nearest definition is from a lost primary.  */
+      if (BINFO_LOST_PRIMARY_P (b))
+	lost = true;
     }
   first_defn = b;
 
@@ -2514,9 +2521,9 @@ update_vtable_entry_for_fn (t, binfo, fn, virtuals)
      the final overrider, and not to an intermediate virtual base.  */
   virtual_base = NULL_TREE;
 
-  /* We will convert to an intermediate virtual base first, and then
+  /* See if we can convert to an intermediate virtual base first, and then
      use the vcall offset located there to finish the conversion.  */
-  while (b)
+  for (; b; b = BINFO_INHERITANCE_CHAIN (b))
     {
       /* If we find the final overrider, then we can stop
 	 walking.  */
@@ -2529,8 +2536,6 @@ update_vtable_entry_for_fn (t, binfo, fn, virtuals)
 	 declaring base (first_defn) and the final overrider.  */
       if (!virtual_base && TREE_VIA_VIRTUAL (b))
 	virtual_base = b;
-
-      b = BINFO_INHERITANCE_CHAIN (b);
     }
 
   /* Compute the constant adjustment to the `this' pointer.  The
@@ -2542,6 +2547,12 @@ update_vtable_entry_for_fn (t, binfo, fn, virtuals)
        the nearest virtual base.  */
     delta = size_diffop (BINFO_OFFSET (virtual_base),
 			 BINFO_OFFSET (first_defn));
+  else if (lost)
+    /* If the nearest definition is in a lost primary, we don't need an
+       entry in our vtable.  Except possibly in a constructor vtable,
+       if we happen to get our primary back.  In that case, the offset
+       will be zero, as it will be a primary base.  */
+    delta = size_zero_node;
   else
     {
       /* The `this' pointer needs to be adjusted from pointing to
@@ -2917,6 +2928,8 @@ add_implicitly_declared_members (t, cant_have_default_ctor,
   tree virtual_dtor = NULL_TREE;
   tree *f;
 
+  ++adding_implicit_members;
+
   /* Destructor.  */
   if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) && !TYPE_HAS_DESTRUCTOR (t))
     {
@@ -2975,6 +2988,8 @@ add_implicitly_declared_members (t, cant_have_default_ctor,
     add_method (t, *f, /*error_p=*/0);
   *f = TYPE_METHODS (t);
   TYPE_METHODS (t) = implicit_fns;
+
+  --adding_implicit_members;
 
   return virtual_dtor;
 }
@@ -5029,7 +5044,7 @@ finish_struct_1 (t)
       if (IS_AGGR_TYPE (t))
 	error ("redefinition of `%#T'", t);
       else
-	my_friendly_abort (172);
+	abort ();
       popclass ();
       return;
     }
@@ -5303,7 +5318,7 @@ fixed_type_or_null (instance, nonnull, cdtorp)
   switch (TREE_CODE (instance))
     {
     case INDIRECT_REF:
-      if (POINTER_TYPE_P (instance))
+      if (POINTER_TYPE_P (TREE_TYPE (instance)))
 	return NULL_TREE;
       else
 	return fixed_type_or_null (TREE_OPERAND (instance, 0),
@@ -6075,7 +6090,7 @@ instantiate_type (lhstype, rhs, flags)
     case SAVE_EXPR:
     case CONSTRUCTOR:
     case BUFFER_REF:
-      my_friendly_abort (177);
+      abort ();
       return error_mark_node;
 
     case INDIRECT_REF:
@@ -6144,7 +6159,7 @@ instantiate_type (lhstype, rhs, flags)
 
     case CALL_EXPR:
       /* This is too hard for now.  */
-      my_friendly_abort (183);
+      abort ();
       return error_mark_node;
 
     case PLUS_EXPR:
@@ -6251,14 +6266,14 @@ instantiate_type (lhstype, rhs, flags)
       return instantiate_type (lhstype, TREE_OPERAND (rhs, 0), flags);
     }
     case ENTRY_VALUE_EXPR:
-      my_friendly_abort (184);
+      abort ();
       return error_mark_node;
 
     case ERROR_MARK:
       return error_mark_node;
 
     default:
-      my_friendly_abort (185);
+      abort ();
       return error_mark_node;
     }
 }
@@ -6371,7 +6386,7 @@ get_enclosing_class (type)
 	  break;
 
 	default:
-	  my_friendly_abort (0);
+	  abort ();
 	}
     }
   return NULL_TREE;
@@ -6535,7 +6550,7 @@ get_primary_binfo (binfo)
 	}
 
       /* We should always find the primary base.  */
-      my_friendly_abort (20000729);
+      abort ();
     }
 
   /* For a primary virtual base, we have to scan the entire hierarchy
@@ -6945,7 +6960,7 @@ get_original_base (base_binfo, binfo)
     if (same_type_p (BINFO_TYPE (base_binfo),
                      BINFO_TYPE (BINFO_BASETYPE (derived, ix))))
       return BINFO_BASETYPE (derived, ix);
-  my_friendly_abort (20010223);
+  abort ();
   return NULL;
 }
 
@@ -7502,62 +7517,66 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
       tree vcall_index;
       tree fn;
       tree pfn;
-      tree init;
+      tree init = NULL_TREE;
       
-      /* Pull the offset for `this', and the function to call, out of
-	 the list.  */
-      delta = BV_DELTA (v);
-
-      if (BV_USE_VCALL_INDEX_P (v))
-	{
-	  vcall_index = BV_VCALL_INDEX (v);
-	  my_friendly_assert (vcall_index != NULL_TREE, 20000621);
-	}
-      else
-        vcall_index = NULL_TREE;
-
       fn = BV_FN (v);
-      my_friendly_assert (TREE_CODE (delta) == INTEGER_CST, 19990727);
-      my_friendly_assert (TREE_CODE (fn) == FUNCTION_DECL, 19990727);
-
-      /* You can't call an abstract virtual function; it's abstract.
-	 So, we replace these functions with __pure_virtual.  */
-      if (DECL_PURE_VIRTUAL_P (fn))
-	fn = abort_fndecl;
-
-      /* Take the address of the function, considering it to be of an
-	 appropriate generic type.  */
-      pfn = build1 (ADDR_EXPR, vfunc_ptr_type_node, fn);
-      /* The address of a function can't change.  */
-      TREE_CONSTANT (pfn) = 1;
-
-      /* Enter it in the vtable.  */
-      init = build_vtable_entry (delta, vcall_index, pfn);
 
       /* If the only definition of this function signature along our
 	 primary base chain is from a lost primary, this vtable slot will
 	 never be used, so just zero it out.  This is important to avoid
 	 requiring extra thunks which cannot be generated with the function.
 
-	 We could also handle this in update_vtable_entry_for_fn; doing it
-	 here means we zero out unused slots in ctor vtables as well,
-	 rather than filling them with erroneous values (though harmless,
-	 apart from relocation costs).  */
-      if (fn != abort_fndecl)
-	for (b = binfo; ; b = get_primary_binfo (b))
-	  {
-	    /* We found a defn before a lost primary; go ahead as normal.  */
-	    if (look_for_overrides_here (BINFO_TYPE (b), fn))
-	      break;
+	 We first check this in update_vtable_entry_for_fn, so we handle
+	 restored primary bases properly; we also need to do it here so we
+	 zero out unused slots in ctor vtables, rather than filling themff
+	 with erroneous values (though harmless, apart from relocation
+	 costs).  */
+      for (b = binfo; ; b = get_primary_binfo (b))
+	{
+	  /* We found a defn before a lost primary; go ahead as normal.  */
+	  if (look_for_overrides_here (BINFO_TYPE (b), fn))
+	    break;
 
-	    /* The nearest definition is from a lost primary; clear the
-	       slot.  */
-	    if (BINFO_LOST_PRIMARY_P (b))
-	      {
-		init = size_zero_node;
-		break;
-	      }
-	  }
+	  /* The nearest definition is from a lost primary; clear the
+	     slot.  */
+	  if (BINFO_LOST_PRIMARY_P (b))
+	    {
+	      init = size_zero_node;
+	      break;
+	    }
+	}
+
+      if (! init)
+	{
+	  /* Pull the offset for `this', and the function to call, out of
+	     the list.  */
+	  delta = BV_DELTA (v);
+
+	  if (BV_USE_VCALL_INDEX_P (v))
+	    {
+	      vcall_index = BV_VCALL_INDEX (v);
+	      my_friendly_assert (vcall_index != NULL_TREE, 20000621);
+	    }
+	  else
+	    vcall_index = NULL_TREE;
+
+	  my_friendly_assert (TREE_CODE (delta) == INTEGER_CST, 19990727);
+	  my_friendly_assert (TREE_CODE (fn) == FUNCTION_DECL, 19990727);
+
+	  /* You can't call an abstract virtual function; it's abstract.
+	     So, we replace these functions with __pure_virtual.  */
+	  if (DECL_PURE_VIRTUAL_P (fn))
+	    fn = abort_fndecl;
+
+	  /* Take the address of the function, considering it to be of an
+	     appropriate generic type.  */
+	  pfn = build1 (ADDR_EXPR, vfunc_ptr_type_node, fn);
+	  /* The address of a function can't change.  */
+	  TREE_CONSTANT (pfn) = 1;
+
+	  /* Enter it in the vtable.  */
+	  init = build_vtable_entry (delta, vcall_index, pfn);
+	}
 
       /* And add it to the chain of initializers.  */
       if (TARGET_VTABLE_USES_DESCRIPTORS)
@@ -7699,7 +7718,7 @@ build_vbase_offset_vtbl_entries (binfo, vid)
 	  /* The vbase offset had better be the same.  */
 	  if (!tree_int_cst_equal (delta,
 				   BINFO_VPTR_FIELD (orig_vbase)))
-	    my_friendly_abort (20000403);
+	    abort ();
 	}
 
       /* The next vbase will come at a more negative offset.  */

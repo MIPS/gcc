@@ -1,6 +1,49 @@
-/* $Id: pushback.c,v 1.1 2000/12/09 03:08:23 apbianco Exp $
+/* $Id: pushback.c,v 1.3 2002/01/03 04:57:56 rodrigc Exp $
 
    $Log: pushback.c,v $
+   Revision 1.3  2002/01/03 04:57:56  rodrigc
+   2001-01-02  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+           PR bootstrap/5117
+           * configure.in (AC_CHECK_HEADERS): Check for stdlib.h.
+           * Makefile.am: Move grepjar to bin_PROGRAMS.
+           * config.h.in: Regenerated.
+           * Makefile.in: Regenerated.
+           * aclocal.m4: Regenerated.
+           * jargrep.c: Eliminate some signed/unsigned and default
+           uninitialized warnings. Use HAVE_STDLIB_H instead of
+           STDC_HEADERS macro.
+           * jartool.c: Likewise.
+           * compress.c: Likewise.
+
+   Revision 1.2  2000/12/14 18:45:35  ghazi
+   Warning fixes:
+
+   	* compress.c: Include stdlib.h and compress.h.
+   	(rcsid): Delete.
+   	(report_str_error): Make static.
+   	(ez_inflate_str): Delete unused variable.  Add parens in if-stmt.
+   	(hrd_inflate_str): Likewise.
+
+   	* compress.h (init_compression, end_compression, init_inflation,
+   	end_inflation): Prototype void arguments.
+
+   	* dostime.c (rcsid): Delete.
+
+   	* jargrep.c: Include ctype.h, stdlib.h, zlib.h and compress.h.
+   	Make functions static.  Cast ctype function argument to `unsigned
+   	char'.  Add parens in if-stmts.  Constify.
+   	(Usage): Change into a macro.
+   	(jargrep): Remove unused parameter.
+
+   	* jartool.c: Constify.  Add parens in if-stmts.  Align
+   	signed/unsigned char pointers in functions calls using casts.
+   	(rcsid): Delete.
+   	(list_jar): Fix printf format specifier.
+   	(usage): Chop long string into bits.  Reformat.
+
+   	* pushback.c (rcsid): Delete.
+
    Revision 1.1  2000/12/09 03:08:23  apbianco
    2000-12-08  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
@@ -63,7 +106,7 @@ int pb_push(pb_file *pbf, void *buff, int amt){
 #endif
 
   /* determine how much we can take */
-  if((RDSZ - pbf->buff_amt) < amt)
+  if((int)(RDSZ - pbf->buff_amt) < amt)
     in_amt = RDSZ - pbf->buff_amt;
   else
     in_amt = amt;
@@ -110,7 +153,7 @@ int pb_read(pb_file *pbf, void *buff, int amt){
 #endif
       
       /* calculate how much we can actually give the caller */
-      if( (amt - out_amt) < pbf->buff_amt )
+      if( (amt - out_amt) < (int)pbf->buff_amt )
         tmp = (amt - out_amt);
       else
         tmp = pbf->buff_amt;

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for the pdp-11
-   Copyright (C) 1994, 1995, 1996, 1998, 1999, 2000, 2001
+   Copyright (C) 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by Michael K. Gschwind (mike@vlsivie.tuwien.ac.at).
 
@@ -879,12 +879,6 @@ extern int may_call_alloca;
    Do not define this if the table should contain absolute addresses. */
 /* #define CASE_VECTOR_PC_RELATIVE 1 */
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
-
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -893,9 +887,6 @@ extern int may_call_alloca;
 */
 
 #define MOVE_MAX 2
-
-/* Zero extension is faster if the target is known to be zero */
-/* #define SLOW_ZERO_EXTEND */
 
 /* Nonzero if access to memory by byte is slow and undesirable. -
 */
@@ -1206,7 +1197,7 @@ JMP	FUNCTION	0x0058  0x0000 <- FUNCTION
 }
 
 #define TRAMPOLINE_SIZE 8
-#define TRAMPOLINE_ALIGN 16
+#define TRAMPOLINE_ALIGNMENT 16
 
 /* Emit RTL insns to initialize the variable parts of a trampoline.
    FNADDR is an RTX for the address of the function's pure code.

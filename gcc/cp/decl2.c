@@ -1,6 +1,6 @@
 /* Process declarations and variables for C compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -382,7 +382,7 @@ int flag_use_cxa_atexit;
    arbitrary, but it exists to limit the time it takes to notice
    infinite template instantiations.  */
 
-int max_tinst_depth = 50;
+int max_tinst_depth = 500;
 
 /* Nonzero means output .vtable_{entry,inherit} for use in doing vtable gc.  */
 
@@ -983,10 +983,6 @@ grokclassfn (ctype, function, flags, quals)
       qual_type = cp_build_qualified_type (type, this_quals);
       parm = build_artificial_parm (this_identifier, qual_type);
       c_apply_type_quals_to_decl (this_quals, parm);
-
-      /* We can make this a register, so long as we don't
-	 accidentally complain if someone tries to take its address.  */
-      DECL_REGISTER (parm) = 1;
       TREE_CHAIN (parm) = last_function_parms;
       last_function_parms = parm;
     }
@@ -1657,7 +1653,7 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
       DECL_IN_AGGR_P (value) = 1;
       return value;
     }
-  my_friendly_abort (21);
+  abort ();
   /* NOTREACHED */
   return NULL_TREE;
 }
@@ -2064,7 +2060,7 @@ coerce_new_type (type)
       e = 2;
       if (args && args != void_list_node)
         args = TREE_CHAIN (args);
-      error ("`operator new' takes type `size_t' (`%T') as first parameter", c_size_type_node);
+      pedwarn ("`operator new' takes type `size_t' (`%T') as first parameter", c_size_type_node);
     }
   switch (e)
   {
@@ -2387,7 +2383,7 @@ output_vtable_inherit (vars)
       parent_rtx = XEXP (DECL_RTL (parent), 0);  /* strip the mem ref  */
     }
   else
-    my_friendly_abort (980826);
+    abort ();
 
   assemble_vtable_inherit (child_rtx, parent_rtx);
 }
@@ -2837,7 +2833,7 @@ start_static_storage_duration_function ()
       /* Overflow occurred.  That means there are at least 4 billion
 	 initialization functions.  */
       sorry ("too many initialization functions required");
-      my_friendly_abort (19990430);
+      abort ();
     }
 
   /* Create the parameters.  */
@@ -3615,6 +3611,7 @@ reparse_absdcl_as_casts (decl, expr)
      tree decl, expr;
 {
   tree type;
+  int non_void_p = 0;
   
   if (TREE_CODE (expr) == CONSTRUCTOR
       && TREE_TYPE (expr) == 0)
@@ -3622,12 +3619,16 @@ reparse_absdcl_as_casts (decl, expr)
       type = groktypename (TREE_VALUE (CALL_DECLARATOR_PARMS (decl)));
       decl = TREE_OPERAND (decl, 0);
 
-      expr = digest_init (type, expr, (tree *) 0);
-      if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
+      if (processing_template_decl)
+	expr = build_min (CONSTRUCTOR, type, decl, CONSTRUCTOR_ELTS (expr));
+      else
 	{
-	  int failure = complete_array_type (type, expr, 1);
-	  if (failure)
-	    my_friendly_abort (78);
+	  expr = digest_init (type, expr, (tree *) 0);
+	  if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
+	    {
+	      int failure = complete_array_type (type, expr, 1);
+	      my_friendly_assert (!failure, 78);
+	    }
 	}
     }
 
@@ -3635,11 +3636,13 @@ reparse_absdcl_as_casts (decl, expr)
     {
       type = groktypename (TREE_VALUE (CALL_DECLARATOR_PARMS (decl)));
       decl = TREE_OPERAND (decl, 0);
+      if (!VOID_TYPE_P (type))
+	non_void_p = 1;
       expr = build_c_cast (type, expr);
     }
 
   if (warn_old_style_cast && ! in_system_header
-      && current_lang_name != lang_name_c)
+      && non_void_p && current_lang_name != lang_name_c)
     warning ("use of old-style cast");
 
   return expr;
@@ -3801,7 +3804,7 @@ build_expr_from_tree (t)
 	return build_x_compound_expr
 	  (build_expr_from_tree (TREE_OPERAND (t, 0)));
       else
-	my_friendly_abort (42);
+	abort ();
 
     case METHOD_CALL_EXPR:
       if (TREE_CODE (TREE_OPERAND (t, 0)) == SCOPE_REF)
@@ -4019,7 +4022,7 @@ finish_decl_parsing (decl)
     case TEMPLATE_ID_EXPR:
       return decl;
     default:
-      my_friendly_abort (5);
+      abort ();
       return NULL_TREE;
     }
 }
@@ -4667,7 +4670,7 @@ arg_assoc_type (k, type)
 	return 0;
       /* else fall through */
     default:
-      my_friendly_abort (390);
+      abort ();
     }
   return 0;
 }
@@ -4862,7 +4865,7 @@ validate_nonmember_using_decl (decl, scope, name)
       return NULL_TREE;
     }
   else
-    my_friendly_abort (382);
+    abort ();
   if (DECL_P (*name))
     *name = DECL_NAME (*name);
   /* Make a USING_DECL. */
@@ -5158,70 +5161,90 @@ mark_used (decl)
     instantiate_decl (decl, /*defer_ok=*/1);
 }
 
-/* Helper function for named_class_head_sans_basetype nonterminal.  We
-   have just seen something of the form `AGGR SCOPE::ID'.  Return a
-   TYPE_DECL for the type declared by ID in SCOPE.  */
+/* Helper function for class_head_decl and class_head_defn
+   nonterminals. AGGR is the class, union or struct tag. SCOPE is the
+   explicit scope used (NULL for no scope resolution). ID is the
+   name. DEFN_P is true, if this is a definition of the class and
+   NEW_TYPE_P is set to non-zero, if we push into the scope containing
+   the to be defined aggregate.
+   
+   Return a TYPE_DECL for the type declared by ID in SCOPE.  */
 
 tree
-handle_class_head (aggr, scope, id)
+handle_class_head (aggr, scope, id, defn_p, new_type_p)
      tree aggr, scope, id;
+     int defn_p;
+     int *new_type_p;
 {
   tree decl = NULL_TREE;
-
-  if (TREE_CODE (id) == TYPE_DECL)
-    /* We must bash typedefs back to the main decl of the type. Otherwise
-       we become confused about scopes.  */
-    decl = TYPE_MAIN_DECL (TREE_TYPE (id));
-  else if (DECL_CLASS_TEMPLATE_P (id))
-    decl = DECL_TEMPLATE_RESULT (id);
-  else 
-    {
-      tree current = current_scope ();
+  tree current = current_scope ();
+  bool xrefd_p = false;
   
-      if (current == NULL_TREE)
-        current = current_namespace;
-      if (scope == NULL_TREE)
-        scope = global_namespace;
+  if (current == NULL_TREE)
+    current = current_namespace;
 
-      if (TYPE_P (scope))
-	{
-	  /* According to the suggested resolution of core issue 180,
-	     'typename' is assumed after a class-key.  */
-	  decl = make_typename_type (scope, id, 1);
-	  if (decl != error_mark_node)
-	    decl = TYPE_MAIN_DECL (decl);
-	  else
-	    decl = NULL_TREE;
-	}
-      else if (scope == current)
-        {
-          /* We've been given AGGR SCOPE::ID, when we're already inside SCOPE.
-             Be nice about it.  */
-          if (pedantic)
-            pedwarn ("extra qualification `%T::' on member `%D' ignored",
-                        FROB_CONTEXT (scope), id);
-        }
-      else if (scope != global_namespace)
-	error ("`%T' does not have a nested type named `%D'", scope, id);
+  *new_type_p = 0;
+  
+  if (scope)
+    {
+      if (TREE_CODE (id) == TYPE_DECL)
+	/* We must bash typedefs back to the main decl of the
+       	   type. Otherwise we become confused about scopes.  */
+	decl = TYPE_MAIN_DECL (TREE_TYPE (id));
+      else if (DECL_CLASS_TEMPLATE_P (id))
+	decl = DECL_TEMPLATE_RESULT (id);
       else
-	error ("no file-scope type named `%D'", id);
-      
-      /* Inject it at the current scope.  */
-      if (! decl)
-	decl = TYPE_MAIN_DECL (xref_tag (aggr, id, 1));
+	{
+	  if (TYPE_P (scope))
+	    {
+	      /* According to the suggested resolution of core issue
+	     	 180, 'typename' is assumed after a class-key.  */
+	      decl = make_typename_type (scope, id, 1);
+	      if (decl != error_mark_node)
+		decl = TYPE_MAIN_DECL (decl);
+	      else
+		decl = NULL_TREE;
+	    }
+	  else if (scope == current)
+	    {
+	      /* We've been given AGGR SCOPE::ID, when we're already
+             	 inside SCOPE.  Be nice about it.  */
+	      if (pedantic)
+		pedwarn ("extra qualification `%T::' on member `%D' ignored",
+			 scope, id);
+	    }
+	  else
+	    error ("`%T' does not have a class or union named `%D'",
+		   scope, id);
+	}
     }
- 
-  /* Enter the SCOPE.  If this turns out not to be a definition, the
-     parser must leave the scope.  */
-  push_scope (CP_DECL_CONTEXT (decl));
+  
+  if (!decl)
+    {
+      decl = TYPE_MAIN_DECL (xref_tag (aggr, id, !defn_p));
+      xrefd_p = true;
+    }
 
-  /* If we see something like:
+  if (!TYPE_BINFO (TREE_TYPE (decl)))
+    {
+      error ("`%T' is not a class or union type", decl);
+      return error_mark_node;
+    }
+  
+  if (defn_p)
+    {
+      /* For a definition, we want to enter the containing scope
+	 before looking up any base classes etc. Only do so, if this
+	 is different to the current scope.  */
+      tree context = CP_DECL_CONTEXT (decl);
 
-       template <typename T> struct S::I ....
-       
-     we must create a TEMPLATE_DECL for the nested type.  */
-  if (PROCESSING_REAL_TEMPLATE_DECL_P ())
-    decl = push_template_decl (decl);
+      *new_type_p = current != context;
+      if (*new_type_p)
+	push_scope (context);
+  
+      if (!xrefd_p && PROCESSING_REAL_TEMPLATE_DECL_P ())
+	decl = push_template_decl (decl);
+    }
 
   return decl;
 }

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001 Free Software Foundation, Inc.
+   2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -267,23 +267,6 @@ extern enum alpha_fp_trap_mode alpha_fptm;
 #define TARGET_DEFAULT_EXPLICIT_RELOCS 0
 #endif
 #endif
-
-/* This macro is similar to `TARGET_SWITCHES' but defines names of
-   command options that have values.  Its definition is an initializer
-   with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the fixed
-   part of the option name, and the address of a variable.  The
-   variable, type `char *', is set to the variable part of the given
-   option if the fixed part matches.  The actual option name is made
-   by appending `-m' to the specified name.
-
-   Here is an example which defines `-mshort-data-NUMBER'.  If the
-   given option is `-mshort-data-512', the variable `m88k_short_data'
-   will be set to the string `"512"'.
-
-	extern char *m88k_short_data;
-	#define TARGET_OPTIONS { { "short-data-", &m88k_short_data } }  */
 
 extern const char *alpha_cpu_string;	/* For -mcpu= */
 extern const char *alpha_tune_string;	/* For -mtune= */
@@ -812,17 +795,7 @@ enum reg_class {
    `O' is used for negated 8-bit constants.
    `P' is used for the constants 1, 2 and 3.  */
 
-#define CONST_OK_FOR_LETTER_P(VALUE, C)				\
-  ((C) == 'I' ? (unsigned HOST_WIDE_INT) (VALUE) < 0x100	\
-   : (C) == 'J' ? (VALUE) == 0					\
-   : (C) == 'K' ? (unsigned HOST_WIDE_INT) ((VALUE) + 0x8000) < 0x10000	\
-   : (C) == 'L' ? (((VALUE) & 0xffff) == 0			\
-                  && (((VALUE)) >> 31 == -1 || (VALUE) >> 31 == 0)) \
-   : (C) == 'M' ? zap_mask (VALUE)				\
-   : (C) == 'N' ? (unsigned HOST_WIDE_INT) (~ (VALUE)) < 0x100	\
-   : (C) == 'O' ? (unsigned HOST_WIDE_INT) (- (VALUE)) < 0x100	\
-   : (C) == 'P' ? (VALUE) == 1 || (VALUE) == 2 || (VALUE) == 3	\
-   : 0)
+#define CONST_OK_FOR_LETTER_P   alpha_const_ok_for_letter_p
 
 /* Similar, but for floating or large integer constants, and defining letters
    G and H.   Here VALUE is the CONST_DOUBLE rtx itself.
@@ -830,13 +803,7 @@ enum reg_class {
    For Alpha, `G' is the floating-point constant zero.  `H' is a CONST_DOUBLE
    that is the operand of a ZAP insn.  */
 
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)  			\
-  ((C) == 'G' ? (GET_MODE_CLASS (GET_MODE (VALUE)) == MODE_FLOAT	\
-		 && (VALUE) == CONST0_RTX (GET_MODE (VALUE)))		\
-   : (C) == 'H' ? (GET_MODE (VALUE) == VOIDmode				\
-		   && zap_mask (CONST_DOUBLE_LOW (VALUE))		\
-		   && zap_mask (CONST_DOUBLE_HIGH (VALUE)))		\
-   : 0)
+#define CONST_DOUBLE_OK_FOR_LETTER_P  alpha_const_double_ok_for_letter_p
 
 /* Optional extra constraints for this machine.
 
@@ -848,31 +815,18 @@ enum reg_class {
 
    'S' is a 6-bit constant (valid for a shift insn).  
 
+   'T' is a HIGH.
+
    'U' is a symbolic operand.  */
 
-#define EXTRA_CONSTRAINT(OP, C)				\
-  ((C) == 'Q' ? normal_memory_operand (OP, VOIDmode)			\
-   : (C) == 'R' ? direct_call_operand (OP, Pmode)		\
-   : (C) == 'S' ? (GET_CODE (OP) == CONST_INT				\
-		   && (unsigned HOST_WIDE_INT) INTVAL (OP) < 64)	\
-   : (C) == 'T' ? GET_CODE (OP) == HIGH					\
-   : (TARGET_ABI_UNICOSMK && (C) == 'U')				\
-		? symbolic_operand (OP, VOIDmode)			\
-   : 0)
+#define EXTRA_CONSTRAINT  alpha_extra_constraint
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
    In general this is just CLASS; but on some machines
-   in some cases it is preferable to use a more restrictive class.
+   in some cases it is preferable to use a more restrictive class.  */
 
-   On the Alpha, all constants except zero go into a floating-point
-   register via memory.  */
-
-#define PREFERRED_RELOAD_CLASS(X, CLASS)				\
-  (CONSTANT_P (X) && (X) != const0_rtx && (X) != CONST0_RTX (GET_MODE (X)) \
-   ? ((CLASS) == FLOAT_REGS || (CLASS) == NO_REGS ? NO_REGS		\
-      : (CLASS) == ALL_REGS ? GENERAL_REGS : (CLASS))			\
-   : (CLASS))
+#define PREFERRED_RELOAD_CLASS  alpha_preferred_reload_class
 
 /* Loading and storing HImode or QImode values to and from memory
    usually requires a scratch register.  The exceptions are loading
@@ -1479,14 +1433,14 @@ do {						\
    to be legitimate.  If we find one, return the new, valid address.
    This macro is used in only one place: `memory_address' in explow.c.  */
 
-#define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)		\
-do {							\
-  rtx new_x = alpha_legitimize_address (X, OLDX, MODE);	\
-  if (new_x)						\
-    {							\
-      X = new_x;					\
-      goto WIN;						\
-    }							\
+#define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)			\
+do {								\
+  rtx new_x = alpha_legitimize_address (X, NULL_RTX, MODE);	\
+  if (new_x)							\
+    {								\
+      X = new_x;						\
+      goto WIN;							\
+    }								\
 } while (0)
 
 /* Try a machine-dependent way of reloading an illegitimate address
@@ -1532,12 +1486,6 @@ do {									     \
    of the table, but we pretend that it is PC-relative; this should be OK,
    but we should try to find some better way sometime.  */
 #define CASE_VECTOR_PC_RELATIVE 1
-
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
@@ -2117,9 +2065,9 @@ do {						\
   {"global_symbolic_operand", {SYMBOL_REF, CONST}},			\
   {"call_operand", {REG, SYMBOL_REF}},					\
   {"input_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE,		\
-		     SYMBOL_REF, CONST, LABEL_REF}},			\
+		     SYMBOL_REF, CONST, LABEL_REF, HIGH}},		\
   {"some_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE,		\
-		    SYMBOL_REF, CONST, LABEL_REF}},			\
+		    SYMBOL_REF, CONST, LABEL_REF, HIGH}},		\
   {"some_ni_operand", {SUBREG, REG, MEM}},				\
   {"aligned_memory_operand", {MEM}},					\
   {"unaligned_memory_operand", {MEM}},					\
@@ -2130,7 +2078,8 @@ do {						\
   {"reg_not_elim_operand", {SUBREG, REG}},				\
   {"reg_no_subreg_operand", {REG}},					\
   {"addition_operation", {PLUS}},					\
-  {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},
+  {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
+  {"some_small_symbolic_mem_operand", {SET, PARALLEL}},
 
 /* Define the `__builtin_va_list' type for the ABI.  */
 #define BUILD_VA_LIST_TYPE(VALIST) \

@@ -1,5 +1,5 @@
 /* Branch prediction routines for the GNU compiler.
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,7 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    [2] "Static Branch Frequency and Program Profile Analysis"
        Wu and Larus; MICRO-27.
    [3] "Corpus-based Static Branch Prediction"
-       Calder, Grunwald, Lindsay, Martin, Mozer, and Zorn; PLDI '95.   */
+       Calder, Grunwald, Lindsay, Martin, Mozer, and Zorn; PLDI '95.  */
 
 
 #include "config.h"
@@ -253,8 +253,12 @@ combine_predictions_for_insn (insn, bb)
 	     * (REG_BR_PROB_BASE - probability));
 
 	/* Use FP math to avoid overflows of 32bit integers.  */
-	combined_probability = (((double) combined_probability) * probability
-				* REG_BR_PROB_BASE / d + 0.5);
+	if (d == 0)
+	  /* If one probability is 0% and one 100%, avoid division by zero.  */
+	  combined_probability = REG_BR_PROB_BASE / 2;
+	else
+	  combined_probability = (((double) combined_probability) * probability
+				  * REG_BR_PROB_BASE / d + 0.5);
       }
 
   /* Decide which heuristic to use.  In case we didn't match anything,
@@ -363,7 +367,7 @@ estimate_probability (loops_info)
 		  predict_edge
 		    (e, PRED_LOOP_EXIT,
 		     (REG_BR_PROB_BASE
-		      - predictor_info [(int)PRED_LOOP_EXIT].hitrate)
+		      - predictor_info [(int) PRED_LOOP_EXIT].hitrate)
 		     / exits);
 	  }
     }

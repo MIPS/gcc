@@ -1,6 +1,6 @@
 # Makefile for GNU C compiler.
-#   Copyright (C) 1987, 1988, 1990, 1991, 1992, 1993, 1994, 1995
-#   1996, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+#   Copyright (C) 1987, 1988, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997
+#   1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -149,7 +149,7 @@ ZLIBINC = @zlibinc@
 TARGET_GETGROUPS_T = @TARGET_GETGROUPS_T@
 
 # Target to use when installing include directory.  Either
-# install-headers-tar or install-headers-cpio.
+# install-headers-tar, install-headers-cpio or install-headers-cp.
 INSTALL_HEADERS_DIR = @build_install_headers_dir@
 
 # Header files that are made available under the same name
@@ -760,14 +760,14 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  $(LANG_STAGESTUFF)
 
 # Library members defined in libgcc2.c.
-LIB2FUNCS = _muldi3 _negdi2 _lshrdi3 _ashldi3 _ashrdi3 _ffsdi2 _clz \
+# Variable length limited to 255 charactes when passed to a shell script.
+LIB2FUNCS_1 = _muldi3 _negdi2 _lshrdi3 _ashldi3 _ashrdi3 _ffsdi2 _clz \
     _cmpdi2 _ucmpdi2 _floatdidf _floatdisf _fixunsdfsi _fixunssfsi \
-    _fixunsdfdi _fixdfdi _fixunssfdi _fixsfdi \
-    _fixxfdi _fixunsxfdi _floatdixf _fixunsxfsi _fixtfdi _fixunstfdi \
-    _floatditf \
-    _clear_cache _trampoline __main _exit \
-    _absvsi2 _absvdi2 _addvsi3 _addvdi3 _subvsi3 _subvdi3 \
-    _mulvsi3 _mulvdi3 _negvsi2 _negvdi2 _ctors
+    _fixunsdfdi _fixdfdi _fixunssfdi _fixsfdi _fixxfdi _fixunsxfdi
+
+LIB2FUNCS_2 = _floatdixf _fixunsxfsi _fixtfdi _fixunstfdi _floatditf \
+    _clear_cache _trampoline __main _exit _absvsi2 _absvdi2 _addvsi3 \
+    _addvdi3 _subvsi3 _subvdi3 _mulvsi3 _mulvdi3 _negvsi2 _negvdi2 _ctors
 
 # Defined in libgcc2.c, included only in the static library.
 LIB2FUNCS_ST = _eprintf _bb __gcc_bcmp
@@ -840,19 +840,10 @@ cs-hconfig.h: Makefile
 	TARGET_CPU_DEFAULT="$(target_cpu_default)" \
 	$(SHELL) $(srcdir)/mkconfig.sh hconfig.h
 
-cs-tconfig.h: Makefile $(CONFIG_H) except.h
+cs-tconfig.h: Makefile
 	HEADERS="$(xm_file)" DEFINES="$(xm_defines)" \
 	TARGET_CPU_DEFAULT="" \
 	$(SHELL) $(srcdir)/mkconfig.sh tconfig.h
-# ??? Need extra help to get this definition copied to where libgcc can
-# see it.  It shouldn't matter which compiler we use to get there.
-	echo '#include "config.h"' > conftest.c
-	echo '#include "except.h"' >> conftest.c
-	echo 'xyzzy USING_SJLJ_EXCEPTIONS' >> conftest.c
-	$(HOST_CC) -E conftest.c $(ALL_CFLAGS) $(INCLUDES) > conftest.out
-	sed -e 's/xyzzy/#define USING_SJLJ_EXCEPTIONS/' -e '/#define/p' \
-		-e d conftest.out >> tconfig.h
-	rm conftest.*
 
 cs-tm_p.h: Makefile
 	HEADERS="$(tm_p_file)" DEFINES="" TARGET_CPU_DEFAULT="" \
@@ -989,7 +980,8 @@ LIB2ADD_ST = $(LIB2FUNCS_STATIC_EXTRA)
 libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) xgcc$(exeext)
 	objext='$(objext)' \
 	LIB1ASMFUNCS='$(LIB1ASMFUNCS)' \
-	LIB2FUNCS='$(LIB2FUNCS)' \
+	LIB2FUNCS_1='$(LIB2FUNCS_1)' \
+	LIB2FUNCS_2='$(LIB2FUNCS_2)' \
 	LIB2FUNCS_ST='$(LIB2FUNCS_ST)' \
 	LIB2ADD='$(LIB2ADD)' \
 	LIB2ADD_ST='$(LIB2ADD_ST)' \
@@ -1244,7 +1236,7 @@ DRIVER_DEFINES = \
   `test "X$${SHLIB_MULTILIB}" = "X" || echo "-DNO_SHARED_LIBGCC_MULTILIB"`
 
 gcc.o: gcc.c $(CONFIG_H) $(SYSTEM_H) intl.h multilib.h \
-    Makefile $(lang_specs_files) prefix.h $(GCC_H)
+    Makefile $(lang_specs_files) specs.h prefix.h $(GCC_H)
 	(SHLIB_LINK='$(SHLIB_LINK)' \
 	SHLIB_MULTILIB='$(SHLIB_MULTILIB)'; \
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
@@ -1274,6 +1266,30 @@ gencheck.o : gencheck.c gencheck.h tree.def $(HCONFIG_H) $(SYSTEM_H) \
              $(lang_tree_files)
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) \
 	  $(srcdir)/gencheck.c $(OUTPUT_OPTION)
+
+gencheck.h : s-gencheck ; @true
+s-gencheck : Makefile
+	ltf="$(lang_tree_files)"; for f in $$ltf; do \
+	    echo "#include \"$$f\""; \
+	done | sed 's|$(srcdir)/||' > tmp-gencheck.h
+	$(SHELL) $(srcdir)/move-if-change tmp-gencheck.h gencheck.h
+	$(STAMP) s-gencheck
+
+options.h : s-options ; @true
+s-options : Makefile
+	lof="$(lang_options_files)"; for f in $$lof; do \
+	    echo "#include \"$$f\""; \
+	done | sed 's|$(srcdir)/||' > tmp-options.h
+	$(SHELL) $(srcdir)/move-if-change tmp-options.h options.h
+	$(STAMP) s-options
+
+specs.h : s-specs ; @true
+s-specs : Makefile
+	lsf="$(lang_specs_files)"; for f in $$lsf; do \
+	    echo "#include \"$$f\""; \
+	done | sed 's|$(srcdir)/||' > tmp-specs.h
+	$(SHELL) $(srcdir)/move-if-change tmp-specs.h specs.h
+	$(STAMP) s-specs
 
 dumpvers: dumpvers.c
 
@@ -1347,7 +1363,7 @@ toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) function.h \
    dwarf2out.h sdbout.h dbxout.h $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) \
    graph.h $(LOOP_H) except.h $(REGS_H) $(TIMEVAR_H) $(lang_options_files) \
    ssa.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) halfpic.h \
-   langhooks.h insn-flags.h
+   langhooks.h insn-flags.h options.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  -DTARGET_NAME=\"$(target_alias)\" \
 	  -c $(srcdir)/toplev.c $(OUTPUT_OPTION)
@@ -1453,7 +1469,7 @@ resource.o : resource.c $(CONFIG_H) $(RTL_H) hard-reg-set.h $(SYSTEM_H) \
    $(INSN_ATTR_H) except.h $(PARAMS_H) $(TM_P_H)
 lcm.o : lcm.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) hard-reg-set.h flags.h \
    real.h insn-config.h $(INSN_ATTR_H) $(RECOG_H) $(EXPR_H) $(BASIC_BLOCK_H) \
-   $(TM_P_H)
+   $(TM_P_H) df.h
 ssa.o : ssa.c $(CONFIG_H) $(SYSTEM_H) $(REGS_H) varray.h $(EXPR_H) \
    hard-reg-set.h flags.h function.h real.h insn-config.h $(RECOG_H)	\
    $(BASIC_BLOCK_H) output.h ssa.h
@@ -1473,7 +1489,7 @@ profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
 loop.o : loop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    insn-config.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) \
    real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h \
-   toplev.h varray.h except.h cselib.h $(TM_P_H)
+   toplev.h varray.h except.h cselib.h $(OPTABS_H) $(TM_P_H)
 doloop.o : doloop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) $(TM_P_H) toplev.h
 unroll.o : unroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) insn-config.h function.h \
@@ -1495,7 +1511,7 @@ cfgbuild.o : cfgbuild.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h insn-config.h \
    function.h except.h $(GGC_H) 
 cfgcleanup.o : cfgcleanup.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TIMEVAR_H)\
    $(BASIC_BLOCK_H) hard-reg-set.h output.h flags.h $(RECOG_H) toplev.h \
-   $(GGC_H) insn-config.h cselib.h
+   $(GGC_H) insn-config.h cselib.h $(TM_P_H)
 cfgloop.o : cfgloop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h
 dominance.o : dominance.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) hard-reg-set.h \
@@ -1992,7 +2008,7 @@ cpplib.o:   cpplib.c   $(CONFIG_H) $(LIBCPP_DEPS)
 cpphash.o:  cpphash.c  $(CONFIG_H) $(LIBCPP_DEPS)
 cppfiles.o: cppfiles.c $(CONFIG_H) $(LIBCPP_DEPS) $(SPLAY_TREE_H) mkdeps.h
 cppinit.o:  cppinit.c  $(CONFIG_H) $(LIBCPP_DEPS) cppdefault.h \
-		mkdeps.h prefix.h output.h version.h
+		mkdeps.h prefix.h version.h except.h
 
 cppdefault.o: cppdefault.c $(CONFIG_H) $(SYSTEM_H) cppdefault.h Makefile
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
@@ -2291,7 +2307,8 @@ $(docdir)/gccint.info: $(docdir)/gccint.texi \
 	 $(docdir)/configfiles.texi $(docdir)/collect2.texi \
 	 $(docdir)/headerdirs.texi $(docdir)/include/funding.texi \
 	 $(docdir)/gnu.texi $(docdir)/include/gpl.texi \
-	 $(docdir)/include/fdl.texi $(docdir)/contrib.texi
+	 $(docdir)/include/fdl.texi $(docdir)/contrib.texi \
+	 $(docdir)/languages.texi $(docdir)/sourcebuild.texi
 	cd $(srcdir) && $(MAKEINFO) $(MAKEINFOFLAGS) -I doc -I doc/include -o doc/gccint.info doc/gccint.texi
 
 $(docdir)/cppinternals.info: $(docdir)/cppinternals.texi
@@ -2325,7 +2342,8 @@ gccint.dvi: $(docdir)/gccint.texi \
 	 $(docdir)/configfiles.texi $(docdir)/collect2.texi \
 	 $(docdir)/headerdirs.texi $(docdir)/include/funding.texi \
 	 $(docdir)/gnu.texi $(docdir)/include/gpl.texi \
-	 $(docdir)/include/fdl.texi $(docdir)/contrib.texi
+	 $(docdir)/include/fdl.texi $(docdir)/contrib.texi \
+	 $(docdir)/languages.texi $(docdir)/sourcebuild.texi
 	$(TEXI2DVI) -I $(docdir) -I $(docdir)/include $(docdir)/gccint.texi
 
 cppinternals.dvi: $(docdir)/cppinternals.texi
@@ -2796,6 +2814,10 @@ install-headers-cpio: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 # See discussion about the use of `pwd` above
 	cd `pwd`/include ; \
 	find . -print | cpio -pdum $(libsubdir)/include
+
+# Install the include directory using cp.
+install-headers-cp: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
+	cp -p -r include $(libsubdir)
 
 # Use this target to install the program `collect2' under the name `collect2'.
 install-collect2: collect2 installdirs

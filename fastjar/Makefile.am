@@ -1,5 +1,8 @@
 # Process this with automake to create Makefile.in
 
+## We definitely don't want dependency tracking when using automake 1.4.
+AUTOMAKE_OPTIONS = no-dependencies
+
 # Work around what appears to be a GNU make bug handling MAKEFLAGS
 # values defined in terms of make variables, as is the case for CC and
 # friends when we are called from the top level Makefile.
@@ -38,15 +41,19 @@ AM_MAKEFLAGS = \
 	"RANLIB=$(RANLIB)" \
 	"DESTDIR=$(DESTDIR)"
 
-INCLUDES = -I. -I$(top_srcdir) $(ZINCS)
+INCLUDES = -I. -I$(top_srcdir) $(ZINCS) -I$(top_srcdir)/../include
 
-bin_PROGRAMS = jar
-EXTRA_PROGRAMS = grepjar
-jar_SOURCES = jartool.c dostime.c compress.c pushback.c jartool.h zipfile.h dostime.h compress.h pushback.h
-jar_LDADD = $(ZLIBS)
-jar_DEPENDENCIES = $(ZDEPS)
-grepjar_SOURCES = jargrep.c dostime.c compress.c pushback.c jartool.h zipfile.h dostime.h compress.h pushback.h
-grepjar_LDADD = $(ZLIBS)
-grepjar_DEPENDENCIES = $(ZDEPS)
+LIBIBERTY = ../libiberty/libiberty.a
+
+bin_PROGRAMS = jar grepjar
+jar_SOURCES = jartool.c dostime.c compress.c pushback.c jartool.h \
+zipfile.h dostime.h compress.h pushback.h
+jar_LDADD = $(ZLIBS) $(LIBIBERTY)
+jar_DEPENDENCIES = $(ZDEPS) $(LIBIBERTY)
+
+grepjar_SOURCES = jargrep.c dostime.c compress.c pushback.c jartool.h \
+zipfile.h dostime.h compress.h pushback.h
+grepjar_LDADD = $(ZLIBS) $(LIBIBERTY)
+grepjar_DEPENDENCIES = $(ZDEPS) $(LIBIBERTY)
 
 AM_CFLAGS = @fastjar_warn_cflags@

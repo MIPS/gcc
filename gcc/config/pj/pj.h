@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler for picoJava
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -892,12 +892,6 @@ struct pj_args
 
 #define CASE_VECTOR_PC_RELATIVE 1
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR  FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR  TRUNC_DIV_EXPR
-
 /* 'char' is signed by default.  */
 #define DEFAULT_SIGNED_CHAR  1
 
@@ -937,11 +931,6 @@ struct pj_args
 /* Define if loading short immediate values into registers sign extends.  */
 
 #define SHORT_IMMEDIATES_SIGN_EXTEND
-
-/* Define this if zero-extension is slow (more than one real
-   instruction).  */
-
-/* #define SLOW_ZERO_EXTEND  */
 
 /* Nonzero if access to memory by bytes is no faster than for words.  */
 #define SLOW_BYTE_ACCESS 1

@@ -71,40 +71,6 @@
 
 namespace std
 {
-
-  // There are two signatures for distance.  In addition to the one taking
-  // two iterators and returning a result, there is another taking two
-  // iterators and a reference-to-result variable, and returning nothing.
-  // The latter seems to be an SGI extension.   -- pedwards
-  template<typename _InputIterator, typename _Distance>
-    inline void
-    __distance(_InputIterator __first, _InputIterator __last,
-	       _Distance& __n, input_iterator_tag)
-    {
-      // concept requirements
-      __glibcpp_function_requires(_InputIteratorConcept<_InputIterator>)
-      while (__first != __last) { ++__first; ++__n; }
-    }
-
-  template<typename _RandomAccessIterator, typename _Distance>
-    inline void
-    __distance(_RandomAccessIterator __first, _RandomAccessIterator __last, 
-	       _Distance& __n, random_access_iterator_tag)
-    {
-      // concept requirements
-      __glibcpp_function_requires(_RandomAccessIteratorConcept<_RandomAccessIterator>)
-      __n += __last - __first;
-    }
-
-  template<typename _InputIterator, typename _Distance>
-    inline void
-    distance(_InputIterator __first, _InputIterator __last,
-             _Distance& __n)
-    {
-      // concept requirements -- taken care of in __distance
-      __distance(__first, __last, __n, __iterator_category(__first));
-    }
-
   template<typename _InputIterator>
     inline typename iterator_traits<_InputIterator>::difference_type
     __distance(_InputIterator __first, _InputIterator __last, input_iterator_tag)

@@ -1,6 +1,6 @@
 /* Definitions for c-common.c.
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -257,6 +257,8 @@ struct stmt_tree_s {
   /* The type of the last expression statement.  (This information is
      needed to implement the statement-expression extension.)  */
   tree x_last_expr_type;
+  /* The last filename we recorded.  */
+  const char *x_last_expr_filename;
   /* In C++, Non-zero if we should treat statements as full
      expressions.  In particular, this variable is no-zero if at the
      end of a statement we should destroy any temporaries created
@@ -295,6 +297,10 @@ struct language_function {
 /* The type of the last expression-statement we have seen.  */
 
 #define last_expr_type (current_stmt_tree ()->x_last_expr_type)
+
+/* The name of the last file we have seen.  */
+
+#define last_expr_filename (current_stmt_tree ()->x_last_expr_filename)
 
 /* LAST_TREE contains the last statement parsed.  These are chained
    together through the TREE_CHAIN field, but often need to be
@@ -337,6 +343,10 @@ extern void expand_stmt                         PARAMS ((tree));
 extern void mark_stmt_tree                      PARAMS ((void *));
 extern void shadow_warning			PARAMS ((const char *,
 							 tree, tree));
+extern tree c_begin_if_stmt			PARAMS ((void));
+extern tree c_begin_while_stmt			PARAMS ((void));
+extern void c_finish_while_stmt_cond		PARAMS ((tree, tree));
+
 
 /* Extra information associated with a DECL.  Other C dialects extend
    this structure in various ways.  The C front-end only uses this
@@ -505,7 +515,7 @@ extern tree c_alignof_expr			PARAMS ((tree));
    NOP_EXPR is used as a special case (see truthvalue_conversion).  */
 extern void binary_op_error			PARAMS ((enum tree_code));
 extern tree c_expand_expr_stmt			PARAMS ((tree));
-extern void c_expand_start_cond			PARAMS ((tree, int));
+extern void c_expand_start_cond			PARAMS ((tree, int, tree));
 extern void c_finish_then                       PARAMS ((void));
 extern void c_expand_start_else			PARAMS ((void));
 extern void c_finish_else                   PARAMS ((void));
@@ -684,6 +694,12 @@ extern tree strip_array_types                   PARAMS ((tree));
 #define ASM_VOLATILE_P(NODE)			\
   (ASM_CV_QUAL (ASM_STMT_CHECK (NODE)) != NULL_TREE)
 
+/* The filename we are changing to as of this FILE_STMT.  */
+#define FILE_STMT_FILENAME_NODE(NODE) \
+  (TREE_OPERAND (FILE_STMT_CHECK (NODE), 0))
+#define FILE_STMT_FILENAME(NODE) \
+  (IDENTIFIER_POINTER (FILE_STMT_FILENAME_NODE (NODE)))
+
 /* The line-number at which a statement began.  But if
    STMT_LINENO_FOR_FN_P does holds, then this macro gives the
    line number for the end of the current function instead.  */
@@ -717,6 +733,7 @@ extern void add_c_tree_codes		        PARAMS ((void));
 extern void genrtl_do_pushlevel                 PARAMS ((void));
 extern void genrtl_goto_stmt                    PARAMS ((tree));
 extern void genrtl_expr_stmt                    PARAMS ((tree));
+extern void genrtl_expr_stmt_value              PARAMS ((tree, int, int));
 extern void genrtl_decl_stmt                    PARAMS ((tree));
 extern void genrtl_if_stmt                      PARAMS ((tree));
 extern void genrtl_while_stmt                   PARAMS ((tree));

@@ -1,6 +1,6 @@
 /* Compiler driver program that can handle many languages.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -807,7 +807,7 @@ static int n_compilers;
 
 /* The default list of file name suffixes and their compilation specs.  */
 
-static struct compiler default_compilers[] =
+static const struct compiler default_compilers[] =
 {
   /* Add lists of suffixes of known languages here.  If those languages
      were not present when we built the driver, we will hit these copies
@@ -982,7 +982,6 @@ static const struct option_map option_map[] =
    {"--use-version", "-V", "a"},
    {"--user-dependencies", "-MM", 0},
    {"--verbose", "-v", 0},
-   {"--version", "-dumpversion", 0},
    {"--warn-", "-W", "*j"},
    {"--write-dependencies", "-MD", 0},
    {"--write-user-dependencies", "-MMD", 0},
@@ -1439,7 +1438,7 @@ init_gcc_specs (obstack, shared_name, static_name, eh_name)
 #ifdef LINK_EH_SPEC
   sprintf (buffer, "%s}}}", static_name);
 #else
-  sprintf (buffer, "%s %s}}}", shared_name, static_name);
+  sprintf (buffer, "%s}}}", shared_name);
 #endif
   obstack_grow (obstack, buffer, strlen (buffer));
   /* Otherwise, use the static version.  */
@@ -3346,6 +3345,17 @@ process_command (argc, argv)
       else if (! strcmp (argv[i], "-dumpmachine"))
 	{
 	  printf ("%s\n", spec_machine);
+	  exit (0);
+	}
+      else if (strcmp (argv[i], "-fversion") == 0)
+	{
+	  /* translate_options () has turned --version into -fversion.  */
+	  printf (_("%s (GCC) %s\n"), programname, version_string);
+	  fputs (_("Copyright (C) 2002 Free Software Foundation, Inc.\n"),
+		 stdout);
+	  fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
+		 stdout);
 	  exit (0);
 	}
       else if (strcmp (argv[i], "-fhelp") == 0)
@@ -6009,7 +6019,7 @@ main (argc, argv)
 
   if (target_help_flag)
    {
-      /* Print if any target specific options.*/
+      /* Print if any target specific options.  */
 
       /* We do not exit here. Instead we have created a fake input file
          called 'target-dummy' which needs to be compiled, and we pass this

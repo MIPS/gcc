@@ -1,5 +1,6 @@
 /* Parser for Java(TM) .class files.
-   Copyright (C) 1996, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -97,7 +98,6 @@ static void parse_source_file_1 PARAMS ((tree, FILE *));
 static void parse_source_file_2 PARAMS ((void));
 static void parse_class_file PARAMS ((void));
 static void set_source_filename PARAMS ((JCF *, int));
-static int predefined_filename_p PARAMS ((tree));
 static void ggc_mark_jcf PARAMS ((void**));
 static void jcf_parse PARAMS ((struct JCF*));
 static void load_inner_classes PARAMS ((tree));
@@ -325,7 +325,15 @@ get_constant (jcf, index)
 	lshift_double (num[0], 0, 32, 64, &lo, &hi, 0);
 	num[0] = JPOOL_INT (jcf, index+1);
 	add_double (lo, hi, num[0], 0, &lo, &hi);
-	if (FLOAT_WORDS_BIG_ENDIAN)
+
+	/* Since ereal_from_double expects an array of HOST_WIDE_INT
+	   in the target's format, we swap the elements for big endian
+	   targets, unless HOST_WIDE_INT is sufficiently large to
+	   contain a target double, in which case the 2nd element
+	   is ignored.
+
+	   FIXME: Is this always right for cross targets? */
+	if (FLOAT_WORDS_BIG_ENDIAN && sizeof(num[0]) < 8)
 	  {
 	    num[0] = hi;
 	    num[1] = lo;
@@ -936,14 +944,24 @@ parse_source_file_2 ()
   java_reorder_fields ();	    /* Reorder the fields */
 }
 
-static int
+void
+add_predefined_file (name)
+     tree name;
+{
+  predef_filenames = tree_cons (NULL_TREE, name, predef_filenames);
+}
+
+int
 predefined_filename_p (node)
      tree node;
 {
-  int i;
-  for (i = 0; i < PREDEF_FILENAMES_SIZE; i++)
-    if (predef_filenames [i] == node)
-      return 1;
+  tree iter;
+
+  for (iter = predef_filenames; iter != NULL_TREE; iter = TREE_CHAIN (iter))
+    {
+      if (TREE_VALUE (iter) == node)
+	return 1;
+    }
   return 0;
 }
 
@@ -1080,7 +1098,7 @@ yyparse ()
 
   if (resource_name)
     {
-      char *resource_filename;
+      const char *resource_filename;
       
       /* Only one resource file may be compiled at a time.  */
       assert (TREE_CHAIN (current_file_list) == NULL);

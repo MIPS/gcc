@@ -1,3 +1,48 @@
+2002-01-22  Zack Weinberg  <zack@codesourcery.com>
+
+	* bad.c: Include intl.h.
+	(FFEBAD_MSGS1, FFEBAD_MSGS2): Replace by FFEBAD_MSG, SHORT,
+	LONG.  Adjust definitions to work with exgettext.
+	(ffebad_start_): Translate all error messages.
+	(ffebad_finish): Mark constant strings for translation.
+	* bad.h: Use FFEBAD_MSG.  Adjust prototype of ffebad_start_
+	and definitions of ffebad_start_msg, ffebad_start_msg_lex to
+	work with exgettext.
+	* bad.def: Use FFEBAD_MSG, SHORT, LONG throughout.
+
+	* com.c: Include intl.h.
+	(lang_print_error_function): Always use ffeinfo_kind_message
+	to get the kind label for a non-nested construct.  Translate
+	it.  Translate constant strings.
+	* info.c (FFEINFO_KIND): Adjust definition to work with exgettext.
+	* info-k.def: Block xgettext from slurping copyright notice
+	into gcc.pot.  Adjust strings for their sole use, in com.c.
+
+	* Make-lang.in (f/bad.o, f/com.o): Depend on intl.h.
+
+2002-01-14  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	PR fortran/3807
+	* f/intrin.c (ffeintrin_check_):  Allow for case of intrinsic
+	control string have COL-spec an integer > 0.
+
+2002-01-08  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* g77spec.c (lookup_option): Handle -fversion.
+	(lang_specific_driver): Update copyright date in --version output.
+
+Mon Jan  7 00:03:42 2002  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* invoke.texi: Markup g77 as @command.  Remove reference to
+	http://gcc.gnu.org/thanks.html.
+
+Wed Jan  2 18:13:11 2002  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* com.c (clear_binding_level): Const-ify.
+	(ffecom_arglist_expr_): Likewise.
+	* info.c (ffeinfo_types_): Don't needlessly zero init.
+	* lex.c (ffelex_hash_kludge): Const-ify.
+
 Sun Dec 23 10:45:09 2001  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* com.c (ffecom_gfrt_volatile_, ffecom_gfrt_complex_,
@@ -23,7 +68,7 @@ Sun Dec 16 16:08:57 2001  Joseph S. Myers  <jsm28@cam.ac.uk>
 Sun Dec 16 10:36:51 2001  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* Make-lang.in (f/version.o): Depend on f/version.h.
-	* version.c: Include ansidecl.h and f/version.h.	
+	* version.c: Include ansidecl.h and f/version.h.
 
 Sun Dec 16 08:52:48 2001  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 

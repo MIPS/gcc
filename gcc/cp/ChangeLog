@@ -1,3 +1,488 @@
+2002-01-23  Zack Weinberg  <zack@codesourcery.com>
+
+	* Make-lang.in (parse.c): Adjust expected number of
+	shift-reduce conflicts.
+	(decl.o): Depend on diagnostic.h.
+	* decl.c: Include diagnostic.h.
+	(grokdeclarator): Check for null pointer.
+	(finish_function): Don't abort when
+	current_binding_level->parm_flag != 1, if errors have
+	occurred; throw away the statement tree and extra binding
+	levels, and continue.
+	* lex.c (note_list_got_semicolon): Check for null pointer.
+	* method.c (hack_identifier): Just return error_mark_node if
+	value is error_mark_node.
+	* parse.y (primary: TYPEID(type_id)): No need to use
+	TYPE_MAIN_VARIANT here.
+	(handler_seq): Accept an empty list of catch clauses and
+	generate a fake handler block to avoid later crashes.
+	(ansi_raise_identifier): Accept the error token too.
+	* semantics.c (begin_class_definition,
+	finish_class_definition): Check for error_mark_node.
+
+2002-01-23  Zack Weinberg  <zack@codesourcery.com>
+
+	* typeck2.c (friendly_abort): Delete definition.
+	* cp-tree.h (friendly_abort): Don't prototype.
+	(my_friendly_assert): Use fancy_abort.
+
+2002-01-23  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	* cp-tree.h (my_friendly_abort): Remove.
+
+2002-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* spew.c (pending_inlines, pending_inlines_tail,
+	processing_these_inlines): Make static.
+	(mark_pending_inlines): Remove static.
+	(begin_parsing_inclass_inline): If in function, save pi
+	for GC to cp_function_chain->unparsed_inlines instead.
+	(process_next_inline): Likewise.
+	* cp-tree.h (struct cp_language_function): Add unparsed_inlines.
+	(mark_pending_inlines): Add prototype.
+	* decl.c (spew_debug): Remove unused extern.
+	(mark_lang_function): Call mark_pending_inlines.
+
+2002-01-23  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	* call.c, class.c, decl.c, decl2.c, error.c, expr.c, friend.c,
+	init.c, lex.c, mangle.c, method.c, pt.c, repo.c, rtti.c, search.c,
+	semantics.c, spew.c, tree.c, typeck.c, typeck2.c, xref.c:
+	Change my_fancy_abort() to abort().
+
+2002-01-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/5453
+	* class.c (fixed_type_or_null): Fix thinko.
+
+	PR c++/3331
+	* init.c (resolve_offset_ref): Use build_indirect_ref.
+
+	* decl2.c (grokclassfn): Don't set DECL_REGISTER on 'this'.
+
+2002-01-22  Jason Merrill  <jason@redhat.com>
+
+	* parse.y (function_body): Suppress the block for the outermost
+	curly braces.
+	* decl.c (pushdecl): Don't try to skip it.
+	(begin_function_body): Keep the block we create, not the next one.
+	* init.c (emit_base_init): Don't mess with keep_next_level.
+
+	* class.c (build_base_path): Tweak formatting.
+
+2002-01-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Fix regression introduced with patch for c++/775
+	* parse.y (class_head_defn): Check for template specializations
+	with a different class-key.
+
+2002-01-17  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (begin_constructor_body, begin_destructor_body): New fns.
+	(begin_function_body): Call them and keep_next_level.
+	* init.c (emit_base_init): Call keep_next_level.
+	* semantics.c (setup_vtbl_ptr): Lose.
+	* cp-tree.h (struct cp_language_function): Remove vtbls_set_up_p.
+	(vtbls_set_up_p): Lose.
+	* pt.c (tsubst_expr, CTOR_INITIALIZER): Call emit_base_init.
+	* method.c (do_build_copy_constructor): Likewise.
+	(synthesize_method): Call finish_mem_initializers.
+	* parse.y (nodecls): Likewise.
+
+	* error.c (dump_type_suffix): Print the exception specs before
+	recursing.
+	(dump_function_decl): Here, too.
+
+	* cp-tree.h (TMPL_PARMS_DEPTH): Cast to signed HOST_WIDE_INT.
+
+2002-01-10  Ira Ruben	<ira@apple.com>
+
+	PR c++/907
+	* decl.c (start_method): Handle attrlist.
+
+2002-01-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl2.c (max_tinst_depth): Increase default limit to 500.
+
+2002-01-10  Graham Stott  <grahams@redhat.com>
+
+	* spew.c (YYCHAR): Uppercase macro parameter and add
+	parenthesis.
+	(YYCODE): Likewise.
+	(NAME): Uppercase macro parameter.
+
+2002-01-09  Graham Stott  <grahams@redhat.com>
+
+	* decl.h (grokdeclarator): Wrap long line.
+
+	* semantics.c (FINISH_COND): Uppercase macro paramaters and
+	add parenthesis.
+
+2002-01-08  Graham Stott  <grahams@redhat.com>
+
+	* xref.c (FILE_NAME_ABSOLUTE_P): Add parenthesis.
+	(PALLOC): Uppercase macro parameter and whitespace.
+	(SALLOC): Uppercase macro parameter.
+	(SFREE): Uppercase macros parameter, add parenthese and
+	whitespace.
+	(STREQL): Uppercase macro parameter and whitespace.
+	(STRNEQ): Likewise.
+	(STRLSS): Likewise.
+	(STRLEQ): Likewise.
+	(STRGTR): Likewise.
+	(STRGEQ): Likewise.
+
+	* call.c (convert_like): Add parenthesis and wrap.
+	(convert_like_with_context): Likewise.
+	(ICS_RANK): Whitespace.
+	(NEED_TEMPORARY_P): Remove parenthesis.
+
+	* class.c (VTT_TOP_LEVEL_P): Uppercase macro parameter and
+	whitespace.
+	(VTT_MARKED_BINFO_P): Likewise.
+
+	* decl.c (BINDING_LEVEL): Add parenthesis.
+	(DEF_OPERATOR): Likewise.
+
+	* mangle.c (MANGLE_TRACE): Add parenthesis.
+	(MANGLE_TRACE_TREE): Likewise.
+	(write_signed_number): Likewise.
+	(write_unsigned_number): Likewise.
+
+	* pt.c (ccat): Uppercase macro parameter.
+	(cat): Likewise
+
+	* search.c (SET_BINFO_ACCESS): Add parenthesis.
+
+2002-01-07  Jason Merrill  <jason@redhat.com>
+
+	* decl2.c (coerce_new_type): Downgrade error for size_t mismatch
+	to pedwarn.
+
+	PR c++/3536
+	* method.c (make_thunk): If !flag_weak, give the thunk the
+	function's linkage.
+	(use_thunk): Here, too.
+
+2002-01-07  Graham Stott  <grahams@redhat.com>
+
+	* error.c: Update copyright date.
+	(print_scope_operator): Add parenthesis.
+	(print_left_paren): Likewise.
+	(print_right_paren): Likewise.
+	(print_left_bracket): Likewise.
+	(print_right_bracket): Likewise.
+	(print_template_argument_list_start): Likewise.
+	(print_template_argument_list_end): Likewise.
+	(print_non_consecutive_character): Likewise.
+	(print_tree_identifier): Likewise.
+	(print_identifier): Likewise.
+	(NEXT_CODE): Uppercase macro parameter.
+	(ident_fndecl): Delete unused.
+	(GLOBAL_THING): Likewise.
+
+2002-01-06  Graham Stott  <grahams@redhat.com>
+
+	* cp-tree.h (VAR_OR_FUNCTION_DECL_CHECK): Add parenthesis.
+	(VAR_FUNCTION_OR_PARM_DECL_CHECK): Likewise.
+	(VAR_TEMPL_TYPE_OR_FUNCTION_DECL_CHECK) Likewise.
+	(RECORD_OR_UNION_TYPE_CHECK): Likewise.
+	(BOUND_TEMPLATE_TEMPLATE_PARM_TYPE_CHECK): Likewise.
+	(C_IS_RESERVED_WORD): Uppercase macro parameter.
+	(C_RID_YYCODE) Likewise.
+	(ptrmem_cst): Use rtx.
+	(LOCAL_BINDING_P): Add whitespace.
+	(INHERITED_VALUE_BINDING_P): Likewise.
+	(BINDING_SCOPE): Wrap long line.
+	(BINDING_HAS_LEVEL_P): Remove parenthesis.
+	(BINDING_VALUE): Wrap long line.
+	(BINDING_TYPE): Whitespace.
+	(IDENTIFIER_GLOBAL_VALUE): Add parenthesis.
+	(SET_IDENTIFIER_GLOBAL_VALUE): Likewise.
+	(IDENTIFIER_NAMESPACE_VALUE): Likewise.
+	(SET_IDENTIFIER_NAMESPACE_VALUE: Likewise.
+	(same_type_p): Uppercase macro parameters.
+	(same_type_ignoring_top_level_qualifiers_p): Likewise.
+	(OVL_FUNCTION): Wrap long line.
+	(OVL_CHAIN): Whitespace.
+	(OVL_CURRENT): Add parenthesis and whitespace.
+	(OVL_NEXT): Whitespace.
+	(OVL_USED): Likewise.
+	(IDENTIFIER_TYPE_VALUE): Likewise.
+	(REAL_IDENTIFIER_TYPE_VALUE): Remove parenthesis.
+	(SET_IDENTIFIER_TYPE_VALUE): Add parenthesis and whitespace.
+	(LANG_ID_FIELD): Whitespace.
+	(SET_LANG_ID(NODE,VALUE,NAME): Likewise.
+	(IDENTIFIER_LABEL_VALUE): Whitespace and wrap.
+	(SET_IDENTIFIER_LABEL_VALUE): Whitespace.
+	(IDENTIFIER_IMPLICIT_DECL): Whitespace and wrap.
+	(SET_IDENTIFIER_IMPLICIT_DECL); Whitespace.
+	(IDENTIFIER_ERROR_LOCUS): Whitespace and wrap.
+	(SET_IDENTIFIER_ERROR_LOCUS); Whitespace.
+	(IDENTIFIER_VIRTUAL_P): Likewise.
+	(IDENTIFIER_OPNAME_P): Likewise.
+	(IDENTIFIER_TYPENAME_P): Remove parenthesis.
+	(C_TYPE_FIELDS_READONLY): Uppercase macro parameters.
+	(C_SET_EXP_ORIGINAL_CODE): Likewise.
+	(TYPE_ASSEMBLER_NAME_STRING): Wrap long line.
+	(TYPE_ASSEMBLER_NAME_LENGTH): Likewise.
+	(IS_AGGR_TYPE): Uppercase macro parameter.
+	(CLASS_TYPE_P): Likewise.
+	(IS_AGGR_TYPE_CODE): Uppercase macro parameter and parenthesis.
+	(IS_AGGR_TYPE_2): Whitespace.
+	(TAGGED_TYPE_P): Uppercase macro parameter.
+	(TYPE_BUILT_IN): Whitespace.
+	(TYPE_FOR_JAVA): Likewise.
+	(FUNCTION_ARG_CHAIN): Remove parenthesis.
+	(FUNCTION_FIRST_USER_PARMTYPE): Add parenthesis.
+	(FUNCTION_FIRST_USER_PARAM): Likewise.
+	(PROMOTES_TO_AGGR_TYPE): Whitespace.
+	(DERIVED_FROM_P): Add parenthesis and wrap.
+	(UNIQUELY_DERIVED_FROM_P): Likewise.
+	(ACCESSIBLY_UNIQUELY_DERIVED_P): Likewise.
+	(PUBLICLY_UNIQUELY_DERIVED_P): Likewise.
+	(CLASSTYPE_USE_TEMPLATE): Whitespace.
+	(CLASSTYPE_INLINE_FRIENDS): Remove parenthesis.
+	(TYPE_GETS_DELETE): Add parenthesis.
+	(TYPE_HAS_CONVERSION): Add parenthesis and wrap.
+	(TYPE_HAS_ASSIGN_REF): Likewise,
+	(TYPE_HAS_CONST_ASSIGN_REF): Likewise.
+	(TYPE_HAS_INIT_REF): Likewise.
+	(TYPE_HAS_CONST_INIT_REF): Likewise.
+	(TYPE_BEING_DEFINED): Likewise.
+	(TYPE_LANG_SPECIFIC): Likewise.
+	(CLASSTYPE_RTTI): Likewise.
+	(TYPE_OVERLOADS_CALL_EXPR): Likewise.
+	(TYPE_OVERLOADS_ARRAY_REF): Likewise.
+	(TYPE_OVERLOADS_ARROW): Likewise.
+	(TYPE_USES_MULTIPLE_INHERITANCE): Likewise.
+	(TYPE_USES_VIRTUAL_BASECLASSES): Add parenthesis.
+	(CLASSTYPE_METHOD_VEC): Likewise.
+	(CLASSTYPE_MARKED_N): Likewise.
+	(CLASSTYPE_MARKED): Likewise.
+	(CLASSTYPE_MARKED2): Likewise.
+	(CLASSTYPE_MARKED3): Likewise.
+	(CLASSTYPE_MARKED4): Likewise.
+	(CLASSTYPE_MARKED5): Likewise.
+	(CLASSTYPE_MARKED6): Likewise.
+	(SET_CLASSTYPE_MARKED): Whitespace.
+	(CLEAR_CLASSTYPE_MARKED): Likewise.
+	(SET_CLASSTYPE_MARKED2): Likewise.
+	(CLEAR_CLASSTYPE_MARKED2): Likewise.
+	(SET_CLASSTYPE_MARKED3): Likewise.
+	(CLEAR_CLASSTYPE_MARKED3): Likewise.
+	(SET_CLASSTYPE_MARKED4): Likewise.
+	(CLEAR_CLASSTYPE_MARKED4): Likewise.
+	(SET_CLASSTYPE_MARKED5): Likewise.
+	(CLEAR_CLASSTYPE_MARKED5): Likewise.
+	(SET_CLASSTYPE_MARKED6): Likewise.
+	(CLEAR_CLASSTYPE_MARKED6): Likewise.
+	(CLASSTYPE_TAGS): Likewise.
+	(CLASSTYPE_VSIZE): Likewise.
+	(CLASSTYPE_VBASECLASSES): Likewise.
+	(CANONICAL_BINFO): Add parenthesis.
+	(CLASSTYPE_SIZE(NODE): Likewise.
+	(CLASSTYPE_SIZE_UNIT): Likewise.
+	(CLASSTYPE_ALIGN(NODE): Likewise.
+	(CLASSTYPE_USER_ALIGN): Likewise.
+	(TYPE_JAVA_INTERFACE): Likewise.
+	(CLASSTYPE_PURE_VIRTUALS): Likewise.
+	(CLASSTYPE_NEEDS_VIRTUAL_REINIT): Whitespace and wrap.
+	(TYPE_HAS_DEFAULT_CONSTRUCTOR): Likewise.
+	(CLASSTYPE_HAS_MUTABLE): Likewise.
+	(CLASSTYPE_FRIEND_CLASSES): Likewise. Likewise.
+	(CLASSTYPE_DECLARED_CLASS): Whitespace and wrap.
+	(CLASSTYPE_READONLY_FIELDS_NEED_INIT): Likewise.
+	(CLASSTYPE_REF_FIELDS_NEED_INIT): Likewise.
+	(CLASSTYPE_INTERFACE_ONLY): Likewise.
+	(CLASSTYPE_INTERFACE_KNOWN): Likewise.
+	(CLASSTYPE_INTERFACE_UNKNOWN): Likewise.
+	(SET_CLASSTYPE_INTERFACE_UNKNOWN_X): Likewise.
+	(SET_CLASSTYPE_INTERFACE_UNKNOWN): Likewise.
+	(SET_CLASSTYPE_INTERFACE_KNOWN): Likewise.
+	(CLASSTYPE_DEBUG_REQUESTED): Whitespace and wrap.
+	(BINFO_UNSHARED_MARKED): Whitespace.
+	(BINFO_MARKED): Whitespace and wrap.
+	(SET_BINFO_MARKED): Likewise.
+	(CLEAR_BINFO_MARKED): Likewise.
+	(BINFO_VTABLE_PATH_MARKED): Likewise.
+	(SET_BINFO_VTABLE_PATH_MARKED): Likewise.
+	(CLEAR_BINFO_VTABLE_PATH_MARKED): Likewise.
+	(BINFO_SUBVTT_INDEX): Remove parenthesis.
+	(BINFO_VPTR_INDEX): Likewise.
+	(BINFO_PRIMARY_BASE_OF): Likewise,
+	(CLASSTYPE_VFIELDS): Whitespace.
+	(VF_DERIVED_VALUE): Wrap long line.
+	(NAMESPACE_LEVEL): Whitespace.
+	(CAN_HAVE_FULL_LANG_DECL_P): Remove parenthesis.
+	(DEFARG_POINTER): Whitespace.
+	(DECL_NEEDED_P): Remove parenthesis.
+	(DECL_LANGUAGE): Whitespace.
+	(SET_DECL_LANGUAGE): Add parenthesis.
+	(DECL_CONSTRUCTOR_P): Whitespace and wrap.
+	(DECL_OVERLOADED_OPERATOR_P): Remove parenthesis.
+	(DECL_IN_AGGR_P): Whitespace.
+	(DECL_FRIEND_P): Likewise.
+	(DECL_BEFRIENDING_CLASSES): Likewise.
+	(DECL_STATIC_FUNCTION_P): Whitespace and wrap.
+	(DECL_NONCONVERTING_P): Whitespace.
+	(DECL_PURE_VIRTUAL_P): Likewise.
+	(DECL_NEEDS_FINAL_OVERRIDER_P): Likewise.
+	(DECL_PENDING_INLINE_INFO): Whitespace.
+	(DECL_SORTED_FIELDS): Likewise.
+	(DECL_DEFERRED_FN): Likewise.
+	(DECL_TEMPLATE_INFO): Likewise.
+	(CLASSTYPE_TEMPLATE_INFO): Whitespace and wrap.
+	(TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO); Likewise.
+	(SET_TYPE_TEMPLATE_INFO): Add parenthesis.
+	(TMPL_ARGS_LEVEL): Likewise.
+	(SET_TMPL_ARGS_LEVEL): Likewise.
+	(INNERMOST_TEMPLATE_PARMS): Whitespace.
+	(C_TYPEDEF_EXPLICITLY_SIGNED): Uppercase macro parameter.
+	(INTEGRAL_CODE_P(CODE): Add parenthesis.
+	(CP_INTEGRAL_TYPE_P): Remove parenthesis.
+	(TYPE_HAS_CONSTRUCTOR): Whitespace.
+	(TREE_HAS_CONSTRUCTOR): Likewise.
+	(TYPE_HAS_DESTRUCTOR): Likewise.
+	(TYPE_HAS_REAL_ASSIGN_REF): Likewise.
+	(TYPE_HAS_COMPLEX_ASSIGN_REF): Likewise.
+	(TYPE_HAS_ABSTRACT_ASSIGN_REF): Likewise.
+	(TYPE_HAS_COMPLEX_INIT_REF): Likewise.
+	(TYPE_HAS_NONTRIVIAL_DESTRUCTOR): Likewise.
+	(TYPE_PTRMEMFUNC_P): Likewise.
+	(TYPE_PTRMEMFUNC_FLAG): Likewise.
+	(TYPE_GET_PTRMEMFUNC_TYPE): Likewise.
+	(TYPE_SET_PTRMEMFUNC_TYPE): Likewise.
+	(TYPE_PTRMEM_CLASS_TYPE): Remove parenthesis.
+	(TYPE_PTRMEM_POINTED_TO_TYPE): Likewise.
+	(DECL_ACCESS): Whitespace.
+	(DECL_GLOBAL_CTOR_P): Remove parenthesis.
+	(DECL_GLOBAL_DTOR_P): Likewise.
+	(GLOBAL_INIT_PRIORITY): Likewise.
+	(DECL_TEMPLATE_PARMS): Likewise.
+	(DECL_TEMPLATE_RESULT): Likewise.
+	(DECL_TEMPLATE_INSTANTIATIONS): Likewise.
+	(DECL_TEMPLATE_SPECIALIZATIONS): Likewise.
+	(DECL_IMPLICIT_TYPEDEF_P): Remove parenthesis.
+	(SET_DECL_IMPLICIT_TYPEDEF_P): Likewise.
+	(PRIMARY_TEMPLATE_P): Add parenthesis.
+	(DECL_USE_TEMPLATE): Whitespace.
+	(CLASSTYPE_IMPLICIT_INSTANTIATION): Likewise.
+	(SET_CLASSTYPE_IMPLICIT_INSTANTIATION): Likewise.
+	(CLASSTYPE_EXPLICIT_INSTANTIATION): Likewise.
+	(SET_CLASSTYPE_EXPLICIT_INSTANTIATION): Likewise.
+	(CALL_DECLARATOR_PARMS): Remove parenthesis.
+	(CALL_DECLARATOR_QUALS): Likewise.
+	(CALL_DECLARATOR_EXCEPTION_SPEC): Likewise.
+	(TEMP_NAME_P): Wrap.
+	(VFIELD_NAME_P): Likewise.
+	(B_SET): Uppercase macro parameters and add parenthesis.
+	(B_CLR): Likewise.
+	(B_TST): Likewise.
+	(LOOKUP_NAMESPACES_ONLY): Uppercase macro parameters.
+	(LOOKUP_TYPES_ONLY): Uppercase macro parameters.
+	(LOOKUP_QUALIFIERS_ONLY): Uppercase macro parameters.
+	(same_or_base_type_p): Likewise.
+	(cp_deprecated): Likewise.
+
+2002-01-05  Richard Henderson  <rth@redhat.com>
+
+	* semantics.c (expand_body): Revert last change.
+
+2002-01-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/4122
+	* class.c (update_vtable_entry_for_fn): Set delta to zero for a
+	lost primary.
+
+	* class.c (build_vtbl_initializer): Check for a lost primary
+	before calculating the vtable entry to throw away.
+
+2002-01-02  Jason Merrill  <jason@redhat.com>
+
+	* semantics.c (expand_body): Call outlining_inline_function when
+	emitting an inline function out of line.
+
+2002-01-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/5116, c++/764 reversion
+	* call.c (build_new_op): Revert the instantiations. They are
+	incorrect.
+
+2002-01-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/5089
+	* decl2.c (reparse_absdcl_as_casts): Don't warn about casts to void.
+
+2002-01-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3716
+	* pt.c (tsubst_aggr_type): Move pmf handling into tsubst.
+	(tsubst, case POINTER_TYPE): Handle pmfs here.
+	(tsubst, case OFFSET_TYPE): Check it is not an offset to
+	reference. If it is offset to FUNCTION_TYPE, create a METHOD_TYPE.
+
+2002-01-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/35
+	* cp-tree.h (DECL_LANG_FLAG_0): Used for PARM_DECL too.
+	(DECL_TEMPLATE_PARM_P): A PARM_DECL might be one too.
+	* pt.c (process_template_parm): SET_DECL_TEMPLATE_PARM_P on the
+	PARM_DECL.
+	(tsubst_template_parms): Break up loop statements.
+	(tsubst_decl, case PARM_DECL): Copy DECL_TEMPLATE_PARM_P. Template
+	parm PARM_DECLs don't get promoted.
+
+2002-01-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/5123
+	* typeck.c (build_component_ref): Cope with a TEMPLATE_ID_EXPR.
+	(build_x_function_call): Cope with a COMPONENT_REF containing a
+	TEMPLATE_ID_EXPR.
+
+2002-01-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/5213
+	* pt.c (convert_template_argument): Be more careful determining
+	when RECORD_TYPE templates are or are not templates.
+
+2002-01-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/775
+	* cp-tree.h (handle_class_head): Adjust prototype.
+	* decl2.c (handle_class_head): Add DEFN_P and NEW_TYPE_P
+	parameters. Use for all class heads.
+	* parse.y (named_class_head_sans_basetype, named_class_head,
+	named_complex_class_head_sans_basetype,
+	named_class_head_sans_basetype_defn,
+	unnamed_class_head): Remove.
+	(class_head, class_head_apparent_template): Recognize class heads
+	(class_head_decl, class_head_defn): New reductions. Process class
+	heads.
+	(structsp): Adjust class definition and class declaration
+	reductions.
+	(maybe_base_class_list): Give diagnostic on empty list.
+
+2002-01-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/4379
+	* typeck.c (build_x_unary_op): Don't destroy the OFFSET_REF on a
+	single non-static member.
+	(unary_complex_lvalue): If it cannot be a pointer to member, don't
+	make it so. Check it is not pointer to reference.
+
+2002-01-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/5132
+	* decl2.c (reparse_absdcl_as_casts): Don't digest_init if we
+	are processing a template decl.
+
+2002-01-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/5116, c++/764
+	* call.c (build_new_op): Make sure template class operands are
+	instantiated. Simplify arglist construction.
+
 2001-12-29  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* call.c (build_user_type_conversion_1): Use my_friendly_assert
@@ -5,7 +490,7 @@
 	* cvt.c (convert_to_reference): Likewise.
 	* semantics.c (setup_vtbl_ptr): Likewise.
 	* pt.c (lookup_template_class): Comment typo.
-	
+
 2001-12-29  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/5125
@@ -46,6 +531,7 @@
 
 2001-12-18  Jason Merrill  <jason@redhat.com>
 
+	PR c++/3242
 	* class.c (add_method): Do compare 'this' quals when trying to match a
 	used function.  Don't defer to another used function.
 
@@ -389,7 +875,7 @@ Tue Nov 27 09:03:47 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 2001-11-25  Aldy Hernandez  <aldyh@redhat.com>
 
-	* cp/search.c (lookup_base_r): Declare bk in variable declaration
+	* search.c (lookup_base_r): Declare bk in variable declaration
 	space.
 
 2001-11-25  Nathan Sidwell  <nathan@codesourcery.com>
@@ -556,7 +1042,7 @@ Tue Nov 27 09:03:47 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 2001-11-12  H.J. Lu <hjl@gnu.org>
 
-	* cp/cvt.c (ocp_convert): Don't warn the address of a weak
+	* cvt.c (ocp_convert): Don't warn the address of a weak
 	function is always `true'.
 
 2001-11-09  Neil Booth  <neil@daikokuya.demon.co.uk>

@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -585,7 +585,7 @@ common_type (t1, t2)
     case REAL_TYPE:
       /* We should have called type_after_usual_arithmetic_conversions
 	 above.  */
-      my_friendly_abort (19990725);
+      abort ();
       break;
 
     case POINTER_TYPE:
@@ -759,7 +759,7 @@ common_type (t1, t2)
     case OFFSET_TYPE:
       /* Pointers to members should now be handled by the POINTER_TYPE
 	 case above.  */
-      my_friendly_abort (990325);
+      abort ();
 
     default:
       return build_type_attribute_variant (t1, attributes);
@@ -1729,7 +1729,7 @@ decay_conversion (exp)
       return error_mark_node;
     }
   if (code == METHOD_TYPE)
-    my_friendly_abort (990506);
+    abort ();
   if (code == FUNCTION_TYPE || is_overloaded_fn (exp))
     return build_unary_op (ADDR_EXPR, exp, 0);
   if (code == ARRAY_TYPE)
@@ -2030,7 +2030,7 @@ build_component_ref (datum, component, basetype_path, protect)
 			      basetype_path, protect));
 
     case TEMPLATE_DECL:
-      error ("invalid use of %D", datum);
+      error ("invalid use of `%D'", datum);
       datum = error_mark_node;
       break;
 
@@ -2057,7 +2057,7 @@ build_component_ref (datum, component, basetype_path, protect)
   if (TREE_CODE (component) == TREE_LIST)
     {
       /* I could not trigger this code. MvL */
-      my_friendly_abort (980326);
+      abort ();
 #ifdef DEAD
       my_friendly_assert (!(TREE_CHAIN (component) == NULL_TREE
 		&& DECL_CHAIN (TREE_VALUE (component)) == NULL_TREE), 309);
@@ -2114,7 +2114,10 @@ build_component_ref (datum, component, basetype_path, protect)
   else
     {
       tree name = component;
-      if (TREE_CODE (component) == VAR_DECL)
+      
+      if (TREE_CODE (component) == TEMPLATE_ID_EXPR)
+	name = TREE_OPERAND (component, 0);
+      else if (TREE_CODE (component) == VAR_DECL)
 	name = DECL_NAME (component);
       if (TREE_CODE (component) == NAMESPACE_DECL)
         /* Source is in error, but produce a sensible diagnostic.  */
@@ -2162,8 +2165,14 @@ build_component_ref (datum, component, basetype_path, protect)
 		    }
 		}
 
+	      fndecls = TREE_VALUE (fndecls);
+	      
+	      if (TREE_CODE (component) == TEMPLATE_ID_EXPR)
+		fndecls = build_nt (TEMPLATE_ID_EXPR,
+				    fndecls, TREE_OPERAND (component, 1));
+	      
 	      ref = build (COMPONENT_REF, unknown_type_node,
-			   datum, TREE_VALUE (fndecls));
+			   datum, fndecls);
 	      return ref;
 	    }
 
@@ -2189,6 +2198,9 @@ build_component_ref (datum, component, basetype_path, protect)
 	  return field;
 	}
     }
+
+  if (TREE_DEPRECATED (field))
+    warn_deprecated_use (field);
 
   /* See if we have to do any conversions so that we pick up the field from the
      right context.  */
@@ -2699,12 +2711,22 @@ build_x_function_call (function, params, decl)
       /* Undo what we did in build_component_ref.  */
       decl = TREE_OPERAND (function, 0);
       function = TREE_OPERAND (function, 1);
-      function = DECL_NAME (OVL_CURRENT (function));
 
-      if (template_id)
+      if (TREE_CODE (function) == TEMPLATE_ID_EXPR)
 	{
-	  TREE_OPERAND (template_id, 0) = function;
-	  function = template_id;
+	  my_friendly_assert (!template_id, 20011228);
+
+	  template_id = function;
+	}
+      else
+	{
+	  function = DECL_NAME (OVL_CURRENT (function));
+
+	  if (template_id)
+	    {
+	      TREE_OPERAND (template_id, 0) = function;
+	      function = template_id;
+	    }
 	}
 
       return build_method_call (decl, function, params,
@@ -2789,7 +2811,7 @@ build_x_function_call (function, params, decl)
 	}
       /* Unexpected node type?  */
       else
-	my_friendly_abort (116);
+	abort ();
       if (decl == NULL_TREE)
 	{
 	  if (current_function_decl
@@ -3683,7 +3705,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 		&& same_type_p (TYPE_PTRMEMFUNC_FN_TYPE (type0), type1))
 	       || (TYPE_PTRMEMFUNC_P (type1)
 		   && same_type_p (TYPE_PTRMEMFUNC_FN_TYPE (type1), type0)))
-	my_friendly_abort (20000221);
+	abort ();
       break;
 
     case MAX_EXPR:
@@ -4286,9 +4308,15 @@ build_x_unary_op (code, xarg)
           
           if (!ptrmem && !flag_ms_extensions
               && TREE_CODE (TREE_TYPE (TREE_OPERAND (xarg, 1))) == METHOD_TYPE)
-            /* A single non-static member, make sure we don't allow a
-               pointer-to-member.  */
-            xarg = ovl_cons (TREE_OPERAND (xarg, 1), NULL_TREE);
+	    {
+	      /* A single non-static member, make sure we don't allow a
+                 pointer-to-member.  */
+	      xarg = build (OFFSET_REF, TREE_TYPE (xarg),
+			    TREE_OPERAND (xarg, 0),
+			    ovl_cons (TREE_OPERAND (xarg, 1), NULL_TREE));
+	      PTRMEM_OK_P (xarg) = ptrmem;
+	    }
+	      
         }
       else if (TREE_CODE (xarg) == TARGET_EXPR)
 	warning ("taking address of temporary");
@@ -4644,7 +4672,7 @@ build_unary_op (code, xarg, noconvert)
       if (TREE_CODE (arg) == IDENTIFIER_NODE
 	  && IDENTIFIER_OPNAME_P (arg))
 	{
-	  my_friendly_abort (117);
+	  abort ();
 	  /* We don't know the type yet, so just work around the problem.
 	     We know that this will resolve to an lvalue.  */
 	  return build1 (ADDR_EXPR, unknown_type_node, arg);
@@ -4847,6 +4875,22 @@ unary_complex_lvalue (code, arg)
 	      && TREE_CODE (t) != FIELD_DECL)
 	    {
 	      error ("taking address of bound pointer-to-member expression");
+	      return error_mark_node;
+	    }
+	  if (!PTRMEM_OK_P (arg))
+	    {
+	      /* This cannot form a pointer to method, so we must
+	         resolve the offset ref, and take the address of the
+		 result.  For instance,
+		 	&(C::m)	      */
+	      arg = resolve_offset_ref (arg);
+
+	      return build_unary_op (code, arg, 0);
+	    }
+	  
+	  if (TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE)
+	    {
+	      error ("cannot create pointer to reference member `%D'", t);
 	      return error_mark_node;
 	    }
 
@@ -6219,7 +6263,7 @@ convert_for_assignment (type, rhs, errtype, fndecl, parmnum)
   register enum tree_code coder;
 
   if (codel == OFFSET_TYPE)
-    my_friendly_abort (990505);
+    abort ();
 
   if (TREE_CODE (rhs) == OFFSET_REF)
     rhs = resolve_offset_ref (rhs);

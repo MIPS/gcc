@@ -266,7 +266,7 @@ flow_loop_entry_edges_find (header, nodes, entry_edges)
   if (! num_entries)
     abort ();
 
-  *entry_edges = (edge *) xmalloc (num_entries * sizeof (edge *));
+  *entry_edges = (edge *) xmalloc (num_entries * sizeof (edge));
 
   num_entries = 0;
   for (e = header->pred; e; e = e->pred_next)
@@ -313,7 +313,7 @@ flow_loop_exit_edges_find (nodes, exit_edges)
   if (! num_exits)
     return 0;
 
-  *exit_edges = (edge *) xmalloc (num_exits * sizeof (edge *));
+  *exit_edges = (edge *) xmalloc (num_exits * sizeof (edge));
 
   /* Store all exiting edges into an array.  */
   num_exits = 0;
@@ -414,7 +414,7 @@ flow_loop_pre_header_scan (loop)
        num++)
     ebb = ebb->pred->src;
 
-  loop->pre_header_edges = (edge *) xmalloc (num * sizeof (edge *));
+  loop->pre_header_edges = (edge *) xmalloc (num * sizeof (edge));
   loop->num_pre_header_edges = num;
 
   /* Store edges in order that they are followed.  The source of the first edge

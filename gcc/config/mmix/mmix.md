@@ -1,5 +1,5 @@
 ;; GCC machine description for MMIX
-;; Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 ;; Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
 ;; This file is part of GNU CC.
@@ -36,13 +36,16 @@
 
 ;; FIXME:s
 ;; - Use new formats; e.g. '{' not '"*{'.
-;; - define_constants.
+
+(define_constants
+  [(MMIX_rJ_REGNUM 259)]
+)
 
 ;; FIXME: Can we remove the reg-to-reg for smaller modes?  Shouldn't they
 ;; be synthesized ok?
 (define_insn "movqi"
-  [(set (match_operand:QI 0 "nonimmediate_operand" "=r,r ,r ,x ,r,r,m,??r")
-	(match_operand:QI 1 "general_operand"	    "r,LS,K,rI ,x,m,r,n"))]
+  [(set (match_operand:QI 0 "nonimmediate_operand" "=r,r ,r,x ,r,r,m,??r")
+	(match_operand:QI 1 "general_operand"	    "r,LS,K,rI,x,m,r,n"))]
   ""
   "@
    SET %0,%1
@@ -70,7 +73,7 @@
 
 ;; gcc.c-torture/compile/920428-2.c fails if there's no "n".
 (define_insn "movsi"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r ,r ,x,r,r,m,??r")
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r ,r,x,r,r,m,??r")
 	(match_operand:SI 1 "general_operand"	    "r,LS,K,r,x,m,r,n"))]
   ""
   "@
@@ -85,7 +88,7 @@
 
 ;; We assume all "s" are addresses.  Does that hold?
 (define_insn "movdi"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r ,r ,x,r,m ,r,m,r,??r")
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r ,r,x,r,m,r,m,r,??r")
 	(match_operand:DI 1 "general_operand"	    "r,LS,K,r,x,I,m,r,s,n"))]
   ""
   "@
@@ -692,8 +695,8 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
 	 (match_operator 2 "mmix_foldable_comparison_operator"
 			 [(match_operand 3 "register_operand" "r,r,r,r")
 			  (const_int 0)])
-	 (match_operand:DI 1 "mmix_reg_or_8bit_operand" "rI, 0  ,rI,GM")
-	 (match_operand:DI 4 "mmix_reg_or_8bit_operand" "0  ,rI,GM ,rI")))]
+	 (match_operand:DI 1 "mmix_reg_or_8bit_operand" "rI,0 ,rI,GM")
+	 (match_operand:DI 4 "mmix_reg_or_8bit_operand" "0 ,rI,GM,rI")))]
   ""
   "@
    CS%d2 %0,%3,%1
@@ -703,14 +706,14 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
 
 (define_insn "*movdicc_real"
   [(set
-    (match_operand:DI 0 "register_operand"	   "=r	,r ,r  ,r")
+    (match_operand:DI 0 "register_operand"	   "=r ,r ,r ,r")
     (if_then_else:DI
      (match_operator
       2 "mmix_comparison_operator"
-      [(match_operand 3 "mmix_reg_cc_operand"	    "r	,r ,r  ,r")
+      [(match_operand 3 "mmix_reg_cc_operand"	    "r ,r ,r ,r")
       (const_int 0)])
-     (match_operand:DI 1 "mmix_reg_or_8bit_operand" "rI, 0 ,rI, GM")
-     (match_operand:DI 4 "mmix_reg_or_8bit_operand" "0	,rI,GM ,rI")))]
+     (match_operand:DI 1 "mmix_reg_or_8bit_operand" "rI,0 ,rI,GM")
+     (match_operand:DI 4 "mmix_reg_or_8bit_operand" "0 ,rI,GM,rI")))]
   ""
   "@
    CS%d2 %0,%3,%1
@@ -925,8 +928,6 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
 ;; FIXME: we can emit an unordered-or-*not*-equal compare in one insn, but
 ;; there's no RTL code for it.  Maybe revisit in future.
 
-;; FIXME: Non/probable branches? Check for REG_BR_PROB note on the jump
-;; insn and emit 'P' where suitable *and measure*.
 ;; FIXME: Odd/Even matchers?
 (define_insn "*bCC_foldable"
   [(set (pc)
@@ -937,7 +938,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
   ""
-  "B%d1 %2,%0")
+  "%+B%d1 %2,%0")
 
 (define_insn "*bCC"
   [(set (pc)
@@ -948,7 +949,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
   ""
-  "B%d1 %2,%0")
+  "%+B%d1 %2,%0")
 
 (define_insn "*bCC_inverted_foldable"
   [(set (pc)
@@ -960,7 +961,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
 		      (label_ref (match_operand 0 "" ""))))]
 ;; REVERSIBLE_CC_MODE is checked by mmix_foldable_comparison_operator.
   ""
-  "B%D1 %2,%0")
+  "%+B%D1 %2,%0")
 
 (define_insn "*bCC_inverted"
   [(set (pc)
@@ -971,7 +972,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
 	 (pc)
 	 (label_ref (match_operand 0 "" ""))))]
   "REVERSIBLE_CC_MODE (GET_MODE (operands[2]))"
-  "B%D1 %2,%0")
+  "%+B%D1 %2,%0")
 
 (define_expand "call"
   [(parallel [(call (match_operand:QI 0 "memory_operand" "")
@@ -994,6 +995,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
      error too.  */
   if (operands[2] == NULL_RTX)
     operands[2] = const0_rtx;
+
   operands[4] = gen_rtx_REG (DImode, MMIX_INCOMING_RETURN_ADDRESS_REGNUM);
 }")
 
@@ -1018,9 +1020,8 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
     operands[3] = const0_rtx;
 
   /* FIXME: Documentation bug: operands[3] (operands[2] for 'call') is the
-     *next* argument register, not the number of arguments in registers.  */
-  cfun->machine->has_call_value_without_parameters
-    |= REG_P (operands[3]) && REGNO (operands[3]) == MMIX_FIRST_ARG_REGNUM;
+     *next* argument register, not the number of arguments in registers.
+     (There used to be code here where that mattered.)  */
 
   operands[5] = gen_rtx_REG (DImode, MMIX_INCOMING_RETURN_ADDRESS_REGNUM);
 }")
@@ -1038,14 +1039,13 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
 ;; rarely compared to addresses in registers, disparaging the
 ;; first ("p") alternative by adding ? in the first operand
 ;; might do the trick.  We define 'U' as a synonym to 'p', but without the
-;; caveats (and vary small advantages) of 'p'.
+;; caveats (and very small advantages) of 'p'.
 (define_insn "*call_real"
   [(call (mem:QI
 	  (match_operand:DI 0 "mmix_symbolic_or_address_operand" "s,rU"))
 	 (match_operand 1 "" ""))
    (use (match_operand 2 "" ""))
-   ;; 259 is rJ (We can't use the symbolic name here.  FIXME: Yes we can.)
-   (clobber (reg:DI 259))]
+   (clobber (reg:DI MMIX_rJ_REGNUM))]
   ""
   "@
    PUSHJ $%p2,%0
@@ -1057,8 +1057,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
 	       (match_operand:DI 1 "mmix_symbolic_or_address_operand" "s,rU"))
 	      (match_operand 2 "" "")))
   (use (match_operand 3 "" ""))
-  ;; 259 is rJ (We can't use the symbolic name here.  FIXME: Yes we can.)
-  (clobber (reg:DI 259))]
+  (clobber (reg:DI MMIX_rJ_REGNUM))]
   ""
   "@
    PUSHJ $%p3,%1
@@ -1103,8 +1102,8 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
 (define_expand "nonlocal_goto_receiver"
   [(parallel [(unspec_volatile [(match_dup 0)] 1)
 	      (clobber (scratch:DI))
-	      (clobber (reg:DI 259))])
-   (set (reg:DI 259) (match_dup 1))]
+	      (clobber (reg:DI MMIX_rJ_REGNUM))])
+   (set (reg:DI MMIX_rJ_REGNUM) (match_dup 1))]
   ""
   "
 {
@@ -1126,7 +1125,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
 (define_insn "*nonlocal_goto_receiver_expanded"
   [(unspec_volatile [(match_operand:DI 0 "address_operand" "p")] 1)
    (clobber (match_scratch:DI 1 "=&r"))
-   (clobber (reg:DI 259))]
+   (clobber (reg:DI MMIX_rJ_REGNUM))]
   ""
   "GETA $255,0f\;PUT rJ,$255\;LDOU $255,%a0\n\
 0: GET %1,rO\;CMPU %1,%1,$255\;BNP %1,1f\;POP 0,0\n1:")

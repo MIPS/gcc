@@ -25,11 +25,11 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#include <bits/std_clocale.h>
-#include <bits/std_locale.h>
-#include <bits/std_cstring.h>
-#include <bits/std_vector.h>
-#include <bits/std_stdexcept.h>
+#include <clocale>
+#include <cstring>
+#include <locale>
+#include <vector>
+#include <stdexcept>
 
 namespace std
 {
@@ -178,7 +178,7 @@ namespace std
       {
 	size_t& __index = __idp->_M_index;
 	if (!__index)
-	  __index = ++locale::id::_S_highwater;  // XXX MT
+	  __index = 1 + __exchange_and_add(&locale::id::_S_highwater, 1);
 	
 	if (__index >= _M_facets->size())
 	  _M_facets->resize(__index + 1, 0);  // might throw

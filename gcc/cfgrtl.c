@@ -135,6 +135,9 @@ delete_insn (insn)
 
   if (really_delete)
     {
+      /* If this insn has already been deleted, something is very wrong.  */
+      if (INSN_DELETED_P (insn))
+	abort ();
       remove_insn (insn);
       INSN_DELETED_P (insn) = 1;
     }
@@ -161,7 +164,15 @@ delete_insn (insn)
       int i;
 
       for (i = 0; i < len; i++)
-	LABEL_NUSES (XEXP (XVECEXP (pat, diff_vec_p, i), 0))--;
+	{
+	  rtx label = XEXP (XVECEXP (pat, diff_vec_p, i), 0);
+
+	  /* When deleting code in bulk (e.g. removing many unreachable
+	     blocks) we can delete a label that's a target of the vector
+	     before deleting the vector itself.  */
+	  if (GET_CODE (label) != NOTE)
+	    LABEL_NUSES (label)--;
+	}
     }
 
   return next;
@@ -687,8 +698,17 @@ try_redirect_by_replacing_jump (e, target)
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "Redirecting jump %i from %i to %i.\n",
 		 INSN_UID (insn), e->dest->index, target->index);
-      redirect_jump (insn, block_label (target), 0);
+      if (!redirect_jump (insn, block_label (target), 0))
+	{
+	  if (target == EXIT_BLOCK_PTR)
+	    return false;
+	  abort ();
+	}
     }
+
+  /* Cannot do anything for target exit block.  */
+  else if (target == EXIT_BLOCK_PTR)
+    return false;
 
   /* Or replace possibly complicated jump insn by simple jump insn.  */
   else
@@ -806,6 +826,8 @@ redirect_edge_and_branch (e, target)
       int j;
       rtx new_label = block_label (target);
 
+      if (target == EXIT_BLOCK_PTR)
+	return false;
       if (GET_CODE (PATTERN (tmp)) == ADDR_VEC)
 	vec = XVEC (PATTERN (tmp), 0);
       else
@@ -843,11 +865,18 @@ redirect_edge_and_branch (e, target)
 	return false;
 
       /* If the insn doesn't go where we think, we're confused.  */
-      if (JUMP_LABEL (insn) != old_label
-	  /* If the substitution doesn't succeed, die.  This can happen
-	     if the back end emitted unrecognizable instructions.  */
-	  || !redirect_jump (insn, block_label (target), 0))
+      if (JUMP_LABEL (insn) != old_label)
 	abort ();
+
+      /* If the substitution doesn't succeed, die.  This can happen
+	 if the back end emitted unrecognizable instructions or if
+	 target is exit block on some arches.  */
+      if (!redirect_jump (insn, block_label (target), 0))
+	{
+	  if (target == EXIT_BLOCK_PTR)
+	    return false;
+	  abort ();
+	}
     }
 
   if (rtl_dump_file)
@@ -1482,6 +1511,19 @@ print_rtl_with_bb (outf, rtx_first)
 	   tmp_rtx = XEXP (tmp_rtx, 1))
 	print_rtl_single (outf, XEXP (tmp_rtx, 0));
     }
+}
+
+void
+update_br_prob_note (bb)
+     basic_block bb;
+{
+  rtx note;
+  if (GET_CODE (bb->end) != JUMP_INSN)
+    return;
+  note = find_reg_note (bb->end, REG_BR_PROB, NULL_RTX);
+  if (!note || INTVAL (XEXP (note, 0)) == BRANCH_EDGE (bb)->probability)
+    return;
+  XEXP (note, 0) = GEN_INT (BRANCH_EDGE (bb)->probability);
 }
 
 /* Verify the CFG consistency.  This function check some CFG invariants and

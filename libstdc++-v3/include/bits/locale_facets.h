@@ -1,6 +1,7 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -41,11 +42,11 @@
 
 #pragma GCC system_header
 
-#include <bits/std_ctime.h>	// For struct tm
-#include <bits/std_ios.h>	// For ios_base
+#include <ctime>	// For struct tm
 #ifdef _GLIBCPP_USE_WCHAR_T
-# include <bits/std_cwctype.h>	// For wctype_t
+# include <cwctype>	// For wctype_t
 #endif 
+#include <ios>		// For ios_base
 
 namespace std
 {
@@ -53,7 +54,7 @@ namespace std
   // Include host and configuration specific ctype enums for ctype_base.
   #include <bits/ctype_base.h>
 
-  // __ctype_abstract_base is the common base for ctype<_CharT>.  
+  // Common base for ctype<_CharT>.  
   template<typename _CharT>
     class __ctype_abstract_base : public locale::facet, public ctype_base
     {
@@ -233,7 +234,6 @@ namespace std
       bool 		       	_M_del;
       __to_type 	       	_M_toupper;
       __to_type  	       	_M_tolower;
-      const mask*       	_M_ctable;
       const mask*              	_M_table;
       
     public:
@@ -264,9 +264,8 @@ namespace std
       table() const throw()
       { return _M_table; }
 
-      const mask* 
-      classic_table() throw()
-      { return _M_ctable; }
+      static const mask* 
+      classic_table() throw();
 
       virtual 
       ~ctype();
@@ -419,9 +418,9 @@ namespace std
 
 
   // 22.2.2  The numeric category.
-  class __num_base
+  class __num_base 
   {
-  public:
+  protected:
     // Used to establish gating factor for base 16 input.
     static const double _S_scale_hex;
     
@@ -440,6 +439,7 @@ namespace std
       _M_size = 21 + 1
     };
 
+    // num_put
     // Construct and return valid scanf format for floating point types.
     static bool
     _S_format_float(const ios_base& __io, char* __fptr, char __mod, 
@@ -449,6 +449,7 @@ namespace std
     static void
     _S_format_int(const ios_base& __io, char* __fptr, char __mod, char __modl);
   };
+
 
   template<typename _CharT>
     class numpunct : public locale::facet
@@ -641,13 +642,13 @@ namespace std
     protected:
       virtual ~num_get() { }
 
-      void 
+      iter_type 
       _M_extract_float(iter_type, iter_type, ios_base&, ios_base::iostate&, 
 		       string& __xtrc) const;
 
-      void 
+      iter_type 
       _M_extract_int(iter_type, iter_type, ios_base&, ios_base::iostate&, 
-		     char* __xtrc, int __max, int& __base) const;
+		     string& __xtrc, int& __base) const;
 
       virtual iter_type 
       do_get(iter_type, iter_type, ios_base&, ios_base::iostate&, bool&) const;
@@ -887,7 +888,7 @@ namespace std
 
   template<>
     size_t
-    collate<wchar_t>::_M_transform_helper(wchar_t*, const wchar_t*, 
+    collate<wchar_t>::_M_transform_helper(wchar_t*, const wchar_t*,
 					  size_t) const;
 #endif
 

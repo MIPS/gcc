@@ -572,6 +572,8 @@ simplify_unary_operation (code, mode, op, op_mode)
 	case SQRT:
 	case FLOAT_EXTEND:
 	case FLOAT_TRUNCATE:
+	case SS_TRUNCATE:
+	case US_TRUNCATE:
 	  return 0;
 
 	default:
@@ -1413,8 +1415,15 @@ simplify_binary_operation (code, mode, op0, op1)
 	case DIV:
 	  if (trueop1 == CONST1_RTX (mode))
 	    {
+	      /* On some platforms DIV uses narrower mode than its
+		 operands.  */
 	      rtx x = gen_lowpart_common (mode, op0);
-	      return x ? x : op0;
+	      if (x)
+		return x;
+	      else if (mode != GET_MODE (op0) && GET_MODE (op0) != VOIDmode)
+		return gen_lowpart_SUBREG (mode, op0);
+	      else
+		return op0;
 	    }
 
 	  /* In IEEE floating point, 0/x is not always 0.  */
@@ -1516,6 +1525,13 @@ simplify_binary_operation (code, mode, op0, op1)
 	  else if (rtx_equal_p (trueop0, trueop1) && ! side_effects_p (op0))
 	    return op0;
 	  break;
+
+	case SS_PLUS:
+	case US_PLUS:
+	case SS_MINUS:
+	case US_MINUS:
+	  /* ??? There are simplifications that can be done.  */
+	  return 0;
 
 	default:
 	  abort ();
@@ -1793,7 +1809,7 @@ simplify_plus_minus (code, mode, op0, op1)
 	      if (n_ops != 7)
 		{
 		  ops[n_ops].op = constm1_rtx;
-		  ops[n_ops].neg = this_neg;
+		  ops[n_ops++].neg = this_neg;
 		  ops[i].op = XEXP (this_op, 0);
 		  ops[i].neg = !this_neg;
 		  changed = 1;
@@ -1858,7 +1874,13 @@ simplify_plus_minus (code, mode, op0, op1)
 		    && ! (GET_CODE (tem) == CONST
 			  && GET_CODE (XEXP (tem, 0)) == ncode
 			  && XEXP (XEXP (tem, 0), 0) == lhs
-			  && XEXP (XEXP (tem, 0), 1) == rhs))
+			  && XEXP (XEXP (tem, 0), 1) == rhs)
+		    /* Don't allow -x + -1 -> ~x simplifications in the
+		       first pass.  This allows us the chance to combine
+		       the -1 with other constants.  */
+		    && ! (first
+			  && GET_CODE (tem) == NOT
+			  && XEXP (tem, 0) == rhs))
 		  {
 		    lneg &= rneg;
 		    if (GET_CODE (tem) == NEG)

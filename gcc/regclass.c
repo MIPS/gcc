@@ -1,6 +1,6 @@
 /* Compute register class preferences for pseudo-registers.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996
-   1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1192,7 +1192,7 @@ regclass (f, nregs, dump)
   costs = (struct costs *) xmalloc (nregs * sizeof (struct costs));
 
 #ifdef CLASS_CANNOT_CHANGE_MODE
-  reg_changes_mode = BITMAP_XMALLOC();
+  reg_changes_mode = BITMAP_XMALLOC ();
 #endif  
 
 #ifdef FORBIDDEN_INC_DEC_CLASSES
@@ -1341,7 +1341,7 @@ regclass (f, nregs, dump)
 		  best = (enum reg_class) class;
 		}
 	      else if (p->cost[class] == best_cost)
-		best = reg_class_subunion[(int)best][class];
+		best = reg_class_subunion[(int) best][class];
 	    }
 
 	  /* Record the alternate register class; i.e., a class for which
@@ -2214,8 +2214,8 @@ allocate_reg_info (num_regs, new_p, renumber_p)
 
 	  if (new_p)		/* if we're zapping everything, no need to realloc */
 	    {
-	      free ((char *)renumber);
-	      free ((char *)reg_pref);
+	      free ((char *) renumber);
+	      free ((char *) reg_pref);
 	      renumber = (short *) xmalloc (size_renumber);
 	      reg_pref_buffer = (struct reg_pref *) xmalloc (regno_allocated 
 						  * sizeof (struct reg_pref));
@@ -2223,8 +2223,8 @@ allocate_reg_info (num_regs, new_p, renumber_p)
 
 	  else
 	    {
-	      renumber = (short *) xrealloc ((char *)renumber, size_renumber);
-	      reg_pref_buffer = (struct reg_pref *) xrealloc ((char *)reg_pref_buffer,
+	      renumber = (short *) xrealloc ((char *) renumber, size_renumber);
+	      reg_pref_buffer = (struct reg_pref *) xrealloc ((char *) reg_pref_buffer,
 						   regno_allocated 
 						   * sizeof (struct reg_pref));
 	    }
@@ -2301,13 +2301,13 @@ free_reg_info ()
       for (reg_data = reg_info_head; reg_data; reg_data = reg_next)
 	{
 	  reg_next = reg_data->next;
-	  free ((char *)reg_data);
+	  free ((char *) reg_data);
 	}
 
       free (reg_pref_buffer);
-      reg_pref_buffer = (struct reg_pref *)0;
-      reg_info_head = (struct reg_info_data *)0;
-      renumber = (short *)0;
+      reg_pref_buffer = (struct reg_pref *) 0;
+      reg_info_head = (struct reg_info_data *) 0;
+      renumber = (short *) 0;
     }
   regno_allocated = 0;
   reg_n_max = 0;
@@ -2571,8 +2571,8 @@ reg_class_subset_p (c1, c2)
   if (c2 == ALL_REGS)
   win:
     return 1;
-  GO_IF_HARD_REG_SUBSET (reg_class_contents[(int)c1],
-			 reg_class_contents[(int)c2],
+  GO_IF_HARD_REG_SUBSET (reg_class_contents[(int) c1],
+			 reg_class_contents[(int) c2],
 			 win);
   return 0;
 }

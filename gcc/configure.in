@@ -1,7 +1,7 @@
 # configure.in for GCC
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+# Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -404,6 +404,13 @@ vax-*-*)
     stage1_cflags="-J"
   fi
   ;;
+powerpc-*-darwin*)
+  # The spiffy cpp-precomp chokes on some legitimate constructs in GCC
+  # sources; use -no-cpp-precomp to get to GNU cpp.
+  # Apple's GCC has bugs in designated initializer handling, so disable
+  # that too.
+  stage1_cflags="-no-cpp-precomp -DHAVE_DESIGNATED_INITIALIZERS=0"
+  ;;
 esac
 AC_SUBST(stage1_cflags)
 
@@ -630,7 +637,7 @@ saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
 gcc_AC_CHECK_DECLS(getenv atol sbrk abort atof getcwd getwd \
 	strsignal putc_unlocked fputs_unlocked fwrite_unlocked \
-        fprintf_unlocked strstr environ errno \
+        fprintf_unlocked strstr errno \
 	malloc realloc calloc free basename getopt clock, , ,[
 #include "ansidecl.h"
 #include "system.h"])
@@ -908,10 +915,6 @@ changequote([,])dnl
 # Internationalization
 PACKAGE=gcc
 VERSION="$gcc_version"
-AC_DEFINE_UNQUOTED(PACKAGE, "$PACKAGE",
-	[Define to the name of the distribution.])
-AC_DEFINE_UNQUOTED(VERSION, "$VERSION",
-	[Define to the version of the distribution.])
 AC_SUBST(PACKAGE)
 AC_SUBST(VERSION)
 
@@ -1136,10 +1139,10 @@ extra_headers_list=
 if test "x$extra_headers" = x
 then true
 else
-	# Prepend ${srcdir}/ginclude/ to every entry in extra_headers.
+	# Prepend ${srcdir}/config/${cpu_type}/ to every entry in extra_headers.
 	for file in $extra_headers;
 	do
-		extra_headers_list="${extra_headers_list} \$(srcdir)/ginclude/${file}"
+		extra_headers_list="${extra_headers_list} \$(srcdir)/config/${cpu_type}/${file}"
 	done
 fi
 
@@ -2140,21 +2143,16 @@ AC_DEFINE_UNQUOTED(CONFIG_SJLJ_EXCEPTIONS, $sjlj,
 lang_specs_files=
 lang_options_files=
 lang_tree_files=
-rm -f specs.h options.h gencheck.h
-touch specs.h options.h gencheck.h
 for subdir in . $subdirs
 do
 	if test -f $srcdir/$subdir/lang-specs.h; then
-		echo "#include \"$subdir/lang-specs.h\"" >>specs.h
-		lang_specs_files="$lang_specs_files $srcdir/$subdir/lang-specs.h"
+	    lang_specs_files="$lang_specs_files $srcdir/$subdir/lang-specs.h"
 	fi
 	if test -f $srcdir/$subdir/lang-options.h; then
-		echo "#include \"$subdir/lang-options.h\"" >>options.h
-		lang_options_files="$lang_options_files $srcdir/$subdir/lang-options.h"
+	    lang_options_files="$lang_options_files $srcdir/$subdir/lang-options.h"
 	fi
 	if test -f $srcdir/$subdir/$subdir-tree.def; then
-		echo "#include \"$subdir/$subdir-tree.def\"" >>gencheck.h
-		lang_tree_files="$lang_tree_files $srcdir/$subdir/$subdir-tree.def"
+	    lang_tree_files="$lang_tree_files $srcdir/$subdir/$subdir-tree.def"
 	fi
 done
 
@@ -2464,35 +2462,7 @@ if test -f intl/libintl.h; then
   echo creating libintl.h
   echo '#include "intl/libintl.h"' >libintl.h
 fi
-],
-[
-host='${host}'
-build='${build}'
-target='${target}'
-target_alias='${target_alias}'
-srcdir='${srcdir}'
-subdirs='${subdirs}'
-symbolic_link='${symbolic_link}'
-program_transform_set='${program_transform_set}'
-program_transform_name='${program_transform_name}'
-dep_host_xmake_file='${dep_host_xmake_file}'
-host_xmake_file='${host_xmake_file}'
-dep_tmake_file='${dep_tmake_file}'
-tmake_file='${tmake_file}'
-thread_file='${thread_file}'
-gcc_config_arguments='${gcc_config_arguments}'
-gcc_version='${gcc_version}'
-gcc_version_full='${gcc_version_full}'
-gcc_version_trigger='${gcc_version_trigger}'
-local_prefix='${local_prefix}'
-build_install_headers_dir='${build_install_headers_dir}'
-build_exeext='${build_exeext}'
-host_exeext='${host_exeext}'
-out_file='${out_file}'
-gdb_needs_out_file_path='${gdb_needs_out_file_path}'
-SET_MAKE='${SET_MAKE}'
-target_list='${target_list}'
-target_overrides='${target_overrides}'
-host_overrides='${host_overrides}'
-cpp_install_dir='${cpp_install_dir}'
+], 
+[subdirs='$subdirs'
+symbolic_link='$symbolic_link'
 ])

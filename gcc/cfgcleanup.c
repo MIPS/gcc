@@ -43,6 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "recog.h"
 #include "toplev.h"
 #include "cselib.h"
+#include "tm_p.h"
 
 #include "obstack.h"
 
@@ -176,6 +177,7 @@ try_simplify_condjump (cbranch_block)
 						    jump_dest_block);
   cbranch_jump_edge->flags |= EDGE_FALLTHRU;
   cbranch_fallthru_edge->flags &= ~EDGE_FALLTHRU;
+  update_br_prob_note (cbranch_block);
 
   /* Delete the block with the unconditional jump, and clean up the mess.  */
   flow_delete_block (jump_block);
@@ -192,21 +194,43 @@ mark_effect (exp, nonequal)
   rtx exp;
   regset nonequal;
 {
+  int regno;
+  rtx dest;
   switch (GET_CODE (exp))
     {
       /* In case we do clobber the register, mark it as equal, as we know the
          value is dead so it don't have to match.  */
       case CLOBBER:
 	if (REG_P (XEXP (exp, 0)))
-	  CLEAR_REGNO_REG_SET (nonequal, REGNO (XEXP (exp, 0)));
+	  {
+	    dest = XEXP (exp, 0);
+	    regno = REGNO (dest);
+	    CLEAR_REGNO_REG_SET (nonequal, regno);
+	    if (regno < FIRST_PSEUDO_REGISTER)
+	      {
+		int n = HARD_REGNO_NREGS (regno, GET_MODE (dest));
+		while (--n > 0)
+		  CLEAR_REGNO_REG_SET (nonequal, regno + n);
+	      }
+	  }
 	return false;
 
       case SET:
 	if (rtx_equal_for_cselib_p (SET_DEST (exp), SET_SRC (exp)))
 	  return false;
-	if (GET_CODE (SET_SRC (exp)) != REG)
+	dest = SET_DEST (exp);
+	if (dest == pc_rtx)
+	  return false;
+	if (!REG_P (dest))
 	  return true;
-	SET_REGNO_REG_SET (nonequal, REGNO (SET_SRC (exp)));
+	regno = REGNO (dest);
+	SET_REGNO_REG_SET (nonequal, regno);
+	if (regno < FIRST_PSEUDO_REGISTER)
+	  {
+	    int n = HARD_REGNO_NREGS (regno, GET_MODE (dest));
+	    while (--n > 0)
+	      SET_REGNO_REG_SET (nonequal, regno + n);
+	  }
 	return false;
 
       default:
@@ -245,13 +269,13 @@ thread_jump (mode, e, b)
   set1 = pc_set (e->src->end);
   set2 = pc_set (b->end);
   if (((e->flags & EDGE_FALLTHRU) != 0)
-      != (XEXP (SET_SRC (set1), 0) == pc_rtx))
+      != (XEXP (SET_SRC (set1), 1) == pc_rtx))
     reverse1 = true;
 
   cond1 = XEXP (SET_SRC (set1), 0);
   cond2 = XEXP (SET_SRC (set2), 0);
   if (reverse1)
-    code1 = reversed_comparison_code (cond1, b->end);
+    code1 = reversed_comparison_code (cond1, e->src->end);
   else
     code1 = GET_CODE (cond1);
 
@@ -292,7 +316,7 @@ thread_jump (mode, e, b)
      processing as if it were same basic block.
      Our goal is to prove that whole block is an NOOP.  */
 
-  for (insn = NEXT_INSN (b->head); insn != b->end && !failed;
+  for (insn = NEXT_INSN (b->head); insn != NEXT_INSN (b->end) && !failed;
        insn = NEXT_INSN (insn))
   {
     if (INSN_P (insn))
@@ -326,7 +350,7 @@ thread_jump (mode, e, b)
   BITMAP_XFREE (nonequal);
   cselib_finish ();
   if ((comparison_dominates_p (code1, code2) != 0)
-      != (XEXP (SET_SRC (set2), 0) == pc_rtx))
+      != (XEXP (SET_SRC (set2), 1) == pc_rtx))
     return BRANCH_EDGE (b);
   else
     return FALLTHRU_EDGE (b);
@@ -346,13 +370,14 @@ try_forward_edges (mode, b)
      int mode;
 {
   bool changed = false;
-  edge e, next, threaded_edge;
+  edge e, next, *threaded_edges = NULL;
 
   for (e = b->succ; e; e = next)
     {
       basic_block target, first;
       int counter;
       bool threaded = false;
+      int nthreaded_edges = 0;
 
       next = e->succ_next;
 
@@ -383,12 +408,39 @@ try_forward_edges (mode, b)
 
 	  /* Allow to thread only over one edge at time to simplify updating
 	     of probabilities.  */
-	  else if ((mode & CLEANUP_THREADING) && !threaded)
+	  else if (mode & CLEANUP_THREADING)
 	    {
-	      threaded_edge = thread_jump (mode, e, target);
-	      if (threaded_edge)
+	      edge t = thread_jump (mode, e, target);
+	      if (t)
 		{
-		  new_target = threaded_edge->dest;
+		  if (!threaded_edges)
+		    threaded_edges = xmalloc (sizeof (*threaded_edges)
+					      * n_basic_blocks);
+		  else
+		    {
+		      int i;
+
+		      /* Detect an infinite loop across blocks not
+			 including the start block.  */
+		      for (i = 0; i < nthreaded_edges; ++i)
+			if (threaded_edges[i] == t)
+			  break;
+		      if (i < nthreaded_edges)
+			{
+			  counter = n_basic_blocks;
+			  break;
+			}
+		    }
+
+		  /* Detect an infinite loop across the start block.  */
+		  if (t->dest == b)
+		    break;
+
+		  if (nthreaded_edges >= n_basic_blocks)
+		    abort ();
+		  threaded_edges[nthreaded_edges++] = t;
+
+		  new_target = t->dest;
 		  new_target_threaded = true;
 		}
 	    }
@@ -439,8 +491,10 @@ try_forward_edges (mode, b)
 	  gcov_type edge_count = e->count;
 	  int edge_probability = e->probability;
 	  int edge_frequency;
+	  int n = 0;
 
-	  if (threaded)
+	  /* Don't force if target is exit block.  */
+	  if (threaded && target != EXIT_BLOCK_PTR)
 	    {
 	      notice_new_block (redirect_edge_and_branch_force (e, target));
 	      if (rtl_dump_file)
@@ -471,13 +525,54 @@ try_forward_edges (mode, b)
 	      edge t;
 
 	      first->count -= edge_count;
-	      first->succ->count -= edge_count;
+	      if (first->count < 0)
+		first->count = 0;
 	      first->frequency -= edge_frequency;
+	      if (first->frequency < 0)
+		first->frequency = 0;
 	      if (first->succ->succ_next)
-		t = threaded_edge;
+		{
+		  edge e;
+		  int prob;
+		  if (n >= nthreaded_edges)
+		    abort ();
+		  t = threaded_edges [n++];
+		  if (t->src != first)
+		    abort ();
+		  if (first->frequency)
+		    prob = edge_frequency * REG_BR_PROB_BASE / first->frequency;
+		  else
+		    prob = 0;
+		  if (prob > t->probability)
+		    prob = t->probability;
+		  t->probability -= prob;
+		  prob = REG_BR_PROB_BASE - prob;
+		  if (prob <= 0)
+		    {
+		      first->succ->probability = REG_BR_PROB_BASE;
+		      first->succ->succ_next->probability = 0;
+		    }
+		  else
+		    for (e = first->succ; e; e = e->succ_next)
+		      e->probability = ((e->probability * REG_BR_PROB_BASE)
+					/ (double) prob);
+		  update_br_prob_note (first);
+		}
 	      else
-		t = first->succ;
+		{
+		  /* It is possible that as the result of
+		     threading we've removed edge as it is
+		     threaded to the fallthru edge.  Avoid
+		     getting out of sync.  */
+		  if (n < nthreaded_edges
+		      && first == threaded_edges [n]->src)
+		    n++;
+		  t = first->succ;
+		 }
 
+	      t->count -= edge_count;
+	      if (t->count < 0)
+		t->count = 0;
 	      first = t->dest;
 	    }
 	  while (first != target);
@@ -486,6 +581,8 @@ try_forward_edges (mode, b)
 	}
     }
 
+  if (threaded_edges)
+    free (threaded_edges);
   return changed;
 }
 
@@ -661,6 +758,7 @@ merge_blocks (e, b, c, mode)
   /* If B has a fallthru edge to C, no need to move anything.  */
   if (e->flags & EDGE_FALLTHRU)
     {
+      int b_index = b->index, c_index = c->index;
       /* We need to update liveness in case C already has broken liveness
 	 or B ends by conditional jump to next instructions that will be
 	 removed.  */
@@ -672,7 +770,7 @@ merge_blocks (e, b, c, mode)
 
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "Merged %d and %d without moving.\n",
-		 b->index, c->index);
+                 b_index, c_index);
 
       return true;
     }
@@ -1063,32 +1161,30 @@ outgoing_edges_match (mode, bb1, bb2)
 	 we will only have one branch prediction bit to work with.  Thus
 	 we require the existing branches to have probabilities that are
 	 roughly similar.  */
-      /* ??? We should use bb->frequency to allow merging in infrequently
-	 executed blocks, but at the moment it is not available when
-	 cleanup_cfg is run.  */
-      if (match && !optimize_size)
+      if (match
+	  && !optimize_size
+	  && bb1->frequency > BB_FREQ_MAX / 1000
+	  && bb2->frequency > BB_FREQ_MAX / 1000)
 	{
-	  rtx note1, note2;
-	  int prob1, prob2;
+	  int prob2;
 
-	  note1 = find_reg_note (bb1->end, REG_BR_PROB, 0);
-	  note2 = find_reg_note (bb2->end, REG_BR_PROB, 0);
+	  if (b1->dest == b2->dest)
+	    prob2 = b2->probability;
+	  else
+	    /* Do not use f2 probability as f2 may be forwarded.  */
+	    prob2 = REG_BR_PROB_BASE - b2->probability;
 
-	  if (note1 && note2)
+	  /* Fail if the difference in probabilities is
+	     greater than 5%.  */
+	  if (abs (b1->probability - prob2) > REG_BR_PROB_BASE / 20)
 	    {
-	      prob1 = INTVAL (XEXP (note1, 0));
-	      prob2 = INTVAL (XEXP (note2, 0));
-	      if (reverse)
-		prob2 = REG_BR_PROB_BASE - prob2;
+	      if (rtl_dump_file)
+		fprintf (rtl_dump_file,
+			 "Outcomes of branch in bb %i and %i differs to much (%i %i)\n",
+			 bb1->index, bb2->index, b1->probability, prob2);
 
-	      /* Fail if the difference in probabilities is
-		 greater than 5%.  */
-	      if (abs (prob1 - prob2) > REG_BR_PROB_BASE / 20)
-		return false;
+	      return false;
 	    }
-
-	  else if (note1 || note2)
-	    return false;
 	}
 
       if (rtl_dump_file && match)
@@ -1175,7 +1271,6 @@ try_crossjump_to_edge (mode, e1, e2)
   edge s;
   rtx last;
   rtx label;
-  rtx note;
 
   /* Search backward through forwarder blocks.  We don't need to worry
      about multiple entry or chained forwarders, as they will be optimized
@@ -1272,8 +1367,14 @@ try_crossjump_to_edge (mode, e1, e2)
       if (FORWARDER_BLOCK_P (s2->dest))
 	{
 	  s2->dest->succ->count -= s2->count;
+	  if (s2->dest->succ->count < 0)
+	    s2->dest->succ->count = 0;
 	  s2->dest->count -= s2->count;
 	  s2->dest->frequency -= EDGE_FREQUENCY (s);
+	  if (s2->dest->frequency < 0)
+	    s2->dest->frequency = 0;
+	  if (s2->dest->count < 0)
+	    s2->dest->count = 0;
 	}
 
       if (!redirect_to->frequency && !src1->frequency)
@@ -1285,9 +1386,7 @@ try_crossjump_to_edge (mode, e1, e2)
 	     / (redirect_to->frequency + src1->frequency));
     }
 
-  note = find_reg_note (redirect_to->end, REG_BR_PROB, 0);
-  if (note)
-    XEXP (note, 0) = GEN_INT (BRANCH_EDGE (redirect_to)->probability);
+  update_br_prob_note (redirect_to);
 
   /* Edit SRC1 to go to REDIRECT_TO at NEWPOS1.  */
 

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  TMS320C[34]x
    Copyright (C) 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
               and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
@@ -296,23 +296,6 @@ extern int target_flags;
 #define	BCT_CHECK_LOOP_ITERATIONS  !(TARGET_LOOP_UNSIGNED)
 
 /* -mcpu=XX    with XX = target DSP version number.  */
-
-/* This macro is similar to `TARGET_SWITCHES' but defines names of
-   command options that have values.  Its definition is an
-   initializer with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   fixed part of the option name, and the address of a variable.
-   The variable, type `char *', is set to the variable part of the
-   given option if the fixed part matches.  The actual option name
-   is made by appending `-m' to the specified name.
-
-   Here is an example which defines `-mshort-data-NUMBER'.  If the
-   given option is `-mshort-data-512', the variable `m88k_short_data'
-   will be set to the string `"512"'.
-
-   extern char *m88k_short_data;
-   #define TARGET_OPTIONS { { "short-data-", &m88k_short_data } }  */
 
 extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
 
@@ -1091,9 +1074,8 @@ enum reg_class
 
 /* Passing Function Arguments on the Stack.  */
 
-#if 0
+#define	PUSH_ARGS 1
 #define PUSH_ROUNDING(BYTES) (BYTES)
-#endif
 #define RETURN_POPS_ARGS(FUNDECL, FUNTYPE, STACK_SIZE) 0
 
 /* The following structure is used by calls.c, function.c, c4x.c.  */
@@ -2102,10 +2084,6 @@ do { fprintf (asm_out_file, "\t.sdef\t");		\
      fprintf (asm_out_file,				\
 	      "%s\t.val\t.%s\t.scl\t-1%s\t.endef\n",	\
 	      SDB_DELIM, SDB_DELIM, SDB_DELIM); } while (0)
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 

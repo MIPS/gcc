@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  VAX version.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -89,9 +89,7 @@ extern int target_flags;
 
 /* Target machine storage layout */
 
-/* Define for software floating point emulation of VAX format
-   when cross compiling from a non-VAX host.  */
-/* #define REAL_ARITHMETIC */
+#define REAL_ARITHMETIC
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.
@@ -333,10 +331,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* Define this if pushing a word on the stack
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
-
-/* Define this if longjmp restores from saved registers
-   rather than from what setjmp saved.  */
-#define LONGJMP_RESTORE_FROM_STACK
 
 /* Define this if the nominal address of the stack frame
    is at the high-address end of the local variables;
@@ -695,14 +689,14 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
       && GET_CODE (xfoob) == REG && REG_OK_FOR_BASE_P (xfoob))		\
     goto ADDR; }
 
-/* 1 if PROD is either a reg times size of mode MODE
-   or just a reg, if MODE is just one byte.
+/* 1 if PROD is either a reg times size of mode MODE and MODE is less
+   than or equal 8 bytes, or just a reg if MODE is one byte.
    This macro's expansion uses the temporary variables xfoo0 and xfoo1
    that must be declared in the surrounding context.  */
 #define INDEX_TERM_P(PROD, MODE)   \
 (GET_MODE_SIZE (MODE) == 1						\
  ? (GET_CODE (PROD) == REG && REG_OK_FOR_BASE_P (PROD))			\
- : (GET_CODE (PROD) == MULT						\
+ : (GET_CODE (PROD) == MULT && GET_MODE_SIZE (MODE) <= 8		\
     &&									\
     (xfoo0 = XEXP (PROD, 0), xfoo1 = XEXP (PROD, 1),			\
      ((((GET_CODE (xfoo0) == CONST_INT					\
@@ -802,12 +796,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    jumps to the default label instead.  */
 #define CASE_DROPS_THROUGH
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
-
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -818,9 +806,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */
 #define MOVE_MAX 8
-
-/* Define this if zero-extension is slow (more than one real instruction).  */
-/* #define SLOW_ZERO_EXTEND */
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS 0

@@ -1,6 +1,6 @@
 /* Convert tree expression to rtl instructions, for GNU compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001 Free Software Foundation, Inc.
+   2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1052,6 +1052,9 @@ convert_move (to, from, unsignedp)
       if ((code = can_extend_p (to_mode, from_mode, unsignedp))
 	  != CODE_FOR_nothing)
 	{
+	  if (flag_force_mem)
+	    from = force_not_mem (from);
+
 	  emit_unop_insn (code, to, from, equiv_code);
 	  return;
 	}
@@ -1572,9 +1575,11 @@ move_by_pieces_1 (genfun, mode, data)
 	from1 = adjust_address (data->from, mode, data->offset);
 
       if (HAVE_PRE_DECREMENT && data->explicit_inc_to < 0)
-	emit_insn (gen_add2_insn (data->to_addr, GEN_INT (-size)));
+	emit_insn (gen_add2_insn (data->to_addr,
+				  GEN_INT (-(HOST_WIDE_INT)size)));
       if (HAVE_PRE_DECREMENT && data->explicit_inc_from < 0)
-	emit_insn (gen_add2_insn (data->from_addr, GEN_INT (-size)));
+	emit_insn (gen_add2_insn (data->from_addr,
+				  GEN_INT (-(HOST_WIDE_INT)size)));
 
       if (data->to)
 	emit_insn ((*genfun) (to1, from1));
@@ -2788,7 +2793,6 @@ emit_move_insn_1 (x, y)
   enum machine_mode mode = GET_MODE (x);
   enum machine_mode submode;
   enum mode_class class = GET_MODE_CLASS (mode);
-  unsigned int i;
 
   if ((unsigned int) mode >= (unsigned int) MAX_MACHINE_MODE)
     abort ();
@@ -2814,10 +2818,11 @@ emit_move_insn_1 (x, y)
       /* In case we output to the stack, but the size is smaller machine can
 	 push exactly, we need to use move instructions.  */
       if (stack
-	  && PUSH_ROUNDING (GET_MODE_SIZE (submode)) != GET_MODE_SIZE (submode))
+	  && (PUSH_ROUNDING (GET_MODE_SIZE (submode))
+	      != GET_MODE_SIZE (submode)))
 	{
 	  rtx temp;
-	  int offset1, offset2;
+	  HOST_WIDE_INT offset1, offset2;
 
 	  /* Do not use anti_adjust_stack, since we don't want to update
 	     stack_pointer_delta.  */
@@ -2829,12 +2834,13 @@ emit_move_insn_1 (x, y)
 #endif
 			       stack_pointer_rtx,
 			       GEN_INT
-				 (PUSH_ROUNDING (GET_MODE_SIZE (GET_MODE (x)))),
-			       stack_pointer_rtx,
-			       0,
-			       OPTAB_LIB_WIDEN);
+				 (PUSH_ROUNDING
+				  (GET_MODE_SIZE (GET_MODE (x)))),
+			       stack_pointer_rtx, 0, OPTAB_LIB_WIDEN);
+
 	  if (temp != stack_pointer_rtx)
 	    emit_move_insn (stack_pointer_rtx, temp);
+
 #ifdef STACK_GROWS_DOWNWARD
 	  offset1 = 0;
 	  offset2 = GET_MODE_SIZE (submode);
@@ -2843,6 +2849,7 @@ emit_move_insn_1 (x, y)
 	  offset2 = (-PUSH_ROUNDING (GET_MODE_SIZE (GET_MODE (x)))
 		     + GET_MODE_SIZE (submode));
 #endif
+
 	  emit_move_insn (change_address (x, submode,
 					  gen_rtx_PLUS (Pmode,
 						        stack_pointer_rtx,
@@ -2898,8 +2905,10 @@ emit_move_insn_1 (x, y)
 	  if (GET_MODE_BITSIZE (mode) < 2 * BITS_PER_WORD
 	      && (reload_in_progress | reload_completed) == 0)
 	    {
-	      int packed_dest_p = (REG_P (x) && REGNO (x) < FIRST_PSEUDO_REGISTER);
-	      int packed_src_p  = (REG_P (y) && REGNO (y) < FIRST_PSEUDO_REGISTER);
+	      int packed_dest_p
+		= (REG_P (x) && REGNO (x) < FIRST_PSEUDO_REGISTER);
+	      int packed_src_p
+		= (REG_P (y) && REGNO (y) < FIRST_PSEUDO_REGISTER);
 
 	      if (packed_dest_p || packed_src_p)
 		{
@@ -2921,12 +2930,14 @@ emit_move_insn_1 (x, y)
 		      if (packed_dest_p)
 			{
 			  rtx sreg = gen_rtx_SUBREG (reg_mode, x, 0);
+
 			  emit_move_insn_1 (cmem, y);
 			  return emit_move_insn_1 (sreg, mem);
 			}
 		      else
 			{
 			  rtx sreg = gen_rtx_SUBREG (reg_mode, y, 0);
+
 			  emit_move_insn_1 (mem, sreg);
 			  return emit_move_insn_1 (x, cmem);
 			}
@@ -2947,9 +2958,7 @@ emit_move_insn_1 (x, y)
 	      && ! (reload_in_progress || reload_completed)
 	      && (GET_CODE (realpart_x) == SUBREG
 		  || GET_CODE (imagpart_x) == SUBREG))
-	    {
-	      emit_insn (gen_rtx_CLOBBER (VOIDmode, x));
-	    }
+	    emit_insn (gen_rtx_CLOBBER (VOIDmode, x));
 
 	  emit_insn (GEN_FCN (mov_optab->handlers[(int) submode].insn_code)
 		     (realpart_x, realpart_y));
@@ -2968,6 +2977,7 @@ emit_move_insn_1 (x, y)
       rtx last_insn = 0;
       rtx seq, inner;
       int need_clobber;
+      int i;
 
 #ifdef PUSH_ROUNDING
 
@@ -2988,19 +2998,20 @@ emit_move_insn_1 (x, y)
 #endif
 			       stack_pointer_rtx,
 			       GEN_INT
-				 (PUSH_ROUNDING (GET_MODE_SIZE (GET_MODE (x)))),
-			       stack_pointer_rtx,
-			       0,
-			       OPTAB_LIB_WIDEN);
+				 (PUSH_ROUNDING
+				  (GET_MODE_SIZE (GET_MODE (x)))),
+			       stack_pointer_rtx, 0, OPTAB_LIB_WIDEN);
+
           if (temp != stack_pointer_rtx)
             emit_move_insn (stack_pointer_rtx, temp);
 
 	  code = GET_CODE (XEXP (x, 0));
+
 	  /* Just hope that small offsets off SP are OK.  */
 	  if (code == POST_INC)
 	    temp = gen_rtx_PLUS (Pmode, stack_pointer_rtx, 
-				GEN_INT (-(HOST_WIDE_INT)
-					   GET_MODE_SIZE (GET_MODE (x))));
+				GEN_INT (-((HOST_WIDE_INT)
+					   GET_MODE_SIZE (GET_MODE (x)))));
 	  else if (code == POST_DEC)
 	    temp = gen_rtx_PLUS (Pmode, stack_pointer_rtx, 
 				GEN_INT (GET_MODE_SIZE (GET_MODE (x))));
@@ -3059,9 +3070,7 @@ emit_move_insn_1 (x, y)
       if (x != y
 	  && ! (reload_in_progress || reload_completed)
 	  && need_clobber != 0)
-	{
-	  emit_insn (gen_rtx_CLOBBER (VOIDmode, x));
-	}
+	emit_insn (gen_rtx_CLOBBER (VOIDmode, x));
 
       emit_insn (seq);
 
@@ -3152,7 +3161,7 @@ emit_single_push_insn (mode, x, type)
   if (icode != CODE_FOR_nothing)
     {
       if (((pred = insn_data[(int) icode].operand[0].predicate)
-	  && !((*pred) (x, mode))))
+	   && !((*pred) (x, mode))))
 	x = force_reg (mode, x);
       emit_insn (GEN_FCN (icode) (x));
       return;
@@ -3163,7 +3172,7 @@ emit_single_push_insn (mode, x, type)
     {
 #ifdef STACK_GROWS_DOWNWARD
       dest_addr = gen_rtx_PLUS (Pmode, stack_pointer_rtx,
-				GEN_INT (-(HOST_WIDE_INT)rounded_size));
+				GEN_INT (-(HOST_WIDE_INT) rounded_size));
 #else
       dest_addr = gen_rtx_PLUS (Pmode, stack_pointer_rtx,
 				GEN_INT (rounded_size));
@@ -3727,7 +3736,7 @@ expand_assignment (to, from, want_value, suggest_reg)
 	  RTX_UNCHANGING_P (to_rtx) = 1;
 	}
 
-      if (! can_address_p (to))
+      if (GET_CODE (to_rtx) == MEM && ! can_address_p (to))
 	{
 	  if (to_rtx == orig_to_rtx)
 	    to_rtx = copy_rtx (to_rtx);
@@ -4038,13 +4047,19 @@ store_expr (exp, target, want_value)
 	 target.  Otherwise, the caller might get confused by a result whose
 	 mode is larger than expected.  */
 
-      if (want_value && GET_MODE (temp) != GET_MODE (target)
-	  && GET_MODE (temp) != VOIDmode)
+      if (want_value && GET_MODE (temp) != GET_MODE (target))
 	{
-	  temp = gen_lowpart_SUBREG (GET_MODE (target), temp);
-	  SUBREG_PROMOTED_VAR_P (temp) = 1;
-	  SUBREG_PROMOTED_UNSIGNED_P (temp)
-	    = SUBREG_PROMOTED_UNSIGNED_P (target);
+	  if (GET_MODE (temp) != VOIDmode)
+	    {
+	      temp = gen_lowpart_SUBREG (GET_MODE (target), temp);
+	      SUBREG_PROMOTED_VAR_P (temp) = 1;
+	      SUBREG_PROMOTED_UNSIGNED_P (temp)
+		= SUBREG_PROMOTED_UNSIGNED_P (target);
+	    }
+	  else
+	    temp = convert_modes (GET_MODE (target),
+				  GET_MODE (SUBREG_REG (target)),
+				  temp, SUBREG_PROMOTED_UNSIGNED_P (target));
 	}
 
       return want_value ? temp : NULL_RTX;
@@ -5003,9 +5018,7 @@ store_field (target, bitsize, bitpos, mode, exp, value_mode, unsignedp, type,
 	= assign_temp
 	  (build_qualified_type (type, TYPE_QUALS (type) | TYPE_QUAL_CONST),
 	   0, 1, 1);
-      rtx blk_object = copy_rtx (object);
-
-      PUT_MODE (blk_object, BLKmode);
+      rtx blk_object = adjust_address (object, BLKmode, 0);
 
       if (bitsize != (HOST_WIDE_INT) GET_MODE_BITSIZE (GET_MODE (target)))
 	emit_move_insn (object, target);
@@ -6151,7 +6164,7 @@ expand_expr (exp, target, tmode, modifier)
 	      set_mem_attributes (value, exp, 1);
 	      SET_DECL_RTL (exp, value);
 	    }
-	  }
+	}
 
       /* ... fall through ...  */
 
@@ -6452,7 +6465,7 @@ expand_expr (exp, target, tmode, modifier)
 
     case LABELED_BLOCK_EXPR:
       if (LABELED_BLOCK_BODY (exp))
-	expand_expr_stmt (LABELED_BLOCK_BODY (exp));
+	expand_expr_stmt_value (LABELED_BLOCK_BODY (exp), 0, 1);
       /* Should perhaps use expand_label, but this is simpler and safer.  */
       do_pending_stack_adjust ();
       emit_label (label_rtx (LABELED_BLOCK_LABEL (exp)));
@@ -6467,7 +6480,7 @@ expand_expr (exp, target, tmode, modifier)
     case LOOP_EXPR:
       push_temp_slots ();
       expand_start_loop (1);
-      expand_expr_stmt (TREE_OPERAND (exp, 0));
+      expand_expr_stmt_value (TREE_OPERAND (exp, 0), 0, 1);
       expand_end_loop ();
       pop_temp_slots ();
 
@@ -7337,12 +7350,11 @@ expand_expr (exp, target, tmode, modifier)
 		       (HOST_WIDE_INT) GET_MODE_SIZE (TYPE_MODE (type)));
 	      rtx new = assign_stack_temp_for_type (TYPE_MODE (type),
 						    temp_size, 0, type);
-	      rtx new_with_op0_mode = copy_rtx (new);
+	      rtx new_with_op0_mode = adjust_address (new, GET_MODE (op0), 0);
 
 	      if (TREE_ADDRESSABLE (exp))
 		abort ();
 
-	      PUT_MODE (new_with_op0_mode, GET_MODE (op0));
 	      if (GET_MODE (op0) == BLKmode)
 		emit_block_move (new_with_op0_mode, op0,
 				 GEN_INT (GET_MODE_SIZE (TYPE_MODE (type))));
@@ -7352,7 +7364,7 @@ expand_expr (exp, target, tmode, modifier)
 	      op0 = new;
 	    }
       
-	  PUT_MODE (op0, TYPE_MODE (type));
+	  op0 = adjust_address (op0, TYPE_MODE (type), 0);
 	}
 
       return op0;
@@ -8880,7 +8892,7 @@ expand_increment (exp, post, ignore)
     }
 
   if (TYPE_TRAP_SIGNED (TREE_TYPE (exp)))
-     this_optab = this_optab == add_optab ? addv_optab : subv_optab;
+    this_optab = this_optab == add_optab ? addv_optab : subv_optab;
 
   /* For a preincrement, see if we can do this with a single instruction.  */
   if (!post)

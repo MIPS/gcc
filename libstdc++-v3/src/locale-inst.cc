@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,17 +31,16 @@
 // ISO C++ 14882: 22.1  Locales
 //
 
-#include <bits/std_cstdlib.h>
-#include <bits/std_clocale.h>
-#include <bits/std_cstring.h>
-#include <bits/std_cassert.h>
-#include <bits/std_limits.h>
+#include <cstdlib>
+#include <clocale>
+#include <cstring>
+#include <cassert>
+#include <limits>
 #include <exception>
-#include <bits/std_stdexcept.h>
-#include <bits/std_locale.h>
-#include <bits/locale_facets.tcc>
-#include <bits/std_istream.h>
-#include <bits/std_ostream.h>
+#include <stdexcept>
+#include <locale>
+#include <istream>
+#include <ostream>
 
 namespace std
 {
@@ -372,6 +371,32 @@ namespace std
 					  const wchar_t*, streamsize, 
 					  streamsize, const bool);
 #endif // _GLIBCPP_USE_WCHAR_T
+
+  template
+    int
+    __convert_from_v(char*, const char*, double, const __c_locale&, int);
+
+  template
+    int
+    __convert_from_v(char*, const char*, long double, const __c_locale&, int);
+
+  template
+    int
+    __convert_from_v(char*, const char*, long, const __c_locale&, int);
+
+  template
+    int
+    __convert_from_v(char*, const char*, unsigned long, 
+		     const __c_locale&, int);
+
+  template
+    int
+    __convert_from_v(char*, const char*, long long, const __c_locale&, int);
+
+  template
+    int
+    __convert_from_v(char*, const char*, unsigned long long, 
+		     const __c_locale&, int);
 
   template 
     locale::facet** 

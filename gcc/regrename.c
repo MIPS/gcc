@@ -1,5 +1,5 @@
 /* Register renaming for the GNU compiler.
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -838,6 +838,21 @@ build_def_use (bb)
 	    scan_rtx (insn, &CALL_INSN_FUNCTION_USAGE (insn),
 		      NO_REGS, terminate_all_read, OP_IN, 0);
 
+	  /* Step 2C: Can't rename asm operands that were originally
+	     hard registers.  */
+	  if (asm_noperands (PATTERN (insn)) > 0)
+	    for (i = 0; i < n_ops; i++)
+	      {
+		rtx *loc = recog_data.operand_loc[i];
+		rtx op = *loc;
+
+		if (GET_CODE (op) == REG
+		    && REGNO (op) == ORIGINAL_REGNO (op)
+		    && (recog_data.operand_type[i] == OP_IN
+			|| recog_data.operand_type[i] == OP_INOUT))
+		  scan_rtx (insn, loc, NO_REGS, terminate_all_read, OP_IN, 0);
+	      }
+
 	  /* Step 3: Append to chains for reads inside operands.  */
 	  for (i = 0; i < n_ops + recog_data.n_dups; i++)
 	    {
@@ -909,8 +924,27 @@ build_def_use (bb)
 	  /* Step 6: Begin new chains for writes inside operands.  */
 	  /* ??? Many targets have output constraints on the SET_DEST
 	     of a call insn, which is stupid, since these are certainly
-	     ABI defined hard registers.  Don't change calls at all.  */
-	  if (GET_CODE (insn) != CALL_INSN)
+	     ABI defined hard registers.  Don't change calls at all.
+	     Similarly take special care for asm statement that originally
+	     referenced hard registers.  */
+	  if (asm_noperands (PATTERN (insn)) > 0)
+	    {
+	      for (i = 0; i < n_ops; i++)
+		if (recog_data.operand_type[i] == OP_OUT)
+		  {
+		    rtx *loc = recog_data.operand_loc[i];
+		    rtx op = *loc;
+		    enum reg_class class = recog_op_alt[i][alt].class;
+
+		    if (GET_CODE (op) == REG
+		        && REGNO (op) == ORIGINAL_REGNO (op))
+		      continue;
+
+		    scan_rtx (insn, loc, class, mark_write, OP_OUT,
+			      recog_op_alt[i][alt].earlyclobber);
+		  }
+	    }
+	  else if (GET_CODE (insn) != CALL_INSN)
 	    for (i = 0; i < n_ops + recog_data.n_dups; i++)
 	      {
 		int opn = i < n_ops ? i : recog_data.dup_num[i - n_ops];
@@ -1000,9 +1034,8 @@ static int kill_autoinc_value PARAMS ((rtx *, void *));
 static void copy_value PARAMS ((rtx, rtx, struct value_data *));
 static bool mode_change_ok PARAMS ((enum machine_mode, enum machine_mode,
 				    unsigned int));
-static rtx find_oldest_value_reg PARAMS ((enum reg_class, unsigned int,
-					    enum machine_mode,
-					    struct value_data *));
+static rtx find_oldest_value_reg PARAMS ((enum reg_class, rtx,
+					  struct value_data *));
 static bool replace_oldest_value_reg PARAMS ((rtx *, enum reg_class, rtx,
 					      struct value_data *));
 static bool replace_oldest_value_addr PARAMS ((rtx *, enum reg_class,
@@ -1076,7 +1109,7 @@ kill_value (x, vd)
 	{
 	  if (vd->e[j].mode == VOIDmode)
 	    continue;
-	  n = HARD_REGNO_NREGS (regno, vd->e[j].mode);
+	  n = HARD_REGNO_NREGS (j, vd->e[j].mode);
 	  if (j + n > regno)
 	    for (i = 0; i < n; ++i)
 	      kill_value_regno (j + i, vd);
@@ -1181,6 +1214,7 @@ copy_value (dest, src, vd)
 {
   unsigned int dr = REGNO (dest);
   unsigned int sr = REGNO (src);
+  unsigned int dn, sn;
   unsigned int i;
 
   /* ??? At present, it's possible to see noop sets.  It'd be nice if
@@ -1197,11 +1231,24 @@ copy_value (dest, src, vd)
   if (frame_pointer_needed && dr == HARD_FRAME_POINTER_REGNUM)
     return;
 
+  /* If SRC and DEST overlap, don't record anything.  */
+  dn = HARD_REGNO_NREGS (dr, GET_MODE (dest));
+  sn = HARD_REGNO_NREGS (sr, GET_MODE (dest));
+  if ((dr > sr && dr < sr + sn)
+      || (sr > dr && sr < dr + dn))
+    return;
+
   /* If SRC had no assigned mode (i.e. we didn't know it was live)
      assign it now and assume the value came from an input argument
      or somesuch.  */
   if (vd->e[sr].mode == VOIDmode)
     set_value_regno (sr, vd->e[dr].mode, vd);
+
+  /* If SRC had been assigned a mode narrower than the copy, we can't
+     link DEST into the chain, because not all of the pieces of the
+     copy came from oldest_regno.  */
+  else if (sn > (unsigned int) HARD_REGNO_NREGS (sr, vd->e[sr].mode))
+    return;
 
   /* Link DR at the end of the value chain used by SR.  */
 
@@ -1240,19 +1287,38 @@ mode_change_ok (orig_mode, new_mode, regno)
    of that oldest register, otherwise return NULL.  */
 
 static rtx
-find_oldest_value_reg (class, regno, mode, vd)
+find_oldest_value_reg (class, reg, vd)
      enum reg_class class;
-     unsigned int regno;
-     enum machine_mode mode;
+     rtx reg;
      struct value_data *vd;
 {
+  unsigned int regno = REGNO (reg);
+  enum machine_mode mode = GET_MODE (reg);
   unsigned int i;
+
+  /* If we are accessing REG in some mode other that what we set it in,
+     make sure that the replacement is valid.  In particular, consider
+	(set (reg:DI r11) (...))
+	(set (reg:SI r9) (reg:SI r11))
+	(set (reg:SI r10) (...))
+	(set (...) (reg:DI r9))
+     Replacing r9 with r11 is invalid.  */
+  if (mode != vd->e[regno].mode)
+    {
+      if (HARD_REGNO_NREGS (regno, mode)
+	  > HARD_REGNO_NREGS (regno, vd->e[regno].mode))
+	return NULL_RTX;
+    }
 
   for (i = vd->e[regno].oldest_regno; i != regno; i = vd->e[i].next_regno)
     if (TEST_HARD_REG_BIT (reg_class_contents[class], i)
 	&& (vd->e[i].mode == mode
-	    || mode_change_ok (vd->e[i].mode, mode, regno)))
-      return gen_rtx_REG (mode, i);
+	    || mode_change_ok (vd->e[i].mode, mode, i)))
+      {
+	rtx new = gen_rtx_raw_REG (mode, i);
+	ORIGINAL_REGNO (new) = ORIGINAL_REGNO (reg);
+	return new;
+      }
 
   return NULL_RTX;
 }
@@ -1267,7 +1333,7 @@ replace_oldest_value_reg (loc, class, insn, vd)
      rtx insn;
      struct value_data *vd;
 {
-  rtx new = find_oldest_value_reg (class, REGNO (*loc), GET_MODE (*loc), vd);
+  rtx new = find_oldest_value_reg (class, *loc, vd);
   if (new)
     {
       if (rtl_dump_file)
@@ -1443,6 +1509,7 @@ copyprop_hardreg_forward_1 (bb, vd)
   for (insn = bb->head; ; insn = NEXT_INSN (insn))
     {
       int n_ops, i, alt, predicated;
+      bool is_asm;
       rtx set;
 
       if (! INSN_P (insn))
@@ -1459,6 +1526,7 @@ copyprop_hardreg_forward_1 (bb, vd)
       preprocess_constraints ();
       alt = which_alternative;
       n_ops = recog_data.n_operands;
+      is_asm = asm_noperands (PATTERN (insn)) >= 0;
 
       /* Simplify the code below by rewriting things to reflect
 	 matching constraints.  Also promote OP_OUT to OP_INOUT
@@ -1498,17 +1566,26 @@ copyprop_hardreg_forward_1 (bb, vd)
 	 be able to do the move from a different register class.  */
       if (set && REG_P (SET_SRC (set)))
 	{
-	  unsigned int regno = REGNO (SET_SRC (set));
-	  enum machine_mode mode = GET_MODE (SET_SRC (set));
+	  rtx src = SET_SRC (set);
+	  unsigned int regno = REGNO (src);
+	  enum machine_mode mode = GET_MODE (src);
 	  unsigned int i;
 	  rtx new;
+
+	  /* If we are accessing SRC in some mode other that what we
+	     set it in, make sure that the replacement is valid.  */
+	  if (mode != vd->e[regno].mode)
+	    {
+	      if (HARD_REGNO_NREGS (regno, mode)
+		  > HARD_REGNO_NREGS (regno, vd->e[regno].mode))
+		goto no_move_special_case;
+	    }
 
 	  /* If the destination is also a register, try to find a source
 	     register in the same class.  */
 	  if (REG_P (SET_DEST (set)))
 	    {
-	      new = find_oldest_value_reg (REGNO_REG_CLASS (regno),
-					   regno, mode, vd);
+	      new = find_oldest_value_reg (REGNO_REG_CLASS (regno), src, vd);
 	      if (new && validate_change (insn, &SET_SRC (set), new, 0))
 		{
 		  if (rtl_dump_file)
@@ -1523,11 +1600,13 @@ copyprop_hardreg_forward_1 (bb, vd)
 	  /* Otherwise, try all valid registers and see if its valid.  */
 	  for (i = vd->e[regno].oldest_regno; i != regno;
 	       i = vd->e[i].next_regno)
-	    if (mode == vd->e[regno].mode)
+	    if (vd->e[i].mode == mode
+		|| mode_change_ok (vd->e[i].mode, mode, i))
 	      {
-		new = gen_rtx_REG (mode, i);
+		new = gen_rtx_raw_REG (mode, i);
 		if (validate_change (insn, &SET_SRC (set), new, 0))
 		  {
+		    ORIGINAL_REGNO (new) = ORIGINAL_REGNO (src);
 		    if (rtl_dump_file)
 		      fprintf (rtl_dump_file,
 			       "insn %u: replaced reg %u with %u\n",
@@ -1537,6 +1616,7 @@ copyprop_hardreg_forward_1 (bb, vd)
 		  }
 	      }
 	}
+      no_move_special_case:
 
       /* For each input operand, replace a hard register with the
 	 eldest live copy that's in an appropriate register class.  */
@@ -1548,6 +1628,12 @@ copyprop_hardreg_forward_1 (bb, vd)
 	     information to pass down.  Any operands that we could
 	     substitute in will be represented elsewhere.  */
 	  if (recog_data.constraints[i][0] == '\0')
+	    continue;
+
+	  /* Don't replace in asms intentionally referencing hard regs.  */
+	  if (is_asm && GET_CODE (recog_data.operand[i]) == REG
+	      && (REGNO (recog_data.operand[i])
+		  == ORIGINAL_REGNO (recog_data.operand[i])))
 	    continue;
 
 	  if (recog_data.operand_type[i] == OP_IN)
@@ -1688,7 +1774,7 @@ debug_value_data (vd)
 	     j != INVALID_REGNUM;
 	     j = vd->e[j].next_regno)
 	  {
-	    if (TEST_HARD_REG_BIT (set, vd->e[j].next_regno))
+	    if (TEST_HARD_REG_BIT (set, j))
 	      {
 		fprintf (stderr, "[%u] Loop in regno chain\n", j);
 		return;

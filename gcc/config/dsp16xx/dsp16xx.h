@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  AT&T DSP1600.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by Michael Collison (collison@isisinc.net).
 
@@ -251,23 +251,6 @@ extern int target_flags;
 #define TARGET_DEFAULT  MASK_REGPARM|MASK_YBASE_HIGH
 #endif
 
-/* This macro is similar to `TARGET_SWITCHES' but defines names of
-   command options that have values.  Its definition is an
-   initializer with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   fixed part of the option name, and the address of a variable. 
-   The variable, type `char *', is set to the variable part of the
-   given option if the fixed part matches.  The actual option name
-   is made by appending `-m' to the specified name.
-
-   Here is an example which defines `-mshort-data-NUMBER'.  If the
-   given option is `-mshort-data-512', the variable `m88k_short_data'
-   will be set to the string `"512"'.
-
-	extern char *m88k_short_data;
-	#define TARGET_OPTIONS { { "short-data-", &m88k_short_data } }  */
-
 #define TARGET_OPTIONS						\
 {								\
   { "text=",	&text_seg_name,				        \
@@ -501,7 +484,7 @@ extern int target_flags;
 #define REG_YBASE30 56
 #define REG_YBASE31 57
 
-/* Do we have a accumulator register? */
+/* Do we have an accumulator register? */
 #define IS_ACCUM_REG(REGNO) IN_RANGE ((REGNO), REG_A0, REG_A1L)
 #define IS_ACCUM_LOW_REG(REGNO) ((REGNO) == REG_A0L || (REGNO) == REG_A1L)
 
@@ -1035,7 +1018,7 @@ enum reg_class
    'K' requires a constant 0 operand.
    'L' constant for use in add or sub from low 16-bits
    'M' 32-bit value -- low 16-bits zero
-   'N' constant for use incrementing or decrementing a address register
+   'N' constant for use incrementing or decrementing an address register
    'O' constant for use with and'ing only high 16-bit
    'P' constant for use with and'ing only low 16-bit
  */
@@ -1565,10 +1548,6 @@ extern struct dsp16xx_frame_info current_frame_info;
    loads.  */
 #define SLOW_BYTE_ACCESS 1
 
-/* Define this macro if zero-extension (of a char or short to an int) can
-   be done faster if the destination is a register that is know to be zero.  */
-/* #define SLOW_ZERO_EXTEND */
-
 /* Define this macro if unaligned accesses have a cost many times greater than
    aligned accesses, for example if they are emulated in a trap handler */
 /* define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) */
@@ -1619,9 +1598,6 @@ const_section ()                                                   \
 
 /* Output at beginning of assembler file.  */
 #define ASM_FILE_START(FILE) coff_dsp16xx_file_start (FILE) 
-
-/* Prevent output of .gcc_compiled */
-#define ASM_IDENTIFY_GCC(FILE)   
 
 /* A C string constant describing how to begin a comment in the target
    assembler language.  */
@@ -1888,12 +1864,6 @@ const_section ()                                                   \
    table.
    Do not define this if the table should contain absolute addresses.  */
 /* #define CASE_VECTOR_PC_RELATIVE 1 */
-
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
 
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */

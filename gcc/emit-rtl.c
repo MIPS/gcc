@@ -1,6 +1,6 @@
 /* Emit RTL for the GNU C-Compiler expander.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -919,13 +919,11 @@ gen_lowpart_common (mode, x)
 	low = INTVAL (x), high = low >> (HOST_BITS_PER_WIDE_INT -1);
       else
 	low = CONST_DOUBLE_LOW (x), high = CONST_DOUBLE_HIGH (x);
-
 #ifdef HOST_WORDS_BIG_ENDIAN
       u.i[0] = high, u.i[1] = low;
 #else
       u.i[0] = low, u.i[1] = high;
 #endif
-
       return CONST_DOUBLE_FROM_REAL_VALUE (u.d, mode);
     }
 
@@ -1009,12 +1007,16 @@ gen_lowpart_common (mode, x)
 	  high = CONST_DOUBLE_HIGH (x);
 	}
 
+#if HOST_BITS_PER_WIDE_INT == 32
       /* REAL_VALUE_TARGET_DOUBLE takes the addressing order of the
 	 target machine.  */
       if (WORDS_BIG_ENDIAN)
 	i[0] = high, i[1] = low;
       else
 	i[0] = low, i[1] = high;
+#else
+      i[0] = low;
+#endif
 
       r = REAL_VALUE_FROM_TARGET_DOUBLE (i);
       return CONST_DOUBLE_FROM_REAL_VALUE (r, mode);
@@ -1200,7 +1202,7 @@ gen_highpart (mode, x)
   /* simplify_gen_subreg is not guaranteed to return a valid operand for
      the target if we have a MEM.  gen_highpart must return a valid operand,
      emitting code if necessary to do so.  */
-  if (GET_CODE (result) == MEM)
+  if (result != NULL_RTX && GET_CODE (result) == MEM)
     result = validize_mem (result);
 
   if (!result)
@@ -1996,7 +1998,8 @@ adjust_address_1 (memref, mode, offset, validate, adjust)
      lowest-order set bit in OFFSET, but don't change the alignment if OFFSET
      if zero.  */
   if (offset != 0)
-    memalign = MIN (memalign, (offset & -offset) * BITS_PER_UNIT);
+    memalign = MIN (memalign,
+		    (unsigned int) (offset & -offset) * BITS_PER_UNIT);
 
   /* We can compute the size in a number of ways.  */
   if (GET_MODE (new) != BLKmode)
@@ -2045,10 +2048,11 @@ offset_address (memref, offset, pow2)
 
   /* Update the alignment to reflect the offset.  Reset the offset, which
      we don't know.  */
-  MEM_ATTRS (new) = get_mem_attrs (MEM_ALIAS_SET (memref), MEM_EXPR (memref),
-				   0, 0, MIN (MEM_ALIGN (memref),
-					      pow2 * BITS_PER_UNIT),
-				   GET_MODE (new));
+  MEM_ATTRS (new)
+    = get_mem_attrs (MEM_ALIAS_SET (memref), MEM_EXPR (memref), 0, 0,
+		     MIN (MEM_ALIGN (memref),
+			  (unsigned int) pow2 * BITS_PER_UNIT),
+		     GET_MODE (new));
   return new;
 }
   

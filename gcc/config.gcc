@@ -1,5 +1,5 @@
 # GCC build-, host- and target-specific configuration file.
-# Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+# Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -80,7 +80,7 @@
 #			depending on target.
 #
 #  extra_headers	List of used header files from the directory
-#			ginclude.
+#			config/${cpu_type}.
 #
 #  host_xmake_file	List of host-specific makefile-fragments.
 #
@@ -231,9 +231,14 @@ c*-convex-*)
 	;;
 i[34567]86-*-*)
 	cpu_type=i386
+	extra_headers="mmintrin.h xmmintrin.h"
 	;;
 x86_64-*-*)
 	cpu_type=i386
+	extra_headers="mmintrin.h xmmintrin.h"
+	;;
+ia64-*-*)
+	extra_headers=ia64intrin.h
 	;;
 hppa*-*-* | parisc*-*-*)
 	cpu_type=pa
@@ -253,7 +258,7 @@ pj*-*-*)
 	;;
 powerpc*-*-*)
 	cpu_type=rs6000
-	extra_headers=ppc-asm.h
+	extra_headers="ppc-asm.h altivec.h"
 	;;
 sparc*-*-*)
 	cpu_type=sparc
@@ -272,7 +277,7 @@ case $machine in
 	;;
 esac
 
-# Common parts for GNU/Linux, GNU/Hurd, OpenBSD and FreeBSD systems.
+# Common parts for GNU/Linux, GNU/Hurd, OpenBSD, NetBSD, and FreeBSD systems.
 case $machine in
 *-*-linux*)
 	xm_defines=POSIX
@@ -306,6 +311,12 @@ case $machine in
 		thread_file='posix'
 		tmake_file="${tmake_file} t-openbsd-thread"
 	fi
+	;;
+*-*-netbsd*)
+	tmake_file="t-libc-ok t-netbsd"
+	xm_defines=POSIX
+	gas=yes
+	gnu_ld=yes
 	;;
 *-*-freebsd[12] | *-*-freebsd[12].* | *-*-freebsd*aout*)
 	# This is the place-holder for the generic a.out configuration
@@ -422,7 +433,7 @@ alpha-*-interix)
 	target_cpu_default="MASK_GAS|MASK_IEEE_CONFORMANT"
 
 	xm_defines=POSIX
-	xm_file="alpha/xm-alpha-interix.h xm-interix.h"
+	xm_file="alpha/xm-alpha-interix.h"
 	tmake_file="alpha/t-alpha t-interix alpha/t-interix alpha/t-ieee"
 	if test x$enable_threads = xyes ; then
 		thread_file='posix'
@@ -464,11 +475,9 @@ alpha*-*-freebsd*)
 	tmake_file="${tmake_file} alpha/t-crtbe alpha/t-crtfm alpha/t-alpha alpha/t-ieee"
 	;;
 alpha*-*-netbsd*)
-	xm_defines=POSIX
-	tm_file="${tm_file} alpha/elf.h alpha/netbsd.h alpha/netbsd-elf.h"
+	tm_file="${tm_file} netbsd.h alpha/elf.h netbsd-elf.h alpha/netbsd.h"
 	target_cpu_default="MASK_GAS"
-	tmake_file="alpha/t-crtbe alpha/t-crtfm alpha/t-alpha alpha/t-ieee"
-	gas=yes gnu_ld=yes
+	tmake_file="${tmake_file} alpha/t-alpha alpha/t-crtbe alpha/t-ieee"
 	;;
 
 alpha*-*-openbsd*)
@@ -488,7 +497,8 @@ alpha*-dec-osf*)
 		extra_passes="mips-tfile mips-tdump"
 	fi
 	use_collect2=yes
-	tmake_file="alpha/t-alpha alpha/t-ieee alpha/t-osf alpha/t-crtfm"
+	tmake_file="alpha/t-alpha alpha/t-ieee alpha/t-crtfm"
+	extra_headers=va_list.h
 	case $machine in
 	  *-*-osf1*)
 	    tm_file="${tm_file} alpha/osf.h alpha/osf12.h alpha/osf2or3.h"
@@ -540,6 +550,7 @@ alpha64-dec-*vms*)
 		  | sed 's/.*-.*-\(.*\)$/\1/' | sed 's/\./_/g'`
 		;;
 	esac
+	install_headers_dir=install-headers-cp
 	prefix=/gnu
 	local_prefix=/gnu
 	;;
@@ -557,6 +568,7 @@ alpha*-dec-*vms*)
 		  | sed 's/.*-.*-\(.*\)$/\1/' | sed 's/\./_/g'`
 		;;
 	esac
+	install_headers_dir=install-headers-cp
 	prefix=/gnu
 	local_prefix=/gnu
 	;;
@@ -607,7 +619,7 @@ arm*-*-freebsd*|strongarm*-*-freebsd*)
 	tmake_file="${tmake_file} arm/t-strongarm-elf"
 	;;
 arm*-*-netbsd*)
-	tm_file="arm/aout.h arm/arm.h netbsd.h arm/netbsd.h"
+	tm_file="arm/aout.h arm/arm.h netbsd.h netbsd-aout.h arm/netbsd.h"
 	tmake_file="t-netbsd arm/t-netbsd"
 	use_collect2=yes
 	;;
@@ -879,10 +891,9 @@ hppa1.0-*-hpux10*)
 	;;
 hppa*64*-*-hpux11*)
 	xm_defines=POSIX
-	tmake_file="pa/t-pa pa/t-pa-hpux"
 	tm_file="pa/pa64-start.h ${tm_file} pa/pa64-regs.h pa/long_double.h pa/elf.h pa/pa-hpux.h pa/pa-hpux11.h pa/pa-64.h pa/pa64-hpux.h"
 	float_format=i128
-	tmake_file=pa/t-pa64
+	tmake_file="pa/t-pa64 pa/t-pa-hpux"
 	target_cpu_default="(MASK_PA_11|MASK_PA_20|MASK_GAS)"
 
 #	if [ x$enable_threads = x ]; then
@@ -964,7 +975,7 @@ hppa*-*-lites*)
 	;;
 hppa*-*-mpeix*)
 	tm_file="${tm_file} pa/pa32-regs.h pa/long_double.h pa/som.h pa/pa-mpeix.h"
-	xmake_file=pa/x-pa-mpeix
+	tmake_file=pa/t-mpeix
 	echo "You must use gas. Assuming it is already installed."
 	gas=yes
 	install_headers_dir=install-headers-tar
@@ -1099,7 +1110,6 @@ i[34567]86-*-beoself* | i[34567]86-*-beos*)
 	xm_defines=POSIX
 	tmake_file='i386/t-beos i386/t-crtpic'
 	tm_file="${tm_file} i386/att.h dbxelf.h elfos.h svr4.h i386/beos-elf.h"
-	xmake_file=i386/x-beos
 	extra_parts='crtbegin.o crtend.o'
 	;;
 i[34567]86-*-bsdi* | i[34567]86-*-bsd386*)
@@ -1120,16 +1130,17 @@ i[34567]86-*-freebsd*)
 	tm_file="${tm_file} i386/att.h dbxelf.h elfos.h svr4.h ${fbsd_tm_file} i386/freebsd.h"
 	;;
 i[34567]86-*-netbsdelf*)
-	xm_defines=POSIX
-	tm_file="${tm_file} i386/att.h dbxelf.h elfos.h svr4.h i386/netbsd-elf.h"
-	tmake_file=t-netbsd
-	gnu_ld=yes
+	tm_file="${tm_file} i386/att.h dbxelf.h elfos.h netbsd.h netbsd-elf.h i386/netbsd-elf.h"
 	float_format=i386
 	;;
 i[34567]86-*-netbsd*)
 	tm_file=i386/netbsd.h
 	tmake_file=t-netbsd
 	use_collect2=yes
+	;;
+x86_64-*-netbsd*)
+	tm_file="i386/biarch64.h i386/i386.h i386/att.h dbxelf.h elfos.h netbsd.h netbsd-elf.h i386/x86-64.h i386/netbsd64.h"
+	float_format=i386
 	;;
 i[34567]86-*-openbsd*)
 	# needed to unconfuse gdb
@@ -1214,7 +1225,7 @@ i[34567]86-go32-msdos | i[34567]86-*-go32*)
 i[34567]86-pc-msdosdjgpp*)
 	xm_file=i386/xm-djgpp.h
 	tm_file=i386/djgpp.h
-	xmake_file=i386/x-djgpp
+	tmake_file=i386/t-djgpp
 	gnu_ld=yes
 	gas=yes
 	exeext=.exe
@@ -1349,7 +1360,6 @@ i[34567]86-*-udk*)      # Intel x86 on SCO UW/OSR5 Dev Kit
 	install_headers_dir=install-headers-cpio
 	;;
 i[34567]86-*-osf1*)		# Intel 80386's running OSF/1 1.3+
-	xm_file=i386/xm-osf1elf.h
 	xm_defines='POSIX USE_C_ALLOCA SMALL_ARG_MAX'
 	if test x$stabs = xyes
 	then
@@ -1439,11 +1449,11 @@ i[34567]86-*-uwin*)
 	;;
 i[34567]86-*-interix3*)
 	tm_file="i386/i386-interix.h i386/i386-interix3.h interix.h interix3.h"
-	xm_file="i386/xm-i386-interix.h xm-interix.h"
+	xm_file="i386/xm-i386-interix.h"
 	xm_defines=POSIX
-	tmake_file="i386/t-interix"
+	tmake_file="t-interix i386/t-interix"
 	extra_objs=interix.o
-	xmake_file="x-interix x-interix3"
+	xmake_file="x-interix"
 	if test x$enable_threads = xyes ; then
 		thread_file='posix'
 	fi
@@ -1453,7 +1463,7 @@ i[34567]86-*-interix3*)
 	;;
 i[34567]86-*-interix*)
 	tm_file="i386/i386-interix.h interix.h"
-	xm_file="i386/xm-i386-interix.h xm-interix.h"
+	xm_file="i386/xm-i386-interix.h"
 	xm_defines=POSIX
 	tmake_file="t-interix i386/t-interix"
 	extra_objs=interix.o
@@ -2005,7 +2015,7 @@ m88k-dolphin-sysv3*)
 	xm_defines=POSIX
 	tm_file=m88k/dolph.h
 	extra_parts="crtbegin.o crtend.o"
-	xmake_file=m88k/x-dolph
+	tmake_file=m88k/t-dolph
 	if test x$gas = xyes
 	then
 		tmake_file=m88k/t-m88k-gas
@@ -2015,7 +2025,7 @@ m88k-tektronix-sysv3)
 	xm_defines=POSIX
 	tm_file=m88k/tekXD88.h
 	extra_parts="crtbegin.o crtend.o"
-	xmake_file=m88k/x-tekXD88
+	tmake_file=m88k/t-tekXD88
 	if test x$gas = xyes
 	then
 		tmake_file=m88k/t-m88k-gas
@@ -2228,10 +2238,13 @@ mips-dec-bsd*)                  # Decstation running 4.4 BSD
 		use_collect2=yes
       fi
       ;;
-mipsel-*-netbsd* | mips-dec-netbsd*)    # Decstation running NetBSD
-	tm_file=mips/netbsd.h
-	# On NetBSD, the headers are already okay, except for math.h.
-	tmake_file=t-netbsd
+mips*-*-netbsd*)			# NetBSD/mips, either endian.
+	tm_file="elfos.h mips/netbsd.h"
+	case $machine in
+	mips*el-*)
+		tm_file="mips/little.h $tm_file" 
+		;;
+	esac
 	;;
 mips*-*-linux*)				# Linux MIPS, either endian.
         tm_file="dbxelf.h elfos.h svr4.h linux.h mips/linux.h"
@@ -2246,7 +2259,7 @@ mips*-*-linux*)				# Linux MIPS, either endian.
                 tm_file="mips/little.h $tm_file"
                 ;;
 	esac
-	tmake_file="t-slibgcc-elf-ver t-linux"
+	tmake_file="t-slibgcc-elf-ver t-linux mips/t-linux"
 	extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
 	gnu_ld=yes
 	gas=yes
@@ -2621,7 +2634,6 @@ powerpc64-*-linux*)
 powerpc-*-beos*)
 	tm_file="${tm_file} rs6000/aix.h rs6000/beos.h rs6000/xcoff.h"
 	xm_defines=POSIX
-	xm_file=rs6000/xm-beos.h
 	tmake_file=rs6000/t-beos
 	extra_headers=
 	;;
@@ -2629,17 +2641,12 @@ powerpc-*-darwin*)
 	tm_file="${tm_file} darwin.h rs6000/darwin.h"
 	tm_p_file="${tm_p_file} darwin-protos.h"
 	tmake_file=rs6000/t-darwin
-	xmake_file=rs6000/x-darwin
-	# Override the usual setting, since Apple's GCC has lame bugs
-	# and can't handle the initializers.  Someday the bugs will be
-	# fixed and we can get rid of this silliness.
-	xm_defines="HAVE_DESIGNATED_INITIALIZERS=0"
 	extra_objs="darwin.o"
 	c_target_objs="darwin-c.o"
 	cxx_target_objs="darwin-c.o"
 	# Darwin linker does collect2 functionality
 	use_collect2=no
-	extra_headers=
+	extra_headers=altivec.h
 	;;
 powerpc*-*-freebsd*)
 	tm_file="${tm_file} dbxelf.h elfos.h ${fbsd_tm_file} rs6000/sysv4.h rs6000/freebsd.h"
@@ -2653,7 +2660,6 @@ powerpc-*-sysv*)
 	tmake_file="rs6000/t-ppcos rs6000/t-ppccomm"
 	;;
 powerpc-*-netbsd*)
-	xm_defines=POSIX
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/netbsd.h"
 	tmake_file="rs6000/t-ppcos rs6000/t-ppccomm"
 	;;
@@ -2895,7 +2901,7 @@ sparc-*-aout*)
 	tm_file="sparc/sparc.h aoutos.h sparc/aout.h libgloss.h"
 	;;
 sparc-*-netbsd*)
-	tm_file="${tm_file} sparc/aout.h netbsd.h sparc/netbsd.h"
+	tm_file="${tm_file} sparc/aout.h netbsd.h netbsd-aout.h sparc/netbsd.h"
 	tmake_file=t-netbsd
 	use_collect2=yes
 	;;
@@ -3209,7 +3215,7 @@ vax-*-sysv*)			# VAXen running system V
 	float_format=vax
 	;;
 vax-*-netbsd*)
-	tm_file="${tm_file} netbsd.h vax/netbsd.h"
+	tm_file="${tm_file} netbsd.h netbsd-aout.h vax/netbsd.h"
 	tmake_file=t-netbsd
 	float_format=vax
 	use_collect2=yes
@@ -3255,6 +3261,22 @@ xstormy16-*-elf)
 	out_file=stormy16/stormy16.c
 	tmake_file="stormy16/t-stormy16"
 	extra_parts="crtbegin.o crtend.o"
+	;;
+xtensa-*-elf*)
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h xtensa/elf.h"
+	with_newlib=yes
+	tmake_file=xtensa/t-xtensa
+	extra_parts="crtbegin.o crtend.o"
+	fixincludes=Makefile.in # newlib headers should be OK
+	;;
+xtensa-*-linux*)
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h linux.h xtensa/linux.h"
+	tmake_file="t-linux xtensa/t-xtensa"
+	extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
+	gas=yes gnu_ld=yes
+	if test x$enable_threads = xyes; then
+		thread_file='posix'
+	fi
 	;;
 *)
 	echo "Configuration $machine not supported" 1>&2
@@ -3409,18 +3431,22 @@ mips*-*-*)
 	fi
 	;;
 powerpc*-*-* | rs6000-*-*)
+        if test x$enable_altivec = xyes
+        then
+                tm_file="$tm_file rs6000/altivec-defs.h"
+        fi
 	case "x$with_cpu" in
 		x)
 			;;
 
-		xcommon | xpower | xpower2 | xpowerpc | xrios \
-		  | xrios1 | xrios2 | xrsc | xrsc1 \
-		  | x601 | x602 | x603 | x603e | x604 | x604e | x620 \
-		  | x740 | x750 | x505)
+		xcommon | xpower | xpower2 | xpower3 | xpowerpc | xpowerpc64 \
+		  | xrios | xrios1 | xrios2 | xrsc | xrsc1 | xrs64a \
+		  | x601 | x602 | x603 | x603e | x604 | x604e | x620 | x630 \
+		  | x740 | x750 | x7400 | x7450 | x505)
 			target_cpu_default2="\\\"$with_cpu\\\""
 			;;
 
-		x401 | x403 | xec603e | x801 | x821 | x823 | x860)
+		x401 | x403 | x405 | xec603e | x801 | x821 | x823 | x860)
 			target_cpu_default2="\\\"$with_cpu\\\""
 			tm_file="$tm_file rs6000/softfloat.h"
 			;;

@@ -1,6 +1,7 @@
 /* Global common subexpression elimination/Partial redundancy elimination
    and global constant/copy propagation for GNU compiler.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -753,8 +754,8 @@ gcse_main (f, file)
   if (n_basic_blocks > 1000 && n_edges / n_basic_blocks >= 20)
     {
       if (warn_disabled_optimization)
-      warning ("GCSE disabled: %d > 1000 basic blocks and %d >= 20 edges/basic block",
-               n_basic_blocks, n_edges / n_basic_blocks);
+	warning ("GCSE disabled: %d > 1000 basic blocks and %d >= 20 edges/basic block",
+		 n_basic_blocks, n_edges / n_basic_blocks);
       return 0;
     }
 
@@ -831,11 +832,11 @@ gcse_main (f, file)
 	    {
 	      free_modify_mem_tables ();
 	      modify_mem_list
-		= (rtx *) gmalloc (n_basic_blocks * sizeof (rtx *));
+		= (rtx *) gmalloc (n_basic_blocks * sizeof (rtx));
 	      canon_modify_mem_list
-		= (rtx *) gmalloc (n_basic_blocks * sizeof (rtx *));
-	      memset ((char *) modify_mem_list, 0, n_basic_blocks * sizeof (rtx *));
-	      memset ((char *) canon_modify_mem_list, 0, n_basic_blocks * sizeof (rtx *));
+		= (rtx *) gmalloc (n_basic_blocks * sizeof (rtx));
+	      memset ((char *) modify_mem_list, 0, n_basic_blocks * sizeof (rtx));
+	      memset ((char *) canon_modify_mem_list, 0, n_basic_blocks * sizeof (rtx));
 	      orig_bb_count = n_basic_blocks;
 	    }
 	  free_reg_set_mem ();
@@ -917,7 +918,7 @@ compute_can_copy ()
 {
   int i;
 #ifndef AVOID_CCMODE_COPIES
-  rtx reg,insn;
+  rtx reg, insn;
 #endif
   memset (can_copy_p, 0, NUM_MACHINE_MODES);
 
@@ -982,7 +983,7 @@ static void
 alloc_gcse_mem (f)
      rtx f;
 {
-  int i,n;
+  int i, n;
   rtx insn;
 
   /* Find the largest UID and create a mapping from UIDs to CUIDs.
@@ -1019,10 +1020,10 @@ alloc_gcse_mem (f)
 						       max_gcse_regno);
   /* Allocate array to keep a list of insns which modify memory in each
      basic block.  */
-  modify_mem_list = (rtx *) gmalloc (n_basic_blocks * sizeof (rtx *));
-  canon_modify_mem_list = (rtx *) gmalloc (n_basic_blocks * sizeof (rtx *));
-  memset ((char *) modify_mem_list, 0, n_basic_blocks * sizeof (rtx *));
-  memset ((char *) canon_modify_mem_list, 0, n_basic_blocks * sizeof (rtx *));
+  modify_mem_list = (rtx *) gmalloc (n_basic_blocks * sizeof (rtx));
+  canon_modify_mem_list = (rtx *) gmalloc (n_basic_blocks * sizeof (rtx));
+  memset ((char *) modify_mem_list, 0, n_basic_blocks * sizeof (rtx));
+  memset ((char *) canon_modify_mem_list, 0, n_basic_blocks * sizeof (rtx));
   modify_mem_list_set = BITMAP_XMALLOC ();
   canon_modify_mem_list_set = BITMAP_XMALLOC ();
 }
@@ -1237,7 +1238,7 @@ record_one_set (regno, insn)
 	= (struct reg_set **) grealloc ((char *) reg_set_table,
 					new_size * sizeof (struct reg_set *));
       memset ((char *) (reg_set_table + reg_set_table_size), 0,
-	     (new_size - reg_set_table_size) * sizeof (struct reg_set *));
+	      (new_size - reg_set_table_size) * sizeof (struct reg_set *));
       reg_set_table_size = new_size;
     }
 
@@ -1580,7 +1581,7 @@ hash_string_1 (ps)
      const char *ps;
 {
   unsigned hash = 0;
-  const unsigned char *p = (const unsigned char *)ps;
+  const unsigned char *p = (const unsigned char *) ps;
   
   if (p)
     while (*p)
@@ -1913,7 +1914,7 @@ expr_equiv_p (x, y)
 	default:
 	  abort ();
 	}
-      }
+    }
 
   return 1;
 }
@@ -2203,9 +2204,7 @@ hash_scan_set (pat, insn, set_p)
 		    && REGNO (src) >= FIRST_PSEUDO_REGISTER
 		    && can_copy_p [GET_MODE (dest)]
 		    && REGNO (src) != regno)
-		   || GET_CODE (src) == CONST_INT
-		   || GET_CODE (src) == SYMBOL_REF
-		   || GET_CODE (src) == CONST_DOUBLE)
+		   || CONSTANT_P (src))
 	       /* A copy is not available if its src or dest is subsequently
 		  modified.  Here we want to search from INSN+1 on, but
 		  oprs_available_p searches from INSN on.  */
@@ -2414,7 +2413,7 @@ record_last_mem_set_info (insn)
       bitmap_set_bit (canon_modify_mem_list_set, BLOCK_NUM (insn));
     }
   else
-    note_stores (PATTERN (insn), canon_list_insert, (void*)insn );
+    note_stores (PATTERN (insn), canon_list_insert, (void*) insn );
 }
 
 /* Called from compute_hash_table via note_stores to handle one
@@ -2529,7 +2528,7 @@ compute_hash_table (set_p)
             hash_scan_insn (insn, set_p, in_libcall_block);
             if (!set_p && find_reg_note (insn, REG_RETVAL, NULL_RTX))
               in_libcall_block = 0;
-	}
+	  }
     }
 
   free (reg_avail_info);
@@ -2574,7 +2573,7 @@ compute_set_hash_table ()
   /* Initialize count of number of entries in hash table.  */
   n_sets = 0;
   memset ((char *) set_hash_table, 0,
-	 set_hash_table_size * sizeof (struct expr *));
+	  set_hash_table_size * sizeof (struct expr *));
 
   compute_hash_table (1);
 }
@@ -2618,7 +2617,7 @@ compute_expr_hash_table ()
   /* Initialize count of number of entries in hash table.  */
   n_exprs = 0;
   memset ((char *) expr_hash_table, 0,
-	 expr_hash_table_size * sizeof (struct expr *));
+	  expr_hash_table_size * sizeof (struct expr *));
 
   compute_hash_table (0);
 }
@@ -3436,10 +3435,10 @@ handle_avail_expr (insn, expr)
 	  || (((this_reg = reg_set_table[regnum_for_replacing]),
 	       this_reg->next == NULL)
 	      || can_disregard_other_sets (&this_reg, insn, 0)))
-       {
-	 use_src = 1;
-	 found_setting = 1;
-       }
+	{
+	  use_src = 1;
+	  found_setting = 1;
+	}
     }
 
   if (!found_setting)
@@ -3968,7 +3967,7 @@ find_avail_set (regno, insn)
      This can not happen since the set of (reg Y) would have killed the
      set of (reg X) making it unavailable at the start of this block.  */
   while (1)
-     {
+    {
       rtx src;
       struct expr *set = lookup_set (regno, NULL_RTX);
 
@@ -4009,7 +4008,7 @@ find_avail_set (regno, insn)
       /* Follow the copy chain, ie start another iteration of the loop
 	 and see if we have an available copy into SRC.  */
       regno = REGNO (src);
-     }
+    }
 
   /* SET1 holds the last set that was available and anticipatable at
      INSN.  */
@@ -4036,28 +4035,20 @@ cprop_jump (bb, insn, from, src)
   if (rtx_equal_p (new, SET_SRC (set)))
     return 0;
  
-  /* If this is now a no-op leave it that way, but update LABEL_NUSED if
-     necessary.  */
+  /* If this is now a no-op delete it, otherwise this must be a valid insn.  */
   if (new == pc_rtx)
+    delete_insn (insn);
+  else
     {
-      SET_SRC (set) = new;
+      if (! validate_change (insn, &SET_SRC (set), new, 0))
+	return 0;
 
-      if (JUMP_LABEL (insn) != 0)
-	{
-	  --LABEL_NUSES (JUMP_LABEL (insn));
-	  JUMP_LABEL (insn) = NULL_RTX;
-	}
-    }
-
-  /* Otherwise, this must be a valid instruction.  */
-  else if (! validate_change (insn, &SET_SRC (set), new, 0))
-    return 0;
-
-  /* If this has turned into an unconditional jump,
-     then put a barrier after it so that the unreachable
-     code will be deleted.  */
-  if (GET_CODE (SET_SRC (set)) == LABEL_REF)
-    emit_barrier_after (insn);
+      /* If this has turned into an unconditional jump,
+	 then put a barrier after it so that the unreachable
+	 code will be deleted.  */
+      if (GET_CODE (SET_SRC (set)) == LABEL_REF)
+	emit_barrier_after (insn);
+     }
 
   run_jump_opt_after_gcse = 1;
 
@@ -4103,7 +4094,7 @@ cprop_cc0_jump (bb, insn, reg_used, src)
   delete_insn (insn);
 
   return 1;
- }
+}
 #endif
  
 /* Perform constant and copy propagation on INSN.
@@ -4162,8 +4153,7 @@ cprop_insn (bb, insn, alter_jumps)
       src = SET_SRC (pat);
 
       /* Constant propagation.  */
-      if (GET_CODE (src) == CONST_INT || GET_CODE (src) == CONST_DOUBLE
-	  || GET_CODE (src) == SYMBOL_REF)
+      if (CONSTANT_P (src))
 	{
 	  /* Handle normal insns first.  */
 	  if (GET_CODE (insn) == INSN
@@ -4271,7 +4261,7 @@ cprop (alter_jumps)
 	       call mark_oprs_set if we turned the insn into a NOTE.  */
 	    if (GET_CODE (insn) != NOTE)
 	      mark_oprs_set (insn);
-	}
+	  }
     }
 
   if (gcse_file != NULL)
@@ -4460,7 +4450,7 @@ compute_pre_data ()
   antloc = NULL;
   sbitmap_vector_free (ae_kill);
   ae_kill = NULL; 
-  free (trapping_expr);
+  sbitmap_free (trapping_expr);
 }
 
 /* PRE utilities */
@@ -4536,7 +4526,7 @@ pre_expr_reaches_here_p (occr_bb, expr, bb)
   int rval;
   char *visited = (char *) xcalloc (n_basic_blocks, 1);
 
-  rval = pre_expr_reaches_here_p_work(occr_bb, expr, bb, visited);
+  rval = pre_expr_reaches_here_p_work (occr_bb, expr, bb, visited);
 
   free (visited);
   return rval;
@@ -5013,7 +5003,7 @@ pre_gcse ()
     }
 
   free (index_map);
-  free (pre_redundant_insns);
+  sbitmap_free (pre_redundant_insns);
   return changed;
 }
 
@@ -5584,8 +5574,8 @@ hoist_expr_reaches_here_p (expr_bb, expr_index, bb, visited)
 
   if (visited == NULL)
     {
-       visited_allocated_locally = 1;
-       visited = xcalloc (n_basic_blocks, 1);
+      visited_allocated_locally = 1;
+      visited = xcalloc (n_basic_blocks, 1);
     }
 
   for (pred = bb->pred; pred != NULL; pred = pred->pred_next)
@@ -5786,7 +5776,7 @@ hoist_code ()
 	}
     }
 
-    free (index_map);
+  free (index_map);
 }
 
 /* Top level routine to perform one code hoisting (aka unification) pass
@@ -6023,7 +6013,7 @@ invalidate_any_buried_refs (x)
      rtx x;
 {
   const char * fmt;
-  int i,j;
+  int i, j;
   struct ls_expr * ptr;
 
   /* Invalidate it in the list.  */
@@ -6457,7 +6447,7 @@ find_loads (x, store_pattern)
      rtx x, store_pattern;
 {
   const char * fmt;
-  int i,j;
+  int i, j;
   int ret = 0;
 
   if (!x)
@@ -6539,10 +6529,10 @@ store_killed_after (x, insn, bb)
      rtx x, insn;
      basic_block bb;
 {
-   rtx last = bb->end;
+  rtx last = bb->end;
    
-   if (insn == last)
-     return 0;
+  if (insn == last)
+    return 0;
 
   /* Check if the register operands of the store are OK in this block.
      Note that if registers are changed ANYWHERE in the block, we'll 
@@ -6552,9 +6542,9 @@ store_killed_after (x, insn, bb)
   if (!store_ops_ok (XEXP (x, 0), bb))
     return 1;
 
-   for ( ; insn && insn != NEXT_INSN (last); insn = NEXT_INSN (insn))
-     if (store_killed_in_insn (x, insn))
-       return 1;
+  for ( ; insn && insn != NEXT_INSN (last); insn = NEXT_INSN (insn))
+    if (store_killed_in_insn (x, insn))
+      return 1;
    
   return 0;
 }
@@ -6566,10 +6556,10 @@ store_killed_before (x, insn, bb)
      rtx x, insn;
      basic_block bb;
 {
-   rtx first = bb->head;
+  rtx first = bb->head;
 
-   if (insn == first)
-     return store_killed_in_insn (x, insn);
+  if (insn == first)
+    return store_killed_in_insn (x, insn);
    
   /* Check if the register operands of the store are OK in this block.
      Note that if registers are changed ANYWHERE in the block, we'll 
@@ -6579,11 +6569,11 @@ store_killed_before (x, insn, bb)
   if (!store_ops_ok (XEXP (x, 0), bb))
     return 1;
 
-   for ( ; insn && insn != PREV_INSN (first); insn = PREV_INSN (insn))
-     if (store_killed_in_insn (x, insn))
-       return 1;
+  for ( ; insn && insn != PREV_INSN (first); insn = PREV_INSN (insn))
+    if (store_killed_in_insn (x, insn))
+      return 1;
    
-   return 0;
+  return 0;
 }
 
 #define ANTIC_STORE_LIST(x)	((x)->loads)
@@ -6638,7 +6628,7 @@ build_store_vectors ()
 		    {
 		      rtx r = gen_reg_rtx (GET_MODE (ptr->pattern));
 		      if (gcse_file)
-			fprintf(gcse_file, "Removing redundant store:\n");
+			fprintf (gcse_file, "Removing redundant store:\n");
 		      replace_store_insn (r, XEXP (st, 0), bb);
 		      XEXP (st, 0) = insn;
 		      continue;
@@ -6828,9 +6818,9 @@ replace_store_insn (reg, del, bb)
       fprintf (gcse_file, 
 	       "STORE_MOTION  delete insn in BB %d:\n      ", bb->index);
       print_inline_rtx (gcse_file, del, 6);
-      fprintf(gcse_file, "\nSTORE MOTION  replaced with insn:\n      ");
+      fprintf (gcse_file, "\nSTORE MOTION  replaced with insn:\n      ");
       print_inline_rtx (gcse_file, insn, 6);
-      fprintf(gcse_file, "\n");
+      fprintf (gcse_file, "\n");
     }
   
   delete_insn (del);

@@ -1,5 +1,6 @@
 /* DWARF2 exception handling and frame unwind runtime interface routines.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -27,7 +28,7 @@
 #include "gthr.h"
 
 
-#if !USING_SJLJ_EXCEPTIONS
+#ifndef __USING_SJLJ_EXCEPTIONS__
 
 #ifndef STACK_GROWS_DOWNWARD
 #define STACK_GROWS_DOWNWARD 0
@@ -131,10 +132,10 @@ static inline void *
 read_pointer (const void *p) { const union unaligned *up = p; return up->p; }
 
 static inline int
-read_1u (const void *p) { return *(const unsigned char *)p; }
+read_1u (const void *p) { return *(const unsigned char *) p; }
 
 static inline int
-read_1s (const void *p) { return *(const signed char *)p; }
+read_1s (const void *p) { return *(const signed char *) p; }
 
 static inline int
 read_2u (const void *p) { const union unaligned *up = p; return up->u2; }
@@ -524,14 +525,14 @@ execute_stack_op (const unsigned char *op_ptr, const unsigned char *op_end,
 	    {
 	    case DW_OP_deref:
 	      {
-		void *ptr = (void *)(_Unwind_Ptr) result;
+		void *ptr = (void *) (_Unwind_Ptr) result;
 		result = (_Unwind_Ptr) read_pointer (ptr);
 	      }
 	      break;
 
 	    case DW_OP_deref_size:
 	      {
-		void *ptr = (void *)(_Unwind_Ptr) result;
+		void *ptr = (void *) (_Unwind_Ptr) result;
 		switch (*op_ptr++)
 		  {
 		  case 1:
@@ -599,13 +600,13 @@ execute_stack_op (const unsigned char *op_ptr, const unsigned char *op_end,
 	      result = second & first;
 	      break;
 	    case DW_OP_div:
-	      result = (_Unwind_Sword)second / (_Unwind_Sword)first;
+	      result = (_Unwind_Sword) second / (_Unwind_Sword) first;
 	      break;
 	    case DW_OP_minus:
 	      result = second - first;
 	      break;
 	    case DW_OP_mod:
-	      result = (_Unwind_Sword)second % (_Unwind_Sword)first;
+	      result = (_Unwind_Sword) second % (_Unwind_Sword) first;
 	      break;
 	    case DW_OP_mul:
 	      result = second * first;
@@ -623,28 +624,28 @@ execute_stack_op (const unsigned char *op_ptr, const unsigned char *op_end,
 	      result = second >> first;
 	      break;
 	    case DW_OP_shra:
-	      result = (_Unwind_Sword)second >> first;
+	      result = (_Unwind_Sword) second >> first;
 	      break;
 	    case DW_OP_xor:
 	      result = second ^ first;
 	      break;
 	    case DW_OP_le:
-	      result = (_Unwind_Sword)first <= (_Unwind_Sword)second;
+	      result = (_Unwind_Sword) first <= (_Unwind_Sword) second;
 	      break;
 	    case DW_OP_ge:
-	      result = (_Unwind_Sword)first >= (_Unwind_Sword)second;
+	      result = (_Unwind_Sword) first >= (_Unwind_Sword) second;
 	      break;
 	    case DW_OP_eq:
-	      result = (_Unwind_Sword)first == (_Unwind_Sword)second;
+	      result = (_Unwind_Sword) first == (_Unwind_Sword) second;
 	      break;
 	    case DW_OP_lt:
-	      result = (_Unwind_Sword)first < (_Unwind_Sword)second;
+	      result = (_Unwind_Sword) first < (_Unwind_Sword) second;
 	      break;
 	    case DW_OP_gt:
-	      result = (_Unwind_Sword)first > (_Unwind_Sword)second;
+	      result = (_Unwind_Sword) first > (_Unwind_Sword) second;
 	      break;
 	    case DW_OP_ne:
-	      result = (_Unwind_Sword)first != (_Unwind_Sword)second;
+	      result = (_Unwind_Sword) first != (_Unwind_Sword) second;
 	      break;
 
 	    default:
@@ -705,7 +706,14 @@ execute_cfa_program (const unsigned char *insn_ptr,
   /* Don't allow remember/restore between CIE and FDE programs.  */
   fs->regs.prev = NULL;
 
-  while (insn_ptr < insn_end && fs->pc <= context->ra)
+  /* The comparison with the return address uses < rather than <= because
+     we are only interested in the effects of code before the call; for a
+     noreturn function, the return address may point to unrelated code with
+     a different stack configuration that we are not interested in.  We
+     assume that the call itself is unwind info-neutral; if not, or if
+     there are delay instructions that adjust the stack, these must be
+     reflected at the point immediately before the call insn.  */
+  while (insn_ptr < insn_end && fs->pc < context->ra)
     {
       unsigned char insn = *insn_ptr++;
       _Unwind_Word reg, utmp;
@@ -717,7 +725,7 @@ execute_cfa_program (const unsigned char *insn_ptr,
 	{
 	  reg = insn & 0x3f;
 	  insn_ptr = read_uleb128 (insn_ptr, &utmp);
-	  offset = (_Unwind_Sword)utmp * fs->data_align;
+	  offset = (_Unwind_Sword) utmp * fs->data_align;
 	  fs->regs.reg[reg].how = REG_SAVED_OFFSET;
 	  fs->regs.reg[reg].loc.offset = offset;
 	}
@@ -749,7 +757,7 @@ execute_cfa_program (const unsigned char *insn_ptr,
 	case DW_CFA_offset_extended:
 	  insn_ptr = read_uleb128 (insn_ptr, &reg);
 	  insn_ptr = read_uleb128 (insn_ptr, &utmp);
-	  offset = (_Unwind_Sword)utmp * fs->data_align;
+	  offset = (_Unwind_Sword) utmp * fs->data_align;
 	  fs->regs.reg[reg].how = REG_SAVED_OFFSET;
 	  fs->regs.reg[reg].loc.offset = offset;
 	  break;
@@ -870,7 +878,7 @@ execute_cfa_program (const unsigned char *insn_ptr,
 	     older PowerPC code.  */
 	  insn_ptr = read_uleb128 (insn_ptr, &reg);
 	  insn_ptr = read_uleb128 (insn_ptr, &utmp);
-	  offset = (_Unwind_Word)utmp * fs->data_align;
+	  offset = (_Unwind_Word) utmp * fs->data_align;
 	  fs->regs.reg[reg].how = REG_SAVED_OFFSET;
 	  fs->regs.reg[reg].loc.offset = -offset;
 	  break;
@@ -921,7 +929,7 @@ uw_frame_state_for (struct _Unwind_Context *context, _Unwind_FrameState *fs)
   execute_cfa_program (insn, end, context, fs);
 
   /* Locate augmentation for the fde.  */
-  aug = (unsigned char *)fde + sizeof (*fde);
+  aug = (unsigned char *) fde + sizeof (*fde);
   aug += 2 * size_of_encoded_value (fs->fde_encoding);
   insn = NULL;
   if (fs->saw_z)
@@ -1089,14 +1097,16 @@ uw_update_context (struct _Unwind_Context *context, _Unwind_FrameState *fs)
 /* Fill in CONTEXT for top-of-stack.  The only valid registers at this
    level will be the return address and the CFA.  */
    
-#define uw_init_context(CONTEXT)					\
-do {									\
-  /* Do any necessary initialization to access arbitrary stack frames.	\
-     On the SPARC, this means flushing the register windows.  */	\
-  __builtin_unwind_init ();						\
-  uw_init_context_1 (CONTEXT, __builtin_dwarf_cfa (),			\
-		     __builtin_return_address (0));			\
-} while (0)
+#define uw_init_context(CONTEXT)					   \
+  do									   \
+    {									   \
+      /* Do any necessary initialization to access arbitrary stack frames. \
+	 On the SPARC, this means flushing the register windows.  */	   \
+      __builtin_unwind_init ();						   \
+      uw_init_context_1 (CONTEXT, __builtin_dwarf_cfa (),		   \
+			 __builtin_return_address (0));			   \
+    }									   \
+  while (0)
 
 static void
 uw_init_context_1 (struct _Unwind_Context *context,
@@ -1130,12 +1140,14 @@ uw_init_context_1 (struct _Unwind_Context *context,
    macro because __builtin_eh_return must be invoked in the context of
    our caller.  */
 
-#define uw_install_context(CURRENT, TARGET)				\
-do {									\
-  long offset = uw_install_context_1 ((CURRENT), (TARGET));		\
-  void *handler = __builtin_frob_return_addr ((TARGET)->ra);		\
-  __builtin_eh_return (offset, handler);				\
-} while (0)
+#define uw_install_context(CURRENT, TARGET)				 \
+  do									 \
+    {									 \
+      long offset = uw_install_context_1 ((CURRENT), (TARGET));		 \
+      void *handler = __builtin_frob_return_addr ((TARGET)->ra);	 \
+      __builtin_eh_return (offset, handler);				 \
+    }									 \
+  while (0)
 
 static inline void
 init_dwarf_reg_size_table (void)

@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Hitachi H8/300.
-   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
-   Free Software Foundation, Inc. 
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001, 2002 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -769,16 +769,6 @@ bit_memory_operand (op, mode)
 	  && EXTRA_CONSTRAINT (op, 'U'));
 }
 
-/* Recognize valid operators for bit test.  */
-
-int
-eq_operator (x, mode)
-     rtx x;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
-{
-  return (GET_CODE (x) == EQ || GET_CODE (x) == NE);
-}
-
 /* Handle machine specific pragmas for compatibility with existing
    compilers for the H8/300.
 
@@ -803,10 +793,6 @@ h8300_pr_saveall (pfile)
   pragma_saveall = 1;
 }
 
-/* If the next arg with MODE and TYPE is to be passed in a register, return
-   the rtx to represent where it is passed.  CUM represents the state after
-   the last argument.  NAMED is not used.  */
-
 static const char *const hand_list[] =
 {
   "__main",
@@ -827,8 +813,10 @@ static const char *const hand_list[] =
   0,
 };
 
-/* Return an RTX to represent where a value with mode MODE will be returned
-   from a function.  If the result is 0, the argument is pushed.  */
+/* If the next function argument with MODE and TYPE is to be passed in
+   a register, return a reg RTX for the hard register in which to pass
+   the argument.  CUM represents the state after the last argument.
+   If the argument is to be pushed, NULL_RTX is returned.  */
 
 rtx
 function_arg (cum, mode, type, named)
@@ -837,20 +825,19 @@ function_arg (cum, mode, type, named)
      tree type;
      int named;
 {
-  rtx result = 0;
+  rtx result = NULL_RTX;
   const char *fname;
   int regpass = 0;
 
   /* Never pass unnamed arguments in registers.  */
   if (!named)
-    return 0;
+    return NULL_RTX;
 
   /* Pass 3 regs worth of data in regs when user asked on the command line.  */
   if (TARGET_QUICKCALL)
     regpass = 3;
 
   /* If calling hand written assembler, use 4 regs of args.  */
-
   if (cum->libcall)
     {
       const char * const *p;
@@ -858,7 +845,6 @@ function_arg (cum, mode, type, named)
       fname = XSTR (cum->libcall, 0);
 
       /* See if this libcall is one of the hand coded ones.  */
-
       for (p = hand_list; *p && strcmp (*p, fname) != 0; p++)
 	;
 
@@ -875,11 +861,7 @@ function_arg (cum, mode, type, named)
       else
 	size = GET_MODE_SIZE (mode);
 
-      if (size + cum->nbytes > regpass * UNITS_PER_WORD)
-	{
-	  result = 0;
-	}
-      else
+      if (size + cum->nbytes <= regpass * UNITS_PER_WORD)
 	{
 	  switch (cum->nbytes / UNITS_PER_WORD)
 	    {
@@ -895,8 +877,6 @@ function_arg (cum, mode, type, named)
 	    case 3:
 	      result = gen_rtx_REG (mode, 3);
 	      break;
-	    default:
-	      result = 0;
 	    }
 	}
     }
@@ -947,18 +927,13 @@ const_costs (r, c)
 
 /* Documentation for the machine specific operand escapes:
 
-   'A' print rn in H8/300 mode, erN in H8/300H mode
-   'C' print (operand - 2).
    'E' like s but negative.
    'F' like t but negative.
    'G' constant just the negative
-   'M' turn a 'M' constant into its negative mod 2.
-   'P' if operand is incing/decing sp, print .w, otherwise .b.
    'R' print operand as a byte:8 address if appropriate, else fall back to
        'X' handling.
    'S' print operand as a long word
    'T' print operand as a word
-   'U' if operand is incing/decing sp, print l, otherwise nothing.
    'V' find the set bit, and print its number.
    'W' find the clear bit, and print its number.
    'X' print operand as a byte
@@ -966,13 +941,10 @@ const_costs (r, c)
        If this operand isn't a register, fall back to 'R' handling.
    'Z' print int & 7.
    'b' print the bit opcode
-   'c' print the ibit opcode
-   'd' bcc if EQ, bcs if NE
    'e' first word of 32 bit value - if reg, then least reg. if mem
        then least. if const then most sig word
    'f' second word of 32 bit value - if reg, then biggest reg. if mem
        then +2. if const then least sig word
-   'g' bcs if EQ, bcc if NE
    'j' print operand as condition code.
    'k' print operand as reverse condition code.
    's' print as low byte of 16 bit value
@@ -1025,23 +997,11 @@ print_operand (file, x, code)
      rtx x;
      int code;
 {
-  /* This is used for communication between the 'P' and 'U' codes.  */
-  static const char *last_p;
-
   /* This is used for communication between codes V,W,Z and Y.  */
   static int bitint;
 
   switch (code)
     {
-    case 'A':
-      if (GET_CODE (x) == REG)
-	fprintf (file, "%s", h8_reg_names[REGNO (x)]);
-      else
-	goto def;
-      break;
-    case 'C':
-      fprintf (file, "#%d", INTVAL (x) - 2);
-      break;
     case 'E':
       switch (GET_CODE (x))
 	{
@@ -1073,38 +1033,6 @@ print_operand (file, x, code)
 	abort ();
       fprintf (file, "#%d", 0xff & (-INTVAL (x)));
       break;
-    case 'M':
-      /* For 3/-3 and 4/-4, the other 2 is handled separately.  */
-      switch (INTVAL (x))
-	{
-	case 2:
-	case 4:
-	case -2:
-	case -4:
-	  fprintf (file, "#2");
-	  break;
-	case 1:
-	case 3:
-	case -1:
-	case -3:
-	  fprintf (file, "#1");
-	  break;
-	default:
-	  abort ();
-	}
-      break;
-    case 'P':
-      if (REGNO (XEXP (XEXP (x, 0), 0)) == STACK_POINTER_REGNUM)
-	{
-	  last_p = "";
-	  fprintf (file, ".w");
-	}
-      else
-	{
-	  last_p = "l";
-	  fprintf (file, ".b");
-	}
-      break;
     case 'S':
       if (GET_CODE (x) == REG)
 	fprintf (file, "%s", names_extended[REGNO (x)]);
@@ -1116,9 +1044,6 @@ print_operand (file, x, code)
 	fprintf (file, "%s", names_big[REGNO (x)]);
       else
 	goto def;
-      break;
-    case 'U':
-      fprintf (file, "%s%s", names_big[REGNO (x)], last_p);
       break;
     case 'V':
       bitint = exact_log2 (INTVAL (x));
@@ -1166,35 +1091,6 @@ print_operand (file, x, code)
 	  break;
 	default:
 	  break;
-	}
-      break;
-    case 'c':
-      switch (GET_CODE (x))
-	{
-	case IOR:
-	  fprintf (file, "bior");
-	  break;
-	case XOR:
-	  fprintf (file, "bixor");
-	  break;
-	case AND:
-	  fprintf (file, "biand");
-	  break;
-	default:
-	  break;
-	}
-      break;
-    case 'd':
-      switch (GET_CODE (x))
-	{
-	case EQ:
-	  fprintf (file, "bcc");
-	  break;
-	case NE:
-	  fprintf (file, "bcs");
-	  break;
-	default:
-	  abort ();
 	}
       break;
     case 'e':
@@ -1251,19 +1147,6 @@ print_operand (file, x, code)
 	    fprintf (file, "#%ld", (val & 0xffff));
 	    break;
 	  }
-	default:
-	  abort ();
-	}
-      break;
-    case 'g':
-      switch (GET_CODE (x))
-	{
-	case NE:
-	  fprintf (file, "bcc");
-	  break;
-	case EQ:
-	  fprintf (file, "bcs");
-	  break;
 	default:
 	  abort ();
 	}
@@ -1681,7 +1564,7 @@ output_logical_op (mode, code, operands)
       /* First, see if we can finish with one insn.
 
 	 If code is either AND or XOR, we exclude two special cases,
-	 0xffffff00 and 0xffff00ff, because insns like sub.w or neg.w
+	 0xffffff00 and 0xffff00ff, because insns like sub.w or not.w
 	 can do a better job.  */
       if ((TARGET_H8300H || TARGET_H8300S)
 	  && ((det & 0x0000ffff) != 0)
@@ -1704,7 +1587,7 @@ output_logical_op (mode, code, operands)
 	      && ((det & 0x0000ffff) == 0x0000ffff)
 	      && code != IOR)
 	    output_asm_insn ((code == AND)
-			     ? "sub.w\t%f0,%f0" : "neg.w\t%f0",
+			     ? "sub.w\t%f0,%f0" : "not.w\t%f0",
 			     operands);
 	  else if ((TARGET_H8300H || TARGET_H8300S)
 		   && ((det & 0x000000ff) != 0)
@@ -1731,7 +1614,7 @@ output_logical_op (mode, code, operands)
 	      && ((det & 0xffff0000) == 0xffff0000)
 	      && code != IOR)
 	    output_asm_insn ((code == AND)
-			     ? "sub.w\t%e0,%e0" : "neg.w\t%e0",
+			     ? "sub.w\t%e0,%e0" : "not.w\t%e0",
 			     operands);
 	  else if (TARGET_H8300H || TARGET_H8300S)
 	    {
@@ -1764,53 +1647,42 @@ output_logical_op (mode, code, operands)
 
 /* Shifts.
 
-   We devote a fair bit of code to getting efficient shifts since we can only
-   shift one bit at a time on the H8/300 and H8/300H and only one or two
-   bits at a time on the H8/S.
+   We devote a fair bit of code to getting efficient shifts since we
+   can only shift one bit at a time on the H8/300 and H8/300H and only
+   one or two bits at a time on the H8/S.
 
-   The basic shift methods:
+   All shift code falls into one of the following ways of
+   implementation:
 
-     * loop shifts -- emit a loop using one (or two on H8/S) bit shifts;
-     this is the default.  SHIFT_LOOP
+   o SHIFT_INLINE: Emit straight line code for the shift; this is used
+     when a straight line shift is about the same size or smaller than
+     a loop.
 
-     * inlined shifts -- emit straight line code for the shift; this is
-     used when a straight line shift is about the same size or smaller
-     than a loop.  We allow the inline version to be slightly longer in
-     some cases as it saves a register.  SHIFT_INLINE
+   o SHIFT_ROT_AND: Rotate the value the opposite direction, then mask
+     off the bits we don't need.  This is used when only a few of the
+     bits in the original value will survive in the shifted value.
 
-     * rotate + and -- rotate the value the opposite direction, then
-     mask off the values we don't need.  This is used when only a few
-     of the bits in the original value will survive in the shifted value.
-     Again, this is used when it's about the same size or smaller than
-     a loop.  We allow this version to be slightly longer as it is usually
-     much faster than a loop.  SHIFT_ROT_AND
+   o SHIFT_SPECIAL: Often it's possible to move a byte or a word to
+     simulate a shift by 8, 16, or 24 bits.  Once moved, a few inline
+     shifts can be added if the shift count is slightly more than 8 or
+     16.  This case also includes other oddballs that are not worth
+     explaning here.
 
-     * swap (+ shifts) -- often it's possible to swap bytes/words to
-     simulate a shift by 8/16.  Once swapped a few inline shifts can be
-     added if the shift count is slightly more than 8 or 16.  This is used
-     when it's about the same size or smaller than a loop.  We allow this
-     version to be slightly longer as it is usually much faster than a loop.
-     SHIFT_SPECIAL
+   o SHIFT_LOOP: Emit a loop using one (or two on H8/S) bit shifts.
 
-     * There other oddballs.  Not worth explaining.  SHIFT_SPECIAL
+   Here are some thoughts on what the absolutely positively best code
+   is.  "Best" here means some rational trade-off between code size
+   and speed, where speed is more preferred but not at the expense of
+   generating 20 insns.
 
-   Here are some thoughts on what the absolutely positively best code is.
-   "Best" here means some rational trade-off between code size and speed,
-   where speed is more preferred but not at the expense of generating 20 insns.
-
-   A trailing '*' after the shift count indicates the "best" mode isn't
-   implemented.
+   Below, a trailing '*' after the shift count indicates the "best"
+   mode isn't implemented.  We only describe SHIFT_SPECIAL cases to
+   simplify the table.  For other cases, refer to shift_alg_[qhs]i.
    
    H8/300 QImode shifts
-   1-4    - do them inline
-   5-6    - ASHIFT | LSHIFTRT: rotate, mask off other bits
-            ASHIFTRT: loop
-   7      - ASHIFT | LSHIFTRT: rotate, mask off other bits
-            ASHIFTRT: shll, subx (propagate carry bit to all bits)
+   7      - ASHIFTRT: shll, subx (propagate carry bit to all bits)
 
    H8/300 HImode shifts
-   1-4    - do them inline
-   5-6    - loop
    7      - shift 2nd half other way into carry.
 	    copy 1st half into 2nd half
 	    rotate 2nd half other way with carry
@@ -1819,40 +1691,21 @@ output_logical_op (mode, code, operands)
 	    sign extend 1st half (ASHIFTRT)
    8      - move byte, zero (ASHIFT | LSHIFTRT) or sign extend other (ASHIFTRT)
    9-12   - do shift by 8, inline remaining shifts
-   13-14* - ASHIFT | LSHIFTRT: rotate 3/2, mask, move byte, set other byte to 0
-          - ASHIFTRT: loop
-   15     - ASHIFT | LSHIFTRT: rotate 1, mask, move byte, set other byte to 0
-          - ASHIFTRT: shll, subx, set other byte
+   15     - ASHIFTRT: shll, subx, set other byte
 
    H8/300 SImode shifts
-   1-2    - do them inline
-   3-6    - loop
    7*     - shift other way once, move bytes into place,
             move carry into place (possibly with sign extension)
    8      - move bytes into place, zero or sign extend other
-   9-14   - loop
    15*    - shift other way once, move word into place, move carry into place
    16     - move word, zero or sign extend other
-   17-23  - loop
    24*    - move bytes into place, zero or sign extend other
-   25-27  - loop
-   28-30* - ASHIFT | LSHIFTRT: rotate top byte, mask, move byte into place,
-                               zero others
-            ASHIFTRT: loop
-   31     - ASHIFT | LSHIFTRT: rotate top byte, mask, move byte into place,
-                               zero others
-            ASHIFTRT: shll top byte, subx, copy to other bytes
+   31     - ASHIFTRT: shll top byte, subx, copy to other bytes
 
    H8/300H QImode shifts (same as H8/300 QImode shifts)
-   1-4    - do them inline
-   5-6    - ASHIFT | LSHIFTRT: rotate, mask off other bits
-            ASHIFTRT: loop
-   7      - ASHIFT | LSHIFTRT: rotate, mask off other bits
-            ASHIFTRT: shll, subx (propagate carry bit to all bits)
+   7      - ASHIFTRT: shll, subx (propagate carry bit to all bits)
 
    H8/300H HImode shifts
-   1-4    - do them inline
-   5-6    - loop
    7      - shift 2nd half other way into carry.
 	    copy 1st half into 2nd half
 	    rotate entire word other way using carry
@@ -1860,22 +1713,16 @@ output_logical_op (mode, code, operands)
 	    sign extend remaining bits (ASHIFTRT)
    8      - move byte, zero (ASHIFT | LSHIFTRT) or sign extend other (ASHIFTRT)
    9-12   - do shift by 8, inline remaining shifts
-   13-14  - ASHIFT | LSHIFTRT: rotate 3/2, mask, move byte, set other byte to 0
-          - ASHIFTRT: loop
-   15     - ASHIFT | LSHIFTRT: rotate 1, mask, move byte, set other byte to 0
-          - ASHIFTRT: shll, subx, set other byte
+   15     - ASHIFTRT: shll, subx, set other byte
 
    H8/300H SImode shifts
    (These are complicated by the fact that we don't have byte level access to
    the top word.)
    A word is: bytes 3,2,1,0 (msb -> lsb), word 1,0 (msw -> lsw)
-   1-4    - do them inline
-   5-14   - loop
    15*    - shift other way once, move word into place, move carry into place
             (with sign extension for ASHIFTRT)
    16     - move word into place, zero or sign extend other
    17-20  - do 16bit shift, then inline remaining shifts
-   20-23  - loop
    24*    - ASHIFT: move byte 0(msb) to byte 1, zero byte 0,
                     move word 0 to word 1, zero word 0
             LSHIFTRT: move word 1 to word 0, move byte 1 to byte 0,
@@ -1884,36 +1731,24 @@ output_logical_op (mode, code, operands)
                       sign extend byte 0, sign extend word 0
    25-27* - either loop, or
             do 24 bit shift, inline rest
-   28-30  - ASHIFT: rotate 4/3/2, mask
-            LSHIFTRT: rotate 4/3/2, mask
-            ASHIFTRT: loop
    31     - shll, subx byte 0, sign extend byte 0, sign extend word 0
 
    H8/S QImode shifts
-   1-6    - do them inline
-   7      - ASHIFT | LSHIFTRT: rotate, mask off other bits
-            ASHIFTRT: shll, subx (propagate carry bit to all bits)
+   7      - ASHIFTRT: shll, subx (propagate carry bit to all bits)
 
    H8/S HImode shifts
-   1-7	  - do them inline
    8      - move byte, zero (ASHIFT | LSHIFTRT) or sign extend other (ASHIFTRT)
    9-12   - do shift by 8, inline remaining shifts
-   13-14  - ASHIFT | LSHIFTRT: rotate 3/2, mask, move byte, set other byte to 0
-          - ASHIFTRT: loop
-   15     - ASHIFT | LSHIFTRT: rotate 1, mask, move byte, set other byte to 0
-          - ASHIFTRT: shll, subx, set other byte
+   15     - ASHIFTRT: shll, subx, set other byte
 
    H8/S SImode shifts
    (These are complicated by the fact that we don't have byte level access to
    the top word.)
    A word is: bytes 3,2,1,0 (msb -> lsb), word 1,0 (msw -> lsw)
-   1-10   - do them inline
-   11-14  - loop
    15*    - shift other way once, move word into place, move carry into place
             (with sign extension for ASHIFTRT)
    16     - move word into place, zero or sign extend other
    17-20  - do 16bit shift, then inline remaining shifts
-   21-23  - loop
    24*    - ASHIFT: move byte 0(msb) to byte 1, zero byte 0,
                     move word 0 to word 1, zero word 0
             LSHIFTRT: move word 1 to word 0, move byte 1 to byte 0,
@@ -1922,9 +1757,6 @@ output_logical_op (mode, code, operands)
                       sign extend byte 0, sign extend word 0
    25-27* - either loop, or
             do 24 bit shift, inline rest
-   28-30  - ASHIFT: rotate 4/3/2, mask
-            LSHIFTRT: rotate 4/3/2, mask
-            ASHIFTRT: loop
    31     - shll, subx byte 0, sign extend byte 0, sign extend word 0
 
    Panic!!!  */
@@ -1973,15 +1805,7 @@ expand_a_shift (mode, code, operands)
   return 1;
 }
 
-/* Shift algorithm determination.
-
-   There are various ways of doing a shift:
-   SHIFT_INLINE: If the amount is small enough, just generate as many one-bit
-                 shifts as we need.
-   SHIFT_ROT_AND: If the amount is large but close to either end, rotate the
-                  necessary bits into position and then set the rest to zero.
-   SHIFT_SPECIAL: Hand crafted assembler.
-   SHIFT_LOOP:    If the above methods fail, just loop.  */
+/* See above for explanation of this enum.  */
 
 enum shift_alg
 {
@@ -2517,8 +2341,10 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	      info->special = "shlr.w\t%e0\n\tmov.w\t%f0,%e0\n\txor.w\t%f0,%f0\n\trotxr.l\t%S0";
 	      goto end;
 	    case SHIFT_LSHIFTRT:
-	      info->special = "shll.w\t%e0\n\tmov.w\t%e0,%f0\n\txor.w\t%e0,%e0\n\trotxl.l\t%S0";
+	      info->special = "shll.w\t%f0\n\tmov.w\t%e0,%f0\n\txor.w\t%e0,%e0\n\trotxl.l\t%S0";
 	      goto end;
+	    case SHIFT_ASHIFTRT:
+	      abort ();
 	    }
 	}
       else if ((TARGET_H8300 && count == 16)
@@ -2620,7 +2446,7 @@ get_shift_alg (shift_type, shift_mode, count, info)
 /* Emit the assembler code for doing shifts.  */
 
 const char *
-emit_a_shift (insn, operands)
+output_a_shift (insn, operands)
      rtx insn ATTRIBUTE_UNUSED;
      rtx *operands;
 {
@@ -2933,7 +2759,7 @@ emit_a_rotate (code, operands)
 
   /* Determine the faster direction.  After this phase, amount will be
      at most a half of GET_MODE_BITSIZE (mode).  */
-  if ((unsigned int) amount > GET_MODE_BITSIZE (mode) / 2)
+  if ((unsigned int) amount > GET_MODE_BITSIZE (mode) / 2U)
     {
       /* Flip the direction.  */
       amount = GET_MODE_BITSIZE (mode) - amount;
@@ -3385,7 +3211,7 @@ h8300_adjust_insn_length (insn, length)
       shift = INTVAL (XEXP (src, 1));
       /* According to ANSI, negative shift is undefined.  It is
          considered to be zero in this case (see function
-         emit_a_shift above).  */
+         output_a_shift above).  */
       if (shift < 0)
 	shift = 0;
 
@@ -3435,7 +3261,7 @@ h8300_adjust_insn_length (insn, length)
 
       /* Determine the faster direction.  After this phase, amount
 	 will be at most a half of GET_MODE_BITSIZE (mode).  */
-      if ((unsigned int) amount > GET_MODE_BITSIZE (mode) / 2)
+      if ((unsigned int) amount > GET_MODE_BITSIZE (mode) / 2U)
 	/* Flip the direction.  */
 	amount = GET_MODE_BITSIZE (mode) - amount;
 

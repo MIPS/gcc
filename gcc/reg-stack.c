@@ -1,6 +1,6 @@
 /* Register to Stack convert for GNU compiler.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -226,7 +226,7 @@ static rtx
   FP_mode_reg[LAST_STACK_REG+1-FIRST_STACK_REG][(int) MAX_MACHINE_MODE];
 
 #define FP_MODE_REG(regno,mode)	\
-  (FP_mode_reg[(regno)-FIRST_STACK_REG][(int)(mode)])
+  (FP_mode_reg[(regno)-FIRST_STACK_REG][(int) (mode)])
 
 /* Used to initialize uninitialized registers.  */
 static rtx nan;
@@ -871,7 +871,7 @@ remove_regno_note (insn, note, regno)
 {
   rtx *note_link, this;
 
-  note_link = &REG_NOTES(insn);
+  note_link = &REG_NOTES (insn);
   for (this = *note_link; this; this = XEXP (this, 1))
     if (REG_NOTE_KIND (this) == note
 	&& REG_P (XEXP (this, 0)) && REGNO (XEXP (this, 0)) == regno)
@@ -1438,7 +1438,7 @@ subst_stack_regs_pat (insn, regstack, pat)
         }
       /* ??? Uninitialized USE should not happen.  */
       else if (get_hard_regnum (regstack, *src) == -1)
-	abort();
+	abort ();
       break;
 
     case CLOBBER:
@@ -2215,7 +2215,7 @@ subst_stack_regs (insn, regstack)
   /* subst_stack_regs_pat may have deleted a no-op insn.  If so, any
      REG_UNUSED will already have been dealt with, so just return.  */
 
-  if (GET_CODE (insn) == NOTE)
+  if (GET_CODE (insn) == NOTE || INSN_DELETED_P (insn))
     return;
 
   /* If there is a REG_UNUSED note on a stack register on this insn,
@@ -2223,7 +2223,7 @@ subst_stack_regs (insn, regstack)
      since the form of the newly emitted pop insn references the reg,
      making it no longer `unset'.  */
 
-  note_link = &REG_NOTES(insn);
+  note_link = &REG_NOTES (insn);
   for (note = *note_link; note; note = XEXP (note, 1))
     if (REG_NOTE_KIND (note) == REG_UNUSED && STACK_REG_P (XEXP (note, 0)))
       {

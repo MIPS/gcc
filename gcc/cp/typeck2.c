@@ -248,32 +248,8 @@ retry:
       break;
     
     default:
-      my_friendly_abort (108);
+      abort ();
     }
-}
-
-/* This is a wrapper around fancy_abort, as used in the back end and
-   other front ends.  It will also report the magic number assigned to
-   this particular abort.  That is for backward compatibility with the
-   old C++ abort handler, which would just report the magic number.  */
-void
-friendly_abort (where, file, line, func)
-     int where;
-     const char *file;
-     int line;
-     const char *func;
-{
-  if (errorcount > 0 || sorrycount > 0)
-    /* Say nothing.  */;
-  else if (where > 0)
-    {
-      error ("internal error #%d", where);
-
-      /* Uncount this error, so internal_error will do the right thing.  */
-      --errorcount;
-    }
-
-  fancy_abort (file, line, func);
 }
 
 
@@ -318,7 +294,7 @@ store_init_value (decl, init)
     {
       if (! TYPE_HAS_TRIVIAL_INIT_REF (type)
 	  && TREE_CODE (init) != CONSTRUCTOR)
-	my_friendly_abort (109);
+	abort ();
 
       if (TREE_CODE (init) == TREE_LIST)
 	{
@@ -925,7 +901,7 @@ process_init_constructor (type, init, elts)
 	  next1 = digest_init (TREE_TYPE (field),
 			       TREE_VALUE (tail), &tail1);
 	  if (tail1 != 0 && TREE_CODE (tail1) != TREE_LIST)
-	    my_friendly_abort (357);
+	    abort ();
 	  tail = tail1;
 	}
       else

@@ -48,19 +48,19 @@ public:
   task_queue ()
   {
     pthread_mutex_init (&fooLock, NULL);
-    pthread_cond_init (&fooCond1, NULL);
-    pthread_cond_init (&fooCond2, NULL);
+    pthread_cond_init (&fooCond, NULL);
   }
   ~task_queue ()
   {
     pthread_mutex_destroy (&fooLock);
-    pthread_cond_destroy (&fooCond1);
-    pthread_cond_destroy (&fooCond2);
+    pthread_cond_destroy (&fooCond);
   }
   list<int> foo;
   pthread_mutex_t fooLock;
-  pthread_cond_t fooCond1;
-  pthread_cond_t fooCond2;
+  // This code uses a special case that allows us to use just one
+  // condition variable - in general, don't use this idiom unless you
+  // know what you are doing. ;-)
+  pthread_cond_t fooCond;
 };
 
 void*
@@ -72,9 +72,9 @@ produce (void* t)
     {
       pthread_mutex_lock (&tq.fooLock);
       while (tq.foo.size () >= max_size)
-	pthread_cond_wait (&tq.fooCond1, &tq.fooLock);
+	pthread_cond_wait (&tq.fooCond, &tq.fooLock);
       tq.foo.push_back (num++);
-      pthread_cond_signal (&tq.fooCond2);
+      pthread_cond_signal (&tq.fooCond);
       pthread_mutex_unlock (&tq.fooLock);
     }
   return 0;
@@ -89,11 +89,11 @@ consume (void* t)
     {
       pthread_mutex_lock (&tq.fooLock);
       while (tq.foo.size () == 0)
-	pthread_cond_wait (&tq.fooCond2, &tq.fooLock);
+	pthread_cond_wait (&tq.fooCond, &tq.fooLock);
       if (tq.foo.front () != num++)
 	abort ();
       tq.foo.pop_front ();
-      pthread_cond_signal (&tq.fooCond1);
+      pthread_cond_signal (&tq.fooCond);
       pthread_mutex_unlock (&tq.fooLock);
     }
   return 0;

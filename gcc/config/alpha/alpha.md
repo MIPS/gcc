@@ -460,7 +460,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
    (set_attr "length" "*,*,*,8")])
 
 (define_insn "*extendsidi2_fix"
-  [(set (match_operand:DI 0 "register_operand" "=r,r,r,*f,?*f")
+  [(set (match_operand:DI 0 "register_operand" "=r,r,r,?*f,?*f")
 	(sign_extend:DI
 	  (match_operand:SI 1 "nonimmediate_operand" "r,m,*f,*f,m")))]
   "TARGET_FIX"
@@ -648,6 +648,14 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 		 (high:DI (match_operand:DI 2 "local_symbolic_operand" ""))))]
   "TARGET_EXPLICIT_RELOCS"
   "ldah %0,%2(%1)\t\t!gprelhigh")
+
+(define_split
+  [(set (match_operand:DI 0 "register_operand" "")
+        (high:DI (match_operand:DI 1 "local_symbolic_operand" "")))]
+  "TARGET_EXPLICIT_RELOCS && reload_completed"
+  [(set (match_dup 0)
+	(plus:DI (match_dup 2) (high:DI (match_dup 1))))]
+  "operands[2] = pic_offset_table_rtx;")
 
 ;; We used to expend quite a lot of effort choosing addq/subq/lda.
 ;; With complications like
@@ -1204,6 +1212,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
   [(parallel [(set (match_dup 0)
 		   (sign_extend:DI (match_dup 3)))
 	      (use (match_dup 0))
+	      (use (match_dup 4))
 	      (clobber (reg:DI 23))
 	      (clobber (reg:DI 28))])]
 {
@@ -1225,9 +1234,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
     default:
       abort ();
     }
+  operands[4] = GEN_INT (alpha_next_sequence_number++);
   emit_insn (gen_movdi_er_high_g (operands[0], pic_offset_table_rtx,
 				  gen_rtx_SYMBOL_REF (DImode, str),
-				  const0_rtx));
+				  operands[4]));
 }
   [(set_attr "type" "jsr")
    (set_attr "length" "8")])
@@ -1238,10 +1248,11 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
                         [(match_operand:DI 1 "register_operand" "a")
                          (match_operand:DI 2 "register_operand" "b")])))
    (use (match_operand:DI 4 "register_operand" "c"))
+   (use (match_operand 5 "const_int_operand" ""))
    (clobber (reg:DI 23))
    (clobber (reg:DI 28))]
   "TARGET_EXPLICIT_RELOCS && ! TARGET_ABI_OPEN_VMS"
-  "jsr $23,($27),__%E3"
+  "jsr $23,($27),__%E3%J5"
   [(set_attr "type" "jsr")
    (set_attr "length" "4")])
 
@@ -1269,6 +1280,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
   "&& reload_completed"
   [(parallel [(set (match_dup 0) (match_dup 3))
 	      (use (match_dup 0))
+	      (use (match_dup 4))
 	      (clobber (reg:DI 23))
 	      (clobber (reg:DI 28))])]
 {
@@ -1290,9 +1302,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
     default:
       abort ();
     }
+  operands[4] = GEN_INT (alpha_next_sequence_number++);
   emit_insn (gen_movdi_er_high_g (operands[0], pic_offset_table_rtx,
 				  gen_rtx_SYMBOL_REF (DImode, str),
-				  const0_rtx));
+				  operands[4]));
 }
   [(set_attr "type" "jsr")
    (set_attr "length" "8")])
@@ -1303,10 +1316,11 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
                         [(match_operand:DI 1 "register_operand" "a")
                          (match_operand:DI 2 "register_operand" "b")]))
    (use (match_operand:DI 4 "register_operand" "c"))
+   (use (match_operand 5 "const_int_operand" ""))
    (clobber (reg:DI 23))
    (clobber (reg:DI 28))]
   "TARGET_EXPLICIT_RELOCS && ! TARGET_ABI_OPEN_VMS"
-  "jsr $23,($27),__%E3"
+  "jsr $23,($27),__%E3%J5"
   [(set_attr "type" "jsr")
    (set_attr "length" "4")])
 
@@ -4831,17 +4845,21 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 		    (match_dup 1))
 	      (set (reg:DI 26) (plus:DI (pc) (const_int 4)))
 	      (unspec_volatile [(reg:DI 29)] UNSPECV_BLOCKAGE)
-	      (use (match_dup 0))])]
+	      (use (match_dup 0))
+	      (use (match_dup 3))])]
 {
   if (CONSTANT_P (operands[0]))
     {
       operands[2] = gen_rtx_REG (Pmode, 27);
-      emit_move_insn (operands[2], operands[0]);
+      operands[3] = GEN_INT (alpha_next_sequence_number++);
+      emit_insn (gen_movdi_er_high_g (operands[2], pic_offset_table_rtx,
+				      operands[0], operands[3]));
     }
   else
     {
       operands[2] = operands[0];
       operands[0] = const0_rtx;
+      operands[3] = const0_rtx;
     }
 })
 
@@ -4857,7 +4875,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 		    (match_dup 1))
 	      (set (reg:DI 26) (plus:DI (pc) (const_int 4)))
 	      (unspec_volatile [(reg:DI 29)] UNSPECV_BLOCKAGE)
-	      (use (match_dup 0))])
+	      (use (match_dup 0))
+	      (use (match_dup 4))])
    (set (reg:DI 29)
 	(unspec_volatile:DI [(reg:DI 26) (match_dup 3)] UNSPECV_LDGP1))
    (set (reg:DI 29)
@@ -4866,12 +4885,15 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
   if (CONSTANT_P (operands[0]))
     {
       operands[2] = gen_rtx_REG (Pmode, 27);
-      emit_move_insn (operands[2], operands[0]);
+      operands[4] = GEN_INT (alpha_next_sequence_number++);
+      emit_insn (gen_movdi_er_high_g (operands[2], pic_offset_table_rtx,
+				      operands[0], operands[4]));
     }
   else
     {
       operands[2] = operands[0];
       operands[0] = const0_rtx;
+      operands[4] = const0_rtx;
     }
   operands[3] = GEN_INT (alpha_next_sequence_number++);
 })
@@ -4884,9 +4906,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 	 (match_operand 1 "" ""))
    (set (reg:DI 26) (plus:DI (pc) (const_int 4)))
    (unspec_volatile [(reg:DI 29)] UNSPECV_BLOCKAGE)
-   (use (match_operand 2 "" ""))]
+   (use (match_operand 2 "" ""))
+   (use (match_operand 3 "const_int_operand" ""))]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
-  "jsr $26,(%0),%2"
+  "jsr $26,(%0),%2%J3"
   [(set_attr "type" "jsr")])
 
 (define_insn "*call_osf_1_noreturn"
@@ -5459,6 +5482,30 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
     return "lda %0,%2(%1)\t\t!gprellow";
 })
 
+(define_split
+  [(set (match_operand:DI 0 "register_operand" "")
+	(match_operand:DI 1 "small_symbolic_operand" ""))]
+  "TARGET_EXPLICIT_RELOCS && reload_completed"
+  [(set (match_dup 0)
+	(lo_sum:DI (match_dup 2) (match_dup 1)))]
+  "operands[2] = pic_offset_table_rtx;")
+
+(define_split
+  [(set (match_operand:DI 0 "register_operand" "")
+	(match_operand:DI 1 "local_symbolic_operand" ""))]
+  "TARGET_EXPLICIT_RELOCS && reload_completed"
+  [(set (match_dup 0)
+	(plus:DI (match_dup 2) (high:DI (match_dup 1))))
+   (set (match_dup 0)
+	(lo_sum:DI (match_dup 0) (match_dup 1)))]
+  "operands[2] = pic_offset_table_rtx;")
+
+(define_split
+  [(match_operand 0 "some_small_symbolic_mem_operand" "")]
+  "TARGET_EXPLICIT_RELOCS && reload_completed"
+  [(match_dup 0)]
+  "operands[0] = split_small_symbolic_mem_operand (operands[0]);")
+
 (define_insn "movdi_er_high_g"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(unspec:DI [(match_operand:DI 1 "register_operand" "r")
@@ -5466,12 +5513,27 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 		    (match_operand 3 "const_int_operand" "")]
 		   UNSPEC_LITERAL))]
   "TARGET_EXPLICIT_RELOCS"
-  "ldq %0,%2(%1)\t\t!literal"
+{
+  if (INTVAL (operands[3]) == 0)
+    return "ldq %0,%2(%1)\t\t!literal";
+  else
+    return "ldq %0,%2(%1)\t\t!literal!%3";
+}
   [(set_attr "type" "ldsym")])
 
+(define_split
+  [(set (match_operand:DI 0 "register_operand" "")
+	(match_operand:DI 1 "global_symbolic_operand" ""))]
+  "TARGET_EXPLICIT_RELOCS && reload_completed"
+  [(set (match_dup 0)
+	(unspec:DI [(match_dup 2)
+		    (match_dup 1)
+		    (const_int 0)] UNSPEC_LITERAL))]
+  "operands[2] = pic_offset_table_rtx;")
+
 (define_insn "*movdi_er_nofix"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,m,*f,*f,Q")
-	(match_operand:DI 1 "input_operand" "rJ,K,L,T,m,rJ,*fJ,Q,*f"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,r,m,*f,*f,Q")
+	(match_operand:DI 1 "input_operand" "rJ,K,L,T,s,m,rJ,*fJ,Q,*f"))]
   "TARGET_EXPLICIT_RELOCS && ! TARGET_FIX
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
@@ -5479,13 +5541,14 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
    mov %r1,%0
    lda %0,%1($31)
    ldah %0,%h1($31)
-   ldah %0,%H1
+   #
+   #
    ldq%A1 %0,%1
    stq%A0 %r1,%0
    fmov %R1,%0
    ldt %0,%1
    stt %R1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,iadd,ild,ist,fcpys,fld,fst")])
+  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst")])
 
 ;; The 'U' constraint matches symbolic operands on Unicos/Mk. Those should
 ;; have been split up by the rules above but we shouldn't reject the
@@ -5512,8 +5575,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
    (set_attr "length" "*,*,*,16,*,*,*,*,*,*")])
 
 (define_insn "*movdi_er_fix"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,m,*f,*f,Q,r,*f")
-	(match_operand:DI 1 "input_operand" "rJ,K,L,T,m,rJ,*fJ,Q,*f,*f,r"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand"
+				"=r,r,r,r,r,r, m, *f,*f, Q, r,*f")
+	(match_operand:DI 1 "input_operand"
+				"rJ,K,L,T,s,m,rJ,*fJ, Q,*f,*f, r"))]
   "TARGET_EXPLICIT_RELOCS && TARGET_FIX
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
@@ -5521,7 +5586,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
    mov %r1,%0
    lda %0,%1($31)
    ldah %0,%h1($31)
-   ldah %0,%H1
+   #
+   #
    ldq%A1 %0,%1
    stq%A0 %r1,%0
    fmov %R1,%0
@@ -5529,7 +5595,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
    stt %R1,%0
    ftoit %1,%0
    itoft %1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,iadd,ild,ist,fcpys,fld,fst,ftoi,itof")])
+  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst,ftoi,itof")])
 
 (define_insn "*movdi_fix"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,m,*f,*f,Q,r,*f")
@@ -6473,7 +6539,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
   ""
 {
   if (TARGET_EXPLICIT_RELOCS)
-    return "ldq $28,_mcount($29)\t\t!literal!%#\;jsr $28,($28),_mcount\t\t!lituse_jsr!%#";
+    /* Note that we cannot use a lituse_jsr reloc, since _mcount
+       cannot be called via the PLT.  */
+    return "ldq $28,_mcount($29)\t\t!literal\;jsr $28,($28),_mcount";
   else
     return "lda $28,_mcount\;jsr $28,($28),_mcount";
 }
@@ -6831,25 +6899,29 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 		         (match_operand 2 "" "")))
 	      (use (reg:DI 29))
 	      (clobber (reg:DI 26))])]
-  "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF  && reload_completed
-   && ! current_file_function_operand (operands[0], Pmode)
+  "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && reload_completed
+   && ! current_file_function_operand (operands[1], Pmode)
    && peep2_regno_dead_p (1, 29)"
   [(parallel [(set (match_dup 0)
 		   (call (mem:DI (match_dup 3))
 			 (match_dup 2)))
 	      (set (reg:DI 26) (plus:DI (pc) (const_int 4)))
 	      (unspec_volatile [(reg:DI 29)] UNSPECV_BLOCKAGE)
-	      (use (match_dup 1))])]
+	      (use (match_dup 1))
+	      (use (match_dup 4))])]
 {
   if (CONSTANT_P (operands[1]))
     {
       operands[3] = gen_rtx_REG (Pmode, 27);
-      emit_move_insn (operands[3], operands[1]);
+      operands[4] = GEN_INT (alpha_next_sequence_number++);
+      emit_insn (gen_movdi_er_high_g (operands[3], pic_offset_table_rtx,
+				      operands[1], operands[4]));
     }
   else
     {
       operands[3] = operands[1];
       operands[1] = const0_rtx;
+      operands[4] = const0_rtx;
     }
 })
 
@@ -6859,15 +6931,16 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 		         (match_operand 2 "" "")))
 	      (use (reg:DI 29))
 	      (clobber (reg:DI 26))])]
-  "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF  && reload_completed
-   && ! current_file_function_operand (operands[0], Pmode)
+  "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && reload_completed
+   && ! current_file_function_operand (operands[1], Pmode)
    && ! peep2_regno_dead_p (1, 29)"
   [(parallel [(set (match_dup 0)
 		   (call (mem:DI (match_dup 3))
 			 (match_dup 2)))
 	      (set (reg:DI 26) (plus:DI (pc) (const_int 4)))
 	      (unspec_volatile [(reg:DI 29)] UNSPECV_BLOCKAGE)
-	      (use (match_dup 1))])
+	      (use (match_dup 1))
+	      (use (match_dup 5))])
    (set (reg:DI 29)
 	(unspec_volatile:DI [(reg:DI 26) (match_dup 4)] UNSPECV_LDGP1))
    (set (reg:DI 29)
@@ -6876,12 +6949,15 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
   if (CONSTANT_P (operands[1]))
     {
       operands[3] = gen_rtx_REG (Pmode, 27);
-      emit_move_insn (operands[3], operands[1]);
+      operands[5] = GEN_INT (alpha_next_sequence_number++);
+      emit_insn (gen_movdi_er_high_g (operands[3], pic_offset_table_rtx,
+				      operands[1], operands[5]));
     }
   else
     {
       operands[3] = operands[1];
       operands[1] = const0_rtx;
+      operands[5] = const0_rtx;
     }
   operands[4] = GEN_INT (alpha_next_sequence_number++);
 })
@@ -6895,9 +6971,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
    (set (reg:DI 26)
 	(plus:DI (pc) (const_int 4)))
    (unspec_volatile [(reg:DI 29)] UNSPECV_BLOCKAGE)
-   (use (match_operand 3 "" ""))]
+   (use (match_operand 3 "" ""))
+   (use (match_operand 4 "const_int_operand" ""))]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
-  "jsr $26,(%1),%3"
+  "jsr $26,(%1),%3%J4"
   [(set_attr "type" "jsr")])
 
 (define_insn "*call_value_osf_1_noreturn"

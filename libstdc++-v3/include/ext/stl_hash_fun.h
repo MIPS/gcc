@@ -61,10 +61,11 @@
 #ifndef _CPP_BITS_STL_HASH_FUN_H
 #define _CPP_BITS_STL_HASH_FUN_H 1
 
-#include <bits/std_cstddef.h>
+#include <cstddef>
 
-namespace std
+namespace __gnu_cxx
 {
+using std::size_t;
 
 template <class _Key> struct hash { };
 
@@ -115,7 +116,7 @@ template<> struct hash<unsigned long> {
   size_t operator()(unsigned long __x) const { return __x; }
 };
 
-} // namespace std
+} // namespace __gnu_cxx
 
 #endif /* _CPP_BITS_STL_HASH_FUN_H */
 

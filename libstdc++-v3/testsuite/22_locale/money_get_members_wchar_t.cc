@@ -1,6 +1,6 @@
 // 2001-09-14 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001 Free Software Foundation
+// Copyright (C) 2001, 2002 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -250,13 +250,76 @@ void test02()
   VERIFY( result3 == digits4 );
   VERIFY( err03 == ios_base::goodbit );
 }
+
+void test03()
+{
+  using namespace std;
+  bool test = true;
+
+  // Check money_get works with other iterators besides streambuf
+  // output iterators.
+  typedef wstring::const_iterator iter_type;
+  typedef money_get<wchar_t, iter_type> mon_get_type;
+  const ios_base::iostate goodbit = ios_base::goodbit;
+  const ios_base::iostate eofbit = ios_base::eofbit;
+  ios_base::iostate err = goodbit;
+  const locale loc_c = locale::classic();
+  const wstring str = L"0.01Eleanor Roosevelt";
+
+  wistringstream iss; 
+  iss.imbue(locale(loc_c, new mon_get_type));
+
+  // Iterator advanced, state, output.
+  const mon_get_type& mg = use_facet<mon_get_type>(iss.getloc());
+
+  // 01 string
+  wstring res1;
+  iter_type end1 = mg.get(str.begin(), str.end(), false, iss, err, res1);
+  wstring rem1(end1, str.end());
+  VERIFY( err == goodbit );
+  VERIFY( res1 == L"1" );
+  VERIFY( rem1 == L"Eleanor Roosevelt" );
+
+  // 02 long double
+  iss.clear();
+  err = goodbit;
+  long double res2;
+  iter_type end2 = mg.get(str.begin(), str.end(), false, iss, err, res2);
+  wstring rem2(end2, str.end());
+  VERIFY( err == goodbit );
+  VERIFY( res2 == 1 );
+  VERIFY( rem2 == L"Eleanor Roosevelt" );
+}
+
+// libstdc++/5280
+void test04()
+{
+#ifdef _GLIBCPP_HAVE_SETENV 
+  // Set the global locale to non-"C".
+  std::locale loc_de("de_DE");
+  std::locale::global(loc_de);
+
+  // Set LANG environment variable to de_DE.
+  const char* oldLANG = getenv("LANG");
+  if (!setenv("LANG", "de_DE", 1))
+    {
+      test01();
+      test02();
+      test03();
+      setenv("LANG", oldLANG, 1);
+    }
 #endif
+}
+#endif
+
 
 int main()
 {
 #ifdef _GLIBCPP_USE_WCHAR_T
   test01();
   test02();
+  test03();
+  test04();
 #endif
   return 0;
 }

@@ -1,6 +1,6 @@
 ;- Machine description for SPARC chip for GNU C compiler
 ;;  Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001 Free Software Foundation, Inc.
+;;  1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 ;;  Contributed by Michael Tiemann (tiemann@cygnus.com)
 ;;  64 bit SPARC V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
 ;;  at Cygnus Support.
@@ -82,6 +82,7 @@
 
 ;; Insn type.
 
+;; If you add any new type here, please update ultrasparc_sched_reorder too.
 (define_attr "type"
   "ialu,compare,shift,load,sload,store,uncond_branch,branch,call,sibcall,call_no_delay_slot,return,imul,idiv,fpload,fpstore,fp,fpmove,fpcmove,fpcmp,fpmul,fpdivs,fpdivd,fpsqrts,fpsqrtd,cmove,multi,misc"
   (const_string "ialu"))
@@ -5315,7 +5316,7 @@
 
 (define_expand "fix_trunctfdi2"
   [(set (match_operand:DI 0 "register_operand" "=e")
-	(fix:SI (fix:TF (match_operand:TF 1 "register_operand" "e"))))]
+	(fix:DI (fix:TF (match_operand:TF 1 "register_operand" "e"))))]
   "TARGET_V9 && TARGET_FPU && (TARGET_HARD_QUAD || TARGET_ARCH64)"
   "
 {
@@ -9257,7 +9258,7 @@
 	      (clobber (reg:SI 15))])
    (set (pc) (label_ref (match_operand 3 "" "")))]
   "short_branch (INSN_UID (insn), INSN_UID (operands[3]))
-   && (USING_SJLJ_EXCEPTIONS || ! can_throw_internal (insn))"
+   && (USING_SJLJ_EXCEPTIONS || ! can_throw_internal (ins1))"
   "call\\t%a1, %2\\n\\tadd\\t%%o7, (%l3-.-4), %%o7")
 
 (define_peephole
@@ -9266,7 +9267,7 @@
 	      (clobber (reg:SI 15))])
    (set (pc) (label_ref (match_operand 2 "" "")))]
   "short_branch (INSN_UID (insn), INSN_UID (operands[2]))
-   && (USING_SJLJ_EXCEPTIONS || ! can_throw_internal (insn))"
+   && (USING_SJLJ_EXCEPTIONS || ! can_throw_internal (ins1))"
   "call\\t%a0, %1\\n\\tadd\\t%%o7, (%l2-.-4), %%o7")
 
 (define_peephole
@@ -9277,7 +9278,7 @@
    (set (pc) (label_ref (match_operand 3 "" "")))]
   "TARGET_ARCH64
    && short_branch (INSN_UID (insn), INSN_UID (operands[3]))
-   && (USING_SJLJ_EXCEPTIONS || ! can_throw_internal (insn))"
+   && (USING_SJLJ_EXCEPTIONS || ! can_throw_internal (ins1))"
   "call\\t%a1, %2\\n\\tadd\\t%%o7, (%l3-.-4), %%o7")
 
 (define_peephole
@@ -9287,7 +9288,7 @@
    (set (pc) (label_ref (match_operand 2 "" "")))]
   "TARGET_ARCH64
    && short_branch (INSN_UID (insn), INSN_UID (operands[2]))
-   && (USING_SJLJ_EXCEPTIONS || ! can_throw_internal (insn))"
+   && (USING_SJLJ_EXCEPTIONS || ! can_throw_internal (ins1))"
   "call\\t%a0, %1\\n\\tadd\\t%%o7, (%l2-.-4), %%o7")
 
 (define_insn "prefetch"

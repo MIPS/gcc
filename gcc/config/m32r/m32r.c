@@ -793,7 +793,13 @@ move_src_operand (op, mode)
 	 loadable with one insn, and split the rest into two.  The instances
 	 where this would help should be rare and the current way is
 	 simpler.  */
-      return UINT32_P (INTVAL (op));
+      if (HOST_BITS_PER_WIDE_INT > 32)
+	{
+	  HOST_WIDE_INT rest = INTVAL (op) >> 31;
+	  return (rest == 0 || rest == -1);
+	}
+      else
+	return 1;
     case LABEL_REF :
       return TARGET_ADDR24;
     case CONST_DOUBLE :
@@ -1864,7 +1870,7 @@ static struct m32r_frame_info zero_frame_info;
  && (regs_ever_live[regno] && (!call_used_regs[regno] || interrupt_p)))
 
 #define MUST_SAVE_FRAME_POINTER (regs_ever_live[FRAME_POINTER_REGNUM])
-#define MUST_SAVE_RETURN_ADDR (regs_ever_live[RETURN_ADDR_REGNUM] || profile_flag)
+#define MUST_SAVE_RETURN_ADDR (regs_ever_live[RETURN_ADDR_REGNUM] || current_function_profile)
 
 #define SHORT_INSN_SIZE 2	/* size of small instructions */
 #define LONG_INSN_SIZE 4	/* size of long instructions */
@@ -2018,7 +2024,7 @@ m32r_expand_prologue ()
   if (frame_pointer_needed)
     emit_insn (gen_movsi (frame_pointer_rtx, stack_pointer_rtx));
 
-  if (profile_flag)
+  if (current_function_profile)
     emit_insn (gen_blockage ());
 }
 

@@ -1,3 +1,31 @@
+2002-01-25  Douglas B Rupp  <rupp@gnat.com>
+
+	* install-sh: Use _inst.$$_ for temp file name.
+
+2002-01-24  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* MAINTAINERS (Write After Approval): Move my contact info
+	from here...
+	(OS Port Maintainers): ...to here (netbsd).
+
+2002-01-22  Bob Wilson  <bob.wilson@acm.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2002-01-17  H.J. Lu <hjl@gnu.org>
+
+	* Makefile.in (all-fastjar): Also depend on all-libiberty.
+	(all-target-fastjar): Also depend on all-target-libiberty.
+
+2002-01-16  H.J. Lu  (hjl@gnu.org)
+
+	* config.guess: Import from master sources, rev 1.225.
+	* config.sub: Import from master sources, rev 1.238.
+
+2002-01-16  Kazu Hirata  <kazu@hxi.com>
+
+	* MAINTAINERS (Write After Approval): Remove myself.
+
 2001-12-19  Florian Weimer  <fw@deneb.enyo.de>
 
 	* MAINTAINERS (Write After Approval): Add myself.

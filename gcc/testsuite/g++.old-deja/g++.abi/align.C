@@ -1,4 +1,4 @@
-// Skip if not target: i?86-*-linux*
+// Skip if not target: i?86-*-linux* i?86-*-freebsd*
 // Special g++ Options: -malign-double
 // Origin: Alex Samuel <samuel@codesourcery.com>
 

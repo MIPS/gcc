@@ -145,38 +145,7 @@ hack_identifier (value, name)
   tree type;
 
   if (value == error_mark_node)
-    {
-      if (current_class_name)
-	{
-	  tree fields = lookup_fnfields (TYPE_BINFO (current_class_type),
-					 name, 1);
-	  if (fields == error_mark_node)
-	    return error_mark_node;
-	  if (fields)
-	    {
-	      tree fndecl;
-
-	      fndecl = TREE_VALUE (fields);
-	      my_friendly_assert (TREE_CODE (fndecl) == FUNCTION_DECL, 251);
-	      /* I could not trigger this code. MvL */
-	      my_friendly_abort (980325);
-#ifdef DEAD
-	      if (DECL_CHAIN (fndecl) == NULL_TREE)
-		{
-		  warning ("methods cannot be converted to function pointers");
-		  return fndecl;
-		}
-	      else
-		{
-		  error ("ambiguous request for method pointer `%s'",
-			 IDENTIFIER_POINTER (name));
-		  return error_mark_node;
-		}
-#endif
-	    }
-	}
-      return error_mark_node;
-    }
+    return error_mark_node;
 
   type = TREE_TYPE (value);
   if (TREE_CODE (value) == FIELD_DECL)
@@ -338,7 +307,9 @@ make_thunk (function, delta, vcall_index)
       DECL_CONTEXT (thunk) = DECL_CONTEXT (func_decl);
       TREE_READONLY (thunk) = TREE_READONLY (func_decl);
       TREE_THIS_VOLATILE (thunk) = TREE_THIS_VOLATILE (func_decl);
-      comdat_linkage (thunk);
+      TREE_PUBLIC (thunk) = TREE_PUBLIC (func_decl);
+      if (flag_weak)
+	comdat_linkage (thunk);
       SET_DECL_THUNK_P (thunk);
       DECL_INITIAL (thunk) = function;
       THUNK_DELTA (thunk) = d;
@@ -409,6 +380,9 @@ use_thunk (thunk_fndecl, emit_p)
   mark_used (thunk_fndecl);
   /* This thunk is actually defined.  */
   DECL_EXTERNAL (thunk_fndecl) = 0;
+  /* The linkage of the function may have changed.  FIXME in linkage
+     rewrite.  */
+  TREE_PUBLIC (thunk_fndecl) = TREE_PUBLIC (function);
 
   if (flag_syntax_only)
     {
@@ -619,7 +593,7 @@ do_build_copy_constructor (fndecl)
 	}
       member_init_list = nreverse (member_init_list);
       base_init_list = nreverse (base_init_list);
-      setup_vtbl_ptr (member_init_list, base_init_list);
+      emit_base_init (member_init_list, base_init_list);
     }
 }
 
@@ -765,15 +739,13 @@ synthesize_method (fndecl)
       do_build_assign_ref (fndecl);
       need_body = 0;
     }
-  else if (DECL_DESTRUCTOR_P (fndecl))
-    setup_vtbl_ptr (NULL_TREE, NULL_TREE);
-  else
+  else if (DECL_CONSTRUCTOR_P (fndecl))
     {
       tree arg_chain = FUNCTION_FIRST_USER_PARMTYPE (fndecl);
       if (arg_chain != void_list_node)
 	do_build_copy_constructor (fndecl);
       else if (TYPE_NEEDS_CONSTRUCTING (current_class_type))
-	setup_vtbl_ptr (NULL_TREE, NULL_TREE);
+	finish_mem_initializers (NULL_TREE);
     }
 
   /* If we haven't yet generated the body of the function, just
@@ -1017,7 +989,7 @@ implicitly_declare_fn (kind, type, const_p)
       break;
     }
     default:
-      my_friendly_abort (59);
+      abort ();
     }
 
   TREE_PARMLIST (args) = 1;

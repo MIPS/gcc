@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -60,6 +60,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "except.h"
 #include "toplev.h"
 #include "recog.h"
+#include "cfglayout.h"
 #include "sched-int.h"
 
 /* Define when we want to do count REG_DEAD notes before and after scheduling
@@ -1027,11 +1028,11 @@ find_rgns (edge_list, dom)
   free (max_hdr);
   free (dfs_nr);
   free (stack);
-  free (passed);
-  free (header);
-  free (inner);
-  free (in_queue);
-  free (in_stack);
+  sbitmap_free (passed);
+  sbitmap_free (header);
+  sbitmap_free (inner);
+  sbitmap_free (in_queue);
+  sbitmap_free (in_stack);
 }
 
 /* Functions for regions scheduling information.  */
@@ -2896,9 +2897,7 @@ schedule_insns (dump_file)
   if (n_basic_blocks == 0)
     return;
 
-  /* Remove lexical block notes for empty regions.  These get shuffled
-     about during scheduling and confuse the debugging issue.  */
-  remove_unnecessary_notes ();
+  scope_to_insns_initialize ();
 
   nr_inter = 0;
   nr_spec = 0;
@@ -2985,6 +2984,8 @@ schedule_insns (dump_file)
   /* Delete redundant line notes.  */
   if (write_symbols != NO_DEBUG)
     rm_redundant_line_notes ();
+
+  scope_to_insns_finalize ();
 
   if (sched_verbose)
     {

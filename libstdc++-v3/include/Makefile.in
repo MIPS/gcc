@@ -1,7 +1,6 @@
-# Makefile.in generated automatically by automake 1.5 from Makefile.am.
+# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
 
-# Copyright 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
-# Free Software Foundation, Inc.
+# Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -11,7 +10,6 @@
 # even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 # PARTICULAR PURPOSE.
 
-@SET_MAKE@
 
 SHELL = @SHELL@
 
@@ -33,9 +31,13 @@ infodir = @infodir@
 mandir = @mandir@
 includedir = @includedir@
 oldincludedir = /usr/include
+
+DESTDIR =
+
 pkgdatadir = $(datadir)/@PACKAGE@
 pkglibdir = $(libdir)/@PACKAGE@
 pkgincludedir = $(includedir)/@PACKAGE@
+
 top_builddir = ..
 
 ACLOCAL = @ACLOCAL@
@@ -44,11 +46,11 @@ AUTOMAKE = @AUTOMAKE@
 AUTOHEADER = @AUTOHEADER@
 
 INSTALL = @INSTALL@
-INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@ $(AM_INSTALL_PROGRAM_FLAGS)
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
-INSTALL_HEADER = $(INSTALL_DATA)
 transform = @program_transform_name@
+
 NORMAL_INSTALL = :
 PRE_INSTALL = :
 POST_INSTALL = :
@@ -82,6 +84,7 @@ C_INCLUDE_DIR = @C_INCLUDE_DIR@
 DATADIRNAME = @DATADIRNAME@
 DEBUG_FLAGS = @DEBUG_FLAGS@
 DLLTOOL = @DLLTOOL@
+EXEEXT = @EXEEXT@
 EXTRA_CXX_FLAGS = @EXTRA_CXX_FLAGS@
 GCJ = @GCJ@
 GCJFLAGS = @GCJFLAGS@
@@ -105,6 +108,7 @@ LIBSUPCXX_PICFLAGS = @LIBSUPCXX_PICFLAGS@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
 MAINT = @MAINT@
+MAKEINFO = @MAKEINFO@
 MKINSTALLDIRS = @MKINSTALLDIRS@
 MSGFMT = @MSGFMT@
 OBJDUMP = @OBJDUMP@
@@ -142,22 +146,15 @@ libtool_VERSION = @libtool_VERSION@
 release_VERSION = @release_VERSION@
 toplevel_srcdir = @toplevel_srcdir@
 
-# Cross compiler and multilib support.
-CXX = @glibcpp_CXX@
-glibcpp_builddir = @glibcpp_builddir@
-glibcpp_srcdir = @glibcpp_srcdir@
-
-# Target includes for threads
-glibcpp_thread_h = @glibcpp_thread_h@
-
-# One big happy istallation:  just copy everything from the build to the
-# install tree (except for the build stamps).
-gxx_include_dir = @gxx_include_dir@
-
 AUTOMAKE_OPTIONS = 1.3 gnits
 MAINT_CHARSET = latin1
 
 mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
+
+# Cross compiler and multilib support.
+CXX = @glibcpp_CXX@
+glibcpp_srcdir = @glibcpp_srcdir@
+glibcpp_builddir = @glibcpp_builddir@
 
 bits_srcdir = ${glibcpp_srcdir}/include/bits
 bits_builddir = ./bits
@@ -192,35 +189,6 @@ bits_headers = \
 	${bits_srcdir}/slice.h \
 	${bits_srcdir}/slice_array.h \
 	${bits_srcdir}/sstream.tcc \
-	${bits_srcdir}/std_algorithm.h \
-	${bits_srcdir}/std_bitset.h \
-	${bits_srcdir}/std_complex.h \
-	${bits_srcdir}/std_deque.h \
-	${bits_srcdir}/std_fstream.h \
-	${bits_srcdir}/std_functional.h \
-	${bits_srcdir}/std_iomanip.h \
-	${bits_srcdir}/std_ios.h \
-	${bits_srcdir}/std_iosfwd.h \
-	${bits_srcdir}/std_iostream.h \
-	${bits_srcdir}/std_istream.h \
-	${bits_srcdir}/std_iterator.h \
-	${bits_srcdir}/std_limits.h \
-	${bits_srcdir}/std_list.h \
-	${bits_srcdir}/std_locale.h \
-	${bits_srcdir}/std_map.h \
-	${bits_srcdir}/std_memory.h \
-	${bits_srcdir}/std_numeric.h \
-	${bits_srcdir}/std_ostream.h \
-	${bits_srcdir}/std_queue.h \
-	${bits_srcdir}/std_set.h \
-	${bits_srcdir}/std_sstream.h \
-	${bits_srcdir}/std_stack.h \
-	${bits_srcdir}/std_stdexcept.h \
-	${bits_srcdir}/std_streambuf.h \
-	${bits_srcdir}/std_string.h \
-	${bits_srcdir}/std_utility.h \
-	${bits_srcdir}/std_valarray.h \
-	${bits_srcdir}/std_vector.h \
 	${bits_srcdir}/stl_algo.h \
 	${bits_srcdir}/stl_algobase.h \
 	${bits_srcdir}/stl_alloc.h \
@@ -303,24 +271,30 @@ ext_srcdir = ${glibcpp_srcdir}/include/ext
 ext_builddir = ./ext
 ext_headers = \
 	${ext_srcdir}/algorithm \
-	${ext_srcdir}/rope \
-	${ext_srcdir}/ropeimpl.h \
-	${ext_srcdir}/stl_rope.h \
-	${ext_srcdir}/slist \
+	${ext_srcdir}/functional \
 	${ext_srcdir}/hash_map \
 	${ext_srcdir}/hash_set \
+	${ext_srcdir}/iterator \
+	${ext_srcdir}/memory \
+	${ext_srcdir}/numeric \
+	${ext_srcdir}/rb_tree \
+	${ext_srcdir}/rope \
+	${ext_srcdir}/ropeimpl.h \
+	${ext_srcdir}/slist \
+	${ext_srcdir}/stl_hash_fun.h \
 	${ext_srcdir}/stl_hashtable.h \
-	${ext_srcdir}/stl_hash_fun.h
+	${ext_srcdir}/stl_rope.h
 
 
 # This is the common subset of files that all three "C" header models use.
-c_base_srcdir = @C_INCLUDE_DIR@/bits
-c_base_builddir = ./bits
+c_base_srcdir = @C_INCLUDE_DIR@
+c_base_builddir = .
 c_base_headers = \
 	${c_base_srcdir}/std_cassert.h \
 	${c_base_srcdir}/std_cctype.h \
 	${c_base_srcdir}/std_cerrno.h \
 	${c_base_srcdir}/std_cfloat.h \
+	${c_base_srcdir}/std_ciso646.h \
 	${c_base_srcdir}/std_climits.h \
 	${c_base_srcdir}/std_clocale.h \
 	${c_base_srcdir}/std_cmath.h \
@@ -333,60 +307,97 @@ c_base_headers = \
 	${c_base_srcdir}/std_cstring.h \
 	${c_base_srcdir}/std_ctime.h \
 	${c_base_srcdir}/std_cwchar.h \
-	${c_base_srcdir}/std_cwctype.h \
+	${c_base_srcdir}/std_cwctype.h 
+
+# Some of the "C" headers need extra files.
+c_base_headers_extra = \
 	${c_base_srcdir}/cmath.tcc 
+
+c_base_headers_rename = \
+	cassert \
+	cctype \
+	cerrno \
+	cfloat \
+	ciso646 \
+	climits \
+	clocale \
+	cmath \
+	csetjmp \
+	csignal \
+	cstdarg \
+	cstddef \
+	cstdio \
+	cstdlib \
+	cstring \
+	ctime \
+	cwchar \
+	cwctype 
 
 
 std_srcdir = ${glibcpp_srcdir}/include/std
-std_builddir = ./
+std_builddir = .
 std_headers = \
-	${std_srcdir}/algorithm \
-	${std_srcdir}/bitset \
-	${std_srcdir}/complex \
-	${std_srcdir}/deque \
-	${std_srcdir}/fstream \
-	${std_srcdir}/functional \
-	${std_srcdir}/iomanip \
-	${std_srcdir}/ios \
-	${std_srcdir}/iosfwd \
-	${std_srcdir}/iostream \
-	${std_srcdir}/istream \
-	${std_srcdir}/iterator \
-	${std_srcdir}/limits \
-	${std_srcdir}/list \
-	${std_srcdir}/locale \
-	${std_srcdir}/map \
-	${std_srcdir}/memory \
-	${std_srcdir}/numeric \
-	${std_srcdir}/ostream \
-	${std_srcdir}/queue \
-	${std_srcdir}/set \
-	${std_srcdir}/sstream \
-	${std_srcdir}/stack \
-	${std_srcdir}/stdexcept \
-	${std_srcdir}/streambuf \
-	${std_srcdir}/string \
-	${std_srcdir}/utility \
-	${std_srcdir}/valarray \
-	${std_srcdir}/vector \
-	${std_srcdir}/cassert \
-	${std_srcdir}/cctype \
-	${std_srcdir}/cerrno \
-	${std_srcdir}/cfloat \
-	${std_srcdir}/climits \
-	${std_srcdir}/clocale \
-	${std_srcdir}/ciso646 \
-	${std_srcdir}/cmath \
-	${std_srcdir}/csetjmp \
-	${std_srcdir}/csignal \
-	${std_srcdir}/cstdarg \
-	${std_srcdir}/cstddef \
-	${std_srcdir}/cstdio \
-	${std_srcdir}/cstdlib \
-	${std_srcdir}/cstring \
-	${std_srcdir}/ctime \
-	${std_srcdir}/cwchar \
-	${std_srcdir}/cwctype
+	${std_srcdir}/std_algorithm.h \
+	${std_srcdir}/std_bitset.h \
+	${std_srcdir}/std_complex.h \
+	${std_srcdir}/std_deque.h \
+	${std_srcdir}/std_fstream.h \
+	${std_srcdir}/std_functional.h \
+	${std_srcdir}/std_iomanip.h \
+	${std_srcdir}/std_ios.h \
+	${std_srcdir}/std_iosfwd.h \
+	${std_srcdir}/std_iostream.h \
+	${std_srcdir}/std_istream.h \
+	${std_srcdir}/std_iterator.h \
+	${std_srcdir}/std_limits.h \
+	${std_srcdir}/std_list.h \
+	${std_srcdir}/std_locale.h \
+	${std_srcdir}/std_map.h \
+	${std_srcdir}/std_memory.h \
+	${std_srcdir}/std_numeric.h \
+	${std_srcdir}/std_ostream.h \
+	${std_srcdir}/std_queue.h \
+	${std_srcdir}/std_set.h \
+	${std_srcdir}/std_sstream.h \
+	${std_srcdir}/std_stack.h \
+	${std_srcdir}/std_stdexcept.h \
+	${std_srcdir}/std_streambuf.h \
+	${std_srcdir}/std_string.h \
+	${std_srcdir}/std_utility.h \
+	${std_srcdir}/std_valarray.h \
+	${std_srcdir}/std_vector.h
+
+# Renamed at build time. 
+std_headers_rename = \
+	algorithm \
+	bitset \
+	complex \
+	deque \
+	fstream \
+	functional \
+	iomanip \
+	ios \
+	iosfwd \
+	iostream \
+	istream \
+	iterator \
+	limits \
+	list \
+	locale \
+	map \
+	memory \
+	numeric \
+	ostream \
+	queue \
+	set \
+	sstream \
+	stack \
+	stdexcept \
+	streambuf \
+	string \
+	utility \
+	valarray \
+	vector
 
 
 target_srcdir = ${glibcpp_srcdir}/@OS_INC_SRCDIR@
@@ -398,6 +409,15 @@ target_headers = \
 	${target_srcdir}/os_defines.h \
 	${glibcpp_srcdir}/@ATOMICITY_INC_SRCDIR@/atomicity.h \
 	${glibcpp_srcdir}/@CPU_LIMITS_INC_SRCDIR@/cpu_limits.h 
+
+# These extra_target_headers files are all built with ad hoc naming rules.
+extra_target_headers = \
+	${target_builddir}/basic_file_model.h \
+	${target_builddir}/c++config.h \
+	${target_builddir}/c++io.h \
+	${target_builddir}/c++locale.h \
+	${target_builddir}/messages_members.h \
+	${target_builddir}/codecvt_specializations.h
 
 
 thread_builddir = ./${target_alias}/bits
@@ -412,146 +432,167 @@ thread_headers = \
 allstamps = stamp-std stamp-bits stamp-c_base stamp-backward stamp-ext \
 	stamp-target stamp-thread 
 
+
+# Target includes for threads
+glibcpp_thread_h = @glibcpp_thread_h@
 uppercase = [ABCDEFGHIJKLMNOPQRSTUVWXYZ_]
-subdir = include
-CONFIG_HEADER = $(top_builddir)/config.h
-CONFIG_CLEAN_FILES =
-depcomp =
-DIST_SOURCES =
-all: all-am
 
+# For robustness sake (in light of junk files or in-source
+# configuration), copy from the build or source tree to the install
+# tree using only the human-maintained file lists and directory
+# components.  Yes, with minor differences, this is sheer duplication
+# of the staging rules above using $(INSTALL_DATA) instead of LN_S and
+# `$(INSTALL) -d' instead of `mkdir -p'.  In particular,
+# extra_target_headers are taken out of the build tree staging area;
+# the rest are taken from the original source tree.
+gxx_include_dir = @gxx_include_dir@
+CONFIG_HEADER = ../config.h
+CONFIG_CLEAN_FILES = 
+DIST_COMMON =  Makefile.am Makefile.in
+
+
+DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
+
+TAR = gtar
+GZIP_ENV = --best
+all: all-redirect
 .SUFFIXES:
+$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
+	cd $(top_srcdir) && $(AUTOMAKE) --cygnus include/Makefile
 
-mostlyclean-libtool:
-	-rm -f *.lo
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) \
+	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
-clean-libtool:
-	-rm -rf .libs _libs
-
-distclean-libtool:
-	-rm -f libtool
-$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ Makefile.am  $(top_srcdir)/configure.in $(ACLOCAL_M4)
-	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --cygnus  include/Makefile
-Makefile: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.in  $(top_builddir)/config.status
-	cd $(top_builddir) && \
-	  CONFIG_HEADERS= CONFIG_LINKS= \
-	  CONFIG_FILES=$(subdir)/$@ $(SHELL) ./config.status
-uninstall-info-am:
 tags: TAGS
 TAGS:
 
+
+distdir = $(top_builddir)/$(PACKAGE)-$(VERSION)/$(subdir)
+
+subdir = include
+
+distdir: $(DISTFILES)
+	@for file in $(DISTFILES); do \
+	  if test -f $$file; then d=.; else d=$(srcdir); fi; \
+	  if test -d $$d/$$file; then \
+	    cp -pr $$d/$$file $(distdir)/$$file; \
+	  else \
+	    test -f $(distdir)/$$file \
+	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
+	    || cp -p $$d/$$file $(distdir)/$$file || :; \
+	  fi; \
+	done
+info-am:
+info: info-am
+dvi-am:
+dvi: dvi-am
 check-am:
 check: check-am
-all-am: Makefile all-local
-
-installdirs:
-
-install: install-am
+installcheck-am:
+installcheck: installcheck-am
+install-info-am: 
+install-info: install-info-am
+install-exec-am:
 install-exec: install-exec-am
+
+install-data-am: install-data-local
 install-data: install-data-am
-uninstall: uninstall-am
 
 install-am: all-am
 	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
-
-installcheck: installcheck-am
+install: install-am
+uninstall-am:
+uninstall: uninstall-am
+all-am: Makefile all-local
+all-redirect: all-am
 install-strip:
-	$(MAKE) $(AM_MAKEFLAGS) INSTALL_PROGRAM="$(INSTALL_STRIP_PROGRAM)" \
-	  `test -z '$(STRIP)' || \
-	    echo "INSTALL_PROGRAM_ENV=STRIPPROG='$(STRIP)'"` install
+	$(MAKE) $(AM_MAKEFLAGS) AM_INSTALL_PROGRAM_FLAGS=-s install
+installdirs:
+
+
 mostlyclean-generic:
 
 clean-generic:
 
 distclean-generic:
-	-rm -f Makefile $(CONFIG_CLEAN_FILES) stamp-h stamp-h[0-9]*
+	-rm -f Makefile $(CONFIG_CLEAN_FILES)
+	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
 
 maintainer-clean-generic:
-	@echo "This command is intended for maintainers to use"
-	@echo "it deletes files that may require special tools to rebuild."
-clean: clean-am
-
-clean-am: clean-generic clean-libtool mostlyclean-am
-
-distclean: distclean-am
-
-distclean-am: clean-am distclean-generic distclean-libtool
-
-dvi: dvi-am
-
-dvi-am:
-
-info: info-am
-
-info-am:
-
-install-data-am: install-data-local
-
-install-exec-am:
-
-install-info:
-
-install-man:
-
-installcheck-am:
-
-maintainer-clean: maintainer-clean-am
-
-maintainer-clean-am: distclean-am maintainer-clean-generic
+mostlyclean-am:  mostlyclean-generic
 
 mostlyclean: mostlyclean-am
 
-mostlyclean-am: mostlyclean-generic mostlyclean-libtool
+clean-am:  clean-generic mostlyclean-am
 
-uninstall-am:
+clean: clean-am
 
-.PHONY: all all-am all-local check check-am clean clean-generic \
-	clean-libtool distclean distclean-generic distclean-libtool dvi \
-	dvi-am info info-am install install-am install-data \
-	install-data-am install-data-local install-exec install-exec-am \
-	install-info install-info-am install-man install-strip \
-	installcheck installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-generic \
-	mostlyclean-libtool uninstall uninstall-am uninstall-info-am
+distclean-am:  distclean-generic clean-am
+	-rm -f libtool
+
+distclean: distclean-am
+
+maintainer-clean-am:  maintainer-clean-generic distclean-am
+	@echo "This command is intended for maintainers to use;"
+	@echo "it deletes files that may require special tools to rebuild."
+
+maintainer-clean: maintainer-clean-am
+
+.PHONY: tags distdir info-am info dvi-am dvi check check-am \
+installcheck-am installcheck install-info-am install-info \
+install-exec-am install-exec install-data-local install-data-am \
+install-data install-am install uninstall-am uninstall all-local \
+all-redirect all-am all installdirs mostlyclean-generic \
+distclean-generic clean-generic maintainer-clean-generic clean \
+mostlyclean distclean maintainer-clean
 
 
 # Here are the rules for building the headers
 all-local: ${target_builddir}/c++config.h ${allstamps}
 
+# This rule is slightly different, in that we must change the name of the
+# local file from std_foo.h to foo.
 stamp-std: ${std_headers}
 	@if [ ! -d "${std_builddir}" ]; then \
 	  mkdir -p ${std_builddir} ;\
 	fi ;\
-	(cd ${std_builddir} && @LN_S@ $? .) ;\
+	(cd ${std_builddir} && for h in $?; do \
+	  official_name=`echo $$h | sed -e 's,.*/std_,,' -e 's,\.h$$,,'` ;\
+	  @LN_S@ $$h ./$${official_name} || true ;\
+	done) ;\
 	echo `date` > stamp-std 
 
 stamp-bits: ${bits_headers}
 	@if [ ! -d "${bits_builddir}" ]; then \
 	  mkdir -p ${bits_builddir} ;\
 	fi ;\
-	(cd ${bits_builddir} && @LN_S@ $? .) ;\
+	(cd ${bits_builddir} && @LN_S@ $? . || true) ;\
 	echo `date` > stamp-bits
 
-stamp-c_base: ${c_base_headers}
+stamp-c_base: ${c_base_headers} ${c_base_headers_extra}
 	@if [ ! -d "${c_base_builddir}" ]; then \
 	  mkdir -p ${c_base_builddir} ;\
 	fi ;\
-	(cd ${c_base_builddir} && @LN_S@ $? .) ;\
+	(cd ${c_base_builddir} && for h in ${c_base_headers}; do \
+	  official_name=`echo $$h | sed -e 's,.*/std_,,' -e 's,\.h$$,,'` ;\
+	  @LN_S@ $$h ./$${official_name} || true ;\
+	done) ;\
+	(cd ${c_base_builddir} && @LN_S@ ${c_base_headers_extra}  . || true) ;\
 	echo `date` > stamp-c_base
 
 stamp-backward: ${backward_headers}
 	@if [ ! -d "${backward_builddir}" ]; then \
 	  mkdir -p ${backward_builddir} ;\
 	fi ;\
-	(cd ${backward_builddir} && @LN_S@ $? .) ;\
+	(cd ${backward_builddir} && @LN_S@ $? . || true) ;\
 	echo `date` > stamp-backward
 
 stamp-ext: ${ext_headers}
 	@if [ ! -d "${ext_builddir}" ]; then \
 	  mkdir -p ${ext_builddir} ;\
 	fi ;\
-	(cd ${ext_builddir} && @LN_S@ $? .) ;\
+	(cd ${ext_builddir} && @LN_S@ $? . || true) ;\
 	echo `date` > stamp-ext
 
 # This target is special.  The timestamp on a directory gets modified
@@ -569,12 +610,12 @@ stamp-${target_alias}:
 stamp-target: ${target_headers} ${target_builddir}
 	@cd ${target_builddir} ;\
 	if [ ! -f stamp-target ]; then \
-	  @LN_S@ ${target_headers} . ;\
-	  @LN_S@ ${glibcpp_srcdir}/@BASIC_FILE_H@ basic_file_model.h ;\
-	  @LN_S@ ${glibcpp_srcdir}/@CSTDIO_H@ c++io.h ;\
-	  @LN_S@ ${glibcpp_srcdir}/@CLOCALE_H@ c++locale.h ;\
-	  @LN_S@ ${glibcpp_srcdir}/@CMESSAGES_H@ messages_members.h ;\
-	  @LN_S@ ${glibcpp_srcdir}/@CCODECVT_H@ codecvt_specializations.h ;\
+	  @LN_S@ ${target_headers} . || true ;\
+	  @LN_S@ ${glibcpp_srcdir}/@BASIC_FILE_H@ basic_file_model.h || true ;\
+	  @LN_S@ ${glibcpp_srcdir}/@CSTDIO_H@ c++io.h || true ;\
+	  @LN_S@ ${glibcpp_srcdir}/@CLOCALE_H@ c++locale.h || true ;\
+	  @LN_S@ ${glibcpp_srcdir}/@CMESSAGES_H@ messages_members.h || true ;\
+	  @LN_S@ ${glibcpp_srcdir}/@CCODECVT_H@ codecvt_specializations.h || true ;\
 	  echo `date` > stamp-target; \
 	fi
 
@@ -609,17 +650,45 @@ ${thread_builddir}/gthr-default.h:
 	    -e 's/\(${uppercase}*WEAK\)/_GLIBCPP_\1/g' \
 	    < ${toplevel_srcdir}/gcc/${glibcpp_thread_h} > $@
 install-data-local:
-	for file in `find . ! -name stamp-\* ! -name Makefile -print`; do \
-	installFile=${gxx_include_dir}/$${file} ;\
-	if [ -d $${file} ]; then \
-	  $(INSTALL) -d $${installFile} ;\
-	else \
-	  $(INSTALL_DATA) $${file} $${installFile} ;\
-	fi ;\
-	done
+	$(INSTALL) -d ${gxx_include_dir}
+	$(INSTALL) -d ${gxx_include_dir}/${bits_builddir}
+	for file in ${bits_headers}; do \
+	  $(INSTALL_DATA) $${file} ${gxx_include_dir}/${bits_builddir}; done
+	$(INSTALL) -d ${gxx_include_dir}/${backward_builddir}
+	for file in ${backward_headers}; do \
+	  $(INSTALL_DATA) $${file} ${gxx_include_dir}/${backward_builddir}; done
+	$(INSTALL) -d ${gxx_include_dir}/${ext_builddir}
+	for file in ${ext_headers}; do \
+	  $(INSTALL_DATA) $${file} ${gxx_include_dir}/${ext_builddir}; done
+	$(INSTALL) -d ${gxx_include_dir}/${c_base_builddir}
+	for file in ${c_base_headers_rename}; do \
+	  $(INSTALL_DATA) ${c_base_builddir}/$${file} \
+	    ${gxx_include_dir}/${c_base_builddir}; done
+	for file in ${c_base_headers_extra}; do \
+	  $(INSTALL_DATA) $${file} ${gxx_include_dir}/${c_base_builddir}; done
+	$(INSTALL) -d ${gxx_include_dir}/${std_builddir}
+	for file in ${std_headers_rename}; do \
+	  $(INSTALL_DATA) ${std_builddir}/$${file} \
+	    ${gxx_include_dir}/${std_builddir}; done
+	$(INSTALL) -d ${gxx_include_dir}/${target_builddir}
+	for file in ${target_headers} ${extra_target_headers}; do \
+	  $(INSTALL_DATA) $${file} ${gxx_include_dir}/${target_builddir}; done
+	$(INSTALL) -d ${gxx_include_dir}/${thread_builddir}
+	for file in ${thread_headers}; do \
+	  $(INSTALL_DATA) $${file} ${gxx_include_dir}/${thread_builddir}; done
 
 # By adding these files here, automake will remove them for 'make clean'
 #CLEANFILES = ${allstamps}
+
+# Stop implicit '.o' make rules from ever stomping on extensionless
+# headers, in the improbable case where some foolish, crack-addled
+# developer tries to create them via make in the include build
+# directory. (This is more of an example of how this kind of rule can
+# be made.)
+.PRECIOUS: $(std_headers_rename) $(c_base_headers_rename)
+$(std_headers_rename): ; @:
+$(c_base_headers_rename): ; @:
+
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

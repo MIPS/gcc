@@ -1,5 +1,5 @@
 /* Try to unroll loops, and split induction variables.
-   Copyright (C) 1992, 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1992, 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by James E. Wilson, Cygnus Support/UC Berkeley.
 
@@ -131,6 +131,23 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    moving the insn back into the loop, or perhaps replicate the insn before
    the loop, one copy for each time the loop is unrolled.  */
 
+#include "config.h"
+#include "system.h"
+#include "rtl.h"
+#include "tm_p.h"
+#include "insn-config.h"
+#include "integrate.h"
+#include "regs.h"
+#include "recog.h"
+#include "flags.h"
+#include "function.h"
+#include "expr.h"
+#include "loop.h"
+#include "toplev.h"
+#include "hard-reg-set.h"
+#include "basic-block.h"
+#include "predict.h"
+
 /* The prime factors looked for when trying to unroll a loop by some
    number which is modulo the total number of iterations.  Just checking
    for these 4 prime factors will find at least one factor for 75% of
@@ -151,23 +168,6 @@ enum unroll_types
   UNROLL_MODULO,
   UNROLL_NAIVE
 };
-
-#include "config.h"
-#include "system.h"
-#include "rtl.h"
-#include "tm_p.h"
-#include "insn-config.h"
-#include "integrate.h"
-#include "regs.h"
-#include "recog.h"
-#include "flags.h"
-#include "function.h"
-#include "expr.h"
-#include "loop.h"
-#include "toplev.h"
-#include "hard-reg-set.h"
-#include "basic-block.h"
-#include "predict.h"
 
 /* This controls which loops are unrolled, and by how much we unroll
    them.  */
@@ -930,6 +930,19 @@ unroll_loop (loop, insn_count, strength_reduce_p)
 
 	  start_sequence ();
 
+	  /* Final value may have form of (PLUS val1 const1_rtx).  We need
+	     to convert it into general operand, so compute the real value.  */
+
+	  if (GET_CODE (final_value) == PLUS)
+	    {
+	      final_value = expand_simple_binop (mode, PLUS,
+						 copy_rtx (XEXP (final_value, 0)),
+						 copy_rtx (XEXP (final_value, 1)),
+						 NULL_RTX, 0, OPTAB_LIB_WIDEN);
+	    }
+	  if (!nonmemory_operand (final_value, VOIDmode))
+	    final_value = force_reg (mode, copy_rtx (final_value));
+
 	  /* Calculate the difference between the final and initial values.
 	     Final value may be a (plus (reg x) (const_int 1)) rtx.
 	     Let the following cse pass simplify this if initial value is
@@ -949,7 +962,7 @@ unroll_loop (loop, insn_count, strength_reduce_p)
 	     so we can pretend that the overflow value is 0/~0.  */
 
 	  if (cc == NE || less_p != neg_inc)
-	    diff = expand_simple_binop (mode, MINUS, copy_rtx (final_value),
+	    diff = expand_simple_binop (mode, MINUS, final_value,
 					copy_rtx (initial_value), NULL_RTX, 0,
 					OPTAB_LIB_WIDEN);
 	  else
@@ -987,7 +1000,7 @@ unroll_loop (loop, insn_count, strength_reduce_p)
 				       less_p ? GE : LE, NULL_RTX,
 				       mode, unsigned_p, labels[1]);
 	      predict_insn_def (get_last_insn (), PRED_LOOP_CONDITION,
-				NOT_TAKEN);
+				TAKEN);
 	      JUMP_LABEL (get_last_insn ()) = labels[1];
 	      LABEL_NUSES (labels[1])++;
 	    }
@@ -1392,9 +1405,18 @@ precondition_loop_p (loop, initial_value, final_value, increment, mode)
 
   if (loop_info->n_iterations > 0)
     {
-      *initial_value = const0_rtx;
-      *increment = const1_rtx;
-      *final_value = GEN_INT (loop_info->n_iterations);
+      if (INTVAL (loop_info->increment) > 0)
+	{
+	  *initial_value = const0_rtx;
+	  *increment = const1_rtx;
+	  *final_value = GEN_INT (loop_info->n_iterations);
+	}
+      else
+	{
+	  *initial_value = GEN_INT (loop_info->n_iterations);
+	  *increment = constm1_rtx;
+	  *final_value = const0_rtx;
+	}
       *mode = word_mode;
 
       if (loop_dump_stream)
@@ -1732,11 +1754,16 @@ final_reg_note_copy (notesp, map)
 	    {
 	      rtx insn = map->insn_map[INSN_UID (XEXP (note, 0))];
 
-	      /* If we failed to remap the note, something is awry.  */
+	      /* If we failed to remap the note, something is awry.
+		 Allow REG_LABEL as it may reference label outside
+		 the unrolled loop.  */
 	      if (!insn)
-		abort ();
-
-	      XEXP (note, 0) = insn;
+		{
+		  if (REG_NOTE_KIND (note) != REG_LABEL)
+		    abort ();
+		}
+	      else
+	        XEXP (note, 0) = insn;
 	    }
 	}
 
@@ -2073,14 +2100,16 @@ copy_loop_body (loop, copy_start, copy_end, map, exit_label, last_iteration,
 	  copy = emit_jump_insn (pattern);
 	  REG_NOTES (copy) = initial_reg_note_copy (REG_NOTES (insn), map);
 
-	  if (JUMP_LABEL (insn) == start_label && insn == copy_end
-	      && ! last_iteration)
+	  if (JUMP_LABEL (insn))
 	    {
-	      /* Update JUMP_LABEL make invert_jump work correctly.  */
 	      JUMP_LABEL (copy) = get_label_from_map (map,
 						      CODE_LABEL_NUMBER
 						      (JUMP_LABEL (insn)));
 	      LABEL_NUSES (JUMP_LABEL (copy))++;
+	    }
+	  if (JUMP_LABEL (insn) == start_label && insn == copy_end
+	      && ! last_iteration)
+	    {
 
 	      /* This is a branch to the beginning of the loop; this is the
 		 last insn being copied; and this is not the last iteration.
@@ -4051,7 +4080,7 @@ loop_iterations (loop)
      not HOST_WIDE_INT, disregard higher bits that might have come
      into the picture due to sign extension of initial and final
      values.  */
-  abs_diff &= ((unsigned HOST_WIDE_INT)1
+  abs_diff &= ((unsigned HOST_WIDE_INT) 1
 	       << (GET_MODE_BITSIZE (GET_MODE (iteration_var)) - 1)
 	       << 1) - 1;
 

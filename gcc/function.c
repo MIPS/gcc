@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GNU C-Compiler
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -524,6 +524,7 @@ assign_stack_local_1 (mode, size, align, function)
   rtx x, addr;
   int bigend_correction = 0;
   int alignment;
+  int frame_off, frame_alignment, frame_phase;
 
   if (align == 0)
     {
@@ -561,15 +562,21 @@ assign_stack_local_1 (mode, size, align, function)
   if (function->stack_alignment_needed < alignment * BITS_PER_UNIT)
     function->stack_alignment_needed = alignment * BITS_PER_UNIT;
 
+  /* Calculate how many bytes the start of local variables is off from
+     stack alignment.  */
+  frame_alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
+  frame_off = STARTING_FRAME_OFFSET % frame_alignment;
+  frame_phase = frame_off ? frame_alignment - frame_off : 0;
+
   /* Round frame offset to that alignment.
      We must be careful here, since FRAME_OFFSET might be negative and
      division with a negative dividend isn't as well defined as we might
      like.  So we instead assume that ALIGNMENT is a power of two and
      use logical operations which are unambiguous.  */
 #ifdef FRAME_GROWS_DOWNWARD
-  function->x_frame_offset = FLOOR_ROUND (function->x_frame_offset, alignment);
+  function->x_frame_offset = FLOOR_ROUND (function->x_frame_offset - frame_phase, alignment) + frame_phase;
 #else
-  function->x_frame_offset = CEIL_ROUND (function->x_frame_offset, alignment);
+  function->x_frame_offset = CEIL_ROUND (function->x_frame_offset - frame_phase, alignment) + frame_phase;
 #endif
 
   /* On a big-endian machine, if we are allocating more space than we will use,
@@ -726,7 +733,7 @@ assign_stack_temp_for_type (mode, size, keep, type)
 	 and round it now.  We also make sure ALIGNMENT is at least
 	 BIGGEST_ALIGNMENT.  */
       if (mode == BLKmode && align < BIGGEST_ALIGNMENT)
-	abort();
+	abort ();
       p->slot = assign_stack_local (mode,
 				    (mode == BLKmode
 				     ? CEIL_ROUND (size, align / BITS_PER_UNIT)
@@ -4643,8 +4650,7 @@ assign_parms (fndecl)
 	  SET_DECL_RTL (parm, stack_parm);
 	}
       else if (! ((! optimize
-		   && ! DECL_REGISTER (parm)
-		   && ! DECL_INLINE (fndecl))
+		   && ! DECL_REGISTER (parm))
 		  || TREE_SIDE_EFFECTS (parm)
 		  /* If -ffloat-store specified, don't put explicit
 		     float variables into registers.  */
@@ -4744,8 +4750,7 @@ assign_parms (fndecl)
 	     can safely live in a register, put it in one.  */
 	  if (passed_pointer && TYPE_MODE (TREE_TYPE (parm)) != BLKmode
 	      && ! ((! optimize
-		     && ! DECL_REGISTER (parm)
-		     && ! DECL_INLINE (fndecl))
+		     && ! DECL_REGISTER (parm))
 		    || TREE_SIDE_EFFECTS (parm)
 		    /* If -ffloat-store specified, don't put explicit
 		       float variables into registers.  */
@@ -5139,7 +5144,7 @@ promoted_input_arg (regno, pmode, punsignedp)
 /*  offset_ptr will be negative for ARGS_GROW_DOWNWARD case;
     initial_offset_ptr is positive because locate_and_pad_parm's
     callers pass in the total size of args so far as
-    initial_offset_ptr. arg_size_ptr is always positive.*/
+    initial_offset_ptr. arg_size_ptr is always positive.  */
 
 void
 locate_and_pad_parm (passed_mode, type, in_regs, fndecl,
@@ -6386,6 +6391,10 @@ expand_function_start (subr, parms_have_cleanups)
     = (flag_instrument_function_entry_exit
        && ! DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (subr));
 
+  current_function_profile
+    = (profile_flag
+       && ! DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (subr));
+
   current_function_limit_stack
     = (stack_limit_rtx != NULL_RTX && ! DECL_NO_LIMIT_STACK (subr));
 
@@ -6564,7 +6573,7 @@ expand_function_start (subr, parms_have_cleanups)
     }
 
 #ifdef PROFILE_HOOK
-  if (profile_flag)
+  if (current_function_profile)
     PROFILE_HOOK (profile_label_no);
 #endif
 
@@ -7160,7 +7169,7 @@ struct epi_info
 {
   rtx sp_equiv_reg;		/* REG that SP is set from, perhaps SP.  */
   HOST_WIDE_INT sp_offset;	/* Offset from SP_EQUIV_REG of present SP.  */
-  rtx new_sp_equiv_reg;		/* REG to be used at end of insn.   */
+  rtx new_sp_equiv_reg;		/* REG to be used at end of insn.  */
   HOST_WIDE_INT new_sp_offset;	/* Offset to be used at end of insn.  */
   rtx equiv_reg_src;		/* If nonzero, the value that SP_EQUIV_REG
 				   should be set to once we no longer need
@@ -7180,7 +7189,7 @@ keep_stack_depressed (seq)
   int i, j;
   struct epi_info info;
 
-  /* If the epilogue is just a single instruction, it ust be OK as is.   */
+  /* If the epilogue is just a single instruction, it ust be OK as is.  */
 
   if (GET_CODE (seq) != SEQUENCE)
     return seq;

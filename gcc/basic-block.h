@@ -27,11 +27,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "varray.h"
 #include "partition.h"
 
-#ifndef TREE_CODE
-union tree_node;
-#define tree union tree_node *
-#endif
-
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
 /* A pointer to a regset_head.  */
@@ -578,6 +573,7 @@ enum update_life_extent
 #define PROP_ALLOW_CFG_CHANGES	32	/* Allow the CFG to be changed
 					   by dead code removal.  */
 #define PROP_AUTOINC		64	/* Create autoinc mem references.  */
+#define PROP_EQUAL_NOTES	128	/* Take into account REG_EQUAL notes.  */
 #define PROP_FINAL		127	/* All of the above.  */
 
 #define CLEANUP_EXPENSIVE	1	/* Do relativly expensive optimizations
@@ -705,6 +701,7 @@ extern conflict_graph conflict_graph_compute
                                         PARAMS ((regset,
 						 partition));
 extern bool mark_dfs_back_edges		PARAMS ((void));
+extern void update_br_prob_note		PARAMS ((basic_block));
 
 /* In dominance.c */
 

@@ -1,5 +1,5 @@
 /* Implement classes and message passing for Objective C.
-   Copyright (C) 1992, 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1992, 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by Steve Naroff.
 
@@ -2951,6 +2951,9 @@ hack_method_prototype (nst_methods, tmp_decl)
   /* Usually called from store_parm_decls -> init_function_start.  */
 
   DECL_ARGUMENTS (tmp_decl) = TREE_PURPOSE (parms);
+
+  if (current_function_decl)
+    abort ();
   current_function_decl = tmp_decl;
 
   {
@@ -2974,6 +2977,7 @@ hack_method_prototype (nst_methods, tmp_decl)
   /* install return type */
   TREE_TYPE (TREE_TYPE (tmp_decl)) = groktypename (TREE_TYPE (nst_methods));
 
+  current_function_decl = NULL;
 }
 
 static void
@@ -8304,6 +8308,7 @@ handle_class_ref (chain)
   decl = build_decl (VAR_DECL, get_identifier (string), string_type_node);
   DECL_INITIAL (decl) = exp;
   TREE_STATIC (decl) = 1;
+  TREE_USED (decl) = 1;
 
   pushdecl (decl);
   rest_of_decl_compilation (decl, 0, 0, 0);
@@ -8353,14 +8358,23 @@ handle_impent (impent)
       ASM_DECLARE_CLASS_REFERENCE (asm_out_file, string);
       return;
     }
+  else
 #endif
+    {
+      tree decl, init;
 
-  /* (Should this be a routine in varasm.c?) */
-  readonly_data_section ();
-  assemble_global (string);
-  assemble_align (UNITS_PER_WORD);
-  assemble_label (string);
-  assemble_zeros (UNITS_PER_WORD);
+      init = build_int_2 (0, 0);
+      TREE_TYPE (init) = type_for_size (BITS_PER_WORD, 1);
+      decl = build_decl (VAR_DECL, get_identifier (string), TREE_TYPE (init));
+      TREE_PUBLIC (decl) = 1;
+      TREE_READONLY (decl) = 1;
+      TREE_USED (decl) = 1;
+      TREE_CONSTANT (decl) = 1;
+      DECL_CONTEXT (decl) = 0;
+      DECL_ARTIFICIAL (decl) = 1;
+      DECL_INITIAL (decl) = init;
+      assemble_variable (decl, 1, 0, 0);
+    }
 }
 
 static void

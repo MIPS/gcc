@@ -401,7 +401,10 @@ sparc_override_options ()
      are available.
      -m64 also implies v9.  */
   if (TARGET_VIS || TARGET_ARCH64)
-    target_flags |= MASK_V9;
+    {
+      target_flags |= MASK_V9;
+      target_flags &= ~(MASK_V8 | MASK_SPARCLET | MASK_SPARCLITE);
+    }
 
   /* Use the deprecated v8 insns for sparc64 in 32 bit mode.  */
   if (TARGET_V9 && TARGET_ARCH32)
@@ -7199,7 +7202,7 @@ ultrasparc_adjust_cost (insn, link, dep_insn, cost)
   /* Nothing issues in parallel with integer multiplies, so
      mark as zero cost since the scheduler can not do anything
      about it.  */
-  if (insn_type == TYPE_IMUL)
+  if (insn_type == TYPE_IMUL || insn_type == TYPE_IDIV)
     return 0;
 
 #define SLOW_FP(dep_type) \
@@ -7899,7 +7902,7 @@ ultrasparc_sched_reorder (dump, sched_verbose, ready, n_ready)
       {
 	/* If the pipeline is (still) empty and we have any single
 	   group insns, get them out now as this is a good time.  */
-	rtx *ip = ultra_find_type ((TMASK (TYPE_RETURN) |
+	rtx *ip = ultra_find_type ((TMASK (TYPE_RETURN) | TMASK (TYPE_IDIV) |
 				    TMASK (TYPE_IMUL) | TMASK (TYPE_CMOVE) |
 				    TMASK (TYPE_MULTI) | TMASK (TYPE_MISC)),
 				   ready, this_insn);

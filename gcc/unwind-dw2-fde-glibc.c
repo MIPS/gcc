@@ -1,4 +1,4 @@
-/* Copyright (C) 2001 Free Software Foundation, Inc.
+/* Copyright (C) 2001, 2002 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>.
 
    This file is part of GNU CC.
@@ -31,9 +31,11 @@
 
 #include "auto-host.h" /* For HAVE_LD_EH_FRAME_HDR.  */
 #include "tconfig.h"
+#ifndef inhibit_libc
 #include <stddef.h>
 #include <stdlib.h>
 #include <link.h>
+#endif
 #include "tsystem.h"
 #include "dwarf2.h"
 #include "unwind.h"
@@ -42,7 +44,7 @@
 #include "unwind-dw2-fde.h"
 #include "gthr.h"
 
-#if defined(HAVE_LD_EH_FRAME_HDR) \
+#if !defined(inhibit_libc) && defined(HAVE_LD_EH_FRAME_HDR) \
     && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2) \
 	|| (__GLIBC__ == 2 && __GLIBC_MINOR__ == 2 && defined(DT_CONFIG)))
 
@@ -151,7 +153,7 @@ _Unwind_IteratePhdrCallback (struct dl_phdr_info *info, size_t size, void *ptr)
     {
       /* For dynamicly linked executables and shared libraries,
 	 DT_PLTGOT is the gp value for that object.  */
-      ElfW(Dyn) *dyn = (ElfW(Dyn) *)(p_dynamic->p_vaddr + load_base);
+      ElfW(Dyn) *dyn = (ElfW(Dyn) *) (p_dynamic->p_vaddr + load_base);
       for (; dyn->d_tag != DT_NULL ; dyn++)
 	if (dyn->d_tag == DT_PLTGOT)
 	  {

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for MMIX.
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
 This file is part of GNU CC.
@@ -269,26 +269,13 @@ mmix_preferred_output_reload_class (x, class)
 enum reg_class
 mmix_secondary_reload_class (class, mode, x, in_p)
      enum reg_class class;
-     enum machine_mode mode;
-     rtx x;
-     int in_p;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     rtx x ATTRIBUTE_UNUSED;
+     int in_p ATTRIBUTE_UNUSED;
 {
   if (class == REMAINDER_REG
       || class == HIMULT_REG
       || class == SYSTEM_REGS)
-    return GENERAL_REGS;
-
-  if (mode != DImode || in_p)
-    return NO_REGS;
-
-  /* We have to help reload. */
-  if (mode == DImode && GET_CODE (x) == MEM
-      && ! address_operand (XEXP (x, 0), GET_MODE (x)))
-    return GENERAL_REGS;
-
-  /* FIXME: Optimize this; there are lots of PLUS:es that don't need a
-     reload register.  */
-  if (GET_CODE (x) == PLUS)
     return GENERAL_REGS;
 
   return NO_REGS;
@@ -330,14 +317,22 @@ mmix_const_double_ok_for_letter_p (value, c)
    CONST_INT:s, but rather often as CONST_DOUBLE:s.  */
 
 int
-mmix_extra_constraint (x, c)
+mmix_extra_constraint (x, c, strict)
      rtx x;
      int c;
+     int strict;
 {
   HOST_WIDEST_INT value;
 
+  /* When checking for an address, we need to handle strict vs. non-strict
+     register checks.  Don't use address_operand, but instead its
+     equivalent (its callee, which it is just a wrapper for),
+     memory_operand_p and the strict-equivalent strict_memory_address_p.  */
   if (c == 'U')
-    return address_operand (x, Pmode);
+    return
+      strict
+      ? strict_memory_address_p (Pmode, x)
+      : memory_address_p (Pmode, x);
 
   if (GET_CODE (x) != CONST_DOUBLE || GET_MODE (x) != VOIDmode)
     return 0;
@@ -971,20 +966,6 @@ mmix_target_asm_function_prologue (stream, locals_size)
       break;
 
   mmix_highest_saved_stack_register = regno;
-
-  /* FIXME: A kludge for the MMIXware ABI.  The return value comes back in
-     L of the caller, not just the register number of the X field of
-     PUSH{J,GO}.  So we need to make L agree with that number if there's a
-     function call in this function that returns a value but takes no
-     parameters (if there were parameters, L would be set to at least the
-     first parameter register, $16).  A real solution includes a pass to
-     test that settings of $15 (MMIX_RETURN_VALUE_REGNUM for the MMIXware
-     ABI) dominate all function calls that return a value.  This could be
-     done in the planned machine_dep_reorg pass to rename all registers.  */
-  if (! TARGET_ABI_GNU && cfun->machine->has_call_value_without_parameters)
-    fprintf (stream, "\tSET %s,%s\n",
-	     reg_names[MMIX_RETURN_VALUE_REGNUM],
-	     reg_names[MMIX_RETURN_VALUE_REGNUM]);
 }
 
 /* TARGET_ASM_FUNCTION_EPILOGUE.  */
@@ -1688,10 +1669,8 @@ mmix_encode_section_info (decl)
 {
   /* Test for an external declaration, and do nothing if it is one.  */
   if ((TREE_CODE (decl) == VAR_DECL
-       && (DECL_EXTERNAL (decl) || TREE_PUBLIC (decl))
-       && ! TREE_STATIC (decl))
-      || (TREE_CODE (decl) == FUNCTION_DECL
-	  && (DECL_EXTERNAL (decl) || TREE_PUBLIC (decl))))
+       && (DECL_EXTERNAL (decl) || TREE_PUBLIC (decl)))
+      || (TREE_CODE (decl) == FUNCTION_DECL && TREE_PUBLIC (decl)))
     ;
   else if (DECL_P (decl))
     {
@@ -1702,8 +1681,8 @@ mmix_encode_section_info (decl)
 	 Note that this does not work for data that is declared extern and
 	 later defined as static.  If there's code in between, that code
 	 will refer to the extern declaration.  And vice versa.  Until we
-	 can get rid of mmixal, we have to assume that code is well-behaved
-	 or come up with a contorted scheme to work around bad code.  */
+	 can get rid of mmixal, we have to assume that code is
+	 well-behaved.  */
 
       const char *str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
       int len = strlen (str);
@@ -1806,17 +1785,6 @@ mmix_asm_file_end (stream)
 {
   /* Make sure each file ends with the data section. */
   data_section ();
-}
-
-/* ASM_IDENTIFY_GCC.  */
-
-void
-mmix_asm_identify_gcc (stream)
-     FILE * stream;
-{
-  /* No real need for the time being.  May be useful to GDB later on.  */
-  fprintf (stream, "# Compiled by GCC version %s\n",
-	   version_string);
 }
 
 /* ASM_OUTPUT_SOURCE_FILENAME.  */
@@ -2048,11 +2016,11 @@ mmix_asm_output_labelref (stream, name)
      FILE *stream;
      const char *name;
 {
-  int is_extern = 0;
+  int is_extern = 1;
 
   for (; (*name == '@' || *name == '*'); name++)
     if (*name == '@')
-      is_extern = 1;
+      is_extern = 0;
 
   asm_fprintf (stream, "%s%U%s",
 	       is_extern && TARGET_TOPLEVEL_SYMBOLS ? ":" : "",
@@ -2116,6 +2084,16 @@ mmix_print_operand (stream, x, code)
   switch (code)
     {
       /* Unrelated codes are in alphabetic order.  */
+
+    case '+':
+      /* For conditional branches, output "P" for a probable branch.  */
+      if (TARGET_BRANCH_PREDICT)
+	{
+	  x = find_reg_note (current_output_insn, REG_BR_PROB, 0);
+	  if (x && INTVAL (XEXP (x, 0)) > REG_BR_PROB_BASE / 2)
+	    putc ('P', stream);
+	}
+      return;
 
     case 'B':
       if (GET_CODE (x) != CONST_INT)
@@ -2324,8 +2302,8 @@ int
 mmix_print_operand_punct_valid_p (code)
      int code ATTRIBUTE_UNUSED;
 {
-  /* None at the moment.  */
-  return 0;
+  /* A '+' is used for branch prediction, similar to other ports.  */
+  return code == '+';
 }
 
 /* PRINT_OPERAND_ADDRESS.  */
@@ -2827,7 +2805,7 @@ mmix_gen_compare_reg (code, x, y)
 /* Local (static) helper functions.  */
 
 /* Print operator suitable for doing something with a shiftable
-   wyde.  The type of operator is passed as a asm output modifier.  */
+   wyde.  The type of operator is passed as an asm output modifier.  */
 
 static void
 mmix_output_shiftvalue_op_from_str (stream, mainop, value)

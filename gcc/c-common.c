@@ -1,6 +1,6 @@
 /* Subroutines shared by all languages that are variants of C.
-   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
-   Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -268,28 +268,32 @@ static int if_stack_space = 0;
 static int if_stack_pointer = 0;
 
 /* Record the start of an if-then, and record the start of it
-   for ambiguous else detection.  */
+   for ambiguous else detection.
+
+   COND is the condition for the if-then statement.
+
+   IF_STMT is the statement node that has already been created for
+   this if-then statement.  It is created before parsing the
+   condition to keep line number information accurate.  */
 
 void
-c_expand_start_cond (cond, compstmt_count)
+c_expand_start_cond (cond, compstmt_count, if_stmt)
      tree cond;
      int compstmt_count;
+     tree if_stmt;
 {
-  tree if_stmt;
-
   /* Make sure there is enough space on the stack.  */
   if (if_stack_space == 0)
     {
       if_stack_space = 10;
-      if_stack = (if_elt *)xmalloc (10 * sizeof (if_elt));
+      if_stack = (if_elt *) xmalloc (10 * sizeof (if_elt));
     }
   else if (if_stack_space == if_stack_pointer)
     {
       if_stack_space += 10;
-      if_stack = (if_elt *)xrealloc (if_stack, if_stack_space * sizeof (if_elt));
+      if_stack = (if_elt *) xrealloc (if_stack, if_stack_space * sizeof (if_elt));
     }
 
-  if_stmt = build_stmt (IF_STMT, NULL_TREE, NULL_TREE, NULL_TREE);
   IF_COND (if_stmt) = cond;
   add_stmt (if_stmt);
 
@@ -353,6 +357,46 @@ c_finish_else ()
 {
   tree if_stmt = if_stack[if_stack_pointer - 1].if_stmt;
   RECHAIN_STMTS (if_stmt, ELSE_CLAUSE (if_stmt));
+}
+
+/* Begin an if-statement.  Returns a newly created IF_STMT if
+   appropriate.
+
+   Unlike the C++ front-end, we do not call add_stmt here; it is
+   probably safe to do so, but I am not very familiar with this
+   code so I am being extra careful not to change its behavior
+   beyond what is strictly necessary for correctness.  */
+
+tree
+c_begin_if_stmt ()
+{
+  tree r;
+  r = build_stmt (IF_STMT, NULL_TREE, NULL_TREE, NULL_TREE);
+  return r;
+}
+
+/* Begin a while statement.  Returns a newly created WHILE_STMT if
+   appropriate.
+
+   Unlike the C++ front-end, we do not call add_stmt here; it is
+   probably safe to do so, but I am not very familiar with this
+   code so I am being extra careful not to change its behavior
+   beyond what is strictly necessary for correctness.  */
+
+tree
+c_begin_while_stmt ()
+{
+  tree r;
+  r = build_stmt (WHILE_STMT, NULL_TREE, NULL_TREE);
+  return r;
+}
+
+void
+c_finish_while_stmt_cond (cond, while_stmt)
+     tree while_stmt;
+     tree cond;
+{
+  WHILE_COND (while_stmt) = cond;
 }
 
 /* Push current bindings for the function name VAR_DECLS.  */
@@ -2298,7 +2342,7 @@ c_alignof_expr (expr)
       t = size_one_node;
     }
   else if (TREE_CODE (expr) == COMPONENT_REF
-      && TREE_CODE (TREE_OPERAND (expr, 1)) == FIELD_DECL)
+	   && TREE_CODE (TREE_OPERAND (expr, 1)) == FIELD_DECL)
     t = size_int (DECL_ALIGN (TREE_OPERAND (expr, 1)) / BITS_PER_UNIT);
  
   else if (TREE_CODE (expr) == INDIRECT_REF)
@@ -2308,7 +2352,7 @@ c_alignof_expr (expr)
       int bestalign = TYPE_ALIGN (TREE_TYPE (TREE_TYPE (t)));
  
       while (TREE_CODE (t) == NOP_EXPR
-	      && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == POINTER_TYPE)
+	     && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == POINTER_TYPE)
 	{
 	  int thisalign;
 
@@ -2372,7 +2416,7 @@ c_common_nodes_and_builtins ()
 
   typedef enum builtin_type builtin_type;
 
-  tree builtin_types[(int)BT_LAST];
+  tree builtin_types[(int) BT_LAST];
   int wchar_type_size;
   tree array_domain_type;
   /* Either char* or void*.  */
@@ -3067,6 +3111,7 @@ statement_code_p (code)
     case GOTO_STMT:
     case LABEL_STMT:
     case ASM_STMT:
+    case FILE_STMT:
     case CASE_LABEL:
       return 1;
 
@@ -3418,6 +3463,27 @@ c_expand_expr (exp, target, tmode, modifier)
 	   STMT_EXPR.  */
 	push_temp_slots ();
 	rtl_expr = expand_start_stmt_expr ();
+
+	/* If we want the result of this expression, find the last
+           EXPR_STMT in the COMPOUND_STMT and mark it as addressable.  */
+	if (target != const0_rtx
+	    && TREE_CODE (STMT_EXPR_STMT (exp)) == COMPOUND_STMT
+	    && TREE_CODE (COMPOUND_BODY (STMT_EXPR_STMT (exp))) == SCOPE_STMT)
+	  {
+	    tree expr = COMPOUND_BODY (STMT_EXPR_STMT (exp));
+	    tree last = TREE_CHAIN (expr);
+
+	    while (TREE_CHAIN (last))
+	      {
+		expr = last;
+		last = TREE_CHAIN (last);
+	      }
+
+	    if (TREE_CODE (last) == SCOPE_STMT
+		&& TREE_CODE (expr) == EXPR_STMT)
+	      TREE_ADDRESSABLE (expr) = 1;
+	  }
+
 	expand_stmt (STMT_EXPR_STMT (exp));
 	expand_end_stmt_expr (rtl_expr);
 	result = expand_expr (rtl_expr, target, tmode, modifier);
@@ -3436,7 +3502,7 @@ c_expand_expr (exp, target, tmode, modifier)
 		== BUILT_IN_FRONTEND))
 	  return c_expand_builtin (exp, target, tmode, modifier);
 	else
-	  abort();
+	  abort ();
       }
       break;
 
@@ -3551,13 +3617,13 @@ add_c_tree_codes ()
 {
   memcpy (tree_code_type + (int) LAST_AND_UNUSED_TREE_CODE,
 	  c_tree_code_type,
-	  (int)LAST_C_TREE_CODE - (int)LAST_AND_UNUSED_TREE_CODE);
+	  (int) LAST_C_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE);
   memcpy (tree_code_length + (int) LAST_AND_UNUSED_TREE_CODE,
 	  c_tree_code_length,
-	  (LAST_C_TREE_CODE - (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (int));
+	  (LAST_C_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE) * sizeof (int));
   memcpy (tree_code_name + (int) LAST_AND_UNUSED_TREE_CODE,
 	  c_tree_code_name,
-	  (LAST_C_TREE_CODE - (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (char *));
+	  (LAST_C_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE) * sizeof (char *));
   lang_unsafe_for_reeval = c_unsafe_for_reeval;
 }
 
@@ -3589,28 +3655,28 @@ c_expand_builtin (exp, target, tmode, modifier)
     {
     case BUILT_IN_PRINTF:
       target = c_expand_builtin_printf (arglist, target, tmode,
-					modifier, ignore,/*unlocked=*/ 0);
+					modifier, ignore, /*unlocked=*/ 0);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_PRINTF_UNLOCKED:
       target = c_expand_builtin_printf (arglist, target, tmode,
-					modifier, ignore,/*unlocked=*/ 1);
+					modifier, ignore, /*unlocked=*/ 1);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_FPRINTF:
       target = c_expand_builtin_fprintf (arglist, target, tmode,
-					 modifier, ignore,/*unlocked=*/ 0);
+					 modifier, ignore, /*unlocked=*/ 0);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_FPRINTF_UNLOCKED:
       target = c_expand_builtin_fprintf (arglist, target, tmode,
-					 modifier, ignore,/*unlocked=*/ 1);
+					 modifier, ignore, /*unlocked=*/ 1);
       if (target)
 	return target;
       break;
@@ -3630,7 +3696,7 @@ c_expand_builtin (exp, target, tmode, modifier)
    following it.  */
 static int
 is_valid_printf_arglist (arglist)
-  tree arglist;
+     tree arglist;
 {
   /* Save this value so we can restore it later.  */
   const int SAVE_pedantic = pedantic;
@@ -3717,7 +3783,7 @@ c_expand_builtin_printf (arglist, target, tmode, modifier, ignore, unlocked)
     }
   else
     {
-     /* We can't handle anything else with % args or %% ... yet.  */
+      /* We can't handle anything else with % args or %% ... yet.  */
       if (strchr (TREE_STRING_POINTER (stripped_string), '%'))
 	return 0;
       
@@ -3830,7 +3896,7 @@ c_expand_builtin_fprintf (arglist, target, tmode, modifier, ignore, unlocked)
     }
   else
     {
-     /* We can't handle anything else with % args or %% ... yet.  */
+      /* We can't handle anything else with % args or %% ... yet.  */
       if (strchr (TREE_STRING_POINTER (stripped_string), '%'))
 	return 0;
       

@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C compiler.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -31,12 +31,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "rtl.h"
 #include "tree.h"
 #include "c-tree.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "output.h"
-#include "rtl.h"
 #include "expr.h"
 #include "toplev.h"
 #include "intl.h"
@@ -93,7 +93,7 @@ require_complete_type (value)
 {
   tree type = TREE_TYPE (value);
 
-  if (TREE_CODE (value) == ERROR_MARK)
+  if (value == error_mark_node || type == error_mark_node)
     return error_mark_node;
 
   /* First, detect a valid value with a complete type.  */
@@ -1199,6 +1199,10 @@ build_component_ref (datum, component)
 	    TREE_READONLY (ref) = 1;
 	  if (TREE_THIS_VOLATILE (datum) || TREE_THIS_VOLATILE (subdatum))
 	    TREE_THIS_VOLATILE (ref) = 1;
+
+	  if (TREE_DEPRECATED (subdatum))
+	    warn_deprecated_use (subdatum);
+
 	  datum = ref;
 	}
 
@@ -1414,6 +1418,9 @@ build_external_ref (id, fun)
   tree ref;
   tree decl = lookup_name (id);
   tree objc_ivar = lookup_objc_ivar (id);
+
+  if (decl && TREE_DEPRECATED (decl))
+    warn_deprecated_use (decl);
 
   if (!decl || decl == error_mark_node || C_DECL_ANTICIPATED (decl))
     {
@@ -1791,6 +1798,9 @@ parser_build_binary_op (code, arg1, arg2)
   char class2 = TREE_CODE_CLASS (TREE_CODE (arg2));
   enum tree_code code1 = ERROR_MARK;
   enum tree_code code2 = ERROR_MARK;
+
+  if (TREE_CODE (result) == ERROR_MARK)
+    return error_mark_node;
 
   if (IS_EXPR_CODE_CLASS (class1))
     code1 = C_EXP_ORIGINAL_CODE (arg1);
@@ -3078,7 +3088,7 @@ build_unary_op (code, xarg, flag)
 	  readonly_warning (arg, 
 			    ((code == PREINCREMENT_EXPR
 			      || code == POSTINCREMENT_EXPR)
-			     ? _("increment") : _("decrement")));
+			     ? "increment" : "decrement"));
 
 	if (TREE_CODE (TREE_TYPE (arg)) == BOOLEAN_TYPE)
 	  val = boolean_increment (code, arg);
@@ -4397,7 +4407,7 @@ warn_for_assignment (msgid, opname, function, argnum)
 	}
       else
 	{
-	  /* Function name unknown (call through ptr); just give arg number.*/
+	  /* Function name unknown (call through ptr); just give arg number.  */
 	  const char *const argnofun = _("passing arg %d of pointer to function");
 	  new_opname = (char *) alloca (strlen (argnofun) + 1 + 25 /*%d*/ + 1);
 	  sprintf (new_opname, argnofun, argnum);
@@ -5554,7 +5564,7 @@ pop_init_level (implicit)
       else
 	/* Zero-length arrays are no longer special, so we should no longer
 	   get here.  */
-	abort();
+	abort ();
     }
 
   /* Warn when some struct elements are implicitly initialized to zero.  */
@@ -6275,6 +6285,16 @@ output_init_element (value, type, field, pending)
 			 TYPE_MAIN_VARIANT (type))))
     value = default_conversion (value);
 
+  if (TREE_CODE (value) == COMPOUND_LITERAL_EXPR
+      && require_constant_value && !flag_isoc99 && pending)
+    {
+      /* As an extension, allow initializing objects with static storage
+	 duration with compound literals (which are then treated just as
+	 the brace enclosed list they contain).  */
+      tree decl = COMPOUND_LITERAL_EXPR_DECL (value);
+      value = DECL_INITIAL (decl);
+    }
+
   if (value == error_mark_node)
     constructor_erroneous = 1;
   else if (!TREE_CONSTANT (value))
@@ -6601,7 +6621,14 @@ process_init_element (value)
 
   /* In the case of [LO ... HI] = VALUE, only evaluate VALUE once.  */
   if (constructor_range_stack)
-    value = save_expr (value);
+    {
+      /* If value is a compound literal and we'll be just using its
+	 content, don't put it into a SAVE_EXPR.  */
+      if (TREE_CODE (value) != COMPOUND_LITERAL_EXPR
+	  || !require_constant_value
+	  || flag_isoc99)
+	value = save_expr (value);
+    }
 
   while (1)
     {

@@ -1,6 +1,6 @@
 /* Handle parameterized types (templates) for GNU C++.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001  Free Software Foundation, Inc.
+   2001, 2002  Free Software Foundation, Inc.
    Written by Ken Raeburn (raeburn@cygnus.com) while at Watchmaker Computing.
    Rewritten by Jason Merrill (jason@cygnus.com).
 
@@ -352,7 +352,7 @@ push_inline_template_parms_recursive (parmlist, levels)
 	  break;
 
 	default:
-	  my_friendly_abort (0);
+	  abort ();
 	}
     }
 }
@@ -1448,7 +1448,7 @@ check_explicit_specialization (declarator, decl, template_count, flags)
       break;
 
     default:
-      my_friendly_abort (20000309);
+      abort ();
     }
 
   if (specialization || member_specialization)
@@ -1935,6 +1935,7 @@ process_template_parm (list, next)
       /* is a const-param */
       parm = grokdeclarator (TREE_VALUE (parm), TREE_PURPOSE (parm),
 			     PARM, 0, NULL);
+      SET_DECL_TEMPLATE_PARM_P (parm);
 
       /* [temp.param]
 
@@ -3157,7 +3158,7 @@ convert_nontype_argument (type, expr)
 
     default:
       /* All non-type parameters must have one of these types.  */
-      my_friendly_abort (0);
+      abort ();
       break;
     }
 
@@ -3246,7 +3247,7 @@ coerce_template_template_parms (parm_parms, arg_parms, complain,
 	  break;
 	  
 	default:
-	  my_friendly_abort (0);
+	  abort ();
 	}
     }
   return 1;
@@ -3291,23 +3292,27 @@ convert_template_argument (parm, arg, args, complain, i, in_decl)
   requires_type = (TREE_CODE (parm) == TYPE_DECL
 		   || requires_tmpl_type);
 
-  /* Check if it is a class template.  If REQUIRES_TMPL_TYPE is true,
-     we also accept implicitly created TYPE_DECL as a valid argument.
-     This is necessary to handle the case where we pass a template name
-     to a template template parameter in a scope where we've derived from
-     in instantiation of that template, so the template name refers to that
-     instantiation.  We really ought to handle this better.  */
-  is_tmpl_type 
-    = ((TREE_CODE (arg) == TEMPLATE_DECL
-	&& TREE_CODE (DECL_TEMPLATE_RESULT (arg)) == TYPE_DECL)
-       || TREE_CODE (arg) == TEMPLATE_TEMPLATE_PARM
-       || TREE_CODE (arg) == UNBOUND_CLASS_TEMPLATE
-       || (TREE_CODE (arg) == RECORD_TYPE
-	   && CLASSTYPE_TEMPLATE_INFO (arg)
-	   && TREE_CODE (TYPE_NAME (arg)) == TYPE_DECL
-	   && DECL_ARTIFICIAL (TYPE_NAME (arg))
-	   && requires_tmpl_type
-	   && is_base_of_enclosing_class (arg, current_class_type)));
+  if (TREE_CODE (arg) != RECORD_TYPE)
+    is_tmpl_type = ((TREE_CODE (arg) == TEMPLATE_DECL
+		     && TREE_CODE (DECL_TEMPLATE_RESULT (arg)) == TYPE_DECL)
+		    || TREE_CODE (arg) == TEMPLATE_TEMPLATE_PARM
+		    || TREE_CODE (arg) == UNBOUND_CLASS_TEMPLATE);
+  else if (CLASSTYPE_TEMPLATE_INFO (arg) && !CLASSTYPE_USE_TEMPLATE (arg)
+	   && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (arg)))
+    {
+      if (is_base_of_enclosing_class (arg, current_class_type))
+	/* This is a template name used within the scope of the
+	   template. It could be the template, or it could be the
+	   instantiation. Choose whichever makes sense.  */
+	is_tmpl_type = requires_tmpl_type;
+      else
+	is_tmpl_type = 1;
+    }
+  else
+    /* It is a non-template class, or a specialization of a template
+       class, or a non-template member of a template class.  */
+    is_tmpl_type = 0;
+  
   if (is_tmpl_type
       && (TREE_CODE (arg) == TEMPLATE_TEMPLATE_PARM
 	  || TREE_CODE (arg) == UNBOUND_CLASS_TEMPLATE))
@@ -3625,8 +3630,8 @@ mangle_class_name_for_template (name, parms, arglist)
     obstack_free (&scratch_obstack, scratch_firstobj);
   scratch_firstobj = obstack_alloc (&scratch_obstack, 1);
 
-#define ccat(c)	obstack_1grow (&scratch_obstack, (c));
-#define cat(s)	obstack_grow (&scratch_obstack, (s), strlen (s))
+#define ccat(C)	obstack_1grow (&scratch_obstack, (C));
+#define cat(S)	obstack_grow (&scratch_obstack, (S), strlen (S))
 
   cat (name);
   ccat ('<');
@@ -5205,7 +5210,7 @@ instantiate_class_template (type)
 		      tsubst_friend_function (TREE_VALUE (friends),
 					      args));
 	else
-	  my_friendly_abort (20000216);
+	  abort ();
     }
 
   for (t = CLASSTYPE_FRIEND_CLASSES (pattern);
@@ -5405,17 +5410,16 @@ tsubst_template_parms (parms, args, complain)
       
       for (i = 0; i < TREE_VEC_LENGTH (new_vec); ++i)
 	{
-	  tree default_value =
-	    TREE_PURPOSE (TREE_VEC_ELT (TREE_VALUE (parms), i));
-	  tree parm_decl = 
-	    TREE_VALUE (TREE_VEC_ELT (TREE_VALUE (parms), i));
-	  
-	  TREE_VEC_ELT (new_vec, i)
-	    = build_tree_list (maybe_fold_nontype_arg (
-				  tsubst_expr (default_value, args, complain,
-					       NULL_TREE)), 
-			       tsubst (parm_decl, args, complain,
-				       NULL_TREE));
+	  tree tuple = TREE_VEC_ELT (TREE_VALUE (parms), i);
+	  tree default_value = TREE_PURPOSE (tuple);
+	  tree parm_decl = TREE_VALUE (tuple);
+
+	  parm_decl = tsubst (parm_decl, args, complain, NULL_TREE);
+	  default_value = tsubst_expr (default_value, args,
+				       complain, NULL_TREE);
+	  tuple = build_tree_list (maybe_fold_nontype_arg (default_value), 
+				   parm_decl);
+	  TREE_VEC_ELT (new_vec, i) = tuple;
 	}
       
       *new_parms = 
@@ -5448,12 +5452,7 @@ tsubst_aggr_type (t, args, complain, in_decl, entering_scope)
     {
     case RECORD_TYPE:
       if (TYPE_PTRMEMFUNC_P (t))
-	{
-	  tree r = build_ptrmemfunc_type
-	    (tsubst (TYPE_PTRMEMFUNC_FN_TYPE (t), args, complain, in_decl));
-	  return cp_build_qualified_type_real (r, TYPE_QUALS (t),
-					       complain);
-	}
+	return tsubst (TYPE_PTRMEMFUNC_FN_TYPE (t), args, complain, in_decl);
 
       /* else fall through */
     case ENUMERAL_TYPE:
@@ -5905,6 +5904,9 @@ tsubst_decl (t, args, type)
     case PARM_DECL:
       {
 	r = copy_node (t);
+	if (DECL_TEMPLATE_PARM_P (t))
+	  SET_DECL_TEMPLATE_PARM_P (r);
+	
 	TREE_TYPE (r) = type;
 	c_apply_type_quals_to_decl (cp_type_quals (type), r);
 
@@ -5915,7 +5917,7 @@ tsubst_decl (t, args, type)
 				     /*complain=*/1, in_decl);
 
 	DECL_CONTEXT (r) = NULL_TREE;
-	if (PROMOTE_PROTOTYPES
+	if (!DECL_TEMPLATE_PARM_P (r) && PROMOTE_PROTOTYPES
 	    && INTEGRAL_TYPE_P (type)
 	    && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
 	  DECL_ARG_TYPE (r) = integer_type_node;
@@ -6056,7 +6058,7 @@ tsubst_decl (t, args, type)
       break;
 
     default:
-      my_friendly_abort (0);
+      abort ();
     } 
 
   /* Restore the file and line information.  */
@@ -6143,7 +6145,7 @@ tsubst_function_type (t, args, complain, in_decl)
   /* The TYPE_CONTEXT is not used for function/method types.  */
   my_friendly_assert (TYPE_CONTEXT (t) == NULL_TREE, 0);
 
-  /* Substitue the return type.  */
+  /* Substitute the return type.  */
   return_type = tsubst (TREE_TYPE (t), args, complain, in_decl);
   if (return_type == error_mark_node)
     return error_mark_node;
@@ -6257,7 +6259,7 @@ tsubst (t, args, complain, in_decl)
   else
     type = TREE_TYPE (t);
   if (type == unknown_type_node)
-    my_friendly_abort (42);
+    abort ();
 
   if (type && TREE_CODE (t) != FUNCTION_DECL
       && TREE_CODE (t) != TYPENAME_TYPE
@@ -6430,7 +6432,7 @@ tsubst (t, args, complain, in_decl)
 	      }
 	  }
 	else
-	  my_friendly_abort (981018);
+	  abort ();
 
 	if (level == 1)
 	  /* This can happen during the attempted tsubst'ing in
@@ -6481,7 +6483,7 @@ tsubst (t, args, complain, in_decl)
 	    break;
 	   
 	  default:
-	    my_friendly_abort (0);
+	    abort ();
 	  }
 
 	return r;
@@ -6558,7 +6560,7 @@ tsubst (t, args, complain, in_decl)
       {
 	enum tree_code code;
 
-	if (type == TREE_TYPE (t))
+	if (type == TREE_TYPE (t) && TREE_CODE (type) != METHOD_TYPE)
 	  return t;
 
 	code = TREE_CODE (t);
@@ -6597,7 +6599,11 @@ tsubst (t, args, complain, in_decl)
 	    return error_mark_node;
 	  }
 	else if (code == POINTER_TYPE)
-	  r = build_pointer_type (type);
+	  {
+	    r = build_pointer_type (type);
+	    if (TREE_CODE (type) == METHOD_TYPE)
+	      r = build_ptrmemfunc_type (r);
+	  }
 	else
 	  r = build_reference_type (type);
 	r = cp_build_qualified_type_real (r, TYPE_QUALS (t), complain);
@@ -6625,7 +6631,30 @@ tsubst (t, args, complain, in_decl)
 			r);
 	    return error_mark_node;
 	  }
-	return build_offset_type (r, type);
+	if (TREE_CODE (type) == REFERENCE_TYPE)
+	  {
+	    if (complain)
+	      error ("creating pointer to member reference type `%T'", type);
+	    
+	    return error_mark_node;
+	  }
+	my_friendly_assert (TREE_CODE (type) != METHOD_TYPE, 20011231);
+	if (TREE_CODE (type) == FUNCTION_TYPE)
+	  /* This is really a method type. The cv qualifiers of the
+	     this pointer should _not_ be determined by the cv
+	     qualifiers of the class type.  They should be held
+	     somewhere in the FUNCTION_TYPE, but we don't do that at
+	     the moment.  Consider
+	        typedef void (Func) () const;
+
+		template <typename T1> void Foo (Func T1::*);
+
+	      */
+	  return build_cplus_method_type (TYPE_MAIN_VARIANT (r),
+					  TREE_TYPE (type),
+					  TYPE_ARG_TYPES (type));
+	else
+	  return build_offset_type (r, type);
       }
     case FUNCTION_TYPE:
     case METHOD_TYPE:
@@ -6902,7 +6931,7 @@ tsubst_copy (t, args, complain, in_decl)
 	  /* We didn't find the name.  That should never happen; if
 	     name-lookup found it during preliminary parsing, we
 	     should find it again here during instantiation.  */
-	my_friendly_abort (0);
+	abort ();
       }
       return t;
 
@@ -7245,7 +7274,7 @@ tsubst_expr (t, args, complain, in_decl)
 	  = tsubst_initializer_list (TREE_OPERAND (t, 0), args);
 	base_init_list
 	  = tsubst_initializer_list (TREE_OPERAND (t, 1), args);
-	setup_vtbl_ptr (member_init_list, base_init_list);
+	emit_base_init (member_init_list, base_init_list);
 	break;
       }
 
@@ -7563,7 +7592,7 @@ instantiate_template (tmpl, targ_ptr)
 	if (DECL_NAME (clone) == DECL_NAME (tmpl))
 	  return clone;
       /* We should always have found the clone by now.  */
-      my_friendly_abort (20000411);
+      abort ();
       return NULL_TREE;
     }
   
@@ -7815,7 +7844,7 @@ maybe_adjust_types_for_deduction (strict, parm, arg)
         }
       break;
     default:
-      my_friendly_abort (0);
+      abort ();
     }
 
   if (TREE_CODE (*parm) != REFERENCE_TYPE)
@@ -7910,7 +7939,7 @@ type_unification_real (tparms, targs, xparms, xargs, subr,
       break;
       
     default:
-      my_friendly_abort (0);
+      abort ();
     }
 
   if (xlen == 0)
@@ -8108,7 +8137,7 @@ resolve_overloaded_unification (tparms, targs, parm, arg, strict,
 	}
     }
   else
-    my_friendly_abort (981006);
+    abort ();
 
   /* [temp.deduct.type] A template-argument can be deduced from a pointer
      to function or pointer to member function argument if the set of
@@ -8426,7 +8455,7 @@ template_decl_level (decl)
       return TEMPLATE_PARM_LEVEL (DECL_INITIAL (decl));
 
     default:
-      my_friendly_abort (0);
+      abort ();
       return 0;
     }
 }
@@ -8702,7 +8731,7 @@ unify (tparms, targs, parm, arg, strict)
 	  else if (i == 0)
 	    return 1;
 	  else
-	    my_friendly_abort (42);
+	    abort ();
 	}
 
       /* [temp.deduct.type] If, in the declaration of a function template

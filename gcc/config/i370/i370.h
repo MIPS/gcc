@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  System/370 version.
-   Copyright (C) 1989, 1993, 1995, 1996, 1997, 1998, 1999, 2000
+   Copyright (C) 1989, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by Jan Stein (jan@cd.chalmers.se).
    Modified for OS/390 LanguageEnvironment C by Dave Pitts (dpitts@cozx.com)
@@ -861,10 +861,6 @@ enum reg_class
 
 /* #define CASE_VECTOR_PC_RELATIVE */
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
 /* Define this if fixuns_trunc is the same as fix_trunc.  */
 
 #define FIXUNS_TRUNC_LIKE_FIX_TRUNC
@@ -873,18 +869,10 @@ enum reg_class
 
 #define DEFAULT_SIGNED_CHAR 0
 
-/* This is the kind of divide that is easiest to do in the general case.  */
-
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
-
 /* Max number of bytes we can move from memory to memory in one reasonably
    fast instruction.  */
 
 #define MOVE_MAX 256
-
-/* Define this if zero-extension is slow (more than one real instruction).  */
-
-#define SLOW_ZERO_EXTEND 1
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 
@@ -1009,7 +997,7 @@ enum reg_class
 	      case MULT:  /* case UMULT: */ case DIV:      case UDIV: 	\
               /* and, or and xor set the cc's the wrong way !! */	\
 	      case AND:   case IOR:    case XOR:  			\
-              /* some shifts set the CC some don't. */			\
+              /* some shifts set the CC some don't.  */			\
               case ASHIFT: 	 case ASHIFTRT:  			\
                  do {} while (0);					\
               default:							\
@@ -1140,7 +1128,7 @@ enum reg_class
 
 /* Generate case label.  For HLASM we can change to the data CSECT
    and put the vectors out of the code body. The assembler just
-   concatenates CSECTs with the same name. */
+   concatenates CSECTs with the same name.  */
 
 #define ASM_OUTPUT_CASE_LABEL(FILE, PREFIX, NUM, TABLE)			\
   fprintf (FILE, "\tDS\t0F\n");                                         \
@@ -1298,7 +1286,7 @@ enum reg_class
 
 /* Print operand XV (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
-   For `%' followed by punctuation, CODE is the punctuation and XV is null. */
+   For `%' followed by punctuation, CODE is the punctuation and XV is null.  */
 
 #define PRINT_OPERAND(FILE, XV, CODE)					\
 {									\
@@ -1587,7 +1575,7 @@ enum reg_class
 
 /* Print operand XV (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
-   For `%' followed by punctuation, CODE is the punctuation and XV is null. */
+   For `%' followed by punctuation, CODE is the punctuation and XV is null.  */
 
 #define PRINT_OPERAND(FILE, XV, CODE)					\
 {									\
@@ -1702,7 +1690,7 @@ enum reg_class
 		mvs_page_lit += 8;					\
 		fprintf (FILE, "=D'%s'", buf);				\
 	      }								\
-	    else /* VOIDmode !?!? strange but true ... */		\
+	    else /* VOIDmode !?!? strange but true ...  */		\
 	      {								\
 		mvs_page_lit += 8;					\
 		fprintf (FILE, "=XL8'%08X%08X'", 			\
@@ -1867,7 +1855,7 @@ abort(); \
 
 /* Generate internal label.  Since we can branch here from off page, we
    must reload the base register.  Note that internal labels are generated
-   for loops, goto's and case labels.   */
+   for loops, goto's and case labels.  */
 #undef ASM_OUTPUT_INTERNAL_LABEL
 #define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM) 			\
 {									\
@@ -1909,7 +1897,7 @@ abort(); \
    count is in %cl.  Some assemblers require %cl as an argument;
    some don't.
 
-   GAS requires the %cl argument, so override i386/unix.h. */
+   GAS requires the %cl argument, so override i386/unix.h.  */
 
 #undef SHIFT_DOUBLE_OMITS_COUNT
 #define SHIFT_DOUBLE_OMITS_COUNT 0

@@ -1106,12 +1106,17 @@ s390_preferred_reload_class (op, class)
 	return NO_REGS;
 
       /* If a symbolic constant or a PLUS is reloaded,
-	 it is most likely being used as an address.  */
+	 it is most likely being used as an address, so
+	 prefer ADDR_REGS.  If 'class' is not a superset
+	 of ADDR_REGS, e.g. FP_REGS, reject this reload.  */
       case PLUS:
       case LABEL_REF:
       case SYMBOL_REF:
       case CONST:
-        return ADDR_REGS;
+	if (reg_class_subset_p (ADDR_REGS, class))
+          return ADDR_REGS;
+	else
+	  return NO_REGS;
 
       default:
 	break;
@@ -2984,16 +2989,18 @@ s390_emit_prologue ()
 	  got_symbol = force_const_mem (Pmode, got_symbol);
 	  insn = emit_move_insn (pic_offset_table_rtx,
 				 got_symbol);		 
+          REG_NOTES(insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, NULL_RTX,
+                                               REG_NOTES (insn));
+
 	  insn = emit_insn (gen_add2_insn (pic_offset_table_rtx,
 					   gen_rtx_REG (Pmode, BASE_REGISTER)));
-
-	  /* We need the GOT pointer even if we don't know it ...  */
-	  emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
+          REG_NOTES(insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, NULL_RTX,
+                                               REG_NOTES (insn));
 	}
     }      
 }
 
-/* Expand the epilogue into a bunch of separate insns. */
+/* Expand the epilogue into a bunch of separate insns.  */
 
 void
 s390_emit_epilogue ()
@@ -3078,6 +3085,12 @@ s390_emit_epilogue ()
 
       insn = emit_insn (gen_add2_insn (frame_pointer, frame_off));
       RTX_FRAME_RELATED_P (insn) = 1;
+      REG_NOTES (insn) = 
+	gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
+			   gen_rtx_SET (VOIDmode, frame_pointer,
+				   gen_rtx_PLUS (Pmode, frame_pointer,
+			           GEN_INT (frame.frame_size - offset))),
+			   REG_NOTES (insn));
     }
 
   /* Restore call saved fprs.  */
@@ -3724,8 +3737,8 @@ s390_function_profiler (file, labelno)
 
       output_asm_insn ("st\t%0,%1", op);
       output_asm_insn ("bras\t%2,%l6", op);
-      output_asm_insn (".long\t%3", op);
       output_asm_insn (".long\t%4", op);
+      output_asm_insn (".long\t%3", op);
       ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[6]));
       output_asm_insn ("l\t%0,0(%2)", op);
       output_asm_insn ("l\t%2,4(%2)", op);
@@ -3740,8 +3753,8 @@ s390_function_profiler (file, labelno)
       output_asm_insn ("st\t%0,%1", op);
       output_asm_insn ("bras\t%2,%l6", op);
       ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[5]));
-      output_asm_insn (".long\t%3-%l5", op);
       output_asm_insn (".long\t%4-%l5", op);
+      output_asm_insn (".long\t%3-%l5", op);
       ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[6]));
       output_asm_insn ("lr\t%0,%2", op);
       output_asm_insn ("a\t%0,0(%2)", op);

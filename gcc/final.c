@@ -1,6 +1,6 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -201,26 +201,6 @@ static char *line_note_exists;
 /* Nonnull if the insn currently being emitted was a COND_EXEC pattern.  */
 rtx current_insn_predicate;
 #endif
-
-/* Linked list to hold line numbers for each basic block.  */
-
-struct bb_list
-{
-  struct bb_list *next;		/* pointer to next basic block */
-  int line_num;			/* line number */
-  int file_label_num;		/* LPBC<n> label # for stored filename */
-  int func_label_num;		/* LPBC<n> label # for stored function name */
-};
-
-/* Linked list to hold the strings for each file and function name output.  */
-
-struct bb_str
-{
-  struct bb_str *next;		/* pointer to next string */
-  const char *string;		/* string */
-  int label_num;		/* label number */
-  int length;			/* string length */
-};
 
 #ifdef HAVE_ATTR_length
 static int asm_insn_count	PARAMS ((rtx));
@@ -980,7 +960,7 @@ shorten_branches (first)
       else if (GET_CODE (insn) == CODE_LABEL)
 	{
 	  rtx next;
-	  
+
 	  /* Merge in alignments computed by compute_alignments.  */
 	  log = LABEL_TO_ALIGNMENT (insn);
 	  if (max_log < log)
@@ -1547,7 +1527,7 @@ final_start_function (first, file, optimize)
   /* The Sun386i and perhaps other machines don't work right
      if the profiling code comes after the prologue.  */
 #ifdef PROFILE_BEFORE_PROLOGUE
-  if (profile_flag)
+  if (current_function_profile)
     profile_function (file);
 #endif /* PROFILE_BEFORE_PROLOGUE */
 
@@ -1593,7 +1573,7 @@ profile_after_prologue (file)
      FILE *file ATTRIBUTE_UNUSED;
 {
 #ifndef PROFILE_BEFORE_PROLOGUE
-  if (profile_flag)
+  if (current_function_profile)
     profile_function (file);
 #endif /* not PROFILE_BEFORE_PROLOGUE */
 }
@@ -2392,7 +2372,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 			&& rtx_equal_p (SET_SRC (set), cc_status.value2)))
 		  {
 		    /* Don't delete insn if it has an addressing side-effect.  */
-		    if (! FIND_REG_INC_NOTE (insn, 0)
+		    if (! FIND_REG_INC_NOTE (insn, NULL_RTX)
 			/* or if anything in it is volatile.  */
 			&& ! volatile_refs_p (PATTERN (insn)))
 		      {
@@ -2774,8 +2754,9 @@ alter_subreg (xp)
       /* Simplify_subreg can't handle some REG cases, but we have to.  */
       else if (GET_CODE (y) == REG)
 	{
-	  REGNO (x) = subreg_hard_regno (x, 1);
+	  unsigned int regno = subreg_hard_regno (x, 1);
 	  PUT_CODE (x, REG);
+	  REGNO (x) = regno;
 	  ORIGINAL_REGNO (x) = ORIGINAL_REGNO (y);
 	  /* This field has a different meaning for REGs and SUBREGs.  Make
 	     sure to clear it!  */
@@ -3060,7 +3041,7 @@ get_mem_expr_from_op (op, paddressp)
   expr = get_mem_expr_from_op (op, &inner_addressp);
   return inner_addressp ? 0 : expr;
 }
-  
+
 /* Output operand names for assembler instructions.  OPERANDS is the
    operand vector, OPORDER is the order to write the operands, and NOPS
    is the number of operands to write.  */
@@ -3194,7 +3175,7 @@ output_asm_insn (template, operands)
 		    output_operand_lossage ("unterminated assembly dialect alternative");
 		    break;
 		  }
-	      }	  
+	      }
 	    while (*p++ != '}');
 	    dialect = 0;
 	  }
@@ -3839,7 +3820,7 @@ leaf_function_p ()
   rtx insn;
   rtx link;
 
-  if (profile_flag || profile_arc_flag)
+  if (current_function_profile || profile_arc_flag)
     return 0;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))

@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on IA-32.
-   Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
-   Free Software Foundation, Inc.
+   Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
+   2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -44,7 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target-def.h"
 
 #ifndef CHECK_STACK_LIMIT
-#define CHECK_STACK_LIMIT -1
+#define CHECK_STACK_LIMIT (-1)
 #endif
 
 /* Processor costs (relative to an add) */
@@ -401,7 +401,7 @@ const int x86_decompose_lea = m_PENT4;
    the style used.  */
 static int use_fast_prologue_epilogue;
 
-#define AT_BP(mode) (gen_rtx_MEM ((mode), hard_frame_pointer_rtx))
+#define AT_BP(MODE) (gen_rtx_MEM ((MODE), hard_frame_pointer_rtx))
 
 static const char *const hi_reg_name[] = HI_REGISTER_NAMES; /* names for 16 bit regs */
 static const char *const qi_reg_name[] = QI_REGISTER_NAMES; /* names for 8 bit regs (low) */
@@ -446,11 +446,11 @@ int const dbx_register_map[FIRST_PSEUDO_REGISTER] =
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended SSE registers */
 };
 
-static int x86_64_int_parameter_registers[6] = {5 /*RDI*/, 4 /*RSI*/,
+static int const x86_64_int_parameter_registers[6] = {5 /*RDI*/, 4 /*RSI*/,
 					        1 /*RDX*/, 2 /*RCX*/,
 					        FIRST_REX_INT_REG /*R8 */,
 					        FIRST_REX_INT_REG + 1 /*R9 */};
-static int x86_64_int_return_registers[4] = {0 /*RAX*/, 1 /*RDI*/, 5, 4};
+static int const x86_64_int_return_registers[4] = {0 /*RAX*/, 1 /*RDI*/, 5, 4};
 
 /* The "default" register map used in 64bit mode.  */
 int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
@@ -532,8 +532,8 @@ int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
 /* Test and compare insns in i386.md store the information needed to
    generate branch and scc insns here.  */
 
-struct rtx_def *ix86_compare_op0 = NULL_RTX;
-struct rtx_def *ix86_compare_op1 = NULL_RTX;
+rtx ix86_compare_op0 = NULL_RTX;
+rtx ix86_compare_op1 = NULL_RTX;
 
 #define MAX_386_STACK_LOCALS 3
 /* Size of the register save area.  */
@@ -590,11 +590,11 @@ struct ix86_frame
 const char *ix86_debug_arg_string, *ix86_debug_addr_string;
 /* Code model option as passed by user.  */
 const char *ix86_cmodel_string;
-/* Asm dialect.  */
-const char *ix86_asm_string;
-enum cmodel ix86_asm_dialect = ASM_ATT;
 /* Parsed value.  */
 enum cmodel ix86_cmodel;
+/* Asm dialect.  */
+const char *ix86_asm_string;
+enum asm_dialect ix86_asm_dialect = ASM_ATT;
 
 /* which cpu are we scheduling for */
 enum processor_type ix86_cpu;
@@ -668,13 +668,13 @@ static void ix86_mark_machine_status PARAMS ((struct function *));
 static void ix86_free_machine_status PARAMS ((struct function *));
 static int ix86_split_to_parts PARAMS ((rtx, rtx *, enum machine_mode));
 static int ix86_safe_length_prefix PARAMS ((rtx));
-static int ix86_nsaved_regs PARAMS((void));
-static void ix86_emit_save_regs PARAMS((void));
+static int ix86_nsaved_regs PARAMS ((void));
+static void ix86_emit_save_regs PARAMS ((void));
 static void ix86_emit_save_regs_using_mov PARAMS ((rtx, HOST_WIDE_INT));
 static void ix86_emit_restore_regs_using_mov PARAMS ((rtx, int, int));
 static void ix86_set_move_mem_attrs_1 PARAMS ((rtx, rtx, rtx, rtx, rtx));
-static void ix86_sched_reorder_pentium PARAMS((rtx *, rtx *));
-static void ix86_sched_reorder_ppro PARAMS((rtx *, rtx *));
+static void ix86_sched_reorder_pentium PARAMS ((rtx *, rtx *));
+static void ix86_sched_reorder_ppro PARAMS ((rtx *, rtx *));
 static HOST_WIDE_INT ix86_GOT_alias_set PARAMS ((void));
 static void ix86_adjust_counter PARAMS ((rtx, HOST_WIDE_INT));
 static rtx ix86_expand_aligntest PARAMS ((rtx, int));
@@ -684,6 +684,7 @@ static int ix86_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static void ix86_sched_init PARAMS ((FILE *, int, int));
 static int ix86_sched_reorder PARAMS ((FILE *, int, rtx *, int *, int));
 static int ix86_variable_issue PARAMS ((FILE *, int, rtx, int));
+static void ix86_init_mmx_sse_builtins PARAMS ((void));
 
 struct ix86_address
 {
@@ -701,7 +702,9 @@ static rtx ix86_expand_sse_compare PARAMS ((const struct builtin_description *,
 static rtx ix86_expand_unop1_builtin PARAMS ((enum insn_code, tree, rtx));
 static rtx ix86_expand_unop_builtin PARAMS ((enum insn_code, tree, rtx, int));
 static rtx ix86_expand_binop_builtin PARAMS ((enum insn_code, tree, rtx));
-static rtx ix86_expand_store_builtin PARAMS ((enum insn_code, tree, int));
+static rtx ix86_expand_timode_binop_builtin PARAMS ((enum insn_code,
+						     tree, rtx));
+static rtx ix86_expand_store_builtin PARAMS ((enum insn_code, tree));
 static rtx safe_vector_operand PARAMS ((rtx, enum machine_mode));
 static enum rtx_code ix86_fp_compare_code_to_integer PARAMS ((enum rtx_code));
 static void ix86_fp_comparison_codes PARAMS ((enum rtx_code code,
@@ -756,7 +759,7 @@ static int classify_argument PARAMS ((enum machine_mode, tree,
 static int examine_argument PARAMS ((enum machine_mode, tree, int, int *,
 				     int *));
 static rtx construct_container PARAMS ((enum machine_mode, tree, int, int, int,
-					int *, int));
+					const int *, int));
 static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 						    enum x86_64_reg_class));
 
@@ -1062,7 +1065,6 @@ override_options ()
     }
 
   /* Default align_* from the processor table.  */
-#define abs(n) (n < 0 ? -n : n)
   if (align_loops == 0)
     {
       align_loops = processor_target_table[ix86_cpu].align_loop;
@@ -1165,7 +1167,10 @@ override_options ()
   /* It makes no sense to ask for just SSE builtins, so MMX is also turned
      on by -msse.  */
   if (TARGET_SSE)
-    target_flags |= MASK_MMX;
+    {
+      target_flags |= MASK_MMX;
+      x86_prefetch_sse = true;
+    }
 
   /* If it has 3DNow! it also has MMX so MMX is also turned on by -m3dnow */
   if (TARGET_3DNOW)
@@ -1330,7 +1335,7 @@ ix86_osf_output_function_prologue (file, size)
   if (TARGET_UNDERSCORES)
     prefix = "_";
 
-  if (profile_flag && OSF_PROFILE_BEFORE_PROLOGUE)
+  if (current_function_profile && OSF_PROFILE_BEFORE_PROLOGUE)
     {
       if (!flag_pic && !HALF_PIC_P ())
 	{
@@ -1370,7 +1375,7 @@ ix86_osf_output_function_prologue (file, size)
 
 #else  /* !OSF_OS */
 
-  if (profile_flag && OSF_PROFILE_BEFORE_PROLOGUE)
+  if (current_function_profile && OSF_PROFILE_BEFORE_PROLOGUE)
     {
       if (!flag_pic)
 	{
@@ -1478,7 +1483,8 @@ ix86_function_arg_regno_p (regno)
 {
   int i;
   if (!TARGET_64BIT)
-    return regno < REGPARM_MAX || (TARGET_SSE && SSE_REGNO_P (regno));
+    return (regno < REGPARM_MAX
+	    || (TARGET_SSE && SSE_REGNO_P (regno) && !fixed_regs[regno]));
   if (SSE_REGNO_P (regno) && TARGET_SSE)
     return true;
   /* RAX is used as hidden argument to va_arg functions.  */
@@ -1869,7 +1875,8 @@ construct_container (mode, type, in_return, nintregs, nsseregs, intreg, sse_regn
      tree type;
      int in_return;
      int nintregs, nsseregs;
-     int *intreg, sse_regno;
+     const int * intreg;
+     int sse_regno;
 {
   enum machine_mode tmpmode;
   int bytes =
@@ -2074,7 +2081,7 @@ function_arg_advance (cum, mode, type, named)
    NAMED is nonzero if this argument is a named parameter
     (otherwise it is an extra parameter matching an ellipsis).  */
 
-struct rtx_def *
+rtx
 function_arg (cum, mode, type, named)
      CUMULATIVE_ARGS *cum;	/* current arg information */
      enum machine_mode mode;	/* current arg mode */
@@ -2132,7 +2139,7 @@ function_arg (cum, mode, type, named)
 	       words, cum->words, cum->nregs, GET_MODE_NAME (mode), named);
 
       if (ret)
-	fprintf (stderr, ", reg=%%e%s", reg_names[ REGNO(ret) ]);
+	fprintf (stderr, ", reg=%%e%s", reg_names[ REGNO (ret) ]);
       else
 	fprintf (stderr, ", stack");
 
@@ -2443,7 +2450,7 @@ ix86_va_start (stdarg_p, valist, nextarg)
 
   if (TARGET_DEBUG_ARG)
     fprintf (stderr, "va_start: words = %d, n_gpr = %d, n_fpr = %d\n",
-	     (int)words, (int)n_gpr, (int)n_fpr);
+	     (int) words, (int) n_gpr, (int) n_fpr);
 
   t = build (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
 	     build_int_2 (n_gpr * 8, 0));
@@ -2541,7 +2548,7 @@ ix86_va_arg (valist, type)
 	      for (i = 0; i < XVECLEN (container, 0) && !need_temp; i++)
 		{
 		  rtx slot = XVECEXP (container, 0, i);
-		  if (REGNO (XEXP (slot, 0)) != FIRST_SSE_REG + (unsigned int)i
+		  if (REGNO (XEXP (slot, 0)) != FIRST_SSE_REG + (unsigned int) i
 		      || INTVAL (XEXP (slot, 1)) != i * 16)
 		    need_temp = 1;
 		}
@@ -2553,7 +2560,7 @@ ix86_va_arg (valist, type)
 	      for (i = 0; i < XVECLEN (container, 0) && !need_temp; i++)
 		{
 		  rtx slot = XVECEXP (container, 0, i);
-		  if (REGNO (XEXP (slot, 0)) != (unsigned int)i
+		  if (REGNO (XEXP (slot, 0)) != (unsigned int) i
 		      || INTVAL (XEXP (slot, 1)) != i * 8)
 		    need_temp = 1;
 		}
@@ -3312,7 +3319,7 @@ binary_fp_operator (op, mode)
 }
 
 int
-mult_operator(op, mode)
+mult_operator (op, mode)
     register rtx op;
     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
@@ -3320,7 +3327,7 @@ mult_operator(op, mode)
 }
 
 int
-div_operator(op, mode)
+div_operator (op, mode)
     register rtx op;
     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
@@ -3652,7 +3659,7 @@ x86_64_zero_extended_value (value)
 	if (HOST_BITS_PER_WIDE_INT == 32)
 	  return INTVAL (value) >= 0;
 	else
-	  return !(INTVAL (value) & ~(HOST_WIDE_INT)0xffffffff);
+	  return !(INTVAL (value) & ~(HOST_WIDE_INT) 0xffffffff);
 	break;
 
       /* For certain code models, the symbolic references are known to fit.  */
@@ -3806,7 +3813,7 @@ load_pic_register ()
   rtx gotsym, pclab;
 
   if (TARGET_64BIT)
-    abort();
+    abort ();
 
   gotsym = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
 
@@ -3861,7 +3868,7 @@ ix86_save_reg (regno, maybe_eh_return)
       unsigned i;
       for (i = 0; ; i++)
 	{
-	  unsigned test = EH_RETURN_DATA_REGNO(i);
+	  unsigned test = EH_RETURN_DATA_REGNO (i);
 	  if (test == INVALID_REGNUM)
 	    break;
 	  if (test == (unsigned) regno)
@@ -4125,7 +4132,7 @@ ix86_expand_prologue ()
       rtx arg0, sym;
 
       if (TARGET_64BIT)
-	abort();
+	abort ();
 
       arg0 = gen_rtx_REG (SImode, 0);
       emit_move_insn (arg0, GEN_INT (allocate));
@@ -4157,7 +4164,7 @@ ix86_expand_prologue ()
   /* If we are profiling, make sure no instructions are scheduled before
      the call to mcount.  However, if -fpic, the above call will have
      done that.  */
-  if (profile_flag && ! pic_reg_used)
+  if (current_function_profile && ! pic_reg_used)
     emit_insn (gen_blockage ());
 }
 
@@ -4335,7 +4342,7 @@ ix86_expand_epilogue (style)
 
 	  /* There are is no "pascal" calling convention in 64bit ABI.  */
 	  if (TARGET_64BIT)
-	    abort();
+	    abort ();
 
 	  emit_insn (gen_popsi1 (ecx));
 	  emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx, popc));
@@ -4349,8 +4356,10 @@ ix86_expand_epilogue (style)
 }
 
 /* Extract the parts of an RTL expression that is a valid memory address
-   for an instruction.  Return false if the structure of the address is
-   grossly off.  */
+   for an instruction.  Return 0 if the structure of the address is
+   grossly off.  Return -1 if the address contains ASHIFT, so it is not
+   strictly valid, but still used for computing length of lea instruction.
+   */
 
 static int
 ix86_decompose_address (addr, out)
@@ -4362,6 +4371,7 @@ ix86_decompose_address (addr, out)
   rtx disp = NULL_RTX;
   HOST_WIDE_INT scale = 1;
   rtx scale_rtx = NULL_RTX;
+  int retval = 1;
 
   if (GET_CODE (addr) == REG || GET_CODE (addr) == SUBREG)
     base = addr;
@@ -4402,7 +4412,7 @@ ix86_decompose_address (addr, out)
 	  disp = op1;
 	}
       else
-	return FALSE;
+	return 0;
     }
   else if (GET_CODE (addr) == MULT)
     {
@@ -4417,11 +4427,12 @@ ix86_decompose_address (addr, out)
       index = XEXP (addr, 0);
       tmp = XEXP (addr, 1);
       if (GET_CODE (tmp) != CONST_INT)
-	return FALSE;
+	return 0;
       scale = INTVAL (tmp);
       if ((unsigned HOST_WIDE_INT) scale > 3)
-	return FALSE;
+	return 0;
       scale = 1 << scale;
+      retval = -1;
     }
   else
     disp = addr;			/* displacement */
@@ -4430,7 +4441,7 @@ ix86_decompose_address (addr, out)
   if (scale_rtx)
     {
       if (GET_CODE (scale_rtx) != CONST_INT)
-	return FALSE;
+	return 0;
       scale = INTVAL (scale_rtx);
     }
 
@@ -4471,7 +4482,7 @@ ix86_decompose_address (addr, out)
   out->disp = disp;
   out->scale = scale;
 
-  return TRUE;
+  return retval;
 }
 
 /* Return cost of the memory address x.
@@ -4684,7 +4695,7 @@ legitimate_address_p (mode, addr, strict)
       debug_rtx (addr);
     }
 
-  if (! ix86_decompose_address (addr, &parts))
+  if (ix86_decompose_address (addr, &parts) <= 0)
     {
       reason = "decomposition failed";
       goto report_error;
@@ -5064,7 +5075,7 @@ legitimize_address (x, oldx, mode)
   /* Canonicalize shifts by 0, 1, 2, 3 into multiply */
   if (GET_CODE (x) == ASHIFT
       && GET_CODE (XEXP (x, 1)) == CONST_INT
-      && (log = (unsigned)exact_log2 (INTVAL (XEXP (x, 1)))) < 4)
+      && (log = (unsigned) exact_log2 (INTVAL (XEXP (x, 1)))) < 4)
     {
       changed = 1;
       x = gen_rtx_MULT (Pmode, force_reg (Pmode, XEXP (x, 0)),
@@ -5077,7 +5088,7 @@ legitimize_address (x, oldx, mode)
 
       if (GET_CODE (XEXP (x, 0)) == ASHIFT
 	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
-	  && (log = (unsigned)exact_log2 (INTVAL (XEXP (XEXP (x, 0), 1)))) < 4)
+	  && (log = (unsigned) exact_log2 (INTVAL (XEXP (XEXP (x, 0), 1)))) < 4)
 	{
 	  changed = 1;
 	  XEXP (x, 0) = gen_rtx_MULT (Pmode,
@@ -5087,7 +5098,7 @@ legitimize_address (x, oldx, mode)
 
       if (GET_CODE (XEXP (x, 1)) == ASHIFT
 	  && GET_CODE (XEXP (XEXP (x, 1), 1)) == CONST_INT
-	  && (log = (unsigned)exact_log2 (INTVAL (XEXP (XEXP (x, 1), 1)))) < 4)
+	  && (log = (unsigned) exact_log2 (INTVAL (XEXP (XEXP (x, 1), 1)))) < 4)
 	{
 	  changed = 1;
 	  XEXP (x, 1) = gen_rtx_MULT (Pmode,
@@ -5288,11 +5299,11 @@ output_pic_addr_const (file, x, code)
       break;
 
     case MINUS:
-      putc (ASSEMBLER_DIALECT ? '(' : '[', file);
+      putc (ASSEMBLER_DIALECT == ASM_INTEL ? '(' : '[', file);
       output_pic_addr_const (file, XEXP (x, 0), code);
       putc ('-', file);
       output_pic_addr_const (file, XEXP (x, 1), code);
-      putc (ASSEMBLER_DIALECT ? ')' : ']', file);
+      putc (ASSEMBLER_DIALECT == ASM_INTEL ? ')' : ']', file);
       break;
 
      case UNSPEC:
@@ -5400,7 +5411,7 @@ put_condition_code (code, mode, reverse, fp, file)
       enum rtx_code second_code, bypass_code;
       ix86_fp_comparison_codes (code, &bypass_code, &code, &second_code);
       if (bypass_code != NIL || second_code != NIL)
-	abort();
+	abort ();
       code = ix86_fp_compare_code_to_integer (code);
       mode = CCmode;
     }
@@ -5488,7 +5499,7 @@ print_reg (x, code, file)
       || REGNO (x) == FPSR_REG)
     abort ();
 
-  if (ASSEMBLER_DIALECT == 0 || USER_LABEL_PREFIX[0] == 0)
+  if (ASSEMBLER_DIALECT == ASM_ATT  || USER_LABEL_PREFIX[0] == 0)
     putc ('%', file);
 
   if (code == 'w' || MMX_REG_P (x))
@@ -5600,14 +5611,14 @@ print_operand (file, x, code)
       switch (code)
 	{
 	case '*':
-	  if (ASSEMBLER_DIALECT == 0)
+	  if (ASSEMBLER_DIALECT == ASM_ATT)
 	    putc ('*', file);
 	  return;
 
 	case 'A':
-	  if (ASSEMBLER_DIALECT == 0)
+	  if (ASSEMBLER_DIALECT == ASM_ATT)
 	    putc ('*', file);
-	  else if (ASSEMBLER_DIALECT == 1)
+	  else if (ASSEMBLER_DIALECT == ASM_INTEL)
 	    {
 	      /* Intel syntax. For absolute addresses, registers should not
 		 be surrounded by braces.  */
@@ -5619,38 +5630,40 @@ print_operand (file, x, code)
 		  return;
 		}
 	    }
+	  else
+	    abort ();
 
 	  PRINT_OPERAND (file, x, 0);
 	  return;
 
 
 	case 'L':
-	  if (ASSEMBLER_DIALECT == 0)
+	  if (ASSEMBLER_DIALECT == ASM_ATT)
 	    putc ('l', file);
 	  return;
 
 	case 'W':
-	  if (ASSEMBLER_DIALECT == 0)
+	  if (ASSEMBLER_DIALECT == ASM_ATT)
 	    putc ('w', file);
 	  return;
 
 	case 'B':
-	  if (ASSEMBLER_DIALECT == 0)
+	  if (ASSEMBLER_DIALECT == ASM_ATT)
 	    putc ('b', file);
 	  return;
 
 	case 'Q':
-	  if (ASSEMBLER_DIALECT == 0)
+	  if (ASSEMBLER_DIALECT == ASM_ATT)
 	    putc ('l', file);
 	  return;
 
 	case 'S':
-	  if (ASSEMBLER_DIALECT == 0)
+	  if (ASSEMBLER_DIALECT == ASM_ATT)
 	    putc ('s', file);
 	  return;
 
 	case 'T':
-	  if (ASSEMBLER_DIALECT == 0)
+	  if (ASSEMBLER_DIALECT == ASM_ATT)
 	    putc ('t', file);
 	  return;
 
@@ -5833,7 +5846,7 @@ print_operand (file, x, code)
   else if (GET_CODE (x) == MEM)
     {
       /* No `byte ptr' prefix for call instructions.  */
-      if (ASSEMBLER_DIALECT != 0 && code != 'X' && code != 'P')
+      if (ASSEMBLER_DIALECT == ASM_INTEL && code != 'X' && code != 'P')
 	{
 	  const char * size;
 	  switch (GET_MODE_SIZE (GET_MODE (x)))
@@ -5879,7 +5892,7 @@ print_operand (file, x, code)
       REAL_VALUE_FROM_CONST_DOUBLE (r, x);
       REAL_VALUE_TO_TARGET_SINGLE (r, l);
 
-      if (ASSEMBLER_DIALECT == 0)
+      if (ASSEMBLER_DIALECT == ASM_ATT)
 	putc ('$', file);
       fprintf (file, "0x%lx", l);
     }
@@ -5911,13 +5924,13 @@ print_operand (file, x, code)
 	{
 	  if (GET_CODE (x) == CONST_INT || GET_CODE (x) == CONST_DOUBLE)
 	    {
-	      if (ASSEMBLER_DIALECT == 0)
+	      if (ASSEMBLER_DIALECT == ASM_ATT)
 		putc ('$', file);
 	    }
 	  else if (GET_CODE (x) == CONST || GET_CODE (x) == SYMBOL_REF
 		   || GET_CODE (x) == LABEL_REF)
 	    {
-	      if (ASSEMBLER_DIALECT == 0)
+	      if (ASSEMBLER_DIALECT == ASM_ATT)
 		putc ('$', file);
 	      else
 		fputs ("OFFSET FLAT:", file);
@@ -5957,7 +5970,7 @@ print_operand_address (file, addr)
 
       if (GET_CODE (disp) == CONST_INT)
 	{
-	  if (ASSEMBLER_DIALECT != 0)
+	  if (ASSEMBLER_DIALECT == ASM_INTEL)
 	    {
 	      if (USER_LABEL_PREFIX[0] == 0)
 		putc ('%', file);
@@ -5976,7 +5989,7 @@ print_operand_address (file, addr)
     }
   else
     {
-      if (ASSEMBLER_DIALECT == 0)
+      if (ASSEMBLER_DIALECT == ASM_ATT)
 	{
 	  if (disp)
 	    {
@@ -6654,6 +6667,38 @@ ix86_expand_move (mode, operands)
 
   emit_insn (insn);
 }
+
+void
+ix86_expand_vector_move (mode, operands)
+     enum machine_mode mode;
+     rtx operands[];
+{
+  /* Force constants other than zero into memory.  We do not know how
+     the instructions used to build constants modify the upper 64 bits
+     of the register, once we have that information we may be able
+     to handle some of them more efficiently.  */
+  if ((reload_in_progress | reload_completed) == 0
+      && register_operand (operands[0], mode)
+      && CONSTANT_P (operands[1]))
+    {
+      rtx addr = gen_reg_rtx (Pmode);
+      emit_move_insn (addr, XEXP (force_const_mem (mode, operands[1]), 0));
+      operands[1] = gen_rtx_MEM (mode, addr);
+    }
+
+  /* Make operand1 a register if it isn't already.  */
+  if ((reload_in_progress | reload_completed) == 0
+      && !register_operand (operands[0], mode)
+      && !register_operand (operands[1], mode)
+      && operands[1] != CONST0_RTX (mode))
+    {
+      rtx temp = force_reg (TImode, operands[1]);
+      emit_move_insn (operands[0], temp);
+      return;
+    }
+
+  emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
+}  
 
 /* Attempt to expand a binary operator.  Make the expansion closer to the
    actual machine, then just general_operand, which will allow 3 separate
@@ -7783,7 +7828,7 @@ ix86_expand_setcc (code, dest)
       if (bypass_test)
 	{
 	  if (second_test)
-	    abort();
+	    abort ();
 	  test = bypass_test;
 	  bypass = 1;
 	  PUT_CODE (test, reverse_condition_maybe_unordered (GET_CODE (test)));
@@ -7816,7 +7861,7 @@ ix86_expand_int_movcc (operands)
   if ((code == LEU || code == GTU)
       && GET_CODE (ix86_compare_op1) == CONST_INT
       && mode != HImode
-      && (unsigned int)INTVAL (ix86_compare_op1) != 0xffffffff
+      && (unsigned int) INTVAL (ix86_compare_op1) != 0xffffffff
       && GET_CODE (operands[2]) == CONST_INT
       && GET_CODE (operands[3]) == CONST_INT)
     {
@@ -8312,7 +8357,7 @@ ix86_expand_fp_movcc (operands)
   if (!fcmov_comparison_operator (compare_op, VOIDmode))
     {
       if (second_test != NULL || bypass_test != NULL)
-	abort();
+	abort ();
       tmp = gen_reg_rtx (QImode);
       ix86_expand_setcc (code, tmp);
       code = NE;
@@ -8475,7 +8520,7 @@ ix86_split_to_parts (operand, parts, mode)
 	        parts[0]
 		  = GEN_INT (trunc_int_for_mode
 		      ((l[0] & (((HOST_WIDE_INT) 2 << 31) - 1))
-		       + ((((HOST_WIDE_INT)l[1]) << 31) << 1),
+		       + ((((HOST_WIDE_INT) l[1]) << 31) << 1),
 		       DImode));
 	      else
 	        parts[0] = immed_double_const (l[0], l[1], DImode);
@@ -8614,7 +8659,7 @@ ix86_split_long_move (operands)
 	      else if (REG_P (part[1][1]))
 		part[1][1] = gen_rtx_REG (DImode, REGNO (part[1][1]));
 	      else
-		abort();
+		abort ();
 	      if (GET_MODE (part[1][0]) == SImode)
 		part[1][0] = part[1][1];
 	    }
@@ -8950,7 +8995,7 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
   else if (count != 0
 	   && (align >= 8
 	       || (!TARGET_PENTIUMPRO && !TARGET_64BIT && align >= 4)
-	       || optimize_size || count < (unsigned int)64))
+	       || optimize_size || count < (unsigned int) 64))
     {
       int size = TARGET_64BIT && !optimize_size ? 8 : 4;
       if (count & ~(size - 1))
@@ -9019,7 +9064,7 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
 
       if (count == 0
 	  && align < (TARGET_PENTIUMPRO && (count == 0
-					    || count >= (unsigned int)260)
+					    || count >= (unsigned int) 260)
 		      ? 8 : UNITS_PER_WORD))
 	{
 	  label = gen_label_rtx ();
@@ -9044,7 +9089,7 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
 	}
       if (align <= 4
 	  && ((TARGET_PENTIUMPRO && (count == 0
-				     || count >= (unsigned int)260))
+				     || count >= (unsigned int) 260))
 	      || TARGET_64BIT))
 	{
 	  rtx label = ix86_expand_aligntest (destreg, 4);
@@ -9162,7 +9207,7 @@ ix86_expand_clrstr (src, count_exp, align_exp)
   else if (count != 0
 	   && (align >= 8
 	       || (!TARGET_PENTIUMPRO && !TARGET_64BIT && align >= 4)
-	       || optimize_size || count < (unsigned int)64))
+	       || optimize_size || count < (unsigned int) 64))
     {
       int size = TARGET_64BIT && !optimize_size ? 8 : 4;
       zeroreg = copy_to_mode_reg (size == 4 ? SImode : DImode, const0_rtx);
@@ -9215,7 +9260,7 @@ ix86_expand_clrstr (src, count_exp, align_exp)
 
       if (count == 0
 	  && align < (TARGET_PENTIUMPRO && (count == 0
-					    || count >= (unsigned int)260)
+					    || count >= (unsigned int) 260)
 		      ? 8 : UNITS_PER_WORD))
 	{
 	  label = gen_label_rtx ();
@@ -9241,7 +9286,7 @@ ix86_expand_clrstr (src, count_exp, align_exp)
 	  LABEL_NUSES (label) = 1;
 	}
       if (align <= 4 && TARGET_PENTIUMPRO && (count == 0
-					      || count >= (unsigned int)260))
+					      || count >= (unsigned int) 260))
 	{
 	  rtx label = ix86_expand_aligntest (destreg, 4);
 	  emit_insn (gen_strsetsi (destreg, (TARGET_64BIT
@@ -10021,7 +10066,7 @@ ix86_safe_length (insn)
      rtx insn;
 {
   if (recog_memoized (insn) >= 0)
-    return get_attr_length(insn);
+    return get_attr_length (insn);
   else
     return 128;
 }
@@ -10031,7 +10076,7 @@ ix86_safe_length_prefix (insn)
      rtx insn;
 {
   if (recog_memoized (insn) >= 0)
-    return get_attr_length(insn);
+    return get_attr_length (insn);
   else
     return 0;
 }
@@ -10041,7 +10086,7 @@ ix86_safe_memory (insn)
      rtx insn;
 {
   if (recog_memoized (insn) >= 0)
-    return get_attr_memory(insn);
+    return get_attr_memory (insn);
   else
     return MEMORY_UNKNOWN;
 }
@@ -10051,7 +10096,7 @@ ix86_safe_pent_pair (insn)
      rtx insn;
 {
   if (recog_memoized (insn) >= 0)
-    return get_attr_pent_pair(insn);
+    return get_attr_pent_pair (insn);
   else
     return PENT_PAIR_NP;
 }
@@ -10664,7 +10709,7 @@ x86_initialize_trampoline (tramp, fnaddr, cxt)
 		      GEN_INT (trunc_int_for_mode (0xe3, QImode)));
       offset += 3;
       if (offset > TRAMPOLINE_SIZE)
-	abort();
+	abort ();
     }
 }
 
@@ -10741,11 +10786,6 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_SSE, CODE_FOR_smaxv4sf3, "__builtin_ia32_maxps", IX86_BUILTIN_MAXPS, 0, 0 },
   { MASK_SSE, CODE_FOR_vmsminv4sf3, "__builtin_ia32_minss", IX86_BUILTIN_MINSS, 0, 0 },
   { MASK_SSE, CODE_FOR_vmsmaxv4sf3, "__builtin_ia32_maxss", IX86_BUILTIN_MAXSS, 0, 0 },
-
-  { MASK_SSE, CODE_FOR_sse_andti3, "__builtin_ia32_andps", IX86_BUILTIN_ANDPS, 0, 0 },
-  { MASK_SSE, CODE_FOR_sse_nandti3,  "__builtin_ia32_andnps", IX86_BUILTIN_ANDNPS, 0, 0 },
-  { MASK_SSE, CODE_FOR_sse_iorti3, "__builtin_ia32_orps", IX86_BUILTIN_ORPS, 0, 0 },
-  { MASK_SSE, CODE_FOR_sse_xorti3,  "__builtin_ia32_xorps", IX86_BUILTIN_XORPS, 0, 0 },
 
   { MASK_SSE, CODE_FOR_sse_movss,  "__builtin_ia32_movss", IX86_BUILTIN_MOVSS, 0, 0 },
   { MASK_SSE, CODE_FOR_sse_movhlps,  "__builtin_ia32_movhlps", IX86_BUILTIN_MOVHLPS, 0, 0 },
@@ -10828,7 +10868,7 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_MMX, CODE_FOR_ashrv2si3, 0, IX86_BUILTIN_PSRAD, 0, 0 },
   { MASK_MMX, CODE_FOR_ashrv2si3, 0, IX86_BUILTIN_PSRADI, 0, 0 },
 
-  { MASK_SSE, CODE_FOR_mmx_psadbw, 0, IX86_BUILTIN_PSADBW, 0, 0 },
+  { MASK_SSE | MASK_3DNOW_A, CODE_FOR_mmx_psadbw, 0, IX86_BUILTIN_PSADBW, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_pmaddwd, 0, IX86_BUILTIN_PMADDWD, 0, 0 }
 
 };
@@ -10859,7 +10899,7 @@ ix86_init_builtins ()
 /* Set up all the MMX/SSE builtins.  This is not called if TARGET_MMX
    is zero.  Otherwise, if TARGET_SSE is not set, only expand the MMX
    builtins.  */
-void
+static void
 ix86_init_mmx_sse_builtins ()
 {
   const struct builtin_description * d;
@@ -10892,14 +10932,6 @@ ix86_init_mmx_sse_builtins ()
   tree int_ftype_v8qi
     = build_function_type (integer_type_node,
 			   tree_cons (NULL_TREE, V8QI_type_node,
-				      endlink));
-  tree int_ftype_v2si
-    = build_function_type (integer_type_node,
-			   tree_cons (NULL_TREE, V2SI_type_node,
-				      endlink));
-  tree v2si_ftype_int
-    = build_function_type (V2SI_type_node,
-			   tree_cons (NULL_TREE, integer_type_node,
 				      endlink));
   tree v4sf_ftype_v4sf_int
     = build_function_type (V4SF_type_node,
@@ -10970,11 +11002,6 @@ ix86_init_mmx_sse_builtins ()
 						 endlink)));
   tree void_ftype_void
     = build_function_type (void_type_node, endlink);
-  tree void_ftype_pchar_int
-    = build_function_type (void_type_node,
-			   tree_cons (NULL_TREE, pchar_type_node,
-				      tree_cons (NULL_TREE, integer_type_node,
-						 endlink)));
   tree void_ftype_unsigned
     = build_function_type (void_type_node,
 			   tree_cons (NULL_TREE, unsigned_type_node,
@@ -10983,8 +11010,8 @@ ix86_init_mmx_sse_builtins ()
     = build_function_type (unsigned_type_node, endlink);
   tree di_ftype_void
     = build_function_type (long_long_unsigned_type_node, endlink);
-  tree ti_ftype_void
-    = build_function_type (intTI_type_node, endlink);
+  tree v4sf_ftype_void
+    = build_function_type (V4SF_type_node, endlink);
   tree v2si_ftype_v4sf
     = build_function_type (V2SI_type_node,
 			   tree_cons (NULL_TREE, V4SF_type_node,
@@ -11001,19 +11028,6 @@ ix86_init_mmx_sse_builtins ()
     = build_function_type (V4SF_type_node,
 			   tree_cons (NULL_TREE, pfloat_type_node,
 				      endlink));
-  tree v4sf_ftype_float
-    = build_function_type (V4SF_type_node,
-			   tree_cons (NULL_TREE, float_type_node,
-				      endlink));
-  tree v4sf_ftype_float_float_float_float
-    = build_function_type (V4SF_type_node,
-			   tree_cons (NULL_TREE, float_type_node,
-				      tree_cons (NULL_TREE, float_type_node,
-						 tree_cons (NULL_TREE,
-							    float_type_node,
-							    tree_cons (NULL_TREE,
-								       float_type_node,
-								       endlink)))));
   /* @@@ the type is bogus */
   tree v4sf_ftype_v4sf_pv2si
     = build_function_type (V4SF_type_node,
@@ -11063,11 +11077,6 @@ ix86_init_mmx_sse_builtins ()
 			   tree_cons (NULL_TREE, V2SI_type_node,
 				      tree_cons (NULL_TREE, V2SI_type_node,
 						 endlink)));
-  tree ti_ftype_ti_ti
-    = build_function_type (intTI_type_node,
-			   tree_cons (NULL_TREE, intTI_type_node,
-				      tree_cons (NULL_TREE, intTI_type_node,
-						 endlink)));
   tree di_ftype_di_di
     = build_function_type (long_long_unsigned_type_node,
 			   tree_cons (NULL_TREE, long_long_unsigned_type_node,
@@ -11104,11 +11113,6 @@ ix86_init_mmx_sse_builtins ()
                                                  V2SF_type_node,
                                                  endlink)));
 
-  tree void_ftype_pchar
-    = build_function_type (void_type_node,
-                           tree_cons (NULL_TREE, pchar_type_node,
-                                      endlink));
-
   /* Add all builtins that are more or less simple operations on two
      operands.  */
   for (i = 0, d = bdesc_2arg; i < sizeof (bdesc_2arg) / sizeof *d; i++, d++)
@@ -11136,9 +11140,6 @@ ix86_init_mmx_sse_builtins ()
 	case V2SImode:
 	  type = v2si_ftype_v2si_v2si;
 	  break;
-	case TImode:
-	  type = ti_ftype_ti_ti;
-	  break;
 	case DImode:
 	  type = di_ftype_di_di;
 	  break;
@@ -11158,8 +11159,6 @@ ix86_init_mmx_sse_builtins ()
     }
 
   /* Add the remaining MMX insns with somewhat more complicated types.  */
-  def_builtin (MASK_MMX, "__builtin_ia32_m_from_int", v2si_ftype_int, IX86_BUILTIN_M_FROM_INT);
-  def_builtin (MASK_MMX, "__builtin_ia32_m_to_int", int_ftype_v2si, IX86_BUILTIN_M_TO_INT);
   def_builtin (MASK_MMX, "__builtin_ia32_mmx_zero", di_ftype_void, IX86_BUILTIN_MMX_ZERO);
   def_builtin (MASK_MMX, "__builtin_ia32_emms", void_ftype_void, IX86_BUILTIN_EMMS);
   def_builtin (MASK_MMX, "__builtin_ia32_ldmxcsr", void_ftype_unsigned, IX86_BUILTIN_LDMXCSR);
@@ -11193,6 +11192,11 @@ ix86_init_mmx_sse_builtins ()
   def_builtin (MASK_SSE, "__builtin_ia32_cvttps2pi", v2si_ftype_v4sf, IX86_BUILTIN_CVTTPS2PI);
   def_builtin (MASK_SSE, "__builtin_ia32_cvttss2si", int_ftype_v4sf, IX86_BUILTIN_CVTTSS2SI);
 
+  def_builtin (MASK_SSE, "__builtin_ia32_andps", v4sf_ftype_v4sf_v4sf, IX86_BUILTIN_ANDPS);
+  def_builtin (MASK_SSE, "__builtin_ia32_andnps", v4sf_ftype_v4sf_v4sf, IX86_BUILTIN_ANDNPS);
+  def_builtin (MASK_SSE, "__builtin_ia32_orps", v4sf_ftype_v4sf_v4sf, IX86_BUILTIN_ORPS);
+  def_builtin (MASK_SSE, "__builtin_ia32_xorps", v4sf_ftype_v4sf_v4sf, IX86_BUILTIN_XORPS);
+
   def_builtin (MASK_SSE | MASK_3DNOW_A, "__builtin_ia32_pextrw", int_ftype_v4hi_int, IX86_BUILTIN_PEXTRW);
   def_builtin (MASK_SSE | MASK_3DNOW_A, "__builtin_ia32_pinsrw", v4hi_ftype_v4hi_int_int, IX86_BUILTIN_PINSRW);
 
@@ -11216,7 +11220,6 @@ ix86_init_mmx_sse_builtins ()
   def_builtin (MASK_SSE | MASK_3DNOW_A, "__builtin_ia32_movntq", void_ftype_pdi_di, IX86_BUILTIN_MOVNTQ);
 
   def_builtin (MASK_SSE | MASK_3DNOW_A, "__builtin_ia32_sfence", void_ftype_void, IX86_BUILTIN_SFENCE);
-  def_builtin (MASK_SSE | MASK_3DNOW_A, "__builtin_ia32_prefetch", void_ftype_pchar_int, IX86_BUILTIN_PREFETCH);
 
   def_builtin (MASK_SSE | MASK_3DNOW_A, "__builtin_ia32_psadbw", v4hi_ftype_v8qi_v8qi, IX86_BUILTIN_PSADBW);
 
@@ -11250,8 +11253,6 @@ ix86_init_mmx_sse_builtins ()
   def_builtin (MASK_3DNOW, "__builtin_ia32_pfsubr", v2sf_ftype_v2sf_v2sf, IX86_BUILTIN_PFSUBR);
   def_builtin (MASK_3DNOW, "__builtin_ia32_pi2fd", v2sf_ftype_v2si, IX86_BUILTIN_PI2FD);
   def_builtin (MASK_3DNOW, "__builtin_ia32_pmulhrw", v4hi_ftype_v4hi_v4hi, IX86_BUILTIN_PMULHRW);
-  def_builtin (MASK_3DNOW, "__builtin_ia32_prefetch_3dnow", void_ftype_pchar, IX86_BUILTIN_PREFETCH_3DNOW);
-  def_builtin (MASK_3DNOW, "__builtin_ia32_prefetchw", void_ftype_pchar, IX86_BUILTIN_PREFETCHW);
 
   /* 3DNow! extension as used in the Athlon CPU.  */
   def_builtin (MASK_3DNOW_A, "__builtin_ia32_pf2iw", v2si_ftype_v2sf, IX86_BUILTIN_PF2IW);
@@ -11261,14 +11262,7 @@ ix86_init_mmx_sse_builtins ()
   def_builtin (MASK_3DNOW_A, "__builtin_ia32_pswapdsf", v2sf_ftype_v2sf, IX86_BUILTIN_PSWAPDSF);
   def_builtin (MASK_3DNOW_A, "__builtin_ia32_pswapdsi", v2si_ftype_v2si, IX86_BUILTIN_PSWAPDSI);
 
-  /* Composite intrinsics.  */
-  def_builtin (MASK_SSE, "__builtin_ia32_setps1", v4sf_ftype_float, IX86_BUILTIN_SETPS1);
-  def_builtin (MASK_SSE, "__builtin_ia32_setps", v4sf_ftype_float_float_float_float, IX86_BUILTIN_SETPS);
-  def_builtin (MASK_SSE, "__builtin_ia32_setzerops", ti_ftype_void, IX86_BUILTIN_CLRPS);
-  def_builtin (MASK_SSE, "__builtin_ia32_loadps1", v4sf_ftype_pfloat, IX86_BUILTIN_LOADPS1);
-  def_builtin (MASK_SSE, "__builtin_ia32_loadrps", v4sf_ftype_pfloat, IX86_BUILTIN_LOADRPS);
-  def_builtin (MASK_SSE, "__builtin_ia32_storeps1", void_ftype_pfloat_v4sf, IX86_BUILTIN_STOREPS1);
-  def_builtin (MASK_SSE, "__builtin_ia32_storerps", void_ftype_pfloat_v4sf, IX86_BUILTIN_STORERPS);
+  def_builtin (MASK_SSE, "__builtin_ia32_setzerops", v4sf_ftype_void, IX86_BUILTIN_SSE_ZERO);
 }
 
 /* Errors in the source file can cause expand_expr to return const0_rtx
@@ -11287,8 +11281,8 @@ safe_vector_operand (x, mode)
     emit_insn (gen_mmx_clrdi (mode == DImode ? x
 			      : gen_rtx_SUBREG (DImode, x, 0)));
   else
-    emit_insn (gen_sse_clrti (mode == TImode ? x
-			      : gen_rtx_SUBREG (TImode, x, 0)));
+    emit_insn (gen_sse_clrv4sf (mode == V4SFmode ? x
+				: gen_rtx_SUBREG (V4SFmode, x, 0)));
   return x;
 }
 
@@ -11336,13 +11330,45 @@ ix86_expand_binop_builtin (icode, arglist, target)
   return target;
 }
 
+/* In type_for_mode we restrict the ability to create TImode types 
+   to hosts with 64-bit H_W_I.  So we've defined the SSE logicals
+   to have a V4SFmode signature.  Convert them in-place to TImode.  */
+
+static rtx
+ix86_expand_timode_binop_builtin (icode, arglist, target)
+     enum insn_code icode;
+     tree arglist;
+     rtx target;
+{
+  rtx pat;
+  tree arg0 = TREE_VALUE (arglist);
+  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+
+  op0 = gen_lowpart (TImode, op0);
+  op1 = gen_lowpart (TImode, op1);
+  target = gen_reg_rtx (TImode);
+
+  if (! (*insn_data[icode].operand[1].predicate) (op0, TImode))
+    op0 = copy_to_mode_reg (TImode, op0);
+  if (! (*insn_data[icode].operand[2].predicate) (op1, TImode))
+    op1 = copy_to_mode_reg (TImode, op1);
+
+  pat = GEN_FCN (icode) (target, op0, op1);
+  if (! pat)
+    return 0;
+  emit_insn (pat);
+
+  return gen_lowpart (V4SFmode, target);
+}
+
 /* Subroutine of ix86_expand_builtin to take care of stores.  */
 
 static rtx
-ix86_expand_store_builtin (icode, arglist, shuffle)
+ix86_expand_store_builtin (icode, arglist)
      enum insn_code icode;
      tree arglist;
-     int shuffle;
 {
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
@@ -11356,10 +11382,6 @@ ix86_expand_store_builtin (icode, arglist, shuffle)
     op1 = safe_vector_operand (op1, mode1);
 
   op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
-  if (shuffle >= 0 || ! (*insn_data[icode].operand[1].predicate) (op1, mode1))
-    op1 = copy_to_mode_reg (mode1, op1);
-  if (shuffle >= 0)
-    emit_insn (gen_sse_shufps (op1, op1, op1, GEN_INT (shuffle)));
   pat = GEN_FCN (icode) (op0, op1);
   if (pat)
     emit_insn (pat);
@@ -11540,7 +11562,7 @@ ix86_expand_sse_comi (d, arglist, target)
 					  gen_rtx_REG (CCmode, FLAGS_REG),
 					  const0_rtx)));
 
-  return target;
+  return SUBREG_REG (target);
 }
 
 /* Expand an expression EXP that calls a built-in function,
@@ -11562,7 +11584,7 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
   enum insn_code icode;
   tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
   tree arglist = TREE_OPERAND (exp, 1);
-  tree arg0, arg1, arg2, arg3;
+  tree arg0, arg1, arg2;
   rtx op0, op1, op2, pat;
   enum machine_mode tmode, mode0, mode1, mode2;
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
@@ -11576,19 +11598,6 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
     case IX86_BUILTIN_SFENCE:
       emit_insn (gen_sfence ());
       return 0;
-
-    case IX86_BUILTIN_M_FROM_INT:
-      target = gen_reg_rtx (DImode);
-      op0 = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
-      emit_move_insn (gen_rtx_SUBREG (SImode, target, 0), op0);
-      return target;
-
-    case IX86_BUILTIN_M_TO_INT:
-      op0 = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
-      op0 = copy_to_mode_reg (DImode, op0);
-      target = gen_reg_rtx (SImode);
-      emit_move_insn (target, gen_rtx_SUBREG (SImode, op0, 0));
-      return target;
 
     case IX86_BUILTIN_PEXTRW:
       icode = CODE_FOR_mmx_pextrw;
@@ -11606,7 +11615,7 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
 	{
 	  /* @@@ better error message */
 	  error ("selector must be an immediate");
-	  return const0_rtx;
+	  return gen_reg_rtx (tmode);
 	}
       if (target == 0
 	  || GET_MODE (target) != tmode
@@ -11683,6 +11692,19 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
     case IX86_BUILTIN_RCPSS:
       return ix86_expand_unop1_builtin (CODE_FOR_vmrcpv4sf2, arglist, target);
 
+    case IX86_BUILTIN_ANDPS:
+      return ix86_expand_timode_binop_builtin (CODE_FOR_sse_andti3,
+					       arglist, target);
+    case IX86_BUILTIN_ANDNPS:
+      return ix86_expand_timode_binop_builtin (CODE_FOR_sse_nandti3,
+					       arglist, target);
+    case IX86_BUILTIN_ORPS:
+      return ix86_expand_timode_binop_builtin (CODE_FOR_sse_iorti3,
+					       arglist, target);
+    case IX86_BUILTIN_XORPS:
+      return ix86_expand_timode_binop_builtin (CODE_FOR_sse_xorti3,
+					       arglist, target);
+
     case IX86_BUILTIN_LOADAPS:
       return ix86_expand_unop_builtin (CODE_FOR_sse_movaps, arglist, target, 1);
 
@@ -11690,15 +11712,15 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
       return ix86_expand_unop_builtin (CODE_FOR_sse_movups, arglist, target, 1);
 
     case IX86_BUILTIN_STOREAPS:
-      return ix86_expand_store_builtin (CODE_FOR_sse_movaps, arglist, -1);
+      return ix86_expand_store_builtin (CODE_FOR_sse_movaps, arglist);
     case IX86_BUILTIN_STOREUPS:
-      return ix86_expand_store_builtin (CODE_FOR_sse_movups, arglist, -1);
+      return ix86_expand_store_builtin (CODE_FOR_sse_movups, arglist);
 
     case IX86_BUILTIN_LOADSS:
       return ix86_expand_unop_builtin (CODE_FOR_sse_loadss, arglist, target, 1);
 
     case IX86_BUILTIN_STORESS:
-      return ix86_expand_store_builtin (CODE_FOR_sse_storess, arglist, -1);
+      return ix86_expand_store_builtin (CODE_FOR_sse_storess, arglist);
 
     case IX86_BUILTIN_LOADHPS:
     case IX86_BUILTIN_LOADLPS:
@@ -11747,9 +11769,9 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
       return 0;
 
     case IX86_BUILTIN_MOVNTPS:
-      return ix86_expand_store_builtin (CODE_FOR_sse_movntv4sf, arglist, -1);
+      return ix86_expand_store_builtin (CODE_FOR_sse_movntv4sf, arglist);
     case IX86_BUILTIN_MOVNTQ:
-      return ix86_expand_store_builtin (CODE_FOR_sse_movntdi, arglist, -1);
+      return ix86_expand_store_builtin (CODE_FOR_sse_movntdi, arglist);
 
     case IX86_BUILTIN_LDMXCSR:
       op0 = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
@@ -11762,29 +11784,6 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
       target = assign_386_stack_local (SImode, 0);
       emit_insn (gen_stmxcsr (target));
       return copy_to_mode_reg (SImode, target);
-
-    case IX86_BUILTIN_PREFETCH:
-      icode = CODE_FOR_prefetch_sse;
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      mode0 = insn_data[icode].operand[0].mode;
-      mode1 = insn_data[icode].operand[1].mode;
-
-      if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
-	{
-	  /* @@@ better error message */
-	  error ("selector must be an immediate");
-	  return const0_rtx;
-	}
-
-      op0 = copy_to_mode_reg (Pmode, op0);
-      pat = GEN_FCN (icode) (op0, op1);
-      if (! pat)
-	return 0;
-      emit_insn (pat);
-      return target;
 
     case IX86_BUILTIN_SHUFPS:
       icode = CODE_FOR_sse_shufps;
@@ -11807,7 +11806,7 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
 	{
 	  /* @@@ better error message */
 	  error ("mask must be an immediate");
-	  return const0_rtx;
+	  return gen_reg_rtx (tmode);
 	}
       if (target == 0
 	  || GET_MODE (target) != tmode
@@ -11908,19 +11907,6 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
     case IX86_BUILTIN_PMULHRW:
       return ix86_expand_binop_builtin (CODE_FOR_pmulhrwv4hi3, arglist, target);
 
-    case IX86_BUILTIN_PREFETCH_3DNOW:
-    case IX86_BUILTIN_PREFETCHW:
-      icode = CODE_FOR_prefetch_3dnow;
-      arg0 = TREE_VALUE (arglist);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = (fcode == IX86_BUILTIN_PREFETCH_3DNOW ? const0_rtx : const1_rtx);
-      mode0 = insn_data[icode].operand[0].mode;
-      pat = GEN_FCN (icode) (copy_to_mode_reg (Pmode, op0), op1);
-      if (! pat)
-        return NULL_RTX;
-      emit_insn (pat);
-      return NULL_RTX;
-
     case IX86_BUILTIN_PF2IW:
       return ix86_expand_unop_builtin (CODE_FOR_pf2iw, arglist, target, 0);
 
@@ -11939,56 +11925,10 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
     case IX86_BUILTIN_PSWAPDSF:
       return ix86_expand_unop_builtin (CODE_FOR_pswapdv2sf2, arglist, target, 0);
 
-      /* Composite intrinsics.  */
-    case IX86_BUILTIN_SETPS1:
-      target = assign_386_stack_local (SFmode, 0);
-      arg0 = TREE_VALUE (arglist);
-      emit_move_insn (adjust_address (target, SFmode, 0),
-		      expand_expr (arg0, NULL_RTX, VOIDmode, 0));
-      op0 = gen_reg_rtx (V4SFmode);
-      emit_insn (gen_sse_loadss (op0, adjust_address (target, V4SFmode, 0)));
-      emit_insn (gen_sse_shufps (op0, op0, op0, GEN_INT (0)));
-      return op0;
-
-    case IX86_BUILTIN_SETPS:
-      target = assign_386_stack_local (V4SFmode, 0);
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-      arg3 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (arglist))));
-      emit_move_insn (adjust_address (target, SFmode, 0),
-		      expand_expr (arg0, NULL_RTX, VOIDmode, 0));
-      emit_move_insn (adjust_address (target, SFmode, 4),
-		      expand_expr (arg1, NULL_RTX, VOIDmode, 0));
-      emit_move_insn (adjust_address (target, SFmode, 8),
-		      expand_expr (arg2, NULL_RTX, VOIDmode, 0));
-      emit_move_insn (adjust_address (target, SFmode, 12),
-		      expand_expr (arg3, NULL_RTX, VOIDmode, 0));
-      op0 = gen_reg_rtx (V4SFmode);
-      emit_insn (gen_sse_movaps (op0, target));
-      return op0;
-
-    case IX86_BUILTIN_CLRPS:
-      target = gen_reg_rtx (TImode);
-      emit_insn (gen_sse_clrti (target));
+    case IX86_BUILTIN_SSE_ZERO:
+      target = gen_reg_rtx (V4SFmode);
+      emit_insn (gen_sse_clrv4sf (target));
       return target;
-
-    case IX86_BUILTIN_LOADRPS:
-      target = ix86_expand_unop_builtin (CODE_FOR_sse_movaps, arglist,
-					 gen_reg_rtx (V4SFmode), 1);
-      emit_insn (gen_sse_shufps (target, target, target, GEN_INT (0x1b)));
-      return target;
-
-    case IX86_BUILTIN_LOADPS1:
-      target = ix86_expand_unop_builtin (CODE_FOR_sse_loadss, arglist,
-					 gen_reg_rtx (V4SFmode), 1);
-      emit_insn (gen_sse_shufps (target, target, target, const0_rtx));
-      return target;
-
-    case IX86_BUILTIN_STOREPS1:
-      return ix86_expand_store_builtin (CODE_FOR_sse_movaps, arglist, 0);
-    case IX86_BUILTIN_STORERPS:
-      return ix86_expand_store_builtin (CODE_FOR_sse_movaps, arglist, 0x1B);
 
     case IX86_BUILTIN_MMX_ZERO:
       target = gen_reg_rtx (DImode);

@@ -1,5 +1,5 @@
 /* info.c -- Implementation File (module.c template V1.0)
-   Copyright (C) 1995 Free Software Foundation, Inc.
+   Copyright (C) 1995, 2002 Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
@@ -65,7 +65,7 @@ static const char *const ffeinfo_basictype_string_[]
 static const char *const ffeinfo_kind_message_[]
 =
 {
-#define FFEINFO_KIND(KWD,LNAM,SNAM) LNAM,
+#define FFEINFO_KIND(kwd,msgid,snam) msgid,
 #include "info-k.def"
 #undef FFEINFO_KIND
 };
@@ -98,8 +98,7 @@ static const char *const ffeinfo_where_string_[]
 #include "info-w.def"
 #undef FFEINFO_WHERE
 };
-static ffetype ffeinfo_types_[FFEINFO_basictype][FFEINFO_kindtype]
-  = { { NULL } };
+static ffetype ffeinfo_types_[FFEINFO_basictype][FFEINFO_kindtype];
 
 /* Static functions (internal). */
 

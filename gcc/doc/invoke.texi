@@ -1,12 +1,12 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-@c 2000, 2001 Free Software Foundation, Inc.
+@c 2000, 2001, 2002 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
 @ignore
 @c man begin COPYRIGHT
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -53,8 +53,9 @@ For instructions on reporting bugs, see
 script to report bugs is recommended.
 @c man end
 @c man begin AUTHOR
-See the Info entry for @file{gcc}, or
-@w{@uref{http://gcc.gnu.org/thanks.html}}, for contributors to GCC@.
+See the Info entry for @command{gcc}, or
+@w{@uref{http://gcc.gnu.org/onlinedocs/gcc/Contributors.html}},
+for contributors to GCC@.
 @c man end
 @end ignore
 
@@ -212,7 +213,8 @@ in the following sections.
 -fsyntax-only  -pedantic  -pedantic-errors @gol
 -w  -W  -Wall  -Waggregate-return @gol
 -Wcast-align  -Wcast-qual  -Wchar-subscripts  -Wcomment @gol
--Wconversion  -Wdisabled-optimization  -Wdiv-by-zero  -Werror @gol
+-Wconversion  -Wno-deprecated-declarations @gol
+-Wdisabled-optimization  -Wdiv-by-zero  -Werror @gol
 -Wfloat-equal  -Wformat  -Wformat=2 @gol
 -Wformat-nonliteral  -Wformat-security @gol
 -Wimplicit  -Wimplicit-int  @gol
@@ -274,8 +276,8 @@ in the following sections.
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
 -funsafe-math-optimizations -fno-trapping-math @gol
 -fomit-frame-pointer  -foptimize-register-move @gol
--foptimize-sibling-calls  -fprefetch-loop-arrays  -freduce-all-givs @gol
--fregmove  -frename-registers @gol
+-foptimize-sibling-calls  -fprefetch-loop-arrays @gol
+-freduce-all-givs -fregmove  -frename-registers @gol
 -frerun-cse-after-loop  -frerun-loop-opt @gol
 -fschedule-insns  -fschedule-insns2 @gol
 -fsingle-precision-constant  -fssa -fssa-ccp -fssa-dce @gol
@@ -324,6 +326,7 @@ in the following sections.
 
 @item Machine Dependent Options
 @xref{Submodel Options,,Hardware Models and Configurations}.
+
 @emph{M680x0 Options}
 @gccoptlist{
 -m68000  -m68020  -m68020-40  -m68020-60  -m68030  -m68040 @gol
@@ -435,7 +438,7 @@ in the following sections.
 -mpowerpc-gfxopt  -mno-powerpc-gfxopt @gol
 -mnew-mnemonics  -mold-mnemonics @gol
 -mfull-toc   -mminimal-toc  -mno-fop-in-toc  -mno-sum-in-toc @gol
--m64  -m32  -mxl-call  -mno-xl-call  -mthreads  -mpe @gol
+-m64  -m32  -mxl-call  -mno-xl-call  -mpe @gol
 -msoft-float  -mhard-float  -mmultiple  -mno-multiple @gol
 -mstring  -mno-string  -mupdate  -mno-update @gol
 -mfused-madd  -mno-fused-madd  -mbit-align  -mno-bit-align @gol
@@ -447,7 +450,7 @@ in the following sections.
 -mabi=altivec @gol
 -mprototype  -mno-prototype @gol
 -msim  -mmvme  -mads  -myellowknife  -memb -msdata @gol
--msdata=@var{opt}  -mvxworks -G @var{num}}
+-msdata=@var{opt}  -mvxworks -G @var{num} -pthread}
 
 @emph{RT Options}
 @gccoptlist{
@@ -513,13 +516,14 @@ in the following sections.
 
 @emph{DEC Alpha Options}
 @gccoptlist{
--mfp-regs  -mno-fp-regs  -mno-soft-float  -msoft-float @gol
--malpha-as  -mgas @gol
+-mno-fp-regs  -msoft-float  -malpha-as  -mgas @gol
 -mieee  -mieee-with-inexact  -mieee-conformant @gol
 -mfp-trap-mode=@var{mode}  -mfp-rounding-mode=@var{mode} @gol
 -mtrap-precision=@var{mode}  -mbuild-constants @gol
--mcpu=@var{cpu-type} @gol
--mbwx  -mno-bwx  -mcix  -mno-cix  -mmax  -mno-max @gol
+-mcpu=@var{cpu-type}  -mtune=@var{cpu-type} @gol
+-mbwx  -mmax  -mfix  -mcix @gol
+-mfloat-vax  -mfloat-ieee @gol
+-mexplicit-relocs  -msmall-data  -mlarge-data @gol
 -mmemory-latency=@var{time}}
 
 @emph{DEC Alpha/VMS Options}
@@ -591,7 +595,7 @@ in the following sections.
 @gccoptlist{
 -mlibfuncs -mno-libfuncs -mepsilon -mno-epsilon -mabi=gnu @gol
 -mabi=mmixware -mzero-extend -mknuthdiv -mtoplevel-symbols @gol
--melf}
+-melf -mbranch-predict -mno-branch-predict}
 
 @emph{IA-64 Options}
 @gccoptlist{
@@ -600,6 +604,11 @@ in the following sections.
 -mconstant-gp  -mauto-pic  -minline-divide-min-latency @gol
 -minline-divide-max-throughput  -mno-dwarf2-asm @gol
 -mfixed-range=@var{register-range}}
+
+@emph{D30V Options}
+@gccoptlist{
+-mextmem  -mextmemory  -monchip  -mno-asm-optimize  -masm-optimize @gol
+-mbranch-cost=@var{n} -mcond-exec=@var{n}}
 
 @emph{S/390 and zSeries Options}
 @gccoptlist{
@@ -616,12 +625,44 @@ in the following sections.
 -m32-bit -m16-bit -m8-bit -mno-prologue-epilogue -mno-gotplt @gol
 -melf -maout -melinux -mlinux -sim -sim2}
 
+@emph{PDP-11 Options}
+@gccoptlist{
+-mfpu  -msoft-float  -mac0  -mno-ac0  -m40  -m45  -m10 @gol
+-mbcopy  -mbcopy-builtin  -mint32  -mno-int16 @gol
+-mint16  -mno-int32  -mfloat32  -mno-float64 @gol
+-mfloat64  -mno-float32  -mabshi  -mno-abshi @gol
+-mbranch-expensive  -mbranch-cheap @gol
+-msplit  -mno-split  -munix-asm  -mdec-asm}
+
+@emph{Xstormy16 Options}
+@gccoptlist{
+-msim}
+
+@emph{Xtensa Options}
+@gccoptlist{
+-mbig-endian -mlittle-endian @gol
+-mdensity -mno-density @gol
+-mmac16 -mno-mac16 @gol
+-mmul16 -mno-mul16 @gol
+-mmul32 -mno-mul32 @gol
+-mnsa -mno-nsa @gol
+-mminmax -mno-minmax @gol
+-msext -mno-sext @gol
+-mbooleans -mno-booleans @gol
+-mhard-float -msoft-float @gol
+-mfused-madd -mno-fused-madd @gol
+-mserialize-volatile -mno-serialize-volatile @gol
+-mtext-section-literals -mno-text-section-literals @gol
+-mtarget-align -mno-target-align @gol
+-mlongcalls -mno-longcalls}
+
 @item Code Generation Options
 @xref{Code Gen Options,,Options for Code Generation Conventions}.
 @gccoptlist{
 -fcall-saved-@var{reg}  -fcall-used-@var{reg} @gol
 -ffixed-@var{reg} -fexceptions @gol
--fnon-call-exceptions  -funwind-tables -fasynchronous-unwind-tables @gol
+-fnon-call-exceptions  -funwind-tables @gol
+-fasynchronous-unwind-tables @gol
 -finhibit-size-directive  -finstrument-functions @gol
 -fno-common  -fno-ident  -fno-gnu-linker @gol
 -fpcc-struct-return  -fpic  -fPIC @gol
@@ -1559,10 +1600,10 @@ but disables the helpful warning.
 
 @item -Wold-style-cast @r{(C++ only)}
 @opindex Wold-style-cast
-Warn if an old-style (C-style) cast is used within a C++ program.  The
-new-style casts (@samp{static_cast}, @samp{reinterpret_cast}, and
-@samp{const_cast}) are less vulnerable to unintended effects, and much
-easier to grep for.
+Warn if an old-style (C-style) cast to a non-void type is used within
+a C++ program.  The new-style casts (@samp{static_cast},
+@samp{reinterpret_cast}, and @samp{const_cast}) are less vulnerable to
+unintended effects, and much easier to grep for.
 
 @item -Woverloaded-virtual @r{(C++ only)}
 @opindex Woverloaded-virtual
@@ -2506,6 +2547,13 @@ case, and some functions for which @code{format} attributes are
 appropriate may not be detected.  This option has no effect unless
 @option{-Wformat} is enabled (possibly by @option{-Wall}).
 
+@item -Wno-deprecated-declarations
+@opindex Wno-deprecated-declarations
+Do not warn about uses of functions, variables, and types marked as
+deprecated by using the @code{deprecated} attribute. 
+(@pxref{Function Attributes}, @pxref{Variable Attributes},
+@pxref{Type Attributes}.)
+
 @item -Wpacked
 @opindex Wpacked
 Warn if a structure is given the packed attribute, but the packed
@@ -2851,7 +2899,7 @@ Annotate the assembler output with miscellaneous debugging information.
 Dump after computing branch probabilities, to @file{@var{file}.14.bp}.
 @item B
 @opindex dB
-Dump after block reordering, to @file{@var{file}.28.bbro}.
+Dump after block reordering, to @file{@var{file}.29.bbro}.
 @item c
 @opindex dc
 Dump after instruction combination, to the file @file{@var{file}.16.combine}.
@@ -2884,6 +2932,9 @@ Dump after global register allocation, to @file{@var{file}.21.greg}.
 @item h
 @opindex dh
 Dump after finalization of EH handling code, to @file{@var{file}.02.eh}.
+@item k
+@opindex dk
+Dump after reg-to-stack conversion, to @file{@var{file}.28.stack}.
 @item o
 @opindex do
 Dump after post-reload optimizations, to @file{@var{file}.22.postreload}.
@@ -5138,6 +5189,9 @@ that macro, which enables you to change the defaults.
 * S/390 and zSeries Options::
 * CRIS Options::
 * MMIX Options::
+* PDP-11 Options::
+* Xstormy16 Options::
+* Xtensa Options::
 @end menu
 
 @node M680x0 Options
@@ -6774,12 +6828,6 @@ stack is inefficient and rarely needed, this option is not enabled by
 default and only is necessary when calling subroutines compiled by AIX
 XL compilers without optimization.
 
-@item -mthreads
-@opindex mthreads
-Support @dfn{AIX Threads}.  Link an application written to use
-@dfn{pthreads} with special libraries and startup code to enable the
-application to run.
-
 @item -mpe
 @opindex mpe
 Support @dfn{IBM RS/6000 SP} @dfn{Parallel Environment} (PE)@.  Link an
@@ -6788,7 +6836,7 @@ enable the application to run.  The system must have PE installed in the
 standard location (@file{/usr/lpp/ppe.poe/}), or the @file{specs} file
 must be overridden with the @option{-specs=} option to specify the
 appropriate directory location.  The Parallel Environment does not
-support threads, so the @option{-mpe} option and the @option{-mthreads}
+support threads, so the @option{-mpe} option and the @option{-pthread}
 option are incompatible.
 
 @item -msoft-float
@@ -6939,6 +6987,11 @@ operating system.
 On System V.4 and embedded PowerPC systems compile code for the
 Linux-based GNU system.
 
+@item -mcall-gnu
+@opindex mcall-gnu
+On System V.4 and embedded PowerPC systems compile code for the
+Hurd-based GNU system.
+
 @item -mcall-netbsd
 @opindex mcall-netbsd
 On System V.4 and embedded PowerPC systems compile code for the
@@ -7085,6 +7138,11 @@ All modules should be compiled with the same @option{-G @var{num}} value.
 @opindex mno-regnames
 On System V.4 and embedded PowerPC systems do (do not) emit register
 names in the assembly language output using symbolic forms.
+
+@item -pthread
+@opindex pthread
+Adds support for multithreading with the @dfn{pthreads} library.
+This option sets flags for both the preprocessor and linker.
 
 @end table
 
@@ -7755,367 +7813,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 These switches enable or disable the use of built-in functions that allow
 direct access to the MMX, SSE and 3Dnow extensions of the instruction set.
 
-The following machine modes are available for use with MMX built-in functions
-(@pxref{Vector Extensions}): @code{V2SI} for a vector of two 32 bit integers,
-@code{V4HI} for a vector of four 16 bit integers, and @code{V8QI} for a
-vector of eight 8 bit integers.  Some of the built-in functions operate on
-MMX registers as a whole 64 bit entity, these use @code{DI} as their mode.
-
-If 3Dnow extensions are enabled, @code{V2SF} is used as a mode for a vector
-of two 32 bit floating point values.
-
-If SSE extensions are enabled, @code{V4SF} is used for a vector of four 32 bit
-floating point values.  Some instructions use a vector of four 32 bit
-integers, these use @code{V4SI}.  Finally, some instructions operate on an
-entire vector register, interpreting it as a 128 bit integer, these use mode
-@code{TI}.
-
-The following built-in functions are made available by @option{-mmmx}:
-@table @code
-@item v8qi __builtin_ia32_paddb (v8qi, v8qi)
-Generates the @code{paddb} machine instruction.
-@item v4hi __builtin_ia32_paddw (v4hi, v4hi)
-Generates the @code{paddw} machine instruction.
-@item v2si __builtin_ia32_paddd (v2si, v2si)
-Generates the @code{paddd} machine instruction.
-@item v8qi __builtin_ia32_psubb (v8qi, v8qi)
-Generates the @code{psubb} machine instruction.
-@item v4hi __builtin_ia32_psubw (v4hi, v4hi)
-Generates the @code{psubw} machine instruction.
-@item v2si __builtin_ia32_psubd (v2si, v2si)
-Generates the @code{psubd} machine instruction.
-
-@item v8qi __builtin_ia32_paddsb (v8qi, v8qi)
-Generates the @code{paddsb} machine instruction.
-@item v4hi __builtin_ia32_paddsw (v4hi, v4hi)
-Generates the @code{paddsw} machine instruction.
-@item v8qi __builtin_ia32_psubsb (v8qi, v8qi)
-Generates the @code{psubsb} machine instruction.
-@item v4hi __builtin_ia32_psubsw (v4hi, v4hi)
-Generates the @code{psubsw} machine instruction.
-
-@item v8qi __builtin_ia32_paddusb (v8qi, v8qi)
-Generates the @code{paddusb} machine instruction.
-@item v4hi __builtin_ia32_paddusw (v4hi, v4hi)
-Generates the @code{paddusw} machine instruction.
-@item v8qi __builtin_ia32_psubusb (v8qi, v8qi)
-Generates the @code{psubusb} machine instruction.
-@item v4hi __builtin_ia32_psubusw (v4hi, v4hi)
-Generates the @code{psubusw} machine instruction.
-
-@item v4hi __builtin_ia32_pmullw (v4hi, v4hi)
-Generates the @code{pmullw} machine instruction.
-@item v4hi __builtin_ia32_pmulhw (v4hi, v4hi)
-Generates the @code{pmulhw} machine instruction.
-
-@item di __builtin_ia32_pand (di, di)
-Generates the @code{pand} machine instruction.
-@item di __builtin_ia32_pandn (di,di)
-Generates the @code{pandn} machine instruction.
-@item di __builtin_ia32_por (di, di)
-Generates the @code{por} machine instruction.
-@item di __builtin_ia32_pxor (di, di)
-Generates the @code{pxor} machine instruction.
-
-@item v8qi __builtin_ia32_pcmpeqb (v8qi, v8qi)
-Generates the @code{pcmpeqb} machine instruction.
-@item v4hi __builtin_ia32_pcmpeqw (v4hi, v4hi)
-Generates the @code{pcmpeqw} machine instruction.
-@item v2si __builtin_ia32_pcmpeqd (v2si, v2si)
-Generates the @code{pcmpeqd} machine instruction.
-@item v8qi __builtin_ia32_pcmpgtb (v8qi, v8qi)
-Generates the @code{pcmpgtb} machine instruction.
-@item v4hi __builtin_ia32_pcmpgtw (v4hi, v4hi)
-Generates the @code{pcmpgtw} machine instruction.
-@item v2si __builtin_ia32_pcmpgtd (v2si, v2si)
-Generates the @code{pcmpgtd} machine instruction.
-
-@item v8qi __builtin_ia32_punpckhbw (v8qi, v8qi)
-Generates the @code{punpckhbw} machine instruction.
-@item v4hi __builtin_ia32_punpckhwd (v4hi, v4hi)
-Generates the @code{punpckhwd} machine instruction.
-@item v2si __builtin_ia32_punpckhdq (v2si, v2si)
-Generates the @code{punpckhdq} machine instruction.
-@item v8qi __builtin_ia32_punpcklbw (v8qi, v8qi)
-Generates the @code{punpcklbw} machine instruction.
-@item v4hi __builtin_ia32_punpcklwd (v4hi, v4hi)
-Generates the @code{punpcklwd} machine instruction.
-@item v2si __builtin_ia32_punpckldq (v2si, v2si)
-Generates the @code{punpckldq} machine instruction.
-
-@item v8qi __builtin_ia32_packsswb (v4hi, v4hi)
-Generates the @code{packsswb} machine instruction.
-@item v4hi __builtin_ia32_packssdw (v2si, v2si)
-Generates the @code{packssdw} machine instruction.
-@item v8qi __builtin_ia32_packuswb (v4hi, v4hi)
-Generates the @code{packuswb} machine instruction.
-
-@end table
-
-The following built-in functions are made available either with @option{-msse}, or
-with a combination of @option{-m3dnow} and @option{-march=athlon}.
-@table @code
-
-@item v4hi __builtin_ia32_pmulhuw (v4hi, v4hi)
-Generates the @code{pmulhuw} machine instruction.
-
-@item v8qi __builtin_ia32_pavgb (v8qi, v8qi)
-Generates the @code{pavgb} machine instruction.
-@item v4hi __builtin_ia32_pavgw (v4hi, v4hi)
-Generates the @code{pavgw} machine instruction.
-@item v4hi __builtin_ia32_psadbw (v8qi, v8qi)
-Generates the @code{psadbw} machine instruction.
-
-@item v8qi __builtin_ia32_pmaxub (v8qi, v8qi)
-Generates the @code{pmaxub} machine instruction.
-@item v4hi __builtin_ia32_pmaxsw (v4hi, v4hi)
-Generates the @code{pmaxsw} machine instruction.
-@item v8qi __builtin_ia32_pminub (v8qi, v8qi)
-Generates the @code{pminub} machine instruction.
-@item v4hi __builtin_ia32_pminsw (v4hi, v4hi)
-Generates the @code{pminsw} machine instruction.
-
-@item int __builtin_ia32_pextrw (v4hi, int)
-Generates the @code{pextrw} machine instruction.
-@item v4hi __builtin_ia32_pinsrw (v4hi, int, int)
-Generates the @code{pinsrw} machine instruction.
-
-@item int __builtin_ia32_pmovmskb (v8qi)
-Generates the @code{pmovmskb} machine instruction.
-@item void __builtin_ia32_maskmovq (v8qi, v8qi, char *)
-Generates the @code{maskmovq} machine instruction.
-@item void __builtin_ia32_movntq (di *, di)
-Generates the @code{movntq} machine instruction.
-@item void __builtin_ia32_sfence (void)
-Generates the @code{sfence} machine instruction.
-@item void __builtin_ia32_prefetch (char *, int selector)
-Generates a prefetch machine instruction, depending on the value of
-selector.  If @code{selector} is 0, it generates @code{prefetchnta}; for
-a value of 1, it generates @code{prefetcht0}; for a value of 2, it generates
-@code{prefetcht1}; and for a value of 3 it generates @code{prefetcht2}.
-
-@end table
-
-The following built-in functions are available when @option{-msse} is used.
-
-@table @code
-@item int __builtin_ia32_comieq (v4sf, v4sf)
-Generates the @code{comiss} machine instruction and performs an equality
-comparison.  The return value is the truth value of that comparison.
-@item int __builtin_ia32_comineq (v4sf, v4sf)
-Generates the @code{comiss} machine instruction and performs an inequality
-comparison.  The return value is the truth value of that comparison.
-@item int __builtin_ia32_comilt (v4sf, v4sf)
-Generates the @code{comiss} machine instruction and performs a ``less than''
-comparison.  The return value is the truth value of that comparison.
-@item int __builtin_ia32_comile (v4sf, v4sf)
-Generates the @code{comiss} machine instruction and performs a ``less or
-equal'' comparison.  The return value is the truth value of that comparison.
-@item int __builtin_ia32_comigt (v4sf, v4sf)
-Generates the @code{comiss} machine instruction and performs a ``greater than''
-comparison.  The return value is the truth value of that comparison.
-@item int __builtin_ia32_comige (v4sf, v4sf)
-Generates the @code{comiss} machine instruction and performs a ``greater or
-equal'' comparison.  The return value is the truth value of that comparison.
-
-@item int __builtin_ia32_ucomieq (v4sf, v4sf)
-Generates the @code{ucomiss} machine instruction and performs an equality
-comparison.  The return value is the truth value of that comparison.
-@item int __builtin_ia32_ucomineq (v4sf, v4sf)
-Generates the @code{ucomiss} machine instruction and performs an inequality
-comparison.  The return value is the truth value of that comparison.
-@item int __builtin_ia32_ucomilt (v4sf, v4sf)
-Generates the @code{ucomiss} machine instruction and performs a ``less than''
-comparison.  The return value is the truth value of that comparison.
-@item int __builtin_ia32_ucomile (v4sf, v4sf)
-Generates the @code{ucomiss} machine instruction and performs a ``less or
-equal'' comparison.  The return value is the truth value of that comparison.
-@item int __builtin_ia32_ucomigt (v4sf, v4sf)
-Generates the @code{ucomiss} machine instruction and performs a ``greater than''
-comparison.  The return value is the truth value of that comparison.
-@item int __builtin_ia32_ucomige (v4sf, v4sf)
-Generates the @code{ucomiss} machine instruction and performs a ``greater or
-equal'' comparison.  The return value is the truth value of that comparison.
-
-@item v4sf __builtin_ia32_addps (v4sf, v4sf)
-Generates the @code{addps} machine instruction.
-@item v4sf __builtin_ia32_addss (v4sf, v4sf)
-Generates the @code{addss} machine instruction.
-@item v4sf __builtin_ia32_subps (v4sf, v4sf)
-Generates the @code{subps} machine instruction.
-@item v4sf __builtin_ia32_subss (v4sf, v4sf)
-Generates the @code{subss} machine instruction.
-@item v4sf __builtin_ia32_mulps (v4sf, v4sf)
-Generates the @code{mulps} machine instruction.
-@item v4sf __builtin_ia32_mulss (v4sf, v4sf)
-Generates the @code{mulss} machine instruction.
-@item v4sf __builtin_ia32_divps (v4sf, v4sf)
-Generates the @code{divps} machine instruction.
-@item v4sf __builtin_ia32_divss (v4sf, v4sf)
-Generates the @code{divss} machine instruction.
-
-@item v4si __builtin_ia32_cmpeqps (v4sf, v4sf)
-Generates the @code{cmpeqps} machine instruction.
-@item v4si __builtin_ia32_cmplts (v4sf, v4sf)
-Generates the @code{cmpltps} machine instruction.
-@item v4si __builtin_ia32_cmpleps (v4sf, v4sf)
-Generates the @code{cmpleps} machine instruction.
-@item v4si __builtin_ia32_cmpgtps (v4sf, v4sf)
-Generates the @code{cmpgtps} machine instruction.
-@item v4si __builtin_ia32_cmpgeps (v4sf, v4sf)
-Generates the @code{cmpgeps} machine instruction.
-@item v4si __builtin_ia32_cmpunordps (v4sf, v4sf)
-Generates the @code{cmpunodps} machine instruction.
-@item v4si __builtin_ia32_cmpneqps (v4sf, v4sf)
-Generates the @code{cmpeqps} machine instruction.
-@item v4si __builtin_ia32_cmpnltps (v4sf, v4sf)
-Generates the @code{cmpltps} machine instruction.
-@item v4si __builtin_ia32_cmpnleps (v4sf, v4sf)
-Generates the @code{cmpleps} machine instruction.
-@item v4si __builtin_ia32_cmpngtps (v4sf, v4sf)
-Generates the @code{cmpgtps} machine instruction.
-@item v4si __builtin_ia32_cmpngeps (v4sf, v4sf)
-Generates the @code{cmpgeps} machine instruction.
-@item v4si __builtin_ia32_cmpordps (v4sf, v4sf)
-Generates the @code{cmpunodps} machine instruction.
-
-@item v4si __builtin_ia32_cmpeqss (v4sf, v4sf)
-Generates the @code{cmpeqss} machine instruction.
-@item v4si __builtin_ia32_cmpltss (v4sf, v4sf)
-Generates the @code{cmpltss} machine instruction.
-@item v4si __builtin_ia32_cmpless (v4sf, v4sf)
-Generates the @code{cmpless} machine instruction.
-@item v4si __builtin_ia32_cmpgtss (v4sf, v4sf)
-Generates the @code{cmpgtss} machine instruction.
-@item v4si __builtin_ia32_cmpgess (v4sf, v4sf)
-Generates the @code{cmpgess} machine instruction.
-@item v4si __builtin_ia32_cmpunordss (v4sf, v4sf)
-Generates the @code{cmpunodss} machine instruction.
-@item v4si __builtin_ia32_cmpneqss (v4sf, v4sf)
-Generates the @code{cmpeqss} machine instruction.
-@item v4si __builtin_ia32_cmpnlts (v4sf, v4sf)
-Generates the @code{cmpltss} machine instruction.
-@item v4si __builtin_ia32_cmpnless (v4sf, v4sf)
-Generates the @code{cmpless} machine instruction.
-@item v4si __builtin_ia32_cmpngtss (v4sf, v4sf)
-Generates the @code{cmpgtss} machine instruction.
-@item v4si __builtin_ia32_cmpngess (v4sf, v4sf)
-Generates the @code{cmpgess} machine instruction.
-@item v4si __builtin_ia32_cmpordss (v4sf, v4sf)
-Generates the @code{cmpunodss} machine instruction.
-
-@item v4sf __builtin_ia32_maxps (v4sf, v4sf)
-Generates the @code{maxps} machine instruction.
-@item v4sf __builtin_ia32_maxsss (v4sf, v4sf)
-Generates the @code{maxss} machine instruction.
-@item v4sf __builtin_ia32_minps (v4sf, v4sf)
-Generates the @code{minps} machine instruction.
-@item v4sf __builtin_ia32_minsss (v4sf, v4sf)
-Generates the @code{minss} machine instruction.
-
-@item ti __builtin_ia32_andps (ti, ti)
-Generates the @code{andps} machine instruction.
-@item ti __builtin_ia32_andnps (ti, ti)
-Generates the @code{andnps} machine instruction.
-@item ti __builtin_ia32_orps (ti, ti)
-Generates the @code{orps} machine instruction.
-@item ti __builtin_ia32_xorps (ti, ti)
-Generates the @code{xorps} machine instruction.
-
-@item v4sf __builtin_ia32_movps (v4sf, v4sf)
-Generates the @code{movps} machine instruction.
-@item v4sf __builtin_ia32_movhlps (v4sf, v4sf)
-Generates the @code{movhlps} machine instruction.
-@item v4sf __builtin_ia32_movlhps (v4sf, v4sf)
-Generates the @code{movlhps} machine instruction.
-@item v4sf __builtin_ia32_unpckhps (v4sf, v4sf)
-Generates the @code{unpckhps} machine instruction.
-@item v4sf __builtin_ia32_unpcklps (v4sf, v4sf)
-Generates the @code{unpcklps} machine instruction.
-
-@item v4sf __builtin_ia32_cvtpi2ps (v4sf, v2si)
-Generates the @code{cvtpi2ps} machine instruction.
-@item v2si __builtin_ia32_cvtps2pi (v4sf)
-Generates the @code{cvtps2pi} machine instruction.
-@item v4sf __builtin_ia32_cvtsi2ss (v4sf, int)
-Generates the @code{cvtsi2ss} machine instruction.
-@item int __builtin_ia32_cvtss2si (v4sf)
-Generates the @code{cvtsi2ss} machine instruction.
-@item v2si __builtin_ia32_cvttps2pi (v4sf)
-Generates the @code{cvttps2pi} machine instruction.
-@item int __builtin_ia32_cvttss2si (v4sf)
-Generates the @code{cvttsi2ss} machine instruction.
-
-@item v4sf __builtin_ia32_rcpps (v4sf)
-Generates the @code{rcpps} machine instruction.
-@item v4sf __builtin_ia32_rsqrtps (v4sf)
-Generates the @code{rsqrtps} machine instruction.
-@item v4sf __builtin_ia32_sqrtps (v4sf)
-Generates the @code{sqrtps} machine instruction.
-@item v4sf __builtin_ia32_rcpss (v4sf)
-Generates the @code{rcpss} machine instruction.
-@item v4sf __builtin_ia32_rsqrtss (v4sf)
-Generates the @code{rsqrtss} machine instruction.
-@item v4sf __builtin_ia32_sqrtss (v4sf)
-Generates the @code{sqrtss} machine instruction.
-
-@item v4sf __builtin_ia32_shufps (v4sf, v4sf, int)
-Generates the @code{shufps} machine instruction.
-
-@item v4sf __builtin_ia32_loadaps (float *)
-Generates the @code{movaps} machine instruction as a load from memory.
-@item void __builtin_ia32_storeaps (float *, v4sf)
-Generates the @code{movaps} machine instruction as a store to memory.
-@item v4sf __builtin_ia32_loadups (float *)
-Generates the @code{movups} machine instruction as a load from memory.
-@item void __builtin_ia32_storeups (float *, v4sf)
-Generates the @code{movups} machine instruction as a store to memory.
-@item v4sf __builtin_ia32_loadsss (float *)
-Generates the @code{movss} machine instruction as a load from memory.
-@item void __builtin_ia32_storess (float *, v4sf)
-Generates the @code{movss} machine instruction as a store to memory.
-
-@item v4sf __builtin_ia32_loadhps (v4sf, v2si *)
-Generates the @code{movhps} machine instruction as a load from memory.
-@item v4sf __builtin_ia32_loadlps (v4sf, v2si *)
-Generates the @code{movlps} machine instruction as a load from memory
-@item void __builtin_ia32_storehps (v4sf, v2si *)
-Generates the @code{movhps} machine instruction as a store to memory.
-@item void __builtin_ia32_storelps (v4sf, v2si *)
-Generates the @code{movlps} machine instruction as a store to memory.
-
-@item void __builtin_ia32_movntps (float *, v4sf)
-Generates the @code{movntps} machine instruction.
-@item int __builtin_ia32_movmskps (v4sf)
-Generates the @code{movntps} machine instruction.
-
-@item void __builtin_ia32_storeps1 (float *, v4sf)
-Generates the @code{movaps} machine instruction as a store to memory.
-Before storing, the value is modified with a @code{shufps} instruction
-so that the lowest of the four floating point elements is replicated
-across the entire vector that is stored.
-@item void __builtin_ia32_storerps (float *, v4sf)
-Generates the @code{movaps} machine instruction as a store to memory.
-Before storing, the value is modified with a @code{shufps} instruction
-so that the order of the four floating point elements in the vector is
-reversed.
-@item v4sf __builtin_ia32_loadps1 (float *)
-Generates a @code{movss} machine instruction to load a floating point
-value from memory, and a @code{shufps} instruction to replicate the
-loaded value across all four elements of the result vector.
-@item v4sf __builtin_ia32_loadrps (float *)
-Generates a @code{movaps} machine instruction to load a vector from
-memory, and a @code{shufps} instruction to reverse the order of the
-four floating point elements in the result vector.
-@item v4sf __builtin_ia32_setps (float, float, float, float)
-Constructs a vector from four single floating point values.  The return
-value is equal to the value that would result from storing the four
-arguments into consecutive memory locations and then executing a
-@code{movaps} to load the vector from memory.
-@item v4sf __builtin_ia32_setps1 (float)
-Constructs a vector from a single floating point value by replicating
-it across all four elements of the result vector.
-@end table
+@xref{X86 Built-in Functions}, for details of the functions enabled
+and disabled by these switches.
 
 @item -mpush-args
 @itemx -mno-push-args
@@ -8443,8 +8142,8 @@ Generate code that uses (does not use) the floating-point register set.
 @option{-mno-fp-regs} implies @option{-msoft-float}.  If the floating-point
 register set is not used, floating point operands are passed in integer
 registers as if they were integers and floating-point results are passed
-in $0 instead of $f0.  This is a non-standard calling sequence, so any
-function with a floating-point argument or return value called by code
+in @code{$0} instead of @code{$f0}.  This is a non-standard calling sequence,
+so any function with a floating-point argument or return value called by code
 compiled with @option{-mno-fp-regs} must also be compiled with that
 option.
 
@@ -8587,33 +8286,77 @@ assembler (@option{-malpha-as}) or by the GNU assembler @option{-mgas}.
 @itemx -mno-bwx
 @itemx -mcix
 @itemx -mno-cix
+@itemx -mfix
+@itemx -mno-fix
 @itemx -mmax
 @itemx -mno-max
 @opindex mbwx
 @opindex mno-bwx
 @opindex mcix
 @opindex mno-cix
+@opindex mfix
+@opindex mno-fix
 @opindex mmax
 @opindex mno-max
 Indicate whether GCC should generate code to use the optional BWX,
-CIX, and MAX instruction sets.  The default is to use the instruction sets
-supported by the CPU type specified via @option{-mcpu=} option or that
+CIX, FIX and MAX instruction sets.  The default is to use the instruction
+sets supported by the CPU type specified via @option{-mcpu=} option or that
 of the CPU on which GCC was built if none was specified.
+
+@item -mfloat-vax
+@itemx -mfloat-ieee
+@opindex mfloat-vax
+@opindex mfloat-ieee
+Generate code that uses (does not use) VAX F and G floating point
+arithmetic instead of IEEE single and double precision.
+
+@item -mexplicit-relocs
+@itemx -mno-explicit-relocs
+@opindex mexplicit-relocs
+@opindex mno-explicit-relocs
+Older Alpha assemblers provided no way to generate symbol relocations
+except via assembler macros.  Use of these macros does not allow 
+optimial instruction scheduling.  GNU binutils as of version 2.12
+supports a new syntax that allows the compiler to explicitly mark
+which relocations should apply to which instructions.  This option
+is mostly useful for debugging, as GCC detects the capabilities of
+the assembler when it is built and sets the default accordingly.
+
+@item -msmall-data
+@itemx -mlarge-data
+@opindex msmall-data
+@opindex mlarge-data
+When @option{-mexplicit-relocs} is in effect, static data is 
+accessed via @dfn{gp-relative} relocations.  When @option{-msmall-data}
+is used, objects 8 bytes long or smaller are placed in a @dfn{small data area}
+(the @code{.sdata} and @code{.sbss} sections) and are accessed via
+16-bit relocations off of the @code{$gp} register.  This limits the
+size of the small data area to 64KB, but allows the variables to be
+directly accessed via a single instruction.
+
+The default is @option{-mlarge-data}.  With this option the data area
+is limited to just below 2GB.  Programs that require more than 2GB of
+data must use @code{malloc} or @code{mmap} to allocate the data in the
+heap instead of in the program's data segment.
+
+When generating code for shared libraries, @option{-fpic} implies
+@option{-msmall-data} and @option{-fPIC} implies @option{-mlarge-data}.
 
 @item -mcpu=@var{cpu_type}
 @opindex mcpu
-Set the instruction set, register set, and instruction scheduling
-parameters for machine type @var{cpu_type}.  You can specify either the
-@samp{EV} style name or the corresponding chip number.  GCC
-supports scheduling parameters for the EV4 and EV5 family of processors
-and will choose the default values for the instruction set from
-the processor you specify.  If you do not specify a processor type,
-GCC will default to the processor on which the compiler was built.
+Set the instruction set and instruction scheduling parameters for
+machine type @var{cpu_type}.  You can specify either the @samp{EV}
+style name or the corresponding chip number.  GCC supports scheduling
+parameters for the EV4, EV5 and EV6 family of processors and will
+choose the default values for the instruction set from the processor
+you specify.  If you do not specify a processor type, GCC will default
+to the processor on which the compiler was built.
 
 Supported values for @var{cpu_type} are
 
 @table @samp
 @item ev4
+@item ev45
 @itemx 21064
 Schedules as an EV4 and has no instruction set extensions.
 
@@ -8632,9 +8375,17 @@ Schedules as an EV5 and supports the BWX and MAX extensions.
 
 @item ev6
 @itemx 21264
-Schedules as an EV5 (until Digital releases the scheduling parameters
-for the EV6) and supports the BWX, CIX, and MAX extensions.
+Schedules as an EV6 and supports the BWX, FIX, and MAX extensions.
+
+@item ev67
+@item 21264a
+Schedules as an EV6 and supports the BWX, CIX, FIX, and MAX extensions.
 @end table
+
+@item -mtune=@var{cpu_type}
+@opindex mtune
+Set only the instruction scheduling parameters for machine type
+@var{cpu_type}.  The instruction set is not changed.
 
 @item -mmemory-latency=@var{time}
 @opindex mmemory-latency
@@ -9285,13 +9036,14 @@ at90s2333, at90s2343, at90s4414, at90s4433, at90s4434, at90s8515,
 at90c8534, at90s8535).
 
 Instruction set avr3 is for the classic AVR core with up to 128K program
-memory space (MCU types: atmega103, atmega603).
+memory space (MCU types: atmega103, atmega603, at43usb320, at76c711).
 
 Instruction set avr4 is for the enhanced AVR core with up to 8K program
-memory space (MCU types: atmega83, atmega85).
+memory space (MCU types: atmega8, atmega83, atmega85).
 
 Instruction set avr5 is for the enhanced AVR core with up to 128K program
-memory space (MCU types: atmega161, atmega163, atmega32, at94k).
+memory space (MCU types: atmega16, atmega161, atmega163, atmega32, atmega323,
+atmega64, atmega128, at43usb355, at94k).
 
 @item -msize
 @opindex msize
@@ -9751,31 +9503,41 @@ Like @option{-sim}, but pass linker options to locate initialized data at
 
 These options are defined for the MMIX:
 
-@table @code
+@table @gcctabopt
 @item -mlibfuncs
 @itemx -mno-libfuncs
+@opindex mlibfuncs
+@opindex mno-libfuncs
 Specify that intrinsic library functions are being compiled, passing all
 values in registers, no matter the size.
 
 @item -mepsilon
 @itemx -mno-epsilon
+@opindex mepsilon
+@opindex mno-epsilon
 Generate floating-point comparison instructions that compare with respect
 to the @code{rE} epsilon register.
 
 @item -mabi=mmixware
 @itemx -mabi=gnu
+@opindex mabi-mmixware
+@opindex mabi=gnu
 Generate code that passes function parameters and return values that (in
 the called function) are seen as registers @code{$0} and up, as opposed to
 the GNU ABI which uses global registers @code{$231} and up.
 
 @item -mzero-extend
-@item -mno-zero-extend
+@itemx -mno-zero-extend
+@opindex mzero-extend
+@opindex mno-zero-extend
 When reading data from memory in sizes shorter than 64 bits, use (do not
 use) zero-extending load instructions by default, rather than
 sign-extending ones.
 
 @item -mknuthdiv
 @itemx -mno-knuthdiv
+@opindex mknuthdiv
+@opindex mno-knuthdiv
 Make the result of a division yielding a remainder have the same sign as
 the divisor.  With the default, @option{-mno-knuthdiv}, the sign of the
 remainder follows the sign of the dividend.  Both methods are
@@ -9783,12 +9545,312 @@ arithmetically valid, the latter being almost exclusively used.
 
 @item -mtoplevel-symbols
 @itemx -mno-toplevel-symbols
+@opindex mtoplevel-symbols
+@opindex mno-toplevel-symbols
 Prepend (do not prepend) a @samp{:} to all global symbols, so the assembly
 code can be used with the @code{PREFIX} assembly directive.
 
 @item -melf
+@opindex melf
 Generate an executable in the ELF format, rather than the default
 @samp{mmo} format used by the @command{mmix} simulator.
+
+@item -mbranch-predict
+@itemx -mno-branch-predict
+@opindex mbranch-predict
+@opindex mno-branch-predict
+Use (do not use) the probable-branch instructions, when static branch
+prediction indicates a probable branch.
+@end table
+
+@node PDP-11 Options
+@subsection PDP-11 Options
+@cindex PDP-11 Options
+
+These options are defined for the PDP-11:
+
+@table @gcctabopt
+@item -mfpu
+@opindex mfpu
+Use hardware FPP floating point.  This is the default.  (FIS floating
+point on the PDP-11/40 is not supported.)
+
+@item -msoft-float
+@opindex msoft-float
+Do not use hardware floating point.
+
+@item -mac0
+@opindex mac0
+Return floating-point results in ac0 (fr0 in Unix assembler syntax).
+
+@item -mno-ac0
+@opindex mno-ac0
+Return floating-point results in memory.  This is the default.
+
+@item -m40
+@opindex m40
+Generate code for a PDP-11/40.
+
+@item -m45
+@opindex m45
+Generate code for a PDP-11/45.  This is the default.
+
+@item -m10
+@opindex m10
+Generate code for a PDP-11/10.
+
+@item -mbcopy-builtin
+@opindex bcopy-builtin
+Use inline @code{movstrhi} patterns for copying memory.  This is the
+default.
+
+@item -mbcopy
+@opindex mbcopy
+Do not use inline @code{movstrhi} patterns for copying memory.
+
+@item -mint16
+@itemx -mno-int32
+@opindex mint16
+@opindex mno-int32
+Use 16-bit @code{int}.  This is the default.
+
+@item -mint32
+@itemx -mno-int16
+@opindex mint32
+@opindex mno-int16
+Use 32-bit @code{int}.
+
+@item -mfloat64
+@itemx -mno-float32
+@opindex mfloat64
+@opindex mno-float32
+Use 64-bit @code{float}.  This is the default.
+
+@item -mfloat32
+@item -mno-float64
+@opindex mfloat32
+@opindex mno-float64
+Use 32-bit @code{float}.
+
+@item -mabshi
+@opindex mabshi
+Use @code{abshi2} pattern.  This is the default.
+
+@item -mno-abshi
+@opindex mno-abshi
+Do not use @code{abshi2} pattern.
+
+@item -mbranch-expensive
+@opindex mbranch-expensive
+Pretend that branches are expensive.  This is for experimenting with
+code generation only.
+
+@item -mbranch-cheap
+@opindex mbranch-cheap
+Do not pretend that branches are expensive.  This is the default.
+
+@item -msplit
+@opindex msplit
+Generate code for a system with split I&D.
+
+@item -mno-split
+@opindex mno-split
+Generate code for a system without split I&D.  This is the default.
+
+@item -munix-asm
+@opindex munix-asm
+Use Unix assembler syntax.  This is the default when configured for
+@samp{pdp11-*-bsd}.
+
+@item -mdec-asm
+@opindex mdec-asm
+Use DEC assembler syntax.  This is the default when configured for any
+PDP-11 target other than @samp{pdp11-*-bsd}.
+@end table
+
+@node Xstormy16 Options
+@subsection Xstormy16 Options
+@cindex Xstormy16 Options
+
+These options are defined for Xstormy16:
+
+@table @gcctabopt
+@item -msim
+@opindex msim
+Choose startup files and linker script suitable for the simulator.
+@end table
+
+@node Xtensa Options
+@subsection Xtensa Options
+@cindex Xtensa Options
+
+The Xtensa architecture is designed to support many different
+configurations.  The compiler's default options can be set to match a
+particular Xtensa configuration by copying a configuration file into the
+GCC sources when building GCC@.  The options below may be used to
+override the default options.
+
+@table @gcctabopt
+@item -mbig-endian
+@itemx -mlittle-endian
+@opindex mbig-endian
+@opindex mlittle-endian
+Specify big-endian or little-endian byte ordering for the target Xtensa
+processor.
+
+@item -mdensity
+@itemx -mno-density
+@opindex mdensity
+@opindex mno-density
+Enable or disable use of the optional Xtensa code density instructions.
+
+@item -mmac16
+@itemx -mno-mac16
+@opindex mmac16
+@opindex mno-mac16
+Enable or disable use of the Xtensa MAC16 option.  When enabled, GCC
+will generate MAC16 instructions from standard C code, with the
+limitation that it will use neither the MR register file nor any
+instruction that operates on the MR registers.  When this option is
+disabled, GCC will translate 16-bit multiply/accumulate operations to a
+combination of core instructions and library calls, depending on whether
+any other multiplier options are enabled.
+
+@item -mmul16
+@itemx -mno-mul16
+@opindex mmul16
+@opindex mno-mul16
+Enable or disable use of the 16-bit integer multiplier option.  When
+enabled, the compiler will generate 16-bit multiply instructions for
+multiplications of 16 bits or smaller in standard C code.  When this
+option is disabled, the compiler will either use 32-bit multiply or
+MAC16 instructions if they are available or generate library calls to
+perform the multiply operations using shifts and adds.
+
+@item -mmul32
+@itemx -mno-mul32
+@opindex mmul32
+@opindex mno-mul32
+Enable or disable use of the 32-bit integer multiplier option.  When
+enabled, the compiler will generate 32-bit multiply instructions for
+multiplications of 32 bits or smaller in standard C code.  When this
+option is disabled, the compiler will generate library calls to perform
+the multiply operations using either shifts and adds or 16-bit multiply
+instructions if they are available.
+
+@item -mnsa
+@itemx -mno-nsa
+@opindex mnsa
+@opindex mno-nsa
+Enable or disable use of the optional normalization shift amount
+(@code{NSA}) instructions to implement the built-in @code{ffs} function.
+
+@item -mminmax
+@itemx -mno-minmax
+@opindex mminmax
+@opindex mno-minmax
+Enable or disable use of the optional minimum and maximum value
+instructions.
+
+@item -msext
+@itemx -mno-sext
+@opindex msext
+@opindex mno-sext
+Enable or disable use of the optional sign extend (@code{SEXT})
+instruction.
+
+@item -mbooleans
+@itemx -mno-booleans
+@opindex mbooleans
+@opindex mno-booleans
+Enable or disable support for the boolean register file used by Xtensa
+coprocessors.  This is not typically useful by itself but may be
+required for other options that make use of the boolean registers (e.g.,
+the floating-point option).
+
+@item -mhard-float
+@itemx -msoft-float
+@opindex mhard-float
+@opindex msoft-float
+Enable or disable use of the floating-point option.  When enabled, GCC
+generates floating-point instructions for 32-bit @code{float}
+operations.  When this option is disabled, GCC generates library calls
+to emulate 32-bit floating-point operations using integer instructions.
+Regardless of this option, 64-bit @code{double} operations are always
+emulated with calls to library functions.
+
+@item -mfused-madd
+@itemx -mno-fused-madd
+@opindex mfused-madd
+@opindex mno-fused-madd
+Enable or disable use of fused multiply/add and multiply/subtract
+instructions in the floating-point option.  This has no effect if the
+floating-point option is not also enabled.  Disabling fused multiply/add
+and multiply/subtract instructions forces the compiler to use separate
+instructions for the multiply and add/subtract operations.  This may be
+desirable in some cases where strict IEEE 754-compliant results are
+required: the fused multiply add/subtract instructions do not round the
+intermediate result, thereby producing results with @emph{more} bits of
+precision than specified by the IEEE standard.  Disabling fused multiply
+add/subtract instructions also ensures that the program output is not
+sensitive to the compiler's ability to combine multiply and add/subtract
+operations.
+
+@item -mserialize-volatile
+@itemx -mno-serialize-volatile
+@opindex mserialize-volatile
+@opindex mno-serialize-volatile
+When this option is enabled, GCC inserts @code{MEMW} instructions before
+@code{volatile} memory references to guarantee sequential consistency.
+The default is @option{-mserialize-volatile}.  Use
+@option{-mno-serialize-volatile} to omit the @code{MEMW} instructions.
+
+@item -mtext-section-literals
+@itemx -mno-text-section-literals
+@opindex mtext-section-literals
+@opindex mno-text-section-literals
+Control the treatment of literal pools.  The default is
+@option{-mno-text-section-literals}, which places literals in a separate
+section in the output file.  This allows the literal pool to be placed
+in a data RAM/ROM, and it also allows the linker to combine literal
+pools from separate object files to remove redundant literals and
+improve code size.  With @option{-mtext-section-literals}, the literals
+are interspersed in the text section in order to keep them as close as
+possible to their references.  This may be necessary for large assembly
+files.
+
+@item -mtarget-align
+@itemx -mno-target-align
+@opindex mtarget-align
+@opindex mno-target-align
+When this option is enabled, GCC instructs the assembler to
+automatically align instructions to reduce branch penalties at the
+expense of some code density.  The assembler attempts to widen density
+instructions to align branch targets and the instructions following call
+instructions.  If there are not enough preceding safe density
+instructions to align a target, no widening will be performed.  The
+default is @option{-mtarget-align}.  These options do not affect the
+treatment of auto-aligned instructions like @code{LOOP}, which the
+assembler will always align, either by widening density instructions or
+by inserting no-op instructions.
+
+@item -mlongcalls
+@itemx -mno-longcalls
+@opindex mlongcalls
+@opindex mno-longcalls
+When this option is enabled, GCC instructs the assembler to translate
+direct calls to indirect calls unless it can determine that the target
+of a direct call is in the range allowed by the call instruction.  This
+translation typically occurs for calls to functions in other source
+files.  Specifically, the assembler translates a direct @code{CALL}
+instruction into an @code{L32R} followed by a @code{CALLX} instruction.
+The default is @option{-mno-longcalls}.  This option should be used in
+programs where the call target can potentially be out of range.  This
+option is implemented in the assembler, not the compiler, so the
+assembly code generated by GCC will still show direct call
+instructions---look at the disassembled object code to see the actual
+instructions.  Note that the assembler will use an indirect call for
+every cross-file call, not just those that really will be out of range.
 @end table
 
 @node Code Gen Options
