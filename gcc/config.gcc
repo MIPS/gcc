@@ -2970,22 +2970,21 @@ powerpc*-*-* | rs6000-*-*)
         then
                 tm_file="$tm_file rs6000/altivec-defs.h"
         fi
-	case "x$with_cpu" in
-		x | xdefault32 | xdefault64)
+	case "$with_cpu" in
+		"" | default32 | default64)
 			;;
 
-		xcommon | xpower | xpower2 | xpower3 | xpowerpc | xpowerpc64 \
-		  | xrios | xrios1 | xrios2 | xrsc | xrsc1 | xrs64a \
-		  | x601 | x602 | x603 | x603e | x604 | x604e | x620 | x630 \
-		  | x740 | x750 | x7400 | x7450 | x505)
+		401 | 403 | 405 | 405fp | 440 | 440fp | 505 \
+		  | 601 | 602 | 603 | 603e | 604 | 604e \
+		  | 620 | 630 | 740 | 7400 | 7450 | 750 \
+		  | 801 | 821 | 823 | 8540 | 860 | 970 | common | ec603e \
+		  | G3 | G4 | G5 | power | power2 | power3 | power4 \
+		  | powerpc | powerpc64 \
+		  | rios | rios1 | rios2 | rsc | rsc1 | rs64a)
 			target_cpu_default2="\\\"$with_cpu\\\""
 			;;
 
-		x401 | x403 | x405 | xec603e | x801 | x821 | x823 | x860)
-			target_cpu_default2="\\\"$with_cpu\\\""
-			;;
-
-		xyes | xno)
+		yes | no)
 			echo "--with-cpu must be passed a value" 1>&2
 			exit 1
 			;;

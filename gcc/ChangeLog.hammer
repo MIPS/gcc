@@ -1,5 +1,7 @@
 2004-02-21  Alan Modra  <amodra@bigpond.net.au>
 
+	* config.gcc (powerpc cpu default): Match cpus supported in rs6000.c.
+
 	* combine.c (can_combine_p): Don't ignore SETs marked with
 	REG_EH_REGION notes.
 	(try_combine): Revert last patch for the following and apply new
