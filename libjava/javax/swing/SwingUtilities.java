@@ -1,5 +1,5 @@
 /* SwingUtilities.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -41,7 +41,6 @@ import java.applet.Applet;
 import java.awt.Component;
 import java.awt.ComponentOrientation;
 import java.awt.Container;
-import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Frame;
@@ -52,11 +51,8 @@ import java.awt.Rectangle;
 import java.awt.Shape;
 import java.awt.Toolkit;
 import java.awt.Window;
-import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.lang.reflect.InvocationTargetException;
-import javax.accessibility.Accessible;
-import javax.accessibility.AccessibleStateSet;
 
 
 /**
@@ -64,7 +60,7 @@ import javax.accessibility.AccessibleStateSet;
  * useful when drawing swing components, dispatching events, or calculating
  * regions which need painting.
  *
- * @author Graydon Hoare (graydon&064;redhat.com)
+ * @author Graydon Hoare (graydon@redhat.com)
  */
 public class SwingUtilities implements SwingConstants
 {

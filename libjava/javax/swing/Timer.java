@@ -42,7 +42,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.Serializable;
 import java.util.EventListener;
-import java.util.Vector;
+
 import javax.swing.event.EventListenerList;
 
 public class Timer implements Serializable

@@ -37,7 +37,6 @@ exception statement from your version. */
 
 package javax.swing;
 
-import java.awt.AWTEvent;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
@@ -54,7 +53,6 @@ import java.awt.event.ContainerEvent;
 import java.awt.event.ContainerListener;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
-import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.ImageObserver;
@@ -69,7 +67,6 @@ import java.util.Locale;
 import java.util.Vector;
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
-import javax.accessibility.AccessibleExtendedComponent;
 import javax.accessibility.AccessibleRole;
 import javax.accessibility.AccessibleStateSet;
 import javax.swing.border.Border;
@@ -278,7 +275,7 @@ public abstract class JComponent extends Container implements Serializable
    * @see #getUI
    * @see #updateUI
    */
-  ComponentUI ui;
+  protected ComponentUI ui;
 
   /**
    * A hint to the focus system that this component should or should not
@@ -310,7 +307,7 @@ public abstract class JComponent extends Container implements Serializable
    * handled by this listener list. PropertyChangeEvents are handled in
    * {@link #changeSupport}.
    */
-  EventListenerList listenerList = new EventListenerList();
+  protected EventListenerList listenerList = new EventListenerList();
 
   /** 
    * Support for {@link PropertyChangeEvent} events. This is constructed
@@ -348,6 +345,7 @@ public abstract class JComponent extends Container implements Serializable
    */
   private static Locale defaultLocale;
   
+  public static final String TOOL_TIP_TEXT_KEY = "ToolTipText";
 
   /**
    * Constant used to indicate that no condition has been assigned to a
@@ -1629,7 +1627,7 @@ public abstract class JComponent extends Container implements Serializable
   public void scrollRectToVisible(Rectangle r)
   {
     Component p = getParent();
-    if (p != null && p instanceof JComponent)
+    if (p instanceof JComponent)
       ((JComponent) p).scrollRectToVisible(r);
   }
 

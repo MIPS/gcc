@@ -1,5 +1,43 @@
 2004-06-07  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/AbstractButton.java: Reorganized imports.
+	* javax/swing/ActionMap.java: Likewise.
+	* javax/swing/DefaultButtonModel.java: Likewise.
+	* javax/swing/DefaultListModel.java: Likewise.
+	* javax/swing/ImageIcon.java: Likewise.
+	(serialVersionUID): New member variable.
+	* javax/swing/JComboBox.java: Reorganized imports.
+	* javax/swing/JComponent.java: Likewise.
+	(ui): Made protected.
+	(listenerList): Made protected.
+	(TOOL_TIP_TEXT_KEY): New constant.
+	(scrollRectToVisible): Removed redundant null check.
+	* javax/swing/JFrame.java: Reorganized imports.
+	* javax/swing/JInternalFrame.java: Reorganized imports.
+	* javax/swing/JProgressBar.java: Likewise.
+	* javax/swing/JRootPane.java: Likewise.
+	* javax/swing/JScrollBar.java: Likewise.
+	* javax/swing/JSeparator.java: Likewise.
+	* javax/swing/JSlider.java: Likewise.
+	* javax/swing/JTabbedPane.java: Likewise.
+	* javax/swing/JTextField.java: Likewise.
+	* javax/swing/JToolBar.java: Likewise.
+	* javax/swing/JTree.java: Likewise.
+	* javax/swing/JViewport.java: Likewise.
+	* javax/swing/JWindow.java: Likewise.
+	* javax/swing/KeyStroke.java: Likewise.
+	* javax/swing/LookAndFeel.java: Likewise.
+	* javax/swing/MenuSelectionManager.java: Likewise.
+	* javax/swing/SwingUtilities.java: Likewise.
+	* javax/swing/Timer.java: Likewise.
+	* javax/swing/DefaultBoundedRangeModel.java: Fixed javadoc.
+	* javax/swing/JList.java
+	(HORIZONTAL_WRAP): Made final, fixed value.
+	(VERTICAL): Likewise.
+	(VERTICAL_WRAP): Likewise.
+
+2004-06-07  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/AbstractButton.java
 	(serialVersionUID): New member variable.
 	(AccessibleAbstractButton.serialVersionUID): Likewise.

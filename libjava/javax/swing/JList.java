@@ -100,7 +100,7 @@ import javax.swing.plaf.ListUI;
  * <tr><td>visibleRowCount                </td><td>list     </td><td>no    </td></tr>
  * </table> 
  *
- * @author Graydon Hoare (graydon&064;redhat.com)
+ * @author Graydon Hoare (graydon@redhat.com)
  */
 
 public class JList extends JComponent implements Accessible, Scrollable
@@ -109,24 +109,24 @@ public class JList extends JComponent implements Accessible, Scrollable
 
   /** 
    * Constant value used in "layoutOrientation" property. This value means
-   * that cells are laid out in multiple columns "newspaper style",
-   * filling horizontally first, then vertically. 
-   */
-  public static int HORIZONTAL_WRAP = 1;
-
-  /** 
-   * Constant value used in "layoutOrientation" property. This value means
    * that cells are laid out in a single vertical column. This is the default. 
    */
-  public static int VERTICAL = 2;
+  public static final int VERTICAL = 0;
 
   /** 
    * Constant value used in "layoutOrientation" property. This value means
    * that cells are laid out in multiple columns "newspaper style", filling
    * vertically first, then horizontally. 
    */
-  public static int VERTICAL_WRAP = 3;
+  public static final int VERTICAL_WRAP = 1;
   
+  /** 
+   * Constant value used in "layoutOrientation" property. This value means
+   * that cells are laid out in multiple columns "newspaper style",
+   * filling horizontally first, then vertically. 
+   */
+  public static final int HORIZONTAL_WRAP = 2;
+
   /** Fired in a PropertyChangeEvent when the "cellRenderer" property changes. */
   public static final String CELL_RENDERER_PROPERTY_CHANGED = "cellRenderer";
 
