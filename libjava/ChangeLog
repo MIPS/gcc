@@ -5,6 +5,8 @@
 	* java/awt/Window.java (Window()): Refocus the previously
 	focused component within the window when the window regains the
 	top-level focus.
+	(setFocusOwner): New method.
+	* java/awt/Component.java (requestFocus): Add FIXME.
 
 	* libgcj.pc.in: Remove library flags.
 
