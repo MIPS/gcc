@@ -66,8 +66,6 @@ static void place_union_field (record_layout_info, tree);
 static int excess_unit_span (HOST_WIDE_INT, HOST_WIDE_INT, HOST_WIDE_INT,
 			     HOST_WIDE_INT, tree);
 #endif
-static unsigned int update_alignment_for_field (record_layout_info, tree,
-						unsigned int);
 extern void debug_rli (record_layout_info);
 
 /* SAVE_EXPRs for sizes of types and decls, waiting to be expanded.  */
@@ -682,7 +680,7 @@ rli_size_so_far (record_layout_info rli)
    variable alignment fields in RLI, and return the alignment to give
    the FIELD.  */
 
-static unsigned int
+unsigned int
 update_alignment_for_field (record_layout_info rli, tree field,
 			    unsigned int known_align)
 {

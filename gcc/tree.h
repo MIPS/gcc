@@ -3475,7 +3475,8 @@ extern void set_decl_origin_self (tree);
 extern void set_min_and_max_values_for_integral_type (tree, int, bool);
 extern void fixup_signed_type (tree);
 extern void internal_reference_types (void);
-
+extern unsigned int update_alignment_for_field (record_layout_info, tree,
+                                                unsigned int);
 /* varasm.c */
 extern void make_decl_rtl (tree, const char *);
 extern void make_decl_one_only (tree);
