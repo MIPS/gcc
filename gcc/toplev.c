@@ -3594,7 +3594,7 @@ rest_of_compilation (decl)
 	  schedule_ebbs (rtl_dump_file);
 	  /* No liveness updating code yet, but it should be easy to do  */
 	  count_or_remove_death_notes (NULL, 1);
-	  life_analysis (get_insns (), rtl_dump_file, PROP_FINAL);
+	  life_analysis (get_insns (), rtl_dump_file, PROP_DEATH_NOTES);
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
 		       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
 	}
