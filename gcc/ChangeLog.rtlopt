@@ -1,5 +1,19 @@
 2003-07-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* loop-ivopts.c (schedule_autoinc): Fix.
+	(create_biv): Prevent warning.
+	(detect_strength_reductions): Dump moved ...
+	(determine_reductions_to_perform): ... here.
+	(create_bivs_for): Fail for extended ivs.
+	* loop-iv.c (simulate_set): Handle sets to subregs and relatives
+	correctly.
+	* algebraic.c (simplify_alg_expr_one_level): Fix handling of DIV/MOD.
+	Add a few cases for AND.
+	* el-rtx.h (ALL_ONES_VALUE): New.
+	* reorg.c (mostly_true_jump): Disable handling of loop notes.
+
+2003-07-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* config/rs6000/rs6000.c (rs6000_emit_eh_toc_restore): Don't emit
 	loop notes.
 	* config/m88k/m88k.c (mostly_false_jump): Ditto.

@@ -434,7 +434,7 @@ static void
 simulate_set (rtx reg, rtx set, void *data)
 {
   rtx *values = (rtx *) data;
-  rtx src, value;
+  rtx src, dest, value = NULL_RTX;
   unsigned regno;
 
   if (!REG_P (reg))
@@ -445,13 +445,17 @@ simulate_set (rtx reg, rtx set, void *data)
     return;
 
   SET_BIT (act_modified_regs, regno);
-  if (GET_CODE (set) == CLOBBER)
-    value = NULL_RTX;
-  else
+  if (GET_CODE (set) == SET)
     {
-      src = SET_SRC (set);
-      value = substitute_into_expr (src, iv_interesting_reg, values, NULL,
-				    SIE_SIMPLIFY);
+      dest = SET_DEST (set);
+      if (REG_P (dest))
+	{
+	  if (REGNO (dest) != regno)
+	    abort ();
+	  src = SET_SRC (set);
+	  value = substitute_into_expr (src, iv_interesting_reg, values, NULL,
+					SIE_SIMPLIFY);
+	}
     }
   if (!value)
     value = gen_value_at (regno, current_insn, true);

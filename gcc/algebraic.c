@@ -749,14 +749,26 @@ simplify_alg_expr_one_level (EXPR expr, EXPR_TYPE inner_mode)
 
     case OP_DIV:
     case OP_UDIV:
-      if (CONST_INT_VALUE (ARG (expr, 1)) == 1)
-	expr = ARG (expr, 0);
+      if (GET_OPERATOR (ARG (expr, 1)) == OP_CONST_INT
+	  && CONST_INT_VALUE (ARG (expr, 1)) == 1)
+	return ARG (expr, 0);
       break;
 
     case OP_MOD:
     case OP_UMOD:
-      if (CONST_INT_VALUE (ARG (expr, 1)) == 1)
-	expr = CONST_INT_EXPR (0);
+      if (GET_OPERATOR (ARG (expr, 1)) == OP_CONST_INT
+	  && CONST_INT_VALUE (ARG (expr, 1)) == 1)
+	return CONST_INT_EXPR (0);
+      break;
+
+    case OP_AND:
+      if (GET_OPERATOR (ARG (expr, 0)) == OP_CONST_INT)
+	{
+	  if (CONST_INT_VALUE (ARG (expr, 0)) == 0)
+	    return CONST_INT_EXPR (0);
+	  else if (CONST_INT_VALUE (ARG (expr, 0)) == ALL_ONES_VALUE (mode))
+	    return ARG (expr, 1);
+	}
       break;
 
     case OP_IF_THEN_ELSE:

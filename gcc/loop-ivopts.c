@@ -351,13 +351,6 @@ detect_strength_reductions (struct loops *loops, struct ivopt_actions *actions)
 
       remove_incorrect_eliminations (loop, &loop_reds, loop_repls);
 
-      if (rtl_dump_file)
-	{
-	  fprintf (rtl_dump_file, "Loop %d:\n", loop->num);
-	  fprintf (rtl_dump_file, "Before decision:\n");
-	  dump_strength_reductions (rtl_dump_file, loop_reds, loop_repls);
-	}
-
       determine_reductions_to_perform (loop, &loop_reds, loop_repls);
       fixup_preserved_bivs (&loop_reds);
       remove_unnecesary_fvrepls (loop_reds, &loop_fvrepls);
@@ -498,7 +491,7 @@ schedule_autoinc (struct loops *loops, struct loop *loop, struct str_red *reds,
       if (repl)
 	continue;
 
-      reds->increment_after = repl->insn;
+      reds->increment_after = last_repl->insn;
     }
 }
 #endif
@@ -1987,6 +1980,10 @@ create_bivs_for (struct loop *loop, struct iv_occurence *occ,
   struct str_red *selfs[3];
   int i;
 
+  /* ??? Add handling of these.  */
+  if (occ->real_mode != occ->extended_mode)
+    return;
+
   /* Create new possibilities on that to base the iv -- self, self but
      without constant displacement and self without base.  */
   selfs[0] = xmalloc (sizeof (struct str_red));
@@ -2131,7 +2128,7 @@ static void
 create_biv (struct loops *loops, struct str_red *red)
 {
   rtx seq, tmp, *note;
-  rtx insn, after, cond;
+  rtx insn, after = NULL_RTX, cond;
   basic_block latch;
 
   if (red->elimination)
@@ -2226,6 +2223,8 @@ create_biv (struct loops *loops, struct str_red *red)
 	    }
 	}
     }
+  if (!after)
+    abort ();
   emit_insn_after (seq, after);
 
   /* Prepare the initial value.  */
@@ -2317,6 +2316,13 @@ determine_reductions_to_perform (struct loop *loop, struct str_red **reds,
     }
   if (!*reds)
     return;
+
+  if (rtl_dump_file)
+    {
+      fprintf (rtl_dump_file, "Loop %d:\n", loop->num);
+      fprintf (rtl_dump_file, "Before decision:\n");
+      dump_strength_reductions (rtl_dump_file, *reds, repls);
+    }
 
   /* Choose the cheapest possibility for every replacement.  */
   for (act = repls; act; act = act->next)

@@ -969,6 +969,7 @@ mostly_true_jump (jump_insn, condition)
 	      && LABEL_OUTSIDE_LOOP_P (XEXP (SET_SRC (PATTERN (jump_insn)), 2)))))
     return -1;
 
+#if 0
   if (target_label)
     {
       /* If this is the test of a loop, it is very likely true.  We scan
@@ -991,6 +992,7 @@ mostly_true_jump (jump_insn, condition)
 	if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_VTOP)
 	  return 1;
     }
+#endif
 
   /* Look at the relative rarities of the fallthrough and destination.  If
      they differ, we can predict the branch that way.  */

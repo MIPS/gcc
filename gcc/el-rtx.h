@@ -118,6 +118,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
   (GET_MODE (XEXP (X, 0)) == VOIDmode					\
    ? GET_MODE (XEXP (X, 1))						\
    : GET_MODE (XEXP (X, 0)))
+#define ALL_ONES_VALUE(TYPE) (GET_MODE_MASK (TYPE))
 #define INTEGER_TYPE_P(TYPE) 						\
   (GET_MODE_CLASS (TYPE) == MODE_INT					\
    || GET_MODE_CLASS (TYPE) == MODE_PARTIAL_INT)
