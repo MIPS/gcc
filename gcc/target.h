@@ -244,6 +244,11 @@ struct gcc_target
      not, at the current point in the compilation.  */
   bool (* cannot_modify_jumps_p) PARAMS ((void));
 
+  /* True if it is OK to do sibling call optimization for the specified
+     call expression EXP.  DECL will be the called function, or NULL if
+     this is an indirect call.  */
+  bool (*function_ok_for_sibcall) PARAMS ((tree decl, tree exp));
+  
   /* True if EXP should be placed in a "small data" section.  */
   bool (* in_small_data_p) PARAMS ((tree));
 

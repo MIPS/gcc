@@ -36,10 +36,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "target.h"
 
-#if !defined FUNCTION_OK_FOR_SIBCALL
-#define FUNCTION_OK_FOR_SIBCALL(DECL) 1
-#endif
-
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
 
@@ -2443,17 +2439,12 @@ expand_call (exp, target, ignore)
 	 It does not seem worth the effort since few optimizable
 	 sibling calls will return a structure.  */
       || structure_value_addr != NULL_RTX
-      /* If the register holding the address is a callee saved
-	 register, then we lose.  We have no way to prevent that,
-	 so we only allow calls to named functions.  */
-      /* ??? This could be done by having the insn constraints
-	 use a register class that is all call-clobbered.  Any
-	 reload insns generated to fix things up would appear
-	 before the sibcall_epilogue.  */
-      || fndecl == NULL_TREE
+      /* Check whether the target is able to optimize the call
+	 into a sibcall.  */
+      || !(*targetm.function_ok_for_sibcall) (fndecl, exp)
       || (flags & (ECF_RETURNS_TWICE | ECF_LONGJMP))
-      || TREE_THIS_VOLATILE (fndecl)
-      || !FUNCTION_OK_FOR_SIBCALL (fndecl)
+      /* Functions that do not return may not be sibcall optimized.  */
+      || TYPE_VOLATILE (TREE_TYPE (TREE_OPERAND (exp, 0)))
       /* If this function requires more stack slots than the current
 	 function, we cannot change it into a sibling call.  */
       || args_size.constant > current_function_args_size

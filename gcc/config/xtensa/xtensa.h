@@ -1284,11 +1284,6 @@ typedef struct xtensa_args {
    indexing purposes) so give the MEM rtx a words's mode.  */
 #define FUNCTION_MODE SImode
 
-/* A C expression that evaluates to true if it is ok to perform a
-   sibling call to DECL.  */
-/* TODO: fix this up to allow at least some sibcalls */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) 0
-
 /* Xtensa constant costs.  */
 #define CONST_COSTS(X, CODE, OUTER_CODE)				\
   case CONST_INT:							\

@@ -165,6 +165,7 @@ struct builtin_description
   const enum rs6000_builtins code;
 };
 
+static bool rs6000_function_ok_for_sibcall PARAMS ((tree, tree));
 static void rs6000_add_gc_roots PARAMS ((void));
 static int num_insns_constant_wide PARAMS ((HOST_WIDE_INT));
 static void validate_condition_mode 
@@ -375,6 +376,9 @@ static const char alt_reg_names[][8] =
 
 /* The VRSAVE bitmask puts bit %v0 as the most significant bit.  */
 #define ALTIVEC_REG_BIT(REGNO) (0x80000000 >> ((REGNO) - FIRST_ALTIVEC_REGNO))
+
+#undef TARGET_FUNCTION_OK_FOR_SIBCALL
+#define TARGET_FUNCTION_OK_FOR_SIBCALL rs6000_function_ok_for_sibcall
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -9402,33 +9406,34 @@ rs6000_return_addr (count, frame)
    vector parameters are required to have a prototype, so the argument
    type info must be available here.  (The tail recursion case can work
    with vector parameters, but there's no way to distinguish here.) */
-int
-function_ok_for_sibcall (fndecl)
-    tree fndecl;
+static bool
+rs6000_function_ok_for_sibcall (decl, exp)
+    tree decl;
+    tree exp ATTRIBUTE_UNUSED;
 {
   tree type;
-  if (fndecl)
+  if (decl)
     {
       if (TARGET_ALTIVEC_VRSAVE)
         {
-	  for (type = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
+	  for (type = TYPE_ARG_TYPES (TREE_TYPE (decl));
 	       type; type = TREE_CHAIN (type))
 	    {
 	      if (TREE_CODE (TREE_VALUE (type)) == VECTOR_TYPE)
-		return 0;
+		return false;
 	    }
         }
       if (DEFAULT_ABI == ABI_DARWIN
-	  || (*targetm.binds_local_p) (fndecl))
+	  || (*targetm.binds_local_p) (decl))
 	{
-	  tree attr_list = TYPE_ATTRIBUTES (TREE_TYPE (fndecl));
+	  tree attr_list = TYPE_ATTRIBUTES (TREE_TYPE (decl));
 
 	  if (!lookup_attribute ("longcall", attr_list)
 	      || lookup_attribute ("shortcall", attr_list))
-	    return 1;
+	    return true;
 	}
     }
-  return 0;
+  return false;
 }
 
 /* function rewritten to handle sibcalls */

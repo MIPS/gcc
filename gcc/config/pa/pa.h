@@ -1838,35 +1838,6 @@ do { 									\
 /* The number of Pmode words for the setjmp buffer.  */
 #define JMP_BUF_SIZE 50
 
-/* Only direct calls to static functions are allowed to be sibling (tail)
-   call optimized.
-
-   This restriction is necessary because some linker generated stubs will
-   store return pointers into rp' in some cases which might clobber a
-   live value already in rp'.
-
-   In a sibcall the current function and the target function share stack
-   space.  Thus if the path to the current function and the path to the
-   target function save a value in rp', they save the value into the
-   same stack slot, which has undesirable consequences.
-
-   Because of the deferred binding nature of shared libraries any function
-   with external scope could be in a different load module and thus require
-   rp' to be saved when calling that function.  So sibcall optimizations
-   can only be safe for static function.
-
-   Note that GCC never needs return value relocations, so we don't have to
-   worry about static calls with return value relocations (which require
-   saving rp').
-
-   It is safe to perform a sibcall optimization when the target function
-   will never return.  */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) \
-  (DECL \
-   && ! TARGET_PORTABLE_RUNTIME \
-   && ! TARGET_64BIT \
-   && ! TREE_PUBLIC (DECL))
-
 #define PREDICATE_CODES							\
   {"reg_or_0_operand", {SUBREG, REG, CONST_INT}},			\
   {"call_operand_address", {LABEL_REF, SYMBOL_REF, CONST_INT,		\

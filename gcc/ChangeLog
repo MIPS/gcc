@@ -1,3 +1,48 @@
+2002-10-01  Andreas Bauer  <baueran@in.tum.de>
+
+	* calls.c (expand_call): Remove the `no indirect check'
+	for sibcall optimization; use function_ok_for_sibcall
+	target hook; refine check for `function is volatile'.
+	(FUNCTION_OK_FOR_SIBCALL): Remove the redefinition.
+	* hooks.c (hook_tree_tree_bool_false): New.
+	* hooks.h (hook_tree_tree_bool_false): Declare.
+	* target-def.h (TARGET_FUNCTION_OK_FOR_SIBCALL): New.
+	(TARGET_INITIALIZER): Add it.
+	* target.h (struct gcc_target): Add function_ok_for_sibcall.
+	* config/alpha/alpha.c: (alpha_function_ok_for_sibcall): New.
+	(TARGET_FUNCTION_OK_FOR_SIBCALL): Redefine accordingly.
+	* config/alpha/alpha.h: (FUNCTION_OK_FOR_SIBCALL): Remove.
+	* config/arm/arm-protos.h: (arm_function_ok_for_sibcall):
+	Remove function declaration.
+	* config/arm/arm.c: (arm_function_ok_for_sibcall): Make
+	function static and accept another argument of type `tree'.
+	(TARGET_FUNCTION_OK_FOR_SIBCALL): Redefine accordingly.
+	* config/arm/arm.h: (FUNCTION_OK_FOR_SIBCALL): Remove.
+	* config/frv/frv.h: (FUNCTION_OK_FOR_SIBCALL): Remove.
+	* config/i386/i386.c: (ix86_function_ok_for_sibcall): New.
+	(TARGET_FUNCTION_OK_FOR_SIBCALL): Redefine accordingly.
+	* config/i386/i386.h: (FUNCTION_OK_FOR_SIBCALL): Remove.
+	* config/pa/pa-linux.h: (FUNCTION_OK_FOR_SIBCALL): Remove.
+	(TARGET_HAS_STUBS_AND_ELF_SECTIONS): New definition.
+	* config/pa/pa.c: (pa_function_ok_for_sibcall): New.
+	(TARGET_FUNCTION_OK_FOR_SIBCALL): Redefine accordingly.
+	* config/pa/pa.h: (FUNCTION_OK_FOR_SIBCALL): Remove.
+	* config/rs6000/rs6000-protos.h: (function_ok_for_sibcall):
+	Remove function declaration.
+	* config/rs6000/rs6000.c: (rs6000_function_ok_for_sibcall):
+	Rename function_ok_for_sibcall to rs6000_function_ok_for_sibcall;
+	rename first argument to `decl'; accept another argument
+	of type `tree'; make static.
+	(TARGET_FUNCTION_OK_FOR_SIBCALL): Redefine accordingly.
+	* config/rs6000/rs6000.h: (FUNCTION_OK_FOR_SIBCALL): Remove.
+	* config/sh/sh.c: (sh_function_ok_for_sibcall): New.
+	(TARGET_FUNCTION_OK_FOR_SIBCALL): Redefine accordingly.
+	* config/sh/sh.h: (FUNCTION_OK_FOR_SIBCALL): Remove.
+	* config/sparc/sparc.c: (sparc_function_ok_for_sibcall): New.
+	(TARGET_FUNCTION_OK_FOR_SIBCALL): Redefine accordingly.
+	* config/sparc/sparc.h: (FUNCTION_OK_FOR_SIBCALL): Remove.
+	* config/xtensa/xtensa.h: (FUNCTION_OK_FOR_SIBCALL): Remove.
+
 2002-09-30  Zack Weinberg  <zack@codesourcery.com>
 
 	* gcc.c (validate_switches): Handle all new forms of spec

@@ -1706,13 +1706,6 @@ struct sh_args {
     (CUM).outgoing = 0;						\
   } while (0)
  
-/* FIXME: This is overly conservative.  A SHcompact function that
-   receives arguments ``by reference'' will have them stored in its
-   own stack frame, so it must not pass pointers or references to
-   these arguments to other functions by means of sibling calls.  */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) \
-  (! TARGET_SHCOMPACT || current_function_args_info.stack_regs == 0)
-
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
    (TYPE is null for libcalls where that information may not be

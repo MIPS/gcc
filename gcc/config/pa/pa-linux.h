@@ -95,10 +95,6 @@ Boston, MA 02111-1307, USA.  */
       %{!dynamic-linker:-dynamic-linker /lib/ld.so.1}} \
       %{static:-static}}"
 
-/* Sibcalls, stubs, and elf sections don't play well.  */
-#undef FUNCTION_OK_FOR_SIBCALL
-#define FUNCTION_OK_FOR_SIBCALL(x) 0
-
 /* glibc's profiling functions don't need gcc to allocate counters.  */
 #define NO_PROFILE_COUNTERS 1
 
@@ -186,6 +182,11 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_ASM_GLOBALIZE_LABEL
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP ".globl "
+
+/* This definition is used inside pa.c to disable all
+   sibcall optimization, because sibcalls, stubs and
+   elf sections don't play well.  */
+#define TARGET_HAS_STUBS_AND_ELF_SECTIONS 1
 
 /* FIXME: Hacked from the <elfos.h> one so that we avoid multiple
    labels in a function declaration (since pa.c seems determined to do

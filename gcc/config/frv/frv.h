@@ -3516,9 +3516,6 @@ frv_ifcvt_modify_multiple_tests (CE_INFO, BB, &TRUE_EXPR, &FALSE_EXPR)
    scheduling.  */
 #define FIRST_CYCLE_MULTIPASS_SCHEDULING_LOOKAHEAD frv_sched_lookahead
 
-/* Return true if a function is ok to be called as a sibcall.  */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) 0
-
 enum frv_builtins
 {
   FRV_BUILTIN_MAND,

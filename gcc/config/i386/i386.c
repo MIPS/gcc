@@ -742,6 +742,7 @@ static int ix86_save_reg PARAMS ((unsigned int, int));
 static void ix86_compute_frame_layout PARAMS ((struct ix86_frame *));
 static int ix86_comp_type_attributes PARAMS ((tree, tree));
 const struct attribute_spec ix86_attribute_table[];
+static bool ix86_function_ok_for_sibcall PARAMS ((tree, tree));
 static tree ix86_handle_cdecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree ix86_handle_regparm_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static int ix86_value_regno PARAMS ((enum machine_mode));
@@ -842,6 +843,9 @@ static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
   ia32_multipass_dfa_lookahead
+
+#undef TARGET_FUNCTION_OK_FOR_SIBCALL
+#define TARGET_FUNCTION_OK_FOR_SIBCALL ix86_function_ok_for_sibcall
 
 #ifdef HAVE_AS_TLS
 #undef TARGET_HAVE_TLS
@@ -1291,6 +1295,24 @@ const struct attribute_spec ix86_attribute_table[] =
 #endif
   { NULL,        0, 0, false, false, false, NULL }
 };
+
+/* If PIC, we cannot make sibling calls to global functions
+   because the PLT requires %ebx live.
+   If we are returning floats on the register stack, we cannot make
+   sibling calls to functions that return floats.  (The stack adjust
+   instruction will wind up after the sibcall jump, and not be executed.)  */
+
+static bool
+ix86_function_ok_for_sibcall (decl, exp)
+     tree decl;
+     tree exp ATTRIBUTE_UNUSED;
+{
+  return ((decl)
+	  && (! flag_pic || ! TREE_PUBLIC (decl))
+	  && (! TARGET_FLOAT_RETURNS_IN_80387
+	      || ! FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (TREE_TYPE (decl))))
+	      || FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (TREE_TYPE (cfun->decl))))));
+}
 
 /* Handle a "cdecl" or "stdcall" attribute;
    arguments as in struct attribute_spec.handler.  */
