@@ -293,9 +293,8 @@ public abstract class JTextComponent extends JComponent
   public static final String FOCUS_ACCELERATOR_KEY = "focusAcceleratorKey";
 
   private Document doc;
-  private int icon_gap;
-  private Icon icon;
-  private int align;
+  private Caret caret;
+  private boolean editable;
 
   public JTextComponent()
   {
@@ -318,74 +317,9 @@ public abstract class JTextComponent extends JComponent
   }
 
   /**
-   * Verify that key is a legal value for the horizontalAlignment properties.
-   */
-  protected int checkHorizontalKey(int key, String message)
-  {
-    return 0;
-  }
-
-  /**
-   * Verify that key is a legal value for the verticalAlignment
-   * or verticalTextPosition properties.
-   */
-  protected int checkVerticalKey(int key, String message)
-  {
-    return 0;
-  }
-
-  /**
    * Get the AccessibleContext of this object
    */
   public AccessibleContext getAccessibleContext()
-  {
-    return null;
-  }
-
-  public Icon getDisabledIcon()
-  {
-    return null;
-  }
-
-  /**
-   * Return the keycode that indicates a mnemonic key.
-   */
-  public int getDisplayedMnemonic()
-  {
-    return 0;
-  }
-
-  /**
-   * Returns the alignment of the label's contents along the X axis.
-   */
-  public int getHorizontalAlignment()
-  {
-    return 0;
-  }
-
-  /**
-   * Returns the horizontal position of the label's text,
-   * relative to its image.
-   */
-  public int getHorizontalTextPosition()
-  {
-    return 0;
-  }
-
-  public Icon getIcon()
-  {
-    return icon;
-  }
-
-  public int getIconTextGap()
-  {
-    return icon_gap;
-  }
-
-  /**
-   * Get the component this is labelling.
-   */
-  Component getLabelFor()
   {
     return null;
   }
@@ -408,9 +342,32 @@ public abstract class JTextComponent extends JComponent
       }
   }
 
+  /**
+   * Retrieves the current text in this text document.
+   *
+   * @return the text
+   *
+   * @exception NullPointerException if the underlaying document is null
+   */
   public String getText()
   {
     return getDocument().getText(0, getDocument().getLength());
+  }
+
+  /**
+   * Retrieves a part of the current text in this document.
+   *
+   * @param offset the postion of the first character
+   * @param length the length of the text to retrieve
+   *
+   * @return the text
+   *
+   * @exception BadLocationException if arguments do not hold pre-conditions
+   */
+  public String getText(int offset, int length)
+    throws BadLocationException
+  {
+    return getDocument().getText(offset, length);
   }
 
   /**
@@ -425,106 +382,11 @@ public abstract class JTextComponent extends JComponent
   }
 
   /**
-   * Returns the alignment of the label's contents along the Y axis.
-   */
-  public int getVerticalAlignment()
-  {
-    return 0;
-  }
-
-  /**
-   * Returns the vertical position of the label's text, relative to its image.
-   */
-  public int getVerticalTextPosition()
-  {
-    return 0;
-  }
-
-  /**
-   * This is overriden to return false if the current Icon's Image is not equal to the passed in Image img.
-   */
-  public boolean imageUpdate(Image img, int infoflags, int x, int y, int w,
-                             int h)
-  {
-    return (img == icon);
-  }
-
-  /**
    * Returns a string representation of this JTextComponent.
    */
   protected String paramString()
   {
     return "JTextComponent";
-  }
-
-  /**
-   * Set the icon to be displayed if this JTextComponent is "disabled" (JTextComponent.setEnabled(false)).
-   */
-  void setDisabledIcon(Icon disabledIcon)
-  {
-  }
-
-  /**
-   * Specifies the displayedMnemonic as a char value.
-   */
-  void setDisplayedMnemonic(char aChar)
-  {
-  }
-
-  /**
-   * Specify a keycode that indicates a mnemonic key.
-   */
-  void setDisplayedMnemonic(int key)
-  {
-  }
-
-  /**
-   * Sets the alignment of the label's contents along the X axis.
-   */
-  void setHorizontalAlignment(int alignment)
-  {
-  }
-
-  /**
-   * Sets the horizontal position of the label's text, relative to its image.
-   */
-  void setHorizontalTextPosition(int textPosition)
-  {
-  }
-
-  /**
-   * Defines the icon this component will display.
-   */
-  void setIcon(Icon icon)
-  {
-  }
-
-  /**
-   * If both the icon and text properties are set, this property defines the space between them.
-   */
-  public void setIconTextGap(int iconTextGap)
-  {
-  }
-
-  /**
-   * Set the component this is labelling.
-   */
-  public void setLabelFor(Component c)
-  {
-  }
-
-  /**
-   * Sets the alignment of the label's contents along the Y axis.
-   */
-  public void setVerticalAlignment(int alignment)
-  {
-  }
-
-  /**
-   * Sets the vertical position of the label's text, relative to its image.
-   */
-  public void setVerticalTextPosition(int textPosition)
-  {
   }
 
   public TextUI getUI()
@@ -554,6 +416,146 @@ public abstract class JTextComponent extends JComponent
     return 0;
   }
 
+  /**
+   * Checks whether this text component it editable.
+   *
+   * @return true if editable, false otherwise
+   */
+  public boolean isEditable()
+  {
+    return editable;
+  }
+
+  /**
+   * Enables/disabled this text component's editability.
+   *
+   * @param editable true to make it editable, false otherwise.
+   */
+  public void setEditable(boolean editable)
+  {
+    firePropertyChange("editable", this.editable, editable);
+    this.editable = editable;
+  }
+
+  /**
+   * The <code>Caret</code> object used in this text component.
+   *
+   * @return the caret object
+   */
+  public Caret getCaret()
+  {
+    return caret;
+  }
+
+  /**
+   * Retrisves the current caret position.
+   *
+   * @return the current position
+   */
+  public int getCaretPosition()
+  {
+    return caret.getDot();
+  }
+
+  /**
+   * Sets the caret to a new position.
+   *
+   * @param position the new position
+   */
+  public void setCaretPosition(int position)
+  {
+    if (doc == null)
+      return;
+
+    if (position < 0 || position > doc.getLength())
+      throw new IllegalArgumentException();
+
+    caret.setDot(position);
+  }
+
+  /**
+   * Moves the caret to a given position. This selects the text between
+   * the old and the new position of the caret.
+   */
+  public void moveCaretPosition(int position)
+  {
+    if (doc == null)
+      return;
+
+    if (position < 0 || position > doc.getLength())
+      throw new IllegalArgumentException();
+
+    caret.moveDot(position);
+  }
+
+  /**
+   * Returns the start postion of the currently selected text.
+   *
+   * @return the start postion
+   */
+  public int getSelectionStart()
+  {
+    return Math.min(caret.getDot(), caret.getMark());
+  }
+
+  /**
+   * Selects the text from the given postion to the selection end position.
+   *
+   * @param end the start positon of the selected text.
+   */
+  public void setSelectionStart(int start)
+  {
+    select(start, getSelectionEnd());
+  }
+
+  /**
+   * Returns the end postion of the currently selected text.
+   *
+   * @return the end postion
+   */
+  public int getSelectionEnd()
+  {
+    return Math.max(caret.getDot(), caret.getMark());
+  }
+
+  /**
+   * Selects the text from the selection start postion to the given position.
+   *
+   * @param end the end positon of the selected text.
+   */
+  public void setSelectionEnd(int end)
+  {
+    select(getSelectionStart(), end);
+  }
+
+  /**
+   * Selects a part of the content of the text component.
+   *
+   * @param start the start position of the selected text
+   * @param ent the end position of the selected text
+   */
+  public void select(int start, int end)
+  {
+    int length = doc.getLength();
+    
+    start = Math.max(start, 0);
+    start = Math.min(start, length);
+
+    end = Math.max(end, 0);
+    end = Math.min(end, length);
+
+    setCaretPosition(start);
+    moveCaretPosition(end);
+  }
+
+  /**
+   * Selects the whole content of the text component.
+   */
+  public void selectAll()
+  {
+    select(0, doc.getLength());
+  }
+
   public boolean getScrollableTracksViewportHeight()
   {
     if (getParent() instanceof JViewport)
@@ -568,5 +570,79 @@ public abstract class JTextComponent extends JComponent
       return ((JViewport) getParent()).getWidth() > getPreferredSize().width;
 
     return false;
+  }
+
+  /**
+   * Adds a <code>CaretListener</code> object to this text component.
+   *
+   * @param listener the listener to add
+   */
+  public void addCaretListener(CaretListener listener)
+  {
+    listenerList.add(CaretListener.class, listener);
+  }
+
+  /**
+   * Removed a <code>CaretListener</code> object from this text component.
+   *
+   * @param listener the listener to remove
+   */
+  public void removeCaretListener(CaretListener listener)
+  {
+    listenerList.remove(CaretListener.class, listener);
+  }
+
+  /**
+   * Returns all added <code>CaretListener</code> objects.
+   *
+   * @return an array of listeners
+   */
+  public CaretListener[] getCaretListeners()
+  {
+    return (CaretListener[]) getListeners(CaretListener.class);
+  }
+
+  /**
+   * Notifies all registered <code>CaretListener</code> objects that the caret
+   * was updated.
+   *
+   * @param event the event to send
+   */
+  protected void fireCaretUpdate(CaretEvent event)
+  {
+    CaretListener[] listeners = getCaretListeners();
+
+    for (int index = 0; index < listeners.length; ++index)
+      listeners[index].caretUpdate(event);
+  }
+
+  /**
+   * Adds an <code>InputListener</code> object to this text component.
+   *
+   * @param listener the listener to add
+   */
+  public void addInputMethodListener(InputMethodListener listener)
+  {
+    listenerList.add(InputMethodListener.class, listener);
+  }
+
+  /**
+   * Removes an <code>InputListener</code> object from this text component.
+   *
+   * @param listener the listener to remove
+   */
+  public void removeInputMethodListener(InputMethodListener listener)
+  {
+    listenerList.remove(InputMethodListener.class, listener);
+  }
+
+  /**
+   * Returns all added <code>InputMethodListener</code> objects.
+   *
+   * @return an array of listeners
+   */
+  public InputMethodListener[] getInputMethodListeners()
+  {
+    return (InputMethodListener[]) getListeners(InputMethodListener.class);
   }
 }
