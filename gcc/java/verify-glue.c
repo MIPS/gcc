@@ -164,7 +164,15 @@ vfy_get_exception (vfy_exception *exceptions, int index, int *handler,
 int
 vfy_tag (vfy_constants *pool, int index)
 {
-  return JPOOL_TAG (pool, index);
+  int result = JPOOL_TAG (pool, index);
+  /* gcj will resolve constant pool entries other than string and
+     class references.  The verifier doesn't care about the values, so
+     we just strip off the resolved flag.  */
+  if ((result & CONSTANT_ResolvedFlag) != 0
+      && result != CONSTANT_ResolvedString
+      && result != CONSTANT_ResolvedClass)
+    result &= ~ CONSTANT_ResolvedFlag;
+  return result;
 }
 
 void

@@ -369,7 +369,7 @@ merge_refs (ref_intersection *ref1, ref_intersection *ref2)
       ref_intersection *iter;
       for (iter = ref2; iter != NULL; iter = iter->ref_next)
 	{
-	  if (refs_equal (ref1, ref2))
+	  if (refs_equal (ref1, iter))
 	    {
 	      add = false;
 	      break;
