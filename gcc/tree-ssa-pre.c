@@ -3038,8 +3038,6 @@ tree_perform_ssapre (fndecl)
 	  if (ref_stmt (ref) == NULL_TREE)
 	    continue;
 
-	  STRIP_WFL (expr);
-
 	  if (is_simple_modify_expr (expr))
 	    expr = TREE_OPERAND (expr, 1);
 	  if (ref_type (ref) != V_USE)
