@@ -1056,7 +1056,11 @@ estimate_bb_frequencies (loops)
   double freq_max = 0;
 
   mark_dfs_back_edges ();
-  if (flag_branch_probabilities)
+
+  /* In case we do have profile feedback available, do just scale it to
+     frequencies.  In case we don't, or the function has not been executed
+     in trial run, estimate.  */
+  if (flag_branch_probabilities && ENTRY_BLOCK_PTR->succ->count)
     {
       counts_to_freqs ();
       return;
