@@ -547,7 +547,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_loop = 1;
       flag_tree_vectorize = 0;
       flag_tree_pre = 1;
-      flag_scalar_evolutions = 0;
+      flag_scalar_evolutions = 1;
       flag_all_data_deps = 0;
       flag_tree_elim_checks = 0;
       flag_ddg = 0;

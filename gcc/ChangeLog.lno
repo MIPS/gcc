@@ -1,5 +1,9 @@
 2004-05-30  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* opts.c (decode_options): Enable flag_scalar_evolutions by default.
+
+2004-05-30  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* fold-const.c (fold_widened_comparison,
 	fold_sign_changed_comparison): New.
 	(fold): Use them.
