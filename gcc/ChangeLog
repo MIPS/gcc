@@ -1,3 +1,8 @@
+2002-04-22  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-pretty-print.c (dump_c_node): Don't print function
+	bodies of FUNCTION_DECL nodes.
+
 2002-04-19  Andreas Jaeger  <aj@suse.de>
 
 	* Makefile.in (c-call-graph.o): New.

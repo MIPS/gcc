@@ -342,94 +342,38 @@ dump_c_node (buffer, node, spc)
       break;
 
     case FUNCTION_DECL:
-      if (!DECL_INITIAL (node))
-	/* Print the prototype of the function.  */
-	{
-	  INDENT (spc);
-	  
-	  /* Print the return type.  */
-	  dump_c_node (buffer, TREE_TYPE (TREE_TYPE (node)), spc);
-	  output_add_space (buffer);
+      /* Print the prototype of the function.  */
+      INDENT (spc);
+      
+      /* Print the return type.  */
+      dump_c_node (buffer, TREE_TYPE (TREE_TYPE (node)), spc);
+      output_add_space (buffer);
 
-	  /* Print the namespace.  */
-	  dump_c_node (buffer, TREE_TYPE (node), spc);
-	  	  
-	  /* Print the function name.  */
-	  output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
-	  output_add_space (buffer);
-	  output_add_character (buffer, '(');
-	  
-	  /* Print the argument types.  The last element in the list is a 
-	     VOID_TYPE.  The following avoid to print the last element.  */
+      /* Print the namespace.  */
+      dump_c_node (buffer, TREE_TYPE (node), spc);
+	      
+      /* Print the function name.  */
+      output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+      output_add_space (buffer);
+      output_add_character (buffer, '(');
+      
+      /* Print the argument types.  The last element in the list is a 
+	  VOID_TYPE.  The following avoid to print the last element.  */
+      {
+	tree tmp = TYPE_ARG_TYPES (TREE_TYPE (node));
+	while (tmp && TREE_CHAIN (tmp) && tmp != error_mark_node)
 	  {
-	    tree tmp = TYPE_ARG_TYPES (TREE_TYPE (node));
-	    while (tmp && TREE_CHAIN (tmp) && tmp != error_mark_node)
+	    dump_c_node (buffer, TREE_VALUE (tmp), spc);
+	    tmp = TREE_CHAIN (tmp);
+	    if (TREE_CHAIN (tmp) && TREE_CODE (TREE_CHAIN (tmp)) == TREE_LIST)
 	      {
-		dump_c_node (buffer, TREE_VALUE (tmp), spc);
-		tmp = TREE_CHAIN (tmp);
-		if (TREE_CHAIN (tmp) && TREE_CODE (TREE_CHAIN (tmp)) == TREE_LIST)
-		  {
-		    output_add_character (buffer, ',');
-		    output_add_space (buffer);
-		  }
+		output_add_character (buffer, ',');
+		output_add_space (buffer);
 	      }
 	  }
-	  output_add_character (buffer, ')');
-	  output_add_character (buffer, ';');
-	}
-      else
-	{
-	  /* Print the function, its arguments and its body.  */
-
-	  /* Print the return type of the function.  */
-	  INDENT (spc);
-	  dump_c_node (buffer, DECL_RESULT (node), spc);
-	  output_add_space (buffer);
-	  
-	  /* In C++ TREE_TYPE (node) could be a METHOD_TYPE containing the
-	     namespace.  Otherwise it's a FUNCTION_TYPE.  */
-	  dump_c_node (buffer, TREE_TYPE (node), spc);
-	  
-	  /* Print the name of the function.  */
-	  output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
-	  output_add_space (buffer);
-	  output_add_character (buffer, '(');
-	  
-	  /* Print the arguments.  */
-	  {
-	    tree tmp;
-	    tmp = DECL_ARGUMENTS (node);
-	    while (tmp && tmp != error_mark_node)
-	      {
-		/* In C++ the first argument of a method is the pointer (*this).
-		   This condition avoids to print it.  */
-		if (TREE_TYPE (node) == NULL_TREE
-		    || TREE_CODE (TREE_TYPE (tmp)) != POINTER_TYPE
-		    || (TREE_TYPE (TREE_TYPE (tmp)) != 
-			TYPE_METHOD_BASETYPE (TREE_TYPE (node))))
-		  {
-		    /* Print the type.  */
-		    dump_c_node (buffer, TREE_TYPE (tmp), spc);
-		    output_add_space (buffer);
-		    /* Print the argument.  */
-		    dump_c_node (buffer, tmp, spc);
-		    tmp = TREE_CHAIN (tmp);
-		    if (tmp)
-		      {
-			output_add_character (buffer, ',');
-			output_add_space (buffer);
-		      }
-		  }
-		else
-		  tmp = TREE_CHAIN (tmp);
-	      }
-	  }
-	  output_add_character (buffer, ')');
-	  
-	  /* And finally, print the body.  */
-	  output_add_newline (buffer);
-	  dump_c_node (buffer, DECL_SAVED_TREE (node), spc);
-	}
+      }
+      output_add_character (buffer, ')');
+      output_add_character (buffer, ';');
       output_add_newline (buffer);
       break;
 
