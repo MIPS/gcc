@@ -1,3 +1,9 @@
+2004-05-25  Mike Stump  <mrs@apple.com>
+
+	Radar 3665096
+	* config/i386/darwin.h (TARGET_SUBTARGET_DEFAULT): Change default
+	for long double type size to be 128.
+
 2004-05-25  Dale Johannesen  <dalej@apple.com>
 
 	Merge from LNO branch as of 05-18.  
