@@ -1,3 +1,10 @@
+2003-02-02  Eric Christopher  <echristo@redhat.com>
+
+	* config/mips/mips.c (mips_sign_extend): Remove.
+	* config/mips/mips-protos.h: Ditto.
+	* config/mips/mips.md (movdi_internal2_extend): Remove.
+	(extendsidi2): Fix mode of convert_memory_address.
+
 2003-01-24  Eric Christopher  <echristo@redhat.com>
 
 	* config/mips/mips.md: Rewrite zero_extend* and extend*

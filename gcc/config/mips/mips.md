@@ -4313,12 +4313,6 @@ move\\t%0,%z4\\n\\
 ;; Extension insns.
 ;; Those for integer source operand are ordered widest source type first.
 
-;; In 64 bit mode, 32 bit values in general registers are always
-;; correctly sign extended.  That means that if the target is a
-;; general register, we can sign extend from SImode to DImode just by
-;; doing a move.  The matching define_insns are *movdi_internal2_extend
-;; and *movdi_internal2_mips16.
-
 (define_expand "extendsidi2"
   [(set (match_operand:DI 0 "register_operand" "")
         (sign_extend:DI (match_operand:SI 1 "move_operand" "")))]
@@ -4327,8 +4321,10 @@ move\\t%0,%z4\\n\\
 {
  if (symbolic_operand (operands[1], SImode))
    {
-      emit_move_insn (operands[0], convert_memory_address (Pmode, operands[1]));      DONE;
+      emit_move_insn (operands[0], convert_memory_address (DImode, operands[1]));
+      DONE;
    }
+
 }")
 
 (define_insn "*extendsidi2"
@@ -5252,18 +5248,6 @@ move\\t%0,%z4\\n\\
 ;; This pattern is essentially a trimmed-down version of movdi_internal2.
 ;; The main difference is that dJ -> f and f -> d are the only constraints
 ;; involving float registers.  See mips_secondary_reload_class for details.
-(define_insn "*movdi_internal2_extend"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,d,m,*d,*f,*x,*d,*x,*a,*B*C*D,*B*C*D,*d,*m")
-	(sign_extend:DI (match_operand:SI 1 "move_operand" "d,R,m,dJ,*f,*d*J,*J,*x,*d,*J,*d,*m,*B*C*D,*B*C*D")))]
-  "TARGET_64BIT
-   && (register_operand (operands[0], DImode)
-       || register_operand (operands[1], DImode)
-       || (GET_CODE (operands[1]) == CONST_INT && INTVAL (operands[1]) == 0)
-       || operands[1] == CONST0_RTX (DImode))"
-  "* return mips_sign_extend (insn, operands[0], operands[1]);"
-  [(set_attr "type"	"move,const,load,store,xfer,xfer,hilo,hilo,hilo,hilo,xfer,load,xfer,store")
-   (set_attr "mode"	"DI")
-   (set_attr "length"	"4,*,*,*,4,4,4,4,4,8,8,*,8,*")])
 
 (define_insn "*movdi_internal2_mips16"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=d,y,d,d,d,d,d,m,*d")

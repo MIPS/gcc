@@ -96,7 +96,6 @@ extern const char      *mips_fill_delay_slot PARAMS ((const char *,
 						      rtx));
 extern const char      *mips_move_1word PARAMS ((rtx *, rtx, int));
 extern const char      *mips_move_2words PARAMS ((rtx *, rtx));
-extern const char      *mips_sign_extend PARAMS ((rtx, rtx, rtx));
 extern const char      *mips_emit_prefetch PARAMS ((rtx *));
 extern const char      *mips_restore_gp PARAMS ((rtx *, rtx));
 extern const char      *output_block_move PARAMS ((rtx, rtx *, int,
@@ -114,7 +113,7 @@ extern int              mips_adjust_insn_length PARAMS ((rtx, int));
 extern enum reg_class	mips_secondary_reload_class PARAMS ((enum reg_class,
 							     enum machine_mode,
 							     rtx, int));
-extern enum reg_class	mips_cannot_change_mode_class 
+extern enum reg_class	mips_cannot_change_mode_class
 			  PARAMS ((enum machine_mode, enum machine_mode));
 extern int              mips_class_max_nregs PARAMS ((enum reg_class,
 						      enum machine_mode));

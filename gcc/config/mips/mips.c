@@ -2665,33 +2665,6 @@ mips_restore_gp (operands, insn)
   return mips_move_1word (operands, insn, 0);
 }
 
-/* Return an instruction to sign-extend SImode value SRC and store it
-   in DImode value DEST.  INSN is the original extendsidi2-type insn.  */
-
-const char *
-mips_sign_extend (insn, dest, src)
-     rtx insn, dest, src;
-{
-  rtx operands[MAX_RECOG_OPERANDS];
-
-  if ((register_operand (src, SImode) && FP_REG_P (true_regnum (src)))
-      || memory_operand (src, SImode))
-    {
-      /* If the source is a floating-point register, we need to use a
-	 32-bit move, since the float register is not kept sign-extended.
-	 If the source is in memory, we need a 32-bit load.  */
-      operands[0] = gen_lowpart_SUBREG (SImode, dest);
-      operands[1] = src;
-      return mips_move_1word (operands, insn, false);
-    }
-  else
-    {
-      operands[0] = dest;
-      operands[1] = src;
-      return mips_move_2words (operands, insn);
-    }
-}
-
 /* Return the appropriate instructions to move 2 words */
 
 const char *
