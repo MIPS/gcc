@@ -1,3 +1,7 @@
+Fri Feb 21 23:42:59 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* fold-const.c (fold): Fix typo.
+
 2003-02-22  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gcov-io.h (GCOV_TAG_SAME_VALUE_HISTOGRAMS): New section.
