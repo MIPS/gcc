@@ -1,5 +1,10 @@
 2003-01-09  Danny Smith  <dannysmith@users.sourceforge.net>
 
+	* config/i386/i386.c (ix86_expand_prologue): Correct call
+	to gen_blockage.
+
+2003-01-09  Danny Smith  <dannysmith@users.sourceforge.net>
+
 	Backport from 3.3
 	PR optimization/8750
 	* config/i386/i386.c (ix86_expand_prologue): Don't allow

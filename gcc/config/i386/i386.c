@@ -4314,7 +4314,7 @@ ix86_expand_prologue ()
 
       /* Don't allow scheduling pass to move insns across __alloca
          call.  */
-      emit_insn (gen_blockage (const0_rtx));
+      emit_insn (gen_blockage ());
     }
   if (use_mov)
     {
