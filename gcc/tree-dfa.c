@@ -262,11 +262,12 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt, parent_expr)
     return;
 
   /* If this reference is associated with a non SIMPLE expression, then we
-     change the reference type to VARDEF (regardless of the original
-     reference type) to indicate to the optimizers that this tree clobbers
-     the referenced variable.  */
-  if (TREE_ANN (expr) && (TREE_FLAGS (expr) & TF_NOT_SIMPLE))
-    return;
+     mark the parent expression non SIMPLE.  This will cause all the
+     references associated with this expression to be marked as VARDEFs.  */
+  if (parent_expr &&
+      TREE_ANN (expr) &&
+      (TREE_FLAGS (expr) & TF_NOT_SIMPLE))
+    get_tree_ann (parent_expr)->flags |= TF_NOT_SIMPLE;
 
   code = TREE_CODE (expr);
 
@@ -634,6 +635,13 @@ create_ref (sym, ref_type, bb, parent_stmt, parent_expr, operand_p)
   if (bb == NULL)
     abort ();
 #endif
+
+  /* If the parent expression is not in SIMPLE form, create VARDEF
+     references to SYM regardless of the requested reference type.  */
+  if (parent_expr
+      && TREE_ANN (parent_expr)
+      && (TREE_FLAGS (parent_expr) & TF_NOT_SIMPLE))
+    ref_type = VARDEF;
 
   ref = (varref) ggc_alloc (sizeof (*ref));
   memset ((void *) ref, 0, sizeof (*ref));

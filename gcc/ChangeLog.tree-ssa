@@ -1,3 +1,13 @@
+2002-08-19  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (find_refs_in_expr): If the current sub-expression is
+	not SIMPLE, mark its parent.
+	(create_ref): If the parent expression is not SIMPLE, create
+	VARDEFs regardless of the original reference type.
+
+	* tree-ssa-ccp.c (widen_bitfield): New function.
+	(evaluate_expr_for): Call it.
+
 2002-08-18  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa-ccp.c (evaluate_expr_for): Fix thinko in

@@ -128,6 +128,7 @@ static void ssa_ccp_substitute_constants PARAMS ((void));
 static void ssa_ccp_df_delete_unreachable_insns PARAMS ((void));
 static value evaluate_expr_for         PARAMS ((varref));
 static void dump_lattice_value         PARAMS ((FILE *, const char *, value));
+static tree widen_bitfield             PARAMS ((tree, tree, tree));
 
 /* Debugging dumps.  */
 static FILE *dump_file;
@@ -852,6 +853,24 @@ evaluate_expr_for (ref)
     {
       val.lattice_val = CONSTANT;
       val.const_value = simplified;
+
+      /* FIXME: Hack.  If this was a definition of a bitfield, we need to
+	        widen the constant value into the type of the destination
+		variable.  This should not be necessary if GCC represented
+		bitfields properly.  */
+      if (TREE_CODE (var) == COMPONENT_REF
+	  && DECL_BIT_FIELD (TREE_OPERAND (var, 1)))
+	{
+	  tree w = widen_bitfield (simplified, TREE_OPERAND (var, 1), var);
+
+	  if (w)
+	    val.const_value = w;
+	  else
+	    {
+	      val.lattice_val = VARYING;
+	      val.const_value = NULL;
+	    }
+	}
     }
 
   /* Restore the expression to its original form.  */
@@ -903,4 +922,61 @@ dump_lattice_value (outf, prefix, val)
       fprintf (outf, "%sCONSTANT ", prefix);
       print_c_node (outf, val.const_value);
     }
+}
+
+/* Given a constant value VAL for bitfield FIELD, and a destination
+   variable VAR, return VAL appropriately widened to fit into VAR.  If
+   FIELD is wider than HOST_WIDE_INT, NULL is returned.  */
+
+static tree
+widen_bitfield (val, field, var)
+     tree val;
+     tree field;
+     tree var;
+{
+  unsigned var_size, field_size;
+  tree ret, wide_val;
+  unsigned HOST_WIDE_INT v, mask;
+  unsigned i;
+
+  var_size = TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE ((var))));
+  field_size = TREE_INT_CST_LOW (DECL_SIZE (field));
+
+  /* Give up if either the bitfield or the variable are too wide.  */
+  if (field_size > HOST_BITS_PER_WIDE_INT || var_size > HOST_BITS_PER_WIDE_INT)
+    return NULL;
+
+#ifdef ENABLE_CHECKING
+  if (var_size < field_size)
+    abort ();
+#endif
+
+  /* If the sign bit of the value is not set, return it unmodified.  */
+  if ((TREE_INT_CST_LOW (val) & (1 << (field_size - 1))) == 0)
+    return val;
+
+  if (TREE_UNSIGNED (field))
+    {
+      /* Zero extension.  Build a mask with the lower 'field_size' bits
+	 set and a BIT_AND_EXPR node to clear the high order bits of
+	 the value.  */
+      for (i = 0, mask = 0; i < field_size; i++)
+	mask |= 1 << i;
+
+      wide_val = build (BIT_AND_EXPR, TREE_TYPE (var), val, 
+			build_int_2 (mask, 0));
+    }
+  else
+    {
+      /* Sign extension.  Create a mask with the upper 'field_size'
+	 bits set and a BIT_IOR_EXPR to set the high order bits of the
+	 value.  */
+      for (i = 0, mask = 0; i < (var_size - field_size); i++)
+	mask |= 1 << (var_size - i - 1);
+
+      wide_val = build (BIT_IOR_EXPR, TREE_TYPE (var), val,
+			build_int_2 (mask, 0));
+    }
+
+  return fold (wide_val);
 }
