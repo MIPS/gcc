@@ -65,6 +65,7 @@ import java.beans.VetoableChangeListener;
 import java.io.Serializable;
 import java.util.EventListener;
 import java.util.Hashtable;
+import java.util.Locale;
 import java.util.Vector;
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
@@ -106,6 +107,8 @@ public abstract class JComponent extends Container implements Serializable
   int doubleBufferHeight = -1;
   ComponentUI ui;
   private SwingPropertyChangeSupport changeSupport;
+  
+  static Locale defaultLocale;
   
   Hashtable prop_hash;
   
@@ -279,6 +282,10 @@ public abstract class JComponent extends Container implements Serializable
 	{
 		super();
 		super.setLayout(new FlowLayout());
+		
+		// By default, all JComponents have a locale of 
+		// the VM default.
+		defaultLocale = Locale.getDefault();
 		
 		//eventMask |= AWTEvent.COMP_KEY_EVENT_MASK;
 		// enableEvents( AWTEvent.KEY_EVENT_MASK );
@@ -1095,6 +1102,16 @@ public abstract class JComponent extends Container implements Serializable
 	{
 		//        Resets the UI property to a value from the current look and feel.
 		System.out.println("update UI not overwritten in class: " + this);
+	}
+	
+	public static Locale getDefaultLocale()
+	{
+	  return defaultLocale;
+	}
+	
+	public static void setDefaultLocale(Locale l)
+	{
+	  defaultLocale = l;
 	}
 
 }

@@ -694,7 +694,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       }),
       "SplitPane.background", new ColorUIResource(Color.lightGray),
       "SplitPane.border", new BasicBorders.SplitPaneBorder(null, null),
-      "SplitPane.dividerSize", new Integer(7),
+      "SplitPane.dividerSize", new Integer(10),
       "SplitPane.highlight", new ColorUIResource(Color.white),
       "SplitPane.shadow", new ColorUIResource(Color.gray),
       "TabbedPane.ancestorInputMap", new UIDefaults.LazyInputMap(new Object[] {

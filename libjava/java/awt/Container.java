@@ -386,6 +386,7 @@ public class Container extends Component
       {
         Component r = component[index];
 
+        r.parent = null;
         r.removeNotify();
 
         System.arraycopy(component, index + 1, component, index,
@@ -852,6 +853,11 @@ public class Container extends Component
   public Component getComponentAt(int x, int y)
   {
     return locate (x, y);
+  }
+  
+  public Component getComponentAt(int index)
+  {
+    return component[index];
   }
 
   /**

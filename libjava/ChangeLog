@@ -1,3 +1,44 @@
+2004-04-19  Kim Ho  <kho@redhat.com>
+
+	* java/awt/Container.java: 
+	(remove): Set the component's parent to null.
+	(getComponentAt): Implement.
+	* javax/swing/JComponent.java:
+	(JComponent): Initialize defaultLocale
+	(getDefaultLocale): Implement.
+	(setDefaultLocale): ditto.
+	* javax/swing/JSlider.java:
+	(JSlider): Fix calculation of value.
+	* javax/swing/JSplitPane.java: Implement.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java:
+	Change SplitPane's default divider size.
+	* javax/swing/plaf/basic/BasicScrollBarUI.java:
+	(paint): Remove unused code.
+	* javax/swing/plaf/basic/BasicSplitPaneDivider.java:
+	Added comments and ran through jalopy.
+	(setBasicSplitPaneUI): Get reference to hidden divider
+	and set up one touch buttons if necessary.
+	(setBorder): Fire propertyChangeEvent only if 
+	borders are different.
+	(getPreferredSize): Defer to layout manager.
+	(propertyChange): Implement.
+	(oneTouchExpandableChanged): ditto.
+	(createLeftOneTouchButton): Use BasicArrowButton.
+	(createRightOneTouchButton): ditto.
+	(moveDividerTo): New method. Moves the divider
+	to a set location based on the last divider location.
+	(BasicSplitPaneDivider::MouseHandler): Implement.
+	(BasicSplitPaneDivider::OneTouchButton): Removed.
+	(BasicSplitPaneDivider::DragController): Implement.
+	(BasicSplitPaneDivider::VerticalDragController):
+	ditto.
+	(BasicSplitPaneDivider::DividerLayout): ditto.
+	* javax/swing/plaf/basic/BasicSplitPaneUI.java: Reimplement.
+	* javax/swing/plaf/basic/BasicTabbedPaneUI.java:
+	(calculateLayoutInfo): Don't show component if it's
+	null.
+	(paintTab): Fix title paint logic.
+
 2004-04-09  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkPanelPeer.java (connectSignals):

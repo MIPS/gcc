@@ -1047,14 +1047,6 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   public void paint(Graphics g, JComponent c)
   {
     layoutContainer(scrollbar);
-    
-//    Rectangle r = incrButton.getBounds();
-//    SwingUtilities.paintComponent(g, incrButton, scrollbar, r.x, r.y, r.width,
-//                                  r.height);
-//    r = decrButton.getBounds();
-//    SwingUtilities.paintComponent(g, decrButton, scrollbar, r.x, r.y, r.width,
-//                                  r.height);
-
     paintTrack(g, c, getTrackBounds());
     paintThumb(g, c, getThumbBounds());
 
