@@ -149,8 +149,9 @@ allocate_new_names (tree definitions, unsigned ndupl)
 {
   tree def;
   unsigned i;
-  ssa_name_ann_t ann, ann1;
+  ssa_name_ann_t ann;
   tree *new_names;
+  bool abnormal;
 
   for (; definitions; definitions = TREE_CHAIN (definitions))
     {
@@ -159,12 +160,11 @@ allocate_new_names (tree definitions, unsigned ndupl)
       new_names = xmalloc (sizeof (tree) * (ndupl + 1));
       ann->common.aux = new_names;
 
+      abnormal = SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def);
       for (i = 0; i <= ndupl; i++)
 	{
-	  new_names[i] = make_ssa_name (SSA_NAME_VAR (def),
-					SSA_NAME_DEF_STMT (def));
-	  ann1 = get_ssa_name_ann (new_names[i]);
-	  ann1->name_mem_tag = ann->name_mem_tag;
+	  new_names[i] = duplicate_ssa_name (def, SSA_NAME_DEF_STMT (def));
+	  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new_names[i]) = abnormal;
 	}
     }
 }

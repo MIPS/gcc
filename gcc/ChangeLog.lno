@@ -1,3 +1,8 @@
+2004-04-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-manip.c (allocate_new_names): Use duplicate_ssa_name.
+	Preserve SSA_NAME_OCCURS_IN_ABNORMAL_PHI flag.
+
 2004-04-10  Daniel Berlin  <dberlin@dberlin.org>
 
 	* lambda-code.c (lambda_loopnest_transform): Add comments.
