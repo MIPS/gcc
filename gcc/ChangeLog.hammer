@@ -1,3 +1,10 @@
+Sat Aug  2 13:36:56 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* decl2.c (mark_member_pointers): Rename to...
+	(mark_member_pointers_and_eh_handlers): ... this one; deal with eh
+	handlers
+	(lower_function): Update call.
+
 Thu Jul 31 18:52:44 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c (create_edge): Fix typo.

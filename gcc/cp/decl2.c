@@ -2769,6 +2769,22 @@ mark_member_pointers (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
   if (TREE_CODE (*tp) == PTRMEM_CST
       && TREE_CODE (PTRMEM_CST_MEMBER (*tp)) == FUNCTION_DECL)
     cgraph_mark_needed_node (cgraph_node (PTRMEM_CST_MEMBER (*tp)), 1);
+  if (TREE_CODE (*tp) == HANDLER)
+    {
+      tree type = HANDLER_TYPE (*tp);
+      if (type && TREE_CODE (type) == TREE_LIST)
+	while (type)
+	  {
+	    tree tinfo = get_tinfo_decl (TREE_VALUE (type));
+	    cgraph_varpool_mark_needed_node (cgraph_varpool_node (tinfo));
+	    type = TREE_CHAIN (type);
+	  }
+      else if (type)
+	{
+	  tree tinfo = get_tinfo_decl (type);
+	  cgraph_varpool_mark_needed_node (cgraph_varpool_node (tinfo));
+	}
+    }
   return 0;
 }
 
