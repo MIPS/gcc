@@ -2635,6 +2635,9 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	{
 	  /* Create permutation mask, if required, in loop preheader.  */
 	  tree builtin_decl;
+	  unsigned i;
+	  bitmap_iterator bi;
+
 	  params = build_tree_list (NULL_TREE, init_addr);
 	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
 	  builtin_decl = targetm.vectorize.builtin_mask_for_load ();
@@ -2645,6 +2648,14 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	  new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
 	  gcc_assert (!new_bb);
 	  magic = TREE_OPERAND (new_stmt, 0);
+
+	  /* Since we have just created a CALL_EXPR, we may need to
+	     rename call-clobbered variables.  */
+	  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
+	    {
+	      tree var = referenced_var (i);
+	      bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+	    }
 	}
       else
 	{

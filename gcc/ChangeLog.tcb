@@ -1,7 +1,23 @@
+2004-12-09  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-into-ssa.c (REWRITE_THIS_STMT): Define.
+	(mark_def_sites): Clear REWRITE_THIS_STMT for statements that
+	don't need any operands rewritten.
+	(rewrite_stmt): Ignore statements that don't need to be
+	rewritten.
+	(rewrite_operand): Validate that an existing SSA_NAME is
+	identical to the current reaching definition of the operand.
+
+2004-12-09  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-sra.c (mark_all_v_defs): Also mark VUSEs for renaming.
+	* tree-vectorizer.c (vectorizable_load): Mark call-clobbered
+	variables for renaming if we just introduced a CALL_EXPR.
+
 2004-12-07  Devang Patel  <dpatel@apple.com>
 
-        * tree-if-conv.c (find_phi_replacement_condition): New parameter, loop.
-        While selecting replacement condition pay attention to loop header.
+	* tree-if-conv.c (find_phi_replacement_condition): New parameter, loop.
+	While selecting replacement condition pay attention to loop header.
 
 2004-12-05  Diego Novillo  <dnovillo@redhat.com>
 
