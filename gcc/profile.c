@@ -39,30 +39,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    edges must be on the spanning tree. We also attempt to place
    EDGE_CRITICAL edges on the spanning tree.
 
-   The two auxiliary files generated are <dumpbase>.bb and
-   <dumpbase>.bbg. The former contains the BB->linenumber
-   mappings, and the latter describes the BB graph.
-
-   The BB file contains line numbers for each block. For each basic
-   block, a zero count is output (to mark the start of a block), then
-   the line numbers of that block are listed. A zero ends the file
-   too.
-
-   The BBG file contains a count of the blocks, followed by edge
-   information, for every edge in the graph. The edge information
-   lists the source and target block numbers, and a bit mask
-   describing the type of edge.
-
-   The BB and BBG file formats are fully described in the gcov
-   documentation.  */
+   The auxiliary file generated is <dumpbase>.bbg. The format is
+   described in full in gcov-io.h.  */
 
 /* ??? Register allocation should use basic block execution counts to
    give preference to the most commonly executed blocks.  */
-
-/* ??? The .da files are not safe.  Changing the program after creating .da
-   files or using different options when compiling with -fbranch-probabilities
-   can result the arc data not matching the program.  Maybe add instrumented
-   arc count to .bbg file?  Maybe check whether PFG matches the .bbg file?  */
 
 /* ??? Should calculate branch probabilities before instrumenting code, since
    then we can use arc counts to help decide which arcs to instrument.  */
@@ -134,18 +115,12 @@ struct profile_info profile_info;
 /* Name and file pointer of the output file for the basic block graph.  */
 
 static FILE *bbg_file;
+static char *bbg_file_name;
 
 /* Name and file pointer of the input file for the arc count data.  */
 
 static FILE *da_file;
 static char *da_file_name;
-
-/* Pointer of the output file for the basic block/line number map.  */
-static FILE *bb_file;
-
-/* Last source file name written to bb_file.  */
-
-static char *last_bb_file_name;
 
 /* The name of the count table. Used by the edge profiling code.  */
 static GTY(()) rtx profiler_label;
@@ -168,7 +143,6 @@ static int total_num_branches;
 static void find_spanning_tree PARAMS ((struct edge_list *));
 static rtx gen_edge_profiler PARAMS ((int));
 static void instrument_edges PARAMS ((struct edge_list *));
-static void output_gcov_string PARAMS ((const char *, long));
 static void compute_branch_probabilities PARAMS ((void));
 static gcov_type * get_exec_counts PARAMS ((void));
 static unsigned compute_checksum PARAMS ((void));
@@ -222,53 +196,27 @@ instrument_edges (el)
 
   commit_edge_insertions_watch_calls ();
 }
-
-/* Output STRING to bb_file, surrounded by DELIMITER.  */
-
-static void
-output_gcov_string (string, delimiter)
-     const char *string;
-     long delimiter;
-{
-  long temp;
-
-  /* Write a delimiter to indicate that a file name follows.  */
-  __write_long (delimiter, bb_file, 4);
-
-  /* Write the string.  */
-  temp = strlen (string) + 1;
-  fwrite (string, temp, 1, bb_file);
-
-  /* Append a few zeros, to align the output to a 4 byte boundary.  */
-  temp = temp & 0x3;
-  if (temp)
-    {
-      char c[4];
-
-      c[0] = c[1] = c[2] = c[3] = 0;
-      fwrite (c, sizeof (char), 4 - temp, bb_file);
-    }
-
-  /* Store another delimiter in the .bb file, just to make it easy to find
-     the end of the file name.  */
-  __write_long (delimiter, bb_file, 4);
-}
 
 
 /* Computes hybrid profile for all matching entries in da_file.
-   Sets max_counter_in_program as a side effect.  */
+   Sets max_counter_in_program as a side effect.
+   FIXME: This is O(nfuncs^2). It should be reorganised to read the da
+   file once. */
 
 static gcov_type *
 get_exec_counts ()
 {
-  int num_edges = 0;
+  unsigned num_edges = 0;
   basic_block bb;
-  int okay = 1, i;
-  int mismatch = 0;
   gcov_type *profile;
-  char *function_name_buffer;
-  int function_name_buffer_len;
-  gcov_type max_counter_in_run;
+  char *function_name_buffer = NULL;
+  gcov_type max_count = 0;
+  gcov_type prog_sum_max = 0;
+  gcov_type prog_runs = 0;
+  unsigned seen_fn = 0; /* 0 = not seen fn, 1 = function now,
+			   2 = seen fn, 3 = seen prog summaries */
+  unsigned magic, version;
+  unsigned ix;
 
   profile_info.max_counter_in_program = 0;
   profile_info.count_profiles_merged = 0;
@@ -291,124 +239,135 @@ get_exec_counts ()
 
   profile = xmalloc (sizeof (gcov_type) * num_edges);
   rewind (da_file);
-  function_name_buffer_len = strlen (current_function_name) + 1;
-  function_name_buffer = xmalloc (function_name_buffer_len + 1);
 
-  for (i = 0; i < num_edges; i++)
-    profile[i] = 0;
+  for (ix = 0; ix < num_edges; ix++)
+    profile[ix] = 0;
 
-  while (1)
+  if (gcov_read_unsigned (da_file, &magic) || magic != GCOV_DATA_MAGIC)
     {
-      long magic, extra_bytes;
-      long func_count;
-      int i;
-
-      if (__read_long (&magic, da_file, 4) != 0)
-	break;
-
-      if (magic != -123)
-	{
-	  okay = 0;
-	  break;
-	}
-
-      if (__read_long (&func_count, da_file, 4) != 0)
-	{
-	  okay = 0;
-	  break;
-	}
-
-      if (__read_long (&extra_bytes, da_file, 4) != 0)
-	{
-	  okay = 0;
-	  break;
-	}
-
-      fseek (da_file, 4 + 8, SEEK_CUR);
-
-      /* read the maximal counter.  */
-      __read_gcov_type (&max_counter_in_run, da_file, 8);
-
-      /* skip the rest of "statistics" emited by __bb_exit_func.  */
-      fseek (da_file, extra_bytes - (4 + 8 + 8), SEEK_CUR);
-
-      for (i = 0; i < func_count; i++)
-	{
-	  long arc_count;
-	  long chksum;
-	  int j;
-
-	  if (__read_gcov_string
-	      (function_name_buffer, function_name_buffer_len, da_file,
-	       -1) != 0)
-	    {
-	      okay = 0;
-	      break;
-	    }
-
-	  if (__read_long (&chksum, da_file, 4) != 0)
-	    {
-	      okay = 0;
-	      break;
-	    }
-
-	  if (__read_long (&arc_count, da_file, 4) != 0)
-	    {
-	      okay = 0;
-	      break;
-	    }
-
-	  if (strcmp (function_name_buffer, current_function_name) != 0)
-	    {
-	      /* skip */
-	      if (fseek (da_file, arc_count * 8, SEEK_CUR) < 0)
-		{
-		  okay = 0;
-		  break;
-		}
-	    }
-	  else if (arc_count != num_edges
-		   || ((unsigned)chksum
-		       != profile_info.current_function_cfg_checksum))
-	    okay = 0, mismatch = 1;
-	  else
-	    {
-	      gcov_type tmp;
-
-	      profile_info.max_counter_in_program += max_counter_in_run;
-	      profile_info.count_profiles_merged++;
-
-	      for (j = 0; j < arc_count; j++)
-		if (__read_gcov_type (&tmp, da_file, 8) != 0)
-		  {
-		    okay = 0;
-		    break;
-		  }
-		else
-		  {
-		    profile[j] += tmp;
-		  }
-	    }
-	}
-
-      if (!okay)
-	break;
-
-    }
-
-  free (function_name_buffer);
-
-  if (!okay)
-    {
-      if (mismatch)
-	error
-	  ("Profile does not match flowgraph of function %s (out of date?)",
-	   current_function_name);
-      else
-	error (".da file corrupted");
+      warning ("`%s' is not a gcov data file", da_file_name);
+    cleanup:;
+      fclose (da_file);
+      da_file = NULL;
       free (profile);
+      free (function_name_buffer);
       return 0;
     }
+  if (gcov_read_unsigned (da_file, &version) || version != GCOV_VERSION)
+    {
+      char v[4], e[4];
+      magic = GCOV_VERSION;
+      
+      for (ix = 4; ix--; magic >>= 8, version >>= 8)
+	{
+	  v[ix] = version;
+	  e[ix] = magic;
+	}
+      warning ("`%s' is version `%.4s', expected version `%.4s'",
+	       da_file_name, v, e);
+      goto cleanup;
+    }
+  
+  while (1)
+    {
+      unsigned tag, length;
+      long base;
+      
+      if (gcov_read_unsigned (da_file, &tag)
+	  || gcov_read_unsigned (da_file, &length))
+	{
+	  if (feof (da_file))
+	    break;
+	corrupt:;
+	  warning ("`%s' is corrupted", da_file_name);
+	  goto cleanup;
+	}
+      base = gcov_save_position (da_file);
+      if (tag == GCOV_TAG_FUNCTION)
+	{
+	  unsigned checksum;
+
+	  if (seen_fn == 3)
+	    {
+	      profile_info.count_profiles_merged += prog_runs;
+	      profile_info.max_counter_in_program += prog_sum_max;
+	      if (!prog_runs)
+		{
+		  profile_info.count_profiles_merged++;
+		  profile_info.max_counter_in_program += max_count;
+		}
+	      seen_fn = 0;
+	    }
+	  else if (seen_fn == 1)
+	    seen_fn = 2;
+	  
+	  if (gcov_read_string (da_file, &function_name_buffer, NULL)
+	      || gcov_read_unsigned (da_file, &checksum))
+	    goto corrupt;
+	  
+	  if (strcmp (current_function_name, function_name_buffer))
+	    ;
+	  else if (checksum != profile_info.current_function_cfg_checksum)
+	    {
+	    mismatch:;
+	      warning ("profile mismatch for `%s'", current_function_name);
+	      goto cleanup;
+	    }
+	  else
+	    seen_fn = 1;
+	}
+      else if (tag == GCOV_TAG_PROGRAM_SUMMARY)
+	{
+	  struct gcov_summary summary;
+
+	  if (gcov_read_summary (da_file, &summary))
+	    goto corrupt;
+
+	  if (seen_fn == 1)
+	    seen_fn = 2;
+	  if (seen_fn == 2)
+	    seen_fn = 3;
+	  if (seen_fn == 3)
+	    {
+	      prog_runs += summary.runs;
+	      prog_sum_max += summary.arc_sum_max;
+	    }
+	}
+      else if (tag == GCOV_TAG_ARC_COUNTS)
+	{
+	  unsigned num = length / 8;
+
+	  if (seen_fn == 1 && num != num_edges)
+	    goto mismatch;
+	  
+	  for (ix = 0; ix != num; ix++)
+	    {
+	      gcov_type count;
+
+	      if (gcov_read_counter (da_file, &count))
+		goto corrupt;
+	      if (count > max_count)
+		max_count = count;
+	      if (seen_fn == 1)
+		profile[ix] = count;
+	    }
+	}
+      gcov_resync (da_file, base, length);
+    }
+
+  if (seen_fn == 3)
+    {
+      profile_info.count_profiles_merged += prog_runs;
+      profile_info.max_counter_in_program += prog_sum_max;
+      if (!prog_runs)
+	{
+	  profile_info.count_profiles_merged++;
+	  profile_info.max_counter_in_program += max_count;
+	}
+    }
+  
+  free (function_name_buffer);
+
   if (rtl_dump_file)
     {
       fprintf(rtl_dump_file, "Merged %i profiles with maximal count %i.\n",
@@ -911,72 +870,6 @@ branch_prob ()
   verify_flow_info ();
 #endif
 
-  /* Output line number information about each basic block for
-     GCOV utility.  */
-  if (flag_test_coverage)
-    {
-      output_gcov_string (current_function_name, (long) -2);
-      
-      FOR_EACH_BB (bb)
-	{
-	  rtx insn = bb->head;
-	  static int ignore_next_note = 0;
-
-	  /* We are looking for line number notes.  Search backward before
-	     basic block to find correct ones.  */
-	  insn = prev_nonnote_insn (insn);
-	  if (!insn)
-	    insn = get_insns ();
-	  else
-	    insn = NEXT_INSN (insn);
-
-	  /* Output a zero to the .bb file to indicate that a new
-	     block list is starting.  */
-	  __write_long (0, bb_file, 4);
-
-	  while (insn != bb->end)
-	    {
-	      if (GET_CODE (insn) == NOTE)
-		{
-		  /* Must ignore the line number notes that immediately
-		     follow the end of an inline function to avoid counting
-		     it twice.  There is a note before the call, and one
-		     after the call.  */
-		  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_REPEATED_LINE_NUMBER)
-		    ignore_next_note = 1;
-		  else if (NOTE_LINE_NUMBER (insn) > 0)
-		    {
-		      if (ignore_next_note)
-			ignore_next_note = 0;
-		      else
-			{
-			  /* If this is a new source file, then output the
-			     file's name to the .bb file.  */
-			  if (! last_bb_file_name
-			      || strcmp (NOTE_SOURCE_FILE (insn),
-					 last_bb_file_name))
-			    {
-			      if (last_bb_file_name)
-				free (last_bb_file_name);
-			      last_bb_file_name
-				= xstrdup (NOTE_SOURCE_FILE (insn));
-			      output_gcov_string (NOTE_SOURCE_FILE (insn),
-						  (long)-1);
-			    }
-			  /* Output the line number to the .bb file.  Must be
-			     done after the output_bb_profile_data() call, and
-			     after the file name is written, to ensure that it
-			     is correctly handled by gcov.  */
-			  __write_long (NOTE_LINE_NUMBER (insn), bb_file, 4);
-			}
-		    }
-		}
-	      insn = NEXT_INSN (insn);
-	    }
-	}
-      __write_long (0, bb_file, 4);
-    }
-
   /* Create spanning tree from basic block graph, mark each edge that is
      on the spanning tree.  We insert as many abnormal and critical edges
      as possible to minimize number of edge splits necessary.  */
@@ -1013,57 +906,140 @@ branch_prob ()
      edge output the source and target basic block numbers.
      NOTE: The format of this file must be compatible with gcov.  */
 
-  if (flag_test_coverage)
+  if (flag_test_coverage && bbg_file)
     {
-      int flag_bits;
+      long offset;
+      
+      /* Announce function */
+      if (gcov_write_unsigned (bbg_file, GCOV_TAG_FUNCTION)
+	  || !(offset = gcov_reserve_length (bbg_file))
+	  || gcov_write_string (bbg_file, current_function_name,
+			     strlen (current_function_name))
+	  || gcov_write_unsigned (bbg_file,
+			    profile_info.current_function_cfg_checksum)
+	  || gcov_write_length (bbg_file, offset))
+	goto bbg_error;
 
-      __write_gcov_string (current_function_name,
-		           strlen (current_function_name), bbg_file, -1);
-
-      /* write checksum.  */
-      __write_long (profile_info.current_function_cfg_checksum, bbg_file, 4);
-
-      /* The plus 2 stands for entry and exit block.  */
-      __write_long (n_basic_blocks + 2, bbg_file, 4);
-      __write_long (num_edges - ignored_edges + 1, bbg_file, 4);
-
+      /* Basic block flags */
+      if (gcov_write_unsigned (bbg_file, GCOV_TAG_BLOCKS)
+	  || !(offset = gcov_reserve_length (bbg_file)))
+	goto bbg_error;
+      for (i = 0; i != n_basic_blocks + 2; i++)
+	if (gcov_write_unsigned (bbg_file, 0))
+	  goto bbg_error;
+      if (gcov_write_length (bbg_file, offset))
+	goto bbg_error;
+      
+      /* Arcs */
       FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
 	{
 	  edge e;
-	  long count = 0;
 
-	  for (e = bb->succ; e; e = e->succ_next)
-	    if (!EDGE_INFO (e)->ignore)
-	      count++;
-	  __write_long (count, bbg_file, 4);
+	  if (gcov_write_unsigned (bbg_file, GCOV_TAG_ARCS)
+	      || !(offset = gcov_reserve_length (bbg_file))
+	      || gcov_write_unsigned (bbg_file, BB_TO_GCOV_INDEX (bb)))
+	    goto bbg_error;
 
 	  for (e = bb->succ; e; e = e->succ_next)
 	    {
 	      struct edge_info *i = EDGE_INFO (e);
 	      if (!i->ignore)
 		{
-		  flag_bits = 0;
+		  unsigned flag_bits = 0;
+		  
 		  if (i->on_tree)
-		    flag_bits |= 0x1;
+		    flag_bits |= GCOV_ARC_ON_TREE;
 		  if (e->flags & EDGE_FAKE)
-		    flag_bits |= 0x2;
+		    flag_bits |= GCOV_ARC_FAKE;
 		  if (e->flags & EDGE_FALLTHRU)
-		    flag_bits |= 0x4;
+		    flag_bits |= GCOV_ARC_FALLTHROUGH;
 
-		  __write_long (BB_TO_GCOV_INDEX (e->dest), bbg_file, 4);
-		  __write_long (flag_bits, bbg_file, 4);
+		  if (gcov_write_unsigned (bbg_file,
+					   BB_TO_GCOV_INDEX (e->dest))
+		      || gcov_write_unsigned (bbg_file, flag_bits))
+		    goto bbg_error;
 	        }
 	    }
+	  if (gcov_write_length (bbg_file, offset))
+	    goto bbg_error;
 	}
-      /* Emit fake loopback edge for EXIT block to maintain compatibility with
-         old gcov format.  */
-      __write_long (1, bbg_file, 4);
-      __write_long (0, bbg_file, 4);
-      __write_long (0x1, bbg_file, 4);
 
-      /* Emit a -1 to separate the list of all edges from the list of
-	 loop back edges that follows.  */
-      __write_long (-1, bbg_file, 4);
+      /* Output line number information about each basic block for
+     	 GCOV utility.  */
+      {
+	char const *prev_file_name = NULL;
+	
+	FOR_EACH_BB (bb)
+	  {
+	    rtx insn = bb->head;
+	    int ignore_next_note = 0;
+	    
+	    offset = 0;
+	    
+	    /* We are looking for line number notes.  Search backward
+	       before basic block to find correct ones.  */
+	    insn = prev_nonnote_insn (insn);
+	    if (!insn)
+	      insn = get_insns ();
+	    else
+	      insn = NEXT_INSN (insn);
+
+	    while (insn != bb->end)
+	      {
+		if (GET_CODE (insn) == NOTE)
+		  {
+		     /* Must ignore the line number notes that immediately
+		     	follow the end of an inline function to avoid counting
+		     	it twice.  There is a note before the call, and one
+		     	after the call.  */
+		    if (NOTE_LINE_NUMBER (insn)
+			== NOTE_INSN_REPEATED_LINE_NUMBER)
+		      ignore_next_note = 1;
+		    else if (NOTE_LINE_NUMBER (insn) <= 0)
+		      /*NOP*/;
+		    else if (ignore_next_note)
+		      ignore_next_note = 0;
+		    else
+		      {
+			if (offset)
+			  /*NOP*/;
+			else if (gcov_write_unsigned (bbg_file, GCOV_TAG_LINES)
+				 || !(offset = gcov_reserve_length (bbg_file))
+				 || gcov_write_unsigned (bbg_file,
+						   BB_TO_GCOV_INDEX (bb)))
+			  goto bbg_error;
+			/* If this is a new source file, then output
+			   the file's name to the .bb file.  */
+			if (!prev_file_name
+			    || strcmp (NOTE_SOURCE_FILE (insn),
+				       prev_file_name))
+			  {
+			    prev_file_name = NOTE_SOURCE_FILE (insn);
+			    if (gcov_write_unsigned (bbg_file, 0)
+				|| gcov_write_string (bbg_file, prev_file_name,
+						      strlen (prev_file_name)))
+			      goto bbg_error;
+			  }
+			if (gcov_write_unsigned (bbg_file, NOTE_LINE_NUMBER (insn)))
+			  goto bbg_error;
+		      }
+		  }
+		insn = NEXT_INSN (insn);
+	      }
+	    if (offset)
+	      {
+		if (gcov_write_unsigned (bbg_file, 0)
+		    || gcov_write_string (bbg_file, NULL, 0)
+		    || gcov_write_length (bbg_file, offset))
+		  {
+		  bbg_error:;
+		    warning ("error writing `%s'", bbg_file_name);
+		    fclose (bbg_file);
+		    bbg_file = NULL;
+		  }
+	      }
+	  }
+      }
     }
 
   if (flag_branch_probabilities)
@@ -1226,30 +1202,25 @@ init_branch_prob (filename)
 
   if (flag_test_coverage)
     {
-      char *data_file, *bbg_file_name;
-
-      /* Open an output file for the basic block/line number map.  */
-      data_file = (char *) alloca (len + 4);
-      strcpy (data_file, filename);
-      strcat (data_file, ".bb");
-      if ((bb_file = fopen (data_file, "wb")) == 0)
-	fatal_io_error ("can't open %s", data_file);
-
-      /* Open an output file for the program flow graph.  */
-      bbg_file_name = (char *) alloca (len + 5);
+      /* Open the bbg output file.  */
+      bbg_file_name = (char *) xmalloc (len + strlen (GCOV_GRAPH_SUFFIX) + 1);
       strcpy (bbg_file_name, filename);
-      strcat (bbg_file_name, ".bbg");
-      if ((bbg_file = fopen (bbg_file_name, "wb")) == 0)
-	fatal_io_error ("can't open %s", bbg_file_name);
+      strcat (bbg_file_name, GCOV_GRAPH_SUFFIX);
+      bbg_file = fopen (bbg_file_name, "wb");
+      if (!bbg_file)
+	fatal_io_error ("cannot open %s", bbg_file_name);
 
-      /* Initialize to zero, to ensure that the first file name will be
-	 written to the .bb file.  */
-      last_bb_file_name = 0;
+      if (gcov_write_unsigned (bbg_file, GCOV_GRAPH_MAGIC)
+	  || gcov_write_unsigned (bbg_file, GCOV_VERSION))
+	{
+	  fclose (bbg_file);
+	  fatal_io_error ("cannot write `%s'", bbg_file_name);
+	}
     }
 
-  da_file_name = (char *) xmalloc (len + 4);
+  da_file_name = (char *) xmalloc (len + strlen (GCOV_DATA_SUFFIX) + 1);
   strcpy (da_file_name, filename);
-  strcat (da_file_name, ".da");
+  strcat (da_file_name, GCOV_DATA_SUFFIX);
   
   if (flag_branch_probabilities)
     {
@@ -1289,12 +1260,32 @@ end_branch_prob ()
 {
   if (flag_test_coverage)
     {
-      fclose (bb_file);
-      fclose (bbg_file);
-      unlink (da_file_name);
+      if (bbg_file)
+	{
+#if __GNUC__
+	  /* If __gcov_init has a value in the compiler, it means we
+	     are instrumenting ourselves. We should not remove the
+	     counts file, because we might be recompiling
+	     ourselves. The .da files are all removed during copying
+	     the stage1 files.  */
+	  extern void __gcov_init (void *)
+	    __attribute__ ((weak));
+	  
+	  if (!__gcov_init)
+	    unlink (da_file_name);
+#else
+	  unlink (da_file_name);
+#endif
+	  fclose (bbg_file);
+	}
+      else
+	{
+	  unlink (bbg_file_name);
+	  unlink (da_file_name);
+	}
     }
 
-  if (flag_branch_probabilities && da_file)
+  if (da_file)
     fclose (da_file);
 
   if (rtl_dump_file)
@@ -1333,312 +1324,237 @@ end_branch_prob ()
 
 /* Write out the structure which libgcc uses to locate all the arc
    counters.  The structures used here must match those defined in
-   libgcc2.c.  Write out the constructor to call __bb_init.  */
+   gcov-io.h.  Write out the constructor to call __gcov_init.  */
 
 void
 create_profiler ()
 {
+  tree fields, field, value = NULL_TREE;
+  tree ginfo_type;
+  tree string_type;
+  tree gcov_type, gcov_ptr_type;
   char name[20];
-  tree string_type, string_cst;
-  tree structure_decl, structure_value, structure_pointer_type;
-  tree field_decl, decl_chain, value_chain;
-  tree sizeof_field_value, domain_type;
-  tree fndecl;
-  char *fnname;
-  rtx table_address;
-  enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
+  char *ctor_name;
+  tree structure, ctor;
+  rtx structure_address;
   int save_flag_inline_functions = flag_inline_functions;
 
   if (!profile_info.count_instrumented_edges)
     return;
   
-  /* Build types.  */
-  string_type = build_pointer_type (char_type_node);
+  string_type = build_pointer_type
+    (build_qualified_type (char_type_node,  TYPE_QUAL_CONST));
+  gcov_type = make_signed_type (GCOV_TYPE_SIZE);
+  gcov_ptr_type
+    = build_pointer_type (build_qualified_type
+			  (gcov_type, TYPE_QUAL_CONST));
   
-  /* Libgcc2 bb structure.  */
-  structure_decl = make_node (RECORD_TYPE);
-  structure_pointer_type = build_pointer_type (structure_decl);
+  ginfo_type = (*lang_hooks.types.make_type) (RECORD_TYPE);
+  
 
-  /* Output the main header, of 7 words:
-     0:  1 if this file is initialized, else 0.
-     1:  address of file name
-     2:  address of table of counts (LPBX2).
-     3:  number of counts in the table.
-     4:  always 0, libgcc2 uses this as a pointer to next ``struct bb''
-     
-     The following are GNU extensions:
-
-     5:  Number of bytes in this header.
-     6:  address of table of function checksums.  */
-
-  /* The zero word.  */
-  decl_chain =
-    build_decl (FIELD_DECL, get_identifier ("zero_word"),
-		long_integer_type_node);
-  value_chain = build_tree_list (decl_chain,
-				 convert (long_integer_type_node,
-					  integer_zero_node));
-
-  /* Address of filename.  */
+  /* Version ident */
+  fields = build_decl (FIELD_DECL, NULL_TREE, long_unsigned_type_node);
+  value = tree_cons (fields, convert (unsigned_type_node, build_int_2
+				      (GCOV_VERSION, 0)), value);
+      
+  /* NULL */
+  field = build_decl (FIELD_DECL, NULL_TREE, build_pointer_type
+		      (build_qualified_type
+		       (ginfo_type, TYPE_QUAL_CONST)));
+  TREE_CHAIN (field) = fields;
+  fields = field;
+  value = tree_cons (fields, null_pointer_node, value);
+  
+  /* Filename */
   {
-    char *fullname;
-    int fullname_len;
+    tree filename_string;
+    char *filename;
+    int filename_len;
     
-    field_decl =
-      build_decl (FIELD_DECL, get_identifier ("filename"), string_type);
-    TREE_CHAIN (field_decl) = decl_chain;
-    decl_chain = field_decl;
+    filename = getpwd ();
+    filename = (filename && da_file_name[0] != '/'
+		? concat (filename, "/", da_file_name, NULL)
+		: da_file_name);
+    filename_len = strlen (filename);
+    filename_string = build_string (filename_len + 1, filename);
+    if (filename != da_file_name)
+      free (filename);
+    TREE_TYPE (filename_string) = build_array_type
+      (char_type_node, build_index_type
+       (build_int_2 (filename_len, 0)));
     
-    fullname = concat (getpwd (), "/", da_file_name, NULL);
-    fullname_len = strlen (fullname);
-    
-    string_cst = build_string (fullname_len + 1, fullname);
-    free (fullname);
-    
-    domain_type = build_index_type (build_int_2 (fullname_len, 0));
-    TREE_TYPE (string_cst)
-      = build_array_type (char_type_node, domain_type);
-    value_chain = tree_cons (field_decl,
-			     build1 (ADDR_EXPR, string_type, string_cst),
-			     value_chain);
+    field = build_decl (FIELD_DECL, NULL_TREE, string_type);
+    TREE_CHAIN (field) = fields;
+    fields = field;
+    value = tree_cons (fields, build1 (ADDR_EXPR, string_type,
+				       filename_string), value);
   }
   
-  /* Table of counts.  */
-  {
-    tree gcov_type_type = make_unsigned_type (GCOV_TYPE_SIZE);
-    tree gcov_type_pointer_type = build_pointer_type (gcov_type_type);
-    tree domain_tree
-      = build_index_type (build_int_2 (profile_info.
-				       count_instrumented_edges - 1, 0));
-    tree gcov_type_array_type
-      = build_array_type (gcov_type_type, domain_tree);
-    tree gcov_type_array_pointer_type
-      = build_pointer_type (gcov_type_array_type);
-    tree counts_table;
-    
-    field_decl =
-      build_decl (FIELD_DECL, get_identifier ("counts"),
-		  gcov_type_pointer_type);
-    TREE_CHAIN (field_decl) = decl_chain;
-    decl_chain = field_decl;
-    
-    /* No values.  */
-    counts_table
-      = build (VAR_DECL, gcov_type_array_type, NULL_TREE, NULL_TREE);
-    TREE_STATIC (counts_table) = 1;
-    DECL_NAME (counts_table) = get_identifier (XSTR (profiler_label, 0));
-    assemble_variable (counts_table, 0, 0, 0);
-    
-    value_chain = tree_cons (field_decl,
-			     build1 (ADDR_EXPR,
-				     gcov_type_array_pointer_type,
-				     counts_table), value_chain);
-  }
-
-  /* Count of the # of instrumented arcs.  */
-  field_decl = build_decl (FIELD_DECL, get_identifier ("ncounts"),
-			   long_integer_type_node);
-  TREE_CHAIN (field_decl) = decl_chain;
-  decl_chain = field_decl;
-  
-  value_chain = tree_cons (field_decl,
-			   convert (long_integer_type_node,
-				    build_int_2 (profile_info.
-						 count_instrumented_edges,
-						 0)), value_chain);
-  /* Pointer to the next bb.  */
-  field_decl = build_decl (FIELD_DECL, get_identifier ("next"),
-			   structure_pointer_type);
-  TREE_CHAIN (field_decl) = decl_chain;
-  decl_chain = field_decl;
-  
-  value_chain = tree_cons (field_decl, null_pointer_node, value_chain);
-  
-  /* sizeof(struct bb).  We'll set this after entire structure is laid
-     out.  */
-  field_decl = build_decl (FIELD_DECL, get_identifier ("sizeof_bb"),
-			   long_integer_type_node);
-  TREE_CHAIN (field_decl) = decl_chain;
-  decl_chain = field_decl;
-  
-  sizeof_field_value = tree_cons (field_decl, NULL, value_chain);
-  value_chain = sizeof_field_value;
-
-  /* struct bb_function [].  */
+  /* Workspace */
+  field = build_decl (FIELD_DECL, NULL_TREE, long_integer_type_node);
+  TREE_CHAIN (field) = fields;
+  fields = field;
+  value = tree_cons (fields, integer_zero_node, value);
+      
+  /* function_info table */
   {
     struct function_list *item;
-    int num_nodes;
-    tree checksum_field, arc_count_field, name_field;
-    tree domain;
-    tree array_value_chain = NULL_TREE;
-    tree bb_fn_struct_type;
-    tree bb_fn_struct_array_type;
-    tree bb_fn_struct_array_pointer_type;
-    tree bb_fn_struct_pointer_type;
-    tree field_value, field_value_chain;
+    int num_nodes = 0;
+    tree array_value = NULL_TREE;
+    tree finfo_type, finfo_ptr_type;
+    tree name, checksum, arcs;
     
-    bb_fn_struct_type = make_node (RECORD_TYPE);
+    finfo_type = (*lang_hooks.types.make_type) (RECORD_TYPE);
+    name = build_decl (FIELD_DECL, NULL_TREE, string_type);
+    checksum = build_decl (FIELD_DECL, NULL_TREE, unsigned_type_node);
+    TREE_CHAIN (checksum) = name;
+    arcs = build_decl (FIELD_DECL, NULL_TREE, unsigned_type_node);
+    TREE_CHAIN (arcs) = checksum;
+    finish_builtin_struct (finfo_type, "__function_info",
+			   arcs, NULL_TREE);
+    finfo_ptr_type = build_pointer_type
+      (build_qualified_type (finfo_type, TYPE_QUAL_CONST));
     
-    checksum_field = build_decl (FIELD_DECL, get_identifier ("checksum"),
-				 long_integer_type_node);
-    
-    arc_count_field
-      = build_decl (FIELD_DECL, get_identifier ("arc_count"),
-		    integer_type_node);
-    TREE_CHAIN (checksum_field) = arc_count_field;
-    
-    name_field = build_decl (FIELD_DECL, get_identifier ("name"), string_type);
-    TREE_CHAIN (arc_count_field) = name_field;
-    
-    TYPE_FIELDS (bb_fn_struct_type) = checksum_field;
-    
-    num_nodes = 0;
-    
-    for (item = functions_head; item != 0; item = item->next)
-      num_nodes++;
-
-    /* Note that the array contains a terminator, hence no - 1.  */
-    domain = build_index_type (build_int_2 (num_nodes, 0));
-    
-    bb_fn_struct_pointer_type = build_pointer_type (bb_fn_struct_type);
-    bb_fn_struct_array_type
-      = build_array_type (bb_fn_struct_type, domain);
-    bb_fn_struct_array_pointer_type
-      = build_pointer_type (bb_fn_struct_array_type);
-    
-    layout_type (bb_fn_struct_type);
-    layout_type (bb_fn_struct_pointer_type);
-    layout_type (bb_fn_struct_array_type);
-    layout_type (bb_fn_struct_array_pointer_type);
-    
-    for (item = functions_head; item != 0; item = item->next)
+    for (item = functions_head; item != 0; item = item->next, num_nodes++)
       {
-	size_t name_len;
+	size_t name_len = strlen (item->name);
+	tree finfo_value = NULL_TREE;
+	tree fname = build_string (name_len + 1, item->name);
 	
-	/* create constructor for structure.  */
-	field_value_chain
-	  = build_tree_list (checksum_field,
-			     convert (long_integer_type_node,
-				      build_int_2 (item->cfg_checksum, 0)));
-	field_value_chain
-	  = tree_cons (arc_count_field,
-		       convert (integer_type_node,
-				build_int_2 (item->count_edges, 0)),
-		       field_value_chain);
-	
-	name_len = strlen (item->name);
-	string_cst = build_string (name_len + 1, item->name);
-	domain_type = build_index_type (build_int_2 (name_len, 0));
-	TREE_TYPE (string_cst)
-	  = build_array_type (char_type_node, domain_type);
-	field_value_chain = tree_cons (name_field,
-				       build1 (ADDR_EXPR, string_type,
-					       string_cst),
-				       field_value_chain);
+	TREE_TYPE (fname) = build_array_type
+	  (char_type_node, build_index_type (build_int_2 (name_len, 0)));
+	finfo_value = tree_cons (name, build1
+				 (ADDR_EXPR, string_type,
+				  fname), finfo_value);
+	finfo_value = tree_cons (checksum, convert
+				 (unsigned_type_node,
+				  build_int_2 (item->cfg_checksum, 0)),
+				 finfo_value);
+	finfo_value = tree_cons (arcs, convert
+				 (unsigned_type_node,
+				  build_int_2 (item->count_edges, 0)),
+				 finfo_value);
+	array_value = tree_cons (NULL_TREE, build
+				 (CONSTRUCTOR, finfo_type, NULL_TREE,
+				  nreverse (finfo_value)), array_value);
+      }
 
-	/* Add to chain.  */
-	array_value_chain
-	  = tree_cons (NULL_TREE, build (CONSTRUCTOR,
-					 bb_fn_struct_type, NULL_TREE,
-					 nreverse (field_value_chain)),
-		       array_value_chain);
+    /* Create constructor for array.  */
+    if (num_nodes)
+      {
+	tree array_type;
+
+	array_type = build_array_type (finfo_type, build_index_type
+				       (build_int_2 (num_nodes - 1, 0)));
+	array_value = build (CONSTRUCTOR, array_type,
+			     NULL_TREE, nreverse (array_value));
+	array_value = build1
+	  (ADDR_EXPR, finfo_ptr_type, array_value);
+      }
+    else
+      array_value = null_pointer_node;
+    
+    field = build_decl (FIELD_DECL, NULL_TREE, finfo_ptr_type);
+    TREE_CHAIN (field) = fields;
+    fields = field;
+    value = tree_cons (fields, array_value, value);
+    
+    /* number of functions */
+    field = build_decl (FIELD_DECL, NULL_TREE, unsigned_type_node);
+    TREE_CHAIN (field) = fields;
+    fields = field;
+    value = tree_cons (fields, convert (unsigned_type_node, build_int_2
+					(num_nodes, 0)), value);
+  }
+  
+  /* arc count table */
+  {
+    tree counts_table = null_pointer_node;
+    
+    if (profile_info.count_instrumented_edges)
+      {
+	tree gcov_type_array_type
+	  = build_array_type (gcov_type, build_index_type
+			      (build_int_2 (profile_info.
+					    count_instrumented_edges - 1, 0)));
+	/* No values.  */
+	counts_table
+	  = build (VAR_DECL, gcov_type_array_type, NULL_TREE, NULL_TREE);
+	TREE_STATIC (counts_table) = 1;
+	DECL_NAME (counts_table) = get_identifier (XSTR (profiler_label, 0));
+	assemble_variable (counts_table, 0, 0, 0);
+	counts_table = build1 (ADDR_EXPR, gcov_ptr_type, counts_table);
       }
     
-    /* Add terminator.  */
-    field_value = build_tree_list (arc_count_field,
-				   convert (integer_type_node,
-					    build_int_2 (-1, 0)));
-    
-    array_value_chain = tree_cons (NULL_TREE,
-				   build (CONSTRUCTOR, bb_fn_struct_type,
-					  NULL_TREE, field_value),
-				   array_value_chain);
-    
-    /* Create constructor for array.  */
-    field_decl = build_decl (FIELD_DECL, get_identifier ("function_infos"),
-			     bb_fn_struct_pointer_type);
-    value_chain = tree_cons (field_decl,
-			     build1 (ADDR_EXPR,
-				     bb_fn_struct_array_pointer_type,
-				     build (CONSTRUCTOR,
-					    bb_fn_struct_array_type,
-					    NULL_TREE,
-					    nreverse
-					    (array_value_chain))),
-			     value_chain);
-    TREE_CHAIN (field_decl) = decl_chain;
-    decl_chain = field_decl;
+    field = build_decl (FIELD_DECL, NULL_TREE, gcov_ptr_type);
+    TREE_CHAIN (field) = fields;
+    fields = field;
+    value = tree_cons (fields, counts_table, value);
   }
-
-  /* Finish structure.  */
-  TYPE_FIELDS (structure_decl) = nreverse (decl_chain);
-  layout_type (structure_decl);
   
-  structure_value
-    = build (VAR_DECL, structure_decl, NULL_TREE, NULL_TREE);
-  DECL_INITIAL (structure_value)
-    = build (CONSTRUCTOR, structure_decl, NULL_TREE, nreverse (value_chain));
-  TREE_STATIC (structure_value) = 1;
+  /* number of arc counts */
+  field = build_decl (FIELD_DECL, NULL_TREE, unsigned_type_node);
+  TREE_CHAIN (field) = fields;
+  fields = field;
+  value = tree_cons (fields, convert
+		     (unsigned_type_node,
+		      build_int_2 (profile_info
+				   .count_instrumented_edges, 0)),
+		     value);
+  
+  finish_builtin_struct (ginfo_type, "__gcov_info", fields, NULL_TREE);
+  structure = build (VAR_DECL, ginfo_type, NULL_TREE, NULL_TREE);
+  DECL_INITIAL (structure)
+    = build (CONSTRUCTOR, ginfo_type, NULL_TREE, nreverse (value));
+  TREE_STATIC (structure) = 1;
   ASM_GENERATE_INTERNAL_LABEL (name, "LPBX", 0);
-  DECL_NAME (structure_value) = get_identifier (name);
-  
-  /* Size of this structure.  */
-  TREE_VALUE (sizeof_field_value)
-    = convert (long_integer_type_node,
-	       build_int_2 (int_size_in_bytes (structure_decl), 0));
+  DECL_NAME (structure) = get_identifier (name);
   
   /* Build structure.  */
-  assemble_variable (structure_value, 0, 0, 0);
+  assemble_variable (structure, 0, 0, 0);
 
-  /* Synthesize a constructor function to invoke __bb_init_func with a
-     pointer to this object file's profile block.  */
-
-  /* Try and make a unique name given the "file function name".
-
-     And no, I don't like this either.  */
-
-  fnname = concat (IDENTIFIER_POINTER (get_file_function_name ('I')),
-		   "GCOV", NULL);
-  fndecl = build_decl (FUNCTION_DECL, get_identifier (fnname),
-		       build_function_type (void_type_node, NULL_TREE));
-  free (fnname);
-  DECL_EXTERNAL (fndecl) = 0;
+  /* Build the constructor function to invoke __gcov_init. */
+  ctor_name = concat (IDENTIFIER_POINTER (get_file_function_name ('I')),
+		      "_GCOV", NULL);
+  ctor = build_decl (FUNCTION_DECL, get_identifier (ctor_name),
+		     build_function_type (void_type_node, NULL_TREE));
+  free (ctor_name);
+  DECL_EXTERNAL (ctor) = 0;
 
   /* It can be a static function as long as collect2 does not have
      to scan the object file to find its ctor/dtor routine.  */
-  TREE_PUBLIC (fndecl) = ! targetm.have_ctors_dtors;
+  TREE_PUBLIC (ctor) = ! targetm.have_ctors_dtors;
+  TREE_USED (ctor) = 1;
+  DECL_RESULT (ctor) = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
 
-  TREE_USED (fndecl) = 1;
-
-  DECL_RESULT (fndecl) = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
-
-  fndecl = (*lang_hooks.decls.pushdecl) (fndecl);
-  rest_of_decl_compilation (fndecl, 0, 1, 0);
-  announce_function (fndecl);
-  current_function_decl = fndecl;
-  DECL_INITIAL (fndecl) = error_mark_node;
-  make_decl_rtl (fndecl, NULL);
-  init_function_start (fndecl, input_filename, lineno);
+  ctor = (*lang_hooks.decls.pushdecl) (ctor);
+  rest_of_decl_compilation (ctor, 0, 1, 0);
+  announce_function (ctor);
+  current_function_decl = ctor;
+  DECL_INITIAL (ctor) = error_mark_node;
+  make_decl_rtl (ctor, NULL);
+  init_function_start (ctor, input_filename, lineno);
   (*lang_hooks.decls.pushlevel) (0);
-  expand_function_start (fndecl, 0);
+  expand_function_start (ctor, 0);
   cfun->arc_profile = 0;
 
-  /* Actually generate the code to call __bb_init_func.  */
-  table_address = force_reg (Pmode, gen_rtx_SYMBOL_REF
-			     (Pmode, IDENTIFIER_POINTER
-			      (DECL_NAME (structure_value))));
-  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__bb_init_func"), LCT_NORMAL,
-		     mode, 1, table_address, Pmode);
+  /* Actually generate the code to call __gcov_init.  */
+  structure_address = force_reg (Pmode, gen_rtx_SYMBOL_REF
+				 (Pmode, IDENTIFIER_POINTER
+				  (DECL_NAME (structure))));
+  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__gcov_init"),
+		     LCT_NORMAL, VOIDmode, 1,
+		     structure_address, Pmode);
 
   expand_function_end (input_filename, lineno, 0);
   (*lang_hooks.decls.poplevel) (1, 0, 1);
 
-  /* Since fndecl isn't in the list of globals, it would never be emitted
+  /* Since ctor isn't in the list of globals, it would never be emitted
      when it's considered to be 'safe' for inlining, so turn off
      flag_inline_functions.  */
   flag_inline_functions = 0;
 
-  rest_of_compilation (fndecl);
+  rest_of_compilation (ctor);
 
   /* Reset flag_inline_functions to its original value.  */
   flag_inline_functions = save_flag_inline_functions;
@@ -1648,7 +1564,7 @@ create_profiler ()
   current_function_decl = NULL_TREE;
 
   if (targetm.have_ctors_dtors)
-    (* targetm.asm_out.constructor) (XEXP (DECL_RTL (fndecl), 0),
+    (* targetm.asm_out.constructor) (XEXP (DECL_RTL (ctor), 0),
 				     DEFAULT_INIT_PRIORITY);
 }
 

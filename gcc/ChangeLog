@@ -1,3 +1,53 @@
+2002-09-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Reimplement gcov format.
+	* gcov-io.h: Replace.
+	* gcov.c: Reimplement.
+	* gcov-iov.c: New file.
+	* gcov-dump.c: New file.
+	* libgcc2.c (L_bb): Replace with ...
+	(L_gcov): ... this.
+	(struct bb_function_info, struct bb): Remove.
+	(inhibit_libc): Never inhibit.
+	(gcov_list, gcov_crc): New static variables.
+	(gcov_version_mismatch): New static function.
+	(__bb_exit_func): Renamed to ...
+	(__gcov_exit): ... here. Made static. Reimplement.
+	(__gcov_init_func): Rename to ...
+	(__gcov_init): ... here. Check version, update crc.
+	(__bb_fork_func): Rename to ...
+	(__gcov_flush): ... here.
+	* libgcc2.h (struct bb, __bb_exit_func, __bb_init_func,
+	__bb_fork_func, gcov_type, __bb_find_arc_counters): Remove.
+	* calls.c (expand_call): Call __gcov_flush.
+	* profile.c (bb_file, last_bb_file_name): Remove.
+	(bbg_file_name): New global variable.
+	(output_gcov_string): Remove.
+	(get_exec_counts): Reimplement.
+	(branch_prob): Reimplement gcov file writing.
+	(init_branch_prob): Create bbg_file_name, don't create
+	bb_file_name.
+	(end_branch_prob): Adjust. Don't remove counter file when
+	instrumenting ourselves.
+	(create_profiler): Adjust.
+	* doc/gcov.texi (Gcov Data Files): Remove detailed specification,
+	point to gcov-io.h.
+	* Makefile.in (LANGUAGES): Add gcov-dump.
+	(coverageexts): Remove .bb.
+	(STAGESTUFF): Add gcov-dump.
+	(LIB2FUNCS_ST): Replace _bb with _gcov.
+	(profile.o): Depend on gcov-iov.h.
+	(final.o): Don't depend on profile.h, gcov.h.
+	(gcov.o): Depend on gcov-iov.h.
+	(gcov-iov.o): New target.
+	(gcov-iov): New target.
+	(gcov-iov.h): New target.
+	(gcov-dump.o): New target.
+	(GCOV_DUMP_OBJS): New variable.
+	(gcov-dump): New target.
+	(distclean): Remove coverageexts.
+	(stage1): Remove coverageexts.
+
 2002-09-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* h8300.md: Fix signed/unsigned warnings.
