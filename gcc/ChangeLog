@@ -1,3 +1,7 @@
+2002-12-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* expr.c (expand_expr) <case COND_EXPR>: Never modify exp in place.
+
 2002-12-05  Dale Johannesen  <dalej@apple.com>
 
 	* tree.c (unsafe_for_reeval):  Consider callee child of CALL_EXPR.
