@@ -9,6 +9,10 @@
 
 2003-08-05  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dce.c (remove_dead_stmts): Iterate backwards through the
+	basic blocks removing dead statements.  Within each block iterate
+	backwards through the statements removing those which are dead.
+
 	* tree-ssa-optimize.c (optimize_function_tree): Call
 	remove_useless_stmts_and_vars before building the flow graph.
 	* tree-cfg.c (remove_useless_stmts_and_vars): Rename argument from

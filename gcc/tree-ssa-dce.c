@@ -446,13 +446,14 @@ remove_dead_stmts (void)
   dom_info = NULL;
   pdom_info = NULL;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_REVERSE (bb)
     {
+      bsi_list_p stack;
       /* Remove dead PHI nodes.  */
       remove_dead_phis (bb);
 
       /* Remove dead statements.  */
-      for (i = bsi_start (bb); !bsi_end_p (i); )
+      FOR_EACH_BSI_IN_REVERSE (stack, bb, i)
 	{
 	  t = bsi_stmt (i);
 	  stats.total++;
@@ -460,8 +461,6 @@ remove_dead_stmts (void)
 	  /* If `i' is not in `necessary' then remove from B.  */
 	  if (!necessary_p (t))
 	    remove_dead_stmt (&i, bb);
-	  else
-	    bsi_next (&i);
 	}
     }
 
