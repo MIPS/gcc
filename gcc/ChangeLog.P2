@@ -1,3 +1,9 @@
+1999-08-28  Richard Henderson  <rth@cygnus.com>
+
+	* Makefile.in (STAGESTUFF): Add *.peephole2.
+	(mostlyclean): Likewise.
+	(recog.o): Depend on resource.h.
+
 1999-08-27  Bernd Schmidt  <bernds@cygnus.co.uk>
 
 	* genemit.c (output_peephole2_scratch): Deleted.
