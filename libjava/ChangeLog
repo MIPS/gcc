@@ -1,5 +1,13 @@
 2005-02-10  Michael Koch  <konqueror@gmx.de>
 
+	* java/awt/Container.javai (paramString):
+	If layoutMgr is null just return result of super.paramString().
+	* java/awt/Scrollbar.java: Reformatted.
+	* java/awt/im/InputContext.java (static):
+	Removed redundant initializations.
+
+2005-02-10  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/ImageIcon.java,
 	javax/swing/UIManager.java,
 	javax/swing/text/EditorKit.java,
