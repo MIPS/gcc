@@ -1,5 +1,9 @@
 2003-12-01  Per Bothner  <pbothner@apple.com>
 
+	* dwarf2out.c (init_done):  Move inside #ifdef DWARF2_DEBUGGING_INFO.
+
+2003-12-01  Per Bothner  <pbothner@apple.com>
+
 	* c-common.c (create_output_fragment):  Do nothing unless C++, for now.
 	(end_output_fragment):  Likewise.
 	(activate_output_fragment):  Likewise.

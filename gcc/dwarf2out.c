@@ -146,9 +146,6 @@ default_eh_frame_section (void)
 #endif
 }
 
-/* Number of times dwarf2out_init called. */
-static int init_done;
-
 /* Tree nodes where we set either TREE_ASM_WRITTEN or TYPE_SYMTAB_DIE.
    The code in this file destructively modifies tree nodes, to note that
    DIEs have been emitted for them.  These changes have to be reverted
@@ -3235,6 +3232,9 @@ static void dwarf2out_end_block (unsigned, unsigned);
 static bool dwarf2out_ignore_block (tree);
 static void dwarf2out_global_decl (tree);
 static void dwarf2out_abstract_function (tree);
+
+/* Number of times dwarf2out_init called. */
+static int init_done;
 
 /* The debug hooks structure.  */
 
