@@ -1,3 +1,12 @@
+2004-06-28  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-data-ref.c (build_classic_dist_vector): Add argument, stop 
+	making out-of-bounds array accesses when analyzing less than
+	all the loops.  Add checks to verify.
+	(build_classic_dir_vector): Ditto.
+	(compute_data_dependences_for_loop): Pass in starting loop number
+	to build_classic_*.
+
 2004-06-27  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree.def (INTERVAL_CHREC): Removed.

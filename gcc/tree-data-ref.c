@@ -1366,12 +1366,17 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
     fprintf (dump_file, ")\n");
 }
 
-/* Compute the classic per loop distance vector.  */
+/* Compute the classic per loop distance vector.
+
+   RES is the data dependence relation to build a vector from.
+   CLASSIC_DIST is the varray to place the vector in.
+   NB_LOOPS is the total number of loops we are considering.
+   FIRST_LOOP is the loop->num of the first loop.  */
 
 static void
 build_classic_dist_vector (struct data_dependence_relation *res, 
 			   varray_type *classic_dist, 
-			   unsigned nb_loops)
+			   int nb_loops, unsigned int first_loop)
 {
   unsigned i;
   lambda_vector dist_v, init_v;
@@ -1394,8 +1399,14 @@ build_classic_dist_vector (struct data_dependence_relation *res,
       if (TREE_CODE (SUB_CONFLICTS_IN_A (subscript)) == POLYNOMIAL_CHREC)
 	{
 	  int dist;
-	  unsigned loop_nb;
+	  int loop_nb;
 	  loop_nb = CHREC_VARIABLE (SUB_CONFLICTS_IN_A (subscript));
+	  loop_nb -= first_loop;
+	  /* If the loop number is still greater than the number of
+	     loops we've been asked to analyze, or negative,
+	     something is borked.  */
+	  if (loop_nb < 0 || loop_nb >= nb_loops)
+	    abort ();
 	  dist = int_cst_value (SUB_DISTANCE (subscript));
 
 	  /* This is the subscript coupling test.  
@@ -1427,39 +1438,56 @@ build_classic_dist_vector (struct data_dependence_relation *res,
     struct loop *lca, *loop_a, *loop_b;
     struct data_reference *a = DDR_A (res);
     struct data_reference *b = DDR_B (res);
-    
+    int lca_nb;
     loop_a = loop_of_stmt (DR_STMT (a));
     loop_b = loop_of_stmt (DR_STMT (b));
     
     /* Get the common ancestor loop.  */
     lca = find_common_loop (loop_a, loop_b); 
     
+    lca_nb = loop_num (lca);
+    lca_nb -= first_loop;
+    if (lca_nb < 0 || lca_nb >= nb_loops)
+      abort ();
     /* For each outer_loop where init_v is not set, the accesses are
        in dependence of distance 1 in the loop.  */
     if (lca != loop_a
 	&& lca != loop_b
-	&& init_v[loop_num (lca)] == 0)
-      dist_v[loop_num (lca)] = 1;
+	&& init_v[lca_nb] == 0)
+      dist_v[lca_nb] = 1;
     
     lca = outer_loop (lca);
+    
     if (lca)
-      while (loop_depth (lca) != 0)
-	{
-	  if (init_v[loop_num (lca)] == 0)
-	    dist_v[loop_num (lca)] = 1;
-	  lca = outer_loop (lca);
-	}
+      {
+	lca_nb = loop_num (lca) - first_loop;
+	while (loop_depth (lca) != 0)
+	  {
+	    if (lca_nb < 0 || lca_nb >= nb_loops)
+	      abort ();
+	    if (init_v[lca_nb] == 0)
+	      dist_v[lca_nb] = 1;
+	    lca = outer_loop (lca);
+	    lca_nb = loop_num (lca) - first_loop;
+	  
+	  }
+      }
   }
   
   VARRAY_PUSH_GENERIC_PTR (*classic_dist, dist_v);
 }
 
-/* Compute the classic per loop direction vector.  */
+/* Compute the classic per loop direction vector.  
+
+   RES is the data dependence relation to build a vector from.
+   CLASSIC_DIR is the varray to place the vector in.
+   NB_LOOPS is the total number of loops we are considering.
+   FIRST_LOOP is the loop->num of the first loop.  */
 
 static void
 build_classic_dir_vector (struct data_dependence_relation *res, 
 			  varray_type *classic_dir, 
-			  unsigned nb_loops)
+			  int nb_loops, unsigned int first_loop)
 {
   unsigned i;
   lambda_vector dir_v, init_v;
@@ -1479,9 +1507,17 @@ build_classic_dir_vector (struct data_dependence_relation *res,
       if (TREE_CODE (SUB_CONFLICTS_IN_A (subscript)) == POLYNOMIAL_CHREC
 	  && TREE_CODE (SUB_CONFLICTS_IN_B (subscript)) == POLYNOMIAL_CHREC)
 	{
-	  unsigned loop_nb = CHREC_VARIABLE (SUB_CONFLICTS_IN_A (subscript));
-	  enum data_dependence_direction dir = dir_star;
+	  int loop_nb;
 	  
+	  enum data_dependence_direction dir = dir_star;
+	  loop_nb = CHREC_VARIABLE (SUB_CONFLICTS_IN_A (subscript));
+	  loop_nb -= first_loop;
+
+	  /* If the loop number is still greater than the number of
+	     loops we've been asked to analyze, or negative,
+	     something is borked.  */
+	  if (loop_nb < 0 || loop_nb >= nb_loops)
+	    abort ();	  
 	  if (chrec_contains_undetermined (SUB_DISTANCE (subscript)))
 	    {
 	      
@@ -1529,28 +1565,38 @@ build_classic_dir_vector (struct data_dependence_relation *res,
     struct loop *lca, *loop_a, *loop_b;
     struct data_reference *a = DDR_A (res);
     struct data_reference *b = DDR_B (res);
-    
+    int lca_nb;
     loop_a = loop_of_stmt (DR_STMT (a));
     loop_b = loop_of_stmt (DR_STMT (b));
     
     /* Get the common ancestor loop.  */
     lca = find_common_loop (loop_a, loop_b); 
-    
+    lca_nb = loop_num (lca) - first_loop;
+
+    if (lca_nb < 0 || lca_nb >= nb_loops)
+      abort ();
     /* For each outer_loop where init_v is not set, the accesses are
        in dependence of distance 1 in the loop.  */
     if (lca != loop_a
 	&& lca != loop_b
-	&& init_v[loop_num (lca)] == 0)
-      dir_v[loop_num (lca)] = dir_positive;
+	&& init_v[lca_nb] == 0)
+      dir_v[lca_nb] = dir_positive;
     
     lca = outer_loop (lca);
     if (lca)
-      while (loop_depth (lca) != 0)
-	{
-	  if (init_v[loop_num (lca)] == 0)
-	    dir_v[loop_num (lca)] = dir_positive;
-	  lca = outer_loop (lca);
-	}
+      {
+	lca_nb = loop_num (lca) - first_loop;
+	while (loop_depth (lca) != 0)
+	  {
+	    if (lca_nb < 0 || lca_nb >= nb_loops)
+	      abort ();
+	    if (init_v[lca_nb] == 0)
+	      dir_v[lca_nb] = dir_positive;
+	    lca = outer_loop (lca);
+	    lca_nb = loop_num (lca) - first_loop;
+	   
+	  }
+      }
   }
   
   VARRAY_PUSH_GENERIC_PTR (*classic_dir, dir_v);
@@ -1726,8 +1772,8 @@ compute_data_dependences_for_loop (unsigned nb_loops,
     {
       struct data_dependence_relation *ddr;
       ddr = VARRAY_GENERIC_PTR (*dependence_relations, i);
-      build_classic_dist_vector (ddr, classic_dist, nb_loops);
-      build_classic_dir_vector (ddr, classic_dir, nb_loops);
+      build_classic_dist_vector (ddr, classic_dist, nb_loops, loop->num);
+      build_classic_dir_vector (ddr, classic_dir, nb_loops, loop->num);    
     }
 }
 
