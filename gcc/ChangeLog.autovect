@@ -1,3 +1,23 @@
+2005-02-02  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* tree-vectorizer.c (slpeel_update_phi_nodes_for_guard): Removed.
+	(slpeel_update_phi_nodes_for_guard1): New function.	
+	(slpeel_update_phi_nodes_for_guard2): New function.	
+	(slpeel_tree_peel_loop_to_edge): Call above new functions instead of
+	slpeel_update_phi_nodes_for_guard.
+	(vect_update_ivs_after_vectorizer): Remove assersion.
+	(vect_transform_loop): Remove redundant argument need_loop_closed_rewrite
+	and its uses.
+	(vectorize_loops): Remove all uses of need_loop_closed_rewrite. Remove
+	call to loop_closed_rewrite.
+	
+	(vect_is_simple_iv_evolution): Remove redundant argument.
+	(vect_analyze_scalar_cycles): Call vect_is_simple_iv_evolution with one
+	less argument.
+	(vect_analyze_pointer_ref_access): Likewise.
+	(vect_analyze_pointer_ref_access): Remove redundant check.
+	(vect_enhance_data_refs_alignment): Remove wrong comment and check.
+
 2005-02-02  Keith Besaw  <kbesaw@us.ibm.com> 
 	    Dorit Naishlos  <dorit@il.ibm.com>
 
