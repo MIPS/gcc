@@ -39,15 +39,16 @@ package javax.swing;
 
 import java.awt.Dimension;
 import java.awt.event.KeyEvent;
-import java.io.IOException;
 import java.io.InputStream;
+import java.io.IOException;
 import java.net.URL;
+
 import javax.accessibility.AccessibleContext;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.event.HyperlinkListener;
+import javax.swing.text.DefaultEditorKit;
 import javax.swing.text.EditorKit;
 import javax.swing.text.JTextComponent;
-import javax.swing.text.PlainEditorKit;
 
 
 public class JEditorPane extends JTextComponent
@@ -82,12 +83,12 @@ public class JEditorPane extends JTextComponent
 
   protected EditorKit createDefaultEditorKit()
   {
-    return new PlainEditorKit();
+    return new DefaultEditorKit();
   }
 
   protected static EditorKit createEditorKitForContentType(String type)
   {
-    return new PlainEditorKit();
+    return new DefaultEditorKit();
   }
 
   /**

@@ -1493,7 +1493,6 @@ javax/swing/text/AbstractDocument.java \
 javax/swing/text/AttributeSet.java \
 javax/swing/text/BadLocationException.java \
 javax/swing/text/Caret.java \
-javax/swing/text/CharacterIterator.java \
 javax/swing/text/ComponentView.java \
 javax/swing/text/DefaultCaret.java \
 javax/swing/text/DefaultEditorKit.java \
@@ -1507,7 +1506,6 @@ javax/swing/text/JTextComponent.java \
 javax/swing/text/Keymap.java \
 javax/swing/text/LayeredHighlighter.java \
 javax/swing/text/PlainDocument.java \
-javax/swing/text/PlainEditorKit.java \
 javax/swing/text/Position.java \
 javax/swing/text/Segment.java \
 javax/swing/text/Style.java \

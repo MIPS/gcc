@@ -46,6 +46,8 @@ import javax.swing.JEditorPane;
 
 public class DefaultEditorKit extends EditorKit
 {
+  private static final long serialVersionUID = 9017245433028523428L;
+  
   public static final String backwardAction = "caret-backward";
   public static final String beepAction = "beep";
   public static final String beginAction = "caret-begin";
@@ -60,7 +62,7 @@ public class DefaultEditorKit extends EditorKit
   public static final String downAction = "caret-down";
   public static final String endAction = "caret-end";
   public static final String endLineAction = "caret-end-line";
-  public static final String endOfLineStringProperty = "__EndOfLine__";
+  public static final String EndOfLineStringProperty = "__EndOfLine__";
   public static final String endParagraphAction = "caret-end-paragraph";
   public static final String endWordAction = "caret-end-word";
   public static final String forwardAction = "caret-forward";
@@ -94,6 +96,10 @@ public class DefaultEditorKit extends EditorKit
   public static final String upAction = "caret-up";
   public static final String writableAction = "set-writable";
 
+  public DefaultEditorKit()
+  {
+  }
+  
     void deinstall(JEditorPane c)
     {
 	//      Called when the kit is being removed from the JEditorPane. 

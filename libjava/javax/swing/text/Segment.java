@@ -37,6 +37,8 @@ exception statement from your version. */
 
 package javax.swing.text;
 
+import java.text.CharacterIterator;
+
 public class Segment implements Cloneable, CharacterIterator
 {
     char[] array;

@@ -1,3 +1,20 @@
+2004-06-29  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/JEditorPane.java
+	(createDefaultEditorKit): Use javax.swing.text.DefaultEditorKit.
+	(createEditorKitForContentType): Likewise.
+	* javax/swing/text/DefaultEditorKit.java
+	(serialVersionUID): Added constant field.
+	(EndOfLineStringPropery): Fixed typo.
+	(DefaultEditorKit): New constructor.
+	* javax/swing/text/Segment.java:
+	Import java.text.CharacterIterator.
+	* javax/swing/text/CharacterIterator.java,
+	javax/swing/text/PlainEditorKit.java: Removed.
+	* Makefile.am: Removed javax/swing/text/CharacterIterator.java and
+	javax/swing/text/PlainEditorKit.java.
+	* Makefile.in: Regenerated.
+
 2004-06-29  Graydon Hoare  <graydon@redhat.com>
 
 	* java/awt/image/BufferedImage.java 
