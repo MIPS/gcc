@@ -2545,31 +2545,37 @@ rest_of_compilation (decl)
   if ((rtl_dump_and_exit || flag_syntax_only) && !warn_return_type)
     goto exit_rest_of_compilation;
 
+  timevar_push (TV_JUMP);
+  open_dump_file (DFI_sibling, decl);
+
   /* Build CFG -- for predictions based on source code.  */
   insns = get_insns ();
-  find_exception_handler_labels ();
   rebuild_jump_labels (insns);
+  find_exception_handler_labels ();
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
   
   cleanup_cfg (CLEANUP_PRE_SIBCALL | CLEANUP_UNREACHABLE_ONLY);
 
   /* Turn NOTE_INSN_PREDICTIONs into branch predictions.  */
   note_prediction_to_br_prob ();
-  
-  free_bb_for_insn ();
 
   /* We may have potential sibling or tail recursion sites.  Select one
      (of possibly multiple) methods of performing the call.  */
   if (flag_optimize_sibling_calls)
-    {
-      timevar_push (TV_JUMP);
-      open_dump_file (DFI_sibling, decl);
+    optimize_sibling_and_tail_recursive_calls ();
+  
+  close_dump_file (DFI_sibling, print_rtl, get_insns ());
+  timevar_pop (TV_JUMP);
+  free_bb_for_insn ();
 
-      optimize_sibling_and_tail_recursive_calls ();
-
-      close_dump_file (DFI_sibling, print_rtl, get_insns ());
-      timevar_pop (TV_JUMP);
-    }
+  {
+    rtx insn;
+    for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+      if (GET_CODE (insn) == NOTE
+	  && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_RETURN
+	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION))
+	delete_insn (insn);
+  }
 
   /* Complete generation of exception handling code.  */
   find_exception_handler_labels ();

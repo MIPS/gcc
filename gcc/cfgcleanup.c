@@ -1653,7 +1653,6 @@ cleanup_cfg (mode)
 
   /* Kill the data we won't maintain.  */
   free_EXPR_LIST_list (&label_value_list);
-  free_EXPR_LIST_list (&tail_recursion_label_list);
   timevar_pop (TV_CLEANUP_CFG);
 
   return changed;
