@@ -42,6 +42,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-inline.h"
 #include "c-tree.h"
 #include "toplev.h"
+#include "tree-iterator.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -4039,26 +4040,6 @@ c_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
 	bool preserve_result = false;
 	bool return_target = false;
 
-	if (STMT_EXPR_WARN_UNUSED_RESULT (exp) && target == const0_rtx)
-	  {
-	    tree stmt = STMT_EXPR_STMT (exp);
-	    tree scope;
-
-	    for (scope = COMPOUND_BODY (stmt);
-		 scope && TREE_CODE (scope) != SCOPE_STMT;
-		 scope = TREE_CHAIN (scope));
-
-	    if (scope && SCOPE_STMT_BLOCK (scope))
-	      warning ("%Hignoring return value of `%D', "
-		       "declared with attribute warn_unused_result",
-		       EXPR_LOCUS (exp),
-		       BLOCK_ABSTRACT_ORIGIN (SCOPE_STMT_BLOCK (scope)));
-	    else
-	      warning ("%Hignoring return value of function "
-		       "declared with attribute warn_unused_result",
-		       EXPR_LOCUS (exp));
-	  }
-
 	/* Since expand_expr_stmt calls free_temp_slots after every
 	   expression statement, we must call push_temp_slots here.
 	   Otherwise, any temporaries in use now would be considered
@@ -5915,6 +5896,81 @@ c_decl_uninit (tree t)
   if (walk_tree_without_duplicates (&DECL_INITIAL (t), c_decl_uninit_1, t))
     return true;
   return false;
+}
+
+/* Walk a gimplified function and warn for functions whose return value is
+   ignored and attribute((warn_unused_result)) is set.  This is done before
+   inlining, so we don't have to worry about that.  */
+
+void
+c_warn_unused_result (tree *top_p)
+{
+  tree_stmt_iterator i;
+  tree fdecl, ftype;
+
+  for (i = tsi_start (top_p); !tsi_end_p (i); tsi_next (&i))
+    {
+      tree t = tsi_stmt (i);
+
+      switch (TREE_CODE (t))
+	{
+	case LOOP_EXPR:
+	  c_warn_unused_result (&LOOP_EXPR_BODY (t));
+	  break;
+	case COND_EXPR:
+	  c_warn_unused_result (&COND_EXPR_THEN (t));
+	  c_warn_unused_result (&COND_EXPR_ELSE (t));
+	  break;
+	case SWITCH_EXPR:
+	  c_warn_unused_result (&SWITCH_BODY (t));
+	  break;
+	case BIND_EXPR:
+	  c_warn_unused_result (&BIND_EXPR_BODY (t));
+	  break;
+	case TRY_FINALLY_EXPR:
+	case TRY_CATCH_EXPR:
+	  c_warn_unused_result (&TREE_OPERAND (t, 0));
+	  c_warn_unused_result (&TREE_OPERAND (t, 1));
+	  break;
+	case CATCH_EXPR:
+	  c_warn_unused_result (&CATCH_BODY (t));
+	  break;
+	case EH_FILTER_EXPR:
+	  c_warn_unused_result (&EH_FILTER_FAILURE (t));
+	  break;
+
+	case CALL_EXPR:
+	  /* This is a naked call, as opposed to a CALL_EXPR nested inside
+	     a MODIFY_EXPR.  All calls whose value is ignored should be 
+	     represented like this.  Look for the attribute.  */
+	  fdecl = get_callee_fndecl (t);
+	  if (fdecl)
+	    ftype = TREE_TYPE (fdecl);
+	  else
+	    {
+	      ftype = TREE_TYPE (TREE_OPERAND (t, 0));
+	      /* Look past pointer-to-function to the function type itself.  */
+	      ftype = TREE_TYPE (ftype);
+	    }
+
+	  if (lookup_attribute ("warn_unused_result", TYPE_ATTRIBUTES (ftype)))
+	    {
+	      if (fdecl)
+		warning ("%Hignoring return value of `%D', "
+			 "declared with attribute warn_unused_result",
+			 EXPR_LOCUS (t), fdecl);
+	      else
+		warning ("%Hignoring return value of function "
+			 "declared with attribute warn_unused_result",
+			 EXPR_LOCUS (t));
+	    }
+	  break;
+
+	default:
+	  /* Not a container, not a call, or a call whose value is used.  */
+	  break;
+	}
+    }
 }
 
 #include "gt-c-common.h"

@@ -40,7 +40,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    2: STMT_LINENO_FOR_FN_P (in _STMT)
    3: SCOPE_NO_CLEANUPS_P (in SCOPE_STMT)
       COMPOUND_STMT_BODY_BLOCK (in COMPOUND_STMT)
-      STMT_EXPR_WARN_UNUSED_RESULT (in STMT_EXPR)
    4: SCOPE_PARTIAL_P (in SCOPE_STMT)
 */
 
@@ -1056,11 +1055,6 @@ extern void finish_file	(void);
 #define STMT_EXPR_NO_SCOPE(NODE) \
    TREE_LANG_FLAG_0 (STMT_EXPR_CHECK (NODE))
 
-/* Nonzero if this statement-expression should cause warning if its result
-   is not used.  */
-#define STMT_EXPR_WARN_UNUSED_RESULT(NODE) \
-   TREE_LANG_FLAG_3 (STMT_EXPR_CHECK (NODE))
-
 /* LABEL_STMT accessor. This gives access to the label associated with
    the given label statement.  */
 #define LABEL_STMT_LABEL(NODE)  TREE_OPERAND (LABEL_STMT_CHECK (NODE), 0)
@@ -1289,6 +1283,8 @@ extern bool c_dump_tree (void *, tree);
 extern int c_gimplify_expr (tree *, tree *, tree *);
 extern tree c_walk_subtrees (tree*, int*, walk_tree_fn, void*, void*);
 extern int c_tree_chain_matters_p (tree);
+
+extern void c_warn_unused_result (tree *);
 
 /* In c-simplify.c  */
 extern void c_genericize (tree);

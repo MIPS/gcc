@@ -1,3 +1,7 @@
+2003-10-14  Richard Henderson  <rth@redhat.com>
+
+	* decl.c (finish_function): Always gimplify; call c_warn_unused_result.
+
 2003-10-13  Richard Henderson  <rth@redhat.com>
 
 	* pt.c (push_tinst_level): Use annotate_with_locus.

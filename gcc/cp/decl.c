@@ -13891,8 +13891,13 @@ finish_function (int flags)
   cfun->function_end_locus = input_location;
 
   /* Genericize before inlining.  */
-  if (!flag_disable_gimple && !processing_template_decl)
-    c_genericize (fndecl);
+  if (!processing_template_decl)
+    {
+      c_genericize (fndecl);
+
+      /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
+      c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
+    }
 
   /* We're leaving the context of this function, so zap cfun.  It's still in
      DECL_SAVED_INSNS, and we'll restore it in tree_rest_of_compilation.  */

@@ -1,3 +1,15 @@
+2003-10-14  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c: Include tree-iterator.h.
+	(c_expand_expr): Kill warn_unused_result checks.
+	(c_warn_unused_result): New.
+	* c-common.h (STMT_EXPR_WARN_UNUSED_RESULT): Remove.
+	(c_warn_unused_result): Declare.
+	* c-decl.c (finish_function): Always gimplify.  Call
+	c_warn_unused_result.
+	* calls.c (expand_call): Kill warn_unused_result checks.
+	* Makefile.in (c-common.o): Update.
+
 2003-10-15  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* cfghooks.c (dump_bb): Take extra `int indent' argument.
