@@ -1500,7 +1500,7 @@ compute_may_aliases ()
   htab_delete (vars_found);
   htab_delete (aliased_objects_found);
 
-  if (flag_tree_points_to != PTA_NONE && aliased_objects_found)
+  if (flag_tree_points_to != PTA_NONE && num_aliased_objects)
     {
       timevar_push (TV_TREE_PTA);
       create_alias_vars (current_function_decl);
@@ -1508,6 +1508,13 @@ compute_may_aliases ()
     }
 
   compute_alias_sets ();
+  
+  if (flag_tree_points_to != PTA_NONE && num_aliased_objects)
+    {
+      timevar_push (TV_TREE_PTA);
+      delete_alias_vars ();
+      timevar_pop (TV_TREE_PTA);
+    }
 
   num_aliased_objects = 0;
   aliased_objects = 0;

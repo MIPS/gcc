@@ -400,7 +400,7 @@ static void
 andersen_init (ops)
      struct tree_alias_ops *ops ATTRIBUTE_UNUSED;
 {
-  if (!initted || !flag_ip)
+  if (!initted || !flag_unit_at_a_time)
     {
       pta_init ();
       andersen_rgn = newregion ();
@@ -410,7 +410,7 @@ andersen_init (ops)
   dump_file = dump_begin (TDI_pta, &dump_flags);
   ptamap = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
   /* Don't claim we can do ip partial unless the user requests it. */
-  if (!flag_ip)
+  if (!flag_unit_at_a_time)
     andersen_ops.ip_partial = 0;
   
 }
@@ -445,11 +445,12 @@ andersen_cleanup (ops)
       dump_end (TDI_pta, dump_file);
     }
   
-  if (!flag_ip)
+  if (!flag_unit_at_a_time)
     {
       pta_reset ();
       splay_tree_delete (ptamap);
       deleteregion (andersen_rgn);
+      andersen_rgn = NULL;
     }
   
 
@@ -732,8 +733,8 @@ andersen_function_call (ops, lhs, func, args)
      just have incoming parameters assigned to global_var if
      necessary. */
   if (TREE_CODE (decl) == FUNCTION_DECL 
-      && DECL_SAVED_TREE (decl) != NULL_TREE 
-      && flag_ip 
+      && DECL_PTA_TYPEVAR (decl)
+      && flag_unit_at_a_time
       && (!TREE_PUBLIC (decl) && TREE_STATIC (decl)))
     {
       return 0;

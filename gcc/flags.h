@@ -669,9 +669,6 @@ extern int flag_tree_ccp;
 /* Enable SSA-DCE on trees.  */
 extern int flag_tree_dce;
 
-/* Enable interprocedural analysis.  */
-extern int flag_ip;
-
 /* Nonzero means put zero initialized data in the bss section.  */
 extern int flag_zero_initialized_in_bss;
 

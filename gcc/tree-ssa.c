@@ -995,13 +995,6 @@ delete_tree_ssa (fndecl)
   for (i = 0; i < num_referenced_vars; i++)
     referenced_var (i)->common.ann = NULL;
 
-  if (flag_tree_points_to != PTA_NONE && num_referenced_vars)
-    {
-      timevar_push (TV_TREE_PTA);
-      delete_alias_vars ();
-      timevar_pop (TV_TREE_PTA);
-    }
-
   num_referenced_vars = 0;
   referenced_vars = NULL;
   global_var = NULL_TREE;

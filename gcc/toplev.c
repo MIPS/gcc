@@ -911,9 +911,6 @@ int flag_tree_cp = 0;
 /* Enable SSA-DCE on trees.  */
 int flag_tree_dce = 0;
 
-/* Enable interprocedural analysis.  */
-int flag_ip = 0;
-
 /* Nonzero if we perform superblock formation.  */
 int flag_tracer = 0;
 
@@ -1241,9 +1238,7 @@ static const lang_independent_options f_options[] =
   { "tree-cp", &flag_tree_cp, 1,
    N_("Enable SSA-CP optimization on trees") },
   { "tree-dce", &flag_tree_dce, 1,
-   N_("Enable SSA dead code elimination optimization on trees") },
-  { "ip", &flag_ip, 1, 
-   N_("Enable interprocedural analysis") },
+   N_("Enable SSA dead code elimination optimization on trees") }
 };
 
 /* Table of language-specific options.  */
@@ -5029,11 +5024,6 @@ parse_options_and_default_flags (argc, argv)
       flag_unswitch_loops = 1;
     }
   
-  if  (optimize >= 4)
-    {
-      flag_ip = 1;
-    }
-
   if (optimize < 2 || optimize_size)
     {
       align_loops = 1;

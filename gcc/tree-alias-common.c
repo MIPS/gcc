@@ -149,23 +149,13 @@ static alias_typevar
 get_alias_var_decl (decl)
      tree decl;
 {
-  struct alias_annot_entry *entry;
-  struct alias_annot_entry lookup;
-  
   alias_typevar newvar;
   
-  if (SSA_DECL_P (decl))
+  if (DECL_P (decl))
     {
       if (DECL_PTA_TYPEVAR (decl))
 	return DECL_PTA_TYPEVAR (decl);
     }
-  else
-    {
-      lookup.key = decl;
-      entry = htab_find (alias_annot, &lookup);
-      if (entry != NULL && entry->value != 0)
-	return entry->value;
-    } 
   /* For debugging, remove this whole if block, and re-enable the 
      find_func_decls call. */
   if (TREE_CODE (decl) == FUNCTION_DECL)
@@ -178,11 +168,16 @@ get_alias_var_decl (decl)
 	newvar = create_alias_var (decl);
     }
   
-  if (!TREE_PUBLIC (decl))
+  if (!current_alias_ops->ip)
     {
-      VARRAY_PUSH_INT (local_alias_varnums, 
-		       VARRAY_ACTIVE_SIZE (alias_vars) - 1);
-      VARRAY_PUSH_GENERIC_PTR (local_alias_vars, decl);
+      if (!current_alias_ops->ip_partial 
+	  || (TREE_CODE (decl) != FUNCTION_DECL 
+	      && TREE_CODE (decl)!= PARM_DECL))
+	{
+	  VARRAY_PUSH_INT (local_alias_varnums, 
+			   VARRAY_ACTIVE_SIZE (alias_vars) - 1);
+	  VARRAY_PUSH_GENERIC_PTR (local_alias_vars, decl);
+	}
     }
   return newvar;
 }
@@ -511,9 +506,6 @@ find_func_aliases (tp, walk_subtrees, data)
 			VARRAY_PUSH_GENERIC_PTR (args, aav);
 
 		    }
-		  if (TREE_CODE (callop0) == ADDR_EXPR)
-		    create_fun_alias_var (TREE_OPERAND (callop0, 0), 0);
-		  
 		  /* NORETURN and CONST functions have no effect on aliasing. */
 		  if (!(call_expr_flags (op1) & (ECF_NORETURN | ECF_CONST)))
 		    if (current_alias_ops->function_call (current_alias_ops, lhsAV, 
@@ -663,8 +655,6 @@ find_func_aliases (tp, walk_subtrees, data)
 	  if (aav)
 	    VARRAY_PUSH_GENERIC_PTR (args, aav);
 	}
-      if (TREE_CODE (TREE_OPERAND (stp, 0)) == ADDR_EXPR)
-	create_fun_alias_var (TREE_OPERAND (TREE_OPERAND (stp, 0), 0), 0);
       /* NORETURN and CONST functions have no effect on aliasing.  */
       if (!(call_expr_flags (stp) & (ECF_NORETURN | ECF_CONST)))
 	if (current_alias_ops->function_call (current_alias_ops, NULL, 
@@ -718,14 +708,11 @@ create_fun_alias_var (decl, force)
   alias_typevar avar, retvar;
   tree rdecl;
   varray_type params = NULL;
-  struct alias_annot_entry entry, *newentry, *result, **slot;
   
-  entry.key = decl;
-  result = htab_find (alias_annot, &entry);
   if (!force)
     {
-      if (result != NULL && result->value != NULL)
-	return result->value;
+      if (DECL_PTA_TYPEVAR (decl)) 
+        return DECL_PTA_TYPEVAR (decl);
     }
 
   VARRAY_GENERIC_PTR_INIT (params, 1, "Arguments");
@@ -734,15 +721,7 @@ create_fun_alias_var (decl, force)
       tree arg;
       for (arg = DECL_ARGUMENTS (decl); arg; arg = TREE_CHAIN (arg))
 	{
-	  alias_typevar tvar = create_alias_var (arg);
-	  newentry = ggc_alloc (sizeof (struct alias_annot_entry));
-	  newentry->key = arg;
-	  newentry->value = tvar;
-	  slot = (struct alias_annot_entry **) htab_find_slot (alias_annot, 
-							       newentry, 
-							       INSERT);
-	  *slot = newentry;
-	  
+	  alias_typevar tvar = get_alias_var (arg);
 	  VARRAY_PUSH_GENERIC_PTR (params, tvar);
 	  /* Incoming pointers can point to global_var, unless 
 	     either we are interprocedural, or we can do ip on all
@@ -767,7 +746,7 @@ create_fun_alias_var (decl, force)
 	   arg = TREE_CHAIN (arg))
 	{
 	  tree fakedecl = create_tmp_alias_var (TREE_VALUE (arg), "normarg");
-	  alias_typevar tvar = create_alias_var (fakedecl);
+	  alias_typevar tvar = get_alias_var (fakedecl);
 	  VARRAY_PUSH_GENERIC_PTR (params, tvar);	  
 	  
 	  /* Incoming pointers can point to global_var, unless 
@@ -791,7 +770,7 @@ create_fun_alias_var (decl, force)
   else
     {
       tree fakedecl = create_tmp_alias_var (void_type_node, "fakearg");
-      alias_typevar fakevar = create_alias_var (fakedecl);
+      alias_typevar fakevar = get_alias_var (fakedecl);
       VARRAY_PUSH_GENERIC_PTR (params, fakevar);
     }
 
@@ -802,13 +781,7 @@ create_fun_alias_var (decl, force)
   VARRAY_PUSH_GENERIC_PTR (alias_vars, avar);
 
   current_alias_ops->function_def (current_alias_ops, avar, params, retvar);
-  newentry = ggc_alloc (sizeof (struct alias_annot_entry));
-  newentry->key = decl;
-  newentry->value = avar;
-  slot = (struct alias_annot_entry **) htab_find_slot (alias_annot, 
-						       newentry, 
-						       INSERT);
-  *slot = newentry;
+  DECL_PTA_TYPEVAR (decl) = avar;
 	  
   /* FIXME: Also, if this is a defining declaration then add the annotation
      to all extern definitions of the function. */
@@ -837,13 +810,9 @@ create_fun_alias_var_ptf (decl, type)
   alias_typevar avar, retvar;
   tree rdecl;
   varray_type params = NULL;
-  struct alias_annot_entry entry, *result, *newentry, **slot;
   
-  entry.key = decl;
-  result = htab_find (alias_annot, &entry);
-  
-  if (result != NULL && result->value != NULL)
-    return result->value;
+  if (DECL_PTA_TYPEVAR (decl))
+    return DECL_PTA_TYPEVAR (decl);
 
   VARRAY_GENERIC_PTR_INIT (params, 1, "Arguments");
 
@@ -856,7 +825,7 @@ create_fun_alias_var_ptf (decl, type)
 	   arg = TREE_CHAIN (arg))
 	{
 	  tree fakedecl = create_tmp_alias_var (TREE_VALUE (arg), "ptfarg");
-	  alias_typevar tvar = create_alias_var (fakedecl);
+	  alias_typevar tvar = get_alias_var (fakedecl);
 	  VARRAY_PUSH_GENERIC_PTR (params, tvar);
 	}
     }
@@ -867,7 +836,7 @@ create_fun_alias_var_ptf (decl, type)
   else
     {
       tree fakedecl = create_tmp_alias_var (void_type_node, "fakearg");
-      alias_typevar fakevar = create_alias_var (fakedecl);
+      alias_typevar fakevar = get_alias_var (fakedecl);
       VARRAY_PUSH_GENERIC_PTR (params, fakevar);
     }
 
@@ -879,12 +848,7 @@ create_fun_alias_var_ptf (decl, type)
   VARRAY_PUSH_GENERIC_PTR (alias_vars, avar);
   
   current_alias_ops->function_def (current_alias_ops, avar, params, retvar);
-  newentry = ggc_alloc (sizeof (struct alias_annot_entry));
-  newentry->key = decl;
-  newentry->value = avar;
-  slot = (struct alias_annot_entry **) htab_find_slot (alias_annot,
-						       newentry, INSERT);
-  *slot = newentry;
+  DECL_PTA_TYPEVAR (decl) = avar;
   
   return avar;
 }
@@ -905,7 +869,7 @@ create_alias_var (decl)
   struct alias_annot_entry entry, *result, *newentry, **slot;
   
   alias_typevar avar;
-  if (SSA_DECL_P (decl))
+  if (DECL_P (decl))
     {
       if (DECL_PTA_TYPEVAR (decl))
 	return DECL_PTA_TYPEVAR (decl);
@@ -923,7 +887,8 @@ create_alias_var (decl)
     }
   else
     avar = current_alias_ops->add_var (current_alias_ops, decl);
-  if (SSA_DECL_P (decl))
+  
+  if (DECL_P (decl))
     {
       DECL_PTA_TYPEVAR (decl) = avar;
     }
@@ -985,7 +950,10 @@ create_alias_vars (fndecl)
 
   /* Don't force creation unless we are processing the top level
      function decl. */
-  create_fun_alias_var (fndecl, fndecl == current_function_decl);
+  if (fndecl == current_function_decl)
+    DECL_PTA_TYPEVAR (fndecl) = NULL;
+  get_alias_var (fndecl);
+
   /* For debugging, disable the on-the-fly variable creation, 
      and reenable this. */
   /*  walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
@@ -1006,7 +974,7 @@ delete_alias_vars ()
   for (i = 0; i < VARRAY_ACTIVE_SIZE (local_alias_vars); i++)
     {
       entry.key = VARRAY_GENERIC_PTR (local_alias_vars, i);
-      if (!SSA_DECL_P (entry.key))
+      if (!DECL_P (entry.key))
 	{
 	  htab_remove_elt (alias_annot, &entry);
 	}
@@ -1069,7 +1037,7 @@ ptr_may_alias_var (ptr, var)
   if (ptr == var || (DECL_CONTEXT (ptr) == NULL
 		     && DECL_CONTEXT (var) == NULL))
     return true;
-  if (SSA_DECL_P (ptr))
+  if (DECL_P (ptr))
     {
       ptrtv = DECL_PTA_TYPEVAR (ptr);
       if (DECL_CONTEXT (ptr) == NULL)
@@ -1092,7 +1060,7 @@ ptr_may_alias_var (ptr, var)
 	return false;
       ptrtv = result->value;  
     }
-  if (SSA_DECL_P (var))
+  if (DECL_P (var))
     {
       vartv = DECL_PTA_TYPEVAR (var);
       if (DECL_CONTEXT (var) == NULL)
