@@ -38,6 +38,7 @@ bytecode_generator::bytecode_generator (model_method *m,
 					output_constant_pool *cp)
   : method (m),
     cpool (cp),
+    vars (this),
     this_index (-1),
     first_block (NULL),
     current_block (NULL),
@@ -171,10 +172,15 @@ bytecode_generator::generate ()
       cpool->add (hand.type);
     }
 
-  if (global->get_compiler ()->target_debug () && line_count > 0)
-    attributes.push_back (new line_table_attribute (cpool, this));
+  if (global->get_compiler ()->target_debug ())
+    {
+      if (line_count > 0)
+	attributes.push_back (new line_table_attribute (cpool, this));
 
-  // FIXME: LocalVariableTable
+      if (vars.update ())
+	attributes.push_back (new local_variable_table_attribute (cpool,
+								  &vars));
+    }
 }
 
 void

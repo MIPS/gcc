@@ -1,6 +1,6 @@
 // Local variable handling for bytecode generation.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,13 +22,33 @@
 #ifndef GCJX_BYTECODE_LOCALS_HH
 #define GCJX_BYTECODE_LOCALS_HH
 
+class bytecode_block;
+class bytecode_generator;
+class bytecode_stream;
+class output_constant_pool;
+
+/// This class is used to keep track of the local variable slots while
+/// generating code for a given method.
 class locals
 {
-  // This maps a local variable to its index.
-  std::map<model_variable_decl *, int> indexes;
+  // This represents a single local variable and is used when
+  // generating debug information.
+  struct debug_info
+  {
+    // The variable.
+    model_variable_decl *variable;
+    // The starting block.
+    bytecode_block *start;
+    // The ending block.
+    bytecode_block *end;
+    // The defining scope.
+    const model_stmt *scope;
+    // The index.
+    int index;
+  };
 
-  // This maps a local variable to its defining scope.
-  std::map<model_variable_decl *, const model_stmt *> scope_map;
+  // The corresponding bytecode generator.
+  bytecode_generator *gen;
 
   // This is used as a quick way to deterine whether a slot is in use.
   std::deque<bool> used;
@@ -39,10 +59,18 @@ class locals
   // Number of entries ever allocated in 'used'.
   int max;
 
+  // Keep track of a variable while it is live.
+  std::map<model_variable_decl *, debug_info> vars;
+
+  // Keep track of a variable after it is live.  A given variable may
+  // appear several times here, due to how we emit 'finally' clauses.
+  std::list<debug_info> var_descriptions;
+
 public:
 
-  locals ()
-    : max (0)
+  locals (bytecode_generator *g)
+    : gen (g),
+      max (0)
   {
     scope.push_back (NULL);
   }
@@ -78,9 +106,20 @@ public:
   /// This also pops the scope associated with this statement.
   /// @param stmt the enclosing statement
   void remove (const model_stmt *);
+
+  /// Used when generating debug information.  Updates the ranges of
+  /// variables and returns 'true' if any exist to be written out.
+  bool update ();
+
+  /// Used when generating debug information.  Write the actual
+  /// information.  If the writer is NULL, just enter information into
+  /// the constant pool.
+  void emit (output_constant_pool *, bytecode_stream *);
 };
 
-
+/// This is an class for allocating a temporary local variable.  Usage
+/// is RAII; when the temporary_local is destroyed, the corresponding
+/// local variable slot is reclaimed.
 class temporary_local
 {
   // The variable, or NULL for synthetic.

@@ -181,6 +181,28 @@ class bytecode_generator : public visitor
     }
   };
 
+  /// This class is used to handle the LocalVariableTable attribute.
+  class local_variable_table_attribute : public bytecode_attribute
+  {
+    locals *vars;
+
+  public:
+
+    local_variable_table_attribute (output_constant_pool *p, locals *v)
+      : bytecode_attribute (p, "LocalVariableTable"),
+	vars (v)
+    {
+      // This is inefficient, we could cache information.
+      vars->emit (pool, NULL);
+    }
+
+    void emit (bytecode_stream &writer)
+    {
+      bytecode_attribute::emit (writer);
+      vars->emit (pool, &writer);
+    }
+  };
+
   void write_line_table (bytecode_stream *);
 
   int adjust_for_type (model_type *) const;
@@ -328,6 +350,12 @@ public:
 
   /// Write the bytecode for this method.
   void write (bytecode_stream *);
+
+  /// Used to keep track of lifetimes of local variables.
+  bytecode_block *get_current () const
+  {
+    return current_block;
+  }
 
 
   void visit_method (model_method *,

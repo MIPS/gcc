@@ -1,3 +1,27 @@
+2005-01-15  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/generate.cc (generate): Write local variable table.
+	(bytecode_generator): Updated.
+	* bytecode/locals.cc (request): Updated.
+	(get_index): Likewise.
+	(remove): Likewise.
+	(update): New method.
+	(emit): Likewise.
+	* bytecode/generate.hh (bytecode_generator::get_current): New
+	method.
+	(bytecode_generator::local_variable_table_attribute): New class.
+	* bytecode/locals.hh (class locals): More documentation.
+	(class temporary_local): Likewise.
+	(locals::gen): New field.
+	(locals::debug_info): New structure.
+	(locals::keep_debug_info): New field.
+	(locals::var_descriptions): Likewise.
+	(locals): Initialize new fields.
+	(locals::indexes): Removed.
+	(locals::scope_map): Likewise.
+	(locals::update): Declare.
+	(locals::emit): Likewise.
+
 2005-01-14  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/block.cc (clone): Removed.

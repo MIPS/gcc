@@ -169,10 +169,6 @@ the model_forwarding_resolved constructors
 outpool::add(string) and outpool::add_utf() have the wrong names.
 add_utf() is used more and should be plain add()
 
-we also don't emit variable names
-  these could be handled like exceptions
-  except that is already ugly
-
 in gcc a declaration can also be used as a variable reference.
 the idea is, having all those extra reference objects is
 wasteful.  we could try this... but is it true?  we would
