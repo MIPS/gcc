@@ -1,37 +1,32 @@
-/*
- *
- * Install modified versions of certain ANSI-incompatible system header
- * files which are fixed to work correctly with ANSI C and placed in a
- * directory that GNU C will search.
- *
- * Copyright (C) 1992-1999 Free Software Foundation, Inc.
- *
- * See README-fixinc for more information.
- *
- *  fixincl is free software.
- *  
- *  You may redistribute it and/or modify it under the terms of the
- *  GNU General Public License, as published by the Free Software
- *  Foundation; either version 2, or (at your option) any later version.
- *  
- *  fixincl is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *  See the GNU General Public License for more details.
- *  
- *  You should have received a copy of the GNU General Public License
- *  along with fixincl.  See the file "COPYING".  If not,
- *  write to:  The Free Software Foundation, Inc.,
- *             59 Temple Place - Suite 330,
- *             Boston,  MA  02111-1307, USA.
- */
+
+/* Install modified versions of certain ANSI-incompatible system header
+   files which are fixed to work correctly with ANSI C and placed in a
+   directory that GNU C will search.
+
+   Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
+
+This file is part of GNU CC.
+
+GNU CC is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU CC is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU CC; see the file COPYING.  If not, write to
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 #ifdef FIXINC_BROKEN
 /* The fixincl program is known to not run properly on this particular
- * system.  Instead of producing a probably broken executable, we
- * force a compilation error and let the mkfixinc.sh script install
- * the inclhack.sh shell script instead.
- */
+   system.  Instead of producing a probably broken executable, we force
+   a compilation error and let the mkfixinc.sh script install the
+   inclhack.sh shell script instead.  */
 # include "The fixincl program does not work properly on this system!"
 #endif
 
@@ -79,14 +74,14 @@ char *file_name_buf;
 
 typedef int t_success;
 
-#define FAILURE         ((t_success)-1)
-#define SUCCESS         ((t_success) 0)
-#define PROBLEM         ((t_success) 1)
+#define FAILURE         (-1)
+#define SUCCESS           0
+#define PROBLEM           1
 
 #define SUCCEEDED(p)    ((p) == SUCCESS)
 #define SUCCESSFUL(p)   SUCCEEDED (p)
-#define FAILED(p)       ((p) <  SUCCESS)
-#define HADGLITCH(p)    ((p) >  SUCCESS)
+#define FAILED(p)       ((p) < SUCCESS)
+#define HADGLITCH(p)    ((p) > SUCCESS)
 
 #define NUL             '\0'
 
@@ -141,11 +136,11 @@ struct fix_desc
 };
 
 /*  Working environment strings.  Essentially, invocation 'options'.  */
-char *pz_dest_dir = (char *) NULL;
-char *pz_src_dir  = (char *) NULL;
-char *pz_machine  = (char *) NULL;
+char *pz_dest_dir = NULL;
+char *pz_src_dir = NULL;
+char *pz_machine = NULL;
 
-pid_t process_chain_head = (pid_t) - 1;
+pid_t process_chain_head = (pid_t) -1;
 
 const char incl_quote_pat[] = "^[ \t]*#[ \t]*include[ \t]*\"[^/]";
 regex_t incl_quote_re;
@@ -183,7 +178,7 @@ main (argc, argv)
   if (file_name_buf == (char *) NULL)
     {
       fprintf (stderr, "fixincl cannot allocate 0x%08X bytes\n",
-	       NAME_TABLE_SIZE);
+               NAME_TABLE_SIZE);
       exit (EXIT_FAILURE);
     }
 
@@ -194,17 +189,19 @@ main (argc, argv)
 
     case 2:
       if (strcmp (argv[1], "-v") == 0)
-	{
-	  static const char zFmt[] = "echo '%s'";
+        {
+          static const char zFmt[] = "echo '%s'";
 
-	  /* The 'version' option is really used to test that:
-	       1.  The program loads correctly (no missing libraries)
-	       2.  we can correctly run our server shell process
-	   */
-	  sprintf (file_name_buf, zFmt, program_id);
-	  fputs (file_name_buf + 5, stdout);
-	  exit (strcmp (runShell (file_name_buf), program_id));
-	}
+          /* The 'version' option is really used to test that:
+               1.  The program loads correctly (no missing libraries)
+               2.  we can correctly run our server shell process
+               3.  that we can compile all the regular expressions.
+           */
+          run_compiles ();
+          sprintf (file_name_buf, zFmt, program_id);
+          fputs (file_name_buf + 5, stdout);
+          exit (strcmp (runShell (file_name_buf), program_id));
+        }
       freopen (argv[1], "r", stdin);
       break;
 
@@ -218,8 +215,8 @@ main (argc, argv)
     pz_machine = getenv (var);
     if (pz_machine == (char *) NULL)
       {
-	fprintf (stderr, var_not_found, var);
-	exit (EXIT_FAILURE);
+        fprintf (stderr, var_not_found, var);
+        exit (EXIT_FAILURE);
       }
   }
 
@@ -228,8 +225,8 @@ main (argc, argv)
     pz_dest_dir = getenv (var);
     if (pz_dest_dir == (char *) NULL)
       {
-	fprintf (stderr, var_not_found, var);
-	exit (EXIT_FAILURE);
+        fprintf (stderr, var_not_found, var);
+        exit (EXIT_FAILURE);
       }
   }
 
@@ -238,8 +235,8 @@ main (argc, argv)
     pz_src_dir = getenv (var);
     if (pz_src_dir == (char *) NULL)
       {
-	fprintf (stderr, var_not_found, var);
-	exit (EXIT_FAILURE);
+        fprintf (stderr, var_not_found, var);
+        exit (EXIT_FAILURE);
       }
   }
 
@@ -267,56 +264,56 @@ main (argc, argv)
       pid_t child;
 
       /* Only the parent process can read from stdin without confusing
-	 the world. (How does the child tell the parent to skip
-	 forward?  Pipes and files behave differently.)  */
+         the world. (How does the child tell the parent to skip
+         forward?  Pipes and files behave differently.)  */
+      file_name_ct = 0;
+      pz_buf = file_name_buf;
+      while (  (file_name_ct < BOGUS_LIMIT)
+            && (pz_buf < (file_name_buf + NAME_TABLE_SIZE - MAXPATHLEN)))
+        {
+          if (fgets (pz_buf, MAXPATHLEN, stdin) == (char *) NULL)
+            break;
+          while (isspace (*pz_buf))
+            pz_buf++;
+          if ((*pz_buf == '\0') || (*pz_buf == '#'))
+            continue;
+          apz_names[file_name_ct++] = pz_buf;
+          pz_buf += strlen (pz_buf);
+          while (isspace (pz_buf[-1]))
+            pz_buf--;
+          *pz_buf++ = '\0';
+        }
 
-      for (file_name_ct = 0, pz_buf = file_name_buf;
-	   (file_name_ct < BOGUS_LIMIT)
-	   && (pz_buf
-	       < (file_name_buf + NAME_TABLE_SIZE - MAXPATHLEN));
-	   /* no iteration action */)
-	{
-	  if (fgets (pz_buf, MAXPATHLEN, stdin) == (char *) NULL)
-	    break;
-	  while (isspace (*pz_buf))
-	    pz_buf++;
-	  if ((*pz_buf == '\0') || (*pz_buf == '#'))
-	    continue;
-	  apz_names[file_name_ct++] = pz_buf;
-	  pz_buf += strlen (pz_buf);
-	  while (isspace (pz_buf[-1]))
-	    pz_buf--;
-	  *pz_buf++ = '\0';
-	}
-
+      /*  IF we did not get any files this time thru
+          THEN we must be done.  */
       if (file_name_ct == 0)
-	return EXIT_SUCCESS;  /* Parent process successful exit */
+        return EXIT_SUCCESS;
 
       child = fork ();
       if (child == NULLPROCESS)
-	break;
+        break;
 
       if (child == NOPROCESS)
-	{
-	  fprintf (stderr, "Error %d (%s) forking in main\n",
-		   errno, strerror (errno));
-	  exit (EXIT_FAILURE);
-	}
+        {
+          fprintf (stderr, "Error %d (%s) forking in main\n",
+                   errno, strerror (errno));
+          exit (EXIT_FAILURE);
+        }
 #ifdef DEBUG
       fprintf (stderr, "Waiting for %d to complete %d files\n",
-	       child, file_name_ct);
+               child, file_name_ct);
 #endif
       {
-	int status;
-	pid_t dead_kid = wait (&status);
+        int status;
+        pid_t dead_kid = wait (&status);
 
-	if (dead_kid != child)
-	  fprintf (stderr, "fixincl woke up from a strange child %d (not %d)\n",
-		   dead_kid, child);
+        if (dead_kid != child)
+          fprintf (stderr, "fixincl woke up from a strange child %d (not %d)\n",
+                   dead_kid, child);
 #ifdef DEBUG
-	else
-	  fprintf (stderr, "child finished %d files %s\n", file_name_ct,
-		   status ? strerror (status & 0xFF) : "ok");
+        else
+          fprintf (stderr, "child finished %d files %s\n", file_name_ct,
+                   status ? strerror (status & 0xFF) : "ok");
 #endif
       }
     }
@@ -326,7 +323,7 @@ main (argc, argv)
 
 #ifdef DEBUG
   fprintf (stderr, "Child start  --  processing %d files\n",
-	   file_name_ct);
+           file_name_ct);
 #endif
 
   /*  For every file specified in stdandard in
@@ -338,18 +335,18 @@ main (argc, argv)
       char *pz_file_name = apz_names[loop_ct];
 
       if (access (pz_file_name, R_OK) != 0)
-	{
-	  int erno = errno;
-	  fprintf (stderr, "Cannot access %s from %s\n\terror %d (%s)\n",
-		   pz_file_name, getcwd ((char *) NULL, MAXPATHLEN),
-		   erno, strerror (erno));
-	}
+        {
+          int erno = errno;
+          fprintf (stderr, "Cannot access %s from %s\n\terror %d (%s)\n",
+                   pz_file_name, getcwd ((char *) NULL, MAXPATHLEN),
+                   erno, strerror (erno));
+        }
       else if (pz_data = load_file (pz_file_name), (pz_data != (char *) NULL))
-	{
-	  if (strstr (pz_data, gnu_lib_mark) == (char *) NULL)
-	    process (pz_data, pz_file_name);
-	  free ((void *) pz_data);
-	}
+        {
+          if (strstr (pz_data, gnu_lib_mark) == (char *) NULL)
+            process (pz_data, pz_file_name);
+          free ((void *) pz_data);
+        }
     }
 
   return EXIT_SUCCESS;
@@ -357,9 +354,11 @@ main (argc, argv)
 
 
 /* * * * * * * * * * * * *
- *
- *  load_file loads all the contents of a file into malloc-ed memory.
- */
+ 
+   load_file loads all the contents of a file into malloc-ed memory.
+   Its argument is the name of the file to read in; the returned
+   result is the NUL terminated contents of the file.  The file
+   is presumed to be an ASCII text file containing no NULs.  */
 char *
 load_file (pz_file_name)
      const char *pz_file_name;
@@ -372,9 +371,9 @@ load_file (pz_file_name)
     
     if (stat (pz_file_name, &stbf) != 0)
       {
-	fprintf (stderr, "error %d (%s) stat-ing %s\n",
-		 errno, strerror (errno), pz_file_name);
-	return (char *) NULL;
+        fprintf (stderr, "error %d (%s) stat-ing %s\n",
+                 errno, strerror (errno), pz_file_name);
+        return (char *) NULL;
       }
     file_size = stbf.st_size;
   }
@@ -385,7 +384,7 @@ load_file (pz_file_name)
   if (pz_data == (char *) NULL)
     {
       fprintf (stderr, "error:  could not malloc %d bytes\n",
-	       file_size);
+               file_size);
       exit (EXIT_FAILURE);
     }
 
@@ -396,33 +395,33 @@ load_file (pz_file_name)
 
     if (fp == (FILE *) NULL)
       {
-	fprintf (stderr, "error %d (%s) opening %s\n", errno,
-		 strerror (errno), pz_file_name);
-	free ((void *) pz_data);
-	return (char *) NULL;
+        fprintf (stderr, "error %d (%s) opening %s\n", errno,
+                 strerror (errno), pz_file_name);
+        free ((void *) pz_data);
+        return (char *) NULL;
       }
 
     do
       {
-	size_t sizeRead = fread ((void *) read_ptr, 1, size_left, fp);
+        size_t sizeRead = fread ((void *) read_ptr, 1, size_left, fp);
 
-	if (sizeRead == 0)
-	  {
-	    if (feof (fp))
-	      break;
+        if (sizeRead == 0)
+          {
+            if (feof (fp))
+              break;
 
-	    if (ferror (fp))
-	      {
-		fprintf (stderr, "error %d (%s) reading %s\n", errno,
-			 strerror (errno), pz_file_name);
-		free ((void *) pz_data);
-		fclose (fp);
-		return (char *) NULL;
-	      }
-	  }
+            if (ferror (fp))
+              {
+                fprintf (stderr, "error %d (%s) reading %s\n", errno,
+                         strerror (errno), pz_file_name);
+                free ((void *) pz_data);
+                fclose (fp);
+                return (char *) NULL;
+              }
+          }
 
-	read_ptr += sizeRead;
-	size_left -= sizeRead;
+        read_ptr += sizeRead;
+        size_left -= sizeRead;
       }
     while (size_left != 0);
 
@@ -434,8 +433,8 @@ load_file (pz_file_name)
 
 
 /* * * * * * * * * * * * *
- *
- *  run_compiles   run all the regexp compiles for all the fixes once.
+ 
+   run_compiles   run all the regexp compiles for all the fixes once.
  */
 void
 run_compiles ()
@@ -453,109 +452,141 @@ run_compiles ()
   if (p_re == (regex_t *) NULL)
     {
       fprintf (stderr, "fixincl ERROR:  cannot allocate %d bytes for regex\n",
-	       REGEX_COUNT * sizeof (regex_t));
+               REGEX_COUNT * sizeof (regex_t));
       exit (EXIT_FAILURE);
     }
+
+  /*  The patterns we search for are all egrep patterns.
+      In the shell version of this program, we invoke egrep
+      with the supplied pattern.  Here, we will run
+      re_compile_pattern, but it must be using the same rules.  */
 
   re_set_syntax (RE_SYNTAX_EGREP);
   pz_err = re_compile_pattern (incl_quote_pat, sizeof (incl_quote_pat)-1,
-			      &incl_quote_re);
+                              &incl_quote_re);
   if (pz_err != (char *) NULL)
     {
       fprintf (stderr, z_bad_comp, "quoted include", "run_compiles",
-	       incl_quote_pat, pz_err);
+               incl_quote_pat, pz_err);
       exit (EXIT_FAILURE);
     }
 
-  /*
-   *  FOR every fixup, ...
-   */
+  /* FOR every fixup, ...  */
   do
     {
       p_test = p_fixd->p_test_desc;
       test_ct = p_fixd->test_ct;
 
-      if (p_fixd->papz_machs != (const char**) NULL)
-	{
-	  const char **papz_machs = p_fixd->papz_machs;
-	  char *pz = file_name_buf;
-	  char *pz_sep = "";
-	  tCC *pz_if_true;
-	  tCC *pz_if_false;
-	  tSCC skip[] = "skip";
-	  tSCC run[] = "run";
+      /*  IF the machine type pointer is not NULL (we are not in test mode)
+             AND this test is for or not done on particular machines
+          THEN ...   */
 
-	  sprintf (pz, "case %s in\n", pz_machine);
-	  pz += strlen (pz);
+      if (  (pz_machine != NULL)
+         && (p_fixd->papz_machs != (const char**) NULL) )
+        {
+          const char **papz_machs = p_fixd->papz_machs;
+          char *pz = file_name_buf;
+          char *pz_sep = "";
+          tCC *pz_if_true;
+          tCC *pz_if_false;
+          tSCC skip[] = "skip";
+          tSCC run[] = "run";
 
-	  if (p_fixd->fd_flags & FD_MACH_IFNOT)
-	    {
-	      pz_if_true  = skip;
-	      pz_if_false = run;
-	    }
-	  else
-	    {
-	      pz_if_true  = run;
-	      pz_if_false = skip;
-	    }
+          /*  Construct a shell script that looks like this:
 
-	for (;;)
-	  {
-	    const char* pz_mach = *(papz_machs++);
+              case our-cpu-platform-os in
+              tests-cpu-platform-os-pattern )
+                  echo run ;;
+              * )
+                  echo skip ;;
+              esac
 
-	    if (pz_mach == (const char*) NULL)
-	      break;
-	    sprintf (pz, "%s  %s", pz_sep, pz_mach);
-	    pz += strlen (pz);
-	    pz_sep = " | \\\n";
-	  }
-	sprintf (pz, " )\n    echo %s ;;\n  * )\n    echo %s ;;\nesac",
-		 pz_if_true, pz_if_false);
-	pz = runShell (file_name_buf);
-	if (*pz == 's')
-	  {
-	    p_fixd->fd_flags |= FD_SKIP_TEST;
-	    continue;
-	  }
-	}
+              where 'run' and 'skip' may be reversed, depending on
+              the sense of the test.  */
 
-      /*
-       *  FOR every test for the fixup, ...
-       */
+          sprintf (pz, "case %s in\n", pz_machine);
+          pz += strlen (pz);
+
+          if (p_fixd->fd_flags & FD_MACH_IFNOT)
+            {
+              pz_if_true  = skip;
+              pz_if_false = run;
+            }
+          else
+            {
+              pz_if_true  = run;
+              pz_if_false = skip;
+            }
+
+          /*  FOR any additional machine names to test for,
+              insert the " | \\\n" glue and the machine pattern.  */
+
+          for (;;)
+            {
+              const char* pz_mach = *(papz_machs++);
+
+              if (pz_mach == (const char*) NULL)
+                break;
+              sprintf (pz, "%s  %s", pz_sep, pz_mach);
+              pz += strlen (pz);
+              pz_sep = " | \\\n";
+            }
+          sprintf (pz, " )\n    echo %s ;;\n  * )\n    echo %s ;;\nesac",
+                   pz_if_true, pz_if_false);
+
+          /*  Run the script.
+              The result will start either with 's' or 'r'.  */
+
+          pz = runShell (file_name_buf);
+          if (*pz == 's')
+            {
+              p_fixd->fd_flags |= FD_SKIP_TEST;
+              continue;
+            }
+        }
+
+      /* FOR every test for the fixup, ...  */
+
       while (--test_ct >= 0)
-	{
-	  switch (p_test->type)
-	    {
-	    case TT_EGREP:
-	    case TT_NEGREP:
-	      if (--re_ct < 0)
-		{
-		  fputs ("out of RE's\n", stderr);
-		  exit (EXIT_FAILURE);
-		}
+        {
+          switch (p_test->type)
+            {
+            case TT_EGREP:
+            case TT_NEGREP:
+              /*  You might consider putting the following under #ifdef.
+                  The number of re's used is computed by autogen.
+                  So, it is static and known at compile time.  */
 
-	      p_test->p_test_regex = p_re++;
-	      pz_err = re_compile_pattern (p_test->pz_test_text,
-					  strlen (p_test->pz_test_text),
-					  p_test->p_test_regex);
-	      if (pz_err != (char *) NULL)
-		{
-		  fprintf (stderr, z_bad_comp, "select test", p_fixd->fix_name,
-			   p_test->pz_test_text, pz_err);
-		  exit (EXIT_FAILURE);
-		}
-	    }
-	  p_test++;
-	}
+              if (--re_ct < 0)
+                {
+                  fputs ("out of RE's\n", stderr);
+                  exit (EXIT_FAILURE);
+                }
+
+              p_test->p_test_regex = p_re++;
+              pz_err = re_compile_pattern (p_test->pz_test_text,
+                                          strlen (p_test->pz_test_text),
+                                          p_test->p_test_regex);
+              if (pz_err != (char *) NULL)
+                {
+                  fprintf (stderr, z_bad_comp, "select test", p_fixd->fix_name,
+                           p_test->pz_test_text, pz_err);
+                  exit (EXIT_FAILURE);
+                }
+            }
+          p_test++;
+        }
     }
   while (p_fixd++, --fix_ct > 0);
 }
 
 
 /* * * * * * * * * * * * *
- *
- *  create_file  Create the output modified file
- */
+ 
+   create_file  Create the output modified file.
+   Input:    the name of the file to create
+   Returns:  a file pointer to the new, open file  */
+
 FILE *
 create_file (pz_file_name)
      const char *pz_file_name;
@@ -576,17 +607,17 @@ create_file (pz_file_name)
       struct stat stbf;
 
       while (pz_dir != (char *) NULL)
-	{
-	  *pz_dir = NUL;
-	  if (stat (fname, &stbf) < 0)
-	    {
-	      mkdir (fname, S_IFDIR | S_IRWXU | S_IRGRP | S_IXGRP
-		     | S_IROTH | S_IXOTH);
-	    }
+        {
+          *pz_dir = NUL;
+          if (stat (fname, &stbf) < 0)
+            {
+              mkdir (fname, S_IFDIR | S_IRWXU | S_IRGRP | S_IXGRP
+                     | S_IROTH | S_IXOTH);
+            }
 
-	  *pz_dir = '/';
-	  pz_dir = strchr (pz_dir + 1, '/');
-	}
+          *pz_dir = '/';
+          pz_dir = strchr (pz_dir + 1, '/');
+        }
 
       /*  Now, lets try the open again... */
       fd = open (fname, O_WRONLY | O_CREAT);
@@ -594,7 +625,7 @@ create_file (pz_file_name)
   if (fd < 0)
     {
       fprintf (stderr, "Error %d (%s) creating %s\n",
-	       errno, strerror (errno), fname);
+               errno, strerror (errno), fname);
       exit (EXIT_FAILURE);
     }
   fprintf (stderr, "Fixed:  %s\n", pz_file_name);
@@ -603,13 +634,10 @@ create_file (pz_file_name)
 #ifdef LATER
   {
     static const char hdr[] =
-    "/*\n"
-    " *  DO NOT EDIT THIS FILE.\n"
-    " *\n"
-    " *  It has been auto-edited by fixincludes from /usr/include/%s\n"
-    " *  This had to be done to correct non-standard usages in the\n"
-    " *  original, manufacturer supplied header file.\n"
-    " */\n\n";
+    "/*  DO NOT EDIT THIS FILE.\n\n"
+    "    It has been auto-edited by fixincludes from /usr/include/%s\n"
+    "    This had to be done to correct non-standard usages in the\n"
+    "    original, manufacturer supplied header file.  */\n\n";
 
     fprintf (pf, hdr, pz_file_name);
   }
@@ -619,9 +647,13 @@ create_file (pz_file_name)
 
 
 /* * * * * * * * * * * * *
- *
- * test_test   make sure a shell-style test expression passes
- */
+
+  test_test   make sure a shell-style test expression passes.
+  Input:  a pointer to the descriptor of the test to run and
+          the name of the file that we might want to fix
+  Result: SUCCESS or FAILURE, depending on the result of the
+          shell script we run.  */
+
 t_success
 test_test (p_test, pz_file_name)
      tTestDesc *p_test;
@@ -631,8 +663,12 @@ test_test (p_test, pz_file_name)
   t_success res = FAILURE;
 
   static char cmd_buf[4096];
-  tSCC cmd_fmt[] = "file=%s\nif ( test %s ) > /dev/null 2>&1\n"
-    "then echo TRUE\n" "else echo FALSE\n" "fi";
+  tSCC cmd_fmt[] =
+    "file=%s\n"
+    "if ( test %s ) > /dev/null 2>&1\n"
+    "then echo TRUE\n"
+    "else echo FALSE\n"
+    "fi";
 
   sprintf (cmd_buf, cmd_fmt, pz_file_name, p_test->pz_test_text);
   pz_res = runShell (cmd_buf);
@@ -644,11 +680,15 @@ test_test (p_test, pz_file_name)
 
 
 /* * * * * * * * * * * * *
- *
- * egrep_test   make sure an egrep expression is found in the file text
- * The caller may choose 'FAILURE' as 'SUCCESS' if the sense of the test
- * is inverted.
- */
+ 
+  egrep_test   make sure an egrep expression is found in the file text.
+  Input:  a pointer to the descriptor of the test to run and
+          the pointer to the contents of the file under suspicion
+  Result: SUCCESS if the pattern is found, FAILURE otherwise
+
+  The caller may choose 'FAILURE' as 'SUCCESS' if the sense of the test
+  is inverted.  */
+
 t_success
 egrep_test (pz_data, p_test)
      char *pz_data;
@@ -659,7 +699,7 @@ egrep_test (pz_data, p_test)
 #ifndef NO_BOGOSITY
   if (p_test->p_test_regex == 0)
     fprintf (stderr, "fixincl ERROR RE not compiled:  `%s'\n",
-	     p_test->pz_test_text);
+             p_test->pz_test_text);
 #endif
   if (regexec (p_test->p_test_regex, pz_data, 1, &match, 0) == 0)
     return SUCCESS;
@@ -682,7 +722,12 @@ egrep_test (pz_data, p_test)
     1.  source directory of the original file
     2.  the relative path file name of the #includ-ed file
     3.  the full destination path for this file
- */
+
+   Input:  the text of the file, the file name and a pointer to the
+           match list where the match information was stored.
+   Result: internally nothing.  The results are written to stdout
+           for interpretation by the invoking shell  */
+
 void
 extract_quoted_files (pz_data, pz_file_name, p_re_match)
      char *pz_data;
@@ -695,8 +740,8 @@ extract_quoted_files (pz_data, pz_file_name, p_re_match)
   fprintf (stderr, "Quoted includes in %s\n", pz_file_name);
 
   /*  Set "pz_file_name" to point to the containing subdirectory of the source
-      If there is none, then it is in our current direcory, ".".
-   */
+      If there is none, then it is in our current direcory, ".".   */
+
   if (pz_dir_end == (char *) NULL)
     pz_file_name = ".";
   else
@@ -708,42 +753,44 @@ extract_quoted_files (pz_data, pz_file_name, p_re_match)
 
       /*  Skip forward to the included file name */
       while (isspace (*pz_incl_quot))
-	pz_incl_quot++;
+        pz_incl_quot++;
       while (isspace (*++pz_incl_quot))
-	;
+        ;
       pz_incl_quot += sizeof ("include") - 1;
       while (*pz_incl_quot++ != '"')
-	;
+        ;
 
       /* Print the source directory and the subdirectory of the file
-	 in question.  */
+         in question.  */
       printf ("%s  %s/", pz_src_dir, pz_file_name);
       pz_dir_end = pz_incl_quot;
 
       /* Append to the directory the relative path of the desired file */
       while (*pz_incl_quot != '"')
-	putc (*pz_incl_quot++, stdout);
+        putc (*pz_incl_quot++, stdout);
 
       /* Now print the destination directory appended with the
-	 relative path of the desired file */
+         relative path of the desired file */
       printf ("  %s/%s/", pz_dest_dir, pz_file_name);
       while (*pz_dir_end != '"')
-	putc (*pz_dir_end++, stdout);
+        putc (*pz_dir_end++, stdout);
 
       /* End of entry */
       putc ('\n', stdout);
 
       /* Find the next entry */
       if (regexec (&incl_quote_re, pz_incl_quot, 1, p_re_match, 0) != 0)
-	break;
+        break;
     }
 }
 
 
 /* * * * * * * * * * * * *
- *
- *  Process the potential fixes for a particular include file
- */
+
+   Process the potential fixes for a particular include file.
+   Input:  the original text of the file and the file's name
+   Result: none.  A new file may or may not be created.  */
+
 void
 process (pz_data, pz_file_name)
      char *pz_data;
@@ -756,8 +803,8 @@ process (pz_data, pz_file_name)
 
   /*  IF this is the first time through,
       THEN put the 'file' environment variable into the environment.
-	   This is used by some of the subject shell scripts and tests.
-   */
+           This is used by some of the subject shell scripts and tests.   */
+
   if (env_current_file[5] == NUL)
     putenv (env_current_file);
 
@@ -767,13 +814,13 @@ process (pz_data, pz_file_name)
        putenv(3C)             C Library Functions             putenv(3C)
    
        DESCRIPTION
-	    putenv() makes the value of the  environment  variable  name
-	    equal  to value by altering an existing variable or creating
-	    a new one.  In either case, the string pointed to by  string
-	    becomes part of the environment, so altering the string will
-	    change the environment.  string points to a  string  of  the
-	    form  ``name=value.''  The space used by string is no longer
-	    used once a new string-defining name is passed to putenv().
+            putenv() makes the value of the  environment  variable  name
+            equal  to value by altering an existing variable or creating
+            a new one.  In either case, the string pointed to by  string
+            becomes part of the environment, so altering the string will
+            change the environment.  string points to a  string  of  the
+            form  ``name=value.''  The space used by string is no longer
+            used once a new string-defining name is passed to putenv().
    */
   strcpy (env_current_file + 5, pz_file_name);
   process_chain_head = NOPROCESS;
@@ -785,127 +832,140 @@ process (pz_data, pz_file_name)
       int test_ct;
 
       if (p_fixd->fd_flags & FD_SKIP_TEST)
-	continue;
+        continue;
 
-      /*
-       *  IF there is a file name restriction,
-       *  THEN ensure the current file name matches one in the pattern
-       */
+      /*  IF there is a file name restriction,
+          THEN ensure the current file name matches one in the pattern  */
+
       if (p_fixd->file_list != (char *) NULL)
-	{
-	  const char *pz_fname = pz_file_name;
-	  const char *pz_scan = p_fixd->file_list;
-	  size_t name_len;
+        {
+          const char *pz_fname = pz_file_name;
+          const char *pz_scan = p_fixd->file_list;
+          size_t name_len;
 
-	  while ((pz_fname[0] == '.') && (pz_fname[1] == '/'))
-	    pz_fname += 2;
-	  name_len = strlen (pz_fname);
+          while ((pz_fname[0] == '.') && (pz_fname[1] == '/'))
+            pz_fname += 2;
+          name_len = strlen (pz_fname);
 
-	  for (;;)
-	    {
-	      pz_scan = strstr (pz_scan + 1, pz_fname);
-	      if (pz_scan == (char *) NULL)
-		goto next_fix;
+          for (;;)
+            {
+              pz_scan = strstr (pz_scan + 1, pz_fname);
+              /*  IF we can't match the string at all,
+                  THEN bail  */
+              if (pz_scan == (char *) NULL)
+                goto next_fix;
 
-	      if ((pz_scan[-1] == '|') && (pz_scan[name_len] == '|'))
-		break;
-	    }
-	}
+              /*  IF the match is surrounded by the '|' markers,
+                  THEN we found a full match -- time to run the tests  */
 
-      /*
-       *  IF there are no tests
-       *  THEN we always run the fixup
-       */
+              if ((pz_scan[-1] == '|') && (pz_scan[name_len] == '|'))
+                break;
+            }
+        }
+
+      /*  FOR each test, see if it fails.
+          IF it does fail, then we go on to the next test */
+
       for (p_test = p_fixd->p_test_desc, test_ct = p_fixd->test_ct;
-	   test_ct-- > 0;
-	   p_test++)
-	{
+           test_ct-- > 0;
+           p_test++)
+        {
 #ifdef DEBUG
-	  static const char z_test_fail[] =
-	    "%16s test %2d failed for %s\n";
+          static const char z_test_fail[] =
+            "%16s test %2d failed for %s\n";
 #endif
-	  switch (p_test->type)
-	    {
-	    case TT_TEST:
-	      if (!SUCCESSFUL (test_test (p_test, pz_file_name)))
-		{
+          switch (p_test->type)
+            {
+            case TT_TEST:
+              if (!SUCCESSFUL (test_test (p_test, pz_file_name)))
+                {
 #ifdef DEBUG
-		  fprintf (stderr, z_test_fail, p_fixd->fix_name,
-			   p_fixd->test_ct - test_ct, pz_file_name);
+                  fprintf (stderr, z_test_fail, p_fixd->fix_name,
+                           p_fixd->test_ct - test_ct, pz_file_name);
 #endif
-		  goto next_fix;
-		}
-	      break;
+                  goto next_fix;
+                }
+              break;
 
-	    case TT_EGREP:
-	      if (!SUCCESSFUL (egrep_test (pz_data, p_test)))
-		{
+            case TT_EGREP:
+              if (!SUCCESSFUL (egrep_test (pz_data, p_test)))
+                {
 #ifdef DEBUG
-		  fprintf (stderr, z_test_fail, p_fixd->fix_name,
-			   p_fixd->test_ct - test_ct, pz_file_name);
+                  fprintf (stderr, z_test_fail, p_fixd->fix_name,
+                           p_fixd->test_ct - test_ct, pz_file_name);
 #endif
-		  goto next_fix;
-		}
-	      break;
+                  goto next_fix;
+                }
+              break;
 
-	    case TT_NEGREP:
-	      if (SUCCESSFUL (egrep_test (pz_data, p_test)))
-		{
+            case TT_NEGREP:
+              if (SUCCESSFUL (egrep_test (pz_data, p_test)))
+                {
 #ifdef DEBUG
-		  fprintf (stderr, z_test_fail, p_fixd->fix_name,
-			   p_fixd->test_ct - test_ct, pz_file_name);
+                  fprintf (stderr, z_test_fail, p_fixd->fix_name,
+                           p_fixd->test_ct - test_ct, pz_file_name);
 #endif
-		  goto next_fix;
-		}
-	      break;
-	    }
-	}
+                  goto next_fix;
+                }
+              break;
+            }
+        }
 
       fprintf (stderr, "Applying %-32s to %s\n",
-	       p_fixd->fix_name, pz_file_name);
+               p_fixd->fix_name, pz_file_name);
+
+      /*  IF we do not have a read pointer,
+          THEN this is the first fix for the current file.
+          Open the source file.  That will be used as stdin for
+          the first fix.  Any subsequent fixes will use the
+          stdout descriptor of the previous fix as its stdin.  */
 
       if (fdp.readFd == -1)
-	{
-	  fdp.readFd = open (pz_file_name, O_RDONLY);
-	  if (fdp.readFd < 0)
-	    {
-	      fprintf (stderr, "Error %d (%s) opening %s\n", errno,
-		       strerror (errno), pz_file_name);
-	      exit (EXIT_FAILURE);
-	    }
-	}
+        {
+          fdp.readFd = open (pz_file_name, O_RDONLY);
+          if (fdp.readFd < 0)
+            {
+              fprintf (stderr, "Error %d (%s) opening %s\n", errno,
+                       strerror (errno), pz_file_name);
+              exit (EXIT_FAILURE);
+            }
+        }
+
+      /*  This loop should only cycle for 1/2 of one loop.
+          "chain_open" starts a process that uses "fdp.readFd" as
+          its stdin and returns the new fd this process will use
+          for stdout.  */
 
       for (;;)
-	{
-	  static int failCt = 0;
-	  int fd = chainOpen (fdp.readFd,
-			      (tpChar *) p_fixd->patch_args,
-			      (process_chain_head == -1)
-			      ? &process_chain_head : (pid_t *) NULL);
+        {
+          static int failCt = 0;
+          int fd = chainOpen (fdp.readFd,
+                              (tpChar *) p_fixd->patch_args,
+                              (process_chain_head == -1)
+                              ? &process_chain_head : (pid_t *) NULL);
 
-	  if (fd != -1)
-	    {
-	      fdp.readFd = fd;
-	      break;
-	    }
+          if (fd != -1)
+            {
+              fdp.readFd = fd;
+              break;
+            }
 
-	  fprintf (stderr, "Error %d (%s) starting filter process "
-		   "for %s\n", errno, strerror (errno),
-		   p_fixd->fix_name);
+          fprintf (stderr, "Error %d (%s) starting filter process "
+                   "for %s\n", errno, strerror (errno),
+                   p_fixd->fix_name);
 
-	  if ((errno != EAGAIN) || (++failCt > 10))
-	    exit (EXIT_FAILURE);
-	  sleep (1);
-	}
+          if ((errno != EAGAIN) || (++failCt > 10))
+            exit (EXIT_FAILURE);
+          sleep (1);
+        }
 
     next_fix:
       ;
     }
 
-  /*
-   *  IF after all the tests we did not start any patch programs,
-   *  THEN quit now.
-   */
+  /*  IF after all the tests we did not start any patch programs,
+      THEN quit now.   */
+
   if (fdp.readFd < 0)
     return;
 
@@ -923,55 +983,55 @@ process (pz_data, pz_file_name)
 
     for (;;)
       {
-	int ch;
+        int ch;
 
-	ch = getc (in_fp);
-	if (ch == EOF)
-	  break;
+        ch = getc (in_fp);
+        if (ch == EOF)
+          break;
 
-	/*  IF we are emitting the output
-	    THEN emit this character, too.
-	    */
-	if (out_fp != (FILE *) NULL)
-	  putc (ch, out_fp);
+        /*  IF we are emitting the output
+            THEN emit this character, too.
+            */
+        if (out_fp != (FILE *) NULL)
+          putc (ch, out_fp);
 
-	/*  ELSE if this character does not match the original,
-	    THEN now is the time to start the output.
-	    */
-	else if (ch != *pz_cmp)
-	  {
-	    out_fp = create_file (pz_file_name);
+        /*  ELSE if this character does not match the original,
+            THEN now is the time to start the output.
+            */
+        else if (ch != *pz_cmp)
+          {
+            out_fp = create_file (pz_file_name);
 
-	    /*  IF there are matched data, write it all now. */
-	    if (pz_cmp != pz_data)
-	      {
-		char c = *pz_cmp;
-		
-		*pz_cmp = NUL;
-		fputs (pz_data, out_fp);
-		*pz_cmp = c;
-	      }
+            /*  IF there are matched data, write it all now. */
+            if (pz_cmp != pz_data)
+              {
+                char c = *pz_cmp;
+                
+                *pz_cmp = NUL;
+                fputs (pz_data, out_fp);
+                *pz_cmp = c;
+              }
 
-	    /*  Emit the current unmatching character */
-	    putc (ch, out_fp);
-	  }
-	else
-	  /*  ELSE the character matches.  Advance the compare ptr */
-	  pz_cmp++;
+            /*  Emit the current unmatching character */
+            putc (ch, out_fp);
+          }
+        else
+          /*  ELSE the character matches.  Advance the compare ptr */
+          pz_cmp++;
       }
 
     /*  IF we created the output file, ... */
     if (out_fp != (FILE *) NULL)
       {
-	regmatch_t match;
+        regmatch_t match;
 
-	/*  Make sure everyone can read it, close it and
-	    see if we have to worry about `#include "file.h"' constructs
-	    */
-	fchmod (fileno (out_fp), S_IRUSR | S_IRGRP | S_IROTH);
-	fclose (out_fp);
-	if (regexec (&incl_quote_re, pz_data, 1, &match, 0) == 0)
-	  extract_quoted_files (pz_data, pz_file_name, &match);
+        /*  Make sure everyone can read it, close it and
+            see if we have to worry about `#include "file.h"' constructs
+            */
+        fchmod (fileno (out_fp), S_IRUSR | S_IRGRP | S_IROTH);
+        fclose (out_fp);
+        if (regexec (&incl_quote_re, pz_data, 1, &match, 0) == 0)
+          extract_quoted_files (pz_data, pz_file_name, &match);
       }
     fclose (in_fp);
   }
