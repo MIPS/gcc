@@ -3487,7 +3487,7 @@ static int
 tree_verify_flow_info (void)
 {
   int err = 0;
-  basic_block bb, abb;
+  basic_block bb;
   block_stmt_iterator bsi;
   tree stmt;
   tree_stmt_iterator tsi;
@@ -3521,25 +3521,34 @@ tree_verify_flow_info (void)
     return err;
 
   for (tsi = tsi_start (bb->head_tree_p); !tsi_end_p (tsi); tsi_next (&tsi))
+    if (*bb->head_tree_p == tsi_stmt (tsi))
+      {
+	tsi_next (&tsi);
+	break;
+      }
+  for (; !tsi_end_p (tsi); tsi_next (&tsi))
     {
+      if (bb->next_bb != EXIT_BLOCK_PTR
+	  && *bb->next_bb->head_tree_p == tsi_stmt (tsi))
+	{
+	  bb = bb->next_bb;
+	  continue;
+	}
+
       if (IS_EMPTY_STMT (tsi_stmt (tsi)))
 	continue;
- 
-      abb = bb_for_stmt (tsi_stmt (tsi));
-      if (!abb)
-	continue;
 
-      if (abb != bb)
+      if (!bb_for_stmt (tsi_stmt (tsi)))
+	fprintf (stderr, "Statement outside any basic block after bb %d",
+		 bb->index);
+      else
 	{
-	  if (abb != bb->next_bb)
-	    {
-	      fprintf (stderr, "Block missordering after bb %d\n",
-		       bb->index);
-	      err = 1;
-	    }
-
-	  bb = abb;
+	  fprintf (stderr, "Block missordering after bb %d\n",
+		   bb->index);
+	  bb = bb_for_stmt (tsi_stmt (tsi));
 	}
+
+      err = 1;
     }
 
   return err;
