@@ -1,3 +1,36 @@
+2002-11-26  Jason Merrill  <jason@redhat.com>
+
+	Gimplify C++ cleanups.
+	* gimplify.c (voidify_wrapper_expr): Split out from...
+	(simplify_bind_expr): ...here.
+	(simplify_cleanup_point_expr): New fn.
+	(simplify_target_expr): New fn.
+	(gimple_conditional_context): New fn.
+	(gimple_push_condition, gimple_pop_condition): New fns.
+	(simplify_expr) [TRY_CATCH_EXPR]: Handle like TRY_FINALLY_EXPR.
+	* c-simplify.c (simplify_cleanup): New fn.
+	(c_simplify_stmt): Call it and lang_simplify_stmt.
+	(simplify_expr_stmt): Wrap the expr in a CLEANUP_POINT_EXPR.
+	(simplify_return_stmt, simplify_decl_stmt): Likewise.
+	(simplify_stmt_expr): Handle the STMT_EXPR_NO_SCOPE case.
+	(is_last_stmt_of_scope): Likewise.
+	* c-common.h: Declare c_genericize, c_simplify_stmt and 
+	lang_simplify_stmt.
+	* c-common.c (lang_simplify_stmt): Define.
+
+	Gimplify EXIT_EXPRs.
+	* gimplify.c (gimplify_loop_expr, gimplify_exit_expr): New fns.
+	(simplify_expr): Call them.
+	* expr.c (expand_expr) [LOOP_EXPR]: Pass 1 again for exit_flag.
+
+	* tree-simple.c (right_assocify_expr): Also set TREE_SIDE_EFFECTS.
+
+	* gimplify.c (simplify_expr): Call STRIP_TYPE_NOPS.
+	[REALPART_EXPR]: Don't just return.
+
+	* tree-pretty-print.c (dump_c_node): Handle REFERENCE_TYPE.
+	* c-pretty-print.c (dump_c_node): Likewise.  Handle null FOR_INIT_STMT.
+
 2002-11-25  Daniel Berlin <dberlin@dberlin.org>
 
 	* config.gcc: Try committing the correct version.

@@ -4393,6 +4393,8 @@ extern int cp_dump_tree                         PARAMS ((void *, tree));
 
 /* in cp-simplify.c */
 extern int cp_simplify_expr		        PARAMS ((tree *, tree *, tree *));
+extern int cp_simplify_stmt		        PARAMS ((tree *, tree *));
+extern void simplify_aggr_init_expr		PARAMS ((tree *));
 
 /* -- end of C++ */
 

@@ -2167,7 +2167,7 @@ cp_expand_stmt (t)
 }
 
 /* Called from expand_body via walk_tree.  Replace all AGGR_INIT_EXPRs
-   will equivalent CALL_EXPRs.  */
+   with equivalent CALL_EXPRs.  */
 
 static tree
 simplify_aggr_init_exprs_r (tp, walk_subtrees, data)
@@ -2175,80 +2175,21 @@ simplify_aggr_init_exprs_r (tp, walk_subtrees, data)
      int *walk_subtrees ATTRIBUTE_UNUSED;
      void *data ATTRIBUTE_UNUSED;
 {
-  tree aggr_init_expr;
-  tree call_expr;
-  tree fn;
-  tree args;
-  tree slot;
-  tree type;
-  int copy_from_buffer_p;
-
-  aggr_init_expr = *tp;
   /* We don't need to walk into types; there's nothing in a type that
      needs simplification.  (And, furthermore, there are places we
      actively don't want to go.  For example, we don't want to wander
      into the default arguments for a FUNCTION_DECL that appears in a
      CALL_EXPR.)  */
-  if (TYPE_P (aggr_init_expr))
+  if (TYPE_P (*tp))
     {
       *walk_subtrees = 0;
       return NULL_TREE;
     }
   /* Only AGGR_INIT_EXPRs are interesting.  */
-  else if (TREE_CODE (aggr_init_expr) != AGGR_INIT_EXPR)
+  else if (TREE_CODE (*tp) != AGGR_INIT_EXPR)
     return NULL_TREE;
 
-  /* Form an appropriate CALL_EXPR.  */
-  fn = TREE_OPERAND (aggr_init_expr, 0);
-  args = TREE_OPERAND (aggr_init_expr, 1);
-  slot = TREE_OPERAND (aggr_init_expr, 2);
-  type = TREE_TYPE (aggr_init_expr);
-  if (AGGR_INIT_VIA_CTOR_P (aggr_init_expr))
-    {
-      /* Replace the first argument with the address of the third
-	 argument to the AGGR_INIT_EXPR.  */
-      cxx_mark_addressable (slot);
-      args = tree_cons (NULL_TREE, 
-			build1 (ADDR_EXPR, 
-				build_pointer_type (TREE_TYPE (slot)),
-				slot),
-			TREE_CHAIN (args));
-    }
-  call_expr = build (CALL_EXPR, 
-		     TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
-		     fn, args, NULL_TREE);
-  TREE_SIDE_EFFECTS (call_expr) = 1;
-
-  /* If we're using the non-reentrant PCC calling convention, then we
-     need to copy the returned value out of the static buffer into the
-     SLOT.  */
-  copy_from_buffer_p = 0;
-#ifdef PCC_STATIC_STRUCT_RETURN  
-  if (!AGGR_INIT_VIA_CTOR_P (aggr_init_expr) && aggregate_value_p (type))
-    {
-      int old_ac = flag_access_control;
-
-      flag_access_control = 0;
-      call_expr = build_aggr_init (slot, call_expr,
-				   DIRECT_BIND | LOOKUP_ONLYCONVERTING);
-      flag_access_control = old_ac;
-      copy_from_buffer_p = 1;
-    }
-#endif
-
-  /* If this AGGR_INIT_EXPR indicates the value returned by a
-     function, then we want to use the value of the initialized
-     location as the result.  */
-  if (AGGR_INIT_VIA_CTOR_P (aggr_init_expr) || copy_from_buffer_p)
-    {
-      call_expr = build (COMPOUND_EXPR, type,
-			 call_expr, slot);
-      TREE_SIDE_EFFECTS (call_expr) = 1;
-    }
-
-  /* Replace the AGGR_INIT_EXPR with the CALL_EXPR.  */
-  TREE_CHAIN (call_expr) = TREE_CHAIN (aggr_init_expr);
-  *tp = call_expr;
+  simplify_aggr_init_expr (tp);
 
   /* Keep iterating.  */
   return NULL_TREE;
@@ -2302,9 +2243,10 @@ expand_body (fn)
     }
 
   /* Replace AGGR_INIT_EXPRs with appropriate CALL_EXPRs.  */
-  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
-				simplify_aggr_init_exprs_r,
-				NULL);
+  if (flag_disable_simple)
+    walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
+				  simplify_aggr_init_exprs_r,
+				  NULL);
 
   /* If this is a constructor or destructor body, we have to clone
      it.  */
@@ -2381,7 +2323,10 @@ expand_body (fn)
   current_function_is_thunk = DECL_THUNK_P (fn);
 
   /* Expand the body.  */
-  expand_stmt (DECL_SAVED_TREE (fn));
+  if (statement_code_p (TREE_CODE (DECL_SAVED_TREE (fn))))
+    expand_stmt (DECL_SAVED_TREE (fn));
+  else
+    expand_expr_stmt_value (DECL_SAVED_TREE (fn), 0, 0);
 
   /* Statements should always be full-expressions at the outermost set
      of curly braces for a function.  */

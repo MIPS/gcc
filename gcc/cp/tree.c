@@ -2400,6 +2400,7 @@ void
 init_tree ()
 {
   lang_statement_code_p = cp_statement_code_p;
+  lang_simplify_stmt = cp_simplify_stmt;
   list_hash_table = htab_create_ggc (31, list_hash, list_hash_eq, NULL);
 }
 

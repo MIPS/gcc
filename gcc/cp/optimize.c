@@ -36,6 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-inline.h"
 #include "flags.h"
 #include "langhooks.h"
+#include "diagnostic.h"
 
 /* Prototypes.  */
 
@@ -49,7 +50,23 @@ void
 optimize_function (fn)
      tree fn;
 {
-  dump_function (TDI_original, fn);
+  FILE *dump_file;
+  int dump_flags;
+
+  /* Dump the unoptimized tree IR.  */
+  dump_file = dump_begin (TDI_original, &dump_flags);
+  if (dump_file)
+    {
+      fprintf (dump_file, "%s()\n", IDENTIFIER_POINTER (DECL_NAME (fn)));
+
+      if (dump_flags & TDF_RAW)
+	dump_node (DECL_SAVED_TREE (fn), TDF_SLIM | dump_flags, dump_file);
+      else
+	print_c_tree (dump_file, DECL_SAVED_TREE (fn));
+      fprintf (dump_file, "\n");
+
+      dump_end (TDI_original, dump_file);
+    }
 
   /* While in this function, we may choose to go off and compile
      another function.  For example, we might instantiate a function
@@ -77,17 +94,31 @@ optimize_function (fn)
   /* Undo the call to ggc_push_context above.  */
   --function_depth;
 
-#if 0
   /* Simplify the function.  Don't try to optimize the function if
      simplification failed.  */
   if (!flag_disable_simple
       && simplify_function_tree (fn))
     {
+      /* Debugging dump after simplification.  */
+      dump_file = dump_begin (TDI_simple, &dump_flags);
+      if (dump_file)
+	{
+	  fprintf (dump_file, "%s()\n", get_name (fn));
+
+	  if (dump_flags & TDF_RAW)
+	    dump_node (DECL_SAVED_TREE (fn), TDF_SLIM | dump_flags,
+		       dump_file);
+	  else
+	    print_generic_stmt (dump_file, DECL_SAVED_TREE (fn), 0);
+	  fprintf (dump_file, "\n");
+
+	  dump_end (TDI_simple, dump_file);
+	}
+
       /* Invoke the SSA tree optimizer.  */
-      if (flag_tree_ssa)
+      if (optimize >= 1)
 	optimize_function_tree (fn);
     }
-#endif
 
   dump_function (TDI_optimized, fn);
 }

@@ -294,13 +294,18 @@ dump_c_node (buffer, node, spc, brief_dump)
 	  }
 	break;
       }
+
     case POINTER_TYPE:
+    case REFERENCE_TYPE:
+      str = (TREE_CODE (node) == POINTER_TYPE ? "*" : "&");
+
       if (TREE_CODE (TREE_TYPE (node)) == FUNCTION_TYPE)
         {
 	  tree fnode = TREE_TYPE (node);
 	  dump_c_node (buffer, TREE_TYPE (fnode), spc, brief_dump);
 	  output_add_space (buffer);
-	  output_add_string (buffer, "(*");
+	  output_add_character (buffer, '(');
+	  output_add_string (buffer, str);
 	  if (TYPE_NAME (node) && DECL_NAME (TYPE_NAME (node)))
 	    output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node))));
 	  else
@@ -331,7 +336,8 @@ dump_c_node (buffer, node, spc, brief_dump)
 	  unsigned int quals = TYPE_QUALS (node);
 
           dump_c_node (buffer, TREE_TYPE (node), spc, brief_dump);
-	  output_add_string (buffer, " *");
+	  output_add_space (buffer);
+	  output_add_string (buffer, str);
 	  
 	  if (quals & TYPE_QUAL_CONST)
 	    output_add_string (buffer, " const");
@@ -346,11 +352,6 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case OFFSET_TYPE:
       NIY;
-      break;
-
-    case REFERENCE_TYPE:
-      /* FIXME : What is the exact syntax of this node for C? */
-      dump_c_node (buffer, TREE_TYPE (node), spc, brief_dump);
       break;
 
     case METHOD_TYPE:
@@ -1212,7 +1213,9 @@ dump_c_node (buffer, node, spc, brief_dump)
     case FOR_STMT:
       INDENT (spc);
       output_add_string (buffer, "for (");
-      if (TREE_CODE (FOR_INIT_STMT (node)) == EXPR_STMT)
+      if (FOR_INIT_STMT (node) == NULL_TREE)
+	output_add_character (buffer, ';');
+      else if (TREE_CODE (FOR_INIT_STMT (node)) == EXPR_STMT)
 	{
 	  dump_c_node (buffer, EXPR_STMT_EXPR (FOR_INIT_STMT (node)), 0,
 		       brief_dump);

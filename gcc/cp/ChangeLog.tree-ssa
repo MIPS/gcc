@@ -1,3 +1,22 @@
+2002-11-24  Jason Merrill  <jason@redhat.com>
+
+	Gimplify C++ cleanups.
+	* decl.c (finish_function): Call c_genericize.
+	* cp-simplify.c (cp_simplify_stmt): New fn.
+	(genericize_try_block): New fn.
+	(cp_simplify_expr): Move INIT_EXPR/TARGET_EXPR code
+	to ../gimplify.c.  Handle AGGR_INIT_EXPR.
+	(simplify_target_expr): Move to ../gimplify.c.
+	(maybe_fixup_loop_cond): Remove.
+	(simplify_aggr_init_expr): Split out from...
+	* semantics.c (simplify_aggr_init_exprs_r): ...here.
+	(expand_body): Don't simplify AGGR_INIT_EXPRs here
+	if we're gimplifying.  Handle expanding generic trees.
+	* tree.c (init_tree): Set lang_simplify_stmt.
+	* cp-tree.h: Declare the new fns.
+
+	* optimize.c (optimize_function): Do pretty dumps.
+
 2002-10-04  Jason Merrill  <jason@redhat.com>
 
 	* Make-lang.in (CXX_C_OBJS): Add gimplify.o.

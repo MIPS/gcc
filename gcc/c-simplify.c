@@ -80,6 +80,7 @@ static void simplify_compound_literal_expr PARAMS ((tree *));
 static void make_type_writable       PARAMS ((tree));
 static int is_last_stmt_of_scope     PARAMS ((tree));
 static void simplify_block	     PARAMS ((tree *, tree *));
+static void simplify_cleanup	     PARAMS ((tree *, tree *));
 static tree simplify_c_loop	     PARAMS ((tree, tree, tree, int));
 static void push_context             PARAMS ((void));
 static void pop_context              PARAMS ((void));
@@ -238,8 +239,8 @@ c_simplify_stmt (stmt_p)
 	  break;
 
 	case CLEANUP_STMT:
-	  abort ();
-	  goto cont;
+	  simplify_cleanup (&stmt, &next);
+	  break;
 
 	case ASM_STMT:
 	  stmt = build (ASM_EXPR, void_type_node, ASM_STRING (stmt),
@@ -254,6 +255,9 @@ c_simplify_stmt (stmt_p)
 	  goto cont;
 
 	default:
+	  if (lang_simplify_stmt && (*lang_simplify_stmt) (&stmt, &next))
+	    break;
+
 	  fprintf (stderr, "unhandled statement node in c_simplify_stmt ():\n");
 	  debug_tree (stmt);
 	  abort ();
@@ -378,6 +382,26 @@ simplify_block (stmt_p, next_p)
   *stmt_p = bind;
 }
 
+/* Genericize a CLEANUP_STMT.  Just wrap everything from here to the end of
+   the block in a TRY_FINALLY_EXPR.  Or a TRY_CATCH_EXPR, if it's an
+   EH-only cleanup.  */
+
+static void
+simplify_cleanup (stmt_p, next_p)
+     tree *stmt_p;
+     tree *next_p;
+{
+  tree stmt = *stmt_p;
+  tree body = TREE_CHAIN (stmt);
+  enum tree_code code
+    = (CLEANUP_EH_ONLY (stmt) ? TRY_CATCH_EXPR : TRY_FINALLY_EXPR);
+
+  c_simplify_stmt (&body);
+
+  *stmt_p = build (code, void_type_node, body, CLEANUP_EXPR (stmt));
+  *next_p = NULL_TREE;
+}
+
 /*  Simplify an EXPR_STMT node.
 
     STMT is the statement node.
@@ -418,6 +442,8 @@ simplify_expr_stmt (stmt_p)
 	}
     }
 
+  if (stmts_are_full_exprs_p ())
+    stmt = build1 (CLEANUP_POINT_EXPR, void_type_node, stmt);
   *stmt_p = stmt;
 }
 
@@ -514,14 +540,9 @@ simplify_c_loop (cond, body, incr, cond_is_first)
 
   if (cond)
     {
-#if 0
-      exit = build (EXIT_EXPR, void_type_node, cond);
-      EXIT_EXPR_IS_LOOP_COND (exit) = 1;
-#else 
       exit = build_bc_goto (bc_break);
       exit = build (COND_EXPR, void_type_node, cond, empty_stmt_node, exit);
       exit = fold (exit);
-#endif
     }
   else
     exit = NULL_TREE;
@@ -604,11 +625,12 @@ simplify_if_stmt (stmt_p)
   tree stmt = *stmt_p;
   tree then_ = THEN_CLAUSE (stmt);
   tree else_ = ELSE_CLAUSE (stmt);
+  tree cond = IF_COND (stmt);
 
   c_simplify_stmt (&then_);
   c_simplify_stmt (&else_);
 
-  *stmt_p = build (COND_EXPR, void_type_node, IF_COND (stmt), then_, else_);
+  *stmt_p = build (COND_EXPR, void_type_node, cond, then_, else_);
 }
 
 /* Genericize a SWITCH_STMT by turning it into a SWITCH_EXPR.  */
@@ -620,13 +642,13 @@ simplify_switch_stmt (stmt_p)
   tree stmt = *stmt_p;
   tree body = SWITCH_BODY (stmt);
   tree break_block, switch_;
+  tree cond = SWITCH_COND (stmt);
 
   break_block = begin_bc_block (bc_break);
 
   c_simplify_stmt (&body);
 
-  switch_ = build (SWITCH_EXPR, void_type_node, SWITCH_COND (stmt), body,
-		   NULL_TREE);
+  switch_ = build (SWITCH_EXPR, void_type_node, cond, body, NULL_TREE);
 
   switch_ = finish_bc_block (break_block, switch_);
 
@@ -639,8 +661,11 @@ static void
 simplify_return_stmt (stmt_p)
      tree *stmt_p;
 {
-  tree stmt = *stmt_p;
-  *stmt_p = build (RETURN_EXPR, void_type_node, RETURN_STMT_EXPR (stmt));
+  tree expr = RETURN_STMT_EXPR (*stmt_p);
+  expr = build1 (RETURN_EXPR, void_type_node, expr);
+  if (stmts_are_full_exprs_p ())
+    expr = build1 (CLEANUP_POINT_EXPR, void_type_node, expr);
+  *stmt_p = expr;
 }
 
 /*  Simplifies a DECL_STMT node T.
@@ -709,7 +734,10 @@ simplify_decl_stmt (stmt_p, next_p)
       if (init && init != error_mark_node && !TREE_STATIC (decl))
 	{
 	  DECL_INITIAL (decl) = NULL_TREE;
-	  add_tree (build (MODIFY_EXPR, void_type_node, decl, init), &pre);
+	  init = build (MODIFY_EXPR, void_type_node, decl, init);
+	  if (stmts_are_full_exprs_p ())
+	    init = build1 (CLEANUP_POINT_EXPR, void_type_node, init);
+	  add_tree (init, &pre);
 	}
     }
 
@@ -807,16 +835,26 @@ simplify_stmt_expr (expr_p)
       c_simplify_stmt (&body);
 
       /* Now retrofit that last expression into the BIND_EXPR.  */
-      bind = body;
-      STRIP_WFL (bind);
-      substmt = BIND_EXPR_BODY (bind);
+      if (!STMT_EXPR_NO_SCOPE (*expr_p))
+	{
+	  bind = body;
+	  STRIP_WFL (bind);
+	  substmt = BIND_EXPR_BODY (bind);
+	}
+      else
+	substmt = body;
+
       if (substmt == empty_stmt_node)
 	substmt = last_expr;
       else
 	substmt = build (COMPOUND_EXPR, TREE_TYPE (last_expr),
 			 substmt, last_expr);
-      BIND_EXPR_BODY (bind) = substmt;
-      TREE_TYPE (bind) = TREE_TYPE (body) = TREE_TYPE (last_expr);
+
+      if (!STMT_EXPR_NO_SCOPE (*expr_p))
+	{
+	  BIND_EXPR_BODY (bind) = substmt;
+	  TREE_TYPE (bind) = TREE_TYPE (body) = TREE_TYPE (last_expr);
+	}
     }
 
   *expr_p = body;
@@ -1040,7 +1078,7 @@ static int
 is_last_stmt_of_scope (stmt)
      tree stmt;
 {
-  return (TREE_CHAIN (stmt)
-	  && TREE_CODE (TREE_CHAIN (stmt)) == SCOPE_STMT
-	  && SCOPE_END_P (TREE_CHAIN (stmt)));
+  return (TREE_CHAIN (stmt) == NULL_TREE
+	  || (TREE_CODE (TREE_CHAIN (stmt)) == SCOPE_STMT
+	      && SCOPE_END_P (TREE_CHAIN (stmt))));
 }

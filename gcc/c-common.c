@@ -660,6 +660,11 @@ tree (*make_fname_decl)                PARAMS ((tree, int));
    returns 1 for language-specific statement codes.  */
 int (*lang_statement_code_p)           PARAMS ((enum tree_code));
 
+/* If non-NULL, the address of a language-specific function that does any
+   language-specific simplification for _STMT nodes and returns 1 iff
+   handled.  */
+int (*lang_simplify_stmt)           PARAMS ((tree *, tree *));
+
 /* If non-NULL, the address of a language-specific function that takes
    any action required right before expand_function_end is called.  */
 void (*lang_expand_function_end)       PARAMS ((void));

@@ -205,12 +205,16 @@ dump_generic_node (buffer, node, spc, flags)
       }
 
     case POINTER_TYPE:
+    case REFERENCE_TYPE:
+      str = (TREE_CODE (node) == POINTER_TYPE ? "*" : "&");
+
       if (TREE_CODE (TREE_TYPE (node)) == FUNCTION_TYPE)
         {
 	  tree fnode = TREE_TYPE (node);
 	  dump_generic_node (buffer, TREE_TYPE (fnode), spc, flags);
 	  output_add_space (buffer);
-	  output_add_string (buffer, "(*");
+	  output_add_character (buffer, '(');
+	  output_add_string (buffer, str);
 	  if (TYPE_NAME (node) && DECL_NAME (TYPE_NAME (node)))
 	    output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node))));
 	  else
@@ -241,7 +245,8 @@ dump_generic_node (buffer, node, spc, flags)
 	  unsigned int quals = TYPE_QUALS (node);
 
           dump_generic_node (buffer, TREE_TYPE (node), spc, flags);
-	  output_add_string (buffer, " *");
+	  output_add_space (buffer);
+	  output_add_string (buffer, str);
 	  
 	  if (quals & TYPE_QUAL_CONST)
 	    output_add_string (buffer, " const");
@@ -256,11 +261,6 @@ dump_generic_node (buffer, node, spc, flags)
 
     case OFFSET_TYPE:
       NIY;
-      break;
-
-    case REFERENCE_TYPE:
-      /* FIXME : What is the exact syntax of this node for C? */
-      dump_generic_node (buffer, TREE_TYPE (node), spc, flags);
       break;
 
     case METHOD_TYPE:

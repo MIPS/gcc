@@ -28,8 +28,50 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "tree-simple.h"
 
-static void simplify_target_expr     PARAMS ((tree *, tree *));
-static void maybe_fixup_loop_cond    PARAMS ((tree *, tree *, tree *));
+static void genericize_try_block	PARAMS ((tree *));
+
+/* Genericize a C++ _STMT.  Called from c_simplify_stmt.  */
+
+int
+cp_simplify_stmt (stmt_p, next_p)
+     tree *stmt_p;
+     tree *next_p ATTRIBUTE_UNUSED;
+{
+  tree stmt = *stmt_p;
+  switch (TREE_CODE (stmt))
+    {
+    case TRY_BLOCK:
+      genericize_try_block (stmt_p);
+      return 1;
+
+    default:
+      break;
+    }
+  return 0;
+}
+
+/* Genericize a TRY_BLOCK.  */
+
+static void
+genericize_try_block (stmt_p)
+     tree *stmt_p;
+{
+  tree stmt = *stmt_p;
+
+  if (CLEANUP_P (stmt))
+    {
+      /* Just convert to a TRY_CATCH_EXPR.  */
+      tree body = TRY_STMTS (stmt);
+      tree cleanup = TRY_HANDLERS (stmt);
+
+      c_simplify_stmt (&body);
+
+      *stmt_p = build (TRY_CATCH_EXPR, void_type_node, body, cleanup);
+    }
+  else
+    /* FIXME a real try block.  */
+    abort ();
+}
 
 /* Do C++-specific simplification.  Args are as for simplify_expr.  */
 
@@ -41,27 +83,8 @@ cp_simplify_expr (expr_p, pre_p, post_p)
 {
   switch (TREE_CODE (*expr_p))
     {
-    case FOR_STMT:
-      maybe_fixup_loop_cond (&FOR_COND (*expr_p), &FOR_BODY (*expr_p),
-			     pre_p);
-      break;
-    case WHILE_STMT:
-      maybe_fixup_loop_cond (&WHILE_COND (*expr_p), &WHILE_BODY (*expr_p),
-			     pre_p);
-      break;
-      
-    case INIT_EXPR:
-      {
-	/* If we are initializing something from a TARGET_EXPR, strip the
-	   TARGET_EXPR and initialize it directly.  */
-	tree *from = &TREE_OPERAND (*expr_p, 1);
-	if (TREE_CODE (*from) == TARGET_EXPR)
-	  *from = TARGET_EXPR_INITIAL (*from);
-	/* And then fall through to the default code.  */
-	break;
-      }
-    case TARGET_EXPR:
-      simplify_target_expr (expr_p, pre_p);
+    case AGGR_INIT_EXPR:
+      simplify_aggr_init_expr (expr_p);
       break;
 
     default:
@@ -71,90 +94,67 @@ cp_simplify_expr (expr_p, pre_p, post_p)
   return c_simplify_expr (expr_p, pre_p, post_p);
 }
 
-/* Simplify a TARGET_EXPR which doesn't appear on the rhs of an INIT_EXPR.  */
+/* Replace the AGGR_INIT_EXPR at *TP with an equivalent CALL_EXPR.  */
 
-static void
-simplify_target_expr (expr_p, pre_p)
-     tree *expr_p;
-     tree *pre_p;
+void
+simplify_aggr_init_expr (tp)
+     tree *tp;
 {
-  tree temp = TARGET_EXPR_SLOT (*expr_p);
-  tree decl = build_stmt (DECL_STMT, temp);
-  tree init = build (INIT_EXPR, TREE_TYPE (temp), temp,
-		     TARGET_EXPR_INITIAL (*expr_p));
-  add_tree (decl, pre_p);
-  *expr_p = init;
-}
+  tree aggr_init_expr = *tp;
 
-/* Given pointers to the condition and body of a for or while loop,
-   reorganize things so that the condition is just an expression.
+  /* Form an appropriate CALL_EXPR.  */
+  tree fn = TREE_OPERAND (aggr_init_expr, 0);
+  tree args = TREE_OPERAND (aggr_init_expr, 1);
+  tree slot = TREE_OPERAND (aggr_init_expr, 2);
+  tree type = TREE_TYPE (aggr_init_expr);
 
-   COND_P and BODY_P are pointers to the condition and body of the loop.
-   PRE_P is a list to which we can add effects that need to happen before
-   the loop begins (i.e. as part of the for-init-stmt).  */
+  tree call_expr;
+  int copy_from_buffer_p;
 
-static void
-maybe_fixup_loop_cond (cond_p, body_p, pre_p)
-     tree *cond_p;
-     tree *body_p;
-     tree *pre_p;
-{
-  if (TREE_CODE (*cond_p) == TREE_LIST)
+  if (AGGR_INIT_VIA_CTOR_P (aggr_init_expr))
     {
-      /* In C++ a condition can be a declaration; to express this,
-	 the FOR_COND is a TREE_LIST.  The TREE_PURPOSE contains the
-	 SCOPE_STMT and DECL_STMT, if any, and the TREE_VALUE contains
-	 the actual value to test.  We want to transform
-
-	   for (; T u = init; ) { ... }
-
-	 into
-
-	   for (tmp = 1; tmp; )
-	     { T u = init; tmp = u; if (tmp) { ... } }
-
-	 The wackiest part of this is handling the SCOPE_STMTs; at first,
-	 one is in the FOR_COND and the other is after the COMPOUND_STMT in
-	 the body.  We will use the same SCOPE_STMTs to wrap our new
-	 block.  */
-
-      tree scope = TREE_PURPOSE (*cond_p);
-      tree val = TREE_VALUE (*cond_p);
-
-      if (TREE_CODE (scope) != SCOPE_STMT)
-	abort ();
-      if (TREE_CHAIN (scope) == NULL_TREE)
-	{
-	  /* There isn't actually a decl.  Just move the SCOPE_STMT
-	     down into the FOR_BODY.  */
-	  *cond_p = val;
-	  TREE_CHAIN (scope) = *body_p;
-	}
-      else
-	{
-	  /* There is a decl.  Do the transformation described
-	     above.  */
-
-	  tree if_s, mod, close_scope;
-	  /* tmp = 1;  */
-	  *cond_p = get_initialized_tmp_var (boolean_true_node,
-					     pre_p);
-	  /* tmp = u; */
-	  mod = build_modify_expr (*cond_p, NOP_EXPR, val);
-	  mod = build_stmt (EXPR_STMT, mod);
-
-	  /* Separate the actual body block from the SCOPE_STMT.  */
-	  close_scope = TREE_CHAIN (*body_p);
-	  TREE_CHAIN (*body_p) = NULL_TREE;
-
-	  /* if (tmp) { ... } */
-	  if_s = build_stmt (IF_STMT, *cond_p, *body_p, NULL_TREE);
-
-	  /* Finally, tack it all together.  */
-	  chainon (scope, mod);
-	  TREE_CHAIN (mod) = if_s;
-	  TREE_CHAIN (if_s) = close_scope;
-	}
-      *body_p = build_stmt (COMPOUND_STMT, scope);
+      /* Replace the first argument with the address of the third
+	 argument to the AGGR_INIT_EXPR.  */
+      cxx_mark_addressable (slot);
+      args = tree_cons (NULL_TREE, 
+			build1 (ADDR_EXPR, 
+				build_pointer_type (TREE_TYPE (slot)),
+				slot),
+			TREE_CHAIN (args));
     }
+  call_expr = build (CALL_EXPR, 
+		     TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
+		     fn, args, NULL_TREE);
+  TREE_SIDE_EFFECTS (call_expr) = 1;
+
+  /* If we're using the non-reentrant PCC calling convention, then we
+     need to copy the returned value out of the static buffer into the
+     SLOT.  */
+  copy_from_buffer_p = 0;
+#ifdef PCC_STATIC_STRUCT_RETURN  
+  if (!AGGR_INIT_VIA_CTOR_P (aggr_init_expr) && aggregate_value_p (type))
+    {
+      int old_ac = flag_access_control;
+
+      flag_access_control = 0;
+      call_expr = build_aggr_init (slot, call_expr,
+				   DIRECT_BIND | LOOKUP_ONLYCONVERTING);
+      flag_access_control = old_ac;
+      copy_from_buffer_p = 1;
+    }
+#endif
+
+  /* If this AGGR_INIT_EXPR indicates the value returned by a
+     function, then we want to use the value of the initialized
+     location as the result.  */
+  if (AGGR_INIT_VIA_CTOR_P (aggr_init_expr) || copy_from_buffer_p)
+    {
+      call_expr = build (COMPOUND_EXPR, type,
+			 call_expr, slot);
+      TREE_SIDE_EFFECTS (call_expr) = 1;
+    }
+
+  /* Replace the AGGR_INIT_EXPR with the CALL_EXPR.  */
+  TREE_CHAIN (call_expr) = TREE_CHAIN (aggr_init_expr);
+  *tp = call_expr;
 }

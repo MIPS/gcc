@@ -312,6 +312,7 @@ struct c_language_function GTY(()) {
 
 extern int (*lang_statement_code_p)             PARAMS ((enum tree_code));
 extern void (*lang_expand_stmt)                 PARAMS ((tree));
+extern int (*lang_simplify_stmt)                PARAMS ((tree *, tree *));
 extern void (*lang_expand_decl_stmt)            PARAMS ((tree));
 extern void (*lang_expand_function_end)         PARAMS ((void));
 extern tree gettags				PARAMS ((void));
@@ -1227,5 +1228,9 @@ extern void print_c_node_brief		PARAMS ((FILE*, tree));
 extern void debug_c_tree		PARAMS ((tree));
 extern void debug_c_node		PARAMS ((tree));
 extern void debug_c_node_brief		PARAMS ((tree));
+
+/* In c-simplify.c  */
+extern void c_genericize		PARAMS ((tree));
+extern void c_simplify_stmt		PARAMS ((tree *));
 
 #endif /* ! GCC_C_COMMON_H */

@@ -54,20 +54,31 @@ static tree build_addr_expr	     PARAMS ((tree));
 static tree add_stmt_to_compound	PARAMS ((tree, tree));
 static void simplify_asm_expr		PARAMS ((tree, tree *));
 static void simplify_bind_expr		PARAMS ((tree *, tree *));
-static inline void remove_suffix     PARAMS ((char *, int));
+static inline void remove_suffix	PARAMS ((char *, int));
 static void push_gimplify_context	PARAMS ((void));
 static void pop_gimplify_context	PARAMS ((void));
-static void wrap_with_wfl PARAMS ((tree *));
-static tree copy_if_shared_r         PARAMS ((tree *, int *, void *));
-static tree unmark_visited_r         PARAMS ((tree *, int *, void *));
-static tree mostly_copy_tree_r       PARAMS ((tree *, int *, void *));
+static void wrap_with_wfl		PARAMS ((tree *));
+static tree copy_if_shared_r		PARAMS ((tree *, int *, void *));
+static tree unmark_visited_r		PARAMS ((tree *, int *, void *));
+static tree mostly_copy_tree_r		PARAMS ((tree *, int *, void *));
+static void simplify_target_expr	PARAMS ((tree *, tree *, tree *));
+static void simplify_cleanup_point_expr PARAMS ((tree *, tree *));
+static bool gimple_conditional_context	PARAMS ((void));
+static void gimple_push_condition	PARAMS ((void));
+static void gimple_pop_condition	PARAMS ((tree *));
+static tree voidify_wrapper_expr	PARAMS ((tree));
+static void gimple_push_cleanup		PARAMS ((tree, tree *));
+static void gimplify_loop_expr		PARAMS ((tree *));
+static void gimplify_exit_expr		PARAMS ((tree *, tree *));
 
 static struct gimplify_ctx
 {
   tree current_bind_expr;
   tree temps;
+  tree conditional_cleanups;
+  int conditions;
+  tree exit_label;
 } *gimplify_ctxp;
-  
 
 static void
 push_gimplify_context ()
@@ -105,6 +116,40 @@ tree
 gimple_current_bind_expr ()
 {
   return gimplify_ctxp->current_bind_expr;
+}
+
+/* Returns true iff there is a COND_EXPR between us and the innermost
+   CLEANUP_POINT_EXPR.  This info is used by gimple_push_cleanup.  */
+
+static bool
+gimple_conditional_context ()
+{
+  return gimplify_ctxp->conditions > 0;
+}
+
+/* Note that we've entered a COND_EXPR.  */
+
+static void
+gimple_push_condition ()
+{
+  ++(gimplify_ctxp->conditions);
+}
+
+/* Note that we've left a COND_EXPR.  If we're back at unconditional scope
+   now, add any conditional cleanups we've seen to the prequeue.  */
+
+static void
+gimple_pop_condition (pre_p)
+     tree *pre_p;
+{
+  int conds = --(gimplify_ctxp->conditions);
+  if (conds == 0)
+    {
+      add_tree (gimplify_ctxp->conditional_cleanups, pre_p);
+      gimplify_ctxp->conditional_cleanups = NULL_TREE;
+    }
+  else if (conds < 0)
+    abort ();
 }
 
 /*  Entry point to the simplification pass.  FNDECL is the FUNCTION_DECL
@@ -218,6 +263,9 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
   if (post_p == NULL)
     post_p = &internal_post;
 
+  /* First strip any uselessness.  */
+  STRIP_TYPE_NOPS (*expr_p);
+
   /* Loop over the specific simplifiers until the toplevel node remains the
      same.  */
   do
@@ -270,8 +318,9 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 
 	case REALPART_EXPR:
 	case IMAGPART_EXPR:
-	  return simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-				simple_test_f, fallback);
+	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			 simple_test_f, fallback);
+	  break;
 
 	case MODIFY_EXPR:
 	case INIT_EXPR:
@@ -337,7 +386,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  break;
 
 	case LOOP_EXPR:
-	  simplify_stmt (&LOOP_EXPR_BODY (*expr_p));
+	  gimplify_loop_expr (expr_p);
 	  break;
 
 	case SWITCH_EXPR:
@@ -352,8 +401,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  break;
 
 	case EXIT_EXPR:
-	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, NULL,
-			 is_simple_condexpr, fb_rvalue);
+	  gimplify_exit_expr (expr_p, pre_p);
 	  break;
 
 	case GOTO_EXPR:
@@ -407,9 +455,24 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  break;
 
 	case TRY_FINALLY_EXPR:
+	case TRY_CATCH_EXPR:
 	  simplify_stmt (&TREE_OPERAND (*expr_p, 0));
 	  simplify_stmt (&TREE_OPERAND (*expr_p, 1));
 	  break;
+
+	case CLEANUP_POINT_EXPR:
+	  simplify_cleanup_point_expr (expr_p, pre_p);
+	  break;
+
+	case TARGET_EXPR:
+	  simplify_target_expr (expr_p, pre_p, post_p);
+	  break;
+
+	  /* FIXME
+	case MIN_EXPR:
+	case MAX_EXPR:
+	  simplify_minimax_expr (expr_p, pre_p);
+	  break; */
 
 	  /* If *EXPR_P does not need to be special-cased, handle it
 	     according to its class.  */
@@ -514,20 +577,34 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
   return 1;
 }
 
-static void
-simplify_bind_expr (expr_p, pre_p)
-     tree *expr_p;
-     tree *pre_p;
-{
-  tree bind_expr = *expr_p;
+/* WRAPPER is a code such as BIND_EXPR or CLEANUP_POINT_EXPR which can both
+   contain statements and have a value.  Assign its value to a temporary
+   and give it void_type_node.  Returns the temporary, or NULL_TREE if
+   WRAPPER was already void.  */
 
-  if (!VOID_TYPE_P (TREE_TYPE (bind_expr)))
+static tree
+voidify_wrapper_expr (wrapper)
+     tree wrapper;
+{
+  if (!VOID_TYPE_P (TREE_TYPE (wrapper)))
     {
       tree *p;
       tree temp;
 
-      for (p = &BIND_EXPR_BODY (bind_expr);
-	   TREE_CODE (*p) == COMPOUND_EXPR;
+      /* Set p to point to the body of the wrapper.  */
+      switch (TREE_CODE (wrapper))
+	{
+	case BIND_EXPR:
+	  /* For a BIND_EXPR, the body is operand 1.  */
+	  p = &BIND_EXPR_BODY (wrapper);
+	  break;
+
+	default:
+	  p = &TREE_OPERAND (wrapper, 0);
+	  break;
+	}
+
+      for (; TREE_CODE (*p) == COMPOUND_EXPR;
 	   p = &TREE_OPERAND (*p, 1))
 	{
 	  /* Advance.  Set up the COMPOUND_EXPRs appropriately for what we
@@ -543,19 +620,37 @@ simplify_bind_expr (expr_p, pre_p)
 	}
       else
 	{
-	  temp = create_tmp_var (TREE_TYPE (bind_expr), "retval");
+	  temp = create_tmp_var (TREE_TYPE (wrapper), "retval");
 	  if (*p != empty_stmt_node)
 	    *p = build (MODIFY_EXPR, TREE_TYPE (temp), temp, *p);
 	}
 
-      *expr_p = temp;
-      TREE_TYPE (bind_expr) = void_type_node;
-      add_tree (bind_expr, pre_p);
+      TREE_TYPE (wrapper) = void_type_node;
+      return temp;
     }
+
+  return NULL_TREE;
+}
+
+/* Simplify a BIND_EXPR.  Just voidify and recurse.  */
+
+static void
+simplify_bind_expr (expr_p, pre_p)
+     tree *expr_p;
+     tree *pre_p;
+{
+  tree bind_expr = *expr_p;
+  tree temp = voidify_wrapper_expr (bind_expr);
 
   gimple_push_bind_expr (bind_expr);
   simplify_stmt (&BIND_EXPR_BODY (bind_expr));
   gimple_pop_bind_expr ();
+
+  if (temp)
+    {
+      *expr_p = temp;
+      add_tree (bind_expr, pre_p);
+    }
 
 #if 0
   if (!BIND_EXPR_VARS (bind_expr))
@@ -603,6 +698,57 @@ simplify_return_expr (stmt, pre_p)
 			 is_simple_rhs, fb_rvalue);
 	}
     }
+}
+
+/* Simplify a LOOP_EXPR.  Normally this just involves simplifying the body,
+   but if the loop contains an EXIT_EXPR, we need to append a label for it
+   to jump to.  */
+
+static void
+gimplify_loop_expr (expr_p)
+     tree *expr_p;
+{
+  tree saved_label = gimplify_ctxp->exit_label;
+  gimplify_ctxp->exit_label = NULL_TREE;
+
+  simplify_stmt (&LOOP_EXPR_BODY (*expr_p));
+
+  if (gimplify_ctxp->exit_label)
+    {
+      tree expr = build1 (LABEL_EXPR, void_type_node,
+			  gimplify_ctxp->exit_label);
+      add_tree (expr, expr_p);
+      gimplify_ctxp->exit_label = saved_label;
+    }
+}
+
+/* Simplify an EXIT_EXPR by converting to a GOTO_EXPR inside a COND_EXPR.
+   This also involves building a label to jump to and communicating it to
+   gimplify_loop_expr through gimplify_ctxp->exit_label.  */
+
+static void
+gimplify_exit_expr (expr_p, pre_p)
+     tree *expr_p;
+     tree *pre_p;
+{
+  tree cond = TREE_OPERAND (*expr_p, 0);
+  tree label = gimplify_ctxp->exit_label;
+  tree expr;
+
+  if (label == NULL_TREE)
+    {
+      label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+      DECL_ARTIFICIAL (label) = 1;
+      TREE_USED (label) = 1;
+      DECL_CONTEXT (label) = current_function_decl;
+      gimplify_ctxp->exit_label = label;
+    }
+
+  simplify_expr (&cond, pre_p, NULL, is_simple_condexpr, fb_rvalue);
+
+  expr = build1 (GOTO_EXPR, void_type_node, label);
+  expr = build (COND_EXPR, void_type_node, cond, expr, empty_stmt_node);
+  *expr_p = expr;
 }
 
 /* Simplifies a CONSTRUCTOR node T.
@@ -975,8 +1121,13 @@ simplify_cond_expr (expr_p, pre_p)
   /* Now do the normal simplification.  */
   simplify_expr (&TREE_OPERAND (expr, 0), pre_p, NULL,
 		 is_simple_condexpr, fb_rvalue);
+
+  gimple_push_condition ();
+  
   simplify_stmt (&TREE_OPERAND (expr, 1));
   simplify_stmt (&TREE_OPERAND (expr, 2));
+
+  gimple_pop_condition (pre_p);
 
   /* If we had a value, move the COND_EXPR to the prequeue and use the temp
      in its place.  */
@@ -1004,11 +1155,23 @@ simplify_modify_expr (expr_p, pre_p, post_p)
      tree *pre_p;
      tree *post_p;
 {
+  tree *from;
+  
 #if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != MODIFY_EXPR
       && TREE_CODE (*expr_p) != INIT_EXPR)
     abort ();
 #endif
+
+  /* If we are initializing something from a TARGET_EXPR, strip the
+     TARGET_EXPR and initialize it directly.  */
+  /* What about code that pulls out the temp and uses it elsewhere?  I
+     think that such code never uses the TARGET_EXPR as an initializer.  If
+     I'm wrong, we'll abort because the temp won't have any RTL.  In that
+     case, I guess we'll need to replace references somehow.  */
+  from = &TREE_OPERAND (*expr_p, 1);
+  if (TREE_CODE (*from) == TARGET_EXPR)
+    *from = TARGET_EXPR_INITIAL (*from);
 
   /* The distinction between MODIFY_EXPR and INIT_EXPR is no longer
      useful.  */
@@ -1696,4 +1859,154 @@ mark_not_simple (expr_p)
      tree *expr_p;
 {
   TREE_NOT_GIMPLE (*expr_p) = 1;
+}
+
+/* Simplify a CLEANUP_POINT_EXPR.  Currently this works by adding
+   WITH_CLEANUP_EXPRs to the prequeue as we encounter cleanups while
+   simplifying the body, and converting them to TRY_FINALLY_EXPRs when we
+   return to this function.
+
+   FIXME should we complexify the prequeue handling instead?  Or use flags
+   for all the cleanups and let the optimizer tighten them up?  The current
+   code seems pretty fragile; it will break on a cleanup within any
+   non-conditional nesting.  But any such nesting would be broken, anyway;
+   we can't write a TRY_FINALLY_EXPR that starts inside a nesting construct
+   and continues out of it.  We can do that at the RTL level, though, so
+   having an optimizer to tighten up try/finally regions would be a Good
+   Thing.  */
+
+static void
+simplify_cleanup_point_expr (expr_p, pre_p)
+     tree *expr_p;
+     tree *pre_p;
+{
+  gimple_stmt_iterator iter;
+  tree body;
+
+  tree temp = voidify_wrapper_expr (*expr_p);
+
+  /* We only care about the number of conditions between the innermost
+     CLEANUP_POINT_EXPR and the cleanup.  So save and reset the count.  */
+  int old_conds = gimplify_ctxp->conditions;
+  gimplify_ctxp->conditions = 0;
+
+  body = TREE_OPERAND (*expr_p, 0);
+  simplify_stmt (&body);
+
+  gimplify_ctxp->conditions = old_conds;  
+  
+  for (iter = gsi_start (&body); !gsi_after_end (iter); )
+    {
+      tree wce = gsi_stmt (iter);
+      if (TREE_CODE (wce) == WITH_CLEANUP_EXPR)
+	{
+	  tree *container = gsi_container (iter);
+	  tree next, tfe;
+
+	  if (TREE_CODE (*container) == COMPOUND_EXPR)
+	    next = TREE_OPERAND (*container, 1);
+	  else
+	    next = NULL_TREE;
+
+	  tfe = build (TRY_FINALLY_EXPR, void_type_node,
+		       next, TREE_OPERAND (wce, 1));
+	  *container = tfe;
+	  iter = gsi_start (&TREE_OPERAND (tfe, 0));
+	}
+      else
+	gsi_step (&iter);
+    }
+  
+  if (temp)
+    {
+      *expr_p = temp;
+      add_tree (body, pre_p);
+    }
+  else
+    *expr_p = body;
+}
+
+/* Insert a cleanup marker for simplify_cleanup_point_expr.  CLEANUP
+   is the cleanup action required.  */
+
+static void
+gimple_push_cleanup (cleanup, pre_p)
+     tree cleanup;
+     tree *pre_p;
+{
+  tree wce;
+
+  if (gimple_conditional_context ())
+    {
+      /* If we're in a conditional context, this is more complex.  We only
+	 want to run the cleanup if we actually ran the initialization that
+	 necessitates it, but we want to run it after the end of the
+	 conditional context.  So we wrap the try/finally around the
+	 condition and use a flag to determine whether or not to actually
+	 run the destructor.  Thus
+
+	   test ? f(A()) : 0
+
+	 becomes (approximately)
+
+	   flag = 0;
+	   try {
+	     if (test) { A::A(temp); flag = 1; val = f(temp); }
+	     else { val = 0; }
+	   } finally {
+	     if (flag) A::~A(temp);
+	   }
+	   val
+      */
+
+      tree flag = create_tmp_var (integer_type_node, "cleanup");
+      tree ffalse = build (MODIFY_EXPR, void_type_node, flag, integer_zero_node);
+      tree ftrue = build (MODIFY_EXPR, void_type_node, flag, integer_one_node);
+      cleanup = build (COND_EXPR, void_type_node, flag, cleanup, empty_stmt_node);
+      wce = build (WITH_CLEANUP_EXPR, void_type_node, NULL_TREE,
+		   cleanup, NULL_TREE);
+      add_tree (ffalse, &gimplify_ctxp->conditional_cleanups);
+      add_tree (wce, &gimplify_ctxp->conditional_cleanups);
+      add_tree (ftrue, pre_p);
+    }
+  else
+    {
+      wce = build (WITH_CLEANUP_EXPR, void_type_node, NULL_TREE,
+		   cleanup, NULL_TREE);
+      add_tree (wce, pre_p);
+    }
+}
+
+/* Simplify a TARGET_EXPR which doesn't appear on the rhs of an INIT_EXPR.  */
+
+static void
+simplify_target_expr (expr_p, pre_p, post_p)
+     tree *expr_p;
+     tree *pre_p;
+     tree *post_p;
+{
+  tree targ = *expr_p;
+  tree temp = TARGET_EXPR_SLOT (targ);
+  tree init = TARGET_EXPR_INITIAL (targ);
+
+  /* TARGET_EXPR temps aren't part of the enclosing block, so add it to the
+     temps list.  */
+  gimple_add_tmp_var (temp);
+
+  /* Add the initialization to pre_p.  In some cases, such as C++
+     constructors, the initialization will happen by side-effect in init;
+     in such cases, init will simplify to temp, so we mustn't build a
+     MODIFY_EXPR.  */
+  simplify_expr (&init, pre_p, post_p, is_simple_rhs, fb_rvalue);
+  if (init != temp)
+    {
+      init = build (MODIFY_EXPR, void_type_node, temp, init);
+      add_tree (init, pre_p);
+    }
+
+  /* If needed, push the cleanup for the temp.  */
+  if (TARGET_EXPR_CLEANUP (targ))
+    gimple_push_cleanup (TARGET_EXPR_CLEANUP (targ), pre_p);
+
+  *expr_p = temp;
 }

@@ -6892,7 +6892,7 @@ expand_expr (exp, target, tmode, modifier)
 
     case LOOP_EXPR:
       push_temp_slots ();
-      expand_start_loop (0);
+      expand_start_loop (1);
       expand_expr_stmt_value (TREE_OPERAND (exp, 0), 0, 1);
       expand_end_loop ();
       pop_temp_slots ();

@@ -6693,6 +6693,9 @@ cxx_init_decl_processing ()
      say -fwritable-strings?  */
   if (flag_writable_strings)
     flag_const_strings = 0;
+
+  /* Disable for now.  */
+  flag_disable_simple = 1;
 }
 
 /* Generate an initializer for a function naming variable from
@@ -14532,6 +14535,10 @@ finish_function (flags)
       && DECL_INLINE (fndecl))
     warning ("no return statement in function returning non-void");
     
+  /* Genericize before inlining.  */
+  if (!flag_disable_simple)
+    c_genericize (fndecl);
+
   /* Clear out memory we no longer need.  */
   free_after_parsing (cfun);
   /* Since we never call rest_of_compilation, we never clear
