@@ -49,8 +49,8 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-inline.h"
 
 #define EXTRANEOUS_EPHI_REMOVAL 0
-#define DEBUGGING_STRRED 0
-#define DEBUGGING_SSA_UPDATE 0
+#define DEBUGGING_STRRED 1
+#define DEBUGGING_SSA_UPDATE 1
 
 /* See http://citeseer.nj.nec.com/chow97new.html, and
    http://citeseer.nj.nec.com/kennedy99partial.html for details of the
@@ -69,8 +69,16 @@ Boston, MA 02111-1307, USA.  */
    Get rid of hunting through statements for refs, now that
    expressions have the refs we want as well -- This should substantially
    clean up the code, which was written when only statements had refs,
-   becuase the expressions were not unshared.
+   because the expressions were not unshared.
+
+   Remapping expression occurrences to the entire expression is a pain, and is
+   only done to avoid having to grab the first operand all the time (the code
+   was started before the change to include the *entire* expression in the
+   ref_expr was made).  It would clean up the code a lot and remove a lot of
+   duplicated functions, whose only difference is one remaps and one doesn't.
+
    Strength reduction improvements.
+
    Register promotion.
 */
 struct expr_info;
@@ -81,6 +89,7 @@ static void compute_domchildren PARAMS ((dominance_info, sbitmap *));
 static inline bool a_dom_b PARAMS ((basic_block, basic_block));
 static void set_var_phis PARAMS ((struct expr_info *, tree_ref, int));
 static inline tree_ref find_rhs_use_for_var PARAMS ((tree_ref, tree));
+static inline tree_ref maybe_find_rhs_use_for_var PARAMS ((tree_ref, tree));
 static inline tree_ref find_use_for_var PARAMS ((tree, tree));
 static inline tree_ref find_def_for_stmt PARAMS ((tree));
 static void expr_phi_insertion PARAMS ((sbitmap *, struct expr_info *));
@@ -115,7 +124,7 @@ static bool requires_edge_placement PARAMS ((tree_ref));
 static bool is_injuring_def PARAMS ((struct expr_info *, tree));
 static bool is_strred_cand PARAMS ((tree));
 static tree calculate_increment PARAMS ((struct expr_info *, tree));
-static void repair_injury PARAMS ((struct expr_info *, tree_ref, tree));
+static void repair_injury PARAMS ((struct expr_info *, tree_ref, tree, tree_ref));
 static void set_need_repair PARAMS ((struct expr_info *, tree_ref));
 static void calculate_preorder PARAMS ((void));
 static void update_phis_in_list PARAMS ((ref_list, tree_ref, tree_ref));
@@ -135,7 +144,7 @@ static splay_tree orig_expr_map;
 static splay_tree new_stmt_map;
 
 static splay_tree need_repair_map;
-static bool strred_candidate;
+
 
 /* sbitmap vector mapping blocks to the child blocks they dominate. */
 static sbitmap *domchildren;
@@ -382,25 +391,24 @@ set_var_phis (ei, phi, i)
            curr_phi_operand++)
         {
           phi_operand = phi_arg_def (phi_arg (phi, curr_phi_operand));
-	  if (strred_candidate && !(ref_type (phi_operand) & V_PHI))
+	  if (ei->strred_cand && !(ref_type (phi_operand) & V_PHI))
 	    while (is_injuring_def (ei, ref_expr (phi_operand)))
 	      {
+		tree_ref ird;
 		phi_operand = find_rhs_use_for_var (phi_operand, 
 						    ref_var
 						    (phi_operand));
-		if (ref_type (imm_reaching_def (phi_operand)) & M_DEFAULT)
+		ird = imm_reaching_def (phi_operand);
+		if (ref_type (ird) & M_DEFAULT
+		    || ref_type (ird) & V_PHI
+		    || !maybe_find_rhs_use_for_var (ird, 
+						    ref_var (phi_operand)))
 		  {
-		    phi_operand = imm_reaching_def (phi_operand);
-		    break;
-		  }
-		else if (ref_type (imm_reaching_def (phi_operand)) & V_PHI)
-		  {
-		    phi_operand = imm_reaching_def (phi_operand);
+		    phi_operand = ird;
 		    break;
 		  }
 		
-		phi_operand = find_rhs_use_for_var (imm_reaching_def (phi_operand), 
-						    ref_var (phi_operand));
+		phi_operand = find_rhs_use_for_var (ird, ref_var (phi_operand));
 		phi_operand = imm_reaching_def (phi_operand);
 	      }
           if (ref_type (phi_operand) & V_PHI)
@@ -431,10 +439,23 @@ find_def_for_stmt (stmt)
   return NULL;
 }
 
-/* Given the the def, and a variable,
-   find the V_USE of the variable  contained in that occurrence. */
+/* Given the DEF, and a VAR, find the V_USE of VAR contained in the expression
+   of DEF. Abort if not found. */ 
 static inline tree_ref
-find_rhs_use_for_var ( def, var)
+find_rhs_use_for_var (def, var)
+     tree_ref def;
+     tree var;
+{
+  tree_ref ret = maybe_find_rhs_use_for_var (def, var);
+  if (!ret)
+    abort ();
+  return ret;
+}
+  
+/* Given the the DEF, and a VAR, find the V_USE of the VAR contained
+   in that occurrence, if there is one. */
+static inline tree_ref
+maybe_find_rhs_use_for_var (def, var)
      tree_ref def;
      tree var;
 {
@@ -451,7 +472,7 @@ find_rhs_use_for_var ( def, var)
         continue;
       return ref;
     }
-  abort();
+  return NULL;
 }
 
 /* Given the the real occurrence and a variable,
@@ -511,11 +532,14 @@ defs_y_dom_x (ei, y, x)
             continue;
           if (!imm_reaching_def (ref))
             return false;
-	  if (strred_candidate)
+	  if (ei->strred_cand)
 	    while (is_injuring_def (ei, ref_expr (imm_reaching_def (ref))))
 	      {
 		ref = find_rhs_use_for_var (imm_reaching_def (ref), 
 					    TREE_OPERAND (ref_expr (y), i));
+		if (ref_type (imm_reaching_def (ref)) & V_PHI
+		    || ref_type (imm_reaching_def (ref)) & M_DEFAULT)
+		  break;
 		ref = find_rhs_use_for_var (imm_reaching_def (ref), 
 					    TREE_OPERAND (ref_expr (y), i));
 	      }
@@ -554,7 +578,7 @@ defs_match_p (ei, t1, t2)
       if (!use2) 
 	return false;
       /* Find the injuring definition, if one exists. */
-      if (strred_candidate)
+      if (ei->strred_cand)
 	while (is_injuring_def (ei, ref_expr (imm_reaching_def (use1))))
 	  {
 	    /* First, we get the use in the *injuring definition*. */
@@ -748,10 +772,13 @@ phi_opnd_from_res (ei, Z, j, b)
   FOR_EACH_REF (v, tmp, tree_refs (ref_stmt (Z)))
     {
       if (ref_type (v) & V_USE)
-	if (strred_candidate)
+	if (ei->strred_cand)
 	  while  (is_injuring_def (ei, ref_expr (imm_reaching_def (v))))
 	    {
 	      v = find_rhs_use_for_var (imm_reaching_def (v), ref_var (v));
+	      if (ref_type (imm_reaching_def (v)) & M_DEFAULT
+		  || ref_type (imm_reaching_def (v)) & V_PHI)
+		break;
 	      v = find_rhs_use_for_var (imm_reaching_def (v), ref_var (v));
 	    }
       /* If v is defined by phi in b */
@@ -861,11 +888,15 @@ rename_2 (ei, rename2_set)
                       tree_ref op2;
                       if (!(ref_type (op1) & V_USE))
                         continue;
-		      if (strred_candidate)
+		      if (ei->strred_cand)
 			while (is_injuring_def (ei, ref_expr (imm_reaching_def (op1))))
 			  {
 			    op1 = find_rhs_use_for_var (imm_reaching_def (op1),
 							ref_var (op1));
+			    if (ref_type (imm_reaching_def (op1)) & M_DEFAULT
+				|| ref_type (imm_reaching_def (op1)) & V_PHI)
+			      break;
+			    
 			    op1 = find_rhs_use_for_var (imm_reaching_def (op1),
 							ref_var (op1)) ;
 			  }
@@ -875,14 +906,19 @@ rename_2 (ei, rename2_set)
 		      
                       if (op2 && ref_type (op2) & V_USE)
                         op2 = imm_reaching_def (op2);
-		      if (strred_candidate)
+		      if (ei->strred_cand)
 			while (is_injuring_def (ei, ref_expr (op2)))
 			  {
+			    tree_ref ird;
 			    op2 = find_rhs_use_for_var (op2, ref_var
 							(op2));
-			    if (ref_type (imm_reaching_def (op2)) & M_DEFAULT)
+			    ird = imm_reaching_def (op2);
+			    if (ref_type (ird) & M_DEFAULT
+				|| ref_type (ird) & V_PHI
+				|| !maybe_find_rhs_use_for_var (ird, 
+								ref_var (op2)))
 			      {
-				op2 = imm_reaching_def (op2);
+				op2 = ird;
 				break;
 			      }
 			    
@@ -1466,7 +1502,6 @@ finalize_1 (ei, temp)
 		     by walking back up the dominator tree, seeing if we have a
 		     def or use of the variable in that bb, and getting it from
 		     that. 
-
 		  */
 		  find_refs_in_stmt (stmt, bb);
 		  FOR_EACH_REF (tempref, tmp, tree_refs (stmt))
@@ -1536,8 +1571,8 @@ expr_phi_insertion (dfs, ei)
 	  struct ref_list_node *tmp;
           int varcount = 0;
 	  FOR_EACH_REF (ref, tmp, tree_refs (VARRAY_TREE (ei->realstmts, i)))
-            {
-	  if (strred_candidate)
+	  {
+	    if (ei->strred_cand)
 	      while (ref_type (ref) & V_USE
 		     && ref_var (ref) == TREE_OPERAND (real, 0)
 		     && imm_reaching_def (ref)
@@ -1545,6 +1580,10 @@ expr_phi_insertion (dfs, ei)
 		{
 		  ref = find_rhs_use_for_var (imm_reaching_def (ref), 
 					      ref_var (ref));
+		  if (ref_type (imm_reaching_def (ref)) & M_DEFAULT
+		      || ref_type (imm_reaching_def (ref)) & V_PHI)
+		    break;
+		  
 		  ref = find_rhs_use_for_var (imm_reaching_def (ref), 
 					      ref_var (ref));
 		}
@@ -1552,7 +1591,7 @@ expr_phi_insertion (dfs, ei)
 		 work right? */ 
               if (!(ref_type (ref) & V_USE )
                   || !is_simple_modify_expr (ref_expr (ref))
-                  || TREE_OPERAND (ref_expr (ref), 1) != real)
+                  /*|| TREE_OPERAND (ref_expr (ref), 1) != real*/)
                 continue;
               if (ref_var (ref) != TREE_OPERAND (real, 0)
                   && (TREE_OPERAND (real, 1) == NULL 
@@ -1862,6 +1901,7 @@ calculate_increment (ei, expr)
     {
       fprintf (dump_file, "Increment calculated to be: ");
       print_c_tree (dump_file, incr);
+      fprintf (dump_file, "\n");
     }
 #endif
   return incr;
@@ -1869,16 +1909,22 @@ calculate_increment (ei, expr)
 }
 /* Repair the injury for USE. Currently ugly as hell, i'm just making it do
  *something* so i can make sure we are choosing candidates and renaming
- properly. */
+ properly. It's uncommented so that you don't accidently try to understand it
+ or modify it, since it will be going away post-haste.*/
 static void
-repair_injury (ei, use, temp)
+repair_injury (ei, use, temp, orig_euse)
      struct expr_info *ei;
      tree_ref use;
      tree temp;
+     tree_ref orig_euse;
 {
+  
   int i;
   tree expr, stmt;
   basic_block bb;
+  struct ref_list_node *tmp;
+  tree_ref tempref;
+     
   for (i = 0; i < 2; i++)
     {
       tree incr = integer_zero_node;
@@ -1888,9 +1934,15 @@ repair_injury (ei, use, temp)
       if (ref_type (use) & E_USE)
 	v = find_use_for_var (ref_expr (use), TREE_OPERAND (ei->expr, i));
       else 
-	v = use;
+	v = use;      
+
       if (ref_type (v) & V_DEF)
 	{
+	  /* If this isn't a def of *this* variable, ignore it, since it can't
+	   *possibly* injure it. */
+	  if (ref_var (find_def_for_stmt (ref_stmt (v))) 
+	      != TREE_OPERAND  (ei->expr, i))
+		  continue;
 	  while (is_injuring_def (ei, ref_expr (v)))
 	    {
 	      if (htab_find (ei->repaired, ref_expr (v)) == NULL)
@@ -1900,6 +1952,7 @@ repair_injury (ei, use, temp)
 		    {
 		      fprintf (dump_file, "Injuring def to repair is: ");
 		      print_c_tree (dump_file, ref_expr (v));
+		      fprintf (dump_file, "\n");
 		    }
 #endif
 		  incr = calculate_increment (ei, ref_expr (v));
@@ -1910,18 +1963,33 @@ repair_injury (ei, use, temp)
 		  stmt = build_stmt (EXPR_STMT, expr);
 		  TREE_TYPE (stmt) = TREE_TYPE (expr);
 		  bb = ref_bb (use);
-		  if (is_ctrl_altering_stmt (BLOCK_END_TREE (bb->index)))
-		    insert_stmt_tree_before (stmt, BLOCK_END_TREE (bb->index),
-					     bb);
-		  else
-		    insert_stmt_tree_after (stmt, BLOCK_END_TREE (bb->index),
-					    bb);
+	    
+		  insert_stmt_tree_after (stmt, ref_stmt (v), bb);
 		  *(htab_find_slot (ei->repaired, ref_expr (v), INSERT)) = ref_expr (v);
 		  
-		  
-		}  
+		  /* Update SSA for the repair.  
+		     1. Find the refs in the statement.
+		     2. Updating the reaching defs of each use. 
+		     3. Insert into new statement map the tuple (orig_euse,
+		     repair stmt).
+		  */
+		  find_refs_in_stmt (stmt, bb);
+		  FOR_EACH_REF (tempref, tmp, tree_refs (stmt))
+		  {
+		    if (!(ref_type (tempref) & V_USE))
+		      continue;
+		    find_reaching_def_of_var (tempref, bb, NULL);
+		  }
+	
+		  splay_tree_insert (new_stmt_map, 
+				     (splay_tree_key) orig_euse,
+				     (splay_tree_value) stmt);
+		}
 	      v = find_rhs_use_for_var (v, TREE_OPERAND (ei->expr, i));
-	      if (ref_type (imm_reaching_def (v)) & M_DEFAULT)
+	      if (ref_type (imm_reaching_def (v)) & M_DEFAULT
+		  || ref_type (imm_reaching_def (v)) & V_PHI
+		  || !maybe_find_rhs_use_for_var (imm_reaching_def (v),
+						  TREE_OPERAND (ei->expr, i)))
 		break;
 	      v = find_rhs_use_for_var (imm_reaching_def (v), 
 					TREE_OPERAND (ei->expr, i));
@@ -1936,7 +2004,10 @@ repair_injury (ei, use, temp)
 	       curr_phi_operand++)
 	    {
 	      tree_ref phi_op = phi_arg_def (phi_arg (phi, curr_phi_operand));
-	      repair_injury (ei, phi_op, temp);
+	      tree_ref ephi = phi_at_block (ei, ref_bb (phi));
+	      tree_ref ephi_op = phi_operand (ephi, 
+			      phi_arg_edge (phi_arg (phi, curr_phi_operand))->src);
+	      repair_injury (ei, phi_op, temp, ephi_op);
 	    }
 	}
       else
@@ -1952,6 +2023,7 @@ repair_injury (ei, use, temp)
 		    {
 		      fprintf (dump_file, "Injuring def to repair is: ");
 		      print_c_node (dump_file,ref_expr (imm_reaching_def (v)));
+		      fprintf (dump_file, "\n");
 		    }
 		  
 #endif
@@ -1964,20 +2036,36 @@ repair_injury (ei, use, temp)
 		  stmt = build_stmt (EXPR_STMT, expr);
 		  TREE_TYPE (stmt) = TREE_TYPE (expr);
 		  bb = ref_bb (use);
-		  if (is_ctrl_altering_stmt (BLOCK_END_TREE (bb->index)))
-		    insert_stmt_tree_before (stmt, BLOCK_END_TREE (bb->index),
-					     bb);
-		  else
-		    insert_stmt_tree_after (stmt, BLOCK_END_TREE (bb->index),
-					    bb);
+		  insert_stmt_tree_after (stmt, 
+					  ref_stmt (imm_reaching_def (v)),
+					  bb);
 		  *(htab_find_slot (ei->repaired,
 				    ref_expr (imm_reaching_def (v)), INSERT)) = imm_reaching_def (v);
-		  
+		   /* Update SSA for the repair.  
+		     1. Find the refs in the statement.
+		     2. Updating the reaching defs of each use. 
+		     3. Insert into new statement map the tuple (orig_euse,
+		     repair stmt).
+		  */
+		  find_refs_in_stmt (stmt, bb);
+		  FOR_EACH_REF (tempref, tmp, tree_refs (stmt))
+		  {
+		    if (!(ref_type (tempref) & V_USE))
+		      continue;
+		    find_reaching_def_of_var (tempref, bb, NULL);
+		  }
+		  splay_tree_insert (new_stmt_map, 
+				     (splay_tree_key) orig_euse,
+				     (splay_tree_value) stmt); 
 		}
 	      
 	      v = find_rhs_use_for_var (imm_reaching_def (v), 
 					TREE_OPERAND (ei->expr, i));
-	      if (ref_type (imm_reaching_def (v)) & M_DEFAULT)
+	      if (ref_type (imm_reaching_def (v)) & M_DEFAULT 
+		  ||ref_type (imm_reaching_def (v)) & V_PHI
+		  || !maybe_find_rhs_use_for_var (imm_reaching_def (v),
+						  TREE_OPERAND (ei->expr, i)))
+		
 		break;
 	      v = find_rhs_use_for_var (imm_reaching_def (v), 
 					TREE_OPERAND (ei->expr, i));
@@ -2218,20 +2306,19 @@ code_motion (ei, temp)
   
   need_repair_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
   exprs = fibheap_new ();
-  if (strred_candidate)
+  if (ei->strred_cand)
     {
       insert_euse_in_preorder_dt_order (ei, exprs);
       while (!fibheap_empty (exprs))
 	{
 	  use = fibheap_extract_min (exprs);
-	  if (strred_candidate)
-	    if (ref_type (use) & E_USE
-		&& exprref_reload (use) 
-		&& !exprref_inserted (use))
-	      {
-		repair_injury (ei, use, temp);
-		/*	    set_need_repair (ei, use);*/
-	      }
+	  if ((ref_type (use) & E_USE)
+	      && exprref_reload (use) 
+	      && !exprref_inserted (use))
+	    {
+	      repair_injury (ei, use, temp, use);
+	      /*	    set_need_repair (ei, use);*/
+	    }
 	}
     }
   insert_euse_in_preorder_dt_order (ei, exprs);
@@ -2315,7 +2402,7 @@ code_motion (ei, temp)
 	      if (dump_file)
 		{
 		  fprintf (dump_file, "\nUpdated a save use:\n");
-		  dump_ref_list (dump_file, "", tree_refs (use_stmt), 0, 0);
+		  dump_ref_list (dump_file, "", tree_refs (use_stmt), 0, 1);
 		}
 #endif
 
@@ -2345,7 +2432,7 @@ code_motion (ei, temp)
 	      if (dump_file)
 		{
 		  fprintf (dump_file, "\nUpdated a reload use:\n");
-		  dump_ref_list (dump_file, "", tree_refs (use_stmt), 0, 0);
+		  dump_ref_list (dump_file, "", tree_refs (use_stmt), 0, 1);
 		}
 #endif      
 	    }
@@ -2356,7 +2443,7 @@ code_motion (ei, temp)
 	  tree_ref phi;
 	  tree_ref phiop;
 	  size_t i;
-	  splay_tree_node phidefnode;
+	  splay_tree_node phidefnode, defbynode;
 
 	  phi = create_ref (temp, V_PHI, ref_bb (use), 
 			    BLOCK_HEAD_TREE (ref_bb (use)->index),
@@ -2381,22 +2468,36 @@ code_motion (ei, temp)
 	      }
 	    if (!pred)
 	      abort();
-	    defby = expruse_def (phiop);
-
-	    if (ref_type (expruse_def (phiop)) & E_USE)
+	    /*  Sigh. For strength reduction, the ephi can quite possibly
+	        have arguments that are all the same (since the injuries are
+		transparent).  Thus, for these cases, we store the
+		new phi def in the map under the key of the phi operand, 
+		rather than the phi operand's definition.  
+		So, we see if we have something in the map for the phiop, and,
+		if so, use that node.
+	    */
+	    
+	    defbynode = splay_tree_lookup (new_stmt_map, 
+					   (splay_tree_key) phiop);
+	    defby = defbynode ? phiop : expruse_def (phiop);
+	    if (!expruse_phiop (defby) 
+		&& !exprref_inserted (defby) 
+		&& !exprref_save (defby))
+	      continue;
+	    if (ref_type (defby) & E_USE)
 	      {
 		tree_ref tempdef;
-		
-		phidefnode = splay_tree_lookup (new_stmt_map,
-						(splay_tree_key) ref_expr (defby));
-		
+		if (expruse_phiop (defby))
+		  
+		  phidefnode = splay_tree_lookup (new_stmt_map,
+						  (splay_tree_key) defby);
+		else
+		  phidefnode = splay_tree_lookup (new_stmt_map,
+						  (splay_tree_key) ref_expr (defby));
 		if (!phidefnode)
 		  abort();
 		tempdef = find_def_for_stmt ((tree) phidefnode->value);
-		
 		add_phi_arg (phi, tempdef, pred);
-		
-
 		if (find_list_node (reached_uses (tempdef), phi) == NULL)
 		  add_ref_to_list_end (reached_uses (tempdef), phi);
 		if (find_list_node (imm_uses (tempdef), phi) == NULL)
@@ -2411,11 +2512,9 @@ code_motion (ei, temp)
 		  abort();
 		add_phi_arg (phi, (tree_ref) phidefnode->value, pred);
 		
-	      }
-	    
+	      }  
 	  }
-	  
-	} 
+	}
     }
   free (avdefs);
   splay_tree_delete (need_repair_map);
@@ -2455,7 +2554,7 @@ pre_part_1_trav (slot, data)
   struct expr_info *ei = (struct expr_info *) slot;
   if (VARRAY_ACTIVE_SIZE (ei->reals) < 2)
     return 0;
-  strred_candidate = ei->strred_cand;
+
   expr_phi_insertion ((sbitmap *)data, ei);
   rename_1 (ei);
   if (dump_file)
@@ -2603,15 +2702,19 @@ tree_perform_ssapre ()
 	    continue;
 	  if (htab_find (seen, expr) != NULL)
 	    continue;
-	  splay_tree_insert (orig_expr_map, 
-			     (splay_tree_key) TREE_OPERAND (expr, 1),
-			     (splay_tree_value) expr);
 	  if (is_simple_modify_expr (expr))
-		  expr = TREE_OPERAND (expr, 1);
+	    {
+	      splay_tree_insert (orig_expr_map,
+				 (splay_tree_key) TREE_OPERAND (expr, 1),
+				 (splay_tree_value) expr);
+	      
+	      expr = TREE_OPERAND (expr, 1);
+	    }
 	  if ((is_simple_binary_expr (expr)
 /*	       || is_simple_cast (expr)
 	       || is_simple_unary_expr (expr)*/)
-	     && TREE_CODE (expr) != INDIRECT_REF)
+	     && TREE_CODE (expr) != INDIRECT_REF
+	     && !is_simple_condexpr (expr))
 	    {
 	      struct expr_info *slot;
 	      size_t k;

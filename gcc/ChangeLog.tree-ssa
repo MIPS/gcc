@@ -1,3 +1,33 @@
+2002-09-30  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (repair_injury): Start work on updating SSA
+	representation for strength reduction injuries.
+	Print a new line after outputting tree node in debug statements.
+	Fix strength reduction of a candidate with two variables (IE a *
+	c).
+	Put the repair after the injuring statement, not at the end of the
+	block.
+	Break the RHS use lookup if it's defined by a phi. 
+	(calculate_increment): Ditto on node printing.
+	(code_motion): Ditto on updating SSA rep for strength reduction 
+	injuries.
+	(find_rhs_use_for_var): Rewrite to use maybe_find_rhs_use_for_var.
+	(maybe_find_rhs_use_for_var): Rename from find_rhs_use_for_var,
+	don't abort, return NULL.
+	(set_var_phis): Simplify break condition.
+	Make sure RHS *has* a use before we go and get it.
+	(rename2): Ditto on RHS checking.
+	When looking up injuring defs, break on phis.
+	(phi_opnd_from_res): Ditto.
+	(defs_y_dom_x): Ditto.
+	(TODO List): Add new TODO to fix the remapping crud.
+
+2002-09-27  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-ssa-pre.c (tree_perform_ssapre): Move insertion into 
+	splay tree inside the is_simple_modify_expr block, to prevent
+	tree check failure.
+
 2002-09-26  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (update_phis_in_list): New function.
