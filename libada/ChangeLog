@@ -1,6 +1,28 @@
+2004-03-10  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.in: Rename file to ...
+	* configure.ac: .. to this. Bump AC_PREREQ to 2.59.
+	* configure: Regenerate.
+
+2003-03-02  Arnaud Charlet  <charlet@act-europe.fr>
+
+	PR ada/14350
+	* configure.in: Remove hardcoded gcc version.
+
+	* configure: Regenerated.
+
+2004-02-10  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* Makefile.in (gnattools): Depend on gnatlib.
+
+2003-02-10  Arnaud Charlet  <charlet@act-europe.fr>
+
+	PR ada/6637, PR ada/5911
+	* configure.in, Makefile.in, configure: Merge with libada-branch
+
 2003-10-27  Arnaud Charlet  <charlet@act-europe.fr>
 
-	PR ada/6637, ada/5911
+	PR ada/6637, PR ada/5911
 	* configure.in: Add support for --enable/disable-shared
 	* Makefile.in: Add initial, simple support for gnatlib/gnattools
 	for native and cross configurations.
@@ -16,7 +38,7 @@
 
 	* New directory, new ChangeLog.
 
-Copyright 2003 Free Software Foundation, Inc.
+Copyright 2003, 2004 Free Software Foundation, Inc.
 
 This ChangeLog is free software; the Free Software Foundation gives
 unlimited permission to copy, distribute, and modify it.

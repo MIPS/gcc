@@ -1,5 +1,5 @@
 # Makefile for libada.
-#   Copyright 2003 Free Software Foundation, Inc.
+#   Copyright 2003, 2004 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@ gnatlib:
 	$(MAKE) -C ../../gcc $(FLAGS_TO_PASS) $(GNATLIB)
 
 # Rules to build gnattools.
-gnattools:
+gnattools: gnatlib
 	$(MAKE) -C ../../gcc $(FLAGS_TO_PASS) $(GNATTOOLS)
 
 # Check uninstalled version.
