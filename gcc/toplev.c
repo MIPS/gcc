@@ -3206,7 +3206,7 @@ rest_of_compilation (decl)
 	  /* Insns were inserted, so things might look a bit different.  */
 	  insns = get_insns ();
 	  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-					    PROP_LOG_LINKS | PROP_REG_INFO
+					    PROP_REG_INFO
 					    | PROP_DEATH_NOTES);
 	}
     }
@@ -3224,6 +3224,7 @@ rest_of_compilation (decl)
       timevar_push (TV_COMBINE);
       open_dump_file (DFI_combine, decl);
 
+      update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_LOG_LINKS);
       rebuild_jump_labels_after_combine
 	= combine_instructions (insns, max_reg_num ());
 
@@ -3267,6 +3268,7 @@ rest_of_compilation (decl)
       timevar_push (TV_REGMOVE);
       open_dump_file (DFI_regmove, decl);
 
+      update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_LOG_LINKS);
       regmove_optimize (insns, max_reg_num (), rtl_dump_file);
 
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);

@@ -56,6 +56,12 @@ loop_optimizer_init (dumpfile)
       return NULL;
     }
 
+  /* Not going to update these.  */
+  free (loops->cfg.rc_order);
+  loops->cfg.rc_order = NULL;
+  free (loops->cfg.dfs_order);
+  loops->cfg.dfs_order = NULL;
+
   /* Initialize structures for layout changes.  */
   cfg_layout_initialize (loops);
 
@@ -98,10 +104,6 @@ loop_optimizer_finalize (loops, dumpfile)
       RBI (bb)->next = bb->next_bb;
 
   /* Another dump.  */
-  free (loops->cfg.rc_order);
-  loops->cfg.rc_order = NULL;
-  free (loops->cfg.dfs_order);
-  loops->cfg.dfs_order = NULL;
   flow_loops_dump (loops, dumpfile, NULL, 1);
 
   /* Clean up.  */

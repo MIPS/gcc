@@ -1821,8 +1821,7 @@ cleanup_cfg (mode)
 	  if (!update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
 						 PROP_DEATH_NOTES
 						 | PROP_SCAN_DEAD_CODE
-						 | PROP_KILL_DEAD_CODE
-						 | PROP_LOG_LINKS))
+						 | PROP_KILL_DEAD_CODE))
 	    break;
 	}
       else if (!(mode & (CLEANUP_NO_INSN_DEL | CLEANUP_PRE_SIBCALL))

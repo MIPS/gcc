@@ -1,3 +1,14 @@
+2002-12-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* basic-block.h (PROP_FINAL): Do not include PROP_LOG_LINKS.
+	* cfgcleanup.c (cleanup_cfg): Do not update log links.
+	* ra.c (reg_alloc): Do not create log links.
+	* loop-init.c (loop_optimizer_init): Free rc_order and dfs_order here
+	(loop_optimizer_finalize): ... instead of here.
+	* profile.c (branch_prob): Always build loop datastructure.
+	* toplev.c (rest_of_compilation): Build log links just before
+	combine and regmove passes.
+
 Sun Dec  8 15:25:57 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from BIB (rtlopt-merge-20020712)

@@ -859,7 +859,7 @@ reg_alloc ()
   if ((debug_new_regalloc & DUMP_LAST_FLOW) == 0)
     rtl_dump_file = NULL;
   life_analysis (get_insns (), rtl_dump_file,
-		 PROP_DEATH_NOTES | PROP_LOG_LINKS  | PROP_REG_INFO);
+		 PROP_DEATH_NOTES | PROP_REG_INFO);
   cleanup_cfg (CLEANUP_EXPENSIVE);
   recompute_reg_usage (get_insns (), TRUE);
   if (rtl_dump_file)

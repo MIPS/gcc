@@ -1350,17 +1350,16 @@ branch_prob ()
 	}
     }
 
-  if (flag_loop_histograms)
+  /* Find loops and bring them into canonical shape.  We only need this when
+     we profile loop histograms, but we may want to use the data collected
+     with loop profiling without it.  */
+  flow_loops_find (&loops, LOOP_TREE);
+  create_preheaders (&loops, 0);
+  /* Release dominators -- we aren't going to need them nor update them.  */
+  if (loops.cfg.dom)
     {
-      /* Find loops and bring them into canonical shape.  */
-      flow_loops_find (&loops, LOOP_TREE);
-      create_preheaders (&loops, 0);
-      /* Release dominators -- we aren't going to need them nor update them.  */
-      if (loops.cfg.dom)
-	{
-	  free_dominance_info (loops.cfg.dom);
-	  loops.cfg.dom = NULL;
-	}
+      free_dominance_info (loops.cfg.dom);
+      loops.cfg.dom = NULL;
     }
 
   el = create_edge_list ();
@@ -1612,11 +1611,8 @@ branch_prob ()
 	  }
     }
 
-  if (flag_loop_histograms)
-    {
-      /* Free the loop datastructure.  */
-      flow_loops_free (&loops);
-    }
+  /* Free the loop datastructure.  */
+  flow_loops_free (&loops);
 
   if (flag_value_histograms)
     {
