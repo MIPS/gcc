@@ -1,3 +1,8 @@
+2001-02-02  Daniel Berlin  <dberlin@redhat.com>
+
+	* new-regalloc.c: Large amount of variable renaming and formatting
+	fixups. Hope i caught them all.
+
 2001-02-01  Richard Henderson  <rth@redhat.com>
 
 	* new-regalloc.c (assign_regs): Insert missing "else" between
@@ -15,9 +20,15 @@
 
 2001-02-01  Daniel Berlin  <dberlin@redhat.com>
 
+	* new-regalloc.c: Convert sbitmaps to regsets.
+	(finish_new_regalloc): Delete ig_node's as well.
+	(ig_node_delete): Free memory for ig_node's properly.
+	(find_move_cost): Fix cost calculation.
+	
+
 	* new-regalloc.c (coalesce): Fixed test for constrainedness.
 	(top level): Include new-regalloc.h
-	
+
 2001-01-31  Daniel Berlin  <dberlin@redhat.com>
 
 	* new-regalloc.c (precolored_OK): Fix heuristic.

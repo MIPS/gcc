@@ -25,7 +25,7 @@
    2. Allow spill code heuristics to be plugged in. (50% done)
    3. Large amounts of tuning.
    4. Use right size for various bitmaps. We don't actually need
-   max_reg_num(), just max_reg_num - FIRST_PSEUDO_REGISTER.
+   max_reg_num (), just max_reg_num - FIRST_PSEUDO_REGISTER.
 
    STATUS:
    When we don't spill, we have perfect allocation. Reload doesn't change
@@ -169,6 +169,8 @@ void debug_integer_hset PARAMS ((hset));
 	}						\
   } while (0)
 
+/* XXX:Extra regset routine, move into bitmap.c??? */
+static int regset_first_set_bit PARAMS((regset));
 
 /* IRC routines */
 static float (*spill_heuristic) PARAMS ((unsigned int));
@@ -177,12 +179,12 @@ static int edge_weight PARAMS ((unsigned int, unsigned int));
 static void add_edge PARAMS ((unsigned int, unsigned int));
 static void add_move PARAMS ((unsigned int, rtx));
 static int is_reg_candidate PARAMS ((unsigned int));
-static int is_candidate_move PARAMS ((rtx, sbitmap));
-static void make_worklist PARAMS ((sbitmap));
+static int is_candidate_move PARAMS ((rtx, regset));
+static void make_worklist PARAMS ((regset));
 static hset node_moves PARAMS ((unsigned int));
 static int move_related PARAMS ((unsigned int));
 static int varray_contains PARAMS ((varray_type, unsigned int));
-static sbitmap adjacent PARAMS ((unsigned int));
+static regset adjacent PARAMS ((unsigned int));
 static int enable_moves_1 PARAMS ((void **, void *));
 static void enable_moves PARAMS ((unsigned int));
 static void decrement_degree PARAMS ((unsigned int, unsigned int));
@@ -217,13 +219,14 @@ void finish_new_regalloc PARAMS ((void));
    I'll clean it up later */
 typedef struct i_g_node
 {
-  hset moveList;
-  sbitmap adjList;
+  hset move_list;
+  regset adj_list;
   unsigned int alias;
   int degree;
 } *ig_node;
 
 static ig_node ig_node_new PARAMS ((void));
+static void ig_node_delete PARAMS ((ig_node));
 static void print_ig_node PARAMS ((FILE *, void *));
 void debug_ig_node PARAMS ((void *));
 
@@ -234,35 +237,43 @@ ig_node_new ()
   ig_node retval;
 
   retval = ggc_alloc_cleared (sizeof (struct i_g_node));
-  retval->adjList = sbitmap_alloc (max_reg_num ());
-  sbitmap_zero (retval->adjList);
+  retval->adj_list = BITMAP_XMALLOC ();
+  CLEAR_REG_SET (retval->adj_list);
 
-  retval->moveList = hset_new();
+  retval->move_list = hset_new ();
   return retval;
 }
 
+static void
+ig_node_delete (node)
+  ig_node node;
+{
+  hset_delete (node->move_list);
+  FREE_REG_SET (node->adj_list);
+}
+  
 static void
 print_ig_node (file, node)
      FILE *file;
      void *node;
 {
-  ig_node theNode = (ig_node) node;
-  fprintf(file, "{ Degree:%d, Alias:%d, ", theNode->degree,
-	  theNode->alias);
-  fprintf(file, "}\n");
+  ig_node thenode = (ig_node) node;
+  fprintf (file, "{ Degree:%d, Alias:%d, ", thenode->degree,
+	  thenode->alias);
+  fprintf (file, "}\n");
 }
 
 void
 debug_ig_node (node)
      void *node;
 {
-  print_ig_node(stderr, node);
+  print_ig_node (stderr, node);
 }
 
 
 /* Hash function for hashed sets.  */
 static hashval_t
-hset_hash(a)
+hset_hash (a)
      const void *a;
 {
   return (size_t) a;
@@ -297,7 +308,7 @@ static void
 hset_delete (set)
      hset set;
 {
-  htab_delete(set);
+  htab_delete (set);
 }
 
 /* Insert an element into the hashed set.  */
@@ -441,7 +452,7 @@ hset_print_intset_1 (entry, data)
 
 /* Print out an integer set.  */
 static void
-hset_print_intset(file, set, name)
+hset_print_intset (file, set, name)
      FILE *file;
      hset set;
      const char *name;
@@ -453,37 +464,40 @@ hset_print_intset(file, set, name)
 
 /* Debugger function to print out integer set.  */
 void
-debug_integer_hset(set)
+debug_integer_hset (set)
      hset set;
 {
   hset_print_intset (stderr, set, "");
 }
 
 /* Precolored nodes */
-static sbitmap precolored;
+static regset precolored;
 
 /* Rest are from paper */
-static sbitmap simplifyWorklist;
-static sbitmap freezeWorklist;
-static sbitmap spillWorklist;
-static sbitmap spilledNodes;
-static sbitmap coalescedNodes;
-static hset coalescedMoves;
-static hset constrainedMoves;
-static hset frozenMoves;
-static hset worklistMoves;
-static hset activeMoves;
+static regset simplify_worklist;
+static regset freeze_worklist;
+static regset spill_worklist;
+static regset spilled_nodes;
+static regset coalesced_nodes;
+static hset coalesced_moves;
+static hset constrained_moves;
+static hset frozen_moves;
+static hset worklist_moves;
+static hset active_moves;
 
 /* Biased coloring costs */
 static double *costs;
 /* Map register numbers to interference graph nodes */
-static ig_node *regInfo;
+static ig_node *ra_reg_info;
 /* Map registers to colors */
 static int *colors;
-/* Stack of nodes to color */
-static varray_type selectStack;
+/* What nodes are on the stack (So we don't have to look through the
+   stack continuously */ 
+static regset select_nodes;
+/* _stack of nodes to color */
+static varray_type select_stack;
 /* Data flow analyzer structure */
-static struct df *dataflowAnalyser;
+static struct df *df_analyzer;
 
 
 /* Amazingly useful for debugging this allocator:
@@ -493,20 +507,31 @@ static int debug_new_regalloc = 2;
 /* Whether to use biased coloring or not */
 static int biased_coloring = 0;
 
+
+
+static int
+regset_first_set_bit (regs)
+     regset regs;
+{
+  unsigned int i;
+  EXECUTE_IF_SET_IN_REG_SET (regs, 0, i, return i; );
+  return -1;
+}
+
 /* Determine if regno is a candidate for this pass of register
    allocation.  */
 static int
 is_reg_candidate (regno)
      unsigned int regno;
 {
-  return DF_REGNO_FIRST_DEF (dataflowAnalyser, regno) != 0;
+  return DF_REGNO_FIRST_DEF (df_analyzer, regno) != 0;
 }
 
 /* Determine if a given rtx is a candidate move.  */
 static int
 is_candidate_move (insn, candidates)
      rtx insn;
-     sbitmap candidates;
+     regset candidates;
 {
   rtx set;
 
@@ -520,8 +545,8 @@ is_candidate_move (insn, candidates)
 
   if (GET_CODE (SET_SRC (set)) == REG
       && GET_CODE (SET_DEST (set)) == REG
-      && TEST_BIT (candidates, REGNO (SET_SRC (set)))
-      && TEST_BIT (candidates, REGNO (SET_DEST (set))))
+      && REGNO_REG_SET_P (candidates, REGNO (SET_SRC (set)))
+      && REGNO_REG_SET_P (candidates, REGNO (SET_DEST (set))))
     return 1;
 
   return 0;
@@ -535,9 +560,9 @@ edge_weight (v1, v2)
 {
   int w1 = 0, w2 = 0;
 
-  if (! TEST_BIT (precolored, v1))
+  if (! REGNO_REG_SET_P (precolored, v1))
     w1 = CLASS_MAX_NREGS (reg_preferred_class (v1), PSEUDO_REGNO_MODE (v1));
-  if (! TEST_BIT (precolored, v2))
+  if (! REGNO_REG_SET_P (precolored, v2))
     w2 = CLASS_MAX_NREGS (reg_preferred_class (v2), PSEUDO_REGNO_MODE (v2));
 
   switch (w1 + w2)
@@ -552,7 +577,7 @@ edge_weight (v1, v2)
       /* FIXME: Test for unaligned pairs.  */
       return 2;
     default:
-      abort();
+      abort ();
     }
 }
 
@@ -562,21 +587,21 @@ add_edge (v1, v2)
      unsigned int v1;
      unsigned int v2;
 {
-  if (v1 != v2 && ! TEST_BIT (regInfo[v1]->adjList, v2))
+  if (v1 != v2 && ! REGNO_REG_SET_P (ra_reg_info[v1]->adj_list, v2))
     {
       /* Precolored nodes that interfere with each other are irrelevant,
 	 we don't color them anyway (since they are precolored).  */
-      if (! TEST_BIT (precolored, v1))
+      if (! REGNO_REG_SET_P (precolored, v1))
 	{
 	  /* Add v2 to v1's adjacency list.  */
-	  SET_BIT (regInfo[v1]->adjList, v2);
-	  regInfo[v1]->degree += edge_weight(v1, v2);
+	  SET_REGNO_REG_SET (ra_reg_info[v1]->adj_list, v2);
+	  ra_reg_info[v1]->degree += edge_weight (v1, v2);
 	}
-      if (! TEST_BIT (precolored, v2))
+      if (! REGNO_REG_SET_P (precolored, v2))
 	{
 	  /* Add v1 to v2's adjacency list.  */
-	  SET_BIT (regInfo[v2]->adjList, v1);
-	  regInfo[v2]->degree += edge_weight (v2, v1);
+	  SET_REGNO_REG_SET (ra_reg_info[v2]->adj_list, v1);
+	  ra_reg_info[v2]->degree += edge_weight (v2, v1);
 	}
     }
 }
@@ -587,30 +612,30 @@ add_move (regno, insn)
      unsigned int regno;
      rtx insn;
 {
-  hset_insert (regInfo[regno]->moveList, (void *) insn);
+  hset_insert (ra_reg_info[regno]->move_list, (void *) insn);
 }
 
-/* node_moves(n) = moveList[n] INTERSECT (activeMoves U worklistMoves) */
+/* node_moves (n) = move_list[n] INTERSECT (active_moves U worklist_moves) */
 static hset
-node_moves (regNum)
-     unsigned int regNum;
+node_moves (reg_num)
+     unsigned int reg_num;
 {
   hset result = hset_new ();
-  hset_union (result, activeMoves);
-  hset_union (result, worklistMoves);
-  hset_intersect (result, regInfo[regNum]->moveList);
+  hset_union (result, active_moves);
+  hset_union (result, worklist_moves);
+  hset_intersect (result, ra_reg_info[reg_num]->move_list);
   return result;
 }
 
-/* Determine if regNum is involved in a move.  */
+/* Determine if reg_num is involved in a move.  */
 static int
-move_related (regNum)
-     unsigned int regNum;
+move_related (reg_num)
+     unsigned int reg_num;
 {
   int retval;
   hset moves;
 
-  moves = node_moves (regNum);
+  moves = node_moves (reg_num);
   retval = ! hset_empty (moves);
   hset_delete (moves);
 
@@ -623,108 +648,108 @@ move_related (regNum)
   do {						\
     int i;					\
     for (i=0; i < FIRST_PSEUDO_REGISTER; i++)	\
-      if (TEST_HARD_REG_BIT(SET, i))		\
+      if (TEST_HARD_REG_BIT (SET, i))		\
 	VAR++;					\
   } while (0)
 
 /* Cache the register freedoms */
 static int *reg_freedoms;
 
-/* Determine the register freedom of regNum.
+/* Determine the register freedom of reg_num.
    Register freedom is what lets us allocate all the register types in one
    pass. It determines the number of registers in the register set this
-   regNum prefers.  This assumes that registers only have preferences that
+   reg_num prefers.  This assumes that registers only have preferences that
    are valid classes, which they do, AFAIK. */
 static int
-reg_freedom (regNum)
-     unsigned int regNum;
+reg_freedom (reg_num)
+     unsigned int reg_num;
 {
   HARD_REG_SET temp;
   unsigned int j=0;
-
-  if (reg_freedoms [regNum] >= 0)
-    return reg_freedoms[regNum];
-
-
-  COPY_HARD_REG_SET (temp, reg_class_contents[reg_preferred_class (regNum)]);
-  IOR_HARD_REG_SET (temp, reg_class_contents[reg_alternate_class (regNum)]);
-  AND_COMPL_HARD_REG_SET(temp, fixed_reg_set);
+  
+  if (reg_freedoms [reg_num] >= 0)
+    return reg_freedoms[reg_num];
+  
+  COPY_HARD_REG_SET (temp, reg_class_contents[reg_preferred_class (reg_num)]);
+  IOR_HARD_REG_SET (temp, reg_class_contents[reg_alternate_class (reg_num)]);
+  AND_COMPL_HARD_REG_SET (temp, fixed_reg_set);
   HARD_REG_SET_SIZE (temp, j);
-  reg_freedoms[regNum] = j;
-
+  reg_freedoms[reg_num] = j;
   return j;
 }
 
 /* Make the worklists from the inital set of candidates.  */
 static void
-make_worklist(set)
-     sbitmap set;
+make_worklist (set)
+     regset set;
 {
   unsigned int entry;
 
-  EXECUTE_IF_SET_IN_SBITMAP (set, 0, entry,
+  EXECUTE_IF_SET_IN_REG_SET (set, 0, entry,
     {
-      unsigned int regNum = entry;
+      unsigned int reg_num = entry;
 
       /* Remove it from the initial set */
-      RESET_BIT(set, entry);
+      CLEAR_REGNO_REG_SET (set, entry);
 
-      /* If it's of significant degree, place it on the spillWorklist.  */
-      if (regInfo[regNum]->degree >= reg_freedom(regNum))
+      /* If it's of significant degree, place it on the spill_worklist.  */
+      if (ra_reg_info[reg_num]->degree >= reg_freedom (reg_num))
 	{
 	  if (rtl_dump_file != NULL && debug_new_regalloc > 1)
-	    fprintf (rtl_dump_file, "Inserting %d onto spillWorklist\n", regNum);
-	  SET_BIT(spillWorklist, regNum);
+	    fprintf (rtl_dump_file, "Inserting %d onto spill_worklist\n", reg_num);
+	  SET_REGNO_REG_SET (spill_worklist, reg_num);
 	}
       /* If it's move related, put it on the freeze worklist.  */
-      else if (move_related(regNum))
+      else if (move_related (reg_num))
 	{
 	  if (rtl_dump_file != NULL && debug_new_regalloc > 1)
-	    fprintf (rtl_dump_file, "Inserting %d onto freezeWorklist\n", regNum);
-	  SET_BIT(freezeWorklist, regNum);
+	    fprintf (rtl_dump_file, "Inserting %d onto freeze_worklist\n", reg_num);
+	  SET_REGNO_REG_SET (freeze_worklist, reg_num);
 	}
       /* Otherwise, put it on the simplify worklist.  */
       else
 	{
 	  if (rtl_dump_file != NULL && debug_new_regalloc > 1)
-	    fprintf (rtl_dump_file, "Inserting %d onto simplifyWorklist\n", regNum);
-	  SET_BIT(simplifyWorklist, regNum);
+	    fprintf (rtl_dump_file, "Inserting %d onto simplify_worklist\n", reg_num);
+	  SET_REGNO_REG_SET (simplify_worklist, reg_num);
 	}
     });
 }
 
-/* Returns 1 if the varray contains the register regNum.  */
+/* Returns 1 if the varray contains the register reg_num.  */
 static int
-varray_contains (array, regNum)
+varray_contains (array, reg_num)
      varray_type array;
-     unsigned int regNum;
+     unsigned int reg_num;
 {
   unsigned int i;
 
   for (i = 0; i < VARRAY_SIZE (array); i++)
-    if (VARRAY_UINT (array, i) == regNum)
+    if (VARRAY_UINT (array, i) == reg_num)
       return 1;
   return 0;
 }
 
-/* adjacent(n) = adjList[n] - (selectStack U coalescedMoves) */
-static sbitmap
-adjacent(regNum)
-     unsigned int regNum;
+/* adjacent (n) = adj_list[n] - (select_stack U coalesced_moves) */
+static regset
+adjacent (reg_num)
+     unsigned int reg_num;
 {
-  sbitmap result;
+  regset result;
   unsigned int entry;
-
-  result = sbitmap_alloc (max_reg_num ());
-  sbitmap_zero (result);
-  sbitmap_a_or_b (result, result, regInfo[regNum]->adjList);
-  sbitmap_difference (result, result, coalescedNodes);
-  EXECUTE_IF_SET_IN_SBITMAP (result, 0, entry,
-    {
-      if (varray_contains (selectStack, entry))
-	RESET_BIT (result, entry);
-    });
-
+  
+  result = BITMAP_XMALLOC ();
+  
+  CLEAR_REG_SET (result);
+  COPY_REG_SET (result, ra_reg_info[reg_num]->adj_list);
+  AND_COMPL_REG_SET (result, coalesced_nodes);
+  EXECUTE_IF_SET_IN_REG_SET (result, 0, entry,
+  {
+      
+    if (REGNO_REG_SET_P (select_nodes, entry))
+      CLEAR_REGNO_REG_SET (result, entry);
+  });
+  
   return result;
 }
 
@@ -736,22 +761,22 @@ enable_moves_1 (entry, data)
 {
   /* If it is currently an active move, put it on the worklist
      for moves.  */
-  if (hset_member (activeMoves, *entry))
+  if (hset_member (active_moves, *entry))
     {
-      hset_remove (activeMoves, *entry);
-      hset_insert (worklistMoves, *entry);
+      hset_remove (active_moves, *entry);
+      hset_insert (worklist_moves, *entry);
     }
   return 1;
 }
 
-/* Enable moves for register number regNum.  Takes the moves for this
+/* Enable moves for register number reg_num.  Takes the moves for this
    register, and puts them on the worklist to be processed.  */
 static void
-enable_moves(regNum)
-     unsigned int regNum;
+enable_moves (reg_num)
+     unsigned int reg_num;
 {
   hset moves;
-  moves = node_moves (regNum);
+  moves = node_moves (reg_num);
   hset_traverse (moves, enable_moves_1, NULL);
   hset_delete (moves);
 }
@@ -759,35 +784,35 @@ enable_moves(regNum)
 /* Decrement the degree of the register, handle possible effect
    (ie it might move from significant degree to insignificant degree).  */
 static void
-decrement_degree(regNum, from)
-     unsigned int regNum;
+decrement_degree (reg_num, from)
+     unsigned int reg_num;
      unsigned int from;
 {
-  int w = edge_weight (regNum, from);
-  int d = regInfo[regNum]->degree;
-  sbitmap adj;
+  int w = edge_weight (reg_num, from);
+  int d = ra_reg_info[reg_num]->degree;
+  regset adj;
   unsigned int entry;
 
   /* If it was of significant degree before, and isn't now, we need to
-     enable its moves, and move it off the spillWorklist.  */
-  regInfo[regNum]->degree -= w;
+     enable its moves, and move it off the spill_worklist.  */
+  ra_reg_info[reg_num]->degree -= w;
 
-  if (regInfo[regNum]->degree < reg_freedom (regNum)
-      && d >= reg_freedom (regNum))
+  if (ra_reg_info[reg_num]->degree < reg_freedom (reg_num)
+      && d >= reg_freedom (reg_num))
     {
       /* Make all moves involving variable ready for coalescing.  */
-      enable_moves (regNum);
-      adj = adjacent (regNum);
-      EXECUTE_IF_SET_IN_SBITMAP (adj, 0, entry, { enable_moves (entry); });
-      sbitmap_free (adj);
+      enable_moves (reg_num);
+      adj = adjacent (reg_num);
+      EXECUTE_IF_SET_IN_REG_SET (adj, 0, entry, { enable_moves (entry); });
+      FREE_REG_SET (adj);
 
       /* This variable is now low-degree... treat it that way.  */
-      RESET_BIT (spillWorklist, regNum);
+      CLEAR_REGNO_REG_SET (spill_worklist, reg_num);
 
-      if (move_related (regNum))
-	SET_BIT (freezeWorklist, regNum);
+      if (move_related (reg_num))
+	SET_REGNO_REG_SET (freeze_worklist, reg_num);
       else
-	SET_BIT (simplifyWorklist, regNum);
+	SET_REGNO_REG_SET (simplify_worklist, reg_num);
     }
 }
 
@@ -795,60 +820,60 @@ decrement_degree(regNum, from)
 static void
 simplify ()
 {
-  unsigned int currReg;
+  unsigned int curr_reg;
   unsigned int entry;
-  sbitmap adj;
+  regset adj;
 
   /* Pick the first thing on the worklist.  */
-  currReg = sbitmap_first_set_bit (simplifyWorklist);
+  curr_reg = regset_first_set_bit (simplify_worklist);
   if (rtl_dump_file != NULL && debug_new_regalloc > 1)
-    fprintf (rtl_dump_file, "picked reg %d in simplify\n", currReg);
+    fprintf (rtl_dump_file, "picked reg %d in simplify\n", curr_reg);
 
   /* Remove it.  */
-  RESET_BIT(simplifyWorklist, currReg);
+  CLEAR_REGNO_REG_SET (simplify_worklist, curr_reg);
 
-  /* Push it onto the selectStack to be colored.  */
-  VARRAY_PUSH_UINT(selectStack, currReg);
-
-  adj = adjacent (currReg);
+  /* Push it onto the select_stack to be colored.  */
+  VARRAY_PUSH_UINT (select_stack, curr_reg);
+  SET_REGNO_REG_SET (select_nodes, curr_reg);
+  adj = adjacent (curr_reg);
 
   /* From new register allocator paper.  */
   /* ??? My that's a descriptive comment.  */
-  if (regInfo[currReg]->degree > reg_freedom (currReg))
-    EXECUTE_IF_SET_IN_SBITMAP (adj, 0, entry, { enable_moves (entry); });
+  if (ra_reg_info[curr_reg]->degree > reg_freedom (curr_reg))
+    EXECUTE_IF_SET_IN_REG_SET (adj, 0, entry, { enable_moves (entry); });
 
   /* Now that we've removed it, everything adjacent to it gets
      decremented in degree.  */
-  EXECUTE_IF_SET_IN_SBITMAP (adj, 0, entry,
+  EXECUTE_IF_SET_IN_REG_SET (adj, 0, entry,
     {
       if (rtl_dump_file != NULL && debug_new_regalloc > 1)
 	fprintf (rtl_dump_file, "Decrementing degree of %d\n", entry);
-      decrement_degree(entry, currReg);
+      decrement_degree (entry, curr_reg);
     });
 
-  sbitmap_free (adj);
+  FREE_REG_SET (adj);
 }
 
-/* If regNum was coalesced, find out where it went, recursively if
+/* If reg_num was coalesced, find out where it went, recursively if
    necessary.  */
 static unsigned int
-get_alias (regNum)
-     unsigned int regNum;
+get_alias (reg_num)
+     unsigned int reg_num;
 {
   unsigned int result;
 
-  if (TEST_BIT (coalescedNodes, regNum))
-    result = get_alias (regInfo[regNum]->alias);
+  if (REGNO_REG_SET_P (coalesced_nodes, reg_num))
+    result = get_alias (ra_reg_info[reg_num]->alias);
   else
-    result = regNum;
+    result = reg_num;
   return result;
 }
 
 static
-float find_move_cost(move)
+float find_move_cost (move)
      rtx move;
 {
-  rtx body = PATTERN(move);
+  rtx body = PATTERN (move);
   enum reg_class lhs;
   enum reg_class rhs;
   if (HARD_REGISTER_NUM_P (REGNO (SET_DEST (body))))
@@ -859,21 +884,22 @@ float find_move_cost(move)
     rhs = REGNO_REG_CLASS (REGNO (SET_SRC (body)));
   else
     rhs = reg_preferred_class (REGNO (SET_SRC (body)));
-
-  return BLOCK_FOR_INSN(move)->loop_depth * REGISTER_MOVE_COST (GET_MODE (SET_SRC (body)), rhs, lhs);
+  return (BLOCK_FOR_INSN (move)->loop_depth + 1) 
+    * REGISTER_MOVE_COST (GET_MODE (SET_SRC (body)), rhs, lhs);
 }
 
 /* Find the move with the maximum cost */
-static
-rtx find_costliest_move(moves)
+static 
+rtx find_costliest_move (moves)
      hset moves;
 {
   unsigned int i;
   void *entry;
-  float maxCost =(float) -1.0;
+  float max_cost = (float) -1.0;
   rtx costliest = NULL_RTX;
 
-  HSET_TRAVERSAL(moves, i, entry,
+
+  HSET_TRAVERSAL (moves, i, entry, 
   {
     /* XXX: Do we have a better heuristic, or real move costs? I
        didn't look very hard at all.
@@ -881,11 +907,11 @@ rtx find_costliest_move(moves)
        move gets done every iteration .
     */
     float cost;
-    cost = find_move_cost((rtx) entry);
-
-    if (cost > maxCost)
+    cost = find_move_cost ((rtx) entry);
+    
+    if (cost > max_cost)
       {
-	maxCost = cost;
+	max_cost = cost;
 	costliest = entry;
       }
   });
@@ -896,16 +922,16 @@ rtx find_costliest_move(moves)
 
 
 /* Add_worklist takes a register, and if it's not move related, and it
-   is of insignificant degree, puts it on the simplifyWorklist.  */
+   is of insignificant degree, puts it on the simplify_worklist.  */
 static void
-add_worklist (regNum)
-     unsigned int regNum;
+add_worklist (reg_num)
+     unsigned int reg_num;
 {
-  if (! move_related (regNum)
-      && regInfo[regNum]->degree < reg_freedom (regNum))
+  if (! move_related (reg_num)
+      && ra_reg_info[reg_num]->degree < reg_freedom (reg_num))
     {
-      RESET_BIT (freezeWorklist, regNum);
-      SET_BIT (simplifyWorklist, regNum);
+      CLEAR_REGNO_REG_SET (freeze_worklist, reg_num);
+      SET_REGNO_REG_SET (simplify_worklist, reg_num);
     }
 }
 
@@ -915,19 +941,18 @@ precolored_OK (f, r)
      unsigned int f;
      unsigned int r;
 {
-  sbitmap adjacentSet = regInfo[f]->adjList;
+  regset adjacent_set = ra_reg_info[f]->adj_list;
   unsigned int entry;
 
   if (TEST_HARD_REG_BIT (fixed_reg_set, f) || TEST_HARD_REG_BIT (fixed_reg_set, r))
     return 0;
-
-  EXECUTE_IF_SET_IN_SBITMAP (adjacentSet, 0, entry,
+  EXECUTE_IF_SET_IN_REG_SET (adjacent_set, 0, entry,
     {
-      if (! varray_contains (selectStack, entry) &&
-	  ! TEST_BIT (coalescedNodes, entry) &&
-	  !( (regInfo[entry]->degree < reg_freedom(entry)) ||
-	     TEST_BIT (precolored, entry) ||
-	     TEST_BIT (regInfo[entry]->adjList, f)))
+      if (! REGNO_REG_SET_P (select_nodes, entry) 
+	  && ! REGNO_REG_SET_P (coalesced_nodes, entry) 
+	  && ! (ra_reg_info[entry]->degree < reg_freedom (entry)
+		|| REGNO_REG_SET_P (precolored, entry)
+		|| REGNO_REG_SET_P (ra_reg_info[entry]->adj_list, f)))
 	return 0;
     });
 
@@ -938,7 +963,7 @@ precolored_OK (f, r)
    true when the result of coalescing the two would be guaranteed to become
    a node of "insignificant degree", and thus, easy to color.  */
 static int
-conservative(rhs, lhs)
+conservative (rhs, lhs)
      unsigned int rhs;
      unsigned int lhs;
 {
@@ -947,7 +972,7 @@ conservative(rhs, lhs)
   unsigned int entry;
   enum machine_mode lhsmode, rhsmode;
   int result;
-  sbitmap visited;
+  regset visited;
 
   /* XXX: If they aren't the same mode, they can't possibly be
      combined, right?  */
@@ -970,18 +995,18 @@ conservative(rhs, lhs)
     combine the classes when we coalesce.  */
 
   /* Cache visited entries so we don't waste a ton of time.  */
-  visited = sbitmap_alloc (max_reg_num ());
-  sbitmap_zero(visited);
+  visited = BITMAP_XMALLOC ();
+  CLEAR_REG_SET (visited);
   result = 0;
 
   /* We don't figure out the full set of neighbors beforehand, as it's
      much slower than prescreening.  */
-  EXECUTE_IF_SET_IN_SBITMAP (regInfo[lhs]->adjList, 0, entry,
+  EXECUTE_IF_SET_IN_REG_SET (ra_reg_info[lhs]->adj_list, 0, entry,
     {
-      if (! TEST_BIT (visited, entry))
+      if (! REGNO_REG_SET_P (visited, entry))
 	{
-	  SET_BIT (visited, entry);
-	  if (regInfo[entry]->degree >= reg_freedom (entry))
+	  SET_REGNO_REG_SET (visited, entry);
+	  if (ra_reg_info[entry]->degree >= reg_freedom (entry))
 	    {
 	      k += edge_weight (lhs, entry);
 	      if (k >= freedom)
@@ -990,12 +1015,12 @@ conservative(rhs, lhs)
 	}
     });
 
-  EXECUTE_IF_SET_IN_SBITMAP (regInfo[rhs]->adjList, 0, entry,
+  EXECUTE_IF_SET_IN_REG_SET (ra_reg_info[rhs]->adj_list, 0, entry,
     {
-      if (! TEST_BIT (visited, entry))
+      if (! REGNO_REG_SET_P (visited, entry))
 	{
-	  SET_BIT (visited, entry);
-	  if (regInfo[entry]->degree >= reg_freedom (entry))
+	  SET_REGNO_REG_SET (visited, entry);
+	  if (ra_reg_info[entry]->degree >= reg_freedom (entry))
 	    {
 	      k += edge_weight (rhs, entry);
 	      if (k >= freedom)
@@ -1006,7 +1031,7 @@ conservative(rhs, lhs)
 
   result = 1;
  fail:
-  sbitmap_free (visited);
+  FREE_REG_SET (visited);
   return result;
 }
 
@@ -1018,41 +1043,41 @@ combine (u, v)
      unsigned int u;
      unsigned int v;
 {
-  sbitmap adj;
+  regset adj;
   unsigned int entry;
 
   if (rtl_dump_file != NULL && debug_new_regalloc > 0)
     fprintf (rtl_dump_file, "Coalescing %d and %d\n", u, v);
 
   /* Remove v from the worklists, and make it a coalesced node. */
-  if (TEST_BIT (freezeWorklist, v))
-    RESET_BIT (freezeWorklist, v);
+  if (REGNO_REG_SET_P (freeze_worklist, v))
+    CLEAR_REGNO_REG_SET (freeze_worklist, v);
   else
-    RESET_BIT (spillWorklist, v);
+    CLEAR_REGNO_REG_SET (spill_worklist, v);
 
   /* Throw it on the coalesced node list.  */
-  SET_BIT (coalescedNodes, v);
+  SET_REGNO_REG_SET (coalesced_nodes, v);
 
   /* Set up the alias.  */
-  regInfo[v]->alias = u;
+  ra_reg_info[v]->alias = u;
 
   /* Union the move lists.  */
-  hset_union (regInfo[u]->moveList, regInfo[v]->moveList);
+  hset_union (ra_reg_info[u]->move_list, ra_reg_info[v]->move_list);
 
   /* Add our new neighbors, decrement the degree of the old ones.  */
   adj = adjacent (v);
-  EXECUTE_IF_SET_IN_SBITMAP (adj, 0, entry,
+  EXECUTE_IF_SET_IN_REG_SET (adj, 0, entry,
     {
       add_edge (entry, u);
       decrement_degree (entry, v);
     });
-  sbitmap_free (adj);
+  FREE_REG_SET (adj);
 
   /* The new node might be of significant degree now.  */
-  if (regInfo[u]->degree >= reg_freedom (u) && TEST_BIT (freezeWorklist, u))
+  if (ra_reg_info[u]->degree >= reg_freedom (u) && REGNO_REG_SET_P (freeze_worklist, u))
     {
-      RESET_BIT (freezeWorklist, u);
-      SET_BIT (spillWorklist, u);
+      CLEAR_REGNO_REG_SET (freeze_worklist, u);
+      SET_REGNO_REG_SET (spill_worklist, u);
     }
 }
 
@@ -1060,14 +1085,14 @@ combine (u, v)
 static void
 coalesce ()
 {
-  rtx as = find_costliest_move (worklistMoves);
-  /* AS will never be NULL_RTX, if we had no worklistMoves, we
+  rtx as = find_costliest_move (worklist_moves);
+  /* AS will never be NULL_RTX, if we had no worklist_moves, we
      wouldn't have called coalesce.  */
   unsigned int lhs = get_alias (REGNO (SET_DEST (PATTERN (as))));
   unsigned int rhs = get_alias (REGNO (SET_SRC (PATTERN (as))));
 
   /* If the right hand side is precolored, swap the sides.  */
-  if (TEST_BIT (precolored, rhs))
+  if (REGNO_REG_SET_P (precolored, rhs))
     {
       unsigned int temp;
       temp = lhs;
@@ -1076,24 +1101,24 @@ coalesce ()
     }
 
   /* Remove it from the worklist, since we are processing it now.  */
-  hset_remove (worklistMoves, as);
+  hset_remove (worklist_moves, as);
   if (lhs == rhs)
     {
       /* Really the same node.  */
-      hset_insert (coalescedMoves, as);
+      hset_insert (coalesced_moves, as);
       add_worklist (lhs);
     }
   else
     {
       /* It's constrained if it's precolored, or they interefere.  */
-      if (TEST_BIT (precolored, rhs)
-	  || TEST_BIT (regInfo[rhs]->adjList, lhs))
+      if (REGNO_REG_SET_P (precolored, rhs)
+	  || REGNO_REG_SET_P (ra_reg_info[rhs]->adj_list, lhs))
 	{
 	  if (rtl_dump_file != NULL && debug_new_regalloc > 1)
 	    fprintf (rtl_dump_file, "Move from %d to %d is constrained\n", lhs, rhs);
 
 	  /* If they interfere, can't coalesce.  */
-	  hset_insert (constrainedMoves, as);
+	  hset_insert (constrained_moves, as);
 	  add_worklist (lhs);
 	  add_worklist (rhs);
 	}
@@ -1102,29 +1127,29 @@ coalesce ()
 	{
 	  /* We are going to compute the adjacent sets on the fly, so
 	     we don't do it here.  */
-	  if ((conservative (lhs, rhs) && ! TEST_BIT (precolored, lhs))
-	      || (TEST_BIT (precolored, lhs) && precolored_OK (rhs, lhs)))
+	  if ((conservative (lhs, rhs) && ! REGNO_REG_SET_P (precolored, lhs))
+	      || (REGNO_REG_SET_P (precolored, lhs) && precolored_OK (rhs, lhs)))
 	    {
 	      /* Coalesce lhs and rhs conservatively.  */
-	      hset_insert (coalescedMoves, as);
+	      hset_insert (coalesced_moves, as);
 	      combine (lhs, rhs);
 	      add_worklist (lhs);
 	    }
 	  else
 	    {
 	      /* Can't safely coalesce (yet) */
-	      hset_insert (activeMoves, as);
+	      hset_insert (active_moves, as);
 	    }
 	}
     }
 }
 
-/* Freeze the moves involving the register regNum.  */
+/* Freeze the moves involving the register reg_num.  */
 static void
-freeze_moves (regNum)
-     unsigned int regNum;
+freeze_moves (reg_num)
+     unsigned int reg_num;
 {
-  hset moves = node_moves (regNum);
+  hset moves = node_moves (reg_num);
   unsigned int i;
   void *entry;
 
@@ -1134,22 +1159,22 @@ freeze_moves (regNum)
       rtx as = (rtx) entry;
       hset nodemoves;
 
-      if (hset_member (activeMoves, (void *)as))
-	hset_remove (activeMoves, (void *)as);
+      if (hset_member (active_moves, (void *)as))
+	hset_remove (active_moves, (void *)as);
       else
-	hset_remove (worklistMoves, (void *)as);
-      hset_insert (frozenMoves, (void *)as);
+	hset_remove (worklist_moves, (void *)as);
+      hset_insert (frozen_moves, (void *)as);
 
       v = REGNO (SET_SRC (PATTERN (as)));
-      if (v == regNum)
+      if (v == reg_num)
 	v = REGNO (SET_DEST (PATTERN (as)));
 
       nodemoves = node_moves (v);
       if (hset_empty (nodemoves)
-	  && regInfo[v]->degree < reg_freedom (v))
+	  && ra_reg_info[v]->degree < reg_freedom (v))
 	{
-	  RESET_BIT (freezeWorklist, v);
-	  SET_BIT (simplifyWorklist, v);
+	  CLEAR_REGNO_REG_SET (freeze_worklist, v);
+	  SET_REGNO_REG_SET (simplify_worklist, v);
 	}
       hset_delete (nodemoves);
 
@@ -1165,55 +1190,55 @@ static void
 freeze ()
 {
   /* Pick a random element from the freeze worklist.  */
-  unsigned int regNum = sbitmap_first_set_bit (freezeWorklist);
+  unsigned int reg_num = regset_first_set_bit (freeze_worklist);
 
   /* And freeze it's moves.  */
-  RESET_BIT (freezeWorklist, regNum);
-  SET_BIT (simplifyWorklist, regNum);
-  freeze_moves (regNum);
+  CLEAR_REGNO_REG_SET (freeze_worklist, reg_num);
+  SET_REGNO_REG_SET (simplify_worklist, reg_num);
+  freeze_moves (reg_num);
 }
 
 /* Heuristic to determine cheapest spill.  */
 static float
-default_heuristic (regNum)
-     unsigned int regNum;
+default_heuristic (reg_num)
+     unsigned int reg_num;
 {
   /* FIXME: probably have a better heuristic.  */
-  return (float) reg_spill_cost (regNum) / (float) regInfo[regNum]->degree;
+  return (float) reg_spill_cost (reg_num) / (float) ra_reg_info[reg_num]->degree;
 }
 
 /* Select the cheapest spill.  We aren't necessarily spilling
    anything yet, but...  */
 static void
-select_spill()
+select_spill ()
 {
   /* FIXME: Without FLOAT_MAX, a node of degree 1 with a spill cost of
      UINT_MAX will not get picked.  What should I be doing here? */
 
-  float minCost = UINT_MAX;
+  float min_cost = UINT_MAX;
 
-  unsigned int minNode = 0;
+  unsigned int min_node = 0;
   unsigned int entry;
 
-  EXECUTE_IF_SET_IN_SBITMAP (spillWorklist, 0, entry,
+  EXECUTE_IF_SET_IN_REG_SET (spill_worklist, 0, entry,
     {
       float h = (*spill_heuristic) (entry);
-      if (h < minCost)
+      if (h < min_cost)
 	{
-	  minCost = h;
-	  minNode = entry;
+	  min_cost = h;
+	  min_node = entry;
 	}
     });
 
   if (rtl_dump_file != NULL && debug_new_regalloc > 1)
-    fprintf (rtl_dump_file, "almost-spilling node %d\n", minNode);
+    fprintf (rtl_dump_file, "almost-spilling node %d\n", min_node);
 
-  RESET_BIT (spillWorklist, minNode);
-  SET_BIT (simplifyWorklist, minNode);
-  freeze_moves (minNode);
+  CLEAR_REGNO_REG_SET (spill_worklist, min_node);
+  SET_REGNO_REG_SET (simplify_worklist, min_node);
+  freeze_moves (min_node);
 }
 
-#define FIRST_HARD_REG_BIT_SET(SET, VAR)	\
+#define FIRST_HARD_REG_BIT_SET (SET, VAR)	\
   do {						\
     int i;					\
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)	\
@@ -1224,20 +1249,20 @@ select_spill()
 	}					\
     if (i == FIRST_PSEUDO_REGISTER)		\
       VAR = -1;					\
-  } while(0)
+  } while (0)
 
 static int
-x_okay_in_direction(okay, currReg, numRegs, mode)
+x_okay_in_direction (okay, curr_reg, num_regs, mode)
      HARD_REG_SET okay;
-     int currReg;
-     int numRegs;
+     int curr_reg;
+     int num_regs;
      enum machine_mode mode;
 {
   int k;
 
-  for (k = 1; k < numRegs; k++)
+  for (k = 1; k < num_regs; k++)
     {
-      int regno = currReg + k;
+      int regno = curr_reg + k;
       if (regno < 0
 	  || ! TEST_HARD_REG_BIT (okay, regno)
 	  || ! HARD_REGNO_MODE_OK (regno, mode))
@@ -1247,16 +1272,16 @@ x_okay_in_direction(okay, currReg, numRegs, mode)
 }
 
 int
-find_reg_given_constraints (okay, currReg)
+find_reg_given_constraints (okay, curr_reg)
      HARD_REG_SET okay;
-     unsigned int currReg;
+     unsigned int curr_reg;
 {
   int i;
-  int prefReg = -1;
+  int pref_reg = -1;
   int alt_reg = -1;
-  int prefRegOrder = INT_MAX;
-  unsigned int numRegs = 0;
-  enum machine_mode reg_mode = PSEUDO_REGNO_MODE (currReg);
+  int pref_reg_order = INT_MAX;
+  unsigned int num_regs = 0;
+  enum machine_mode reg_mode = PSEUDO_REGNO_MODE (curr_reg);
 
   /* Watch as we attempt to handle the preference, and the number of hard
      registers needed for the pseudo, at the same time.  We find the most
@@ -1266,7 +1291,7 @@ find_reg_given_constraints (okay, currReg)
      FIXME: Just use a simple scoring, to get rid of this ugliness? Or
      maybe just ask the arch dependent code to tell us what it prefers?  */
 
-  numRegs = 1;
+  num_regs = 1;
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
       if (! TEST_HARD_REG_BIT (okay, i))
@@ -1276,28 +1301,28 @@ find_reg_given_constraints (okay, currReg)
 	continue;
 
       /* The number of hard regs required depends on the hard reg tested.  */
-      numRegs = HARD_REGNO_NREGS (i, reg_mode);
-      if (numRegs > 1
-	  && ! x_okay_in_direction (okay, i, numRegs, reg_mode))
+      num_regs = HARD_REGNO_NREGS (i, reg_mode);
+      if (num_regs > 1
+	  && ! x_okay_in_direction (okay, i, num_regs, reg_mode))
 	continue;
 
-      if (inv_reg_alloc_order[i] < prefRegOrder)
+      if (inv_reg_alloc_order[i] < pref_reg_order)
 	{
-	  prefReg = i;
-	  prefRegOrder = inv_reg_alloc_order[i];
+	  pref_reg = i;
+	  pref_reg_order = inv_reg_alloc_order[i];
 	}
     }
-  if (prefReg == -1)
+  if (pref_reg == -1)
     return -1;
 
   /* Get right value for the preferred register.  */
-  numRegs = HARD_REGNO_NREGS (prefReg, reg_mode);
-  alt_reg = prefReg + (numRegs - 1);
+  num_regs = HARD_REGNO_NREGS (pref_reg, reg_mode);
+  alt_reg = pref_reg + (num_regs - 1);
 
   if (HARD_REGNO_MODE_OK (alt_reg, reg_mode))
-    prefReg = MIN (prefReg, alt_reg);
+    pref_reg = MIN (pref_reg, alt_reg);
 
-  return prefReg;
+  return pref_reg;
 }
 
 /* Assign registers by coloring the graph.  We handle both the preferred
@@ -1310,43 +1335,46 @@ find_reg_given_constraints (okay, currReg)
 
    However, I believe we can completely get rid of reload if we did this.  */
 static void
-assign_regs()
+assign_regs ()
 {
-  int firstOKBit = -1;
+  int first_ok_bit = -1;
   unsigned int entry;
-  sbitmap coloredNodes = sbitmap_alloc (max_reg_num ());
+
+  regset colored_nodes = BITMAP_XMALLOC ();
   HARD_REG_SET *excluded = xcalloc (max_reg_num (), sizeof (HARD_REG_SET));
 
   if (biased_coloring)
-    costs = ggc_alloc_cleared (sizeof(double) * FIRST_PSEUDO_REGISTER);
-
-  while (VARRAY_ACTIVE_SIZE(selectStack) != 0)
+    costs = ggc_alloc_cleared (sizeof (double) * FIRST_PSEUDO_REGISTER);
+  
+  while (VARRAY_ACTIVE_SIZE (select_stack) != 0)
     {
-      unsigned int currReg = VARRAY_TOP_UINT(selectStack);
+      unsigned int curr_reg = VARRAY_TOP_UINT (select_stack);
       enum reg_class pref;
-      HARD_REG_SET okColors, badColors, avoid;
-
-      VARRAY_POP(selectStack);
-
-      /* Eliminate colors of neighbors.  Also exclude all fixed registers.  */
-      COPY_HARD_REG_SET (badColors, fixed_reg_set);
-      EXECUTE_IF_SET_IN_SBITMAP (regInfo[currReg]->adjList, 0, entry,
-        {
-	  unsigned int w = get_alias(entry);
-	  if (TEST_BIT (coloredNodes, w) || TEST_BIT (precolored, w))
-	    {
-	      int index = colors[w];
-	      if (index >= 0)
-		{
-		  /* If one is a superset of the other, this should already
-		     handle it, because we'll still clear the right bits.  */
-		  SET_HARD_REG_BIT (badColors, index);
-		  IOR_HARD_REG_SET (badColors, excluded[w]);
-		}
-	    }
-	});
-
-      /* Biased coloring, not finished yet by a long shot.  */
+      HARD_REG_SET ok_colors, bad_colors, avoid;
+      
+      VARRAY_POP (select_stack);
+      CLEAR_REGNO_REG_SET (select_nodes, curr_reg);
+      
+      /* Eliminate colors of neighbors. Also exclude all fixed
+	 registers. */
+      COPY_HARD_REG_SET (bad_colors, fixed_reg_set);
+      EXECUTE_IF_SET_IN_BITMAP (ra_reg_info[curr_reg]->adj_list, 0, entry, 
+      {
+	unsigned int w = get_alias (entry);
+	if (REGNO_REG_SET_P (colored_nodes, w) 
+	    || REGNO_REG_SET_P (precolored, w))
+	  {
+	    int index = colors[w];
+	    if (index >= 0)
+	      {
+		/* If one is a superset of the other, this should already
+		   handle it, because we'll still clear the right bits.  */
+		SET_HARD_REG_BIT (bad_colors, index);
+		IOR_HARD_REG_SET (bad_colors, excluded[w]);
+	      }
+	  }
+      });
+      /* Biased coloring, not finished yet by a long shot */
       if (biased_coloring)
 	{
 	  unsigned int best_color;
@@ -1355,96 +1383,114 @@ assign_regs()
 	  void *move_node;
 	  for (l = 0; l < FIRST_PSEUDO_REGISTER; l++)
 	    costs[l] = 0.0;
-	  CLEAR_HARD_REG_SET(avoid);
-	  HSET_TRAVERSAL (regInfo[currReg]->moveList, l, move_node,
-	    {
-	      rtx copy = (rtx) move_node;
-
-	      if (hset_member (frozenMoves, (void *)copy))
-		{
-		  unsigned int source = get_alias (REGNO (SET_SRC (copy)));
-		  unsigned int dest = get_alias (REGNO (SET_DEST (copy)));
-		  unsigned int partner = currReg == source ? dest : source;
-		  unsigned int color = colors[partner];
-		  if (0 < color && color < FIRST_PSEUDO_REGISTER)
-		    costs[color] += find_move_cost(copy);
-		  else if (! TEST_BIT (spilledNodes, partner))
+	  CLEAR_HARD_REG_SET (avoid);
+	  HSET_TRAVERSAL (ra_reg_info[curr_reg]->move_list, l, move_node, 
+	  {
+	    rtx copy = (rtx) move_node;
+	    
+	    if (hset_member (frozen_moves, (void *)copy))
+	      {
+		unsigned int source = get_alias (REGNO (SET_SRC (PATTERN (copy)))); 
+		unsigned int dest = get_alias (REGNO (SET_DEST (PATTERN (copy))));
+		unsigned int partner = curr_reg == source ? dest : source;
+		unsigned int color = colors[partner];
+		if (0 < color && color < FIRST_PSEUDO_REGISTER)
+		  costs[color] += find_move_cost (copy);
+		else if (! REGNO_REG_SET_P (spilled_nodes, partner))
+		  {
+		    unsigned int m;
+		    EXECUTE_IF_SET_IN_REG_SET (ra_reg_info[partner]->adj_list, 0, m,
 		    {
-		      unsigned int m;
-		      EXECUTE_IF_SET_IN_SBITMAP (regInfo[partner]->adjList,
-						 0, m,
-		        {
-			  unsigned int neighbor = get_alias(m);
-			  unsigned int color = colors[neighbor];
-			  if (0 < color && color < FIRST_PSEUDO_REGISTER)
-			    SET_HARD_REG_BIT(avoid, color);
-			});
-		    }
-		}
-	    });
+		      unsigned int neighbor = get_alias (m);
+		      unsigned int color = colors[neighbor];
+		      if (0 < color && color < FIRST_PSEUDO_REGISTER)
+			SET_HARD_REG_BIT (avoid, color);
+		    });
+		  }
+	      }
+	  });
+	  for (l = 0; l < FIRST_PSEUDO_REGISTER; l++)
+	    if (TEST_HARD_REG_BIT (ok_colors, l) && costs[l] > best_cost)
+	      {
+		best_cost = costs[l];
+		best_color = l;
+	      }
+	  for (l = 0; l <FIRST_PSEUDO_REGISTER; l++)
+	    if (TEST_HARD_REG_BIT (ok_colors, l) 
+		&& costs[l] == best_cost && ! TEST_HARD_REG_BIT (avoid, l))
+	      {
+		best_color = l;
+		break;
+	      }
+	  colors[curr_reg] = best_color;
+	  reg_renumber[curr_reg] = best_color;
+	  if (rtl_dump_file != NULL && debug_new_regalloc > 0)
+	    fprintf (rtl_dump_file, "Color of register %d is %d\n",
+		     curr_reg, colors[curr_reg]);
 	}
       else
 	{
-	  /* Non-biased coloring stuff.  */
-
-	  /* First try the preferred register class.  */
-	  pref = reg_preferred_class (currReg);
-	  COPY_HARD_REG_SET (okColors, reg_class_contents[pref]);
-	  AND_COMPL_HARD_REG_SET (okColors, badColors);
-	  firstOKBit = find_reg_given_constraints (okColors, currReg);
-
-	  /* If that fails, try the alternate register class, if any.  */
-	  if (firstOKBit == -1
-	      && (pref = reg_alternate_class (currReg)) != NO_REGS)
+	  /* Non-biased coloring stuff. */
+	  
+	  /* First try the preferred register class. */
+	  pref = reg_preferred_class (curr_reg);
+	  COPY_HARD_REG_SET (ok_colors, reg_class_contents[pref]);
+	  AND_COMPL_HARD_REG_SET (ok_colors, bad_colors);
+	  first_ok_bit = find_reg_given_constraints (ok_colors, curr_reg);
+	  /* If that fails, try the alternate register class, if
+	     any. */
+	  
+	  if (first_ok_bit == -1
+	      && (pref = reg_alternate_class (curr_reg)) != NO_REGS)
 	    {
-	      COPY_HARD_REG_SET (okColors, reg_class_contents[pref]);
-	      AND_COMPL_HARD_REG_SET (okColors, badColors);
-	      firstOKBit = find_reg_given_constraints (okColors, currReg);
+	      COPY_HARD_REG_SET (ok_colors, reg_class_contents[pref]);
+	      AND_COMPL_HARD_REG_SET (ok_colors, bad_colors);
+	      first_ok_bit = find_reg_given_constraints (ok_colors, curr_reg);
 	    }
 
-	  if (firstOKBit == -1)
+	  if (first_ok_bit == -1)
 	    {
 	      /* Couldn't find a color to set -- guess we have to spill.  */
-	      SET_BIT (spilledNodes, currReg);
+	      SET_REGNO_REG_SET (spilled_nodes, curr_reg);
 	      if (rtl_dump_file != NULL && debug_new_regalloc > 0)
-		fprintf (rtl_dump_file, "Spilling register %d\n", currReg);
-	      reg_renumber[currReg] = -1;
+		fprintf (rtl_dump_file, "Spilling register %d\n", curr_reg);
+	      reg_renumber[curr_reg] = -1;
 	    }
 	  else
 	    {
-	      /* We can color it.  Yay!  */
-	      int numRegs;
+	      /* We can color it. Yay!  */
+	      int num_regs;
 	      int k;
-
-	      SET_BIT (coloredNodes, currReg);
-	      colors[currReg] = firstOKBit;
-	      numRegs = HARD_REGNO_NREGS (firstOKBit,
-					  PSEUDO_REGNO_MODE (currReg));
-
+	      
+	      SET_REGNO_REG_SET (colored_nodes, curr_reg);
+	      colors[curr_reg] = first_ok_bit;
+	      num_regs = HARD_REGNO_NREGS (first_ok_bit, PSEUDO_REGNO_MODE (curr_reg));
+	      
 	      /* Exclude the other regs this color is also using, from
 		 being used by this node's neighbors.  */
-	      for (k = 1; k < numRegs; k++)
-		SET_HARD_REG_BIT (excluded[currReg], colors[currReg] + k);
-
+	      for (k = 1; k < num_regs; k++)
+		SET_HARD_REG_BIT (excluded[curr_reg], colors[curr_reg] + k);
+	      
 	      if (rtl_dump_file != NULL && debug_new_regalloc > 0)
 		fprintf (rtl_dump_file, "Color of register %d is %d\n",
-			 currReg, colors[currReg]);
+			 curr_reg, colors[curr_reg]);
 	    }
 	}
     }
+  
 
   /* Now take care of coalesced variables.  */
-  EXECUTE_IF_SET_IN_SBITMAP (coalescedNodes, 0, entry,
+  EXECUTE_IF_SET_IN_REG_SET (coalesced_nodes, 0, entry,
     {
       unsigned int v1 = entry;
       unsigned int v2 = get_alias (v1);
 
       /* XXX: Why does reload bitch if we do this?
-      df_reg_replace (dataflowAnalyser, 0,
-		      DF_REF_REG (DF_REGNO_LAST_USE (dataflowAnalyser, v1)),
-		      DF_REF_REG (DF_REGNO_LAST_USE (dataflowAnalyser,
+      df_reg_replace (df_analyzer, 0,
+		      DF_REF_REG (DF_REGNO_LAST_USE (df_analyzer, v1)),
+		      DF_REF_REG (DF_REGNO_LAST_USE (df_analyzer,
 						     colors[v2])));
-      df_analyse (dataflowAnalyser, 0, DF_ALL);
+      df_analyse (df_analyzer, 0, DF_ALL);
       */
 
       if (rtl_dump_file != NULL && debug_new_regalloc > 0)
@@ -1453,7 +1499,7 @@ assign_regs()
 		 v1, colors[v2]);
       colors[v1] = colors[v2];
     });
-
+  FREE_REG_SET (colored_nodes);
   free (excluded);
 }
 
@@ -1467,12 +1513,12 @@ rewrite_program (call_reload)
   for (i = 0; i < max; i++)
     reg_renumber[i] = colors[i];
 
-  HSET_TRAVERSAL (coalescedMoves, i, entry,
+  HSET_TRAVERSAL (coalesced_moves, i, entry,
     {
       rtx insn = (rtx) entry;
 
       /* XXX: Why does reload seem to turn this into a spill?  */
-      df_insn_delete (dataflowAnalyser, BLOCK_FOR_INSN(insn), insn);
+      df_insn_delete (df_analyzer, BLOCK_FOR_INSN (insn), insn);
     });
 
   build_insn_chain (get_insns ());
@@ -1487,25 +1533,25 @@ perform_new_regalloc ()
   /* simplify-coalesce-freeze-spill loop */
   while (1)
     {
-      if (sbitmap_first_set_bit (simplifyWorklist) != -1)
+      if (regset_first_set_bit (simplify_worklist) != -1)
 	{
 	  if (rtl_dump_file != NULL && debug_new_regalloc > 0)
 	    fprintf (rtl_dump_file, "simplifying\n");
 	  simplify ();
 	}
-      else if (! hset_empty (worklistMoves))
+      else if (! hset_empty (worklist_moves))
 	{
 	  if (rtl_dump_file != NULL && debug_new_regalloc > 0)
 	    fprintf (rtl_dump_file, "coalescing\n");
 	  coalesce ();
 	}
-      else if (sbitmap_first_set_bit (freezeWorklist) != -1)
+      else if (regset_first_set_bit (freeze_worklist) != -1)
 	{
 	  if (rtl_dump_file != NULL && debug_new_regalloc > 0)
 	    fprintf (rtl_dump_file, "freezing\n");
 	  freeze ();
 	}
-      else if (sbitmap_first_set_bit(spillWorklist) != -1)
+      else if (regset_first_set_bit (spill_worklist) != -1)
 	{
 	  if (rtl_dump_file != NULL && debug_new_regalloc > 0)
 	    fprintf (rtl_dump_file, "spilling\n");
@@ -1523,15 +1569,15 @@ perform_new_regalloc ()
   assign_regs ();
 
   /* If we spilled */
-  if (sbitmap_first_set_bit(spilledNodes) != -1)
+  if (regset_first_set_bit (spilled_nodes) != -1)
     {
       /* FIXME: Insert spill code insertion here.  */
       rewrite_program (1);
       ggc_collect ();
       /* FIXME: Then iterate */
       /*
-	  finish_new_regalloc();
-	  init_new_regalloc();
+	  finish_new_regalloc ();
+	  init_new_regalloc ();
       */
     }
   else
@@ -1543,27 +1589,27 @@ void
 perform_new_regalloc_init ()
 {
   int i;
-  sbitmap initial;
-  sbitmap moveCandidates;
+  regset initial;
+  regset move_candidates;
 
-  initial = sbitmap_alloc (max_reg_num ());
-  sbitmap_zero (initial);
+  initial = BITMAP_XMALLOC ();
+  CLEAR_REG_SET (initial);
 
   /* Do dataflow analysis on all blocks.  */
-  df_analyse (dataflowAnalyser, 0, DF_ALL | DF_HARD_REGS);
+  df_analyse (df_analyzer, 0, DF_ALL | DF_HARD_REGS);
 
   /* Place register candidates into initial, and setup interference
      graph nodes for them.  */
-  for (i=0; i < max_reg_num(); i++)
+  for (i=0; i < max_reg_num (); i++)
     {
-      if ((HARD_REGISTER_NUM_P (i) && is_reg_candidate (i))
-	  || (HARD_REGISTER_NUM_P (i) && (DF_REGNO_LAST_USE (dataflowAnalyser, i) != 0))
+      if ((HARD_REGISTER_NUM_P (i) && is_reg_candidate (i)) 
+	  || (HARD_REGISTER_NUM_P (i) && (DF_REGNO_LAST_USE (df_analyzer, i) != 0))
 	  || (HARD_REGISTER_NUM_P (i) && fixed_regs[i]))
 	{
-	  regInfo[i] = ig_node_new();
-	  regInfo[i]->degree = INT_MAX;
+	  ra_reg_info[i] = ig_node_new ();
+	  ra_reg_info[i]->degree = INT_MAX;
 	  colors[i] = i;
-	  SET_BIT (precolored, i);
+	  SET_REGNO_REG_SET (precolored, i);
 	  if (rtl_dump_file != NULL && debug_new_regalloc > 1)
 	    fprintf (rtl_dump_file, "Inserting precolored node for hard reg %d\n", i);
 	}
@@ -1571,25 +1617,29 @@ perform_new_regalloc_init ()
 	{
 	  if (rtl_dump_file != NULL && debug_new_regalloc > 1)
 	    fprintf (rtl_dump_file, "Inserting new candidate %d\n", i);
-	  SET_BIT (initial, i);
-	  regInfo[i] = ig_node_new ();
+	  SET_REGNO_REG_SET (initial, i);
+	  ra_reg_info[i] = ig_node_new ();
 	}
     }
   if (rtl_dump_file != NULL && debug_new_regalloc > 0)
     {
       fprintf (rtl_dump_file, "Initial set:");
-      dump_sbitmap (rtl_dump_file, initial);
+      dump_regset (initial, rtl_dump_file);
+      fprintf (rtl_dump_file, "\n");
       fprintf (rtl_dump_file, "Precolored set:");
-      dump_sbitmap (rtl_dump_file, precolored);
+      dump_regset (precolored, rtl_dump_file);
+      fprintf (rtl_dump_file, "\n");
+      
     }
 
-  moveCandidates = sbitmap_alloc (max_reg_num ());
-  sbitmap_a_or_b (moveCandidates, initial, precolored);
+  move_candidates = BITMAP_XMALLOC ();
+  
+  IOR_REG_SET (move_candidates, precolored);
 
   /* Process all the basic blocks.  */
   for (i = 0; i < n_basic_blocks; i++)
     {
-      basic_block currblock = BASIC_BLOCK(i);
+      basic_block currblock = BASIC_BLOCK (i);
       rtx currinsn;
       sbitmap live;
       int j;
@@ -1601,17 +1651,17 @@ perform_new_regalloc_init ()
       currinsn = currblock->head;
       while (1)
 	{
-	  if (is_candidate_move (currinsn, moveCandidates))
+	  if (is_candidate_move (currinsn, move_candidates))
 	    {
 	      if (rtl_dump_file != NULL && debug_new_regalloc > 1)
 		{
 		  fprintf (rtl_dump_file, "Inserting new move candidate:");
-		  print_rtl(rtl_dump_file, PATTERN(currinsn));
+		  print_rtl (rtl_dump_file, PATTERN (currinsn));
 		  fprintf (rtl_dump_file, "\n");
 		}
 	      add_move (REGNO (SET_DEST (PATTERN (currinsn))), currinsn);
-	      add_move(REGNO (SET_SRC (PATTERN (currinsn))), currinsn);
-	      hset_insert (worklistMoves, currinsn);
+	      add_move (REGNO (SET_SRC (PATTERN (currinsn))), currinsn);
+	      hset_insert (worklist_moves, currinsn);
 	    }
 	  if (currinsn == currblock->end)
 	    break;
@@ -1620,7 +1670,7 @@ perform_new_regalloc_init ()
 
       /* Was lr_def.  */
       sbitmap_a_or_b (live, live,
-		      DF_BB_INFO (dataflowAnalyser, currblock)->lr_out);
+		      DF_BB_INFO (df_analyzer, currblock)->lr_out);
 
       /* Work backwards through instructions.  */
       currinsn = currblock->end;
@@ -1631,22 +1681,22 @@ perform_new_regalloc_init ()
 	      struct df_link *currdef;
 	      struct df_link *curruse;
 
-	      currdef = DF_INSN_DEFS (dataflowAnalyser, currinsn);
+	      currdef = DF_INSN_DEFS (df_analyzer, currinsn);
 	      for (; currdef; currdef = currdef->next)
-		EXECUTE_IF_SET_IN_SBITMAP(live, 0, j,
+		EXECUTE_IF_SET_IN_SBITMAP (live, 0, j,
 		  {
 		    if (rtl_dump_file != NULL && debug_new_regalloc > 1)
 		      fprintf (rtl_dump_file, "Inserting edge from %d to %d\n",
-			       DF_REF_REGNO(currdef->ref), j);
+			       DF_REF_REGNO (currdef->ref), j);
 
 		    add_edge (DF_REF_REGNO (currdef->ref), j);
 		  });
 
-	      currdef = DF_INSN_DEFS (dataflowAnalyser, currinsn);
+	      currdef = DF_INSN_DEFS (df_analyzer, currinsn);
 	      for (; currdef; currdef = currdef->next)
 		RESET_BIT (live, DF_REF_REGNO (currdef->ref));
 
-	      curruse = DF_INSN_USES (dataflowAnalyser, currinsn);
+	      curruse = DF_INSN_USES (df_analyzer, currinsn);
 	      for (; curruse; curruse = curruse->next)
 		SET_BIT (live, DF_REF_REGNO (curruse->ref));
 	    }
@@ -1660,8 +1710,8 @@ perform_new_regalloc_init ()
      extra interference edges if necessary for very weird constraints.  It's
      really no skin off our back, or theirs. */
   make_worklist (initial);
-  sbitmap_free (moveCandidates);
-  sbitmap_free (initial);
+  FREE_REG_SET (move_candidates);
+  FREE_REG_SET (initial);
 
   compute_bb_for_insn (get_max_uid ());
 }
@@ -1671,46 +1721,47 @@ void
 init_new_regalloc ()
 {
   int i, max_reg = max_reg_num ();
-
+  
   /* Initialize our variables.  */
   spill_heuristic = default_heuristic;
+  
+  precolored = BITMAP_XMALLOC ();
+  CLEAR_REG_SET (precolored);
 
-  precolored = sbitmap_alloc (max_reg);
-  sbitmap_zero (precolored);
+  simplify_worklist = BITMAP_XMALLOC ();
+  CLEAR_REG_SET (simplify_worklist);
 
-  simplifyWorklist = sbitmap_alloc (max_reg);
-  sbitmap_zero (simplifyWorklist);
+  freeze_worklist = BITMAP_XMALLOC ();
+  CLEAR_REG_SET (freeze_worklist);
 
-  freezeWorklist = sbitmap_alloc (max_reg);
-  sbitmap_zero (freezeWorklist);
+  spill_worklist = BITMAP_XMALLOC ();
+  CLEAR_REG_SET (spill_worklist);
 
-  spillWorklist = sbitmap_alloc (max_reg);
-  sbitmap_zero (spillWorklist);
+  spilled_nodes = BITMAP_XMALLOC ();
+  CLEAR_REG_SET (spilled_nodes);
 
-  spilledNodes = sbitmap_alloc(max_reg);
-  sbitmap_zero (spilledNodes);
+  coalesced_nodes = BITMAP_XMALLOC ();
+  CLEAR_REG_SET (coalesced_nodes);
 
-  coalescedNodes = sbitmap_alloc(max_reg);
-  sbitmap_zero (coalescedNodes);
+  coalesced_moves = hset_new ();
+  constrained_moves = hset_new ();
+  frozen_moves = hset_new ();
+  worklist_moves = hset_new ();
+  active_moves = hset_new ();
 
-  coalescedMoves = hset_new ();
-  constrainedMoves = hset_new ();
-  frozenMoves = hset_new ();
-  worklistMoves = hset_new ();
-  activeMoves = hset_new ();
-
-  regInfo = ggc_alloc_cleared (sizeof (ig_node) * max_reg);
-  reg_freedoms = ggc_alloc_cleared (sizeof(int) * max_reg_num ());
-  colors = ggc_alloc (sizeof (int) * max_reg_num ());
+  ra_reg_info = ggc_alloc_cleared (sizeof (ig_node) * max_reg);
+  reg_freedoms = ggc_alloc_cleared (sizeof (int) * max_reg);
+  colors = ggc_alloc (sizeof (int) * max_reg);
   for (i = 0; i < max_reg; i++)
     {
       colors[i] = -1;
       reg_freedoms[i] = -1;
     }
 
-
-  VARRAY_UINT_INIT (selectStack, 1, "Interference graph stack");
-  dataflowAnalyser = df_init ();
+  select_nodes = BITMAP_XMALLOC ();
+  CLEAR_REG_SET (select_nodes);
+  VARRAY_UINT_INIT (select_stack, 1, "Interference graph stack");
+  df_analyzer = df_init ();
   allocate_reg_info (max_reg, FALSE, TRUE);
   update_equiv_regs ();
 
@@ -1724,17 +1775,24 @@ init_new_regalloc ()
 void
 finish_new_regalloc ()
 {
+  int i;
+  for (i=0; i < max_reg_num (); i++)
+    if (ra_reg_info[i] != 0)
+      ig_node_delete (ra_reg_info[i]);
+ 
   /* Cleanup after ourselves */
-  sbitmap_free (simplifyWorklist);
-  sbitmap_free (freezeWorklist);
-  sbitmap_free (spillWorklist);
-  sbitmap_free (spilledNodes);
-  sbitmap_free (coalescedNodes);
-  hset_free (coalescedMoves);
-  hset_free (constrainedMoves);
-  hset_free (frozenMoves);
-  hset_free (worklistMoves);
-  hset_free (activeMoves);
-  VARRAY_FREE (selectStack);
-  df_finish (dataflowAnalyser);
+   
+  FREE_REG_SET (simplify_worklist);
+  FREE_REG_SET (freeze_worklist);
+  FREE_REG_SET (spill_worklist);
+  FREE_REG_SET (spilled_nodes);
+  FREE_REG_SET (coalesced_nodes);
+  FREE_REG_SET (select_nodes);
+  hset_free (coalesced_moves);
+  hset_free (constrained_moves);
+  hset_free (frozen_moves);
+  hset_free (worklist_moves);
+  hset_free (active_moves);
+  VARRAY_FREE (select_stack);
+  df_finish (df_analyzer);
 }
