@@ -759,6 +759,10 @@ get_asm_expr_operands (ipa_local_static_vars_info_t local, tree stmt)
 	if (local->pure_const_not_set_in_source)
 	  local->pure_const_state = IPA_NEITHER;
       }      
+
+  if (ASM_VOLATILE_P (stmt))
+    if (local->pure_const_not_set_in_source)
+      local->pure_const_state = IPA_NEITHER;
 }
 
 /* Check the parameters of a function call from CALLER to CALL_EXPR to
@@ -1479,7 +1483,7 @@ static_execute (void)
 		  if (DECL_STRUCT_FUNCTION (node->decl))
 		    {
 		      if (mark_dfs_back_edges ())
-			l->pure_const_state = IPA_PURE;
+			l->pure_const_state = IPA_NEITHER;
 		    }
 		  else 
 		    {
