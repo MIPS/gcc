@@ -7,6 +7,8 @@ This file is part of GCC.
 XXX: libgcc license?
 */
 
+#include "mf-runtime.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,7 +18,6 @@ XXX: libgcc license?
 #include <execinfo.h>
 #include <assert.h>
 
-#include "mf-runtime.h"
 #include "mf-impl.h"
 
 #ifdef _MUDFLAP

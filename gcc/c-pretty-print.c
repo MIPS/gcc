@@ -407,7 +407,6 @@ dump_c_node (buffer, node, spc, brief_dump)
       NIY;
       break;
 
-
     case LANG_TYPE:
       NIY;
       break;
@@ -460,7 +459,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 	else
 	  {
 	    char string[100];
-	    REAL_VALUE_TO_DECIMAL (d, string, -1);
+	    real_to_decimal (string, &d, sizeof (string), 0, 1);
 	    output_add_string (buffer, string);
 	  }
 #else

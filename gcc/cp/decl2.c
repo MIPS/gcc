@@ -61,7 +61,6 @@ typedef struct priority_info_s {
 static void mark_vtable_entries PARAMS ((tree));
 static void grok_function_init PARAMS ((tree, tree));
 static int finish_vtable_vardecl PARAMS ((tree *, void *));
-static int prune_vtable_vardecl PARAMS ((tree *, void *));
 static int is_namespace_ancestor PARAMS ((tree, tree));
 static void add_using_namespace PARAMS ((tree, tree, int));
 static tree ambiguous_decl PARAMS ((tree, tree, tree,int));
@@ -1382,26 +1381,31 @@ finish_anon_union (anon_union_decl)
       return;
     }
 
-  main_decl = build_anon_union_vars (anon_union_decl,
-				     &DECL_ANON_UNION_ELEMS (anon_union_decl),
-				     static_p, external_p);
-
-  if (main_decl == NULL_TREE)
+  if (!processing_template_decl)
     {
-      warning ("anonymous aggregate with no members");
-      return;
+      main_decl 
+	= build_anon_union_vars (anon_union_decl,
+				 &DECL_ANON_UNION_ELEMS (anon_union_decl),
+				 static_p, external_p);
+      
+      if (main_decl == NULL_TREE)
+	{
+	  warning ("anonymous aggregate with no members");
+	  return;
+	}
+
+      if (static_p)
+	{
+	  make_decl_rtl (main_decl, 0);
+	  COPY_DECL_RTL (main_decl, anon_union_decl);
+	  expand_anon_union_decl (anon_union_decl, 
+				  NULL_TREE,
+				  DECL_ANON_UNION_ELEMS (anon_union_decl));
+	  return;
+	}
     }
 
-  if (static_p)
-    {
-      make_decl_rtl (main_decl, 0);
-      COPY_DECL_RTL (main_decl, anon_union_decl);
-      expand_anon_union_decl (anon_union_decl, 
-			      NULL_TREE,
-			      DECL_ANON_UNION_ELEMS (anon_union_decl));
-    }
-  else
-    add_decl_stmt (anon_union_decl);
+  add_decl_stmt (anon_union_decl);
 }
 
 /* Auxiliary functions to make type signatures for
@@ -1835,15 +1839,6 @@ finish_vtable_vardecl (t, data)
     note_debug_info_needed (ctype);
 
   return 0;
-}
-
-static int
-prune_vtable_vardecl (t, data)
-     tree *t;
-     void *data ATTRIBUTE_UNUSED;
-{
-  *t = TREE_CHAIN (*t);
-  return 1;
 }
 
 /* Determines the proper settings of TREE_PUBLIC and DECL_EXTERNAL for an
@@ -2476,34 +2471,24 @@ finish_static_initialization_or_destruction (guard_if_stmt)
   DECL_STATIC_FUNCTION_P (current_function_decl) = 0;
 }
 
-/* Generate code to do the static initialization of DECL.  The
-   initialization is INIT.  If DECL may be initialized more than once
-   in different object files, GUARD is the guard variable to 
-   check.  PRIORITY is the priority for the initialization.  */
+/* Generate code to do the initialization of DECL, a VAR_DECL with
+   static storage duration.  The initialization is INIT.  */
 
 static void
 do_static_initialization (decl, init)
      tree decl;
      tree init;
 {
-  tree expr;
   tree guard_if_stmt;
 
   /* Set up for the initialization.  */
   guard_if_stmt
     = start_static_initialization_or_destruction (decl,
 						  /*initp=*/1);
-  
-  /* Do the initialization itself.  */
-  if (IS_AGGR_TYPE (TREE_TYPE (decl))
-      || TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
-    expr = build_aggr_init (decl, init, 0);
-  else
-    {
-      expr = build (INIT_EXPR, TREE_TYPE (decl), decl, init);
-      TREE_SIDE_EFFECTS (expr) = 1;
-    }
-  finish_expr_stmt (expr);
+
+  /* Perform the initialization.  */
+  if (init)
+    finish_expr_stmt (init);
 
   /* If we're using __cxa_atexit, register a a function that calls the
      destructor for the object.  */
@@ -2535,7 +2520,7 @@ do_static_destruction (decl)
 
   /* Actually do the destruction.  */
   guard_if_stmt = start_static_initialization_or_destruction (decl,
-							       /*initp=*/0);
+							      /*initp=*/0);
   finish_expr_stmt (build_cleanup (decl));
   finish_static_initialization_or_destruction (guard_if_stmt);
 }

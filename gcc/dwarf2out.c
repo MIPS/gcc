@@ -7478,6 +7478,27 @@ is_base_type (type)
   return 0;
 }
 
+/* Given a pointer to a tree node, assumed to be some kind of a ..._TYPE
+   node, return the size in bits for the type if it is a constant, or else
+   return the alignment for the type if the type's size is not constant, or
+   else return BITS_PER_WORD if the type actually turns out to be an
+   ERROR_MARK node.  */
+
+static inline unsigned HOST_WIDE_INT
+simple_type_size_in_bits (type)
+     tree type;
+{
+
+  if (TREE_CODE (type) == ERROR_MARK)
+    return BITS_PER_WORD;
+  else if (TYPE_SIZE (type) == NULL_TREE)
+    return 0;
+  else if (host_integerp (TYPE_SIZE (type), 1))
+    return tree_low_cst (TYPE_SIZE (type), 1);
+  else
+    return TYPE_ALIGN (type);
+}
+
 /* Given a pointer to an arbitrary ..._TYPE tree node, return a debugging
    entry that chains various modifiers in front of the given type.  */
 
@@ -7555,7 +7576,8 @@ modified_type_die (type, is_const_type, is_volatile_type, context_die)
       else if (code == POINTER_TYPE)
 	{
 	  mod_type_die = new_die (DW_TAG_pointer_type, comp_unit_die, type);
-	  add_AT_unsigned (mod_type_die, DW_AT_byte_size, PTR_SIZE);
+	  add_AT_unsigned (mod_type_die, DW_AT_byte_size,
+			   simple_type_size_in_bits (type) / BITS_PER_UNIT);
 #if 0
 	  add_AT_unsigned (mod_type_die, DW_AT_address_class, 0);
 #endif
@@ -7564,7 +7586,8 @@ modified_type_die (type, is_const_type, is_volatile_type, context_die)
       else if (code == REFERENCE_TYPE)
 	{
 	  mod_type_die = new_die (DW_TAG_reference_type, comp_unit_die, type);
-	  add_AT_unsigned (mod_type_die, DW_AT_byte_size, PTR_SIZE);
+	  add_AT_unsigned (mod_type_die, DW_AT_byte_size,
+			   simple_type_size_in_bits (type) / BITS_PER_UNIT);
 #if 0
 	  add_AT_unsigned (mod_type_die, DW_AT_address_class, 0);
 #endif
@@ -8060,7 +8083,7 @@ loc_descriptor_from_tree (loc, addressp)
 
 	  /* The way DW_OP_GNU_push_tls_address is specified, we can only
 	     look up addresses of objects in the current module.  */
-	  if (! (*targetm.binds_local_p) (loc))
+	  if (DECL_EXTERNAL (loc))
 	    return 0;
 
 	  rtl = rtl_for_decl_location (loc);
@@ -8417,27 +8440,6 @@ simple_decl_align_in_bits (decl)
      tree decl;
 {
   return (TREE_CODE (decl) != ERROR_MARK) ? DECL_ALIGN (decl) : BITS_PER_WORD;
-}
-
-/* Given a pointer to a tree node, assumed to be some kind of a ..._TYPE
-   node, return the size in bits for the type if it is a constant, or else
-   return the alignment for the type if the type's size is not constant, or
-   else return BITS_PER_WORD if the type actually turns out to be an
-   ERROR_MARK node.  */
-
-static inline unsigned HOST_WIDE_INT
-simple_type_size_in_bits (type)
-     tree type;
-{
-
-  if (TREE_CODE (type) == ERROR_MARK)
-    return BITS_PER_WORD;
-  else if (TYPE_SIZE (type) == NULL_TREE)
-    return 0;
-  else if (host_integerp (TYPE_SIZE (type), 1))
-    return tree_low_cst (TYPE_SIZE (type), 1);
-  else
-    return TYPE_ALIGN (type);
 }
 
 /* Given a pointer to a FIELD_DECL, compute and return the byte offset of the

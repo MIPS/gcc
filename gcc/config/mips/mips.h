@@ -64,9 +64,8 @@ enum processor_type {
   PROCESSOR_R4000,
   PROCESSOR_R4100,
   PROCESSOR_R4111,
-  PROCESSOR_R4121,
+  PROCESSOR_R4120,
   PROCESSOR_R4300,
-  PROCESSOR_R4320,
   PROCESSOR_R4600,
   PROCESSOR_R4650,
   PROCESSOR_R5000,
@@ -358,9 +357,8 @@ extern void		sbss_section PARAMS ((void));
 #define TARGET_MIPS3900             (mips_arch == PROCESSOR_R3900)
 #define TARGET_MIPS4000             (mips_arch == PROCESSOR_R4000)
 #define TARGET_MIPS4100             (mips_arch == PROCESSOR_R4100)
-#define TARGET_MIPS4121             (mips_arch == PROCESSOR_R4121)
+#define TARGET_MIPS4120             (mips_arch == PROCESSOR_R4120)
 #define TARGET_MIPS4300             (mips_arch == PROCESSOR_R4300)
-#define TARGET_MIPS4320             (mips_arch == PROCESSOR_R4320)
 #define TARGET_MIPS4KC              (mips_arch == PROCESSOR_R4KC)
 #define TARGET_MIPS5KC              (mips_arch == PROCESSOR_R5KC)
 #define TARGET_MIPS5400             (mips_arch == PROCESSOR_R5400)
@@ -769,7 +767,6 @@ extern void		sbss_section PARAMS ((void));
 
 /* Generate three-operand multiply instructions for SImode.  */
 #define GENERATE_MULT3_SI       ((TARGET_MIPS3900                       \
-                                  || TARGET_MIPS4320                    \
                                   || TARGET_MIPS5400                    \
                                   || TARGET_MIPS5500                    \
                                   || ISA_MIPS32	                        \
@@ -3818,6 +3815,7 @@ typedef struct mips_args {
 				  REG, SIGN_EXTEND }},			\
   {"consttable_operand",	{ LABEL_REF, SYMBOL_REF, CONST_INT,	\
 				  CONST_DOUBLE, CONST }},		\
+  {"fcc_register_operand",	{ REG, SUBREG }},			\
   {"extend_operator",           { SIGN_EXTEND, ZERO_EXTEND }},          \
   {"highpart_shift_operator",   { ASHIFTRT, LSHIFTRT, ROTATERT, ROTATE }},
 
@@ -4564,15 +4562,14 @@ while (0)
 #define MIPS_UNMARK_STAB(code) ((code)-CODE_MASK)
 
 
-/* Default definitions for size_t and ptrdiff_t.  */
+/* Default definitions for size_t and ptrdiff_t.  We must override the
+   definitions from ../svr4.h on mips-*-linux-gnu.  */
 
-#ifndef SIZE_TYPE
+#undef SIZE_TYPE
 #define SIZE_TYPE (Pmode == DImode ? "long unsigned int" : "unsigned int")
-#endif
 
-#ifndef PTRDIFF_TYPE
+#undef PTRDIFF_TYPE
 #define PTRDIFF_TYPE (Pmode == DImode ? "long int" : "int")
-#endif
 
 /* See mips_expand_prologue's use of loadgp for when this should be
    true.  */

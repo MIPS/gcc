@@ -254,7 +254,7 @@ FIBHEAP_H   = $(srcdir)/../include/fibheap.h
 # Default native SYSTEM_HEADER_DIR, to be overridden by targets.
 NATIVE_SYSTEM_HEADER_DIR = /usr/include
 # Default cross SYSTEM_HEADER_DIR, to be overridden by targets.
-CROSS_SYSTEM_HEADER_DIR = $(build_tooldir)/sys-include
+CROSS_SYSTEM_HEADER_DIR = @CROSS_SYSTEM_HEADER_DIR@
 
 # autoconf sets SYSTEM_HEADER_DIR to one of the above.
 SYSTEM_HEADER_DIR = @SYSTEM_HEADER_DIR@
@@ -1036,7 +1036,7 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) xgcc$(exeext
 	SHLIB_MKMAP_OPTS='$(SHLIB_MKMAP_OPTS)' \
 	SHLIB_MAPFILES='$(SHLIB_MAPFILES)' \
 	SHLIB_NM_FLAGS='$(SHLIB_NM_FLAGS)' \
-	SHLIB_SLIBDIR_SUFFIXES='$(SHLIB_SLIBDIR_SUFFIXES)' \
+	MULTILIB_OSDIRNAMES='$(MULTILIB_OSDIRNAMES)' \
 	mkinstalldirs='$(SHELL) $(srcdir)/mkinstalldirs' \
 	  $(SHELL) mklibgcc > tmp-libgcc.mk
 	mv tmp-libgcc.mk libgcc.mk
@@ -1070,7 +1070,8 @@ libgcc.a: $(LIBGCC_DEPS)
 # switches.
 multilib.h: s-mlib; @true
 s-mlib: $(srcdir)/genmultilib Makefile
-	if test @enable_multilib@ = yes; then \
+	if test @enable_multilib@ = yes \
+	   || test -n "$(MULTILIB_OSDIRNAMES)"; then \
 	  $(SHELL) $(srcdir)/genmultilib \
 	    "$(MULTILIB_OPTIONS)" \
 	    "$(MULTILIB_DIRNAMES)" \
@@ -1078,9 +1079,12 @@ s-mlib: $(srcdir)/genmultilib Makefile
 	    "$(MULTILIB_EXCEPTIONS)" \
 	    "$(MULTILIB_EXTRA_OPTS)" \
 	    "$(MULTILIB_EXCLUSIONS)" \
+	    "$(MULTILIB_OSDIRNAMES)" \
+	    "@enable_multilib@" \
 	    > tmp-mlib.h; \
 	else \
-	  $(SHELL) $(srcdir)/genmultilib '' '' '' '' '' '' > tmp-mlib.h; \
+	  $(SHELL) $(srcdir)/genmultilib '' '' '' '' '' '' '' no \
+	    > tmp-mlib.h; \
 	fi
 	$(SHELL) $(srcdir)/move-if-change tmp-mlib.h multilib.h
 	$(STAMP) s-mlib
@@ -1263,6 +1267,7 @@ DRIVER_DEFINES = \
   -DDEFAULT_TARGET_MACHINE=\"$(target_alias)\" \
   -DSTANDARD_BINDIR_PREFIX=\"$(bindir)/\" \
   -DTOOLDIR_BASE_PREFIX=\"$(unlibsubdir)/../\" \
+  @TARGET_SYSTEM_ROOT_DEFINE@ \
   `test "X$${SHLIB_LINK}" = "X" || test "@enable_shared@" != "yes" || echo "-DENABLE_SHARED_LIBGCC"` \
   `test "X$${SHLIB_MULTILIB}" = "X" || echo "-DNO_SHARED_LIBGCC_MULTILIB"`
 
@@ -2242,7 +2247,7 @@ PREPROCESSOR_DEFINES = \
   -DGPLUSPLUS_TOOL_INCLUDE_DIR=\"$(gcc_gxx_include_dir)/$(target_alias)\" \
   -DGPLUSPLUS_BACKWARD_INCLUDE_DIR=\"$(gcc_gxx_include_dir)/backward\" \
   -DLOCAL_INCLUDE_DIR=\"$(local_includedir)\" \
-  -DCROSS_INCLUDE_DIR=\"$(gcc_tooldir)/sys-include\" \
+  -DCROSS_INCLUDE_DIR=\"$(CROSS_SYSTEM_HEADER_DIR)\" \
   -DTOOL_INCLUDE_DIR=\"$(gcc_tooldir)/include\"
 
 LIBCPP_OBJS =	cpplib.o cpplex.o cppmacro.o cppexp.o cppfiles.o cpptrad.o \
@@ -2419,8 +2424,18 @@ fixinc.sh: $(FIXINCSRCDIR)/mkfixinc.sh $(FIXINCSRCDIR)/fixincl.c \
 	export MAKE srcdir CC CFLAGS LDFLAGS WARN_CFLAGS; cd ./fixinc && \
 	$(SHELL) $${srcdir}/mkfixinc.sh $(build_canonical) $(target))
 
+.PHONY: install-gcc-tooldir
+install-gcc-tooldir:
+	$(SHELL) ${srcdir}/mkinstalldirs $(gcc_tooldir)
+
 # Build fixed copies of system files.
 stmp-fixinc: fixinc.sh gsyslimits.h
+	@if test ! -d ${SYSTEM_HEADER_DIR}; then \
+	  echo The directory that should contain system headers does not exist: >&2 ; \
+	  echo "  ${SYSTEM_HEADER_DIR}" >&2 ; \
+	  if test "x${SYSTEM_HEADER_DIR}" = "x${gcc_tooldir}/sys-include"; \
+	  then sleep 1; else exit 1; fi; \
+	fi
 	rm -rf include; mkdir include
 	-chmod a+rx include
 	(TARGET_MACHINE='$(target)'; srcdir=`cd $(srcdir); ${PWD}`; \
@@ -2434,20 +2449,6 @@ stmp-fixinc: fixinc.sh gsyslimits.h
 	  cp $(srcdir)/gsyslimits.h include/syslimits.h; \
 	fi; \
 	chmod a+r include/syslimits.h)
-# If $(SYSTEM_HEADER_DIR) is $(build_tooldir)/sys-include, and
-# that directory exists, then make sure that $(libsubdir) exists.
-# This is because cpp is compiled to find $(gcc_tooldir)/include via
-# $(libsubdir)/$(unlibsubdir), which will only work if $(libsubdir)
-# exists.
-# ??? Better would be to use -isystem $(build_tooldir)/sys-include,
-# but fixincludes does not take such arguments.
-	if [ "$(SYSTEM_HEADER_DIR)" = "$(build_tooldir)/sys-include" ] \
-	   && [ -d $(build_tooldir)/sys-include ]; then \
-	  if [ -d $(libdir) ] ; then true ; else mkdir $(libdir) ; fi; \
-	  if [ -d $(libdir)/gcc-lib ] ; then true ; else mkdir $(libdir)/gcc-lib; fi; \
-	  if [ -d $(libdir)/gcc-lib/$(target_alias) ] ; then true ; else mkdir $(libdir)/gcc-lib/$(target_alias) ; fi; \
-	  if [ -d $(libdir)/gcc-lib/$(target_alias)/$(version) ] ; then true ; else mkdir $(libdir)/gcc-lib/$(target_alias)/$(version) ; fi; \
-	else true; fi
 	$(STAMP) stmp-fixinc
 
 # Files related to the fixproto script.
@@ -2456,7 +2457,7 @@ stmp-fixinc: fixinc.sh gsyslimits.h
 # libiberty.a.
 
 deduced.h: $(GCC_PASSES) $(srcdir)/scan-types.sh stmp-int-hdrs
-	if [ -d $(SYSTEM_HEADER_DIR) ]; \
+	if [ -d "$(SYSTEM_HEADER_DIR)" ]; \
 	then \
 	  CC="$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(ALL_CPPFLAGS) -I. -I$(srcdir) -isystem include -isystem ${SYSTEM_HEADER_DIR}"; \
 	  export CC; \
@@ -2522,7 +2523,7 @@ stmp-fixproto: fixhdr.ready fixproto stmp-int-hdrs
 	  FIXPROTO_DEFINES="$(FIXPROTO_DEFINES)"; export FIXPROTO_DEFINES; \
 	  mkinstalldirs="$(SHELL) $(srcdir)/mkinstalldirs"; \
 	    export mkinstalldirs; \
-	  if [ -d $(SYSTEM_HEADER_DIR) ] ; then \
+	  if [ -d "$(SYSTEM_HEADER_DIR)" ]; then \
 	    $(SHELL) ${srcdir}/fixproto include include $(SYSTEM_HEADER_DIR); \
 	    if [ $$? -eq 0 ] ; then true ; else exit 1 ; fi ; \
 	  else true; fi; \
@@ -3106,7 +3107,7 @@ install-mkheaders: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir \
 		$(itoolsdir)/fix-header$(build_exeext) ; \
 	else :; fi
 	$(INSTALL_PROGRAM) mkheaders $(itoolsdir)/mkheaders
-	echo 'SYSTEM_HEADER_DIR="$(SYSTEM_HEADER_DIR)"' \
+	echo 'SYSTEM_HEADER_DIR="'"$(SYSTEM_HEADER_DIR)"'"' \
 		> $(itoolsdir)/mkheaders.conf
 	echo 'OTHER_FIXINCLUDES_DIRS="$(OTHER_FIXINCLUDES_DIRS)"' \
 		>> $(itoolsdir)/mkheaders.conf
@@ -3193,6 +3194,14 @@ site.exp: ./config.status Makefile
 	fi
 	echo "set tmpdir $(objdir)/testsuite" >> ./tmp0
 	@echo "set srcdir \"\$${srcdir}/testsuite\"" >> ./tmp0
+	@if [ "X$(ALT_CXX_UNDER_TEST)" != "X" ] ; then \
+	  echo "set ALT_CXX_UNDER_TEST $(ALT_CXX_UNDER_TEST)" >> ./tmp0; \
+	else true; \
+	fi
+	@if [ "X$(COMPAT_OPTIONS)" != "X" ] ; then \
+	  echo "set COMPAT_OPTIONS $(COMPAT_OPTIONS)" >> ./tmp0; \
+	else true; \
+	fi
 	@echo "## All variables above are generated by configure. Do Not Edit ##" >> ./tmp0
 	@cat ./tmp0 > site.exp
 	@cat site.bak | sed \

@@ -9,9 +9,12 @@ Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
 details.  */
 
 package java.net;
+
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.IOException;
+import java.io.Serializable;
+import java.io.ObjectStreamException;
 
 /**
  * @author Per Bothner
@@ -23,9 +26,11 @@ import java.io.IOException;
  * as "The Java Class Libraries", 2nd edition (Addison-Wesley, 1998).
  * (The latter turns out to have some errors ...)
  * Status:  Believed complete and correct.
+ *
+ * @specnote This class is not final since JK 1.4
  */
 
-public final class InetAddress implements java.io.Serializable
+public class InetAddress implements Serializable
 {
   // The Serialized Form specifies that an int 'address' is saved/restored.
   // This class uses a byte array internally so we'll just do the conversion
@@ -41,6 +46,14 @@ public final class InetAddress implements java.io.Serializable
   int family;
   private static final long serialVersionUID = 3286316764910316507L;
 
+  /**
+   * Needed for serialization
+   */
+  private void readResolve () throws ObjectStreamException
+  {
+    // FIXME: implement this
+  }
+	  
   private void readObject(ObjectInputStream ois)
     throws IOException, ClassNotFoundException
   {
@@ -78,6 +91,11 @@ public final class InetAddress implements java.io.Serializable
       family = getFamily (address);
   }
 
+  /**
+   * Utility routine to check if the InetAddress is an IP multicast address
+   *
+   * @since 1.1
+   */
   public boolean isMulticastAddress ()
   {
     int len = addr.length;
@@ -88,11 +106,105 @@ public final class InetAddress implements java.io.Serializable
     return false;
   }
 
+  /**
+   * Utility routine to check if the InetAddress in a wildcard address
+   * 
+   * @since 1.4
+   */
+  public boolean isAnyLocalAddress ()
+  {
+    // FIXME: implement this
+    return false;
+  }
+
+  /**
+   * Utility routine to check if the InetAddress is a loopback address
+   * 
+   * @since 1.4
+   */
+  public boolean isLoopbackAddress ()
+  {
+    // FIXME: implement this
+    return addr [0] == 0x7F;
+  }
+
+  /**
+   * @since 1.4
+   */
+  public boolean isLinkLocalAddress ()
+  {
+    // FIXME: implement this
+    return false;
+  }
+
+  /**
+   * @since 1.4
+   */
+  public boolean isSiteLocalAddress ()
+  {
+    // FIXME: implement this
+    return false;
+  }
+
+  /**
+   * @since 1.4
+   */
+  public boolean isMCGlobal ()
+  {
+    // FIXME: implement this
+    return false;
+  }
+
+  /**
+   * @since 1.4
+   */
+  public boolean isMCNodeLocal ()
+  {
+    // FIXME: implement this
+    return false;
+  }
+
+  /**
+   * @since 1.4
+   */
+  public boolean isMCLinkLocal ()
+  {
+    // FIXME: implement this
+    return false;
+  }
+
+  /**
+   * @since 1.4
+   */
+  public boolean isMCSiteLocal ()
+  {
+    // FIXME: implement this
+    return false;
+  }
+
+  /**
+   * @since 1.4
+   */
+  public boolean isMCOrgLocal ()
+  {
+    // FIXME: implement this
+    return false;
+  }
+
   public String getHostName ()
   {
     if (hostName == null)
       lookup (null, this, false);
     return hostName;
+  }
+
+  /**
+   * @since 1.4
+   */
+  public String getCanonicalHostName ()
+  {
+    // FIXME: implement this
+    return "";
   }
 
   public byte[] getAddress ()
@@ -125,6 +237,11 @@ public final class InetAddress implements java.io.Serializable
       }
   }
 
+  /**
+   * Returns the IP address as string
+   *
+   * @since 1.0.2
+   */
   public String getHostAddress ()
   {
     StringBuffer sbuf = new StringBuffer(40);
@@ -186,11 +303,12 @@ public final class InetAddress implements java.io.Serializable
   {
     if (obj == null || ! (obj instanceof InetAddress))
       return false;
+    
     // "The Java Class Libraries" 2nd edition says "If a machine has
     // multiple names instances of InetAddress for different name of
     // that same machine are not equal.  This is because they have
     // different host names."  This violates the description in the
-    // JDK 1.2 API documentation.  A little experiementation
+    // JDK 1.2 API documentation.  A little experimentation
     // shows that the latter is correct.
     byte[] addr1 = addr;
     byte[] addr2 = ((InetAddress) obj).addr;
@@ -202,11 +320,58 @@ public final class InetAddress implements java.io.Serializable
     return true;
   }
 
+  /**
+   * Returns then <code>InetAddress</code> as string
+   */
   public String toString()
   {
     return getHostName()+'/'+getHostAddress();
   }
 
+  /**
+   * Returns an InetAddress object given the raw IP address.
+   *
+   * The argument is in network byte order: the highest order byte of the
+   * address is in getAddress()[0].
+   *
+   * @param addr The IP address to create the InetAddress object from
+   *
+   * @exception UnknownHostException If IP address has illegal length
+   *
+   * @since 1.4
+   */
+  public static InetAddress getByAddress(byte[] addr)
+    throws UnknownHostException
+  {
+    if (addr.length != 4 && addr.length != 16)
+      throw new UnknownHostException ("IP address has illegal length");
+
+    return new InetAddress (addr, "");
+  }
+
+  /**
+   * Creates an InetAddress based on the provided host name and IP address.
+   * No name service is checked for the validity of the address.
+   *
+   * @param host The hostname of the InetAddress object to create
+   * @param addr The IP address to create the InetAddress object from
+   *
+   * @exception UnknownHostException If IP address is of illegal length
+   *
+   * @since 1.4
+   */
+  public static InetAddress getByAddress (String host, byte[] addr)
+    throws UnknownHostException
+  {
+    if (addr.length == 4)
+      return new Inet4Address (addr, host);
+
+    if (addr.length == 16)
+      return new Inet6Address (addr, host);
+    
+    throw new UnknownHostException ("IP address has illegal length");
+  }
+  
   /** If host is a valid numeric IP address, return the numeric address.
    * Otherwise, return null. */
   private static native byte[] aton (String host);
@@ -214,6 +379,14 @@ public final class InetAddress implements java.io.Serializable
   private static native InetAddress[] lookup
   (String hostname, InetAddress addr, boolean all);
 
+  /**
+   * Determines the IP address of a host, given the host's name.
+   *
+   * @exception UnknownHostException If no IP address for the host could
+   * be found
+   * @exception SecurityException If a security manager exists and its
+   * checkConnect method doesn't allow the operation
+   */
   public static InetAddress getByName (String host)
     throws UnknownHostException
   {
@@ -227,6 +400,15 @@ public final class InetAddress implements java.io.Serializable
     return iaddr;
   }
 
+  /**
+   * Given the name of a host, returns an array of its IP addresses,
+   * based on the configured name service on the system.
+   *
+   * @exception UnknownHostException If no IP address for the host could
+   * be found
+   * @exception SecurityException If a security manager exists and its
+   * checkConnect method doesn't allow the operation
+   */
   public static InetAddress[] getAllByName (String host)
     throws UnknownHostException
   {
@@ -250,6 +432,12 @@ public final class InetAddress implements java.io.Serializable
 
   private static InetAddress localhost = null;
 
+  /**
+   * Returns the local host
+   *
+   * @exception UnknownHostException If no IP address for the host could
+   * be found
+   */
   public static InetAddress getLocalHost() throws UnknownHostException
   {
     SecurityManager s = System.getSecurityManager();

@@ -157,7 +157,7 @@ in the following sections.
 @xref{Overall Options,,Options Controlling the Kind of Output}.
 @gccoptlist{
 -c  -S  -E  -o @var{file}  -pipe  -pass-exit-codes  -x @var{language} @gol
--v  -###  --target-help  --help}
+-v  -###  --help  --target-help  --version}
 
 @item C Language Options
 @xref{C Dialect Options,,Options Controlling C Dialect}.
@@ -222,13 +222,14 @@ in the following sections.
 -Werror-implicit-function-declaration @gol
 -Wimport  -Winline -Wno-endif-labels @gol
 -Wlarger-than-@var{len}  -Wlong-long @gol
--Wmain  -Wmissing-braces  -Wmissing-declarations @gol
+-Wmain  -Wmissing-braces @gol
 -Wmissing-format-attribute  -Wmissing-noreturn @gol
 -Wno-multichar  -Wno-format-extra-args  -Wno-format-y2k @gol
 -Wno-import  -Wnonnull  -Wpacked  -Wpadded @gol
 -Wparentheses  -Wpointer-arith  -Wredundant-decls @gol
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
--Wsign-compare  -Wswitch  -Wswitch-default -Wswitch-enum @gol
+-Wsign-compare  -Wstrict-aliasing @gol
+-Wswitch  -Wswitch-default -Wswitch-enum @gol
 -Wsystem-headers -Wtrigraphs  -Wundef  -Wuninitialized @gol
 -Wunknown-pragmas  -Wunreachable-code @gol
 -Wunused  -Wunused-function  -Wunused-label  -Wunused-parameter @gol
@@ -236,7 +237,8 @@ in the following sections.
 
 @item C-only Warning Options
 @gccoptlist{
--Wbad-function-cast  -Wmissing-prototypes  -Wnested-externs @gol
+-Wbad-function-cast  -Wmissing-declarations @gol
+-Wmissing-prototypes  -Wnested-externs @gol
 -Wstrict-prototypes  -Wtraditional}
 
 @item Debugging Options
@@ -253,7 +255,9 @@ in the following sections.
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
 -fdump-tree-simple@r{[}-raw@r{]} @gol
 -fmem-report @gol
--fprofile-arcs  -ftest-coverage  -ftime-report @gol
+-feliminate-dwarf2-dups  -fmem-report @gol
+-fprofile-arcs  -fsched-verbose=@var{n} @gol
+-ftest-coverage  -ftime-report @gol
 -g  -g@var{level}  -gcoff  -gdwarf  -gdwarf-1  -gdwarf-1+  -gdwarf-2 @gol
 -ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
@@ -266,6 +270,7 @@ in the following sections.
 @gccoptlist{
 -falign-functions=@var{n}  -falign-jumps=@var{n} @gol
 -falign-labels=@var{n}  -falign-loops=@var{n}  @gol
+-fbounds-check @gol
 -fbranch-probabilities  -fcaller-saves -fcprop-registers @gol
 -fcse-follow-jumps  -fcse-skip-blocks  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks @gol
@@ -275,8 +280,8 @@ in the following sections.
 -fif-conversion -fif-conversion2 @gol
 -finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
--fmove-all-movables  -fnew-ra  -fno-default-inline @gol
--fno-defer-pop @gol
+-fmove-all-movables  -fnew-ra  -fno-branch-count-reg @gol
+-fno-default-inline  -fno-defer-pop @gol
 -fno-function-cse  -fno-guess-branch-probability @gol
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
 -funsafe-math-optimizations -ffinite-math-only @gol
@@ -286,7 +291,9 @@ in the following sections.
 -freduce-all-givs -fregmove  -frename-registers @gol
 -freorder-blocks -freorder-functions @gol
 -frerun-cse-after-loop  -frerun-loop-opt @gol
--fschedule-insns  -fschedule-insns2 -fsignaling-nans @gol
+-fschedule-insns  -fschedule-insns2 @gol
+-fno-sched-interblock  -fno-sched-spec  -fsched-spec-load @gol
+-fsched-spec-load-dangerous  -fsignaling-nans @gol
 -fsingle-precision-constant  -fssa -fssa-ccp -fssa-dce @gol
 -fstrength-reduce  -fstrict-aliasing  -ftracer -fthread-jumps @gol
 -ftrapv -funroll-all-loops  -funroll-loops  @gol
@@ -496,7 +503,7 @@ in the following sections.
 -mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} @gol
--mmmx  -msse -msse2 -msse-math -m3dnow @gol
+-mmmx  -msse -msse2 -m3dnow @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -momit-leaf-frame-pointer @gol
@@ -508,7 +515,8 @@ in the following sections.
 @gccoptlist{
 -march=@var{architecture-type} @gol
 -mbig-switch  -mdisable-fpregs  -mdisable-indexing @gol
--mfast-indirect-calls  -mgas  -mjump-in-delay @gol
+-mfast-indirect-calls  -mgas  -mgnu-ld -mhp-ld @gol
+-mjump-in-delay -mlinker-opt @gol
 -mlong-load-store  -mno-big-switch  -mno-disable-fpregs @gol
 -mno-disable-indexing  -mno-fast-indirect-calls  -mno-gas @gol
 -mno-jump-in-delay  -mno-long-load-store @gol
@@ -935,6 +943,10 @@ be displayed.
 @opindex target-help
 Print (on the standard output) a description of target specific command
 line options for each tool.
+
+@item --version
+@opindex version
+Display the version number and copyrights of the invoked GCC.
 @end table
 
 @node Invoking G++
@@ -1571,6 +1583,21 @@ struct C : public B, public A @{@};
 G++ will place the @code{A} base class of @code{C} at a non-zero offset;
 it should be placed at offset zero.  G++ mistakenly believes that the
 @code{A} data member of @code{B} is already at offset zero.
+
+@item
+Names of template functions whose types involve @code{typename} or
+template template parameters can be mangled incorrectly.
+
+@smallexample
+template <typename Q>
+void f(typename Q::X) @{@}
+
+template <template <typename> class Q>
+void f(typename Q<int>::X) @{@}
+@end smallexample
+
+@noindent
+Instantions of these templates may be mangled incorrectly.
 
 @end itemize
 
@@ -2332,6 +2359,14 @@ GCC@.  If this command line option is used, warnings will even be issued
 for unknown pragmas in system header files.  This is not the case if
 the warnings were only enabled by the @option{-Wall} command line option.
 
+@item -Wstrict-aliasing
+@opindex Wstrict-aliasing
+This option is only active when @option{-fstrict-aliasing} is active.
+It warns about code which might break the strict aliasing rules that the
+compiler is using for optimization. The warning does not catch all
+cases, but does attempt to catch the more common pitfalls. It is
+included in @option{-Wall}.
+
 @item -Wall
 @opindex Wall
 All of the above @samp{-W} options combined.  This enables all the
@@ -2906,6 +2941,12 @@ and DWARF2, neither @option{-gdwarf} nor @option{-gdwarf-2} accept
 a concatenated debug level.  Instead use an additional @option{-g@var{level}}
 option to change the debug level for DWARF1 or DWARF2.
 
+@item -feliminate-dwarf2-dups
+@opindex feliminate-dwarf2-dups
+Compress DWARF2 debugging information by eliminating duplicated
+information about each symbol.  This option only makes sense when
+generating DWARF2 debugging information with @option{-gdwarf-2}.
+
 @cindex @code{prof}
 @item -p
 @opindex p
@@ -3260,6 +3301,23 @@ Dump each function before and after DCE.  The file name is made by appending
 @opindex fdump-tree-all-ssa @r{(C and C++ only)}
 Enable all SSA-related dumps described above.
 
+@item -fsched-verbose=@var{n}
+@opindex fsched-verbose
+On targets that use instruction scheduling, this option controls the
+amount of debugging output the scheduler prints.  This information is
+written to standard error, unless @option{-dS} or @option{-dR} is
+specified, in which case it is output to the usual dump
+listing file, @file{.sched} or @file{.sched2} respectively.  However
+for @var{n} greater than nine, the output is always printed to standard
+error.
+
+For @var{n} greater than zero, @option{-fsched-verbose} outputs the
+same information as @option{-dRS}.  For @var{n} greater than one, it
+also output basic block probabilities, detailed ready list information
+and unit/insn info.  For @var{n} greater than two, it includes RTL
+at abort point, control-flow and regions info.  And for @var{n} over
+four, @option{-fsched-verbose} also includes dependence info.
+
 @item -save-temps
 @opindex save-temps
 Store the usual ``temporary'' intermediate files permanently; place them
@@ -3563,6 +3621,14 @@ Use a graph coloring register allocator.  Currently this option is meant
 for testing, so we are interested to hear about miscompilations with
 @option{-fnew-ra}.
 
+@item -fno-branch-count-reg
+@opindex fno-branch-count-reg
+Do not use ``decrement and branch'' instructions on a count register,
+but instead generate a sequence of instructions that decrement a
+register, compare it against zero, then branch based upon the result.
+This option is only meaningful on architectures that support such
+instructions, which include x86, PowerPC, IA-64 and S/390.
+
 @item -fno-function-cse
 @opindex fno-function-cse
 Do not put function addresses in registers; make each instruction that
@@ -3667,6 +3733,14 @@ resulting executable can find the beginning of that section and/or make
 assumptions based on that.
 
 The default is @option{-fzero-initialized-in-bss}.
+
+@item -fbounds-check
+@opindex fbounds-check
+For front-ends that support it, generate additional code to check that
+indices used to access arrays are within the declared range.  This is
+currenly only supported by the Java and Fortran 77 front-ends, where
+this option defaults to true and false respectively.
+
 @end table
 
 The following options control specific optimizations.  The @option{-O2}
@@ -3816,6 +3890,30 @@ Similar to @option{-fschedule-insns}, but requests an additional pass of
 instruction scheduling after register allocation has been done.  This is
 especially useful on machines with a relatively small number of
 registers and where memory load instructions take more than one cycle.
+
+@item -fno-sched-interblock
+@opindex fno-sched-interblock
+Don't schedule instructions across basic blocks.  This is normally
+enabled by default when scheduling before register allocation, i.e.@:
+with @option{-fschedule-insns} or at @option{-O2} or higher.
+
+@item -fno-sched-spec
+@opindex fno-sched-spec
+Don't allow speculative motion of non-load instructions.  This is normally
+enabled by default when scheduling before register allocation, i.e.@:
+with @option{-fschedule-insns} or at @option{-O2} or higher.
+
+@item -fsched-spec-load
+@opindex fsched-spec-load
+Allow speculative motion of some load instructions.  This only makes
+sense when scheduling before register allocation, i.e.@: with
+@option{-fschedule-insns} or at @option{-O2} or higher.
+
+@item -fsched-spec-load-dangerous
+@opindex fsched-spec-load-dangerous
+Allow speculative motion of more load instructions.  This only makes
+sense when scheduling before register allocation, i.e.@: with
+@option{-fschedule-insns} or at @option{-O2} or higher.
 
 @item -ffunction-sections
 @itemx -fdata-sections
@@ -7844,6 +7942,9 @@ direct access to the MMX, SSE and 3Dnow extensions of the instruction set.
 @xref{X86 Built-in Functions}, for details of the functions enabled
 and disabled by these switches.
 
+To have SSE/SSE2 instructions generated automatically from floating-point
+code, see @option{-mfpmath=sse}.
+
 @item -mpush-args
 @itemx -mno-push-args
 @opindex mpush-args
@@ -8059,6 +8160,30 @@ Generate the predefine, @code{_SIO}, for server IO.  The default is
 @option{-mwsio}.  This generates the predefines, @code{__hp9000s700},
 @code{__hp9000s700__} and @code{_WSIO}, for workstation IO.  These
 options are available under HP-UX and HI-UX.
+
+@item -mgnu-ld
+@opindex gnu-ld
+Use GNU ld specific options.  This passes @option{-shared} to ld when
+building a shared library.  It is the default when GCC is configured,
+explicitly or implicitly, with the GNU linker.  This option does not
+have any affect on which ld is called, it only changes what parameters
+are passed to that ld.  The ld that is called is determined by the
+@option{--with-ld} configure option, gcc's program search path, and
+finally by the user's @env{PATH}.  The linker used by GCC can be printed
+using @samp{which `gcc -print-prog-name=ld`}.
+
+@item -mhp-ld
+@opindex hp-ld
+Use HP ld specific options.  This passes @option{-b} to ld when building
+a shared library and passes @option{+Accept TypeMismatch} to ld on all
+links.  It is the default when GCC is configured, explicitly or
+implicitly, with the HP linker.  This option does not have any affect on
+which ld is called, it only changes what parameters are passed to that
+ld.  The ld that is called is determined by the @option{--with-ld}
+configure option, gcc's program search path, and finally by the user's
+@env{PATH}.  The linker used by GCC can be printed using @samp{which
+`gcc -print-prog-name=ld`}.
+
 @end table
 
 @node Intel 960 Options

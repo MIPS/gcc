@@ -87,6 +87,7 @@ extern void		init_cumulative_args PARAMS ((CUMULATIVE_ARGS *,
 						      tree, rtx));
 extern void		gen_conditional_move PARAMS ((rtx *));
 extern void		mips_gen_conditional_trap PARAMS ((rtx *));
+extern void		mips_emit_fcc_reload PARAMS ((rtx, rtx, rtx));
 extern void		mips_set_return_address PARAMS ((rtx, rtx));
 extern void		machine_dependent_reorg PARAMS ((rtx));
 extern int		mips_address_cost PARAMS ((rtx));
@@ -137,6 +138,8 @@ extern int              mips_legitimate_address_p PARAMS ((enum machine_mode,
 extern int              mips_reg_mode_ok_for_base_p PARAMS ((rtx,
 							     enum machine_mode,
 							     int));
+extern bool             mips_valid_pointer_mode PARAMS ((enum machine_mode));
+
 extern int		m16_uimm3_b PARAMS ((rtx, enum machine_mode));
 extern int		m16_simm4_1 PARAMS ((rtx, enum machine_mode));
 extern int		m16_nsimm4_1 PARAMS ((rtx, enum machine_mode));

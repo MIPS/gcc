@@ -34,7 +34,7 @@ enum real_value_class {
   rvc_nan
 };
 
-#define SIGNIFICAND_BITS	128
+#define SIGNIFICAND_BITS	(128 + HOST_BITS_PER_LONG)
 #define EXP_BITS		(32 - 3)
 #define MAX_EXP			((1 << (EXP_BITS - 1)) - 1)
 #define SIGSZ			(SIGNIFICAND_BITS / HOST_BITS_PER_LONG)
@@ -42,7 +42,7 @@ enum real_value_class {
 
 struct real_value GTY(())
 {
-  enum real_value_class class : 2;
+  ENUM_BITFIELD (real_value_class) class : 2;
   unsigned int sign : 1;
   signed int exp : EXP_BITS;
   unsigned long sig[SIGSZ];
@@ -88,7 +88,11 @@ extern char test_real_width
 #    if REAL_WIDTH == 5
 #     define CONST_DOUBLE_FORMAT "wwwww"
 #    else
-      #error "REAL_WIDTH > 5 not supported"
+#     if REAL_WIDTH == 6
+#      define CONST_DOUBLE_FORMAT "wwwwww"
+#     else
+       #error "REAL_WIDTH > 6 not supported"
+#     endif
 #    endif
 #   endif
 #  endif
@@ -100,8 +104,10 @@ extern char test_real_width
 struct real_format
 {
   /* Move to and from the target bytes.  */
-  void (*encode) (const struct real_format *, long *, const REAL_VALUE_TYPE *);
-  void (*decode) (const struct real_format *, REAL_VALUE_TYPE *, const long *);
+  void (*encode) PARAMS ((const struct real_format *, long *,
+			  const REAL_VALUE_TYPE *));
+  void (*decode) PARAMS ((const struct real_format *, REAL_VALUE_TYPE *,
+			  const long *));
 
   /* The radix of the exponent and digits of the significand.  */
   int b;
@@ -170,11 +176,11 @@ extern bool exact_real_truncate PARAMS ((enum machine_mode,
 
 /* Render R as a decimal floating point constant.  */
 extern void real_to_decimal	PARAMS ((char *, const REAL_VALUE_TYPE *,
-					 int));
+					 size_t, size_t, int));
 
 /* Render R as a hexadecimal floating point constant.  */
 extern void real_to_hexadecimal	PARAMS ((char *, const REAL_VALUE_TYPE *,
-					 int));
+					 size_t, size_t, int));
 
 /* Render R as an integer.  */
 extern HOST_WIDE_INT real_to_integer PARAMS ((const REAL_VALUE_TYPE *));
@@ -260,9 +266,6 @@ extern const struct real_format c4x_extended_format;
 /* IN is a REAL_VALUE_TYPE.  OUT is a long.  */
 #define REAL_VALUE_TO_TARGET_SINGLE(IN, OUT) \
   ((OUT) = real_to_target (NULL, &(IN), mode_for_size (32, MODE_FLOAT, 0)))
-
-#define REAL_VALUE_TO_DECIMAL(r, s, dig) \
-  real_to_decimal (s, &(r), dig)
 
 #define REAL_VALUE_FROM_INT(r, lo, hi, mode) \
   real_from_integer (&(r), mode, lo, hi, 0)

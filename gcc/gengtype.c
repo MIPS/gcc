@@ -360,7 +360,7 @@ static const char * const rtx_format[NUM_RTX_CODE] = {
 #undef DEF_RTL_EXPR
 };
 
-static char rtx_next[NUM_RTX_CODE];
+static int rtx_next[NUM_RTX_CODE];
 
 /* Generate the contents of the rtx_next array.  This really doesn't belong
    in gengtype at all, but it's needed for adjust_field_rtx_def.  */
@@ -528,8 +528,8 @@ adjust_field_rtx_def (t, opt)
 	      else
 		{
 		  error_at_line (&lexer_line, 
-			"rtx type `%s' has `0' in position %d, can't handle",
-				 rtx_name[i], aindex);
+			"rtx type `%s' has `0' in position %lu, can't handle",
+				 rtx_name[i], (unsigned long) aindex);
 		  t = &string_type;
 		  subname = "rtint";
 		}
@@ -571,9 +571,9 @@ adjust_field_rtx_def (t, opt)
 
 	    default:
 	      error_at_line (&lexer_line, 
-		     "rtx type `%s' has `%c' in position %d, can't handle",
+		     "rtx type `%s' has `%c' in position %lu, can't handle",
 			     rtx_name[i], rtx_format[i][aindex],
-			     aindex);
+			     (unsigned long)aindex);
 	      t = &string_type;
 	      subname = "rtint";
 	      break;
@@ -582,7 +582,8 @@ adjust_field_rtx_def (t, opt)
 	  subfields = xmalloc (sizeof (*subfields));
 	  subfields->next = old_subf;
 	  subfields->type = t;
-	  subfields->name = xasprintf ("[%d].%s", aindex, subname);
+	  subfields->name = xasprintf ("[%lu].%s", (unsigned long)aindex,
+				       subname);
 	  subfields->line.file = __FILE__;
 	  subfields->line.line = __LINE__;
 	  if (t == note_union_tp)
@@ -1450,7 +1451,7 @@ output_mangled_typename (of, t)
     case TYPE_STRUCT:
     case TYPE_UNION:
     case TYPE_LANG_STRUCT:
-      oprintf (of, "%d%s", strlen (t->u.s.tag), t->u.s.tag);
+      oprintf (of, "%lu%s", (unsigned long) strlen (t->u.s.tag), t->u.s.tag);
       break;
     case TYPE_PARAM_STRUCT:
       {

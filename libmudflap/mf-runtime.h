@@ -1,6 +1,8 @@
 #ifndef __MF_RUNTIME_H
 #define __MF_RUNTIME_H
 
+#define __NO_STRING_INLINES
+
 /* ------------------------------------------------------------------------ */
 /* Public libmudflap declarations */
 

@@ -1,12 +1,326 @@
+2002-10-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/sibcall-5.c: Correct { dg-do run } line.
+
+2002-10-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* testsuite/gcc.dg/i386-sse-3.c: Add tests for _mm_srli_si128 and
+	_mm_slli_si128.
+
+2002-10-19  Andreas Schwab  <schwab@suse.de>
+
+	* lib/compat.exp (compat-run): Prepend "./" when $dest has no
+	directory component.
+
+2002-10-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/inherit/thunk1.C: New test.
+
+	* g++.dg/inherit/override1.C: New test.
+
+	* g++.dg/abi/mangle11.C: New test.
+	* g++.dg/abi/mangle14.C: New test.
+	* g++.dg/abi/mangle17.C: New test.
+
+2002-10-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/overload/member2.C: New test.
+
+2002-10-17  Janis Johnson  <janis187@us.ibm.com>
+
+	* g++.dg/README: Describe new compat directory.
+	* g++.dg/dg.exp: Skip tests in compat directory.
+	* README.compat: New file.
+	* lib/compat.exp: New expect script.
+	* g++.dg/compat: New test directory.
+	* g++.dg/compat/compat.exp: New expect script.
+	* g++.dg/compat/abi: New test directory.
+	* g++.dg/compat/abi/bitfield1_x.C, g++.dg/compat/abi/bitfield1_main.C,
+	g++.dg/compat/abi/bitfield1_y.C, g++.dg/compat/abi/bitfield1.h,
+	g++.dg/compat/abi/bitfield2_x.C, g++.dg/compat/abi/bitfield2_main.C,
+	g++.dg/compat/abi/bitfield2_y.C, g++.dg/compat/abi/bitfield2.h,
+	g++.dg/compat/abi/vbase8-10_x.C, g++.dg/compat/abi/vbase8-10_main.C,
+	g++.dg/compat/abi/vbase8-10_y.C, g++.dg/compat/abi/vbase8-10.h,
+	g++.dg/compat/abi/vbase8-21_x.C, g++.dg/compat/abi/vbase8-21_main.C,
+	g++.dg/compat/abi/vbase8-21_y.C, g++.dg/compat/abi/vbase8-21.h,
+	g++.dg/compat/abi/vbase8-22_x.C, g++.dg/compat/abi/vbase8-22_main.C,
+	g++.dg/compat/abi/vbase8-22_y.C, g++.dg/compat/abi/vbase8-22.h,
+	g++.dg/compat/abi/vbase8-4_x.C, g++.dg/compat/abi/vbase8-4_main.C,
+	g++.dg/compat/abi/vbase8-4_y.C, g++.dg/compat/abi/vbase8-4.h: New files.
+	* g++.dg/compat/break: New test directory.
+	* g++.dg/compat/break/empty6_x.C, g++.dg/compat/break/empty6_main.C,
+	g++.dg/compat/break/empty6_y.C, g++.dg/compat/break/empty6.h,
+	g++.dg/compat/break/vbase10_x.C, g++.dg/compat/break/vbase10_main.C,
+	g++.dg/compat/break/vbase10_y.C, g++.dg/compat/break/vbase10.h,
+	g++.dg/compat/break/vbase11_x.C, g++.dg/compat/break/vbase11_main.C,
+	g++.dg/compat/break/vbase11_y.C, g++.dg/compat/break/vbase11.h,
+	g++.dg/compat/break/bitfield7_x.C, g++.dg/compat/break/bitfield7_main.C,
+	g++.dg/compat/break/bitfield7_y.C, g++.dg/compat/break/bitfield7.h,
+	g++.dg/compat/break/bitfield5_x.C, g++.dg/compat/break/bitfield5_main.C,
+	g++.dg/compat/break/bitfield5_y.C, g++.dg/compat/break/bitfield5.h,
+	g++.dg/compat/break/README: New files.
+	* g++.dg/compat/eh: New test directory.
+	* g++.dg/compat/eh/ctor1_x.C, g++.dg/compat/eh/ctor1_main.C,
+	g++.dg/compat/eh/ctor1_y.C, g++.dg/compat/eh/ctor1.h,
+	g++.dg/compat/eh/ctor2_x.C, g++.dg/compat/eh/ctor2_main.C,
+	g++.dg/compat/eh/ctor2_y.C, g++.dg/compat/eh/ctor2.h,
+	g++.dg/compat/eh/dtor1_x.C, g++.dg/compat/eh/dtor1_main.C,
+	g++.dg/compat/eh/dtor1_y.C, g++.dg/compat/eh/dtor1.h,
+	g++.dg/compat/eh/filter1_x.C, g++.dg/compat/eh/filter1_main.C,
+	g++.dg/compat/eh/filter1_y.C, g++.dg/compat/eh/filter1.h,
+	g++.dg/compat/eh/filter2_x.C, g++.dg/compat/eh/filter2_main.C,
+	g++.dg/compat/eh/filter2_y.C,
+	g++.dg/compat/eh/new1_x.C, g++.dg/compat/eh/new1_main.C,
+	g++.dg/compat/eh/new1_y.C,
+	g++.dg/compat/eh/nrv1_x.C, g++.dg/compat/eh/nrv1_main.C,
+	g++.dg/compat/eh/nrv1_y.C, g++.dg/compat/eh/nrv1.h,
+	g++.dg/compat/eh/spec3_x.C, g++.dg/compat/eh/spec3_main.C,
+	g++.dg/compat/eh/spec3_y.C, g++.dg/compat/eh/spec3.h,
+	g++.dg/compat/eh/template1_x.C, g++.dg/compat/eh/template1_main.C,
+	g++.dg/compat/eh/template1_y.C, g++.dg/compat/eh/template1.h,
+	g++.dg/compat/eh/unexpected1_x.C, g++.dg/compat/eh/unexpected1_main.C,
+	g++.dg/compat/eh/unexpected1_y.C: New files.
+	* g++.dg/compat/init: New test directory.
+	* g++.dg/compat/init/array5_x.C, g++.dg/compat/init/array5_main.C,
+	g++.dg/compat/init/array5_y.C,
+	g++.dg/compat/init/byval1_x.C, g++.dg/compat/init/byval1_main.C,
+	g++.dg/compat/init/byval1_y.C, g++.dg/compat/init/byval1.h,
+	g++.dg/compat/init/dtor1_x.C, g++.dg/compat/init/dtor1_main.C,
+	g++.dg/compat/init/dtor1_y.C, g++.dg/compat/init/dtor1.h,
+	g++.dg/compat/init/elide1_x.C, g++.dg/compat/init/elide1_main.C,
+	g++.dg/compat/init/elide1_y.C, g++.dg/compat/init/elide1.h,
+	g++.dg/compat/init/init-ref2_x.C, g++.dg/compat/init/init-ref2_main.C,
+	g++.dg/compat/init/init-ref2_y.C: New files.
+
+2002-10-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7584
+	* g++.dg/inherit/using3.C: New test.
+
+Thu Oct 17 19:12:58 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/20021017-2.c: New test.
+
+2002-10-17  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/mangle16.C: Adjust.
+
+	* g++.dg/init/array8.C: New test.
+
+2002-10-17  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/special/mips-abi.exp: New test.
+	* gcc.dg/special/mips-abi.s: Empty file used by the above.
+
+2002-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/mangle16.C: New test.
+	* g++.dg/abi/mangle17.C: Likewise.
+
+	PR c++/7478
+	* g++.dg/template/ref1.C: New test.
+
+2002-10-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/20020720-1.x: Don't XFAIL for mips.
+
+2002-10-16  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/weak/typeof-2.c: For S/390 targets, return before baz3 test.
+
+2002-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7524
+	* g++.dg/init/array7.C: New test.
+
+2002-10-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/array6.C: New test.
+	
+	* g++.dg/abi/mangle13.C: Likewise.
+	* g++.dg/abi/mangle14.C: Likewise.
+	* g++.dg/abi/mangle15.C: Likewise.
+
+2002-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/empty8.C: New test.
+	
+2002-10-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/init/ctor1.C: New test.
+
+2002-10-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.c-torture/execute/20021015-1.c: New test.
+
+Tue Oct 15 14:22:41 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.dg/weak/typeof-2.c: For SH targets, return before baz3 test.
+
+Mon Oct 14 20:37:51 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/i386-ssetype-[1-5].c: New tests.
+
+2002-10-14  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/20020219-1.c: Disable for 16-bit targets.
+
+2002-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR optimization/6631
+	* g++.dg/opt/const2.C: New test.
+
+2002-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7176
+	* g++.dg/parse/friend1.C: New test.
+	* g++.old-deja/g++.pt/memtemp64.C: Adjust.
+
+2002-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20021014-1.c: New test.
+
+2002-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5661
+	* g++.dg/ext/vlm1.C: New test.
+	* g++.dg/ext/vlm2.C: Likewise.
+
+	* g++.dg/init/array1.C: Remove invalid braces.
+	* g++.dg/init/brace1.C: New test.
+	* g++.dg/init/copy2.C: Likewise.
+	* g++.dg/init/copy3.C: Likewise.
+	* g++.old-deja/g++.ext/arrnew.C: Change WARNING to ERROR.
+	* g++.old-deja/g++.mike/p9129.C: Add ERROR on invalid use of
+	braces.
+
+2002-10-11  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/assembler.S: Don't use -ansi.
+
+Fri Oct 11 10:56:49 2002  Richard Shann  <richard.shann@superh.com>
+
+	* gcc.c-torture/compile/simd-5.c: New test.
+
 2002-10-10  Roger Sayle  <roger@eyesopen.com>
 
 	* gcc.c-torture/execute/shiftopt-1.c: New test case.
+
+2002-10-10  Jim Wilson  <wilson@redhat.com>
+
+	* gcc.c-torture/execute/20021010-1.c: New test.
+
+2002-10-09  Zack Weinberg  <zack@codesourcery.com>
+
+	PR c/7353
+	* g++.dg/ext/typedef-init.C: New test.
+	* gcc.dg/typedef-init.c: New test.
+
+2002-10-09  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/paste13.c: New test.
+
+2002-10-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/20020720-1.x: Take out sparc XFAILs.  For
+	remaining platforms, XFAIL during compile, not execute.  Don't
+	XFAIL at -O0.
+
+2002-10-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/alias-1.c: Tweak expected warning.
+
+2002-10-06  D.Venkatasubramanian <dvenkat@noida.hcltech.com>
+
+	* gcc.dg/20020411-1.c: Disable for 16-bit "int".
+
+2002-10-06  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.dg/cpp/c++98-pedantic.C: Moved to g++.dg/cpp.
+	* gcc.dg/cpp/c++98.C: Likewise.
+
+	* g++.dg/cpp/c++98-pedantic.C: Moved from gcc.dg/cpp to here.
+	* g++.dg/cpp/c++98.C: Likewise.
+
+	* g++.dg/README (Subdirectories): Mention cpp directory.
+
+	PR target/7559
+	* gcc.dg/20021006-1.c: New test.
+
+2002-10-05  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/7804
+	* g++.dg/other/warning1.C: New test.
+
+2002-10-04  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20020720-1.x:  XFAIL instead of skipping
+	the test on failing platforms.  Mark sparcv9-*-*, sparc64-*-*
+	and sparc-*-* with -m64 as expected failures.  See PR 8087.
+
+2002-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7931
+	* g++.dg/template/ptrmem3.C: New test.
+
+	PR c++/7754
+	* g++.dg/template/union1.C: New test.
+
+2002-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8006
+	* g++.dg/abi/mangle9.C: New test.
+	* g++.dg/abi/mangle10.C: New test.
+	* g++.dg/abi/mangle11.C: New test.
+	* g++.dg/abi/mangle12.C: New test.
+
+2002-10-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7188.
+	* g++.dg/template/meminit1.C: New test.
+	* g++.dg/warn/Wreorder-1.C: Likewise.
+	* g++.old-deja/g++.mike/warn3.C: Tweak.
+	* lib/prune.exp: Ingore "in copy constructor".
+
+2002-10-02  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.dg/20020919-1.c, gcc.dg/inline-2.c, gcc.dg/980211-1.c,
+	gcc.dg/20020103-1.c, gcc.dg/20000614-2.c,
+	g++.old-deja/g++.pt/asm1.C, g++.old-deja/g++.other/asm3.C: Enable
+	on x86-64.
+
+2002-10-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/empty1.C: Fix typo.
+
+2002-10-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/alias-1.c: New test.
+
+2002-10-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/empty1.C: New test.
+
+	* g++.dg/tls/init-2.C: Tweak error messages.
+
+2002-10-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/compile/20020923-1.c: New test.
+
+2002-09-30  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* gcc.c-torture/execute/ffs-1.c: New test.
+	* gcc.c-torture/execute/ffs-2.c: Ditto.
+
+2002-09-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/overload/member1.C: New test.
 
 2002-09-30  Mark Mitchell  <mark@codesourcery.com>
 
 	* g++.dg/abi/empty7.C: New test.
 	* g++.dg/init/pm2.C: Likewise.
-	
+
 2002-09-29  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* g++.dg/rtti/crash1.C: New test.
@@ -223,6 +537,11 @@ Tue Sep 17 13:59:45 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 2002-09-14  Alan Modra  <amodra@bigpond.net.au>
 
 	* gcc.c-torture/execute/struct-cpy-1.c: New test.
+
+2002-09-13  Matt Austern  <austern@apple.com>
+
+	* testsuite/g++.dg/other/constref[12].C: New, regression tests for
+	passing a cast expression to a function by const reference.
 
 2002-09-13  Nathan Sidwell  <nathan@codesourcery.com>
 

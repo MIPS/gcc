@@ -787,6 +787,7 @@ extern const char * const reg_note_name[];
 #define NOTE_BASIC_BLOCK(INSN)	XCBBDEF (INSN, 4, NOTE)
 #define NOTE_EXPECTED_VALUE(INSN) XCEXP (INSN, 4, NOTE)
 #define NOTE_PREDICTION(INSN)   XCINT (INSN, 4, NOTE)
+#define NOTE_PRECONDITIONED(INSN)   XCINT (INSN, 4, NOTE)
 
 /* In a NOTE that is a line number, this is the line number.
    Other kinds of NOTEs are identified by negative numbers here.  */
@@ -1944,6 +1945,7 @@ extern int invert_jump_1		PARAMS ((rtx, rtx));
 extern int invert_jump			PARAMS ((rtx, rtx, int));
 extern int rtx_renumbered_equal_p	PARAMS ((rtx, rtx));
 extern int true_regnum			PARAMS ((rtx));
+extern unsigned int reg_or_subregno	PARAMS ((rtx));
 extern int redirect_jump_1		PARAMS ((rtx, rtx));
 extern int redirect_jump		PARAMS ((rtx, rtx, int));
 extern void rebuild_jump_labels		PARAMS ((rtx));

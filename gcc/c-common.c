@@ -2043,6 +2043,8 @@ c_common_type_for_mode (mode, unsignedp)
       return unsignedp ? unsigned_V2DI_type_node : V2DI_type_node;
     case V2SImode:
       return unsignedp ? unsigned_V2SI_type_node : V2SI_type_node;
+    case V2HImode:
+      return unsignedp ? unsigned_V2HI_type_node : V2HI_type_node;
     case V4HImode:
       return unsignedp ? unsigned_V4HI_type_node : V4HI_type_node;
     case V8QImode:
@@ -4918,6 +4920,7 @@ cb_register_builtins (pfile)
   builtin_define_type_max ("__INT_MAX__", integer_type_node, 0);
   builtin_define_type_max ("__LONG_MAX__", long_integer_type_node, 1);
   builtin_define_type_max ("__LONG_LONG_MAX__", long_long_integer_type_node, 2);
+  builtin_define_type_max ("__WCHAR_MAX__", wchar_type_node, 0);
 
   builtin_define_type_precision ("__CHAR_BIT__", char_type_node);
 
@@ -4951,7 +4954,7 @@ cb_register_builtins (pfile)
 
   if (fast_math_flags_set_p ())
     cpp_define (pfile, "__FAST_MATH__");
-  if (flag_no_inline)
+  if (flag_really_no_inline)
     cpp_define (pfile, "__NO_INLINE__");
   if (flag_signaling_nans)
     cpp_define (pfile, "__SUPPORT_SNAN__");
@@ -5097,7 +5100,7 @@ builtin_define_with_hex_fp_value (macro, type, digits, hex_str, fp_suffix)
      then print it back out as decimal.  */
 
   real_from_string (&real, hex_str);
-  real_to_decimal (dec_str, &real, digits);
+  real_to_decimal (dec_str, &real, sizeof (dec_str), digits, 0);
 
   sprintf (buf, "%s=%s%s", macro, dec_str, fp_suffix);
   cpp_define (parse_in, buf);
@@ -5601,6 +5604,7 @@ handle_mode_attribute (node, name, args, flags, no_add_attrs)
       int len = strlen (p);
       enum machine_mode mode = VOIDmode;
       tree typefm;
+      tree ptr_type;
 
       if (len > 4 && p[0] == '_' && p[1] == '_'
 	  && p[len - 1] == '_' && p[len - 2] == '_')
@@ -5630,6 +5634,10 @@ handle_mode_attribute (node, name, args, flags, no_add_attrs)
       else if (0 == (typefm = (*lang_hooks.types.type_for_mode)
 		     (mode, TREE_UNSIGNED (type))))
 	error ("no data type for mode `%s'", p);
+      else if ((TREE_CODE (type) == POINTER_TYPE
+		|| TREE_CODE (type) == REFERENCE_TYPE)
+	       && !(*targetm.valid_pointer_mode) (mode))
+	error ("invalid pointer mode `%s'", p);
       else
 	{
 	  /* If this is a vector, make sure we either have hardware
@@ -5642,6 +5650,19 @@ handle_mode_attribute (node, name, args, flags, no_add_attrs)
 	      return NULL_TREE;
 	    }
 
+	  if (TREE_CODE (type) == POINTER_TYPE)
+	    {
+	      ptr_type = build_pointer_type_for_mode (TREE_TYPE (type),
+						      mode);
+	      *node = ptr_type;
+	    }
+	  else if (TREE_CODE (type) == REFERENCE_TYPE)
+	    {
+	      ptr_type = build_reference_type_for_mode (TREE_TYPE (type),
+							mode);
+	      *node = ptr_type;
+	    }
+	  else
 	  *node = typefm;
 	  /* No need to layout the type here.  The caller should do this.  */
 	}

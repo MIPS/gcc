@@ -661,7 +661,8 @@ extern int rs6000_default_long_calls;
    emulated in a trap handler.  */
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
-   || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == DImode)	\
+   || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode	\
+	|| (MODE) == DImode)						\
        && (ALIGN) < 32))
 
 /* Standard register usage.  */
@@ -903,8 +904,7 @@ extern int rs6000_default_long_calls;
    : SPE_SIMD_REGNO_P (REGNO) && TARGET_SPE && SPE_VECTOR_MODE (MODE) ? 1 \
    : CR_REGNO_P (REGNO) ? GET_MODE_CLASS (MODE) == MODE_CC		\
    : XER_REGNO_P (REGNO) ? (MODE) == PSImode				\
-   : ! INT_REGNO_P (REGNO) ? (GET_MODE_CLASS (MODE) == MODE_INT		\
-			      && GET_MODE_SIZE (MODE) <= UNITS_PER_WORD) \
+   : ! INT_REGNO_P (REGNO) ? GET_MODE_SIZE (MODE) <= UNITS_PER_WORD	\
    : 1)
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
@@ -2067,7 +2067,7 @@ typedef struct rs6000_args
       || (TARGET_32BIT						\
 	  ? LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 4) 	\
 	  : ! (INTVAL (XEXP (X, 1)) & 3)))			\
-  && ((MODE) != TImode						\
+  && (((MODE) != TFmode && (MODE) != TImode)			\
       || (TARGET_32BIT						\
 	  ? LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 12) 	\
 	  : (LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 8) 	\

@@ -3467,6 +3467,16 @@ convert_template_argument (parm, arg, args, complain, i, in_decl)
 		       val, t);
 		  return error_mark_node;
 		}
+
+	      /* In order to avoid all sorts of complications, we do
+		 not allow variably-modified types as template
+		 arguments.  */
+	      if (variably_modified_type_p (val))
+		{
+		  error ("template-argument `%T' is a variably modified type",
+			 val);
+		  return error_mark_node;
+		}
 	    }
 	}
     }
@@ -4466,6 +4476,15 @@ for_each_template_parm_r (tp, walk_subtrees, d)
     case LOOKUP_EXPR:
     case PSEUDO_DTOR_EXPR:
       if (!fn)
+	return error_mark_node;
+      break;
+
+    case BASELINK:
+      /* If we do not handle this case specially, we end up walking
+	 the BINFO hierarchy, which is circular, and therefore
+	 confuses walk_tree.  */
+      *walk_subtrees = 0;
+      if (for_each_template_parm (BASELINK_FUNCTIONS (*tp), fn, data))
 	return error_mark_node;
       break;
 
@@ -6125,6 +6144,8 @@ tsubst_decl (t, args, type, complain)
 	  }
 
 	r = copy_decl (t);
+	if (TREE_CODE (r) == VAR_DECL)
+	  type = complete_type (type);
 	TREE_TYPE (r) = type;
 	c_apply_type_quals_to_decl (cp_type_quals (type), r);
 	DECL_CONTEXT (r) = ctx;
@@ -6164,6 +6185,8 @@ tsubst_decl (t, args, type, complain)
 	TREE_CHAIN (r) = NULL_TREE;
 	if (TREE_CODE (r) == VAR_DECL && VOID_TYPE_P (type))
 	  cp_error_at ("instantiation of `%D' as type `%T'", r, type);
+	/* Compute the size, alignment, etc. of R.  */
+	layout_decl (r, 0);
       }
       break;
 
@@ -7369,18 +7392,10 @@ tsubst_expr (t, args, complain, in_decl)
       break;
 
     case CTOR_INITIALIZER:
-      {
-	tree member_init_list;
-	tree base_init_list;
-
-	prep_stmt (t);
-	member_init_list
-	  = tsubst_initializer_list (TREE_OPERAND (t, 0), args);
-	base_init_list
-	  = tsubst_initializer_list (TREE_OPERAND (t, 1), args);
-	emit_base_init (member_init_list, base_init_list);
-	break;
-      }
+      prep_stmt (t);
+      finish_mem_initializers (tsubst_initializer_list 
+			       (TREE_OPERAND (t, 0), args));
+      break;
 
     case RETURN_STMT:
       prep_stmt (t);
@@ -7423,9 +7438,6 @@ tsubst_expr (t, args, complain, in_decl)
 	    decl = tsubst (decl, args, complain, in_decl);
 	    if (decl != error_mark_node)
 	      {
-                if (TREE_CODE (decl) != TYPE_DECL)
-                  /* Make sure the type is instantiated now.  */
-                  complete_type (TREE_TYPE (decl));
 	        if (init)
 	          DECL_INITIAL (decl) = error_mark_node;
 	        /* By marking the declaration as instantiated, we avoid
@@ -7435,19 +7447,26 @@ tsubst_expr (t, args, complain, in_decl)
 	           do.  */
 	        if (TREE_CODE (decl) == VAR_DECL)
 	          DECL_TEMPLATE_INSTANTIATED (decl) = 1;
-	        maybe_push_decl (decl);
-		if (DECL_PRETTY_FUNCTION_P (decl))
+		if (TREE_CODE (decl) == VAR_DECL
+		    && ANON_AGGR_TYPE_P (TREE_TYPE (decl)))
+		  /* Anonymous aggregates are a special case.  */
+		  finish_anon_union (decl);
+		else 
 		  {
-		    /* For __PRETTY_FUNCTION__ we have to adjust the
-		       initializer.  */
-		    const char *const name
-		      = cxx_printable_name (current_function_decl, 2);
-		    init = cp_fname_init (name);
-		    TREE_TYPE (decl) = TREE_TYPE (init);
+		    maybe_push_decl (decl);
+		    if (DECL_PRETTY_FUNCTION_P (decl))
+		      {
+			/* For __PRETTY_FUNCTION__ we have to adjust the
+			   initializer.  */
+			const char *const name
+			  = cxx_printable_name (current_function_decl, 2);
+			init = cp_fname_init (name);
+			TREE_TYPE (decl) = TREE_TYPE (init);
+		      }
+		    else
+		      init = tsubst_expr (init, args, complain, in_decl);
+		    cp_finish_decl (decl, init, NULL_TREE, 0);
 		  }
-		else
-		  init = tsubst_expr (init, args, complain, in_decl);
-	        cp_finish_decl (decl, init, NULL_TREE, 0);
 	      }
 	  }
 
@@ -10293,8 +10312,7 @@ static tree
 tsubst_initializer_list (t, argvec)
      tree t, argvec;
 {
-  tree first = NULL_TREE;
-  tree *p = &first;
+  tree inits = NULL_TREE;
 
   for (; t; t = TREE_CHAIN (t))
     {
@@ -10312,13 +10330,17 @@ tsubst_initializer_list (t, argvec)
       else if (TREE_CODE (init) == TREE_LIST)
 	for (val = init; val; val = TREE_CHAIN (val))
 	  TREE_VALUE (val) = convert_from_reference (TREE_VALUE (val));
-      else
+      else if (init != void_type_node)
 	init = convert_from_reference (init);
 
-      *p = build_tree_list (decl, init);
-      p = &TREE_CHAIN (*p);
+      init = expand_member_init (decl, init);
+      if (init)
+	{
+	  TREE_CHAIN (init) = inits;
+	  inits = init;
+	}
     }
-  return first;
+  return inits;
 }
 
 /* Set CURRENT_ACCESS_SPECIFIER based on the protection of DECL.  */

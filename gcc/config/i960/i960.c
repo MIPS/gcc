@@ -46,6 +46,7 @@ Boston, MA 02111-1307, USA.  */
 
 static void i960_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void i960_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void i960_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT, tree));
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -97,6 +98,9 @@ static int ret_label = 0;
 #define TARGET_ASM_FUNCTION_PROLOGUE i960_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE i960_output_function_epilogue
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK i960_output_mi_thunk
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -152,8 +156,8 @@ i960_initialize ()
       i960_last_maxbitalignment = 8;
     }
 
-  /* Tell the compiler which flavor of XFmode we're using.  */
-  real_format_for_mode[XFmode - QFmode] = &ieee_extended_intel_96_format;
+  /* Tell the compiler which flavor of TFmode we're using.  */
+  real_format_for_mode[TFmode - QFmode] = &ieee_extended_intel_128_format;
 }
 
 /* Return true if OP can be used as the source of an fp move insn.  */
@@ -803,13 +807,13 @@ i960_output_ldconst (dst, src)
       output_asm_insn ("ldconst	%1,%0", operands);
       return "";
     }
-  else if (mode == XFmode)
+  else if (mode == TFmode)
     {
       REAL_VALUE_TYPE d;
       long value_long[3];
       int i;
 
-      if (fp_literal_zero (src, XFmode))
+      if (fp_literal_zero (src, TFmode))
 	return "movt	0,%0";
 
       REAL_VALUE_FROM_CONST_DOUBLE (d, src);
@@ -1785,7 +1789,6 @@ i960_print_operand (file, x, code)
     }
   else if (rtxcode == CONST_DOUBLE)
     {
-      REAL_VALUE_TYPE d;
       char dstr[30];
 
       if (x == CONST0_RTX (GET_MODE (x)))
@@ -1799,8 +1802,7 @@ i960_print_operand (file, x, code)
 	  return;
 	}
 
-      REAL_VALUE_FROM_CONST_DOUBLE (d, x);
-      REAL_VALUE_TO_DECIMAL (d, dstr, -1);
+      real_to_decimal (dstr, CONST_DOUBLE_REAL_VALUE (x), sizeof (dstr), 0, 1);
       fprintf (file, "0f%s", dstr);
       return;
     }
@@ -2208,7 +2210,7 @@ hard_regno_mode_ok (regno, mode)
 	case DImode: case DFmode:
 	  return (regno & 1) == 0;
 
-	case TImode: case XFmode:
+	case TImode: case TFmode:
 	  return (regno & 3) == 0;
 
 	default:
@@ -2219,7 +2221,7 @@ hard_regno_mode_ok (regno, mode)
     {
       switch (mode)
 	{
-	case SFmode: case DFmode: case XFmode:
+	case SFmode: case DFmode: case TFmode:
 	case SCmode: case DCmode:
 	  return 1;
 
@@ -2397,14 +2399,7 @@ i960_arg_size_and_align (mode, type, size_out, align_out)
     size = (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
   if (type == 0)
-    {
-      /* ??? This is a hack to properly correct the alignment of XFmode
-	 values without affecting anything else.  */
-      if (size == 3)
-	align = 4;
-      else
-	align = size;
-    }
+    align = size;
   else if (TYPE_ALIGN (type) >= BITS_PER_WORD)
     align = TYPE_ALIGN (type) / BITS_PER_WORD;
   else
@@ -2503,11 +2498,18 @@ i960_object_bytes_bitalign (n)
                      MIN (pragma align, structure size alignment)).  */
 
 int
-i960_round_align (align, tsize)
+i960_round_align (align, type)
      int align;
-     tree tsize;
+     tree type;
 {
   int new_align;
+  tree tsize;
+
+  if (TARGET_OLD_ALIGN || TYPE_PACKED (type))
+    return align;
+  if (TREE_CODE (type) != RECORD_TYPE)
+    return align;
+  tsize = TYPE_SIZE (type);
 
   if (! tsize || TREE_CODE (tsize) != INTEGER_CST)
     return align;
@@ -2552,16 +2554,20 @@ i960_setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
   if (cum->ca_nstackparms == 0 && first_reg < NPARM_REGS && !no_rtl)
     {
       rtx label = gen_label_rtx ();
-      rtx regblock;
+      rtx regblock, fake_arg_pointer_rtx;
 
-      /* If arg_pointer_rtx == 0, no arguments were passed on the stack
+      /* Use a different rtx than arg_pointer_rtx so that cse and friends
+	 can go on believing that the argument pointer can never be zero.  */
+      fake_arg_pointer_rtx = gen_raw_REG (Pmode, ARG_POINTER_REGNUM);
+
+      /* If the argument pointer is 0, no arguments were passed on the stack
 	 and we need to allocate a chunk to save the registers (if any
 	 arguments were passed on the stack the caller would allocate the
 	 48 bytes as well).  We must allocate all 48 bytes (12*4) because
 	 va_start assumes it.  */
-      emit_insn (gen_cmpsi (arg_pointer_rtx, const0_rtx));
+      emit_insn (gen_cmpsi (fake_arg_pointer_rtx, const0_rtx));
       emit_jump_insn (gen_bne (label));
-      emit_insn (gen_rtx_SET (VOIDmode, arg_pointer_rtx,
+      emit_insn (gen_rtx_SET (VOIDmode, fake_arg_pointer_rtx,
 			      stack_pointer_rtx));
       emit_insn (gen_rtx_SET (VOIDmode, stack_pointer_rtx,
 			      memory_address (SImode,
@@ -2598,6 +2604,7 @@ i960_va_start (valist, nextarg)
      rtx nextarg ATTRIBUTE_UNUSED;
 {
   tree s, t, base, num;
+  rtx fake_arg_pointer_rtx;
 
   /* The array type always decays to a pointer before we get here, so we
      can't use ARRAY_REF.  */
@@ -2606,7 +2613,10 @@ i960_va_start (valist, nextarg)
 		build (PLUS_EXPR, unsigned_type_node, valist,
 		       TYPE_SIZE_UNIT (TREE_TYPE (valist))));
 
-  s = make_tree (unsigned_type_node, arg_pointer_rtx);
+  /* Use a different rtx than arg_pointer_rtx so that cse and friends
+     can go on believing that the argument pointer can never be zero.  */
+  fake_arg_pointer_rtx = gen_raw_REG (Pmode, ARG_POINTER_REGNUM);
+  s = make_tree (unsigned_type_node, fake_arg_pointer_rtx);
   t = build (MODIFY_EXPR, unsigned_type_node, base, s);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -2817,4 +2827,26 @@ i960_scan_opcode (p)
         i960_last_insn_type = I_TYPE_REG;
       break;
     }
+}
+
+static void
+i960_output_mi_thunk (file, thunk, delta, function)
+     FILE *file;
+     tree thunk ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     tree function;
+{
+  int d = delta;
+  if (d < 0 && d > -32)							
+    fprintf (file, "\tsubo %d,g0,g0\n", -d);				
+  else if (d > 0 && d < 32)						
+    fprintf (file, "\taddo %d,g0,g0\n", d);				
+  else									
+    {									
+      fprintf (file, "\tldconst %d,r5\n", d);				
+      fprintf (file, "\taddo r5,g0,g0\n");				
+    }									
+  fprintf (file, "\tbx ");						
+  assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));	
+  fprintf (file, "\n");							
 }

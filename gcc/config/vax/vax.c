@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "expr.h"
 #include "flags.h"
+#include "debug.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -85,12 +86,26 @@ vax_output_function_prologue (file, size)
 
   fprintf (file, "\t.word 0x%x\n", mask);
 
+  if (dwarf2out_do_frame ())
+    {
+      const char *label = dwarf2out_cfi_label ();
+      int offset = 0;
+
+      for (regno = FIRST_PSEUDO_REGISTER-1; regno >= 0; --regno)
+	if (regs_ever_live[regno] && !call_used_regs[regno])
+	  dwarf2out_reg_save (label, regno, offset -= 4);
+
+      dwarf2out_reg_save (label, PC_REGNUM, offset -= 4);
+      dwarf2out_reg_save (label, FRAME_POINTER_REGNUM, offset -= 4);
+      dwarf2out_reg_save (label, ARG_POINTER_REGNUM, offset -= 4);
+      dwarf2out_def_cfa (label, FRAME_POINTER_REGNUM, -(offset - 4));
+    }
+
   size -= STARTING_FRAME_OFFSET;
   if (size >= 64)
-    fprintf (file, "\tmovab %d(%ssp),%ssp\n", -size, REGISTER_PREFIX,
-	     REGISTER_PREFIX);
+    asm_fprintf (file, "\tmovab %d(%Rsp),%Rsp\n", -size);
   else if (size)
-    fprintf (file, "\tsubl2 $%d,%ssp\n", size, REGISTER_PREFIX);
+    asm_fprintf (file, "\tsubl2 $%d,%Rsp\n", size);
 }
 
 /* This is like nonimmediate_operand with a restriction on the type of MEM.  */
@@ -688,4 +703,20 @@ reg_was_0_p (insn, op)
 	  && no_labels_between_p (XEXP (link, 0), insn)
 	  /* Make sure the reg hasn't been clobbered.  */
 	  && ! reg_set_between_p (op, XEXP (link, 0), insn));
+}
+
+void
+vax_output_mi_thunk (file, thunk, delta, function)
+     FILE *file;
+     tree thunk ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     tree function;
+{
+  fprintf (file, "\t.word 0x0ffc\n");					
+  fprintf (file, "\taddl2 $");
+  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+  asm_fprintf (file, ",4(%Rap)\n");
+  fprintf (file, "\tjmp ");						
+  assemble_name (file,  XSTR (XEXP (DECL_RTL (function), 0), 0));	
+  fprintf (file, "+2\n");						
 }

@@ -76,6 +76,12 @@ struct processor_costs {
   const int simultaneous_prefetches; /* number of parallel prefetch
 				   operations.  */
   const int branch_cost;	/* Default value for BRANCH_COST.  */
+  const int fadd;		/* cost of FADD and FSUB instructions.  */
+  const int fmul;		/* cost of FMUL instruction.  */
+  const int fdiv;		/* cost of FDIV instruction.  */
+  const int fabs;		/* cost of FABS instruction.  */
+  const int fchs;		/* cost of FCHS instruction.  */
+  const int fsqrt;		/* cost of FSQRT instruction.  */
 };
 
 extern const struct processor_costs *ix86_cost;
@@ -172,7 +178,15 @@ extern int target_flags;
 /* Debug FUNCTION_ARG macros */
 #define TARGET_DEBUG_ARG (ix86_debug_arg_string != 0)
 
-/* 64bit Sledgehammer mode */
+/* 64bit Sledgehammer mode.  For libgcc2 we make sure this is a
+   compile-time constant.  */
+#ifdef IN_LIBGCC2
+#ifdef __x86_64__
+#define TARGET_64BIT 1
+#else
+#define TARGET_64BIT 0
+#endif
+#else
 #ifdef TARGET_BI_ARCH
 #define TARGET_64BIT (target_flags & MASK_64BIT)
 #else
@@ -180,6 +194,7 @@ extern int target_flags;
 #define TARGET_64BIT 1
 #else
 #define TARGET_64BIT 0
+#endif
 #endif
 #endif
 
@@ -704,8 +719,11 @@ extern int x86_prefetch_sse;
 #define FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN \
   (ix86_preferred_stack_boundary > STACK_BOUNDARY && !TARGET_64BIT)
 
-/* Allocation boundary for the code of a function.  */
-#define FUNCTION_BOUNDARY 16
+/* Minimum allocation boundary for the code of a function.  */
+#define FUNCTION_BOUNDARY 8
+
+/* C++ stores the virtual bit in the lowest bit of function pointers.  */
+#define TARGET_PTRMEMFUNC_VBIT_LOCATION ptrmemfunc_vbit_in_pfn
 
 /* Alignment of field after `int : 0' in a structure.  */
 
@@ -721,10 +739,9 @@ extern int x86_prefetch_sse;
 
 #define BIGGEST_ALIGNMENT 128
 
-/* Decide whether a variable of mode MODE must be 128 bit aligned.  */
+/* Decide whether a variable of mode MODE should be 128 bit aligned.  */
 #define ALIGN_MODE_128(MODE) \
- ((MODE) == XFmode || (MODE) == TFmode || ((MODE) == TImode) \
-  || (MODE) == V4SFmode	|| (MODE) == V4SImode)
+ ((MODE) == XFmode || (MODE) == TFmode || SSE_REG_MODE_P (MODE))
 
 /* The published ABIs say that doubles should be aligned on word
    boundaries, so lower the aligment for structure fields unless
@@ -997,6 +1014,17 @@ do {									\
      || (MODE) == CQImode || (MODE) == CHImode || (MODE) == CSImode	\
      || (MODE) == CDImode						\
      || (TARGET_64BIT && ((MODE) == TImode || (MODE) == CTImode)))
+
+/* Return true for modes passed in SSE registers.  */
+#define SSE_REG_MODE_P(MODE) \
+ ((MODE) == TImode || (MODE) == V16QImode				\
+   || (MODE) == V8HImode || (MODE) == V2DFmode || (MODE) == V2DImode	\
+   || (MODE) == V4SFmode || (MODE) == V4SImode)
+
+/* Return true for modes passed in MMX registers.  */
+#define MMX_REG_MODE_P(MODE) \
+ ((MODE) == V8QImode || (MODE) == V4HImode || (MODE) == V2SImode	\
+   || (MODE) == V2SFmode)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.  */
 
@@ -1999,13 +2027,9 @@ enum ix86_builtins
   IX86_BUILTIN_CMPEQSS,
   IX86_BUILTIN_CMPLTSS,
   IX86_BUILTIN_CMPLESS,
-  IX86_BUILTIN_CMPGTSS,
-  IX86_BUILTIN_CMPGESS,
   IX86_BUILTIN_CMPNEQSS,
   IX86_BUILTIN_CMPNLTSS,
   IX86_BUILTIN_CMPNLESS,
-  IX86_BUILTIN_CMPNGTSS,
-  IX86_BUILTIN_CMPNGESS,
   IX86_BUILTIN_CMPORDSS,
   IX86_BUILTIN_CMPUNORDSS,
   IX86_BUILTIN_CMPNESS,
@@ -2213,13 +2237,9 @@ enum ix86_builtins
   IX86_BUILTIN_CMPEQSD,
   IX86_BUILTIN_CMPLTSD,
   IX86_BUILTIN_CMPLESD,
-  IX86_BUILTIN_CMPGTSD,
-  IX86_BUILTIN_CMPGESD,
   IX86_BUILTIN_CMPNEQSD,
   IX86_BUILTIN_CMPNLTSD,
   IX86_BUILTIN_CMPNLESD,
-  IX86_BUILTIN_CMPNGTSD,
-  IX86_BUILTIN_CMPNGESD,
   IX86_BUILTIN_CMPORDSD,
   IX86_BUILTIN_CMPUNORDSD,
   IX86_BUILTIN_CMPNESD,
@@ -2373,11 +2393,13 @@ enum ix86_builtins
   IX86_BUILTIN_PSRLW128,
   IX86_BUILTIN_PSRLD128,
   IX86_BUILTIN_PSRLQ128,
+  IX86_BUILTIN_PSLLDQI128,
   IX86_BUILTIN_PSLLWI128,
   IX86_BUILTIN_PSLLDI128,
   IX86_BUILTIN_PSLLQI128,
   IX86_BUILTIN_PSRAWI128,
   IX86_BUILTIN_PSRADI128,
+  IX86_BUILTIN_PSRLDQI128,
   IX86_BUILTIN_PSRLWI128,
   IX86_BUILTIN_PSRLDI128,
   IX86_BUILTIN_PSRLQI128,
@@ -2620,7 +2642,9 @@ do {							\
     break;								\
 									\
   case MULT:								\
-    if (GET_CODE (XEXP (X, 1)) == CONST_INT)				\
+    if (FLOAT_MODE_P (GET_MODE (X)))					\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fmul);				\
+    else if (GET_CODE (XEXP (X, 1)) == CONST_INT)			\
       {									\
 	unsigned HOST_WIDE_INT value = INTVAL (XEXP (X, 1));		\
 	int nbits = 0;							\
@@ -2642,10 +2666,16 @@ do {							\
   case UDIV:								\
   case MOD:								\
   case UMOD:								\
-    TOPLEVEL_COSTS_N_INSNS (ix86_cost->divide);				\
+    if (FLOAT_MODE_P (GET_MODE (X)))					\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fdiv);				\
+    else								\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->divide);			\
+    break;								\
 									\
   case PLUS:								\
-    if (!TARGET_DECOMPOSE_LEA						\
+    if (FLOAT_MODE_P (GET_MODE (X)))					\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fadd);				\
+    else if (!TARGET_DECOMPOSE_LEA					\
 	&& INTEGRAL_MODE_P (GET_MODE (X))				\
 	&& GET_MODE_BITSIZE (GET_MODE (X)) <= GET_MODE_BITSIZE (Pmode))	\
       {									\
@@ -2685,21 +2715,29 @@ do {							\
 		    + rtx_cost (XEXP (X, 1), (OUTER_CODE)));		\
 	  }								\
       }									\
-									\
     /* fall through */							\
+									\
+  case MINUS:								\
+    if (FLOAT_MODE_P (GET_MODE (X)))					\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fadd);				\
+    /* fall through */							\
+									\
   case AND:								\
   case IOR:								\
   case XOR:								\
-  case MINUS:								\
     if (!TARGET_64BIT && GET_MODE (X) == DImode)			\
       return (COSTS_N_INSNS (ix86_cost->add) * 2			\
 	      + (rtx_cost (XEXP (X, 0), (OUTER_CODE))			\
 	         << (GET_MODE (XEXP (X, 0)) != DImode))			\
 	      + (rtx_cost (XEXP (X, 1), (OUTER_CODE))			\
  	         << (GET_MODE (XEXP (X, 1)) != DImode)));		\
-									\
     /* fall through */							\
+									\
   case NEG:								\
+    if (FLOAT_MODE_P (GET_MODE (X)))					\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fchs);				\
+    /* fall through */							\
+									\
   case NOT:								\
     if (!TARGET_64BIT && GET_MODE (X) == DImode)			\
       TOPLEVEL_COSTS_N_INSNS (ix86_cost->add * 2);			\
@@ -2709,6 +2747,16 @@ do {							\
     if (!TARGET_SSE_MATH						\
 	|| !VALID_SSE_REG_MODE (GET_MODE (X)))				\
       TOPLEVEL_COSTS_N_INSNS (0);					\
+    break;								\
+									\
+  case ABS:								\
+    if (FLOAT_MODE_P (GET_MODE (X)))					\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fabs);				\
+    break;								\
+									\
+  case SQRT:								\
+    if (FLOAT_MODE_P (GET_MODE (X)))					\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fsqrt);			\
     break;								\
 									\
   egress_rtx_costs:							\
@@ -2965,13 +3013,25 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
    It need not be very fast code.  */
 
 #define ASM_OUTPUT_REG_PUSH(FILE, REGNO)  \
-  asm_fprintf ((FILE), "\tpush{l}\t%%e%s\n", reg_names[(REGNO)])
+do {									\
+  if (TARGET_64BIT)							\
+    asm_fprintf ((FILE), "\tpush{q}\t%%r%s\n",				\
+		 reg_names[(REGNO)] + (REX_INT_REGNO_P (REGNO) != 0));	\
+  else									\
+    asm_fprintf ((FILE), "\tpush{l}\t%%e%s\n", reg_names[(REGNO)]);	\
+} while (0)
 
 /* This is how to output an insn to pop a register from the stack.
    It need not be very fast code.  */
 
 #define ASM_OUTPUT_REG_POP(FILE, REGNO)  \
-  asm_fprintf ((FILE), "\tpop{l}\t%%e%s\n", reg_names[(REGNO)])
+do {									\
+  if (TARGET_64BIT)							\
+    asm_fprintf ((FILE), "\tpop{q}\t%%r%s\n",				\
+		 reg_names[(REGNO)] + (REX_INT_REGNO_P (REGNO) != 0));	\
+  else									\
+    asm_fprintf ((FILE), "\tpop{l}\t%%e%s\n", reg_names[(REGNO)]);	\
+} while (0)
 
 /* This is how to output an element of a case-vector that is absolute.  */
 
@@ -3142,6 +3202,7 @@ do {						\
 		       LABEL_REF, SUBREG, REG, MEM}},			\
   {"pic_symbolic_operand", {CONST}},					\
   {"call_insn_operand", {REG, SUBREG, MEM, SYMBOL_REF}},		\
+  {"sibcall_insn_operand", {REG, SUBREG, SYMBOL_REF}},			\
   {"constant_call_address_operand", {SYMBOL_REF, CONST}},		\
   {"const0_operand", {CONST_INT, CONST_DOUBLE}},			\
   {"const1_operand", {CONST_INT}},					\

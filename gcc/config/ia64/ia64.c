@@ -161,6 +161,8 @@ static int ia64_sched_reorder PARAMS ((FILE *, int, rtx *, int *, int));
 static int ia64_sched_reorder2 PARAMS ((FILE *, int, rtx *, int *, int));
 static int ia64_variable_issue PARAMS ((FILE *, int, rtx, int));
 
+static void ia64_output_mi_thunk PARAMS((FILE *, tree, HOST_WIDE_INT, tree));
+
 static void ia64_select_rtx_section PARAMS ((enum machine_mode, rtx,
 					     unsigned HOST_WIDE_INT));
 static void ia64_aix_select_section PARAMS ((tree, int,
@@ -243,6 +245,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_HAVE_TLS
 #define TARGET_HAVE_TLS true
 #endif
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK ia64_output_mi_thunk
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -8157,6 +8162,41 @@ ia64_aix_select_rtx_section (mode, x, align)
   flag_pic = 1;
   ia64_select_rtx_section (mode, x, align);
   flag_pic = save_pic;
+}
+
+static void
+ia64_output_mi_thunk (file, thunk, delta, function)
+     FILE *file;
+     tree thunk ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     tree function;
+{
+  if (CONST_OK_FOR_I (delta))						
+    {									
+      fprintf (file, "\tadds r32 = ");					
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, (delta));			
+      fprintf (file, ", r32\n");					
+    }									
+  else									
+    {									
+      if (CONST_OK_FOR_J (delta))					
+        {								
+          fprintf (file, "\taddl r2 = ");				
+          fprintf (file, HOST_WIDE_INT_PRINT_DEC, (delta));		
+          fprintf (file, ", r0\n");					
+        }								
+      else								
+        {								
+	  fprintf (file, "\tmovl r2 = ");				
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, (delta));		
+	  fprintf (file, "\n");						
+        }								
+      fprintf (file, "\t;;\n");						
+      fprintf (file, "\tadd r32 = r2, r32\n");				
+    }									
+  fprintf (file, "\tbr ");						
+  assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));	
+  fprintf (file, "\n");							
 }
 
 #include "gt-ia64.h"

@@ -111,6 +111,9 @@ avoid_constant_pool_reference (x)
     return x;
   addr = XEXP (x, 0);
 
+  if (GET_CODE (addr) == LO_SUM)
+    addr = XEXP (addr, 1);
+
   if (GET_CODE (addr) != SYMBOL_REF
       || ! CONSTANT_POOL_ADDRESS_P (addr))
     return x;
@@ -305,9 +308,22 @@ simplify_replace_rtx (x, old, new)
 	return replace_equiv_address_nv (x,
 					 simplify_replace_rtx (XEXP (x, 0),
 							       old, new));
+      else if (code == LO_SUM)
+	{
+	  rtx op0 = simplify_replace_rtx (XEXP (x, 0), old, new);
+	  rtx op1 = simplify_replace_rtx (XEXP (x, 1), old, new);
 
-      if (REG_P (x) && REG_P (old) && REGNO (x) == REGNO (old))
-	return new;
+	  /* (lo_sum (high x) x) -> x  */
+	  if (GET_CODE (op0) == HIGH && rtx_equal_p (XEXP (op0, 0), op1))
+	    return op1;
+
+	  return gen_rtx_LO_SUM (mode, op0, op1);
+	}
+      else if (code == REG)
+	{
+	  if (REG_P (old) && REGNO (x) == REGNO (old))
+	    return new;
+	}
 
       return x;
 
@@ -1293,6 +1309,7 @@ simplify_binary_operation (code, mode, op0, op1)
 
 	case ROTATERT:
 	case ROTATE:
+	case ASHIFTRT:
 	  /* Rotating ~0 always results in ~0.  */
 	  if (GET_CODE (trueop0) == CONST_INT && width <= HOST_BITS_PER_WIDE_INT
 	      && (unsigned HOST_WIDE_INT) INTVAL (trueop0) == GET_MODE_MASK (mode)
@@ -1302,7 +1319,6 @@ simplify_binary_operation (code, mode, op0, op1)
 	  /* ... fall through ...  */
 
 	case ASHIFT:
-	case ASHIFTRT:
 	case LSHIFTRT:
 	  if (trueop1 == const0_rtx)
 	    return op0;

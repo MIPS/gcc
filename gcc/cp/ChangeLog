@@ -1,7 +1,322 @@
+2002-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* method.c (use_thunk): Compute the vcall index as a HOST_WIDE_INT.
+	* optimize.c (optimize_function): Replace ASM_OUTPUT_MI_THUNK with
+	TARGET_ASM_OUTPUT_MI_THUNK in comments.
+
+2002-10-18  Zack Weinberg  <zack@codesourcery.com>
+
+	* decl.c (start_decl): Point users of the old initialized-
+	typedef extension at __typeof__.
+
+2002-10-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* Make-lang.in (method.o): Depend on TARGET_H.
+	* method.c (target.h): Include it.
+	(use_thunk): Use target hooks.  Use vcall thunks, if available.
+
+2002-10-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (base_derived_from): Make sure return value is a bool.
+
+2002-10-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (find_final_overrider_data_s): Remove overriding_fn and
+	overriding_base.
+	(dfs_base_derived_from): New function.
+	(base_derived_from): Likewise.
+	(dfs_find_final_overrider): Use base_derived_from.
+	(find_final_overrider): Adjust.
+
+2002-10-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/8080
+	* semantics.c (finish_for_cond, finish_while_cond): Don't mess
+	with condition decls in a template.
+
+2002-10-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (add_method): Compare template parms too.
+
+2002-10-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7584
+	* class.c (handle_using_decl): Allow the declaration used to be
+	from an ambiguous base.
+
+	* pt.c (convert_template_argument): Revert this change:
+		2002-10-16  Mark Mitchell  <mark@codesourcery.com>
+		* pt.c (convert_template_argument): Do not fold non-type
+		template rguments when inside a template.
+
+	* init.c (expand_default_init): Handle brace-enclosed initializers
+	correctly.
+
+2002-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* mangle.c (write_expression): Correct handling of enumeration
+	constants.
+	(write_template_arg): Likewise.
+	* pt.c (convert_template_argument): Do not fold non-type template
+	arguments when inside a template.
+
+	PR c++/7478
+	* cvt.c (convert_to_reference): Allow references as the incoming
+	type.
+
+2002-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7524
+	* method.c (do_build_assign_ref): Use cp_build_qualified_type, not
+	build_qualified_type.
+
+2002-10-15  Richard Henderson  <rth@redhat.com>
+
+	* error.c (dump_expr): Use real_to_decimal directly, and with
+	the new arguments.
+
+2002-10-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (reshape_init): Fix typo.
+
+	* cp-tree.h (operator_name_info_t): Add arity.
+	* lex.c (init_operators): Initialize it.
+	* mangle.c (write_conversion_operator_name): New function.
+	(write_unqualified_name): Use it.
+	(write_template_args): Accept template arguments as a TREE_LIST.
+	(write_expression): Adjust handling of qualified names to match
+	specification.
+
+2002-10-15  Jason Merrill  <jason@redhat.com>
+
+	* call.c (call_builtin_trap): New fn.
+	(convert_arg_to_ellipsis): Use it.  Downgrade error to warning.
+	(build_call): Don't set current_function_returns_abnormally outside
+	a function.
+
+2002-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (check_field_decls): Remove empty_p parameter.  Instead,
+	clear CLASSTYPE_EMPTY_P.
+	(build_base_field): Likewise.
+	(build_base_fields): Likewise.
+	(check_bases_and_members): Likewise.
+	(create_vtbl_ptr): Likewise.
+	(layout_class_type): Likewise.  Ensure that empty classes have
+	size zero when used as base classes in the 3.2 ABI.
+	(finish_struct_1): Initialize CLASSTYPE_EMPTY_P and
+	CLASSTYPE_NEARLY_EMPTY_P.  Adjust calls to avoid passing empty_p
+	parameter.
+	(is_empty_class): Correct definition when using post-3.2 ABI.
+	* cp-tree.h (lang_type_class): Add empty_p.
+	(CLASSTYPE_EMPTY_P): New macro.
+
+2002-10-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* init.c (build_delete): Do not apply save_expr for arrays.
+	(build_vec_delete): Likewise.
+
+2002-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (layout_var_decl): Call layout_decl even for variables
+	whose type is an array with unspecified bounds.
+
+	PR c++/7176
+	* lex.c (do_identifier): Add another option for the parsing
+	parameter.
+	* parse.y (do_id): Use it.
+
+2002-10-11  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PRs C++/6803, C++/7721 and C++/7803
+	* decl.c (grokdeclarator): Gracefully handle template-name as
+	decl-specifier.
+
+2002-10-11  Jason Molenda  <jmolenda@apple.com>
+
+	* init.c (build_field_list): Provide uses_unions_p with a default
+	value.
+
+2002-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5661
+	* cp-tree.h (variably_modified_type_p): New function.
+	(grokdeclarator) Tighten check for variably modified types as
+	fields.
+	* pt.c (convert_template_argument): Do not allow variably modified
+	types as template arguments.
+	* tree.c (variably_modified_type_p): New function.
+
+	* NEWS: Document removal of "new X = ..." extension.
+	* class.c (initialize_array): Set TREE_HAS_CONSTRUCTOR on
+	brace-enclosed initializers.
+	* cp-tree.h (CP_AGGREGATE_TYPE_P): New macro.
+	(initialize_local_var): Remove declaration.
+	(expand_static_init): Likewise.
+	* decl.c (next_initializable_field): New function.
+	(reshape_init): Likewise.
+	(check_initializer): Use them.  Build dynamic initializer for
+	aggregates here too.
+	(initialize_local_var): Simplify, and incorporate cleanup
+	insertion code as well.
+	(destroy_local_var): Remove.
+	(cp_finish_decl): Tidy.
+	(expand_static_init): Fold checks for whether or not a variable
+	needs initialization into this function.  Simplify.
+	* decl2.c (do_static_initialization): Simplify.
+	* init.c (build_init): Do not set TREE_SIDE_EFFECTS when it will
+	be done for us automatically.
+	(expand_default_init): Handle brace-enclosed initializers
+	correctly.
+	(expand_aggr_init_1): Remove RTL-generation code.
+	(build_vec_init): Remove "new X = ..." support.
+	* parse.y (new_initializer): Likewise.
+	* rtti.c (get_pseudo_ti_init): Set TREE_HAS_CONSTRUCTOR on
+	brace-enclosed initializer.
+	(create_pseudo_type_info): Likewise.
+	* typeck2.c (store_init_value): Don't try to handle digest_init
+	being called more than once.
+	(digest_init): Tidy handling of brace-enclosed initializers.
+
+2002-10-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* decl.c (typename_hash): Use htab_hash_pointer.
+
+2002-10-10  Jim Wilson  <wilson@redhat.com>
+
+	* decl.c (duplicate_decls): Don't call decl_attributes.
+
+2002-10-09  Zack Weinberg  <zack@codesourcery.com>
+
+	PR c/7353
+	* decl.c (start_decl): Unconditionally issue error for
+	'typedef foo = bar'.
+	(cp_finish_decl): Remove special case for TYPE_DECL with initializer.
+	(grokdeclarator): Remove redundant error for 'typedef foo = bar'.
+
+2002-10-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* decl2.c (prune_vtable_vardecl): Delete unused function.
+
+2002-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7754
+	* decl2.c (finish_anon_union): Do not expand anonymous unions when
+	procesing template functions.
+	* pt.c (tsubst_decl, case VAR_DECL): Try to complete the variable
+	type. Call layout_decl.
+	(tsubst_expr, case DECL_STMT): Handle anonymous unions.
+
+2002-10-07  Richard Henderson  <rth@redhat.com>
+
+	* decl2.c, pt.c: Revert c++/7754 fix.
+
+2002-10-05  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/7804
+	* error.c (dump_expr) [REAL_CST]: Output in decimal format.
+
+2002-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+ 	PR c++/7931
+	* pt.c (for_each_template_parm_r): Handle BASELINKs.
+
+	PR c++/7754
+	* decl2.c (finish_anon_union): Do not expand anonymous unions when
+	procesing template functions.
+	* pt.c (tsubst_decl, case VAR_DECL): Try to complete the variable
+	type. Call layout_decl.
+	(tsubst_expr, case DECL_STMT): Handle anonymous unions.
+
+2002-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8006
+	* mangle.c (CLASSTYPE_TEMPLATE_ID_P): Handle instances of template
+	template parameters.
+	(globals): Add entity and need_abi_warning.
+	(decl_is_template_id): Use TYPE_TEMPLATE_INFO, not
+	CLASSTYPE_TEMPLATE_INFO.
+	(is_std_substitution): Use CLASSTYPE_TI_TEMPLATE, not
+	TYPE_TI_TEMPLATE.
+	(write_prefix): Handle typename types correctly.
+	(write_template_prefix): Handle template template parameters
+	correctly.
+	(start_mangling): Add entity parameter.
+	(finish_mangling): Warn about names whose mangling will change.
+	(mangle_decl_string): Adjust.
+	(mangle_type_string): Likewise.
+	(mangle_special_for_type): Likewise.
+	(mangle_ctor_vtbl_for_type): Likewise.
+	(mangle_thunk): Likewise.
+	(mangle_guard_variable): Likewise.
+	(mangle_ref_init_variable): Likewise.
+
+2002-10-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7188.
+	* cp-tree.def (CTOR_INITIALIZER): Use one slot, not two.
+	* cp-tree.h (emit_base_init): Rename to ....
+	(emit_mem_initializers): ... this.
+	(expand_member_init): Change prototype.
+	* init.c (perform_member_init): Compute explicit, rather than
+	requiring it as a parameter.
+	(sort_member_init): Rename to ...
+	(sort_mem_initializers): ... this.  Process bases and data members
+	together.
+	(sort_base_init): Remove.
+	(emit_base_init): Rename to ...
+	(emit_mem_initializers): ... this.
+	(expand_aggr_vbase_init_1): Remove.
+	(construct_virtual_bases): Rename to ...
+	(construct_virtual_base): ... this.
+	(expand_member_init): Rework handling of base initializers.
+	* method.c (do_build_copy_constructor): Use
+	finish_mem_initializers.
+	* parse.y (member_init): Adjust calls to expand_member_init.
+	* pt.c (tsubst_expr): Simplify CTOR_INITIALIZER case.
+	(tsubst_initializer_list): Use expand_member_init.
+	* semantics.c (finish_mem_intiailizers): Simplify.
+
+2002-10-02  Matt Austern  <austern@apple.com>
+	* decl.c (walk_vtables_r): Fixed typo that caused result to
+	never get a nonzero value.
+
+2002-10-02  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/6627
+	* cp-tree.h (enum ptrmemfunc_vbit_where_t): Delete definition
+	from here, and move it to tree.h.
+	* decl.c (cxx_init_decl_processing): If storing the vbit
+	in function pointers, ensure that force_align_functions_log
+	is atleast one.
+
+2002-10-02  Matt Austern  <austern@apple.com>
+
+	* class.c (check_field_decls): Changed warning about const member
+	variables so that it doesn't get issued for a class aggregate.
+
 2002-10-01  Mark Mitchell  <mark@codesourcery.com>
 
 	* decl.c (cp_finish_decl): Make sure array types are laid out,
 	even if the array bounds are unknown.
+
+2002-10-01  Steve Ellcey  <sje@cup.hp.com>
+
+	* class.c (build_vtbl_initializer): Change build_c_cast
+	to build1.
+
+2002-10-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (cp_finish_decl): Make sure array types are laid out,
+	even if the array bounds are unknown.
+
+	* decl.c (cp_finish_decl): Correct check for dynamic
+	initialization of thread-local storage.
+
+2002-09-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* tree.c (really_overloaded_fn): TEMPLATE_ID_EXPRs are also
+	overloaded.
 
 2002-09-30  Steve Ellcey  <sje@cup.hp.com>
 
@@ -210,6 +525,14 @@
 	* tree.c: Likewise.
 	* typeck.c: Likewise.
 	* typeck2.c: Likewise.
+
+2002-09-13  Matt Austern  <austern@apple.com>
+
+	PR C++/7828
+	* cp/cp-tree.h, cp/tree.c: New function non_cast_lvalue_p.
+	* cp/call.c: Change call-by-const-reference mechanism to use
+	non_cast_lvalue_p when deciding whether the create a temporary.
+	We need a temporary when passing, e.g. (long) x by const ref.
 
 2002-09-13  Nathan Sidwell  <nathan@codesourcery.com>
 
@@ -2432,7 +2755,7 @@
 	* pt.c (convert_template_argument): Adjust make_typename_type
 	return value.
 	(tsubst): Adjust cp_build_qualified_type_real calls.
-	(check_cv_quals_for_unify): Cope with alowing bad qualifications
+	(check_cv_quals_for_unify): Cope with allowing bad qualifications
 	on template type parms.
 	(instantiate_decl): Recheck substitutions to give warnings on bad
 	qualifications.

@@ -842,6 +842,12 @@ precompute_register_parameters (num_actuals, args, reg_parm_seen)
 	    emit_queue ();
 	  }
 
+	/* If the value is a non-legitimate constant, force it into a
+	   pseudo now.  TLS symbols sometimes need a call to resolve.  */
+	if (CONSTANT_P (args[i].value)
+	    && !LEGITIMATE_CONSTANT_P (args[i].value))
+	  args[i].value = force_reg (args[i].mode, args[i].value);
+
 	/* If we are to promote the function arg to a wider mode,
 	   do it now.  */
 
@@ -2412,8 +2418,9 @@ expand_call (exp, target, ignore)
       /* Check whether the target is able to optimize the call
 	 into a sibcall.  */
       || !(*targetm.function_ok_for_sibcall) (fndecl, exp)
-      || (flags & (ECF_RETURNS_TWICE | ECF_LONGJMP))
-      /* Functions that do not return may not be sibcall optimized.  */
+      /* Functions that do not return exactly once may not be sibcall
+         optimized.  */
+      || (flags & (ECF_RETURNS_TWICE | ECF_LONGJMP | ECF_NORETURN))
       || TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0))))
       /* If this function requires more stack slots than the current
 	 function, we cannot change it into a sibling call.  */

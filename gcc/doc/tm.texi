@@ -163,6 +163,23 @@ multilibs.  Example nonsensical definition, where @code{-malt-abi},
 @{ "-compat", "-EB -malign=4 -mspoo" @}
 @end smallexample
 
+@findex DRIVER_SELF_SPECS
+@item DRIVER_SELF_SPECS
+A list of specs for the driver itself.  It should be a suitable
+initializer for an array of strings, with no surrounding braces.
+
+The driver applies these specs to its own command line before choosing
+the multilib directory or running any subcommands.  It applies them in
+the order given, so each spec can depend on the options added by
+earlier ones.  It is also possible to remove options using
+@samp{%<@var{option}} in the usual way.
+
+This macro can be useful when a port has several interdependent target
+options.  It provides a way of standardizing the command line so
+that the other specs are easier to write.
+
+Do not define this macro if it does not need to do anything.
+
 @findex CPP_SPEC
 @item CPP_SPEC
 A C string constant that tells the GCC driver program options to
@@ -4147,9 +4164,11 @@ outputting the insns in this list, usually by calling
 You need not define this macro if you did not define
 @code{DELAY_SLOTS_FOR_EPILOGUE}.
 
-@findex ASM_OUTPUT_MI_THUNK
-@item ASM_OUTPUT_MI_THUNK (@var{file}, @var{thunk_fndecl}, @var{delta}, @var{function})
-A C compound statement that outputs the assembler code for a thunk
+@end table
+
+@findex TARGET_ASM_OUTPUT_MI_THUNK
+@deftypefn {Target Hook} void TARGET_ASM_OUTPUT_MI_THUNK (FILE *@var{file}, tree @var{thunk_fndecl}, HOST_WIDE_INT @var{delta}, tree @var{function})
+A function that outputs the assembler code for a thunk
 function, used to implement C++ virtual function calls with multiple
 inheritance.  The thunk acts as a wrapper around a virtual function,
 adjusting the implicit object parameter before handing control off to
@@ -4180,7 +4199,24 @@ If you do not define this macro, the target-independent code in the C++
 front end will generate a less efficient heavyweight thunk that calls
 @var{function} instead of jumping to it.  The generic approach does
 not support varargs.
-@end table
+@end deftypefn
+
+@findex TARGET_ASM_OUTPUT_MI_VCALL_THUNK
+@deftypefn {Target Hook} void TARGET_ASM_OUTPUT_MI_VCALL_THUNK (FILE *@var{file}, tree @var{thunk_fndecl}, HOST_WIDE_INT @var{delta}, int @var{vcall_offset}, tree @var{function})
+A function like @code{TARGET_ASM_OUTPUT_MI_THUNK}, except that if
+@var{vcall_offset} is non-zero, an additional adjustment should be made
+after adding @code{delta}.  In particular, if @var{p} is the
+adjusted pointer, the following adjustment should be made:
+
+@example
+p += (*((ptrdiff_t **)p))[vcall_offset/sizeof(ptrdiff_t)]
+@end example
+
+@noindent
+If this function is defined, it will always be used in place of
+@code{TARGET_ASM_OUTPUT_MI_THUNK}.
+
+@end deftypefn
 
 @node Profiling
 @subsection Generating Code for Profiling
@@ -6331,17 +6367,6 @@ host machine.
 The array element values are designed so that you can print them out
 using @code{fprintf} in the order they should appear in the target
 machine's memory.
-
-@item REAL_VALUE_TO_DECIMAL (@var{x}, @var{string}, @var{digits})
-@findex REAL_VALUE_TO_DECIMAL
-This macro converts @var{x}, of type @code{REAL_VALUE_TYPE}, to a
-decimal number and stores it as a string into @var{string}.
-You must pass, as @var{string}, the address of a long enough block
-of space to hold the result.
-
-The argument @var{digits} is the number of decimal digits to print,
-or @minus{}1 to indicate ``enough'', i.e. @code{DECIMAL_DIG} for
-for the target.
 @end table
 
 @node Uninitialized Data
