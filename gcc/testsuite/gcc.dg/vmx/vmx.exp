@@ -19,9 +19,9 @@
 # Load support procs.
 load_lib gcc-dg.exp
 
-# Skip these tests for non-PowerPC targets and for Aix, where AltiVec
-# is not yet supported.
-if {![istarget powerpc*-*-*] || [istarget powerpc*-*-aix*]} {
+# Only run this test on PowerPC targets with Altivec support.
+# For now, that's powerpc*-*-*altivec*.  FIXME: generalize.
+if {![istarget powerpc*-*-*altivec*]} {
     return
 }
 
@@ -33,15 +33,10 @@ if ![info exists DEFAULT_VMXCFLAGS] then {
     set DEFAULT_VMXCFLAGS "-maltivec -mabi=altivec -std=gnu99"
 }
 
-# If the target system supports AltiVec instructions, the default action
-# for a test is 'run', otherwise it's 'compile'.
+# Default action in this directory is 'run'.
 global dg-do-what-default
 set save-dg-do-what-default ${dg-do-what-default}
-if { [check_vmx_hw_available ] } {
-  set dg-do-what-default run
-} else {
-  set dg-do-what-default compile
-}
+set dg-do-what-default run
 
 # Initialize `dg'.
 dg-init

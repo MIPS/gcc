@@ -478,7 +478,29 @@ package body Exp_Ch5 is
          end if;
       end if;
 
-      --  Come here to compelete the analysis
+      --  If the right-hand side is a string literal, introduce a temporary
+      --  for it, for use in the generated loop that will follow.
+
+      if Nkind (Rhs) = N_String_Literal then
+         declare
+            Temp : constant Entity_Id :=
+                     Make_Defining_Identifier (Loc, Name_T);
+            Decl : Node_Id;
+
+         begin
+            Decl :=
+              Make_Object_Declaration (Loc,
+                 Defining_Identifier => Temp,
+                 Object_Definition => New_Occurrence_Of (L_Type, Loc),
+                 Expression => Relocate_Node (Rhs));
+
+            Insert_Action (N, Decl);
+            Rewrite (Rhs, New_Occurrence_Of (Temp, Loc));
+            R_Type := Etype (Temp);
+         end;
+      end if;
+
+      --  Come here to complete the analysis
 
       --    Loop_Required: Set to True if we know that a loop is required
       --                   regardless of overlap considerations.
@@ -680,13 +702,9 @@ package body Exp_Ch5 is
                     Duplicate_Subexpr (Right_Lo, Name_Req => True),
                     Duplicate_Subexpr (Right_Hi, Name_Req => True));
 
-                  if Forwards_OK (N) then
-                     Append_To (Actuals,
-                       New_Occurrence_Of (Standard_False, Loc));
-                  else
-                     Append_To (Actuals,
-                       New_Occurrence_Of (Standard_True, Loc));
-                  end if;
+                  Append_To (Actuals,
+                    New_Occurrence_Of (
+                      Boolean_Literals (not Forwards_OK (N)), Loc));
 
                   Rewrite (N,
                     Make_Procedure_Call_Statement (Loc,
@@ -1517,6 +1535,19 @@ package body Exp_Ch5 is
          Analyze_And_Resolve (Expression (Rhs));
          Apply_Range_Check
            (Expression (Rhs), Designated_Type (Etype (Lhs)));
+      end if;
+
+      --  Ada 0Y (AI-231): Generate conversion to the null-excluding
+      --  type to force the corresponding run-time check
+
+      if Is_Access_Type (Typ)
+        and then ((Is_Entity_Name (Lhs)
+                   and then Can_Never_Be_Null (Entity (Lhs)))
+                   or else Can_Never_Be_Null (Etype (Lhs)))
+      then
+         Rewrite (Rhs, Convert_To (Etype (Lhs),
+                                   Relocate_Node (Rhs)));
+         Analyze_And_Resolve (Rhs, Etype (Lhs));
       end if;
 
       --  If we are assigning an access type and the left side is an

@@ -1,5 +1,5 @@
 /* gtkevents.c -- GDK/GTK event handlers
-   Copyright (C) 1998, 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -79,6 +79,27 @@ state_to_awt_mods (guint state)
     result |= AWT_CTRL_MASK;
   if (state & GDK_MOD1_MASK)
     result |= AWT_ALT_MASK;
+
+  return result;
+}
+
+static jint
+state_to_awt_mods_with_button_states (guint state)
+{
+  jint result = 0;
+
+  if (state & GDK_SHIFT_MASK)
+    result |= AWT_SHIFT_MASK;
+  if (state & GDK_CONTROL_MASK)
+    result |= AWT_CTRL_MASK;
+  if (state & GDK_MOD1_MASK)
+    result |= AWT_ALT_MASK;
+  if (state & GDK_BUTTON1_MASK)
+    result |= AWT_BUTTON1_MASK;
+  if (state & GDK_BUTTON2_MASK)
+    result |= AWT_BUTTON2_MASK;
+  if (state & GDK_BUTTON3_MASK)
+    result |= AWT_BUTTON3_MASK;
 
   return result;
 }
@@ -830,6 +851,7 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
   static GdkWindow *button_window = NULL;
   static guint button_number = -1;
   static jint click_count = 1;
+  static int hasBeenDragged;
 
   /* If it is not a focus change event, the widget must be realized already.
      If not, ignore the event (Gtk+ will do the same). */
@@ -895,6 +917,7 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
 				  click_count, 
 				  (event->button.button == 3) ? JNI_TRUE :
 				                                JNI_FALSE);
+      hasBeenDragged = FALSE;
       break;
     case GDK_BUTTON_RELEASE:
       {
@@ -911,10 +934,12 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
 				    click_count,
 				    JNI_FALSE);
 
-	/* check to see if the release occured in the window it was pressed
-	   in, and if so, generate an AWT click event */
+	/* Generate an AWT click event only if the release occured in the
+	   window it was pressed in, and the mouse has not been dragged since
+	   the last time it was pressed. */
 	gdk_window_get_size (event->any.window, &width, &height);
-	if (event->button.x >= 0
+	if (! hasBeenDragged
+	    && event->button.x >= 0
             && event->button.y >= 0
 	    && event->button.x <= width 
 	    && event->button.y <= height)
@@ -933,15 +958,6 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
       }
       break;
     case GDK_MOTION_NOTIFY:
-      (*gdk_env)->CallVoidMethod (gdk_env, peer, postMouseEventID,
-				  AWT_MOUSE_MOVED,
-				  (jlong)event->motion.time,
-				  state_to_awt_mods (event->motion.state),
-				  (jint)event->motion.x,
-				  (jint)event->motion.y,
-				  0,
-				  JNI_FALSE);
-
       if (event->motion.state & (GDK_BUTTON1_MASK
 				 | GDK_BUTTON2_MASK
 				 | GDK_BUTTON3_MASK
@@ -952,12 +968,22 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
 			              postMouseEventID,
 				      AWT_MOUSE_DRAGGED,
 				      (jlong)event->motion.time,
-				      state_to_awt_mods (event->motion.state),
+				      state_to_awt_mods_with_button_states (event->motion.state),
 				      (jint)event->motion.x,
 				      (jint)event->motion.y,
 				      0,
 				      JNI_FALSE);
+	  hasBeenDragged = TRUE;
 	}
+      else
+        (*gdk_env)->CallVoidMethod (gdk_env, peer, postMouseEventID,
+				    AWT_MOUSE_MOVED,
+				    (jlong)event->motion.time,
+				    state_to_awt_mods (event->motion.state),
+				    (jint)event->motion.x,
+				    (jint)event->motion.y,
+				    0,
+				    JNI_FALSE);
       break;
     case GDK_ENTER_NOTIFY:
       /* We are not interested in enter events that are due to
@@ -966,7 +992,7 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
         (*gdk_env)->CallVoidMethod (gdk_env, peer, postMouseEventID,
 				    AWT_MOUSE_ENTERED, 
 				    (jlong)event->crossing.time,
-				    state_to_awt_mods (event->crossing.state), 
+				    state_to_awt_mods_with_button_states (event->crossing.state), 
 				    (jint)event->crossing.x,
 				    (jint)event->crossing.y, 
 				    0,
@@ -980,7 +1006,7 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
 				    postMouseEventID,
 				    AWT_MOUSE_EXITED, 
 				    (jlong)event->crossing.time,
-				    state_to_awt_mods (event->crossing.state),
+				    state_to_awt_mods_with_button_states (event->crossing.state),
 				    (jint)event->crossing.x,
 				    (jint)event->crossing.y, 
 				    0,
@@ -1012,11 +1038,11 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
       break;
     case GDK_EXPOSE:
       {
-        // This filters out unwanted feedback expose events from gtk/X
-        // when we explictly invalidate and update heavyweight components,
-        // thus avoiding an infinite loop.
-        // FIXME: I'm not quite sure why we're getting these expose events. 
-        //        Maybe there is a way to avoid them?
+        /* This filters out unwanted feedback expose events from gtk/X
+           when we explictly invalidate and update heavyweight components,
+           thus avoiding an infinite loop.
+           FIXME: I'm not quite sure why we're getting these expose events. 
+                  Maybe there is a way to avoid them? */
         if((event->any.window == widget->window && event->any.send_event)
            || GTK_IS_LAYOUT(widget))
           {
@@ -1155,7 +1181,6 @@ attach_jobject (GdkWindow *window, jobject *obj)
 			 | GDK_KEY_PRESS_MASK
 			 | GDK_FOCUS_CHANGE_MASK);
 
-  //  g_print("storing obj %p property on window %p\n", obj, window);
   gdk_property_change (window,
 		       addr_atom,
 		       type_atom,
@@ -1170,10 +1195,8 @@ connect_awt_hook (JNIEnv *env, jobject peer_obj, int nwindows, ...)
 {
   va_list ap;
   jobject *obj;
-  //void *ptr = NSA_GET_PTR (env, peer_obj);
 
   obj = NSA_GET_GLOBAL_REF (env, peer_obj);
-  //g_print("Connection obj %s\n", gtk_widget_get_name (GTK_WIDGET (ptr)));
   g_assert (obj);
 
   va_start (ap, nwindows);

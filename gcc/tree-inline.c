@@ -46,7 +46,7 @@ Boston, MA 02111-1307, USA.  */
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
 #include "tree-iterator.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 
 /* 0 if we should not perform inlining.
    1 if we should expand functions calls inline at the tree level.
@@ -169,7 +169,7 @@ remap_decl (tree decl, inline_data *id)
   /* We need to remap statics, too, so that they get expanded even if the
      inline function is never emitted out of line.  We might as well also
      remap extern decls so that they show up in the debug info.  */
-  if (! (*lang_hooks.tree_inlining.auto_var_in_fn_p) (decl, fn))
+  if (! lang_hooks.tree_inlining.auto_var_in_fn_p (decl, fn))
     return NULL_TREE;
 #endif
 
@@ -200,7 +200,7 @@ remap_decl (tree decl, inline_data *id)
 #if 0
       /* FIXME handle anon aggrs.  */
       if (! DECL_NAME (t) && TREE_TYPE (t)
-	  && (*lang_hooks.tree_inlining.anon_aggr_type_p) (TREE_TYPE (t)))
+	  && lang_hooks.tree_inlining.anon_aggr_type_p (TREE_TYPE (t)))
 	{
 	  /* For a VAR_DECL of anonymous type, we must also copy the
 	     member VAR_DECLS here and rechain the DECL_ANON_UNION_ELEMS.  */
@@ -284,6 +284,7 @@ remap_type (tree type, inline_data *id)
       t = TYPE_MIN_VALUE (new);
       if (t && TREE_CODE (t) != INTEGER_CST)
         walk_tree (&TYPE_MIN_VALUE (new), copy_body_r, id, NULL);
+
       t = TYPE_MAX_VALUE (new);
       if (t && TREE_CODE (t) != INTEGER_CST)
         walk_tree (&TYPE_MAX_VALUE (new), copy_body_r, id, NULL);
@@ -291,14 +292,14 @@ remap_type (tree type, inline_data *id)
     
     case POINTER_TYPE:
       TREE_TYPE (new) = t = remap_type (TREE_TYPE (new), id);
-      if (TYPE_MODE (new) == ptr_mode)
-        TYPE_POINTER_TO (t) = new;
+      TYPE_NEXT_PTR_TO (new) = TYPE_POINTER_TO (t);
+      TYPE_POINTER_TO (t) = new;
       return new;
 
     case REFERENCE_TYPE:
       TREE_TYPE (new) = t = remap_type (TREE_TYPE (new), id);
-      if (TYPE_MODE (new) == ptr_mode)
-        TYPE_REFERENCE_TO (t) = new;
+      TYPE_NEXT_REF_TO (new) = TYPE_REFERENCE_TO (t);
+      TYPE_REFERENCE_TO (t) = new;
       return new;
 
     case METHOD_TYPE:
@@ -393,7 +394,7 @@ remap_block (tree *block, inline_data *id)
     /* We're building a clone; DECL_INITIAL is still
        error_mark_node, and current_binding_level is the parm
        binding level.  */
-    (*lang_hooks.decls.insert_block) (new_block);
+    lang_hooks.decls.insert_block (new_block);
   else
     {
       /* Attach this new block after the DECL_INITIAL block for the
@@ -501,7 +502,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
      variables.  We don't want to copy static variables; there's only
      one of those, no matter how many times we inline the containing
      function.  */
-  else if ((*lang_hooks.tree_inlining.auto_var_in_fn_p) (*tp, fn))
+  else if (lang_hooks.tree_inlining.auto_var_in_fn_p (*tp, fn))
     {
       tree new_decl;
 
@@ -560,7 +561,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 
       if (TREE_CODE (*tp) == MODIFY_EXPR
 	  && TREE_OPERAND (*tp, 0) == TREE_OPERAND (*tp, 1)
-	  && ((*lang_hooks.tree_inlining.auto_var_in_fn_p)
+	  && (lang_hooks.tree_inlining.auto_var_in_fn_p
 	      (TREE_OPERAND (*tp, 0), fn)))
 	{
 	  /* Some assignments VAR = VAR; don't generate any rtl code
@@ -582,7 +583,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	    }
 	}
       else if (TREE_CODE (*tp) == ADDR_EXPR
-	       && ((*lang_hooks.tree_inlining.auto_var_in_fn_p)
+	       && (lang_hooks.tree_inlining.auto_var_in_fn_p
 		   (TREE_OPERAND (*tp, 0), fn)))
 	{
 	  /* Get rid of &* from inline substitutions.  It can occur when
@@ -830,7 +831,7 @@ initialize_inlined_parameters (inline_data *id, tree args, tree static_chain,
       ++argnum;
 
       /* Find the initializer.  */
-      value = (*lang_hooks.tree_inlining.convert_parm_for_inlining)
+      value = lang_hooks.tree_inlining.convert_parm_for_inlining
 	      (p, a ? TREE_VALUE (a) : NULL_TREE, fn, argnum);
 
       setup_one_parameter (id, p, value, fn, &init_stmts, &vars,
@@ -884,7 +885,7 @@ declare_return_variable (inline_data *id, tree return_slot_addr, tree *use_p)
       return NULL_TREE;
     }
 
-  var = ((*lang_hooks.tree_inlining.copy_res_decl_for_inlining)
+  var = (lang_hooks.tree_inlining.copy_res_decl_for_inlining
 	 (result, fn, VARRAY_TREE (id->fns, 0), id->decl_map,
 	  &need_return_decl, return_slot_addr));
   
@@ -1110,7 +1111,7 @@ inlinable_function_p (tree fn)
      in C++ it may result in template instantiation.)
      If the function is not inlinable for language-specific reasons,
      it is left up to the langhook to explain why.  */
-  inlinable = !(*lang_hooks.tree_inlining.cannot_inline_tree_fn) (&fn);
+  inlinable = !lang_hooks.tree_inlining.cannot_inline_tree_fn (&fn);
 
   /* If we don't have the function body available, we can't inline it.
      However, this should not be recorded since we also get here for
@@ -1210,7 +1211,6 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case BIND_EXPR:
     case LABELED_BLOCK_EXPR:
     case WITH_CLEANUP_EXPR:
-    case WITH_RECORD_EXPR:
     case NOP_EXPR:
     case VIEW_CONVERT_EXPR:
     case SAVE_EXPR:
@@ -1354,9 +1354,26 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
     case RDIV_EXPR:
-    case CALL_EXPR:
       *count += 10;
       break;
+    case CALL_EXPR:
+      {
+	tree decl = get_callee_fndecl (x);
+
+	if (decl && DECL_BUILT_IN (decl))
+	  switch (DECL_FUNCTION_CODE (decl))
+	    {
+	    case BUILT_IN_CONSTANT_P:
+	      *walk_subtrees = 0;
+	      return NULL_TREE;
+	    case BUILT_IN_EXPECT:
+	      return NULL_TREE;
+	    default:
+	      break;
+	    }
+	*count += 10;
+	break;
+      }
     default:
       /* Abort here se we know we don't miss any nodes.  */
       abort ();
@@ -1402,8 +1419,8 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   /* Set input_location here so we get the right instantiation context
      if we call instantiate_decl from inlinable_function_p.  */
   saved_location = input_location;
-  if (EXPR_LOCUS (t))
-    input_location = *EXPR_LOCUS (t);
+  if (EXPR_HAS_LOCATION (t))
+    input_location = EXPR_LOCATION (t);
 
   /* Recurse, but letting recursive invocations know that we are
      inside the body of a TARGET_EXPR.  */
@@ -1476,9 +1493,11 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
     {
       struct cgraph_node *dest = cgraph_node (fn);
 
-      /* FN must have address taken so it can be passed as argument.  */
-      /* ??? WTF is this.  */
-      if (0 && !dest->needed)
+      /* We have missing edge in the callgraph.  This can happen in one case
+         where previous inlining turned indirect call into direct call by
+         constant propagating arguments.  In all other cases we hit a bug
+         (incorrect node sharing is most common reason for missing edges.  */
+      if (!dest->needed)
 	abort ();
       cgraph_create_edge (id->node, dest, t)->inline_failed
 	= N_("originally indirect function call not considered for inlining");
@@ -1509,7 +1528,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
     verify_cgraph_node (edge->callee);
 #endif
 
-  if (! (*lang_hooks.tree_inlining.start_inlining) (fn))
+  if (! lang_hooks.tree_inlining.start_inlining (fn))
     goto egress;
 
   /* Build a block containing code to initialize the arguments, the
@@ -1688,7 +1707,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   /* Don't walk into subtrees.  We've already handled them above.  */
   *walk_subtrees = 0;
 
-  (*lang_hooks.tree_inlining.end_inlining) (fn);
+  lang_hooks.tree_inlining.end_inlining (fn);
 
   /* Keep iterating.  */
  egress:
@@ -1824,7 +1843,7 @@ optimize_inline_calls (tree fn)
       prev_fn = current_function_decl;
     }
 
-  prev_fn = ((*lang_hooks.tree_inlining.add_pending_fn_decls)
+  prev_fn = (lang_hooks.tree_inlining.add_pending_fn_decls
 	     (&id.fns, prev_fn));
 
   /* Create the list of functions this call will inline.  */
@@ -1911,7 +1930,7 @@ save_body (tree fn, tree *arg_copy)
   for (parg = arg_copy; *parg; parg = &TREE_CHAIN (*parg))
     {
       tree new = copy_node (*parg);
-      (*lang_hooks.dup_lang_specific_decl) (new);
+      lang_hooks.dup_lang_specific_decl (new);
       DECL_ABSTRACT_ORIGIN (new) = DECL_ORIGIN (*parg);
       insert_decl_map (&id, *parg, new);
       TREE_CHAIN (new) = TREE_CHAIN (*parg);
@@ -1991,15 +2010,15 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
   if (!walk_subtrees)
     {
       if (code == TREE_LIST
-	  || (*lang_hooks.tree_inlining.tree_chain_matters_p) (*tp))
+	  || lang_hooks.tree_inlining.tree_chain_matters_p (*tp))
 	/* But we still need to check our siblings.  */
 	WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
       else
 	return NULL_TREE;
     }
 
-  result = (*lang_hooks.tree_inlining.walk_subtrees) (tp, &walk_subtrees, func,
-						      data, htab);
+  result = lang_hooks.tree_inlining.walk_subtrees (tp, &walk_subtrees, func,
+						   data, htab);
   if (result || ! walk_subtrees)
     return result;
 
@@ -2037,7 +2056,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 	}
 #endif
 
-      if ((*lang_hooks.tree_inlining.tree_chain_matters_p) (*tp))
+      if (lang_hooks.tree_inlining.tree_chain_matters_p (*tp))
 	/* Check our siblings.  */
 	WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
     }
@@ -2210,7 +2229,8 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       || TREE_CODE_CLASS (code) == 'c'
       || code == TREE_LIST
       || code == TREE_VEC
-      || (*lang_hooks.tree_inlining.tree_chain_matters_p) (*tp))
+      || code == TYPE_DECL
+      || lang_hooks.tree_inlining.tree_chain_matters_p (*tp))
     {
       /* Because the chain gets clobbered when we make a copy, we save it
 	 here.  */
@@ -2229,7 +2249,7 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       /* Now, restore the chain, if appropriate.  That will cause
 	 walk_tree to walk into the chain as well.  */
       if (code == PARM_DECL || code == TREE_LIST
-	  || (*lang_hooks.tree_inlining.tree_chain_matters_p) (*tp))
+	  || lang_hooks.tree_inlining.tree_chain_matters_p (*tp))
 	TREE_CHAIN (*tp) = chain;
 
       /* For now, we don't update BLOCKs when we make copies.  So, we

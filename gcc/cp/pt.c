@@ -1251,6 +1251,7 @@ determine_specialization (tree template_id,
       if (TREE_CODE (fn) == TEMPLATE_DECL)
 	{
 	  tree decl_arg_types;
+	  tree fn_arg_types;
 
 	  /* DECL might be a specialization of FN.  */
 
@@ -1267,8 +1268,16 @@ determine_specialization (tree template_id,
 	     The specialization f<int> is invalid but is not caught
 	     by get_bindings below.  */
 
-	  if (list_length (TYPE_ARG_TYPES (TREE_TYPE (fn)))
-	      != list_length (decl_arg_types))
+	  fn_arg_types = TYPE_ARG_TYPES (TREE_TYPE (fn));
+	  if (list_length (fn_arg_types) != list_length (decl_arg_types))
+	    continue;
+
+	  /* For a non-static member function, we need to make sure that
+	     the const qualification is the same. This can be done by
+	     checking the 'this' in the argument list.  */
+	  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn)
+	      && !same_type_p (TREE_VALUE (fn_arg_types), 
+			       TREE_VALUE (decl_arg_types)))
 	    continue;
 
 	  /* See whether this function might be a specialization of this
@@ -1903,15 +1912,10 @@ check_explicit_specialization (tree declarator,
 
 	  /* If we thought that the DECL was a member function, but it
 	     turns out to be specializing a static member function,
-	     make DECL a static member function as well.  We also have
-	     to adjust last_function_parms to avoid confusing
-	     start_function later.  */
+	     make DECL a static member function as well.  */
 	  if (DECL_STATIC_FUNCTION_P (tmpl)
 	      && DECL_NONSTATIC_MEMBER_FUNCTION_P (decl))
-	    {
-	      revert_static_member_fn (decl);
-	      last_function_parms = TREE_CHAIN (last_function_parms);
-	    }
+	    revert_static_member_fn (decl);
 
 	  /* If this is a specialization of a member template of a
 	     template class.  In we want to return the TEMPLATE_DECL,
@@ -3012,7 +3016,7 @@ push_template_decl_real (tree decl, int is_friend)
 	}
     }
 
-  /* The DECL_TI_ARGS of DECL contains full set of arguments refering
+  /* The DECL_TI_ARGS of DECL contains full set of arguments referring
      back to its most general template.  If TMPL is a specialization,
      ARGS may only have the innermost set of arguments.  Add the missing
      argument levels if necessary.  */
@@ -5147,8 +5151,8 @@ tsubst_friend_function (tree decl, tree args)
     {
       /* Check to see that the declaration is really present, and,
 	 possibly obtain an improved declaration.  */
-      tree fn = check_classfn (DECL_CONTEXT (new_friend),
-			       new_friend, false);
+      tree fn = check_classfn (DECL_CONTEXT (new_friend), 
+			       new_friend, NULL_TREE);
       
       if (fn)
 	new_friend = fn;
@@ -5899,6 +5903,10 @@ tsubst_default_argument (tree fn, tree type, tree arg)
 
   /* FN is already the desired FUNCTION_DECL.  */
   push_access_scope (fn);
+  /* The default argument expression should not be considered to be
+     within the scope of FN.  Since push_access_scope sets
+     current_function_decl, we must explicitly clear it here.  */
+  current_function_decl = NULL_TREE;
 
   arg = tsubst_expr (arg, DECL_TI_ARGS (fn),
 		     tf_error | tf_warning, NULL_TREE);
@@ -7223,8 +7231,8 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       {
 	tree type;
 
-	type = finish_typeof (tsubst_expr (TYPE_FIELDS (t), args, complain, 
-					   in_decl));
+	type = finish_typeof (tsubst_expr (TYPEOF_TYPE_EXPR (t), args,
+					   complain, in_decl));
 	return cp_build_qualified_type_real (type,
 					     cp_type_quals (t)
 					     | cp_type_quals (type),
@@ -7972,13 +7980,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       break;
 
     case LABEL_STMT:
-      input_line = STMT_LINENO (t);
+      prep_stmt (t);
       finish_label_stmt (DECL_NAME (LABEL_STMT_LABEL (t)));
-      break;
-
-    case FILE_STMT:
-      input_filename = FILE_STMT_FILENAME (t);
-      add_stmt (build_nt (FILE_STMT, FILE_STMT_FILENAME_NODE (t)));
       break;
 
     case GOTO_STMT:
@@ -8178,6 +8181,11 @@ tsubst_copy_and_build (tree t,
     case INDIRECT_REF:
       return build_x_indirect_ref (RECUR (TREE_OPERAND (t, 0)), "unary *");
 
+    case NOP_EXPR:
+      return build_nop
+	(tsubst (TREE_TYPE (t), args, complain, in_decl),
+	 RECUR (TREE_OPERAND (t, 0)));
+
     case CAST_EXPR:
       return build_functional_cast
 	(tsubst (TREE_TYPE (t), args, complain, in_decl),
@@ -8266,7 +8274,8 @@ tsubst_copy_and_build (tree t,
       return build_x_binary_op
 	(TREE_CODE (t), 
 	 RECUR (TREE_OPERAND (t, 0)),
-	 RECUR (TREE_OPERAND (t, 1)));
+	 RECUR (TREE_OPERAND (t, 1)),
+	 /*overloaded_p=*/NULL);
 
     case SCOPE_REF:
       return tsubst_qualified_id (t, args, complain, in_decl, /*done=*/true,
@@ -8652,10 +8661,14 @@ instantiate_template (tree tmpl, tree targ_ptr, tsubst_flags_t complain)
   /* If this function is a clone, handle it specially.  */
   if (DECL_CLONED_FUNCTION_P (tmpl))
     {
-      tree spec = instantiate_template (DECL_CLONED_FUNCTION (tmpl), targ_ptr,
-					complain);
+      tree spec;
       tree clone;
       
+      spec = instantiate_template (DECL_CLONED_FUNCTION (tmpl), targ_ptr,
+				   complain);
+      if (spec == error_mark_node)
+	return error_mark_node;
+
       /* Look for the clone.  */
       for (clone = TREE_CHAIN (spec);
 	   clone && DECL_CLONED_FUNCTION_P (clone);
@@ -9530,7 +9543,7 @@ template_decl_level (tree decl)
 
 /* Decide whether ARG can be unified with PARM, considering only the
    cv-qualifiers of each type, given STRICT as documented for unify.
-   Returns nonzero iff the unification is OK on that basis.*/
+   Returns nonzero iff the unification is OK on that basis. */
 
 static int
 check_cv_quals_for_unify (int strict, tree arg, tree parm)
@@ -9538,17 +9551,26 @@ check_cv_quals_for_unify (int strict, tree arg, tree parm)
   int arg_quals = cp_type_quals (arg);
   int parm_quals = cp_type_quals (parm);
 
-  if (TREE_CODE (parm) == TEMPLATE_TYPE_PARM)
+  if (TREE_CODE (parm) == TEMPLATE_TYPE_PARM
+      && !(strict & UNIFY_ALLOW_OUTER_MORE_CV_QUAL))
     {
-      /* If the cvr quals of parm will not unify with ARG, they'll be
-	 ignored in instantiation, so we have to do the same here.  */
-      if (TREE_CODE (arg) == REFERENCE_TYPE)
-	parm_quals &= ~(TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
-      if (!POINTER_TYPE_P (arg) &&
-	  TREE_CODE (arg) != TEMPLATE_TYPE_PARM)
-	parm_quals &= ~TYPE_QUAL_RESTRICT;
+      /*  Although a CVR qualifier is ignored when being applied to a
+          substituted template parameter ([8.3.2]/1 for example), that
+          does not apply during deduction [14.8.2.4]/1, (even though
+          that is not explicitly mentioned, [14.8.2.4]/9 indicates
+          this).  Except when we're allowing additional CV qualifiers
+          at the outer level [14.8.2.1]/3,1st bullet.  */
+      if ((TREE_CODE (arg) == REFERENCE_TYPE
+	   || TREE_CODE (arg) == FUNCTION_TYPE
+	   || TREE_CODE (arg) == METHOD_TYPE)
+	  && (parm_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE)))
+	return 0;
+
+      if ((!POINTER_TYPE_P (arg) && TREE_CODE (arg) != TEMPLATE_TYPE_PARM)
+	  && (parm_quals & TYPE_QUAL_RESTRICT))
+	return 0;
     }
-  
+
   if (!(strict & (UNIFY_ALLOW_MORE_CV_QUAL | UNIFY_ALLOW_OUTER_MORE_CV_QUAL))
       && (arg_quals & parm_quals) != parm_quals)
     return 0;
@@ -10139,7 +10161,9 @@ mark_decl_instantiated (tree result, int extern_p)
 	maybe_make_one_only (result);
     }
 
-  if (TREE_CODE (result) == FUNCTION_DECL)
+  if (TREE_CODE (result) == FUNCTION_DECL 
+      && (DECL_ARTIFICIAL (result) 
+	  || (DECL_DECLARED_INLINE_P (result) && TREE_USED (result))))
     defer_fn (result);
 }
 
@@ -10656,6 +10680,7 @@ do_type_instantiation (tree t, tree storage, tsubst_flags_t complain)
   int extern_p = 0;
   int nomem_p = 0;
   int static_p = 0;
+  int previous_instantiation_extern_p = 0;
 
   if (TREE_CODE (t) == TYPE_DECL)
     t = TREE_TYPE (t);
@@ -10679,8 +10704,8 @@ do_type_instantiation (tree t, tree storage, tsubst_flags_t complain)
   if (storage != NULL_TREE)
     {
       if (pedantic && !in_system_header)
-	pedwarn("ISO C++ forbids the use of `%s' on explicit instantiations", 
-		   IDENTIFIER_POINTER (storage));
+	pedwarn("ISO C++ forbids the use of `%E' on explicit instantiations", 
+                storage);
 
       if (storage == ridpointers[(int) RID_INLINE])
 	nomem_p = 1;
@@ -10717,11 +10742,16 @@ do_type_instantiation (tree t, tree storage, tsubst_flags_t complain)
 	 No program shall explicitly instantiate any template more
 	 than once.  
 
-         If CLASSTYPE_INTERFACE_ONLY, then the first explicit instantiation
-	 was `extern'.  If EXTERN_P then the second is.  If -frepo, chances
-	 are we already got marked as an explicit instantiation because of the
-	 repo file.  All these cases are OK.  */
-      if (!CLASSTYPE_INTERFACE_ONLY (t) && !extern_p && !flag_use_repository
+         If PREVIOUS_INSTANTIATION_EXTERN_P, then the first explicit
+	 instantiation was `extern'.  If EXTERN_P then the second is.
+	 If -frepo, chances are we already got marked as an explicit
+	 instantiation because of the repo file.  All these cases are
+	 OK.  */
+
+      previous_instantiation_extern_p = CLASSTYPE_INTERFACE_ONLY (t);
+
+      if (!previous_instantiation_extern_p && !extern_p
+	  && !flag_use_repository
 	  && (complain & tf_error))
 	pedwarn ("duplicate explicit instantiation of `%#T'", t);
       
@@ -10738,6 +10768,7 @@ do_type_instantiation (tree t, tree storage, tsubst_flags_t complain)
 
   {
     tree tmp;
+    int explicitly_instantiate_members = 0;
 
     /* In contrast to implicit instantiation, where only the
        declarations, and not the definitions, of members are
@@ -10756,26 +10787,46 @@ do_type_instantiation (tree t, tree storage, tsubst_flags_t complain)
        *explicit* instantiations or not.  We choose to be generous,
        and not set DECL_EXPLICIT_INSTANTIATION.  Therefore, we allow
        the explicit instantiation of a class where some of the members
-       have no definition in the current translation unit.  */
+       have no definition in the current translation unit.  Exception:
+       on some targets (e.g. Darwin), weak symbols do not get put in 
+       a static archive's TOC.  The problematic case is if we're doing
+       a non-extern explicit instantiation of an extern template: we
+       have to put member functions in the TOC in that case, or we'll
+       get unresolved symbols at link time. */
+
+    explicitly_instantiate_members =
+      TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY
+      && previous_instantiation_extern_p && ! extern_p
+      && ! TYPE_FOR_JAVA (t);
 
     if (! static_p)
       for (tmp = TYPE_METHODS (t); tmp; tmp = TREE_CHAIN (tmp))
 	if (TREE_CODE (tmp) == FUNCTION_DECL
 	    && DECL_TEMPLATE_INSTANTIATION (tmp))
 	  {
-	    mark_decl_instantiated (tmp, extern_p);
-	    repo_template_instantiated (tmp, extern_p);
-	    if (! extern_p)
-	      instantiate_decl (tmp, /*defer_ok=*/1);
+	    if (explicitly_instantiate_members)
+	      do_decl_instantiation (tmp, NULL_TREE);
+	    else
+	      {
+		mark_decl_instantiated (tmp, extern_p);
+		repo_template_instantiated (tmp, extern_p);
+		if (! extern_p)
+		  instantiate_decl (tmp, /*defer_ok=*/1);
+	      }
 	  }
 
     for (tmp = TYPE_FIELDS (t); tmp; tmp = TREE_CHAIN (tmp))
       if (TREE_CODE (tmp) == VAR_DECL && DECL_TEMPLATE_INSTANTIATION (tmp))
 	{
-	  mark_decl_instantiated (tmp, extern_p);
-	  repo_template_instantiated (tmp, extern_p);
-	  if (! extern_p)
-	    instantiate_decl (tmp, /*defer_ok=*/1);
+	  if (explicitly_instantiate_members)
+	    do_decl_instantiation (tmp, NULL_TREE);
+	  else
+	    {
+	      mark_decl_instantiated (tmp, extern_p);
+	      repo_template_instantiated (tmp, extern_p);
+	      if (! extern_p)
+		instantiate_decl (tmp, /*defer_ok=*/1);
+	    }
 	}
 
     if (CLASSTYPE_NESTED_UTDS (t))
@@ -11122,12 +11173,6 @@ instantiate_decl (tree d, int defer_ok)
      by a subsequent redeclaration.  */
   regenerate_decl_from_template (d, td);
 
-  /* APPLE LOCAL begin coalescing  */
-#ifdef MARK_TEMPLATE_COALESCED
-    MARK_TEMPLATE_COALESCED (d);
-#endif
-  /* APPLE LOCAL end coalescing  */
-  
   /* We already set the file and line above.  Reset them now in case
      they changed as a result of calling regenerate_decl_from_template.  */
   input_location = DECL_SOURCE_LOCATION (d);
@@ -11748,10 +11793,21 @@ value_dependent_expression_p (tree expression)
       || TREE_CODE (expression) == REINTERPRET_CAST_EXPR
       || TREE_CODE (expression) == CAST_EXPR)
     {
-      if (dependent_type_p (TREE_TYPE (expression)))
+      tree type = TREE_TYPE (expression);
+      if (dependent_type_p (type))
 	return true;
       /* A functional cast has a list of operands.  */
       expression = TREE_OPERAND (expression, 0);
+      if (!expression)
+	{
+	  /* If there are no operands, it must be an expression such
+	     as "int()". This should not happen for aggregate types
+	     because it would form non-constant expressions.  */
+	  my_friendly_assert (INTEGRAL_OR_ENUMERATION_TYPE_P (type), 
+			      20040318);
+
+	  return false;
+	}
       if (TREE_CODE (expression) == TREE_LIST)
 	{
 	  do
@@ -12108,15 +12164,20 @@ resolve_typename_type (tree type, bool only_current_p)
 tree
 build_non_dependent_expr (tree expr)
 {
+  tree inner_expr;
+
   /* Preserve null pointer constants so that the type of things like 
      "p == 0" where "p" is a pointer can be determined.  */
   if (null_ptr_cst_p (expr))
     return expr;
   /* Preserve OVERLOADs; the functions must be available to resolve
      types.  */
-  if (TREE_CODE (expr) == OVERLOAD 
-      || TREE_CODE (expr) == FUNCTION_DECL
-      || TREE_CODE (expr) == TEMPLATE_DECL)
+  inner_expr = (TREE_CODE (expr) == ADDR_EXPR ? 
+		TREE_OPERAND (expr, 0) : expr);
+  if (TREE_CODE (inner_expr) == OVERLOAD 
+      || TREE_CODE (inner_expr) == FUNCTION_DECL
+      || TREE_CODE (inner_expr) == TEMPLATE_DECL
+      || TREE_CODE (inner_expr) == TEMPLATE_ID_EXPR)
     return expr;
   /* Preserve string constants; conversions from string constants to
      "char *" are allowed, even though normally a "const char *"
@@ -12131,7 +12192,7 @@ build_non_dependent_expr (tree expr)
      There is at least one place where we want to know that a
      particular expression is a throw-expression: when checking a ?:
      expression, there are special rules if the second or third
-     argument is a throw-expresion.  */
+     argument is a throw-expression.  */
   if (TREE_CODE (expr) == THROW_EXPR)
     return expr;
 

@@ -767,6 +767,9 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
   /* Compute maximum UID and allocate label_align / uid_shuid.  */
   max_uid = get_max_uid ();
 
+  /* Free uid_shuid before reallocating it.   */
+  free (uid_shuid);
+  
   uid_shuid = xmalloc (max_uid * sizeof *uid_shuid);
 
   if (max_labelno != max_label_num ())
@@ -1380,7 +1383,7 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
     }
 
   /* First output the function prologue: code to set up the stack frame.  */
-  (*targetm.asm_out.function_prologue) (file, get_frame_size ());
+  targetm.asm_out.function_prologue (file, get_frame_size ());
 
   /* If the machine represents the prologue as RTL, the profiling code must
      be emitted when NOTE_INSN_PROLOGUE_END is scanned.  */
@@ -1418,7 +1421,7 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
       int align = MIN (BIGGEST_ALIGNMENT, LONG_TYPE_SIZE);
       data_section ();
       ASM_OUTPUT_ALIGN (file, floor_log2 (align / BITS_PER_UNIT));
-      (*targetm.asm_out.internal_label) (file, "LP", current_function_funcdef_no);
+      targetm.asm_out.internal_label (file, "LP", current_function_funcdef_no);
       assemble_integer (const0_rtx, LONG_TYPE_SIZE / BITS_PER_UNIT, align, 1);
     }
 
@@ -1474,7 +1477,7 @@ final_end_function (void)
 
   /* Finally, output the function epilogue:
      code to restore the stack frame and return to the caller.  */
-  (*targetm.asm_out.function_epilogue) (asm_out_file, get_frame_size ());
+  targetm.asm_out.function_epilogue (asm_out_file, get_frame_size ());
 
   /* And debug output.  */
   (*debug_hooks->end_epilogue) (last_linenum, last_filename);
@@ -1607,7 +1610,7 @@ output_alternate_entry_point (FILE *file, rtx insn)
       ASM_WEAKEN_LABEL (file, name);
 #endif
     case LABEL_GLOBAL_ENTRY:
-      (*targetm.asm_out.globalize_label) (file, name);
+      targetm.asm_out.globalize_label (file, name);
     case LABEL_STATIC_ENTRY:
 #ifdef ASM_OUTPUT_TYPE_DIRECTIVE
       ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
@@ -1621,7 +1624,6 @@ output_alternate_entry_point (FILE *file, rtx insn)
     }
 }
 
-/* APPLE LOCAL begin hot/cold partitioning  */
 /* Return boolean indicating if there is a NOTE_INSN_UNLIKELY_EXECUTED_CODE
    note in the instruction chain (going forward) between the current
    instruction, and the next 'executable' instruction.  */
@@ -1647,10 +1649,9 @@ scan_ahead_for_unlikely_executed_note (rtx insn)
       if (INSN_P (temp))
 	return false;
     }
-
+  
   return false;
 }
-/* APPLE LOCAL end hot/cold partitioning  */
 
 /* The final scan for one insn, INSN.
    Args are same as in `final', except that INSN
@@ -1755,7 +1756,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_PROLOGUE_END:
-	  (*targetm.asm_out.function_end_prologue) (file);
+	  targetm.asm_out.function_end_prologue (file);
 	  profile_after_prologue (file);
 
 	  if ((*seen & (SEEN_EMITTED | SEEN_NOTE)) == SEEN_NOTE)
@@ -1769,7 +1770,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_EPILOGUE_BEG:
-	  (*targetm.asm_out.function_begin_epilogue) (file);
+	  targetm.asm_out.function_begin_epilogue (file);
 	  break;
 
 	case NOTE_INSN_FUNCTION_BEG:
@@ -1976,7 +1977,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	      ASM_OUTPUT_CASE_LABEL (file, "L", CODE_LABEL_NUMBER (insn),
 				     NEXT_INSN (insn));
 #else
-	      (*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (insn));
+	      targetm.asm_out.internal_label (file, "L", CODE_LABEL_NUMBER (insn));
 #endif
 #endif
 	      break;
@@ -1985,7 +1986,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
       if (LABEL_ALT_ENTRY_P (insn))
 	output_alternate_entry_point (file, insn);
       else
-	(*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (insn));
+	targetm.asm_out.internal_label (file, "L", CODE_LABEL_NUMBER (insn));
       break;
 
     default:
@@ -3252,6 +3253,8 @@ output_addr_const (FILE *file, rtx x)
       break;
 
     case SYMBOL_REF:
+      if (SYMBOL_REF_DECL (x))
+	mark_decl_referenced (SYMBOL_REF_DECL (x));
 #ifdef ASM_OUTPUT_SYMBOL_REF
       ASM_OUTPUT_SYMBOL_REF (file, x);
 #else

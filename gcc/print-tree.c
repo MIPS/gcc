@@ -245,11 +245,12 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	indent_to (file, indent + 3);
     }
 
-  if (TREE_SIDE_EFFECTS (node))
+  if (!TYPE_P (node) && TREE_SIDE_EFFECTS (node))
     fputs (" side-effects", file);
-  if (TREE_READONLY (node))
+
+  if (TYPE_P (node) ? TYPE_READONLY (node) : TREE_READONLY (node))
     fputs (" readonly", file);
-  if (TREE_CONSTANT (node))
+  if (!TYPE_P (node) && TREE_CONSTANT (node))
     fputs (" constant", file);
   if (TREE_INVARIANT (node))
     fputs (" invariant", file);
@@ -257,8 +258,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     fputs (" addressable", file);
   if (TREE_THIS_VOLATILE (node))
     fputs (" volatile", file);
-  if (TREE_UNSIGNED (node))
-    fputs (" unsigned", file);
   if (TREE_ASM_WRITTEN (node))
     fputs (" asm_written", file);
   if (TREE_USED (node))
@@ -303,6 +302,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     case 'd':
       mode = DECL_MODE (node);
 
+      if (DECL_UNSIGNED (node))
+	fputs (" unsigned", file);
       if (DECL_IGNORED_P (node))
 	fputs (" ignored", file);
       if (DECL_ABSTRACT (node))
@@ -321,10 +322,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	fputs (" regdecl", file);
       if (DECL_NONLOCAL (node))
 	fputs (" nonlocal", file);
-
-      /* APPLE LOCAL coalescing */
-      if (DECL_COALESCED (node))
-	fputs (" coalesced", file);
 
       if (TREE_CODE (node) == TYPE_DECL && TYPE_DECL_SUPPRESS_DEBUG (node))
 	fputs (" suppress-debug", file);
@@ -430,7 +427,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       print_node (file, "result", DECL_RESULT_FLD (node), indent + 4);
       print_node_brief (file, "initial", DECL_INITIAL (node), indent + 4);
 
-      (*lang_hooks.print_decl) (file, node, indent);
+      lang_hooks.print_decl (file, node, indent);
 
       if (DECL_RTL_SET_P (node))
 	{
@@ -467,6 +464,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       break;
 
     case 't':
+      if (TYPE_UNSIGNED (node))
+	fputs (" unsigned", file);
+
       /* The no-force-blk flag is used for different things in
 	 different types.  */
       if ((TREE_CODE (node) == RECORD_TYPE
@@ -561,7 +561,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       if (TYPE_CONTEXT (node))
 	print_node_brief (file, "context", TYPE_CONTEXT (node), indent + 4);
 
-      (*lang_hooks.print_type) (file, node, indent);
+      lang_hooks.print_type (file, node, indent);
 
       if (TYPE_POINTER_TO (node) || TREE_CHAIN (node))
 	indent_to (file, indent + 3);
@@ -573,21 +573,16 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       print_node_brief (file, "chain", TREE_CHAIN (node), indent + 4);
       break;
 
-    case 'b':
-      print_node (file, "vars", BLOCK_VARS (node), indent + 4);
-      print_node (file, "supercontext", BLOCK_SUPERCONTEXT (node), indent + 4);
-      print_node (file, "subblocks", BLOCK_SUBBLOCKS (node), indent + 4);
-      print_node (file, "chain", BLOCK_CHAIN (node), indent + 4);
-      print_node (file, "abstract_origin",
-		  BLOCK_ABSTRACT_ORIGIN (node), indent + 4);
-      break;
-
     case 'e':
     case '<':
     case '1':
     case '2':
     case 'r':
     case 's':
+      if (TREE_CODE (node) == BIT_FIELD_REF && BIT_FIELD_REF_UNSIGNED (node))
+	fputs (" unsigned", file);
+      else if (TREE_CODE (node) == SAVE_EXPR && SAVE_EXPR_NOPLACEHOLDER (node))
+	fputs (" noplaceholder", file);
       if (TREE_CODE (node) == BIND_EXPR)
 	{
 	  print_node (file, "vars", TREE_OPERAND (node, 0), indent + 4);
@@ -712,7 +707,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  break;
 
 	case IDENTIFIER_NODE:
-	  (*lang_hooks.print_identifier) (file, node, indent);
+	  lang_hooks.print_identifier (file, node, indent);
 	  break;
 
 	case TREE_LIST:
@@ -733,16 +728,26 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	      }
 	  break;
 
+	case BLOCK:
+	  print_node (file, "vars", BLOCK_VARS (node), indent + 4);
+	  print_node (file, "supercontext", BLOCK_SUPERCONTEXT (node),
+		      indent + 4);
+	  print_node (file, "subblocks", BLOCK_SUBBLOCKS (node), indent + 4);
+	  print_node (file, "chain", BLOCK_CHAIN (node), indent + 4);
+	  print_node (file, "abstract_origin",
+		      BLOCK_ABSTRACT_ORIGIN (node), indent + 4);
+	  break;
+
 	default:
 	  if (TREE_CODE_CLASS (TREE_CODE (node)) == 'x')
-	    (*lang_hooks.print_xnode) (file, node, indent);
+	    lang_hooks.print_xnode (file, node, indent);
 	  break;
 	}
 
       break;
     }
 
-  if (EXPR_LOCUS (node))
+  if (EXPR_HAS_LOCATION (node))
     {
       indent_to (file, indent+4);
       fprintf (file, "%s:%d",

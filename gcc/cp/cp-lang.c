@@ -1,5 +1,5 @@
 /* Language-dependent hooks for C++.
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -113,6 +113,9 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL cxx_warn_unused_global_decl
 #undef LANG_HOOKS_WRITE_GLOBALS
 #define LANG_HOOKS_WRITE_GLOBALS lhd_do_nothing
+#undef LANG_HOOKS_UPDATE_DECL_AFTER_SAVING
+#define LANG_HOOKS_UPDATE_DECL_AFTER_SAVING cp_update_decl_after_saving
+
 
 #undef LANG_HOOKS_FUNCTION_INIT
 #define LANG_HOOKS_FUNCTION_INIT cxx_push_function_context
@@ -120,11 +123,6 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_FUNCTION_FINAL cxx_pop_function_context
 #undef LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P
 #define LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P cp_missing_noreturn_ok_p
-
-#undef LANG_HOOKS_RTL_EXPAND_START
-#define LANG_HOOKS_RTL_EXPAND_START cxx_expand_function_start
-#undef LANG_HOOKS_RTL_EXPAND_STMT
-#define LANG_HOOKS_RTL_EXPAND_STMT expand_stmt_toplev
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
@@ -274,9 +272,7 @@ const char *const tree_code_name[] = {
 static HOST_WIDE_INT
 cxx_get_alias_set (tree t)
 {
-  if (TREE_CODE (t) == RECORD_TYPE
-      && TYPE_CONTEXT (t) && CLASS_TYPE_P (TYPE_CONTEXT (t))
-      && CLASSTYPE_AS_BASE (TYPE_CONTEXT (t)) == t)
+  if (IS_FAKE_BASE_TYPE (t))
     /* The base variant of a type must be in the same alias set as the
        complete type.  */
     return get_alias_set (TYPE_CONTEXT (t));
@@ -411,13 +407,6 @@ static int cxx_types_compatible_p (tree x, tree y)
   return same_type_ignoring_top_level_qualifiers_p (x, y);
 }
 
-/* Stub routine to tell people that this doesn't work yet.  */
-void
-c_reset_state (void)
-{
-  sorry ("inter-module optimisations not implemented yet");
-}
-
 /* Construct a C++-aware pretty-printer for CONTEXT.  It is assumed
    that CONTEXT->printer is an already constructed basic pretty_printer.  */
 static void
@@ -440,7 +429,10 @@ cxx_initialize_diagnostics (diagnostic_context *context)
 #include "debug.h"
 #include "lex.h"
 #include "gt-cp-cp-tree-h.h"
+#if 0
+/* MERGE FAILURE! This file is not generated. Fix it */
 #include "gt-cp-decl-h.h"
+#endif
 #ifdef OBJCPLUS
 tree objcp_dummy = 0;
 #include "gtype-objcp.h"
@@ -449,3 +441,14 @@ tree cp_dummy = 0;
 #include "gtype-cp.h"
 #endif
 /* APPLE LOCAL end Objective-C++ */
+
+/* Stubs to keep c-opts.c happy.  */
+void
+push_file_scope (void)
+{
+}
+
+void
+pop_file_scope (void)
+{
+}

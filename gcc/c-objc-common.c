@@ -41,8 +41,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cgraph.h"
 
 static bool c_tree_printer (pretty_printer *, text_info *);
-static tree start_cdtor (int);
-static void finish_cdtor (tree);
 
 bool
 c_missing_noreturn_ok_p (tree decl)
@@ -88,7 +86,7 @@ c_cannot_inline_tree_fn (tree *fnp)
 
   /* Don't auto-inline anything that might not be bound within
      this unit of translation.  */
-  if (!DECL_DECLARED_INLINE_P (fn) && !(*targetm.binds_local_p) (fn))
+  if (!DECL_DECLARED_INLINE_P (fn) && !targetm.binds_local_p (fn))
     {
       if (do_warning)
 	warning ("%Jfunction '%F' can never be inlined because it might not "
@@ -193,40 +191,33 @@ c_objc_common_init (void)
   return true;
 }
 
-static tree
-start_cdtor (int method_type)
+/* Synthesize a function which calls all the global ctors or global dtors
+   in this file.  */
+static void
+build_cdtor (int method_type, tree cdtors)
 {
   tree fnname = get_file_function_name (method_type);
-  tree void_list_node_1 = build_tree_list (NULL_TREE, void_type_node);
   tree body;
+  tree scope;
+  tree block;
 
-  start_function (void_list_node_1,
+  start_function (void_list_node,
 		  build_nt (CALL_EXPR, fnname,
-			    tree_cons (NULL_TREE, NULL_TREE, void_list_node_1),
+			    tree_cons (NULL_TREE, NULL_TREE, void_list_node),
 			    NULL_TREE),
 		  NULL_TREE);
   store_parm_decls ();
 
-  current_function_cannot_inline
-    = "static constructors and destructors cannot be inlined";
-
   body = c_begin_compound_stmt ();
-
-  pushlevel (0);
-  clear_last_expr ();
   add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
 
-  return body;
-}
-
-static void
-finish_cdtor (tree body)
-{
-  tree scope;
-  tree block;
+  for (; cdtors; cdtors = TREE_CHAIN (cdtors))
+    add_stmt (build_stmt (EXPR_STMT,
+			  build_function_call (TREE_VALUE (cdtors), 0)));
 
   scope = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
-  block = poplevel (0, 0, 0);
+
+  block = make_node (BLOCK);
   SCOPE_STMT_BLOCK (TREE_PURPOSE (scope)) = block;
   SCOPE_STMT_BLOCK (TREE_VALUE (scope)) = block;
 
@@ -248,52 +239,22 @@ c_objc_common_finish_file (void)
   if (pch_file)
     c_common_write_pch ();
 
-  /* If multiple translation units were built, copy information between
-     them based on linkage rules.  */
-  merge_translation_unit_decls ();
+  if (static_ctors)
+    {
+      build_cdtor ('I', static_ctors);
+      static_ctors = 0;
+    }
+  if (static_dtors)
+    {
+      build_cdtor ('D', static_dtors);
+      static_dtors = 0;
+    }
 
   cgraph_finalize_compilation_unit ();
   cgraph_optimize ();
 
   if (flag_mudflap)
     mudflap_finish_file ();
-
-  if (static_ctors)
-    {
-      tree body = start_cdtor ('I');
-
-      for (; static_ctors; static_ctors = TREE_CHAIN (static_ctors))
-	expand_expr (build_function_call (TREE_VALUE (static_ctors),
-					  NULL_TREE),
-		     const0_rtx, VOIDmode, EXPAND_NORMAL);
-
-      finish_cdtor (body);
-    }
-
-  if (static_dtors)
-    {
-      tree body = start_cdtor ('D');
-
-      for (; static_dtors; static_dtors = TREE_CHAIN (static_dtors))
-	expand_expr (build_function_call (TREE_VALUE (static_dtors),
-					  NULL_TREE),
-		     const0_rtx, VOIDmode, EXPAND_NORMAL);
-
-      finish_cdtor (body);
-    }
-
-  {
-    int flags;
-    FILE *stream = dump_begin (TDI_tu, &flags);
-
-    if (stream)
-      {
-	tree decls = getdecls ();
-	if (decls)
-	  dump_node (decls, flags & ~TDF_SLIM, stream);
-	dump_end (TDI_tu, stream);
-      }
-  }
 }
 
 /* Called during diagnostic message formatting process to print a
@@ -319,14 +280,14 @@ c_tree_printer (pretty_printer *pp, text_info *text)
     case 'D':
     case 'F':
       if (DECL_NAME (t))
-	n = (*lang_hooks.decl_printable_name) (t, 2);
+	n = lang_hooks.decl_printable_name (t, 2);
       break;
 
     case 'T':
       if (TREE_CODE (t) == TYPE_DECL)
 	{
 	  if (DECL_NAME (t))
-	    n = (*lang_hooks.decl_printable_name) (t, 2);
+	    n = lang_hooks.decl_printable_name (t, 2);
 	}
       else
 	{

@@ -40,42 +40,15 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 
 /* Prototypes.  */
 
-static tree calls_setjmp_r (tree *, int *, void *);
 static void update_cloned_parm (tree, tree);
 /* APPLE LOCAL begin structor thunks */
 static int maybe_alias_body (tree fn, tree clone);
 static int maybe_thunk_body (tree fn);
 /* APPLE LOCAL end structor thunks */
-
-/* Called from calls_setjmp_p via walk_tree.  */
-
-static tree
-calls_setjmp_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-                void *data ATTRIBUTE_UNUSED)
-{
-  /* We're only interested in FUNCTION_DECLS.  */
-  if (TREE_CODE (*tp) != FUNCTION_DECL)
-    return NULL_TREE;
-
-  return setjmp_call_p (*tp) ? *tp : NULL_TREE;
-}
-
-/* Returns nonzero if FN calls `setjmp' or some other function that
-   can return more than once.  This function is conservative; it may
-   occasionally return a nonzero value even when FN does not actually
-   call `setjmp'.  */
-
-bool
-calls_setjmp_p (tree fn)
-{
-  return walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
-				       calls_setjmp_r,
-				       NULL) != NULL_TREE;
-}
 
 /* CLONED_PARM is a copy of CLONE, generated for a cloned constructor
    or destructor.  Update it to ensure that the source-position for
@@ -300,8 +273,6 @@ maybe_clone_body (tree fn)
       DECL_NOT_REALLY_EXTERN (clone) = DECL_NOT_REALLY_EXTERN (fn);
       TREE_PUBLIC (clone) = TREE_PUBLIC (fn);
       DECL_VISIBILITY (clone) = DECL_VISIBILITY (fn);
-      /* APPLE LOCAL coalescing */
-      DECL_COALESCED (clone) = DECL_COALESCED (fn);
 
       /* Adjust the parameter names and locations.  */
       parm = DECL_ARGUMENTS (fn);

@@ -416,10 +416,6 @@ extern char xtensa_hard_regno_mode_ok[][FIRST_PSEUDO_REGISTER];
    call an address kept in a register.  */
 #define NO_FUNCTION_CSE 1
 
-/* It is as good or better for a function to call itself with an
-   explicit address than to call an address kept in a register.  */
-#define NO_RECURSIVE_FUNCTION_CSE 1
-
 /* Xtensa processors have "register windows".  GCC does not currently
    take advantage of the possibility for variable-sized windows; instead,
    we use a fixed window size of 8.  */
@@ -794,9 +790,6 @@ typedef struct xtensa_args
    && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST			\
        || TREE_ADDRESSABLE (TYPE)))
 
-/* Pass complex arguments independently.  */
-#define SPLIT_COMPLEX_ARGS 1
-
 /* Profiling Xtensa code is typically done with the built-in profiling
    feature of Tensilica's instruction set simulator, which does not
    require any compiler support.  Profiling code on a real (i.e.,
@@ -1063,7 +1056,8 @@ typedef struct xtensa_args
    operand on the target machine when generating position independent
    code.  */
 #define LEGITIMATE_PIC_OPERAND_P(X)					\
-  ((GET_CODE (X) != SYMBOL_REF || SYMBOL_REF_LOCAL_P (X))		\
+  ((GET_CODE (X) != SYMBOL_REF						\
+    || (SYMBOL_REF_LOCAL_P (X) && !SYMBOL_REF_EXTERNAL_P (X)))		\
    && GET_CODE (X) != LABEL_REF						\
    && GET_CODE (X) != CONST)
 

@@ -570,6 +570,7 @@ delete_from_delay_slot (rtx insn)
   rtx trial, seq_insn, seq, prev;
   rtx delay_list = 0;
   int i;
+  int had_barrier = 0;
 
   /* We first must find the insn containing the SEQUENCE with INSN in its
      delay slot.  Do this by finding an insn, TRIAL, where
@@ -582,6 +583,9 @@ delete_from_delay_slot (rtx insn)
 
   seq_insn = PREV_INSN (NEXT_INSN (trial));
   seq = PATTERN (seq_insn);
+
+  if (NEXT_INSN (seq_insn) && GET_CODE (NEXT_INSN (seq_insn)) == BARRIER)
+    had_barrier = 1;
 
   /* Create a delay list consisting of all the insns other than the one
      we are deleting (unless we were the only one).  */
@@ -597,8 +601,8 @@ delete_from_delay_slot (rtx insn)
   delete_related_insns (seq_insn);
   add_insn_after (trial, prev);
 
-  if (GET_CODE (trial) == JUMP_INSN
-      && (simplejump_p (trial) || GET_CODE (PATTERN (trial)) == RETURN))
+  /* If there was a barrier after the old SEQUENCE, remit it.  */
+  if (had_barrier)
     emit_barrier_after (trial);
 
   /* If there are any delay insns, remit them.  Otherwise clear the
@@ -2349,7 +2353,9 @@ fill_simple_delay_slots (int non_jumps_p)
 	      && eligible_for_delay (insn, slots_filled, next_trial, flags)
 	      && ! can_throw_internal (trial))
 	    {
-	      rtx new_label = next_active_insn (next_trial);
+	      /* See comment in relax_delay_slots about necessity of using
+		 next_real_insn here.  */
+	      rtx new_label = next_real_insn (next_trial);
 
 	      if (new_label != 0)
 		new_label = get_label_before (new_label);
@@ -3074,7 +3080,9 @@ relax_delay_slots (rtx first)
 	  && (target_label = JUMP_LABEL (insn)) != 0)
 	{
 	  target_label = follow_jumps (target_label);
-	  target_label = prev_label (next_active_insn (target_label));
+	  /* See comment further down why we must use next_real_insn here,
+	     instead of next_active_insn.  */
+	  target_label = prev_label (next_real_insn (target_label));
 
 	  if (target_label == 0)
 	    target_label = find_end_label ();
@@ -3170,7 +3178,7 @@ relax_delay_slots (rtx first)
 
       /* See if we have a RETURN insn with a filled delay slot followed
 	 by a RETURN insn with an unfilled a delay slot.  If so, we can delete
-	 the first RETURN (but not it's delay insn).  This gives the same
+	 the first RETURN (but not its delay insn).  This gives the same
 	 effect in fewer instructions.
 
 	 Only do so if optimizing for size since this results in slower, but

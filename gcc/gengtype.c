@@ -308,6 +308,16 @@ create_array (type_p t, const char *len)
   return v;
 }
 
+/* Return an options structure with name NAME and info INFO.  */
+options_p
+create_option (const char *name, void *info)
+{
+  options_p o = xmalloc (sizeof (*o));
+  o->name = name;
+  o->info = info;
+  return o;
+}
+
 /* Add a variable named S of type T with options O defined at POS,
    to `variables'.  */
 
@@ -1090,7 +1100,8 @@ open_base_files (void)
       "function.h", "insn-config.h", "expr.h", "hard-reg-set.h",
       "basic-block.h", "cselib.h", "insn-addr.h", "optabs.h",
       "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
-      "tree-alias-type.h", "tree-flow.h", "tree-data-ref.h", "tree-dg.h",
+      "tree-alias-type.h", "tree-flow.h", "reload.h",
+      "tree-data-ref.h", "tree-dg.h",
       NULL
     };
     const char *const *ifp;
@@ -1211,6 +1222,11 @@ get_output_file_with_visibility (const char *input_file)
 
   /* Determine the output file name.  */
   basename = get_file_basename (input_file);
+
+#if 0
+  /* APPLE LOCAL DEBUG GCC */
+  printf ("Examining %s (%s)\n", basename, input_file);
+#endif
 
   len = strlen (basename);
   if ((len > 2 && memcmp (basename+len-2, ".c", 2) == 0)

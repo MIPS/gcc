@@ -146,6 +146,10 @@ const char *main_input_filename;
 static int arch_specified = 0;
 /* APPLE LOCAL end fat builds */
 
+/* Used to enable -fvar-tracking, -fweb and -frename-registers according
+   to optimize and default_debug_hooks in process_options ().  */
+#define AUTODETECT_FLAG_VAR_TRACKING 2
+
 /* Current position in real source file.  */
 
 location_t input_location;
@@ -184,6 +188,10 @@ int target_flags_explicit;
 /* Debug hooks - dependent upon command line options.  */
 
 const struct gcc_debug_hooks *debug_hooks;
+
+/* Debug hooks - target default.  */
+
+static const struct gcc_debug_hooks *default_debug_hooks;
 
 /* Other flags saying which kinds of debugging dump have been requested.  */
 
@@ -262,19 +270,19 @@ int flag_branch_probabilities = 0;
 
 int flag_reorder_blocks = 0;
 
-/* APPLE LOCAL begin hot/cold partitioning  */
 /* Nonzero if blocks should be partitioned into hot and cold sections in
    addition to being reordered. */
 
 int flag_reorder_blocks_and_partition = 0;
-/* APPLE LOCAL end hot/cold partitioning  */
 
 /* Nonzero if functions should be reordered.  */
 
 int flag_reorder_functions = 0;
 
-/* Nonzero if registers should be renamed.  */
-
+/* Nonzero if registers should be renamed.  When
+   flag_rename_registers == AUTODETECT_FLAG_VAR_TRACKING it will be set
+   according to optimize and default_debug_hooks in process_options (),
+   but we do not do this yet because it triggers aborts in flow.c.  */
 int flag_rename_registers = 0;
 int flag_cprop_registers = 0;
 
@@ -319,7 +327,8 @@ unsigned local_tick;
 
 int flag_signed_char;
 
-/* Nonzero means give an enum type only as many bytes as it needs.  */
+/* Nonzero means give an enum type only as many bytes as it needs.  A value
+   of 2 means it has not yet been initialized.  */
 
 int flag_short_enums;
 
@@ -501,9 +510,11 @@ int flag_complex_divide_method = 0;
 
 int flag_syntax_only = 0;
 
-/* Nonzero means performs web construction pass.  */
+/* Nonzero means performs web construction pass.  When flag_web ==
+   AUTODETECT_FLAG_VAR_TRACKING it will be set according to optimize
+   and default_debug_hooks in process_options ().  */
 
-int flag_web;
+int flag_web = AUTODETECT_FLAG_VAR_TRACKING;
 
 /* Nonzero means perform loop optimizer.  */
 
@@ -715,6 +726,9 @@ int flag_schedule_speculative_load_dangerous = 0;
 int flag_sched_stalled_insns = 0;
 int flag_sched_stalled_insns_dep = 1;
 
+/* The following flag controls the module scheduling activation. */
+int flag_modulo_sched = 0;
+
 int flag_single_precision_constant;
 
 /* flag_branch_on_count_reg means try to replace add-1,compare,branch tupple
@@ -854,14 +868,14 @@ int flag_tree_elim_checks = 0;
 /* Enable linear loop transforms on trees.  */
 int flag_tree_loop_linear = 0;
 
+/* Enable loop optimizations on trees.  */
+int flag_tree_loop = 0;
+
 /* Enable loop vectorization on trees */
 int flag_tree_vectorize = 0;
 
 /* Enable loop header copying on tree-ssa.  */
 int flag_tree_ch = 0;
-
-/* Enable loop optimization on tree-ssa.  */
-int flag_tree_loop = 0;
 
 /* Enable scalar replacement of aggregates.  */
 int flag_tree_sra = 0;
@@ -871,6 +885,9 @@ int flag_tree_combine_temps = 0;
 
 /* Enable SSA->normal pass expression replacement.  */
 int flag_tree_ter = 0;
+
+/* Enable SSA->normal live range splitting.  */
+int flag_tree_live_range_split = 0;
 
 /* Enable dominator optimizations.  */
 int flag_tree_dom = 0;
@@ -906,8 +923,6 @@ int predictive_compilation = -1;
 /* Nonzero if we should track variables.  When
    flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING it will be set according
    to optimize, debug_info_level and debug_hooks in process_options ().  */
- 
-#define AUTODETECT_FLAG_VAR_TRACKING 2
 int flag_var_tracking = AUTODETECT_FLAG_VAR_TRACKING;
 
 /* Values of the -falign-* flags: how much to align labels in code.
@@ -950,31 +965,6 @@ int flag_evaluation_order = 0;
 
 /* Add or remove a leading underscore from user symbols.  */
 int flag_leading_underscore = -1;
-
-/* APPLE LOCAL begin coalescing turly 20020319 */
-/* Don't enable coalescing by default unless we have one of these
-   features in cctools.  */
-#if defined(APPLE_WEAK_SECTION_ATTRIBUTE) || defined(APPLE_WEAK_ASSEMBLER_DIRECTIVE)
-#define COALESCE_BY_DEFAULT 1
-#else
-#define COALESCE_BY_DEFAULT 0
-#endif
-/* Nonzero means that certain data and code items can be marked as
-   coalesced, which is a lesser form of ELF weak symbols.  */
-int flag_coalescing_enabled = COALESCE_BY_DEFAULT;
-
-/* Nonzero means mark template instantiations as coalesced.  */
-int flag_coalesce_templates = COALESCE_BY_DEFAULT;
-
-/* Nonzero means use the OS X 10.2 "weak_definitions" section attribute. 
-   If this is set, then explicit template instantiations DO NOT get
-   coalesced, but are plain old text or data instead.  */
-int flag_weak_coalesced_definitions = COALESCE_BY_DEFAULT;
-
-/* Coalesced symbols are private export by default.  This EXPERIMENTAL
-   flag will make them global instead. */
-int flag_export_coalesced = 0;
-/* APPLE LOCAL end coalescing turly 20020319 */
 
 /*  The version of the C++ ABI in use.  The following values are
     allowed:
@@ -1076,6 +1066,7 @@ static const lang_independent_options f_options[] =
   {"sched-stalled-insns-dep", &flag_sched_stalled_insns_dep, 1 },
   {"sched2-use-superblocks", &flag_sched2_use_superblocks, 1 },
   {"sched2-use-traces", &flag_sched2_use_traces, 1 },
+  {"modulo-sched", &flag_modulo_sched, 1 },
   {"branch-count-reg",&flag_branch_on_count_reg, 1 },
   {"pic", &flag_pic, 1 },
   {"PIC", &flag_pic, 2 },
@@ -1137,12 +1128,6 @@ static const lang_independent_options f_options[] =
   { "wrapv", &flag_wrapv, 1 },
   /* APPLE LOCAL -ffppc 2001-08-01 sts */
   { "fppc", &flag_fppc, 1 },
-  /* APPLE LOCAL begin coalescing  turly  */
-  { "coalesce", &flag_coalescing_enabled, 1 },
-  { "weak-coalesced", &flag_weak_coalesced_definitions, 1 },
-  { "coalesce-templates", &flag_coalesce_templates, 1 },
-  { "export-coalesced", &flag_export_coalesced, 1 },
-  /* APPLE LOCAL end coalescing  turly  */
   { "new-ra", &flag_new_regalloc, 1 },
   { "var-tracking", &flag_var_tracking, 1},
   { "tree-gvn", &flag_tree_gvn, 1 },
@@ -1158,10 +1143,11 @@ static const lang_independent_options f_options[] =
   { "tree-dse", &flag_tree_dse, 1 },
   { "tree-combine-temps", &flag_tree_combine_temps, 1 },
   { "tree-ter", &flag_tree_ter, 1 },
-  { "tree-ch", &flag_tree_ch, 1 },
   { "tree-loop-optimize", &flag_tree_loop, 1 },
   { "tree-loop-linear", &flag_tree_loop_linear, 1},
-  { "tree-vectorize", &flag_tree_vectorize, 1}
+  { "tree-vectorize", &flag_tree_vectorize, 1},
+  { "tree-lrs", &flag_tree_live_range_split, 1 },
+  { "tree-ch", &flag_tree_ch, 1 }
 };
 
 /* Here is a table, controlled by the tm.h file, listing each -m switch
@@ -1220,7 +1206,12 @@ bool
 set_src_pwd (const char *pwd)
 {
   if (src_pwd)
-    return false;
+    {
+      if (strcmp (src_pwd, pwd) == 0)
+	return true;
+      else
+	return false;
+    }
 
   src_pwd = xstrdup (pwd);
   return true;
@@ -1249,7 +1240,7 @@ announce_function (tree decl)
       if (rtl_dump_and_exit)
 	verbatim ("%s ", IDENTIFIER_POINTER (DECL_NAME (decl)));
       else
-	verbatim (" %s", (*lang_hooks.decl_printable_name) (decl, 2));
+	verbatim (" %s", lang_hooks.decl_printable_name (decl, 2));
       fflush (stderr);
       pp_needs_newline (global_dc->printer) = true;
       diagnostic_set_last_function (global_dc);
@@ -1511,7 +1502,7 @@ wrapup_global_declarations (tree *vec, int len)
 	DECL_DEFER_OUTPUT (decl) = 0;
 
       if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0)
-	(*lang_hooks.finish_incomplete_decl) (decl);
+	lang_hooks.finish_incomplete_decl (decl);
     }
 
   /* Now emit any global variables or functions that we have been
@@ -1648,7 +1639,7 @@ check_global_declarations (tree *vec, int len)
 	  /* Global register variables must be declared to reserve them.  */
 	  && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
 	  /* Otherwise, ask the language.  */
-	  && (*lang_hooks.decls.warn_unused_global) (decl))
+	  && lang_hooks.decls.warn_unused_global (decl))
 	warning ("%J'%D' defined but not used", decl, decl);
 
       /* Avoid confusing the debug information machinery when there are
@@ -1789,11 +1780,11 @@ compile_file (void)
 
   /* Call the parser, which parses the entire file (calling
      rest_of_compilation for each function).  */
-  (*lang_hooks.parse_file) (set_yydebug);
+  lang_hooks.parse_file (set_yydebug);
 
   /* In case there were missing block closers,
      get us back to the global binding level.  */
-  (*lang_hooks.clear_binding_stack) ();
+  lang_hooks.clear_binding_stack ();
 
   /* Compilation is now finished except for writing
      what's left of the symbol table output.  */
@@ -1802,7 +1793,7 @@ compile_file (void)
   if (flag_syntax_only)
     return;
 
-  (*lang_hooks.decls.final_write_globals)();
+  lang_hooks.decls.final_write_globals ();
 
   cgraph_varpool_assemble_pending_decls ();
 
@@ -1830,8 +1821,6 @@ compile_file (void)
 
   dw2_output_indirect_constants ();
 
-  targetm.asm_out.file_end ();
-
   /* Attach a special .ident directive to the end of the file to identify
      the version of GCC which compiled this code.  The format of the .ident
      string is patterned after the ones produced by native SVR4 compilers.  */
@@ -1840,6 +1829,11 @@ compile_file (void)
     fprintf (asm_out_file, "%s\"GCC: (GNU) %s\"\n",
 	     IDENT_ASM_OP, version_string);
 #endif
+
+  /* This must be at the end.  Some target ports emit end of file directives
+     into the assembly file here, and hence we can not output anything to the
+     assembly file after this point.  */
+  targetm.asm_out.file_end ();
 }
 
 /* Display help for target options.  */
@@ -2356,7 +2350,7 @@ default_tree_printer (pretty_printer * pp, text_info *text)
       {
         tree t = va_arg (*text->args_ptr, tree);
         const char *n = DECL_NAME (t)
-          ? (*lang_hooks.decl_printable_name) (t, 2)
+          ? lang_hooks.decl_printable_name (t, 2)
           : "<anonymous>";
         pp_string (pp, n);
       }
@@ -2467,13 +2461,16 @@ process_options (void)
      initialization based on the command line options.  This hook also
      sets the original filename if appropriate (e.g. foo.i -> foo.c)
      so we can correctly initialize debug output.  */
-  no_backend = (*lang_hooks.post_options) (&main_input_filename);
+  no_backend = lang_hooks.post_options (&main_input_filename);
   input_filename = main_input_filename;
 
 #ifdef OVERRIDE_OPTIONS
   /* Some machines may reject certain combinations of options.  */
   OVERRIDE_OPTIONS;
 #endif
+
+  if (flag_short_enums == 2)
+    flag_short_enums = targetm.default_short_enums ();
 
   /* Set aux_base_name if not already set.  */
   if (aux_base_name)
@@ -2590,6 +2587,30 @@ process_options (void)
 
   /* Now we know write_symbols, set up the debug hooks based on it.
      By default we do nothing for debug output.  */
+  if (PREFERRED_DEBUGGING_TYPE == NO_DEBUG)
+    default_debug_hooks = &do_nothing_debug_hooks;
+#if defined(DBX_DEBUGGING_INFO)
+  else if (PREFERRED_DEBUGGING_TYPE == DBX_DEBUG)
+    default_debug_hooks = &dbx_debug_hooks;
+#endif
+#if defined(XCOFF_DEBUGGING_INFO)
+  else if (PREFERRED_DEBUGGING_TYPE == XCOFF_DEBUG)
+    default_debug_hooks = &xcoff_debug_hooks;
+#endif
+#ifdef SDB_DEBUGGING_INFO
+  else if (PREFERRED_DEBUGGING_TYPE == SDB_DEBUG)
+    default_debug_hooks = &sdb_debug_hooks;
+#endif
+#ifdef DWARF2_DEBUGGING_INFO
+  else if (PREFERRED_DEBUGGING_TYPE == DWARF2_DEBUG)
+    default_debug_hooks = &dwarf2_debug_hooks;
+#endif
+#ifdef VMS_DEBUGGING_INFO
+  else if (PREFERRED_DEBUGGING_TYPE == VMS_DEBUG
+	   || PREFERRED_DEBUGGING_TYPE == VMS_AND_DWARF2_DEBUG)
+    default_debug_hooks = &vmsdbg_debug_hooks;
+#endif
+
   if (write_symbols == NO_DEBUG)
     debug_hooks = &do_nothing_debug_hooks;
 #if defined(DBX_DEBUGGING_INFO)
@@ -2617,14 +2638,33 @@ process_options (void)
 	   debug_type_names[write_symbols]);
 
   /* Now we know which debug output will be used so we can set
-     flag_var_tracking if user has not specified it.  */
-  if (flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING)
+     flag_var_tracking, flag_rename_registers and flag_web if the user has
+     not specified them.  */
+  if (debug_info_level < DINFO_LEVEL_NORMAL
+      || debug_hooks->var_location == do_nothing_debug_hooks.var_location)
     {
-      /* User has not specified -f(no-)var-tracking so autodetect it.  */
-      flag_var_tracking
-	= (optimize >= 1 && debug_info_level >= DINFO_LEVEL_NORMAL
-	   && debug_hooks->var_location != do_nothing_debug_hooks.var_location);
+      if (flag_var_tracking == 1)
+        {
+	  if (debug_info_level < DINFO_LEVEL_NORMAL)
+	    warning ("variable tracking requested, but useless unless "
+		     "producing debug info");
+	  else
+	    warning ("variable tracking requested, but not supported "
+		     "by this debug format");
+	}
+      flag_var_tracking = 0;
     }
+
+  if (flag_rename_registers == AUTODETECT_FLAG_VAR_TRACKING)
+    flag_rename_registers = default_debug_hooks->var_location
+	    		    != do_nothing_debug_hooks.var_location;
+
+  if (flag_web == AUTODETECT_FLAG_VAR_TRACKING)
+    flag_web = optimize >= 2 && (default_debug_hooks->var_location
+	    		         != do_nothing_debug_hooks.var_location);
+
+  if (flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING)
+    flag_var_tracking = optimize >= 1;
 
   /* If auxiliary info generation is desired, open the output file.
      This goes in the same directory as the source file--unlike
@@ -2728,7 +2768,7 @@ lang_dependent_init (const char *name)
     dump_base_name = name ? name : "gccdump";
 
   /* Other front-end initialization.  */
-  if ((*lang_hooks.init) () == 0)
+  if (lang_hooks.init () == 0)
     return 0;
 
   init_asm_output (name);
@@ -2737,6 +2777,7 @@ lang_dependent_init (const char *name)
      front end is initialized.  */
   init_eh ();
   init_optabs ();
+  init_optimization_passes ();
 
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */
@@ -2805,7 +2846,7 @@ finalize (void)
   free_reg_info ();
 
   /* Language-specific end of compilation actions.  */
-  (*lang_hooks.finish) ();
+  lang_hooks.finish ();
 }
 
 /* Initialize the compiler, and compile the input file.  */

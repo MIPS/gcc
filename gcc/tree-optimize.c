@@ -52,6 +52,7 @@ Boston, MA 02111-1307, USA.  */
 /* Global variables used to communicate with passes.  */
 int dump_flags;
 bitmap vars_to_rename;
+bool in_gimple_form;
 
 /* The root of the compilation pass tree, once constructed.  */
 static struct tree_opt_pass *all_passes;
@@ -401,7 +402,7 @@ execute_one_pass (struct tree_opt_pass *pass)
       if (dump_file)
 	{
 	  const char *dname, *aname;
-	  dname = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+	  dname = lang_hooks.decl_printable_name (current_function_decl, 2);
 	  aname = (IDENTIFIER_POINTER
 		   (DECL_ASSEMBLER_NAME (current_function_decl)));
 	  fprintf (dump_file, "\n;; Function %s (%s)\n\n", dname, aname);
@@ -536,8 +537,15 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   if (!vars_to_rename)
     vars_to_rename = BITMAP_XMALLOC ();
 
+  /* Note that the folders should only create gimple expressions.
+     This is a hack until the new folder is ready.  */
+  in_gimple_form = true;
+
   /* Perform all tree transforms and optimizations.  */
   execute_pass_list (all_passes);
+
+  /* Note that the folders can create non-gimple expressions again.  */
+  in_gimple_form = false;
 
   /* If the function has a variably modified type, there may be
      SAVE_EXPRs in the parameter types.  Their context must be set to
@@ -557,9 +565,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);
 
-  /* Allow language dialects to perform special processing.  */
-  (*lang_hooks.rtl_expand.start) ();
-
   /* If this function is `main', emit a call to `__main'
      to run global initializers, etc.  */
   if (DECL_NAME (fndecl)
@@ -568,7 +573,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
     expand_main_function ();
 
   /* Generate the RTL for this function.  */
-  (*lang_hooks.rtl_expand.stmt) (DECL_SAVED_TREE (fndecl));
+  expand_expr_stmt_value (DECL_SAVED_TREE (fndecl), 0, 0);
 
   /* We hard-wired immediate_size_expand to zero above.
      expand_function_end will decrement this variable.  So, we set the
@@ -584,9 +589,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   /* The following insns belong to the top scope.  */
   record_block_change (DECL_INITIAL (current_function_decl));
   
-  /* Allow language dialects to perform special processing.  */
-  (*lang_hooks.rtl_expand.end) ();
-
   /* Generate rtl for function exit.  */
   expand_function_end ();
 

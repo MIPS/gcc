@@ -218,6 +218,10 @@ static const char *target_sysroot_hdrs_suffix = 0;
 
 static int save_temps_flag;
 
+/* Nonzero means pass multiple source files to the compiler at one time.  */
+
+static int combine_flag = 0;
+
 /* Nonzero means use pipes to communicate between subprocesses.
    Overridden by either of the above two flags.  */
 
@@ -312,6 +316,7 @@ static struct rusage rus, prus;
 
 /* Forward declaration for prototypes.  */
 struct path_prefix;
+struct prefix_list;
 
 static void init_spec (void);
 static void store_arg (const char *, int, int);
@@ -347,6 +352,7 @@ static char *save_string (const char *, int);
 static void set_collect_gcc_options (void);
 /* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) ilr */
 static const char *check_basename_derived_file (const char *string);
+static void do_spec_path (struct prefix_list *, const char *, int, int, int, const char *, const char *);
 static int do_spec_1 (const char *, int, const char *);
 static int do_spec_2 (const char *);
 static void do_option_spec (const char *, const char *);
@@ -942,6 +948,10 @@ struct compiler
   const char *cpp_spec;         /* If non-NULL, substitute this spec
 				   for `%C', rather than the usual
 				   cpp_spec.  */
+  const int combinable;          /* If non-zero, compiler can deal with
+				    multiple source files at once (IMA).  */
+  const int needs_preprocessing; /* If non-zero, source files need to
+				    be run through a preprocessor.  */
 };
 
 /* Pointer to a vector of `struct compiler' that gives the spec for
@@ -967,20 +977,24 @@ static const struct compiler default_compilers[] =
      were not present when we built the driver, we will hit these copies
      and be given a more meaningful error than "file not used since
      linking is not done".  */
-  {".m",  "#Objective-C", 0}, {".mi",  "#Objective-C", 0},
-  {".cc", "#C++", 0}, {".cxx", "#C++", 0}, {".cpp", "#C++", 0},
-  {".cp", "#C++", 0}, {".c++", "#C++", 0}, {".C", "#C++", 0},
-  {".CPP", "#C++", 0}, {".ii", "#C++", 0},
-  {".ads", "#Ada", 0}, {".adb", "#Ada", 0},
-  {".f", "#Fortran", 0}, {".for", "#Fortran", 0}, {".fpp", "#Fortran", 0},
-  {".F", "#Fortran", 0}, {".FOR", "#Fortran", 0}, {".FPP", "#Fortran", 0},
-  {".r", "#Ratfor", 0},
-  {".f90", "#Fortran 95", 0}, {".f95", "#Fortran 95", 0},
-  {".p", "#Pascal", 0}, {".pas", "#Pascal", 0},
-  {".java", "#Java", 0}, {".class", "#Java", 0},
-  {".zip", "#Java", 0}, {".jar", "#Java", 0},
+  {".m",  "#Objective-C", 0, 0, 0}, {".mi",  "#Objective-C", 0, 0, 0},
+  {".cc", "#C++", 0, 0, 0}, {".cxx", "#C++", 0, 0, 0}, 
+  {".cpp", "#C++", 0, 0, 0}, {".cp", "#C++", 0, 0, 0}, 
+  {".c++", "#C++", 0, 0, 0}, {".C", "#C++", 0, 0, 0},
+  {".CPP", "#C++", 0, 0, 0}, {".ii", "#C++", 0, 0, 0},
+  {".ads", "#Ada", 0, 0, 0}, {".adb", "#Ada", 0, 0, 0},
+  {".f", "#Fortran", 0, 0, 0}, {".for", "#Fortran", 0, 0, 0}, 
+  {".F", "#Fortran", 0, 0, 0}, {".FOR", "#Fortran", 0, 0, 0},
+  {".FPP", "#Fortran", 0, 0, 0},
+  {".f90", "#Fortran 95", 0, 0, 0}, {".f95", "#Fortran 95", 0, 0, 0},
+  {".fpp", "#Fortran", 0, 0, 0}, {".F", "#Fortran", 0, 0, 0}, 
+  {".FOR", "#Fortran", 0, 0, 0}, {".FPP", "#Fortran", 0, 0, 0},
+  {".r", "#Ratfor", 0, 0, 0},
+  {".p", "#Pascal", 0, 0, 0}, {".pas", "#Pascal", 0, 0, 0},
+  {".java", "#Java", 0, 0, 0}, {".class", "#Java", 0, 0, 0},
+  {".zip", "#Java", 0, 0, 0}, {".jar", "#Java", 0, 0, 0},
   /* Next come the entries for C.  */
-  {".c", "@c", 0},
+  {".c", "@c", 0, 1, 1},
   {"@c",
    /* cc1 has an integrated ISO C preprocessor.  We should invoke the
       external preprocessor if -save-temps is given.  */
@@ -990,16 +1004,24 @@ static const struct compiler default_compilers[] =
       %{!E:%{!M:%{!MM:\
           %{traditional|ftraditional:\
 %eGNU C no longer supports -traditional without -E}\
+       %{!combine:%{!fast:\
+	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
+		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i} \n\
+		    cc1 -fpreprocessed %{save-temps:%b.i} %{!save-temps:%g.i} \
+			%(cc1_options)}\
+	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
+		cc1 %(cpp_unique_options) %(cc1_options)}}}\
+          %{!fsyntax-only:%(invoke_as)}}} \
+      %{combine|fast:\
 	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
 		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i}}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
 		cc1 %(cpp_unique_options) %(cc1_options)}}\
-		%{!fsyntax-only:\
-		   %{!traditional-cpp:%(invoke_as)}}}}}}", 0},
+                %{!fsyntax-only:%(invoke_as)}}}}}}", 0, 1, 1},
   {"-",
    "%{!E:%e-E required when input is from standard input}\
-    %(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)", 0},
-  {".h", "@c-header", 0},
+    %(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)", 0, 0, 0},
+  {".h", "@c-header", 0, 0, 0},
   {"@c-header",
    /* cc1 has an integrated ISO C preprocessor.  We should invoke the
       external preprocessor if -save-temps is given.  */
@@ -1014,10 +1036,10 @@ static const struct compiler default_compilers[] =
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
 		cc1 %(cpp_unique_options) %(cc1_options)\
   "/* APPLE LOCAL symbol separation */"\
-                    %(dbg_ss) %(pch)}}}}}}", 0},
-  {".i", "@cpp-output", 0},
+                    %(dbg_ss) %(pch)}}}}}}", 0, 0, 0},
+  {".i", "@cpp-output", 0, 1, 0},
   {"@cpp-output",
-   "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) %{!fsyntax-only:%(invoke_as)}}}}", 0},
+   "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) %{!fsyntax-only:%(invoke_as)}}}}", 0, 1, 0},
   /* APPLE LOCAL preprocess .s files 2001-07-24 sts */
   /* This is kind of lame; the purpose of having .s and .S be treated
      differently is so that we can control whether to run the
@@ -1025,10 +1047,10 @@ static const struct compiler default_compilers[] =
      still work even on HFS filesystems, because they preserve case,
      but we'd have to get a number of projects to change their files,
      and of course that's just *too* *hard*. */
-  {".s", "@assembler-with-cpp", 0},
+  {".s", "@assembler-with-cpp", 0, 1, 0},
   {"@assembler",
-   "%{!M:%{!MM:%{!E:%{!S:as %(asm_debug) %(asm_options) %i %A }}}}", 0},
-  {".S", "@assembler-with-cpp", 0},
+   "%{!M:%{!MM:%{!E:%{!S:as %(asm_debug) %(asm_options) %i %A }}}}", 0, 1, 0},
+  {".S", "@assembler-with-cpp", 0, 1, 0},
   {"@assembler-with-cpp",
 #ifdef AS_NEEDS_DASH_FOR_PIPED_INPUT
    "%(trad_capable_cpp) -lang-asm %(cpp_options)\
@@ -1041,11 +1063,11 @@ static const struct compiler default_compilers[] =
       %{!M:%{!MM:%{!E:%{!S:-o %|.s |\n\
        as %(asm_debug) %(asm_options) %m.s %A }}}}"
 #endif
-   , 0},
+   , 0, 1, 0},
 
 #include "specs.h"
   /* Mark end of table.  */
-  {0, 0, 0}
+  {0, 0, 0, 0, 0}
 };
 
 /* Number of elements in default_compilers, not counting the terminator.  */
@@ -1105,6 +1127,7 @@ static const struct option_map option_map[] =
    {"--classpath", "-fclasspath=", "aj"},
    {"--bootclasspath", "-fbootclasspath=", "aj"},
    {"--CLASSPATH", "-fclasspath=", "aj"},
+   {"--combine", "-combine", 0},
    {"--comments", "-C", 0},
    {"--comments-in-macros", "-CC", 0},
    {"--compile", "-c", 0},
@@ -1635,6 +1658,11 @@ static int processing_spec_function;
    various permutations of -shared-libgcc, -shared, and such.  */
 
 #if defined(ENABLE_SHARED_LIBGCC) && !defined(REAL_LIBGCC_SPEC)
+
+#ifndef USE_LD_AS_NEEDED
+#define USE_LD_AS_NEEDED 0
+#endif
+
 static void
 init_gcc_specs (struct obstack *obstack, const char *shared_name,
 		const char *static_name, const char *eh_name)
@@ -1643,6 +1671,12 @@ init_gcc_specs (struct obstack *obstack, const char *shared_name,
 
   buf = concat ("%{static|static-libgcc:", static_name, " ", eh_name,
 		"}%{!static:%{!static-libgcc:",
+#if USE_LD_AS_NEEDED
+		"%{!shared-libgcc:", static_name,
+		" --as-needed ", shared_name, " --no-as-needed}"
+		"%{shared-libgcc:", shared_name, "%{!shared: ", static_name,
+		"}",
+#else
 		"%{!shared:%{!shared-libgcc:", static_name, " ",
 		eh_name, "}%{shared-libgcc:", shared_name, " ",
 		static_name, "}}%{shared:",
@@ -1651,6 +1685,7 @@ init_gcc_specs (struct obstack *obstack, const char *shared_name,
 		"}%{!shared-libgcc:", static_name, "}",
 #else
 		shared_name,
+#endif
 #endif
 		"}}}", NULL);
 
@@ -1881,6 +1916,11 @@ static int argbuf_length;
 
 static int argbuf_index;
 
+/* Position in the argbuf array containing the name of the output file
+   (the value associated with the "-o" flag).  */
+
+static int have_o_argbuf_index = 0;
+
 /* This is the list of suffixes and codes (%g/%u/%U/%j) and the associated
    temp file.  If the HOST_BIT_BUCKET is used for %j, no entry is made for
    it here.  */
@@ -1939,6 +1979,8 @@ store_arg (const char *arg, int delete_always, int delete_failure)
   argbuf[argbuf_index++] = arg;
   argbuf[argbuf_index] = 0;
 
+  if (strcmp (arg, "-o") == 0)
+    have_o_argbuf_index = argbuf_index;
   if (delete_always || delete_failure)
     record_temp_file (arg, delete_always, delete_failure);
 }
@@ -2318,6 +2360,17 @@ record_temp_file (const char *filename, int always_delete, int fail_delete)
 
 /* Delete all the temporary files whose names we previously recorded.  */
 
+#ifndef DELETE_IF_ORDINARY
+#define DELETE_IF_ORDINARY(NAME,ST,VERBOSE_FLAG)        \
+do                                                      \
+  {                                                     \
+    if (stat (NAME, &ST) >= 0 && S_ISREG (ST.st_mode))  \
+      if (unlink (NAME) < 0)                            \
+	if (VERBOSE_FLAG)                               \
+	  perror_with_name (NAME);                      \
+  } while (0)
+#endif
+
 static void
 delete_if_ordinary (const char *name)
 {
@@ -2334,10 +2387,7 @@ delete_if_ordinary (const char *name)
 
   if (i == 'y' || i == 'Y')
 #endif /* DEBUG */
-    if (stat (name, &st) >= 0 && S_ISREG (st.st_mode))
-      if (unlink (name) < 0)
-	if (verbose_flag)
-	  perror_with_name (name);
+  DELETE_IF_ORDINARY (name, st, verbose_flag);
 }
 
 static void
@@ -3066,13 +3116,6 @@ static bool combine_inputs;
 /* True if input files are assembly files. (.s or .S extension)  */
 static bool assembly_input;
 
-/* True if "-c" appears on commandline.  */
-static int have_c = 0;
-
-/* True if "-o" appears on commandline.  */
-
-static int have_o = 0;
-
 /* True if "-traditional-cpp" appears on commandline.  */
 static int traditional_cpp_flag = 0;
 
@@ -3180,6 +3223,7 @@ display_help (void)
   fputs (_("  -Xassembler <arg>        Pass <arg> on to the assembler\n"), stdout);
   fputs (_("  -Xpreprocessor <arg>     Pass <arg> on to the preprocessor\n"), stdout);
   fputs (_("  -Xlinker <arg>           Pass <arg> on to the linker\n"), stdout);
+  fputs (_("  -combine                 Pass multiple source files to compiler at once\n"), stdout);
   fputs (_("  -save-temps              Do not delete intermediate files\n"), stdout);
   fputs (_("  -pipe                    Use pipes rather than intermediate files\n"), stdout);
   fputs (_("  -time                    Time the execution of each subprocess\n"), stdout);
@@ -3265,6 +3309,7 @@ process_command (int argc, const char **argv)
   char *temp1;
   const char *spec_lang = 0;
   int last_language_n_infiles;
+  int have_c = 0;
   int lang_n_infiles = 0;
 #ifdef MODIFY_TARGET_NAME
   int is_modify_target_name;
@@ -3423,9 +3468,8 @@ process_command (int argc, const char **argv)
 		nstore[endp - startp] = 0;
 	      add_prefix (&exec_prefixes, nstore, 0,
 			  PREFIX_PRIORITY_LAST, 0, NULL, 0);
-	      add_prefix (&include_prefixes,
-			  concat (nstore, "include", NULL),
-			  0, PREFIX_PRIORITY_LAST, 0, NULL, 0);
+	      add_prefix (&include_prefixes, nstore, 0,
+			  PREFIX_PRIORITY_LAST, 0, NULL, 0);
 	      if (*endp == 0)
 		break;
 	      endp = startp = endp + 1;
@@ -3698,7 +3742,15 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  save_temps_flag = 1;
 	  n_switches++;
 	}
+#if 0
+      /* IMA out of commission for now! */
       /* APPLE LOCAL begin IMA */
+      else if (strcmp (argv[i], "-fast") == 0)
+	{
+	  combine_flag = 1;
+	  n_switches++;
+	}
+#endif
       else if (strcmp (argv[i], "-traditional-cpp") == 0)
         {
           traditional_cpp_flag = 1;
@@ -3738,6 +3790,11 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  i++;
 	}
       /* APPLE LOCAL end Symbol Separation */
+      else if (strcmp (argv[i], "-combine") == 0)
+	{
+	  combine_flag = 1;
+	  n_switches++;
+	}
       else if (strcmp (argv[i], "-specs") == 0)
 	{
 	  struct user_specs *user = xmalloc (sizeof (struct user_specs));
@@ -3853,15 +3910,14 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 		    && (IS_DIR_SEPARATOR (value[len - 1])))
 		  {
 		    if (len == 7)
-		      add_prefix (&include_prefixes, "include", NULL,
+		      add_prefix (&include_prefixes, "./", NULL,
 				  PREFIX_PRIORITY_B_OPT, 0, NULL, 0);
 		    else
 		      {
-			char * string = xmalloc (len + 1);
-
-			strncpy (string, value, len - 7);
-			strcpy (string + len - 7, "include");
-			add_prefix (&include_prefixes, string, NULL,
+		        char *string = xmalloc (len - 6);
+			memcpy (string, value, len - 7);
+			string[len - 7] = 0;
+		        add_prefix (&include_prefixes, string, NULL,
 				    PREFIX_PRIORITY_B_OPT, 0, NULL, 0);
 		      }
 		  }
@@ -3870,8 +3926,8 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 			    PREFIX_PRIORITY_B_OPT, 0, &warn_B, 0);
 		add_prefix (&startfile_prefixes, value, NULL,
 			    PREFIX_PRIORITY_B_OPT, 0, &warn_B, 0);
-		add_prefix (&include_prefixes, concat (value, "include", NULL),
-			    NULL, PREFIX_PRIORITY_B_OPT, 0, NULL, 0);
+		add_prefix (&include_prefixes, value, NULL,
+			    PREFIX_PRIORITY_B_OPT, 0, NULL, 0);
 		n_switches++;
 	      }
 	      break;
@@ -3896,7 +3952,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	      goto normal_switch;
 
 	    case 'o':
-	      have_o = 1;
 #if defined(HAVE_TARGET_EXECUTABLE_SUFFIX)
 	      if (! have_c)
 		{
@@ -4742,6 +4797,107 @@ do_self_spec (const char *spec)
     }
 }
 
+void
+do_spec_path (struct prefix_list *pl, const char *option,
+	      int omit_if_relative, int separate_options,
+	      int only_subdir,
+	      const char *dir_for_machine_suffix,
+	      const char *dir_for_no_suffix)
+{
+  static size_t bufsize = 0;
+  static char *buffer;
+  int idx;
+
+  /* Used on systems which record the specified -L dirs
+     and use them to search for dynamic linking.  */
+  /* Relative directories always come from -B,
+     and it is better not to use them for searching
+     at run time.  In particular, stage1 loses.  */
+  if (omit_if_relative
+      && !IS_ABSOLUTE_PATH (pl->prefix))
+    return;
+
+  /* Try subdirectory if there is one.  */
+  if (machine_suffix && dir_for_machine_suffix)
+    {
+      if (strlen (pl->prefix) + strlen (machine_suffix)
+	  >= bufsize)
+	bufsize = (strlen (pl->prefix)
+		  + strlen (machine_suffix)) * 2 + 1;
+      buffer = xrealloc (buffer, bufsize);
+      strcpy (buffer, pl->prefix);
+      strcat (buffer, machine_suffix);
+      if (is_directory (buffer, dir_for_machine_suffix, 1))
+	{
+	  do_spec_1 (option, separate_options, NULL);
+	  if (separate_options)
+	    do_spec_1 (" ", 0, NULL);
+	  do_spec_1 (buffer, 1, NULL);
+	  do_spec_1 (dir_for_machine_suffix, 1, NULL);
+	  /* Make this a separate argument.  */
+	  do_spec_1 (" ", 0, NULL);
+	}
+    }
+  if (!pl->require_machine_suffix && dir_for_no_suffix)
+    {
+      if (is_directory (pl->prefix, dir_for_no_suffix, 1))
+	{
+	  do_spec_1 (option, separate_options, NULL);
+	  if (separate_options)
+	    do_spec_1 (" ", 0, NULL);
+	  do_spec_1 (pl->prefix, 1, NULL);
+	  do_spec_1 (dir_for_no_suffix, 1, NULL);
+	  /* Make this a separate argument.  */
+	  do_spec_1 (" ", 0, NULL);
+	}
+    }
+
+  if (only_subdir)
+    return;
+
+  if (machine_suffix)
+    {
+      if (is_directory (pl->prefix, machine_suffix, 1))
+	{
+	  do_spec_1 (option, separate_options, NULL);
+	  if (separate_options)
+	    do_spec_1 (" ", 0, NULL);
+	  do_spec_1 (pl->prefix, 1, NULL);
+	  /* Remove slash from machine_suffix.  */
+	  if (strlen (machine_suffix) >= bufsize)
+	    bufsize = strlen (machine_suffix) * 2 + 1;
+	  buffer = xrealloc (buffer, bufsize);
+	  strcpy (buffer, machine_suffix);
+	  idx = strlen (buffer);
+	  if (IS_DIR_SEPARATOR (buffer[idx - 1]))
+	    buffer[idx - 1] = 0;
+	  do_spec_1 (buffer, 1, NULL);
+	  /* Make this a separate argument.  */
+	  do_spec_1 (" ", 0, NULL);
+	}
+    }
+  if (!pl->require_machine_suffix)
+    {
+      if (is_directory (pl->prefix, "", 1))
+	{
+	  do_spec_1 (option, separate_options, NULL);
+	  if (separate_options)
+	    do_spec_1 (" ", 0, NULL);
+	  /* Remove slash from pl->prefix.  */
+	  if (strlen (pl->prefix) >= bufsize)
+	    bufsize = strlen (pl->prefix) * 2 + 1;
+	  buffer = xrealloc (buffer, bufsize);
+	  strcpy (buffer, pl->prefix);
+	  idx = strlen (buffer);
+	  if (IS_DIR_SEPARATOR (buffer[idx - 1]))
+	    buffer[idx - 1] = 0;
+	  do_spec_1 (buffer, 1, NULL);
+	  /* Make this a separate argument.  */
+	  do_spec_1 (" ", 0, NULL);
+	}
+    }
+}
+
 /* Process the sub-spec SPEC as a portion of a larger spec.
    This is like processing a whole spec except that we do
    not initialize at the beginning and we do not supply a
@@ -4903,110 +5059,22 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	  case 'D':
 	    {
 	      struct prefix_list *pl = startfile_prefixes.plist;
-	      size_t bufsize = 100;
-	      char *buffer = xmalloc (bufsize);
-	      int idx;
 
 	      for (; pl; pl = pl->next)
 		{
-#ifdef RELATIVE_PREFIX_NOT_LINKDIR
-		  /* Used on systems which record the specified -L dirs
-		     and use them to search for dynamic linking.  */
-		  /* Relative directories always come from -B,
-		     and it is better not to use them for searching
-		     at run time.  In particular, stage1 loses.  */
-		  if (!IS_ABSOLUTE_PATH (pl->prefix))
-		    continue;
-#endif
-		  /* Try subdirectory if there is one.  */
-		  if (multilib_dir != NULL
-		      || (pl->os_multilib && multilib_os_dir != NULL))
-		    {
-		      const char *multi_dir;
+		  const char *no_suffix_multilib_dir;
 
-		      multi_dir = pl->os_multilib ? multilib_os_dir
-						  : multilib_dir;
-		      if (machine_suffix && multilib_dir)
-			{
-			  if (strlen (pl->prefix) + strlen (machine_suffix)
-			      >= bufsize)
-			    bufsize = (strlen (pl->prefix)
-				       + strlen (machine_suffix)) * 2 + 1;
-			  buffer = xrealloc (buffer, bufsize);
-			  strcpy (buffer, pl->prefix);
-			  strcat (buffer, machine_suffix);
-			  if (is_directory (buffer, multilib_dir, 1))
-			    {
-			      do_spec_1 ("-L", 0, NULL);
-#ifdef SPACE_AFTER_L_OPTION
-			      do_spec_1 (" ", 0, NULL);
+		  no_suffix_multilib_dir = pl->os_multilib ? multilib_os_dir
+					   : multilib_dir;
+		  /* Do not separate options, include non-multilibbed variant.  */
+		  do_spec_path (pl, "-L",
+#ifdef RELATIVE_PREFIX_NOT_LINKDIR
+				1,
+#else
+				0,
 #endif
-			      do_spec_1 (buffer, 1, NULL);
-			      do_spec_1 (multilib_dir, 1, NULL);
-			      /* Make this a separate argument.  */
-			      do_spec_1 (" ", 0, NULL);
-			    }
-			}
-		      if (!pl->require_machine_suffix)
-			{
-			  if (is_directory (pl->prefix, multi_dir, 1))
-			    {
-			      do_spec_1 ("-L", 0, NULL);
-#ifdef SPACE_AFTER_L_OPTION
-			      do_spec_1 (" ", 0, NULL);
-#endif
-			      do_spec_1 (pl->prefix, 1, NULL);
-			      do_spec_1 (multi_dir, 1, NULL);
-			      /* Make this a separate argument.  */
-			      do_spec_1 (" ", 0, NULL);
-			    }
-			}
-		    }
-		  if (machine_suffix)
-		    {
-		      if (is_directory (pl->prefix, machine_suffix, 1))
-			{
-			  do_spec_1 ("-L", 0, NULL);
-#ifdef SPACE_AFTER_L_OPTION
-			  do_spec_1 (" ", 0, NULL);
-#endif
-			  do_spec_1 (pl->prefix, 1, NULL);
-			  /* Remove slash from machine_suffix.  */
-			  if (strlen (machine_suffix) >= bufsize)
-			    bufsize = strlen (machine_suffix) * 2 + 1;
-			  buffer = xrealloc (buffer, bufsize);
-			  strcpy (buffer, machine_suffix);
-			  idx = strlen (buffer);
-			  if (IS_DIR_SEPARATOR (buffer[idx - 1]))
-			    buffer[idx - 1] = 0;
-			  do_spec_1 (buffer, 1, NULL);
-			  /* Make this a separate argument.  */
-			  do_spec_1 (" ", 0, NULL);
-			}
-		    }
-		  if (!pl->require_machine_suffix)
-		    {
-		      if (is_directory (pl->prefix, "", 1))
-			{
-			  do_spec_1 ("-L", 0, NULL);
-#ifdef SPACE_AFTER_L_OPTION
-			  do_spec_1 (" ", 0, NULL);
-#endif
-			  /* Remove slash from pl->prefix.  */
-			  if (strlen (pl->prefix) >= bufsize)
-			    bufsize = strlen (pl->prefix) * 2 + 1;
-			  buffer = xrealloc (buffer, bufsize);
-			  strcpy (buffer, pl->prefix);
-			  idx = strlen (buffer);
-			  if (IS_DIR_SEPARATOR (buffer[idx - 1]))
-			    buffer[idx - 1] = 0;
-			  do_spec_1 (buffer, 1, NULL);
-			  /* Make this a separate argument.  */
-			  do_spec_1 (" ", 0, NULL);
-			}
-		    }
+				0, 0, multilib_dir, no_suffix_multilib_dir);
 		}
-	      free (buffer);
 	    }
 	    break;
 
@@ -5269,13 +5337,8 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		}
 
 	      for (; pl; pl = pl->next)
-		{
-		  do_spec_1 ("-isystem", 1, NULL);
-		  /* Make this a separate argument.  */
-		  do_spec_1 (" ", 0, NULL);
-		  do_spec_1 (pl->prefix, 1, NULL);
-		  do_spec_1 (" ", 0, NULL);
-		}
+		/* Separate options, don't include non-suffixed variant.  */
+		do_spec_path (pl, "-isystem", 0, 1, 1, "include", "include");
 	    }
 	    break;
 
@@ -6415,6 +6478,7 @@ main (int argc, const char **argv)
   size_t i;
   int value;
   int linker_was_run = 0;
+  int lang_n_infiles = 0;
   int num_linker_inputs = 0;
   char *explicit_link_files;
   char *specs_file;
@@ -6816,105 +6880,85 @@ main (int argc, const char **argv)
   explicit_link_files = xcalloc (1, n_infiles);
 
 /* APPLE LOCAL begin IMI */
+
+  if (combine_flag)
+    combine_inputs = true;
+  else
+    combine_inputs = false;
+
+  for (i = 0; (int) i < n_infiles; i++)
     {
-       int lang_n_infiles = 0;
-    bool singular_input_language = TRUE;
-       for (i = 0; (int) i < n_infiles; i++)
-	 {
-	   const char *name = infiles[i].name;
-	struct compiler *compiler = lookup_compiler (name, strlen (name), infiles[i].language);
-	if (lang_n_infiles > 0 && compiler != input_file_compiler
-	    && infiles[i].language && infiles[i].language[0] != '*')
-	  {
-	    singular_input_language = FALSE;
-	    infiles[i].incompiler = compiler;
-	  }
-	else if (infiles[i].language && infiles[i].language[0] == '*')
-	  {
-	    explicit_link_files[i] = 1;
-	    infiles[i].incompiler = NULL;
-	  }
-	else if (compiler)
-	     {
-	       lang_n_infiles++;
-	       input_file_compiler = compiler;
-	    infiles[i].incompiler = compiler;
-	     }
-	else
-	  {
-	    /* Since there is no compiler for this input file, assume it is a
-	       linker file. */
-	    explicit_link_files[i] = 1;
-	    infiles[i].incompiler = NULL;
-	  }
-	infiles[i].compiled = FALSE;
-	infiles[i].preprocessed = FALSE;
-	 }
+      const char *name = infiles[i].name;
+      struct compiler *compiler = lookup_compiler (name, 
+						   strlen (name), 
+						   infiles[i].language);
+
+      if (compiler && !(compiler->combinable))
+	combine_inputs = false;
+
+      if (lang_n_infiles > 0 && compiler != input_file_compiler
+	  && infiles[i].language && infiles[i].language[0] != '*')
+	infiles[i].incompiler = compiler;
+      else if (compiler)
+	{
+	  lang_n_infiles++;
+	  input_file_compiler = compiler;
+	  infiles[i].incompiler = compiler;
+	}
+      else
+	{
+	  /* Since there is no compiler for this input file, assume it is a
+	     linker file. */
+	  explicit_link_files[i] = 1;
+	  infiles[i].incompiler = NULL;
+	}
+      infiles[i].compiled = FALSE;
+      infiles[i].preprocessed = FALSE;
     }
-  
-  if (save_temps_flag || traditional_cpp_flag || capital_e_flag)
+
+  if (combine_flag
+      && (save_temps_flag || traditional_cpp_flag || capital_e_flag))
     {
+      bool save_combine_inputs = combine_inputs;
       /* Must do a separate pre-processing pass for C & Objective-C files, to
 	 obtain individual .i files. */
-
+      
+      combine_inputs = false;
       for (i=0; (int) i < n_infiles; i++)
 	{
 	  int this_file_error = 0;
 	  
 	  input_file_number = i;
 	  set_input (infiles[i].name);
-	  if ((infiles[i].incompiler)
-	      && (strcmp(infiles[i].incompiler->suffix, "@c") == 0
-		  || strcmp (infiles[i].incompiler->suffix, ".m") == 0
-		  || strcmp (infiles[i].incompiler->suffix, ".c") == 0))
-	    {
-	      input_file_compiler = infiles[i].incompiler;
-	    }
+	  if (infiles[i].incompiler
+	      && (infiles[i].incompiler)->needs_preprocessing)
+	    input_file_compiler = infiles[i].incompiler;
 	  else
 	    continue;
-
-	  /* outfiles[i] = input_filename;*/
 	  
 	  if (input_file_compiler)
 	    {
+	      if (input_file_compiler->spec[0] == '#')
+		{
+		  error ("%s: %s compiler not installed on this system",
+			 input_filename, &input_file_compiler->spec[1]);
+		  this_file_error = 1;
+		}
+	      else if (save_temps_flag)
 		{
 		  value = do_spec (input_file_compiler->spec);
 		  infiles[i].preprocessed = TRUE;
-
-		  if (infiles[i].preprocessed && !capital_e_flag)
-		    {
-		      if (save_temps_flag)
-			{
-			  char *name = (char *) xmalloc ((strlen(infiles[i].name) + 1)
-							 * sizeof (char));
-			  char *dot, *p;
-			  strcpy (name, infiles[i].name);
-			  dot = strrchr (name, '.');
-			  dot++;
-			  if (*dot == 'c')
-			    *dot = 'i';
-			  else if (*dot == 'm')
-			    {
-			      dot++;
-			      *dot = 'i';
-			      dot++;
-			      *dot = '\0';
-			    }
+		  if (have_o_argbuf_index)
+		    infiles[i].name = argbuf[have_o_argbuf_index];
+		  else
+		    abort ();
+		  
+		  infiles[i].incompiler = lookup_compiler (infiles[i].name,
+							   strlen (infiles[i].name),
+							   infiles[i].language);
 			  
-			  infiles[i].incompiler = lookup_compiler (name,
-								   strlen (name),
-								   infiles[i].language);
-			  
-			  /* Save temps files are created in current working directory.
-			     Extract basename by removing directory names from input
-			     file name.  */
-			  for (p = name; *p; p++)
-			    if (IS_DIR_SEPARATOR (*p))
-			      name = p + 1;
-			  infiles[i].name = name;
-								      
-			}
-		      else if (traditional_cpp_flag)
+		}
+	      else if (traditional_cpp_flag)
 			{
 			  /* Temp file name is stored in infiles->temp_filename.
 			     Use it as input file name.  */
@@ -6923,24 +6967,21 @@ main (int argc, const char **argv)
 								   strlen (infiles[i].name),
 								   infiles[i].language);
 			}
-		    }
-
-		  if (value < 0)
-		    {
-		      this_file_error = 1;
-		      break;
-		    }
-		}
-
 	    }
-	  
+
+	  if (value < 0)
+	    this_file_error = 1;
+      
+  
 	  if (this_file_error)
 	    {
 	      delete_failure_queue ();
 	      error_count++;
+	      break;
 	    }
 	  clear_failure_queue ();
 	}
+      combine_inputs = save_combine_inputs;
     }
 /* APPLE LOCAL end IMI */
 
@@ -6957,45 +6998,21 @@ main (int argc, const char **argv)
 
       if (infiles[i].compiled)
 	continue;
-      else
-	{
-	  const char *name = infiles[i].name;
-	  char *dot = strrchr (name, '.');
-	  int len = strlen (name);
-	  char *ext = (char *) xmalloc (len*sizeof(char));
-
-	  if (dot)
-	    strcpy (ext, dot);
-	  else
-	    ext[0] = '\0';
-
-	  /* IMI currently only works for C and Objective-C, so make sure the
-	     source file belongs to one of those, or don't attempt IMI. */
-
-	  if ((strcmp (ext, ".m") == 0)
-	      || (strcmp (ext, ".c") == 0)
-	      || (strcmp (ext, ".i") == 0)
-	      || (strcmp (ext, ".s") == 0)
-	      || (strcmp (ext, ".S") == 0))
-	    combine_inputs = TRUE;
-	  else
-	    combine_inputs = FALSE;
-
-	  if (combine_inputs)
-	    {
-	      if ((strcmp (ext, ".s") == 0) || strcmp (ext, ".S") == 0)
-		assembly_input = TRUE;
-	      else
-		assembly_input = FALSE;
-	    }
-	  input_file_compiler = infiles[i].incompiler;
-	}
 
 /* APPLE LOCAL end IMI */
 
       /* Use the same thing in %o, unless cp->spec says otherwise.  */
 
       outfiles[i] = input_filename;
+
+      /* Figure out which compiler from the file's suffix.  */
+
+      if (! combine_inputs)
+	input_file_compiler
+	  = lookup_compiler (infiles[i].name, input_filename_length,
+			     infiles[i].language);
+      else
+	input_file_compiler = infiles[i].incompiler;
 
       if (input_file_compiler)
 	{
@@ -7037,6 +7054,7 @@ main (int argc, const char **argv)
 	{
 	  delete_failure_queue ();
 	  error_count++;
+	  break;
 	}
       /* If this compilation succeeded, don't delete those files later.  */
       clear_failure_queue ();
@@ -7470,20 +7488,21 @@ used_arg (const char *p, int len)
 	= xmalloc (sizeof (struct mswitchstr)
 		   * (n_mdswitches + (n_switches ? n_switches : 1)));
       for (i = 0; i < n_switches; i++)
-	{
-	  int xlen = strlen (switches[i].part1);
-	  for (j = 0; j < cnt; j++)
-	    if (xlen == matches[j].len
-		&& ! strncmp (switches[i].part1, matches[j].str, xlen))
-	      {
-		mswitches[n_mswitches].str = matches[j].replace;
-		mswitches[n_mswitches].len = matches[j].rep_len;
-		mswitches[n_mswitches].replace = (char *) 0;
-		mswitches[n_mswitches].rep_len = 0;
-		n_mswitches++;
-		break;
-	      }
-	}
+	if (switches[i].live_cond != SWITCH_IGNORE)
+	  {
+	    int xlen = strlen (switches[i].part1);
+	    for (j = 0; j < cnt; j++)
+	      if (xlen == matches[j].len
+		  && ! strncmp (switches[i].part1, matches[j].str, xlen))
+		{
+		  mswitches[n_mswitches].str = matches[j].replace;
+		  mswitches[n_mswitches].len = matches[j].rep_len;
+		  mswitches[n_mswitches].replace = (char *) 0;
+		  mswitches[n_mswitches].rep_len = 0;
+		  n_mswitches++;
+		  break;
+		}
+	  }
 
       /* Add MULTILIB_DEFAULTS switches too, as long as they were not present
 	 on the command line nor any options mutually incompatible with

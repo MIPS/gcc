@@ -197,7 +197,7 @@ DJ Delorie for the DJGPP port, build and libiberty maintenance, and
 various bug fixes.
 
 @item
-Gabriel Dos Reis for contributions to g++, contributions and
+Gabriel Dos Reis for contributions to G++, contributions and
 maintenance of GCC diagnostics infrastructure, libstdc++-v3,
 including valarray<>, complex<>, maintaining the numerics library
 (including that pesky <limits> :-) and keeping up-to-date anything
@@ -319,7 +319,7 @@ fixes.
 Dara Hazeghi for wading through myriads of target-specific bug reports.
 
 @item
-Kate Hedstrom for staking the g77 folks with an initial testsuite.
+Kate Hedstrom for staking the G77 folks with an initial testsuite.
 
 @item
 Richard Henderson for his ongoing SPARC, alpha, ia32, and ia64 work, loop
@@ -401,7 +401,7 @@ Geoffrey Keating for his ongoing work to make the PPC work for GNU/Linux
 and his automatic regression tester.
 
 @item
-Brendan Kehoe for his ongoing work with g++ and for a lot of early work
+Brendan Kehoe for his ongoing work with G++ and for a lot of early work
 in just about every part of libstdc++.
 
 @item
@@ -437,7 +437,7 @@ Thomas Koenig for various bug fixes.
 Bruce Korb for the new and improved fixincludes code.
 
 @item
-Benjamin Kosnik for his g++ work and for leading the libstdc++-v3 effort.
+Benjamin Kosnik for his G++ work and for leading the libstdc++-v3 effort.
 
 @item
 Charles LaBrec contributed the support for the Integrated Solutions
@@ -527,7 +527,7 @@ powerpc, haifa, ECOFF debug support, and other assorted hacking.
 
 @item
 Jason Merrill for his direction via the steering committee and leading
-the g++ effort.
+the G++ effort.
 
 @item
 David Miller for his direction via the steering committee, lots of
@@ -690,6 +690,11 @@ Craig Rodrigues for processing tons of bug reports.
 Gavin Romig-Koch for lots of behind the scenes MIPS work.
 
 @item
+David Ronis inspired and encouraged Craig to rewrite the G77
+documentation in texinfo format by contributing a first pass at a
+translation of the old @file{g77-0.5.16/f/DOC} file.
+
+@item
 Ken Rose for fixes to our delay slot filling code.
 
 @item
@@ -772,13 +777,15 @@ Randy Smith finished the Sun FPA support.
 
 @item
 Scott Snyder for queue, iterator, istream, and string fixes and libstdc++
-testsuite entries.
+testsuite entries.  Also for providing the patch to G77 to add
+rudimentary support for @code{INTEGER*1}, @code{INTEGER*2}, and
+@code{LOGICAL*1}.
 
 @item
 Brad Spencer for contributions to the GLIBCPP_FORCE_NEW technique.
 
 @item
-Richard Stallman, for writing the original gcc and launching the GNU project.
+Richard Stallman, for writing the original GCC and launching the GNU project.
 
 @item
 Jan Stein of the Chalmers Computer Society provided support for
@@ -797,7 +804,7 @@ Graham Stott for various infrastructure improvements.
 John Stracke for his Java HTTP protocol fixes.
 
 @item
-Mike Stump for his Elxsi port, g++ contributions over the years and more
+Mike Stump for his Elxsi port, G++ contributions over the years and more
 recently his vxworks contributions
 
 @item
@@ -970,6 +977,9 @@ Sidney Cadot
 Bradford Castalia
 
 @item
+Jonathan Corbet
+
+@item
 Ralph Doncaster
 
 @item
@@ -980,6 +990,9 @@ Levente Farkas
 
 @item
 Graham Fawcett
+
+@item
+Mark Fernyhough
 
 @item
 Robert A. French
@@ -1018,6 +1031,9 @@ Phil Hargett
 Amancio Hasty
 
 @item
+Takafumi Hayashi
+
+@item
 Bryan W. Headley
 
 @item
@@ -1030,6 +1046,9 @@ Joep Jansen
 Christian Joensson
 
 @item
+Michel Kern
+
+@item
 David Kidd
 
 @item
@@ -1037,6 +1056,9 @@ Tobias Kuipers
 
 @item
 Anand Krishnaswamy
+
+@item
+A. O. V. Le Blanc
 
 @item
 llewelly
@@ -1054,6 +1076,9 @@ Matthias Klose
 Martin Knoblauch
 
 @item
+Rick Lutowski
+
+@item
 Jesse Macnish
 
 @item
@@ -1069,6 +1094,9 @@ Matthias Mueller
 Pekka Nikander
 
 @item
+Rick Niles
+
+@item
 Jon Olson
 
 @item
@@ -1079,6 +1107,9 @@ Chris Pollard
 
 @item
 Richard Polton
+
+@item
+Derk Reefman
 
 @item
 David Rees
@@ -1099,6 +1130,9 @@ Danny Sadinoff
 Marc Schifer
 
 @item
+Wayne K. Schroll
+
+@item
 David Schuler
 
 @item
@@ -1111,10 +1145,19 @@ Tim Souder
 Adam Sulmicki
 
 @item
+Bill Thorson
+
+@item
 George Talbot
 
 @item
+Pedro A. M. Vazquez
+
+@item
 Gregory Warnes
+
+@item
+Ian Watson
 
 @item
 David E. Young

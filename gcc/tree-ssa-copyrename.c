@@ -30,7 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "bitmap.h"
 #include "tree-flow.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-inline.h"
 #include "timevar.h"
 #include "tree-alias-common.h"
@@ -108,8 +108,8 @@ extern void rename_ssa_copies (void);
    and so we still retain the user variable whenever possible.  */
 
 
-/* Coalesce two partitions if appropriate, and choose an appropriate 
-   representative.  */
+/* Coalesce the partitions in MAP representing VAR1 and VAR2 if it is valid.
+   Choose a representative for the partition, and send debug info to DEBUG.  */
 
 static void
 copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
@@ -146,6 +146,20 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 
   root1 = SSA_NAME_VAR (partition_to_var (map, p1));
   root2 = SSA_NAME_VAR (partition_to_var (map, p2));
+
+  if (DECL_HARD_REGISTER (root1) || DECL_HARD_REGISTER (root2))
+    {
+      if (debug)
+        {
+	  if (DECL_HARD_REGISTER (root1))
+	    print_generic_expr (debug, var1, TDF_SLIM);
+	  else
+	    print_generic_expr (debug, var2, TDF_SLIM);
+	  fprintf (debug, " is a hardware register.  No Coalescing.\n");
+	}
+      return;
+    }
+
   ann1 = var_ann (root1);
   ann2 = var_ann (root2);
 
@@ -176,12 +190,21 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
   gimp1 = is_gimple_tmp_var (root1);
   gimp2 = is_gimple_tmp_var (root2);
 
-  /* Never attempt to coalesce 2 user variables.  */
+  /* Never attempt to coalesce 2 user variables unless one is an inline 
+     variable.  */
   if (!gimp1 && !gimp2)
     {
-      if (debug)
-        fprintf (debug, " : 2 different USER vars. No coalesce.\n");
-      return;
+      if (DECL_FROM_INLINE (root2))
+        gimp2 = true;
+      else
+        if (DECL_FROM_INLINE (root1))
+	  gimp1 = true;
+	else 
+	  {
+	    if (debug)
+	      fprintf (debug, " : 2 different USER vars. No coalesce.\n");
+	    return;
+	  }
     }
 
     
@@ -220,7 +243,8 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
   /* Merge the two partitions.  */
   p3 = partition_union (map->var_partition, p1, p2);
 
-  /* Set the root variable of the partition to the better choice.  */
+  /* Set the root variable of the partition to the better choice, if there is 
+     one.  */
   if (!gimp2)
     SSA_NAME_VAR (partition_to_var (map, p3)) = root2;
   else
@@ -246,7 +270,7 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 
 /* This function will make a pass through the IL, and attempt to coalesce any
    SSA versions which occur in PHI's or copies.  Coalescing is accomplished by
-   changing the underlying root variable of all coalesced version. This will 
+   changing the underlying root variable of all coalesced version.  This will 
    then cause the SSA->normal pass to attempt to coalesce them all to the same 
    variable.  */
 
@@ -269,6 +293,25 @@ rename_ssa_copies (void)
 
   FOR_EACH_BB (bb)
     {
+      /* Scan for real copies.  */
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  stmt = bsi_stmt (bsi); 
+	  if (TREE_CODE (stmt) == MODIFY_EXPR)
+	    {
+	      tree lhs = TREE_OPERAND (stmt, 0);
+	      tree rhs = TREE_OPERAND (stmt, 1);
+
+              if (TREE_CODE (lhs) == SSA_NAME
+		  && !has_hidden_use (SSA_NAME_VAR (lhs))
+		  && TREE_CODE (rhs) == SSA_NAME)
+		copy_rename_partition_coalesce (map, lhs, rhs, debug);
+	    }
+	}
+    }
+
+  FOR_EACH_BB (bb)
+    {
       /* Treat PHI nodes as copies between the result and each argument.  */
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
         {
@@ -288,22 +331,6 @@ rename_ssa_copies (void)
 		copy_rename_partition_coalesce (map, res, arg, debug);
             }
         }
-
-      /* Scan for real copies.  */
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	{
-	  stmt = bsi_stmt (bsi); 
-	  if (TREE_CODE (stmt) == MODIFY_EXPR)
-	    {
-	      tree lhs = TREE_OPERAND (stmt, 0);
-	      tree rhs = TREE_OPERAND (stmt, 1);
-
-              if (TREE_CODE (lhs) == SSA_NAME
-		  && !has_hidden_use (SSA_NAME_VAR (lhs))
-		  && TREE_CODE (rhs) == SSA_NAME)
-		copy_rename_partition_coalesce (map, lhs, rhs, debug);
-	    }
-	}
     }
 
   if (debug)

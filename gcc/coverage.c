@@ -176,8 +176,8 @@ read_counts_file (void)
       GCOV_UNSIGNED2STRING (v, tag);
       GCOV_UNSIGNED2STRING (e, GCOV_VERSION);
 
-      warning ("`%s' is version `%.4s', expected version `%.4s'",
- 	       da_file_name, v, e);
+      warning ("`%s' is version `%.*s', expected version `%.*s'",
+ 	       da_file_name, 4, v, 4, e);
       gcov_close ();
       return;
     }
@@ -596,7 +596,7 @@ coverage_end_function (void)
 static tree
 build_fn_info_type (unsigned int counters)
 {
-  tree type = (*lang_hooks.types.make_type) (RECORD_TYPE);
+  tree type = lang_hooks.types.make_type (RECORD_TYPE);
   tree field, fields;
   tree array_type;
 
@@ -670,7 +670,7 @@ build_fn_info_value (const struct function_list *function, tree type)
 static tree
 build_ctr_info_type (void)
 {
-  tree type = (*lang_hooks.types.make_type) (RECORD_TYPE);
+  tree type = lang_hooks.types.make_type (RECORD_TYPE);
   tree field, fields = NULL_TREE;
   tree gcov_ptr_type = build_pointer_type (GCOV_TYPE_NODE);
   tree gcov_merge_fn_type;
@@ -781,7 +781,7 @@ build_gcov_info (void)
     if (prg_ctr_mask & (1 << ix))
       n_ctr_types++;
 
-  type = (*lang_hooks.types.make_type) (RECORD_TYPE);
+  type = lang_hooks.types.make_type (RECORD_TYPE);
   const_type = build_qualified_type (type, TYPE_QUAL_CONST);
 
   /* Version ident */
@@ -939,7 +939,6 @@ create_coverage (void)
   DECL_RESULT (ctor) = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
   DECL_UNINLINABLE (ctor) = 1;
 
-  ctor = (*lang_hooks.decls.pushdecl) (ctor);
   rest_of_decl_compilation (ctor, 0, 1, 0);
   announce_function (ctor);
   current_function_decl = ctor;
@@ -963,8 +962,8 @@ create_coverage (void)
   current_function_decl = NULL_TREE;
 
   if (targetm.have_ctors_dtors)
-    (* targetm.asm_out.constructor) (XEXP (DECL_RTL (ctor), 0),
-				     DEFAULT_INIT_PRIORITY);
+    targetm.asm_out.constructor (XEXP (DECL_RTL (ctor), 0),
+				 DEFAULT_INIT_PRIORITY);
 }
 
 /* Perform file-level initialization. Read in data file, generate name

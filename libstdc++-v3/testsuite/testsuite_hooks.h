@@ -1,7 +1,7 @@
 // -*- C++ -*-
 // Utility subroutines for the C++ library testsuite. 
 //
-// Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -39,7 +39,7 @@
 //   set_memory_limits() uses setrlimit() to restrict dynamic memory
 //   allocation.  We provide a default memory limit if none is passed by the
 //   calling application.  The argument to set_memory_limits() is the
-//   limit in megabytes (a floating-point number).  If _GLIBCXX_MEM_LIMITS is
+//   limit in megabytes (a floating-point number).  If _GLIBCXX_RES_LIMITS is
 //   not #defined before including this header, then no limiting is attempted.
 //
 // 3)  counter
@@ -86,7 +86,7 @@ namespace __gnu_test
   // from c++config.h
 
   // Set memory limits if possible, if not set to 0.
-#ifndef _GLIBCXX_MEM_LIMITS
+#ifndef _GLIBCXX_RES_LIMITS
 #  define MEMLIMIT_MB 0
 #else
 # ifndef MEMLIMIT_MB
@@ -96,11 +96,12 @@ namespace __gnu_test
   extern void
   set_memory_limits(float __size = MEMLIMIT_MB);
 
+  extern void
+  set_file_limit(unsigned long __size);
 
   // Check mangled name demangles (using __cxa_demangle) as expected.
   void
   verify_demangle(const char* mangled, const char* wanted);
-
 
   // Simple callback structure for variable numbers of tests (all with
   // same signature).  Assume all unit tests are of the signature
@@ -113,7 +114,12 @@ namespace __gnu_test
   private:
     int		_M_size;
     test_type	_M_tests[15];
-    
+
+    func_callback&
+    operator=(const func_callback&);
+
+    func_callback(const func_callback&);
+
   public:
     func_callback(): _M_size(0) { };
 
@@ -339,6 +345,24 @@ namespace __gnu_test
   inline bool
   operator==(const copy_tracker& lhs, const copy_tracker& rhs)
   { return lhs.id() == rhs.id(); }
+
+  // Class for checking required type conversions, implicit and
+  // explicit for given library data structures. 
+  template<typename _Container>
+    struct conversion
+    {
+      typedef typename _Container::const_iterator const_iterator;
+      
+      // Implicit conversion iterator to const_iterator.
+      static const_iterator
+      iterator_to_const_iterator()
+      {
+	_Container v;
+	const_iterator it = v.begin();
+	const_iterator end = v.end();
+	return it == end ? v.end() : it;
+      }
+    };
 } // namespace __gnu_test
 
 namespace std

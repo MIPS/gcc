@@ -232,7 +232,7 @@ lookup_base_r (tree binfo, tree base, base_access access,
 }
 
 /* Returns true if type BASE is accessible in T.  (BASE is known to be
-   a base class of T.)  */
+   a (possibly non-proper) base class of T.)  */
 
 bool
 accessible_base_p (tree t, tree base)
@@ -242,7 +242,12 @@ accessible_base_p (tree t, tree base)
   /* [class.access.base]
 
      A base class is said to be accessible if an invented public
-     member of the base class is accessible.  */
+     member of the base class is accessible.  
+
+     If BASE is a non-proper base, this condition is trivially
+     true.  */
+  if (same_type_p (t, base))
+    return true;
   /* Rather than inventing a public member, we use the implicit
      public typedef created in the scope of every class.  */
   decl = TYPE_FIELDS (base);
@@ -1703,7 +1708,10 @@ check_final_overrider (tree overrider, tree basefn)
   tree over_throw = TYPE_RAISES_EXCEPTIONS (over_type);
   tree base_throw = TYPE_RAISES_EXCEPTIONS (base_type);
   int fail = 0;
-  
+
+  if (DECL_INVALID_OVERRIDER_P (overrider))
+    return 0;
+
   if (same_type_p (base_return, over_return))
     /* OK */;
   else if ((CLASS_TYPE_P (over_return) && CLASS_TYPE_P (base_return))
@@ -1753,8 +1761,6 @@ check_final_overrider (tree overrider, tree basefn)
     fail = 2;
   if (!fail)
     /* OK */;
-  else if (IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (overrider)))
-    return 0;
   else
     {
       if (fail == 1)
@@ -1768,21 +1774,16 @@ check_final_overrider (tree overrider, tree basefn)
 		       overrider);
 	  cp_error_at ("  overriding `%#D'", basefn);
 	}
-      SET_IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (overrider),
-                                  DECL_CONTEXT (overrider));
+      DECL_INVALID_OVERRIDER_P (overrider) = 1;
       return 0;
     }
   
   /* Check throw specifier is at least as strict.  */
   if (!comp_except_specs (base_throw, over_throw, 0))
     {
-      if (!IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (overrider)))
-	{
-	  cp_error_at ("looser throw specifier for `%#F'", overrider);
-	  cp_error_at ("  overriding `%#F'", basefn);
-	  SET_IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (overrider),
-				      DECL_CONTEXT (overrider));
-	}
+      cp_error_at ("looser throw specifier for `%#F'", overrider);
+      cp_error_at ("  overriding `%#F'", basefn);
+      DECL_INVALID_OVERRIDER_P (overrider) = 1;
       return 0;
     }
   
@@ -2253,7 +2254,18 @@ dfs_unuse_fields (tree binfo, void *data ATTRIBUTE_UNUSED)
   tree type = TREE_TYPE (binfo);
   tree fields;
 
-  for (fields = TYPE_FIELDS (type); fields; fields = TREE_CHAIN (fields))
+  if (TREE_CODE (type) == TYPENAME_TYPE)
+    fields = TYPENAME_TYPE_FULLNAME (type);
+  else if (TREE_CODE (type) == TYPEOF_TYPE)
+    fields = TYPEOF_TYPE_EXPR (type);
+  else if (TREE_CODE (type) == TEMPLATE_TYPE_PARM
+	   || TREE_CODE (type) == TEMPLATE_TEMPLATE_PARM
+	   || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
+    fields = TEMPLATE_TYPE_PARM_INDEX (type);
+  else
+    fields = TYPE_FIELDS (type);
+
+  for (; fields; fields = TREE_CHAIN (fields))
     {
       if (TREE_CODE (fields) != FIELD_DECL || DECL_ARTIFICIAL (fields))
 	continue;

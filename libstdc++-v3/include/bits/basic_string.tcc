@@ -91,7 +91,7 @@ namespace std
 	if (__beg == __end && __a == _Alloc())
 	  return _S_empty_rep()._M_refdata();
 	// Avoid reallocation for common case.
-	_CharT __buf[100];
+	_CharT __buf[128];
 	size_type __len = 0;
 	while (__beg != __end && __len < sizeof(__buf) / sizeof(_CharT))
 	  {
@@ -178,8 +178,9 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>::
     basic_string(const basic_string& __str)
-    : _M_dataplus(__str._M_rep()->_M_grab(_Alloc(), __str.get_allocator()),
-		 __str.get_allocator())
+    : _M_dataplus(__str._M_rep()->_M_grab(_Alloc(__str.get_allocator()),
+					  __str.get_allocator()),
+		  __str.get_allocator())
     { }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -382,7 +383,6 @@ namespace std
     {
       const size_type __old_size = this->size();
       const size_type __new_size = __old_size + __len2 - __len1;
-      const _CharT*        __src = _M_data()  + __pos + __len1;
       const size_type __how_much = __old_size - __pos - __len1;
 
       if (_M_rep() == &_S_empty_rep()
@@ -396,7 +396,7 @@ namespace std
 	    traits_type::copy(__r->_M_refdata(), _M_data(), __pos);
 	  if (__how_much)
 	    traits_type::copy(__r->_M_refdata() + __pos + __len2,
-			      __src, __how_much);
+			      _M_data() + __pos + __len1, __how_much);
 
 	  _M_rep()->_M_dispose(__a);
 	  _M_data(__r->_M_refdata());
@@ -404,7 +404,8 @@ namespace std
       else if (__how_much && __len1 != __len2)
 	{
 	  // Work in-place
-	  traits_type::move(_M_data() + __pos + __len2, __src, __how_much);
+	  traits_type::move(_M_data() + __pos + __len2,
+			    _M_data() + __pos + __len1, __how_much);
 	}
       _M_rep()->_M_set_sharable();
       _M_rep()->_M_length = __new_size;

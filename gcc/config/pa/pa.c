@@ -1505,7 +1505,7 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
      We have to do this because the REG_POINTER flag is not correctly
      carried through various optimization passes and CSE may substitute
      a pseudo without the pointer set for one with the pointer set.  As
-     a result, we loose various opportunites to create insns with
+     a result, we loose various opportunities to create insns with
      unscaled indexed addresses.  */
   if (!TARGET_NO_SPACE_REGS
       && !cse_not_expected
@@ -2189,7 +2189,7 @@ read_only_operand (rtx operand, enum machine_mode mode ATTRIBUTE_UNUSED)
 
 
 /* Return the best assembler insn template
-   for moving operands[1] into operands[0] as a fullword.   */
+   for moving operands[1] into operands[0] as a fullword.  */
 const char *
 singlemove_string (rtx *operands)
 {
@@ -2652,7 +2652,7 @@ find_addr_reg (rtx addr)
    OPERANDS[3] is a register for temporary storage.
    OPERANDS[4] is the size as a CONST_INT
    OPERANDS[5] is the alignment safe to use, as a CONST_INT.
-   OPERANDS[6] is another temporary register.   */
+   OPERANDS[6] is another temporary register.  */
 
 const char *
 output_block_move (rtx *operands, int size_is_constant ATTRIBUTE_UNUSED)
@@ -3139,7 +3139,7 @@ output_ascii (FILE *file, const char *p, int size)
 {
   int i;
   int chars_output;
-  unsigned char partial_output[16];	/* Max space 4 chars can occupy.   */
+  unsigned char partial_output[16];	/* Max space 4 chars can occupy.  */
 
   /* The HP assembler can only take strings of 256 characters at one
      time.  This is a limitation on input line length, *not* the
@@ -6722,7 +6722,7 @@ output_dbra (rtx *operands, rtx insn, int which_alternative)
   else
     {
       /* Reload loop counter from memory, the store back to memory
-	 happens in the branch's delay slot.   */
+	 happens in the branch's delay slot.  */
       output_asm_insn ("ldw %0,%4", operands);
       if (get_attr_length (insn) == 12)
 	return "addib,%C2 %1,%4,%3\n\tstw %4,%0";
@@ -6825,7 +6825,7 @@ output_movb (rtx *operands, rtx insn, int which_alternative,
   else if (which_alternative == 2)
     {
       /* Reload loop counter from memory, the store back to memory
-	 happens in the branch's delay slot.   */
+	 happens in the branch's delay slot.  */
       if (get_attr_length (insn) == 8)
 	return "{comb|cmpb},%S2 %%r0,%1,%3\n\tstw %1,%0";
       else
@@ -8416,7 +8416,7 @@ pa_reorg (void)
 	 markers disables output of the branch table to readonly memory,
 	 and any alignment directives that might be needed.  Possibly,
 	 the begin_brtab insn should be output before the label for the
-	 table.  This doesn matter at the moment since the tables are
+	 table.  This doesn't matter at the moment since the tables are
 	 always output in the text section.  */
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	{

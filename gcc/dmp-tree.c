@@ -625,9 +625,6 @@ print_decl (file, annotation, node, indent)
 #endif
       if (DECL_WEAK (node))
         fputs (" weak", file);
-      /* APPLE LOCAL coalescing */
-      if (DECL_COALESCED (node))
-	fputs (" coal", file);
       /* APPLE LOCAL begin weak_import (Radar 2809704) ilr */
       if (DECL_WEAK_IMPORT (node))
 	fputs (" weak_import", file);

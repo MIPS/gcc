@@ -1,5 +1,5 @@
 /* Timer.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -42,7 +42,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.Serializable;
 import java.util.EventListener;
-import java.util.Vector;
+
 import javax.swing.event.EventListenerList;
 
 public class Timer implements Serializable
@@ -136,7 +136,6 @@ public class Timer implements Serializable
     return verbose;
   }
     
-
   public void setDelay(int delay)
   {
     interval = delay;
@@ -146,7 +145,6 @@ public class Timer implements Serializable
   {
     return (int)interval;
   }
-
 
   public void setInitialDelay(int initialDelay)
   {
@@ -158,12 +156,12 @@ public class Timer implements Serializable
     repeat_ticks = flag;
   }
 
-  boolean isRunning()
+  public boolean isRunning()
   {
     return running;
   }
 
-  void start()
+  public void start()
   {
     if (isRunning())
       {
@@ -173,7 +171,7 @@ public class Timer implements Serializable
     new Waker().start();
   }
 
-  void stop()
+  public void stop()
   {
     running = false;
   }

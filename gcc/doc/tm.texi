@@ -1071,26 +1071,28 @@ sign-extend the result to 64 bits.  On such machines, set
 Do not define this macro if it would never modify @var{m}.
 @end defmac
 
+@defmac PROMOTE_FUNCTION_MODE
+Like @code{PROMOTE_MODE}, but is applied to outgoing function arguments or
+function return values, as specified by @code{TARGET_PROMOTE_FUNCTION_ARGS}
+and @code{TARGET_PROMOTE_FUNCTION_RETURN}, respectively.
+
+The default is @code{PROMOTE_MODE}.
+@end defmac
+
 @deftypefn {Target Hook} bool TARGET_PROMOTE_FUNCTION_ARGS (tree @var{fntype})
 This target hook should return @code{true} if the promotion described by
-@code{PROMOTE_MODE} should also be done for outgoing function arguments.
+@code{PROMOTE_FUNCTION_MODE} should be done for outgoing function
+arguments.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_PROMOTE_FUNCTION_RETURN (tree @var{fntype})
 This target hook should return @code{true} if the promotion described by
-@code{PROMOTE_MODE} should also be done for the return value of
+@code{PROMOTE_FUNCTION_MODE} should be done for the return value of
 functions.
 
 If this target hook returns @code{true}, @code{FUNCTION_VALUE} must
-perform the same promotions done by @code{PROMOTE_MODE}.
+perform the same promotions done by @code{PROMOTE_FUNCTON_MODE}.
 @end deftypefn
-
-@defmac PROMOTE_FOR_CALL_ONLY
-Define this macro if the promotion described by @code{PROMOTE_MODE}
-should @emph{only} be performed for outgoing function arguments or
-function return values, as specified by @code{TARGET_PROMOTE_FUNCTION_ARGS}
-and @code{TARGET_PROMOTE_FUNCTION_RETURN}, respectively.
-@end defmac
 
 @defmac PARM_BOUNDARY
 Normal alignment required for function parameters on the stack, in
@@ -1298,6 +1300,13 @@ get from @code{PCC_BITFIELD_TYPE_MATTERS}.
 Like @code{PCC_BITFIELD_TYPE_MATTERS} except that its effect is limited
 to aligning a bit-field within the structure.
 @end defmac
+
+@deftypefn {Target Hook} bool TARGET_ALIGN_ANON_BITFIELDS (void)
+When @code{PCC_BITFIELD_TYPE_MATTERS} is true this hook will determine
+whether unnamed bitfields affect the alignment of the containing
+structure.  The hook should return true if the structure should inherit
+the alignment requirements of an unnamed bitfield's type.
+@end deftypefn
 
 @defmac MEMBER_TYPE_FORCES_BLK (@var{field}, @var{mode})
 Return 1 if a structure or array containing @var{field} should be accessed using
@@ -1512,6 +1521,34 @@ the latter will take precedence. If @samp{__attribute__((packed))} is
 used on a single field when MS bit-fields are in use, it will take
 precedence for that field, but the alignment of the rest of the structure
 may affect its placement.
+@end deftypefn
+
+@deftypefn {Target Hook} {const char *} TARGET_MANGLE_FUNDAMENTAL_TYPE (tree @var{type})
+If your target defines any fundamental types, define this hook to
+return the appropriate encoding for these types as part of a C++
+mangled name.  The @var{type} argument is the tree structure
+representing the type to be mangled.  The hook may be applied to trees
+which are not target-specific fundamental types; it should return
+@code{NULL} for all such types, as well as arguments it does not
+recognize.  If the return value is not @code{NULL}, it must point to
+a statically-allocated string constant.
+
+Target-specific fundamental types might be new fundamental types or
+qualified versions of ordinary fundamental types.  Encode new
+fundamental types as @samp{@w{u @var{n} @var{name}}}, where @var{name}
+is the name used for the type in source code, and @var{n} is the
+length of @var{name} in decimal.  Encode qualified versions of
+ordinary types as @samp{@w{U @var{n} @var{name} @var{code}}}, where
+@var{name} is the name used for the type qualifier in source code,
+@var{n} is the length of @var{name} as above, and @var{code} is the
+code used to represent the unqualified version of this type.  (See
+@code{write_builtin_type} in @file{cp/mangle.c} for the list of
+codes.)  In both cases the spaces are for clarity; do not include any
+spaces in your string.
+
+The default version of this hook always returns @code{NULL}, which is
+appropriate for a target that does not define any new fundamental
+types.
 @end deftypefn
 
 @node Type Layout
@@ -1757,13 +1794,16 @@ of words in each data entry.
 @section Target Character Escape Sequences
 @cindex escape sequences
 
-By default, GCC assumes that the C character escape sequences take on
-their ASCII values for the target.  If this is not correct, you must
-explicitly define all of the macros below.  All of them must evaluate
-to constants; they are used in @code{case} statements.
+By default, GCC assumes that the C character escape sequences and other
+characters take on their ASCII values for the target.  If this is not
+correct, you must explicitly define all of the macros below.  All of
+them must evaluate to constants; they are used in @code{case}
+statements.
 
 @findex TARGET_BELL
+@findex TARGET_BS
 @findex TARGET_CR
+@findex TARGET_DIGIT0
 @findex TARGET_ESC
 @findex TARGET_FF
 @findex TARGET_NEWLINE
@@ -1772,7 +1812,9 @@ to constants; they are used in @code{case} statements.
 @multitable {@code{TARGET_NEWLINE}} {Escape} {ASCII character}
 @item Macro                 @tab Escape             @tab ASCII character
 @item @code{TARGET_BELL}    @tab @kbd{\a}           @tab @code{07}, @code{BEL}
+@item @code{TARGET_BS}      @tab @kbd{\b}           @tab @code{08}, @code{BS}
 @item @code{TARGET_CR}      @tab @kbd{\r}           @tab @code{0D}, @code{CR}
+@item @code{TARGET_DIGIT0}  @tab @kbd{0}            @tab @code{30}, @code{ZERO}
 @item @code{TARGET_ESC}     @tab @kbd{\e}, @kbd{\E} @tab @code{1B}, @code{ESC}
 @item @code{TARGET_FF}      @tab @kbd{\f}           @tab @code{0C}, @code{FF}
 @item @code{TARGET_NEWLINE} @tab @kbd{\n}           @tab @code{0A}, @code{LF}
@@ -2009,6 +2051,15 @@ definition of this macro is
    ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1)  \
     / UNITS_PER_WORD)
 @end smallexample
+@end defmac
+
+@defmac REGMODE_NATURAL_SIZE (@var{mode})
+Define this macro if the natural size of registers that hold values
+of mode @var{mode} is not the word size.  It is a C expression that
+should give the natural size in bytes for the specified mode.  It is
+used by the register allocator to try to optimize its results.  This
+happens for example on SPARC 64-bit where the natural size of
+floating-point registers is still 32-bit.
 @end defmac
 
 @defmac HARD_REGNO_MODE_OK (@var{regno}, @var{mode})
@@ -3063,6 +3114,12 @@ for the abi and context in the @code{.unwabi} directive.  If the
 be updated in @var{fs}.
 @end defmac
 
+@defmac TARGET_USES_WEAK_UNWIND_INFO
+A C expression that evaluates to true if the target requires unwind
+info to be given comdat linkage.  Define it to be @code{1} if comdat
+linkage is necessary.  The default is @code{0}.
+@end defmac
+
 @node Stack Checking
 @subsection Specifying How Stack Checking is Done
 
@@ -3284,7 +3341,7 @@ See the PowerPC's SPE target for an example.
 
 Define this macro if the target's representation for dwarf registers
 used in .eh_frame or .debug_frame is different from that used in other
-debug info sections.  Given a gcc hard register number, this macro
+debug info sections.  Given a GCC hard register number, this macro
 should return the .eh_frame register number.  The default is
 @code{DBX_REGISTER_NUMBER (@var{regno})}.
 
@@ -3293,7 +3350,7 @@ should return the .eh_frame register number.  The default is
 @defmac DWARF2_FRAME_REG_OUT (@var{regno}, @var{for_eh})
 
 Define this macro to map register numbers held in the call frame info
-that gcc has collected using @code{DWARF_FRAME_REGNUM} to those that
+that GCC has collected using @code{DWARF_FRAME_REGNUM} to those that
 should be output in .debug_frame (@code{@var{for_eh}} is zero) and
 .eh_frame (@code{@var{for_eh}} is nonzero).  The default is to 
 return @code{@var{regno}}.
@@ -3794,16 +3851,18 @@ used for this purpose since all function arguments are pushed on the
 stack.
 @end defmac
 
-@defmac SPLIT_COMPLEX_ARGS
+@deftypefn {Target Hook} bool TARGET_SPLIT_COMPLEX_ARG (tree @var{type})
+This hook should return true if parameter of type @var{type} are passed
+as two scalar parameters.  By default, GCC will attempt to pack complex
+arguments into the target's word size.  Some ABIs require complex arguments
+to be split and treated as their individual components.  For example, on
+AIX64, complex floats should be passed in a pair of floating point
+registers, even though a complex float would fit in one 64-bit floating
+point register.
 
-Define this macro to a nonzero value if complex function arguments
-should be split into their corresponding components.  By default, GCC
-will attempt to pack complex arguments into the target's word size.
-Some ABIs require complex arguments to be split and treated as their
-individual components.  For example, on AIX64, complex floats should
-be passed in a pair of floating point registers, even though a complex
-float would fit in one 64-bit floating point register.
-@end defmac
+The default value of this hook is @code{NULL}, which is treated as always
+false.
+@end deftypefn
 
 @node Scalar Return
 @subsection How Scalar Function Values Are Returned
@@ -4642,7 +4701,7 @@ Here is an explanation of implicit calls to library routines.
 @defmac DECLARE_LIBRARY_RENAMES
 This macro, if defined, should expand to a piece of C code that will get
 expanded when compiling functions for libgcc.a.  It can be used to
-provide alternate names for gcc's internal library functions if there
+provide alternate names for GCC's internal library functions if there
 are ABI-mandated names that the compiler should provide.
 @end defmac
 
@@ -5370,12 +5429,6 @@ Define this macro if it is as good or better to call a constant
 function address than to call an address kept in a register.
 @end defmac
 
-@defmac NO_RECURSIVE_FUNCTION_CSE
-Define this macro if it is as good or better for a function to call
-itself with an explicit address than to call an address kept in a
-register.
-@end defmac
-
 @defmac RANGE_TEST_NON_SHORT_CIRCUIT
 Define this macro if a non-short-circuit operation produced by
 @samp{fold_range_test ()} is optimal.  This macro defaults to true if
@@ -5397,7 +5450,13 @@ instructions.
 
 On entry to the hook, @code{*@var{total}} contains a default estimate
 for the cost of the expression.  The hook should modify this value as
-necessary.
+necessary.  Traditionally, the default costs are @code{COSTS_N_INSNS (5)}
+for multiplications, @code{COSTS_N_INSNS (7)} for division and modulus
+operations, and @code{COSTS_N_INSNS (1)} for all other operations.
+
+When optimizing for code size, i.e@. when @code{optimize_size} is
+non-zero, this target hook should be used to estimate the relative
+size cost of an expression, again relative to @code{COSTS_N_INSNS}.
 
 The hook returns true when all subexpressions of @var{x} have been
 processed, and false when @code{rtx_cost} should recurse.
@@ -6707,6 +6766,24 @@ commands that will make the symbol(s) associated with @var{decl} have
 hidden, protected or internal visibility as specified by @var{visibility}.
 @end deftypefn
 
+@defmac TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY
+A C expression that evaluates to true if the target's linker expects
+explicit template specializations, as well as implicit, to be given
+linkonce semantics.  The default is @code{1}.  The C++ ABI requires
+this macro to be nonzero.  Define this macro for targets where full
+C++ ABI compliance is impossible and where explicit and implicit 
+template specialization must be treated differently.
+@end defmac
+
+@defmac TARGET_SUPPORTS_HIDDEN
+A C expression that evaluates to true if the target supports hidden
+visibility.  By default this expression is true if and only if
+@code{HAS_GAS_HIDDEN} is defined.  Set this macro if the
+@code{HAS_GAS_HIDDEN} macro gives the wrong answer for this
+target.  (For example, if the target's mechanism for supporting
+hidden visibility is not the same as GAS's.)
+@end defmac
+
 @defmac ASM_OUTPUT_EXTERNAL (@var{stream}, @var{decl}, @var{name})
 A C statement (sans semicolon) to output to the stdio stream
 @var{stream} any text necessary for declaring the name of an external
@@ -7428,6 +7505,18 @@ of the preceding label.
 If this macro is not defined, nothing special is output at the end of
 the jump-table.
 @end defmac
+
+@deftypefn {Target Hook} void TARGET_ASM_EMIT_UNWIND_LABEL (@var{stream}, @var{decl}, @var{for_eh}, @var{empty})
+This target hook emits a label at the beginning of each FDE.  It
+should be defined on targets where FDEs need special labels, and it
+should write the appropriate label, for the FDE associated with the
+function declaration @var{decl}, to the stdio stream @var{stream}.
+The third argument, @var{for_eh}, is a boolean: true if this is for an
+exception table.  The fourth argument, @var{empty}, is a boolean:
+true if this is a placeholder label for an omitted FDE.
+
+The default is that FDEs are not given nonlocal labels.
+@end deftypefn
 
 @node Exception Region Output
 @subsection Assembler Commands for Exception Regions
@@ -8298,7 +8387,7 @@ target specific attribute attached to it, it will not be inlined.
 @cindex MIPS coprocessor-definition macros
 
 The MIPS specification allows MIPS implementations to have as many as 4
-coprocessors, each with as many as 32 private registers.  gcc supports
+coprocessors, each with as many as 32 private registers.  GCC supports
 accessing these registers and transferring values between the registers
 and memory using asm-ized variables.  For example:
 
@@ -9153,4 +9242,12 @@ This target hook should register special include paths for the target.
 The parameter @var{path} is the include to register.  On Darwin
 systems, this is used for Framework includes, which have semantics
 that are different from @option{-I}.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_USE_LOCAL_THUNK_ALIAS_P (tree @var{fndecl})
+This target hook returns @code{true} if it is safe to use a local alias
+for a virtual function @var{fndecl} when constructing thunks,
+@code{false} otherwise. By default, the hook returns @code{true} for all
+functions, if a target supports aliases (ie. defines
+@code{ASM_OUTPUT_DEF}), @code{false} otherwise,
 @end deftypefn

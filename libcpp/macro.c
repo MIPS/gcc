@@ -1098,6 +1098,13 @@ cpp_get_token (cpp_reader *pfile)
       if (!(node->flags & NODE_DISABLED))
 	{
 	  if (!pfile->state.prevent_expansion
+              /* APPLE LOCAL begin AltiVec */
+              /* Conditional macros require that a predicate be
+                 evaluated first.  */
+              && (!(node->flags & NODE_CONDITIONAL)
+                  || (pfile->cb.macro_to_expand
+                      && (node = pfile->cb.macro_to_expand (pfile, result))))
+              /* APPLE LOCAL end AltiVec */
 	      && enter_macro_context (pfile, node))
 	    {
 	      if (pfile->state.in_directive)
@@ -1142,19 +1149,33 @@ cpp_scan_nooutput (cpp_reader *pfile)
      transparently continuing with the including file.  */
   pfile->buffer->return_at_eof = true;
 
-  pfile->state.discarding_output++;
-  pfile->state.prevent_expansion++;
-
   if (CPP_OPTION (pfile, traditional))
     while (_cpp_read_logical_line_trad (pfile))
       ;
   else
     while (cpp_get_token (pfile)->type != CPP_EOF)
       ;
-
-  pfile->state.discarding_output--;
-  pfile->state.prevent_expansion--;
 }
+
+/* APPLE LOCAL begin AltiVec */
+/* Step back one or more tokens obtained from the lexer.  */
+void
+_cpp_backup_tokens_direct (cpp_reader *pfile, unsigned int count)
+{
+  pfile->lookaheads += count;
+  while (count--)
+    {
+      pfile->cur_token--;
+      if (pfile->cur_token == pfile->cur_run->base
+          /* Possible with -fpreprocessed and no leading #line.  */
+          && pfile->cur_run->prev != NULL)
+        {
+          pfile->cur_run = pfile->cur_run->prev;
+          pfile->cur_token = pfile->cur_run->limit;
+        }
+    }
+}
+/* APPLE LOCAL end AltiVec */
 
 /* Step back one (or more) tokens.  Can only step mack more than 1 if
    they are from the lexer, and not from macro expansion.  */
@@ -1162,20 +1183,8 @@ void
 _cpp_backup_tokens (cpp_reader *pfile, unsigned int count)
 {
   if (pfile->context->prev == NULL)
-    {
-      pfile->lookaheads += count;
-      while (count--)
-	{
-	  pfile->cur_token--;
-	  if (pfile->cur_token == pfile->cur_run->base
-	      /* Possible with -fpreprocessed and no leading #line.  */
-	      && pfile->cur_run->prev != NULL)
-	    {
-	      pfile->cur_run = pfile->cur_run->prev;
-	      pfile->cur_token = pfile->cur_run->limit;
-	    }
-	}
-    }
+    /* APPLE LOCAL AltiVec */
+    _cpp_backup_tokens_direct (pfile, count);
   else
     {
       if (count != 1)
@@ -1200,6 +1209,13 @@ warn_of_redefinition (cpp_reader *pfile, const cpp_hashnode *node,
   /* Some redefinitions need to be warned about regardless.  */
   if (node->flags & NODE_WARN)
     return true;
+
+  /* APPLE LOCAL begin AltiVec */
+  /* Redefinitions of conditional (context-sensitive) macros, on
+     the other hand, must be allowed silently.  */
+  if (node->flags & NODE_CONDITIONAL)
+    return false;
+  /* APPLE LOCAL end AltiVec */
 
   /* Redefinition of a macro is allowed if and only if the old and new
      definitions are the same.  (6.10.3 paragraph 2).  */

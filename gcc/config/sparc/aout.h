@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC, for SPARC using a.out.
-   Copyright (C) 1994, 1996, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1996, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com).
 
 This file is part of GCC.
@@ -29,7 +29,6 @@ Boston, MA 02111-1307, USA.  */
  (DEFAULT_WORD_SWITCH_TAKES_ARG (STR)				\
   || !strcmp (STR, "target") || !strcmp (STR, "assert"))
 
-#define TARGET_ASM_SELECT_SECTION  sparc_aout_select_section
 #define TARGET_ASM_SELECT_RTX_SECTION  sparc_aout_select_rtx_section
 
 /* Output the label for a function definition.  */
@@ -49,10 +48,7 @@ do {									\
 #define DATA_SECTION_ASM_OP "\t.data"
 
 /* This is how to output a note to DBX telling it the line number
-   to which the following sequence of instructions corresponds.
-
-   This is needed for SunOS 4.0, and should not hurt for 3.2
-   versions either.  */
+   to which the following sequence of instructions corresponds.  */
 #define ASM_OUTPUT_SOURCE_LINE(file, line, counter)	\
   fprintf (file, ".stabn 68,0,%d,LM%d\nLM%d:\n",	\
 	   line, counter, counter)

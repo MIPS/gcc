@@ -26,7 +26,6 @@
 
 with Csets;    use Csets;
 with Err_Vars; use Err_Vars;
-with Hostparm; use Hostparm;
 with Namet;    use Namet;
 with Opt;      use Opt;
 with Scans;    use Scans;
@@ -58,6 +57,9 @@ package body Scng is
    -----------------------
    -- Local Subprograms --
    -----------------------
+
+   procedure Accumulate_Token_Checksum;
+   pragma Inline (Accumulate_Token_Checksum);
 
    procedure Accumulate_Checksum (C : Character);
    pragma Inline (Accumulate_Checksum);
@@ -95,6 +97,17 @@ package body Scng is
       Accumulate_Checksum (Character'Val (C / 256));
       Accumulate_Checksum (Character'Val (C mod 256));
    end Accumulate_Checksum;
+
+   -------------------------------
+   -- Accumulate_Token_Checksum --
+   -------------------------------
+
+   procedure Accumulate_Token_Checksum is
+   begin
+      System.CRC32.Update
+        (System.CRC32.CRC32 (Checksum),
+         Character'Val (Token_Type'Pos (Token)));
+   end Accumulate_Token_Checksum;
 
    ----------------------------
    -- Determine_Token_Casing --
@@ -288,7 +301,14 @@ package body Scng is
          if Style_Check and Style_Check_Max_Line_Length then
             Style.Check_Line_Terminator (Len);
 
-         elsif Len > Hostparm.Max_Line_Length then
+         --  If style checking is inactive, check maximum line length against
+         --  standard value. Note that we take this from Opt.Max_Line_Length
+         --  rather than Hostparm.Max_Line_Length because we do not want to
+         --  impose any limit during scanning of configuration pragma files,
+         --  and Opt.Max_Line_Length (normally set to Hostparm.Max_Line_Length)
+         --  is reset to Column_Number'Max during scanning of such files.
+
+         elsif Len > Opt.Max_Line_Length then
             Error_Long_Line;
          end if;
       end Check_End_Of_Line;
@@ -345,7 +365,7 @@ package body Scng is
       begin
          Error_Msg
            ("this line is too long",
-            Current_Line_Start + Hostparm.Max_Line_Length);
+            Current_Line_Start + Source_Ptr (Opt.Max_Line_Length));
       end Error_Long_Line;
 
       -------------------------------
@@ -408,6 +428,7 @@ package body Scng is
          --  Procedure to scan integer literal. On entry, Scan_Ptr points to
          --  a digit, on exit Scan_Ptr points past the last character of
          --  the integer.
+         --
          --  For each digit encountered, UI_Int_Value is multiplied by 10,
          --  and the value of the digit added to the result. In addition,
          --  the value in Scale is decremented by one for each actual digit
@@ -444,7 +465,10 @@ package body Scng is
                C := Source (Scan_Ptr);
 
                if C = '_' then
-                  Accumulate_Checksum ('_');
+
+                  --  We do not accumulate the '_' in the checksum, so that
+                  --  1_234 is equivalent to 1234, and does not trigger
+                  --  compilation for "minimal recompilation" (gnatmake -m).
 
                   loop
                      Scan_Ptr := Scan_Ptr + 1;
@@ -706,6 +730,8 @@ package body Scng is
             end if;
 
          end if;
+
+         Accumulate_Token_Checksum;
 
          return;
 
@@ -2063,16 +2089,19 @@ package body Scng is
             --  of the corresponding keyword.
 
             Token_Name := No_Name;
+            Accumulate_Token_Checksum;
             return;
 
          --  It is an identifier after all
 
          else
             Token := Tok_Identifier;
+            Accumulate_Token_Checksum;
             Post_Scan;
             return;
          end if;
    end Scan;
+
    --------------------------
    -- Set_Comment_As_Token --
    --------------------------

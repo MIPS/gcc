@@ -191,7 +191,6 @@ package VMS_Data is
    -- Switches for GNAT BIND --
    ----------------------------
 
-
    S_Bind_Bind    : aliased constant S := "/BIND_FILE="                    &
                                             "ADA "                         &
                                                "-A "                       &
@@ -490,7 +489,6 @@ package VMS_Data is
                                             "!-b,!-v";
    --  NODOC (see /REPORT_ERRORS)
 
-
    S_Bind_Restr   : aliased constant S := "/RESTRICTION_LIST "             &
                                             "-r";
    --        /NORESTRICTION_LIST (D)
@@ -517,8 +515,8 @@ package VMS_Data is
    --   for a directory.
 
    S_Bind_Shared  : aliased constant S := "/SHARED "                       &
-                                            "-shared";
-   --        /SHARED (D)
+                                            "-shared,!-static";
+   --        /SHARED
    --        /NOSHARED
    --
    --    Link against a shared GNAT run time when available.
@@ -536,6 +534,13 @@ package VMS_Data is
    --        /SOURCE_SEARCH=(directory[,...])
    --
    --    When looking for source files also look in directories specified.
+
+   S_Bind_Static  : aliased constant S := "/STATIC "                       &
+                                            "-static,!-shared";
+   --        /STATIC
+   --        /NOSTATIC
+   --
+   --    Link against a static GNAT run time.
 
    S_Bind_Store   : aliased constant S := "/STORE_TRACEBACKS "             &
                                             "-E";
@@ -636,6 +641,7 @@ package VMS_Data is
       S_Bind_Shared  'Access,
       S_Bind_Slice   'Access,
       S_Bind_Source  'Access,
+      S_Bind_Static  'Access,
       S_Bind_Store   'Access,
       S_Bind_Time    'Access,
       S_Bind_Verbose 'Access,
@@ -806,6 +812,13 @@ package VMS_Data is
    --
    --   Output a message explaining the usage of gnatclean.
 
+   S_Clean_Index   : aliased constant S := "/SOURCE_INDEX=#"               &
+                                             "-i#";
+   --        /SOURCE_INDEX=nnn
+   --
+   --   Specifies the index of the units in the source file
+   --   By default, source files are mono-unit and there is no index
+
    S_Clean_Mess    : aliased constant S := "/MESSAGES_PROJECT_FILE="       &
                                             "DEFAULT "                     &
                                                "-vP0 "                     &
@@ -824,7 +837,6 @@ package VMS_Data is
    --
    --      HIGH        A great number of messages are output, most of them not
    --                  being useful for the user.
-
 
    S_Clean_Object  : aliased constant S := "/OBJECT_SEARCH=*"              &
                                             "-aO*";
@@ -884,6 +896,7 @@ package VMS_Data is
       S_Clean_Ext    'Access,
       S_Clean_Full   'Access,
       S_Clean_Help   'Access,
+      S_Clean_Index  'Access,
       S_Clean_Mess   'Access,
       S_Clean_Object 'Access,
       S_Clean_Project'Access,
@@ -3730,6 +3743,15 @@ package VMS_Data is
    --   are found on the Ada object path, the new object and ALI files are
    --   created in the directory containing the source being compiled.
 
+   S_Make_Index   : aliased constant S := "/SOURCE_INDEX=#"               &
+                                             "-eI#";
+   --        /SOURCE_INDEX=nnn
+   --
+   --   Specifies the index of the units in the source file
+   --   By default, source files are mono-unit and there is no index
+   --   When /SOURCE_INDEX=nnn is specified, only one main may be specified
+   --   on the command line.
+
    S_Make_Library : aliased constant S := "/LIBRARY_SEARCH=*"              &
                                             "-L*";
    --        /LIBRARY_SEARCH=(directory[,...])
@@ -3816,6 +3838,14 @@ package VMS_Data is
    --   given on the command line is a package name. The resulting executable
    --   will execute the elaboration routines of the package and its closure,
    --   then the finalization routines.
+
+   S_Make_Nonpro  : aliased constant S := "/NON_PROJECT_UNIT_COMPILATION " &
+                                            "-x";
+   --        /NON_PROJECT_UNIT_COMPILATION
+   --
+   --    Normally, when using project files, a unit that is not part of any
+   --    project file, cannot be compile. These units may be compile, when
+   --    needed, if this qualifier is specified.
 
    S_Make_Nostinc : aliased constant S := "/NOSTD_INCLUDES "               &
                                             "-nostdinc";
@@ -3957,6 +3987,7 @@ package VMS_Data is
       S_Make_Force   'Access,
       S_Make_Full    'Access,
       S_Make_Inplace 'Access,
+      S_Make_Index   'Access,
       S_Make_Library 'Access,
       S_Make_Link    'Access,
       S_Make_Make    'Access,
@@ -3965,6 +3996,7 @@ package VMS_Data is
       S_Make_Minimal 'Access,
       S_Make_Nolink  'Access,
       S_Make_Nomain  'Access,
+      S_Make_Nonpro  'Access,
       S_Make_Nostinc 'Access,
       S_Make_Nostlib 'Access,
       S_Make_Object  'Access,

@@ -81,19 +81,6 @@ struct lang_hooks_for_functions
   bool (*missing_noreturn_ok_p) (tree);
 };
 
-/* Lang hooks for rtl code generation.  */
-struct lang_hooks_for_rtl_expansion
-{
-  /* Called after expand_function_start, but before expanding the body.  */
-  void (*start) (void);
-
-  /* Called to expand each statement.  */
-  void (*stmt) (tree);
-
-  /* Called after expanding the body but before expand_function_end.  */
-  void (*end) (void);
-};
-
 /* The following hooks are used by tree-dump.c.  */
 
 struct lang_hooks_for_tree_dump
@@ -154,6 +141,11 @@ struct lang_hooks_for_types
      was used (or 0 if that isn't known) and TYPE is the type that was
      invalid.  */
   void (*incomplete_type_error) (tree value, tree type);
+
+  /* Nonzero if types that are identical are to be hashed so that only
+     one copy is kept.  If a language requires unique types for each
+     user-specified type, such as Ada, this should be set to TRUE.  */
+  bool hash_types;
 };
 
 /* Language hooks related to decls and the symbol table.  */
@@ -403,6 +395,9 @@ struct lang_hooks
      semantics in cases that it doesn't want to handle specially.  */
   tree (*expr_size) (tree);
 
+  /* Update lang specific fields after duplicating function body.  */
+  void (*update_decl_after_saving) (tree, void *);
+
   /* Pointers to machine-independent attribute tables, for front ends
      using attribs.c.  If one is NULL, it is ignored.  Respectively, a
      table of attributes specific to the language, a table of
@@ -437,8 +432,6 @@ struct lang_hooks
   struct lang_hooks_for_decls decls;
 
   struct lang_hooks_for_types types;
-
-  struct lang_hooks_for_rtl_expansion rtl_expand;
 
   /* Perform language-specific gimplification on the argument.  Returns an
      enum gimplify_status, though we can't see that type here.  */

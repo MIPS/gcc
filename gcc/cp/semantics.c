@@ -765,8 +765,8 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	     because if we did, int_fits_type_p would do the wrong thing
 	     when checking case values for being in range,
 	     and it's too hard to do the right thing.  */
-	  if (TREE_UNSIGNED (TREE_TYPE (cond))
-	      == TREE_UNSIGNED (TREE_TYPE (index)))
+	  if (TYPE_UNSIGNED (TREE_TYPE (cond))
+	      == TYPE_UNSIGNED (TREE_TYPE (index)))
 	    cond = index;
 	}
     }
@@ -1655,7 +1655,8 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
   else if (CLASS_TYPE_P (TREE_TYPE (fn)))
     /* If the "function" is really an object of class type, it might
        have an overloaded `operator ()'.  */
-    result = build_new_op (CALL_EXPR, LOOKUP_NORMAL, fn, args, NULL_TREE);
+    result = build_new_op (CALL_EXPR, LOOKUP_NORMAL, fn, args, NULL_TREE,
+			   /*overloaded_p=*/NULL);
   if (!result)
     /* A call where the function is unknown.  */
     result = build_function_call (fn, args);
@@ -1729,7 +1730,21 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
 	  return error_mark_node;
 	}
       
-      if (!same_type_p (TREE_TYPE (object), destructor))
+      /* [expr.pseudo] says both:
+
+           The type designated by the pseudo-destructor-name shall be
+	   the same as the object type.
+
+         and:
+
+           The cv-unqualified versions of the object type and of the
+	   type designated by the pseudo-destructor-name shall be the
+	   same type.
+
+         We implement the more generous second sentence, since that is
+         what most other compilers do.  */
+      if (!same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (object), 
+						      destructor))
 	{
 	  error ("`%E' is not of type `%T'", object, destructor);
 	  return error_mark_node;
@@ -1750,7 +1765,7 @@ finish_unary_op_expr (enum tree_code code, tree expr)
      setting TREE_NEGATED_INT.  */
   if (code == NEGATE_EXPR && TREE_CODE (expr) == INTEGER_CST
       && TREE_CODE (result) == INTEGER_CST
-      && !TREE_UNSIGNED (TREE_TYPE (result))
+      && !TYPE_UNSIGNED (TREE_TYPE (result))
       && INT_CST_LT (result, integer_zero_node))
     TREE_NEGATED_INT (result) = 1;
   overflow_warning (result);
@@ -2276,11 +2291,16 @@ finish_id_expression (tree id_expression,
       if (decl == error_mark_node)
 	{
 	  /* Name lookup failed.  */
-	  if (scope && (!TYPE_P (scope) || !dependent_type_p (scope)))
+	  if (scope 
+	      && (!TYPE_P (scope) 
+		  || (!dependent_type_p (scope)
+		      && !(TREE_CODE (id_expression) == IDENTIFIER_NODE
+			   && IDENTIFIER_TYPENAME_P (id_expression)
+			   && dependent_type_p (TREE_TYPE (id_expression))))))
 	    {
-	      /* Qualified name lookup failed, and the qualifying name
-      		 was not a dependent type.  That is always an
-      		 error.  */
+	      /* If the qualifying type is non-dependent (and the name
+		 does not name a conversion operator to a dependent
+		 type), issue an error.  */
 	      qualified_name_lookup_error (scope, id_expression);
 	      return error_mark_node;
 	    }
@@ -2290,6 +2310,8 @@ finish_id_expression (tree id_expression,
 	      *idk = CP_ID_KIND_UNQUALIFIED;
 	      return id_expression;
 	    }
+	  else
+	    decl = id_expression;
 	}
       /* If DECL is a variable that would be out of scope under
 	 ANSI/ISO rules, but in scope in the ARM, name lookup
@@ -2611,7 +2633,7 @@ finish_typeof (tree expr)
   if (type_dependent_expression_p (expr))
     {
       type = make_aggr_type (TYPEOF_TYPE);
-      TYPE_FIELDS (type) = expr;
+      TYPEOF_TYPE_EXPR (type) = expr;
 
       return type;
     }
@@ -2934,7 +2956,7 @@ finalize_nrv_r (tree* tp, int* walk_subtrees, void* data)
       else
 	init = NULL_TREE;
       init = build_stmt (EXPR_STMT, init);
-      STMT_LINENO (init) = STMT_LINENO (*tp);
+      SET_EXPR_LOCUS (init, EXPR_LOCUS (*tp));
       TREE_CHAIN (init) = TREE_CHAIN (*tp);
       *tp = init;
     }
@@ -2977,13 +2999,6 @@ finalize_nrv (tree *tp, tree var, tree result)
   data.visited = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
   walk_tree (tp, finalize_nrv_r, &data, 0);
   htab_delete (data.visited);
-}
-
-/* Start generating the RTL for FN.  */
-
-void
-cxx_expand_function_start (void)
-{
 }
 
 /* Perform initialization related to this module.  */

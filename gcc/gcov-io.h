@@ -1,6 +1,6 @@
 /* File format for coverage information
    Copyright (C) 1996, 1997, 1998, 2000, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
    Contributed by Bob Manson <manson@cygnus.com>.
    Completely remangled by Nathan Sidwell <nathan@codesourcery.com>.
 
@@ -447,6 +447,18 @@ extern void __gcov_merge_single (gcov_type *, unsigned);
 /* The merge function to choose the most common difference between
    consecutive values.  */
 extern void __gcov_merge_delta (gcov_type *, unsigned);
+
+#ifndef inhibit_libc
+/* The wrappers around some library functions..  */
+extern pid_t __gcov_fork (void);
+extern int __gcov_execl (const char *, const char *, ...);
+extern int __gcov_execlp (const char *, const char *, ...);
+extern int __gcov_execle (const char *,  const char *, ...);
+extern int __gcov_execv (const char *, char *const []);
+extern int __gcov_execvp (const char *, char *const []);
+extern int __gcov_execve (const char *, char  *const [], char *const []);
+#endif
+
 #endif /* IN_LIBGCOV */
 
 #if IN_LIBGCOV >= 0
@@ -584,6 +596,9 @@ gcov_rewrite (void)
   fseek (gcov_var.file, 0L, SEEK_SET);
 }
 
+#ifdef __MINGW32__
+#define ftruncate _chsize
+#endif
 static inline void
 gcov_truncate (void)
 {

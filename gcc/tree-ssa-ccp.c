@@ -51,7 +51,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "tree-inline.h"
 #include "tree-flow.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
 #include "timevar.h"
@@ -806,6 +806,11 @@ ccp_fold (tree stmt)
 		     				      TREE_TYPE (rhs),
 						      op0);
 
+      /* If we folded, but did not create an invariant, then we can not
+	 use this expression.  */
+      if (retval && ! is_gimple_min_invariant (retval))
+	return NULL;
+
       /* If we could not fold the expression, but the arguments are all
          constants and gimple values, then build and return the new
 	 expression. 
@@ -854,6 +859,11 @@ ccp_fold (tree stmt)
 		     				       TREE_TYPE (rhs),
 						       op0, op1);
 
+      /* If we folded, but did not create an invariant, then we can not
+	 use this expression.  */
+      if (retval && ! is_gimple_min_invariant (retval))
+	return NULL;
+      
       /* If we could not fold the expression, but the arguments are all
          constants and gimple values, then build and return the new
 	 expression. 
@@ -1013,7 +1023,7 @@ widen_bitfield (tree val, tree field, tree var)
   /* If the sign bit of the value is not set, or the field's type is
      unsigned, then just mask off the high order bits of the value.  */
   if ((TREE_INT_CST_LOW (val) & (1 << (field_size - 1))) == 0
-      || TREE_UNSIGNED (field))
+      || DECL_UNSIGNED (field))
     {
       /* Zero extension.  Build a mask with the lower 'field_size' bits
 	 set and a BIT_AND_EXPR node to clear the high order bits of
@@ -1686,20 +1696,25 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
    which may be able to propagate further.  */
 
 static tree
-maybe_fold_stmt_plus (tree expr)
+maybe_fold_stmt_addition (tree expr)
 {
   tree op0 = TREE_OPERAND (expr, 0);
   tree op1 = TREE_OPERAND (expr, 1);
   tree ptr_type = TREE_TYPE (expr);
   tree ptd_type;
   tree t;
+  bool subtract = (TREE_CODE (expr) == MINUS_EXPR);
 
   /* We're only interested in pointer arithmetic.  */
   if (!POINTER_TYPE_P (ptr_type))
     return NULL_TREE;
   /* Canonicalize the integral operand to op1.  */
   if (INTEGRAL_TYPE_P (TREE_TYPE (op0)))
-    t = op0, op0 = op1, op1 = t;
+    {
+      if (subtract)
+	return NULL_TREE;
+      t = op0, op0 = op1, op1 = t;
+    }
   /* It had better be a constant.  */
   if (TREE_CODE (op1) != INTEGER_CST)
     return NULL_TREE;
@@ -1732,7 +1747,8 @@ maybe_fold_stmt_plus (tree expr)
 	    {
 	      array_idx = convert (TREE_TYPE (min_idx), array_idx);
 	      if (!integer_zerop (min_idx))
-		array_idx = int_const_binop (MINUS_EXPR, array_idx, min_idx, 0);
+		array_idx = int_const_binop (MINUS_EXPR, array_idx,
+					     min_idx, 0);
 	    }
 	}
 
@@ -1741,8 +1757,30 @@ maybe_fold_stmt_plus (tree expr)
       array_idx = int_const_binop (MULT_EXPR, array_idx, elt_size, 0);
 
       /* Update the operands for the next round, or for folding.  */
-      op1 = int_const_binop (PLUS_EXPR, array_idx, op1, 0);
+      /* If we're manipulating unsigned types, then folding into negative
+	 values can produce incorrect results.  Particularly if the type
+	 is smaller than the width of the pointer.  */
+      if (subtract
+	  && TYPE_UNSIGNED (TREE_TYPE (op1))
+	  && tree_int_cst_lt (array_idx, op1))
+	return NULL;
+      op1 = int_const_binop (subtract ? MINUS_EXPR : PLUS_EXPR,
+			     array_idx, op1, 0);
+      subtract = false;
       op0 = array_obj;
+    }
+
+  /* If we weren't able to fold the subtraction into another array reference,
+     canonicalize the integer for passing to the array and component ref
+     simplification functions.  */
+  if (subtract)
+    {
+      if (TYPE_UNSIGNED (TREE_TYPE (op1)))
+	return NULL;
+      op1 = fold (build1 (NEGATE_EXPR, TREE_TYPE (op1), op1));
+      /* ??? In theory fold should always produce another integer.  */
+      if (TREE_CODE (op1) != INTEGER_CST)
+	return NULL;
     }
 
   ptd_type = TREE_TYPE (ptr_type);
@@ -1780,10 +1818,10 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 				    integer_zero_node);
       break;
 
-    /* ??? Could handle ARRAY_REF here, as a variant of INDIRECT_REF.
-       We'd only want to bother decomposing an existing ARRAY_REF if
-       the base array is found to have another offset contained within.
-       Otherwise we'd be wasting time.  */
+      /* ??? Could handle ARRAY_REF here, as a variant of INDIRECT_REF.
+	 We'd only want to bother decomposing an existing ARRAY_REF if
+	 the base array is found to have another offset contained within.
+	 Otherwise we'd be wasting time.  */
 
     case ADDR_EXPR:
       t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
@@ -1798,6 +1836,7 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
       return NULL_TREE;
 
     case PLUS_EXPR:
+    case MINUS_EXPR:
       t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
       if (t)
 	return t;
@@ -1806,45 +1845,47 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 	return t;
       *walk_subtrees = 0;
 
-      t = maybe_fold_stmt_plus (expr);
+      t = maybe_fold_stmt_addition (expr);
       break;
 
     case COMPONENT_REF:
       t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
       if (t)
-  return t;
+        return t;
       *walk_subtrees = 0;
 
       /* Make sure the FIELD_DECL is actually a field in the type on
-   the lhs.  In cases with IMA it is possible that it came
-   from another, equivalent type at this point.  We have
-   already checked the equivalence in this case.
-   Match on type plus offset, to allow for unnamed fields.
-   We won't necessarily get the corresponding field for
-   unions; this is believed to be harmless.  */
+         the lhs.  In cases with IMA it is possible that it came
+         from another, equivalent type at this point.  We have
+	 already checked the equivalence in this case.
+	 Match on type plus offset, to allow for unnamed fields.
+	 We won't necessarily get the corresponding field for
+	 unions; this is believed to be harmless.  */
 
       if ((current_file_decl && TREE_CHAIN (current_file_decl))
-    && (DECL_FIELD_CONTEXT (TREE_OPERAND (expr, 1)) !=
-        TREE_TYPE (TREE_OPERAND (expr, 0))))
-  {
-    tree f;
-    tree orig_field = TREE_OPERAND (expr, 1);
-    tree orig_type = TREE_TYPE (orig_field);
-    for (f = TYPE_FIELDS (TREE_TYPE (TREE_OPERAND (expr, 0)));
-         f; f = TREE_CHAIN (f))
-      {
-        if (lang_hooks.types_compatible_p (TREE_TYPE (f), orig_type)
-  && tree_int_cst_compare (DECL_FIELD_BIT_OFFSET (f),
-	       DECL_FIELD_BIT_OFFSET (orig_field)) == 0
-  && tree_int_cst_compare (DECL_FIELD_OFFSET (f),
-	       DECL_FIELD_OFFSET (orig_field)) == 0)
-{
-  TREE_OPERAND (expr, 1) = f;
-  break;
-}
-      }
-    /* Fall through is an error; it will be detected in tree-sra. */
-  }
+        && (DECL_FIELD_CONTEXT (TREE_OPERAND (expr, 1)) !=
+            TREE_TYPE (TREE_OPERAND (expr, 0))))
+        {
+          tree f;
+          tree orig_field = TREE_OPERAND (expr, 1);
+          tree orig_type = TREE_TYPE (orig_field);
+          for (f = TYPE_FIELDS (TREE_TYPE (TREE_OPERAND (expr, 0)));
+              f; f = TREE_CHAIN (f))
+            {
+              if (lang_hooks.types_compatible_p (TREE_TYPE (f), orig_type)
+                  && tree_int_cst_compare (DECL_FIELD_BIT_OFFSET (f),
+                                          DECL_FIELD_BIT_OFFSET (orig_field))
+                      == 0
+                  && tree_int_cst_compare (DECL_FIELD_OFFSET (f),
+                                          DECL_FIELD_OFFSET (orig_field))
+                      == 0)
+                {
+                  TREE_OPERAND (expr, 1) = f;
+                  break;
+                }
+            }
+        /* Fall through is an error; it will be detected in tree-sra. */
+        }
       break;
 
     default:
@@ -1987,7 +2028,7 @@ set_rhs (tree *stmt_p, tree expr)
 	  size_t i;
 
 	  /* Fix all the SSA_NAMEs created by *STMT_P to point to its new
-	    replacement.  */
+	     replacement.  */
 	  defs = DEF_OPS (ann);
 	  for (i = 0; i < NUM_DEFS (defs); i++)
 	    {

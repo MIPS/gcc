@@ -146,16 +146,13 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_EXPR_SIZE		lhd_expr_size
 #define LANG_HOOKS_TREE_SIZE		lhd_tree_size
 #define LANG_HOOKS_TYPES_COMPATIBLE_P	lhd_types_compatible_p
+#define LANG_HOOKS_UPDATE_DECL_AFTER_SAVING NULL
 
 #define LANG_HOOKS_FUNCTION_INIT	lhd_do_nothing_f
 #define LANG_HOOKS_FUNCTION_FINAL	lhd_do_nothing_f
 #define LANG_HOOKS_FUNCTION_ENTER_NESTED lhd_do_nothing_f
 #define LANG_HOOKS_FUNCTION_LEAVE_NESTED lhd_do_nothing_f
 #define LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P hook_bool_tree_true
-
-#define LANG_HOOKS_RTL_EXPAND_START	lhd_do_nothing
-#define LANG_HOOKS_RTL_EXPAND_STMT	(void (*) (tree)) abort
-#define LANG_HOOKS_RTL_EXPAND_END	lhd_do_nothing
 
 /* Attribute hooks.  */
 #define LANG_HOOKS_ATTRIBUTE_TABLE		NULL
@@ -221,12 +218,6 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
   LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P	\
 }
 
-#define LANG_HOOKS_RTL_EXPAND_INITIALIZER {	\
-  LANG_HOOKS_RTL_EXPAND_START,			\
-  LANG_HOOKS_RTL_EXPAND_STMT,			\
-  LANG_HOOKS_RTL_EXPAND_END			\
-}
-
 /* Hooks for tree gimplification.  */
 #define LANG_HOOKS_GIMPLIFY_EXPR lhd_gimplify_expr
 #define LANG_HOOKS_GIMPLE_BEFORE_INLINING true
@@ -250,6 +241,7 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR lhd_incomplete_type_error
 #define LANG_HOOKS_TYPE_PROMOTES_TO lhd_type_promotes_to
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE lhd_register_builtin_type
+#define LANG_HOOKS_HASH_TYPES		true
 
 #define LANG_HOOKS_FOR_TYPES_INITIALIZER { \
   LANG_HOOKS_MAKE_TYPE, \
@@ -260,7 +252,8 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE, \
   LANG_HOOKS_TYPE_PROMOTES_TO, \
   LANG_HOOKS_REGISTER_BUILTIN_TYPE, \
-  LANG_HOOKS_INCOMPLETE_TYPE_ERROR \
+  LANG_HOOKS_INCOMPLETE_TYPE_ERROR, \
+  LANG_HOOKS_HASH_TYPES \
 }
 
 /* Declaration hooks.  */
@@ -333,6 +326,7 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_GET_CALLEE_FNDECL, \
   LANG_HOOKS_PRINT_ERROR_FUNCTION, \
   LANG_HOOKS_EXPR_SIZE, \
+  LANG_HOOKS_UPDATE_DECL_AFTER_SAVING, \
   LANG_HOOKS_ATTRIBUTE_TABLE, \
   LANG_HOOKS_COMMON_ATTRIBUTE_TABLE, \
   LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE, \
@@ -350,7 +344,6 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_TREE_DUMP_INITIALIZER, \
   LANG_HOOKS_DECLS, \
   LANG_HOOKS_FOR_TYPES_INITIALIZER, \
-  LANG_HOOKS_RTL_EXPAND_INITIALIZER, \
   LANG_HOOKS_GIMPLIFY_EXPR, \
   LANG_HOOKS_GIMPLE_BEFORE_INLINING \
 }

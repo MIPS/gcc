@@ -37,13 +37,19 @@ with Opt;         use Opt;
 with Osint;       use Osint;
 with Osint.L;     use Osint.L;
 with Output;      use Output;
+with Rident;      use Rident;
+with Snames;
 with Targparm;    use Targparm;
 with Types;       use Types;
+
+with GNAT.Case_Util; use GNAT.Case_Util;
 
 procedure Gnatls is
    pragma Ident (Gnat_Static_Version_String);
 
    Max_Column : constant := 80;
+
+   No_Obj : aliased String := "<no_obj>";
 
    type File_Status is (
      OK,                  --  matching timestamp
@@ -145,7 +151,7 @@ procedure Gnatls is
    --  Print out FS either in a coded form if verbose is false or in an
    --  expanded form otherwise.
 
-   procedure Output_Unit (U_Id : Unit_Id);
+   procedure Output_Unit (ALI : ALI_Id; U_Id : Unit_Id);
    --  Print out information on the unit when requested
 
    procedure Reset_Print;
@@ -156,6 +162,9 @@ procedure Gnatls is
 
    procedure Usage;
    --  Print usage message
+
+   function Image (Restriction : Restriction_Id) return String;
+   --  Returns the capitalized image of Restriction
 
    -----------------
    -- Add_Lib_Dir --
@@ -271,8 +280,13 @@ procedure Gnatls is
             end if;
 
             if Print_Object then
-               Get_Name_String (ALIs.Table (Id).Ofile_Full_Name);
-               Max_Obj_Length := Integer'Max (Max_Obj_Length, Name_Len + 1);
+               if ALIs.Table (Id).No_Object then
+                  Max_Obj_Length :=
+                    Integer'Max (Max_Obj_Length, No_Obj'Length);
+               else
+                  Get_Name_String (ALIs.Table (Id).Ofile_Full_Name);
+                  Max_Obj_Length := Integer'Max (Max_Obj_Length, Name_Len + 1);
+               end if;
             end if;
          end if;
       end loop;
@@ -354,6 +368,31 @@ procedure Gnatls is
       end if;
    end Find_Status;
 
+   -----------
+   -- Image --
+   -----------
+
+   function Image (Restriction : Restriction_Id) return String is
+      Result : String := Restriction'Img;
+      Skip   : Boolean := True;
+
+   begin
+      for J in Result'Range loop
+         if Skip then
+            Skip := False;
+            Result (J) := To_Upper (Result (J));
+
+         elsif Result (J) = '_' then
+            Skip := True;
+
+         else
+            Result (J) := To_Lower (Result (J));
+         end if;
+      end loop;
+
+      return Result;
+   end Image;
+
    -------------------
    -- Output_Object --
    -------------------
@@ -363,8 +402,13 @@ procedure Gnatls is
 
    begin
       if Print_Object then
-         Get_Name_String (O);
-         Object_Name := To_Host_File_Spec (Name_Buffer (1 .. Name_Len));
+         if O /= No_File then
+            Get_Name_String (O);
+            Object_Name := To_Host_File_Spec (Name_Buffer (1 .. Name_Len));
+         else
+            Object_Name := No_Obj'Unchecked_Access;
+         end if;
+
          Write_Str (Object_Name.all);
 
          if Print_Source or else Print_Unit then
@@ -468,7 +512,7 @@ procedure Gnatls is
    -- Output_Unit --
    -----------------
 
-   procedure Output_Unit (U_Id : Unit_Id) is
+   procedure Output_Unit (ALI : ALI_Id; U_Id : Unit_Id) is
       Kind : Character;
       U    : Unit_Record renames Units.Table (U_Id);
 
@@ -501,14 +545,21 @@ procedure Gnatls is
          end if;
 
          if Verbose_Mode then
-            if U.Preelab        or
-               U.No_Elab        or
-               U.Pure           or
-               U.Elaborate_Body or
-               U.Remote_Types   or
-               U.Shared_Passive or
-               U.RCI            or
-               U.Predefined
+            if U.Preelab             or
+               U.No_Elab             or
+               U.Pure                or
+               U.Dynamic_Elab        or
+               U.Has_RACW            or
+               U.Remote_Types        or
+               U.Shared_Passive      or
+               U.RCI                 or
+               U.Predefined          or
+               U.Internal            or
+               U.Is_Generic          or
+               U.Init_Scalars        or
+               U.Interface           or
+               U.Body_Needed_For_SAL or
+               U.Elaborate_Body
             then
                Write_Eol; Write_Str ("     Flags  =>");
 
@@ -522,6 +573,50 @@ procedure Gnatls is
 
                if U.Pure then
                   Write_Str (" Pure");
+               end if;
+
+               if U.Dynamic_Elab then
+                  Write_Str (" Dynamic_Elab");
+               end if;
+
+               if U.Has_RACW then
+                  Write_Str (" Has_RACW");
+               end if;
+
+               if U.Remote_Types then
+                  Write_Str (" Remote_Types");
+               end if;
+
+               if U.Shared_Passive then
+                  Write_Str (" Shared_Passive");
+               end if;
+
+               if U.RCI then
+                  Write_Str (" RCI");
+               end if;
+
+               if U.Predefined then
+                  Write_Str (" Predefined");
+               end if;
+
+               if U.Internal then
+                  Write_Str (" Internal");
+               end if;
+
+               if U.Is_Generic then
+                  Write_Str (" Is_Generic");
+               end if;
+
+               if U.Init_Scalars then
+                  Write_Str (" Init_Scalars");
+               end if;
+
+               if U.Interface then
+                  Write_Str (" Interface");
+               end if;
+
+               if U.Body_Needed_For_SAL then
+                  Write_Str (" Body_Needed_For_SAL");
                end if;
 
                if U.Elaborate_Body then
@@ -540,10 +635,36 @@ procedure Gnatls is
                   Write_Str (" Predefined");
                end if;
 
-               if U.RCI then
-                  Write_Str (" Remote_Call_Interface");
-               end if;
             end if;
+
+            declare
+               Restrictions : constant Restrictions_Info :=
+                                ALIs.Table (ALI).Restrictions;
+            begin
+               --  If the source was compiled with pragmas Restrictions,
+               --  Display these restrictions.
+
+               if Restrictions.Set /= (All_Restrictions => False) then
+                  Write_Eol; Write_Str ("     Restrictions  =>");
+
+                  --  For boolean restrictions, just display the name of the
+                  --  restriction; for valued restrictions, also display the
+                  --  restriction value.
+
+                  for Restriction in All_Restrictions loop
+                     if Restrictions.Set (Restriction) then
+                        Write_Eol;
+                        Write_Str ("       ");
+                        Write_Str (Image (Restriction));
+
+                        if Restriction in All_Parameter_Restrictions then
+                           Write_Str (" =>");
+                           Write_Str (Restrictions.Value (Restriction)'Img);
+                        end if;
+                     end if;
+                  end loop;
+               end if;
+            end;
          end if;
 
          if Print_Source then
@@ -818,6 +939,7 @@ begin
 
    Namet.Initialize;
    Csets.Initialize;
+   Snames.Initialize;
 
    --  Loop to scan out arguments
 
@@ -966,7 +1088,11 @@ begin
          Get_Name_String (Units.Table (ALIs.Table (Id).First_Unit).Uname);
 
          if Also_Predef or else not Is_Internal_Unit then
-            Output_Object (ALIs.Table (Id).Ofile_Full_Name);
+            if ALIs.Table (Id).No_Object then
+               Output_Object (No_File);
+            else
+               Output_Object (ALIs.Table (Id).Ofile_Full_Name);
+            end if;
 
             --  In verbose mode print all main units in the ALI file, otherwise
             --  just print the first one to ease columnwise printout
@@ -985,7 +1111,7 @@ begin
                   Write_Eol;
                end if;
 
-               Output_Unit (U);
+               Output_Unit (Id, U);
 
                --  Output source now, unless if it will be done as part of
                --  outputing dependencies.

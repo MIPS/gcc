@@ -1,23 +1,23 @@
 /* Perform type resolution on the various stuctures.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330,Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "gfortran.h"
@@ -2064,7 +2064,7 @@ gfc_resolve_expr (gfc_expr * e)
 
 
 /* Resolve the expressions in an iterator structure and require that they all
-   be of integer type. */
+   be of integer type.  */
 
 try
 gfc_resolve_iterator (gfc_iterator * iter)
@@ -3687,6 +3687,9 @@ resolve_symbol (gfc_symbol * sym)
   /* Zero if we are checking a formal namespace.  */
   static int formal_ns_flag = 1;
   int formal_ns_save, check_constant, mp_flag;
+  int i;
+  const char *whynot;
+
 
   if (sym->attr.flavor == FL_UNKNOWN)
     {
@@ -3834,6 +3837,50 @@ resolve_symbol (gfc_symbol * sym)
 	    }
 	}
     }
+
+  if (sym->attr.flavor == FL_VARIABLE)
+    {
+      /* Can the sybol have an initializer?  */
+      whynot = NULL;
+      if (sym->attr.allocatable)
+	whynot = "Allocatable";
+      else if (sym->attr.external)
+	whynot = "External";
+      else if (sym->attr.dummy)
+	whynot = "Dummy";
+      else if (sym->attr.intrinsic)
+	whynot = "Intrinsic";
+      else if (sym->attr.result)
+	whynot = "Function Result";
+      else if (sym->attr.dimension && !sym->attr.pointer)
+	{
+	  /* Don't allow initialization of automatic arrays.  */
+	  for (i = 0; i < sym->as->rank; i++)
+	    {
+	      if (sym->as->lower[i] == NULL
+		  || sym->as->lower[i]->expr_type != EXPR_CONSTANT
+		  || sym->as->upper[i] == NULL
+		  || sym->as->upper[i]->expr_type != EXPR_CONSTANT)
+		{
+		  whynot = "Automatic array";
+		  break;
+		}
+	    }
+	}
+
+      /* Reject illegal initializers.  */
+      if (sym->value && whynot)
+	{
+	  gfc_error ("%s '%s' at %L cannot have an initializer",
+		     whynot, sym->name, &sym->declared_at);
+	  return;
+	}
+
+      /* Assign default initializer.  */
+      if (sym->ts.type == BT_DERIVED && !(sym->value || whynot))
+	sym->value = gfc_default_initializer (&sym->ts);
+    }
+
 
   /* Make sure that intrinsic exist */
   if (sym->attr.intrinsic

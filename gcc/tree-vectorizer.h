@@ -134,6 +134,9 @@ typedef struct _loop_vec_info {
   /* Number of iterations. -1 if unknown.  */
   int num_iters;
 
+  /* If number of iterations is unknown at compile time, this tree represents it.  */
+  tree symb_numb_of_iters;
+
   /* Is the loop vectorizable? */
   bool vectorizable;
 
@@ -156,6 +159,7 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_VECT_FACTOR(L)    (L)->vectorization_factor
 #define LOOP_VINFO_DATAREF_WRITES(L) (L)->data_ref_writes
 #define LOOP_VINFO_DATAREF_READS(L)  (L)->data_ref_reads
+#define LOOP_VINFO_SYMB_NUM_OF_ITERS(L) (L)->symb_numb_of_iters
 
 #define LOOP_VINFO_NITERS_KNOWN_P(L) ((L)->num_iters > 0)
 

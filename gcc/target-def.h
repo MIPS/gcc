@@ -57,6 +57,11 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef TARGET_ASM_GLOBALIZE_LABEL
 #define TARGET_ASM_GLOBALIZE_LABEL default_globalize_label
 #endif
+
+#ifndef TARGET_ASM_EMIT_UNWIND_LABEL
+#define TARGET_ASM_EMIT_UNWIND_LABEL default_emit_unwind_label
+#endif
+
 #ifndef TARGET_ASM_INTERNAL_LABEL
 #define TARGET_ASM_INTERNAL_LABEL default_internal_label
 #endif
@@ -189,6 +194,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 			TARGET_ASM_UNALIGNED_INT_OP,		\
 			TARGET_ASM_INTEGER,			\
 			TARGET_ASM_GLOBALIZE_LABEL,		\
+                        TARGET_ASM_EMIT_UNWIND_LABEL,           \
 			TARGET_ASM_INTERNAL_LABEL,		\
 			TARGET_ASM_ASSEMBLE_VISIBILITY,		\
 			TARGET_ASM_FUNCTION_PROLOGUE,		\
@@ -314,6 +320,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_INSERT_ATTRIBUTES hook_void_tree_treeptr
 #define TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P hook_bool_tree_false
 #define TARGET_MS_BITFIELD_LAYOUT_P hook_bool_tree_false
+#define TARGET_ALIGN_ANON_BITFIELD hook_bool_void_false
 #define TARGET_RTX_COSTS hook_bool_rtx_int_int_intp_false
 #define TARGET_MANGLE_FUNDAMENTAL_TYPE hook_constcharptr_tree_null
 
@@ -360,10 +367,13 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_EXPAND_BUILTIN_SAVEREGS default_expand_builtin_saveregs
 #define TARGET_SETUP_INCOMING_VARARGS default_setup_incoming_varargs
 #define TARGET_STRICT_ARGUMENT_NAMING hook_bool_CUMULATIVE_ARGS_false
-#define TARGET_PRETEND_OUTGOING_VARARGS_NAMED default_pretend_outgoing_varargs_named
+#define TARGET_PRETEND_OUTGOING_VARARGS_NAMED \
+  default_pretend_outgoing_varargs_named
 /* APPLE LOCAL begin Altivec */
 #define TARGET_SKIP_VEC_ARGS default_skip_vec_args
 /* APPLE LOCAL end Altivec */
+
+#define TARGET_SPLIT_COMPLEX_ARG NULL
 
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_ARGS,				\
@@ -376,6 +386,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SETUP_INCOMING_VARARGS,				\
    TARGET_STRICT_ARGUMENT_NAMING,				\
    TARGET_PRETEND_OUTGOING_VARARGS_NAMED,			\
+   TARGET_SPLIT_COMPLEX_ARG,					\
    /* APPLE LOCAL begin Altivec */				\
    TARGET_SKIP_VEC_ARGS,					\
    /* APPLE LOCAL end Altivec */				\
@@ -394,6 +405,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_INSERT_ATTRIBUTES,			\
   TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P,	\
   TARGET_MS_BITFIELD_LAYOUT_P,			\
+  TARGET_ALIGN_ANON_BITFIELD,			\
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
   /* APPLE LOCAL begin constant cfstrings */	\
@@ -428,6 +440,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_DEFAULT_SHORT_ENUMS,			\
   TARGET_BUILTIN_SETJMP_FRAME_VALUE,		\
   TARGET_MD_ASM_CLOBBERS,			\
+  TARGET_CALLS,					\
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_CTORS_DTORS,			\
   TARGET_HAVE_TLS,				\
@@ -437,7 +450,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ASM_FILE_START_FILE_DIRECTIVE,		\
   /* APPLE LOCAL AltiVec */			\
   TARGET_CAST_EXPR_AS_VECTOR_INIT,		\
-  TARGET_CALLS,					\
 }
 
 #include "hooks.h"

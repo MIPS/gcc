@@ -1374,7 +1374,9 @@ lower_catch (struct leh_state *state, tree *tp)
       catch = tsi_stmt (i);
       catch_region = gen_eh_region_catch (try_region, CATCH_TYPES (catch));
 
-      lower_eh_constructs_1 (state, &CATCH_BODY (catch));
+      this_state.cur_region = catch_region;
+      this_state.prev_try = state->prev_try;
+      lower_eh_constructs_1 (&this_state, &CATCH_BODY (catch));
 
       eh_label = create_artificial_label ();
       set_eh_region_tree_label (catch_region, eh_label);
@@ -1673,13 +1675,19 @@ bool
 tree_could_trap_p (tree expr)
 {
   enum tree_code code = TREE_CODE (expr);
-  if (code == INDIRECT_REF
-      || (code == COMPONENT_REF
-	  && (TREE_CODE (TREE_OPERAND (expr, 0)) == INDIRECT_REF)))
-    return true;
-  
+  tree t;
+
   switch (code)
     {
+    case ARRAY_REF:
+    case COMPONENT_REF:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+    case BIT_FIELD_REF:
+      t = get_base_address (expr);
+      return !t || TREE_CODE (t) == INDIRECT_REF;
+
+    case INDIRECT_REF:
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
@@ -1690,6 +1698,7 @@ tree_could_trap_p (tree expr)
     case ROUND_MOD_EXPR:
     case TRUNC_MOD_EXPR:
       return true;
+
     default:
       break;
     }

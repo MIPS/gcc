@@ -1,24 +1,24 @@
 /* Array translation routines
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* trans-array.c-- Various array related code, including scalarization,
                    allocation, initialization and other support routines.  */
@@ -35,7 +35,7 @@ Boston, MA 02111-1307, USA.  */
    gfc_conv_ss_startstride.  During this process the expressions for the array
    descriptors and data pointers are also translated.
 
-   If the expression is an assignment, we must then resolve and dependencies.
+   If the expression is an assignment, we must then resolve any dependencies.
    In fortran all the rhs values of an assignment must be evaluated before
    any assignments take place.  This can require a temporary array to store the
    values.  We also require a temporary when we are passing array expressions
@@ -65,11 +65,11 @@ Boston, MA 02111-1307, USA.  */
 
    For assignment expressions requiring a temporary two sub loops are
    generated.  The first stores the result of the expression in the temporary,
-   the second copies it to the result.  A Call to
+   the second copies it to the result.  A call to
    gfc_trans_scalarized_loop_boundary marks the end of the main loop code and
    the start of the copying loop.  The temporary may be less than full rank.
 
-   Finally gfc_trans_scalarizing_loops is called to generate the impicit do
+   Finally gfc_trans_scalarizing_loops is called to generate the implicit do
    loops.  The loops are added to the pre chain of the loopinfo.  The post
    chain may still contain cleanup code.
 
@@ -80,7 +80,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include <stdio.h>
 #include "ggc.h"
 #include "toplev.h"
@@ -166,7 +166,7 @@ gfc_array_dataptr_type (tree desc)
    Don't forget to #undef these!  */
 
 #define DATA_FIELD 0
-#define BASE_FIELD 1
+#define OFFSET_FIELD 1
 #define DTYPE_FIELD 2
 #define DIMENSION_FIELD 3
 
@@ -193,18 +193,16 @@ gfc_conv_descriptor_data (tree desc)
 }
 
 tree
-gfc_conv_descriptor_base (tree desc)
+gfc_conv_descriptor_offset (tree desc)
 {
-  tree field;
   tree type;
+  tree field;
 
   type = TREE_TYPE (desc);
   assert (GFC_DESCRIPTOR_TYPE_P (type));
 
-  field = gfc_advance_chain (TYPE_FIELDS (type), BASE_FIELD);
-  assert (field != NULL_TREE
-	  && TREE_CODE (TREE_TYPE (field)) == POINTER_TYPE
-	  && TREE_CODE (TREE_TYPE (TREE_TYPE (field))) == ARRAY_TYPE);
+  field = gfc_advance_chain (TYPE_FIELDS (type), OFFSET_FIELD);
+  assert (field != NULL_TREE && TREE_TYPE (field) == gfc_array_index_type);
 
   return build (COMPONENT_REF, TREE_TYPE (field), desc, field);
 }
@@ -317,7 +315,7 @@ gfc_trans_static_array_pointer (gfc_symbol * sym)
 /* Cleanup those #defines.  */
 
 #undef DATA_FIELD
-#undef BASE_FIELD
+#undef OFFSET_FIELD
 #undef DTYPE_FIELD
 #undef DIMENSION_FIELD
 #undef STRIDE_SUBFIELD
@@ -449,9 +447,10 @@ gfc_trans_allocate_array_storage (gfc_loopinfo * loop, gfc_ss_info * info,
       tmp = build_array_type (gfc_get_element_type (TREE_TYPE (desc)), tmp);
       tmp = gfc_create_var (tmp, "A");
       tmp = gfc_build_addr_expr (TREE_TYPE (data), tmp);
-      info->data = gfc_evaluate_now (tmp, &loop->pre);
+      gfc_add_modify_expr (&loop->pre, data, tmp);
+      info->data = data;
+      info->offset = gfc_index_zero_node;
 
-      gfc_add_modify_expr (&loop->pre, data, info->data);
     }
   else
     {
@@ -468,13 +467,14 @@ gfc_trans_allocate_array_storage (gfc_loopinfo * loop, gfc_ss_info * info,
       tmp = convert (TREE_TYPE (data), tmp);
       gfc_add_modify_expr (&loop->pre, data, tmp);
 
-      info->data = gfc_evaluate_now (data, &loop->pre);
+      info->data = data;
+      info->offset = gfc_index_zero_node;
     }
 
   /* The offset is zero because we create temporaries with a zero
      lower bound.  */
-  tmp = gfc_conv_descriptor_base (desc);
-  gfc_add_modify_expr (&loop->pre, tmp, info->data);
+  tmp = gfc_conv_descriptor_offset (desc);
+  gfc_add_modify_expr (&loop->pre, tmp, gfc_index_zero_node);
 
   if (!onstack)
     {
@@ -488,8 +488,9 @@ gfc_trans_allocate_array_storage (gfc_loopinfo * loop, gfc_ss_info * info,
 
 
 /* Generate code to allocate and initialize the descriptor for a temporary
-   array.  Fills in info->descriptor and info->data.  Also adjusts the loop
-   variables to be zero-based.  Returns the size of the array.  */
+   array.  Fills in the descriptor, data and offset fields of info.  Also
+   adjusts the loop variables to be zero-based.  Returns the size of the
+   array.  */
 
 tree
 gfc_trans_allocate_temp_array (gfc_loopinfo * loop, gfc_ss_info * info,
@@ -528,12 +529,6 @@ gfc_trans_allocate_temp_array (gfc_loopinfo * loop, gfc_ss_info * info,
     gfc_get_array_type_bounds (eltype, info->dimen, loop->from, loop->to, 1);
   desc = gfc_create_var (type, "atmp");
   GFC_DECL_PACKED_ARRAY (desc) = 1;
-  if (string_length)
-    {
-      gfc_allocate_lang_decl (desc);
-      GFC_DECL_STRING (desc) = 1;
-      GFC_DECL_STRING_LENGTH (desc) = string_length;
-    }
 
   info->descriptor = desc;
   size = integer_one_node;
@@ -571,8 +566,9 @@ gfc_trans_allocate_temp_array (gfc_loopinfo * loop, gfc_ss_info * info,
       size = gfc_evaluate_now (size, &loop->pre);
     }
 
+  /* TODO: Where does the string length go?  */
   if (string_length)
-    gfc_todo_error ("Arrays of strings");
+    gfc_todo_error ("temporary arrays of strings");
 
   /* Get the size of the array.  */
   nelem = size;
@@ -1065,6 +1061,7 @@ static void
 gfc_conv_ss_descriptor (stmtblock_t * block, gfc_ss * ss, int base)
 {
   gfc_se se;
+  tree tmp;
 
   /* Get the descriptor for the array to be scalarized.  */
   assert (ss->expr->expr_type == EXPR_VARIABLE);
@@ -1077,8 +1074,19 @@ gfc_conv_ss_descriptor (stmtblock_t * block, gfc_ss * ss, int base)
   if (base)
     {
       /* Also the data pointer.  */
-      se.expr = gfc_conv_array_base (se.expr);
-      ss->data.info.data = gfc_evaluate_now (se.expr, block);
+      tmp = gfc_conv_array_data (se.expr);
+      /* If this is a variable or address of a variable we use it directly.
+         Otherwise we must evaluate it now to to avoid break dependency
+	 analysis by pulling the expressions for elemental array indices
+	 inside the loop.  */
+      if (!(DECL_P (tmp)
+	    || (TREE_CODE (tmp) == ADDR_EXPR
+		&& DECL_P (TREE_OPERAND (tmp, 0)))))
+	tmp = gfc_evaluate_now (tmp, block);
+      ss->data.info.data = tmp;
+
+      tmp = gfc_conv_array_offset (se.expr);
+      ss->data.info.offset = gfc_evaluate_now (tmp, block);
     }
 }
 
@@ -1135,35 +1143,18 @@ gfc_conv_array_data (tree descriptor)
 }
 
 
-/* Return an expression for the base pointer of an array.  */
+/* Return an expression for the base offset of an array.  */
 
 tree
-gfc_conv_array_base (tree descriptor)
+gfc_conv_array_offset (tree descriptor)
 {
   tree type;
-  tree base;
 
   type = TREE_TYPE (descriptor);
   if (GFC_ARRAY_TYPE_P (type))
-    {
-      /* Descriptorless arrays.  */
-      base = GFC_TYPE_ARRAY_OFFSET (type);
-      if (INTEGER_CST_P (base))
-        {
-          if (POINTER_TYPE_P (type))
-            {
-              type = TREE_TYPE (type);
-              descriptor = gfc_build_indirect_ref (descriptor);
-            }
-
-          base = gfc_build_array_ref (descriptor, base);
-	  base = gfc_build_addr_expr (gfc_array_dataptr_type (descriptor),
-				      base);
-        }
-      return base;
-    }
+    return GFC_TYPE_ARRAY_OFFSET (type);
   else
-    return gfc_conv_descriptor_base (descriptor);
+    return gfc_conv_descriptor_offset (descriptor);
 }
 
 
@@ -1236,7 +1227,7 @@ gfc_conv_array_ubound (tree descriptor, int dim)
 
 static void
 gfc_conv_array_index_ref (gfc_se * se, tree pointer, tree * indices,
-			  int dimen)
+			  tree offset, int dimen)
 {
   tree array;
   tree tmp;
@@ -1245,7 +1236,7 @@ gfc_conv_array_index_ref (gfc_se * se, tree pointer, tree * indices,
 
   array = gfc_build_indirect_ref (pointer);
 
-  index = integer_zero_node;
+  index = offset;
   for (n = 0; n < dimen; n++)
     {
       /* index = index + stride[n]*indices[n] */
@@ -1338,7 +1329,7 @@ gfc_conv_vector_array_index (gfc_se * se, tree index, gfc_ss * ss)
 	}
     }
   /* Get the index from the vector.  */
-  gfc_conv_array_index_ref (se, info->data, indices, ar->dimen);
+  gfc_conv_array_index_ref (se, info->data, indices, info->offset, ar->dimen);
   index = se->expr;
   /* Put the descriptor back.  */
   se->expr = descsave;
@@ -1446,8 +1437,7 @@ gfc_conv_tmp_array_ref (gfc_se * se)
   tree desc;
 
   desc = se->ss->data.info.descriptor;
-  if (GFC_DECL_STRING (desc))
-    se->string_length = GFC_DECL_STRING_LENGTH (desc);
+  /* TODO: We need the string length for string variables.  */
 
   gfc_conv_scalarized_array_ref (se, NULL);
 }
@@ -1457,7 +1447,7 @@ gfc_conv_tmp_array_ref (gfc_se * se)
    This should be either a variable, indirect variable reference or component
    reference.  For arrays which do not have a descriptor, se->expr will be
    the data pointer.
-   a(i, j, k) = base[i * stride[0] + j * stride[1] + k * stride[2]]*/
+   a(i, j, k) = base[offset + i * stride[0] + j * stride[1] + k * stride[2]]*/
 
 void
 gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar)
@@ -1518,8 +1508,12 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar)
   if (flag_bounds_check)
     gfc_trans_runtime_check (fault, gfc_strconst_fault, &se->pre);
 
+  tmp = gfc_conv_array_offset (se->expr);
+  if (!integer_zerop (tmp))
+    index = fold (build (PLUS_EXPR, gfc_array_index_type, index, tmp));
+      
   /* Access the calculated element.  */
-  tmp = gfc_conv_array_base (se->expr);
+  tmp = gfc_conv_array_data (se->expr);
   tmp = gfc_build_indirect_ref (tmp);
   se->expr = gfc_build_array_ref (tmp, index);
 }
@@ -1558,8 +1552,8 @@ gfc_trans_preloop_setup (gfc_loopinfo * loop, int dim, int flag,
       if (dim == info->dimen - 1)
 	{
 	  /* For the outermost loop calculate the offset due to any
-	     elemental dimensions.  */
-	  info->offset = integer_zero_node;
+	     elemental dimensions.  It will have been initialized with the
+	     base offset of the array.  */
 	  if (info->ref)
 	    {
 	      for (i = 0; i < info->ref->u.ar.dimen; i++)
@@ -1620,6 +1614,7 @@ gfc_trans_preloop_setup (gfc_loopinfo * loop, int dim, int flag,
 	  info->offset = gfc_evaluate_now (info->offset, pblock);
 	}
 
+      /* Remeber this offset for the second loop.  */
       if (dim == loop->temp_dim - 1)
         info->saved_offset = info->offset;
     }
@@ -2182,8 +2177,7 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
       loop->temp_ss->type = GFC_SS_TEMP;
       loop->temp_ss->data.temp.type =
 	gfc_get_element_type (TREE_TYPE (dest->data.info.descriptor));
-      loop->temp_ss->data.temp.string_length =
-	gfc_conv_string_length (dest->data.info.descriptor);
+      loop->temp_ss->data.temp.string_length = NULL_TREE;
       loop->temp_ss->data.temp.dimen = loop->dimen;
       loop->temp_ss->next = gfc_ss_terminator;
       gfc_add_ss_to_loop (loop, loop->temp_ss);
@@ -2428,14 +2422,13 @@ gfc_conv_loop_setup (gfc_loopinfo * loop)
 static tree
 gfc_array_init_size (tree descriptor, int rank, tree * poffset,
 		     gfc_expr ** lower, gfc_expr ** upper,
-		     stmtblock_t * pblock, tree * pstring)
+		     stmtblock_t * pblock)
 {
   tree type;
   tree tmp;
   tree size;
   tree offset;
   tree stride;
-  tree string_len;
   gfc_expr *ubound;
   gfc_se se;
   int n;
@@ -2508,22 +2501,10 @@ gfc_array_init_size (tree descriptor, int rank, tree * poffset,
       stride = gfc_evaluate_now (stride, pblock);
     }
 
-  if (pstring && *pstring)
-    {
-      string_len = *pstring;
-      string_len = fold (build (MULT_EXPR, gfc_array_index_type, stride,
-				string_len));
-    }
-  else
-    string_len = NULL_TREE;
-
   /* The stride is the number of elements in the array, so multiply by the
      size of an element to get the total size.  */
   tmp = TYPE_SIZE_UNIT (gfc_get_element_type (type));
   size = fold (build (MULT_EXPR, gfc_array_index_type, stride, tmp));
-
-  if (string_len)
-    size = fold (build (PLUS_EXPR, gfc_array_index_type, size, string_len));
 
   if (poffset != NULL)
     {
@@ -2544,12 +2525,10 @@ void
 gfc_array_allocate (gfc_se * se, gfc_ref * ref, tree pstat)
 {
   tree tmp;
-  tree base;
   tree pointer;
   tree allocate;
   tree offset;
   tree size;
-  tree len;
   gfc_expr **lower;
   gfc_expr **upper;
 
@@ -2578,9 +2557,8 @@ gfc_array_allocate (gfc_se * se, gfc_ref * ref, tree pstat)
       break;
     }
 
-  len = se->string_length;
   size = gfc_array_init_size (se->expr, ref->u.ar.as->rank, &offset,
-			      lower, upper, &se->pre, &len);
+			      lower, upper, &se->pre);
 
   /* Allocate memory to store the data.  */
   tmp = gfc_conv_descriptor_data (se->expr);
@@ -2601,21 +2579,9 @@ gfc_array_allocate (gfc_se * se, gfc_ref * ref, tree pstat)
   gfc_add_expr_to_block (&se->pre, tmp);
 
   pointer = gfc_conv_descriptor_data (se->expr);
-  /* Set base = &data[offset].  */
-  if (!integer_zerop (offset))
-    {
-      tmp = gfc_build_indirect_ref (pointer);
-      tmp = gfc_build_array_ref (tmp, offset);
-      pointer = gfc_build_addr_expr (TREE_TYPE (pointer), tmp);
-    }
-  base = gfc_conv_descriptor_base (se->expr);
-  gfc_add_modify_expr (&se->pre, base, pointer);
-
-  /* Initialize the pointers for a character array.  */
-  if (len)
-    {
-      gfc_todo_error ("arrays of strings");
-    }
+  
+  tmp = gfc_conv_descriptor_offset (se->expr);
+  gfc_add_modify_expr (&se->pre, tmp, offset);
 }
 
 
@@ -2851,37 +2817,74 @@ gfc_trans_auto_array_allocation (tree decl, gfc_symbol * sym, tree fnbody)
   tree fndecl;
   tree size;
   tree offset;
+  tree args;
+  bool onstack;
 
   assert (!(sym->attr.pointer || sym->attr.allocatable));
 
-  if (sym->ts.type == BT_CHARACTER)
-    gfc_todo_error ("arrays of strings");
+  /* Do nothing for USEd variables.  */
+  if (sym->attr.use_assoc)
+    return fnbody;
 
   type = TREE_TYPE (decl);
   assert (GFC_ARRAY_TYPE_P (type));
-  if (TREE_CODE (type) != POINTER_TYPE)
+  onstack = TREE_CODE (type) != POINTER_TYPE;
+
+  /* We never generate initialization code of module variables.  */
+  if (fnbody == NULL_TREE)
     {
-      /* TODO: Put large arrays on the heap.  */
-      if (sym->value && !sym->attr.use_assoc)
+      assert (onstack);
+
+      /* Generate static initializer.  */
+      if (sym->value)
+	{
+	  DECL_INITIAL (decl) =
+	    gfc_conv_array_initializer (TREE_TYPE (decl), sym->value);
+	}
+      return fnbody;
+    }
+
+  gfc_start_block (&block);
+
+  /* Evaluate character string length.  */
+  if (sym->ts.type == BT_CHARACTER
+      && onstack && !INTEGER_CST_P (sym->ts.cl->backend_decl))
+    {
+      gfc_trans_init_string_length (sym->ts.cl, &block);
+
+      DECL_DEFER_OUTPUT (decl) = 1;
+
+      /* Generate code to allocate the automatic variable.  It will be
+	 freed automatically.  */
+      tmp = gfc_build_addr_expr (NULL, decl);
+      args = gfc_chainon_list (NULL_TREE, tmp);
+      args = gfc_chainon_list (args, sym->ts.cl->backend_decl);
+      tmp = gfc_build_function_call (built_in_decls[BUILT_IN_STACK_ALLOC],
+				     args);
+      gfc_add_expr_to_block (&block, tmp);
+    }
+
+  if (onstack)
+    {
+      if (sym->value)
 	{
 	  DECL_INITIAL (decl) =
 	    gfc_conv_array_initializer (TREE_TYPE (decl), sym->value);
 	}
 
-      return fnbody;
+      gfc_add_expr_to_block (&block, fnbody);
+      return gfc_finish_block (&block);
     }
 
-  /* Module variables are always static because there's nowhere to put the
-     initialization code.  */
-  assert (fnbody != NULL_TREE);
-  
   type = TREE_TYPE (type);
 
   assert (!sym->attr.use_assoc);
   assert (!TREE_STATIC (decl));
   assert (!sym->module[0]);
 
-  gfc_start_block (&block);
+  if (sym->ts.type == BT_CHARACTER
+      && !INTEGER_CST_P (sym->ts.cl->backend_decl))
+    gfc_trans_init_string_length (sym->ts.cl, &block);
 
   size = gfc_trans_array_bounds (type, sym, &offset, &block);
 
@@ -2903,15 +2906,10 @@ gfc_trans_auto_array_allocation (tree decl, gfc_symbol * sym, tree fnbody)
   tmp = fold (convert (TREE_TYPE (decl), tmp));
   gfc_add_modify_expr (&block, decl, tmp);
 
-  tmp = decl;
-  /* Set the base of the array.  */
-  if (!integer_zerop (offset))
-    {
-      tmp = gfc_build_indirect_ref (tmp);
-      tmp = gfc_build_array_ref (tmp, offset);
-      tmp = gfc_build_addr_expr (TREE_TYPE (decl), tmp);
-    }
-  gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), tmp);
+  /* Set offset of the array.  */
+  if (TREE_CODE (GFC_TYPE_ARRAY_OFFSET (type)) == VAR_DECL)
+    gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), offset);
+
 
   /* Automatic arrays should not have initializers.  */
   assert (!sym->value);
@@ -2935,7 +2933,6 @@ gfc_trans_g77_array (gfc_symbol * sym, tree body)
 {
   tree parm;
   tree type;
-  tree size;
   locus loc;
   tree offset;
   tree tmp;
@@ -2951,19 +2948,23 @@ gfc_trans_g77_array (gfc_symbol * sym, tree body)
 
   gfc_start_block (&block);
 
+  if (sym->ts.type == BT_CHARACTER
+      && !INTEGER_CST_P (sym->ts.cl->backend_decl))
+    gfc_trans_init_string_length (sym->ts.cl, &block);
+
   /* Evaluate the bounds of the array.  */
-  size = gfc_trans_array_bounds (type, sym, &offset, &block);
+  gfc_trans_array_bounds (type, sym, &offset, &block);
 
-  /* Set the base pointer.  */
-  tmp = parm;
-  if (!integer_zerop (offset))
+  /* Set the offset.  */
+  if (TREE_CODE (GFC_TYPE_ARRAY_OFFSET (type)) == VAR_DECL)
+    gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), offset);
+
+  /* Set the pointer itself if we aren't using the parameter dirtectly.  */
+  if (TREE_CODE (parm) != PARM_DECL)
     {
-      tmp = gfc_build_indirect_ref (tmp);
-      tmp = gfc_build_array_ref (tmp, offset);
-      tmp = gfc_build_addr_expr (TREE_TYPE (parm), tmp);
+      tmp = convert (TREE_TYPE (parm), GFC_DECL_SAVED_DESCRIPTOR (parm));
+      gfc_add_modify_expr (&block, parm, tmp);
     }
-  gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), tmp);
-
   tmp = gfc_finish_block (&block);
 
   gfc_set_backend_locus (&loc);
@@ -3013,7 +3014,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
   int checkparm;
   int no_repack;
 
-  if (sym->attr.dummy && TREE_CODE (tmpdesc) == PARM_DECL)
+  if (sym->attr.dummy && gfc_is_nodesc_array (sym))
     return gfc_trans_g77_array (sym, body);
 
   gfc_get_backend_locus (&loc);
@@ -3025,6 +3026,10 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
   dumdesc = GFC_DECL_SAVED_DESCRIPTOR (tmpdesc);
   dumdesc = gfc_build_indirect_ref (dumdesc);
   gfc_start_block (&block);
+
+  if (sym->ts.type == BT_CHARACTER
+      && !INTEGER_CST_P (sym->ts.cl->backend_decl))
+    gfc_trans_init_string_length (sym->ts.cl, &block);
 
   checkparm = (sym->as->type == AS_EXPLICIT && flag_bounds_check);
 
@@ -3201,15 +3206,9 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
         }
     }
 
-  /* Set the base pointer.  */
-  tmp = tmpdesc;
-  if (!integer_zerop (offset))
-    {
-      tmp = gfc_build_indirect_ref (tmp);
-      tmp = gfc_build_array_ref (tmp, offset);
-      tmp = gfc_build_addr_expr (TREE_TYPE (tmpdesc), tmp);
-    }
-  gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), tmp);
+  /* Set the offset.  */
+  if (TREE_CODE (GFC_TYPE_ARRAY_OFFSET (type)) == VAR_DECL)
+    gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), offset);
 
   stmt = gfc_finish_block (&block);
 
@@ -3289,9 +3288,6 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
   int full;
 
   assert (ss != gfc_ss_terminator);
-
-  if (expr->ts.type == BT_CHARACTER)
-    gfc_todo_error ("Character string array actual parameters");
 
   /* TODO: Pass constant array constructors without a temporary.  */
   /* If we have a linear array section, we can pass it directly.  Otherwise
@@ -3392,8 +3388,6 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
   if (need_tmp)
     {
       /* Tell the scalarizer to make a temporary.  */
-      if (expr->ts.type == BT_CHARACTER)
-	gfc_todo_error ("Passing character string expressions");
       loop.temp_ss = gfc_get_ss ();
       loop.temp_ss->type = GFC_SS_TEMP;
       loop.temp_ss->next = gfc_ss_terminator;
@@ -3583,20 +3577,16 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 
       if (se->direct_byref)
 	{
-	  /* Set the base pointer according to POINTER itself.  */
-	  tmp = gfc_conv_array_data (parm);
-	  tmp = gfc_build_indirect_ref (tmp);
-	  tmp = gfc_build_array_ref (tmp, base);
-	  base = gfc_build_addr_expr (gfc_array_dataptr_type (desc), tmp);
-
-	  tmp = gfc_conv_descriptor_base (parm);
+	  /* Set the offset.  */
+	  tmp = gfc_conv_descriptor_offset (parm);
 	  gfc_add_modify_expr (&loop.pre, tmp, base);
 	}
       else
 	{
-	  /* Invaidate the base pointer.  */
-	  tmp = gfc_conv_descriptor_base (parm);
-	  gfc_add_modify_expr (&loop.pre, tmp, integer_zero_node);
+	  /* Only the callee knows what the correct offset it, so just set
+	     it to zero here.  */
+	  tmp = gfc_conv_descriptor_offset (parm);
+	  gfc_add_modify_expr (&loop.pre, tmp, gfc_index_zero_node);
 	}
 
       if (!se->direct_byref)
@@ -3718,13 +3708,9 @@ gfc_trans_deferred_array (gfc_symbol * sym, tree body)
   gfc_init_block (&fnblock);
 
   assert (TREE_CODE (sym->backend_decl) == VAR_DECL);
-  if (GFC_DECL_STRING (sym->backend_decl))
-    {
-      tmp = GFC_DECL_STRING_LENGTH (sym->backend_decl);
-      if (!INTEGER_CST_P (tmp))
-	gfc_conv_init_string_length (sym, &fnblock);
-    }
-
+  if (sym->ts.type == BT_CHARACTER
+      && !INTEGER_CST_P (sym->ts.cl->backend_decl))
+    gfc_trans_init_string_length (sym->ts.cl, &fnblock);
 
   /* Parameter variables don't need anything special.  */
   if (sym->attr.dummy)

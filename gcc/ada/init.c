@@ -262,6 +262,51 @@ __gnat_set_globals (int main_priority,
    at all; the intention is that this be replaced by system specific
    code where initialization is required. */
 
+/* Notes on the Zero Cost Exceptions scheme and its impact on the signal
+   handlers implemented below :
+
+   What we call Zero Cost Exceptions is implemented using the GCC eh
+   circuitry, even if the underlying implementation is setjmp/longjmp
+   based. In any case ...
+
+   The GCC unwinder expects to be dealing with call return addresses, since
+   this is the "nominal" case of what we retrieve while unwinding a regular
+   call chain. To evaluate if a handler applies at some point in this chain,
+   the propagation engine needs to determine what region the corresponding
+   call instruction pertains to. The return address may not be attached to the
+   same region as the call, so the unwinder unconditionally substracts "some"
+   amount to the return addresses it gets to search the region tables. The
+   exact amount is computed to ensure that the resulting address is inside the
+   call instruction, and is thus target dependant (think about delay slots for
+   instance).
+
+   When we raise an exception from a signal handler, e.g. to transform a
+   SIGSEGV into Storage_Error, things need to appear as if the signal handler
+   had been "called" by the instruction which triggered the signal, so that
+   exception handlers that apply there are considered. What the unwinder will
+   retrieve as the return address from the signal handler is what it will find
+   as the faulting instruction address in the corresponding signal context
+   pushed by the kernel. Leaving this address untouched may loose, because if
+   the triggering instruction happens to be the very first of a region, the
+   later adjustements performed by the unwinder would yield an address outside
+   that region. We need to compensate for those adjustments at some point,
+   which we currently do in the GCC unwinding fallback macro.
+
+   The thread at http://gcc.gnu.org/ml/gcc-patches/2004-05/msg00343.html
+   describes a couple of issues with our current approach. Basically: on some
+   targets the adjustment to apply depends on the triggering signal, which is
+   not easily accessible from the macro, and we actually do not tackle this as
+   of today. Besides, other languages, e.g. Java, deal with this by performing
+   the adjustment in the signal handler before the raise, so our adjustments
+   may break those front-ends.
+
+   To have it all right, we should either find a way to deal with the signal
+   variants from the macro and convert Java on all targets (ugh), or remove
+   our macro adjustments and update our signal handlers a-la-java way.  The
+   latter option appears the simplest, although some targets have their share
+   of subtleties to account for.  See for instance the syscall(SYS_sigaction)
+   story in libjava/include/i386-signal.h.  */
+
 /***********************************/
 /* __gnat_initialize (AIX Version) */
 /***********************************/
@@ -359,6 +404,22 @@ __gnat_initialize (void)
 {
 }
 
+/***************************************/
+/* __gnat_initialize (RTEMS version) */
+/***************************************/
+
+#elif defined(__rtems__)
+
+extern void __gnat_install_handler (void);
+
+/* For RTEMS, each bsp will provide a custom __gnat_install_handler (). */
+
+void
+__gnat_initialize (void)
+{
+   __gnat_install_handler ();
+}
+
 /****************************************/
 /* __gnat_initialize (Dec Unix Version) */
 /****************************************/
@@ -370,7 +431,6 @@ __gnat_initialize (void)
    exclude this case in the above test.  */
 
 #include <signal.h>
-#include <setjmp.h>
 #include <sys/siginfo.h>
 
 static void __gnat_error_handler (int, siginfo_t *, struct sigcontext *);
@@ -388,7 +448,6 @@ __gnat_error_handler (int sig, siginfo_t *sip, struct sigcontext *context)
   static int recurse = 0;
   struct sigcontext *mstate;
   const char *msg;
-  jmp_buf handler_jmpbuf;
 
   /* If this was an explicit signal from a "kill", just resignal it.  */
   if (SI_FROMUSER (sip))
@@ -398,43 +457,6 @@ __gnat_error_handler (int sig, siginfo_t *sip, struct sigcontext *context)
     }
 
   /* Otherwise, treat it as something we handle.  */
-
-  /* We are now going to raise the exception corresponding to the signal we
-     caught, which may eventually end up resuming the application code if the
-     exception is handled.
-
-     When the exception is handled, merely arranging for the *exception*
-     handler's context (stack pointer, program counter, other registers, ...)
-     to be installed is *not* enough to let the kernel think we've left the
-     *signal* handler.  This has annoying implications if an alternate stack
-     has been setup for this *signal* handler, because the kernel thinks we
-     are still running on that alternate stack even after the jump, which
-     causes trouble at least as soon as another signal is raised.
-
-     We deal with this by forcing a "local" longjmp within the signal handler
-     below, forcing the "on alternate stack" indication to be reset (kernel
-     wise) on the way.  If no alternate stack has been setup, this should be a
-     neutral operation. Otherwise, we will be in a delicate situation for a
-     short while because we are going to run the exception propagation code
-     within the alternate stack area (that is, with the stack pointer inside
-     the alternate stack bounds), but with the corresponding flag off from the
-     kernel's standpoint.  We expect this to be ok as long as the propagation
-     code does not trigger a signal itself, which is expected.
-
-     ??? A better approach would be to at least delay this operation until the
-     last second, that is, until just before we jump to the exception handler,
-     if any.  */
-
-  if (setjmp (handler_jmpbuf) == 0)
-    {
-#define JB_ONSIGSTK 0
-
-      /* Arrange for the "on alternate stack" flag to be reset.  See the
-	 comments around "jmp_buf offsets" in /usr/include/setjmp.h.  */
-      handler_jmpbuf [JB_ONSIGSTK] = 0;
-      longjmp (handler_jmpbuf, 1);
-    }
-
   switch (sig)
     {
     case SIGSEGV:
@@ -494,36 +516,12 @@ __gnat_install_handler (void)
 {
   struct sigaction act;
 
-  /* stack-checking on this platform is performed by the back-end and conforms
-     to what the ABI *mandates* (DEC OSF/1 Calling standard for AXP systems,
-     chapter 6: Stack Limits in Multihtreaded Execution Environments).  This
-     does not include a "stack reserve" region, so nothing guarantees that
-     enough room remains on the current stack to propagate an exception when
-     a stack-overflow is signaled.  We deal with this by requesting the use of
-     an alternate stack region for signal handlers.
-
-     ??? The actual use of this alternate region depends on the act.sa_flags
-     including SA_ONSTACK below.  Care should be taken to update s-intman if
-     we want this to happen for tasks also.  */
-
-  static char sig_stack [8*1024];
-  /* 8K is a mininum to be able to propagate an exception using the GCC/ZCX
-     scheme.  */
-
-  struct sigaltstack ss;
-
-  ss.ss_sp = (void *) sig_stack;
-  ss.ss_size = sizeof (sig_stack);
-  ss.ss_flags = 0;
-
-  sigaltstack (&ss, 0);
-
   /* Setup signal handler to map synchronous signals to appropriate
      exceptions. Make sure that the handler isn't interrupted by another
      signal that might cause a scheduling event! */
 
   act.sa_handler = (void (*) (int)) __gnat_error_handler;
-  act.sa_flags = SA_ONSTACK | SA_RESTART | SA_NODEFER | SA_SIGINFO;
+  act.sa_flags = SA_RESTART | SA_NODEFER | SA_SIGINFO;
   sigemptyset (&act.sa_mask);
 
   /* Do not install handlers if interrupt state is "System" */
@@ -1098,6 +1096,18 @@ struct Machine_State
 
 static void __gnat_error_handler (int, int, sigcontext_t *);
 
+/* We are not setting the SA_SIGINFO bit in the sigaction flags when
+   connecting that handler, with the effects described in the sigaction
+   man page:
+
+          SA_SIGINFO [...]
+          If cleared and the signal is caught, the first argument is
+          also the signal number but the second argument is the signal
+          code identifying the cause of the signal. The third argument
+          points to a sigcontext_t structure containing the receiving
+	  process's context when the signal was delivered.
+*/
+
 static void
 __gnat_error_handler (int sig, int code, sigcontext_t *sc)
 {
@@ -1123,8 +1133,13 @@ __gnat_error_handler (int sig, int code, sigcontext_t *sc)
 	  exception = &program_error; /* ??? storage_error ??? */
 	  msg = "SIGSEGV: (Autogrow for file failed)";
 	}
-      else if (code == EACCES)
+      else if (code == EACCES || code == EEXIST)
 	{
+	  /* ??? We handle stack overflows here, some of which do trigger
+	         SIGSEGV + EEXIST on Irix 6.5 although EEXIST is not part of
+	         the documented valid codes for SEGV in the signal(5) man
+	         page.  */
+
 	  /* ??? Re-add smarts to further verify that we launched
 		 the stack into a guard page, not an attempt to
 		 write to .text or something */
@@ -1328,11 +1343,24 @@ __gnat_initialize (void)
 
 #elif defined (VMS)
 
+#ifdef __IA64
+#define lib_get_curr_invo_context LIB$I64_GET_CURR_INVO_CONTEXT
+#define lib_get_prev_invo_context LIB$I64_GET_PREV_INVO_CONTEXT
+#define lib_get_invo_handle LIB$I64_GET_INVO_HANDLE
+#else
+#define lib_get_curr_invo_context LIB$GET_CURR_INVO_CONTEXT
+#define lib_get_prev_invo_context LIB$GET_PREV_INVO_CONTEXT
+#define lib_get_invo_handle LIB$GET_INVO_HANDLE
+#endif
+
+#if defined (IN_RTS) && !defined (__IA64)
+
 /* The prehandler actually gets control first on a condition. It swaps the
    stack pointer and calls the handler (__gnat_error_handler). */
 extern long __gnat_error_prehandler (void);
 
 extern char *__gnat_error_prehandler_stack;   /* Alternate signal stack */
+#endif
 
 /* Conditions that don't have an Ada exception counterpart must raise
    Non_Ada_Error.  Since this is defined in s-auxdec, it should only be
@@ -1344,7 +1372,10 @@ extern char *__gnat_error_prehandler_stack;   /* Alternate signal stack */
 extern struct Exception_Data Non_Ada_Error;
 
 #define Coded_Exception system__vms_exception_table__coded_exception
-extern struct Exception_Data *Coded_Exception (int);
+extern struct Exception_Data *Coded_Exception (Exception_Code);
+
+#define Base_Code_In system__vms_exception_table__base_code_in
+extern Exception_Code Base_Code_In (Exception_Code);
 #endif
 
 /* Define macro symbols for the VMS conditions that become Ada exceptions.
@@ -1374,6 +1405,8 @@ long
 __gnat_error_handler (int *sigargs, void *mechargs)
 {
   struct Exception_Data *exception = 0;
+  Exception_Code base_code;
+
   char *msg = "";
   char message[256];
   long prvhnd;
@@ -1410,8 +1443,11 @@ __gnat_error_handler (int *sigargs, void *mechargs)
   }
 
 #ifdef IN_RTS
-  /* See if it's an imported exception. Mask off severity bits. */
-  exception = Coded_Exception (sigargs[1] & 0xfffffff8);
+  /* See if it's an imported exception. Beware that registered exceptions
+     are bound to their base code, with the severity bits masked off.  */
+  base_code = Base_Code_In ((Exception_Code) sigargs [1]);
+  exception = Coded_Exception (base_code);
+
   if (exception)
     {
       msgdesc.len = 256;
@@ -1424,7 +1460,7 @@ __gnat_error_handler (int *sigargs, void *mechargs)
       exception->Name_Length = 19;
       /* The full name really should be get sys$getmsg returns. ??? */
       exception->Full_Name = "IMPORTED_EXCEPTION";
-      exception->Import_Code = sigargs[1] & 0xfffffff8;
+      exception->Import_Code = base_code;
     }
 #endif
 
@@ -1500,10 +1536,10 @@ __gnat_error_handler (int *sigargs, void *mechargs)
   mstate = (long *) (*Get_Machine_State_Addr) ();
   if (mstate != 0)
     {
-      LIB$GET_CURR_INVO_CONTEXT (&curr_icb);
-      LIB$GET_PREV_INVO_CONTEXT (&curr_icb);
-      LIB$GET_PREV_INVO_CONTEXT (&curr_icb);
-      curr_invo_handle = LIB$GET_INVO_HANDLE (&curr_icb);
+      lib_get_curr_invo_context (&curr_icb);
+      lib_get_prev_invo_context (&curr_icb);
+      lib_get_prev_invo_context (&curr_icb);
+      curr_invo_handle = lib_get_invo_handle (&curr_icb);
       *mstate = curr_invo_handle;
     }
   Raise_From_Signal_Handler (exception, msg);
@@ -1513,6 +1549,7 @@ void
 __gnat_install_handler (void)
 {
   long prvhnd;
+#if defined (IN_RTS) && !defined (__IA64)
   char *c;
 
   c = (char *) xmalloc (2049);
@@ -1521,6 +1558,9 @@ __gnat_install_handler (void)
 
   /* __gnat_error_prehandler is an assembly function.  */
   SYS$SETEXV (1, __gnat_error_prehandler, 3, &prvhnd);
+#else
+  SYS$SETEXV (1, __gnat_error_handler, 3, &prvhnd);
+#endif
   __gnat_handler_installed = 1;
 }
 
@@ -1769,20 +1809,44 @@ __gnat_initialize (void)
 {
   __gnat_init_float ();
 
-  /* Assume an environment task stack size of 20kB.
+  /* On targets where we might be using the ZCX scheme, we need to register
+     the frame tables.
 
-     Using a constant is necessary because we do not want each Ada application
-     to depend on the optional taskShow library,
-     which is required to get the actual stack information.
+     For application "modules", the crtstuff objects linked in (crtbegin/endS)
+     are tailored to provide this service a-la C++ constructor fashion,
+     typically triggered by the dynamic loader. This is achieved by way of a
+     special variable declaration in the crt object, the name of which has
+     been deduced by analyzing the output of the "munching" step documented
+     for C++.  The de-registration call is handled symetrically, a-la C++
+     destructor fashion and typically triggered by the dynamic unloader. With
+     this scheme, a mixed Ada/C++ application has to be linked and loaded as
+     separate modules for each language, which is not unreasonable anyway.
 
-     The consequence of this is that with -fstack-check
-     the environment task must have an actual stack size
-     of at least 20kB and the usable size will be about 14kB.
-  */
+     For applications statically linked with the kernel, the module scheme
+     above would lead to duplicated symbols because the VxWorks kernel build
+     "munches" by default. To prevent those conflicts, we link against
+     crtbegin/end objects that don't include the special variable and directly
+     call the appropriate function here. We'll never unload that, so there is
+     no de-registration to worry about.
 
-  __gnat_set_stack_size (14336);
-  /* Allow some head room for the stack checking code, and for
-     stack space consumed during initialization */
+     We can differentiate by looking at the __module_has_ctors value provided
+     by each class of crt objects. As of today, selecting the crt set intended
+     for applications to be statically linked with the kernel is triggered by
+     adding "-static" to the gcc *link* command line options.
+
+     This is a first approach, tightly synchronized with a number of GCC
+     configuration and crtstuff changes. We need to ensure that those changes
+     are there to activate this circuitry.  */
+
+#if DWARF2_UNWIND_INFO && defined (_ARCH_PPC)
+ {
+   extern const int __module_has_ctors;
+   extern void __do_global_ctors ();
+
+   if (! __module_has_ctors)
+     __do_global_ctors ();
+ }
+#endif
 }
 
 /********************************/
@@ -1853,22 +1917,6 @@ __gnat_initialize (void)
 {
   __gnat_install_handler ();
   __gnat_init_float ();
-}
-
-/***************************************/
-/* __gnat_initialize (RTEMS version) */
-/***************************************/
-
-#elif defined(__rtems__)
-
-extern void __gnat_install_handler (void);
-
-/* For RTEMS, each bsp will provide a custom __gnat_install_handler (). */
-
-void
-__gnat_initialize (void)
-{
-   __gnat_install_handler ();
 }
 
 #else

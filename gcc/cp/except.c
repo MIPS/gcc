@@ -889,11 +889,10 @@ check_handlers_1 (tree master, tree handlers)
     if (TREE_TYPE (handler)
 	&& can_convert_eh (type, TREE_TYPE (handler)))
       {
-	input_line = STMT_LINENO (handler);
-	warning ("exception of type `%T' will be caught",
-		    TREE_TYPE (handler));
-	input_line = STMT_LINENO (master);
-	warning ("   by earlier handler for `%T'", type);
+	warning ("%Hexception of type `%T' will be caught",
+		 EXPR_LOCUS (handler), TREE_TYPE (handler));
+	warning ("%H   by earlier handler for `%T'",
+		 EXPR_LOCUS (master), type);
 	break;
       }
 }
@@ -911,11 +910,8 @@ check_handlers (tree handlers)
       if (TREE_CHAIN (handler) == NULL_TREE)
 	/* No more handlers; nothing to shadow.  */;
       else if (TREE_TYPE (handler) == NULL_TREE)
-	{
-	  input_line = STMT_LINENO (handler);
-	  pedwarn
-	    ("`...' handler must be the last handler for its try block");
-	}
+	pedwarn ("%H`...' handler must be the last handler for"
+		 " its try block", EXPR_LOCUS (handler));
       else
 	check_handlers_1 (handler, TREE_CHAIN (handler));
     }

@@ -2153,7 +2153,7 @@ alpha_rtx_costs (rtx x, int code, int outer_code, int *total)
 	       && const48_operand (XEXP (XEXP (x, 0), 1), VOIDmode))
 	{
 	  *total = (rtx_cost (XEXP (XEXP (x, 0), 0), outer_code)
-		    + rtx_cost (XEXP (x, 1), outer_code) + 2);
+		    + rtx_cost (XEXP (x, 1), outer_code) + COSTS_N_INSNS (1));
 	  return true;
 	}
       return false;
@@ -3561,85 +3561,65 @@ alpha_split_conditional_move (enum rtx_code code, rtx dest, rtx cond,
 /* Look up the function X_floating library function name for the
    given operation.  */
 
-static const char *
+struct xfloating_op GTY(())
+{
+  const enum rtx_code code;
+  const char *const GTY((skip)) osf_func;
+  const char *const GTY((skip)) vms_func;
+  rtx libcall;
+};
+
+static GTY(()) struct xfloating_op xfloating_ops[] = 
+{
+  { PLUS,		"_OtsAddX", "OTS$ADD_X", 0 },
+  { MINUS,		"_OtsSubX", "OTS$SUB_X", 0 },
+  { MULT,		"_OtsMulX", "OTS$MUL_X", 0 },
+  { DIV,		"_OtsDivX", "OTS$DIV_X", 0 },
+  { EQ,			"_OtsEqlX", "OTS$EQL_X", 0 },
+  { NE,			"_OtsNeqX", "OTS$NEQ_X", 0 },
+  { LT,			"_OtsLssX", "OTS$LSS_X", 0 },
+  { LE,			"_OtsLeqX", "OTS$LEQ_X", 0 },
+  { GT,			"_OtsGtrX", "OTS$GTR_X", 0 },
+  { GE,			"_OtsGeqX", "OTS$GEQ_X", 0 },
+  { FIX,		"_OtsCvtXQ", "OTS$CVTXQ", 0 },
+  { FLOAT,		"_OtsCvtQX", "OTS$CVTQX", 0 },
+  { UNSIGNED_FLOAT,	"_OtsCvtQUX", "OTS$CVTQUX", 0 },
+  { FLOAT_EXTEND,	"_OtsConvertFloatTX", "OTS$CVT_FLOAT_T_X", 0 },
+  { FLOAT_TRUNCATE,	"_OtsConvertFloatXT", "OTS$CVT_FLOAT_X_T", 0 }
+};
+
+static GTY(()) struct xfloating_op vax_cvt_ops[] =
+{
+  { FLOAT_EXTEND,	"_OtsConvertFloatGX", "OTS$CVT_FLOAT_G_X", 0 },
+  { FLOAT_TRUNCATE,	"_OtsConvertFloatXG", "OTS$CVT_FLOAT_X_G", 0 }
+};
+
+static rtx
 alpha_lookup_xfloating_lib_func (enum rtx_code code)
 {
-  struct xfloating_op
-    {
-      const enum rtx_code code;
-      const char *const func;
-    };
-
-  static const struct xfloating_op vms_xfloating_ops[] = 
-    {
-      { PLUS,		"OTS$ADD_X" },
-      { MINUS,		"OTS$SUB_X" },
-      { MULT,		"OTS$MUL_X" },
-      { DIV,		"OTS$DIV_X" },
-      { EQ,		"OTS$EQL_X" },
-      { NE,		"OTS$NEQ_X" },
-      { LT,		"OTS$LSS_X" },
-      { LE,		"OTS$LEQ_X" },
-      { GT,		"OTS$GTR_X" },
-      { GE,		"OTS$GEQ_X" },
-      { FIX,		"OTS$CVTXQ" },
-      { FLOAT,		"OTS$CVTQX" },
-      { UNSIGNED_FLOAT,	"OTS$CVTQUX" },
-      { FLOAT_EXTEND,	"OTS$CVT_FLOAT_T_X" },
-      { FLOAT_TRUNCATE,	"OTS$CVT_FLOAT_X_T" },
-    };
-
-  static const struct xfloating_op osf_xfloating_ops[] = 
-    {
-      { PLUS,		"_OtsAddX" },
-      { MINUS,		"_OtsSubX" },
-      { MULT,		"_OtsMulX" },
-      { DIV,		"_OtsDivX" },
-      { EQ,		"_OtsEqlX" },
-      { NE,		"_OtsNeqX" },
-      { LT,		"_OtsLssX" },
-      { LE,		"_OtsLeqX" },
-      { GT,		"_OtsGtrX" },
-      { GE,		"_OtsGeqX" },
-      { FIX,		"_OtsCvtXQ" },
-      { FLOAT,		"_OtsCvtQX" },
-      { UNSIGNED_FLOAT,	"_OtsCvtQUX" },
-      { FLOAT_EXTEND,	"_OtsConvertFloatTX" },
-      { FLOAT_TRUNCATE,	"_OtsConvertFloatXT" },
-    };
-
-  const struct xfloating_op *ops;
-  const long n = ARRAY_SIZE (osf_xfloating_ops);
+  struct xfloating_op *ops = xfloating_ops;
+  long n = ARRAY_SIZE (xfloating_ops);
   long i;
 
-  /* How irritating.  Nothing to key off for the table.  Hardcode
-     knowledge of the G_floating routines.  */
-  if (TARGET_FLOAT_VAX)
+  /* How irritating.  Nothing to key off for the main table.  */
+  if (TARGET_FLOAT_VAX && (code == FLOAT_EXTEND || code == FLOAT_TRUNCATE))
     {
-      if (TARGET_ABI_OPEN_VMS)
-	{
-	  if (code == FLOAT_EXTEND)
-	    return "OTS$CVT_FLOAT_G_X";
-	  if (code == FLOAT_TRUNCATE)
-	    return "OTS$CVT_FLOAT_X_G";
-	}
-      else
-	{
-	  if (code == FLOAT_EXTEND)
-	    return "_OtsConvertFloatGX";
-	  if (code == FLOAT_TRUNCATE)
-	    return "_OtsConvertFloatXG";
-	}
+      ops = vax_cvt_ops;
+      n = ARRAY_SIZE (vax_cvt_ops);
     }
 
-  if (TARGET_ABI_OPEN_VMS)
-    ops = vms_xfloating_ops;
-  else
-    ops = osf_xfloating_ops;
-
-  for (i = 0; i < n; ++i)
-    if (ops[i].code == code)
-      return ops[i].func;
+  for (i = 0; i < n; ++i, ++ops)
+    if (ops->code == code)
+      {
+	rtx func = ops->libcall;
+	if (!func)
+	  {
+	    func = init_one_libfunc (TARGET_ABI_OPEN_VMS
+				     ? ops->vms_func : ops->osf_func);
+	    ops->libcall = func;
+	  }
+        return func;
+      }
 
   abort();
 }
@@ -3685,7 +3665,7 @@ alpha_compute_xfloating_mode_arg (enum rtx_code code,
    TFmode arguments are passed in two integer registers (as opposed to
    indirect); TFmode return values appear in R16+R17. 
 
-   FUNC is the function name to call.
+   FUNC is the function to call.
    TARGET is where the output belongs.
    OPERANDS are the inputs.
    NOPERANDS is the count of inputs.
@@ -3693,7 +3673,7 @@ alpha_compute_xfloating_mode_arg (enum rtx_code code,
 */
 
 static void
-alpha_emit_xfloating_libcall (const char *func, rtx target, rtx operands[],
+alpha_emit_xfloating_libcall (rtx func, rtx target, rtx operands[],
 			      int noperands, rtx equiv)
 {
   rtx usage = NULL_RTX, tmp, reg;
@@ -3747,10 +3727,11 @@ alpha_emit_xfloating_libcall (const char *func, rtx target, rtx operands[],
       abort ();
     }
 
-  tmp = gen_rtx_MEM (QImode, init_one_libfunc (func));
+  tmp = gen_rtx_MEM (QImode, func);
   tmp = emit_call_insn (GEN_CALL_VALUE (reg, tmp, const0_rtx,
 					const0_rtx, const0_rtx));
   CALL_INSN_FUNCTION_USAGE (tmp) = usage;
+  CONST_OR_PURE_CALL_P (tmp) = 1;
 
   tmp = get_insns ();
   end_sequence ();
@@ -3763,7 +3744,7 @@ alpha_emit_xfloating_libcall (const char *func, rtx target, rtx operands[],
 void
 alpha_emit_xfloating_arith (enum rtx_code code, rtx operands[])
 {
-  const char *func;
+  rtx func;
   int mode;
   rtx out_operands[3];
 
@@ -3783,7 +3764,7 @@ alpha_emit_xfloating_arith (enum rtx_code code, rtx operands[])
 static rtx
 alpha_emit_xfloating_compare (enum rtx_code code, rtx op0, rtx op1)
 {
-  const char *func;
+  rtx func;
   rtx out, operands[2];
 
   func = alpha_lookup_xfloating_lib_func (code);
@@ -3807,7 +3788,7 @@ alpha_emit_xfloating_cvt (enum rtx_code orig_code, rtx operands[])
 {
   int noperands = 1, mode;
   rtx out_operands[2];
-  const char *func;
+  rtx func;
   enum rtx_code code = orig_code;
 
   if (code == UNSIGNED_FIX)
@@ -5905,7 +5886,7 @@ function_arg (CUMULATIVE_ARGS cum, enum machine_mode mode, tree type,
   else
     {
 #ifdef ENABLE_CHECKING
-      /* With SPLIT_COMPLEX_ARGS, we shouldn't see any raw complex
+      /* With alpha_split_complex_arg, we shouldn't see any raw complex
 	 values here.  */
       if (COMPLEX_MODE_P (mode))
 	abort ();
@@ -6120,6 +6101,15 @@ function_value (tree valtype, tree func ATTRIBUTE_UNUSED,
     }
 
   return gen_rtx_REG (mode, regnum);
+}
+
+/* TCmode complex values are passed by invisible reference.  We 
+   should not split these values.  */
+
+static bool
+alpha_split_complex_arg (tree type)
+{
+  return TYPE_MODE (type) != TCmode;
 }
 
 static tree
@@ -7862,6 +7852,10 @@ alpha_expand_epilogue (void)
 void
 alpha_end_function (FILE *file, const char *fnname, tree decl ATTRIBUTE_UNUSED)
 {
+#if TARGET_ABI_OPEN_VMS
+  alpha_write_linkage (file, fnname, decl);
+#endif
+
   /* End the function.  */
   if (!TARGET_ABI_UNICOSMK && !flag_inhibit_size_directive)
     {
@@ -7870,10 +7864,6 @@ alpha_end_function (FILE *file, const char *fnname, tree decl ATTRIBUTE_UNUSED)
       putc ('\n', file);
     }
   inside_function = FALSE;
-
-#if TARGET_ABI_OPEN_VMS
-  alpha_write_linkage (file, fnname, decl);
-#endif
 
   /* Output jump tables and the static subroutine information block.  */
   if (TARGET_ABI_UNICOSMK)
@@ -10239,6 +10229,8 @@ alpha_init_libfuncs (void)
 #define TARGET_STRICT_ARGUMENT_NAMING hook_bool_CUMULATIVE_ARGS_true
 #undef TARGET_PRETEND_OUTGOING_VARARGS_NAMED
 #define TARGET_PRETEND_OUTGOING_VARARGS_NAMED hook_bool_CUMULATIVE_ARGS_true
+#undef TARGET_SPLIT_COMPLEX_ARG
+#define TARGET_SPLIT_COMPLEX_ARG alpha_split_complex_arg
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST alpha_build_builtin_va_list

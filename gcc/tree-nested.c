@@ -28,7 +28,7 @@
 #include "function.h"
 #include "tree-dump.h"
 #include "tree-inline.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-iterator.h"
 #include "tree-flow.h"
 #include "cgraph.h"
@@ -134,8 +134,12 @@ create_tmp_var_for (struct nesting_info *info, tree type, const char *prefix)
 
 #if defined ENABLE_CHECKING
   /* If the type is an array or a type which must be created by the
-     frontend, something is wrong.  */
+     frontend, something is wrong.  Note that we explicitly allow
+     incomplete types here, since we create them ourselves here.  */
   if (TREE_CODE (type) == ARRAY_TYPE || TREE_ADDRESSABLE (type))
+    abort ();
+  if (TYPE_SIZE_UNIT (type)
+      && TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST)
     abort ();
 #endif
 
@@ -302,15 +306,16 @@ get_chain_decl (struct nesting_info *info)
 
       /* Note that this variable is *not* entered into any BIND_EXPR;
 	 the construction of this variable is handled specially in
-	 expand_function_start and initialize_inlined_parameters.  */
-      decl = create_tmp_var_raw (type, "CHAIN");
+	 expand_function_start and initialize_inlined_parameters.
+	 Note also that it's represented as a parameter.  This is more
+	 close to the truth, since the initial value does come from 
+	 the caller.  */
+      decl = build_decl (PARM_DECL, create_tmp_var_name ("CHAIN"), type);
+      DECL_ARTIFICIAL (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
+      TREE_USED (decl) = 1;
       DECL_CONTEXT (decl) = info->context;
-      decl->decl.seen_in_bind_expr = 1;
-
-      /* The initialization of CHAIN is not visible to the tree-ssa
-	 analyzers and optimizers.  Thus we do not want to issue
-	 warnings for CHAIN.  */
-      TREE_NO_WARNING (decl) = 1;
+      DECL_ARG_TYPE (decl) = type;
 
       /* Tell tree-inline.c that we never write to this variable, so
 	 it can copy-prop the replacement value immediately.  */
@@ -747,7 +752,10 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
     case GOTO_EXPR:
       /* Don't walk non-local gotos for now.  */
       if (TREE_CODE (GOTO_DESTINATION (t)) != LABEL_DECL)
-	*walk_subtrees = 1;
+	{
+	  *walk_subtrees = 1;
+	  wi->val_only = true;
+	}
       break;
 
     case LABEL_DECL:
@@ -766,7 +774,7 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 
 	wi->val_only = false;
 	walk_tree (&TREE_OPERAND (t, 0), convert_nonlocal_reference, wi, NULL);
-	wi->val_only = save_val_only;
+	wi->val_only = true;
 
 	if (save_sub != TREE_OPERAND (t, 0))
 	  {
@@ -783,9 +791,35 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
       }
       break;
 
+    case COMPONENT_REF:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      wi->val_only = false;
+      walk_tree (&TREE_OPERAND (t, 0), convert_nonlocal_reference, wi, NULL);
+      wi->val_only = true;
+      break;
+
+    case ARRAY_REF:
+      wi->val_only = false;
+      walk_tree (&TREE_OPERAND (t, 0), convert_nonlocal_reference, wi, NULL);
+      wi->val_only = true;
+      walk_tree (&TREE_OPERAND (t, 1), convert_nonlocal_reference, wi, NULL);
+      break;
+
+    case BIT_FIELD_REF:
+      wi->val_only = false;
+      walk_tree (&TREE_OPERAND (t, 0), convert_nonlocal_reference, wi, NULL);
+      wi->val_only = true;
+      walk_tree (&TREE_OPERAND (t, 1), convert_nonlocal_reference, wi, NULL);
+      walk_tree (&TREE_OPERAND (t, 2), convert_nonlocal_reference, wi, NULL);
+      break;
+
     default:
       if (!DECL_P (t) && !TYPE_P (t))
-	*walk_subtrees = 1;
+	{
+	  *walk_subtrees = 1;
+          wi->val_only = true;
+	}
       break;
     }
 
@@ -889,9 +923,35 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
       tsi_link_after (&wi->tsi, x, TSI_SAME_STMT);
       break;
 
+    case COMPONENT_REF:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      wi->val_only = false;
+      walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
+      wi->val_only = true;
+      break;
+
+    case ARRAY_REF:
+      wi->val_only = false;
+      walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
+      wi->val_only = true;
+      walk_tree (&TREE_OPERAND (t, 1), convert_local_reference, wi, NULL);
+      break;
+
+    case BIT_FIELD_REF:
+      wi->val_only = false;
+      walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
+      wi->val_only = true;
+      walk_tree (&TREE_OPERAND (t, 1), convert_local_reference, wi, NULL);
+      walk_tree (&TREE_OPERAND (t, 2), convert_local_reference, wi, NULL);
+      break;
+
     default:
       if (!DECL_P (t) && !TYPE_P (t))
-	*walk_subtrees = 1;
+	{
+	  *walk_subtrees = 1;
+	  wi->val_only = true;
+	}
       break;
     }
 

@@ -229,7 +229,6 @@ public final class FilePermission extends Permission implements Serializable
 	        return false;
 	      /* Make sure there are no subdirectories specified 
                  underneath this one */
-	      String sub2 = f2.substring(sub1.length()+1);
 	      if(f2.substring(sub1.length()+1).indexOf(File.separatorChar) 
                  != -1)
 	        return false;
@@ -271,9 +270,9 @@ public final class FilePermission extends Permission implements Serializable
       break;
 */
         default:
-          if(f2.charAt(f2.length()) == File.separatorChar) 
+          if(f2.charAt(f2.length() - 1) == File.separatorChar) 
             {
-              if(!f1.equals(f2.substring(0,f2.length()-1)))
+              if(!f1.equals(f2.substring(0,f2.length() - 1)))
 	        return false;
             } 
           else 

@@ -418,14 +418,22 @@ namespace std
        *  @param  str  Source string.
        */
       basic_string&
-      operator=(const basic_string& __str) { return this->assign(__str); }
+      operator=(const basic_string& __str) 
+      { 
+	this->assign(__str); 
+	return *this;
+      }
 
       /**
        *  @brief  Copy contents of @a s into this string.
        *  @param  s  Source null-terminated string.
        */
       basic_string&
-      operator=(const _CharT* __s) { return this->assign(__s); }
+      operator=(const _CharT* __s) 
+      { 
+	this->assign(__s); 
+	return *this;
+      }
 
       /**
        *  @brief  Set value to string of length 1.
@@ -435,7 +443,11 @@ namespace std
        *  (*this)[0] == @a c.
        */
       basic_string&
-      operator=(_CharT __c) { return this->assign(1, __c); }
+      operator=(_CharT __c) 
+      { 
+	this->assign(1, __c); 
+	return *this;
+      }
 
       // Iterators:
       /**
@@ -1342,7 +1354,9 @@ namespace std
 	if (this->max_size() - (this->size() - __n1) < __n2)
 	  __throw_length_error(__N("basic_string::_M_replace_aux"));
 	_M_mutate(__pos1, __n1, __n2);
-	if (__n2)
+	if (__n2 == 1)
+	  _M_data()[__pos1] = __c;
+	else if (__n2)
 	  traits_type::assign(_M_data() + __pos1, __n2, __c);
 	return *this;
       }
@@ -1352,7 +1366,9 @@ namespace std
 		      size_type __n2)
       {
 	_M_mutate(__pos1, __n1, __n2);
-	if (__n2)
+	if (__n2 == 1)
+	  _M_data()[__pos1] = *__s;
+	else if (__n2)
 	  traits_type::copy(_M_data() + __pos1, __s, __n2);
 	return *this;
       }
@@ -1960,7 +1976,7 @@ namespace std
    *  @param rhs  Last string.
    *  @return  New string with value of @a lhs followed by @a rhs.
    */
- template<typename _CharT, typename _Traits, typename _Alloc>
+  template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>
     operator+(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
 	      const basic_string<_CharT, _Traits, _Alloc>& __rhs)

@@ -77,29 +77,30 @@
 #include "cfglayout.h"
 #include "fibheap.h"
 #include "target.h"
-/* APPLE LOCAL begin hot/cold partitioning  */
 #include "function.h"
+#include "tm_p.h"
 #include "obstack.h"
 #include "expr.h"
 #include "regs.h"
-#include "tm_p.h"
-
-#ifndef HAVE_return
-#define HAVE_return 0
-#define gen_return () NULL_RTX
-#endif 
 
 /* The number of rounds.  In most cases there will only be 4 rounds, but
    when partitioning hot and cold basic blocks into separate sections of
    the .o file there will be an extra round.*/
 #define N_ROUNDS 5
 
+/* Stubs in case we don't have a return insn.
+   We have to check at runtime too, not only compiletime.  */  
+
+#ifndef HAVE_return
+#define HAVE_return 0
+#define gen_return() NULL_RTX
+#endif
+
 /* Branch thresholds in thousandths (per mille) of the REG_BR_PROB_BASE.  */
 static int branch_threshold[N_ROUNDS] = {400, 200, 100, 0, 0};
 
 /* Exec thresholds in thousandths (per mille) of the frequency of bb 0.  */
 static int exec_threshold[N_ROUNDS] = {500, 200, 50, 0, 0};
-/* APPLE LOCAL end hot/cold partitioning  */  
 
 /* If edge frequency is lower than DUPLICATION_THRESHOLD per mille of entry
    block the edge destination is not duplicated while connecting traces.  */
@@ -165,7 +166,6 @@ static void find_traces_1_round (int, int, gcov_type, struct trace *, int *,
 static basic_block copy_bb (basic_block, edge, basic_block, int);
 static fibheapkey_t bb_to_key (basic_block);
 static bool better_edge_p (basic_block, edge, int, int, int, int, edge);
-/* APPLE LOCAL end hot/cold partitioning  */
 static void connect_traces (int, struct trace *);
 static bool copy_bb_p (basic_block, int);
 static int get_uncond_jump_length (void);
@@ -220,6 +220,7 @@ push_to_next_round_p (basic_block bb, int round, int number_of_rounds,
 }
 /* APPLE LOCAL end hot/cold partitioning  */
 
+
 /* Find the traces for Software Trace Cache.  Chain each trace through
    RBI()->next.  Store the number of traces to N_TRACES and description of
    traces to TRACES.  */
@@ -243,6 +244,14 @@ find_traces (int *n_traces, struct trace *traces)
 
   /* APPLE LOCAL end hot/cold partitioning  */
 
+  /* Add one extra round of trace collection when partitioning hot/cold
+     basic blocks into separate sections.  The last round is for all the
+     cold blocks (and ONLY the cold blocks).  */
+
+  number_of_rounds = N_ROUNDS - 1;
+  if (flag_reorder_blocks_and_partition)
+    number_of_rounds = N_ROUNDS;
+
   /* Insert entry points of function into heap.  */
   heap = fibheap_new ();
   max_entry_frequency = 0;
@@ -259,9 +268,7 @@ find_traces (int *n_traces, struct trace *traces)
     }
 
   /* Find the traces.  */
-  /* APPLE LOCAL begin hot/cold partitioning  */
   for (i = 0; i < number_of_rounds; i++)
-  /* APPLE LOCAL end hot/cold partitioning  */
     {
       gcov_type count_threshold;
 
@@ -437,15 +444,12 @@ mark_bb_visited (basic_block bb, int trace)
 static void
 find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 		     struct trace *traces, int *n_traces, int round,
-		     /* APPLE LOCAL begin hot/cold partitioning  */
 		     fibheap_t *heap, int number_of_rounds)
 {
   /* The following variable refers to the last round in which non-"cold" 
      blocks may be collected into a trace.  */
 
   int last_round = N_ROUNDS - 1;
-
-  /* APPLE LOCAL end hot/cold partitioning  */
 
   /* Heap for discarded basic blocks which are possible starting points for
      the next round.  */
@@ -465,7 +469,6 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
       if (dump_file)
 	fprintf (dump_file, "Getting bb %d\n", bb->index);
 
-      /* APPLE LOCAL begin hot/cold partitioning  */
       /* If the BB's frequency is too low send BB to the next round.  When
          partitioning hot/cold blocks into separate sections, make sure all
          the cold blocks (and ONLY the cold blocks) go into the (extra) final
@@ -473,7 +476,6 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 
       if (push_to_next_round_p (bb, round, number_of_rounds, exec_th, 
 				count_th))
-      /* APPLE LOCAL end hot/cold partitioning  */
 	{
 	  int key = bb_to_key (bb);
 	  bbd[bb->index].heap = new_heap;
@@ -523,13 +525,9 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 		  && e->dest->rbi->visited != *n_traces)
 		continue;
 
-	      /* APPLE LOCAL begin hot/cold partitioning  */
-
 	      if (e->dest->partition == COLD_PARTITION
 		  && round < last_round)
 		continue;
-
-	      /* APPLE LOCAL end hot/cold partitioning  */
 
 	      prob = e->probability;
 	      freq = EDGE_FREQUENCY (e);
@@ -540,13 +538,11 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 		  || prob < branch_th || freq < exec_th || e->count < count_th)
 		continue;
 
-	      /* APPLE LOCAL begin hot/cold partitioning  */
 	      /* If partitioning hot/cold basic blocks, don't consider edges
 		 that cross section boundaries.  */
 
 	      if (better_edge_p (bb, e, prob, freq, best_prob, best_freq,
 				 best_edge))
-	      /* APPLE LOCAL end hot/cold partitioning  */
 		{
 		  best_edge = e;
 		  best_prob = prob;
@@ -600,7 +596,6 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 		      || prob < branch_th || freq < exec_th
 		      || e->count < count_th)
 		    {
-		      /* APPLE LOCAL begin hot/cold partitioning  */
 		      /* When partitioning hot/cold basic blocks, make sure
 			 the cold blocks (and only the cold blocks) all get
 			 pushed to the last round of trace collection.  */
@@ -608,7 +603,6 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 		      if (push_to_next_round_p (e->dest, round, 
 						number_of_rounds,
 						exec_th, count_th))
-                      /* APPLE LOCAL end hot/cold partitioning  */
 			which_heap = new_heap;
 		    }
 
@@ -706,9 +700,7 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 			&& !(e->flags & EDGE_COMPLEX)
 			&& !e->dest->rbi->visited
 			&& !e->dest->pred->pred_next
-			/* APPLE LOCAL begin hot/cold partitioning  */
 			&& !e->crossing_edge
-			/* APPLE LOCAL end hot/cold partitioning  */
 			&& e->dest->succ
 			&& (e->dest->succ->flags & EDGE_CAN_FALLTHRU)
 			&& !(e->dest->succ->flags & EDGE_COMPLEX)
@@ -828,9 +820,7 @@ bb_to_key (basic_block bb)
   int priority = 0;
 
   /* Do not start in probably never executed blocks.  */
-  /* APPLE LOCAL begin hot/cold partitioning  */
   if (bb->partition == COLD_PARTITION || probably_never_executed_bb_p (bb))
-  /* APPLE LOCAL end hot/cold partitioning  */
     return BB_FREQ_MAX;
 
   /* Prefer blocks whose predecessor is an end of some trace
@@ -862,9 +852,7 @@ bb_to_key (basic_block bb)
 
 static bool
 better_edge_p (basic_block bb, edge e, int prob, int freq, int best_prob,
-	       /* APPLE LOCAL begin hot/cold partitioning  */
 	       int best_freq, edge cur_best_edge)
-	       /* APPLE LOCAL end hot/cold partitioning  */
 {
   bool is_better_edge;
 
@@ -907,6 +895,16 @@ better_edge_p (basic_block bb, edge e, int prob, int freq, int best_prob,
     is_better_edge = true;
   /* APPLE LOCAL end hot/cold partitioning  */
 
+  /* If we are doing hot/cold partitioning, make sure that we always favor
+     non-crossing edges over crossing edges.  */
+
+  if (!is_better_edge
+      && flag_reorder_blocks_and_partition 
+      && cur_best_edge 
+      && cur_best_edge->crossing_edge
+      && !e->crossing_edge)
+    is_better_edge = true;
+
   return is_better_edge;
 }
 
@@ -935,9 +933,8 @@ connect_traces (int n_traces, struct trace *traces)
   connected = xcalloc (n_traces, sizeof (bool));
   last_trace = -1;
 
-  /* APPLE LOCAL begin hot/cold partitioning  */
   /* If we are partitioning hot/cold basic blocks, mark the cold
-     traces as already connnected, to remove them from consideration
+     traces as already connected, to remove them from consideration
      for connection to the hot traces.  After the hot traces have all
      been connected (determined by "unconnected_hot_trace_count"), we
      will go back and connect the cold traces.  */
@@ -988,14 +985,13 @@ connect_traces (int n_traces, struct trace *traces)
 	  i = t = first_cold_trace;
 	  cold_connected = true;
 	}
- 
+
       if (connected[t])
 	continue;
 
       connected[t] = true;
       if (unconnected_hot_trace_count > 0)
 	unconnected_hot_trace_count--;
-      /* APPLE LOCAL end hot/cold partitioning  */ 
 
       /* Find the predecessor traces.  */
       for (t2 = t; t2 > 0;)
@@ -1025,10 +1021,10 @@ connect_traces (int n_traces, struct trace *traces)
 	      best->src->rbi->next = best->dest;
 	      t2 = bbd[best->src->index].end_of_trace;
 	      connected[t2] = true;
-	      /* APPLE LOCAL begin hot/cold partitioning  */
+
 	      if (unconnected_hot_trace_count > 0)
 		unconnected_hot_trace_count--;
-	      /* APPLE LOCAL end hot/cold partitioning  */
+
 	      if (dump_file)
 		{
 		  fprintf (dump_file, "Connection: %d %d\n",
@@ -1078,10 +1074,8 @@ connect_traces (int n_traces, struct trace *traces)
 	      t = bbd[best->dest->index].start_of_trace;
 	      traces[last_trace].last->rbi->next = traces[t].first;
 	      connected[t] = true;
-	      /* APPLE LOCAL begin hot/cold partitioning  */
 	      if (unconnected_hot_trace_count > 0)
 		unconnected_hot_trace_count--;
-	      /* APPLE LOCAL end hot/cold partitioning  */
 	      last_trace = t;
 	    }
 	  else
@@ -1141,10 +1135,8 @@ connect_traces (int n_traces, struct trace *traces)
 		      }
 		  }
 
-	      /* APPLE LOCAL begin hot/cold partitioning  */
 	      if (flag_reorder_blocks_and_partition)
 		try_copy = false;
-	      /* APPLE LOCAL end hot/cold partitioning  */
 
 	      /* Copy tiny blocks always; copy larger blocks only when the
 		 edge is traversed frequently enough.  */
@@ -1175,10 +1167,8 @@ connect_traces (int n_traces, struct trace *traces)
 		      t = bbd[next_bb->index].start_of_trace;
 		      traces[last_trace].last->rbi->next = traces[t].first;
 		      connected[t] = true;
-		      /* APPLE LOCAL begin hot/cold partitioning  */
 		      if (unconnected_hot_trace_count > 0)
 			unconnected_hot_trace_count--;
-		      /* APPLE LOCAL end hot/cold partitioning  */
 		      last_trace = t;
 		    }
 		  else
@@ -1202,6 +1192,7 @@ connect_traces (int n_traces, struct trace *traces)
     }
 
   FREE (connected);
+  FREE (cold_traces);
 }
 
 /* Return true when BB can and should be copied. CODE_MAY_GROW is true
@@ -2035,13 +2026,10 @@ reorder_basic_blocks (void)
       && targetm.have_named_sections)
     add_unlikely_executed_notes ();
   /* APPLE LOCAL end hot/cold partitioning  */
-
   cfg_layout_finalize ();
 
   timevar_pop (TV_REORDER_BLOCKS);
 }
-
-/* APPLE LOCAL begin hot/cold partitioning  */
 /* This function is the main 'entrance' for the optimization that
    partitions hot and cold basic blocks into separate sections of the
    .o file (to improve performance and cache locality).  Ideally it
@@ -2095,4 +2083,3 @@ partition_hot_cold_basic_blocks (void)
 
   cfg_layout_finalize();
 }
-/* APPLE LOCAL end hot/cold partitioning  */

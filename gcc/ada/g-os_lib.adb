@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---           Copyright (C) 1995-2003 Ada Core Technologies, Inc.            --
+--           Copyright (C) 1995-2004 Ada Core Technologies, Inc.            --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -660,6 +660,23 @@ package body GNAT.OS_Lib is
       return Create_New_File (C_Name (C_Name'First)'Address, Fmode);
    end Create_New_File;
 
+   -----------------------------
+   -- Create_Output_Text_File --
+   -----------------------------
+
+   function Create_Output_Text_File (Name  : String) return File_Descriptor is
+      function C_Create_File
+        (Name  : C_File_Name) return File_Descriptor;
+      pragma Import (C, C_Create_File, "__gnat_create_output_file");
+
+      C_Name : String (1 .. Name'Length + 1);
+
+   begin
+      C_Name (1 .. Name'Length) := Name;
+      C_Name (C_Name'Last)      := ASCII.NUL;
+      return C_Create_File (C_Name (C_Name'First)'Address);
+   end Create_Output_Text_File;
+
    ----------------------
    -- Create_Temp_File --
    ----------------------
@@ -1093,16 +1110,13 @@ package body GNAT.OS_Lib is
    ----------------------
 
    function Is_Absolute_Path (Name : String) return Boolean is
-      function Is_Absolute_Path (Name : Address) return Integer;
+      function Is_Absolute_Path
+        (Name   : Address;
+         Length : Integer) return Integer;
       pragma Import (C, Is_Absolute_Path, "__gnat_is_absolute_path");
 
-      F_Name : String (1 .. Name'Length + 1);
-
    begin
-      F_Name (1 .. Name'Length) := Name;
-      F_Name (F_Name'Last)      := ASCII.NUL;
-
-      return Is_Absolute_Path (F_Name'Address) /= 0;
+      return Is_Absolute_Path (Name'Address, Name'Length) /= 0;
    end Is_Absolute_Path;
 
    ------------------
@@ -1533,6 +1547,8 @@ package body GNAT.OS_Lib is
          S1 : String := S;
          --  We may need to fold S to lower case, so we need a variable
 
+         Last : Natural;
+
       begin
          --  Interix has the non standard notion of disk drive
          --  indicated by two '/' followed by a capital letter
@@ -1552,23 +1568,37 @@ package body GNAT.OS_Lib is
             begin
                Result (1) := '/';
                Result (2 .. Result'Last) := S;
+               Last := Result'Last;
 
                if Fold_To_Lower_Case then
                   System.Case_Util.To_Lower (Result);
                end if;
 
-               return Result;
+               --  Remove trailing directory separator, if any
 
+               if Result (Last) = '/' or else
+                  Result (Last) = Directory_Separator
+               then
+                  Last := Last - 1;
+               end if;
+
+               return Result (1 .. Last);
             end;
 
          else
-
             if Fold_To_Lower_Case then
                System.Case_Util.To_Lower (S1);
             end if;
 
-            return S1;
+            --  Remove trailing directory separator, if any
 
+            Last := S1'Last;
+
+            if S1 (Last) = '/' or else S1 (Last) = Directory_Separator then
+               Last := Last - 1;
+            end if;
+
+            return S1 (1 .. Last);
          end if;
 
       end Final_Value;

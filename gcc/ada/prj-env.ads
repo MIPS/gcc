@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---             Copyright (C) 2001-2003 Free Software Foundation, Inc        --
+--             Copyright (C) 2001-2004 Free Software Foundation, Inc        --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -24,15 +24,16 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This package implements services for Project-aware tools, related
---  to the environment (gnat.adc, ADA_INCLUDE_PATH, ADA_OBJECTS_PATH)
+--  This package implements services for Project-aware tools, mostly related
+--  to the environment (configuration pragma files, path files, mapping files).
 
 with GNAT.OS_Lib; use GNAT.OS_Lib;
 
 package Prj.Env is
 
    procedure Initialize;
-   --  Put Standard_Naming_Data into Namings table (called by Prj.Initialize)
+   --  Called by Prj.Initialize to perform required initialization
+   --  steps for this package.
 
    procedure Print_Sources;
    --  Output the list of sources, after Project files have been scanned

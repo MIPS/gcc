@@ -338,11 +338,10 @@ grokclassfn (tree ctype, tree function, enum overload_flags flags, tree quals)
       qual_type = cp_build_qualified_type (type, this_quals);
       parm = build_artificial_parm (this_identifier, qual_type);
       c_apply_type_quals_to_decl (this_quals, parm);
-      TREE_CHAIN (parm) = last_function_parms;
-      last_function_parms = parm;
+      TREE_CHAIN (parm) = DECL_ARGUMENTS (function);
+      DECL_ARGUMENTS (function) = parm;
     }
 
-  DECL_ARGUMENTS (function) = last_function_parms;
   DECL_CONTEXT (function) = ctype;
 
   if (flags == DTOR_FLAG)
@@ -382,7 +381,8 @@ grok_array_decl (tree array_expr, tree index_exp)
   /* If they have an `operator[]', use that.  */
   if (IS_AGGR_TYPE (type) || IS_AGGR_TYPE (TREE_TYPE (index_exp)))
     expr = build_new_op (ARRAY_REF, LOOKUP_NORMAL,
-			 array_expr, index_exp, NULL_TREE);
+			 array_expr, index_exp, NULL_TREE,
+			 /*overloaded_p=*/NULL);
   else
     {
       tree p1, p2, i1, i2;
@@ -614,15 +614,19 @@ check_java_method (tree method)
 
 /* Sanity check: report error if this function FUNCTION is not
    really a member of the class (CTYPE) it is supposed to belong to.
-   CNAME is the same here as it is for grokclassfn above.
-   TEMPLATE_HEADER_P is true when this declaration comes with a
-   template header.  */
+   TEMPLATE_PARMS is used to specifiy the template parameters of a member
+   template passed as FUNCTION_DECL. If the member template is passed as a 
+   TEMPLATE_DECL, it can be NULL since the parameters can be extracted
+   from the declaration. If the function is not a function template, it
+   must be NULL.
+   It returns the original declaration for the function, or NULL_TREE
+   if no declaration was found (and an error was emitted).  */
 
 tree
-check_classfn (tree ctype, tree function, bool template_header_p)
+check_classfn (tree ctype, tree function, tree template_parms)
 {
   int ix;
-  int is_template;
+  bool is_template;
   
   if (DECL_USE_TEMPLATE (function)
       && !(TREE_CODE (function) == TEMPLATE_DECL
@@ -640,9 +644,20 @@ check_classfn (tree ctype, tree function, bool template_header_p)
        find the method, but we don't complain.  */
     return NULL_TREE;
 
+  /* Basic sanity check: for a template function, the template parameters
+     either were not passed, or they are the same of DECL_TEMPLATE_PARMS.  */
+  if (TREE_CODE (function) == TEMPLATE_DECL)
+    {
+      my_friendly_assert (!template_parms 
+			  || comp_template_parms 
+			      (template_parms, 
+			       DECL_TEMPLATE_PARMS (function)),
+			  20040303);
+      template_parms = DECL_TEMPLATE_PARMS (function);
+    }
+
   /* OK, is this a definition of a member template?  */
-  is_template = (TREE_CODE (function) == TEMPLATE_DECL
-		 || template_header_p);
+  is_template = (template_parms != NULL_TREE);
 
   ix = lookup_fnfields_1 (complete_type (ctype),
 			  DECL_CONSTRUCTOR_P (function) ? ctor_identifier :
@@ -686,6 +701,9 @@ check_classfn (tree ctype, tree function, bool template_header_p)
 	  if (same_type_p (TREE_TYPE (TREE_TYPE (function)),
 			   TREE_TYPE (TREE_TYPE (fndecl)))
 	      && compparms (p1, p2)
+	      && (!is_template
+		  || comp_template_parms (template_parms, 
+					  DECL_TEMPLATE_PARMS (fndecl)))
 	      && (DECL_TEMPLATE_SPECIALIZATION (function)
 		  == DECL_TEMPLATE_SPECIALIZATION (fndecl))
 	      && (!DECL_TEMPLATE_SPECIALIZATION (function)
@@ -1407,7 +1425,9 @@ comdat_linkage (tree decl)
 
 /* For win32 we also want to put explicit instantiations in
    linkonce sections, so that they will be merged with implicit
-   instantiations; otherwise we get duplicate symbol errors.  */
+   instantiations; otherwise we get duplicate symbol errors.  
+   For Darwin we do not want explicit instantiations to be 
+   linkonce. */
 
 void
 maybe_make_one_only (tree decl)
@@ -1426,13 +1446,18 @@ maybe_make_one_only (tree decl)
      to for variables so that cp_finish_decl will update their linkage,
      because their DECL_INITIAL may not have been set properly yet.  */
 
-  make_decl_one_only (decl);
-
-  if (TREE_CODE (decl) == VAR_DECL)
+  if (TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY
+      || (! DECL_EXPLICIT_INSTANTIATION (decl)
+	  && ! DECL_TEMPLATE_SPECIALIZATION (decl)))
     {
-      DECL_COMDAT (decl) = 1;
-      /* Mark it needed so we don't forget to emit it.  */
-      mark_referenced (DECL_ASSEMBLER_NAME (decl));
+      make_decl_one_only (decl);
+
+      if (TREE_CODE (decl) == VAR_DECL)
+	{
+	  DECL_COMDAT (decl) = 1;
+	  /* Mark it needed so we don't forget to emit it.  */
+	  mark_decl_referenced (decl);
+	}
     }
 }
 
@@ -2364,7 +2389,7 @@ do_static_initialization (tree decl, tree init)
   if (flag_use_cxa_atexit)
     register_dtor_fn (decl);
 
-  /* Finsh up.  */
+  /* Finish up.  */
   finish_static_initialization_or_destruction (guard_if_stmt);
 }
 
@@ -2806,9 +2831,14 @@ finish_file (void)
 	     calling import_export_decl will make an inline template
 	     instantiation "static", which will result in errors about
 	     the use of undefined functions if there is no body for
-	     the function.  */
+	     the function.  In fact, all the functions in this list
+	     *should* have a body.  */
 	  if (!DECL_SAVED_TREE (decl))
-	    continue;
+	    {
+	      if (! DECL_DECLARED_INLINE_P (decl) || ! TREE_USED (decl))
+		abort ();
+	      continue;
+	    }
 
 	  import_export_decl (decl);
 
@@ -2833,7 +2863,6 @@ finish_file (void)
 	     gotten around to synthesizing yet.)  */
 	  if (!DECL_EXTERNAL (decl)
 	      && DECL_NEEDED_P (decl)
-	      && DECL_SAVED_TREE (decl)
 	      && !TREE_ASM_WRITTEN (decl)
 	      && (!flag_unit_at_a_time 
 		  || !cgraph_node (decl)->local.finalized))
@@ -3128,6 +3157,7 @@ mark_used (tree decl)
 		  generate its body to find that out.  */
 	       || TREE_NOTHROW (decl)
 	       || !cfun
+	       || !current_function_decl
 	       /* If we already know the current function can't throw,
 		  then we don't need to work hard to prove it.  */
 	       || TREE_NOTHROW (current_function_decl)

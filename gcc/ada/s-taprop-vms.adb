@@ -588,7 +588,9 @@ package body System.Task_Primitives.Operations is
 
    procedure Wakeup (T : Task_Id; Reason : System.Tasking.Task_States) is
       pragma Unreferenced (Reason);
+
       Result : Interfaces.C.int;
+
    begin
       Result := pthread_cond_signal (T.Common.LL.CV'Access);
       pragma Assert (Result = 0);
@@ -911,6 +913,7 @@ package body System.Task_Primitives.Operations is
 
    function Check_Exit (Self_ID : ST.Task_Id) return Boolean is
       pragma Unreferenced (Self_ID);
+
    begin
       return True;
    end Check_Exit;
@@ -921,6 +924,7 @@ package body System.Task_Primitives.Operations is
 
    function Check_No_Locks (Self_ID : ST.Task_Id) return Boolean is
       pragma Unreferenced (Self_ID);
+
    begin
       return True;
    end Check_No_Locks;
@@ -962,6 +966,7 @@ package body System.Task_Primitives.Operations is
    is
       pragma Unreferenced (T);
       pragma Unreferenced (Thread_Self);
+
    begin
       return False;
    end Suspend_Task;

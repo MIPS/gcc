@@ -1,5 +1,5 @@
 /* params.h - Run-time parameters.
-   Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -110,6 +110,14 @@ typedef enum compiler_param
   PARAM_VALUE (PARAM_GCSE_AFTER_RELOAD_CRITICAL_FRACTION)
 #define MAX_UNROLLED_INSNS \
   PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS)
+#define MAX_SMS_LOOP_NUMBER \
+  PARAM_VALUE (PARAM_MAX_SMS_LOOP_NUMBER)
+#define SMS_MAX_II_FACTOR \
+  PARAM_VALUE (PARAM_SMS_MAX_II_FACTOR)
+#define SMS_DFA_HISTORY \
+  PARAM_VALUE (PARAM_SMS_DFA_HISTORY)
+#define SMS_LOOP_AVERAGE_COUNT_THRESHOLD \
+  PARAM_VALUE (PARAM_SMS_LOOP_AVERAGE_COUNT_THRESHOLD)
 #define GLOBAL_VAR_THRESHOLD \
   PARAM_VALUE (PARAM_GLOBAL_VAR_THRESHOLD)
 #define MAX_ALIASED_VOPS \

@@ -154,8 +154,9 @@ package body Exp_Ch4 is
    --  local access type to have a usable finalization list.
 
    procedure Insert_Dereference_Action (N : Node_Id);
-   --  N is an expression whose type is an access. When the type is derived
-   --  from Checked_Pool, expands a call to the primitive 'dereference'.
+   --  N is an expression whose type is an access. When the type of the
+   --  associated storage pool is derived from Checked_Pool, generate a
+   --  call to the 'Dereference' primitive operation.
 
    function Make_Array_Comparison_Op
      (Typ : Entity_Id;
@@ -373,6 +374,7 @@ package body Exp_Ch4 is
 
          --  We analyze by hand the new internal allocator to avoid
          --  any recursion and inappropriate call to Initialize
+
          if not Aggr_In_Place then
             Remove_Side_Effects (Exp);
          end if;
@@ -1401,7 +1403,8 @@ package body Exp_Ch4 is
             Eq_Op := Node (Prim);
             exit when Chars (Eq_Op) = Name_Op_Eq
               and then Etype (First_Formal (Eq_Op)) =
-                       Etype (Next_Formal (First_Formal (Eq_Op)));
+                       Etype (Next_Formal (First_Formal (Eq_Op)))
+              and then Base_Type (Etype (Eq_Op)) = Standard_Boolean;
             Next_Elmt (Prim);
             pragma Assert (Present (Prim));
          end loop;
@@ -2696,10 +2699,11 @@ package body Exp_Ch4 is
    -----------------
 
    procedure Expand_N_In (N : Node_Id) is
-      Loc  : constant Source_Ptr := Sloc (N);
-      Rtyp : constant Entity_Id  := Etype (N);
-      Lop  : constant Node_Id    := Left_Opnd (N);
-      Rop  : constant Node_Id    := Right_Opnd (N);
+      Loc    : constant Source_Ptr := Sloc (N);
+      Rtyp   : constant Entity_Id  := Etype (N);
+      Lop    : constant Node_Id    := Left_Opnd (N);
+      Rop    : constant Node_Id    := Right_Opnd (N);
+      Static : constant Boolean    := Is_OK_Static_Expression (N);
 
    begin
       --  If we have an explicit range, do a bit of optimization based
@@ -2715,11 +2719,14 @@ package body Exp_Ch4 is
          begin
             --  If either check is known to fail, replace result
             --  by False, since the other check does not matter.
+            --  Preserve the static flag for legality checks, because
+            --  we are constant-folding beyond RM 4.9.
 
             if Lcheck = LT or else Ucheck = GT then
                Rewrite (N,
                  New_Reference_To (Standard_False, Loc));
                Analyze_And_Resolve (N, Rtyp);
+               Set_Is_Static_Expression (N, Static);
                return;
 
             --  If both checks are known to succeed, replace result
@@ -2729,6 +2736,7 @@ package body Exp_Ch4 is
                Rewrite (N,
                  New_Reference_To (Standard_True, Loc));
                Analyze_And_Resolve (N, Rtyp);
+               Set_Is_Static_Expression (N, Static);
                return;
 
             --  If lower bound check succeeds and upper bound check is
@@ -2968,12 +2976,6 @@ package body Exp_Ch4 is
       --  was necessary, but it cleans up the code to do it all the time.
 
       if Is_Access_Type (T) then
-
-         --  Check whether the prefix comes from a debug pool, and generate
-         --  the check before rewriting.
-
-         Insert_Dereference_Action (P);
-
          Rewrite (P,
            Make_Explicit_Dereference (Sloc (N),
              Prefix => Relocate_Node (P)));
@@ -5124,6 +5126,7 @@ package body Exp_Ch4 is
 
       if Is_Access_Type (Ptyp) then
          Insert_Explicit_Dereference (P);
+         Analyze_And_Resolve (P, Designated_Type (Ptyp));
 
          if Ekind (Etype (P)) = E_Private_Subtype
            and then Is_For_Access_Subtype (Etype (P))
@@ -5355,6 +5358,10 @@ package body Exp_Ch4 is
          loop
             if Nkind (Par) = N_Procedure_Call_Statement then
                return True;
+
+            elsif Nkind (Par) = N_Function_Call then
+               return False;
+
             else
                Par := Parent (Par);
             end if;
@@ -5396,23 +5403,13 @@ package body Exp_Ch4 is
 
       if Is_Access_Type (Ptp) then
 
-         --  Check for explicit dereference required for checked pool
-
-         Insert_Dereference_Action (Pfx);
-
-         --  If we have an access to a packed array type, then put in an
-         --  explicit dereference. We do this in case the slice must be
-         --  expanded, and we want to make sure we get an access check.
-
          Ptp := Designated_Type (Ptp);
 
-         if Is_Array_Type (Ptp) and then Is_Packed (Ptp) then
-            Rewrite (Pfx,
-              Make_Explicit_Dereference (Sloc (N),
-                Prefix => Relocate_Node (Pfx)));
+         Rewrite (Pfx,
+           Make_Explicit_Dereference (Sloc (N),
+            Prefix => Relocate_Node (Pfx)));
 
-            Analyze_And_Resolve (Pfx, Ptp);
-         end if;
+         Analyze_And_Resolve (Pfx, Ptp);
       end if;
 
       --  Range checks are potentially also needed for cases involving
@@ -6532,6 +6529,7 @@ package body Exp_Ch4 is
       Loc  : constant Source_Ptr := Sloc (N);
       Typ  : constant Entity_Id  := Etype (N);
       Pool : constant Entity_Id  := Associated_Storage_Pool (Typ);
+      Pnod : Node_Id             := Parent (N);
 
       function Is_Checked_Storage_Pool (P : Entity_Id) return Boolean;
       --  Return true if type of P is derived from Checked_Pool;
@@ -6563,12 +6561,41 @@ package body Exp_Ch4 is
    --  Start of processing for Insert_Dereference_Action
 
    begin
-      if not Comes_From_Source (Parent (N)) then
+      pragma Assert (Nkind (Pnod) = N_Explicit_Dereference);
+
+      --  Do not recursively add a dereference check for the
+      --  attribute references contained within the generated check.
+
+      if not Comes_From_Source (Pnod)
+        and then Nkind (Pnod) = N_Explicit_Dereference
+        and then Nkind (Parent (Pnod)) = N_Attribute_Reference
+        and then (Attribute_Name (Parent (Pnod)) = Name_Size
+          or else Attribute_Name (Parent (Pnod)) = Name_Alignment)
+      then
          return;
 
       elsif not Is_Checked_Storage_Pool (Pool) then
          return;
       end if;
+
+      --  Do not generate a dereference check for the object passed
+      --  to an init proc: such a check is not desired (we know for
+      --  sure that a valid dereference is passed to init procs,
+      --  and the calls to 'Size and 'Alignment containent in the
+      --  dereference check would be erroneous anyway if the init proc
+      --  has not been executed yet.)
+
+      while Present (Pnod) loop
+         if Nkind (Pnod) = N_Procedure_Call_Statement
+           and then Is_Entity_Name (Name (Pnod))
+           and then Is_Init_Proc (Name (Pnod))
+         then
+            return;
+         end if;
+
+         Pnod := Parent (Pnod);
+         exit when Nkind (Pnod) not in N_Subexpr;
+      end loop;
 
       Insert_Action (N,
         Make_Procedure_Call_Statement (Loc,

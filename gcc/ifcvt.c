@@ -612,6 +612,9 @@ static int noce_try_cmove_arith (struct noce_if_info *);
 static rtx noce_get_alt_condition (struct noce_if_info *, rtx, rtx *);
 static int noce_try_minmax (struct noce_if_info *);
 static int noce_try_abs (struct noce_if_info *);
+/* MERGE FAILURE!
+static int noce_try_sign_mask (struct noce_if_info *);
+*/
 
 /* Helper function for noce_try_store_flag*.  */
 
@@ -1702,6 +1705,75 @@ noce_try_abs (struct noce_if_info *if_info)
   return TRUE;
 }
 
+/* Convert "if (m < 0) x = b; else x = 0;" to "x = (m >> C) & b;".  */
+
+/* MERGE FAILURE! */
+#if 0
+static int
+noce_try_sign_mask (struct noce_if_info *if_info)
+{
+  rtx cond, t, m, c, seq;
+  enum machine_mode mode;
+  enum rtx_code code;
+
+  if (no_new_pseudos)
+    return FALSE;
+
+  cond = if_info->cond;
+  code = GET_CODE (cond);
+  m = XEXP (cond, 0);
+  c = XEXP (cond, 1);
+
+  t = NULL_RTX;
+  if (if_info->a == const0_rtx)
+    {
+      if ((code == LT && c == const0_rtx)
+	  || (code == LE && c == constm1_rtx))
+	t = if_info->b;
+    }
+  else if (if_info->b == const0_rtx)
+    {
+      if ((code == GE && c == const0_rtx)
+	  || (code == GT && c == constm1_rtx))
+	t = if_info->a;
+    }
+
+  if (! t || side_effects_p (t))
+    return FALSE;
+
+  /* We currently don't handle different modes.  */
+  mode = GET_MODE (t);
+  if (GET_MODE (m) != mode)
+    return FALSE;
+
+  /* This is only profitable if T is cheap.  */
+  if (rtx_cost (t, SET) >= COSTS_N_INSNS (2))
+    return FALSE;
+
+  start_sequence ();
+  c = gen_int_mode (GET_MODE_BITSIZE (mode) - 1, mode);
+  m = expand_binop (mode, ashr_optab, m, c, NULL_RTX, 0, OPTAB_DIRECT);
+  t = m ? expand_binop (mode, and_optab, m, t, NULL_RTX, 0, OPTAB_DIRECT)
+	: NULL_RTX;
+
+  if (!t)
+    {
+      end_sequence ();
+      return FALSE;
+    }
+
+  noce_emit_move_insn (if_info->x, t);
+  seq = get_insns ();
+  unshare_ifcvt_sequence (if_info, seq);
+  end_sequence ();
+  emit_insn_before_setloc (seq, if_info->jump,
+			   INSN_LOCATOR (if_info->insn_a));
+  return TRUE;
+}
+
+#endif
+
+
 /* Similar to get_condition, only the resulting condition must be
    valid at JUMP, instead of at EARLIEST.  */
 
@@ -2004,6 +2076,18 @@ noce_process_if_block (struct ce_if_block * ce_info)
       if (HAVE_conditional_move
 	  && noce_try_cmove_arith (&if_info))
 	goto success;
+
+/* MERGE FAILURE! This addition breaks bootstrap.
+2004-03-09  Roger Sayle  <roger@eyesopen.com>
+            Andrew Pinski  <pinskia@physics.uc.edu> 
+        
+        * ifcvt.c (noce_try_sign_mask): New function to transform
+        "x = (y < 0) ? z : 0" into the equivalent "x = (y >> C) & z".
+        (noce_process_if_block): Call noce_try_sign_mask.
+
+      if (noce_try_sign_mask (&if_info))
+	goto success;
+*/
     }
 
   return FALSE;
@@ -2783,11 +2867,10 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
   edge then_succ = then_bb->succ;
   int then_bb_index;
 
-  /* APPLE LOCAL begin hot/cold partitioning  */
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
      and cold sections.  */
-
+  
   if (flag_reorder_blocks_and_partition
       && ((BB_END (then_bb) 
 	   && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
@@ -2795,7 +2878,6 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
 	      && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP, 
 				NULL_RTX))))
     return FALSE;
-  /* APPLE LOCAL end hot/cold partitioning  */
 
   /* THEN has one successor.  */
   if (!then_succ || then_succ->succ_next != NULL)
@@ -2865,11 +2947,10 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
   edge else_succ = else_bb->succ;
   rtx note;
 
-  /* APPLE LOCAL begin hot/cold partitioning  */
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
      and cold sections.  */
-
+  
   if (flag_reorder_blocks_and_partition
       && ((BB_END (then_bb)
 	   && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
@@ -2877,7 +2958,6 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
 	      && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP, 
 				NULL_RTX))))
     return FALSE;
-  /* APPLE LOCAL end hot/cold partitioning  */
 
   /* ELSE has one successor.  */
   if (!else_succ || else_succ->succ_next != NULL)
@@ -3229,10 +3309,6 @@ if_convert (int x_life_data_ok)
 	  || !targetm.have_named_sections))
     mark_loop_exit_edges ();
   /* APPLE LOCAL end hot/cold partitioning  */
-
-  /* Free up basic_block_for_insn so that we don't have to keep it
-     up to date, either here or in merge_blocks.  */
-  free_basic_block_vars (1);
 
   /* Compute postdominators if we think we'll use them.  */
   if (HAVE_conditional_execution || life_data_ok)

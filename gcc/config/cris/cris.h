@@ -171,7 +171,7 @@ extern const char *cris_elinux_stacksize_str;
    %{!melinux:%{!maout|melf:%{!fno-vtable-gc:-fvtable-gc}}}}}".  */
 #define CC1PLUS_SPEC ""
 
-#ifdef HAVE_AS_MUL_BUG_ABORT_OPTION
+#ifdef HAVE_AS_NO_MUL_BUG_ABORT_OPTION
 #define MAYBE_AS_NO_MUL_BUG_ABORT \
  "%{mno-mul-bug-workaround:-no-mul-bug-abort} "
 #else
@@ -511,15 +511,15 @@ extern int target_flags;
 
 #define UNITS_PER_WORD 4
 
-/* A combination of defining PROMOTE_MODE,
-   TARGET_PROMOTE_FUNCTION_ARGS that always returns true,
-   PROMOTE_FOR_CALL_ONLY and *not* defining TARGET_PROMOTE_PROTOTYPES gives the
+/* A combination of defining PROMOTE_FUNCTION_MODE,
+   TARGET_PROMOTE_FUNCTION_ARGS that always returns true
+   and *not* defining TARGET_PROMOTE_PROTOTYPES or PROMOTE_MODE gives the
    best code size and speed for gcc, ipps and products in gcc-2.7.2.  */
 #define CRIS_PROMOTED_MODE(MODE, UNSIGNEDP, TYPE) \
  (GET_MODE_CLASS (MODE) == MODE_INT && GET_MODE_SIZE (MODE) < 4) \
   ? SImode : MODE
 
-#define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE)  \
+#define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE)  \
   (MODE) = CRIS_PROMOTED_MODE (MODE, UNSIGNEDP, TYPE)
 
 /* Defining PROMOTE_FUNCTION_RETURN in gcc-2.7.2 uncovers bug 981110 (even
@@ -528,7 +528,6 @@ extern int target_flags;
    FIXME: Report this when cris.h is part of GCC, so others can easily
    see the problem.  Maybe check other systems that define
    TARGET_PROMOTE_FUNCTION_RETURN that always returns true.  */
-#define PROMOTE_FOR_CALL_ONLY
 
 /* We will be using prototype promotion, so they will be 32 bit.  */
 #define PARM_BOUNDARY 32

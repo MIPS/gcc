@@ -227,6 +227,9 @@ do {									\
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
 #endif
 
+#undef DITF_CONVERSION_LIBFUNCS
+#define DITF_CONVERSION_LIBFUNCS 1
+
 #if !defined(USE_GNULIBC_1) && defined(HAVE_LD_EH_FRAME_HDR)
 #define LINK_EH_SPEC "%{!static:--eh-frame-hdr} "
 #endif
@@ -252,6 +255,11 @@ do {									\
 #undef LINK_GCC_C_SEQUENCE_SPEC
 #define LINK_GCC_C_SEQUENCE_SPEC \
   "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
+
+/* Use --as-needed -lgcc_s for eh support.  */
+#ifdef HAVE_LD_AS_NEEDED
+#define USE_LD_AS_NEEDED 1
+#endif
 
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */

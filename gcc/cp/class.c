@@ -129,6 +129,7 @@ static void add_implicitly_declared_members (tree, int, int, int);
 static tree fixed_type_or_null (tree, int *, int *);
 static tree resolve_address_of_overloaded_function (tree, tree, tsubst_flags_t,
 						    bool, tree);
+static tree build_simple_base_path (tree expr, tree binfo);
 static tree build_vtbl_ref_1 (tree, tree);
 static tree build_vtbl_initializer (tree, tree, tree, tree, int *);
 static int count_fields (tree);
@@ -213,7 +214,7 @@ static tree get_vcall_index (tree, tree);
 /* Macros for dfs walking during vtt construction. See
    dfs_ctor_vtable_bases_queue_p, dfs_build_secondary_vptr_vtt_inits
    and dfs_fixup_binfo_vtbls.  */
-#define VTT_TOP_LEVEL_P(NODE) TREE_UNSIGNED (NODE)
+#define VTT_TOP_LEVEL_P(NODE) (TREE_LIST_CHECK (NODE)->common.unsigned_flag)
 #define VTT_MARKED_BINFO_P(NODE) TREE_USED (NODE)
 
 /* Variables shared between class.c and call.c.  */
@@ -256,6 +257,8 @@ build_base_path (enum tree_code code,
   tree ptr_target_type;
   int fixed_type_p;
   int want_pointer = TREE_CODE (TREE_TYPE (expr)) == POINTER_TYPE;
+  bool has_empty = false;
+  bool virtual_access;
 
   if (expr == error_mark_node || binfo == error_mark_node || !binfo)
     return error_mark_node;
@@ -263,6 +266,8 @@ build_base_path (enum tree_code code,
   for (probe = binfo; probe; probe = BINFO_INHERITANCE_CHAIN (probe))
     {
       d_binfo = probe;
+      if (is_empty_class (BINFO_TYPE (probe)))
+	has_empty = true;
       if (!v_binfo && TREE_VIA_VIRTUAL (probe))
 	v_binfo = probe;
     }
@@ -270,13 +275,17 @@ build_base_path (enum tree_code code,
   probe = TYPE_MAIN_VARIANT (TREE_TYPE (expr));
   if (want_pointer)
     probe = TYPE_MAIN_VARIANT (TREE_TYPE (probe));
-  
+
   my_friendly_assert (code == MINUS_EXPR
 		      ? same_type_p (BINFO_TYPE (binfo), probe)
 		      : code == PLUS_EXPR
 		      ? same_type_p (BINFO_TYPE (d_binfo), probe)
 		      : false, 20010723);
   
+  if (binfo == d_binfo)
+    /* Nothing to do.  */
+    return expr;
+
   if (code == MINUS_EXPR && v_binfo)
     {
       error ("cannot convert from base `%T' to derived type `%T' via virtual base `%T'",
@@ -288,16 +297,40 @@ build_base_path (enum tree_code code,
     /* This must happen before the call to save_expr.  */
     expr = build_unary_op (ADDR_EXPR, expr, 0);
 
+  offset = BINFO_OFFSET (binfo);
   fixed_type_p = resolves_to_fixed_type_p (expr, &nonnull);
-  if (fixed_type_p <= 0 && TREE_SIDE_EFFECTS (expr))
+
+  /* Do we need to look in the vtable for the real offset?  */
+  virtual_access = (v_binfo && fixed_type_p <= 0);
+
+  /* Do we need to check for a null pointer?  */
+  if (want_pointer && !nonnull && (virtual_access || !integer_zerop (offset)))
+    null_test = error_mark_node;
+
+  /* Protect against multiple evaluation if necessary.  */
+  if (TREE_SIDE_EFFECTS (expr) && (null_test || virtual_access))
     expr = save_expr (expr);
 
-  if (want_pointer && !nonnull)
-    null_test = build (EQ_EXPR, boolean_type_node, expr, integer_zero_node);
-  
-  offset = BINFO_OFFSET (binfo);
-  
-  if (v_binfo && fixed_type_p <= 0)
+  /* Now that we've saved expr, build the real null test.  */
+  if (null_test)
+    null_test = fold (build2 (NE_EXPR, boolean_type_node,
+			      expr, integer_zero_node));
+
+  /* If this is a simple base reference, express it as a COMPONENT_REF.  */
+  if (code == PLUS_EXPR && !virtual_access
+      /* We don't build base fields for empty bases, and they aren't very
+	 interesting to the optimizers anyway.  */
+      && !has_empty)
+    {
+      expr = build_indirect_ref (expr, NULL);
+      expr = build_simple_base_path (expr, binfo);
+      if (want_pointer)
+	expr = build_unary_op (ADDR_EXPR, expr, 0);
+      target_type = TREE_TYPE (expr);
+      goto out;
+    }
+
+  if (virtual_access)
     {
       /* Going via virtual base V_BINFO.  We need the static offset
          from V_BINFO to BINFO, and the dynamic offset from D_BINFO to
@@ -369,12 +402,54 @@ build_base_path (enum tree_code code,
   if (!want_pointer)
     expr = build_indirect_ref (expr, NULL);
 
+ out:
   if (null_test)
-    expr = build (COND_EXPR, target_type, null_test,
-		  build1 (NOP_EXPR, target_type, integer_zero_node),
-		  expr);
+    expr = fold (build3 (COND_EXPR, target_type, null_test, expr,
+			 fold (build1 (NOP_EXPR, target_type,
+				       integer_zero_node))));
 
   return expr;
+}
+
+/* Subroutine of build_base_path; EXPR and BINFO are as in that function.
+   Perform a derived-to-base conversion by recursively building up a
+   sequence of COMPONENT_REFs to the appropriate base fields.  */
+
+static tree
+build_simple_base_path (tree expr, tree binfo)
+{
+  tree type = BINFO_TYPE (binfo);
+  tree d_binfo;
+  tree field;
+
+  /* For primary virtual bases, we can't just follow
+     BINFO_INHERITANCE_CHAIN.  */
+  d_binfo = BINFO_PRIMARY_BASE_OF (binfo);
+  if (d_binfo == NULL_TREE)
+    d_binfo = BINFO_INHERITANCE_CHAIN (binfo);
+
+  if (d_binfo == NULL_TREE)
+    {
+      if (TYPE_MAIN_VARIANT (TREE_TYPE (expr)) != type)
+	abort ();
+      return expr;
+    }
+
+  /* Recurse.  */
+  expr = build_simple_base_path (expr, d_binfo);
+
+  for (field = TYPE_FIELDS (BINFO_TYPE (d_binfo));
+       field; field = TREE_CHAIN (field))
+    /* Is this the base field created by build_base_field?  */
+    if (TREE_CODE (field) == FIELD_DECL
+	&& TREE_TYPE (field) == type
+	&& DECL_ARTIFICIAL (field)
+	&& DECL_IGNORED_P (field))
+      return build_class_member_access_expr (expr, field,
+					     NULL_TREE, false);
+
+  /* Didn't find the base field?!?  */
+  abort ();
 }
 
 /* Convert OBJECT to the base TYPE.  If CHECK_ACCESS is true, an error
@@ -1012,8 +1087,8 @@ alter_access (tree t, tree fdecl, tree access)
 	  if (TREE_CODE (TREE_TYPE (fdecl)) == FUNCTION_DECL)
 	    cp_error_at ("conflicting access specifications for method `%D', ignored", TREE_TYPE (fdecl));
 	  else
-	    error ("conflicting access specifications for field `%s', ignored",
-		   IDENTIFIER_POINTER (DECL_NAME (fdecl)));
+	    error ("conflicting access specifications for field `%E', ignored",
+		   DECL_NAME (fdecl));
 	}
       else
 	{
@@ -1458,8 +1533,8 @@ finish_struct_bits (tree t)
       TYPE_POLYMORPHIC_P (variants) = TYPE_POLYMORPHIC_P (t);
       TYPE_USES_VIRTUAL_BASECLASSES (variants) = TYPE_USES_VIRTUAL_BASECLASSES (t);
       /* Copy whatever these are holding today.  */
-      TYPE_MIN_VALUE (variants) = TYPE_MIN_VALUE (t);
-      TYPE_MAX_VALUE (variants) = TYPE_MAX_VALUE (t);
+      TYPE_VFIELD (variants) = TYPE_VFIELD (t);
+      TYPE_METHODS (variants) = TYPE_METHODS (t);
       TYPE_FIELDS (variants) = TYPE_FIELDS (t);
       TYPE_SIZE (variants) = TYPE_SIZE (t);
       TYPE_SIZE_UNIT (variants) = TYPE_SIZE_UNIT (t);
@@ -2764,11 +2839,11 @@ check_bitfield_decl (tree field)
       else if (TREE_CODE (type) == ENUMERAL_TYPE
 	       && (0 > compare_tree_int (w,
 					 min_precision (TYPE_MIN_VALUE (type),
-							TREE_UNSIGNED (type)))
+							TYPE_UNSIGNED (type)))
 		   ||  0 > compare_tree_int (w,
 					     min_precision
 					     (TYPE_MAX_VALUE (type),
-					      TREE_UNSIGNED (type)))))
+					      TYPE_UNSIGNED (type)))))
 	cp_warning_at ("`%D' is too small to hold all values of `%#T'",
 		       field, type);
     }
@@ -2977,8 +3052,29 @@ check_field_decls (tree t, tree *access_decls,
 
       /* If we've gotten this far, it's a data member, possibly static,
 	 or an enumerator.  */
-
       DECL_CONTEXT (x) = t;
+
+      /* When this goes into scope, it will be a non-local reference.  */
+      DECL_NONLOCAL (x) = 1;
+
+      if (TREE_CODE (t) == UNION_TYPE)
+	{
+	  /* [class.union]
+
+	     If a union contains a static data member, or a member of
+	     reference type, the program is ill-formed. */
+	  if (TREE_CODE (x) == VAR_DECL)
+	    {
+	      cp_error_at ("`%D' may not be static because it is a member of a union", x);
+	      continue;
+	    }
+	  if (TREE_CODE (type) == REFERENCE_TYPE)
+	    {
+	      cp_error_at ("`%D' may not have reference type `%T' because it is a member of a union",
+			   x, type);
+	      continue;
+	    }
+	}
 
       /* ``A local class cannot have static data members.'' ARM 9.4 */
       if (current_function_decl && TREE_STATIC (x))
@@ -3003,20 +3099,8 @@ check_field_decls (tree t, tree *access_decls,
       if (type == error_mark_node)
 	continue;
 	  
-      /* When this goes into scope, it will be a non-local reference.  */
-      DECL_NONLOCAL (x) = 1;
-
-      if (TREE_CODE (x) == CONST_DECL)
+      if (TREE_CODE (x) == CONST_DECL || TREE_CODE (x) == VAR_DECL)
 	continue;
-
-      if (TREE_CODE (x) == VAR_DECL)
-	{
-	  if (TREE_CODE (t) == UNION_TYPE)
-	    /* Unions cannot have static members.  */
-	    cp_error_at ("field `%D' declared static in union", x);
-	      
-	  continue;
-	}
 
       /* Now it can only be a FIELD_DECL.  */
 
@@ -3047,6 +3131,14 @@ check_field_decls (tree t, tree *access_decls,
       
       if (TYPE_PTR_P (type))
 	has_pointers = 1;
+
+      if (CLASS_TYPE_P (type))
+	{
+	  if (CLASSTYPE_REF_FIELDS_NEED_INIT (type))
+	    SET_CLASSTYPE_REF_FIELDS_NEED_INIT (t, 1);
+	  if (CLASSTYPE_READONLY_FIELDS_NEED_INIT (type))
+	    SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT (t, 1);
+	}
 
       if (DECL_MUTABLE_P (x) || TYPE_HAS_MUTABLE_P (type))
 	CLASSTYPE_HAS_MUTABLE (t) = 1;
@@ -3460,14 +3552,14 @@ layout_nonempty_base_or_field (record_layout_info rli,
       /* Place this field.  */
       place_field (rli, decl);
       offset = byte_position (decl);
- 
+
       /* We have to check to see whether or not there is already
 	 something of the same type at the offset we're about to use.
-	 For example:
+	 For example, consider:
 	 
-	 struct S {};
-	 struct T : public S { int i; };
-	 struct U : public S, public T {};
+	   struct S {};
+	   struct T : public S { int i; };
+	   struct U : public S, public T {};
 	 
 	 Here, we put S at offset zero in U.  Then, we can't put T at
 	 offset zero -- its S component would be at the same address
@@ -3476,6 +3568,10 @@ layout_nonempty_base_or_field (record_layout_info rli,
 	 empty class, have nonzero size, any overlap can happen only
 	 with a direct or indirect base-class -- it can't happen with
 	 a data member.  */
+      /* In a union, overlap is permitted; all members are placed at
+	 offset zero.  */
+      if (TREE_CODE (rli->t) == UNION_TYPE)
+	break;
       /* G++ 3.2 did not check for overlaps when placing a non-empty
 	 virtual base.  */
       if (!abi_version_at_least (2) && binfo && TREE_VIA_VIRTUAL (binfo))
@@ -3737,11 +3833,6 @@ check_methods (tree t)
 
   for (x = TYPE_METHODS (t); x; x = TREE_CHAIN (x))
     {
-      /* If this was an evil function, don't keep it in class.  */
-      if (DECL_ASSEMBLER_NAME_SET_P (x) 
-	  && IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (x)))
-	continue;
-
       check_for_override (x, t);
       if (DECL_PURE_VIRTUAL_P (x) && ! DECL_VINDEX (x))
 	cp_error_at ("initializer specified for non-virtual method `%D'", x);
@@ -4325,7 +4416,7 @@ create_vtable_ptr (tree t, tree* virtuals_p)
     {
       /* We build this decl with vtbl_ptr_type_node, which is a
 	 `vtable_entry_type*'.  It might seem more precise to use
-	 `vtable_entry_type (*)[N]' where N is the number of firtual
+	 `vtable_entry_type (*)[N]' where N is the number of virtual
 	 functions.  However, that would require the vtable pointer in
 	 base classes to have a different type than the vtable pointer
 	 in derived classes.  We could make that happen, but that
@@ -5050,6 +5141,11 @@ layout_class_type (tree t, tree *virtuals_p)
 
   /* Warn about bases that can't be talked about due to ambiguity.  */
   warn_about_ambiguous_bases (t);
+
+  /* Now that we're done with layout, give the base fields the real types.  */
+  for (field = TYPE_FIELDS (t); field; field = TREE_CHAIN (field))
+    if (DECL_ARTIFICIAL (field) && IS_FAKE_BASE_TYPE (TREE_TYPE (field)))
+      TREE_TYPE (field) = TYPE_CONTEXT (TREE_TYPE (field));
 
   /* Clean up.  */
   splay_tree_delete (empty_base_offsets);
@@ -5794,7 +5890,7 @@ push_lang_context (tree name)
     }
   /* APPLE LOCAL end Objective-C++ */  
   else
-    error ("language string `\"%s\"' not recognized", IDENTIFIER_POINTER (name));
+    error ("language string `\"%E\"' not recognized", name);
 }
   
 /* Get out of the current language scope.  */
@@ -6904,7 +7000,6 @@ initialize_array (tree decl, tree inits)
   context = DECL_CONTEXT (decl);
   DECL_CONTEXT (decl) = NULL_TREE;
   DECL_INITIAL (decl) = build_constructor (NULL_TREE, inits);
-  TREE_HAS_CONSTRUCTOR (DECL_INITIAL (decl)) = 1;
   cp_finish_decl (decl, DECL_INITIAL (decl), NULL_TREE, 0);
   DECL_CONTEXT (decl) = context;
 }
@@ -7082,15 +7177,13 @@ build_vtt_inits (tree binfo, tree t, tree* inits, tree* index)
   return inits;
 }
 
-/* Called from build_vtt_inits via dfs_walk.  BINFO is the binfo
-   for the base in most derived. DATA is a TREE_LIST who's
-   TREE_CHAIN is the type of the base being
-   constructed whilst this secondary vptr is live.  The TREE_UNSIGNED
-   flag of DATA indicates that this is a constructor vtable.  The
+/* Called from build_vtt_inits via dfs_walk.  BINFO is the binfo for the base
+   in most derived. DATA is a TREE_LIST who's TREE_CHAIN is the type of the
+   base being constructed whilst this secondary vptr is live.  The
    TREE_TOP_LEVEL flag indicates that this is the primary VTT.  */
 
 static tree
-dfs_build_secondary_vptr_vtt_inits (tree binfo, void* data)
+dfs_build_secondary_vptr_vtt_inits (tree binfo, void *data)
 {
   tree l; 
   tree t;

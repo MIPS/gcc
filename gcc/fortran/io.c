@@ -2,22 +2,22 @@
    Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -467,18 +467,24 @@ format_item:
       goto data_desc;
 
     case FMT_P:
-      /* P and X require a prior number.  */
+      /* P requires a prior number.  */
       error = "P descriptor requires leading scale factor";
       goto syntax;
 
     case FMT_X:
-      error = "X descriptor requires leading space count";
-      goto syntax;
+      /* X requires a prior number if we're being pedantic.  */
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: X descriptor "
+			  "requires leading space count at %C")
+	  == FAILURE)
+	return FAILURE;
+      goto between_desc;
 
     case FMT_SIGN:
     case FMT_BLANK:
-    case FMT_CHAR:
       goto between_desc;
+
+    case FMT_CHAR:
+      goto extension_optional_comma;
 
     case FMT_COLON:
     case FMT_SLASH:
@@ -718,6 +724,38 @@ optional_comma:
 
     default:
       /* Assume that we have another format item.  */
+      saved_token = t;
+      break;
+    }
+
+  goto format_item;
+
+extension_optional_comma:
+  /* As a GNU extension, permit a missing comma after a string literal.  */
+  t = format_lex ();
+  switch (t)
+    {
+    case FMT_COMMA:
+      break;
+
+    case FMT_RPAREN:
+      level--;
+      if (level < 0)
+	goto finished;
+      goto between_desc;
+
+    case FMT_COLON:
+    case FMT_SLASH:
+      goto optional_comma;
+
+    case FMT_END:
+      error = unexpected_end;
+      goto syntax;
+
+    default:
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Missing comma at %C")
+	  == FAILURE)
+	return FAILURE;
       saved_token = t;
       break;
     }

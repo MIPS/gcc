@@ -162,8 +162,8 @@ _ffi_call_AIX:
 /* END(_ffi_call_AIX)  */
 
 .data
-.section __TEXT,__eh_frame
-Lframe1:
+.section __TEXT,__eh_frame,coalesced,no_toc+strip_static_syms
+EH_frame1:
 	.set	L$set$0,LECIE1-LSCIE1
 	.long	L$set$0	; Length of Common Information Entry
 LSCIE1:
@@ -173,20 +173,21 @@ LSCIE1:
 	.byte	0x1	; uleb128 0x1; CIE Code Alignment Factor
 	.byte	0x7c	; sleb128 -4; CIE Data Alignment Factor
 	.byte	0x41	; CIE RA Column
-	.byte   0x1     ; uleb128 0x1; Augmentation size
-	.byte   0x10    ; FDE Encoding (pcrel)
+	.byte	0x1	; uleb128 0x1; Augmentation size
+	.byte	0x90	; FDE Encoding (indirect pcrel)
 	.byte	0xc	; DW_CFA_def_cfa
 	.byte	0x1	; uleb128 0x1
 	.byte	0x0	; uleb128 0x0
 	.align	2
 LECIE1:
+.globl _ffi_call_DARWIN.eh
+_ffi_call_DARWIN.eh:
 LSFDE1:
 	.set	L$set$1,LEFDE1-LASFDE1
 	.long	L$set$1	; FDE Length
 LASFDE1:
-	.set	L$set$2,LASFDE1-Lframe1
-	.long	L$set$2	; FDE CIE offset
-	.long	LFB0-.	; FDE initial location
+	.long	LASFDE1-EH_frame1 ; FDE CIE offset
+	.long	LLFB0$non_lazy_ptr-.	; FDE initial location
 	.set	L$set$3,LFE1-LFB0
 	.long	L$set$3	; FDE address range
 	.byte   0x0     ; uleb128 0x0; Augmentation size
@@ -216,3 +217,7 @@ LASFDE1:
 	.byte	0x1c	; uleb128 0x1c
 	.align 2
 LEFDE1:
+.data
+        .align 2
+LLFB0$non_lazy_ptr:
+        .long   LFB0

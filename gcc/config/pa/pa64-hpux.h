@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for HPs running
    HPUX using the 64bit runtime model.
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -63,6 +63,18 @@ Boston, MA 02111-1307, USA.  */
    isn't available.  We also usually need to link with libdld and it's
    only available in shared form.  */
 #undef LIB_SPEC
+#if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_GNU_LD)
+#define LIB_SPEC \
+  "%{!shared:\
+     %{!p:%{!pg: -lc %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
+     %{p:%{!pg:%{static:%{!mhp-ld:-a shared}%{mhp-ld:-a archive_shared}}\
+	   -lprof %{static:-a archive} -lc\
+	   %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
+     %{pg:%{static:%{!mhp-ld:-a shared}%{mhp-ld:-a archive_shared}}\
+       -lgprof %{static:-a archive} -lc\
+       %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
+   /usr/lib/pa20_64/milli.a"
+#else
 #define LIB_SPEC \
   "%{!shared:\
      %{!p:%{!pg: -lc %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
@@ -73,6 +85,7 @@ Boston, MA 02111-1307, USA.  */
        -lgprof %{static:-a archive} -lc\
        %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
    /usr/lib/pa20_64/milli.a"
+#endif
 
 /* Under hpux11, the normal location of the `ld' and `as' programs is the
    /usr/ccs/bin directory.  */

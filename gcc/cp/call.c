@@ -660,8 +660,7 @@ standard_conversion (tree to, tree from, tree expr)
   else if (tcode == POINTER_TYPE && fcode == POINTER_TYPE
 	   && TREE_CODE (TREE_TYPE (to)) == VECTOR_TYPE
 	   && TREE_CODE (TREE_TYPE (from)) == VECTOR_TYPE
-	   && ((*targetm.vector_opaque_p) (TREE_TYPE (to))
-	       || (*targetm.vector_opaque_p) (TREE_TYPE (from))))
+	   && vector_types_convertible_p (TREE_TYPE (to), TREE_TYPE (from)))
     conv = build_conv (ck_std, to, conv);
   else if ((tcode == INTEGER_TYPE && fcode == POINTER_TYPE)
 	   || (tcode == POINTER_TYPE && fcode == INTEGER_TYPE))
@@ -820,8 +819,7 @@ standard_conversion (tree to, tree from, tree expr)
 	conv->rank = cr_promotion;
     }
   else if (fcode == VECTOR_TYPE && tcode == VECTOR_TYPE
-      && ((*targetm.vector_opaque_p) (from)
-	  || (*targetm.vector_opaque_p) (to)))
+	   && vector_types_convertible_p (from, to))
     return build_conv (ck_std, to, conv);
   else if (IS_AGGR_TYPE (to) && IS_AGGR_TYPE (from)
 	   && is_properly_derived_from (from, to))
@@ -3072,10 +3070,7 @@ conditional_conversion (tree e1, tree e2)
      same cv-qualification as, or a greater cv-qualification than, the
      cv-qualification of T1.  If the conversion is applied, E1 is
      changed to an rvalue of type T2 that still refers to the original
-     source class object (or the appropriate subobject thereof).
-
-     FIXME we can't express an rvalue that refers to the original object;
-     we have to create a new one.  */
+     source class object (or the appropriate subobject thereof).  */
   if (CLASS_TYPE_P (t1) && CLASS_TYPE_P (t2)
       && ((good_base = DERIVED_FROM_P (t2, t1)) || DERIVED_FROM_P (t1, t2)))
     {
@@ -3084,10 +3079,7 @@ conditional_conversion (tree e1, tree e2)
 	  conv = build_identity_conv (t1, e1);
 	  if (!same_type_p (TYPE_MAIN_VARIANT (t1), 
 			    TYPE_MAIN_VARIANT (t2)))
-	    {
-	      conv = build_conv (ck_base, t2, conv);
-	      conv->need_temporary_p = true;
-	    }
+	    conv = build_conv (ck_base, t2, conv);
 	  else
 	    conv = build_conv (ck_rvalue, t2, conv);
 	  return conv;
@@ -3178,18 +3170,24 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 	   type of the other and is an rvalue.
 
 	 --Both the second and the third operands have type void; the
-	   result is of type void and is an rvalue.  */
+	   result is of type void and is an rvalue.  
+
+         We must avoid calling force_rvalue for expressions of type
+	 "void" because it will complain that their value is being
+	 used.   */
       if (TREE_CODE (arg2) == THROW_EXPR 
 	  && TREE_CODE (arg3) != THROW_EXPR)
 	{
-	  arg3 = force_rvalue (arg3);
+	  if (!VOID_TYPE_P (arg3_type))
+	    arg3 = force_rvalue (arg3);
 	  arg3_type = TREE_TYPE (arg3);
 	  result_type = arg3_type;
 	}
       else if (TREE_CODE (arg2) != THROW_EXPR 
 	       && TREE_CODE (arg3) == THROW_EXPR)
 	{
-	  arg2 = force_rvalue (arg2);
+	  if (!VOID_TYPE_P (arg2_type))
+	    arg2 = force_rvalue (arg2);
 	  arg2_type = TREE_TYPE (arg2);
 	  result_type = arg2_type;
 	}
@@ -3555,7 +3553,8 @@ add_candidates (tree fns, tree args,
 }
 
 tree
-build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3)
+build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
+	      bool *overloaded_p)
 {
   struct z_candidate *candidates = 0, *cand;
   tree arglist, fnname;
@@ -3707,7 +3706,8 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3)
 	    code = PREINCREMENT_EXPR;
 	  else
 	    code = PREDECREMENT_EXPR;	
-	  result = build_new_op (code, flags, arg1, NULL_TREE, NULL_TREE);
+	  result = build_new_op (code, flags, arg1, NULL_TREE, NULL_TREE,
+				 overloaded_p);
 	  break;
 
 	  /* The caller will deal with these.  */
@@ -3742,6 +3742,9 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3)
 	}
       else if (TREE_CODE (cand->fn) == FUNCTION_DECL)
 	{
+	  if (overloaded_p)
+	    *overloaded_p = true;
+
 	  if (warn_synth
 	      && fnname == ansi_assopname (NOP_EXPR)
 	      && DECL_ARTIFICIAL (cand->fn)
@@ -3974,15 +3977,15 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	  /* On the first pass, check the rest of the arguments.  */
 	  if (pass == 0)
 	    {
-	      while (argtypes && t)
+	      tree a = argtypes;
+	      while (a && t)
 		{
-		  if (!same_type_p (TREE_VALUE (argtypes),
-				    TREE_VALUE (t)))
+		  if (!same_type_p (TREE_VALUE (a), TREE_VALUE (t)))
 		    break;
-		  argtypes = TREE_CHAIN (argtypes);
+		  a = TREE_CHAIN (a);
 		  t = TREE_CHAIN (t);
 		}
-	      if (!argtypes && !t)
+	      if (!a && !t)
 		break;
 	    }
 	  /* On the second pass, the second argument must be
@@ -4241,9 +4244,10 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       if (convs->check_copy_constructor_p)
 	/* Generate a temporary copy purely to generate the required
 	   diagnostics.  */
-	build_temp (build_dummy_object (totype), totype, 
-		    LOOKUP_NORMAL|LOOKUP_ONLYCONVERTING,
-		    &diagnostic_fn);
+	build_temp
+	  (build_dummy_object
+	   (build_qualified_type (totype, TYPE_QUAL_CONST)),
+	   totype, LOOKUP_NORMAL|LOOKUP_ONLYCONVERTING, &diagnostic_fn);
 	return expr;
     case ck_ambig:
       /* Call build_user_type_conversion again for the error.  */
@@ -5975,7 +5979,7 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
 	      && TREE_CODE (t2->type) == INTEGER_TYPE
 	      && (TYPE_PRECISION (t1->type)
 		  == TYPE_PRECISION (t2->type))
-	      && (TREE_UNSIGNED (t1->u.next->type)
+	      && (TYPE_UNSIGNED (t1->u.next->type)
 		  || (TREE_CODE (t1->u.next->type)
 		      == ENUMERAL_TYPE)))
 	    {
@@ -6522,6 +6526,16 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
 	  type = TREE_TYPE (expr);
 	  var = make_temporary_var_for_ref_to_temp (decl, type);
 	  layout_decl (var, 0);
+	  /* If the rvalue is the result of a function call it will be
+	     a TARGET_EXPR.  If it is some other construct (such as a
+	     member access expression where the underlying object is
+	     itself the result of a function call), turn it into a
+	     TARGET_EXPR here.  It is important that EXPR be a
+	     TARGET_EXPR below since otherwise the INIT_EXPR will
+	     attempt to make a bitwise copy of EXPR to initialize
+	     VAR. */
+	  if (TREE_CODE (expr) != TARGET_EXPR)
+	    expr = get_target_expr (expr);
 	  /* Create the INIT_EXPR that will initialize the temporary
 	     variable.  */
 	  init = build (INIT_EXPR, type, var, expr);

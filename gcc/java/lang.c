@@ -266,9 +266,6 @@ struct language_function GTY(())
 #undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION java_expand_body
 
-#undef LANG_HOOKS_RTL_EXPAND_STMT
-#define LANG_HOOKS_RTL_EXPAND_STMT java_expand_stmt
-
 /* Each front end provides its own.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
@@ -351,6 +348,22 @@ java_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fassert:
       flag_assert = value;
+      break;
+
+    case OPT_fenable_assertions_:
+      add_enable_assert (arg, value);
+      break;
+
+    case OPT_fenable_assertions:
+      add_enable_assert ("", value);
+      break;
+
+    case OPT_fdisable_assertions_:
+      add_enable_assert (arg, !value);
+      break;
+
+    case OPT_fdisable_assertions:
+      add_enable_assert ("", !value);
       break;
 
     case OPT_fassume_compiled_:
@@ -959,7 +972,7 @@ merge_init_test_initialization (void **entry, void *x)
   
   However, what if the method that is suppoed to do the initialization
   is itself inlined in the caller?  When expanding the called method
-  we'll assume that the class initalization has already been done,
+  we'll assume that the class initialization has already been done,
   because the DECL_INITIAL of the init_test_decl is set.
   
   To fix this we remove the DECL_INITIAL (in the caller scope) of all

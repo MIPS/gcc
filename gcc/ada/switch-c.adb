@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 2001-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -381,6 +381,12 @@ package body Switch.C is
                      Ptr := Ptr + 1;
                      Full_Path_Name_For_Brief_Errors := True;
                      return;
+
+                  --  -gnateI (index of unit in multi-unit source)
+
+                  when 'I' =>
+                     Ptr := Ptr + 1;
+                     Scan_Pos (Switch_Chars, Max, Ptr, Multiple_Unit_Index);
 
                   --  -gnatem (mapping file)
 

@@ -41,9 +41,11 @@ Boston, MA 02111-1307, USA.  */
 
 /* Suppress g++ attempt to link in the math library automatically.
    (Some Darwin versions have a libm, but they seem to cause problems
-   for C++ executables.)  */
-
+   for C++ executables.) This needs to be -lmx for Darwin 7.0 and
+   above.  */
+#ifndef MATH_LIBRARY
 #define MATH_LIBRARY ""
+#endif
 
 /* We have atexit.  */
 
@@ -465,10 +467,46 @@ do { text_section ();							\
 	      "\t.stabs \"%s\",%d,0,0,Letext\nLetext:\n", "" , N_SO);	\
    } while (0)
 
+/* Making a symbols weak on Darwin requires more than just setting DECL_WEAK. */
+#define MAKE_DECL_ONE_ONLY(DECL) darwin_make_decl_one_only (DECL)
+
+/* Representation of linkonce symbols for the MACH-O assembler. Linkonce
+   symbols must be given a special section *and* must be preceded by a 
+   special assembler directive. */
+#define ASM_MAKE_LABEL_LINKONCE(FILE,  NAME)                            \
+ do { const char* _x = (NAME); if (!!strncmp (_x, "_OBJC_", 6)) {	\
+  fputs (".weak_definition ", FILE); assemble_name (FILE, _x);		\
+  fputs ("\n", FILE); }} while (0)
+
+/* We support hidden visibility */
+#undef TARGET_SUPPORTS_HIDDEN
+#define TARGET_SUPPORTS_HIDDEN 1
+
+/* The Darwin linker imposes two limitations on common symbols: they 
+   can't have hidden visibility, and they can't appear in dylibs.  As
+   a consequence, we should never use common symbols to represent 
+   vague linkage. */
+#undef USE_COMMON_FOR_ONE_ONLY
+#define USE_COMMON_FOR_ONE_ONLY 0
+
+/* The Darwin linker doesn't like explicit template instantiations to be
+   coalesced, because it doesn't want coalesced symbols to appear in
+   a static archive's table of contents. */
+#undef TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY
+#define TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY 0
+
+/* We make exception information linkonce. */
+#undef TARGET_USES_WEAK_UNWIND_INFO
+#define TARGET_USES_WEAK_UNWIND_INFO 1
+
 /* We need to use a nonlocal label for the start of an EH frame: the
    Darwin linker requires that a coalesced section start with a label. */
 #undef FRAME_BEGIN_LABEL
 #define FRAME_BEGIN_LABEL "EH_frame"
+
+/* Emit a label for the FDE corresponding to DECL.  EMPTY means 
+   emit a label for an empty FDE. */
+#define TARGET_ASM_EMIT_UNWIND_LABEL darwin_emit_unwind_label
 
 /* Our profiling scheme doesn't LP labels and counter words.  */
 
@@ -524,15 +562,14 @@ do { text_section ();							\
     const char *xname = NAME;						\
     if (GET_CODE (XEXP (DECL_RTL (DECL), 0)) != SYMBOL_REF)		\
       xname = IDENTIFIER_POINTER (DECL_NAME (DECL));			\
+    if (! DECL_ONE_ONLY (DECL) && ! DECL_WEAK (DECL))                   \
+      if ((TREE_STATIC (DECL)						\
+	   && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
+          || DECL_INITIAL (DECL))					\
+        machopic_define_name (xname);					\
     if ((TREE_STATIC (DECL)						\
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
         || DECL_INITIAL (DECL))						\
-      machopic_define_name (xname);					\
-    /* APPLE LOCAL  coalescing  */					\
-    if (! DECL_IS_COALESCED_OR_WEAK (DECL)				\
-	&& ((TREE_STATIC (DECL)						\
-	     && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
-	    || DECL_INITIAL (DECL)))					\
       (* targetm.encode_section_info) (DECL, DECL_RTL (DECL), false);	\
     ASM_OUTPUT_LABEL (FILE, xname);					\
     /* Darwin doesn't support zero-size objects, so give them a	\
@@ -546,12 +583,11 @@ do { text_section ();							\
     const char *xname = NAME;                                           \
     if (GET_CODE (XEXP (DECL_RTL (DECL), 0)) != SYMBOL_REF)             \
       xname = IDENTIFIER_POINTER (DECL_NAME (DECL));                    \
-    /* APPLE LOCAL  coalescing  */					\
-    if (! DECL_IS_COALESCED_OR_WEAK (DECL))				\
+    if (! DECL_ONE_ONLY (DECL) && ! DECL_WEAK (DECL))			\
       if ((TREE_STATIC (DECL)                                           \
-	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))               \
-        || DECL_INITIAL (DECL))                                         \
-      machopic_define_name (xname);                                     \
+	   && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))             \
+          || DECL_INITIAL (DECL))                                       \
+        machopic_define_name (xname);                                   \
     if ((TREE_STATIC (DECL)                                             \
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))               \
         || DECL_INITIAL (DECL))                                         \
@@ -823,8 +859,7 @@ SECTION_FUNCTION (darwin_exception_section,		\
 		".section __DATA,__gcc_except_tab", 0)	\
 SECTION_FUNCTION (darwin_eh_frame_section,		\
 		in_darwin_eh_frame,			\
-                /* APPLE LOCAL eh in data segment */    \
-		 ".section " EH_FRAME_SECTION_NAME ",__eh_frame" EH_FRAME_SECTION_ATTR, 0)  \
+		".section " EH_FRAME_SECTION_NAME ",__eh_frame" EH_FRAME_SECTION_ATTR, 0)  \
 							\
 static void					\
 objc_section_init (void)			\
@@ -865,6 +900,10 @@ objc_section_init (void)			\
 #define TARGET_ASM_SELECT_SECTION machopic_select_section
 #undef	TARGET_ASM_SELECT_RTX_SECTION
 #define TARGET_ASM_SELECT_RTX_SECTION machopic_select_rtx_section
+#undef  TARGET_ASM_UNIQUE_SECTION
+#define TARGET_ASM_UNIQUE_SECTION darwin_unique_section
+
+
 
 #define ASM_DECLARE_UNRESOLVED_REFERENCE(FILE,NAME)			\
     do {								\
@@ -1004,6 +1043,9 @@ enum machopic_addr_class {
 
 #define TARGET_ASM_EH_FRAME_SECTION darwin_eh_frame_section
 
+#define EH_FRAME_SECTION_NAME   "__TEXT"
+#define EH_FRAME_SECTION_ATTR ",coalesced,no_toc+strip_static_syms"
+
 #undef ASM_PREFERRED_EH_DATA_FORMAT
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)  \
   (((CODE) == 2 && (GLOBAL) == 1) \
@@ -1013,63 +1055,14 @@ enum machopic_addr_class {
 #define ASM_OUTPUT_DWARF_DELTA(FILE,SIZE,LABEL1,LABEL2)  \
   darwin_asm_output_dwarf_delta (FILE, SIZE, LABEL1, LABEL2)
 
-/* APPLE LOCAL begin coalescing  */
-/* The __eh_frame section attributes: a "normal" section by default.  */
-#define EH_FRAME_SECTION_ATTR	/*nothing*/
-
-/* The only EH item we can't do PC-relative is the reference to
-   __gxx_personality_v0.  So we cheat, since moving the __eh_frame section
-   to the DATA segment is expensive.
-   We output a 4-byte encoding - including the last 2 chars of the 
-   personality function name: {0, 'g', 'v', '0', 0xff}
-   (The first zero byte coincides with the "absolute" encoding.)
-   This means we can now use DW_EH_PE_pcrel for everything.  And there
-   was much rejoicing.  */
-
-#define EH_FRAME_SECTION_NAME	"__TEXT"
-
-#define COALESCED_UNWIND_INFO
-
-#ifdef COALESCED_UNWIND_INFO
-#undef EH_FRAME_SECTION_ATTR
-#define EH_FRAME_SECTION_ATTR ",coalesced,no_toc+strip_static_syms"
-
-
-/* Implicit or explicit template instantiations' EH info are GLOBAL
-   symbols.  ("Implicit" here implies "coalesced".)
-   Note that .weak_definition is commented out until 'as' supports it.  */
-
-
-#define APPLE_ASM_WEAK_DEF_FMT_STRING(LAB) \
-      (name_needs_quotes(LAB) ? ".weak_definition \"%s%s\"\n" : ".weak_definition %s%s\n")
-
-#define ASM_OUTPUT_COAL_UNWIND_LABEL(FILE, LAB, COAL, PUBLIC, PRIVATE_EXTERN, FOR_EH) \
-  do {									\
-    const char *suffix = ".eh";						\
-    if (! (FOR_EH))							\
-      suffix = ".eh1";							\
-    if ((COAL) || (PUBLIC) || (PRIVATE_EXTERN))                         \
-      fprintf ((FILE),							\
-	       (name_needs_quotes(LAB) ? "%s \"%s%s\"\n" : "%s %s%s\n"),\
-	       ((PUBLIC) ? ".globl" : ".private_extern"),               \
-	       (LAB), suffix);						\
-    if (COAL)								\
-      fprintf ((FILE),							\
-	       APPLE_ASM_WEAK_DEF_FMT_STRING(LAB),			\
-	       (LAB), suffix);						\
-    fprintf ((FILE), 							\
-	     (name_needs_quotes(LAB) ? "\"%s%s\":\n" : "%s%s:\n"),	\
-	     (LAB), suffix);						\
-  } while (0)
-
-#endif	/* COALESCED_UNWIND_INFO  */
-
 #define ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX(ASM_OUT_FILE, ENCODING, SIZE, ADDR, DONE)	\
       if (ENCODING == ASM_PREFERRED_EH_DATA_FORMAT (2, 1)) {				\
 	darwin_non_lazy_pcrel (ASM_OUT_FILE, ADDR);					\
 	goto DONE;									\
       }
-/* APPLE LOCAL end coalescing  */
+
+
+#define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
 
 /* APPLE LOCAL OS pragma hook */
 #define REGISTER_OS_PRAGMAS(PFILE)			\
@@ -1099,19 +1092,6 @@ enum machopic_addr_class {
     cpp_register_pragma (PFILE, 0, "CC_NON_WRITABLE_STRINGS", darwin_pragma_cc_non_writable_strings);  \
     /* APPLE LOCAL end temporary pragmas 2001-07-05 sts */  \
   } while (0)
-
-/* APPLE LOCAL  coalescing  */
-extern void make_decl_coalesced (tree, int private_extern_p);
-
-/* Coalesced symbols are private extern by default.  This behavior can
-   be changed with the EXPERIMENTAL export-coalesced flag.  There is 
-   not (yet?) any means for coalesced symbols to be selectively exported.  */
-
-#define MAKE_DECL_COALESCED(DECL) \
-        make_decl_coalesced (DECL, !flag_export_coalesced)
-
-#define COALESCE_STATIC_THUNK(DECL, PUBLIC) \
-        make_decl_coalesced (DECL, !PUBLIC)
 
 extern int flag_coalescing_enabled,
 	   flag_coalesce_templates, flag_weak_coalesced_definitions;
@@ -1149,12 +1129,13 @@ extern int flag_export_coalesced;
 #undef TARGET_SECTION_TYPE_FLAGS
 #define TARGET_SECTION_TYPE_FLAGS darwin_section_type_flags
 
-#define DECL_IS_COALESCED_OR_WEAK(DECL)			\
-	(DECL_COALESCED (DECL) || DECL_WEAK (DECL))
-
-extern int machopic_var_referred_to_p PARAMS ((const char*)); 
-#define MACHOPIC_VAR_REFERRED_TO_P(NAME) machopic_var_referred_to_p (NAME)
-/* APPLE LOCAL  end coalescing  */
+#define DARWIN_REGISTER_TARGET_PRAGMAS()                        \
+  do {                                                          \
+    c_register_pragma (0, "mark", darwin_pragma_ignore);        \
+    c_register_pragma (0, "options", darwin_pragma_options);    \
+    c_register_pragma (0, "segment", darwin_pragma_ignore);     \
+    c_register_pragma (0, "unused", darwin_pragma_unused);      \
+  } while (0)
 
 /* APPLE LOCAL insert assembly ".abort" directive on fatal error   */
 #define EXIT_FROM_FATAL_DIAGNOSTIC(status) abort_assembly_and_exit (status)
@@ -1252,5 +1233,10 @@ void add_framework_path (char *);
 #define TARGET_OPTF add_framework_path
 
 #define TARGET_HAS_F_SETLKW
+
+/* Darwin before 7.0 does not have C99 functions.   */
+#ifndef TARGET_C99_FUNCTIONS
+#define TARGET_C99_FUNCTIONS 0
+#endif
 
 #endif /* CONFIG_DARWIN_H */

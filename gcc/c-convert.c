@@ -98,7 +98,7 @@ convert (tree type, tree expr)
     return fold (convert_to_integer (type, e));
   if (code == BOOLEAN_TYPE)
     {
-      tree t = (*lang_hooks.truthvalue_conversion) (expr);
+      tree t = lang_hooks.truthvalue_conversion (expr);
       if (TREE_CODE (t) == ERROR_MARK)
 	return t;
 
@@ -117,15 +117,9 @@ convert (tree type, tree expr)
     return fold (convert_to_complex (type, e));
   if (code == VECTOR_TYPE)
     return fold (convert_to_vector (type, e));
-  /* APPLE LOCAL begin IMA aggregate types */
-  if (code == RECORD_TYPE || code == ENUMERAL_TYPE || code == UNION_TYPE)
-  {
-    tree t2 = TREE_TYPE (expr);
-    if (code == TREE_CODE (t2)
-        && !same_translation_unit_p (type, t2) && tagged_types_tu_compatible_p (type, t2, 0))
+  if ((code == RECORD_TYPE || code == UNION_TYPE)
+      && lang_hooks.types_compatible_p (type, TREE_TYPE (expr)))
       return e;
-  }
-  /* APPLE LOCAL end IMA aggregate types */
 
   error ("conversion to non-scalar type requested");
   return error_mark_node;

@@ -33,7 +33,7 @@
 /* APPLE LOCAL begin AltiVec */
 #include "c-common.h"
 #include "cpplib.h"
-#include "cpphash.h"
+#include "../libcpp/internal.h"
 #include "target.h"
 
 static cpp_hashnode *altivec_categorize_keyword (const cpp_token *);

@@ -105,7 +105,7 @@ static size_t deferred_count;
 /* Number of deferred options scanned for -include.  */
 static size_t include_cursor;
 
-/* Permit Fotran front-end options.  */
+/* Permit Fortran front-end options.  */
 static bool permit_fortran_options;
 
 static void set_Wimplicit (int);
@@ -317,7 +317,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_I:
       if (strcmp (arg, "-"))
-	add_path (xstrdup (arg), BRACKET, 0);
+	add_path (xstrdup (arg), BRACKET, 0, true);
       else
 	{
 	  if (quote_chain_split)
@@ -602,6 +602,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_Wmissing_format_attribute:
       warn_missing_format_attribute = value;
+      break;
+
+    case OPT_Wmissing_include_dirs:
+      cpp_opts->warn_missing_include_dirs = value;
       break;
 
     case OPT_Wmissing_prototypes:
@@ -1055,7 +1059,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_idirafter:
-      add_path (xstrdup (arg), AFTER, 0);
+      add_path (xstrdup (arg), AFTER, 0, true);
       break;
 
     case OPT_imacros:
@@ -1068,7 +1072,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_iquote:
-      add_path (xstrdup (arg), QUOTE, 0);
+      add_path (xstrdup (arg), QUOTE, 0, true);
       break;
 
     case OPT_isysroot:
@@ -1076,7 +1080,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_isystem:
-      add_path (xstrdup (arg), SYSTEM, 0);
+      add_path (xstrdup (arg), SYSTEM, 0, true);
       break;
 
     case OPT_iwithprefix:
@@ -1297,8 +1301,12 @@ c_common_post_options (const char **pfilename)
 
   *pfilename = this_input_filename
     = cpp_read_main_file (parse_in, in_fnames[0]);
+  /* Don't do any compilation or preprocessing if there is no input file.  */
   if (this_input_filename == NULL)
-    return true;
+    {
+      errorcount++;
+      return false;
+    }
 
   if (flag_working_directory
       && flag_preprocess_only && ! flag_no_line_commands)
@@ -1319,7 +1327,7 @@ c_common_init (void)
   cpp_opts->char_precision = TYPE_PRECISION (char_type_node);
   cpp_opts->int_precision = TYPE_PRECISION (integer_type_node);
   cpp_opts->wchar_precision = TYPE_PRECISION (wchar_type_node);
-  cpp_opts->unsigned_wchar = TREE_UNSIGNED (wchar_type_node);
+  cpp_opts->unsigned_wchar = TYPE_UNSIGNED (wchar_type_node);
   cpp_opts->bytes_big_endian = BYTES_BIG_ENDIAN;
 
   /* This can't happen until after wchar_precision and bytes_big_endian
@@ -1354,24 +1362,32 @@ c_common_init (void)
 /* Initialize the integrated preprocessor after debug output has been
    initialized; loop over each input file.  */
 void
-c_common_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
+c_common_parse_file (int set_yydebug)
 {
   unsigned file_index;
-  
+
 #if YYDEBUG != 0
   yydebug = set_yydebug;
 #else
-  warning ("YYDEBUG not defined");
+  if (set_yydebug)
+    warning ("YYDEBUG not defined");
 #endif
 
+  if (num_in_fnames > 1)
+    fatal_error ("sorry, inter-module analysis temporarily out of commission");
+
   file_index = 0;
-  
+
+  /* MERGE FAIL - revisit after IMA works. */
   do
     {
       if (file_index > 0)
-	{
-	  /* Reset the state of the parser.  */
-	  c_reset_state();
+        {
+          /* Reset the state of the parser.  */
+#if 0
+/* MERGE FAIL - revisit after IMA works. */
+          c_reset_state();
+#endif
 
 	  /* Reset cpplib's macros and start a new file.  */
 	  cpp_undef_all (parse_in);
@@ -1398,13 +1414,15 @@ c_common_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	      (0, input_filename, cpp_get_stabs_checksum ());
 	}
         /* APPLE LOCAL end Symbol Separation */
+      pch_init ();
+      push_file_scope ();
       c_parse_file ();
+      /* APPLE LOCAL Objective-C++ */
+      (*lang_hooks.finish_file) ();
+      pop_file_scope ();
 
       file_index++;
     } while (file_index < num_in_fnames);
-  
-  /* APPLE LOCAL Objective-C++ */
-  (*lang_hooks.finish_file) ();
 }
 
 /* Common finish hook for the C, ObjC and C++ front ends.  */
@@ -1560,7 +1578,7 @@ add_prefixed_path (const char *suffix, size_t chain)
   memcpy (path + prefix_len, suffix, suffix_len);
   path[prefix_len + suffix_len] = '\0';
 
-  add_path (path, chain, 0);
+  add_path (path, chain, 0, false);
 }
 
 /* Handle -D, -U, -A, -imacros, and the first -include.  */

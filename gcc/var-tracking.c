@@ -233,6 +233,9 @@ typedef struct variable_def
   /* The declaration of the variable.  */
   tree decl;
 
+  /* Reference count.  */
+  int refcount;
+
   /* Number of variable parts.  */
   int n_var_parts;
 
@@ -262,7 +265,7 @@ static htab_t changed_variables;
 static bool emit_notes;
 
 /* Fake variable for stack pointer.  */
-GTY(()) tree frame_base_decl;
+tree frame_base_decl;
 
 /* Local function prototypes.  */
 static void stack_adjust_offset_pre_post (rtx, HOST_WIDE_INT *,
@@ -285,6 +288,7 @@ static void attrs_list_copy (attrs *, attrs);
 static void attrs_list_union (attrs *, attrs);
 
 static void vars_clear (htab_t);
+static variable unshare_variable (dataflow_set *set, variable var);
 static int vars_copy_1 (void **, void *);
 static void vars_copy (htab_t, htab_t);
 static void var_reg_delete_and_set (dataflow_set *, rtx);
@@ -300,7 +304,7 @@ static int variable_union_info_cmp_pos (const void *, const void *);
 static int variable_union (void **, void *);
 static void dataflow_set_union (dataflow_set *, dataflow_set *);
 static bool variable_part_different_p (variable_part *, variable_part *);
-static bool variable_different_p (variable, variable);
+static bool variable_different_p (variable, variable, bool);
 static int dataflow_set_different_1 (void **, void *);
 static int dataflow_set_different_2 (void **, void *);
 static bool dataflow_set_different (dataflow_set *, dataflow_set *);
@@ -629,6 +633,15 @@ variable_htab_free (void *elem)
   variable var = (variable) elem;
   location_chain node, next;
 
+#ifdef ENABLE_CHECKING
+  if (var->refcount <= 0)
+    abort ();
+#endif
+
+  var->refcount--;
+  if (var->refcount > 0)
+    return;
+
   for (i = 0; i < var->n_var_parts; i++)
     {
       for (node = var->var_part[i].loc_chain; node; node = next)
@@ -732,31 +745,29 @@ vars_clear (htab_t vars)
   htab_empty (vars);
 }
 
-/* Copy one variable from *SLOT to hash table DATA.  */
+/* Return a copy of a variable VAR and insert it to dataflow set SET.  */
 
-static int
-vars_copy_1 (void **slot, void *data)
+static variable
+unshare_variable (dataflow_set *set, variable var)
 {
-  htab_t dst = (htab_t) data;
-  variable src, *dstp, var;
+  void **slot;
+  variable new_var;
   int i;
 
-  src = *(variable *) slot;
-  dstp = (variable *) htab_find_slot_with_hash (dst, src->decl,
-						VARIABLE_HASH_VAL (src->decl),
-						INSERT);
-  var = pool_alloc (var_pool);
-  var->decl = src->decl;
-  var->n_var_parts = src->n_var_parts;
-  *dstp = (void *) var;
+  new_var = pool_alloc (var_pool);
+  new_var->decl = var->decl;
+  new_var->refcount = 1;
+  var->refcount--;
+  new_var->n_var_parts = var->n_var_parts;
 
   for (i = 0; i < var->n_var_parts; i++)
     {
-      location_chain last, node;
+      location_chain node;
+      location_chain *nextp;
 
-      var->var_part[i].offset = src->var_part[i].offset;
-      last = NULL;
-      for (node = src->var_part[i].loc_chain; node; node = node->next)
+      new_var->var_part[i].offset = var->var_part[i].offset;
+      nextp = &new_var->var_part[i].loc_chain;
+      for (node = var->var_part[i].loc_chain; node; node = node->next)
 	{
 	  location_chain new_lc;
 
@@ -764,20 +775,41 @@ vars_copy_1 (void **slot, void *data)
 	  new_lc->next = NULL;
 	  new_lc->loc = node->loc;
 
-	  if (last)
-	    last->next = new_lc;
-	  else
-	    var->var_part[i].loc_chain = new_lc;
-	  last = new_lc;
+	  *nextp = new_lc;
+	  nextp = &new_lc->next;
 	}
 
       /* We are at the basic block boundary when copying variable description
 	 so set the CUR_LOC to be the first element of the chain.  */
-      if (var->var_part[i].loc_chain)
-	var->var_part[i].cur_loc = var->var_part[i].loc_chain->loc;
+      if (new_var->var_part[i].loc_chain)
+	new_var->var_part[i].cur_loc = new_var->var_part[i].loc_chain->loc;
       else
-	var->var_part[i].cur_loc = NULL;
+	new_var->var_part[i].cur_loc = NULL;
     }
+
+  slot = htab_find_slot_with_hash (set->vars, new_var->decl,
+				   VARIABLE_HASH_VAL (new_var->decl),
+				   INSERT);
+  *slot = new_var;
+  return new_var;
+}
+
+/* Add a variable from *SLOT to hash table DATA and increase its reference
+   count.  */
+
+static int
+vars_copy_1 (void **slot, void *data)
+{
+  htab_t dst = (htab_t) data;
+  variable src, *dstp;
+
+  src = *(variable *) slot;
+  src->refcount++;
+
+  dstp = (variable *) htab_find_slot_with_hash (dst, src->decl,
+						VARIABLE_HASH_VAL (src->decl),
+						INSERT);
+  *dstp = src;
 
   /* Continue traversing the hash table.  */
   return 1;
@@ -798,33 +830,29 @@ vars_copy (htab_t dst, htab_t src)
 static void
 var_reg_delete_and_set (dataflow_set *set, rtx loc)
 {
-  attrs *reg = &set->regs[REGNO (loc)];
   tree decl = REG_EXPR (loc);
   HOST_WIDE_INT offset = REG_OFFSET (loc);
-  attrs node, prev, next;
+  attrs node, next;
+  attrs *nextp;
 
-  prev = NULL;
-  for (node = *reg; node; node = next)
+  nextp = &set->regs[REGNO (loc)];
+  for (node = *nextp; node; node = next)
     {
       next = node->next;
       if (node->decl != decl || node->offset != offset)
 	{
 	  delete_variable_part (set, node->loc, node->decl, node->offset);
-
-	  if (prev)
-	    prev->next = next;
-	  else
-	    *reg = next;
 	  pool_free (attrs_pool, node);
+	  *nextp = next;
 	}
       else
 	{
 	  node->loc = loc;
-	  prev = node;
+	  nextp = &node->next;
 	}
     }
-  if (*reg == NULL)
-    attrs_list_insert (reg, decl, offset, loc);
+  if (set->regs[REGNO (loc)] == NULL)
+    attrs_list_insert (&set->regs[REGNO (loc)], decl, offset, loc);
   set_variable_part (set, loc, decl, offset);
 }
 
@@ -978,9 +1006,37 @@ variable_union (void **slot, void *data)
 						INSERT);
   if (!*dstp)
     {
-      *dstp = dst = pool_alloc (var_pool);
-      dst->decl = src->decl;
-      dst->n_var_parts = 0;
+      src->refcount++;
+
+      /* If CUR_LOC of some variable part is not the first element of
+	 the location chain we are going to change it so we have to make
+	 a copy of the variable.  */
+      for (k = 0; k < src->n_var_parts; k++)
+	{
+	  if (src->var_part[k].loc_chain)
+	    {
+#ifdef ENABLE_CHECKING
+	      if (src->var_part[k].cur_loc == NULL)
+		abort ();
+#endif
+	      if (src->var_part[k].cur_loc != src->var_part[k].loc_chain->loc)
+		break;
+	    }
+#ifdef ENABLE_CHECKING
+	  else
+	    {
+	      if (src->var_part[k].cur_loc != NULL)
+		abort ();
+	    }
+#endif
+	}
+      if (k < src->n_var_parts)
+	unshare_variable (set, src);
+      else
+	*dstp = src;
+
+      /* Continue traversing the hash table.  */
+      return 1;
     }
   else
     dst = *dstp;
@@ -1004,10 +1060,8 @@ variable_union (void **slot, void *data)
       else
 	j++;
     }
-  if (i < src->n_var_parts)
-    k += src->n_var_parts - i;
-  if (j < dst->n_var_parts)
-    k += dst->n_var_parts - j;
+  k += src->n_var_parts - i;
+  k += dst->n_var_parts - j;
 #ifdef ENABLE_CHECKING
   /* We track only variables whose size is <= MAX_VAR_PARTS bytes
      thus there are at most MAX_VAR_PARTS different offsets.  */
@@ -1015,13 +1069,16 @@ variable_union (void **slot, void *data)
     abort ();
 #endif
 
+  if (dst->refcount > 1 && dst->n_var_parts != k)
+    dst = unshare_variable (set, dst);
+
   i = src->n_var_parts - 1;
   j = dst->n_var_parts - 1;
   dst->n_var_parts = k;
 
   for (k--; k >= 0; k--)
     {
-      location_chain node;
+      location_chain node, node2;
 
       if (i >= 0 && j >= 0
 	  && src->var_part[i].offset == dst->var_part[j].offset)
@@ -1032,7 +1089,26 @@ variable_union (void **slot, void *data)
 	  int dst_l, src_l;
 	  int ii, jj, n;
 	  struct variable_union_info *vui;
-	  
+
+	  /* If DST is shared compare the location chains.
+	     If they are different we will modify the chain in DST with
+	     high probability so make a copy of DST.  */
+	  if (dst->refcount > 1)
+	    {
+	      for (node = src->var_part[i].loc_chain,
+		   node2 = dst->var_part[j].loc_chain; node && node2;
+		   node = node->next, node2 = node2->next)
+		{
+		  if (!((GET_CODE (node2->loc) == REG
+			 && GET_CODE (node->loc) == REG
+			 && REGNO (node2->loc) == REGNO (node->loc))
+			|| rtx_equal_p (node2->loc, node->loc)))
+		    break;
+		}
+	      if (node || node2)
+		dst = unshare_variable (set, dst);
+	    }
+
 	  src_l = 0;
 	  for (node = src->var_part[i].loc_chain; node; node = node->next)
 	    src_l++;
@@ -1112,9 +1188,10 @@ variable_union (void **slot, void *data)
 		&& src->var_part[i].offset > dst->var_part[j].offset)
 	       || j < 0)
 	{
-	  location_chain last = NULL;
+	  location_chain *nextp;
 
 	  /* Copy the chain from SRC.  */
+	  nextp = &dst->var_part[k].loc_chain;
 	  for (node = src->var_part[i].loc_chain; node; node = node->next)
 	    {
 	      location_chain new_lc;
@@ -1123,11 +1200,8 @@ variable_union (void **slot, void *data)
 	      new_lc->next = NULL;
 	      new_lc->loc = node->loc;
 
-	      if (last)
-		last->next = new_lc;
-	      else
-		dst->var_part[k].loc_chain = new_lc;
-	      last = new_lc;
+	      *nextp = new_lc;
+	      nextp = &new_lc->next;
 	    }
 
 	  dst->var_part[k].offset = src->var_part[i].offset;
@@ -1186,14 +1260,18 @@ variable_part_different_p (variable_part *vp1, variable_part *vp2)
   return false;
 }
 
-/* Return true if variables VAR1 and VAR2 are different (only the first
-   location in the list of locations is checked for each offset,
-   i.e. when true is returned a note should be emitted).  */
+/* Return true if variables VAR1 and VAR2 are different.
+   If COMPARE_CURRENT_LOCATION is true compare also the cur_loc of each
+   variable part.  */
 
 static bool
-variable_different_p (variable var1, variable var2)
+variable_different_p (variable var1, variable var2,
+		      bool compare_current_location)
 {
   int i;
+
+  if (var1 == var2)
+    return false;
 
   if (var1->n_var_parts != var2->n_var_parts)
     return true;
@@ -1202,6 +1280,16 @@ variable_different_p (variable var1, variable var2)
     {
       if (var1->var_part[i].offset != var2->var_part[i].offset)
 	return true;
+      if (compare_current_location)
+	{
+	  if (!((GET_CODE (var1->var_part[i].cur_loc) == REG
+		 && GET_CODE (var2->var_part[i].cur_loc) == REG
+		 && (REGNO (var1->var_part[i].cur_loc)
+		     == REGNO (var2->var_part[i].cur_loc)))
+		|| rtx_equal_p (var1->var_part[i].cur_loc,
+				var2->var_part[i].cur_loc)))
+	    return true;
+	}
       if (variable_part_different_p (&var1->var_part[i], &var2->var_part[i]))
 	return true;
       if (variable_part_different_p (&var2->var_part[i], &var1->var_part[i]))
@@ -1220,21 +1308,21 @@ dataflow_set_different_1 (void **slot, void *data)
   variable var1, var2;
 
   var1 = *(variable *) slot;
-  var2 = (variable) htab_find_with_hash (htab, var1->decl,
-					 VARIABLE_HASH_VAL (var1->decl));
+  var2 = htab_find_with_hash (htab, var1->decl,
+			      VARIABLE_HASH_VAL (var1->decl));
   if (!var2)
     {
       dataflow_set_different_value = true;
 
-      /* Stop traversing the hash table.   */
+      /* Stop traversing the hash table.  */
       return 0;
     }
 
-  if (variable_different_p (var1, var2))
+  if (variable_different_p (var1, var2, false))
     {
       dataflow_set_different_value = true;
 
-      /* Stop traversing the hash table.   */
+      /* Stop traversing the hash table.  */
       return 0;
     }
 
@@ -1252,20 +1340,20 @@ dataflow_set_different_2 (void **slot, void *data)
   variable var1, var2;
 
   var1 = *(variable *) slot;
-  var2 = (variable) htab_find_with_hash (htab, var1->decl,
-					 VARIABLE_HASH_VAL (var1->decl));
+  var2 = htab_find_with_hash (htab, var1->decl,
+			      VARIABLE_HASH_VAL (var1->decl));
   if (!var2)
     {
       dataflow_set_different_value = true;
 
-      /* Stop traversing the hash table.   */
+      /* Stop traversing the hash table.  */
       return 0;
     }
 
 #ifdef ENABLE_CHECKING
   /* If both variables are defined they have been already checked for
      equivalence.  */
-  if (variable_different_p (var1, var2))
+  if (variable_different_p (var1, var2, false))
     abort ();
 #endif
 
@@ -1594,8 +1682,8 @@ vt_find_locations (void)
 
   /* Compute reverse completion order of depth first search of the CFG
      so that the data-flow runs faster.  */
-  rc_order = (int *) xmalloc (n_basic_blocks * sizeof (int));
-  bb_order = (int *) xmalloc (last_basic_block * sizeof (int));
+  rc_order = xmalloc (n_basic_blocks * sizeof (int));
+  bb_order = xmalloc (last_basic_block * sizeof (int));
   flow_depth_first_order_compute (NULL, rc_order);
   for (i = 0; i < n_basic_blocks; i++)
     bb_order[rc_order[i]] = i;
@@ -1799,6 +1887,7 @@ variable_was_changed (variable var, htab_t htab)
 
 	  empty_var = pool_alloc (var_pool);
 	  empty_var->decl = var->decl;
+	  empty_var->refcount = 1;
 	  empty_var->n_var_parts = 0;
 	  *slot = empty_var;
 
@@ -1851,7 +1940,12 @@ set_frame_base_location (dataflow_set *set, rtx loc)
     abort ();
 #endif
 
+  /* If frame_base_decl is shared unshare it first.  */
+  if (var->refcount > 1)
+    var = unshare_variable (set, var);
+
   var->var_part[0].loc_chain->loc = loc;
+  var->var_part[0].cur_loc = loc;
   variable_was_changed (var, set->vars);
 }
 
@@ -1863,7 +1957,8 @@ static void
 set_variable_part (dataflow_set *set, rtx loc, tree decl, HOST_WIDE_INT offset)
 {
   int pos, low, high;
-  location_chain node, prev, next;
+  location_chain node, next;
+  location_chain *nextp;
   variable var;
   void **slot;
   
@@ -1874,6 +1969,7 @@ set_variable_part (dataflow_set *set, rtx loc, tree decl, HOST_WIDE_INT offset)
       /* Create new variable information.  */
       var = pool_alloc (var_pool);
       var->decl = decl;
+      var->refcount = 1;
       var->n_var_parts = 1;
       var->var_part[0].offset = offset;
       var->var_part[0].loc_chain = NULL;
@@ -1898,9 +1994,33 @@ set_variable_part (dataflow_set *set, rtx loc, tree decl, HOST_WIDE_INT offset)
 	}
       pos = low;
 
-      if (pos == var->n_var_parts || var->var_part[pos].offset != offset)
+      if (pos < var->n_var_parts && var->var_part[pos].offset == offset)
 	{
-	  /* We have not find the location part, new one will be created.  */
+	  node = var->var_part[pos].loc_chain;
+
+	  if (node
+	      && ((GET_CODE (node->loc) == REG && GET_CODE (loc) == REG
+		   && REGNO (node->loc) == REGNO (loc))
+		  || rtx_equal_p (node->loc, loc)))
+	    {
+	      /* LOC is in the beginning of the chain so we have nothing
+		 to do.  */
+	      return;
+	    }
+	  else
+	    {
+	      /* We have to make a copy of a shared variable.  */
+	      if (var->refcount > 1)
+		var = unshare_variable (set, var);
+	    }
+	}
+      else
+	{
+	  /* We have not found the location part, new one will be created.  */
+
+	  /* We have to make a copy of the shared variable.  */
+	  if (var->refcount > 1)
+	    var = unshare_variable (set, var);
 
 #ifdef ENABLE_CHECKING
 	  /* We track only variables whose size is <= MAX_VAR_PARTS bytes
@@ -1921,8 +2041,8 @@ set_variable_part (dataflow_set *set, rtx loc, tree decl, HOST_WIDE_INT offset)
 	}
     }
 
-  /* Delete the location from list.  */
-  prev = NULL;
+  /* Delete the location from the list.  */
+  nextp = &var->var_part[pos].loc_chain;
   for (node = var->var_part[pos].loc_chain; node; node = next)
     {
       next = node->next;
@@ -1930,15 +2050,12 @@ set_variable_part (dataflow_set *set, rtx loc, tree decl, HOST_WIDE_INT offset)
 	   && REGNO (node->loc) == REGNO (loc))
 	  || rtx_equal_p (node->loc, loc))
 	{
-	  if (prev)
-	    prev->next = next;
-	  else
-	    var->var_part[pos].loc_chain = next;
 	  pool_free (loc_chain_pool, node);
+	  *nextp = next;
 	  break;
 	}
       else
-	prev = node;
+	nextp = &node->next;
     }
 
   /* Add the location to the beginning.  */
@@ -1987,27 +2104,42 @@ delete_variable_part (dataflow_set *set, rtx loc, tree decl,
 
       if (pos < var->n_var_parts && var->var_part[pos].offset == offset)
 	{
-	  location_chain node, prev, next;
+	  location_chain node, next;
+	  location_chain *nextp;
 	  bool changed;
 
+	  if (var->refcount > 1)
+	    {
+	      /* If the variable contains the location part we have to
+		 make a copy of the variable.  */
+	      for (node = var->var_part[pos].loc_chain; node;
+		   node = node->next)
+		{
+		  if ((GET_CODE (node->loc) == REG && GET_CODE (loc) == REG
+		       && REGNO (node->loc) == REGNO (loc))
+		      || rtx_equal_p (node->loc, loc))
+		    {
+		      var = unshare_variable (set, var);
+		      break;
+		    }
+		}
+	    }
+
 	  /* Delete the location part.  */
-	  prev = NULL;
-	  for (node = var->var_part[pos].loc_chain; node; node = next)
+	  nextp = &var->var_part[pos].loc_chain;
+	  for (node = *nextp; node; node = next)
 	    {
 	      next = node->next;
 	      if ((GET_CODE (node->loc) == REG && GET_CODE (loc) == REG
 		   && REGNO (node->loc) == REGNO (loc))
 		  || rtx_equal_p (node->loc, loc))
 		{
-		  if (prev)
-		    prev->next = next;
-		  else
-		    var->var_part[pos].loc_chain = next;
 		  pool_free (loc_chain_pool, node);
+		  *nextp = next;
 		  break;
 		}
 	      else
-		prev = node;
+		nextp = &node->next;
 	    }
 
 	  /* If we have deleted the location which was last emitted
@@ -2151,8 +2283,8 @@ emit_notes_for_differences_1 (void **slot, void *data)
   variable old_var, new_var;
 
   old_var = *(variable *) slot;
-  new_var = (variable) htab_find_with_hash (new_vars, old_var->decl,
-					    VARIABLE_HASH_VAL (old_var->decl));
+  new_var = htab_find_with_hash (new_vars, old_var->decl,
+				 VARIABLE_HASH_VAL (old_var->decl));
 
   if (!new_var)
     {
@@ -2161,10 +2293,11 @@ emit_notes_for_differences_1 (void **slot, void *data)
 
       empty_var = pool_alloc (var_pool);
       empty_var->decl = old_var->decl;
+      empty_var->refcount = 1;
       empty_var->n_var_parts = 0;
       variable_was_changed (empty_var, NULL);
     }
-  else if (variable_different_p (old_var, new_var))
+  else if (variable_different_p (old_var, new_var, true))
     {
       variable_was_changed (new_var, NULL);
     }
@@ -2183,8 +2316,8 @@ emit_notes_for_differences_2 (void **slot, void *data)
   variable old_var, new_var;
 
   new_var = *(variable *) slot;
-  old_var = (variable) htab_find_with_hash (old_vars, new_var->decl,
-					    VARIABLE_HASH_VAL (new_var->decl));
+  old_var = htab_find_with_hash (old_vars, new_var->decl,
+				 VARIABLE_HASH_VAL (new_var->decl));
   if (!old_var)
     {
       /* Variable has appeared.  */
@@ -2369,7 +2502,7 @@ vt_add_function_parameters (void)
       rtx incoming = DECL_INCOMING_RTL (parm);
       tree decl;
       HOST_WIDE_INT offset;
-      dataflow_set *in, *out;
+      dataflow_set *out;
 
       if (TREE_CODE (parm) != PARM_DECL)
 	continue;
@@ -2398,7 +2531,6 @@ vt_add_function_parameters (void)
       incoming = eliminate_regs (incoming, 0, NULL_RTX);
       if (!frame_pointer_needed && GET_CODE (incoming) == MEM)
 	incoming = adjust_stack_reference (incoming, -stack_adjust);
-      in = &VTI (ENTRY_BLOCK_PTR)->in;
       out = &VTI (ENTRY_BLOCK_PTR)->out;
 
       if (GET_CODE (incoming) == REG)
@@ -2407,16 +2539,12 @@ vt_add_function_parameters (void)
 	  if (REGNO (incoming) >= FIRST_PSEUDO_REGISTER)
 	    abort ();
 #endif
-	  attrs_list_insert (&in->regs[REGNO (incoming)],
-			     parm, offset, incoming);
 	  attrs_list_insert (&out->regs[REGNO (incoming)],
 			     parm, offset, incoming);
-	  set_variable_part (in, incoming, parm, offset);
 	  set_variable_part (out, incoming, parm, offset);
 	}
       else if (GET_CODE (incoming) == MEM)
 	{
-	  set_variable_part (in, incoming, parm, offset);
 	  set_variable_part (out, incoming, parm, offset);
 	}
     }
@@ -2576,7 +2704,6 @@ vt_initialize (void)
 
       /* Set its initial "location".  */
       base = gen_rtx_MEM (Pmode, stack_pointer_rtx);
-      set_variable_part (&VTI (ENTRY_BLOCK_PTR)->in, base, frame_base_decl, 0);
       set_variable_part (&VTI (ENTRY_BLOCK_PTR)->out, base, frame_base_decl, 0);
     }
   else

@@ -1382,7 +1382,7 @@ package body Exp_Ch6 is
 
                --  When passing an access parameter as the actual to another
                --  access parameter we need to pass along the actual's own
-               --  associated access level parameter. This is done is we are
+               --  associated access level parameter. This is done if we are
                --  in the scope of the formal access parameter (if this is an
                --  inlined body the extra formal is irrelevant).
 
@@ -1516,7 +1516,12 @@ package body Exp_Ch6 is
          elsif Convention (Subp) = Convention_Java then
             null;
 
-         else
+         --  Ada 0Y (AI-231): do not force the check in case of Ada 0Y unless
+         --  it is a null-excluding type
+
+         elsif not Extensions_Allowed
+           or else Can_Never_Be_Null (Etype (Prev))
+         then
             Cond :=
               Make_Op_Eq (Loc,
                 Left_Opnd => Duplicate_Subexpr_No_Checks (Prev),
@@ -1621,9 +1626,8 @@ package body Exp_Ch6 is
                     Get_Remotely_Callable
                       (Duplicate_Subexpr_Move_Checks (Actual))),
                 Then_Statements => New_List (
-                  Make_Procedure_Call_Statement (Loc,
-                    New_Occurrence_Of (RTE
-                      (RE_Raise_Program_Error_For_E_4_18), Loc)))));
+                  Make_Raise_Program_Error (Loc,
+                    Reason => PE_Illegal_RACW_E_4_18))));
          end if;
 
          Next_Actual (Actual);
@@ -1999,10 +2003,16 @@ package body Exp_Ch6 is
                   --  temporaries are generated when compiling the body by
                   --  itself. Otherwise link errors can occur.
 
+                  --  If the function being called is itself in the main unit,
+                  --  we cannot inline, because there is a risk of double
+                  --  elaboration and/or circularity: the inlining can make
+                  --  visible a private entity in the body of the main unit,
+                  --  that gigi will see before its sees its proper definition.
+
                   elsif not (In_Extended_Main_Code_Unit (N))
                     and then In_Package_Body
                   then
-                     Must_Inline := True;
+                     Must_Inline := not In_Extended_Main_Source_Unit (Subp);
                   end if;
                end if;
 
@@ -2446,7 +2456,23 @@ package body Exp_Ch6 is
 
             --  Replace assignment with the block
 
-            Rewrite (Parent (N), Blk);
+            declare
+               Original_Assignment : constant Node_Id := Parent (N);
+
+            begin
+               --  Preserve the original assignment node to keep the
+               --  complete assignment subtree consistent enough for
+               --  Analyze_Assignment to proceed (specifically, the
+               --  original Lhs node must still have an assignment
+               --  statement as its parent).
+
+               --  We cannot rely on Original_Node to go back from the
+               --  block node to the assignment node, because the
+               --  assignment might already be a rewrite substitution.
+
+               Discard_Node (Relocate_Node (Original_Assignment));
+               Rewrite (Original_Assignment, Blk);
+            end;
 
          elsif Nkind (Parent (N)) = N_Object_Declaration then
             Set_Expression (Parent (N), Empty);
@@ -2460,7 +2486,6 @@ package body Exp_Ch6 is
 
       procedure Rewrite_Procedure_Call (N : Node_Id; Blk : Node_Id) is
          HSS  : constant Node_Id := Handled_Statement_Sequence (Blk);
-
       begin
          if Is_Empty_List (Declarations (Blk)) then
             Insert_List_After (N, Statements (HSS));
@@ -2741,11 +2766,16 @@ package body Exp_Ch6 is
    ----------------------------
 
    procedure Expand_N_Function_Call (N : Node_Id) is
-      Typ : constant Entity_Id := Etype (N);
+      Typ   : constant Entity_Id := Etype (N);
 
       function Returned_By_Reference return Boolean;
       --  If the return type is returned through the secondary stack. that is
       --  by reference, we don't want to create a temp to force stack checking.
+      --  Shouldn't this function be moved to exp_util???
+
+      ---------------------------
+      -- Returned_By_Reference --
+      ---------------------------
 
       function Returned_By_Reference return Boolean is
          S : Entity_Id := Current_Scope;
@@ -2791,68 +2821,84 @@ package body Exp_Ch6 is
              or else Expression (Parent (N)) /= N)
         and then not Returned_By_Reference
       then
-         --  Note: it might be thought that it would be OK to use a call to
-         --  Force_Evaluation here, but that's not good enough, because that
-         --  results in a 'Reference construct that may still need a temporary.
+         if Stack_Checking_Enabled then
 
-         declare
-            Loc      : constant Source_Ptr := Sloc (N);
-            Temp_Obj : constant Entity_Id :=
-                         Make_Defining_Identifier (Loc,
-                           Chars => New_Internal_Name ('F'));
-            Temp_Typ : Entity_Id := Typ;
-            Decl     : Node_Id;
-            A        : Node_Id;
-            F        : Entity_Id;
-            Proc     : Entity_Id;
+            --  Note: it might be thought that it would be OK to use a call
+            --  to Force_Evaluation here, but that's not good enough, because
+            --  that can results in a 'Reference construct that may still
+            --  need a temporary.
 
-         begin
-            if Is_Tagged_Type (Typ)
-              and then Present (Controlling_Argument (N))
-            then
-               if Nkind (Parent (N)) /= N_Procedure_Call_Statement
-                 and then Nkind (Parent (N)) /= N_Function_Call
+            declare
+               Loc      : constant Source_Ptr := Sloc (N);
+               Temp_Obj : constant Entity_Id :=
+                            Make_Defining_Identifier (Loc,
+                              Chars => New_Internal_Name ('F'));
+               Temp_Typ : Entity_Id := Typ;
+               Decl     : Node_Id;
+               A        : Node_Id;
+               F        : Entity_Id;
+               Proc     : Entity_Id;
+
+            begin
+               if Is_Tagged_Type (Typ)
+                 and then Present (Controlling_Argument (N))
                then
-                  --  If this is a tag-indeterminate call, the object must
-                  --  be classwide.
+                  if Nkind (Parent (N)) /= N_Procedure_Call_Statement
+                    and then Nkind (Parent (N)) /= N_Function_Call
+                  then
+                     --  If this is a tag-indeterminate call, the object must
+                     --  be classwide.
 
-                  if Is_Tag_Indeterminate (N) then
-                     Temp_Typ := Class_Wide_Type (Typ);
-                  end if;
+                     if Is_Tag_Indeterminate (N) then
+                        Temp_Typ := Class_Wide_Type (Typ);
+                     end if;
 
-               else
-                  --  If this is a dispatching call that is itself the
-                  --  controlling argument of an enclosing call, the nominal
-                  --  subtype of the object that replaces it must be classwide,
-                  --  so that dispatching will take place properly. If it is
-                  --  not a controlling argument, the object is not classwide.
+                  else
+                     --  If this is a dispatching call that is itself the
+                     --  controlling argument of an enclosing call, the
+                     --  nominal subtype of the object that replaces it must
+                     --  be classwide, so that dispatching will take place
+                     --  properly. If it is not a controlling argument, the
+                     --  object is not classwide.
 
-                  Proc := Entity (Name (Parent (N)));
-                  F    := First_Formal (Proc);
-                  A    := First_Actual (Parent (N));
+                     Proc := Entity (Name (Parent (N)));
+                     F    := First_Formal (Proc);
+                     A    := First_Actual (Parent (N));
 
-                  while A /= N loop
-                     Next_Formal (F);
-                     Next_Actual (A);
-                  end loop;
+                     while A /= N loop
+                        Next_Formal (F);
+                        Next_Actual (A);
+                     end loop;
 
-                  if Is_Controlling_Formal (F) then
-                     Temp_Typ := Class_Wide_Type (Typ);
+                     if Is_Controlling_Formal (F) then
+                        Temp_Typ := Class_Wide_Type (Typ);
+                     end if;
                   end if;
                end if;
-            end if;
 
-            Decl :=
-              Make_Object_Declaration (Loc,
-                Defining_Identifier => Temp_Obj,
-                Object_Definition   => New_Occurrence_Of (Temp_Typ, Loc),
-                Constant_Present    => True,
-                Expression          => Relocate_Node (N));
-            Set_Assignment_OK (Decl);
+               Decl :=
+                 Make_Object_Declaration (Loc,
+                   Defining_Identifier => Temp_Obj,
+                   Object_Definition   => New_Occurrence_Of (Temp_Typ, Loc),
+                   Constant_Present    => True,
+                   Expression          => Relocate_Node (N));
+               Set_Assignment_OK (Decl);
 
-            Insert_Actions (N, New_List (Decl));
-            Rewrite (N, New_Occurrence_Of (Temp_Obj, Loc));
-         end;
+               Insert_Actions (N, New_List (Decl));
+               Rewrite (N, New_Occurrence_Of (Temp_Obj, Loc));
+            end;
+
+         else
+            --  If stack-checking is not enabled, increment serial number
+            --  for internal names, so that subsequent symbols are consistent
+            --  with and without stack-checking.
+
+            Synchronize_Serial_Number;
+
+            --  Now we can expand the call with consistent symbol names
+
+            Expand_Call (N);
+         end if;
 
       --  Normal case, expand the call
 

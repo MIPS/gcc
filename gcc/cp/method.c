@@ -62,9 +62,7 @@ static tree synthesize_exception_spec (tree, tree (*) (tree, void *), void *);
 static tree locate_dtor (tree, void *);
 static tree locate_ctor (tree, void *);
 static tree locate_copy (tree, void *);
-#ifdef ASM_OUTPUT_DEF
 static tree make_alias_for_thunk (tree);
-#endif
 
 /* Called once to initialize method.c.  */
 
@@ -273,10 +271,7 @@ thunk_adjust (tree ptr, bool this_adjusting,
   return ptr;
 }
 
-/* Garbage collector tables contains thunk_labelno even when places
-   inside ifdef block.  */
 static GTY (()) int thunk_labelno;
-#ifdef ASM_OUTPUT_DEF
 
 /* Create a static alias to function.  */
 
@@ -322,7 +317,6 @@ make_alias_for_thunk (tree function)
     assemble_alias (alias, DECL_ASSEMBLER_NAME (function));
   return alias;
 }
-#endif
 
 /* Emit the definition of a C++ multiple inheritance or covariant
    return vtable thunk.  If EMIT_P is nonzero, the thunk is emitted
@@ -359,15 +353,14 @@ use_thunk (tree thunk_fndecl, bool emit_p)
      this translation unit.  */
   TREE_ADDRESSABLE (function) = 1;
   mark_used (function);
-  mark_referenced (DECL_ASSEMBLER_NAME (function));
+  mark_decl_referenced (function);
   if (!emit_p)
     return;
 
-#ifdef ASM_OUTPUT_DEF
-  alias = make_alias_for_thunk (function);
-#else
-  alias = function;
-#endif
+  if (TARGET_USE_LOCAL_THUNK_ALIAS_P (function))
+   alias = make_alias_for_thunk (function);
+  else
+   alias = function;
 
   fixed_offset = THUNK_FIXED_OFFSET (thunk_fndecl);
   virtual_offset = THUNK_VIRTUAL_OFFSET (thunk_fndecl);
@@ -390,6 +383,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
      rewrite.  */
   TREE_PUBLIC (thunk_fndecl) = TREE_PUBLIC (function);
   DECL_VISIBILITY (thunk_fndecl) = DECL_VISIBILITY (function);
+  if (flag_weak && TREE_PUBLIC (thunk_fndecl))
+    comdat_linkage (thunk_fndecl);
 
   if (flag_syntax_only)
     {
@@ -407,8 +402,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 
   push_to_top_level ();
 
-#ifdef ASM_OUTPUT_DEF
-  if (targetm.have_named_sections)
+  if (TARGET_USE_LOCAL_THUNK_ALIAS_P (function)
+      && targetm.have_named_sections)
     {
       resolve_unique_section (function, 0, flag_function_sections);
 
@@ -420,7 +415,6 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 	  DECL_SECTION_NAME (thunk_fndecl) = DECL_SECTION_NAME (function);
 	}
     }
-#endif
 
   /* The back-end expects DECL_INITIAL to contain a BLOCK, so we
      create one.  */
@@ -509,7 +503,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 
       /* Since we want to emit the thunk, we explicitly mark its name as
 	 referenced.  */
-      mark_referenced (DECL_ASSEMBLER_NAME (thunk_fndecl));
+      mark_decl_referenced (thunk_fndecl);
 
       /* But we don't want debugging information about it.  */
       DECL_IGNORED_P (thunk_fndecl) = 1;
@@ -1041,7 +1035,8 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
   DECL_NOT_REALLY_EXTERN (fn) = 1;
   DECL_DECLARED_INLINE_P (fn) = 1;
   DECL_INLINE (fn) = 1;
-  defer_fn (fn);
+  if (TREE_USED (fn))
+    abort ();
   
   return fn;
 }

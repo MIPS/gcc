@@ -1,23 +1,23 @@
 /* Backend function setup
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* trans-decl.c -- Handling of backend function and variable decls, etc */
 
@@ -26,7 +26,7 @@ Boston, MA 02111-1307, USA.  */
 #include "coretypes.h"
 #include "tree.h"
 #include "tree-dump.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "ggc.h"
 #include "toplev.h"
 #include "tm.h"
@@ -93,8 +93,7 @@ tree gfor_fndecl_associated;
 /* Math functions.  Many other math functions are handled in
    trans-intrinsic.c.  */
 
-tree gfor_fndecl_math_powf;
-tree gfor_fndecl_math_pow;
+gfc_powdecl_list gfor_fndecl_math_powi[3][2];
 tree gfor_fndecl_math_cpowf;
 tree gfor_fndecl_math_cpow;
 tree gfor_fndecl_math_cabsf;
@@ -244,8 +243,8 @@ gfc_get_label_decl (gfc_st_label * lp)
       /* Tell the debugger where the label came from.  */
       if (lp->value <= MAX_LABEL_VALUE)	/* An internal label */
 	{
-	  DECL_SOURCE_LINE (label_decl) = lp->where.line;
-	  DECL_SOURCE_FILE (label_decl) = lp->where.file->filename;
+	  DECL_SOURCE_LINE (label_decl) = lp->where.lb->linenum;
+	  DECL_SOURCE_FILE (label_decl) = lp->where.lb->file->filename;
 	}
       else
 	DECL_ARTIFICIAL (label_decl) = 1;
@@ -420,6 +419,7 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
   
   /* Keep variables larger than max-stack-var-size off stack.  */
   if (!sym->ns->proc_name->attr.recursive
+      && INTEGER_CST_P (DECL_SIZE_UNIT (decl))
       && !gfc_can_put_var_on_stack (DECL_SIZE_UNIT (decl)))
     TREE_STATIC (decl) = 1;
 }
@@ -522,7 +522,8 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
     }
   if (GFC_TYPE_ARRAY_OFFSET (type) == NULL_TREE)
     {
-      GFC_TYPE_ARRAY_OFFSET (type) = gfc_create_var_np (type, "base");
+      GFC_TYPE_ARRAY_OFFSET (type) = gfc_create_var_np (gfc_array_index_type,
+							"offset");
       if (nest)
 	gfc_add_decl_to_parent_function (GFC_TYPE_ARRAY_OFFSET (type));
       else
@@ -531,7 +532,9 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
 }
 
 
-/* Get a temporary decl for a dummy array parameter.  */
+/* For some dummy arguments we don't use the actual argument directly.
+   Instead we create a local decl and use that.  This allows us to preform
+   initialization, and construct full type information.  */
 
 static tree
 gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
@@ -542,6 +545,7 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   char *name;
   int packed;
   int n;
+  bool known_size;
 
   if (sym->attr.pointer || sym->attr.allocatable)
     return dummy;
@@ -552,44 +556,62 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
 
   type = TREE_TYPE (dummy);
   assert (TREE_CODE (dummy) == PARM_DECL
-          && POINTER_TYPE_P (type));
+	  && POINTER_TYPE_P (type));
 
-  if (!GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (type)))
+  /* Do we know the element size. */
+  known_size = sym->ts.type != BT_CHARACTER
+	  || INTEGER_CST_P (sym->ts.cl->backend_decl);
+  
+  if (known_size && !GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (type)))
     {
+      /* For descriptorless arrays with known element size the actual
+         argument is sufficient.  */
       assert (GFC_ARRAY_TYPE_P (type));
       gfc_build_qualified_array (dummy, sym);
       return dummy;
     }
 
   type = TREE_TYPE (type);
-
-  as = sym->as;
-  packed = 0;
-  if (!gfc_option.flag_repack_arrays)
+  if (GFC_DESCRIPTOR_TYPE_P (type))
     {
-      if (as->type == AS_ASSUMED_SIZE)
-        packed = 2;
+      /* Create a decriptorless array pointer.  */
+      as = sym->as;
+      packed = 0;
+      if (!gfc_option.flag_repack_arrays)
+	{
+	  if (as->type == AS_ASSUMED_SIZE)
+	    packed = 2;
+	}
+      else
+	{
+	  if (as->type == AS_EXPLICIT)
+	    {
+	      packed = 2;
+	      for (n = 0; n < as->rank; n++)
+		{
+		  if (!(as->upper[n]
+			&& as->lower[n]
+			&& as->upper[n]->expr_type == EXPR_CONSTANT
+			&& as->lower[n]->expr_type == EXPR_CONSTANT))
+		    packed = 1;
+		}
+	    }
+	  else
+	    packed = 1;
+	}
+
+      type = gfc_typenode_for_spec (&sym->ts);
+      type = gfc_get_nodesc_array_type (type, sym->as, packed);
     }
   else
     {
-      if (as->type == AS_EXPLICIT)
-        {
-          packed = 2;
-          for (n = 0; n < as->rank; n++)
-            {
-              if (!(as->upper[n]
-                    && as->lower[n]
-                    && as->upper[n]->expr_type == EXPR_CONSTANT
-                    && as->lower[n]->expr_type == EXPR_CONSTANT))
-                packed = 1;
-            }
-        }
-      else
-        packed = 1;
+      /* We now have an expression for the element size, so create a fully
+	 qualified type.  Reset sym->backend decl or this will just return the
+	 old type.  */
+      sym->backend_decl = NULL_TREE;
+      type = gfc_sym_type (sym);
+      packed = 2;
     }
-
-  type = gfc_get_nodesc_array_type (gfc_get_element_type (type), sym->as,
-                                    packed);
 
   ASM_FORMAT_PRIVATE_NAME (name, IDENTIFIER_POINTER (DECL_NAME (dummy)), 0);
   decl = build_decl (VAR_DECL, get_identifier (name), type);
@@ -599,8 +621,9 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   TREE_STATIC (decl) = 0;
   DECL_EXTERNAL (decl) = 0;
 
-  if (sym->as->type == AS_DEFERRED)
-    internal_error ("possible gfortran frontend bug: deferred shape dummy array");
+  /* We should never get deferred shape arrays here.  We used to because of
+     frontend bugs.  */
+  assert (sym->as->type != AS_DEFERRED);
 
   switch (packed)
     {
@@ -621,7 +644,6 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
     gfc_allocate_lang_decl (decl);
 
   GFC_DECL_SAVED_DESCRIPTOR (decl) = dummy;
-  GFC_DECL_STRING (decl) = GFC_DECL_STRING (dummy);
 
   if (sym->ns->proc_name->backend_decl == current_function_decl
       || sym->attr.contained)
@@ -633,6 +655,36 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
 }
 
 
+/* Return a constant or a variable to use as a string length.  Does not
+   add the decl to the current scope.  */
+
+static tree
+gfc_create_string_length (gfc_symbol * sym)
+{
+  tree length;
+
+  assert (sym->ts.cl);
+  gfc_conv_const_charlen (sym->ts.cl);
+  
+  if (sym->ts.cl->backend_decl == NULL_TREE)
+    {
+      char name[GFC_MAX_MANGLED_SYMBOL_LEN + 2];
+
+      /* Also prefix the mangled name.  */
+      strcpy (&name[1], sym->name);
+      name[0] = '.';
+      length = build_decl (VAR_DECL, get_identifier (name),
+			   gfc_strlen_type_node);
+      DECL_ARTIFICIAL (length) = 1;
+      TREE_USED (length) = 1;
+      gfc_defer_symbol_init (sym);
+      sym->ts.cl->backend_decl = length;
+    }
+
+  return sym->ts.cl->backend_decl;
+}
+
+
 /* Return the decl for a gfc_symbol, create it if it doesn't already
    exist.  */
 
@@ -640,7 +692,7 @@ tree
 gfc_get_symbol_decl (gfc_symbol * sym)
 {
   tree decl;
-  tree length;
+  tree length = NULL_TREE;
   gfc_se se;
   int byref;
 
@@ -664,12 +716,27 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       /* Dummy variables should already have been created.  */
       assert (sym->backend_decl);
 
+      /* Create a character length variable.  */
+      if (sym->ts.type == BT_CHARACTER)
+	{
+	  if (sym->ts.cl->backend_decl == NULL_TREE)
+	    {
+	      length = gfc_create_string_length (sym);
+	      if (TREE_CODE (length) != INTEGER_CST)
+		{
+		  gfc_finish_var_decl (length, sym);
+		  gfc_defer_symbol_init (sym);
+		}
+	    }
+	}
+
       /* Use a copy of the descriptor for dummy arrays.  */
       if (sym->attr.dimension && !TREE_USED (sym->backend_decl))
         {
           sym->backend_decl =
             gfc_build_dummy_array_decl (sym, sym->backend_decl);
 	}
+
       TREE_USED (sym->backend_decl) = 1;
       return sym->backend_decl;
     }
@@ -690,6 +757,12 @@ gfc_get_symbol_decl (gfc_symbol * sym)
   if (sym->attr.intrinsic)
     internal_error ("intrinsic variable which isn't a procedure");
 
+  /* Create string length decl first so that they can be used in the
+     type declaration.  */
+  if (sym->ts.type == BT_CHARACTER)
+    length = gfc_create_string_length (sym);
+
+  /* Create the decl for the variable.  */
   decl = build_decl (VAR_DECL, gfc_sym_identifier (sym), gfc_sym_type (sym));
 
   /* Symbols from modules have its assembler name should be mangled.
@@ -716,16 +789,16 @@ gfc_get_symbol_decl (gfc_symbol * sym)
     {
       gfc_allocate_lang_decl (decl);
       GFC_DECL_ASSIGN (decl) = 1;
-      GFC_DECL_STRING_LENGTH (decl) =
-        gfc_create_var (gfc_strlen_type_node, sym->name);
+      length = gfc_create_var (gfc_strlen_type_node, sym->name);
+      GFC_DECL_STRING_LEN (decl) = length;
       GFC_DECL_ASSIGN_ADDR (decl) = gfc_create_var (pvoid_type_node, sym->name);
-      TREE_STATIC (GFC_DECL_STRING_LENGTH (decl)) = 1;
+      /* TODO: Need to check we don't change TREE_STATIC (decl) later.  */
+      TREE_STATIC (length) = TREE_STATIC (decl);
       /*  STRING_LENGTH is also used as flag. Less than -1 means that
           ASSIGN_ADDR can not be used. Equal -1 means that ASSIGN_ADDR is the
           target label's address. Other value is the length of format string
           and ASSIGN_ADDR is the address of format string.  */
-      DECL_INITIAL (GFC_DECL_STRING_LENGTH (decl)) =
-        build_int_2 (-2, -1);
+      DECL_INITIAL (length) = build_int_2 (-2, -1);
     }
 
   /* TODO: Initialization of pointer variables.  */
@@ -733,22 +806,17 @@ gfc_get_symbol_decl (gfc_symbol * sym)
     {
     case BT_CHARACTER:
       /* Character variables need special handling.  */
-      /* Character lengths are common for a whole array.  */
-
       gfc_allocate_lang_decl (decl);
-      GFC_DECL_STRING (decl) = 1;
 
-      if (sym->ts.cl->length->expr_type == EXPR_CONSTANT)
+      if (TREE_CODE (length) == INTEGER_CST)
 	{
-	  length =
-	    gfc_conv_mpz_to_tree (sym->ts.cl->length->value.integer, 4);
-
-	  /* Static initializer.  */
-	  if (sym->value)
+	  /* Static initializer for string scalars.
+	     Initialization of string arrays is handled elsewhere. */
+	  if (sym->value && sym->attr.dimension == 0)
 	    {
 	      assert (TREE_STATIC (decl));
 	      if (sym->attr.pointer)
-		gfc_todo_error ("initialization of pointers");
+		gfc_todo_error ("initialization of character pointers");
 	      DECL_INITIAL (decl) = gfc_conv_string_init (length, sym->value);
 	    }
 	}
@@ -756,28 +824,18 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	{
 	  char name[GFC_MAX_MANGLED_SYMBOL_LEN + 2];
 
-	  /* Create annother variable to hold the length.  Prefix the name
-	     to avoid conflicts.  */
-	  strcpy (&name[1], sym->name);
-	  name[0] = '.';
-	  length = build_decl (VAR_DECL, get_identifier (name),
-			       gfc_strlen_type_node);
-
-	  DECL_ARTIFICIAL (decl) = 1;
-	  /* Also prefix the mangled name for symbols from modules.  */
 	  if (sym->module[0])
 	    {
+	      /* Also prefix the mangled name for symbols from modules.  */
+	      strcpy (&name[1], sym->name);
+	      name[0] = '.';
 	      strcpy (&name[1],
 		      IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (length)));
 	      SET_DECL_ASSEMBLER_NAME (decl, get_identifier (name));
 	    }
 	  gfc_finish_var_decl (length, sym);
-	  /* Remember this variable for allocation/cleanup.  */
-	  gfc_defer_symbol_init (sym);
 	  assert (!sym->value);
 	}
-
-      GFC_DECL_STRING_LENGTH (decl) = length;
       break;
 
     case BT_DERIVED:
@@ -893,9 +951,13 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
      sense.  */
   if (sym->attr.pure || sym->attr.elemental)
     {
-      DECL_IS_PURE (fndecl) = 1;
-/* TODO: check if pure/elemental procedures can have INTENT(OUT) parameters.
-      TREE_SIDE_EFFECTS (fndecl) = 0;*/
+      if (sym->attr.function)
+	DECL_IS_PURE (fndecl) = 1;
+      /* TODO: check if pure SUBROUTINEs don't have INTENT(OUT)
+	 parameters and don't use alternate returns (is this
+	 allowed?). In that case, calls to them are meaningless, and
+	 can be optimized away. See also in gfc_build_function_decl().  */
+      TREE_SIDE_EFFECTS (fndecl) = 0;
     }
 
   sym->backend_decl = fndecl;
@@ -921,7 +983,7 @@ gfc_build_function_decl (gfc_symbol * sym)
   assert (!sym->backend_decl);
   assert (!sym->attr.external);
 
-  /* Allow only one nesting level.  Allow external declarations.  */
+  /* Allow only one nesting level.  Allow public declarations.  */
   assert (current_function_decl == NULL_TREE
 	  || DECL_CONTEXT (current_function_decl) == NULL_TREE);
 
@@ -938,6 +1000,7 @@ gfc_build_function_decl (gfc_symbol * sym)
   attr = sym->attr;
 
   result_decl = NULL_TREE;
+  /* TODO: Shouldn't this just be TREE_TYPE (TREE_TYPE (fndecl)).  */
   if (attr.function)
     {
       if (gfc_return_by_reference (sym))
@@ -952,7 +1015,7 @@ gfc_build_function_decl (gfc_symbol * sym)
     }
   else
     {
-      /* Look for an alternate return placeholders.  */
+      /* Look for alternate return placeholders.  */
       int has_alternate_returns = 0;
       for (f = sym->formal; f; f = f->next)
 	{
@@ -988,7 +1051,7 @@ gfc_build_function_decl (gfc_symbol * sym)
   DECL_EXTERNAL (fndecl) = 0;
 
   /* This specifies if a function is globaly addressable, ie. it is
-     the opposite of decalring static  in C.  */
+     the opposite of declaring static in C.  */
   if (DECL_CONTEXT (fndecl) == NULL_TREE || attr.external)
     TREE_PUBLIC (fndecl) = 1;
 
@@ -1001,7 +1064,11 @@ gfc_build_function_decl (gfc_symbol * sym)
      sense.  */
   if (attr.pure || attr.elemental)
     {
-      DECL_IS_PURE (fndecl) = 1;
+      /* TODO: check if a pure SUBROUTINE has no INTENT(OUT) arguments
+	 including a alternate return. In that case it can also be
+	 marked as PURE. See also in gfc_get_extern_fucntion_decl().  */
+      if (attr.function)
+	DECL_IS_PURE (fndecl) = 1;
       TREE_SIDE_EFFECTS (fndecl) = 0;
     }
 
@@ -1033,32 +1100,26 @@ gfc_build_function_decl (gfc_symbol * sym)
 	  if (sym->ts.type == BT_CHARACTER)
 	    {
 	      gfc_allocate_lang_decl (parm);
-	      GFC_DECL_STRING (parm) = 1;
 
-	      /* Length of character result */
+	      /* Length of character result.  */
 	      type = TREE_VALUE (typelist);
 	      assert (type == gfc_strlen_type_node);
+
 	      length = build_decl (PARM_DECL,
 				   get_identifier (".__result"),
 				   type);
+	      if (!sym->ts.cl->length)
+		{
+		  sym->ts.cl->backend_decl = length;
+		  TREE_USED (length) = 1;
+		}
+	      assert (TREE_CODE (length) == PARM_DECL);
 	      arglist = chainon (arglist, length);
 	      typelist = TREE_CHAIN (typelist);
 	      DECL_CONTEXT (length) = fndecl;
 	      DECL_ARG_TYPE (length) = type;
 	      TREE_READONLY (length) = 1;
 	      gfc_finish_decl (length, NULL_TREE);
-
-	      if (sym->ts.cl
-		  && sym->ts.cl->length
-		  && sym->ts.cl->length->expr_type == EXPR_CONSTANT)
-		{
-		  length = gfc_conv_mpz_to_tree
-		    (sym->ts.cl->length->value.integer, 4);
-		}
-	      else
-		TREE_USED (length) = 1;
-
-	      GFC_DECL_STRING_LENGTH (parm) = length;
 	    }
 	}
 
@@ -1107,7 +1168,7 @@ gfc_build_function_decl (gfc_symbol * sym)
           assert (type == gfc_strlen_type_node);
 
           strcpy (&name[1], f->sym->name);
-          name[0] = '.';
+          name[0] = '_';
           length = build_decl (PARM_DECL, get_identifier (name), type);
 
           arglist = chainon (arglist, length);
@@ -1116,18 +1177,14 @@ gfc_build_function_decl (gfc_symbol * sym)
           TREE_READONLY (length) = 1;
           gfc_finish_decl (length, NULL_TREE);
 
-          gfc_allocate_lang_decl (parm);
-          GFC_DECL_STRING (parm) = 1;
-          if (f->sym->ts.cl
-              && f->sym->ts.cl->length
-              && f->sym->ts.cl->length->expr_type == EXPR_CONSTANT)
-            {
-              length = gfc_conv_mpz_to_tree (
-                  f->sym->ts.cl->length->value.integer, 4);
-            }
-          else
-            TREE_USED (length) = 1;
-          GFC_DECL_STRING_LENGTH (parm) = length;
+	  /* TODO: Check string lengths when -fbounds-check.  */
+
+	  /* Use the passed value for assumed length variables.  */
+          if (!f->sym->ts.cl->length)
+	    {
+	      TREE_USED (length) = 1;
+	      f->sym->ts.cl->backend_decl = length;
+	    }
 
           parm = TREE_CHAIN (parm);
           typelist = TREE_CHAIN (typelist);
@@ -1149,6 +1206,8 @@ tree
 gfc_get_fake_result_decl (gfc_symbol * sym)
 {
   tree decl;
+  tree length;
+
   char name[GFC_MAX_SYMBOL_LEN + 10];
 
   if (current_fake_result_decl != NULL_TREE)
@@ -1158,6 +1217,13 @@ gfc_get_fake_result_decl (gfc_symbol * sym)
      sym is NULL.  */
   if (!sym)
     return NULL_TREE;
+
+  if (sym->ts.type == BT_CHARACTER
+      && !sym->ts.cl->backend_decl)
+    {
+      length = gfc_create_string_length (sym);
+      gfc_finish_var_decl (length, sym);
+    }
 
   if (gfc_return_by_reference (sym))
     {
@@ -1339,14 +1405,40 @@ gfc_build_intrinsic_function_decls (void)
 
 
   /* Power functions.  */
-  gfor_fndecl_math_powf =
-    gfc_build_library_function_decl (get_identifier ("powf"),
-				     gfc_real4_type_node,
-				     1, gfc_real4_type_node);
-  gfor_fndecl_math_pow =
-    gfc_build_library_function_decl (get_identifier ("pow"),
-				     gfc_real8_type_node,
-				     1, gfc_real8_type_node);
+  {
+    tree type;
+    tree itype;
+    int kind;
+    int ikind;
+    static int kinds[2] = {4, 8};
+    char name[PREFIX_LEN + 10]; /* _gfortran_pow_?n_?n */
+
+    for (ikind=0; ikind < 2; ikind++)
+      {
+	itype = gfc_get_int_type (kinds[ikind]);
+	for (kind = 0; kind < 2; kind ++)
+	  {
+	    type = gfc_get_int_type (kinds[kind]);
+	    sprintf(name, PREFIX("pow_i%d_i%d"), kinds[kind], kinds[ikind]);
+	    gfor_fndecl_math_powi[kind][ikind].integer =
+	      gfc_build_library_function_decl (get_identifier (name),
+		  type, 2, type, itype);
+
+	    type = gfc_get_real_type (kinds[kind]);
+	    sprintf(name, PREFIX("pow_r%d_i%d"), kinds[kind], kinds[ikind]);
+	    gfor_fndecl_math_powi[kind][ikind].real =
+	      gfc_build_library_function_decl (get_identifier (name),
+		  type, 2, type, itype);
+
+	    type = gfc_get_complex_type (kinds[kind]);
+	    sprintf(name, PREFIX("pow_c%d_i%d"), kinds[kind], kinds[ikind]);
+	    gfor_fndecl_math_powi[kind][ikind].cmplx =
+	      gfc_build_library_function_decl (get_identifier (name),
+		  type, 2, type, itype);
+	  }
+      }
+  }
+
   gfor_fndecl_math_cpowf =
     gfc_build_library_function_decl (get_identifier ("cpowf"),
 				     gfc_complex4_type_node,
@@ -1486,44 +1578,55 @@ gfc_build_builtin_function_decls (void)
 }
 
 
+/* Exaluate the length of dummy character variables.  */
+
+static tree
+gfc_trans_dummy_character (gfc_charlen * cl, tree fnbody)
+{
+  stmtblock_t body;
+
+  gfc_finish_decl (cl->backend_decl, NULL_TREE);
+
+  gfc_start_block (&body);
+
+  /* Evaluate the string length expression.  */
+  gfc_trans_init_string_length (cl, &body);
+  
+  gfc_add_expr_to_block (&body, fnbody);
+  return gfc_finish_block (&body);
+}
+
+
 /* Allocate and cleanup an automatic character variable.  */
 
 static tree
 gfc_trans_auto_character_variable (gfc_symbol * sym, tree fnbody)
 {
-  tree tmp;
-  tree args;
-  tree len;
-  stmtblock_t block;
   stmtblock_t body;
+  tree decl;
+  tree args;
+  tree tmp;
 
+  assert (sym->backend_decl);
   assert (sym->ts.cl && sym->ts.cl->length);
-  assert (sym->backend_decl != NULL_TREE);
 
   gfc_start_block (&body);
-  gfc_start_block (&block);
 
-  len = gfc_conv_init_string_length (sym, &block);
-  args = gfc_chainon_list (NULL_TREE, len);
-  tmp = gfc_build_function_call (gfor_fndecl_internal_malloc, args);
-  tmp = convert (TREE_TYPE (sym->backend_decl), tmp);
-  gfc_add_modify_expr (&block, sym->backend_decl, tmp);
+  /* Evaluate the string length expression.  */
+  gfc_trans_init_string_length (sym->ts.cl, &body);
 
-  tmp = gfc_finish_block (&block);
-  gfc_add_expr_to_block (&body, tmp);
+  decl = sym->backend_decl;
 
-  gfc_add_expr_to_block (&body, fnbody);
+  DECL_DEFER_OUTPUT (decl) = 1;
 
-  gfc_start_block (&block);
-
-  tmp = convert (pvoid_type_node, sym->backend_decl);
+  /* Generate code to allocate the automatic variable.  It will be freed
+     automatically.  */
+  tmp = gfc_build_addr_expr (NULL, decl);
   args = gfc_chainon_list (NULL_TREE, tmp);
-  tmp = gfc_build_function_call (gfor_fndecl_internal_free, args);
-  gfc_add_expr_to_block (&block, tmp);
-
-  tmp = gfc_finish_block (&block);
+  args = gfc_chainon_list (args, sym->ts.cl->backend_decl);
+  tmp = gfc_build_function_call (built_in_decls[BUILT_IN_STACK_ALLOC], args);
   gfc_add_expr_to_block (&body, tmp);
-
+  gfc_add_expr_to_block (&body, fnbody);
   return gfc_finish_block (&body);
 }
 
@@ -1556,14 +1659,17 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 					       current_fake_result_decl,
 					       fnbody);
 	}
-      else if (proc_sym->ts.type != BT_CHARACTER)
+      else if (proc_sym->ts.type == BT_CHARACTER)
+	{
+	  if (TREE_CODE (proc_sym->ts.cl->backend_decl) == VAR_DECL)
+	    fnbody = gfc_trans_dummy_character (proc_sym->ts.cl, fnbody);
+	}
+      else
 	gfc_todo_error ("Deferred non-array return by reference");
     }
 
   for (sym = proc_sym->tlink; sym != proc_sym; sym = sym->tlink)
     {
-      /* For now this is only array variables, but may get extended to
-         derived types.  */
       if (sym->attr.dimension)
 	{
 	  switch (sym->as->type)
@@ -1618,7 +1724,10 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	{
 	  gfc_get_backend_locus (&loc);
 	  gfc_set_backend_locus (&sym->declared_at);
-	  fnbody = gfc_trans_auto_character_variable (sym, fnbody);
+	  if (sym->attr.dummy || sym->attr.result)
+	    fnbody = gfc_trans_dummy_character (sym->ts.cl, fnbody);
+	  else
+	    fnbody = gfc_trans_auto_character_variable (sym, fnbody);
 	  gfc_set_backend_locus (&loc);
 	}
       else
@@ -1698,11 +1807,11 @@ gfc_create_module_variable (gfc_symbol * sym)
   rest_of_decl_compilation (decl, NULL, 1, 0);
 
   /* Also add length of strings.  */
-  if (GFC_DECL_STRING (decl))
+  if (sym->ts.type == BT_CHARACTER)
     {
       tree length;
 
-      length = GFC_DECL_STRING_LENGTH (decl);
+      length = sym->ts.cl->backend_decl;
       if (!INTEGER_CST_P (length))
         {
           pushdecl (length);
@@ -1719,10 +1828,10 @@ gfc_generate_module_vars (gfc_namespace * ns)
 {
   module_namespace = ns;
 
-  /* Check the frontend left the namespace in a reasonable state.  */
+  /* Check if the frontend left the namespace in a reasonable state.  */
   assert (ns->proc_name && !ns->proc_name->tlink);
 
-  /* Create decls for all the module varuiables.  */
+  /* Create decls for all the module variables.  */
   gfc_traverse_ns (ns, gfc_create_module_variable);
 }
 
@@ -1779,7 +1888,9 @@ generate_local_decl (gfc_symbol * sym)
           if (warn_unused_parameter)
             warning ("unused parameter `%s'", sym->name);
         }
-      else if (warn_unused_variable)
+      /* warn for unused variables, but not if they're inside a common
+	 block.  */
+      else if (warn_unused_variable && !sym->attr.in_common)
         warning ("unused variable `%s'", sym->name);
     }
 }
@@ -1819,10 +1930,17 @@ gfc_generate_function_code (gfc_namespace * ns)
   tree result;
   gfc_symbol *sym;
 
+  sym = ns->proc_name;
+  /* Check that the frontend isn't still using this.  */
+  assert (sym->tlink == NULL);
+
+  sym->tlink = sym;
+
   /* Create the declaration for functions with global scope.  */
-  if (!ns->proc_name->backend_decl)
+  if (!sym->backend_decl)
     gfc_build_function_decl (ns->proc_name);
 
+  fndecl = sym->backend_decl;
   old_context = current_function_decl;
 
   if (old_context)
@@ -1831,10 +1949,6 @@ gfc_generate_function_code (gfc_namespace * ns)
       saved_parent_function_decls = saved_function_decls;
       saved_function_decls = NULL_TREE;
     }
-
-  sym = ns->proc_name;
-
-  fndecl = sym->backend_decl;
 
   /* let GCC know the current scope is this function */
   current_function_decl = fndecl;
@@ -1874,10 +1988,6 @@ gfc_generate_function_code (gfc_namespace * ns)
 
   /* function.c requires a push at the start of the function */
   pushlevel (0);
-
-  /* Check that the frontend isn't still using this.  */
-  assert (sym->tlink == NULL);
-  sym->tlink = sym;
 
   gfc_start_block (&block);
 
@@ -1957,7 +2067,7 @@ gfc_generate_function_code (gfc_namespace * ns)
   poplevel (1, 0, 1);
   BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
 
-  /* Output the SIMPLE tree.  */
+  /* Output the GENERIC tree.  */
   dump_function (TDI_original, fndecl);
 
   /* Store the end of the function, so that we get good line number

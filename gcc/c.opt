@@ -1,5 +1,5 @@
 ; Options for the C, ObjC, C++ and ObjC++ front ends.
-; Copyright (C) 2003 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -313,6 +313,10 @@ Warn about global functions without previous declarations
 Wmissing-format-attribute
 C ObjC C++ ObjC++
 Warn about functions which might be candidates for format attributes
+
+Wmissing-include-dirs
+C ObjC C++ ObjC++
+Warn about user-specified include directories that do not exist
 
 Wmissing-prototypes
 C ObjC

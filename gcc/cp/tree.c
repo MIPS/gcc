@@ -443,11 +443,6 @@ cp_build_qualified_type_real (tree type,
 {
   tree result;
   int bad_quals = TYPE_UNQUALIFIED;
-  /* We keep bad function qualifiers separate, so that we can decide
-     whether to implement DR 295 or not. DR 295 break existing code,
-     unfortunately. Remove this variable to implement the defect
-     report.  */
-  int bad_func_quals = TYPE_UNQUALIFIED;
 
   if (type == error_mark_node)
     return type;
@@ -517,8 +512,6 @@ cp_build_qualified_type_real (tree type,
 	  || TREE_CODE (type) == METHOD_TYPE))
     {
       bad_quals |= type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
-      if (TREE_CODE (type) != REFERENCE_TYPE)
-	bad_func_quals |= type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
       type_quals &= ~(TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
     }
   
@@ -537,21 +530,17 @@ cp_build_qualified_type_real (tree type,
     /*OK*/;
   else if (!(complain & (tf_error | tf_ignore_bad_quals)))
     return error_mark_node;
-  else if (bad_func_quals && !(complain & tf_error))
-    return error_mark_node;
   else
     {
       if (complain & tf_ignore_bad_quals)
  	/* We're not going to warn about constifying things that can't
  	   be constified.  */
  	bad_quals &= ~TYPE_QUAL_CONST;
-      bad_quals |= bad_func_quals;
       if (bad_quals)
  	{
  	  tree bad_type = build_qualified_type (ptr_type_node, bad_quals);
  
- 	  if (!(complain & tf_ignore_bad_quals)
-	      || bad_func_quals)
+ 	  if (!(complain & tf_ignore_bad_quals))
  	    error ("`%V' qualifiers cannot be applied to `%T'",
 		   bad_type, type);
  	}
@@ -1207,7 +1196,7 @@ bot_manip (tree* tp, int* walk_subtrees, void* data)
   splay_tree target_remap = ((splay_tree) data);
   tree t = *tp;
 
-  if (TREE_CONSTANT (t))
+  if (!TYPE_P (t) && TREE_CONSTANT (t))
     {
       /* There can't be any TARGET_EXPRs or their slot variables below
          this point.  We used to check !TREE_SIDE_EFFECTS, but then we
@@ -1348,7 +1337,7 @@ build_min (enum tree_code code, tree tt, ...)
     {
       tree x = va_arg (p, tree);
       TREE_OPERAND (t, i) = x;
-      if (x && TREE_SIDE_EFFECTS (x))
+      if (x && !TYPE_P (x) && TREE_SIDE_EFFECTS (x))
 	TREE_SIDE_EFFECTS (t) = 1;
     }
 
@@ -1656,8 +1645,6 @@ tree
 lvalue_type (tree arg)
 {
   tree type = TREE_TYPE (arg);
-  if (TREE_CODE (arg) == OVERLOAD)
-    type = unknown_type_node;
   return type;
 }
 
@@ -1834,8 +1821,8 @@ handle_java_interface_attribute (tree* node,
       || !CLASS_TYPE_P (*node)
       || !TYPE_FOR_JAVA (*node))
     {
-      error ("`%s' attribute can only be applied to Java class definitions",
-	     IDENTIFIER_POINTER (name));
+      error ("`%E' attribute can only be applied to Java class definitions",
+	     name);
       *no_add_attrs = true;
       return NULL_TREE;
     }
@@ -1863,14 +1850,14 @@ handle_com_interface_attribute (tree* node,
       || !CLASS_TYPE_P (*node)
       || *node != TYPE_MAIN_VARIANT (*node))
     {
-      warning ("`%s' attribute can only be applied to class definitions",
-	       IDENTIFIER_POINTER (name));
+      warning ("`%E' attribute can only be applied to class definitions",
+	       name);
       return NULL_TREE;
     }
 
   if (!warned++)
-    warning ("`%s' is obsolete; g++ vtables are now COM-compatible by default",
-	     IDENTIFIER_POINTER (name));
+    warning ("`%E' is obsolete; g++ vtables are now COM-compatible by default",
+	     name);
 
   return NULL_TREE;
 }
@@ -1914,8 +1901,8 @@ handle_init_priority_attribute (tree* node,
 	 init_priority value, so don't allow it.  */
       || current_function_decl) 
     {
-      error ("can only use `%s' attribute on file-scope definitions of objects of class type",
-	     IDENTIFIER_POINTER (name));
+      error ("can only use `%E' attribute on file-scope definitions "
+             "of objects of class type", name);
       *no_add_attrs = true;
       return NULL_TREE;
     }
@@ -1942,8 +1929,7 @@ handle_init_priority_attribute (tree* node,
     }
   else
     {
-      error ("`%s' attribute is not supported on this platform",
-	     IDENTIFIER_POINTER (name));
+      error ("`%E' attribute is not supported on this platform", name);
       *no_add_attrs = true;
       return NULL_TREE;
     }
@@ -1989,24 +1975,26 @@ cp_walk_subtrees (tree* tp,
                   void* htab)
 {
   enum tree_code code = TREE_CODE (*tp);
+  location_t save_locus;
   tree result;
   
 #define WALK_SUBTREE(NODE)				\
   do							\
     {							\
       result = walk_tree (&(NODE), func, data, htab);	\
-      if (result)					\
-	return result;					\
+      if (result) goto out;				\
     }							\
   while (0)
 
-  /* Set input_line here so we get the right instantiation context
+  /* Set input_location here so we get the right instantiation context
      if we call instantiate_decl from inlinable_function_p.  */
-  if (STATEMENT_CODE_P (code) && !STMT_LINENO_FOR_FN_P (*tp))
-    input_line = STMT_LINENO (*tp);
+  save_locus = input_location;
+  if (EXPR_LOCUS (*tp))
+    input_location = *EXPR_LOCUS (*tp);
 
   /* Not one of the easy cases.  We must explicitly go through the
      children.  */
+  result = NULL_TREE;
   switch (code)
     {
     case DEFAULT_ARG:
@@ -2044,13 +2032,14 @@ cp_walk_subtrees (tree* tp,
       break;
 
     default:
-      break;
+      input_location = save_locus;
+      return c_walk_subtrees (tp, walk_subtrees_p, func, data, htab);
     }
 
-  c_walk_subtrees (tp, walk_subtrees_p, func, data, htab);
-
   /* We didn't find what we were looking for.  */
-  return NULL_TREE;
+ out:
+  input_location = save_locus;
+  return result;
 
 #undef WALK_SUBTREE
 }
@@ -2193,6 +2182,20 @@ cp_copy_res_decl_for_inlining (tree result,
   return var;
 }
 
+/* FN body has been duplicated.  Update language specific fields.  */
+
+void
+cp_update_decl_after_saving (tree fn, 
+                             void* decl_map_)
+{
+  splay_tree decl_map = (splay_tree)decl_map_;
+  tree nrv = DECL_SAVED_FUNCTION_DATA (fn)->x_return_value;
+  if (nrv)
+    {
+      DECL_SAVED_FUNCTION_DATA (fn)->x_return_value
+	= (tree) splay_tree_lookup (decl_map, (splay_tree_key) nrv)->value;
+    }
+}
 /* Initialize tree.c.  */
 
 void

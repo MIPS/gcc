@@ -1,23 +1,24 @@
 /* G95 Backend interface
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Inc.
    Contributed by Paul Brook.
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* f95-lang.c-- GCC backend interface stuff */
 
@@ -28,7 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "flags.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
@@ -104,7 +105,6 @@ int global_bindings_p (void);
 void insert_block (tree);
 void set_block (tree);
 static void gfc_be_parse_file (int);
-static void gfc_expand_stmt (tree);
 static void gfc_expand_function (tree);
 
 #undef LANG_HOOKS_NAME
@@ -123,7 +123,6 @@ static void gfc_expand_function (tree);
 #undef LANG_HOOKS_SIGNED_TYPE
 #undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
 #undef LANG_HOOKS_GIMPLE_BEFORE_INLINING
-#undef LANG_HOOKS_RTL_EXPAND_STMT
 #undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 
 /* Define lang hooks.  */
@@ -143,7 +142,6 @@ static void gfc_expand_function (tree);
 #define LANG_HOOKS_SIGNED_TYPE             gfc_signed_type
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE gfc_signed_or_unsigned_type
 #define LANG_HOOKS_GIMPLE_BEFORE_INLINING false
-#define LANG_HOOKS_RTL_EXPAND_STMT	gfc_expand_stmt
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION gfc_expand_function
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -200,15 +198,6 @@ static void
 gfc_expand_function (tree fndecl)
 {
   tree_rest_of_compilation (fndecl, 0);
-}
-
-/* We generate GENERIC trees, so just pass everything on to the backend
-   expanders.  */
-
-static void
-gfc_expand_stmt (tree t)
-{
-  expand_expr_stmt_value (t, 0, 0);
 }
 
 
@@ -761,23 +750,20 @@ gfc_init_builtin_functions (void)
   tree mfunc_double[2];
   tree ftype;
   tree tmp;
-  tree voidchain;
 
-  voidchain = tree_cons (NULL_TREE, void_type_node, NULL_TREE);
-
-  tmp = tree_cons (NULL_TREE, float_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, float_type_node, void_list_node);
   mfunc_float[0] = build_function_type (float_type_node, tmp);
   tmp = tree_cons (NULL_TREE, float_type_node, tmp);
   mfunc_float[1] = build_function_type (float_type_node, tmp);
 
-  tmp = tree_cons (NULL_TREE, double_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, double_type_node, void_list_node);
   mfunc_double[0] = build_function_type (double_type_node, tmp);
   tmp = tree_cons (NULL_TREE, double_type_node, tmp);
   mfunc_double[1] = build_function_type (double_type_node, tmp);
 
 #include "mathbuiltins.def"
 
-  /* We define there seperately as the fortran versions have different
+  /* We define these seperately as the fortran versions have different
      semantics (they return an integer type) */
   gfc_define_builtin ("__builtin_floor", mfunc_double[0], 
 		      BUILT_IN_FLOOR, "floor", true);
@@ -788,44 +774,66 @@ gfc_init_builtin_functions (void)
   gfc_define_builtin ("__builtin_roundf", mfunc_float[0], 
 		      BUILT_IN_ROUNDF, "roundf", true);
 
+  /* These are used to implement the ** operator.  */
+  gfc_define_builtin ("__builtin_pow", mfunc_double[0], 
+		      BUILT_IN_POW, "pow", true);
+  gfc_define_builtin ("__builtin_powf", mfunc_float[0], 
+		      BUILT_IN_POWF, "powf", true);
+
   /* Other builtin functions we use.  */
 
-  tmp = tree_cons (NULL_TREE, long_integer_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, long_integer_type_node, void_list_node);
   tmp = tree_cons (NULL_TREE, long_integer_type_node, tmp);
   ftype = build_function_type (long_integer_type_node, tmp);
   gfc_define_builtin ("__builtin_expect", ftype, BUILT_IN_EXPECT,
 		      "__builtin_expect", true);
 
-  tmp = tree_cons (NULL_TREE, size_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
   tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
   tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
   ftype = build_function_type (pvoid_type_node, tmp);
   gfc_define_builtin ("__builtin_memcpy", ftype, BUILT_IN_MEMCPY,
 		      "memcpy", false);
 
-  tmp = tree_cons (NULL_TREE, integer_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, integer_type_node, void_list_node);
   ftype = build_function_type (integer_type_node, tmp);
   gfc_define_builtin ("__builtin_clz", ftype, BUILT_IN_CLZ, "clz", true);
 
-  tmp = tree_cons (NULL_TREE, long_integer_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, long_integer_type_node, void_list_node);
   ftype = build_function_type (integer_type_node, tmp);
   gfc_define_builtin ("__builtin_clzl", ftype, BUILT_IN_CLZL, "clzl", true);
 
-  tmp = tree_cons (NULL_TREE, long_long_integer_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, long_long_integer_type_node, void_list_node);
   ftype = build_function_type (integer_type_node, tmp);
   gfc_define_builtin ("__builtin_clzll", ftype, BUILT_IN_CLZLL, "clzll", true);
 
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
   tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
   tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
   ftype = build_function_type (void_type_node, tmp);
   gfc_define_builtin ("__builtin_init_trampoline", ftype,
 		      BUILT_IN_INIT_TRAMPOLINE, "init_trampoline", false);
 
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
   ftype = build_function_type (pvoid_type_node, tmp);
   gfc_define_builtin ("__builtin_adjust_trampoline", ftype,
 		      BUILT_IN_ADJUST_TRAMPOLINE, "adjust_trampoline", true);
+
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
+  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
+  ftype = build_function_type (pvoid_type_node, tmp);
+  gfc_define_builtin ("__builtin_stack_alloc", ftype, BUILT_IN_STACK_ALLOC,
+		      "stack_alloc", false);
+
+  /* The stack_save and stack_restore builtins aren't used directly.  They
+     are inserted during gimplification to implement stack_alloc calls.  */
+  ftype = build_function_type (pvoid_type_node, void_list_node);
+  gfc_define_builtin ("__builtin_stack_save", ftype, BUILT_IN_STACK_SAVE,
+		      "stack_save", false);
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
+  ftype = build_function_type (void_type_node, tmp);
+  gfc_define_builtin ("__builtin_stack_restore", ftype, BUILT_IN_STACK_RESTORE,
+		      "stack_restore", false);
 }
 
 #undef DEFINE_MATH_BUILTIN

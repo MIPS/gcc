@@ -1,29 +1,29 @@
 /* Code translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include <stdio.h>
 #include "ggc.h"
 #include "toplev.h"
@@ -63,7 +63,7 @@ gfc_advance_chain (tree t, int n)
 }
 
 
-/* Wrap a node in a TREE_LIST node and add it th the end of a list.  */
+/* Wrap a node in a TREE_LIST node and add it to the end of a list.  */
 
 tree
 gfc_chainon_list (tree list, tree add)
@@ -366,7 +366,7 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
     }
   else
     {
-      /* Tell the compiler that this isn't likley.  */
+      /* Tell the compiler that this isn't likely.  */
       tmp = gfc_chainon_list (NULL_TREE, cond);
       tmp = gfc_chainon_list (tmp, integer_zero_node);
       cond = gfc_build_function_call (built_in_decls[BUILT_IN_EXPECT], tmp);
@@ -377,7 +377,7 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
 }
 
 
-/* Add a statement to a bock.  */
+/* Add a statement to a block.  */
 
 void
 gfc_add_expr_to_block (stmtblock_t * block, tree expr)
@@ -409,13 +409,14 @@ gfc_add_block_to_block (stmtblock_t * block, stmtblock_t * append)
 
 
 /* Get the current locus.  The structure may not be complete, and should
-   only be used with gfc_set_current_locus.  */
+   only be used with gfc_set_backend_locus.  */
 
 void
 gfc_get_backend_locus (locus * loc)
 {
-  loc->line = input_line - 1;
-  loc->file = gfc_current_backend_file;
+  loc->lb = gfc_getmem (sizeof (gfc_linebuf));    
+  loc->lb->linenum = input_line - 1;
+  loc->lb->file = gfc_current_backend_file;
 }
 
 
@@ -424,9 +425,9 @@ gfc_get_backend_locus (locus * loc)
 void
 gfc_set_backend_locus (locus * loc)
 {
-  input_line = loc->line + 1;
-  gfc_current_backend_file = loc->file;
-  input_filename = loc->file->filename;
+  input_line = loc->lb->linenum;
+  gfc_current_backend_file = loc->lb->file;
+  input_filename = loc->lb->file->filename;
 }
 
 
@@ -443,7 +444,7 @@ gfc_trans_code (gfc_code * code)
 
   gfc_start_block (&block);
 
-  /* Translate statements one by one to SIMPLE trees until we reach
+  /* Translate statements one by one to GIMPLE trees until we reach
      the end of this gfc_code branch.  */
   for (; code; code = code->next)
     {

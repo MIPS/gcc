@@ -253,7 +253,7 @@ package ALI is
 
       Dynamic_Elab : Boolean;
       --  Set to True if the unit was compiled with dynamic elaboration
-      --  checks (i.e. either -gnatE or pragma Elaboration_Checks (Static)
+      --  checks (i.e. either -gnatE or pragma Elaboration_Checks (RM)
       --  was used to compile the unit).
 
       Elaborate_Body : Boolean;
@@ -476,7 +476,7 @@ package ALI is
       --  Indicates presence of ED parameter
 
       Interface : Boolean := False;
-      --  True if the Unit is an Interface of a Stand-Alole Library
+      --  True if the Unit is an Interface of a Stand-Alone Library
 
    end record;
 

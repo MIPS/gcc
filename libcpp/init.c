@@ -139,6 +139,19 @@ cpp_create_reader (enum c_lang lang, hash_table *table,
   pfile = xcalloc (1, sizeof (cpp_reader));
 
   cpp_set_lang (pfile, lang);
+  /* APPLE LOCAL begin -Wextra-tokens 2001-08-01 sts */
+  /* Suppress warnings about extra tokens after #endif etc.  */
+  CPP_OPTION (pfile, warn_extra_tokens) = 0;
+  /* APPLE LOCAL end -Wextra-tokens 2001-08-01 sts */
+  /* APPLE LOCAL begin -Wnewline-eof 2001-08-23 sts */
+  /* Suppress warnings about missing newlines at ends of files.  */
+  CPP_OPTION (pfile, warn_newline_at_eof) = 0;
+  /* APPLE LOCAL end -Wnewline-eof 2001-08-23 sts */
+  /* APPLE LOCAL begin -Wfour-char-constants  */
+  CPP_OPTION (pfile, warn_four_char_constants) = 1;
+  /* APPLE LOCAL end -Wfour-char-constants  */
+  /* APPLE LOCAL pascal strings */
+  CPP_OPTION (pfile, pascal_strings) = 0;
   CPP_OPTION (pfile, warn_multichar) = 1;
   CPP_OPTION (pfile, discard_comments) = 1;
   CPP_OPTION (pfile, discard_comments_in_macro_exp) = 1;
@@ -146,8 +159,11 @@ cpp_create_reader (enum c_lang lang, hash_table *table,
   CPP_OPTION (pfile, tabstop) = 8;
   CPP_OPTION (pfile, operator_names) = 1;
   CPP_OPTION (pfile, warn_trigraphs) = 2;
-  CPP_OPTION (pfile, warn_endif_labels) = 1;
-  CPP_OPTION (pfile, warn_deprecated) = 1;
+  /* APPLE LOCAL begin -Wextra-tokens */
+  /* Suppress warnings about extra tokens after #endif etc.  */
+  CPP_OPTION (pfile, warn_endif_labels) = 0;
+  /* APPLE LOCAL suppress useful warnings */
+  CPP_OPTION (pfile, warn_deprecated) = 0;
   CPP_OPTION (pfile, warn_long_long) = !CPP_OPTION (pfile, c99);
   CPP_OPTION (pfile, dollars_in_ident) = 1;
   CPP_OPTION (pfile, warn_dollars) = 1;
@@ -429,6 +445,18 @@ static void sanity_checks (cpp_reader *pfile)
 # define sanity_checks(PFILE)
 #endif
 
+/* Add a dependency target.  Can be called any number of times before
+   cpp_read_main_file().  If no targets have been added before
+   cpp_read_main_file(), then the default target is used.  */
+void
+cpp_add_dependency_target (cpp_reader *pfile, const char *target, int quote)
+{
+  if (!pfile->deps)
+    pfile->deps = deps_init ();
+
+  deps_add_target (pfile->deps, target, quote);
+}
+
 /* This is called after options have been parsed, and partially
    processed.  */
 void
@@ -458,10 +486,23 @@ cpp_read_main_file (cpp_reader *pfile, const char *fname)
       deps_add_default_target (pfile->deps, fname);
     }
 
+  /* APPLE LOCAL begin predictive compilation */
+  pfile->is_main_file = CPP_OPTION (pfile, predictive_compilation);
+  /* APPLE LOCAL end predictive compilation */
   pfile->main_file
     = _cpp_find_file (pfile, fname, &pfile->no_search_path, false);
+  /* APPLE LOCAL begin predictive compilation */
+  pfile->is_main_file = false;
+  /* APPLE LOCAL end predictive compilation */
   if (_cpp_find_failed (pfile->main_file))
     return NULL;
+
+  /* APPLE LOCAL begin Symbol Separation */
+  /* If creating PCH file then main input file is a header and it is a candidate
+     for separate symbol repository. Find one if available.  */
+  if (CPP_OPTION (pfile, making_pch) && CPP_OPTION (pfile, use_ss))
+    find_include_cinfo (pfile, fname);
+  /* APPLE LOCAL end Symbol Separation */
 
   _cpp_stack_file (pfile, pfile->main_file, false);
 

@@ -27,7 +27,5 @@ extern void reemit_insn_block_notes (void);
 extern bool can_copy_bbs_p (basic_block *, unsigned);
 extern void copy_bbs (basic_block *, unsigned, basic_block *,
 		      edge *, unsigned, edge *, struct loop *);
-/* APPLE LOCAL begin hot/cold partitioning  */
 extern bool scan_ahead_for_unlikely_executed_note (rtx);
-/* APPLE LOCAL end hot/cold partitioning  */
-
+extern rtx duplicate_insn_chain (rtx, rtx);

@@ -42,7 +42,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "splay-tree.h"
 #include "debug.h"
 /* APPLE LOCAL AltiVec */
-#include "cpphash.h"
+#include "../libcpp/internal.h"
 
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;

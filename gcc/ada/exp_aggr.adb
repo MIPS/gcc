@@ -1165,7 +1165,7 @@ package body Exp_Aggr is
 
       Aggr_Low  : constant Node_Id := Duplicate_Subexpr_No_Checks (Aggr_L);
       Aggr_High : constant Node_Id := Duplicate_Subexpr_No_Checks (Aggr_H);
-      --  After Duplicate_Subexpr these are side-effect free.
+      --  After Duplicate_Subexpr these are side-effect free
 
       Low        : Node_Id;
       High       : Node_Id;
@@ -4122,8 +4122,7 @@ package body Exp_Aggr is
 
                --  Ada 0Y (AI-287): This case has not been analyzed???
 
-               pragma Assert (False);
-               null;
+               raise Program_Error;
             end if;
 
             --  Name in assignment is explicit dereference.
@@ -4743,11 +4742,13 @@ package body Exp_Aggr is
       Typ    : Entity_Id;
       Target : Node_Id;
       Flist  : Node_Id   := Empty;
-      Obj    : Entity_Id := Empty) return List_Id is
+      Obj    : Entity_Id := Empty) return List_Id
+   is
    begin
       if Is_Record_Type (Etype (N)) then
          return Build_Record_Aggr_Code (N, Typ, Target, Flist, Obj);
-      elsif Is_Array_Type (Etype (N)) then
+
+      else pragma Assert (Is_Array_Type (Etype (N)));
          return
            Build_Array_Aggr_Code
              (N           => N,
@@ -4757,9 +4758,6 @@ package body Exp_Aggr is
               Scalar_Comp => Is_Scalar_Type (Component_Type (Typ)),
               Indices     => No_List,
               Flist       => Flist);
-      else
-         pragma Assert (False);
-         return New_List;
       end if;
    end Late_Expansion;
 
@@ -4872,9 +4870,13 @@ package body Exp_Aggr is
 
             Analyze_And_Resolve (N, Ctyp);
 
-            --  Must have a compile time value
+            --  Must have a compile time value. String literals have to
+            --  be converted into temporaries as well, because they cannot
+            --  easily be converted into their bit representation.
 
-            if not Compile_Time_Known_Value (N) then
+            if not Compile_Time_Known_Value (N)
+              or else Nkind (N) = N_String_Literal
+            then
                raise Not_Handled;
             end if;
 

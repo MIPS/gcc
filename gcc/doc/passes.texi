@@ -355,6 +355,12 @@ in @file{tree-ssa-dse.c} and is described by @code{pass_dse}.
 This pass transforms tail recursion into a loop.  It is located in
 @file{tree-tailcall.c} and is described by @code{pass_tail_recursion}.
 
+@item Partial redundancy elimination
+
+This pass eliminates partially redundant computations, as well as
+performing load motion.  The pass is located in @file{tree-ssa-pre.c}
+and is described by @code{pass_pre}.
+
 @item Loop optimization
 
 TODO: Presumably we're going to do something with loops here.  At
@@ -573,6 +579,15 @@ This pass looks for instructions that require the processor to be in a
 specific ``mode'' and minimizes the number of mode changes required to
 satisfy all users.  What these modes are, and what they apply to are
 completely target-specific.  The source is located in @file{lcm.c}.
+
+@cindex modulo scheduling
+@cindex sms, swing, software pipelining
+@item Modulo scheduling 
+
+This pass looks at innermost loops and reorders their instructions 
+by overlapping different iterations.  Modulo scheduling is performed 
+immediately before instruction scheduling.
+The pass is located in (@file{modulo-sched.c}).  
 
 @item Instruction scheduling
 

@@ -35,9 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "ggc.h"
 #include "alloc-pool.h"
-/* APPLE LOCAL begin hot/cold partitioning  */
 #include "flags.h"
-/* APPLE LOCAL end hot/cold partitioning  */
 
 /* The contents of the current function definition are allocated
    in this obstack, and all are freed at the end of the function.  */
@@ -56,11 +54,8 @@ static void change_scope (rtx, tree, tree);
 
 void verify_insn_chain (void);
 static void fixup_fallthru_exit_predecessor (void);
-static rtx duplicate_insn_chain (rtx, rtx);
 static tree insn_scope (rtx);
-/* APPLE LOCAL begin hot/cold partitioning  */
 static void update_unlikely_executed_notes (basic_block);
-/* APPLE LOCAL end hot/cold partitioning  */
 
 rtx
 unlink_insn_chain (rtx first, rtx last)
@@ -649,9 +644,7 @@ fixup_reorder_chain (void)
       edge e_fall, e_taken, e;
       rtx bb_end_insn;
       basic_block nb;
-      /* APPLE LOCAL begin hot/cold partitioning  */
       basic_block old_bb;
-      /* APPLE LOCAL end hot/cold partitioning  */
 
       if (bb->succ == NULL)
 	continue;
@@ -728,12 +721,10 @@ fixup_reorder_chain (void)
 		    }
 		}
 
-	      /* APPLE LOCAL begin hot/cold partitioning  */
 	      /* If the "jumping" edge is a crossing edge, and the fall
 		 through edge is non-crossing, leave things as they are.  */
 	      else if (e_taken->crossing_edge && !e_fall->crossing_edge)
 		continue;
-	      /* APPLE LOCAL end hot/cold partitioning  */
 
 	      /* Otherwise we can try to invert the jump.  This will
 		 basically never fail, however, keep up the pretense.  */
@@ -792,7 +783,6 @@ fixup_reorder_chain (void)
 	  nb->rbi->next = bb->rbi->next;
 	  bb->rbi->next = nb;
 	  /* Don't process this new block.  */
-	  /* APPLE LOCAL begin hot/cold partitioning  */
 	  old_bb = bb;
   	  bb = nb;
 
@@ -800,7 +790,9 @@ fixup_reorder_chain (void)
 	     fall-thru source).  */
 	  e_fall->src->partition = bb->pred->src->partition;
 	  if (flag_reorder_blocks_and_partition
+	  /* APPLE LOCAL begin hot/cold partitioning  */
 	      && targetm.have_named_sections)
+	  /* APPLE LOCAL end hot/cold partitioning  */
 	    {
 	      if (bb->pred->src->partition == COLD_PARTITION)
 		{
@@ -822,7 +814,6 @@ fixup_reorder_chain (void)
 		REG_NOTES (BB_END (bb)) = gen_rtx_EXPR_LIST 
 		  (REG_CROSSING_JUMP, NULL_RTX, REG_NOTES (BB_END (bb)));
 	    }
-	  /* APPLE LOCAL end hot/cold partitioning  */
 	}
     }
 
@@ -857,9 +848,7 @@ fixup_reorder_chain (void)
       bb->index = index;
       BASIC_BLOCK (index) = bb;
 
-      /* APPLE LOCAL begin hot/cold partitioning  */
       update_unlikely_executed_notes (bb);
-      /* APPLE LOCAL end hot/cold partitioning  */
 
       bb->prev_bb = prev_bb;
       prev_bb->next_bb = bb;
@@ -977,7 +966,7 @@ cfg_layout_can_duplicate_bb_p (basic_block bb)
       rtx insn = BB_HEAD (bb);
       while (1)
 	{
-	  if (INSN_P (insn) && (*targetm.cannot_copy_insn_p) (insn))
+	  if (INSN_P (insn) && targetm.cannot_copy_insn_p (insn))
 	    return false;
 	  if (insn == BB_END (bb))
 	    break;
@@ -988,7 +977,7 @@ cfg_layout_can_duplicate_bb_p (basic_block bb)
   return true;
 }
 
-static rtx
+rtx
 duplicate_insn_chain (rtx from, rtx to)
 {
   rtx insn, last;
@@ -1060,9 +1049,7 @@ duplicate_insn_chain (rtx from, rtx to)
 	      abort ();
 	      break;
 	    case NOTE_INSN_REPEATED_LINE_NUMBER:
-	    /* APPLE LOCAL begin hot/cold partitioning  */
 	    case NOTE_INSN_UNLIKELY_EXECUTED_CODE:
-	    /* APPLE LOCAL end hot/cold partitioning  */
 	      emit_note_copy (insn);
 	      break;
 
@@ -1133,8 +1120,7 @@ cfg_layout_duplicate_bb (basic_block bb)
   return new_bb;
 }
 
-
-/* Main entry point to this module - initialize the datastructures for
+/* Main entry point to this module - initialize the data structures for
    CFG layout changes.  It keeps LOOPS up-to-date if not null.  */
 
 void

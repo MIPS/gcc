@@ -28,7 +28,6 @@ with Atree;    use Atree;
 with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Errout;   use Errout;
-with Elists;   use Elists;
 with Exp_Util; use Exp_Util;
 with Fname;    use Fname;
 with Fname.UF; use Fname.UF;
@@ -77,7 +76,7 @@ package body Sem_Ch10 is
    --  in a limited_with clause. If the package was not previously analyzed
    --  then it also performs a basic decoration of the real entities; this
    --  is required to do not pass non-decorated entities to the back-end.
-   --  Implements Ada0Y (AI-50217).
+   --  Implements Ada 0Y (AI-50217).
 
    procedure Check_Body_Needed_For_SAL (Unit_Name : Entity_Id);
    --  Check whether the source for the body of a compilation unit must
@@ -101,7 +100,7 @@ package body Sem_Ch10 is
    --  through a regular with clause. This procedure creates the implicit
    --  limited with_clauses for the parents and loads the corresponding units.
    --  The shadow entities are created when the inserted clause is analyzed.
-   --  Implements Ada0Y (AI-50217).
+   --  Implements Ada 0Y (AI-50217).
 
    procedure Expand_With_Clause (Nam : Node_Id; N : Node_Id);
    --  When a child unit appears in a context clause, the implicit withs on
@@ -129,11 +128,11 @@ package body Sem_Ch10 is
 
    procedure Install_Limited_Context_Clauses (N : Node_Id);
    --  Subsidiary to Install_Context. Process only limited with_clauses
-   --  for current unit. Implements Ada0Y (AI-50217).
+   --  for current unit. Implements Ada 0Y (AI-50217).
 
    procedure Install_Limited_Withed_Unit (N : Node_Id);
    --  Place shadow entities for a limited_with package in the visibility
-   --  structures for the current compilation. Implements Ada0Y (AI-50217).
+   --  structures for the current compilation. Implements Ada 0Y (AI-50217).
 
    procedure Install_Withed_Unit
      (With_Clause     : Node_Id;
@@ -182,7 +181,7 @@ package body Sem_Ch10 is
 
    procedure Remove_Limited_With_Clause (N : Node_Id);
    --  Remove from visibility the shadow entities introduced for a package
-   --  mentioned in a limited_with clause. Implements Ada0Y (AI-50217).
+   --  mentioned in a limited_with clause. Implements Ada 0Y (AI-50217).
 
    procedure Remove_Parents (Lib_Unit : Node_Id);
    --  Remove_Parents checks if Lib_Unit is a child spec. If so then the parent
@@ -394,7 +393,9 @@ package body Sem_Ch10 is
                if Unum /= No_Unit then
 
                   --  Build subprogram declaration and attach parent unit to it
-                  --  This subprogram declaration does not come from source!
+                  --  This subprogram declaration does not come from source,
+                  --  Nevertheless the backend must generate debugging info for
+                  --  it, and this must be indicated explicitly.
 
                   declare
                      Loc : constant Source_Ptr := Sloc (N);
@@ -418,6 +419,7 @@ package body Sem_Ch10 is
                      Set_Parent_Spec (Unit (Lib_Unit), Cunit (Unum));
                      Semantics (Lib_Unit);
                      Set_Acts_As_Spec (N, False);
+                     Set_Needs_Debug_Info (Defining_Entity (Unit (Lib_Unit)));
                      Set_Comes_From_Source_Default (SCS);
                   end;
                end if;
@@ -508,7 +510,7 @@ package body Sem_Ch10 is
          end;
       end if;
 
-      --  Generate distribution stub files if requested and no error
+      --  Generate distribution stubs if requested and no error
 
       if N = Main_Cunit
         and then (Distribution_Stub_Mode = Generate_Receiver_Stub_Body
@@ -543,9 +545,6 @@ package body Sem_Ch10 is
             Add_Stub_Constructs (N);
          end if;
 
-         --  Reanalyze the unit with the new constructs
-
-         Analyze (Unit_Node);
       end if;
 
       if Nkind (Unit_Node) = N_Package_Declaration
@@ -620,7 +619,7 @@ package body Sem_Ch10 is
             Item := First (Context_Items (N));
             while Present (Item) loop
 
-               --  Ada0Y (AI-50217): Do not consider limited-withed units
+               --  Ada 0Y (AI-50217): Do not consider limited-withed units
 
                if Nkind (Item) = N_With_Clause
                   and then not Implicit_With (Item)
@@ -799,8 +798,8 @@ package body Sem_Ch10 is
       --  Loop through context items. This is done is three passes:
       --  a) The first pass analyze non-limited with-clauses.
       --  b) The second pass add implicit limited_with clauses for
-      --     the parents of child units (Ada0Y: AI-50217)
-      --  c) The third pass analyzes limited_with clauses (Ada0Y: AI-50217)
+      --     the parents of child units (Ada 0Y: AI-50217)
+      --  c) The third pass analyzes limited_with clauses (Ada 0Y: AI-50217)
 
       Item := First (Context_Items (N));
       while Present (Item) loop
@@ -948,14 +947,20 @@ package body Sem_Ch10 is
          --  Errout to ignore all errors. Note that Fatal_Error will still
          --  be set, so we will be able to check for this case below.
 
-         Ignore_Errors_Enable := Ignore_Errors_Enable + 1;
+         if not ASIS_Mode then
+            Ignore_Errors_Enable := Ignore_Errors_Enable + 1;
+         end if;
+
          Unum :=
            Load_Unit
              (Load_Name  => Subunit_Name,
               Required   => False,
               Subunit    => True,
               Error_Node => N);
-         Ignore_Errors_Enable := Ignore_Errors_Enable - 1;
+
+         if not ASIS_Mode then
+            Ignore_Errors_Enable := Ignore_Errors_Enable - 1;
+         end if;
 
          --  All done if we successfully loaded the subunit
 
@@ -1611,7 +1616,7 @@ package body Sem_Ch10 is
 
    begin
       if Limited_Present (N) then
-         --  Ada0Y (AI-50217): Build visibility structures but do not
+         --  Ada 0Y (AI-50217): Build visibility structures but do not
          --  analyze unit
 
          Build_Limited_Views (N);
@@ -1811,6 +1816,14 @@ package body Sem_Ch10 is
          --  If the extension is not present, an error will have been emitted.
 
          null;
+      end if;
+
+      --  Ada 0Y (AI-262): Remove from visibility the entity corresponding to
+      --  private_with units; they will be made visible later (just before the
+      --  private part is analyzed)
+
+      if Private_Present (N) then
+         Set_Is_Immediately_Visible (E_Name, False);
       end if;
    end Analyze_With_Clause;
 
@@ -2226,8 +2239,12 @@ package body Sem_Ch10 is
       Item := First (Context_Items (N));
       while Present (Item) loop
 
+         --  Ada 0Y (AI-262): Allow private_with of a private child package in
+         --  public siblings
+
          if Nkind (Item) = N_With_Clause
             and then not Implicit_With (Item)
+            and then not Private_Present (Item)
             and then Is_Private_Descendant (Entity (Name (Item)))
          then
             Priv_Child := Entity (Name (Item));
@@ -2422,7 +2439,7 @@ package body Sem_Ch10 is
             Mark_Rewrite_Insertion (Withn);
          end if;
 
-      elsif Nkind (Nam) = N_Selected_Component then
+      else pragma Assert (Nkind (Nam) = N_Selected_Component);
          Withn :=
            Make_With_Clause
            (Loc,
@@ -2453,10 +2470,6 @@ package body Sem_Ch10 is
 
             Expand_Limited_With_Clause (Prefix (Nam), N);
          end if;
-
-      else
-         null;
-         pragma Assert (False);
       end if;
 
       New_Nodes_OK := New_Nodes_OK - 1;
@@ -3019,7 +3032,6 @@ package body Sem_Ch10 is
          if Nkind (Item) = N_With_Clause
            and then Limited_Present (Item)
          then
-
             Check_Withed_Unit (Item);
 
             if Private_Present (Library_Unit (Item)) then
@@ -3151,19 +3163,30 @@ package body Sem_Ch10 is
 
    procedure Install_Private_With_Clauses (P : Entity_Id) is
       Decl   : constant Node_Id := Unit_Declaration_Node (P);
-      Clause : Node_Id;
+      Item   : Node_Id;
 
    begin
+      if Debug_Flag_I then
+         Write_Str ("install private with clauses of ");
+         Write_Name (Chars (P));
+         Write_Eol;
+      end if;
+
       if Nkind (Parent (Decl)) = N_Compilation_Unit then
-         Clause := First (Context_Items (Parent (Decl)));
-         while Present (Clause) loop
-            if Nkind (Clause) = N_With_Clause
-              and then Private_Present (Clause)
+         Item := First (Context_Items (Parent (Decl)));
+
+         while Present (Item) loop
+            if Nkind (Item) = N_With_Clause
+              and then Private_Present (Item)
             then
-               Install_Withed_Unit (Clause, Private_With_OK => True);
+               if Limited_Present (Item) then
+                  Install_Limited_Withed_Unit (Item);
+               else
+                  Install_Withed_Unit (Item, Private_With_OK => True);
+               end if;
             end if;
 
-            Next (Clause);
+            Next (Item);
          end loop;
       end if;
    end Install_Private_With_Clauses;
@@ -3176,36 +3199,6 @@ package body Sem_Ch10 is
       Item : Node_Id;
       Id   : Entity_Id;
       Prev : Entity_Id;
-
-      function Is_Ancestor (E : Entity_Id) return Boolean;
-      --  Determine whether the scope of a child unit is an ancestor of
-      --  the current unit.
-      --  Shouldn't this be somewhere more general ???
-
-      -----------------
-      -- Is_Ancestor --
-      -----------------
-
-      function Is_Ancestor (E : Entity_Id) return Boolean is
-         Par : Entity_Id;
-
-      begin
-         Par := U_Name;
-         while Present (Par)
-           and then Par /= Standard_Standard
-         loop
-            if Par = E then
-               return True;
-            end if;
-
-            Par := Scope (Par);
-         end loop;
-
-         return False;
-      end Is_Ancestor;
-
-   --  Start of processing for Install_Siblings
-
    begin
       --  Iterate over explicit with clauses, and check whether the
       --  scope of each entity is an ancestor of the current unit.
@@ -3219,13 +3212,21 @@ package body Sem_Ch10 is
             Id := Entity (Name (Item));
 
             if Is_Child_Unit (Id)
-              and then Is_Ancestor (Scope (Id))
+              and then Is_Ancestor_Package (Scope (Id), U_Name)
             then
                Set_Is_Immediately_Visible (Id);
-               Prev := Current_Entity (Id);
+
+               --  Ada 0Y (AI-262): Make visible the private entities of
+               --  private-withed siblings
+
+               if Private_Present (Item) then
+                  Install_Private_Declarations (Id);
+               end if;
 
                --  Check for the presence of another unit in the context,
                --  that may be inadvertently hidden by the child.
+
+               Prev := Current_Entity (Id);
 
                if Present (Prev)
                  and then Is_Immediately_Visible (Prev)
@@ -3257,7 +3258,7 @@ package body Sem_Ch10 is
             --  the child immediately visible.
 
             elsif Is_Child_Unit (Scope (Id))
-              and then Is_Ancestor (Scope (Scope (Id)))
+              and then Is_Ancestor_Package (Scope (Scope (Id)), U_Name)
             then
                Set_Is_Immediately_Visible (Scope (Id));
             end if;
@@ -3276,9 +3277,10 @@ package body Sem_Ch10 is
                            Get_Source_Unit (Library_Unit (N));
       P_Unit           : constant Entity_Id := Unit (Library_Unit (N));
       P                : Entity_Id;
-      Lim_Elmt         : Elmt_Id;
-      Lim_Typ          : Entity_Id;
       Is_Child_Package : Boolean := False;
+
+      Lim_Header       : Entity_Id;
+      Lim_Typ          : Entity_Id;
 
       function In_Chain (E : Entity_Id) return Boolean;
       --  Check that the shadow entity is not already in the homonym
@@ -3327,8 +3329,7 @@ package body Sem_Ch10 is
             return;
 
          when others =>
-            pragma Assert (False);
-            null;
+            raise Program_Error;
       end case;
 
       P := Defining_Unit_Name (Specification (P_Unit));
@@ -3361,8 +3362,39 @@ package body Sem_Ch10 is
       --  view because the full view of X supersedes its limited view.
 
       if Analyzed (Cunit (Unum))
-        and then Is_Immediately_Visible (P)
+        and then (Is_Immediately_Visible (P)
+                   or else (Is_Child_Package
+                             and then Is_Visible_Child_Unit (P)))
       then
+         --  Ada 0Y (AI-262): Install the private declarations of P
+
+         if Private_Present (N)
+           and then not In_Private_Part (P)
+         then
+            declare
+               Id : Entity_Id;
+            begin
+               Id := First_Private_Entity (P);
+
+               while Present (Id) loop
+                  if not Is_Internal (Id)
+                    and then not Is_Child_Unit (Id)
+                  then
+                     if not In_Chain (Id) then
+                        Set_Homonym (Id, Current_Entity (Id));
+                        Set_Current_Entity (Id);
+                     end if;
+
+                     Set_Is_Immediately_Visible (Id);
+                  end if;
+
+                  Next_Entity (Id);
+               end loop;
+
+               Set_In_Private_Part (P);
+            end;
+         end if;
+
          return;
       end if;
 
@@ -3431,12 +3463,17 @@ package body Sem_Ch10 is
 
       Set_Is_Immediately_Visible (P);
 
-      --  Install each incomplete view
+      --  Install each incomplete view. The first element of the limited view
+      --  is a header (an E_Package entity) that is used to reference the first
+      --  shadow entity in the private part of the package
 
-      Lim_Elmt   := First_Elmt (Limited_Views (P));
+      Lim_Header := Limited_View (P);
+      Lim_Typ    := First_Entity (Lim_Header);
 
-      while Present (Lim_Elmt) loop
-         Lim_Typ  := Node (Lim_Elmt);
+      while Present (Lim_Typ) loop
+
+         exit when not Private_Present (N)
+                        and then Lim_Typ = First_Private_Entity (Lim_Header);
 
          if not In_Chain (Lim_Typ) then
             Set_Homonym (Lim_Typ, Current_Entity (Lim_Typ));
@@ -3447,10 +3484,9 @@ package body Sem_Ch10 is
                Write_Name (Chars (Lim_Typ));
                Write_Eol;
             end if;
-
          end if;
 
-         Next_Elmt (Lim_Elmt);
+         Next_Entity (Lim_Typ);
       end loop;
 
       --  The context clause has installed a limited-view, mark it
@@ -3472,9 +3508,25 @@ package body Sem_Ch10 is
       P     : constant Entity_Id := Scope (Uname);
 
    begin
+      --  Ada 0Y (AI-262): Do not install the private withed unit if we are
+      --  compiling a package declaration and the Private_With_OK flag was not
+      --  set by the caller. These declarations will be installed later (before
+      --  analyzing the private part of the package).
+
+      if Private_Present (With_Clause)
+        and then Nkind (Cunit (Current_Sem_Unit)) = N_Package_Declaration
+        and then not (Private_With_OK)
+      then
+         return;
+      end if;
 
       if Debug_Flag_I then
-         Write_Str ("install withed unit ");
+         if Private_Present (With_Clause) then
+            Write_Str ("install private withed unit ");
+         else
+            Write_Str ("install withed unit ");
+         end if;
+
          Write_Name (Chars (Uname));
          Write_Eol;
       end if;
@@ -3492,17 +3544,13 @@ package body Sem_Ch10 is
       end if;
 
       if P /= Standard_Standard then
-         if Private_Present (With_Clause)
-           and then not (Private_With_OK)
-         then
-            return;
 
          --  If the unit is not analyzed after analysis of the with clause,
          --  and it is an instantiation, then it awaits a body and is the main
          --  unit. Its appearance in the context of some other unit indicates
          --  a circular dependency (DEC suite perversity).
 
-         elsif not Analyzed (Uname)
+         if not Analyzed (Uname)
            and then Nkind (Parent (Uname)) = N_Package_Instantiation
          then
             Error_Msg_N
@@ -3520,7 +3568,6 @@ package body Sem_Ch10 is
                Set_Is_Visible_Child_Unit
                  (Related_Instance
                    (Defining_Entity (Unit (Library_Unit (With_Clause)))));
-               null;
             end if;
 
             --  The parent unit may have been installed already, and
@@ -3633,9 +3680,13 @@ package body Sem_Ch10 is
       Unum : constant Unit_Number_Type := Get_Source_Unit (Library_Unit (N));
       P    : constant Entity_Id        := Cunit_Entity (Unum);
 
-      Spec        : Node_Id;         --  To denote a package specification
-      Lim_Typ     : Entity_Id;       --  To denote shadow entities.
-      Comp_Typ    : Entity_Id;       --  To denote real entities.
+      Spec        : Node_Id;            --  To denote a package specification
+      Lim_Typ     : Entity_Id;          --  To denote shadow entities
+      Comp_Typ    : Entity_Id;          --  To denote real entities
+
+      Lim_Header  : Entity_Id;          --  Package entity
+      Last_Lim_E  : Entity_Id := Empty; --  Last limited entity built
+      Last_Pub_Lim_E : Entity_Id;       --  To set the first private entity
 
       procedure Decorate_Incomplete_Type
         (E    : Entity_Id;
@@ -3655,7 +3706,9 @@ package body Sem_Ch10 is
       --  Set basic attributes of tagged type T, including its class_wide type.
       --  The parameters Loc, Scope are used to decorate the class_wide type.
 
-      procedure Build_Chain (Spec : Node_Id; Scope : Entity_Id);
+      procedure Build_Chain
+        (Scope      : Entity_Id;
+         First_Decl : Node_Id);
       --  Construct list of shadow entities and attach it to entity of
       --  package that is mentioned in a limited_with clause.
 
@@ -3663,8 +3716,8 @@ package body Sem_Ch10 is
         (Kind       : Entity_Kind;
          Sloc_Value : Source_Ptr;
          Id_Char    : Character) return Entity_Id;
-      --  This function is similar to New_Internal_Entity, except that the
-      --  entity is not added to the scope's list of entities.
+      --  Build a new internal entity and append it to the list of shadow
+      --  entities available through the limited-header
 
       ------------------------------
       -- Decorate_Incomplete_Type --
@@ -3675,13 +3728,13 @@ package body Sem_Ch10 is
          Scop : Entity_Id)
       is
       begin
-         Set_Ekind                     (E, E_Incomplete_Type);
-         Set_Scope                     (E, Scop);
-         Set_Etype                     (E, E);
-         Set_Is_First_Subtype          (E, True);
-         Set_Stored_Constraint         (E, No_Elist);
-         Set_Full_View                 (E, Empty);
-         Init_Size_Align               (E);
+         Set_Ekind             (E, E_Incomplete_Type);
+         Set_Scope             (E, Scop);
+         Set_Etype             (E, E);
+         Set_Is_First_Subtype  (E, True);
+         Set_Stored_Constraint (E, No_Elist);
+         Set_Full_View         (E, Empty);
+         Init_Size_Align       (E);
       end Decorate_Incomplete_Type;
 
       --------------------------
@@ -3715,7 +3768,7 @@ package body Sem_Ch10 is
             Set_Equivalent_Type           (CW, Empty);
             Set_From_With_Type            (CW, From_With_Type (T));
 
-            Set_Class_Wide_Type (T, CW);
+            Set_Class_Wide_Type           (T, CW);
          end if;
       end Decorate_Tagged_Type;
 
@@ -3740,36 +3793,54 @@ package body Sem_Ch10 is
          Sloc_Value : Source_Ptr;
          Id_Char    : Character) return Entity_Id
       is
-         N : constant Entity_Id :=
+         E : constant Entity_Id :=
                Make_Defining_Identifier (Sloc_Value,
                  Chars => New_Internal_Name (Id_Char));
 
       begin
-         Set_Ekind          (N, Kind);
-         Set_Is_Internal    (N, True);
+         Set_Ekind       (E, Kind);
+         Set_Is_Internal (E, True);
 
          if Kind in Type_Kind then
-            Init_Size_Align (N);
+            Init_Size_Align (E);
          end if;
 
-         return N;
+         Append_Entity (E, Lim_Header);
+         Last_Lim_E := E;
+         return E;
       end New_Internal_Shadow_Entity;
 
       -----------------
       -- Build_Chain --
       -----------------
 
-      --  Could use more comments below ???
-
-      procedure Build_Chain (Spec : Node_Id; Scope : Entity_Id) is
+      procedure Build_Chain
+        (Scope         : Entity_Id;
+         First_Decl    : Node_Id)
+      is
          Analyzed_Unit : constant Boolean := Analyzed (Cunit (Unum));
          Is_Tagged     : Boolean;
          Decl          : Node_Id;
 
       begin
-         Decl := First (Visible_Declarations (Spec));
+         Decl := First_Decl;
 
          while Present (Decl) loop
+
+            --  For each library_package_declaration in the environment, there
+            --  is an implicit declaration of a *limited view* of that library
+            --  package. The limited view of a package contains:
+            --
+            --   * For each nested package_declaration, a declaration of the
+            --     limited view of that package, with the same defining-
+            --     program-unit name.
+            --
+            --   * For each type_declaration in the visible part, an incomplete
+            --     type-declaration with the same defining_identifier, whose
+            --     completion is the type_declaration. If the type_declaration
+            --     is tagged, then the incomplete_type_declaration is tagged
+            --     incomplete.
+
             if Nkind (Decl) = N_Full_Type_Declaration then
                Is_Tagged :=
                   Nkind (Type_Definition (Decl)) = N_Record_Definition
@@ -3787,7 +3858,7 @@ package body Sem_Ch10 is
 
                --  Create shadow entity for type
 
-               Lim_Typ  := New_Internal_Shadow_Entity
+               Lim_Typ := New_Internal_Shadow_Entity
                  (Kind       => Ekind (Comp_Typ),
                   Sloc_Value => Sloc (Comp_Typ),
                   Id_Char    => 'Z');
@@ -3803,7 +3874,6 @@ package body Sem_Ch10 is
                end if;
 
                Set_Non_Limited_View (Lim_Typ, Comp_Typ);
-               Append_Elmt (Lim_Typ,  To => Limited_Views (P));
 
             elsif Nkind (Decl) = N_Private_Type_Declaration
               and then Tagged_Present (Decl)
@@ -3826,7 +3896,6 @@ package body Sem_Ch10 is
                Decorate_Tagged_Type (Sloc (Decl), Lim_Typ, Scope);
 
                Set_Non_Limited_View (Lim_Typ, Comp_Typ);
-               Append_Elmt (Lim_Typ,  To => Limited_Views (P));
 
             elsif Nkind (Decl) = N_Package_Declaration then
 
@@ -3858,9 +3927,9 @@ package body Sem_Ch10 is
                   --  Note: The non_limited_view attribute is not used
                   --  for local packages.
 
-                  Append_Elmt (Lim_Typ,  To => Limited_Views (P));
-
-                  Build_Chain (Spec, Scope => Lim_Typ);
+                  Build_Chain
+                    (Scope      => Lim_Typ,
+                     First_Decl => First (Visible_Declarations (Spec)));
                end;
             end if;
 
@@ -3909,8 +3978,7 @@ package body Sem_Ch10 is
             return;
 
          when others =>
-            pragma Assert (False);
-            null;
+            raise Program_Error;
       end case;
 
       --  Check if the chain is already built
@@ -3922,12 +3990,41 @@ package body Sem_Ch10 is
       end if;
 
       Set_Ekind (P, E_Package);
-      Set_Limited_Views     (P, New_Elmt_List);
-      --  Set_Entity (Name (N), P);
 
-      --  Create the auxiliary chain
+      --  Build the header of the limited_view
 
-      Build_Chain (Spec, Scope => P);
+      Lim_Header := Make_Defining_Identifier (Sloc (N),
+                      Chars => New_Internal_Name (Id_Char => 'Z'));
+      Set_Ekind (Lim_Header, E_Package);
+      Set_Is_Internal (Lim_Header);
+      Set_Limited_View (P, Lim_Header);
+
+      --  Create the auxiliary chain. All the shadow entities are appended
+      --  to the list of entities of the limited-view header
+
+      Build_Chain
+        (Scope      => P,
+         First_Decl => First (Visible_Declarations (Spec)));
+
+      --  Save the last built shadow entity. It is needed later to set the
+      --  reference to the first shadow entity in the private part
+
+      Last_Pub_Lim_E := Last_Lim_E;
+
+      --  Ada 0Y (AI-262): Add the limited view of the private declarations
+      --  Required to give support to limited-private-with clauses
+
+      Build_Chain (Scope      => P,
+                   First_Decl => First (Private_Declarations (Spec)));
+
+      if Last_Pub_Lim_E /= Empty then
+         Set_First_Private_Entity (Lim_Header,
+                                   Next_Entity (Last_Pub_Lim_E));
+      else
+         Set_First_Private_Entity (Lim_Header,
+                                   First_Entity (P));
+      end if;
+
       Set_Limited_View_Installed (Spec);
    end Build_Limited_Views;
 
@@ -4056,7 +4153,7 @@ package body Sem_Ch10 is
       Unit_Name : Entity_Id;
 
    begin
-      --  Ada0Y (AI-50217): We remove the context clauses in two phases:
+      --  Ada 0Y (AI-50217): We remove the context clauses in two phases:
       --  limited-views first and regular-views later (to maintain the
       --  stack model).
 
@@ -4073,7 +4170,6 @@ package body Sem_Ch10 is
            and then Limited_View_Installed (Item)
          then
             Remove_Limited_With_Clause (Item);
-
          end if;
 
          Next (Item);
@@ -4122,10 +4218,9 @@ package body Sem_Ch10 is
    --------------------------------
 
    procedure Remove_Limited_With_Clause (N : Node_Id) is
-      P_Unit    : constant Entity_Id := Unit (Library_Unit (N));
-      P         : Entity_Id := Defining_Unit_Name (Specification (P_Unit));
-      Lim_Elmt  : Elmt_Id;
-      Lim_Typ   : Entity_Id;
+      P_Unit     : constant Entity_Id := Unit (Library_Unit (N));
+      P          : Entity_Id := Defining_Unit_Name (Specification (P_Unit));
+      Lim_Typ    : Entity_Id;
 
    begin
       if Nkind (P) = N_Defining_Program_Unit_Name then
@@ -4142,15 +4237,15 @@ package body Sem_Ch10 is
          Write_Eol;
       end if;
 
-      --  Remove all shadow entities from visibility
+      --  Remove all shadow entities from visibility. The first element of the
+      --  limited view is a header (an E_Package entity) that is used to
+      --  reference the first shadow entity in the private part of the package
 
-      Lim_Elmt  := First_Elmt (Limited_Views (P));
+      Lim_Typ    := First_Entity (Limited_View (P));
 
-      while Present (Lim_Elmt) loop
-         Lim_Typ  := Node (Lim_Elmt);
-
+      while Present (Lim_Typ) loop
          Unchain (Lim_Typ);
-         Next_Elmt (Lim_Elmt);
+         Next_Entity (Lim_Typ);
       end loop;
 
       --  Indicate that the limited view of the package is not installed
@@ -4196,7 +4291,6 @@ package body Sem_Ch10 is
                      Write_Name (Chars (Ent));
                      Write_Eol;
                   end if;
-
                end if;
 
                Next_Entity (Ent);

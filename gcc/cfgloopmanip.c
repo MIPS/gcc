@@ -29,8 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfglayout.h"
 #include "output.h"
 
-static struct loop * duplicate_loop (struct loops *, struct loop *,
-				     struct loop *);
 static void duplicate_subloops (struct loops *, struct loop *, struct loop *);
 static void copy_loops_to (struct loops *, struct loop **, int,
 			   struct loop *);
@@ -41,7 +39,7 @@ static bool rpe_enum_p (basic_block, void *);
 static int find_path (edge, basic_block **);
 static bool alp_enum_p (basic_block, void *);
 static void add_loop (struct loops *, struct loop *);
-static void fix_loop_placements (struct loop *);
+static void fix_loop_placements (struct loops *, struct loop *);
 static bool fix_bb_placement (struct loops *, basic_block);
 static void fix_bb_placements (struct loops *, basic_block);
 static void place_new_loop (struct loops *, struct loop *);
@@ -49,6 +47,8 @@ static void scale_loop_frequencies (struct loop *, int, int);
 static void scale_bbs_frequencies (basic_block *, int, int, int);
 static basic_block create_preheader (struct loop *, int);
 static void fix_irreducible_loops (basic_block);
+
+#define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
 
 /* Splits basic block BB after INSN, returns created edge.  Updates loops
    and dominators.  */
@@ -411,7 +411,7 @@ remove_path (struct loops *loops, edge e)
   /* Fix placements of basic blocks inside loops and the placement of
      loops in the loop tree.  */
   fix_bb_placements (loops, from);
-  fix_loop_placements (from->loop_father);
+  fix_loop_placements (loops, from->loop_father);
 
   return true;
 }
@@ -458,7 +458,7 @@ scale_bbs_frequencies (basic_block *bbs, int nbbs, int num, int den)
   for (i = 0; i < nbbs; i++)
     {
       bbs[i]->frequency = (bbs[i]->frequency * num) / den;
-      bbs[i]->count = (bbs[i]->count * num) / den;
+      bbs[i]->count = RDIV (bbs[i]->count * num, den);
       for (e = bbs[i]->succ; e; e = e->succ_next)
 	e->count = (e->count * num) /den;
     }
@@ -671,7 +671,7 @@ fix_loop_placement (struct loop *loop)
    It is used in case when we removed some edges coming out of LOOP, which
    may cause the right placement of LOOP inside loop tree to change.  */
 static void
-fix_loop_placements (struct loop *loop)
+fix_loop_placements (struct loops *loops, struct loop *loop)
 {
   struct loop *outer;
 
@@ -680,6 +680,13 @@ fix_loop_placements (struct loop *loop)
       outer = loop->outer;
       if (!fix_loop_placement (loop))
         break;
+
+      /* Changing the placement of a loop in the loop tree may alter the
+	 validity of condition 2) of the description of fix_bb_placement
+	 for its preheader, because the successor is the header and belongs
+	 to the loop.  So call fix_bb_placements to fix up the placement
+	 of the preheader and (possibly) of its predecessors.  */
+      fix_bb_placements (loops, loop_preheader_edge (loop)->src);
       loop = outer;
     }
 }
@@ -697,7 +704,7 @@ place_new_loop (struct loops *loops, struct loop *loop)
 
 /* Copies copy of LOOP as subloop of TARGET loop, placing newly
    created loop into LOOPS structure.  */
-static struct loop *
+struct loop *
 duplicate_loop (struct loops *loops, struct loop *loop, struct loop *target)
 {
   struct loop *cloop;
@@ -817,7 +824,6 @@ can_duplicate_loop_p (struct loop *loop)
   return ret;
 }
 
-#define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
 
 /* Duplicates body of LOOP to given edge E NDUPL times.  Takes care of updating
    LOOPS structure and dominators.  E's destination must be LOOP header for

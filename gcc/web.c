@@ -1,6 +1,6 @@
 /* Web construction code for GNU compiler.
    Contributed by Jan Hubicka.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -262,17 +262,16 @@ web_main (void)
   int max = max_reg_num ();
   char *used;
   char *use_addressof;
+  basic_block bb;
   rtx insn;
 
   df = df_init ();
   df_analyze (df, 0, DF_UD_CHAIN | DF_EQUIV_NOTES);
 
-  def_entry =
-    (struct web_entry *) xcalloc (df->n_defs, sizeof (struct web_entry));
-  use_entry =
-    (struct web_entry *) xcalloc (df->n_uses, sizeof (struct web_entry));
-  used = (char *) xcalloc (max, sizeof (char));
-  use_addressof = (char *) xcalloc (max, sizeof (char));
+  def_entry = xcalloc (df->n_defs, sizeof (struct web_entry));
+  use_entry = xcalloc (df->n_uses, sizeof (struct web_entry));
+  used = xcalloc (max, sizeof (char));
+  use_addressof = xcalloc (max, sizeof (char));
 
   if (dump_file)
     df_dump (df, DF_UD_CHAIN | DF_DU_CHAIN, dump_file);
@@ -282,9 +281,12 @@ web_main (void)
     union_defs (df, df->uses[i], def_entry, use_entry);
 
   /* We can not safely rename registers whose address is taken.  */
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (INSN_P (insn))
-      for_each_rtx (&PATTERN (insn), mark_addressof, use_addressof);
+  FOR_EACH_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+      {
+	if (INSN_P (insn))
+	  for_each_rtx (&PATTERN (insn), mark_addressof, use_addressof);
+      }
 
   /* Update the instruction stream, allocating new registers for split pseudos
      in progress.  */

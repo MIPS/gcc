@@ -688,6 +688,7 @@ package body System.Task_Primitives.Operations is
    function Monotonic_Clock return Duration is
       TS     : aliased timespec;
       Result : Interfaces.C.int;
+
    begin
       Result := clock_gettime
         (clock_id => CLOCK_REALTIME, tp => TS'Unchecked_Access);
@@ -710,7 +711,9 @@ package body System.Task_Primitives.Operations is
 
    procedure Wakeup (T : Task_Id; Reason : System.Tasking.Task_States) is
       pragma Warnings (Off, Reason);
+
       Result : Interfaces.C.int;
+
    begin
       Result := pthread_cond_signal (T.Common.LL.CV'Access);
       pragma Assert (Result = 0);
@@ -1052,6 +1055,7 @@ package body System.Task_Primitives.Operations is
 
    function Check_Exit (Self_ID : ST.Task_Id) return Boolean is
       pragma Warnings (Off, Self_ID);
+
    begin
       return True;
    end Check_Exit;
@@ -1062,6 +1066,7 @@ package body System.Task_Primitives.Operations is
 
    function Check_No_Locks (Self_ID : ST.Task_Id) return Boolean is
       pragma Warnings (Off, Self_ID);
+
    begin
       return True;
    end Check_No_Locks;
@@ -1099,10 +1104,12 @@ package body System.Task_Primitives.Operations is
 
    function Suspend_Task
      (T           : ST.Task_Id;
-      Thread_Self : Thread_Id) return Boolean
+      Thread_Self : Thread_Id)
+      return        Boolean
    is
       pragma Warnings (Off, T);
       pragma Warnings (Off, Thread_Self);
+
    begin
       return False;
    end Suspend_Task;
@@ -1113,10 +1120,12 @@ package body System.Task_Primitives.Operations is
 
    function Resume_Task
      (T           : ST.Task_Id;
-      Thread_Self : Thread_Id) return Boolean
+      Thread_Self : Thread_Id)
+      return        Boolean
    is
       pragma Warnings (Off, T);
       pragma Warnings (Off, Thread_Self);
+
    begin
       return False;
    end Resume_Task;
@@ -1131,8 +1140,8 @@ package body System.Task_Primitives.Operations is
       Tmp_Set : aliased sigset_t;
       Result  : Interfaces.C.int;
 
-      function State
-        (Int : System.Interrupt_Management.Interrupt_ID) return Character;
+      function State (Int : System.Interrupt_Management.Interrupt_ID)
+                     return Character;
       pragma Import (C, State, "__gnat_get_interrupt_state");
       --  Get interrupt state.  Defined in a-init.c
       --  The input argument is the interrupt number,

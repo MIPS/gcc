@@ -76,6 +76,7 @@ definitions and other extensions.  */
 
 /* Local function prototypes */
 static char *java_accstring_lookup (int);
+static const char *accessibility_string (int);
 static void  classitf_redefinition_error (const char *,tree, tree, tree);
 static void  variable_redefinition_error (tree, tree, tree, int);
 static tree  create_class (int, tree, tree, tree);
@@ -106,7 +107,7 @@ static void read_import_dir (tree);
 static int find_in_imports_on_demand (tree, tree);
 static void find_in_imports (tree, tree);
 static void check_inner_class_access (tree, tree, tree);
-static int check_pkg_class_access (tree, tree, bool);
+static int check_pkg_class_access (tree, tree, bool, tree);
 static void register_package (tree);
 static tree resolve_package (tree, tree *, tree *);
 static tree resolve_class (tree, tree, tree, tree);
@@ -3182,7 +3183,7 @@ not_accessible_field_error (tree wfl, tree decl)
 {
   parse_error_context 
     (wfl, "Can't access %s field `%s.%s' from `%s'",
-     java_accstring_lookup (get_access_flags_from_decl (decl)),
+     accessibility_string (get_access_flags_from_decl (decl)),
      GET_TYPE_NAME (DECL_CONTEXT (decl)),
      IDENTIFIER_POINTER (DECL_NAME (decl)),
      IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (current_class))));
@@ -3226,6 +3227,22 @@ java_accstring_lookup (int flags)
   buffer [0] = '\0';
   return buffer;
 #undef COPY_RETURN
+}
+
+/* Returns a string denoting the accessibility of a class or a member as
+   indicated by FLAGS.  We need a separate function from
+   java_accstring_lookup, as the latter can return spurious "static", etc.
+   if package-private access is defined (in which case none of the
+   relevant access control bits in FLAGS is set).  */
+
+static const char *
+accessibility_string (int flags)
+{
+  if (flags & ACC_PRIVATE) return "private";
+  if (flags & ACC_PROTECTED) return "protected";
+  if (flags & ACC_PUBLIC) return "public";
+
+  return "package-private";
 }
 
 /* Issuing error messages upon redefinition of classes, interfaces or
@@ -4019,6 +4036,11 @@ create_class (int flags, tree id, tree super, tree interfaces)
   ctxp->interface_number = 0;
   CLASS_COMPLETE_P (decl) = 1;
   add_superinterfaces (decl, interfaces);
+
+  /* TYPE_VFIELD' is a compiler-generated field used to point to
+     virtual function tables.  In gcj, every class has a common base
+     virtual function table in java.lang.object.  */
+  TYPE_VFIELD (TREE_TYPE (decl)) = TYPE_VFIELD (object_type_node);
 
   /* Add the private this$<n> field, Replicate final locals still in
      scope as private final fields mangled like val$<local_name>.
@@ -5062,7 +5084,7 @@ parser_check_super_interface (tree super_decl, tree this_decl, tree this_wfl)
      access rules (6.6.1). */
   if (! INNER_CLASS_P (super_type)
       && check_pkg_class_access (DECL_NAME (super_decl),
-				 lookup_cl (this_decl), true))
+				 NULL_TREE, true, this_decl))
     return 1;
 
   SOURCE_FRONTEND_DEBUG (("Completing interface %s with %s",
@@ -5100,7 +5122,7 @@ parser_check_super (tree super_decl, tree this_decl, tree wfl)
   /* Check top-level class scope. Inner classes are subject to member access
      rules (6.6.1). */
   if (! INNER_CLASS_P (super_type)
-      && (check_pkg_class_access (DECL_NAME (super_decl), wfl, true)))
+      && (check_pkg_class_access (DECL_NAME (super_decl), wfl, true, NULL_TREE)))
     return 1;
 
   SOURCE_FRONTEND_DEBUG (("Completing class %s with %s",
@@ -5840,7 +5862,7 @@ do_resolve_class (tree enclosing, tree class_type, tree decl, tree cl)
      by the caller. */
   if (cl)
     {
-      if (check_pkg_class_access (TYPE_NAME (class_type), cl, true))
+      if (check_pkg_class_access (TYPE_NAME (class_type), cl, true, NULL_TREE))
         return NULL_TREE;
     }
 
@@ -6800,7 +6822,7 @@ process_imports (void)
 	  QUALIFIED_P (to_be_found) = 1;
 	  load_class (to_be_found, 0);
 	  error_found =
-	    check_pkg_class_access (to_be_found, TREE_PURPOSE (import), true);
+	    check_pkg_class_access (to_be_found, TREE_PURPOSE (import), true, NULL_TREE);
 
 	  /* We found it, we can bail out */
 	  if (IDENTIFIER_CLASS_VALUE (to_be_found))
@@ -7044,7 +7066,7 @@ find_in_imports_on_demand (tree enclosing_type, tree class_type)
 	}
       if (decl && ! INNER_CLASS_P (TREE_TYPE (decl)))
 	access_check = check_pkg_class_access (node, TREE_PURPOSE (import),
-					       false);
+					       false, NULL_TREE);
       else
 	/* 6.6.1: Inner classes are subject to member access rules. */
 	access_check = 0;
@@ -7230,10 +7252,11 @@ check_inner_class_access (tree decl, tree enclosing_decl, tree cl)
 /* Accessibility check for top-level classes. If CLASS_NAME is in a
    foreign package, it must be PUBLIC. Return 0 if no access
    violations were found, 1 otherwise. If VERBOSE is true and an error
-   was found, it is reported and accounted for.  */
+   was found, it is reported and accounted for.  If CL is NULL then 
+   look it up with THIS_DECL.  */
 
 static int
-check_pkg_class_access (tree class_name, tree cl, bool verbose)
+check_pkg_class_access (tree class_name, tree cl, bool verbose, tree this_decl)
 {
   tree type;
 
@@ -7258,7 +7281,8 @@ check_pkg_class_access (tree class_name, tree cl, bool verbose)
 
       if (verbose)
 	parse_error_context
-	  (cl, "Can't access %s `%s'. Only public classes and interfaces in other packages can be accessed",
+	  (cl == NULL ? lookup_cl (this_decl): cl,
+           "Can't access %s `%s'. Only public classes and interfaces in other packages can be accessed",
 	   (CLASS_INTERFACE (TYPE_NAME (type)) ? "interface" : "class"),
 	   IDENTIFIER_POINTER (class_name));
       return 1;
@@ -9762,6 +9786,8 @@ resolve_qualified_expression_name (tree wfl, tree *found_decl,
 	      tree list;
 	      *where_found = decl;
 
+	      check_pkg_class_access (DECL_NAME (decl), qual_wfl, true, NULL);
+
 	      /* We want to be absolutely sure that the class is laid
                  out. We're going to search something inside it. */
 	      *type_found = type = TREE_TYPE (decl);
@@ -9802,8 +9828,8 @@ resolve_qualified_expression_name (tree wfl, tree *found_decl,
 	  decl = QUAL_RESOLUTION (q);
 
 	  /* Sneak preview. If next we see a `new', we're facing a
-	     qualification with resulted in a type being selected
-	     instead of a field.  Report the error */
+	     qualification which resulted in a type being selected
+	     instead of a field.  Report the error.  */
 	  if(TREE_CHAIN (q)
 	     && TREE_CODE (TREE_PURPOSE (TREE_CHAIN (q))) == NEW_CLASS_EXPR)
 	    {
@@ -9812,15 +9838,8 @@ resolve_qualified_expression_name (tree wfl, tree *found_decl,
 	      return 1;
 	    }
 
-	  if (not_accessible_p (TREE_TYPE (decl), decl, type, 0))
-	    {
-	      parse_error_context
-		(qual_wfl, "Can't access %s class '%s' from '%s'",
-		 java_accstring_lookup (get_access_flags_from_decl (decl)),
-		 IDENTIFIER_POINTER (DECL_NAME (decl)),
-		 IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (current_class))));
-	      return 1;
-	    }
+	  check_pkg_class_access (DECL_NAME (decl), qual_wfl, true, NULL);
+          
 	  check_deprecation (qual_wfl, decl);
 
 	  type = TREE_TYPE (decl);
@@ -10083,14 +10102,9 @@ not_accessible_p (tree reference, tree member, tree where, int from_super)
       return 1;
     }
 
-  /* Default access are permitted only when occurring within the
-     package in which the type (REFERENCE) is declared. In other words,
-     REFERENCE is defined in the current package */
-  if (ctxp->package)
-    return !class_in_current_package (reference);
-
-  /* Otherwise, access is granted */
-  return 0;
+  /* Default access is permitted only when occurring from within the
+     package in which the context (MEMBER) is declared.  */
+  return !class_in_current_package (DECL_CONTEXT (member));
 }
 
 /* Test deprecated decl access.  */
@@ -10483,7 +10497,7 @@ patch_method_invocation (tree patch, tree primary, tree where, int from_super,
     {
       const char *const fct_name = IDENTIFIER_POINTER (DECL_NAME (list));
       const char *const access =
-	java_accstring_lookup (get_access_flags_from_decl (list));
+	accessibility_string (get_access_flags_from_decl (list));
       const char *const klass =
 	IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (DECL_CONTEXT (list))));
       const char *const refklass =
@@ -10806,11 +10820,9 @@ patch_invoke (tree patch, tree method, tree args)
 	(class_has_finalize_method (class) ? alloc_object_node
 		  			   : alloc_no_finalizer_node);
       new = build (CALL_EXPR, promote_type (class),
-		   build_address_of (alloc_node),
-		   tree_cons (NULL_TREE, build_class_ref (class),
-			      build_tree_list (NULL_TREE,
-					       size_in_bytes (class))),
-		   NULL_TREE);
+		     build_address_of (alloc_node),
+		     build_tree_list (NULL_TREE, build_class_ref (class)),
+		     NULL_TREE);
       saved_new = save_expr (new);
       c1 = build_tree_list (NULL_TREE, saved_new);
       TREE_CHAIN (c1) = TREE_OPERAND (original_call, 1);
@@ -11594,7 +11606,8 @@ java_complete_lhs (tree node)
 				       TREE_OPERAND (cn, 1));
 	}
       /* Accept final locals too. */
-      else if (TREE_CODE (cn) == VAR_DECL && DECL_FINAL (cn))
+      else if (TREE_CODE (cn) == VAR_DECL && DECL_FINAL (cn) 
+	       && DECL_INITIAL (cn))
 	cn = fold_constant_for_init (DECL_INITIAL (cn), cn);
 
       if (!TREE_CONSTANT (cn) && !flag_emit_xref)
@@ -13940,25 +13953,32 @@ build_incomplete_class_ref (int location, tree class_name)
       && !JPRIMITIVE_TYPE_P (class_name)
       && !(TREE_CODE (class_name) == VOID_TYPE))
     {
+      tree cpc_list = GET_CPC_LIST();
+      tree cpc = cpc_list;
       tree target_class;
 
-      if (CLASS_INTERFACE (TYPE_NAME (this_class)))
+      /* For inner classes, add a 'class$' method to their outermost
+	 context, creating it if necessary.  */
+      
+      while (GET_NEXT_ENCLOSING_CPC(cpc))
+	cpc = GET_NEXT_ENCLOSING_CPC(cpc);
+      class_decl = TREE_VALUE (cpc);
+
+      target_class = TREE_TYPE (class_decl);
+
+      if (CLASS_INTERFACE (TYPE_NAME (target_class)))
 	{
 	  /* For interfaces, adding a static 'class$' method directly 
 	     is illegal.  So create an inner class to contain the new
 	     method.  Empirically this matches the behavior of javac.  */
-	  tree t = build_wfl_node (DECL_NAME (TYPE_NAME (object_type_node)));
-	  tree inner = create_anonymous_class (0, t);
+	  tree t, inner;
+	  /* We want the generated inner class inside the outermost class. */
+	  GET_CPC_LIST() = cpc;
+	  t = build_wfl_node (DECL_NAME (TYPE_NAME (object_type_node)));
+	  inner = create_anonymous_class (0, t);
 	  target_class = TREE_TYPE (inner);
 	  end_class_declaration (1);
-	}
-      else
-	{
-	  /* For inner classes, add a 'class$' method to their outermost
-	     context, creating it if necessary.  */
-	  while (INNER_CLASS_DECL_P (class_decl))
-	    class_decl = DECL_CONTEXT (class_decl);
-	  target_class = TREE_TYPE (class_decl);
+	  GET_CPC_LIST() = cpc_list;
 	}
 
       if (TYPE_DOT_CLASS (target_class) == NULL_TREE)
@@ -15236,6 +15256,16 @@ build_assertion (int location, tree condition, tree value)
 {
   tree node;
   tree klass = GET_CPC ();
+
+  if (! enable_assertions (klass))
+    {
+      condition = build (TRUTH_ANDIF_EXPR, NULL_TREE,
+			 boolean_false_node, condition);
+      if (value == NULL_TREE)
+	value = build_java_empty_stmt ();
+      return build_if_else_statement (location, condition,
+				      value, NULL_TREE);
+    }
 
   if (! CLASS_USES_ASSERTIONS (klass))
     {

@@ -44,7 +44,7 @@ DIST_COMMON = README $(am__configure_deps) $(srcdir)/../config.guess \
 	$(top_srcdir)/configure $(top_srcdir)/fragment.am \
 	$(top_srcdir)/scripts/check_survey.in \
 	$(top_srcdir)/scripts/testsuite_flags.in ../ABOUT-NLS \
-	../COPYING ../COPYING.LIB ../ChangeLog ../README \
+	../COPYING ../COPYING.LIB ../ChangeLog ../README ../compile \
 	../config.guess ../config.rpath ../config.sub ../install-sh \
 	../ltcf-c.sh ../ltcf-cxx.sh ../ltcf-gcj.sh ../ltconfig \
 	../ltmain.sh ../missing ../mkinstalldirs ../ylwrap ChangeLog \
@@ -87,6 +87,8 @@ GZIP_ENV = --best
 distuninstallcheck_listfiles = find . -type f -print
 distcleancheck_listfiles = find . -type f -print
 ACLOCAL = @ACLOCAL@
+ALLOCATOR_H = @ALLOCATOR_H@
+ALLOCATOR_NAME = @ALLOCATOR_NAME@
 AMTAR = @AMTAR@
 AR = @AR@
 AS = @AS@
@@ -152,6 +154,7 @@ INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+LIBICONV = @LIBICONV@
 LIBMATHOBJS = @LIBMATHOBJS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@

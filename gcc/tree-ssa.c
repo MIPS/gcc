@@ -37,7 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "bitmap.h"
 #include "tree-flow.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-inline.h"
 #include "varray.h"
 #include "timevar.h"
@@ -52,11 +52,14 @@ Boston, MA 02111-1307, USA.  */
 void
 ssa_remove_edge (edge e)
 {
-  tree phi;
+  tree phi, next;
 
   /* Remove the appropriate PHI arguments in E's destination block.  */
-  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-    remove_phi_arg (phi, e->src);
+  for (phi = phi_nodes (e->dest); phi; phi = next)
+    {
+      next = TREE_CHAIN (phi);
+      remove_phi_arg (phi, e->src);
+    }
 
   remove_edge (e);
 }
@@ -68,14 +71,16 @@ ssa_remove_edge (edge e)
 edge
 ssa_redirect_edge (edge e, basic_block dest)
 {
-  tree phi;
+  tree phi, next;
   tree list = NULL, *last = &list;
   tree src, dst, node;
   int i;
 
   /* Remove the appropriate PHI arguments in E's destination block.  */
-  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (e->dest); phi; phi = next)
     {
+      next = TREE_CHAIN (phi);
+
       i = phi_arg_from_edge (phi, e);
       if (i < 0)
 	continue;
@@ -306,14 +311,16 @@ verify_ssa (void)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  tree stmt;
+	  stmt_ann_t ann;
 	  unsigned int j;
 	  vdef_optype vdefs;
 	  def_optype defs;
 
 	  stmt = bsi_stmt (bsi);
+	  ann = stmt_ann (stmt);
 	  get_stmt_operands (stmt);
 
-	  vdefs = STMT_VDEF_OPS (stmt);
+	  vdefs = VDEF_OPS (ann);
 	  for (j = 0; j < NUM_VDEFS (vdefs); j++)
 	    {
 	      tree op = VDEF_RESULT (vdefs, j);
@@ -327,7 +334,7 @@ verify_ssa (void)
 	      err |= verify_def (bb, definition_block, op, stmt);
 	    }
 
-	  defs = STMT_DEF_OPS (stmt);
+	  defs = DEF_OPS (ann);
 	  for (j = 0; j < NUM_DEFS (defs); j++)
 	    {
 	      tree op = DEF_OP (defs, j);
@@ -367,15 +374,19 @@ verify_ssa (void)
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	err |= verify_phi_args (phi, bb, definition_block);
 
-      /* Now verify all the uses and vuses in every statement of the block.  */
+      /* Now verify all the uses and vuses in every statement of the block. 
+
+	 Remember, the RHS of a VDEF is a use as well.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  tree stmt = bsi_stmt (bsi);
+	  stmt_ann_t ann = stmt_ann (stmt);
 	  unsigned int j;
 	  vuse_optype vuses;
+	  vdef_optype vdefs;
 	  use_optype uses;
 
-	  vuses = STMT_VUSE_OPS (stmt);
+	  vuses = VUSE_OPS (ann);
 	  for (j = 0; j < NUM_VUSES (vuses); j++)
 	    {
 	      tree op = VUSE_OP (vuses, j);
@@ -391,7 +402,23 @@ verify_ssa (void)
 				 op, stmt, false);
 	    }
 
-	  uses = STMT_USE_OPS (stmt);
+	  vdefs = VDEF_OPS (ann);
+	  for (j = 0; j < NUM_VDEFS (vdefs); j++)
+	    {
+	      tree op = VDEF_OP (vdefs, j);
+
+	      if (is_gimple_reg (op))
+		{
+		  error ("Found a virtual use for a GIMPLE register");
+		  debug_generic_stmt (op);
+		  debug_generic_stmt (stmt);
+		  err = true;
+		}
+	      err |= verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
+				 op, stmt, false);
+	    }
+
+	  uses = USE_OPS (ann);
 	  for (j = 0; j < NUM_USES (uses); j++)
 	    {
 	      tree op = USE_OP (uses, j);
@@ -434,6 +461,7 @@ set_is_used (tree t)
 	case COMPONENT_REF:
 	case REALPART_EXPR:
 	case IMAGPART_EXPR:
+	case BIT_FIELD_REF:
 	case INDIRECT_REF:
 	  t = TREE_OPERAND (t, 0);
 	  break;
@@ -492,7 +520,7 @@ delete_tree_ssa (void)
   fini_ssa_operands ();
 
   global_var = NULL_TREE;
-  BITMAP_FREE (call_clobbered_vars);
+  BITMAP_XFREE (call_clobbered_vars);
   call_clobbered_vars = NULL;
   aliases_computed_p = false;
 }
@@ -539,7 +567,7 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
   else if (INTEGRAL_TYPE_P (inner_type)
            && INTEGRAL_TYPE_P (outer_type)
 	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
-	   && TREE_UNSIGNED (inner_type) == TREE_UNSIGNED (outer_type)
+	   && TYPE_UNSIGNED (inner_type) == TYPE_UNSIGNED (outer_type)
 	   && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type))
     return true;
 
@@ -669,6 +697,7 @@ replace_immediate_uses (tree var, tree repl)
   int i, j, n;
   dataflow_t df;
   tree stmt;
+  stmt_ann_t ann;
 
   df = get_immediate_uses (SSA_NAME_DEF_STMT (var));
   n = num_immediate_uses (df);
@@ -676,6 +705,7 @@ replace_immediate_uses (tree var, tree repl)
   for (i = 0; i < n; i++)
     {
       stmt = immediate_use (df, i);
+      ann = stmt_ann (stmt);
 
       if (TREE_CODE (stmt) == PHI_NODE)
 	{
@@ -694,19 +724,19 @@ replace_immediate_uses (tree var, tree repl)
       get_stmt_operands (stmt);
       if (is_gimple_reg (SSA_NAME_VAR (var)))
 	{
-	  uses = STMT_USE_OPS (stmt);
+	  uses = USE_OPS (ann);
 	  for (j = 0; j < (int) NUM_USES (uses); j++)
 	    if (USE_OP (uses, j) == var)
 	      propagate_value (USE_OP_PTR (uses, j), repl);
 	}
       else
 	{
-	  vuses = STMT_VUSE_OPS (stmt);
+	  vuses = VUSE_OPS (ann);
 	  for (j = 0; j < (int) NUM_VUSES (vuses); j++)
 	    if (VUSE_OP (vuses, j) == var)
 	      propagate_value (VUSE_OP_PTR (vuses, j), repl);
 
-	  vdefs = STMT_VDEF_OPS (stmt);
+	  vdefs = VDEF_OPS (ann);
 	  for (j = 0; j < (int) NUM_VDEFS (vdefs); j++)
 	    if (VDEF_OP (vdefs, j) == var)
 	      propagate_value (VDEF_OP_PTR (vdefs, j), repl);

@@ -345,6 +345,7 @@ regrename_optimize (void)
 
 	  do_replace (this, best_new_reg);
 	  tick[best_new_reg] = ++this_tick;
+	  regs_ever_live[best_new_reg] = 1;
 
 	  if (dump_file)
 	    fprintf (dump_file, ", renamed as %s\n", reg_names[best_new_reg]);
@@ -1779,7 +1780,7 @@ copyprop_hardreg_forward (void)
       /* ??? Irritatingly, delete_noop_moves does not take a set of blocks
 	 to scan, so we have to do a life update with no initial set of
 	 blocks Just In Case.  */
-      delete_noop_moves (get_insns ());
+      delete_noop_moves ();
       update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
 			PROP_DEATH_NOTES
 			| PROP_SCAN_DEAD_CODE

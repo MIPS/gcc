@@ -1132,7 +1132,8 @@ convert_escape (cpp_reader *pfile, const uchar *from, const uchar *limit,
    false for failure.  */
 bool
 cpp_interpret_string (cpp_reader *pfile, const cpp_string *from, size_t count,
-		      cpp_string *to, bool wide)
+		      /* APPLE LOCAL pascal strings */
+		      cpp_string *to, bool wide, bool pascal_p)
 {
   struct _cpp_strbuf tbuf;
   const uchar *p, *base, *limit;
@@ -1142,7 +1143,8 @@ cpp_interpret_string (cpp_reader *pfile, const cpp_string *from, size_t count,
 
   tbuf.asize = MAX (OUTBUF_BLOCK_SIZE, from->len);
   tbuf.text = xmalloc (tbuf.asize);
-  tbuf.len = 0;
+  /* APPLE LOCAL pascal strings */
+  tbuf.len = (pascal_p ? 1 : 0);  /* Reserve space for Pascal length byte.  */
 
   for (i = 0; i < count; i++)
     {
@@ -1150,6 +1152,13 @@ cpp_interpret_string (cpp_reader *pfile, const cpp_string *from, size_t count,
       if (*p == 'L') p++;
       p++; /* Skip leading quote.  */
       limit = from[i].text + from[i].len - 1; /* Skip trailing quote.  */
+      /* APPLE LOCAL begin pascal strings */
+      /* Handle narrow literals beginning with "\p..." specially, but only
+         if '-fpascal-strings' has been specified.  */
+      if (pascal_p && p[0] == '\\' && p[1] == 'p')
+        p += 2;
+      /* APPLE LOCAL end pascal strings */
+
 
       for (;;)
 	{
@@ -1169,6 +1178,17 @@ cpp_interpret_string (cpp_reader *pfile, const cpp_string *from, size_t count,
 	  p = convert_escape (pfile, p + 1, limit, &tbuf, wide);
 	}
     }
+
+  /* APPLE LOCAL begin pascal strings */
+  /* For Pascal strings, compute the length byte. */
+  if (pascal_p)
+    {
+      *tbuf.text = (unsigned char) (tbuf.len - 1);
+      if (tbuf.len > 256)
+        cpp_error (pfile, CPP_DL_ERROR, "Pascal string is too long");
+    }
+  /* APPLE LOCAL end pascal strings */
+
   /* NUL-terminate the 'to' buffer and translate it to a cpp_string
      structure.  */
   emit_numeric_escape (pfile, 0, &tbuf, wide);
@@ -1187,7 +1207,10 @@ cpp_interpret_string (cpp_reader *pfile, const cpp_string *from, size_t count,
    in a string, but do not perform character set conversion.  */
 bool
 cpp_interpret_string_notranslate (cpp_reader *pfile, const cpp_string *from,
-				  size_t count,	cpp_string *to, bool wide)
+				  /* APPLE LOCAL begin pascal strings */
+				  size_t count,	cpp_string *to, bool wide,
+				  bool pascal_p)
+				  /* APPLE LOCAL end pascal strings */
 {
   struct cset_converter save_narrow_cset_desc = pfile->narrow_cset_desc;
   bool retval;
@@ -1195,7 +1218,8 @@ cpp_interpret_string_notranslate (cpp_reader *pfile, const cpp_string *from,
   pfile->narrow_cset_desc.func = convert_no_conversion;
   pfile->narrow_cset_desc.cd = (iconv_t) -1;
 
-  retval = cpp_interpret_string (pfile, from, count, to, wide);
+  /* APPLE LOCAL pascal strings */
+  retval = cpp_interpret_string (pfile, from, count, to, wide, pascal_p);
 
   pfile->narrow_cset_desc = save_narrow_cset_desc;
   return retval;
@@ -1243,7 +1267,10 @@ narrow_str_to_charconst (cpp_reader *pfile, cpp_string str,
       cpp_error (pfile, CPP_DL_WARNING,
 		 "character constant too long for its type");
     }
-  else if (i > 1 && CPP_OPTION (pfile, warn_multichar))
+  /* APPLE LOCAL begin -Wfour-char-constants */
+  else if ((i == 4 && CPP_OPTION (pfile, warn_four_char_constants))
+           || (i > 1 && i != 4 && CPP_OPTION (pfile, warn_multichar)))
+    /* APPLE LOCAL end -Wfour-char-constants */
     cpp_error (pfile, CPP_DL_WARNING, "multi-character character constant");
 
   /* Multichar constants are of type int and therefore signed.  */
@@ -1339,7 +1366,8 @@ cpp_interpret_charconst (cpp_reader *pfile, const cpp_token *token,
       cpp_error (pfile, CPP_DL_ERROR, "empty character constant");
       return 0;
     }
-  else if (!cpp_interpret_string (pfile, &token->val.str, 1, &str, wide))
+  /* APPLE LOCAL pascal strings */
+  else if (!cpp_interpret_string (pfile, &token->val.str, 1, &str, wide, false))
     return 0;
 
   if (wide)
@@ -1409,7 +1437,7 @@ _cpp_default_encoding (void)
      - the appropriate Unicode byte-order mark (FE FF) to recognize
        UTF16 and UCS4 (in both big-endian and little-endian flavors)
        and UTF8
-     - a "#i", "#d", "/ *", "//", " #p" or "#p" (for #pragma) to
+     - a "#i", "#d", "/*", "//", " #p" or "#p" (for #pragma) to
        distinguish ASCII and EBCDIC.
      - now we can parse something like "#pragma GCC encoding <xyz>
        on the first line, or even Emacs/VIM's mode line tags (there's

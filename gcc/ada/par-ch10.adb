@@ -301,7 +301,6 @@ package body Ch10 is
          else
             if Operating_Mode = Check_Syntax and then Token = Tok_EOF then
                Error_Msg_SC ("?file contains no compilation units");
-
             else
                Error_Msg_SC ("compilation unit expected");
                Cunit_Error_Flag := True;
@@ -333,15 +332,10 @@ package body Ch10 is
          --  contained subprogram bodies), by knowing that that the file we
          --  are compiling has a name that requires a body to be found.
 
-         --  However, we do not do this check if we are operating in syntax
-         --  checking only mode, because in that case there may be multiple
-         --  units in the same file, and the file name is not a reliable guide.
-
          Save_Scan_State (Scan_State);
          Scan; -- past Package keyword
 
          if Token /= Tok_Body
-           and then Operating_Mode /= Check_Syntax
            and then
              Get_Expected_Unit_Type
                (File_Name (Current_Source_File)) = Expect_Body
@@ -665,18 +659,39 @@ package body Ch10 is
          elsif Operating_Mode = Check_Syntax then
             return Comp_Unit_Node;
 
+         --  We also allow multiple units if we are in multiple unit mode
+
+         elsif Multiple_Unit_Index /= 0 then
+
+            --  Skip tokens to end of file, so that the -gnatl listing
+            --  will be complete in this situation, but no need to parse
+            --  the remaining units; no style checking either.
+
+            declare
+               Save_Style_Check : constant Boolean := Style_Check;
+
+            begin
+               Style_Check := False;
+
+               while Token /= Tok_EOF loop
+                  Scan;
+               end loop;
+
+               Style_Check := Save_Style_Check;
+            end;
+
+            return Comp_Unit_Node;
+
          --  Otherwise we have an error. We suppress the error message
          --  if we already had a fatal error, since this stops junk
          --  cascaded messages in some situations.
 
          else
             if not Fatal_Error (Current_Source_Unit) then
-
                if Token in Token_Class_Cunit then
                   Error_Msg_SC
                     ("end of file expected, " &
                      "file can have only one compilation unit");
-
                else
                   Error_Msg_SC ("end of file expected");
                end if;
@@ -706,7 +721,6 @@ package body Ch10 is
       when Error_Resync =>
          Set_Fatal_Error (Current_Source_Unit);
          return Error;
-
    end P_Compilation_Unit;
 
    --------------------------
@@ -785,8 +799,8 @@ package body Ch10 is
 
          --  Processing for WITH clause
 
-         --  Ada0Y (AI-50217): First check for LIMITED WITH, PRIVATE WITH,
-         --  or both.
+         --  Ada0Y (AI-50217, AI-262): First check for LIMITED WITH,
+         --  PRIVATE WITH, or both.
 
          if Token = Tok_Limited then
             Has_Limited := True;
@@ -819,7 +833,7 @@ package body Ch10 is
 
             if Token /= Tok_With then
 
-               --  Keyword is beginning of private child unit.
+               --  Keyword is beginning of private child unit
 
                Restore_Scan_State (Scan_State); -- to PRIVATE
                return Item_List;
@@ -887,8 +901,25 @@ package body Ch10 is
                   Set_Limited_Present (With_Node, Has_Limited);
                   Set_Private_Present (With_Node, Has_Private);
                   First_Flag := False;
+
+                  --  All done if no comma
+
                   exit when Token /= Tok_Comma;
+
+                  --  If comma is followed by compilation unit token
+                  --  or by USE, or PRAGMA, then it should have been a
+                  --  semicolon after all
+
+                  Save_Scan_State (Scan_State);
                   Scan; -- past comma
+
+                  if Token in Token_Class_Cunit
+                    or else Token = Tok_Use
+                    or else Token = Tok_Pragma
+                  then
+                     Restore_Scan_State (Scan_State);
+                     exit;
+                  end if;
                end loop;
 
                Set_Last_Name (With_Node, True);

@@ -141,6 +141,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-dump.h"
 #include "timevar.h"
 #include "cfgloop.h"
+#include "cfglayout.h"
 #include "tree-fold-const.h"
 #include "expr.h"
 #include "optabs.h"
@@ -165,8 +166,8 @@ static void vect_compute_data_refs_alignment (loop_vec_info);
 static bool vect_analyze_operations (loop_vec_info);
 
 /* Main code transformation functions.  */
-static void vect_transform_loop (loop_vec_info);
-static void vect_transform_loop_bound (loop_vec_info);
+static void vect_transform_loop (loop_vec_info, struct loops *);
+static void vect_transform_loop_bound (loop_vec_info, tree);
 static bool vect_transform_stmt (tree, block_stmt_iterator *);
 static tree vect_transform_load (tree, block_stmt_iterator *);
 static tree vect_transform_store (tree, block_stmt_iterator *);
@@ -193,6 +194,7 @@ static bool vect_analyze_data_ref_dependence
   (struct data_reference *, struct data_reference *);
 static bool vect_get_array_first_index (tree, int *);
 static bool vect_force_dr_alignment_p (struct data_reference *);
+static bool vect_analyze_loop_with_symbolic_num_of_iters (tree *, struct loop *);
 
 /* Utility functions for the code transformation.  */
 static tree vect_create_destination_var (tree, tree);
@@ -202,6 +204,10 @@ static tree get_vectype_for_scalar_type (tree);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 static tree vect_get_vec_def_for_operand (tree, tree);
 static tree vect_init_vector (tree, tree);
+
+/* Utility functions for loop duplication.  */
+static basic_block vect_tree_split_edge (edge);
+static void vect_update_initial_conditions_of_duplicated_loop (loop_vec_info, tree);
 
 /* General untility functions (CHECKME: where do they belong).  */
 static tree get_array_base (tree);
@@ -282,6 +288,7 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_NITERS (res) = -1;
   LOOP_VINFO_VECTORIZABLE_P (res) = 0;
   LOOP_VINFO_VECT_FACTOR (res) = 0;
+  LOOP_VINFO_SYMB_NUM_OF_ITERS (res) = NULL;
   VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREF_WRITES (res), 20,
 			   "loop_write_datarefs");
   VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREF_READS (res), 20,
@@ -1275,33 +1282,249 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
   return is_store;
 }
 
+/* This funciton generates stmt 
+   
+   tmp = n / vf;
+
+   and attachs it to preheader of LOOP.  */
+
+static tree 
+vect_build_symbl_bound (tree n, int vf, struct loop * loop)
+{
+  tree var, stmt, var_name;
+  edge pe;
+  basic_block new_bb;
+  int i = -1;
+
+  /* create tmporary variable */
+  var = create_tmp_var (TREE_TYPE (n), "bnd");
+  add_referenced_tmp_var (var);
+
+  var_name = make_ssa_name (var, NULL_TREE);
+
+  /* vf is power of 2; thus if vf = 2^k, then n/vf = n >> k.   */
+  while (vf)
+    {
+      vf = vf >> 1;
+      i++;
+    }
+
+  stmt = build (MODIFY_EXPR, void_type_node, var_name,
+		build (RSHIFT_EXPR, TREE_TYPE (n),
+		       n, build_int_2(i,0)));
+
+  SSA_NAME_DEF_STMT (var_name) = stmt;
+
+  pe = loop_preheader_edge (loop);
+  new_bb = bsi_insert_on_edge_immediate (pe, stmt);
+  if (new_bb)
+    add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+  else	
+    if (dump_file && (dump_flags & TDF_DETAILS))
+      fprintf (dump_file, "\nNew bb on preheader edge was not generated.\n");
+
+  return var_name;
+}
+
+/* This function update initial conditions of loop copy (second loop).
+ 
+   LOOP_VINFO is vinfo of loop to be vectorized.
+   NITERS is a variable that contains number of iteration loop executes 
+   before vectorization.
+
+   When loop is vectorized, its IVs not always preseved so 
+   that to be used for initialization of loop copy (second loop). 
+   Here we use access functions of IVs and number of iteration 
+   loop executes in order to bring IVs to correct position.  */
+
+static void 
+vect_update_initial_conditions_of_duplicated_loop (loop_vec_info loop_vinfo, 
+						   tree niters)
+{
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo); 
+  /* Preheader edge of duplicated loop.  */
+  edge pe;
+  edge latch = loop_latch_edge (loop);
+  basic_block dloop_header;
+  tree phi;
+  
+  pe = loop->exit_edges[0]->dest->succ;
+  dloop_header = pe->dest;
+
+  for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
+    {
+      tree access_fn = NULL;
+      tree evolution_part;
+      tree init_expr;
+      tree step_expr;
+      tree var, stmt, var_name1, var_name2;
+      basic_block new_bb;
+      int i, num_elem1, num_elem2;
+      tree phi1;
+
+
+      /* Skip virtual phi's. The data dependences that are associated with
+         virtual defs/uses (i.e., memory accesses) are analyzed elsewhere.  */
+
+      if (!is_gimple_reg (SSA_NAME_VAR (PHI_RESULT (phi))))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "virtual phi. skip.\n");
+	  continue;
+	}
+
+      access_fn = instantiate_parameters
+	(loop,
+	 analyze_scalar_evolution (loop, PHI_RESULT (phi)));
+
+      evolution_part = evolution_part_in_loop_num (access_fn, loop_num(loop));
+      
+      /* FORNOW: We do not transform initial conditions of IVs 
+	 which evolution functions are a polynomial of degree >= 2 or
+	 exponential.  */
+
+      step_expr = evolution_part;
+      init_expr = initial_condition (access_fn);
+
+      /* create tmporary variable */
+      var = create_tmp_var (TREE_TYPE (step_expr), "tmp1");
+      add_referenced_tmp_var (var);
+
+      var_name1 = make_ssa_name (var, NULL_TREE);
+
+      stmt = build (MODIFY_EXPR, void_type_node, var_name1,
+		build (MULT_EXPR, TREE_TYPE (niters),
+		       niters, step_expr));
+
+      SSA_NAME_DEF_STMT (var_name1) = stmt;
+      new_bb = bsi_insert_on_edge_immediate (pe, stmt);
+
+      /* We should not generate new bb here, only use already existing one.  */
+      if (new_bb)
+	abort ();            
+            
+      var = create_tmp_var (TREE_TYPE (init_expr), "tmp2");
+      add_referenced_tmp_var (var);
+
+      var_name2 = make_ssa_name (var, NULL_TREE);
+
+      stmt = build (MODIFY_EXPR, void_type_node, var_name2,
+		build (PLUS_EXPR, TREE_TYPE (init_expr),
+		       init_expr, var_name1));
+      
+      SSA_NAME_DEF_STMT (var_name2) = stmt;
+      new_bb = bsi_insert_on_edge_immediate (pe, stmt);
+
+      /* We should not generate new bb here, only use already existing one.  */
+      if (new_bb)
+	abort ();            
+
+      /* Fix phi expressions in duplicated loop.   */
+      num_elem1 = PHI_NUM_ARGS (phi);
+      for (i = 0; i < num_elem1; i++)
+	if (PHI_ARG_EDGE (phi, i) == latch)
+	  {
+	    tree def;
+	    
+	    def = PHI_ARG_DEF (phi, i);
+	    for (phi1 = phi_nodes (dloop_header); phi1; phi1 = TREE_CHAIN (phi1))
+	      {
+		num_elem2 = PHI_NUM_ARGS (phi1);
+		for (i = 0; i < num_elem2; i++)
+		  if (PHI_ARG_DEF (phi1, i) == def)
+		    {
+		      PHI_ARG_DEF (phi1, i) = var_name2;
+		      PHI_ARG_EDGE (phi1, i) = pe;
+		      break;
+ 		    }		    
+	      }
+	    break;
+	  }
+    }
+}
+
+/* Split edge EDGE_IN.  Return the new block.
+   Abort on abnormal edges.  */
+
+static basic_block
+vect_tree_split_edge (edge edge_in)
+{
+  basic_block new_bb, dest, src;
+  edge new_edge;
+  tree phi;
+  int i, num_elem;
+
+  /* Abnormal edges cannot be split.  */
+  if (edge_in->flags & EDGE_ABNORMAL)
+    abort ();
+
+  src = edge_in->src;
+  dest = edge_in->dest;
+
+  new_bb = create_empty_bb (src);
+  new_edge = make_edge (new_bb, dest, EDGE_FALLTHRU);
+
+  /* Find all the PHI arguments on the original edge, and change them to
+     the new edge.  Do it before redirection, so that the argument does not
+     get removed.  */
+  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+    {
+      num_elem = PHI_NUM_ARGS (phi);
+      for (i = 0; i < num_elem; i++)
+	if (PHI_ARG_EDGE (phi, i) == edge_in)
+	  {
+	    PHI_ARG_EDGE (phi, i) = new_edge;
+	    break;
+	  }
+    }
+
+  if (!redirect_edge_and_branch (edge_in, new_bb))
+    abort ();
+
+  set_immediate_dominator (CDI_DOMINATORS, new_bb, src);
+  set_immediate_dominator (CDI_DOMINATORS, dest, new_bb);
+  
+  new_bb->loop_father = src->loop_father->outer;
+
+  if (PENDING_STMT (edge_in))
+    abort ();
+
+  return new_bb;
+}
+
 
 /* Function vect_transform_loop_bound.
 
    Create a new exit condition for the loop.  */
 
 static void
-vect_transform_loop_bound (loop_vec_info loop_vinfo)
+vect_transform_loop_bound (loop_vec_info loop_vinfo, tree niters)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   edge exit_edge = loop_exit_edge (loop, 0);
   block_stmt_iterator loop_exit_bsi = bsi_last (exit_edge->src);
   tree indx_before_incr, indx_after_incr;
   tree orig_cond_expr;
-  int old_N, vf;
+  int old_N = 0, vf;
   tree cond_stmt;
   tree new_loop_bound;
+  bool symbl_niters;
 
-  /* FORNOW: assuming the loop bound is known.  */
-  if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo))
+  if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo))
+    symbl_niters = false;
+  else if (LOOP_VINFO_SYMB_NUM_OF_ITERS (loop_vinfo) != NULL)
+    symbl_niters = true;
+  else  
     abort ();
 
-  old_N = LOOP_VINFO_NITERS (loop_vinfo);
+  if(!symbl_niters)
+      old_N = LOOP_VINFO_NITERS (loop_vinfo);
+
   vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
 
   /* FORNOW:
      assuming number-of-iterations divides by the vectorization factor.  */
-  if (old_N % vf)
+ if (!symbl_niters && old_N % vf)
     abort ();
 
   orig_cond_expr = LOOP_VINFO_EXIT_COND (loop_vinfo);
@@ -1320,7 +1543,12 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo)
     abort ();
 
   /* new loop exit test:  */
-  new_loop_bound = build_int_2 (old_N/vf, 0);
+  if(!symbl_niters)
+    new_loop_bound = build_int_2 (old_N/vf, 0);
+  else
+    new_loop_bound = niters;
+
+  
   cond_stmt = 
 	build (COND_EXPR, TREE_TYPE (orig_cond_expr),
 	build (LT_EXPR, boolean_type_node, indx_after_incr, new_loop_bound),
@@ -1343,7 +1571,7 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo)
    stmts in the loop, and update the loop exit condition.  */
 
 static void
-vect_transform_loop (loop_vec_info loop_vinfo)
+vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
@@ -1351,9 +1579,86 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   block_stmt_iterator si;
   int i;
-
+  tree var = NULL, ratio = NULL;
+  
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n<<vec_transform_loop>>\n");
+
+  /* If the loop has symbolic number of iterations 'n' 
+     (i.e. it's not a compile time constant), 
+     then an epilog loop need to be created. We therefore duplicate 
+     the initial loop. The original loop will be vectorized, and will compute
+     (n/VF) iterations. The second copy will remain serial and compute 
+     the remaining (n%VF) iterations. (VF is the vectorization factor).  */
+
+  if ( LOOP_VINFO_NITERS (loop_vinfo) == -1 && 
+       LOOP_VINFO_SYMB_NUM_OF_ITERS (loop_vinfo) != NULL )
+    {
+
+      edge ee,pe;
+      basic_block new_bb;
+      tree stmt, ni, ni_name;
+      tree ratio_mult_vf, ratio_mult_vf_name;
+      int vf, i = -1;
+
+      tree_duplicate_loop_to_exit (loop, loops);
+
+      /* FORNOW: Only loops with one exit are handled. */
+      ee = loop->exit_edges[0];
+      new_bb = vect_tree_split_edge(ee);
+      if (new_bb)
+	loop->exit_edges[0] = new_bb->pred;
+      else
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "\nFailed to generate emply bb after loop.\n");
+	  abort ();
+	}
+      /* Generate temporary variable that contains 
+         number of iterations loop executes.  */
+      ni = LOOP_VINFO_SYMB_NUM_OF_ITERS(loop_vinfo);
+      var = create_tmp_var (TREE_TYPE (ni), "niters");
+      add_referenced_tmp_var (var);
+
+      ni_name = force_gimple_operand (ni, &stmt, false, var);
+      pe = loop_preheader_edge (loop);
+      new_bb = bsi_insert_on_edge_immediate (pe, stmt);
+      if (new_bb)
+	add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+      
+      /* ratio = ni / vf  */
+
+      vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+      ratio = vect_build_symbl_bound (ni_name, vf, loop);
+       
+      /* Update initial conditions of loop copy.  */
+       
+      /* ratio_mult_vf = ration * vf;  */
+
+      /* vf is power of 2; thus if vf = 2^k, then n/vf = n >> k.   */
+      while (vf)
+	{
+	  vf = vf >> 1;
+	  i++;
+	}
+
+      ratio_mult_vf = create_tmp_var (TREE_TYPE (ni), "ratio_mult_vf");
+      add_referenced_tmp_var (ratio_mult_vf);
+
+      ratio_mult_vf_name = make_ssa_name (ratio_mult_vf, NULL_TREE);
+
+      stmt = build (MODIFY_EXPR, void_type_node, ratio_mult_vf_name,
+		build (LSHIFT_EXPR, TREE_TYPE (ratio),
+		       ratio, build_int_2(i,0)));
+
+      SSA_NAME_DEF_STMT (ratio_mult_vf_name) = stmt;
+
+      new_bb = bsi_insert_on_edge_immediate (pe, stmt);
+      if (new_bb)
+	add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+
+      vect_update_initial_conditions_of_duplicated_loop (loop_vinfo, ratio_mult_vf_name);
+    }
 
   /* CHECKME: FORNOW the vectorizer supports only loops which body consist
      of one basic block + header. When the vectorizer will support more
@@ -1415,8 +1720,7 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 	}			/* stmts in BB */
     }				/* BBs in loop */
 
-
-  vect_transform_loop_bound (loop_vinfo);
+  vect_transform_loop_bound (loop_vinfo, ratio);
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n<<Success! loop vectorized.>>\n");
 }
@@ -1849,12 +2153,21 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	vectorization_factor, LOOP_VINFO_NITERS (loop_vinfo));
 
   if (vectorization_factor == 0
-      || !LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-      || LOOP_VINFO_NITERS (loop_vinfo) % vectorization_factor != 0)
+      || (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo) && 
+	  !LOOP_VINFO_SYMB_NUM_OF_ITERS(loop_vinfo)))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, 
-		"loop bound unknown or doesn't divide by %d\n",
+		"Complicate loop bound.\n");
+      return false;
+    }
+
+  if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo) &&
+	   LOOP_VINFO_NITERS (loop_vinfo) % vectorization_factor != 0)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, 
+		"loop bound does not divided by %d.\n",
 		 vectorization_factor);
       return false;
     }
@@ -2037,8 +2350,6 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 
       /* Skip virtual phi's. The data dependences that are associated with
          virtual defs/uses (i.e., memory accesses) are analyzed elsewhere.  */
-
-      /* CHECKME: correct way to check for a virtual phi?  */
 
       if (!is_gimple_reg (SSA_NAME_VAR (PHI_RESULT (phi))))
 	{
@@ -3089,6 +3400,118 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
   return true;
 }
 
+/* This function analyze number of iteration LOOP executes in case 
+   the it is unknown number in compile time. 
+   
+   The vectoririze solution in this case is to duplicate loop so that 
+   first loop will be vectorized, while its copy (second loop) won't.
+   Initial conditions of loop copy (second loop) need to be updated.
+   
+   FORNOW: only loops with IVs which access functions are linear 
+           can be duplicated.  */
+
+static bool 
+vect_analyze_loop_with_symbolic_num_of_iters (tree *symb_num_of_iters, 
+					      struct loop *loop)
+{
+  tree niters;
+  basic_block bb = loop->header;
+  tree phi;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "\n<<vect_analyze_loop_with_symbolic_num_of_iters>>\n");
+  
+  niters = number_of_iterations_in_loop (loop);
+
+  if (niters == chrec_top)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+          fprintf (dump_file, "\nInfinite number of iterations.\n");
+      return false;
+    }
+
+  if (!niters)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+          fprintf (dump_file, "\nniters is NULL poiter.\n");
+      return false;
+    }
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "\nSymbolic number of iterations is ");
+      print_generic_expr (dump_file, niters, TDF_DETAILS);
+    }
+
+  if (chrec_contains_intervals (niters))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+          fprintf (dump_file, "\nniters contains interval.\n");
+      return false;
+    }
+
+  /* debug_tree(niters); */ 
+   
+  /* Analyze phi functions of the loop header.  */
+
+  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+    {
+      tree access_fn = NULL;
+      tree evolution_part;
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+          fprintf (dump_file, "\nAnalyze phi\n");
+          print_generic_expr (dump_file, phi, TDF_SLIM);
+	}
+
+      /* Skip virtual phi's. The data dependences that are associated with
+         virtual defs/uses (i.e., memory accesses) are analyzed elsewhere.  */
+
+      if (!is_gimple_reg (SSA_NAME_VAR (PHI_RESULT (phi))))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "virtual phi. skip.\n");
+	  continue;
+	}
+
+      /* Analyze the evolution function.  */
+
+      access_fn = instantiate_parameters
+	(loop,
+	 analyze_scalar_evolution (loop, PHI_RESULT (phi)));
+
+      if (!access_fn)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "No Access function.");
+	  return false;
+	}
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        {
+           fprintf (dump_file, "Access function of PHI: ");
+           print_generic_expr (dump_file, access_fn, TDF_SLIM);
+        }
+
+      evolution_part = evolution_part_in_loop_num (access_fn, loop_num(loop));
+      
+      if (evolution_part == NULL_TREE)
+	return false;
+  
+      /* FORNOW: We do not transform initial conditions of IVs 
+	 which evolution functions are a polynomial of degree >= 2 or
+	 exponential.  */
+
+      if (TREE_CODE (evolution_part) == POLYNOMIAL_CHREC
+	  || TREE_CODE (evolution_part) == EXPONENTIAL_CHREC)
+	return false;  
+    }
+
+  *symb_num_of_iters = niters;
+  return  true;
+}
+
 
 /* Function vect_get_loop_niters.
 
@@ -3135,6 +3558,7 @@ vect_analyze_loop_form (struct loop *loop)
   loop_vec_info loop_vinfo;
   tree loop_cond;
   int number_of_iterations = -1;
+  tree symb_num_of_iters = NULL_TREE;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n<<vect_analyze_loop_form>>\n");
@@ -3165,7 +3589,14 @@ vect_analyze_loop_form (struct loop *loop)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Can't determine num iters.\n");
-      return NULL;
+
+      /* Treat loops with unknown loop bounds.  */
+      if(!vect_analyze_loop_with_symbolic_num_of_iters (&symb_num_of_iters, loop))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "Can't determine loop bound.\n");
+	  return NULL;
+	}
     }
 
   /* CHECKME: check monev analyzer.  */
@@ -3180,6 +3611,7 @@ vect_analyze_loop_form (struct loop *loop)
 
   LOOP_VINFO_EXIT_COND (loop_vinfo) = loop_cond;
   LOOP_VINFO_NITERS (loop_vinfo) = number_of_iterations;
+  LOOP_VINFO_SYMB_NUM_OF_ITERS(loop_vinfo) = symb_num_of_iters;
 
   return loop_vinfo;
 }
@@ -3332,14 +3764,13 @@ need_imm_uses_for (tree var)
   return is_gimple_reg (var);
 }
 
-
 /* Function vectorize_loops.
    Entry Point to loop vectorization phase.  */
 
 void
 vectorize_loops (struct loops *loops)
 {
-  unsigned int i;
+  unsigned int i, loops_num;
   unsigned int num_vectorized_loops = 0;
 
   /* Does the target support SIMD?  */
@@ -3356,7 +3787,12 @@ vectorize_loops (struct loops *loops)
 
   /*  ----------- Analyze loops. -----------  */
   /* CHECKME */
-  for (i = 1; i < loops->num; i++)
+
+  /* If some loop was duplicated, it gets bigger number 
+     than all previously defined loops. This fuct allows us to run 
+     only over intial loops skipping newly generated ones.  */
+  loops_num = loops->num;
+  for (i = 1; i < loops_num; i++)
     {
       loop_vec_info loop_vinfo;
       struct loop *loop = loops->parray[i];
@@ -3370,13 +3806,13 @@ vectorize_loops (struct loops *loops)
       if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
 	continue;
 
-      vect_transform_loop (loop_vinfo);
+	vect_transform_loop (loop_vinfo, loops); 
       num_vectorized_loops++;
 #endif
     }
 
 #ifdef ANALYZE_ALL_THEN_VECTORIZE_ALL
-  for (i = 1; i < loops->num; i++)
+  for (i = 1; i < loops_num; i++)
     {
       struct loop *loop = loops->parray[i];
       loop_vec_info loop_vinfo = loop->aux;
@@ -3384,7 +3820,7 @@ vectorize_loops (struct loops *loops)
       if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
 	continue;
 
-      vect_transform_loop (loop_vinfo);
+      vect_transform_loop (loop_vinfo,loops);
       num_vectorized_loops++;
     }
 #endif
@@ -3396,7 +3832,7 @@ vectorize_loops (struct loops *loops)
   /*  ----------- Finialize. -----------  */
 
   free_df ();
-  for (i = 1; i < loops->num; i++)
+  for (i = 1; i < loops_num; i++)
     {
       struct loop *loop = loops->parray[i];
       loop_vec_info loop_vinfo = loop->aux;

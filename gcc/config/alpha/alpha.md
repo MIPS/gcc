@@ -2630,9 +2630,12 @@
    st%- %1,%0"
   [(set_attr "type" "fcpys,fld,fst")])
 
+;; Use register_operand for operand 1 to prevent compress_float_constant
+;; from doing something silly.  When optimizing we'll put things back 
+;; together anyway.
 (define_expand "extendsftf2"
   [(use (match_operand:TF 0 "register_operand" ""))
-   (use (match_operand:SF 1 "general_operand" ""))]
+   (use (match_operand:SF 1 "register_operand" ""))]
   "TARGET_HAS_XFLOATING_LIBS"
 {
   rtx tmp = gen_reg_rtx (DFmode);
@@ -2643,7 +2646,7 @@
 
 (define_expand "extenddftf2"
   [(use (match_operand:TF 0 "register_operand" ""))
-   (use (match_operand:DF 1 "general_operand" ""))]
+   (use (match_operand:DF 1 "register_operand" ""))]
   "TARGET_HAS_XFLOATING_LIBS"
   "alpha_emit_xfloating_cvt (FLOAT_EXTEND, operands); DONE;")
 
@@ -7182,7 +7185,7 @@
 
 (define_expand "builtin_insbl"
   [(match_operand:DI 0 "register_operand" "")
-   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 1 "register_operand" "")
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
@@ -7198,7 +7201,7 @@
 
 (define_expand "builtin_inswl"
   [(match_operand:DI 0 "register_operand" "")
-   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 1 "register_operand" "")
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
@@ -7214,7 +7217,7 @@
 
 (define_expand "builtin_insll"
   [(match_operand:DI 0 "register_operand" "")
-   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 1 "register_operand" "")
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {

@@ -291,7 +291,6 @@ print_rtx (rtx in_rtx)
 		  fprintf (outfile, " [ ERROR ]");
 		break;
 
-	      /* APPLE LOCAL begin hot/cold partitioning  */
 	      case NOTE_INSN_UNLIKELY_EXECUTED_CODE:
 		{
 		  basic_block bb = NOTE_BASIC_BLOCK (in_rtx);
@@ -299,8 +298,7 @@ print_rtx (rtx in_rtx)
 		    fprintf (outfile, " [bb %d]", bb->index);
 		  break;
 		}
-	      /* APPLE LOCAL end hot/cold partitioning  */
-
+		
 	      case NOTE_INSN_VAR_LOCATION:
 		fprintf (outfile, " (");
 		print_mem_expr (outfile, NOTE_VAR_LOCATION_DECL (in_rtx));

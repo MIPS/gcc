@@ -70,30 +70,32 @@ struct obstack temporary_obstack;
    it can assume certain classes have been compiled down to native
    code or not.  The compiler options -fassume-compiled= and
    -fno-assume-compiled= are used to create a tree of
-   assume_compiled_node objects.  This tree is queried to determine if
+   class_flag_node objects.  This tree is queried to determine if
    a class is assume to be compiled or not.  Each node in the tree
    represents either a package or a specific class.  */
 
-typedef struct assume_compiled_node_struct
+typedef struct class_flag_node_struct
 {
   /* The class or package name.  */
   const char *ident;
 
   /* Nonzero if this represents an exclusion.  */
-  int excludep;
+  int value;
 
   /* Pointers to other nodes in the tree.  */
-  struct assume_compiled_node_struct *parent;
-  struct assume_compiled_node_struct *sibling;
-  struct assume_compiled_node_struct *child;
-} assume_compiled_node;
+  struct class_flag_node_struct *parent;
+  struct class_flag_node_struct *sibling;
+  struct class_flag_node_struct *child;
+} class_flag_node;
 
-static assume_compiled_node *find_assume_compiled_node (assume_compiled_node *,
-							const char *);
+static class_flag_node *find_class_flag_node (class_flag_node *, const char *);
+static void add_class_flag (class_flag_node **, const char *, int);
 
 /* This is the root of the include/exclude tree.  */
 
-static assume_compiled_node *assume_compiled_tree;
+static class_flag_node *assume_compiled_tree;
+
+static class_flag_node *enable_assert_tree;
 
 static GTY(()) tree class_roots[5];
 #define registered_class class_roots[0]
@@ -103,11 +105,11 @@ static GTY(()) tree class_roots[5];
 #define class_dtable_decl class_roots[4]
 
 /* Return the node that most closely represents the class whose name
-   is IDENT.  Start the search from NODE.  Return NULL if an
-   appropriate node does not exist.  */
+   is IDENT.  Start the search from NODE (followed by its siblings).
+   Return NULL if an appropriate node does not exist.  */
 
-static assume_compiled_node *
-find_assume_compiled_node (assume_compiled_node *node, const char *ident)
+static class_flag_node *
+find_class_flag_node (class_flag_node *node, const char *ident)
 {
   while (node)
     {
@@ -120,14 +122,13 @@ find_assume_compiled_node (assume_compiled_node *node, const char *ident)
 
       if (node_ident_length == 0
 	  || (strncmp (ident, node->ident, node_ident_length) == 0
-	      && (strlen (ident) == node_ident_length
+	      && (ident[node_ident_length] == '\0'
 		  || ident[node_ident_length] == '.')))
 	{
 	  /* We've found a match, however, there might be a more
              specific match.  */
 
-	  assume_compiled_node *found = find_assume_compiled_node (node->child,
-								   ident);
+	  class_flag_node *found = find_class_flag_node (node->child, ident);
 	  if (found)
 	    return found;
 	  else
@@ -142,54 +143,77 @@ find_assume_compiled_node (assume_compiled_node *node, const char *ident)
   return NULL;
 }
 
-/* Add a new IDENT to the include/exclude tree.  It's an exclusion
-   if EXCLUDEP is nonzero.  */
-
 void
-add_assume_compiled (const char *ident, int excludep)
+add_class_flag (class_flag_node **rootp, const char *ident, int value)
 {
-  int len;
-  assume_compiled_node *parent;
-  assume_compiled_node *node = xmalloc (sizeof (assume_compiled_node));
-
-  node->ident = xstrdup (ident);
-  node->excludep = excludep;
-  node->child = NULL;
+  class_flag_node *root = *rootp;
+  class_flag_node *parent, *node;
 
   /* Create the root of the tree if it doesn't exist yet.  */
 
-  if (NULL == assume_compiled_tree)
+  if (NULL == root)
     {
-      assume_compiled_tree = xmalloc (sizeof (assume_compiled_node));
-      assume_compiled_tree->ident = "";
-      assume_compiled_tree->excludep = 0;
-      assume_compiled_tree->sibling = NULL;
-      assume_compiled_tree->child = NULL;
-      assume_compiled_tree->parent = NULL;
+      root = xmalloc (sizeof (class_flag_node));
+      root->ident = "";
+      root->value = 0;
+      root->sibling = NULL;
+      root->child = NULL;
+      root->parent = NULL;
+      *rootp = root;
     }
 
   /* Calling the function with the empty string means we're setting
-     excludep for the root of the hierarchy.  */
+     value for the root of the hierarchy.  */
 
   if (0 == ident[0])
     {
-      assume_compiled_tree->excludep = excludep;
+      root->value = value;
       return;
     }
 
   /* Find the parent node for this new node.  PARENT will either be a
      class or a package name.  Adjust PARENT accordingly.  */
 
-  parent = find_assume_compiled_node (assume_compiled_tree, ident);
-  len = strlen (parent->ident);
-  if (parent->ident[len] && parent->ident[len] != '.')
-    parent = parent->parent;
+  parent = find_class_flag_node (root, ident);
+  if (strcmp (ident, parent->ident) == 0)
+    parent->value = value;
+  else
+    {
+      /* Insert new node into the tree.  */
+      node = xmalloc (sizeof (class_flag_node));
 
-  /* Insert NODE into the tree.  */
+      node->ident = xstrdup (ident);
+      node->value = value;
+      node->child = NULL;
 
-  node->parent = parent;
-  node->sibling = parent->child;
-  parent->child = node;
+      node->parent = parent;
+      node->sibling = parent->child;
+      parent->child = node;
+    }
+}
+
+/* Add a new IDENT to the include/exclude tree.  It's an exclusion
+   if EXCLUDEP is nonzero.  */
+
+void
+add_assume_compiled (const char *ident, int excludep)
+{
+  add_class_flag (&assume_compiled_tree, ident, excludep);
+}
+
+/* The default value returned by enable_assertions. */
+
+#define DEFAULT_ENABLE_ASSERT (flag_emit_class_files || optimize == 0)
+
+/* Enter IDENT (a class or package name) into the enable-assertions table.
+   VALUE is true to enable and false to disable. */
+
+void
+add_enable_assert (const char *ident, int value)
+{
+  if (enable_assert_tree == NULL)
+    add_class_flag (&enable_assert_tree, "", DEFAULT_ENABLE_ASSERT);
+  add_class_flag (&enable_assert_tree, ident, value);
 }
 
 /* Returns nonzero if IDENT is the name of a class that the compiler
@@ -198,18 +222,37 @@ add_assume_compiled (const char *ident, int excludep)
 static int
 assume_compiled (const char *ident)
 {
-  assume_compiled_node *i;
+  class_flag_node *i;
   int result;
   
   if (NULL == assume_compiled_tree)
     return 1;
 
-  i = find_assume_compiled_node (assume_compiled_tree,
-				 ident);
+  i = find_class_flag_node (assume_compiled_tree, ident);
 
-  result = ! i->excludep;
+  result = ! i->value;
   
   return (result);
+}
+
+/* Return true if we should generate code to check assertions within KLASS. */
+
+bool
+enable_assertions (tree klass)
+{
+  /* Check if command-line specifies whether we should check assertions. */
+
+  if (klass != NULL_TREE && DECL_NAME (klass) && enable_assert_tree != NULL)
+    {
+      const char *ident = IDENTIFIER_POINTER (DECL_NAME (klass));
+      class_flag_node *node
+	= find_class_flag_node (enable_assert_tree, ident);
+      return node->value;
+    }
+
+  /* The default is to enable assertions if generating class files,
+     or not optimizing. */
+  return DEFAULT_ENABLE_ASSERT;
 }
 
 /* Return an IDENTIFIER_NODE the same as (OLD_NAME, OLD_LENGTH).
@@ -433,6 +476,7 @@ set_super_info (int access_flags, tree this_class,
   if (super_class)
     total_supers++;
 
+  TYPE_VFIELD (this_class) = TYPE_VFIELD (object_type_node);
   TYPE_BINFO_BASETYPES (this_class) = make_tree_vec (total_supers);
   if (super_class)
     {
@@ -1203,11 +1247,16 @@ make_method_value (tree mdecl)
   tree minit;
   tree index;
   tree code;
+  tree class_decl;
 #define ACC_TRANSLATED          0x4000
   int accflags = get_access_flags_from_decl (mdecl) | ACC_TRANSLATED;
 
-  if (!flag_indirect_dispatch && DECL_VINDEX (mdecl) != NULL_TREE)
-    index = DECL_VINDEX (mdecl);
+  class_decl = DECL_CONTEXT (mdecl);
+  /* For interfaces, the index field contains the dispatch index. */
+  if (CLASS_INTERFACE (TYPE_NAME (class_decl)))
+    index = build_int_2 (get_interface_method_index (mdecl, class_decl), 0);
+  else if (!flag_indirect_dispatch && get_method_index (mdecl) != NULL_TREE)
+    index = get_method_index (mdecl);
   else
     index = integer_minus_one_node;
 
@@ -1295,10 +1344,12 @@ get_dispatch_vector (tree type)
 
       for (method = TYPE_METHODS (type);  method != NULL_TREE;
 	   method = TREE_CHAIN (method))
-	if (DECL_VINDEX (method) != NULL_TREE
-	    && host_integerp (DECL_VINDEX (method), 0))
-	  TREE_VEC_ELT (vtable, tree_low_cst (DECL_VINDEX (method), 0))
-	    = method;
+	{
+	  tree method_index = get_method_index (method);
+	  if (method_index != NULL_TREE
+	      && host_integerp (method_index, 0))
+	    TREE_VEC_ELT (vtable, tree_low_cst (method_index, 0)) = method;
+	}
     }
 
   return vtable;
@@ -1376,6 +1427,42 @@ get_dispatch_table (tree type, tree this_class_addr)
   arraysize += 2;
   return build_constructor (build_prim_array_type (nativecode_ptr_type_node,
 						   arraysize), list);
+}
+
+
+/* Set the method_index for a method decl.  */
+void
+set_method_index (tree decl, tree method_index)
+{
+  method_index = fold (convert (sizetype, method_index));
+
+  if (TARGET_VTABLE_USES_DESCRIPTORS)
+    /* Add one to skip bogus descriptor for class and GC descriptor. */
+    method_index = size_binop (PLUS_EXPR, method_index, size_int (1));
+  else
+    /* Add 1 to skip "class" field of dtable, and 1 to skip GC descriptor.  */
+    method_index = size_binop (PLUS_EXPR, method_index, size_int (2));
+
+  DECL_VINDEX (decl) = method_index;
+}
+
+/* Get the method_index for a method decl.  */
+tree
+get_method_index (tree decl)
+{
+  tree method_index = DECL_VINDEX (decl);
+
+  if (! method_index)
+    return NULL;
+
+  if (TARGET_VTABLE_USES_DESCRIPTORS)
+    /* Sub one to skip bogus descriptor for class and GC descriptor. */
+    method_index = size_binop (MINUS_EXPR, method_index, size_int (1));
+  else
+    /* Sub 1 to skip "class" field of dtable, and 1 to skip GC descriptor.  */
+    method_index = size_binop (MINUS_EXPR, method_index, size_int (2));
+
+  return method_index;
 }
 
 static int
@@ -1678,6 +1765,7 @@ make_class_data (tree type)
   PUSH_FIELD_VALUE (cons, "protectionDomain", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "hack_signers", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "chain", null_pointer_node);
+  PUSH_FIELD_VALUE (cons, "aux_info", null_pointer_node);
 
   FINISH_RECORD_CONSTRUCTOR (cons);
 
@@ -2062,6 +2150,23 @@ layout_class_methods (tree this_class)
   TYPE_NVIRTUALS (this_class) = dtable_count;
 }
 
+/* Return the index of METHOD in INTERFACE.  This index begins at 1 and is used as an
+   argument for _Jv_LookupInterfaceMethodIdx(). */
+int
+get_interface_method_index (tree method, tree interface)
+{
+  tree meth;
+  int i = 1;
+
+  for (meth = TYPE_METHODS (interface); ; meth = TREE_CHAIN (meth), i++)
+    {
+      if (meth == method)
+	return i;
+      if (meth == NULL_TREE)
+	abort ();
+    }
+}
+
 /* Lay METHOD_DECL out, returning a possibly new value of
    DTABLE_COUNT. Also mangle the method's name. */
 
@@ -2107,8 +2212,9 @@ layout_class_method (tree this_class, tree super_class,
 						  method_sig);
       if (super_method != NULL_TREE && ! METHOD_PRIVATE (super_method))
 	{
-	  DECL_VINDEX (method_decl) = DECL_VINDEX (super_method);
-	  if (DECL_VINDEX (method_decl) == NULL_TREE 
+	  tree method_index = get_method_index (super_method);
+	  set_method_index (method_decl, method_index);
+	  if (method_index == NULL_TREE 
 	      && !CLASS_FROM_SOURCE_P (this_class))
 	    error ("%Jnon-static method '%D' overrides static method",
                    method_decl, method_decl);
@@ -2118,7 +2224,7 @@ layout_class_method (tree this_class, tree super_class,
 	       && ! CLASS_FINAL (TYPE_NAME (this_class))
 	       && dtable_count)
 	{
-	  DECL_VINDEX (method_decl) = dtable_count;
+	  set_method_index (method_decl, dtable_count);
 	  dtable_count = fold (build (PLUS_EXPR, integer_type_node,
 				      dtable_count, integer_one_node));
 	}

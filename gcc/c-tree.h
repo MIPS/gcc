@@ -24,38 +24,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "c-common.h"
 
-/* Language-dependent contents of an identifier.  */
-
-/* The limbo_value is used for block level extern declarations, which need
-   to be type checked against subsequent extern declarations.  They can't
-   be referenced after they fall out of scope, so they can't be global.
-
-   The rid_code field is used for keywords.  It is in all
-   lang_identifier nodes, because some keywords are only special in a
-   particular context.  */
-
-struct lang_identifier GTY(())
-{
-  struct c_common_identifier common_id;
-  tree symbol_value;
-  tree tag_value;
-  tree label_value;
-  /* APPLE LOCAL objc speedup dpatel */
-  /* For Objective-C Only */
-  tree interface_value;
-};
-
-/* The resulting tree type.  */
-
-union lang_tree_node
-  GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
-       chain_next ("C_LANG_TREE_NODE_CHAIN_NEXT (&%h.generic)")))
-{
-  union tree_node GTY ((tag ("0"),
-			desc ("tree_node_structure (&%h)")))
-    generic;
-  struct lang_identifier GTY ((tag ("1"))) identifier;
-};
+/* struct lang_identifier is private to c-decl.c, but langhooks.c needs to
+   know how big it is.  This is sanity-checked in c-decl.c.  */
+#define C_SIZEOF_STRUCT_LANG_IDENTIFIER \
+  (sizeof (struct c_common_identifier) + 3 * sizeof (void *))
 
 /* For gc purposes, return the most likely link for the longest chain.  */
 #define C_LANG_TREE_NODE_CHAIN_NEXT(T)				\
@@ -73,26 +45,6 @@ struct lang_decl GTY(())
      compute those sizes.  */
   tree pending_sizes;
 };
-
-/* Macros for access to language-specific slots in an identifier.  */
-/* Each of these slots contains a DECL node or null.  */
-
-/* The value of the identifier in the namespace of "ordinary identifiers"
-   (data objects, enum constants, functions, typedefs).  */
-#define IDENTIFIER_SYMBOL_VALUE(NODE)	\
-  (((struct lang_identifier *) (NODE))->symbol_value)
-/* The value of the identifier in the namespace of struct, union,
-   and enum tags.  */
-#define IDENTIFIER_TAG_VALUE(NODE)	\
-  (((struct lang_identifier *) (NODE))->tag_value)
-/* The value of the identifier in the namespace of labels.  */
-#define IDENTIFIER_LABEL_VALUE(NODE)	\
-  (((struct lang_identifier *) (NODE))->label_value)
-
-/* In identifiers, C uses the following fields in a special way:
-   TREE_PUBLIC        to record that there was a previous local extern decl.
-   TREE_USED          to record that such a decl was used.
-   TREE_ADDRESSABLE   to record that the address of such a decl was used.  */
 
 /* In a RECORD_TYPE or UNION_TYPE, nonzero if any component is read-only.  */
 #define C_TYPE_FIELDS_READONLY(TYPE) TREE_LANG_FLAG_1 (TYPE)
@@ -141,11 +93,18 @@ struct lang_type GTY(())
 /* For a FUNCTION_DECL, nonzero if it was an implicit declaration.  */
 #define C_DECL_IMPLICIT(EXP) DECL_LANG_FLAG_2 (EXP)
 
-/* Nonzero for a declaration of an external object which is not
-   currently in scope.  This is either a built-in declaration of
-   a library function, before a real declaration has been seen,
-   or a declaration that appeared in an inner scope that has ended.  */
-#define C_DECL_INVISIBLE(EXP) DECL_LANG_FLAG_3 (EXP)
+/* For any decl, nonzero if it is bound in the externals scope and
+   pop_scope mustn't chain it into any higher block.  */
+#define C_DECL_IN_EXTERNAL_SCOPE(EXP) DECL_LANG_FLAG_3 (EXP)
+
+/* For FUNCTION_DECLs, evaluates true if the decl is built-in but has
+   been declared.  */
+#define C_DECL_DECLARED_BUILTIN(EXP) DECL_LANG_FLAG_4 (EXP)
+
+/* Record whether a decl was declared register.  This is strictly a
+   front-end flag, whereas DECL_REGISTER is used for code generation;
+   they may differ for structures with volatile fields.  */
+#define C_DECL_REGISTER(EXP) DECL_LANG_FLAG_5 (EXP)
 
 /* Nonzero for a decl which either doesn't exist or isn't a prototype.
    N.B. Could be simplified if all built-in decls had complete prototypes
@@ -159,11 +118,6 @@ struct lang_type GTY(())
    TYPE_ARG_TYPES for functions with prototypes, but created for functions
    without prototypes.  */
 #define TYPE_ACTUAL_ARG_TYPES(NODE) TYPE_BINFO (NODE)
-
-/* Values for the first parameter to poplevel.  */
-#define KEEP_NO		0
-#define KEEP_YES	1
-#define KEEP_MAYBE	2
 
 /* Save and restore the variables in this file and elsewhere
    that keep track of the progress of compilation of the current function.
@@ -194,9 +148,9 @@ extern int c_in_case_stmt;
 
 extern int global_bindings_p (void);
 extern tree getdecls (void);
-extern void pushlevel (int);
+extern void push_scope (void);
+extern tree pop_scope (void);
 extern void insert_block (tree);
-extern void set_block (tree);
 extern tree pushdecl (tree);
 extern void c_expand_body (tree);
 
@@ -216,12 +170,11 @@ extern void finish_decl (tree, tree, tree);
 extern tree finish_enum (tree, tree, tree);
 extern void finish_function (void);
 extern tree finish_struct (tree, tree, tree);
-extern tree get_parm_info (int);
+extern tree get_parm_info (bool);
 extern tree grokfield (tree, tree, tree);
 extern tree groktypename (tree);
 extern tree groktypename_in_parm_context (tree);
 extern tree implicitly_declare (tree);
-extern int  in_parm_level_p (void);
 extern void keep_next_level (void);
 extern tree lookup_name (tree);
 extern void pending_xref_error (void);
@@ -229,7 +182,6 @@ extern void c_push_function_context (struct function *);
 extern void c_pop_function_context (struct function *);
 extern void push_parm_decl (tree);
 extern tree pushdecl_top_level (tree);
-extern void pushtag (tree, tree);
 extern tree set_array_declarator_type (tree, tree, int);
 extern void shadow_tag (tree);
 extern void shadow_tag_warned (tree, int);
@@ -243,7 +195,6 @@ extern tree c_begin_compound_stmt (void);
 extern int c_expand_decl (tree);
 extern void c_static_assembler_name (tree);
 extern tree make_pointer_declarator (tree, tree);
-extern void merge_translation_unit_decls (void);
 
 /* in c-objc-common.c */
 extern int c_disregard_inline_limits (tree);
@@ -281,11 +232,8 @@ enum {
   COMPARE_STRICT = 0
 };
 
-/* APPLE LOCAL begin IMA aggregate types */ 
-extern int same_translation_unit_p (tree, tree);
-extern int tagged_types_tu_compatible_p (tree, tree, int);
-/* APPLE LOCAL end IMA aggregate types */
 extern tree require_complete_type (tree);
+extern int same_translation_unit_p (tree, tree);
 extern int comptypes (tree, tree, int);
 extern tree c_size_in_bytes (tree);
 extern bool c_mark_addressable (tree);
@@ -343,6 +291,11 @@ extern int current_function_returns_abnormally;
 
 extern int system_header_p;
 
+/* True means global_bindings_p should return false even if the scope stack
+   says we are in file scope.  */
+
+extern bool c_override_global_bindings_to_false;
+
 /* In c-decl.c */
 extern void c_finish_incomplete_decl (tree);
 extern void *get_current_scope (void);
@@ -351,10 +304,6 @@ extern void c_write_global_declarations (void);
 
 extern GTY(()) tree static_ctors;
 extern GTY(()) tree static_dtors;
-
-/* In c-call-graph.c  */
-extern void print_call_graph (FILE*, tree);
-extern void debug_call_graph (tree);
 
 /* In order for the format checking to accept the C frontend
    diagnostic framework extensions, you must include this file before

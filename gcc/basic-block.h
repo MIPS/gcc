@@ -146,10 +146,8 @@ struct edge_def GTY((chain_next ("%h.pred_next")))
   int probability;		/* biased by REG_BR_PROB_BASE */
   gcov_type count;		/* Expected number of executions calculated
 				   in profile.c  */
-  /* APPLE LOCAL begin hot/cold partitioning  */
   bool crossing_edge;           /* Crosses between hot and cold sections, when
 				   we do partitioning.  */
-  /* APPLE LOCAL end hot/cold partitioning  */
 };
 
 typedef struct edge_def *edge;
@@ -288,11 +286,8 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   /* Various flags.  See BB_* below.  */
   int flags;
 
-  /* APPLE LOCAL begin hot/cold partitioning  */
   /* Which section block belongs in, when partitioning basic blocks.  */
   int partition;
-
-  /* APPLE LOCAL end hot/cold partitioning  */
 
   /* The data used by basic block copying and reordering functions.  */
   struct reorder_block_def * GTY ((skip (""))) rbi;
@@ -331,13 +326,11 @@ typedef struct reorder_block_def
 #define BB_IRREDUCIBLE_LOOP	16
 #define BB_SUPERBLOCK		32
 
-/* APPLE LOCAL begin hot/cold partitioning  */
 /* Partitions, to be used when partitioning hot and cold basic blocks into
    separate sections.  */
 #define UNPARTITIONED   0
 #define HOT_PARTITION   1
 #define COLD_PARTITION  2
-/* APPLE LOCAL end hot/cold partitioning  */
 
 /* Number of basic blocks in the current function.  */
 
@@ -430,7 +423,7 @@ extern void compute_bb_for_insn (void);
 extern void free_bb_for_insn (void);
 extern void update_bb_for_insn (basic_block);
 
-extern void free_basic_block_vars (int);
+extern void free_basic_block_vars (void);
 
 extern void insert_insn_on_edge (rtx, edge);
 bool safe_insert_insn_on_edge (rtx, edge);
@@ -588,7 +581,7 @@ enum update_life_extent
 					   insns.  */
 #define CLEANUP_CFGLAYOUT	256	/* Do cleanup in cfglayout mode.  */
 #define CLEANUP_LOG_LINKS	512	/* Update log links.  */
-extern void life_analysis (rtx, FILE *, int);
+extern void life_analysis (FILE *, int);
 extern int update_life_info (sbitmap, enum update_life_extent, int);
 extern int update_life_info_in_dirty_blocks (enum update_life_extent, int);
 extern int count_or_remove_death_notes (sbitmap, int);
@@ -642,7 +635,7 @@ extern void unlink_block (basic_block);
 extern void compact_blocks (void);
 extern basic_block alloc_block (void);
 extern void find_unreachable_blocks (void);
-extern int delete_noop_moves (rtx);
+extern int delete_noop_moves (void);
 extern basic_block force_nonfallthru (edge);
 extern rtx block_label (basic_block);
 extern bool forwarder_block_p (basic_block);
@@ -699,14 +692,7 @@ extern bool control_flow_insn_p (rtx);
 
 /* In bb-reorder.c */
 extern void reorder_basic_blocks (void);
-/* APPLE LOCAL begin hot/cold partitioning  */
 extern void partition_hot_cold_basic_blocks (void);
-/* APPLE LOCAL end hot/cold partitioning  */
-
-/* In cfg.c */
-extern void alloc_rbi_pool (void);
-extern void initialize_bb_rbi (basic_block bb);
-extern void free_rbi_pool (void);
 
 /* In cfg.c */
 extern void alloc_rbi_pool (void);

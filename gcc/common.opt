@@ -76,6 +76,10 @@ Wextra
 Common
 Print extra (possibly unwanted) warnings
 
+Wfatal-errors
+Common
+Exit on the first error occurred
+
 Winline
 Common
 Warn when an inlined function cannot be inlined
@@ -102,6 +106,10 @@ Warn when one local variable shadows another
 
 Wstrict-aliasing
 Common
+Warn about code which might break strict aliasing rules
+
+Wstrict-aliasing=
+Common Joined UInteger
 Warn about code which might break strict aliasing rules
 
 Wswitch
@@ -505,6 +513,10 @@ fmessage-length=
 Common RejectNegative Joined UInteger
 -fmessage-length=<number>	Limit diagnostics to <number> characters per line.  0 suppresses line-wrapping
 
+fmodulo-sched
+Common
+Perform SMS based modulo scheduling before the first scheduling pass
+
 fmove-all-movables
 Common
 Force all loop invariant computations out of loops
@@ -851,6 +863,10 @@ Replace temporary expressions in the SSA->normal pass
 ftree-vectorize
 Common
 Enable loop vectorization on trees
+
+ftree-lrs
+Common
+Perform live range splitting during the SSA->normal pass.
 
 funit-at-a-time
 Common

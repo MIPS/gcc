@@ -278,7 +278,7 @@ procedure GNATCmd is
       There_Are_Libraries : in out Boolean)
    is
       Path_Option : constant String_Access :=
-                      MLib.Tgt.Linker_Library_Path_Option;
+                      MLib.Linker_Library_Path_Option;
 
    begin
       --  Case of library project
@@ -839,8 +839,9 @@ begin
                          (Name => Name_Default_Switches,
                           In_Arrays => Element.Decl.Arrays);
                      The_Switches := Prj.Util.Value_Of
-                       (Index => Name_Ada,
-                        In_Array => Default_Switches_Array);
+                       (Index     => Name_Ada,
+                        Src_Index => 0,
+                        In_Array  => Default_Switches_Array);
                   end if;
                end if;
 
@@ -936,7 +937,7 @@ begin
             declare
                There_Are_Libraries  : Boolean := False;
                Path_Option : constant String_Access :=
-                               MLib.Tgt.Linker_Library_Path_Option;
+                               MLib.Linker_Library_Path_Option;
 
             begin
                Library_Paths.Set_Last (0);
@@ -1338,7 +1339,7 @@ begin
                --  Check if there is at least one argument that is not a switch
 
                for Index in 1 .. Last_Switches.Last loop
-                  if Last_Switches.Table (Index)(1) = '-' then
+                  if Last_Switches.Table (Index)(1) /= '-' then
                      Add_Sources := False;
                      exit;
                   end if;

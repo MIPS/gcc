@@ -171,7 +171,8 @@ associated_type (tree decl)
 	 dtor's are not affected by class status but virtual and
 	 non-virtual thunks are.  */
       if (!DECL_ARTIFICIAL (decl) || DECL_COMDAT (decl))
-	t = TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (decl))));
+	t = TYPE_MAIN_VARIANT
+	  (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (decl)))));
     }
   else if (DECL_CONTEXT (decl)
 	   && TREE_CODE_CLASS (TREE_CODE (DECL_CONTEXT (decl))) == 't')
@@ -558,7 +559,7 @@ i386_pe_strip_name_encoding (const char *str)
   return str;
 }
 
-/* Also strip the stdcall suffix.  */
+/* Also strip the fastcall prefix and stdcall suffix.  */
 
 const char *
 i386_pe_strip_name_encoding_full (const char *str)
@@ -566,6 +567,11 @@ i386_pe_strip_name_encoding_full (const char *str)
   const char *p;
   const char *name = i386_pe_strip_name_encoding (str);
 
+  /* Strip leading '@' on fastcall symbols.  */
+  if (*name == '@')
+    name++;
+
+  /* Strip trailing "@n".  */
   p = strchr (name, '@');
   if (p)
     return ggc_alloc_string (name, p - name);
@@ -667,7 +673,7 @@ i386_pe_section_type_flags (tree decl, const char *name, int reloc)
   unsigned int **slot;
 
   /* The names we put in the hashtable will always be the unique
-     versions gived to us by the stringtable, so we can just use
+     versions given to us by the stringtable, so we can just use
      their addresses as the keys.  */
   if (!htab)
     htab = htab_create (31, htab_hash_pointer, htab_eq_pointer, NULL);

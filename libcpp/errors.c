@@ -28,6 +28,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "cpplib.h"
 #include "internal.h"
 
+/* APPLE LOCAL error-colon */
+static int gcc_error_colon = 0;
 static void print_location (cpp_reader *, source_location, unsigned int);
 
 /* Print the logical file location (LINE, COL) in preparation for a
@@ -37,6 +39,23 @@ static void print_location (cpp_reader *, source_location, unsigned int);
 static void
 print_location (cpp_reader *pfile, source_location line, unsigned int col)
 {
+  /* APPLE LOCAL begin error-colon */
+  const char *estr;
+  {
+    static int done = 0;
+    if ( ! done)
+      {
+        done = 1;       /* Do this only once.  */
+        /* Pretend we saw "-w" on commandline.  */
+        if (getenv ("GCC_DASH_W"))
+          CPP_OPTION (pfile, inhibit_warnings) = 1; /* referenced by diagnostic.h:diagnostic_report_warnings() */
+        if (getenv ("GCC_ERROR_COLON"))
+          gcc_error_colon = 1;
+      }
+  }
+  estr = (gcc_error_colon) ? "error:" : "" ;
+  /* APPLE LOCAL end error-colon */
+
   if (line == 0)
     fprintf (stderr, "%s: ", progname);
   else
@@ -55,12 +74,14 @@ print_location (cpp_reader *pfile, source_location line, unsigned int col)
 	    col = 1;
 	}
 
+      /* APPLE LOCAL begin error-colon */
       if (lin == 0)
-	fprintf (stderr, "%s:", map->to_file);
+        fprintf (stderr, "%s:%s", map->to_file, estr);
       else if (CPP_OPTION (pfile, show_column) == 0)
-	fprintf (stderr, "%s:%u:", map->to_file, lin);
+        fprintf (stderr, "%s:%u:%s", map->to_file, lin, estr);
       else
-	fprintf (stderr, "%s:%u:%u:", map->to_file, lin, col);
+        fprintf (stderr, "%s:%u:%u:%s", map->to_file, lin, col, estr);
+      /* APPLE LOCAL end error-colon */
 
       fputc (' ', stderr);
     }

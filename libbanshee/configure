@@ -2879,7 +2879,6 @@ fi
 # FIXME: Replace `main' with a function in `-lm':
 #AC_CHECK_LIB([m], [main])
 
-GCC_NO_EXECUTABLES
 
 if test x$GCC = xyes; then
   ac_libbanshee_warn_cflags='-W -Wall -pedantic -Wwrite-strings  -Wstrict-prototypes -Wmissing-prototypes'

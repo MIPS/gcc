@@ -1,23 +1,23 @@
 /* Header for code translation functions
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #ifndef GFC_TRANS_H
 #define GFC_TRANS_H
@@ -303,10 +303,8 @@ tree gfc_conv_expr_present (gfc_symbol *);
 
 /* Generate code to allocate a string temporary.  */
 tree gfc_conv_string_tmp (gfc_se *, tree, tree);
-/* Get the length of a string.  */
-tree gfc_conv_string_length (tree);
 /* Initialize a string length variable.  */
-tree gfc_conv_init_string_length (gfc_symbol *, stmtblock_t *);
+void gfc_trans_init_string_length (gfc_charlen *, stmtblock_t *);
 
 /* Add an expression to the end of a block.  */
 void gfc_add_expr_to_block (stmtblock_t *, tree);
@@ -430,8 +428,16 @@ extern GTY(()) tree gfor_fndecl_associated;
 
 /* Math functions.  Many other math functions are handled in
    trans-intrinsic.c.  */
-extern GTY(()) tree gfor_fndecl_math_powf;
-extern GTY(()) tree gfor_fndecl_math_pow;
+
+typedef struct gfc_powdecl_list GTY(())
+{
+  tree integer;
+  tree real;
+  tree cmplx;
+}
+gfc_powdecl_list;
+
+extern GTY(()) gfc_powdecl_list gfor_fndecl_math_powi[3][2];
 extern GTY(()) tree gfor_fndecl_math_cpowf;
 extern GTY(()) tree gfor_fndecl_math_cpow;
 extern GTY(()) tree gfor_fndecl_math_cabsf;
@@ -485,27 +491,25 @@ struct lang_type		GTY(())
 
 struct lang_decl		GTY(())
 {
-  /* String nodes.  */
-  tree stringlength;
+  /* Dummy variables.  */
   tree saved_descriptor;
   /* Assigned integer nodes.  Stringlength is the IO format string's length.
      Addr is the address of the string or the target label. Stringlength is
      initialized to -2 and assiged to -1 when addr is assigned to the
      address of target label.  */
+  tree stringlen;
   tree addr;
 };
 
 
 #define GFC_DECL_ASSIGN_ADDR(node) DECL_LANG_SPECIFIC(node)->addr
-#define GFC_DECL_STRING_LENGTH(node) (DECL_LANG_SPECIFIC(node)->stringlength)
+#define GFC_DECL_STRING_LEN(node) DECL_LANG_SPECIFIC(node)->stringlen
 #define GFC_DECL_SAVED_DESCRIPTOR(node) \
   (DECL_LANG_SPECIFIC(node)->saved_descriptor)
-#define GFC_DECL_STRING(node) DECL_LANG_FLAG_0(node)
-#define GFC_DECL_PACKED_ARRAY(node) DECL_LANG_FLAG_1(node)
-#define GFC_DECL_PARTIAL_PACKED_ARRAY(node) DECL_LANG_FLAG_2(node)
-#define GFC_DECL_ASSIGN(node) DECL_LANG_FLAG_3(node)
+#define GFC_DECL_PACKED_ARRAY(node) DECL_LANG_FLAG_0(node)
+#define GFC_DECL_PARTIAL_PACKED_ARRAY(node) DECL_LANG_FLAG_1(node)
+#define GFC_DECL_ASSIGN(node) DECL_LANG_FLAG_2(node)
 
-#define GFC_KNOWN_SIZE_STRING_TYPE(node) TYPE_LANG_FLAG_0(node)
 /* An array descriptor.  */
 #define GFC_DESCRIPTOR_TYPE_P(node) TYPE_LANG_FLAG_1(node)
 /* An array without a descriptor.  */

@@ -105,7 +105,7 @@ import javax.accessibility.AccessibleStateSet;
  * in inner classes, rather than using this object itself as the listener, if
  * external objects do not need to save the state of this object.
  *
- * <p><pre>
+ * <pre>
  * import java.awt.*;
  * import java.awt.event.*;
  * import java.io.Serializable;
@@ -127,6 +127,7 @@ import javax.accessibility.AccessibleStateSet;
  *     aButton.addActionListener(new MyActionListener());
  *   }
  * }
+ * </pre>
  *
  * <p>Status: Incomplete. The event dispatch mechanism is implemented. All
  * other methods defined in the J2SE 1.3 API javadoc exist, but are mostly
@@ -876,10 +877,16 @@ public abstract class Component
     // case lightweight components are not initially painted --
     // Container.paint first calls isShowing () before painting itself
     // and its children.
-    this.visible = true;
-    if (peer != null)
-      peer.setVisible(true);
-    invalidate();
+    if(!isVisible())
+      {
+        this.visible = true;
+        if (peer != null)
+          peer.setVisible(true);
+        invalidate();
+        ComponentEvent ce =
+          new ComponentEvent(this,ComponentEvent.COMPONENT_SHOWN);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
   }
 
   /**
@@ -903,10 +910,16 @@ public abstract class Component
    */
   public void hide()
   {
-    if (peer != null)
-      peer.setVisible(false);
-    this.visible = false;
-    invalidate();
+    if (isVisible())
+      {
+        if (peer != null)
+          peer.setVisible(false);
+        this.visible = false;
+        invalidate();
+        ComponentEvent ce =
+          new ComponentEvent(this,ComponentEvent.COMPONENT_HIDDEN);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
   }
 
   /**
@@ -974,8 +987,11 @@ public abstract class Component
    */
   public void setBackground(Color c)
   {
+    // If c is null, inherit from closest ancestor whose bg is set.
+    if (c == null && parent != null)
+      c = parent.getBackground();
     firePropertyChange("background", background, c);
-    if (peer != null)
+    if (peer != null && c != null)
       peer.setBackground(c);
     background = c;
   }
@@ -1022,6 +1038,7 @@ public abstract class Component
     firePropertyChange("font", font, f);
     if (peer != null)
       peer.setFont(f);
+    invalidate();
     font = f;
   }
 
@@ -1150,6 +1167,9 @@ public abstract class Component
    */
   public void move(int x, int y)
   {
+    int oldx = this.x;
+    int oldy = this.y;
+
     if (this.x == x && this.y == y)
       return;
     invalidate ();
@@ -1157,6 +1177,20 @@ public abstract class Component
     this.y = y;
     if (peer != null)
       peer.setBounds (x, y, width, height);
+
+    // Erase old bounds and repaint new bounds for lightweights.
+    if (isLightweight() && width != 0 && height !=0)
+      {
+        parent.repaint(oldx, oldy, width, height);
+        repaint();
+      }
+
+    if (oldx != x || oldy != y)
+      {
+        ComponentEvent ce = new ComponentEvent(this,
+                                               ComponentEvent.COMPONENT_MOVED);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
   }
 
   /**
@@ -1220,6 +1254,9 @@ public abstract class Component
    */
   public void resize(int width, int height)
   {
+    int oldwidth = this.width;
+    int oldheight = this.height;
+
     if (this.width == width && this.height == height)
       return;
     invalidate ();
@@ -1227,6 +1264,22 @@ public abstract class Component
     this.height = height;
     if (peer != null)
       peer.setBounds (x, y, width, height);
+
+    // Erase old bounds and repaint new bounds for lightweights.
+    if (isLightweight())
+      {
+        if (oldwidth != 0 && oldheight != 0 && parent != null)
+          parent.repaint(x, y, oldwidth, oldheight);
+        if (width != 0 && height != 0)
+          repaint();
+      }
+
+    if (oldwidth != width || oldheight != height)
+      {
+        ComponentEvent ce =
+          new ComponentEvent(this, ComponentEvent.COMPONENT_RESIZED);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
   }
 
   /**
@@ -1315,6 +1368,11 @@ public abstract class Component
    */
   public void reshape(int x, int y, int width, int height)
   {
+    int oldx = this.x;
+    int oldy = this.y;
+    int oldwidth = this.width;
+    int oldheight = this.height;
+
     if (this.x == x && this.y == y
         && this.width == width && this.height == height)
       return;
@@ -1325,6 +1383,28 @@ public abstract class Component
     this.height = height;
     if (peer != null)
       peer.setBounds (x, y, width, height);
+
+    // Erase old bounds and repaint new bounds for lightweights.
+    if (isLightweight())
+      {
+        if (oldwidth != 0 && oldheight != 0 && parent != null)
+          parent.repaint(oldx, oldy, oldwidth, oldheight);
+        if (width != 0 && height != 0)
+          repaint();
+      }
+
+    if (oldx != x || oldy != y)
+      {
+        ComponentEvent ce = new ComponentEvent(this,
+                                               ComponentEvent.COMPONENT_MOVED);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
+    if (oldwidth != width || oldheight != height)
+      {
+        ComponentEvent ce = new ComponentEvent(this,
+                                               ComponentEvent.COMPONENT_RESIZED);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
   }
 
   /**
@@ -3737,6 +3817,12 @@ public abstract class Component
     if (popups == null)
       popups = new Vector();
     popups.add(popup);
+
+    if (popup.parent != null)
+      popup.parent.remove(popup);
+    popup.parent = this;
+    if (peer != null)
+      popup.addNotify();
   }
 
   /**
@@ -4172,6 +4258,8 @@ p   * <li>the set of backward traversal keys
       case MouseEvent.MOUSE_EXITED:
       case MouseEvent.MOUSE_PRESSED:
       case MouseEvent.MOUSE_RELEASED:
+      case MouseEvent.MOUSE_MOVED:
+      case MouseEvent.MOUSE_DRAGGED:
         return (mouseListener != null
                 || mouseMotionListener != null
                 || (eventMask & AWTEvent.MOUSE_EVENT_MASK) != 0);

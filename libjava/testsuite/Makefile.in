@@ -172,7 +172,7 @@ RUNTEST = "`if [ -f $(top_srcdir)/../dejagnu/runtest ] ; then \
 AM_RUNTESTFLAGS = INTERPRETER=$(INTERPRETER)
 CONFIG_HEADER = ../include/config.h ../gcj/libgcj-config.h
 CONFIG_CLEAN_FILES = 
-DIST_COMMON =  ChangeLog Makefile.am Makefile.in
+DIST_COMMON =  Makefile.am Makefile.in
 
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)

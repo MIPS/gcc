@@ -210,7 +210,7 @@ do {									\
 %type <ttype> any_word
 
 %type <ttype> compstmt compstmt_start compstmt_nostart compstmt_primary_start
-%type <ttype> do_stmt_start poplevel stmt label
+%type <ttype> do_stmt_start pop_scope stmt label
 
 %type <ttype> c99_block_start c99_block_end
 %type <ttype> declarator
@@ -330,8 +330,6 @@ static int objc_need_raw_identifier;
 #define OBJC_NEED_RAW_IDENTIFIER(VAL)	/* nothing */
 @@end_ifc
 
-static bool parsing_iso_function_signature;
-
 /* Tell yyparse how to print a token's value, if yydebug is set.  */
 
 #define YYPRINT(FILE,YYCHAR,YYLVAL) yyprint(FILE,YYCHAR,YYLVAL)
@@ -370,11 +368,6 @@ extdefs:
 	;
 
 extdef:
-	extdef_1
-	{ parsing_iso_function_signature = false; } /* Reset after any external definition.  */
-	;
-
-extdef_1:
 	fndef
 	| datadef
 	| asmdef
@@ -575,21 +568,21 @@ expr_no_commas:
 	| expr_no_commas '^' expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
 	| expr_no_commas ANDAND
-		{ $1 = (*lang_hooks.truthvalue_conversion)
+		{ $1 = lang_hooks.truthvalue_conversion
 		    (default_conversion ($1));
 		  skip_evaluation += $1 == truthvalue_false_node; }
 	  expr_no_commas
 		{ skip_evaluation -= $1 == truthvalue_false_node;
 		  $$ = parser_build_binary_op (TRUTH_ANDIF_EXPR, $1, $4); }
 	| expr_no_commas OROR
-		{ $1 = (*lang_hooks.truthvalue_conversion)
+		{ $1 = lang_hooks.truthvalue_conversion
 		    (default_conversion ($1));
 		  skip_evaluation += $1 == truthvalue_true_node; }
 	  expr_no_commas
 		{ skip_evaluation -= $1 == truthvalue_true_node;
 		  $$ = parser_build_binary_op (TRUTH_ORIF_EXPR, $1, $4); }
 	| expr_no_commas '?'
-		{ $1 = (*lang_hooks.truthvalue_conversion)
+		{ $1 = lang_hooks.truthvalue_conversion
 		    (default_conversion ($1));
 		  skip_evaluation += $1 == truthvalue_false_node; }
           expr ':'
@@ -603,7 +596,7 @@ expr_no_commas:
 		    pedwarn ("ISO C forbids omitting the middle term of a ?: expression");
 		  /* Make sure first operand is calculated only once.  */
 		  $<ttype>2 = save_expr (default_conversion ($1));
-		  $1 = (*lang_hooks.truthvalue_conversion) ($<ttype>2);
+		  $1 = lang_hooks.truthvalue_conversion ($<ttype>2);
 		  skip_evaluation += $1 == truthvalue_true_node; }
 	  ':' expr_no_commas
 		{ skip_evaluation -= $1 == truthvalue_true_node;
@@ -744,28 +737,8 @@ primary:
 	;
 
 old_style_parm_decls:
-	old_style_parm_decls_1
-	{
-	  parsing_iso_function_signature = false; /* Reset after decls.  */
-	}
-	;
-
-old_style_parm_decls_1:
 	/* empty */
-	{
-	  if (warn_traditional && !in_system_header
-	      && parsing_iso_function_signature)
-	    warning ("traditional C rejects ISO C style function definitions");
-	  if (warn_old_style_definition && !in_system_header
-	      && !parsing_iso_function_signature)
-	    warning ("old-style parameter declaration");
-	  parsing_iso_function_signature = false; /* Reset after warning.  */
-	}
 	| datadecls
-	{
-	  if (warn_old_style_definition && !in_system_header)
-	    warning ("old-style parameter declaration");
-	}
 	;
 
 /* The following are analogous to lineno_decl, decls and decl
@@ -1558,7 +1531,6 @@ nested_function:
 		      pop_function_context ();
 		      YYERROR1;
 		    }
-		  parsing_iso_function_signature = false; /* Don't warn about nested functions.  */
 		}
 	   old_style_parm_decls save_location
 		{ tree decl = current_function_decl;
@@ -1589,7 +1561,6 @@ notype_nested_function:
 		      pop_function_context ();
 		      YYERROR1;
 		    }
-		  parsing_iso_function_signature = false; /* Don't warn about nested functions.  */
 		}
 	  old_style_parm_decls save_location
 		{ tree decl = current_function_decl;
@@ -1623,9 +1594,6 @@ after_type_declarator:
 		{ $$ = $2 ? tree_cons ($2, $3, NULL_TREE) : $3; }
 	| after_type_declarator '(' parmlist_or_identifiers  %prec '.'
 		{ $$ = build_nt (CALL_EXPR, $1, $3, NULL_TREE); }
-/*	| after_type_declarator '(' error ')'  %prec '.'
-		{ $$ = build_nt (CALL_EXPR, $1, NULL_TREE, NULL_TREE);
-		  poplevel (0, 0, 0); }  */
 	| after_type_declarator array_declarator  %prec '.'
 		{ $$ = set_array_declarator_type ($2, $1, 0); }
 	| '*' maybe_type_quals_attrs after_type_declarator  %prec UNARY
@@ -1648,9 +1616,6 @@ parm_declarator:
 parm_declarator_starttypename:
 	  parm_declarator_starttypename '(' parmlist_or_identifiers  %prec '.'
 		{ $$ = build_nt (CALL_EXPR, $1, $3, NULL_TREE); }
-/*	| parm_declarator_starttypename '(' error ')'  %prec '.'
-		{ $$ = build_nt (CALL_EXPR, $1, NULL_TREE, NULL_TREE);
-		  poplevel (0, 0, 0); }  */
 	| parm_declarator_starttypename array_declarator  %prec '.'
 		{ $$ = set_array_declarator_type ($2, $1, 0); }
 	| TYPENAME
@@ -1662,9 +1627,6 @@ parm_declarator_starttypename:
 parm_declarator_nostarttypename:
 	  parm_declarator_nostarttypename '(' parmlist_or_identifiers  %prec '.'
 		{ $$ = build_nt (CALL_EXPR, $1, $3, NULL_TREE); }
-/*	| parm_declarator_nostarttypename '(' error ')'  %prec '.'
-		{ $$ = build_nt (CALL_EXPR, $1, NULL_TREE, NULL_TREE);
-		  poplevel (0, 0, 0); }  */
 	| parm_declarator_nostarttypename array_declarator  %prec '.'
 		{ $$ = set_array_declarator_type ($2, $1, 0); }
 	| '*' maybe_type_quals_attrs parm_declarator_starttypename  %prec UNARY
@@ -1681,9 +1643,6 @@ parm_declarator_nostarttypename:
 notype_declarator:
 	  notype_declarator '(' parmlist_or_identifiers  %prec '.'
 		{ $$ = build_nt (CALL_EXPR, $1, $3, NULL_TREE); }
-/*	| notype_declarator '(' error ')'  %prec '.'
-		{ $$ = build_nt (CALL_EXPR, $1, NULL_TREE, NULL_TREE);
-		  poplevel (0, 0, 0); }  */
 	| '(' maybe_attribute notype_declarator ')'
 		{ $$ = $2 ? tree_cons ($2, $3, NULL_TREE) : $3; }
 	| '*' maybe_type_quals_attrs notype_declarator  %prec UNARY
@@ -2040,14 +1999,14 @@ lineno_stmt_decl_or_labels:
 errstmt:  error ';'
 	;
 
-pushlevel:  /* empty */
-		{ pushlevel (0);
+push_scope:  /* empty */
+		{ push_scope ();
 		  clear_last_expr ();
 		  add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
 		}
 	;
 
-poplevel:  /* empty */
+pop_scope:  /* empty */
                 {
 @@ifobjc
 		  if (c_dialect_objc ())
@@ -2062,7 +2021,7 @@ c99_block_start: /* empty */
 		{ if (flag_isoc99)
 		    {
 		      $$ = c_begin_compound_stmt ();
-		      pushlevel (0);
+		      push_scope ();
 		      clear_last_expr ();
 		      add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
 		    }
@@ -2078,7 +2037,7 @@ c99_block_end: /* empty */
                 { if (flag_isoc99)
 		    {
 		      tree scope_stmt = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
-		      $$ = poplevel (KEEP_MAYBE, 0, 0);
+		      $$ = pop_scope ();
 		      SCOPE_STMT_BLOCK (TREE_PURPOSE (scope_stmt))
 			= SCOPE_STMT_BLOCK (TREE_VALUE (scope_stmt))
 			= $$;
@@ -2127,8 +2086,8 @@ compstmt_start: '{' { compstmt_count++;
 
 compstmt_nostart: '}'
 		{ $$ = convert (void_type_node, integer_zero_node); }
-	| pushlevel maybe_label_decls compstmt_contents_nonempty '}' poplevel
-		{ $$ = poplevel (KEEP_MAYBE, 0, 0);
+	| push_scope maybe_label_decls compstmt_contents_nonempty '}' pop_scope
+		{ $$ = pop_scope ();
 		  SCOPE_STMT_BLOCK (TREE_PURPOSE ($5))
 		    = SCOPE_STMT_BLOCK (TREE_VALUE ($5))
 		    = $$; }
@@ -2174,7 +2133,7 @@ simple_if:
 
 if_prefix:
 	  /* We must build the IF_STMT node before parsing its
-	     condition so that STMT_LINENO refers to the line
+	     condition so that EXPR_LOCUS refers to the line
 	     containing the "if", and not the line containing
 	     the close-parenthesis.
 
@@ -2184,7 +2143,7 @@ if_prefix:
           IF
                 { $<ttype>$ = c_begin_if_stmt (); }
             '(' expr ')'
-		{ c_expand_start_cond ((*lang_hooks.truthvalue_conversion) ($4),
+		{ c_expand_start_cond (lang_hooks.truthvalue_conversion ($4),
 				       compstmt_count,$<ttype>2);
 		  $<itype>$ = stmt_count;
 		  if_stmt_locus = $<location>-1; }
@@ -2238,12 +2197,8 @@ lineno_stmt:
 	  save_location stmt
 		{ if ($2)
 		    {
-		      STMT_LINENO ($2) = $1.line;
-		      /* ??? We currently have no way of recording
-			 the filename for a statement.  This probably
-			 matters little in practice at the moment,
-			 but I suspect that problems will occur when
-			 doing inlining at the tree level.  */
+		      SET_EXPR_LOCUS ($2, NULL);
+		      annotate_with_locus ($2, $1);
 		    }
 		}
 	;
@@ -2252,7 +2207,8 @@ lineno_label:
 	  save_location label
 		{ if ($2)
 		    {
-		      STMT_LINENO ($2) = $1.line;
+		      SET_EXPR_LOCUS ($2, NULL);
+		      annotate_with_locus ($2, $1);
 		    }
 		}
 	;
@@ -2281,7 +2237,7 @@ select_or_iter_stmt:
 	| simple_if ELSE error
 		{ c_expand_end_cond (); }
        /* We must build the WHILE_STMT node before parsing its
-	  condition so that STMT_LINENO refers to the line
+	  condition so that EXPR_LOCUS refers to the line
 	  containing the "while", and not the line containing
 	  the close-parenthesis.
 
@@ -2293,16 +2249,16 @@ select_or_iter_stmt:
 		  $<ttype>$ = c_begin_while_stmt (); }
 	  '(' expr ')'
                 { c_in_iteration_stmt++;
-		  $4 = (*lang_hooks.truthvalue_conversion) ($4);
+		  $4 = lang_hooks.truthvalue_conversion ($4);
 		  c_finish_while_stmt_cond
-		    ((*lang_hooks.truthvalue_conversion) ($4), $<ttype>2);
+		    (lang_hooks.truthvalue_conversion ($4), $<ttype>2);
 		  $<ttype>$ = add_stmt ($<ttype>2); }
 	  c99_block_lineno_labeled_stmt
                 { c_in_iteration_stmt--;
 		  RECHAIN_STMTS ($<ttype>6, WHILE_BODY ($<ttype>6)); }
 	| do_stmt_start
 	  '(' expr ')' ';'
-                { DO_COND ($1) = (*lang_hooks.truthvalue_conversion) ($3); }
+                { DO_COND ($1) = lang_hooks.truthvalue_conversion ($3); }
 	| do_stmt_start error
 		{ }
 	| FOR
@@ -2315,7 +2271,7 @@ select_or_iter_stmt:
 	  xexpr ';'
                 { if ($6)
 		    FOR_COND ($<ttype>2)
-		      = (*lang_hooks.truthvalue_conversion) ($6); }
+		      = lang_hooks.truthvalue_conversion ($6); }
 	  xexpr ')'
                 { c_in_iteration_stmt++;
 		  FOR_EXPR ($<ttype>2) = $9; }
@@ -2592,11 +2548,11 @@ start_string_translation:
    "void bar (int (__attribute__((__mode__(SI))) int foo));".  */
 parmlist:
 	  maybe_attribute
-		{ pushlevel (0);
+		{ push_scope ();
 		  declare_parm_level (); }
 	  parmlist_1
 		{ $$ = $3;
-		  poplevel (0, 0, 0); }
+		  pop_scope (); }
 	;
 
 parmlist_1:
@@ -2609,32 +2565,23 @@ parmlist_1:
 	  parmlist_1
 		{ $$ = $6; }
 	| error ')'
-		{ $$ = tree_cons (NULL_TREE, NULL_TREE, NULL_TREE); }
+		{ $$ = make_node (TREE_LIST); }
 	;
 
 /* This is what appears inside the parens in a function declarator.
    Is value is represented in the format that grokdeclarator expects.  */
 parmlist_2:  /* empty */
-		{ $$ = get_parm_info (0); }
+		{ $$ = make_node (TREE_LIST); }
 	| ELLIPSIS
-		{ $$ = get_parm_info (0);
-		  /* Gcc used to allow this as an extension.  However, it does
-		     not work for all targets, and thus has been disabled.
-		     Also, since func (...) and func () are indistinguishable,
-		     it caused problems with the code in expand_builtin which
-		     tries to verify that BUILT_IN_NEXT_ARG is being used
-		     correctly.  */
+		{ $$ = make_node (TREE_LIST); 
+		  /* Suppress -Wold-style-definition for this case.  */
+		  TREE_CHAIN ($$) = error_mark_node;
 		  error ("ISO C requires a named argument before `...'");
-		  parsing_iso_function_signature = true;
 		}
 	| parms
-		{ $$ = get_parm_info (1);
-		  parsing_iso_function_signature = true;
-		}
+		{ $$ = get_parm_info (/*ellipsis=*/false); }
 	| parms ',' ELLIPSIS
-		{ $$ = get_parm_info (0);
-		  parsing_iso_function_signature = true;
-		}
+		{ $$ = get_parm_info (/*ellipsis=*/true); }
 	;
 
 parms:
@@ -2709,11 +2656,11 @@ setspecs_fp:
    Its value is a list of ..._TYPE nodes or a list of identifiers.  */
 parmlist_or_identifiers:
 	  maybe_attribute
-		{ pushlevel (0);
+		{ push_scope ();
 		  declare_parm_level (); }
 	  parmlist_or_identifiers_1
 		{ $$ = $3;
-		  poplevel (0, 0, 0); }
+		  pop_scope (); }
 	;
 
 parmlist_or_identifiers_1:
@@ -3131,13 +3078,13 @@ optparmlist:
 		}
 	| ','
 		{
-		  pushlevel (0);
+		  push_scope ();
 		}
 	  parmlist_2
 		{
 		  /* returns a tree list node generated by get_parm_info */
 		  $$ = $3;
-		  poplevel (0, 0, 0);
+		  pop_scope ();
 		}
 	;
 
@@ -3808,22 +3755,14 @@ yyprint (FILE *file, int yychar, YYSTYPE yyl)
     }
 }
 
-/* This is not the ideal place to put these, but we have to get them out
-   of c-lex.c because cp/lex.c has its own versions.  */
+/* This is not the ideal place to put this, but we have to get it out
+   of c-lex.c because cp/lex.c has its own version.  */
 
 /* Parse the file.  */
 void
 c_parse_file (void)
 {
   yyparse ();
-  /* In case there were missing closebraces, get us back to the global
-     binding level.  */
-  while (! global_bindings_p ())
-    poplevel (0, 0, 0);
-  /* __FUNCTION__ is defined at file scope ("").  This
-     call may not be necessary as my tests indicate it
-     still works without it.  */
-  finish_fname_decls ();
 
   if (malloced_yyss)
     {

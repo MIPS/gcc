@@ -1488,6 +1488,7 @@ package body Exp_Ch9 is
       Protnm      : constant Name_Id := Chars (Prottyp);
       Ident       : Entity_Id;
       Nam         : Name_Id;
+      New_Id      : Entity_Id;
       New_Plist   : List_Id;
       Append_Char : Character;
       New_Spec    : Node_Id;
@@ -1514,20 +1515,28 @@ package body Exp_Ch9 is
          Append_Char := 'P';
       end if;
 
+      New_Id :=
+        Make_Defining_Identifier (Loc,
+          Chars => Build_Selected_Name (Protnm, Nam, Append_Char));
+
+      --  The unprotected operation carries the user code, and debugging
+      --  information must be generated for it, even though this spec does
+      --  not come from source. It is also convenient to allow gdb to step
+      --  into the protected operation, even though it only contains lock/
+      --  unlock calls.
+
+      Set_Needs_Debug_Info (New_Id);
+
       if Nkind (Specification (Decl)) = N_Procedure_Specification then
          return
            Make_Procedure_Specification (Loc,
-             Defining_Unit_Name =>
-               Make_Defining_Identifier (Loc,
-                 Chars => Build_Selected_Name (Protnm, Nam, Append_Char)),
+             Defining_Unit_Name => New_Id,
              Parameter_Specifications => New_Plist);
 
       else
          New_Spec :=
            Make_Function_Specification (Loc,
-             Defining_Unit_Name =>
-               Make_Defining_Identifier (Loc,
-                 Chars => Build_Selected_Name (Protnm, Nam, Append_Char)),
+             Defining_Unit_Name => New_Id,
              Parameter_Specifications => New_Plist,
              Subtype_Mark => New_Copy (Subtype_Mark (Specification (Decl))));
          Set_Return_Present (Defining_Unit_Name (New_Spec));
@@ -2785,7 +2794,7 @@ package body Exp_Ch9 is
                   Decl := Make_Object_Declaration (Loc,
                      Defining_Identifier => T_Self,
                      Object_Definition =>
-                       New_Occurrence_Of (RTE (RO_ST_Task_ID), Loc),
+                       New_Occurrence_Of (RTE (RO_ST_Task_Id), Loc),
                      Expression =>
                        Make_Function_Call (Loc,
                          Name => New_Reference_To (RTE (RE_Self), Loc)));
@@ -3273,10 +3282,11 @@ package body Exp_Ch9 is
           Defining_Identifier => D_T2,
           Type_Definition => Def1);
 
+      Analyze (Decl1);
       Insert_After (N, Decl1);
 
       --  Create Equivalent_Type, a record with two components for an
-      --  an access to object an an access to subprogram.
+      --  access to object and an access to subprogram.
 
       Comps := New_List (
         Make_Component_Declaration (Loc,
@@ -3305,6 +3315,7 @@ package body Exp_Ch9 is
                 Make_Component_List (Loc,
                   Component_Items => Comps)));
 
+      Analyze (Decl2);
       Insert_After (Decl1, Decl2);
       Set_Equivalent_Type (T, E_T);
    end Expand_Access_Protected_Subprogram_Type;
@@ -3402,7 +3413,7 @@ package body Exp_Ch9 is
 
       --  It is not a boolean variable or literal, so check the restriction
 
-      Check_Restriction (Boolean_Entry_Barriers, Cond);
+      Check_Restriction (Simple_Barriers, Cond);
    end Expand_Entry_Barrier;
 
    ------------------------------------
@@ -5724,19 +5735,16 @@ package body Exp_Ch9 is
       RTS_Call   : Entity_Id;
 
    begin
-      if Abort_Present (N) then
-         Abortable := New_Occurrence_Of (Standard_True, Loc);
-      else
-         Abortable := New_Occurrence_Of (Standard_False, Loc);
-      end if;
+      Abortable :=
+        New_Occurrence_Of (Boolean_Literals (Abort_Present (N)), Loc);
 
-      --  Set up the target object.
+      --  Set up the target object
 
       Extract_Entry (N, Concval, Ename, Index);
       Conctyp := Etype (Concval);
       New_Param := Concurrent_Ref (Concval);
 
-      --  The target entry index and abortable flag are the same for all cases.
+      --  The target entry index and abortable flag are the same for all cases
 
       Params := New_List (
         Entry_Index_Expression (Loc, Entity (Ename), Index, Conctyp),
@@ -5793,7 +5801,7 @@ package body Exp_Ch9 is
          end if;
       end loop;
 
-      --  Create the GNARLI call.
+      --  Create the GNARLI call
 
       Rcall := Make_Procedure_Call_Statement (Loc,
         Name =>
@@ -7215,7 +7223,7 @@ package body Exp_Ch9 is
           Component_Definition =>
             Make_Component_Definition (Loc,
               Aliased_Present    => False,
-              Subtype_Indication => New_Reference_To (RTE (RO_ST_Task_ID),
+              Subtype_Indication => New_Reference_To (RTE (RO_ST_Task_Id),
                                     Loc))));
 
       --  Add components for entry families
@@ -7237,7 +7245,7 @@ package body Exp_Ch9 is
                Expr := Expression (Expr);
             end if;
 
-            Expr := New_Copy (Expr);
+            Expr := New_Copy_Tree (Expr);
 
             --  Add conversion to proper type to do range check if required
             --  Note that for runtime units, we allow out of range interrupt

@@ -117,6 +117,7 @@ extern void split_ti (rtx[], int, rtx[], rtx[]);
 
 extern const char *output_set_got (rtx);
 extern const char *output_387_binary_op (rtx, rtx*);
+extern const char *output_387_reg_move (rtx, rtx*);
 extern const char *output_fix_trunc (rtx, rtx*);
 extern const char *output_fp_compare (rtx, rtx*, int, int);
 
@@ -181,7 +182,11 @@ extern bool ix86_fp_jump_nontrivial_p (enum rtx_code);
 extern void x86_order_regs_for_local_alloc (void);
 extern void x86_function_profiler (FILE *, int);
 extern void x86_emit_floatuns (rtx [2]);
+extern void ix86_emit_fp_unordered_jump (rtx);
 
+extern void ix86_emit_i387_log1p (rtx, rtx);
+
+extern enum rtx_code ix86_reverse_condition (enum rtx_code, enum machine_mode);
 
 #ifdef TREE_CODE
 extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);

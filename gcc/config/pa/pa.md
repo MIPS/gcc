@@ -2264,9 +2264,9 @@
 
 (define_insn ""
   [(set (match_operand:SI 0 "move_dest_operand"
-			  "=r,r,r,r,r,r,Q,!*q,!*f,*f,T")
+			  "=r,r,r,r,r,r,Q,!*q,!r,!*f,*f,T")
 	(match_operand:SI 1 "move_src_operand"
-			  "A,r,J,N,K,RQ,rM,!rM,!*fM,RT,*f"))]
+			  "A,r,J,N,K,RQ,rM,!rM,!*q,!*fM,RT,*f"))]
   "(register_operand (operands[0], SImode)
     || reg_or_0_operand (operands[1], SImode))
    && !TARGET_SOFT_FLOAT"
@@ -2279,12 +2279,13 @@
    ldw%M1 %1,%0
    stw%M0 %r1,%0
    mtsar %r1
+   {mfctl|mfctl,w} %%sar,%0
    fcpy,sgl %f1,%0
    fldw%F1 %1,%0
    fstw%F0 %1,%0"
-  [(set_attr "type" "load,move,move,move,shift,load,store,move,fpalu,fpload,fpstore")
+  [(set_attr "type" "load,move,move,move,shift,load,store,move,move,fpalu,fpload,fpstore")
    (set_attr "pa_combine_type" "addmove")
-   (set_attr "length" "4,4,4,4,4,4,4,4,4,4,4")])
+   (set_attr "length" "4,4,4,4,4,4,4,4,4,4,4,4")])
 
 (define_insn ""
   [(set (match_operand:SI 0 "indexed_memory_operand" "=R")
@@ -2433,9 +2434,9 @@
 
 (define_insn ""
   [(set (match_operand:SI 0 "move_dest_operand"
-			  "=r,r,r,r,r,r,Q,!*q")
+			  "=r,r,r,r,r,r,Q,!*q,!r")
 	(match_operand:SI 1 "move_src_operand"
-			  "A,r,J,N,K,RQ,rM,!rM"))]
+			  "A,r,J,N,K,RQ,rM,!rM,!*q"))]
   "(register_operand (operands[0], SImode)
     || reg_or_0_operand (operands[1], SImode))
    && TARGET_SOFT_FLOAT"
@@ -2447,10 +2448,11 @@
    {zdepi|depwi,z} %Z1,%0
    ldw%M1 %1,%0
    stw%M0 %r1,%0
-   mtsar %r1"
-  [(set_attr "type" "load,move,move,move,move,load,store,move")
+   mtsar %r1
+   {mfctl|mfctl,w} %%sar,%0"
+  [(set_attr "type" "load,move,move,move,move,load,store,move,move")
    (set_attr "pa_combine_type" "addmove")
-   (set_attr "length" "4,4,4,4,4,4,4,4")])
+   (set_attr "length" "4,4,4,4,4,4,4,4,4")])
 
 ;; Load or store with base-register modification.
 (define_insn ""
@@ -2610,7 +2612,6 @@
   "*
 {
   rtx xoperands[3];
-  extern FILE *asm_out_file;
 
   xoperands[0] = operands[0];
   xoperands[1] = operands[1];
@@ -2644,7 +2645,6 @@
   "*
 {
   rtx xoperands[3];
-  extern FILE *asm_out_file;
 
   xoperands[0] = operands[0];
   xoperands[1] = operands[1];
@@ -2867,9 +2867,9 @@
 
 (define_insn ""
   [(set (match_operand:HI 0 "move_dest_operand"
-	 		  "=r,r,r,r,r,Q,!*q,!*f")
+	 		  "=r,r,r,r,r,Q,!*q,!r,!*f")
 	(match_operand:HI 1 "move_src_operand"
-			  "r,J,N,K,RQ,rM,!rM,!*fM"))]
+			  "r,J,N,K,RQ,rM,!rM,!*q,!*fM"))]
   "register_operand (operands[0], HImode)
    || reg_or_0_operand (operands[1], HImode)"
   "@
@@ -2880,10 +2880,11 @@
    ldh%M1 %1,%0
    sth%M0 %r1,%0
    mtsar %r1
+   {mfctl|mfctl,w} %sar,%0
    fcpy,sgl %f1,%0"
-  [(set_attr "type" "move,move,move,shift,load,store,move,fpalu")
+  [(set_attr "type" "move,move,move,shift,load,store,move,move,fpalu")
    (set_attr "pa_combine_type" "addmove")
-   (set_attr "length" "4,4,4,4,4,4,4,4")])
+   (set_attr "length" "4,4,4,4,4,4,4,4,4")])
 
 (define_insn ""
   [(set (match_operand:HI 0 "register_operand" "=r")
@@ -2991,9 +2992,9 @@
 
 (define_insn ""
   [(set (match_operand:QI 0 "move_dest_operand"
-			  "=r,r,r,r,r,Q,!*q,!*f")
+			  "=r,r,r,r,r,Q,!*q,!r,!*f")
 	(match_operand:QI 1 "move_src_operand"
-			  "r,J,N,K,RQ,rM,!rM,!*fM"))]
+			  "r,J,N,K,RQ,rM,!rM,!*q,!*fM"))]
   "register_operand (operands[0], QImode)
    || reg_or_0_operand (operands[1], QImode)"
   "@
@@ -3004,10 +3005,11 @@
    ldb%M1 %1,%0
    stb%M0 %r1,%0
    mtsar %r1
+   {mfctl|mfctl,w} %%sar,%0
    fcpy,sgl %f1,%0"
-  [(set_attr "type" "move,move,move,shift,load,store,move,fpalu")
+  [(set_attr "type" "move,move,move,shift,load,store,move,move,fpalu")
    (set_attr "pa_combine_type" "addmove")
-   (set_attr "length" "4,4,4,4,4,4,4,4")])
+   (set_attr "length" "4,4,4,4,4,4,4,4,4")])
 
 (define_insn ""
   [(set (match_operand:QI 0 "register_operand" "=r")
@@ -3206,8 +3208,8 @@
   [(set_attr "type" "multi,multi")])
 
 (define_split
-  [(parallel [(set (mem:BLK (match_operand:SI 0 "register_operand" ""))
-		   (mem:BLK (match_operand:SI 1 "register_operand" "")))
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
+		   (match_operand:BLK 1 "memory_operand" ""))
 	      (clobber (match_operand:SI 2 "register_operand" ""))
 	      (clobber (match_operand:SI 3 "register_operand" ""))
 	      (clobber (match_operand:SI 6 "register_operand" ""))
@@ -3215,32 +3217,14 @@
 	      (clobber (match_operand:SI 8 "register_operand" ""))
 	      (use (match_operand:SI 4 "arith_operand" ""))
 	      (use (match_operand:SI 5 "const_int_operand" ""))])]
-  "!TARGET_64BIT && reload_completed && !flag_peephole2"
-  [(set (match_dup 7) (match_dup 0))
-   (set (match_dup 8) (match_dup 1))
-   (parallel [(set (mem:BLK (match_dup 7)) (mem:BLK (match_dup 8)))
-   	      (clobber (match_dup 2))
-   	      (clobber (match_dup 3))
-   	      (clobber (match_dup 6))
-   	      (clobber (match_dup 7))
-   	      (clobber (match_dup 8))
-   	      (use (match_dup 4))
-   	      (use (match_dup 5))
-	      (const_int 0)])]
-  "")
-
-(define_peephole2
-  [(parallel [(set (mem:BLK (match_operand:SI 0 "register_operand" ""))
-		   (mem:BLK (match_operand:SI 1 "register_operand" "")))
-	      (clobber (match_operand:SI 2 "register_operand" ""))
-	      (clobber (match_operand:SI 3 "register_operand" ""))
-	      (clobber (match_operand:SI 6 "register_operand" ""))
-	      (clobber (match_operand:SI 7 "register_operand" ""))
-	      (clobber (match_operand:SI 8 "register_operand" ""))
-	      (use (match_operand:SI 4 "arith_operand" ""))
-	      (use (match_operand:SI 5 "const_int_operand" ""))])]
-  "!TARGET_64BIT"
-  [(parallel [(set (mem:BLK (match_dup 7)) (mem:BLK (match_dup 8)))
+  "!TARGET_64BIT && reload_completed && !flag_peephole2
+   && GET_CODE (operands[0]) == MEM
+   && register_operand (XEXP (operands[0], 0), SImode)
+   && GET_CODE (operands[1]) == MEM
+   && register_operand (XEXP (operands[1], 0), SImode)"
+  [(set (match_dup 7) (match_dup 9))
+   (set (match_dup 8) (match_dup 10))
+   (parallel [(set (match_dup 0) (match_dup 1))
    	      (clobber (match_dup 2))
    	      (clobber (match_dup 3))
    	      (clobber (match_dup 6))
@@ -3251,15 +3235,55 @@
 	      (const_int 0)])]
   "
 {
-  if (dead_or_set_p (curr_insn, operands[0]))
-    operands[7] = operands[0];
-  else
-    emit_insn (gen_rtx_SET (VOIDmode, operands[7], operands[0]));
+  operands[9] = XEXP (operands[0], 0);
+  operands[10] = XEXP (operands[1], 0);
+  operands[0] = replace_equiv_address (operands[0], operands[7]);
+  operands[1] = replace_equiv_address (operands[1], operands[8]);
+}")
 
-  if (dead_or_set_p (curr_insn, operands[1]))
-    operands[8] = operands[1];
+(define_peephole2
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
+		   (match_operand:BLK 1 "memory_operand" ""))
+	      (clobber (match_operand:SI 2 "register_operand" ""))
+	      (clobber (match_operand:SI 3 "register_operand" ""))
+	      (clobber (match_operand:SI 6 "register_operand" ""))
+	      (clobber (match_operand:SI 7 "register_operand" ""))
+	      (clobber (match_operand:SI 8 "register_operand" ""))
+	      (use (match_operand:SI 4 "arith_operand" ""))
+	      (use (match_operand:SI 5 "const_int_operand" ""))])]
+  "!TARGET_64BIT
+   && GET_CODE (operands[0]) == MEM
+   && register_operand (XEXP (operands[0], 0), SImode)
+   && GET_CODE (operands[1]) == MEM
+   && register_operand (XEXP (operands[1], 0), SImode)"
+  [(parallel [(set (match_dup 0) (match_dup 1))
+   	      (clobber (match_dup 2))
+   	      (clobber (match_dup 3))
+   	      (clobber (match_dup 6))
+   	      (clobber (match_dup 7))
+   	      (clobber (match_dup 8))
+   	      (use (match_dup 4))
+   	      (use (match_dup 5))
+	      (const_int 0)])]
+  "
+{
+  rtx addr = XEXP (operands[0], 0);
+  if (dead_or_set_p (curr_insn, addr))
+    operands[7] = addr;
   else
-    emit_insn (gen_rtx_SET (VOIDmode, operands[8], operands[1]));
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, operands[7], addr));
+      operands[0] = replace_equiv_address (operands[0], operands[7]);
+    }
+
+  addr = XEXP (operands[1], 0);
+  if (dead_or_set_p (curr_insn, addr))
+    operands[8] = addr;
+  else
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, operands[8], addr));
+      operands[1] = replace_equiv_address (operands[1], operands[8]);
+    }
 }")
 
 (define_insn "movstrsi_postreload"
@@ -3372,8 +3396,8 @@
   [(set_attr "type" "multi,multi")])
 
 (define_split
-  [(parallel [(set (mem:BLK (match_operand:DI 0 "register_operand" ""))
-		   (mem:BLK (match_operand:DI 1 "register_operand" "")))
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
+		   (match_operand:BLK 1 "memory_operand" ""))
 	      (clobber (match_operand:DI 2 "register_operand" ""))
 	      (clobber (match_operand:DI 3 "register_operand" ""))
 	      (clobber (match_operand:DI 6 "register_operand" ""))
@@ -3381,32 +3405,14 @@
 	      (clobber (match_operand:DI 8 "register_operand" ""))
 	      (use (match_operand:DI 4 "arith_operand" ""))
 	      (use (match_operand:DI 5 "const_int_operand" ""))])]
-  "TARGET_64BIT && reload_completed && !flag_peephole2"
-  [(set (match_dup 7) (match_dup 0))
-   (set (match_dup 8) (match_dup 1))
-   (parallel [(set (mem:BLK (match_dup 7)) (mem:BLK (match_dup 8)))
-   	      (clobber (match_dup 2))
-   	      (clobber (match_dup 3))
-   	      (clobber (match_dup 6))
-   	      (clobber (match_dup 7))
-   	      (clobber (match_dup 8))
-   	      (use (match_dup 4))
-   	      (use (match_dup 5))
-	      (const_int 0)])]
-  "")
-
-(define_peephole2
-  [(parallel [(set (mem:BLK (match_operand:DI 0 "register_operand" ""))
-		   (mem:BLK (match_operand:DI 1 "register_operand" "")))
-	      (clobber (match_operand:DI 2 "register_operand" ""))
-	      (clobber (match_operand:DI 3 "register_operand" ""))
-	      (clobber (match_operand:DI 6 "register_operand" ""))
-	      (clobber (match_operand:DI 7 "register_operand" ""))
-	      (clobber (match_operand:DI 8 "register_operand" ""))
-	      (use (match_operand:DI 4 "arith_operand" ""))
-	      (use (match_operand:DI 5 "const_int_operand" ""))])]
-  "TARGET_64BIT"
-  [(parallel [(set (mem:BLK (match_dup 7)) (mem:BLK (match_dup 8)))
+  "TARGET_64BIT && reload_completed && !flag_peephole2
+   && GET_CODE (operands[0]) == MEM
+   && register_operand (XEXP (operands[0], 0), DImode)
+   && GET_CODE (operands[1]) == MEM
+   && register_operand (XEXP (operands[1], 0), DImode)"
+  [(set (match_dup 7) (match_dup 9))
+   (set (match_dup 8) (match_dup 10))
+   (parallel [(set (match_dup 0) (match_dup 1))
    	      (clobber (match_dup 2))
    	      (clobber (match_dup 3))
    	      (clobber (match_dup 6))
@@ -3417,15 +3423,55 @@
 	      (const_int 0)])]
   "
 {
-  if (dead_or_set_p (curr_insn, operands[0]))
-    operands[7] = operands[0];
-  else
-    emit_insn (gen_rtx_SET (VOIDmode, operands[7], operands[0]));
+  operands[9] = XEXP (operands[0], 0);
+  operands[10] = XEXP (operands[1], 0);
+  operands[0] = replace_equiv_address (operands[0], operands[7]);
+  operands[1] = replace_equiv_address (operands[1], operands[8]);
+}")
 
-  if (dead_or_set_p (curr_insn, operands[1]))
-    operands[8] = operands[1];
+(define_peephole2
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
+		   (match_operand:BLK 1 "memory_operand" ""))
+	      (clobber (match_operand:DI 2 "register_operand" ""))
+	      (clobber (match_operand:DI 3 "register_operand" ""))
+	      (clobber (match_operand:DI 6 "register_operand" ""))
+	      (clobber (match_operand:DI 7 "register_operand" ""))
+	      (clobber (match_operand:DI 8 "register_operand" ""))
+	      (use (match_operand:DI 4 "arith_operand" ""))
+	      (use (match_operand:DI 5 "const_int_operand" ""))])]
+  "TARGET_64BIT
+   && GET_CODE (operands[0]) == MEM
+   && register_operand (XEXP (operands[0], 0), DImode)
+   && GET_CODE (operands[1]) == MEM
+   && register_operand (XEXP (operands[1], 0), DImode)"
+  [(parallel [(set (match_dup 0) (match_dup 1))
+   	      (clobber (match_dup 2))
+   	      (clobber (match_dup 3))
+   	      (clobber (match_dup 6))
+   	      (clobber (match_dup 7))
+   	      (clobber (match_dup 8))
+   	      (use (match_dup 4))
+   	      (use (match_dup 5))
+	      (const_int 0)])]
+  "
+{
+  rtx addr = XEXP (operands[0], 0);
+  if (dead_or_set_p (curr_insn, addr))
+    operands[7] = addr;
   else
-    emit_insn (gen_rtx_SET (VOIDmode, operands[8], operands[1]));
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, operands[7], addr));
+      operands[0] = replace_equiv_address (operands[0], operands[7]);
+    }
+
+  addr = XEXP (operands[1], 0);
+  if (dead_or_set_p (curr_insn, addr))
+    operands[8] = addr;
+  else
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, operands[8], addr));
+      operands[1] = replace_equiv_address (operands[1], operands[8]);
+    }
 }")
 
 (define_insn "movstrdi_postreload"
@@ -3491,31 +3537,17 @@
   [(set_attr "type" "multi,multi")])
 
 (define_split
-  [(parallel [(set (mem:BLK (match_operand:SI 0 "register_operand" ""))
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
 		   (const_int 0))
 	      (clobber (match_operand:SI 1 "register_operand" ""))
 	      (clobber (match_operand:SI 4 "register_operand" ""))
 	      (use (match_operand:SI 2 "arith_operand" ""))
 	      (use (match_operand:SI 3 "const_int_operand" ""))])]
-  "!TARGET_64BIT && reload_completed && !flag_peephole2"
-  [(set (match_dup 4) (match_dup 0))
-   (parallel [(set (mem:BLK (match_dup 4)) (const_int 0))
-   	      (clobber (match_dup 1))
-   	      (clobber (match_dup 4))
-   	      (use (match_dup 2))
-   	      (use (match_dup 3))
-	      (const_int 0)])]
-  "")
-
-(define_peephole2
-  [(parallel [(set (mem:BLK (match_operand:SI 0 "register_operand" ""))
-		   (const_int 0))
-	      (clobber (match_operand:SI 1 "register_operand" ""))
-	      (clobber (match_operand:SI 4 "register_operand" ""))
-	      (use (match_operand:SI 2 "arith_operand" ""))
-	      (use (match_operand:SI 3 "const_int_operand" ""))])]
-  "!TARGET_64BIT"
-  [(parallel [(set (mem:BLK (match_dup 4)) (const_int 0))
+  "!TARGET_64BIT && reload_completed && !flag_peephole2
+   && GET_CODE (operands[0]) == MEM
+   && register_operand (XEXP (operands[0], 0), SImode)"
+  [(set (match_dup 4) (match_dup 5))
+   (parallel [(set (match_dup 0) (const_int 0))
    	      (clobber (match_dup 1))
    	      (clobber (match_dup 4))
    	      (use (match_dup 2))
@@ -3523,10 +3555,36 @@
 	      (const_int 0)])]
   "
 {
-  if (dead_or_set_p (curr_insn, operands[0]))
-    operands[4] = operands[0];
+  operands[5] = XEXP (operands[0], 0);
+  operands[0] = replace_equiv_address (operands[0], operands[4]);
+}")
+
+(define_peephole2
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
+		   (const_int 0))
+	      (clobber (match_operand:SI 1 "register_operand" ""))
+	      (clobber (match_operand:SI 4 "register_operand" ""))
+	      (use (match_operand:SI 2 "arith_operand" ""))
+	      (use (match_operand:SI 3 "const_int_operand" ""))])]
+  "!TARGET_64BIT
+   && GET_CODE (operands[0]) == MEM
+   && register_operand (XEXP (operands[0], 0), SImode)"
+  [(parallel [(set (match_dup 0) (const_int 0))
+   	      (clobber (match_dup 1))
+   	      (clobber (match_dup 4))
+   	      (use (match_dup 2))
+   	      (use (match_dup 3))
+	      (const_int 0)])]
+  "
+{
+  rtx addr = XEXP (operands[0], 0);
+  if (dead_or_set_p (curr_insn, addr))
+    operands[4] = addr;
   else
-    emit_insn (gen_rtx_SET (VOIDmode, operands[4], operands[0]));
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, operands[4], addr));
+      operands[0] = replace_equiv_address (operands[0], operands[4]);
+    }
 }")
 
 (define_insn "clrstrsi_postreload"
@@ -3589,31 +3647,39 @@
   [(set_attr "type" "multi,multi")])
 
 (define_split
-  [(parallel [(set (mem:BLK (match_operand:DI 0 "register_operand" ""))
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
 		   (const_int 0))
 	      (clobber (match_operand:DI 1 "register_operand" ""))
 	      (clobber (match_operand:DI 4 "register_operand" ""))
 	      (use (match_operand:DI 2 "arith_operand" ""))
 	      (use (match_operand:DI 3 "const_int_operand" ""))])]
-  "TARGET_64BIT && reload_completed && !flag_peephole2"
-  [(set (match_dup 4) (match_dup 0))
-   (parallel [(set (mem:BLK (match_dup 4)) (const_int 0))
+  "TARGET_64BIT && reload_completed && !flag_peephole2
+   && GET_CODE (operands[0]) == MEM
+   && register_operand (XEXP (operands[0], 0), DImode)"
+  [(set (match_dup 4) (match_dup 5))
+   (parallel [(set (match_dup 0) (const_int 0))
    	      (clobber (match_dup 1))
    	      (clobber (match_dup 4))
    	      (use (match_dup 2))
    	      (use (match_dup 3))
 	      (const_int 0)])]
-  "")
+  "
+{
+  operands[5] = XEXP (operands[0], 0);
+  operands[0] = replace_equiv_address (operands[0], operands[4]);
+}")
 
 (define_peephole2
-  [(parallel [(set (mem:BLK (match_operand:DI 0 "register_operand" ""))
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
 		   (const_int 0))
 	      (clobber (match_operand:DI 1 "register_operand" ""))
 	      (clobber (match_operand:DI 4 "register_operand" ""))
 	      (use (match_operand:DI 2 "arith_operand" ""))
 	      (use (match_operand:DI 3 "const_int_operand" ""))])]
-  "TARGET_64BIT"
-  [(parallel [(set (mem:BLK (match_dup 4)) (const_int 0))
+  "TARGET_64BIT
+   && GET_CODE (operands[0]) == MEM
+   && register_operand (XEXP (operands[0], 0), DImode)"
+  [(parallel [(set (match_dup 0) (const_int 0))
    	      (clobber (match_dup 1))
    	      (clobber (match_dup 4))
    	      (use (match_dup 2))
@@ -3621,10 +3687,14 @@
 	      (const_int 0)])]
   "
 {  
-  if (dead_or_set_p (curr_insn, operands[0]))
-    operands[4] = operands[0];
+  rtx addr = XEXP (operands[0], 0);
+  if (dead_or_set_p (curr_insn, addr))
+    operands[4] = addr;
   else
-    emit_insn (gen_rtx_SET (VOIDmode, operands[4], operands[0]));
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, operands[4], addr));
+      operands[0] = replace_equiv_address (operands[0], operands[4]);
+    }
 }")
 
 (define_insn "clrstrdi_postreload"
@@ -3890,9 +3960,9 @@
 
 (define_insn ""
   [(set (match_operand:DF 0 "move_dest_operand"
-			  "=!*r,*r,*r,*r,*r,Q,!*q,f,f,T")
+			  "=!*r,*r,*r,*r,*r,Q,f,f,T")
 	(match_operand:DF 1 "move_src_operand"
-			  "!*r,J,N,K,RQ,*rM,!*rM,fM,RT,f"))]
+			  "!*r,J,N,K,RQ,*rM,fM,RT,f"))]
   "(register_operand (operands[0], DFmode)
     || reg_or_0_operand (operands[1], DFmode))
    && !TARGET_SOFT_FLOAT && TARGET_64BIT"
@@ -3903,13 +3973,12 @@
    depdi,z %z1,%0
    ldd%M1 %1,%0
    std%M0 %r1,%0
-   mtsar %r1
    fcpy,dbl %f1,%0
    fldd%F1 %1,%0
    fstd%F0 %1,%0"
-  [(set_attr "type" "move,move,move,shift,load,store,move,fpalu,fpload,fpstore")
+  [(set_attr "type" "move,move,move,shift,load,store,fpalu,fpload,fpstore")
    (set_attr "pa_combine_type" "addmove")
-   (set_attr "length" "4,4,4,4,4,4,4,4,4,4")])
+   (set_attr "length" "4,4,4,4,4,4,4,4,4")])
 
 
 (define_expand "movdi"
@@ -4014,9 +4083,9 @@
 
 (define_insn ""
   [(set (match_operand:DI 0 "move_dest_operand"
-			  "=r,r,r,r,r,r,Q,!*q,!*f,*f,T")
+			  "=r,r,r,r,r,r,Q,!*q,!r,!*f,*f,T")
 	(match_operand:DI 1 "move_src_operand"
-			  "A,r,J,N,K,RQ,rM,!rM,!*fM,RT,*f"))]
+			  "A,r,J,N,K,RQ,rM,!rM,!*q,!*fM,RT,*f"))]
   "(register_operand (operands[0], DImode)
     || reg_or_0_operand (operands[1], DImode))
    && !TARGET_SOFT_FLOAT && TARGET_64BIT"
@@ -4029,12 +4098,13 @@
    ldd%M1 %1,%0
    std%M0 %r1,%0
    mtsar %r1
+   {mfctl|mfctl,w} %%sar,%0
    fcpy,dbl %f1,%0
    fldd%F1 %1,%0
    fstd%F0 %1,%0"
-  [(set_attr "type" "load,move,move,move,shift,load,store,move,fpalu,fpload,fpstore")
+  [(set_attr "type" "load,move,move,move,shift,load,store,move,move,fpalu,fpload,fpstore")
    (set_attr "pa_combine_type" "addmove")
-   (set_attr "length" "4,4,4,4,4,4,4,4,4,4,4")])
+   (set_attr "length" "4,4,4,4,4,4,4,4,4,4,4,4")])
 
 (define_insn ""
   [(set (match_operand:DI 0 "indexed_memory_operand" "=R")

@@ -1,3 +1,19 @@
+2004-04-25  Andreas Jaeger  <aj@suse.de>
+
+        * mark.c (GC_mark_from): Use pointer as prefetch argument.
+
+2004-04-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* include/private/gcconfig.h (PREFETCH): Use __builtin_prefetch
+	for gcc >= 3.0.
+	(PREFETCH_FOR_WRITE): Likewise.
+
+2004-03-10  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.ac: Bump AC_PREREQ to 2.59.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
 2004-02-26  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* ltconfig, ltmain.sh: Remove unused files.

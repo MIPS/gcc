@@ -167,19 +167,19 @@ typedef struct cp_lexer GTY (())
   /* The memory allocated for the buffer.  Never NULL.  */
   cp_token * GTY ((length ("(%h.buffer_end - %h.buffer)"))) buffer;
   /* A pointer just past the end of the memory allocated for the buffer.  */
-  cp_token * GTY ((skip (""))) buffer_end;
+  cp_token * GTY ((skip)) buffer_end;
   /* The first valid token in the buffer, or NULL if none.  */
-  cp_token * GTY ((skip (""))) first_token;
+  cp_token * GTY ((skip)) first_token;
   /* The next available token.  If NEXT_TOKEN is NULL, then there are
      no more available tokens.  */
-  cp_token * GTY ((skip (""))) next_token;
+  cp_token * GTY ((skip)) next_token;
   /* A pointer just past the last available token.  If FIRST_TOKEN is
      NULL, however, there are no available tokens, and then this
      location is simply the place in which the next token read will be
      placed.  If LAST_TOKEN == FIRST_TOKEN, then the buffer is full.
      When the LAST_TOKEN == BUFFER, then the last token is at the
      highest memory address in the BUFFER.  */
-  cp_token * GTY ((skip (""))) last_token;
+  cp_token * GTY ((skip)) last_token;
 
   /* A stack indicating positions at which cp_lexer_save_tokens was
      called.  The top entry is the most recent position at which we
@@ -1126,7 +1126,7 @@ static cp_parser_context *cp_parser_context_new
 
 /* Class variables.  */
 
-static GTY((deletable (""))) cp_parser_context* cp_parser_context_free_list;
+static GTY((deletable)) cp_parser_context* cp_parser_context_free_list;
 
 /* Constructors and destructors.  */
 
@@ -1523,7 +1523,7 @@ static tree cp_parser_class_name
 static tree cp_parser_class_specifier
   (cp_parser *);
 static tree cp_parser_class_head
-  (cp_parser *, bool *);
+  (cp_parser *, bool *, tree *);
 static enum tag_types cp_parser_class_key
   (cp_parser *);
 static void cp_parser_member_specification_opt
@@ -1719,8 +1719,8 @@ static void cp_parser_check_for_definition_in_return_type
   (tree, int);
 static void cp_parser_check_for_invalid_template_id
   (cp_parser *, tree);
-static tree cp_parser_non_integral_constant_expression
-  (const char *);
+static bool cp_parser_non_integral_constant_expression
+  (cp_parser *, const char *);
 static void cp_parser_diagnose_invalid_type_name
   (cp_parser *, tree, tree);
 static bool cp_parser_parse_and_diagnose_invalid_type_name
@@ -1891,7 +1891,7 @@ cp_parser_check_for_invalid_template_id (cp_parser* parser,
       if (TYPE_P (type))
 	error ("`%T' is not a template", type);
       else if (TREE_CODE (type) == IDENTIFIER_NODE)
-	error ("`%s' is not a template", IDENTIFIER_POINTER (type));
+	error ("`%E' is not a template", type);
       else
 	error ("invalid template-id");
       /* Remember the location of the invalid "<".  */
@@ -1922,14 +1922,24 @@ cp_parser_check_for_invalid_template_id (cp_parser* parser,
     }
 }
 
-/* Issue an error message about the fact that THING appeared in a
-   constant-expression.  Returns ERROR_MARK_NODE.  */
+/* If parsing an integral constant-expression, issue an error message
+   about the fact that THING appeared and return true.  Otherwise,
+   return false, marking the current expression as non-constant.  */
 
-static tree
-cp_parser_non_integral_constant_expression (const char *thing)
+static bool
+cp_parser_non_integral_constant_expression (cp_parser  *parser,
+					    const char *thing)
 {
-  error ("%s cannot appear in a constant-expression", thing);
-  return error_mark_node;
+  if (parser->integral_constant_expression_p)
+    {
+      if (!parser->allow_non_integral_constant_expression_p)
+	{
+	  error ("%s cannot appear in a constant-expression", thing);
+	  return true;
+	}
+      parser->non_integral_constant_expression_p = true;
+    }
+  return false;
 }
 
 /* Emit a diagnostic for an invalid type name. Consider also if it is
@@ -2542,12 +2552,9 @@ cp_parser_primary_expression (cp_parser *parser,
 	      return error_mark_node;
 	    }
 	  /* Pointers cannot appear in constant-expressions.  */
-	  if (parser->integral_constant_expression_p)
-	    {
-	      if (!parser->allow_non_integral_constant_expression_p)
-		return cp_parser_non_integral_constant_expression ("`this'");
-	      parser->non_integral_constant_expression_p = true;
-	    }
+	  if (cp_parser_non_integral_constant_expression (parser,
+							  "`this'"))
+	    return error_mark_node;
 	  return finish_this_expr ();
 
 	  /* The `operator' keyword can be the beginning of an
@@ -2589,12 +2596,9 @@ cp_parser_primary_expression (cp_parser *parser,
 	    cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 	    /* Using `va_arg' in a constant-expression is not
 	       allowed.  */
-	    if (parser->integral_constant_expression_p)
-	      {
-		if (!parser->allow_non_integral_constant_expression_p)
-		  return cp_parser_non_integral_constant_expression ("`va_arg'");
-		parser->non_integral_constant_expression_p = true;
-	      }
+	    if (cp_parser_non_integral_constant_expression (parser,
+							    "`va_arg'"))
+	      return error_mark_node;
 	    return build_x_va_arg (expression, type);
 	  }
 
@@ -3518,14 +3522,12 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	    && !INTEGRAL_OR_ENUMERATION_TYPE_P (type)
 	    /* A cast to pointer or reference type is allowed in the
 	       implementation of "offsetof".  */
-	    && !(parser->in_offsetof_p && POINTER_TYPE_P (type)))
-	  {
-	    if (!parser->allow_non_integral_constant_expression_p)
-	      return (cp_parser_non_integral_constant_expression
-		      ("a cast to a type other than an integral or "
-		       "enumeration type"));
-	    parser->non_integral_constant_expression_p = true;
-	  }
+	    && !(parser->in_offsetof_p && POINTER_TYPE_P (type))
+	    && (cp_parser_non_integral_constant_expression 
+		(parser,
+		 "a cast to a type other than an integral or "
+		 "enumeration type")))
+	  return error_mark_node;
 
 	switch (keyword)
 	  {
@@ -3592,7 +3594,10 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	    /* Look for the `)' token.  */
 	    cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 	  }
-
+	/* `typeid' may not appear in an integral constant expression.  */
+	if (cp_parser_non_integral_constant_expression(parser, 
+						       "`typeid' operator"))
+	  return error_mark_node;
 	/* Restore the saved message.  */
 	parser->type_definition_forbidden_message = saved_message;
       }
@@ -3627,10 +3632,16 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	/* If that didn't work, try an identifier.  */
 	if (!cp_parser_parse_definitely (parser))
 	  id = cp_parser_identifier (parser);
+	/* If we look up a template-id in a non-dependent qualifying
+	   scope, there's no need to create a dependent type.  */
+	if (TREE_CODE (id) == TYPE_DECL
+	    && !dependent_type_p (parser->scope))
+	  type = TREE_TYPE (id);
 	/* Create a TYPENAME_TYPE to represent the type to which the
 	   functional cast is being performed.  */
-	type = make_typename_type (parser->scope, id,
-				   /*complain=*/1);
+	else
+	  type = make_typename_type (parser->scope, id, 
+				     /*complain=*/1);
 
 	postfix_expression = cp_parser_functional_cast (parser, type);
       }
@@ -3771,13 +3782,9 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	    idk = CP_ID_KIND_NONE;
 	    /* Array references are not permitted in
 	       constant-expressions.  */
-	    if (parser->integral_constant_expression_p)
-	      {
-		if (!parser->allow_non_integral_constant_expression_p)
-		  postfix_expression
-		    = cp_parser_non_integral_constant_expression ("an array reference");
-		parser->non_integral_constant_expression_p = true;
-	      }
+	    if (cp_parser_non_integral_constant_expression 
+		(parser, "an array reference"))
+	      postfix_expression = error_mark_node;
 	  }
 	  break;
 
@@ -3796,15 +3803,11 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 
 	    /* Function calls are not permitted in
 	       constant-expressions.  */
-	    if (parser->integral_constant_expression_p)
+	    if (cp_parser_non_integral_constant_expression (parser,
+							    "a function call"))
 	      {
-		if (!parser->allow_non_integral_constant_expression_p)
-		  {
-		    postfix_expression
-		      = cp_parser_non_integral_constant_expression ("a function call");
-		    break;
-		  }
-		parser->non_integral_constant_expression_p = true;
+		postfix_expression = error_mark_node;
+		break;
 	      }
 
 	    koenig_p = false;
@@ -3978,6 +3981,9 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 		    parser->qualifying_scope = NULL_TREE;
 		    parser->object_scope = NULL_TREE;
 		  }
+		if (scope && name && BASELINK_P (name))
+		  adjust_result_of_qualified_name_lookup 
+		    (name, BINFO_TYPE (BASELINK_BINFO (name)), scope);
 		postfix_expression
 		  = finish_class_member_access_expr (postfix_expression, name);
 	      }
@@ -4000,18 +4006,14 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	       operator.  */
 	    parser->context->object_type = NULL_TREE;
 	    /* These operators may not appear in constant-expressions.  */
-	    if (parser->integral_constant_expression_p
-		/* The "->" operator is allowed in the implementation
+	    if (/* The "->" operator is allowed in the implementation
 		   of "offsetof".  The "." operator may appear in the
 		   name of the member.  */
-		&& !parser->in_offsetof_p)
-	      {
-		if (!parser->allow_non_integral_constant_expression_p)
-		  postfix_expression
-		    = (cp_parser_non_integral_constant_expression
-		       (token_type == CPP_DEREF ? "'->'" : "`.'"));
-		parser->non_integral_constant_expression_p = true;
-	      }
+		!parser->in_offsetof_p
+		&& (cp_parser_non_integral_constant_expression 
+		    (parser,
+		     token_type == CPP_DEREF ? "'->'" : "`.'")))
+	      postfix_expression = error_mark_node;
 	  }
 	  break;
 
@@ -4024,13 +4026,9 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	    = finish_increment_expr (postfix_expression,
 				     POSTINCREMENT_EXPR);
 	  /* Increments may not appear in constant-expressions.  */
-	  if (parser->integral_constant_expression_p)
-	    {
-	      if (!parser->allow_non_integral_constant_expression_p)
-		postfix_expression
-		  = cp_parser_non_integral_constant_expression ("an increment");
-	      parser->non_integral_constant_expression_p = true;
-	    }
+	  if (cp_parser_non_integral_constant_expression (parser,
+							  "an increment"))
+	    postfix_expression = error_mark_node;
 	  idk = CP_ID_KIND_NONE;
 	  break;
 
@@ -4043,13 +4041,9 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	    = finish_increment_expr (postfix_expression,
 				     POSTDECREMENT_EXPR);
 	  /* Decrements may not appear in constant-expressions.  */
-	  if (parser->integral_constant_expression_p)
-	    {
-	      if (!parser->allow_non_integral_constant_expression_p)
-		postfix_expression
-		  = cp_parser_non_integral_constant_expression ("a decrement");
-	      parser->non_integral_constant_expression_p = true;
-	    }
+	  if (cp_parser_non_integral_constant_expression (parser,
+							  "a decrement"))
+	    postfix_expression = error_mark_node;
 	  idk = CP_ID_KIND_NONE;
 	  break;
 
@@ -4448,12 +4442,10 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p)
 	  abort ();
 	}
 
-      if (non_constant_p && parser->integral_constant_expression_p)
-	{
-	  if (!parser->allow_non_integral_constant_expression_p)
-	    return cp_parser_non_integral_constant_expression (non_constant_p);
-	  parser->non_integral_constant_expression_p = true;
-	}
+      if (non_constant_p 
+	  && cp_parser_non_integral_constant_expression (parser,
+							 non_constant_p))
+	expression = error_mark_node;
 
       return expression;
     }
@@ -4553,6 +4545,11 @@ cp_parser_new_expression (cp_parser* parser)
     initializer = cp_parser_new_initializer (parser);
   else
     initializer = NULL_TREE;
+
+  /* A new-expression may not appear in an integral constant
+     expression.  */
+  if (cp_parser_non_integral_constant_expression (parser, "`new'"))
+    return error_mark_node;
 
   /* Create a representation of the new-expression.  */
   return build_new (placement, type, initializer, global_scope_p);
@@ -4782,6 +4779,11 @@ cp_parser_delete_expression (cp_parser* parser)
   /* Parse the cast-expression.  */
   expression = cp_parser_simple_cast_expression (parser);
 
+  /* A delete-expression may not appear in an integral constant
+     expression.  */
+  if (cp_parser_non_integral_constant_expression (parser, "`delete'"))
+    return error_mark_node;
+
   return delete_sanity (expression, NULL_TREE, array_p, global_scope_p);
 }
 
@@ -4879,14 +4881,13 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p)
 	     can be used in constant-expressions.  */
 	  if (parser->integral_constant_expression_p
 	      && !dependent_type_p (type)
-	      && !INTEGRAL_OR_ENUMERATION_TYPE_P (type))
-	    {
-	      if (!parser->allow_non_integral_constant_expression_p)
-		return (cp_parser_non_integral_constant_expression
-			("a casts to a type other than an integral or "
-			 "enumeration type"));
-	      parser->non_integral_constant_expression_p = true;
-	    }
+	      && !INTEGRAL_OR_ENUMERATION_TYPE_P (type)
+	      && (cp_parser_non_integral_constant_expression 
+		  (parser,
+		   "a cast to a type other than an integral or "
+		   "enumeration type")))
+	    return error_mark_node;
+
 	  /* Perform the cast.  */
 	  expr = build_c_cast (type, expr);
 	  return expr;
@@ -5239,12 +5240,9 @@ cp_parser_assignment_expression (cp_parser* parser)
 	      rhs = cp_parser_assignment_expression (parser);
 	      /* An assignment may not appear in a
 		 constant-expression.  */
-	      if (parser->integral_constant_expression_p)
-		{
-		  if (!parser->allow_non_integral_constant_expression_p)
-		    return cp_parser_non_integral_constant_expression ("an assignment");
-		  parser->non_integral_constant_expression_p = true;
-		}
+	      if (cp_parser_non_integral_constant_expression (parser,
+							      "an assignment"))
+		return error_mark_node;
 	      /* Build the assignment expression.  */
 	      expr = build_x_modify_expr (expr,
 					  assignment_operator,
@@ -5382,13 +5380,9 @@ cp_parser_expression (cp_parser* parser)
       /* Consume the `,'.  */
       cp_lexer_consume_token (parser->lexer);
       /* A comma operator cannot appear in a constant-expression.  */
-      if (parser->integral_constant_expression_p)
-	{
-	  if (!parser->allow_non_integral_constant_expression_p)
-	    expression
-	      = cp_parser_non_integral_constant_expression ("a comma operator");
-	  parser->non_integral_constant_expression_p = true;
-	}
+      if (cp_parser_non_integral_constant_expression (parser,
+						      "a comma operator"))
+	expression = error_mark_node;
     }
 
   return expression;
@@ -5480,14 +5474,14 @@ cp_parser_statement (cp_parser* parser, bool in_statement_expr_p)
 {
   tree statement;
   cp_token *token;
-  int statement_line_number;
+  location_t statement_locus;
 
   /* There is no statement yet.  */
   statement = NULL_TREE;
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
-  /* Remember the line number of the first token in the statement.  */
-  statement_line_number = token->location.line;
+  /* Remember the location of the first token in the statement.  */
+  statement_locus = token->location;
   /* If this is a keyword, then that will often determine what kind of
      statement we have.  */
   if (token->type == CPP_KEYWORD)
@@ -5563,7 +5557,10 @@ cp_parser_statement (cp_parser* parser, bool in_statement_expr_p)
 
   /* Set the line number for the statement.  */
   if (statement && STATEMENT_CODE_P (TREE_CODE (statement)))
-    STMT_LINENO (statement) = statement_line_number;
+    {
+      SET_EXPR_LOCUS (statement, NULL);
+      annotate_with_locus (statement, statement_locus);
+    }
 }
 
 /* Parse a labeled-statement.
@@ -6359,6 +6356,8 @@ cp_parser_declaration (cp_parser* parser)
   if (token1.type != CPP_EOF)
     token2 = *cp_lexer_peek_nth_token (parser->lexer, 2);
 
+  c_lex_string_translate = true;
+
   /* If the next token is `extern' and the following token is a string
      literal, then we have a linkage specification.  */
   if (token1.keyword == RID_EXTERN
@@ -6408,8 +6407,6 @@ cp_parser_declaration (cp_parser* parser)
   else
     /* Try to parse a block-declaration, or a function-definition.  */
     cp_parser_block_declaration (parser, /*statement_p=*/false);
-
-  c_lex_string_translate = true;
 }
 
 /* Parse a block-declaration.
@@ -6662,8 +6659,8 @@ cp_parser_simple_declaration (cp_parser* parser,
 
    GNU Extension:
 
-   decl-specifier-seq:
-     decl-specifier-seq [opt] attributes
+   decl-specifier:
+     attributes
 
    Returns a TREE_LIST, giving the decl-specifiers in the order they
    appear in the source code.  The TREE_VALUE of each node is the
@@ -8222,7 +8219,15 @@ cp_parser_template_name (cp_parser* parser,
 	    *is_identifier = true;
 	  return identifier;
 	}
-      if (template_keyword_p)
+
+      /* If the "template" keyword is present, then there is generally
+	 no point in doing name-lookup, so we just return IDENTIFIER.
+	 But, if the qualifying scope is non-dependent then we can
+	 (and must) do name-lookup normally.  */
+      if (template_keyword_p
+	  && (!parser->scope
+	      || (TYPE_P (parser->scope) 
+		  && dependent_type_p (parser->scope))))
 	return identifier;
     }
 
@@ -8412,12 +8417,16 @@ cp_parser_template_argument (cp_parser* parser)
     cp_parser_error (parser, "expected template-argument");
   if (!cp_parser_error_occurred (parser))
     {
-      /* Figure out what is being referred to.  */
-      argument = cp_parser_lookup_name (parser, argument,
-					/*is_type=*/false,
-					/*is_template=*/template_p,
-					/*is_namespace=*/false,
-					/*check_dependency=*/true);
+      /* Figure out what is being referred to.  If the id-expression
+	 was for a class template specialization, then we will have a
+	 TYPE_DECL at this point.  There is no need to do name lookup
+	 at this point in that case.  */
+      if (TREE_CODE (argument) != TYPE_DECL)
+	argument = cp_parser_lookup_name (parser, argument,
+					  /*is_type=*/false,
+					  /*is_template=*/template_p,
+					  /*is_namespace=*/false,
+					  /*check_dependency=*/true);
       if (TREE_CODE (argument) != TEMPLATE_DECL
 	  && TREE_CODE (argument) != UNBOUND_CLASS_TEMPLATE)
 	cp_parser_error (parser, "expected template-name");
@@ -9294,7 +9303,6 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 	    warning ("type attributes are honored only at type definition");
 
 	  type = xref_tag (tag_type, identifier,
-			   /*attributes=*/NULL_TREE,
 			   (is_friend
 			    || !is_declaration
 			    || cp_lexer_next_token_is_not (parser->lexer,
@@ -11528,20 +11536,20 @@ cp_parser_initializer_clause (cp_parser* parser, bool* non_constant_p)
   /* If it is not a `{', then we are looking at an
      assignment-expression.  */
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_OPEN_BRACE))
-    initializer
-      = cp_parser_constant_expression (parser,
-				       /*allow_non_constant_p=*/true,
-				       non_constant_p);
+    {
+      initializer 
+	= cp_parser_constant_expression (parser,
+					/*allow_non_constant_p=*/true,
+					non_constant_p);
+      if (!*non_constant_p)
+	initializer = fold_non_dependent_expr (initializer);
+    }
   else
     {
       /* Consume the `{' token.  */
       cp_lexer_consume_token (parser->lexer);
       /* Create a CONSTRUCTOR to represent the braced-initializer.  */
       initializer = make_node (CONSTRUCTOR);
-      /* Mark it with TREE_HAS_CONSTRUCTOR.  This should not be
-	 necessary, but check_initializer depends upon it, for
-	 now.  */
-      TREE_HAS_CONSTRUCTOR (initializer) = 1;
       /* If it's not a `}', then there is a non-trivial initializer.  */
       if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_BRACE))
 	{
@@ -11795,7 +11803,8 @@ cp_parser_class_specifier (cp_parser* parser)
 
   /* Parse the class-head.  */
   type = cp_parser_class_head (parser,
-			       &nested_name_specifier_p);
+			       &nested_name_specifier_p,
+			       &attributes);
   /* If the class-head was a semantic disaster, skip the entire body
      of the class.  */
   if (!type)
@@ -11838,17 +11847,14 @@ cp_parser_class_specifier (cp_parser* parser)
      missing trailing `;'.  */
   token = cp_lexer_peek_token (parser->lexer);
   has_trailing_semicolon = (token->type == CPP_SEMICOLON);
-  /* Look for attributes to apply to this class.  */
+  /* Look for trailing attributes to apply to this class.  */
   if (cp_parser_allow_gnu_extensions_p (parser))
-    attributes = cp_parser_attributes_opt (parser);
-  /* If we got any attributes in class_head, xref_tag will stick them in
-     TREE_TYPE of the type.  Grab them now.  */
-  if (type != error_mark_node)
     {
-      attributes = chainon (TYPE_ATTRIBUTES (type), attributes);
-      TYPE_ATTRIBUTES (type) = NULL_TREE;
-      type = finish_struct (type, attributes);
+      tree sub_attr = cp_parser_attributes_opt (parser);
+      attributes = chainon (attributes, sub_attr);
     }
+  if (type != error_mark_node)
+    type = finish_struct (type, attributes);
   if (pop_p)
     pop_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (type)));
   /* If this class is not itself within the scope of another class,
@@ -11955,7 +11961,8 @@ cp_parser_class_specifier (cp_parser* parser)
 
 static tree
 cp_parser_class_head (cp_parser* parser,
-		      bool* nested_name_specifier_p)
+		      bool* nested_name_specifier_p,
+		      tree *attributes_p)
 {
   cp_token *token;
   tree nested_name_specifier;
@@ -12094,7 +12101,8 @@ cp_parser_class_head (cp_parser* parser,
 
   pop_deferring_access_checks ();
 
-  cp_parser_check_for_invalid_template_id (parser, id);
+  if (id)
+    cp_parser_check_for_invalid_template_id (parser, id);
 
   /* If it's not a `:' or a `{' then we can't really be looking at a
      class-head, since a class-head only appears as part of a
@@ -12182,7 +12190,7 @@ cp_parser_class_head (cp_parser* parser,
       /* If the class was unnamed, create a dummy name.  */
       if (!id)
 	id = make_anon_name ();
-      type = xref_tag (class_key, id, attributes, /*globalize=*/false,
+      type = xref_tag (class_key, id, /*globalize=*/false,
 		       parser->num_template_parameter_lists);
     }
   else
@@ -12266,6 +12274,7 @@ cp_parser_class_head (cp_parser* parser,
       end_specialization ();
       --parser->num_template_parameter_lists;
     }
+  *attributes_p = attributes;
   return type;
 }
 
@@ -13989,12 +13998,26 @@ cp_parser_binary_expression (cp_parser* parser,
 	   ++map_node)
 	if (map_node->token_type == token->type)
 	  {
+	    /* Assume that an overloaded operator will not be used.  */
+	    bool overloaded_p = false;
+
 	    /* Consume the operator token.  */
 	    cp_lexer_consume_token (parser->lexer);
 	    /* Parse the right-hand side of the expression.  */
 	    rhs = (*fn) (parser);
 	    /* Build the binary tree node.  */
-	    lhs = build_x_binary_op (map_node->tree_type, lhs, rhs);
+	    lhs = build_x_binary_op (map_node->tree_type, lhs, rhs, 
+				     &overloaded_p);
+	    /* If the binary operator required the use of an
+	       overloaded operator, then this expression cannot be an
+	       integral constant-expression.  An overloaded operator
+	       can be used even if both operands are otherwise
+	       permissible in an integral constant-expression if at
+	       least one of the operands is of enumeration type.  */
+	    if (overloaded_p
+		&& (cp_parser_non_integral_constant_expression 
+		    (parser, "calls to overloaded operators")))
+	      lhs = error_mark_node;
 	    break;
 	  }
 
@@ -14132,6 +14155,10 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
     {
       if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN)
 	  && cp_lexer_next_token_is_not (parser->lexer, CPP_ELLIPSIS)
+	  /* A parameter declaration begins with a decl-specifier,
+	     which is either the "attribute" keyword, a storage class
+	     specifier, or (usually) a type-specifier.  */
+	  && !cp_lexer_next_token_is_keyword (parser->lexer, RID_ATTRIBUTE)
 	  && !cp_parser_storage_class_specifier_opt (parser))
 	{
 	  tree type;
@@ -14477,12 +14504,23 @@ static tree
 cp_parser_functional_cast (cp_parser* parser, tree type)
 {
   tree expression_list;
+  tree cast;
 
   expression_list
     = cp_parser_parenthesized_expression_list (parser, false,
 					       /*non_constant_p=*/NULL);
 
-  return build_functional_cast (type, expression_list);
+  cast = build_functional_cast (type, expression_list);
+  /* [expr.const]/1: In an integral constant expression "only type
+     conversions to integral or enumeration type can be used".  */
+  if (cast != error_mark_node && !type_dependent_expression_p (type) 
+      && !INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (type)))
+    {
+      if (cp_parser_non_integral_constant_expression 
+	  (parser, "a call to a constructor"))
+	return error_mark_node;
+    }
+  return cast;
 }
 
 /* Save the tokens that make up the body of a member function defined
@@ -15319,7 +15357,6 @@ cp_parser_allow_gnu_extensions_p (cp_parser* parser)
 }
 
 
-
 /* The parser.  */
 
 static GTY (()) cp_parser *the_parser;
@@ -15332,6 +15369,14 @@ void
 c_parse_file (void)
 {
   bool error_occurred;
+  static bool already_called = false;
+
+  if (already_called)
+    {
+      sorry ("inter-module optimizations not implemented for C++");
+      return;
+    }
+  already_called = true;
 
   the_parser = cp_parser_new ();
   push_deferring_access_checks (flag_access_control

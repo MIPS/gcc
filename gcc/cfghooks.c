@@ -223,8 +223,8 @@ dump_bb (basic_block bb, FILE *outf, int indent)
   edge e;
   char *s_indent;
  
-  s_indent = (char *) alloca ((size_t) indent + 1);
-  memset ((void *) s_indent, ' ', (size_t) indent);
+  s_indent = alloca ((size_t) indent + 1);
+  memset (s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
   fprintf (outf, ";;%s basic block %d, loop depth %d, count ",
@@ -630,10 +630,8 @@ tidy_fallthru_edges (void)
       if ((s = b->succ) != NULL
 	  && ! (s->flags & EDGE_COMPLEX)
 	  && s->succ_next == NULL
-	  /* APPLE LOCAL begin hot/cold partitioning  */
 	  && s->dest == c
 	  && !find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX))
-	  /* APPLE LOCAL end hot/cold partitioning  */
 	tidy_fallthru_edge (s);
     }
 }

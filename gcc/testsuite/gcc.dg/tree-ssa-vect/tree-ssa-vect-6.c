@@ -25,13 +25,13 @@ int main1 ()
       e[i+N/2] = b[i] * c[i+N/2] + b[i+N/2] * c[i];
     }
 
+  /* check results:  */
   for (i=0; i<N; i++)
     {
       if (a[i] != results1[i] || e[i] != results2[i])
 	abort(); 
     }
 
-  /* check results:  */
 
   for (i = 1; i <=N-4; i++)
     {

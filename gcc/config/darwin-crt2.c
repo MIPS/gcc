@@ -37,7 +37,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* This file doesn't do anything useful on non-powerpc targets, since they
    don't have backwards compatibility anyway.  */
 
-/* APPLE LOCAL IN FSF 2004-04-27 */
 #ifdef __ppc__
 
 /* Homemade decls substituting for getsect.h and dyld.h, so cross
@@ -156,5 +155,4 @@ __darwin_gcc3_preregister_frame_info (void)
   _dyld_register_func_for_remove_image (darwin_unwind_dyld_remove_image_hook);
 }
 
-/* APPLE LOCAL IN FSF 2004-04-27 */
 #endif  /* __ppc__ */

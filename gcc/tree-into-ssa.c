@@ -37,7 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "bitmap.h"
 #include "tree-flow.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-inline.h"
 #include "varray.h"
 #include "timevar.h"
@@ -99,11 +99,6 @@ struct mark_def_sites_global_data
   tree *ssa_names;
 };
 
-/* Table to store the current reaching definition for every variable in
-   the function.  Given a variable V, its entry will be its immediately
-   reaching SSA_NAME node.  */
-static varray_type currdefs;
-
 struct rewrite_block_data
 {
   varray_type block_defs;
@@ -128,8 +123,6 @@ static void rewrite_stmt (struct dom_walk_data *, basic_block,
 static inline void rewrite_operand (tree *);
 static void insert_phi_nodes_for (tree, bitmap *, varray_type *);
 static tree get_reaching_def (tree);
-static tree get_value_for (tree, varray_type);
-static void set_value_for (tree, tree, varray_type);
 static hashval_t def_blocks_hash (const void *);
 static int def_blocks_eq (const void *, const void *);
 static void def_blocks_free (void *);
@@ -160,29 +153,27 @@ set_phi_state (tree var, enum need_phi_state state)
     var_ann (var)->need_phi_state = state;
 }
 
-/* Return the value associated with variable VAR in TABLE.  */
+/* Return the current definition for VAR.  */
 
 static inline tree
-get_value_for (tree var, varray_type table)
+get_current_def (tree var)
 {
   if (TREE_CODE (var) == SSA_NAME)
-    return VARRAY_TREE (table, SSA_NAME_VERSION (var));
+    return get_ssa_name_ann (var)->current_def;
   else
-    return VARRAY_TREE (table, var_ann (var)->uid);
+    return var_ann (var)->current_def;
 }
 
-
-/* Associate VALUE to variable VAR in TABLE.  */
+/* Sets current definition of VAR to DEF.  */
 
 static inline void
-set_value_for (tree var, tree value, varray_type table)
+set_current_def (tree var, tree def)
 {
   if (TREE_CODE (var) == SSA_NAME)
-    VARRAY_TREE (table, SSA_NAME_VERSION (var)) = value;
+    get_ssa_name_ann (var)->current_def = def;
   else
-    VARRAY_TREE (table, var_ann (var)->uid) = value;
+    var_ann (var)->current_def = def;
 }
-
 
 /* Compute global livein information given the set of blockx where
    an object is locally live at the start of the block (LIVEIN)
@@ -672,10 +663,11 @@ insert_phi_nodes (bitmap *dfs, bitmap names_to_rename, tree *ssa_names)
    pushed into this stack so that we can restore it in Step 5.  */
 
 static void
-rewrite_initialize_block_local_data (struct dom_walk_data *walk_data,
+rewrite_initialize_block_local_data (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 				     basic_block bb ATTRIBUTE_UNUSED,
-				     bool recycled)
+				     bool recycled ATTRIBUTE_UNUSED)
 {
+#ifdef ENABLE_CHECKING
   struct rewrite_block_data *bd
     = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
                                                                                 
@@ -683,8 +675,9 @@ rewrite_initialize_block_local_data (struct dom_walk_data *walk_data,
      not cleared, then we are re-using a previously allocated entry.  In
      that case, we can also re-use the underlying virtal arrays.  Just
      make sure we clear them before using them!  */
-  if (recycled && bd->block_defs)
-    VARRAY_CLEAR (bd->block_defs);
+  if (recycled && bd->block_defs && VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
+    abort ();
+#endif
 }
 
 
@@ -710,8 +703,7 @@ rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
     {
       tree result = PHI_RESULT (phi);
 
-      register_new_def (SSA_NAME_VAR (result), result,
-			&bd->block_defs, currdefs);
+      register_new_def (result, &bd->block_defs);
     }
 }
 
@@ -732,6 +724,40 @@ duplicate_ssa_name (tree name, tree stmt)
     }
 
   return new_name;
+}
+
+/* Register DEF (an SSA_NAME) to be a new definition for the original
+   ssa name VAR and push VAR's current reaching definition
+   into the stack pointed by BLOCK_DEFS_P.  */
+
+static void
+ssa_register_new_def (tree var, tree def, varray_type *block_defs_p)
+{
+  tree currdef;
+   
+  /* If this variable is set in a single basic block and all uses are
+     dominated by the set(s) in that single basic block, then there is
+     nothing to do.  TODO we should not be called at all, and just
+     keep the original name.  */
+  if (get_phi_state (var) == NEED_PHI_STATE_NO)
+    {
+      set_current_def (var, def);
+      return;
+    }
+
+  currdef = get_current_def (var);
+  if (! *block_defs_p)
+    VARRAY_TREE_INIT (*block_defs_p, 20, "block_defs");
+
+  /* Push the current reaching definition into *BLOCK_DEFS_P.  This stack is
+     later used by the dominator tree callbacks to restore the reaching
+     definitions for all the variables defined in the block after a recursive
+     visit to all its immediately dominated blocks.  */
+  VARRAY_PUSH_TREE (*block_defs_p, var);
+  VARRAY_PUSH_TREE (*block_defs_p, currdef);
+
+  /* Set the current reaching definition for VAR to be DEF.  */
+  set_current_def (var, def);
 }
 
 /* Ditto, for rewriting ssa names.  */
@@ -772,7 +798,7 @@ ssa_rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
       else
 	new_name = result;
 
-      register_new_def (result, new_name, &bd->block_defs, currdefs);
+      ssa_register_new_def (result, new_name, &bd->block_defs);
     }
 }
 
@@ -853,21 +879,22 @@ rewrite_finalize_block (struct dom_walk_data *walk_data,
      referenced in the block (in reverse order).  */
   while (bd->block_defs && VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
     {
-      tree var;
-      tree saved_def = VARRAY_TOP_TREE (bd->block_defs);
+      tree tmp = VARRAY_TOP_TREE (bd->block_defs);
+      tree saved_def, var;
+
       VARRAY_POP (bd->block_defs);
-      
-      /* If SAVED_DEF is NULL, then the next slot in the stack contains the
-	 variable associated with SAVED_DEF.  */
-      if (saved_def == NULL_TREE)
+      if (TREE_CODE (tmp) == SSA_NAME)
 	{
-	  var = VARRAY_TOP_TREE (bd->block_defs);
-	  VARRAY_POP (bd->block_defs);
+	  saved_def = tmp;
+	  var = SSA_NAME_VAR (saved_def);
 	}
       else
-	var = SSA_NAME_VAR (saved_def);
+	{
+	  saved_def = NULL;
+	  var = tmp;
+	}
 
-      set_value_for (var, saved_def, currdefs);
+      set_current_def (var, saved_def);
     }
 }
 
@@ -891,7 +918,7 @@ ssa_rewrite_finalize_block (struct dom_walk_data *walk_data,
       var = VARRAY_TOP_TREE (bd->block_defs);
       VARRAY_POP (bd->block_defs);
 
-      set_value_for (var, saved_def, currdefs);
+      set_current_def (var, saved_def);
     }
 }
 
@@ -902,7 +929,7 @@ dump_tree_ssa (FILE *file)
 {
   basic_block bb;
   const char *funcname
-    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+    = lang_hooks.decl_printable_name (current_function_decl, 2);
 
   fprintf (file, "SSA information for %s\n\n", funcname);
 
@@ -1106,8 +1133,7 @@ rewrite_stmt (struct dom_walk_data *walk_data,
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (SSA_NAME_VAR (*def_p), *def_p,
-			&bd->block_defs, currdefs);
+      register_new_def (*def_p, &bd->block_defs);
     }
 
   /* Register new virtual definitions made by the statement.  */
@@ -1121,8 +1147,7 @@ rewrite_stmt (struct dom_walk_data *walk_data,
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdefs, i)), 
-			VDEF_RESULT (vdefs, i), &bd->block_defs, currdefs);
+      register_new_def (VDEF_RESULT (vdefs, i), &bd->block_defs);
     }
 }
 
@@ -1193,7 +1218,7 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
 	continue;
 
       *def_p = duplicate_ssa_name (var, stmt);
-      register_new_def (var, *def_p, &bd->block_defs, currdefs);
+      ssa_register_new_def (var, *def_p, &bd->block_defs);
     }
 
   /* Register new virtual definitions made by the statement.  */
@@ -1210,7 +1235,7 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
 	continue;
 
       *def_p = duplicate_ssa_name (var, stmt);
-      register_new_def (var, *def_p, &bd->block_defs, currdefs);
+      ssa_register_new_def (var, *def_p, &bd->block_defs);
     }
 }
 
@@ -1224,36 +1249,44 @@ rewrite_operand (tree *op_p)
     *op_p = get_reaching_def (*op_p);
 }
 
-/* Register DEF to be a new definition for variable VAR and push VAR's
-   current reaching definition into the stack pointed by BLOCK_DEFS_P.
-   IS_REAL_OPERAND is true when DEF is a real definition.  */
+/* Register DEF (an SSA_NAME) to be a new definition for its underlying
+   variable (SSA_NAME_VAR (DEF)) and push VAR's current reaching definition
+   into the stack pointed by BLOCK_DEFS_P.  */
 
 void
-register_new_def (tree var, tree def,
-		  varray_type *block_defs_p, varray_type table)
+register_new_def (tree def, varray_type *block_defs_p)
 {
-  tree currdef = get_value_for (var, table);
+  tree var = SSA_NAME_VAR (def);
+  tree currdef;
+   
+  /* If this variable is set in a single basic block and all uses are
+     dominated by the set(s) in that single basic block, then there is
+     no reason to record anything for this variable in the block local
+     definition stacks.  Doing so just wastes time and memory.
 
+     This is the same test to prune the set of variables which may
+     need PHI nodes.  So we just use that information since it's already
+     computed and available for us to use.  */
+  if (get_phi_state (var) == NEED_PHI_STATE_NO)
+    {
+      set_current_def (var, def);
+      return;
+    }
+
+  currdef = get_current_def (var);
   if (! *block_defs_p)
     VARRAY_TREE_INIT (*block_defs_p, 20, "block_defs");
-
-  /* If the current reaching definition is NULL, push the variable itself
-     so that the dominator tree callbacks know what variable is associated
-     with this NULL reaching def when unwinding the *BLOCK_DEFS_P stack.  */
-  if (currdef == NULL_TREE
-      || TREE_CODE (var) == SSA_NAME)
-    VARRAY_PUSH_TREE (*block_defs_p, var);
 
   /* Push the current reaching definition into *BLOCK_DEFS_P.  This stack is
      later used by the dominator tree callbacks to restore the reaching
      definitions for all the variables defined in the block after a recursive
-     visit to all its immediately dominated blocks.  */
-  VARRAY_PUSH_TREE (*block_defs_p, currdef);
+     visit to all its immediately dominated blocks.  If there is no current
+     reaching definition, then just record the underlying _DECL node.  */
+  VARRAY_PUSH_TREE (*block_defs_p, currdef ? currdef : var);
 
   /* Set the current reaching definition for VAR to be DEF.  */
-  set_value_for (var, def, table);
+  set_current_def (var, def);
 }
-
 
 /* Return the current definition for variable VAR.  If none is found,
    create a new SSA name to act as the zeroth definition for VAR.  If VAR
@@ -1268,7 +1301,7 @@ get_reaching_def (tree var)
   
   /* Lookup the current reaching definition for VAR.  */
   default_d = NULL_TREE;
-  currdef_var = get_value_for (var, currdefs);
+  currdef_var = get_current_def (var);
 
   /* If there is no reaching definition for VAR, create and register a
      default definition for it (if needed).  */
@@ -1285,7 +1318,7 @@ get_reaching_def (tree var)
 	  default_d = make_ssa_name (avar, build_empty_stmt ());
 	  set_default_def (avar, default_d);
 	}
-      set_value_for (var, default_d, currdefs);
+      set_current_def (var, default_d);
     }
 
   /* Return the current reaching definition for VAR, or the default
@@ -1394,6 +1427,54 @@ get_def_blocks_for (tree var)
   return db_p;
 }
 
+/* If a variable V in VARS_TO_RENAME is a pointer, the renaming
+   process will cause us to lose the name memory tags that may have
+   been associated with the various SSA_NAMEs of V.  This means that
+   the variables aliased to those name tags also need to be renamed
+   again.
+
+   FIXME 1- We should either have a better scheme for renaming
+	    pointers that doesn't lose name tags or re-run alias
+	    analysis to recover points-to information.
+
+	 2- Currently we just invalidate *all* the name tags.  This
+	    should be more selective.  */
+
+static void
+invalidate_name_tags (bitmap vars_to_rename)
+{
+  size_t i;
+  bool rename_name_tags_p;
+
+  rename_name_tags_p = false;
+  EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i,
+      if (POINTER_TYPE_P (TREE_TYPE (referenced_var (i))))
+	{
+	  rename_name_tags_p = true;
+	  break;
+	});
+
+  if (rename_name_tags_p)
+    for (i = 0; i < num_referenced_vars; i++)
+      {
+	var_ann_t ann = var_ann (referenced_var (i));
+
+	if (ann->mem_tag_kind == NAME_TAG)
+	  {
+	    size_t j;
+	    varray_type may_aliases = ann->may_aliases;
+
+	    bitmap_set_bit (vars_to_rename, ann->uid);
+	    if (ann->may_aliases)
+	      for (j = 0; j < VARRAY_ACTIVE_SIZE (may_aliases); j++)
+		{
+		  tree var = VARRAY_TREE (may_aliases, j);
+		  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+		}
+	  }
+      }
+}
+
 
 /* Main entry point into the SSA builder.  The renaming process
    proceeds in five main phases:
@@ -1429,6 +1510,7 @@ rewrite_into_ssa (bool all)
   struct dom_walk_data walk_data;
   struct mark_def_sites_global_data mark_def_sites_global_data;
   bitmap old_vars_to_rename = vars_to_rename;
+  unsigned i;
   
   timevar_push (TV_TREE_SSA_OTHER);
 
@@ -1436,9 +1518,6 @@ rewrite_into_ssa (bool all)
     vars_to_rename = NULL;
   else
     {
-      size_t i;
-      bool rename_name_tags_p;
-
       /* Initialize the array of variables to rename.  */
  
       if (vars_to_rename == NULL)
@@ -1450,26 +1529,7 @@ rewrite_into_ssa (bool all)
 	  return;
 	}
       
-      /* If any of the variables in VARS_TO_RENAME is a pointer, we need to
-	 invalidate all the name memory tags associated with the variables
-	 that we are about to rename.  FIXME: Currently we just invalidate
-	 *all* the NMTs.  Make this more selective.  */
-      rename_name_tags_p = false;
-      EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i,
-	  if (POINTER_TYPE_P (TREE_TYPE (referenced_var (i))))
-	    {
-	      rename_name_tags_p = true;
-	      break;
-	    });
-
-      if (rename_name_tags_p)
-	for (i = 0; i < num_referenced_vars; i++)
-	  {
-	    var_ann_t ann = var_ann (referenced_var (i));
-
-	    if (ann->mem_tag_kind == NAME_TAG)
-	      bitmap_set_bit (vars_to_rename, ann->uid);
-	  }
+      invalidate_name_tags (vars_to_rename);
 
       /* Now remove all the existing PHI nodes (if any) for the variables
 	 that we are about to rename into SSA.  */
@@ -1479,8 +1539,6 @@ rewrite_into_ssa (bool all)
   /* Allocate memory for the DEF_BLOCKS hash table.  */
   def_blocks = htab_create (VARRAY_ACTIVE_SIZE (referenced_vars),
 			    def_blocks_hash, def_blocks_eq, def_blocks_free);
-
-  VARRAY_TREE_INIT (currdefs, num_referenced_vars, "currdefs");
 
   /* Initialize dominance frontier and immediate dominator bitmaps. 
      Also count the number of predecessors for each block.  Doing so
@@ -1497,6 +1555,9 @@ rewrite_into_ssa (bool all)
       bb_ann (bb)->num_preds = count;
       dfs[bb->index] = BITMAP_XMALLOC ();
     }
+
+  for (i = 0; i < num_referenced_vars; i++)
+    set_current_def (referenced_var (i), NULL_TREE);
 
   /* Ensure that the dominance information is OK.  */
   calculate_dominance_info (CDI_DOMINATORS);
@@ -1581,7 +1642,6 @@ rewrite_into_ssa (bool all)
   free (dfs);
 
   htab_delete (def_blocks);
-  VARRAY_CLEAR (currdefs);
 
   vars_to_rename = old_vars_to_rename;
   timevar_pop (TV_TREE_SSA_OTHER);
@@ -1609,8 +1669,6 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
   /* Allocate memory for the DEF_BLOCKS hash table.  */
   def_blocks = htab_create (highest_ssa_version,
 			    def_blocks_hash, def_blocks_eq, def_blocks_free);
-
-  VARRAY_TREE_INIT (currdefs, highest_ssa_version, "currdefs");
 
   ssa_names = xcalloc (highest_ssa_version, sizeof (tree));
 
@@ -1674,6 +1732,10 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
   /* We no longer need this bitmap, clear and free it.  */
   sbitmap_free (mark_def_sites_global_data.kills);
 
+  for (i = 0; i < highest_ssa_version; i++)
+    if (ssa_names[i])
+      set_current_def (ssa_names[i], NULL_TREE);
+
   /* Insert PHI nodes at dominance frontiers of definition blocks.  */
   insert_phi_nodes (dfs, names_to_rename, ssa_names);
 
@@ -1721,7 +1783,6 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
   free (dfs);
 
   htab_delete (def_blocks);
-  VARRAY_CLEAR (currdefs);
 
   free (ssa_names);
 

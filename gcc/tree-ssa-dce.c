@@ -59,7 +59,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree.h"
 #include "diagnostic.h"
 #include "tree-flow.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
 #include "timevar.h"
@@ -109,7 +109,7 @@ static inline void mark_operand_necessary (tree);
 
 static bool need_to_preserve_store (tree);
 static void mark_stmt_if_obviously_necessary (tree, bool);
-static void find_obviously_necessary_stmts (bool);
+static void find_obviously_necessary_stmts (struct edge_list *);
 
 static void mark_control_dependent_edges_necessary (basic_block, struct edge_list *);
 static void propagate_necessity (struct edge_list *);
@@ -404,14 +404,16 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
 /* Find obviously necessary statements.  These are things like most function
    calls, and stores to file level variables.
 
-   If AGGRESSIVE is false, control statements are conservatively marked as
-   necessary.  */
+   If EL is NULL, control statements are conservatively marked as
+   necessary.  Otherwise it contains the list of edges used by control
+   dependence analysis.  */
 
 static void
-find_obviously_necessary_stmts (bool aggressive)
+find_obviously_necessary_stmts (struct edge_list *el)
 {
   basic_block bb;
   block_stmt_iterator i;
+  edge e;
 
   FOR_EACH_BB (bb)
     {
@@ -438,13 +440,25 @@ find_obviously_necessary_stmts (bool aggressive)
 	{
 	  tree stmt = bsi_stmt (i);
 	  NECESSARY (stmt) = 0;
-	  mark_stmt_if_obviously_necessary (stmt, aggressive);
+	  mark_stmt_if_obviously_necessary (stmt, el != NULL);
 	}
 
       /* Mark this basic block as `not visited'.  A block will be marked
 	 visited when the edges that it is control dependent on have been
 	 marked.  */
       bb->flags &= ~BB_VISITED;
+    }
+
+  if (el)
+    {
+      /* Prevent the loops from being removed.  We must keep the infinite loops,
+	 and we currently do not have a means to recognize the finite ones.  */
+      FOR_EACH_BB (bb)
+	{
+	  for (e = bb->succ; e; e = e->succ_next)
+	    if (e->flags & EDGE_DFS_BACK)
+	      mark_control_dependent_edges_necessary (e->dest, el);
+	}
     }
 }
 
@@ -827,9 +841,11 @@ perform_tree_ssa_dce (bool aggressive, bool no_cfg_changes)
       el = create_edge_list ();
       find_all_control_dependences (el);
       timevar_pop (TV_CONTROL_DEPENDENCES);
+
+      mark_dfs_back_edges ();
     }
 
-  find_obviously_necessary_stmts (aggressive);
+  find_obviously_necessary_stmts (el);
 
   propagate_necessity (el);
 
@@ -849,6 +865,8 @@ perform_tree_ssa_dce (bool aggressive, bool no_cfg_changes)
     }
 
   tree_dce_done (aggressive);
+
+  free_edge_list (el);
 }
 
 /* Cleanup the dead code, but avoid cfg changes.  */

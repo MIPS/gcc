@@ -400,6 +400,7 @@ package body System.Task_Primitives.Operations is
 
    procedure Initialize_Lock (L : access RTS_Lock; Level : Lock_Level) is
       pragma Unreferenced (Level);
+
    begin
       InitializeCriticalSection (CRITICAL_SECTION (L.all)'Unrestricted_Access);
    end Initialize_Lock;
@@ -660,6 +661,7 @@ package body System.Task_Primitives.Operations is
 
    procedure Wakeup (T : Task_Id; Reason : System.Tasking.Task_States) is
       pragma Unreferenced (Reason);
+
    begin
       Cond_Signal (T.Common.LL.CV'Access);
    end Wakeup;
@@ -959,7 +961,7 @@ package body System.Task_Primitives.Operations is
    ----------------
 
    procedure Abort_Task (T : Task_Id) is
-      pragma Unreferenced (T);
+   pragma Unreferenced (T);
    begin
       null;
    end Abort_Task;
@@ -1053,6 +1055,7 @@ package body System.Task_Primitives.Operations is
 
    function Check_Exit (Self_ID : ST.Task_Id) return Boolean is
       pragma Unreferenced (Self_ID);
+
    begin
       return True;
    end Check_Exit;
@@ -1063,6 +1066,7 @@ package body System.Task_Primitives.Operations is
 
    function Check_No_Locks (Self_ID : ST.Task_Id) return Boolean is
       pragma Unreferenced (Self_ID);
+
    begin
       return True;
    end Check_No_Locks;

@@ -421,16 +421,6 @@ extern int snprintf (char *, size_t, const char *, ...);
 # endif
 #endif
 
-/* Approximate O_NONBLOCK.  */
-#ifndef O_NONBLOCK
-#define O_NONBLOCK O_NDELAY
-#endif
-
-/* Approximate O_NOCTTY.  */
-#ifndef O_NOCTTY
-#define O_NOCTTY 0
-#endif
-
 /* Define well known filenos if the system does not define them.  */
 #ifndef STDIN_FILENO
 # define STDIN_FILENO   0
@@ -606,7 +596,7 @@ typedef char _Bool;
 	STRUCT_VALUE_INCOMING STRICT_ARGUMENT_NAMING			\
 	PROMOTE_FUNCTION_RETURN PROMOTE_PROTOTYPES STRUCT_VALUE_REGNUM	\
 	SETUP_INCOMING_VARARGS EXPAND_BUILTIN_SAVEREGS			\
-	DEFAULT_SHORT_ENUMS
+	DEFAULT_SHORT_ENUMS SPLIT_COMPLEX_ARGS MD_ASM_CLOBBERS
 
 /* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have
@@ -642,7 +632,8 @@ typedef char _Bool;
 	FINAL_REG_PARM_STACK_SPACE MAYBE_REG_PARM_STACK_SPACE		   \
 	TRADITIONAL_PIPELINE_INTERFACE DFA_PIPELINE_INTERFACE		   \
 	DBX_OUTPUT_STANDARD_TYPES BUILTIN_SETJMP_FRAME_VALUE		   \
-	MD_ASM_CLOBBERS
+	SUNOS4_SHARED_LIBRARIES PROMOTE_FOR_CALL_ONLY			   \
+	SPACE_AFTER_L_OPTION NO_RECURSIVE_FUNCTION_CSE
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\

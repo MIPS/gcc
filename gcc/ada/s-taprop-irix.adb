@@ -958,6 +958,7 @@ package body System.Task_Primitives.Operations is
 
    procedure Abort_Task (T : Task_Id) is
       Result : Interfaces.C.int;
+
    begin
       Result := pthread_kill (T.Common.LL.Thread,
         Signal (System.Interrupt_Management.Abort_Task_Interrupt));
@@ -972,6 +973,7 @@ package body System.Task_Primitives.Operations is
 
    function Check_Exit (Self_ID : ST.Task_Id) return Boolean is
       pragma Unreferenced (Self_ID);
+
    begin
       return True;
    end Check_Exit;
@@ -982,6 +984,7 @@ package body System.Task_Primitives.Operations is
 
    function Check_No_Locks (Self_ID : ST.Task_Id) return Boolean is
       pragma Unreferenced (Self_ID);
+
    begin
       return True;
    end Check_No_Locks;
@@ -1019,10 +1022,12 @@ package body System.Task_Primitives.Operations is
 
    function Suspend_Task
      (T           : ST.Task_Id;
-      Thread_Self : Thread_Id) return Boolean
+      Thread_Self : Thread_Id)
+      return        Boolean
    is
       pragma Unreferenced (T);
       pragma Unreferenced (Thread_Self);
+
    begin
       return False;
    end Suspend_Task;
@@ -1033,10 +1038,12 @@ package body System.Task_Primitives.Operations is
 
    function Resume_Task
      (T           : ST.Task_Id;
-      Thread_Self : Thread_Id) return Boolean
+      Thread_Self : Thread_Id)
+      return        Boolean
    is
       pragma Unreferenced (T);
       pragma Unreferenced (Thread_Self);
+
    begin
       return False;
    end Resume_Task;
@@ -1051,8 +1058,8 @@ package body System.Task_Primitives.Operations is
       Tmp_Set : aliased sigset_t;
       Result  : Interfaces.C.int;
 
-      function State
-        (Int : System.Interrupt_Management.Interrupt_ID) return Character;
+      function State (Int : System.Interrupt_Management.Interrupt_ID)
+                     return Character;
       pragma Import (C, State, "__gnat_get_interrupt_state");
       --  Get interrupt state. Defined in a-init.c. The input argument is
       --  the interrupt number, and the result is one of the following:

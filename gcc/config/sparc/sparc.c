@@ -48,17 +48,6 @@ Boston, MA 02111-1307, USA.  */
 #include "target-def.h"
 #include "cfglayout.h"
 
-/* 1 if the caller has placed an "unimp" insn immediately after the call.
-   This is used in v8 code when calling a function that returns a structure.
-   v9 doesn't have this.  Be careful to have this test be the same as that
-   used on the call.  */
-
-#define SKIP_CALLERS_UNIMP_P  \
-(!TARGET_ARCH64 && current_function_returns_struct			\
- && ! integer_zerop (DECL_SIZE (DECL_RESULT (current_function_decl)))	\
- && (TREE_CODE (DECL_SIZE (DECL_RESULT (current_function_decl)))	\
-     == INTEGER_CST))
-
 /* Global variables for machine-dependent things.  */
 
 /* Size of frame.  Need to know this to emit return insns from leaf procedures.
@@ -81,6 +70,7 @@ rtx sparc_compare_op0, sparc_compare_op1;
 /* Coordinate with the md file wrt special insns created by
    sparc_function_epilogue.  */
 bool sparc_emitting_epilogue;
+bool sparc_skip_caller_unimp;
 
 /* Vector to say how input registers are mapped to output registers.
    HARD_FRAME_POINTER_REGNUM cannot be remapped by this function to
@@ -160,8 +150,6 @@ static void sparc_function_prologue (FILE *, HOST_WIDE_INT, int);
 #ifdef OBJECT_FORMAT_ELF
 static void sparc_elf_asm_named_section (const char *, unsigned int);
 #endif
-static void sparc_aout_select_section (tree, int, unsigned HOST_WIDE_INT)
-     ATTRIBUTE_UNUSED;
 static void sparc_aout_select_rtx_section (enum machine_mode, rtx,
 					   unsigned HOST_WIDE_INT)
      ATTRIBUTE_UNUSED;
@@ -276,20 +264,15 @@ enum processor_type sparc_cpu;
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST hook_int_rtx_0
 
-/* Return TRUE if the promotion described by PROMOTE_MODE should also be done
-   for outgoing function arguments.
-   This is only needed for TARGET_ARCH64, but since PROMOTE_MODE is a no-op
-   for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime test
-   for this value.  */
+/* This is only needed for TARGET_ARCH64, but since PROMOTE_FUNCTION_MODE is a
+   no-op for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime
+   test for this value.  */
 #undef TARGET_PROMOTE_FUNCTION_ARGS
 #define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
 
-/* Return TRUE if the promotion described by PROMOTE_MODE should also be done
-   for the return value of functions.  If this macro is defined, FUNCTION_VALUE
-   must perform the same promotions done by PROMOTE_MODE.
-   This is only needed for TARGET_ARCH64, but since PROMOTE_MODE is a no-op
-   for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime test
-   for this value.  */
+/* This is only needed for TARGET_ARCH64, but since PROMOTE_FUNCTION_MODE is a
+   no-op for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime
+   test for this value.  */
 #undef TARGET_PROMOTE_FUNCTION_RETURN
 #define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
 
@@ -4501,6 +4484,17 @@ sparc_function_epilogue (FILE *file,
 {
   const char *ret;
 
+  /* True if the caller has placed an "unimp" insn immediately after the call.
+     This insn is used in the 32-bit ABI when calling a function that returns
+     a non zero-sized structure. The 64-bit ABI doesn't have it.  Be careful
+     to have this test be the same as that used on the call.  */
+  sparc_skip_caller_unimp =
+    ! TARGET_ARCH64
+    && current_function_returns_struct
+    && (TREE_CODE (DECL_SIZE (DECL_RESULT (current_function_decl)))
+	== INTEGER_CST)
+    && ! integer_zerop (DECL_SIZE (DECL_RESULT (current_function_decl)));
+
   if (current_function_epilogue_delay_list == 0)
     {
       /* If code does not drop into the epilogue, we need
@@ -4535,9 +4529,9 @@ sparc_function_epilogue (FILE *file,
 
   /* Work out how to skip the caller's unimp instruction if required.  */
   if (leaf_function)
-    ret = (SKIP_CALLERS_UNIMP_P ? "jmp\t%o7+12" : "retl");
+    ret = (sparc_skip_caller_unimp ? "jmp\t%o7+12" : "retl");
   else
-    ret = (SKIP_CALLERS_UNIMP_P ? "jmp\t%i7+12" : "ret");
+    ret = (sparc_skip_caller_unimp ? "jmp\t%i7+12" : "ret");
 
   if (! leaf_function)
     {
@@ -4545,7 +4539,7 @@ sparc_function_epilogue (FILE *file,
 	{
 	  if (current_function_epilogue_delay_list)
 	    abort ();
-	  if (SKIP_CALLERS_UNIMP_P)
+	  if (sparc_skip_caller_unimp)
 	    abort ();
 
 	  fputs ("\trestore\n\tretl\n\tadd\t%sp, %g1, %sp\n", file);
@@ -4558,7 +4552,7 @@ sparc_function_epilogue (FILE *file,
 	  if (TARGET_V9 && ! epilogue_renumber (&delay, 1))
 	    {
 	      epilogue_renumber (&delay, 0);
-	      fputs (SKIP_CALLERS_UNIMP_P
+	      fputs (sparc_skip_caller_unimp
 		     ? "\treturn\t%i7+12\n"
 		     : "\treturn\t%i7+8\n", file);
 	      final_scan_insn (XEXP (current_function_epilogue_delay_list, 0),
@@ -4591,7 +4585,7 @@ sparc_function_epilogue (FILE *file,
 	      sparc_emitting_epilogue = false;
 	    }
 	}
-      else if (TARGET_V9 && ! SKIP_CALLERS_UNIMP_P)
+      else if (TARGET_V9 && ! sparc_skip_caller_unimp)
 	fputs ("\treturn\t%i7+8\n\tnop\n", file);
       else
 	fprintf (file, "\t%s\n\trestore\n", ret);
@@ -7321,7 +7315,7 @@ sparc_type_code (register tree type)
 
 	  /* Carefully distinguish all the standard types of C,
 	     without messing up if the language is not C.  We do this by
-	     testing TYPE_PRECISION and TREE_UNSIGNED.  The old code used to
+	     testing TYPE_PRECISION and TYPE_UNSIGNED.  The old code used to
 	     look at both the names and the above fields, but that's redundant.
 	     Any type whose size is between two C types will be considered
 	     to be the wider of the two types.  Also, we do not have a
@@ -7331,16 +7325,16 @@ sparc_type_code (register tree type)
 	     size, but that's fine, since neither can the assembler.  */
 
 	  if (TYPE_PRECISION (type) <= CHAR_TYPE_SIZE)
-	    return (qualifiers | (TREE_UNSIGNED (type) ? 12 : 2));
+	    return (qualifiers | (TYPE_UNSIGNED (type) ? 12 : 2));
   
 	  else if (TYPE_PRECISION (type) <= SHORT_TYPE_SIZE)
-	    return (qualifiers | (TREE_UNSIGNED (type) ? 13 : 3));
+	    return (qualifiers | (TYPE_UNSIGNED (type) ? 13 : 3));
   
 	  else if (TYPE_PRECISION (type) <= INT_TYPE_SIZE)
-	    return (qualifiers | (TREE_UNSIGNED (type) ? 14 : 4));
+	    return (qualifiers | (TYPE_UNSIGNED (type) ? 14 : 4));
   
 	  else
-	    return (qualifiers | (TREE_UNSIGNED (type) ? 15 : 5));
+	    return (qualifiers | (TYPE_UNSIGNED (type) ? 15 : 5));
   
 	case REAL_TYPE:
 	  /* If this is a range type, consider it to be the underlying
@@ -8080,6 +8074,13 @@ sparc_init_libfuncs (void)
       set_conv_libfunc (ufix_optab,   SImode, TFmode, "_Q_qtou");
       set_conv_libfunc (sfloat_optab, TFmode, SImode, "_Q_itoq");
 
+      if (DITF_CONVERSION_LIBFUNCS)
+	{
+	  set_conv_libfunc (sfix_optab,   DImode, TFmode, "_Q_qtoll");
+	  set_conv_libfunc (ufix_optab,   DImode, TFmode, "_Q_qtoull");
+	  set_conv_libfunc (sfloat_optab, TFmode, DImode, "_Q_lltoq");
+	}
+
       if (SUN_CONVERSION_LIBFUNCS)
 	{
 	  set_conv_libfunc (sfix_optab, DImode, SFmode, "__ftoll");
@@ -8121,16 +8122,6 @@ sparc_init_libfuncs (void)
   gofast_maybe_init_libfuncs ();
 }
 
-/* ??? Similar to the standard section selection, but force reloc-y-ness
-   if SUNOS4_SHARED_LIBRARIES.  Unclear why this helps (as opposed to
-   pretending PIC always on), but that's what the old code did.  */
-
-static void
-sparc_aout_select_section (tree t, int reloc, unsigned HOST_WIDE_INT align)
-{
-  default_select_section (t, reloc | SUNOS4_SHARED_LIBRARIES, align);
-}
-
 /* Use text section for a constant unless we need more alignment than
    that offers.  */
 
@@ -8139,8 +8130,7 @@ sparc_aout_select_rtx_section (enum machine_mode mode, rtx x,
 			       unsigned HOST_WIDE_INT align)
 {
   if (align <= MAX_TEXT_ALIGN
-      && ! (flag_pic && (symbolic_operand (x, mode)
-			 || SUNOS4_SHARED_LIBRARIES)))
+      && ! (flag_pic && symbolic_operand (x, mode)))
     readonly_data_section ();
   else
     data_section ();

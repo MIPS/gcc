@@ -1,26 +1,26 @@
-/* Expression translation
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+/* Intrinsic translation
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
-/* trans-expr.c-- generate SIMPLE trees for gfc_expr.  */
+/* trans-intrinsic.c-- generate GENERIC trees for calls to intrinsics.  */
 
 #include "config.h"
 #include "system.h"
@@ -31,7 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "toplev.h"
 #include "real.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "flags.h"
 #include <gmp.h>
 #include <assert.h>
@@ -747,9 +747,14 @@ gfc_conv_intrinsic_cmplx (gfc_se * se, gfc_expr * expr, int both)
   type = gfc_typenode_for_spec (&expr->ts);
   arg = gfc_conv_intrinsic_function_args (se, expr);
   real = convert (TREE_TYPE (type), TREE_VALUE (arg));
-  arg = TREE_CHAIN (arg);
   if (both)
-    imag = convert (TREE_TYPE (type), TREE_VALUE (arg));
+    imag = convert (TREE_TYPE (type), TREE_VALUE (TREE_CHAIN (arg)));
+  else if (TREE_CODE (TREE_TYPE (TREE_VALUE (arg))) == COMPLEX_TYPE)
+    {
+      arg = TREE_VALUE (arg);
+      imag = build1 (IMAGPART_EXPR, TREE_TYPE (TREE_TYPE (arg)), arg);
+      imag = convert (TREE_TYPE (type), imag);
+    }
   else
     imag = build_real_from_int_cst (TREE_TYPE (type), integer_zero_node);
 
@@ -1877,8 +1882,7 @@ gfc_conv_intrinsic_len (gfc_se * se, gfc_expr * expr)
 		&& (sym->result == sym))
 	      decl = gfc_get_fake_result_decl (sym);
 
-	    assert (GFC_DECL_STRING (decl));
-	    len = GFC_DECL_STRING_LENGTH (decl);
+	    len = sym->ts.cl->backend_decl;
 	    assert (len);
 	  }
 	else
@@ -2394,23 +2398,28 @@ gfc_conv_intrinsic_spacing (gfc_se * se, gfc_expr * expr)
    se->expr = tmp;
 }
 
-/* Generate code for RRSPACING (X) intrinsic function. We generate:                                                                            
-    sedigits = edigits + 1;
-    if (expn == 0)
+/* Generate code for RRSPACING (X) intrinsic function. We generate:
+
+    if (expn == 0 && frac == 0)
+       res = 0;
+    else
     {
-      t1 = leadzero (frac);
-      frac = frac << (t1 + sedigits);
-      frac = frac >> (sedigits);
-    }
-    t = bias + BITS_OF_FRACTION_OF;
-    res = (t << BITS_OF_FRACTION_OF) | frac;
+       sedigits = edigits + 1;
+       if (expn == 0)
+       {
+         t1 = leadzero (frac);
+         frac = frac << (t1 + sedigits);
+         frac = frac >> (sedigits);
+       }
+       t = bias + BITS_OF_FRACTION_OF;
+       res = (t << BITS_OF_FRACTION_OF) | frac;
 */
 
 static void
 gfc_conv_intrinsic_rrspacing (gfc_se * se, gfc_expr * expr)
 {
    tree masktype;
-   tree tmp, t1, t2, cond;
+   tree tmp, t1, t2, cond, cond2;
    tree one, zero;
    tree fdigits, fraction;
    real_compnt_info rcs;
@@ -2433,6 +2442,10 @@ gfc_conv_intrinsic_rrspacing (gfc_se * se, gfc_expr * expr)
    tmp = build (PLUS_EXPR, masktype, rcs.bias, fdigits);
    tmp = build (LSHIFT_EXPR, masktype, tmp, fdigits);
    tmp = build (BIT_IOR_EXPR, masktype, tmp, fraction);
+
+   cond2 = build (EQ_EXPR, boolean_type_node, rcs.frac, zero);
+   cond = build (TRUTH_ANDIF_EXPR, boolean_type_node, cond, cond2);
+   tmp = build (COND_EXPR, masktype, cond, integer_zero_node, tmp);
 
    tmp = build1 (VIEW_CONVERT_EXPR, rcs.type, tmp);
    se->expr = tmp;

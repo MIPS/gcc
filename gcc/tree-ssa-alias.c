@@ -36,7 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "tree-alias-common.h"
@@ -387,9 +387,9 @@ delete_alias_info (struct alias_info *ai)
 {
   size_t i;
 
-  BITMAP_FREE (ai->ssa_names_visited);
+  BITMAP_XFREE (ai->ssa_names_visited);
   ai->processed_ptrs = NULL;
-  BITMAP_FREE (ai->addresses_needed);
+  BITMAP_XFREE (ai->addresses_needed);
 
   for (i = 0; i < ai->num_addressable_vars; i++)
     {
@@ -406,9 +406,9 @@ delete_alias_info (struct alias_info *ai)
   free (ai->pointers);
 
   ai->num_references = NULL;
-  BITMAP_FREE (ai->written_vars);
-  BITMAP_FREE (ai->dereferenced_ptrs_store);
-  BITMAP_FREE (ai->dereferenced_ptrs_load);
+  BITMAP_XFREE (ai->written_vars);
+  BITMAP_XFREE (ai->dereferenced_ptrs_store);
+  BITMAP_XFREE (ai->dereferenced_ptrs_load);
 
   free (ai);
 }
@@ -1304,7 +1304,25 @@ maybe_create_global_var (struct alias_info *ai)
   n_clobbered = 0;
   EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, n_clobbered++);
 
-  if (ai->num_calls_found * n_clobbered >= (size_t) GLOBAL_VAR_THRESHOLD)
+  /* Create .GLOBAL_VAR if we have too many call-clobbered variables.
+     We also create .GLOBAL_VAR when there no call-clobbered variables
+     to prevent code motion transformations from re-arranging function
+     calls that may have side effects.  For instance,
+
+     		foo ()
+		{
+		  int a = f ();
+		  g ();
+		  h (a);
+		}
+
+     There are no call-clobbered variables in foo(), so it would be
+     entirely possible for a pass to want to move the call to f()
+     after the call to g().  If f() has side effects, that would be
+     wrong.  Creating .GLOBAL_VAR in this case will insert VDEFs for
+     it and prevent such transformations.  */
+  if (n_clobbered == 0
+      || ai->num_calls_found * n_clobbered >= (size_t) GLOBAL_VAR_THRESHOLD)
     create_global_var ();
 
   /* If the function has calls to clobbering functions and .GLOBAL_VAR has
@@ -1901,7 +1919,7 @@ static void
 dump_alias_stats (FILE *file)
 {
   const char *funcname
-    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+    = lang_hooks.decl_printable_name (current_function_decl, 2);
   fprintf (file, "\nAlias statistics for %s\n\n", funcname);
   fprintf (file, "Total alias queries:\t%u\n", alias_stats.alias_queries);
   fprintf (file, "Total alias mayalias results:\t%u\n", 
@@ -1930,7 +1948,7 @@ dump_alias_info (FILE *file)
 {
   size_t i;
   const char *funcname
-    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+    = lang_hooks.decl_printable_name (current_function_decl, 2);
 
   fprintf (file, "\nAlias information for %s\n\n", funcname);
 
@@ -2013,7 +2031,7 @@ dump_points_to_info (FILE *file)
   block_stmt_iterator si;
   size_t i;
   const char *fname =
-    (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+    lang_hooks.decl_printable_name (current_function_decl, 2);
 
   fprintf (file, "\n\nPointed-to sets for pointers in %s\n\n", fname);
 

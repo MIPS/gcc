@@ -1,5 +1,5 @@
 /* Tree-dumping functionality for intermediate representation.
-   Copyright (C) 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>
 
 This file is part of GCC.
@@ -29,6 +29,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "tree-dump.h"
 #include "langhooks.h"
+#include "tree-iterator.h"
 
 static unsigned int queue (dump_info_p, tree, int);
 static void dump_index (dump_info_p, unsigned int);
@@ -347,7 +348,7 @@ dequeue_and_dump (dump_info_p di)
   else if (code_class == 't')
     {
       /* All types have qualifiers.  */
-      int quals = (*lang_hooks.tree_dump.type_quals) (t);
+      int quals = lang_hooks.tree_dump.type_quals (t);
 
       if (quals != TYPE_UNQUALIFIED)
 	{
@@ -378,7 +379,7 @@ dequeue_and_dump (dump_info_p di)
   /* Give the language-specific code a chance to print something.  If
      it's completely taken care of things, don't bother printing
      anything more ourselves.  */
-  if ((*lang_hooks.tree_dump.dump_tree) (di, t))
+  if (lang_hooks.tree_dump.dump_tree (di, t))
     goto done;
 
   /* Now handle the various kinds of nodes.  */
@@ -397,6 +398,18 @@ dequeue_and_dump (dump_info_p di)
       dump_child ("chan", TREE_CHAIN (t));
       break;
 
+    case STATEMENT_LIST:
+      {
+	tree_stmt_iterator it;
+	for (i = 0, it = tsi_start (t); !tsi_end_p (it); tsi_next (&it), i++)
+	  {
+	    char buffer[32];
+	    sprintf (buffer, "%u", i);
+	    dump_child (buffer, tsi_stmt (it));
+	  }
+      }
+      break;
+
     case TREE_VEC:
       dump_int (di, "lngt", TREE_VEC_LENGTH (t));
       for (i = 0; i < TREE_VEC_LENGTH (t); ++i)
@@ -410,7 +423,7 @@ dequeue_and_dump (dump_info_p di)
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
       dump_int (di, "prec", TYPE_PRECISION (t));
-      if (TREE_UNSIGNED (t))
+      if (TYPE_UNSIGNED (t))
 	dump_string (di, "unsigned");
       dump_child ("min", TYPE_MIN_VALUE (t));
       dump_child ("max", TYPE_MAX_VALUE (t));
@@ -664,7 +677,7 @@ static struct dump_file_info dump_files[TDI_end*2] =
   {".generic", "tree-generic", 0, 0},
   {".nested", "tree-nested", 0, 0},
   {".inlined", "tree-inlined", 0, 0},
-  {".dot", "tree-dot", 0, 0},
+  {".vcg", "tree-vcg", 0, 0},
   {".xml", "call-graph", 0, 0},
   {NULL, "tree-all", 0, 0},
 };

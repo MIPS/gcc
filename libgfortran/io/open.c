@@ -140,7 +140,7 @@ static st_option access_opt[] = {
  * state from AFTER_ENDFILE to AT_ENDFILE. */
 
 void
-test_endfile (unit_t * u)
+test_endfile (gfc_unit * u)
 {
 
   if (u->endfile == NO_ENDFILE && file_length (u->s) == file_position (u->s))
@@ -152,7 +152,7 @@ test_endfile (unit_t * u)
  * to be changed. */
 
 static void
-edit_modes (unit_t * u, unit_flags * flags)
+edit_modes (gfc_unit * u, unit_flags * flags)
 {
 
   /* Complain about attempts to change the unchangeable */
@@ -170,7 +170,7 @@ edit_modes (unit_t * u, unit_flags * flags)
     generate_error (ERROR_BAD_OPTION,
 		    "Cannot change FORM parameter in OPEN statement");
 
-  if (ioparm.recl_in != NULL && *ioparm.recl_in != u->recl)
+  if (ioparm.recl_in != 0 && ioparm.recl_in != u->recl)
     generate_error (ERROR_BAD_OPTION,
 		    "Cannot change RECL parameter in OPEN statement");
 
@@ -247,10 +247,10 @@ edit_modes (unit_t * u, unit_flags * flags)
 
 /* new_unit()-- Open an unused unit */
 
-static void
+void
 new_unit (unit_flags * flags)
 {
-  unit_t *u;
+  gfc_unit *u;
   stream *s;
   char tmpname[5 /* fort. */ + 10 /* digits of unit number */ + 1 /* 0 */];
 
@@ -306,32 +306,31 @@ new_unit (unit_flags * flags)
 	}
     }
 
-  if (flags->position == POSITION_UNSPECIFIED)
-    flags->position = POSITION_ASIS;
+  if (flags->position != POSITION_ASIS && flags->access == ACCESS_DIRECT)
+   {
+     generate_error (ERROR_OPTION_CONFLICT,
+                     "ACCESS parameter conflicts with SEQUENTIAL access in "
+                     "OPEN statement");
+     goto cleanup;
+   }
   else
-    {
-      if (flags->access == ACCESS_DIRECT)
-	{
-	  generate_error (ERROR_OPTION_CONFLICT,
-			  "ACCESS parameter conflicts with SEQUENTIAL access in "
-			  "OPEN statement");
-	  goto cleanup;
-	}
-    }
+   if (flags->position == POSITION_UNSPECIFIED)
+     flags->position = POSITION_ASIS;
+
 
   if (flags->status == STATUS_UNSPECIFIED)
     flags->status = STATUS_UNKNOWN;
 
   /* Checks */
 
-  if (flags->access == ACCESS_DIRECT && ioparm.recl_in == NULL)
+  if (flags->access == ACCESS_DIRECT && ioparm.recl_in == 0)
     {
       generate_error (ERROR_MISSING_OPTION,
 		      "Missing RECL parameter in OPEN statement");
       goto cleanup;
     }
 
-  if (ioparm.recl_in != NULL && *ioparm.recl_in <= 0)
+  if (ioparm.recl_in != 0 && ioparm.recl_in <= 0)
     {
       generate_error (ERROR_BAD_OPTION,
 		      "RECL parameter is non-positive in OPEN statement");
@@ -385,7 +384,7 @@ new_unit (unit_flags * flags)
 
   /* Create the unit structure */
 
-  u = get_mem (sizeof (unit_t) + ioparm.file_len);
+  u = get_mem (sizeof (gfc_unit) + ioparm.file_len);
 
   u->unit_number = ioparm.unit;
   u->s = s;
@@ -393,7 +392,7 @@ new_unit (unit_flags * flags)
 
   /* Unspecified recl ends up with a processor dependent value */
 
-  u->recl = (ioparm.recl_in != NULL) ? *ioparm.recl_in : DEFAULT_RECL;
+  u->recl = (ioparm.recl_in != 0) ? ioparm.recl_in : DEFAULT_RECL;
   u->last_record = 0;
   u->current_record = 0;
 
@@ -431,7 +430,7 @@ cleanup:
  * file. */
 
 static void
-already_open (unit_t * u, unit_flags * flags)
+already_open (gfc_unit * u, unit_flags * flags)
 {
 
   if (ioparm.file == NULL)
@@ -466,7 +465,7 @@ void
 st_open (void)
 {
   unit_flags flags;
-  unit_t *u = NULL;
+  gfc_unit *u = NULL;
  
   library_start ();
 

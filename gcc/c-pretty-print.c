@@ -141,17 +141,22 @@ pp_c_arrow (c_pretty_printer *pp)
 }
 
 void
-pp_c_semicolon(c_pretty_printer *pp)
+pp_c_semicolon (c_pretty_printer *pp)
 {
   pp_semicolon (pp);
   pp_base (pp)->padding = pp_none;
 }
 
+/* Print out the external representation of CV-QUALIFIER.  */
+
 static void
 pp_c_cv_qualifier (c_pretty_printer *pp, const char *cv)
 {
   const char *p = pp_last_position_in_text (pp);
-  if (p != NULL && *p == '*')
+  /* The C programming language does not have references, but it is much
+     simpler to handle those here rather than going through the same
+     logic in the C++ pretty-printer.  */
+  if (p != NULL && (*p == '*' || *p == '&'))
     pp_c_whitespace (pp);
   pp_c_identifier (pp, cv);
 }
@@ -165,6 +170,9 @@ pp_c_type_cast (c_pretty_printer *pp, tree t)
   pp_type_id (pp, t);
   pp_c_right_paren (pp);
 }
+
+/* We're about to pretty-print a pointer type as indicated by T.
+   Output a whitespace, if needed, preparing for subsequent output.  */
 
 void
 pp_c_space_for_pointer_operator (c_pretty_printer *pp, tree t)
@@ -284,7 +292,7 @@ pp_c_type_specifier (c_pretty_printer *pp, tree t)
       if (TYPE_NAME (t))
         t = TYPE_NAME (t);
       else
-        t = c_common_type_for_mode (TYPE_MODE (t), TREE_UNSIGNED (t));
+        t = c_common_type_for_mode (TYPE_MODE (t), TYPE_UNSIGNED (t));
       pp_c_type_specifier (pp, t);
       break;
 
@@ -737,6 +745,8 @@ pp_c_string_literal (c_pretty_printer *pp, tree s)
   pp_doublequote (pp);
 }
 
+/* Pretty-print an INTEGER literal.  */
+
 static void
 pp_c_integer_constant (c_pretty_printer *pp, tree i)
 {
@@ -757,7 +767,7 @@ pp_c_integer_constant (c_pretty_printer *pp, tree i)
                TREE_INT_CST_HIGH (i), TREE_INT_CST_LOW (i));
       pp_string (pp, pp_buffer (pp)->digit_buffer);
     }
-  if (TREE_UNSIGNED (type))
+  if (TYPE_UNSIGNED (type))
     pp_character (pp, 'u');
   if (type == long_integer_type_node || type == long_unsigned_type_node)
     pp_character (pp, 'l');
@@ -775,8 +785,8 @@ pp_c_character_constant (c_pretty_printer *pp, tree c)
   if (type == wchar_type_node)
     pp_character (pp, 'L'); 
   pp_quote (pp);
-  if (host_integerp (c, TREE_UNSIGNED (type)))
-    pp_c_char (pp, tree_low_cst (c, TREE_UNSIGNED (type)));
+  if (host_integerp (c, TYPE_UNSIGNED (type)))
+    pp_c_char (pp, tree_low_cst (c, TYPE_UNSIGNED (type)));
   else
     pp_scalar (pp, "\\x%x", (unsigned) TREE_INT_CST_LOW (c));
   pp_quote (pp);
@@ -922,6 +932,8 @@ pp_c_constant (c_pretty_printer *pp, tree e)
     }
 }
 
+/* Pretty-print an IDENTIFIER_NODE, preceded by whitespace is necessary.  */
+
 void
 pp_c_identifier (c_pretty_printer *pp, const char *id)
 {
@@ -1023,7 +1035,9 @@ void
 pp_c_init_declarator (c_pretty_printer *pp, tree t)
 {
   pp_declarator (pp, t);
-  if (DECL_INITIAL (t))
+  /* We don't want to output function definitions here.  There are handled
+     elsewhere (and the syntactic form is bogus anyway).  */
+  if (TREE_CODE (t) != FUNCTION_DECL && DECL_INITIAL (t))
     {
       tree init = DECL_INITIAL (t);
       /* This C++ bit is handled here because it is easier to do so.
@@ -2129,16 +2143,6 @@ pp_c_statement (c_pretty_printer *pp, tree stmt)
 	pp_c_right_paren (pp);
 	pp_newline (pp);
       }
-      break;
-
-    case FILE_STMT:
-      pp_c_identifier (pp, "__FILE__");
-      pp_space (pp);
-      pp_equal (pp);
-      pp_c_whitespace (pp);
-      pp_c_identifier (pp, FILE_STMT_FILENAME (stmt));
-      pp_c_semicolon (pp);
-      pp_needs_newline (pp) = true;
       break;
 
     default:

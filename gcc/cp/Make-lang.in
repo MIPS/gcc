@@ -83,7 +83,7 @@ endif
 CXX_C_OBJS = attribs.o c-common.o c-format.o c-pragma.o c-semantics.o c-lex.o \
 	c-dump.o $(CXX_TARGET_OBJS) c-pretty-print.o c-opts.o c-pch.o \
 	c-incpath.o cppdefault.o c-ppoutput.o c-cppbuiltin.o prefix.o \
-	c-simplify.o tree-inline.o
+	c-gimplify.o tree-inline.o
 
 # Language-specific object files.
 # APPLE LOCAL Objective-C++
@@ -92,7 +92,7 @@ CXX_AND_OBJCP_OBJS = cp/call.o cp/decl.o cp/expr.o cp/pt.o cp/typeck2.o \
  cp/typeck.o cp/cvt.o cp/except.o cp/friend.o cp/init.o cp/method.o \
  cp/search.o cp/semantics.o cp/tree.o cp/repo.o cp/dump.o cp/optimize.o \
  cp/mangle.o cp/name-lookup.o cp/cxx-pretty-print.o \
- cp/cp-simplify.o tree-mudflap.o cp/cp-mudflap.o
+ cp/cp-gimplify.o tree-mudflap.o cp/cp-mudflap.o
 
 # APPLE LOCAL begin Objective-C++
 # APPLE LOCAL debugging
@@ -105,9 +105,9 @@ cp-warn = $(STRICT_WARN) $(WERROR)
 
 # APPLE LOCAL order files  ilr
 cc1plus$(exeext): $(CXX_OBJS) $(CXX_C_OBJS) $(BACKEND) \
-		  libcpp.a $(LIBDEPS)
+		  ../libcpp/libcpp.a $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-	      $(CXX_OBJS) $(CXX_C_OBJS) $(BACKEND) libcpp.a $(LIBS) \
+	      $(CXX_OBJS) $(CXX_C_OBJS) $(BACKEND) ../libcpp/libcpp.a $(LIBS) \
 	      $(CC1PLUS_ORDER_FLAGS)
 
 # Special build rules.
@@ -277,10 +277,7 @@ cp/semantics.o: cp/semantics.c $(CXX_TREE_H) $(TM_H) cp/lex.h except.h toplev.h 
   tree-inline.h cgraph.h
 cp/dump.o: cp/dump.c $(CXX_TREE_H) $(TM_H) tree-dump.h
 cp/optimize.o: cp/optimize.c $(CXX_TREE_H) $(TM_H) rtl.h integrate.h insn-config.h \
-  input.h $(PARAMS_H) debug.h tree-inline.h tree-simple.h
-cp/mangle.o: cp/mangle.c $(CXX_TREE_H) $(TM_H) toplev.h real.h gt-cp-mangle.h \
-  $(TARGET_H) $(TM_P_H)
-
+  input.h $(PARAMS_H) debug.h tree-inline.h tree-gimple.h
 # APPLE LOCAL debugging
 # Suppress all warnings explicitly for the idebug builds since there can be
 # many when, and if, -traditional-cpp is used.
@@ -292,9 +289,12 @@ cp/cp-idebug.o: cp/cp-idebug.c $(CXX_TREE_H) $(TM_H) $(RTL_H) flags.h idebug.c
 cp/cp-dmp-tree.o: cp/cp-dmp-tree.c $(CXX_TREE_H) $(SYSTEM_H) $(TM_H) coretypes.h \
   dmp-tree.h c-dmp-tree.c
 
+cp/mangle.o: cp/mangle.c $(CXX_TREE_H) $(TM_H) toplev.h real.h gt-cp-mangle.h \
+  $(TARGET_H) $(TM_P_H)
+
 cp/parser.o: cp/parser.c $(CXX_TREE_H) $(TM_H) diagnostic.h gt-cp-parser.h \
   output.h
-cp/cp-simplify.o: cp/cp-simplify.c $(CXX_TREE_H) toplev.h c-common.h \
+cp/cp-gimplify.o: cp/cp-gimplify.c $(CXX_TREE_H) toplev.h c-common.h \
 	$(TM_H) coretypes.h
 cp/cp-mudflap.o: cp/cp-mudflap.c $(CXX_TREE_H) toplev.h c-common.h \
 	$(TM_H) coretypes.h

@@ -1,5 +1,5 @@
 /* Target definitions for x86 running Darwin.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
 This file is part of GCC.
@@ -143,12 +143,7 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
  do { if ((LOG) != 0)			\
         {				\
-          /* APPLE LOCAL coalescing */  \
-          if (in_text_section ()	\
-              || in_unlikely_text_section () \
-              || darwin_named_section_is ("__TEXT,__textcoal,coalesced") \
-              || darwin_named_section_is ("__TEXT,__textcoal_nt,coalesced,no_toc") \
-              || darwin_named_section_is (STATIC_INIT_SECTION)) \
+          if (in_text_section ())	\
             fprintf (FILE, "\t%s %d,0x90\n", ALIGN_ASM_OP, (LOG)); \
           else				\
             fprintf (FILE, "\t%s %d\n", ALIGN_ASM_OP, (LOG)); \

@@ -13,11 +13,6 @@ noinst_HEADERS = \
 	include/cpplib.h include/line-map.h include/mkdeps.h \
 	include/symtab.h internal.h system.h ucnid.h
 
-LIBINTL = @LIBINTL@
-LIBICONV = @LIBICONV@
-noinst_PROGRAMS = makedepend
-makedepend_LDADD = libcpp.a ../libiberty/libiberty.a $(LIBINTL) $(LIBICONV)
-
 XGETTEXT = @XGETTEXT@
 GMSGFMT = @GMSGFMT@
 MSGMERGE = msgmerge

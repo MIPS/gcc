@@ -84,9 +84,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define FED_BY_SPEC_LOAD(insn)	(h_i_d[INSN_UID (insn)].fed_by_spec_load)
 #define IS_LOAD_INSN(insn)	(h_i_d[INSN_UID (insn)].is_load_insn)
 
-#define MAX_RGN_BLOCKS 10
-#define MAX_RGN_INSNS 100
-
 /* nr_inter/spec counts interblock/speculative motion for the function.  */
 static int nr_inter, nr_spec;
 
@@ -559,12 +556,11 @@ static bool
 too_large (int block, int *num_bbs, int *num_insns)
 {
   (*num_bbs)++;
-  (*num_insns) += (INSN_LUID (BB_END (BASIC_BLOCK (block))) -
-		   INSN_LUID (BB_HEAD (BASIC_BLOCK (block))));
-  if ((*num_bbs > MAX_RGN_BLOCKS) || (*num_insns > MAX_RGN_INSNS))
-    return 1;
-  else
-    return 0;
+  (*num_insns) += (INSN_LUID (BB_END (BASIC_BLOCK (block)))
+		   - INSN_LUID (BB_HEAD (BASIC_BLOCK (block))));
+
+  return ((*num_bbs > PARAM_VALUE (PARAM_MAX_SCHED_REGION_BLOCKS))
+	  || (*num_insns > PARAM_VALUE (PARAM_MAX_SCHED_REGION_INSNS)));
 }
 
 /* Update_loop_relations(blk, hdr): Check if the loop headed by max_hdr[blk]
@@ -1762,7 +1758,7 @@ init_ready_list (struct ready_list *ready)
 
 	  if (targetm.sched.adjust_priority)
 	    INSN_PRIORITY (insn) =
-	      (*targetm.sched.adjust_priority) (insn, INSN_PRIORITY (insn));
+	      targetm.sched.adjust_priority (insn, INSN_PRIORITY (insn));
 	}
       target_n_insns++;
     }
@@ -1789,10 +1785,10 @@ init_ready_list (struct ready_list *ready)
 	    if (!CANT_MOVE (insn)
 		&& (!IS_SPECULATIVE_INSN (insn)
 		    || ((((!targetm.sched.use_dfa_pipeline_interface
-			   || !(*targetm.sched.use_dfa_pipeline_interface) ())
+			   || !targetm.sched.use_dfa_pipeline_interface ())
 			  && insn_issue_delay (insn) <= 3)
 			 || (targetm.sched.use_dfa_pipeline_interface
-			     && (*targetm.sched.use_dfa_pipeline_interface) ()
+			     && targetm.sched.use_dfa_pipeline_interface ()
 			     && (recog_memoized (insn) < 0
 			         || min_insn_conflict_delay (curr_state,
 							     insn, insn) <= 3)))
@@ -1804,7 +1800,7 @@ init_ready_list (struct ready_list *ready)
 
 		  if (targetm.sched.adjust_priority)
 		    INSN_PRIORITY (insn) =
-		      (*targetm.sched.adjust_priority) (insn, INSN_PRIORITY (insn));
+		      targetm.sched.adjust_priority (insn, INSN_PRIORITY (insn));
 		}
 	  }
       }
@@ -1888,12 +1884,12 @@ new_ready (rtx next)
 	  || (IS_SPECULATIVE_INSN (next)
 	      && (0
 		  || (targetm.sched.use_dfa_pipeline_interface
-		      && (*targetm.sched.use_dfa_pipeline_interface) ()
+		      && targetm.sched.use_dfa_pipeline_interface ()
 		      && recog_memoized (next) >= 0
 		      && min_insn_conflict_delay (curr_state, next,
 						  next) > 3)
 		  || ((!targetm.sched.use_dfa_pipeline_interface
-		       || !(*targetm.sched.use_dfa_pipeline_interface) ())
+		       || !targetm.sched.use_dfa_pipeline_interface ())
 		      && insn_issue_delay (next) > 3)
 		  || !check_live (next, INSN_BB (next))
 		  || !is_exception_free (next, INSN_BB (next), target_bb)))))
@@ -2294,7 +2290,7 @@ debug_dependencies (void)
 		   BB_TO_BLOCK (bb), bb);
 
 	  if (targetm.sched.use_dfa_pipeline_interface
-	      && (*targetm.sched.use_dfa_pipeline_interface) ())
+	      && targetm.sched.use_dfa_pipeline_interface ())
 	    {
 	      fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
 		       "insn", "code", "bb", "dep", "prio", "cost",
@@ -2334,7 +2330,7 @@ debug_dependencies (void)
 		}
 
 	      if (targetm.sched.use_dfa_pipeline_interface
-		  && (*targetm.sched.use_dfa_pipeline_interface) ())
+		  && targetm.sched.use_dfa_pipeline_interface ())
 		{
 		  fprintf (sched_dump,
 			   ";;   %s%5d%6d%6d%6d%6d%6d   ",

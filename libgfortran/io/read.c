@@ -283,9 +283,14 @@ read_a (fnode * f, char *p, int length)
   int w, m, n;
 
   w = f->u.w;
+  if (w == -1) /* '(A)' edit descriptor  */
+    w = length;
+
   source = read_block (&w);
   if (source == NULL)
     return;
+  if (w > length)
+     source += (w - length);
 
   m = (w > length) ? length : w;
   memcpy (p, source, m);
@@ -628,9 +633,9 @@ read_f (fnode * f, char *dest, int length)
 
   exponent_sign = 1;
 
-  /* A digit is required at this point */
+  /* A digit (or a '.') is required at this point */
 
-  if (!isdigit (*p))
+  if (!isdigit (*p) && *p != '.')
     goto bad_float;
 
   while (w > 0)

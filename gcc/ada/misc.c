@@ -101,7 +101,7 @@ static rtx gnat_expand_expr		(tree, rtx, enum machine_mode, int,
 static void internal_error_function	(const char *, va_list *);
 static void gnat_adjust_rli		(record_layout_info);
 
-/* Structure giving our language-specific hooks.  */
+/* Definitions for our language-specific hooks.  */
 
 #undef  LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME			"GNU Ada"
@@ -118,7 +118,15 @@ static void gnat_adjust_rli		(record_layout_info);
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE		gnat_parse_file
 #undef LANG_HOOKS_HONOR_READONLY
-#define LANG_HOOKS_HONOR_READONLY	1
+#define LANG_HOOKS_HONOR_READONLY	true
+#undef LANG_HOOKS_HASH_TYPES
+#define LANG_HOOKS_HASH_TYPES		false
+#undef LANG_HOOKS_PUSHLEVEL
+#define LANG_HOOKS_PUSHLEVEL		lhd_do_nothing_i
+#undef LANG_HOOKS_POPLEVEL
+#define LANG_HOOKS_POPLEVEL		lhd_do_nothing_iii_return_null_tree
+#undef LANG_HOOKS_SET_BLOCK
+#define LANG_HOOKS_SET_BLOCK		lhd_do_nothing_t
 #undef LANG_HOOKS_FINISH_INCOMPLETE_DECL
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL gnat_finish_incomplete_decl
 #undef LANG_HOOKS_GET_ALIAS_SET
@@ -317,6 +325,9 @@ gnat_init_options (unsigned int argc, const char **argv)
 
   save_argc = argc;
   save_argv = argv;
+
+  /* Uninitialized really means uninitialized in Ada.  */
+  flag_zero_initialized_in_bss = 0;
 
   return CL_Ada;
 }
@@ -669,40 +680,6 @@ make_transform_expr (Node_Id gnat_node)
   return gnu_result;
 }
 
-/* Update the setjmp buffer BUF with the current stack pointer.  We assume
-   here that a __builtin_setjmp was done to BUF.  */
-
-void
-update_setjmp_buf (tree buf)
-{
-  enum machine_mode sa_mode = Pmode;
-  rtx stack_save;
-
-#ifdef HAVE_save_stack_nonlocal
-  if (HAVE_save_stack_nonlocal)
-    sa_mode = insn_data[(int) CODE_FOR_save_stack_nonlocal].operand[0].mode;
-#endif
-#ifdef STACK_SAVEAREA_MODE
-  sa_mode = STACK_SAVEAREA_MODE (SAVE_NONLOCAL);
-#endif
-
-  stack_save
-    = gen_rtx_MEM (sa_mode,
-		   memory_address
-		   (sa_mode,
-		    plus_constant (expand_expr
-				   (build_unary_op (ADDR_EXPR, NULL_TREE, buf),
-				    NULL_RTX, VOIDmode, 0),
-				   2 * GET_MODE_SIZE (Pmode))));
-
-#ifdef HAVE_setjmp
-  if (HAVE_setjmp)
-    emit_insn (gen_setjmp ());
-#endif
-
-  emit_stack_save (SAVE_NONLOCAL, &stack_save, NULL_RTX);
-}
-
 /* These routines are used in conjunction with GCC exception handling.  */
 
 /* Map compile-time to run-time tree for GCC exception handling scheme.  */
@@ -725,66 +702,6 @@ gnat_eh_type_covers (tree a, tree b)
      ??? integer_zero_node for "others" is hardwired in too many places
      currently.  */
   return (a == b || a == integer_zero_node);
-}
-
-/* See if DECL has an RTL that is indirect via a pseudo-register or a
-   memory location and replace it with an indirect reference if so.
-   This improves the debugger's ability to display the value.  */
-
-void
-adjust_decl_rtl (tree decl)
-{
-  tree new_type;
-
-  /* If this decl is already indirect, don't do anything.  This should
-     mean that the decl cannot be indirect, but there's no point in
-     adding an abort to check that.  */
-  if (TREE_CODE (decl) != CONST_DECL
-      && ! DECL_BY_REF_P (decl)
-      && (GET_CODE (DECL_RTL (decl)) == MEM
-	  && (GET_CODE (XEXP (DECL_RTL (decl), 0)) == MEM
-	      || (GET_CODE (XEXP (DECL_RTL (decl), 0)) == REG
-		  && (REGNO (XEXP (DECL_RTL (decl), 0))
-		      > LAST_VIRTUAL_REGISTER))))
-      /* We can't do this if the reference type's mode is not the same
-	 as the current mode, which means this may not work on mixed 32/64
-	 bit systems.  */
-      && (new_type = build_reference_type (TREE_TYPE (decl))) != 0
-      && TYPE_MODE (new_type) == GET_MODE (XEXP (DECL_RTL (decl), 0))
-      /* If this is a PARM_DECL, we can only do it if DECL_INCOMING_RTL
-	 is also an indirect and of the same mode and if the object is
-	 readonly, the latter condition because we don't want to upset the
-	 handling of CICO_LIST.  */
-      && (TREE_CODE (decl) != PARM_DECL
-	  || (GET_CODE (DECL_INCOMING_RTL (decl)) == MEM
-	      && (TYPE_MODE (new_type)
-		  == GET_MODE (XEXP (DECL_INCOMING_RTL (decl), 0)))
-	      && TREE_READONLY (decl))))
-    {
-      new_type
-	= build_qualified_type (new_type,
-				(TYPE_QUALS (new_type) | TYPE_QUAL_CONST));
-
-      DECL_POINTS_TO_READONLY_P (decl) = TREE_READONLY (decl);
-      DECL_BY_REF_P (decl) = 1;
-      SET_DECL_RTL (decl, XEXP (DECL_RTL (decl), 0));
-      TREE_TYPE (decl) = new_type;
-      DECL_MODE (decl) = TYPE_MODE (new_type);
-      DECL_ALIGN (decl) = TYPE_ALIGN (new_type);
-      DECL_SIZE (decl) = TYPE_SIZE (new_type);
-
-      if (TREE_CODE (decl) == PARM_DECL)
-	set_decl_incoming_rtl (decl, XEXP (DECL_INCOMING_RTL (decl), 0));
-
-      /* If DECL_INITIAL was set, it should be updated to show that
-	 the decl is initialized to the address of that thing.
-	 Otherwise, just set it to the address of this decl.
-	 It needs to be set so that GCC does not think the decl is
-	 unused.  */
-      DECL_INITIAL (decl)
-	= build1 (ADDR_EXPR, new_type,
-		  DECL_INITIAL (decl) != 0 ? DECL_INITIAL (decl) : decl);
-    }
 }
 
 /* Record the current code position in GNAT_NODE.  */
@@ -1004,4 +921,3 @@ fp_size_to_prec (int size)
 
   abort ();
 }
-

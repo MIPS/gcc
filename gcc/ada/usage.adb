@@ -159,6 +159,11 @@ begin
    Write_Switch_Char ("ef");
    Write_Line ("Full source path in brief error messages");
 
+   --  Line for -gnateI switch
+
+   Write_Switch_Char ("eInnn");
+   Write_Line ("Index in multi-unit source, e.g. -gnateI2");
+
    --  Line for -gnatem switch
 
    Write_Switch_Char ("em=?");
@@ -264,10 +269,12 @@ begin
    Write_Switch_Char ("Q");
    Write_Line ("Don't quit, write ali/tree file even if compile errors");
 
-   --  Line for -gnatR switch
+   --  Lines for -gnatR switch
 
    Write_Switch_Char ("R?");
-   Write_Line ("List rep inf (?=0/1/2/3 for none/types/all/variable)");
+   Write_Line ("List rep info (?=0/1/2/3 for none/types/all/variable)");
+   Write_Switch_Char ("R?s");
+   Write_Line ("List rep info to file.rep instead of standard output");
 
    --  Lines for -gnats switch
 

@@ -1,5 +1,5 @@
 /* Data flow functions for trees.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -39,7 +39,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "tree-alias-common.h"
@@ -72,9 +72,6 @@ struct walk_state
 };
 
 
-/* Data and functions shared with tree-ssa.c.  */
-struct dfa_stats_d dfa_stats;
-
 /* Local functions.  */
 static void collect_dfa_stats (struct dfa_stats_d *);
 static tree collect_dfa_stats_r (tree *, int *, void *);
@@ -91,6 +88,7 @@ static tree find_hidden_use_vars_r (tree *, int *, void *);
 
 /* Array of all variables referenced in the function.  */
 varray_type referenced_vars;
+
 
 /*---------------------------------------------------------------------------
 			Dataflow analysis (DFA) routines
@@ -112,6 +110,8 @@ find_referenced_vars (void)
   struct walk_state walk_state;
   tree block;
 
+  /* This is the very first pass in preparation for building the SSA
+     form of the function, so initialize internal data structures now.  */
   init_tree_ssa ();
 
   /* Walk the lexical blocks in the function looking for variables that may
@@ -159,10 +159,16 @@ struct tree_opt_pass pass_referenced_vars =
 };
 
 
-/* Compute immediate uses.  The parameter calc_for is an option function 
-   pointer which indicates whether immediate uses information should be
-   calculated for a given SSA variable. If NULL, then information is computed
-   for all variables.  */
+/* Compute immediate uses.  
+   
+   CALC_FOR is an optional function pointer which indicates whether
+      immediate uses information should be calculated for a given SSA
+      variable.  If NULL, then information is computed for all
+      variables.
+
+   FLAGS is one of {TDFA_USE_OPS, TDFA_USE_VOPS}.  It is used by
+      compute_immediate_uses_for_stmt to determine whether to look at
+      virtual and/or real operands while computing def-use chains.  */
 
 void
 compute_immediate_uses (int flags, bool (*calc_for)(tree))
@@ -186,6 +192,7 @@ compute_immediate_uses (int flags, bool (*calc_for)(tree))
     }
 }
 
+
 /* Invalidates dataflow information for a statement STMT.  */
 
 static void
@@ -193,11 +200,21 @@ free_df_for_stmt (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
 
-  if (ann)
-    ann->df = NULL;
+  if (ann && ann->df)
+    {
+      /* If we have a varray of immediate uses, then go ahead and release
+	 it for re-use.  */
+      if (ann->df->immediate_uses)
+	ggc_free (ann->df->immediate_uses);
+
+      /* Similarly for the main dataflow structure.  */
+      ggc_free (ann->df);
+      ann->df = NULL;
+    }
 }
 
-/* Invalidates dataflow information.  */
+
+/* Invalidate dataflow information for the whole function.  */
 
 void
 free_df (void)
@@ -220,11 +237,13 @@ free_df (void)
     }
 }
 
+
 /* Helper for compute_immediate_uses.  Check all the USE and/or VUSE
    operands in phi node PHI and add a def-use edge between their
-   defining statement and PHI.
+   defining statement and PHI.  CALC_FOR is as in
+   compute_immediate_uses.
 
-   PHI nodes are easy, we only need to look at its arguments.  */
+   PHI nodes are easy, we only need to look at their arguments.  */
 
 static void
 compute_immediate_uses_for_phi (tree phi, bool (*calc_for)(tree))
@@ -250,9 +269,10 @@ compute_immediate_uses_for_phi (tree phi, bool (*calc_for)(tree))
 }
 
 
-/* Another helper for compute_immediate_uses.  Check all the USE and/or VUSE
-   operands in STMT and add a def-use edge between their defining statement
-   and STMT.  */
+/* Another helper for compute_immediate_uses.  Depending on the value
+   of FLAGS, check all the USE and/or VUSE operands in STMT and add a
+   def-use edge between their defining statement and STMT.  CALC_FOR
+   is as in compute_immediate_uses.  */
 
 static void
 compute_immediate_uses_for_stmt (tree stmt, int flags, bool (*calc_for)(tree))
@@ -263,8 +283,8 @@ compute_immediate_uses_for_stmt (tree stmt, int flags, bool (*calc_for)(tree))
   vdef_optype vdefs;
   stmt_ann_t ann;
 
-  /* PHI nodes are handled elsewhere.  */
 #ifdef ENABLE_CHECKING
+  /* PHI nodes are handled elsewhere.  */
   if (TREE_CODE (stmt) == PHI_NODE)
     abort ();
 #endif
@@ -306,25 +326,6 @@ compute_immediate_uses_for_stmt (tree stmt, int flags, bool (*calc_for)(tree))
 }
 
 
-/* Compute reached uses.  */
-
-void
-compute_reached_uses (int flags ATTRIBUTE_UNUSED)
-{
-  abort ();
-}
-
-
-/* Compute reaching definitions.  */
-
-void
-compute_reaching_defs (int flags ATTRIBUTE_UNUSED)
-{
-  abort ();
-}
-
-
-
 /* Add statement USE_STMT to the list of statements that use definitions
     made by STMT.  */
 
@@ -355,7 +356,8 @@ add_immediate_use (tree stmt, tree use_stmt)
   VARRAY_PUSH_TREE (ann->df->immediate_uses, use_stmt);
 }
 
-/* If the any immediate use of USE points to OLD, then redirect it to NEW.  */
+
+/* If the immediate use of USE points to OLD, then redirect it to NEW.  */
  
 static void
 redirect_immediate_use (tree use, tree old, tree new)
@@ -376,6 +378,7 @@ redirect_immediate_use (tree use, tree old, tree new)
 	}
     }
 }
+
 
 /* Redirect all immediate uses for operands in OLD so that they point
    to NEW.  This routine should have no knowledge of how immediate
@@ -400,6 +403,7 @@ redirect_immediate_uses (tree old, tree new)
   for (i = 0; i < NUM_VDEFS (vdefs); i++)
     redirect_immediate_use (VDEF_OP (vdefs, i), old, new);
 }
+
 
 /*---------------------------------------------------------------------------
 			    Manage annotations
@@ -479,6 +483,18 @@ create_ssa_name_ann (tree t)
   t->common.ann = (tree_ann) ann;
 
   return ann;
+}
+
+
+/* Build a temporary.  Make sure and register it to be renamed.  */
+
+tree
+make_rename_temp (tree type, const char *prefix)
+{
+  tree t = create_tmp_var (type, prefix);
+  add_referenced_tmp_var (t);
+  bitmap_set_bit (vars_to_rename, var_ann (t)->uid);
+  return t;
 }
 
 
@@ -589,7 +605,7 @@ dump_immediate_uses (FILE *file)
   basic_block bb;
   block_stmt_iterator si;
   const char *funcname
-    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+    = lang_hooks.decl_printable_name (current_function_decl, 2);
 
   fprintf (file, "\nDef-use edges for function %s\n", funcname);
 
@@ -666,7 +682,7 @@ dump_dfa_stats (FILE *file)
   const char * const fmt_str_1 = "%-30s%13lu%11lu%c\n";
   const char * const fmt_str_3 = "%-43s%11lu%c\n";
   const char *funcname
-    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+    = lang_hooks.decl_printable_name (current_function_decl, 2);
 
   collect_dfa_stats (&dfa_stats);
 
@@ -826,49 +842,6 @@ collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 /*---------------------------------------------------------------------------
 			     Miscellaneous helpers
 ---------------------------------------------------------------------------*/
-/* Remove variable DECL from the block that declares it.  */
-
-void
-remove_decl (tree decl, tree block)
-{
-  tree *loc;
-  
-  loc = find_decl_location (decl, block);
-  if (loc)
-    *loc = TREE_CHAIN (decl);
-}
-
-
-/* Find the location for declaration DECL in lexical block BLOCK.  All the
-   subblocks of BLOCK are searched as well if BLOCK does not declare DECL.
-   Return an address LOC such that *LOC == DECL or NULL if DECL couldn't be
-   located.  */
-
-tree *
-find_decl_location (tree decl, tree block)
-{
-  tree d, sub;
-
-  /* Special case.  If DECL is the first symbol in the block, return its
-     location directly.  */
-  if (BLOCK_VARS (block) == decl)
-    return &(BLOCK_VARS (block));
-
-  for (d = BLOCK_VARS (block); d; d = TREE_CHAIN (d))
-    if (TREE_CHAIN (d) == decl)
-      return &(TREE_CHAIN (d));
-
-  for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
-    {
-      tree *loc = find_decl_location (decl, sub);
-      if (loc)
-	return loc;
-    }
-
-  return NULL;
-}
-
-
 /* Callback for walk_tree.  Used to collect variables referenced in
    the function.  */
 
@@ -878,59 +851,32 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
   tree t = *tp;
   struct walk_state *walk_state = (struct walk_state *)data;
 
-  /* Type and constant nodes have no interesting children.  Ignore them.  */
-  if (TYPE_P (t) || TREE_CODE_CLASS (TREE_CODE (t)) == 'c')
-    {
-      *walk_subtrees = 0;
-      return NULL_TREE;
-    }
-
-  /* DECL nodes have no interesting children.  */
-  if (DECL_P (t))
-    {
-      *walk_subtrees = 0;
-
-      /* If this _DECL node is not interesting to the SSA builder,
-         then we can just return now.  */
-      if (! SSA_VAR_P (t)) 
-	return NULL_TREE;
-    }
-
-  if (TREE_CODE (t) == MODIFY_EXPR)
-    {
-      tree *lhs_p = &TREE_OPERAND (t, 0);
-      tree *rhs_p = &TREE_OPERAND (t, 1);
-
-      walk_tree (lhs_p, find_vars_r, walk_state, NULL);
-      walk_tree (rhs_p, find_vars_r, walk_state, NULL);
-
-      /* If either side makes volatile references, mark the statement.  */
-      if (TREE_THIS_VOLATILE (*lhs_p)
-	  || TREE_THIS_VOLATILE (*rhs_p))
-	get_stmt_ann (t)->has_volatile_ops = 1;
-
-      return t;
-    }
-
   if (SSA_VAR_P (t))
     {
+      /* If T is a regular variable that the optimizers are interested
+	 in, add it to the list of variables.  */
       add_referenced_var (t, walk_state);
-      return NULL_TREE;
     }
+  else if (DECL_P (t)
+	   || TYPE_P (t)
+	   || TREE_CODE_CLASS (TREE_CODE (t)) == 'c')
+    {
+      /* Type, _DECL and constant nodes have no interesting children.
+	 Ignore them.  */
+      *walk_subtrees = 0;
+    }
+
 
   return NULL_TREE;
 }
 
 
-/* Add VAR to the list of dereferenced variables.  If VAR is a candidate
-   for aliasing, add it to the ADDRESSABLE_VAR array.  If VAR is a memory
-   tag, add it to the POINTERS array.  These two arrays are used for
-   alias analysis (See compute_alias_sets).
+/* Add VAR to the list of dereferenced variables.
 
    WALK_STATE contains a hash table used to avoid adding the same
-   variable more than once to its corresponding set as well as flags
-   indicating if we're processing a load or store.  Note that this
-   function assumes that VAR is a valid SSA variable.  */
+      variable more than once. Note that this function assumes that
+      VAR is a valid SSA variable.  If WALK_STATE is NULL, no
+      duplicate checking is done.  */
 
 static void
 add_referenced_var (tree var, struct walk_state *walk_state)
@@ -990,12 +936,21 @@ get_virtual_var (tree var)
       code = TREE_CODE (var);
     }
 
+#ifdef ENABLE_CHECKING
+  /* Treating GIMPLE registers as virtual variables makes no sense.
+     Also complain if we couldn't extract a _DECL out of the original
+     expression.  */
+  if (!SSA_VAR_P (var)
+      || is_gimple_reg (var))
+    abort ();
+#endif
+
   return var;
 }
 
-/* Mark variables that have hidden uses.
 
-   A hidden use can occur due to VLA declarations or nested functions.   */
+/* Mark variables in BLOCK that have hidden uses.  A hidden use can
+   occur due to VLA declarations or nested functions.   */
 
 static void
 find_hidden_use_vars (tree block)
@@ -1003,7 +958,6 @@ find_hidden_use_vars (tree block)
   tree sub, decl, tem;
 
   /* Check all the arrays declared in the block for VLAs.
-
      While scanning the block's variables, also see if there is
      a nested function at this scope.  */
   for (decl = BLOCK_VARS (block); decl; decl = TREE_CHAIN (decl))
@@ -1031,6 +985,7 @@ find_hidden_use_vars (tree block)
       walk_tree (&TREE_VALUE (tem), find_hidden_use_vars_r, &inside_vla, NULL);
     }
 }
+
 
 /* Callback for walk_tree used by find_hidden_use_vars to analyze each 
    variable in a lexical block.  If the variable's size has a variable
@@ -1081,6 +1036,7 @@ add_referenced_tmp_var (tree var)
   add_referenced_var (var, NULL);
 }
 
+
 /* Return true if VDEFS_AFTER contains fewer entries than VDEFS_BEFORE.
    Note that this assumes that both varrays are VDEF operands for the same
    statement.  */
@@ -1099,6 +1055,7 @@ vdefs_disappeared_p (vdef_optype vdefs_before, vdef_optype vdefs_after)
 
   return false;
 }
+
 
 /* Add all the non-SSA variables found in STMT's operands to the bitmap
    VARS_TO_RENAME.  */
@@ -1205,52 +1162,4 @@ mark_new_vars_to_rename (tree stmt, bitmap vars_to_rename)
     bitmap_a_or_b (vars_to_rename, vars_to_rename, vars_in_vops_to_rename);
 
   BITMAP_XFREE (vars_in_vops_to_rename);
-}
-
-/* Helper function for discover_nonconstant_array_refs. 
-   Look for variables inside ARRAY_REF with non-constant operand
-   and mark them as addressable.  */
-static tree
-discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
-				   void *data ATTRIBUTE_UNUSED)
-{
-  tree t = *tp;
-  if (TYPE_P (t) || DECL_P (t))
-    *walk_subtrees = 0;
-  else if (TREE_CODE (t) == ARRAY_REF)
-    {
-      while ((TREE_CODE (t) == ARRAY_REF
-	      && is_gimple_min_invariant (TREE_OPERAND (t, 1)))
-	     || (TREE_CODE (t) == COMPONENT_REF
-		 || TREE_CODE (t) == REALPART_EXPR
-		 || TREE_CODE (t) == IMAGPART_EXPR))
-	t = TREE_OPERAND (t, 0);
-      if (TREE_CODE (t) == ARRAY_REF)
-	{
-	  t = get_base_address (t);
-	  if (t && DECL_P (t))
-	    TREE_ADDRESSABLE (t) = 1;
-	}
-      *walk_subtrees = 0;
-    }
-  return NULL_TREE;
-}
-
-/* RTL expansion code is not able to compile array references with variable
-   offsets for arrays stored in single register.
-   Discover such expressions and mark variables as addressable to avoid
-   this scenario.  */
-
-void
-discover_nonconstant_array_refs (void)
-{
-  basic_block bb;
-  block_stmt_iterator bsi;
-
-  FOR_EACH_BB (bb)
-    {
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	walk_tree (bsi_stmt_ptr (bsi), discover_nonconstant_array_refs_r,
-		   NULL , NULL);
-    }
 }

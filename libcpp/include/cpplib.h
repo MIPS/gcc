@@ -134,6 +134,8 @@ struct _cpp_file;
   TK(CPP_STRING,	SPELL_LITERAL)	/* "string" */			\
   TK(CPP_WSTRING,	SPELL_LITERAL)	/* L"string" */			\
   TK(CPP_OBJC_STRING,   SPELL_LITERAL)  /* @"string" - Objective-C */	\
+  /* APPLE LOCAL pascal strings */					\
+  TK(CPP_PASCAL_STRING,	SPELL_LITERAL)	/* Pascal ("\p...") string */	\
   TK(CPP_HEADER_NAME,	SPELL_LITERAL)	/* <stdio.h> in #include */	\
 \
   TK(CPP_COMMENT,	SPELL_LITERAL)	/* Only if output comments.  */ \
@@ -213,6 +215,18 @@ struct cpp_options
   /* Characters between tab stops.  */
   unsigned int tabstop;
 
+  /* APPLE LOCAL begin -header-mapfile */
+  /* The central header translation mapfile, set by the '-header-mapfile'
+     option, or NULL if none. */
+  struct hmap_header_map *header_map;
+  struct search_path *hmap_path;
+  /* APPLE LOCAL end -header-mapfile */
+
+  /* APPLE LOCAL begin predictive compilation */
+  bool predictive_compilation;
+  int predictive_compilation_size;
+  /* APPLE LOCAL end predictive compilation */
+
   /* The language we're preprocessing.  */
   enum c_lang lang;
 
@@ -270,6 +284,27 @@ struct cpp_options
 
   /* Nonzero means warn if there are any trigraphs.  */
   unsigned char warn_trigraphs;
+
+  /* APPLE LOCAL begin -Wextra-tokens 2001-08-02 sts */
+  /* Nonzero means warn if extra tokens at end of directives.  */
+  unsigned char warn_extra_tokens;
+  /* APPLE LOCAL end -Wextra-tokens 2001-08-02 sts */
+  /* APPLE LOCAL begin -Wnewline-eof 2001-08-23 sts */
+  /* Nonzero means warn if no newline at end of file.  */
+  unsigned char warn_newline_at_eof;
+  /* APPLE LOCAL end -Wnewline-eof 2001-08-23 sts */
+  /* APPLE LOCAL begin -Wfour-char-constants  */
+  /* Warn about four-char literals (e.g., MacOS-style OSTypes: 'APPL').  */
+  unsigned char warn_four_char_constants;
+  /* APPLE LOCAL end -Wfour-char-constants  */
+
+  /* APPLE LOCAL begin pascal strings */
+  /* Nonzero means allow "\p...." Pascal string literals, where '\p'
+     is replaced with the length of the remaining string (excluding the
+     terminating NUL).  Pascal string literals have type
+     'const unsigned char *'.  */
+  unsigned char pascal_strings;
+  /* APPLE LOCAL end pascal strings */
 
   /* Nonzero means warn about multicharacter charconsts.  */
   unsigned char warn_multichar;
@@ -331,6 +366,10 @@ struct cpp_options
   /* Nonzero means handle C++ alternate operator names.  */
   unsigned char operator_names;
 
+  /* APPLE LOCAL -Wno-#warnings */
+  /* Nonzero means suppress all #warning messages. (Radar 2796309) */
+  int no_pound_warnings;
+
   /* True for traditional preprocessing.  */
   unsigned char traditional;
 
@@ -348,6 +387,20 @@ struct cpp_options
 
   /* True if dependencies should be restored from a precompiled header.  */
   bool restore_pch_deps;
+
+  /* APPLE LOCAL begin Symbol Separation */
+  unsigned char making_pch;
+  unsigned char making_ss;
+  /* True to warn about symbol repositories we couldn't use.  */
+  bool warn_invalid_sr;
+  bool use_ss;
+  /* APPLE LOCAL end Symbol Separation */
+
+  /* APPLE LOCAL BEGIN pch distcc mrs */
+  /* True if PCH should omit from the -E output all lines from PCH files
+     found in PCH files.  */
+  unsigned char pch_preprocess;
+  /* APPLE LOCAL END pch distcc mrs */
 
   /* Dependency generation.  */
   struct
@@ -412,7 +465,23 @@ struct cpp_callbacks
   void (*def_pragma) (cpp_reader *, unsigned int);
   int (*valid_pch) (cpp_reader *, const char *, int);
   void (*read_pch) (cpp_reader *, const char *, int, const char *);
+
   missing_header_cb missing_header;
+
+  /* APPLE LOCAL begin Symbol Separation */
+  void (*restore_write_symbols) (void);
+  void (*clear_write_symbols) (const char *, unsigned long);
+  void (*start_symbol_repository) (unsigned int, const char *, unsigned long);
+  void (*end_symbol_repository) (unsigned int);
+  int (*is_builtin_identifier) (cpp_hashnode *);
+  /* APPLE LOCAL end Symbol Separation */
+  /* APPLE LOCAL - PCH distcc debugging mrs  */
+  void (*set_working_directory)(const char *);
+  /* APPLE LOCAL begin AltiVec */
+  /* Context-sensitive macro support.  Returns macro (if any) that should
+     be expanded.  */
+  cpp_hashnode * (*macro_to_expand) (cpp_reader *, const cpp_token *);
+  /* APPLE LOCAL end AltiVec */
 };
 
 /* Chain of directories to look for include files in.  */
@@ -470,6 +539,8 @@ extern const char *progname;
 #define NODE_WARN	(1 << 4)	/* Warn if redefined or undefined.  */
 #define NODE_DISABLED	(1 << 5)	/* A disabled macro.  */
 #define NODE_MACRO_ARG	(1 << 6)	/* Used during #define processing.  */
+/* APPLE LOCAL AltiVec */
+#define NODE_CONDITIONAL	(1 << 7)	/* Conditional macro */
 
 /* Different flavors of hash node.  */
 enum node_type
@@ -525,6 +596,20 @@ struct cpp_hashnode GTY(())
   } GTY ((desc ("0"))) value;
 };
 
+/* APPLE LOCAL begin Symbol Separation */
+struct cpp_stab_checksum GTY(())
+{
+  unsigned long checksum;
+};
+extern void cpp_write_symbol_deps           PARAMS ((struct cpp_reader *));
+extern void cpp_read_stabs_checksum         PARAMS ((struct cpp_reader *, int));
+extern unsigned long cpp_get_stabs_checksum PARAMS ((void));
+extern void cpp_calculate_stabs_checksum    PARAMS ((const char *));
+extern const char * cpp_symbol_separation_init      PARAMS ((struct cpp_reader *, const char *, 
+						     const char *));
+
+/* APPLE LOCAL end Symbol Separation */
+
 /* Call this first to get a handle to pass to other functions.
 
    If you want cpplib to manage its own hashtable, pass in a NULL
@@ -538,18 +623,23 @@ extern cpp_reader *cpp_create_reader (enum c_lang, struct ht *,
    command line options).  */
 extern void cpp_set_lang (cpp_reader *, enum c_lang);
 
+/* Add a dependency TARGET.  Quote it for "make" if QUOTE.  Can be
+   called any number of times before cpp_read_main_file().  If no
+   targets have been added before cpp_read_main_file(), then the
+   default target is used.  */
+extern void cpp_add_dependency_target (cpp_reader *, const char *, int);
+
 /* Set the include paths.  */
 extern void cpp_set_include_chains (cpp_reader *, cpp_dir *, cpp_dir *, int);
 
-/* Call these to get pointers to the options, callback, and deps
-   structures for a given reader.  These pointers are good until you
-   call cpp_finish on that reader.  You can either edit the callbacks
+/* Call these to get pointers to the options and callback structures
+   for a given reader.  These pointers are good until you call
+   cpp_finish on that reader.  You can either edit the callbacks
    through the pointer returned from cpp_get_callbacks, or set them
    with cpp_set_callbacks.  */
 extern cpp_options *cpp_get_options (cpp_reader *);
 extern cpp_callbacks *cpp_get_callbacks (cpp_reader *);
 extern void cpp_set_callbacks (cpp_reader *, cpp_callbacks *);
-extern struct deps *cpp_get_deps (cpp_reader *);
 
 /* This function reads the file, but does not start preprocessing.  It
    returns the name of the original file; this is the same as the
@@ -594,6 +684,10 @@ extern int cpp_avoid_paste (cpp_reader *, const cpp_token *,
 extern const cpp_token *cpp_get_token (cpp_reader *);
 extern const unsigned char *cpp_macro_definition (cpp_reader *,
 						  const cpp_hashnode *);
+/* APPLE LOCAL begin AltiVec */
+extern const cpp_token *_cpp_peek_token (cpp_reader *, int);
+extern void _cpp_backup_tokens_direct (cpp_reader *, unsigned int);
+/* APPLE LOCAL end AltiVec */
 extern void _cpp_backup_tokens (cpp_reader *, unsigned int);
 
 /* Evaluate a CPP_CHAR or CPP_WCHAR token.  */
@@ -602,10 +696,12 @@ extern cppchar_t cpp_interpret_charconst (cpp_reader *, const cpp_token *,
 /* Evaluate a vector of CPP_STRING or CPP_WSTRING tokens.  */
 extern bool cpp_interpret_string (cpp_reader *,
 				  const cpp_string *, size_t,
-				  cpp_string *, bool);
+				  /* APPLE LOCAL pascal strings */
+				  cpp_string *, bool, bool);
 extern bool cpp_interpret_string_notranslate (cpp_reader *,
 					      const cpp_string *, size_t,
-					      cpp_string *, bool);
+					      /* APPLE LOCAL pascal strings */
+					      cpp_string *, bool, bool);
 
 /* Used to register macros and assertions, perhaps from the command line.
    The text is the same as the command line argument.  */
@@ -711,6 +807,43 @@ extern void cpp_errno (cpp_reader *, int, const char *msgid);
 extern void cpp_error_with_line (cpp_reader *, int, source_location, unsigned,
 				 const char *msgid, ...) ATTRIBUTE_PRINTF_5;
 
+/* APPLE LOCAL begin -header-mapfile */
+#define HMAP_SAME_ENDIANNESS_MAGIC      (((((('h' << 8) | 'm') << 8) | 'a') << 8) | 'p')
+#define HMAP_OPPOSITE_ENDIANNESS_MAGIC  (((((('p' << 8) | 'a') << 8) | 'm') << 8) | 'h')
+
+#define HMAP_NOT_A_KEY   0x00000000
+
+#if !defined(uint32)
+typedef unsigned short  uint16;
+typedef unsigned long   uint32;
+#endif
+
+struct hmap_bucket
+{
+  uint32 key;          /* Offset (into strings) of key                */
+  struct {
+    uint32 prefix;     /* Offset (into strings) of value prefix   */
+    uint32 suffix;     /* Offset (into strings) of value suffix   */
+  } value;             /* Value (prefix- and suffix-strings)          */
+};
+
+struct hmap_header_map
+{
+  uint32 magic;             /* Magic word, also indicates byte order       */
+  uint16 version;           /* Version number -- currently 1               */
+  uint16 _reserved;         /* Reserved for future use -- zero for now     */
+  uint32 strings_offset;    /* Offset to start of string pool              */
+  uint32 count;             /* Number of entries in the string table       */
+  uint32 capacity;          /* Number of buckets (always a power of 2)     */
+  uint32 max_value_length;  /* Length of longest result path (excl. '\0')  */
+  struct hmap_bucket buckets[1]; /* Inline array of 'capacity' maptable buckets */
+  /* Strings follow the buckets, at strings_offset.  */
+};
+
+extern struct search_path *hmap_lookup_path	PARAMS ((cpp_reader *,
+							 const char **));
+/* APPLE LOCAL end -header-mapfile */
+
 /* In cpplex.c */
 extern int cpp_ideq (const cpp_token *, const char *);
 extern void cpp_output_line (cpp_reader *, FILE *);
@@ -750,6 +883,11 @@ extern cpp_dir *cpp_get_dir (struct _cpp_file *);
 extern cpp_buffer *cpp_get_buffer (cpp_reader *);
 extern struct _cpp_file *cpp_get_file (cpp_buffer *);
 extern cpp_buffer *cpp_get_prev (cpp_buffer *);
+
+/* APPLE LOCAL begin predictive compilation */
+extern bool read_from_stdin PARAMS ((cpp_reader *));
+extern void set_stdin_option PARAMS ((cpp_reader *, int));
+/* APPLE LOCAL end predictive compilation */
 
 /* In cpppch.c */
 struct save_macro_data;

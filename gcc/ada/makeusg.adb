@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -86,6 +86,17 @@ begin
    --  Line for -D
 
    Write_Str ("  -D dir   Specify dir as the object directory");
+   Write_Eol;
+
+   --  Line for -eI
+
+   Write_Str ("  -eI      Index of unit in multi-unit source file");
+   Write_Eol;
+
+   --  Line for -eL
+
+   Write_Str ("  -eL      Follow symbolic links when processing " &
+              "project files");
    Write_Eol;
 
    --  Line for -f
@@ -178,6 +189,12 @@ begin
    --  Line for -vPx
 
    Write_Str ("  -vPx     Specify verbosity when parsing GNAT Project Files");
+   Write_Eol;
+
+   --  Line for -x
+
+   Write_Str ("  -x       " &
+              "Allow compilation of needed units external to the projects");
    Write_Eol;
 
    --  Line for -X

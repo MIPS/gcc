@@ -42,6 +42,7 @@ with Nmake;    use Nmake;
 with Output;   use Output;
 with Opt;      use Opt;
 with Restrict; use Restrict;
+with Rtsfind; use Rtsfind;
 with Scans;    use Scans;
 with Scn;      use Scn;
 with Sem;      use Sem;
@@ -135,9 +136,10 @@ package body Sem_Util is
          Rtyp := Typ;
       end if;
 
-      if No (Compile_Time_Constraint_Error (N, Msg, Ent, Loc, Warn => Warn))
-        or else not Rep
-      then
+      Discard_Node (
+        Compile_Time_Constraint_Error (N, Msg, Ent, Loc, Warn => Warn));
+
+      if not Rep then
          return;
       end if;
 
@@ -2674,6 +2676,24 @@ package body Sem_Util is
       return Task_Body_Procedure (Declaration_Node (Root_Type (E)));
    end Get_Task_Body_Procedure;
 
+   ----------------------
+   -- Has_Declarations --
+   ----------------------
+
+   function Has_Declarations (N : Node_Id) return Boolean is
+      K : constant Node_Kind := Nkind (N);
+   begin
+      return    K = N_Accept_Statement
+        or else K = N_Block_Statement
+        or else K = N_Compilation_Unit_Aux
+        or else K = N_Entry_Body
+        or else K = N_Package_Body
+        or else K = N_Protected_Body
+        or else K = N_Subprogram_Body
+        or else K = N_Task_Body
+        or else K = N_Package_Specification;
+   end Has_Declarations;
+
    --------------------
    -- Has_Infinities --
    --------------------
@@ -3132,6 +3152,31 @@ package body Sem_Util is
       end if;
    end Is_Aliased_View;
 
+   -------------------------
+   -- Is_Ancestor_Package --
+   -------------------------
+
+   function Is_Ancestor_Package
+     (E1  : Entity_Id;
+      E2  : Entity_Id) return Boolean
+   is
+      Par : Entity_Id;
+
+   begin
+      Par := E2;
+      while Present (Par)
+        and then Par /= Standard_Standard
+      loop
+         if Par = E1 then
+            return True;
+         end if;
+
+         Par := Scope (Par);
+      end loop;
+
+      return False;
+   end Is_Ancestor_Package;
+
    ----------------------
    -- Is_Atomic_Object --
    ----------------------
@@ -3290,9 +3335,21 @@ package body Sem_Util is
                   P_Aliased := True;
                end if;
 
+            --  A discriminant check on a selected component may be
+            --  expanded into a dereference when removing side-effects.
+            --  Recover the original node and its type, which may be
+            --  unconstrained.
+
+            elsif Nkind (P) = N_Explicit_Dereference
+              and then not (Comes_From_Source (P))
+            then
+               P := Original_Node (P);
+               Prefix_Type := Etype (P);
+
             else
                --  Check for prefix being an aliased component ???
                null;
+
             end if;
 
             if Is_Access_Type (Prefix_Type)
@@ -3330,6 +3387,13 @@ package body Sem_Util is
            or else Nkind (Object) = N_Slice
          then
             return Is_Dependent_Component_Of_Mutable_Object (Prefix (Object));
+
+         --  A type conversion that Is_Variable is a view conversion:
+         --  go back to the denoted object.
+
+         elsif Nkind (Object) = N_Type_Conversion then
+            return
+              Is_Dependent_Component_Of_Mutable_Object (Expression (Object));
          end if;
       end if;
 
@@ -3354,6 +3418,88 @@ package body Sem_Util is
           Nkind (P) = N_Slice)
         and then Prefix (P) = N;
    end Is_Dereferenced;
+
+   ----------------------
+   -- Is_Descendent_Of --
+   ----------------------
+
+   function Is_Descendent_Of (T1 : Entity_Id; T2 : Entity_Id) return Boolean is
+      T    : Entity_Id;
+      Etyp : Entity_Id;
+
+   begin
+      pragma Assert (Nkind (T1) in N_Entity);
+      pragma Assert (Nkind (T2) in N_Entity);
+
+      T := Base_Type (T1);
+
+      --  Immediate return if the types match
+
+      if T = T2 then
+         return True;
+
+      --  Comment needed here ???
+
+      elsif Ekind (T) = E_Class_Wide_Type then
+         return Etype (T) = T2;
+
+      --  All other cases
+
+      else
+         loop
+            Etyp := Etype (T);
+
+            --  Done if we found the type we are looking for
+
+            if Etyp = T2 then
+               return True;
+
+            --  Done if no more derivations to check
+
+            elsif T = T1 then
+               return False;
+
+            --  Following test catches error cases resulting from prev errors
+
+            elsif No (Etyp) then
+               return False;
+
+            elsif Is_Private_Type (T) and then Etyp = Full_View (T) then
+               return False;
+
+            elsif Is_Private_Type (Etyp) and then Full_View (Etyp) = T then
+               return False;
+            end if;
+
+            --  Return if no further entries to check
+
+            if T = Base_Type (T1) or else T = T1 then
+               return False;
+            end if;
+         end loop;
+      end if;
+
+      raise Program_Error;
+   end Is_Descendent_Of;
+
+   ------------------------------
+   -- Is_Descendent_Of_Address --
+   ------------------------------
+
+   function Is_Descendent_Of_Address (T1 : Entity_Id) return Boolean is
+   begin
+      --  If Address has not been loaded, answer must be False
+
+      if not RTU_Loaded (System) then
+         return False;
+
+      --  Otherwise we can get the entity we are interested in without
+      --  causing an unwanted dependency on System, and do the test.
+
+      else
+         return Is_Descendent_Of (T1, Base_Type (RTE (RE_Address)));
+      end if;
+   end Is_Descendent_Of_Address;
 
    --------------
    -- Is_False --
@@ -3785,6 +3931,13 @@ package body Sem_Util is
 
             when N_Explicit_Dereference =>
                return True;
+
+            --  A view conversion of a tagged object is an object reference.
+
+            when N_Type_Conversion =>
+               return Is_Tagged_Type (Etype (Subtype_Mark (N)))
+                 and then Is_Tagged_Type (Etype (Expression (N)))
+                 and then Is_Object_Reference (Expression (N));
 
             --  An unchecked type conversion is considered to be an object if
             --  the operand is an object (this construction arises only as a
@@ -4965,73 +5118,52 @@ package body Sem_Util is
    --------------------------------
 
    procedure Note_Possible_Modification (N : Node_Id) is
+      Modification_Comes_From_Source : constant Boolean :=
+                                         Comes_From_Source (Parent (N));
+
       Ent : Entity_Id;
       Exp : Node_Id;
-
-      procedure Set_Ref (E : Entity_Id; N : Node_Id);
-      --  Internal routine to note modification on entity E by node N
-      --  Has no effect if entity E does not represent an object.
-
-      -------------
-      -- Set_Ref --
-      -------------
-
-      procedure Set_Ref (E : Entity_Id; N : Node_Id) is
-      begin
-         if Is_Object (E) then
-            if Comes_From_Source (N) then
-               Set_Never_Set_In_Source (E, False);
-            end if;
-
-            Set_Is_True_Constant    (E, False);
-            Set_Current_Value       (E, Empty);
-            Generate_Reference      (E, N, 'm');
-            Kill_Checks             (E);
-
-            if not Can_Never_Be_Null (E) then
-               Set_Is_Known_Non_Null (E, False);
-            end if;
-         end if;
-      end Set_Ref;
-
-   --  Start of processing for Note_Possible_Modification
 
    begin
       --  Loop to find referenced entity, if there is one
 
       Exp := N;
       loop
-         --  Test for node rewritten as dereference (e.g. accept parameter)
-
-         if Nkind (Exp) = N_Explicit_Dereference
-           and then not Comes_From_Source (Exp)
-         then
-            Exp := Original_Node (Exp);
-         end if;
-
-         --  Now look for entity being referenced
+         <<Continue>>
+         Ent := Empty;
 
          if Is_Entity_Name (Exp) then
             Ent := Entity (Exp);
 
-            if (Ekind (Ent) = E_Variable or else Ekind (Ent) = E_Constant)
-              and then Present (Renamed_Object (Ent))
-            then
-               Set_Never_Set_In_Source (Ent, False);
-               Set_Is_True_Constant    (Ent, False);
-               Set_Current_Value       (Ent, Empty);
+         elsif Nkind (Exp) = N_Explicit_Dereference then
+            declare
+               P : constant Node_Id := Prefix (Exp);
 
-               if not Can_Never_Be_Null (Ent) then
-                  Set_Is_Known_Non_Null (Ent, False);
+            begin
+               if Nkind (P) = N_Selected_Component
+                 and then Present (
+                   Entry_Formal (Entity (Selector_Name (P))))
+               then
+                  --  Case of a reference to an entry formal
+
+                  Ent := Entry_Formal (Entity (Selector_Name (P)));
+
+               elsif Nkind (P) = N_Identifier
+                 and then Nkind (Parent (Entity (P))) = N_Object_Declaration
+                 and then Present (Expression (Parent (Entity (P))))
+                 and then Nkind (Expression (Parent (Entity (P))))
+                   = N_Reference
+               then
+                  --  Case of a reference to a value on which
+                  --  side effects have been removed.
+
+                  Exp := Prefix (Expression (Parent (Entity (P))));
+
+               else
+                  return;
+
                end if;
-
-               Exp := Renamed_Object (Ent);
-
-            else
-               Set_Ref (Ent, Exp);
-               Kill_Checks (Ent);
-               return;
-            end if;
+            end;
 
          elsif     Nkind (Exp) = N_Type_Conversion
            or else Nkind (Exp) = N_Unchecked_Type_Conversion
@@ -5045,6 +5177,39 @@ package body Sem_Util is
             Exp := Prefix (Exp);
 
          else
+            return;
+
+         end if;
+
+         --  Now look for entity being referenced
+
+         if Present (Ent) then
+
+            if Is_Object (Ent) then
+               if Comes_From_Source (Exp)
+                 or else Modification_Comes_From_Source
+               then
+                  Set_Never_Set_In_Source (Ent, False);
+               end if;
+
+               Set_Is_True_Constant    (Ent, False);
+               Set_Current_Value       (Ent, Empty);
+
+               if not Can_Never_Be_Null (Ent) then
+                  Set_Is_Known_Non_Null (Ent, False);
+               end if;
+
+               if (Ekind (Ent) = E_Variable or else Ekind (Ent) = E_Constant)
+                 and then Present (Renamed_Object (Ent))
+               then
+                  Exp := Renamed_Object (Ent);
+                  goto Continue;
+               end if;
+
+               Generate_Reference (Ent, Exp, 'm');
+            end if;
+
+            Kill_Checks (Ent);
             return;
          end if;
       end loop;
@@ -5461,11 +5626,8 @@ package body Sem_Util is
 
    function Rep_To_Pos_Flag (E : Entity_Id; Loc : Source_Ptr) return Node_Id is
    begin
-      if Range_Checks_Suppressed (E) then
-         return New_Occurrence_Of (Standard_False, Loc);
-      else
-         return New_Occurrence_Of (Standard_True, Loc);
-      end if;
+      return New_Occurrence_Of
+               (Boolean_Literals (not Range_Checks_Suppressed (E)), Loc);
    end Rep_To_Pos_Flag;
 
    --------------------
@@ -6057,9 +6219,16 @@ package body Sem_Util is
       --  declared at the library level to ensure that names such as
       --  X.all'access don't fail static accessibility checks.
 
+      --  Ada 0Y (AI-230): In case of anonymous access types that are
+      --  component_definition or discriminants of a nonlimited type,
+      --  the level is the same as that of the enclosing component type.
+
       Btyp := Base_Type (Typ);
       if Ekind (Btyp) in Access_Kind then
-         if Ekind (Btyp) = E_Anonymous_Access_Type then
+         if Ekind (Btyp) = E_Anonymous_Access_Type
+           and then not Is_Array_Type (Scope (Btyp))      --  Ada 0Y (AI-230)
+           and then Ekind (Scope (Btyp)) /= E_Record_Type --  Ada 0Y (AI-230)
+         then
             return Scope_Depth (Standard_Standard);
          end if;
 

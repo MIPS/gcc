@@ -1087,8 +1087,12 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
       int shift_count, left_shift, outof_word;
 
       /* If TARGET is the same as one of the operands, the REG_EQUAL note
-	 won't be accurate, so use a new target.  */
-      if (target == 0 || target == op0 || target == op1)
+	 won't be accurate, so use a new target. Do this also if target is not
+	 a REG, first because having a register instead may open optimization
+	 opportunities, and second because if target and op0 happen to be MEMs
+	 designating the same location, we would risk clobbering it too early
+	 in the code sequence we generate below.  */
+      if (target == 0 || target == op0 || target == op1 || ! REG_P (target))
 	target = gen_reg_rtx (mode);
 
       start_sequence ();
@@ -2143,6 +2147,109 @@ sign_expand_binop (enum machine_mode mode, optab uoptab, optab soptab,
   return 0;
 }
 
+/* Generate code to perform an operation specified by UNOPPTAB
+   on operand OP0, with two results to TARG0 and TARG1.
+   We assume that the order of the operands for the instruction
+   is TARG0, TARG1, OP0.
+
+   Either TARG0 or TARG1 may be zero, but what that means is that
+   the result is not actually wanted.  We will generate it into
+   a dummy pseudo-reg and discard it.  They may not both be zero.
+
+   Returns 1 if this operation can be performed; 0 if not.  */
+
+int
+expand_twoval_unop (optab unoptab, rtx op0, rtx targ0, rtx targ1,
+		    int unsignedp)
+{
+  enum machine_mode mode = GET_MODE (targ0 ? targ0 : targ1);
+  enum mode_class class;
+  enum machine_mode wider_mode;
+  rtx entry_last = get_last_insn ();
+  rtx last;
+
+  class = GET_MODE_CLASS (mode);
+
+  op0 = protect_from_queue (op0, 0);
+
+  if (flag_force_mem)
+    {
+      op0 = force_not_mem (op0);
+    }
+
+  if (targ0)
+    targ0 = protect_from_queue (targ0, 1);
+  else
+    targ0 = gen_reg_rtx (mode);
+  if (targ1)
+    targ1 = protect_from_queue (targ1, 1);
+  else
+    targ1 = gen_reg_rtx (mode);
+
+  /* Record where to go back to if we fail.  */
+  last = get_last_insn ();
+
+  if (unoptab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
+    {
+      int icode = (int) unoptab->handlers[(int) mode].insn_code;
+      enum machine_mode mode0 = insn_data[icode].operand[2].mode;
+      rtx pat;
+      rtx xop0 = op0;
+
+      if (GET_MODE (xop0) != VOIDmode
+	  && GET_MODE (xop0) != mode0)
+	xop0 = convert_to_mode (mode0, xop0, unsignedp);
+
+      /* Now, if insn doesn't accept these operands, put them into pseudos.  */
+      if (! (*insn_data[icode].operand[2].predicate) (xop0, mode0))
+	xop0 = copy_to_mode_reg (mode0, xop0);
+
+      /* We could handle this, but we should always be called with a pseudo
+	 for our targets and all insns should take them as outputs.  */
+      if (! (*insn_data[icode].operand[0].predicate) (targ0, mode)
+	  || ! (*insn_data[icode].operand[1].predicate) (targ1, mode))
+	abort ();
+
+      pat = GEN_FCN (icode) (targ0, targ1, xop0);
+      if (pat)
+	{
+	  emit_insn (pat);
+	  return 1;
+	}
+      else
+	delete_insns_since (last);
+    }
+
+  /* It can't be done in this mode.  Can we do it in a wider mode?  */
+
+  if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+    {
+      for (wider_mode = GET_MODE_WIDER_MODE (mode); wider_mode != VOIDmode;
+	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
+	{
+	  if (unoptab->handlers[(int) wider_mode].insn_code
+	      != CODE_FOR_nothing)
+	    {
+	      rtx t0 = gen_reg_rtx (wider_mode);
+	      rtx t1 = gen_reg_rtx (wider_mode);
+	      rtx cop0 = convert_modes (wider_mode, mode, op0, unsignedp);
+
+	      if (expand_twoval_unop (unoptab, cop0, t0, t1, unsignedp))
+		{
+		  convert_move (targ0, t0, unsignedp);
+		  convert_move (targ1, t1, unsignedp);
+		  return 1;
+		}
+	      else
+		delete_insns_since (last);
+	    }
+	}
+    }
+
+  delete_insns_since (entry_last);
+  return 0;
+}
+
 /* Generate code to perform an operation specified by BINOPTAB
    on operands OP0 and OP1, with two results to TARG1 and TARG2.
    We assume that the order of the operands for the instruction
@@ -2626,6 +2733,15 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
   if (unoptab == parity_optab)
     {
       temp = expand_parity (mode, op0, target);
+      if (temp)
+	return temp;
+    }
+
+  /* If there is no negation pattern, try subtracting from zero.  */
+  if (unoptab == neg_optab && class == MODE_INT)
+    {
+      temp = expand_binop (mode, sub_optab, CONST0_RTX (mode), op0,
+                           target, unsignedp, OPTAB_DIRECT);
       if (temp)
 	return temp;
     }
@@ -3640,7 +3756,7 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
       result_mode = TYPE_MODE (integer_type_node);
       cmp_mode = TYPE_MODE (length_type);
       size = convert_to_mode (TYPE_MODE (length_type), size,
-			      TREE_UNSIGNED (length_type));
+			      TYPE_UNSIGNED (length_type));
 
       result = emit_library_call_value (libfunc, 0, LCT_PURE_MAKE_BLOCK,
 					result_mode, 3,
@@ -5221,6 +5337,8 @@ init_optabs (void)
   udivmod_optab = init_optab (UNKNOWN);
   smod_optab = init_optab (MOD);
   umod_optab = init_optab (UMOD);
+  fmod_optab = init_optab (UNKNOWN);
+  drem_optab = init_optab (UNKNOWN);
   ftrunc_optab = init_optab (UNKNOWN);
   and_optab = init_optab (AND);
   ior_optab = init_optab (IOR);
@@ -5271,12 +5389,21 @@ init_optabs (void)
   round_optab = init_optab (UNKNOWN);
   btrunc_optab = init_optab (UNKNOWN);
   nearbyint_optab = init_optab (UNKNOWN);
+  sincos_optab = init_optab (UNKNOWN);
   sin_optab = init_optab (UNKNOWN);
+  asin_optab = init_optab (UNKNOWN);
   cos_optab = init_optab (UNKNOWN);
+  acos_optab = init_optab (UNKNOWN);
   exp_optab = init_optab (UNKNOWN);
+  exp10_optab = init_optab (UNKNOWN);
+  exp2_optab = init_optab (UNKNOWN);
+  expm1_optab = init_optab (UNKNOWN);
+  logb_optab = init_optab (UNKNOWN);
+  ilogb_optab = init_optab (UNKNOWN);
   log_optab = init_optab (UNKNOWN);
   log10_optab = init_optab (UNKNOWN);
   log2_optab = init_optab (UNKNOWN);
+  log1p_optab = init_optab (UNKNOWN);
   tan_optab = init_optab (UNKNOWN);
   atan_optab = init_optab (UNKNOWN);
   strlen_optab = init_optab (UNKNOWN);

@@ -68,51 +68,6 @@ enum darwin_builtins
 static tree machopic_non_lazy_ptr_list_entry PARAMS ((const char*, int));
 static tree machopic_stub_list_entry PARAMS ((const char *));
 
-/* APPLE LOCAL begin coalescing  */
-void
-make_decl_coalesced (tree decl, int private_extern_p)
-      /* 0 for global, 1 for private extern */
-{
-  int no_toc_p = 1;             /* Don't add to table of contents */
-#if 0
-  const char *decl_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-#endif
-  static const char *const names[4] = {
-	"__TEXT,__textcoal,coalesced",
-	"__TEXT,__textcoal_nt,coalesced,no_toc",
-	"__DATA,__datacoal,coalesced",
-	"__DATA,__datacoal_nt,coalesced,no_toc",
-  };
-  const char *sec;
-  int idx;
-
-  /* Do nothing if coalescing is disabled.  */
-  if (!COALESCING_ENABLED_P())
-    return;
-
-  /* We *do* need to mark these *INTERNAL* functions coalesced: though
-     these pseudo-functions themselves will never appear, their cloned
-     descendants need to be marked coalesced too.  */
-#if 0
-  /* Don't touch anything with " *INTERNAL" in its name.  */
-  if (strstr (decl_name, " *INTERNAL") != NULL)
-    return;
-#endif
-
-  DECL_COALESCED (decl) = 1;
-  if (private_extern_p)
-    DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
-  TREE_PUBLIC (decl) = 1;
-
-  idx = 0;
-  if (TREE_CODE (decl) != FUNCTION_DECL)
-    idx = 2;
-  sec = names[idx + (no_toc_p ? 1 : 0)];
-
-  DECL_SECTION_NAME (decl) = build_string (strlen (sec), sec);
-}
-/* APPLE LOCAL end coalescing  */
-
 int
 name_needs_quotes (const char *name)
 {
@@ -294,12 +249,9 @@ static GTY(()) char * function_base;
 const char *
 machopic_function_base_name (void)
 {
-  const char *current_name;
   /* if dynamic-no-pic is on, we should not get here */
   if (MACHO_DYNAMIC_NO_PIC_P)
     abort ();
-  current_name =
-    IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl));
 
   if (function_base == NULL)
     function_base =
@@ -404,15 +356,6 @@ machopic_non_lazy_ptr_list_entry (const char *name, int create_p)
 
   return NULL;
 }
-
-/* APPLE LOCAL begin coalescing */
-/* Was the variable NAME ever referenced?  */
-int
-machopic_var_referred_to_p (const char *name)
-{
-  return (machopic_non_lazy_ptr_list_entry (name, /*create:*/ 0) != NULL);
-}
-/* APPLE LOCAL end coalescing */
 
 /* APPLE LOCAL begin weak import */
 const char *
@@ -1197,13 +1140,10 @@ darwin_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
   if ((TREE_CODE (decl) == FUNCTION_DECL
        || TREE_CODE (decl) == VAR_DECL)
       && !DECL_EXTERNAL (decl)
-      /* APPLE LOCAL  coalescing  */
-#ifdef DECL_IS_COALESCED_OR_WEAK
-      && ! DECL_IS_COALESCED_OR_WEAK (decl)
-#endif
+      && (!TREE_PUBLIC (decl) || (!DECL_ONE_ONLY (decl) && !DECL_WEAK (decl)))
       && ((TREE_STATIC (decl)
 	   && (!DECL_COMMON (decl) || !TREE_PUBLIC (decl)))
-	  || (DECL_INITIAL (decl)
+	  || (!DECL_COMMON (decl) && DECL_INITIAL (decl)
 	      && DECL_INITIAL (decl) != error_mark_node)))
     defined = 1;
   /* APPLE LOCAL fix OBJC codegen */
@@ -1339,6 +1279,20 @@ update_stubs (const char *name)
 	    }
 	}
     }
+}
+
+void
+darwin_make_decl_one_only (tree decl)
+{
+  static const char *text_section = "__TEXT,__textcoal_nt,coalesced,no_toc";
+  static const char *data_section = "__DATA,__datacoal_nt,coalesced,no_toc";
+
+  const char *sec = TREE_CODE (decl) == FUNCTION_DECL
+    ? text_section
+    : data_section;
+  TREE_PUBLIC (decl) = 1;
+  DECL_ONE_ONLY (decl) = 1;
+  DECL_SECTION_NAME (decl) = build_string (strlen (sec), sec);
 }
 
 void
@@ -1563,27 +1517,6 @@ abort_assembly_and_exit (int status)
 }
 /* APPLE LOCAL end assembly "abort" directive  */
 
-/* APPLE LOCAL coalescing  */
-void
-darwin_asm_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED)
-{
-  fprintf (asm_out_file, ".section %s\n", name);
-}
-
-unsigned int
-darwin_section_type_flags (tree decl, const char *name, int reloc)
-{
-  unsigned int flags = default_section_type_flags (decl, name, reloc);
- 
-  /* Weak or coalesced variables live in a writable section.  */
-  if (decl != 0 && TREE_CODE (decl) != FUNCTION_DECL
-      && DECL_IS_COALESCED_OR_WEAK (decl))
-    flags |= SECTION_WRITE;
-  
-  return flags;
-}              
-/* APPLE LOCAL  end coalescing  */
-
 /* APPLE LOCAL begin double destructor turly 20020214  */
 #include "c-common.h"
 
@@ -1666,7 +1599,7 @@ darwin_set_section_for_var_p (tree exp, int reloc, int align)
 	    }
 	}
      else
-      if (TREE_READONLY (TREE_TYPE (exp)) 
+      if (TREE_READONLY (exp) 
 	  && ((TREE_CODE (TREE_TYPE (exp)) == INTEGER_TYPE
 	       && TREE_CODE (DECL_INITIAL (exp)) == INTEGER_CST)
 	      || (TREE_CODE (TREE_TYPE (exp)) == REAL_TYPE
@@ -1696,8 +1629,93 @@ darwin_set_section_for_var_p (tree exp, int reloc, int align)
 }
 /* APPLE LOCAL end darwin_set_section_for_var_p  turly 20020226  */
 
-/* APPLE LOCAL begin C++ EH */
+void
+darwin_asm_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED)
+{
+  fprintf (asm_out_file, ".section %s\n", name);
+}
+
+unsigned int
+darwin_section_type_flags (tree decl, const char *name, int reloc)
+{
+  unsigned int flags = default_section_type_flags (decl, name, reloc);
+ 
+  /* Weak or linkonce variables live in a writable section.  */
+  if (decl != 0 && TREE_CODE (decl) != FUNCTION_DECL
+      && (DECL_WEAK (decl) || DECL_ONE_ONLY (decl)))
+    flags |= SECTION_WRITE;
+  
+  return flags;
+}              
+
+void 
+darwin_unique_section (tree decl, int reloc ATTRIBUTE_UNUSED)
+{
+  /* Darwin does not use unique sections.  However, the target's
+     unique_section hook is called for linkonce symbols.  We need
+     to set an appropriate section for such symbols. */
+  if (DECL_ONE_ONLY (decl) && !DECL_SECTION_NAME (decl))
+    darwin_make_decl_one_only (decl);
+}
+
+/* Emit a label for an FDE, making it global and/or weak if appropriate. 
+   The third parameter is nonzero if this is for exception handling.
+   The fourth parameter is nonzero if this is just a placeholder for an
+   FDE that we are omitting. */
+
+void 
+darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
+{
+  tree id = DECL_ASSEMBLER_NAME (decl)
+    ? DECL_ASSEMBLER_NAME (decl)
+    : DECL_NAME (decl);
+
+  const char *prefix = "_";
+  const int prefix_len = 1;
+
+  const char *base = IDENTIFIER_POINTER (id);
+  unsigned int base_len = IDENTIFIER_LENGTH (id);
+
+  const char *suffix = ".eh";
+
+  int need_quotes = name_needs_quotes (base);
+  int quotes_len = need_quotes ? 2 : 0;
+  char *lab;
+
+  if (! for_eh)
+    suffix = ".eh1";
+
+  lab = xmalloc (prefix_len + base_len + strlen (suffix) + quotes_len + 1);
+  lab[0] = '\0';
+
+  if (need_quotes)
+    strcat(lab, "\"");
+  strcat(lab, prefix);
+  strcat(lab, base);
+  strcat(lab, suffix);
+  if (need_quotes)
+    strcat(lab, "\"");
+
+  if (TREE_PUBLIC (decl))
+    fprintf (file, "%s %s\n",
+	     (DECL_VISIBILITY (decl) != VISIBILITY_HIDDEN
+	      ? ".globl"
+	      : ".private_extern"),
+	     lab);
+
+  if (DECL_ONE_ONLY (decl) && TREE_PUBLIC (decl))
+    fprintf (file, ".weak_definition %s\n", lab);
+
+  if (empty)
+    fprintf (file, "%s = 0\n", lab);
+  else
+    fprintf (file, "%s:\n", lab);
+
+  free (lab);
+}
+
 /* Generate a PC-relative reference to a Mach-O non-lazy-symbol.  */ 
+
 void
 darwin_non_lazy_pcrel (FILE *file, rtx addr)
 {
@@ -1713,7 +1731,6 @@ darwin_non_lazy_pcrel (FILE *file, rtx addr)
   ASM_OUTPUT_LABELREF (file, nlp_name);
   fputs ("-.", file);
 }
-/* APPLE LOCAL end C++ EH */
 
 /* Emit an assembler directive to set visibility for a symbol.  The
    only supported visibilities are VISIBILITY_DEFAULT and
@@ -1751,8 +1768,8 @@ void
 darwin_asm_output_dwarf_delta (FILE *file, int size ATTRIBUTE_UNUSED,
 			       const char *lab1, const char *lab2)
 {
-  const char *p = lab1 + (lab1[0] == '*');
-  int islocaldiff = (p[0] == 'L');
+  int islocaldiff = (lab1[0] == '*' && lab1[1] == 'L'
+		     && lab2[0] == '*' && lab2[1] == 'L');
 
   if (islocaldiff)
     fprintf (file, "\t.set L$set$%d,", darwin_dwarf_label_counter);
@@ -1862,11 +1879,11 @@ darwin_init_cfstring_builtins (void)
    = build_decl (VAR_DECL,
 		 get_identifier ("__CFConstantStringClassReference"),
 		 build_array_type (integer_type_node, NULL_TREE));
-  DECL_EXTERNAL (cfstring_class_reference) = 1;
   TREE_PUBLIC (cfstring_class_reference) = 1;
   TREE_USED (cfstring_class_reference) = 1;
   DECL_ARTIFICIAL (cfstring_class_reference) = 1;
   (*lang_hooks.decls.pushdecl) (cfstring_class_reference);
+  DECL_EXTERNAL (cfstring_class_reference) = 1;
   rest_of_decl_compilation (cfstring_class_reference, 0, 0, 0);
   
   /* Initialize the hash table used to hold the constant CFString objects.  */

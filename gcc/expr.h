@@ -188,11 +188,6 @@ do {							\
 #define FUNCTION_ARG_BOUNDARY(MODE, TYPE)	PARM_BOUNDARY
 #endif
 
-/* Define to nonzero if complex arguments should be split into their
-   corresponding components.  */
-#ifndef SPLIT_COMPLEX_ARGS
-#define SPLIT_COMPLEX_ARGS 0
-#endif
 tree split_complex_types (tree);
 tree split_complex_values (tree);
 
@@ -513,22 +508,19 @@ extern rtx store_expr (tree, rtx, int);
    Useful after calling expand_expr with 1 as sum_ok.  */
 extern rtx force_operand (rtx, rtx);
 
-/* Return an object on the placeholder list that matches EXP, a
-   PLACEHOLDER_EXPR.  An object "matches" if it is of the type of the
-   PLACEHOLDER_EXPR or a pointer type to it.  For further information, see
-   tree.def.  If no such object is found, abort.  If PLIST is nonzero, it is
-   a location which initially points to a starting location in the
-   placeholder list (zero means start of the list) and where a pointer into
-   the placeholder list at which the object is found is placed.  */
-extern tree find_placeholder (tree, tree *);
+/* Work horse for expand_expr.  */
+extern rtx expand_expr_real (tree, rtx, enum machine_mode, 
+			     enum expand_modifier, rtx *);
 
 /* Generate code for computing expression EXP.
    An rtx for the computed value is returned.  The value is never null.
    In the case of a void EXP, const0_rtx is returned.  */
-#define expand_expr(EXP, TARGET, MODE, MODIFIER) \
-  expand_expr_real((EXP), (TARGET), (MODE), (MODIFIER), NULL)
-extern rtx expand_expr_real (tree, rtx, enum machine_mode, 
-			     enum expand_modifier, rtx *);
+static inline rtx
+expand_expr (tree exp, rtx target, enum machine_mode mode,
+	     enum expand_modifier modifier)
+{
+  return expand_expr_real(exp, target, mode, modifier, NULL);
+}
 
 extern void expand_var (tree);
 
@@ -818,5 +810,3 @@ extern void do_jump_by_parts_greater_rtx (enum machine_mode, int, rtx, rtx,
 					  rtx, rtx);
 
 extern int vector_mode_valid_p (enum machine_mode);
-
-extern tree placeholder_list;

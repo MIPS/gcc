@@ -47,6 +47,7 @@ import java.awt.im.InputMethodHighlight;
 import java.awt.image.ColorModel;
 import java.awt.image.ImageObserver;
 import java.awt.image.ImageProducer;
+import java.awt.GraphicsEnvironment;
 import java.awt.peer.*;
 import java.net.URL;
 import java.util.Hashtable;
@@ -366,14 +367,18 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
    * @deprecated part of the older "logical font" system in earlier AWT
    * implementations. Our newer Font class uses getClasspathFontPeer.
    */
-  protected FontPeer getFontPeer (String name, int style) 
+  protected FontPeer getFontPeer (String name, int style) {
+    // All fonts get a default size of 12 if size is not specified.
+    return getFontPeer(name, style, 12);
+  }
+
+  /**
+   * Private method that allows size to be set at initialization time.
+   */
+  private FontPeer getFontPeer (String name, int style, int size) 
   {
-    try {
-      GtkFontPeer fp = new GtkFontPeer (name, style);
-      return fp;
-    } catch (MissingResourceException ex) {
-      return null;
-    }
+    GtkFontPeer fp = new GtkFontPeer (name, style, size);
+    return fp;
   }
 
   /**
@@ -388,7 +393,11 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
       return new GdkClasspathFontPeer (name, attrs);
     else
       {
+        // Default values
+        int size = 12;
         int style = Font.PLAIN;
+        if (name == null)
+          name = "Default";
 
         if (attrs.containsKey (TextAttribute.WEIGHT))
           {
@@ -404,7 +413,13 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
               style += Font.ITALIC;
           }
         
-        return (ClasspathFontPeer) this.getFontPeer (name, style);
+        if (attrs.containsKey (TextAttribute.SIZE))
+          {
+            Float fsize = (Float) attrs.get (TextAttribute.SIZE);
+            size = fsize.intValue();
+          }
+ 
+        return (ClasspathFontPeer) this.getFontPeer (name, style, size);
       }
   }
 
@@ -431,7 +446,9 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
 
   public GraphicsEnvironment getLocalGraphicsEnvironment()
   {
-    throw new java.lang.UnsupportedOperationException ();
+    GraphicsEnvironment ge;
+    ge = new GdkGraphicsEnvironment ();  
+    return ge;
   }
 
   public Font createFont(int format, java.io.InputStream stream)

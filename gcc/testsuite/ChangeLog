@@ -1,9 +1,1195 @@
+2004-05-25  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/compat.exp (compat-get-options-main): New.
+	(compat-get-options): Remove unneeded code, warn for ignored
+	command.
+	(compat-execute): Check flag set by dg-require-* commands.
+
+	* lib/compat.exp (compat-execute): Break up long lines.
+
+2004-05-24  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/altivec-7.c: Don't use 'vector long'.
+	* gcc.dg/altivec-14.c: New test.
+	* g++.dg/ext/altivec-7.C: Don't use 'vector long'.
+
+	* gcc.dg/altivec-6.c: Use -maltivec, don't limit to darwin.
+	* gcc.dg/altivec-12.c: Ditto.
+
+	* gcc.dg/altivec-3.c: Move call to altivec_check.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15044
+	* g++.dg/template/error12.C: New test.
+
+	PR c++/15317
+	* g++.dg/ext/attrib15.C: New test.
+
+	PR c++/15329
+	* g++.dg/template/ptrmem9.C: New test.
+
+2004-05-25  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/compile/inquiry_1.f90: New test.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15165
+	* g++.dg/template/crash19.C: New test.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15025
+	* g++.dg/template/redecl1.C: New test.
+
+2004-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14821
+	* g++.dg/other/ns1.C: New test.
+
+	PR c++/14883
+	* g++.dg/template/invalid1.C: New test.
+
+2004-05-23  Paul Brook  <paul@codesourcery.com>
+	Victor Leikehman  <lei@haifasphere.co.il>
+
+	* gfortran.fortran-torture/execute/common_init_1.f90: New test.
+	* gfortran.fortran-torture/execute/equiv_init.f90: New test.
+
+2004-05-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15285
+	PR c++/15299
+	* g++.dg/template/non-dependent5.C: New test.
+	* g++.dg/template/non-dependent6.C: New test.
+
+2004-05-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15507
+	* g++.dg/inherit/union1.C: New test.
+
+	PR c++/15542
+	* g++.dg/template/addr1.C: New test.
+
+	PR c++/15427
+	* g++.dg/template/array5.C: New test.
+
+	PR c++/15287
+	* g++.dg/template/array6.C: New test.
+
+2004-05-22  Wolfgang Bangerth  <bangerth@dealii.org>
+	    Roger Sayle  <roger@eyesopen.com>
+
+	* g++.dg/lookup/forscope2.C: New test case.
+
+2004-05-22  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/cpp/Wmissingdirs.c: New.
+
+2004-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/15301
+	* gcc.dg/compat/union-m128-1.h: New file.
+	* gcc.dg/compat/union-m128-1_main.c: Likewise.
+	* gcc.dg/compat/union-m128-1_x.c: Likewise.
+	* gcc.dg/compat/union-m128-1_y.c: Likewise.
+
+2004-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/15302
+	* gcc.dg/compat/struct-complex-1.h: New file.
+	* gcc.dg/compat/struct-complex-1_main.c: Likewise.
+	* gcc.dg/compat/struct-complex-1_x.c: Likewise.
+	* gcc.dg/compat/struct-complex-1_y.c: Likewise.
+
+2004-05-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/3074
+	* gcc.dg/pr3074-1.c: New test case.
+	* gcc.dg/sequence-pt-1.c: Remove an XFAIL.
+
+2004-05-20  Falk Hueffner  <falk@debian.org>
+
+	PR other/15526
+	* gcc.dg/ftrapv-1.c: New test case.
+
+2004-05-18  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* gfortran.fortran-torture/execute/power.f90: Test constant integers.
+
+2004-05-18  Andrew Pinski  <pinskia@physics.uc.edu>
+            Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040514-2.c: Update expected output.
+	* gcc.dg/tree-ssa/20040518-2.c: New test.
+
+	* gcc.dg/tree-ssa/20040518-1.c: New test.
+
+2004-05-18  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.c-torture/execute/991216-3.c: Delete, duplicate of 991216-2.c.
+
+2004-05-18  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/13930
+	* gfortran.fortran-torture/execute/der_init_4.f90: New test.
+
+2004-05-18  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/execute/cmplx.f90: Add test for bug in
+	constant folding.
+
+2004-05-17  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc.dg/tree-ssa/20040517-1.c: New test.
+
+2004-05-17  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* gcc.dg/loop-4.c: New test.
+
+2004-05-15  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/20040514-1.c: Add '}' that was forgotten.
+
+2004-05-15  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15311
+	* gfortran.fortran-torture/execute/write_a_1.f90: New test.
+
+2004-05-15  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/13826
+	PR fortran/13940
+	* gfortran.fortran-torture/compile/data_1.f90: New test.
+
+2004-05-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/const-elim-1.c: Remove XFAIL for s390*-*-*.
+	* gcc.dg/uninit-H.c: Define ASM for __s390__.
+
+2004-05-15  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.c-torture/execute/20000603-1.c: Update WG14 URL.
+
+2004-05-15  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/15444
+	* gcc.dg/format/xopen-1.c: Adjust expected message.
+	* gcc.dg/format/xopen-3.c: New test.
+
+2004-05-14  Victor Leikehman  <lei@haifasphere.co.il>
+
+	* gfortran.fortran-torture/execute/def_init_3.f90: New test.
+
+2004-05-14  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040514-2.c: New test.
+
+2004-05-14  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/compile/noncontinuation_1.f90: Rename
+	this ...
+	* gfortran.fortran-torture/compile/noncontinuation_1.f: ... to
+	this.
+
+2004-05-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/20040514-1.c: New test.
+
+2004-05-14  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/compile/noncontinuation_1.f90: New
+	test.
+
+2004-05-14  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/14066
+	* gfortran.fortran-torture/compile/do_1.f90: New test.
+
+2004-05-14  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15051
+	* gfortran.fortran-torture/compile/empty_interface_1.f90: New
+	test.
+
+2004-05-14  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15149
+	* gfortran.fortran-torture/execute/random_init.f90: New test.
+
+2004-05-13  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/15314
+	* gfortran.fortran-torture/execute/der_init_s.f90: New test.
+
+2004-05-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/uninit-H.c: Test for __PPC__ and __ppc__
+	for the powerpc case.
+
+2004-05-13  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040513-1.c: New test.
+	* gcc.dg/tree-ssa/20040513-2.c: New test.
+
+2004-05-13  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/tree-ssa/20030808-1.c: Force enum size.
+	* gcc.dg/tree-ssa/20030714-1.c: Ditto.
+	* gcc.dg/tree-ssa/20030708-1.c: Ditto.
+
+2004-05-13  Andreas Schwab  <schwab@suse.de>
+
+	PR other/10819
+	* lib/gfortran.exp (gfortran_version): Do not match NL/CR
+	characters.
+
+2004-05-13  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15294
+	* gfortran.fortran-torture/execute/adjustr.f90: New file.
+
+2004-05-13  Diego Novillo  <dnovillo@redhat.com>
+
+	Merge from tree-ssa-20020619-branch.  See
+	ChangeLog.tree-ssa for details.
+
+2004-05-11  Ziemowit Laski  <zlaski@apple.com>
+
+	* g++.dg/ext/altivec-8.C: Use '-maltivec' instead of '-faltivec';
+	include <altivec.h> explicitly.
+	* gcc.dg/altivec-13.c: Likewise.
+
+2004-05-11  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.c-torture/compile/20010518-1.c: Force enum size.
+
+2004-05-10  Eric Christopher  <echristo@redhat.com>
+
+	* gcc.dg/sibcall-3.c: Remove xfail for mips*-*-elf.
+	* gcc.dg/sibcall-4.c: Ditto.
+
+2004-05-10  Ziemowit Laski  <zlaski@apple.com>
+
+	* g++.dg/ext/altivec-8.C: New test case.
+	* gcc.dg/altivec-13.c: New test case.
+
+2004-05-08  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/divcmp-1.c: New test case.
+	* gcc.c-torture/execute/divcmp-2.c: New test case.
+	* gcc.c-torture/execute/divcmp-3.c: New test case.
+
+2004-05-07  Eric Botcazou <ebotcazou@libertysurf.fr>
+
+	* g++.dg/other/pragma-re-2.C: New test.
+
+2004-05-07  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/i386-387-1.c: Add new test for __builtin_fmod.
+	* gcc.dg/i386-387-2.c: Likewise.
+
+	* gcc.dg/i386-387-5.c: Add new tests for __builtin_log1p and
+	__builtin_drem.
+	* gcc.dg/i386-387-6.c: Likewise.
+
+2004-05-07  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-33.c:  Also check log1p*.
+
+2004-05-07  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR optimization/15296
+	* gcc.c-torture/execute/pr15296.c: New test.
+
+2004-05-05  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-40.c: New test.
+
+2004-05-05  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/torture/mips-hilo-2.c: Provide dummy __mips16 version.
+
+2004-05-04  Paolo Bonzini  <bonzini@gnu.org>
+
+	* g++.dg/ext/spe1.C: New testcase.
+
+2004-05-04  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/image-info.m: Allow additional attributes
+	for __image_info section.
+
+2004-05-04  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/torture/mips-hilo-2.c: New test.
+
+2004-05-03  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14389
+	* g++.dg/template/member5.C: New test.
+
+2004-05-03  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-34.c: Also check expm1*.
+
+2004-05-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-integral-1.c: Reorg and add more cases.
+	* gcc.dg/torture/builtin-convert-3.c: New test.
+
+2004-05-01  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR middle-end/15054
+	* g++.dg/opt/pr15054.C: New test.
+
+2004-04-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-rounding-1.c: New test.
+	* gcc.dg/builtins-25.c: Delete.
+	* gcc.dg/builtins-29.c: Delete.
+
+2004-04-29  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.dg/sibcall-3.c: Delete s390 from expected fail list.
+	* gcc.dg/sibcall-4.c: Likewise.
+	* gcc.dg/sibcall-6.c: Enable s390 as test platform.
+
+2004-04-30  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/execute/20040331-1.c: Don't use too wide a
+	bit-field on 16-bit targets.
+
+2004-04-30  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/execute/20040409-2.c: Fix constants used on
+	16-bit targets.
+
+2004-04-30  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/rs6000-power2-1.c: Change to compile only.
+	* gcc.dg/rs6000-power2-2.c: Likewise.
+
+2004-04-29  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/rs6000-power2-1.c: Change the options to be more correct.
+	* gcc.dg/rs6000-power2-2.c: Change the options to be more correct.
+	Change the asm registers to be in form of frN instead of fN.
+
+2004-04-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-convert-2.c: New test.
+
+2004-04-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/rs6000-power2-1.c: New test.
+	* gcc.dg/rs6000-power2-2.c: New test.
+
+2004-04-28  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/unused-6.c: New test.
+
+2004-04-24  Laurent GUERBY  <laurent@guerby.net>
+	    Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* ada/acats/run_all.sh: Define $target variable.
+
+2004-04-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/15119
+	* g++.dg/other/vararg-1.C: New test.
+
+	PR c++/4794
+	* g++.dg/eh/cleanup3.C: New test.
+
+2004-04-24  Laurent GUERBY <laurent@guerby.net>
+
+	* ada/acats/run_all.sh: Handle cd2a83c, cd2a91c (target_bit)
+	and ad8011a (target_insn).
+	* ada/acats/support/macro.dfs: Likewise.
+	* ada/acats/support/impbit.adb: New file.
+
+2004-04-23  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/const-elim-1.c: XFAIL on s390*-*-*.
+
+2004-04-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/loop-3.c: New test.
+
+2004-04-23  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gcc.c-torture/execute/simd-5.c: New test.
+
+2004-04-23  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/15064
+	* g++.dg/template/crash18.C: New test.
+
+2004-04-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/ext/complit3.C: New test.
+
+2004-04-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/altivec-1.c: XFAIL for powerpc-eabispe.
+	* gcc.dg/altivec-3.c: Same.
+	* gcc.dg/altivec-varargs-1.c: Same.
+
+2004-04-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	* lib/target-supports.exp (check_profiling_available): Assume
+	profiling is not available on powerpc-eabi targets.
+
+2004-04-21  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/vmx/1c-01.c: Use ptrdiff_t for casts of pointers.
+	* gcc.dg/vmx/bug-1.c: Ditto.
+
+2004-04-20  Eric Christopher  <echristo@redhat.com>
+
+	* gcc.dg/charset/extern.c: New test.
+	* g++.dg/charset/extern3.cc: Ditto.
+
+2004-04-20  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-39.c: New test.
+
+2004-04-20  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/vmx/vmx.exp: Change DEFAULT_CFLAGS to DEFAULT_VMXCFLAGS.
+
+2004-04-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/torture/mips-hilo-1.c: New test.
+
+2004-04-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.c-torture/compile/20040419-1.c: New test.
+
+2004-04-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/vmx/varargs-1.c: Handle when printf outputs \r\n.
+
+2004-04-18  Zack Weinberg  <zack@codesourcery.com>
+	    Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.c-torture/execute/va-arg-24.c: New.
+
+2004-04-17  Zack Weinberg  <zack@codesourcery.com>
+	    Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/vmx/1b-01.c: New.
+	* gcc.dg/vmx/1b-02.c: New.
+	* gcc.dg/vmx/1b-03.c: New.
+	* gcc.dg/vmx/1b-04.c: New.
+	* gcc.dg/vmx/1b-05.c: New.
+	* gcc.dg/vmx/1b-06.c: New.
+	* gcc.dg/vmx/1b-07.c: New.
+	* gcc.dg/vmx/1c-01.c: New.
+	* gcc.dg/vmx/1c-02.c: New.
+	* gcc.dg/vmx/3a-01a.c: New.
+	* gcc.dg/vmx/3a-01.c: New.
+	* gcc.dg/vmx/3a-01m.c: New.
+	* gcc.dg/vmx/3a-03.c: New.
+	* gcc.dg/vmx/3a-03m.c: New.
+	* gcc.dg/vmx/3a-04.c: New.
+	* gcc.dg/vmx/3a-04m.c: New.
+	* gcc.dg/vmx/3a-05.c: New.
+	* gcc.dg/vmx/3a-06.c: New.
+	* gcc.dg/vmx/3a-06m.c: New.
+	* gcc.dg/vmx/3a-07.c: New.
+	* gcc.dg/vmx/3b-01.c: New.
+	* gcc.dg/vmx/3b-02.c: New.
+	* gcc.dg/vmx/3b-10.c: New.
+	* gcc.dg/vmx/3b-13.c: New.
+	* gcc.dg/vmx/3b-14.c: New.
+	* gcc.dg/vmx/3b-15.c: New.
+	* gcc.dg/vmx/3c-01a.c: New.
+	* gcc.dg/vmx/3c-01.c: New.
+	* gcc.dg/vmx/3c-02.c: New.
+	* gcc.dg/vmx/3c-03.c: New.
+	* gcc.dg/vmx/3d-01.c: New.
+	* gcc.dg/vmx/4-01.c: New.
+	* gcc.dg/vmx/4-03.c: New.
+	* gcc.dg/vmx/5-01.c: New.
+	* gcc.dg/vmx/5-02.c: New.
+	* gcc.dg/vmx/5-03.c: New.
+	* gcc.dg/vmx/5-04.c: New.
+	* gcc.dg/vmx/5-05.c: New.
+	* gcc.dg/vmx/5-06.c: New.
+	* gcc.dg/vmx/5-07.c: New.
+	* gcc.dg/vmx/5-07t.c: New.
+	* gcc.dg/vmx/5-08.c: New.
+	* gcc.dg/vmx/5-10.c: New.
+	* gcc.dg/vmx/5-11.c: New.
+	* gcc.dg/vmx/7-01a.c: New.
+	* gcc.dg/vmx/7-01.c: New.
+	* gcc.dg/vmx/7c-01.c: New.
+	* gcc.dg/vmx/7d-01.c: New.
+	* gcc.dg/vmx/7d-02.c: New.
+	* gcc.dg/vmx/8-01.c: New.
+	* gcc.dg/vmx/8-02a.c: New.
+	* gcc.dg/vmx/8-02.c: New.
+	* gcc.dg/vmx/brode-1.c: New.
+	* gcc.dg/vmx/bug-1.c: New.
+	* gcc.dg/vmx/bug-2.c: New.
+	* gcc.dg/vmx/bug-3.c: New.
+	* gcc.dg/vmx/cw-bug-1.c: New.
+	* gcc.dg/vmx/cw-bug-2.c: New.
+	* gcc.dg/vmx/cw-bug-3.c: New.
+	* gcc.dg/vmx/dct.c: New.
+	* gcc.dg/vmx/debug-1.c: New.
+	* gcc.dg/vmx/debug-2.c: New.
+	* gcc.dg/vmx/debug-3.c: New.
+	* gcc.dg/vmx/debug-4.c: New.
+	* gcc.dg/vmx/dos-bug-1-gdb.c: New.
+	* gcc.dg/vmx/dos-bug-2-gdb.c: New.
+	* gcc.dg/vmx/eg-5.c: New.
+	* gcc.dg/vmx/fft.c: New.
+	* gcc.dg/vmx/gcc-bug-1.c: New.
+	* gcc.dg/vmx/gcc-bug-2.c: New.
+	* gcc.dg/vmx/gcc-bug-3.c: New.
+	* gcc.dg/vmx/gcc-bug-4.c: New.
+	* gcc.dg/vmx/gcc-bug-5.c: New.
+	* gcc.dg/vmx/gcc-bug-6.c: New.
+	* gcc.dg/vmx/gcc-bug-7.c: New.
+	* gcc.dg/vmx/gcc-bug-8.c: New.
+	* gcc.dg/vmx/gcc-bug-9.c: New.
+	* gcc.dg/vmx/gcc-bug-b.c: New.
+	* gcc.dg/vmx/gcc-bug-c.c: New.
+	* gcc.dg/vmx/gcc-bug-d.c: New.
+	* gcc.dg/vmx/gcc-bug-e.c: New.
+	* gcc.dg/vmx/gcc-bug-f.c: New.
+	* gcc.dg/vmx/gcc-bug-g.c: New.
+	* gcc.dg/vmx/gcc-bug-i.c: New.
+	* gcc.dg/vmx/harness.h: New.
+	* gcc.dg/vmx/ira1.c: New.
+	* gcc.dg/vmx/ira2a.c: New.
+	* gcc.dg/vmx/ira2b.c: New.
+	* gcc.dg/vmx/ira2.c: New.
+	* gcc.dg/vmx/ira2c.c: New.
+	* gcc.dg/vmx/mem.c: New.
+	* gcc.dg/vmx/newton-1.c: New.
+	* gcc.dg/vmx/ops.c: New.
+	* gcc.dg/vmx/sn7153.c: New.
+	* gcc.dg/vmx/spill2.c: New.
+	* gcc.dg/vmx/spill3.c: New.
+	* gcc.dg/vmx/spill.c: New.
+	* gcc.dg/vmx/t.c: New.
+	* gcc.dg/vmx/varargs-1.c: New.
+	* gcc.dg/vmx/varargs-2.c: New.
+	* gcc.dg/vmx/varargs-3.c: New.
+	* gcc.dg/vmx/varargs-4.c: New.
+	* gcc.dg/vmx/varargs-5.c: New.
+	* gcc.dg/vmx/varargs-6.c: New.
+	* gcc.dg/vmx/varargs-7.c: New.
+	* gcc.dg/vmx/vmx.exp: New.
+	* gcc.dg/vmx/vprint-1.c: New.
+	* gcc.dg/vmx/vscan-1.c: New.
+	* gcc.dg/vmx/x-01.c: New.
+	* gcc.dg/vmx/x-02.c: New.
+	* gcc.dg/vmx/x-03.c: New.
+	* gcc.dg/vmx/x-04.c: New.
+	* gcc.dg/vmx/x-05.c: New.
+	* gcc.dg/vmx/yousufi-1.c: New.
+	* gcc.dg/vmx/zero-1.c: New.
+	* gcc.dg/vmx/zero.c: New.
+
+2004-04-17  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.dg/lookup/java1.C: Update for chage of
+	_Jv_AllocObject.
+	* g++.dg/lookup/java2.C: Likewise.
+
+2004-04-17  Laurent GUERBY <laurent@guerby.net>
+
+	* ada/acats/run_all.sh: use -O2 by default.
+
+2004-04-17  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/vr-mult-[12].c: New tests.
+
+2004-04-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/funcorder.c: XFAIL hppa*64*-*-*.
+
+	* gcc.dg/const-elim-1.c: XFAIL hppa-*-*.
+
+2004-04-15  Richard Sandiford  <rsandifo@redhat.com>
+
+	* lib/target-supports.exp (check_profiling_available): Assume profiling
+	isn't available for mips*-*-elf targets.
+
+2004-04-14  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-38.c: New test.
+
+2004-04-14  Eric Christopher  <echristo@redhat.com>
+
+	* g++.dg/charset/charset.exp: Run .cc extension tests.
+
+2004-04-14  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/const-elim-1.c: XFAIL hppa*.*-*-* (PA32).  Update commentary.
+
+2004-04-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-ctype-2.c: Test builtin isdigit.
+
+2004-04-13  Uros Bizjak  <uros@kss-loka.si>:
+
+	* gcc.dg/i386-387-1.c: Add new test for __builtin_tan.
+	* gcc.dg/i386-387-2.c: Likewise.
+
+	* gcc.dg/i386-387-7.c: New test.
+	* gcc.dg/i386-387-8.c: New test.
+
+	* gcc.dg/builtins-37.c: New test.
+
+2004-04-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/pch/externc-1.C: Add missing semicolon.
+
+2004-04-13  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.c-torture/execute/20020720-1.x: XFAIL for powerpc-*-*spe.
+
+2004-04-12  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* gcc.c-torture/execute/20040411-1.c: New test.
+
+2004-04-10  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/c90-intprom-1.c, gcc.dg/c99-intprom-1.c: New tests.
+
+2004-04-09  Chris Demetriou  <cgd@broadcom.com>
+
+	* g++.dg/other/packed1.C: Mark xfail for mips*- not mips-.
+
+2004-04-09  Zack Weinberg  <zack@codesourcery.com>
+
+	* lib/target-supports.exp (check_named_sections_available): New.
+	* lib/gcc-dg.exp (dg-require-named-sections): New.
+	* lib/prune.exp (prune_gcc_output): Incorporate prunes from
+	old-deja.exp.  Also prune error-count message from HP linker.
+	* g++.old-deja/old-deja.exp (g++-dg-prune): Delete.
+
+	* g++.dg/init/init-ref4.C: Use dg-require-weak.
+	* g++.old-deja/g++.pt/static3.C: Likewise.
+	* g++.dg/parse/attr-ctor1.C: Use dg-require-named-sections.
+
+2004-04-09  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20040409-1.c: New test case.
+	* gcc.c-torture/execute/20040409-2.c: New test case.
+	* gcc.c-torture/execute/20040409-3.c: New test case.
+
+2004-04-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/20040409-1.c: New test.
+
+2004-04-08  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/14888
+	* g++.dg/opt/pr14888.C: New test case.
+
+2004-04-08  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/valid-1.c, gcc.dg/pch/valid-2.c, gcc.dg/pch/valid-3.c,
+	gcc.dg/pch/valid-4.c, gcc.dg/pch/valid-5.c, gcc.dg/pch/valid-6.c,
+	gcc.dg/pch/valid-1.hs, gcc.dg/pch/valid-2.hs, gcc.dg/pch/valid-3.hs,
+	gcc.dg/pch/valid-4.hs, gcc.dg/pch/valid-5.hs, gcc.dg/pch/valid-6.hs:
+	New tests.
+
+2004-04-08  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/spill-1.c: New test.
+
+2004-04-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-ctype-2.c: New test.
+
+2004-04-07  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* gcc.dg/pch/pch.exp: Add largefile test.
+
+2004-04-06  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/pch/externc-1.Hs: New.
+	* g++.dg/pch/externc-1.C: New.
+
+2004-04-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/compat/struct-by-value-5a_main.c,
+	gcc.dg/compat/struct-by-value-5b_main.c: New files.
+	* gcc.dg/compat/struct-by-value-5_main.c: Delete.
+	* gcc.dg/compat/struct-by-value-5a_x.c,
+	gcc.dg/compat/struct-by-value-5b_x.c: New, split out from
+	gcc.dg/compat/struct-by-value-5_x.c.
+	* gcc.dg/compat/struct-by-value-5a_y.c,
+	gcc.dg/compat/struct-by-value-5b_y.c: New, split out from
+	gcc.dg/compat/struct-by-value-5_y.c.
+
+	* gcc.dg/compat/struct-by-value-6a_main.c,
+	gcc.dg/compat/struct-by-value-6b_main.c: New files.
+	* gcc.dg/compat/struct-by-value-6_main.c: Delete.
+	* gcc.dg/compat/struct-by-value-6a_x.c,
+	gcc.dg/compat/struct-by-value-6b_x.c: New, split out from
+	gcc.dg/compat/struct-by-value-6_x.c.
+	* gcc.dg/compat/struct-by-value-6a_y.c,
+	gcc.dg/compat/struct-by-value-6b_y.c: New, split out from
+	gcc.dg/compat/struct-by-value-6_y.c.
+
+	* gcc.dg/compat/struct-by-value-7a_main.c,
+	gcc.dg/compat/struct-by-value-7b_main.c: New files.
+	* gcc.dg/compat/struct-by-value-7_main.c: Delete.
+	* gcc.dg/compat/struct-by-value-7a_x.c,
+	gcc.dg/compat/struct-by-value-7b_x.c: New, split out from
+	gcc.dg/compat/struct-by-value-7_x.c.
+	* gcc.dg/compat/struct-by-value-7a_y.c,
+	gcc.dg/compat/struct-by-value-7b_y.c: New, split out from
+	gcc.dg/compat/struct-by-value-7_y.c.
+
+2004-04-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/i386-sse-8.c: Don't use -march=pentium3 on x86_64.
+	* gcc.dg/i386-local.c: Expect %edi, not %eax register on x86_64.
+	* gcc.dg/20020103-1.c: Add -fno-asynchronous-unwind-tables to
+	options.
+
+2004-04-06  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-36.c: New test.
+
+2004-04-06  Paul Brook  <paul@codesourcery.com>
+
+	* README.gcc: Remove obsolete contraint on testcases.
+
+2004-04-05  Paul Brook  <paul@codesourcery.com>
+
+	PR2123
+	* g++.dg/expr/anew1.C: XFAIL and make reproducible.  Call abort on
+	failure and exit(0) on success.
+	* g++.dg/expr/anew2.C: Ditto.
+	* g++.dg/expr/anew3.C: Ditto.
+	* g++.dg/expr/anew4.C: Ditto.
+
+2004-04-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3518
+	* g++.dg/template/unify7.C: New.
+
+2004-04-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* g++.dg/README: Bring up to date with new subdirectories; remove
+	duplicate subdirectory lines.
+
+2004-04-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/14007
+	* g++.dg/template/unify5.C: New.
+	* g++.dg/template/unify6.C: New.
+	* g++.dg/template/qualttp20.C: Adjust.
+	* g++.old-deja/g++.jason/report.C: Adjust.
+	* g++.old-deja/g++.other/qual1.C: Adjust.
+
+2004-04-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14803
+	* g++.dg/inherit/ptrmem1.C: New test.
+
+2004-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/14755
+	* gcc.c-torture/execute/20040331-1.c: New test.
+	* gcc.dg/20040331-1.c: New test.
+
+2004-04-01  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/arm-mmx-1.c: Add -mabi=iwmmxt to dg-options.
+
+2004-03-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14724
+	* g++.dg/init/goto1.C: New test.
+
+	PR c++/14763
+	* g++.dg/template/defarg4.C: New test.
+
+2004-03-30  Hartmut Penner  <hpenner@de.ibm.com>
+
+	* gcc.dg/altivec-11.c: Extend test for more valid cases.
+
+2004-03-28  David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.dg/doloop-1.c: Do not check for lack of "blt".
+
+2004-03-28  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/noncompile/undeclared-2.c: New test.
+
+2004-03-28  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/940409-1.c: Remove XFAIL.
+	* gcc.dg/reg-vol-struct-1.c: New test.
+
+2004-03-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-wctype-1.c: New test.
+
+2004-03-26  James A. Morrison  <ja2morri@uwaterloo.ca>
+
+	* gcc.dg/20001013-1.c: Run on 32-bit and 64-bit SPARC.
+	* gcc.dg/20001101-1.c: Likewise.
+	* gcc.dg/20001102-1.c: Likewise.
+
+2004-03-25  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/compare8.c: Add an additional test for XOR.
+
+2004-03-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-ctype-1.c: New test.
+
+2004-03-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-explog-1.c: Add new cases.
+	* gcc.dg/torture/builtin-math-1.c: Likewise.
+	* gcc.dg/torture/builtin-power-1.c: New test.
+
+2004-03-24  Andreas Schwab  <schwab@suse.de>
+
+	* lib/prune.exp (prune_gcc_output): Ignore errata warning from
+	IA64 assembler.
+
+2004-03-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+	    Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/compare8.c: New test case.
+
+2004-03-23  Ziemowit Laski  <zlaski@apple.com>
+
+	* g++.dg/ext/altivec-7.C: New test.
+
+2004-03-23  Zack Weinberg  <zack@codesourcery.com>
+
+	PR 12267, 12391, 12560, 13129, 14114, 14133
+	* gcc.dg/Wold-style-definition-1.c, gcc.dg/builtins-30.c
+	* gcc.dg/unused-4.c, gcc.dg/noncompile/label-1.c
+	* gcc.dg/noncompile/label-lineno-1.c, objc.dg/naming-1.m:
+	Adjust error regexps.
+	* gcc.dg/Wshadow-2.c, gcc.dg/noncompile/incomplete-3.c
+	* gcc.dg/noncompile/undeclared-1.c: New test cases.
+	* gcc.dg/decl-5.c, gcc.dg/redecl-1.c: Remove XFAIL.
+	* gcc.dg/local1.c: Add explanatory comment.
+
+2004-03-23  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/14669
+	* g++.dg/opt/fold2.C: New test case.
+
+2004-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/14069
+	* gcc.dg/20040322-1.c: New test.
+
+2004-03-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/ultrasp2.c: Do not pass -m64.  Remove redundant lines.
+	* gcc.dg/ultrasp4.c: Likewise.
+	* gcc.dg/ultrasp8.c: Do not pass -m64.  Add sparcv9-*-*.
+
+2004-03-21  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/i386-sse-8.c: Reset default options.
+
+2004-03-21  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/charset/asm2.c: Allow 'parse error' instead of 'syntax error'
+	in the error message text.
+
+2004-03-21  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* g++.dg/template/qualttp20.C: Adjust dg- regexp.
+
+2004-03-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14616
+	* g++.dg/init/array13.C: New test.
+
+2004-03-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/13889
+	* gcc.c-torture/compile/pr13889.c: New test case.
+
+2004-03-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/14635
+	* builtins-1.c (nan, nans): Don't test.
+	* builtins-30.c: Don't use nan, nanf, nanl.
+	* builtins-35.c: New test.
+
+2004-03-19  Ziemowit Laski  <zlaski@apple.com>
+
+	* g++.dg/ext/altivec-6.C: New test.
+
+2004-03-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/placement3.C: New test.
+
+	* g++.dg/template/spec13.C: New test.
+
+	* g++.dg/lookup/using11.C: New test.
+
+	* g++.dg/lookup/koenig3.C: New test.
+
+	* g++.dg/template/operator2.C: New test.
+
+	* g++.dg/expr/dtor3.C: New test.
+	* g++.old-deja/g++.brendan/crash15.C: Remove incorrect dg-error
+	marker.
+	* g++.old-deja/g++.law/visibility28.C: Likewise.
+
+2004-03-19  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc.dg/altivec-6.c: Use vector_size attribute, not mode.
+	* gcc.dg/ppc64-abi-3.c: Likewise.
+
+2004-03-19  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14545
+	* g++.dg/parse/template15.C: New test.
+
 2004-03-18  Mark Mitchell  <mark@codesourcery.com>
- 
+
+	* g++.dg/expr/dtor2.C: New test.
+
+	* g++.dg/lookup/anon4.C: New test.
+
+	* g++.dg/overload/using1.C: New test.
+
+	* g++.dg/template/lookup7.C: New test.
+
+	* g++.dg/template/typename6.C: New test.
+
+	* g++.dg/expr/cond6.C: New test.
+
+2004-03-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-convert-1.c: Test more math builtins.
+
+2004-03-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/expr/cond5.C: New test.
+	* g++.dg/expr/constcast1.C: Likewise.
+	* g++.dg/expr/ptrmem2.C: Likewise.
+	* g++.dg/expr/ptrmem3.C: Likewise.
+	* g++.dg/lookup/main1.C: Likewise.
+	* g++.dg/template/lookup6.C: Likewise.
+
+2004-03-18  Mark Mitchell  <mark@codesourcery.com>
+
 	* gcc.dg/local1.c: New test.
 
 	* gcc.dg/debug/dwarf2/c99-typedef1.c: New test.
- 
+
+2004-03-17  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-convert-1.c: New test.
+
+2004-03-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-integral-1.c: Also check for `rint'.
+
+2004-03-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14481
+	* g++.dg/warn/Wunused-7.C: New test.
+
+2004-03-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-integral-1.c: New test.
+
+2004-03-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14586
+	* g++.dg/parse/non-dependent3.C: New test.
+
+2004-03-16  Paolo Bonzini  <bonzini@gnu.org>
+
+	* g++.dg/eh/simd-1.C: Use vector_size attribute, not mode.
+	* g++.dg/eh/simd-2.C: Likewise.
+	* g++.dg/init/array10.C: Likewise.
+	* gcc.c-torture/compile/simd-1.c: Likewise.
+	* gcc.c-torture/compile/simd-2.c: Likewise.
+	* gcc.c-torture/compile/simd-3.c: Likewise.
+	* gcc.c-torture/compile/simd-4.c: Likewise.
+	* gcc.c-torture/compile/simd-6.c: Likewise.
+	* gcc.c-torture/execute/simd-1.c: Likewise.
+	* gcc.c-torture/execute/simd-2.c: Likewise.
+	* gcc.dg/compat/vector-defs.h: Likewise.
+	* gcc.dg/20020531-1.c: Likewise.
+	* gcc.dg/altivec-3.c: Likewise.
+	* gcc.dg/altivec-4.c: Likewise.
+	* gcc.dg/altivec-varargs-1.c: Likewise.
+	* testsuite/gcc.dg/compat/vector-defs.h: Likewise.
+	* gcc.dg/i386-mmx-3.c: Likewise.
+	* gcc.dg/i386-sse-4.c: Likewise.
+	* gcc.dg/i386-sse-5.c: Likewise.
+	* gcc.dg/i386-sse-8.c: Likewise.
+	* gcc.dg/simd-1.c: Likewise.
+	* gcc.dg/20030218-1.c: Likewise.  Plus, do not declare
+	__ev64_opaque__ since the machine description provides it.
+
+2004-03-16  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* lib/compat.exp (skip_list): New global variable.
+	Use it to hold the user defined COMPAT_SKIPS list if any.
+	(compat-obj): Add the members of skip_list to optall.
+
+2004-03-16  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/compat/union-by-value-1_main.c,
+	union-by-value-1_x.c, union-by-value-1_y.c,
+	union-check.h, union-defs.h,
+	union-init.h, union-return-1_main.c,
+	union-return-1_x.c, union-return-1_y.c: New files.
+
+2004-03-16  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/compat/mixed-struct-check.h, mixed-struct-defs.h,
+	mixed-struct-init.h: Add 4 mixed structure types.
+	struct-by-value-21_main.c, struct-by-value-21_x.c,
+	struct-by-value-21_y.c, struct-return-21_main.c,
+	struct-return-21_x.c, struct-return-21_y.c: New files.
+
+2004-03-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14550
+	* g++.dg/parse/template14.C: New test.
+
+2004-03-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20040313-1.c: New test.
+
+2004-03-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/14533
+	* gcc.dg/20040311-2.c: New test.
+
+2004-03-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR other/14544
+	* gcc.c-torture/execute/20040307-1.c: Remove the 24-bit
+	bit-field.
+
+2004-03-12  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20040305-2.c: Add missing return statement.
+
+2004-03-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-34.c: Also check pow10*.
+
+2004-03-11  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/14262
+	* gcc.dg/20040305-2.c: New test.
+
+2004-03-11  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20040310-1.c: New test.
+
+2004-03-11  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20040311-1.c: New test case.
+
+2004-03-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14476
+	* g++.dg/lookup/enum1.C: New test.
+
+2004-03-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14510
+	* g++.dg/lookup/struct2.C: New test.
+
+2004-03-10  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-34.c: New test.
+
+2004-03-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-nonneg-1.c: New test.
+
+2004-03-09  James E Wilson  <wilson@specifixinc.com>
+
+	* gcc.dg/alias-1.c: Add "will" to string passed to dg-warning.
+	* gcc.dg/alias-2.c: New testcase.
+
+2004-03-09  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/noncompile/incomplete-2.c: Move dg-error to proper line.
+
+2004-03-09  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20040309-1.c: New test case.
+
+2004-03-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/14397
+	* g++.dg/overload/ref1.C: New.
+
+2004-03-09  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14409
+	* g++.dg/template/spec12.C: New test.
+
+	PR c++/14448
+	* g++.dg/parse/crash14.C: New test.
+
+2004-03-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14230
+	* g++.dg/init/ref11.C: New test.
+
+2004-03-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14432
+	* g++.dg/parse/builtin2.C: New test.
+
+2004-03-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14401
+	* g++.dg/init/ctor3.C: New test.
+	* g++.dg/init/union1.C: New test.
+	* g++.dg/ext/anon-struct4.C: New test.
+
+2004-03-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/lookup/koenig1.C: Tweak error messages.
+	* g++.dg/lookup/used-before-declaration.C: Likewise.
+	* g++.dg/other/do1.C: Likewise.
+	* g++.dg/overload/koenig1.C: Likewise.
+	* g++.dg/parse/crash13.C: Likewise.
+	* g++.dg/template/instantiate3.C: Likewise.
+
+2004-03-08  Eric Christopher  <echristo@redhat.com>
+
+	* * lib/target-supports.exp: Enable libiconv in test
+	compilation.  Fix up error checking.
+
+2004-03-08  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/14289
+	* gcc.dg/pr14289-1.c: New test case.
+	* gcc.dg/pr14289-2.c: Likewise.
+	* gcc.dg/pr14289-3.c: Likewise.
+
+2004-03-08  Eric Botcazou  <ebotcazou@act-europe.fr>
+
+	* gcc.c-torture/execute/20040308-1.c: New test.
 
 2004-03-07  Roger Sayle  <roger@eyesopen.com>
 
@@ -4112,10 +5298,6 @@
 
 	PR c++/9559
 	* g++.dg/init/static1.C: New test.
-
-2003-06-30  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
-
-	* Changelog: Remove ">>>>>>>" from previous change.
 
 2003-06-30  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 

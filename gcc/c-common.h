@@ -37,7 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       STMT_EXPR_NO_SCOPE (in STMT_EXPR)
    1: C_DECLARED_LABEL_FLAG (in LABEL_DECL)
       STMT_IS_FULL_EXPR_P (in _STMT)
-   2: STMT_LINENO_FOR_FN_P (in _STMT)
+   2: unused
    3: SCOPE_NO_CLEANUPS_P (in SCOPE_STMT)
       COMPOUND_STMT_BODY_BLOCK (in COMPOUND_STMT)
    4: SCOPE_PARTIAL_P (in SCOPE_STMT)
@@ -161,11 +161,6 @@ enum c_tree_index
 
     CTI_DEFAULT_FUNCTION_TYPE,
 
-    CTI_G77_INTEGER_TYPE,
-    CTI_G77_UINTEGER_TYPE,
-    CTI_G77_LONGINT_TYPE,
-    CTI_G77_ULONGINT_TYPE,
-
     /* These are not types, but we have to look them up all the time.  */
     CTI_FUNCTION_NAME_DECL,
     CTI_PRETTY_FUNCTION_NAME_DECL,
@@ -211,12 +206,6 @@ struct c_common_identifier GTY(())
 #define const_string_type_node		c_global_trees[CTI_CONST_STRING_TYPE]
 
 #define default_function_type		c_global_trees[CTI_DEFAULT_FUNCTION_TYPE]
-
-/* g77 integer types, which must be kept in sync with f/com.h */
-#define g77_integer_type_node		c_global_trees[CTI_G77_INTEGER_TYPE]
-#define g77_uinteger_type_node		c_global_trees[CTI_G77_UINTEGER_TYPE]
-#define g77_longint_type_node		c_global_trees[CTI_G77_LONGINT_TYPE]
-#define g77_ulongint_type_node		c_global_trees[CTI_G77_ULONGINT_TYPE]
 
 #define function_name_decl_node		c_global_trees[CTI_FUNCTION_NAME_DECL]
 #define pretty_function_name_decl_node	c_global_trees[CTI_PRETTY_FUNCTION_NAME_DECL]
@@ -334,6 +323,8 @@ extern void (*lang_expand_function_end) (void);
    noreturn attribute.  */
 extern int (*lang_missing_noreturn_ok_p) (tree);
 
+extern void push_file_scope (void);
+extern void pop_file_scope (void);
 extern int yyparse (void);
 extern stmt_tree current_stmt_tree (void);
 extern tree *current_scope_stmt_stack (void);
@@ -345,7 +336,6 @@ extern void finish_stmt_tree (tree *);
 
 extern tree walk_stmt_tree (tree *, walk_tree_fn, void *);
 extern void prep_stmt (tree);
-extern void expand_stmt_toplev (tree);
 extern tree c_begin_if_stmt (void);
 extern tree c_begin_while_stmt (void);
 extern void c_finish_while_stmt_cond (tree, tree);
@@ -1168,23 +1158,6 @@ extern void finish_file	(void);
 #define CLEANUP_EXPR(NODE) \
   TREE_OPERAND (CLEANUP_STMT_CHECK (NODE), 1)
 
-/* The filename we are changing to as of this FILE_STMT.  */
-#define FILE_STMT_FILENAME_NODE(NODE) \
-  (TREE_OPERAND (FILE_STMT_CHECK (NODE), 0))
-#define FILE_STMT_FILENAME(NODE) \
-  (IDENTIFIER_POINTER (FILE_STMT_FILENAME_NODE (NODE)))
-
-/* The line-number at which a statement began.  But if
-   STMT_LINENO_FOR_FN_P does holds, then this macro gives the
-   line number for the end of the current function instead.  */
-#define STMT_LINENO(NODE)			\
-  (TREE_COMPLEXITY ((NODE)))
-
-/* If nonzero, the STMT_LINENO for NODE is the line at which the
-   function ended.  */
-#define STMT_LINENO_FOR_FN_P(NODE)		\
-  (TREE_LANG_FLAG_2 ((NODE)))
-
 /* Nonzero if we want the new ISO rules for pushing a new scope for `for'
    initialization variables.  */
 #define NEW_FOR_SCOPE_P(NODE) (TREE_LANG_FLAG_0 (NODE))
@@ -1205,7 +1178,7 @@ enum c_tree_code {
    WHILE_STMT,		DO_STMT,	RETURN_STMT,	\
    BREAK_STMT,		CONTINUE_STMT,	SCOPE_STMT,	\
    SWITCH_STMT,		GOTO_STMT,	LABEL_STMT,	\
-   ASM_STMT,		FILE_STMT,	CASE_LABEL
+   ASM_STMT,		CASE_LABEL
 
 /* TRUE if a code represents a statement.  The front end init
    langhook should take care of initialization of this array.  */
@@ -1292,7 +1265,7 @@ extern tree finish_label_address_expr (tree);
    different implementations.  Used in c-common.c.  */
 extern tree lookup_label (tree);
 
-extern int vector_types_compatible_p (tree t1, tree t2);
+extern int vector_types_convertible_p (tree t1, tree t2);
 
 extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 
@@ -1308,7 +1281,7 @@ extern void c_cpp_builtins (cpp_reader *);
 
 /* Positive if an implicit `extern "C"' scope has just been entered;
    negative if such a scope has just been exited.  */
-extern int pending_lang_change;
+extern GTY(()) int pending_lang_change;
 
 /* Information recorded about each file examined during compilation.  */
 

@@ -1,26 +1,26 @@
 /* Expression translation
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
-/* trans-expr.c-- generate SIMPLE trees for gfc_expr.  */
+/* trans-expr.c-- generate GENERIC trees for gfc_expr.  */
 
 #include "config.h"
 #include "system.h"
@@ -31,7 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "toplev.h"
 #include "real.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "flags.h"
 #include <gmp.h>
 #include <assert.h>
@@ -142,20 +142,18 @@ gfc_conv_expr_present (gfc_symbol * sym)
 /* Generate code to initialize a string length variable. Returns the
    value.  */
 
-tree
-gfc_conv_init_string_length (gfc_symbol * sym, stmtblock_t * pblock)
+void
+gfc_trans_init_string_length (gfc_charlen * cl, stmtblock_t * pblock)
 {
   gfc_se se;
   tree tmp;
 
   gfc_init_se (&se, NULL);
-  gfc_conv_expr_type (&se, sym->ts.cl->length, gfc_strlen_type_node);
+  gfc_conv_expr_type (&se, cl->length, gfc_strlen_type_node);
   gfc_add_block_to_block (pblock, &se.pre);
 
-  tmp = GFC_DECL_STRING_LENGTH (sym->backend_decl);
+  tmp = cl->backend_decl;
   gfc_add_modify_expr (pblock, tmp, se.expr);
-
-  return se.expr;
 }
 
 static void
@@ -229,7 +227,7 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
 
   if (c->ts.type == BT_CHARACTER)
     {
-      tmp = GFC_DECL_STRING_LENGTH (field);
+      tmp = c->ts.cl->backend_decl;
       assert (tmp);
       if (!INTEGER_CST_P (tmp))
 	gfc_todo_error ("Unknown length character component");
@@ -241,8 +239,8 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
 }
 
 
-/* Return the contents of a variable. Also handles refrence/pointer
-   variables (all Fortran pointer refrences are implicit) */
+/* Return the contents of a variable. Also handles reference/pointer
+   variables (all Fortran pointer references are implicit).  */
 
 static void
 gfc_conv_variable (gfc_se * se, gfc_expr * expr)
@@ -288,7 +286,8 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 
       /* Dereference scalar dummy variables.  */
       if (sym->attr.dummy
-	  && !(GFC_DECL_STRING (se->expr) || sym->attr.dimension))
+	  && sym->ts.type != BT_CHARACTER
+	  && !sym->attr.dimension)
 	se->expr = gfc_build_indirect_ref (se->expr);
 
       /* Dereference pointer variables.  */
@@ -306,8 +305,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
   /* For character variables, also get the length.  */
   if (sym->ts.type == BT_CHARACTER)
     {
-      assert (GFC_DECL_STRING (se->expr));
-      se->string_length = GFC_DECL_STRING_LENGTH (se->expr);
+      se->string_length = sym->ts.cl->backend_decl;
       assert (se->string_length);
     }
 
@@ -376,7 +374,7 @@ gfc_conv_unary_op (enum tree_code code, gfc_se * se, gfc_expr * expr)
 
   /* TRUTH_NOT_EXPR is not a "true" unary operator in GCC.
      We must convert it to a compare to 0 (e.g. EQ_EXPR (op1, 0)).
-     All other unary operators have an equivalent SIMPLE unary operator  */
+     All other unary operators have an equivalent GIMPLE unary operator  */
   if (code == TRUTH_NOT_EXPR)
     se->expr = build (EQ_EXPR, type, operand.expr, integer_zero_node);
   else
@@ -384,189 +382,172 @@ gfc_conv_unary_op (enum tree_code code, gfc_se * se, gfc_expr * expr)
 
 }
 
+/* Expand power operator to optimal multiplications when a value is raised
+   to an constant integer n. See section 4.6.3, "Evaluation of Powers" of
+   Donald E. Knuth, "Seminumerical Algorithms", Vol. 2, "The Art of Computer
+   Programming", 3rd Edition, 1998.  */
 
-/* For power op (lhs ** rhs) We generate:
-    m = lhs
-    if (rhs > 0)
-      count = rhs
-    else if (rhs == 0)
-      {
-        count = 0
-        m = 1
-      }
-    else // (rhs < 0)
-      {
-        count = -rhs
-        m = 1 / m;
-      }
-    // for constant rhs we do the above at compile time
-    val = m;
-    for (n = 1; n < count; n++)
-      val = val * m;
- */
+/* This code is mostly duplicated from expand_powi in the backend.
+   We establish the "optimal power tree" lookup table with the defined size.
+   The items in the table are the exponents used to calculate the index
+   exponents. Any integer n less than the value can get an "addition chain",
+   with the first node being one.  */
+#define POWI_TABLE_SIZE 256
 
-static void
-gfc_conv_integer_power (gfc_se * se, tree lhs, tree rhs)
+/* The table is from Builtins.c.  */
+static const unsigned char powi_table[POWI_TABLE_SIZE] =
+  {
+      0,   1,   1,   2,   2,   3,   3,   4,  /*   0 -   7 */
+      4,   6,   5,   6,   6,  10,   7,   9,  /*   8 -  15 */
+      8,  16,   9,  16,  10,  12,  11,  13,  /*  16 -  23 */
+     12,  17,  13,  18,  14,  24,  15,  26,  /*  24 -  31 */
+     16,  17,  17,  19,  18,  33,  19,  26,  /*  32 -  39 */
+     20,  25,  21,  40,  22,  27,  23,  44,  /*  40 -  47 */
+     24,  32,  25,  34,  26,  29,  27,  44,  /*  48 -  55 */
+     28,  31,  29,  34,  30,  60,  31,  36,  /*  56 -  63 */
+     32,  64,  33,  34,  34,  46,  35,  37,  /*  64 -  71 */
+     36,  65,  37,  50,  38,  48,  39,  69,  /*  72 -  79 */
+     40,  49,  41,  43,  42,  51,  43,  58,  /*  80 -  87 */
+     44,  64,  45,  47,  46,  59,  47,  76,  /*  88 -  95 */
+     48,  65,  49,  66,  50,  67,  51,  66,  /*  96 - 103 */
+     52,  70,  53,  74,  54, 104,  55,  74,  /* 104 - 111 */
+     56,  64,  57,  69,  58,  78,  59,  68,  /* 112 - 119 */
+     60,  61,  61,  80,  62,  75,  63,  68,  /* 120 - 127 */
+     64,  65,  65, 128,  66, 129,  67,  90,  /* 128 - 135 */
+     68,  73,  69, 131,  70,  94,  71,  88,  /* 136 - 143 */
+     72, 128,  73,  98,  74, 132,  75, 121,  /* 144 - 151 */
+     76, 102,  77, 124,  78, 132,  79, 106,  /* 152 - 159 */
+     80,  97,  81, 160,  82,  99,  83, 134,  /* 160 - 167 */
+     84,  86,  85,  95,  86, 160,  87, 100,  /* 168 - 175 */
+     88, 113,  89,  98,  90, 107,  91, 122,  /* 176 - 183 */
+     92, 111,  93, 102,  94, 126,  95, 150,  /* 184 - 191 */
+     96, 128,  97, 130,  98, 133,  99, 195,  /* 192 - 199 */
+    100, 128, 101, 123, 102, 164, 103, 138,  /* 200 - 207 */
+    104, 145, 105, 146, 106, 109, 107, 149,  /* 208 - 215 */
+    108, 200, 109, 146, 110, 170, 111, 157,  /* 216 - 223 */
+    112, 128, 113, 130, 114, 182, 115, 132,  /* 224 - 231 */
+    116, 200, 117, 132, 118, 158, 119, 206,  /* 232 - 239 */
+    120, 240, 121, 162, 122, 147, 123, 152,  /* 240 - 247 */
+    124, 166, 125, 214, 126, 138, 127, 153,  /* 248 - 255 */
+  };
+
+/* If n is larger than lookup table's max index, we use "window method".  */
+#define POWI_WINDOW_SIZE 3
+
+/* Recursive function to expand power operator. The temporary values are put
+   in tmpvar. The function return tmpvar[1] ** n.  */
+static tree
+gfc_conv_powi (gfc_se * se, int n, tree * tmpvar)
 {
-  tree count;
-  tree result;
-  tree cond;
-  tree neg_stmt;
-  tree pos_stmt;
+  tree op0;
+  tree op1;
   tree tmp;
-  tree var;
-  tree type;
-  stmtblock_t block;
-  tree exit_label;
+  int digit;
 
-  type = TREE_TYPE (lhs);
-
-  if (INTEGER_CST_P (rhs))
+  if (n < POWI_TABLE_SIZE)
     {
-      if (integer_zerop (rhs))
-	{
-	  se->expr = gfc_build_const (type, integer_one_node);
-	  return;
-	}
-      /* Special cases for constant values.  */
-      if (TREE_INT_CST_HIGH (rhs) == -1)
-	{
-	  /* x ** (-y) == 1 / (x ** y).  */
-	  if (TREE_CODE (type) == INTEGER_TYPE)
-	    {
-	      se->expr = integer_zero_node;
-	      return;
-	    }
+      if (tmpvar[n])
+        return tmpvar[n];
 
-	  tmp = gfc_build_const (type, integer_one_node);
-	  lhs = fold (build (RDIV_EXPR, type, tmp, lhs));
-
-	  rhs = fold (build1 (NEGATE_EXPR, TREE_TYPE (rhs), rhs));
-	  assert (INTEGER_CST_P (rhs));
-	}
-      else
-	{
-	  /* TODO: really big integer powers.  */
-	  assert (TREE_INT_CST_HIGH (rhs) == 0);
-	}
-
-      if (integer_onep (rhs))
-	{
-	  se->expr = lhs;
-	  return;
-	}
-      if (TREE_INT_CST_LOW (rhs) == 2)
-	{
-	  se->expr = build (MULT_EXPR, type, lhs, lhs);
-	  return;
-	}
-      if (TREE_INT_CST_LOW (rhs) == 3)
-	{
-	  tmp = build (MULT_EXPR, type, lhs, lhs);
-	  se->expr = fold (build (MULT_EXPR, type, tmp, lhs));
-	  return;
-	}
-
-      /* Create the loop count variable.  */
-      count = gfc_create_var (TREE_TYPE (rhs), "count");
-      gfc_add_modify_expr (&se->pre, count, rhs);
+      op0 = gfc_conv_powi (se, n - powi_table[n], tmpvar);
+      op1 = gfc_conv_powi (se, powi_table[n], tmpvar);
+    }
+  else if (n & 1)
+    {
+      digit = n & ((1 << POWI_WINDOW_SIZE) - 1);
+      op0 = gfc_conv_powi (se, n - digit, tmpvar);
+      op1 = gfc_conv_powi (se, digit, tmpvar);
     }
   else
     {
-      /* Put the lhs into a temporary variable.  */
-      var = gfc_create_var (type, "val");
-      count = gfc_create_var (TREE_TYPE (rhs), "count");
-      gfc_add_modify_expr (&se->pre, var, lhs);
-      lhs = var;
-
-      /* Generate code for negative rhs.  */
-      gfc_start_block (&block);
-
-      if (TREE_CODE (TREE_TYPE (lhs)) == INTEGER_TYPE)
-	{
-	  gfc_add_modify_expr (&block, lhs, integer_zero_node);
-	  gfc_add_modify_expr (&block, count, integer_zero_node);
-	}
-      else
-	{
-	  tmp = gfc_build_const (type, integer_one_node);
-	  tmp = build (RDIV_EXPR, type, tmp, lhs);
-	  gfc_add_modify_expr (&block, var, tmp);
-
-	  tmp = build1 (NEGATE_EXPR, TREE_TYPE (rhs), rhs);
-	  gfc_add_modify_expr (&block, count, tmp);
-	}
-      neg_stmt = gfc_finish_block (&block);
-
-      pos_stmt = build_v (MODIFY_EXPR, count, rhs);
-
-      /* Code for rhs == 0.  */
-      gfc_start_block (&block);
-
-      gfc_add_modify_expr (&block, count, integer_zero_node);
-      tmp = gfc_build_const (type, integer_one_node);
-      gfc_add_modify_expr (&block, lhs, tmp);
-
-      tmp = gfc_finish_block (&block);
-
-      /* Select the appropriate action.  */
-      cond = build (EQ_EXPR, boolean_type_node, rhs, integer_zero_node);
-      tmp = build_v (COND_EXPR, cond, tmp, neg_stmt);
-
-      cond = build (GT_EXPR, boolean_type_node, rhs, integer_zero_node);
-      tmp = build_v (COND_EXPR, cond, pos_stmt, tmp);
-      gfc_add_expr_to_block (&se->pre, tmp);
+      op0 = gfc_conv_powi (se, n >> 1, tmpvar);
+      op1 = op0;
     }
 
-  /* Create a variable for the result.  */
-  result = gfc_create_var (type, "pow");
-  gfc_add_modify_expr (&se->pre, result, lhs);
+  tmp = fold (build (MULT_EXPR, TREE_TYPE (op0), op0, op1));
+  tmp = gfc_evaluate_now (tmp, &se->pre);
 
-  exit_label = gfc_build_label_decl (NULL_TREE);
-  TREE_USED (exit_label) = 1;
+  if (n < POWI_TABLE_SIZE)
+    tmpvar[n] = tmp;
 
-  /* Create the loop body.  */
-  gfc_start_block (&block);
+  return tmp;
+}
 
-  /* First the exit condition (until count <= 1).  */
-  tmp = build1_v (GOTO_EXPR, exit_label);
-  cond = build (LE_EXPR, TREE_TYPE (count), count, integer_one_node);
-  tmp = build_v (COND_EXPR, cond, tmp, build_empty_stmt ());
-  gfc_add_expr_to_block (&block, tmp);
+/* Expand lhs ** rhs. rhs is an constant integer. If expand successfully,
+   return 1. Else return 0 and will call runtime library functions.  */
+static int
+gfc_conv_cst_int_power (gfc_se * se, tree lhs, tree rhs)
+{
+  tree cond;
+  tree tmp;
+  tree type;
+  tree vartmp[POWI_TABLE_SIZE];
+  int n;
+  int sgn;
 
-  /* Multiply by the lhs.  */
-  tmp = build (MULT_EXPR, type, result, lhs);
-  gfc_add_modify_expr (&block, result, tmp);
+  type = TREE_TYPE (lhs);
+  n = abs (TREE_INT_CST_LOW (rhs));
+  sgn = tree_int_cst_sgn (rhs);
 
-  /* Adjust the loop count.  */
-  tmp = build (MINUS_EXPR, TREE_TYPE (count), count, integer_one_node);
-  gfc_add_modify_expr (&block, count, tmp);
+  if ((!flag_unsafe_math_optimizations || optimize_size) && (n > 2 || n < -1))
+    return 0;
 
-  tmp = gfc_finish_block (&block);
+  /* rhs == 0  */
+  if (sgn == 0)
+    {
+      se->expr = gfc_build_const (type, integer_one_node);
+      return 1;
+    }
+  /* If rhs < 0 and lhs is an integer, the result is -1, 0 or 1.  */
+  if ((sgn == -1) && (TREE_CODE (type) == INTEGER_TYPE))
+    {
+      tmp = build (EQ_EXPR, boolean_type_node, lhs,
+			integer_minus_one_node);
+      cond = build (EQ_EXPR, boolean_type_node, lhs,
+			integer_one_node);
 
-  /* Create the the loop.  */
-  tmp = build_v (LOOP_EXPR, tmp);
-  gfc_add_expr_to_block (&se->pre, tmp);
+      /* If rhs is an even,
+	result = (lhs == 1 || lhs == -1) ? 1 : 0.  */
+      if ((n & 1) == 0)
+        {
+	  tmp = build (TRUTH_OR_EXPR, boolean_type_node, tmp, cond);
+	  se->expr = build (COND_EXPR, type, tmp, integer_one_node, 
+			integer_zero_node);
+	  return 1;
+	}
+      /* If rhs is an odd,
+	 result = (lhs == 1) ? 1 : (lhs == -1) ? -1 : 0.  */
+      tmp = build (COND_EXPR, type, tmp, integer_minus_one_node,
+			integer_zero_node);
+      se->expr = build (COND_EXPR, type, cond, integer_one_node,
+			tmp);
+      return 1;
+    }
 
-  /* Add the exit label.  */
-  tmp = build1_v (LABEL_EXPR, exit_label);
-  gfc_add_expr_to_block (&se->pre, tmp);
+  memset (vartmp, 0, sizeof (vartmp));
+  vartmp[1] = lhs;
 
-  se->expr = result;
+  se->expr = gfc_conv_powi (se, n, vartmp);
+  if (sgn == -1)
+    {
+      tmp = gfc_build_const (type, integer_one_node);
+      se->expr = build (RDIV_EXPR, type, tmp, se->expr);
+    }
+  return 1;
 }
 
 
-/* Power op (**).  Integer rhs has special handling.  */
+/* Power op (**).  Constant integer exponent has special handling.  */
 
 static void
 gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
 {
   int kind;
+  int ikind;
   gfc_se lse;
   gfc_se rse;
   tree fndecl;
   tree tmp;
-  tree type;
 
   gfc_init_se (&lse, se);
   gfc_conv_expr_val (&lse, expr->op1);
@@ -576,24 +557,83 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
   gfc_conv_expr_val (&rse, expr->op2);
   gfc_add_block_to_block (&se->pre, &rse.pre);
 
-  type = TREE_TYPE (lse.expr);
+  if (expr->op2->ts.type == BT_INTEGER
+	 && expr->op2->expr_type == EXPR_CONSTANT)
+    if (gfc_conv_cst_int_power (se, lse.expr, rse.expr))
+      return;        
 
   kind = expr->op1->ts.kind;
   switch (expr->op2->ts.type)
     {
     case BT_INTEGER:
-      /* Integer powers are expanded inline as multiplications.  */
-      gfc_conv_integer_power (se, lse.expr, rse.expr);
-      return;
+      ikind = expr->op2->ts.kind;
+      switch (ikind)
+	{
+	case 1:
+	case 2:
+	  rse.expr = convert (gfc_int4_type_node, rse.expr);
+	  /* Fall through.  */
+
+	case 4:
+	  ikind = 0;
+	  break;
+	  
+	case 8:
+	  ikind = 1;
+	  break;
+
+	default:
+	  abort();
+	}
+      switch (kind)
+	{
+	case 1:
+	case 2:
+	  if (expr->op1->ts.type == BT_INTEGER)
+	    lse.expr = convert (gfc_int4_type_node, lse.expr);
+	  else
+	    abort ();
+	  /* Fall through.  */
+
+	case 4:
+	  kind = 0;
+	  break;
+	  
+	case 8:
+	  kind = 1;
+	  break;
+
+	default:
+	  abort();
+	}
+      
+      switch (expr->op1->ts.type)
+	{
+	case BT_INTEGER:
+	  fndecl = gfor_fndecl_math_powi[kind][ikind].integer;
+	  break;
+
+	case BT_REAL:
+	  fndecl = gfor_fndecl_math_powi[kind][ikind].real;
+	  break;
+
+	case BT_COMPLEX:
+	  fndecl = gfor_fndecl_math_powi[kind][ikind].cmplx;
+	  break;
+
+	default:
+	  abort ();
+ 	}
+      break;
 
     case BT_REAL:
       switch (kind)
 	{
 	case 4:
-	  fndecl = gfor_fndecl_math_powf;
+	  fndecl = built_in_decls[BUILT_IN_POWF];
 	  break;
 	case 8:
-	  fndecl = gfor_fndecl_math_pow;
+	  fndecl = built_in_decls[BUILT_IN_POW];
 	  break;
 	default:
 	  abort ();
@@ -621,7 +661,7 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
 
   tmp = gfc_chainon_list (NULL_TREE, lse.expr);
   tmp = gfc_chainon_list (tmp, rse.expr);
-  se->expr = gfc_build_function_call (fndecl, tmp);
+  se->expr = fold (gfc_build_function_call (fndecl, tmp));
 }
 
 
@@ -691,11 +731,8 @@ gfc_conv_concat_op (gfc_se * se, gfc_expr * expr)
   gfc_add_block_to_block (&se->pre, &rse.pre);
 
   type = gfc_get_character_type (expr->ts.kind, expr->ts.cl);
-  if (GFC_KNOWN_SIZE_STRING_TYPE (type))
-    {
-      len = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
-    }
-  else
+  len = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
+  if (len == NULL_TREE)
     {
       len = fold (build (PLUS_EXPR, TREE_TYPE (lse.string_length),
 			 lse.string_length, rse.string_length));
@@ -801,7 +838,7 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
       break;
 
       /* EQV and NEQV only work on logicals, but since we represent them
-         as integers, we can use EQ_EXPR and NE_EXPR for them in SIMPLE.  */
+         as integers, we can use EQ_EXPR and NE_EXPR for them in GIMPLE.  */
     case INTRINSIC_EQ:
     case INTRINSIC_EQV:
       code = EQ_EXPR;
@@ -945,7 +982,6 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   tree type;
   tree var;
   tree len;
-  int g77;
   tree stringargs;
   gfc_formal_arglist *formal;
 
@@ -1001,9 +1037,12 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	}
       else if (sym->ts.type == BT_CHARACTER)
 	{
+	  assert (sym->ts.cl && sym->ts.cl->length
+		  && sym->ts.cl->length->expr_type == EXPR_CONSTANT);
+	  len = gfc_conv_mpz_to_tree
+	    (sym->ts.cl->length->value.integer, sym->ts.cl->length->ts.kind);
+	  sym->ts.cl->backend_decl = len;
 	  type = gfc_get_character_type (sym->ts.kind, sym->ts.cl);
-	  assert (GFC_KNOWN_SIZE_STRING_TYPE (type));
-	  len = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
 	  type = build_pointer_type (type);
 
 	  var = gfc_conv_string_tmp (se, type, len);
@@ -1016,8 +1055,6 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
     }
 
   formal = sym->formal;
-  /* Use g77 calling convention if neccessary.  */
-  g77 = (gfc_option.flag_g77_calls);
   /* Evaluate the arguments.  */
   for (; arg != NULL; arg = arg->next, formal = formal ? formal->next : NULL)
     {
@@ -1080,7 +1117,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	      f = (formal != NULL)
 		  && !formal->sym->attr.pointer
 		  && formal->sym->as->type != AS_ASSUMED_SHAPE;
-	      f = g77 && (f || !sym->attr.always_explicit);
+	      f = f || !sym->attr.always_explicit;
 	      gfc_conv_array_parameter (&parmse, arg->expr, argss, f);
 	    } 
 	}
@@ -1297,20 +1334,15 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
       /* Evaluate the expression for this component.  */
       if (init)
 	{
-	  switch (c->expr->expr_type)
+	  if (cm->dimension)
 	    {
-	    case EXPR_ARRAY:
 	      arraytype = TREE_TYPE (cm->backend_decl);
 	      cse.expr = gfc_conv_array_initializer (arraytype, c->expr);
-	      break;
-
-	    case EXPR_STRUCTURE:
-	      gfc_conv_structure (&cse, c->expr, 1);
-	      break;
-
-	    default:
-	      gfc_conv_expr (&cse, c->expr);
 	    }
+	  else if (cm->ts.type == BT_DERIVED)
+	    gfc_conv_structure (&cse, c->expr, 1);
+	  else
+	    gfc_conv_expr (&cse, c->expr);
 	}
       else
 	{
@@ -1552,23 +1584,8 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 }
 
 
-/* Get the decl for the length of a string from an expression.  */
-
-tree
-gfc_conv_string_length (tree expr)
-{
-  /* TODO: string lengths of components.  */
-  while (TREE_CODE (expr) == INDIRECT_REF)
-    expr = TREE_OPERAND (expr, 0);
-
-  if (!(DECL_P (expr) && GFC_DECL_STRING (expr)))
-    return NULL_TREE;
-
-  return GFC_DECL_STRING_LENGTH (expr);
-}
-
-
 /* Makes sure se is suitable for passing as a function string parameter.  */
+/* TODO: Need to check all callers fo this function.  It may be abused.  */
 
 void
 gfc_conv_string_parameter (gfc_se * se)
@@ -1584,9 +1601,7 @@ gfc_conv_string_parameter (gfc_se * se)
   type = TREE_TYPE (se->expr);
   if (TYPE_STRING_FLAG (type))
     {
-      assert (TREE_CODE (se->expr) == VAR_DECL
-	      || TREE_CODE (se->expr) == COMPONENT_REF
-	      || TREE_CODE (se->expr) == PARM_DECL);
+      assert (TREE_CODE (se->expr) != INDIRECT_REF);
       se->expr = gfc_build_addr_expr (pchar_type_node, se->expr);
     }
 

@@ -259,8 +259,9 @@ calls_function_1 (tree exp, int which)
       break;
     }
 
-  /* Only expressions and blocks can contain calls.  */
-  if (! IS_EXPR_CODE_CLASS (class) && class != 'b')
+  /* Only expressions and blocks can contain calls.
+     Blocks were handled above.  */
+  if (! IS_EXPR_CODE_CLASS (class))
     return 0;
 
   for (i = 0; i < length; i++)
@@ -296,10 +297,7 @@ prepare_call_address (rtx funexp, rtx static_chain_value,
     {
 #ifndef NO_FUNCTION_CSE
       if (optimize && ! flag_no_function_cse)
-#ifdef NO_RECURSIVE_FUNCTION_CSE
-	if (fndecl != current_function_decl)
-#endif
-	  funexp = force_reg (Pmode, funexp);
+	funexp = force_reg (Pmode, funexp);
 #endif
     }
 
@@ -662,21 +660,8 @@ special_function_p (tree fndecl, int flags)
       else if (tname[0] == 'l' && tname[1] == 'o'
 	       && ! strcmp (tname, "longjmp"))
 	flags |= ECF_LONGJMP;
-
-      else if ((tname[0] == 'f' && tname[1] == 'o'
-		&& ! strcmp (tname, "fork"))
-	       /* Linux specific: __clone.  check NAME to insist on the
-		  leading underscores, to avoid polluting the ISO / POSIX
-		  namespace.  */
-	       || (name[0] == '_' && name[1] == '_'
-		   && ! strcmp (tname, "clone"))
-	       || (tname[0] == 'e' && tname[1] == 'x' && tname[2] == 'e'
-		   && tname[3] == 'c' && (tname[4] == 'l' || tname[4] == 'v')
-		   && (tname[5] == '\0'
-		       || ((tname[5] == 'p' || tname[5] == 'e')
-			   && tname[6] == '\0'))))
-	flags |= ECF_FORK_OR_EXEC;
     }
+
   return flags;
 }
 
@@ -735,12 +720,11 @@ flags_from_decl_or_type (tree exp)
 	flags |= ECF_NOTHROW;
 
       if (TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
-	flags |= ECF_LIBCALL_BLOCK;
+	flags |= ECF_LIBCALL_BLOCK | ECF_CONST;
 
       flags = special_function_p (exp, flags);
     }
-
-  if (TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
+  else if (TYPE_P (exp) && TYPE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
     flags |= ECF_CONST;
 
   if (TREE_THIS_VOLATILE (exp))
@@ -1177,6 +1161,13 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 		  && ! REG_P (DECL_RTL (TREE_OPERAND (args[i].tree_value, 1))))
 		args[i].tree_value = TREE_OPERAND (args[i].tree_value, 1);
 
+	      /* We can't use sibcalls if a callee-copied argument is stored
+		 in the current function's frame.  */
+	      if (!call_from_thunk_p
+		  && (!DECL_P (args[i].tree_value)
+		      || !TREE_STATIC (args[i].tree_value)))
+		*may_tailcall = false;
+
 	      args[i].tree_value = build1 (ADDR_EXPR,
 					   build_pointer_type (type),
 					   args[i].tree_value);
@@ -1236,7 +1227,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	}
 
       mode = TYPE_MODE (type);
-      unsignedp = TREE_UNSIGNED (type);
+      unsignedp = TYPE_UNSIGNED (type);
 
       if (targetm.calls.promote_function_args (fndecl ? TREE_TYPE (fndecl) : 0))
 	mode = promote_mode (type, mode, &unsignedp, 1);
@@ -1452,7 +1443,7 @@ precompute_arguments (int flags, int num_actuals, struct arg_data *args)
 	    args[i].value
 	      = convert_modes (args[i].mode, mode,
 			       args[i].value, args[i].unsignedp);
-#ifdef PROMOTE_FOR_CALL_ONLY
+#if defined(PROMOTE_FUNCTION_MODE) && !defined(PROMOTE_MODE)
 	    /* CSE will replace this only if it contains args[i].value
 	       pseudo, so convert it down to the declared mode using
 	       a SUBREG.  */
@@ -1719,10 +1710,14 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	    {
 	      rtx mem = validize_mem (args[i].value);
 
-#ifdef BLOCK_REG_PADDING
 	      /* Handle a BLKmode that needs shifting.  */
 	      if (nregs == 1 && size < UNITS_PER_WORD
-		  && args[i].locate.where_pad == downward)
+#ifdef BLOCK_REG_PADDING
+		  && args[i].locate.where_pad == downward
+#else
+		  && BYTES_BIG_ENDIAN
+#endif
+		 )
 		{
 		  rtx tem = operand_subword_force (mem, 0, args[i].mode);
 		  rtx ri = gen_rtx_REG (word_mode, REGNO (reg));
@@ -1737,7 +1732,6 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 		    emit_move_insn (ri, x);
 		}
 	      else
-#endif
 		move_block_to_reg (REGNO (reg), mem, nregs, args[i].mode);
 	    }
 
@@ -2291,7 +2285,7 @@ expand_call (tree exp, rtx target, int ignore)
 
   /* Munge the tree to split complex arguments into their imaginary
      and real parts.  */
-  if (SPLIT_COMPLEX_ARGS)
+  if (targetm.calls.split_complex_arg)
     {
       type_arg_types = split_complex_types (TYPE_ARG_TYPES (funtype));
       actparms = split_complex_values (actparms);
@@ -2464,7 +2458,7 @@ expand_call (tree exp, rtx target, int ignore)
 /* APPLE LOCAL end indirect sibcalls */
       /* Check whether the target is able to optimize the call
 	 into a sibcall.  */
-      || !(*targetm.function_ok_for_sibcall) (fndecl, exp)
+      || !targetm.function_ok_for_sibcall (fndecl, exp)
       /* Functions that do not return exactly once may not be sibcall
          optimized.  */
       || (flags & (ECF_RETURNS_TWICE | ECF_LONGJMP | ECF_NORETURN))
@@ -2482,7 +2476,7 @@ expand_call (tree exp, rtx target, int ignore)
 	  != RETURN_POPS_ARGS (current_function_decl,
 			       TREE_TYPE (current_function_decl),
 			       current_function_args_size))
-      || !(*lang_hooks.decls.ok_for_sibcall) (fndecl))
+      || !lang_hooks.decls.ok_for_sibcall (fndecl))
     try_tail_call = 0;
 
   if (try_tail_call)
@@ -2530,18 +2524,6 @@ expand_call (tree exp, rtx target, int ignore)
 	try_tail_call = 0;
     }
 
-
-  if (profile_arc_flag && (flags & ECF_FORK_OR_EXEC))
-    {
-      /* A fork duplicates the profile information, and an exec discards
-	 it.  We can't rely on fork/exec to be paired.  So write out the
-	 profile information we have gathered so far, and clear it.  */
-      /* ??? When Linux's __clone is called with CLONE_VM set, profiling
-	 is subject to race conditions, just as with multithreaded
-	 programs.  */
-
-      emit_library_call (gcov_flush_libfunc, LCT_ALWAYS_RETURN, VOIDmode, 0);
-    }
 
   /* Ensure current function's preferred stack boundary is at least
      what we need.  We don't have to increase alignment for recursive
@@ -3286,7 +3268,7 @@ expand_call (tree exp, rtx target, int ignore)
 	  && GET_MODE (target) != TYPE_MODE (TREE_TYPE (exp)))
 	{
 	  tree type = TREE_TYPE (exp);
-	  int unsignedp = TREE_UNSIGNED (type);
+	  int unsignedp = TYPE_UNSIGNED (type);
 	  int offset = 0;
 
 	  /* If we don't promote as expected, something is wrong.  */
@@ -3524,6 +3506,17 @@ split_complex_values (tree values)
 {
   tree p;
 
+  /* Before allocating memory, check for the common case of no complex.  */
+  for (p = values; p; p = TREE_CHAIN (p))
+    {
+      tree type = TREE_TYPE (TREE_VALUE (p));
+      if (type && TREE_CODE (type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (type))
+        goto found;
+    }
+  return values;
+
+ found:
   values = copy_list (values);
 
   for (p = values; p; p = TREE_CHAIN (p))
@@ -3535,7 +3528,8 @@ split_complex_values (tree values)
       if (!complex_type)
 	continue;
 
-      if (TREE_CODE (complex_type) == COMPLEX_TYPE)
+      if (TREE_CODE (complex_type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (complex_type))
 	{
 	  tree subtype;
 	  tree real, imag, next;
@@ -3566,13 +3560,25 @@ split_complex_types (tree types)
 {
   tree p;
 
+  /* Before allocating memory, check for the common case of no complex.  */
+  for (p = types; p; p = TREE_CHAIN (p))
+    {
+      tree type = TREE_VALUE (p);
+      if (TREE_CODE (type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (type))
+        goto found;
+    }
+  return types;
+
+ found:
   types = copy_list (types);
 
   for (p = types; p; p = TREE_CHAIN (p))
     {
       tree complex_type = TREE_VALUE (p);
 
-      if (TREE_CODE (complex_type) == COMPLEX_TYPE)
+      if (TREE_CODE (complex_type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (complex_type))
 	{
 	  tree next, imag;
 
@@ -3694,7 +3700,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
      decide where in memory it should come back.  */
   if (outmode != VOIDmode)
     {
-      tfom = (*lang_hooks.types.type_for_mode) (outmode, 0);
+      tfom = lang_hooks.types.type_for_mode (outmode, 0);
       if (aggregate_value_p (tfom, 0))
 	{
 #ifdef PCC_STATIC_STRUCT_RETURN
@@ -3839,13 +3845,13 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	    slot = val;
 	  else if (must_copy)
 	    {
-	      slot = assign_temp ((*lang_hooks.types.type_for_mode) (mode, 0),
+	      slot = assign_temp (lang_hooks.types.type_for_mode (mode, 0),
 				  0, 1, 1);
 	      emit_move_insn (slot, val);
 	    }
 	  else
 	    {
-	      tree type = (*lang_hooks.types.type_for_mode) (mode, 0);
+	      tree type = lang_hooks.types.type_for_mode (mode, 0);
 
 	      slot
 		= gen_rtx_MEM (mode,

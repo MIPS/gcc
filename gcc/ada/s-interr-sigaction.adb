@@ -105,9 +105,10 @@ package body System.Interrupts is
 
    type Server_Task_Access is access Server_Task;
 
-   Handlers        : array (Interrupt_ID) of Task_Id;
-   Descriptors     : array (Interrupt_ID) of Handler_Desc;
-   Interrupt_Count : array (Interrupt_ID) of Integer := (others => 0);
+   Attached_Interrupts : array (Interrupt_ID) of Boolean;
+   Handlers            : array (Interrupt_ID) of Task_Id;
+   Descriptors         : array (Interrupt_ID) of Handler_Desc;
+   Interrupt_Count     : array (Interrupt_ID) of Integer := (others => 0);
 
    pragma Volatile_Components (Interrupt_Count);
 
@@ -148,13 +149,8 @@ package body System.Interrupts is
 
    function TISR is new Unchecked_Conversion (Handler_Ptr, isr_address);
 
-   --------------------
-   -- Signal_Handler --
-   --------------------
-
    procedure Signal_Handler (Sig : Interrupt_ID) is
       Handler : Task_Id renames Handlers (Sig);
-
    begin
       if Intr_Attach_Reset and then
         intr_attach (int (Sig), TISR (Signal_Handler'Access)) = FUNC_ERR
@@ -390,8 +386,9 @@ package body System.Interrupts is
 
       if New_Handler = null then
 
-         --  The null handler means we are detaching the handler
+         --  The null handler means we are detaching the handler.
 
+         Attached_Interrupts (Interrupt) := False;
          Descriptors (Interrupt) :=
            (Kind => Unknown, T => null, E => 0, H => null, Static => False);
 
@@ -399,6 +396,7 @@ package body System.Interrupts is
          Descriptors (Interrupt).Kind := Protected_Procedure;
          Descriptors (Interrupt).H := New_Handler;
          Descriptors (Interrupt).Static := Static;
+         Attached_Interrupts (Interrupt) := True;
       end if;
    end Attach_Handler;
 
@@ -410,8 +408,7 @@ package body System.Interrupts is
      (Old_Handler : out Parameterless_Handler;
       New_Handler : Parameterless_Handler;
       Interrupt   : Interrupt_ID;
-      Static      : Boolean := False)
-   is
+      Static      : Boolean := False) is
    begin
       if Is_Reserved (Interrupt) then
          raise Program_Error;
@@ -436,8 +433,7 @@ package body System.Interrupts is
 
    procedure Detach_Handler
      (Interrupt : Interrupt_ID;
-      Static    : Boolean := False)
-   is
+      Static    : Boolean := False) is
    begin
       if Is_Reserved (Interrupt) then
          raise Program_Error;
@@ -453,6 +449,7 @@ package body System.Interrupts is
            "Trying to detach a static Interrupt Handler");
       end if;
 
+      Attached_Interrupts (Interrupt) := False;
       Descriptors (Interrupt) :=
         (Kind => Unknown, T => null, E => 0, H => null, Static => False);
 
@@ -540,7 +537,7 @@ package body System.Interrupts is
       Int_Ref : System.Address)
    is
       Interrupt   : constant Interrupt_ID :=
-                      Interrupt_ID (Storage_Elements.To_Integer (Int_Ref));
+        Interrupt_ID (Storage_Elements.To_Integer (Int_Ref));
 
       New_Task : Server_Task_Access;
 
@@ -575,6 +572,8 @@ package body System.Interrupts is
       --  make by the task before it terminates.
 
       T.Interrupt_Entry := True;
+
+      Attached_Interrupts (Interrupt) := True;
    end Bind_Interrupt_To_Entry;
 
    ------------------------------
@@ -583,14 +582,14 @@ package body System.Interrupts is
 
    procedure Detach_Interrupt_Entries (T : Task_Id) is
    begin
-      for J in Interrupt_ID loop
-         if not Is_Reserved (J) then
-            if Descriptors (J).Kind = Task_Entry
-              and then Descriptors (J).T = T
-            then
-               Descriptors (J).Kind := Unknown;
+      for I in Interrupt_ID loop
+         if not Is_Reserved (I) then
+            if Descriptors (I).Kind = Task_Entry and then
+              Descriptors (I).T = T then
+               Attached_Interrupts (I) := False;
+               Descriptors (I).Kind := Unknown;
 
-               if intr_attach (int (J), null) = FUNC_ERR then
+               if intr_attach (int (I), null) = FUNC_ERR then
                   raise Program_Error;
                end if;
             end if;

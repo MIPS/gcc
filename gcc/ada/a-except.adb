@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -501,6 +501,7 @@ package body Ada.Exceptions is
    procedure Rcheck_26 (File : Big_String_Ptr; Line : Integer);
    procedure Rcheck_27 (File : Big_String_Ptr; Line : Integer);
    procedure Rcheck_28 (File : Big_String_Ptr; Line : Integer);
+   procedure Rcheck_29 (File : Big_String_Ptr; Line : Integer);
 
    pragma Export (C, Rcheck_00, "__gnat_rcheck_00");
    pragma Export (C, Rcheck_01, "__gnat_rcheck_01");
@@ -531,6 +532,7 @@ package body Ada.Exceptions is
    pragma Export (C, Rcheck_26, "__gnat_rcheck_26");
    pragma Export (C, Rcheck_27, "__gnat_rcheck_27");
    pragma Export (C, Rcheck_28, "__gnat_rcheck_28");
+   pragma Export (C, Rcheck_29, "__gnat_rcheck_29");
 
    ---------------------------------------------
    -- Reason Strings for Run-Time Check Calls --
@@ -565,11 +567,13 @@ package body Ada.Exceptions is
    Rmsg_21 : constant String := "potentially blocking operation"   & NUL;
    Rmsg_22 : constant String := "stubbed subprogram called"        & NUL;
    Rmsg_23 : constant String := "unchecked union restriction"      & NUL;
-   Rmsg_24 : constant String := "empty storage pool"               & NUL;
-   Rmsg_25 : constant String := "explicit raise"                   & NUL;
-   Rmsg_26 : constant String := "infinite recursion"               & NUL;
-   Rmsg_27 : constant String := "object too large"                 & NUL;
-   Rmsg_28 : constant String := "restriction violation"            & NUL;
+   Rmsg_24 : constant String := "illegal use of"
+             & " remote access-to-class-wide type, see RM E.4(18)" & NUL;
+   Rmsg_25 : constant String := "empty storage pool"               & NUL;
+   Rmsg_26 : constant String := "explicit raise"                   & NUL;
+   Rmsg_27 : constant String := "infinite recursion"               & NUL;
+   Rmsg_28 : constant String := "object too large"                 & NUL;
+   Rmsg_29 : constant String := "restriction violation"            & NUL;
 
    -----------------------
    -- Polling Interface --
@@ -703,7 +707,13 @@ package body Ada.Exceptions is
          P := P - 1;
       end loop;
 
-      return Name (P .. Name'Length);
+      --  Return result making sure lower bound is 1
+
+      declare
+         subtype Rname is String (1 .. Name'Length - P + 1);
+      begin
+         return Rname (Name (P .. Name'Length));
+      end;
    end Exception_Name_Simple;
 
    --------------------
@@ -1140,7 +1150,7 @@ package body Ada.Exceptions is
 
    procedure Rcheck_24 (File : Big_String_Ptr; Line : Integer) is
    begin
-      Raise_Storage_Error_Msg (File, Line, To_Ptr (Rmsg_24'Address));
+      Raise_Program_Error_Msg (File, Line, To_Ptr (Rmsg_24'Address));
    end Rcheck_24;
 
    procedure Rcheck_25 (File : Big_String_Ptr; Line : Integer) is
@@ -1162,6 +1172,11 @@ package body Ada.Exceptions is
    begin
       Raise_Storage_Error_Msg (File, Line, To_Ptr (Rmsg_28'Address));
    end Rcheck_28;
+
+   procedure Rcheck_29 (File : Big_String_Ptr; Line : Integer) is
+   begin
+      Raise_Storage_Error_Msg (File, Line, To_Ptr (Rmsg_29'Address));
+   end Rcheck_29;
 
    -------------
    -- Reraise --

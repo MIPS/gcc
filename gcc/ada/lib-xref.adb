@@ -275,10 +275,12 @@ package body Lib.Xref is
             Set_Referenced (E);
          end if;
 
-         --  Check for pragma Unreferenced given
+         --  Check for pragma Unreferenced given and reference is within
+         --  this source unit (occasion for possible warning to be issued)
 
-         if Has_Pragma_Unreferenced (E) then
-
+         if Has_Pragma_Unreferenced (E)
+           and then In_Same_Extended_Unit (Sloc (E), Sloc (N))
+         then
             --  A reference as a named parameter in a call does not count
             --  as a violation of pragma Unreferenced for this purpose.
 
@@ -1145,16 +1147,25 @@ package body Lib.Xref is
 
                   --  Special handling for access parameter
 
-                  if Ekind (Etype (XE.Ent)) = E_Anonymous_Access_Type
-                    and then Is_Formal (XE.Ent)
-                  then
-                     Ctyp := 'p';
+                  declare
+                     K : constant Entity_Kind := Ekind (Etype (XE.Ent));
 
-                  --  Special handling for Boolean
+                  begin
+                     if (K = E_Anonymous_Access_Type
+                           or else
+                         K = E_Anonymous_Access_Subprogram_Type
+                            or else K =
+                         E_Anonymous_Access_Protected_Subprogram_Type)
+                       and then Is_Formal (XE.Ent)
+                     then
+                        Ctyp := 'p';
 
-                  elsif Ctyp = 'e' and then Is_Boolean_Type (Ent) then
-                     Ctyp := 'b';
-                  end if;
+                        --  Special handling for Boolean
+
+                     elsif Ctyp = 'e' and then Is_Boolean_Type (Ent) then
+                        Ctyp := 'b';
+                     end if;
+                  end;
                end if;
 
                --  Special handling for abstract types and operations.

@@ -1,3 +1,240 @@
+2004-05-23  Steven G. Kargl  <kargls@comcast.net>
+
+	* random.c (random_seed): Use correct variable.
+
+2004-05-22  Steven G. Kargl  <kargls@comcast.net>
+
+	* intrinsics/system_clock: New file.
+	* Makefile.am: Add intrinsics/system_clock.c.
+	* Makefile.in: Regenerate.
+
+2004-05-21  Roger Sayle  <roger@eyesopen.com>
+
+	* io/format.c (parse_format_list): Allow the comma after a string
+	literal to be optional.
+
+2004-05-18  Paul Brook  <paul@codesourcery.com>
+	Feng Wang  <fengwang@nudt.edu.cn>
+
+	* Makefile.am (i_pow_c): Set it. Add build rule.
+	(gfor_built_src): Use it.
+	(m4_files): add m4/pow.m4.
+	* Makefile.in: Regenerate.
+	* m4/pow.m4: New file.
+	* generated/pow_*.c: Regenerate.
+
+2004-05-18  Paul Brook  <paul@codesourcery.com>
+
+	* Makefile.am: Remove references to types.m4.
+	* m4/iparm.m4: Merge with types.m4.
+	* m4/types.m4: Remove.
+	* m4/cshift1.m4, m4/dotprod.m4, m4/dotprodc.m4, m4/dotprodl.m4,
+	m4/eoshift1.m4, m4/eoshift3.m4, m4/iforeach.m4, m4/ifunction.m4,
+	m4/in_pack.m4, m4/in_unpack.m4, m4/iparm.m4, m4/matmul.m4,
+	m4/matmull.m4, m4/maxloc0.m4, m4/maxloc1.m4, m4/maxval.m4,
+	m4/minloc0.m4, m4/minloc1.m4, m4/minval.m4, m4/reshape.m4,
+	m4/shape.m4, m4/specific.m4, m4/specific2.m4, m4/transpose.m4):
+	Update to use new iparm.m4.
+	* generated/*.c: Regenerate.
+
+2004-05-18  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15235
+	* gfortran.h (offset_t): Rename to ...
+	(gfc_offset): ... this.
+	* io/backspace.c (formatted_backspace, unformatted_backspace),
+	io/io.h (stream, gfc_unit, global_t, file_length, file_position),
+	transfer.c (us_read, us_write, next_record_r, next_record_w),
+	io/unit.c (init_units), unix.c (unix_stream, fd_alloc,
+	fd_alloc_r_at, fd_alloc_w_at, fd_seek, mmap_alloc,
+	mmap_alloc_r_at, mmap_alloc_w_at, mmap_seek, mem_alloc_r_at,
+	mem_alloc_w_at, mem_seek, file_length, file_position): Replace all
+	occurences of offset_t by gfc_offset.
+
+2004-05-16  Paul Brook  <paul@codesourcery.com>
+
+	* io/format.c (write_real): Don't include padding in format.
+
+2004-05-16  Paul Brook  <paul@codesourcery.com>
+
+	* io/format.c (format_lex): Make c an int.
+
+2004-05-16  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+	Paul Brook  <paul@codesourcery.com>
+
+	* io/write.c (write_logical): Don't print extra blank.
+	(write_integer): Base field width on kind.
+	(list_formatted_write): Output initial blank.
+
+2004-05-16  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+
+	* io/io.h (flush): Add prototype.
+	* io/transfer.c (finalize_transfer): Flush partial records.
+	* io/unix.c (flush): New function.
+
+2004-05-15  Tobias Schlueter <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15234
+	* io/io.h (unit_t): Rename to ...
+	(gfc_unit) ... this.
+	(unit_root, current_unit, find_file, find_unit, get_unit): Now
+	of type gfc_unit.
+	(delete_file, insert_unit, close_unit): Argument now of type
+	gfc_unit.
+	* backspace.c (st_backspace), close.c (st_close), endfile.c
+	(st_endfile), inquire.c (inquire_via_unit, st_inquire), open.c
+	(test_endfile, edit_modes, new_unit, already_open, st_open),
+	rewind.c (st_rewind), transfer.c (current_unit), unit.c
+	(internal_unit, unit_cache, rotate_left, rotate_right, insert,
+	insert_unit, delete_root, delete_treap, delete_unit, find_unit,
+	get_unit, init_units, close_unit), unix.c (find_file0,
+	find_file, delete_file): Replace all occurences of unit_t by
+	gfc_unit.
+
+2004-05-15  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15311
+	* io/write.c (write_a): right justify A edit output.
+
+2004-05-14  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15149
+	* libgfortan.h,intrinsics/random.c: Made random_seed visible.
+	* runtime/main.c(init): Call random_seed as part of MAIN init.
+
+2004-05-13  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* io/format.c: (parse_format_list): No comma is required after
+	P descriptor.
+
+2004-05-13  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15204
+	* io/intrinsic/string_intrinsics.c (adjustr): rework logic.
+
+2004-05-06  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+	    Steven Bosscher  <stevenb@suse.de>
+
+	PR libfortran/15234
+	* libgfortran.h: Include <inttypes.h> if available.
+
+2004-05-03  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* io/unix.c (MAP_FAILED): Define if missing.
+	(mmap_alloc): Cast MAP_FAILED to char *.
+	(mmap_open): Likewise.
+
+2004-04-26  Bud Davis  <bdavis9659@comcast.net>
+
+	* generated/_abs_i8.f90: New file.
+	* generated/_abs_c4.f90: New file.
+	* generated/_abs_c8.f90: New file.
+	* Makefile.am: Add them.
+	* Makefile.in: Regenerate.
+`
+2004-04-26  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14056
+	* generated/_abs_i4.f90: New file.
+	* Makefile.am: Add it.
+	* Makefile.in: Regenerate.
+
+2004-04-25  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14942
+	* io/list_read.c(list_formatted_read): finish consuming the
+	spaces and seperators at eoln to get ready for next item.
+
+2004-04-23  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15113
+	* io/read.c(read_a): Handle field width > destination and no field width.
+
+2004-04-22  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14906
+	* io/format.c (format_item): gracefully handle a ')'
+        when it is the first character encountered in the string.
+
+2004-04-11  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14904
+	* io/transfer.c (next_record): Update last_record when
+	more than one record is written to a direct access file
+	with one write statement.
+
+2004-04-11  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14901
+	* io/transfer.c (next_record_w) : No '\n' if internal.
+	* io/unix.c (empty_internal_buffer) : Init to spaces, not '\n'.
+
+2004-04-11  Bud Davis  <bdavis9659@comcast.net>
+
+	* io.h (ioparm): Interface from FE is 32 bit, irregardless of offset_t.
+	Will need to change this later to support direct access files > 2gb.
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14762
+	* io/transfer.c (next_record_r) : Skip to next record.
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14836
+	* io/transfer.c (next_record): Update last_record for DIRECT
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14837
+	* io/unix.c (find_file0): Use fd field of struct
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+ 
+	PR 14831
+	* io/inquire.c (inquire_via_unit): Changed return string for
+	BLANK=NULL. Use correct variable for ACTION.
+
+2004-04-01  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 14746
+	* io/read.c (read_f): Allow a decimal without a leading digit.
+	* io/write.c (output_float): remove a leading '0' to keep from
+	overflowing the field (F edit descriptor).
+
+2004-04-01  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14565
+	* io/open.c (new_unit),
+	* io/io.h : new_unit is now visible
+	* io/transfer.c (data_transfer_init): open unit if no OPEN statement.
+	* io/transfer.c (data_transfer_init): remove compile warnings.
+	* io/rewind.c (st_rewind): ftruncate if writing.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	* write.c (write_l): Use extract_int for 'L' edit descriptor.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 13919
+	* io/io.h (global_t):
+	* io/list_read.c (next_char,list_formatted_read,ist_formatted_read):
+          Move eof_jmp to a global structure.
+	* io/transfer.c(finalize_transfer) : Set up eof_jump for callers.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	* m4/cexp.m4 (csqrt): Actually use the passed value.
+	* generated/exp_c?.c: Regenerate.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 12921
+	* io.h, transfer.c, open.c : recl_in changed from ptr to variable.
+	* open.c (new_unit): Moved test for positioned direct access error.
+	(init_units): Corrected calculation of max records.
+
 2004-02-06  Feng Wang  <fengwang@nudt.edu.cn>
 
 	* Makefile.am: Add m4/dotprodc.m4. And fix spelling.
