@@ -874,13 +874,10 @@ int
 reg_set_p (reg, insn)
      rtx reg, insn;
 {
-  rtx body = insn;
-
   /* We can be passed an insn or part of one.  If we are passed an insn,
      check if a side-effect of the insn clobbers REG.  */
-  if (INSN_P (insn))
-    {
-      if (FIND_REG_INC_NOTE (insn, reg)
+  if (INSN_P (insn)
+      && (FIND_REG_INC_NOTE (insn, reg)
 	  || (GET_CODE (insn) == CALL_INSN
 	      /* We'd like to test call_used_regs here, but rtlanal.c can't
 		 reference that variable due to its use in genattrtab.  So
@@ -891,11 +888,8 @@ reg_set_p (reg, insn)
 	      && ((GET_CODE (reg) == REG
 		   && REGNO (reg) < FIRST_PSEUDO_REGISTER)
 		  || GET_CODE (reg) == MEM
-		  || find_reg_fusage (insn, CLOBBER, reg))))
-	return 1;
-
-      body = PATTERN (insn);
-    }
+		  || find_reg_fusage (insn, CLOBBER, reg)))))
+    return 1;
 
   return set_of (reg, insn) != NULL_RTX;
 }

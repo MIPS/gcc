@@ -1,3 +1,17 @@
+2002-09-11  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* genattrtab.c (simplify_cond): Remove unused variable(s).
+	* global.c (record_conflicts): Likewise.
+	* jump.c (rebuild_jump_labels): Likewise.
+	* loop.c (scan_loop, check_final_value): Likewise.
+	* ra-colorize.c (colorize_one_web, assign_colors): Likewise.
+	* reload1.c (eliminate_regs_in_insn, do_input_reload): Likewise.
+	* rtlanal.c (reg_set_p): Likewise.
+	* stmt.c (expand_asm_operands, expand_decl): Likewise.
+	* genautomata.c (empty_reserv): Remove.
+	* loop.c (max_luid): Likewise.
+	* sched-rgn.c (bitlst_table_size): Likewise.
+
 2002-09-11  Nathan Sidwell  <nathan@codesourcery.com>
 
 	Reimplement gcov format.
@@ -88,22 +102,22 @@
 
 2002-09-04  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
-        * c-typeck.c (build_function_call): Remove unused variable(s).
+	* c-typeck.c (build_function_call): Remove unused variable(s).
 	(build_c_cast): Likewise.
-        * calls.c (rtx_for_function_call): Likewise.
-        * cfglayout.c (duplicate_insn_chain): Likewise.
-        * cfgloop.c (flow_loop_nodes_find): Likewise.
-        * cfgrtl.c (split_edge): Likewise.
-        * df.c (df_ref_create): Likewise.
-        * except.c (expand_end_catch): Likewise.
-        * expr.c (emit_push_insn, store_constructor, expand_expr): Likewise.
-        * function.c (emit_return_into_block): Likewise.
+	* calls.c (rtx_for_function_call): Likewise.
+	* cfglayout.c (duplicate_insn_chain): Likewise.
+	* cfgloop.c (flow_loop_nodes_find): Likewise.
+	* cfgrtl.c (split_edge): Likewise.
+	* df.c (df_ref_create): Likewise.
+	* except.c (expand_end_catch): Likewise.
+	* expr.c (emit_push_insn, store_constructor, expand_expr): Likewise.
+	* function.c (emit_return_into_block): Likewise.
 	(reposition_prologue_and_epilogue_notes): Likewise.
-        * gengtype.c (get_file_basename, write_gc_structure_fields): Likewise.
-        * combine.c (subst_prev_insn, need_refresh): Remove.
-        * dwarf2out.c (primary_filename): Remove.
-        * final.c (new_block): Remove.
-        * gcse.c (orig_bb_count): Remove.
+	* gengtype.c (get_file_basename, write_gc_structure_fields): Likewise.
+	* combine.c (subst_prev_insn, need_refresh): Remove.
+	* dwarf2out.c (primary_filename): Remove.
+	* final.c (new_block): Remove.
+	* gcse.c (orig_bb_count): Remove.
 
 2002-09-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
@@ -453,7 +467,7 @@ Tue Sep  3 11:32:14 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 	PR objc/5956:
 	* objc/objc-act.c (build_typed_selector_reference): Fix typo which
 	was causing the new selector never to match the existing ones 
-        (Patch by Alexander Malmberg <alexander@malmberg.org>). 
+	(Patch by Alexander Malmberg <alexander@malmberg.org>). 
 
 2002-09-03  Graham Stott  <graham.stott@btinternet.com>
 
@@ -880,17 +894,17 @@ Tue Aug 27 23:03:52 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 	already been defined, and emit a warning if not.
 
 2002-08-27  Nick Clifton  <nickc@redhat.com>
-            Catherine Moore  <clm@redhat.com>
-            Jim Wilson  <wilson@cygnus.com>
+	    Catherine Moore  <clm@redhat.com>
+	    Jim Wilson  <wilson@cygnus.com>
 
-        * config.gcc: Add v850e-*-* target.
-        Add --with-cpu= support for v850.
-        * config/v850/lib1funcs.asm: Add v850e callt functions.
-        * config/v850/v850.h: Add support for v850e target.
-        * config/v850/v850.c: Add functions to support v850e target.
-        * config/v850/v850-protos.h: Add prototypes for new functions in v850.c.
-        * config/v850/v850.md: Add patterns for v850e instructions.
-        * doc/invoke.texi: Document new v850e command line switches.
+	* config.gcc: Add v850e-*-* target.
+	Add --with-cpu= support for v850.
+	* config/v850/lib1funcs.asm: Add v850e callt functions.
+	* config/v850/v850.h: Add support for v850e target.
+	* config/v850/v850.c: Add functions to support v850e target.
+	* config/v850/v850-protos.h: Add prototypes for new functions in v850.c.
+	* config/v850/v850.md: Add patterns for v850e instructions.
+	* doc/invoke.texi: Document new v850e command line switches.
 
 Tue Aug 27 18:30:47 2002  J"orn Rennecke <joern.rennecke@superh.com>
 			  Aldy Hernandez <aldyh at redhat dot com>

@@ -2926,7 +2926,7 @@ eliminate_regs_in_insn (insn, replace)
   rtx old_set = single_set (insn);
   rtx new_body;
   int val = 0;
-  int i, any_changes;
+  int i;
   rtx substed_operand[MAX_RECOG_OPERANDS];
   rtx orig_operand[MAX_RECOG_OPERANDS];
   struct elim_table *ep;
@@ -3101,7 +3101,6 @@ eliminate_regs_in_insn (insn, replace)
   /* Eliminate all eliminable registers occurring in operands that
      can be handled by reload.  */
   extract_insn (insn);
-  any_changes = 0;
   for (i = 0; i < recog_data.n_operands; i++)
     {
       orig_operand[i] = recog_data.operand[i];
@@ -3127,7 +3126,7 @@ eliminate_regs_in_insn (insn, replace)
 	  substed_operand[i] = eliminate_regs (recog_data.operand[i], 0,
 					       replace ? insn : NULL_RTX);
 	  if (substed_operand[i] != orig_operand[i])
-	    val = any_changes = 1;
+	    val = 1;
 	  /* Terminate the search in check_eliminable_occurrences at
 	     this point.  */
 	  *recog_data.operand_loc[i] = 0;
@@ -6855,7 +6854,6 @@ do_input_reload (chain, rl, j)
      struct reload *rl;
      int j;
 {
-  int expect_occurrences = 1;
   rtx insn = chain->insn;
   rtx old = (rl->in && GET_CODE (rl->in) == MEM
 	     ? rl->in_reg : rl->in);
@@ -6876,11 +6874,7 @@ do_input_reload (chain, rl, j)
       && GET_CODE (rl->in_reg) == MEM
       && reload_spill_index[j] >= 0
       && TEST_HARD_REG_BIT (reg_reloaded_valid, reload_spill_index[j]))
-    {
-      expect_occurrences
-	= count_occurrences (PATTERN (insn), rl->in, 0) == 1 ? 0 : -1;
-      rl->in = regno_reg_rtx[reg_reloaded_contents[reload_spill_index[j]]];
-    }
+    rl->in = regno_reg_rtx[reg_reloaded_contents[reload_spill_index[j]]];
 
   /* If we are reloading a register that was recently stored in with an
      output-reload, see if we can prove there was
@@ -9136,7 +9130,7 @@ reload_cse_move2add (first)
 		     use (set (reg) (reg)) instead.
 		     We don't delete this insn, nor do we convert it into a
 		     note, to avoid losing register notes or the return
-		     value flag.  jump2 already knowns how to get rid of
+		     value flag.  jump2 already knows how to get rid of
 		     no-op moves.  */
 		  if (new_src == const0_rtx)
 		    success = validate_change (insn, &SET_SRC (pat), reg, 0);

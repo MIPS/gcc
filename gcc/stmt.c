@@ -1440,8 +1440,6 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
     = (enum machine_mode *) alloca (noutputs * sizeof (enum machine_mode));
   const char **constraints
     = (const char **) alloca ((noutputs + ninputs) * sizeof (const char *));
-  /* The insn we have emitted.  */
-  rtx insn;
   int old_generating_concat_p = generating_concat_p;
 
   /* An ASM with no outputs needs to be treated as volatile, for now.  */
@@ -1723,13 +1721,13 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
   if (noutputs == 1 && nclobbers == 0)
     {
       ASM_OPERANDS_OUTPUT_CONSTRAINT (body) = constraints[0];
-      insn = emit_insn (gen_rtx_SET (VOIDmode, output_rtx[0], body));
+      emit_insn (gen_rtx_SET (VOIDmode, output_rtx[0], body));
     }
 
   else if (noutputs == 0 && nclobbers == 0)
     {
       /* No output operands: put in a raw ASM_OPERANDS rtx.  */
-      insn = emit_insn (body);
+      emit_insn (body);
     }
 
   else
@@ -1794,7 +1792,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	    = gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (QImode, j));
 	}
 
-      insn = emit_insn (body);
+      emit_insn (body);
     }
 
   /* For any outputs that needed reloading into registers, spill them
@@ -3751,7 +3749,6 @@ void
 expand_decl (decl)
      tree decl;
 {
-  struct nesting *thisblock;
   tree type;
 
   type = TREE_TYPE (decl);
@@ -3776,8 +3773,6 @@ expand_decl (decl)
 
   if (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
     return;
-
-  thisblock = block_stack;
 
   /* Create the RTL representation for the variable.  */
 

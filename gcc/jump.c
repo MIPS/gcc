@@ -78,10 +78,8 @@ rebuild_jump_labels (f)
      rtx f;
 {
   rtx insn;
-  int max_uid = 0;
 
-  max_uid = init_label_info (f) + 1;
-
+  init_label_info (f);
   mark_all_labels (f);
 
   /* Keep track of labels used from static data; we don't track them

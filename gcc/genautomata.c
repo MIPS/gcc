@@ -3581,9 +3581,6 @@ static vla_ptr_t units_container;
 /* The start address of the array.  */
 static unit_decl_t *units_array;
 
-/* Empty reservation of maximal length.  */
-static reserv_sets_t empty_reserv;
-
 /* The state table itself is represented by the following variable.  */
 static htab_t state_table;
 
@@ -4147,10 +4144,10 @@ initiate_states ()
   initiate_alt_states ();
   VLA_PTR_CREATE (free_states, 1500, "free states");
   state_table = htab_create (1500, state_hash, state_eq_p, (htab_del) 0);
-  empty_reserv = alloc_empty_reserv_sets ();
+  alloc_empty_reserv_sets ();
 }
 
-/* Finisging work with the abstract data.  */
+/* Finishing work with the abstract data.  */
 static void
 finish_states ()
 {
