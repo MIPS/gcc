@@ -1,5 +1,10 @@
 2005-02-04  Tom Tromey  <tromey@redhat.com>
 
+	* model/import.cc (resolve): New method.
+	* model/import.hh (model_static_import_single::resolve): Declare.
+
+2005-02-04  Tom Tromey  <tromey@redhat.com>
+
 	* model/unit.cc (resolve): Indentation fixes.
 
 2005-02-04  Tom Tromey  <tromey@redhat.com>

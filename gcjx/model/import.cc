@@ -1,6 +1,6 @@
 // Import statements.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -187,6 +187,36 @@ model_class *
 model_static_import_single::get_class_declaration () const
 {
   return search_for_class (member_name);
+}
+
+void
+model_static_import_single::resolve (resolution_scope *scope)
+{
+  model_static_import_base::resolve (scope);
+
+  // Make sure we imported something.
+  // FIXME: don't we need to use the canonical name?
+
+  {
+    std::set<model_variable_decl *> fields;
+    find_field (member_name, scope->get_current_context (), fields);
+    if (! fields.empty ())
+      return;
+  }
+
+  {
+    std::set<model_method *> methods;
+    find_method (member_name, scope->get_current_context (), methods);
+    if (! methods.empty ())
+      return;
+  }
+
+  if (get_class_declaration () != NULL)
+    return;
+
+  // If we got here, there's no member.
+  throw error ("%1 does not name a static member in %2")
+    % member_name % resolved_type;
 }
 
 model_class *
