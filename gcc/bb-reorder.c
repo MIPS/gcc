@@ -19,7 +19,7 @@
    02111-1307, USA.  */
 
 /* References:
-  
+
    "Software Trace Cache"
    Ramirez, Larriba-Pey, Navarro, Torrellas and Valero; 1999
    http://citeseer.nj.nec.com/15361.html
@@ -37,16 +37,17 @@
 #include "cfglayout.h"
 #include "fibheap.h"
 
+/* The number of rounds.  */
+#define N_ROUNDS 4
+
 /* The number of rounds which the code can grow in.  */
 #define N_CODEGROWING_ROUNDS 3
 
-#define N_THRESHOLD 4
-
 /* Branch thresholds in thousandths (per milles) of the REG_BR_PROB_BASE.  */
-static int branch_threshold[N_THRESHOLD] = {400, 200, 100, 0};
-  
+static int branch_threshold[N_ROUNDS] = {400, 200, 100, 0};
+
 /* Exec thresholds in thousandths (per milles) of the frequency of bb 0.  */
-static int exec_threshold[N_THRESHOLD] = {500, 200, 50, 0};
+static int exec_threshold[N_ROUNDS] = {500, 200, 50, 0};
 
 /* Length of unconditional jump instruction.  */
 static int uncond_jump_length;
@@ -82,17 +83,18 @@ find_traces ()
   struct trace *traces;
   basic_block bb0;
   fibheap_t heap;
- 
+  int *start_of_trace;
+
   /* There will be at most N_BASIC_BLOCKS traces because trace can start only
      in an original (not duplicated) basic block.  */
   traces = xmalloc (n_basic_blocks * sizeof(struct trace));
   n_traces = 0;
- 
+
   /* Find the traces.  */
   bb0 = BASIC_BLOCK (0);
   heap = fibheap_new();
   fibheap_insert (heap, bb_to_key (bb0), bb0);
-  for (i = 0; i < N_THRESHOLD; i++)
+  for (i = 0; i < N_ROUNDS; i++)
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "STC - round %d\n", i);
@@ -117,11 +119,42 @@ find_traces ()
       fflush (rtl_dump_file);
     }
 
+  /* Mark each bb which is a start of a trace.  */
+  start_of_trace = xmalloc (n_basic_blocks * sizeof(int));
+  for (i = 0; i < n_basic_blocks; i++)
+    start_of_trace[i] = -1;
+  for (i = 0; i < n_traces; i++)
+    start_of_trace[traces[i].first->index] = i;
+
   /* Connect traces.  */
-  for (i = 1; i < n_traces; i++)
-    RBI (traces[i - 1].last)->next = traces[i].first;
+  for (i = 0; i < n_traces - 1; i++)
+    {
+      edge e, best = NULL;
+
+      for (e = traces[i].last->succ; e; e = e->succ_next)
+	if (e->dest != EXIT_BLOCK_PTR
+	    && (e->flags & EDGE_CAN_FALLTHRU)
+	    && start_of_trace[e->dest->index] >= i + 1
+	    && (!best || e->probability > best->probability))
+	  best = e;
+
+      if (best && start_of_trace[best->dest->index] != i + 1)
+	{
+	  int t = start_of_trace[best->dest->index];
+	  struct trace temp;
+
+	  temp = traces[t];
+	  traces[t] = traces[i + 1];
+	  traces[i + 1] = temp;
+	  start_of_trace[traces[i + 1].first->index] = i + 1;
+	  start_of_trace[traces[t].first->index] = t;
+	}
+
+      RBI (traces[i].last)->next = traces[i+1].first;
+    }
 
   free (traces);
+  free (start_of_trace);
 }
 
 /* One round of finding traces. Find traces for BRANCH_TH and EXEC_TH i.e. do
@@ -130,7 +163,7 @@ find_traces ()
    TRACES and modifies the number of traces *N_TRACES. Sets the round (which
    the trace belongs to) to ROUND. It expects that the starting basic blocks
    are in the *HEAP and at the end it deletes *HEAP and stores the starting
-   points for the next round into *HEAP.  SIZE_CAN_GROW is the flag whether 
+   points for the next round into *HEAP.  SIZE_CAN_GROW is the flag whether
    the code is permited to grow.  */
 
 static void
@@ -147,7 +180,7 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
   /* Heap for discarded basic blocks which are possible starting points for
      the next round.  */
   fibheap_t new_heap = fibheap_new ();
- 
+
   while (!fibheap_empty (*heap))
     {
       basic_block bb;
@@ -160,6 +193,19 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		 RBI (bb)->visited ? " (visited)" : "");
       if (RBI (bb)->visited)
 	continue;
+
+      /* If the BB's frequency is too low send BB to the next round.  */
+      if (bb->frequency < exec_th)
+	{
+	  int key = bb_to_key (bb);
+	  fibheap_insert (new_heap, key, bb);
+
+	  if (rtl_dump_file)
+	    fprintf (rtl_dump_file,
+		     "  Possible start point of next round: %d (key: %d)\n",
+		     bb->index, key);
+	  continue;
+	}
 
       trace = traces + *n_traces;
       trace->first = bb;
@@ -174,7 +220,6 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 	     temporary best edge.  Similar for frequencies of successors.  */
 	  int prob_lower = INT_MIN, prob_higher = INT_MIN;
 	  int freq_lower = INT_MIN, freq_higher = INT_MIN;
-	  int scale, prob;
 
 	  best_edge = NULL;
 	  RBI (bb)->visited = *n_traces;
@@ -182,69 +227,54 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 	    fprintf (rtl_dump_file, "Basic block %d was visited in trace %d\n",
 		     bb->index, *n_traces - 1);
 
-	  scale = REG_BR_PROB_BASE;
-	  if (RBI (bb)->original 
-	      && RBI (RBI (bb)->original)->duplicated == *n_traces)
-	    /* We are in a bb which was duplicated in this trace.
-	       Ignore the probability of edges to basic blocks visited in this
-	       trace.  */
-	    {
-	      for (e = bb->succ; e; e = e->succ_next)
-		if (RBI (e->dest)->visited == *n_traces)
-		  scale -= e->probability;
-	    }
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, "BB %d: scale = %d\n", bb->index, scale);
-
 	  /* Select the successor that will be placed after BB.  */
 	  for (e = bb->succ; e; e = e->succ_next)
 	    {
-	      int freq;
+	      int prob, freq;
 
 	      if (e->flags & EDGE_FAKE)
 		abort();
 	      if (e->dest == EXIT_BLOCK_PTR)
 		continue;
-	      if (RBI (e->dest)->duplicated == *n_traces)
-		continue;
-	      /* Looking from duplicated BB (in this) to visited BB.  */
-	      if (RBI (bb)->original 
-		  && RBI (RBI (bb)->original)->duplicated == *n_traces
-		  && RBI (e->dest)->visited == *n_traces)
-		continue;
 
-	      /* Get the scaled probability.  */
-	      if (scale)
-		prob = REG_BR_PROB_BASE * e->probability / scale;
-	      else
-		prob = REG_BR_PROB_BASE;
-
-	      if (RBI (e->dest)->visited)
+	      prob = e->probability;
+	      if (RBI (e->dest)->visited
+		  && RBI (e->dest)->visited != *n_traces)
 		{
-		  if ((e->flags & EDGE_COMPLEX)
-		      || !copy_bb_p (e->dest, *n_traces, size_can_grow))
+		  if (!copy_bb_p (e->dest, *n_traces, size_can_grow))
 		    continue;
-		  freq = bb->frequency * e->probability / REG_BR_PROB_BASE;
+		  freq = EDGE_FREQUENCY (e);
 		}
 	      else
-		{
+	        {
 		  freq = e->dest->frequency;
 		}
 
-	      /* Improbable or infrequent successor.  */
-	      if (prob < branch_th || freq < exec_th)
+	      /* Edge that cannot be fallthru
+		 or improbable or infrequent successor.  */
+	      if (!(e->flags & EDGE_CAN_FALLTHRU) || (e->flags & EDGE_COMPLEX)
+		  || prob < branch_th || freq < exec_th)
 		{
 		  if (!RBI (e->dest)->visited)
 		    /* This bb is not in any trace yet.  */
 		    {
-		      /* This successor is possible starting point for next
-			 round of trace creation.  */
-		      fibheap_insert (new_heap, bb_to_key (e->dest), e->dest);
+		      int key = bb_to_key (e->dest);
+		      if (round == N_ROUNDS - 1)
+			/* There are no more rounds so the successor is another
+			   possible starting point of this round of trace
+			   creation.  */
+			fibheap_insert (*heap, key, e->dest);
+		      else
+		        /* This successor is possible starting point for next
+			   round of trace creation.  */
+		        fibheap_insert (new_heap, key, e->dest);
 
 		      if (rtl_dump_file)
 			fprintf (rtl_dump_file,
-				 "  Possible start point of next round: %d\n",
-				 e->dest->index);
+				 "  Possible start point of %s round: %d"
+				 " (key: %d)\n",
+				 (round == N_ROUNDS - 1) ? "this" : "next",
+				 e->dest->index, key);
 		    }
 		  continue;
 		}
@@ -256,13 +286,13 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		    {
 		      /* Start a secondary trace from the old temporary best
 			 successor.  */
-		      fibheap_insert (*heap, bb_to_key (best_edge->dest),
-				      best_edge->dest);
+		      int key = bb_to_key (best_edge->dest);
+		      fibheap_insert (*heap, key, best_edge->dest);
 
 		      if (rtl_dump_file)
-			fprintf (rtl_dump_file, 
-				 "  Possible start of secondary trace: %d\n",
-				 best_edge->dest->index);
+			fprintf (rtl_dump_file,
+				 "  Possible start of secondary trace: %d"
+				 " (key: %d)\n", best_edge->dest->index, key);
 		    }
 
 		  best_edge = e;
@@ -270,19 +300,66 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 	      else if (!RBI (e->dest)->visited)
 		{
 		  /* Start a secondary trace from this successor.  */
-		  fibheap_insert (*heap, bb_to_key (e->dest), e->dest);
+		  int key = bb_to_key (e->dest);
+		  fibheap_insert (*heap, key, e->dest);
 
 		  if (rtl_dump_file)
-		    fprintf (rtl_dump_file, 
-			     "  Possible start of secondary trace: %d\n",
-			     e->dest->index);
+		    fprintf (rtl_dump_file,
+			     "  Possible start of secondary trace: %d"
+			     " (key: %d)\n", e->dest->index, key);
 		}
 	    }
 
 	  if (best_edge)
 	    /* Found suitable successor.  */
 	    {
-	      if (RBI (best_edge->dest)->visited)
+	      if (RBI (best_edge->dest)->visited == *n_traces)
+		{
+		  if (bb != best_edge->dest)
+		    {
+		      edge e;
+
+		      /* Find the edge that enters the loop.  */
+		      for (e = best_edge->dest->succ; e; e = e->succ_next)
+			if (e->dest == RBI (best_edge->dest)->next)
+			  break;
+		      if (e && e->probability > 2 * REG_BR_PROB_BASE / 3)
+			/* The loop has not been rotated yet
+			   && has at least 2 iterations.  */
+			{
+			  /* Rotate the loop.  */
+
+			  if (rtl_dump_file)
+			    fprintf (rtl_dump_file, "Rotating loop %d - %d\n",
+				     best_edge->dest->index, bb->index);
+
+			  if (best_edge->dest == trace->first)
+			    {
+			      RBI (bb)->next = trace->first;
+			      trace->first = RBI (trace->first)->next;
+			      RBI (best_edge->dest)->next = NULL;
+			      bb = best_edge->dest;
+			    }
+			  else
+			    {
+			      basic_block temp;
+
+			      for (temp = trace->first;
+				   RBI (temp)->next != best_edge->dest;
+				   temp = RBI (temp)->next);
+			      RBI (temp)->next = RBI (best_edge->dest)->next;
+			      RBI (bb)->next = best_edge->dest;
+			      RBI (best_edge->dest)->next = NULL;
+			      bb = best_edge->dest;
+			    }
+			}
+		    }
+
+		  /* Terminate the trace.  */
+		  trace->last = bb;
+		  break;
+		}
+	      else if (RBI (best_edge->dest)->visited)
 		{
 		  basic_block new_bb, old_bb;
 
@@ -295,6 +372,7 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		  if (rtl_dump_file)
 		    fprintf (rtl_dump_file, "Duplicated bb %d (created bb %d)\n",
 			     old_bb->index, new_bb->index);
+		  RBI (old_bb)->visited = *n_traces;
 		  RBI (old_bb)->duplicated = *n_traces;
 		  RBI (bb)->next = new_bb;
 		  RBI (bb)->visited = *n_traces;
@@ -305,11 +383,11 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		  RBI (bb)->next = best_edge->dest;
 		  bb = best_edge->dest;
 		}
+	      trace->last = bb;
 	    }
 	}
       while (best_edge);
-      trace->last = bb;
-    } 
+    }
 
   fibheap_delete (*heap);
 
@@ -339,12 +417,12 @@ bb_to_key (bb)
    PROB. The frequency of the successor is FREQ. The *PROB_LOWER and
    *PROB_HIGHER are the lower and higher bounds of interval which the PROB must
    be in to be "equivalent" to the probability of the temporary best edge.
-   Similarly the *FREQ_LOWER and *FREQ_HIGHER. 
+   Similarly the *FREQ_LOWER and *FREQ_HIGHER.
    If the edge is considered to be better it changes the values of *PROB_LOWER,
    *PROB_HIGHER, *FREQ_LOWER and *FREQ_HIGHER to appropriate values.  */
 
 static bool
-better_edge_p (bb, e, prob, freq, prob_lower, prob_higher, freq_lower, 
+better_edge_p (bb, e, prob, freq, prob_lower, prob_higher, freq_lower,
 	       freq_higher)
      basic_block bb;
      edge e;
@@ -365,7 +443,7 @@ better_edge_p (bb, e, prob, freq, prob_lower, prob_higher, freq_lower,
     is_better_edge = false;
   else if (freq < *freq_lower)
     /* The edge and the temporary best edge  have almost equivalent
-       probabilities.  The higher frequency of a successor now means 
+       probabilities.  The higher frequency of a successor now means
        that there is another edge going into that successor.
        This successor has lower frequency so it is better.  */
     is_better_edge = true;
@@ -417,7 +495,7 @@ copy_bb_p (bb, trace, size_can_grow)
       int prob_lower, prob_higher;
       int freq_lower, freq_higher;
 
-      if (RBI (bb)->original && RBI (RBI (bb)->original)->duplicated == trace)
+      if (RBI (bb)->visited == trace)
 	return false;
       if (!cfg_layout_can_duplicate_bb_p (bb))
 	return false;
@@ -438,26 +516,29 @@ copy_bb_p (bb, trace, size_can_grow)
       freq_higher = INT_MIN;
       for (e = bb->succ; e; e = e->succ_next)
 	{
-	  if (e->dest == EXIT_BLOCK_PTR)
+	  if (!(e->flags & EDGE_CAN_FALLTHRU))
 	    continue;
-	  if (RBI (e->dest)->visited == trace)
+	  if (e->flags & EDGE_COMPLEX)      /* Is this code redundant?  */
+	    continue;
+	  if (e->dest == EXIT_BLOCK_PTR)
 	    continue;
 	  if (better_edge_p (bb, e, e->probability, e->dest->frequency,
 			     &prob_lower, &prob_higher, &freq_lower,
 			     &freq_higher))
 	    best_edge = e;
 	}
-      if (best_edge)
-	bb = best_edge->dest;
-      if (!best_edge || !RBI (best_edge->dest)->visited)
+      if (!best_edge || !RBI (best_edge->dest)->visited
+	  || RBI (best_edge->dest)->visited == trace)
 	/* All edges point to EXIT_BLOCK or to the same trace
-	   OR the selected successor has not been visited yet.  */
+	   OR the selected successor has not been visited yet
+	   OR we have found a loop (so the trace will be terminated).  */
 	{
-          if (size_can_grow || size <= uncond_jump_length)
+	  if (size_can_grow || size <= uncond_jump_length)
 	    return true;
-          else
+	  else
 	    return false;
 	}
+      bb = best_edge->dest;
       if (bb == first)
 	return false;
     }
@@ -474,7 +555,7 @@ get_uncond_jump_length ()
 
   label = emit_label_before (gen_label_rtx (), get_insns ());
   jump = emit_jump_insn (gen_jump (label));
-  
+
   length = get_attr_length (jump);
 
   delete_insn (jump);
@@ -492,6 +573,7 @@ reorder_basic_blocks ()
 
   cfg_layout_initialize ();
 
+  set_edge_can_fallthru_flag ();
   uncond_jump_length = get_uncond_jump_length ();
   find_traces ();
 
