@@ -1,3 +1,7 @@
+2004-06-10  Fariborz Jahanian <fjahanian@apple.com>
+	* version.c: Change version date to 20040529 (date of
+	last merge).
+
 2004-06-09  Dale Johannesen  <dalej@apple.com>
 	* df.c (df_def_record_1): Handle DImode parallel.
 
