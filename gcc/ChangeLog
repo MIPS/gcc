@@ -1,3 +1,33 @@
+Sat Nov 16 02:54:29 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* jump.c (tablejump_p): New.
+	* cfgcleanup.c (try_optimize_cfg): Do not merge blocks across tablejump.
+	* rtl.h (tablejump_p): Declare.
+
+2002-11-16  Graham Stott  <graham.stott@btinternet.com>
+
+	* flow.c (life_analysis): Update LABEL_NUSES before purging
+	dead jumptables.
+
+2002-11-13  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/install.texi (Testing): Document extra Java testing.
+	* doc/sourcebuild.texi (Test Suites): Document libgcj testing.
+
+2002-11-12  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* doc/install.texi (powerpc-*-linux-gnu*): Update binutils requirement.
+
+2002-11-12  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/contrib.texi (Contributors): Use GCJ instead of gcj to refer
+	to that entire project.
+
+2002-11-12  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/mips/t-iris6 (MULTILIB_OSDIRNAMES): Restore old
+	directories.
+
 2002-11-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/x86-64.h (MCOUNT_NAME): Change into string literal.
