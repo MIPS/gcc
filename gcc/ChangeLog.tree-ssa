@@ -1,3 +1,8 @@
+2002-08-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-ccp.c (evaluate_expr_for): Fix thinko in
+	2002-08-17 patch.
+
 2002-08-17  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa-ccp.c (evaluate_expr_for): keep VARREF_SYM in a local

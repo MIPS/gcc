@@ -858,7 +858,7 @@ evaluate_expr_for (ref)
   FOR_EACH_REF (r, tmp, refs)
     {
       if (VARREF_TYPE (r) == VARUSE)
-	*(VARREF_OPERAND_P (r)) = var;
+	*(VARREF_OPERAND_P (r)) = VARREF_SYM (r);
     }
 
 dont_fold:
