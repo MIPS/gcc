@@ -1,3 +1,7 @@
+2004-08-19  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/const-cfstring-1.m: Include stdlib.h.
+
 2004-08-16  Devang Patel  <dpatel@apple.com>
 	
 	Merge from mainlne.
