@@ -1,4 +1,12 @@
 2003-06-30  Michael Matz  <matz@suse.de>
+	Don't recursively recolor the same webs.
+
+	* ra-colorize.c (webs_in_recoloring): New.
+	(colorize_one_web): Check, set and reset it.
+	(ra_colorize_init): Allocate it.
+	(ra_colorize_free_all): Free it.
+
+2003-06-30  Michael Matz  <matz@suse.de>
 	* ra-build.c: Include obstack.h.
 	(add_earlyclobber_conflicts): New.
 	(check_conflict_numbers): Comment out.

@@ -1309,6 +1309,10 @@ lose:
   return 0;
 }
 
+/* A bitmap of web IDs which currently are in the process of becoming
+   recolored (i.e. difficult webs which were spilled).  */
+static bitmap webs_in_recoloring;
+
 /* Try to assign a color to WEB.  If HARD if nonzero, we try many
    tricks to get it one color, including respilling already colored
    neighbors.
@@ -1579,7 +1583,12 @@ colorize_one_web (web, hard)
 		    set_cand (6, w);
 		  continue;
 		}
-	      if (aw->type != COLORED)
+	      if (aw->type != COLORED
+		  /* And don't spill neighbors which are in the process of
+		     becoming recolored higher up in the recursion stack.
+		     This would screw up the roll back of the neighbors
+		     of _that_ web, when some got a color in between.  */
+		  || bitmap_bit_p (webs_in_recoloring, aw->id))
 		continue;
 	      else
 		{
@@ -1701,6 +1710,7 @@ colorize_one_web (web, hard)
 		     neighbors.  */
 		  ra_debug_msg (DUMP_COLORIZE, "  trying to spill %d\n", try->id);
 		  colorize_one_web (web, hard);
+		  bitmap_set_bit (webs_in_recoloring, web->id);
 		  if (web->type != COLORED)
 		    {
 		      /* We tried recursively to spill all already colored
@@ -1723,6 +1733,7 @@ colorize_one_web (web, hard)
 		      else
 			colorize_one_web (try, hard - 1);
 		    }
+		  bitmap_clear_bit (webs_in_recoloring, web->id);
 		}
 	    }
 	  else
@@ -3048,6 +3059,7 @@ void ra_colorize_init ()
 {
   /* FIXME: Choose spill heuristic for platform if we have one */
   spill_heuristic = default_spill_heuristic;
+  webs_in_recoloring = BITMAP_XMALLOC ();
 }
 
 /* Free all memory.  (Note that we don't need to free any per pass
@@ -3057,6 +3069,7 @@ void
 ra_colorize_free_all ()
 {
   struct dlist *d;
+  BITMAP_XFREE (webs_in_recoloring);
   while ((d = pop_list (&WEBS(FREE))) != NULL)
     put_web (DLIST_WEB (d), INITIAL);
   while ((d = pop_list (&WEBS(INITIAL))) != NULL)
