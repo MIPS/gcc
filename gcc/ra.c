@@ -205,6 +205,7 @@ struct web
      It's used for incremental i-graph building and for breaking
      coalescings again.  */
   struct conflict_link *orig_conflict_list;
+  bitmap useless_conflicts;
   /* might be too much to store a HARD_REG_SET here for machines with _many_
      registers.  Shouldn't hurt for now.  */
   HARD_REG_SET usable_regs;
@@ -439,6 +440,7 @@ static void detect_deaths_in_bb PARAMS ((basic_block, sbitmap, bitmap));
 static void reloads_to_loads PARAMS ((struct rewrite_info *, struct ref **,
 				      unsigned int, struct web **));
 static void rewrite_program2 PARAMS ((bitmap));
+static void mark_refs_for_checking PARAMS ((struct web *, bitmap));
 static void detect_web_parts_to_rebuild PARAMS ((void));
 static void delete_useless_defs PARAMS ((void));
 static void actual_spill PARAMS ((void));
@@ -2397,6 +2399,7 @@ init_one_web (web, reg)
 {
   memset (web, 0, sizeof (struct web));
   init_one_web_common (web, reg);
+  web->useless_conflicts = BITMAP_XMALLOC ();
 }
 
 static void
@@ -2434,6 +2437,8 @@ reinit_one_web (web, reg)
   web->pattern = NULL;
   web->alias = NULL;
   if (web->moves)
+    abort ();
+  if (!web->useless_conflicts)
     abort ();
 }
 
@@ -2781,14 +2786,34 @@ record_conflict (web1, web2)
       || (web2->regno < FIRST_PSEUDO_REGISTER && fixed_regs[web2->regno]))
     return;
   /* Conflicts with hardregs, which are not even a candidate
-     for this pseudo are also pointless.  The same if the set of allowed
-     hardregs for two pseudos have no hardreg in common.  */
-  if (! ((web1->type == PRECOLORED 
-	  && TEST_HARD_REG_BIT (web2->usable_regs, web1->regno))
-	 || (web2->type == PRECOLORED
-	     && TEST_HARD_REG_BIT (web1->usable_regs, web2->regno))
-	 || hard_regs_intersect_p (&web1->usable_regs, &web2->usable_regs)))
+     for this pseudo are also pointless.  */
+  if ((web1->type == PRECOLORED 
+       && ! TEST_HARD_REG_BIT (web2->usable_regs, web1->regno))
+      || (web2->type == PRECOLORED
+	  && ! TEST_HARD_REG_BIT (web1->usable_regs, web2->regno)))
     return;
+  /* Similar if the set of possible hardregs don't intersect.  This iteration
+     those conflicts are useless (and would make num_conflicts wrong, because
+     num_freedom is calculated from the set of possible hardregs).
+     But in presence of spilling and incremental building of the graph we
+     need to note all uses of webs conflicting with the spilled ones.
+     Because the set of possible hardregs can change in the next round for
+     spilled webs, we possibly have then conflicts with webs which would
+     be excluded now (because then hardregs intersect).  But we actually
+     need to check those uses, and to get hold of them, we need to remember
+     also webs conflicting with this one, although not conflicting in this
+     round because of non-intersecting hardregs.  */
+  if (web1->type != PRECOLORED && web2->type != PRECOLORED
+      && ! hard_regs_intersect_p (&web1->usable_regs, &web2->usable_regs))
+    {
+      struct web *p1 = find_web_for_subweb (web1);
+      struct web *p2 = find_web_for_subweb (web2);
+      /* We expect these to be rare enough to justify bitmaps.  And because
+         we have only a special use for it, we not only the superwebs.  */
+      bitmap_set_bit (p1->useless_conflicts, p2->id);
+      bitmap_set_bit (p2->useless_conflicts, p1->id);
+      return;
+    }
   SET_BIT (igraph, index);
   add_conflict_edge (web1, web2);
   add_conflict_edge (web2, web1);
@@ -3184,6 +3209,15 @@ static void
 reset_conflicts (void)
 {
   unsigned int i;
+  bitmap newwebs = BITMAP_XMALLOC ();
+  for (i = 0; i < num_webs - num_subwebs; i++)
+    {
+      struct web *web = ID2WEB (i);
+      /* Hardreg webs and non-old webs are new webs (which
+	 need rebuilding).  */
+      if (web->type == PRECOLORED || !web->old_web)
+	bitmap_set_bit (newwebs, web->id);
+    }
   for (i = 0; i < num_webs - num_subwebs; i++)
     {
       struct web *web = ID2WEB (i);
@@ -3198,9 +3232,18 @@ reset_conflicts (void)
       if (web->orig_conflict_list)
 	abort ();
       if (web->type != PRECOLORED && !web->old_web)
-	*pcl = NULL;
+ 	{
+	  *pcl = NULL;
+ 	  /* Useless conflicts will be rebuilt completely.  */
+ 	  if (bitmap_first_set_bit (web->useless_conflicts) >= 0)
+ 	    abort ();
+ 	}
       else
 	{
+ 	  /* Useless conflicts with new webs will be rebuilt if they
+ 	     are still there.  */
+ 	  bitmap_operation (web->useless_conflicts, web->useless_conflicts,
+ 			    newwebs, BITMAP_AND_COMPL);
 	  for (cl = web->conflict_list; cl; cl = cl->next)
 	    {
 	      if (cl->t->old_web || cl->t->type == PRECOLORED)
@@ -3226,6 +3269,7 @@ reset_conflicts (void)
 	}
       web->have_orig_conflicts = 0;
     }
+  BITMAP_XFREE (newwebs);
 }
 
 static void
@@ -4341,6 +4385,13 @@ reset_lists (void)
     put_web (DLIST_WEB (d), FREE);
   while ((d = pop_list (&WEBS(COLORED))) != NULL)
     put_web (DLIST_WEB (d), INITIAL);
+
+  for (d = WEBS(FREE); d; d = d->next)
+    {
+      struct web *web = DLIST_WEB (d);
+      BITMAP_XFREE (web->useless_conflicts);
+      web->useless_conflicts = NULL;
+    }
 
   for (i = 0; i < num_webs; i++)
     {
@@ -7548,6 +7599,28 @@ rewrite_program2 (new_deaths)
 }
 
 static void
+mark_refs_for_checking (web, uses_as_bitmap)
+     struct web *web;
+     bitmap uses_as_bitmap;
+{
+  unsigned int i;
+  for (i = 0; i < web->num_uses; i++)
+    {
+      unsigned int id = DF_REF_ID (web->uses[i]);
+      SET_BIT (last_check_uses, id);
+      bitmap_set_bit (uses_as_bitmap, id);
+      web_parts[df->def_id + id].spanned_deaths = 0;
+      web_parts[df->def_id + id].crosses_call = 0;
+    }
+  for (i = 0; i < web->num_defs; i++)
+    {
+      unsigned int id = DF_REF_ID (web->defs[i]);
+      web_parts[id].spanned_deaths = 0;
+      web_parts[id].crosses_call = 0;
+    }
+}
+
+static void
 detect_web_parts_to_rebuild (void)
 {
   bitmap uses_as_bitmap;
@@ -7570,6 +7643,7 @@ detect_web_parts_to_rebuild (void)
       {
         struct web *web = DLIST_WEB (d);
 	struct conflict_link *wl;
+	unsigned int j;
 	/* This check is only needed for coalesced nodes, but hey.  */
 	if (alias (web)->type != SPILLED)
 	  continue;
@@ -7598,21 +7672,16 @@ detect_web_parts_to_rebuild (void)
 	    if (TEST_BIT (already_webs, wl->t->id))
 	      continue;
 	    SET_BIT (already_webs, wl->t->id);
-	    for (i = 0; i < wl->t->num_uses; i++)
-	      {
-		unsigned int id = DF_REF_ID (wl->t->uses[i]);
-	        SET_BIT (last_check_uses, id);
-		bitmap_set_bit (uses_as_bitmap, id);
-		web_parts[df->def_id + id].spanned_deaths = 0;
-		web_parts[df->def_id + id].crosses_call = 0;
-	      }
-	    for (i = 0; i < wl->t->num_defs; i++)
-	      {
-		unsigned int id = DF_REF_ID (wl->t->defs[i]);
-		web_parts[id].spanned_deaths = 0;
-		web_parts[id].crosses_call = 0;
-	      }
+	    mark_refs_for_checking (wl->t, uses_as_bitmap);
 	  }
+	EXECUTE_IF_SET_IN_BITMAP (web->useless_conflicts, 0, j,
+	  {
+	    struct web *web2 = ID2WEB (j);
+	    if (TEST_BIT (already_webs, web2->id))
+	      continue;
+	    SET_BIT (already_webs, web2->id);
+	    mark_refs_for_checking (web2, uses_as_bitmap);
+	  });
       }
   live_at_end -= 2;
   for (i = 0; i < (unsigned int) n_basic_blocks + 2; i++)
@@ -8488,6 +8557,10 @@ init_ra (void)
 	if (HARD_REGNO_MODE_OK (reg, i))
 	  {
 	    int size = HARD_REGNO_NREGS (reg, i);
+	    /* If it's OK for a register, it also should fill at
+	       least one.  */
+	    if (!size)
+	      abort ();
 	    while (size-- && reg < FIRST_PSEUDO_REGISTER)
 	      {
 		SET_HARD_REG_BIT (rs, reg);

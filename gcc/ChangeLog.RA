@@ -1,3 +1,14 @@
+2002-01-09  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	* ra.c (struct web.useless_conflicts): New.
+	(init_one_web, reinit_one_web): Allocate it.
+	(record_conflict): Note half-useless conflicts in that bitmap.
+	(reset_conflicts): Partially clear that bitmap.
+	(reset_lists): Free it.
+	(mark_refs_for_checking): New.
+	(detect_web_parts_to_rebuild): Use it and useless_conflicts.
+	(init_ra): abort() if modes are OK for regs but don't use them.
+
 2002-01-04  Michael Matz  <matzmich@cs.tu-berlin.de>
 
 	* df.c (df_ref_record): Correctly calculate SUBREGs of hardregs.
