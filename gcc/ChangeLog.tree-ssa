@@ -1,3 +1,10 @@
+2003-09-10  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (ephi_has_bottom): Remove dead function.
+	(ephi_has_unsafe_arg): New function.
+	(compute_down_safety): Use it.
+	(reset_down_safe): Continue search on abnormal edges, too.
+
 2003-09-10  Jason Merrill  <jason@redhat.com>
 
 	* gimplify.c (gimplify_asm_expr): Add post_p parm.

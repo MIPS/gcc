@@ -145,6 +145,7 @@ static void insert_euse_in_preorder_dt_order (struct expr_info *);
 #if ENABLE_CHECKING
 static int count_stmts_in_bb (basic_block);
 #endif
+static bool ephi_has_unsafe_arg (tree);
 static void reset_down_safe (tree, int);
 static void compute_down_safety (struct expr_info *);
 static void compute_will_be_avail (struct expr_info *);
@@ -217,7 +218,6 @@ static tree reaching_def (tree, tree, basic_block, tree);
 static tree do_proper_save (tree , tree, int);
 static void process_left_occs_and_kills (varray_type, struct expr_info *,
                                          tree);
-static inline bool ephi_has_bottom (tree);
 static int add_call_to_ei (struct expr_info *, void *);
 static bool call_modifies_slot (tree, tree);
 static tree create_expr_ref (struct expr_info *, tree, enum tree_code,
@@ -503,19 +503,6 @@ factor_through_injuries (struct expr_info *ei, tree start, tree var,
       end = find_rhs_use_for_var (SSA_NAME_DEF_STMT (end), var);
     }
   return end;
-}
-
-/* Returns true if the EPHI has a NULL argument.  */
-static inline bool
-ephi_has_bottom (tree ephi)
-{
-  int i;
-  for (i = 0 ; i < EPHI_NUM_ARGS (ephi); i++)
-    {
-      if (EPHI_ARG_DEF (ephi, i) == NULL_TREE)
-	return true;      
-    }
-  return false;
 }
 
 /* Return true if an EPHI will be available.  */
@@ -1330,6 +1317,18 @@ rename_1 (struct expr_info *ei)
   }
 }
 
+/* Determine if the EPHI has an argument we could never insert
+   or extend the lifetime of, such as an argument occurring on 
+   an abnormal edge. */
+static bool
+ephi_has_unsafe_arg (tree ephi)
+{
+  int i;
+  for (i = 0; i < EPHI_NUM_ARGS (ephi); i++)
+    if (EPHI_ARG_EDGE (ephi, i)->flags & EDGE_ABNORMAL)
+      return true;
+  return false;
+}
 
 /* Reset down safety flags for non-downsafe ephis. Uses depth first
    search.  */
@@ -1339,7 +1338,8 @@ reset_down_safe (tree currphi, int opnum)
   tree ephi;
   int i;
 
-  if (EPHI_ARG_HAS_REAL_USE (currphi, opnum))
+  if (EPHI_ARG_HAS_REAL_USE (currphi, opnum) 
+      && !(EPHI_ARG_EDGE (currphi, opnum)->flags & EDGE_ABNORMAL))
     return;
   ephi = EPHI_ARG_DEF (currphi, opnum);
   if (!ephi || TREE_CODE (ephi) != EPHI_NODE)
@@ -1356,6 +1356,15 @@ static void
 compute_down_safety (struct expr_info *ei)
 {
   size_t i;
+  basic_block bb;
+  FOR_EACH_BB (bb)
+  {
+    tree ephi = ephi_at_block (bb);
+    if (ephi == NULL_TREE)
+      continue;
+    if (ephi_has_unsafe_arg (ephi))
+      EPHI_DOWNSAFE (ephi) = false;
+  }
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
     {
       int j;
@@ -2136,7 +2145,6 @@ finalize_2 (struct expr_info *ei)
 	}
     }
   do_ephi_df_search (ei, replacing_search);
-  
 }
 
 /* Perform a DFS on EPHI using the functions in SEARCH. */
