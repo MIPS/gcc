@@ -719,7 +719,7 @@ init_outgoing_cpool ()
 static void
 parse_class_file ()
 {
-  tree method, field;
+  tree method;
   const char *save_input_filename = input_filename;
   int save_lineno = lineno;
 
@@ -734,10 +734,7 @@ parse_class_file ()
      compiling from class files.  */
   always_initialize_class_p = 1;
 
-  for (field = TYPE_FIELDS (current_class);
-       field != NULL_TREE; field = TREE_CHAIN (field))
-    if (FIELD_STATIC (field))
-      DECL_EXTERNAL (field) = 0;
+  java_mark_class_local (current_class);
 
   for (method = TYPE_METHODS (current_class);
        method != NULL_TREE; method = TREE_CHAIN (method))

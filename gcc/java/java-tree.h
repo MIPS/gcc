@@ -1299,6 +1299,8 @@ extern int predefined_filename_p PARAMS ((tree));
 extern void java_optimize_inline PARAMS ((tree));
 extern tree decl_constant_value PARAMS ((tree));
 
+extern void java_mark_class_local PARAMS ((tree));
+
 #if defined(RTX_CODE) && defined (HAVE_MACHINE_MODES)
 struct rtx_def * java_expand_expr PARAMS ((tree, rtx, enum machine_mode,
 					   int)); 
