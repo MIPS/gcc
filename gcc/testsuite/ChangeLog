@@ -1,10 +1,25 @@
+2004-03-23  Zack Weinberg  <zack@codesourcery.com>
+ 
+	PR 12267, 12391, 12560, 13129, 14114, 14133
+	* gcc.dg/Wold-style-definition-1.c, gcc.dg/builtins-30.c
+	* gcc.dg/unused-4.c, gcc.dg/noncompile/label-1.c
+	* gcc.dg/noncompile/label-lineno-1.c, objc.dg/naming-1.m:
+	Adjust error regexps.
+	* gcc.dg/Wshadow-2.c, gcc.dg/noncompile/incomplete-3.c
+	* gcc.dg/noncompile/undeclared-1.c: New test cases.
+	* gcc.dg/decl-5.c, gcc.dg/redecl-1.c: Remove XFAIL.
+	* gcc.dg/local1.c: Add explanatory comment.
+ 
 2004-03-18  Mark Mitchell  <mark@codesourcery.com>
  
 	* gcc.dg/local1.c: New test.
 
 	* gcc.dg/debug/dwarf2/c99-typedef1.c: New test.
  
-
+2004-03-09  Zack Weinberg  <zack@codesourcery.com>
+ 
+	* gcc.dg/noncompile/incomplete-2.c: Move dg-error to proper line.
+ 
 2004-03-07  Roger Sayle  <roger@eyesopen.com>
 
 	* gcc.c-torture/execute/20040307-1.c: New test case.

@@ -365,13 +365,6 @@ static int cxx_types_compatible_p (tree x, tree y)
   return same_type_ignoring_top_level_qualifiers_p (x, y);
 }
 
-/* Stub routine to tell people that this doesn't work yet.  */
-void
-c_reset_state (void)
-{
-  sorry ("inter-module optimisations not implemented yet");
-}
-
 /* Construct a C++-aware pretty-printer for CONTEXT.  It is assumed
    that CONTEXT->printer is an already constructed basic pretty_printer.  */
 static void
@@ -385,4 +378,15 @@ cxx_initialize_diagnostics (diagnostic_context *context)
 
   /* It is safe to free this object because it was previously malloc()'d.  */
   free (base);
+}
+
+/* Stubs to keep c-opts.c happy.  */
+void
+push_file_scope (void)
+{
+}
+
+void
+pop_file_scope (void)
+{
 }
