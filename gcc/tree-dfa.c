@@ -139,7 +139,6 @@ static void add_may_alias		PARAMS ((tree, tree, tree, tree));
 static bool call_may_clobber		PARAMS ((tree));
 static void find_vla_decls		PARAMS ((tree));
 static tree find_vla_decls_r		PARAMS ((tree *, int *, void *));
-static void create_global_var		PARAMS ((void));
 
 
 /* Global declarations.  */
@@ -2587,7 +2586,7 @@ find_vla_decls_r (tp, walk_subtrees, data)
    is used as the originating definition of all clobbered SSA variables in
    the program.  */
 
-static void
+void
 create_global_var ()
 {
   global_var = build_decl (VAR_DECL, get_identifier (".GLOBAL_VAR"),

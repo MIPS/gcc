@@ -73,7 +73,7 @@ struct tree_alias_ops *current_alias_ops;
 */
 static varray_type local_alias_vars;
 static varray_type local_alias_varnums;
-
+static tree currptadecl;
 static alias_typevar get_alias_var_decl PARAMS ((tree));
 static alias_typevar get_alias_var PARAMS ((tree));
 static tree find_func_aliases PARAMS ((tree *, int *, void *));
@@ -87,6 +87,22 @@ static void intra_function_call PARAMS ((varray_type));
 static hashval_t annot_hash PARAMS ((const PTR));
 static int annot_eq PARAMS ((const PTR, const PTR));
 static void get_values_from_constructor PARAMS ((tree, varray_type *));
+static bool call_may_clobber PARAMS ((tree));
+static bool
+call_may_clobber (expr)
+     tree expr;
+{
+  tree callee;
+  int flags;
+
+  if (TREE_CODE (expr) != CALL_EXPR)
+    return false;
+
+  callee = get_callee_fndecl (expr);
+  flags = (callee) ? flags_from_decl_or_type (callee) : 0;
+  return (! (flags & (ECF_CONST | ECF_PURE | ECF_NORETURN)));
+}
+
 
 /**
    @brief Alias annotation hash table entry.
@@ -269,11 +285,11 @@ get_alias_var (expr)
       {
 	/* Otherwise, we need a new temporary alias variable for this
 	   expression. */
-	alias_typevar tempvar 
-	  = current_alias_ops->add_var (current_alias_ops,
-					create_tmp_alias_var
-					(void_type_node,
-					 "aliastmp"));
+	tree temp = create_tmp_alias_var (void_type_node, "aliastmp");
+	alias_typevar tempvar;
+	DECL_CONTEXT (temp) = currptadecl;
+	tempvar = current_alias_ops->add_var (current_alias_ops,
+					      temp);	
 	return tempvar;
       }
     }
@@ -306,10 +322,9 @@ intra_function_call (args)
 	  || !TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (av))))
 	{
 	  alias_typevar tempvar;
-	  tempvar = current_alias_ops->add_var (current_alias_ops,
-						create_tmp_alias_var
-						(void_type_node,
-						 "aliastmp"));
+	  tree temp = create_tmp_alias_var (void_type_node, "aliastmp");
+	  DECL_CONTEXT (temp) = currptadecl;
+	  tempvar = current_alias_ops->add_var (current_alias_ops, temp);
 	  /* Arguments can alias globals, and whatever they point to
 	     can point to a global as well. */
 	  current_alias_ops->addr_assign (current_alias_ops, argav, av);
@@ -507,7 +522,7 @@ find_func_aliases (tp, walk_subtrees, data)
 
 		    }
 		  /* NORETURN and CONST functions have no effect on aliasing. */
-		  if (!(call_expr_flags (op1) & (ECF_NORETURN | ECF_CONST)))
+		  if (call_may_clobber (op1))
 		    if (current_alias_ops->function_call (current_alias_ops, lhsAV, 
 							  get_alias_var (callop0),
 							  args))
@@ -588,10 +603,9 @@ find_func_aliases (tp, walk_subtrees, data)
 	    {
 	      /* This becomes temp = &y and *x = temp . */
 	      alias_typevar tempvar;
-	      tempvar = current_alias_ops->add_var (current_alias_ops,
-						    create_tmp_alias_var
-						    (void_type_node,
-						     "aliastmp"));   
+	      tree temp = create_tmp_alias_var (void_type_node, "aliastmp");
+	      DECL_CONTEXT (temp) = currptadecl;
+	      tempvar = current_alias_ops->add_var (current_alias_ops, temp);
 	      current_alias_ops->addr_assign (current_alias_ops, tempvar, 
 					      rhsAV);
 	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV, 
@@ -605,10 +619,10 @@ find_func_aliases (tp, walk_subtrees, data)
 	    {
 	      /* This becomes temp = *y and *x = temp . */
 	      alias_typevar tempvar;
-	      tempvar = current_alias_ops->add_var (current_alias_ops,
-						    create_tmp_alias_var
-						    (void_type_node,
-						     "aliastmp"));   
+	      tree temp;
+	      temp = create_tmp_alias_var (void_type_node, "aliastmp");
+	      DECL_CONTEXT (temp) = currptadecl;
+	      tempvar = current_alias_ops->add_var (current_alias_ops, temp);
 	      current_alias_ops->ptr_assign (current_alias_ops, tempvar, 
 					     rhsAV);
 	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV,
@@ -622,10 +636,10 @@ find_func_aliases (tp, walk_subtrees, data)
 	    {
 	      /* This becomes temp = (cast) y and  *x = temp. */
 	      alias_typevar tempvar;
-	      tempvar = current_alias_ops->add_var (current_alias_ops,
-						    create_tmp_alias_var
-						    (void_type_node,
-						     "aliastmp"));
+	      tree temp;
+	      temp = create_tmp_alias_var (void_type_node, "aliastmp");
+	      DECL_CONTEXT (temp) = currptadecl;
+	      tempvar = current_alias_ops->add_var (current_alias_ops, temp);
 	      
 	      current_alias_ops->simple_assign (current_alias_ops, tempvar, 
 						rhsAV);
@@ -656,7 +670,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	    VARRAY_PUSH_GENERIC_PTR (args, aav);
 	}
       /* NORETURN and CONST functions have no effect on aliasing.  */
-      if (!(call_expr_flags (stp) & (ECF_NORETURN | ECF_CONST)))
+      if (call_may_clobber (stp))
 	if (current_alias_ops->function_call (current_alias_ops, NULL, 
 					      get_alias_var (TREE_OPERAND (stp, 0)),
 					      args))
@@ -746,7 +760,9 @@ create_fun_alias_var (decl, force)
 	   arg = TREE_CHAIN (arg))
 	{
 	  tree fakedecl = create_tmp_alias_var (TREE_VALUE (arg), "normarg");
-	  alias_typevar tvar = get_alias_var (fakedecl);
+	  alias_typevar tvar;
+	  DECL_CONTEXT (fakedecl) = decl;
+	  tvar = get_alias_var (fakedecl);
 	  VARRAY_PUSH_GENERIC_PTR (params, tvar);	  
 	  
 	  /* Incoming pointers can point to global_var, unless 
@@ -770,11 +786,14 @@ create_fun_alias_var (decl, force)
   else
     {
       tree fakedecl = create_tmp_alias_var (void_type_node, "fakearg");
-      alias_typevar fakevar = get_alias_var (fakedecl);
+      alias_typevar fakevar;
+      DECL_CONTEXT (fakedecl) = decl;
+      fakevar = get_alias_var (fakedecl);
       VARRAY_PUSH_GENERIC_PTR (params, fakevar);
     }
 
   rdecl = create_tmp_alias_var (TREE_TYPE (TREE_TYPE (decl)), "_rv_");
+  DECL_CONTEXT (rdecl) = decl;
   retvar = current_alias_ops->add_var (current_alias_ops, rdecl);
   VARRAY_PUSH_GENERIC_PTR (alias_vars, retvar);
   avar = current_alias_ops->add_var (current_alias_ops, decl);
@@ -825,7 +844,9 @@ create_fun_alias_var_ptf (decl, type)
 	   arg = TREE_CHAIN (arg))
 	{
 	  tree fakedecl = create_tmp_alias_var (TREE_VALUE (arg), "ptfarg");
-	  alias_typevar tvar = get_alias_var (fakedecl);
+	  alias_typevar tvar;
+	  DECL_CONTEXT (fakedecl) = decl;
+	  tvar = get_alias_var (fakedecl);
 	  VARRAY_PUSH_GENERIC_PTR (params, tvar);
 	}
     }
@@ -836,11 +857,14 @@ create_fun_alias_var_ptf (decl, type)
   else
     {
       tree fakedecl = create_tmp_alias_var (void_type_node, "fakearg");
-      alias_typevar fakevar = get_alias_var (fakedecl);
+      alias_typevar fakevar;
+      DECL_CONTEXT (fakedecl) = decl;
+      fakevar = get_alias_var (fakedecl);
       VARRAY_PUSH_GENERIC_PTR (params, fakevar);
     }
 
   rdecl = create_tmp_alias_var (TREE_TYPE (type), "_rv_");
+  DECL_CONTEXT (rdecl) = decl;
   retvar = current_alias_ops->add_var (current_alias_ops, rdecl);
   VARRAY_PUSH_GENERIC_PTR (alias_vars, retvar);
   
@@ -924,7 +948,9 @@ create_alias_vars (fndecl)
   tree fnbody;
 #endif
   size_t i;
-  
+  currptadecl = fndecl;
+  if (!global_var)
+    create_global_var ();
   /* If the #if block printing out the points-to sets is #if 0'd out, the
      compiler will complain i is unused. So use it. */
   i = 0;
