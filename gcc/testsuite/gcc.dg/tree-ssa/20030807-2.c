@@ -11,6 +11,16 @@ oof ()
    bitmap_clear (live);
 }
 
+foo(int n)
+{
+  int *space = (int *)__builtin_alloca (n);
+
+  if (space == 0)
+    abort ();
+  else
+    bar (space);
+}
+
                                                                                
 /* There should be no IF conditionals.  */
 /* { dg-final { scan-tree-dump-times "if " 0 "dom2"} } */
