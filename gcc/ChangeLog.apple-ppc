@@ -1,3 +1,10 @@
+2004-04-13  Fariborz Jahanian <fjahanian@apple.com>
+
+	* combine.c (combine_instructions): 
+	Try insn with each REG_EQUAL note it links back to.
+	(unmentioned_reg_p_1, unmentioned_reg_p): New functions.
+	Brought from tree-ssa branch.
+
 2004-04-09  Dale Johannesen <dalej@apple.com>
 
 	Roll in gcc-1552 enhancement for separate stack temps.
