@@ -1,5 +1,9 @@
 2003-07-15  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (optimize_stmt): Consider two types equivalent if
+	their TYPE_MAIN_VARIANT is equivalent.
+	(avail_expr_eq): Likewise.
+ 
 	* Makefile.in (OBJS): Add tree-ssa-dom.o
 	(tree-ssa-dom.o): Add dependencies.
 	(ssa.o, cfghooks.o): Use $(TREE_FLOW_H), not tree-flow.h.

@@ -421,7 +421,10 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 					   block_avail_exprs_p,
 					   const_and_copies);
       opt_stats.num_exprs_considered++;
-      if (cached_lhs && TREE_TYPE (cached_lhs) == TREE_TYPE (*def_p))
+      if (cached_lhs
+	  && (TREE_TYPE (cached_lhs) == TREE_TYPE (*def_p)
+	      || (TYPE_MAIN_VARIANT (TREE_TYPE (cached_lhs))
+		  == TYPE_MAIN_VARIANT (TREE_TYPE (*def_p)))))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -652,7 +655,9 @@ avail_expr_eq (const void *p1, const void *p2)
   /* In case of a collision, both RHS have to be identical and have the
      same VUSE operands.  */
   if (TREE_CODE (rhs1) == TREE_CODE (rhs2)
-      && TREE_TYPE (rhs1) == TREE_TYPE (rhs2)
+      && (TREE_TYPE (rhs1) == TREE_TYPE (rhs2)
+	  || (TYPE_MAIN_VARIANT (TREE_TYPE (rhs1))
+	      == TYPE_MAIN_VARIANT (TREE_TYPE (rhs2))))
       && operand_equal_p (rhs1, rhs2, 0))
     {
       varray_type ops1 = vuse_ops (s1);
