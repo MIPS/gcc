@@ -1,5 +1,8 @@
 2004-06-11  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* java/awt/AWTEvent.java (toString): Handle MenuComponents in
+	addition to Components.
+
 	* java/awt/MenuItem.java (dispatchEventImpl): If the event
 	wasn't consumed by normal processing, send it to the parent
 	menu.
