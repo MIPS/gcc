@@ -579,6 +579,7 @@ extern void kill_redundant_phi_nodes (void);
 extern void rewrite_into_ssa (bool);
 extern void rewrite_ssa_into_ssa (bitmap);
 
+void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);
 
 extern unsigned int highest_ssa_version;

@@ -130,8 +130,8 @@ struct tree_opt_pass pass_loop =
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_ggc_collect,			/* todo_flags_start */
+  TODO_dump_func | TODO_verify_ssa | TODO_ggc_collect	/* todo_flags_finish */
 };
 
 /* Check whether we should duplicate HEADER of LOOP.  At most *LIMIT

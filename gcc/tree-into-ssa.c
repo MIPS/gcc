@@ -66,6 +66,9 @@ struct def_blocks_d
      Ith block contains a definition of VAR.  */
   bitmap def_blocks;
 
+  /* Blocks that contain a phi node for VAR. */
+  bitmap phi_blocks;
+
   /* Blocks where VAR is live-on-entry.  Similar semantics as
      DEF_BLOCKS.  */
   bitmap livein_blocks;
@@ -117,8 +120,7 @@ static void mark_def_sites (struct dom_walk_data *walk_data,
 			    basic_block bb, block_stmt_iterator);
 static void mark_def_sites_initialize_block (struct dom_walk_data *walk_data,
 					     basic_block bb);
-static void compute_global_livein (bitmap, bitmap);
-static void set_def_block (tree, basic_block);
+static void set_def_block (tree, basic_block, bool);
 static void set_livein_block (tree, basic_block);
 static bool prepare_operand_for_rename (tree *op_p, size_t *uid_p);
 static void insert_phi_nodes (bitmap *, bitmap, tree *);
@@ -191,20 +193,18 @@ set_value_for (tree var, tree value, varray_type table)
    to include global livein (i.e., it modifies the underlying bitmap
    for LIVEIN).  */
 
-static void
+void
 compute_global_livein (bitmap livein, bitmap def_blocks)
 {
   basic_block bb, *worklist, *tos;
+  int index;
 
   tos = worklist
-    = (basic_block *) xmalloc (sizeof (basic_block) * (last_basic_block + 1));
+    = (basic_block *) xmalloc (sizeof (basic_block) * (n_basic_blocks + 1));
 
   /* Initialize the worklist.  */
-  FOR_EACH_BB (bb)
-    {
-      if (bitmap_bit_p (livein, bb->index))
-	*tos++ = bb;
-    }
+  EXECUTE_IF_SET_IN_BITMAP (livein, 0, index,
+			    *tos++ = BASIC_BLOCK (index));
 
   /* Iterate until the worklist is empty.  */
   while (tos != worklist)
@@ -272,9 +272,8 @@ ssa_mark_def_sites_initialize_block (struct dom_walk_data *walk_data,
 
       gd->ssa_names[def_uid] = def;
 
-      set_def_block (def, bb);
-      if (is_gimple_reg (def))
-	SET_BIT (kills, def_uid);
+      set_def_block (def, bb, true);
+      SET_BIT (kills, def_uid);
     }
 }
 
@@ -385,7 +384,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
 
 	  if (!TEST_BIT (kills, uid))
 	    set_livein_block (VDEF_OP (vdefs, i), bb);
-	  set_def_block (VDEF_RESULT (vdefs, i), bb);
+	  set_def_block (VDEF_RESULT (vdefs, i), bb, false);
 	}
     }
 
@@ -398,7 +397,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
 
       if (prepare_operand_for_rename (def_p, &uid))
 	{
-	  set_def_block (*def_p, bb);
+	  set_def_block (*def_p, bb, false);
 	  SET_BIT (kills, uid);
 	}
     }
@@ -452,11 +451,6 @@ ssa_mark_def_sites (struct dom_walk_data *walk_data,
 	set_livein_block (use, bb);
     }
 
-  /* Note that virtual definitions are irrelevant for computing KILLS
-     because a VDEF does not constitute a killing definition of the
-     variable.  However, the operand of a virtual definitions is a use
-     of the variable, so it may cause the variable to be considered
-     live-on-entry.  */
   vdefs = VDEF_OPS (ann);
   for (i = 0; i < NUM_VDEFS (vdefs); i++)
     {
@@ -473,7 +467,8 @@ ssa_mark_def_sites (struct dom_walk_data *walk_data,
       if (bitmap_bit_p (gd->names_to_rename, def_uid))
 	{
 	  gd->ssa_names[def_uid] = def;
-	  set_def_block (def, bb);
+	  set_def_block (def, bb, false);
+	  SET_BIT (kills, def_uid);
 	}
     }
 
@@ -488,16 +483,17 @@ ssa_mark_def_sites (struct dom_walk_data *walk_data,
       if (bitmap_bit_p (gd->names_to_rename, def_uid))
 	{
 	  gd->ssa_names[def_uid] = def;
-	  set_def_block (def, bb);
+	  set_def_block (def, bb, false);
 	  SET_BIT (kills, def_uid);
 	}
     }
 }
 
-/* Mark block BB as the definition site for variable VAR.  */
+/* Mark block BB as the definition site for variable VAR.  PHI_P is true if
+   VAR is defined by a phi node.  */
 
 static void
-set_def_block (tree var, basic_block bb)
+set_def_block (tree var, basic_block bb, bool phi_p)
 {
   struct def_blocks_d *db_p;
   enum need_phi_state state = get_phi_state (var);
@@ -506,6 +502,8 @@ set_def_block (tree var, basic_block bb)
 
   /* Set the bit corresponding to the block where VAR is defined.  */
   bitmap_set_bit (db_p->def_blocks, bb->index);
+  if (phi_p)
+    bitmap_set_bit (db_p->phi_blocks, bb->index);
 
   /* Keep track of whether or not we may need to insert phi nodes.
 
@@ -1015,6 +1013,10 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
 	});
     }
 
+  /* Remove the blocks where we already have the phis.  */
+  bitmap_operation (phi_insertion_points, phi_insertion_points,
+		    def_map->phi_blocks, BITMAP_AND_COMPL);
+
   /* Now compute global livein for this variable.  Note this modifies
      def_map->livein_blocks.  */
   compute_global_livein (def_map->livein_blocks, def_map->def_blocks);
@@ -1025,17 +1027,6 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
     do
       {
 	bb = BASIC_BLOCK (bb_index);
-
-	/* If there already is a phi node for var, do nothing.  */
-	if (TREE_CODE (var) == SSA_NAME)
-	  {
-	    for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	      if (PHI_RESULT (phi) == var)
-		break;
-
-	    if (phi)
-	      break;
-	  }
 
 	phi = create_phi_node (var, bb);
 
@@ -1048,7 +1039,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
       }
     while (0));
 
-  BITMAP_FREE (phi_insertion_points);
+  BITMAP_XFREE (phi_insertion_points);
 }
 
 /* SSA Rewriting Step 2.  Rewrite every variable used in each statement in
@@ -1321,8 +1312,9 @@ static void
 def_blocks_free (void *p)
 {
   struct def_blocks_d *entry = p;
-  BITMAP_FREE (entry->def_blocks);
-  BITMAP_FREE (entry->livein_blocks);
+  BITMAP_XFREE (entry->def_blocks);
+  BITMAP_XFREE (entry->phi_blocks);
+  BITMAP_XFREE (entry->livein_blocks);
   free (entry);
 }
 
@@ -1388,6 +1380,7 @@ get_def_blocks_for (tree var)
       db_p = xmalloc (sizeof (*db_p));
       db_p->var = var;
       db_p->def_blocks = BITMAP_XMALLOC ();
+      db_p->phi_blocks = BITMAP_XMALLOC ();
       db_p->livein_blocks = BITMAP_XMALLOC ();
       *slot = (void *) db_p;
     }

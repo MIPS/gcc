@@ -715,163 +715,196 @@ add_exit_phis_edge (basic_block exit, tree use)
   edge e;
 
   phi = create_phi_node (use, exit);
+
   for (e = exit->pred; e; e = e->pred_next)
     add_phi_arg (&phi, use, e);
 
   SSA_NAME_DEF_STMT (use) = def_stmt;
 }
 
-/* Add exit phis for the USE in BB.  Mark the ssa names in NAMES_TO_RENAME.
-   Exits of the loops are stored in EXITS array of length N_EXITS.  */
+/* Sets basic blocks in that the use of VAR in STMT occurs
+   in USE_BLOCKS.  STMT may be a phi node, so this does not
+   have to be bb_for_stmt (stmt) and we may indeed set several
+   blocks.  */
 
 static void
-add_exit_phis_use (basic_block bb, tree use, bitmap names_to_rename,
-		   unsigned n_exits, basic_block *exits)
+find_use_block (tree stmt, tree var, bitmap use_blocks)
 {
-  tree def;
-  basic_block def_bb;
-  unsigned i;
-  edge e;
-  struct loop *src_loop;
-  
-  if (TREE_CODE (use) != SSA_NAME)
-    return;
+  unsigned i, index;
+  stmt_ann_t ann;
 
-  def = SSA_NAME_DEF_STMT (use);
-  def_bb = bb_for_stmt (def);
-  if (!def_bb
-      || flow_bb_inside_loop_p (def_bb->loop_father, bb))
-    return;
-
-  if (bitmap_bit_p (names_to_rename, SSA_NAME_VERSION (use)))
-    return;
-  bitmap_set_bit (names_to_rename, SSA_NAME_VERSION (use));
-
-  for (i = 0; i < n_exits; i++)
+  if (TREE_CODE (stmt) == PHI_NODE)
     {
-      /* The definition of the ssa name must dominate all exits through that it
-	 reaches some use outside of the loop.  So do not add the phi unless
-	 the destination is dominated by the definition.  */
-      if (exits[i] == def_bb
-	  || !dominated_by_p (CDI_DOMINATORS, exits[i], def_bb))
-	continue;
+      for (i = 0; i < (unsigned) PHI_NUM_ARGS (stmt); i++)
+	if (PHI_ARG_DEF (stmt, i) == var)
+	  bitmap_set_bit (use_blocks, PHI_ARG_EDGE (stmt, i)->src->index);
+    }
+  else
+    {
+      get_stmt_operands (stmt);
+      ann = stmt_ann (stmt);
+      index = bb_for_stmt (stmt)->index;
 
-      /* We must add phi nodes for all loop exits of the superloops of
-	 def_bb->loop_father.  */
-      for (e = exits[i]->pred; e; e = e->pred_next)
+      if (is_gimple_reg (var))
 	{
-	  src_loop = find_common_loop (e->src->loop_father,
-				       def_bb->loop_father);
+	  use_optype uses = USE_OPS (ann);
 
-	  if (!flow_bb_inside_loop_p (src_loop, e->dest))
-	    break;
+	  for (i = 0; i < NUM_USES (uses); i++)
+	    if (USE_OP (uses, i) == var)
+	      {
+		bitmap_set_bit (use_blocks, index);
+		return;
+	      }
 	}
+      else
+	{
+	  vuse_optype vuses = VUSE_OPS (ann);
+	  vdef_optype vdefs = VDEF_OPS (ann);
 
-      if (!e)
-	continue;
-
-      add_exit_phis_edge (exits[i], use);
+	  for (i = 0; i < NUM_VUSES (vuses); i++)
+	    if (VUSE_OP (vuses, i) == var)
+	      {
+		bitmap_set_bit (use_blocks, index);
+		return;
+	      }
+	  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+	    if (VDEF_OP (vdefs, i) == var)
+	      {
+		bitmap_set_bit (use_blocks, index);
+		return;
+	      }
+	}
     }
 }
 
-/* Add exit phis for the names used in STMT in BB.  Mark the ssa names in
-   NAMES_TO_RENAME.  Exits of the loops are stored in EXITS array of length
-   N_EXITS.  */
+/* Finds a set of blocks in that VAR is used.  */
+
+static bitmap
+find_use_blocks (tree var)
+{
+  dataflow_t df = get_immediate_uses (SSA_NAME_DEF_STMT (var));
+  unsigned n = num_immediate_uses (df), i;
+  bitmap use_blocks = BITMAP_XMALLOC ();
+
+  for (i = 0; i < n; i++)
+    find_use_block (immediate_use (df, i), var, use_blocks);
+
+  return use_blocks;
+}
+
+/* Add exit phis for VAR.  Mark the ssa names in NAMES_TO_RENAME.
+   Exits of the loops are stored in EXITS.  */
 
 static void
-add_exit_phis_stmt (basic_block bb, tree stmt, bitmap names_to_rename,
-		    unsigned n_exits, basic_block *exits)
+add_exit_phis_var (tree var, bitmap names_to_rename, bitmap exits)
 {
-  use_optype uses;
-  vuse_optype vuses;
-  vdef_optype vdefs;
-  stmt_ann_t ann;
-  unsigned i;
+  bitmap def;
+  bitmap livein = find_use_blocks (var);
+  int index;
+  basic_block def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (var));
 
-  get_stmt_operands (stmt);
-  ann = stmt_ann (stmt);
+  bitmap_clear_bit (livein, def_bb->index);
 
-  uses = USE_OPS (ann);
-  for (i = 0; i < NUM_USES (uses); i++)
-    add_exit_phis_use (bb, USE_OP (uses, i), names_to_rename,
-		       n_exits, exits);
+  EXECUTE_IF_SET_IN_BITMAP (livein, 0, index,
+    {
+      if (!flow_bb_inside_loop_p (def_bb->loop_father,
+				  BASIC_BLOCK (index)))
+	goto add_phis;
+    });
 
-  vuses = VUSE_OPS (ann);
-  for (i = 0; i < NUM_VUSES (vuses); i++)
-    add_exit_phis_use (bb, VUSE_OP (vuses, i), names_to_rename,
-		       n_exits, exits);
+  BITMAP_XFREE (livein);
+  return;
 
-  vdefs = VDEF_OPS (ann);
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
-    add_exit_phis_use (bb, VDEF_OP (vdefs, i), names_to_rename,
-		       n_exits, exits);
+add_phis:
+  def = BITMAP_XMALLOC ();
+  bitmap_set_bit (def, def_bb->index);
+  compute_global_livein (livein, def);
+  BITMAP_XFREE (def);
+
+  EXECUTE_IF_AND_IN_BITMAP (exits, livein, 0, index,
+			    add_exit_phis_edge (BASIC_BLOCK (index), var));
+  BITMAP_XFREE (livein);
+
+  bitmap_set_bit (names_to_rename, SSA_NAME_VERSION (var));
 }
 
 /* Add exit phis for the names used outside of the loop they are
    defined in.  Mark the ssa names in NAMES_TO_RENAME.  Exits of
-   the loops are stored in EXITS array of length N_EXITS.  */
+   the loops are stored in EXITS.  */
 
 static void
-add_exit_phis (bitmap names_to_rename, unsigned n_exits, basic_block *exits)
+add_exit_phis (bitmap names_to_rename, bitmap exits)
 {
   basic_block bb;
   block_stmt_iterator bsi;
-  tree phi;
+  tree phi, stmt, var;
+  stmt_ann_t ann;
   unsigned i;
 
   FOR_EACH_BB (bb)
     {
+      if (!bb->loop_father->outer)
+	continue;
+
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
-	  add_exit_phis_use (PHI_ARG_EDGE (phi, i)->src,
-			     PHI_ARG_DEF (phi, i),
-			     names_to_rename,
-			     n_exits, exits);
+	{
+	  var = PHI_RESULT (phi);
+	  if (!bitmap_bit_p (names_to_rename, SSA_NAME_VERSION (var)))
+	    add_exit_phis_var (var, names_to_rename, exits);
+	}
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	add_exit_phis_stmt (bb, bsi_stmt (bsi), names_to_rename,
-			    n_exits, exits);
+	{
+	  def_optype defs;
+	  vdef_optype vdefs;
+
+	  stmt = bsi_stmt (bsi);
+	  get_stmt_operands (stmt);
+	  ann = stmt_ann (stmt);
+
+	  vdefs = VDEF_OPS (ann);
+	  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+	    add_exit_phis_var (VDEF_RESULT (vdefs, i), names_to_rename, exits);
+
+	  defs = DEF_OPS (ann);
+	  for (i = 0; i < NUM_DEFS (defs); i++)
+	    add_exit_phis_var (DEF_OP (defs, i), names_to_rename, exits);
+	}
     }
 }
 
-/* Stores all loop exit edge targets to EXITS and their number to N_EXITS.  */
+/* Returns a bitmap of all loop exit edge targets.  */
 
-static void
-get_loops_exits (unsigned *n_exits, basic_block **exits)
+static bitmap
+get_loops_exits (void)
 {
+  bitmap exits = BITMAP_XMALLOC ();
   basic_block bb;
   edge e;
 
-  *n_exits = 0;
   FOR_EACH_BB (bb)
     {
       for (e = bb->pred; e; e = e->pred_next)
 	if (e->src != ENTRY_BLOCK_PTR
 	    && !flow_bb_inside_loop_p (e->src->loop_father, bb))
 	  {
-	    (*n_exits)++;
+	    bitmap_set_bit (exits, bb->index);
 	    break;
 	  }
     }
 
-  if (!*n_exits)
-    {
-      *exits = NULL;
-      return;
-    }
+  return exits;
+}
 
-  *exits = xmalloc ((*n_exits) * sizeof (basic_block));
-  *n_exits = 0;
-  FOR_EACH_BB (bb)
-    {
-      for (e = bb->pred; e; e = e->pred_next)
-	if (e->src != ENTRY_BLOCK_PTR
-	    && !flow_bb_inside_loop_p (e->src->loop_father, bb))
-	  {
-	    (*exits)[(*n_exits)++] = bb;
-	    break;
-	  }
-    }
+/* Checks whether VAR is defined inside some loop.  */
+
+static bool
+defined_inside_loop_p (tree var)
+{
+  tree stmt = SSA_NAME_DEF_STMT (var);
+  basic_block bb = bb_for_stmt (stmt);
+
+  return bb && bb->loop_father->outer != NULL;
 }
 
 /* Rewrites the program into a loop closed ssa form -- i.e. inserts extra
@@ -904,23 +937,20 @@ void
 rewrite_into_loop_closed_ssa (void)
 {
   bitmap names_to_rename = BITMAP_XMALLOC ();
-  unsigned n_loop_exits;
-  basic_block *loop_exits;
+  bitmap loop_exits = get_loops_exits ();
 
-  get_loops_exits (&n_loop_exits, &loop_exits);
+  tree_ssa_dce_no_cfg_changes ();
 
   /* Add the phi nodes on exits of the loops for the names we need to
      rewrite.  Also mark the new names to rewrite.  */
-  add_exit_phis (names_to_rename, n_loop_exits, loop_exits);
+  compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, defined_inside_loop_p);
+  add_exit_phis (names_to_rename, loop_exits);
+  free_df ();
 
   /* Do the rewriting.  */
   rewrite_ssa_into_ssa (names_to_rename);
   BITMAP_XFREE (names_to_rename);
-
-  free (loop_exits);
-
-  /* Prune the useless phi nodes.  */
-  tree_ssa_dce_no_cfg_changes ();
+  BITMAP_XFREE (loop_exits);
 }
 
 /* Check invariants of the loop closed ssa form for the USE in BB.  */

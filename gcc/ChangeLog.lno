@@ -1,3 +1,25 @@
+2004-04-15  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-flow.h (compute_global_livein): Declare.
+	* tree-into-ssa.c (struct def_blocks_d): New field
+	phi_blocks.
+	(compute_global_livein): Export.
+	(set_def_block): Record phi_blocks.
+	(get_def_blocks_for): Allocate phi_blocks.
+	(mark_def_sites): Changed due to set_def_block change.
+	(ssa_mark_def_sites_initialize_block, ssa_mark_def_sites):
+	Make virtual defs be kills.
+	(insert_phi_nodes_for): Handle old phi nodes more efficiently.
+	(def_blocks_free): XFREE the bitmaps.
+	* tree-ssa-loop-manip.c (add_exit_phis_use, add_exit_phis_stmt):
+	Removed.
+	(get_loops_exits): Return bitmap.
+	(add_exit_phis_var, find_use_block, find_use_blocks,
+	defined_inside_loop_p): New functions.
+	(add_exit_phis): Use add_exit_phis_var.
+	(rewrite_into_loop_closed_ssa): Reorganize.
+	* tree-ssa-loop.c (pass_loop): Add garbage collection.
+
 2004-04-14  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-chrec.c (chrec_convert): Handle extending correctly.
