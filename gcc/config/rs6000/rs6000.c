@@ -13460,10 +13460,14 @@ rs6000_emit_vector_select (rtx dest, rtx op1, rtx op2, rtx mask)
 
   temp = gen_reg_rtx (dest_mode);
 
+  /* APPLE LOCAL begin AV */
+  /* Fix op1 and op2 order.  */
   t = gen_rtx_fmt_ee (SET, VOIDmode, temp,
 		      gen_rtx_fmt_Ei (UNSPEC, dest_mode,
-				      gen_rtvec (3, op1, op2, mask),
+				      gen_rtvec (3, op2, op1, mask),
 				      vsel_insn_index));
+  /* APPLE LOCAL end AV */
+
   emit_insn (t);
   emit_move_insn (dest, temp);
   return;

@@ -1,3 +1,13 @@
+2004-12-10 Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/vect/vect-ifcvt-2.c: Update.
+	* gcc.dg/vect/vect-ifcvt-3.c: Update.
+	* gcc.dg/vect/vect-ifcvt-4.c: Update.
+	* gcc.dg/vect/vect-ifcvt-5.c: Update.
+	* gcc.dg/vect/vect-ifcvt-6.c: Update.
+	* gcc.dg/vect/vect-ifcvt-7.c: Update.
+	* gcc.dg/vect/vect-ifcvt-8.c: New.
+	
 2004-12-10  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3640156, 3877958

@@ -1,3 +1,20 @@
+2004-12-10 Devang Patel  <dpatel@apple.com>
+	
+	Radar 3572046 (related)
+	* tree-ssa-forwprop.c (cast_conversion_assignment_p): New.
+	(replace_use_in_cond_expr): New.
+	(all_uses_are_replacable): New.
+	(eliminate_unnecessary_casts): New.
+	(tree_ssa_forward_propagate_single_use_var): Eliminate unnecessary
+	casts.
+
+2004-12-10 Devang Patel  <dpatel@apple.com>
+
+	Radar 3572046 (last patch)
+	* config/rs6000/rs6000.c (rs6000_emit_vector_select): Adjust
+	vector select insn parameters.
+
+
 2004-12-10  Devang Patel  <dpatel@apple.com>
 
 	Radar 3893659
