@@ -659,35 +659,34 @@ connect_traces (n_traces, traces)
 	  connected[t] = true;
 
 	  /* Find the predecessor traces.  */
-	  if (t)
-	    for (t2 = t; t2 >= 0;)
-	      {
-		best = NULL;
-		for (e = traces[t2].first->pred; e; e = e->pred_next)
-		  {
-		    if (e->src != ENTRY_BLOCK_PTR
-			&& (e->flags & EDGE_CAN_FALLTHRU)
-			&& !(e->flags & EDGE_COMPLEX)
-			&& e->src->index < original_last_basic_block
-			&& end_of_trace[e->src->index] >= 0
-			&& !connected[end_of_trace[e->src->index]]
-			&& (!best || e->probability > best->probability))
-		      best = e;
-		  }
-		if (best)
-		  {
-		    RBI (best->src)->next = best->dest;
-		    t2 = end_of_trace[best->src->index];
-		    connected[t2] = true;
-		    if (rtl_dump_file)
-		      {
-			fprintf (rtl_dump_file, "Connection: %d %d\n",
-				 best->src->index, best->dest->index);
-		      }
-		  }
-		else
-		  break;
-	      }
+	  for (t2 = t; t2 > 0;)
+	    {
+	      best = NULL;
+	      for (e = traces[t2].first->pred; e; e = e->pred_next)
+		{
+		  if (e->src != ENTRY_BLOCK_PTR
+		      && (e->flags & EDGE_CAN_FALLTHRU)
+		      && !(e->flags & EDGE_COMPLEX)
+		      && e->src->index < original_last_basic_block
+		      && end_of_trace[e->src->index] >= 0
+		      && !connected[end_of_trace[e->src->index]]
+		      && (!best || e->probability > best->probability))
+		    best = e;
+		}
+	      if (best)
+		{
+		  RBI (best->src)->next = best->dest;
+		  t2 = end_of_trace[best->src->index];
+		  connected[t2] = true;
+		  if (rtl_dump_file)
+		    {
+		      fprintf (rtl_dump_file, "Connection: %d %d\n",
+			       best->src->index, best->dest->index);
+		    }
+		}
+	      else
+		break;
+	    }
 
 	  if (last_trace >= 0)
 	    RBI (traces[last_trace].last)->next = traces[t2].first;
