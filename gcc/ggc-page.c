@@ -346,9 +346,9 @@ static struct globals
    one) before collection is performed.  */
 #define GGC_MIN_EXPAND_FOR_GC (1.3)
 
-/* Bound `allocated_last_gc' to 4MB, to prevent the memory expansion
+/* Bound `allocated_last_gc' to 16MB, to prevent the memory expansion
    test from triggering too often when the heap is small.  */
-#define GGC_MIN_LAST_ALLOCATED (4 * 1024 * 1024)
+#define GGC_MIN_LAST_ALLOCATED (16 * 1024 * 1024)
 
 /* Allocate pages in chunks of this size, to throttle calls to memory
    allocation routines.  The first page is used, the rest go onto the
