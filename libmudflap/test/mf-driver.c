@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* this is a simplistic test driver for memory fault detection using
    mudflap. you include this file in your mudflapped test case and define a

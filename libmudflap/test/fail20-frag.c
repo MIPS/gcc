@@ -1,2 +1,2 @@
-char *p = (void *) 0;
+char *p = (char *) 0;
 *p = 5;

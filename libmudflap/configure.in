@@ -14,6 +14,7 @@ AC_SUBST(libtool_VERSION)
 dnl AM_ENABLE_MULTILIB
 AM_MAINTAINER_MODE
 AC_EXEEXT
+AC_PROG_CXX
 
 target_alias=${target_alias-$target}
 AC_SUBST(target_alias)

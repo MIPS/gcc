@@ -7,7 +7,7 @@
 AUTOMAKE_OPTIONS = 1.3 cygnus
 MAINT_CHARSET = latin1
 
-TESTS_ENVIRONMENT = LD_LIBRARY_PATH='.libs:../../gcc' MUDFLAP_OPTIONS='-mode-check -viol-abort -no-heur-proc-map'
+TESTS_ENVIRONMENT = LD_LIBRARY_PATH='.libs:../../gcc:../libstdc++-v3/src/.libs' MUDFLAP_OPTIONS='-mode-check -viol-abort -no-heur-proc-map'
 
 TESTS = test/fail1.x test/fail2.x test/fail3.x test/fail4.x test/fail5.x \
  test/fail6.x test/fail7.x test/fail8.x test/fail9.x test/fail10.x \
@@ -19,10 +19,18 @@ TESTS = test/fail1.x test/fail2.x test/fail3.x test/fail4.x test/fail5.x \
  test/pass11.x test/pass12.x test/pass13.x test/pass14.x test/pass15.x \
  test/pass16.x test/pass17.x test/pass18.x test/pass19.x test/pass20.x \
  test/pass21.x test/pass22.x test/pass23.x test/pass24.x test/pass25.x \
- test/pass26.x \
+ test/pass26.x test/pass27.xx test/pass28.xx \
  test/pass-stratcliff.x
 
 test/%.c: test/%-frag.c test/mf-driver.c
+	@mkdir -p test
+	@echo '#include "'$(srcdir)/test/mf-driver.c'"' > $@
+	@echo 'void test() {' >> $@
+	@echo '#include "'$<'"' >> $@
+	@echo '}' >> $@
+	@echo created $@
+
+test/%.cxx: test/%-frag.cxx test/mf-driver.c
 	@mkdir -p test
 	@echo '#include "'$(srcdir)/test/mf-driver.c'"' > $@
 	@echo 'void test() {' >> $@
@@ -34,9 +42,8 @@ clean-local:
 	rm -f $(TESTS)
 
 # Various possibilities
-TESTFLAGS=-rdynamic
-#TESTFLAGS=-static
-#TESTFLAGS=-fdisable-simple
+#TESTFLAGS=-rdynamic
+TESTFLAGS=-static -O2
 #TESTFLAGS=-O3
 
 test/fail%.x: test/fail%.c
@@ -44,6 +51,12 @@ test/fail%.x: test/fail%.c
 
 test/pass%.x: test/pass%.c
 	$(CC) -DSHOULD_PASS -fmudflap $(TESTFLAGS) -g -o $@ $<
+
+test/fail%.xx: test/fail%.cxx
+	$(CXX) -DSHOULD_FAIL -fmudflap $(TESTFLAGS) -g -o $@ $<
+
+test/pass%.xx: test/pass%.cxx
+	$(CXX) -DSHOULD_PASS -fmudflap $(TESTFLAGS) -g -o $@ $<
 
 $(TESTS): clean-tests $(lib_LTLIBRARIES)
 

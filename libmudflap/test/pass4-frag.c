@@ -1,2 +1,2 @@
-char foo [10];
-strcpy(foo, "123456789");
+char foo[10];
+strcpy (foo, "123456789");

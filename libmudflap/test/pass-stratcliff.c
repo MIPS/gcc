@@ -19,6 +19,7 @@
    02111-1307 USA.  */
 
 #define _GNU_SOURCE 1
+#define __USE_GNU
 
 /* Make sure we don't test the optimized inline functions if we want to
    test the real implementation.  */
@@ -160,7 +161,7 @@ main (int argc, char *argv[])
 	      char *cp;
 	      adr[middle] = 'V';
 
-	      cp = rawmemchr (&adr[outer], 'V');
+	      cp = (char *) rawmemchr (&adr[outer], 'V');
 
 	      if (cp - &adr[outer] != middle - outer)
 		{
@@ -252,8 +253,6 @@ main (int argc, char *argv[])
         {
           for (inner = MAX (outer, size - 64); inner < size; ++inner)
 	    {
-              extern char *stpcpy(char *dest, const char *src);
-
 	      adr[inner] = '\0';
 
 	      if ((stpcpy (dest, &adr[outer]) - dest) != inner - outer)
@@ -276,8 +275,6 @@ main (int argc, char *argv[])
 
 	      for (inner = 0; inner < size - outer; ++ inner)
 		{
-                  extern char *stpncpy(char *dest, const char *src, size_t n);
-
 		  if ((stpncpy (dest, &adr[outer], inner) - dest)
 		      != MIN (inner, middle - outer))
 		    {

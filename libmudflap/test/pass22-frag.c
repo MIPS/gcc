@@ -8,7 +8,7 @@ struct foo {
 
 #define offsetof(TYPE, MEMBER)	((size_t) &((TYPE *) 0)->MEMBER)
 
-struct foo* f = (void *) malloc (offsetof (struct foo, nothing));
+struct foo* f = (struct foo *) malloc (offsetof (struct foo, nothing));
 f->base = 1;
 f->flag1 = 1;
 free (f);

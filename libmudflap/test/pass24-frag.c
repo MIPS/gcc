@@ -4,8 +4,8 @@ struct foo {
   float baz;
 };
 
-#define offsetof(S,F) (& (((S *) 0)->F))
+#define offsetof(S,F) ((size_t) & (((S *) 0)->F))
 
-struct foo *k = (void *) malloc (offsetof (struct foo, bar[4]));
+struct foo *k = (struct foo *) malloc (offsetof (struct foo, bar[4]));
 k->bar[1] = 9;
 free (k);

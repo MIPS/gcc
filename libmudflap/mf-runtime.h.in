@@ -59,6 +59,10 @@ extern unsigned char __mf_lc_shift;
 
 /* The public mudflap API */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location);
 extern void __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name);
 extern void __mf_unregister (uintptr_t ptr, uintptr_t sz);
@@ -66,3 +70,7 @@ extern unsigned __mf_watch (uintptr_t ptr, uintptr_t sz);
 extern unsigned __mf_unwatch (uintptr_t ptr, uintptr_t sz);
 extern void __mf_report ();
 extern int __mf_set_options (const char *opts);
+
+#ifdef __cplusplus
+}
+#endif

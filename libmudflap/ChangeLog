@@ -1,3 +1,15 @@
+2003-01-22  Frank Ch. Eigler  <fche@redhat.com>
+
+	* configure.in: Look for C++ compiler.
+	* test/*-frag.c, mf-driver.c: Reformatted with GNU indent and
+	fixed type warnings when built with C++.
+	* test/pass27-frag.cxx, pass28-frag.cxx: New C++ tests.
+	* Makefile.am (TESTS): Run them.
+	(*) Add new rules for building and running C++ tests.
+	(TESTFLAGS): Set new default to avoid libstdc++-v3 shlib issues.
+	* mf-runtime.h.in: Protect with extern "C".
+	* Makefile, configure: Regenerated.
+
 2003-01-06  Frank Ch. Eigler  <fche@redhat.com>
 
 	Portability improvements.

@@ -1,5 +1,5 @@
 int i = 10;
-char *x = (void *)malloc(i * sizeof (char));
+char *x = (char *) malloc (i * sizeof (char));
 
 while (i--)
 {
