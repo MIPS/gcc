@@ -93,5 +93,6 @@ void add_vuse (tree, tree);
 extern void get_stmt_operands (tree);
 extern void remove_vuses (tree);
 extern void remove_vdefs (tree);
+extern void copy_virtual_operands (tree, tree);
 
 #endif  /* GCC_TREE_SSA_OPERANDS_H  */

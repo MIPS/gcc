@@ -1,3 +1,29 @@
+2004-01-22  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-manip.c: New file.
+	* Makefile.in (tree-ssa-loop-manip.o): Add.
+	* basic-block.h (struct reorder_block_def): New field copy_number.
+	* cfghooks.c (split_block, make_forwarder_block): Update irreducible
+	loop information.
+	* cfgloopmanip.c (duplicate_loop_to_header_edge): Set copy_number.
+	* tree-cfg.c (tree_duplicate_bb): Duplicate also virtual operands.
+	* tree-flow.h (enum tree_ann_type): Add MISC_ANN.
+	(struct misc_ann_d): New.
+	(union tree_ann_d): Add misc field.
+	(test_unrolling_and_peeling, tree_duplicate_loop_to_header_edge):
+	Declare.
+	* tree-ssa-loop.c (tree_ssa_loop_opt): Call
+	test_unrolling_and_peeling.
+	* tree-ssa-operands.c (copy_virtual_operands): New.
+	* tree-ssa-operands.h (copy_virtual_operands): Declare.
+
+	* dominance.c: Fix comment.
+
+	* cfgloopanal.c (mark_irreducible_loops): Rewriten.
+	(struct edge, struct vertex, struct graph): New.
+	(dump_graph, new_graph, add_edge, dfs, check_irred, for_each_edge,
+	free_graph): New functions.
+
 2004-01-21  Sebastian Pop  <s.pop@laposte.net>
 
 	* tree-scalar-evolution.c (pass_scev): Don't use a name.

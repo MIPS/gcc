@@ -40,7 +40,7 @@ typedef struct basic_block_def *basic_block;
 /*---------------------------------------------------------------------------
 		   Tree annotations stored in tree_common.ann
 ---------------------------------------------------------------------------*/
-enum tree_ann_type { TREE_ANN_COMMON, VAR_ANN, STMT_ANN };
+enum tree_ann_type { TREE_ANN_COMMON, VAR_ANN, STMT_ANN, MISC_ANN };
 
 struct tree_ann_common_d GTY(())
 {
@@ -193,6 +193,12 @@ struct dataflow_d GTY(())
 
 typedef struct dataflow_d *dataflow_t;
 
+struct misc_ann_d GTY(())
+{
+  struct tree_ann_common_d common;
+
+  PTR GTY ((skip (""))) data; 
+};
 
 struct stmt_ann_d GTY(())
 {
@@ -247,6 +253,7 @@ union tree_ann_d GTY((desc ("ann_type ((tree_ann)&%h)")))
   struct tree_ann_common_d GTY((tag ("TREE_ANN_COMMON"))) common;
   struct var_ann_d GTY((tag ("VAR_ANN"))) decl;
   struct stmt_ann_d GTY((tag ("STMT_ANN"))) stmt;
+  struct misc_ann_d GTY((tag ("MISC_ANN"))) misc;
 };
 
 typedef union tree_ann_d *tree_ann;
@@ -534,6 +541,11 @@ extern void propagate_copy (tree *, tree);
 
 /* In tree-ssa-loop*.c  */
 void tree_ssa_lim (struct loops *loops);
+void test_unrolling_and_peeling (struct loops *loops);
+bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
+					 unsigned int, sbitmap,
+					 edge, edge *,
+					 unsigned int *, int);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);
