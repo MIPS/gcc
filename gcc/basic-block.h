@@ -484,7 +484,9 @@ struct loops
      will find the inner loops before their enclosing outer loops).  */
   struct loop *array;
 
-  /* In new loop.c, we store only pointers here.  */
+  /* The above array is unused in new loop infrastructure and is kept only for
+     purposes of the old loop optimizer.  Instead we store just pointers to
+     loops here.  */
   struct loop **parray;
 
   /* Pointer to root of loop heirachy tree.  */

@@ -284,8 +284,7 @@ flow_loop_exit_edges_find (loop)
 
   /* Check all nodes within the loop to see if there are any
      successors not in the loop.  Note that a node may have multiple
-     exiting edges ?????  A node can have one jumping edge and one fallthru
-     edge so only one of these can exit the loop.  */
+     exiting edges.  */
   num_exits = 0;
   bbs = get_loop_body (loop);
   for (i = 0; i < loop->num_nodes; i++)
@@ -692,35 +691,17 @@ canonicalize_loop_headers ()
 
   if (HEADER_BLOCK (ENTRY_BLOCK_PTR->succ->dest))
     {
-      rtx insn;
-      edge fallthru, next_e;
       basic_block bb;
+
       /* We could not redirect edges freely here. On the other hand,
 	 we know that no abnormal edge enters this block, so we can simply
-	 split it into two...  */
-      bb = ENTRY_BLOCK_PTR->succ->dest;
-      insn = PREV_INSN (first_insn_after_basic_block_note (bb));
-      fallthru = split_block (bb, insn);
+	 split the edge from entry block.  */
+      bb = split_edge (ENTRY_BLOCK_PTR->succ);
  
-      /* And redirect all edges to second part.  */
-      for (e = fallthru->src->pred; e; e = next_e)
-	{
-	  next_e = e->pred_next;
-	  if (e->src == ENTRY_BLOCK_PTR)
-	    continue;
-	  fallthru->src->frequency -= EDGE_FREQUENCY (e);
-	  fallthru->src->count -= e->count;
-	  if (fallthru->src->frequency < 0)
-	    fallthru->src->frequency = 0;
-	  if (fallthru->src->count < 0)
-	    fallthru->src->count = 1;
-	  redirect_edge_with_latch_update (e, fallthru->dest);
-	}
-      alloc_aux_for_edge (fallthru, sizeof (int));
-      LATCH_EDGE (fallthru) = 0;
-      alloc_aux_for_block (fallthru->dest, sizeof (int));
-      HEADER_BLOCK (fallthru->dest) = HEADER_BLOCK (fallthru->src);
-      HEADER_BLOCK (fallthru->src) = 0;
+      alloc_aux_for_edge (bb->succ, sizeof (int));
+      LATCH_EDGE (bb->succ) = 0;
+      alloc_aux_for_block (bb, sizeof (int));
+      HEADER_BLOCK (bb) = 0;
     }
 
   for (b = 0; b < n_basic_blocks; )
@@ -1000,7 +981,10 @@ flow_bb_inside_loop_p (loop, bb)
      const basic_block bb;
 {
   struct loop *source_loop;
-  if (bb == ENTRY_BLOCK_PTR || bb == EXIT_BLOCK_PTR) return 0;
+
+  if (bb == ENTRY_BLOCK_PTR || bb == EXIT_BLOCK_PTR)
+    return 0;
+
   source_loop = bb->loop_father;
   return loop == source_loop || flow_loop_nested_p (loop, source_loop);
 }
@@ -1149,7 +1133,8 @@ find_common_loop (loop_s, loop_d)
      -- loop header have just single entry edge and single latch edge
      -- loop latches have only single successor that is header of their loop
      -- sanity of frequencies  */
-void verify_loop_structure (loops, flags)
+void
+verify_loop_structure (loops, flags)
      struct loops *loops;
      int flags;
 {
@@ -1307,7 +1292,9 @@ loop_latch_edge (loop)
 {
   edge e;
 
-  for (e = loop->header->pred; e->src != loop->latch; e = e->pred_next);
+  for (e = loop->header->pred; e->src != loop->latch; e = e->pred_next)
+    continue;
+
   return e;
 }
 
@@ -1317,7 +1304,9 @@ loop_preheader_edge (loop)
 {
   edge e;
 
-  for (e = loop->header->pred; e->src == loop->latch; e = e->pred_next);
+  for (e = loop->header->pred; e->src == loop->latch; e = e->pred_next)
+    continue;
+
   return e;
 }
 
