@@ -1,5 +1,135 @@
+2002-12-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* error.c (dump_expr): Fix format specifier warning.
+
+2002-12-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* class.c (finish_struct_1): Correct comment.
+	* cp-tree.c (DECL_SORTED_FIELDS): Likewise.
+
+2002-12-04  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR C++/8799
+	* error.c (dump_expr): Don't ever try to dump a non-existent
+	expression. 
+
+2002-12-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/8674
+	* call.c (build_over_call): Check specifically for TARGET_EXPR
+	when eliding.
+
+	PR c++/8461, c++/8625
+	* call.c (convert_for_arg_passing): Don't mess with error_mark_node.
+	(cp_convert_parm_for_inlining): Remove.
+	* cp-lang.c (LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING): 
+	Remove.
+	* cp-tree.h (ADDR_IS_INVISIREF): Remove.
+	* except.c (stabilize_throw_expr): Remove ADDR_IS_INVISIREF code.
+
+	* call.c (build_user_type_conversion_1): Don't set ICS_BAD_FLAG on
+	an ambiguous conversion.
+
+2002-12-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8688
+	* decl.c (reshape_init): Handle erroneous initializers.
+
+2002-12-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8720
+	* spew.c (remove_last_token): Make sure that last_chunk is set
+	correctly.
+
+	PR c++/8615
+	* error.c (dump_expr): Handle character constants with
+	TREE_OVERFLOW set.
+	
+2002-12-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	DR 180
+	* decl.c (grokdeclarator): Require class-key for all friend class.
+	Output the correct type and context in the error message.
+
+2002-12-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5919
+	* pt.c (unify): Use variably_modified_type_p to test validity of
+	template argument types.
+	
+	PR c++/8727
+	* cp-tree.h (lang_type_class): Add typeinfo_var.
+	(CLASSTYPE_TYPEINFO_VAR): New macro.
+	* rtti.c (get_tinfo_decl): Use it.
+
+	PR c++/8663
+	* init.c (expand_member_init): Always get the main variant of a
+	base class.
+
+2002-12-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8332
+	PR c++/8493
+	* decl.c (cxx_init_decl_processing): Use size_type_node, not
+	c_size_type_node.
+	* decl2.c (coerce_new_type): Likewise.
+	* except.c (do_allocate_exception): Likewise.
+
+2002-11-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8227
+	* decl.c (layout_var_decl): Deal gracefully with erroneous types.
+	(check_initializer): Validate the type of the initialized
+	variable, even if the initializer is absent.
+	* typeck.c (cp_type_quals): Deal gracefully with erroneous types.
+	
+	PR c++/8214
+	* typeck.c (convert_for_assignment): Do not use
+	decl_constant_value on the operand.
+
+	PR c++/8511
+	* pt.c (instantiate_decl): Handle template friends defined outside
+	of the class correctly.
+
+2002-11-29  Joe Buck <jbuck@synopsys.com>
+
+	* parse.y (class_head_defn): Set CLASSTYPE_DECLARED_CLASS for
+	anonymous structs.
+	
+2002-11-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (walk_subobject_offsets): Recur on binfos as well as on
+	types.
+	(layout_nonempty_base_or_field): Pass it a binfo when processing a
+	base class.
+	(layout_empty_base): Likewise.
+	(build_base_field): Likewise.
+	
+2002-11-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (build_base_field): Make sure we get the canonical base
+	when descending through primary bases.
+
+2002-11-26  Geoffrey Keating  <geoffk@apple.com>
+
+	* decl.c (check_initializer): Don't error on initialisation of
+	a scalar with a brace-enclosed expression.
+
+2002-11-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (DECL_LANG_FLAG_4): Document more uses.
+	(template_parms_equal): Remove prototype.
+	* typeck.c (buuld_indirect_ref): Reformat.
+
 2002-11-25  Mark Mitchell  <mark@codesourcery.com>
 
+	* tree.c (cp_build_qualified_type_real): Correct handling of
+	array types.
+	* class.c (walk_subobject_offsets): Fix thinko.
+	(build_base_field): Record offsets of empty bases in primary
+	virtual bases.
+	(layout_class_type): Record offsets of empty bases in fields.
+	
 	* search.c (is_subobject_of_p_1): Fix thinko.
 	(lookup_field_queue_p): Likewise.
 
@@ -7604,7 +7734,7 @@ Sun Feb  4 15:52:44 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(cp_make_fname_decl): Use size_int, not build_int_2.
 	(push_inline_template_parms_recursive): Likewise.
 	(end_template_parm_list): Likewise.
-	(for_each_tempalte_parm): Do not use walk_tree_without_duplicates.
+	(for_each_template_parm): Do not use walk_tree_without_duplicates.
 	(tsubst_template_parms): Use size_int, not build_int_2.
 	(tsubst): Likewise.
 	* rtti.c (get_vmi_pseudo_type_info): Likewise.

@@ -464,7 +464,7 @@ java_init_decl_processing ()
   decimal_int_max = build_int_2 (0x80000000, 0);
   TREE_TYPE (decimal_int_max) = unsigned_int_type_node;
 #if HOST_BITS_PER_WIDE_INT == 64
-  decimal_long_max = build_int_2 (0x8000000000000000, 0);
+  decimal_long_max = build_int_2 (0x8000000000000000LL, 0);
 #else
 #if HOST_BITS_PER_WIDE_INT == 32
   decimal_long_max = build_int_2 (0, 0x80000000);
@@ -708,6 +708,7 @@ java_init_decl_processing ()
   PUSH_FIELD (class_type_node, field, "idt", ptr_type_node);  
   PUSH_FIELD (class_type_node, field, "arrayclass", ptr_type_node);  
   PUSH_FIELD (class_type_node, field, "protectionDomain", ptr_type_node);
+  PUSH_FIELD (class_type_node, field, "chain", ptr_type_node);
   for (t = TYPE_FIELDS (class_type_node);  t != NULL_TREE;  t = TREE_CHAIN (t))
     FIELD_PRIVATE (t) = 1;
   push_super_field (class_type_node, object_type_node);

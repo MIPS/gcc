@@ -1,3 +1,318 @@
+2002-12-06  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/InetAddress.java (toString): Use hostname when not null,
+	don't do an explicit reverse getHostName() lookup.
+	* java/net/Socket.java (setSocketImplFactory): When fac == null throw
+	NullPointerException.
+
+2002-12-06  Tom Tromey  <tromey@redhat.com>
+
+	* include/java-interp.h (class _Jv_InterpMethod): Added
+	JV_MARKOBJ_DECL.
+	* boehm.cc (_Jv_MarkObj): Consolidated interpreter code.  Also
+	mark `prepared' field of interpreted method.
+	* interpret.cc (compile): Use _Jv_AllocBytes.
+
+2002-12-05  Andrew Haley  <aph@redhat.com>
+
+	* gnu/gcj/runtime/natStackTrace.cc (fillInStackTrace): Throw
+	#ifdef (HAVE_BACKTRACE) around the whole function body.
+
+2002-12-05  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.h (_Jv_SetVTableEntries): Updated declaration.
+	* resolve.cc: Don't include AbstractMethodError.h.
+	(_Jv_abstractMethodError): Removed.
+	* defineclass.cc (handleMethodsBegin): Initialize method index to
+	-1.
+	* java/lang/natClass.cc (_Jv_LayoutVTableMethods): Don't set
+	method index for "new" final method.
+	(_Jv_SetVTableEntries): Compare index against -1 instead of using
+	isVirtualMethod.  Added `flags' argument.
+	(_Jv_MakeVTable): Throw exception for abstract method in concrete
+	class.
+
+2002-12-04  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/SocketPermission.java (hashCode): Rewrote.
+
+2002-12-04  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (nat_source_files): Added natVMSecurityManager,
+	natResourceBundle.
+	* java/util/ResourceBundle.java (Security): Removed.
+	(getCallingClassLoader): Now native.
+	* java/util/natResourceBundle.cc: New file.
+	* java/lang/natVMSecurityManager.cc: New file.
+	* java/lang/VMSecurityManager.java (getClassContext): Now native.
+
+2002-12-03  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/jar/JarFile.java (manifest): Not final.
+	(manifestRead): New field.
+	(JarFile): Don't read Manifest in constructor.
+	(getManifest): New method.
+	(JarEnumeration.nextElement): Use new method.
+	(getEntry): Likewise.
+	* java/util/zip/ZipFile.java (name): Final.
+	(raf): Likewsie.
+	(entries): Change type to Hashtable.
+	(closed): New field.
+	(ZipFile): Don't read enties in constructor.
+	(readEntries): Use Hashtable.
+	(close): Set new close flag and set entries to null inside
+	synchronized block.
+	(entries): Contruct enumeration using new getEntries() method and
+	entries Hashtable.
+	(getEntryIndex): Removed.
+	(getEntries): New method.
+	(getEntry): Use new getEntries() method and entries Hastable.
+	(getInputStream): Likewise.
+	(size): Return getEntries().size().
+	(ZipEntryEnumeration): Wrap entries Hashtable elements.
+	* java/util/zip/ZipEntry.java (cal): Don't initialize.
+	(time): Removed
+	(dostime): New field.
+	(zipFileIndex): Removed.
+	(ZipEntry(ZipEntry)): Copy dostime.
+	(setDOSTime): Now final and doesn't convert dos time.
+	(getDOSTime): Likewise.
+	(setTime): Convert dos time.
+	(getTime): Likewise.
+	(getCalendar): New method.
+	(setExtra): Use setTime().
+	* java/util/zip/ZipInputStream.java (getNextEntry): Format error msg.
+
+2002-12-03  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Character.java (forDigit): Formatting fix.
+
+2002-12-03  Raif Naffah  <raif@fl.net.au>
+
+        * java/security/spec/DSAParameterSpec.java (getP): Return p, not q.
+        * java/security/spec/DSAPrivateKeySpec.java (getP): Likewise.
+        * java/security/spec/DSAPublicKeySpec.java (getP): Likewise.
+
+2002-12-03  Andrew Haley  <aph@redhat.com>
+
+        * java/lang/natClassLoader.cc (_Jv_PrepareCompiledClass): Call
+	_Jv_PushClass.
+        (_Jv_InitNewClassFields): Set protectionDomain and chain = NULL.
+        (_Jv_PopClass): New.
+        (_Jv_PushClass): New.
+        * java/lang/natClass.cc (forName (jstring)): Use a StackTrace to
+        discover the ClassLoader of our caller.
+        (_Jv_CheckArrayStore): Don't check that a class is assignment
+        compatible with Object.
+        * java/lang/natVMTHrowable.cc: Delete.
+        * gnu/gcj/runtime/StackTrace.java: New, partly copied from
+	java.lang.VMThrowable.
+        (StackTrace(), StackTrace(int)): New constructors.
+        (classAt, methodAt, update, methodAtAddress): New methods.
+        (map): New field.
+	* java/lang/VMThrowable.java: Use StackTrace instead of
+	natVMTHrowable.        
+	* java/lang/Class.h (getClassLoaderInternal): New.
+        (class Class): Be friendly with _Jv_PopClass and _Jv_PushClass.
+        Be friendly with gnu::gcj::runtime::StackTrace.
+        (Object.chain): New field.
+        * include/java-interp.h (class _Jv_InterpMethod): Be friendly with
+        gnu::gcj::runtime::StackTrace.
+	* gnu/gcj/runtime/natStackTrace.cc: New file.
+	* gnu/gcj/runtime/MethodRef.java: New file.
+        * prims.cc (_Jv_NewObjectArray): Use getClassLoaderInternal()
+        instead of getClassLoader().
+        * verify.cc (class _Jv_BytecodeVerifier): Likewise.
+        java::lang::VMThrowable.
+        * Makefile.am (core_java_source_files): Add MethodRef.java,
+	StackTrace.java.
+        (nat_source_files): Remove natVMThrowable.cc; add natStackTrace.cc.
+        * Makefile.in: Rebuild.
+
+2002-12-02  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc: Added `name' argument.
+	* include/jni.h (struct JNINativeInterface) [DefineClass]: Added
+	`const char *' argument.
+	(class _Jv_JNIEnv) [DefineClass]: Likewise.
+
+2002-12-01  Tom Tromey  <tromey@redhat.com>
+
+	Bug compatibility, for PR libgcj/8738:
+	* java/io/CharArrayWriter.java (close): Do nothing.
+	(flush): Likewise.
+	(reset): Don't touch `closed'.
+	(write(int)): Don't throw IOException.
+	(write(char[],int,int)): Likewise.
+	(write(String,int,int)): Likewise.
+	(closed): Removed.
+
+2002-12-01  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/SecurityManager.java: Remerge comments, indenting and
+	checkXXX methods with Classpath.
+
+2002-11-29  Scott Gilbertson  <scottg@mantatest.com>
+
+	* java/awt/image/ColorModel.java (getUnnormalizedComponents,
+	getNormalizedComponents): Fix calculation which was using one too
+	many bits in the unnormalized format.
+
+2002-11-29  Gary Benson  <gbenson@redhat.com>
+
+	For PR libgcj/8759:
+	* java/beans/Introspector.java (flushCaches): New method.
+	(flushFromCaches): Likewise.
+
+2002-11-29  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/channels/DatagramChannel.java
+	(open): Added exception documentation.
+	(write): Added exception documentation.
+	(connect): Added exception documentation.
+	(disconnect): Added exception documentation.
+	(isConnected): Added exception documentation.
+	(read): Added exception documentation.
+	(receive): Added exception documentation.
+	(send): Added exception documentation.
+	(validOps): Added exception documentation.
+	* java/nio/channels/SocketChannel.java
+	(open): Added exception documentation.
+	(read): Added exception documentation.
+	(write): Added exception documentation.
+	(connect): Added exception documentation.
+	(finishConnect): Added exception documentation.
+	
+2002-11-29  Michael Koch <konqueror@gmx.de>
+
+	* gnu/java/nio/DatagramChannelImpl:
+	(fd): New member variable to store file descriptor of socket.
+	* gnu/java/nio/SelectionKeyImpl.java:
+	(ops): Removed.
+	(readyOps): New member variable.
+	(interestOps): New member variable.
+	(readyOps): Implemented.
+	(readyOps): New method to set member variable readyOps.
+	(interestOps): Replaced ops by interestOps.
+	* gnu/java/nio/SelectorImpl.java:
+	(SelectorImpl): Initialize key sets.
+	(select): Call select with -1 instead of Long.MAX_VALUE).
+	(java_do_select): Make it a native method.
+	(getFDsAsArray): New helper method.
+	(select): Remove canceled keys, give only interested file discriptors
+	to java_do_select, set ready ops.
+	(add): No need to initialize keys set here.
+	(add_selected): No need to initialize selected set here.
+	(deregisterCanceledKeys): New helper method.
+	(register): Set interest ops, set attachments, added handling of datagram
+	channels.
+	* gnu/java/nio/ServerSocketChannelImpl:
+	(SocketAccept): Renamed from NioSocketAccept.
+	(implConfigureBlocking): Implemented.
+	(accept): Use SocketAccept instead of NioSocketAccept.	
+	* gnu/java/nio/SocketChannelImpl:
+	Reactivate native methods.
+	
+2002-11-29  Michael Koch <konqueror@gmx.de>
+
+	* gnu/java/nio/natByteBufferImpl.cc,
+	gnu/java/nio/natCharBufferImpl.cc,
+	gnu/java/nio/natDoubleBufferImpl.cc,
+	gnu/java/nio/natFloatBufferImpl.cc,
+	gnu/java/nio/natIntBufferImpl.cc,
+	gnu/java/nio/natLongBufferImpl.cc,
+	gnu/java/nio/natSelectorImpl.cc,
+	gnu/java/nio/natServerSocketChannelImpl.cc,
+	gnu/java/nio/natShortBufferImpl.cc,
+	gnu/java/nio/natSocketChannelImpl.cc:
+	New files that implement native functionalities.
+
+2002-11-29  Michael Koch <konqueror@gmx.de>
+
+	* gnu/java/nio/ByteBufferImpl.java
+	(ByteBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	* gnu/java/nio/CharBufferImpl.java:
+	Reformated.
+	(endian): New member variable string endianess of buffer.
+	(CharBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	(subSequence): Implemented.
+	* gnu/java/nio/DoubleBufferImpl.java
+	(DoubleBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	* gnu/java/nio/FloatBufferImpl.java
+	Reformated.
+	(FloatBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	* gnu/java/nio/IntBufferImpl.java
+	Added needed imports, Reformated.
+	(IntBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	* gnu/java/nio/LongBufferImpl.java
+	Reformated.
+	(LongBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	* gnu/java/nio/ShortBufferImpl.java
+	Reformated.
+	(ShortBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+
+2002-11-27  Julian Dolby  <dolby@us.ibm.com>
+
+	* java/util/Locale.java (toString): Improve efficiency if country
+	and variant are both empty.
+
+2002-11-26  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (pop_init_ref): New method.
+	(verify_instructions_0) [op_iaload, op_laload, op_faload,
+	op_daload, op_aaload, op_baload, op_caload, op_saload, op_iastore,
+	op_lastore, op_fastore, op_dastore, op_aastore, op_bastore,
+	op_castore, op_sastore, op_areturn, op_arraylength, op_checkcast,
+	op_instanceof, op_monitorenter, op_monitorexit]: Use it.
+	(verify_instructions_0) [op_invokevirtual, op_invokespecial,
+	op_invokestatic, op_invokeinterface]:  Use pop_init_ref.  Don't
+	let `this' argument be uninitialized.  Don't let `null' be passed
+	as `this' to construtor.
+
+2002-11-26  Mark Wielaard  <mark@klomp.org>
+
+	* javax/transaction/HeuristicCommitException.java: Classpath merge.
+	* javax/transaction/HeuristicMixedException.java: Likewise.
+	* javax/transaction/HeuristicRollbackException.java: Likewise.
+	* javax/transaction/InvalidTransactionException.java: Likewise.
+	* javax/transaction/NotSupportedException.java: Likewise.
+	* javax/transaction/RollbackException.java: Likewise.
+	* javax/transaction/Status.java: Likewise.
+	* javax/transaction/Synchronization.java: Likewise.
+	* javax/transaction/SystemException.java: Likewise.
+	* javax/transaction/Transaction.java: Likewise.
+	* javax/transaction/TransactionManager.java: Likewise.
+	* javax/transaction/TransactionRequiredException.java: Likewise.
+	* javax/transaction/TransactionRolledbackException.java: Likewise.
+	* javax/transaction/UserTransaction.java: Likewise.
+	* javax/transaction/xa/XAException.java: Likewise.
+	* javax/transaction/xa/XAResource.java: Likewise.
+	* javax/transaction/xa/Xid.java: Likewise.
+
+2002-11-26  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* java/net/natPlainDatagramSocketImpl.cc (socklen_t): Don't
+	define.
+	* java/net/natPlainSocketImpl.cc (socklen_t): Don't define.
+	* include/posix.h (socklen_t): Define if not already defined.
+
+2002-11-25  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (type::compatible): Backed out broken change.
+
+	* verify.cc (type::compatible): Check initialization status
+	first.
+	* interpret.cc (run) [insn_invokespecial, invokespecial_resolved]:
+	Don't use NULLCHECK.
+
 2002-11-23  Mark Wielaard  <mark@klomp.org>
 
 	* javax/naming/AuthenticationException.java: Update copyright header.

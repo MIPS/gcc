@@ -48,7 +48,7 @@ static const char *byte_reg PARAMS ((rtx, int));
 static int h8300_interrupt_function_p PARAMS ((tree));
 static int h8300_monitor_function_p PARAMS ((tree));
 static int h8300_os_task_function_p PARAMS ((tree));
-static void dosize PARAMS ((FILE *, const char *, unsigned int));
+static void dosize PARAMS ((FILE *, int, unsigned int));
 static int round_frame_size PARAMS ((int));
 static unsigned int compute_saved_regs PARAMS ((void));
 static void push PARAMS ((FILE *, int));
@@ -242,11 +242,11 @@ static enum shift_alg shift_alg_si[3][3][32] = {
     { INL, INL, INL, INL, INL, LOP, LOP, LOP,
       SPC, LOP, LOP, LOP, LOP, LOP, LOP, SPC,
       SPC, SPC, SPC, SPC, LOP, LOP, LOP, LOP,
-      SPC, LOP, LOP, LOP, ROT, ROT, ROT, SPC }, /* SHIFT_ASHIFT   */
+      SPC, LOP, LOP, LOP, SPC, SPC, SPC, SPC }, /* SHIFT_ASHIFT   */
     { INL, INL, INL, INL, INL, LOP, LOP, LOP,
       SPC, LOP, LOP, LOP, LOP, LOP, LOP, SPC,
       SPC, SPC, SPC, SPC, LOP, LOP, LOP, LOP,
-      SPC, LOP, LOP, LOP, ROT, ROT, ROT, SPC }, /* SHIFT_LSHIFTRT */
+      SPC, LOP, LOP, LOP, SPC, SPC, SPC, SPC }, /* SHIFT_LSHIFTRT */
     { INL, INL, INL, INL, INL, LOP, LOP, LOP,
       SPC, LOP, LOP, LOP, LOP, LOP, LOP, LOP,
       SPC, SPC, SPC, SPC, LOP, LOP, LOP, LOP,
@@ -261,11 +261,11 @@ static enum shift_alg shift_alg_si[3][3][32] = {
     { INL, INL, INL, INL, INL, INL, INL, INL,
       INL, INL, INL, LOP, LOP, LOP, LOP, SPC,
       SPC, SPC, SPC, SPC, SPC, SPC, LOP, LOP,
-      SPC, SPC, LOP, LOP, ROT, ROT, ROT, SPC }, /* SHIFT_ASHIFT   */
+      SPC, SPC, LOP, LOP, SPC, SPC, SPC, SPC }, /* SHIFT_ASHIFT   */
     { INL, INL, INL, INL, INL, INL, INL, INL,
       INL, INL, INL, LOP, LOP, LOP, LOP, SPC,
       SPC, SPC, SPC, SPC, SPC, SPC, LOP, LOP,
-      SPC, SPC, LOP, LOP, ROT, ROT, ROT, SPC }, /* SHIFT_LSHIFTRT */
+      SPC, SPC, LOP, LOP, SPC, SPC, SPC, SPC }, /* SHIFT_LSHIFTRT */
     { INL, INL, INL, INL, INL, INL, INL, INL,
       INL, INL, INL, LOP, LOP, LOP, LOP, LOP,
       SPC, SPC, SPC, SPC, SPC, SPC, LOP, LOP,
@@ -314,7 +314,7 @@ h8300_init_once ()
       error ("-ms2600 is used without -ms");
       target_flags |= MASK_H8300S;
     }
-  
+
   if (TARGET_H8300 && TARGET_NORMAL_MODE)
     {
       error ("-mn is used without -mh or -ms");
@@ -352,7 +352,6 @@ h8300_init_once ()
       shift_alg_hi[H8_300H][SHIFT_ASHIFTRT][14] = SHIFT_LOOP;
 
       /* H8S */
-      shift_alg_hi[H8_S][SHIFT_ASHIFTRT][13] = SHIFT_LOOP;
       shift_alg_hi[H8_S][SHIFT_ASHIFTRT][14] = SHIFT_LOOP;
     }
 }
@@ -393,9 +392,9 @@ byte_reg (x, b)
    SIZE to adjust the stack pointer.  */
 
 static void
-dosize (file, op, size)
+dosize (file, sign, size)
      FILE *file;
-     const char *op;
+     int sign;
      unsigned int size;
 {
   /* On the H8/300H and H8S, for sizes <= 8 bytes, it is as good or
@@ -409,8 +408,9 @@ dosize (file, op, size)
       || ((TARGET_H8300H || TARGET_H8300S) && size <= 8)
       || (TARGET_H8300 && interrupt_handler)
       || (TARGET_H8300 && current_function_needs_context
-	  && ! strcmp (op, "sub")))
+	  && sign < 0))
     {
+      const char *op = (sign > 0) ? "add" : "sub";
       unsigned HOST_WIDE_INT amount;
 
       /* Try different amounts in descending order.  */
@@ -418,16 +418,24 @@ dosize (file, op, size)
 	   amount > 0;
 	   amount /= 2)
 	{
+	  char insn[100];
+
+	  sprintf (insn, "\t%ss\t#%d,%s\n", op, amount,
+		   TARGET_H8300 ? "r7" : "er7");
 	  for (; size >= amount; size -= amount)
-	    fprintf (file, "\t%ss\t#%d,sp\n", op, amount);
+	    fputs (insn, file);
 	}
     }
   else
     {
       if (TARGET_H8300)
-	fprintf (file, "\tmov.w\t#%d,r3\n\t%s.w\tr3,sp\n", size, op);
+	{
+	  fprintf (file, "\tmov.w\t#%d,r3\n\tadd.w\tr3,r7\n", sign * size);
+	}
       else
-	fprintf (file, "\t%s.l\t#%d,sp\n", op, size);
+	{
+	  fprintf (file, "\tadd.l\t#%d,er7\n", sign * size);
+	}
     }
 }
 
@@ -471,7 +479,10 @@ push (file, rn)
      FILE *file;
      int rn;
 {
-  fprintf (file, "\t%s\t%s\n", h8_push_op, h8_reg_names[rn]);
+  if (TARGET_H8300)
+    fprintf (file, "\t%s\t%s,@-r7\n", h8_mov_op, h8_reg_names[rn]);
+  else
+    fprintf (file, "\t%s\t%s,@-er7\n", h8_mov_op, h8_reg_names[rn]);
 }
 
 /* Output assembly language code to pop register RN.  */
@@ -481,7 +492,10 @@ pop (file, rn)
      FILE *file;
      int rn;
 {
-  fprintf (file, "\t%s\t%s\n", h8_pop_op, h8_reg_names[rn]);
+  if (TARGET_H8300)
+    fprintf (file, "\t%s\t@r7+,%s\n", h8_mov_op, h8_reg_names[rn]);
+  else
+    fprintf (file, "\t%s\t@er7+,%s\n", h8_mov_op, h8_reg_names[rn]);
 }
 
 /* This is what the stack looks like after the prolog of
@@ -510,7 +524,7 @@ h8300_output_function_prologue (file, size)
      HOST_WIDE_INT size;
 {
   int fsize = round_frame_size (size);
-  int idx;
+  int regno;
   int saved_regs;
   int n_regs;
 
@@ -576,14 +590,12 @@ h8300_output_function_prologue (file, size)
     }
 
   /* Leave room for locals.  */
-  dosize (file, "sub", fsize);
+  dosize (file, -1, fsize);
 
   /* Push the rest of the registers in ascending order.  */
   saved_regs = compute_saved_regs ();
-  for (idx = 0; idx < FIRST_PSEUDO_REGISTER; idx += n_regs)
+  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno += n_regs)
     {
-      int regno = idx;
-
       n_regs = 1;
       if (saved_regs & (1 << regno))
 	{
@@ -603,12 +615,29 @@ h8300_output_function_prologue (file, size)
 		n_regs = 2;
 	    }
 
-	  if (n_regs == 1)
-	    push (file, regno);
-	  else
-	    fprintf (file, "\tstm.l\t%s-%s,@-sp\n",
-		     h8_reg_names[regno],
-		     h8_reg_names[regno + (n_regs - 1)]);
+	  switch (n_regs)
+	    {
+	    case 1:
+	      push (file, regno);
+	      break;
+	    case 2:
+	      fprintf (file, "\tstm.l\t%s-%s,@-er7\n",
+		       h8_reg_names[regno],
+		       h8_reg_names[regno + 1]);
+	      break;
+	    case 3:
+	      fprintf (file, "\tstm.l\t%s-%s,@-er7\n",
+		       h8_reg_names[regno],
+		       h8_reg_names[regno + 2]);
+	      break;
+	    case 4:
+	      fprintf (file, "\tstm.l\t%s-%s,@-er7\n",
+		       h8_reg_names[regno],
+		       h8_reg_names[regno + 3]);
+	      break;
+	    default:
+	      abort ();
+	    }
 	}
     }
 }
@@ -621,7 +650,7 @@ h8300_output_function_epilogue (file, size)
      HOST_WIDE_INT size;
 {
   int fsize = round_frame_size (size);
-  int idx;
+  int regno;
   rtx insn = get_last_insn ();
   int saved_regs;
   int n_regs;
@@ -648,10 +677,8 @@ h8300_output_function_epilogue (file, size)
 
   /* Pop the saved registers in descending order.  */
   saved_regs = compute_saved_regs ();
-  for (idx = 0; idx < FIRST_PSEUDO_REGISTER; idx += n_regs)
+  for (regno = FIRST_PSEUDO_REGISTER - 1; regno >= 0; regno -= n_regs)
     {
-      int regno = (FIRST_PSEUDO_REGISTER - 1) - idx;
-
       n_regs = 1;
       if (saved_regs & (1 << regno))
 	{
@@ -671,17 +698,34 @@ h8300_output_function_epilogue (file, size)
 		n_regs = 2;
 	    }
 
-	  if (n_regs == 1)
-	    pop (file, regno);
-	  else
-	    fprintf (file, "\tldm.l\t@sp+,%s-%s\n",
-		     h8_reg_names[regno - (n_regs - 1)],
-		     h8_reg_names[regno]);
+	  switch (n_regs)
+	    {
+	    case 1:
+	      pop (file, regno);
+	      break;
+	    case 2:
+	      fprintf (file, "\tldm.l\t@er7+,%s-%s\n",
+		       h8_reg_names[regno - 1],
+		       h8_reg_names[regno]);
+	      break;
+	    case 3:
+	      fprintf (file, "\tldm.l\t@er7+,%s-%s\n",
+		       h8_reg_names[regno - 2],
+		       h8_reg_names[regno]);
+	      break;
+	    case 4:
+	      fprintf (file, "\tldm.l\t@er7+,%s-%s\n",
+		       h8_reg_names[regno - 3],
+		       h8_reg_names[regno]);
+	      break;
+	    default:
+	      abort ();
+	    }
 	}
     }
 
   /* Deallocate locals.  */
-  dosize (file, "add", fsize);
+  dosize (file, 1, fsize);
 
   /* Pop frame pointer if we had one.  */
   if (frame_pointer_needed)
@@ -771,7 +815,7 @@ single_one_operand (operand, mode)
       unsigned HOST_WIDE_INT mask =
 	(GET_MODE_BITSIZE (mode) < HOST_BITS_PER_WIDE_INT)
 	? ((unsigned HOST_WIDE_INT) 1 << GET_MODE_BITSIZE (mode)) - 1
-	: ~0;
+	: ~(unsigned HOST_WIDE_INT) 0;
       unsigned HOST_WIDE_INT value = INTVAL (operand);
 
       if (exact_log2 (value & mask) >= 0)
@@ -796,7 +840,7 @@ single_zero_operand (operand, mode)
       unsigned HOST_WIDE_INT mask =
 	(GET_MODE_BITSIZE (mode) < HOST_BITS_PER_WIDE_INT)
 	? ((unsigned HOST_WIDE_INT) 1 << GET_MODE_BITSIZE (mode)) - 1
-	: ~0;
+	: ~(unsigned HOST_WIDE_INT) 0;
       unsigned HOST_WIDE_INT value = INTVAL (operand);
 
       if (exact_log2 (~value & mask) >= 0)
@@ -1133,6 +1177,44 @@ const_costs (r, c, outer_code)
     default:
       return 4;
     }
+}
+
+int
+h8300_and_costs (x)
+     rtx x;
+{
+  rtx operands[4];
+
+  if (GET_MODE (x) == QImode)
+    return 1;
+
+  if (GET_MODE (x) != HImode
+      && GET_MODE (x) != SImode)
+    return 100;
+
+  operands[0] = NULL;
+  operands[1] = NULL;
+  operands[2] = XEXP (x, 1);
+  operands[3] = x;
+  return compute_logical_op_length (GET_MODE (x), operands);
+}
+
+int
+h8300_shift_costs (x)
+     rtx x;
+{
+  rtx operands[4];
+
+  if (GET_MODE (x) != QImode
+      && GET_MODE (x) != HImode
+      && GET_MODE (x) != SImode)
+    return 100;
+
+  operands[0] = NULL;
+  operands[1] = NULL;
+  operands[2] = XEXP (x, 1);
+  operands[3] = x;
+  return compute_a_shift_length (NULL, operands);
 }
 
 /* Documentation for the machine specific operand escapes:
@@ -2065,96 +2147,16 @@ compute_logical_op_cc (mode, operands)
 
    o SHIFT_LOOP: Emit a loop using one (or two on H8S) bit shifts.
 
-   Here are some thoughts on what the absolutely positively best code
-   is.  "Best" here means some rational trade-off between code size
-   and speed, where speed is more preferred but not at the expense of
-   generating 20 insns.
+   For each shift count, we try to use code that has no trade-off
+   between code size and speed whenever possible.
 
-   Below, a trailing '*' after the shift count indicates the "best"
-   mode isn't implemented.  We only describe SHIFT_SPECIAL cases to
-   simplify the table.  For other cases, refer to shift_alg_[qhs]i.
+   If the trade-off is unavoidable, we try to be reasonable.
+   Specifically, the fastest version is one instruction longer than
+   the shortest version, we take the fastest version.  We also provide
+   the use a way to switch back to the shortest version with -Os.
 
-   H8/300 QImode shifts
-   7      - ASHIFTRT: shll, subx (propagate carry bit to all bits)
-
-   H8/300 HImode shifts
-   7      - shift 2nd half other way into carry.
-	    copy 1st half into 2nd half
-	    rotate 2nd half other way with carry
-	    rotate 1st half other way (no carry)
-	    mask off bits in 1st half (ASHIFT | LSHIFTRT).
-	    sign extend 1st half (ASHIFTRT)
-   8      - move byte, zero (ASHIFT | LSHIFTRT) or sign extend other (ASHIFTRT)
-   9-12   - do shift by 8, inline remaining shifts
-   15     - ASHIFTRT: shll, subx, set other byte
-
-   H8/300 SImode shifts
-   7*     - shift other way once, move bytes into place,
-            move carry into place (possibly with sign extension)
-   8      - move bytes into place, zero or sign extend other
-   15*    - shift other way once, move word into place, move carry into place
-   16     - move word, zero or sign extend other
-   24*    - move bytes into place, zero or sign extend other
-   31     - ASHIFTRT: shll top byte, subx, copy to other bytes
-
-   H8/300H QImode shifts (same as H8/300 QImode shifts)
-   7      - ASHIFTRT: shll, subx (propagate carry bit to all bits)
-
-   H8/300H HImode shifts
-   7      - shift 2nd half other way into carry.
-	    copy 1st half into 2nd half
-	    rotate entire word other way using carry
-	    mask off remaining bits  (ASHIFT | LSHIFTRT)
-	    sign extend remaining bits (ASHIFTRT)
-   8      - move byte, zero (ASHIFT | LSHIFTRT) or sign extend other (ASHIFTRT)
-   9-12   - do shift by 8, inline remaining shifts
-   15     - ASHIFTRT: shll, subx, set other byte
-
-   H8/300H SImode shifts
-   (These are complicated by the fact that we don't have byte level access to
-   the top word.)
-   A word is: bytes 3,2,1,0 (msb -> lsb), word 1,0 (msw -> lsw)
-   15*    - shift other way once, move word into place, move carry into place
-            (with sign extension for ASHIFTRT)
-   16     - move word into place, zero or sign extend other
-   17-20  - do 16bit shift, then inline remaining shifts
-   24*    - ASHIFT: move byte 0(msb) to byte 1, zero byte 0,
-                    move word 0 to word 1, zero word 0
-            LSHIFTRT: move word 1 to word 0, move byte 1 to byte 0,
-                      zero word 1, zero byte 1
-            ASHIFTRT: move word 1 to word 0, move byte 1 to byte 0,
-                      sign extend byte 0, sign extend word 0
-   25-27* - either loop, or
-            do 24 bit shift, inline rest
-   31     - shll, subx byte 0, sign extend byte 0, sign extend word 0
-
-   H8S QImode shifts
-   7      - ASHIFTRT: shll, subx (propagate carry bit to all bits)
-
-   H8S HImode shifts
-   8      - move byte, zero (ASHIFT | LSHIFTRT) or sign extend other (ASHIFTRT)
-   9-12   - do shift by 8, inline remaining shifts
-   15     - ASHIFTRT: shll, subx, set other byte
-
-   H8S SImode shifts
-   (These are complicated by the fact that we don't have byte level access to
-   the top word.)
-   A word is: bytes 3,2,1,0 (msb -> lsb), word 1,0 (msw -> lsw)
-   15*    - shift other way once, move word into place, move carry into place
-            (with sign extension for ASHIFTRT)
-   16     - move word into place, zero or sign extend other
-   17-20  - do 16bit shift, then inline remaining shifts
-   24*    - ASHIFT: move byte 0(msb) to byte 1, zero byte 0,
-                    move word 0 to word 1, zero word 0
-            LSHIFTRT: move word 1 to word 0, move byte 1 to byte 0,
-                      zero word 1, zero byte 1
-            ASHIFTRT: move word 1 to word 0, move byte 1 to byte 0,
-                      sign extend byte 0, sign extend word 0
-   25-27* - either loop, or
-            do 24 bit shift, inline rest
-   31     - shll, subx byte 0, sign extend byte 0, sign extend word 0
-
-   Panic!!!  */
+   For the details of the shift algorithms for various shift counts,
+   refer to shift_alg_[qhs]i.  */
 
 int
 nshift_operator (x, mode)
@@ -2391,16 +2393,15 @@ static void get_shift_alg PARAMS ((enum shift_type,
 
 /* Given SHIFT_TYPE, SHIFT_MODE, and shift count COUNT, determine the
    best algorithm for doing the shift.  The assembler code is stored
-   in the pointers in INFO.  We don't achieve maximum efficiency in
-   all cases, but the hooks are here to do so.
+   in the pointers in INFO.  We achieve the maximum efficiency in most
+   cases when !TARGET_H8300.  In case of TARGET_H8300, shifts in
+   SImode in particular have a lot of room to optimize.
 
-   For now we just use lots of switch statements.  Since we don't even come
-   close to supporting all the cases, this is simplest.  If this function ever
-   gets too big, perhaps resort to a more table based lookup.  Of course,
-   at this point you may just wish to do it all in rtl.
-
-   WARNING: The constraints on insns shiftbyn_QI/HI/SI assume shifts of
-   1,2,3,4 will be inlined (1,2 for SI).  */
+   We first determine the strategy of the shift algorithm by a table
+   lookup.  If that tells us to use a hand crafted assembly code, we
+   go into the big switch statement to find what that is.  Otherwise,
+   we resort to a generic way, such as inlining.  In either case, the
+   result is returned through INFO.  */
 
 static void
 get_shift_alg (shift_type, shift_mode, count, info)
@@ -2722,6 +2723,78 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	      info->shift1  = "shar.l\t%S0";
 	      info->shift2  = "shar.l\t#2,%S0";
 	      goto end;
+	    }
+	}
+      else if (!TARGET_H8300 && count == 28)
+	{
+	  switch (shift_type)
+	    {
+	    case SHIFT_ASHIFT:
+	      if (TARGET_H8300H)
+		info->special = "sub.w\t%e0,%e0\n\trotr.l\t%S0\n\trotr.l\t%S0\n\trotr.l\t%S0\n\trotr.l\t%S0\n\tsub.w\t%f0,%f0";
+	      else
+		info->special = "sub.w\t%e0,%e0\n\trotr.l\t#2,%S0\n\trotr.l\t#2,%S0\n\tsub.w\t%f0,%f0";
+	      info->shift1  = "";
+	      info->shift2  = "";
+	      goto end;
+	    case SHIFT_LSHIFTRT:
+	      if (TARGET_H8300H)
+		info->special = "sub.w\t%f0,%f0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\tsub.w\t%e0,%e0";
+	      else
+		info->special = "sub.w\t%f0,%f0\n\trotl.l\t#2,%S0\n\trotl.l\t#2,%S0\n\tsub.w\t%e0,%e0";
+	      info->shift1  = "";
+	      info->shift2  = "";
+	      goto end;
+	    case SHIFT_ASHIFTRT:
+	      abort ();
+	    }
+	}
+      else if (!TARGET_H8300 && count == 29)
+	{
+	  switch (shift_type)
+	    {
+	    case SHIFT_ASHIFT:
+	      if (TARGET_H8300H)
+		info->special = "sub.w\t%e0,%e0\n\trotr.l\t%S0\n\trotr.l\t%S0\n\trotr.l\t%S0\n\tsub.w\t%f0,%f0";
+	      else
+		info->special = "sub.w\t%e0,%e0\n\trotr.l\t#2,%S0\n\trotr.l\t%S0\n\tsub.w\t%f0,%f0";
+	      info->shift1  = "";
+	      info->shift2  = "";
+	      goto end;
+	    case SHIFT_LSHIFTRT:
+	      if (TARGET_H8300H)
+		info->special = "sub.w\t%f0,%f0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\tsub.w\t%e0,%e0";
+	      else
+		info->special = "sub.w\t%f0,%f0\n\trotl.l\t#2,%S0\n\trotl.l\t%S0\n\tsub.w\t%e0,%e0";
+	      info->shift1  = "";
+	      info->shift2  = "";
+	      goto end;
+	    case SHIFT_ASHIFTRT:
+	      abort ();
+	    }
+	}
+      else if (!TARGET_H8300 && count == 30)
+	{
+	  switch (shift_type)
+	    {
+	    case SHIFT_ASHIFT:
+	      if (TARGET_H8300H)
+		info->special = "sub.w\t%e0,%e0\n\trotr.l\t%S0\n\trotr.l\t%S0\n\tsub.w\t%f0,%f0";
+	      else
+		info->special = "sub.w\t%e0,%e0\n\trotr.l\t#2,%S0\n\tsub.w\t%f0,%f0";
+	      info->shift1  = "";
+	      info->shift2  = "";
+	      goto end;
+	    case SHIFT_LSHIFTRT:
+	      if (TARGET_H8300H)
+		info->special = "sub.w\t%f0,%f0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\tsub.w\t%e0,%e0";
+	      else
+		info->special = "sub.w\t%f0,%f0\n\trotl.l\t#2,%S0\n\tsub.w\t%e0,%e0";
+	      info->shift1  = "";
+	      info->shift2  = "";
+	      goto end;
+	    case SHIFT_ASHIFTRT:
+	      abort ();
 	    }
 	}
       else if (count == 31)
@@ -3876,7 +3949,7 @@ int
 h8300_eightbit_constant_address_p (x)
      rtx x;
 {
-  /* The ranges the 8-bit area. */
+  /* The ranges of the 8-bit area. */
   const unsigned HOST_WIDE_INT n1 = trunc_int_for_mode (0xff00, HImode);
   const unsigned HOST_WIDE_INT n2 = trunc_int_for_mode (0xffff, HImode);
   const unsigned HOST_WIDE_INT h1 = trunc_int_for_mode (0x00ffff00, SImode);
@@ -3908,7 +3981,7 @@ int
 h8300_tiny_constant_address_p (x)
      rtx x;
 {
-  /* The ranges for the 16-bit area.  */
+  /* The ranges of the 16-bit area.  */
   const unsigned HOST_WIDE_INT h1 = trunc_int_for_mode (0x00000000, SImode);
   const unsigned HOST_WIDE_INT h2 = trunc_int_for_mode (0x00007fff, SImode);
   const unsigned HOST_WIDE_INT h3 = trunc_int_for_mode (0x00ff8000, SImode);

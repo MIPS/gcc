@@ -375,7 +375,7 @@ case $machine in
 	# ELF configurations.  We will clear extra_parts in the
 	# a.out configurations.
 	case $machine in
-	*-*-netbsd*1.[7-9]* | *-*-netbsd*[2-9]*)
+	*-*-netbsd*1.[7-9]* | *-*-netbsd[2-9]* | *-*-netbsdelf[2-9]*)
 		extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
 		;;
 	esac
@@ -1124,7 +1124,7 @@ i[34567]86-*-linux*)	# Intel 80386's running GNU/Linux
 x86_64-*-linux*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h linux.h \
 		 i386/x86-64.h i386/linux64.h"
-	tmake_file="t-slibgcc-elf-ver t-linux i386/t-crtstuff i386/t-linux64"
+	tmake_file="t-slibgcc-elf-ver t-linux i386/t-linux64"
 	;;
 i[34567]86-*-gnu*)
 	;;
@@ -2001,8 +2001,8 @@ powerpc-*-sysv*)
 	tmake_file="rs6000/t-ppcos rs6000/t-ppccomm"
 	;;
 powerpc-*-netbsd*)
-	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/netbsd.h"
-	tmake_file="rs6000/t-ppcos rs6000/t-ppccomm"
+	tm_file="${tm_file} dbxelf.h elfos.h netbsd.h netbsd-elf.h freebsd-spec.h rs6000/sysv4.h rs6000/netbsd.h"
+	tmake_file="${tmake_file} rs6000/t-netbsd"
 	;;
 powerpc-*-chorusos*)
 	xm_defines=POSIX
@@ -2194,7 +2194,7 @@ rs6000-*-lynxos*)
 	;;
 s390-*-linux*)
 	tm_file="s390/s390.h dbxelf.h elfos.h svr4.h linux.h s390/linux.h"
-	tmake_file="t-slibgcc-elf-ver t-linux"
+	tmake_file="t-slibgcc-elf-ver t-linux s390/t-crtstuff"
 	;;
 s390x-*-linux*)
 	tm_file="s390/s390x.h s390/s390.h dbxelf.h elfos.h svr4.h linux.h s390/linux.h"
@@ -2202,7 +2202,7 @@ s390x-*-linux*)
 	md_file=s390/s390.md
 	extra_modes=s390/s390-modes.def
 	out_file=s390/s390.c
-	tmake_file="t-slibgcc-elf-ver t-linux s390/t-linux64"
+	tmake_file="t-slibgcc-elf-ver t-linux s390/t-crtstuff s390/t-linux64"
 	;;
 sh-*-elf* | sh[2346l]*-*-elf*)
 	tmake_file="sh/t-sh sh/t-elf"

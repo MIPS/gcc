@@ -1634,7 +1634,7 @@ unsafe_for_reeval (expr)
 {
   int unsafeness = 0;
   enum tree_code code;
-  int i, tmp;
+  int i, tmp, tmp2;
   tree exp;
   int first_rtl;
 
@@ -1660,8 +1660,9 @@ unsafe_for_reeval (expr)
       return unsafeness;
 
     case CALL_EXPR:
+      tmp2 = unsafe_for_reeval (TREE_OPERAND (expr, 0));
       tmp = unsafe_for_reeval (TREE_OPERAND (expr, 1));
-      return MAX (tmp, 1);
+      return MAX (MAX (tmp, 1), tmp2);
 
     case TARGET_EXPR:
       unsafeness = 1;
@@ -2550,53 +2551,6 @@ build_type_attribute_variant (ttype, attribute)
     }
 
   return ttype;
-}
-
-/* Default value of targetm.comp_type_attributes that always returns 1.  */
-
-int
-default_comp_type_attributes (type1, type2)
-     tree type1 ATTRIBUTE_UNUSED;
-     tree type2 ATTRIBUTE_UNUSED;
-{
-  return 1;
-}
-
-/* Default version of targetm.set_default_type_attributes that always does
-   nothing.  */
-
-void
-default_set_default_type_attributes (type)
-     tree type ATTRIBUTE_UNUSED;
-{
-}
-
-/* Default version of targetm.insert_attributes that always does nothing.  */
-void
-default_insert_attributes (decl, attr_ptr)
-     tree decl ATTRIBUTE_UNUSED;
-     tree *attr_ptr ATTRIBUTE_UNUSED;
-{
-}
-
-/* Default value of targetm.function_attribute_inlinable_p that always
-   returns false.  */
-bool
-default_function_attribute_inlinable_p (fndecl)
-     tree fndecl ATTRIBUTE_UNUSED;
-{
-  /* By default, functions with machine attributes cannot be inlined.  */
-  return false;
-}
-
-/* Default value of targetm.ms_bitfield_layout_p that always returns
-   false.  */
-bool
-default_ms_bitfield_layout_p (record)
-     tree record ATTRIBUTE_UNUSED;
-{
-  /* By default, GCC does not use the MS VC++ bitfield layout rules.  */
-  return false;
 }
 
 /* Return nonzero if IDENT is a valid name for attribute ATTR,
@@ -4165,6 +4119,9 @@ bool
 variably_modified_type_p (type)
      tree type;
 {
+  if (type == error_mark_node)
+    return false;
+
   /* If TYPE itself has variable size, it is variably modified.  
 
      We do not yet have a representation of the C99 '[*]' syntax.

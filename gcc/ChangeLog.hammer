@@ -1,3 +1,7 @@
+Sat Dec  7 16:37:13 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (hammer-3_3-20020712 tag)
+
 Sat Dec  7 15:45:14 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	Hack to compile gcc:
