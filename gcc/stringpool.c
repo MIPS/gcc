@@ -59,7 +59,8 @@ init_stringpool ()
   ident_hash = ht_create (14);
   ident_hash->alloc_node = alloc_node;
   gcc_obstack_init (&string_stack);
-  ggc_add_root (&ident_hash, 1, sizeof ident_hash, mark_ident_hash);
+  ggc_add_root (&ident_hash, 1, sizeof ident_hash, mark_ident_hash, "ident_hash");
+  add_untyped_address (&data_to_save, &ident_hash, sizeof (ident_hash), "ident_hash");
 }
 
 /* Allocate a hash node.  */

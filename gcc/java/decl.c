@@ -882,11 +882,11 @@ init_decl_processing ()
 
   /* Register nodes with the garbage collector.  */
   ggc_add_tree_root (java_global_trees, 
-		     sizeof (java_global_trees) / sizeof (tree));
+		     sizeof (java_global_trees) / sizeof (tree), "java_global_trees");
   ggc_add_tree_root (predef_filenames,
-		     sizeof (predef_filenames) / sizeof (tree));
-  ggc_add_tree_root (&decl_map, 1);
-  ggc_add_tree_root (&pending_local_decls, 1);
+		     sizeof (predef_filenames) / sizeof (tree), "predef_filenames");
+  ggc_add_tree_root (&decl_map, 1, "decl_map");
+  ggc_add_tree_root (&pending_local_decls, 1, "pending_local_decls");
 }
 
 

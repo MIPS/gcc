@@ -614,7 +614,7 @@ init_regs ()
 
     for (i = 0; i < MAX_MACHINE_MODE; i++)
       top_of_stack[i] = gen_rtx_MEM (i, stack_pointer_rtx);
-    ggc_add_rtx_root (top_of_stack, MAX_MACHINE_MODE);
+    ggc_add_rtx_root (top_of_stack, MAX_MACHINE_MODE, "top_of_stack");
   }
 #endif
 }

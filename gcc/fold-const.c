@@ -1935,9 +1935,9 @@ size_int_type_wide (number, type)
   if (size_htab == 0)
     {
       size_htab = htab_create (1024, size_htab_hash, size_htab_eq, NULL);
-      ggc_add_deletable_htab (size_htab, NULL, NULL);
+      ggc_add_deletable_htab (size_htab, NULL, NULL, "size_htab");
       new_const = make_node (INTEGER_CST);
-      ggc_add_tree_root (&new_const, 1);
+      ggc_add_tree_root (&new_const, 1, "new_const");
     }
 
   /* Adjust NEW_CONST to be the constant we want.  If it's already in the

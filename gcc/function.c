@@ -145,6 +145,9 @@ tree inline_function_decl;
 /* The currently compiled function.  */
 struct function *cfun = 0;
 
+/* Global list of all compiled functions.  */
+struct function *all_functions = 0;
+
 /* These arrays record the INSN_UIDs of the prologue and epilogue insns.  */
 static varray_type prologue;
 static varray_type epilogue;
@@ -302,13 +305,13 @@ static bool insns_for_mem_comp PARAMS ((hash_table_key, hash_table_key));
 static int insns_for_mem_walk   PARAMS ((rtx *, void *));
 static void compute_insns_for_mem PARAMS ((rtx, rtx, struct hash_table *));
 static void mark_function_status PARAMS ((struct function *));
-static void maybe_mark_struct_function PARAMS ((void *));
+static void mark_function_chain PARAMS ((void *));
 static void prepare_function_start PARAMS ((void));
 static void do_clobber_return_reg PARAMS ((rtx, void *));
 static void do_use_return_reg PARAMS ((rtx, void *));
 
 /* Pointer to chain of `struct function' for containing functions.  */
-static struct function *outer_function_chain;
+struct function *outer_function_chain;
 
 /* Given a function decl for a containing function,
    return the `struct function' for it.  */
@@ -319,7 +322,7 @@ find_function_data (decl)
 {
   struct function *p;
 
-  for (p = outer_function_chain; p; p = p->outer)
+  for (p = outer_function_chain; p; p = p->next)
     if (p->decl == decl)
       return p;
 
@@ -336,24 +339,21 @@ void
 push_function_context_to (context)
      tree context;
 {
-  struct function *p;
+  struct function *p, *context_data;
 
   if (context)
     {
-      if (context == current_function_decl)
-	cfun->contains_functions = 1;
-      else
-	{
-	  struct function *containing = find_function_data (context);
-	  containing->contains_functions = 1;
-	}
+      context_data = (context == current_function_decl
+		      ? cfun
+		      : find_function_data (context));
+      context_data->contains_functions = 1;
     }
 
   if (cfun == 0)
     init_dummy_function_start ();
   p = cfun;
 
-  p->outer = outer_function_chain;
+  p->next = outer_function_chain;
   outer_function_chain = p;
   p->fixup_var_refs_queue = 0;
 
@@ -380,7 +380,7 @@ pop_function_context_from (context)
   struct var_refs_queue *queue;
 
   cfun = p;
-  outer_function_chain = p->outer;
+  outer_function_chain = p->next;
 
   current_function_decl = p->decl;
   reg_renumber = 0;
@@ -1330,13 +1330,10 @@ put_var_into_stack (decl)
   /* Get the mode it's actually stored in.  */
   promoted_mode = GET_MODE (reg);
 
-  /* If this variable comes from an outer function, find that
-     function's saved context.  Don't use find_function_data here,
-     because it might not be in any active function.
-     FIXME: Is that really supposed to happen?
-     It does in ObjC at least.  */
+  /* If this variable comes from an outer function,
+     find that function's saved context.  */
   if (context != current_function_decl && context != inline_function_decl)
-    for (function = outer_function_chain; function; function = function->outer)
+    for (function = outer_function_chain; function; function = function->next)
       if (function->decl == context)
 	break;
 
@@ -5510,7 +5507,12 @@ fix_lexical_addr (addr, var)
   if (context == current_function_decl || context == inline_function_decl)
     return addr;
 
-  fp = find_function_data (context);
+  for (fp = outer_function_chain; fp; fp = fp->next)
+    if (fp->decl == context)
+      break;
+
+  if (fp == 0)
+    abort ();
 
   if (GET_CODE (addr) == ADDRESSOF && GET_CODE (XEXP (addr, 0)) == MEM)
     addr = XEXP (XEXP (addr, 0), 0);
@@ -5594,7 +5596,7 @@ trampoline_address (function)
       return
 	adjust_trampoline_addr (XEXP (RTL_EXPR_RTL (TREE_VALUE (link)), 0));
 
-  for (fp = outer_function_chain; fp; fp = fp->outer)
+  for (fp = outer_function_chain; fp; fp = fp->next)
     for (link = fp->x_trampoline_list; link; link = TREE_CHAIN (link))
       if (TREE_PURPOSE (link) == function)
 	{
@@ -5610,7 +5612,9 @@ trampoline_address (function)
   fn_context = decl_function_context (function);
   if (fn_context != current_function_decl
       && fn_context != inline_function_decl)
-    fp = find_function_data (fn_context);
+    for (fp = outer_function_chain; fp; fp = fp->next)
+      if (fp->decl == fn_context)
+	break;
 
   /* Allocate run-time space for this trampoline
      (usually in the defining function's stack frame).  */
@@ -6207,6 +6211,10 @@ init_function_start (subr, filename, line)
      int line;
 {
   prepare_function_start ();
+
+  /* Remember this function for later.  */
+  cfun->next_global = all_functions;
+  all_functions = cfun;
 
   current_function_name = (*decl_printable_name) (subr, 2);
   cfun->decl = subr;
@@ -7628,21 +7636,6 @@ mark_function_status (p)
   mark_hard_reg_initial_vals (p);
 }
 
-/* Mark the struct function pointed to by *ARG for GC, if it is not
-   NULL.  This is used to mark the current function and the outer
-   function chain.  */
-
-static void
-maybe_mark_struct_function (arg)
-     void *arg;
-{
-  struct function *f = *(struct function **) arg;
-
-  if (f == 0)
-    return;
-
-  ggc_mark_struct_function (f);
-}
 
 /* Mark a struct function * for GC.  This is called from ggc-common.c.  */
 
@@ -7669,8 +7662,40 @@ ggc_mark_struct_function (f)
     ggc_mark_rtvec ((rtvec) f->original_arg_vector);
   if (f->original_decl_initial)
     ggc_mark_tree (f->original_decl_initial);
-  if (f->outer)
-    ggc_mark_struct_function (f->outer);
+}
+
+/* Mark the struct function pointed to by *ARG for GC, if it is not
+   NULL.  This is used to mark the current function and the outer
+   function chain.  */
+
+static void
+mark_function_chain (arg)
+     void *arg;
+{
+  struct function *f = *(struct function **) arg;
+
+  for (; f; f = f->next_global)
+    {
+      ggc_mark (f);
+      ggc_mark_tree (f->decl);
+
+      mark_function_status (f);
+      mark_eh_status (f->eh);
+      mark_stmt_status (f->stmt);
+      mark_expr_status (f->expr);
+      mark_emit_status (f->emit);
+      mark_varasm_status (f->varasm);
+
+      if (mark_machine_status)
+	(*mark_machine_status) (f);
+      if (mark_lang_status)
+	(*mark_lang_status) (f);
+
+      if (f->original_arg_vector)
+	ggc_mark_rtvec ((rtvec) f->original_arg_vector);
+      if (f->original_decl_initial)
+	ggc_mark_tree (f->original_decl_initial);
+    }
 }
 
 /* Called once, at initialization, to initialize function.c.  */
@@ -7678,9 +7703,11 @@ ggc_mark_struct_function (f)
 void
 init_function_once ()
 {
-  ggc_add_root (&cfun, 1, sizeof cfun, maybe_mark_struct_function);
-  ggc_add_root (&outer_function_chain, 1, sizeof outer_function_chain,
-		maybe_mark_struct_function);
+  ggc_add_root (&all_functions, 1, sizeof all_functions,
+		mark_function_chain, "all_functions");
+  add_untyped_address (&data_to_save, &next_block_index,
+                      sizeof (next_block_index), "next_block_index");
+
 
   VARRAY_INT_INIT (prologue, 0, "prologue");
   VARRAY_INT_INIT (epilogue, 0, "epilogue");

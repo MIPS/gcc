@@ -41,6 +41,7 @@ end ifc
 #include "tree.h"
 #include "input.h"
 #include "cpplib.h"
+#include "cpphash.h"
 #include "intl.h"
 #include "timevar.h"
 #include "c-lex.h"
@@ -320,16 +321,16 @@ static void init_reswords PARAMS ((void));
 void
 c_parse_init ()
 {
-  ggc_add_tree_root (&declspec_stack, 1);
-  ggc_add_tree_root (&current_declspecs, 1);
-  ggc_add_tree_root (&prefix_attributes, 1);
-  ggc_add_tree_root (&all_prefix_attributes, 1);
+  ggc_add_tree_root (&declspec_stack, 1, "declspec_stack");
+  ggc_add_tree_root (&current_declspecs, 1, "current_declspecs");
+  ggc_add_tree_root (&prefix_attributes, 1, "prefix_attributes");
+  ggc_add_tree_root (&all_prefix_attributes, 1, "all_prefix_attributes");
 ifobjc
-  ggc_add_tree_root (&objc_interface_context, 1);
-  ggc_add_tree_root (&objc_implementation_context, 1);
-  ggc_add_tree_root (&objc_method_context, 1);
-  ggc_add_tree_root (&objc_ivar_chain, 1);
-  ggc_add_tree_root (&objc_ivar_context, 1);
+  ggc_add_tree_root (&objc_interface_context, 1, "objc_interface_context");
+  ggc_add_tree_root (&objc_implementation_context, 1, "objc_implementation_context");
+  ggc_add_tree_root (&objc_method_context, 1, "objc_method_context");
+  ggc_add_tree_root (&objc_ivar_chain, 1, "objc_ivar_chain");
+  ggc_add_tree_root (&objc_ivar_context, 1, "objc_ivar_context");
 end ifobjc
 }
 
@@ -360,7 +361,18 @@ end ifc
 
 extdefs:
 	{$<ttype>$ = NULL_TREE; } extdef
-	| extdefs {$<ttype>$ = NULL_TREE; ggc_collect(); } extdef
+        | extdefs
+             {
+              $<ttype>$ = NULL_TREE;
+              ggc_collect();
+              if (allow_pch)
+                {
+                  parse_in->cb.valid_pch = NULL;
+                  allow_pch = 0;
+                }
+            }
+           extdef
+
 	;
 
 extdef:
@@ -3741,7 +3753,8 @@ _yylex ()
     case CPP_SEMICOLON:		OBJC_NEED_RAW_IDENTIFIER (0);	return ';';
 
     case CPP_EOF:
-      return 0;
+        return 0;
+
 
     case CPP_NAME:
       return yylexname ();

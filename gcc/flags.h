@@ -66,6 +66,10 @@ extern int optimize_size;
 
 extern int quiet_flag;
 
+/* Print compiler version information.  -v.  */
+
+extern int version_flag;
+
 /* Print times taken by the various passes.  -ftime-report.  */
 
 extern int time_report;

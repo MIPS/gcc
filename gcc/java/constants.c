@@ -337,7 +337,7 @@ get_tag_node (tag)
   /* Register the TAG_NODES with the garbage collector.  */
   if (!initialized_p)
     {
-      ggc_add_tree_root (tag_nodes, 13);
+      ggc_add_tree_root (tag_nodes, 13, "tag_nodes");
       initialized_p = 1;
     }
 

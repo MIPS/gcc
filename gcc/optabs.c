@@ -2957,9 +2957,13 @@ emit_libcall_block (insns, target, result, equiv)
     first = NEXT_INSN (prev);
 
   /* Encapsulate the block so it gets manipulated as a unit.  */
-  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last,
-					 REG_NOTES (first));
-  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
+  if (!flag_non_call_exceptions || !may_trap_p (equiv))
+    {
+      REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last,
+		      			     REG_NOTES (first));
+      REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first,
+		      			    REG_NOTES (last));
+    }
 }
 
 /* Generate code to store zero in X.  */
@@ -5071,8 +5075,8 @@ init_optabs ()
 #endif
 
   /* Add these GC roots.  */
-  ggc_add_root (optab_table, OTI_MAX, sizeof(optab), mark_optab);
-  ggc_add_rtx_root (libfunc_table, LTI_MAX);
+  ggc_add_root (optab_table, OTI_MAX, sizeof(optab), mark_optab, "optab_table");
+  ggc_add_rtx_root (libfunc_table, LTI_MAX, "libfunc_table");
 }
 
 #ifdef HAVE_conditional_trap
@@ -5088,7 +5092,7 @@ init_traps ()
   if (HAVE_conditional_trap)
     {
       trap_rtx = gen_rtx_fmt_ee (EQ, VOIDmode, NULL_RTX, NULL_RTX);
-      ggc_add_rtx_root (&trap_rtx, 1);
+      ggc_add_rtx_root (&trap_rtx, 1, "trap_rtx");
     }
 }
 #endif

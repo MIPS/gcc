@@ -5126,9 +5126,15 @@ init_varasm_once ()
 			       in_named_entry_eq, NULL);
 
   ggc_add_root (const_hash_table, MAX_HASH_TABLE, sizeof const_hash_table[0],
-		mark_const_hash_entry);
+		mark_const_hash_entry, "const_hash_table");
   ggc_add_root (&const_str_htab, 1, sizeof const_str_htab,
-		mark_const_str_htab);
+		mark_const_str_htab, "const_str_htab");
+  add_untyped_address (&data_to_save, &const_labelno, sizeof (const_labelno), "const_labelno");
+  add_untyped_address (&data_to_save, &var_labelno, sizeof (var_labelno), "var_labelno");
+  add_untyped_address (&data_to_save, &in_section, sizeof (in_section), "in_section");
+  add_typed_addresses (&data_to_save, (void **)&in_named_name,
+                      string_type_def, 1, "in_named_name");
+
 }
 
 /* Select a set of attributes for section NAME based on the properties

@@ -320,8 +320,10 @@ init_repo (filename)
   if (! flag_use_repository)
     return;
 
-  ggc_add_tree_root (&pending_repo, 1);
-  ggc_add_tree_root (&original_repo, 1);
+  ggc_add_tree_root (&pending_repo, 1, "pending_repo" );
+  add_tree_addresses (&data_to_save, &pending_repo, 1, "pending_repo" );
+  ggc_add_tree_root (&original_repo, 1, "original_repo" );
+  add_tree_addresses (&data_to_save, &original_repo, 1, "original_repo" );
   gcc_obstack_init (&temporary_obstack);
 
   open_repo_file (filename);

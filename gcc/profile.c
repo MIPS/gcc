@@ -1052,7 +1052,7 @@ init_edge_profiler ()
   char buf[20];
   ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 2);
   profiler_label = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
-  ggc_add_rtx_root (&profiler_label, 1);
+  ggc_add_rtx_root (&profiler_label, 1, "profiler_label");
 }
 
 /* Output instructions as RTL to increment the edge execution count.  */

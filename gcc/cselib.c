@@ -1357,7 +1357,7 @@ cselib_init ()
       cselib_startobj = obstack_alloc (&cselib_obstack, 0);
 
       callmem = gen_rtx_MEM (BLKmode, const0_rtx);
-      ggc_add_rtx_root (&callmem, 1);
+      ggc_add_rtx_root (&callmem, 1, "callmem");
     }
 
   cselib_nregs = max_reg_num ();

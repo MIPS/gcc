@@ -636,8 +636,8 @@ lang_print_error (context, file)
      the garbage collector.  */
   if (!initialized_p)
     {
-      ggc_add_tree_root (&last_error_function_context, 1);
-      ggc_add_tree_root (&last_error_function, 1);
+      ggc_add_tree_root (&last_error_function_context, 1, "last_error_function_contex");
+      ggc_add_tree_root (&last_error_function, 1, "last_error_function");
       initialized_p = 1;
     }
 

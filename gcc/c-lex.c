@@ -31,7 +31,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-tree.h"
 #include "flags.h"
 #include "timevar.h"
+#if 0
 #include "cpplib.h"
+#endif
 #include "c-pragma.h"
 #include "toplev.h"
 #include "intl.h"
@@ -54,6 +56,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define GET_ENVIRONMENT(ENV_VALUE,ENV_NAME) ((ENV_VALUE) = getenv (ENV_NAME))
 #endif
 
+FILE *finput;
+
 /* The input filename as understood by CPP, where "" represents stdin.  */
 static const char *cpp_filename;
 
@@ -67,6 +71,49 @@ static unsigned int src_lineno;
 static int header_time, body_time;
 static splay_tree file_info_tree;
 
+struct putback_buffer
+{
+  unsigned char *buffer;
+  int   buffer_size;
+  int   index;
+};
+
+static struct putback_buffer putback = {NULL, 0, -1};
+
+static inline int getch PARAMS ((void));
+
+static inline int
+getch ()
+{
+  if (putback.index != -1)
+    {
+      int ch = putback.buffer[putback.index];
+      --putback.index;
+      return ch;
+    }
+  return getc (finput);
+}
+
+static inline void put_back PARAMS ((int));
+
+static inline void
+put_back (ch)
+     int ch;
+{
+  if (ch != EOF)
+    {
+      if (putback.index == putback.buffer_size - 1)
+	{
+	  putback.buffer_size += 16;
+	  putback.buffer = xrealloc (putback.buffer, putback.buffer_size);
+	}
+      putback.buffer[++putback.index] = ch;
+    }
+}
+
+int linemode;
+
+
 /* Cause the `yydebug' variable to be defined.  */
 #define YYDEBUG 1
 
@@ -78,6 +125,11 @@ extern FILE *asm_out_file;
 
 /* Number of bytes in a wide character.  */
 #define WCHAR_BYTES (WCHAR_TYPE_SIZE / BITS_PER_UNIT)
+
+void (*lang_include_hook)              PARAMS ((cpp_reader *,
+                                                const unsigned char *,
+                                                const unsigned char *,
+                                                unsigned int, int));
 
 int indent_level;        /* Number of { minus number of }.  */
 int pending_lang_change; /* If we need to switch languages - C++ only */
@@ -133,6 +185,8 @@ init_c_lex (filename)
   cb->ident = cb_ident;
   cb->file_change = cb_file_change;
   cb->def_pragma = cb_def_pragma;
+  cb->valid_pch = lang_valid_pch;
+  cb->read_pch = lang_read_pch;
 
   /* Set the debug callbacks if we can use them.  */
   if (debug_info_level == DINFO_LEVEL_VERBOSE
@@ -142,6 +196,8 @@ init_c_lex (filename)
       cb->undef = cb_undef;
     }
 
+  if (! cpp_start_read (parse_in, filename))
+    return 1;			/* cpplib has emitted an error.  */
 
   if (filename == 0 || !strcmp (filename, "-"))
     filename = "stdin", cpp_filename = "";
@@ -160,8 +216,10 @@ init_c_lex (filename)
 int
 yyparse()
 {
+#if 0
   if (! cpp_start_read (parse_in, cpp_filename))
     return 1;			/* cpplib has emitted an error.  */
+#endif
 
   return yyparse_1();
 }
@@ -177,10 +235,14 @@ get_fileinfo (name)
   if (n)
     return (struct c_fileinfo *) n->value;
 
+#if 1
+  fi = (struct c_fileinfo *) xcalloc (1, sizeof (struct c_fileinfo));
+#else
   fi = (struct c_fileinfo *) xmalloc (sizeof (struct c_fileinfo));
   fi->time = 0;
   fi->interface_only = 0;
   fi->interface_unknown = 1;
+#endif
   splay_tree_insert (file_info_tree, (splay_tree_key) name,
 		     (splay_tree_value) fi);
   return fi;

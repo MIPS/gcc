@@ -1353,7 +1353,7 @@ want_to_gcse_p (x)
 						   FIRST_PSEUDO_REGISTER * 2),
 				      const0_rtx));
       NEXT_INSN (test_insn) = PREV_INSN (test_insn) = 0;
-      ggc_add_rtx_root (&test_insn, 1);
+      ggc_add_rtx_root (&test_insn, 1, "test_insn");
     }
 
   /* Now make an insn like the one we would make when GCSE'ing and see if

@@ -121,7 +121,7 @@ zap_lists (dummy)
 void 
 init_EXPR_INSN_LIST_cache ()
 {
-  ggc_add_root (&unused_expr_list, 1, 1, zap_lists);
+  ggc_add_root (&unused_expr_list, 1, 1, zap_lists , "unused_expr_list");
 }
 
 /* This function will free up an entire list of EXPR_LIST nodes.  */

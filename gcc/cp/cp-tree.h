@@ -152,6 +152,11 @@ Boston, MA 02111-1307, USA.  */
      the virtual function this one overrides, and whose TREE_CHAIN is
      the old DECL_VINDEX.  */
 
+#define cp_binding_level_type_def	lang1_type_def
+#define cp_lang_id2_type_def		lang2_type_def
+#define cpf_tree_node_type_def		lang3_type_def
+#define cp_fileinfo_type_def		lang4_type_def
+
 /* Language-specific tree checkers. */
 
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
@@ -1012,6 +1017,7 @@ extern int flag_signed_bitfields;
    for exporting definitions that others might need.  */
 extern int interface_only, interface_unknown;
 
+
 /* Nonzero means we should attempt to elide constructors when possible.  */
 
 extern int flag_elide_constructors;
@@ -1360,6 +1366,11 @@ struct lang_type
    destructors that take an in-charge parameter.  */
 #define CLASSTYPE_DESTRUCTORS(NODE) \
   (TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (NODE), CLASSTYPE_DESTRUCTOR_SLOT))
+
+/* Whether or not the methods for the class have been sorted yet.  */
+#define METHOD_VEC_SORTED_P(NODE) (TREE_LANG_FLAG_0 (NODE))
+#define CLASSTYPE_METHOD_VEC_SORTED_P(NODE) \
+  (TREE_LANG_FLAG_0 (CLASSTYPE_METHOD_VEC (NODE)))
 
 /* Mark bits for depth-first and breath-first searches.  */
 
@@ -3525,6 +3536,10 @@ extern tree build_vtbl_ref			PARAMS ((tree, tree));
 extern tree build_vfn_ref			PARAMS ((tree, tree));
 extern tree get_vtable_decl                     PARAMS ((tree, int));
 extern void add_method				PARAMS ((tree, tree, int));
+#if 0
+extern void sort_methods                      PARAMS ((tree));
+extern void sort_fields                               PARAMS ((tree));
+#endif
 extern int currently_open_class			PARAMS ((tree));
 extern tree currently_open_derived_class	PARAMS ((tree));
 extern void duplicate_tag_error			PARAMS ((tree));
@@ -3805,6 +3820,7 @@ extern int cp_line_of				PARAMS ((tree));
 extern const char *language_to_string           PARAMS ((enum languages, int));
 extern void print_instantiation_context         PARAMS ((void));
 
+
 /* in except.c */
 extern void init_exception_processing		PARAMS ((void));
 extern tree expand_start_catch_block		PARAMS ((tree));
@@ -3886,6 +3902,13 @@ extern void yyerror				PARAMS ((const char *));
 extern void clear_inline_text_obstack		PARAMS ((void));
 extern void yyhook				PARAMS ((int));
 extern int cp_type_qual_from_rid                PARAMS ((tree));
+
+/* in linkage.c */
+extern void do_pragma_interface                       PARAMS ((tree));
+extern void do_pragma_implementation          PARAMS ((tree));
+extern void maybe_add_interface_item          PARAMS ((tree));
+extern void process_interface_items           PARAMS ((void));
+extern void init_linkage                      PARAMS ((void));
 
 /* in method.c */
 extern void init_method				PARAMS ((void));
@@ -4142,6 +4165,7 @@ extern void do_pending_defargs			PARAMS ((void));
 extern void done_pending_defargs		PARAMS ((void));
 extern void unprocessed_defarg_fn               PARAMS ((tree));
 extern void replace_defarg			PARAMS ((tree, tree));
+extern void end_input				PARAMS ((void));
 
 /* in tree.c */
 extern void init_tree			        PARAMS ((void));

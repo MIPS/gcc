@@ -32,6 +32,20 @@ Boston, MA 02111-1307, USA.  */
   {".cpp", "@c++", 0},
   {".c++", "@c++", 0},
   {".C",   "@c++", 0},
+  {"@c++-header",
+   "%{E|M|MM:%(cpp0) -lang-c++ %{ansi:-trigraphs -$ -D__STRICT_ANSI__}\
+       %{!no-gcc:-D__GNUG__=%v1}\
+       %{fnew-abi:-D__GXX_ABI_VERSION=100}\
+       %{fembedded-cxx:-D__EMBEDDED_CXX__} \
+      %(cpp_options)} "
+   "%{!E:cc1plus -lang-c++ %{ansi:-trigraphs -$ -D__STRICT_ANSI__}\
+      %{!no-gcc:-D__GNUG__=%v1}\
+      %{fnew-abi:-D__GXX_ABI_VERSION=100}\
+      %{ansi:-trigraphs -$ -D__STRICT_ANSI__}\
+      %{fembedded-cxx:-D__EMBEDDED_CXX__} \
+      %(cpp_options) %(cc1_options)\
+      -o %g.s %{!o*:-foutput-pch=%i.pch} %W{^o*:-foutput-pch=%*}%V} "
+  },
   {"@c++",
    /* cc1plus has an integrated ISO C preprocessor.  We should invoke
       the external preprocessor if -save-temps is given.  */
@@ -48,6 +62,14 @@ Boston, MA 02111-1307, USA.  */
 		    -D__GXX_ABI_VERSION=100\
 		    %{ansi:-D__STRICT_ANSI__ -trigraphs -$}\
 		    %(cpp_options) %b.ii \n}\
+       %{fauto-pch:%{!fsyntax-only:%{!save-temps: %{<fauto-pch} \
+       cc1plus -lang-c++\
+         %{!no-gcc:-D__GNUG__=%v1}\
+         %{fnew-abi:-D__GXX_ABI_VERSION=100}\
+         %{ansi:-trigraphs -$ -D__STRICT_ANSI__}\
+         %{fembedded-cxx:-D__EMBEDDED_CXX__} \
+         %(cpp_options) %(cc1_options) %{+e*} \
+         -fauto-pch %{!S:-o %g.s}\n}}}\
       cc1plus %{save-temps:-fpreprocessed %b.ii}\
               %{!save-temps:%(cpp_options)\
 			    %{!no-gcc:-D__GNUG__=%v1} \

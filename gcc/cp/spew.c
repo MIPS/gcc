@@ -113,7 +113,6 @@ static SPEW_INLINE void consume_token PARAMS ((void));
 static SPEW_INLINE int read_process_identifier PARAMS ((YYSTYPE *));
 
 static SPEW_INLINE void feed_input PARAMS ((struct unparsed_text *));
-static SPEW_INLINE void end_input PARAMS ((void));
 static SPEW_INLINE void snarf_block PARAMS ((const char *, int));
 static tree snarf_defarg PARAMS ((void));
 static int frob_id PARAMS ((int, int, tree *));
@@ -183,15 +182,19 @@ init_spew ()
   inline_text_firstobj = (char *) obstack_alloc (&inline_text_obstack, 0);
   gcc_obstack_init (&token_obstack);
   gcc_obstack_init (&feed_obstack);
-  ggc_add_tree_root (&defarg_fns, 1);
-  ggc_add_tree_root (&defarg_parm, 1);
-  ggc_add_tree_root (&defarg_depfns, 1);
-  ggc_add_tree_root (&defarg_fnsdone, 1);
+  ggc_add_tree_root (&defarg_fns, 1 , "defarg_fns" );
+  add_tree_addresses (&data_to_save, &defarg_fns, 1 , "defarg_fns" );
+  ggc_add_tree_root (&defarg_parm, 1 , "defarg_parm" );
+  add_tree_addresses (&data_to_save, &defarg_parm, 1 , "defarg_parm" );
+  ggc_add_tree_root (&defarg_depfns, 1 , "defarg_depfns" );
+  add_tree_addresses (&data_to_save, &defarg_depfns, 1 , "defarg_depfns" );
+  ggc_add_tree_root (&defarg_fnsdone, 1 , "defarg_fnsdone" );
+  add_tree_addresses (&data_to_save, &defarg_fnsdone, 1 , "defarg_fnsdone" );
 
   ggc_add_root (&pending_inlines, 1, sizeof (struct unparsed_text *),
-		mark_pending_inlines);
+		mark_pending_inlines , "pending_inlines" );
   ggc_add_root (&processing_these_inlines, 1, sizeof (struct unparsed_text *),
-		mark_pending_inlines);
+		mark_pending_inlines , "processing_these_inlines" );
 }
 
 void
@@ -358,7 +361,7 @@ read_token (t)
   return t->yychar;
 }
 
-static SPEW_INLINE void
+static void
 feed_input (input)
      struct unparsed_text *input;
 {
@@ -397,7 +400,7 @@ feed_input (input)
   feed = f;
 }
 
-static SPEW_INLINE void
+void
 end_input ()
 {
   struct feed *f = feed;

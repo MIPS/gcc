@@ -2,22 +2,22 @@
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000 Free Software Foundation, Inc.
 
-This file is part of GCC.
+This file is part of GNU CC.
 
-GCC is free software; you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
-version.
+GNU CC is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
 
-GCC is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-for more details.
+GNU CC is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+along with GNU CC; see the file COPYING.  If not, write to
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 
 #if !defined(NULL_TREE) && !defined(tree)
@@ -178,6 +178,9 @@ struct expr_status
 
 struct function
 {
+  struct function *next_global;
+  struct function *next;
+
   struct eh_status *eh;
   struct stmt_status *stmt;
   struct expr_status *expr;
@@ -191,9 +194,6 @@ struct function
 
   /* Points to the FUNCTION_DECL of this function. */
   tree decl;
-
-  /* Function containing this function, if any.  */
-  struct function *outer;
 
   /* Number of bytes of args popped by function being compiled on its return.
      Zero if no bytes are to be popped.
@@ -477,13 +477,16 @@ struct function
 
   /* Nonzero if the current function needs an lsda for exception handling.  */
   unsigned int uses_eh_lsda : 1;
-
   /* Nonzero if code to initialize arg_pointer_save_area has been emited.  */
-  unsigned int arg_pointer_save_area_init : 1;
+   unsigned int arg_pointer_save_area_init : 1;
+
 };
 
 /* The function currently being compiled.  */
 extern struct function *cfun;
+
+/* A list of all functions we have compiled so far.  */
+extern struct function *all_functions;
 
 /* Nonzero if we've already converted virtual regs to hard regs.  */
 extern int virtuals_instantiated;
@@ -552,6 +555,9 @@ extern tree inline_function_decl;
 /* Given a function decl for a containing function,
    return the `struct function' for it.  */
 struct function *find_function_data PARAMS ((tree));
+
+/* Pointer to chain of `struct function' for containing functions.  */
+extern struct function *outer_function_chain;
 
 /* Set NOTE_BLOCK for each block note in the current function.  */
 extern void identify_blocks PARAMS ((void));

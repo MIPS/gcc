@@ -73,7 +73,8 @@ void init_init_processing ()
   finish_builtin_type (BI_header_type, "__new_cookie", fields,
 		       0, double_type_node);
 
-  ggc_add_tree_root (&BI_header_type, 1);
+  ggc_add_tree_root (&BI_header_type, 1, "BI_header_type");
+  add_tree_addresses (&data_to_save, &BI_header_type, 1, "BI_header_type");
 }
 
 /* We are about to generate some complex initialization code.

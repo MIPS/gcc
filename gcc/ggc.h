@@ -19,6 +19,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 #include "varray.h"
+#include "gtype.h"
 
 /* Symbols are marked with `ggc' for `gcc gc' so as not to interfere with
    an external gc library that might be linked in.  */
@@ -47,18 +48,16 @@ extern const char digit_vector[];	/* "0" .. "9" */
 extern varray_type ggc_pending_trees;
 
 /* Manipulate global roots that are needed between calls to gc.  */
-extern void ggc_add_root		PARAMS ((void *base, int nelt,
-						 int size, void (*)(void *)));
-extern void ggc_add_rtx_root		PARAMS ((struct rtx_def **, int nelt));
-extern void ggc_add_tree_root		PARAMS ((union tree_node **,
-						 int nelt));
-extern void ggc_add_rtx_varray_root	PARAMS ((struct varray_head_tag **,
-						 int nelt));
-extern void ggc_add_tree_varray_root	PARAMS ((struct varray_head_tag **,
-						 int nelt));
-extern void ggc_add_tree_hash_table_root PARAMS ((struct hash_table **,
-						  int nelt));
-extern void ggc_del_root		PARAMS ((void *base));
+void ggc_add_typed_root PARAMS ((void *base, type_definition_p td, int nelt , const char * ));
+void ggc_add_string_varray_root PARAMS ((struct varray_head_tag **, int nelt , const char * ));
+void ggc_add_root PARAMS ((void *base, int nelt, int size, void (*)(void *) , const char * ));
+void ggc_add_rtx_root PARAMS ((struct rtx_def **, int nelt , const char * ));
+void ggc_add_tree_root PARAMS ((union tree_node **, int nelt , const char * ));
+void ggc_add_rtx_varray_root PARAMS ((struct varray_head_tag **, int nelt , const char * ));
+void ggc_add_tree_varray_root PARAMS ((struct varray_head_tag **, int nelt , const char * ));
+void ggc_add_tree_hash_table_root PARAMS ((struct hash_table **, int nelt , const char * ));
+void ggc_del_root PARAMS ((void *base));
+int  ggc_allocated_p PARAMS ((const void *));
 
 /* Types used for mark test and marking functions, if specified, in call
    below.  */
@@ -69,14 +68,15 @@ typedef void (*ggc_htab_mark) PARAMS ((const void *));
    delete any entry in the table that has not been marked.  The argument is
    really htab_t.  */
 extern void ggc_add_deletable_htab	PARAMS ((PTR, ggc_htab_marked_p,
-						 ggc_htab_mark));
+						 ggc_htab_mark, const char *));
 
 /* Mark nodes from the gc_add_root callback.  These functions follow
    pointers to mark other objects too.  */
-extern void ggc_mark_rtx_varray		PARAMS ((struct varray_head_tag *));
-extern void ggc_mark_tree_varray	PARAMS ((struct varray_head_tag *));
-extern void ggc_mark_tree_hash_table	PARAMS ((struct hash_table *));
-extern void ggc_mark_roots		PARAMS ((void));
+extern void ggc_mark_if_gcable PARAMS ((const void *));
+extern void ggc_mark_rtx_varray PARAMS ((struct varray_head_tag *));
+extern void ggc_mark_tree_varray PARAMS ((struct varray_head_tag *));
+extern void ggc_mark_tree_hash_table PARAMS ((struct hash_table *));
+extern void ggc_mark_roots PARAMS ((void));
 
 extern void ggc_mark_rtx_children	PARAMS ((struct rtx_def *));
 extern void ggc_mark_rtvec_children	PARAMS ((struct rtvec_def *));

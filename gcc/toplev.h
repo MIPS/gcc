@@ -113,6 +113,7 @@ extern int wrapup_global_declarations   PARAMS ((union tree_node **, int));
 extern void check_global_declarations   PARAMS ((union tree_node **, int));
 
 extern const char *progname;
+extern void (*late_init_hook) PARAMS((void));
 extern const char *dump_base_name;
 
 /* Language-specific hooks.  Can be NULL unless otherwise specified.  */

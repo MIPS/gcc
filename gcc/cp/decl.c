@@ -47,6 +47,8 @@ Boston, MA 02111-1307, USA.  */
 
 extern const struct attribute_spec *lang_attribute_table;
 
+
+
 #ifndef BOOL_TYPE_SIZE
 /* `bool' has size and alignment `1', on all platforms.  */
 #define BOOL_TYPE_SIZE CHAR_TYPE_SIZE
@@ -5533,7 +5535,7 @@ build_typename_type (context, name, fullname, base_type)
       static struct hash_table *h = &ht;
 
       hash_table_init (&ht, &hash_newfunc, &typename_hash, &typename_compare);
-      ggc_add_tree_hash_table_root (&h, 1);
+      ggc_add_tree_hash_table_root (&h, 1, "h");
     }
 
   /* Build the TYPENAME_TYPE.  */
@@ -6276,6 +6278,23 @@ initialize_predefined_identifiers ()
    Initialize the global binding level.
    Make definitions for built-in primitive functions.  */
 
+static const struct field_definition_s cp_binding_level_field_defs[] = {
+  { 0, 0, offsetof (struct binding_level, level_chain), 
+    cp_binding_level_type_def },
+  { 0, 0, offsetof (struct binding_level, names), tree_type_def },
+  { 0, 0, offsetof (struct binding_level, tags), tree_type_def },
+  { 0, 0, offsetof (struct binding_level, usings), tree_type_def },
+  { 0, 0, offsetof (struct binding_level, using_directives), tree_type_def },
+  { 0, 0, offsetof (struct binding_level, class_shadowed), tree_type_def },
+  { 0, 0, offsetof (struct binding_level, type_shadowed), tree_type_def },
+  { 0, 0, offsetof (struct binding_level, shadowed_labels), tree_type_def },
+  { 0, 0, offsetof (struct binding_level, blocks), tree_type_def },
+  { 0, 0, offsetof (struct binding_level, this_class), tree_type_def },
+  { 0, 0, offsetof (struct binding_level, incomplete), tree_type_def },
+  { 0, 0, offsetof (struct binding_level, dead_vars_from_for), tree_type_def },
+  NO_MORE_FIELDS
+};
+
 void
 init_decl_processing ()
 {
@@ -6284,6 +6303,12 @@ init_decl_processing ()
 
   /* Create all the identifiers we need.  */
   initialize_predefined_identifiers ();
+
+  /* Set up cp_binding_level_type_def.  */
+  cp_binding_level_type_def->size = sizeof (struct binding_level);
+  cp_binding_level_type_def->field_definitions = cp_binding_level_field_defs;
+  cp_binding_level_type_def->ggc_p = -1;
+
 
   /* Fill in back-end hooks.  */
   init_lang_status = &push_cp_function_context;
@@ -6349,6 +6374,8 @@ init_decl_processing ()
   push_namespace (std_identifier);
   std_node = current_namespace;
   pop_namespace ();
+
+  lang_attribute_table = cp_attribute_table;
 
   c_common_nodes_and_builtins ();
 
@@ -6487,13 +6514,8 @@ init_decl_processing ()
   make_fname_decl = cp_make_fname_decl;
   start_fname_decls ();
 
-  /* Prepare to check format strings against argument lists.  */
-  init_function_format_info ();
-
   /* Show we use EH for cleanups.  */
   using_eh_for_cleanups ();
-
-  lang_attribute_table = cp_attribute_table;
 
   /* Maintain consistency.  Perhaps we should just complain if they
      say -fwritable-strings?  */
@@ -6501,33 +6523,58 @@ init_decl_processing ()
     flag_const_strings = 0;
 
   /* Add GC roots for all of our global variables.  */
-  ggc_add_tree_root (c_global_trees, sizeof c_global_trees / sizeof(tree));
-  ggc_add_tree_root (cp_global_trees, sizeof cp_global_trees / sizeof(tree));
-  ggc_add_tree_root (&integer_three_node, 1);
-  ggc_add_tree_root (&integer_two_node, 1);
-  ggc_add_tree_root (&signed_size_zero_node, 1);
-  ggc_add_tree_root (&size_one_node, 1);
-  ggc_add_tree_root (&size_zero_node, 1);
-  ggc_add_root (&global_binding_level, 1, sizeof global_binding_level,
-		mark_binding_level);
-  ggc_add_root (&scope_chain, 1, sizeof scope_chain, &mark_saved_scope);
-  ggc_add_tree_root (&static_ctors, 1);
-  ggc_add_tree_root (&static_dtors, 1);
-  ggc_add_tree_root (&lastiddecl, 1);
+  ggc_add_tree_root (c_global_trees, CTI_MAX ,"c_global_trees");
+  add_tree_addresses (&data_to_save, c_global_trees , CTI_MAX , "c_global_trees");
+  ggc_add_tree_root (cp_global_trees, CPTI_MAX , "cp_global_trees");
+  add_tree_addresses (&data_to_save, cp_global_trees, CPTI_MAX , "cp_global_trees");
+  add_tree_addresses (&data_to_save, ridpointers, RID_MAX, "ridpointers");
+  ggc_add_tree_root (&integer_three_node, 1, "integer_three_node");
+  add_tree_addresses (&data_to_save, &integer_three_node, 1, "integer_three_node");
+  ggc_add_tree_root (&integer_two_node, 1, "integer_two_node");
+  add_tree_addresses (&data_to_save, &integer_two_node, 1, "integer_two_node");
+  ggc_add_tree_root (&signed_size_zero_node, 1, "signed_size_zero_node");
+  add_tree_addresses (&data_to_save, &signed_size_zero_node, 1, "signed_size_zero_node");
+  ggc_add_tree_root (&size_one_node, 1, "size_one_node");
+  add_tree_addresses (&data_to_save, &size_one_node, 1, "size_one_node");
+  ggc_add_tree_root (&size_zero_node, 1, "size_zero_node");
+  add_tree_addresses (&data_to_save, &size_zero_node, 1, "size_zero_node");
+  ggc_add_typed_root (&global_binding_level, cp_binding_level_type_def, 1, "global_binding_level");
+  add_typed_addresses (&data_to_save, (void **)&global_binding_level,
+		       cp_binding_level_type_def, 1, "global_binding_level");
+  add_typed_addresses (&data_to_save, (void **)&current_binding_level,
+                       cp_binding_level_type_def, 1, "current_binding_level");
+  ggc_add_root (&scope_chain, 1, sizeof scope_chain, &mark_saved_scope, "scope_chain");
+  ggc_add_tree_root (&static_ctors, 1, "static_ctors");
+  add_tree_addresses (&data_to_save, &static_ctors, 1, "static_ctors");
+  ggc_add_tree_root (&static_dtors, 1, "static_dtors");
+  add_tree_addresses (&data_to_save, &static_dtors, 1, "static_dtors");
+  ggc_add_tree_root (&lastiddecl, 1, "lastiddecl");
 
-  ggc_add_tree_root (&last_function_parms, 1);
-  ggc_add_tree_root (&error_mark_list, 1);
+  ggc_add_tree_root (&last_function_parms, 1 , "last_function_parms" );
+  ggc_add_tree_root (&error_mark_list, 1 , "error_mark_list" );
+  add_tree_addresses (&data_to_save, &error_mark_list, 1 , "error_mark_list" );
 
-  ggc_add_tree_root (&global_namespace, 1);
-  ggc_add_tree_root (&global_type_node, 1);
-  ggc_add_tree_root (&anonymous_namespace_name, 1);
+  ggc_add_tree_root (&global_namespace, 1 , "global_namespace" );
+  add_tree_addresses (&data_to_save, &global_namespace, 1 , "global_namespace" );
+  add_tree_addresses (&data_to_save, &current_namespace, 1 , "current_namespace" );
+  ggc_add_tree_root (&global_type_node, 1 , "global_type_node" );
+  add_tree_addresses (&data_to_save, &global_type_node, 1 , "global_type_node" );
+  ggc_add_tree_root (&anonymous_namespace_name, 1 , "anonymous_namespace_name" );
+  add_tree_addresses (&data_to_save, &anonymous_namespace_name, 1 , "anonymous_namespace_name" );
 
-  ggc_add_tree_root (&got_object, 1);
-  ggc_add_tree_root (&got_scope, 1);
+  ggc_add_tree_root (&got_object, 1 , "got_object" );
 
-  ggc_add_tree_root (&current_lang_name, 1);
-  ggc_add_tree_root (&static_aggregates, 1);
-  ggc_add_tree_root (&free_bindings, 1);
+  ggc_add_tree_root (&got_scope, 1 , "got_scope" );
+
+  ggc_add_tree_root (&current_lang_name, 1 , "current_lang_name" );
+  add_tree_addresses (&data_to_save, &current_lang_name, 1 , "current_lang_name" );
+  ggc_add_tree_root (&static_aggregates, 1 , "static_aggregates" );
+  add_tree_addresses (&data_to_save, &static_aggregates, 1 , "static_aggregates" );
+
+  add_untyped_address (&data_to_save, &anon_cnt, sizeof (anon_cnt) , "anon_cnt" );
+
+  ggc_add_tree_root (&free_bindings, 1 , "free_bindings" );
+  add_tree_addresses (&data_to_save, &free_bindings, 1 , "free_bindings" );
 }
 
 /* Generate an initializer for a function naming variable from
@@ -6642,6 +6689,9 @@ builtin_function (name, type, code, class, libname)
      is used without an occasion to consider it declared.  */
   if (name[0] != '_' || name[1] != '_')
     DECL_ANTICIPATED (decl) = 1;
+
+  /* Possibly apply some default attributes to this built-in function.  */
+  decl_attributes (&decl, NULL_TREE, 0);
 
   return decl;
 }
@@ -6764,6 +6814,20 @@ push_throw_library_fn (name, type)
   TREE_THIS_VOLATILE (fn) = 1;
   TREE_NOTHROW (fn) = 0;
   return fn;
+}
+
+/* Apply default attributes to a function, if a system function with default
+   attributes.  */
+
+void
+insert_default_attributes (decl)
+     tree decl;
+{
+  if (!DECL_EXTERN_C_FUNCTION_P (decl))
+    return;
+  if (!TREE_PUBLIC (decl))
+    return;
+  c_common_insert_default_attributes (decl);
 }
 
 /* When we call finish_struct for an anonymous union, we create
@@ -11019,13 +11083,13 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	}
       else if (quals)
 	{
-	  if (ctype == NULL_TREE)
-	    {
-	      if (TREE_CODE (type) != METHOD_TYPE)
+         if (ctype == NULL_TREE)
+           {
+             if (TREE_CODE (type) != METHOD_TYPE)
 		cp_error_at ("invalid type qualifier for non-member function type", decl);
 	      else
-		ctype = TYPE_METHOD_BASETYPE (type);
-	    }
+               ctype = TYPE_METHOD_BASETYPE (type);
+           }
 	  if (ctype != NULL_TREE)
 	    grok_method_quals (ctype, decl, quals);
 	}
@@ -13451,7 +13515,7 @@ start_function (declspecs, declarator, attrs, flags)
   if (!DECL_PENDING_INLINE_P (decl1)
       && DECL_SAVED_FUNCTION_DATA (decl1))
     {
-      free (DECL_SAVED_FUNCTION_DATA (decl1));
+      free(DECL_SAVED_FUNCTION_DATA (decl1));
       DECL_SAVED_FUNCTION_DATA (decl1) = NULL;
     }
 
@@ -13527,14 +13591,14 @@ start_function (declspecs, declarator, attrs, flags)
       DECL_INTERFACE_KNOWN (decl1) = 1;
     }
   else if (interface_unknown && interface_only
-	   && (! DECL_TEMPLATE_INSTANTIATION (decl1)
-	       || flag_alt_external_templates))
+         && (! DECL_TEMPLATE_INSTANTIATION (decl1)
+             || flag_alt_external_templates))
     {
       /* If MULTIPLE_SYMBOL_SPACES is defined and we saw a #pragma
-	 interface, we will have interface_only set but not
-	 interface_known.  In that case, we don't want to use the normal
-	 heuristics because someone will supply a #pragma implementation
-	 elsewhere, and deducing it here would produce a conflict.  */
+       interface, we will have interface_only set but not
+       interface_known.  In that case, we don't want to use the normal
+       heuristics because someone will supply a #pragma implementation
+       elsewhere, and deducing it here would produce a conflict.  */
       comdat_linkage (decl1);
       DECL_EXTERNAL (decl1) = 0;
       DECL_INTERFACE_KNOWN (decl1) = 1;
@@ -13551,7 +13615,7 @@ start_function (declspecs, declarator, attrs, flags)
 	  && ! DECL_INTERFACE_KNOWN (decl1)
 	  /* Don't try to defer nested functions for now.  */
 	  && ! decl_function_context (decl1))
-	DECL_DEFER_OUTPUT (decl1) = 1;
+	  DECL_DEFER_OUTPUT (decl1) = 1;
       else
 	DECL_INTERFACE_KNOWN (decl1) = 1;
     }

@@ -226,9 +226,12 @@ init_obstacks ()
   type_hash_table = htab_create (TYPE_HASH_INITIAL_SIZE, type_hash_hash,
 				 type_hash_eq, 0);
   ggc_add_deletable_htab (type_hash_table, type_hash_marked_p,
-			  type_hash_mark);
-  ggc_add_tree_root (global_trees, TI_MAX);
-  ggc_add_tree_root (integer_types, itk_none);
+			  type_hash_mark, "type_hash_table");
+  ggc_add_tree_root (global_trees, TI_MAX, "global_trees");
+  ggc_add_tree_root (integer_types, itk_none, "integer_types");
+  add_tree_addresses (&data_to_save, global_trees, TI_MAX, "global_trees");
+  add_tree_addresses (&data_to_save, integer_types, itk_none, "integer_types");
+
 
   /* Set lang_set_decl_set_assembler_name to a default value.  */
   lang_set_decl_assembler_name = set_decl_assembler_name;
@@ -393,7 +396,7 @@ make_node (code)
   tree_node_sizes[(int) kind] += length;
 #endif
 
-  t = ggc_alloc_tree (length);
+    t = ggc_alloc_tree (length);
 
   memset ((PTR) t, 0, length);
 
@@ -490,7 +493,7 @@ copy_node (node)
   register size_t length;
 
   length = tree_size (node);
-  t = ggc_alloc_tree (length);
+    t = ggc_alloc_tree (length);
   memcpy (t, node, length);
 
   TREE_CHAIN (t) = 0;
@@ -716,7 +719,7 @@ build_string (len, str)
   register tree s = make_node (STRING_CST);
 
   TREE_STRING_LENGTH (s) = len;
-  TREE_STRING_POINTER (s) = ggc_alloc_string (str, len);
+    TREE_STRING_POINTER (s) = ggc_alloc_string (str, len);
 
   return s;
 }
@@ -756,7 +759,7 @@ make_tree_vec (len)
   tree_node_sizes[(int)vec_kind] += length;
 #endif
 
-  t = ggc_alloc_tree (length);
+    t = ggc_alloc_tree (length);
 
   memset ((PTR) t, 0, length);
   TREE_SET_CODE (t, TREE_VEC);
@@ -1281,7 +1284,8 @@ tree_cons (purpose, value, chain)
 {
   register tree node;
 
-  node = ggc_alloc_tree (sizeof (struct tree_list));
+    node = ggc_alloc_tree (sizeof (struct tree_list));
+
 
   memset (node, 0, sizeof (struct tree_common));
 
@@ -2454,7 +2458,7 @@ build1 (code, type, node)
 
   length = sizeof (struct tree_exp);
 
-  t = ggc_alloc_tree (length);
+    t = ggc_alloc_tree (length);
 
   memset ((PTR) t, 0, sizeof (struct tree_common));
 

@@ -1223,7 +1223,7 @@ ffeste_io_ialist_ (bool have_err,
       TYPE_FIELDS (ref) = errfield;
       layout_type (ref);
 
-      ggc_add_tree_root (&f2c_alist_struct, 1);
+      ggc_add_tree_root (&f2c_alist_struct, 1, "f2c_alist_struct");
 
       f2c_alist_struct = ref;
     }
@@ -1357,7 +1357,7 @@ ffeste_io_cilist_ (bool have_err,
       TYPE_FIELDS (ref) = errfield;
       layout_type (ref);
 
-      ggc_add_tree_root (&f2c_cilist_struct, 1);
+      ggc_add_tree_root (&f2c_cilist_struct, 1, "f2c_cilist_struct");
 
       f2c_cilist_struct = ref;
     }
@@ -1575,7 +1575,7 @@ ffeste_io_cllist_ (bool have_err,
       TYPE_FIELDS (ref) = errfield;
       layout_type (ref);
 
-      ggc_add_tree_root (&f2c_close_struct, 1);
+      ggc_add_tree_root (&f2c_close_struct, 1, "f2c_close_struct");
 
       f2c_close_struct = ref;
     }
@@ -1699,7 +1699,7 @@ ffeste_io_icilist_ (bool have_err,
       TYPE_FIELDS (ref) = errfield;
       layout_type (ref);
 
-      ggc_add_tree_root (&f2c_icilist_struct, 1);
+      ggc_add_tree_root (&f2c_icilist_struct, 1, "f2c_icilist_struct");
 
       f2c_icilist_struct = ref;
     }
@@ -1997,7 +1997,7 @@ ffeste_io_inlist_ (bool have_err,
       TYPE_FIELDS (ref) = errfield;
       layout_type (ref);
 
-      ggc_add_tree_root (&f2c_inquire_struct, 1);
+      ggc_add_tree_root (&f2c_inquire_struct, 1, "f2c_inquire_struct");
 
       f2c_inquire_struct = ref;
     }
@@ -2203,7 +2203,7 @@ ffeste_io_olist_ (bool have_err,
       TYPE_FIELDS (ref) = errfield;
       layout_type (ref);
 
-      ggc_add_tree_root (&f2c_open_struct, 1);
+      ggc_add_tree_root (&f2c_open_struct, 1 ,"f2c_open_struct" );
 
       f2c_open_struct = ref;
     }

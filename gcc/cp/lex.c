@@ -52,6 +52,17 @@ Boston, MA 02111-1307, USA.  */
 extern void yyprint PARAMS ((FILE *, int, YYSTYPE));
 
 static int interface_strcmp PARAMS ((const char *));
+static void cp_tree_prewrite_hook PARAMS ((const void *));
+static code_type cp_tree_code_fetcher PARAMS ((const void *));
+static size_t cp_lang_decl_size_fetcher PARAMS ((const void *,
+                                                type_definition_p));
+static int cp_lang_decl_more_fields PARAMS ((struct field_definition_s *fp,
+                                            const void *t_v,
+                                            unsigned n,
+                                            code_type c,
+                                            type_definition_p td));
+
+
 static int *init_cpp_parse PARAMS ((void));
 static void init_reswords PARAMS ((void));
 static void init_cp_pragma PARAMS ((void));
@@ -85,6 +96,12 @@ static void init_operators PARAMS ((void));
 
 #include "cpplib.h"
 
+
+/* Pending language change.
+   Positive is push count, negative is pop count.  */
+int pending_lang_change = 0;
+
+
 extern int yychar;		/*  the lookahead symbol		*/
 extern YYSTYPE yylval;		/*  the semantic value of the		*/
 				/*  lookahead symbol			*/
@@ -102,6 +119,7 @@ tree lastiddecl;
 
 /* Array for holding counts of the numbers of tokens seen.  */
 extern int *token_count;
+
 
 /* Functions and data structures for #pragma interface.
 
@@ -275,13 +293,195 @@ cxx_init_options ()
   diagnostic_prefixing_rule (global_dc) = DIAGNOSTICS_SHOW_PREFIX_ONCE;
 }
 
+static code_type
+cp_tree_code_fetcher (t_v)
+     const void *t_v;
+{
+  tree t = (tree)t_v;
+  enum tree_code code = TREE_CODE (t);
+  
+  code_type r = code << 8 | TREE_CODE_CLASS (code);
+  
+  if (code == POINTER_TYPE)
+#if 0
+      && TREE_CODE (TREE_TYPE (t)) == METHOD_TYPE)
+#endif
+    r |= 0x20000;
+  if (code == CPLUS_BINDING
+      && BINDING_HAS_LEVEL_P (t))
+    r |= 0x10000;
+  return r;
+}
+
+/* A function to be called for each tree node before they are written out by
+   the precompiled headers mechanism.  Currently we use this to note that
+   the fields and methods are not sorted, as PCH fails to preserve address
+   order for identifiers.  */
+
+static void
+cp_tree_prewrite_hook (t_v)
+     const void *t_v;
+{
+  tree t = (tree)t_v;
+  if (TREE_CODE (t) == TYPE_DECL && DECL_LANG_SPECIFIC (t))
+    DECL_SORTED_FIELDS (t) = NULL_TREE;
+  else if (CLASS_TYPE_P (t) && CLASSTYPE_METHOD_VEC (t))
+    CLASSTYPE_METHOD_VEC_SORTED_P (t) = 0;
+}
+
+static const struct field_definition_s cp_tree_field_defs[] = {
+  { 't', 0x200FF, offsetof (union tree_node, type.lang_specific), 
+    lang_type_type_def },
+  /* In the case of pointer-to-member function types, the
+     TYPE_LANG_SPECIFIC is really just a tree.  */
+  { 't' | 0x20000, 0x200FF, offsetof (union tree_node, type.lang_specific), 
+    tree_type_def },
+  { IDENTIFIER_NODE << 8, 0xFF00,
+    offsetof (struct lang_identifier, namespace_bindings), tree_type_def },
+  { IDENTIFIER_NODE << 8, 0xFF00,
+    offsetof (struct lang_identifier, bindings), tree_type_def },
+  { IDENTIFIER_NODE << 8, 0xFF00,
+    offsetof (struct lang_identifier, class_value), tree_type_def },
+  { IDENTIFIER_NODE << 8, 0xFF00,
+    offsetof (struct lang_identifier, class_template_info), tree_type_def },
+  { IDENTIFIER_NODE << 8, 0xFF00,
+    offsetof (struct lang_identifier, x), cp_lang_id2_type_def },
+  { CPLUS_BINDING << 8 | 0x10000, 0x1FF00,
+    offsetof (struct tree_binding, scope.level), cp_binding_level_type_def },
+  { CPLUS_BINDING << 8 | 0x00000, 0x1FF00,
+    offsetof (struct tree_binding, scope.scope), tree_type_def },
+  { CPLUS_BINDING << 8, 0xFF00,
+    offsetof (struct tree_binding, value), tree_type_def },
+  { OVERLOAD << 8, 0xFF00, 
+    offsetof (struct tree_overload, function), tree_type_def },
+  { TEMPLATE_PARM_INDEX << 8, 0xFF00,
+    offsetof (template_parm_index, decl), tree_type_def },
+
+  NO_MORE_FIELDS
+};
+
+static size_t
+cp_lang_decl_size_fetcher (v, td)
+     const void *v;
+     type_definition_p td ATTRIBUTE_UNUSED;
+{
+  tree t = (tree)v;
+  if (CAN_HAVE_FULL_LANG_DECL_P (t))
+    return sizeof (struct lang_decl);
+  else 
+    return sizeof (struct lang_decl_flags);
+}
+
+static int
+cp_lang_decl_more_fields (fp, t_v, n, c, td)
+     struct field_definition_s *fp;
+     const void *t_v;
+     unsigned n;
+     code_type c ATTRIBUTE_UNUSED;
+     type_definition_p td ATTRIBUTE_UNUSED;
+{
+  tree t = (tree)t_v;
+  fp->type = tree_type_def;
+  switch (n)
+    {
+    case 0:
+      fp->offset = offsetof (struct lang_decl, decl_flags.base.saved_tree);
+      return 1;
+    case 1:
+      if (TREE_CODE (t) == NAMESPACE_DECL)
+	fp->type = cp_binding_level_type_def;
+      fp->offset = offsetof (struct lang_decl, decl_flags.u);
+      return 1;
+    case 2:
+      if (! DECL_THUNK_P (t)
+	  && (DECL_GLOBAL_CTOR_P (t) || DECL_GLOBAL_DTOR_P (t)))
+	fp->type = NULL;
+       fp->offset = offsetof (struct lang_decl, decl_flags.u2);
+       return 1;
+    case 3:
+      if (! CAN_HAVE_FULL_LANG_DECL_P (t))
+	return 0;
+
+      fp->offset = offsetof (struct lang_decl, befriending_classes);
+      return 1;
+    case 4:
+      fp->offset = offsetof (struct lang_decl, context);
+      return 1;
+    case 5:
+      fp->offset = offsetof (struct lang_decl, cloned_function);
+      return 1;
+    case 6:
+      if (TREE_CODE (t) == FUNCTION_DECL
+	  && ! DECL_PENDING_INLINE_P (t))
+	fp->type = lang_function_type_def;
+      else if (TREE_CODE (t) != TYPE_DECL)
+	fp->type = NULL;
+      fp->offset = offsetof (struct lang_decl, u);
+      return 1;
+    case 7:
+      if (DECL_OVERLOADED_OPERATOR_P (t))
+	fp->type = NULL;
+      fp->offset = offsetof (struct lang_decl, u2.operator_code);
+      return 1;
+    default:
+      return 0;
+    }
+}
+
+static const struct subobject_definition_s cp_tree_subobjects[] = {
+  { 
+    'd', 
+    0xFF, 
+    offsetof (union tree_node, decl.lang_specific),
+    cp_lang_decl_size_fetcher,
+    cp_lang_decl_more_fields
+  },
+  NO_MORE_SUBOBJECTS
+};
+
+static const struct field_definition_s cp_lang_id2_field_defs[] = {
+  { 0, 0, offsetof (struct lang_id2, label_value), tree_type_def },
+  { 0, 0, offsetof (struct lang_id2, implicit_decl), tree_type_def },
+  { 0, 0, offsetof (struct lang_id2, error_locus), tree_type_def },
+  NO_MORE_FIELDS
+};
+
+static const struct field_definition_s cp_lang_type_field_defs[] = {
+  { 0, 0, offsetof (struct lang_type, primary_base), tree_type_def },
+  { 0, 0, offsetof (struct lang_type, vfields), tree_type_def },
+  { 0, 0, offsetof (struct lang_type, vbases), tree_type_def },
+  { 0, 0, offsetof (struct lang_type, tags), tree_type_def },
+  { 0, 0, offsetof (struct lang_type, size), tree_type_def },
+  { 0, 0, offsetof (struct lang_type, size_unit), tree_type_def },
+  { 0, 0, offsetof (struct lang_type, pure_virtuals), tree_type_def },
+  { 0, 0, offsetof (struct lang_type, friend_classes), tree_type_def },
+  { 0, 0, offsetof (struct lang_type, rtti), tree_type_def },
+  { 0, 0, offsetof (struct lang_type, methods), tree_type_def },
+  { 0, 0, offsetof (struct lang_type, template_info), tree_type_def },
+  { 0, 0, offsetof (struct lang_type, befriending_classes), tree_type_def },
+  NO_MORE_FIELDS
+};
+
+
+
 static void
 cxx_init ()
 {
   c_common_lang_init ();
 
+  add_tree_fields (cp_tree_field_defs);
+  tree_type_def->code_fetcher = cp_tree_code_fetcher;
+  tree_type_def->subobject_definitions = cp_tree_subobjects;
+  tree_type_def->prewrite_hook = cp_tree_prewrite_hook;
+  lang_type_type_def->size = sizeof (struct lang_type);
+  lang_type_type_def->field_definitions = cp_lang_type_field_defs;
+  lang_function_type_def->size = sizeof (struct cp_language_function);
+  cp_lang_id2_type_def->size = sizeof (struct lang_id2);
+  cp_lang_id2_type_def->field_definitions = cp_lang_id2_field_defs;
+
   if (flag_gnu_xref) GNU_xref_begin (input_filename);
   init_repo (input_filename);
+  pch_init();
 }
 
 static void
@@ -295,6 +495,27 @@ lang_identify ()
 {
   return "cplusplus";
 }
+
+void
+lang_write_pch ()
+{
+  invalidate_class_lookup_cache ();
+  c_write_pch ();
+}
+
+/* Returns nonzero if we are not nested inside any incomplete scopes.
+   Used by the PCH machinery.  */
+
+int
+lang_toplevel_p ()
+{
+  if (! global_bindings_p ())
+    return 0;
+  if (current_lang_depth () != 0)
+    return 0;
+  return 1;
+}
+
 
 static int *
 init_cpp_parse ()
@@ -710,6 +931,7 @@ init_parse (filename)
   init_tree ();
   init_cplus_expand ();
   init_cp_semantics ();
+  init_linkage ();
 
   add_c_tree_codes ();
 
@@ -940,6 +1162,7 @@ set_yydebug (value)
 /* Helper function to load global variables with interface
    information.  */
 
+
 void
 extract_interface_info ()
 {
@@ -965,7 +1188,7 @@ extract_interface_info ()
 /* Return nonzero if S is not considered part of an
    INTERFACE/IMPLEMENTATION pair.  Otherwise, return 0.  */
 
-static int
+int
 interface_strcmp (s)
      const char *s;
 {

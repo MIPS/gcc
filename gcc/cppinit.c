@@ -110,6 +110,7 @@ static bool push_include		PARAMS ((cpp_reader *,
 static void free_chain			PARAMS ((struct pending_option *));
 static void set_lang			PARAMS ((cpp_reader *, enum c_lang));
 static void init_dependency_output	PARAMS ((cpp_reader *));
+static void initialize_dependency_output PARAMS ((cpp_reader *));
 static void init_standard_includes	PARAMS ((cpp_reader *));
 static void new_pending_directive	PARAMS ((struct cpp_pending *,
 						 const char *,
@@ -547,7 +548,6 @@ cpp_create_reader (table, lang)
   s->n_defined		= cpp_lookup (pfile, DSC("defined"));
   s->n_true		= cpp_lookup (pfile, DSC("true"));
   s->n_false		= cpp_lookup (pfile, DSC("false"));
-  s->n__Pragma		= cpp_lookup (pfile, DSC("_Pragma"));
   s->n__STRICT_ANSI__   = cpp_lookup (pfile, DSC("__STRICT_ANSI__"));
   s->n__CHAR_UNSIGNED__ = cpp_lookup (pfile, DSC("__CHAR_UNSIGNED__"));
   s->n__VA_ARGS__       = cpp_lookup (pfile, DSC("__VA_ARGS__"));
@@ -658,6 +658,7 @@ static const struct builtin builtin_array[] =
   B("__BASE_FILE__",	 BT_BASE_FILE),
   B("__LINE__",		 BT_SPECLINE),
   B("__INCLUDE_LEVEL__", BT_INCLUDE_LEVEL),
+  B("_Pragma",		 BT_PRAGMA),
 
   X("__VERSION__",		VERS),
   X("__USER_LABEL_PREFIX__",	ULP),
@@ -791,6 +792,73 @@ init_builtins (pfile)
 #undef ULP
 #undef CPLUS
 #undef builtin_array_end
+
+/* Another subroutine of cpp_start_read.  This one sets up to do
+   dependency-file output. */
+static void
+initialize_dependency_output (pfile)
+     cpp_reader *pfile;
+{
+  char *spec, *s, *output_file;
+
+  /* Either of two environment variables can specify output of deps.
+     Its value is either "OUTPUT_FILE" or "OUTPUT_FILE DEPS_TARGET",
+     where OUTPUT_FILE is the file to write deps info to
+     and DEPS_TARGET is the target to mention in the deps.  */
+
+  if (CPP_OPTION (pfile, print_deps) == 0)
+    {
+      spec = getenv ("DEPENDENCIES_OUTPUT");
+      if (spec)
+	CPP_OPTION (pfile, print_deps) = 1;
+      else
+	{
+	  spec = getenv ("SUNPRO_DEPENDENCIES");
+	  if (spec)
+	    CPP_OPTION (pfile, print_deps) = 2;
+	}
+
+      /* Find the space before the DEPS_TARGET, if there is one.  */
+      if (spec)
+	{
+          s = strchr (spec, ' ');
+          if (s)
+	    {
+	      CPP_OPTION (pfile, deps_target) = s + 1;
+	      output_file = (char *) xmalloc (s - spec + 1);
+	      memcpy (output_file, spec, s - spec);
+	      output_file[s - spec] = 0;
+	    }
+          else
+	    {
+	      CPP_OPTION (pfile, deps_target) = 0;
+	      output_file = spec;
+	    }
+
+          CPP_OPTION (pfile, deps_file) = output_file;
+          CPP_OPTION (pfile, print_deps_append) = 1;
+	}
+    }
+
+
+  /* Always generate makefile dependencies when writing a .pch file.  */
+  if (CPP_OPTION (pfile, print_deps) == 0 &&
+      CPP_OPTION (pfile, gen_deps) == 0) 
+    return;
+
+  pfile->deps = deps_init ();
+
+  /* Print the expected object file name as the target of this Make-rule.  */
+  if (CPP_OPTION (pfile, deps_target))
+    deps_add_target (pfile->deps, CPP_OPTION (pfile, deps_target), 0);
+  else if (*CPP_OPTION (pfile, in_fname) == 0)
+    deps_add_target (pfile->deps, "-", 0);
+  else
+    deps_calc_target (pfile->deps, CPP_OPTION (pfile, in_fname));
+
+  if (CPP_OPTION (pfile, in_fname))
+    deps_add_dep (pfile->deps, CPP_OPTION (pfile, in_fname));
+}
 
 /* And another subroutine.  This one sets up the standard include path.  */
 static void
@@ -952,6 +1020,8 @@ cpp_start_read (pfile, fname)
      buffer to stand on.  */
   if (!_cpp_read_file (pfile, fname))
     return 0;
+
+  initialize_dependency_output (pfile);
 
   /* Set this after cpp_post_options so the client can change the
      option if it wishes, and after stacking the main file so we don't
@@ -1168,6 +1238,7 @@ new_pending_directive (pend, text, handler)
   DEF_OPT("lang-c89",                 0,      OPT_lang_c89)                   \
   DEF_OPT("lang-objc",                0,      OPT_lang_objc)                  \
   DEF_OPT("lang-objc++",              0,      OPT_lang_objcplusplus)          \
+  DEF_OPT("nopch-deps",               0,      OPT_nopch_deps)                 \
   DEF_OPT("nostdinc",                 0,      OPT_nostdinc)                   \
   DEF_OPT("nostdinc++",               0,      OPT_nostdincplusplus)           \
   DEF_OPT("o",                        no_fil, OPT_o)                          \
@@ -1553,7 +1624,9 @@ cpp_handle_option (pfile, argc, argv)
 	  CPP_OPTION (pfile, print_deps) = 1;
 	  CPP_OPTION (pfile, deps_file) = arg;
 	  break;
-
+        case OPT_nopch_deps:
+          CPP_OPTION (pfile, print_deps_nopch) = 1;
+          break;
 	case OPT_A:
 	  if (arg[0] == '-')
 	    {
@@ -1826,6 +1899,12 @@ init_dependency_output (pfile)
 	CPP_OPTION (pfile, deps_file) = output_file;
       CPP_OPTION (pfile, print_deps_append) = 1;
     }
+  /* Always generate makefile dependencies when writing a .pch file.  */
+  if (CPP_OPTION (pfile, print_deps) == 0 &&
+      CPP_OPTION (pfile, gen_deps) == 0)
+    return;
+
+
 
   /* If dependencies go to standard output, or -MG is used, we should
      suppress output, including -dM, -dI etc.  */

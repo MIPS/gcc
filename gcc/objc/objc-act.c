@@ -3020,7 +3020,7 @@ generate_method_descriptors (protocol)	/* generate_dispatch_tables */
   if (!objc_method_prototype_template)
     {
       objc_method_prototype_template = build_method_prototype_template ();
-      ggc_add_tree_root (&objc_method_prototype_template, 1);
+      ggc_add_tree_root (&objc_method_prototype_template, 1, "objc_method_prototype_template");
     }
 
   cast = build_tree_list (build_tree_list (NULL_TREE, xref_tag (RECORD_TYPE,
@@ -6208,7 +6208,7 @@ start_class (code, class_name, super_name, protocol_list)
         tree chain;
 
 	if (!implemented_classes)
-	  ggc_add_tree_root (&implemented_classes, 1);
+	  ggc_add_tree_root (&implemented_classes, 1, "implemented_classes");
         for (chain = implemented_classes; chain; chain = TREE_CHAIN (chain))
            if (TREE_VALUE (chain) == class_name)
 	     {
@@ -7151,7 +7151,7 @@ comp_method_with_proto (method, proto)
   if (!function_type)
     {
       function_type = make_node (FUNCTION_TYPE);
-      ggc_add_tree_root (&function_type, 1);
+      ggc_add_tree_root (&function_type, 1, "function_type");
     }
 
   /* Install argument types - normally set by build_function_type.  */
@@ -7176,7 +7176,7 @@ comp_proto_with_proto (proto0, proto1)
     {
       function_type[0] = make_node (FUNCTION_TYPE);
       function_type[1] = make_node (FUNCTION_TYPE);
-      ggc_add_tree_root (function_type, 2);
+      ggc_add_tree_root (function_type, 2, "function_type");
     }
 
   /* Install argument types; normally set by build_function_type.  */
@@ -8593,11 +8593,11 @@ ggc_mark_hash_table (arg)
 static void
 objc_act_parse_init ()
 {
-  ggc_add_tree_root (&objc_ellipsis_node, 1);
-  ggc_add_tree_root (objc_global_trees, OCTI_MAX);
-  ggc_add_root (&imp_list, 1, sizeof imp_list, ggc_mark_imp_list);
-  ggc_add_root (&nst_method_hash_list, 1, sizeof nst_method_hash_list, ggc_mark_hash_table);
-  ggc_add_root (&cls_method_hash_list, 1, sizeof cls_method_hash_list, ggc_mark_hash_table);
+  ggc_add_tree_root (&objc_ellipsis_node, 1, "objc_ellipsis_node");
+  ggc_add_tree_root (objc_global_trees, OCTI_MAX, "objc_global_trees");
+  ggc_add_root (&imp_list, 1, sizeof imp_list, ggc_mark_imp_list, "imp_list");
+  ggc_add_root (&nst_method_hash_list, 1, sizeof nst_method_hash_list, ggc_mark_hash_table, "nst_method_hash_list");
+  ggc_add_root (&cls_method_hash_list, 1, sizeof cls_method_hash_list, ggc_mark_hash_table, "cls_method_hash_list");
 }
 
 /* Look up ID as an instance variable.  */
@@ -8619,4 +8619,10 @@ lookup_objc_ivar (id)
     }
   else
     return 0;
+}
+
+int
+lang_toplevel_p ()
+{
+  return global_bindings_p ();
 }

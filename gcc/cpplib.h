@@ -168,7 +168,7 @@ struct cpp_string
 #define BOL		(1 << 6) /* Token at beginning of line.  */
 
 /* A preprocessing token.  This has been carefully packed and should
-   occupy 12 bytes on 32-bit hosts and 16 bytes on 64-bit hosts.  */
+   occupy 16 bytes on 32-bit hosts and 24 bytes on 64-bit hosts.  */
 struct cpp_token
 {
   unsigned int line;		/* Logical line of first char of token.  */
@@ -216,6 +216,10 @@ struct cpp_options
   /* File name which deps are being written to.  This is 0 if deps are
      being written to stdout.  */
   const char *deps_file;
+
+  /* Target-name to write with the dependency information.  */
+  char *deps_target;
+
 
   /* Search paths for include files.  */
   struct search_path *quote_include;	/* "" */
@@ -274,6 +278,15 @@ struct cpp_options
 
   /* If true, fopen (deps_file, "a") else fopen (deps_file, "w"). */
   unsigned char print_deps_append;
+
+  /* Nonzero if we are generating Makefile dependencies
+     for precompiled headers.  */
+  unsigned char gen_deps;
+
+  /* Nonzero if the Makefile dependency list should not include
+     precompiled headers.  */
+  unsigned char print_deps_nopch;
+
 
   /* Nonzero means print names of header files (-H).  */
   unsigned char print_include_names;
@@ -353,27 +366,32 @@ struct cpp_options
   /* Print column number in error messages.  */
   unsigned char show_column;
 
-  /* Treat C++ alternate operator names special.  */
+  /* Nonzero means handle C++ alternate operator names.  */
   unsigned char operator_names;
 
   /* True if --help, --version or --target-help appeared in the
      options.  Stand-alone CPP should then bail out after option
      parsing; drivers might want to continue printing help.  */
   unsigned char help_only;
+ 
+ 
+
 };
 
 /* Call backs.  */
 struct cpp_callbacks
 {
+    int (*valid_pch) PARAMS ((cpp_reader *, const char *, int));
+    void (*read_pch) PARAMS ((cpp_reader *, int, const char *));
   /* Called when a new line of preprocessed output is started.  */
   void (*line_change) PARAMS ((cpp_reader *, const cpp_token *, int));
   void (*file_change) PARAMS ((cpp_reader *, const struct line_map *));
-  void (*include) PARAMS ((cpp_reader *, unsigned int,
-			   const unsigned char *, const cpp_token *));
-  void (*define) PARAMS ((cpp_reader *, unsigned int, cpp_hashnode *));
-  void (*undef) PARAMS ((cpp_reader *, unsigned int, cpp_hashnode *));
-  void (*ident) PARAMS ((cpp_reader *, unsigned int, const cpp_string *));
-  void (*def_pragma) PARAMS ((cpp_reader *, unsigned int));
+    void (*include) PARAMS ((cpp_reader *, unsigned int,
+			     const unsigned char *, const cpp_token *));
+    void (*define) PARAMS ((cpp_reader *, unsigned int, cpp_hashnode *));
+    void (*undef) PARAMS ((cpp_reader *, unsigned int, cpp_hashnode *));
+    void (*ident) PARAMS ((cpp_reader *, unsigned int, const cpp_string *));
+    void (*def_pragma) PARAMS ((cpp_reader *, unsigned int));
 };
 
 #define CPP_FATAL_LIMIT 1000
@@ -382,6 +400,10 @@ struct cpp_callbacks
 
 /* Name under which this program was invoked.  */
 extern const char *progname;
+
+/* Where does this buffer come from?  A source file, a builtin macro,
+   a command-line option, or a _Pragma operator.  */
+enum cpp_buffer_type {BUF_FILE, BUF_BUILTIN, BUF_CL_OPTION, BUF_PRAGMA, BUF_PCH};
 
 /* The structure of a node in the hash table.  The hash table has
    entries for all identifiers: either macros defined by #define
@@ -400,6 +422,7 @@ extern const char *progname;
 #define NODE_BUILTIN	(1 << 2)	/* Builtin macro.  */
 #define NODE_DIAGNOSTIC (1 << 3)	/* Possible diagnostic when lexed.  */
 #define NODE_WARN	(1 << 4)	/* Warn if redefined or undefined.  */
+#define NODE_DISABLED	(1 << 5)	/* A disabled macro.  */
 
 /* Different flavors of hash node.  */
 enum node_type
@@ -409,7 +432,8 @@ enum node_type
   NT_ASSERTION	   /* Predicate for #assert.  */
 };
 
-/* Different flavors of builtin macro.  */
+/* Different flavors of builtin macro.  _Pragma is an operator, but we
+   handle it with the builtin code for efficiency reasons.  */
 enum builtin_type
 {
   BT_SPECLINE = 0,		/* `__LINE__' */
@@ -418,7 +442,8 @@ enum builtin_type
   BT_BASE_FILE,			/* `__BASE_FILE__' */
   BT_INCLUDE_LEVEL,		/* `__INCLUDE_LEVEL__' */
   BT_TIME,			/* `__TIME__' */
-  BT_STDC			/* `__STDC__' */
+  BT_STDC,			/* `__STDC__' */
+  BT_PRAGMA			/* `_Pragma' operator */
 };
 
 #define CPP_HASHNODE(HNODE)	((cpp_hashnode *) (HNODE))
@@ -445,6 +470,7 @@ struct cpp_hashnode
     enum cpp_ttype operator;		/* Code for a named operator.  */
     enum builtin_type builtin;		/* Code for a builtin macro.  */
   } value;
+  union tree_node *fe_value;		/* front end value */
 };
 
 /* Call this first to get a handle to pass to other functions.  If you
@@ -568,13 +594,20 @@ extern void cpp_forall_identifiers	PARAMS ((cpp_reader *,
 
 /* In cppmacro.c */
 extern void cpp_scan_nooutput		PARAMS ((cpp_reader *));
-extern void cpp_start_lookahead		PARAMS ((cpp_reader *));
-extern void cpp_stop_lookahead		PARAMS ((cpp_reader *, int));
 extern int  cpp_sys_macro_p		PARAMS ((cpp_reader *));
 
 /* In cppfiles.c */
 extern int cpp_included	PARAMS ((cpp_reader *, const char *));
 extern void cpp_make_system_header PARAMS ((cpp_reader *, int, int));
+
+/* In cpppch.c */
+extern int cpp_save_state PARAMS ((cpp_reader *, FILE *));
+extern int cpp_write_pch PARAMS ((cpp_reader *, FILE *));
+extern int cpp_valid_state PARAMS ((cpp_reader *, int));
+extern int cpp_read_state PARAMS ((cpp_reader *, FILE *));
+
+extern int write_makedeps PARAMS ((cpp_reader *, FILE *));
+extern int read_makedeps PARAMS ((cpp_reader *, FILE *, const char *));
 
 #ifdef __cplusplus
 }

@@ -4204,9 +4204,9 @@ build_over_call (cand, args, flags)
 
   converted_args = nreverse (converted_args);
 
-  if (warn_format && (DECL_NAME (fn) || DECL_ASSEMBLER_NAME (fn)))
-    check_function_format (NULL, DECL_NAME (fn), DECL_ASSEMBLER_NAME (fn),
-			   converted_args); 
+  if (warn_format)
+    check_function_format (NULL, TYPE_ATTRIBUTES (TREE_TYPE (fn)),
+			   converted_args);
 
   /* Avoid actually calling copy constructors and copy assignment operators,
      if possible.  */
@@ -4381,7 +4381,7 @@ build_java_interface_fn_ref (fn, instance)
 	= builtin_function ("_Jv_LookupInterfaceMethodIdx",
 			    build_function_type (ptr_type_node, t),
 			    0, NOT_BUILT_IN, NULL);
-      ggc_add_tree_root (&java_iface_lookup_fn, 1);
+      ggc_add_tree_root (&java_iface_lookup_fn, 1 , "java_iface");
     }
 
   /* Look up the pointer to the runtime java.lang.Class object for `instance'. 

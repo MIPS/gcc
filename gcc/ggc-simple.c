@@ -228,6 +228,29 @@ ggc_set_mark (p)
   return 0;
 }
 
+/* Mark a node, but check first to see that it's really gc-able memory.  */
+
+void
+ggc_mark_if_gcable (p)
+     const void *p;
+{
+  struct ggc_mem *x;
+
+  if (p == NULL)
+    return;
+
+  x = (struct ggc_mem *) ((const char *)p - offsetof (struct ggc_mem, u));
+  if (! tree_lookup (x))
+    return;
+
+  if (x->mark)
+    return;
+
+  x->mark = 1;
+  G.allocated += x->size;
+  G.objects += 1;
+}
+
 /* Return 1 if P has been marked, zero otherwise.  */
 
 int

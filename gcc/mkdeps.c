@@ -24,9 +24,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "system.h"
 #include "mkdeps.h"
 
+#if 0
 /* Keep this structure local to this file, so clients don't find it
    easy to start making assumptions.  */
-struct deps
+struct make_deps
 {
   const char **targetv;
   unsigned int ntargets;	/* number of slots actually occupied */
@@ -36,8 +37,10 @@ struct deps
   unsigned int ndeps;
   unsigned int deps_size;
 };
+#endif
 
 static const char *munge	PARAMS ((const char *));
+static const char *base_name	PARAMS ((const char *));
 
 /* Given a filename, quote characters in that filename which are
    significant to Make.  Note that it's not possible to quote all such
@@ -106,12 +109,38 @@ munge (filename)
   return buffer;
 }
 
+/* Given a pathname, calculate the non-directory part.  This always
+   knows how to handle Unix-style pathnames, and understands VMS and
+   DOS paths on those systems.  */
+
+/* Find the base name of a (partial) pathname FNAME.
+   Returns a pointer into the string passed in.
+   Accepts Unix (/-separated) paths on all systems,
+   DOS and VMS paths on those systems.  */
+
+static const char *
+base_name (fname)
+     const char *fname;
+{
+  const char *s = fname;
+  const char *p;
+#if defined (HAVE_DOS_BASED_FILE_SYSTEM)
+  if (ISALPHA (s[0]) && s[1] == ':') s += 2;
+  if ((p = strrchr (s, '\\'))) s = p + 1;
+#elif defined VMS
+  if ((p = strrchr (s, ':'))) s = p + 1; /* Skip device.  */
+  if ((p = strrchr (s, ']'))) s = p + 1; /* Skip directory.  */
+  if ((p = strrchr (s, '>'))) s = p + 1; /* Skip alternate (int'n'l) dir.  */
+#endif
+  if ((p = strrchr (s, '/'))) s = p + 1;
+  return s;
+}
 /* Public routines.  */
 
-struct deps *
+struct make_deps *
 deps_init ()
 {
-  struct deps *d = (struct deps *) xmalloc (sizeof (struct deps));
+  struct make_deps *d = (struct make_deps *) xmalloc (sizeof (struct make_deps));
 
   /* Allocate space for the vectors only if we need it.  */
 
@@ -128,7 +157,7 @@ deps_init ()
 
 void
 deps_free (d)
-     struct deps *d;
+     struct make_deps *d;
 {
   unsigned int i;
 
@@ -153,7 +182,7 @@ deps_free (d)
    string.  QUOTE is true if the string should be quoted.  */
 void
 deps_add_target (d, t, quote)
-     struct deps *d;
+     struct make_deps *d;
      const char *t;
      int quote;
 {
@@ -177,7 +206,7 @@ deps_add_target (d, t, quote)
    is quoted for MAKE.  */
 void
 deps_add_default_target (d, tgt)
-     struct deps *d;
+     struct make_deps *d;
      const char *tgt;
 {
   /* Only if we have no targets.  */
@@ -207,8 +236,28 @@ deps_add_default_target (d, tgt)
 }
 
 void
+deps_calc_target (d, t)
+     struct make_deps *d;
+     const char *t;
+{
+  char *o, *suffix;
+
+  t = base_name (t);
+  o = (char *) alloca (strlen (t) + 8);
+
+  strcpy (o, t);
+  suffix = strrchr (o, '.');
+  if (suffix)
+    strcpy (suffix, TARGET_OBJECT_SUFFIX);
+  else
+    strcat (o, TARGET_OBJECT_SUFFIX);
+
+  deps_add_target (d, o, 0);
+}
+
+void
 deps_add_dep (d, t)
-     struct deps *d;
+     struct make_deps *d;
      const char *t;
 {
   t = munge (t);  /* Also makes permanent copy.  */
@@ -224,7 +273,7 @@ deps_add_dep (d, t)
 
 void
 deps_write (d, fp, colmax)
-     const struct deps *d;
+     const struct make_deps *d;
      FILE *fp;
      unsigned int colmax;
 {
@@ -276,7 +325,7 @@ deps_write (d, fp, colmax)
   
 void
 deps_phony_targets (d, fp)
-     const struct deps *d;
+     const struct make_deps *d;
      FILE *fp;
 {
   unsigned int i;

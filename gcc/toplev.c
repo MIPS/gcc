@@ -189,6 +189,10 @@ const char *progname;
 /* Copy of arguments to toplev_main.  */
 int save_argc;
 char **save_argv;
+  
+/* A hook for last-second initialisations.  */
+void (*late_init_hook) PARAMS((void));
+
 
 /* Name of current original source file (what was input to cpp).
    This comes from each #-command in the actual input.  */
@@ -341,9 +345,13 @@ static void close_dump_file PARAMS ((enum dump_file_index,
 
 int rtl_dump_and_exit;
 int flag_print_asm_name;
-static int version_flag;
 static char *filename;
 enum graph_dump_types graph_dump_format;
+  
+/* Print compiler version information.  -v.  */
+
+int version_flag;
+
 
 /* Name for output file of assembly code, specified with -o.  */
 
@@ -1763,6 +1771,21 @@ strip_off_ending (name, len)
     }
 }
 
+/* Given a file name X, return the nondirectory portion.  */
+
+char *
+file_name_nondirectory (x)
+     const char *x;
+{
+  char *tmp = (char *) strrchr (x, '/');
+  if (DIR_SEPARATOR != '/' && ! tmp)
+    tmp = (char *) strrchr (x, DIR_SEPARATOR);
+  if (tmp)
+    return (char *) (tmp + 1);
+  else
+    return (char *) x;
+}
+
 /* Output a quoted string.  */
 
 void
@@ -2319,6 +2342,10 @@ compile_file (name)
 
   init_final (main_input_filename);
   init_branch_prob (dump_base_name);
+
+  /* Last call, time to go... */
+  if (late_init_hook)
+    late_init_hook ();
 
   timevar_push (TV_PARSE);
 
@@ -4673,9 +4700,9 @@ toplev_main (argc, argv)
   /* Initialize the garbage-collector.  */
   init_ggc ();
   init_stringpool ();
-  ggc_add_rtx_root (&stack_limit_rtx, 1);
-  ggc_add_tree_root (&current_function_decl, 1);
-  ggc_add_tree_root (&current_function_func_begin_label, 1);
+  ggc_add_rtx_root (&stack_limit_rtx, 1, "stack_limit_rtx");
+  ggc_add_tree_root (&current_function_decl, 1, "current_function_decl");
+  ggc_add_tree_root (&current_function_func_begin_label, 1, "current_function_func_begin_label");
 
   /* Initialize the diagnostics reporting machinery.  */
   diagnostic_initialize (global_dc);

@@ -1714,8 +1714,15 @@ set_sizetype (type)
       TYPE_REFERENCE_TO (sizetype_tab[i]) = 0;
     }
 
+#if 0
   ggc_add_tree_root ((tree *) &sizetype_tab,
 		     sizeof sizetype_tab / sizeof (tree));
+#else
+  ggc_add_tree_root (sizetype_tab,
+                     sizeof sizetype_tab / sizeof (tree), "sizetype_tab");
+  add_tree_addresses (&data_to_save, sizetype_tab,
+                     sizeof sizetype_tab / sizeof (tree), "sizetype_tab");
+#endif
 
   /* Go down each of the types we already made and set the proper type
      for the sizes in them.  */
@@ -1882,5 +1889,5 @@ get_mode_alignment (mode)
 void
 init_stor_layout_once ()
 {
-  ggc_add_tree_root (&pending_sizes, 1);
+  ggc_add_tree_root (&pending_sizes, 1, "pending_sizes");
 }

@@ -455,7 +455,7 @@ mangle_array_type (p_type)
   if (!atms)
     {
       atms = get_identifier ("6JArray");
-      ggc_add_tree_root (&atms, 1);
+      ggc_add_tree_root (&atms, 1, "atms");
     }
 
   /* Maybe we have what we're looking in the compression table. */
@@ -609,7 +609,7 @@ compression_table_add (type)
 
       ggc_del_root (&compression_table);
       compression_table = new;
-      ggc_add_tree_root (&compression_table, 1);
+      ggc_add_tree_root (&compression_table, 1, "compression_table");
     }
   TREE_VEC_ELT (compression_table, compression_next++) = type;
 }
@@ -631,7 +631,7 @@ init_mangling (obstack)
   obstack_grow (mangle_obstack, "_Z", 2);
 
   /* Register the compression table with the GC */
-  ggc_add_tree_root (&compression_table, 1);
+  ggc_add_tree_root (&compression_table, 1, "compression_table");
 }
 
 /* Mangling finalization routine. The mangled name is returned as a

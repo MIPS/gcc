@@ -317,6 +317,6 @@ init_pragma ()
 
 #ifdef HANDLE_PRAGMA_PACK_PUSH_POP
   ggc_add_root (&alignment_stack, 1, sizeof(alignment_stack),
-		mark_align_stack);
+		mark_align_stack, "alignment_stack");
 #endif
 }

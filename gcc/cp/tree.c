@@ -2356,7 +2356,7 @@ init_tree ()
   list_hash_table = htab_create (31, list_hash, list_hash_eq, NULL);
   ggc_add_root (&list_hash_table, 1, 
 		sizeof (list_hash_table),
-		mark_tree_hashtable);
+		mark_tree_hashtable, "list_hash_table");
 }
 
 /* The SAVE_EXPR pointed to by TP is being copied.  If ST contains

@@ -37,10 +37,18 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cpplib.h"
 
 static int c_tree_printer PARAMS ((output_buffer *));
+static size_t lang_type_size_fetcher PARAMS ((const void *v,
+                                             type_definition_p td));
+static int lang_type_more_fields PARAMS ((struct field_definition_s *fp,
+                                         const void *v,
+                                         unsigned n, code_type c,
+                                         type_definition_p td));
+
 static int c_missing_noreturn_ok_p PARAMS ((tree));
 static void c_init PARAMS ((void));
 static void c_init_options PARAMS ((void));
 static void c_post_options PARAMS ((void));
+static void c_tree_prewrite_hook PARAMS ((const void *));
 
 /* Each front end provides its own.  */
 struct lang_hooks lang_hooks = {c_init,
@@ -68,6 +76,79 @@ c_init_options ()
   flag_bounds_check = -1;
 }
 
+static const struct field_definition_s c_tree_field_defs[] = {
+  { 'd', 0xFF, offsetof (union tree_node, decl.lang_specific), 
+    lang_decl_type_def },
+  { 't', 0xFF, offsetof (union tree_node, type.lang_specific), 
+    lang_type_type_def },
+  { IDENTIFIER_NODE << 8, 0xFF00,
+    offsetof (struct lang_identifier, global_value), tree_type_def },
+  { IDENTIFIER_NODE << 8, 0xFF00,
+    offsetof (struct lang_identifier, local_value), tree_type_def },
+  { IDENTIFIER_NODE << 8, 0xFF00,
+    offsetof (struct lang_identifier, label_value), tree_type_def },
+  { IDENTIFIER_NODE << 8, 0xFF00,
+    offsetof (struct lang_identifier, implicit_decl), tree_type_def },
+  { IDENTIFIER_NODE << 8, 0xFF00,
+    offsetof (struct lang_identifier, error_locus), tree_type_def },
+  { IDENTIFIER_NODE << 8, 0xFF00,
+    offsetof (struct lang_identifier, limbo_value), tree_type_def },
+  NO_MORE_FIELDS
+};
+
+static const struct field_definition_s c_lang_decl_field_defs[] = {
+  { 0, 0, offsetof (struct lang_decl, base.saved_tree), tree_type_def },
+  NO_MORE_FIELDS
+};
+
+static size_t 
+lang_type_size_fetcher (v, td)
+     const void *v;
+     type_definition_p td ATTRIBUTE_UNUSED;
+{
+  struct lang_type *t = (struct lang_type *)v;
+  return sizeof (*t) - sizeof (tree) + t->len * sizeof (tree);
+}
+
+static int 
+lang_type_more_fields (fp, v, n, c, td)
+     struct field_definition_s *fp;
+     const void *v;
+     unsigned n;
+     code_type c ATTRIBUTE_UNUSED;
+     type_definition_p td ATTRIBUTE_UNUSED;
+{
+  struct lang_type *t = (struct lang_type *)v;
+  if (n < (unsigned)t->len)
+    {
+      fp->offset = offsetof (struct lang_type, elts) + n * sizeof (tree);
+      fp->type = tree_type_def;
+      return 1;
+    }
+  return 0;
+}
+
+/* A function to be called for each tree node before they are written out
+   by the precompiled headers mechanism.  Currently we use this to note
+   that the fields are not sorted, as PCH fails to preserve address order
+   for identifiers.  */
+
+static void
+c_tree_prewrite_hook (t_v)
+     const void *t_v;
+{
+  tree t = (tree)t_v;
+  if (TYPE_P (t))
+    TYPE_LANG_SPECIFIC (t) = 0;
+}
+
+
+static const struct field_definition_s c_lang_function_field_defs[] = {
+  
+  NO_MORE_FIELDS
+};
+
+
 static void
 c_init ()
 {
@@ -92,13 +173,28 @@ c_init ()
   lang_expand_decl_stmt = &c_expand_decl_stmt;
   lang_missing_noreturn_ok_p = &c_missing_noreturn_ok_p;
 
+  add_tree_fields (c_tree_field_defs);
+  tree_type_def->prewrite_hook = c_tree_prewrite_hook;
+  lang_decl_type_def->size = sizeof (struct lang_decl);
+  lang_decl_type_def->field_definitions = c_lang_decl_field_defs;
+  lang_type_type_def->size = sizeof (struct lang_type) - sizeof (tree);
+  lang_type_type_def->size_fetcher = lang_type_size_fetcher;
+  lang_type_type_def->more_fields = lang_type_more_fields;
+
   c_parse_init ();
+  pch_init ();
 }
 
 const char *
 lang_identify ()
 {
   return "c";
+}
+
+int
+lang_toplevel_p ()
+{
+  return global_bindings_p ();
 }
 
 void
@@ -225,6 +321,8 @@ finish_cdtor (body)
 void
 finish_file ()
 {
+  if (pch_file)
+    lang_write_pch ();
 #ifndef ASM_OUTPUT_CONSTRUCTOR
   if (static_ctors)
     {
@@ -308,3 +406,10 @@ c_missing_noreturn_ok_p (decl)
      ok for the `main' function in hosted implementations.  */
   return flag_hosted && MAIN_NAME_P (DECL_ASSEMBLER_NAME (decl));
 }
+void
+lang_write_pch ()
+{
+  c_write_pch ();
+}
+
+

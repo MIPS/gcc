@@ -654,6 +654,7 @@ static const char *cpp_options =
  %{fshow-column} %{fno-show-column}\
  %{fleading-underscore} %{fno-leading-underscore}\
  %{fno-operator-names} %{ftabstop=*} %{remap}\
+ %{nopch-dep}\
  %{g3:-dD} %{W*} %{w} %{pedantic*} %{H} %{d*} %C %{D*&U*&A*} %{i*} %Z %i\
  %{E:%{!M*:%W{o*}}}";
 
@@ -663,6 +664,7 @@ static const char *cc1_options =
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
  %{g*} %{O*} %{W*} %{w} %{pedantic*} %{std*} %{ansi}\
  %{traditional} %{v:-version} %{pg:-p} %{p} %{f*}\
+ %{nopch-deps}\
  %{Qn:-fno-ident} %{--help:--help}\
  %{--target-help:--target-help}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
@@ -804,6 +806,9 @@ static struct compiler default_compilers[] =
 		tradcpp0 -lang-c %{ansi:-std=c89} %(cpp_options) %{!pipe:%g.i} |\n\
 		    cc1 -fpreprocessed %{!pipe:%g.i} %(cc1_options)}\
 	    %{!traditional:%{!ftraditional:%{!traditional-cpp:\
+               %{fauto-pch:%{!fsyntax-only: %{<fauto-pch} \
+                 cc1 -lang-c %{ansi:-std=c89} %(cpp_options) %(cc1_options) \
+                   -fauto-pch %{!S:-o %g.s}\n}}\
 		cc1 -lang-c %{ansi:-std=c89} %(cpp_options) %(cc1_options)}}}}\
         %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {"-",
@@ -811,8 +816,10 @@ static struct compiler default_compilers[] =
     %(trad_capable_cpp) -lang-c %{ansi:-std=c89} %(cpp_options)", 0},
   {".h", "@c-header", 0},
   {"@c-header",
-   "%{!E:%eCompilation of header file requested} \
-    %(trad_capable_cpp) -lang-c %{ansi:-std=c89} %(cpp_options)", 0},
+   "%{E|M|MM:%(trad_capable_cpp) -lang-c %{ansi:-std=c89} %(cpp_options)} "
+        "%{!E:cc1 -lang-c %{ansi:-std=c89} %(cpp_options) %(cc1_options)\
+     -o %g.s %{!o*:--output-pch=%i.pch} %W{^o*:--output-pch=%*}%V} "
+  },
   {".i", "@cpp-output", 0},
   {"@cpp-output",
    "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) %{!fsyntax-only:%(invoke_as)}}}}", 0},
@@ -4466,6 +4473,10 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	    this_is_library_file = 1;
 	    break;
 
+         case 'V':
+           outfiles[input_file_number] = NULL;
+           break;
+
 	  case 'w':
 	    this_is_output_file = 1;
 	    break;
@@ -4822,7 +4833,9 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	    if (soft_matched_part)
 	      {
 		do_spec_1 (soft_matched_part, 1, NULL);
+#if 0
 		do_spec_1 (" ", 0, NULL);
+#endif
 	      }
 	    else
 	      /* Catch the case where a spec string contains something like
@@ -5167,7 +5180,7 @@ next_member:
 		  {
 		    do_spec_1 (string, 0, &switches[i].part1[hard_match_len]);
 		    /* Pass any arguments this switch has.  */
-		    give_switch (i, 1, 1);
+		    give_switch (i, 1, include_blanks);
 		    suffix_subst = NULL;
 		  }
 
@@ -5542,6 +5555,7 @@ main (argc, argv)
   size_t i;
   int value;
   int linker_was_run = 0;
+  int num_linker_inputs = 0;
   char *explicit_link_files;
   char *specs_file;
   const char *p;

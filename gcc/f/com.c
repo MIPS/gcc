@@ -9366,7 +9366,7 @@ ffecom_type_namelist_ ()
       TYPE_FIELDS (type) = namefield;
       layout_type (type);
 
-      ggc_add_tree_root (&type, 1);
+      ggc_add_tree_root (&type, 1, "type");
     }
 
   return type;
@@ -9399,7 +9399,7 @@ ffecom_type_vardesc_ ()
       TYPE_FIELDS (type) = namefield;
       layout_type (type);
 
-      ggc_add_tree_root (&type, 1);
+      ggc_add_tree_root (&type, 1, "type");
     }
 
   return type;
@@ -14544,19 +14544,19 @@ init_decl_processing ()
 
   /* Record our roots.  */
   for (i = 0; i < ARRAY_SIZE (tree_roots); i++)
-    ggc_add_tree_root (tree_roots[i], 1);
+    ggc_add_tree_root (tree_roots[i], 1, "tree_roots[i]");
   ggc_add_tree_root (&ffecom_tree_type[0][0], 
-		     FFEINFO_basictype*FFEINFO_kindtype);
+		     FFEINFO_basictype*FFEINFO_kindtype, "ffecom_tree_type[0][0]");
   ggc_add_tree_root (&ffecom_tree_fun_type[0][0], 
-		     FFEINFO_basictype*FFEINFO_kindtype);
+		     FFEINFO_basictype*FFEINFO_kindtype, "ffecom_tree_fun_type[0][0]");
   ggc_add_tree_root (&ffecom_tree_ptr_to_fun_type[0][0], 
-		     FFEINFO_basictype*FFEINFO_kindtype);
-  ggc_add_tree_root (ffecom_gfrt_, FFECOM_gfrt);
+		     FFEINFO_basictype*FFEINFO_kindtype, "ffecom_tree_ptr_to_fun_type[0][0]");
+  ggc_add_tree_root (ffecom_gfrt_, FFECOM_gfrt, "ffecom_gfrt_");
   ggc_add_root (&current_binding_level, 1, sizeof current_binding_level,
-                mark_binding_level);
+                mark_binding_level, "current_binding_level");
   ggc_add_root (&free_binding_level, 1, sizeof current_binding_level,
-                mark_binding_level);
-  ggc_add_root (&tracker_head, 1, sizeof tracker_head, mark_tracker_head);
+                mark_binding_level, "free_binding_level");
+  ggc_add_root (&tracker_head, 1, sizeof tracker_head, mark_tracker_head, "tracker_head");
 
   ffe_init_0 ();
 }

@@ -42,7 +42,7 @@ struct directive;		/* Deliberately incomplete.  */
    efficiency, and partly to limit runaway recursion.  */
 #define CPP_STACK_MAX 200
 
-/* A generic memory buffer.  */
+/* A generic memory buffer, and operations on it.  */
 
 typedef struct _cpp_buff _cpp_buff;
 struct _cpp_buff
@@ -59,6 +59,7 @@ extern _cpp_buff *_cpp_append_extend_buff PARAMS ((cpp_reader *, _cpp_buff *,
 extern void _cpp_free_buff PARAMS ((_cpp_buff *));
 extern unsigned char *_cpp_aligned_alloc PARAMS ((cpp_reader *, size_t));
 extern unsigned char *_cpp_unaligned_alloc PARAMS ((cpp_reader *, size_t));
+
 #define BUFF_ROOM(BUFF) (size_t) ((BUFF)->limit - (BUFF)->cur)
 #define BUFF_FRONT(BUFF) ((BUFF)->cur)
 #define BUFF_LIMIT(BUFF) ((BUFF)->limit)
@@ -114,8 +115,8 @@ struct cpp_context
      When the context is popped, the buffer is released.  */
   _cpp_buff *buff;
 
-  /* For a macro context, these are the macro and its arguments.  */
-  cpp_macro *macro;
+  /* For a macro context, the macro node, otherwise NULL.  */
+  cpp_hashnode *macro;
 
   /* True if utoken element is token, else ptoken.  */
   bool direct_p;
@@ -162,7 +163,6 @@ struct spec_nodes
   cpp_hashnode *n_defined;		/* defined operator */
   cpp_hashnode *n_true;			/* C++ keyword true */
   cpp_hashnode *n_false;		/* C++ keyword false */
-  cpp_hashnode *n__Pragma;		/* _Pragma operator */
   cpp_hashnode *n__STRICT_ANSI__;	/* STDC_0_IN_SYSTEM_HEADERS */
   cpp_hashnode *n__CHAR_UNSIGNED__;	/* plain char is unsigned */
   cpp_hashnode *n__VA_ARGS__;		/* C99 vararg macros */
@@ -178,7 +178,7 @@ struct cpp_buffer
 
   struct cpp_buffer *prev;
 
-  const unsigned char *buf;	 /* Entire buffer.  */
+  const unsigned char *buf;	 /* Entire character buffer.  */
 
   /* Pointer into the include table; non-NULL if this is a file
      buffer.  Used for include_next and to record control macros.  */
@@ -296,7 +296,7 @@ struct cpp_reader
   cpp_token eof;
 
   /* Opaque handle to the dependencies of mkdeps.c.  Used by -M etc.  */
-  struct deps *deps;
+  struct make_deps *deps;
 
   /* Obstack holding all macro hash nodes.  This never shrinks.
      See cpphash.c */
@@ -326,6 +326,21 @@ struct cpp_reader
   /* Whether to print our version number.  Done this way so
      we don't get it twice for -v -version.  */
   unsigned char print_version;
+
+
+  /* Nonzero means we have printed (while error reporting) a list of
+     containing files that matches the current status.  */
+  unsigned char input_stack_listing_current;
+
+
+  /* True after cpp_start_read completes.  Used to inhibit some
+     warnings while parsing the command line.  */
+  unsigned char done_initializing;
+
+
+  /* A saved list of the defined macros, for dependency checking
+     of precompiled headers.  */
+  struct cpp_savedstate *savedstate;
 
   /* Whether cpplib owns the hashtable.  */
   unsigned char our_hashtable;

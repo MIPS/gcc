@@ -3708,7 +3708,7 @@ static rtx
 save_rtx (orig)
      register rtx orig;
 {
-  VARRAY_PUSH_RTX (used_rtx_varray, orig);
+ VARRAY_PUSH_RTX (used_rtx_varray, orig);
 
   return orig;
 }
@@ -11598,7 +11598,7 @@ dwarf2out_init (main_input_filename)
 
   /* Allocate the initial hunk of the decl_scope_table.  */
   VARRAY_TREE_INIT (decl_scope_table, 256, "decl_scope_table");
-  ggc_add_tree_varray_root (&decl_scope_table, 1);
+  ggc_add_tree_varray_root (&decl_scope_table, 1, "decl_scope_table");
 
   /* Allocate the initial hunk of the abbrev_die_table.  */
   abbrev_die_table
@@ -11624,10 +11624,10 @@ dwarf2out_init (main_input_filename)
   comp_unit_die = gen_compile_unit_die (main_input_filename);
 
   VARRAY_TREE_INIT (incomplete_types, 64, "incomplete_types");
-  ggc_add_tree_varray_root (&incomplete_types, 1);
+  ggc_add_tree_varray_root (&incomplete_types, 1, "incomplete_types");
 
   VARRAY_RTX_INIT (used_rtx_varray, 32, "used_rtx_varray");
-  ggc_add_rtx_varray_root (&used_rtx_varray, 1);
+  ggc_add_rtx_varray_root (&used_rtx_varray, 1, "used_rtx_varray");
 
   ASM_GENERATE_INTERNAL_LABEL (text_end_label, TEXT_END_LABEL, 0);
   ASM_GENERATE_INTERNAL_LABEL (abbrev_section_label,

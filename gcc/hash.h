@@ -19,6 +19,9 @@ along with this program; if not, write to the Free Software
 Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifndef GCC_HASH_H
+#define GCC_HASH_H
+
 #ifndef IN_GCC
 #include <ansidecl.h>
 #endif /* ! IN_GCC */
@@ -127,3 +130,4 @@ extern bool string_compare PARAMS ((hash_table_key k1,
 extern hash_table_key string_copy PARAMS ((struct obstack* memory,
 					   hash_table_key k));
 
+#endif

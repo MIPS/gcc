@@ -42,6 +42,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #endif /* HANDLE_PRAGMA_PACK_PUSH_POP */
 
 extern void init_pragma PARAMS ((void));
+extern void dispatch_pragma PARAMS ((void));
+
 
 /* Duplicate prototypes for the register_pragma stuff and the typedef for
    cpp_reader, to avoid dragging cpplib.h in almost everywhere... */

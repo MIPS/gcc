@@ -175,7 +175,7 @@ ffewhere_file_new (const char *name, size_t length)
   if (ffewhere_head == NULL)
     {
       ggc_add_root (&ffewhere_head, 1, sizeof ffewhere_head,
-		    mark_ffewhere_head);
+		    mark_ffewhere_head, "&ffewhere_head");
       filepos = NUM_FFEWHERE_HEAD_FILES;
     }
   else

@@ -2074,6 +2074,89 @@ truthvalue_conversion (expr)
   return build_binary_op (NE_EXPR, expr, integer_zero_node, 1);
 }
 
+/* Read the rest of a #-directive from input stream FINPUT.
+   In normal use, the directive name and the white space after it
+   have already been read, so they won't be included in the result.
+   We allow for the fact that the directive line may contain
+   a newline embedded within a character or string literal which forms
+   a part of the directive.
+
+   The value is a string in a reusable buffer.  It remains valid
+   only until the next time this function is called.
+
+   The terminating character ('\n' or EOF) is left in FINPUT for the
+   caller to re-read.  */
+
+char *
+get_directive_line (finput)
+     register FILE *finput;
+{
+  static char *directive_buffer = NULL;
+  static unsigned buffer_length = 0;
+  register char *p;
+  register char *buffer_limit;
+  register int looking_for = 0;
+  register int char_escaped = 0;
+
+  if (buffer_length == 0)
+    {
+      directive_buffer = (char *)xmalloc (128);
+      buffer_length = 128;
+    }
+
+  buffer_limit = &directive_buffer[buffer_length];
+
+  for (p = directive_buffer; ; )
+    {
+      int c;
+
+      /* Make buffer bigger if it is full.  */
+      if (p >= buffer_limit)
+        {
+	  register unsigned bytes_used = (p - directive_buffer);
+
+	  buffer_length *= 2;
+	  directive_buffer
+	    = (char *)xrealloc (directive_buffer, buffer_length);
+	  p = &directive_buffer[bytes_used];
+	  buffer_limit = &directive_buffer[buffer_length];
+        }
+
+      c = getc (finput);
+
+      /* Discard initial whitespace.  */
+      if ((c == ' ' || c == '\t') && p == directive_buffer)
+	continue;
+
+      /* Detect the end of the directive.  */
+      if (looking_for == 0
+	  && (c == '\n' || c == EOF))
+	{
+          ungetc (c, finput);
+	  c = '\0';
+	}
+
+      *p++ = c;
+
+      if (c == 0)
+	return directive_buffer;
+
+      /* Handle string and character constant syntax.  */
+      if (looking_for)
+	{
+	  if (looking_for == c && !char_escaped)
+	    looking_for = 0;	/* Found terminator... stop looking.  */
+	}
+      else
+        if (c == '\'' || c == '"')
+	  looking_for = c;	/* Don't stop buffering until we see another
+				   one of these (or an EOF).  */
+
+      /* Handle backslash.  */
+      char_escaped = (c == '\\' && ! char_escaped);
+    }
+}
+
 static tree builtin_function_2 PARAMS ((const char *, const char *, tree, tree,
 					int, enum built_in_class, int, int,
 					int));
@@ -2324,6 +2407,19 @@ c_alignof_expr (expr)
   return fold (build1 (NOP_EXPR, c_size_type_node, t));
 }
 
+/* Give the specifications for the format attributes, used by C and all
+   descendents.  */
+
+static const struct attribute_spec c_format_attribute_table[] =
+{
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "format",                 3, 3, false, true,  true,
+			      handle_format_attribute },
+  { "format_arg",             1, 1, false, true,  true,
+			      handle_format_arg_attribute },
+  { NULL,                     0, 0, false, false, false, NULL }
+};
+
 /* Build tree nodes and builtin functions common to both C and C++ language
    frontends.  */
 
@@ -2368,6 +2464,10 @@ c_common_nodes_and_builtins ()
   tree traditional_len_type_node;
   tree va_list_ref_type_node;
   tree va_list_arg_type_node;
+
+  /* We must initialize this before any builtin functions (which might have
+     attributes) are declared.  (c_common_lang_init is too late.)  */
+  format_attribute_table = c_format_attribute_table;
 
   /* Define `int' and `char' first so that dbx will output them first.  */
   record_builtin_type (RID_INT, NULL, integer_type_node);
@@ -3535,14 +3635,22 @@ is_valid_printf_arglist (arglist)
   /* Save this value so we can restore it later.  */
   const int SAVE_pedantic = pedantic;
   int diagnostic_occurred = 0;
+  tree attrs;
 
   /* Set this to a known value so the user setting won't affect code
      generation.  */
   pedantic = 1;
   /* Check to make sure there are no format specifier errors.  */
-  check_function_format (&diagnostic_occurred,
-			 maybe_get_identifier("printf"),
-			 NULL_TREE, arglist);
+  attrs = tree_cons (get_identifier ("format"),
+		     tree_cons (NULL_TREE,
+				get_identifier ("printf"),
+				tree_cons (NULL_TREE,
+					   integer_one_node,
+					   tree_cons (NULL_TREE,
+						      build_int_2 (2, 0),
+						      NULL_TREE))),
+		     NULL_TREE);
+  check_function_format (&diagnostic_occurred, attrs, arglist);
 
   /* Restore the value of `pedantic'.  */
   pedantic = SAVE_pedantic;
@@ -3774,24 +3882,34 @@ boolean_increment (code, arg)
   return val;
 }
 
-/* Give the specifications for the format attributes, used by C and all
-   descendents.  */
+/* Handle C and C++ default attributes.  */
 
-static const struct attribute_spec c_format_attribute_table[] =
+enum built_in_attribute
 {
-  { "format",                 3, 3, true,  false, false,
-			      handle_format_attribute },
-  { "format_arg",             1, 1, true,  false, false,
-			      handle_format_arg_attribute },
-  { NULL,                     0, 0, false, false, false, NULL }
+#define DEF_ATTR_NULL_TREE(ENUM) ENUM,
+#define DEF_ATTR_INT(ENUM, VALUE) ENUM,
+#define DEF_ATTR_IDENT(ENUM, STRING) ENUM,
+#define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN) ENUM,
+#define DEF_FN_ATTR(NAME, ATTRS, PREDICATE) /* No entry needed in enum.  */
+#include "builtin-attrs.def"
+#undef DEF_ATTR_NULL_TREE
+#undef DEF_ATTR_INT
+#undef DEF_ATTR_IDENT
+#undef DEF_ATTR_TREE_LIST
+#undef DEF_FN_ATTR
+  ATTR_LAST
 };
+
+static tree built_in_attributes[(int) ATTR_LAST];
+
+static bool c_attrs_initialized = false;
+
+static void c_init_attributes PARAMS ((void));
 
 /* Do the parts of lang_init common to C and C++.  */
 void
 c_common_lang_init ()
 {
-  format_attribute_table = c_format_attribute_table;
-
   /* If still "unspecified", make it match -fbounded-pointers.  */
   if (flag_bounds_check < 0)
     flag_bounds_check = flag_bounded_pointers;
@@ -3809,3 +3927,343 @@ c_common_lang_init ()
   if (warn_missing_format_attribute && !warn_format)
     warning ("-Wmissing-format-attribute ignored without -Wformat");
 }
+
+/* Whether we've hit a definition that prevents us from including
+   a precompiled header.  */
+int allow_pch;
+
+/* Nonzero means automatically generate a precompiled header for the first
+   header file encountered.  */
+int flag_auto_pch;
+
+static const unsigned char pch_ident[4] = "gpch";
+static unsigned char pch_stamp[CHECKSUM_SIZE];
+static unsigned long asm_size;
+
+/* The filename to which we should write a precompiled header, or
+   NULL if no header will be written in this compile.  */
+const char *pch_file;
+
+static FILE *pch_outfile;
+
+extern char *asm_file_name;
+static off_t asm_file_startpos;
+static void (*old_late_init_hook) PARAMS((void));
+static void save_asm_offset PARAMS((void));
+static void print_checksum PARAMS ((const unsigned char *, const char *));
+
+static void
+save_asm_offset ()
+{
+  memset (pch_stamp, 0, CHECKSUM_SIZE);
+  sum_type_addresses_list (pch_stamp, &known_pointers);
+  sum_type_addresses_list (pch_stamp, &data_to_save);
+  if (version_flag)
+    print_checksum (pch_stamp, "PCH file");
+
+  pch_outfile = fopen (pch_file, "wb");
+  if (pch_outfile == NULL)
+    {
+      if (flag_auto_pch)
+	{
+	  /* We probably got something in /usr/include; fail silently.  */
+	  if (0)
+	    warning ("can't precompile %s", pch_file);
+	  exit (0);
+	}
+      fatal_error (pch_file);
+    }
+      
+  /* We need to be able to re-read the output.  */
+  /* The driver always provides a valid -o option.  */
+  if (asm_file_name == NULL
+      || strcmp (asm_file_name, "-") == 0)
+    fatal_error ("`%s' is not a valid output file", asm_file_name);
+
+  if (freopen (asm_file_name, "a+", asm_out_file) != asm_out_file)
+    fatal_error (asm_file_name);
+
+  asm_file_startpos = ftello (asm_out_file);
+  
+  if (fwrite (pch_ident, sizeof (pch_ident), 1, pch_outfile) != 1
+      || fwrite (pch_stamp, CHECKSUM_SIZE, 1, pch_outfile) != 1)
+    fatal_io_error ("writing precompiled header");
+  cpp_save_state (parse_in, pch_outfile);
+}
+
+/* We're in -fauto-pch mode, and we've seen an #include for a header with
+   filename HEADER_NAME.  Start generating a PCH for it if possible.  */
+
+void
+pch_begin_header (header_name)
+     char *header_name;
+{
+  char *name;
+
+  if (! lang_toplevel_p ())
+    exit (0);
+  if (first_global_object_name)
+    exit (0);
+
+  name = xmalloc (strlen (header_name) + 5);
+  sprintf (name, "%s.pch", header_name);
+
+  pch_file = name;
+
+  save_asm_offset ();
+}
+
+static void
+pch_init_hook ()
+{
+  if (old_late_init_hook)
+    old_late_init_hook ();
+
+  if (pch_file)
+    save_asm_offset ();
+  else
+    allow_pch = 1;
+}
+
+static void
+print_checksum (c, s)
+     const unsigned char *c;
+     const char *s;
+{
+  int i;
+  fprintf (stderr, "%s checksum: ", s);
+  for (i = 0; i < CHECKSUM_SIZE; i++)
+    fprintf (stderr, "%02x", c[i]);
+  fputc ('\n', stderr);
+}
+
+void
+pch_init ()
+{
+  add_untyped_address (&data_to_save, &asm_size, sizeof (asm_size), "asm_size");
+
+  old_late_init_hook = late_init_hook;
+  late_init_hook = pch_init_hook;
+}
+
+void
+c_write_pch ()
+{
+  off_t asm_file_end;
+  char *buf;
+  off_t written;
+
+  if (! global_bindings_p ())
+    abort ();
+
+  /* FIXME: there are a whole bunch of error conditions
+     that should be checked, like making actual definitions
+     of functions and whatnot.  */
+  if (first_global_object_name)
+    fatal_error ("can't precompile a header with global definitions");
+
+  fflush (asm_out_file);
+  asm_file_end = ftello (asm_out_file);
+  asm_size = asm_file_end - asm_file_startpos;
+  
+  if (cpp_write_pch (parse_in, pch_outfile) != 0)
+    return;
+
+  write_makedeps (parse_in, pch_outfile);
+
+  if (write_type_addresses_list (pch_outfile, &known_pointers, &data_to_save)
+      != 0)
+    fatal_error (pch_file);
+  
+  buf = xmalloc (16384);
+
+  if (fseeko (asm_out_file, asm_file_startpos, SEEK_SET) != 0)
+    fatal_error (pch_file);
+
+  for (written = asm_file_startpos; written < asm_file_end; )
+    {
+      off_t size = asm_file_end - written;
+      if (size > 16384)
+	size = 16384;
+      if (fread (buf, size, 1, asm_out_file) != 1
+	  || fwrite (buf, size, 1, pch_outfile) != 1)
+	fatal_error (pch_file);
+      written += size;
+    }
+  free (buf);
+
+  fclose (pch_outfile);
+
+  /* We've done what we came for; don't bother finishing the assembly
+     output.  */
+  exit (0);
+}
+
+int
+lang_valid_pch (pfile, name, fd)
+     cpp_reader *pfile;
+     const char *name;
+     int fd;
+{
+  int sizeread;
+  int result;
+  unsigned char ident[sizeof (pch_ident) + CHECKSUM_SIZE];
+
+  if (! allow_pch)
+    return 2;
+
+  if (! global_bindings_p ())
+    return 2;
+
+  /* FIXME: Should check here that the user hasn't
+     defined anything that would make a PCH not work.  */
+
+  /* Perform a quick test of whether this is a valid
+     precompiled header for C.  */
+
+  sizeread = read (fd, ident, sizeof (ident));
+  if (sizeread == -1)
+    {
+      fatal_error (name);
+      return 2;
+    }
+  else if (sizeread != sizeof (ident))
+    return 2;
+  
+  if (memcmp (ident, pch_ident, sizeof (pch_ident)) != 0)
+    return 2;
+
+  memset (pch_stamp, 0, CHECKSUM_SIZE);
+  sum_type_addresses_list (pch_stamp, &known_pointers);
+  sum_type_addresses_list (pch_stamp, &data_to_save);
+  if (version_flag)
+     print_checksum (pch_stamp, "PCH file");
+
+  if (memcmp (ident + sizeof (pch_ident), pch_stamp, CHECKSUM_SIZE) != 0)
+    {
+      if (0)
+	{
+	  if (flag_auto_pch)
+	    cpp_warning (pfile, "regenerating PCH %s", name);
+	  else
+	    cpp_warning (pfile,
+			 "PCH %s not for this compiler with these flags",
+			 name);
+	}
+      return 2;
+    }
+
+  /* Check the preprocessor macros are the same as when the PCH was
+     generated.  */
+  
+  result = cpp_valid_state (pfile, fd);
+  if (result == -1)
+    return 2;
+  else
+    return result == 0;
+
+  if (!c_attrs_initialized)
+    c_init_attributes ();
+}
+
+static void
+c_init_attributes ()
+{
+  /* Fill in the built_in_attributes array.  */
+#define DEF_ATTR_NULL_TREE(ENUM)		\
+  built_in_attributes[(int) ENUM] = NULL_TREE;
+#define DEF_ATTR_INT(ENUM, VALUE)					     \
+  built_in_attributes[(int) ENUM] = build_int_2 (VALUE, VALUE < 0 ? -1 : 0);
+#define DEF_ATTR_IDENT(ENUM, STRING)				\
+  built_in_attributes[(int) ENUM] = get_identifier (STRING);
+#define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN)	\
+  built_in_attributes[(int) ENUM]			\
+    = tree_cons (built_in_attributes[(int) PURPOSE],	\
+		 built_in_attributes[(int) VALUE],	\
+		 built_in_attributes[(int) CHAIN]);
+#define DEF_FN_ATTR(NAME, ATTRS, PREDICATE) /* No initialization needed.  */
+#include "builtin-attrs.def"
+#undef DEF_ATTR_NULL_TREE
+#undef DEF_ATTR_INT
+#undef DEF_ATTR_IDENT
+#undef DEF_ATTR_TREE_LIST
+#undef DEF_FN_ATTR
+  ggc_add_tree_root (built_in_attributes, (int) ATTR_LAST, "built_in_attributes");
+  c_attrs_initialized = true;
+}
+
+/* Depending on the name of DECL, apply default attributes to it.  */
+
+void
+c_common_insert_default_attributes (decl)
+     tree decl;
+{
+  tree name = DECL_NAME (decl);
+
+  if (!c_attrs_initialized)
+    c_init_attributes ();
+
+#define DEF_ATTR_NULL_TREE(ENUM) /* Nothing needed after initialization.  */
+#define DEF_ATTR_INT(ENUM, VALUE)
+#define DEF_ATTR_IDENT(ENUM, STRING)
+#define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN)
+#define DEF_FN_ATTR(NAME, ATTRS, PREDICATE)			\
+  if ((PREDICATE) && name == built_in_attributes[(int) NAME])	\
+    decl_attributes (&decl, built_in_attributes[(int) ATTRS],	\
+		     ATTR_FLAG_BUILT_IN);
+#include "builtin-attrs.def"
+#undef DEF_ATTR_NULL_TREE
+#undef DEF_ATTR_INT
+#undef DEF_ATTR_IDENT
+#undef DEF_ATTR_TREE_LIST
+#undef DEF_FN_ATTR
+}
+
+void
+lang_read_pch (pfile, fd, self)
+     cpp_reader *pfile;
+     int fd;
+     const char *self;
+{
+  FILE *f;
+  char *buf;
+  unsigned long written;
+  
+  if (flag_auto_pch)
+    exit (0);
+
+  f = fdopen (fd, "rb");
+  if (f == NULL)
+    cpp_error_from_errno (pfile, "calling fdopen");
+
+  allow_pch = 0;
+
+  if (cpp_read_state (pfile, f) != 0)
+    return;
+
+  read_makedeps (pfile, f, self);
+
+  if (read_type_addresses_list (f, &known_pointers, &data_to_save)
+      != 0)
+    {
+      cpp_error_from_errno (pfile, "reading precompiled header");
+      /* At this point, there's really very little more the compiler can do.  */
+      fatal_error ("can't continue");
+    }
+
+  buf = xmalloc (16384);
+  for (written = 0; written < asm_size; )
+    {
+      off_t size = asm_size - written;
+      if (size > 16384)
+	size = 16384;
+      if (fread (buf, size, 1, f) != 1
+	  || fwrite (buf, size, 1, asm_out_file) != 1)
+	cpp_error_from_errno (pfile, "reading");
+      written += size;
+    }
+  free (buf);
+
+  fclose (f);
+}
+

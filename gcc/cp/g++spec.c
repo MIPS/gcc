@@ -185,12 +185,22 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	     But not if a specified -x option is currently active.  */
 	  len = strlen (argv[i]);
 	  if (len > 2
-	      && (argv[i][len - 1] == 'c' || argv[i][len - 1] == 'i')
+	      && (argv[i][len - 1] == 'c' 
+		  || argv[i][len - 1] == 'i'
+		  || argv[i][len - 1] == 'h')
 	      && argv[i][len - 2] == '.')
 	    {
 	      args[i] |= LANGSPEC;
 	      added += 2;
-	    }
+
+              /* Compiling a header doesn't involve linking.  */
+              if (library && argv[i][len - 1] == 'h')
+                {
+                  library = 0;
+                  added -= 2;
+
+	      }
+	   }
 	}
     }
 
@@ -246,6 +256,8 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	  int len = strlen (argv[i]);
 	  if (argv[i][len - 1] == 'i')
 	    arglist[j++] = "-xc++-cpp-output";
+          else if (argv[i][len - 1] == 'h')
+            arglist[j++] = "-xc++-header";
 	  else
 	    arglist[j++] = "-xc++";
 	  arglist[j++] = argv[i];

@@ -321,6 +321,12 @@ extern int (*lang_missing_noreturn_ok_p)	PARAMS ((tree));
 typedef tree (*walk_tree_fn)                    PARAMS ((tree *,
 							 int *,
 							 void *));
+/* Functions for precompiled headers.  */
+extern void pch_init          PARAMS (( void));
+extern void lang_write_pch    PARAMS ((void));
+extern int lang_valid_pch     PARAMS ((cpp_reader *, const char *, int));
+extern void lang_read_pch     PARAMS ((cpp_reader *, int, const char *));
+
 
 extern stmt_tree current_stmt_tree              PARAMS ((void));
 extern tree *current_scope_stmt_stack           PARAMS ((void));
@@ -458,6 +464,25 @@ extern int warn_conversion;
 
 extern int warn_long_long;
 
+
+/* The filename to which we should write a precompiled header, or
+   NULL if no header will be written in this compile.  */
+
+extern const char *pch_file;
+
+/* Whether we've hit a definition that prevents us from including
+   a precompiled header.  */
+
+extern int allow_pch;
+
+/* Nonzero means automatically generate a precompiled header for the first
+   header file encountered.  */
+
+extern int flag_auto_pch;
+
+
+
+
 /* C types are partitioned into three subsets: object, function, and
    incomplete types.  */
 #define C_TYPE_OBJECT_P(type) \
@@ -503,13 +528,13 @@ extern const char *fname_as_string		PARAMS ((int));
 extern tree fname_decl				PARAMS ((unsigned, tree));
 extern const char *fname_string			PARAMS ((unsigned));
 
-extern void init_function_format_info		PARAMS ((void));
-extern void check_function_format		PARAMS ((int *, tree, tree, tree));
+extern void check_function_format		PARAMS ((int *, tree, tree));
 extern void set_Wformat				PARAMS ((int));
 extern tree handle_format_attribute		PARAMS ((tree *, tree, tree,
 							 int, bool *));
 extern tree handle_format_arg_attribute		PARAMS ((tree *, tree, tree,
 							 int, bool *));
+extern void c_common_insert_default_attributes	PARAMS ((tree));
 extern void c_apply_type_quals_to_decl		PARAMS ((int, tree));
 extern tree c_sizeof				PARAMS ((tree));
 extern tree c_alignof				PARAMS ((tree));
@@ -532,9 +557,10 @@ extern tree convert_and_check			PARAMS ((tree, tree));
 extern void overflow_warning			PARAMS ((tree));
 extern void unsigned_conversion_warning		PARAMS ((tree, tree));
 
+
 /* Read the rest of the current #-directive line.  */
-extern char *get_directive_line			PARAMS ((void));
-#define GET_DIRECTIVE_LINE() get_directive_line ()
+extern char *get_directive_line                       PARAMS ((FILE *));
+#define GET_DIRECTIVE_LINE() get_directive_line (finput)
 
 /* Subroutine of build_binary_op, used for comparison operations.
    See if the operands have both been converted from subword integer types
@@ -874,9 +900,13 @@ struct c_fileinfo
   int time;	/* Time spent in the file.  */
   short interface_only;		/* Flags - used only by C++ */
   short interface_unknown;
+  void  *lang_data;
 };
 
 struct c_fileinfo *get_fileinfo			PARAMS ((const char *));
 extern void dump_time_statistics		PARAMS ((void));
+extern void c_write_pch 			PARAMS ((void));
+extern int  lang_toplevel_p 			PARAMS ((void));
+extern void pch_begin_header 			PARAMS ((char *));
 
 #endif /* ! GCC_C_COMMON_H */

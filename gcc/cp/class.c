@@ -5501,7 +5501,8 @@ init_class_processing ()
     = (class_stack_node_t) xmalloc (current_class_stack_size 
 				    * sizeof (struct class_stack_node));
   VARRAY_TREE_INIT (local_classes, 8, "local_classes");
-  ggc_add_tree_varray_root (&local_classes, 1);
+  ggc_add_tree_varray_root (&local_classes, 1, "local_classes");
+  add_varray_tree_addresses (&data_to_save, &local_classes, 1, "local_classes");
 
   access_default_node = build_int_2 (0, 0);
   access_public_node = build_int_2 (ak_public, 0);

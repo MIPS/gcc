@@ -42,6 +42,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "ggc.h"
 #include "timevar.h"
+#include "cpphash.h"
 #include "cpplib.h"
 #include "target.h"
 extern cpp_reader *parse_in;
@@ -429,6 +430,7 @@ lang_f_options[] =
   {"short-double", &flag_short_double, 1},
   {"short-wchar", &flag_short_wchar, 1},
   {"asm", &flag_no_asm, 0},
+  {"auto-pch", &flag_auto_pch, 1},
   {"builtin", &flag_no_builtin, 0},
 
   /* C++-only options.  */
@@ -562,6 +564,11 @@ cxx_decode_option (argc, argv)
           flag_external_templates = 1;
           cp_deprecated ("-fexternal-templates");
         }
+      else if (!strcmp (p, "auto-pch"))
+        {
+          flag_auto_pch = 1;
+          CPP_OPTION (parse_in, gen_deps) = 1;
+        }
       else if ((option_value
                 = skip_leading_substring (p, "template-depth-")))
 	max_tinst_depth
@@ -572,6 +579,12 @@ cxx_decode_option (argc, argv)
 	  warning ("-fname-mangling-version is no longer supported");
 	  return 1;
 	}
+      else if ((option_value
+                = skip_leading_substring (p, "output-pch=")))
+        {
+          pch_file = option_value;
+          CPP_OPTION (parse_in, gen_deps) = 1;
+        }
       else if (dump_switch_p (p))
 	;
       else 
@@ -590,14 +603,14 @@ cxx_decode_option (argc, argv)
 		     but breaks the VAX pcc.  */
 		  found = 1;
 		}
-	      if (p[0] == 'n' && p[1] == 'o' && p[2] == '-'
-		  && ! strcmp (p+3, lang_f_options[j].string))
+	      else if (p[0] == 'n' && p[1] == 'o' && p[2] == '-'
+		       && ! strcmp (p+3, lang_f_options[j].string))
 		{
 		  *lang_f_options[j].variable = ! lang_f_options[j].on_value;
 		  found = 1;
 		}
 	    }
-	      
+
 	  return found;
 	}
     }
@@ -2181,7 +2194,7 @@ mark_vtable_entries (decl)
 	 we know all the thunks we'll need when we emit a virtual
 	 function, so we emit the thunks there instead.  */
       if (DECL_THUNK_P (fn)) 
-	use_thunk (fn, /*emit_p=*/0);
+        use_thunk (fn, /*emit_p=*/0);
       mark_used (fn);
     }
 }
@@ -2328,7 +2341,8 @@ import_export_vtable (decl, type, final)
 	 functions in our class, or if we come from a template.  */
 
       int found = (CLASSTYPE_TEMPLATE_INSTANTIATION (type)
-		   || key_method (type));
+		|| key_method (type));
+		   
 
       if (final || ! found)
 	{
@@ -3358,6 +3372,9 @@ finish_file ()
   int reconsider;
   size_t i;
 
+  if (pch_file)
+    lang_write_pch ();
+
   at_eof = 1;
 
   /* Bad parse errors.  Just forget about it.  */
@@ -3388,6 +3405,8 @@ finish_file ()
      instantiated, etc., etc.  */
 
   timevar_push (TV_VARCONST);
+
+  process_interface_items ();
 
   emit_support_tinfos ();
   
@@ -4852,6 +4871,7 @@ validate_nonmember_using_decl (decl, scope, name)
       *scope = TREE_OPERAND (decl, 0);
       *name = TREE_OPERAND (decl, 1);
 
+
       if (!processing_template_decl)
         {
           /* [namespace.udecl]
@@ -5253,10 +5273,18 @@ handle_class_head (aggr, scope, id)
 void
 init_decl2 ()
 {
-  ggc_add_tree_varray_root (&deferred_fns, 1);
-  ggc_add_tree_varray_root (&pending_statics, 1);
-  ggc_add_tree_varray_root (&ssdf_decls, 1);
-  ggc_add_tree_root (&ssdf_decl, 1);
-  ggc_add_tree_root (&priority_decl, 1);
-  ggc_add_tree_root (&initialize_p_decl, 1);
+  ggc_add_tree_varray_root (&deferred_fns, 1 , "deferred_fns" );
+  add_varray_tree_addresses (&data_to_save, &deferred_fns, 1 , "deferred_fns" );
+  ggc_add_tree_varray_root (&pending_statics, 1 , "pending_statics" );
+  add_varray_tree_addresses (&data_to_save, &pending_statics, 1 , "pending_statics" );
+  ggc_add_tree_varray_root (&ssdf_decls, 1 , "ssdf_decls" );
+  add_varray_tree_addresses (&data_to_save, &ssdf_decls, 1 , "ssdf_decls" );
+  ggc_add_tree_root (&ssdf_decl, 1 , "ssdf_decl" );
+  add_tree_addresses (&data_to_save, &ssdf_decl, 1 , "ssdf_decl" );
+  ggc_add_tree_root (&priority_decl, 1 , "priority_decl" );
+  add_tree_addresses (&data_to_save, &priority_decl, 1 , "priority_decl" );
+  ggc_add_tree_root (&initialize_p_decl, 1 , "initialize_p_decl" );
+  add_tree_addresses (&data_to_save, &initialize_p_decl, 1 , "initialize_p_decl" );
+
+
 }

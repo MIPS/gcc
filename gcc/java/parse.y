@@ -610,25 +610,25 @@ goal:
                 {
 		  /* Register static variables with the garbage
 		     collector.  */
-		  ggc_add_tree_root (&label_id, 1);
-		  ggc_add_tree_root (&wfl_string_buffer, 1);
-		  ggc_add_tree_root (&wfl_append, 1);
-		  ggc_add_tree_root (&wfl_to_string, 1);
-		  ggc_add_tree_root (&java_lang_id, 1);
-		  ggc_add_tree_root (&inst_id, 1);
-		  ggc_add_tree_root (&java_lang_cloneable, 1);
-		  ggc_add_tree_root (&java_io_serializable, 1);
-		  ggc_add_tree_root (&current_static_block, 1);
-		  ggc_add_tree_root (&wpv_id, 1);
-		  ggc_add_tree_root (&package_list, 1);
-		  ggc_add_tree_root (&current_this, 1);
-		  ggc_add_tree_root (&currently_caught_type_list, 1);
+		  ggc_add_tree_root (&label_id, 1, "label_id");
+		  ggc_add_tree_root (&wfl_string_buffer, 1, "wfl_string_buffer");
+		  ggc_add_tree_root (&wfl_append, 1, "wfl_append");
+		  ggc_add_tree_root (&wfl_to_string, 1 , "wfl_to_string" );
+		  ggc_add_tree_root (&java_lang_id, 1 , "java_lang_id" );
+		  ggc_add_tree_root (&inst_id, 1 , "inst_id" );
+		  ggc_add_tree_root (&java_lang_cloneable, 1 , "java_lang_cloneable" );
+		  ggc_add_tree_root (&java_io_serializable, 1 , "java_io_serializable" );
+		  ggc_add_tree_root (&current_static_block, 1 , "current_static_block" );
+		  ggc_add_tree_root (&wpv_id, 1 , "wpv_id" );
+		  ggc_add_tree_root (&package_list, 1 , "package_list" );
+		  ggc_add_tree_root (&current_this, 1 , "current_this" );
+		  ggc_add_tree_root (&currently_caught_type_list, 1 , "currently_caught_type_list" );
 		  ggc_add_root (&ctxp, 1, 
 				sizeof (struct parser_ctxt *),
-				mark_parser_ctxt);
+				mark_parser_ctxt , "ctxp" );
 		  ggc_add_root (&ctxp_for_generation, 1, 
 				sizeof (struct parser_ctxt *),
-				mark_parser_ctxt);
+				mark_parser_ctxt , "ctxp_for_generation" );
 		}
 	compilation_unit
 		{}
@@ -4834,7 +4834,7 @@ verify_constructor_circularity (meth, current)
      do so now.  */
   if (!initialized_p)
     {
-      ggc_add_tree_root (&list, 1);
+      ggc_add_tree_root (&list, 1, "list");
       initialized_p = 1;
     }
 
@@ -6624,7 +6624,7 @@ lookup_cl (decl)
   if (cl == NULL_TREE)
     {
       cl = build_expr_wfl (NULL_TREE, NULL, 0, 0);
-      ggc_add_tree_root (&cl, 1);
+      ggc_add_tree_root (&cl, 1, "cl");
     }
 
   EXPR_WFL_FILENAME_NODE (cl) = get_identifier (DECL_SOURCE_FILE (decl));
@@ -7494,7 +7494,7 @@ java_reorder_fields ()
   /* Register STOP_REORDERING with the garbage collector.  */
   if (!initialized_p)
     {
-      ggc_add_tree_root (&stop_reordering, 1);
+      ggc_add_tree_root (&stop_reordering, 1, "stop_reorderimg");
       initialized_p = 1;
     }
 
@@ -8592,8 +8592,8 @@ build_current_thisn (type)
   /* Register SAVED_THISN and SAVED_TYPE with the garbage collector.  */
   if (!initialized_p)
     {
-      ggc_add_tree_root (&saved_thisn, 1);
-      ggc_add_tree_root (&saved_type, 1);
+      ggc_add_tree_root (&saved_thisn, 1, "saved_thisn");
+      ggc_add_tree_root (&saved_type, 1, "saved_type");
       initialized_p = 1;
     }
 
@@ -8668,8 +8668,8 @@ build_dot_class_method (class)
     {
       get_message_wfl = build_wfl_node (get_identifier ("getMessage"));
       type_parm_wfl = build_wfl_node (get_identifier ("type$"));
-      ggc_add_tree_root (&get_message_wfl, 1);
-      ggc_add_tree_root (&type_parm_wfl, 1);
+      ggc_add_tree_root (&get_message_wfl, 1, "get_message_wfl");
+      ggc_add_tree_root (&type_parm_wfl, 1, "type_parm_wfl");
     }
 
   /* Build the arguments */
@@ -10022,7 +10022,7 @@ class_in_current_package (class)
       /* Register CACHE with the garbage collector.  */
       if (!initialized_p)
 	{
-	  ggc_add_tree_root (&cache, 1);
+	  ggc_add_tree_root (&cache, 1, "cache");
 	  initialized_p = 1;
 	}
 
@@ -11083,8 +11083,8 @@ argument_types_convertible (m1, m2_or_arglist)
      collector.  */
   if (!initialized_p)
     {
-      ggc_add_tree_root (&m2_arg_value, 1);
-      ggc_add_tree_root (&m2_arg_cache, 1);
+      ggc_add_tree_root (&m2_arg_value, 1, "m2_arg_value");
+      ggc_add_tree_root (&m2_arg_cache, 1, "m2_arg_cache");
       initialized_p = 1;
     }
 
@@ -16248,7 +16248,7 @@ void
 init_src_parse ()
 {
   /* Register roots with the garbage collector.  */
-  ggc_add_tree_root (src_parse_roots, sizeof (src_parse_roots) / sizeof(tree));
+  ggc_add_tree_root (src_parse_roots, sizeof (src_parse_roots) / sizeof(tree), "src_parse_roots");
 }
 
 

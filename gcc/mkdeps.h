@@ -26,37 +26,49 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 /* This is the data structure used by all the functions in mkdeps.c.
    It's quite straightforward, but should be treated as opaque.  */
 
-struct deps;
+/* Keep this structure local to this file, so clients don't find it
+   easy to start making assumptions.  */
+struct make_deps
+{
+  const char **targetv;
+  unsigned int ntargets;	/* number of slots actually occupied */
+  unsigned int targets_size;	/* amt of allocated space - in words */
+
+  const char **depv;
+  unsigned int ndeps;
+  unsigned int deps_size;
+};
 
 /* Create a deps buffer.  */
-extern struct deps *deps_init	PARAMS ((void));
+extern struct make_deps *deps_init	PARAMS ((void));
 
 /* Destroy a deps buffer.  */
-extern void deps_free		PARAMS ((struct deps *));
+extern void deps_free		PARAMS ((struct make_deps *));
 
 /* Add a target (appears on left side of the colon) to the deps list.  Takes
    a boolean indicating whether to quote the target for MAKE.  */
-extern void deps_add_target	PARAMS ((struct deps *, const char *, int));
+extern void deps_add_target	PARAMS ((struct make_deps *, const char *, int));
 
 /* Sets the default target if none has been given already.  An empty
    string as the default target in interpreted as stdin.  */
-extern void deps_add_default_target PARAMS ((struct deps *, const char *));
+extern void deps_add_default_target PARAMS ((struct make_deps *, const char *));
 
 /* Add a dependency (appears on the right side of the colon) to the
    deps list.  Dependencies will be printed in the order that they
    were entered with this function.  By convention, the first
    dependency entered should be the primary source file.  */
-extern void deps_add_dep	PARAMS ((struct deps *, const char *));
+extern void deps_add_dep	PARAMS ((struct make_deps *, const char *));
 
 /* Write out a deps buffer to a specified file.  The third argument
    is the number of columns to word-wrap at (0 means don't wrap).  */
-extern void deps_write		PARAMS ((const struct deps *, FILE *,
+extern void deps_write		PARAMS ((const struct make_deps *, FILE *,
 					 unsigned int));
 
 /* For each dependency *except the first*, emit a dummy rule for that
    file, causing it to depend on nothing.  This is used to work around
    the intermediate-file deletion misfeature in Make, in some
    automatic dependency schemes.  */
-extern void deps_phony_targets	PARAMS ((const struct deps *, FILE *));
+extern void deps_phony_targets	PARAMS ((const struct make_deps *, FILE *));
+extern void deps_calc_target 	PARAMS ((struct make_deps *, const char *));
 
 #endif /* ! GCC_MKDEPS_H */

@@ -144,11 +144,11 @@ init_expr_processing()
   operand_type[23] = operand_type[56] = float_type_node;
   operand_type[24] = operand_type[57] = double_type_node;
   operand_type[25] = operand_type[58] = ptr_type_node;
-  ggc_add_tree_root (operand_type, 59);
-  ggc_add_tree_root (&methods_ident, 1);
-  ggc_add_tree_root (&ncode_ident, 1);
-  ggc_add_tree_root (&quick_stack, 1);
-  ggc_add_tree_root (&tree_list_free_list, 1);
+  ggc_add_tree_root (operand_type, 59, "operand_type");
+  ggc_add_tree_root (&methods_ident, 1, "methods_ident");
+  ggc_add_tree_root (&ncode_ident, 1, "ncode_ident");
+  ggc_add_tree_root (&quick_stack, 1, "quick_stack");
+  ggc_add_tree_root (&tree_list_free_list, 1, "tree_list_free_list");
 }
 
 tree
@@ -1879,7 +1879,7 @@ build_invokeinterface (dtable, method)
   if (class_ident == NULL_TREE)
     {
       class_ident = get_identifier ("class");
-      ggc_add_tree_root (&class_ident, 1);
+      ggc_add_tree_root (&class_ident, 1, "class_ident");
     }
 
   dtable = build_java_indirect_ref (dtable_type, dtable, flag_check_references);

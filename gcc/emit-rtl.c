@@ -586,6 +586,10 @@ gen_rtvec VPARAMS ((int n, ...))
   VA_OPEN (p, n);
   VA_FIXEDARG (p, int, n);
 
+#ifndef ANSI_PROTOTYPES
+  n = va_arg (p, int);
+#endif
+
   if (n == 0)
     return NULL_RTVEC;		/* Don't allocate an empty rtvec...	*/
 
@@ -1716,12 +1720,10 @@ set_mem_alias_set (mem, set)
      HOST_WIDE_INT set;
 {
   /* It would be nice to enable this check, but we can't quite yet.  */
-#if 0
 #ifdef ENABLE_CHECKING	
   /* If the new and old alias sets don't conflict, something is wrong.  */
   if (!alias_sets_conflict_p (set, MEM_ALIAS_SET (mem)))
     abort ();
-#endif
 #endif
 
   MEM_ATTRS (mem) = get_mem_attrs (set, MEM_DECL (mem), MEM_OFFSET (mem),
@@ -4443,11 +4445,16 @@ init_emit_once (line_numbers)
   /* Initialize the CONST_INT and memory attribute hash tables.  */
   const_int_htab = htab_create (37, const_int_htab_hash,
 				const_int_htab_eq, NULL);
-  ggc_add_deletable_htab (const_int_htab, 0, 0);
+#if 0
+  ggc_add_root (&const_int_htab, 1, sizeof (const_int_htab),
+		rtx_htab_mark, "const_int_htab");
+#else
+  ggc_add_deletable_htab (const_int_htab, 0, 0, "const_int_htab");
 
   mem_attrs_htab = htab_create (37, mem_attrs_htab_hash,
 				mem_attrs_htab_eq, NULL);
-  ggc_add_deletable_htab (mem_attrs_htab, 0, mem_attrs_mark);
+  ggc_add_deletable_htab (mem_attrs_htab, 0, mem_attrs_mark, "mem_attrs_htab");
+#endif
 
   no_line_numbers = ! line_numbers;
 
@@ -4503,7 +4510,9 @@ init_emit_once (line_numbers)
   virtual_cfa_rtx = gen_raw_REG (Pmode, VIRTUAL_CFA_REGNUM);
 
   /* These rtx must be roots if GC is enabled.  */
-  ggc_add_rtx_root (global_rtl, GR_MAX);
+  ggc_add_rtx_root (global_rtl, GR_MAX, "global_rtl");
+
+  add_rtx_addresses (&known_pointers, global_rtl, GR_MAX, "global_rtl");
 
 #ifdef INIT_EXPANDERS
   /* This is to initialize {init|mark|free}_machine_status before the first
@@ -4520,7 +4529,10 @@ init_emit_once (line_numbers)
   for (i = - MAX_SAVED_CONST_INT; i <= MAX_SAVED_CONST_INT; i++)
     const_int_rtx[i + MAX_SAVED_CONST_INT] =
       gen_rtx_raw_CONST_INT (VOIDmode, i);
-  ggc_add_rtx_root (const_int_rtx, 2 * MAX_SAVED_CONST_INT + 1);
+  ggc_add_rtx_root (const_int_rtx, 2 * MAX_SAVED_CONST_INT + 1, "const_int_rtx");
+  add_rtx_addresses (&known_pointers, const_int_rtx,
+                    2 * MAX_SAVED_CONST_INT + 1, "const_int_rtx");
+
 
   if (STORE_FLAG_VALUE >= - MAX_SAVED_CONST_INT
       && STORE_FLAG_VALUE <= MAX_SAVED_CONST_INT)
@@ -4582,8 +4594,12 @@ init_emit_once (line_numbers)
   /* For bounded pointers, `&const_tiny_rtx[0][0]' is not the same as
      `(rtx *) const_tiny_rtx'.  The former has bounds that only cover
      `const_tiny_rtx[0]', whereas the latter has bounds that cover all.  */
-  ggc_add_rtx_root ((rtx *) const_tiny_rtx, sizeof const_tiny_rtx / sizeof (rtx));
-  ggc_add_rtx_root (&const_true_rtx, 1);
+  ggc_add_rtx_root ((rtx *) const_tiny_rtx, sizeof const_tiny_rtx / sizeof (rtx), "const_tiny_rtx");
+  add_rtx_addresses (&known_pointers, (rtx *) const_tiny_rtx,
+                   sizeof const_tiny_rtx / sizeof (rtx), "const_tiny_rtx");
+  ggc_add_rtx_root (&const_true_rtx, 1, "const_true_rtx");
+  add_rtx_addresses (&known_pointers, &const_true_rtx, 1, "const_true_rtx");
+
 
 #ifdef RETURN_ADDRESS_POINTER_REGNUM
   return_address_pointer_rtx
@@ -4632,12 +4648,19 @@ init_emit_once (line_numbers)
   if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)
     pic_offset_table_rtx = gen_rtx_REG (Pmode, PIC_OFFSET_TABLE_REGNUM);
 
-  ggc_add_rtx_root (&pic_offset_table_rtx, 1);
-  ggc_add_rtx_root (&struct_value_rtx, 1);
-  ggc_add_rtx_root (&struct_value_incoming_rtx, 1);
-  ggc_add_rtx_root (&static_chain_rtx, 1);
-  ggc_add_rtx_root (&static_chain_incoming_rtx, 1);
-  ggc_add_rtx_root (&return_address_pointer_rtx, 1);
+  ggc_add_rtx_root (&pic_offset_table_rtx, 1, "pic_offset_table_rtx");
+  ggc_add_rtx_root (&struct_value_rtx, 1, "struct_value_rtx");
+  ggc_add_rtx_root (&struct_value_incoming_rtx, 1, "struct_value_incoming_rtx");
+  ggc_add_rtx_root (&static_chain_rtx, 1, "static_chain_rtx");
+  ggc_add_rtx_root (&static_chain_incoming_rtx, 1, "static_chain_incoming_rtx");
+  ggc_add_rtx_root (&return_address_pointer_rtx, 1, "return_address_pointer_rtx");
+  add_rtx_addresses (&known_pointers, &pic_offset_table_rtx, 1, "pic_offset_table_rtx");
+  add_rtx_addresses (&known_pointers, &struct_value_rtx, 1, "struct_value");
+  add_rtx_addresses (&known_pointers, &struct_value_incoming_rtx, 1, "struct_value_incoming");
+  add_rtx_addresses (&known_pointers, &static_chain_rtx, 1, "static_chain_rtx");
+  add_rtx_addresses (&known_pointers, &static_chain_incoming_rtx, 1, "static_chain_incoming_rtx");
+  add_rtx_addresses (&known_pointers, &return_address_pointer_rtx, 1, "return_address_pointer");
+
 }
 
 /* Query and clear/ restore no_line_numbers.  This is used by the

@@ -29,6 +29,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "timevar.h"
 
+#define inline
+
 /* Prefer MAP_ANON(YMOUS) to /dev/zero, since we don't need to keep a
    file open.  Prefer either to valloc.  */
 #ifdef HAVE_MMAP_ANON
@@ -97,6 +99,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    when a significant amount of memory has been allocated since the
    last collection.  */
 #undef GGC_ALWAYS_COLLECT
+#define GGC_ALWAYS_COLLECT
 
 #ifdef ENABLE_GC_CHECKING
 #define GGC_POISON
@@ -356,7 +359,7 @@ static struct globals
    in_use bitmask for page_group.  */
 #define GGC_QUIRE_SIZE 16
 
-static int ggc_allocated_p PARAMS ((const void *));
+int ggc_allocated_p PARAMS ((const void *));
 static page_entry *lookup_page_table_entry PARAMS ((const void *));
 static void set_page_table_entry PARAMS ((void *, page_entry *));
 #ifdef USING_MMAP
@@ -382,7 +385,7 @@ void debug_print_page_list PARAMS ((int));
 
 /* Returns non-zero if P was allocated in GC'able memory.  */
 
-static inline int
+int
 ggc_allocated_p (p)
      const void *p;
 {
@@ -415,6 +418,11 @@ ggc_allocated_p (p)
 /* Traverse the page table and find the entry for a page. 
    Die (probably) if the object wasn't allocated via GC.  */
 
+void haltit()
+{
+}
+
+/*#if !defined (__GNUC__) || HOST_BITS_PER_PTR > 32 */
 static inline page_entry *
 lookup_page_table_entry(p)
      const void *p;
@@ -436,8 +444,14 @@ lookup_page_table_entry(p)
   L1 = LOOKUP_L1 (p);
   L2 = LOOKUP_L2 (p);
 
+  if (!ggc_allocated_p(p)) haltit();
   return base[L1][L2];
 }
+/*
+#else
+#define lookup_page_table_entry(p) ((&G.lookup[0])[LOOKUP_L1 (p)][LOOKUP_L2 (p)])
+#endif
+*/
 
 /* Set the page table entry for a page.  */
 
@@ -852,6 +866,7 @@ static unsigned char size_lookup[257] =
 /* Allocate a chunk of memory of SIZE bytes.  If ZERO is non-zero, the
    memory is zeroed; otherwise, its contents are undefined.  */
 
+void *ggc_break = 0x401517c0;
 void *
 ggc_alloc (size)
      size_t size;
@@ -957,6 +972,7 @@ ggc_alloc (size)
     fprintf (G.debug_file, 
 	     "Allocating object, requested size=%ld, actual=%ld at %p on %p\n",
 	     (long) size, (long) OBJECT_SIZE (order), result, (PTR) entry);
+if (result == ggc_break ) haltit();
 
   return result;
 }
@@ -1512,3 +1528,17 @@ ggc_print_statistics ()
 	   SCALE (G.allocated), LABEL(G.allocated),
 	   SCALE (total_overhead), LABEL (total_overhead));
 }
+
+/* Mark P, but check first that it was allocated by the collector.  */
+
+void
+ggc_mark_if_gcable (p)
+     const void *p;
+{
+  if (p && ggc_allocated_p (p))
+{
+fprintf(stderr,"marking %p\n", p);
+    ggc_set_mark (p);
+}
+}
+

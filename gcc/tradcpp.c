@@ -42,7 +42,7 @@ size_t max_include_len;
 int put_out_comments = 0;
 
 /* mkdeps.h opaque structure that encapsulates dependency information.  */
-struct deps *deps;
+struct make_deps *deps;
 
 /* Nonzero means print the names of included files rather than
    the preprocessed output.  1 means just the #include "...",

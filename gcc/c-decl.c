@@ -40,6 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "ggc.h"
 #include "tm_p.h"
+#include "cpphash.h"
 #include "cpplib.h"
 #include "target.h"
 #include "debug.h"
@@ -54,6 +55,8 @@ enum decl_context
   TYPENAME};			/* Typename (inside cast or sizeof)  */
 
 
+/* Do GC.  */
+
 /* Nonzero if we have seen an invalid cross reference
    to a struct, union, or enum, but not yet printed the message.  */
 
@@ -428,6 +431,16 @@ int warn_float_equal = 0;
 
 int warn_multichar = 1;
 
+/* The filename to which we should write a precompiled header, or
+   NULL if no header will be written in this compile.  */
+
+const char *pch_file;
+
+/* Whether we've hit a definition that prevents us from including
+   a precompiled header.  */
+
+extern int allow_pch; 
+
 /* The variant of the C language being processed.  */
 
 c_language_kind c_language = clk_c;
@@ -546,6 +559,16 @@ c_decode_option (argc, argv)
       else
 	error ("unknown C standard `%s'", argstart);
     }
+  else if (!strncmp (p, "--output-pch=", 13))
+    {
+       pch_file = xstrdup (p + 13);
+       CPP_OPTION (parse_in, gen_deps) = 1;
+    }
+  else if (!strncmp (p, "-fauto-pch", 13))
+     {
+       flag_auto_pch = 1;
+       CPP_OPTION (parse_in, gen_deps) = 1;
+     }
   else if (!strcmp (p, "-fdollars-in-identifiers"))
     dollars_in_ident = 1;
   else if (!strcmp (p, "-fno-dollars-in-identifiers"))
@@ -1498,6 +1521,8 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	      tree trytype
 		= build_function_type (newreturntype,
 				       TYPE_ARG_TYPES (oldtype));
+	      trytype = build_type_attribute_variant (trytype,
+						      TYPE_ATTRIBUTES (oldtype));
 
               types_match = comptypes (newtype, trytype);
 	      if (types_match)
@@ -1519,6 +1544,8 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 				       tree_cons (NULL_TREE,
 						  TREE_VALUE (TYPE_ARG_TYPES (newtype)),
 						  TREE_CHAIN (TYPE_ARG_TYPES (oldtype))));
+	      trytype = build_type_attribute_variant (trytype,
+						      TYPE_ATTRIBUTES (oldtype));
 
 	      types_match = comptypes (newtype, trytype);
 	      if (types_match)
@@ -2505,7 +2532,7 @@ tree
 implicitly_declare (functionid)
      tree functionid;
 {
-  register tree decl;
+  tree decl;
   int traditional_warning = 0;
   /* Only one "implicit declaration" warning per identifier.  */
   int implicit_warning;
@@ -2554,6 +2581,9 @@ implicitly_declare (functionid)
      prototypes file (if requested).  */
 
   gen_aux_info_record (decl, 0, 1, 0);
+
+  /* Possibly apply some default attributes to this implicit declaration.  */
+  decl_attributes (&decl, NULL_TREE, 0);
 
   return decl;
 }
@@ -2955,6 +2985,13 @@ mark_binding_level (arg)
     }
 }
 
+static const struct field_definition_s c_lang_function_field_defs[] = {
+  /* No interesting pointers.  */
+  NO_MORE_FIELDS
+};
+
+
+
 /* Create the predefined scalar types of C,
    and some nodes representing standard constants (0, 1, (void *) 0).
    Initialize the global binding level.
@@ -3056,24 +3093,26 @@ init_decl_processing ()
   make_fname_decl = c_make_fname_decl;
   start_fname_decls ();
 
-  /* Prepare to check format strings against argument lists.  */
-  init_function_format_info ();
-
   incomplete_decl_finalize_hook = finish_incomplete_decl;
 
   /* Record our roots.  */
 
-  ggc_add_tree_root (c_global_trees, CTI_MAX);
-  ggc_add_root (&c_stmt_tree, 1, sizeof c_stmt_tree, mark_stmt_tree);
-  ggc_add_tree_root (&c_scope_stmt_stack, 1);
-  ggc_add_tree_root (&named_labels, 1);
-  ggc_add_tree_root (&shadowed_labels, 1);
+  ggc_add_tree_root (c_global_trees, CTI_MAX, "c_global_trees");
+  add_tree_addresses (&data_to_save, c_global_trees, CTI_MAX, "c_global_trees");
+  ggc_add_root (&c_stmt_tree, 1, sizeof c_stmt_tree, mark_stmt_tree, "c_stmt_tree");
+  ggc_add_tree_root (&c_scope_stmt_stack, 1, "c_scope_stmt_stack");
+  ggc_add_tree_root (&named_labels, 1, "named_labels");
+  ggc_add_tree_root (&shadowed_labels, 1, "shadowed_labels");
   ggc_add_root (&current_binding_level, 1, sizeof current_binding_level,
-		mark_binding_level);
+		mark_binding_level, "current_binding_level");
+  add_tree_addresses (&data_to_save, &global_binding_level->names, 1, "global_binding_level->names");
+  add_tree_addresses (&data_to_save, &global_binding_level->tags, 1, "global_binding_level->tags");
   ggc_add_root (&label_level_chain, 1, sizeof label_level_chain,
-		mark_binding_level);
-  ggc_add_tree_root (&static_ctors, 1);
-  ggc_add_tree_root (&static_dtors, 1);
+		mark_binding_level, "label_level_chain");
+  ggc_add_tree_root (&static_ctors, 1, "static_ctors");
+  add_tree_addresses (&data_to_save, &static_ctors, 1, "static_ctors");
+  ggc_add_tree_root (&static_dtors, 1, "static_dtors");
+  add_tree_addresses (&data_to_save, &static_dtors, 1, "static_dtors");
 }
 
 /* Create the VAR_DECL for __FUNCTION__ etc. ID is the name to give the
@@ -3152,7 +3191,22 @@ builtin_function (name, type, function_code, class, library_name)
   if (name[0] != '_' || name[1] != '_')
     C_DECL_ANTICIPATED (decl) = 1;
 
+  /* Possibly apply some default attributes to this built-in function.  */
+  decl_attributes (&decl, NULL_TREE, 0);
+
   return decl;
+}
+
+/* Apply default attributes to a function, if a system function with default
+   attributes.  */
+
+void
+insert_default_attributes (decl)
+     tree decl;
+{
+  if (!TREE_PUBLIC (decl))
+    return;
+  c_common_insert_default_attributes (decl);
 }
 
 /* Called when a declaration is seen that contains no names to declare.

@@ -136,6 +136,22 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Typical USG systems don't have stab.h, and they also have
    no use for DBX-format debugging info.  */
 
+#define MINIMAL_DEBUG 1
+
+#ifdef NO_DOLLAR_IN_LABEL
+#ifdef NO_DOT_IN_LABEL
+#undef MINIMAL_DEBUG
+#define MINIMAL_DEBUG 0
+#endif
+#endif
+
+/* This is used by ASM_OUTPUT_SOURCE_LINE in dbxelf.h and dbxcoff.h.  */
+static int sym_lineno;
+
+/* Used by dbxout_function_end.  */
+static int scope_labelno;
+
+
 #if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
 
 /* Nonzero if we have actually used any of the GDB extensions
@@ -219,6 +235,10 @@ struct typeinfo *typevec;
 
 static int typevec_len;
 
+/* How large is *typevec, anyway?  */
+static size_t dbx_typevec_size_fetcher PARAMS ((const void *, 
+						type_definition_p));
+
 /* In dbx output, each type gets a unique number.
    This is the number for the next type output.
    The number, once assigned, is in the TYPE_SYMTAB_ADDRESS field.  */
@@ -236,6 +256,11 @@ struct dbx_file
   struct dbx_file *next;
   int file_number;
   int next_type_number;
+};
+
+static const struct field_definition_s dbx_file_field_defs[] = {
+  { 0, 0, offsetof (struct dbx_file, next), dbx_file_type_def },
+  NO_MORE_FIELDS
 };
 
 /* This is the top of the stack.  */
@@ -380,7 +405,6 @@ struct gcc_debug_hooks xcoff_debug_hooks =
 static void
 dbxout_function_end ()
 {
-  static int scope_labelno = 0;
   char lscope_label_name[100];
   /* Convert Ltext into the appropriate format for local labels in case
      the system doesn't insert underscores in front of user generated
@@ -396,6 +420,14 @@ dbxout_function_end ()
   putc ('-', asmfile);
   assemble_name (asmfile, XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));
   fprintf (asmfile, "\n");
+}
+
+static size_t
+dbx_typevec_size_fetcher (v, td)
+     const void *v ATTRIBUTE_UNUSED;
+     type_definition_p td ATTRIBUTE_UNUSED;
+{
+  return typevec_len * sizeof (typevec[0]);
 }
 
 /* At the beginning of compilation, start writing the symbol table.
@@ -466,12 +498,34 @@ dbxout_init (input_file_name)
 
   next_type_number = 1;
 
+  add_untyped_address (&data_to_save, &sym_lineno, sizeof (sym_lineno),"sym_lineno");
+  add_untyped_address (&data_to_save, &scope_labelno, sizeof (scope_labelno), "scope_labelno");
+  add_untyped_address (&data_to_save, &have_used_extensions, 
+		       sizeof (have_used_extensions), "have_used_extensions");
+  add_untyped_address (&data_to_save, &source_label_number,
+		       sizeof (source_label_number), "source_label_number");
+#if 0
+  add_typed_addresses (&data_to_save, (void **)&lastfile,
+		       string_type_def, 1);
+#endif
+  add_untyped_address (&data_to_save, &typevec_len,
+		       sizeof (typevec_len),"typevec_len");
+  dbx_typevec_type_def->size_fetcher = dbx_typevec_size_fetcher;
+  add_typed_addresses (&data_to_save, (void **)&typevec,
+		       dbx_typevec_type_def, 1,"typevec");
+  add_untyped_address (&data_to_save, &next_type_number,
+		       sizeof (next_type_number),"next_type_number");
+
 #ifdef DBX_USE_BINCL
   current_file = (struct dbx_file *) xmalloc (sizeof *current_file);
   current_file->next = NULL;
   current_file->file_number = 0;
   current_file->next_type_number = 1;
   next_file_number = 1;
+  add_typed_addresses (&data_to_save, (void **)&current_file,
+		       dbx_file_type_def, 1, "current_file");
+  add_untyped_address (&data_to_save, &next_file_number,
+		       sizeof (next_file_number), "next_file_number");
 #endif
 
   /* Make sure that types `int' and `char' have numbers 1 and 2.
@@ -1025,7 +1079,10 @@ dbxout_range_type (type)
    If FULL is nonzero, and the type has been described only with
    a forward-reference, output the definition now.
    If FULL is zero in this case, just refer to the forward-reference
-   using the number previously allocated.  */
+   using the number previously allocated.  
+
+   If SHOW_ARG_TYPES is nonzero, we output a description of the argument
+   types for a METHOD_TYPE.  */
 
 static void
 dbxout_type (type, full)

@@ -209,10 +209,10 @@ parse_method (declarator, specs_attrs, lookups)
 void
 cp_parse_init ()
 {
-  ggc_add_tree_root (&current_declspecs, 1);
-  ggc_add_tree_root (&prefix_attributes, 1);
-  ggc_add_tree_root (&current_enum_type, 1);
-  ggc_add_tree_root (&saved_scopes, 1);
+  ggc_add_tree_root (&current_declspecs, 1, "current_declspecs");
+  ggc_add_tree_root (&prefix_attributes, 1, "prefix_attributes");
+  ggc_add_tree_root (&current_enum_type, 1, "current_enum_type");
+  ggc_add_tree_root (&saved_scopes, 1, "saved_scopes");
 }
 
 /* Rename the "yyparse" function so that we can override it elsewhere.  */
@@ -736,6 +736,8 @@ datadef:
 		}
 	| error ';'
 	| error '}'
+	| error END_OF_SAVED_INPUT
+		{ end_input (); }
 	| ';'
 	| bad_decl
 	;

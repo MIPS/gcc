@@ -172,9 +172,12 @@ static int invalid_nontype_parm_type_p PARAMS ((tree, int));
 void
 init_pt ()
 {
-  ggc_add_tree_root (&pending_templates, 1);
-  ggc_add_tree_root (&saved_trees, 1);
-  ggc_add_tree_root (&current_tinst_level, 1);
+  ggc_add_tree_root (&pending_templates, 1 , "pending_templates" );
+  add_tree_addresses (&data_to_save, &pending_templates, 1 , "pending_templates" );
+  add_tree_addresses (&data_to_save, &last_pending_template, 1 , "last_pending_template" );
+  ggc_add_tree_root (&saved_trees, 1 , "saved_trees" );
+  add_tree_addresses (&data_to_save, &saved_trees, 1 , "saved_trees" );
+  ggc_add_tree_root (&current_tinst_level, 1 , "current_tinst_level" );
 }
 
 /* Do any processing required when DECL (a member template declaration

@@ -367,13 +367,13 @@ doing_eh (do_warn)
 void
 init_eh ()
 {
-  ggc_add_rtx_root (&exception_handler_labels, 1);
+  ggc_add_rtx_root (&exception_handler_labels, 1, "exception_handler_labels");
 
   if (! flag_exceptions)
     return;
 
   type_to_runtime_map = htab_create (31, t2r_hash, t2r_eq, NULL);
-  ggc_add_root (&type_to_runtime_map, 1, sizeof (htab_t), t2r_mark);
+  ggc_add_root (&type_to_runtime_map, 1, sizeof (htab_t), t2r_mark, "type_to_runtime_map");
 
   /* Create the SjLj_Function_Context structure.  This should match
      the definition in unwind-sjlj.c.  */
@@ -382,7 +382,7 @@ init_eh ()
       tree f_jbuf, f_per, f_lsda, f_prev, f_cs, f_data, tmp;
 
       sjlj_fc_type_node = make_lang_type (RECORD_TYPE);
-      ggc_add_tree_root (&sjlj_fc_type_node, 1);
+      ggc_add_tree_root (&sjlj_fc_type_node, 1, "sjlj_fc_type_node");
 
       f_prev = build_decl (FIELD_DECL, get_identifier ("__prev"),
 			   build_pointer_type (sjlj_fc_type_node));

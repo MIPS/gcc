@@ -3115,7 +3115,7 @@ generate_classfile (clas, state)
   if (SourceFile_node == NULL_TREE) 
     {
       SourceFile_node = get_identifier ("SourceFile");
-      ggc_add_tree_root (&SourceFile_node, 1);
+      ggc_add_tree_root (&SourceFile_node, 1, "SourceFile_node");
     }
 
   i = find_utf8_constant (&state->cpool, SourceFile_node);
@@ -3146,7 +3146,7 @@ append_synthetic_attribute (state)
   if (Synthetic_node == NULL_TREE)
     {
       Synthetic_node = get_identifier ("Synthetic");
-      ggc_add_tree_root (&Synthetic_node, 1);
+      ggc_add_tree_root (&Synthetic_node, 1, "Synthetic_node");
     }
   i = find_utf8_constant (&state->cpool, Synthetic_node);
   PUT2 (i);		/* Attribute string index */
@@ -3192,7 +3192,7 @@ append_innerclasses_attribute (state, class)
   if (InnerClasses_node == NULL_TREE) 
     {
       InnerClasses_node = get_identifier ("InnerClasses");
-      ggc_add_tree_root (&InnerClasses_node, 1);
+      ggc_add_tree_root (&InnerClasses_node, 1, "InnerClasses_node");
     }
   i = find_utf8_constant (&state->cpool, InnerClasses_node);
   PUT2 (i);
