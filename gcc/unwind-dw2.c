@@ -794,8 +794,14 @@ execute_cfa_program (const unsigned char *insn_ptr,
 	  break;
 
 	case DW_CFA_undefined:
+	  insn_ptr = read_uleb128 (insn_ptr, &reg);
+	  fs->regs.reg[reg].how = REG_UNSAVED;
+	  break;
+
 	case DW_CFA_same_value:
 	  insn_ptr = read_uleb128 (insn_ptr, &reg);
+	  fs->regs.reg[reg].how = REG_SAVED_REG;
+	  fs->regs.reg[reg].loc.reg = reg;
 	  break;
 
 	case DW_CFA_nop:
@@ -1272,6 +1278,214 @@ uw_identify_context (struct _Unwind_Context *context)
   return _Unwind_GetIP (context);
 }
 
+#ifdef __x86_64__
+
+/* These are special extensions for AMD64 architecture.
+   Do not use them unless you know what you are doing.  */
+
+/* Given the _Unwind_Context CONTEXT for a stack frame, look up the FDE for
+   its caller and decode it into FS.  This function also sets the
+   args_size and lsda members of CONTEXT, as they are really information
+   about the caller's frame.  */
+
+static _Unwind_Reason_Code
+amd64_frame_state_for (struct _Unwind_Context *context, _Unwind_FrameState *fs)
+{
+  struct dwarf_fde *fde;
+  struct dwarf_cie *cie;
+  const unsigned char *aug, *insn, *end;
+  int i;
+
+  memset (fs, 0, sizeof (*fs));
+  context->args_size = 0;
+  context->lsda = 0;
+
+  if (context->ra == 0)
+    return _URC_END_OF_STACK;
+
+  fde = _Unwind_Find_FDE (context->ra - 1, &context->bases);
+  if (fde == NULL)
+    {
+      /* Couldn't find frame unwind info for this function.  Try a
+	 target-specific fallback mechanism.  This will necessarily
+	 not provide a personality routine or LSDA.  */
+#ifdef MD_FALLBACK_FRAME_STATE_FOR
+      MD_FALLBACK_FRAME_STATE_FOR (context, fs, success);
+      return _URC_END_OF_STACK;
+    success:
+      return _URC_NO_REASON;
+#else
+      return _URC_END_OF_STACK;
+#endif
+    }
+
+  fs->pc = context->bases.func;
+  for (i = 0; i < DWARF_FRAME_REGISTERS + 1; ++i)
+    {
+      fs->regs.reg[i].how = REG_SAVED_REG;
+      fs->regs.reg[i].loc.reg = i;
+    }
+  fs->regs.reg[__builtin_dwarf_sp_column ()].how = REG_UNSAVED;
+  fs->regs.reg[__builtin_dwarf_sp_column ()].loc.reg = 0;
+
+  cie = get_cie (fde);
+  insn = extract_cie_info (cie, context, fs);
+  if (insn == NULL)
+    /* CIE contained unknown augmentation.  */
+    return _URC_FATAL_PHASE1_ERROR;
+
+  /* First decode all the insns in the CIE.  */
+  end = (unsigned char *) next_fde ((struct dwarf_fde *) cie);
+  execute_cfa_program (insn, end, context, fs);
+
+  /* Locate augmentation for the fde.  */
+  aug = (unsigned char *) fde + sizeof (*fde);
+  aug += 2 * size_of_encoded_value (fs->fde_encoding);
+  insn = NULL;
+  if (fs->saw_z)
+    {
+      _Unwind_Word i;
+      aug = read_uleb128 (aug, &i);
+      insn = aug + i;
+    }
+  if (fs->lsda_encoding != DW_EH_PE_omit)
+    aug = read_encoded_value (context, fs->lsda_encoding, aug,
+			      (_Unwind_Ptr *) &context->lsda);
+
+  /* Then the insns in the FDE up to our target PC.  */
+  if (insn == NULL)
+    insn = aug;
+  end = (unsigned char *) next_fde (fde);
+  execute_cfa_program (insn, end, context, fs);
+
+  return _URC_NO_REASON;
+}
+
+/* Initialize CONTEXT accorgind to CTX.  */
+
+static void
+amd64_init_unwind_context (amd64_context *ctx, struct _Unwind_Context *context)
+{
+  int i;
+
+  memset (context, 0, sizeof (*context));
+  context->ra = (void *) ctx->regs[DWARF_FRAME_RETURN_COLUMN];
+  context->cfa = (void *) ctx->regs[__builtin_dwarf_sp_column ()];
+
+  for (i = 0; i < DWARF_FRAME_REGISTERS; i++)
+    context->reg[i] = &ctx->regs[i];
+}
+
+/* Update context CTX from ORIG_CTX according to frame state FS computed from
+   DWARF2 unwind info and according to CONTEXT.  */
+
+static int
+amd64_update_context (amd64_context *ctx, amd64_context *orig_ctx,
+		      struct _Unwind_Context *context, _Unwind_FrameState *fs)
+{
+  void *cfa;
+  int i;
+
+  switch (fs->cfa_how)
+    {
+    case CFA_REG_OFFSET:
+      cfa = (void *) orig_ctx->regs[fs->cfa_reg] + fs->cfa_offset;
+      break;
+
+    case CFA_EXP:
+      {
+	const unsigned char *exp = fs->cfa_exp;
+	_Unwind_Word len;
+
+	exp = read_uleb128 (exp, &len);
+	cfa = (void *) (_Unwind_Ptr)
+	  execute_stack_op (exp, exp + len, context, 0);
+	break;
+      }
+
+    default:
+      return -1;
+    }
+
+  for (i = 0; i < DWARF_FRAME_REGISTERS; i++)
+    switch (fs->regs.reg[i].how)
+      {
+      case REG_UNSAVED:
+	ctx->accurate[i] = 0;
+	break;
+
+      case REG_SAVED_OFFSET:
+	ctx->regs[i] = *(_Unwind_Word *) (cfa + fs->regs.reg[i].loc.offset);
+	ctx->accurate[i] = 1;
+	break;
+
+      case REG_SAVED_REG:
+	ctx->regs[i] = orig_ctx->regs[fs->regs.reg[i].loc.reg];
+	ctx->accurate[i] = orig_ctx->accurate[fs->regs.reg[i].loc.reg];
+	break;
+
+      case REG_SAVED_EXP:
+	{
+	  const unsigned char *exp = fs->regs.reg[i].loc.exp;
+	  _Unwind_Word len;
+	  _Unwind_Ptr val;
+
+	  exp = read_uleb128 (exp, &len);
+	  val = execute_stack_op (exp, exp + len, context, (_Unwind_Ptr) cfa);
+	  ctx->regs[i] = *(_Unwind_Word *) val;
+	  ctx->accurate[i] = 1;
+	  break;
+	}
+      }
+
+  /* Update SP and PC.  */
+  if (fs->regs.reg[__builtin_dwarf_sp_column ()].how == REG_UNSAVED)
+  {
+    ctx->regs[__builtin_dwarf_sp_column ()] = (_Unwind_Word) cfa;
+    ctx->accurate[__builtin_dwarf_sp_column ()] = 1;
+  }
+
+  return 0;
+}
+
+/* Unwind one frame and update context CTX.  */
+
+int
+amd64_update_frame_state (amd64_context *ctx)
+{
+  amd64_context orig_ctx;
+  struct _Unwind_Context context;
+  _Unwind_FrameState fs;
+  _Unwind_Reason_Code r;
+  int ret;
+
+  orig_ctx = *ctx;
+  amd64_init_unwind_context (&orig_ctx, &context);
+
+  r = amd64_frame_state_for (&context, &fs);
+  if (r != _URC_NO_REASON)
+    return -1;
+
+  ret = amd64_update_context (ctx, &orig_ctx, &context, &fs);
+
+  return ret;
+}
+
+/* Return true if PC is in place where signal was delivered to (the function
+   will call signal handler, not necessary directly).  */
+
+int
+amd64_is_signal_frame (void *pc)
+{
+  struct dwarf_eh_bases bases;
+  struct dwarf_fde *fde;
+
+  fde = _Unwind_Find_FDE (pc - 1, &bases);
+
+  return fde == NULL;
+}
+
+#endif
 
 #include "unwind.inc"
 

@@ -317,6 +317,7 @@ static void queue_reg_save		PARAMS ((const char *, rtx, long));
 static void flush_queued_reg_saves	PARAMS ((void));
 static bool clobbers_queued_reg_save	PARAMS ((rtx));
 static void dwarf2out_frame_debug_expr	PARAMS ((rtx, const char *));
+static void process_reg_location	PARAMS ((rtx, const char *));
 
 /* Support for complex CFA locations.  */
 static void output_cfa_loc 		PARAMS ((dw_cfi_ref));
@@ -797,8 +798,18 @@ reg_save (label, reg, sreg, offset)
       cfi->dw_cfi_oprnd2.dw_cfi_offset = offset;
     }
   else if (sreg == reg)
-    /* We could emit a DW_CFA_same_value in this case, but don't bother.  */
-    return;
+    {
+      if (flag_regparam != 3)
+	{
+	  /* We could emit a DW_CFA_same_value in this case,
+	     but don't bother.  */
+	  return;
+	}
+      else
+	{
+	  cfi->dw_cfi_opc = DW_CFA_same_value;
+	}
+    }
   else
     {
       cfi->dw_cfi_opc = DW_CFA_register;
@@ -1636,6 +1647,61 @@ dwarf2out_frame_debug_expr (expr, label)
     }
 }
 
+/* Process a register location note REG_LOC and add CFI onto label LABEL.  */
+
+static void
+process_reg_location (reg_loc, label)
+     rtx reg_loc;
+     const char *label;
+{
+  rtx loc;
+  unsigned int regno;
+  dw_cfi_ref cfi;
+
+  regno = (unsigned int) REG_LOCATION_REGNO (reg_loc);
+  loc = REG_LOCATION_LOC (reg_loc);
+
+  if (loc)
+    {
+      switch (GET_CODE (loc))
+	{
+	  case REG:
+	    reg_save (label, DWARF_FRAME_REGNUM (regno),
+		      DWARF_FRAME_REGNUM (REGNO (loc)), 0);
+	    break;
+
+	  case MEM:
+	    if (GET_CODE (XEXP (loc, 0)) == PLUS)
+	      reg_save (label, DWARF_FRAME_REGNUM (regno), -1,
+			INTVAL (XEXP (XEXP (loc, 0), 1))
+			- INCOMING_FRAME_SP_OFFSET);
+	    else
+	      reg_save (label, DWARF_FRAME_REGNUM (regno), -1, 0);
+	    break;
+
+	  case PLUS:
+	    if (!regno == STACK_POINTER_REGNUM)
+	      abort ();
+	    cfa.reg = REGNO (XEXP (loc, 0));
+	    cfa.offset = INTVAL (XEXP (loc, 1)) + INCOMING_FRAME_SP_OFFSET;
+	    cfa.base_offset = 0;
+	    cfa.indirect = 0;
+	    def_cfa_1 (label, &cfa);
+	    break;
+
+	  default:
+	    abort ();
+	}
+    }
+  else
+    {
+      cfi = new_cfi ();
+      cfi->dw_cfi_opc = DW_CFA_undefined;
+      cfi->dw_cfi_oprnd1.dw_cfi_reg_num = DWARF_FRAME_REGNUM (regno);
+      add_fde_cfi (label, cfi);
+    }
+}
+
 /* Record call frame debugging information for INSN, which either
    sets SP or FP (adjusting how we calculate the frame address) or saves a
    register to the stack.  If INSN is NULL_RTX, initialize our state.  */
@@ -1661,6 +1727,25 @@ dwarf2out_frame_debug (insn)
       cfa_store = cfa;
       cfa_temp.reg = -1;
       cfa_temp.offset = 0;
+      return;
+    }
+
+  if (flag_regparam == 3)
+    {
+      if (GET_CODE (insn) == NOTE
+	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_REG_LOCATION)
+	{
+	  static const char *last_label;
+
+	  if (PREV_INSN (insn)
+	      && GET_CODE (PREV_INSN (insn)) == NOTE
+	      && NOTE_LINE_NUMBER (PREV_INSN (insn)) == NOTE_INSN_REG_LOCATION)
+	    label = last_label;
+	  else
+	    last_label = label = dwarf2out_cfi_label ();
+
+	  process_reg_location (NOTE_REG_LOCATION (insn), label);
+	}
       return;
     }
 

@@ -303,6 +303,13 @@ print_rtx (in_rtx)
 		fprintf (outfile, ")");
 		break;
 
+	      case NOTE_INSN_REG_LOCATION:
+		fprintf (outfile, " (%d ",
+			 REG_LOCATION_REGNO (NOTE_REG_LOCATION (in_rtx)));
+		print_rtx (REG_LOCATION_LOC (NOTE_REG_LOCATION (in_rtx)));
+		fprintf (outfile, ")");
+		break;
+
 	      default:
 		{
 		  const char * const str = X0STR (in_rtx, i);

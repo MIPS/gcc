@@ -692,6 +692,9 @@ extern int flag_signaling_nans;
 
 extern int flag_unit_at_a_time;
 
+/* Nonzero if we should track values of register parameters.  */
+extern int flag_regparam;
+
 /* Nonzero if we should track variables.  */
 extern int flag_var_tracking;
 

@@ -800,6 +800,7 @@ extern const char * const reg_note_name[];
 #define NOTE_PREDICTION(INSN)   XCINT (INSN, 4, NOTE)
 #define NOTE_PRECONDITIONED(INSN)   XCINT (INSN, 4, NOTE)
 #define NOTE_VAR_LOCATION(INSN)	XCEXP (INSN, 4, NOTE)
+#define NOTE_REG_LOCATION(INSN)	XCEXP (INSN, 4, NOTE)
 
 /* In a NOTE that is a line number, this is the line number.
    Other kinds of NOTEs are identified by negative numbers here.  */
@@ -820,7 +821,11 @@ extern const char * const reg_note_name[];
 						 0, VAR_LOCATION))
 #define NOTE_VAR_LOCATION_LOC(INSN)	(XCEXP (XCEXP (INSN, 4, NOTE),  \
 						1, VAR_LOCATION))
-  
+
+/* The register number and its location.  */
+#define REG_LOCATION_REGNO(RL)	(XCINT (RL, 0, REG_LOCATION))
+#define REG_LOCATION_LOC(RL)	(XCEXP (RL, 1, REG_LOCATION))
+
 /* Codes that appear in the NOTE_LINE_NUMBER field
    for kinds of notes that are not line numbers.
 
@@ -906,6 +911,9 @@ enum insn_note
 
   /* The location of a variable.  */
   NOTE_INSN_VAR_LOCATION,
+
+  /* The location of register parameter.  */
+  NOTE_INSN_REG_LOCATION,
 
   NOTE_INSN_MAX
 };
@@ -2340,5 +2348,8 @@ extern void variable_tracking_main	PARAMS ((void));
 
 /* In vrp.c */
 extern bool value_range_propagation	PARAMS ((void));
+
+/* In regparam.c */
+extern void regparam_main		PARAMS ((void));
 
 #endif /* ! GCC_RTL_H */

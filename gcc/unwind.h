@@ -218,6 +218,27 @@ extern _Unwind_Ptr _Unwind_GetDataRelBase (struct _Unwind_Context *);
 extern _Unwind_Ptr _Unwind_GetTextRelBase (struct _Unwind_Context *);
 #endif
 
+#ifdef __x86_64__
+
+/* These are special extensions for AMD64 architecture.
+   Do not use them unless you know what you are doing.  */
+
+#ifndef DWARF_FRAME_REGISTERS
+#define DWARF_FRAME_REGISTERS 17
+#endif
+
+/* Unwinding context.  */
+typedef struct
+{
+  _Unwind_Word regs[DWARF_FRAME_REGISTERS];	/* value */
+  char accurate[DWARF_FRAME_REGISTERS];		/* is value accurate?  */
+} amd64_context;
+
+extern int amd64_update_frame_state (amd64_context *ctx);
+extern int amd64_is_signal_frame (void *pc);
+
+#endif
+
 /* @@@ Given an address, return the entry point of the function that
    contains it.  */
 extern void * _Unwind_FindEnclosingFunction (void *pc);

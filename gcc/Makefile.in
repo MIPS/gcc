@@ -763,7 +763,7 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o	   \
  loop.o mbchar.o optabs.o params.o predict.o print-rtl.o print-tree.o	   \
  profile.o ra.o ra-build.o ra-colorize.o ra-debug.o ra-rewrite.o	   \
- real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
+ real.o recog.o reg-stack.o regclass.o regmove.o regparam.o regrename.o	   \
  reload.o reload1.o reorg.o resource.o rtl.o rtlanal.o rtl-error.o	   \
  sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	   \
  sibcall.o simplify-rtx.o ssa.o ssa-ccp.o ssa-dce.o stmt.o		   \
@@ -1687,6 +1687,10 @@ bb-reorder.o : bb-reorder.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
 var-tracking.o : var-tracking.c $(CONFIG_H) $(SYSTEM_H) flags.h \
    $(RTL_H) $(TREE_H) hard-reg-set.h insn-config.h reload.h $(BASIC_BLOCK_H) \
    output.h sbitmap.h alloc-pool.h $(FIBHEAP_H) $(HASHTAB_H)
+regparam.o : regparam.c $(CONFIG_H) $(SYSTEM_H) flags.h \
+   $(RTL_H) $(TREE_H) hard-reg-set.h insn-config.h reload.h $(BASIC_BLOCK_H) \
+   output.h dwarf2out.h sbitmap.h alloc-pool.h $(FIBHEAP_H) $(HASHTAB_H) \
+   $(TM_P_H) varray.h
 vrp.o : vrp.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) $(BASIC_BLOCK_H) \
    hard-reg-set.h expr.h output.h alloc-pool.h sbitmap.h \
    $(FIBHEAP_H) $(HASHTAB_H)

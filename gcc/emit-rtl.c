@@ -5414,7 +5414,8 @@ copy_insn_1 (orig)
     {
       RTX_FLAG (copy, jump) = 0;
       RTX_FLAG (copy, call) = 0;
-      RTX_FLAG (copy, frame_related) = 0;
+      if (flag_regparam != 3)
+	RTX_FLAG (copy, frame_related) = 0;
     }
 
   format_ptr = GET_RTX_FORMAT (GET_CODE (copy));
@@ -5841,6 +5842,8 @@ emit_copy_of_insn_after (insn, after)
     {
     case INSN:
       new = emit_insn_after (copy_insn (PATTERN (insn)), after);
+      if (flag_regparam == 3)
+	RTX_FLAG (new, frame_related) = RTX_FLAG (insn, frame_related);
       break;
 
     case JUMP_INSN:

@@ -1821,6 +1821,13 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	  (*debug_hooks->var_location) (insn);
 	  break;
 
+	case NOTE_INSN_REG_LOCATION:
+#if defined (DWARF2_UNWIND_INFO)
+	  if (dwarf2out_do_frame ())
+	    dwarf2out_frame_debug (insn);
+#endif
+	  break;
+
 	case 0:
 	  break;
 

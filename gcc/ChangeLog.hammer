@@ -1,3 +1,49 @@
+2004-06-07  Josef Zlomek  <zlomekj@suse.cz>
+
+	* Makefile.in: Added regparam.o.
+	* dwarf2out.c (process_reg_location): New.
+	(reg_save): Emit DW_CFA_same_value when sreg == reg with -fregparam.
+	(dwarf2out_frame_debug): Process NOTE_INSN_REG_LOCATION.
+	* emit-rtl.c (copy_insn_1): Clear the frame related flag without
+	-fregparam.
+	(emit_copy_of_insn_after): Copy the frame related flag with -fregparam.
+	* final.c (final_scan_insn): Process NOTE_INSN_REG_LOCATION.
+	* flags.h (flag_regparam): New.
+	* gengtype.c (adjust_field_rtx_def): Add NOTE_INSN_REG_LOCATION.
+	* print-rtl.c (print_rtx): Print NOTE_INSN_REG_LOCATION.
+	* regparam.c: New.
+	* rtl.c (note_insn_name): Added NOTE_INSN_REG_LOCATION.
+	* rtl.def (reg_location): New.
+	* rtl.h (NOTE_REG_LOCATION): New.
+	(REG_LOCATION_REGNO): New.
+	(REG_LOCATION_LOC): New.
+	(insn_note): Added NOTE_INSN_REG_LOCATION.
+	(regparam_main): New.
+	* timevar.def (TV_REG_TRACKING): New.
+	* toplev.c (dump_file_index): Added DFI_regparam.
+	(dump_file): Added regparam.
+	(flag_regparam): New.
+	(f_options): Added regparam.
+	(rest_of_compilation): Run regparam pass when wanted and supported.
+	(process_options): Set flag_regparam to 3 when regparam is wanted
+	and supported.
+	* unwind-dw2.c (execute_cfa_program): Process DW_CFA_undefined and
+	DW_CFA_same_value.
+	(amd64_frame_state_for): New.
+	(amd64_init_unwind_context): New.
+	(amd64_update_context): New.
+	(amd64_update_frame_state): New.
+	(amd64_is_signal_frame): New.
+	* unwind.h (DWARF_FRAME_REGISTERS): Define if not defined.
+	(amd64_context): New.
+	(amd64_update_frame_state): New.
+	(amd64_is_signal_frame): New.
+	* config/i386/i386.c (override_options): regparam is supported for
+	x86-64.
+	(pro_epilogue_adjust_stack): Mark neccessary insns when -fregparam.
+	(ix86_emit_restore_regs_using_mov): Likewise.
+	(ix86_expand_epilogue): Likewise.
+
 2004-06-05  Josef Zlomek  <zlomekj@suse.cz>
 
 	* toplev.c (process_options): Enable variable tracking also on big

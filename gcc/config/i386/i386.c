@@ -1127,6 +1127,8 @@ override_options ()
 	flag_asynchronous_unwind_tables = 1;
       if (flag_pcc_struct_return == 2)
 	flag_pcc_struct_return = 0;
+      if (flag_regparam == 1)
+	flag_regparam = 2;
     }
   else
     {
@@ -5128,7 +5130,7 @@ pro_epilogue_adjust_stack (rtx dest, rtx src, rtx offset, int style)
       insn = emit_insn (gen_pro_epilogue_adjust_stack_rex64_2 (dest, src, r11,
 							       offset));
     }
-  if (style < 0)
+  if (style < 0 || flag_regparam == 3)
     RTX_FRAME_RELATED_P (insn) = 1;
 }
 
@@ -5269,6 +5271,7 @@ ix86_emit_restore_regs_using_mov (pointer, offset, maybe_eh_return)
      int maybe_eh_return;
 {
   int regno;
+  rtx insn;
   rtx base_address = gen_rtx_MEM (Pmode, pointer);
 
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
@@ -5286,9 +5289,11 @@ ix86_emit_restore_regs_using_mov (pointer, offset, maybe_eh_return)
 	    base_address = gen_rtx_MEM (Pmode, r11);
 	    offset = 0;
 	  }
-	emit_move_insn (gen_rtx_REG (Pmode, regno),
-			adjust_address (base_address,
-					Pmode, offset));
+	insn = emit_move_insn (gen_rtx_REG (Pmode, regno),
+			       adjust_address (base_address,
+					       Pmode, offset));
+	if (flag_regparam == 3)
+	  RTX_FRAME_RELATED_P (insn) = 1;
 	offset += UNITS_PER_WORD;
       }
 }
@@ -5299,6 +5304,7 @@ void
 ix86_expand_epilogue (style)
      int style;
 {
+  rtx insn;
   int regno;
   int sp_valid = !frame_pointer_needed || current_function_sp_is_unchanging;
   struct ix86_frame frame;
@@ -5413,9 +5419,11 @@ ix86_expand_epilogue (style)
 	if (ix86_save_reg (regno, false))
 	  {
 	    if (TARGET_64BIT)
-	      emit_insn (gen_popdi1 (gen_rtx_REG (Pmode, regno)));
+	      insn = emit_insn (gen_popdi1 (gen_rtx_REG (Pmode, regno)));
 	    else
-	      emit_insn (gen_popsi1 (gen_rtx_REG (Pmode, regno)));
+	      insn = emit_insn (gen_popsi1 (gen_rtx_REG (Pmode, regno)));
+	    if (flag_regparam == 3)
+	      RTX_FRAME_RELATED_P (insn) = 1;
 	  }
       if (frame_pointer_needed)
 	{

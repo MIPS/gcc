@@ -450,7 +450,7 @@ adjust_field_rtx_def (t, opt)
     pair_p note_flds = NULL;
     int c;
     
-    for (c = 0; c < 4; c++)
+    for (c = 0; c < 5; c++)
       {
 	pair_p old_note_flds = note_flds;
 	
@@ -473,6 +473,9 @@ adjust_field_rtx_def (t, opt)
     note_flds->next->next->next->type = rtx_tp;
     note_flds->next->next->next->name = "rtx";
     note_flds->next->next->next->opt->info = "NOTE_INSN_VAR_LOCATION";
+    note_flds->next->next->next->next->type = rtx_tp;
+    note_flds->next->next->next->next->name = "rtx";
+    note_flds->next->next->next->next->opt->info = "NOTE_INSN_REG_LOCATION";
     
     new_structure ("rtx_def_note_subunion", 1, &lexer_line, note_flds, NULL);
   }
