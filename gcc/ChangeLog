@@ -1,3 +1,8 @@
+2002-05-02  Sebastian Pop  <s.pop@laposte.net>
+
+	* c-pretty-print.c (dump_c_node): Don't print declarations
+	from the SCOPE_STMT_BLOCK, use the DECL_STMT instead.
+
 2002-04-30  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-pretty-print.c (NIY): Display an error string instead of aborting.

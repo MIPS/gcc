@@ -818,6 +818,7 @@ dump_c_node (buffer, node, spc)
       break;
 
     case DECL_STMT:
+      print_declaration (buffer, TREE_OPERAND (node, 0), spc);
       break;
 
     case IF_STMT:
@@ -956,17 +957,6 @@ dump_c_node (buffer, node, spc)
 	  output_add_character (buffer, '{');
 	  output_add_newline (buffer);
 	  spc += 2;
- 	  if (SCOPE_STMT_BLOCK (node))
-	    {
-	      tree iter = BLOCK_VARS (SCOPE_STMT_BLOCK (node));
-	      
-	      /* Walk through the BLOCK_VARS and print declarations.  */
-	      while (iter)
-		{
-		  print_declaration (buffer, iter, spc);
-		  iter = TREE_CHAIN (iter);
-		}
-	    }
 	}
       else
 	{
