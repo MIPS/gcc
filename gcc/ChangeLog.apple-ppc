@@ -177,11 +177,6 @@
 	* c.opt (flvalue-cast-assign): New flag.
 	* invoke.texi: Document '-f[no-]lvalue-cast assign' flag.
 
-2005-01-07  Jon Ziegler <jonz@apple.com>
-
-	Back out Mike's patch for Radar 3929334, distcc: need to issue distcc remote PCH requests
-	(from 2005-01-06)
-
 2005-01-07  Devang Patel  <dpatel@apple.com>
 
 	Radar 3943502

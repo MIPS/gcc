@@ -1,7 +1,3 @@
-2005-01-07  Jon Ziegler	<jonz@apple.com>
-
-	Back out Mike's previous change for distcc.
-
 2005-01-06  Mike Stump  <mrs@apple.com>
 
 	* files.c (pch_open_file): Add indirection for pch files for distcc.
@@ -16,6 +12,7 @@
         * libcpp/directivec.c (do_elif): Do not check EOL when -Wextra-tokens is used.
 
 2004-12-10  Devang Patel  <dpatel@apple.com>
+
         Radar 3909961
         * libcpp/directivec.c (do_elif): Check EOL when -Wextra-tokens is used.
 

@@ -465,6 +465,9 @@ c_common_no_more_pch (void)
     }
 }
 
+/* APPLE LOCAL distcc pch indirection --mrs */
+const char *indirect_file PARAMS ((const char *, int));
+
 /* Handle #pragma GCC pch_preprocess, to load in the PCH file.  */
 
 #ifndef O_BINARY
@@ -493,6 +496,9 @@ c_common_pch_pragma (cpp_reader *pfile)
 
   name = TREE_STRING_POINTER (name_t);
   
+  /* APPLE LOCAL distcc pch indirection --mrs */
+  name = indirect_file (name, 0);
+
   fd = open (name, O_RDONLY | O_BINARY, 0666);
   if (fd == -1)
     fatal_error ("%s: couldn't open PCH file: %m\n", name);

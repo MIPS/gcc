@@ -180,6 +180,11 @@ static int pchf_save_compare (const void *e1, const void *e2);
 static int pchf_compare (const void *d_p, const void *e_p);
 static bool check_file_against_entries (cpp_reader *, _cpp_file *, bool);
 
+/* APPLE LOCAL begin distcc pch indirection --mrs */
+#include <sys/param.h>
+char *indirect_file (char *, const int);
+/* APPLE LOCAL end distcc pch indirection --mrs */
+
 /* Given a filename in FILE->PATH, with the empty string interpreted
    as <stdin>, open it.
 
@@ -262,6 +267,10 @@ pch_open_file (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
   pchname = xmalloc (len);
   memcpy (pchname, path, flen);
   memcpy (pchname + flen, extension, sizeof (extension));
+
+  /* APPLE LOCAL distcc pch indirection --mrs */
+  if (! file->main_file)
+    pchname = indirect_file (pchname, 0);
 
   if (stat (pchname, &st) == 0)
     {
@@ -1685,3 +1694,145 @@ check_file_against_entries (cpp_reader *pfile ATTRIBUTE_UNUSED,
   return bsearch (&d, pchf->entries, pchf->count, sizeof (struct pchf_entry),
 		  pchf_compare) != NULL;
 }
+
+/* APPLE LOCAL begin distcc pch indirection --mrs */
+static const char message_terminator = '\n';
+
+/* Communications routine to communicate with filename translation
+   server for distributed builds.  This routine reads data from the
+   server.  */
+
+static int
+read_from_parent (int fd, char *buffer, int size)
+{
+  int index = 0;
+  int result;
+
+  if (size <= 0)
+    return 0;
+
+  do {
+    result = read (fd, &buffer[index], size - index);
+
+    if (result <= 0 || index >= size )
+      return 0;
+    else
+      index += result;
+  } while (buffer[index - 1] != message_terminator);
+
+  /* Straighten out the string termination. */
+  buffer[index - 1] = '\0';
+
+  return 1;
+}
+
+/* Communications routine to communicate with filename translation server
+   for distributed builds.  This routine writes data to the server.  */
+
+static int
+write_to_parent (int fd, const char *message)
+{
+  int result;
+
+  if (message) {
+    const int length = strlen (message);
+    int index = 0;
+
+    while (index < length) {
+      result = write (fd, &message[index], length - index);
+
+      if (result < 0)
+        return 0;
+      else
+        index += result;
+    }
+  }
+
+  result = write (fd, &message_terminator, 1);
+
+  if (result < 0)
+    return 0;
+
+  return 1;
+}
+
+
+/* Initialize the filename translation service.  */
+
+static int
+init_indirect_pipes (int *read_fd, int *write_fd)
+{
+  const char *file_indirect_pipes = getenv ("GCC_INDIRECT_FILES");
+  const char *protocol_operation = "VERS";
+  const char *protocol_version = "1";
+  char response[MAXPATHLEN];
+
+  if (!file_indirect_pipes)
+    return -1;
+
+  /* The environment variable indicates that the process that invoked
+     gcc would like to provide a different path for certain files.
+     This is mainly intended to be used with PCH headers and symbol
+     separation files (.cinfo) files under certain circumstances. */
+
+  if (sscanf (file_indirect_pipes, "%d, %d", read_fd, write_fd) != 2)
+    return -1;
+
+  /* Verify the protocol version. */
+  if (write_to_parent (*write_fd, protocol_operation))
+    if (write_to_parent (*write_fd, protocol_version))
+      if (read_from_parent (*read_fd, response, MAXPATHLEN))
+	if (strcmp ("OK", response) == 0)
+	  return 1;
+
+  return -1;
+}
+
+/* Redirect file I/O at the direction of a translation server.  fname
+   is the filename to transform.  OPERATION is:
+
+   0 for reading
+   1 for writing
+   2 for reading and writing  */
+
+char *
+indirect_file (char *fname, int operation)
+{
+  static int indirection_initialized;
+  static int read_fd;
+  static int write_fd;
+  const char *operation_identifier = NULL;
+
+  if (!indirection_initialized)
+    indirection_initialized = init_indirect_pipes (&read_fd, &write_fd);
+
+  if (indirection_initialized != 1)
+    return fname;
+
+  switch (operation)
+    {
+    case 0:
+      operation_identifier = "PULL";
+      break;
+    case 1:
+      operation_identifier = "PUSH";
+      break;
+    case 2:
+      operation_identifier = "BOTH";
+      break;
+    default:
+      return fname;
+    }
+
+  if (write_to_parent (write_fd, operation_identifier))
+    if (write_to_parent (write_fd, fname))
+      {
+	char response[MAXPATHLEN];
+
+	if (read_from_parent (read_fd, response, MAXPATHLEN))
+	  fname = xstrdup (response);
+      }
+
+  return fname;
+}
+/* APPLE LOCAL end distcc pch indirection --mrs */
