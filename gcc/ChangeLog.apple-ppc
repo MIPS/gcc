@@ -1,3 +1,10 @@
+2004-10-29 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3848842
+	* cp/call.c (build_over_call): Don't change type of
+	the function pointer built by call to build_vfn_ref_using_vtable.
+	* testsuite/g++.dg/kext6.C: New test
+
 2004-10-27  Geoffrey Keating  <geoffk@apple.com>
 
 	* c-common.c (handle_weak_import_attribute): Delete.
