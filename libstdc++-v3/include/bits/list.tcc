@@ -102,7 +102,7 @@ namespace _GLIBCXX_STD
   template<typename _Tp, typename _Alloc>
     void
     list<_Tp, _Alloc>::
-    resize(size_type __new_size, const value_type& __x)
+    resize(size_type __new_size, value_type __x)
     {
       iterator __i = begin();
       size_type __len = 0;

@@ -137,7 +137,6 @@ namespace __gnu_test
     }
   };
 
-
   // Run select unit tests after setting global locale.
   void 
   run_tests_wrapped_locale(const char*, const func_callback&);
@@ -178,7 +177,22 @@ namespace __gnu_test
   typedef unsigned int					int_type;
   typedef __gnu_cxx::character<value_type, int_type>	pod_type;
 
+  // For containers (23.1/3).
+  struct NonDefaultConstructible
+  {
+    NonDefaultConstructible(int) { }
+  };
 
+  inline bool
+  operator==(const NonDefaultConstructible& lhs,
+	     const NonDefaultConstructible& rhs)
+  { return false; }
+
+  inline bool
+  operator<(const NonDefaultConstructible& lhs,
+	    const NonDefaultConstructible& rhs)
+  { return false; }
+  
   // Counting.
   struct counter
   {
