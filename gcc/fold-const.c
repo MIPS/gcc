@@ -108,10 +108,10 @@ static tree fold_mathfn_compare (enum built_in_function, enum tree_code,
 				 tree, tree, tree);
 static tree fold_inf_compare (enum tree_code, tree, tree, tree);
 
-static tree fold_negate_const	PARAMS ((tree, tree));
-static tree fold_abs_const	PARAMS ((tree, tree));
-static tree fold_relational_const PARAMS ((enum tree_code, tree, tree, tree));
-static tree fold_relational_hi_lo PARAMS ((enum tree_code *, tree *, tree *, tree *));
+static tree fold_negate_const (tree, tree);
+static tree fold_abs_const (tree, tree);
+static tree fold_relational_const (enum tree_code, tree, tree, tree);
+static tree fold_relational_hi_lo (enum tree_code *, tree *, tree *, tree *);
 
 /* The following constants represent a bit based encoding of GCC's
    comparison operators.  This encoding simplifies transformations
@@ -8053,9 +8053,7 @@ rtl_expr_nonnegative_p (rtx r)
    TYPE is the type of the result.  */
 
 static tree
-fold_negate_const (arg0, type)
-     tree arg0;
-     tree type;
+fold_negate_const (tree arg0, tree type)
 {
   tree t = NULL_TREE;
 
@@ -8090,9 +8088,7 @@ fold_negate_const (arg0, type)
    TYPE is the type of the result.  */
 
 static tree
-fold_abs_const (arg0, type)
-     tree arg0;
-     tree type;
+fold_abs_const (tree arg0, tree type)
 {
   tree t = NULL_TREE;
 
@@ -8145,11 +8141,7 @@ fold_abs_const (arg0, type)
    constant, then return NULL_TREE.  */
 
 static tree
-fold_relational_const (code, type, op0, op1)
-     enum tree_code code;
-     tree type;
-     tree op0;
-     tree op1;
+fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
 {
   tree tem;
   int invert;
@@ -8235,11 +8227,8 @@ fold_relational_const (code, type, op0, op1)
    time constant.  */
 
 static tree
-fold_relational_hi_lo (code_p, type_p, op0_p, op1_p)
-     enum tree_code *code_p;
-     tree *type_p;
-     tree *op0_p;
-     tree *op1_p;
+fold_relational_hi_lo (enum tree_code *code_p, tree *type_p, tree *op0_p,
+		       tree *op1_p)
 {
   tree type = *type_p;
   tree op0 = *op0_p;
@@ -8395,11 +8384,8 @@ fold_relational_hi_lo (code_p, type_p, op0_p, op1_p)
    simpler than the generic fold routine.  */
 
 tree
-nondestructive_fold_binary_to_constant (code, type, op0, op1)
-     enum tree_code code;
-     tree type;
-     tree op0;
-     tree op1;
+nondestructive_fold_binary_to_constant (enum tree_code code, tree type,
+					tree op0, tree op1)
 {
   int wins = 1;
   tree subop0;
@@ -8691,10 +8677,8 @@ nondestructive_fold_binary_to_constant (code, type, op0, op1)
    the generic fold routine.  */
 
 tree
-nondestructive_fold_unary_to_constant (code, type, op0)
-     enum tree_code code;
-     tree type;
-     tree op0;
+nondestructive_fold_unary_to_constant (enum tree_code code, tree type,
+				       tree op0)
 {
   tree t;
 

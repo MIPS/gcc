@@ -680,12 +680,12 @@ tree (*make_fname_decl) (tree, int);
 
 /* If non-NULL, the address of a language-specific function that
    returns 1 for language-specific statement codes.  */
-int (*lang_statement_code_p)           PARAMS ((enum tree_code));
+int (*lang_statement_code_p) (enum tree_code);
 
 /* If non-NULL, the address of a language-specific function that does any
    language-specific gimplification for _STMT nodes and returns 1 iff
    handled.  */
-int (*lang_gimplify_stmt)           PARAMS ((tree *, tree *));
+int (*lang_gimplify_stmt) (tree *, tree *);
 
 /* If non-NULL, the address of a language-specific function that takes
    any action required right before expand_function_end is called.  */
@@ -5889,12 +5889,8 @@ check_function_arguments_recurse (void (*callback)
    line number from STMT_LINENO and handles DECL_STMT specially.  */
 
 tree 
-c_walk_subtrees (tp, walk_subtrees_p, func, data, htab)
-     tree *tp;
-     int *walk_subtrees_p ATTRIBUTE_UNUSED;
-     walk_tree_fn func;
-     void *data;
-     void *htab;
+c_walk_subtrees (tree *tp, int *walk_subtrees_p ATTRIBUTE_UNUSED,
+		 walk_tree_fn func, void *data, void *htab)
 {
   enum tree_code code = TREE_CODE (*tp);
   tree result;
@@ -5936,8 +5932,7 @@ c_walk_subtrees (tp, walk_subtrees_p, func, data, htab)
    _STMT nodes.  */
 
 int
-c_tree_chain_matters_p (t)
-     tree t;
+c_tree_chain_matters_p (tree t)
 {
   /* For statements, we also walk the chain so that we cover the
      entire statement tree.  */

@@ -1,3 +1,27 @@
+2003-07-25  Andreas Jaeger  <aj@suse.de>
+
+	* c-call-graph.c: Convert to ISO C90.
+	* c-common.c: Likewise.
+	* c-mudflap.c: Likewise.
+	* c-pretty-print.c: Likewise.
+	* cfganal.c (find_edge): Likewise.
+	* dependence.c: Likewise.
+	* diagnostic.c (debug_output_buffer): Likewise.
+	* except.c (expand_eh_handler): Likewise.
+	* fold-const.c: Likewise.
+	* langhooks.c: Likewise.
+	* tree-cfg.c (last_exec_block): Likewise.
+	* tree-ssa-pre.c: Likewise.
+	* builtins.c: Likewise.
+
+	* tree.h: Remove remaining PARAMS.
+	* c-common.h: Likewise.
+	* c-pretty-print.h: Likewise
+	* c-tree.h: Likewise.
+	* except.h: Likewise.
+	* langhooks-def.h: Likewise.
+	* langhooks.h: Likewise.
+
 2003-07-24  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (cleanup_operand_arrays): New local function.  Remove
@@ -70,15 +94,15 @@
 2003-07-22  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (finalize_1): Change to not use bsi_last.
-	
+
 2003-07-22  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	* tree-cfg.c (remove_stmt): Revert 07-15 change. Turns out the bug is in
 	the reverse iterator.
 
 2003-07-22  Diego Novillo  <dnovillo@redhat.com>
 
-	* tree-ssa-ccp.c (visit_phi_node): Assume default value of CONSTANT 
+	* tree-ssa-ccp.c (visit_phi_node): Assume default value of CONSTANT
 	if the PHI value was already constant.
 
 2003-07-22  Andrew MacLeod  <amacleod@redhat.com>
@@ -86,22 +110,22 @@
 	* c-pretty-print.c (print_call_name): Handle COND_EXPR correctly.
 	* tree-pretty-print.c (print_call_name): Handle COND_EXPR correctly and
 	handle SSA_NAME.
-	* tree-dfa.c (add_phi_arg, remove_phi_arg_num): Remove references to 
+	* tree-dfa.c (add_phi_arg, remove_phi_arg_num): Remove references to
 	SSA_NAME_HAS_REAL_REFS.
 	* tree-ssa-ccp.c (visit_phi_node): Remove SSA_NAME_HAS_REAL_REFS.
 	* tree-ssa-copyprop.c (copyprop_phi): Remove SSA_NAME_HAS_REAL_REFS.
-	* tree-ssa-live.c (register_ssa_partition): Register the PHI and it's 
+	* tree-ssa-live.c (register_ssa_partition): Register the PHI and it's
 	arguments if this variable is defined by a PHI.
 	(create_ssa_var_map): Only register real uses and defs, and virtual
-	operands of ASM_EXPR's. Remove SSA_NAME_HAS_REAL_REFS. Don't set 
+	operands of ASM_EXPR's. Remove SSA_NAME_HAS_REAL_REFS. Don't set
 	used flag on variables here.
 	(calculate_live_on_entry): Ignore constants in PHI arguments.
 	(calculate_live_on_exit): Ignore constants in PHI arguments.
 	(dump_live_info): New. Dump live range information.
 	* tree-ssa-live.h (dump_live_info): New prototype and flags.
-	* tree-ssa-pre.c (create_expr_ref, finalize_1, repair_use_injury, 
+	* tree-ssa-pre.c (create_expr_ref, finalize_1, repair_use_injury,
 	code_motion): Remove SSA_NAME_HAS_REAL_REFS.
-	* tree-ssa.c (rewrite_operand, register_new_def): Remove real_ref 
+	* tree-ssa.c (rewrite_operand, register_new_def): Remove real_ref
 	parameter and SSA_NAME_HAS_REAL_REFS.
 	(rewrite_block): Remove real_ref parameter from register_new_def call.
 	(eliminate_build): Remove SSA_NAME_HAS_REAL_REFS. Insert copy if PHI
@@ -113,8 +137,8 @@
 	constant argument across an abnormal edge.
 	(eliminate_extraneous_phis): New. Remove PHI nodes which are not in
 	the partition.
-	(rewrite_out_of_ssa): Call eliminate_extraneous_phis. 
-	(rewrite_stmt): Remove real_ref parameter from rewrite_operand and 
+	(rewrite_out_of_ssa): Call eliminate_extraneous_phis.
+	(rewrite_stmt): Remove real_ref parameter from rewrite_operand and
 	register_new_def.
 	* tree.h (SSA_NAME_HAS_REAL_REFS): Remove.
 	(struct tree_ssa_name): Remove 'has_real_refs' field.
@@ -251,13 +275,13 @@
 2003-07-17  Jeff Law  <law@redhat.com>
 
 	* tree-dfa.c (remove_phi_arg): Update PHI_ARG_CAPACITY.
- 
+
 	* tree-ssa.c (mark_def_sites): Do not build the dominator tree here.
 	(rewrite_into_ssa): Do not depend on mark_def_sites to build the
 	dominator tree.   Move computation of dominance frontiers out
 	of main loop (even though it was only done once).  Free immediate
 	dominator information as soon as we're done with it.
- 
+
 	* tree-flow.h (remove_phi_nodes_and_edges_for_unreachable_block):
 	Prototype.
 	* tree-cfg.c (remove_phi_nodes_and_edges_for_unreachable_block): New
@@ -318,7 +342,7 @@
 	* tree-ssa-dom.c (optimize_stmt): Consider two types equivalent if
 	their TYPE_MAIN_VARIANT is equivalent.
 	(avail_expr_eq): Likewise.
- 
+
 	* Makefile.in (OBJS): Add tree-ssa-dom.o
 	(tree-ssa-dom.o): Add dependencies.
 	(ssa.o, cfghooks.o): Use $(TREE_FLOW_H), not tree-flow.h.

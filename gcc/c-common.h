@@ -1264,9 +1264,9 @@ extern void dump_time_statistics (void);
 
 extern bool c_dump_tree (void *, tree);
 
-extern int c_gimplify_expr			PARAMS ((tree *, tree *, tree *));
-extern tree c_walk_subtrees PARAMS ((tree*, int*, walk_tree_fn, void*, void*));
-extern int c_tree_chain_matters_p		PARAMS ((tree));
+extern int c_gimplify_expr (tree *, tree *, tree *);
+extern tree c_walk_subtrees (tree*, int*, walk_tree_fn, void*, void*);
+extern int c_tree_chain_matters_p (tree);
 
 /* In c-pretty-print.c  */
 extern void print_c_tree (FILE*, tree);

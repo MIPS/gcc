@@ -1,5 +1,5 @@
 /* Analyze loop dependencies
-   Copyright (C) 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -186,49 +186,45 @@ static GTY ((param_is (loop))) varray_type loop_chain;
 /* Chain for induction */
 static GTY ((param_is (induction))) varray_type induction_chain;
 
-void init_dependence_analysis PARAMS ((tree));
-static void build_def_use PARAMS ((tree, enum def_use_type));
-static loop* add_loop PARAMS ((tree, tree, int));
-static int find_induction_variable PARAMS ((tree, tree, tree, loop*));
-static int get_low_bound PARAMS ((tree, const char*));
-static int have_induction_variable PARAMS ((tree, const char*));
-static void link_loops PARAMS ((void));
-static void get_node_dependence PARAMS ((void));
-static void check_node_dependence PARAMS ((def_use*));
-static int get_coefficients PARAMS ((def_use*, subscript[]));
-static int get_one_coefficient PARAMS ((tree, subscript*, def_use*, enum tree_code*));
-static void normalize_coefficients PARAMS ((subscript[], loop*, int));
-static void classify_dependence PARAMS ((subscript[], subscript[],
-				 enum complexity_type[], int*, int));
-static void ziv_test PARAMS ((subscript[], subscript[],
-			      enum direction_type[][MAX_SUBSCRIPTS],
-			      int[][MAX_SUBSCRIPTS], loop*, int));
-static void siv_test PARAMS ((subscript[], subscript[],
-			      enum direction_type[][MAX_SUBSCRIPTS],
-			      int[][MAX_SUBSCRIPTS], loop*, int));
-static int check_subscript_induction PARAMS ((subscript*, subscript*, loop*));
-static void gcd_test PARAMS ((subscript[], subscript[], enum
-			      direction_type[][MAX_SUBSCRIPTS],
-			      int[][MAX_SUBSCRIPTS], loop*, int));
-static int find_gcd PARAMS ((int, int));
-static void merge_dependencies PARAMS ((enum direction_type[][MAX_SUBSCRIPTS],
-					int[][MAX_SUBSCRIPTS], int, int));
-static void dump_array_ref PARAMS ((tree));
+void init_dependence_analysis (tree);
+static void build_def_use (tree, enum def_use_type);
+static loop* add_loop (tree, tree, int);
+static int find_induction_variable (tree, tree, tree, loop*);
+static int get_low_bound (tree, const char*);
+static int have_induction_variable (tree, const char*);
+static void link_loops (void);
+static void get_node_dependence (void);
+static void check_node_dependence (def_use*);
+static int get_coefficients (def_use*, subscript[]);
+static int get_one_coefficient (tree, subscript*, def_use*, enum tree_code*);
+static void normalize_coefficients (subscript[], loop*, int);
+static void classify_dependence (subscript[], subscript[],
+				 enum complexity_type[], int*, int);
+static void ziv_test (subscript[], subscript[], enum direction_type[][MAX_SUBSCRIPTS],
+		      int[][MAX_SUBSCRIPTS], loop*, int);
+static void siv_test (subscript[], subscript[], enum direction_type[][MAX_SUBSCRIPTS],
+		      int[][MAX_SUBSCRIPTS], loop*, int);
+static int check_subscript_induction (subscript*, subscript*, loop*);
+static void gcd_test (subscript[], subscript[], enum direction_type[][MAX_SUBSCRIPTS],
+		      int[][MAX_SUBSCRIPTS], loop*, int);
+static int find_gcd (int, int);
+static void merge_dependencies (enum direction_type[][MAX_SUBSCRIPTS],
+				int[][MAX_SUBSCRIPTS], int, int);
+static void dump_array_ref (tree);
 #if 0
-static void dump_one_node PARAMS ((def_use*, varray_type*));
-static void dump_node_dependence PARAMS ((void));
+static void dump_one_node (def_use*, varray_type*);
+static void dump_node_dependence (void);
 #endif
-int search_dependence PARAMS ((tree));
-void remember_dest_for_dependence PARAMS ((tree));
-int have_dependence_p PARAMS ((rtx, rtx, enum direction_type[], int[]));
-void end_dependence_analysis PARAMS ((void));
+int search_dependence (tree);
+void remember_dest_for_dependence (tree);
+int have_dependence_p (rtx, rtx, enum direction_type[], int[]);
+void end_dependence_analysis (void);
 
 /* Build dependence chain 'dep_chain', which is used by have_dependence_p,
    for the function given by EXP.  */
 
 void
-init_dependence_analysis (exp)
-     tree exp;
+init_dependence_analysis (tree exp)
 {
   VARRAY_GENERIC_PTR_INIT (def_use_chain, 50, "def_use_chain");
   VARRAY_GENERIC_PTR_INIT (dep_chain, 50, "dep_chain");
@@ -252,9 +248,7 @@ init_dependence_analysis (exp)
    or use DU_TYPE */
 
 static void
-build_def_use (exp, du_type)
-     tree exp;
-     enum def_use_type du_type;
+build_def_use (tree exp, enum def_use_type du_type)
 {
   static tree outer_loop;
   static int nloop;
@@ -331,7 +325,7 @@ build_def_use (exp, du_type)
 	    int i;
 	    char null_string = '\0';
 
-	    VARRAY_PUSH_GENERIC_PTR (def_use_chain, 
+	    VARRAY_PUSH_GENERIC_PTR (def_use_chain,
 				     ggc_alloc (sizeof (def_use)));
 	    du_ptr = VARRAY_GENERIC_PTR (def_use_chain, du_idx++);
 	    du_ptr->type = du_type;
@@ -406,10 +400,7 @@ build_def_use (exp, du_type)
    NLOOP, whose outermost loop is OUTER_LOOP */
 
 static loop*
-add_loop (loop_node, outer_loop, nloop)
-     tree loop_node;
-     tree outer_loop;
-     int nloop;
+add_loop (tree loop_node, tree outer_loop, int nloop)
 {
   loop *loop_ptr;
 
@@ -428,11 +419,8 @@ add_loop (loop_node, outer_loop, nloop)
    is a normalized induction variable.  */
 
 static int
-find_induction_variable (init_node, cond_node, incr_node, loop_def)
-     tree init_node;
-     tree cond_node;
-     tree incr_node;
-     loop *loop_def;
+find_induction_variable (tree init_node, tree cond_node, tree incr_node,
+			 loop *loop_def)
 {
   induction *ind_ptr;
   enum tree_code incr_code;
@@ -497,7 +485,7 @@ find_induction_variable (init_node, cond_node, incr_node, loop_def)
       if (!INDEX_LIMIT_CHECK (cond_node))
 	return 0;
 
-      VARRAY_PUSH_GENERIC_PTR (induction_chain, 
+      VARRAY_PUSH_GENERIC_PTR (induction_chain,
 			       ggc_alloc (sizeof (induction)));
       ind_ptr = VARRAY_TOP (induction_chain, generic);
       loop_def->ind = ind_ptr;
@@ -538,9 +526,7 @@ find_induction_variable (init_node, cond_node, incr_node, loop_def)
 /* Return the low bound for induction VARIABLE in NODE */
 
 static int
-get_low_bound (node, variable)
-     tree node;
-     const char *variable;
+get_low_bound (tree node, const char *variable)
 {
 
   if (TREE_CODE (node) == SCOPE_STMT)
@@ -575,9 +561,7 @@ get_low_bound (node, variable)
    variable contained in OUTER_LOOP, otherwise return -1.  */
 
 static int
-have_induction_variable (outer_loop, ind_var)
-     tree outer_loop;
-     const char *ind_var;
+have_induction_variable (tree outer_loop, const char *ind_var)
 {
   induction *ind_ptr;
   loop *loop_ptr;
@@ -601,7 +585,7 @@ have_induction_variable (outer_loop, ind_var)
 /* Chain the nodes of 'loop_chain'.  */
 
 static void
-link_loops ()
+link_loops (void)
 {
   unsigned int loop_idx = 0;
   loop *loop_ptr, *prev_loop_ptr = 0;
@@ -623,7 +607,7 @@ link_loops ()
 /* Check the dependence for each member of 'def_use_chain'.  */
 
 static void
-get_node_dependence ()
+get_node_dependence (void)
 {
   unsigned int du_idx;
   def_use *du_ptr;
@@ -641,8 +625,7 @@ get_node_dependence ()
 /* Check the dependence for definition DU.  */
 
 static void
-check_node_dependence (du)
-     def_use *du;
+check_node_dependence (def_use *du)
 {
   def_use *def_ptr, *use_ptr;
   dependence *dep_ptr, *dep_list;
@@ -786,7 +769,7 @@ check_node_dependence (du)
 	      /* Dummy for rtl interface */
 	      dependence *dep_root_ptr;
 
-	      VARRAY_PUSH_GENERIC_PTR (dep_chain, 
+	      VARRAY_PUSH_GENERIC_PTR (dep_chain,
 				       ggc_alloc (sizeof (dependence)));
 	      dep_root_ptr = VARRAY_TOP (dep_chain, generic);
 	      dep_root_ptr->source = 0;
@@ -804,9 +787,7 @@ check_node_dependence (du)
 /* Get the COEFFICIENTS and offset for def/use DU.  */
 
 static int
-get_coefficients (du, coefficients)
-     def_use *du;
-     subscript coefficients [MAX_SUBSCRIPTS];
+get_coefficients (def_use *du, subscript coefficients [MAX_SUBSCRIPTS])
 {
   int idx = 0;
   int array_count;
@@ -848,11 +829,8 @@ get_coefficients (du, coefficients)
 /* Get the COEFFICIENTS and offset for NODE having TYPE and defined in DU.  */
 
 static int
-get_one_coefficient (node, coefficients, du, type)
-     tree node;
-     subscript *coefficients;
-     def_use *du;
-     enum tree_code *type;
+get_one_coefficient (tree node, subscript *coefficients, def_use *du,
+		     enum tree_code *type)
 {
   enum tree_code  tree_op, tree_op_code;
   int index, value;
@@ -937,10 +915,8 @@ get_one_coefficient (node, coefficients, du, type)
 /* Adjust the COEFFICIENTS as if loop LOOP_PTR were normalized to start at 0.  */
 
 static void
-normalize_coefficients (coefficients, loop_ptr, count)
-     subscript coefficients [MAX_SUBSCRIPTS];
-     loop *loop_ptr;
-     int count;
+normalize_coefficients (subscript coefficients [MAX_SUBSCRIPTS],
+			loop *loop_ptr, int count)
 {
   induction *ind_ptr;
   loop *ck_loop_ptr;
@@ -973,14 +949,12 @@ normalize_coefficients (coefficients, loop_ptr, count)
 /* Determine the COMPLEXITY and SEPARABILITY for COUNT subscripts of
    inputs ICOEFFICIENTS and outputs OCOEFFICIENTS */
 
+
 static void
-classify_dependence (icoefficients, ocoefficients, complexity, separability,
-		     count)
-     subscript icoefficients [MAX_SUBSCRIPTS];
-     subscript ocoefficients [MAX_SUBSCRIPTS];
-     enum complexity_type complexity [MAX_SUBSCRIPTS];
-     int *separability;
-     int count;
+classify_dependence (subscript icoefficients [MAX_SUBSCRIPTS],
+		     subscript ocoefficients [MAX_SUBSCRIPTS],
+		     enum complexity_type complexity [MAX_SUBSCRIPTS],
+		     int *separability, int count)
 {
   const char *iiv_used [MAX_SUBSCRIPTS];
   const char *oiv_used [MAX_SUBSCRIPTS];
@@ -1048,13 +1022,11 @@ classify_dependence (icoefficients, ocoefficients, complexity, separability,
    the zero induction variable test */
 
 static void
-ziv_test (icoefficients, ocoefficients, direction, distance, loop_ptr, sub)
-     subscript icoefficients [MAX_SUBSCRIPTS];
-     subscript ocoefficients [MAX_SUBSCRIPTS];
-     enum direction_type direction[MAX_SUBSCRIPTS][MAX_SUBSCRIPTS];
-     int distance[MAX_SUBSCRIPTS][MAX_SUBSCRIPTS] ATTRIBUTE_UNUSED;
-     loop *loop_ptr;
-     int sub;
+ziv_test (subscript icoefficients [MAX_SUBSCRIPTS],
+	  subscript ocoefficients [MAX_SUBSCRIPTS],
+	  enum direction_type direction [MAX_SUBSCRIPTS][MAX_SUBSCRIPTS],
+	  int distance [MAX_SUBSCRIPTS][MAX_SUBSCRIPTS] ATTRIBUTE_UNUSED,
+	  loop *loop_ptr, int sub)
 {
   if (ocoefficients[sub].offset !=
       icoefficients[sub].offset)
@@ -1066,13 +1038,11 @@ ziv_test (icoefficients, ocoefficients, direction, distance, loop_ptr, sub)
    the single induction variable test */
 
 static void
-siv_test (icoefficients, ocoefficients, direction, distance, loop_ptr, sub)
-     subscript icoefficients [MAX_SUBSCRIPTS];
-     subscript ocoefficients [MAX_SUBSCRIPTS];
-     enum direction_type direction[MAX_SUBSCRIPTS][MAX_SUBSCRIPTS];
-     int distance[MAX_SUBSCRIPTS][MAX_SUBSCRIPTS];
-     loop *loop_ptr;
-     int sub;
+siv_test (subscript icoefficients [MAX_SUBSCRIPTS],
+	  subscript ocoefficients [MAX_SUBSCRIPTS],
+	  enum direction_type direction [MAX_SUBSCRIPTS][MAX_SUBSCRIPTS],
+	  int distance [MAX_SUBSCRIPTS][MAX_SUBSCRIPTS],
+	  loop *loop_ptr, int sub)
 {
   int coef_diff;
   int coef;
@@ -1118,10 +1088,8 @@ siv_test (icoefficients, ocoefficients, direction, distance, loop_ptr, sub)
    input ICOEFFICIENT or output OCOEFFICIENT */
 
 static int
-check_subscript_induction (icoefficient, ocoefficient, loop_ptr)
-     subscript *icoefficient;
-     subscript *ocoefficient;
-     loop *loop_ptr;
+check_subscript_induction (subscript *icoefficient, subscript *ocoefficient,
+			   loop *loop_ptr)
 {
   induction *ind_ptr;
   int sub_ind_input = 0;
@@ -1147,13 +1115,11 @@ check_subscript_induction (icoefficient, ocoefficient, loop_ptr)
    the greatest common denominator test */
 
 static void
-gcd_test (icoefficients, ocoefficients, direction, distance, loop_ptr, sub)
-     subscript icoefficients [MAX_SUBSCRIPTS];
-     subscript ocoefficients [MAX_SUBSCRIPTS];
-     enum direction_type direction[MAX_SUBSCRIPTS][MAX_SUBSCRIPTS];
-     int distance[MAX_SUBSCRIPTS][MAX_SUBSCRIPTS] ATTRIBUTE_UNUSED;
-     loop *loop_ptr;
-     int sub;
+gcd_test (subscript icoefficients [MAX_SUBSCRIPTS],
+	  subscript ocoefficients [MAX_SUBSCRIPTS],
+	  enum direction_type direction [MAX_SUBSCRIPTS][MAX_SUBSCRIPTS],
+	  int distance [MAX_SUBSCRIPTS][MAX_SUBSCRIPTS] ATTRIBUTE_UNUSED,
+	  loop *loop_ptr, int sub)
 {
   int coef_diff;
   int g, gg;
@@ -1180,8 +1146,7 @@ gcd_test (icoefficients, ocoefficients, direction, distance, loop_ptr, sub)
 /* Find the gcd of X and Y using Euclid's algorithm */
 
 static int
-find_gcd (x, y)
-     int x,y;
+find_gcd (int x, int y)
 {
   int g, g0, g1, r;
 
@@ -1216,11 +1181,9 @@ find_gcd (x, y)
 */
 
 static void
-merge_dependencies (direction, distance, loop_count, subscript_count)
-     enum direction_type direction[MAX_SUBSCRIPTS][MAX_SUBSCRIPTS];
-     int distance[MAX_SUBSCRIPTS][MAX_SUBSCRIPTS];
-     int loop_count;
-     int subscript_count;
+merge_dependencies (enum direction_type direction [MAX_SUBSCRIPTS][MAX_SUBSCRIPTS],
+		    int distance [MAX_SUBSCRIPTS][MAX_SUBSCRIPTS] ATTRIBUTE_UNUSED,
+		    int loop_count, int subscript_count)
 {
   int i, j;
   int sign;
@@ -1251,7 +1214,7 @@ merge_dependencies (direction, distance, loop_count, subscript_count)
 	  else
 	    distance[i][0] = distance[i][0] & distance[i][j];
 	  direction[i][0] = direction_merge[(int)direction[i][0]]
-	    				   [(int)direction[i][j]];
+					   [(int)direction[i][j]];
 	}
       distance[i][0] = sign * distance[i][0];
     }
@@ -1260,8 +1223,7 @@ merge_dependencies (direction, distance, loop_count, subscript_count)
 /* Dump ARRAY_REF NODE.  */
 
 static void
-dump_array_ref (node)
-     tree node;
+dump_array_ref (tree node)
 {
   enum tree_code  tree_op = TREE_CODE (node);
 
@@ -1297,9 +1259,7 @@ dump_array_ref (node)
 
 #if 0
 static void
-dump_one_node (du, seen)
-     def_use *du;
-     varray_type *seen;
+dump_one_node (def_use *du, varray_type *seen)
 {
   def_use *du_ptr;
   dependence *dep_ptr;
@@ -1369,8 +1329,7 @@ dump_node_dependence (void)
    Called by the front end, which adds the index onto a MEM rtx.  */
 
 int
-search_dependence (node)
-     tree node;
+search_dependence (tree node)
 {
   dependence *dep_ptr;
   int dep_idx = 0;
@@ -1398,8 +1357,7 @@ search_dependence (node)
 /* Remember a destination NODE for search_dependence.  */
 
 void
-remember_dest_for_dependence (node)
-     tree node;
+remember_dest_for_dependence (tree node)
 {
   if (node)
     {
@@ -1418,11 +1376,9 @@ remember_dest_for_dependence (node)
    dependence from dest_rtx to src_rtx.  */
 
 int
-have_dependence_p (dest_rtx, src_rtx, direction, distance)
-     rtx dest_rtx;
-     rtx src_rtx;
-     enum direction_type direction[MAX_SUBSCRIPTS];
-     int distance[MAX_SUBSCRIPTS];
+have_dependence_p (rtx dest_rtx, rtx src_rtx,
+		   enum direction_type direction [MAX_SUBSCRIPTS],
+		   int distance [MAX_SUBSCRIPTS])
 {
   int dest_idx = 0, src_idx = 0;
   rtx dest, src;
@@ -1457,7 +1413,7 @@ have_dependence_p (dest_rtx, src_rtx, direction, distance)
 /* Cleanup when dependency analysis is complete.  */
 
 void
-end_dependence_analysis ()
+end_dependence_analysis (void)
 {
   dep_chain = 0;
 }

@@ -1347,8 +1347,7 @@ warn_deprecated_use (tree node)
 /* Dump the contents of an output_buffer on stderr.  */
 
 void 
-debug_output_buffer (buffer)
-     output_buffer *buffer;
+debug_output_buffer (output_buffer *buffer)
 {
   fprintf (stderr, "%s", output_message_text (buffer));
 }

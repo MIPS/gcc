@@ -6370,9 +6370,7 @@ readonly_data_expr (tree exp)
    return NULL_TREE.  */
 
 tree
-simplify_builtin (exp, ignore)
-     tree exp;
-     int ignore;
+simplify_builtin (tree exp, int ignore)
 {
   tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
   tree arglist = TREE_OPERAND (exp, 1);
@@ -6438,8 +6436,7 @@ simplify_builtin (exp, ignore)
    form of the builtin function call.  */
 
 static tree
-simplify_builtin_strstr (arglist)
-     tree arglist;
+simplify_builtin_strstr (tree arglist)
 {
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return 0;
@@ -6502,8 +6499,7 @@ simplify_builtin_strstr (arglist)
    form of the builtin function call.  */
 
 static tree
-simplify_builtin_strchr (arglist)
-     tree arglist;
+simplify_builtin_strchr (tree arglist)
 {
   if (!validate_arglist (arglist, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return 0;
@@ -6558,8 +6554,7 @@ simplify_builtin_strchr (arglist)
    form of the builtin function call.  */
 
 static tree
-simplify_builtin_strrchr (arglist)
-     tree arglist;
+simplify_builtin_strrchr (tree arglist)
 {
   if (!validate_arglist (arglist, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return 0;
@@ -6621,8 +6616,7 @@ simplify_builtin_strrchr (arglist)
    form of the builtin function call.  */
 
 static tree
-simplify_builtin_strpbrk (arglist)
-     tree arglist;
+simplify_builtin_strpbrk (tree arglist)
 {
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return 0;
@@ -6691,8 +6685,7 @@ simplify_builtin_strpbrk (arglist)
    form of the builtin function call.  */
 
 static tree
-simplify_builtin_strcpy (arglist)
-     tree arglist;
+simplify_builtin_strcpy (tree arglist)
 {
   tree fn, len;
 
@@ -6730,8 +6723,7 @@ simplify_builtin_strcpy (arglist)
    form of the builtin function call.  */
 
 static tree
-simplify_builtin_strncpy (arglist)
-     tree arglist;
+simplify_builtin_strncpy (tree arglist)
 {
   if (!validate_arglist (arglist,
 			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
@@ -6793,8 +6785,7 @@ simplify_builtin_strncpy (arglist)
    form of the builtin function call.  */
 
 static tree
-simplify_builtin_memcmp (arglist)
-     tree arglist;
+simplify_builtin_memcmp (tree arglist)
 {
   tree arg1, arg2, len;
   const char *p1, *p2;
@@ -6871,8 +6862,7 @@ simplify_builtin_memcmp (arglist)
    form of the builtin function call.  */
 
 static tree
-simplify_builtin_strcmp (arglist)
-     tree arglist;
+simplify_builtin_strcmp (tree arglist)
 {
   tree arg1, arg2, len, len2, fn;
   const char *p1, *p2;
@@ -6973,8 +6963,7 @@ simplify_builtin_strcmp (arglist)
    form of the builtin function call.  */
 
 static tree
-simplify_builtin_strncmp (arglist)
-     tree arglist;
+simplify_builtin_strncmp (tree arglist)
 {
   tree fn, newarglist, len = 0;
   tree arg1, arg2, arg3;
@@ -7085,8 +7074,7 @@ simplify_builtin_strncmp (arglist)
    form of the builtin function call.  */
 
 static tree
-simplify_builtin_strcat (arglist)
-     tree arglist;
+simplify_builtin_strcat (tree arglist)
 {
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return 0;
@@ -7122,8 +7110,7 @@ simplify_builtin_strcat (arglist)
    form of the builtin function call.  */
 
 static tree
-simplify_builtin_strncat (arglist)
-     tree arglist;
+simplify_builtin_strncat (tree arglist)
 {
   if (!validate_arglist (arglist,
 			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
@@ -7179,8 +7166,7 @@ simplify_builtin_strncat (arglist)
    form of the builtin function call.  */
 
 static tree
-simplify_builtin_strspn (arglist)
-     tree arglist;
+simplify_builtin_strspn (tree arglist)
 {
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return 0;
@@ -7227,8 +7213,7 @@ simplify_builtin_strspn (arglist)
    form of the builtin function call.  */
 
 static tree
-simplify_builtin_strcspn (arglist)
-     tree arglist;
+simplify_builtin_strcspn (tree arglist)
 {
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return 0;
@@ -7288,10 +7273,7 @@ simplify_builtin_strcspn (arglist)
    form of the builtin function call.  */
 
 static tree
-simplify_builtin_fputs (arglist, ignore, unlocked)
-     tree arglist;
-     int ignore;
-     int unlocked;
+simplify_builtin_fputs (tree arglist, int ignore, int unlocked)
 {
   tree len, fn;
   tree fn_fputc = unlocked ? implicit_built_in_decls[BUILT_IN_FPUTC_UNLOCKED]

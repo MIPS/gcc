@@ -90,7 +90,7 @@ extern void expand_eh_region_end_throw (tree);
 extern void expand_eh_region_end_fixup (tree);
 
 /* End some sort of EH region, depending on the argument.  */
-extern void expand_eh_handler			PARAMS ((tree));
+extern void expand_eh_handler (tree);
 
 /* Note that the current EH region (if any) may contain a throw, or a
    call to a function which itself may contain a throw.  */

@@ -594,8 +594,7 @@ verify_edge_list (FILE *f, struct edge_list *elist)
    If no such edge exists, return NULL.  */
 
 edge
-find_edge (pred, succ)
-     basic_block pred, succ;
+find_edge (basic_block pred, basic_block succ)
 {
   edge e;
 

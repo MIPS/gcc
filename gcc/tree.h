@@ -398,11 +398,11 @@ extern void tree_class_check_failed (const tree, int,
 extern void tree_vec_elt_check_failed (int, int, const char *,
 				       int, const char *)
     ATTRIBUTE_NORETURN;
-extern void phi_node_elt_check_failed PARAMS ((int, int, const char *,
-					       int, const char *))
+extern void phi_node_elt_check_failed (int, int, const char *,
+				       int, const char *)
     ATTRIBUTE_NORETURN;
-extern void ephi_node_elt_check_failed PARAMS ((int, int, const char *,
-					       int, const char *))
+extern void ephi_node_elt_check_failed (int, int, const char *,
+					int, const char *)
     ATTRIBUTE_NORETURN;
 
 extern void tree_operand_check_failed (int, enum tree_code,
@@ -2380,9 +2380,9 @@ extern tree make_tree_vec (int);
 
 /* Tree nodes for SSA analysis.  */
 
-extern tree make_phi_node		PARAMS ((tree, int));
-extern tree make_ssa_name		PARAMS ((tree, tree));
-extern tree build_vdef_expr		PARAMS ((tree));
+extern tree make_phi_node (tree, int);
+extern tree make_ssa_name (tree, tree);
+extern tree build_vdef_expr (tree);
 
 /* Return the (unique) IDENTIFIER_NODE node for a given name.
    The name is supplied as a char *.  */
@@ -2796,7 +2796,7 @@ extern bool initializer_zerop (tree);
 
 /* add_var_to_bind_expr (bind_expr, var) binds var to bind_expr.  */
 
-extern void add_var_to_bind_expr	PARAMS ((tree, tree));
+extern void add_var_to_bind_expr (tree, tree);
 
 /* integer_zerop (tree x) is nonzero if X is an integer constant of value 0 */
 
@@ -3283,15 +3283,15 @@ extern void resolve_unique_section (tree, int, int);
 extern void mark_referenced (tree);
 
 /* In fold-const.c */
-extern int div_and_round_double		PARAMS ((enum tree_code, int,
-						 unsigned HOST_WIDE_INT,
-						 HOST_WIDE_INT,
-						 unsigned HOST_WIDE_INT,
-						 HOST_WIDE_INT,
-						 unsigned HOST_WIDE_INT *,
-						 HOST_WIDE_INT *,
-						 unsigned HOST_WIDE_INT *,
-						 HOST_WIDE_INT *));
+extern int div_and_round_double (enum tree_code, int,
+				 unsigned HOST_WIDE_INT,
+				 HOST_WIDE_INT,
+				 unsigned HOST_WIDE_INT,
+				 HOST_WIDE_INT,
+				 unsigned HOST_WIDE_INT *,
+				 HOST_WIDE_INT *,
+				 unsigned HOST_WIDE_INT *,
+				 HOST_WIDE_INT *);
 
 /* In stmt.c */
 extern void emit_nop (void);
@@ -3320,7 +3320,7 @@ extern void declare_nonlocal_label (tree);
 extern int containing_blocks_have_cleanups_or_stack_level (void);
 
 /* In tree-optimize.c.  */
-void optimize_function_tree		PARAMS ((tree));
+void optimize_function_tree (tree);
 
 /* In gimplify.c.  */
 extern int gimplify_function_tree (tree);

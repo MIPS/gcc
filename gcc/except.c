@@ -508,8 +508,7 @@ expand_eh_region_end (void)
    blocks and C++ exception-specifications are handled specially.  */
 
 void
-expand_eh_handler (handler)
-     tree handler;
+expand_eh_handler (tree handler)
 {
   tree inner = expr_first (handler);
 

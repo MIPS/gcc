@@ -1,5 +1,5 @@
 /* Construction of the function call graph.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -33,8 +33,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 /* Static declarations.  */
-static void construct_call_graph PARAMS ((output_buffer *, tree, HOST_WIDE_INT));
-static void print_callee PARAMS ((output_buffer *, tree, int));
+static void construct_call_graph (output_buffer *, tree, HOST_WIDE_INT);
+static void print_callee (output_buffer *, tree, int);
 
 #define INDENT(SPACE) do { \
   int i; for (i = 0; i<SPACE; i++) output_add_space (buffer); } while (0)
@@ -45,9 +45,7 @@ static void print_callee PARAMS ((output_buffer *, tree, int));
 /* Print the call graph associated to the tree T, in the file FILE.  */
 
 void
-print_call_graph (file, t)
-     FILE *file;
-     tree t;
+print_call_graph (FILE *file, tree t)
 {
   output_buffer buffer_rec;
   output_buffer *buffer = &buffer_rec;
@@ -63,8 +61,7 @@ print_call_graph (file, t)
 /* Print the call graph on stderr.  */
 
 void
-debug_call_graph (t)
-     tree t;
+debug_call_graph (tree t)
 {
   print_call_graph (stderr, t);
 }
@@ -76,10 +73,7 @@ debug_call_graph (t)
    Not Yet Implemented : the dump of global variables and their use.  */
 
 static void
-construct_call_graph (buffer, t, spc)
-     output_buffer *buffer;
-     tree t;
-     HOST_WIDE_INT spc;
+construct_call_graph (output_buffer *buffer, tree t, HOST_WIDE_INT spc)
 {
   static unsigned int decision_points;
   static unsigned int nb_statements;
@@ -305,10 +299,7 @@ construct_call_graph (buffer, t, spc)
 /* Print the callee function declaration.  */
 
 static void
-print_callee (buffer, node, spc)
-     output_buffer *buffer;
-     tree node;
-     int spc;
+print_callee (output_buffer *buffer, tree node, int spc)
 {
   int i;
 

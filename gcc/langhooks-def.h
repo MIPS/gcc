@@ -80,7 +80,7 @@ extern int lhd_tree_inlining_anon_aggr_type_p (tree);
 extern int lhd_tree_inlining_start_inlining (tree);
 extern void lhd_tree_inlining_end_inlining (tree);
 extern tree lhd_tree_inlining_convert_parm_for_inlining (tree, tree, tree);
-void write_global_declarations PARAMS ((void));
+extern void write_global_declarations (void);
 
 /* Declarations for tree gimplification hooks.  */
 int lhd_gimplify_expr (tree *, tree *, tree *);

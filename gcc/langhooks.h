@@ -260,7 +260,7 @@ struct lang_hooks
 
   /* Called by expand_expr to generate the definition of a decl.  Returns
      1 if handled, 0 otherwise.  */
-  int (*expand_decl) PARAMS ((tree));
+  int (*expand_decl) (tree);
 
   /* Prepare expr to be an argument of a TRUTH_NOT_EXPR or other logical
      operation.
@@ -393,7 +393,7 @@ struct lang_hooks
   /* Perform language-specific gimplification on the argument.  Returns
      1 if gimplification is complete, or 0 to use default gimplification
      semantics.  */
-  int (*gimplify_expr) PARAMS ((tree *, tree *, tree *));
+  int (*gimplify_expr) (tree *, tree *, tree *);
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */
