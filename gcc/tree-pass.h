@@ -108,5 +108,6 @@ extern struct tree_opt_pass pass_dominator;
 extern struct tree_opt_pass pass_dce;
 extern struct tree_opt_pass pass_may_alias;
 extern struct tree_opt_pass pass_pre;
+extern struct tree_opt_pass pass_lower_complex;
 
 #endif /* GCC_TREE_PASS_H */
