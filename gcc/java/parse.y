@@ -7387,21 +7387,21 @@ source_end_java_method (void)
 	  cfun->x_whole_function_mode_p = 1;
 	  gimplify_function_tree (fndecl);
 	  dump_function (TDI_gimple, fndecl);
-	}
 
-      /* Inline suitable calls from this function.  */
-      if (flag_inline_trees)
-	{
-	  timevar_push (TV_INTEGRATION);
-	  optimize_inline_calls (fndecl);
-	  timevar_pop (TV_INTEGRATION);
-	  dump_function (TDI_inlined, fndecl);
-	}
+	  /* Inline suitable calls from this function.  */
+	  if (flag_inline_trees)
+	    {
+	      timevar_push (TV_INTEGRATION);
+	      optimize_inline_calls (fndecl);
+	      timevar_pop (TV_INTEGRATION);
+	      dump_function (TDI_inlined, fndecl);
+	    }
 
-      /* Run SSA optimizers if gimplify succeeded.  */
-      if (keep_function_tree_in_gimple_form (fndecl)
-	  && optimize > 0 && !flag_disable_tree_ssa)
-	optimize_function_tree (fndecl);
+	  /* Run SSA optimizers if gimplify succeeded.  */
+	  if (keep_function_tree_in_gimple_form (fndecl)
+	      && optimize > 0 && !flag_disable_tree_ssa)
+	    optimize_function_tree (fndecl);
+	}
 
       /* Generate function's code.  */
       expand_expr_stmt (DECL_SAVED_TREE (fndecl));

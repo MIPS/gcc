@@ -1,3 +1,10 @@
+2003-06-22  Jeff Sturm  <jsturm@one-point.com>
+
+	* parse.y (source_end_java_method): Don't attempt to inline
+	or optimize trees if flag_disable_gimple.
+
+	* Make-lang.in (JAVA_OBJS): Remove java-tree-inline.o.
+
 2003-06-21  Jeff Sturm  <jsturm@one-point.com>
 
 	* Make-lang.in (JAVA_OBJS): Add java-gimplify.o.
