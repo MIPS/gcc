@@ -53,23 +53,6 @@ int test7777 (void)
   return v1 + garr[0];
 }
 
-
-/* static var  */
-extern int foo88 (int);
-int test8 (int *intarr)
-{
-  extern int foo8 (int);
-  int v;
-  static int l;
-  l = 7;
-  foo8 (l);
-  v = l;
-  if (v != 7)
-    link_error ();
-  l = foo88 (l);
-  return l;
-}
-
 int test88 (int *arr)
 {
   static int l;

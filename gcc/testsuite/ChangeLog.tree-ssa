@@ -1,3 +1,8 @@
+2003-11-06  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc.dg/tree-ssa/ssa-ccp-2.c: Fix overoptimistic expectations
+	of our optimizers.
+
 2003-10-31  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.dg/tree-ssa/20031031-1.c: New test.
