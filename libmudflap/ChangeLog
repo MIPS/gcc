@@ -1,3 +1,15 @@
+2003-12-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR libmudflap/12670
+	* configure.in: Add check for see if
+	socklen_t typedef is in sys/socket.h.
+	* mf-hooks1.c: Add define if socklen_t
+	is not typedef.
+	* mf-hooks2.c: Likewise.
+	* mf-hooks3.c: Likewise.
+	* config.h.in: Regen.
+	* configure: Regen.
+
 2003-12-08  Frank Ch. Eigler  <fche@redhat.com>
 
 	* mf-runtime.c (__mf_watch_or_not): Tweak tracing message.

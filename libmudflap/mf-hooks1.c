@@ -9,6 +9,11 @@ XXX: libgcc license?
 
 #include "config.h"
 
+#ifndef HAVE_SOCKLEN_T
+#define socklen_t int
+#endif
+
+
 /* These attempt to coax various unix flavours to declare all our
    needed tidbits in the system headers.  */
 #if !defined(__FreeBSD__)  && !defined(__APPLE__)

@@ -53,6 +53,15 @@ then
   AC_DEFINE(HAVE_UNION_SEMUN, 1, [union semun defined in sys/ipc.h or sys/sem.h])
 fi
 
+
+AC_MSG_CHECKING([for socklen_t in sys/socket.h])
+AC_TRY_COMPILE([#define _POSIX_PII_SOCKET
+#include <sys/types.h> 
+#include <sys/socket.h>], [socklen_t x = 5;],
+  [AC_DEFINE(HAVE_SOCKLEN_T, 1, [Define it socklen_t typedef is in sys/socket.h.])
+   AC_MSG_RESULT(yes)],
+  [AC_MSG_RESULT(no)])
+
 AC_LIBTOOL_DLOPEN
 AM_PROG_LIBTOOL
 AC_SUBST(enable_shared)

@@ -33,9 +33,6 @@
 /* Define if you have the <execinfo.h> header file.  */
 #undef HAVE_EXECINFO_H
 
-/* Define if you have the <pthread.h> header file.  */
-#undef HAVE_PTHREAD_H
-
 /* Define if you have the <signal.h> header file.  */
 #undef HAVE_SIGNAL_H
 
@@ -53,6 +50,12 @@
 
 /* union semun defined in sys/ipc.h or sys/sem.h */
 #undef HAVE_UNION_SEMUN
+
+/* Define it socklen_t typedef is in sys/socket.h. */
+#undef HAVE_SOCKLEN_T
+
+/* define if you have <pthread.h> */
+#undef HAVE_PTHREAD_H
 
 /* pthread_create symbol version */
 #undef PTHREAD_CREATE_VERSION
