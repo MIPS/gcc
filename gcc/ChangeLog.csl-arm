@@ -1,3 +1,10 @@
+2004-12-29  Paul Brook  <paul@codesourcery.com>
+	    Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/unwind-arm.c (_Unwind_VRS_Pop): Correct spelling of
+	discriminator.
+	(__gnu_unwind_execute): Correct masks for VFP and FPA unwinding.
+
 2004-12-15  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* config/arm/arm.h (DEFAULT_SHORT_ENUMS): Wrap in #ifndef.

@@ -229,7 +229,7 @@ _Unwind_VRS_Result _Unwind_VRS_Set (_Unwind_Context *context,
 
 _Unwind_VRS_Result _Unwind_VRS_Pop (_Unwind_Context *context,
 				    _Unwind_VRS_RegClass regclass,
-				    _uw descriminator,
+				    _uw discriminator,
 				    _Unwind_VRS_DataRepresentation representation)
 {
   phase1_vrs *vrs = (phase1_vrs *) context;
@@ -245,7 +245,7 @@ _Unwind_VRS_Result _Unwind_VRS_Pop (_Unwind_Context *context,
 	if (representation != _UVRSD_UINT32)
 	  return _UVRSR_FAILED;
 
-	mask = descriminator & 0xffff;
+	mask = discriminator & 0xffff;
 	ptr = (_uw *) vrs->core.r[R_SP];
 	/* Pop the requested registers.  */
 	for (i = 0; i < 16; i++)
@@ -261,8 +261,8 @@ _Unwind_VRS_Result _Unwind_VRS_Pop (_Unwind_Context *context,
 
     case _UVRSC_VFP:
       {
-	_uw start = descriminator >> 16;
-	_uw count = descriminator & 0xffff;
+	_uw start = discriminator >> 16;
+	_uw count = discriminator & 0xffff;
 	struct vfp_regs tmp;
 	_uw *sp;
 	_uw *dest;
@@ -693,7 +693,7 @@ __gnu_unwind_execute (_Unwind_Context * context, __gnu_unwind_state * uws)
 	  if ((op & 0xfc) == 0xb4)
 	    {
 	      /* Pop FPA E[4]-E[4+nn].  */
-	      op = 0x4000 | ((op & 3) + 1);
+	      op = 0x40000 | ((op & 3) + 1);
 	      if (_Unwind_VRS_Pop (context, _UVRSC_FPA, op, _UVRSD_FPAX)
 		  != _UVRSR_OK)
 		return _URC_FAILURE;
@@ -701,7 +701,7 @@ __gnu_unwind_execute (_Unwind_Context * context, __gnu_unwind_state * uws)
 	    }
 	  /* op & 0xf8 == 0xb8.  */
 	  /* Pop VFP D[8]-D[8+nnn] with fldmx.  */
-	  op = 0x8000 | ((op & 7) + 1);
+	  op = 0x80000 | ((op & 7) + 1);
 	  if (_Unwind_VRS_Pop (context, _UVRSC_VFP, op, _UVRSD_VFPX)
 	      != _UVRSR_OK)
 	    return _URC_FAILURE;
@@ -766,7 +766,7 @@ __gnu_unwind_execute (_Unwind_Context * context, __gnu_unwind_state * uws)
       if ((op & 0xf8) == 0xd0)
 	{
 	  /* Pop VFP D[8]-D[8+nnn] with fldmd.  */
-	  op = 0x8000 | ((op & 7) + 1);
+	  op = 0x80000 | ((op & 7) + 1);
 	  if (_Unwind_VRS_Pop (context, _UVRSC_VFP, op, _UVRSD_DOUBLE)
 	      != _UVRSR_OK)
 	    return _URC_FAILURE;
