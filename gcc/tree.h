@@ -2630,6 +2630,12 @@ extern bool initializer_zerop		PARAMS ((tree));
 
 extern int integer_zerop		PARAMS ((tree));
 
+/* integer_nonzerop (tree x) is nonzero if X is an integer constant of value
+   different to 0.  This is NOT !integer_zerop because when tree is not integer
+   constant or it is a constant with overflow it returns false.   */
+
+extern int integer_nonzerop		PARAMS ((tree));
+
 /* integer_onep (tree x) is nonzero if X is an integer constant of value 1 */
 
 extern int integer_onep			PARAMS ((tree));

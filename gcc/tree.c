@@ -606,6 +606,26 @@ integer_zerop (expr)
 	      && integer_zerop (TREE_IMAGPART (expr))));
 }
 
+/* Return 1 if EXPR is the integer constant different to zero
+   or a complex constant different to zero.
+   integer_nonzerop (X) != !integer_zerop(X) because when X is not integer
+   constant or it is a constant with overflow both functions return 0.  */
+
+int
+integer_nonzerop (expr)
+     tree expr;
+{
+  STRIP_NOPS (expr);
+
+  return ((TREE_CODE (expr) == INTEGER_CST
+	   && ! TREE_CONSTANT_OVERFLOW (expr)
+	   && (TREE_INT_CST_LOW (expr) != 0
+	       || TREE_INT_CST_HIGH (expr) != 0))
+	  || (TREE_CODE (expr) == COMPLEX_CST
+	      && (integer_nonzerop (TREE_REALPART (expr))
+		  || integer_nonzerop (TREE_IMAGPART (expr)))));
+}
+
 /* Return 1 if EXPR is the integer constant one or the corresponding
    complex constant.  */
 

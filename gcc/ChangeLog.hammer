@@ -1,3 +1,8 @@
+2003-08-20  Josef Zlomek  <zlomekj@suse.cz>
+
+	* fold-const.c (fold): Fix bug in (A & C) == D where D & ~C != 0
+	and similarly in (A | C) == D where C & ~D != 0.
+
 Mon Aug 18 16:23:16 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	PR c/11639
