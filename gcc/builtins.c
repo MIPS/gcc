@@ -6705,6 +6705,14 @@ simplify_builtin (tree exp, int ignore)
     case BUILT_IN_SPRINTF:
       val = simplify_builtin_sprintf (arglist, ignore);
       break;
+    case BUILT_IN_CONSTANT_P:
+      val = fold_builtin_constant_p (arglist);
+      /* Gimplification will pull the CALL_EXPR for the builtin out of
+	 an if condition.  When not optimizing, we'll not CSE it back.
+	 To avoid link error types of regressions, return false now.  */
+      if (!val && !optimize)
+	val = integer_zero_node;
+      break;
     default:
       val = NULL_TREE;
       break;

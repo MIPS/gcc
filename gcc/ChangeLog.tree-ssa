@@ -1,3 +1,7 @@
+2003-10-18  Richard Henderson  <rth@redhat.com>
+
+	* builtins.c (simplify_builtin): Handle BUILT_IN_CONSTANT_P.
+
 2003-10-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-tailcall.c: New.
