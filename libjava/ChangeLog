@@ -1,5 +1,9 @@
 2004-06-11  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/LookAndFeel.java: Fixed javadocs.
+
+2004-06-11  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JEditorPane.java: Fixed javadocs.
 	(JEditorPane): Removed redundant call to to this().
 	(fireHyperlinkUpdate): Implemented.
