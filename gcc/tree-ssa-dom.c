@@ -474,13 +474,10 @@ tree_ssa_dominator_optimize (void)
 	 interactions between rewriting of _DECL nodes into SSA form
 	 and rewriting SSA_NAME nodes into SSA form after block
 	 duplication and CFG manipulation.  */
-      if (!bitmap_empty_p (vars_to_rename))
-	{
-	  if (getenv ("DISABLE_DOM"))
-	    gcc_unreachable ();
-	  rewrite_into_ssa (false);
-	  bitmap_clear (vars_to_rename);
-	}
+      if (getenv ("DISABLE_DOM"))
+	gcc_assert (!need_ssa_update_p ());
+
+      update_ssa (true);
 
       free_all_edge_infos ();
 
@@ -1228,7 +1225,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	break;
 
       VEC_pop (tree_on_heap, stmts_to_rescan);
-      mark_new_vars_to_rename (stmt, vars_to_rename);
+      mark_new_vars_to_rename (stmt);
     }
 }
 

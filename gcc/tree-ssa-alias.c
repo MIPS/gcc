@@ -842,7 +842,7 @@ create_name_tags (struct alias_info *ai)
 	     needs to be removed from the IL, so we mark it for
 	     renaming.  */
 	  if (old_name_tag && old_name_tag != pi->name_mem_tag)
-	    bitmap_set_bit (vars_to_rename, var_ann (old_name_tag)->uid);
+	    mark_sym_for_renaming (old_name_tag);
 	}
       else if (pi->pt_malloc)
 	{
@@ -862,7 +862,7 @@ create_name_tags (struct alias_info *ai)
 	  |= TREE_THIS_VOLATILE (TREE_TYPE (TREE_TYPE (ptr)));
 
       /* Mark the new name tag for renaming.  */
-      bitmap_set_bit (vars_to_rename, var_ann (pi->name_mem_tag)->uid);
+      mark_sym_for_renaming (pi->name_mem_tag);
     }
 }
 
@@ -1434,9 +1434,10 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	      && !is_global_var (var))
 	    {
 	      bool okay_to_mark = true;
+
 	      /* Since VAR is now a regular GIMPLE register, we will need
 		 to rename VAR into SSA afterwards.  */
-	      bitmap_set_bit (vars_to_rename, v_ann->uid);
+	      mark_sym_for_renaming (var);
 
 	      if (var_can_have_subvars (var)
 		  && (svars = get_subvars_for_var (var)))
@@ -1448,15 +1449,15 @@ setup_pointers_and_addressables (struct alias_info *ai)
 		      var_ann_t svann = var_ann (sv->var);
 		      if (bitmap_bit_p (ai->addresses_needed, svann->uid))
 			okay_to_mark = false;
-		      bitmap_set_bit (vars_to_rename, svann->uid);
+		      mark_sym_for_renaming (sv->var);
 		    }
 		}
+
 	      /* The address of VAR is not needed, remove the
 		 addressable bit, so that it can be optimized as a
 		 regular variable.  */
 	      if (okay_to_mark)
 		mark_non_addressable (var);
-
 	    }
 	  else
 	    {
@@ -1481,7 +1482,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
       if (may_be_aliased (var))
 	{
 	  create_alias_map_for (var, ai);
-	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);	  
+	  mark_sym_for_renaming (var);
 	}
 
       /* Add pointer variables that have been dereferenced to the POINTERS
@@ -1504,14 +1505,13 @@ setup_pointers_and_addressables (struct alias_info *ai)
 		 afterwards. Note that we cannot do this inside
 		 get_tmt_for because aliasing may run multiple times
 		 and we only create type tags the first time.  */
-	      bitmap_set_bit (vars_to_rename, t_ann->uid);
+	      mark_sym_for_renaming (tag);
 
 	      /* Similarly, if pointer VAR used to have another type
 		 tag, we will need to process it in the renamer to
 		 remove the stale virtual operands.  */
 	      if (v_ann->type_mem_tag)
-		bitmap_set_bit (vars_to_rename,
-				var_ann (v_ann->type_mem_tag)->uid);
+		mark_sym_for_renaming (v_ann->type_mem_tag);
 
 	      /* Associate the tag with pointer VAR.  */
 	      v_ann->type_mem_tag = tag;
@@ -1547,7 +1547,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	      tree tag = ann->type_mem_tag;
 	      if (tag)
 		{
-		  bitmap_set_bit (vars_to_rename, var_ann (tag)->uid);
+		  mark_sym_for_renaming (tag);
 		  ann->type_mem_tag = NULL_TREE;
 		}
 	    }
@@ -1653,11 +1653,11 @@ maybe_create_global_var (struct alias_info *ai)
 	    {
 	      subvar_t sv;
 	      for (sv = svars; sv; sv = sv->next)
-		bitmap_set_bit (vars_to_rename, var_ann (sv->var)->uid);
+		mark_sym_for_renaming (sv->var);
 	    }
 	}
       
-      bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+      mark_sym_for_renaming (var);
     }
 }
 
@@ -1794,7 +1794,7 @@ set_pt_anything (tree ptr)
      disassociated from PTR.  */
   if (pi->name_mem_tag)
     {
-      bitmap_set_bit (vars_to_rename, var_ann (pi->name_mem_tag)->uid);
+      mark_sym_for_renaming (pi->name_mem_tag);
       pi->name_mem_tag = NULL_TREE;
     }
 }
@@ -2346,7 +2346,7 @@ create_global_var (void)
   TREE_ADDRESSABLE (global_var) = 0;
 
   add_referenced_tmp_var (global_var);
-  bitmap_set_bit (vars_to_rename, var_ann (global_var)->uid);
+  mark_sym_for_renaming (global_var);
 }
 
 
@@ -2668,6 +2668,8 @@ may_be_aliased (tree var)
 void
 add_type_alias (tree ptr, tree var)
 {
+  varray_type aliases;
+  tree tag;
   var_ann_t ann = var_ann (ptr);
 
   if (ann->type_mem_tag == NULL_TREE)
@@ -2712,9 +2714,27 @@ found_tag:
   /* If VAR is not already PTR's type tag, add it to the may-alias set
      for PTR's type tag.  */
   gcc_assert (var_ann (var)->type_mem_tag == NOT_A_TAG);
-  add_may_alias (ann->type_mem_tag, var);
-  bitmap_set_bit (vars_to_rename, var_ann (ann->type_mem_tag)->uid);
-  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+  tag = ann->type_mem_tag;
+  add_may_alias (tag, var);
+
+  /* TAG and its set of aliases need to be marked for renaming.  */
+  mark_sym_for_renaming (tag);
+  if ((aliases = var_ann (tag)->may_aliases) != NULL)
+    {
+      size_t i;
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
+	mark_sym_for_renaming (VARRAY_TREE (aliases, i));
+    }
+
+  /* If we had grouped aliases, VAR may have aliases of its own.  Mark
+     them for renaming as well.  Other statements referencing the
+     aliases of VAR will need to be updated.  */
+  if ((aliases = var_ann (var)->may_aliases) != NULL)
+    {
+      size_t i;
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
+	mark_sym_for_renaming (VARRAY_TREE (aliases, i));
+    }
 }
 
 

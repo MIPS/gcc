@@ -223,6 +223,10 @@ find_uses_to_rename_use (basic_block bb, tree use, bitmap *use_blocks,
   if (TREE_CODE (use) != SSA_NAME)
     return;
 
+  /* We don't need to keep virtual operands in loop-closed form.  */
+  if (!is_gimple_reg (use))
+    return;
+
   ver = SSA_NAME_VERSION (use);
   def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (use));
   if (!def_bb)
@@ -562,12 +566,13 @@ copy_phi_node_args (unsigned first_new_block)
 
 
 /* The same as cfgloopmanip.c:duplicate_loop_to_header_edge, but also
-   updates the SSA form.  In order to achieve this, only loops whose
-   exits all lead to the same location are handled.
+   updates the PHI nodes at start of the copied region.  In order to
+   achieve this, only loops whose exits all lead to the same location
+   are handled.
 
-   FIXME: we create some degenerate phi nodes that could be avoided by copy
-   propagating them instead.  Unfortunately this is not completely
-   straightforward due to problems with constant folding.  */
+   Notice that we do not completely update the SSA web after
+   duplication.  The caller is responsible for calling update_ssa
+   after the loop has been duplicated.  */
 
 bool
 tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
@@ -600,14 +605,7 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
   /* Copy the phi node arguments.  */
   copy_phi_node_args (first_new_block);
 
-  /* Update the SSA web.  */
-  update_ssa (true);
-
   scev_reset ();
-
-#if defined ENABLE_CHECKING
-  verify_loop_closed_ssa ();
-#endif
 
   return true;
 }
@@ -650,6 +648,10 @@ lv_adjust_loop_header_phi (basic_block first, basic_block second,
 	  add_phi_arg (phi1, def, e);
 	}
     }
+
+  /* Since SECOND is a copy of FIRST, both blocks should have the same
+     set of PHI nodes and in the same order.  */
+  gcc_assert (phi1 == NULL_TREE && phi2 == NULL_TREE);
 }
 
 
@@ -790,6 +792,8 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop,
      one successor.  */
   loop_split_edge_with (loop_preheader_edge (loop), NULL);
   loop_split_edge_with (loop_preheader_edge (nloop), NULL);
+
+  update_ssa (true);
 
   return nloop;
 }

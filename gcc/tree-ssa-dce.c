@@ -764,8 +764,7 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 			    SSA_OP_VIRTUAL_DEFS | SSA_OP_VIRTUAL_KILLS)
     {
       tree def = DEF_FROM_PTR (def_p);
-      bitmap_set_bit (vars_to_rename,
-		      var_ann (SSA_NAME_VAR (def))->uid);
+      mark_sym_for_renaming (SSA_NAME_VAR (def));
     }
   bsi_remove (i);  
   release_defs (t); 

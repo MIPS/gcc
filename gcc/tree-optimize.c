@@ -52,7 +52,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* Global variables used to communicate with passes.  */
 int dump_flags;
-bitmap vars_to_rename;
 bool in_gimple_form;
 
 /* The root of the compilation pass tree, once constructed.  */
@@ -446,15 +445,9 @@ static void
 execute_todo (int properties, unsigned int flags)
 {
   if (flags & TODO_rename_vars)
-    {
-      rewrite_into_ssa (false);
-      bitmap_clear (vars_to_rename);
-    }
-  if (flags & TODO_fix_def_def_chains)
-    {
-      rewrite_def_def_chains ();
-      bitmap_clear (vars_to_rename);
-    }
+    update_ssa (true);
+  else if (flags & TODO_fix_def_def_chains)
+    update_ssa (false);
 
   if (flags & TODO_cleanup_cfg)
     {
@@ -676,8 +669,6 @@ tree_rest_of_compilation (tree fndecl)
   /* Initialize the default bitmap obstack.  */
   bitmap_obstack_initialize (NULL);
   bitmap_obstack_initialize (&reg_obstack); /* FIXME, only at RTL generation*/
-  
-  vars_to_rename = BITMAP_ALLOC (NULL);
   
   /* Perform all tree transforms and optimizations.  */
   execute_pass_list (all_passes);

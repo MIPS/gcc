@@ -184,6 +184,8 @@ try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
   COND_EXPR_COND (cond) = do_exit;
   modify_stmt (cond);
 
+  update_ssa (true);
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Unrolled loop %d completely.\n", loop->num);
 

@@ -150,7 +150,7 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
   /* If block BB is not interesting to the caller, then none of the
      callbacks that walk the statements in BB are going to be
      executed.  */
-  is_interesting = bb->index <= 0
+  is_interesting = bb->index < 0
 		   || walk_data->interesting_blocks == NULL
 		   || TEST_BIT (walk_data->interesting_blocks, bb->index);
 

@@ -352,7 +352,13 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   
   tag = STMT_VINFO_MEMTAG (stmt_info);
   gcc_assert (tag);
-  if (var_ann (tag)->mem_tag_kind == NOT_A_TAG)
+
+  /* If the memory tag of the original reference was not a type tag or
+     if the pointed-to type of VECT_PTR has an alias set number
+     different than TAG's, then we need to create a new type tag for
+     VECT_PTR and add TAG to its alias set.  */
+  if (var_ann (tag)->mem_tag_kind == NOT_A_TAG
+      || get_alias_set (tag) != get_alias_set (TREE_TYPE (vect_ptr_type)))
     add_type_alias (vect_ptr, tag);
   else
     var_ann (vect_ptr)->type_mem_tag = tag;
@@ -369,19 +375,19 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
     {
       tree use = VUSE_OP (vuses, i);
       if (TREE_CODE (use) == SSA_NAME)
-        bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (use))->uid);
+	mark_sym_for_renaming (SSA_NAME_VAR (use));
     }
   for (i = 0; i < nv_may_defs; i++)
     {
       tree def = V_MAY_DEF_RESULT (v_may_defs, i);
       if (TREE_CODE (def) == SSA_NAME)
-        bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
+	mark_sym_for_renaming (SSA_NAME_VAR (def));
     }
   for (i = 0; i < nv_must_defs; i++)
     {
       tree def = V_MUST_DEF_RESULT (v_must_defs, i);
       if (TREE_CODE (def) == SSA_NAME)
-        bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
+	mark_sym_for_renaming (SSA_NAME_VAR (def));
     }
 
 
@@ -1098,7 +1104,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 
 	  /* Since we have just created a CALL_EXPR, we may need to
 	     rename call-clobbered variables.  */
-	  mark_call_clobbered_vars_to_rename ();
+	  mark_set_for_renaming (call_clobbered_vars);
 	}
       else
 	{
@@ -1764,6 +1770,11 @@ vect_transform_loop (loop_vec_info loop_vinfo,
     }				/* BBs in loop */
 
   slpeel_make_loop_iterate_ntimes (loop, ratio);
+
+  /* The memory tags and pointers in vectorized statements need to
+     have their SSA forms updated.  FIXME, why can't this be delayed
+     until all the loops have been transformed?  */
+  update_ssa (true);
 
   if (vect_print_dump_info (REPORT_VECTORIZED_LOOPS, LOOP_LOC (loop_vinfo)))
     fprintf (vect_dump, "LOOP VECTORIZED.");

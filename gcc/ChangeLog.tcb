@@ -1,3 +1,120 @@
+2005-03-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* domwalk.c (walk_dominator_tree): Fix typo.
+	* tree-dfa.c (mark_new_vars_to_rename): Remove second
+	argument.
+	Update all callers.
+	(mark_call_clobbered_vars_to_rename): Remove.
+	Update all callers.
+	* tree-flow.h (remove_all_phi_nodes_for): Remove.
+	(find_phi_node_for): Declare.
+	(rewrite_into_ssa): Remove external declaration.
+	Update users to call update_ssa instead.
+	(rewrite_def_def_chains): Remove.
+	(mark_sym_for_renaming): Declare.
+	(mark_set_for_renaming): Declare.
+	* tree-into-ssa.c (syms_to_rename): New local variable.
+	(names_to_release): New local variable.
+	(need_to_replace_names_p): New local variable.
+	(enum rewrite_mode): Remove REWRITE_FIX_DEF_DEF_CHAINS.
+	(symbol_marked_for_renaming): Only accept DECL nodes.
+	(is_old_name): New function.  Update every user of
+	OLD_SSA_NAMES.
+	(is_new_name): New function.  Update every user of
+	NEW_SSA_NAMES.
+	(add_new_name_mapping): If NEW is a virtual, just mark its
+	symbol for renaming.
+	(prepare_use_operand_for_rename): Remove.  Update all users.
+	(prepare_def_operand_for_rename): Remove.  Update all users.
+	(mark_def_sites): Initialize REGISTER_DEFS_IN_THIS_STMT flag.
+	(insert_phi_nodes_for): Add more documentation.
+	(insert_phi_nodes_1): Move body ...
+	(insert_phi_nodes): ... here.
+	Remove second argument.
+	Do not check for 'names_to_rename' nor 'vars_to_rename'.
+	(rewrite_operand): Remove.  Update all users.
+	(rewrite_stmt): Do nothing if REGISTER_DEFS_IN_THIS_STMT is
+	not set.
+	Assert that all operands are DECL nodes.
+	(rewrite_virtual_phi_arguments): Remove.
+	(replace_use): New local function.
+	(rewrite_update_stmt): Call it.
+	(rewrite_update_phi_arguments): Handle NULL arguments
+	separately.
+	(mark_def_site_blocks): Move call to calculate_dominance_info...
+	(rewrite_into_ssa): ... here.
+	Remove argument.
+	Make static.
+	Re-organize for clarity.
+	(rewrite_all_into_ssa): Remove.  Update all users.
+	(pass_build_ssa): Call rewrite_into_ssa instead of
+	rewrite_all_into_ssa.
+	(rewrite_def_def_chains): Remove.  Update all users.
+	(prepare_phi_args_for_update): Remove unreachable code.
+	Add more documentation.
+	(prepare_block_for_update): Add more documentation.
+	(remove_name_from_mappings): Remove.
+	(prepare_def_site_for): Do not call remove_name_from_mappings.
+	Assert that NAME is not in the free list.
+	(prepare_def_sites): If any symbol in SYMS_TO_RENAME is a
+	virtual, set NEED_TO_UPDATE_VOPS_P to true.
+	(dump_names_replaced_by): Do not test for removed names.
+	(dump_repl_tbl): Re-arrange output.
+	Dump names that are marked to be released after update_ssa.
+	(init_update_ssa): Initialize NEED_TO_REPLACE_NAMES_P,
+	SYMS_TO_RENAME and NAMES_TO_RELEASE.
+	(delete_update_ssa): Release all the names in NAMES_TO_RELEASE.
+	(mark_sym_for_renaming): New function.  Update every function
+	that used to test and set VARS_TO_RENAME.
+	(mark_set_for_renaming): New function.
+	(need_ssa_update_p): Return true if any of SYMS_TO_RENAME,
+	OLD_SSA_NAMES or NEW_SSA_NAMES are not NULL.
+	(release_ssa_name_after_update_ssa): New function.
+	(insert_updated_phi_nodes_for): Do not prune IDF if inserting
+	PHI nodes for a symbol in SYMS_TO_RENAME.
+	If VAR is in SYMS_TO_RENAME, remove any existing PHI nodes
+	from blocks not in PRUNED_IDF.
+	(update_ssa): Only call insert_updated_phi_nodes_for if
+	OLD_SSA_NAMES is not empty.
+	* tree-optimize.c (vars_to_rename): Remove.  Update all users.
+	(execute_todo): Call update_ssa instead of rewrite_into_ssa
+	and rewrite_def_def_chains.
+	* tree-pass.h (vars_to_rename): Remove.
+	* tree-phinodes.c (find_phi_node_for): New function.
+	(remove_all_phi_nodes_for): Remove.
+	* tree-sra.c (decide_instantiations): Mark all symbols in
+	SRA_CANDIDATES for renaming.
+	(mark_all_v_defs_1): Rename from mark_all_v_defs.
+	(mark_all_v_defs): New function.  Update all users to call it 
+	with the whole list of scalarized statements, not just the
+	first one.
+	* tree-ssa-alias.c (add_type_alias): Also mark TAG's aliases
+	for renaming.
+	If VAR has aliases of its own, mark them for renaming as well.
+	* tree-ssa-loop-ivcanon.c (try_unroll_loop_completely): Call
+	update_ssa.
+	* tree-ssa-loop-manip.c (find_uses_to_rename_use): Ignore
+	virtual operands.
+	(tree_duplicate_loop_to_header_edge): Do not call update_ssa.
+	Update callers.
+	Update documentation.
+	(lv_adjust_loop_header_phi): Assert that both blocks have the
+	same number of PHI nodes.
+	(tree_ssa_loop_version): Call update_ssa.
+	* tree-ssa.c (verify_ssa): Assert that we don't need to call
+	update_ssa.
+	(delete_tree_ssa): Likewise.
+	* tree-ssanames.c (release_ssa_name): Call
+	release_ssa_name_after_update_ssa if VAR was registered to be
+	updated.
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Call
+	add_type_alias if TAG has a different alias set number than
+	the type pointed-to by VECT_PTR.
+	Add documentation.
+	(vect_transform_loop): Call update_ssa.
+	* tree.h (PHI_REWRITTEN): Remove.
+	(struct tree_phi_node): Remove field 'rewritten'.
+
 2005-03-23  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-into-ssa.c (insert_phi_nodes_for): If updating an

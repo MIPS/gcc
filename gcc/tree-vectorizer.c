@@ -1397,7 +1397,6 @@ vectorize_loops (struct loops *loops)
       loop->aux = NULL;
     }
 
-  rewrite_into_ssa (false);
+  update_ssa (true);
   rewrite_into_loop_closed_ssa (NULL); /* FORNOW */
-  bitmap_clear (vars_to_rename);
 }

@@ -28,8 +28,6 @@ extern FILE *dump_file;
 extern int dump_flags;
 extern const char *dump_file_name;
 
-extern struct bitmap_head_def *vars_to_rename;
-
 /* Return the dump_file_info for the given phase.  */
 extern struct dump_file_info *get_dump_file_info (enum tree_dump_index);
 

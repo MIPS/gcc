@@ -53,13 +53,8 @@ tree_loop_optimizer_init (FILE *dump)
   if (!loops)
     return NULL;
 
-  /* Creation of preheaders may create redundant phi nodes if the loop is
-     entered by more than one edge, but the initial value of the induction
-     variable is the same on all of them.  */
-  rewrite_into_ssa (false);
-  bitmap_clear (vars_to_rename);
-
   rewrite_into_loop_closed_ssa (NULL);
+
 #ifdef ENABLE_CHECKING
   verify_loop_closed_ssa ();
 #endif
@@ -200,7 +195,6 @@ tree_vectorize (void)
   if (!current_loops)
     return;
 
-  bitmap_clear (vars_to_rename);
   vectorize_loops (current_loops);
 }
 
@@ -379,7 +373,7 @@ tree_ssa_loop_ivopts (void)
      Work around this problem by forcing an operand re-scan on every
      statement.  This will not be necessary once the new operand
      scanner is implemented.  */
-  if (!bitmap_empty_p (vars_to_rename))
+  if (need_ssa_update_p ())
     {
       basic_block bb;
       block_stmt_iterator si;

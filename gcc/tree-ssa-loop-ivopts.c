@@ -4850,7 +4850,7 @@ do_rewrite:
 
   /* Virtual operands in the original statement may have to be renamed
      because of the replacement.  */
-  mark_new_vars_to_rename (bsi_stmt (*bsi), vars_to_rename);
+  mark_new_vars_to_rename (bsi_stmt (*bsi));
 }
 
 /* Rewrites USE (address that is an iv) using candidate CAND.  */

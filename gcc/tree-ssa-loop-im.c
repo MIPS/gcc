@@ -719,14 +719,9 @@ move_computations (void)
   fini_walk_dominator_tree (&walk_data);
 
   loop_commit_inserts ();
-  rewrite_into_ssa (false);
-  if (!bitmap_empty_p (vars_to_rename))
+  if (need_ssa_update_p ())
     {
-      bitmap_clear (vars_to_rename);
-
-      /* The rewrite of ssa names may cause violation of loop closed ssa
-	 form invariants.  TODO -- avoid these rewrites completely.
-	 Information in virtual phi nodes is sufficient for it.  */
+      update_ssa (true);
       rewrite_into_loop_closed_ssa (NULL);
     }
 }
@@ -1077,10 +1072,7 @@ rewrite_mem_refs (tree tmp_var, struct mem_ref *mem_refs)
   for (; mem_refs; mem_refs = mem_refs->next)
     {
       FOR_EACH_SSA_TREE_OPERAND (var, mem_refs->stmt, iter, SSA_OP_ALL_VIRTUALS)
-	{
-	  var = SSA_NAME_VAR (var);
-	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
-	}
+	mark_sym_for_renaming (SSA_NAME_VAR (var));
 
       *mem_refs->ref = tmp_var;
       modify_stmt (mem_refs->stmt);

@@ -570,7 +570,7 @@ extern tree create_phi_node (tree, basic_block);
 extern void add_phi_arg (tree, tree, edge);
 extern void remove_phi_args (edge);
 extern void remove_phi_node (tree, tree);
-extern void remove_all_phi_nodes_for (bitmap);
+extern tree find_phi_node_for (basic_block, tree, tree *);
 extern tree phi_reverse (tree);
 extern void dump_dfa_stats (FILE *);
 extern void debug_dfa_stats (void);
@@ -587,9 +587,8 @@ extern void free_df (void);
 extern void free_df_for_stmt (tree);
 extern tree get_virtual_var (tree);
 extern void add_referenced_tmp_var (tree);
-extern void mark_new_vars_to_rename (tree, bitmap);
+extern void mark_new_vars_to_rename (tree);
 extern void find_new_referenced_vars (tree *);
-void mark_call_clobbered_vars_to_rename (void);
 
 extern void redirect_immediate_uses (tree, tree);
 extern tree make_rename_temp (tree, const char *);
@@ -649,19 +648,20 @@ extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern bool stmt_references_memory_p (tree);
 
 /* In tree-into-ssa.c  */
-extern void rewrite_into_ssa (bool);
-extern void rewrite_def_def_chains (void);
 extern void update_ssa (bool);
 extern void register_new_name_mapping (tree, tree);
 extern tree create_new_def_for (tree, tree, def_operand_p);
 extern bool need_ssa_update_p (void);
 extern bool name_registered_for_update_p (tree);
+extern void release_ssa_name_after_update_ssa (tree name);
 extern void dump_repl_tbl (FILE *);
 extern void debug_repl_tbl (void);
 extern void dump_names_replaced_by (FILE *, unsigned);
 extern void debug_names_replaced_by (unsigned);
 void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);
+void mark_sym_for_renaming (tree);
+void mark_set_for_renaming (bitmap);
 
 /* In tree-ssa-ccp.c  */
 void execute_ssa_ccp (bool);

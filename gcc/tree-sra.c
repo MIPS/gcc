@@ -1422,6 +1422,8 @@ decide_instantiations (void)
     }
   bitmap_clear (&done_head);
 
+  mark_set_for_renaming (sra_candidates);
+
   if (dump_file)
     fputc ('\n', dump_file);
 }
@@ -1433,7 +1435,7 @@ decide_instantiations (void)
    renaming. This becomes necessary when we modify all of a non-scalar.  */
 
 static void
-mark_all_v_defs (tree stmt)
+mark_all_v_defs_1 (tree stmt)
 {
   tree sym;
   ssa_op_iter iter;
@@ -1444,9 +1446,27 @@ mark_all_v_defs (tree stmt)
     {
       if (TREE_CODE (sym) == SSA_NAME)
 	sym = SSA_NAME_VAR (sym);
-      bitmap_set_bit (vars_to_rename, var_ann (sym)->uid);
+      mark_sym_for_renaming (sym);
     }
 }
+
+
+/* Mark all the variables in virtual operands in all the statements in
+   LIST for renaming.  */
+
+static void
+mark_all_v_defs (tree list)
+{
+  if (TREE_CODE (list) != STATEMENT_LIST)
+    mark_all_v_defs_1 (list);
+  else
+    {
+      tree_stmt_iterator i;
+      for (i = tsi_start (list); !tsi_end_p (i); tsi_next (&i))
+	mark_all_v_defs_1 (tsi_stmt (i));
+    }
+}
+
 
 /* Build a single level component reference to ELT rooted at BASE.  */
 
@@ -1679,7 +1699,7 @@ generate_element_init (struct sra_elt *elt, tree init, tree *list_p)
 
       new = num_referenced_vars;
       for (j = old; j < new; ++j)
-	bitmap_set_bit (vars_to_rename, j);
+	mark_sym_for_renaming (referenced_var (j));
     }
 
   return ret;
@@ -1793,7 +1813,7 @@ scalarize_use (struct sra_elt *elt, tree *expr_p, block_stmt_iterator *bsi,
       generate_copy_inout (elt, is_output, generate_element_ref (elt), &list);
       if (list == NULL)
 	return;
-      mark_all_v_defs (expr_first (list));
+      mark_all_v_defs (list);
       if (is_output)
 	sra_insert_after (bsi, list);
       else
@@ -1838,7 +1858,7 @@ scalarize_copy (struct sra_elt *lhs_elt, struct sra_elt *rhs_elt,
 			   generate_element_ref (rhs_elt), &list);
       if (list)
 	{
-	  mark_all_v_defs (expr_first (list));
+	  mark_all_v_defs (list);
 	  sra_insert_before (bsi, list);
 	}
 
@@ -1846,7 +1866,10 @@ scalarize_copy (struct sra_elt *lhs_elt, struct sra_elt *rhs_elt,
       generate_copy_inout (lhs_elt, true,
 			   generate_element_ref (lhs_elt), &list);
       if (list)
-	sra_insert_after (bsi, list);
+	{
+	  mark_all_v_defs (list);
+	  sra_insert_after (bsi, list);
+	}
     }
   else
     {
@@ -1860,6 +1883,7 @@ scalarize_copy (struct sra_elt *lhs_elt, struct sra_elt *rhs_elt,
       list = NULL;
       generate_element_copy (lhs_elt, rhs_elt, &list);
       gcc_assert (list);
+      mark_all_v_defs (list);
       sra_replace (bsi, list);
     }
 }
@@ -1909,7 +1933,7 @@ scalarize_init (struct sra_elt *lhs_elt, tree rhs, block_stmt_iterator *bsi)
 	 exposes constants to later optimizations.  */
       if (list)
 	{
-	  mark_all_v_defs (expr_first (list));
+	  mark_all_v_defs (list);
 	  sra_insert_after (bsi, list);
 	}
     }
@@ -1919,6 +1943,7 @@ scalarize_init (struct sra_elt *lhs_elt, tree rhs, block_stmt_iterator *bsi)
 	 replaces the original structure assignment.  */
       gcc_assert (list);
       mark_all_v_defs (bsi_stmt (*bsi));
+      mark_all_v_defs (list);
       sra_replace (bsi, list);
     }
 }
@@ -1969,6 +1994,7 @@ scalarize_ldst (struct sra_elt *elt, tree other,
 
       mark_all_v_defs (stmt);
       generate_copy_inout (elt, is_output, other, &list);
+      mark_all_v_defs (list);
       gcc_assert (list);
 
       /* Preserve EH semantics.  */
@@ -2024,7 +2050,10 @@ scalarize_parms (void)
     }
 
   if (list)
-    insert_edge_copies (list, ENTRY_BLOCK_PTR);
+    {
+      insert_edge_copies (list, ENTRY_BLOCK_PTR);
+      mark_all_v_defs (list);
+    }
 }
 
 /* Entry point to phase 4.  Update the function to match replacements.  */

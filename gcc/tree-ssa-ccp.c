@@ -895,7 +895,7 @@ substitute_and_fold (prop_value_t *prop_value)
 	      /* If we folded a builtin function, we'll likely
 		 need to rename VDEFs.  */
 	      if (replaced_address || changed)
-		mark_new_vars_to_rename (stmt, vars_to_rename);
+		mark_new_vars_to_rename (stmt);
 
               /* If we cleaned up EH information from the statement,
                  remove EH edges.  */
@@ -2559,7 +2559,7 @@ convert_to_gimple_builtin (block_stmt_iterator *si_p, tree expr)
   for (ti = tsi_start (stmts); !tsi_end_p (ti); tsi_next (&ti))
     {
       find_new_referenced_vars (tsi_stmt_ptr (ti));
-      mark_new_vars_to_rename (tsi_stmt (ti), vars_to_rename);
+      mark_new_vars_to_rename (tsi_stmt (ti));
     }
 
   if (EXPR_HAS_LOCATION (stmt))

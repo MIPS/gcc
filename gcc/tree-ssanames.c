@@ -179,10 +179,12 @@ release_ssa_name (tree var)
     return;
 
   /* If VAR has been registered for SSA updating, don't remove it.
-     After update_ssa has run, the name may be available for removal
-     again.  */
+     After update_ssa has run, the name will be released.  */
   if (name_registered_for_update_p (var))
-    return;
+    {
+      release_ssa_name_after_update_ssa (var);
+      return;
+    }
 
   /* release_ssa_name can be called multiple times on a single SSA_NAME.
      However, it should only end up on our free list one time.   We
