@@ -1258,13 +1258,13 @@ next_record_w (int done)
       length = 1;
       p = salloc_w (current_unit->s, &length);
 
-      if (!(is_internal_unit()) && p == NULL)
+      if (!is_internal_unit())
         {
-           goto io_error;
+          if (p)
+            *p = '\n'; /* no CR for internal writes */
+          else
+            goto io_error;
         }
-
-      if (p != NULL)
-         *p = '\n';
 
       if (sfree (current_unit->s) == FAILURE)
  	goto io_error;
