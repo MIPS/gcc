@@ -1,3 +1,7 @@
+Tue Aug 26 15:19:39 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* c-semantics.c (add_stmt): Do not touch estimated_insns.
+
 Mon Aug 25 10:13:45 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c (set_decl_assembler_name): Fix.
