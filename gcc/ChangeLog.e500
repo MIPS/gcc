@@ -1,3 +1,8 @@
+2003-05-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/rs6000/rs6000.c (spe_init_builtins): Fix typo in creation
+	of int_ftype_void.
+
 2003-05-07  Aldy Hernandez  <aldyh@redhat.com>
 
         * mklibgcc.in: Use mkinstalldirs when installing multilib
