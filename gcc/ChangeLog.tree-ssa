@@ -1,3 +1,10 @@
+2003-09-25  Andreas Schwab  <schwab@suse.de>
+
+	* tree-flow.h: Declare next_ssa_version.
+	* tree-ssa-ccp.c: Remove conflicting declaration.
+	* tree-ssa-live.c: Likewise.
+	* tree.c (make_ssa_name): Likewise.
+
 2003-09-24  Jason Merrill  <jason@redhat.com>
 
 	* tree.h (DECL_SOURCE_LOCATION): Resurrect.

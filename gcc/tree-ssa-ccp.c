@@ -90,8 +90,6 @@ static sbitmap bb_in_list;
 /* This is used to track the current value of each variable.  */
 static value *value_vector;
 
-extern unsigned long next_ssa_version;
-
 /* Worklist of SSA edges which will need reexamination as their definition
    has changed.  SSA edges are def-use edges in the SSA web.  For each
    edge, we store the definition statement or PHI node D.  The destination

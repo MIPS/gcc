@@ -39,8 +39,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
 
-extern unsigned long next_ssa_version;
-
 static void live_worklist (tree_live_info_p, varray_type, int);
 static tree_live_info_p new_tree_live_info (var_map);
 static inline void set_if_valid (var_map, sbitmap, tree);

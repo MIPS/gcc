@@ -5097,8 +5097,6 @@ resize_phi_node (tree *phi, int len)
 tree
 make_ssa_name (tree var, tree stmt)
 {
-  /* Next SSA version number.  Initialized by init_tree_ssa.  */
-  extern unsigned long next_ssa_version;
   tree t;
 
 #if defined ENABLE_CHECKING
