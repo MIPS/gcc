@@ -704,7 +704,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "ctrl UP", "requestFocus",
         "ctrl KP_UP", "requestFocus"
       }),
-      "TabbedPane.background", new ColorUIResource(Color.GRAY),
+      "TabbedPane.background", new ColorUIResource(Color.LIGHT_GRAY),
       "TabbedPane.contentBorderInsets", new InsetsUIResource(2, 2, 3, 3),
       "TabbedPane.darkShadow", new ColorUIResource(Color.darkGray),
       "TabbedPane.focus", new ColorUIResource(Color.black),

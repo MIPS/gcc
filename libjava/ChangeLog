@@ -1,3 +1,20 @@
+2004-06-15  Kim Ho  <kho@redhat.com>
+
+	* javax/swing/JTabbedPane.java
+	(setComponent): Remove old component and
+	add new component.
+	(setSelectedIndex): Don't operate on the 
+	components if they're null. Don't set index
+	on the model if the index is the same.
+	(insertTab): Don't add or hide the component
+	if it's null. Repaint the container.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java
+	Change colors for TabbedPane.
+	* javax/swing/plaf/basic/BasicTabbedPaneUI.java
+	(mousePressed): Re-layout and paint the component.
+	(layoutContainer): Don't set location on the view.
+	(ScrollingViewport::paint): Remove.
+
 2004-06-14  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c

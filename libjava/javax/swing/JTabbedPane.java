@@ -312,7 +312,9 @@ public class JTabbedPane extends JComponent implements Serializable,
      */
     public void setComponent(Component c)
     {
+      JTabbedPane.this.remove(component);
       this.component = c;
+      JTabbedPane.this.add(c);
     }
 
     /**
@@ -833,12 +835,12 @@ public class JTabbedPane extends JComponent implements Serializable,
     checkIndex(index, -1, tabs.size());
     if (index != getSelectedIndex())
       {
-	if (getSelectedIndex() != -1)
+	if (getSelectedIndex() != -1 && getSelectedComponent() != null)
 	  getSelectedComponent().hide();
-	if (index != -1)
+	if (index != -1 && getComponentAt(index) != null)
 	  getComponentAt(index).show();
+        model.setSelectedIndex(index);	  
       }
-    model.setSelectedIndex(index);
   }
 
   /**
@@ -882,13 +884,17 @@ public class JTabbedPane extends JComponent implements Serializable,
 
     // Hide the component so we don't see it. Do it before we parent it
     // so we don't trigger a repaint.
-    component.hide();
-    super.add(component);
-  
+    if (component != null)
+    {
+      component.hide();
+      super.add(component);
+    }
+    
     if (getSelectedIndex() == -1)
       setSelectedIndex(0);
 
     layout();
+    repaint();
   }
 
   /**
