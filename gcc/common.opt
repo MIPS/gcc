@@ -718,6 +718,11 @@ fverbose-asm
 Common
 Add extra commentary to assembler output
 
+fvisibility=
+Common Joined RejectNegative
+-fvisibility=[default|internal|hidden|protected]	Set the default symbol visibility
+
+
 fvpt
 Common
 Use expression value profiles in optimizations

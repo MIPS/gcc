@@ -1,6 +1,6 @@
 /* Test warning from conflicting visibility specifications. */
-/* { dg-require-visibility "" } */
-/* { dg-final { scan-hidden "xyzzy" } } */
+/* { dg-do compile { target *86-*-linux* } } */
+/* { dg-final { scan-assembler "\\.hidden.*xyzzy" } } */
 
 extern int 
 __attribute__((visibility ("hidden")))

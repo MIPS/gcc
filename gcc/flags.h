@@ -60,6 +60,30 @@ extern bool use_gnu_debug_info_extensions;
 /* Nonzero means emit debugging information only for symbols which are used.  */
 extern int flag_debug_only_used_symbols;
 
+/* Enumerate visibility settings.  */
+#ifndef SYMBOL_VISIBILITY_DEFINED
+#define SYMBOL_VISIBILITY_DEFINED
+enum symbol_visibility
+{
+  VISIBILITY_DEFAULT,
+  VISIBILITY_INTERNAL,
+  VISIBILITY_HIDDEN,
+  VISIBILITY_PROTECTED
+};
+#endif
+
+/* The default visibility for all symbols (unless overridden).  */
+extern enum symbol_visibility default_visibility;
+
+struct visibility_flags
+{
+  unsigned inpragma : 1;	/* True when in #pragma GCC visibility.  */
+  unsigned inlines_hidden : 1;	/* True when -finlineshidden in effect.  */
+};
+
+/* Global visibility options.  */
+extern struct visibility_flags visibility_options;
+
 /* Nonzero means do optimizations.  -opt.  */
 
 extern int optimize;

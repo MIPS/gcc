@@ -1499,6 +1499,10 @@ struct tree_type GTY(())
 /* Value of the decls's visibility attribute */
 #define DECL_VISIBILITY(NODE) (DECL_CHECK (NODE)->decl.visibility)
 
+/* Nonzero means that the decl had its visibility specified rather than
+   being inferred.  */
+#define DECL_VISIBILITY_SPECIFIED(NODE) (DECL_CHECK (NODE)->decl.visibility_specified)
+
 /* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
 #define DECL_UNINLINABLE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.uninlinable)
 
@@ -1633,7 +1637,8 @@ struct tree_type GTY(())
    || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
 
 /* Enumerate visibility settings.  */
-
+#ifndef SYMBOL_VISIBILITY_DEFINED
+#define SYMBOL_VISIBILITY_DEFINED
 enum symbol_visibility
 {
   VISIBILITY_DEFAULT,
@@ -1641,6 +1646,7 @@ enum symbol_visibility
   VISIBILITY_HIDDEN,
   VISIBILITY_PROTECTED
 };
+#endif
 
 struct function;
 
@@ -1684,8 +1690,7 @@ struct tree_decl GTY(())
   unsigned thread_local_flag : 1;
   unsigned declared_inline_flag : 1;
   ENUM_BITFIELD(symbol_visibility) visibility : 2;
-  unsigned unused : 1;
-  /* one unused bit.  */
+  unsigned visibility_specified : 1;
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
