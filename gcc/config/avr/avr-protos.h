@@ -3,27 +3,25 @@
    Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify
+   GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   GNU CC is distributed in the hope that it will be useful,
+   GCC is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
+   along with GCC; see the file COPYING.  If not, write to
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
 
 extern int    function_arg_regno_p              PARAMS ((int r));
-extern void   asm_file_start                    PARAMS ((FILE *file));
-extern void   asm_file_end                      PARAMS ((FILE *file));
 extern void   avr_init_once                     PARAMS ((void));
 extern void   avr_override_options              PARAMS ((void));
 extern void   avr_optimization_options		PARAMS ((int level, int size));
@@ -52,7 +50,7 @@ extern int    avr_progmem_p                PARAMS ((tree decl));
 extern rtx    avr_function_value           PARAMS ((tree type, tree func));
 extern void   init_cumulative_args         PARAMS ((CUMULATIVE_ARGS *cum,
 						   tree fntype, rtx libname,
-						   int indirect));
+						   tree fndecl));
 extern rtx    function_arg         PARAMS ((CUMULATIVE_ARGS *cum,
 					   enum machine_mode mode,
 					   tree type, int named));
@@ -71,7 +69,6 @@ extern void   function_arg_advance PARAMS ((CUMULATIVE_ARGS *cum,
 extern void   asm_output_external_libcall PARAMS ((FILE *file, rtx symref));
 extern int    legitimate_address_p    PARAMS ((enum machine_mode mode, rtx x,
 					int strict));
-extern void   machine_dependent_reorg PARAMS ((rtx first_insn));
 extern int    compare_diff_p  PARAMS ((rtx insn));
 extern const char * output_movqi    PARAMS ((rtx insn, rtx operands[], int *l));
 extern const char * output_movhi    PARAMS ((rtx insn, rtx operands[], int *l));
@@ -104,7 +101,6 @@ extern const char *avr_out_sbxx_branch PARAMS ((rtx insn, rtx operands[]));
 
 extern enum reg_class preferred_reload_class PARAMS ((rtx x,
 						     enum reg_class class));
-extern int    avr_address_cost       PARAMS ((rtx x));
 extern int    extra_constraint       PARAMS ((rtx x, int c));
 extern rtx    legitimize_address     PARAMS ((rtx x, rtx oldx,
 					     enum machine_mode mode));
@@ -114,8 +110,6 @@ extern const char * output_reload_inhi PARAMS ((rtx insn, rtx *operands,
 						int *len));
 extern const char * output_reload_insisf PARAMS ((rtx insn, rtx *operands,
 						int *len));
-extern int    default_rtx_costs      PARAMS ((rtx X, RTX_CODE code,
-					     RTX_CODE outer_code));
 extern enum reg_class secondary_input_reload_class PARAMS ((enum reg_class,
 							   enum machine_mode,
 							   rtx));
@@ -135,7 +129,7 @@ extern int    avr_hard_regno_mode_ok PARAMS ((int regno,
 extern int    call_insn_operand      PARAMS ((rtx op, enum machine_mode mode));
 extern void   final_prescan_insn     PARAMS ((rtx insn, rtx *operand,
 					      int num_operands));
-extern int    avr_simplify_comparision_p PARAMS ((enum machine_mode mode,
+extern int    avr_simplify_comparison_p PARAMS ((enum machine_mode mode,
 					      RTX_CODE operator, rtx x));
 extern RTX_CODE avr_normalize_condition  PARAMS ((RTX_CODE condition));
 extern int    compare_eq_p           PARAMS ((rtx insn));

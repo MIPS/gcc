@@ -1,20 +1,20 @@
 /* Prototypes for m32r.c functions used in the md file & elsewhere.
    Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -30,7 +30,6 @@ extern unsigned m32r_compute_frame_size		PARAMS ((int));
 extern int    m32r_first_insn_address		PARAMS ((void));
 extern void   m32r_expand_prologue		PARAMS ((void));
 extern void   m32r_finalize_pic			PARAMS ((void));
-extern void   m32r_asm_file_start		PARAMS ((FILE *));
 extern int    direct_return 			PARAMS ((void));
 #ifdef TREE_CODE
 extern enum m32r_function_type m32r_compute_function_type PARAMS ((tree));
@@ -54,8 +53,9 @@ extern void   m32r_output_block_move 		PARAMS ((rtx, rtx *));
 extern void   m32r_expand_block_move 		PARAMS ((rtx *));
 extern void   m32r_print_operand		PARAMS ((FILE *, rtx, int));
 extern void   m32r_print_operand_address	PARAMS ((FILE *, rtx));
-extern int    m32r_address_cost 		PARAMS ((rtx));
 extern int    m32r_not_same_reg 		PARAMS ((rtx, rtx));
+extern int    m32r_hard_regno_rename_ok		PARAMS ((unsigned int,
+							 unsigned int));
 
 #ifdef HAVE_MACHINE_MODES
 extern int    call_address_operand		PARAMS ((rtx, Mmode));
@@ -92,6 +92,7 @@ extern int    reg_or_zero_operand               PARAMS ((rtx, Mmode));
 
 #ifdef TREE_CODE
 extern struct rtx_def * m32r_va_arg		PARAMS ((tree, tree));
+extern int m32r_pass_by_reference		PARAMS ((tree));
 #endif /* TREE_CODE */
 #endif /* RTX_CODE */
 

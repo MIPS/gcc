@@ -1,4 +1,4 @@
-@c Copyright (c) 1999, 2000, 2001 Free Software Foundation, Inc.
+@c Copyright (c) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 @c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -124,7 +124,7 @@ functions described here.  In particular, no guarantee is given that the
 values are lvalues.
 
 In general, the names of macros are all in uppercase, while the names of
-functions are entirely in lower case.  There are rare exceptions to this
+functions are entirely in lowercase.  There are rare exceptions to this
 rule.  You should assume that any macro or function whose name is made
 up entirely of uppercase letters may evaluate its arguments more than
 once.  You may assume that a macro or function whose name is made up
@@ -555,11 +555,9 @@ This node is used to represent a type the knowledge of which is
 insufficient for a sound processing.
 
 @item OFFSET_TYPE
-This node is used to represent a data member; for example a
-pointer-to-data-member is represented by a @code{POINTER_TYPE} whose
-@code{TREE_TYPE} is an @code{OFFSET_TYPE}.  For a data member @code{X::m}
-the @code{TYPE_OFFSET_BASETYPE} is @code{X} and the @code{TREE_TYPE} is
-the type of @code{m}.
+This node is used to represent a pointer-to-data member.  For a data
+member @code{X::m} the @code{TYPE_OFFSET_BASETYPE} is @code{X} and the
+@code{TREE_TYPE} is the type of @code{m}.
 
 @item TYPENAME_TYPE
 Used to represent a construct of the form @code{typename T::A}.  The
@@ -645,7 +643,7 @@ the unqualified name of the name of the namespace (@pxref{Identifiers}).
 The name of the global namespace is @samp{::}, even though in C++ the
 global namespace is unnamed.  However, you should use comparison with
 @code{global_namespace}, rather than @code{DECL_NAME} to determine
-whether or not a namespaces is the global one.  An unnamed namespace
+whether or not a namespace is the global one.  An unnamed namespace
 will have a @code{DECL_NAME} equal to @code{anonymous_namespace_name}.
 Within a single translation unit, all unnamed namespaces will have the
 same name.
@@ -1021,34 +1019,35 @@ will always return the function itself, and @code{OVL_NEXT} will always
 be @code{NULL_TREE}.
 
 To determine the scope of a function, you can use the
-@code{DECL_REAL_CONTEXT} macro.  This macro will return the class
+@code{DECL_CONTEXT} macro.  This macro will return the class
 (either a @code{RECORD_TYPE} or a @code{UNION_TYPE}) or namespace (a
 @code{NAMESPACE_DECL}) of which the function is a member.  For a virtual
 function, this macro returns the class in which the function was
 actually defined, not the base class in which the virtual declaration
-occurred.  If a friend function is defined in a class scope, the
-@code{DECL_CLASS_CONTEXT} macro can be used to determine the class in
+occurred.  
+
+If a friend function is defined in a class scope, the
+@code{DECL_FRIEND_CONTEXT} macro can be used to determine the class in
 which it was defined.  For example, in
 @example
 class C @{ friend void f() @{@} @};
 @end example
-the @code{DECL_REAL_CONTEXT} for @code{f} will be the
-@code{global_namespace}, but the @code{DECL_CLASS_CONTEXT} will be the
+@noindent
+the @code{DECL_CONTEXT} for @code{f} will be the
+@code{global_namespace}, but the @code{DECL_FRIEND_CONTEXT} will be the
 @code{RECORD_TYPE} for @code{C}.
 
-The @code{DECL_REAL_CONTEXT} and @code{DECL_CLASS_CONTEXT} are not
-available in C; instead you should simply use @code{DECL_CONTEXT}.  In C,
-the @code{DECL_CONTEXT} for a function maybe another function.  This
-representation indicates that the GNU nested function extension is in
-use.  For details on the semantics of nested functions, see the GCC
-Manual.  The nested function can refer to local variables in its
+In C, the @code{DECL_CONTEXT} for a function maybe another function.
+This representation indicates that the GNU nested function extension
+is in use.  For details on the semantics of nested functions, see the
+GCC Manual.  The nested function can refer to local variables in its
 containing function.  Such references are not explicitly marked in the
 tree structure; back ends must look at the @code{DECL_CONTEXT} for the
 referenced @code{VAR_DECL}.  If the @code{DECL_CONTEXT} for the
 referenced @code{VAR_DECL} is not the same as the function currently
-being processed, and neither @code{DECL_EXTERNAL} nor @code{DECL_STATIC}
-hold, then the reference is to a local variable in a containing
-function, and the back end must take appropriate action.
+being processed, and neither @code{DECL_EXTERNAL} nor
+@code{DECL_STATIC} hold, then the reference is to a local variable in
+a containing function, and the back end must take appropriate action.
 
 @menu
 * Function Basics::     Function names, linkage, and so forth.
@@ -1721,6 +1720,7 @@ This macro returns the attributes on the type @var{type}.
 @findex PTRMEM_CST_MEMBER
 @tindex VAR_DECL
 @tindex NEGATE_EXPR
+@tindex ABS_EXPR
 @tindex BIT_NOT_EXPR
 @tindex TRUTH_NOT_EXPR
 @tindex ADDR_EXPR
@@ -1913,6 +1913,23 @@ These nodes represent unary negation of the single operand, for both
 integer and floating-point types.  The type of negation can be
 determined by looking at the type of the expression.
 
+The behavior of this operation on signed arithmetic overflow is
+controlled by the @code{flag_wrapv} and @code{flag_trapv} variables.
+
+@item ABS_EXPR
+These nodes represent the absolute value of the single operand, for
+both integer and floating-point types.  This is typically used to
+implement the @code{abs}, @code{labs} and @code{llabs} builtins for
+integer types, and the @code{fabs}, @code{fabsf} and @code{fabsl}
+builtins for floating point types.  The type of abs operation can
+be determined by looking at the type of the expression.
+
+This node is not used for complex types.  To represent the modulus
+or complex abs of a complex value, use the @code{BUILT_IN_CABS},
+@code{BUILT_IN_CABSF} or @code{BUILT_IN_CABSL} builtins, as used
+to implement the C99 @code{cabs}, @code{cabsf} and @code{cabsl}
+built-in functions.
+
 @item BIT_NOT_EXPR
 These nodes represent bitwise complement, and will always have integral
 type.  The only operand is the value to be complemented.
@@ -2065,6 +2082,9 @@ The result of a @code{TRUNC_DIV_EXPR} is always rounded towards zero.
 The @code{TRUNC_MOD_EXPR} of two operands @code{a} and @code{b} is
 always @code{a - (a/b)*b} where the division is as if computed by a
 @code{TRUNC_DIV_EXPR}.
+
+The behavior of these operations on signed arithmetic overflow is
+controlled by the @code{flag_wrapv} and @code{flag_trapv} variables.
 
 @item ARRAY_REF
 These nodes represent array accesses.  The first operand is the array;

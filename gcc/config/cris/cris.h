@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -115,18 +115,8 @@ extern const char *cris_elinux_stacksize_str;
 /* Also provide canonical vN definitions when user specifies an alias.
    Note that -melf overrides -maout.  */
 
-/* The `-$' is here mostly due to the integrated preprocessor not
-   handling the builtin expansion of "#define __REGISTER_PREFIX__ $"
-   gracefully.  This is slightly redundant although not incorrect.
-   We're quite alone defining REGISTER_PREFIX as "$" so it's unlikely
-   someone will fight for us.  This year in the mountains.
-   Note that for -melinux and -mlinux, command-line -isystem options are
-   emitted both before and after the synthesized one.  We can't remove all
-   of them: a %{<isystem} will only remove the first one and %{<isystem*}
-   will not do TRT.  Those extra occurrences are harmless anyway.  */
 #define CPP_SPEC \
- "-$ -D__CRIS_ABI_version=2\
-  %{mtune=*:-D__tune_%* %{mtune=v*:-D__CRIS_arch_tune=%*}}\
+ "%{mtune=*:-D__tune_%* %{mtune=v*:-D__CRIS_arch_tune=%*}}\
    %{mtune=etrax4:-D__tune_v3 -D__CRIS_arch_tune=3}\
    %{mtune=etrax100:-D__tune_v8 -D__CRIS_arch_tune=8}\
    %{mtune=svinto:-D__tune_v8 -D__CRIS_arch_tune=8}\
@@ -150,8 +140,7 @@ extern const char *cris_elinux_stacksize_str;
 
 /* For the cris-*-elf subtarget.  */
 #define CRIS_CPP_SUBTARGET_SPEC \
- "-D__ELF__\
-  %{mbest-lib-options:\
+ "%{mbest-lib-options:\
    %{!moverride-best-lib-options:\
     %{!march=*:%{!metrax*:%{!mcpu=*:-D__tune_v10 -D__CRIS_arch_tune=10}}}}}"
 
@@ -255,8 +244,15 @@ extern const char *cris_elinux_stacksize_str;
 
 /* Node: Run-time Target */
 
-/* Only keep the non-varying ones here.  */
-#define CPP_PREDEFINES	"-Dcris -DCRIS -DGNU_CRIS"
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("cris");		\
+      builtin_define_std ("CRIS");		\
+      builtin_define_std ("GNU_CRIS");		\
+      builtin_define ("__CRIS_ABI_version=2");	\
+    }						\
+  while (0)
 
 /* This needs to be at least 32 bits.  */
 extern int target_flags;
@@ -423,15 +419,15 @@ extern int target_flags;
 #define TARGET_HAS_MUL_INSNS (cris_cpu_version >= CRIS_CPU_NG)
 
 #define TARGET_OPTIONS							\
- {{"cpu=", &cris_cpu_str, ""},						\
+ {{"cpu=", &cris_cpu_str, "", 0},					\
   {"arch=", &cris_cpu_str,						\
-   N_("Generate code for the specified chip or CPU version")},		\
+   N_("Generate code for the specified chip or CPU version"), 0},	\
   {"tune=", &cris_tune_str,						\
-   N_("Tune alignment for the specified chip or CPU version")},		\
+   N_("Tune alignment for the specified chip or CPU version"), 0},	\
   {"max-stackframe=", &cris_max_stackframe_str,				\
-   N_("Warn when a stackframe is larger than the specified size")},	\
+   N_("Warn when a stackframe is larger than the specified size"), 0},	\
   CRIS_SUBTARGET_LONG_OPTIONS						\
-  {"ax-stackframe=", &cris_max_stackframe_str, ""}}
+  {"ax-stackframe=", &cris_max_stackframe_str, "", 0} }
 
 #define CRIS_SUBTARGET_LONG_OPTIONS
 
@@ -956,9 +952,8 @@ enum reg_class {NO_REGS, ALL_REGS, LIM_REG_CLASSES};
 struct cum_args {int regs;};
 
 /* The regs member is an integer, the number of arguments got into
-   registers so far, and lib is nonzero if init_cumulative_args was
-   found to generate a call to a library function.  */
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT)	  \
+   registers so far.  */
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL)	  \
  ((CUM).regs = 0)
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)		\
@@ -1102,12 +1097,6 @@ struct cum_args {int regs;};
 
 /* Node: Library Calls */
 
-#define MULSI3_LIBCALL "__Mul"
-#define DIVSI3_LIBCALL "__Div"
-#define UDIVSI3_LIBCALL "__Udiv"
-#define MODSI3_LIBCALL "__Mod"
-#define UMODSI3_LIBCALL "__Umod"
-
 /* If you change this, you have to check whatever libraries and systems
    that use it.  */
 #define TARGET_EDOM 33
@@ -1246,8 +1235,7 @@ struct cum_args {int regs;};
    FIXME: Check and adjust for gcc-2.9x.  */
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN) {}
 
-/* Functionality import from EGCS.
-   Kludge to solve Axis-990219: Work around imperfection in
+/* Kludge to solve Axis-990219: Work around imperfection in
    reload_load_address1:
     (plus (sign_extend (mem:qi (reg))) (reg))
    should be reloaded as (plus (reg) (reg)), not
@@ -1255,9 +1243,8 @@ struct cum_args {int regs;};
    There are no checks that reload_load_address_1 "reloads"
    addresses correctly, so invalidness is not caught or
    corrected.
-    When the right thing happens, the "something_reloaded" kludge can
-   be removed.  The right thing does not appear to happen for
-   EGCS CVS as of this date (above).  */
+    When the right thing happens in reload, the kludge can
+   be removed; still not as of 2003-02-27.  */
 
 #define LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND_LEVELS, WIN) \
   do									\
@@ -1336,75 +1323,6 @@ struct cum_args {int regs;};
 
 /* Node: Costs */
 
-#define CONST_COSTS(RTX, CODE, OUTER_CODE)				\
- case CONST_INT:							\
-   if (INTVAL (RTX) == 0)						\
-     return 0;								\
-   if (INTVAL (RTX) < 32 && INTVAL (RTX) >= -32)			\
-     return 1;								\
-   /* Eight or 16 bits are a word and cycle more expensive.  */		\
-   if (INTVAL (RTX) <= 32767 && INTVAL (RTX) >= -32768)			\
-     return 2;								\
-   /* A 32 bit constant (or very seldom, unsigned 16 bits) costs	\
-      another word.  FIXME: This isn't linear to 16 bits.  */		\
-   return 4;								\
- case LABEL_REF:							\
-   return 6;								\
- case CONST:								\
- case SYMBOL_REF:							\
-   /* For PIC, we need a prefix (if it isn't already there),		\
-      and the PIC register.  For a global PIC symbol, we also need a	\
-      read of the GOT.  */						\
-   return								\
-     flag_pic ? (cris_got_symbol (RTX) ? (2 + 4 + 6) : (2 + 6)) : 6;	\
- case CONST_DOUBLE:							\
-   if (RTX != CONST0_RTX (GET_MODE (RTX) == VOIDmode ? DImode		\
-			  : GET_MODE (RTX)))				\
-     return 12;								\
-   /* Make 0.0 cheap, else test-insns will not be used.  */		\
-   return 0;
-
-#define RTX_COSTS(X, CODE, OUTER_CODE)					\
- case MULT:								\
-   /* Identify values that are no powers of two.  Powers of 2 are	\
-      taken care of already and those values should not be		\
-      changed.  */							\
-   if (GET_CODE (XEXP (X, 1)) != CONST_INT				\
-       || exact_log2 (INTVAL (XEXP (X, 1)) < 0))			\
-     {									\
-	/* If we have a multiply insn, then the cost is between		\
-	   1 and 2 "fast" instructions.  */				\
-	if (TARGET_HAS_MUL_INSNS)					\
-	  return COSTS_N_INSNS (1) + COSTS_N_INSNS (1) /2;		\
-									\
-	/* Estimate as 4 + 4 * #ofbits.  */				\
-	return COSTS_N_INSNS (132);					\
-     }									\
-     break;								\
- case UDIV:								\
- case MOD:								\
- case UMOD:								\
- case DIV:								\
-   if (GET_CODE (XEXP (X, 1)) != CONST_INT				\
-       || exact_log2 (INTVAL (XEXP (X, 1)) < 0))			\
-     /* Estimate this as 4 + 8 * #of bits.  */				\
-     return COSTS_N_INSNS (260);					\
-									\
- case AND:								\
-   if (GET_CODE (XEXP (X, 1)) == CONST_INT				\
-       /* Two constants may actually happen before optimization.  */	\
-       && GET_CODE (XEXP (X, 0)) != CONST_INT				\
-       && !CONST_OK_FOR_LETTER_P (INTVAL (XEXP (X, 1)), 'I'))		\
-     return								\
-       rtx_cost (XEXP (X, 0), OUTER_CODE) + 2				\
-       + 2 * GET_MODE_NUNITS (GET_MODE (XEXP (X, 0)));			\
-									\
- case ZERO_EXTEND: case SIGN_EXTEND:					\
-   /* Same as move. If embedded in other insn, cost is 0.  */		\
-   return rtx_cost (XEXP (X, 0), OUTER_CODE);
-
-#define ADDRESS_COST(X) cris_address_cost (X)
-
 /* FIXME: Need to define REGISTER_MOVE_COST when more register classes are
    introduced.  */
 
@@ -1468,28 +1386,6 @@ call_ ## FUNC (void)						\
 
 /* Node: File Framework */
 
-/* NO_APP *only at file start* means faster assembly.
-   It also means comments are not allowed.
-   In some cases comments will be output for debugging purposes.
-   Make sure they are allowed then.  */
-/* Override previous definitions (elfos.h).  */
-#undef ASM_FILE_START
-#define ASM_FILE_START(STREAM)					\
-  do								\
-    {								\
-      if (TARGET_PDEBUG || flag_print_asm_name)			\
-	fprintf ((STREAM), "#APP\n");				\
-      else							\
-	fprintf ((STREAM), "#NO_APP\n");			\
-      if (TARGET_ELF)						\
-	output_file_directive ((STREAM), main_input_filename);	\
-    }								\
-  while (0)
-
-/* Override previous definitions (elfos.h).  */
-#undef ASM_FILE_END
-#define ASM_FILE_END(STREAM)
-
 /* We don't want an .ident for gcc.  To avoid that but still support
    #ident, we override ASM_OUTPUT_IDENT and, since the gcc .ident is its
    only use besides ASM_OUTPUT_IDENT, undef IDENT_ASM_OP from elfos.h.  */
@@ -1542,7 +1438,7 @@ call_ ## FUNC (void)						\
 	    }								\
 	  fprintf ((FILE), "%s", COMMON_ASM_OP);			\
 	  assemble_name ((FILE), (NAME));				\
-	  fprintf ((FILE), ",%u,%u\n", (SIZE), align_);			\
+	  fprintf ((FILE), ",%u,%u\n", (int)(SIZE), align_);		\
 	}								\
       else								\
 	{								\
@@ -1553,7 +1449,7 @@ call_ ## FUNC (void)						\
 	  fputs ("\t.lcomm ", (FILE));					\
 	  assemble_name ((FILE), (NAME));				\
 	  fprintf ((FILE), ",%u\n",					\
-		   ((SIZE) + (align_ - 1)) & ~(align_ - 1));		\
+		   ((int)(SIZE) + (align_ - 1)) & ~(align_ - 1));	\
 	}								\
     }									\
   while (0)
@@ -1575,32 +1471,10 @@ call_ ## FUNC (void)						\
 
 #define SUPPORTS_WEAK 1
 
-/* FIXME: This macro isn't documented, but this would probably be an
-   appropriate location.  It's only used in crtstuff.c, else we'd have to
-   handle (to #undef or ignore it) in a.out.  */
-#define HAVE_GAS_HIDDEN 1
-
-#undef  ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM)	\
-  do							\
-    {							\
-      asm_fprintf (FILE, "%L%s%d:\n", PREFIX, NUM);	\
-    }							\
-  while (0)
-
 /* Remove any previous definition (elfos.h).  */
 #undef ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)	\
   sprintf (LABEL, "*%s%s%ld", LOCAL_LABEL_PREFIX, PREFIX, (long) NUM)
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)		\
-  do								\
-    {								\
-      (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10);	\
-      sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO));		\
-    }								\
-  while (0)
-
 
 /* Node: Initialization */
 /* (no definitions) */
@@ -1733,6 +1607,8 @@ call_ ## FUNC (void)						\
   {PLUS, IOR, AND, UMIN}},				\
  {"cris_operand_extend_operator",			\
   {PLUS, MINUS, UMIN}},					\
+ {"cris_additive_operand_extend_operator",		\
+  {PLUS, MINUS}},					\
  {"cris_extend_operator",				\
   {ZERO_EXTEND, SIGN_EXTEND}},				\
  {"cris_plus_or_bound_operator",			\
@@ -1766,7 +1642,7 @@ call_ ## FUNC (void)						\
 #define CASE_VECTOR_PC_RELATIVE 1
 
 /* FIXME: Investigate CASE_VECTOR_SHORTEN_MODE to make sure HImode is not
-   used when broken-.word could possibly fail (plus test-case).  */
+   used when broken-.word could possibly fail (plus testcase).  */
 
 #define FIXUNS_TRUNC_LIKE_FIX_TRUNC
 
@@ -1778,8 +1654,6 @@ call_ ## FUNC (void)						\
 /* Maybe SHIFT_COUNT_TRUNCATED is safe to define?  FIXME: Check later.  */
 
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
-
-#define STORE_FLAG_VALUE 1
 
 #define Pmode SImode
 

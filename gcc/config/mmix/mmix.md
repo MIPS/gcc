@@ -1,5 +1,5 @@
 ;; GCC machine description for MMIX
-;; Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+;; Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 ;; Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
 ;; This file is part of GCC.
@@ -130,6 +130,55 @@
    LDO %0,%1
    STOU %1,%0
    %r0%I1")
+
+;; We need to be able to move around the values used as condition codes.
+;; First spotted as reported in
+;; <URL:http://gcc.gnu.org/ml/gcc-bugs/2003-03/msg00008.html> due to
+;; changes in loop optimization.  The file machmode.def says they're of
+;; size 4 QI.  Valid bit-patterns correspond to integers -1, 0 and 1, so
+;; we treat them as signed entities; see mmix-modes.def.  The following
+;; expanders should cover all MODE_CC modes, and expand for this pattern.
+(define_insn "*movcc_expanded"
+  [(set (match_operand 0 "nonimmediate_operand" "=r,x,r,r,m")
+	(match_operand 1 "nonimmediate_operand"  "r,r,x,m,r"))]
+  "GET_MODE_CLASS (GET_MODE (operands[0])) == MODE_CC
+   && GET_MODE_CLASS (GET_MODE (operands[1])) == MODE_CC"
+  "@
+   SET %0,%1
+   PUT %0,%1
+   GET %0,%1
+   LDT %0,%1
+   STT %1,%0")
+
+(define_expand "movcc"
+  [(set (match_operand:CC 0 "nonimmediate_operand" "")
+	(match_operand:CC 1 "nonimmediate_operand" ""))]
+  ""
+  "")
+
+(define_expand "movcc_uns"
+  [(set (match_operand:CC_UNS 0 "nonimmediate_operand" "")
+	(match_operand:CC_UNS 1 "nonimmediate_operand" ""))]
+  ""
+  "")
+
+(define_expand "movcc_fp"
+  [(set (match_operand:CC_FP 0 "nonimmediate_operand" "")
+	(match_operand:CC_FP 1 "nonimmediate_operand" ""))]
+  ""
+  "")
+
+(define_expand "movcc_fpeq"
+  [(set (match_operand:CC_FPEQ 0 "nonimmediate_operand" "")
+	(match_operand:CC_FPEQ 1 "nonimmediate_operand" ""))]
+  ""
+  "")
+
+(define_expand "movcc_fun"
+  [(set (match_operand:CC_FUN 0 "nonimmediate_operand" "")
+	(match_operand:CC_FUN 1 "nonimmediate_operand" ""))]
+  ""
+  "")
 
 (define_insn "adddi3"
   [(set (match_operand:DI 0 "register_operand"	"=r,r,r")
@@ -1045,7 +1094,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
 
 ;; Don't use 'p' here.  A 'p' must stand first in constraints, or reload
 ;; messes up, not registering the address for reload.  Several C++
-;; test-cases, including g++.brendan/crash40.C.  FIXME: This is arguably a
+;; testcases, including g++.brendan/crash40.C.  FIXME: This is arguably a
 ;; bug in gcc.  Note line ~2612 in reload.c, that does things on the
 ;; condition <<else if (constraints[i][0] == 'p')>> and the comment on
 ;; ~3017 that says:

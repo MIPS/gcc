@@ -129,9 +129,9 @@ extern const char *mmix_cc1_ignored_option;
 
 #define TARGET_OPTIONS					\
    {{"set-program-start=", &mmix_cc1_ignored_option,	\
-  N_("Set start-address of the program") },		\
+  N_("Set start-address of the program"), 0},		\
     {"set-data-start=", &mmix_cc1_ignored_option,	\
-  N_("Set start-address of data")}}
+  N_("Set start-address of data"), 0} }
 
 /* FIXME: There's no provision for profiling here.  */
 #define STARTFILE_SPEC  \
@@ -169,7 +169,7 @@ extern int target_flags;
    address goes in a global register.  When addressing, it's more like
    "base address plus offset", with the offset being 0..255 from the base,
    which itself can be a symbol plus an offset.  The effect is like having
-   a constant pool in global registers, code offseting from those
+   a constant pool in global registers, code offsetting from those
    registers (automatically causing a request for a suitable constant base
    address register) without having to know the specific register or the
    specific offset.  The setback is that there's a limited number of
@@ -738,7 +738,7 @@ enum reg_class
    replace with a big comment.
    The definition needs to match or be a subset of
    FUNCTION_ARG_PASS_BY_REFERENCE, since not all callers check that before
-   usage.  Watch lots of C++ test-cases fail if set to 1, for example
+   usage.  Watch lots of C++ testcases fail if set to 1, for example
    g++.dg/init/byval1.C.  */
 #define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) \
  mmix_function_arg_pass_by_reference (&(CUM), MODE, TYPE, NAMED)
@@ -871,7 +871,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
    comparisons with -1 to LT and GE respectively, and LT, LTU, GE or GEU
    comparisons with 256 to 255 and LE, LEU, GT and GTU has been
    ineffective; the code path for performing the changes did not trig for
-   neither the GCC test-suite nor ghostscript-6.52 nor Knuth's mmix.tar.gz
+   neither the GCC testsuite nor ghostscript-6.52 nor Knuth's mmix.tar.gz
    itself (core GCC functionality supposedly handling it) with sources
    from 2002-06-06.  */
 
@@ -880,17 +880,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
 
 /* Node: Costs */
-
-/* This one takes on both the RTX_COSTS and CONST_COSTS tasks.  */
-#define DEFAULT_RTX_COSTS(X, CODE, OUTER_CODE)			\
- {								\
-   int mmix_rtx_cost;						\
-   if (mmix_rtx_cost_recalculated (X, CODE, OUTER_CODE, 	\
-				   &mmix_rtx_cost))		\
-     return mmix_rtx_cost;					\
- }
-
-#define ADDRESS_COST(ADDRESS) mmix_address_cost (ADDRESS)
 
 /* The special registers can only move to and from general regs, and we
    need to check that their constraints match, so say 3 for them.  */
@@ -930,12 +919,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
 /* Node: File Framework */
 
-#define ASM_FILE_START(STREAM) \
- mmix_asm_file_start (STREAM)
-
-#define ASM_FILE_END(STREAM) \
- mmix_asm_file_end (STREAM)
-
 /* While any other punctuation character but ";" would do, we prefer "%"
    or "!"; "!" is an unary operator and so will not be mistakenly included
    in correctly formed expressions.  The hash character adds mass; catches
@@ -953,7 +936,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #define OUTPUT_QUOTED_STRING(STREAM, STRING) \
  mmix_output_quoted_string (STREAM, STRING, strlen (STRING))
 
-#define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE) \
+#define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE, COUNTER) \
  mmix_asm_output_source_line  (STREAM, LINE)
 
 #define TARGET_ASM_NAMED_SECTION default_elf_asm_named_section
@@ -992,9 +975,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #define ASM_OUTPUT_LABELREF(STREAM, NAME) \
  mmix_asm_output_labelref (STREAM, NAME)
 
-#define ASM_OUTPUT_INTERNAL_LABEL(STREAM, PREFIX, NUM) \
- mmix_asm_output_internal_label (STREAM, PREFIX, NUM)
-
 /* We insert a ":" to disambiguate against user symbols like L5.  */
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM) \
  sprintf (LABEL, "*%s:%ld", PREFIX, (long)(NUM))
@@ -1003,9 +983,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
    ":" is seen in the object file; we don't really want that mmixal
    feature visible there.  We don't want the default, which uses a dot;
    that'd be incompatible with mmixal.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)		\
- ((OUTPUT) = (char *) alloca (strlen ((NAME)) + 2 + 10),	\
-  sprintf ((OUTPUT), "%s::%d", (NAME), (LABELNO)))
+#define ASM_PN_FORMAT "%s::%lu"
 
 #define ASM_OUTPUT_DEF(STREAM, NAME, VALUE) \
  mmix_asm_output_def (STREAM, NAME, VALUE)
@@ -1163,11 +1141,8 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
-/* We have a choice here too.  */
-#if 0
-/* FIXME:  Revisit, we don't have scc expanders yet.  */
-#define STORE_FLAG_VALUE 1
-#endif
+/* ??? MMIX allows a choice of STORE_FLAG_VALUE.  Revisit later,
+   we don't have scc expanders yet.  */
 
 #define Pmode DImode
 
@@ -1175,16 +1150,12 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
 #define NO_IMPLICIT_EXTERN_C
 
-#define HANDLE_SYSV_PRAGMA
+#define HANDLE_SYSV_PRAGMA 1
 
 /* These are checked.  */
 #define DOLLARS_IN_IDENTIFIERS 0
 #define NO_DOLLAR_IN_LABEL
 #define NO_DOT_IN_LABEL
-
-/* Calculate the highest used supposed saved stack register.  */
-#define MACHINE_DEPENDENT_REORG(INSN) \
- mmix_machine_dependent_reorg (INSN)
 
 #endif /* GCC_MMIX_H */
 /*

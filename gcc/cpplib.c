@@ -1,6 +1,6 @@
 /* CPP Library. (Directive handling.)
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -21,7 +21,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-
 #include "cpplib.h"
 #include "cpphash.h"
 #include "obstack.h"
@@ -43,11 +42,11 @@ struct if_stack
   const cpp_hashnode *mi_cmacro;/* macro name for #ifndef around entire file */
   bool skip_elses;		/* Can future #else / #elif be skipped?  */
   bool was_skipping;		/* If were skipping on entry.  */
-  int type;			/* Most recent conditional, for diagnostics.  */
+  int type;			/* Most recent conditional for diagnostics.  */
 };
 
 /* Contains a registered pragma or pragma namespace.  */
-typedef void (*pragma_cb) PARAMS ((cpp_reader *));
+typedef void (*pragma_cb) (cpp_reader *);
 struct pragma_entry
 {
   struct pragma_entry *next;
@@ -80,7 +79,7 @@ struct pragma_entry
 #define EXPAND		(1 << 4)
 
 /* Defines one #-directive, including how to handle it.  */
-typedef void (*directive_handler) PARAMS ((cpp_reader *));
+typedef void (*directive_handler) (cpp_reader *);
 typedef struct directive directive;
 struct directive
 {
@@ -93,46 +92,44 @@ struct directive
 
 /* Forward declarations.  */
 
-static void skip_rest_of_line	PARAMS ((cpp_reader *));
-static void check_eol		PARAMS ((cpp_reader *));
-static void start_directive	PARAMS ((cpp_reader *));
-static void prepare_directive_trad PARAMS ((cpp_reader *));
-static void end_directive	PARAMS ((cpp_reader *, int));
-static void directive_diagnostics
-	PARAMS ((cpp_reader *, const directive *, int));
-static void run_directive	PARAMS ((cpp_reader *, int,
-					 const char *, size_t));
-static const cpp_token *glue_header_name PARAMS ((cpp_reader *));
-static const cpp_token *parse_include PARAMS ((cpp_reader *));
-static void push_conditional	PARAMS ((cpp_reader *, int, int,
-					 const cpp_hashnode *));
-static unsigned int read_flag	PARAMS ((cpp_reader *, unsigned int));
-static uchar *dequote_string	PARAMS ((cpp_reader *, const uchar *,
-					 unsigned int));
-static int  strtoul_for_line	PARAMS ((const uchar *, unsigned int,
-					 unsigned long *));
-static void do_diagnostic	PARAMS ((cpp_reader *, int, int));
-static cpp_hashnode *lex_macro_node	PARAMS ((cpp_reader *));
-static void do_include_common	PARAMS ((cpp_reader *, enum include_type));
-static struct pragma_entry *lookup_pragma_entry
-  PARAMS ((struct pragma_entry *, const cpp_hashnode *pragma));
-static struct pragma_entry *insert_pragma_entry
-  PARAMS ((cpp_reader *, struct pragma_entry **, const cpp_hashnode *,
-	   pragma_cb));
-static void do_pragma_once	PARAMS ((cpp_reader *));
-static void do_pragma_poison	PARAMS ((cpp_reader *));
-static void do_pragma_system_header	PARAMS ((cpp_reader *));
-static void do_pragma_dependency	PARAMS ((cpp_reader *));
-static void do_linemarker		PARAMS ((cpp_reader *));
-static const cpp_token *get_token_no_padding PARAMS ((cpp_reader *));
-static const cpp_token *get__Pragma_string PARAMS ((cpp_reader *));
-static void destringize_and_run PARAMS ((cpp_reader *, const cpp_string *));
-static int parse_answer PARAMS ((cpp_reader *, struct answer **, int));
-static cpp_hashnode *parse_assertion PARAMS ((cpp_reader *, struct answer **,
-					      int));
-static struct answer ** find_answer PARAMS ((cpp_hashnode *,
-					     const struct answer *));
-static void handle_assertion	PARAMS ((cpp_reader *, const char *, int));
+static void skip_rest_of_line (cpp_reader *);
+static void check_eol (cpp_reader *);
+static void start_directive (cpp_reader *);
+static void prepare_directive_trad (cpp_reader *);
+static void end_directive (cpp_reader *, int);
+static void directive_diagnostics (cpp_reader *, const directive *, int);
+static void run_directive (cpp_reader *, int, const char *, size_t);
+static char *glue_header_name (cpp_reader *);
+static const char *parse_include (cpp_reader *, int *);
+static void push_conditional (cpp_reader *, int, int, const cpp_hashnode *);
+static unsigned int read_flag (cpp_reader *, unsigned int);
+static int strtoul_for_line (const uchar *, unsigned int, unsigned long *);
+static void do_diagnostic (cpp_reader *, int, int);
+static cpp_hashnode *lex_macro_node (cpp_reader *);
+static int undefine_macros (cpp_reader *, cpp_hashnode *, void *);
+static void do_include_common (cpp_reader *, enum include_type);
+static struct pragma_entry *lookup_pragma_entry (struct pragma_entry *,
+                                                 const cpp_hashnode *);
+static struct pragma_entry *insert_pragma_entry (cpp_reader *,
+                                                 struct pragma_entry **,
+                                                 const cpp_hashnode *,
+                                                 pragma_cb);
+static int count_registered_pragmas (struct pragma_entry *);
+static char ** save_registered_pragmas (struct pragma_entry *, char **);
+static char ** restore_registered_pragmas (cpp_reader *, struct pragma_entry *,
+                                           char **);
+static void do_pragma_once (cpp_reader *);
+static void do_pragma_poison (cpp_reader *);
+static void do_pragma_system_header (cpp_reader *);
+static void do_pragma_dependency (cpp_reader *);
+static void do_linemarker (cpp_reader *);
+static const cpp_token *get_token_no_padding (cpp_reader *);
+static const cpp_token *get__Pragma_string (cpp_reader *);
+static void destringize_and_run (cpp_reader *, const cpp_string *);
+static int parse_answer (cpp_reader *, struct answer **, int);
+static cpp_hashnode *parse_assertion (cpp_reader *, struct answer **, int);
+static struct answer ** find_answer (cpp_hashnode *, const struct answer *);
+static void handle_assertion (cpp_reader *, const char *, int);
 
 /* This is the table of directive handlers.  It is ordered by
    frequency of occurrence; the numbers at the end are directive
@@ -167,8 +164,7 @@ D(sccs,		T_SCCS,		EXTENSION, 0)		   /* 0 SVR4? */
 /* Use the table to generate a series of prototypes, an enum for the
    directive names, and an array of directive handlers.  */
 
-/* Don't invoke CONCAT2 with any whitespace or K&R cc will fail.  */
-#define D(name, t, o, f) static void CONCAT2(do_,name) PARAMS ((cpp_reader *));
+#define D(name, t, o, f) static void do_##name (cpp_reader *);
 DIRECTIVE_TABLE
 #undef D
 
@@ -180,10 +176,9 @@ enum
 };
 #undef D
 
-/* Don't invoke CONCAT2 with any whitespace or K&R cc will fail.  */
 #define D(name, t, origin, flags) \
-{ CONCAT2(do_,name), (const uchar *) STRINGX(name), \
-  sizeof STRINGX(name) - 1, origin, flags },
+{ do_##name, (const uchar *) #name, \
+  sizeof #name - 1, origin, flags },
 static const directive dtable[] =
 {
 DIRECTIVE_TABLE
@@ -203,8 +198,7 @@ static const directive linemarker_dir =
 
 /* Skip any remaining tokens in a directive.  */
 static void
-skip_rest_of_line (pfile)
-     cpp_reader *pfile;
+skip_rest_of_line (cpp_reader *pfile)
 {
   /* Discard all stacked contexts.  */
   while (pfile->context->prev)
@@ -218,8 +212,7 @@ skip_rest_of_line (pfile)
 
 /* Ensure there are no stray tokens at the end of a directive.  */
 static void
-check_eol (pfile)
-     cpp_reader *pfile;
+check_eol (cpp_reader *pfile)
 {
   if (! SEEN_EOL () && _cpp_lex_token (pfile)->type != CPP_EOF)
     cpp_error (pfile, DL_PEDWARN, "extra tokens at end of #%s directive",
@@ -228,8 +221,7 @@ check_eol (pfile)
 
 /* Called when entering a directive, _Pragma or command-line directive.  */
 static void
-start_directive (pfile)
-     cpp_reader *pfile;
+start_directive (cpp_reader *pfile)
 {
   /* Setup in-directive state.  */
   pfile->state.in_directive = 1;
@@ -241,9 +233,7 @@ start_directive (pfile)
 
 /* Called when leaving a directive, _Pragma or command-line directive.  */
 static void
-end_directive (pfile, skip_line)
-     cpp_reader *pfile;
-     int skip_line;
+end_directive (cpp_reader *pfile, int skip_line)
 {
   if (CPP_OPTION (pfile, traditional))
     {
@@ -274,8 +264,7 @@ end_directive (pfile, skip_line)
 
 /* Prepare to handle the directive in pfile->directive.  */
 static void
-prepare_directive_trad (pfile)
-     cpp_reader *pfile;
+prepare_directive_trad (cpp_reader *pfile)
 {
   if (pfile->directive != &dtable[T_DEFINE])
     {
@@ -288,7 +277,7 @@ prepare_directive_trad (pfile)
 				    || pfile->directive == &dtable[T_ELIF]);
       if (no_expand)
 	pfile->state.prevent_expansion++;
-      _cpp_read_logical_line_trad (pfile);
+      _cpp_scan_out_logical_line (pfile, NULL);
       if (no_expand)
 	pfile->state.prevent_expansion--;
       pfile->state.skipping = was_skipping;
@@ -303,10 +292,7 @@ prepare_directive_trad (pfile)
 /* Output diagnostics for a directive DIR.  INDENTED is nonzero if
    the '#' was indented.  */
 static void
-directive_diagnostics (pfile, dir, indented)
-     cpp_reader *pfile;
-     const directive *dir;
-     int indented;
+directive_diagnostics (cpp_reader *pfile, const directive *dir, int indented)
 {
   /* Issue -pedantic warnings for extensions.  */
   if (CPP_PEDANTIC (pfile)
@@ -342,9 +328,7 @@ directive_diagnostics (pfile, dir, indented)
    nonzero if the line of tokens has been handled, zero if we should
    continue processing the line.  */
 int
-_cpp_handle_directive (pfile, indented)
-     cpp_reader *pfile;
-     int indented;
+_cpp_handle_directive (cpp_reader *pfile, int indented)
 {
   const directive *dir = 0;
   const cpp_token *dname;
@@ -364,8 +348,8 @@ _cpp_handle_directive (pfile, indented)
 
   if (dname->type == CPP_NAME)
     {
-      if (dname->val.node->directive_index)
-	dir = &dtable[dname->val.node->directive_index - 1];
+      if (dname->val.node->is_directive)
+	dir = &dtable[dname->val.node->directive_index];
     }
   /* We do not recognize the # followed by a number extension in
      assembler code.  */
@@ -407,6 +391,7 @@ _cpp_handle_directive (pfile, indented)
 	     skipping or not, we should lex angle-bracketed headers
 	     correctly, and maybe output some diagnostics.  */
 	  pfile->state.angled_headers = dir->flags & INCL;
+	  pfile->state.directive_wants_padding = dir->flags & INCL;
 	  if (! CPP_OPTION (pfile, preprocessed))
 	    directive_diagnostics (pfile, dir, indented);
 	  if (pfile->state.skipping && !(dir->flags & COND))
@@ -433,7 +418,7 @@ _cpp_handle_directive (pfile, indented)
     prepare_directive_trad (pfile);
 
   if (dir)
-    (*pfile->directive->handler) (pfile);
+    pfile->directive->handler (pfile);
   else if (skip == 0)
     _cpp_backup_tokens (pfile, 1);
 
@@ -443,43 +428,40 @@ _cpp_handle_directive (pfile, indented)
       /* Restore state when within macro args.  */
       pfile->state.parsing_args = 2;
       pfile->state.prevent_expansion = 1;
-      pfile->buffer->saved_flags |= PREV_WHITE;
     }
   return skip;
 }
 
 /* Directive handler wrapper used by the command line option
-   processor.  */
+   processor.  BUF is \n terminated.  */
 static void
-run_directive (pfile, dir_no, buf, count)
-     cpp_reader *pfile;
-     int dir_no;
-     const char *buf;
-     size_t count;
+run_directive (cpp_reader *pfile, int dir_no, const char *buf, size_t count)
 {
   cpp_push_buffer (pfile, (const uchar *) buf, count,
-		   /* from_stage3 */ true, 1);
+		   /* from_stage3 */ true);
   /* Disgusting hack.  */
   if (dir_no == T_PRAGMA)
-    pfile->buffer->inc = pfile->buffer->prev->inc;
+    pfile->buffer->file = pfile->buffer->prev->file;
   start_directive (pfile);
-  /* We don't want a leading # to be interpreted as a directive.  */
-  pfile->buffer->saved_flags = 0;
+
+  /* This is a short-term fix to prevent a leading '#' being
+     interpreted as a directive.  */
+  _cpp_clean_line (pfile);
+
   pfile->directive = &dtable[dir_no];
   if (CPP_OPTION (pfile, traditional))
     prepare_directive_trad (pfile);
-  (void) (*pfile->directive->handler) (pfile);
+  pfile->directive->handler (pfile);
   end_directive (pfile, 1);
   if (dir_no == T_PRAGMA)
-    pfile->buffer->inc = NULL;
+    pfile->buffer->file = NULL;
   _cpp_pop_buffer (pfile);
 }
 
 /* Checks for validity the macro name in #define, #undef, #ifdef and
    #ifndef directives.  */
 static cpp_hashnode *
-lex_macro_node (pfile)
-     cpp_reader *pfile;
+lex_macro_node (cpp_reader *pfile)
 {
   const cpp_token *token = _cpp_lex_token (pfile);
 
@@ -515,8 +497,7 @@ lex_macro_node (pfile)
 
 /* Process a #define directive.  Most work is done in cppmacro.c.  */
 static void
-do_define (pfile)
-     cpp_reader *pfile;
+do_define (cpp_reader *pfile)
 {
   cpp_hashnode *node = lex_macro_node (pfile);
 
@@ -529,14 +510,13 @@ do_define (pfile)
 
       if (_cpp_create_definition (pfile, node))
 	if (pfile->cb.define)
-	  (*pfile->cb.define) (pfile, pfile->directive_line, node);
+	  pfile->cb.define (pfile, pfile->directive_line, node);
     }
 }
 
 /* Handle #undef.  Mark the identifier NT_VOID in the hash table.  */
 static void
-do_undef (pfile)
-     cpp_reader *pfile;
+do_undef (cpp_reader *pfile)
 {
   cpp_hashnode *node = lex_macro_node (pfile);
 
@@ -545,7 +525,7 @@ do_undef (pfile)
   if (node && node->type == NT_MACRO)
     {
       if (pfile->cb.undef)
-	(*pfile->cb.undef) (pfile, pfile->directive_line, node);
+	pfile->cb.undef (pfile, pfile->directive_line, node);
 
       if (node->flags & NODE_WARN)
 	cpp_error (pfile, DL_WARNING, "undefining \"%s\"", NODE_NAME (node));
@@ -558,159 +538,184 @@ do_undef (pfile)
   check_eol (pfile);
 }
 
+/* Undefine a single macro/assertion/whatever.  */
+
+static int
+undefine_macros (cpp_reader *pfile, cpp_hashnode *h, 
+		 void *data_p ATTRIBUTE_UNUSED)
+{
+  switch (h->type)
+    {
+    case NT_VOID:
+      break;
+      
+    case NT_MACRO:
+      if (pfile->cb.undef)
+        (*pfile->cb.undef) (pfile, pfile->directive_line, h);
+
+      if (CPP_OPTION (pfile, warn_unused_macros))
+        _cpp_warn_if_unused_macro (pfile, h, NULL);
+
+      /* And fall through....  */
+    case NT_ASSERTION:
+      _cpp_free_definition (h);
+      break;
+
+    default:
+      abort ();
+    }
+  h->flags &= ~NODE_POISONED;
+  return 1;
+}
+
+/* Undefine all macros and assertions.  */
+
+void
+cpp_undef_all (cpp_reader *pfile)
+{
+  cpp_forall_identifiers (pfile, undefine_macros, NULL);
+}
+
+
 /* Helper routine used by parse_include.  Reinterpret the current line
    as an h-char-sequence (< ... >); we are looking at the first token
-   after the <.  Returns the header as a token, or NULL on failure.  */
-static const cpp_token *
-glue_header_name (pfile)
-     cpp_reader *pfile;
+   after the <.  Returns a malloced filename.  */
+static char *
+glue_header_name (cpp_reader *pfile)
 {
-  cpp_token *header = NULL;
   const cpp_token *token;
-  unsigned char *buffer;
+  char *buffer;
   size_t len, total_len = 0, capacity = 1024;
 
   /* To avoid lexed tokens overwriting our glued name, we can only
      allocate from the string pool once we've lexed everything.  */
-  buffer = (unsigned char *) xmalloc (capacity);
+  buffer = xmalloc (capacity);
   for (;;)
     {
-      token = cpp_get_token (pfile);
+      token = get_token_no_padding (pfile);
 
-      if (token->type == CPP_GREATER || token->type == CPP_EOF)
+      if (token->type == CPP_GREATER)
 	break;
+      if (token->type == CPP_EOF)
+	{
+	  cpp_error (pfile, DL_ERROR, "missing terminating > character");
+	  break;
+	}
 
-      len = cpp_token_len (token);
+      len = cpp_token_len (token) + 2; /* Leading space, terminating \0.  */
       if (total_len + len > capacity)
 	{
 	  capacity = (capacity + len) * 2;
-	  buffer = (unsigned char *) xrealloc (buffer, capacity);
+	  buffer = xrealloc (buffer, capacity);
 	}
 
       if (token->flags & PREV_WHITE)
 	buffer[total_len++] = ' ';
 
-      total_len = cpp_spell_token (pfile, token, &buffer[total_len]) - buffer;
+      total_len = (cpp_spell_token (pfile, token, (uchar *) &buffer[total_len])
+		   - (uchar *) buffer);
     }
 
-  if (token->type == CPP_EOF)
-    cpp_error (pfile, DL_ERROR, "missing terminating > character");
-  else
-    {
-      unsigned char *token_mem = _cpp_unaligned_alloc (pfile, total_len + 1);
-      memcpy (token_mem, buffer, total_len);
-      token_mem[total_len] = '\0';
-
-      header = _cpp_temp_token (pfile);
-      header->type = CPP_HEADER_NAME;
-      header->flags = 0;
-      header->val.str.len = total_len;
-      header->val.str.text = token_mem;
-    }
-
-  free ((PTR) buffer);
-  return header;
+  buffer[total_len] = '\0';
+  return buffer;
 }
 
-/* Returns the header string of #include, #include_next, #import and
-   #pragma dependency.  Returns NULL on error.  */
-static const cpp_token *
-parse_include (pfile)
-     cpp_reader *pfile;
+/* Returns the file name of #include, #include_next, #import and
+   #pragma dependency.  The string is malloced and the caller should
+   free it.  Returns NULL on error.  */
+static const char *
+parse_include (cpp_reader *pfile, int *pangle_brackets)
 {
-  const unsigned char *dir;
+  char *fname;
   const cpp_token *header;
 
-  if (pfile->directive == &dtable[T_PRAGMA])
-    dir = U"pragma dependency";
-  else
-    dir = pfile->directive->name;
-
   /* Allow macro expansion.  */
-  header = cpp_get_token (pfile);
-  if (header->type != CPP_STRING && header->type != CPP_HEADER_NAME)
+  header = get_token_no_padding (pfile);
+  if (header->type == CPP_STRING || header->type == CPP_HEADER_NAME)
     {
-      if (header->type != CPP_LESS)
-	{
-	  cpp_error (pfile, DL_ERROR,
-		     "#%s expects \"FILENAME\" or <FILENAME>", dir);
-	  return NULL;
-	}
-
-      header = glue_header_name (pfile);
-      if (header == NULL)
-	return header;
+      fname = xmalloc (header->val.str.len - 1);
+      memcpy (fname, header->val.str.text + 1, header->val.str.len - 2);
+      fname[header->val.str.len - 2] = '\0';
+      *pangle_brackets = header->type == CPP_HEADER_NAME;
     }
-
-  if (header->val.str.len == 0)
+  else if (header->type == CPP_LESS)
     {
-      cpp_error (pfile, DL_ERROR, "empty file name in #%s", dir);
+      fname = glue_header_name (pfile);
+      *pangle_brackets = 1;
+    }
+  else
+    {
+      const unsigned char *dir;
+
+      if (pfile->directive == &dtable[T_PRAGMA])
+	dir = U"pragma dependency";
+      else
+	dir = pfile->directive->name;
+      cpp_error (pfile, DL_ERROR, "#%s expects \"FILENAME\" or <FILENAME>",
+		 dir);
+
       return NULL;
     }
 
-  return header;
+  check_eol (pfile);
+  return fname;
 }
 
 /* Handle #include, #include_next and #import.  */
 static void
-do_include_common (pfile, type)
-     cpp_reader *pfile;
-     enum include_type type;
+do_include_common (cpp_reader *pfile, enum include_type type)
 {
-  const cpp_token *header;
+  const char *fname;
+  int angle_brackets;
 
-  /* For #include_next, if this is the primary source file, warn and
-     use the normal search logic.  */
-  if (type == IT_INCLUDE_NEXT && ! pfile->buffer->prev)
+  fname = parse_include (pfile, &angle_brackets);
+  if (!fname)
+    return;
+
+  /* Prevent #include recursion.  */
+  if (pfile->line_maps.depth >= CPP_STACK_MAX)
+    cpp_error (pfile, DL_ERROR, "#include nested too deeply");
+  else
     {
-      cpp_error (pfile, DL_WARNING, "#include_next in primary source file");
-      type = IT_INCLUDE;
-    }
-  else if (type == IT_IMPORT && CPP_OPTION (pfile, warn_import))
-    {
-      CPP_OPTION (pfile, warn_import) = 0;
-      cpp_error (pfile, DL_WARNING,
-	   "#import is obsolete, use an #ifndef wrapper in the header file");
+      /* Get out of macro context, if we are.  */
+      skip_rest_of_line (pfile);
+
+      if (pfile->cb.include)
+	pfile->cb.include (pfile, pfile->directive_line,
+			   pfile->directive->name, fname, angle_brackets);
+
+      _cpp_stack_include (pfile, fname, angle_brackets, type);
     }
 
-  header = parse_include (pfile);
-  if (header)
-    {
-      /* Prevent #include recursion.  */
-      if (pfile->line_maps.depth >= CPP_STACK_MAX)
-	cpp_error (pfile, DL_ERROR, "#include nested too deeply");
-      else
-	{
-	  check_eol (pfile);
-	  /* Get out of macro context, if we are.  */
-	  skip_rest_of_line (pfile);
-	  if (pfile->cb.include)
-	    (*pfile->cb.include) (pfile, pfile->directive_line,
-				  pfile->directive->name, header);
-	  _cpp_execute_include (pfile, header, type);
-	}
-    }
+  free ((void *) fname);
 }
 
 static void
-do_include (pfile)
-     cpp_reader *pfile;
+do_include (cpp_reader *pfile)
 {
   do_include_common (pfile, IT_INCLUDE);
 }
 
 static void
-do_import (pfile)
-     cpp_reader *pfile;
+do_import (cpp_reader *pfile)
 {
   do_include_common (pfile, IT_IMPORT);
 }
 
 static void
-do_include_next (pfile)
-     cpp_reader *pfile;
+do_include_next (cpp_reader *pfile)
 {
-  do_include_common (pfile, IT_INCLUDE_NEXT);
+  enum include_type type = IT_INCLUDE_NEXT;
+
+  /* If this is the primary source file, warn and use the normal
+     search logic.  */
+  if (! pfile->buffer->prev)
+    {
+      cpp_error (pfile, DL_WARNING,
+		 "#include_next in primary source file");
+      type = IT_INCLUDE;
+    }
+  do_include_common (pfile, type);
 }
 
 /* Subroutine of do_linemarker.  Read possible flags after file name.
@@ -718,9 +723,7 @@ do_include_next (pfile)
    flag if it is valid, 0 at the end of the directive. Otherwise
    complain.  */
 static unsigned int
-read_flag (pfile, last)
-     cpp_reader *pfile;
-     unsigned int last;
+read_flag (cpp_reader *pfile, unsigned int last)
 {
   const cpp_token *token = _cpp_lex_token (pfile);
 
@@ -740,40 +743,11 @@ read_flag (pfile, last)
   return 0;
 }
 
-/* Subroutine of do_line and do_linemarker.  Returns a version of STR
-   which has a NUL terminator and all escape sequences converted to
-   their equivalents.  Temporary, hopefully.  */
-static uchar *
-dequote_string (pfile, str, len)
-     cpp_reader *pfile;
-     const uchar *str;
-     unsigned int len;
-{
-  uchar *result = _cpp_unaligned_alloc (pfile, len + 1);
-  uchar *dst = result;
-  const uchar *limit = str + len;
-  cppchar_t c;
-
-  while (str < limit)
-    {
-      c = *str++;
-      if (c != '\\')
-	*dst++ = c;
-      else
-	*dst++ = cpp_parse_escape (pfile, &str, limit, 0);
-    }
-  *dst++ = '\0';
-  return result;
-}
-
 /* Subroutine of do_line and do_linemarker.  Convert a number in STR,
    of length LEN, to binary; store it in NUMP, and return 0 if the
    number was well-formed, 1 if not.  Temporary, hopefully.  */
 static int
-strtoul_for_line (str, len, nump)
-     const uchar *str;
-     unsigned int len;
-     unsigned long *nump;
+strtoul_for_line (const uchar *str, unsigned int len, long unsigned int *nump)
 {
   unsigned long reg = 0;
   uchar c;
@@ -793,8 +767,7 @@ strtoul_for_line (str, len, nump)
    Note that the filename string (if any) is a true string constant
    (escapes are interpreted), unlike in #line.  */
 static void
-do_line (pfile)
-     cpp_reader *pfile;
+do_line (cpp_reader *pfile)
 {
   const cpp_token *token;
   const char *new_file = pfile->map->to_file;
@@ -821,8 +794,9 @@ do_line (pfile)
   token = cpp_get_token (pfile);
   if (token->type == CPP_STRING)
     {
-      new_file = (const char *) dequote_string (pfile, token->val.str.text,
-						token->val.str.len);
+      cpp_string s = { 0, 0 };
+      if (_cpp_interpret_string_notranslate (pfile, &token->val.str, &s))
+	new_file = (const char *)s.text;
       check_eol (pfile);
     }
   else if (token->type != CPP_EOF)
@@ -841,8 +815,7 @@ do_line (pfile)
    different syntax and semantics from #line:  Flags are allowed,
    and we never complain about the line number being too big.  */
 static void
-do_linemarker (pfile)
-     cpp_reader *pfile;
+do_linemarker (cpp_reader *pfile)
 {
   const cpp_token *token;
   const char *new_file = pfile->map->to_file;
@@ -870,8 +843,10 @@ do_linemarker (pfile)
   token = cpp_get_token (pfile);
   if (token->type == CPP_STRING)
     {
-      new_file = (const char *) dequote_string (pfile, token->val.str.text,
-						token->val.str.len);
+      cpp_string s = { 0, 0 };
+      if (_cpp_interpret_string_notranslate (pfile, &token->val.str, &s))
+	new_file = (const char *)s.text;
+      
       new_sysp = 0;
       flag = read_flag (pfile, 0);
       if (flag == 1)
@@ -912,27 +887,21 @@ do_linemarker (pfile)
    header, 2 for a system header that needs to be extern "C" protected,
    and zero otherwise.  */
 void
-_cpp_do_file_change (pfile, reason, to_file, file_line, sysp)
-     cpp_reader *pfile;
-     enum lc_reason reason;
-     const char *to_file;
-     unsigned int file_line;
-     unsigned int sysp;
+_cpp_do_file_change (cpp_reader *pfile, enum lc_reason reason,
+		     const char *to_file, unsigned int file_line,
+		     unsigned int sysp)
 {
-  pfile->map = add_line_map (&pfile->line_maps, reason, sysp,
-			     pfile->line, to_file, file_line);
+  pfile->map = linemap_add (&pfile->line_maps, reason, sysp,
+			    pfile->line, to_file, file_line);
 
   if (pfile->cb.file_change)
-    (*pfile->cb.file_change) (pfile, pfile->map);
+    pfile->cb.file_change (pfile, pfile->map);
 }
 
 /* Report a warning or error detected by the program we are
    processing.  Use the directive's tokens in the error message.  */
 static void
-do_diagnostic (pfile, code, print_dir)
-     cpp_reader *pfile;
-     int code;
-     int print_dir;
+do_diagnostic (cpp_reader *pfile, int code, int print_dir)
 {
   if (_cpp_begin_message (pfile, code,
 			  pfile->cur_token[-1].line,
@@ -947,15 +916,13 @@ do_diagnostic (pfile, code, print_dir)
 }
 
 static void
-do_error (pfile)
-     cpp_reader *pfile;
+do_error (cpp_reader *pfile)
 {
   do_diagnostic (pfile, DL_ERROR, 1);
 }
 
 static void
-do_warning (pfile)
-     cpp_reader *pfile;
+do_warning (cpp_reader *pfile)
 {
   /* We want #warning diagnostics to be emitted in system headers too.  */
   do_diagnostic (pfile, DL_WARNING_SYSHDR, 1);
@@ -963,15 +930,14 @@ do_warning (pfile)
 
 /* Report program identification.  */
 static void
-do_ident (pfile)
-     cpp_reader *pfile;
+do_ident (cpp_reader *pfile)
 {
   const cpp_token *str = cpp_get_token (pfile);
 
   if (str->type != CPP_STRING)
     cpp_error (pfile, DL_ERROR, "invalid #ident directive");
   else if (pfile->cb.ident)
-    (*pfile->cb.ident) (pfile, pfile->directive_line, &str->val.str);
+    pfile->cb.ident (pfile, pfile->directive_line, &str->val.str);
 
   check_eol (pfile);
 }
@@ -980,9 +946,7 @@ do_ident (pfile)
    matching entry, or NULL if none is found.  The returned entry could
    be the start of a namespace chain, or a pragma.  */
 static struct pragma_entry *
-lookup_pragma_entry (chain, pragma)
-     struct pragma_entry *chain;
-     const cpp_hashnode *pragma;
+lookup_pragma_entry (struct pragma_entry *chain, const cpp_hashnode *pragma)
 {
   while (chain && chain->pragma != pragma)
     chain = chain->next;
@@ -994,11 +958,8 @@ lookup_pragma_entry (chain, pragma)
    singly-linked CHAIN.  If handler is NULL, it is a namespace,
    otherwise it is a pragma and its handler.  */
 static struct pragma_entry *
-insert_pragma_entry (pfile, chain, pragma, handler)
-     cpp_reader *pfile;
-     struct pragma_entry **chain;
-     const cpp_hashnode *pragma;
-     pragma_cb handler;
+insert_pragma_entry (cpp_reader *pfile, struct pragma_entry **chain,
+		     const cpp_hashnode *pragma, pragma_cb handler)
 {
   struct pragma_entry *new;
 
@@ -1025,11 +986,8 @@ insert_pragma_entry (pfile, chain, pragma, handler)
    goes in the global namespace.  HANDLER is the handler it will call,
    which must be non-NULL.  */
 void
-cpp_register_pragma (pfile, space, name, handler)
-     cpp_reader *pfile;
-     const char *space;
-     const char *name;
-     pragma_cb handler;
+cpp_register_pragma (cpp_reader *pfile, const char *space, const char *name,
+		     pragma_cb handler)
 {
   struct pragma_entry **chain = &pfile->pragmas;
   struct pragma_entry *entry;
@@ -1071,8 +1029,7 @@ cpp_register_pragma (pfile, space, name, handler)
 
 /* Register the pragmas the preprocessor itself handles.  */
 void
-_cpp_init_internal_pragmas (pfile)
-     cpp_reader *pfile;
+_cpp_init_internal_pragmas (cpp_reader *pfile)
 {
   /* Pragmas in the global namespace.  */
   cpp_register_pragma (pfile, 0, "once", do_pragma_once);
@@ -1083,17 +1040,87 @@ _cpp_init_internal_pragmas (pfile)
   cpp_register_pragma (pfile, "GCC", "dependency", do_pragma_dependency);
 }
 
+/* Return the number of registered pragmas in PE.  */
+
+static int
+count_registered_pragmas (struct pragma_entry *pe)
+{
+  int ct = 0;
+  for (; pe != NULL; pe = pe->next)
+    {
+      if (pe->is_nspace)
+	ct += count_registered_pragmas (pe->u.space);
+      ct++;
+    }
+  return ct;
+}
+
+/* Save into SD the names of the registered pragmas referenced by PE,
+   and return a pointer to the next free space in SD.  */
+
+static char **
+save_registered_pragmas (struct pragma_entry *pe, char **sd)
+{
+  for (; pe != NULL; pe = pe->next)
+    {
+      if (pe->is_nspace)
+	sd = save_registered_pragmas (pe->u.space, sd);
+      *sd++ = xmemdup (HT_STR (&pe->pragma->ident),
+		       HT_LEN (&pe->pragma->ident),
+		       HT_LEN (&pe->pragma->ident) + 1);
+    }
+  return sd;
+}
+
+/* Return a newly-allocated array which saves the names of the
+   registered pragmas.  */
+
+char **
+_cpp_save_pragma_names (cpp_reader *pfile)
+{
+  int ct = count_registered_pragmas (pfile->pragmas);
+  char **result = xnewvec (char *, ct);
+  (void) save_registered_pragmas (pfile->pragmas, result);
+  return result;
+}
+
+/* Restore from SD the names of the registered pragmas referenced by PE,
+   and return a pointer to the next unused name in SD.  */
+
+static char **
+restore_registered_pragmas (cpp_reader *pfile, struct pragma_entry *pe,
+			    char **sd)
+{
+  for (; pe != NULL; pe = pe->next)
+    {
+      if (pe->is_nspace)
+	sd = restore_registered_pragmas (pfile, pe->u.space, sd);
+      pe->pragma = cpp_lookup (pfile, U *sd, strlen (*sd));
+      free (*sd);
+      sd++;
+    }
+  return sd;
+}
+
+/* Restore the names of the registered pragmas from SAVED.  */
+
+void
+_cpp_restore_pragma_names (cpp_reader *pfile, char **saved)
+{
+  (void) restore_registered_pragmas (pfile, pfile->pragmas, saved);
+  free (saved);
+}
+
 /* Pragmata handling.  We handle some, and pass the rest on to the
    front end.  C99 defines three pragmas and says that no macro
    expansion is to be performed on them; whether or not macro
    expansion happens for other pragmas is implementation defined.
    This implementation never macro-expands the text after #pragma.  */
 static void
-do_pragma (pfile)
-     cpp_reader *pfile;
+do_pragma (cpp_reader *pfile)
 {
   const struct pragma_entry *p = NULL;
-  const cpp_token *token;
+  const cpp_token *token, *pragma_token = pfile->cur_token;
   unsigned int count = 1;
 
   pfile->state.prevent_expansion++;
@@ -1113,20 +1140,22 @@ do_pragma (pfile)
 	}
     }
 
-  /* FIXME.  This is an awful kludge to get the front ends to update
-     their notion of line number for diagnostic purposes.  The line
-     number should be passed to the handler and they should do it
-     themselves.  Stand-alone CPP must ignore us, otherwise it will
-     prefix the directive with spaces, hence the 1.  Ugh.  */
-  if (pfile->cb.line_change)
-    (*pfile->cb.line_change)(pfile, token, 1);
-
   if (p)
-    (*p->u.handler) (pfile);
+    {
+      /* Since the handler below doesn't get the line number, that it
+	 might need for diagnostics, make sure it has the right
+	 numbers in place.  */
+      if (pfile->cb.line_change)
+	(*pfile->cb.line_change) (pfile, pragma_token, false);
+      (*p->u.handler) (pfile);
+      if (pfile->cb.line_change)
+	(*pfile->cb.line_change) (pfile, pfile->cur_token, false);
+      
+    }
   else if (pfile->cb.def_pragma)
     {
       _cpp_backup_tokens (pfile, count);
-      (*pfile->cb.def_pragma) (pfile, pfile->directive_line);
+      pfile->cb.def_pragma (pfile, pfile->directive_line);
     }
 
   pfile->state.prevent_expansion--;
@@ -1134,24 +1163,19 @@ do_pragma (pfile)
 
 /* Handle #pragma once.  */
 static void
-do_pragma_once (pfile)
-     cpp_reader *pfile;
+do_pragma_once (cpp_reader *pfile)
 {
-  cpp_error (pfile, DL_WARNING, "#pragma once is obsolete");
-
   if (pfile->buffer->prev == NULL)
     cpp_error (pfile, DL_WARNING, "#pragma once in main file");
-  else
-    _cpp_never_reread (pfile->buffer->inc);
 
   check_eol (pfile);
+  _cpp_mark_file_once_only (pfile, pfile->buffer->file);
 }
 
 /* Handle #pragma GCC poison, to poison one or more identifiers so
    that the lexer produces a hard error for each subsequent usage.  */
 static void
-do_pragma_poison (pfile)
-     cpp_reader *pfile;
+do_pragma_poison (cpp_reader *pfile)
 {
   const cpp_token *tok;
   cpp_hashnode *hp;
@@ -1188,8 +1212,7 @@ do_pragma_poison (pfile)
    system include directory.  To prevent abuse, it is rejected in the
    primary source file.  */
 static void
-do_pragma_system_header (pfile)
-     cpp_reader *pfile;
+do_pragma_system_header (cpp_reader *pfile)
 {
   cpp_buffer *buffer = pfile->buffer;
 
@@ -1208,36 +1231,34 @@ do_pragma_system_header (pfile)
    file. Issue a diagnostic, if the specified file is newer. We use this to
    determine if a fixed header should be refixed.  */
 static void
-do_pragma_dependency (pfile)
-     cpp_reader *pfile;
+do_pragma_dependency (cpp_reader *pfile)
 {
-  const cpp_token *header;
-  int ordering;
+  const char *fname;
+  int angle_brackets, ordering;
 
-  header = parse_include (pfile);
-  if (!header)
+  fname = parse_include (pfile, &angle_brackets);
+  if (!fname)
     return;
 
-  ordering = _cpp_compare_file_date (pfile, header);
+  ordering = _cpp_compare_file_date (pfile, fname, angle_brackets);
   if (ordering < 0)
-    cpp_error (pfile, DL_WARNING, "cannot find source %s",
-	       cpp_token_as_text (pfile, header));
+    cpp_error (pfile, DL_WARNING, "cannot find source file %s", fname);
   else if (ordering > 0)
     {
-      cpp_error (pfile, DL_WARNING, "current file is older than %s",
-		 cpp_token_as_text (pfile, header));
+      cpp_error (pfile, DL_WARNING, "current file is older than %s", fname);
       if (cpp_get_token (pfile)->type != CPP_EOF)
 	{
 	  _cpp_backup_tokens (pfile, 1);
 	  do_diagnostic (pfile, DL_WARNING, 0);
 	}
     }
+
+  free ((void *) fname);
 }
 
 /* Get a token but skip padding.  */
 static const cpp_token *
-get_token_no_padding (pfile)
-     cpp_reader *pfile;
+get_token_no_padding (cpp_reader *pfile)
 {
   for (;;)
     {
@@ -1250,8 +1271,7 @@ get_token_no_padding (pfile)
 /* Check syntax is "(string-literal)".  Returns the string on success,
    or NULL on failure.  */
 static const cpp_token *
-get__Pragma_string (pfile)
-     cpp_reader *pfile;
+get__Pragma_string (cpp_reader *pfile)
 {
   const cpp_token *string;
 
@@ -1271,22 +1291,22 @@ get__Pragma_string (pfile)
 /* Destringize IN into a temporary buffer, by removing the first \ of
    \" and \\ sequences, and process the result as a #pragma directive.  */
 static void
-destringize_and_run (pfile, in)
-     cpp_reader *pfile;
-     const cpp_string *in;
+destringize_and_run (cpp_reader *pfile, const cpp_string *in)
 {
   const unsigned char *src, *limit;
   char *dest, *result;
 
-  dest = result = alloca (in->len + 1);
-  for (src = in->text, limit = src + in->len; src < limit;)
+  dest = result = alloca (in->len - 1);
+  src = in->text + 1 + (in->text[0] == 'L');
+  limit = in->text + in->len - 1;
+  while (src < limit)
     {
       /* We know there is a character following the backslash.  */
       if (*src == '\\' && (src[1] == '\\' || src[1] == '"'))
 	src++;
       *dest++ = *src++;
     }
-  *dest = '\0';
+  *dest = '\n';
 
   /* Ugh; an awful kludge.  We are really not set up to be lexing
      tokens when in the middle of a macro expansion.  Use a new
@@ -1326,13 +1346,12 @@ destringize_and_run (pfile, in)
 
       Getting the line markers is a little tricky.  */
   if (pfile->cb.line_change)
-    (*pfile->cb.line_change) (pfile, pfile->cur_token, false);
+    pfile->cb.line_change (pfile, pfile->cur_token, false);
 }
 
 /* Handle the _Pragma operator.  */
 void
-_cpp_do__Pragma (pfile)
-     cpp_reader *pfile;
+_cpp_do__Pragma (cpp_reader *pfile)
 {
   const cpp_token *string = get__Pragma_string (pfile);
 
@@ -1343,17 +1362,15 @@ _cpp_do__Pragma (pfile)
 	       "_Pragma takes a parenthesized string literal");
 }
 
-/* Just ignore #sccs on all systems.  */
+/* Ignore #sccs on all systems.  */
 static void
-do_sccs (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+do_sccs (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
 }
 
 /* Handle #ifdef.  */
 static void
-do_ifdef (pfile)
-     cpp_reader *pfile;
+do_ifdef (cpp_reader *pfile)
 {
   int skip = 1;
 
@@ -1374,8 +1391,7 @@ do_ifdef (pfile)
 
 /* Handle #ifndef.  */
 static void
-do_ifndef (pfile)
-     cpp_reader *pfile;
+do_ifndef (cpp_reader *pfile)
 {
   int skip = 1;
   const cpp_hashnode *node = 0;
@@ -1397,12 +1413,11 @@ do_ifndef (pfile)
 
 /* _cpp_parse_expr puts a macro in a "#if !defined ()" expression in
    pfile->mi_ind_cmacro so we can handle multiple-include
-   optimisations.  If macro expansion occurs in the expression, we
+   optimizations.  If macro expansion occurs in the expression, we
    cannot treat it as a controlling conditional, since the expansion
    could change in the future.  That is handled by cpp_get_token.  */
 static void
-do_if (pfile)
-     cpp_reader *pfile;
+do_if (cpp_reader *pfile)
 {
   int skip = 1;
 
@@ -1416,8 +1431,7 @@ do_if (pfile)
    if_stack; this is so that the error message for missing #endif's
    etc. will point to the original #if.  */
 static void
-do_else (pfile)
-     cpp_reader *pfile;
+do_else (cpp_reader *pfile)
 {
   cpp_buffer *buffer = pfile->buffer;
   struct if_stack *ifs = buffer->if_stack;
@@ -1450,8 +1464,7 @@ do_else (pfile)
 /* Handle a #elif directive by not changing if_stack either.  See the
    comment above do_else.  */
 static void
-do_elif (pfile)
-     cpp_reader *pfile;
+do_elif (cpp_reader *pfile)
 {
   cpp_buffer *buffer = pfile->buffer;
   struct if_stack *ifs = buffer->if_stack;
@@ -1486,8 +1499,7 @@ do_elif (pfile)
 
 /* #endif pops the if stack and resets pfile->state.skipping.  */
 static void
-do_endif (pfile)
-     cpp_reader *pfile;
+do_endif (cpp_reader *pfile)
 {
   cpp_buffer *buffer = pfile->buffer;
   struct if_stack *ifs = buffer->if_stack;
@@ -1518,11 +1530,8 @@ do_endif (pfile)
    is #if or #ifndef, CMACRO is a potentially controlling macro, and
    we need to check here that we are at the top of the file.  */
 static void
-push_conditional (pfile, skip, type, cmacro)
-     cpp_reader *pfile;
-     int skip;
-     int type;
-     const cpp_hashnode *cmacro;
+push_conditional (cpp_reader *pfile, int skip, int type,
+		  const cpp_hashnode *cmacro)
 {
   struct if_stack *ifs;
   cpp_buffer *buffer = pfile->buffer;
@@ -1548,10 +1557,7 @@ push_conditional (pfile, skip, type, cmacro)
    storage, i.e. the #assert case.  Returns 0 on success, and sets
    ANSWERP to point to the answer.  */
 static int
-parse_answer (pfile, answerp, type)
-     cpp_reader *pfile;
-     struct answer **answerp;
-     int type;
+parse_answer (cpp_reader *pfile, struct answer **answerp, int type)
 {
   const cpp_token *paren;
   struct answer *answer;
@@ -1627,10 +1633,7 @@ parse_answer (pfile, answerp, type)
    the hash node of the predicate, or 0 on error.  If an answer was
    supplied, it is placed in ANSWERP, otherwise it is set to 0.  */
 static cpp_hashnode *
-parse_assertion (pfile, answerp, type)
-     cpp_reader *pfile;
-     struct answer **answerp;
-     int type;
+parse_assertion (cpp_reader *pfile, struct answer **answerp, int type)
 {
   cpp_hashnode *result = 0;
   const cpp_token *predicate;
@@ -1662,9 +1665,7 @@ parse_assertion (pfile, answerp, type)
 /* Returns a pointer to the pointer to CANDIDATE in the answer chain,
    or a pointer to NULL if the answer is not in the chain.  */
 static struct answer **
-find_answer (node, candidate)
-     cpp_hashnode *node;
-     const struct answer *candidate;
+find_answer (cpp_hashnode *node, const struct answer *candidate)
 {
   unsigned int i;
   struct answer **result;
@@ -1689,16 +1690,19 @@ find_answer (node, candidate)
 
 /* Test an assertion within a preprocessor conditional.  Returns
    nonzero on failure, zero on success.  On success, the result of
-   the test is written into VALUE.  */
+   the test is written into VALUE, otherwise the value 0.  */
 int
-_cpp_test_assertion (pfile, value)
-     cpp_reader *pfile;
-     unsigned int *value;
+_cpp_test_assertion (cpp_reader *pfile, unsigned int *value)
 {
   struct answer *answer;
   cpp_hashnode *node;
 
   node = parse_assertion (pfile, &answer, T_IF);
+
+  /* For recovery, an erroneous assertion expression is handled as a
+     failing assertion.  */
+  *value = 0;
+
   if (node)
     *value = (node->type == NT_ASSERTION &&
 	      (answer == 0 || *find_answer (node, answer) != 0));
@@ -1711,8 +1715,7 @@ _cpp_test_assertion (pfile, value)
 
 /* Handle #assert.  */
 static void
-do_assert (pfile)
-     cpp_reader *pfile;
+do_assert (cpp_reader *pfile)
 {
   struct answer *new_answer;
   cpp_hashnode *node;
@@ -1745,8 +1748,7 @@ do_assert (pfile)
 
 /* Handle #unassert.  */
 static void
-do_unassert (pfile)
-     cpp_reader *pfile;
+do_unassert (cpp_reader *pfile)
 {
   cpp_hashnode *node;
   struct answer *answer;
@@ -1784,9 +1786,7 @@ do_unassert (pfile)
    If STR has anything after the identifier, then it should
    be identifier=definition.  */
 void
-cpp_define (pfile, str)
-     cpp_reader *pfile;
-     const char *str;
+cpp_define (cpp_reader *pfile, const char *str)
 {
   char *buf, *p;
   size_t count;
@@ -1796,7 +1796,7 @@ cpp_define (pfile, str)
      tack " 1" on the end.  */
 
   count = strlen (str);
-  buf = (char *) alloca (count + 3);
+  buf = alloca (count + 3);
   memcpy (buf, str, count);
 
   p = strchr (str, '=');
@@ -1807,110 +1807,101 @@ cpp_define (pfile, str)
       buf[count++] = ' ';
       buf[count++] = '1';
     }
-  buf[count] = '\0';
+  buf[count] = '\n';
 
   run_directive (pfile, T_DEFINE, buf, count);
 }
 
 /* Slight variant of the above for use by initialize_builtins.  */
 void
-_cpp_define_builtin (pfile, str)
-     cpp_reader *pfile;
-     const char *str;
+_cpp_define_builtin (cpp_reader *pfile, const char *str)
 {
-  run_directive (pfile, T_DEFINE, str, strlen (str));
+  size_t len = strlen (str);
+  char *buf = alloca (len + 1);
+  memcpy (buf, str, len);
+  buf[len] = '\n';
+  run_directive (pfile, T_DEFINE, buf, len);
 }
 
 /* Process MACRO as if it appeared as the body of an #undef.  */
 void
-cpp_undef (pfile, macro)
-     cpp_reader *pfile;
-     const char *macro;
+cpp_undef (cpp_reader *pfile, const char *macro)
 {
-  run_directive (pfile, T_UNDEF, macro, strlen (macro));
+  size_t len = strlen (macro);
+  char *buf = alloca (len + 1);
+  memcpy (buf, macro, len);
+  buf[len] = '\n';
+  run_directive (pfile, T_UNDEF, buf, len);
 }
 
 /* Process the string STR as if it appeared as the body of a #assert.  */
 void
-cpp_assert (pfile, str)
-     cpp_reader *pfile;
-     const char *str;
+cpp_assert (cpp_reader *pfile, const char *str)
 {
   handle_assertion (pfile, str, T_ASSERT);
 }
 
 /* Process STR as if it appeared as the body of an #unassert.  */
 void
-cpp_unassert (pfile, str)
-     cpp_reader *pfile;
-     const char *str;
+cpp_unassert (cpp_reader *pfile, const char *str)
 {
   handle_assertion (pfile, str, T_UNASSERT);
 }
 
 /* Common code for cpp_assert (-A) and cpp_unassert (-A-).  */
 static void
-handle_assertion (pfile, str, type)
-     cpp_reader *pfile;
-     const char *str;
-     int type;
+handle_assertion (cpp_reader *pfile, const char *str, int type)
 {
   size_t count = strlen (str);
   const char *p = strchr (str, '=');
 
+  /* Copy the entire option so we can modify it.  Change the first
+     "=" in the string to a '(', and tack a ')' on the end.  */
+  char *buf = alloca (count + 2);
+
+  memcpy (buf, str, count);
   if (p)
     {
-      /* Copy the entire option so we can modify it.  Change the first
-	 "=" in the string to a '(', and tack a ')' on the end.  */
-      char *buf = (char *) alloca (count + 2);
-
-      memcpy (buf, str, count);
       buf[p - str] = '(';
       buf[count++] = ')';
-      buf[count] = '\0';
-      str = buf;
     }
+  buf[count] = '\n';
+  str = buf;
 
   run_directive (pfile, type, str, count);
 }
 
 /* The number of errors for a given reader.  */
 unsigned int
-cpp_errors (pfile)
-     cpp_reader *pfile;
+cpp_errors (cpp_reader *pfile)
 {
   return pfile->errors;
 }
 
 /* The options structure.  */
 cpp_options *
-cpp_get_options (pfile)
-     cpp_reader *pfile;
+cpp_get_options (cpp_reader *pfile)
 {
   return &pfile->opts;
 }
 
 /* The callbacks structure.  */
 cpp_callbacks *
-cpp_get_callbacks (pfile)
-     cpp_reader *pfile;
+cpp_get_callbacks (cpp_reader *pfile)
 {
   return &pfile->cb;
 }
 
 /* The line map set.  */
 const struct line_maps *
-cpp_get_line_maps (pfile)
-     cpp_reader *pfile;
+cpp_get_line_maps (cpp_reader *pfile)
 {
   return &pfile->line_maps;
 }
 
 /* Copy the given callbacks structure to our own.  */
 void
-cpp_set_callbacks (pfile, cb)
-     cpp_reader *pfile;
-     cpp_callbacks *cb;
+cpp_set_callbacks (cpp_reader *pfile, cpp_callbacks *cb)
 {
   pfile->cb = *cb;
 }
@@ -1919,38 +1910,31 @@ cpp_set_callbacks (pfile, cb)
    doesn't fail.  It does not generate a file change call back; that
    is the responsibility of the caller.  */
 cpp_buffer *
-cpp_push_buffer (pfile, buffer, len, from_stage3, return_at_eof)
-     cpp_reader *pfile;
-     const uchar *buffer;
-     size_t len;
-     int from_stage3;
-     int return_at_eof;
+cpp_push_buffer (cpp_reader *pfile, const uchar *buffer, size_t len,
+		 int from_stage3)
 {
   cpp_buffer *new = xobnew (&pfile->buffer_ob, cpp_buffer);
 
   /* Clears, amongst other things, if_stack and mi_cmacro.  */
   memset (new, 0, sizeof (cpp_buffer));
 
-  new->line_base = new->buf = new->cur = buffer;
+  new->next_line = new->buf = buffer;
   new->rlimit = buffer + len;
-  new->from_stage3 = from_stage3 || CPP_OPTION (pfile, traditional);
+  new->from_stage3 = from_stage3;
   new->prev = pfile->buffer;
-  new->return_at_eof = return_at_eof;
-  new->saved_flags = BOL;
+  new->need_line = true;
 
   pfile->buffer = new;
-
   return new;
 }
 
 /* Pops a single buffer, with a file change call-back if appropriate.
    Then pushes the next -include file, if any remain.  */
 void
-_cpp_pop_buffer (pfile)
-     cpp_reader *pfile;
+_cpp_pop_buffer (cpp_reader *pfile)
 {
   cpp_buffer *buffer = pfile->buffer;
-  struct include_file *inc = buffer->inc;
+  struct _cpp_file *inc = buffer->file;
   struct if_stack *ifs;
 
   /* Walk back up the conditional stack till we reach its level at
@@ -1965,6 +1949,8 @@ _cpp_pop_buffer (pfile)
   /* _cpp_do_file_change expects pfile->buffer to be the new one.  */
   pfile->buffer = buffer->prev;
 
+  free (buffer->notes);
+
   /* Free the buffer object now; we may want to push a new buffer
      in _cpp_push_next_include_file.  */
   obstack_free (&pfile->buffer_ob, buffer);
@@ -1973,23 +1959,13 @@ _cpp_pop_buffer (pfile)
     {
       _cpp_pop_file_buffer (pfile, inc);
 
-      /* Don't generate a callback for popping the main file.  */
-      if (pfile->buffer)
-	{
-	  _cpp_do_file_change (pfile, LC_LEAVE, 0, 0, 0);
-
-	  /* If this is the main file, there may be some -include
-	     files left to push.  */
-	  if (!pfile->buffer->prev)
-	    _cpp_maybe_push_include_file (pfile);
-	}
+      _cpp_do_file_change (pfile, LC_LEAVE, 0, 0, 0);
     }
 }
 
 /* Enter all recognized directives in the hash table.  */
 void
-_cpp_init_directives (pfile)
-     cpp_reader *pfile;
+_cpp_init_directives (cpp_reader *pfile)
 {
   unsigned int i;
   cpp_hashnode *node;
@@ -1997,6 +1973,7 @@ _cpp_init_directives (pfile)
   for (i = 0; i < (unsigned int) N_DIRECTIVES; i++)
     {
       node = cpp_lookup (pfile, dtable[i].name, dtable[i].length);
-      node->directive_index = i + 1;
+      node->is_directive = 1;
+      node->directive_index = i;
     }
 }

@@ -2,26 +2,28 @@
    Copyright (C) 1994, 1995, 1997, 1998, 2001 Free Software Foundation, Inc.
    Contributed by Michael Collison (collison@isisinc.net).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 /* Some output-actions in dsp1600.md need these.  */
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -58,7 +60,7 @@ const char *save_chip_name;
 
 rtx dsp16xx_compare_op0;
 rtx dsp16xx_compare_op1;
-rtx (*dsp16xx_compare_gen) PARAMS (());
+bool dsp16xx_compare_gen;
 
 static const char *fp;
 static const char *sp;
@@ -149,8 +151,12 @@ static const char *const lshift_right_asm_first[] =
 static int reg_save_size PARAMS ((void));
 static void dsp16xx_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void dsp16xx_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
-
+static void dsp16xx_file_start PARAMS ((void));
+static bool dsp16xx_rtx_costs PARAMS ((rtx, int, int, int *));
+static int dsp16xx_address_cost PARAMS ((rtx));
+
 /* Initialize the GCC target structure.  */
+
 #undef TARGET_ASM_BYTE_OP
 #define TARGET_ASM_BYTE_OP "\tint\t"
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -162,6 +168,14 @@ static void dsp16xx_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 #define TARGET_ASM_FUNCTION_PROLOGUE dsp16xx_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE dsp16xx_output_function_epilogue
+
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START dsp16xx_file_start
+
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS dsp16xx_rtx_costs
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST dsp16xx_address_cost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1928,7 +1942,7 @@ print_operand_address(file, addr)
       
     default:
       if (FITS_5_BITS (addr))
-	fprintf (file, "*(0x%x)", (INTVAL (addr) & 0x20));
+	fprintf (file, "*(0x%x)", (int)(INTVAL (addr) & 0x20));
       else
 	output_addr_const (file, addr);
     }
@@ -2223,7 +2237,7 @@ asm_output_local(file, name, size, rounded)
 	fprintf (file, "int\n");
 }
 
-int
+static int
 dsp16xx_address_cost (addr)
      rtx addr;
 {
@@ -2363,49 +2377,10 @@ dsp16xx_function_arg_advance (cum, mode, type, named)
     }
 }
 
-void
-coff_dsp16xx_file_start (file)
-     FILE *file;
+static void
+dsp16xx_file_start ()
 {
-  fprintf (file, "#include <%s.h>\n", save_chip_name);
-}
-
-void
-luxworks_dsp16xx_file_start (file)
-     FILE *file;
-{
-  char *temp_filename;
-  int len, err_code;
-
-
-  fprintf (file, "\t.debug ");
-  err_code = (TARGET_DEBUG) ? fprintf (file, "yes, ") : fprintf (file, "no, ");
-  err_code = (TARGET_SAVE_TEMPS) ? fprintf (file, "asm, ") : fprintf (file, "temp, ");
-  len = strlen (main_input_filename);
-  temp_filename = (char *) xmalloc (len + 2);
-  strcpy (temp_filename, main_input_filename);
-#ifdef __CYGWIN32__
-    p = temp_filename;
-    while (*p != '\0') {
-    if (*p == '\\')
-        *p = '/';
-         p++;
-         }
-#endif
-    fprintf (file, "\"%s\"\n", temp_filename);
-
-  fprintf (file, "#include <%s.h>\n", save_chip_name);
-
-   /*
-    * Add dummy sections, so that they always exist in the 
-    * object code. These have been created so that the number and
-    * type of sections remain consistent with and without -g option. Note
-    * that the .data, .text, .const and .bss are always created when -g
-    * is provided as an option.  */
-   fprintf (file, "\t.rsect \".text\" , nodelete\n");
-   fprintf (file, "\t.rsect \".data\" , nodelete\n");
-   fprintf (file, "\t.rsect \".const\" , nodelete\n");
-   fprintf (file, "\t.rsect \".bss\" , nodelete\n");
+  fprintf (asm_out_file, "#include <%s.h>\n", save_chip_name);
 }
 
 rtx
@@ -2566,4 +2541,89 @@ signed_comparison_operator (op, mode)
     }
 
   return 0;
+}
+
+static bool
+dsp16xx_rtx_costs (x, code, outer_code, total)
+     rtx x;
+     int code;
+     int outer_code ATTRIBUTE_UNUSED;
+     int *total;
+{
+  switch (code)
+    {
+    case CONST_INT:
+      *total = (unsigned HOST_WIDE_INT) INTVAL (x) < 65536 ? 0 : 2;
+      return true;
+
+    case LABEL_REF:
+    case SYMBOL_REF:
+    case CONST:
+      *total = COSTS_N_INSNS (1);
+      return true;
+
+    case CONST_DOUBLE:
+      *total = COSTS_N_INSNS (2);
+      return true;
+
+    case MEM:
+      *total = COSTS_N_INSNS (GET_MODE (x) == QImode ? 2 : 4);
+      return true;
+
+    case DIV:
+    case MOD:
+      *total = COSTS_N_INSNS (38);
+      return true;
+
+    case MULT:
+      if (GET_MODE (x) == QImode)
+        *total = COSTS_N_INSNS (2);
+      else
+	*total = COSTS_N_INSNS (38);
+      return true;
+
+    case PLUS:
+    case MINUS:
+    case AND:
+    case IOR:
+    case XOR:
+      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_INT)
+	{
+	  *total = 1;
+	  return false;
+	}
+      else
+	{
+          *total = COSTS_N_INSNS (38);
+	  return true;
+	}
+
+    case NEG:
+    case NOT:
+      *total = COSTS_N_INSNS (1);
+      return true;
+
+    case ASHIFT:
+    case ASHIFTRT:
+    case LSHIFTRT:
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT)
+	{
+	  HOST_WIDE_INT number = INTVAL (XEXP (x, 1));
+	  if (number == 1 || number == 4 || number == 8
+	      || number == 16)
+	    *total = COSTS_N_INSNS (1);
+	  else if (TARGET_BMU)
+            *total = COSTS_N_INSNS (2);
+          else
+            *total = COSTS_N_INSNS (num_1600_core_shifts (number));
+	  return true;
+	}
+      break;
+    }
+
+  if (TARGET_BMU)
+    *total = COSTS_N_INSNS (1);
+  else
+    *total = COSTS_N_INSNS (15);
+  return true;
 }

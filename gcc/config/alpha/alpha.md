@@ -1,22 +1,22 @@
 ;; Machine description for DEC Alpha for GNU C compiler
 ;; Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-;; 2000, 2001, 2002 Free Software Foundation, Inc.
+;; 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 ;; Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 ;;
-;; This file is part of GNU CC.
+;; This file is part of GCC.
 ;;
-;; GNU CC is free software; you can redistribute it and/or modify
+;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation; either version 2, or (at your option)
 ;; any later version.
 ;;
-;; GNU CC is distributed in the hope that it will be useful,
+;; GCC is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU CC; see the file COPYING.  If not, write to
+;; along with GCC; see the file COPYING.  If not, write to
 ;; the Free Software Foundation, 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
@@ -120,7 +120,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 ;; The ROUND_SUFFIX attribute marks which instructions require a
 ;; rounding-mode suffix.  The value NONE indicates no suffix,
-;; the value NORMAL indicates a suffix controled by alpha_fprm.
+;; the value NORMAL indicates a suffix controlled by alpha_fprm.
 
 (define_attr "round_suffix" "none,normal,c"
   (const_string "none"))
@@ -133,7 +133,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 ;;   V_SV_SVI	accepts /v, /sv and /svi (cvttq only)
 ;;   U_SU_SUI	accepts /u, /su and /sui (most fp instructions)
 ;;
-;; The actual suffix emitted is controled by alpha_fptm.
+;; The actual suffix emitted is controlled by alpha_fptm.
 
 (define_attr "trap_suffix" "none,su,sui,v_sv,v_sv_svi,u_su_sui"
   (const_string "none"))
@@ -142,6 +142,18 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_attr "length" ""
   (const_int 4))
+
+;; The USEGP attribute marks instructions that have relocations that use
+;; the GP.
+
+(define_attr "usegp" "no,yes"
+  (cond [(eq_attr "type" "ldsym,jsr")
+	   (const_string "yes")
+	 (eq_attr "type" "ild,fld,ist,fst")
+	   (symbol_ref "alpha_find_lo_sum_using_gp(insn)")
+	]
+	(const_string "no")))
+
 
 ;; Include scheduling descriptions.
   
@@ -401,8 +413,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(plus:DI (match_operand:DI 1 "register_operand" "r")
 		 (high:DI (match_operand:DI 2 "local_symbolic_operand" ""))))]
-  "TARGET_EXPLICIT_RELOCS"
-  "ldah %0,%2(%1)\t\t!gprelhigh")
+  "TARGET_EXPLICIT_RELOCS && reload_completed"
+  "ldah %0,%2(%1)\t\t!gprelhigh"
+  [(set_attr "usegp" "yes")])
 
 (define_split
   [(set (match_operand:DI 0 "register_operand" "")
@@ -737,17 +750,31 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "mulqv %r1,%2,%0"
   [(set_attr "type" "imul")])
 
-(define_insn "umuldi3_highpart"
+(define_expand "umuldi3_highpart"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(truncate:DI
+	 (lshiftrt:TI
+	  (mult:TI (zero_extend:TI
+		     (match_operand:DI 1 "register_operand" ""))
+		   (match_operand:DI 2 "reg_or_8bit_operand" ""))
+	  (const_int 64))))]
+  ""
+{
+  if (REG_P (operands[2]))
+    operands[2] = gen_rtx_ZERO_EXTEND (TImode, operands[2]);
+})
+
+(define_insn "*umuldi3_highpart_reg"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(truncate:DI
 	 (lshiftrt:TI
 	  (mult:TI (zero_extend:TI
-		     (match_operand:DI 1 "reg_or_0_operand" "%rJ"))
+		     (match_operand:DI 1 "register_operand" "r"))
 		   (zero_extend:TI
-		     (match_operand:DI 2 "reg_or_8bit_operand" "rI")))
+		     (match_operand:DI 2 "register_operand" "r")))
 	  (const_int 64))))]
   ""
-  "umulh %r1,%2,%0"
+  "umulh %1,%2,%0"
   [(set_attr "type" "imul")
    (set_attr "opsize" "udi")])
 
@@ -1310,7 +1337,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "eqv %r1,%2,%0"
   [(set_attr "type" "ilog")])
 
-;; Handle the FFS insn iff we support CIX.
+;; Handle FFS and related insns iff we support CIX.
 
 (define_expand "ffsdi2"
   [(set (match_dup 2)
@@ -1333,6 +1360,27 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "cttz %1,%0"
   ; EV6 calls all mvi and cttz/ctlz/popc class imisc, so just
   ; reuse the existing type name.
+  [(set_attr "type" "mvi")])
+
+(define_insn "clzdi2"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(clz:DI (match_operand:DI 1 "register_operand" "r")))]
+  "TARGET_CIX"
+  "ctlz %1,%0"
+  [(set_attr "type" "mvi")])
+
+(define_insn "ctzdi2"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(ctz:DI (match_operand:DI 1 "register_operand" "r")))]
+  "TARGET_CIX"
+  "cttz %1,%0"
+  [(set_attr "type" "mvi")])
+
+(define_insn "popcountdi2"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(popcount:DI (match_operand:DI 1 "register_operand" "r")))]
+  "TARGET_CIX"
+  "ctpop %1,%0"
   [(set_attr "type" "mvi")])
 
 ;; Next come the shifts and the various extract and insert operations.
@@ -2849,7 +2897,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   [(set (match_operand:DF 0 "register_operand" "=f")
 	(sqrt:DF (match_operand:DF 1 "reg_or_0_operand" "fG")))]
   "TARGET_FP && TARGET_FIX"
-  "sqrt%-%/ %1,%0"
+  "sqrt%-%/ %R1,%0"
   [(set_attr "type" "fsqrt")
    (set_attr "trap" "yes")
    (set_attr "round_suffix" "normal")
@@ -4567,7 +4615,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "@
    jsr $26,(%0),0\;ldah $29,0($26)\t\t!gpdisp!%*\;lda $29,0($29)\t\t!gpdisp!%*
-   bsr $26,$%0..ng
+   bsr $26,%0\t\t!samegp
    ldq $27,%0($29)\t\t!literal!%#\;jsr $26,($27),%0\t\t!lituse_jsr!%#\;ldah $29,0($26)\t\t!gpdisp!%*\;lda $29,0($29)\t\t!gpdisp!%*"
   [(set_attr "type" "jsr")
    (set_attr "length" "12,*,16")])
@@ -4580,7 +4628,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	      (use (reg:DI 29))
 	      (clobber (reg:DI 26))])]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && reload_completed
-   && ! current_file_function_operand (operands[0], Pmode)
+   && ! samegp_function_operand (operands[0], Pmode)
    && peep2_regno_dead_p (1, 29)"
   [(parallel [(call (mem:DI (match_dup 2))
 		    (match_dup 1))
@@ -4610,7 +4658,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	      (use (reg:DI 29))
 	      (clobber (reg:DI 26))])]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && reload_completed
-   && ! current_file_function_operand (operands[0], Pmode)
+   && ! samegp_function_operand (operands[0], Pmode)
    && ! peep2_regno_dead_p (1, 29)"
   [(parallel [(call (mem:DI (match_dup 2))
 		    (match_dup 1))
@@ -4653,6 +4701,16 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "jsr $26,(%0),%2%J3"
   [(set_attr "type" "jsr")])
 
+;; We output a nop after noreturn calls at the very end of the function to
+;; ensure that the return address always remains in the caller's code range,
+;; as not doing so might confuse unwinding engines.
+;;
+;; The potential change in insn length is not reflected in the length
+;; attributes at this stage. Since the extra space is only actually added at
+;; the very end of the compilation process (via final/print_operand), it
+;; really seems harmless and not worth the trouble of some extra computation
+;; cost and complexity.
+
 (define_insn "*call_osf_1_noreturn"
   [(call (mem:DI (match_operand:DI 0 "call_operand" "c,R,s"))
 	 (match_operand 1 "" ""))
@@ -4661,9 +4719,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "! TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF
    && find_reg_note (insn, REG_NORETURN, NULL_RTX)"
   "@
-   jsr $26,($27),0
-   bsr $26,$%0..ng
-   jsr $26,%0"
+   jsr $26,($27),0%+
+   bsr $26,$%0..ng%+
+   jsr $26,%0%+"
   [(set_attr "type" "jsr")
    (set_attr "length" "*,*,8")])
 
@@ -4688,7 +4746,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (unspec [(reg:DI 29)] UNSPEC_SIBCALL)]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "@
-   br $31,$%0..ng
+   br $31,%0\t\t!samegp
    ldq $27,%0($29)\t\t!literal!%#\;jmp $31,($27),%0\t\t!lituse_jsr!%#"
   [(set_attr "type" "jsr")
    (set_attr "length" "*,8")])
@@ -4727,20 +4785,19 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (use (reg:DI 26))
    (clobber (reg:DI 27))]
   "TARGET_ABI_OPEN_VMS"
-  "*
 {
   switch (which_alternative)
     {
     case 0:
-   	return \"mov %2,$27\;jsr $26,0\;ldq $27,0($29)\";
+   	return "mov %2,$27\;jsr $26,0\;ldq $27,0($29)";
     case 1:
 	operands [2] = alpha_use_linkage (operands [0], cfun->decl, 1, 0);
 	operands [3] = alpha_use_linkage (operands [0], cfun->decl, 0, 0);
-   	return \"ldq $26,%3\;ldq $27,%2\;jsr $26,%0\;ldq $27,0($29)\";
+   	return "ldq $26,%3\;ldq $27,%2\;jsr $26,%0\;ldq $27,0($29)";
     default:
       abort();
     }
-}"
+}
   [(set_attr "type" "jsr")
    (set_attr "length" "12,16")])
 
@@ -5216,7 +5273,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 ;; Split the load of an address into a four-insn sequence on Unicos/Mk.
 ;; Always generate a REG_EQUAL note for the last instruction to facilitate
-;; optimisations. If the symbolic operand is a label_ref, generate REG_LABEL
+;; optimizations. If the symbolic operand is a label_ref, generate REG_LABEL
 ;; notes and update LABEL_NUSES because this is not done automatically.
 ;; Labels may be incorrectly deleted if we don't do this.
 ;;
@@ -5305,7 +5362,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
     return "lda %0,%2(%1)\t\t!gprel";
   else
     return "lda %0,%2(%1)\t\t!gprellow";
-})
+}
+  [(set_attr "usegp" "yes")])
 
 (define_split
   [(set (match_operand:DI 0 "register_operand" "")
@@ -5331,10 +5389,12 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   [(match_dup 0)]
   "operands[0] = split_small_symbolic_operand (operands[0]);")
 
+;; Accepts any symbolic, not just global, since function calls that
+;; don't go via bsr still use !literal in hopes of linker relaxation.
 (define_insn "movdi_er_high_g"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(unspec:DI [(match_operand:DI 1 "register_operand" "r")
-		    (match_operand:DI 2 "global_symbolic_operand" "")
+		    (match_operand:DI 2 "symbolic_operand" "")
 		    (match_operand 3 "const_int_operand" "")]
 		   UNSPEC_LITERAL))]
   "TARGET_EXPLICIT_RELOCS"
@@ -5425,7 +5485,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 		   UNSPEC_DTPREL))]
   "HAVE_AS_TLS"
   "ldq %0,%2(%1)\t\t!gotdtprel"
-  [(set_attr "type" "ild")])
+  [(set_attr "type" "ild")
+   (set_attr "usegp" "yes")])
 
 (define_split
   [(set (match_operand:DI 0 "register_operand" "")
@@ -5446,7 +5507,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 		   UNSPEC_TPREL))]
   "HAVE_AS_TLS"
   "ldq %0,%2(%1)\t\t!gottprel"
-  [(set_attr "type" "ild")])
+  [(set_attr "type" "ild")
+   (set_attr "usegp" "yes")])
 
 (define_split
   [(set (match_operand:DI 0 "register_operand" "")
@@ -5477,7 +5539,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    fmov %R1,%0
    ldt %0,%1
    stt %R1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst")])
+  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst")
+   (set_attr "usegp" "*,*,*,yes,*,*,*,*,*,*")])
 
 ;; The 'U' constraint matches symbolic operands on Unicos/Mk. Those should
 ;; have been split up by the rules above but we shouldn't reject the
@@ -5524,7 +5587,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    stt %R1,%0
    ftoit %1,%0
    itoft %1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst,ftoi,itof")])
+  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst,ftoi,itof")
+   (set_attr "usegp" "*,*,*,yes,*,*,*,*,*,*,*,*")])
 
 (define_insn "*movdi_fix"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,m,*f,*f,Q,r,*f")
@@ -6460,6 +6524,56 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
     FAIL;
 })
 
+(define_expand "movstrdi"
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
+		   (match_operand:BLK 1 "memory_operand" ""))
+	      (use (match_operand:DI 2 "immediate_operand" ""))
+	      (use (match_operand:DI 3 "immediate_operand" ""))
+	      (use (match_dup 4))
+	      (clobber (reg:DI 25))
+	      (clobber (reg:DI 16))
+	      (clobber (reg:DI 17))
+	      (clobber (reg:DI 18))
+	      (clobber (reg:DI 19))
+	      (clobber (reg:DI 20))
+	      (clobber (reg:DI 26))
+	      (clobber (reg:DI 27))])]
+  "TARGET_ABI_OPEN_VMS"
+{
+  operands[4] = gen_rtx_SYMBOL_REF (Pmode, "OTS$MOVE");
+  alpha_need_linkage (XSTR (operands[4], 0), 0);
+})
+
+(define_insn "*movstrdi_1"
+  [(set (match_operand:BLK 0 "memory_operand" "=m,=m")
+	(match_operand:BLK 1 "memory_operand" "m,m"))
+   (use (match_operand:DI 2 "nonmemory_operand" "r,i"))
+   (use (match_operand:DI 3 "immediate_operand" ""))
+   (use (match_operand:DI 4 "call_operand" "i,i"))
+   (clobber (reg:DI 25))
+   (clobber (reg:DI 16))
+   (clobber (reg:DI 17))
+   (clobber (reg:DI 18))
+   (clobber (reg:DI 19))
+   (clobber (reg:DI 20))
+   (clobber (reg:DI 26))
+   (clobber (reg:DI 27))]
+  "TARGET_ABI_OPEN_VMS"
+{
+  operands [5] = alpha_use_linkage (operands [4], cfun->decl, 0, 1);
+  switch (which_alternative)
+    {
+    case 0:
+	return "lda $16,%0\;bis $31,%2,$17\;lda $18,%1\;ldq $26,%5\;lda $25,3($31)\;jsr $26,%4\;ldq $27,0($29)";
+    case 1:
+	return "lda $16,%0\;lda $17,%2($31)\;lda $18,%1\;ldq $26,%5\;lda $25,3($31)\;jsr $26,%4\;ldq $27,0($29)";
+    default:
+      abort();
+    }
+}
+  [(set_attr "type" "multi")
+   (set_attr "length" "28")])
+
 (define_expand "clrstrqi"
   [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
 		   (const_int 0))
@@ -6472,6 +6586,51 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   else
     FAIL;
 })
+
+(define_expand "clrstrdi"
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
+		   (const_int 0))
+	      (use (match_operand:DI 1 "immediate_operand" ""))
+	      (use (match_operand:DI 2 "immediate_operand" ""))
+	      (use (match_dup 3))
+	      (clobber (reg:DI 25))
+	      (clobber (reg:DI 16))
+	      (clobber (reg:DI 17))
+	      (clobber (reg:DI 26))
+	      (clobber (reg:DI 27))])]
+  "TARGET_ABI_OPEN_VMS"
+{
+  operands[3] = gen_rtx_SYMBOL_REF (Pmode, "OTS$ZERO");
+  alpha_need_linkage (XSTR (operands[3], 0), 0);
+})
+
+(define_insn "*clrstrdi_1"
+  [(set (match_operand:BLK 0 "memory_operand" "=m,=m")
+		   (const_int 0))
+   (use (match_operand:DI 1 "nonmemory_operand" "r,i"))
+   (use (match_operand:DI 2 "immediate_operand" ""))
+   (use (match_operand:DI 3 "call_operand" "i,i"))
+   (clobber (reg:DI 25))
+   (clobber (reg:DI 16))
+   (clobber (reg:DI 17))
+   (clobber (reg:DI 26))
+   (clobber (reg:DI 27))]
+  "TARGET_ABI_OPEN_VMS"
+{
+  operands [4] = alpha_use_linkage (operands [3], cfun->decl, 0, 1);
+  switch (which_alternative)
+    {
+    case 0:
+	return "lda $16,%0\;bis $31,%1,$17\;ldq $26,%4\;lda $25,2($31)\;jsr $26,%3\;ldq $27,0($29)";
+    case 1:
+	return "lda $16,%0\;lda $17,%1($31)\;ldq $26,%4\;lda $25,2($31)\;jsr $26,%3\;ldq $27,0($29)";
+    default:
+      abort();
+    }
+}
+  [(set_attr "type" "multi")
+   (set_attr "length" "24")])
+
 
 ;; Subroutine of stack space allocation.  Perform a stack probe.
 (define_expand "probe_stack"
@@ -6571,7 +6730,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   ""
 {
   operands[2] = gen_label_rtx ();
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+  (*targetm.asm_out.internal_label) (asm_out_file, "L",
 			     CODE_LABEL_NUMBER (operands[2]));
 
   return "stq $31,-8192(%1)\;subq %0,1,%0\;lda %1,-8192(%1)\;bne %0,%l2";
@@ -6752,7 +6911,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   [(const_int 0)]
   "
 {
-  emit_note (NULL, NOTE_INSN_DELETED);
+  emit_note (NOTE_INSN_DELETED);
   DONE;
 }")
 
@@ -7012,7 +7171,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extxl_be;
   else
@@ -7027,7 +7186,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extxl_be;
   else
@@ -7042,7 +7201,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extxl_be;
   else
@@ -7057,7 +7216,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extxl_be;
   else
@@ -7072,7 +7231,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extwh_be;
   else
@@ -7087,7 +7246,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extlh_be;
   else
@@ -7102,7 +7261,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extqh_be;
   else
@@ -7117,7 +7276,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_insbl_be;
   else
@@ -7133,7 +7292,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_inswl_be;
   else
@@ -7149,7 +7308,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_insll_be;
   else
@@ -7166,7 +7325,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_insql_be;
   else
@@ -7211,7 +7370,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   rtx mask;
   if (WORDS_BIG_ENDIAN)
     gen = gen_mskxl_be;
@@ -7228,7 +7387,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   rtx mask;
   if (WORDS_BIG_ENDIAN)
     gen = gen_mskxl_be;
@@ -7245,7 +7404,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   rtx mask;
   if (WORDS_BIG_ENDIAN)
     gen = gen_mskxl_be;
@@ -7262,7 +7421,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   rtx mask;
   if (WORDS_BIG_ENDIAN)
     gen = gen_mskxl_be;
@@ -7685,7 +7844,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "@
    jsr $26,(%1),0\;ldah $29,0($26)\t\t!gpdisp!%*\;lda $29,0($29)\t\t!gpdisp!%*
-   bsr $26,$%1..ng
+   bsr $26,%1\t\t!samegp
    ldq $27,%1($29)\t\t!literal!%#\;jsr $26,($27),0\t\t!lituse_jsr!%#\;ldah $29,0($26)\t\t!gpdisp!%*\;lda $29,0($29)\t\t!gpdisp!%*"
   [(set_attr "type" "jsr")
    (set_attr "length" "12,*,16")])
@@ -7699,7 +7858,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	      (use (reg:DI 29))
 	      (clobber (reg:DI 26))])]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && reload_completed
-   && ! current_file_function_operand (operands[1], Pmode)
+   && ! samegp_function_operand (operands[1], Pmode)
    && peep2_regno_dead_p (1, 29)"
   [(parallel [(set (match_dup 0)
 		   (call (mem:DI (match_dup 3))
@@ -7731,7 +7890,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	      (use (reg:DI 29))
 	      (clobber (reg:DI 26))])]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && reload_completed
-   && ! current_file_function_operand (operands[1], Pmode)
+   && ! samegp_function_operand (operands[1], Pmode)
    && ! peep2_regno_dead_p (1, 29)"
   [(parallel [(set (match_dup 0)
 		   (call (mem:DI (match_dup 3))
@@ -7785,9 +7944,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "! TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF
    && find_reg_note (insn, REG_NORETURN, NULL_RTX)"
   "@
-   jsr $26,($27),0
-   bsr $26,$%1..ng
-   jsr $26,%1"
+   jsr $26,($27),0%+
+   bsr $26,$%1..ng%+
+   jsr $26,%1%+"
   [(set_attr "type" "jsr")
    (set_attr "length" "*,*,8")])
 
@@ -7876,7 +8035,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (unspec [(reg:DI 29)] UNSPEC_SIBCALL)]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "@
-   br $31,$%1..ng
+   br $31,%1\t\t!samegp
    ldq $27,%1($29)\t\t!literal!%#\;jmp $31,($27),%1\t\t!lituse_jsr!%#"
   [(set_attr "type" "jsr")
    (set_attr "length" "*,8")])
@@ -7918,20 +8077,19 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (use (reg:DI 26))
    (clobber (reg:DI 27))]
   "TARGET_ABI_OPEN_VMS"
-  "*
 {
   switch (which_alternative)
     {
     case 0:
-   	return \"mov %3,$27\;jsr $26,0\;ldq $27,0($29)\";
+   	return "mov %3,$27\;jsr $26,0\;ldq $27,0($29)";
     case 1:
 	operands [3] = alpha_use_linkage (operands [1], cfun->decl, 1, 0);
 	operands [4] = alpha_use_linkage (operands [1], cfun->decl, 0, 0);
-   	return \"ldq $26,%4\;ldq $27,%3\;jsr $26,%1\;ldq $27,0($29)\";
+   	return "ldq $26,%4\;ldq $27,%3\;jsr $26,%1\;ldq $27,0($29)";
     default:
       abort();
     }
-}"
+}
   [(set_attr "type" "jsr")
    (set_attr "length" "12,16")])
 

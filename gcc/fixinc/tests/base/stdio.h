@@ -7,8 +7,8 @@
     This had to be done to correct non-standard usages in the
     original, manufacturer supplied header file.  */
 
-#ifndef FIXINC_STDIO_STDARG_H_CHECK
-#define FIXINC_STDIO_STDARG_H_CHECK 1
+#ifndef FIXINC_WRAP_STDIO_H_STDIO_STDARG_H
+#define FIXINC_WRAP_STDIO_H_STDIO_STDARG_H 1
 
 #define __need___va_list
 #include <stdarg.h>
@@ -17,6 +17,13 @@
 #if defined( ALPHA_GETOPT_CHECK )
 extern int getopt(int, char *const[], const char *);
 #endif  /* ALPHA_GETOPT_CHECK */
+
+
+#if defined( BSD_STDIO_ATTRS_CONFLICT_CHECK )
+#define _BSD_STRING(_BSD_X) _BSD_STRINGX(_BSD_X)
+#define _BSD_STRINGX(_BSD_X) #_BSD_X
+int vfscanf(FILE *, const char *, __builtin_va_list) __asm__ (_BSD_STRING(__USER_LABEL_PREFIX__) "__svfscanf");
+#endif  /* BSD_STDIO_ATTRS_CONFLICT_CHECK */
 
 
 #if defined( HPUX11_VSNPRINTF_CHECK )
@@ -80,4 +87,4 @@ extern char *tempnam( const char *, const char *);
 void f (char * __restrict__ x);
 #endif  /* UNICOSMK_RESTRICT_CHECK */
 
-#endif  /* FIXINC_STDIO_STDARG_H_CHECK */
+#endif  /* FIXINC_WRAP_STDIO_H_STDIO_STDARG_H */

@@ -1,5 +1,6 @@
 /* Virtual array support.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
    This file is part of GCC.
@@ -22,57 +23,56 @@
 #include "config.h"
 #include "errors.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "varray.h"
 #include "ggc.h"
 
 #define VARRAY_HDR_SIZE (sizeof (struct varray_head_tag) - sizeof (varray_data))
 
-static const size_t element_size[NUM_VARRAY_DATA] = {
-  sizeof (char),
-  sizeof (unsigned char),
-  sizeof (short),
-  sizeof (unsigned short),
-  sizeof (int),
-  sizeof (unsigned int),
-  sizeof (long),
-  sizeof (unsigned long),
-  sizeof (HOST_WIDE_INT),
-  sizeof (unsigned HOST_WIDE_INT),
-  sizeof (PTR),
-  sizeof (char *),
-  sizeof (struct rtx_def *),
-  sizeof (struct rtvec_def *),
-  sizeof (union tree_node *),
-  sizeof (struct bitmap_head_def *),
-  sizeof (struct reg_info_def *),
-  sizeof (struct const_equiv_data),
-  sizeof (struct basic_block_def *),
-  sizeof (struct elt_list *),
-  sizeof (struct dom_node *),
-  sizeof (struct dom_edge *)
-};
+/* Do not add any more non-GC items here.  Please either remove or GC those items that
+   are not GCed.  */
 
-static const int uses_ggc[NUM_VARRAY_DATA] = {
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* unsigned HOST_WIDE_INT */
-  1, /* PTR */
-  1, 1, 1, 1, 1, /* bitmap_head_def */
-  0, 0, 0, 1, 0, 0
+static const struct {
+  unsigned char size;
+  bool uses_ggc;
+} element[NUM_VARRAY_DATA] = {
+  { sizeof (char), 1 },
+  { sizeof (unsigned char), 1 },
+  { sizeof (short), 1 },
+  { sizeof (unsigned short), 1 },
+  { sizeof (int), 1 },
+  { sizeof (unsigned int), 1 },
+  { sizeof (long), 1 },
+  { sizeof (unsigned long), 1 },
+  { sizeof (HOST_WIDE_INT), 1 },
+  { sizeof (unsigned HOST_WIDE_INT), 1 },
+  { sizeof (void *), 1 },
+  { sizeof (char *), 1 },
+  { sizeof (struct rtx_def *), 1 },
+  { sizeof (struct rtvec_def *), 1 },
+  { sizeof (union tree_node *), 1 },
+  { sizeof (struct bitmap_head_def *), 1 },
+  { sizeof (struct reg_info_def *), 0 },
+  { sizeof (struct const_equiv_data), 0 },
+  { sizeof (struct basic_block_def *), 0 },
+  { sizeof (struct elt_list *), 1 },
+  { sizeof (struct dom_node *), 1 },
+  { sizeof (struct dom_edge *), 1 },
 };
 
 /* Allocate a virtual array with NUM_ELEMENT elements, each of which is
    ELEMENT_SIZE bytes long, named NAME.  Array elements are zeroed.  */
 varray_type
-varray_init (num_elements, element_kind, name)
-     size_t num_elements;
-     enum varray_data_enum element_kind;
-     const char *name;
+varray_init (size_t num_elements, enum varray_data_enum element_kind,
+	     const char *name)
 {
-  size_t data_size = num_elements * element_size[element_kind];
+  size_t data_size = num_elements * element[element_kind].size;
   varray_type ptr;
-  if (uses_ggc [element_kind])
-    ptr = (varray_type) ggc_alloc_cleared (VARRAY_HDR_SIZE + data_size);
+  if (element[element_kind].uses_ggc)
+    ptr = ggc_alloc_cleared (VARRAY_HDR_SIZE + data_size);
   else
-    ptr = (varray_type) xcalloc (VARRAY_HDR_SIZE + data_size, 1);
+    ptr = xcalloc (VARRAY_HDR_SIZE + data_size, 1);
 
   ptr->num_elements = num_elements;
   ptr->elements_used = 0;
@@ -84,22 +84,20 @@ varray_init (num_elements, element_kind, name)
 /* Grow/shrink the virtual array VA to N elements.  Zero any new elements
    allocated.  */
 varray_type
-varray_grow (va, n)
-     varray_type va;
-     size_t n;
+varray_grow (varray_type va, size_t n)
 {
   size_t old_elements = va->num_elements;
 
   if (n != old_elements)
     {
-      size_t elem_size = element_size[va->type];
+      size_t elem_size = element[va->type].size;
       size_t old_data_size = old_elements * elem_size;
       size_t data_size = n * elem_size;
 
-      if (uses_ggc[va->type])
-	va = (varray_type) ggc_realloc (va, VARRAY_HDR_SIZE + data_size);
+      if (element[va->type].uses_ggc)
+	va = ggc_realloc (va, VARRAY_HDR_SIZE + data_size);
       else
-	va = (varray_type) xrealloc ((char *) va, VARRAY_HDR_SIZE + data_size);
+	va = xrealloc (va, VARRAY_HDR_SIZE + data_size);
       va->num_elements = n;
       if (n > old_elements)
 	memset (&va->data.c[old_data_size], 0, data_size - old_data_size);
@@ -110,10 +108,9 @@ varray_grow (va, n)
 
 /* Reset a varray to its original state.  */
 void
-varray_clear (va)
-     varray_type va;
+varray_clear (varray_type va)
 {
-  size_t data_size = element_size[va->type] * va->num_elements;
+  size_t data_size = element[va->type].size * va->num_elements;
 
   memset (va->data.c, 0, data_size);
   va->elements_used = 0;
@@ -123,15 +120,11 @@ varray_clear (va)
 
 #if defined ENABLE_CHECKING && (GCC_VERSION >= 2007)
 
-extern void error PARAMS ((const char *, ...))	ATTRIBUTE_PRINTF_1;
+extern void error (const char *, ...)	ATTRIBUTE_PRINTF_1;
 
 void
-varray_check_failed (va, n, file, line, function)
-     varray_type va;
-     size_t n;
-     const char *file;
-     int line;
-     const char *function;
+varray_check_failed (varray_type va, size_t n, const char *file, int line,
+		     const char *function)
 {
   internal_error ("virtual array %s[%lu]: element %lu out of bounds in %s, at %s:%d",
 		  va->name, (unsigned long) va->num_elements, (unsigned long) n,

@@ -1,6 +1,6 @@
 /* Subroutines used by or related to instruction recognition.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,6 +22,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "insn-config.h"
@@ -55,11 +57,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #endif
 #endif
 
-static void validate_replace_rtx_1	PARAMS ((rtx *, rtx, rtx, rtx));
-static rtx *find_single_use_1		PARAMS ((rtx, rtx *));
-static void validate_replace_src_1 	PARAMS ((rtx *, void *));
-static rtx split_insn			PARAMS ((rtx));
-static int does_contain_spill_pseudos   PARAMS ((rtx));
+static void validate_replace_rtx_1 (rtx *, rtx, rtx, rtx);
+static rtx *find_single_use_1 (rtx, rtx *);
+static void validate_replace_src_1 (rtx *, void *);
+static rtx split_insn (rtx);
+static int does_contain_spill_pseudos (rtx);
 
 /* Nonzero means allow operands to be volatile.
    This should be 0 if you are generating rtl, such as if you are calling
@@ -88,18 +90,21 @@ int which_alternative;
 
 int reload_completed;
 
+/* Nonzero after thread_prologue_and_epilogue_insns has run.  */
+int epilogue_completed;
+
 /* Initialize data used by the function `recog'.
    This must be called once in the compilation of a function
    before any insn recognition may be done in the function.  */
 
 void
-init_recog_no_volatile ()
+init_recog_no_volatile (void)
 {
   volatile_ok = 0;
 }
 
 void
-init_recog ()
+init_recog (void)
 {
   volatile_ok = 1;
 }
@@ -114,8 +119,7 @@ init_recog ()
    through this one.  (The only exception is in combine.c.)  */
 
 int
-recog_memoized_1 (insn)
-     rtx insn;
+recog_memoized_1 (rtx insn)
 {
   if (INSN_CODE (insn) < 0)
     INSN_CODE (insn) = recog (PATTERN (insn), insn, 0);
@@ -126,8 +130,7 @@ recog_memoized_1 (insn)
    and that the operands mentioned in it are legitimate.  */
 
 int
-check_asm_operands (x)
-     rtx x;
+check_asm_operands (rtx x)
 {
   int noperands;
   rtx *operands;
@@ -149,8 +152,8 @@ check_asm_operands (x)
   if (noperands == 0)
     return 1;
 
-  operands = (rtx *) alloca (noperands * sizeof (rtx));
-  constraints = (const char **) alloca (noperands * sizeof (char *));
+  operands = alloca (noperands * sizeof (rtx));
+  constraints = alloca (noperands * sizeof (char *));
 
   decode_asm_operands (x, operands, NULL, constraints, NULL);
 
@@ -203,11 +206,7 @@ static int num_changes = 0;
    Otherwise, perform the change and return 1.  */
 
 int
-validate_change (object, loc, new, in_group)
-    rtx object;
-    rtx *loc;
-    rtx new;
-    int in_group;
+validate_change (rtx object, rtx *loc, rtx new, int in_group)
 {
   rtx old = *loc;
 
@@ -229,9 +228,7 @@ validate_change (object, loc, new, in_group)
       else
 	changes_allocated *= 2;
 
-      changes =
-	(change_t*) xrealloc (changes,
-			      sizeof (change_t) * changes_allocated);
+      changes = xrealloc (changes, sizeof (change_t) * changes_allocated);
     }
 
   changes[num_changes].object = object;
@@ -261,8 +258,7 @@ validate_change (object, loc, new, in_group)
    were valid; i.e. whether INSN can still be recognized.  */
 
 int
-insn_invalid_p (insn)
-     rtx insn;
+insn_invalid_p (rtx insn)
 {
   rtx pat = PATTERN (insn);
   int num_clobbers = 0;
@@ -313,7 +309,7 @@ insn_invalid_p (insn)
 
 /* Return number of changes made and not validated yet.  */
 int
-num_changes_pending ()
+num_changes_pending (void)
 {
   return num_changes;
 }
@@ -322,7 +318,7 @@ num_changes_pending ()
    Return 1 if all changes are valid, zero otherwise.  */
 
 int
-apply_change_group ()
+apply_change_group (void)
 {
   int i;
   rtx last_validated = NULL_RTX;
@@ -340,7 +336,7 @@ apply_change_group ()
     {
       rtx object = changes[i].object;
 
-      /* if there is no object to test or if it is the same as the one we
+      /* If there is no object to test or if it is the same as the one we
          already tested, ignore it.  */
       if (object == 0 || object == last_validated)
 	continue;
@@ -423,7 +419,7 @@ apply_change_group ()
 /* Return the number of changes so far in the current group.  */
 
 int
-num_validated_changes ()
+num_validated_changes (void)
 {
   return num_changes;
 }
@@ -431,8 +427,7 @@ num_validated_changes ()
 /* Retract the changes numbered NUM and up.  */
 
 void
-cancel_changes (num)
-     int num;
+cancel_changes (int num)
 {
   int i;
 
@@ -451,9 +446,7 @@ cancel_changes (num)
    validate_change passing OBJECT.  */
 
 static void
-validate_replace_rtx_1 (loc, from, to, object)
-     rtx *loc;
-     rtx from, to, object;
+validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
 {
   int i, j;
   const char *fmt;
@@ -634,8 +627,7 @@ validate_replace_rtx_1 (loc, from, to, object)
    if INSN is still valid.  */
 
 int
-validate_replace_rtx_subexp (from, to, insn, loc)
-     rtx from, to, insn, *loc;
+validate_replace_rtx_subexp (rtx from, rtx to, rtx insn, rtx *loc)
 {
   validate_replace_rtx_1 (loc, from, to, insn);
   return apply_change_group ();
@@ -645,8 +637,7 @@ validate_replace_rtx_subexp (from, to, insn, loc)
    changes have been made, validate by seeing if INSN is still valid.  */
 
 int
-validate_replace_rtx (from, to, insn)
-     rtx from, to, insn;
+validate_replace_rtx (rtx from, rtx to, rtx insn)
 {
   validate_replace_rtx_1 (&PATTERN (insn), from, to, insn);
   return apply_change_group ();
@@ -655,8 +646,7 @@ validate_replace_rtx (from, to, insn)
 /* Try replacing every occurrence of FROM in INSN with TO.  */
 
 void
-validate_replace_rtx_group (from, to, insn)
-     rtx from, to, insn;
+validate_replace_rtx_group (rtx from, rtx to, rtx insn)
 {
   validate_replace_rtx_1 (&PATTERN (insn), from, to, insn);
 }
@@ -670,9 +660,7 @@ struct validate_replace_src_data
 };
 
 static void
-validate_replace_src_1 (x, data)
-     rtx *x;
-     void *data;
+validate_replace_src_1 (rtx *x, void *data)
 {
   struct validate_replace_src_data *d
     = (struct validate_replace_src_data *) data;
@@ -684,8 +672,7 @@ validate_replace_src_1 (x, data)
    SET_DESTs.  */
 
 void
-validate_replace_src_group (from, to, insn)
-     rtx from, to, insn;
+validate_replace_src_group (rtx from, rtx to, rtx insn)
 {
   struct validate_replace_src_data d;
 
@@ -695,11 +682,10 @@ validate_replace_src_group (from, to, insn)
   note_uses (&PATTERN (insn), validate_replace_src_1, &d);
 }
 
-/* Same as validate_repalace_src_group, but validate by seeing if
+/* Same as validate_replace_src_group, but validate by seeing if
    INSN is still valid.  */
 int
-validate_replace_src (from, to, insn)
-     rtx from, to, insn;
+validate_replace_src (rtx from, rtx to, rtx insn)
 {
   validate_replace_src_group (from, to, insn);
   return apply_change_group ();
@@ -711,8 +697,7 @@ validate_replace_src (from, to, insn)
    EQ and NE tests do not count.  */
 
 int
-next_insn_tests_no_inequality (insn)
-     rtx insn;
+next_insn_tests_no_inequality (rtx insn)
 {
   rtx next = next_cc0_user (insn);
 
@@ -725,34 +710,6 @@ next_insn_tests_no_inequality (insn)
 	   || GET_CODE (next) == CALL_INSN)
 	  && ! inequality_comparisons_p (PATTERN (next)));
 }
-
-#if 0  /* This is useless since the insn that sets the cc's
-	  must be followed immediately by the use of them.  */
-/* Return 1 if the CC value set up by INSN is not used.  */
-
-int
-next_insns_test_no_inequality (insn)
-     rtx insn;
-{
-  rtx next = NEXT_INSN (insn);
-
-  for (; next != 0; next = NEXT_INSN (next))
-    {
-      if (GET_CODE (next) == CODE_LABEL
-	  || GET_CODE (next) == BARRIER)
-	return 1;
-      if (GET_CODE (next) == NOTE)
-	continue;
-      if (inequality_comparisons_p (PATTERN (next)))
-	return 0;
-      if (sets_cc0_p (PATTERN (next)) == 1)
-	return 1;
-      if (! reg_mentioned_p (cc0_rtx, PATTERN (next)))
-	return 1;
-    }
-  return 1;
-}
-#endif
 #endif
 
 /* This is used by find_single_use to locate an rtx that contains exactly one
@@ -761,9 +718,7 @@ next_insns_test_no_inequality (insn)
    DEST that are being used to totally replace it are not counted.  */
 
 static rtx *
-find_single_use_1 (dest, loc)
-     rtx dest;
-     rtx *loc;
+find_single_use_1 (rtx dest, rtx *loc)
 {
   rtx x = *loc;
   enum rtx_code code = GET_CODE (x);
@@ -874,10 +829,7 @@ find_single_use_1 (dest, loc)
    and last insn referencing DEST.  */
 
 rtx *
-find_single_use (dest, insn, ploc)
-     rtx dest;
-     rtx insn;
-     rtx *ploc;
+find_single_use (rtx dest, rtx insn, rtx *ploc)
 {
   rtx next;
   rtx *result;
@@ -940,9 +892,7 @@ find_single_use (dest, insn, ploc)
    class NO_REGS, see the comment for `register_operand'.  */
 
 int
-general_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+general_operand (rtx op, enum machine_mode mode)
 {
   enum rtx_code code = GET_CODE (op);
 
@@ -997,7 +947,7 @@ general_operand (op, mode)
 	return 0;
 
       /* FLOAT_MODE subregs can't be paradoxical.  Combine will occasionally
- 	 create such rtl, and we must reject it.  */
+	 create such rtl, and we must reject it.  */
       if (GET_MODE_CLASS (GET_MODE (op)) == MODE_FLOAT
 	  && GET_MODE_SIZE (GET_MODE (op)) > GET_MODE_SIZE (GET_MODE (sub)))
 	return 0;
@@ -1044,9 +994,7 @@ general_operand (op, mode)
    expressions in the machine description.  */
 
 int
-address_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+address_operand (rtx op, enum machine_mode mode)
 {
   return memory_address_p (mode, op);
 }
@@ -1066,9 +1014,7 @@ address_operand (op, mode)
    it is most consistent to keep this function from accepting them.  */
 
 int
-register_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+register_operand (rtx op, enum machine_mode mode)
 {
   if (GET_MODE (op) != mode && mode != VOIDmode)
     return 0;
@@ -1089,7 +1035,7 @@ register_operand (op, mode)
 #ifdef CANNOT_CHANGE_MODE_CLASS
       if (GET_CODE (sub) == REG
 	  && REGNO (sub) < FIRST_PSEUDO_REGISTER
-	  && REG_CANNOT_CHANGE_MODE_P (REGNO (sub), mode, GET_MODE (sub))
+	  && REG_CANNOT_CHANGE_MODE_P (REGNO (sub), GET_MODE (sub), mode)
 	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_INT
 	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_FLOAT)
 	return 0;
@@ -1119,9 +1065,7 @@ register_operand (op, mode)
 /* Return 1 for a register in Pmode; ignore the tested mode.  */
 
 int
-pmode_register_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+pmode_register_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   return register_operand (op, Pmode);
 }
@@ -1140,9 +1084,7 @@ int while_newra = 0;
    or a hard register.  */
 
 int
-scratch_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+scratch_operand (rtx op, enum machine_mode mode)
 {
   if (GET_MODE (op) != mode && mode != VOIDmode)
     return 0;
@@ -1159,9 +1101,7 @@ scratch_operand (op, mode)
    expressions in the machine description.  */
 
 int
-immediate_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+immediate_operand (rtx op, enum machine_mode mode)
 {
   /* Don't accept CONST_INT or anything similar
      if the caller wants something floating.  */
@@ -1193,9 +1133,7 @@ immediate_operand (op, mode)
 /* Returns 1 if OP is an operand that is a CONST_INT.  */
 
 int
-const_int_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+const_int_operand (rtx op, enum machine_mode mode)
 {
   if (GET_CODE (op) != CONST_INT)
     return 0;
@@ -1211,9 +1149,7 @@ const_int_operand (op, mode)
    floating-point number.  */
 
 int
-const_double_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+const_double_operand (rtx op, enum machine_mode mode)
 {
   /* Don't accept CONST_INT or anything similar
      if the caller wants something floating.  */
@@ -1230,9 +1166,7 @@ const_double_operand (op, mode)
 /* Return 1 if OP is a general operand that is not an immediate operand.  */
 
 int
-nonimmediate_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+nonimmediate_operand (rtx op, enum machine_mode mode)
 {
   return (general_operand (op, mode) && ! CONSTANT_P (op));
 }
@@ -1240,9 +1174,7 @@ nonimmediate_operand (op, mode)
 /* Return 1 if OP is a register reference or immediate value of mode MODE.  */
 
 int
-nonmemory_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+nonmemory_operand (rtx op, enum machine_mode mode)
 {
   if (CONSTANT_P (op))
     {
@@ -1296,9 +1228,7 @@ nonmemory_operand (op, mode)
    expressions in the machine description.  */
 
 int
-push_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+push_operand (rtx op, enum machine_mode mode)
 {
   unsigned int rounded_size = GET_MODE_SIZE (mode);
 
@@ -1328,7 +1258,7 @@ push_operand (op, mode)
 #ifdef STACK_GROWS_DOWNWARD
 	  || INTVAL (XEXP (XEXP (op, 1), 1)) != - (int) rounded_size
 #else
-	  || INTVAL (XEXP (XEXP (op, 1), 1)) != rounded_size
+	  || INTVAL (XEXP (XEXP (op, 1), 1)) != (int) rounded_size
 #endif
 	  )
 	return 0;
@@ -1344,9 +1274,7 @@ push_operand (op, mode)
    expressions in the machine description.  */
 
 int
-pop_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+pop_operand (rtx op, enum machine_mode mode)
 {
   if (GET_CODE (op) != MEM)
     return 0;
@@ -1365,9 +1293,7 @@ pop_operand (op, mode)
 /* Return 1 if ADDR is a valid memory address for mode MODE.  */
 
 int
-memory_address_p (mode, addr)
-     enum machine_mode mode ATTRIBUTE_UNUSED;
-     rtx addr;
+memory_address_p (enum machine_mode mode ATTRIBUTE_UNUSED, rtx addr)
 {
   if (GET_CODE (addr) == ADDRESSOF)
     return 1;
@@ -1386,9 +1312,7 @@ memory_address_p (mode, addr)
    expressions in the machine description.  */
 
 int
-memory_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+memory_operand (rtx op, enum machine_mode mode)
 {
   rtx inner;
 
@@ -1411,9 +1335,7 @@ memory_operand (op, mode)
    that is, a memory reference whose address is a general_operand.  */
 
 int
-indirect_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+indirect_operand (rtx op, enum machine_mode mode)
 {
   /* Before reload, a SUBREG isn't in memory (see memory_operand, above).  */
   if (! reload_completed
@@ -1446,9 +1368,7 @@ indirect_operand (op, mode)
    MATCH_OPERATOR to recognize all the branch insns.  */
 
 int
-comparison_operator (op, mode)
-    rtx op;
-    enum machine_mode mode;
+comparison_operator (rtx op, enum machine_mode mode)
 {
   return ((mode == VOIDmode || GET_MODE (op) == mode)
 	  && GET_RTX_CLASS (GET_CODE (op)) == '<');
@@ -1459,8 +1379,7 @@ comparison_operator (op, mode)
    Otherwise return -1.  */
 
 int
-asm_noperands (body)
-     rtx body;
+asm_noperands (rtx body)
 {
   switch (GET_CODE (body))
     {
@@ -1544,12 +1463,8 @@ asm_noperands (body)
    we don't store that info.  */
 
 const char *
-decode_asm_operands (body, operands, operand_locs, constraints, modes)
-     rtx body;
-     rtx *operands;
-     rtx **operand_locs;
-     const char **constraints;
-     enum machine_mode *modes;
+decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
+		     const char **constraints, enum machine_mode *modes)
 {
   int i;
   int noperands;
@@ -1681,9 +1596,7 @@ decode_asm_operands (body, operands, operand_locs, constraints, modes)
    Return > 0 if ok, = 0 if bad, < 0 if inconclusive.  */
 
 int
-asm_operand_ok (op, constraint)
-     rtx op;
-     const char *constraint;
+asm_operand_ok (rtx op, const char *constraint)
 {
   int result = 0;
 
@@ -1693,18 +1606,21 @@ asm_operand_ok (op, constraint)
 
   while (*constraint)
     {
-      char c = *constraint++;
+      char c = *constraint;
+      int len;
       switch (c)
 	{
+	case ',':
+	  constraint++;
+	  continue;
 	case '=':
 	case '+':
 	case '*':
 	case '%':
-	case '?':
 	case '!':
 	case '#':
 	case '&':
-	case ',':
+	case '?':
 	  break;
 
 	case '0': case '1': case '2': case '3': case '4':
@@ -1713,25 +1629,27 @@ asm_operand_ok (op, constraint)
 	     proper matching constraint, but we can't actually fail
 	     the check if they didn't.  Indicate that results are
 	     inconclusive.  */
-	  while (ISDIGIT (*constraint))
+	  do
 	    constraint++;
-	  result = -1;
-	  break;
+	  while (ISDIGIT (*constraint));
+	  if (! result)
+	    result = -1;
+	  continue;
 
 	case 'p':
 	  if (address_operand (op, VOIDmode))
-	    return 1;
+	    result = 1;
 	  break;
 
 	case 'm':
 	case 'V': /* non-offsettable */
 	  if (memory_operand (op, VOIDmode))
-	    return 1;
+	    result = 1;
 	  break;
 
 	case 'o': /* offsettable */
 	  if (offsettable_nonstrict_memref_p (op))
-	    return 1;
+	    result = 1;
 	  break;
 
 	case '<':
@@ -1746,7 +1664,7 @@ asm_operand_ok (op, constraint)
 	      && (1
 		  || GET_CODE (XEXP (op, 0)) == PRE_DEC
 		  || GET_CODE (XEXP (op, 0)) == POST_DEC))
-	    return 1;
+	    result = 1;
 	  break;
 
 	case '>':
@@ -1754,7 +1672,7 @@ asm_operand_ok (op, constraint)
 	      && (1
 		  || GET_CODE (XEXP (op, 0)) == PRE_INC
 		  || GET_CODE (XEXP (op, 0)) == POST_INC))
-	    return 1;
+	    result = 1;
 	  break;
 
 	case 'E':
@@ -1762,18 +1680,18 @@ asm_operand_ok (op, constraint)
 	  if (GET_CODE (op) == CONST_DOUBLE
 	      || (GET_CODE (op) == CONST_VECTOR
 		  && GET_MODE_CLASS (GET_MODE (op)) == MODE_VECTOR_FLOAT))
-	    return 1;
+	    result = 1;
 	  break;
 
 	case 'G':
 	  if (GET_CODE (op) == CONST_DOUBLE
-	      && CONST_DOUBLE_OK_FOR_LETTER_P (op, 'G'))
-	    return 1;
+	      && CONST_DOUBLE_OK_FOR_CONSTRAINT_P (op, 'G', constraint))
+	    result = 1;
 	  break;
 	case 'H':
 	  if (GET_CODE (op) == CONST_DOUBLE
-	      && CONST_DOUBLE_OK_FOR_LETTER_P (op, 'H'))
-	    return 1;
+	      && CONST_DOUBLE_OK_FOR_CONSTRAINT_P (op, 'H', constraint))
+	    result = 1;
 	  break;
 
 	case 's':
@@ -1789,94 +1707,100 @@ asm_operand_ok (op, constraint)
 	      && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
 #endif
 	      )
-	    return 1;
+	    result = 1;
 	  break;
 
 	case 'n':
 	  if (GET_CODE (op) == CONST_INT
 	      || (GET_CODE (op) == CONST_DOUBLE
 		  && GET_MODE (op) == VOIDmode))
-	    return 1;
+	    result = 1;
 	  break;
 
 	case 'I':
 	  if (GET_CODE (op) == CONST_INT
-	      && CONST_OK_FOR_LETTER_P (INTVAL (op), 'I'))
-	    return 1;
+	      && CONST_OK_FOR_CONSTRAINT_P (INTVAL (op), 'I', constraint))
+	    result = 1;
 	  break;
 	case 'J':
 	  if (GET_CODE (op) == CONST_INT
-	      && CONST_OK_FOR_LETTER_P (INTVAL (op), 'J'))
-	    return 1;
+	      && CONST_OK_FOR_CONSTRAINT_P (INTVAL (op), 'J', constraint))
+	    result = 1;
 	  break;
 	case 'K':
 	  if (GET_CODE (op) == CONST_INT
-	      && CONST_OK_FOR_LETTER_P (INTVAL (op), 'K'))
-	    return 1;
+	      && CONST_OK_FOR_CONSTRAINT_P (INTVAL (op), 'K', constraint))
+	    result = 1;
 	  break;
 	case 'L':
 	  if (GET_CODE (op) == CONST_INT
-	      && CONST_OK_FOR_LETTER_P (INTVAL (op), 'L'))
-	    return 1;
+	      && CONST_OK_FOR_CONSTRAINT_P (INTVAL (op), 'L', constraint))
+	    result = 1;
 	  break;
 	case 'M':
 	  if (GET_CODE (op) == CONST_INT
-	      && CONST_OK_FOR_LETTER_P (INTVAL (op), 'M'))
-	    return 1;
+	      && CONST_OK_FOR_CONSTRAINT_P (INTVAL (op), 'M', constraint))
+	    result = 1;
 	  break;
 	case 'N':
 	  if (GET_CODE (op) == CONST_INT
-	      && CONST_OK_FOR_LETTER_P (INTVAL (op), 'N'))
-	    return 1;
+	      && CONST_OK_FOR_CONSTRAINT_P (INTVAL (op), 'N', constraint))
+	    result = 1;
 	  break;
 	case 'O':
 	  if (GET_CODE (op) == CONST_INT
-	      && CONST_OK_FOR_LETTER_P (INTVAL (op), 'O'))
-	    return 1;
+	      && CONST_OK_FOR_CONSTRAINT_P (INTVAL (op), 'O', constraint))
+	    result = 1;
 	  break;
 	case 'P':
 	  if (GET_CODE (op) == CONST_INT
-	      && CONST_OK_FOR_LETTER_P (INTVAL (op), 'P'))
-	    return 1;
+	      && CONST_OK_FOR_CONSTRAINT_P (INTVAL (op), 'P', constraint))
+	    result = 1;
 	  break;
 
 	case 'X':
-	  return 1;
+	  result = 1;
 
 	case 'g':
 	  if (general_operand (op, VOIDmode))
-	    return 1;
+	    result = 1;
 	  break;
 
 	default:
 	  /* For all other letters, we first check for a register class,
 	     otherwise it is an EXTRA_CONSTRAINT.  */
-	  if (REG_CLASS_FROM_LETTER (c) != NO_REGS)
+	  if (REG_CLASS_FROM_CONSTRAINT (c, constraint) != NO_REGS)
 	    {
 	    case 'r':
 	      if (GET_MODE (op) == BLKmode)
 		break;
 	      if (register_operand (op, VOIDmode))
-		return 1;
+		result = 1;
 	    }
-#ifdef EXTRA_CONSTRAINT
-	  if (EXTRA_CONSTRAINT (op, c))
-	    return 1;
-	  if (EXTRA_MEMORY_CONSTRAINT (c))
+#ifdef EXTRA_CONSTRAINT_STR
+	  if (EXTRA_CONSTRAINT_STR (op, c, constraint))
+	    result = 1;
+	  if (EXTRA_MEMORY_CONSTRAINT (c, constraint))
 	    {
 	      /* Every memory operand can be reloaded to fit.  */
 	      if (memory_operand (op, VOIDmode))
-	        return 1;
+	        result = 1;
 	    }
-	  if (EXTRA_ADDRESS_CONSTRAINT (c))
+	  if (EXTRA_ADDRESS_CONSTRAINT (c, constraint))
 	    {
 	      /* Every address operand can be reloaded to fit.  */
 	      if (address_operand (op, VOIDmode))
-	        return 1;
+	        result = 1;
 	    }
 #endif
 	  break;
 	}
+      len = CONSTRAINT_LEN (c, constraint);
+      do
+	constraint++;
+      while (--len && *constraint);
+      if (len)
+	return 0;
     }
 
   return result;
@@ -1887,8 +1811,7 @@ asm_operand_ok (op, constraint)
    Otherwise, return a null pointer.  */
 
 rtx *
-find_constant_term_loc (p)
-     rtx *p;
+find_constant_term_loc (rtx *p)
 {
   rtx *tem;
   enum rtx_code code = GET_CODE (*p);
@@ -1941,8 +1864,7 @@ find_constant_term_loc (p)
    don't use it before reload.  */
 
 int
-offsettable_memref_p (op)
-     rtx op;
+offsettable_memref_p (rtx op)
 {
   return ((GET_CODE (op) == MEM)
 	  && offsettable_address_p (1, GET_MODE (op), XEXP (op, 0)));
@@ -1952,8 +1874,7 @@ offsettable_memref_p (op)
    consider pseudo-regs valid as index or base regs.  */
 
 int
-offsettable_nonstrict_memref_p (op)
-     rtx op;
+offsettable_nonstrict_memref_p (rtx op)
 {
   return ((GET_CODE (op) == MEM)
 	  && offsettable_address_p (0, GET_MODE (op), XEXP (op, 0)));
@@ -1970,16 +1891,13 @@ offsettable_nonstrict_memref_p (op)
    for the sake of use in reload.c.  */
 
 int
-offsettable_address_p (strictp, mode, y)
-     int strictp;
-     enum machine_mode mode;
-     rtx y;
+offsettable_address_p (int strictp, enum machine_mode mode, rtx y)
 {
   enum rtx_code ycode = GET_CODE (y);
   rtx z;
   rtx y1 = y;
   rtx *y2;
-  int (*addressp) PARAMS ((enum machine_mode, rtx)) =
+  int (*addressp) (enum machine_mode, rtx) =
     (strictp ? strict_memory_address_p : memory_address_p);
   unsigned int mode_sz = GET_MODE_SIZE (mode);
 
@@ -2045,8 +1963,7 @@ offsettable_address_p (strictp, mode, y)
    because the amount of the increment depends on the mode.  */
 
 int
-mode_dependent_address_p (addr)
-  rtx addr ATTRIBUTE_UNUSED; /* Maybe used in GO_IF_MODE_DEPENDENT_ADDRESS.  */
+mode_dependent_address_p (rtx addr ATTRIBUTE_UNUSED /* Maybe used in GO_IF_MODE_DEPENDENT_ADDRESS.  */)
 {
   GO_IF_MODE_DEPENDENT_ADDRESS (addr, win);
   return 0;
@@ -2055,33 +1972,8 @@ mode_dependent_address_p (addr)
   return 1;
 }
 
-/* Return 1 if OP is a general operand
-   other than a memory ref with a mode dependent address.  */
-
-int
-mode_independent_operand (op, mode)
-     enum machine_mode mode;
-     rtx op;
-{
-  rtx addr;
-
-  if (! general_operand (op, mode))
-    return 0;
-
-  if (GET_CODE (op) != MEM)
-    return 1;
-
-  addr = XEXP (op, 0);
-  GO_IF_MODE_DEPENDENT_ADDRESS (addr, lose);
-  return 1;
-  /* Label `lose' might (not) be used via GO_IF_MODE_DEPENDENT_ADDRESS.  */
- lose: ATTRIBUTE_UNUSED_LABEL
-  return 0;
-}
-
 static int
-does_contain_spill_pseudos (x)
-     rtx x;
+does_contain_spill_pseudos (rtx x)
 {
   int i;
   const char *fmt;
@@ -2110,8 +2002,7 @@ does_contain_spill_pseudos (x)
    valid information.  This is used primary by gen_attr infrastructure that
    often does extract insn again and again.  */
 void
-extract_insn_cached (insn)
-     rtx insn;
+extract_insn_cached (rtx insn)
 {
   if (recog_data.insn == insn && INSN_CODE (insn) >= 0)
     return;
@@ -2121,8 +2012,7 @@ extract_insn_cached (insn)
 /* Do cached extract_insn, constrain_operand and complain about failures.
    Used by insn_attrtab.  */
 void
-extract_constrain_insn_cached (insn)
-     rtx insn;
+extract_constrain_insn_cached (rtx insn)
 {
   extract_insn_cached (insn);
   if (which_alternative == -1
@@ -2131,8 +2021,7 @@ extract_constrain_insn_cached (insn)
 }
 /* Do cached constrain_operand and complain about failures.  */
 int
-constrain_operands_cached (strict)
-	int strict;
+constrain_operands_cached (int strict)
 {
   if (which_alternative == -1)
     return constrain_operands (strict);
@@ -2143,8 +2032,7 @@ constrain_operands_cached (strict)
 /* Analyze INSN and fill in recog_data.  */
 
 void
-extract_insn (insn)
-     rtx insn;
+extract_insn (rtx insn)
 {
   int i;
   int icode;
@@ -2243,7 +2131,7 @@ extract_insn (insn)
    information from the constraint strings into a more usable form.
    The collected data is stored in recog_op_alt.  */
 void
-preprocess_constraints ()
+preprocess_constraints (void)
 {
   int i;
 
@@ -2271,13 +2159,16 @@ preprocess_constraints ()
 
 	  for (;;)
 	    {
-	      char c = *p++;
+	      char c = *p;
 	      if (c == '#')
 		do
-		  c = *p++;
+		  c = *++p;
 		while (c != ',' && c != '\0');
 	      if (c == ',' || c == '\0')
-		break;
+		{
+		  p++;
+		  break;
+		}
 
 	      switch (c)
 		{
@@ -2303,11 +2194,11 @@ preprocess_constraints ()
 		case '5': case '6': case '7': case '8': case '9':
 		  {
 		    char *end;
-		    op_alt[j].matches = strtoul (p - 1, &end, 10);
+		    op_alt[j].matches = strtoul (p, &end, 10);
 		    recog_op_alt[op_alt[j].matches][j].matched = i;
 		    p = end;
 		  }
-		  break;
+		  continue;
 
 		case 'm':
 		  op_alt[j].memory_ok = 1;
@@ -2339,22 +2230,28 @@ preprocess_constraints ()
 		  break;
 
 		default:
-		  if (EXTRA_MEMORY_CONSTRAINT (c))
+		  if (EXTRA_MEMORY_CONSTRAINT (c, p))
 		    {
 		      op_alt[j].memory_ok = 1;
 		      break;
 		    }
-		  if (EXTRA_ADDRESS_CONSTRAINT (c))
+		  if (EXTRA_ADDRESS_CONSTRAINT (c, p))
 		    {
 		      op_alt[j].is_address = 1;
-		      op_alt[j].class = reg_class_subunion[(int) op_alt[j].class]
-		        [(int) MODE_BASE_REG_CLASS (VOIDmode)];
+		      op_alt[j].class
+			= (reg_class_subunion
+			   [(int) op_alt[j].class]
+			   [(int) MODE_BASE_REG_CLASS (VOIDmode)]);
 		      break;
 		    }
 
-		  op_alt[j].class = reg_class_subunion[(int) op_alt[j].class][(int) REG_CLASS_FROM_LETTER ((unsigned char) c)];
+		  op_alt[j].class
+		    = (reg_class_subunion
+		       [(int) op_alt[j].class]
+		       [(int) REG_CLASS_FROM_CONSTRAINT ((unsigned char) c, p)]);
 		  break;
 		}
+	      p += CONSTRAINT_LEN (c, p);
 	    }
 	}
     }
@@ -2369,7 +2266,7 @@ preprocess_constraints ()
    alternative of constraints was matched: 0 for the first alternative,
    1 for the next, etc.
 
-   In addition, when two operands are match
+   In addition, when two operands are required to match
    and it happens that the output operand is (reg) while the
    input operand is --(reg) or ++(reg) (a pre-inc or pre-dec),
    make the output operand look like the input.
@@ -2393,8 +2290,7 @@ struct funny_match
 };
 
 int
-constrain_operands (strict)
-     int strict;
+constrain_operands (int strict)
 {
   const char *constraints[MAX_RECOG_OPERANDS];
   int matching_operands[MAX_RECOG_OPERANDS];
@@ -2428,6 +2324,7 @@ constrain_operands (strict)
 	  int offset = 0;
 	  int win = 0;
 	  int val;
+	  int len;
 
 	  earlyclobber[opno] = 0;
 
@@ -2452,9 +2349,16 @@ constrain_operands (strict)
 	  if (*p == 0 || *p == ',')
 	    win = 1;
 
-	  while (*p && (c = *p++) != ',')
-	    switch (c)
+	  do
+	    switch (c = *p, len = CONSTRAINT_LEN (c, p), c)
 	      {
+	      case '\0':
+		len = 0;
+		break;
+	      case ',':
+		c = '\0';
+		break;
+
 	      case '?':  case '!': case '*':  case '%':
 	      case '=':  case '+':
 		break;
@@ -2462,8 +2366,10 @@ constrain_operands (strict)
 	      case '#':
 		/* Ignore rest of this alternative as far as
 		   constraint checking is concerned.  */
-		while (*p && *p != ',')
+		do
 		  p++;
+		while (*p && *p != ',');
+		len = 0;
 		break;
 
 	      case '&':
@@ -2485,7 +2391,7 @@ constrain_operands (strict)
 		  char *end;
 		  int match;
 
-		  match = strtoul (p - 1, &end, 10);
+		  match = strtoul (p, &end, 10);
 		  p = end;
 
 		  if (strict < 0)
@@ -2520,6 +2426,7 @@ constrain_operands (strict)
 		      funny_match[funny_match_index++].other = match;
 		    }
 		}
+		len = 0;
 		break;
 
 	      case 'p':
@@ -2597,7 +2504,7 @@ constrain_operands (strict)
 	      case 'G':
 	      case 'H':
 		if (GET_CODE (op) == CONST_DOUBLE
-		    && CONST_DOUBLE_OK_FOR_LETTER_P (op, c))
+		    && CONST_DOUBLE_OK_FOR_CONSTRAINT_P (op, c, p))
 		  win = 1;
 		break;
 
@@ -2627,7 +2534,7 @@ constrain_operands (strict)
 	      case 'O':
 	      case 'P':
 		if (GET_CODE (op) == CONST_INT
-		    && CONST_OK_FOR_LETTER_P (INTVAL (op), c))
+		    && CONST_OK_FOR_CONSTRAINT_P (INTVAL (op), c, p))
 		  win = 1;
 		break;
 
@@ -2667,7 +2574,8 @@ constrain_operands (strict)
 		{
 		  enum reg_class class;
 
-		  class = (c == 'r' ? GENERAL_REGS : REG_CLASS_FROM_LETTER (c));
+		  class = (c == 'r'
+			   ? GENERAL_REGS : REG_CLASS_FROM_CONSTRAINT (c, p));
                   /* In the new ra handle all REGs first.  We accept all
                      normal pseudos, but no stack pseudos, as they represent
                      memory slots.  */
@@ -2690,35 +2598,36 @@ constrain_operands (strict)
                                   || reg_fits_class_p (op, class, offset, mode))))
 		        win = 1;
 		    }
-#ifdef EXTRA_CONSTRAINT
-		  else if (EXTRA_CONSTRAINT (op, c))
+#ifdef EXTRA_CONSTRAINT_STR
+		  else if (EXTRA_CONSTRAINT_STR (op, c, p))
 		    win = 1;
 
-		  if (EXTRA_MEMORY_CONSTRAINT (c))
+		  if (EXTRA_MEMORY_CONSTRAINT (c, p))
 		    {
-		      /* Every memory operand can be reloaded to fit,
-			 so copy the condition from the 'm' case.  */
-		      if (GET_CODE (op) == MEM
-		          /* Before reload, accept what reload can turn into mem.  */
-		          || (strict < 0 && CONSTANT_P (op))
-		          /* During reload, accept a pseudo  */
-		          || (reload_in_progress && GET_CODE (op) == REG
-			      && REGNO (op) >= FIRST_PSEUDO_REGISTER))
+		      /* Every memory operand can be reloaded to fit.  */
+		      if (strict < 0 && GET_CODE (op) == MEM)
+			win = 1;
+
+		      /* Before reload, accept what reload can turn into mem.  */
+		      if (strict < 0 && CONSTANT_P (op))
+			win = 1;
+
+		      /* During reload, accept a pseudo  */
+		      if (reload_in_progress && GET_CODE (op) == REG
+			  && REGNO (op) >= FIRST_PSEUDO_REGISTER)
 			win = 1;
 		    }
-		  if (EXTRA_ADDRESS_CONSTRAINT (c))
+		  if (EXTRA_ADDRESS_CONSTRAINT (c, p))
 		    {
-		      /* Every address operand can be reloaded to fit,
-			 so copy the condition from the 'p' case.  */
-		      if (strict <= 0
-		          || (strict_memory_address_p (recog_data.operand_mode[opno],
-						       op)))
+		      /* Every address operand can be reloaded to fit.  */
+		      if (strict < 0)
 		        win = 1;
 		    }
 #endif
 		  break;
 		}
 	      }
+	  while (p += len, c);
 
 	  constraints[opno] = p;
 	  /* If this operand did not win somehow,
@@ -2788,11 +2697,8 @@ constrain_operands (strict)
    If REG occupies multiple hard regs, all of them must be in CLASS.  */
 
 int
-reg_fits_class_p (operand, class, offset, mode)
-     rtx operand;
-     enum reg_class class;
-     int offset;
-     enum machine_mode mode;
+reg_fits_class_p (rtx operand, enum reg_class class, int offset,
+		  enum machine_mode mode)
 {
   int regno = REGNO (operand);
   if (regno < FIRST_PSEUDO_REGISTER
@@ -2815,8 +2721,7 @@ reg_fits_class_p (operand, class, offset, mode)
 /* Split single instruction.  Helper function for split_all_insns.
    Return last insn in the sequence if successful, or NULL if unsuccessful.  */
 static rtx
-split_insn (insn)
-     rtx insn;
+split_insn (rtx insn)
 {
   rtx set;
   if (!INSN_P (insn))
@@ -2871,16 +2776,15 @@ split_insn (insn)
 /* Split all insns in the function.  If UPD_LIFE, update life info after.  */
 
 void
-split_all_insns (upd_life)
-     int upd_life;
+split_all_insns (int upd_life)
 {
   sbitmap blocks;
-  int changed;
+  bool changed;
   basic_block bb;
 
   blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (blocks);
-  changed = 0;
+  changed = false;
 
   FOR_EACH_BB_REVERSE (bb)
     {
@@ -2905,7 +2809,7 @@ split_all_insns (upd_life)
 	      while (GET_CODE (last) == BARRIER)
 		last = PREV_INSN (last);
 	      SET_BIT (blocks, bb->index);
-	      changed = 1;
+	      changed = true;
 	      insn = last;
 	    }
 	}
@@ -2913,14 +2817,18 @@ split_all_insns (upd_life)
 
   if (changed)
     {
+      int old_last_basic_block = last_basic_block;
+
       find_many_sub_basic_blocks (blocks);
+
+      if (old_last_basic_block != last_basic_block && upd_life)
+	blocks = sbitmap_resize (blocks, last_basic_block, 1);
     }
 
   if (changed && upd_life)
-    {
-      count_or_remove_death_notes (blocks, 1);
-      update_life_info (blocks, UPDATE_LIFE_LOCAL, PROP_DEATH_NOTES);
-    }
+    update_life_info (blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
+		      PROP_DEATH_NOTES | PROP_REG_INFO);
+
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
@@ -2929,10 +2837,10 @@ split_all_insns (upd_life)
 }
 
 /* Same as split_all_insns, but do not expect CFG to be available.
-   Used by machine depedent reorg passes.  */
+   Used by machine dependent reorg passes.  */
 
 void
-split_all_insns_noflow ()
+split_all_insns_noflow (void)
 {
   rtx next, insn;
 
@@ -2964,8 +2872,7 @@ static int peep2_current;
    in a multi-insn pattern.  */
 
 rtx
-peep2_next_insn (n)
-     int n;
+peep2_next_insn (int n)
 {
   if (n >= MAX_INSNS_PER_PEEP2 + 1)
     abort ();
@@ -2983,9 +2890,7 @@ peep2_next_insn (n)
    after `current'.  */
 
 int
-peep2_regno_dead_p (ofs, regno)
-     int ofs;
-     int regno;
+peep2_regno_dead_p (int ofs, int regno)
 {
   if (ofs >= MAX_INSNS_PER_PEEP2 + 1)
     abort ();
@@ -3003,9 +2908,7 @@ peep2_regno_dead_p (ofs, regno)
 /* Similarly for a REG.  */
 
 int
-peep2_reg_dead_p (ofs, reg)
-     int ofs;
-     rtx reg;
+peep2_reg_dead_p (int ofs, rtx reg)
 {
   int regno, n;
 
@@ -3039,11 +2942,8 @@ peep2_reg_dead_p (ofs, reg)
    returned.  */
 
 rtx
-peep2_find_free_register (from, to, class_str, mode, reg_set)
-     int from, to;
-     const char *class_str;
-     enum machine_mode mode;
-     HARD_REG_SET *reg_set;
+peep2_find_free_register (int from, int to, const char *class_str,
+			  enum machine_mode mode, HARD_REG_SET *reg_set)
 {
   static int search_ofs;
   enum reg_class class;
@@ -3077,7 +2977,7 @@ peep2_find_free_register (from, to, class_str, mode, reg_set)
     }
 
   class = (class_str[0] == 'r' ? GENERAL_REGS
-	   : REG_CLASS_FROM_LETTER (class_str[0]));
+	   : REG_CLASS_FROM_CONSTRAINT (class_str[0], class_str));
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
@@ -3141,8 +3041,7 @@ peep2_find_free_register (from, to, class_str, mode, reg_set)
 /* Perform the peephole2 optimization pass.  */
 
 void
-peephole2_optimize (dump_file)
-     FILE *dump_file ATTRIBUTE_UNUSED;
+peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 {
   regset_head rs_heads[MAX_INSNS_PER_PEEP2 + 2];
   rtx insn, prev;
@@ -3280,8 +3179,8 @@ peephole2_optimize (dump_file)
 					REG_EH_REGION, NULL_RTX);
 
 		  /* Replace the old sequence with the new.  */
-		  try = emit_insn_after_scope (try, peep2_insn_data[i].insn,
-					       INSN_SCOPE (peep2_insn_data[i].insn));
+		  try = emit_insn_after_setloc (try, peep2_insn_data[i].insn,
+					        INSN_LOCATOR (peep2_insn_data[i].insn));
 		  before_try = PREV_INSN (insn);
 		  delete_insn_chain (insn, peep2_insn_data[i].insn);
 
@@ -3432,8 +3331,7 @@ peephole2_optimize (dump_file)
    SETs inside.  */
 
 int
-store_data_bypass_p (out_insn, in_insn)
-     rtx out_insn, in_insn;
+store_data_bypass_p (rtx out_insn, rtx in_insn)
 {
   rtx out_set, in_set;
 
@@ -3483,8 +3381,7 @@ store_data_bypass_p (out_insn, in_insn)
    of insn categorization may be any JUMP or CALL insn.  */
 
 int
-if_test_bypass_p (out_insn, in_insn)
-     rtx out_insn, in_insn;
+if_test_bypass_p (rtx out_insn, rtx in_insn)
 {
   rtx out_set, in_set;
 

@@ -1,7 +1,7 @@
 /* Specialized bits of code needed to support construction and
    destruction of file-scope objects in C++ code.
    Copyright (C) 1991, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com).
 
 This file is part of GCC.
@@ -60,6 +60,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "auto-host.h"
 #include "tconfig.h"
 #include "tsystem.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "unwind-dw2-fde.h"
 
 #ifndef FORCE_CODE_SECTION_ALIGN
@@ -89,6 +91,11 @@ call_ ## FUNC (void)					\
 #endif
 #if defined(EH_FRAME_SECTION_NAME) && !defined(USE_PT_GNU_EH_FRAME)
 # define USE_EH_FRAME_REGISTRY
+#endif
+#if defined(EH_FRAME_SECTION_NAME) && defined(HAVE_LD_RO_RW_SECTION_MIXING)
+# define EH_FRAME_SECTION_CONST const
+#else
+# define EH_FRAME_SECTION_CONST
 #endif
 
 /* We do not want to add the weak attribute to the declarations of these
@@ -188,7 +195,7 @@ STATIC func_ptr __DTOR_LIST__[1]
 #ifdef USE_EH_FRAME_REGISTRY
 /* Stick a label at the beginning of the frame unwind info so we can register
    and deregister it with the exception handling library code.  */
-STATIC char __EH_FRAME_BEGIN__[]
+STATIC EH_FRAME_SECTION_CONST char __EH_FRAME_BEGIN__[]
      __attribute__((section(EH_FRAME_SECTION_NAME), aligned(4)))
      = { };
 #endif /* USE_EH_FRAME_REGISTRY */
@@ -265,7 +272,7 @@ __do_global_dtors_aux (void)
     }
 
 #ifdef USE_EH_FRAME_REGISTRY
-#if defined(CRT_GET_RFIB_TEXT) || defined(CRT_GET_RFIB_DATA)
+#ifdef CRT_GET_RFIB_DATA
   /* If we used the new __register_frame_info_bases interface,
      make sure that we deregister from the same place.  */
   if (__deregister_frame_info_bases)
@@ -292,24 +299,16 @@ frame_dummy (void)
 {
 #ifdef USE_EH_FRAME_REGISTRY
   static struct object object;
-#if defined(CRT_GET_RFIB_TEXT) || defined(CRT_GET_RFIB_DATA)
-  void *tbase, *dbase;
-#ifdef CRT_GET_RFIB_TEXT
-  CRT_GET_RFIB_TEXT (tbase);
-#else
-  tbase = 0;
-#endif
 #ifdef CRT_GET_RFIB_DATA
+  void *tbase, *dbase;
+  tbase = 0;
   CRT_GET_RFIB_DATA (dbase);
-#else
-  dbase = 0;
-#endif
   if (__register_frame_info_bases)
     __register_frame_info_bases (__EH_FRAME_BEGIN__, &object, tbase, dbase);
 #else
   if (__register_frame_info)
     __register_frame_info (__EH_FRAME_BEGIN__, &object);
-#endif
+#endif /* CRT_GET_RFIB_DATA */
 #endif /* USE_EH_FRAME_REGISTRY */
 #ifdef JCR_SECTION_NAME
   if (__JCR_LIST__[0] && _Jv_RegisterClasses)
@@ -343,16 +342,6 @@ __do_global_ctors (void)
 }
 
 asm (INIT_SECTION_ASM_OP);	/* cc1 doesn't know that we are switching! */
-
-/* On some svr4 systems, the initial .init section preamble code provided in
-   crti.o may do something, such as bump the stack, which we have to 
-   undo before we reach the function prologue code for __do_global_ctors 
-   (directly below).  For such systems, define the macro INIT_SECTION_PREAMBLE
-   to expand into the code needed to undo the actions of the crti.o file.  */
-
-#ifdef INIT_SECTION_PREAMBLE
-  INIT_SECTION_PREAMBLE;
-#endif
 
 /* A routine to invoke all of the global constructors upon entry to the
    program.  We put this into the .init section (for systems that have
@@ -453,7 +442,7 @@ STATIC func_ptr __DTOR_END__[1]
 #ifdef EH_FRAME_SECTION_NAME
 /* Terminate the frame unwind info section with a 4byte 0 as a sentinel;
    this would be the 'length' field in a real FDE.  */
-STATIC int __FRAME_END__[]
+STATIC EH_FRAME_SECTION_CONST int __FRAME_END__[]
      __attribute__ ((unused, mode(SI), section(EH_FRAME_SECTION_NAME),
 		     aligned(4)))
      = { 0 };

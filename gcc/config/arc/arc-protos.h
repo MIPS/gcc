@@ -1,20 +1,20 @@
 /* Definitions of target machine for GNU compiler, Argonaut ARC cpu.
    Copyright (C) 2000 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -34,7 +34,6 @@ extern const char *output_shift PARAMS ((rtx *));
 
 extern int symbolic_operand PARAMS ((rtx, enum machine_mode));
 extern int arc_double_limm_p PARAMS ((rtx));
-extern int arc_address_cost PARAMS ((rtx));
 extern int arc_eligible_for_epilogue_delay PARAMS ((rtx, int));
 extern void arc_initialize_trampoline PARAMS ((rtx, rtx, rtx));
 extern void arc_print_operand PARAMS ((FILE *, rtx, int));
@@ -67,7 +66,6 @@ extern void arc_setup_incoming_varargs PARAMS ((CUMULATIVE_ARGS *,
 
 
 extern void arc_init PARAMS ((void));
-extern void arc_asm_file_start PARAMS ((FILE *));
 extern unsigned int arc_compute_frame_size PARAMS ((int));
 extern void arc_save_restore PARAMS ((FILE *, const char *, unsigned int,
 				      unsigned int, const char *));

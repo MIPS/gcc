@@ -1,19 +1,19 @@
-/* Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+/* Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify
+   GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   GNU CC is distributed in the hope that it will be useful,
+   GCC is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
+   along with GCC; see the file COPYING.  If not, write to
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
@@ -86,26 +86,50 @@ enum {
   ALLOCED_IMAGE_MASK = 2,	/* The FDE entries were allocated by
 				   malloc, and must be freed.  This isn't
 				   used by newer libgcc versions.  */
-  IMAGE_IS_TEXT_MASK = 4	/* This image is in the TEXT segment.  */
+  IMAGE_IS_TEXT_MASK = 4,	/* This image is in the TEXT segment.  */
+  DESTRUCTOR_MAY_BE_CALLED_LIVE = 8  /* The destructor may be called on an
+					object that's part of the live
+					image list.  */
 };
 
-/* Delete any data we allocated on a live_images structure.
-   IMAGE has already been removed from the KEYMGR_GCC3_LIVE_IMAGE_LIST.
-   Called by KeyMgr (which will delete the struct after we return.)  */
+/* Delete any data we allocated on a live_images structure.  Either
+   IMAGE has already been removed from the
+   KEYMGR_GCC3_LIVE_IMAGE_LIST and the struct will be deleted
+   after we return, or that list is locked and we're being called
+   because this object might be about to be unloaded.  Called by
+   KeyMgr.  */
 
 static void 
 live_image_destructor (struct live_images *image)
 {
   if (image->object_info)
     {
-      /* Free any sorted arrays.  */
-      __deregister_frame_info_bases (image->fde);
+      struct km_object_info *the_obj_info;
+
+      the_obj_info =
+	_keymgr_get_and_lock_processwide_ptr (KEYMGR_GCC3_DW2_OBJ_LIST);
+      if (the_obj_info)
+	{
+	  seen_objects = the_obj_info->seen_objects;
+	  unseen_objects = the_obj_info->unseen_objects;
+
+	  /* Free any sorted arrays.  */
+	  __deregister_frame_info_bases (image->fde);
+
+	  the_obj_info->seen_objects = seen_objects;
+	  the_obj_info->unseen_objects = unseen_objects;
+	}
+      _keymgr_set_and_unlock_processwide_ptr (KEYMGR_GCC3_DW2_OBJ_LIST,
+					      the_obj_info);
 
       free (image->object_info);
       image->object_info = NULL;
       if (image->examined_p & ALLOCED_IMAGE_MASK)
 	free (image->fde);
+      image->fde = NULL;
     }
+  image->examined_p = 0;
+  image->destructor = NULL;
 }
 
 /* Run through the list of live images.  If we can allocate memory,
@@ -157,19 +181,28 @@ examine_objects (void *pc, struct dwarf_eh_bases *bases, int dont_alloc)
 	    ob->s.b.encoding = DW_EH_PE_omit;
 	    ob->fde_end = real_fde + sz;
 	    
-	    if (! dont_alloc)
-	      {
-		ob->next = unseen_objects;
-		unseen_objects = ob;
-		
-		image->destructor = live_image_destructor;
-		image->object_info = ob;
-		
-		image->examined_p |= EXAMINED_IMAGE_MASK;
-	      }
 	    image->fde = real_fde;
 	    
 	    result = search_object (ob, pc);
+	    
+	    if (! dont_alloc)
+	      {
+		struct object **p;
+
+		image->destructor = live_image_destructor;
+		image->object_info = ob;
+		
+		image->examined_p |= (EXAMINED_IMAGE_MASK 
+				      | DESTRUCTOR_MAY_BE_CALLED_LIVE);
+
+		/* Insert the object into the classified list.  */
+		for (p = &seen_objects; *p ; p = &(*p)->next)
+		  if ((*p)->pc_begin < ob->pc_begin)
+		    break;
+		ob->next = *p;
+		*p = ob;
+	      }
+
 	    if (result)
 	      {
 		int encoding;
@@ -224,8 +257,8 @@ _Unwind_Find_FDE (void *pc, struct dwarf_eh_bases *bases)
     {
       the_obj_info->seen_objects = seen_objects;
       the_obj_info->unseen_objects = unseen_objects;
-      _keymgr_set_and_unlock_processwide_ptr (KEYMGR_GCC3_DW2_OBJ_LIST,
-					      the_obj_info);
     }
+  _keymgr_set_and_unlock_processwide_ptr (KEYMGR_GCC3_DW2_OBJ_LIST,
+					  the_obj_info);
   return ret;
 }

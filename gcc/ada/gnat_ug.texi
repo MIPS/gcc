@@ -78,6 +78,31 @@
 @syncodeindex fn cp
 @c %**end of header
 
+@copying
+Copyright @copyright{} 1995-2002, Free Software Foundation
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2
+or any later version published by the Free Software Foundation;
+with the Invariant Sections being ``GNU Free Documentation License'', with the
+Front-Cover Texts being
+@ifset vms
+``GNAT User's Guide for OpenVMS Alpha'',
+@end ifset
+@ifset wnt
+``GNAT User's Guide for Windows NT'',
+@end ifset
+@ifset unx
+``GNAT User's Guide for Unix Platforms'',
+@end ifset
+@ifset vxworks
+``GNAT User's Guide for Cross Platforms'',
+@end ifset
+and with no Back-Cover Texts.
+A copy of the license is included in the section entitled ``GNU
+Free Documentation License''.
+@end copying
+
 @titlepage
 
 @ifset vms
@@ -108,28 +133,7 @@
 @page
 @vskip 0pt plus 1filll
 
-Copyright @copyright{} 1995-2002, Free Software Foundation
-
-Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1
-or any later version published by the Free Software Foundation;
-with the Invariant Sections being ``GNU Free Documentation License'', with the
-Front-Cover Texts being
-@ifset vms
-``GNAT User's Guide for OpenVMS Alpha'',
-@end ifset
-@ifset wnt
-``GNAT User's Guide for Windows NT'',
-@end ifset
-@ifset unx
-``GNAT User's Guide for Unix Platforms'',
-@end ifset
-@ifset vxworks
-``GNAT User's Guide for Cross Platforms'',
-@end ifset
-and with no Back-Cover Texts.
-A copy of the license is included in the section entitled ``GNU
-Free Documentation License''.
+@insertcopying
 
 @end titlepage
 
@@ -159,28 +163,7 @@ GNAT Version for GCC @value{version-GCC}
 
 Ada Core Technologies, Inc.
 
-Copyright @copyright{} 1995-2002, Free Software Foundation
-
-Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1
-or any later version published by the Free Software Foundation;
-with the Invariant Sections being ``GNU Free Documentation License'', with the
-Front-Cover Texts being
-@ifset vms
-``GNAT User's Guide for OpenVMS Alpha'',
-@end ifset
-@ifset wnt
-``GNAT User's Guide for Windows NT'',
-@end ifset
-@ifset unx
-``GNAT User's Guide for Unix Platforms'',
-@end ifset
-@ifset vxworks
-``GNAT User's Guide for Cross Platforms'',
-@end ifset
-and with no Back-Cover Texts.
-A copy of the license is included in the section entitled ``GNU
-Free Documentation License''.
+@insertcopying
 
 @menu
 * About This Guide::
@@ -2426,7 +2409,7 @@ gnatmake my_main.adb -largs file1.o file2.o
 
 @cindex Binder output file
 @noindent
-If the main program is in some language other than Ada, Then you may
+If the main program is in some language other than Ada, you may
 have more than one entry point in the Ada subsystem. You must use a
 special option of the binder to generate callable routines to initialize
 and finalize the Ada units (@pxref{Binding with Non-Ada Main Programs}).
@@ -4330,7 +4313,7 @@ temporary disabling of validity checks.
 @findex Style checking
 
 @noindent
-The -gnaty@var{^x^(option,option,..)^} switch causes the compiler to
+The -gnaty^@var{x}^(@var{option},@var{option},..)^ switch causes the compiler to
 enforce specified style rules. A limited set of style rules has been used
 in writing the GNAT sources themselves. This switch allows user programs
 to activate all or some of these checks. If the source program fails a
@@ -8214,9 +8197,9 @@ unless @code{^-a^/ALL_FILES^} is also specified.
 @item
 @code{gnatmake} has been designed to make the use of Ada libraries
 particularly convenient. Assume you have an Ada library organized
-as follows: @var{^obj-dir^[OBJ_DIR]^} contains the objects and ALI files for
+as follows: ^@var{obj-dir}^[@var{OBJ_DIR}]^ contains the objects and ALI files for
 of your Ada compilation units,
-whereas @var{^include-dir^[INCLUDE_DIR]^} contains the
+whereas ^@var{include-dir}^[@var{INCLUDE_DIR}]^ contains the
 specs of these units, but no bodies. Then to compile a unit
 stored in @code{main.adb}, which uses this Ada library you would just type
 
@@ -8225,8 +8208,8 @@ stored in @code{main.adb}, which uses this Ada library you would just type
 $ gnatmake -aI@var{include-dir}  -aL@var{obj-dir}  main
 @end ifclear
 @ifset vms
-$ gnatmake /SOURCE_SEARCH=@var{[INCLUDE_DIR]}
-           /SKIP_MISSING=@var{[OBJ_DIR]} main
+$ gnatmake /SOURCE_SEARCH=[@var{INCLUDE_DIR}]
+           /SKIP_MISSING=[@var{OBJ_DIR}] main
 @end ifset
 @end smallexample
 
@@ -14544,12 +14527,7 @@ supplied configuration pragmas.
 The @code{gnatlbr} command has the form
 
 @smallexample
-@ifclear vms
-$ gnatlbr --[create | set | delete]=directory --config=file
-@end ifclear
-@ifset vms
 $ GNAT LIBRARY /[CREATE | SET | DELETE]=directory [/CONFIG=file]
-@end ifset
 @end smallexample
 
 @node Switches for gnatlbr
@@ -14559,26 +14537,26 @@ $ GNAT LIBRARY /[CREATE | SET | DELETE]=directory [/CONFIG=file]
 @code{gnatlbr} recognizes the following switches:
 
 @table @code
-@item ^--create^/CREATE^=directory
-@cindex @code{^--create^/CREATE^=directory} (@code{gnatlbr})
+@item /CREATE=directory
+@cindex @code{/CREATE=directory} (@code{gnatlbr})
      Create the new run-time library in the specified directory.
 
-@item ^--set^/SET^=directory
-@cindex @code{^--set^/SET^=directory} (@code{gnatlbr})
+@item /SET=directory
+@cindex @code{/SET=directory} (@code{gnatlbr})
      Make the library in the specified directory the current run-time
      library.
 
-@item ^--delete^/DELETE^=directory
-@cindex @code{^--delete^/DELETE^=directory} (@code{gnatlbr})
+@item /DELETE=directory
+@cindex @code{/DELETE=directory} (@code{gnatlbr})
      Delete the run-time library in the specified directory.
 
-@item ^--config^/CONFIG^=file
-@cindex @code{^--config^/CONFIG^=file} (@code{gnatlbr})
-     With ^--create^/CREATE^:
+@item /CONFIG=file
+@cindex @code{/CONFIG=file} (@code{gnatlbr})
+     With /CREATE:
      Use the configuration pragmas in the specified file when building
      the library.
 
-     With ^--set^/SET^:
+     With /SET:
      Use the configuration pragmas in the specified file when compiling.
 
 @end table
@@ -14771,7 +14749,7 @@ The unit contains a pragma Remote_Call_Interface.
 
 @noindent
 Example of using the verbose switch. Note how the source and
-object paths are affected by the ^-I^/SEARCH^ switch.
+object paths are affected by the -I switch.
 
 @smallexample
 $ gnatls -v -I.. demo1.o
@@ -24064,7 +24042,7 @@ For a list of all available switches, refer to the sections describing
 Here is an example that passes the option @code{-v} to the GNAT compiler :
 @smallexample
 -g -mstrict-align -prjtype $(PRJ_TYPE) -ansi -nostdinc -DRW_MULTI_THREAD -D_REENTRANT
--fvolatile -fno-builtin -fno-for-scope -I. -I/usr/windppc-2.0/target/h -DCPU=PPC604
+-fno-builtin -fno-for-scope -I. -I/usr/windppc-2.0/target/h -DCPU=PPC604
 -cargs -v
 @end smallexample
 
@@ -24073,7 +24051,7 @@ Here is an example that passes the option @code{-v} to the GNAT compiler, binder
 and @code{-v} and @code{-g} to the compiler :
 @smallexample
 -g -mstrict-align -prjtype $(PRJ_TYPE) -ansi -nostdinc -DRW_MULTI_THREAD -D_REENTRANT
--fvolatile -fno-builtin -fno-for-scope -I. -I/usr/windppc-2.0/target/h -DCPU=PPC604
+-fno-builtin -fno-for-scope -I. -I/usr/windppc-2.0/target/h -DCPU=PPC604
 -cargs -v -g -O2 -bargs -v -largs -v
 @end smallexample
 
@@ -24082,7 +24060,7 @@ In both examples, the following arguments have been automatically added by the P
 Facility, and will be used by the C compiler.
 @smallexample
 -g -mstrict-align -prjtype $(PRJ_TYPE) -ansi -nostdinc -DRW_MULTI_THREAD -D_REENTRANT
--fvolatile -fno-builtin -fno-for-scope -I. -I/usr/windppc-2.0/target/h -DCPU=PPC604
+-fno-builtin -fno-for-scope -I. -I/usr/windppc-2.0/target/h -DCPU=PPC604
 @end smallexample
 
 @noindent
@@ -24622,7 +24600,7 @@ optimization is enabled. You can use the
 @code{-O@var{n}} switch, where @var{n} is an integer from 0 to 3,
 @end ifclear
 @ifset vms
-@code{^-O^/OPTIMIZE^}
+@code{/OPTIMIZE}
 @end ifset
 on the @code{gcc} command line to control the optimization level:
 

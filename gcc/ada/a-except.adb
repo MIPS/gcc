@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
 --          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
@@ -199,7 +198,7 @@ package body Ada.Exceptions is
    function Unwind_RaiseException
      (E    : access GNAT_GCC_Exception)
       return Unwind_Reason_Code;
-   pragma Import (C, Unwind_RaiseException, "_Unwind_RaiseException");
+   pragma Import (C, Unwind_RaiseException, "__gnat_Unwind_RaiseException");
 
    -----------------------
    -- Local Subprograms --

@@ -1,4 +1,5 @@
-/* { dg-do run } */
+/* This doesn't work on solaris2 for reasons described in PR 6482.  */
+/* { dg-do run { xfail *-*-solaris2* } } */
 #include <stdlib.h>
 
 class Two {
@@ -18,7 +19,7 @@ extern Two goo;
 extern Two coo[];
 extern Two koo[];
 
-Two foo( 5, 6 ) __attribute__((init_priority(1005)));
+Two foo __attribute__((init_priority(1005))) ( 5, 6 );
 
 Two goo __attribute__((init_priority(1007))) = Two( 7, 8 );
 

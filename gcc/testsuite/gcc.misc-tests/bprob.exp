@@ -20,7 +20,8 @@
 # Some targets don't have any implementation of __bb_init_func or are
 # missing other needed machinery.
 if { [istarget mmix-*-*]
-     || [istarget cris-*-*] } {
+     || [istarget cris-*-*]
+     || [istarget h8300-*-*] } {
     return
 }
 
@@ -28,7 +29,7 @@ if { [istarget mmix-*-*]
 set tool gcc
 set profile_option -fprofile-arcs
 set feedback_option -fbranch-probabilities
-set prof_ext da
+set prof_ext gcda
 set perf_ext tim
 
 # Override the list defined in profopt.exp.

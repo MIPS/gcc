@@ -1,3 +1,27 @@
+2003-09-27  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* sv.po: GNU CC -> GCC.
+
+2003-05-23  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* exgettext: Add "This file is part of GCC".
+
+	* exgettext: Replace "GNU CC" and "this program" with "GCC" in
+	copyright boilerplate.
+
+2003-03-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.pot: Regenerate.
+
+2003-02-04  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* be.po, de.po: New files.
+	* da.po, el.po, es.po, fr.po, ja.po, nl.po, sv.po, tr.po: Update.
+
+2002-12-30  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.pot: Regenerate.
+
 2002-05-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
 	* exgettext: Allow for PWDCMD to override hardcoded pwd.
@@ -6,7 +30,7 @@
 
 	* tr.po, es.po, fr.po: Update to version for 20020415
 	snapshot.
-	
+
 2002-04-23  Philipp Thomas  <pthomas@suse.de>
 
 	* gcc.pot: Regenerate.

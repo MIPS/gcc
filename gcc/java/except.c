@@ -1,20 +1,21 @@
 /* Handle exceptions for GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2002, 2003
+   Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
@@ -24,6 +25,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "real.h"
 #include "rtl.h"
@@ -36,13 +39,13 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "java-except.h"
 #include "toplev.h"
 
-static void expand_start_java_handler PARAMS ((struct eh_range *));
-static void expand_end_java_handler PARAMS ((struct eh_range *));
-static struct eh_range *find_handler_in_range PARAMS ((int, struct eh_range *,
-						      struct eh_range *));
-static void link_handler PARAMS ((struct eh_range *, struct eh_range *));
-static void check_start_handlers PARAMS ((struct eh_range *, int));
-static void free_eh_ranges PARAMS ((struct eh_range *range));
+static void expand_start_java_handler (struct eh_range *);
+static void expand_end_java_handler (struct eh_range *);
+static struct eh_range *find_handler_in_range (int, struct eh_range *,
+					       struct eh_range *);
+static void link_handler (struct eh_range *, struct eh_range *);
+static void check_start_handlers (struct eh_range *, int);
+static void free_eh_ranges (struct eh_range *range);
 
 struct eh_range *current_method_handlers;
 
@@ -74,10 +77,7 @@ extern void indent ();
    previous children have end_pc values that are too low. */
 
 static struct eh_range *
-find_handler_in_range (pc, range, child)
-     int pc;
-     struct eh_range *range;
-     register struct eh_range *child;
+find_handler_in_range (int pc, struct eh_range *range, struct eh_range *child)
 {
   for (; child != NULL;  child = child->next_sibling)
     {
@@ -96,8 +96,7 @@ find_handler_in_range (pc, range, child)
 /* Find the inner-most handler that contains PC. */
 
 struct eh_range *
-find_handler (pc)
-     int pc;
+find_handler (int pc)
 {
   struct eh_range *h;
   if (pc >= cache_range_start)
@@ -122,8 +121,7 @@ find_handler (pc)
 /* Recursive helper routine for check_nested_ranges. */
 
 static void
-link_handler (range, outer)
-     struct eh_range *range, *outer;
+link_handler (struct eh_range *range, struct eh_range *outer)
 {
   struct eh_range **ptr;
 
@@ -205,7 +203,7 @@ link_handler (range, outer)
    ensure that exception ranges are properly nested.  */
 
 void
-handle_nested_ranges ()
+handle_nested_ranges (void)
 {
   struct eh_range *ptr, *next;
 
@@ -222,8 +220,7 @@ handle_nested_ranges ()
 /* Free RANGE as well as its children and siblings.  */
 
 static void
-free_eh_ranges (range)
-     struct eh_range *range;
+free_eh_ranges (struct eh_range *range)
 {
   while (range) 
     {
@@ -238,7 +235,7 @@ free_eh_ranges (range)
 /* Called to re-initialize the exception machinery for a new method. */
 
 void
-method_init_exceptions ()
+method_init_exceptions (void)
 {
   free_eh_ranges (&whole_range);
   whole_range.start_pc = 0;
@@ -264,10 +261,7 @@ method_init_exceptions ()
    what the sorting counteracts.  */
 
 void
-add_handler (start_pc, end_pc, handler, type)
-     int start_pc, end_pc;
-     tree handler;
-     tree type;
+add_handler (int start_pc, int end_pc, tree handler, tree type)
 {
   struct eh_range *ptr, *prev = NULL, *h;
 
@@ -303,8 +297,7 @@ add_handler (start_pc, end_pc, handler, type)
 
 /* if there are any handlers for this range, issue start of region */
 static void
-expand_start_java_handler (range)
-  struct eh_range *range;
+expand_start_java_handler (struct eh_range *range)
 {
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
   indent ();
@@ -316,14 +309,13 @@ expand_start_java_handler (range)
 }
 
 tree
-prepare_eh_table_type (type)
-    tree type;
+prepare_eh_table_type (tree type)
 {
   tree exp;
 
   /* The "type" (metch_info) in a (Java) exception table is one:
    * a) NULL - meaning match any type in a try-finally.
-   * b) a pointer to a (ccmpiled) class (low-order bit 0).
+   * b) a pointer to a (compiled) class (low-order bit 0).
    * c) a pointer to the Utf8Const name of the class, plus one
    * (which yields a value with low-order bit 1). */
 
@@ -332,10 +324,36 @@ prepare_eh_table_type (type)
   else if (is_compiled_class (type))
     exp = build_class_ref (type);
   else
-    exp = fold (build 
-		(PLUS_EXPR, ptr_type_node,
-		 build_utf8_ref (build_internal_class_name (type)),
-		 size_one_node));
+    {
+      tree ctype = make_node (RECORD_TYPE);
+      tree field = NULL_TREE;
+      tree cinit, decl;
+      tree utf8_ref = build_utf8_ref (DECL_NAME (TYPE_NAME (type)));
+      char buf[64];
+      sprintf (buf, "%s_ref", 
+	       IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (utf8_ref, 0))));
+      PUSH_FIELD (ctype, field, "dummy", ptr_type_node);
+      PUSH_FIELD (ctype, field, "utf8",  utf8const_ptr_type);
+      FINISH_RECORD (ctype);
+      START_RECORD_CONSTRUCTOR (cinit, ctype);
+      PUSH_FIELD_VALUE (cinit, "dummy", 
+			convert (ptr_type_node, integer_minus_one_node));
+      PUSH_FIELD_VALUE (cinit, "utf8", utf8_ref);
+      FINISH_RECORD_CONSTRUCTOR (cinit);
+      TREE_CONSTANT (cinit) = 1;
+      decl = build_decl (VAR_DECL, get_identifier (buf), ctype);
+      TREE_STATIC (decl) = 1;
+      DECL_ARTIFICIAL (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
+      TREE_READONLY (decl) = 1;
+      TREE_THIS_VOLATILE (decl) = 0;
+      DECL_INITIAL (decl) = cinit;
+      layout_decl (decl, 0);
+      pushdecl (decl);
+      rest_of_decl_compilation (decl, (char*) 0, global_bindings_p (), 0);
+      make_decl_rtl (decl, (char*) 0);
+      exp = build1 (ADDR_EXPR, build_pointer_type (ctype), decl);
+    }
   return exp;
 }
 
@@ -344,8 +362,7 @@ prepare_eh_table_type (type)
    exception header.  */
 
 tree
-build_exception_object_ref (type)
-     tree type;
+build_exception_object_ref (tree type)
 {
   tree obj;
 
@@ -362,8 +379,7 @@ build_exception_object_ref (type)
 /* If there are any handlers for this range, isssue end of range,
    and then all handler blocks */
 static void
-expand_end_java_handler (range)
-     struct eh_range *range;
+expand_end_java_handler (struct eh_range *range)
 {  
   tree handler = range->handlers;
   force_poplevels (range->start_pc);
@@ -395,9 +411,7 @@ expand_end_java_handler (range)
 /* Recursive helper routine for maybe_start_handlers. */
 
 static void
-check_start_handlers (range, pc)
-     struct eh_range *range;
-     int pc;
+check_start_handlers (struct eh_range *range, int pc)
 {
   if (range != NULL_EH_RANGE && range->start_pc == pc)
     {
@@ -414,9 +428,7 @@ static struct eh_range *current_range;
    end_pc. */
 
 void
-maybe_start_try (start_pc, end_pc)
-     int start_pc;
-     int end_pc;
+maybe_start_try (int start_pc, int end_pc)
 {
   struct eh_range *range;
   if (! doing_eh (1))
@@ -435,9 +447,7 @@ maybe_start_try (start_pc, end_pc)
    start_pc. */
 
 void
-maybe_end_try (start_pc, end_pc)
-     int start_pc;
-     int end_pc;
+maybe_end_try (int start_pc, int end_pc)
 {
   if (! doing_eh (1))
     return;

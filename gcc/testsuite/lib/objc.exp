@@ -162,17 +162,21 @@ proc objc_target_compile { source dest type options } {
     if [target_info exists objc,no_label_values] {
 	lappend options "additional_flags=-DNO_LABEL_VALUES"
     }
+    # TOOL_OPTIONS must come first, so that it doesn't override testcase
+    # specific options.
     if [info exists TOOL_OPTIONS] {
-	lappend options "additional_flags=$TOOL_OPTIONS"
+	set options [concat "additional_flags=$TOOL_OPTIONS" $options];
     }
 
-    # Point to the ObjC headers in libobjc.
-    set objc_include_dir "${srcdir}/../../libobjc"
-    lappend options "additional_flags=-I${objc_include_dir}"
+    # If we have built libobjc along with the compiler (which usually
+    # _is not_ the case on Mac OS X systems), point the test harness
+    # at it (and associated headers).
 
     set objcpath "[get_multilibs]"
     set libobjc_dir [lookfor_file ${objcpath} libobjc/.libs/libobjc.a]
     if { $libobjc_dir != "" } {
+	set objc_include_dir "${srcdir}/../../libobjc"
+	lappend options "additional_flags=-I${objc_include_dir}"
 	set libobjc_dir [file dirname ${libobjc_dir}]
 	set objc_link_flags "-L${libobjc_dir}"
 	lappend options "additional_flags=${objc_link_flags}"

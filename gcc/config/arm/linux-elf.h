@@ -1,24 +1,24 @@
 /* Definitions for ARM running Linux-based GNU systems using ELF
-   Copyright (C) 1993, 1994, 1997, 1998, 1999, 2000, 2001, 2002 
+   Copyright (C) 1993, 1994, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Contributed by Philip Blundell <philb@gnu.org>
 
-This file is part of GNU CC.
+   This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 2, or (at your
+   option) any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with this program; see the file COPYING.  If not, write to
+   the Free Software Foundation, 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
 
 /* elfos.h should have already been included.  Now just override
    any conflicting definitions and add any extras.  */
@@ -48,9 +48,9 @@ Boston, MA 02111-1307, USA.  */
 
 /* Now we define the strings used to build the spec file.  */
 #define LIB_SPEC \
-  "%{shared: -lc} \
-   %{!shared: %{pthread:-lpthread} \
-   %{profile:-lc_p} %{!profile: -lc}}"
+  "%{pthread:-lpthread} \
+   %{shared:-lc} \
+   %{!shared:%{profile:-lc_p}%{!profile:-lc}}"
 
 #define LIBGCC_SPEC "%{msoft-float:-lfloat} -lgcc"
 
@@ -94,7 +94,6 @@ Boston, MA 02111-1307, USA.  */
 	builtin_define_std ("unix");		\
 	builtin_define_std ("linux");		\
 	builtin_define ("__gnu_linux__");	\
-	builtin_define ("__ELF__");		\
 	builtin_assert ("system=unix");		\
 	builtin_assert ("system=posix");	\
     } while (0)
@@ -111,8 +110,8 @@ Boston, MA 02111-1307, USA.  */
   while (0)
 
 /* NWFPE always understands FPA instructions.  */
-#undef  FP_DEFAULT
-#define FP_DEFAULT FP_SOFT3
+#undef  FPUTYPE_DEFAULT
+#define FPUTYPE_DEFAULT FPUTYPE_FPA_EMU3
 
 /* Call the function profiler with a given profile label.  */
 #undef  ARM_FUNCTION_PROFILER
@@ -121,5 +120,13 @@ Boston, MA 02111-1307, USA.  */
   fprintf (STREAM, "\tbl\tmcount%s\n", NEED_PLT_RELOC ? "(PLT)" : "");	\
 }
 
+/* The linux profiler clobbers the link register.  Make sure the
+   prologue knows to save it.  */
+#define PROFILE_HOOK(X)						\
+  emit_insn (gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (SImode, LR_REGNUM)))
+
 #undef  CC1_SPEC
 #define CC1_SPEC "%{profile:-p}"
+
+#define LINK_GCC_C_SEQUENCE_SPEC \
+  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"

@@ -6,20 +6,20 @@
 	          Andrew Haley  <aph@cygnus.com>
 		  David Mosberger-Tang <davidm@hpl.hp.com>
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify
+   GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   GNU CC is distributed in the hope that it will be useful,
+   GCC is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
+   along with GCC; see the file COPYING.  If not, write to
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
@@ -33,6 +33,8 @@
 
 #include "tconfig.h"
 #include "tsystem.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "unwind.h"
 #include "unwind-ia64.h"
 #include "ia64intrin.h"
@@ -1465,7 +1467,7 @@ ia64_rse_rnat_addr (unsigned long *slot_addr)
   return (unsigned long *) ((unsigned long) slot_addr | (0x3f << 3));
 }
 
-/* Calcuate the number of registers in the dirty partition starting at
+/* Calculate the number of registers in the dirty partition starting at
    BSPSTORE with a size of DIRTY bytes.  This isn't simply DIRTY
    divided by eight because the 64th slot is used to store ar.rnat.  */
 static inline unsigned long
@@ -1642,6 +1644,37 @@ _Unwind_GetRegionStart (struct _Unwind_Context *context)
   return context->region_start;
 }
 
+void *
+_Unwind_FindEnclosingFunction (void *pc)
+{
+  struct unw_table_entry *ent;
+  unsigned long segment_base, gp;
+
+  ent = _Unwind_FindTableEntry (pc, &segment_base, &gp);
+  if (ent == NULL)
+    return NULL;
+  else
+    return (void *)(segment_base + ent->start_offset);
+}
+
+/* Get the value of the CFA as saved in CONTEXT.  In GCC/Dwarf2 parlance,
+   the CFA is the value of the stack pointer on entry; In IA-64 unwind
+   parlance, this is the PSP.  */
+
+_Unwind_Word
+_Unwind_GetCFA (struct _Unwind_Context *context)
+{
+  return (_Unwind_Ptr) context->psp;
+}
+
+/* Get the value of the Backing Store Pointer as saved in CONTEXT.  */
+
+_Unwind_Word
+_Unwind_GetBSP (struct _Unwind_Context *context)
+{
+  return (_Unwind_Ptr) context->bsp;
+}
+
 
 static _Unwind_Reason_Code
 uw_frame_state_for (struct _Unwind_Context *context, _Unwind_FrameState *fs)
@@ -1763,6 +1796,11 @@ uw_update_reg_address (struct _Unwind_Context *context,
 	addr = ia64_rse_skip_regs ((unsigned long *) context->bsp, rval - 32);
       else if (rval >= 2)
 	addr = context->ireg[rval - 2].loc;
+      else if (rval == 0)
+	{
+	  static const unsigned long dummy;
+	  addr = (void *) &dummy;
+	}
       else
 	abort ();
       break;
@@ -1813,6 +1851,11 @@ uw_update_reg_address (struct _Unwind_Context *context,
 	  {
 	    context->ireg[regno - UNW_REG_R2].nat
 	      = context->ireg[rval - 2].nat;
+	  }
+	else if (rval == 0)
+	  {
+	    context->ireg[regno - UNW_REG_R2].nat.type = UNW_NAT_NONE;
+	    context->ireg[regno - UNW_REG_R2].nat.off = 0;
 	  }
 	else
 	  abort ();

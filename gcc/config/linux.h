@@ -1,35 +1,28 @@
 /* Definitions for Linux-based GNU systems with ELF format
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2003
+   Free Software Foundation, Inc.
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu (hjl@lucon.org).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 /* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
-
-/* GNU/Linux uses ctype from glibc.a. I am not sure how complete it is.
-   For now, we play safe. It may change later.  */
-
-#if 0
-#undef MULTIBYTE_CHARS
-#define MULTIBYTE_CHARS 1
-#endif
 
 #undef ASM_APP_ON
 #define ASM_APP_ON "#APP\n"
@@ -53,14 +46,14 @@ Boston, MA 02111-1307, USA.  */
 		       %{!p:%{profile:gcrt1.o%s} \
 			 %{!profile:crt1.o%s}}}} \
    crti.o%s %{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
+#elif defined HAVE_LD_PIE
+#define STARTFILE_SPEC \
+  "%{!shared: %{pg|p|profile:gcrt1.o%s;pie:Scrt1.o%s;:crt1.o%s}} \
+   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s}"
 #else
 #define STARTFILE_SPEC \
-  "%{!shared: \
-     %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} \
-		       %{!p:%{profile:gcrt1.o%s} \
-			 %{!profile:crt1.o%s}}}} \
-   crti.o%s %{static:crtbeginT.o%s}\
-   %{!static:%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}}"
+  "%{!shared: %{pg|p|profile:gcrt1.o%s;:crt1.o%s}} \
+   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s}"
 #endif
 
 /* Provide a ENDFILE_SPEC appropriate for GNU/Linux.  Here we tack on
@@ -71,7 +64,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef	ENDFILE_SPEC
 #define ENDFILE_SPEC \
-  "%{!shared:crtend.o%s} %{shared:crtendS.o%s} crtn.o%s"
+  "%{shared|pie:crtendS.o%s;:crtend.o%s} crtn.o%s"
 
 /* This is for -profile to use -lc_p instead of -lc.  */
 #ifndef CC1_SPEC
@@ -93,9 +86,9 @@ Boston, MA 02111-1307, USA.  */
      %{!profile:%{!ggdb:-lc} %{ggdb:-lg}}}"
 #else
 #define LIB_SPEC \
-  "%{shared: -lc} \
-   %{!shared: %{mieee-fp:-lieee} %{pthread:-lpthread} \
-	%{profile:-lc_p} %{!profile: -lc}}"
+  "%{pthread:-lpthread} \
+   %{shared:-lc} \
+   %{!shared:%{mieee-fp:-lieee} %{profile:-lc_p}%{!profile:-lc}}"
 #endif
 #else
 #define LIB_SPEC \
@@ -110,3 +103,14 @@ Boston, MA 02111-1307, USA.  */
 
 /* Define this so we can compile MS code for use with WINE.  */
 #define HANDLE_PRAGMA_PACK_PUSH_POP
+
+#define LINK_GCC_C_SEQUENCE_SPEC \
+  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
+
+/* Determine whether the the entire c99 runtime
+   is present in the runtime library.  */
+#ifndef USE_GNULIBC_1
+#define TARGET_C99_FUNCTIONS 1
+#endif
+
+#define TARGET_HAS_F_SETLKW

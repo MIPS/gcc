@@ -1,30 +1,32 @@
 /* Handle exceptional things in C++.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003  Free Software Foundation, Inc.
    Contributed by Michael Tiemann <tiemann@cygnus.com>
    Rewritten by Mike Stump <mrs@cygnus.com>, based upon an
    initial re-implementation courtesy Tad Hunt.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "expr.h"
@@ -36,29 +38,28 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "tree-inline.h"
 
-static void push_eh_cleanup PARAMS ((tree));
-static tree prepare_eh_type PARAMS ((tree));
-static tree build_eh_type_type PARAMS ((tree));
-static tree do_begin_catch PARAMS ((void));
-static int dtor_nothrow PARAMS ((tree));
-static tree do_end_catch PARAMS ((tree));
-static void push_eh_cleanup PARAMS ((tree));
-static bool decl_is_java_type PARAMS ((tree decl, int err));
-static void initialize_handler_parm PARAMS ((tree, tree));
-static tree do_allocate_exception PARAMS ((tree));
-static tree stabilize_throw_expr PARAMS ((tree, tree *));
-static tree wrap_cleanups_r PARAMS ((tree *, int *, void *));
-static int complete_ptr_ref_or_void_ptr_p PARAMS ((tree, tree));
-static bool is_admissible_throw_operand PARAMS ((tree));
-static int can_convert_eh PARAMS ((tree, tree));
-static void check_handlers_1 PARAMS ((tree, tree));
-static tree cp_protect_cleanup_actions PARAMS ((void));
+static void push_eh_cleanup (tree);
+static tree prepare_eh_type (tree);
+static tree build_eh_type_type (tree);
+static tree do_begin_catch (void);
+static int dtor_nothrow (tree);
+static tree do_end_catch (tree);
+static bool decl_is_java_type (tree decl, int err);
+static void initialize_handler_parm (tree, tree);
+static tree do_allocate_exception (tree);
+static tree stabilize_throw_expr (tree, tree *);
+static tree wrap_cleanups_r (tree *, int *, void *);
+static int complete_ptr_ref_or_void_ptr_p (tree, tree);
+static bool is_admissible_throw_operand (tree);
+static int can_convert_eh (tree, tree);
+static void check_handlers_1 (tree, tree);
+static tree cp_protect_cleanup_actions (void);
 
 /* Sets up all the global eh stuff that needs to be initialized at the
    start of compilation.  */
 
 void
-init_exception_processing ()
+init_exception_processing (void)
 {
   tree tmp;
 
@@ -88,7 +89,7 @@ init_exception_processing ()
    propagated out of a cleanup region.  */
 
 static tree
-cp_protect_cleanup_actions ()
+cp_protect_cleanup_actions (void)
 {
   /* [except.terminate]
 
@@ -98,8 +99,7 @@ cp_protect_cleanup_actions ()
 }     
 
 static tree
-prepare_eh_type (type)
-     tree type;
+prepare_eh_type (tree type)
 {
   if (type == NULL_TREE)
     return type;
@@ -107,8 +107,7 @@ prepare_eh_type (type)
     return error_mark_node;
 
   /* peel back references, so they match.  */
-  if (TREE_CODE (type) == REFERENCE_TYPE)
-    type = TREE_TYPE (type);
+  type = non_reference (type);
 
   /* Peel off cv qualifiers.  */
   type = TYPE_MAIN_VARIANT (type);
@@ -116,12 +115,9 @@ prepare_eh_type (type)
   return type;
 }
 
-/* Build the address of a typeinfo decl for use in the runtime
-   matching field of the exception model.  */
-
-static tree
-build_eh_type_type (type)
-     tree type;
+/* Return the type info for TYPE as used by EH machinery.  */
+tree
+eh_type_info (tree type)
 {
   tree exp;
 
@@ -133,14 +129,27 @@ build_eh_type_type (type)
   else
     exp = get_tinfo_decl (type);
 
-  mark_used (exp);
-  exp = build1 (ADDR_EXPR, ptr_type_node, exp);
-
   return exp;
 }
 
+/* Build the address of a typeinfo decl for use in the runtime
+   matching field of the exception model.  */
+
+static tree
+build_eh_type_type (tree type)
+{
+  tree exp = eh_type_info (type);
+
+  if (!exp)
+    return NULL;
+
+  mark_used (exp);
+
+  return build1 (ADDR_EXPR, ptr_type_node, exp);
+}
+
 tree
-build_exc_ptr ()
+build_exc_ptr (void)
 {
   return build (EXC_PTR_EXPR, ptr_type_node);
 }
@@ -149,14 +158,12 @@ build_exc_ptr ()
    exception has been handled.  */
 
 static tree
-do_begin_catch ()
+do_begin_catch (void)
 {
   tree fn;
 
   fn = get_identifier ("__cxa_begin_catch");
-  if (IDENTIFIER_GLOBAL_VALUE (fn))
-    fn = IDENTIFIER_GLOBAL_VALUE (fn);
-  else
+  if (!get_global_value_if_present (fn, &fn))
     {
       /* Declare void* __cxa_begin_catch (void *).  */
       tree tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
@@ -171,8 +178,7 @@ do_begin_catch ()
    NULL_TREE for a ... handler) will not throw an exception.  */
 
 static int
-dtor_nothrow (type)
-     tree type;
+dtor_nothrow (tree type)
 {
   if (type == NULL_TREE)
     return 0;
@@ -187,15 +193,12 @@ dtor_nothrow (type)
    for the current catch block if no others are currently using it.  */
 
 static tree
-do_end_catch (type)
-     tree type;
+do_end_catch (tree type)
 {
   tree fn, cleanup;
 
   fn = get_identifier ("__cxa_end_catch");
-  if (IDENTIFIER_GLOBAL_VALUE (fn))
-    fn = IDENTIFIER_GLOBAL_VALUE (fn);
-  else
+  if (!get_global_value_if_present (fn, &fn))
     {
       /* Declare void __cxa_end_catch ().  */
       fn = push_void_library_fn (fn, void_list_node);
@@ -212,8 +215,7 @@ do_end_catch (type)
 /* This routine creates the cleanup for the current exception.  */
 
 static void
-push_eh_cleanup (type)
-     tree type;
+push_eh_cleanup (tree type)
 {
   finish_decl_cleanup (NULL_TREE, do_end_catch (type));
 }
@@ -222,9 +224,7 @@ push_eh_cleanup (type)
    throw.  */
 
 static bool
-decl_is_java_type (decl, err)
-     tree decl;
-     int err;
+decl_is_java_type (tree decl, int err)
 {
   bool r = (TREE_CODE (decl) == POINTER_TYPE
 	    && TREE_CODE (TREE_TYPE (decl)) == RECORD_TYPE
@@ -271,8 +271,7 @@ decl_is_java_type (decl, err)
    __gxx_personality_(sj|v)0 in init_exception_processing - should it
    be done here instead?  */
 void
-choose_personality_routine (lang)
-     enum languages lang;
+choose_personality_routine (enum languages lang)
 {
   static enum {
     chose_none,
@@ -326,9 +325,7 @@ choose_personality_routine (lang)
 /* Initialize the catch parameter DECL.  */
 
 static void 
-initialize_handler_parm (decl, exp)
-     tree decl;
-     tree exp;
+initialize_handler_parm (tree decl, tree exp)
 {
   tree init;
   tree init_type;
@@ -381,8 +378,7 @@ initialize_handler_parm (decl, exp)
 /* Call this to start a catch block.  DECL is the catch parameter.  */
 
 tree
-expand_start_catch_block (decl)
-     tree decl;
+expand_start_catch_block (tree decl)
 {
   tree exp = NULL_TREE;
   tree type;
@@ -449,7 +445,7 @@ expand_start_catch_block (decl)
    the label to jump to if this catch block didn't match.  */
 
 void
-expand_end_catch_block ()
+expand_end_catch_block (void)
 {
   if (! doing_eh (1))
     return;
@@ -463,7 +459,7 @@ expand_end_catch_block ()
 }
 
 tree
-begin_eh_spec_block ()
+begin_eh_spec_block (void)
 {
   tree r = build_stmt (EH_SPEC_BLOCK, NULL_TREE, NULL_TREE);
   add_stmt (r);
@@ -471,9 +467,7 @@ begin_eh_spec_block ()
 }
 
 void
-finish_eh_spec_block (raw_raises, eh_spec_block)
-     tree raw_raises;
-     tree eh_spec_block;
+finish_eh_spec_block (tree raw_raises, tree eh_spec_block)
 {
   tree raises;
 
@@ -483,8 +477,13 @@ finish_eh_spec_block (raw_raises, eh_spec_block)
   for (raises = NULL_TREE;
        raw_raises && TREE_VALUE (raw_raises);
        raw_raises = TREE_CHAIN (raw_raises))
-    raises = tree_cons (NULL_TREE, prepare_eh_type (TREE_VALUE (raw_raises)),
-			raises);
+    {
+      tree type = prepare_eh_type (TREE_VALUE (raw_raises));
+      tree tinfo = eh_type_info (type);
+
+      mark_used (tinfo);
+      raises = tree_cons (NULL_TREE, type, raises);
+    }
 
   EH_SPEC_RAISES (eh_spec_block) = raises;
 }
@@ -492,18 +491,15 @@ finish_eh_spec_block (raw_raises, eh_spec_block)
 /* Return a pointer to a buffer for an exception object of type TYPE.  */
 
 static tree
-do_allocate_exception (type)
-     tree type;
+do_allocate_exception (tree type)
 {
   tree fn;
 
   fn = get_identifier ("__cxa_allocate_exception");
-  if (IDENTIFIER_GLOBAL_VALUE (fn))
-    fn = IDENTIFIER_GLOBAL_VALUE (fn);
-  else
+  if (!get_global_value_if_present (fn, &fn))
     {
       /* Declare void *__cxa_allocate_exception(size_t).  */
-      tree tmp = tree_cons (NULL_TREE, c_size_type_node, void_list_node);
+      tree tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
       fn = push_library_fn (fn, build_function_type (ptr_type_node, tmp));
     }
   
@@ -516,15 +512,12 @@ do_allocate_exception (type)
    directly, but see the comment for stabilize_throw_expr.  */
 
 static tree
-do_free_exception (ptr)
-     tree ptr;
+do_free_exception (tree ptr)
 {
   tree fn;
 
   fn = get_identifier ("__cxa_free_exception");
-  if (IDENTIFIER_GLOBAL_VALUE (fn))
-    fn = IDENTIFIER_GLOBAL_VALUE (fn);
-  else
+  if (!get_global_value_if_present (fn, &fn))
     {
       /* Declare void __cxa_free_exception (void *).  */
       fn = push_void_library_fn (fn, tree_cons (NULL_TREE, ptr_type_node,
@@ -539,10 +532,8 @@ do_free_exception (ptr)
    Called from build_throw via walk_tree_without_duplicates.  */
 
 static tree
-wrap_cleanups_r (tp, walk_subtrees, data)
-     tree *tp;
-     int *walk_subtrees ATTRIBUTE_UNUSED;
-     void *data ATTRIBUTE_UNUSED;
+wrap_cleanups_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+                 void *data ATTRIBUTE_UNUSED)
 {
   tree exp = *tp;
   tree cleanup;
@@ -559,7 +550,7 @@ wrap_cleanups_r (tp, walk_subtrees, data)
   cleanup = TARGET_EXPR_CLEANUP (exp);
   if (cleanup)
     {
-      cleanup = build1 (MUST_NOT_THROW_EXPR, TREE_TYPE (cleanup), cleanup);
+      cleanup = build1 (MUST_NOT_THROW_EXPR, void_type_node, cleanup);
       TARGET_EXPR_CLEANUP (exp) = cleanup;
     }
 
@@ -581,9 +572,7 @@ wrap_cleanups_r (tp, walk_subtrees, data)
    rather than in a MUST_NOT_THROW_EXPR, for this case only.  */
 
 static tree
-stabilize_throw_expr (exp, initp)
-     tree exp;
-     tree *initp;
+stabilize_throw_expr (tree exp, tree *initp)
 {
   tree init_expr;
 
@@ -601,28 +590,12 @@ stabilize_throw_expr (exp, initp)
 	{
 	  tree arg = TREE_VALUE (args);
 	  tree arg_init_expr;
-	  if (TREE_CODE (arg) == ADDR_EXPR
-	      && ADDR_IS_INVISIREF (arg))
-	    {
-	      /* A sub-TARGET_EXPR.  Recurse; we can't wrap the actual call
-		 without introducing an extra copy.  */
-	      tree sub = TREE_OPERAND (arg, 0);
-	      if (TREE_CODE (sub) != TARGET_EXPR)
-		abort ();
-	      sub = stabilize_throw_expr (sub, &arg_init_expr);
-	      TREE_OPERAND (arg, 0) = sub;
-	      if (TREE_SIDE_EFFECTS (arg_init_expr))
-		init_expr = build (COMPOUND_EXPR, void_type_node, init_expr,
-				   arg_init_expr);
-	    }
-	  else
-	    {
-	      arg = stabilize_expr (arg, &arg_init_expr);
 
-	      if (TREE_SIDE_EFFECTS (arg_init_expr))
-		init_expr = build (COMPOUND_EXPR, void_type_node, init_expr,
-				   arg_init_expr);
-	    }
+	  arg = stabilize_expr (arg, &arg_init_expr);
+
+	  if (TREE_SIDE_EFFECTS (arg_init_expr))
+	    init_expr = build (COMPOUND_EXPR, void_type_node, init_expr,
+			       arg_init_expr);
 	  *p = tree_cons (NULL_TREE, arg, NULL_TREE);
 	  p = &TREE_CHAIN (*p);
 	}
@@ -640,8 +613,7 @@ stabilize_throw_expr (exp, initp)
 /* Build a throw expression.  */
 
 tree
-build_throw (exp)
-     tree exp;
+build_throw (tree exp)
 {
   tree fn;
 
@@ -666,9 +638,7 @@ build_throw (exp)
   if (exp && decl_is_java_type (TREE_TYPE (exp), 1))
     {
       tree fn = get_identifier ("_Jv_Throw");
-      if (IDENTIFIER_GLOBAL_VALUE (fn))
-	fn = IDENTIFIER_GLOBAL_VALUE (fn);
-      else
+      if (!get_global_value_if_present (fn, &fn))
 	{
 	  /* Declare void _Jv_Throw (void *).  */
 	  tree tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
@@ -687,9 +657,7 @@ build_throw (exp)
       tree temp_expr, allocate_expr;
 
       fn = get_identifier ("__cxa_throw");
-      if (IDENTIFIER_GLOBAL_VALUE (fn))
-	fn = IDENTIFIER_GLOBAL_VALUE (fn);
-      else
+      if (!get_global_value_if_present (fn, &fn))
 	{
 	  /* The CLEANUP_TYPE is the internal type of a destructor.  */
 	  if (cleanup_type == NULL_TREE)
@@ -747,7 +715,7 @@ build_throw (exp)
 	  return error_mark_node;
 	}
 
-      exp = build1 (MUST_NOT_THROW_EXPR, TREE_TYPE (exp), exp);
+      exp = build1 (MUST_NOT_THROW_EXPR, void_type_node, exp);
       /* Prepend the allocation.  */
       exp = build (COMPOUND_EXPR, TREE_TYPE (exp), allocate_expr, exp);
       if (temp_expr != void_zero_node)
@@ -794,9 +762,7 @@ build_throw (exp)
       /* Rethrow current exception.  */
 
       tree fn = get_identifier ("__cxa_rethrow");
-      if (IDENTIFIER_GLOBAL_VALUE (fn))
-	fn = IDENTIFIER_GLOBAL_VALUE (fn);
-      else
+      if (!get_global_value_if_present (fn, &fn))
 	{
 	  /* Declare void __cxa_rethrow (void).  */
 	  fn = push_throw_library_fn
@@ -819,9 +785,7 @@ build_throw (exp)
    the expr or decl from whence TYPE came, if available.  */
 
 static int
-complete_ptr_ref_or_void_ptr_p (type, from)
-     tree type;
-     tree from;
+complete_ptr_ref_or_void_ptr_p (tree type, tree from)
 {
   int is_ptr;
   
@@ -849,8 +813,7 @@ complete_ptr_ref_or_void_ptr_p (type, from)
    a type or of an abstract class type.  */
 
 static bool
-is_admissible_throw_operand (expr)
-     tree expr;
+is_admissible_throw_operand (tree expr)
 {
   tree type = TREE_TYPE (expr);
 
@@ -887,8 +850,7 @@ is_admissible_throw_operand (expr)
 #include "cfns.h"
 
 int
-nothrow_libfn_p (fn)
-     tree fn;
+nothrow_libfn_p (tree fn)
 {
   tree id;
 
@@ -909,13 +871,10 @@ nothrow_libfn_p (fn)
    handler for type TO, as per [except.handle].  */
 
 static int
-can_convert_eh (to, from)
-     tree to, from;
+can_convert_eh (tree to, tree from)
 {
-  if (TREE_CODE (to) == REFERENCE_TYPE)
-    to = TREE_TYPE (to);
-  if (TREE_CODE (from) == REFERENCE_TYPE)
-    from = TREE_TYPE (from);
+  to = non_reference (to);
+  from = non_reference (from);
 
   if (TREE_CODE (to) == POINTER_TYPE && TREE_CODE (from) == POINTER_TYPE)
     {
@@ -945,9 +904,7 @@ can_convert_eh (to, from)
    for B would catch an exception of type C.  */
 
 static void
-check_handlers_1 (master, handlers)
-     tree master;
-     tree handlers;
+check_handlers_1 (tree master, tree handlers)
 {
   tree type = TREE_TYPE (master);
   tree handler;
@@ -956,10 +913,10 @@ check_handlers_1 (master, handlers)
     if (TREE_TYPE (handler)
 	&& can_convert_eh (type, TREE_TYPE (handler)))
       {
-	lineno = STMT_LINENO (handler);
+	input_line = STMT_LINENO (handler);
 	warning ("exception of type `%T' will be caught",
 		    TREE_TYPE (handler));
-	lineno = STMT_LINENO (master);
+	input_line = STMT_LINENO (master);
 	warning ("   by earlier handler for `%T'", type);
 	break;
       }
@@ -968,23 +925,23 @@ check_handlers_1 (master, handlers)
 /* Given a chain of HANDLERs, make sure that they're OK.  */
 
 void
-check_handlers (handlers)
-     tree handlers;
+check_handlers (tree handlers)
 {
   tree handler;
-  int save_line = lineno;
+  int save_line = input_line;
+  
   for (handler = handlers; handler; handler = TREE_CHAIN (handler))
     {
       if (TREE_CHAIN (handler) == NULL_TREE)
 	/* No more handlers; nothing to shadow.  */;
       else if (TREE_TYPE (handler) == NULL_TREE)
 	{
-	  lineno = STMT_LINENO (handler);
+	  input_line = STMT_LINENO (handler);
 	  pedwarn
 	    ("`...' handler must be the last handler for its try block");
 	}
       else
 	check_handlers_1 (handler, TREE_CHAIN (handler));
     }
-  lineno = save_line;
+  input_line = save_line;
 }

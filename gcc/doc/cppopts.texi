@@ -1,4 +1,4 @@
-@c Copyright (c) 1999, 2000, 2001, 2002
+@c Copyright (c) 1999, 2000, 2001, 2002, 2003
 @c Free Software Foundation, Inc.
 @c This is part of the CPP and GCC manuals.
 @c For copying conditions, see the file gcc.texi.
@@ -40,8 +40,11 @@ provided with a @option{-D} option.
 
 @item -undef
 @opindex undef
-Do not predefine any system-specific macros.  The common predefined
-macros remain defined.
+Do not predefine any system-specific or GCC-specific macros.  The
+standard predefined macros remain defined.
+@ifset cppmanual
+@xref{Standard Predefined Macros}.
+@end ifset
 
 @item -I @var{dir}
 @opindex I
@@ -69,10 +72,12 @@ use @option{-o} to specify the output file.
 
 @item -Wall
 @opindex Wall
-Turns on all optional warnings which are desirable for normal code.  At
-present this is @option{-Wcomment} and @option{-Wtrigraphs}.  Note that
-many of the preprocessor's warnings are on by default and have no
-options to control them.
+Turns on all optional warnings which are desirable for normal code.
+At present this is @option{-Wcomment}, @option{-Wtrigraphs},
+@option{-Wmultichar} and a warning about integer promotion causing a
+change of sign in @code{#if} expressions.  Note that many of the
+preprocessor's warnings are on by default and have no options to
+control them.
 
 @item -Wcomment
 @itemx -Wcomments
@@ -84,10 +89,17 @@ comment, or whenever a backslash-newline appears in a @samp{//} comment.
 
 @item -Wtrigraphs
 @opindex Wtrigraphs
-Warn if any trigraphs are encountered.  This option used to take effect
-only if @option{-trigraphs} was also specified, but now works
-independently.  Warnings are not given for trigraphs within comments, as
-they do not affect the meaning of the program.
+@anchor{Wtrigraphs}
+Most trigraphs in comments cannot affect the meaning of the program.
+However, a trigraph that would form an escaped newline (@samp{??/} at
+the end of a line) can, by changing where the comment begins or ends.
+Therefore, only trigraphs that would form escaped newlines produce
+warnings inside a comment.
+
+This option is implied by @option{-Wall}.  If @option{-Wall} is not
+given, this option is still enabled unless trigraphs are enabled.  To
+get trigraph conversion without warnings, but get the other
+@option{-Wall} warnings, use @samp{-trigraphs -Wall -Wno-trigraphs}.
 
 @item -Wtraditional
 @opindex Wtraditional
@@ -211,9 +223,9 @@ This implies that the choice of angle brackets or double quotes in an
 header will appear in @option{-MM} dependency output.  This is a
 slight change in semantics from GCC versions 3.0 and earlier.
 
+@anchor{dashMF}
 @item -MF @var{file}
 @opindex MF
-@anchor{-MF}
 When used with @option{-M} or @option{-MM}, specifies a
 file to write the dependencies to.  If no @option{-MF} switch is given
 the preprocessor sends the rules to the same place it would have sent
@@ -290,7 +302,7 @@ basename of the input file and applies a @file{.d} suffix.
 
 If @option{-MD} is used in conjunction with @option{-E}, any
 @option{-o} switch is understood to specify the dependency output file
-(but @pxref{-MF}), but if used without @option{-E}, each @option{-o}
+(but @pxref{dashMF,,-MF}), but if used without @option{-E}, each @option{-o}
 is understood to specify a target object file.
 
 Since @option{-E} is not implied, @option{-MD} can be used to generate
@@ -301,6 +313,17 @@ a dependency output file as a side-effect of the compilation process.
 Like @option{-MD} except mention only user header files, not system
 -header files.
 
+@ifclear cppmanual
+@item -fpch-deps
+@opindex fpch-deps
+When using precompiled headers (@pxref{Precompiled Headers}), this flag
+will cause the dependency-output flags to also list the files from the
+precompiled header's dependencies.  If not specified only the
+precompiled header would be listed and not the files that were used to
+create it because those files are not consulted when a precompiled
+header is used.
+
+@end ifclear
 @item -x c
 @itemx -x c++
 @itemx -x objective-c
@@ -445,6 +468,14 @@ is applied to the standard system directories.
 @xref{System Headers}.
 @end ifset
 
+@item -fdollars-in-identifiers
+@opindex fdollars-in-identifiers
+@anchor{fdollars-in-identifiers}
+Accept @samp{$} in identifiers.
+@ifset cppmanual
+  @xref{Identifier characters}.
+@end ifset
+
 @item -fpreprocessed
 @opindex fpreprocessed
 Indicate to the preprocessor that the input file has already been
@@ -467,6 +498,37 @@ correct column numbers in warnings or errors, even if tabs appear on the
 line.  If the value is less than 1 or greater than 100, the option is
 ignored.  The default is 8.
 
+@item -fexec-charset=@var{charset}
+@opindex fexec-charset
+Set the execution character set, used for string and character
+constants.  The default is UTF-8.  @var{charset} can be any encoding
+supported by the system's @code{iconv} library routine.
+
+@item -fwide-exec-charset=@var{charset}
+@opindex fwide-exec-charset
+Set the wide execution character set, used for wide string and
+character constants.  The default is UTF-32 or UTF-16, whichever
+corresponds to the width of @code{wchar_t}.  As with
+@option{-ftarget-charset}, @var{charset} can be any encoding supported
+by the system's @code{iconv} library routine; however, you will have
+problems with encodings that do not fit exactly in @code{wchar_t}.
+
+@item -fworking-directory
+@opindex fworking-directory
+@opindex fno-working-directory
+Enable generation of linemarkers in the preprocessor output that will
+let the compiler know the current working directory at the time of
+preprocessing.  When this option is enabled, the preprocessor will
+emit, after the initial linemarker, a second linemarker with the
+current working directory followed by two slashes.  GCC will use this
+directory, when it's present in the preprocessed input, as the
+directory emitted as the current working directory in some debugging
+information formats.  This option is implicitly enabled if debugging
+information is enabled, but this can be inhibited with the negated
+form @option{-fno-working-directory}.  If the @option{-P} flag is
+present in the command line, this option has no effect, since no
+@code{#line} directives are emitted whatsoever.
+
 @item -fno-show-column
 @opindex fno-show-column
 Do not print column numbers in diagnostics.  This may be necessary if
@@ -486,13 +548,6 @@ it does not use shell special characters.
 @item -A -@var{predicate}=@var{answer}
 Cancel an assertion with the predicate @var{predicate} and answer
 @var{answer}.
-
-@item -A-
-@opindex A-
-Cancel all predefined assertions and all assertions preceding it on
-the command line.  Also, undefine all predefined macros and all
-macros preceding it on the command line.  (This is a historical wart and
-may change in the future.)
 
 @item -dCHARS
 @var{CHARS} is a sequence of one or more of the following characters,
@@ -564,17 +619,10 @@ also passed through to the output file where the macro is expanded.
 In addition to the side-effects of the @option{-C} option, the
 @option{-CC} option causes all C++-style comments inside a macro
 to be converted to C-style comments.  This is to prevent later use
-of that macro from inadvertently commenting out the remainer of
+of that macro from inadvertently commenting out the remainder of
 the source line.
 
 The @option{-CC} option is generally used to support lint comments.
-
-@item -gcc
-@opindex gcc
-Define the macros @sc{__gnuc__}, @sc{__gnuc_minor__} and
-@sc{__gnuc_patchlevel__}.  These are defined automatically when you use
-@command{gcc -E}; you can turn them off in that case with
-@option{-no-gcc}.
 
 @item -traditional-cpp
 @opindex traditional-cpp
@@ -627,7 +675,9 @@ execution, and report the final form of the include path.
 @opindex H
 Print the name of each header file used, in addition to other normal
 activities.  Each name is indented to show how deep in the
-@samp{#include} stack it is.
+@samp{#include} stack it is.  Precompiled header files are also
+printed, even if they are found to be invalid; an invalid precompiled
+header file is printed with @samp{...x} and a valid one with @samp{...!} .
 
 @item -version
 @itemx --version

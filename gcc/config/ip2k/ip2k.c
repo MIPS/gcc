@@ -1,27 +1,29 @@
 /* Subroutines used for code generation on Ubicom IP2022
    Communications Controller.
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc and Ubicom, Inc.
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify
+   GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   GNU CC is distributed in the hope that it will be useful,
+   GCC is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
+   along with GCC; see the file COPYING.  If not, write to
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -36,6 +38,7 @@
 #include "reload.h"
 #include "tree.h"
 #include "expr.h"
+#include "optabs.h"
 #include "toplev.h"
 #include "obstack.h"
 #include "function.h"
@@ -69,9 +72,19 @@ static void mdr_try_remove_redundant_insns PARAMS ((rtx));
 static int track_w_reload PARAMS ((rtx, rtx *, int , int));
 static void mdr_try_wreg_elim PARAMS ((rtx));
 #endif /* IP2K_MD_REORG_PASS */
+static void ip2k_reorg PARAMS ((void));
 static int ip2k_check_can_adjust_stack_ref PARAMS ((rtx, int));
 static void ip2k_adjust_stack_ref PARAMS ((rtx *, int));
 static int ip2k_xexp_not_uses_reg_for_mem PARAMS ((rtx, unsigned int));
+static tree ip2k_handle_progmem_attribute PARAMS ((tree *, tree, tree, int,
+						   bool *));
+static tree ip2k_handle_fndecl_attribute PARAMS ((tree *, tree, tree, int,
+						  bool *));
+static bool ip2k_rtx_costs PARAMS ((rtx, int, int, int *));
+static int ip2k_address_cost PARAMS ((rtx));
+static void ip2k_init_libfuncs PARAMS ((void));
+
+const struct attribute_spec ip2k_attribute_table[];
 
 
 /* Initialize the GCC target structure.  */
@@ -87,16 +100,21 @@ static int ip2k_xexp_not_uses_reg_for_mem PARAMS ((rtx, unsigned int));
 #undef TARGET_ASM_UNIQUE_SECTION
 #define TARGET_ASM_UNIQUE_SECTION unique_section
 
-#undef TARGET_ENCODE_SECTION_INFO
-#define TARGET_ENCODE_SECTION_INFO encode_section_info
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE ip2k_attribute_table
+
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS ip2k_rtx_costs
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST ip2k_address_cost
+
+#undef TARGET_MACHINE_DEPENDENT_REORG
+#define TARGET_MACHINE_DEPENDENT_REORG ip2k_reorg
+
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS ip2k_init_libfuncs
 
 struct gcc_target targetm = TARGET_INITIALIZER;
-
-/* Commands in the functions prologues in the compiled file.  */
-static int commands_in_prologues;
-
-/* Commands in the functions epilogues in the compiled file.  */
-static int commands_in_epilogues;
 
 /* Prologue/Epilogue size in words.  */
 static int prologue_size;
@@ -199,7 +217,8 @@ function_prologue (file, size)
      take any action based on the information.  */
 
   prologue_size = 0;
-  fprintf (file, "/* prologue: frame size=%d */\n", size);
+  fprintf (file, "/* prologue: frame size=" HOST_WIDE_INT_PRINT_DEC " */\n",
+	   size);
   
   /* Unless we're a leaf we need to save the return PC.  */
 
@@ -325,7 +344,8 @@ function_epilogue (file, size)
 
   leaf_func_p = leaf_function_p ();
   epilogue_size = 0;
-  fprintf (file, "/* epilogue: frame size=%d */\n", size);
+  fprintf (file, "/* epilogue: frame size=" HOST_WIDE_INT_PRINT_DEC " */\n",
+	   size);
 
   savelimit = (CHAIN_FRAMES) ? REG_FP : (REG_FP + 2);
   for (reg = 0; reg < savelimit; reg++)
@@ -515,8 +535,6 @@ function_epilogue (file, size)
     }
   
   fprintf (file, "/* epilogue end (size=%d) */\n", epilogue_size);
-  commands_in_prologues += prologue_size;
-  commands_in_epilogues += epilogue_size;
 }
 
 /* Return the difference between the registers after the function
@@ -738,7 +756,7 @@ is_regfile_address (x)
     switch (GET_CODE (x))
       {
       case SYMBOL_REF:
-	return ! SYMBOL_REF_FLAG (x); /* Declared as function.  */
+	return ! SYMBOL_REF_FUNCTION_P (x); /* Declared as function.  */
       case CONST:
       case PLUS:
 	x = XEXP (x, 0);
@@ -900,11 +918,11 @@ print_operand (file, x, code)
       switch (code)
 	{
         case 'x':
-	  fprintf (file, "$%x", INTVAL (x) & 0xffff);
+	  fprintf (file, "$%x", (int)(INTVAL (x) & 0xffff));
 	  break;
 
 	case 'b':
-	  fprintf (file, "%d", INTVAL (x)); /* bit selector  */
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (x)); /* bit selector  */
 	  break;
 
 	case 'e':		/* "1 << n" - e.g. "exp"  */
@@ -923,11 +941,11 @@ print_operand (file, x, code)
 	  break;
 
 	case 'H':
-	  fprintf (file, "#%d", (INTVAL (x) >> 8) & 0xff);
+	  fprintf (file, "#%d", (int)((INTVAL (x) >> 8) & 0xff));
 	  break;
 
 	case 'L':
-	  fprintf (file, "#%d", INTVAL (x) & 0xff);
+	  fprintf (file, "#%d", (int)(INTVAL (x) & 0xff));
 	  break;
 
 	case 'S':
@@ -943,7 +961,7 @@ print_operand (file, x, code)
 	  break;
 
 	default:
-	  fprintf (file, "#%d", INTVAL (x));
+	  fprintf (file, "#" HOST_WIDE_INT_PRINT_DEC, INTVAL (x));
 	}
       break;
 
@@ -3143,112 +3161,114 @@ class_likely_spilled_p(c)
 	  || c == PTR_REGS);
 }
 
-/* Only `progmem' attribute valid for type.  */
-
-int
-valid_machine_type_attribute(type, attributes, identifier, args)
-     tree type ATTRIBUTE_UNUSED;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree identifier;
-     tree args ATTRIBUTE_UNUSED;
-{
-  return is_attribute_p ("progmem", identifier);
-}
-
-/* If IDENTIFIER with arguments ARGS is a valid machine specific
-   attribute for DECL return 1.
-   Valid attributes:
+/* Valid attributes:
    progmem - put data to program memory;
-   naked   - don't generate function prologue/epilogue and `ret' command.  */
+   naked     - don't generate function prologue/epilogue and `ret' command.
 
-int
-valid_machine_decl_attribute (decl, attributes, attr, args)
-     tree decl;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree attr;
+   Only `progmem' attribute valid for type.  */
+
+const struct attribute_spec ip2k_attribute_table[] =
+{
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "progmem",   0, 0, false, false, false,  ip2k_handle_progmem_attribute },
+  { "naked",     0, 0, true,  false, false,  ip2k_handle_fndecl_attribute },
+  { NULL,        0, 0, false, false, false, NULL }
+};
+
+/* Handle a "progmem" attribute; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+ip2k_handle_progmem_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
      tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
 {
-  if (is_attribute_p ("naked", attr))
-    return TREE_CODE (decl) == FUNCTION_DECL;
-
-  if (is_attribute_p ("progmem", attr)
-      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+  if (DECL_P (*node))
     {
-      /* Data stored in program RAM or FLASH must be word aligned or
-         it won't be directly addressable.  */
-      if (DECL_ALIGN (decl) < FUNCTION_BOUNDARY)
-	DECL_ALIGN (decl) = FUNCTION_BOUNDARY;
-
-      if (DECL_INITIAL (decl) == NULL_TREE)
+      if (TREE_CODE (*node) == TYPE_DECL)
 	{
-	  warning ("Only initialized variables can be placed into "
-		   "program memory area.");
-	  return 0;
+	  /* This is really a decl attribute, not a type attribute,
+	     but try to handle it for GCC 3.0 backwards compatibility.  */
+
+	  tree type = TREE_TYPE (*node);
+	  tree attr = tree_cons (name, args, TYPE_ATTRIBUTES (type));
+	  tree newtype = build_type_attribute_variant (type, attr);
+
+	  TYPE_MAIN_VARIANT (newtype) = TYPE_MAIN_VARIANT (type);
+	  TREE_TYPE (*node) = newtype;
+	  *no_add_attrs = true;
 	}
-      return 1;
+      else if (TREE_STATIC (*node) || DECL_EXTERNAL (*node))
+	{
+	  if (DECL_INITIAL (*node) == NULL_TREE && !DECL_EXTERNAL (*node))
+	    {
+	      warning ("only initialized variables can be placed into "
+		       "program memory area");
+	      *no_add_attrs = true;
+	    }
+	}
+      else
+	{
+	  warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+	  *no_add_attrs = true;
+	}
     }
-  return 0;
+
+  return NULL_TREE;
 }
 
-/* Encode section information about tree DECL.  */
-  
-void
-encode_section_info (decl, first)
-     tree decl;
-     int first ATTRIBUTE_UNUSED;
+/* Handle an attribute requiring a FUNCTION_DECL; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+ip2k_handle_fndecl_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
 {
-  if (! DECL_P (decl))
-    return;
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning ("`%s' attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
 
-  if (TREE_CODE (decl) == FUNCTION_DECL)
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
-}   
-
-/* Outputs to the stdio stream FILE some
-   appropriate text to go at the start of an assembler file.  */
-
-void
-asm_file_start (file)
-     FILE *file;
-{
-  output_file_directive (file, main_input_filename);
-  
-  commands_in_prologues = 0;
-  commands_in_epilogues = 0;
-}
-
-/* Outputs to the stdio stream FILE some
-   appropriate text to go at the end of an assembler file.  */
-
-void
-asm_file_end (file)
-     FILE *file;
-{
-  fprintf
-    (file,
-     "/* File %s: prologues %3d, epilogues %3d */\n",
-     main_input_filename, commands_in_prologues, commands_in_epilogues);
+  return NULL_TREE;
 }
 
 /* Cost functions.  */
 
-/* Calculate the cost of X code of the expression in which it is contained,
-   found in OUTER_CODE.  */
+/* Compute a (partial) cost for rtx X.  Return true if the complete
+   cost has been computed, and false if subexpressions should be
+   scanned.  In either case, *TOTAL contains the cost result.  */
 
-int
-default_rtx_costs (x, code, outer_code)
+static bool
+ip2k_rtx_costs (x, code, outer_code, total)
      rtx x;
-     enum rtx_code code;
-     enum rtx_code outer_code;
+     int code, outer_code;
+     int *total;
 {
   enum machine_mode mode = GET_MODE (x);
   int extra_cost = 0;
-  int total;
 
   switch (code)
     {
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case LABEL_REF:
+      *total = 0;
+      return true;
+    case CONST:
+    case SYMBOL_REF:
+      *total = 8;
+      return true;
+
     case MEM:
-      return ip2k_address_cost (XEXP (x, 0));
+      *total = ip2k_address_cost (XEXP (x, 0));
+      return true;
 
     case ROTATE:
     case ROTATERT:
@@ -3270,45 +3290,47 @@ default_rtx_costs (x, code, outer_code)
 	  /* Sign-preserving shifts require 2 extra instructions.  */
 	  if (code == ASHIFT)
             cost += COSTS_N_INSNS (2);
-	  return cost;
+
+	  *total = cost;
+	  return true;
 	}
-      total = rtx_cost (XEXP (x, 0), code);
-      total += COSTS_N_INSNS (GET_MODE_SIZE (mode) * 8);
-      return total;
+      *total = rtx_cost (XEXP (x, 0), code);
+      *total += COSTS_N_INSNS (GET_MODE_SIZE (mode) * 8);
+      return true;
 
     case MINUS:
     case PLUS:
     case AND:
     case XOR:
     case IOR:
-      total = rtx_cost (XEXP (x, 0), code)
-	+ rtx_cost (XEXP (x, 1), code);
-      total += COSTS_N_INSNS (GET_MODE_SIZE (mode) * 3);
-      return total;
+      *total = COSTS_N_INSNS (GET_MODE_SIZE (mode) * 3);
+      return false;
 
     case MOD:
     case DIV:
       if (mode == QImode)
-	return COSTS_N_INSNS (20);
-      if (mode == HImode)
-	return COSTS_N_INSNS (60);
+	*total = COSTS_N_INSNS (20);
+      else if (mode == HImode)
+	*total = COSTS_N_INSNS (60);
       else if (mode == SImode)
-	return COSTS_N_INSNS (180);
+	*total = COSTS_N_INSNS (180);
       else
-	return COSTS_N_INSNS (540);
+	*total = COSTS_N_INSNS (540);
+      return true;
 
     case MULT:
       /* These costs are OK, but should really handle subtle cases
          where we're using sign or zero extended args as these are
 	 *much* cheaper than those given below!  */
       if (mode == QImode)
-	return COSTS_N_INSNS (4);
-      if (mode == HImode)
-	return COSTS_N_INSNS (12);
-      if (mode == SImode)
-	return COSTS_N_INSNS (36);
+	*total = COSTS_N_INSNS (4);
+      else if (mode == HImode)
+	*total = COSTS_N_INSNS (12);
+      else if (mode == SImode)
+	*total = COSTS_N_INSNS (36);
       else
-        return COSTS_N_INSNS (108);
+        *total = COSTS_N_INSNS (108);
+      return true;
 
     case NEG:
     case SIGN_EXTEND:
@@ -3318,20 +3340,25 @@ default_rtx_costs (x, code, outer_code)
     case NOT:
     case COMPARE:
     case ABS:
-      total = rtx_cost (XEXP (x, 0), code);
-      return total + extra_cost + COSTS_N_INSNS (GET_MODE_SIZE (mode) * 2);
+      *total = extra_cost + COSTS_N_INSNS (GET_MODE_SIZE (mode) * 2);
+      return false;
 
     case TRUNCATE:
     case ZERO_EXTEND:
       if (outer_code == SET)
-	return rtx_cost (XEXP (x, 0), code)
-	       + COSTS_N_INSNS (GET_MODE_SIZE (mode) * 3 / 2);
+	{
+	  *total = COSTS_N_INSNS (GET_MODE_SIZE (mode) * 3 / 2);
+	  return false;
+	}
       else
-	return -(COSTS_N_INSNS (GET_MODE_SIZE (mode)) / 2);
+	{
+	  *total = -(COSTS_N_INSNS (GET_MODE_SIZE (mode)) / 2);
+	  return true;
+	}
 
     case IF_THEN_ELSE:
-      return rtx_cost (XEXP (x, 0), code)
-	     + COSTS_N_INSNS (2);
+      *total = rtx_cost (XEXP (x, 0), code) + COSTS_N_INSNS (2);
+      return true;
 
     case EQ:
     case NE:
@@ -3343,17 +3370,18 @@ default_rtx_costs (x, code, outer_code)
     case GT:
     case LE:
     case GE:
-      return rtx_cost (XEXP (x, 0), code)
-	     + rtx_cost (XEXP (x, 1), code);
+      *total = 0;
+      return false;
 
     default:
-      return COSTS_N_INSNS (4);
+      *total = COSTS_N_INSNS (4);
+      return true;
     }
 }
 
 /* Calculate the cost of a memory address.  */
 
-int
+static int
 ip2k_address_cost (x)
      rtx x;
 {
@@ -5289,12 +5317,11 @@ mdr_try_wreg_elim (first_insn)
    earlier passes to be re-run as it progressively transforms things,
    making the subsequent runs continue to win.  */
 
-void
-machine_dependent_reorg (first_insn)
-     rtx first_insn ATTRIBUTE_UNUSED;
+static void
+ip2k_reorg ()
 {
 #ifdef IP2K_MD_REORG_PASS
-  rtx insn, set;
+  rtx first_insn, insn, set;
 #endif
 
   CC_STATUS_INIT;
@@ -5322,6 +5349,8 @@ machine_dependent_reorg (first_insn)
   
   ip2k_reorg_in_progress = 1;
   
+  first_insn = get_insns ();
+
   /* Look for size effects of earlier optimizations - in particular look for
      situations where we're saying "use" a register on one hand but immediately
      tagging it as "REG_DEAD" at the same time!  Seems like a bug in core-gcc
@@ -5335,7 +5364,7 @@ machine_dependent_reorg (first_insn)
 	  || GET_CODE (insn) == BARRIER)
 	continue;
 
-      if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+      if (!INSN_P (insn))
 	continue;
 
       body = PATTERN (insn);
@@ -5477,6 +5506,15 @@ machine_dependent_reorg (first_insn)
   find_basic_blocks (first_insn, max_reg_num (), 0);
   life_analysis (first_insn, 0, PROP_FINAL);
 #endif
+}
+
+static void
+ip2k_init_libfuncs (void)
+{
+  set_optab_libfunc (smul_optab, SImode, "_mulsi3");
+  set_optab_libfunc (smul_optab, DImode, "_muldi3");
+  set_optab_libfunc (cmp_optab,  HImode, "_cmphi2");
+  set_optab_libfunc (cmp_optab,  SImode, "_cmpsi2");
 }
 
 /* Returns a bit position if mask contains only a single bit.  Returns -1 if

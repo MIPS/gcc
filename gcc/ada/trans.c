@@ -7,7 +7,7 @@
  *                          C Implementation File                           *
  *                                                                          *
  *                                                                          *
- *          Copyright (C) 1992-2002, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2003, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -27,6 +27,8 @@
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "real.h"
 #include "flags.h"
@@ -194,8 +196,8 @@ gigi (gnat_root, max_gnat_node, number_name, nodes_ptr, next_node_ptr,
 
   gnu_except_ptr_stack = tree_cons (NULL_TREE, NULL_TREE, NULL_TREE);
 
-  dconstp5 = REAL_VALUE_ATOF ("0.5", DFmode);
-  dconstmp5 = REAL_VALUE_ATOF ("-0.5", DFmode);
+  REAL_ARITHMETIC (dconstp5, RDIV_EXPR, dconst1, dconst2);
+  REAL_ARITHMETIC (dconstmp5, RDIV_EXPR, dconstm1, dconst2);
 
   gnu_standard_long_long_float
     = gnat_to_gnu_entity (Base_Type (standard_long_long_float), NULL_TREE, 0);
@@ -433,11 +435,13 @@ tree_transform (gnat_node)
 	 here since GNU_RESULT may be a CONST_DECL.  */
       if (DECL_P (gnu_result)
 	  && (DECL_BY_REF_P (gnu_result)
-	      || DECL_BY_COMPONENT_PTR_P (gnu_result)))
+	      || (TREE_CODE (gnu_result) == PARM_DECL
+		  && DECL_BY_COMPONENT_PTR_P (gnu_result))))
 	{
 	  int ro = DECL_POINTS_TO_READONLY_P (gnu_result);
 
-	  if (DECL_BY_COMPONENT_PTR_P (gnu_result))
+	  if (TREE_CODE (gnu_result) == PARM_DECL
+	      && DECL_BY_COMPONENT_PTR_P (gnu_result))
 	    gnu_result = convert (build_pointer_type (gnu_result_type),
 				  gnu_result);
 
@@ -528,14 +532,6 @@ tree_transform (gnat_node)
 	  gnu_result = UI_To_gnu (Corresponding_Integer_Value (gnat_node),
 				  gnu_result_type);
 	  if (TREE_CONSTANT_OVERFLOW (gnu_result)
-#if 0
-	      || (TREE_CODE (TYPE_MIN_VALUE (gnu_result_type)) == INTEGER_CST
-		  && tree_int_cst_lt (gnu_result,
-				      TYPE_MIN_VALUE (gnu_result_type)))
-	      || (TREE_CODE (TYPE_MAX_VALUE (gnu_result_type)) == INTEGER_CST
-		  && tree_int_cst_lt (TYPE_MAX_VALUE (gnu_result_type),
-				      gnu_result))
-#endif
 	      )
 	    gigi_abort (305);
 	}
@@ -645,7 +641,7 @@ tree_transform (gnat_node)
 			   gnu_list);
 
 	  gnu_result
-	    = build_constructor (gnu_result_type, nreverse (gnu_list));
+	    = gnat_build_constructor (gnu_result_type, nreverse (gnu_list));
 	}
       break;
 
@@ -1618,7 +1614,7 @@ tree_transform (gnat_node)
 	    = TREE_TYPE (TREE_CHAIN (TYPE_FIELDS (gnu_result_type)));
 
 	if (Null_Record_Present (gnat_node))
-	  gnu_result = build_constructor (gnu_aggr_type, NULL_TREE);
+	  gnu_result = gnat_build_constructor (gnu_aggr_type, NULL_TREE);
 
 	else if (TREE_CODE (gnu_aggr_type) == RECORD_TYPE)
 	  gnu_result
@@ -2452,7 +2448,7 @@ tree_transform (gnat_node)
 	      gnu_ret_val = TREE_VALUE (TYPE_CI_CO_LIST (gnu_subprog_type));
 	    else
 	      gnu_ret_val
-		= build_constructor (TREE_TYPE (gnu_subprog_type),
+		= gnat_build_constructor (TREE_TYPE (gnu_subprog_type),
 				     TYPE_CI_CO_LIST (gnu_subprog_type));
 	  }
 
@@ -2615,8 +2611,7 @@ tree_transform (gnat_node)
 	   the body so that the line number notes are written 
 	   correctly.  */
 	set_lineno (gnat_node, 0);
-	DECL_SOURCE_FILE (gnu_subprog_decl) = input_filename;
-	DECL_SOURCE_LINE (gnu_subprog_decl) = lineno;
+	DECL_SOURCE_LOCATION (gnu_subprog_decl) = input_location;
 
 	begin_subprog_body (gnu_subprog_decl);
 	set_lineno (gnat_node, 1);
@@ -2694,7 +2689,7 @@ tree_transform (gnat_node)
 	    if (list_length (gnu_cico_list) == 1)
 	      gnu_retval = TREE_VALUE (gnu_cico_list);
 	    else
-	       gnu_retval = build_constructor (TREE_TYPE (gnu_subprog_type),
+	       gnu_retval = gnat_build_constructor (TREE_TYPE (gnu_subprog_type),
 					       gnu_cico_list);
 
 	    if (DECL_P (gnu_retval) && DECL_BY_REF_P (gnu_retval))
@@ -3778,7 +3773,7 @@ tree_transform (gnat_node)
 	  gnu_orig_out_list = nreverse (gnu_orig_out_list);
 	  expand_asm_operands (gnu_template, gnu_output_list, gnu_input_list,
 			       gnu_clobber_list, Is_Asm_Volatile (gnat_node),
-			       input_filename, lineno);
+			       input_location);
 
 	  /* Copy all the intermediate outputs into the specified outputs.  */
 	  for (; gnu_output_list;
@@ -5009,7 +5004,7 @@ pos_to_constructor (gnat_expr, gnu_array_type, gnat_component_type)
 		     gnu_expr_list);
     }
 
-  return build_constructor (gnu_array_type, nreverse (gnu_expr_list));
+  return gnat_build_constructor (gnu_array_type, nreverse (gnu_expr_list));
 }
 
 /* Subroutine of assoc_to_constructor: VALUES is a list of field associations,
@@ -5060,7 +5055,7 @@ extract_values (values, record_type)
       result = tree_cons (field, value, result);
     }
 
-  return build_constructor (record_type, nreverse (result));
+  return gnat_build_constructor (record_type, nreverse (result));
 }
 
 /* EXP is to be treated as an array or record.  Handle the cases when it is
@@ -5338,8 +5333,7 @@ build_unit_elab (gnat_unit, body_p, gnu_elab_list)
       {
 	tree lhs = TREE_PURPOSE (gnu_elab_list);
 
-	input_filename = DECL_SOURCE_FILE (lhs);
-	lineno = DECL_SOURCE_LINE (lhs);
+	input_location = DECL_SOURCE_LOCATION (lhs);
 
 	/* If LHS has a padded type, convert it to the unpadded type
 	   so the assignment is done properly.  */
@@ -5347,7 +5341,7 @@ build_unit_elab (gnat_unit, body_p, gnu_elab_list)
 	    && TYPE_IS_PADDING_P (TREE_TYPE (lhs)))
 	  lhs = convert (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (lhs))), lhs);
 
-	emit_line_note (input_filename, lineno);
+	emit_line_note (input_location);
 	expand_expr_stmt (build_binary_op (MODIFY_EXPR, NULL_TREE,
 					   TREE_PURPOSE (gnu_elab_list),
 					   TREE_VALUE (gnu_elab_list)));
@@ -5376,9 +5370,9 @@ build_unit_elab (gnat_unit, body_p, gnu_elab_list)
 
 extern char *__gnat_to_canonical_file_spec PARAMS ((char *));
 
-/* Determine the input_filename and the lineno from the source location
+/* Determine the input_filename and the input_line from the source location
    (Sloc) of GNAT_NODE node.  Set the global variable input_filename and
-   lineno.  If WRITE_NOTE_P is true, emit a line number note.  */
+   input_line.  If WRITE_NOTE_P is true, emit a line number note.  */
 
 void
 set_lineno (gnat_node, write_note_p)
@@ -5410,10 +5404,10 @@ set_lineno (gnat_node, write_note_p)
       (get_identifier
        (Get_Name_String
 	(Reference_Name (Get_Source_File_Index (source_location)))));;
-  lineno = Get_Logical_Line_Number (source_location);
+  input_line = Get_Logical_Line_Number (source_location);
 
   if (write_note_p)
-    emit_line_note (input_filename, lineno);
+    emit_line_note (input_location);
 }
 
 /* Post an error message.  MSG is the error message, properly annotated.

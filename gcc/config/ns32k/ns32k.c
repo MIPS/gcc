@@ -2,25 +2,27 @@
    Copyright (C) 1988, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -55,8 +57,8 @@ const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER] =
   GENERAL_REGS, GENERAL_REGS, GENERAL_REGS, GENERAL_REGS,
   FLOAT_REG0, LONG_FLOAT_REG0, FLOAT_REGS, FLOAT_REGS,
   FLOAT_REGS, FLOAT_REGS, FLOAT_REGS, FLOAT_REGS,
-  FP_REGS, FP_REGS, FP_REGS, FP_REGS,
-  FP_REGS, FP_REGS, FP_REGS, FP_REGS,
+  LONG_REGS, LONG_REGS, LONG_REGS, LONG_REGS,
+  LONG_REGS, LONG_REGS, LONG_REGS, LONG_REGS,
   FRAME_POINTER_REG, STACK_POINTER_REG
 };
 
@@ -69,7 +71,8 @@ static tree ns32k_handle_fntype_attribute PARAMS ((tree *, tree, tree, int, bool
 const struct attribute_spec ns32k_attribute_table[];
 static void ns32k_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void ns32k_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
-static void ns32k_encode_section_info PARAMS ((tree, int));
+static bool ns32k_rtx_costs PARAMS ((rtx, int, int, int *));
+static int ns32k_address_cost PARAMS ((rtx));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -87,8 +90,14 @@ static void ns32k_encode_section_info PARAMS ((tree, int));
 #define TARGET_ASM_FUNCTION_PROLOGUE ns32k_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE ns32k_output_function_epilogue
-#undef TARGET_ENCODE_SECTION_INFO
-#define TARGET_ENCODE_SECTION_INFO ns32k_encode_section_info
+
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS ns32k_rtx_costs
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST ns32k_address_cost
+
+#undef TARGET_ASM_FILE_START_APP_OFF
+#define TARGET_ASM_FILE_START_APP_OFF true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -134,10 +143,10 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 
 #if defined(IMMEDIATE_PREFIX) && IMMEDIATE_PREFIX
 #define ADJSP(FILE, N) \
-        fprintf (FILE, "\tadjspd %c%d\n", IMMEDIATE_PREFIX, (N))
+        fprintf (FILE, "\tadjspd %c" HOST_WIDE_INT_PRINT_DEC "\n", IMMEDIATE_PREFIX, (N))
 #else
 #define ADJSP(FILE, N) \
-        fprintf (FILE, "\tadjspd %d\n", (N))
+        fprintf (FILE, "\tadjspd " HOST_WIDE_INT_PRINT_DEC "\n", (N))
 #endif
 
 static void
@@ -189,7 +198,7 @@ ns32k_output_function_prologue (file, size)
     }
 
   if (frame_pointer_needed)
-    fprintf (file, "],%d\n", size);
+    fprintf (file, "]," HOST_WIDE_INT_PRINT_DEC "\n", size);
   else if (g_regs_used)
     fprintf (file, "]\n");
 
@@ -488,6 +497,38 @@ hard_regno_mode_ok (regno, mode)
   return 0;
 }
 
+static bool
+ns32k_rtx_costs (x, code, outer_code, total)
+     rtx x;
+     int code, outer_code ATTRIBUTE_UNUSED;
+     int *total;
+{
+  switch (code)
+    {
+    case CONST_INT:
+      if (INTVAL (x) <= 7 && INTVAL (x) >= -8)
+	*total = 0;
+      else if (INTVAL (x) < 0x2000 && INTVAL (x) >= -0x2000)
+        *total = 1;
+      else
+	*total = 3;
+      return true;
+
+    case CONST:
+    case LABEL_REF:
+    case SYMBOL_REF:
+      *total = 3;
+      return true;
+
+    case CONST_DOUBLE:
+      *total = 5;
+      return true;
+
+    default:
+      return false;
+    }
+}
+
 int register_move_cost (CLASS1, CLASS2)
      enum reg_class CLASS1;
      enum reg_class CLASS2;
@@ -521,28 +562,26 @@ int secondary_memory_needed (CLASS1, CLASS2, M)
 #endif
     
 
-/* ADDRESS_COST calls this.  This function is not optimal
+/* TARGET_ADDRESS_COST calls this.  This function is not optimal
    for the 32032 & 32332, but it probably is better than
    the default. */
 
-int
-calc_address_cost (operand)
+static int
+ns32k_address_cost (operand)
      rtx operand;
 {
-  int i;
   int cost = 0;
-  if (GET_CODE (operand) == MEM)
-    cost += 3;
-  if (GET_CODE (operand) == MULT)
-    cost += 2;
+
   switch (GET_CODE (operand))
     {
     case REG:
       cost += 1;
       break;
+
     case POST_DEC:
     case PRE_DEC:
       break;
+
     case CONST_INT:
       if (INTVAL (operand) <= 7 && INTVAL (operand) >= -8)
 	break;
@@ -559,18 +598,23 @@ calc_address_cost (operand)
     case CONST_DOUBLE:
       cost += 5;
       break;
+
     case MEM:
-      cost += calc_address_cost (XEXP (operand, 0));
+      cost += ns32k_address_cost (XEXP (operand, 0)) + 3;
       break;
+
     case MULT:
+      cost += 2;
+      /* FALLTHRU */
     case PLUS:
-      for (i = 0; i < GET_RTX_LENGTH (GET_CODE (operand)); i++)
-	{
-	  cost += calc_address_cost (XEXP (operand, i));
-	}
+      cost += ns32k_address_cost (XEXP (operand, 0));
+      cost += ns32k_address_cost (XEXP (operand, 1));
+      break;
+
     default:
       break;
     }
+
   return cost;
 }
 
@@ -843,7 +887,7 @@ expand_block_move (operands)
 
       if (words)
 	{
-	  if (words < 3 || flag_unroll_loops)
+	  if (words < 3)
 	    {
 	      int offset = 0;
 
@@ -959,7 +1003,7 @@ global_symbolic_reference_mentioned_p (op, f)
 
   if (GET_CODE (op) == SYMBOL_REF)
     {
-      if (! SYMBOL_REF_FLAG (op))
+      if (! SYMBOL_REF_LOCAL_P (op))
 	return 1;
       else
         return 0;
@@ -1268,8 +1312,7 @@ print_operand_address (file, addr)
 	  indexexp = tmp;
 	  break;
 	case SYMBOL_REF:
-	  if (flag_pic && ! CONSTANT_POOL_ADDRESS_P (tmp)
-	      && ! SYMBOL_REF_FLAG (tmp))
+	  if (flag_pic && ! SYMBOL_REF_LOCAL_P (tmp))
 	    {
 	      if (base)
 		{
@@ -1301,12 +1344,7 @@ print_operand_address (file, addr)
 		  if (GET_CODE (off) != CONST_INT)
 		    abort ();
 
-		  if (CONSTANT_POOL_ADDRESS_P (sym)
-		      || SYMBOL_REF_FLAG (sym))
-		    {
-		      SYMBOL_REF_FLAG (tmp) = 1;
-		    }
-		  else
+		  if (! SYMBOL_REF_LOCAL_P (sym))
 		    {
 		      if (base)
 			{
@@ -1556,22 +1594,4 @@ output_move_dconst (n, s)
     strcpy (r, "movd ");
   strcat (r, s);
   return r;
-}
-
-/* If using PIC, mark a SYMBOL_REF for a non-global symbol or a code
-   symbol. These symbols are referenced via pc and not via sb. */
-
-static void
-ns32k_encode_section_info (decl, first)
-     tree decl;
-     int first ATTRIBUTE_UNUSED;
-{
-  if (flag_pic)
-    {
-      rtx rtl = (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd'
-		 ? TREE_CST_RTL (decl) : DECL_RTL (decl));
-      SYMBOL_REF_FLAG (XEXP (rtl, 0))
-	= (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd'
-	   || ! TREE_PUBLIC (decl));
-    }
 }

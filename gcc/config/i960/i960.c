@@ -1,29 +1,31 @@
 /* Subroutines used for code generation on intel 80960.
-   Copyright (C) 1992, 1995, 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1992, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Contributed by Steven McGeady, Intel Corp.
    Additional Work by Glenn Colon-Bonet, Jonathan Shapiro, Andy Wilson
    Converted to GCC 2.0 by Jim Wilson and Michael Tiemann, Cygnus Support.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include <math.h>
 #include "rtl.h"
 #include "regs.h"
@@ -48,6 +50,8 @@ static void i960_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void i960_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void i960_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 					  HOST_WIDE_INT, tree));
+static bool i960_rtx_costs PARAMS ((rtx, int, int, int *));
+static int i960_address_cost PARAMS ((rtx));
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -105,6 +109,11 @@ static int ret_label = 0;
 #undef TARGET_CAN_ASM_OUTPUT_MI_THUNK
 #define TARGET_CAN_ASM_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
 
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS i960_rtx_costs
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST i960_address_cost
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Override conflicting target switch options.
@@ -160,7 +169,7 @@ i960_initialize ()
     }
 
   /* Tell the compiler which flavor of TFmode we're using.  */
-  real_format_for_mode[TFmode - QFmode] = &ieee_extended_intel_128_format;
+  REAL_MODE_FORMAT (TFmode) = &ieee_extended_intel_128_format;
 }
 
 /* Return true if OP can be used as the source of an fp move insn.  */
@@ -497,15 +506,13 @@ gen_compare_reg (code, x, y)
 
 /* ??? Try using just RTX_COST, i.e. not defining ADDRESS_COST.  */
 
-int
+static int
 i960_address_cost (x)
      rtx x;
 {
-#if 0
-  /* Handled before calling here.  */
   if (GET_CODE (x) == REG)
     return 1;
-#endif
+
   /* This is a MEMA operand -- it's free.  */
   if (GET_CODE (x) == CONST_INT
       && INTVAL (x) >= 0
@@ -1079,7 +1086,7 @@ i960_function_name_declare (file, name, fndecl)
       
   /* See if caller passes in an address to return value.  */
 
-  if (aggregate_value_p (DECL_RESULT (fndecl)))
+  if (aggregate_value_p (DECL_RESULT (fndecl), fndecl))
     {
       tail_call_ok = 0;
       leaf_proc_ok = 0;
@@ -1452,9 +1459,11 @@ i960_output_function_prologue (file, size)
   if (actual_fsize > 0)
     {
       if (actual_fsize < 32)
-	fprintf (file, "\taddo	%d,sp,sp\n", actual_fsize);
+	fprintf (file, "\taddo	" HOST_WIDE_INT_PRINT_DEC ",sp,sp\n",
+		 actual_fsize);
       else
-	fprintf (file, "\tlda\t%d(sp),sp\n", actual_fsize);
+	fprintf (file, "\tlda\t" HOST_WIDE_INT_PRINT_DEC "(sp),sp\n",
+		 actual_fsize);
     }
 
   /* Take hardware register save area created by the call instruction
@@ -1481,12 +1490,12 @@ i960_output_function_prologue (file, size)
       if (nr == 3 && regs[i+3] == -1)
 	nr = 4;
 
-      fprintf (file,"\tst%s	%s,%d(fp)\n",
+      fprintf (file,"\tst%s	%s," HOST_WIDE_INT_PRINT_DEC "(fp)\n",
 	       ((nr == 4) ? "q" :
 		(nr == 3) ? "t" :
 		(nr == 2) ? "l" : ""),
 	       reg_names[i], offset);
-      sprintf (tmpstr,"\tld%s	%d(fp),%s\n",
+      sprintf (tmpstr,"\tld%s	" HOST_WIDE_INT_PRINT_DEC "(fp),%s\n",
 	       ((nr == 4) ? "q" :
 		(nr == 3) ? "t" :
 		(nr == 2) ? "l" : ""),
@@ -1501,10 +1510,12 @@ i960_output_function_prologue (file, size)
     return;
 
   fprintf (file, "\t#Prologue stats:\n");
-  fprintf (file, "\t#  Total Frame Size: %d bytes\n", actual_fsize);
+  fprintf (file, "\t#  Total Frame Size: " HOST_WIDE_INT_PRINT_DEC " bytes\n",
+	   actual_fsize);
 
   if (lvar_size)
-    fprintf (file, "\t#  Local Variable Size: %d bytes\n", lvar_size);
+    fprintf (file, "\t#  Local Variable Size: " HOST_WIDE_INT_PRINT_DEC
+	     " bytes\n", lvar_size);
   if (n_saved_regs)
     fprintf (file, "\t#  Register Save Size: %d regs, %d bytes\n",
 	     n_saved_regs, n_saved_regs * 4);
@@ -1785,9 +1796,9 @@ i960_print_operand (file, x, code)
       if (code == 'C')
 	val = ~val;
       if (val > 9999 || val < -999)
-	fprintf (file, "0x%x", val);
+	fprintf (file, HOST_WIDE_INT_PRINT_HEX, val);
       else
-	fprintf (file, "%d", val);
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, val);
       return;
     }
   else if (rtxcode == CONST_DOUBLE)
@@ -1981,7 +1992,8 @@ i960_print_operand_addr (file, addr)
   if (breg)
     fprintf (file, "(%s)", reg_names[REGNO (breg)]);
   if (ireg)
-    fprintf (file, "[%s*%d]", reg_names[REGNO (ireg)], INTVAL (scale));
+    fprintf (file, "[%s*" HOST_WIDE_INT_PRINT_DEC "]",
+	     reg_names[REGNO (ireg)], INTVAL (scale));
 }
 
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
@@ -2585,8 +2597,7 @@ i960_setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
       set_mem_alias_set (regblock, get_varargs_alias_set ());
       set_mem_align (regblock, BITS_PER_WORD);
       move_block_from_reg (first_reg, regblock,
-			   NPARM_REGS - first_reg,
-			   (NPARM_REGS - first_reg) * UNITS_PER_WORD);
+			   NPARM_REGS - first_reg);
     }
 }
 
@@ -2853,4 +2864,53 @@ i960_output_mi_thunk (file, thunk, delta, vcall_offset, function)
   fprintf (file, "\tbx ");						
   assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));	
   fprintf (file, "\n");							
+}
+
+static bool
+i960_rtx_costs (x, code, outer_code, total)
+     rtx x;
+     int code, outer_code;
+     int *total;
+{
+  switch (code)
+    {
+      /* Constants that can be (non-ldconst) insn operands are cost 0.
+	 Constants that can be non-ldconst operands in rare cases are cost 1.
+         Other constants have higher costs.
+
+         Must check for OUTER_CODE of SET for power2_operand, because
+         reload_cse_move2add calls us with OUTER_CODE of PLUS to decide
+	 when to replace set with add.  */
+
+    case CONST_INT:
+      if ((INTVAL (x) >= 0 && INTVAL (x) < 32)
+	  || (outer_code == SET && power2_operand (x, VOIDmode)))
+	{
+	  *total = 0;
+	  return true;
+	}
+      else if (INTVAL (x) >= -31 && INTVAL (x) < 0)
+	{
+	  *total = 1;
+	  return true;
+	}
+      /* FALLTHRU */
+
+    case CONST:
+    case LABEL_REF:
+    case SYMBOL_REF:
+      *total = (TARGET_C_SERIES ? 6 : 8);
+      return true;
+
+    case CONST_DOUBLE:
+      if (x == CONST0_RTX (DFmode) || x == CONST0_RTX (SFmode)
+	  || x == CONST1_RTX (DFmode) || x == CONST1_RTX (SFmode))
+	*total = 1;
+      else
+	*total = 12;
+      return true;
+
+    default:
+      return false;
+    }
 }

@@ -1,5 +1,5 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-@c 1999, 2000, 2001 Free Software Foundation, Inc.
+@c 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -338,47 +338,6 @@ you cannot successfully use @samp{$} in identifiers on the RS/6000 due
 to a restriction in the IBM assembler.  GAS supports these
 identifiers.
 
-@item
-@opindex mno-serialize-volatile
-There is an assembler bug in versions of DG/UX prior to 5.4.2.01 that
-occurs when the @samp{fldcr} instruction is used.  GCC uses
-@samp{fldcr} on the 88100 to serialize volatile memory references.  Use
-the option @option{-mno-serialize-volatile} if your version of the
-assembler has this bug.
-
-@item
-On VMS, GAS versions 1.38.1 and earlier may cause spurious warning
-messages from the linker.  These warning messages complain of mismatched
-psect attributes.  You can ignore them.
-
-@item
-On NewsOS version 3, if you include both of the files @file{stddef.h}
-and @file{sys/types.h}, you get an error because there are two typedefs
-of @code{size_t}.  You should change @file{sys/types.h} by adding these
-lines around the definition of @code{size_t}:
-
-@smallexample
-#ifndef _SIZE_T
-#define _SIZE_T
-@var{actual-typedef-here}
-#endif
-@end smallexample
-
-@cindex Alliant
-@item
-On the Alliant, the system's own convention for returning structures
-and unions is unusual, and is not compatible with GCC no matter
-what options are used.
-
-@cindex RT PC
-@cindex IBM RT PC
-@item
-@opindex mhc-struct-return
-On the IBM RT PC, the MetaWare HighC compiler (hc) uses a different
-convention for structure and union returning.  Use the option
-@option{-mhc-struct-return} to tell GCC to use a convention compatible
-with it.
-
 @cindex VAX calling convention
 @cindex Ultrix calling convention
 @item
@@ -395,42 +354,10 @@ these options to produce code compatible with the Fortran compiler:
 @end smallexample
 
 @item
-On the WE32k, you may find that programs compiled with GCC do not
-work with the standard shared C library.  You may need to link with
-the ordinary C compiler.  If you do so, you must specify the following
-options:
-
-@smallexample
--L/usr/local/lib/gcc-lib/we32k-att-sysv/2.8.1 -lgcc -lc_s
-@end smallexample
-
-The first specifies where to find the library @file{libgcc.a}
-specified with the @option{-lgcc} option.
-
-GCC does linking by invoking @command{ld}, just as @command{cc} does, and
-there is no reason why it @emph{should} matter which compilation program
-you use to invoke @command{ld}.  If someone tracks this problem down,
-it can probably be fixed easily.
-
-@item
 On the Alpha, you may get assembler errors about invalid syntax as a
 result of floating point constants.  This is due to a bug in the C
 library functions @code{ecvt}, @code{fcvt} and @code{gcvt}.  Given valid
 floating point numbers, they sometimes print @samp{NaN}.
-
-@item
-On Irix 4.0.5F (and perhaps in some other versions), an assembler bug
-sometimes reorders instructions incorrectly when optimization is turned
-on.  If you think this may be happening to you, try using the GNU
-assembler; GAS version 2.1 supports ECOFF on Irix.
-
-@opindex noasmopt
-Or use the @option{-noasmopt} option when you compile GCC with itself,
-and then again when you compile your program.  (This is a temporary
-kludge to turn off assembler optimization on Irix.)  If this proves to
-be what you need, edit the assembler spec in the file @file{specs} so
-that it unconditionally passes @option{-O0} to the assembler, and never
-passes @option{-O2} or @option{-O3}.
 @end itemize
 
 @node External Bugs
@@ -924,6 +851,7 @@ give rise to questions of this sort.
 
 @menu
 * Static Definitions::  Static member declarations are not definitions
+* Name lookup::         Name lookup, templates, and accessing members of base classes
 * Temporaries::         Temporaries may vanish before you expect
 * Copy Assignment::     Copy Assignment operators copy virtual bases twice
 @end menu
@@ -959,10 +887,134 @@ int Foo::bar = 0;
 @end example
 
 Other C++ compilers may not correctly implement the standard behavior.
-As a result, when you switch to @code{g++} from one of these compilers,
+As a result, when you switch to @command{g++} from one of these compilers,
 you may discover that a program that appeared to work correctly in fact
-does not conform to the standard: @code{g++} reports as undefined
+does not conform to the standard: @command{g++} reports as undefined
 symbols any static data members that lack definitions.
+
+
+@node Name lookup
+@subsection Name lookup, templates, and accessing members of base classes
+
+@cindex base class members
+@cindex two-stage name lookup
+@cindex dependent name lookup
+
+The C++ standard prescribes that all names that are not dependent on
+template parameters are bound to their present definitions when parsing
+a template function or class.@footnote{The C++ standard just uses the
+term ``dependent'' for names that depend on the type or value of
+template parameters.  This shorter term will also be used in the rest of
+this section.}  Only names that are dependent are looked up at the point
+of instantiation.  For example, consider
+
+@example
+  void foo(double);
+
+  struct A @{
+    template <typename T>
+    void f () @{
+      foo (1);        // 1
+      int i = N;      // 2
+      T t;
+      t.bar();        // 3
+      foo (t);        // 4
+    @}
+
+    static const int N;
+  @};
+@end example
+
+Here, the names @code{foo} and @code{N} appear in a context that does
+not depend on the type of @code{T}.  The compiler will thus require that
+they are defined in the context of use in the template, not only before
+the point of instantiation, and will here use @code{::foo(double)} and
+@code{A::N}, respectively.  In particular, it will convert the integer
+value to a @code{double} when passing it to @code{::foo(double)}.
+
+Conversely, @code{bar} and the call to @code{foo} in the fourth marked
+line are used in contexts that do depend on the type of @code{T}, so
+they are only looked up at the point of instantiation, and you can
+provide declarations for them after declaring the template, but before
+instantiating it.  In particular, if you instantiate @code{A::f<int>},
+the last line will call an overloaded @code{::foo(int)} if one was
+provided, even if after the declaration of @code{struct A}.
+
+This distinction between lookup of dependent and non-dependent names is
+called two-stage (or dependent) name lookup.  G++ implements it
+since version 3.4.
+
+Two-stage name lookup sometimes leads to situations with behavior
+different from non-template codes. The most common is probably this:
+
+@example
+  template <typename T> struct Base @{
+    int i;
+  @};
+
+  template <typename T> struct Derived : public Base<T> @{
+    int get_i() @{ return i; @}
+  @};
+@end example
+
+In @code{get_i()}, @code{i} is not used in a dependent context, so the
+compiler will look for a name declared at the enclosing namespace scope
+(which is the global scope here).  It will not look into the base class,
+since that is dependent and you may declare specializations of
+@code{Base} even after declaring @code{Derived}, so the compiler can't
+really know what @code{i} would refer to.  If there is no global
+variable @code{i}, then you will get an error message.
+
+In order to make it clear that you want the member of the base class,
+you need to defer lookup until instantiation time, at which the base
+class is known.  For this, you need to access @code{i} in a dependent
+context, by either using @code{this->i} (remember that @code{this} is of
+type @code{Derived<T>*}, so is obviously dependent), or using
+@code{Base<T>::i}. Alternatively, @code{Base<T>::i} might be brought
+into scope by a @code{using}-declaration.
+
+Another, similar example involves calling member functions of a base
+class: 
+
+@example
+  template <typename T> struct Base @{
+      int f();
+  @};
+
+  template <typename T> struct Derived : Base<T> @{
+      int g() @{ return f(); @};
+  @};
+@end example
+
+Again, the call to @code{f()} is not dependent on template arguments
+(there are no arguments that depend on the type @code{T}, and it is also
+not otherwise specified that the call should be in a dependent context).
+Thus a global declaration of such a function must be available, since
+the one in the base class is not visible until instantiation time.  The
+compiler will consequently produce the following error message:
+
+@example
+  x.cc: In member function `int Derived<T>::g()':
+  x.cc:6: error: there are no arguments to `f' that depend on a template
+     parameter, so a declaration of `f' must be available
+  x.cc:6: error: (if you use `-fpermissive', G++ will accept your code, but
+     allowing the use of an undeclared name is deprecated)
+@end example
+
+To make the code valid either use @code{this->f()}, or
+@code{Base<T>::f()}.  Using the @code{-fpermissive} flag will also let
+the compiler accept the code, by marking all function calls for which no
+declaration is visible at the time of definition of the template for
+later lookup at instantiation time, as if it were a dependent call.
+We do not recommend using @code{-fpermissive} to work around invalid
+code, and it will also only catch cases where functions in base classes
+are called, not where variables in base classes are used (as in the
+example above).
+
+Note that some compilers (including G++ versions prior to 3.4) get these
+examples wrong and accept above code without an error.  Those compilers
+do not implement two-stage name lookup correctly.
+
 
 @node Temporaries
 @subsection Temporaries May Vanish Before You Expect
@@ -1066,7 +1118,7 @@ inside @samp{func} in the example).
 
 g++ implements the ``intuitive'' algorithm for copy-assignment: assign all
 direct bases, then assign all members.  In that algorithm, the virtual
-base subobject can be encountered many times.  In the example, copying
+base subobject can be encountered more than once.  In the example, copying
 proceeds in the following order: @samp{val}, @samp{name} (via
 @code{strdup}), @samp{bval}, and @samp{name} again.
 

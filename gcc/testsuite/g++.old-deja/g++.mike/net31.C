@@ -1,4 +1,4 @@
-// Build don't link:
+// { dg-do assemble  }
 
 class foo_a {
   protected:
@@ -13,7 +13,7 @@ class foo_b {
         foo_b();
         ~foo_b();
         foo_b(const foo_b&);
-        inline double& operator()(int);
+        double& operator()(int);
         foo_b& operator=(foo_b&);
         void bar_a(int);
 };
@@ -40,7 +40,7 @@ foo_b& foo_c<TP>::bug_func(int x) {
         static foo_b retval(m);
         retval.bar_a(m);
         for (register int i = 0; i < m; i++)
-	  retval(i) = (*(operator()(i)))(x);		// ERROR - 
+	  retval(i) = (*(operator()(i)))(x);		// { dg-error "" } 
         return retval;
 }
 
@@ -62,7 +62,7 @@ class foo_e : public foo_a, public foo_d<foo_a> {
 };
 
 void foo_e::setfoo_c() {
-        bar_b(0) = func;				// ERROR - 
+        bar_b(0) = func;				// { dg-error "" } 
 }
 
 template class foo_c<foo_a>;

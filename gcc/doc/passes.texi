@@ -1,5 +1,5 @@
-@c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-@c 1999, 2000, 2001 Free Software Foundation, Inc.
+@c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+@c 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -12,7 +12,10 @@
 @cindex top level of compiler
 The overall control structure of the compiler is in @file{toplev.c}.  This
 file is responsible for initialization, decoding arguments, opening and
-closing files, and sequencing the passes.
+closing files, and sequencing the passes.  Routines for emitting
+diagnostic messages are defined in @file{diagnostic.c}.  The files
+@file{pretty-print.h} and @file{pretty-print.c} provide basic support
+for language-independent pretty-printing.
 
 @cindex parsing pass
 The parsing pass is invoked only once, to parse the entire input.  A
@@ -73,54 +76,27 @@ performed by cpplib, which is covered in separate documentation.  In
 particular, the internals are covered in @xref{Top, ,Cpplib internals,
 cppinternals, Cpplib Internals}.
 
-@c Avoiding overfull is tricky here.
-The source files to parse C are
-@file{c-convert.c},
-@file{c-decl.c},
-@file{c-errors.c},
-@file{c-lang.c},
-@file{c-objc-common.c},
-@file{c-parse.in},
-@file{c-aux-info.c},
-and
-@file{c-typeck.c},
-along with a header file
-@file{c-tree.h}
-and some files shared with Objective-C and C++.
-
-The source files for parsing C++ are in @file{cp/}.
-They are @file{parse.y},
-@file{class.c},
-@file{cvt.c}, @file{decl.c}, @file{decl2.c},
-@file{except.c},
-@file{expr.c}, @file{init.c}, @file{lex.c},
-@file{method.c}, @file{ptree.c},
-@file{search.c}, @file{spew.c},
-@file{semantics.c}, @file{tree.c},
-@file{typeck2.c}, and
-@file{typeck.c}, along with header files @file{cp-tree.def},
-@file{cp-tree.h}, and @file{decl.h}.
-
-The special source files for parsing Objective-C are in @file{objc/}.
-They are @file{objc-act.c}, @file{objc-tree.def}, and @file{objc-act.h}.
-Certain C-specific files are used for this as well.
-
-The files
-@file{c-common.c},
+The source files to parse C are found in the toplevel directory, and
+by convention are named @file{c-*}.  Some of these are also used by
+the other C-like languages: @file{c-common.c},
 @file{c-common.def},
 @file{c-format.c},
 @file{c-opts.c},
 @file{c-pragma.c},
 @file{c-semantics.c},
-and
 @file{c-lex.c},
-along with header files
+@file{c-incpath.c},
+@file{c-ppoutput.c},
+@file{c-cppbuiltin.c},
 @file{c-common.h},
 @file{c-dump.h},
+@file{c.opt},
+@file{c-incpath.h}
 and
 @file{c-pragma.h},
-are also used for all of the above languages.
 
+Files specific to each language are in subdirectories named after the
+language in question, like @file{ada}, @file{objc}, @file{cp} (for C++).
 
 @cindex Tree optimization
 @item
@@ -206,7 +182,7 @@ the input file name.
 
 @cindex sibling call optimization
 @item
-Sibiling call optimization.   This pass performs tail recursion
+Sibling call optimization.   This pass performs tail recursion
 elimination, and tail and sibling call optimizations.  The purpose of
 these optimizations is to reduce the overhead of function calls,
 whenever possible.
@@ -286,10 +262,9 @@ the input file name.
 @opindex fssa-ccp
 @item
 SSA Conditional Constant Propagation.  Turned on by the @option{-fssa-ccp}
-SSA Aggressive Dead Code Elimination.  Turned on by the @option{-fssa-dce}
 option.  This pass performs conditional constant propagation to simplify
 instructions including conditional branches.  This pass is more aggressive
-than the constant propgation done by the CSE and GCSE pases, but operates
+than the constant propagation done by the CSE and GCSE passes, but operates
 in linear time.
 
 @opindex dW
@@ -366,10 +341,30 @@ Its source files are @file{loop.c} and @file{unroll.c}, plus the header
 some functions in @file{integrate.c} and the header @file{integrate.h}.
 Loop dependency analysis routines are contained in @file{dependence.c}.
 
+Second loop optimization pass takes care of basic block level optimizations --
+unrolling, peeling and unswitching loops. The source files are
+@file{cfgloopanal.c} and @file{cfgloopmanip.c} containing generic loop
+analysis and manipulation code, @file{loop-init.c} with initialization and
+finalization code, @file{loop-unswitch.c} for loop unswitching and
+@file{loop-unroll.c} for loop unrolling and peeling.
+
 @opindex dL
 The option @option{-dL} causes a debugging dump of the RTL code after
-this pass.  This dump file's name is made by appending @samp{.loop} to
-the input file name.
+these passes.  The dump file names are made by appending @samp{.loop} and
+@samp{.loop2} to the input file name.
+
+@cindex jump bypassing
+@item
+Jump bypassing.  This pass is an aggressive form of GCSE that transforms
+the control flow graph of a function by propagating constants into
+conditional branch instructions.
+
+The source file for this pass is @file{gcse.c}.
+
+@opindex dG
+The option @option{-dG} causes a debugging dump of the RTL code after
+this pass.  This dump file's name is made by appending @samp{.bypass}
+to the input file name.
 
 @item
 @opindex frerun-cse-after-loop
@@ -459,13 +454,20 @@ The option @option{-dS} causes a debugging dump of the RTL code after this
 pass is run for the first time.  The dump file's name is made by
 appending @samp{.sched} to the input file name.
 
+@cindex register allocation
+@item
+Register allocation.  These passes make sure that all occurrences of pseudo
+registers are eliminated, either by allocating them to a hard register,
+replacing them by an equivalent expression (e.g.@: a constant) or by placing
+them on the stack.  This is done in several subpasses:
+
+@itemize @bullet
 @cindex register class preference pass
 @item
 Register class preferencing.  The RTL code is scanned to find out
 which register class is best for each pseudo register.  The source
 file is @file{regclass.c}.
 
-@cindex register allocation
 @cindex local register allocation
 @item
 Local register allocation (@file{local-alloc.c}).  This pass allocates
@@ -483,6 +485,17 @@ the input file name.
 Global register allocation (@file{global.c}).  This pass
 allocates hard registers for the remaining pseudo registers (those
 whose life spans are not contained in one basic block).
+
+@cindex graph coloring register allocation
+@opindex fnew-ra
+@opindex dl
+@item
+Graph coloring register allocator.  The files @file{ra.c}, @file{ra-build.c},
+@file{ra-colorize.c}, @file{ra-debug.c}, @file{ra-rewrite.c} together with
+the header @file{ra.h} contain another register allocator, which is used
+when the option @option{-fnew-ra} is given.  In that case it is run instead
+of the above mentioned local and global register allocation passes, and the
+option @option{-dl} causes a debugging dump of its work.
 
 @cindex reloading
 @item
@@ -505,6 +518,7 @@ Source files are @file{reload.c} and @file{reload1.c}, plus the header
 The option @option{-dg} causes a debugging dump of the RTL code after
 this pass.  This dump file's name is made by appending @samp{.greg} to
 the input file name.
+@end itemize
 
 @cindex instruction scheduling
 @cindex scheduling, instruction
@@ -531,17 +545,6 @@ various prediction routines are in @file{predict.c}.
 The option @option{-dB} causes a debugging dump of the RTL code after
 this pass.  This dump file's name is made by appending @samp{.bbro} to
 the input file name.
-
-@cindex cross-jumping
-@cindex no-op move instructions
-@item
-Jump optimization is repeated, this time including cross-jumping
-and deletion of no-op move instructions.
-
-@opindex dJ
-The option @option{-dJ} causes a debugging dump of the RTL code after
-this pass.  This dump file's name is made by appending @samp{.jump2}
-to the input file name.
 
 @cindex delayed branch scheduling
 @cindex scheduling, delayed branch

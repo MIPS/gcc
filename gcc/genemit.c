@@ -1,6 +1,6 @@
 /* Generate code from machine description to emit insns as rtl.
-   Copyright (C) 1987, 1988, 1991, 1994, 1995, 1997, 1998, 1999, 2000, 2001
-   Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1991, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
+   2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,8 +20,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 
-#include "hconfig.h"
+#include "bconfig.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "errors.h"
 #include "gensupport.h"
@@ -35,7 +37,7 @@ static int insn_code_number;
 static int insn_index_number;
 
 /* Data structure for recording the patterns of insns that have CLOBBERs.
-   We use this to output a function that adds these CLOBBERs to a 
+   We use this to output a function that adds these CLOBBERs to a
    previously-allocated PARALLEL expression.  */
 
 struct clobber_pat
@@ -55,22 +57,21 @@ struct clobber_ent
   struct clobber_ent *next;
 };
 
-static void max_operand_1		PARAMS ((rtx));
-static int max_operand_vec		PARAMS ((rtx, int));
-static void print_code			PARAMS ((RTX_CODE));
-static void gen_exp			PARAMS ((rtx, enum rtx_code, char *));
-static void gen_insn			PARAMS ((rtx, int));
-static void gen_expand			PARAMS ((rtx));
-static void gen_split			PARAMS ((rtx));
-static void output_add_clobbers		PARAMS ((void));
-static void output_added_clobbers_hard_reg_p PARAMS ((void));
-static void gen_rtx_scratch		PARAMS ((rtx, enum rtx_code));
-static void output_peephole2_scratches	PARAMS ((rtx));
+static void max_operand_1		(rtx);
+static int max_operand_vec		(rtx, int);
+static void print_code			(RTX_CODE);
+static void gen_exp			(rtx, enum rtx_code, char *);
+static void gen_insn			(rtx, int);
+static void gen_expand			(rtx);
+static void gen_split			(rtx);
+static void output_add_clobbers		(void);
+static void output_added_clobbers_hard_reg_p (void);
+static void gen_rtx_scratch		(rtx, enum rtx_code);
+static void output_peephole2_scratches	(rtx);
 
 
 static void
-max_operand_1 (x)
-     rtx x;
+max_operand_1 (rtx x)
 {
   RTX_CODE code;
   int i;
@@ -110,9 +111,7 @@ max_operand_1 (x)
 }
 
 static int
-max_operand_vec (insn, arg)
-     rtx insn;
-     int arg;
+max_operand_vec (rtx insn, int arg)
 {
   int len = XVECLEN (insn, arg);
   int i;
@@ -128,8 +127,7 @@ max_operand_vec (insn, arg)
 }
 
 static void
-print_code (code)
-     RTX_CODE code;
+print_code (RTX_CODE code)
 {
   const char *p1;
   for (p1 = GET_RTX_NAME (code); *p1; p1++)
@@ -137,9 +135,7 @@ print_code (code)
 }
 
 static void
-gen_rtx_scratch (x, subroutine_type)
-     rtx x;
-     enum rtx_code subroutine_type;
+gen_rtx_scratch (rtx x, enum rtx_code subroutine_type)
 {
   if (subroutine_type == DEFINE_PEEPHOLE2)
     {
@@ -155,10 +151,7 @@ gen_rtx_scratch (x, subroutine_type)
    substituting any operand references appearing within.  */
 
 static void
-gen_exp (x, subroutine_type, used)
-     rtx x;
-     enum rtx_code subroutine_type;
-     char *used;
+gen_exp (rtx x, enum rtx_code subroutine_type, char *used)
 {
   RTX_CODE code;
   int i;
@@ -292,14 +285,12 @@ gen_exp (x, subroutine_type, used)
 	abort ();
     }
   printf (")");
-}  
+}
 
 /* Generate the `gen_...' function for a DEFINE_INSN.  */
 
 static void
-gen_insn (insn, lineno)
-     rtx insn;
-     int lineno;
+gen_insn (rtx insn, int lineno)
 {
   int operands;
   int i;
@@ -326,8 +317,7 @@ gen_insn (insn, lineno)
       if (i != XVECLEN (insn, 1) - 1)
 	{
 	  struct clobber_pat *p;
-	  struct clobber_ent *link
-	    = (struct clobber_ent *) xmalloc (sizeof (struct clobber_ent));
+	  struct clobber_ent *link = xmalloc (sizeof (struct clobber_ent));
 	  int j;
 
 	  link->code_number = insn_code_number;
@@ -347,7 +337,7 @@ gen_insn (insn, lineno)
 		  rtx new = XEXP (XVECEXP (insn, 1, j), 0);
 
 		  /* OLD and NEW are the same if both are to be a SCRATCH
-		     of the same mode, 
+		     of the same mode,
 		     or if both are registers of the same mode and number.  */
 		  if (! (GET_MODE (old) == GET_MODE (new)
 			 && ((GET_CODE (old) == MATCH_SCRATCH
@@ -356,15 +346,15 @@ gen_insn (insn, lineno)
 				 && REGNO (old) == REGNO (new)))))
 		    break;
 		}
-      
+
 	      if (j == XVECLEN (insn, 1))
 		break;
 	    }
 
 	  if (p == 0)
 	    {
-	      p = (struct clobber_pat *) xmalloc (sizeof (struct clobber_pat));
-	  
+	      p = xmalloc (sizeof (struct clobber_pat));
+
 	      p->insns = 0;
 	      p->pattern = insn;
 	      p->first_clobber = i + 1;
@@ -395,14 +385,15 @@ gen_insn (insn, lineno)
 
   /* Output the function name and argument declarations.  */
   printf ("rtx\ngen_%s (", XSTR (insn, 0));
-  for (i = 0; i < operands; i++)
-    if (i)
-      printf (", operand%d", i);
-    else
-      printf ("operand%d", i);
+  if (operands)
+    for (i = 0; i < operands; i++)
+      if (i)
+	printf (",\n\trtx operand%d ATTRIBUTE_UNUSED", i);
+      else
+	printf ("rtx operand%d ATTRIBUTE_UNUSED", i);
+  else
+    printf ("void");
   printf (")\n");
-  for (i = 0; i < operands; i++)
-    printf ("     rtx operand%d;\n", i);
   printf ("{\n");
 
   /* Output code to construct and return the rtl for the instruction body */
@@ -430,8 +421,7 @@ gen_insn (insn, lineno)
 /* Generate the `gen_...' function for a DEFINE_EXPAND.  */
 
 static void
-gen_expand (expand)
-     rtx expand;
+gen_expand (rtx expand)
 {
   int operands;
   int i;
@@ -449,14 +439,15 @@ gen_expand (expand)
 
   /* Output the function name and argument declarations.  */
   printf ("rtx\ngen_%s (", XSTR (expand, 0));
-  for (i = 0; i < operands; i++)
-    if (i)
-      printf (", operand%d", i);
-    else
-      printf ("operand%d", i);
+  if (operands)
+    for (i = 0; i < operands; i++)
+      if (i)
+	printf (",\n\trtx operand%d", i);
+      else
+	printf ("rtx operand%d", i);
+  else
+    printf ("void");
   printf (")\n");
-  for (i = 0; i < operands; i++)
-    printf ("     rtx operand%d;\n", i);
   printf ("{\n");
 
   /* If we don't have any C code to write, only one insn is being written,
@@ -567,8 +558,7 @@ gen_expand (expand)
 /* Like gen_expand, but generates insns resulting from splitting SPLIT.  */
 
 static void
-gen_split (split)
-     rtx split;
+gen_split (rtx split)
 {
   int i;
   int operands;
@@ -594,18 +584,15 @@ gen_split (split)
   /* Output the prototype, function name and argument declarations.  */
   if (GET_CODE (split) == DEFINE_PEEPHOLE2)
     {
-      printf ("extern rtx gen_%s_%d PARAMS ((rtx, rtx *));\n",
+      printf ("extern rtx gen_%s_%d (rtx, rtx *);\n",
 	      name, insn_code_number);
-      printf ("rtx\ngen_%s_%d (curr_insn, operands)\n",
-	      name, insn_code_number);
-      printf ("     rtx curr_insn ATTRIBUTE_UNUSED;\n");
-      printf ("     rtx *operands%s;\n", unused);
+      printf ("rtx\ngen_%s_%d (rtx curr_insn ATTRIBUTE_UNUSED, rtx *operands%s)\n",
+	      name, insn_code_number, unused);
     }
   else
     {
-      printf ("extern rtx gen_split_%d PARAMS ((rtx *));\n", insn_code_number);
-      printf ("rtx\ngen_%s_%d (operands)\n", name, insn_code_number);
-      printf ("      rtx *operands%s;\n", unused);
+      printf ("extern rtx gen_split_%d (rtx *);\n", insn_code_number);
+      printf ("rtx\ngen_%s_%d (rtx *operands%s)\n", name, insn_code_number, unused);
     }
   printf ("{\n");
 
@@ -683,14 +670,13 @@ gen_split (split)
    the end of the vector.  */
 
 static void
-output_add_clobbers ()
+output_add_clobbers (void)
 {
   struct clobber_pat *clobber;
   struct clobber_ent *ent;
   int i;
 
-  printf ("\n\nvoid\nadd_clobbers (pattern, insn_code_number)\n");
-  printf ("     rtx pattern ATTRIBUTE_UNUSED;\n     int insn_code_number;\n");
+  printf ("\n\nvoid\nadd_clobbers (rtx pattern ATTRIBUTE_UNUSED, int insn_code_number)\n");
   printf ("{\n");
   printf ("  switch (insn_code_number)\n");
   printf ("    {\n");
@@ -722,14 +708,13 @@ output_add_clobbers ()
    hard reg and 0 if they just clobber SCRATCH.  */
 
 static void
-output_added_clobbers_hard_reg_p ()
+output_added_clobbers_hard_reg_p (void)
 {
   struct clobber_pat *clobber;
   struct clobber_ent *ent;
   int clobber_p, used;
 
-  printf ("\n\nint\nadded_clobbers_hard_reg_p (insn_code_number)\n");
-  printf ("     int insn_code_number;\n");
+  printf ("\n\nint\nadded_clobbers_hard_reg_p (int insn_code_number)\n");
   printf ("{\n");
   printf ("  switch (insn_code_number)\n");
   printf ("    {\n");
@@ -759,8 +744,7 @@ output_added_clobbers_hard_reg_p ()
    scratch registers used by the peephole2 pattern in SPLIT.  */
 
 static void
-output_peephole2_scratches (split)
-     rtx split;
+output_peephole2_scratches (rtx split)
 {
   int i;
   int insn_nr = 0;
@@ -786,7 +770,7 @@ output_peephole2_scratches (split)
 	      cur_insn_nr++;
 
 	  printf ("  if ((operands[%d] = peep2_find_free_register (%d, %d, \"%s\", %smode, &_regs_allocated)) == NULL_RTX)\n\
-    return NULL;\n", 
+    return NULL;\n",
 		  XINT (elt, 0),
 		  insn_nr, last_insn_nr,
 		  XSTR (elt, 1),
@@ -798,12 +782,8 @@ output_peephole2_scratches (split)
     }
 }
 
-extern int main PARAMS ((int, char **));
-
 int
-main (argc, argv)
-     int argc;
-     char **argv;
+main (int argc, char **argv)
 {
   rtx desc;
 
@@ -826,6 +806,8 @@ from the machine description file `md'.  */\n\n");
 
   printf ("#include \"config.h\"\n");
   printf ("#include \"system.h\"\n");
+  printf ("#include \"coretypes.h\"\n");
+  printf ("#include \"tm.h\"\n");
   printf ("#include \"rtl.h\"\n");
   printf ("#include \"tm_p.h\"\n");
   printf ("#include \"function.h\"\n");
@@ -892,8 +874,7 @@ from the machine description file `md'.  */\n\n");
 
 /* Define this so we can link with print-rtl.o to get debug_rtx function.  */
 const char *
-get_insn_name (code)
-     int code ATTRIBUTE_UNUSED;
+get_insn_name (int code ATTRIBUTE_UNUSED)
 {
   return NULL;
 }

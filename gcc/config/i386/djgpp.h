@@ -2,20 +2,20 @@
    Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -25,14 +25,10 @@ Boston, MA 02111-1307, USA.  */
 /* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
 
-#define HANDLE_SYSV_PRAGMA
+#define HANDLE_SYSV_PRAGMA 1
 
 /* Enable parsing of #pragma pack(push,<n>) and #pragma pack(pop).  */
 #define HANDLE_PRAGMA_PACK_PUSH_POP 1
-
-#include "i386/unix.h"
-#include "i386/bsd.h"
-#include "i386/gas.h"
 
 /* If defined, a C expression whose value is a string containing the
    assembler operation to identify the following data as
@@ -63,7 +59,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Define standard DJGPP installation paths.                             */
 /* We override default /usr or /usr/local part with /dev/env/DJDIR which */
-/* points to actual DJGPP instalation directory.                         */
+/* points to actual DJGPP installation directory.                        */
 
 /* Standard include directory */
 #undef STANDARD_INCLUDE_DIR
@@ -129,15 +125,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION  default_coff_asm_named_section
-
-/* Output at beginning of assembler file.  */
-/* The .file command should always begin the output.  */
-
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE)						\
-  do {									\
-	output_file_directive (FILE, main_input_filename);		\
-  } while (0)
 
 /* This is how to output an assembler line
    that says to advance the location counter

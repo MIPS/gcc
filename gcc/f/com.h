@@ -1,5 +1,6 @@
 /* com.h -- Public #include File (module.h template V1.0)
-   Copyright (C) 1995, 1996, 1997, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 2000, 2003
+   Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
@@ -128,17 +129,11 @@ typedef enum
 #endif
 
 typedef tree ffecomConstant;
-#define FFECOM_constantHOOK
 typedef tree ffecomNonter;
-#define FFECOM_nonterHOOK
 typedef tree ffecomLabel;
-#define FFECOM_globalHOOK
 typedef tree ffecomGlobal;
-#define FFECOM_labelHOOK
 typedef tree ffecomStorage;
-#define FFECOM_storageHOOK
 typedef struct _ffecom_symbol_ ffecomSymbol;
-#define FFECOM_symbolHOOK
 
 struct _ffecom_symbol_
   {
@@ -157,13 +152,13 @@ struct _ffecom_symbol_
 #include "storag.h"
 #include "symbol.h"
 
-extern int global_bindings_p			PARAMS ((void));
-extern tree getdecls				PARAMS ((void));
-extern void pushlevel				PARAMS ((int));
-extern tree poplevel				PARAMS ((int,int, int));
-extern void insert_block			PARAMS ((tree));
-extern void set_block				PARAMS ((tree));
-extern tree pushdecl				PARAMS ((tree));
+extern int global_bindings_p (void);
+extern tree getdecls (void);
+extern void pushlevel (int);
+extern tree poplevel (int,int, int);
+extern void insert_block (tree);
+extern void set_block (tree);
+extern tree pushdecl (tree);
 
 /* Global objects accessed by users of this module. */
 
@@ -210,13 +205,15 @@ tree ffecom_arg_expr (ffebld expr, tree *length);
 tree ffecom_arg_ptr_to_const_expr (ffebld expr, tree *length);
 tree ffecom_arg_ptr_to_expr (ffebld expr, tree *length);
 tree ffecom_call_gfrt (ffecomGfrt ix, tree args, tree hook);
+tree ffecom_constantunion_with_type (ffebldConstantUnion *cu, 
+		            tree tree_type,ffebldConst ct);
 tree ffecom_constantunion (ffebldConstantUnion *cu, ffeinfoBasictype bt,
 			   ffeinfoKindtype kt, tree tree_type);
 tree ffecom_const_expr (ffebld expr);
 tree ffecom_decl_field (tree context, tree prevfield, const char *name,
 			tree type);
 void ffecom_close_include (FILE *f);
-int ffecom_decode_include_option (char *spec);
+void ffecom_decode_include_option (const char *dir);
 tree ffecom_end_compstmt (void);
 void ffecom_end_transition (void);
 void ffecom_exec_transition (void);

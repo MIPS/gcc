@@ -1,23 +1,23 @@
 /* Target definitions for PowerPC running Darwin (Mac OS X).
-   Copyright (C) 1997, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1997, 2000, 2001, 2003 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
-This file is part of GNU CC.
+   This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 2, or (at your
+   option) any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to the
+   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
+   MA 02111-1307, USA.  */
 
 #undef  TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (Darwin/PowerPC)");
@@ -35,14 +35,15 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_TOC 0
 #define TARGET_NO_TOC 1
 
+/* Darwin switches.  */
+/* Use dynamic-no-pic codegen (no picbase reg; not suitable for shlibs.)  */
+#define MASK_MACHO_DYNAMIC_NO_PIC 0x00800000
+
+#define TARGET_DYNAMIC_NO_PIC	(target_flags & MASK_MACHO_DYNAMIC_NO_PIC)
+
 /* Handle #pragma weak and #pragma pack.  */
-#define HANDLE_SYSV_PRAGMA
+#define HANDLE_SYSV_PRAGMA 1
 
-/* The Darwin ABI always includes AltiVec, can't be (validly) turned
-   off.  */
-
-#define SUBTARGET_OVERRIDE_OPTIONS  \
-  rs6000_altivec_abi = 1;
 
 #define TARGET_OS_CPP_BUILTINS()                \
   do                                            \
@@ -55,10 +56,54 @@ Boston, MA 02111-1307, USA.  */
     }                                           \
   while (0)
 
+
+/*  */
+#undef	SUBTARGET_SWITCHES
+#define SUBTARGET_SWITCHES						\
+  {"dynamic-no-pic",	MASK_MACHO_DYNAMIC_NO_PIC,			\
+      N_("Generate code suitable for executables (NOT shared libs)")},	\
+  {"no-dynamic-no-pic",	-MASK_MACHO_DYNAMIC_NO_PIC, ""},
+
+
+/* The Darwin ABI always includes AltiVec, can't be (validly) turned
+   off.  */
+
+#define SUBTARGET_OVERRIDE_OPTIONS				  	\
+do {									\
+  rs6000_altivec_abi = 1;						\
+  if (DEFAULT_ABI == ABI_DARWIN)					\
+  {									\
+    if (MACHO_DYNAMIC_NO_PIC_P)						\
+      {									\
+        if (flag_pic)							\
+            warning ("-mdynamic-no-pic overrides -fpic or -fPIC");	\
+        flag_pic = 0;							\
+      }									\
+    else if (flag_pic == 1)						\
+      {									\
+        /* Darwin doesn't support -fpic.  */				\
+        warning ("-fpic is not supported; -fPIC assumed");		\
+        flag_pic = 2;							\
+      }									\
+  }									\
+}while(0)
+
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
 
-#define CC1_SPEC "%{!static:-fPIC}"
+
+#define CC1_SPEC "\
+%{gused: -feliminate-unused-debug-symbols %<gused }\
+%{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
+%{!static:%{!mdynamic-no-pic:-fPIC}}"
+
+#define ASM_SPEC "-arch ppc \
+  %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
+  %{!Zforce_cpusubtype_ALL:%{faltivec:-force_cpusubtype_ALL}}"
+
+#undef SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS			\
+  { "darwin_arch", "ppc" },
 
 /* Make both r2 and r3 available for allocation.  */
 #define FIXED_R2 0
@@ -85,6 +130,11 @@ Boston, MA 02111-1307, USA.  */
   (RS6000_ALIGN (current_function_outgoing_args_size, 16)		\
    + (STACK_POINTER_OFFSET))
 
+/* These are used by -fbranch-probabilities */
+#define HOT_TEXT_SECTION_NAME "__TEXT,__text,regular,pure_instructions"
+#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME \
+                              "__TEXT,__text2,regular,pure_instructions"
+
 /* Define cutoff for using external functions to save floating point.
    Currently on Darwin, always use inline stores.  */
 
@@ -101,7 +151,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  RS6000_OUTPUT_BASENAME
 #define RS6000_OUTPUT_BASENAME(FILE, NAME)	\
-    assemble_name (FILE, NAME);
+    assemble_name (FILE, NAME)
 
 /* Globalizing directive for a label.  */
 #undef GLOBAL_ASM_OP
@@ -123,7 +173,8 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)	\
   do { fputs (".comm ", (FILE));			\
        RS6000_OUTPUT_BASENAME ((FILE), (NAME));		\
-       fprintf ((FILE), ",%d\n", (SIZE)); } while (0)
+       fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
+		(SIZE)); } while (0)
 
 /* Override the standard rs6000 definition.  */
 
@@ -165,7 +216,7 @@ Boston, MA 02111-1307, USA.  */
 #define PROCESSOR_DEFAULT  PROCESSOR_PPC7400
 
 /* Default target flag settings.  Despite the fact that STMW/LMW
-   serializes, it's still a big codesize win to use them.  Use FSEL by
+   serializes, it's still a big code size win to use them.  Use FSEL by
    default as well.  */
 
 #undef  TARGET_DEFAULT
@@ -194,26 +245,29 @@ Boston, MA 02111-1307, USA.  */
    a SYMBOL_REF.  */
 
 #undef PREFERRED_RELOAD_CLASS
-#define PREFERRED_RELOAD_CLASS(X,CLASS)			\
-  (((GET_CODE (X) == CONST_DOUBLE			\
-    && GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT)	\
-   ? NO_REGS						\
-   : (GET_MODE_CLASS (GET_MODE (X)) == MODE_INT 	\
-      && (CLASS) == NON_SPECIAL_REGS)			\
-   ? GENERAL_REGS					\
-   : (GET_CODE (X) == SYMBOL_REF || GET_CODE (X) == HIGH)	\
-   ? BASE_REGS						\
-   : (CLASS)))
+#define PREFERRED_RELOAD_CLASS(X,CLASS)				\
+  ((GET_CODE (X) == CONST_DOUBLE				\
+    && GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT)		\
+   ? NO_REGS							\
+   : ((GET_CODE (X) == SYMBOL_REF || GET_CODE (X) == HIGH)	\
+      && reg_class_subset_p (BASE_REGS, (CLASS)))		\
+   ? BASE_REGS							\
+   : (GET_MODE_CLASS (GET_MODE (X)) == MODE_INT			\
+      && (CLASS) == NON_SPECIAL_REGS)				\
+   ? GENERAL_REGS						\
+   : (CLASS))
 
 /* Fix for emit_group_load (): force large constants to be pushed via regs.  */
 #define ALWAYS_PUSH_CONSTS_USING_REGS_P		1
 
+/* This now supports a natural alignment mode */
 /* Darwin word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
+  (TARGET_ALIGN_NATURAL ? (COMPUTED) : \
   (TYPE_MODE (TREE_CODE (TREE_TYPE (FIELD)) == ARRAY_TYPE \
 	      ? get_inner_array_type (FIELD) \
 	      : TREE_TYPE (FIELD)) == DFmode \
-   ? MIN ((COMPUTED), 32) : (COMPUTED))
+   ? MIN ((COMPUTED), 32) : (COMPUTED)))
 
 /* Darwin increases natural record alignment to doubleword if the first
    field is an FP double while the FP fields remain word aligned.  */
@@ -222,6 +276,7 @@ Boston, MA 02111-1307, USA.  */
     || TREE_CODE (STRUCT) == UNION_TYPE			\
     || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
    && TYPE_FIELDS (STRUCT) != 0				\
+   && TARGET_ALIGN_NATURAL == 0                         \
    && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode	\
    ? MAX (MAX ((COMPUTED), (SPECIFIED)), 64)		\
    : (TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE) \

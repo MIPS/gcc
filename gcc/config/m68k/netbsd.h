@@ -6,17 +6,8 @@
       builtin_define_std ("m68k");		\
       builtin_define_std ("mc68000");		\
       builtin_define_std ("mc68020");		\
-      builtin_assert ("cpu=m68k");		\
-      builtin_assert ("machine=m68k");		\
     }						\
   while (0)
-
-#include <m68k/m68k.h>
-
-/* Get generic NetBSD definitions.  */
-
-#include <netbsd.h>
-#include <netbsd-aout.h>
 
 #define TARGET_DEFAULT (MASK_BITFIELD|MASK_68881|MASK_68020)
 
@@ -31,7 +22,9 @@
   "%{!msoft-float:-D__HAVE_68881__ -D__HAVE_FPU__} %(netbsd_cpp_spec)"
 
 #undef ASM_SPEC
-#define ASM_SPEC " %| %{m68030} %{m68040} %{m68060} %{fpic:-k} %{fPIC:-k -K}"
+#define ASM_SPEC "%{m68030} %{m68040} %{m68060} %{fpic|fpie:-k} %{fPIC|fPIE:-k -K}"
+
+#define AS_NEEDS_DASH_FOR_PIPED_INPUT
 
 
 /* Make gcc agree with <machine/ansi.h> */

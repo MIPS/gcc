@@ -6,8 +6,7 @@
 --                                                                          --
 --                                   S p e c                                --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1997-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1997-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -88,6 +87,7 @@ package System.OS_Interface is
    Max_Interrupt : constant := 31;
    type Signal is new int range 0 .. Max_Interrupt;
 
+   SIGXCPU     : constant := 0; --  XCPU
    SIGHUP      : constant := 1; --  hangup
    SIGINT      : constant := 2; --  interrupt (rubout)
    SIGQUIT     : constant := 3; --  quit (ASCD FS)

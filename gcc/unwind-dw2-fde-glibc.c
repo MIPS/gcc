@@ -1,20 +1,20 @@
-/* Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+/* Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>.
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify
+   GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   GNU CC is distributed in the hope that it will be useful,
+   GCC is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
+   along with GCC; see the file COPYING.  If not, write to
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
@@ -35,12 +35,12 @@
 
 #include "auto-host.h" /* For HAVE_LD_EH_FRAME_HDR.  */
 #include "tconfig.h"
+#include "tsystem.h"
 #ifndef inhibit_libc
-#include <stddef.h>
-#include <stdlib.h>
 #include <link.h>
 #endif
-#include "tsystem.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "dwarf2.h"
 #include "unwind.h"
 #define NO_BASE_OF_ENCODED_VALUE
@@ -155,7 +155,7 @@ _Unwind_IteratePhdrCallback (struct dl_phdr_info *info, size_t size, void *ptr)
   data->dbase = NULL;
   if (p_dynamic)
     {
-      /* For dynamicly linked executables and shared libraries,
+      /* For dynamically linked executables and shared libraries,
 	 DT_PLTGOT is the gp value for that object.  */
       ElfW(Dyn) *dyn = (ElfW(Dyn) *) (p_dynamic->p_vaddr + load_base);
       for (; dyn->d_tag != DT_NULL ; dyn++)
@@ -169,9 +169,6 @@ _Unwind_IteratePhdrCallback (struct dl_phdr_info *info, size_t size, void *ptr)
 # else
 #  error What is DW_EH_PE_datarel base on this platform?
 # endif
-#endif
-#ifdef CRT_GET_RFIB_TEXT
-# error What is DW_EH_PE_textrel base on this platform?
 #endif
 
   p = read_encoded_value_with_base (hdr->eh_frame_ptr_enc,

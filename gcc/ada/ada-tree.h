@@ -6,8 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *                                                                          *
- *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2003 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -43,7 +42,8 @@ struct tree_loop_id GTY(())
 
 /* The language-specific tree.  */
 union lang_tree_node 
-  GTY((desc ("TREE_CODE (&%h.generic) == GNAT_LOOP_ID")))
+  GTY((desc ("TREE_CODE (&%h.generic) == GNAT_LOOP_ID"),
+       chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
 {
   union tree_node GTY ((tag ("0"), 
 			desc ("tree_node_structure (&%h)"))) 
@@ -181,7 +181,7 @@ struct lang_type GTY(())
 #define TYPE_DIGITS_VALUE(NODE)  \
   ((long) TYPE_LANG_SPECIFIC (INTEGER_TYPE_CHECK (NODE)))
 #define SET_TYPE_DIGITS_VALUE(NODE, X)  \
-  (TYPE_LANG_SPECIFIC (INTEGER_TYPE_CHECK (NODE)) = (struct lang_type *)(X))
+  (TYPE_LANG_SPECIFIC (INTEGER_TYPE_CHECK (NODE)) = (struct lang_type *)(size_t)(X))
 
 /* For INTEGER_TYPE, stores the RM_Size of the type.  */
 #define TYPE_RM_SIZE_INT(NODE)	TYPE_VALUES (INTEGER_TYPE_CHECK (NODE))
@@ -233,7 +233,7 @@ struct lang_type GTY(())
 
 /* Nonzero if this decl is a PARM_DECL for an Ada array being passed to a
    foreign convention subprogram.  */
-#define DECL_BY_COMPONENT_PTR_P(NODE) DECL_LANG_FLAG_2 (NODE)
+#define DECL_BY_COMPONENT_PTR_P(NODE) DECL_LANG_FLAG_2 (PARM_DECL_CHECK (NODE))
 
 /* Nonzero in a FIELD_DECL that is a dummy built for some internal reason.  */
 #define DECL_INTERNAL_P(NODE) DECL_LANG_FLAG_3 (FIELD_DECL_CHECK (NODE))

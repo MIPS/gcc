@@ -20,13 +20,6 @@ quadlib.c: $(srcdir)/config/ia64/quadlib.c
 
 LIBGCC1_TEST =
 
-# Don't run fix-headers.  HP-UX headers are standards conformant
-# and don't need to be fixed up in this way.
-# If we remove this (and run fix-headers) we should define FIXPROTO_DEFINES
-# and also fix the definition of putenv in sys-protos.h (const char not char).
-
-STMP_FIXPROTO =
-
 # We do not want to include the EH stuff that linux uses, we want to use
 # the HP-UX libunwind library.
 
@@ -40,9 +33,9 @@ SHLIB_LINK = $(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) -shared -nodefaultlibs \
 	$(LN_S) @shlib_base_name@.so @shlib_base_name@.so.0
 # $(slibdir) double quoted to protect it from expansion while building
 # libgcc.mk.  We want this delayed until actual install time.
-SHLIB_INSTALL = $(INSTALL_DATA) @shlib_base_name@.so $$(slibdir)/@shlib_base_name@.so.0; \
-	rm -f $$(slibdir)/@shlib_base_name@.so; \
-	$(LN_S) @shlib_base_name@.so.0 $$(slibdir)/@shlib_base_name@.so; \
-	chmod +x $$(slibdir)/@shlib_base_name@.so
+SHLIB_INSTALL = $(INSTALL_DATA) @shlib_base_name@.so $$(DESTDIR)$$(slibdir)/@shlib_base_name@.so.0; \
+	rm -f $$(DESTDIR)$$(slibdir)/@shlib_base_name@.so; \
+	$(LN_S) @shlib_base_name@.so.0 $$(DESTDIR)$$(slibdir)/@shlib_base_name@.so; \
+	chmod +x $$(DESTDIR)$$(slibdir)/@shlib_base_name@.so
 
 SHLIB_MKMAP = $(srcdir)/mkmap-flat.awk

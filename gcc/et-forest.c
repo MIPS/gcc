@@ -1,6 +1,6 @@
-/* ET-trees datastructure implementation.
+/* ET-trees data structure implementation.
    Contributed by Pavel Nejedly
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of the libiberty library.
 Libiberty is free software; you can redistribute it and/or
@@ -16,7 +16,7 @@ Library General Public License for more details.
 You should have received a copy of the GNU Library General Public
 License along with libiberty; see the file COPYING.LIB.  If
 not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  
+Boston, MA 02111-1307, USA.
 
   The ET-forest structure is described in:
     D. D. Sleator and R. E. Tarjan. A data structure for dynamic trees.
@@ -25,7 +25,10 @@ Boston, MA 02111-1307, USA.
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "et-forest.h"
+#include "alloc-pool.h"
 
 struct et_forest_occurrence;
 typedef struct et_forest_occurrence* et_forest_occurrence_t;
@@ -35,9 +38,11 @@ struct et_forest
 {
   /* Linked list of nodes is used to destroy the structure.  */
   int nnodes;
+  alloc_pool node_pool;
+  alloc_pool occur_pool;
 };
 
-/* Single occurrence of node in ET-forest.  
+/* Single occurrence of node in ET-forest.
    A single node may have multiple occurrences.
  */
 struct et_forest_occurrence
@@ -70,18 +75,17 @@ struct et_forest_node
 };
 
 
-static et_forest_occurrence_t splay PARAMS ((et_forest_occurrence_t));
-static void remove_all_occurrences PARAMS ((et_forest_node_t));
-static inline et_forest_occurrence_t find_leftmost_node 
-                               PARAMS ((et_forest_occurrence_t));
-static inline et_forest_occurrence_t find_rightmost_node 
-                               PARAMS ((et_forest_occurrence_t));
-static int calculate_value PARAMS ((et_forest_occurrence_t));
+static et_forest_occurrence_t splay (et_forest_occurrence_t);
+static void remove_all_occurrences (et_forest_t, et_forest_node_t);
+static inline et_forest_occurrence_t find_leftmost_node
+  (et_forest_occurrence_t);
+static inline et_forest_occurrence_t find_rightmost_node
+  (et_forest_occurrence_t);
+static int calculate_value (et_forest_occurrence_t);
 
 /* Return leftmost node present in the tree roted by OCC.  */
 static inline et_forest_occurrence_t
-find_leftmost_node (occ)
-     et_forest_occurrence_t occ;
+find_leftmost_node (et_forest_occurrence_t occ)
 {
   while (occ->left)
     occ = occ->left;
@@ -91,8 +95,7 @@ find_leftmost_node (occ)
 
 /* Return rightmost node present in the tree roted by OCC.  */
 static inline et_forest_occurrence_t
-find_rightmost_node (occ)
-     et_forest_occurrence_t occ;
+find_rightmost_node (et_forest_occurrence_t occ)
 {
   while (occ->right)
     occ = occ->right;
@@ -100,10 +103,9 @@ find_rightmost_node (occ)
 }
 
 
-/* Operation splay for splay tree structure representing ocuurences.  */
+/* Operation splay for splay tree structure representing occurrences.  */
 static et_forest_occurrence_t
-splay (node)
-     et_forest_occurrence_t node;
+splay (et_forest_occurrence_t node)
 {
   et_forest_occurrence_t parent;
   et_forest_occurrence_t grandparent;
@@ -271,7 +273,7 @@ splay (node)
 		}
 	    }
 	}
-	  
+
     }
 
   /* parent == root.  */
@@ -281,7 +283,7 @@ splay (node)
     {
       et_forest_occurrence_t node1;
       int count1;
-      
+
       node1 = node->right;
       count1 = node->count_right;
 
@@ -301,13 +303,13 @@ splay (node)
 	  else
 	    node->parent->right = node;
 	}
-    } 
-  else 
+    }
+  else
     {
       /* node == parent->right.  */
       et_forest_occurrence_t node1;
       int count1;
-      
+
       node1 = node->left;
       count1 = node->count_left;
 
@@ -332,10 +334,9 @@ splay (node)
   return node;
 }
 
-/* Remove all occurences of the given node before destroying the node.  */
+/* Remove all occurrences of the given node before destroying the node.  */
 static void
-remove_all_occurrences (forest_node)
-     et_forest_node_t forest_node;
+remove_all_occurrences (et_forest_t forest, et_forest_node_t forest_node)
 {
   et_forest_occurrence_t first = forest_node->first;
   et_forest_occurrence_t last = forest_node->last;
@@ -346,7 +347,7 @@ remove_all_occurrences (forest_node)
   if (first->left)
     first->left->parent = 0;
   if (first->right)
-    first->right->parent = 0;   
+    first->right->parent = 0;
 
   if (last != first)
     {
@@ -365,7 +366,7 @@ remove_all_occurrences (forest_node)
 
       prev_node = splay (find_rightmost_node (first->left));
       next_node = splay (find_leftmost_node (last->right));
-      /* prev_node and next_node are consecutive occurencies
+      /* prev_node and next_node are consecutive occurrences
 	 of the same node.  */
       if (prev_node->next != next_node)
 	abort ();
@@ -379,7 +380,7 @@ remove_all_occurrences (forest_node)
       if (prev_node->node->last == next_node)
 	prev_node->node->last = prev_node;
 
-      free (next_node);
+      pool_free (forest->occur_pool, next_node);
     }
 
   if (first != last)
@@ -398,20 +399,19 @@ remove_all_occurrences (forest_node)
 	    node->right->parent = 0;
 
 	  next_node = node->next;
-	  free (node);
+	  pool_free (forest->occur_pool, node);
 	  node = next_node;
 	}
     }
 
-  free (first);
+  pool_free (forest->occur_pool, first);
   if (first != last)
-    free (last);
+    pool_free (forest->occur_pool, last);
 }
 
 /* Calculate ET value of the given node.  */
 static inline int
-calculate_value (node)
-     et_forest_occurrence_t node;
+calculate_value (et_forest_occurrence_t node)
 {
   int value = node->count_left;
 
@@ -431,41 +431,40 @@ calculate_value (node)
 
 /* Create ET-forest structure.  */
 et_forest_t
-et_forest_create ()
+et_forest_create (void)
 {
-
   et_forest_t forest = xmalloc (sizeof (struct et_forest));
 
   forest->nnodes = 0;
+  forest->occur_pool = create_alloc_pool ("et_forest_occurrence pool", sizeof (struct et_forest_occurrence), 300);
+  forest->node_pool = create_alloc_pool ("et_forest_node pool", sizeof (struct et_forest_node), 300);
   return forest;
 }
 
 
 
 /* Deallocate the structure.  */
-void 
-et_forest_delete (forest)
-     et_forest_t forest;
+void
+et_forest_delete (et_forest_t forest)
 {
   if (forest->nnodes)
     abort ();
-
+  free_alloc_pool (forest->occur_pool);
+  free_alloc_pool (forest->node_pool);
   free (forest);
 }
 
 /* Create new node with VALUE and return the edge.
    Return NULL when memory allocation failed.  */
 et_forest_node_t
-et_forest_add_node (forest, value)
-     et_forest_t forest;
-     void *value;
+et_forest_add_node (et_forest_t forest, void *value)
 {
   /* Create node with one occurrence.  */
   et_forest_node_t node;
   et_forest_occurrence_t occ;
 
-  node = xmalloc (sizeof (struct et_forest_node));
-  occ = xmalloc (sizeof (struct et_forest_occurrence));
+  node = pool_alloc (forest->node_pool);
+  occ = pool_alloc (forest->occur_pool);
 
   node->first = node->last = occ;
   node->value = value;
@@ -478,13 +477,11 @@ et_forest_add_node (forest, value)
   return node;
 }
 
-/* Add new edge to the tree, return 1 if succesfull.
+/* Add new edge to the tree, return 1 if successful.
    0 indicates that creation of the edge will close the cycle in graph.  */
 int
-et_forest_add_edge (forest, parent_node, child_node)
-     et_forest_t forest ATTRIBUTE_UNUSED;
-     et_forest_node_t parent_node;
-     et_forest_node_t child_node;
+et_forest_add_edge (et_forest_t forest ATTRIBUTE_UNUSED,
+		    et_forest_node_t parent_node, et_forest_node_t child_node)
 {
   et_forest_occurrence_t new_occ, parent_occ, child_occ;
 
@@ -502,8 +499,8 @@ et_forest_add_edge (forest, parent_node, child_node)
 
   if (child_occ->left)
     abort ();  /* child must be root of its containing tree.  */
-  
-  new_occ = xmalloc (sizeof (struct et_forest_occurrence));
+
+  new_occ = pool_alloc (forest->occur_pool);
 
   new_occ->node = parent_node;
   new_occ->left = child_occ;
@@ -526,23 +523,20 @@ et_forest_add_edge (forest, parent_node, child_node)
 
 /* Remove NODE from the tree and all connected edges.  */
 void
-et_forest_remove_node (forest, node)
-     et_forest_t forest;
-     et_forest_node_t node;
+et_forest_remove_node (et_forest_t forest, et_forest_node_t node)
 {
-  remove_all_occurrences (node);
+  remove_all_occurrences (forest, node);
   forest->nnodes--;
 
-  free (node);
+  pool_free (forest->node_pool, node);
 }
 
-/* Remove edge from the tree, return 1 if sucesfull,
+/* Remove edge from the tree, return 1 if successful,
    0 indicates nonexisting edge.  */
 int
-et_forest_remove_edge (forest, parent_node, child_node)
-     et_forest_t forest ATTRIBUTE_UNUSED;
-     et_forest_node_t parent_node;
-     et_forest_node_t child_node;
+et_forest_remove_edge (et_forest_t forest ATTRIBUTE_UNUSED,
+		       et_forest_node_t parent_node,
+		       et_forest_node_t child_node)
 {
   et_forest_occurrence_t parent_pre_occ, parent_post_occ;
 
@@ -557,7 +551,7 @@ et_forest_remove_edge (forest, parent_node, child_node)
 
   splay (parent_pre_occ);
   parent_pre_occ->right->parent = 0;
-  
+
   parent_post_occ = parent_pre_occ->next;
   splay (parent_post_occ);
 
@@ -573,15 +567,13 @@ et_forest_remove_edge (forest, parent_node, child_node)
   if (parent_post_occ == parent_node->last)
     parent_node->last = parent_pre_occ;
 
-  free (parent_post_occ);
+  pool_free (forest->occur_pool, parent_post_occ);
   return 1;
 }
 
 /* Return the parent of the NODE if any, NULL otherwise.  */
 et_forest_node_t
-et_forest_parent (forest, node)
-     et_forest_t forest ATTRIBUTE_UNUSED;
-     et_forest_node_t node;
+et_forest_parent (et_forest_t forest ATTRIBUTE_UNUSED, et_forest_node_t node)
 {
   splay (node->first);
 
@@ -595,17 +587,15 @@ et_forest_parent (forest, node)
 /* Return nearest common ancestor of NODE1 and NODE2.
    Return NULL of they are in different trees.  */
 et_forest_node_t
-et_forest_common_ancestor (forest, node1, node2)
-     et_forest_t forest ATTRIBUTE_UNUSED;
-     et_forest_node_t node1;
-     et_forest_node_t node2;
+et_forest_common_ancestor (et_forest_t forest ATTRIBUTE_UNUSED,
+			   et_forest_node_t node1, et_forest_node_t node2)
 {
   int value1, value2, max_value;
   et_forest_node_t ancestor;
 
   if (node1 == node2)
     return node1;
-  
+
   if (! node1 || ! node2)
     abort ();
 
@@ -628,7 +618,7 @@ et_forest_common_ancestor (forest, node1, node2)
       ancestor = node2;
       max_value = value1;
     }
-  
+
   while (calculate_value (ancestor->last) < max_value)
     {
       /* Find parent node.  */
@@ -641,9 +631,8 @@ et_forest_common_ancestor (forest, node1, node2)
 
 /* Return the value pointer of node set during it's creation.  */
 void *
-et_forest_node_value (forest, node)
-     et_forest_t forest ATTRIBUTE_UNUSED;
-     et_forest_node_t node;
+et_forest_node_value (et_forest_t forest ATTRIBUTE_UNUSED,
+		      et_forest_node_t node)
 {
   /* Alloc threading NULL as a special node of the forest.  */
   if (!node)
@@ -654,16 +643,14 @@ et_forest_node_value (forest, node)
 /* Find all sons of NODE and store them into ARRAY allocated by the caller.
    Return number of nodes found.  */
 int
-et_forest_enumerate_sons (forest, node, array)
-     et_forest_t forest ATTRIBUTE_UNUSED;
-     et_forest_node_t node;
-     et_forest_node_t *array;
+et_forest_enumerate_sons (et_forest_t forest ATTRIBUTE_UNUSED,
+			  et_forest_node_t node, et_forest_node_t *array)
 {
   int n = 0;
   et_forest_occurrence_t occ = node->first, stop = node->last, occ1;
 
   /* Parent is the rightmost node of the left successor.
-     Look for all occurences having no right succesor
+     Look for all occurrences having no right successor
      and lookup the sons.  */
   while (occ != stop)
     {

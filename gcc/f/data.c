@@ -1,5 +1,5 @@
 /* data.c -- Implementation File (module.c template V1.0)
-   Copyright (C) 1995, 1996, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 2002, 2003 Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
@@ -314,7 +314,7 @@ ffedata_value (ffetargetIntegerDefault rpt, ffebld value, ffelexToken token)
    CHARTYPE is CHARACTER*3, for example.  */
 
 static bool
-ffedata_advance_ ()
+ffedata_advance_ (void)
 {
   ffebld next;
 
@@ -591,13 +591,29 @@ tail_recurse:			/* :::::::::::::::::::: */
 	assert (ffeinfo_kindtype (ffebld_info (itervar))
 		== FFEINFO_kindtypeINTEGERDEFAULT);
 	ffedata_stack_->itervar = ffebld_symter (itervar);
-
+	if (ffeinfo_basictype (ffebld_info (start)) != FFEINFO_basictypeINTEGER)
+	  {
+	    ffebad_start (FFEBAD_DATA_EVAL);
+	    ffest_ffebad_here_current_stmt (0);
+	    ffebad_finish ();
+	    ffedata_pop_ ();
+	    ffedata_reported_error_ = TRUE;
+	    return FALSE;
+	  }
 	assert (ffeinfo_basictype (ffebld_info (start))
 		== FFEINFO_basictypeINTEGER);
 	assert (ffeinfo_kindtype (ffebld_info (start))
 		== FFEINFO_kindtypeINTEGERDEFAULT);
 	ffesymbol_set_value (ffedata_stack_->itervar, ffedata_eval_integer1_ (start));
-
+	if (ffeinfo_basictype (ffebld_info (end)) != FFEINFO_basictypeINTEGER)
+	  {
+	    ffebad_start (FFEBAD_DATA_EVAL);
+	    ffest_ffebad_here_current_stmt (0);
+	    ffebad_finish ();
+	    ffedata_pop_ ();
+	    ffedata_reported_error_ = TRUE;
+	    return FALSE;
+	  }
 	assert (ffeinfo_basictype (ffebld_info (end))
 		== FFEINFO_basictypeINTEGER);
 	assert (ffeinfo_kindtype (ffebld_info (end))
@@ -608,6 +624,15 @@ tail_recurse:			/* :::::::::::::::::::: */
 	  ffedata_stack_->increment = 1;
 	else
 	  {
+	    if (ffeinfo_basictype (ffebld_info (incr)) != FFEINFO_basictypeINTEGER)
+	      {
+		ffebad_start (FFEBAD_DATA_EVAL);
+		ffest_ffebad_here_current_stmt (0);
+		ffebad_finish ();
+		ffedata_pop_ ();
+		ffedata_reported_error_ = TRUE;
+		return FALSE;
+	      }
 	    assert (ffeinfo_basictype (ffebld_info (incr))
 		    == FFEINFO_basictypeINTEGER);
 	    assert (ffeinfo_kindtype (ffebld_info (incr))
@@ -698,8 +723,8 @@ ffedata_convert_ (ffebld source, ffelexToken source_token,
 
       if (max > ffedata_convert_cache_max_)
 	{
-	  cache = (ffedataConvertCache_) malloc_new_ks (malloc_pool_image (),
-				    "FFEDATA cache", max * sizeof (*cache));
+	  cache = malloc_new_ks (malloc_pool_image (),
+				 "FFEDATA cache", max * sizeof (*cache));
 	  if (ffedata_convert_cache_max_ != 0)
 	    {
 	      memcpy (cache, ffedata_convert_cache_,
@@ -1432,7 +1457,7 @@ ffedata_gather_ (ffestorag mst, ffestorag st)
    ffedata_pop_();  */
 
 static void
-ffedata_pop_ ()
+ffedata_pop_ (void)
 {
   ffedataImpdo_ victim = ffedata_stack_;
 
@@ -1448,7 +1473,7 @@ ffedata_pop_ ()
    ffedata_push_();  */
 
 static void
-ffedata_push_ ()
+ffedata_push_ (void)
 {
   ffedataImpdo_ baby;
 

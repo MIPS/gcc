@@ -24,16 +24,18 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "rtl.h"
+#include "expr.h"
 #include "tm_p.h"
+#include "flags.h"
+#include "machmode.h"
 #include "obstack.h"
 #include "insn-config.h"
-#include "flags.h"
 #include "function.h"
-#include "expr.h"
 #include "optabs.h"
 #include "regs.h"
 #include "basic-block.h"
@@ -49,9 +51,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* Disable this because i386 port has a strange abort inside it.  */
 #undef SECONDARY_MEMORY_NEEDED
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
 
 #define NEW_REG_P(X) (REGNO (X) >= max_regno)
 
@@ -83,7 +82,6 @@ static void collect_insn_info    PARAMS ((struct ra_info *, rtx,
 					  ra_ref **, ra_ref **,
 					  int *, int *));
 static void debug_ra_insn_refs   PARAMS ((struct ra_info *, rtx));
-static void debug_ra_reg_refs    PARAMS ((struct ra_info *, int));
 static struct ra_refs * build_ra_refs_for_insn PARAMS ((struct ra_info *,
 							ra_ref **, ra_ref **,
 							int, int));
@@ -3984,10 +3982,9 @@ debug_ra_insn_refs (ra_info, insn)
 
 /* Print all defs/uses for REGNO from RA_INFO.  */
 
-static void ATTRIBUTE_UNUSED
-debug_ra_reg_refs (ra_info, regno)
-     struct ra_info *ra_info;
-     int regno;
+static void
+ATTRIBUTE_UNUSED
+debug_ra_reg_refs (struct ra_info *ra_info, int regno)
 {
   int i;
   struct ra_link *link;
@@ -4169,11 +4166,8 @@ build_ra_refs_for_insn (ra_info, def_refs, use_refs, n_defs, n_uses)
    Return zero if error.  */
 
 static int
-df_link2ra_link (df2ra, insn, dlink, rlink)
-     struct df2ra df2ra;
-     rtx insn;
-     struct df_link *dlink;
-     struct ra_link *rlink;
+df_link2ra_link (struct df2ra df2ra, rtx insn ATTRIBUTE_UNUSED,
+		 struct df_link *dlink, struct ra_link *rlink)
 {
   unsigned int regno;
   int bad = 0;

@@ -4,20 +4,20 @@
    Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -857,7 +857,7 @@ enum reg_class
    `fprintf'.
 
    The details of how the address should be passed to `mcount' are determined
-   by your operating system environment, not by GNU CC.  To figure them out,
+   by your operating system environment, not by GCC.  To figure them out,
    compile a small program for profiling using the system's installed C
    compiler and look at the assembler code that results.  */
 #define FUNCTION_PROFILER(FILE, LABELNO)	\
@@ -1166,29 +1166,6 @@ do										\
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP "\t.globl "
 
-/* A C expression to assign to OUTVAR (which is a variable of type `char *') a
-   newly allocated string made from the string NAME and the number NUMBER, with
-   some suitable punctuation added.  Use `alloca' to get space for the string.
-
-   The string will be used as an argument to `ASM_OUTPUT_LABELREF' to produce
-   an assembler label for an internal static variable whose name is NAME.
-   Therefore, the string must be such as to result in valid assembler code.
-   The argument NUMBER is different each time this macro is executed; it
-   prevents conflicts between similarly-named internal static variables in
-   different scopes.
-
-   Ideally this string should not be a valid C identifier, to prevent any
-   conflict with the user's own symbols.  Most assemblers allow periods or
-   percent signs in assembler symbols; putting at least one of these between
-   the name and the number will suffice.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTVAR, NAME, NUMBER)		\
-  do								\
-    {								\
-      (OUTVAR) = (char *) alloca (strlen ((NAME)) + 12);	\
-      sprintf ((OUTVAR), "%s.%ld", (NAME), (long)(NUMBER));	\
-    }								\
-  while (0)
-
 /*}}}*/ 
 /*{{{  Output of Assembler Instructions.  */ 
 
@@ -1243,7 +1220,7 @@ do										\
    The definition should be a C statement to output to the stdio stream STREAM
    an assembler pseudo-instruction to generate a difference between two labels.
    VALUE and REL are the numbers of two internal labels.  The definitions of
-   these labels are output using `ASM_OUTPUT_INTERNAL_LABEL', and they must be
+   these labels are output using `(*targetm.asm_out.internal_label)', and they must be
    printed in the same way here.  For example,
 
         fprintf (STREAM, "\t.word L%d-L%d\n", VALUE, REL)  */
@@ -1256,7 +1233,7 @@ fprintf (STREAM, "\t.word .L%d-.L%d\n", VALUE, REL)
    The definition should be a C statement to output to the stdio stream STREAM
    an assembler pseudo-instruction to generate a reference to a label.  VALUE
    is the number of an internal label whose definition is output using
-   `ASM_OUTPUT_INTERNAL_LABEL'.  For example,
+   `(*targetm.asm_out.internal_label)'.  For example,
 
         fprintf (STREAM, "\t.word L%d\n", VALUE)  */
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE) \

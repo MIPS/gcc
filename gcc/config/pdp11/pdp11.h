@@ -3,20 +3,20 @@
    Free Software Foundation, Inc.
    Contributed by Michael K. Gschwind (mike@vlsivie.tuwien.ac.at).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -30,7 +30,12 @@ Boston, MA 02111-1307, USA.  */
 
 /* Names to predefine in the preprocessor for this target machine.  */
 
-#define CPP_PREDEFINES "-Dpdp11"
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("pdp11");		\
+    }						\
+  while (0)
 
 /* Print subsidiary information on the compiler version in use.  */
 #define TARGET_VERSION fprintf (stderr, " (pdp11)");
@@ -668,10 +673,8 @@ extern int may_call_alloca;
 /* Addressing modes, and classification of registers for them.  */
 
 #define HAVE_POST_INCREMENT 1
-/* #define HAVE_POST_DECREMENT 0 */
 
 #define HAVE_PRE_DECREMENT 1
-/* #define HAVE_PRE_INCREMENT 0 */
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -915,11 +918,6 @@ extern int may_call_alloca;
 #define SELECT_CC_MODE(OP,X,Y)	\
 (GET_MODE_CLASS(GET_MODE(X)) == MODE_FLOAT? CCFPmode : CCmode)
 
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-
-/* #define STORE_FLAG_VALUE 1 */
-
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
@@ -936,28 +934,6 @@ extern int may_call_alloca;
    but a CALL with constant address is cheap.  */
 /* #define NO_FUNCTION_CSE */
 
-/* Compute the cost of computing a constant rtl expression RTX
-   whose rtx-code is CODE.  The body of this macro is a portion
-   of a switch statement.  If the code is computed here,
-   return it with a return statement.  Otherwise, break from the switch. 
-
-   -1, 0, 1 are cheaper for add, sub ... 
-*/
-
-#define CONST_COSTS(RTX,CODE,OUTER_CODE) \
-  case CONST_INT:						\
-    if (INTVAL(RTX) == 0					\
-	|| INTVAL(RTX) == -1					\
-	|| INTVAL(RTX) == 1)					\
-      return 0;							\
-  case CONST:							\
-  case LABEL_REF:						\
-  case SYMBOL_REF:						\
-    /* twice as expensive as REG */				\
-    return 2;							\
-  case CONST_DOUBLE:						\
-    /* twice (or 4 times) as expensive as 16 bit */		\
-    return 4;
 
 /* cost of moving one register class to another */
 #define REGISTER_MOVE_COST(MODE, CLASS1, CLASS2) \
@@ -1014,20 +990,6 @@ extern struct rtx_def *cc0_reg_rtx;
 
 /* Control the assembler format that we output.  */
 
-/* Output at beginning of assembler file.  */
-
-#if 0
-#define ASM_FILE_START(FILE) \
-(								\
-fprintf (FILE, "\t.data\n"),					\
-fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
-/* do we need reg def's R0 = %0 etc ??? */			\
-)
-#else
-#define ASM_FILE_START(FILE)
-#endif
-
-
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
 
@@ -1060,19 +1022,13 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
 
 #define USER_LABEL_PREFIX "_"
 
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  fprintf (FILE, "%s_%d:\n", PREFIX, NUM)
-
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
    This is suitable for output with `assemble_name'.  */
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
-  sprintf (LABEL, "*%s_%d", PREFIX, NUM)
+  sprintf (LABEL, "*%s_%lu", PREFIX, (unsigned long)(NUM))
 
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)  \
   output_ascii (FILE, P, SIZE)
@@ -1126,14 +1082,6 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
 ( assemble_name ((FILE), (NAME)),				\
   fprintf ((FILE), ":\t.=.+ %#ho\n", (unsigned short)(ROUNDED)))
-
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
@@ -1227,89 +1175,6 @@ JMP	FUNCTION	0x0058  0x0000 <- FUNCTION
       /* flag_unroll_loops			= 1; */			\
     }									\
 }
-
-
-/* Provide the costs of a rtl expression.  This is in the body of a
-   switch on CODE. 
-
-   we don't say how expensive SImode is - pretty expensive!!!
-
-   there is something wrong in MULT because MULT is not 
-   as cheap as total = 2 even if we can shift!
-
-   if optimizing for size make mult etc cheap, but not 1, so when 
-   in doubt the faster insn is chosen.
-*/
-
-#define RTX_COSTS(X,CODE,OUTER_CODE) \
-  case MULT:								\
-    if (optimize_size)							\
-      total = COSTS_N_INSNS(2);						\
-    else								\
-      total = COSTS_N_INSNS (11);					\
-    break;								\
-  case DIV:								\
-    if (optimize_size)							\
-      total = COSTS_N_INSNS(2);						\
-    else								\
-      total = COSTS_N_INSNS (25);					\
-    break;								\
-  case MOD:								\
-    if (optimize_size)							\
-      total = COSTS_N_INSNS(2);						\
-    else								\
-      total = COSTS_N_INSNS (26);					\
-    break;								\
-  case ABS:								\
-    /* equivalent to length, so same for optimize_size */		\
-    total = COSTS_N_INSNS (3);						\
-    break;								\
-  case ZERO_EXTEND:							\
-    /* only used for: qi->hi */						\
-    total = COSTS_N_INSNS(1);						\
-    break;								\
-  case SIGN_EXTEND:							\
-    if (GET_MODE(X) == HImode)						\
-      	total = COSTS_N_INSNS(1);					\
-    else if (GET_MODE(X) == SImode)					\
-	total = COSTS_N_INSNS(6);					\
-    else								\
-	total = COSTS_N_INSNS(2);					\
-    break;								\
-  /* case LSHIFT: */		       					\
-  case ASHIFT:								\
-  case LSHIFTRT:							\
-  case ASHIFTRT:							\
-    if (optimize_size)							\
-      total = COSTS_N_INSNS(1);						\
-    else if (GET_MODE(X) ==  QImode)					\
-    {									\
-      if (GET_CODE(XEXP (X,1)) != CONST_INT)				\
-   	total = COSTS_N_INSNS(8); /* worst case */ 			\
-      else                                                              \
-	total = COSTS_N_INSNS(INTVAL(XEXP (X,1)));			\
-    }									\
-    else if (GET_MODE(X) == HImode)					\
-    {									\
-      if (GET_CODE(XEXP (X,1)) == CONST_INT)				\
-      {									\
-	if (abs (INTVAL (XEXP (X, 1))) == 1)				\
-          total = COSTS_N_INSNS(1);					\
-        else								\
-	  total = COSTS_N_INSNS(2.5 + 0.5 *INTVAL(XEXP(X,1)));		\
-      }									\
-      else /* worst case */						\
-        total = COSTS_N_INSNS (10);					\
-    }									\
-    else if (GET_MODE(X) == SImode)					\
-    {									\
-      if (GET_CODE(XEXP (X,1)) == CONST_INT)				\
-	  total = COSTS_N_INSNS(2.5 + 0.5 *INTVAL(XEXP(X,1)));		\
-      else /* worst case */						\
-        total = COSTS_N_INSNS(18);					\
-    }									\
-    break;
-
 
 /* there is no point in avoiding branches on a pdp, 
    since branches are really cheap - I just want to find out

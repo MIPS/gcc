@@ -6,20 +6,20 @@
    Modified by Tim Wright (timw@sequent.com).
    Modified by Janis Johnson (janis@us.ibm.com).
   
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
@@ -62,12 +62,6 @@ Boston, MA 02111-1307, USA.
   && strcmp (STR, "Tdata") && strcmp (STR, "Ttext")	\
   && strcmp (STR, "Tbss"))
 
-/* You should redefine CPP_PREDEFINES in any file which includes this one.
-   The definition should be appropriate for the type of target system
-   involved, and it should include any -A (assertion) options which are
-   appropriate for the given target system.  */
-#undef CPP_PREDEFINES
-
 /* Provide an ASM_SPEC appropriate for svr4.  Here we try to support as
    many of the specialized svr4 assembler options as seems reasonable,
    given that there are certain options which we can't (or shouldn't)
@@ -93,16 +87,7 @@ Boston, MA 02111-1307, USA.
   "-no_0f_fix -no_eflags_chk %{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*} %{Wa,*:%*}"
 #endif
 
-/* svr4 assemblers need the `-' (indicating input from stdin) to come after
-   the -o option (and its argument) for some reason.  If we try to put it
-   before the -o option, the assembler will try to read the file named as
-   the output file in the -o option as an input file (after it has already
-   written some stuff to it) and the binary stuff contained therein will
-   cause totally confuse the assembler, resulting in many spurious error
-   messages.  */
-
-#undef ASM_FINAL_SPEC
-#define ASM_FINAL_SPEC "%{pipe:-}"
+#define AS_NEEDS_DASH_FOR_PIPED_INPUT
 
 /* Provide a LIB_SPEC appropriate for svr4.  Here we tack on the default
    standard C library (unless we are building a shared library).  */
@@ -199,16 +184,14 @@ Boston, MA 02111-1307, USA.
    current function.  */
 
 #undef ASM_OUTPUT_SOURCE_LINE
-#define ASM_OUTPUT_SOURCE_LINE(file, line)				\
+#define ASM_OUTPUT_SOURCE_LINE(file, line, counter)			\
 do									\
   {									\
-    static int sym_lineno = 1;						\
     fprintf (file, ".stabn 68,0,%d,.LM%d-",				\
-	     line, sym_lineno);						\
+	     line, counter);						\
     assemble_name (file,						\
 		   XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));\
-    fprintf (file, "\n.LM%d:\n", sym_lineno);				\
-    sym_lineno += 1;							\
+    fprintf (file, "\n.LM%d:\n", counter);				\
   }									\
 while (0)
 
@@ -246,5 +229,5 @@ while (0)
 do {									\
   fprintf ((FILE), "%s", COMMON_ASM_OP);				\
   assemble_name ((FILE), (NAME));					\
-  fprintf ((FILE), ",%u\n", (SIZE));					\
+  fprintf ((FILE), ",%lu\n", (unsigned long)(SIZE)); \
 } while (0)

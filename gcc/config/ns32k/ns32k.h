@@ -3,20 +3,20 @@
    2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -435,17 +435,17 @@ while (0)
 
 enum reg_class
 { NO_REGS, GENERAL_REGS, FLOAT_REG0, LONG_FLOAT_REG0, FLOAT_REGS,
-  FP_REGS, GEN_AND_FP_REGS, FRAME_POINTER_REG, STACK_POINTER_REG,
-  GEN_AND_MEM_REGS, ALL_REGS, LIM_REG_CLASSES };
+  LONG_REGS, FP_REGS, GEN_AND_FP_REGS, FRAME_POINTER_REG,
+  STACK_POINTER_REG, GEN_AND_MEM_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
 /* Give names of register classes as strings for dump file.   */
 
-#define REG_CLASS_NAMES \
+#define REG_CLASS_NAMES							    \
  {"NO_REGS", "GENERAL_REGS", "FLOAT_REG0", "LONG_FLOAT_REG0", "FLOAT_REGS", \
-  "FP_REGS", "GEN_AND_FP_REGS", "FRAME_POINTER_REG", "STACK_POINTER_REG", \
-  "GEN_AND_MEM_REGS", "ALL_REGS" }
+  "LONG_REGS", "FP_REGS", "GEN_AND_FP_REGS", "FRAME_POINTER_REG", 	    \
+  "STACK_POINTER_REG", "GEN_AND_MEM_REGS", "ALL_REGS" }
 
 /* Define which registers fit in which classes.
    This is an initializer for a vector of HARD_REG_SET
@@ -457,6 +457,7 @@ enum reg_class
 	 {0x100},		/* FLOAT_REG0 */	\
 	 {0x300},		/* LONG_FLOAT_REG0 */	\
 	 {0xff00},		/* FLOAT_REGS */	\
+         {0xff0000},            /* LONG_REGS */         \
          {0xffff00},		/* FP_REGS */		\
          {0xffffff},		/* GEN_AND_FP_REGS */	\
          {0x1000000},		/* FRAME_POINTER_REG */	\
@@ -468,6 +469,14 @@ enum reg_class
 #define SUBSET_P(CLASS1, CLASS2)			\
    ((ns32k_reg_class_contents[CLASS1][0]		\
      & ~ns32k_reg_class_contents[CLASS2][0]) == 0)
+
+
+/* LONG_REGS are registers which can only hold double precision floats
+ * and can only be accessible by long float instructions.
+ */
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)	\
+  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)		\
+   ? reg_classes_intersect_p (LONG_REGS, CLASS) : 0)
 
 /* The same information, inverted:
    Return the class number of the smallest class containing
@@ -810,12 +819,6 @@ __transfer_from_trampoline ()		\
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT 0 */
-/* #define HAVE_POST_DECREMENT 0 */
-
-/* #define HAVE_PRE_DECREMENT 0 */
-/* #define HAVE_PRE_INCREMENT 0 */
-
 /* Macros to check register numbers against specific register classes.  */
 
 /* These assume that REGNO is a hard or pseudo reg number.
@@ -882,7 +885,7 @@ __transfer_from_trampoline ()		\
 #endif
 
 /* SMALL_REGISTER_CLASSES is a run time option. This should no longer
-   be necessay and should go when we have confidence that we won't run
+   be necessary and should go when we have confidence that we won't run
    out of spill registers */
 #define SMALL_REGISTER_CLASSES (target_flags & MASK_SRC)
 
@@ -1058,7 +1061,6 @@ __transfer_from_trampoline ()		\
   else if (GET_CODE (xfooy) == PRE_DEC)					\
     {									\
       if (REGNO (XEXP (xfooy, 0)) == STACK_POINTER_REGNUM) goto ADDR;	\
-      else abort ();							\
     }									\
 }
 
@@ -1129,6 +1131,11 @@ __transfer_from_trampoline ()		\
    We have a smart movstrsi insn */
 #define MOVE_RATIO 0
 
+#define STORE_RATIO (optimize_size ? 3 : 15)
+#define STORE_BY_PIECES_P(SIZE, ALIGN) \
+  (move_by_pieces_ninsns (SIZE, ALIGN) < (unsigned int) STORE_RATIO)
+
+
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS 0
 
@@ -1141,11 +1148,6 @@ __transfer_from_trampoline ()		\
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-
-#define STORE_FLAG_VALUE 1
-
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
@@ -1155,27 +1157,6 @@ __transfer_from_trampoline ()		\
    is a byte address (for indexing purposes)
    so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE QImode
-
-/* Compute the cost of address ADDRESS. */
-
-#define ADDRESS_COST(RTX) calc_address_cost (RTX)
-
-/* Compute the cost of computing a constant rtl expression RTX
-   whose rtx-code is CODE.  The body of this macro is a portion
-   of a switch statement.  If the code is computed here,
-   return it with a return statement.  Otherwise, break from the switch.  */
-
-#define CONST_COSTS(RTX,CODE,OUTER_CODE) \
-  case CONST_INT:						\
-    if (INTVAL (RTX) <= 7 && INTVAL (RTX) >= -8) return 0;	\
-    if (INTVAL (RTX) < 0x2000 && INTVAL (RTX) >= -0x2000)	\
-      return 1;							\
-  case CONST:							\
-  case LABEL_REF:						\
-  case SYMBOL_REF:						\
-    return 3;							\
-  case CONST_DOUBLE:						\
-    return 5;
 
 /* Tell final.c how to eliminate redundant test instructions.  */
 
@@ -1275,10 +1256,6 @@ __transfer_from_trampoline ()		\
 
 /* Define the output Assembly Language */
 
-/* Output at beginning of assembler file.  */
-
-#define ASM_FILE_START(FILE) fprintf (FILE, "#NO_APP\n");
-
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
 
@@ -1315,12 +1292,6 @@ __transfer_from_trampoline ()		\
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP ".globl "
 
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  fprintf (FILE, "%s%d:\n", PREFIX, NUM)
-
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
@@ -1353,7 +1324,7 @@ __transfer_from_trampoline ()		\
   fprintf (FILE, "\t.align %d\n", (LOG))
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.space %u\n", (SIZE))
+  fprintf (FILE, "\t.space %u\n", (int)(SIZE))
 
 /* This says how to output an assembler line
    to define a global common symbol.  */
@@ -1361,7 +1332,7 @@ __transfer_from_trampoline ()		\
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs (".comm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%u\n", (ROUNDED)))
+  fprintf ((FILE), ",%u\n", (int)(ROUNDED)))
 
 /* This says how to output an assembler line
    to define a local common symbol.  */
@@ -1369,15 +1340,7 @@ __transfer_from_trampoline ()		\
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs (".lcomm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%u\n", (ROUNDED)))
-
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
+  fprintf ((FILE), ",%u\n", (int)(ROUNDED)))
 
 /* Print an instruction operand X on file FILE.
    CODE is the code from the %-spec that requested printing this operand;

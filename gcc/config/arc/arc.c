@@ -1,21 +1,21 @@
 /* Subroutines used for code generation on the Argonaut ARC cpu.
-   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -23,6 +23,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "regs.h"
@@ -92,7 +94,10 @@ static tree arc_handle_interrupt_attribute PARAMS ((tree *, tree, tree, int, boo
 static bool arc_assemble_integer PARAMS ((rtx, unsigned int, int));
 static void arc_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void arc_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
-static void arc_encode_section_info PARAMS ((tree, int));
+static void arc_file_start PARAMS ((void));
+static void arc_internal_label PARAMS ((FILE *, const char *, unsigned long));
+static bool arc_rtx_costs PARAMS ((rtx, int, int, int *));
+static int arc_address_cost PARAMS ((rtx));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -106,10 +111,17 @@ static void arc_encode_section_info PARAMS ((tree, int));
 #define TARGET_ASM_FUNCTION_PROLOGUE arc_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE arc_output_function_epilogue
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START arc_file_start
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE arc_attribute_table
-#undef TARGET_ENCODE_SECTION_INFO
-#define TARGET_ENCODE_SECTION_INFO arc_encode_section_info
+#undef TARGET_ASM_INTERNAL_LABEL
+#define TARGET_ASM_INTERNAL_LABEL arc_internal_label
+
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS arc_rtx_costs
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST arc_address_cost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -822,9 +834,7 @@ arc_setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
       set_mem_alias_set (regblock, get_varargs_alias_set ());
       set_mem_align (regblock, BITS_PER_WORD);
       move_block_from_reg (first_reg_offset, regblock,
-			   MAX_ARC_PARM_REGS - first_reg_offset,
-			   ((MAX_ARC_PARM_REGS - first_reg_offset)
-			    * UNITS_PER_WORD));
+			   MAX_ARC_PARM_REGS - first_reg_offset);
 
       *pretend_size = ((MAX_ARC_PARM_REGS - first_reg_offset + align_slop)
 		       * UNITS_PER_WORD);
@@ -833,18 +843,75 @@ arc_setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
 
 /* Cost functions.  */
 
+/* Compute a (partial) cost for rtx X.  Return true if the complete
+   cost has been computed, and false if subexpressions should be
+   scanned.  In either case, *TOTAL contains the cost result.  */
+
+static bool
+arc_rtx_costs (x, code, outer_code, total)
+     rtx x;
+     int code;
+     int outer_code ATTRIBUTE_UNUSED;
+     int *total;
+{
+  switch (code)
+    {
+      /* Small integers are as cheap as registers.  4 byte values can
+	 be fetched as immediate constants - let's give that the cost
+	 of an extra insn.  */
+    case CONST_INT:
+      if (SMALL_INT (INTVAL (x)))
+	{
+	  *total = 0;
+	  return true;
+	}
+      /* FALLTHRU */
+
+    case CONST:
+    case LABEL_REF:
+    case SYMBOL_REF:
+      *total = COSTS_N_INSNS (1);
+      return true;
+
+    case CONST_DOUBLE:
+      {
+        rtx high, low;
+        split_double (x, &high, &low);
+	*total = COSTS_N_INSNS (!SMALL_INT (INTVAL (high))
+				+ !SMALL_INT (INTVAL (low)));
+	return true;
+      }
+
+    /* Encourage synth_mult to find a synthetic multiply when reasonable.
+       If we need more than 12 insns to do a multiply, then go out-of-line,
+       since the call overhead will be < 10% of the cost of the multiply.  */
+    case ASHIFT:
+    case ASHIFTRT:
+    case LSHIFTRT:
+      if (TARGET_SHIFTER)
+        *total = COSTS_N_INSNS (1);
+      else if (GET_CODE (XEXP (x, 1)) != CONST_INT)
+        *total = COSTS_N_INSNS (16);
+      else
+        *total = COSTS_N_INSNS (INTVAL (XEXP ((x), 1)));
+      return false;
+
+    default:
+      return false;
+    }
+}
+
+
 /* Provide the costs of an addressing mode that contains ADDR.
    If ADDR is not a valid address, its cost is irrelevant.  */
 
-int
+static int
 arc_address_cost (addr)
      rtx addr;
 {
   switch (GET_CODE (addr))
     {
     case REG :
-      /* This is handled in the macro that calls us.
-	 It's here for documentation.  */
       return 1;
 
     case LABEL_REF :
@@ -1125,7 +1192,7 @@ arc_assemble_integer (x, size, aligned_p)
      int aligned_p;
 {
   if (size == UNITS_PER_WORD && aligned_p
-      && ((GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_FLAG (x))
+      && ((GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_FUNCTION_P (x))
 	  || GET_CODE (x) == LABEL_REF))
     {
       fputs ("\t.word\t%st(", asm_out_file);
@@ -1199,7 +1266,7 @@ arc_output_function_prologue (file, size)
 
   /* Allocate the stack frame.  */
   if (size - current_frame_info.pretend_size > 0)
-    fprintf (file, "\tsub %s,%s,%d\n",
+    fprintf (file, "\tsub %s,%s," HOST_WIDE_INT_PRINT_DEC "\n",
 	     sp_str, sp_str, size - current_frame_info.pretend_size);
 
   /* Save any needed call-saved regs (and call-used if this is an
@@ -1361,7 +1428,7 @@ arc_output_function_epilogue (file, size)
 	{
 	  if (!SMALL_INT (size - restored))
 	    abort ();
-	  fprintf (file, "\tadd %s,%s,%d\n",
+	  fprintf (file, "\tadd %s,%s," HOST_WIDE_INT_PRINT_DEC "\n",
 		   sp_str, sp_str, size - restored);
 	}
       else
@@ -1593,11 +1660,11 @@ arc_initialize_trampoline (tramp, fnaddr, cxt)
 /* Set the cpu type and print out other fancy things,
    at the top of the file.  */
 
-void
-arc_asm_file_start (file)
-     FILE *file;
+static void
+arc_file_start ()
 {
-  fprintf (file, "\t.cpu %s\n", arc_cpu_string);
+  default_file_start ();
+  fprintf (asm_out_file, "\t.cpu %s\n", arc_cpu_string);
 }
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
@@ -1708,7 +1775,7 @@ arc_print_operand (file, x, code)
 	output_operand_lossage ("invalid operand to %%R code");
       return;
     case 'S' :
-      if ((GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_FLAG (x))
+      if ((GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_FUNCTION_P (x))
 	  || GET_CODE (x) == LABEL_REF)
 	{
 	  fprintf (file, "%%st(");
@@ -1833,7 +1900,7 @@ arc_print_operand_address (file, addr)
       fputs (reg_names[REGNO (addr)], file);
       break;
     case SYMBOL_REF :
-      if (/*???*/ 0 && SYMBOL_REF_FLAG (addr))
+      if (/*???*/ 0 && SYMBOL_REF_FUNCTION_P (addr))
 	{
 	  fprintf (file, "%%st(");
 	  output_addr_const (file, addr);
@@ -1922,7 +1989,7 @@ record_cc_ref (insn)
    0 -> 2 final_prescan_insn, if the `target' is an unconditional branch
    1 -> 3 branch patterns, after having not output the conditional branch
    2 -> 4 branch patterns, after having not output the conditional branch
-   3 -> 0 ASM_OUTPUT_INTERNAL_LABEL, if the `target' label is reached
+   3 -> 0 (*targetm.asm_out.internal_label), if the `target' label is reached
           (the target label has CODE_LABEL_NUMBER equal to
 	  arc_ccfsm_target_label).
    4 -> 0 final_prescan_insn, if `target' unconditional branch is reached
@@ -2218,7 +2285,7 @@ arc_final_prescan_insn (insn, opvec, noperands)
 /* Record that we are currently outputting label NUM with prefix PREFIX.
    It it's the label we're looking for, reset the ccfsm machinery.
 
-   Called from ASM_OUTPUT_INTERNAL_LABEL.  */
+   Called from (*targetm.asm_out.internal_label).  */
 
 void
 arc_ccfsm_at_label (prefix, num)
@@ -2345,16 +2412,15 @@ arc_va_arg (valist, type)
   return addr_rtx;
 }
 
-/* On the ARC, function addresses are not the same as normal addresses.
-   Branch to absolute address insns take an address that is right-shifted
-   by 2.  We encode the fact that we have a function here, and then emit a
-   special assembler op when outputting the address.  */
+/* This is how to output a definition of an internal numbered label where
+   PREFIX is the class of label and NUM is the number within the class.  */
 
 static void
-arc_encode_section_info (decl, first)
-     tree decl;
-     int first ATTRIBUTE_UNUSED;
+arc_internal_label (stream, prefix, labelno)
+     FILE *stream;
+     const char *prefix;
+     unsigned long labelno;
 {
-  if (TREE_CODE (decl) == FUNCTION_DECL)
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+  arc_ccfsm_at_label (prefix, labelno);
+  default_internal_label (stream, prefix, labelno);
 }

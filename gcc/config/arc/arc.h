@@ -2,20 +2,20 @@
    Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -138,11 +138,11 @@ extern const char *arc_cpu_string;
 extern const char *arc_text_string,*arc_data_string,*arc_rodata_string;
 
 #define TARGET_OPTIONS \
-{						\
-  { "cpu=",	&arc_cpu_string		},	\
-  { "text=",	&arc_text_string	},	\
-  { "data=",	&arc_data_string	},	\
-  { "rodata=",	&arc_rodata_string	},	\
+{					\
+  { "cpu=",	&arc_cpu_string, 0},	\
+  { "text=",	&arc_text_string, 0},	\
+  { "data=",	&arc_data_string, 0},	\
+  { "rodata=",	&arc_rodata_string, 0},	\
 }
 
 /* Which cpu we're compiling for.  */
@@ -350,7 +350,7 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
   1, 1, 1, 1, 1, 1 }
 
 /* If defined, an initializer for a vector of integers, containing the
-   numbers of hard registers in the order in which GNU CC should
+   numbers of hard registers in the order in which GCC should
    prefer to use them (from most preferred to least).  */
 #define REG_ALLOC_ORDER \
 { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1,			\
@@ -493,7 +493,7 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 /* local to this file */
 #define LARGE_INT(X) \
 ((X) >= (-(HOST_WIDE_INT) 0x7fffffff - 1) \
- && (X) <= (unsigned HOST_WIDE_INT) 0xffffffff)
+ && (unsigned HOST_WIDE_INT)(X) <= (unsigned HOST_WIDE_INT) 0xffffffff)
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C) \
 ((C) == 'I' ? SMALL_INT (VALUE)		\
@@ -520,7 +520,7 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 /* ??? This currently isn't used.  Waiting for PIC.  */
 #if 0
 #define EXTRA_CONSTRAINT(VALUE, C) \
-((C) == 'R' ? (SYMBOL_REF_FLAG (VALUE) || GET_CODE (VALUE) == LABEL_REF) \
+((C) == 'R' ? (SYMBOL_REF_FUNCTION_P (VALUE) || GET_CODE (VALUE) == LABEL_REF) \
  : 0)
 #endif
 
@@ -995,37 +995,6 @@ arc_select_cc_mode (OP, X, Y)
 
 /* Costs.  */
 
-/* An insn is define to cost 4 "units", and we work from there.
-   COSTS_N_INSNS (N) is defined as (N) * 4 - 2 so that seems reasonable.
-   Some values are supposed to be defined relative to each other and thus
-   aren't necessarily related to COSTS_N_INSNS.  */
-
-/* Compute the cost of computing a constant rtl expression RTX
-   whose rtx-code is CODE.  The body of this macro is a portion
-   of a switch statement.  If the code is computed here,
-   return it with a return statement.  Otherwise, break from the switch.  */
-/* Small integers are as cheap as registers.  4 byte values can be fetched
-   as immediate constants - let's give that the cost of an extra insn.  */
-#define CONST_COSTS(X, CODE, OUTER_CODE) \
-  case CONST_INT :						\
-    if (SMALL_INT (INTVAL (X)))					\
-      return 0;							\
-    /* fall through */						\
-  case CONST :							\
-  case LABEL_REF :						\
-  case SYMBOL_REF :						\
-    return 4;							\
-  case CONST_DOUBLE :						\
-    {								\
-      rtx high, low;						\
-      split_double (X, &high, &low);				\
-      return 4 * (!SMALL_INT (INTVAL (high))			\
-		  + !SMALL_INT (INTVAL (low)));			\
-    }
-
-/* Compute the cost of an address.  */
-#define ADDRESS_COST(ADDR) (REG_P (ADDR) ? 1 : arc_address_cost (ADDR))
-
 /* Compute extra cost of moving data between one register class
    and another.  */
 #define REGISTER_MOVE_COST(MODE, CLASS1, CLASS2) 2
@@ -1040,22 +1009,6 @@ arc_select_cc_mode (OP, X, Y)
 /* ??? What's the right value here?  Branches are certainly more
    expensive than reg->reg moves.  */
 #define BRANCH_COST 2
-
-/* Provide the costs of a rtl expression.  This is in the body of a
-   switch on CODE.  The purpose for the cost of MULT is to encourage
-   `synth_mult' to find a synthetic multiply when reasonable.
-
-   If we need more than 12 insns to do a multiply, then go out-of-line,
-   since the call overhead will be < 10% of the cost of the multiply.  */
-#define RTX_COSTS(X, CODE, OUTER_CODE) \
-  case ASHIFT :						\
-  case ASHIFTRT :					\
-  case LSHIFTRT :					\
-    if (TARGET_SHIFTER)					\
-      return COSTS_N_INSNS (1);				\
-    if (GET_CODE (XEXP ((X), 1)) != CONST_INT)		\
-      return COSTS_N_INSNS (16);			\
-    return COSTS_N_INSNS (INTVAL (XEXP ((X), 1)));
 
 /* Nonzero if access to memory by bytes is slow and undesirable.
    For RISC chips, it means that access to memory by bytes is no
@@ -1157,10 +1110,6 @@ extern const char *arc_text_section, *arc_data_section, *arc_rodata_section;
 
 /* Control the assembler format that we output.  */
 
-/* Output at beginning of assembler file.  */
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE) arc_asm_file_start (FILE)
-
 /* A C string constant describing how to begin a comment in the target
    assembler language.  The compiler assumes that the comment will
    end at the end of the line.  */
@@ -1202,7 +1151,7 @@ do {							\
    compiled for different cpus.  */
 /* We work around a dwarfout.c deficiency by watching for labels from it and
    not adding the '_' prefix nor the cpu suffix.  There is a comment in
-   dwarfout.c that says it should be using ASM_OUTPUT_INTERNAL_LABEL.  */
+   dwarfout.c that says it should be using (*targetm.asm_out.internal_label).  */
 extern const char *arc_mangle_cpu;
 #define ASM_OUTPUT_LABELREF(FILE, NAME) \
 do {							\
@@ -1216,22 +1165,6 @@ do {							\
       fprintf (FILE, "%s", NAME);			\
     }							\
 } while (0)
-
-/* This is how to output a definition of an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-#undef ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM) \
-do {						\
-  arc_ccfsm_at_label (PREFIX, NUM);		\
-  fprintf (FILE, ".%s%d:\n", PREFIX, NUM);	\
-} while (0)
-
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO) \
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
 /* Assembler pseudo-op to equate one value with another.  */
 /* ??? This is needed because dwarfout.c provides a default definition too
@@ -1357,10 +1290,6 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
-
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-#define STORE_FLAG_VALUE 1
 
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction

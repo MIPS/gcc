@@ -2,20 +2,20 @@
    Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify
+   GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   GNU CC is distributed in the hope that it will be useful,
+   GCC is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
+   along with GCC; see the file COPYING.  If not, write to
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
@@ -23,6 +23,8 @@
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -535,7 +537,7 @@ fr30_print_operand (file, x, code)
 
 	  val &= 0xff;
 
-	  fprintf (file, "%d", val);
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, val);
 	}
       return;
       
@@ -545,7 +547,7 @@ fr30_print_operand (file, x, code)
 	  || INTVAL (x) > 32)
 	output_operand_lossage ("fr30_print_operand: invalid %%x code");
       else
-	fprintf (file, "%d", INTVAL (x) - 16);
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (x) - 16);
       return;
 
     case 'F':
@@ -607,7 +609,7 @@ fr30_print_operand (file, x, code)
 		  debug_rtx (x);
 		  output_operand_lossage ("fr30_print_operand: unhandled MEM");
 		}
-	      fprintf (file, "@(r14, #%d)", val);
+	      fprintf (file, "@(r14, #" HOST_WIDE_INT_PRINT_DEC ")", val);
 	    }
 	  else
 	    {
@@ -618,7 +620,7 @@ fr30_print_operand (file, x, code)
 		  debug_rtx (x);
 		  output_operand_lossage ("fr30_print_operand: unhandled MEM");
 		}
-	      fprintf (file, "@(r15, #%d)", val);
+	      fprintf (file, "@(r15, #" HOST_WIDE_INT_PRINT_DEC ")", val);
 	    }
 	  break;
 	  
@@ -949,6 +951,20 @@ fr30_check_multiple_regs (operands, num_operands, descending)
     }
 
   return 1;
+}
+
+int
+fr30_const_double_is_zero (operand)
+     rtx operand;
+{
+  REAL_VALUE_TYPE d;
+
+  if (operand == NULL || GET_CODE (operand) != CONST_DOUBLE)
+    return 0;
+
+  REAL_VALUE_FROM_CONST_DOUBLE (d, operand);
+
+  return REAL_VALUES_EQUAL (d, dconst0);
 }
 
 /*}}}*/

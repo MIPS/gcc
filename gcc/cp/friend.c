@@ -1,25 +1,28 @@
 /* Help friends in C++.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "expr.h"
@@ -33,8 +36,7 @@ Boston, MA 02111-1307, USA.  */
 /* Returns nonzero if SUPPLICANT is a friend of TYPE.  */
 
 int
-is_friend (type, supplicant)
-     tree type, supplicant;
+is_friend (tree type, tree supplicant)
 {
   int declp;
   register tree list;
@@ -125,11 +127,14 @@ is_friend (type, supplicant)
 }
 
 /* Add a new friend to the friends of the aggregate type TYPE.
-   DECL is the FUNCTION_DECL of the friend being added.  */
+   DECL is the FUNCTION_DECL of the friend being added.
+
+   If COMPLAIN is true, warning about duplicate friend is issued.
+   We want to have this diagnostics during parsing but not
+   when a template is being instantiated.  */
 
 void
-add_friend (type, decl)
-     tree type, decl;
+add_friend (tree type, tree decl, bool complain)
 {
   tree typedecl;
   tree list;
@@ -152,27 +157,33 @@ add_friend (type, decl)
 	    {
 	      if (decl == TREE_VALUE (friends))
 		{
-		  warning ("`%D' is already a friend of class `%T'",
-			      decl, type);
-		  cp_warning_at ("previous friend declaration of `%D'",
-				 TREE_VALUE (friends));
+		  if (complain)
+		    {
+		      warning ("`%D' is already a friend of class `%T'",
+			       decl, type);
+		      cp_warning_at ("previous friend declaration of `%D'",
+				     TREE_VALUE (friends));
+		    }
 		  return;
 		}
 	    }
 
 	  maybe_add_class_template_decl_list (type, decl, /*friend_p=*/1);
 
-	  TREE_VALUE (list) = tree_cons (error_mark_node, decl,
+	  TREE_VALUE (list) = tree_cons (NULL_TREE, decl,
 					 TREE_VALUE (list));
 	  return;
 	}
       list = TREE_CHAIN (list);
     }
 
+  if (DECL_CLASS_SCOPE_P (decl))
+    perform_or_defer_access_check (TYPE_BINFO (DECL_CONTEXT (decl)), decl);
+
   maybe_add_class_template_decl_list (type, decl, /*friend_p=*/1);
 
   DECL_FRIENDLIST (typedecl)
-    = tree_cons (DECL_NAME (decl), build_tree_list (error_mark_node, decl),
+    = tree_cons (DECL_NAME (decl), build_tree_list (NULL_TREE, decl),
 		 DECL_FRIENDLIST (typedecl));
   if (!uses_template_parms (type))
     DECL_BEFRIENDING_CLASSES (decl) 
@@ -188,11 +199,14 @@ add_friend (type, decl)
    classes that are not defined.  If a type has not yet been defined,
    then the DECL_WAITING_FRIENDS contains a list of types
    waiting to make it their friend.  Note that these two can both
-   be in use at the same time!  */
+   be in use at the same time!
+
+   If COMPLAIN is true, warning about duplicate friend is issued.
+   We want to have this diagnostics during parsing but not
+   when a template is being instantiated.  */
 
 void
-make_friend_class (type, friend_type)
-     tree type, friend_type;
+make_friend_class (tree type, tree friend_type, bool complain)
 {
   tree classes;
   int is_template_friend;
@@ -203,28 +217,30 @@ make_friend_class (type, friend_type)
       return;
     }
 
-  if (CLASS_TYPE_P (friend_type)
-      && CLASSTYPE_TEMPLATE_SPECIALIZATION (friend_type)
-      && uses_template_parms (friend_type))
-    {
-      /* [temp.friend]
-	 
-	 Friend declarations shall not declare partial
-	 specializations.  */
-      error ("partial specialization `%T' declared `friend'",
-		friend_type);
-      return;
-    }
-  
   if (processing_template_decl > template_class_depth (type))
     /* If the TYPE is a template then it makes sense for it to be
        friends with itself; this means that each instantiation is
        friends with all other instantiations.  */
-    is_template_friend = 1;
+    {
+      if (CLASS_TYPE_P (friend_type)
+	  && CLASSTYPE_TEMPLATE_SPECIALIZATION (friend_type)
+	  && uses_template_parms (friend_type))
+	{
+	  /* [temp.friend]
+	     Friend declarations shall not declare partial
+	     specializations.  */
+	  error ("partial specialization `%T' declared `friend'",
+		 friend_type);
+	  return;
+	}
+  
+      is_template_friend = 1;
+    }
   else if (same_type_p (type, friend_type))
     {
-      pedwarn ("class `%T' is implicitly friends with itself",
-	          type);
+      if (complain)
+	pedwarn ("class `%T' is implicitly friends with itself",
+		 type);
       return;
     }
   else
@@ -260,17 +276,36 @@ make_friend_class (type, friend_type)
   if (is_template_friend)
     friend_type = CLASSTYPE_TI_TEMPLATE (friend_type);
 
-  classes = CLASSTYPE_FRIEND_CLASSES (type);
-  while (classes 
-	 /* Stop if we find the same type on the list.  */
-	 && !(TREE_CODE (TREE_VALUE (classes)) == TEMPLATE_DECL ?
-	      friend_type == TREE_VALUE (classes) :
-	      same_type_p (TREE_VALUE (classes), friend_type)))
-    classes = TREE_CHAIN (classes);
-  if (classes) 
-    warning ("`%T' is already a friend of `%T'",
-		TREE_VALUE (classes), type);
-  else
+  /* See if it is already a friend.  */
+  for (classes = CLASSTYPE_FRIEND_CLASSES (type);
+       classes;
+       classes = TREE_CHAIN (classes))
+    {
+      tree probe = TREE_VALUE (classes);
+
+      if (TREE_CODE (friend_type) == TEMPLATE_DECL)
+	{
+	  if (friend_type == probe)
+	    {
+	      if (complain)
+		warning ("`%D' is already a friend of `%T'",
+			 probe, type);
+	      break;
+	    }
+	}
+      else if (TREE_CODE (probe) != TEMPLATE_DECL)
+	{
+	  if (same_type_p (probe, friend_type))
+	    {
+	      if (complain)
+		warning ("`%T' is already a friend of `%T'",
+			 probe, type);
+	      break;
+	    }
+	}
+    }
+  
+  if (!classes) 
     {
       maybe_add_class_template_decl_list (type, friend_type, /*friend_p=*/1);
 
@@ -285,10 +320,7 @@ make_friend_class (type, friend_type)
     }
 }
 
-/* Main friend processor.  This is large, and for modularity purposes,
-   has been removed from grokdeclarator.  It returns `void_type_node'
-   to indicate that something happened, though a FIELD_DECL is
-   not returned.
+/* Main friend processor. 
 
    CTYPE is the class this friend belongs to.
 
@@ -306,12 +338,9 @@ make_friend_class (type, friend_type)
    pointed to by `this'.  */
 
 tree
-do_friend (ctype, declarator, decl, parmdecls, attrlist,
-	   flags, quals, funcdef_flag)
-     tree ctype, declarator, decl, parmdecls, attrlist;
-     enum overload_flags flags;
-     tree quals;
-     int funcdef_flag;
+do_friend (tree ctype, tree declarator, tree decl, tree parmdecls,
+	   tree attrlist, enum overload_flags flags, tree quals,
+	   int funcdef_flag)
 {
   int is_friend_template = 0;
 
@@ -321,8 +350,6 @@ do_friend (ctype, declarator, decl, parmdecls, attrlist,
   if (TREE_CODE (declarator) == TEMPLATE_ID_EXPR)
     {
       declarator = TREE_OPERAND (declarator, 0);
-      if (TREE_CODE (declarator) == LOOKUP_EXPR)
-	declarator = TREE_OPERAND (declarator, 0);
       if (is_overloaded_fn (declarator))
 	declarator = DECL_NAME (get_first_fn (declarator));
     }
@@ -347,6 +374,8 @@ do_friend (ctype, declarator, decl, parmdecls, attrlist,
 
       if (is_friend_template)
 	decl = DECL_TI_TEMPLATE (push_template_decl (decl));
+      else if (DECL_TEMPLATE_INFO (decl))
+	;
       else if (template_class_depth (current_class_type))
 	decl = push_template_decl_real (decl, /*is_friend=*/1);
 
@@ -354,7 +383,7 @@ do_friend (ctype, declarator, decl, parmdecls, attrlist,
 	 parameters.  Instead, we rely on tsubst_friend_function
 	 to check the validity of the declaration later.  */
       if (processing_template_decl)
-	add_friend (current_class_type, decl);
+	add_friend (current_class_type, decl, /*complain=*/true);
       /* A nested class may declare a member of an enclosing class
 	 to be a friend, so we do lookup here even if CTYPE is in
 	 the process of being defined.  */
@@ -363,7 +392,7 @@ do_friend (ctype, declarator, decl, parmdecls, attrlist,
 	  decl = check_classfn (ctype, decl);
 
 	  if (decl)
-	    add_friend (current_class_type, decl);
+	    add_friend (current_class_type, decl, /*complain=*/true);
 	}
       else
 	error ("member `%D' declared as friend before type `%T' defined",
@@ -431,7 +460,8 @@ do_friend (ctype, declarator, decl, parmdecls, attrlist,
 	}
 
       add_friend (current_class_type, 
-		  is_friend_template ? DECL_TI_TEMPLATE (decl) : decl);
+		  is_friend_template ? DECL_TI_TEMPLATE (decl) : decl,
+		  /*complain=*/true);
       DECL_FRIEND_P (decl) = 1;
     }
 

@@ -5,20 +5,20 @@
    Additional Work by Glenn Colon-Bonet, Jonathan Shapiro, Andy Wilson
    Converted to GCC 2.0 by Jim Wilson and Michael Tiemann, Cygnus Support.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -60,7 +60,6 @@ extern int arith32_operand PARAMS ((rtx, enum machine_mode));
 extern int power2_operand PARAMS ((rtx, enum machine_mode));
 extern int cmplpower2_operand PARAMS ((rtx, enum machine_mode));
 extern enum machine_mode select_cc_mode PARAMS ((RTX_CODE, rtx));
-extern int i960_address_cost PARAMS ((rtx));
 extern int emit_move_sequence PARAMS ((rtx *, enum machine_mode));
 extern int i960_bypass PARAMS ((rtx, rtx, rtx, int));
 extern void i960_print_operand_addr PARAMS ((FILE *, rtx));
@@ -98,9 +97,7 @@ extern int compute_frame_size PARAMS ((int));
 extern void output_function_profiler PARAMS ((FILE *, int));
 extern void i960_scan_opcode PARAMS ((const char *));
 
-#ifdef GCC_C_PRAGMA_H
-extern void i960_pr_align PARAMS ((cpp_reader *));
-extern void i960_pr_noalign PARAMS ((cpp_reader *));
-#endif
+extern void i960_pr_align PARAMS ((struct cpp_reader *));
+extern void i960_pr_noalign PARAMS ((struct cpp_reader *));
 
 #endif /* ! GCC_I960_PROTOS_H  */

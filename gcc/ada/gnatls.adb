@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
 --           Copyright (C) 1992-2002 Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
@@ -974,7 +973,7 @@ begin
                Output_Unit (U);
 
                --  Output source now, unless if it will be done as part of
-               --  outputing dependencies.
+               --  outputting dependencies.
 
                if not (Dependable and then Print_Source) then
                   Output_Source (Corresponding_Sdep_Entry (Id, U));

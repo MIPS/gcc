@@ -2,20 +2,20 @@
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -30,7 +30,6 @@ Boston, MA 02111-1307, USA.  */
 #undef PTRDIFF_TYPE
 #undef WCHAR_TYPE
 #undef WCHAR_TYPE_SIZE
-#undef ASM_FILE_START
 #undef ASM_OUTPUT_EXTERNAL_LIBCALL
 #undef TARGET_VERSION
 #undef CPP_SPEC
@@ -105,14 +104,21 @@ Boston, MA 02111-1307, USA.  */
 
 /* Names to predefine in the preprocessor for this target machine.  */
 /* __M32R__ is defined by the existing compiler so we use that.  */
-#define CPP_PREDEFINES "-Acpu=m32r -Amachine=m32r -D__M32R__"
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define ("__M32R__");		\
+      builtin_assert ("cpu=m32r");		\
+      builtin_assert ("machine=m32r");		\
+    }						\
+  while (0)
 
 /* This macro defines names of additional specifications to put in the specs
    that can be used in various specifications like CC1_SPEC.  Its definition
    is an initializer with a subgrouping for each command option.
 
    Each subgrouping contains a string constant, that defines the
-   specification name, and a string constant that used by the GNU CC driver
+   specification name, and a string constant that used by the GCC driver
    program.
 
    Do not define this macro if it does not need to do anything.  */
@@ -168,8 +174,6 @@ Boston, MA 02111-1307, USA.  */
 /* Options to pass on to the assembler.  */
 #undef  ASM_SPEC
 #define ASM_SPEC "%{v} %(asm_cpu) %(relax)"
-
-#undef  ASM_FINAL_SPEC
 
 #define LINK_SPEC "%{v} %(link_cpu) %(relax)"
 
@@ -262,9 +266,9 @@ extern const char * m32r_sdata_string;
 #define TARGET_OPTIONS							\
 {									\
   { "model=", & m32r_model_string,					\
-    N_("Code size: small, medium or large") },				\
+    N_("Code size: small, medium or large"), 0},			\
   { "sdata=", & m32r_sdata_string,					\
-    N_("Small data area: none, sdata, use") }				\
+    N_("Small data area: none, sdata, use"), 0}				\
   SUBTARGET_OPTIONS							\
 }
 
@@ -343,9 +347,6 @@ extern enum m32r_model m32r_model;
 #define SDATA_DEFAULT_SIZE 8
 #endif
 
-extern int g_switch_value;		/* value of the -G xx switch */
-extern int g_switch_set;		/* whether -G xx was passed.  */
-
 enum m32r_sdata { M32R_SDATA_NONE, M32R_SDATA_SDATA, M32R_SDATA_USE };
 
 extern enum m32r_sdata m32r_sdata;
@@ -415,7 +416,7 @@ extern enum m32r_sdata m32r_sdata;
   while (0)
 
 /* Define this macro if debugging can be performed even without a
-   frame pointer.  If this macro is defined, GNU CC will turn on the
+   frame pointer.  If this macro is defined, GCC will turn on the
    `-fomit-frame-pointer' option whenever `-O' is specified.  */
 #define CAN_DEBUG_WITHOUT_FP
 
@@ -602,7 +603,7 @@ extern enum m32r_sdata m32r_sdata;
 #endif
 
 /* If defined, an initializer for a vector of integers, containing the
-   numbers of hard registers in the order in which GNU CC should
+   numbers of hard registers in the order in which GCC should
    prefer to use them (from most preferred to least).  */
 
 #ifndef SUBTARGET_REG_ALLOC_ORDER
@@ -653,6 +654,9 @@ extern unsigned int m32r_mode_class[];
  && GET_MODE_CLASS (MODE2) == MODE_INT		\
  && GET_MODE_SIZE (MODE1) <= UNITS_PER_WORD	\
  && GET_MODE_SIZE (MODE2) <= UNITS_PER_WORD)
+
+#define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG) \
+  m32r_hard_regno_rename_ok (OLD_REG, NEW_REG)
 
 /* Register classes and constants.  */
 
@@ -1074,7 +1078,7 @@ M32R_STACK_ALIGN (current_function_outgoing_args_size)
 #define ROUND_ADVANCE_ARG(MODE, TYPE) \
   ((MODE) == BLKmode				\
    ? ROUND_ADVANCE ((unsigned int) int_size_in_bytes (TYPE))	\
-   : ROUND_ADVANCE (GET_MODE_SIZE (MODE)))
+   : ROUND_ADVANCE ((unsigned int) GET_MODE_SIZE (MODE)))
 
 /* Round CUM up to the necessary point for argument MODE/TYPE.  */
 #define ROUND_ADVANCE_CUM(CUM, MODE, TYPE) (CUM)
@@ -1129,7 +1133,7 @@ M32R_STACK_ALIGN (current_function_outgoing_args_size)
    appropriate for passing a pointer to that type.  */
 /* All arguments greater than 8 bytes are passed this way.  */
 #define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-  ((TYPE) && int_size_in_bytes (TYPE) > 8)
+  ((TYPE) && m32r_pass_by_reference (TYPE))
 
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
@@ -1205,8 +1209,7 @@ M32R_STACK_ALIGN (current_function_outgoing_args_size)
    to return the function value in memory, just as large structures are
    always returned.  Here TYPE will be a C expression of type `tree',
    representing the data type of the value.  */
-#define RETURN_IN_MEMORY(TYPE) \
-(int_size_in_bytes (TYPE) > 8)
+#define RETURN_IN_MEMORY(TYPE) m32r_pass_by_reference (TYPE)
 
 /* Tell GCC to use RETURN_IN_MEMORY.  */
 #define DEFAULT_PCC_STRUCT_RETURN 0
@@ -1420,39 +1423,6 @@ do {									\
 
 /* Costs.  */
 
-/* ??? I'm quite sure I don't understand enough of the subtleties involved
-   in choosing the right numbers to use here, but there doesn't seem to be
-   enough documentation on this.  What I've done is define an insn to cost
-   4 "units" and work from there.  COSTS_N_INSNS (N) is defined as (N) * 4 - 2
-   so that seems reasonable.  Some values are supposed to be defined relative
-   to each other and thus aren't necessarily related to COSTS_N_INSNS.  */
-
-/* Compute the cost of computing a constant rtl expression RTX
-   whose rtx-code is CODE.  The body of this macro is a portion
-   of a switch statement.  If the code is computed here,
-   return it with a return statement.  Otherwise, break from the switch.  */
-/* Small integers are as cheap as registers.  4 byte values can be fetched
-   as immediate constants - let's give that the cost of an extra insn.  */
-#define CONST_COSTS(X, CODE, OUTER_CODE)			\
-  case CONST_INT :						\
-    if (INT16_P (INTVAL (X)))					\
-      return 0;							\
-    /* fall through */						\
-  case CONST :							\
-  case LABEL_REF :						\
-  case SYMBOL_REF :						\
-    return 4;							\
-  case CONST_DOUBLE :						\
-    {								\
-      rtx high, low;						\
-      split_double (X, &high, &low);				\
-      return 4 * (!INT16_P (INTVAL (high))			\
-		  + !INT16_P (INTVAL (low)));			\
-    }
-
-/* Compute the cost of an address.  */
-#define ADDRESS_COST(ADDR) m32r_address_cost (ADDR)
-
 /* Compute extra cost of moving data between one register class
    and another.  */
 #define REGISTER_MOVE_COST(MODE, CLASS1, CLASS2) 2
@@ -1468,21 +1438,6 @@ do {									\
    while (a < N && a).  Branches aren't that expensive on the M32R so
    we define this as 1.  Defining it as 2 had a heavy hit in fp-bit.c.  */
 #define BRANCH_COST ((TARGET_BRANCH_COST) ? 2 : 1)
-
-/* Provide the costs of a rtl expression.  This is in the body of a
-   switch on CODE.  The purpose for the cost of MULT is to encourage
-   `synth_mult' to find a synthetic multiply when reasonable.
-
-   If we need more than 12 insns to do a multiply, then go out-of-line,
-   since the call overhead will be < 10% of the cost of the multiply.  */
-#define RTX_COSTS(X, CODE, OUTER_CODE)	\
-  case MULT :				\
-    return COSTS_N_INSNS (3);		\
-  case DIV :				\
-  case UDIV :				\
-  case MOD :				\
-  case UMOD :				\
-    return COSTS_N_INSNS (10);
 
 /* Nonzero if access to memory by bytes is slow and undesirable.
    For RISC chips, it means that access to memory by bytes is no
@@ -1509,96 +1464,13 @@ do {									\
 
 #define TEXT_SECTION_ASM_OP	"\t.section .text"
 #define DATA_SECTION_ASM_OP	"\t.section .data"
-#define RODATA_SECTION_ASM_OP	"\t.section .rodata"
 #define BSS_SECTION_ASM_OP	"\t.section .bss"
-#define SDATA_SECTION_ASM_OP	"\t.section .sdata"
-#define SBSS_SECTION_ASM_OP	"\t.section .sbss"
-/* This one is for svr4.h.  */
-#undef  READONLY_DATA_SECTION_ASM_OP
-#define READONLY_DATA_SECTION_ASM_OP	"\t.section .rodata"
-
-/* A list of names for sections other than the standard two, which are
-   `in_text' and `in_data'.  You need not define this macro
-   on a system with no other sections (that GCC needs to use).  */
-#undef  EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_sbss
-
-/* One or more functions to be defined in "varasm.c".  These
-   functions should do jobs analogous to those of `text_section' and
-   `data_section', for your additional sections.  Do not define this
-   macro if you do not define `EXTRA_SECTIONS'.  */
-#undef  EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS	\
-  SDATA_SECTION_FUNCTION	\
-  SBSS_SECTION_FUNCTION
-
-#define SDATA_SECTION_FUNCTION						\
-void									\
-sdata_section ()							\
-{									\
-  if (in_section != in_sdata)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", SDATA_SECTION_ASM_OP);		\
-      in_section = in_sdata;						\
-    }									\
-}									\
-
-#define SBSS_SECTION_FUNCTION						\
-void									\
-sbss_section ()								\
-{									\
-  if (in_section != in_sbss)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", SBSS_SECTION_ASM_OP);		\
-      in_section = in_sbss;						\
-    }									\
-}									\
-
-#undef  TARGET_ASM_SELECT_SECTION
-#define TARGET_ASM_SELECT_SECTION  m32r_select_section
 
 /* Define this macro if jump tables (for tablejump insns) should be
    output in the text section, along with the assembler instructions.
    Otherwise, the readonly data section is used.
    This macro is irrelevant if there is no separate readonly data section.  */
 /*#define JUMP_TABLES_IN_TEXT_SECTION*/
-
-/* Define this macro if references to a symbol must be treated
-   differently depending on something about the variable or
-   function named by the symbol (such as what section it is in).
-
-   The macro definition, if any, is executed immediately after the
-   rtl for DECL or other node is created.
-   The value of the rtl will be a `mem' whose address is a
-   `symbol_ref'.
-
-   The usual thing for this macro to do is to store a flag in the
-   `symbol_ref' (such as `SYMBOL_REF_FLAG') or to store a modified
-   name string in the `symbol_ref' (if one bit is not enough
-   information).  */
-
-#define SDATA_FLAG_CHAR '@'
-/* Small objects are recorded with no prefix for space efficiency since
-   they'll be the most common.  This isn't the case if the user passes
-   -mmodel={medium|large} and one could choose to not mark symbols that
-   are the default, but that complicates things.  */
-/*#define SMALL_FLAG_CHAR '#'*/
-#define MEDIUM_FLAG_CHAR '%'
-#define LARGE_FLAG_CHAR '&'
-
-#define SDATA_NAME_P(NAME) (*(NAME) == SDATA_FLAG_CHAR)
-/*#define SMALL_NAME_P(NAME) (*(NAME) == SMALL_FLAG_CHAR)*/
-#define SMALL_NAME_P(NAME) (! ENCODED_NAME_P (NAME) && ! LIT_NAME_P (NAME))
-#define MEDIUM_NAME_P(NAME) (*(NAME) == MEDIUM_FLAG_CHAR)
-#define LARGE_NAME_P(NAME) (*(NAME) == LARGE_FLAG_CHAR)
-/* For string literals, etc.  */
-#define LIT_NAME_P(NAME) ((NAME)[0] == '*' && (NAME)[1] == '.')
-
-#define ENCODED_NAME_P(SYMBOL_NAME) \
-(SDATA_NAME_P (SYMBOL_NAME) \
- /*|| SMALL_NAME_P (SYMBOL_NAME)*/ \
- || MEDIUM_NAME_P (SYMBOL_NAME) \
- || LARGE_NAME_P (SYMBOL_NAME))
 
 /* PIC */
 
@@ -1644,9 +1516,6 @@ sbss_section ()								\
 
 /* Control the assembler format that we output.  */
 
-/* Output at beginning of assembler file.  */
-#define ASM_FILE_START(FILE) m32r_asm_file_start (FILE)
-
 /* A C string constant describing how to begin a comment in the target
    assembler language.  The compiler assumes that the comment will
    end at the end of the line.  */
@@ -1663,12 +1532,6 @@ sbss_section ()								\
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP "\t.global\t"
 
-/* This is how to output a reference to a user-level label named NAME.
-   `assemble_name' uses this.  */
-#undef  ASM_OUTPUT_LABELREF
-#define ASM_OUTPUT_LABELREF(FILE, NAME) \
-  asm_fprintf (FILE, "%U%s", (*targetm.strip_name_encoding) (NAME))
-
 /* If -Os, don't force line number labels to begin at the beginning of
    the word; we still want the assembler to try to put things in parallel,
    should that be possible.
@@ -1678,31 +1541,18 @@ sbss_section ()								\
    of a word.  */
 
 #undef	ASM_OUTPUT_SOURCE_LINE
-#define ASM_OUTPUT_SOURCE_LINE(file, line)				\
+#define ASM_OUTPUT_SOURCE_LINE(file, line, counter)			\
   do									\
     {									\
-      static int sym_lineno = 1;					\
       fprintf (file, ".stabn 68,0,%d,.LM%d-",				\
-	       line, sym_lineno);					\
+	       line, counter);						\
       assemble_name							\
 	(file, XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));	\
       fprintf (file, (optimize_size || TARGET_M32R)			\
 	       ? "\n\t.debugsym .LM%d\n"				\
 	       : "\n.LM%d:\n",						\
-	       sym_lineno);						\
-      sym_lineno += 1;							\
+	       counter);						\
     }									\
-  while (0)
-
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-  do							\
-    {							\
-      (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10);\
-      sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO));	\
-    }							\
   while (0)
 
 /* How to refer to registers in assembler output.
@@ -1837,7 +1687,7 @@ extern char m32r_punct_chars[256];
       else								\
 	fprintf ((FILE), "%s", COMMON_ASM_OP);				\
       assemble_name ((FILE), (NAME));					\
-      fprintf ((FILE), ",%u,%u\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
+      fprintf ((FILE), ",%u,%u\n", (int)(SIZE), (ALIGN) / BITS_PER_UNIT);\
     }									\
   while (0)
 
@@ -1852,7 +1702,6 @@ extern char m32r_punct_chars[256];
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)	\
   do								\
     {								\
-      (*targetm.asm_out.globalize_label) (FILE, NAME);		\
       ASM_OUTPUT_ALIGNED_COMMON (FILE, NAME, SIZE, ALIGN);	\
     }								\
   while (0)
@@ -1907,10 +1756,6 @@ extern char m32r_punct_chars[256];
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
-
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-#define STORE_FLAG_VALUE 1
 
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction

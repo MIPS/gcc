@@ -1,5 +1,5 @@
 /* Branch prediction routines for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,6 +30,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -45,16 +47,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "recog.h"
 #include "expr.h"
 #include "predict.h"
-#include "profile.h"
-#include "real.h"
+#include "coverage.h"
+#include "sreal.h"
 #include "params.h"
 #include "target.h"
 #include "loop.h"
+#include "cfgloop.h"
 
-/* real constants: 0, 1, 1-1/REG_BR_PROB_BASE, REG_BR_PROB_BASE, 0.5,
-                   REAL_BB_FREQ_MAX.  */
-static REAL_VALUE_TYPE real_zero, real_one, real_almost_one, real_br_prob_base,
-		       real_one_half, real_bb_freq_max;
+/* real constants: 0, 1, 1-1/REG_BR_PROB_BASE, REG_BR_PROB_BASE,
+		   1/REG_BR_PROB_BASE, 0.5, BB_FREQ_MAX.  */
+static sreal real_zero, real_one, real_almost_one, real_br_prob_base,
+	     real_inv_br_prob_base, real_one_half, real_bb_freq_max;
 
 /* Random guesstimation given names.  */
 #define PROB_VERY_UNLIKELY	(REG_BR_PROB_BASE / 10 - 1)
@@ -62,25 +65,21 @@ static REAL_VALUE_TYPE real_zero, real_one, real_almost_one, real_br_prob_base,
 #define PROB_VERY_LIKELY	(REG_BR_PROB_BASE - PROB_VERY_UNLIKELY)
 #define PROB_ALWAYS		(REG_BR_PROB_BASE)
 
-static bool predicted_by_p		 PARAMS ((basic_block,
-						  enum br_predictor));
-static void combine_predictions_for_insn PARAMS ((rtx, basic_block));
-static void dump_prediction		 PARAMS ((enum br_predictor, int,
-						  basic_block, int));
-static void estimate_loops_at_level	 PARAMS ((struct loop *loop));
-static void propagate_freq		 PARAMS ((struct loop *));
-static void estimate_bb_frequencies	 PARAMS ((struct loops *));
-static void counts_to_freqs		 PARAMS ((void));
-static void process_note_predictions	 PARAMS ((basic_block, int *,
-						  dominance_info,
-						  dominance_info));
-static void process_note_prediction	 PARAMS ((basic_block, int *, 
-						  dominance_info,
-						  dominance_info, int, int));
-static bool last_basic_block_p           PARAMS ((basic_block));
-static void compute_function_frequency	 PARAMS ((void));
-static void choose_function_section	 PARAMS ((void));
-static bool can_predict_insn_p		 PARAMS ((rtx));
+static bool predicted_by_p (basic_block, enum br_predictor);
+static void combine_predictions_for_insn (rtx, basic_block);
+static void dump_prediction (enum br_predictor, int, basic_block, int);
+static void estimate_loops_at_level (struct loop *loop);
+static void propagate_freq (struct loop *);
+static void estimate_bb_frequencies (struct loops *);
+static void counts_to_freqs (void);
+static void process_note_predictions (basic_block, int *, dominance_info,
+				      dominance_info);
+static void process_note_prediction (basic_block, int *, dominance_info,
+				     dominance_info, int, int);
+static bool last_basic_block_p (basic_block);
+static void compute_function_frequency (void);
+static void choose_function_section (void);
+static bool can_predict_insn_p (rtx);
 
 /* Information we hold about each branch predictor.
    Filled using information from predict.def.  */
@@ -111,17 +110,14 @@ static const struct predictor_info predictor_info[]= {
 #undef DEF_PREDICTOR
 
 /* Return true in case BB can be CPU intensive and should be optimized
-   for maximal perofmrance.  */
+   for maximal performance.  */
 
 bool
-maybe_hot_bb_p (bb)
-     basic_block bb;
+maybe_hot_bb_p (basic_block bb)
 {
-  if (profile_info.count_profiles_merged
-      && flag_branch_probabilities
+  if (profile_info && flag_branch_probabilities
       && (bb->count
-	  < profile_info.max_counter_in_program
-	  / PARAM_VALUE (HOT_BB_COUNT_FRACTION)))
+	  < profile_info->sum_max / PARAM_VALUE (HOT_BB_COUNT_FRACTION)))
     return false;
   if (bb->frequency < BB_FREQ_MAX / PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION))
     return false;
@@ -131,14 +127,11 @@ maybe_hot_bb_p (bb)
 /* Return true in case BB is cold and should be optimized for size.  */
 
 bool
-probably_cold_bb_p (bb)
-     basic_block bb;
+probably_cold_bb_p (basic_block bb)
 {
-  if (profile_info.count_profiles_merged
-      && flag_branch_probabilities
+  if (profile_info && flag_branch_probabilities
       && (bb->count
-	  < profile_info.max_counter_in_program
-	  / PARAM_VALUE (HOT_BB_COUNT_FRACTION)))
+	  < profile_info->sum_max / PARAM_VALUE (HOT_BB_COUNT_FRACTION)))
     return true;
   if (bb->frequency < BB_FREQ_MAX / PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION))
     return true;
@@ -147,13 +140,10 @@ probably_cold_bb_p (bb)
 
 /* Return true in case BB is probably never executed.  */
 bool
-probably_never_executed_bb_p (bb)
-	basic_block bb;
+probably_never_executed_bb_p (basic_block bb)
 {
-  if (profile_info.count_profiles_merged
-      && flag_branch_probabilities)
-    return ((bb->count + profile_info.count_profiles_merged / 2)
-	    / profile_info.count_profiles_merged) == 0;
+  if (profile_info && flag_branch_probabilities)
+    return ((bb->count + profile_info->runs / 2) / profile_info->runs) == 0;
   return false;
 }
 
@@ -161,9 +151,7 @@ probably_never_executed_bb_p (bb)
    PREDICTOR.  */
 
 static bool
-predicted_by_p (bb, predictor)
-     basic_block bb;
-     enum br_predictor predictor;
+predicted_by_p (basic_block bb, enum br_predictor predictor)
 {
   rtx note;
   if (!INSN_P (bb->end))
@@ -176,13 +164,12 @@ predicted_by_p (bb, predictor)
 }
 
 void
-predict_insn (insn, predictor, probability)
-     rtx insn;
-     int probability;
-     enum br_predictor predictor;
+predict_insn (rtx insn, enum br_predictor predictor, int probability)
 {
   if (!any_condjump_p (insn))
     abort ();
+  if (!flag_guess_branch_prob)
+    return;
 
   REG_NOTES (insn)
     = gen_rtx_EXPR_LIST (REG_BR_PRED,
@@ -195,10 +182,8 @@ predict_insn (insn, predictor, probability)
 /* Predict insn by given predictor.  */
 
 void
-predict_insn_def (insn, predictor, taken)
-     rtx insn;
-     enum br_predictor predictor;
-     enum prediction taken;
+predict_insn_def (rtx insn, enum br_predictor predictor,
+		  enum prediction taken)
 {
    int probability = predictor_info[(int) predictor].hitrate;
 
@@ -211,10 +196,7 @@ predict_insn_def (insn, predictor, taken)
 /* Predict edge E with given probability if possible.  */
 
 void
-predict_edge (e, predictor, probability)
-     edge e;
-     int probability;
-     enum br_predictor predictor;
+predict_edge (edge e, enum br_predictor predictor, int probability)
 {
   rtx last_insn;
   last_insn = e->src->end;
@@ -235,8 +217,7 @@ predict_edge (e, predictor, probability)
    At the moment we represent predictions only on conditional
    jumps, not at computed jump or other complicated cases.  */
 static bool
-can_predict_insn_p (insn)
-	rtx insn;
+can_predict_insn_p (rtx insn)
 {
   return (GET_CODE (insn) == JUMP_INSN
 	  && any_condjump_p (insn)
@@ -246,10 +227,8 @@ can_predict_insn_p (insn)
 /* Predict edge E by given predictor if possible.  */
 
 void
-predict_edge_def (e, predictor, taken)
-     edge e;
-     enum br_predictor predictor;
-     enum prediction taken;
+predict_edge_def (edge e, enum br_predictor predictor,
+		  enum prediction taken)
 {
    int probability = predictor_info[(int) predictor].hitrate;
 
@@ -263,8 +242,7 @@ predict_edge_def (e, predictor, taken)
    to be done each time we invert the condition used by the jump.  */
 
 void
-invert_br_probabilities (insn)
-     rtx insn;
+invert_br_probabilities (rtx insn)
 {
   rtx note;
 
@@ -279,11 +257,8 @@ invert_br_probabilities (insn)
 /* Dump information about the branch prediction to the output file.  */
 
 static void
-dump_prediction (predictor, probability, bb, used)
-     enum br_predictor predictor;
-     int probability;
-     basic_block bb;
-     int used;
+dump_prediction (enum br_predictor predictor, int probability,
+		 basic_block bb, int used)
 {
   edge e = bb->succ;
 
@@ -316,9 +291,7 @@ dump_prediction (predictor, probability, bb, used)
    note if not already present.  Remove now useless REG_BR_PRED notes.  */
 
 static void
-combine_predictions_for_insn (insn, bb)
-     rtx insn;
-     basic_block bb;
+combine_predictions_for_insn (rtx insn, basic_block bb)
 {
   rtx prob_note = find_reg_note (insn, REG_BR_PROB, 0);
   rtx *pnote = &REG_NOTES (insn);
@@ -418,12 +391,11 @@ combine_predictions_for_insn (insn, bb)
    predictions).  */
 
 void
-estimate_probability (loops_info)
-     struct loops *loops_info;
+estimate_probability (struct loops *loops_info)
 {
   dominance_info dominators, post_dominators;
   basic_block bb;
-  int i;
+  unsigned i;
 
   connect_infinite_loops_to_exit ();
   dominators = calculate_dominance_info (CDI_DOMINATORS);
@@ -434,12 +406,32 @@ estimate_probability (loops_info)
   for (i = 1; i < loops_info->num; i++)
     {
       basic_block bb, *bbs;
-      int j;
+      unsigned j;
       int exits;
       struct loop *loop = loops_info->parray[i];
+      struct loop_desc desc;
+      unsigned HOST_WIDE_INT niter;
 
       flow_loop_scan (loops_info, loop, LOOP_EXIT_EDGES);
       exits = loop->num_exits;
+
+      if (simple_loop_p (loops_info, loop, &desc)
+	  && desc.const_iter)
+	{
+	  int prob;
+	  niter = desc.niter + 1;
+	  if (niter == 0)        /* We might overflow here.  */
+	    niter = desc.niter;
+
+	  prob = (REG_BR_PROB_BASE
+		  - (REG_BR_PROB_BASE + niter /2) / niter);
+	  /* Branch prediction algorithm gives 0 frequency for everything
+	     after the end of loop for loop having 0 probability to finish.  */
+	  if (prob == REG_BR_PROB_BASE)
+	    prob = REG_BR_PROB_BASE - 1;
+	  predict_edge (desc.in_edge, PRED_LOOP_ITERATIONS,
+			prob);
+	}
 
       bbs = get_loop_body (loop);
       for (j = 0; j < loop->num_nodes; j++)
@@ -468,7 +460,7 @@ estimate_probability (loops_info)
 	      }
 
 	  /* Loop exit heuristics - predict an edge exiting the loop if the
-	     conditinal has no loop header successors as not taken.  */
+	     conditional has no loop header successors as not taken.  */
 	  if (!header_found)
 	    for (e = bb->succ; e; e = e->succ_next)
 	      if (e->dest->index < 0
@@ -530,7 +522,7 @@ estimate_probability (loops_info)
 	    }
 	}
 
-      cond = get_condition (last_insn, &earliest);
+      cond = get_condition (last_insn, &earliest, false);
       if (! cond)
 	continue;
 
@@ -563,12 +555,12 @@ estimate_probability (loops_info)
 	  case EQ:
 	  case UNEQ:
 	    /* Floating point comparisons appears to behave in a very
-	       inpredictable way because of special role of = tests in
+	       unpredictable way because of special role of = tests in
 	       FP code.  */
 	    if (FLOAT_MODE_P (GET_MODE (XEXP (cond, 0))))
 	      ;
 	    /* Comparisons with 0 are often used for booleans and there is
-	       nothing usefull to predict about them.  */
+	       nothing useful to predict about them.  */
 	    else if (XEXP (cond, 1) == const0_rtx
 		     || XEXP (cond, 0) == const0_rtx)
 	      ;
@@ -579,12 +571,12 @@ estimate_probability (loops_info)
 	  case NE:
 	  case LTGT:
 	    /* Floating point comparisons appears to behave in a very
-	       inpredictable way because of special role of = tests in
+	       unpredictable way because of special role of = tests in
 	       FP code.  */
 	    if (FLOAT_MODE_P (GET_MODE (XEXP (cond, 0))))
 	      ;
 	    /* Comparisons with 0 are often used for booleans and there is
-	       nothing usefull to predict about them.  */
+	       nothing useful to predict about them.  */
 	    else if (XEXP (cond, 1) == const0_rtx
 		     || XEXP (cond, 0) == const0_rtx)
 	      ;
@@ -638,7 +630,7 @@ estimate_probability (loops_info)
    values.  */
 
 void
-expected_value_to_br_prob ()
+expected_value_to_br_prob (void)
 {
   rtx insn, cond, ev = NULL_RTX, ev_reg = NULL_RTX;
 
@@ -686,7 +678,7 @@ expected_value_to_br_prob ()
 		(lt r70, r71)
 	 Could use cselib to try and reduce this further.  */
       cond = XEXP (SET_SRC (pc_set (insn)), 0);
-      cond = canonicalize_condition (insn, cond, 0, NULL, ev_reg);
+      cond = canonicalize_condition (insn, cond, 0, NULL, ev_reg, false);
       if (! cond || XEXP (cond, 0) != ev_reg
 	  || GET_CODE (XEXP (cond, 1)) != CONST_INT)
 	continue;
@@ -706,11 +698,10 @@ expected_value_to_br_prob ()
     }
 }
 
-/* Check whether this is the last basic block of function.  Commonly tehre
-   is one extra common cleanup block.  */
+/* Check whether this is the last basic block of function.  Commonly
+   there is one extra common cleanup block.  */
 static bool
-last_basic_block_p (bb)
-     basic_block bb;
+last_basic_block_p (basic_block bb)
 {
   if (bb == EXIT_BLOCK_PTR)
     return false;
@@ -721,20 +712,17 @@ last_basic_block_p (bb)
 	      && bb->succ->dest->next_bb == EXIT_BLOCK_PTR));
 }
 
-/* Sets branch probabilities according to PREDiction and FLAGS. HEADS[bb->index]
-   should be index of basic block in that we need to alter branch predictions
-   (i.e. the first of our dominators such that we do not post-dominate it)
-   (but we fill this information on demand, so -1 may be there in case this
-   was not needed yet).  */
+/* Sets branch probabilities according to PREDiction and
+   FLAGS. HEADS[bb->index] should be index of basic block in that we
+   need to alter branch predictions (i.e. the first of our dominators
+   such that we do not post-dominate it) (but we fill this information
+   on demand, so -1 may be there in case this was not needed yet).  */
 
 static void
-process_note_prediction (bb, heads, dominators, post_dominators, pred, flags)
-     basic_block bb;
-     int *heads;
-     dominance_info dominators;
-     dominance_info post_dominators;
-     int pred;
-     int flags;
+process_note_prediction (basic_block bb, int *heads,
+			 dominance_info dominators,
+			 dominance_info post_dominators, int pred,
+			 int flags)
 {
   edge e;
   int y;
@@ -790,16 +778,14 @@ process_note_prediction (bb, heads, dominators, post_dominators, pred, flags)
    process_note_prediction.  */
 
 static void
-process_note_predictions (bb, heads, dominators, post_dominators)
-     basic_block bb;
-     int *heads;
-     dominance_info dominators;
-     dominance_info post_dominators;
+process_note_predictions (basic_block bb, int *heads,
+			  dominance_info dominators,
+			  dominance_info post_dominators)
 {
   rtx insn;
   edge e;
 
-  /* Additionaly, we check here for blocks with no successors.  */
+  /* Additionally, we check here for blocks with no successors.  */
   int contained_noreturn_call = 0;
   int was_bb_head = 0;
   int noreturn_block = 1;
@@ -852,7 +838,7 @@ process_note_predictions (bb, heads, dominators, post_dominators)
    branch probabilities.  */
 
 void
-note_prediction_to_br_prob ()
+note_prediction_to_br_prob (void)
 {
   basic_block bb;
   dominance_info post_dominators, dominators;
@@ -887,7 +873,7 @@ note_prediction_to_br_prob ()
 typedef struct block_info_def
 {
   /* Estimated frequency of execution of basic_block.  */
-  REAL_VALUE_TYPE frequency;
+  sreal frequency;
 
   /* To keep queue of basic blocks to process.  */
   basic_block next;
@@ -905,7 +891,7 @@ typedef struct edge_info_def
   /* In case edge is an loopback edge, the probability edge will be reached
      in case header is.  Estimated number of iterations of the loop can be
      then computed as 1 / (1 - back_edge_prob).  */
-  REAL_VALUE_TYPE back_edge_prob;
+  sreal back_edge_prob;
   /* True if the edge is an loopback edge in the natural loop.  */
   int back_edge:1;
 } *edge_info;
@@ -917,8 +903,7 @@ typedef struct edge_info_def
    Propagate the frequencies for LOOP.  */
 
 static void
-propagate_freq (loop)
-     struct loop *loop;
+propagate_freq (struct loop *loop)
 {
   basic_block head = loop->header;
   basic_block bb;
@@ -950,7 +935,7 @@ propagate_freq (loop)
   last = head;
   for (bb = head; bb; bb = nextbb)
     {
-      REAL_VALUE_TYPE cyclic_probability, frequency;
+      sreal cyclic_probability, frequency;
 
       memcpy (&cyclic_probability, &real_zero, sizeof (real_zero));
       memcpy (&frequency, &real_zero, sizeof (real_zero));
@@ -970,36 +955,43 @@ propagate_freq (loop)
 	  for (e = bb->pred; e; e = e->pred_next)
 	    if (EDGE_INFO (e)->back_edge)
 	      {
-		REAL_ARITHMETIC (cyclic_probability, PLUS_EXPR,
-				 cyclic_probability,
-				 EDGE_INFO (e)->back_edge_prob);
+		sreal_add (&cyclic_probability, &cyclic_probability,
+			   &EDGE_INFO (e)->back_edge_prob);
 	      }
 	    else if (!(e->flags & EDGE_DFS_BACK))
 	      {
-		REAL_VALUE_TYPE tmp;
+		sreal tmp;
 
 		/*  frequency += (e->probability
 				  * BLOCK_INFO (e->src)->frequency /
 				  REG_BR_PROB_BASE);  */
 
-		REAL_VALUE_FROM_INT (tmp, e->probability, 0,
-				     TYPE_MODE (double_type_node));
-		REAL_ARITHMETIC (tmp, MULT_EXPR, tmp,
-				 BLOCK_INFO (e->src)->frequency);
-		REAL_ARITHMETIC (tmp, RDIV_EXPR, tmp, real_br_prob_base);
-		REAL_ARITHMETIC (frequency, PLUS_EXPR, frequency, tmp);
+		sreal_init (&tmp, e->probability, 0);
+		sreal_mul (&tmp, &tmp, &BLOCK_INFO (e->src)->frequency);
+		sreal_mul (&tmp, &tmp, &real_inv_br_prob_base);
+		sreal_add (&frequency, &frequency, &tmp);
 	      }
 
-	  if (REAL_VALUES_LESS (real_almost_one, cyclic_probability))
-	    memcpy (&cyclic_probability, &real_almost_one, sizeof (real_zero));
+	  if (sreal_compare (&cyclic_probability, &real_zero) == 0)
+	    {
+	      memcpy (&BLOCK_INFO (bb)->frequency, &frequency,
+		      sizeof (frequency));
+	    }
+	  else
+	    {
+	      if (sreal_compare (&cyclic_probability, &real_almost_one) > 0)
+		{
+		  memcpy (&cyclic_probability, &real_almost_one,
+			  sizeof (real_almost_one));
+		}
 
-	  /* BLOCK_INFO (bb)->frequency = frequency / (1 - cyclic_probability)
-	   */
+	      /* BLOCK_INFO (bb)->frequency = frequency
+					      / (1 - cyclic_probability) */
 
-	  REAL_ARITHMETIC (cyclic_probability, MINUS_EXPR, real_one,
-			   cyclic_probability);
-	  REAL_ARITHMETIC (BLOCK_INFO (bb)->frequency,
-			   RDIV_EXPR, frequency, cyclic_probability);
+	      sreal_sub (&cyclic_probability, &real_one, &cyclic_probability);
+	      sreal_div (&BLOCK_INFO (bb)->frequency,
+			 &frequency, &cyclic_probability);
+	    }
 	}
 
       BLOCK_INFO (bb)->tovisit = 0;
@@ -1008,18 +1000,16 @@ propagate_freq (loop)
       for (e = bb->succ; e; e = e->succ_next)
 	if (e->dest == head)
 	  {
-	    REAL_VALUE_TYPE tmp;
+	    sreal tmp;
 
 	    /* EDGE_INFO (e)->back_edge_prob
 		  = ((e->probability * BLOCK_INFO (bb)->frequency)
 		     / REG_BR_PROB_BASE); */
-	    REAL_VALUE_FROM_INT (tmp, e->probability, 0,
-				 TYPE_MODE (double_type_node));
-	    REAL_ARITHMETIC (tmp, MULT_EXPR, tmp,
-			     BLOCK_INFO (bb)->frequency);
-	    REAL_ARITHMETIC (EDGE_INFO (e)->back_edge_prob,
-			     RDIV_EXPR, tmp, real_br_prob_base);
 
+	    sreal_init (&tmp, e->probability, 0);
+	    sreal_mul (&tmp, &tmp, &BLOCK_INFO (bb)->frequency);
+	    sreal_mul (&EDGE_INFO (e)->back_edge_prob,
+		       &tmp, &real_inv_br_prob_base);
 	  }
 
       /* Propagate to successor blocks.  */
@@ -1044,8 +1034,7 @@ propagate_freq (loop)
 /* Estimate probabilities of loopback edges in loops at same nest level.  */
 
 static void
-estimate_loops_at_level (first_loop)
-     struct loop *first_loop;
+estimate_loops_at_level (struct loop *first_loop)
 {
   struct loop *loop;
 
@@ -1053,10 +1042,10 @@ estimate_loops_at_level (first_loop)
     {
       edge e;
       basic_block *bbs;
-      int i;
+      unsigned i;
 
       estimate_loops_at_level (loop->inner);
-      
+
       if (loop->latch->succ)  /* Do not do this for dummy function loop.  */
 	{
 	  /* Find current loop back edge and mark it.  */
@@ -1075,9 +1064,9 @@ estimate_loops_at_level (first_loop)
 /* Convert counts measured by profile driven feedback to frequencies.  */
 
 static void
-counts_to_freqs ()
+counts_to_freqs (void)
 {
-  HOST_WIDEST_INT count_max = 1;
+  gcov_type count_max = 1;
   basic_block bb;
 
   FOR_EACH_BB (bb)
@@ -1089,12 +1078,11 @@ counts_to_freqs ()
 
 /* Return true if function is likely to be expensive, so there is no point to
    optimize performance of prologue, epilogue or do inlining at the expense
-   of code size growth.  THRESHOLD is the limit of number of isntructions
+   of code size growth.  THRESHOLD is the limit of number of instructions
    function can execute at average to be still considered not expensive.  */
 
 bool
-expensive_function_p (threshold)
-	int threshold;
+expensive_function_p (int threshold)
 {
   unsigned int sum = 0;
   basic_block bb;
@@ -1133,27 +1121,28 @@ expensive_function_p (threshold)
 /* Estimate basic blocks frequency by given branch probabilities.  */
 
 static void
-estimate_bb_frequencies (loops)
-     struct loops *loops;
+estimate_bb_frequencies (struct loops *loops)
 {
   basic_block bb;
-  REAL_VALUE_TYPE freq_max;
-  enum machine_mode double_mode = TYPE_MODE (double_type_node);
+  sreal freq_max;
 
   if (flag_branch_probabilities)
     counts_to_freqs ();
   else
     {
-      REAL_VALUE_FROM_INT (real_zero, 0, 0, double_mode);
-      REAL_VALUE_FROM_INT (real_one, 1, 0, double_mode);
-      REAL_VALUE_FROM_INT (real_br_prob_base, REG_BR_PROB_BASE, 0, double_mode);
-      REAL_VALUE_FROM_INT (real_bb_freq_max, BB_FREQ_MAX, 0, double_mode);
-      REAL_VALUE_FROM_INT (real_one_half, 2, 0, double_mode);
+      static int real_values_initialized = 0;
 
-      REAL_ARITHMETIC (real_one_half, RDIV_EXPR, real_one, real_one_half);
-
-      REAL_ARITHMETIC (real_almost_one, RDIV_EXPR, real_one, real_br_prob_base);
-      REAL_ARITHMETIC (real_almost_one, MINUS_EXPR, real_one, real_almost_one);
+      if (!real_values_initialized)
+        {
+	  real_values_initialized = 1;
+	  sreal_init (&real_zero, 0, 0);
+	  sreal_init (&real_one, 1, 0);
+	  sreal_init (&real_br_prob_base, REG_BR_PROB_BASE, 0);
+	  sreal_init (&real_bb_freq_max, BB_FREQ_MAX, 0);
+	  sreal_init (&real_one_half, 1, -1);
+	  sreal_div (&real_inv_br_prob_base, &real_one, &real_br_prob_base);
+	  sreal_sub (&real_almost_one, &real_one, &real_inv_br_prob_base);
+	}
 
       mark_dfs_back_edges ();
       /* Fill in the probability values in flowgraph based on the REG_BR_PROB
@@ -1194,11 +1183,10 @@ estimate_bb_frequencies (loops)
 	  BLOCK_INFO (bb)->tovisit = 0;
 	  for (e = bb->succ; e; e = e->succ_next)
 	    {
-	      REAL_VALUE_FROM_INT (EDGE_INFO (e)->back_edge_prob,
-				   e->probability, 0, double_mode);
-	      REAL_ARITHMETIC (EDGE_INFO (e)->back_edge_prob,
-			       RDIV_EXPR, EDGE_INFO (e)->back_edge_prob,
-			       real_br_prob_base);
+	      sreal_init (&EDGE_INFO (e)->back_edge_prob, e->probability, 0);
+	      sreal_mul (&EDGE_INFO (e)->back_edge_prob,
+			 &EDGE_INFO (e)->back_edge_prob,
+			 &real_inv_br_prob_base);
 	    }
 	}
 
@@ -1208,20 +1196,17 @@ estimate_bb_frequencies (loops)
 
       memcpy (&freq_max, &real_zero, sizeof (real_zero));
       FOR_EACH_BB (bb)
-	if (REAL_VALUES_LESS
-	    (freq_max, BLOCK_INFO (bb)->frequency))
-	  memcpy (&freq_max, &BLOCK_INFO (bb)->frequency,
-		  sizeof (freq_max));
+	if (sreal_compare (&freq_max, &BLOCK_INFO (bb)->frequency) < 0)
+	  memcpy (&freq_max, &BLOCK_INFO (bb)->frequency, sizeof (freq_max));
 
+      sreal_div (&freq_max, &real_bb_freq_max, &freq_max);
       FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
 	{
-	  REAL_VALUE_TYPE tmp;
+	  sreal tmp;
 
-	  REAL_ARITHMETIC (tmp, MULT_EXPR, BLOCK_INFO (bb)->frequency,
-			   real_bb_freq_max);
-	  REAL_ARITHMETIC (tmp, RDIV_EXPR, tmp, freq_max);
-	  REAL_ARITHMETIC (tmp, PLUS_EXPR, tmp, real_one_half);
-	  bb->frequency = REAL_VALUE_UNSIGNED_FIX (tmp);
+	  sreal_mul (&tmp, &BLOCK_INFO (bb)->frequency, &freq_max);
+	  sreal_add (&tmp, &tmp, &real_one_half);
+	  bb->frequency = sreal_to_int (&tmp);
 	}
 
       free_aux_for_blocks ();
@@ -1234,12 +1219,11 @@ estimate_bb_frequencies (loops)
 
 /* Decide whether function is hot, cold or unlikely executed.  */
 static void
-compute_function_frequency ()
+compute_function_frequency (void)
 {
   basic_block bb;
 
-  if (!profile_info.count_profiles_merged
-      || !flag_branch_probabilities)
+  if (!profile_info || !flag_branch_probabilities)
     return;
   cfun->function_frequency = FUNCTION_FREQUENCY_UNLIKELY_EXECUTED;
   FOR_EACH_BB (bb)
@@ -1256,15 +1240,15 @@ compute_function_frequency ()
 
 /* Choose appropriate section for the function.  */
 static void
-choose_function_section ()
+choose_function_section (void)
 {
   if (DECL_SECTION_NAME (current_function_decl)
       || !targetm.have_named_sections
       /* Theoretically we can split the gnu.linkonce text section too,
- 	 but this requires more work as the frequency needs to match
+	 but this requires more work as the frequency needs to match
 	 for all generated objects so we need to merge the frequency
 	 of all instances.  For now just never set frequency for these.  */
-      || !DECL_ONE_ONLY (current_function_decl))
+      || DECL_ONE_ONLY (current_function_decl))
     return;
   if (cfun->function_frequency == FUNCTION_FREQUENCY_HOT)
     DECL_SECTION_NAME (current_function_decl) =

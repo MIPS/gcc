@@ -61,8 +61,6 @@ do {									\
 #define ASM_OUTPUT_LABELREF(STREAM, NAME)	\
 do {						\
   const char *name_ = NAME;			\
-  if (*name_ == ENCODE_SECTION_INFO_CHAR)	\
-    name_ += 2;					\
   if (*name_ == '*')				\
     name_++;					\
   else						\
@@ -117,26 +115,6 @@ do {									\
   fputs ("\t.endp ", FILE);						\
   assemble_name (FILE, NAME);						\
   fputc ('\n', FILE);							\
-} while (0)
-
-/* A C expression which outputs to the stdio stream STREAM some appropriate
-   text to go at the start of an assembler file.  */
-
-/* ??? Looks like almost every port, except for a few original ones, get this
-   wrong.  Must emit #NO_APP as first line of file to turn of special assembler
-   preprocessing of files.  */
-
-/* ??? Even worse, it doesn't work, because gas does not accept the tab chars
-   that dwarf2out.c emits when #NO_APP.  */
-
-/* ??? Unrelated, but dwarf2out.c emits unnecessary newlines after strings,
-   may as well fix at the same time.  */
-
-#undef ASM_FILE_START
-#define ASM_FILE_START(STREAM) \
-do {									\
-  output_file_directive (STREAM, main_input_filename);			\
-  emit_safe_across_calls (STREAM);					\
 } while (0)
 
 /* Override default elf definition.  */

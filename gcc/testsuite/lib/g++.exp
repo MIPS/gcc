@@ -1,4 +1,4 @@
-# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 2000, 2001, 2002
+# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 2000, 2001, 2002, 2003
 # Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -31,7 +31,6 @@ load_lib gcc-defs.exp
 
 
 set gpp_compile_options ""
-
 
 #
 # g++_version -- extract and print the version number of the compiler
@@ -81,20 +80,11 @@ proc g++_include_flags { paths } {
       return "${flags}"
     }
 
-    set dir [lookfor_file ${srcdir} libg++]
-    if { ${dir} != "" } {
-      append flags "-I${dir} -I${dir}/src "
-    }
-
     set gccpath ${paths}
 
-    if { ${HAVE_LIBSTDCXX_V3} } {
-      set odir_v3 [lookfor_file ${gccpath} libstdc++-v3]
-      append flags [exec sh ${odir_v3}/testsuite_flags --build-includes]
-    } else {
-      set odir_v2 [lookfor_file ${gccpath} libstdc++]
-      set sdir_v2 [lookfor_file ${srcdir} libstdc++]
-      append flags "-I${sdir_v2} -I${sdir_v2}/stl "
+    set odir [lookfor_file ${gccpath} libstdc++-v3]
+    if { ${odir} != "" } {
+      append flags [exec sh ${odir}/scripts/testsuite_flags --build-includes]  
     }
 
     return "$flags"
@@ -303,7 +293,11 @@ proc g++_target_compile { source dest type options } {
 	exec rm -f $rponame
     }
 
-    return [target_compile $source $dest $type $options]
+    set options [dg-additional-files-options $options $source]
+
+    set result [target_compile $source $dest $type $options]
+
+    return $result
 }
 
 #

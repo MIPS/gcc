@@ -1,6 +1,6 @@
 /* RTL utility routines.
-   Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001, 2002
-   Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001, 2002,
+   2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,6 +21,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "real.h"
 #include "ggc.h"
@@ -223,10 +225,10 @@ const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS] =
 const char * const reg_note_name[] =
 {
   "", "REG_DEAD", "REG_INC", "REG_EQUIV", "REG_EQUAL",
-  "REG_WAS_0", "REG_RETVAL", "REG_LIBCALL", "REG_NONNEG",
+  "REG_RETVAL", "REG_LIBCALL", "REG_NONNEG",
   "REG_NO_CONFLICT", "REG_UNUSED", "REG_CC_SETTER", "REG_CC_USER",
   "REG_LABEL", "REG_DEP_ANTI", "REG_DEP_OUTPUT", "REG_BR_PROB",
-  "REG_EXEC_COUNT", "REG_NOALIAS", "REG_SAVE_AREA", "REG_BR_PRED",
+  "REG_VALUE_PROFILE", "REG_NOALIAS", "REG_SAVE_AREA", "REG_BR_PRED",
   "REG_FRAME_RELATED_EXPR", "REG_EH_CONTEXT", "REG_EH_REGION",
   "REG_SAVE_NOTE", "REG_MAYBE_DEAD", "REG_NORETURN",
   "REG_NON_LOCAL_GOTO", "REG_SETJMP", "REG_ALWAYS_RETURN",
@@ -238,8 +240,7 @@ const char * const reg_note_name[] =
    Store the length, and initialize all elements to zero.  */
 
 rtvec
-rtvec_alloc (n)
-     int n;
+rtvec_alloc (int n)
 {
   rtvec rt;
 
@@ -255,8 +256,7 @@ rtvec_alloc (n)
    all the rest is initialized to zero.  */
 
 rtx
-rtx_alloc (code)
-  RTX_CODE code;
+rtx_alloc (RTX_CODE code)
 {
   rtx rt;
   int n = GET_RTX_LENGTH (code);
@@ -278,8 +278,7 @@ rtx_alloc (code)
    except for those few rtx codes that are sharable.  */
 
 rtx
-copy_rtx (orig)
-     rtx orig;
+copy_rtx (rtx orig)
 {
   rtx copy;
   int i, j;
@@ -384,8 +383,7 @@ copy_rtx (orig)
 /* Create a new copy of an rtx.  Only copy just one level.  */
 
 rtx
-shallow_copy_rtx (orig)
-     rtx orig;
+shallow_copy_rtx (rtx orig)
 {
   RTX_CODE code = GET_CODE (orig);
   size_t n = GET_RTX_LENGTH (code);
@@ -395,29 +393,6 @@ shallow_copy_rtx (orig)
 	  sizeof (struct rtx_def) + sizeof (rtunion) * (n - 1));
 
   return copy;
-}
-
-/* Return the alignment of MODE. This will be bounded by 1 and
-   BIGGEST_ALIGNMENT.  */
-
-unsigned int
-get_mode_alignment (mode)
-     enum machine_mode mode;
-{
-  unsigned int alignment;
-
-  if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
-      || GET_MODE_CLASS (mode) == MODE_COMPLEX_INT)
-    alignment = GET_MODE_UNIT_SIZE (mode);
-  else
-    alignment = GET_MODE_SIZE (mode);
-
-  /* Extract the LSB of the size.  */
-  alignment = alignment & -alignment;
-  alignment *= BITS_PER_UNIT;
-
-  alignment = MIN (BIGGEST_ALIGNMENT, MAX (1, alignment));
-  return alignment;
 }
 
 /* This is 1 until after the rtl generation pass.  */
@@ -430,8 +405,7 @@ int generating_concat_p;
    This is the Lisp function EQUAL for rtx arguments.  */
 
 int
-rtx_equal_p (x, y)
-     rtx x, y;
+rtx_equal_p (rtx x, rtx y)
 {
   int i;
   int j;
@@ -547,12 +521,8 @@ rtx_equal_p (x, y)
 
 #if defined ENABLE_RTL_CHECKING && (GCC_VERSION >= 2007)
 void
-rtl_check_failed_bounds (r, n, file, line, func)
-    rtx r;
-    int n;
-    const char *file;
-    int line;
-    const char *func;
+rtl_check_failed_bounds (rtx r, int n, const char *file, int line,
+			 const char *func)
 {
   internal_error
     ("RTL check: access of elt %d of `%s' with last elt %d in %s, at %s:%d",
@@ -561,13 +531,8 @@ rtl_check_failed_bounds (r, n, file, line, func)
 }
 
 void
-rtl_check_failed_type1 (r, n, c1, file, line, func)
-    rtx r;
-    int n;
-    int c1;
-    const char *file;
-    int line;
-    const char *func;
+rtl_check_failed_type1 (rtx r, int n, int c1, const char *file, int line,
+			const char *func)
 {
   internal_error
     ("RTL check: expected elt %d type '%c', have '%c' (rtx %s) in %s, at %s:%d",
@@ -576,14 +541,8 @@ rtl_check_failed_type1 (r, n, c1, file, line, func)
 }
 
 void
-rtl_check_failed_type2 (r, n, c1, c2, file, line, func)
-    rtx r;
-    int n;
-    int c1;
-    int c2;
-    const char *file;
-    int line;
-    const char *func;
+rtl_check_failed_type2 (rtx r, int n, int c1, int c2, const char *file,
+			int line, const char *func)
 {
   internal_error
     ("RTL check: expected elt %d type '%c' or '%c', have '%c' (rtx %s) in %s, at %s:%d",
@@ -592,12 +551,8 @@ rtl_check_failed_type2 (r, n, c1, c2, file, line, func)
 }
 
 void
-rtl_check_failed_code1 (r, code, file, line, func)
-    rtx r;
-    enum rtx_code code;
-    const char *file;
-    int line;
-    const char *func;
+rtl_check_failed_code1 (rtx r, enum rtx_code code, const char *file,
+			int line, const char *func)
 {
   internal_error ("RTL check: expected code `%s', have `%s' in %s, at %s:%d",
 		  GET_RTX_NAME (code), GET_RTX_NAME (GET_CODE (r)), func,
@@ -605,12 +560,8 @@ rtl_check_failed_code1 (r, code, file, line, func)
 }
 
 void
-rtl_check_failed_code2 (r, code1, code2, file, line, func)
-    rtx r;
-    enum rtx_code code1, code2;
-    const char *file;
-    int line;
-    const char *func;
+rtl_check_failed_code2 (rtx r, enum rtx_code code1, enum rtx_code code2,
+			const char *file, int line, const char *func)
 {
   internal_error
     ("RTL check: expected code `%s' or `%s', have `%s' in %s, at %s:%d",
@@ -620,12 +571,8 @@ rtl_check_failed_code2 (r, code1, code2, file, line, func)
 
 /* XXX Maybe print the vector?  */
 void
-rtvec_check_failed_bounds (r, n, file, line, func)
-    rtvec r;
-    int n;
-    const char *file;
-    int line;
-    const char *func;
+rtvec_check_failed_bounds (rtvec r, int n, const char *file, int line,
+			   const char *func)
 {
   internal_error
     ("RTL check: access of elt %d of vector with last elt %d in %s, at %s:%d",
@@ -635,12 +582,8 @@ rtvec_check_failed_bounds (r, n, file, line, func)
 
 #if defined ENABLE_RTL_FLAG_CHECKING
 void
-rtl_check_failed_flag (name, r, file, line, func)
-    const char *name;
-    rtx r;
-    const char *file;
-    int line;
-    const char *func;
+rtl_check_failed_flag (const char *name, rtx r, const char *file,
+		       int line, const char *func)
 {
   internal_error
     ("RTL flag check: %s used with unexpected rtx code `%s' in %s, at %s:%d",

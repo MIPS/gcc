@@ -1,5 +1,5 @@
 /* Output routines for graphical representation.
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
    Contributed by Ulrich Drepper <drepper@cygnus.com>, 1998.
 
 This file is part of GCC.
@@ -21,6 +21,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include <config.h>
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #include "rtl.h"
 #include "flags.h"
@@ -37,19 +39,17 @@ static const char *const graph_ext[] =
   /* vcg */      ".vcg",
 };
 
-static void start_fct PARAMS ((FILE *));
-static void start_bb PARAMS ((FILE *, int));
-static void node_data PARAMS ((FILE *, rtx));
-static void draw_edge PARAMS ((FILE *, int, int, int, int));
-static void end_fct PARAMS ((FILE *));
-static void end_bb PARAMS ((FILE *));
+static void start_fct (FILE *);
+static void start_bb (FILE *, int);
+static void node_data (FILE *, rtx);
+static void draw_edge (FILE *, int, int, int, int);
+static void end_fct (FILE *);
+static void end_bb (FILE *);
 
 /* Output text for new basic block.  */
 static void
-start_fct (fp)
-     FILE *fp;
+start_fct (FILE *fp)
 {
-
   switch (graph_dump_format)
     {
     case vcg:
@@ -63,9 +63,7 @@ graph: { title: \"%s\"\nfolding: 1\nhidden: 2\nnode: { title: \"%s.0\" }\n",
 }
 
 static void
-start_bb (fp, bb)
-     FILE *fp;
-     int bb;
+start_bb (FILE *fp, int bb)
 {
   switch (graph_dump_format)
     {
@@ -104,11 +102,8 @@ label: \"basic block %d",
 }
 
 static void
-node_data (fp, tmp_rtx)
-     FILE *fp;
-     rtx tmp_rtx;
+node_data (FILE *fp, rtx tmp_rtx)
 {
-
   if (PREV_INSN (tmp_rtx) == 0)
     {
       /* This is the first instruction.  Add an edge from the starting
@@ -168,12 +163,7 @@ darkgrey\n  shape: ellipse" : "white",
 }
 
 static void
-draw_edge (fp, from, to, bb_edge, class)
-     FILE *fp;
-     int from;
-     int to;
-     int bb_edge;
-     int class;
+draw_edge (FILE *fp, int from, int to, int bb_edge, int class)
 {
   const char * color;
   switch (graph_dump_format)
@@ -200,8 +190,7 @@ draw_edge (fp, from, to, bb_edge, class)
 }
 
 static void
-end_bb (fp)
-     FILE *fp;
+end_bb (FILE *fp)
 {
   switch (graph_dump_format)
     {
@@ -214,8 +203,7 @@ end_bb (fp)
 }
 
 static void
-end_fct (fp)
-     FILE *fp;
+end_fct (FILE *fp)
 {
   switch (graph_dump_format)
     {
@@ -231,16 +219,13 @@ end_fct (fp)
 /* Like print_rtl, but also print out live information for the start of each
    basic block.  */
 void
-print_rtl_graph_with_bb (base, suffix, rtx_first)
-     const char *base;
-     const char *suffix;
-     rtx rtx_first;
+print_rtl_graph_with_bb (const char *base, const char *suffix, rtx rtx_first)
 {
   rtx tmp_rtx;
   size_t namelen = strlen (base);
   size_t suffixlen = strlen (suffix);
   size_t extlen = strlen (graph_ext[graph_dump_format]) + 1;
-  char *buf = (char *) alloca (namelen + suffixlen + extlen);
+  char *buf = alloca (namelen + suffixlen + extlen);
   FILE *fp;
 
   if (basic_block_info == NULL)
@@ -260,10 +245,9 @@ print_rtl_graph_with_bb (base, suffix, rtx_first)
     {
       enum bb_state { NOT_IN_BB, IN_ONE_BB, IN_MULTIPLE_BB };
       int max_uid = get_max_uid ();
-      int *start = (int *) xmalloc (max_uid * sizeof (int));
-      int *end = (int *) xmalloc (max_uid * sizeof (int));
-      enum bb_state *in_bb_p = (enum bb_state *)
-	xmalloc (max_uid * sizeof (enum bb_state));
+      int *start = xmalloc (max_uid * sizeof (int));
+      int *end = xmalloc (max_uid * sizeof (int));
+      enum bb_state *in_bb_p = xmalloc (max_uid * sizeof (enum bb_state));
       basic_block bb;
       int i;
 
@@ -400,14 +384,12 @@ print_rtl_graph_with_bb (base, suffix, rtx_first)
 /* Similar as clean_dump_file, but this time for graph output files.  */
 
 void
-clean_graph_dump_file (base, suffix)
-     const char *base;
-     const char *suffix;
+clean_graph_dump_file (const char *base, const char *suffix)
 {
   size_t namelen = strlen (base);
   size_t suffixlen = strlen (suffix);
   size_t extlen = strlen (graph_ext[graph_dump_format]) + 1;
-  char *buf = (char *) alloca (namelen + extlen + suffixlen);
+  char *buf = alloca (namelen + extlen + suffixlen);
   FILE *fp;
 
   memcpy (buf, base, namelen);
@@ -417,7 +399,7 @@ clean_graph_dump_file (base, suffix)
   fp = fopen (buf, "w");
 
   if (fp == NULL)
-    fatal_io_error ("can't open %s", buf);
+    fatal_error ("can't open %s: %m", buf);
 
   switch (graph_dump_format)
     {
@@ -434,14 +416,12 @@ clean_graph_dump_file (base, suffix)
 
 /* Do final work on the graph output file.  */
 void
-finish_graph_dump_file (base, suffix)
-     const char *base;
-     const char *suffix;
+finish_graph_dump_file (const char *base, const char *suffix)
 {
   size_t namelen = strlen (base);
   size_t suffixlen = strlen (suffix);
   size_t extlen = strlen (graph_ext[graph_dump_format]) + 1;
-  char *buf = (char *) alloca (namelen + suffixlen + extlen);
+  char *buf = alloca (namelen + suffixlen + extlen);
   FILE *fp;
 
   memcpy (buf, base, namelen);

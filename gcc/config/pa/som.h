@@ -1,20 +1,20 @@
 /* Definitions for SOM assembler support.
-   Copyright (C) 1999, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001, 2002, 2003 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -30,18 +30,21 @@ Boston, MA 02111-1307, USA.  */
 /* We make the first line stab special to avoid adding several
    gross hacks to GAS.  */
 #undef  ASM_OUTPUT_SOURCE_LINE
-#define ASM_OUTPUT_SOURCE_LINE(file, line)		\
-  { static int sym_lineno = 1;				\
-    static tree last_function_decl = NULL;		\
-    if (current_function_decl == last_function_decl)	\
-      fprintf (file, "\t.stabn 68,0,%d,L$M%d-%s\nL$M%d:\n",	\
-	       line, sym_lineno,			\
-	       XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0) + 1, \
-	       sym_lineno);				\
-    else						\
-      fprintf (file, "\t.stabn 68,0,%d,0\n", line);	\
-    last_function_decl = current_function_decl;		\
-    sym_lineno += 1; }
+#define ASM_OUTPUT_SOURCE_LINE(file, line, counter)		\
+  { static tree last_function_decl = NULL;			\
+    if (current_function_decl == last_function_decl)		\
+      {								\
+	rtx func = DECL_RTL (current_function_decl);		\
+	const char *name = XSTR (XEXP (func, 0), 0);		\
+	fprintf (file, "\t.stabn 68,0,%d,L$M%d-%s\nL$M%d:\n",	\
+		 line, counter,					\
+		 (* targetm.strip_name_encoding) (name),	\
+		 counter);					\
+      }								\
+    else							\
+      fprintf (file, "\t.stabn 68,0,%d,0\n", line);		\
+    last_function_decl = current_function_decl;			\
+  }
 
 /* gdb needs a null N_SO at the end of each file for scattered loading.  */
 
@@ -214,29 +217,7 @@ do {								\
 	     fputs ("\n", FILE);					\
 	   }} while (0)
 
-/* Output at beginning of assembler file.  */
-
-#define ASM_FILE_START(FILE) \
-do {  \
-     if (TARGET_PA_20) \
-       fputs("\t.LEVEL 2.0\n", FILE); \
-     else if (TARGET_PA_11) \
-       fputs("\t.LEVEL 1.1\n", FILE); \
-     else \
-       fputs("\t.LEVEL 1.0\n", FILE); \
-     fputs ("\t.SPACE $PRIVATE$\n\
-\t.SUBSPA $DATA$,QUAD=1,ALIGN=8,ACCESS=31\n\
-\t.SUBSPA $BSS$,QUAD=1,ALIGN=8,ACCESS=31,ZERO,SORT=82\n\
-\t.SPACE $TEXT$\n\
-\t.SUBSPA $LIT$,QUAD=0,ALIGN=8,ACCESS=44\n\
-\t.SUBSPA $CODE$,QUAD=0,ALIGN=8,ACCESS=44,CODE_ONLY\n\
-\t.IMPORT $global$,DATA\n\
-\t.IMPORT $$dyncall,MILLICODE\n", FILE);\
-     if (profile_flag)\
-       fprintf (FILE, "\t.IMPORT _mcount, CODE\n");\
-     if (write_symbols != NO_DEBUG) \
-       output_file_directive ((FILE), main_input_filename); \
-   } while (0)
+#define TARGET_ASM_FILE_START pa_som_file_start
 
 /* Output before code.  */
 
@@ -251,7 +232,7 @@ do {  \
 #define EXTRA_SECTIONS in_readonly_data
 
 #define EXTRA_SECTION_FUNCTIONS						\
-extern void readonly_data PARAMS ((void));				\
+extern void readonly_data (void);					\
 void									\
 readonly_data ()							\
 {									\
@@ -362,10 +343,6 @@ do {						\
 /* The .align directive in the HP assembler allows up to a 32 alignment.  */
 #define MAX_OFILE_ALIGNMENT 32768
 
-/* SOM does not support the init_priority C++ attribute.  */
-#undef SUPPORTS_INIT_PRIORITY
-#define SUPPORTS_INIT_PRIORITY 0
-
 /* The SOM linker hardcodes paths into binaries.  As a result, dotdots
    must be removed from library prefixes to prevent binaries from depending
    on the location of the GCC tool directory.  The downside is GCC
@@ -375,3 +352,52 @@ do {						\
 /* Aggregates with a single float or double field should be passed and
    returned in the general registers.  */
 #define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) (MODE==SFmode || MODE==DFmode)
+
+/* If GAS supports weak, we can support weak when we have working linker
+   support for secondary definitions and are generating code for GAS.  */
+#ifdef HAVE_GAS_WEAK
+#define SUPPORTS_WEAK (TARGET_SOM_SDEF && TARGET_GAS)
+#else
+#define SUPPORTS_WEAK 0
+#endif
+
+/* We can support one only if we support weak.  */
+#define SUPPORTS_ONE_ONLY SUPPORTS_WEAK
+
+/* Use weak (secondary definitions) to make one only declarations.  */
+#define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
+
+/* This is how we tell the assembler that a symbol is weak.  The SOM
+   weak implementation uses the secondary definition (sdef) flag.
+
+   The behavior of sdef symbols is similar to ELF weak symbols in that
+   multiple definitions can occur without incurring a link error.
+   However, they differ in the following ways:
+     1) Undefined sdef symbols are not allowed.
+     2) The linker searches for undefined sdef symbols and will load an
+	archive library member to resolve an undefined sdef symbol.
+     3) The exported symbol from a shared library is a primary symbol
+        rather than a sdef symbol.  Thus, more care is needed in the
+	ordering of libraries.
+
+   It appears that the linker discards extra copies of "weak" functions
+   when linking shared libraries, independent of whether or not they
+   are in their own section.  In linking final executables, -Wl,-O can
+   be used to remove dead procedures.  Thus, support for named sections
+   is not needed and in previous testing caused problems with various
+   HP tools.  */
+#define ASM_WEAKEN_LABEL(FILE,NAME) \
+  do { fputs ("\t.weak\t", FILE);				\
+       assemble_name (FILE, NAME);				\
+       fputc ('\n', FILE);					\
+       if (! FUNCTION_NAME_P (NAME))				\
+	 {							\
+	   fputs ("\t.EXPORT ", FILE);				\
+	   assemble_name (FILE, NAME);				\
+	   fputs (",DATA\n", FILE);				\
+	 }							\
+  } while (0)
+
+/* We can't handle weak aliases, and therefore can't support pragma weak.
+   Suppress the use of pragma weak in gthr-dce.h and gthr-posix.h.  */
+#define GTHREAD_USE_WEAK 0

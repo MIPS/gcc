@@ -20,6 +20,8 @@
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "insn-config.h"
 #include "recog.h"
@@ -34,10 +36,10 @@
 /* This file contains various dumping and debug functions for
    the graph coloring register allocator.  */
 
-static void ra_print_rtx_1op PARAMS ((FILE *, rtx));
-static void ra_print_rtx_2op PARAMS ((FILE *, rtx));
-static void ra_print_rtx_3op PARAMS ((FILE *, rtx));
-static void ra_print_rtx_object PARAMS ((FILE *, rtx));
+static void ra_print_rtx_1op (FILE *, rtx);
+static void ra_print_rtx_2op (FILE *, rtx);
+static void ra_print_rtx_3op (FILE *, rtx);
+static void ra_print_rtx_object (FILE *, rtx);
 
 /* The hardregs as names, for debugging.  */
 static const char *const reg_class_names[] = REG_CLASS_NAMES;
@@ -46,14 +48,14 @@ static const char *const reg_class_names[] = REG_CLASS_NAMES;
    have any bits in common.  */
 
 void
-ra_debug_msg VPARAMS ((unsigned int level, const char *format, ...))
+ra_debug_msg (unsigned int level, const char *format, ...)
 {
-  VA_OPEN (ap, format);
-  VA_FIXEDARG (ap, unsigned int, level);
-  VA_FIXEDARG (ap, const char *, format);
+  va_list ap;
+  
+  va_start (ap, format);
   if ((debug_new_regalloc & level) != 0 && rtl_dump_file != NULL)
     vfprintf (rtl_dump_file, format, ap);
-  VA_CLOSE (ap);
+  va_end (ap);
 }
 
 
@@ -68,9 +70,7 @@ ra_debug_msg VPARAMS ((unsigned int level, const char *format, ...))
    "op(Y)" to FILE.  */
 
 static void
-ra_print_rtx_1op (file, x)
-     FILE *file;
-     rtx x;
+ra_print_rtx_1op (FILE *file, rtx x)
 {
   enum rtx_code code = GET_CODE (x);
   rtx op0 = XEXP (x, 0);
@@ -104,9 +104,7 @@ ra_print_rtx_1op (file, x)
    to FILE.  */
 
 static void
-ra_print_rtx_2op (file, x)
-     FILE *file;
-     rtx x;
+ra_print_rtx_2op (FILE *file, rtx x)
 {
   int infix = 1;
   const char *opname = "shitop";
@@ -169,9 +167,7 @@ ra_print_rtx_2op (file, x)
    I.e. X is either an IF_THEN_ELSE, or a bitmap operation.  */
 
 static void
-ra_print_rtx_3op (file, x)
-     FILE *file;
-     rtx x;
+ra_print_rtx_3op (FILE *file, rtx x)
 {
   enum rtx_code code = GET_CODE (x);
   rtx op0 = XEXP (x, 0);
@@ -206,9 +202,7 @@ ra_print_rtx_3op (file, x)
    is a hardreg, whose name is NULL, or empty.  */
 
 static void
-ra_print_rtx_object (file, x)
-     FILE *file;
-     rtx x;
+ra_print_rtx_object (FILE *file, rtx x)
 {
   enum rtx_code code = GET_CODE (x);
   enum machine_mode mode = GET_MODE (x);
@@ -346,10 +340,7 @@ ra_print_rtx_object (file, x)
    the preceding and following insn.  */
 
 void
-ra_print_rtx (file, x, with_pn)
-     FILE *file;
-     rtx x;
-     int with_pn;
+ra_print_rtx (FILE *file, rtx x, int with_pn)
 {
   enum rtx_code code;
   char class;
@@ -521,10 +512,7 @@ ra_print_rtx (file, x, with_pn)
 /* This only calls ra_print_rtx(), but emits a final newline.  */
 
 void
-ra_print_rtx_top (file, x, with_pn)
-     FILE *file;
-     rtx x;
-     int with_pn;
+ra_print_rtx_top (FILE *file, rtx x, int with_pn)
 {
   ra_print_rtx (file, x, with_pn);
   fprintf (file, "\n");
@@ -533,8 +521,7 @@ ra_print_rtx_top (file, x, with_pn)
 /* Callable from gdb.  This prints rtx X onto stderr.  */
 
 void
-ra_debug_rtx (x)
-     rtx x;
+ra_debug_rtx (rtx x)
 {
   ra_print_rtx_top (stderr, x, 1);
 }
@@ -543,8 +530,7 @@ ra_debug_rtx (x)
    The first and last insn are emitted with UIDs of prev and next insns.  */
 
 void
-ra_debug_bbi (bbi)
-     int bbi;
+ra_debug_bbi (int bbi)
 {
   basic_block bb = BASIC_BLOCK (bbi);
   rtx insn;
@@ -561,9 +547,7 @@ ra_debug_bbi (bbi)
    or emit a window of NUM insns around INSN, to stderr.  */
 
 void
-ra_debug_insns (insn, num)
-     rtx insn;
-     int num;
+ra_debug_insns (rtx insn, int num)
 {
   int i, count = (num == 0 ? 1 : num < 0 ? -num : num);
   if (num < 0)
@@ -582,9 +566,7 @@ ra_debug_insns (insn, num)
    some notes, if flag_ra_dump_notes is zero.  */
 
 void
-ra_print_rtl_with_bb (file, insn)
-     FILE *file;
-     rtx insn;
+ra_print_rtl_with_bb (FILE *file, rtx insn)
 {
   basic_block last_bb, bb;
   unsigned int num = 0;
@@ -632,7 +614,7 @@ ra_print_rtl_with_bb (file, insn)
    graph, and prints the findings.  */
 
 void
-dump_number_seen ()
+dump_number_seen (void)
 {
 #define N 17
   int num[N];
@@ -658,8 +640,7 @@ dump_number_seen ()
 /* Dump the interference graph, the move list and the webs.  */
 
 void
-dump_igraph (df)
-     struct df *df ATTRIBUTE_UNUSED;
+dump_igraph (struct df *df ATTRIBUTE_UNUSED)
 {
   struct move_list *ml;
   unsigned int def1, def2;
@@ -672,7 +653,8 @@ dump_igraph (df)
   for (def1 = 0; def1 < num_webs; def1++)
     {
       int num1 = num;
-      for (num2=0, def2 = 0; def2 < num_webs; def2++)
+      num2 = 0;
+      for (def2 = 0; def2 < num_webs; def2++)
         if (def1 != def2 && TEST_BIT (igraph, igraph_index (def1, def2)))
 	  {
 	    if (num1 == num)
@@ -724,10 +706,10 @@ dump_igraph (df)
 	  ra_debug_msg (DUMP_WEBS, " sub %d", SUBREG_BYTE (web->orig_x));
 	  ra_debug_msg (DUMP_WEBS, " par %d", find_web_for_subweb (web)->id);
 	}
-      ra_debug_msg (DUMP_WEBS, " +%d (span %d, cost ",
-		    web->add_hardregs, web->span_deaths);
-      ra_debug_msg (DUMP_WEBS, HOST_WIDE_INT_PRINT_DEC, web->spill_cost);
-      ra_debug_msg (DUMP_WEBS, ") (%s)", reg_class_names[web->regclass]);
+      ra_debug_msg (DUMP_WEBS, " +%d (span %d, cost "
+		    HOST_WIDE_INT_PRINT_DEC ") (%s)",
+		    web->add_hardregs, web->span_deaths, web->spill_cost,
+		    reg_class_names[web->regclass]);
       if (web->spill_temp == 1)
 	ra_debug_msg (DUMP_WEBS, " (spilltemp)");
       else if (web->spill_temp == 2)
@@ -753,7 +735,7 @@ dump_igraph (df)
    to my custom graph colorizer.  */
 
 void
-dump_igraph_machine ()
+dump_igraph_machine (void)
 {
   unsigned int i;
 
@@ -813,7 +795,7 @@ dump_igraph_machine ()
    and emits information, if the resulting insns are strictly valid.  */
 
 void
-dump_constraints ()
+dump_constraints (void)
 {
   rtx insn;
   int i;
@@ -830,7 +812,7 @@ dump_constraints ()
 	int uid = INSN_UID (insn);
 	int o;
 	/* Don't simply force rerecognition, as combine might left us
-	   with some unrecongnizable ones, which later leads to aborts
+	   with some unrecognizable ones, which later leads to aborts
 	   in regclass, if we now destroy the remembered INSN_CODE().  */
 	/*INSN_CODE (insn) = -1;*/
 	code = recog_memoized (insn);
@@ -866,9 +848,7 @@ dump_constraints ()
    preceded by a custom message MSG, with debug level LEVEL.  */
 
 void
-dump_graph_cost (level, msg)
-     unsigned int level;
-     const char *msg;
+dump_graph_cost (unsigned int level, const char *msg)
 {
   unsigned int i;
   unsigned HOST_WIDE_INT cost;
@@ -882,16 +862,15 @@ dump_graph_cost (level, msg)
       if (alias (web)->type == SPILLED)
 	cost += web->orig_spill_cost;
     }
-  ra_debug_msg (level, " spill cost of graph (%s) = ", msg ? msg : "");
-  ra_debug_msg (level, HOST_WIDE_INT_PRINT_UNSIGNED, cost);
-  ra_debug_msg (level, "\n");
+  ra_debug_msg (level, " spill cost of graph (%s) = "
+		HOST_WIDE_INT_PRINT_UNSIGNED "\n",
+		msg ? msg : "", cost);
 }
 
 /* Dump the color assignment per web, the coalesced and spilled webs.  */
 
 void
-dump_ra (df)
-     struct df *df ATTRIBUTE_UNUSED;
+dump_ra (struct df *df ATTRIBUTE_UNUSED)
 {
   struct web *web;
   struct dlist *d;
@@ -925,10 +904,7 @@ dump_ra (df)
    (loads, stores and copies).  */
 
 void
-dump_static_insn_cost (file, message, prefix)
-     FILE *file;
-     const char *message;
-     const char *prefix;
+dump_static_insn_cost (FILE *file, const char *message, const char *prefix)
 {
   struct cost
     {
@@ -997,30 +973,23 @@ dump_static_insn_cost (file, message, prefix)
   if (!prefix)
     prefix = "";
   fprintf (file, "static insn cost %s\n", message ? message : "");
-  fprintf (file, "  %soverall:\tnum=%6d\tcost=", prefix, overall.count);
-  fprintf (file, HOST_WIDE_INT_PRINT_DEC_SPACE, 8, overall.cost);
-  fprintf (file, "\n");
-  fprintf (file, "  %sloads:\tnum=%6d\tcost=", prefix, load.count);
-  fprintf (file, HOST_WIDE_INT_PRINT_DEC_SPACE, 8, load.cost);
-  fprintf (file, "\n");
-  fprintf (file, "  %sstores:\tnum=%6d\tcost=", prefix, store.count);
-  fprintf (file, HOST_WIDE_INT_PRINT_DEC_SPACE, 8, store.cost);
-  fprintf (file, "\n");
-  fprintf (file, "  %sregcopy:\tnum=%6d\tcost=", prefix, regcopy.count);
-  fprintf (file, HOST_WIDE_INT_PRINT_DEC_SPACE, 8, regcopy.cost);
-  fprintf (file, "\n");
-  fprintf (file, "  %sselfcpy:\tnum=%6d\tcost=", prefix, selfcopy.count);
-  fprintf (file, HOST_WIDE_INT_PRINT_DEC_SPACE, 8, selfcopy.cost);
-  fprintf (file, "\n");
+  fprintf (file, "  %soverall:\tnum=%6d\tcost=% 8" HOST_WIDE_INT_PRINT "d\n",
+	   prefix, overall.count, overall.cost);
+  fprintf (file, "  %sloads:\tnum=%6d\tcost=% 8" HOST_WIDE_INT_PRINT "d\n",
+	   prefix, load.count, load.cost);
+  fprintf (file, "  %sstores:\tnum=%6d\tcost=% 8" HOST_WIDE_INT_PRINT "d\n",
+	   prefix, store.count, store.cost);
+  fprintf (file, "  %sregcopy:\tnum=%6d\tcost=% 8" HOST_WIDE_INT_PRINT "d\n",
+	   prefix, regcopy.count, regcopy.cost);
+  fprintf (file, "  %sselfcpy:\tnum=%6d\tcost=% 8" HOST_WIDE_INT_PRINT "d\n",
+	   prefix, selfcopy.count, selfcopy.cost);
 }
 
 /* Returns nonzero, if WEB1 and WEB2 have some possible
    hardregs in common.  */
 
 int
-web_conflicts_p (web1, web2)
-     struct web *web1;
-     struct web *web2;
+web_conflicts_p (struct web *web1, struct web *web2)
 {
   if (web1->type == PRECOLORED && web2->type == PRECOLORED)
     return 0;
@@ -1037,8 +1006,7 @@ web_conflicts_p (web1, web2)
 /* Dump all uids of insns in which WEB is mentioned.  */
 
 void
-debug_web_insns (web)
-     struct web *web;
+dump_web_insns (struct web *web)
 {
   unsigned int i;
 
@@ -1064,8 +1032,7 @@ debug_web_insns (web)
 /* Dump conflicts for web WEB.  */
 
 void
-debug_web_conflicts (web)
-     struct web *web;
+dump_web_conflicts (struct web *web)
 {
   int num = 0;
   unsigned int def2;
@@ -1131,11 +1098,10 @@ debug_web_conflicts (web)
 /* Output HARD_REG_SET to stderr.  */
 
 void
-debug_hard_reg_set (set)
-     HARD_REG_SET set;
+debug_hard_reg_set (HARD_REG_SET set)
 {
   int i;
-  for (i=0; i < FIRST_PSEUDO_REGISTER; ++i)
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
     {
       if (TEST_HARD_REG_BIT (set, i))
 	{

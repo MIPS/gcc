@@ -1,4 +1,6 @@
-/* { dg-do run } */
+/* This doesn't work on solaris2 for reasons described in PR 6482.  */
+/* { dg-do run { xfail *-*-solaris2* } } */
+/* { dg-additional-sources "conpr-2a.cc" } */
 
 #include <stdlib.h>
 

@@ -1,43 +1,36 @@
-/* Definitions of target machine for GNU compiler.  Iris version 6.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002
+/* Definitions of target machine for GNU compiler.  IRIX version 6.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* Let mips.c know we need the Irix6 functions.  */
+/* Let mips.c know we need the IRIX 6 functions.  */
 #define TARGET_IRIX6 1
 
 /* Default to -mabi=n32 and -mips3.  */
-#define MIPS_ISA_DEFAULT 3
-#define MIPS_ABI_DEFAULT ABI_N32
+#undef MULTILIB_DEFAULTS
 #define MULTILIB_DEFAULTS { "mabi=n32" }
 
-#ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_ABICALLS|MASK_FLOAT64|MASK_64BIT)
-#endif
-
-#include "mips/iris5.h"
-
-/* Irix6 assembler does handle DWARF2 directives.  Override setting in
-   irix5.h file.  */
+/* IRIX 6 assembler does handle DWARF2 directives.  Override setting in
+   iris5.h file.  */
 #undef DWARF2_UNWIND_INFO
 
-/* The Irix6 assembler will sometimes assign labels to the wrong
+/* The IRIX 6 assembler will sometimes assign labels to the wrong
    section unless the labels are within .ent/.end blocks.  Therefore,
    we avoid creating such labels.  */
 #define DWARF2_GENERATE_TEXT_SECTION_LABEL 0
@@ -58,19 +51,19 @@ Boston, MA 02111-1307, USA.  */
 #undef WINT_TYPE_SIZE
 #define WINT_TYPE_SIZE 32
 
-/* For Irix 6, -mabi=64 implies TARGET_LONG64.  */
+/* For IRIX 6, -mabi=64 implies TARGET_LONG64.  */
 /* This is handled in override_options.  */
 
 #undef SUBTARGET_CC1_SPEC
 #define SUBTARGET_CC1_SPEC ""
 
-/* We must pass -D_LONGLONG always, even when -ansi is used, because irix6
+/* We must pass -D_LONGLONG always, even when -ansi is used, because IRIX 6
    system header files require it.  This is OK, because gcc never warns
    when long long is used in system header files.  Alternatively, we can
    add support for the SGI builtin type __long_long.  */
 
 /* The GNU C++ standard library requires that __EXTENSIONS__ and
-   _SGI_SOURCE be defined on at least irix6.2 and probably all IRIX 6
+   _SGI_SOURCE be defined on at least IRIX 6.2 and probably all IRIX 6
    prior to 6.5.  They normally get defined if !ansi, for g++ we want
    them regardless.  We don't need this on IRIX 6.5 itself, but it
    shouldn't hurt other than the namespace pollution.  */
@@ -125,7 +118,14 @@ Boston, MA 02111-1307, USA.  */
      if (!ISA_MIPS1 && !ISA_MIPS2)			\
 	builtin_define ("_COMPILER_VERSION=601");	\
 							\
-     if (c_language == clk_cplusplus)			\
+     /* IRIX 6.5.18 and above provide many ISO C99	\
+	features protected by the __c99 macro.		\
+	libstdc++ v3 needs them as well.  */		\
+     if ((!c_dialect_cxx () && flag_isoc99)		\
+	 || c_dialect_cxx ())				\
+	builtin_define ("__c99");			\
+							\
+     if (c_dialect_cxx ())				\
       {							\
 	builtin_define ("__EXTENSIONS__");		\
 	builtin_define ("_SGI_SOURCE");			\
@@ -138,7 +138,7 @@ Boston, MA 02111-1307, USA.  */
        }						\
 } while (0)
 
-/* Irix 6 uses DWARF-2.  */
+/* IRIX 6 uses DWARF-2.  */
 #define DWARF2_DEBUGGING_INFO 1
 #define MIPS_DEBUGGING_INFO 1
 #undef PREFERRED_DEBUGGING_TYPE
@@ -153,7 +153,14 @@ Boston, MA 02111-1307, USA.  */
    specification.  The SGI/MIPS ABI defines it to be the same as PTR_SIZE.  */
 #define DWARF_OFFSET_SIZE PTR_SIZE
 
-/* There is no GNU as port for Irix6 yet, so we set MD_EXEC_PREFIX so that
+/* The size in bytes of the initial length field in a debug info
+   section.  The DWARF 3 (draft) specification defines this to be
+   either 4 or 12 (with a 4-byte "escape" word when it's 12), but the
+   SGI/MIPS ABI predates this standard and defines it to be the same
+   as DWARF_OFFSET_SIZE.  */
+#define DWARF_INITIAL_LENGTH_SIZE DWARF_OFFSET_SIZE
+
+/* There is no GNU as port for IRIX 6 yet, so we set MD_EXEC_PREFIX so that
    gcc will automatically find SGI as instead of searching the user's path.
    The latter can fail when building a cross compiler if the user has . in
    the path before /usr/bin, since then gcc will find and try to use the link
@@ -168,13 +175,12 @@ Boston, MA 02111-1307, USA.  */
 #undef MACHINE_TYPE
 #define MACHINE_TYPE "SGI running IRIX 6.x"
 
-/* Irix 5 stuff that we don't need for Irix 6.  */
+/* IRIX 5 stuff that we don't need for IRIX 6.  */
 /* ??? We do need this for the -mabi=32 switch though.  */
 #undef ASM_OUTPUT_UNDEF_FUNCTION
-#undef ASM_OUTPUT_EXTERNAL_LIBCALL
 #undef ASM_DECLARE_FUNCTION_SIZE
 
-/* Stuff we need for Irix 6 that isn't in Irix 5.  */
+/* Stuff we need for IRIX 6 that isn't in IRIX 5.  */
 
 /* The SGI assembler doesn't like labels before the .ent, so we must output
    the .ent and function name here, which is the normal place for it.  */
@@ -223,7 +229,7 @@ Boston, MA 02111-1307, USA.  */
 #define TYPE_ASM_OP	"\t.type\t"
 #define SIZE_ASM_OP	"\t.size\t"
 
-/* Irix assembler does not support the init_priority C++ attribute.  */
+/* IRIX assembler does not support the init_priority C++ attribute.  */
 #undef SUPPORTS_INIT_PRIORITY
 #define SUPPORTS_INIT_PRIORITY 0
 
@@ -274,39 +280,19 @@ Boston, MA 02111-1307, USA.  */
    ? READONLY_DATA_SECTION_ASM_OP_64		\
    : READONLY_DATA_SECTION_ASM_OP_32)
 
-/* A default list of other sections which we might be "in" at any given
-   time.  For targets that use additional sections (e.g. .tdesc) you
-   should override this definition in the target-specific file which
-   includes this file.  */
-
-#undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata
-
-/* A default list of extra section function definitions.  For targets
-   that use additional sections (e.g. .tdesc) you should override this
-   definition in the target-specific file which includes this file.  */
+/* Define functions to read the name and flags of the current section.
+   They are used by iris6_asm_output_align.  */
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
-void									\
-sdata_section ()							\
-{									\
-  if (in_section != in_sdata)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", SDATA_SECTION_ASM_OP);		\
-      in_section = in_sdata;						\
-    }									\
-}									\
-									\
 const char *								\
-current_section_name ()							\
+current_section_name (void)						\
 {									\
   switch (in_section)							\
     {									\
     case no_section:	return NULL;					\
     case in_text:	return ".text";					\
     case in_data:	return ".data";					\
-    case in_sdata:	return ".sdata";				\
     case in_bss:	return ".bss";					\
     case in_readonly_data:						\
       if (mips_abi != ABI_32 && mips_abi != ABI_O64)			\
@@ -320,14 +306,13 @@ current_section_name ()							\
 }									\
 									\
 unsigned int								\
-current_section_flags ()						\
+current_section_flags (void)						\
 {									\
   switch (in_section)							\
     {									\
     case no_section:	return 0;					\
     case in_text:	return SECTION_CODE;				\
     case in_data:	return SECTION_WRITE;				\
-    case in_sdata:	return SECTION_WRITE | SECTION_SMALL;		\
     case in_bss:	return SECTION_WRITE | SECTION_BSS;		\
     case in_readonly_data: return 0;					\
     case in_named:	return get_named_section_flags (in_named_name);	\
@@ -342,10 +327,6 @@ current_section_flags ()						\
 /* SGI assembler needs all sorts of extra help to do alignment properly.  */
 #undef ASM_OUTPUT_ALIGN
 #define ASM_OUTPUT_ALIGN iris6_asm_output_align
-#undef ASM_FILE_START
-#define ASM_FILE_START  iris6_asm_file_start
-#undef ASM_FILE_END
-#define ASM_FILE_END	iris6_asm_file_end
 
 #undef MAX_OFILE_ALIGNMENT
 #define MAX_OFILE_ALIGNMENT (32768*8)
@@ -376,7 +357,7 @@ do									   \
 	ASM_OUTPUT_SKIP (STREAM, SIZE);					   \
       }									   \
     else								   \
-      mips_declare_object (STREAM, NAME, "\n\t.lcomm\t", ",%u\n", (SIZE)); \
+      mips_declare_object (STREAM, NAME, "\n\t.lcomm\t", ",%u\n", (int)(SIZE)); \
   }									   \
 while (0)
 
@@ -388,56 +369,23 @@ while (0)
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
   asm_output_aligned_bss (FILE, DECL, NAME, SIZE, ALIGN)
 
-/* Write the extra assembler code needed to declare an object properly.  */
-
-#undef ASM_DECLARE_OBJECT_NAME
-#define ASM_DECLARE_OBJECT_NAME(STREAM, NAME, DECL)			\
-do									\
- {									\
-   HOST_WIDE_INT size;							\
-   size_directive_output = 0;						\
-   if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		\
-     {									\
-       size_directive_output = 1;					\
-       size = int_size_in_bytes (TREE_TYPE (DECL));			\
-       ASM_OUTPUT_SIZE_DIRECTIVE (STREAM, NAME, size);			\
-     }									\
-   mips_declare_object (STREAM, NAME, "", ":\n", 0);			\
- }									\
-while (0)
-
-/* Define the `__builtin_va_list' type for the ABI.  On Irix6, this
+/* Define the `__builtin_va_list' type for the ABI.  On IRIX 6, this
    type is `char *'.  */
 #undef BUILD_VA_LIST_TYPE
 #define BUILD_VA_LIST_TYPE(VALIST) \
   (VALIST) = build_pointer_type (char_type_node)
 
-/* Output the size directive for a decl in rest_of_decl_compilation
-   in the case where we did not do so before the initializer.
-   Once we find the error_mark_node, we know that the value of
-   size_directive_output was set
-   by ASM_DECLARE_OBJECT_NAME when it was run for the same decl.  */
+#undef ASM_DECLARE_OBJECT_NAME
+#define ASM_DECLARE_OBJECT_NAME mips_declare_object_name
 
-#define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)	 \
-do {									 \
-     const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		 \
-     HOST_WIDE_INT size;						 \
-     if (!flag_inhibit_size_directive && DECL_SIZE (DECL)		 \
-         && ! AT_END && TOP_LEVEL					 \
-	 && DECL_INITIAL (DECL) == error_mark_node			 \
-	 && !size_directive_output)					 \
-       {								 \
-	 size_directive_output = 1;					 \
-	 size = int_size_in_bytes (TREE_TYPE (DECL));			 \
-	 ASM_OUTPUT_SIZE_DIRECTIVE (FILE, name, size);			 \
-       }								 \
-   } while (0)
+#undef ASM_FINISH_DECLARE_OBJECT
+#define ASM_FINISH_DECLARE_OBJECT mips_finish_declare_object
 
 #undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX ((mips_abi == ABI_32 || mips_abi == ABI_O64) \
 			    ? "$" : ".")
 
-/* Profiling is supported via libprof1.a not -lc_p as in Irix 3.  */
+/* Profiling is supported via libprof1.a not -lc_p as in IRIX 3.  */
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend
    on the mipsX option.  */
 #undef STARTFILE_SPEC
@@ -509,3 +457,5 @@ do {									 \
 %{shared:-hidden_symbol __do_global_ctors,__do_global_ctors_1,__do_global_dtors} \
 -_SYSTYPE_SVR4 -woff 131 \
 %{mabi=32: -32}%{mabi=n32: -n32}%{mabi=64: -64}%{!mabi*: -n32}"
+
+#define MIPS_TFMODE_FORMAT mips_extended_format

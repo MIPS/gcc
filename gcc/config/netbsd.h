@@ -1,21 +1,21 @@
 /* Base configuration file for all NetBSD targets.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -29,16 +29,10 @@ Boston, MA 02111-1307, USA.  */
     }						\
   while (0)
 
-/* TARGET_OS_CPP_BUILTINS() common to all LP64 NetBSD targets.  */
-#define NETBSD_OS_CPP_BUILTINS_LP64()		\
-  do						\
-    {						\
-      builtin_define ("_LP64");			\
-    }						\
-  while (0)
-
 /* CPP_SPEC parts common to all NetBSD targets.  */
-#define NETBSD_CPP_SPEC "%{posix:-D_POSIX_SOURCE}"
+#define NETBSD_CPP_SPEC				\
+  "%{posix:-D_POSIX_SOURCE} \
+   %{pthread:-D_REENTRANT -D_PTHREADS}"
 
 /* NETBSD_NATIVE is defined when gcc is integrated into the NetBSD
    source tree so it can be configured appropriately without using
@@ -90,9 +84,8 @@ Boston, MA 02111-1307, USA.  */
    FIXME: Could eliminate the duplication here if we were allowed to
    use string concatenation.  */
 
-#undef LIB_SPEC
 #ifdef NETBSD_ENABLE_PTHREADS
-#define LIB_SPEC		\
+#define NETBSD_LIB_SPEC		\
   "%{pthread:			\
      %{!p:			\
        %{!pg:-lpthread}}	\
@@ -110,7 +103,7 @@ Boston, MA 02111-1307, USA.  */
        %{p:-lc_p}		\
        %{pg:-lc_p}}}"
 #else
-#define LIB_SPEC		\
+#define NETBSD_LIB_SPEC		\
   "%{posix:			\
      %{!p:			\
        %{!pg:-lposix}}		\
@@ -124,22 +117,27 @@ Boston, MA 02111-1307, USA.  */
        %{pg:-lc_p}}}"
 #endif
 
+#undef LIB_SPEC
+#define LIB_SPEC NETBSD_LIB_SPEC
+
 /* Provide a LIBGCC_SPEC appropriate for NetBSD.  We also want to exclude
    libgcc with -symbolic.  */
 
-#undef LIBGCC_SPEC
 #ifdef NETBSD_NATIVE
-#define LIBGCC_SPEC		\
+#define NETBSD_LIBGCC_SPEC	\
   "%{!symbolic:			\
      %{!shared:			\
        %{!p:			\
-	 %{!pg: -lgcc}}}		\
+	 %{!pg: -lgcc}}}	\
      %{shared: -lgcc_pic}	\
      %{p: -lgcc_p}		\
      %{pg: -lgcc_p}}"
 #else
-#define LIBGCC_SPEC "%{!shared:%{!symbolic: -lgcc}}"
+#define NETBSD_LIBGCC_SPEC "%{!shared:%{!symbolic: -lgcc}}"
 #endif
+
+#undef LIBGCC_SPEC
+#define LIBGCC_SPEC NETBSD_LIBGCC_SPEC
 
 /* When building shared libraries, the initialization and finalization 
    functions for the library are .init and .fini respectively.  */
@@ -166,7 +164,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Handle #pragma weak and #pragma pack.  */
 
-#define HANDLE_SYSV_PRAGMA
+#define HANDLE_SYSV_PRAGMA 1
 
 
 /* Define some types that are the same on all NetBSD platforms,

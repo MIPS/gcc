@@ -2,20 +2,20 @@
    Copyright (C) 2000 Free Software Foundation, Inc.
    Contributed by Michael Collison (collison@world.std.com).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -47,7 +47,6 @@ extern void print_operand PARAMS ((FILE *, rtx, int));
 extern void print_operand_address PARAMS ((FILE *, rtx));
 extern void output_dsp16xx_float_const PARAMS ((rtx *));
 extern void emit_1600_core_shift PARAMS ((enum rtx_code, rtx *, int));
-extern int dsp16xx_address_cost PARAMS ((rtx));
 extern int symbolic_address_p PARAMS ((rtx));
 extern int uns_comparison_operator PARAMS ((rtx, enum machine_mode));
 #endif /* RTX_CODE */
@@ -78,10 +77,7 @@ extern int initial_frame_pointer_offset PARAMS ((void));
 extern void asm_output_common PARAMS ((FILE *, const char *, int, int));
 extern void asm_output_local PARAMS ((FILE *, const char *, int, int));
 extern void asm_output_float PARAMS ((FILE *, double));
-extern void dsp16xx_file_start PARAMS ((void));
-extern void coff_dsp16xx_file_start PARAMS ((FILE *));
-extern void luxworks_dsp16xx_file_start PARAMS ((FILE *));
-extern struct rtx_def *(*dsp16xx_compare_gen) PARAMS (());
+extern bool dsp16xx_compare_gen;
 extern int hard_regno_mode_ok PARAMS ((int, enum machine_mode));
 extern enum reg_class dsp16xx_reg_class_from_letter PARAMS ((int));
 extern int regno_reg_class PARAMS ((int));

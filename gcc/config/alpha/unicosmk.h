@@ -4,20 +4,20 @@
    Free Software Foundation, Inc.
    Contributed by Roman Lechtchinsky (rl@cs.tu-berlin.de)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -101,8 +101,6 @@ Boston, MA 02111-1307, USA.  */
 /* Define the offset between two registers, one to be eliminated, and the
    other its replacement, at the start of a routine. This is somewhat
    complicated on the T3E which is why we use a function.  */
-
-extern int unicosmk_initial_elimination_offset PARAMS ((int, int));
 
 #undef INITIAL_ELIMINATION_OFFSET
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)			\
@@ -220,12 +218,6 @@ do {								\
   ++(CUM).num_args;						\
 } while(0)
 
-/* We want the default definition for this.
-   ??? In fact, we should delete the definition from alpha.h as it
-   corresponds to the default definition for little-endian machines.  */
-
-#undef FUNCTION_ARG_PADDING
-
 /* An argument is passed either entirely in registers or entirely on stack.  */
  
 #undef FUNCTION_ARG_PARTIAL_NREGS
@@ -319,7 +311,7 @@ do { fprintf (FILE, "\tbr $1,0\n");			\
 COMMON_SECTION			\
 SSIB_SECTION	
 
-extern void common_section PARAMS ((void));
+extern void common_section (void);
 #define COMMON_SECTION		\
 void				\
 common_section ()		\
@@ -327,7 +319,7 @@ common_section ()		\
   in_section = in_common;	\
 }
 
-extern void ssib_section PARAMS ((void));
+extern void ssib_section (void);
 #define SSIB_SECTION		\
 void				\
 ssib_section ()			\
@@ -335,27 +327,17 @@ ssib_section ()			\
   in_section = in_ssib;		\
 }
 
-/* This outputs text to go at the start of an assembler file.  */
-
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE)	unicosmk_asm_file_start (FILE)
-
-/* This outputs text to go at the end of an assembler file.  */
-
-#undef ASM_FILE_END
-#define ASM_FILE_END(FILE)	unicosmk_asm_file_end (FILE)
-
-/* We take care of that in ASM_FILE_START.  */
+/* We take care of this in unicosmk_file_start.  */
 
 #undef ASM_OUTPUT_SOURCE_FILENAME
 
 /* This is how to output a label for a jump table.  Arguments are the same as
-   for ASM_OUTPUT_INTERNAL_LABEL, except the insn for the jump table is
+   for (*targetm.asm_out.internal_label), except the insn for the jump table is
    passed.  */
 
 #undef ASM_OUTPUT_CASE_LABEL
 #define ASM_OUTPUT_CASE_LABEL(FILE,PREFIX,NUM,TABLEINSN)	\
-  ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM)
+  (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM)
 
 /* CAM has some restrictions with respect to string literals. It won't
    accept lines with more that 256 characters which means that we have
@@ -453,7 +435,8 @@ ssib_section ()			\
 
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(STREAM,SIZE)			\
-  fprintf ((STREAM), "\t.byte\t0:%d\n", (SIZE));
+  fprintf ((STREAM), "\t.byte\t0:"HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
+	   (SIZE));
 
 /* This says how to output an assembler line to define a global common
    symbol. We need the alignment information because it has to be supplied
@@ -470,7 +453,7 @@ ssib_section ()			\
   do { data_section ();					\
        fprintf (FILE, "\t.align\t%d\n", floor_log2 ((ALIGN) / BITS_PER_UNIT));\
        ASM_OUTPUT_LABEL ((FILE), (NAME));		\
-       fprintf (FILE, "\t.byte 0:%d\n", SIZE);		\
+       fprintf (FILE, "\t.byte 0:"HOST_WIDE_INT_PRINT_UNSIGNED"\n",(SIZE));\
   } while (0)
 
 /* CAM does not allow us to declare a symbol as external first and then
@@ -525,24 +508,6 @@ ssib_section ()			\
 #undef DWARF2_DEBUGGING_INFO
 #undef DWARF2_UNWIND_INFO
 #undef INCOMING_RETURN_ADDR_RTX
-
-
-/* We use the functions provided by the system library for integer
-   division.  */
-
-#undef UDIVDI3_LIBCALL
-#undef DIVDI3_LIBCALL
-#define UDIVDI3_LIBCALL	"$uldiv"
-#define DIVDI3_LIBCALL "$sldiv"
-
-/* This is necessary to prevent gcc from generating calls to __divsi3.  */
-
-#define INIT_TARGET_OPTABS					\
-  do {								\
-    sdiv_optab->handlers[(int) SImode].libfunc = NULL_RTX;	\
-    udiv_optab->handlers[(int) SImode].libfunc = NULL_RTX;	\
-  } while (0)
-
 #undef ASM_OUTPUT_SOURCE_LINE
 
 /* We don't need a start file.  */

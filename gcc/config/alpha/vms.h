@@ -2,20 +2,20 @@
    Copyright (C) 1996, 1997, 1998, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -40,9 +40,6 @@ Boston, MA 02111-1307, USA.  */
 	else					\
 	  builtin_define ("__IEEE_FLOAT");	\
     } while (0)
-
-/* By default, allow $ to be part of an identifier.  */
-#define DOLLARS_IN_IDENTIFIERS 2
 
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_FP|MASK_FPREGS|MASK_GAS)
@@ -245,21 +242,6 @@ typedef struct {int num_args; enum avms_arg_type atypes[6];} avms_arg_info;
 #undef STACK_CHECK_BUILTIN
 #define STACK_CHECK_BUILTIN 0
 
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE)					\
-{								\
-  alpha_write_verstamp (FILE);					\
-  fprintf (FILE, "\t.set noreorder\n");				\
-  fprintf (FILE, "\t.set volatile\n");				\
-  if (TARGET_BWX | TARGET_MAX | TARGET_FIX | TARGET_CIX)	\
-    {								\
-      fprintf (FILE, "\t.arch %s\n",				\
-               (TARGET_CPU_EV6 ? "ev6"				\
-                : TARGET_MAX ? "pca56" : "ev56"));		\
-    }								\
-  ASM_OUTPUT_SOURCE_FILENAME (FILE, main_input_filename);	\
-}
-
 #define LINK_SECTION_ASM_OP "\t.link"
 #define READONLY_DATA_SECTION_ASM_OP "\t.rdata"
 #define LITERALS_SECTION_ASM_OP "\t.literals"
@@ -290,8 +272,8 @@ literals_section ()						\
     }								\
 }
 
-extern void link_section	PARAMS ((void));
-extern void literals_section	PARAMS ((void));
+extern void link_section (void);
+extern void literals_section (void);
 
 #undef ASM_OUTPUT_ADDR_DIFF_ELT
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) abort ()
@@ -306,7 +288,7 @@ extern void literals_section	PARAMS ((void));
 
 #undef ASM_OUTPUT_CASE_LABEL
 #define ASM_OUTPUT_CASE_LABEL(FILE,PREFIX,NUM,TABLEINSN)	\
-{ ASM_OUTPUT_ALIGN (FILE, 3); ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM); }
+{ ASM_OUTPUT_ALIGN (FILE, 3); (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM); }
 
 /* This says how to output assembler code to declare an                
    uninitialized external linkage data object.  */ 
@@ -318,7 +300,7 @@ extern void literals_section	PARAMS ((void));
 do {									\
   fprintf ((FILE), "%s", COMMON_ASM_OP);				\
   assemble_name ((FILE), (NAME));					\
-  fprintf ((FILE), ",%u,%u\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
+  fprintf ((FILE), "," HOST_WIDE_INT_PRINT_UNSIGNED ",%u\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
 } while (0)
 
 
@@ -448,10 +430,7 @@ do {									\
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE VMS_AND_DWARF2_DEBUG
 
-#undef ASM_FORMAT_PRIVATE_NAME
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 12),	\
-  sprintf ((OUTPUT), "%s___%d", (NAME), (LABELNO)))
+#define ASM_PN_FORMAT "%s___%lu"
 
 /* ??? VMS uses different linkage.  */
 #undef TARGET_ASM_OUTPUT_MI_THUNK
@@ -490,16 +469,6 @@ do {									\
 
 #undef LIB_SPEC
 #define LIB_SPEC "-lc"
-
-/* Define the names of the division and modulus functions.  */
-#define DIVSI3_LIBCALL "OTS$DIV_I"
-#define DIVDI3_LIBCALL "OTS$DIV_L"
-#define UDIVSI3_LIBCALL "OTS$DIV_UI"
-#define UDIVDI3_LIBCALL "OTS$DIV_UL"
-#define MODSI3_LIBCALL "OTS$REM_I"
-#define MODDI3_LIBCALL "OTS$REM_L"
-#define UMODSI3_LIBCALL "OTS$REM_UI"
-#define UMODDI3_LIBCALL "OTS$REM_UL"
 
 #define NAME__MAIN "__gccmain"
 #define SYMBOL__MAIN __gccmain

@@ -1,23 +1,23 @@
 /* PowerPC AltiVec include file.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez (aldyh@redhat.com).
 
-This file is part of GNU CC.
+   This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 2, or (at your
+   option) any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to the
+   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
+   MA 02111-1307, USA.  */
 
 /* As a special exception, if you include this header file into source
    files compiled by GCC, this header file does not by itself cause
@@ -41,7 +41,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define __vector __attribute__((vector_size(16)))
 
-/* You are allowed to undef this for C++ compatability.  */
+/* You are allowed to undef this for C++ compatibility.  */
 #define vector __vector
 
 #define bool signed
@@ -1102,43 +1102,43 @@ vec_cmple (vector float a1, vector float a2)
 inline vector signed char
 vec_cmplt (vector unsigned char a1, vector unsigned char a2)
 {
-  return (vector signed char) __builtin_altivec_vcmpgtub ((vector signed char) a1, (vector signed char) a2);
+  return (vector signed char) __builtin_altivec_vcmpgtub ((vector signed char) a2, (vector signed char) a1);
 }
 
 inline vector signed char
 vec_cmplt (vector signed char a1, vector signed char a2)
 {
-  return (vector signed char) __builtin_altivec_vcmpgtsb ((vector signed char) a1, (vector signed char) a2);
+  return (vector signed char) __builtin_altivec_vcmpgtsb ((vector signed char) a2, (vector signed char) a1);
 }
 
 inline vector signed short
 vec_cmplt (vector unsigned short a1, vector unsigned short a2)
 {
-  return (vector signed short) __builtin_altivec_vcmpgtuh ((vector signed short) a1, (vector signed short) a2);
+  return (vector signed short) __builtin_altivec_vcmpgtuh ((vector signed short) a2, (vector signed short) a1);
 }
 
 inline vector signed short
 vec_cmplt (vector signed short a1, vector signed short a2)
 {
-  return (vector signed short) __builtin_altivec_vcmpgtsh ((vector signed short) a1, (vector signed short) a2);
+  return (vector signed short) __builtin_altivec_vcmpgtsh ((vector signed short) a2, (vector signed short) a1);
 }
 
 inline vector signed int
 vec_cmplt (vector unsigned int a1, vector unsigned int a2)
 {
-  return (vector signed int) __builtin_altivec_vcmpgtuw ((vector signed int) a1, (vector signed int) a2);
+  return (vector signed int) __builtin_altivec_vcmpgtuw ((vector signed int) a2, (vector signed int) a1);
 }
 
 inline vector signed int
 vec_cmplt (vector signed int a1, vector signed int a2)
 {
-  return (vector signed int) __builtin_altivec_vcmpgtsw ((vector signed int) a1, (vector signed int) a2);
+  return (vector signed int) __builtin_altivec_vcmpgtsw ((vector signed int) a2, (vector signed int) a1);
 }
 
 inline vector signed int
 vec_cmplt (vector float a1, vector float a2)
 {
-  return (vector signed int) __builtin_altivec_vcmpgtfp ((vector float) a1, (vector float) a2);
+  return (vector signed int) __builtin_altivec_vcmpgtfp ((vector float) a2, (vector float) a1);
 }
 
 /* vec_ctf */
@@ -1198,7 +1198,7 @@ vec_dss (const char a1)
 /* vec_dssall */
 
 inline void
-vec_dssall ()
+vec_dssall (void)
 {
   __builtin_altivec_dssall ();
 }
@@ -2419,7 +2419,7 @@ vec_vmrglb (vector unsigned char a1, vector unsigned char a2)
 /* vec_mfvscr */
 
 inline vector unsigned short
-vec_mfvscr ()
+vec_mfvscr (void)
 {
   return (vector unsigned short) __builtin_altivec_mfvscr ();
 }
@@ -6523,7 +6523,7 @@ __ch (__bin_args_eq (vector unsigned char, (a1), vector unsigned char, (a2)), \
 
 #define vec_cmple(a1, a2) __builtin_altivec_vcmpgefp ((a1), (a2))
 
-#define vec_cmplt(a1, a2) \
+#define vec_cmplt(a2, a1) \
 __ch (__bin_args_eq (vector unsigned char, (a1), vector unsigned char, (a2)), \
       ((vector signed char) __builtin_altivec_vcmpgtub ((vector signed char) (a1), (vector signed char) (a2))), \
 __ch (__bin_args_eq (vector signed char, (a1), vector signed char, (a2)), \

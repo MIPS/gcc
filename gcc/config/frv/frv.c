@@ -1,25 +1,27 @@
 /* Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tree.h"
 #include "regs.h"
@@ -196,7 +198,6 @@ int frv_sched_lookahead = 4;		 /* -msched-lookahead=n */
 /* Forward references */
 static int frv_default_flags_for_cpu		PARAMS ((void));
 static int frv_string_begins_with		PARAMS ((tree, const char *));
-static FRV_INLINE int symbol_ref_small_data_p	PARAMS ((rtx));
 static FRV_INLINE int const_small_data_p	PARAMS ((rtx));
 static FRV_INLINE int plus_small_data_p		PARAMS ((rtx, rtx));
 static void frv_print_operand_memory_reference_reg
@@ -270,17 +271,21 @@ static int frv_registers_used_p			PARAMS ((rtx, unsigned char [],
 							 int));
 static int frv_registers_set_p			PARAMS ((rtx, unsigned char [],
 							 int));
+static int frv_issue_rate			PARAMS ((void));
+static int frv_use_dfa_pipeline_interface	PARAMS ((void));
 static void frv_pack_insns			PARAMS ((void));
 static void frv_function_prologue		PARAMS ((FILE *, HOST_WIDE_INT));
 static void frv_function_epilogue		PARAMS ((FILE *, HOST_WIDE_INT));
 static bool frv_assemble_integer		PARAMS ((rtx, unsigned, int));
-static const char * frv_strip_name_encoding	PARAMS ((const char *));
-static void frv_encode_section_info		PARAMS ((tree, int));
 static void frv_init_builtins			PARAMS ((void));
 static rtx frv_expand_builtin			PARAMS ((tree, rtx, rtx, enum machine_mode, int));
+static void frv_init_libfuncs			PARAMS ((void));
 static bool frv_in_small_data_p			PARAMS ((tree));
 static void frv_asm_output_mi_thunk
   PARAMS ((FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
+static bool frv_rtx_costs			PARAMS ((rtx, int, int, int*));
+static void frv_asm_out_constructor		PARAMS ((rtx, int));
+static void frv_asm_out_destructor		PARAMS ((rtx, int));
 
 /* Initialize the GCC target structure.  */
 #undef  TARGET_ASM_FUNCTION_PROLOGUE
@@ -289,33 +294,33 @@ static void frv_asm_output_mi_thunk
 #define TARGET_ASM_FUNCTION_EPILOGUE frv_function_epilogue
 #undef  TARGET_ASM_INTEGER
 #define TARGET_ASM_INTEGER frv_assemble_integer
-#undef  TARGET_STRIP_NAME_ENCODING
-#define TARGET_STRIP_NAME_ENCODING frv_strip_name_encoding
-#undef  TARGET_ENCODE_SECTION_INFO
-#define TARGET_ENCODE_SECTION_INFO frv_encode_section_info
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS frv_init_builtins
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN frv_expand_builtin
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS frv_init_libfuncs
 #undef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P frv_in_small_data_p
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS frv_rtx_costs
+#undef TARGET_ASM_CONSTRUCTOR
+#define TARGET_ASM_CONSTRUCTOR frv_asm_out_constructor
+#undef TARGET_ASM_DESTRUCTOR
+#define TARGET_ASM_DESTRUCTOR frv_asm_out_destructor
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK frv_asm_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
 
+#undef  TARGET_SCHED_ISSUE_RATE
+#define TARGET_SCHED_ISSUE_RATE frv_issue_rate
+#undef  TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE frv_use_dfa_pipeline_interface
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
-/* Given a SYMBOL_REF, return true if it points to small data.  */
-
-static FRV_INLINE int
-symbol_ref_small_data_p (x)
-     rtx x;
-{
-  return SDATA_NAME_P (XSTR (x, 0));
-}
-
 /* Given a CONST, return true if the symbol_ref points to small data.  */
 
 static FRV_INLINE int
@@ -328,7 +333,7 @@ const_small_data_p (x)
     return FALSE;
 
   x0 = XEXP (XEXP (x, 0), 0);
-  if (GET_CODE (x0) != SYMBOL_REF || !SDATA_NAME_P (XSTR (x0, 0)))
+  if (GET_CODE (x0) != SYMBOL_REF || !SYMBOL_REF_SMALL_P (x0))
     return FALSE;
 
   x1 = XEXP (XEXP (x, 0), 1);
@@ -351,7 +356,7 @@ plus_small_data_p (op0, op1)
       && REGNO (op0) == SDA_BASE_REG)
     {
       if (GET_CODE (op1) == SYMBOL_REF)
-	return symbol_ref_small_data_p (op1);
+	return SYMBOL_REF_SMALL_P (op1);
 
       if (GET_CODE (op1) == CONST)
 	return const_small_data_p (op1);
@@ -644,64 +649,6 @@ frv_string_begins_with (name, prefix)
   return (TREE_STRING_LENGTH (name) > prefix_len
 	  && strncmp (TREE_STRING_POINTER (name), prefix, prefix_len) == 0);
 }
-
-/* Encode section information of DECL, which is either a VAR_DECL,
-   FUNCTION_DECL, STRING_CST, CONSTRUCTOR, or ???.
-
-   For the FRV we want to record:
-
-   - whether the object lives in .sdata/.sbss.
-     objects living in .sdata/.sbss are prefixed with SDATA_FLAG_CHAR
-
-*/
-
-static void
-frv_encode_section_info (decl, first)
-     tree decl;
-     int first;
-{
-  if (! first)
-    return;
-  if (TREE_CODE (decl) == VAR_DECL)
-    {
-      int size = int_size_in_bytes (TREE_TYPE (decl));
-      tree section_name = DECL_SECTION_NAME (decl);
-      int is_small = 0;
-
-      /* Don't apply the -G flag to internal compiler structures.  We
-	 should leave such structures in the main data section, partly
-	 for efficiency and partly because the size of some of them
-	 (such as C++ typeinfos) is not known until later.  */
-      if (!DECL_ARTIFICIAL (decl) && size > 0 && size <= g_switch_value)
-	is_small = 1;
-
-      /* If we already know which section the decl should be in, see if
-	 it's a small data section.  */
-      if (section_name)
-	{
-	  if (TREE_CODE (section_name) == STRING_CST)
-	    {
-	      if (frv_string_begins_with (section_name, ".sdata"))
-		is_small = 1;
-	      if (frv_string_begins_with (section_name, ".sbss"))
-		is_small = 1;
-	    }
-	  else
-	    abort ();
-	}
-
-      if (is_small)
-	{
-	  rtx sym_ref = XEXP (DECL_RTL (decl), 0);
-	  char * str = xmalloc (2 + strlen (XSTR (sym_ref, 0)));
-
-	  str[0] = SDATA_FLAG_CHAR;
-	  strcpy (&str[1], XSTR (sym_ref, 0));
-	  XSTR (sym_ref, 0) = str;
-	}
-    }
-}
-
 
 /* Zero or more C statements that may conditionally modify two variables
    `fixed_regs' and `call_used_regs' (both of type `char []') after they have
@@ -1059,7 +1006,7 @@ frv_stack_info ()
 	case STACK_REGS_STDARG:
 	  if (varargs_p)
 	    {
-	      /* If this is a stdarg function with an non varardic argument split
+	      /* If this is a stdarg function with a non varardic argument split
 		 between registers and the stack, adjust the saved registers
 		 downward */
 	      last -= (ADDR_ALIGN (cfun->pretend_args_size, UNITS_PER_WORD)
@@ -1752,7 +1699,7 @@ frv_function_epilogue (file, size)
   frv_stack_cache = (frv_stack_t *)0;
 
   /* zap last used registers for conditional execution.  */
-  memset ((PTR) &frv_ifcvt.tmp_reg, 0, sizeof (frv_ifcvt.tmp_reg));
+  memset (&frv_ifcvt.tmp_reg, 0, sizeof (frv_ifcvt.tmp_reg));
 
   /* release the bitmap of created insns.  */
   BITMAP_XFREE (frv_ifcvt.scratch_insns_bitmap);
@@ -1891,13 +1838,11 @@ frv_asm_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
     fprintf (file, "\taddi %s,#%d,%s\n", name_arg0, (int) delta, name_arg0);
   else
     {
-      const char *name_add = reg_names[TEMP_REGNO];
-      fprintf (file, "\tsethi%s #hi(", parallel);
-      fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
-      fprintf (file, "),%s\n", name_add);
-      fprintf (file, "\tsetlo #lo(");
-      fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
-      fprintf (file, "),%s\n", name_add);
+      const char *const name_add = reg_names[TEMP_REGNO];
+      fprintf (file, "\tsethi%s #hi(" HOST_WIDE_INT_PRINT_DEC "),%s\n",
+	       parallel, delta, name_add);
+      fprintf (file, "\tsetlo #lo(" HOST_WIDE_INT_PRINT_DEC "),%s\n",
+	       delta, name_add);
       fprintf (file, "\tadd %s,%s,%s\n", name_add, name_arg0, name_arg0);
     }
 
@@ -2391,7 +2336,7 @@ frv_final_prescan_insn (insn, opvec, noperands)
   if (! PACKING_FLAG_USED_P())
     return;
 
-  if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+  if (!INSN_P (insn))
     return;
 
   frv_insn_operands = opvec;
@@ -2403,8 +2348,8 @@ frv_final_prescan_insn (insn, opvec, noperands)
 
      Printable instructions will be asm_operands or match one of the .md
      patterns.  Since asm instructions cannot be packed -- and will
-     therefore have TImode -- this loop terminates on any recognisable
-     instruction, and on any unrecognisable instruction with TImode.  */
+     therefore have TImode -- this loop terminates on any recognizable
+     instruction, and on any unrecognizable instruction with TImode.  */
   for (insn = NEXT_INSN (insn); insn; insn = NEXT_INSN (insn))
     {
       if (NOTE_P (insn))
@@ -2611,7 +2556,7 @@ frv_print_operand_memory_reference (stream, x, addr_offset)
 
 	case SYMBOL_REF:
 	  if (x0 && GET_CODE (x0) == REG && REGNO (x0) == SDA_BASE_REG
-	      && symbol_ref_small_data_p (x1))
+	      && SYMBOL_REF_SMALL_P (x1))
 	    {
 	      fputs ("#gprel12(", stream);
 	      assemble_name (stream, XSTR (x1, 0));
@@ -2627,7 +2572,8 @@ frv_print_operand_memory_reference (stream, x, addr_offset)
 	    {
 	      fputs ("#gprel12(", stream);
 	      assemble_name (stream, XSTR (XEXP (XEXP (x1, 0), 0), 0));
-	      fprintf (stream, "+%d)", INTVAL (XEXP (XEXP (x1, 0), 1)));
+	      fprintf (stream, "+"HOST_WIDE_INT_PRINT_DEC")",
+		       INTVAL (XEXP (XEXP (x1, 0), 1)));
 	    }
 	  else
 	    fatal_insn ("Bad insn to frv_print_operand_memory_reference:", x);
@@ -2794,7 +2740,7 @@ frv_print_operand (file, x, code)
       fprintf (file, "%d", frv_print_operand_jump_hint (current_output_insn));
       break;
 
-    case SDATA_FLAG_CHAR:
+    case '@':
       /* Output small data area base register (gr16). */
       fputs (reg_names[SDA_BASE_REG], file);
       break;
@@ -3076,11 +3022,11 @@ frv_print_operand (file, x, code)
    FNTYPE is nonzero, but never both of them at once.  */
 
 void
-frv_init_cumulative_args (cum, fntype, libname, indirect, incoming)
+frv_init_cumulative_args (cum, fntype, libname, fndecl, incoming)
      CUMULATIVE_ARGS *cum;
      tree fntype;
      rtx libname;
-     int indirect;
+     tree fndecl;
      int incoming;
 {
   *cum = FIRST_ARG_REGNUM;
@@ -3088,7 +3034,7 @@ frv_init_cumulative_args (cum, fntype, libname, indirect, incoming)
   if (TARGET_DEBUG_ARG)
     {
       fprintf (stderr, "\ninit_cumulative_args:");
-      if (indirect)
+      if (!fndecl && fntype)
 	fputs (" indirect", stderr);
 
       if (incoming)
@@ -3511,7 +3457,7 @@ frv_legitimate_address_p (mode, x, strict_p, condexec_p)
 	case SYMBOL_REF:
 	  if (!condexec_p
 	      && regno0 == SDA_BASE_REG
-	      && symbol_ref_small_data_p (x1))
+	      && SYMBOL_REF_SMALL_P (x1))
 	    ret = TRUE;
 	  break;
 
@@ -3569,7 +3515,7 @@ frv_legitimize_address (x, oldx, mode)
      things up when force_reg is called to try and put it in a register because
      we aren't optimizing.  */
   if (optimize
-      && ((GET_CODE (x) == SYMBOL_REF && symbol_ref_small_data_p (x))
+      && ((GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_SMALL_P (x))
 	  || (GET_CODE (x) == CONST && const_small_data_p (x))))
     {
       ret = gen_rtx_PLUS (Pmode, gen_rtx_REG (Pmode, SDA_BASE_REG), x);
@@ -3878,7 +3824,7 @@ int int_2word_operand (op, mode)
 
     case SYMBOL_REF:
       /* small data references are already 1 word */
-      return (flag_pic == 0) && (! symbol_ref_small_data_p (op));
+      return (flag_pic == 0) && (! SYMBOL_REF_SMALL_P (op));
 
     case CONST_INT:
       return ! IN_RANGE_P (INTVAL (op), -32768, 32767);
@@ -3940,7 +3886,7 @@ int pic_symbolic_operand (op, mode)
 
     case SYMBOL_REF:
       /* small data references are already 1 word */
-      return ! symbol_ref_small_data_p (op);
+      return ! SYMBOL_REF_SMALL_P (op);
 
     case CONST:
       /* small data references are already 1 word */
@@ -3981,7 +3927,7 @@ int small_data_symbolic_operand (op, mode)
       return const_small_data_p (op);
 
     case SYMBOL_REF:
-      return symbol_ref_small_data_p (op);
+      return SYMBOL_REF_SMALL_P (op);
     }
 
   return FALSE;
@@ -4789,7 +4735,7 @@ call_operand (op, mode)
   return gpr_or_int12_operand (op, mode);
 }
 
-/* Return true if operator is an kind of relational operator */
+/* Return true if operator is a kind of relational operator.  */
 
 int
 relational_operator (op, mode)
@@ -5493,7 +5439,7 @@ frv_emit_movsi (dest, src)
       break;
 
     case SYMBOL_REF:
-      if (symbol_ref_small_data_p (src))
+      if (SYMBOL_REF_SMALL_P (src))
 	base_regno = SDA_BASE_REG;
 
       else if (flag_pic)
@@ -6629,7 +6575,7 @@ frv_ifcvt_modify_tests (ce_info, p_true, p_false)
      consider registers that are not preserved across function calls and are
      not fixed.  However, allow the ICC/ICR temporary registers to be allocated
      if we did not need to use them in reloading other registers. */
-  memset ((PTR) &tmp_reg->regs, 0, sizeof (tmp_reg->regs));
+  memset (&tmp_reg->regs, 0, sizeof (tmp_reg->regs));
   COPY_HARD_REG_SET (tmp_reg->regs, call_used_reg_set);
   AND_COMPL_HARD_REG_SET (tmp_reg->regs, fixed_reg_set);
   SET_HARD_REG_BIT (tmp_reg->regs, ICC_TEMP);
@@ -7797,7 +7743,7 @@ frv_class_likely_spilled_p (class)
 
 
 /* An expression for the alignment of a structure field FIELD if the
-   alignment computed in the usual way is COMPUTED.  GNU CC uses this
+   alignment computed in the usual way is COMPUTED.  GCC uses this
    value instead of the value in `BIGGEST_ALIGNMENT' or
    `BIGGEST_FIELD_ALIGNMENT', if defined, for structure fields only.  */
 
@@ -8250,7 +8196,40 @@ frv_init_machine_status ()
 {
   return ggc_alloc_cleared (sizeof (struct machine_function));
 }
+
+/* Implement TARGET_SCHED_ISSUE_RATE.  */
 
+static int
+frv_issue_rate (void)
+{
+  if (!TARGET_PACK)
+    return 1;
+
+  switch (frv_cpu_type)
+    {
+    default:
+    case FRV_CPU_FR300:
+    case FRV_CPU_SIMPLE:
+      return 1;
+
+    case FRV_CPU_FR400:
+      return 2;
+
+    case FRV_CPU_GENERIC:
+    case FRV_CPU_FR500:
+    case FRV_CPU_TOMCAT:
+      return 4;
+    }
+}
+
+
+/* Implement TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE.  */
+
+static int
+frv_use_dfa_pipeline_interface (void)
+{
+  return true;
+}
 
 /* Update the register state information, to know about which registers are set
    or clobbered.  */
@@ -8672,11 +8651,6 @@ frv_registers_set_p (x, reg_state, modify_p)
 }
 
 
-/* In rare cases, correct code generation requires extra machine dependent
-   processing between the second jump optimization pass and delayed branch
-   scheduling.  On those machines, define this macro as a C statement to act on
-   the code starting at INSN.  */
-
 /* On the FR-V, this pass is used to rescan the insn chain, and pack
    conditional branches/calls/jumps, etc. with previous insns where it can.  It
    does not reorder the instructions.  We assume the scheduler left the flow
@@ -8699,27 +8673,16 @@ frv_pack_insns ()
   unsigned char reg_state[FIRST_PSEUDO_REGISTER];
 
   /* If we weren't going to pack the insns, don't bother with this pass.  */
-  if (!optimize || !flag_schedule_insns_after_reload || TARGET_NO_VLIW_BRANCH)
+  if (!optimize
+      || !flag_schedule_insns_after_reload
+      || TARGET_NO_VLIW_BRANCH
+      || frv_issue_rate () == 1)
     return;
-
-  switch (frv_cpu_type)
-    {
-    default:
-    case FRV_CPU_FR300:		/* FR300/simple are single issue */
-    case FRV_CPU_SIMPLE:
-      return;
-
-    case FRV_CPU_GENERIC:	/* FR-V and FR500 are multi-issue */
-    case FRV_CPU_FR400:
-    case FRV_CPU_FR500:
-    case FRV_CPU_TOMCAT:
-      break;
-    }
 
   /* Set up the instruction and register states.  */
   dfa_start ();
   frv_state = (state_t) xmalloc (state_size ());
-  memset ((PTR) reg_state, REGSTATE_DEAD, sizeof (reg_state));
+  memset (reg_state, REGSTATE_DEAD, sizeof (reg_state));
 
   /* Go through the insns, and repack the insns.  */
   state_reset (frv_state);
@@ -8852,7 +8815,7 @@ frv_pack_insns ()
 	}
     }
 
-  free ((PTR) frv_state);
+  free (frv_state);
   dfa_finish ();
   return;
 }
@@ -9150,6 +9113,54 @@ frv_init_builtins ()
 #undef UNARY
 #undef BINARY
 #undef TRINARY
+}
+
+/* Set the names for various arithmetic operations according to the
+   FRV ABI.  */
+static void
+frv_init_libfuncs (void)
+{
+  set_optab_libfunc (smod_optab,     SImode, "__modi");
+  set_optab_libfunc (umod_optab,     SImode, "__umodi");
+
+  set_optab_libfunc (add_optab,      DImode, "__addll");
+  set_optab_libfunc (sub_optab,      DImode, "__subll");
+  set_optab_libfunc (smul_optab,     DImode, "__mulll");
+  set_optab_libfunc (sdiv_optab,     DImode, "__divll");
+  set_optab_libfunc (smod_optab,     DImode, "__modll");
+  set_optab_libfunc (umod_optab,     DImode, "__umodll");
+  set_optab_libfunc (and_optab,      DImode, "__andll");
+  set_optab_libfunc (ior_optab,      DImode, "__orll");
+  set_optab_libfunc (xor_optab,      DImode, "__xorll");
+  set_optab_libfunc (one_cmpl_optab, DImode, "__notll");
+
+  set_optab_libfunc (add_optab,      SFmode, "__addf");
+  set_optab_libfunc (sub_optab,      SFmode, "__subf");
+  set_optab_libfunc (smul_optab,     SFmode, "__mulf");
+  set_optab_libfunc (sdiv_optab,     SFmode, "__divf");
+
+  set_optab_libfunc (add_optab,      DFmode, "__addd");
+  set_optab_libfunc (sub_optab,      DFmode, "__subd");
+  set_optab_libfunc (smul_optab,     DFmode, "__muld");
+  set_optab_libfunc (sdiv_optab,     DFmode, "__divd");
+
+  set_conv_libfunc (sext_optab,   DFmode, SFmode, "__ftod");
+  set_conv_libfunc (trunc_optab,  SFmode, DFmode, "__dtof");
+
+  set_conv_libfunc (sfix_optab,   SImode, SFmode, "__ftoi");
+  set_conv_libfunc (sfix_optab,   DImode, SFmode, "__ftoll");
+  set_conv_libfunc (sfix_optab,   SImode, DFmode, "__dtoi");
+  set_conv_libfunc (sfix_optab,   DImode, DFmode, "__dtoll");
+
+  set_conv_libfunc (ufix_optab,   SImode, SFmode, "__ftoui");
+  set_conv_libfunc (ufix_optab,   SImode, SFmode, "__ftoull");
+  set_conv_libfunc (ufix_optab,   SImode, SFmode, "__dtoui");
+  set_conv_libfunc (ufix_optab,   SImode, SFmode, "__dtoull");
+
+  set_conv_libfunc (sfloat_optab, SFmode, SImode, "__itof");
+  set_conv_libfunc (sfloat_optab, SFmode, DImode, "__lltof");
+  set_conv_libfunc (sfloat_optab, DFmode, SImode, "__itod");
+  set_conv_libfunc (sfloat_optab, DFmode, DImode, "__lltod");
 }
 
 /* Convert an integer constant to an accumulator register.  ICODE is the
@@ -9718,71 +9729,153 @@ frv_expand_builtin (exp, target, subtarget, mode, ignore)
 
   /* Expand groups of builtins. */
 
-  for (i = 0, d = bdesc_set; i < sizeof (bdesc_set) / sizeof *d; i++, d++)
+  for (i = 0, d = bdesc_set; i < ARRAY_SIZE (bdesc_set); i++, d++)
     if (d->code == fcode)
       return frv_expand_set_builtin (d->icode, arglist, target);
 
-  for (i = 0, d = bdesc_1arg; i < sizeof (bdesc_1arg) / sizeof *d; i++, d++)
+  for (i = 0, d = bdesc_1arg; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
     if (d->code == fcode)
       return frv_expand_unop_builtin (d->icode, arglist, target);
 
-  for (i = 0, d = bdesc_2arg; i < sizeof (bdesc_2arg) / sizeof *d; i++, d++)
+  for (i = 0, d = bdesc_2arg; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
     if (d->code == fcode)
       return frv_expand_binop_builtin (d->icode, arglist, target);
 
-  for (i = 0, d = bdesc_cut; i < sizeof (bdesc_cut) / sizeof *d; i++, d++)
+  for (i = 0, d = bdesc_cut; i < ARRAY_SIZE (bdesc_cut); i++, d++)
     if (d->code == fcode)
       return frv_expand_cut_builtin (d->icode, arglist, target);
 
-  for (i = 0, d = bdesc_2argimm;
-       i < sizeof (bdesc_2argimm) / sizeof *d;
-       i++, d++)
-    {
-      if (d->code == fcode)
-	return frv_expand_binopimm_builtin (d->icode, arglist, target);
-    }
+  for (i = 0, d = bdesc_2argimm; i < ARRAY_SIZE (bdesc_2argimm); i++, d++)
+    if (d->code == fcode)
+      return frv_expand_binopimm_builtin (d->icode, arglist, target);
 
-  for (i = 0, d = bdesc_void2arg;
-       i < sizeof (bdesc_void2arg) / sizeof *d;
-       i++, d++)
-    {
-      if (d->code == fcode)
-	return frv_expand_voidbinop_builtin (d->icode, arglist);
-    }
+  for (i = 0, d = bdesc_void2arg; i < ARRAY_SIZE (bdesc_void2arg); i++, d++)
+    if (d->code == fcode)
+      return frv_expand_voidbinop_builtin (d->icode, arglist);
 
-  for (i = 0, d = bdesc_void3arg;
-       i < sizeof (bdesc_void3arg) / sizeof *d;
-       i++, d++)
-    {
-      if (d->code == fcode)
-	return frv_expand_voidtriop_builtin (d->icode, arglist);
-    }
+  for (i = 0, d = bdesc_void3arg; i < ARRAY_SIZE (bdesc_void3arg); i++, d++)
+    if (d->code == fcode)
+      return frv_expand_voidtriop_builtin (d->icode, arglist);
 
-  for (i = 0, d = bdesc_voidacc;
-       i < sizeof (bdesc_voidacc) / sizeof *d;
-       i++, d++)
-    {
-      if (d->code == fcode)
-	return frv_expand_voidaccop_builtin (d->icode, arglist);
-    }
+  for (i = 0, d = bdesc_voidacc; i < ARRAY_SIZE (bdesc_voidacc); i++, d++)
+    if (d->code == fcode)
+      return frv_expand_voidaccop_builtin (d->icode, arglist);
+
   return 0;
-}
-
-static const char *
-frv_strip_name_encoding (str)
-     const char *str;
-{
-  while (*str == '*' || *str == SDATA_FLAG_CHAR)
-    str++;
-  return str;
 }
 
 static bool
 frv_in_small_data_p (decl)
      tree decl;
 {
-  HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (decl));
+  HOST_WIDE_INT size;
+  tree section_name;
 
-  return symbol_ref_small_data_p (XEXP (DECL_RTL (decl), 0))
-    && size > 0 && size <= g_switch_value;
+  /* Don't apply the -G flag to internal compiler structures.  We
+     should leave such structures in the main data section, partly
+     for efficiency and partly because the size of some of them
+     (such as C++ typeinfos) is not known until later.  */
+  if (TREE_CODE (decl) != VAR_DECL || DECL_ARTIFICIAL (decl))
+    return false;
+
+  size = int_size_in_bytes (TREE_TYPE (decl));
+  if (size > 0 && (unsigned HOST_WIDE_INT) size <= g_switch_value)
+    return true;
+
+  /* If we already know which section the decl should be in, see if
+     it's a small data section.  */
+  section_name = DECL_SECTION_NAME (decl);
+  if (section_name)
+    {
+      if (TREE_CODE (section_name) != STRING_CST)
+	abort ();
+      if (frv_string_begins_with (section_name, ".sdata"))
+	return true;
+      if (frv_string_begins_with (section_name, ".sbss"))
+	return true;
+    }
+
+  return false;
+}
+
+static bool
+frv_rtx_costs (x, code, outer_code, total)
+     rtx x;
+     int code, outer_code ATTRIBUTE_UNUSED;
+     int *total;
+{
+  switch (code)
+    {
+    case CONST_INT:
+      /* Make 12 bit integers really cheap.  */
+      if (IN_RANGE_P (INTVAL (x), -2048, 2047))
+	{
+	  *total = 0;
+	  return true;
+	}
+      /* FALLTHRU */
+
+    case CONST:
+    case LABEL_REF:
+    case SYMBOL_REF:
+    case CONST_DOUBLE:
+      *total = COSTS_N_INSNS (2);
+      return true;
+
+    case PLUS:
+    case MINUS:
+    case AND:
+    case IOR:
+    case XOR:
+    case ASHIFT:
+    case ASHIFTRT:
+    case LSHIFTRT:
+    case NOT:
+    case NEG:
+    case COMPARE:
+      if (GET_MODE (x) == SImode)
+	*total = COSTS_N_INSNS (1);
+      else if (GET_MODE (x) == DImode)
+        *total = COSTS_N_INSNS (2);
+      else
+        *total = COSTS_N_INSNS (3);
+      return true;
+
+    case MULT:
+      if (GET_MODE (x) == SImode)
+        *total = COSTS_N_INSNS (2);
+      else
+        *total = COSTS_N_INSNS (6);	/* guess */
+      return true;
+
+    case DIV:
+    case UDIV:
+    case MOD:
+    case UMOD:
+      *total = COSTS_N_INSNS (18);
+      return true;
+
+    default:
+      return false;
+    }
+}
+
+static void
+frv_asm_out_constructor (symbol, priority)
+     rtx symbol;
+     int priority ATTRIBUTE_UNUSED;
+{
+  ctors_section ();
+  assemble_align (POINTER_SIZE);
+  assemble_integer_with_op ("\t.picptr\t", symbol);
+}
+
+static void
+frv_asm_out_destructor (symbol, priority)
+     rtx symbol;
+     int priority ATTRIBUTE_UNUSED;
+{
+  dtors_section ();
+  assemble_align (POINTER_SIZE);
+  assemble_integer_with_op ("\t.picptr\t", symbol);
 }

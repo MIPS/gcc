@@ -1,21 +1,21 @@
 /* Frv prototypes.
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -70,7 +70,7 @@ extern rtx frv_legitimize_address		PARAMS ((rtx, rtx,
 
 #ifdef TREE_CODE
 extern void frv_init_cumulative_args		PARAMS ((CUMULATIVE_ARGS *, tree,
-						       rtx, int, int));
+						       rtx, tree, int));
 
 extern int frv_function_arg_boundary		PARAMS ((enum machine_mode, tree));
 extern rtx frv_function_arg			PARAMS ((CUMULATIVE_ARGS *,
@@ -170,7 +170,6 @@ extern int frv_adjust_field_align	PARAMS ((tree, int));
 extern void fixup_section		PARAMS ((void));
 extern void sdata_section		PARAMS ((void));
 extern void sbss_section		PARAMS ((void));
-extern void const_section		PARAMS ((void));
 extern void data_section		PARAMS ((void));
 
 #ifdef RTX_CODE
@@ -242,6 +241,5 @@ extern int even_acc_operand		PARAMS ((rtx, enum machine_mode));
 extern int quad_acc_operand		PARAMS ((rtx, enum machine_mode));
 extern int accg_operand			PARAMS ((rtx, enum machine_mode));
 extern rtx frv_matching_accg_for_acc	PARAMS ((rtx));
-extern void frv_machine_dependent_reorg	PARAMS ((rtx));
 #endif
 

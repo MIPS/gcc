@@ -2,20 +2,20 @@
    Copyright (C) 2002 Free Software Foundation, Inc.
    Contributed by Wasabi Systems, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -24,7 +24,6 @@ Boston, MA 02111-1307, USA.  */
   do						\
     {						\
       NETBSD_OS_CPP_BUILTINS_COMMON();		\
-      builtin_define ("__ELF__");		\
     }						\
   while (0)
 
@@ -46,26 +45,31 @@ Boston, MA 02111-1307, USA.  */
    of the support for getting C++ file-scope static objects
    constructed before entering "main".  */
 
-#undef STARTFILE_SPEC
-#define STARTFILE_SPEC		\
+#define NETBSD_STARTFILE_SPEC	\
   "%{!shared:			\
      %{pg:gcrt0%O%s}		\
      %{!pg:			\
        %{p:gcrt0%O%s}		\
        %{!p:crt0%O%s}}}		\
    %:if-exists(crti%O%s)	\
-   %{!shared:crtbegin%O%s} %{shared:crtbeginS%O%s}"
+   %{static:%:if-exists-else(crtbeginT%O%s crtbegin%O%s)} \
+   %{!static: \
+     %{!shared:crtbegin%O%s} %{shared:crtbeginS%O%s}}"
+
+#undef STARTFILE_SPEC
+#define STARTFILE_SPEC NETBSD_STARTFILE_SPEC
 
 
 /* Provide an ENDFILE_SPEC appropriate for NetBSD ELF.  Here we
    add crtend.o, which provides part of the support for getting
    C++ file-scope static objects deconstructed after exiting "main".  */
 
-#undef ENDFILE_SPEC
-#define ENDFILE_SPEC		\
+#define NETBSD_ENDFILE_SPEC	\
   "%{!shared:crtend%O%s} %{shared:crtendS%O%s} \
    %:if-exists(crtn%O%s)"
 
+#undef ENDFILE_SPEC
+#define ENDFILE_SPEC NETBSD_ENDFILE_SPEC
 
 /* Provide a LINK_SPEC appropriate for NetBSD ELF.  Here we provide
    support for the special GCC options -assert, -R, -rpath, -shared,

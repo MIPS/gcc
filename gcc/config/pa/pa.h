@@ -1,24 +1,24 @@
 /* Definitions of target machine for GNU compiler, for the HP Spectrum.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002 Free Software Foundation, Inc.
+   2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) of Cygnus Support
    and Tim Moore (moore@defmacro.cs.utah.edu) of the Center for
    Software Science at the University of Utah.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -197,7 +197,7 @@ extern int target_flags;
    difference calls.  This is a call variant similar to the long pic
    pc-relative call.  Long pic symbol difference calls are only used with
    the HP SOM linker.  Currently, only the HP assembler supports these
-   calls.  GAS doesn't allow an arbritrary difference of two symbols.  */
+   calls.  GAS doesn't allow an arbitrary difference of two symbols.  */
 #define TARGET_LONG_PIC_SDIFF_CALL (!TARGET_GAS)
 
 /* Define to a C expression evaluating to true to use long pic
@@ -205,6 +205,20 @@ extern int target_flags;
    GAS.  Currently, they are usable for calls within a module but
    not for external calls.  */
 #define TARGET_LONG_PIC_PCREL_CALL 0
+
+/* Define to a C expression evaluating to true to use SOM secondary
+   definition symbols for weak support.  Linker support for secondary
+   definition symbols is buggy prior to HP-UX 11.X.  */
+#define TARGET_SOM_SDEF 0
+
+/* Define to a C expression evaluating to true to save the entry value
+   of SP in the current frame marker.  This is normally unnecessary.
+   However, the HP-UX unwind library looks at the SAVE_SP callinfo flag.
+   HP compilers don't use this flag but it is supported by the assembler.
+   We set this flag to indicate that register %r3 has been saved at the
+   start of the frame.  Thus, when the HP unwind library is used, we
+   need to generate additional code to save SP into the frame marker.  */
+#define TARGET_HPUX_UNWIND_LIBRARY 0
 
 /* Macro to define tables used to set the flags.  This is a
    list in braces of target switches with each switch being
@@ -293,10 +307,17 @@ extern int target_flags;
 #define TARGET_OPTIONS							\
 {									\
   { "schedule=",		&pa_cpu_string,				\
-    N_("Specify CPU for scheduling purposes") },			\
+    N_("Specify CPU for scheduling purposes"), 0},			\
   { "arch=",			&pa_arch_string,			\
-    N_("Specify architecture for code generation.  Values are 1.0, 1.1, and 2.0.  2.0 requires gas snapshot 19990413 or later.") }\
+    N_("Specify architecture for code generation.  Values are 1.0, 1.1, and 2.0.  2.0 requires gas snapshot 19990413 or later."), 0}\
 }
+
+/* Support for a compile-time default CPU, et cetera.  The rules are:
+   --with-schedule is ignored if -mschedule is specified.
+   --with-arch is ignored if -march is specified.  */
+#define OPTION_DEFAULT_SPECS \
+  {"arch", "%{!march=*:-march=%(VALUE)}" }, \
+  {"schedule", "%{!mschedule=*:-mschedule=%(VALUE)}" }
 
 /* Specify the dialect of assembler to use.  New mnemonics is dialect one
    and the old mnemonics are dialect zero.  */
@@ -304,9 +325,7 @@ extern int target_flags;
 
 #define OVERRIDE_OPTIONS override_options ()
 
-/* stabs-in-som is nearly identical to stabs-in-elf.  To avoid useless
-   code duplication we simply include this file and override as needed.  */
-#include "dbxelf.h"
+/* Override some settings from dbxelf.h.  */
 
 /* We do not have to be compatible with dbx, so we enable gdb extensions
    by default.  */
@@ -351,11 +370,6 @@ do {								\
      builtin_assert("machine=hppa");				\
      builtin_define("__hppa");					\
      builtin_define("__hppa__");				\
-     if (TARGET_64BIT)						\
-       {							\
-	 builtin_define("_LP64");				\
-	 builtin_define("__LP64__");				\
-       }							\
      if (TARGET_PA_20)						\
        builtin_define("_PA_RISC2_0");				\
      else if (TARGET_PA_11)					\
@@ -372,8 +386,7 @@ do {								\
 	builtin_define_std ("hp800");				\
 	builtin_define_std ("hp9000");				\
 	builtin_define_std ("hp9k8");				\
-	if (c_language != clk_cplusplus				\
-	    && !flag_iso)					\
+	if (!c_dialect_cxx () && !flag_iso)			\
 	  builtin_define ("hppa");				\
 	builtin_define_std ("spectrum");			\
 	builtin_define_std ("unix");				\
@@ -409,10 +422,6 @@ do {								\
 
 /* Show we can debug even without a frame pointer.  */
 #define CAN_DEBUG_WITHOUT_FP
-
-/* Machine dependent reorg pass.  */
-#define MACHINE_DEPENDENT_REORG(X) pa_reorg(X)
-
 
 /* target machine storage layout */
 
@@ -451,19 +460,20 @@ do {								\
 
 /* Largest alignment required for any stack parameter, in bits.
    Don't define this if it is equal to PARM_BOUNDARY */
-#define MAX_PARM_BOUNDARY (2 * PARM_BOUNDARY)
+#define MAX_PARM_BOUNDARY BIGGEST_ALIGNMENT
 
 /* Boundary (in *bits*) on which stack pointer is always aligned;
    certain optimizations in combine depend on this.
 
-   GCC for the PA always rounds its stacks to a 512bit boundary,
-   but that happens late in the compilation process.  */
-#define STACK_BOUNDARY (TARGET_64BIT ? 128 : 64)
-
-#define PREFERRED_STACK_BOUNDARY 512
+   The HP-UX runtime documents mandate 64-byte and 16-byte alignment for
+   the stack on the 32 and 64-bit ports, respectively.  However, we
+   are only guaranteed that the stack is aligned to BIGGEST_ALIGNMENT
+   in main.  Thus, we treat the former as the preferred alignment.  */
+#define STACK_BOUNDARY BIGGEST_ALIGNMENT
+#define PREFERRED_STACK_BOUNDARY (TARGET_64BIT ? 128 : 512)
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
-#define FUNCTION_BOUNDARY (TARGET_64BIT ? 64 : 32)
+#define FUNCTION_BOUNDARY BITS_PER_WORD
 
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 32
@@ -474,9 +484,8 @@ do {								\
 /* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
-/* No data type wants to be aligned rounder than this.  This is set
-   to 128 bits to allow for lock semaphores in the stack frame.*/
-#define BIGGEST_ALIGNMENT 128
+/* No data type wants to be aligned rounder than this.  */
+#define BIGGEST_ALIGNMENT (2 * BITS_PER_WORD)
 
 /* Get around hp-ux assembler bug, and make strcpy of constants fast.  */
 #define CONSTANT_ALIGNMENT(CODE, TYPEALIGN) \
@@ -487,7 +496,6 @@ do {								\
   (TREE_CODE (TYPE) == ARRAY_TYPE		\
    && TYPE_MODE (TREE_TYPE (TYPE)) == QImode	\
    && (ALIGN) < BITS_PER_WORD ? BITS_PER_WORD : (ALIGN))
-
 
 /* Set this nonzero if move instructions will actually fail to work
    when given unaligned data.  */
@@ -542,7 +550,7 @@ do {								\
 
 /* Function to return the rtx used to save the pic offset table register
    across function calls.  */
-extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
+extern struct rtx_def *hppa_pic_save_rtx (void);
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
@@ -644,10 +652,14 @@ extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
     && REGNO (IN) < FIRST_PSEUDO_REGISTER)			\
    ? NO_REGS : secondary_reload_class (CLASS, MODE, IN))
 
+#define MAYBE_FP_REG_CLASS_P(CLASS) \
+  reg_classes_intersect_p ((CLASS), FP_REGS)
+
 /* On the PA it is not possible to directly move data between
    GENERAL_REGS and FP_REGS.  */
-#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)  \
-  (FP_REG_CLASS_P (CLASS1) != FP_REG_CLASS_P (CLASS2))
+#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)		\
+  (MAYBE_FP_REG_CLASS_P (CLASS1) != FP_REG_CLASS_P (CLASS2)	\
+   || MAYBE_FP_REG_CLASS_P (CLASS2) != FP_REG_CLASS_P (CLASS1))
 
 /* Return the stack location to use for secondary memory needed reloads.  */
 #define SECONDARY_MEMORY_NEEDED_RTX(MODE) \
@@ -672,10 +684,17 @@ extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
    first local allocated.  Otherwise, it is the offset to the BEGINNING
-   of the first local allocated.  The start of the locals must lie on
-   a STACK_BOUNDARY or else the frame size of leaf functions will not
-   be zero.  */
-#define STARTING_FRAME_OFFSET (TARGET_64BIT ? 16 : 8)
+   of the first local allocated.
+
+   On the 32-bit ports, we reserve one slot for the previous frame
+   pointer and one fill slot.  The fill slot is for compatibility
+   with HP compiled programs.  On the 64-bit ports, we reserve one
+   slot for the previous frame pointer.  */
+#define STARTING_FRAME_OFFSET 8
+
+/* Define STACK_ALIGNMENT_NEEDED to zero to disable final alignment
+   of the stack.  The default is to align it to STACK_BOUNDARY.  */
+#define STACK_ALIGNMENT_NEEDED 0
 
 /* If we generate an insn to push BYTES bytes,
    this says how many the stack pointer really advances by.
@@ -708,9 +727,13 @@ extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
 /* The weird HPPA calling conventions require a minimum of 48 bytes on
    the stack: 16 bytes for register saves, and 32 bytes for magic.
    This is the difference between the logical top of stack and the
-   actual sp.  */
+   actual sp.
+
+   On the 64-bit port, the HP C compiler allocates a 48-byte frame
+   marker, although the runtime documentation only describes a 16
+   byte marker.  For compatibility, we allocate 48 bytes.  */
 #define STACK_POINTER_OFFSET \
-  (TARGET_64BIT ? -(current_function_outgoing_args_size + 16): -32)
+  (TARGET_64BIT ? -(current_function_outgoing_args_size + 48): -32)
 
 #define STACK_DYNAMIC_OFFSET(FNDECL)	\
   (TARGET_64BIT				\
@@ -730,19 +753,7 @@ extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
    If the precise function being called is known, FUNC is its FUNCTION_DECL;
    otherwise, FUNC is 0.  */
 
-/* On the HP-PA the value is found in register(s) 28(-29), unless
-   the mode is SF or DF. Then the value is returned in fr4 (32).  */
-
-/* This must perform the same promotions as PROMOTE_MODE, else
-   PROMOTE_FUNCTION_RETURN will not work correctly.  */
-#define FUNCTION_VALUE(VALTYPE, FUNC)					\
-  gen_rtx_REG (((INTEGRAL_TYPE_P (VALTYPE)				\
-		 && TYPE_PRECISION (VALTYPE) < BITS_PER_WORD)		\
-		|| POINTER_TYPE_P (VALTYPE))				\
-	        ? word_mode : TYPE_MODE (VALTYPE),			\
-	       (TREE_CODE (VALTYPE) == REAL_TYPE			\
-		&& TYPE_MODE (VALTYPE) != TFmode			\
-		&& !TARGET_SOFT_FLOAT) ? 32 : 28)
+#define FUNCTION_VALUE(VALTYPE, FUNC) function_value (VALTYPE, FUNC)
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
@@ -765,12 +776,21 @@ extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
    and about the args processed so far, enough to enable macros
    such as FUNCTION_ARG to determine where the next arg should go.
 
-   On the HP-PA, this is a single integer, which is a number of words
+   On the HP-PA, the WORDS field holds the number of words
    of arguments scanned so far (including the invisible argument,
-   if any, which holds the structure-value-address).
-   Thus 4 or more means all following args should go on the stack.  */
+   if any, which holds the structure-value-address).  Thus, 4 or
+   more means all following args should go on the stack.
+   
+   The INCOMING field tracks whether this is an "incoming" or
+   "outgoing" argument.
+   
+   The INDIRECT field indicates whether this is is an indirect
+   call or not.
+   
+   The NARGS_PROTOTYPE field indicates that an argument does not
+   have a prototype when it less than or equal to 0.  */
 
-struct hppa_args {int words, nargs_prototype, indirect; };
+struct hppa_args {int words, nargs_prototype, incoming, indirect; };
 
 #define CUMULATIVE_ARGS struct hppa_args
 
@@ -778,9 +798,10 @@ struct hppa_args {int words, nargs_prototype, indirect; };
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT) \
+#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,FNDECL) \
   (CUM).words = 0, 							\
-  (CUM).indirect = INDIRECT,						\
+  (CUM).incoming = 0,							\
+  (CUM).indirect = (FNTYPE) && !(FNDECL),				\
   (CUM).nargs_prototype = (FNTYPE && TYPE_ARG_TYPES (FNTYPE)		\
 			   ? (list_length (TYPE_ARG_TYPES (FNTYPE)) - 1	\
 			      + (TYPE_MODE (TREE_TYPE (FNTYPE)) == BLKmode \
@@ -794,6 +815,7 @@ struct hppa_args {int words, nargs_prototype, indirect; };
 
 #define INIT_CUMULATIVE_INCOMING_ARGS(CUM,FNTYPE,IGNORE) \
   (CUM).words = 0,				\
+  (CUM).incoming = 1,				\
   (CUM).indirect = 0,				\
   (CUM).nargs_prototype = 1000
 
@@ -869,16 +891,13 @@ struct hppa_args {int words, nargs_prototype, indirect; };
    tempted to try and simply it, but I worry about breaking something.  */
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
-  function_arg (&CUM, MODE, TYPE, NAMED, 0)
+  function_arg (&CUM, MODE, TYPE, NAMED)
 
 /* Nonzero if we do not know how to pass TYPE solely in registers.  */
 #define MUST_PASS_IN_STACK(MODE,TYPE) \
   ((TYPE) != 0							\
    && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST		\
        || TREE_ADDRESSABLE (TYPE)))
-
-#define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED) \
-  function_arg (&CUM, MODE, TYPE, NAMED, 1)
 
 /* For an arg passed partly in registers and partly in memory,
    this is the number of registers used.
@@ -940,10 +959,10 @@ extern enum cmp_type hppa_branch_type;
 #endif
 
 #define FUNCTION_PROFILER(FILE, LABEL) \
-  ASM_OUTPUT_INTERNAL_LABEL (FILE, FUNC_BEGIN_PROLOG_LABEL, LABEL)
+  (*targetm.asm_out.internal_label) (FILE, FUNC_BEGIN_PROLOG_LABEL, LABEL)
 
 #define PROFILE_HOOK(label_no) hppa_profile_hook (label_no)
-void hppa_profile_hook PARAMS ((int label_no));
+void hppa_profile_hook (int label_no);
 
 /* The profile counter if emitted must come before the prologue.  */
 #define PROFILE_BEFORE_PROLOGUE 1
@@ -1498,6 +1517,11 @@ do { 									\
 
 #define TARGET_ASM_SELECT_SECTION  pa_select_section
    
+/* Return a nonzero value if DECL has a section attribute.  */
+#define IN_NAMED_SECTION_P(DECL) \
+  ((TREE_CODE (DECL) == FUNCTION_DECL || TREE_CODE (DECL) == VAR_DECL) \
+   && DECL_SECTION_NAME (DECL) != NULL_TREE)
+
 /* Define this macro if references to a symbol must be treated
    differently depending on something about the variable or
    function named by the symbol (such as what section it is in).
@@ -1567,11 +1591,6 @@ do { 									\
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-
-#define STORE_FLAG_VALUE 1
-
 /* When a prototype says `char' or `short', really pass an `int'.  */
 #define PROMOTE_PROTOTYPES 1
 #define PROMOTE_FUNCTION_RETURN 1
@@ -1604,31 +1623,6 @@ do { 									\
    few bits.  */
 #define SHIFT_COUNT_TRUNCATED 1
 
-/* Compute the cost of computing a constant rtl expression RTX
-   whose rtx-code is CODE.  The body of this macro is a portion
-   of a switch statement.  If the code is computed here,
-   return it with a return statement.  Otherwise, break from the switch.  */
-
-#define CONST_COSTS(RTX,CODE,OUTER_CODE) \
-  case CONST_INT:							\
-    if (INTVAL (RTX) == 0) return 0;					\
-    if (INT_14_BITS (RTX)) return 1;					\
-  case HIGH:								\
-    return 2;								\
-  case CONST:								\
-  case LABEL_REF:							\
-  case SYMBOL_REF:							\
-    return 4;								\
-  case CONST_DOUBLE:							\
-    if ((RTX == CONST0_RTX (DFmode) || RTX == CONST0_RTX (SFmode))	\
-	&& OUTER_CODE != SET)						\
-      return 0;								\
-    else								\
-      return 8;
-
-#define ADDRESS_COST(RTX) \
-  (GET_CODE (RTX) == REG ? 1 : hppa_address_cost (RTX))
-
 /* Compute extra cost of moving data between one register class
    and another.
 
@@ -1644,34 +1638,6 @@ do { 									\
   : FP_REG_CLASS_P (CLASS1) && ! FP_REG_CLASS_P (CLASS2) ? 16	\
   : FP_REG_CLASS_P (CLASS2) && ! FP_REG_CLASS_P (CLASS1) ? 16	\
   : 2)
-
-
-/* Provide the costs of a rtl expression.  This is in the body of a
-   switch on CODE.  The purpose for the cost of MULT is to encourage
-   `synth_mult' to find a synthetic multiply when reasonable.  */
-
-#define RTX_COSTS(X,CODE,OUTER_CODE)					\
-  case MULT:								\
-    if (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT)			\
-      return COSTS_N_INSNS (3);						\
-    return (TARGET_PA_11 && ! TARGET_DISABLE_FPREGS && ! TARGET_SOFT_FLOAT) \
-	    ? COSTS_N_INSNS (8) : COSTS_N_INSNS (20);	\
-  case DIV:								\
-    if (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT)			\
-      return COSTS_N_INSNS (14);					\
-  case UDIV:								\
-  case MOD:								\
-  case UMOD:								\
-    return COSTS_N_INSNS (60);						\
-  case PLUS: /* this includes shNadd insns */				\
-  case MINUS:								\
-    if (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT)			\
-      return COSTS_N_INSNS (3);						\
-    return COSTS_N_INSNS (1);						\
-  case ASHIFT:								\
-  case ASHIFTRT:							\
-  case LSHIFTRT:							\
-    return COSTS_N_INSNS (1);
 
 /* Adjust the cost of branches.  */
 #define BRANCH_COST (pa_cpu == PROCESSOR_8000 ? 2 : 1)
@@ -1717,10 +1683,6 @@ do { 									\
 
 #define ASM_APP_OFF ""
 
-/* Output deferred plabels at the end of the file.  */
-
-#define ASM_FILE_END(FILE) output_deferred_plabels (FILE)
-
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
 
@@ -1742,12 +1704,6 @@ do { 									\
       fputs (user_label_prefix, FILE);	\
     fputs (xname, FILE);		\
   } while (0)
-
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  {fprintf (FILE, "%c$%s%04d\n", (PREFIX)[0], (PREFIX) + 1, NUM);}
 
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
@@ -1796,7 +1752,8 @@ do { 									\
     fprintf (FILE, "\t.align %d\n", (1<<(LOG)))
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.blockz %d\n", (SIZE))
+  fprintf (FILE, "\t.blockz "HOST_WIDE_INT_PRINT_UNSIGNED"\n",		\
+	   (unsigned HOST_WIDE_INT)(SIZE))
 
 /* This says how to output an assembler line to define a global common symbol
    with size SIZE (in bytes) and alignment ALIGN (in bits).  */
@@ -1804,8 +1761,9 @@ do { 									\
 #define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGNED)  		\
 { bss_section ();							\
   assemble_name ((FILE), (NAME));					\
-  fputs ("\t.comm ", (FILE));						\
-  fprintf ((FILE), "%d\n", MAX ((SIZE), ((ALIGNED) / BITS_PER_UNIT)));}
+  fprintf ((FILE), "\t.comm "HOST_WIDE_INT_PRINT_UNSIGNED"\n",		\
+	   MAX ((unsigned HOST_WIDE_INT)(SIZE),				\
+		((unsigned HOST_WIDE_INT)(ALIGNED) / BITS_PER_UNIT)));}
 
 /* This says how to output an assembler line to define a local common symbol
    with size SIZE (in bytes) and alignment ALIGN (in bits).  */
@@ -1813,16 +1771,11 @@ do { 									\
 #define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGNED)		\
 { bss_section ();							\
   fprintf ((FILE), "\t.align %d\n", ((ALIGNED) / BITS_PER_UNIT));	\
-  assemble_name ((FILE), (NAME));				\
-  fprintf ((FILE), "\n\t.block %d\n", (SIZE));}
+  assemble_name ((FILE), (NAME));					\
+  fprintf ((FILE), "\n\t.block "HOST_WIDE_INT_PRINT_UNSIGNED"\n",	\
+	   (unsigned HOST_WIDE_INT)(SIZE));}
   
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 12),	\
-  sprintf ((OUTPUT), "%s___%d", (NAME), (LABELNO)))
+#define ASM_PN_FORMAT "%s___%lu"
 
 /* All HP assemblers use "!" to separate logical lines.  */
 #define IS_ASM_LOGICAL_LINE_SEPARATOR(C) ((C) == '!')
@@ -1880,8 +1833,7 @@ do { 									\
       fputs (")", FILE);						\
       break;								\
     case CONST_INT:							\
-      fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, INTVAL (addr));		\
-      fprintf (FILE, "(%%r0)");						\
+      fprintf (FILE, HOST_WIDE_INT_PRINT_DEC "(%%r0)", INTVAL (addr));	\
       break;								\
     default:								\
       output_addr_const (FILE, addr);					\
@@ -1902,35 +1854,6 @@ do { 									\
 
 /* The number of Pmode words for the setjmp buffer.  */
 #define JMP_BUF_SIZE 50
-
-/* Only direct calls to static functions are allowed to be sibling (tail)
-   call optimized.
-
-   This restriction is necessary because some linker generated stubs will
-   store return pointers into rp' in some cases which might clobber a
-   live value already in rp'.
-
-   In a sibcall the current function and the target function share stack
-   space.  Thus if the path to the current function and the path to the
-   target function save a value in rp', they save the value into the
-   same stack slot, which has undesirable consequences.
-
-   Because of the deferred binding nature of shared libraries any function
-   with external scope could be in a different load module and thus require
-   rp' to be saved when calling that function.  So sibcall optimizations
-   can only be safe for static function.
-
-   Note that GCC never needs return value relocations, so we don't have to
-   worry about static calls with return value relocations (which require
-   saving rp').
-
-   It is safe to perform a sibcall optimization when the target function
-   will never return.  */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) \
-  (DECL \
-   && ! TARGET_PORTABLE_RUNTIME \
-   && ! TARGET_64BIT \
-   && ! TREE_PUBLIC (DECL))
 
 #define PREDICATE_CODES							\
   {"reg_or_0_operand", {SUBREG, REG, CONST_INT}},			\
@@ -1972,3 +1895,7 @@ do { 									\
   {"cmpib_comparison_operator", {EQ, NE, LT, LE, LEU,			\
    GT, GTU, GE}},							\
   {"movb_comparison_operator", {EQ, NE, LT, GE}},
+
+/* We need a libcall to canonicalize function pointers on TARGET_ELF32.  */
+#define CANONICALIZE_FUNCPTR_FOR_COMPARE_LIBCALL \
+  "__canonicalize_funcptr_for_compare"

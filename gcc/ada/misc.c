@@ -7,7 +7,7 @@
  *                           C Implementation File                          *
  *                                                                          *
  *                                                                          *
- *          Copyright (C) 1992-2002 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2003 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -37,6 +37,8 @@
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "errors.h"
@@ -57,6 +59,7 @@
 #include "tm_p.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
+#include "target.h"
 
 #include "ada.h"
 #include "types.h"
@@ -72,14 +75,15 @@
 #include "ada-tree.h"
 #include "gigi.h"
 #include "adadecode.h"
+#include "opts.h"
+#include "options.h"
 
 extern FILE *asm_out_file;
-extern int save_argc;
-extern char **save_argv;
 
-static const char *gnat_init		PARAMS ((const char *));
-static void gnat_init_options		PARAMS ((void));
-static int gnat_decode_option		PARAMS ((int, char **));
+static size_t gnat_tree_size		PARAMS ((enum tree_code));
+static bool gnat_init			PARAMS ((void));
+static unsigned int gnat_init_options	(unsigned int, const char **);
+static int gnat_handle_option (size_t scode, const char *arg, int value);
 static HOST_WIDE_INT gnat_get_alias_set	PARAMS ((tree));
 static void gnat_print_decl		PARAMS ((FILE *, tree, int));
 static void gnat_print_type		PARAMS ((FILE *, tree, int));
@@ -96,12 +100,14 @@ static rtx gnat_expand_expr		PARAMS ((tree, rtx, enum machine_mode,
 #define LANG_HOOKS_NAME			"GNU Ada"
 #undef  LANG_HOOKS_IDENTIFIER_SIZE
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct tree_identifier)
+#undef  LANG_HOOKS_TREE_SIZE
+#define LANG_HOOKS_TREE_SIZE		gnat_tree_size
 #undef  LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT			gnat_init
 #undef  LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS		gnat_init_options
-#undef  LANG_HOOKS_DECODE_OPTION
-#define LANG_HOOKS_DECODE_OPTION	gnat_decode_option
+#undef  LANG_HOOKS_HANDLE_OPTION
+#define LANG_HOOKS_HANDLE_OPTION	gnat_handle_option
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE		gnat_parse_file
 #undef LANG_HOOKS_HONOR_READONLY
@@ -174,6 +180,10 @@ const char *const tree_code_name[] = {
 };
 #undef DEFTREECODE
 
+/* Command-line argc and argv.  */
+unsigned int save_argc;
+const char **save_argv;
+
 /* gnat standard argc argv */
 
 extern int gnat_argc;
@@ -207,83 +217,79 @@ gnat_parse_file (set_yydebug)
 
 /* Decode all the language specific options that cannot be decoded by GCC.
    The option decoding phase of GCC calls this routine on the flags that
-   it cannot decode. This routine returns 1 if it is successful, otherwise
-   it returns 0. */
+   it cannot decode.  This routine returns the number of consecutive arguments
+   from ARGV that it successfully decoded; 0 indicates failure.  */
 
 static int
-gnat_decode_option (argc, argv)
-     int argc ATTRIBUTE_UNUSED;
-     char **argv;
+gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
 {
-  char *p = argv[0];
-  int i;
+  enum opt_code code = (enum opt_code) scode;
+  char *q;
+  unsigned int i;
 
-  if (!strncmp (p, "-I", 2))
+  switch (code)
     {
-      /* Pass the -I switches as-is. */
-      gnat_argv[gnat_argc] = p;
-      gnat_argc ++;
-      return 1;
-    }
+    default:
+      abort();
 
-  else if (!strncmp (p, "-gant", 5))
-    {
-      char *q = xstrdup (p);
+    case OPT_I:
+      q = xmalloc (sizeof("-I") + strlen (arg));
+      strcpy (q, "-I");
+      strcat (q, arg);
+      gnat_argv[gnat_argc] = q;
+      gnat_argc++;
+      break;
 
+    case OPT_Wall:
+      /* All front ends are expected to accept this.  */
+      break;
+
+    case OPT_fRTS:
+      gnat_argv[gnat_argc] = xstrdup ("-fRTS");
+      gnat_argc++;
+      break;
+
+    case OPT_gant:
       warning ("`-gnat' misspelled as `-gant'");
-      q[2] = 'n', q[3] = 'a';
-      p = q;
-      return 1;
-    }
+      break;
 
-  else if (!strncmp (p, "-gnat", 5))
-    {
+    case OPT_gnat:
       /* Recopy the switches without the 'gnat' prefix */
-
-      gnat_argv[gnat_argc] =  (char *) xmalloc (strlen (p) - 3);
+      gnat_argv[gnat_argc] = xmalloc (strlen (arg) + 2);
       gnat_argv[gnat_argc][0] = '-';
-      strcpy (gnat_argv[gnat_argc] + 1, p + 5);
-      gnat_argc ++;
-      if (p[5] == 'O')
+      strcpy (gnat_argv[gnat_argc] + 1, arg);
+      gnat_argc++;
+
+      if (arg[0] == 'O')
 	for (i = 1; i < save_argc - 1; i++) 
 	  if (!strncmp (save_argv[i], "-gnatO", 6))
 	    if (save_argv[++i][0] != '-')
 	      {
 		/* Preserve output filename as GCC doesn't save it for GNAT. */
-		gnat_argv[gnat_argc] = save_argv[i];
+		gnat_argv[gnat_argc] = xstrdup (save_argv[i]);
 		gnat_argc++;
 		break;
 	      }
-
-      return 1;
+      break;
     }
 
-  /* Handle the --RTS switch.  The real option we get is -fRTS. This
-     modification is done by the driver program.  */
-  if (!strncmp (p, "-fRTS", 5))
-    {
-      gnat_argv[gnat_argc] = p;
-      gnat_argc ++;
-      return 1;
-    }
-
-  /* Ignore -W flags since people may want to use the same flags for all
-     languages.  */
-  else if (p[0] == '-' && p[1] == 'W' && p[2] != 0)
-    return 1;
-
-  return 0;
+  return 1;
 }
 
 /* Initialize for option processing.  */
 
-static void
-gnat_init_options ()
+static unsigned int
+gnat_init_options (unsigned int argc, const char **argv)
 {
-  /* Initialize gnat_argv with save_argv size */
-  gnat_argv = (char **) xmalloc ((save_argc + 1) * sizeof (gnat_argv[0])); 
-  gnat_argv[0] = save_argv[0];     /* name of the command */ 
+  /* Initialize gnat_argv with save_argv size.  */
+  gnat_argv = (char **) xmalloc ((argc + 1) * sizeof (argv[0])); 
+  gnat_argv[0] = xstrdup (argv[0]);     /* name of the command */ 
   gnat_argc = 1;
+
+  save_argc = argc;
+  save_argv = argv;
+
+  return CL_Ada;
 }
 
 /* Here is the function to handle the compiler error processing in GCC.  */
@@ -315,11 +321,23 @@ internal_error_function (msgid, ap)
   Compiler_Abort (fp, -1);
 }
 
+/* Langhook for tree_size: determine size of our 'x' and 'c' nodes.  */
+static size_t
+gnat_tree_size (enum tree_code code)
+{
+  switch (code)
+    {
+    case GNAT_LOOP_ID:	return sizeof (struct tree_loop_id);
+    default:
+      abort ();
+    }
+  /* NOTREACHED */
+}
+
 /* Perform all the initialization steps that are language-specific.  */
 
-static const char *
-gnat_init (filename)
-     const char *filename;
+static bool
+gnat_init ()
 {
   /* Performs whatever initialization steps needed by the language-dependent
      lexical analyzer.
@@ -330,7 +348,7 @@ gnat_init (filename)
   gnat_init_decl_processing ();
 
   /* Add the input filename as the last argument.  */
-  gnat_argv[gnat_argc] = (char *) filename;
+  gnat_argv[gnat_argc] = (char *) main_input_filename;
   gnat_argc++;
   gnat_argv[gnat_argc] = 0;
 
@@ -341,10 +359,7 @@ gnat_init (filename)
 
   set_lang_adjust_rli (gnat_adjust_rli);
 
-  if (filename == 0)
-    filename = "";
-
-  return filename;
+  return true;
 }
 
 /* If we are using the GCC mechanism for to process exception handling, we
@@ -547,19 +562,10 @@ gnat_expand_expr (exp, target, tmode, modifier)
 
 static void
 gnat_adjust_rli (rli)
-     record_layout_info rli;
+     record_layout_info rli ATTRIBUTE_UNUSED;
 {
-  unsigned int record_align = rli->unpadded_align;
-  tree field;
-
-  /* If any fields have variable size, we need to force the record to be at
-     least as aligned as the alignment of that type.  */
-  for (field = TYPE_FIELDS (rli->t); field; field = TREE_CHAIN (field))
-    if (TREE_CODE (DECL_SIZE_UNIT (field)) != INTEGER_CST)
-      record_align = MAX (record_align, DECL_ALIGN (field));
-
-  if (TYPE_PACKED (rli->t))
-    rli->record_align = record_align;
+  /* This function has no actual effect; record_align should already
+     reflect the largest alignment desired by a field.  jason 2003-04-01  */
 }
 
 /* Make a TRANSFORM_EXPR to later expand GNAT_NODE into code.  */
@@ -715,7 +721,7 @@ record_code_position (gnat_node)
        addressable needs some fixups and also for above reason.  */
     save_gnu_tree (gnat_node,
 		   build (RTL_EXPR, void_type_node, NULL_TREE,
-			  (tree) emit_note (0, NOTE_INSN_DELETED)),
+			  (tree) emit_note (NOTE_INSN_DELETED)),
 		   1);
 }
 
@@ -791,7 +797,7 @@ default_pass_by_ref (gnu_type)
 	  || FUNCTION_ARG_PASS_BY_REFERENCE (cum, TYPE_MODE (gnu_type),
 					     gnu_type, 1)
 #endif
-	  || RETURN_IN_MEMORY (gnu_type)
+	  || targetm.calls.return_in_memory (gnu_type, NULL_TREE)
 	  || (AGGREGATE_TYPE_P (gnu_type)
 	      && (! host_integerp (TYPE_SIZE (gnu_type), 1)
 		  || 0 < compare_tree_int (TYPE_SIZE (gnu_type),

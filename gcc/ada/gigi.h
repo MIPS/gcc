@@ -7,7 +7,7 @@
  *                              C Header File                               *
  *                                                                          *
  *                                                                          *
- *          Copyright (C) 1992-2002 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2003 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -192,9 +192,9 @@ extern tree gnat_to_gnu		PARAMS ((Node_Id));
 
 extern void process_type	PARAMS ((Entity_Id));
 
-/* Determine the input_filename and the lineno from the source location
+/* Determine the input_filename and the input_line from the source location
    (Sloc) of GNAT_NODE node.  Set the global variable input_filename and
-   lineno.  If WRITE_NOTE_P is true, emit a line number note. */
+   input_line.  If WRITE_NOTE_P is true, emit a line number note. */
 extern void set_lineno		PARAMS ((Node_Id, int));
 
 /* Post an error message.  MSG is the error message, properly annotated.
@@ -691,8 +691,9 @@ extern tree build_call_0_expr	PARAMS((tree));
    name, if requested.  MSG says which exception function to call.  */
 extern tree build_call_raise	PARAMS((int));
 
-/* Return a CONSTRUCTOR of TYPE whose list is LIST.  */
-extern tree build_constructor	PARAMS((tree, tree));
+/* Return a CONSTRUCTOR of TYPE whose list is LIST.  This is not the
+   same as build_constructor in the language-independent tree.c.  */
+extern tree gnat_build_constructor	PARAMS((tree, tree));
 
 /* Return a COMPONENT_REF to access a field that is given by COMPONENT,
    an IDENTIFIER_NODE giving the name of the field, FIELD, a FIELD_DECL,

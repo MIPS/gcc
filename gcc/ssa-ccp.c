@@ -1,5 +1,5 @@
 /* Conditional constant propagation pass for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Original framework by Daniel Berlin <dan@cgsoftware.com>
    Fleshed out and major cleanups by Jeff Law <law@redhat.com>
 
@@ -61,6 +61,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #include "rtl.h"
 #include "hard-reg-set.h"
@@ -122,24 +124,22 @@ static sbitmap ssa_edges;
 #define SSA_NAME(x) REGNO (SET_DEST (x))
 #define EIE(x,y) EDGE_INDEX (edges, x, y)
 
-static void visit_phi_node             PARAMS ((rtx, basic_block));
-static void visit_expression           PARAMS ((rtx, basic_block));
-static void defs_to_undefined          PARAMS ((rtx));
-static void defs_to_varying            PARAMS ((rtx));
-static void examine_flow_edges         PARAMS ((void));
-static int mark_references             PARAMS ((rtx *, void *));
-static void follow_def_use_chains      PARAMS ((void));
-static void optimize_unexecutable_edges PARAMS ((struct edge_list *, sbitmap));
-static void ssa_ccp_substitute_constants PARAMS ((void));
-static void ssa_ccp_df_delete_unreachable_insns PARAMS ((void));
-static void ssa_fast_dce PARAMS ((struct df *));
+static void visit_phi_node (rtx, basic_block);
+static void visit_expression (rtx, basic_block);
+static void defs_to_undefined (rtx);
+static void defs_to_varying (rtx);
+static void examine_flow_edges (void);
+static int mark_references (rtx *, void *);
+static void follow_def_use_chains (void);
+static void optimize_unexecutable_edges (struct edge_list *, sbitmap);
+static void ssa_ccp_substitute_constants (void);
+static void ssa_ccp_df_delete_unreachable_insns (void);
+static void ssa_fast_dce (struct df *);
 
 /* Loop through the PHI_NODE's parameters for BLOCK and compare their
    lattice values to determine PHI_NODE's lattice value.  */
 static void
-visit_phi_node (phi_node, block)
-     rtx phi_node;
-     basic_block block;
+visit_phi_node (rtx phi_node, basic_block block)
 {
   unsigned int i;
   rtx phi_node_expr = NULL;
@@ -208,8 +208,7 @@ visit_phi_node (phi_node, block)
 
 /* Sets all defs in an insn to UNDEFINED.  */
 static void
-defs_to_undefined (insn)
-     rtx insn;
+defs_to_undefined (rtx insn)
 {
   struct df_link *currdef;
   for (currdef = DF_INSN_DEFS (df_analyzer, insn); currdef;
@@ -223,8 +222,7 @@ defs_to_undefined (insn)
 
 /* Sets all defs in an insn to VARYING.  */
 static void
-defs_to_varying (insn)
-     rtx insn;
+defs_to_varying (rtx insn)
 {
   struct df_link *currdef;
   for (currdef = DF_INSN_DEFS (df_analyzer, insn); currdef;
@@ -239,9 +237,7 @@ defs_to_varying (insn)
 /* Go through the expression, call the appropriate evaluation routines
    to attempt cprop */
 static void
-visit_expression (insn, block)
-     rtx insn;
-     basic_block block;
+visit_expression (rtx insn, basic_block block)
 {
   rtx src, dest, set;
 
@@ -336,7 +332,7 @@ visit_expression (insn, block)
 	     blocks as executable if they have not already been
 	     marked.
 
-	     One day we may try do better with swtich tables and
+	     One day we may try do better with switch tables and
 	     other computed jumps.  */
 	  for (curredge = block->succ; curredge;
 	       curredge = curredge->succ_next)
@@ -623,7 +619,7 @@ visit_expression (insn, block)
 /* Iterate over the FLOW_EDGES work list.  Simulate the target block
    for each edge.  */
 static void
-examine_flow_edges ()
+examine_flow_edges (void)
 {
   while (flow_edges != NULL)
     {
@@ -691,7 +687,7 @@ examine_flow_edges ()
    simulate the uses of the definition.  */
 
 static void
-follow_def_use_chains ()
+follow_def_use_chains (void)
 {
   /* Iterate over all the entries on the SSA_EDGES worklist.  */
   while (sbitmap_first_set_bit (ssa_edges) >= 0)
@@ -734,9 +730,8 @@ follow_def_use_chains ()
    the edge from the CFG.  Note we do not delete unreachable blocks
    yet as the DF analyzer can not deal with that yet.  */
 static void
-optimize_unexecutable_edges (edges, executable_edges)
-     struct edge_list *edges;
-     sbitmap executable_edges;
+optimize_unexecutable_edges (struct edge_list *edges,
+			     sbitmap executable_edges)
 {
   int i;
   basic_block bb;
@@ -813,7 +808,7 @@ optimize_unexecutable_edges (edges, executable_edges)
 	  && bb->succ && bb->succ->succ_next == NULL)
 	{
 	  /* If the fallthru edge is the executable edge, then turn
-	     this jump into a nop jump, otherwise make it an unconditinoal
+	     this jump into a nop jump, otherwise make it an unconditional
 	     jump to its target.  */
 	  if (edge->flags & EDGE_FALLTHRU)
 	    {
@@ -847,7 +842,7 @@ optimize_unexecutable_edges (edges, executable_edges)
    replace uses with the known constant value.  */
 
 static void
-ssa_ccp_substitute_constants ()
+ssa_ccp_substitute_constants (void)
 {
   unsigned int i;
 
@@ -926,7 +921,7 @@ ssa_ccp_substitute_constants ()
    updates for the DF analyzer.  */
 
 static void
-ssa_ccp_df_delete_unreachable_insns ()
+ssa_ccp_df_delete_unreachable_insns (void)
 {
   basic_block b;
 
@@ -946,12 +941,7 @@ ssa_ccp_df_delete_unreachable_insns ()
 
 	  /* Include any jump table following the basic block.  */
 	  end = b->end;
-	  if (GET_CODE (end) == JUMP_INSN
-	      && (tmp = JUMP_LABEL (end)) != NULL_RTX
-	      && (tmp = NEXT_INSN (tmp)) != NULL_RTX
-	      && GET_CODE (tmp) == JUMP_INSN
-	      && (GET_CODE (PATTERN (tmp)) == ADDR_VEC
-	          || GET_CODE (PATTERN (tmp)) == ADDR_DIFF_VEC))
+	  if (tablejump_p (end, NULL, &tmp))
 	    end = tmp;
 
 	  while (1)
@@ -978,7 +968,7 @@ ssa_ccp_df_delete_unreachable_insns ()
    operate on so that it can be called for sub-graphs.  */
 
 void
-ssa_const_prop ()
+ssa_const_prop (void)
 {
   unsigned int i;
   edge curredge;
@@ -999,7 +989,7 @@ ssa_const_prop ()
   edges = create_edge_list ();
 
   /* Initialize the values array with everything as undefined.  */
-  values = (value *) xmalloc (VARRAY_SIZE (ssa_definition) * sizeof (value));
+  values = xmalloc (VARRAY_SIZE (ssa_definition) * sizeof (value));
   for (i = 0; i < VARRAY_SIZE (ssa_definition); i++)
     {
       if (i < FIRST_PSEUDO_REGISTER)
@@ -1018,7 +1008,7 @@ ssa_const_prop ()
   executable_edges = sbitmap_alloc (NUM_EDGES (edges));
   sbitmap_zero (executable_edges);
 
-  edge_info = (edge *) xmalloc (NUM_EDGES (edges) * sizeof (edge));
+  edge_info = xmalloc (NUM_EDGES (edges) * sizeof (edge));
   flow_edges = ENTRY_BLOCK_PTR->succ;
 
   /* Add the successors of the entry block to the edge worklist.  That
@@ -1091,9 +1081,7 @@ ssa_const_prop ()
 }
 
 static int
-mark_references (current_rtx, data)
-     rtx *current_rtx;
-     void *data;
+mark_references (rtx *current_rtx, void *data)
 {
   rtx x = *current_rtx;
   sbitmap worklist = (sbitmap) data;
@@ -1144,8 +1132,7 @@ mark_references (current_rtx, data)
 }
 
 static void
-ssa_fast_dce (df)
-     struct df *df;
+ssa_fast_dce (struct df *df)
 {
   sbitmap worklist = sbitmap_alloc (VARRAY_SIZE (ssa_definition));
   sbitmap_ones (worklist);

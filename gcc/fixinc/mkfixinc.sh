@@ -42,53 +42,28 @@ case $machine in
         fixincludes=fixinc.svr4
         ;;
 
-    i?86-*-interix* | \
-    alpha-*-interix*)
-        fixincludes=fixinc.interix
-        ;;
-
-    i?86-*-openbsd*)
-        fixincludes=fixinc.wrap
-        ;;
-
-    alpha*-*-winnt* | \
-    i?86-*-winnt3*)
-        fixincludes=fixinc.winnt
-        ;;
-
     i?86-sequent-ptx* | i?86-sequent-sysv[34]*)
         fixincludes=fixinc.ptx
         ;;
 
     alpha*-dec-*vms* | \
-    arm-semi-aout | \
-    armel-semi-aout | \
     arm-semi-aof | \
-    armel-semi-aof | \
     hppa1.1-*-osf* | \
-    hppa1.0-*-osf* | \
     hppa1.1-*-bsd* | \
-    hppa1.0-*-bsd* | \
-    hppa*-*-lites* | \
+    i370-*-openedition | \
     i?86-moss-msdos* | \
     i?86-*-moss* | \
-    i?86-*-osf1* | \
-    i?86-*-win32 | \
     i?86-*-pe | \
     i?86-*-cygwin* | \
     i?86-*-mingw32* | \
     i?86-*-uwin* | \
+    i?86-*-interix* | \
     powerpc-*-eabiaix* | \
     powerpc-*-eabisim* | \
     powerpc-*-eabi*    | \
     powerpc-*-rtems*   | \
     powerpcle-*-eabisim* | \
-    powerpcle-*-eabi*  | \
-    powerpcle-*-winnt* | \
-    powerpcle-*-pe | \
-    powerpcle-*-cygwin* | \
-    thumb-*-coff* | \
-    thumbel-*-coff* )
+    powerpcle-*-eabi* )
         #  Don't do any fixing.
         #
         fixincludes=
@@ -119,7 +94,7 @@ fi
 #  OK.  We gotta make the thing.
 #  make and install either the binary or the default script
 
-defs="SHELL=\"$SHELL\" CC=\"$CC\" CFLAGS=\"$CFLAGS\" LDFLAGS=\"$LDFLAGS\""
+defs="SHELL=\"$SHELL\" CC=\"$CC\" CFLAGS=\"$CFLAGS\" LDFLAGS=\"$LDFLAGS\" LIBERTY=\"$LIBERTY\""
 cmd="$MAKE ${defs} install-bin"
 echo $cmd
 eval $cmd

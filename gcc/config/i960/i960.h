@@ -5,30 +5,40 @@
    Additional Work by Glenn Colon-Bonet, Jonathan Shapiro, Andy Wilson
    Converted to GCC 2.0 by Jim Wilson and Michael Tiemann, Cygnus Support.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 /* Note that some other tm.h files may include this one and then override
    many of the definitions that relate to assembler syntax.  */
 
-#define MULTILIB_DEFAULTS { "mnumerics" }
+/* Target CPU builtins.  */
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+	builtin_define_std ("i960");		\
+	builtin_define_std ("I960");		\
+	builtin_define_std ("i80960");		\
+	builtin_define_std ("I80960");		\
+	builtin_assert ("cpu=i960");		\
+	builtin_assert ("machine=i960");	\
+    }						\
+  while (0)
 
-/* Names to predefine in the preprocessor for this target machine.  */
-#define CPP_PREDEFINES "-Di960 -Di80960 -DI960 -DI80960 -Acpu=i960 -Amachine=i960"
+#define MULTILIB_DEFAULTS { "mnumerics" }
 
 /* Name to predefine in the preprocessor for processor variations.
    -mic* options make characters signed by default.  */
@@ -130,9 +140,9 @@ Boston, MA 02111-1307, USA.  */
 extern int i960_maxbitalignment;
 extern int i960_last_maxbitalignment;
 
-#define REGISTER_TARGET_PRAGMAS(PFILE) do {			\
-  cpp_register_pragma (PFILE, 0, "align", i960_pr_align);	\
-  cpp_register_pragma (PFILE, 0, "noalign", i960_pr_noalign);	\
+#define REGISTER_TARGET_PRAGMAS() do {			\
+  c_register_pragma (0, "align", i960_pr_align);	\
+  c_register_pragma (0, "noalign", i960_pr_noalign);	\
 } while (0)
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
@@ -412,9 +422,9 @@ extern int target_flags;
    library functions.  */
 #define CONSTANT_ALIGNMENT(EXP, ALIGN) \
   (TREE_CODE (EXP) == STRING_CST	\
-   && i960_object_bytes_bitalign (int_size_in_bytes (TREE_TYPE (EXP))) > (ALIGN) \
+   && i960_object_bytes_bitalign (int_size_in_bytes (TREE_TYPE (EXP))) > (int)(ALIGN) \
    ? i960_object_bytes_bitalign (int_size_in_bytes (TREE_TYPE (EXP)))	    \
-   : (ALIGN))
+   : (int)(ALIGN))
 
 /* Macros to determine size of aggregates (structures and unions
    in C).  Normally, these may be defined to simply return the maximum
@@ -931,12 +941,6 @@ struct cum_args { int ca_nregparms; int ca_nstackparms; };
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT 0 */
-/* #define HAVE_POST_DECREMENT 0 */
-
-/* #define HAVE_PRE_DECREMENT 0 */
-/* #define HAVE_PRE_INCREMENT 0 */
-
 /* Macros to check register numbers against specific register classes.  */
 
 /* These assume that REGNO is a hard or pseudo reg number.
@@ -1111,11 +1115,6 @@ struct cum_args { int ca_nregparms; int ca_nstackparms; };
 
 #define SLOW_BYTE_ACCESS 1
 
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-
-#define STORE_FLAG_VALUE 1
-
 /* Define this to be nonzero if shift instructions ignore all but the low-order
    few bits.  */
 #define SHIFT_COUNT_TRUNCATED 0
@@ -1159,48 +1158,8 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 #ifndef WIND_RIVER
 #define	TARGET_MEM_FUNCTIONS	1
 #endif
-
-/* Compute the cost of computing a constant rtl expression RTX
-   whose rtx-code is CODE.  The body of this macro is a portion
-   of a switch statement.  If the code is computed here,
-   return it with a return statement.  Otherwise, break from the switch.  */
-
-/* Constants that can be (non-ldconst) insn operands are cost 0.  Constants
-   that can be non-ldconst operands in rare cases are cost 1.  Other constants
-   have higher costs.  */
-
-/* Must check for OUTER_CODE of SET for power2_operand, because
-   reload_cse_move2add calls us with OUTER_CODE of PLUS to decide when
-   to replace set with add.  */
-
-#define CONST_COSTS(RTX, CODE, OUTER_CODE)				\
-  case CONST_INT:							\
-    if ((INTVAL (RTX) >= 0 && INTVAL (RTX) < 32)			\
-	|| (OUTER_CODE == SET && power2_operand (RTX, VOIDmode)))	\
-      return 0; 							\
-    else if (INTVAL (RTX) >= -31 && INTVAL (RTX) < 0)			\
-      return 1;								\
-  case CONST:								\
-  case LABEL_REF:							\
-  case SYMBOL_REF:							\
-    return (TARGET_C_SERIES ? 6 : 8);					\
-  case CONST_DOUBLE:							\
-    if ((RTX) == CONST0_RTX (DFmode) || (RTX) == CONST0_RTX (SFmode)	\
-	|| (RTX) == CONST1_RTX (DFmode) || (RTX) == CONST1_RTX (SFmode))\
-      return 1;								\
-    return 12;
-
-/* The i960 offers addressing modes which are "as cheap as a register".
-   See i960.c (or gcc.texinfo) for details.  */
-
-#define ADDRESS_COST(RTX) \
-  (GET_CODE (RTX) == REG ? 1 : i960_address_cost (RTX))
 
 /* Control the assembler format that we output.  */
-
-/* Output at beginning of assembler file.  */
-
-#define ASM_FILE_START(file)
 
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
@@ -1243,7 +1202,7 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 /* This is how to output a note to DBX telling it the line number
    to which the following sequence of instructions corresponds.  */
 
-#define ASM_OUTPUT_SOURCE_LINE(FILE, LINE)			\
+#define ASM_OUTPUT_SOURCE_LINE(FILE, LINE, COUNTER)		\
 { if (write_symbols == SDB_DEBUG) {				\
     fprintf ((FILE), "\t.ln	%d\n",				\
 	     (sdb_begin_function_line				\
@@ -1259,19 +1218,13 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 
 #define USER_LABEL_PREFIX "_"
 
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  fprintf (FILE, "%s%d:\n", PREFIX, NUM)
-
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
    This is suitable for output with `assemble_name'.  */
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
-  sprintf (LABEL, "*%s%d", PREFIX, NUM)
+  sprintf (LABEL, "*%s%lu", PREFIX, (unsigned long)(NUM))
 
 #define ASM_OUTPUT_REG_PUSH(FILE,REGNO)  \
   fprintf (FILE, "\tst\t%s,(sp)\n\taddo\t4,sp,sp\n", reg_names[REGNO])
@@ -1299,7 +1252,7 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
   fprintf (FILE, "\t.align %d\n", (LOG))
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.space %d\n", (SIZE))
+  fprintf (FILE, "\t.space %d\n", (int)(SIZE))
 
 /* This says how to output an assembler line
    to define a global common symbol.  */
@@ -1316,7 +1269,7 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
       assemble_name ((FILE), (NAME)),			\
       fputs ("\n.comm ", (FILE)),			\
       assemble_name ((FILE), (NAME)),			\
-      fprintf ((FILE), ",%d\n", (SIZE));		\
+      fprintf ((FILE), ",%d\n", (int)(SIZE));		\
     }							\
 }
 
@@ -1327,7 +1280,7 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 #define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)  \
 ( fputs (".bss\t", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%d,%d\n", (SIZE),		\
+  fprintf ((FILE), ",%d,%d\n", (int)(SIZE),	\
 	   (floor_log2 ((ALIGN) / BITS_PER_UNIT))))
 
 /* A C statement (sans semicolon) to output to the stdio stream
@@ -1337,9 +1290,6 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)	\
   do {								\
-    fputs (".globl ", (FILE));					\
-    assemble_name ((FILE), (NAME));				\
-    fputs ("\n", (FILE));					\
     ASM_OUTPUT_ALIGNED_LOCAL (FILE, NAME, SIZE, ALIGN);		\
   } while (0)
 
@@ -1350,13 +1300,6 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 
 #define	LABEL_ALIGN_AFTER_BARRIER(LABEL) (TARGET_CODE_ALIGN ? 3 : 0)
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-	( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-	  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.

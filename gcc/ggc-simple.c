@@ -1,5 +1,6 @@
 /* Simple garbage collection for the GNU compiler.
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -20,12 +21,15 @@
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "varray.h"
 #include "ggc.h"
+#include "toplev.h"
 #include "timevar.h"
 #include "params.h"
 
@@ -82,11 +86,7 @@ struct ggc_mem
   /* Make sure the data is reasonably aligned.  */
   union {
     HOST_WIDEST_INT i;
-#ifdef HAVE_LONG_DOUBLE
     long double d;
-#else
-    double d;
-#endif
   } u;
 };
 
@@ -110,25 +110,24 @@ static struct globals
 
 /* Local function prototypes.  */
 
-static void tree_insert PARAMS ((struct ggc_mem *));
-static int tree_lookup PARAMS ((struct ggc_mem *));
-static void clear_marks PARAMS ((struct ggc_mem *));
-static void sweep_objs PARAMS ((struct ggc_mem **));
-static void ggc_pop_context_1 PARAMS ((struct ggc_mem *, int));
+static void tree_insert (struct ggc_mem *);
+static int tree_lookup (struct ggc_mem *);
+static void clear_marks (struct ggc_mem *);
+static void sweep_objs (struct ggc_mem **);
+static void ggc_pop_context_1 (struct ggc_mem *, int);
 
 /* For use from debugger.  */
-extern void debug_ggc_tree PARAMS ((struct ggc_mem *, int));
+extern void debug_ggc_tree (struct ggc_mem *, int);
 
 #ifdef GGC_BALANCE
-extern void debug_ggc_balance PARAMS ((void));
+extern void debug_ggc_balance (void);
 #endif
-static void tally_leaves PARAMS ((struct ggc_mem *, int, size_t *, size_t *));
+static void tally_leaves (struct ggc_mem *, int, size_t *, size_t *);
 
 /* Insert V into the search tree.  */
 
 static inline void
-tree_insert (v)
-     struct ggc_mem *v;
+tree_insert (struct ggc_mem *v)
 {
   size_t v_key = PTR_KEY (v);
   struct ggc_mem *p, **pp;
@@ -144,8 +143,7 @@ tree_insert (v)
 /* Return true if V is in the tree.  */
 
 static inline int
-tree_lookup (v)
-     struct ggc_mem *v;
+tree_lookup (struct ggc_mem *v)
 {
   size_t v_key = PTR_KEY (v);
   struct ggc_mem *p = G.root;
@@ -164,12 +162,11 @@ tree_lookup (v)
 /* Alloc SIZE bytes of GC'able memory.  If ZERO, clear the memory.  */
 
 void *
-ggc_alloc (size)
-     size_t size;
+ggc_alloc (size_t size)
 {
   struct ggc_mem *x;
 
-  x = (struct ggc_mem *) xmalloc (offsetof (struct ggc_mem, u) + size);
+  x = xmalloc (offsetof (struct ggc_mem, u) + size);
   x->sub[0] = NULL;
   x->sub[1] = NULL;
   x->mark = 0;
@@ -190,8 +187,7 @@ ggc_alloc (size)
 /* Mark a node.  */
 
 int
-ggc_set_mark (p)
-     const void *p;
+ggc_set_mark (const void *p)
 {
   struct ggc_mem *x;
 
@@ -214,8 +210,7 @@ ggc_set_mark (p)
 /* Return 1 if P has been marked, zero otherwise.  */
 
 int
-ggc_marked_p (p)
-     const void *p;
+ggc_marked_p (const void *p)
 {
   struct ggc_mem *x;
 
@@ -231,8 +226,7 @@ ggc_marked_p (p)
 /* Return the size of the gc-able object P.  */
 
 size_t
-ggc_get_size (p)
-     const void *p;
+ggc_get_size (const void *p)
 {
   struct ggc_mem *x
     = (struct ggc_mem *) ((const char *)p - offsetof (struct ggc_mem, u));
@@ -242,8 +236,7 @@ ggc_get_size (p)
 /* Unmark all objects.  */
 
 static void
-clear_marks (x)
-     struct ggc_mem *x;
+clear_marks (struct ggc_mem *x)
 {
   x->mark = 0;
   if (x->sub[0])
@@ -255,8 +248,7 @@ clear_marks (x)
 /* Free all objects in the current context that are not marked.  */
 
 static void
-sweep_objs (root)
-     struct ggc_mem **root;
+sweep_objs (struct ggc_mem **root)
 {
   struct ggc_mem *x = *root;
   if (!x)
@@ -305,7 +297,7 @@ sweep_objs (root)
 /* The top level mark-and-sweep routine.  */
 
 void
-ggc_collect ()
+ggc_collect (void)
 {
   /* Avoid frequent unnecessary work by skipping collection if the
      total allocations haven't expanded much since the last
@@ -348,7 +340,7 @@ ggc_collect ()
 /* Called once to initialize the garbage collector.  */
 
 void
-init_ggc ()
+init_ggc (void)
 {
 }
 
@@ -356,7 +348,7 @@ init_ggc ()
    will not be collected while the new context is active.  */
 
 void
-ggc_push_context ()
+ggc_push_context (void)
 {
   G.context++;
 
@@ -370,7 +362,7 @@ ggc_push_context ()
    will be merged with the old context.  */
 
 void
-ggc_pop_context ()
+ggc_pop_context (void)
 {
   G.context--;
   if (G.root)
@@ -378,9 +370,7 @@ ggc_pop_context ()
 }
 
 static void
-ggc_pop_context_1 (x, c)
-     struct ggc_mem *x;
-     int c;
+ggc_pop_context_1 (struct ggc_mem *x, int c)
 {
   if (x->context > c)
     x->context = c;
@@ -393,9 +383,7 @@ ggc_pop_context_1 (x, c)
 /* Dump a tree.  */
 
 void
-debug_ggc_tree (p, indent)
-     struct ggc_mem *p;
-     int indent;
+debug_ggc_tree (struct ggc_mem *p, int indent)
 {
   int i;
 
@@ -410,7 +398,7 @@ debug_ggc_tree (p, indent)
 
   for (i = 0; i < indent; ++i)
     putc (' ', stderr);
-  fprintf (stderr, "%lx %p\n", (unsigned long)PTR_KEY (p), p);
+  fprintf (stderr, "%lx %p\n", (unsigned long)PTR_KEY (p), (void *) p);
 
   if (p->sub[1])
     debug_ggc_tree (p->sub[1], indent + 1);
@@ -422,7 +410,7 @@ debug_ggc_tree (p, indent)
 #include <math.h>
 
 void
-debug_ggc_balance ()
+debug_ggc_balance (void)
 {
   size_t nleaf, sumdepth;
 
@@ -440,11 +428,7 @@ debug_ggc_balance ()
 
 /* Used by debug_ggc_balance, and also by ggc_print_statistics.  */
 static void
-tally_leaves (x, depth, nleaf, sumdepth)
-     struct ggc_mem *x;
-     int depth;
-     size_t *nleaf;
-     size_t *sumdepth;
+tally_leaves (struct ggc_mem *x, int depth, size_t *nleaf, size_t *sumdepth)
 {
   if (! x->sub[0] && !x->sub[1])
     {
@@ -469,7 +453,7 @@ tally_leaves (x, depth, nleaf, sumdepth)
 
 /* Report on GC memory usage.  */
 void
-ggc_print_statistics ()
+ggc_print_statistics (void)
 {
   struct ggc_statistics stats;
   size_t nleaf = 0, sumdepth = 0;
@@ -488,16 +472,80 @@ ggc_print_statistics ()
 
   fprintf (stderr, "\n\
 Total internal data (bytes)\t%ld%c\n\
-Number of leaves in tree\t%d\n\
+Number of leaves in tree\t%lu\n\
 Average leaf depth\t\t%.1f\n",
 	   SCALE(G.objects * offsetof (struct ggc_mem, u)),
 	   LABEL(G.objects * offsetof (struct ggc_mem, u)),
-	   nleaf, (double)sumdepth / (double)nleaf);
+	   (unsigned long)nleaf, (double)sumdepth / (double)nleaf);
 
   /* Report overall memory usage.  */
   fprintf (stderr, "\n\
-Total objects allocated\t\t%d\n\
+Total objects allocated\t\t%ld\n\
 Total memory in GC arena\t%ld%c\n",
-	   G.objects,
+	   (unsigned long)G.objects,
 	   SCALE(G.allocated), LABEL(G.allocated));
+}
+
+struct ggc_pch_data *
+init_ggc_pch (void)
+{
+  sorry ("Generating PCH files is not supported when using ggc-simple.c");
+  /* It could be supported, but the code is not yet written.  */
+  return NULL;
+}
+
+void
+ggc_pch_count_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
+		      void *x ATTRIBUTE_UNUSED,
+		      size_t size ATTRIBUTE_UNUSED)
+{
+}
+
+size_t
+ggc_pch_total_size (struct ggc_pch_data *d ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
+void
+ggc_pch_this_base (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
+		   void *base ATTRIBUTE_UNUSED)
+{
+}
+
+
+char *
+ggc_pch_alloc_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
+		      void *x ATTRIBUTE_UNUSED,
+		      size_t size ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+
+void
+ggc_pch_prepare_write (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
+		       FILE * f ATTRIBUTE_UNUSED)
+{
+}
+
+void
+ggc_pch_write_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
+		      FILE *f ATTRIBUTE_UNUSED, void *x ATTRIBUTE_UNUSED,
+		      void *newx ATTRIBUTE_UNUSED,
+		      size_t size ATTRIBUTE_UNUSED)
+{
+}
+
+void
+ggc_pch_finish (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
+		FILE *f ATTRIBUTE_UNUSED)
+{
+}
+
+void
+ggc_pch_read (FILE *f ATTRIBUTE_UNUSED, void *addr ATTRIBUTE_UNUSED)
+{
+  /* This should be impossible, since we won't generate any valid PCH
+     files for this configuration.  */
+  abort ();
 }

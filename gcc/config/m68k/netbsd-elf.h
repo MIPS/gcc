@@ -1,26 +1,26 @@
 /* Definitions of target machine for GNU compiler,
    for m68k (including m68010) NetBSD platforms using the
    ELF object format.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Wasabi Systems. Inc.
 
    This file is derived from <m68k/m68kv4.h>, <m68k/m68kelf.h>,
    and <m68k/linux.h>.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
+the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -31,8 +31,6 @@ Boston, MA 02111-1307, USA.  */
       builtin_define ("__m68k__");		\
       builtin_define ("__SVR4_ABI__");		\
       builtin_define ("__motorola__");		\
-      builtin_assert ("cpu=m68k");		\
-      builtin_assert ("machine=m68k");		\
     }						\
   while (0)
 
@@ -103,9 +101,11 @@ Boston, MA 02111-1307, USA.  */
 
 #undef ASM_SPEC
 #define ASM_SPEC \
-  " %| %(asm_default_spec) \
+  "%(asm_default_spec) \
     %{m68010} %{m68020} %{m68030} %{m68040} %{m68060} \
-    %{fpic:-k} %{fPIC:-k -K}"
+    %{fpic|fpie:-k} %{fPIC|fPIE:-k -K}"
+
+#define AS_NEEDS_DASH_FOR_PIPED_INPUT
 
 /* Provide a LINK_SPEC appropriate for a NetBSD/m68k ELF target.  */
 
@@ -185,25 +185,10 @@ while (0)
 
 #undef REGISTER_NAMES
 
-#ifndef SUPPORT_SUN_FPA
-
 #define REGISTER_NAMES							\
 {"%d0",   "%d1",   "%d2",   "%d3",   "%d4",   "%d5",   "%d6",   "%d7",	\
  "%a0",   "%a1",   "%a2",   "%a3",   "%a4",   "%a5",   "%fp",   "%sp",	\
  "%fp0",  "%fp1",  "%fp2",  "%fp3",  "%fp4",  "%fp5",  "%fp6",  "%fp7" }
-
-#else /* SUPPORT_SUN_FPA */
-
-#define REGISTER_NAMES							\
-{"%d0",   "%d1",   "%d2",   "%d3",   "%d4",   "%d5",   "%d6",   "%d7",	\
- "%a0",   "%a1",   "%a2",   "%a3",   "%a4",   "%a5",   "%fp",   "%sp",	\
- "%fp0",  "%fp1",  "%fp2",  "%fp3",  "%fp4",  "%fp5",  "%fp6",  "%fp7",	\
- "%fpa0", "%fpa1", "%fpa2", "%fpa3", "%fpa4", "%fpa5", "%fpa6","%fpa7",	\
- "%fpa8", "%fpa9", "%fpa10","%fpa11","%fpa12","%fpa13","%fpa14","%fpa15", \
- "%fpa16","%fpa17","%fpa18","%fpa19","%fpa20","%fpa21","%fpa22","%fpa23", \
- "%fpa24","%fpa25","%fpa26","%fpa27","%fpa28","%fpa29","%fpa30","%fpa31" }
-
-#endif /* ! SUPPORT_SUN_FPA */
 
 
 /* Currently, JUMP_TABLES_IN_TEXT_SECTION must be defined in order to
@@ -215,15 +200,18 @@ while (0)
 
 /* Use the default action for outputting the case label.  */
 #undef ASM_OUTPUT_CASE_LABEL
-#define ASM_RETURN_CASE_JUMP						\
-do									\
-  {									\
-    if (TARGET_5200)							\
-      return "ext%.l %0\n\tjmp %%pc@(2,%0:l)";				\
-    else								\
-      return "jmp %%pc@(2,%0:w)";					\
-  }									\
-while (0)
+#define ASM_RETURN_CASE_JUMP				\
+  do {							\
+    if (TARGET_COLDFIRE)				\
+      {							\
+	if (ADDRESS_REG_P (operands[0]))		\
+	  return "jmp %%pc@(2,%0:l)";			\
+	else						\
+	  return "ext%.l %0\n\tjmp %%pc@(2,%0:l)";	\
+      }							\
+    else						\
+      return "jmp %%pc@(2,%0:w)";			\
+  } while (0)
 
 
 /* This is how to output an assembler line that says to advance the
@@ -264,13 +252,13 @@ while (0)
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)			\
 ( fputs (".comm ", (FILE)),						\
   assemble_name ((FILE), (NAME)),					\
-  fprintf ((FILE), ",%u\n", (SIZE)))
+  fprintf ((FILE), ",%u\n", (int)(SIZE)))
 
 #undef ASM_OUTPUT_LOCAL
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)			\
 ( fputs (".lcomm ", (FILE)),						\
   assemble_name ((FILE), (NAME)),					\
-  fprintf ((FILE), ",%u\n", (SIZE)))
+  fprintf ((FILE), ",%u\n", (int)(SIZE)))
 
 
 /* XXX
@@ -393,20 +381,6 @@ while (0)
 
 #undef BIGGEST_ALIGNMENT
 #define BIGGEST_ALIGNMENT 64
-
-
-/* In m68k svr4, a symbol_ref rtx can be a valid PIC operand if it is
-   an operand of a function call. */
-
-#undef LEGITIMATE_PIC_OPERAND_P
-#define LEGITIMATE_PIC_OPERAND_P(X)					\
-  ((! symbolic_operand (X, VOIDmode)					\
-    && ! (GET_CODE (X) == CONST_DOUBLE && mem_for_const_double (X)	\
-	  && GET_CODE (mem_for_const_double (X)) == MEM			\
-	  && symbolic_operand (XEXP (mem_for_const_double (X), 0),	\
-			       VOIDmode)))				\
-   || (GET_CODE (X) == SYMBOL_REF && SYMBOL_REF_FLAG (X))		\
-   || PCREL_GENERAL_OPERAND_OK)
 
 
 /* For m68k SVR4, structures are returned using the reentrant

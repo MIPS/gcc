@@ -1,22 +1,22 @@
 /* Definitions of target machine GNU compiler.  IA-64 version.
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Steve Ellcey <sje@cup.hp.com> and
                   Reva Cuthbertson <reva@cup.hp.com>
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -26,9 +26,6 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_VERSION fprintf (stderr, " (IA-64) HP-UX");
 
 /* Target OS builtins.  */
-/* -D__fpreg=long double is needed to compensate for
-   the lack of __fpreg which is a primative type in
-   HP C but does not exist in GNU C.  */
 #define TARGET_OS_CPP_BUILTINS()			\
 do {							\
 	builtin_assert("system=hpux");			\
@@ -39,15 +36,19 @@ do {							\
 	builtin_define("__IA64__");			\
 	builtin_define("_LONGLONG");			\
 	builtin_define("_UINT128_T");			\
-	builtin_define("__fpreg=long double");		\
-	builtin_define("__float80=long double");	\
-	builtin_define("__float128=long double");	\
-	if (c_language == clk_cplusplus || !flag_iso)	\
+	if (c_dialect_cxx () || !flag_iso)		\
 	  {						\
 	    builtin_define("_HPUX_SOURCE");		\
 	    builtin_define("__STDC_EXT__");		\
 	  }						\
 } while (0)
+
+#undef CPP_SPEC
+#define CPP_SPEC \
+  "%{mt|pthread:-D_REENTRANT -D_THREAD_SAFE -D_POSIX_C_SOURCE=199506L}"
+/* aCC defines also -DRWSTD_MULTI_THREAD, -DRW_MULTI_THREAD.  These
+   affect only aCC's C++ library (Rogue Wave-derived) which we do not
+   use, and they violate the user's name space.  */
 
 #undef  ASM_EXTRA_SPEC
 #define ASM_EXTRA_SPEC "%{milp32:-milp32} %{mlp64:-mlp64}"
@@ -56,12 +57,6 @@ do {							\
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC "%{!shared:%{static:crt0%O%s}}"
-
-#ifndef CROSS_COMPILE
-#define STARTFILE_PREFIX_SPEC \
-  "%{mlp64: /usr/ccs/lib/hpux64/} \
-   %{!mlp64: /usr/ccs/lib/hpux32/}"
-#endif
 
 #undef LINK_SPEC
 #define LINK_SPEC \
@@ -74,6 +69,7 @@ do {							\
 #undef  LIB_SPEC
 #define LIB_SPEC \
   "%{!shared: \
+     %{mt|pthread:-lpthread} \
      %{p:%{!mlp64:-L/usr/lib/hpux32/libp} \
 	 %{mlp64:-L/usr/lib/hpux64/libp} -lprof} \
      %{pg:%{!mlp64:-L/usr/lib/hpux32/libp} \
@@ -108,9 +104,9 @@ do {							\
    field to be treated as structures and not as the type of their
    field.  Without this a structure with a single char will be
    returned just like a char variable and that is wrong on HP-UX
-   IA64.  TARGET_STRUCT_ARG_REG_LITTLE_ENDIAN triggers the special
-   structure handling, this macro simply ensures that single field
-   structures are always treated like structures.  */
+   IA64.  */
+
+#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) (TREE_CODE (TREE_TYPE (FIELD)) != REAL_TYPE || (MODE == TFmode && !INTEL_EXTENDED_IEEE_FORMAT))
 
 /* ASM_OUTPUT_EXTERNAL_LIBCALL defaults to just a globalize_label call,
    but that doesn't put out the @function type information which causes
@@ -123,18 +119,6 @@ do {								\
   ASM_OUTPUT_TYPE_DIRECTIVE (FILE, XSTR (FUN, 0), "function");	\
 } while (0)
 
-#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) (TREE_CODE (TREE_TYPE (FIELD)) != REAL_TYPE || (MODE == TFmode && !INTEL_EXTENDED_IEEE_FORMAT))
-
-/* Override the setting of FUNCTION_ARG_REG_LITTLE_ENDIAN in
-   defaults.h.  Setting this to true means that we are not passing
-   structures in registers in the "normal" big-endian way.  See
-   See section 8.5 of the "Itanium Software Conventions and Runtime
-   Architecture", specifically Table 8-1 and the explanation of Byte 0
-   alignment and LSB alignment and a description of how structures
-   are passed.  */
-
-#define FUNCTION_ARG_REG_LITTLE_ENDIAN 1
-
 #undef FUNCTION_ARG_PADDING
 #define FUNCTION_ARG_PADDING(MODE, TYPE) \
 	ia64_hpux_function_arg_padding ((MODE), (TYPE))
@@ -142,8 +126,8 @@ do {								\
 #undef PAD_VARARGS_DOWN
 #define PAD_VARARGS_DOWN (!AGGREGATE_TYPE_P (type))
 
-#define REGISTER_TARGET_PRAGMAS(PFILE) \
-  cpp_register_pragma (PFILE, 0, "builtin", ia64_hpux_handle_builtin_pragma)
+#define REGISTER_TARGET_PRAGMAS() \
+  c_register_pragma (0, "builtin", ia64_hpux_handle_builtin_pragma)
 
 /* Tell ia64.c that we are using the HP linker and we should delay output of
    function extern declarations so that we don't output them for functions
@@ -152,15 +136,23 @@ do {								\
 #undef TARGET_HPUX_LD
 #define TARGET_HPUX_LD	1
 
+/* The HPUX dynamic linker objects to weak symbols with no
+   definitions, so do not use them in gthr-posix.h.  */
+#define GTHREAD_USE_WEAK 0
+
 /* Put out the needed function declarations at the end.  */
 
-#define ASM_FILE_END(STREAM) ia64_hpux_asm_file_end(STREAM)
+#define TARGET_ASM_FILE_END ia64_hpux_file_end
 
 #undef CTORS_SECTION_ASM_OP
 #define CTORS_SECTION_ASM_OP  "\t.section\t.init_array,\t\"aw\",\"init_array\""
 
 #undef DTORS_SECTION_ASM_OP
 #define DTORS_SECTION_ASM_OP  "\t.section\t.fini_array,\t\"aw\",\"fini_array\""
+
+/* The init_array/fini_array technique does not permit the use of
+   initialization priorities.  */
+#define SUPPORTS_INIT_PRIORITY 0
 
 #undef READONLY_DATA_SECTION_ASM_OP
 #define READONLY_DATA_SECTION_ASM_OP "\t.section\t.rodata,\t\"a\",\t\"progbits\""
@@ -179,3 +171,26 @@ do {								\
 
 #undef TEXT_SECTION_ASM_OP
 #define TEXT_SECTION_ASM_OP "\t.section\t.text,\t\"ax\",\t\"progbits\""
+
+/* It is illegal to have relocations in shared segments on HPUX.
+   Pretend flag_pic is always set.  */
+#undef  TARGET_ASM_SELECT_SECTION
+#define TARGET_ASM_SELECT_SECTION  ia64_rwreloc_select_section
+#undef  TARGET_ASM_UNIQUE_SECTION
+#define TARGET_ASM_UNIQUE_SECTION  ia64_rwreloc_unique_section
+#undef  TARGET_ASM_SELECT_RTX_SECTION
+#define TARGET_ASM_SELECT_RTX_SECTION  ia64_rwreloc_select_rtx_section
+#undef  TARGET_SECTION_TYPE_FLAGS
+#define TARGET_SECTION_TYPE_FLAGS  ia64_rwreloc_section_type_flags
+
+/* ia64 HPUX has the float and long double forms of math functions.  */
+#undef TARGET_C99_FUNCTIONS
+#define TARGET_C99_FUNCTIONS  1
+
+/* We are using IEEE quad precision, not a double-extended with padding.  */
+#undef INTEL_EXTENDED_IEEE_FORMAT
+#define INTEL_EXTENDED_IEEE_FORMAT 0
+
+#define TARGET_INIT_LIBFUNCS ia64_hpux_init_libfuncs
+
+#define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) ((MODE) == TFmode)

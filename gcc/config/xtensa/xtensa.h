@@ -1,5 +1,5 @@
 /* Definitions of Tensilica's Xtensa target machine for GNU compiler.
-   Copyright 2001,2002 Free Software Foundation, Inc.
+   Copyright 2001,2002,2003 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -20,7 +20,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 /* Get Xtensa configuration settings */
-#include "xtensa/xtensa-config.h"
+#include "xtensa-config.h"
 
 /* Standard GCC variables that we reference.  */
 extern int current_function_calls_alloca;
@@ -42,138 +42,47 @@ extern struct rtx_def * branch_cmp[2];	/* operands for compare */
 extern enum cmp_type branch_type;	/* what type of branch to use */
 extern unsigned xtensa_current_frame_size;
 
-/* Run-time compilation parameters selecting different hardware subsets.  */
+/* Masks for the -m switches */
+#define MASK_NO_FUSED_MADD	0x00000001	/* avoid f-p mul/add */
+#define MASK_CONST16		0x00000002	/* use CONST16 instruction */
 
-#define MASK_BIG_ENDIAN		0x00000001	/* big or little endian */
-#define MASK_DENSITY		0x00000002	/* code density option */
-#define MASK_MAC16		0x00000004	/* MAC16 option */
-#define MASK_MUL16		0x00000008	/* 16-bit integer multiply */
-#define MASK_MUL32		0x00000010	/* integer multiply/divide */
-#define MASK_DIV32		0x00000020	/* integer multiply/divide */
-#define MASK_NSA		0x00000040	/* nsa instruction option */
-#define MASK_MINMAX		0x00000080	/* min/max instructions */
-#define MASK_SEXT		0x00000100	/* sign extend insn option */
-#define MASK_BOOLEANS		0x00000200	/* boolean register option */
-#define MASK_HARD_FLOAT		0x00000400	/* floating-point option */
-#define MASK_HARD_FLOAT_DIV	0x00000800	/* floating-point divide */
-#define MASK_HARD_FLOAT_RECIP	0x00001000	/* floating-point reciprocal */
-#define MASK_HARD_FLOAT_SQRT	0x00002000	/* floating-point sqrt */
-#define MASK_HARD_FLOAT_RSQRT	0x00004000	/* floating-point recip sqrt */
-#define MASK_NO_FUSED_MADD	0x00008000	/* avoid f-p mul/add */
-#define MASK_SERIALIZE_VOLATILE 0x00010000	/* serialize volatile refs */
+/* Macros used in the machine description to select various Xtensa
+   configuration options.  */
+#define TARGET_BIG_ENDIAN	XCHAL_HAVE_BE
+#define TARGET_DENSITY		XCHAL_HAVE_DENSITY
+#define TARGET_MAC16		XCHAL_HAVE_MAC16
+#define TARGET_MUL16		XCHAL_HAVE_MUL16
+#define TARGET_MUL32		XCHAL_HAVE_MUL32
+#define TARGET_DIV32		XCHAL_HAVE_DIV32
+#define TARGET_NSA		XCHAL_HAVE_NSA
+#define TARGET_MINMAX		XCHAL_HAVE_MINMAX
+#define TARGET_SEXT		XCHAL_HAVE_SEXT
+#define TARGET_BOOLEANS		XCHAL_HAVE_BOOLEANS
+#define TARGET_HARD_FLOAT	XCHAL_HAVE_FP
+#define TARGET_HARD_FLOAT_DIV	XCHAL_HAVE_FP_DIV
+#define TARGET_HARD_FLOAT_RECIP	XCHAL_HAVE_FP_RECIP
+#define TARGET_HARD_FLOAT_SQRT	XCHAL_HAVE_FP_SQRT
+#define TARGET_HARD_FLOAT_RSQRT	XCHAL_HAVE_FP_RSQRT
+#define TARGET_ABS		XCHAL_HAVE_ABS
+#define TARGET_ADDX		XCHAL_HAVE_ADDX
 
-/* Macros used in the machine description to test the flags.  */
-
-#define TARGET_BIG_ENDIAN	(target_flags & MASK_BIG_ENDIAN)
-#define TARGET_DENSITY		(target_flags & MASK_DENSITY)
-#define TARGET_MAC16		(target_flags & MASK_MAC16)
-#define TARGET_MUL16		(target_flags & MASK_MUL16)
-#define TARGET_MUL32		(target_flags & MASK_MUL32)
-#define TARGET_DIV32		(target_flags & MASK_DIV32)
-#define TARGET_NSA		(target_flags & MASK_NSA)
-#define TARGET_MINMAX		(target_flags & MASK_MINMAX)
-#define TARGET_SEXT		(target_flags & MASK_SEXT)
-#define TARGET_BOOLEANS		(target_flags & MASK_BOOLEANS)
-#define TARGET_HARD_FLOAT	(target_flags & MASK_HARD_FLOAT)
-#define TARGET_HARD_FLOAT_DIV	(target_flags & MASK_HARD_FLOAT_DIV)
-#define TARGET_HARD_FLOAT_RECIP	(target_flags & MASK_HARD_FLOAT_RECIP)
-#define TARGET_HARD_FLOAT_SQRT	(target_flags & MASK_HARD_FLOAT_SQRT)
-#define TARGET_HARD_FLOAT_RSQRT	(target_flags & MASK_HARD_FLOAT_RSQRT)
+/* Macros controlled by command-line options.  */
 #define TARGET_NO_FUSED_MADD	(target_flags & MASK_NO_FUSED_MADD)
-#define TARGET_SERIALIZE_VOLATILE (target_flags & MASK_SERIALIZE_VOLATILE)
-
-/* Default target_flags if no switches are specified  */
+#define TARGET_CONST16		(target_flags & MASK_CONST16)
 
 #define TARGET_DEFAULT (						\
-  (XCHAL_HAVE_BE	? MASK_BIG_ENDIAN : 0) |			\
-  (XCHAL_HAVE_DENSITY	? MASK_DENSITY : 0) |				\
-  (XCHAL_HAVE_MAC16	? MASK_MAC16 : 0) |				\
-  (XCHAL_HAVE_MUL16	? MASK_MUL16 : 0) |				\
-  (XCHAL_HAVE_MUL32	? MASK_MUL32 : 0) |				\
-  (XCHAL_HAVE_DIV32	? MASK_DIV32 : 0) |				\
-  (XCHAL_HAVE_NSA	? MASK_NSA : 0) |				\
-  (XCHAL_HAVE_MINMAX	? MASK_MINMAX : 0) |				\
-  (XCHAL_HAVE_SEXT	? MASK_SEXT : 0) |				\
-  (XCHAL_HAVE_BOOLEANS	? MASK_BOOLEANS : 0) |				\
-  (XCHAL_HAVE_FP	? MASK_HARD_FLOAT : 0) |			\
-  (XCHAL_HAVE_FP_DIV	? MASK_HARD_FLOAT_DIV : 0) |			\
-  (XCHAL_HAVE_FP_RECIP	? MASK_HARD_FLOAT_RECIP : 0) |			\
-  (XCHAL_HAVE_FP_SQRT	? MASK_HARD_FLOAT_SQRT : 0) |			\
-  (XCHAL_HAVE_FP_RSQRT	? MASK_HARD_FLOAT_RSQRT : 0) |			\
-  MASK_SERIALIZE_VOLATILE)
-
-/* Macro to define tables used to set the flags.  */
+  (XCHAL_HAVE_L32R	? 0 : MASK_CONST16))
 
 #define TARGET_SWITCHES							\
 {									\
-  {"big-endian",		MASK_BIG_ENDIAN,			\
-    N_("Use big-endian byte order")},					\
-  {"little-endian",		-MASK_BIG_ENDIAN,			\
-    N_("Use little-endian byte order")},				\
-  {"density",			MASK_DENSITY,				\
-    N_("Use the Xtensa code density option")},				\
-  {"no-density",		-MASK_DENSITY,				\
-    N_("Do not use the Xtensa code density option")},			\
-  {"mac16",			MASK_MAC16,				\
-    N_("Use the Xtensa MAC16 option")},					\
-  {"no-mac16",			-MASK_MAC16,				\
-    N_("Do not use the Xtensa MAC16 option")},				\
-  {"mul16",			MASK_MUL16,				\
-    N_("Use the Xtensa MUL16 option")},					\
-  {"no-mul16",			-MASK_MUL16,				\
-    N_("Do not use the Xtensa MUL16 option")},				\
-  {"mul32",			MASK_MUL32,				\
-    N_("Use the Xtensa MUL32 option")},					\
-  {"no-mul32",			-MASK_MUL32,				\
-    N_("Do not use the Xtensa MUL32 option")},				\
-  {"div32",			MASK_DIV32,				\
-    0 /* undocumented */},						\
-  {"no-div32",			-MASK_DIV32,				\
-    0 /* undocumented */},						\
-  {"nsa",			MASK_NSA,				\
-    N_("Use the Xtensa NSA option")},					\
-  {"no-nsa",			-MASK_NSA,				\
-    N_("Do not use the Xtensa NSA option")},				\
-  {"minmax",			MASK_MINMAX,				\
-    N_("Use the Xtensa MIN/MAX option")},				\
-  {"no-minmax",			-MASK_MINMAX,				\
-    N_("Do not use the Xtensa MIN/MAX option")},			\
-  {"sext",			MASK_SEXT,				\
-    N_("Use the Xtensa SEXT option")},					\
-  {"no-sext",			-MASK_SEXT,				\
-    N_("Do not use the Xtensa SEXT option")},				\
-  {"booleans",			MASK_BOOLEANS,				\
-    N_("Use the Xtensa boolean register option")},			\
-  {"no-booleans",		-MASK_BOOLEANS,				\
-    N_("Do not use the Xtensa boolean register option")},		\
-  {"hard-float",		MASK_HARD_FLOAT,			\
-    N_("Use the Xtensa floating-point unit")},				\
-  {"soft-float",		-MASK_HARD_FLOAT,			\
-    N_("Do not use the Xtensa floating-point unit")},			\
-  {"hard-float-div",		MASK_HARD_FLOAT_DIV,			\
-    0 /* undocumented */},						\
-  {"no-hard-float-div",		-MASK_HARD_FLOAT_DIV,			\
-    0 /* undocumented */},						\
-  {"hard-float-recip",		MASK_HARD_FLOAT_RECIP,			\
-    0 /* undocumented */},						\
-  {"no-hard-float-recip",	-MASK_HARD_FLOAT_RECIP,			\
-    0 /* undocumented */},						\
-  {"hard-float-sqrt",		MASK_HARD_FLOAT_SQRT,			\
-    0 /* undocumented */},						\
-  {"no-hard-float-sqrt",	-MASK_HARD_FLOAT_SQRT,			\
-    0 /* undocumented */},						\
-  {"hard-float-rsqrt",		MASK_HARD_FLOAT_RSQRT,			\
-    0 /* undocumented */},						\
-  {"no-hard-float-rsqrt",	-MASK_HARD_FLOAT_RSQRT,			\
-    0 /* undocumented */},						\
+  {"const16",			MASK_CONST16,				\
+    N_("Use CONST16 instruction to load constants")},			\
+  {"no-const16",		-MASK_CONST16,				\
+    N_("Use PC-relative L32R instruction to load constants")},		\
   {"no-fused-madd",		MASK_NO_FUSED_MADD,			\
     N_("Disable fused multiply/add and multiply/subtract FP instructions")}, \
   {"fused-madd",		-MASK_NO_FUSED_MADD,			\
     N_("Enable fused multiply/add and multiply/subtract FP instructions")}, \
-  {"serialize-volatile",	MASK_SERIALIZE_VOLATILE,		\
-    N_("Serialize volatile memory references with MEMW instructions")},	\
-  {"no-serialize-volatile",	-MASK_SERIALIZE_VOLATILE,		\
-    N_("Do not serialize volatile memory references with MEMW instructions")},\
   {"text-section-literals",	0,					\
     N_("Intersperse literal pools with code in the text section")},	\
   {"no-text-section-literals",	0,					\
@@ -208,9 +117,20 @@ extern unsigned xtensa_current_frame_size;
       }									\
   } while (0)
 
-/* Define this to set the endianness to use in libgcc2.c, which can
-   not depend on target_flags.  */
-#define LIBGCC2_WORDS_BIG_ENDIAN XCHAL_HAVE_BE
+#define CPP_SPEC " %(subtarget_cpp_spec) "
+
+#ifndef SUBTARGET_CPP_SPEC
+#define SUBTARGET_CPP_SPEC ""
+#endif
+
+#define EXTRA_SPECS							\
+  { "subtarget_cpp_spec", SUBTARGET_CPP_SPEC },
+
+#ifdef __XTENSA_EB__
+#define LIBGCC2_WORDS_BIG_ENDIAN 1
+#else
+#define LIBGCC2_WORDS_BIG_ENDIAN 0
+#endif
 
 /* Show we can debug even without a frame pointer.  */
 #define CAN_DEBUG_WITHOUT_FP
@@ -246,12 +166,6 @@ extern unsigned xtensa_current_frame_size;
 #define FLOAT_TYPE_SIZE 32
 #define DOUBLE_TYPE_SIZE 64
 #define LONG_DOUBLE_TYPE_SIZE 64
-
-/* Tell the preprocessor the maximum size of wchar_t.  */
-#ifndef MAX_WCHAR_TYPE_SIZE
-#ifndef WCHAR_TYPE_SIZE
-#endif
-#endif
 
 /* Allocation boundary (in *bits*) for storing pointers in memory.  */
 #define POINTER_BOUNDARY 32
@@ -351,7 +265,6 @@ extern unsigned xtensa_current_frame_size;
    0 - 15	AR[0] - AR[15]
    16		FRAME_POINTER (fake = initial sp)
    17		ARG_POINTER (fake = initial sp + framesize)
-   18           LOOP_COUNT (loop count special register)
    18		BR[0] for floating-point CC
    19 - 34	FR[0] - FR[15]
    35		MAC16 accumulator */
@@ -400,10 +313,11 @@ extern unsigned xtensa_current_frame_size;
    have been exhausted.  */
 
 #define REG_ALLOC_ORDER \
-{  8,  9, 10, 11, 12, 13, 14, 15,  7,  6,  5,  4,  3,  2, 19, \
-  20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, \
+{  8,  9, 10, 11, 12, 13, 14, 15,  7,  6,  5,  4,  3,  2, \
+  18, \
+  19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, \
    0,  1, 16, 17, \
-  36, \
+  35, \
 }
 
 #define ORDER_REGS_FOR_LOCAL_ALLOC order_regs_for_local_alloc ()
@@ -429,11 +343,6 @@ extern int leaf_function;
 #define GP_REG_FIRST 0
 #define GP_REG_LAST  17
 #define GP_REG_NUM   (GP_REG_LAST - GP_REG_FIRST + 1)
-
-/* Special registers */
-#define SPEC_REG_FIRST 18
-#define SPEC_REG_LAST  18
-#define SPEC_REG_NUM   (SPEC_REG_LAST - SPEC_REG_FIRST + 1)
 
 /* Coprocessor registers */
 #define BR_REG_FIRST 18
@@ -478,9 +387,6 @@ extern char xtensa_hard_regno_mode_ok[][FIRST_PSEUDO_REGISTER];
     GET_MODE_CLASS (MODE1) == MODE_COMPLEX_FLOAT)			\
    == (GET_MODE_CLASS (MODE2) == MODE_FLOAT ||				\
        GET_MODE_CLASS (MODE2) == MODE_COMPLEX_FLOAT))
-
-/* Register to use for LCOUNT special register.  */
-#define COUNT_REGISTER_REGNUM (SPEC_REG_FIRST + 0)
 
 /* Register to use for pushing function arguments.  */
 #define STACK_POINTER_REGNUM (GP_REG_FIRST + 1)
@@ -632,6 +538,7 @@ extern const enum reg_class xtensa_regno_to_class[FIRST_PSEUDO_REGISTER];
    'A'	MAC16 accumulator (only if MAC16 option enabled)
    'B'	general-purpose registers (only if sext instruction enabled)
    'C'  general-purpose registers (only if mul16 option enabled)
+   'W'  general-purpose registers (only if const16 option enabled)
    'b'	coprocessor boolean registers
    'f'	floating-point registers
 */
@@ -679,7 +586,6 @@ extern enum reg_class xtensa_char_to_class[256];
    operand types.
 
    R = memory that can be accessed with a 4-bit unsigned offset
-   S = memory where the second word can be addressed with a 4-bit offset
    T = memory in a constant pool (addressable with a pc-relative load)
    U = memory *NOT* in a constant pool
 
@@ -701,8 +607,7 @@ extern enum reg_class xtensa_char_to_class[256];
 	&& reload_in_progress && GET_CODE (OP) == REG			\
         && REGNO (OP) >= FIRST_PSEUDO_REGISTER)				\
    : ((CODE) == 'R') ? smalloffset_mem_p (OP)				\
-   : ((CODE) == 'S') ? smalloffset_double_mem_p (OP)			\
-   : ((CODE) == 'T') ? constantpool_mem_p (OP)				\
+   : ((CODE) == 'T') ? !TARGET_CONST16 && constantpool_mem_p (OP)	\
    : ((CODE) == 'U') ? !constantpool_mem_p (OP)				\
    : FALSE)
 
@@ -932,7 +837,7 @@ typedef struct xtensa_args {
    _mcount uses a window size of 8 to make sure that it doesn't clobber
    any incoming argument values. */
 
-#define NO_PROFILE_COUNTERS
+#define NO_PROFILE_COUNTERS	1
 
 #define FUNCTION_PROFILER(FILE, LABELNO) \
   do {									\
@@ -971,24 +876,27 @@ typedef struct xtensa_args {
     fprintf (STREAM, "\t.begin no-generics\n");				\
     fprintf (STREAM, "\tentry\tsp, %d\n", MIN_FRAME_SIZE);		\
 									\
-    /* GCC isn't prepared to deal with data at the beginning of the	\
-       trampoline, and the Xtensa l32r instruction requires that the	\
-       constant pool be located before the code.  We put the constant	\
-       pool in the middle of the trampoline and jump around it. */ 	\
+    /* save the return address */					\
+    fprintf (STREAM, "\tmov\ta10, a0\n");				\
 									\
-    fprintf (STREAM, "\tj\t.Lskipconsts\n");				\
+    /* Use a CALL0 instruction to skip past the constants and in the	\
+       process get the PC into A0.  This allows PC-relative access to	\
+       the constants without relying on L32R, which may not always be	\
+       available.  */							\
+									\
+    fprintf (STREAM, "\tcall0\t.Lskipconsts\n");			\
     fprintf (STREAM, "\t.align\t4\n");					\
-    fprintf (STREAM, ".Lfnaddr:%s0\n", integer_asm_op (4, TRUE));	\
     fprintf (STREAM, ".Lchainval:%s0\n", integer_asm_op (4, TRUE));	\
+    fprintf (STREAM, ".Lfnaddr:%s0\n", integer_asm_op (4, TRUE));	\
     fprintf (STREAM, ".Lskipconsts:\n");				\
 									\
     /* store the static chain */					\
-    fprintf (STREAM, "\tl32r\ta8, .Lchainval\n");			\
-    fprintf (STREAM, "\ts32i\ta8, sp, %d\n",				\
-	     MIN_FRAME_SIZE - (5 * UNITS_PER_WORD));			\
+    fprintf (STREAM, "\taddi\ta0, a0, 3\n");				\
+    fprintf (STREAM, "\tl32i\ta8, a0, 0\n");				\
+    fprintf (STREAM, "\ts32i\ta8, sp, %d\n", MIN_FRAME_SIZE - 20);	\
 									\
     /* set the proper stack pointer value */				\
-    fprintf (STREAM, "\tl32r\ta8, .Lfnaddr\n");				\
+    fprintf (STREAM, "\tl32i\ta8, a0, 4\n");				\
     fprintf (STREAM, "\tl32i\ta9, a8, 0\n");				\
     fprintf (STREAM, "\textui\ta9, a9, %d, 12\n",			\
 	     TARGET_BIG_ENDIAN ? 8 : 12);				\
@@ -997,6 +905,9 @@ typedef struct xtensa_args {
     fprintf (STREAM, "\tsub\ta9, sp, a9\n");				\
     fprintf (STREAM, "\tmovsp\tsp, a9\n");				\
 									\
+    /* restore the return address */					\
+    fprintf (STREAM, "\tmov\ta0, a10\n");				\
+									\
     /* jump to the instruction following the entry */			\
     fprintf (STREAM, "\taddi\ta8, a8, 3\n");				\
     fprintf (STREAM, "\tjx\ta8\n");					\
@@ -1004,7 +915,7 @@ typedef struct xtensa_args {
   } while (0)
 
 /* Size in bytes of the trampoline, as an integer.  */
-#define TRAMPOLINE_SIZE 49
+#define TRAMPOLINE_SIZE 59
 
 /* Alignment required for trampolines, in bits.  */
 #define TRAMPOLINE_ALIGNMENT (32)
@@ -1013,8 +924,8 @@ typedef struct xtensa_args {
 #define INITIALIZE_TRAMPOLINE(ADDR, FUNC, CHAIN)			\
   do {									\
     rtx addr = ADDR;							\
-    emit_move_insn (gen_rtx_MEM (SImode, plus_constant (addr, 8)), FUNC); \
     emit_move_insn (gen_rtx_MEM (SImode, plus_constant (addr, 12)), CHAIN); \
+    emit_move_insn (gen_rtx_MEM (SImode, plus_constant (addr, 16)), FUNC); \
     emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "__xtensa_sync_caches"), \
 		       0, VOIDmode, 1, addr, Pmode);			\
   } while (0)
@@ -1131,7 +1042,7 @@ typedef struct xtensa_args {
 									\
     /* allow constant pool addresses */					\
     if ((MODE) != BLKmode && GET_MODE_SIZE (MODE) >= UNITS_PER_WORD	\
-	&& constantpool_address_p (xinsn))				\
+	&& !TARGET_CONST16 && constantpool_address_p (xinsn))		\
       goto LABEL;							\
 									\
     while (GET_CODE (xinsn) == SUBREG)					\
@@ -1191,7 +1102,7 @@ typedef struct xtensa_args {
    operand on the target machine when generating position independent
    code.  */
 #define LEGITIMATE_PIC_OPERAND_P(X)					\
-  ((GET_CODE (X) != SYMBOL_REF || SYMBOL_REF_FLAG (X))			\
+  ((GET_CODE (X) != SYMBOL_REF || SYMBOL_REF_LOCAL_P (X))		\
    && GET_CODE (X) != LABEL_REF						\
    && GET_CODE (X) != CONST)
 
@@ -1263,13 +1174,10 @@ typedef struct xtensa_args {
 /* Prefer word-sized loads.  */
 #define SLOW_BYTE_ACCESS 1
 
-/* Xtensa doesn't have any instructions that set integer values based on the
-   results of comparisons, but the simplification code in the combiner also
-   uses this macro.  The value should be either 1 or -1 to enable some
-   optimizations in the combiner; I'm not sure which is better for us.
-   Since we've been using 1 for a while, it should probably stay that way for
-   compatibility.  */
-#define STORE_FLAG_VALUE 1
+/* ??? Xtensa doesn't have any instructions that set integer values
+   based on the results of comparisons, but the simplification code in
+   the combiner also uses STORE_FLAG_VALUE.  The default value (1) is
+   fine for us, but (-1) might be better.  */
 
 /* Shift instructions ignore all but the low-order few bits.  */
 #define SHIFT_COUNT_TRUNCATED 1
@@ -1286,162 +1194,6 @@ typedef struct xtensa_args {
 /* A function address in a call instruction is a word address (for
    indexing purposes) so give the MEM rtx a words's mode.  */
 #define FUNCTION_MODE SImode
-
-/* A C expression that evaluates to true if it is ok to perform a
-   sibling call to DECL.  */
-/* TODO: fix this up to allow at least some sibcalls */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) 0
-
-/* Xtensa constant costs.  */
-#define CONST_COSTS(X, CODE, OUTER_CODE)				\
-  case CONST_INT:							\
-    switch (OUTER_CODE)							\
-      {									\
-      case SET:								\
-	if (xtensa_simm12b (INTVAL (X))) return 4;			\
-	break;								\
-      case PLUS:							\
-	if (xtensa_simm8 (INTVAL (X))) return 0;			\
-	if (xtensa_simm8x256 (INTVAL (X))) return 0;			\
-	break;								\
-      case AND:								\
-	if (xtensa_mask_immediate (INTVAL (X))) return 0;		\
-	break;								\
-      case COMPARE:							\
-	if ((INTVAL (X) == 0) || xtensa_b4const (INTVAL (X))) return 0;	\
-	break;								\
-      case ASHIFT:							\
-      case ASHIFTRT:							\
-      case LSHIFTRT:							\
-      case ROTATE:							\
-      case ROTATERT:							\
-        /* no way to tell if X is the 2nd operand so be conservative */	\
-      default: break;							\
-      }									\
-    if (xtensa_simm12b (INTVAL (X))) return 5;				\
-    return 6;								\
-  case CONST:								\
-  case LABEL_REF:							\
-  case SYMBOL_REF:							\
-    return 5;								\
-  case CONST_DOUBLE:							\
-    return 7;
-
-/* Costs of various Xtensa operations.  */
-#define RTX_COSTS(X, CODE, OUTER_CODE)					\
-  case MEM:								\
-    {									\
-	int num_words =							\
-	  (GET_MODE_SIZE (GET_MODE (X)) > UNITS_PER_WORD) ?  2 : 1;	\
-	if (memory_address_p (GET_MODE (X), XEXP ((X), 0)))		\
-	  return COSTS_N_INSNS (num_words);				\
-									\
-	return COSTS_N_INSNS (2*num_words);				\
-    }									\
-									\
-  case FFS:								\
-    return COSTS_N_INSNS (TARGET_NSA ? 5 : 50);				\
-									\
-  case NOT:								\
-    return COSTS_N_INSNS ((GET_MODE (X) == DImode) ? 3 : 2);		\
-									\
-  case AND:								\
-  case IOR:								\
-  case XOR:								\
-    if (GET_MODE (X) == DImode) return COSTS_N_INSNS (2);		\
-    return COSTS_N_INSNS (1);						\
-									\
-  case ASHIFT:								\
-  case ASHIFTRT:							\
-  case LSHIFTRT:							\
-    if (GET_MODE (X) == DImode) return COSTS_N_INSNS (50);		\
-    return COSTS_N_INSNS (1);						\
-									\
-  case ABS:								\
-    {									\
-	enum machine_mode xmode = GET_MODE (X);				\
-	if (xmode == SFmode)						\
-	  return COSTS_N_INSNS (TARGET_HARD_FLOAT ? 1 : 50);		\
-	if (xmode == DFmode)						\
-	  return COSTS_N_INSNS (50);					\
-	return COSTS_N_INSNS (4);					\
-    }									\
-									\
-  case PLUS:								\
-  case MINUS:								\
-    {									\
-	enum machine_mode xmode = GET_MODE (X);				\
-	if (xmode == SFmode)						\
-	  return COSTS_N_INSNS (TARGET_HARD_FLOAT ? 1 : 50);		\
-	if (xmode == DFmode || xmode == DImode)				\
-	  return COSTS_N_INSNS (50);					\
-	return COSTS_N_INSNS (1);					\
-    }									\
-									\
-  case NEG:								\
-    return COSTS_N_INSNS ((GET_MODE (X) == DImode) ? 4 : 2);		\
-									\
-  case MULT:								\
-    {									\
-	enum machine_mode xmode = GET_MODE (X);				\
-	if (xmode == SFmode)						\
-	  return COSTS_N_INSNS (TARGET_HARD_FLOAT ? 4 : 50);		\
-	if (xmode == DFmode || xmode == DImode)				\
-	    return COSTS_N_INSNS (50);					\
-	if (TARGET_MUL32)						\
-	  return COSTS_N_INSNS (4);					\
-	if (TARGET_MAC16)						\
-	  return COSTS_N_INSNS (16);					\
-	if (TARGET_MUL16)						\
-	  return COSTS_N_INSNS (12);					\
-	return COSTS_N_INSNS (50);					\
-    }									\
-									\
-  case DIV:								\
-  case MOD:								\
-    {									\
-	enum machine_mode xmode = GET_MODE (X);				\
-	if (xmode == SFmode)						\
-	  return COSTS_N_INSNS (TARGET_HARD_FLOAT_DIV ? 8 : 50);	\
-	if (xmode == DFmode)						\
-	  return COSTS_N_INSNS (50);					\
-    }									\
-    /* fall through */							\
-									\
-  case UDIV:								\
-  case UMOD:								\
-    {									\
-	enum machine_mode xmode = GET_MODE (X);				\
-	if (xmode == DImode)						\
-	  return COSTS_N_INSNS (50);					\
-	if (TARGET_DIV32)						\
-	  return COSTS_N_INSNS (32);					\
-	return COSTS_N_INSNS (50);					\
-    }									\
-									\
-  case SQRT:								\
-    if (GET_MODE (X) == SFmode)						\
-      return COSTS_N_INSNS (TARGET_HARD_FLOAT_SQRT ? 8 : 50);		\
-    return COSTS_N_INSNS (50);						\
-									\
-  case SMIN:								\
-  case UMIN:								\
-  case SMAX:								\
-  case UMAX:								\
-    return COSTS_N_INSNS (TARGET_MINMAX ? 1 : 50);			\
-									\
-  case SIGN_EXTRACT:							\
-  case SIGN_EXTEND:							\
-    return COSTS_N_INSNS (TARGET_SEXT ? 1 : 2);				\
-									\
-  case ZERO_EXTRACT:							\
-  case ZERO_EXTEND:							\
-    return COSTS_N_INSNS (1);
-
-
-/* An expression giving the cost of an addressing mode that
-   contains ADDRESS.  */
-#define ADDRESS_COST(ADDR) 1
 
 /* A C expression for the cost of moving data from a register in
    class FROM to one in class TO.  The classes are expressed using
@@ -1489,7 +1241,6 @@ typedef struct xtensa_args {
   {"call_insn_operand",		{ CONST_INT, CONST, SYMBOL_REF, REG }},	\
   {"move_operand",		{ REG, SUBREG, MEM, CONST_INT, CONST_DOUBLE, \
 				  CONST, SYMBOL_REF, LABEL_REF }},	\
-  {"non_const_move_operand",	{ REG, SUBREG, MEM }},			\
   {"const_float_1_operand",	{ CONST_DOUBLE }},			\
   {"branch_operator",		{ EQ, NE, LT, GE }},			\
   {"ubranch_operator",		{ LTU, GEU }},				\
@@ -1545,14 +1296,9 @@ typedef struct xtensa_args {
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP "\t.global\t"
 
-/* This says how to define a global common symbol.  */
-#define ASM_OUTPUT_COMMON(STREAM, NAME, SIZE, ROUNDED)			\
-  xtensa_declare_object (STREAM, NAME, "\n\t.comm\t", ",%u\n", (SIZE))
-
-/* This says how to define a local common symbol (ie, not visible to
-   linker).  */
-#define ASM_OUTPUT_LOCAL(STREAM, NAME, SIZE, ROUNDED)			\
-  xtensa_declare_object (STREAM, NAME, "\n\t.lcomm\t", ",%u\n", (SIZE))
+/* Declare an uninitialized external linkage data object.  */
+#define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
+  asm_output_aligned_bss (FILE, DECL, NAME, SIZE, ALIGN)
 
 /* This is how to output an element of a case-vector that is absolute.  */
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE)				\
@@ -1581,25 +1327,10 @@ typedef struct xtensa_args {
 #define JUMP_TABLES_IN_TEXT_SECTION (flag_pic)
 
 
-/* Define this macro for the rare case where the RTL needs some sort of
-   machine-dependent fixup immediately before register allocation is done. 
-
-   If the stack frame size is too big to fit in the immediate field of
-   the ENTRY instruction, we need to store the frame size in the
-   constant pool.  However, the code in xtensa_function_prologue runs too
-   late to be able to add anything to the constant pool.  Since the
-   final frame size isn't known until reload is complete, this seems
-   like the best place to do it.
-
-   There may also be some fixup required if there is an incoming argument
-   in a7 and the function requires a frame pointer. */
-
-#define MACHINE_DEPENDENT_REORG(INSN) xtensa_reorg (INSN)
-
-
 /* Define the strings to put out for each section in the object file.  */
-#define TEXT_SECTION_ASM_OP	"\t.text"  	/* instructions */
-#define DATA_SECTION_ASM_OP	"\t.data" 	/* large data */
+#define TEXT_SECTION_ASM_OP	"\t.text"
+#define DATA_SECTION_ASM_OP	"\t.data"
+#define BSS_SECTION_ASM_OP	"\t.section\t.bss"
 
 
 /* Define output to appear before the constant pool.  If the function
@@ -1640,18 +1371,19 @@ typedef struct xtensa_args {
     goto JUMPTO;							\
   } while (0)
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)			\
-  do {									\
-    (OUTPUT) = (char *) alloca (strlen (NAME) + 10);			\
-    sprintf ((OUTPUT), "%s.%u", (NAME), (LABELNO));			\
-  } while (0)
-
 /* How to start an assembler comment. */
 #define ASM_COMMENT_START "#"
 
 /* Exception handling TODO!! */
 #define DWARF_UNWIND_INFO 0
 
+/* Xtensa constant pool breaks the devices in crtstuff.c to control
+   section in where code resides.  We have to write it as asm code.  Use
+   a MOVI and let the assembler relax it -- for the .init and .fini
+   sections, the assembler knows to put the literal in the right
+   place.  */
+#define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC) \
+    asm (SECTION_OP "\n\
+	movi\ta8, " USER_LABEL_PREFIX #FUNC "\n\
+	callx8\ta8\n" \
+	TEXT_SECTION_ASM_OP);

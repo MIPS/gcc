@@ -1,24 +1,24 @@
 /* Definitions of target machine for GNU compiler for Intel 80386
    running FreeBSD.
-   Copyright (C) 1988, 1992, 1994, 1996, 1997, 1999, 2000, 2002
+   Copyright (C) 1988, 1992, 1994, 1996, 1997, 1999, 2000, 2002, 2003
    Free Software Foundation, Inc.
    Contributed by Poul-Henning Kamp <phk@login.dkuug.dk>
    Continued development by David O'Brien <obrien@NUXI.org>
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -94,6 +94,9 @@ Boston, MA 02111-1307, USA.  */
 
 /* Profiling routines, partially copied from i386/osfrose.h.  */
 
+/* Tell final.c that we don't need a label passed to mcount.  */
+#define NO_PROFILE_COUNTERS 1
+
 #undef MCOUNT_NAME
 #define MCOUNT_NAME "mcount"
 #undef PROFILE_COUNT_REGISTER
@@ -112,6 +115,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define TYPE_ASM_OP	"\t.type\t"
 #define SIZE_ASM_OP	"\t.size\t"
+#define SET_ASM_OP	"\t.set\t"
 
 /* The following macro defines the format used to output the second
    operand of the .type assembler directive.  Different svr4 assemblers
@@ -120,6 +124,12 @@ Boston, MA 02111-1307, USA.  */
    specific tm.h file (depending upon the particulars of your assembler).  */
 
 #define TYPE_OPERAND_FMT	"@%s"
+
+#define HANDLE_SYSV_PRAGMA	1
+
+#define ASM_WEAKEN_LABEL(FILE,NAME) \
+	do { fputs ("\t.weak\t", FILE); assemble_name (FILE, NAME); \
+	fputc ('\n', FILE); } while (0)
 
 /* Write the extra assembler code needed to declare a function's result.
    Most svr4 assemblers don't require any special declaration of the
@@ -175,6 +185,7 @@ Boston, MA 02111-1307, USA.  */
    size_directive_output was set
    by ASM_DECLARE_OBJECT_NAME when it was run for the same decl.  */
 
+#undef ASM_FINISH_DECLARE_OBJECT
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)        \
 do {                                                                    \
      const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);            \
@@ -198,7 +209,8 @@ do {                                                                    \
       ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);				\
   } while (0)
 
-#define ASM_SPEC   " %| %{fpic:-k} %{fPIC:-k}"
+#define AS_NEEDS_DASH_FOR_PIPED_INPUT
+#define ASM_SPEC   "%{fpic|fpie|fPIC|fPIE:-k}"
 #define LINK_SPEC \
   "%{p:%e`-p' not supported; use `-pg' and gprof(1)} \
    %{shared:-Bshareable} \
