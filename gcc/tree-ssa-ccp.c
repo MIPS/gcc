@@ -1950,8 +1950,10 @@ set_rhs (tree *stmt_p, tree expr)
     LABEL_EXPR_LABEL (stmt) = expr;
   else
     {
+      /* Replace the whole statement with EXPR.  If EXPR has no side
+	 effects, then replace *STMT_P with an empty statement.  */
       stmt_ann_t ann = stmt_ann (stmt);
-      *stmt_p = expr;
+      *stmt_p = TREE_SIDE_EFFECTS (expr) ? expr : build_empty_stmt ();
       (*stmt_p)->common.ann = (tree_ann) ann;
     }
 }

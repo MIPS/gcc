@@ -1,3 +1,8 @@
+2003-11-20  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-ccp.c (set_rhs): Replace with an empty statement when
+	the replacement has no side effects.
+
 2003-11-20  Jeff Law  <law@redhat.com>
 
 	* Makefile.in (OBJS-common): Kill tree-ssa-copyprop.o.
