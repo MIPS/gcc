@@ -1,3 +1,7 @@
+2005-02-21  Paolo Carlini  <pcarlini@suse.de>
+
+        Merged to mainline at tag libstdcxx_so_7-merge-20050221.
+
 2005-02-20  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/ext/rc_string.h: Add __rc_string(const __rc_string&);

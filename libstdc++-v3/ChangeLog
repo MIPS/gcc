@@ -1,3 +1,86 @@
+2005-02-19  Matt Austern  <austern@gmail.com>
+
+	* include/tr1/functional (tr1_hashtable_define_trivial_hash): Make
+	hash<T>::operator() a const member function for T a fundamental type
+	* include/tr1/hashtable (extract1st::operator()): Declare const.
+	(hash_code_base): Declare all member functions const
+	(hashtable::find): fix call to this->bucket_count()
+	(hashtable::count): Likewise.
+	(hashtable::equal_range): m_incr_bucket applies to iterator, not node.
+	* testsuite/tr1/6_containers/unordered/find/set1.cc: New test.
+	* testsuite/tr1/6_containers/unordered/find/map1.cc: New test.
+	* testsuite/tr1/6_containers/unordered/find/multimap1.cc: New test.
+	* testsuite/tr1/6_containers/unordered/find/multiset1.cc: New test.
+	
+2005-02-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR libstdc++/20071
+	* include/tr1/functional (hash<std::wstring>): Wrap in #ifdef
+	_GLIBCXX_USE_WCHAR_T.
+
+2005-02-18  Richard Henderson  <rth@redhat.com>
+
+	PR libstdc++/10606
+	* config/linker-map.gnu (CXXABI_1.3.1): Add __cxa_get_exception_ptr.
+	* libsupc++/eh_alloc.cc (__cxa_allocate_exception): Increment
+	uncaughtExceptions here instead of ...
+	* libsupc++/eh_throw.cc (__cxa_throw) ... here.
+	(__cxa_rethrow): Increment uncaughtExceptions here instead of ...
+	* libsupc++/eh_catch.cc (__cxa_end_catch): ... here.
+	(__cxa_get_exception_ptr): New.
+	* libsupc++/unwind-cxx.h (__cxa_get_exception_ptr): Declare.
+
+2005-02-18  Matt Austern  <austern@apple.com>
+
+	* testsuite/tr1/6_containers/unordered/insert/array_syntax.cc: Fix
+	test case to use assignment instead of ==
+	* testsuite/tr1/6_containers/unordered/insert/map_range.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/multimap_range.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/multiset_range.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/set_range.cc: New test.
+	
+2005-02-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* testsuite/thread/pthread1.cc: Do not invoke pthread_setconcurrency
+	on Solaris 2.6 and below.
+	* testsuite/thread/pthread2.cc: Likewise.
+	* testsuite/thread/pthread3.cc: Likewise.
+	* testsuite/thread/pthread4.cc: Likewise.
+	* testsuite/thread/pthread5.cc: Likewise.
+	* testsuite/thread/pthread6.cc: Likewise.
+	* testsuite/thread/pthread7-rope.cc: Likewise.
+
+2005-02-17  Matt Austern  <austern@apple.com>
+
+	* include/tr1/functional (hash): New function object.
+	* include/tr1/hashtable: New file.
+	* include/tr1/unordered_set: New file.
+	* include/tr1/unordered_map: New file.
+	* include/Makefile.am: Add three new TR1 headers.
+	* include/Makefile.in: Likewise.
+	* testsuite/tr1/6_containers/unordered/insert/array_syntax.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/map_single.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/multimap_single.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/multiset_single.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/set_single.cc: New test.
+	* testsuite/tr1/6_containers/unordered/instantiate/hash.cc: New test.
+	* testsuite/tr1/6_containers/unordered/instantiate/map.cc: New test.
+	* testsuite/tr1/6_containers/unordered/instantiate/multimap.cc: New test.
+	* testsuite/tr1/6_containers/unordered/instantiate/multiset.cc: New test.
+	* testsuite/tr1/6_containers/unordered/instantiate/set.cc: New test.
+	
+2005-02-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/23_containers/set/modifiers/16728.cc:
+	Remove redundant include <testsuite_performance.h>.
+
+2005-02-16  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/19829
+	* testsuite/21_strings/basic_string/find/char/3.cc: Fix the test
+	at line #66 to not access str_lit01 beyond its end.
+	* testsuite/21_strings/basic_string/find/wchar_t/3.cc: Likewise.
+
 2005-02-15  Paolo Carlini  <pcarlini@suse.de>
 	    Jon Grimm  <jgrimm2@us.ibm.com>
 	
