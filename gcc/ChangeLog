@@ -1,6 +1,7 @@
 2005-02-21  Paolo Bonzini  <bonzini@gnu.org>
 	Stuart Hastings  <stuart@apple.com>
 
+	Radar 4050475
 	* simplify-rtx.c (simplify_unary_operation): Add a missing
 	"break" statement.
 
