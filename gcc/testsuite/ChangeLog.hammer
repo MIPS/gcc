@@ -1,6 +1,9 @@
 2004-02-06  Alan Modra  <amodra@bigpond.net.au>
 
 	Backport from mainline.
+	2003-05-03  Geoffrey Keating  <geoffk@apple.com>
+	* gcc.dg/ppc-fsel-1.c: New test.
+
 	2003-08-11  Aldy Hernandez  <aldyh@redhat.com>
 	* testsuite/g++.dg/other/opaque-3.C: New.
 
