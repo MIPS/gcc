@@ -18,6 +18,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -26,10 +27,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "tree-alias-type.h"
 #include "bitmap.h"
 #include "tree-alias-common.h"
+
 /* If we have andersen's points-to analysis, include it.  */
 #ifdef HAVE_BANSHEE
 #include "tree-alias-ander.h"
 #endif
+
 #include "flags.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -199,12 +202,15 @@ get_alias_var (tree expr)
   switch (TREE_CODE (expr))
     {
     case ARRAY_REF:
+    case ARRAY_RANGE_REF:
       {
-	/* Find the first non-array ref, and return it's alias
-	   variable */
+	/* Find the first non-array ref, and return its alias variable.  */
 	tree p;
-	for (p = expr; TREE_CODE (p) == ARRAY_REF;
-	     p = TREE_OPERAND (p, 0));
+
+	for (p = expr;
+	     TREE_CODE (p) == ARRAY_REF || TREE_CODE (p) == ARRAY_RANGE_REF;
+	     p = TREE_OPERAND (p, 0))
+	  ;
 	return get_alias_var (p);
       }
       break;
@@ -437,7 +443,10 @@ find_func_aliases (tree stp)
 	{
 	  op0 = TREE_OPERAND (stp, 0);
 	  op1 = TREE_OPERAND (stp, 1);
+	  if (TREE_CODE (op1) == WITH_SIZE_EXPR)
+	    op1 = TREE_OPERAND (op1, 0);
 	}
+
       /* lhsAV should always have an alias variable */
       lhsAV = get_alias_var (op0);
       if (!lhsAV)
@@ -522,7 +531,7 @@ find_func_aliases (tree stp)
 	  else if (TREE_CODE (op1) == CALL_EXPR)
 	    {
 	      /* Heap assignment. These are __attribute__ malloc or
-		 something, i'll deal with it later.  */
+		 something, I'll deal with it later.  */
 	      if (0)
 		{}
 	      else

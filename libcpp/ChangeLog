@@ -1,3 +1,45 @@
+2004-07-16  Andris Pavenis  <pavenis@latnet.lv>
+
+	PR preprocessor/16366
+	* internal.h (struct cpp_reader): New field dir_hash.
+	* files.c (make_cpp_dir): Use dir_hash, not file_hash.
+	(_cpp_init_files, _cpp_cleanup_files): Update for new field.
+
+2004-07-04  Neil Booth  <neil@duron.akihabara.co.uk>
+
+	PR preprocessor/16192
+	PR preprocessor/15913
+	PR preprocessor/15572
+	* expr.c (_cpp_parse_expr): Handle remaining cases where an
+	expression is missing.
+	* init.c (post_options): Traditional cpp doesn't do // comments.
+
+2004-06-30  Per Bothner  <per@bothner.com>
+
+	* include/line-map.h (fileline):  Remove old typedef.
+	* internal.h (struct cpp_reader):  Use source_location typedef instead.
+
+2004-06-26  Zack Weinberg  <zack@codesourcery.com>
+
+	Partially revert patch of 2004-06-05.
+	* files.c (search_cache): Remove pfile argument.  Don't check
+	for file that would be found by "" or <> search here...
+	(_cpp_find_file): ...do it here, before calling find_file_in_dir.
+	Do not apply directory-of-current-file correction to files
+	found by this check.  Rearrange code slightly.
+
+2004-06-21  Geoffrey Keating  <geoffk@apple.com>
+
+	* files.c (should_stack_file): Correct swapped parameters to call
+	to cb.read_pch.
+	* pch.c (cpp_valid_state): Handle -fpreprocessed.
+
+2004-06-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.in: Regenerate with automake 1.8.5.
+	* aclocal.m4: Likewise.
+	* configure: Regenerate.
+
 2004-06-11  Zack Weinberg  <zack@codesourcery.com>
 
 	* configure.ac: Don't invoke ACX_HEADER_STDBOOL.

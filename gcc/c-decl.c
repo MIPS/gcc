@@ -71,10 +71,13 @@ enum decl_context
 
 /* Nonzero if we have seen an invalid cross reference
    to a struct, union, or enum, but not yet printed the message.  */
-
 tree pending_invalid_xref;
+
 /* File and line to appear in the eventual error message.  */
 location_t pending_invalid_xref_location;
+
+/* True means we've initialized exception handling.  */
+bool c_eh_initialized_p;
 
 /* While defining an enum type, this is 1 plus the last enumerator
    constant value.  Note that will do not have to save this or `enum_overflow'
@@ -105,13 +108,9 @@ static location_t current_function_prototype_locus;
 
 static GTY(()) struct stmt_tree_s c_stmt_tree;
 
-/* The current scope statement stack.  */
-
-static GTY(()) tree c_scope_stmt_stack;
-
 /* State saving variables.  */
-int c_in_iteration_stmt;
-int c_in_case_stmt;
+tree c_break_label;
+tree c_cont_label;
 
 /* Linked list of TRANSLATION_UNIT_DECLS for the translation units
    included in this invocation.  Note that the current translation
@@ -156,16 +155,23 @@ bool c_override_global_bindings_to_false;
    chained together by the ->prev field, which (as the name implies)
    runs in reverse order.  All the decls in a given namespace bound to
    a given identifier are chained by the ->shadowed field, which runs
-   from inner to outer scopes.  Finally, the ->contour field points
-   back to the relevant scope structure; this is mainly used to make
-   decls in the externals scope invisible (see below).
+   from inner to outer scopes.
 
    The ->decl field usually points to a DECL node, but there are two
    exceptions.  In the namespace of type tags, the bound entity is a
    RECORD_TYPE, UNION_TYPE, or ENUMERAL_TYPE node.  If an undeclared
    identifier is encountered, it is bound to error_mark_node to
    suppress further errors about that identifier in the current
-   function.  */
+   function.
+
+   The depth field is copied from the scope structure that holds this
+   decl.  It is used to preserve the proper ordering of the ->shadowed
+   field (see bind()) and also for a handful of special-case checks.
+   Finally, the invisible bit is true for a decl which should be
+   ignored for purposes of normal name lookup, and the nested bit is
+   true for a decl that's been bound a second time in an inner scope;
+   in all such cases, the binding in the outer scope will have its
+   invisible bit true.  */
 
 struct c_binding GTY((chain_next ("%h.prev")))
 {
@@ -173,8 +179,15 @@ struct c_binding GTY((chain_next ("%h.prev")))
   tree id;			/* the identifier it's bound to */
   struct c_binding *prev;	/* the previous decl in this scope */
   struct c_binding *shadowed;	/* the innermost decl shadowed by this one */
-  struct c_scope *contour;	/* the scope in which this decl is bound */
+  unsigned int depth : 28;      /* depth of this scope */
+  BOOL_BITFIELD invisible : 1;  /* normal lookup should ignore this binding */
+  BOOL_BITFIELD nested : 1;     /* do not set DECL_CONTEXT when popping */
+  /* two free bits */
 };
+#define B_IN_SCOPE(b1, b2) ((b1)->depth == (b2)->depth)
+#define B_IN_CURRENT_SCOPE(b) ((b)->depth == current_scope->depth)
+#define B_IN_FILE_SCOPE(b) ((b)->depth == 1 /*file_scope->depth*/)
+#define B_IN_EXTERNAL_SCOPE(b) ((b)->depth == 0 /*external_scope->depth*/)
 
 #define I_SYMBOL_BINDING(node) \
   (((struct lang_identifier *)IDENTIFIER_NODE_CHECK(node))->symbol_binding)
@@ -364,7 +377,8 @@ static bool next_is_function_body;
 
 /* Functions called automatically at the beginning and end of execution.  */
 
-tree static_ctors, static_dtors;
+static GTY(()) tree static_ctors;
+static GTY(()) tree static_dtors;
 
 /* Forward declarations.  */
 static tree lookup_name_in_scope (tree, struct c_scope *);
@@ -404,7 +418,7 @@ c_print_identifier (FILE *file, tree node, int indent)
    which may be any of several kinds of DECL or TYPE or error_mark_node,
    in the scope SCOPE.  */
 static void
-bind (tree name, tree decl, struct c_scope *scope)
+bind (tree name, tree decl, struct c_scope *scope, bool invisible, bool nested)
 {
   struct c_binding *b, **here;
 
@@ -419,7 +433,9 @@ bind (tree name, tree decl, struct c_scope *scope)
   b->shadowed = 0;
   b->decl = decl;
   b->id = name;
-  b->contour = scope;
+  b->depth = scope->depth;
+  b->invisible = invisible;
+  b->nested = nested;
 
   b->prev = scope->bindings;
   scope->bindings = b;
@@ -447,7 +463,7 @@ bind (tree name, tree decl, struct c_scope *scope)
   /* Locate the appropriate place in the chain of shadowed decls
      to insert this binding.  Normally, scope == current_scope and
      this does nothing.  */
-  while (*here && (*here)->contour->depth > scope->depth)
+  while (*here && (*here)->depth > scope->depth)
     here = &(*here)->shadowed;
 
   b->shadowed = *here;
@@ -463,10 +479,7 @@ free_binding_and_advance (struct c_binding *b)
 {
   struct c_binding *prev = b->prev;
 
-  b->id = 0;
-  b->decl = 0;
-  b->contour = 0;
-  b->shadowed = 0;
+  memset (b, 0, sizeof (struct c_binding));
   b->prev = binding_freelist;
   binding_freelist = b;
 
@@ -603,10 +616,20 @@ push_scope (void)
 	  scope->depth--;
 	  sorry ("GCC supports only %u nested scopes\n", scope->depth);
 	}
-      
+
       current_scope        = scope;
       keep_next_level_flag = false;
     }
+}
+
+/* Set the TYPE_CONTEXT of all of TYPE's variants to CONTEXT.  */
+
+static void
+set_type_context (tree type, tree context)
+{
+  for (type = TYPE_MAIN_VARIANT (type); type;
+       type = TYPE_NEXT_VARIANT (type))
+    TYPE_CONTEXT (type) = context;
 }
 
 /* Exit a scope.  Restore the state of the identifier-decl mappings
@@ -688,7 +711,7 @@ pop_scope (void)
 	  /* Labels go in BLOCK_VARS.  */
 	  TREE_CHAIN (p) = BLOCK_VARS (block);
 	  BLOCK_VARS (block) = p;
- 
+
 #ifdef ENABLE_CHECKING
 	  if (I_LABEL_BINDING (b->id) != b) abort ();
 #endif
@@ -698,7 +721,7 @@ pop_scope (void)
 	case ENUMERAL_TYPE:
 	case UNION_TYPE:
 	case RECORD_TYPE:
-	  TYPE_CONTEXT (p) = context;
+	  set_type_context (p, context);
 
 	  /* Types may not have tag-names, in which case the type
 	     appears in the bindings list with b->id NULL.  */
@@ -743,14 +766,22 @@ pop_scope (void)
 	common_symbol:
 	  /* All of these go in BLOCK_VARS, but only if this is the
 	     binding in the home scope.  */
-	  if (!C_DECL_IN_EXTERNAL_SCOPE (p) || scope == external_scope)
+	  if (!b->nested)
 	    {
 	      TREE_CHAIN (p) = BLOCK_VARS (block);
 	      BLOCK_VARS (block) = p;
 	    }
-	  /* If this is the file scope, must set DECL_CONTEXT on these.  */
-	  if (!C_DECL_IN_EXTERNAL_SCOPE (p) && scope == file_scope)
-	    DECL_CONTEXT (p) = context;
+	  /* If this is the file scope, and we are processing more
+	     than one translation unit in this compilation, set
+	     DECL_CONTEXT of each decl to the TRANSLATION_UNIT_DECL.
+	     This makes same_translation_unit_p work, and causes
+	     static declarations to be given disambiguating suffixes.  */
+	  if (scope == file_scope && num_in_fnames > 1)
+	    {
+	      DECL_CONTEXT (p) = context;
+	      if (TREE_CODE (p) == TYPE_DECL)
+		set_type_context (TREE_TYPE (p), context);
+	    }
 
 	  /* Fall through.  */
 	  /* Parameters go in DECL_ARGUMENTS, not BLOCK_VARS, and have
@@ -776,7 +807,7 @@ pop_scope (void)
 	}
     }
 
-  
+
   /* Dispose of the block that we just made inside some higher level.  */
   if ((scope->function_body || scope == file_scope) && context)
     {
@@ -811,13 +842,17 @@ push_file_scope (void)
 {
   tree decl;
 
+  if (file_scope)
+    return;
+
   push_scope ();
   file_scope = current_scope;
 
   start_fname_decls ();
 
   for (decl = visible_builtins; decl; decl = TREE_CHAIN (decl))
-    bind (DECL_NAME (decl), decl, file_scope);
+    bind (DECL_NAME (decl), decl, file_scope,
+	  /*invisible=*/false, /*nested=*/true);
 }
 
 void
@@ -833,17 +868,18 @@ pop_file_scope (void)
      still works without it.  */
   finish_fname_decls ();
 
-  /* Kludge: don't actually pop the file scope if generating a
-     precompiled header, so that macros and local symbols are still
-     visible to the PCH generator.  */
+  /* This is the point to write out a PCH if we're doing that.
+     In that case we do not want to do anything else.  */
   if (pch_file)
-    return;
+    {
+      c_common_write_pch ();
+      return;
+    }
 
-  /* And pop off the file scope.  */
+  /* Pop off the file scope and close this translation unit.  */
   pop_scope ();
   file_scope = 0;
-
-  cpp_undef_all (parse_in);
+  cgraph_finalize_compilation_unit ();
 }
 
 /* Insert BLOCK at the end of the list of subblocks of the current
@@ -870,7 +906,7 @@ pushtag (tree name, tree type)
   /* Record the identifier as the type's name if it has none.  */
   if (name && !TYPE_NAME (type))
     TYPE_NAME (type) = name;
-  bind (name, type, current_scope);
+  bind (name, type, current_scope, /*invisible=*/false, /*nested=*/false);
 
   /* Create a fake NULL-named TYPE_DECL node whose TREE_TYPE will be the
      tagged type we just added to the current scope.  This fake
@@ -936,7 +972,7 @@ diagnose_arglist_conflict (tree newdecl, tree olddecl,
   tree t;
 
   if (TREE_CODE (olddecl) != FUNCTION_DECL
-      || !comptypes (TREE_TYPE (oldtype), TREE_TYPE (newtype), COMPARE_STRICT)
+      || !comptypes (TREE_TYPE (oldtype), TREE_TYPE (newtype))
       || !((TYPE_ARG_TYPES (oldtype) == 0 && DECL_INITIAL (olddecl) == 0)
 	   ||
 	   (TYPE_ARG_TYPES (newtype) == 0 && DECL_INITIAL (newdecl) == 0)))
@@ -1008,7 +1044,7 @@ validate_proto_after_old_defn (tree newdecl, tree newtype, tree oldtype)
 
       /* Type for passing arg must be consistent with that declared
 	 for the arg.  */
-      else if (! comptypes (oldargtype, newargtype, COMPARE_STRICT))
+      else if (! comptypes (oldargtype, newargtype))
 	{
 	  error ("%Jprototype for '%D' declares arg %d with incompatible type",
 		 newdecl, newdecl, i);
@@ -1090,7 +1126,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       return false;
     }
 
-  if (!comptypes (oldtype, newtype, COMPARE_STRICT))
+  if (!comptypes (oldtype, newtype))
     {
       if (TREE_CODE (olddecl) == FUNCTION_DECL
 	  && DECL_BUILT_IN (olddecl) && !C_DECL_DECLARED_BUILTIN (olddecl))
@@ -1099,7 +1135,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	     This is for the ffs and fprintf builtins.  */
 	  tree trytype = match_builtin_function_types (newtype, oldtype);
 
-	  if (trytype && comptypes (newtype, trytype, COMPARE_STRICT))
+	  if (trytype && comptypes (newtype, trytype))
 	    *oldtypep = oldtype = trytype;
 	  else
 	    {
@@ -1112,7 +1148,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	    }
 	}
       else if (TREE_CODE (olddecl) == FUNCTION_DECL
-	       && DECL_SOURCE_LINE (olddecl) == 0)
+	       && DECL_IS_BUILTIN (olddecl))
 	{
 	  /* A conflicting function declaration for a predeclared
 	     function that isn't actually built in.  Objective C uses
@@ -1138,7 +1174,10 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	}
       else
 	{
-	  error ("%Jconflicting types for '%D'", newdecl, newdecl);
+	  if (TYPE_QUALS (newtype) != TYPE_QUALS (oldtype))
+	    error ("%J conflicting type qualifiers for '%D'", newdecl, newdecl);
+	  else
+	    error ("%Jconflicting types for '%D'", newdecl, newdecl);
 	  diagnose_arglist_conflict (newdecl, olddecl, newtype, oldtype);
 	  locate_old_decl (olddecl, error);
 	  return false;
@@ -1152,7 +1191,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
     {
       if (DECL_IN_SYSTEM_HEADER (newdecl) || DECL_IN_SYSTEM_HEADER (olddecl))
 	return true;  /* Allow OLDDECL to continue in use.  */
-      
+
       error ("%Jredefinition of typedef '%D'", newdecl, newdecl);
       locate_old_decl (olddecl, error);
       return false;
@@ -1182,14 +1221,15 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	  /* Discard the old built-in function.  */
 	  return false;
 	}
-      
+
       if (DECL_INITIAL (newdecl))
 	{
 	  if (DECL_INITIAL (olddecl)
 	      && !(DECL_DECLARED_INLINE_P (olddecl)
 		   && DECL_EXTERNAL (olddecl)
 		   && !(DECL_DECLARED_INLINE_P (newdecl)
-			&& DECL_EXTERNAL (newdecl))))
+			&& DECL_EXTERNAL (newdecl)
+	    		&& same_translation_unit_p (olddecl, newdecl))))
 	    {
 	      error ("%Jredefinition of '%D'", newdecl, newdecl);
 	      locate_old_decl (olddecl, error);
@@ -1206,33 +1246,47 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	  locate_old_decl (olddecl, error);
 	  return false;
 	}
-      /* Mismatched non-static and static is considered poor style.
-         We only diagnose static then non-static if -Wtraditional,
-	 because it is the most convenient way to get some effects
-	 (see e.g.  what unwind-dw2-fde-glibc.c does to the definition
-	 of _Unwind_Find_FDE in unwind-dw2-fde.c).  Revisit?  */
+      /* A non-static declaration (even an "extern") followed by a
+	 static declaration is undefined behavior per C99 6.2.2p3-5,7.
+	 The same is true for a static forward declaration at block
+	 scope followed by a non-static declaration/definition at file
+	 scope.  Static followed by non-static at the same scope is
+	 not undefined behavior, and is the most convenient way to get
+	 some effects (see e.g.  what unwind-dw2-fde-glibc.c does to
+	 the definition of _Unwind_Find_FDE in unwind-dw2-fde.c), but
+	 we do diagnose it if -Wtraditional. */
       if (TREE_PUBLIC (olddecl) && !TREE_PUBLIC (newdecl))
 	{
-	  /* A static function declaration for a predeclared function
-	     that isn't actually built in, silently overrides the
-	     default.  Objective C uses these.  See also above.
-	     FIXME: Make Objective C use normal builtins.  */
-	  if (TREE_CODE (olddecl) == FUNCTION_DECL
-	      && DECL_SOURCE_LINE (olddecl) == 0)
-	    return false;
-	  else
+	  /* Two exceptions to the rule.  If olddecl is an extern
+	     inline, or a predeclared function that isn't actually
+	     built in, newdecl silently overrides olddecl.  The latter
+	     occur only in Objective C; see also above.  (FIXME: Make
+	     Objective C use normal builtins.)  */
+	  if (!DECL_IS_BUILTIN (olddecl)
+	      && !(DECL_EXTERNAL (olddecl)
+		   && DECL_DECLARED_INLINE_P (olddecl)))
 	    {
-	      warning ("%Jstatic declaration of '%D' follows "
-		       "non-static declaration", newdecl, newdecl);
+	      error ("%Jstatic declaration of '%D' follows "
+		     "non-static declaration", newdecl, newdecl);
+	      locate_old_decl (olddecl, error);
+	    }
+	  return false;
+	}
+      else if (TREE_PUBLIC (newdecl) && !TREE_PUBLIC (olddecl))
+	{
+	  if (DECL_CONTEXT (olddecl))
+	    {
+	      error ("%Jnon-static declaration of '%D' follows "
+		     "static declaration", newdecl, newdecl);
+	      locate_old_decl (olddecl, error);
+	      return false;
+	    }
+	  else if (warn_traditional)
+	    {
+	      warning ("%Jnon-static declaration of '%D' follows "
+		       "static declaration", newdecl, newdecl);
 	      warned = true;
 	    }
-	}
-      else if (TREE_PUBLIC (newdecl) && !TREE_PUBLIC (olddecl)
-	       && warn_traditional)
-	{
-	  warning ("%Jnon-static declaration of '%D' follows "
-		   "static declaration", newdecl, newdecl);
-	  warned = true;
 	}
     }
   else if (TREE_CODE (newdecl) == VAR_DECL)
@@ -1260,13 +1314,27 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	  return false;
 	}
 
-      /* Objects declared at file scope: if at least one is 'extern',
-	 it's fine (6.2.2p4); otherwise the linkage must agree (6.2.2p7).  */
-      if (DECL_FILE_SCOPE_P (newdecl))
+      /* Objects declared at file scope: if the first declaration had
+	 external linkage (even if it was an external reference) the
+	 second must have external linkage as well, or the behavior is
+	 undefined.  If the first declaration had internal linkage, then
+	 the second must too, or else be an external reference (in which
+	 case the composite declaration still has internal linkage).
+	 As for function declarations, we warn about the static-then-
+	 extern case only for -Wtraditional.  See generally 6.2.2p3-5,7.  */
+      if (DECL_FILE_SCOPE_P (newdecl)
+	  && TREE_PUBLIC (newdecl) != TREE_PUBLIC (olddecl))
 	{
-	  if (!DECL_EXTERNAL (newdecl)
-	      && !DECL_EXTERNAL (olddecl)
-	      && TREE_PUBLIC (newdecl) != TREE_PUBLIC (olddecl))
+	  if (DECL_EXTERNAL (newdecl))
+	    {
+	      if (warn_traditional)
+		{
+		  warning ("%Jnon-static declaration of '%D' follows "
+			   "static declaration", newdecl, newdecl);
+		  warned = true;
+		}
+	    }
+	  else
 	    {
 	      if (TREE_PUBLIC (newdecl))
 		error ("%Jnon-static declaration of '%D' follows "
@@ -1281,7 +1349,8 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	}
       /* Two objects with the same name declared at the same block
 	 scope must both be external references (6.7p3).  */
-      else if (DECL_CONTEXT (newdecl) == DECL_CONTEXT (olddecl)
+      else if (!DECL_FILE_SCOPE_P (newdecl)
+	       && DECL_CONTEXT (newdecl) == DECL_CONTEXT (olddecl)
 	       && (!DECL_EXTERNAL (newdecl) || !DECL_EXTERNAL (olddecl)))
 	{
 	  if (DECL_EXTERNAL (newdecl))
@@ -1330,8 +1399,11 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 
       /* Inline declaration after use or definition.
 	 ??? Should we still warn about this now we have unit-at-a-time
-	 mode and can get it right?  */
-      if (DECL_DECLARED_INLINE_P (newdecl) && !DECL_DECLARED_INLINE_P (olddecl))
+	 mode and can get it right?
+	 Definitely don't complain if the decls are in different translation
+	 units.  */
+      if (DECL_DECLARED_INLINE_P (newdecl) && !DECL_DECLARED_INLINE_P (olddecl)
+	  && same_translation_unit_p (olddecl, newdecl))
 	{
 	  if (TREE_USED (olddecl))
 	    {
@@ -1364,28 +1436,6 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	  error ("%Jredefinition of parameter '%D'", newdecl, newdecl);
 	  locate_old_decl (olddecl, error);
 	  return false;
-	}
-
-      /* These bits are only type qualifiers when applied to objects.  */
-      if (TREE_THIS_VOLATILE (newdecl) != TREE_THIS_VOLATILE (olddecl))
-	{
-	  if (TREE_THIS_VOLATILE (newdecl))
-	    pedwarn ("%Jvolatile declaration of '%D' follows "
-		     "non-volatile declaration", newdecl, newdecl);
-	  else
-	    pedwarn ("%Jnon-volatile declaration of '%D' follows "
-		     "volatile declaration", newdecl, newdecl);
-	  pedwarned = true;
-	}
-      if (TREE_READONLY (newdecl) != TREE_READONLY (olddecl))
-	{
-	  if (TREE_READONLY (newdecl))
-	    pedwarn ("%Jconst declaration of '%D' follows "
-		     "non-const declaration", newdecl, newdecl);
-	  else
-	    pedwarn ("%Jnon-const declaration of '%D' follows "
-		     "const declaration", newdecl, newdecl);
-	  pedwarned = true;
 	}
     }
 
@@ -1635,18 +1685,17 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	}
     }
 
-  /* This bit must not get wiped out.  */
-  C_DECL_IN_EXTERNAL_SCOPE (newdecl) |= C_DECL_IN_EXTERNAL_SCOPE (olddecl);
-
   /* Copy most of the decl-specific fields of NEWDECL into OLDDECL.
-     But preserve OLDDECL's DECL_UID.  */
+     But preserve OLDDECL's DECL_UID and DECL_CONTEXT.  */
   {
     unsigned olddecl_uid = DECL_UID (olddecl);
+    tree olddecl_context = DECL_CONTEXT (olddecl);
 
     memcpy ((char *) olddecl + sizeof (struct tree_common),
 	    (char *) newdecl + sizeof (struct tree_common),
 	    sizeof (struct tree_decl) - sizeof (struct tree_common));
     DECL_UID (olddecl) = olddecl_uid;
+    DECL_CONTEXT (olddecl) = olddecl_context;
   }
 
   /* If OLDDECL had its DECL_RTL instantiated, re-invoke make_decl_rtl
@@ -1677,7 +1726,7 @@ duplicate_decls (tree newdecl, tree olddecl)
   merge_decls (newdecl, olddecl, newtype, oldtype);
   return true;
 }
-  
+
 
 /* Check whether decl-node NEW shadows an existing declaration.  */
 static void
@@ -1688,7 +1737,7 @@ warn_if_shadowing (tree new)
   /* Shadow warnings wanted?  */
   if (!warn_shadow
       /* No shadow warnings for internally generated vars.  */
-      || DECL_SOURCE_LINE (new) == 0
+      || DECL_IS_BUILTIN (new)
       /* No shadow warnings for vars made for inlining.  */
       || DECL_FROM_INLINE (new)
       /* Don't warn about the parm names in function declarator
@@ -1699,10 +1748,9 @@ warn_if_shadowing (tree new)
       || (TREE_CODE (new) == PARM_DECL && current_scope->outer->parm_flag))
     return;
 
-  /* Is anything being shadowed?  Do not be confused by a second binding
-     to the same decl in the externals scope.  */
+  /* Is anything being shadowed?  Invisible decls do not count.  */
   for (b = I_SYMBOL_BINDING (DECL_NAME (new)); b; b = b->shadowed)
-    if (b->decl && b->decl != new && b->contour != external_scope)
+    if (b->decl && b->decl != new && !b->invisible)
       {
 	tree old = b->decl;
 
@@ -1772,7 +1820,7 @@ warn_if_shadowing (tree new)
 static void
 clone_underlying_type (tree x)
 {
-  if (DECL_SOURCE_LINE (x) == 0)
+  if (DECL_IS_BUILTIN (x))
     {
       if (TYPE_NAME (TREE_TYPE (x)) == 0)
 	TYPE_NAME (TREE_TYPE (x)) = x;
@@ -1803,6 +1851,7 @@ pushdecl (tree x)
   tree name = DECL_NAME (x);
   struct c_scope *scope = current_scope;
   struct c_binding *b;
+  bool nested = false;
 
   /* Functions need the lang_decl data.  */
   if (TREE_CODE (x) == FUNCTION_DECL && ! DECL_LANG_SPECIFIC (x))
@@ -1819,7 +1868,7 @@ pushdecl (tree x)
   /* Anonymous decls are just inserted in the scope.  */
   if (!name)
     {
-      bind (name, x, scope);
+      bind (name, x, scope, /*invisible=*/false, /*nested=*/false);
       return x;
     }
 
@@ -1831,7 +1880,7 @@ pushdecl (tree x)
      diagnostics).  In particular, we should not consider possible
      duplicates in the external scope, or shadowing.  */
   b = I_SYMBOL_BINDING (name);
-  if (b && b->contour == scope)
+  if (b && B_IN_SCOPE (b, scope))
     {
       if (duplicate_decls (x, b->decl))
 	return b->decl;
@@ -1856,10 +1905,9 @@ pushdecl (tree x)
       if (warn_nested_externs
 	  && scope != file_scope
 	  && !DECL_IN_SYSTEM_HEADER (x))
-	warning ("nested extern declaration of `%s'",
-		 IDENTIFIER_POINTER (name));
+	warning ("nested extern declaration of '%D'", x);
 
-      while (b && b->contour != external_scope)
+      while (b && !B_IN_EXTERNAL_SCOPE (b))
 	b = b->shadowed;
 
       /* The point of the same_translation_unit_p check here is,
@@ -1868,19 +1916,42 @@ pushdecl (tree x)
 	 they are in different translation units.  In any case,
 	 the static does not go in the externals scope.  */
       if (b
-	  && (DECL_EXTERNAL (x) || TREE_PUBLIC (x)
-	      || same_translation_unit_p (x, b->decl))
+	  && (TREE_PUBLIC (x) || same_translation_unit_p (x, b->decl))
 	  && duplicate_decls (x, b->decl))
 	{
-	  bind (name, b->decl, scope);
+	  bind (name, b->decl, scope, /*invisible=*/false, /*nested=*/true);
 	  return b->decl;
 	}
-      else if (DECL_EXTERNAL (x) || TREE_PUBLIC (x))
+      else if (TREE_PUBLIC (x))
 	{
-	  C_DECL_IN_EXTERNAL_SCOPE (x) = 1;
-	  bind (name, x, external_scope);
+	  bind (name, x, external_scope, /*invisible=*/true, /*nested=*/false);
+	  nested = true;
 	}
     }
+  /* Similarly, a declaration of a function with static linkage at
+     block scope must be checked against any existing declaration
+     of that function at file scope.  */
+  else if (TREE_CODE (x) == FUNCTION_DECL && scope != file_scope
+	   && !TREE_PUBLIC (x) && !DECL_INITIAL (x))
+    {
+      if (warn_nested_externs && !DECL_IN_SYSTEM_HEADER (x))
+	warning ("nested static declaration of '%D'", x);
+
+      while (b && !B_IN_FILE_SCOPE (b))
+	b = b->shadowed;
+
+      if (b && same_translation_unit_p (x, b->decl)
+	  && duplicate_decls (x, b->decl))
+	{
+	  bind (name, b->decl, scope, /*invisible=*/false, /*nested=*/true);
+	  return b->decl;
+	}
+      else
+	{
+	  bind (name, x, file_scope, /*invisible=*/true, /*nested=*/false);
+	  nested = true;
+	}
+    }      
 
   warn_if_shadowing (x);
 
@@ -1888,7 +1959,7 @@ pushdecl (tree x)
   if (TREE_CODE (x) == TYPE_DECL)
     clone_underlying_type (x);
 
-  bind (name, x, scope);
+  bind (name, x, scope, /*invisible=*/false, nested);
 
   /* If x's type is incomplete because it's based on a
      structure or union which has not yet been fully declared,
@@ -1928,6 +1999,7 @@ tree
 pushdecl_top_level (tree x)
 {
   tree name;
+  bool nested = false;
 
   if (TREE_CODE (x) != VAR_DECL)
     abort ();
@@ -1937,13 +2009,13 @@ pushdecl_top_level (tree x)
   if (I_SYMBOL_BINDING (name))
     abort ();
 
-  if (DECL_EXTERNAL (x) || TREE_PUBLIC (x))
+  if (TREE_PUBLIC (x))
     {
-      C_DECL_IN_EXTERNAL_SCOPE (x) = 1;
-      bind (name, x, external_scope);
+      bind (name, x, external_scope, /*invisible=*/true, /*nested=*/false);
+      nested = true;
     }
   if (file_scope)
-    bind (name, x, file_scope);
+    bind (name, x, file_scope, /*invisible=*/false, nested);
 
   return x;
 }
@@ -1980,9 +2052,10 @@ implicitly_declare (tree functionid)
 	 in the external scope because they're pushed before the file
 	 scope gets created.  Catch this here and rebind them into the
 	 file scope.  */
-      if (!DECL_BUILT_IN (decl) && DECL_SOURCE_LINE (decl) == 0)
+      if (!DECL_BUILT_IN (decl) && DECL_IS_BUILTIN (decl))
 	{
-	  bind (functionid, decl, file_scope);
+	  bind (functionid, decl, file_scope,
+		/*invisible=*/false, /*nested=*/true);
 	  return decl;
 	}
       else
@@ -1996,7 +2069,8 @@ implicitly_declare (tree functionid)
 	      implicit_decl_warning (functionid, decl);
 	      C_DECL_IMPLICIT (decl) = 1;
 	    }
-	  bind (functionid, decl, current_scope);
+	  bind (functionid, decl, current_scope,
+		/*invisible=*/false, /*nested=*/true);
 	  return decl;
 	}
     }
@@ -2056,7 +2130,7 @@ undeclared_variable (tree id)
          will be nonnull but current_function_scope will be null.  */
       scope = current_function_scope ? current_function_scope : current_scope;
     }
-  bind (id, error_mark_node, scope);
+  bind (id, error_mark_node, scope, /*invisible=*/false, /*nested=*/false);
 }
 
 /* Subroutine of lookup_label, declare_label, define_label: construct a
@@ -2110,7 +2184,8 @@ lookup_label (tree name)
   label = make_label (name, input_location);
 
   /* Ordinary labels go in the current function scope.  */
-  bind (name, label, current_function_scope);
+  bind (name, label, current_function_scope,
+	/*invisible=*/false, /*nested=*/false);
   return label;
 }
 
@@ -2126,7 +2201,7 @@ declare_label (tree name)
 
   /* Check to make sure that the label hasn't already been declared
      at this scope */
-  if (b && b->contour == current_scope)
+  if (b && B_IN_CURRENT_SCOPE (b))
     {
       error ("duplicate label declaration `%s'", IDENTIFIER_POINTER (name));
       locate_old_decl (b->decl, error);
@@ -2139,7 +2214,8 @@ declare_label (tree name)
   C_DECLARED_LABEL_FLAG (label) = 1;
 
   /* Declared labels go in the current scope.  */
-  bind (name, label, current_scope);
+  bind (name, label, current_scope,
+	/*invisible=*/false, /*nested=*/false);
   return label;
 }
 
@@ -2179,7 +2255,8 @@ define_label (location_t location, tree name)
       label = make_label (name, location);
 
       /* Ordinary labels go in the current function scope.  */
-      bind (name, label, current_function_scope);
+      bind (name, label, current_function_scope,
+	    /*invisible=*/false, /*nested=*/false);
     }
 
   if (warn_traditional && !in_system_header && lookup_name (name))
@@ -2215,9 +2292,9 @@ lookup_tag (enum tree_code code, tree name, int thislevel_only)
       /* For our purposes, a tag in the external scope is the same as
 	 a tag in the file scope.  (Primarily relevant to Objective-C
 	 and its builtin structure tags, which get pushed before the
-	 file scope is created.)  */ 
-      if (b->contour == current_scope
-	  || (current_scope == file_scope && b->contour == external_scope))
+	 file scope is created.)  */
+      if (B_IN_CURRENT_SCOPE (b)
+	  || (current_scope == file_scope && B_IN_EXTERNAL_SCOPE (b)))
 	thislevel = 1;
     }
 
@@ -2265,7 +2342,7 @@ tree
 lookup_name (tree name)
 {
   struct c_binding *b = I_SYMBOL_BINDING (name);
-  if (b && (b->contour != external_scope || TREE_CODE (b->decl) == TYPE_DECL))
+  if (b && !b->invisible)
     return b->decl;
   return 0;
 }
@@ -2278,7 +2355,7 @@ lookup_name_in_scope (tree name, struct c_scope *scope)
   struct c_binding *b;
 
   for (b = I_SYMBOL_BINDING (name); b; b = b->shadowed)
-    if (b->contour == scope)
+    if (B_IN_SCOPE (b, scope))
       return b->decl;
   return 0;
 }
@@ -2307,8 +2384,12 @@ c_init_decl_processing (void)
   /* Declarations from c_common_nodes_and_builtins must not be associated
      with this input file, lest we get differences between using and not
      using preprocessed headers.  */
-  input_location.file = "<internal>";
+#ifdef USE_MAPPED_LOCATION
+  input_location = BUILTINS_LOCATION;
+#else
+  input_location.file = "<built-in>";
   input_location.line = 0;
+#endif
 
   build_common_tree_nodes (flag_signed_char);
 
@@ -2371,7 +2452,8 @@ c_make_fname_decl (tree id, int type_dep)
   if (current_function_decl)
     {
       DECL_CONTEXT (decl) = current_function_decl;
-      bind (id, decl, current_function_scope);
+      bind (id, decl, current_function_scope,
+	    /*invisible=*/false, /*nested=*/false);
     }
 
   finish_decl (decl, init, NULL_TREE);
@@ -2402,14 +2484,12 @@ builtin_function (const char *name, tree type, int function_code,
   DECL_FUNCTION_CODE (decl) = function_code;
   if (library_name)
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
-  make_decl_rtl (decl, NULL);
 
   /* Should never be called on a symbol with a preexisting meaning.  */
   if (I_SYMBOL_BINDING (id))
     abort ();
 
-  C_DECL_IN_EXTERNAL_SCOPE (decl) = 1;
-  bind (id, decl, external_scope);
+  bind (id, decl, external_scope, /*invisible=*/true, /*nested=*/false);
 
   /* Builtins in the implementation namespace are made visible without
      needing to be explicitly declared.  See push_file_scope.  */
@@ -2529,7 +2609,7 @@ tree
 build_array_declarator (tree expr, tree quals, int static_p, int vla_unspec_p)
 {
   tree decl;
-  decl = build_nt (ARRAY_REF, NULL_TREE, expr);
+  decl = build_nt (ARRAY_REF, NULL_TREE, expr, NULL_TREE, NULL_TREE);
   TREE_TYPE (decl) = quals;
   TREE_STATIC (decl) = (static_p ? 1 : 0);
   if (pedantic && !flag_isoc99)
@@ -2733,7 +2813,7 @@ start_decl (tree declarator, tree declspecs, int initialized, tree attributes)
 	  for (; args; args = TREE_CHAIN (args))
 	    {
 	      tree type = TREE_TYPE (args);
-	      if (INTEGRAL_TYPE_P (type)
+	      if (type && INTEGRAL_TYPE_P (type)
 		  && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
 		DECL_ARG_TYPE (args) = integer_type_node;
 	    }
@@ -2887,17 +2967,10 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	  tree builtin = built_in_decls [DECL_FUNCTION_CODE (decl)];
 	  SET_DECL_RTL (builtin, NULL_RTX);
 	  change_decl_assembler_name (builtin, get_identifier (starred));
-#ifdef TARGET_MEM_FUNCTIONS
 	  if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMCPY)
 	    init_block_move_fn (starred);
 	  else if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMSET)
 	    init_block_clear_fn (starred);
-#else
-	  if (DECL_FUNCTION_CODE (decl) == BUILT_IN_BCOPY)
-	    init_block_move_fn (starred);
-	  else if (DECL_FUNCTION_CODE (decl) == BUILT_IN_BZERO)
-	    init_block_clear_fn (starred);
-#endif
 	}
       SET_DECL_RTL (decl, NULL_RTX);
       change_decl_assembler_name (decl, get_identifier (starred));
@@ -2961,7 +3034,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	    }
 
 	  if (TREE_CODE (decl) != FUNCTION_DECL)
-	    add_decl_stmt (decl);
+	    add_stmt (build_stmt (DECL_EXPR, decl));
 	}
 
       if (!DECL_FILE_SCOPE_P (decl))
@@ -2987,8 +3060,8 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
   if (TREE_CODE (decl) == TYPE_DECL)
     {
       if (!DECL_FILE_SCOPE_P (decl)
-	  && variably_modified_type_p (TREE_TYPE (decl)))
-	add_decl_stmt (decl);
+	  && variably_modified_type_p (TREE_TYPE (decl), NULL_TREE))
+	add_stmt (build_stmt (DECL_EXPR, decl));
 
       rest_of_decl_compilation (decl, NULL, DECL_FILE_SCOPE_P (decl), 0);
     }
@@ -3005,8 +3078,6 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
       tree attr = lookup_attribute ("cleanup", DECL_ATTRIBUTES (decl));
       if (attr)
 	{
-	  static bool eh_initialized_p;
-
 	  tree cleanup_id = TREE_VALUE (TREE_VALUE (attr));
 	  tree cleanup_decl = lookup_name (cleanup_id);
 	  tree cleanup;
@@ -3018,11 +3089,12 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 
 	  /* Don't warn about decl unused; the cleanup uses it.  */
 	  TREE_USED (decl) = 1;
+	  TREE_USED (cleanup_decl) = 1;
 
 	  /* Initialize EH, if we've been told to do so.  */
-	  if (flag_exceptions && !eh_initialized_p)
+	  if (flag_exceptions && !c_eh_initialized_p)
 	    {
-	      eh_initialized_p = true;
+	      c_eh_initialized_p = true;
 	      eh_personality_libfunc
 		= init_one_libfunc (USING_SJLJ_EXCEPTIONS
 				    ? "__gcc_personality_sj0"
@@ -3030,7 +3102,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	      using_eh_for_cleanups ();
 	    }
 
-	  add_stmt (build_stmt (CLEANUP_STMT, decl, cleanup));
+	  push_cleanup (decl, cleanup, false);
 	}
     }
 }
@@ -3043,11 +3115,6 @@ push_parm_decl (tree parm)
 {
   tree decl;
 
-  /* Don't attempt to expand sizes while parsing this decl.
-     (We can get here with i_s_e 1 somehow from Objective-C.)  */
-  int save_immediate_size_expand = immediate_size_expand;
-  immediate_size_expand = 0;
-
   decl = grokdeclarator (TREE_VALUE (TREE_PURPOSE (parm)),
 			 TREE_PURPOSE (TREE_PURPOSE (parm)),
 			 PARM, 0, NULL);
@@ -3056,8 +3123,6 @@ push_parm_decl (tree parm)
   decl = pushdecl (decl);
 
   finish_decl (decl, NULL_TREE, NULL_TREE);
-
-  immediate_size_expand = save_immediate_size_expand;
 }
 
 /* Mark all the parameter declarations to date as forward decls.
@@ -3091,7 +3156,7 @@ build_compound_literal (tree type, tree init)
 {
   /* We do not use start_decl here because we have a type, not a declarator;
      and do not use finish_decl because the decl should be stored inside
-     the COMPOUND_LITERAL_EXPR rather than added elsewhere as a DECL_STMT.  */
+     the COMPOUND_LITERAL_EXPR rather than added elsewhere as a DECL_EXPR.  */
   tree decl = build_decl (VAR_DECL, NULL_TREE, type);
   tree complit;
   tree stmt;
@@ -3115,7 +3180,7 @@ build_compound_literal (tree type, tree init)
   if (type == error_mark_node || !COMPLETE_TYPE_P (type))
     return error_mark_node;
 
-  stmt = build_stmt (DECL_STMT, decl);
+  stmt = build_stmt (DECL_EXPR, decl);
   complit = build1 (COMPOUND_LITERAL_EXPR, TREE_TYPE (decl), stmt);
   TREE_SIDE_EFFECTS (complit) = 1;
 
@@ -3309,7 +3374,7 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
   if (TREE_CODE (*type) == ENUMERAL_TYPE)
     {
       struct lang_type *lt = TYPE_LANG_SPECIFIC (*type);
-      if (!lt 
+      if (!lt
           || w < min_precision (lt->enum_min, TYPE_UNSIGNED (*type))
 	  || w < min_precision (lt->enum_max, TYPE_UNSIGNED (*type)))
 	warning ("`%s' is narrower than values of its type", name);
@@ -4012,20 +4077,7 @@ grokdeclarator (tree declarator, tree declspecs,
 		    }
 
 		  if (size_varies)
-		    {
-		      /* We must be able to distinguish the
-			 SAVE_EXPR_CONTEXT for the variably-sized type
-			 so that we can set it correctly in
-			 set_save_expr_context.  The convention is
-			 that all SAVE_EXPRs that need to be reset
-			 have NULL_TREE for their SAVE_EXPR_CONTEXT.  */
-		      tree cfd = current_function_decl;
-		      if (decl_context == PARM)
-			current_function_decl = NULL_TREE;
-		      itype = variable_size (itype);
-		      if (decl_context == PARM)
-			current_function_decl = cfd;
-		    }
+		    itype = variable_size (itype);
 		  itype = build_index_type (itype);
 		}
 	    }
@@ -4425,14 +4477,6 @@ grokdeclarator (tree declarator, tree declspecs,
       }
     else if (TREE_CODE (type) == FUNCTION_TYPE)
       {
-	/* Every function declaration is "external"
-	   except for those which are inside a function body
-	   in which `auto' is used.
-	   That is a case not specified by ANSI C,
-	   and we use it for forward declarations for nested functions.  */
-	int extern_ref = (!(specbits & (1 << (int) RID_AUTO))
-			  || current_scope == file_scope);
-
 	if (specbits & (1 << (int) RID_AUTO)
 	    && (pedantic || current_scope == file_scope))
 	  pedwarn ("invalid storage class for function `%s'", name);
@@ -4463,8 +4507,16 @@ grokdeclarator (tree declarator, tree declspecs,
 	    && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (decl))))
 	  warning ("`noreturn' function returns non-void value");
 
-	if (extern_ref)
+	/* Every function declaration is an external reference
+	   (DECL_EXTERNAL) except for those which are not at file
+	   scope and are explicitly declared "auto".  This is
+	   forbidden by standard C (C99 6.7.1p5) and is interpreted by
+	   GCC to signify a forward declaration of a nested function.  */
+	if ((specbits & (1 << RID_AUTO)) && current_scope != file_scope)
+	  DECL_EXTERNAL (decl) = 0;
+	else
 	  DECL_EXTERNAL (decl) = 1;
+	   
 	/* Record absence of global scope for `static' or `auto'.  */
 	TREE_PUBLIC (decl)
 	  = !(specbits & ((1 << (int) RID_STATIC) | (1 << (int) RID_AUTO)));
@@ -4842,7 +4894,7 @@ get_parm_info (bool ellipsis)
 		/* The %s will be one of 'struct', 'union', or 'enum'.  */
 		warning ("anonymous %s declared inside parameter list",
 			 keyword);
-	      
+
 	      if (! explained_incomplete_types)
 		{
 		  warning ("its scope is only this definition or declaration,"
@@ -5133,9 +5185,11 @@ finish_struct (tree t, tree fieldlist, tree attributes)
     }
 
   /* Install struct as DECL_CONTEXT of each field decl.
-     Also process specified field sizes,m which is found in the DECL_INITIAL.
-     Store 0 there, except for ": 0" fields (so we can find them
-     and delete them, below).  */
+     Also process specified field sizes, found in the DECL_INITIAL,
+     storing 0 there after the type has been changed to precision equal
+     to its width, rather than the precision of the specified standard
+     type.  (Correct layout requires the original type to have been preserved
+     until now.)  */
 
   saw_named_field = 0;
   for (x = fieldlist; x; x = TREE_CHAIN (x))
@@ -5179,8 +5233,6 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	  SET_DECL_C_BIT_FIELD (x);
 	}
 
-      DECL_INITIAL (x) = 0;
-
       /* Detect flexible array member in an invalid context.  */
       if (TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE
 	  && TYPE_SIZE (TREE_TYPE (x)) == NULL_TREE
@@ -5221,12 +5273,21 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 
   layout_type (t);
 
-  /* Delete all zero-width bit-fields from the fieldlist.  */
+  /* Give bit-fields their proper types.  */
   {
     tree *fieldlistp = &fieldlist;
     while (*fieldlistp)
-      if (TREE_CODE (*fieldlistp) == FIELD_DECL && DECL_INITIAL (*fieldlistp))
-	*fieldlistp = TREE_CHAIN (*fieldlistp);
+      if (TREE_CODE (*fieldlistp) == FIELD_DECL && DECL_INITIAL (*fieldlistp)
+	  && TREE_TYPE (*fieldlistp) != error_mark_node)
+	{
+	  unsigned HOST_WIDE_INT width
+	    = tree_low_cst (DECL_INITIAL (*fieldlistp), 1);
+	  tree type = TREE_TYPE (*fieldlistp);
+	  if (width != TYPE_PRECISION (type))
+	    TREE_TYPE (*fieldlistp)
+	      = build_nonstandard_integer_type (width, TYPE_UNSIGNED (type));
+	  DECL_INITIAL (*fieldlistp) = 0;
+	}
       else
 	fieldlistp = &TREE_CHAIN (*fieldlistp);
   }
@@ -5604,28 +5665,25 @@ start_function (tree declspecs, tree declarator, tree attributes)
 {
   tree decl1, old_decl;
   tree restype;
-  int old_immediate_size_expand = immediate_size_expand;
 
   current_function_returns_value = 0;  /* Assume, until we see it does.  */
   current_function_returns_null = 0;
   current_function_returns_abnormally = 0;
   warn_about_return_type = 0;
   current_extern_inline = 0;
-  c_in_iteration_stmt = 0;
-  c_in_case_stmt = 0;
+  c_switch_stack = NULL;
 
-  /* Don't expand any sizes in the return type of the function.  */
-  immediate_size_expand = 0;
+  /* Indicate no valid break/continue context by setting these variables
+     to some non-null, non-label value.  We'll notice and emit the proper
+     error message in c_finish_bc_stmt.  */
+  c_break_label = c_cont_label = size_zero_node;
 
   decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1, NULL);
 
   /* If the declarator is not suitable for a function definition,
      cause a syntax error.  */
   if (decl1 == 0)
-    {
-      immediate_size_expand = old_immediate_size_expand;
-      return 0;
-    }
+    return 0;
 
   decl_attributes (&decl1, attributes, 0);
 
@@ -5789,8 +5847,6 @@ start_function (tree declspecs, tree declarator, tree attributes)
   push_scope ();
   declare_parm_level ();
 
-  make_decl_rtl (current_function_decl, NULL);
-
   restype = TREE_TYPE (TREE_TYPE (current_function_decl));
   /* Promote the value to int before returning it.  */
   if (c_promoting_integer_type_p (restype))
@@ -5805,13 +5861,6 @@ start_function (tree declspecs, tree declarator, tree attributes)
     }
   DECL_RESULT (current_function_decl)
     = build_decl (RESULT_DECL, NULL_TREE, restype);
-
-  /* If this fcn was already referenced via a block-scope `extern' decl
-     (or an implicit decl), propagate certain information about the usage.  */
-  if (TREE_ADDRESSABLE (DECL_ASSEMBLER_NAME (current_function_decl)))
-    TREE_ADDRESSABLE (current_function_decl) = 1;
-
-  immediate_size_expand = old_immediate_size_expand;
 
   start_fname_decls ();
 
@@ -5854,7 +5903,8 @@ store_parm_decls_newstyle (tree fndecl, tree arg_info)
     {
       DECL_CONTEXT (decl) = current_function_decl;
       if (DECL_NAME (decl))
-	bind (DECL_NAME (decl), decl, current_scope);
+	bind (DECL_NAME (decl), decl, current_scope,
+	      /*invisible=*/false, /*nested=*/false);
       else
 	error ("%Jparameter name omitted", decl);
     }
@@ -5867,13 +5917,15 @@ store_parm_decls_newstyle (tree fndecl, tree arg_info)
     {
       DECL_CONTEXT (decl) = current_function_decl;
       if (DECL_NAME (decl))
-	bind (DECL_NAME (decl), decl, current_scope);
+	bind (DECL_NAME (decl), decl, current_scope,
+	      /*invisible=*/false, /*nested=*/false);
     }
 
   /* And all the tag declarations.  */
   for (decl = tags; decl; decl = TREE_CHAIN (decl))
     if (TREE_PURPOSE (decl))
-      bind (TREE_PURPOSE (decl), TREE_VALUE (decl), current_scope);
+      bind (TREE_PURPOSE (decl), TREE_VALUE (decl), current_scope,
+	    /*invisible=*/false, /*nested=*/false);
 }
 
 /* Subroutine of store_parm_decls which handles old-style function
@@ -5909,7 +5961,7 @@ store_parm_decls_oldstyle (tree fndecl, tree arg_info)
 	}
 
       b = I_SYMBOL_BINDING (TREE_VALUE (parm));
-      if (b && b->contour == current_scope)
+      if (b && B_IN_CURRENT_SCOPE (b))
 	{
 	  decl = b->decl;
 	  /* If we got something other than a PARM_DECL it is an error.  */
@@ -6027,8 +6079,7 @@ store_parm_decls_oldstyle (tree fndecl, tree arg_info)
 	     declared for the arg.  ISO C says we take the unqualified
 	     type for parameters declared with qualified type.  */
 	  if (! comptypes (TYPE_MAIN_VARIANT (DECL_ARG_TYPE (parm)),
-			   TYPE_MAIN_VARIANT (TREE_VALUE (type)),
-			   COMPARE_STRICT))
+			   TYPE_MAIN_VARIANT (TREE_VALUE (type))))
 	    {
 	      if (TYPE_MAIN_VARIANT (TREE_TYPE (parm))
 		  == TYPE_MAIN_VARIANT (TREE_VALUE (type)))
@@ -6100,25 +6151,6 @@ store_parm_decls_oldstyle (tree fndecl, tree arg_info)
     }
 }
 
-/* A subroutine of store_parm_decls called via walk_tree.  Mark all
-   decls non-local.  */
-
-static tree
-set_decl_nonlocal (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
-{
-  tree t = *tp;
-
-  if (DECL_P (t))
-    {
-      DECL_NONLOCAL (t) = 1;
-      *walk_subtrees = 0;
-    }
-  else if (TYPE_P (t))
-    *walk_subtrees = 0;
-
-  return NULL;
-}
-
 /* Store the parameter declarations into the current function declaration.
    This is called after parsing the parameter declarations, before
    digesting the body of the function.
@@ -6130,9 +6162,6 @@ void
 store_parm_decls (void)
 {
   tree fndecl = current_function_decl;
-
-  /* The function containing FNDECL, if any.  */
-  tree context = decl_function_context (fndecl);
 
   /* The argument information block for FNDECL.  */
   tree arg_info = DECL_ARGUMENTS (fndecl);
@@ -6162,38 +6191,21 @@ store_parm_decls (void)
   allocate_struct_function (fndecl);
 
   /* Begin the statement tree for this function.  */
-  begin_stmt_tree (&DECL_SAVED_TREE (fndecl));
+  DECL_SAVED_TREE (fndecl) = push_stmt_list ();
 
-  /* If this is a nested function, save away the sizes of any
-     variable-size types so that we can expand them when generating
-     RTL.  */
-  if (context)
-    {
-      tree t;
-
-      DECL_LANG_SPECIFIC (fndecl)->pending_sizes
-	= nreverse (get_pending_sizes ());
-      for (t = DECL_LANG_SPECIFIC (fndecl)->pending_sizes;
-	   t;
-	   t = TREE_CHAIN (t))
-	{
-	  /* We will have a nonlocal use of whatever variables are
-	     buried inside here.  */
-	  walk_tree (&TREE_OPERAND (TREE_VALUE (t), 0),
-		     set_decl_nonlocal, NULL, NULL);
-
-	  SAVE_EXPR_CONTEXT (TREE_VALUE (t)) = context;
-	}
-    }
-
-  /* This function is being processed in whole-function mode.  */
-  cfun->x_whole_function_mode_p = 1;
+  /* ??? Insert the contents of the pending sizes list into the function
+     to be evaluated.  This just changes mis-behaviour until assign_parms
+     phase ordering problems are resolved.  */
+  {
+    tree t;
+    for (t = nreverse (get_pending_sizes ()); t ; t = TREE_CHAIN (t))
+      add_stmt (TREE_VALUE (t));
+  }
 
   /* Even though we're inside a function body, we still don't want to
      call expand_expr to calculate the size of a variable-sized array.
      We haven't necessarily assigned RTL to all variables yet, so it's
      not safe to try to expand expressions involving them.  */
-  immediate_size_expand = 0;
   cfun->x_dont_save_pending_sizes_p = 1;
 }
 
@@ -6234,22 +6246,6 @@ finish_function (void)
 {
   tree fndecl = current_function_decl;
 
-  /* When a function declaration is totally empty, e.g.
-        void foo(void) { }
-     (the argument list is irrelevant) the compstmt rule will not
-     bother calling push_scope/pop_scope, which means we get here with
-     the scope stack out of sync.  Detect this situation by noticing
-     that current_scope is still as store_parm_decls left it, and do
-     a dummy push/pop to get back to consistency.
-     Note that the call to push_scope does not actually push another
-     scope - see there for details.  */
-
-  if (current_scope->parm_flag && next_is_function_body)
-    {
-      push_scope ();
-      pop_scope ();
-    }
-
   if (TREE_CODE (fndecl) == FUNCTION_DECL
       && targetm.calls.promote_prototypes (TREE_TYPE (fndecl)))
     {
@@ -6283,20 +6279,15 @@ finish_function (void)
 	}
       else
 	{
-#ifdef DEFAULT_MAIN_RETURN
-	  /* Make it so that `main' always returns success by default.  */
-	  DEFAULT_MAIN_RETURN;
-#else
 	  if (flag_isoc99)
-	    c_expand_return (integer_zero_node);
-#endif
+	    c_finish_return (integer_zero_node);
 	}
     }
 
-  finish_fname_decls ();
-
   /* Tie off the statement tree for this function.  */
-  finish_stmt_tree (&DECL_SAVED_TREE (fndecl));
+  DECL_SAVED_TREE (fndecl) = pop_stmt_list (DECL_SAVED_TREE (fndecl));
+
+  finish_fname_decls ();
 
   /* Complain if there's just no return statement.  */
   if (warn_return_type
@@ -6336,7 +6327,7 @@ finish_function (void)
   /* Genericize before inlining.  Delay genericizing nested functions
      until their parent function is genericized.  Since finalizing
      requires GENERIC, delay that as well.  */
-     
+
   if (DECL_INITIAL (fndecl) && DECL_INITIAL (fndecl) != error_mark_node)
     {
       if (!decl_function_context (fndecl))
@@ -6458,9 +6449,9 @@ c_push_function_context (struct function *f)
   f->language = p;
 
   p->base.x_stmt_tree = c_stmt_tree;
-  p->base.x_scope_stmt_stack = c_scope_stmt_stack;
-  p->x_in_iteration_stmt = c_in_iteration_stmt;
-  p->x_in_case_stmt = c_in_case_stmt;
+  p->x_break_label = c_break_label;
+  p->x_cont_label = c_cont_label;
+  p->x_switch_stack = c_switch_stack;
   p->returns_value = current_function_returns_value;
   p->returns_null = current_function_returns_null;
   p->returns_abnormally = current_function_returns_abnormally;
@@ -6486,9 +6477,9 @@ c_pop_function_context (struct function *f)
     }
 
   c_stmt_tree = p->base.x_stmt_tree;
-  c_scope_stmt_stack = p->base.x_scope_stmt_stack;
-  c_in_iteration_stmt = p->x_in_iteration_stmt;
-  c_in_case_stmt = p->x_in_case_stmt;
+  c_break_label = p->x_break_label;
+  c_cont_label = p->x_cont_label;
+  c_switch_stack = p->x_switch_stack;
   current_function_returns_value = p->returns_value;
   current_function_returns_null = p->returns_null;
   current_function_returns_abnormally = p->returns_abnormally;
@@ -6538,14 +6529,6 @@ current_stmt_tree (void)
   return &c_stmt_tree;
 }
 
-/* Returns the stack of SCOPE_STMTs for the current function.  */
-
-tree *
-current_scope_stmt_stack (void)
-{
-  return &c_scope_stmt_stack;
-}
-
 /* Nonzero if TYPE is an anonymous union or struct type.  Always 0 in
    C.  */
 
@@ -6562,20 +6545,6 @@ extract_interface_info (void)
 {
 }
 
-/* Return a new COMPOUND_STMT, after adding it to the current
-   statement tree.  */
-
-tree
-c_begin_compound_stmt (void)
-{
-  tree stmt;
-
-  /* Create the COMPOUND_STMT.  */
-  stmt = add_stmt (build_stmt (COMPOUND_STMT, NULL_TREE));
-
-  return stmt;
-}
-
 /* Return the global value of T as a symbol.  */
 
 tree
@@ -6584,7 +6553,7 @@ identifier_global_value	(tree t)
   struct c_binding *b;
 
   for (b = I_SYMBOL_BINDING (t); b; b = b->shadowed)
-    if (b->contour == file_scope || b->contour == external_scope)
+    if (B_IN_FILE_SCOPE (b) || B_IN_EXTERNAL_SCOPE (b))
       return b->decl;
 
   return 0;
@@ -6632,23 +6601,26 @@ make_pointer_declarator (tree type_quals_attrs, tree target)
   return build1 (INDIRECT_REF, quals, itarget);
 }
 
-/* A wrapper around lhd_set_decl_assembler_name that gives static
-   variables their C names if they are at file scope and only one
-   translation unit is being compiled, for backwards compatibility
-   with certain bizarre assembler hacks (like crtstuff.c).  */
-
-void
-c_static_assembler_name (tree decl)
+/* Synthesize a function which calls all the global ctors or global
+   dtors in this file.  This is only used for targets which do not
+   support .ctors/.dtors sections.  FIXME: Migrate into cgraph.  */
+static void
+build_cdtor (int method_type, tree cdtors)
 {
-  if (num_in_fnames == 1
-      && !TREE_PUBLIC (decl) && DECL_CONTEXT (decl)
-      && TREE_CODE (DECL_CONTEXT (decl)) == TRANSLATION_UNIT_DECL)
-    SET_DECL_ASSEMBLER_NAME (decl, DECL_NAME (decl));
-  else
-    lhd_set_decl_assembler_name (decl);
+  tree body = 0;
+
+  if (!cdtors)
+    return;
+
+  for (; cdtors; cdtors = TREE_CHAIN (cdtors))
+    append_to_statement_list (build_function_call (TREE_VALUE (cdtors), 0),
+			      &body);
+
+  cgraph_build_static_cdtor (method_type, body, DEFAULT_INIT_PRIORITY);
 }
 
-/* Perform final processing on file-scope data.  */
+/* Perform final processing on one file scope's declarations (or the
+   external scope's declarations), GLOBALS.  */
 static void
 c_write_global_declarations_1 (tree globals)
 {
@@ -6656,34 +6628,57 @@ c_write_global_declarations_1 (tree globals)
   tree *vec = xmalloc (sizeof (tree) * len);
   size_t i;
   tree decl;
-  
+
   /* Process the decls in the order they were written.  */
   for (i = 0, decl = globals; i < len; i++, decl = TREE_CHAIN (decl))
     vec[i] = decl;
 
   wrapup_global_declarations (vec, len);
   check_global_declarations (vec, len);
-      
+
   free (vec);
 }
 
 void
 c_write_global_declarations (void)
 {
-  tree t;
+  tree ext_block, t;
 
   /* We don't want to do this if generating a PCH.  */
   if (pch_file)
     return;
 
-  /* Process all file scopes in this compilation.  */
+  /* Don't waste time on further processing if -fsyntax-only or we've
+     encountered errors.  */
+  if (flag_syntax_only || errorcount || sorrycount || cpp_errors (parse_in))
+    return;
+
+  /* Close the external scope.  */
+  ext_block = pop_scope ();
+  external_scope = 0;
+  if (current_scope)
+    abort ();
+
+  /* Process all file scopes in this compilation, and the external_scope,
+     through wrapup_global_declarations and check_global_declarations.  */
   for (t = all_translation_units; t; t = TREE_CHAIN (t))
     c_write_global_declarations_1 (BLOCK_VARS (DECL_INITIAL (t)));
+  c_write_global_declarations_1 (BLOCK_VARS (ext_block));
 
-  /* Now do the same for the externals scope.  */
-  t = pop_scope ();
-  if (t)
-    c_write_global_declarations_1 (BLOCK_VARS (t));
+  /* Generate functions to call static constructors and destructors
+     for targets that do not support .ctors/.dtors sections.  These
+     functions have magic names which are detected by collect2.  */
+  build_cdtor ('I', static_ctors); static_ctors = 0;
+  build_cdtor ('D', static_dtors); static_dtors = 0;
+
+  /* We're done parsing; proceed to optimize and emit assembly.
+     FIXME: shouldn't be the front end's responsibility to call this.  */
+  cgraph_optimize ();
+
+  /* Presently this has to happen after cgraph_optimize.
+     FIXME: shouldn't be the front end's responsibility to call this.  */
+  if (flag_mudflap)
+    mudflap_finish_file ();
 }
 
 #include "gt-c-decl.h"

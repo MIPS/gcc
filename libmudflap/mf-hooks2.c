@@ -52,7 +52,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include <string.h>
 #include <stdarg.h>
-#include <strings.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -64,7 +63,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include <limits.h>
 #include <time.h>
 #include <ctype.h>
+#ifdef HAVE_DIRENT_H
 #include <dirent.h>
+#endif
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
@@ -624,7 +625,7 @@ WRAPPER2(int, fclose, FILE *stream)
     "fclose stream");
   resp = fclose (stream);
 #ifdef MF_REGISTER_fopen
-  __mf_unregister (stream, sizeof (*stream));
+  __mf_unregister (stream, sizeof (*stream), MF_REGISTER_fopen);
 #endif
 
   return resp;
@@ -1075,6 +1076,7 @@ WRAPPER2(void, setbuf, FILE *stream, char *buf)
 }
 
 
+#ifdef HAVE_DIRENT_H
 WRAPPER2(DIR *, opendir, const char *path)
 {
   DIR *p;
@@ -1101,7 +1103,7 @@ WRAPPER2(int, closedir, DIR *dir)
   TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (dir, 0, __MF_CHECK_WRITE, "closedir dir");
 #ifdef MF_REGISTER_opendir
-  __mf_unregister (dir, MF_RESULT_SIZE_opendir);
+  __mf_unregister (dir, MF_RESULT_SIZE_opendir, MF_REGISTER_opendir);
 #endif
   return closedir (dir);
 }
@@ -1121,6 +1123,7 @@ WRAPPER2(struct dirent *, readdir, DIR *dir)
   }
   return p;
 }
+#endif
 
 
 #ifdef HAVE_SYS_SOCKET_H
@@ -1381,7 +1384,7 @@ WRAPPER2(int, pclose, FILE *stream)
     "pclose stream");
   resp = pclose (stream);
 #ifdef MF_REGISTER_fopen
-  __mf_unregister (stream, sizeof (*stream));
+  __mf_unregister (stream, sizeof (*stream), MF_REGISTER_fopen);
 #endif
   return resp;
 }
@@ -1499,7 +1502,7 @@ WRAPPER2(int, dlclose, void *handle)
   MF_VALIDATE_EXTENT (handle, 0, __MF_CHECK_READ, "dlclose handle");
   resp = dlclose (handle);
 #ifdef MF_REGISTER_dlopen
-  __mf_unregister (handle, 0);
+  __mf_unregister (handle, 0, MF_REGISTER_dlopen);
 #endif
   return resp;
 }
@@ -1637,7 +1640,7 @@ WRAPPER2(int, shmdt, const void *shmaddr)
   TRACE ("%s\n", __PRETTY_FUNCTION__);
   resp = shmdt (shmaddr);
 #ifdef MF_REGISTER_shmat
-  __mf_unregister ((void *)shmaddr, 0);
+  __mf_unregister ((void *)shmaddr, 0, MF_REGISTER_shmat);
 #endif
   return resp;
 }

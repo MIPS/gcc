@@ -291,7 +291,7 @@ AC_DEFUN([GLIBCXX_CHECK_BUILTIN_MATH_DECL_AND_LINKAGE_1], [
     AC_MSG_RESULT($glibcxx_cv_func_$1_link)
     if test x$glibcxx_cv_func_$1_link = x"yes"; then
       ac_tr_func=HAVE_`echo $1 | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      AC_DEFINE(${ac_tr_func}, 1, [Defined if $1 exists.])
+      AC_DEFINE_UNQUOTED(${ac_tr_func}, 1, [Defined if $1 exists.])
     fi
   fi
 ])
@@ -379,11 +379,6 @@ AC_DEFUN([GLIBCXX_CHECK_MATH_SUPPORT], [
   AC_CHECK_LIB(m, sin, libm="-lm")
   ac_save_LIBS="$LIBS"
   LIBS="$LIBS $libm"
-
-  dnl Check libmx
-  AC_CHECK_LIB(mx, sqrtf, libmx="-lmx")
-  dnl ac_save_LIBS="$LIBS"
-  LIBS="$LIBS $libmx"
 
   dnl Check to see if certain C math functions exist.
   GLIBCXX_CHECK_MATH_DECL_AND_LINKAGE_1(isinf)

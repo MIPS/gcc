@@ -39,13 +39,8 @@ Boston, MA 02111-1307, USA.  */
 
 #define OBJECT_FORMAT_MACHO
 
-/* Suppress g++ attempt to link in the math library automatically.
-   (Some Darwin versions have a libm, but they seem to cause problems
-   for C++ executables.) This needs to be -lmx for Darwin 7.0 and
-   above.  */
-#ifndef MATH_LIBRARY
+/* Suppress g++ attempt to link in the math library automatically. */
 #define MATH_LIBRARY ""
-#endif
 
 /* We have atexit.  */
 
@@ -205,8 +200,7 @@ Boston, MA 02111-1307, USA.  */
     %{!Zdynamiclib:%{!A:%{!nostdlib:%{!nostartfiles:%S}}}} \
     %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate:-lgcov} \
     %{!nostdlib:%{!nodefaultlibs:%G %L}} \
-    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} \
-    %{!--help:%{!no-c++filt|c++filt:| c++filt }} }}}}}}}}"
+    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}"
 
 /* Please keep the random linker options in alphabetical order (modulo
    'Z' and 'no' prefixes).  Options that can only go to one of libtool
@@ -276,10 +270,12 @@ Boston, MA 02111-1307, USA.  */
    %{dylinker} %{Mach} "
 
 
-/* Machine dependent libraries.  */
+/* Machine dependent libraries but do not redefine it if we already on 7.0 and
+   above as it needs to link with libmx also.  */
 
-#undef	LIB_SPEC
+#ifndef	LIB_SPEC
 #define LIB_SPEC "%{!static:-lSystem}"
+#endif
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
 
@@ -496,7 +492,7 @@ do { text_section ();							\
        else if (!strncmp (xname, ".objc_class_name_", 17))		     \
 	 fprintf (FILE, "%s", xname);					     \
        else								     \
-         fprintf (FILE, "_%s", xname);					     \
+         asm_fprintf (FILE, "%U%s", xname);				     \
   } while (0)
 
 /* Output before executable code.  */
@@ -928,5 +924,7 @@ void add_framework_path (char *);
 #ifndef TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS 0
 #endif
+
+#define WINT_TYPE "int"
 
 #endif /* CONFIG_DARWIN_H */

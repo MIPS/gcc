@@ -556,3 +556,4 @@ struct tree_opt_pass pass_loop_done =
   0,					/* todo_flags_start */
   0					/* todo_flags_finish */
 };
+

@@ -479,7 +479,7 @@ enum jdep_code {
 typedef struct _jdep {
   ENUM_BITFIELD(jdep_code) kind : 8; /* Type of patch */
 
-  int  flag0 : 1;		/* Some flags */
+  unsigned int  flag0 : 1;	/* Some flags */
   tree decl;			/* Tied decl/or WFL */
   tree solv;			/* What to solve */
   tree wfl;			/* Where thing to resolve where found */
@@ -842,7 +842,7 @@ struct parser_ctxt GTY(()) {
 	    != TYPE_NAME (TREE_TYPE (TREE_TYPE (current_this))))	      \
 	&& !inherits_from_p (TREE_TYPE (TREE_TYPE (current_this)),	      \
 			     TREE_TYPE (DECL_CONTEXT (TYPE_NAME (T))))	      \
-        && !common_enclosing_context_p (TREE_TYPE (TREE_TYPE (current_this)), \
+        && !common_enclosing_instance_p (TREE_TYPE (TREE_TYPE (current_this)),\
 					(T))                                  \
 	&& INNER_CLASS_TYPE_P (TREE_TYPE (TREE_TYPE (current_this)))          \
 	&& !inherits_from_p                                                   \

@@ -128,7 +128,7 @@ unsafe_memory_access_p (tree mem)
       if (TREE_CODE_CLASS (TREE_CODE (idx)) != 'c')
 	return true;
 
-      return !in_array_bounds_p (base, idx);
+      return !in_array_bounds_p (mem);
 
     case INDIRECT_REF:
       return true;

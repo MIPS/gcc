@@ -69,7 +69,7 @@ try gfc_check_min_max_real (gfc_actual_arglist *);
 try gfc_check_min_max_double (gfc_actual_arglist *);
 try gfc_check_matmul (gfc_expr *, gfc_expr *);
 try gfc_check_merge (gfc_expr *, gfc_expr *, gfc_expr *);
-try gfc_check_minloc_maxloc (gfc_expr *, gfc_expr *, gfc_expr *);
+try gfc_check_minloc_maxloc (gfc_actual_arglist *);
 try gfc_check_minval_maxval (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_nearest (gfc_expr *, gfc_expr *);
 try gfc_check_null (gfc_expr *);
@@ -315,6 +315,9 @@ void gfc_resolve_verify (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_cpu_time (gfc_code *);
 void gfc_resolve_system_clock(gfc_code *);
 void gfc_resolve_random_number (gfc_code *);
+void gfc_resolve_getarg (gfc_code *);
+void gfc_resolve_get_command (gfc_code *);
+void gfc_resolve_get_command_argument (gfc_code *);
 
 
 /* The mvbits() subroutine requires the most arguments: five.  */

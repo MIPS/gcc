@@ -77,7 +77,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 	 here the insns are not scheduled monotonically top-down (nor bottom-
 	 up).
       3. If failed in scheduling all insns - bump II++ and try again, unless
-	 II reaches an upper bound MaxII, inwhich case report failure.
+	 II reaches an upper bound MaxII, in which case report failure.
    5. If we succeeded in scheduling the loop within II cycles, we now
       generate prolog and epilog, decrease the counter of the loop, and
       perform modulo variable expansion for live ranges that span more than
@@ -217,7 +217,7 @@ typedef struct node_sched_params
 
 
 /* The following three functions are copied from the current scheduler
-   code in order to use sched_analyze() for computing the dependecies.
+   code in order to use sched_analyze() for computing the dependencies.
    They are used when initializing the sched_info structure.  */
 static const char *
 sms_print_insn (rtx insn, int aligned ATTRIBUTE_UNUSED)
@@ -265,7 +265,7 @@ doloop_register_get (rtx insn, rtx *comp)
 {
   rtx pattern, cmp, inc, reg, condition;
 
-  if (GET_CODE (insn) != JUMP_INSN)
+  if (!JUMP_P (insn))
     return NULL_RTX;
   pattern = PATTERN (insn);
 
@@ -386,7 +386,7 @@ set_node_sched_params (ddg_ptr g)
 				sizeof (struct node_sched_params));
 
   /* Set the pointer of the general data of the node to point to the
-     appropriate sched_params strcture.  */
+     appropriate sched_params structure.  */
   for (i = 0; i < g->num_nodes; i++)
     {
       /* Watch out for aliasing problems?  */
@@ -443,11 +443,11 @@ calculate_maxii (ddg_ptr g)
 }
 
 
-/* Given the partial schdule, generate register moves when the length
+/* Given the partial schedule, generate register moves when the length
    of the register live range is more than ii; the number of moves is
    determined according to the following equation:
 		SCHED_TIME (use) - SCHED_TIME (def)   { 1 broken loop-carried
-   nreg_moves = ----------------------------------- - {   dependecnce.
+   nreg_moves = ----------------------------------- - {   dependence.
 			      ii		      { 0 if not.
    This handles the modulo-variable-expansions (mve's) needed for the ps.  */
 static void
@@ -789,7 +789,7 @@ static rtx
 find_line_note (rtx insn)
 {
   for (; insn; insn = PREV_INSN (insn))
-    if (GET_CODE (insn) == NOTE
+    if (NOTE_P (insn)
 	&& NOTE_LINE_NUMBER (insn) >= 0)
       break;
 
@@ -832,7 +832,7 @@ sms_schedule (FILE *dump_file)
   else
     issue_rate = 1;
 
-  /* Initilize the scheduler.  */
+  /* Initialize the scheduler.  */
   current_sched_info = &sms_sched_info;
   sched_init (NULL);
 
@@ -900,8 +900,12 @@ sms_schedule (FILE *dump_file)
 	      rtx line_note = find_line_note (tail);
 
 	      if (line_note)
-	    	fprintf (stats_file, "SMS bb %s %d (file, line)\n",
-		     	 NOTE_SOURCE_FILE (line_note), NOTE_LINE_NUMBER (line_note));
+		{
+		  expanded_location xloc;
+		  NOTE_EXPANDED_LOCATION (xloc, line_note);
+		  fprintf (stats_file, "SMS bb %s %d (file, line)\n",
+			   xloc.file, xloc.line);
+		}
 	      fprintf (stats_file, "SMS single-bb-loop\n");
 	      if (profile_info && flag_branch_probabilities)
 	    	{
@@ -934,9 +938,9 @@ sms_schedule (FILE *dump_file)
 
       /* Don't handle BBs with calls or barriers, or !single_set insns.  */
       for (insn = head; insn != NEXT_INSN (tail); insn = NEXT_INSN (insn))
-	if (GET_CODE (insn) == CALL_INSN
-	    || GET_CODE (insn) == BARRIER
-	    || (INSN_P (insn) && GET_CODE (insn) != JUMP_INSN
+	if (CALL_P (insn)
+	    || BARRIER_P (insn)
+	    || (INSN_P (insn) && !JUMP_P (insn)
 		&& !single_set (insn) && GET_CODE (PATTERN (insn)) != USE))
 	  break;
 
@@ -944,9 +948,9 @@ sms_schedule (FILE *dump_file)
 	{
 	  if (stats_file)
 	    {
-	      if (GET_CODE (insn) == CALL_INSN)
+	      if (CALL_P (insn))
 		fprintf (stats_file, "SMS loop-with-call\n");
-	      else if (GET_CODE (insn) == BARRIER)
+	      else if (BARRIER_P (insn))
 		fprintf (stats_file, "SMS loop-with-barrier\n");
 	      else
 		fprintf (stats_file, "SMS loop-with-not-single-set\n");
@@ -996,8 +1000,12 @@ sms_schedule (FILE *dump_file)
 	  rtx line_note = find_line_note (tail);
 
 	  if (line_note)
-	    fprintf (stats_file, "SMS bb %s %d (file, line)\n",
-		     NOTE_SOURCE_FILE (line_note), NOTE_LINE_NUMBER (line_note));
+	    {
+	      expanded_location xloc;
+	      NOTE_EXPANDED_LOCATION (xloc, line_note);
+	      fprintf (stats_file, "SMS bb %s %d (file, line)\n",
+		       xloc.file, xloc.line);
+	    }
 	  fprintf (stats_file, "SMS single-bb-loop\n");
 	  if (profile_info && flag_branch_probabilities)
 	    {
@@ -1237,7 +1245,7 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order, FILE *du
 	  if (!INSN_P (insn))
 	    continue;
 
-	  if (GET_CODE (insn) == JUMP_INSN) /* Closing branch handled later.  */
+	  if (JUMP_P (insn)) /* Closing branch handled later.  */
 	    continue;
 
 	  /* 1. compute sched window for u (start, end, step).  */
@@ -1526,7 +1534,7 @@ calculate_order_params (ddg_ptr g, int mii ATTRIBUTE_UNUSED)
   node_order_params_arr = (nopa) xcalloc (num_nodes,
 					  sizeof (struct node_order_params));
 
-  /* Set the aux pointer of each node to point to its order_params strcture.  */
+  /* Set the aux pointer of each node to point to its order_params structure.  */
   for (u = 0; u < num_nodes; u++)
     g->nodes[u].aux.info = &node_order_params_arr[u];
 

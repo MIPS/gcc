@@ -198,6 +198,10 @@
    */
 #undef HAVE_DECL_GETOPT
 
+/* Define to 1 if we found a declaration for 'getpagesize', otherwise define
+   to 0. */
+#undef HAVE_DECL_GETPAGESIZE
+
 /* Define to 1 if we found a declaration for 'getrlimit', otherwise define to
    0. */
 #undef HAVE_DECL_GETRLIMIT
@@ -340,6 +344,9 @@
 
 /* Define if your linker supports --as-needed and --no-as-needed options. */
 #undef HAVE_LD_AS_NEEDED
+
+/* Define if your linker supports --demangle option. */
+#undef HAVE_LD_DEMANGLE
 
 /* Define if your linker supports --eh-frame-hdr option. */
 #undef HAVE_LD_EH_FRAME_HDR

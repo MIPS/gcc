@@ -40,15 +40,12 @@ tree start_protocol (enum tree_code, tree, tree);
 void finish_protocol (tree);
 
 tree objc_build_throw_stmt (tree);
-tree objc_build_try_catch_finally_stmt (int, int);
-void objc_build_synchronized_prologue (tree);
-tree objc_build_synchronized_epilogue (void);
-tree objc_build_try_prologue (void);
-void objc_build_try_epilogue (int);
-void objc_build_catch_stmt (tree);
-void objc_build_catch_epilogue (void);
-tree objc_build_finally_prologue (void);
-tree objc_build_finally_epilogue (void);
+void objc_begin_try_stmt (location_t, tree);
+void objc_begin_catch_clause (tree);
+void objc_finish_catch_clause (void);
+void objc_build_finally_clause (location_t, tree);
+void objc_finish_try_stmt (void);
+void objc_build_synchronized (location_t, tree, tree);
 
 tree is_ivar (tree, tree);
 int is_private (tree);
@@ -60,7 +57,7 @@ void objc_clear_super_receiver (void);
 tree get_class_ivars_from_name (tree);
 tree get_class_reference (tree);
 tree get_static_reference (tree, tree);
-tree get_object_reference (tree);
+tree get_protocol_reference (tree);
 tree build_message_expr (tree);
 tree finish_message_expr (tree, tree, tree);
 tree build_selector_expr (tree);
@@ -85,8 +82,8 @@ tree build_encode_expr (tree);
 
 /* Objective-C structures */
 
-#define CLASS_BINFO_ELTS		6
-#define PROTOCOL_BINFO_ELTS		2
+#define CLASS_LANG_SLOT_ELTS		6
+#define PROTOCOL_LANG_SLOT_ELTS		2
 
 /* KEYWORD_DECL */
 #define KEYWORD_KEY_NAME(DECL) ((DECL)->decl.name)
@@ -104,19 +101,19 @@ tree build_encode_expr (tree);
    PROTOCOL_INTERFACE_TYPE */
 #define CLASS_NAME(CLASS) ((CLASS)->type.name)
 #define CLASS_SUPER_NAME(CLASS) (TYPE_CHECK (CLASS)->type.context)
-#define CLASS_IVARS(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 0)
-#define CLASS_RAW_IVARS(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 1)
+#define CLASS_IVARS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 0)
+#define CLASS_RAW_IVARS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 1)
 #define CLASS_NST_METHODS(CLASS) ((CLASS)->type.minval)
 #define CLASS_CLS_METHODS(CLASS) ((CLASS)->type.maxval)
-#define CLASS_STATIC_TEMPLATE(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 2)
-#define CLASS_CATEGORY_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 3)
-#define CLASS_PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 4)
-#define CLASS_OWN_IVARS(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 5)
+#define CLASS_STATIC_TEMPLATE(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 2)
+#define CLASS_CATEGORY_LIST(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 3)
+#define CLASS_PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 4)
+#define CLASS_OWN_IVARS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 5)
 #define PROTOCOL_NAME(CLASS) ((CLASS)->type.name)
-#define PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 0)
+#define PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 0)
 #define PROTOCOL_NST_METHODS(CLASS) ((CLASS)->type.minval)
 #define PROTOCOL_CLS_METHODS(CLASS) ((CLASS)->type.maxval)
-#define PROTOCOL_FORWARD_DECL(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 1)
+#define PROTOCOL_FORWARD_DECL(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 1)
 #define PROTOCOL_DEFINED(CLASS) TREE_USED (CLASS)
 /* We need to distinguish TYPE_PROTOCOL_LISTs from TYPE_CONTEXTs, both of which
    are stored in the same accessor slot.  */
@@ -282,7 +279,6 @@ enum objc_tree_index
     OCTI_LOCAL_EXCEPTION_DECL,
     OCTI_RETHROW_EXCEPTION_DECL,
     OCTI_EVAL_ONCE_DECL,
-    OCTI_EXCEPTION_BLK_STACK,
     OCTI_CATCH_TYPE,
 
     OCTI_MAX
@@ -312,17 +308,17 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define objc_get_meta_class_decl			\
 				objc_global_trees[OCTI_GET_MCLASS_DECL]
 
-#define super_type		objc_global_trees[OCTI_SUPER_TYPE]
-#define selector_type		objc_global_trees[OCTI_SEL_TYPE]
-#define id_type			objc_global_trees[OCTI_ID_TYPE]
+#define objc_super_type		objc_global_trees[OCTI_SUPER_TYPE]
+#define objc_selector_type	objc_global_trees[OCTI_SEL_TYPE]
+#define objc_id_type		objc_global_trees[OCTI_ID_TYPE]
 #define objc_class_type		objc_global_trees[OCTI_CLS_TYPE]
-#define instance_type		objc_global_trees[OCTI_NST_TYPE]
-#define protocol_type		objc_global_trees[OCTI_PROTO_TYPE]
+#define objc_instance_type	objc_global_trees[OCTI_NST_TYPE]
+#define objc_protocol_type	objc_global_trees[OCTI_PROTO_TYPE]
 
 /* Type checking macros.  */
 
 #define IS_ID(TYPE) \
-  (TYPE_MAIN_VARIANT (TYPE) == TYPE_MAIN_VARIANT (id_type))
+  (TYPE_MAIN_VARIANT (TYPE) == TYPE_MAIN_VARIANT (objc_id_type))
 #define IS_PROTOCOL_QUALIFIED_ID(TYPE) \
   (IS_ID (TYPE) && TYPE_PROTOCOL_LIST (TYPE))
 #define IS_SUPER(TYPE) \
@@ -402,8 +398,6 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define objc_caught_exception	objc_global_trees[OCTI_LOCAL_EXCEPTION_DECL]	
 #define objc_rethrow_exception	objc_global_trees[OCTI_RETHROW_EXCEPTION_DECL]	
 #define objc_eval_once		objc_global_trees[OCTI_EVAL_ONCE_DECL]	
-#define objc_exception_block_stack		\
-				objc_global_trees[OCTI_EXCEPTION_BLK_STACK]
 #define objc_catch_type		objc_global_trees[OCTI_CATCH_TYPE]
 
 #define objc_method_template	objc_global_trees[OCTI_METH_TEMPL]

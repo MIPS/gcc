@@ -51,6 +51,7 @@ through the macros defined in the @file{.h} file.
 * Target Attributes::   Defining target-specific uses of @code{__attribute__}.
 * MIPS Coprocessors::   MIPS coprocessor support and how to customize it.
 * PCH Target::          Validity checking for precompiled headers.
+* C++ ABI::             Controlling C++ ABI changes.
 * Misc::                Everything else.
 @end menu
 
@@ -465,6 +466,22 @@ Define this macro as a C string constant if you wish to override the
 standard choice of @code{libdir} as the default prefix to
 try when searching for startup files such as @file{crt0.o}.
 @code{STANDARD_STARTFILE_PREFIX} is not searched when the compiler
+is built as a cross compiler.
+@end defmac
+
+@defmac STANDARD_STARTFILE_PREFIX_1
+Define this macro as a C string constant if you wish to override the
+standard choice of @code{/lib} as a prefix to try after the default prefix
+when searching for startup files such as @file{crt0.o}.
+@code{STANDARD_STARTFILE_PREFIX_1} is not searched when the compiler
+is built as a cross compiler.
+@end defmac
+
+@defmac STANDARD_STARTFILE_PREFIX_2
+Define this macro as a C string constant if you wish to override the
+standard choice of @code{/lib} as yet another prefix to try after the
+default prefix when searching for startup files such as @file{crt0.o}.
+@code{STANDARD_STARTFILE_PREFIX_2} is not searched when the compiler
 is built as a cross compiler.
 @end defmac
 
@@ -2217,8 +2234,9 @@ set prior to local register allocation and is valid for the remaining
 compiler passes.  They can also test the C variable
 @code{current_function_uses_only_leaf_regs} which is nonzero for leaf
 functions which only use leaf registers.
-@code{current_function_uses_only_leaf_regs} is valid after reload and is
-only useful if @code{LEAF_REGISTERS} is defined.
+@code{current_function_uses_only_leaf_regs} is valid after all passes
+that modify the instructions have been run and is only useful if
+@code{LEAF_REGISTERS} is defined.
 @c changed this to fix overfull.  ALSO:  why the "it" at the beginning
 @c of the next paragraph?!  --mew 2feb93
 
@@ -2316,9 +2334,9 @@ single-byte values can be loaded or stored.  This is so that
 @code{PREFERRED_RELOAD_CLASS} can always have a possible value to return.
 
 @deftp {Data type} {enum reg_class}
-An enumeral type that must be defined with all the register class names
-as enumeral values.  @code{NO_REGS} must be first.  @code{ALL_REGS}
-must be the last register class, followed by one more enumeral value,
+An enumerated type that must be defined with all the register class names
+as enumerated values.  @code{NO_REGS} must be first.  @code{ALL_REGS}
+must be the last register class, followed by one more enumerated value,
 @code{LIM_REG_CLASSES}, which is not a register class but rather
 tells how many classes there are.
 
@@ -3651,9 +3669,9 @@ where some arguments are usually passed in registers, is to cause
 nameless arguments to be passed on the stack instead.  This is done
 by making @code{FUNCTION_ARG} return 0 whenever @var{named} is 0.
 
-@cindex @code{MUST_PASS_IN_STACK}, and @code{FUNCTION_ARG}
+@cindex @code{TARGET_MUST_PASS_IN_STACK}, and @code{FUNCTION_ARG}
 @cindex @code{REG_PARM_STACK_SPACE}, and @code{FUNCTION_ARG}
-You may use the macro @code{MUST_PASS_IN_STACK (@var{mode}, @var{type})}
+You may use the hook @code{targetm.calls.must_pass_in_stack}
 in the definition of this macro to determine if this argument is of a
 type that must be passed in the stack.  If @code{REG_PARM_STACK_SPACE}
 is not defined and @code{FUNCTION_ARG} returns nonzero for such an
@@ -3662,12 +3680,12 @@ defined, the argument will be computed in the stack and then loaded into
 a register.
 @end defmac
 
-@defmac MUST_PASS_IN_STACK (@var{mode}, @var{type})
-Define as a C expression that evaluates to nonzero if we do not know how
-to pass TYPE solely in registers.  The file @file{expr.h} defines a
+@deftypefn {Target Hook} bool TARGET_MUST_PASS_IN_STACK (enum machine_mode @var{mode}, tree @var{type})
+This target hook should return @code{true} if we should not pass @var{type}
+solely in registers.  The file @file{expr.h} defines a
 definition that is usually appropriate, refer to @file{expr.h} for additional
 documentation.
-@end defmac
+@end deftypefn
 
 @defmac FUNCTION_INCOMING_ARG (@var{cum}, @var{mode}, @var{type}, @var{named})
 Define this macro if the target machine has ``register windows'', so
@@ -3704,22 +3722,17 @@ register to be used by the caller for this argument; likewise
 @code{FUNCTION_INCOMING_ARG}, for the called function.
 @end defmac
 
-@defmac FUNCTION_ARG_PASS_BY_REFERENCE (@var{cum}, @var{mode}, @var{type}, @var{named})
-A C expression that indicates when an argument must be passed by reference.
-If nonzero for an argument, a copy of that argument is made in memory and a
+@deftypefn {Target Hook} bool TARGET_PASS_BY_REFERENCE (CUMULATIVE_ARGS *@var{cum}, enum machine_mode @var{mode}, tree @var{type}, bool @var{named})
+This target hook should return @code{true} if an argument at the 
+position indicated by @var{cum} should be passed by reference.  This
+predicate is queried after target independent reasons for being 
+passed by reference, such as @code{TREE_ADDRESSABLE (type)}.
+
+If the hook returns true, a copy of that argument is made in memory and a
 pointer to the argument is passed instead of the argument itself.
 The pointer is passed in whatever way is appropriate for passing a pointer
 to that type.
-
-On machines where @code{REG_PARM_STACK_SPACE} is not defined, a suitable
-definition of this macro might be
-@smallexample
-#define FUNCTION_ARG_PASS_BY_REFERENCE\
-(CUM, MODE, TYPE, NAMED)  \
-  MUST_PASS_IN_STACK (MODE, TYPE)
-@end smallexample
-@c this is *still* too long.  --mew 5feb93
-@end defmac
+@end deftypefn
 
 @defmac FUNCTION_ARG_CALLEE_COPIES (@var{cum}, @var{mode}, @var{type}, @var{named})
 If defined, a C expression that indicates when it is the called function's
@@ -3869,16 +3882,6 @@ This hook performs target-specific gimplification of
 @code{VA_ARG_EXPR}.  The first two parameters correspond to the
 arguments to @code{va_arg}; the latter two are as in
 @code{gimplify.c:gimplify_expr}.
-
-You only need to define this hook if you previously defined
-@code{EXPAND_BUILTIN_VA_ARG}; it is pretty easy to reuse the same code
-for both.  One significant difference is that
-@code{EXPAND_BUILTIN_VA_ARG} returns an address, whereas this hook
-produces an expression of type @var{type}, usually an @code{INDIRECT_REF}.
-
-Once you define this macro, you can change
-@code{EXPAND_BUILTIN_VA_ARG} to just abort, as it should never be
-called.
 @end deftypefn
 
 @node Scalar Return
@@ -4210,6 +4213,16 @@ arguments that a function should pop.  @xref{Scalar Return}.
 @c tell?  --mew 5feb93
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_LATE_RTL_PROLOGUE_EPILOGUE
+If set to @code{true}, it instructs the compiler to emit the RTL prologue
+and epilogue later in the game than usual, namely after all passes that
+modify the instructions (and not merely reorder them) have been run.  In
+particular, the C variable @code{current_function_uses_only_leaf_regs} is
+valid at that point.  This can be used on machines that have "register
+windows" to optimize away the regular "push" on the register stack.
+@xref{Leaf Functions}.
+@end deftypefn
+
 @itemize @bullet
 @item
 @findex current_function_pretend_args_size
@@ -4243,12 +4256,6 @@ Optionally, when @code{ACCUMULATE_OUTGOING_ARGS} is defined, a region of
 @code{current_function_outgoing_args_size} bytes to be used for outgoing
 argument lists of the function.  @xref{Stack Arguments}.
 @end itemize
-
-Normally, it is necessary for the macros
-@code{TARGET_ASM_FUNCTION_PROLOGUE} and
-@code{TARGET_ASM_FUNCTION_EPILOGUE} to treat leaf functions specially.
-The C variable @code{current_function_is_leaf} is nonzero for such a
-function.
 
 @defmac EXIT_IGNORE_STACK
 Define this macro as a C expression that is nonzero if the return
@@ -4687,6 +4694,19 @@ typically be a series of @code{asm} statements.  Both @var{beg} and
 @var{end} are both pointer expressions.
 @end defmac
 
+The operating system may also require the stack to be made executable
+before calling the trampoline.  To implement this requirement, define
+the following macro.
+
+@defmac ENABLE_EXECUTE_STACK
+Define this macro if certain operations must be performed before executing
+code located on the stack.  The macro should expand to a series of C
+file-scope constructs (e.g. functions) and provide a unique entry point
+named @code{__enable_execute_stack}.  The target is responsible for
+emitting calls to the entry point in the code, for example from the
+@code{INITIALIZE_TRAMPOLINE} macro.
+@end defmac
+
 To use a standard subroutine, define the following macro.  In addition,
 you must make sure that the instructions in a trampoline fill an entire
 cache line with identical instructions, or else ensure that the
@@ -4787,17 +4807,6 @@ Define this macro as a C expression to create an rtl expression that
 refers to the global ``variable'' @code{errno}.  (On certain systems,
 @code{errno} may not actually be a variable.)  If you don't define this
 macro, a reasonable default is used.
-@end defmac
-
-@cindex @code{bcopy}, implicit usage
-@cindex @code{memcpy}, implicit usage
-@cindex @code{memmove}, implicit usage
-@cindex @code{bzero}, implicit usage
-@cindex @code{memset}, implicit usage
-@defmac TARGET_MEM_FUNCTIONS
-Define this macro if GCC should generate calls to the ISO C
-(and System V) library functions @code{memcpy}, @code{memmove} and
-@code{memset} rather than the BSD functions @code{bcopy} and @code{bzero}.
 @end defmac
 
 @cindex C99 math functions, implicit usage
@@ -5733,41 +5742,6 @@ output.  The second one passes the scheduler verbose level of the
 debugging output.  The forth and the fifth parameter values are
 correspondingly processor cycle on which the previous insn has been
 issued and the current processor cycle.
-@end deftypefn
-
-@deftypefn {Target Hook} void TARGET_SCHED_INIT_DFA_BUBBLES (void)
-The @acronym{DFA}-based scheduler could take the insertion of nop
-operations for better insn scheduling into account.  It can be done
-only if the multi-pass insn scheduling works (see hook
-@samp{TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD}).
-
-Let us consider a @acronym{VLIW} processor insn with 3 slots.  Each
-insn can be placed only in one of the three slots.  We have 3 ready
-insns @var{A}, @var{B}, and @var{C}.  @var{A} and @var{C} can be
-placed only in the 1st slot, @var{B} can be placed only in the 3rd
-slot.  We described the automaton which does not permit empty slot
-gaps between insns (usually such description is simpler).  Without
-this code the scheduler would place each insn in 3 separate
-@acronym{VLIW} insns.  If the scheduler places a nop insn into the 2nd
-slot, it could place the 3 insns into 2 @acronym{VLIW} insns.  What is
-the nop insn is returned by hook @samp{TARGET_SCHED_DFA_BUBBLE}.  Hook
-@samp{TARGET_SCHED_INIT_DFA_BUBBLES} can be used to initialize or
-create the nop insns.
-
-You should remember that the scheduler does not insert the nop insns.
-It is not wise because of the following optimizations.  The scheduler
-only considers such possibility to improve the result schedule.  The
-nop insns should be inserted lately, e.g. on the final phase.
-@end deftypefn
-
-@deftypefn {Target Hook} rtx TARGET_SCHED_DFA_BUBBLE (int @var{index})
-This hook @samp{FIRST_CYCLE_MULTIPASS_SCHEDULING} is used to insert
-nop operations for better insn scheduling when @acronym{DFA}-based
-scheduler makes multipass insn scheduling (see also description of
-hook @samp{TARGET_SCHED_INIT_DFA_BUBBLES}).  This hook
-returns a nop insn with given @var{index}.  The indexes start with
-zero.  The hook should return @code{NULL} if there are no more nop
-insns with indexes greater than given index.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_SCHED_IS_COSTLY_DEPENDENCE (rtx @var{insn1}, rtx @var{insn2}, rtx @var{dep_link}, int @var{dep_cost}, int @var{distance})
@@ -7532,6 +7506,11 @@ true if this is a placeholder label for an omitted FDE.
 The default is that FDEs are not given nonlocal labels.
 @end deftypefn
 
+@deftypefn {Taget Hook} void TARGET_UNWIND_EMIT (FILE * @var{stream}, rtx @var{insn})
+This target hook emits and assembly directives required to unwind the
+given instruction.  This is only used when TARGET_UNWIND_INFO is set.
+@end deftypefn
+
 @node Exception Region Output
 @subsection Assembler Commands for Exception Regions
 
@@ -7579,6 +7558,11 @@ default.
 
 If this macro is defined to anything, the DWARF 2 unwinder will be used
 instead of inline unwinders and @code{__unwind_function} in the non-@code{setjmp} case.
+@end defmac
+
+@defmac TARGET_UNWIND_INFO
+Define this macro if your target has ABI specified unwind tables.  Usually
+these will be output by @code{TARGET_UNWIND_EMIT}.
 @end defmac
 
 @defmac MUST_USE_SJLJ_EXCEPTIONS
@@ -8460,6 +8444,44 @@ if not.  The error message will be presented to the user, so it should
 be localized.
 @end deftypefn
 
+@node C++ ABI
+@section C++ ABI parameters
+@cindex parameters, c++ abi
+
+@deftypefn {Target Hook} tree TARGET_CXX_GUARD_TYPE (void)
+Define this hook to override the integer type used for guard variables.
+These are used to implement one-time construction of static objects.  The
+default is long_long_integer_type_node.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_CXX_GUARD_MASK_BIT (void)
+This hook determines how guard variables are used.  It should return 
+@code{false} (the default) if first byte should be used.  A return value of
+@code{true} indicates the least significant bit should be used.
+@end deftypefn
+
+@deftypefn {Target Hook} tree TARGET_CXX_GET_COOKIE_SIZE (tree @var{type})
+This hook returns the size of the cookie to use when allocating an array
+whose elements have the indicated @var{type}.  Assumes that it is already
+known that a cookie is needed.  The default is
+@code{max(sizeof (size_t), alignof(type))}, as defined in section 2.7 of the
+IA64/Generic C++ ABI.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_CXX_COOKIE_HAS_SIZE (void)
+This hook should return @code{true} if the element size should be stored in
+array cookies.  The default is to return @code{false}.
+@end deftypefn
+
+@deftypefn {Target Hook} int TARGET_CXX_IMPORT_EXPORT_CLASS (tree  @var{type}, int @var{import_export})
+If defined by a backend this hook allows the decision made to export
+class @var{type} to be overruled.  Upon entry @var{import_export}
+will contain 1 if the class is going to be exported, -1 if it is going
+to be imported and 0 otherwise.  This function should return the
+modified value and perform any other actions necessary to support the
+backend's targeted operating system.
+@end deftypefn
+
 @node Misc
 @section Miscellaneous Parameters
 @cindex parameters, miscellaneous
@@ -8956,16 +8978,6 @@ have names that use @samp{.}.  If this macro is defined, these names
 are rewritten to avoid @samp{.}.
 @end defmac
 
-@defmac DEFAULT_MAIN_RETURN
-Define this macro if the target system expects every program's @code{main}
-function to return a standard ``success'' value by default (if no other
-value is explicitly returned).
-
-The definition should be a C statement (sans semicolon) to generate the
-appropriate rtl instructions.  It is used only when compiling the end of
-@code{main}.
-@end defmac
-
 @defmac INSN_SETS_ARE_DELAYED (@var{insn})
 Define this macro as a C expression that is nonzero if it is safe for the
 delay slot scheduler to place instructions in the delay slot of @var{insn},
@@ -9111,7 +9123,8 @@ instructions that would otherwise not normally be generated because
 they have no equivalent in the source language (for example, SIMD vector
 instructions or prefetch instructions).
 
-To create a built-in function, call the function @code{builtin_function}
+To create a built-in function, call the function
+@code{lang_hooks.builtin_function}
 which is defined by the language front end.  You can use any type nodes set
 up by @code{build_common_tree_nodes} and @code{build_common_tree_nodes_2};
 only language front ends that use those two functions will call

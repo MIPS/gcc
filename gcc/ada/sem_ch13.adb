@@ -1110,8 +1110,10 @@ package body Sem_Ch13 is
                            and then
                         Size /= System_Storage_Unit * 8
                      then
+                        Error_Msg_Uint_1 := UI_From_Int (System_Storage_Unit);
                         Error_Msg_N
-                          ("size for primitive object must be power of 2", N);
+                          ("size for primitive object must be a power of 2"
+                            & " and at least ^", N);
                      end if;
                   end if;
 
@@ -2092,7 +2094,6 @@ package body Sem_Ch13 is
                --  tag to get an explicit position.
 
                elsif Nkind (Component_Name (CC)) = N_Attribute_Reference then
-
                   if Attribute_Name (Component_Name (CC)) = Name_Tag then
                      Error_Msg_N ("position of tag cannot be specified", CC);
                   else
@@ -3422,10 +3423,7 @@ package body Sem_Ch13 is
    -- Rep_Item_Too_Early --
    ------------------------
 
-   function Rep_Item_Too_Early
-     (T : Entity_Id;
-      N : Node_Id) return Boolean
-   is
+   function Rep_Item_Too_Early (T : Entity_Id; N : Node_Id) return Boolean is
    begin
       --  Cannot apply rep items that are not operational items
       --  to generic types
@@ -3645,6 +3643,10 @@ package body Sem_Ch13 is
                function Same_Rep return Boolean;
                --  CD1 and CD2 are either components or discriminants. This
                --  function tests whether the two have the same representation
+
+               --------------
+               -- Same_Rep --
+               --------------
 
                function Same_Rep return Boolean is
                begin

@@ -308,9 +308,10 @@ machopic_non_lazy_ptr_name (const char *name)
       }
     else
       {
-	buffer[bufferlen] = '_';
-	memcpy (buffer + bufferlen +1, name, namelen+1);
-        bufferlen += namelen +1;
+	strcpy (buffer + bufferlen, user_label_prefix);
+	bufferlen += strlen (user_label_prefix);
+	memcpy (buffer + bufferlen, name, namelen+1);
+        bufferlen += namelen;
       }
 
     memcpy (buffer + bufferlen, "$non_lazy_ptr", strlen("$non_lazy_ptr")+1);
@@ -383,9 +384,10 @@ machopic_stub_name (const char *name)
       }
     else
       {
-	buffer[bufferlen] = '_';
-	memcpy (buffer + bufferlen +1, name, namelen+1);
-        bufferlen += namelen +1;
+	strcpy (buffer + bufferlen, user_label_prefix);
+	bufferlen += strlen (user_label_prefix);
+	memcpy (buffer + bufferlen, name, namelen+1);
+        bufferlen += namelen;
       }
 
     if (needs_quotes)
@@ -909,13 +911,13 @@ machopic_finish (FILE *asm_out_file)
       else if (sym_name[0] == '-' || sym_name[0] == '+')
 	strcpy (sym, sym_name);
       else
-	sym[0] = '_', strcpy (sym + 1, sym_name);
+	sprintf (sym, "%s%s", user_label_prefix, sym_name);
 
       stub = alloca (strlen (stub_name) + 2);
       if (stub_name[0] == '*' || stub_name[0] == '&')
 	strcpy (stub, stub_name + 1);
       else
-	stub[0] = '_', strcpy (stub + 1, stub_name);
+	sprintf (stub, "%s%s", user_label_prefix, stub_name);
 
       machopic_output_stub (asm_out_file, sym, stub);
     }
@@ -1337,6 +1339,15 @@ darwin_unique_section (tree decl, int reloc ATTRIBUTE_UNUSED)
     darwin_make_decl_one_only (decl);
 }
 
+#define HAVE_DEAD_STRIP 0
+
+static void
+no_dead_strip (FILE *file, const char *lab)
+{
+  if (HAVE_DEAD_STRIP)
+    fprintf (file, ".no_dead_strip %s\n", lab);
+}
+
 /* Emit a label for an FDE, making it global and/or weak if appropriate. 
    The third parameter is nonzero if this is for exception handling.
    The fourth parameter is nonzero if this is just a placeholder for an
@@ -1386,7 +1397,15 @@ darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
     fprintf (file, ".weak_definition %s\n", lab);
 
   if (empty)
-    fprintf (file, "%s = 0\n", lab);
+    {
+      fprintf (file, "%s = 0\n", lab);
+
+      /* Mark the absolute .eh and .eh1 style labels as needed to
+	 ensure that we don't dead code strip them and keep such
+	 labels from another instantiation point until we can fix this
+	 properly with group comdat support.  */
+      no_dead_strip (file, lab);
+    }
   else
     fprintf (file, "%s:\n", lab);
 

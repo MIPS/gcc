@@ -20,7 +20,6 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -176,7 +175,7 @@ throw_bad_cast (void)
     fn = push_throw_library_fn (fn, build_function_type (ptr_type_node,
 							 void_list_node));
   
-  return build_cxx_call (fn, NULL_TREE, NULL_TREE);
+  return build_cxx_call (fn, NULL_TREE);
 }
 
 /* Return an expression for "__cxa_bad_typeid()".  The expression
@@ -193,7 +192,7 @@ throw_bad_typeid (void)
       fn = push_throw_library_fn (fn, t);
     }
 
-  return convert_from_reference (build_cxx_call (fn, NULL_TREE, NULL_TREE));
+  return convert_from_reference (build_cxx_call (fn, NULL_TREE));
 }
 
 /* Return an lvalue expression whose type is "const std::type_info"
@@ -652,7 +651,7 @@ build_dynamic_cast_1 (tree type, tree expr)
               pop_nested_namespace (ns);
               dynamic_cast_node = dcast_fn;
 	    }
-          result = build_cxx_call (dcast_fn, elems, elems);
+          result = build_cxx_call (dcast_fn, elems);
 
 	  if (tc == REFERENCE_TYPE)
 	    {
@@ -909,7 +908,7 @@ dfs_class_hint_mark (tree binfo, void *data)
   tree basetype = BINFO_TYPE (binfo);
   int *hint = (int *) data;
   
-  if (TREE_VIA_VIRTUAL (binfo))
+  if (BINFO_VIRTUAL_P (binfo))
     {
       if (CLASSTYPE_MARKED (basetype))
         *hint |= 1;
@@ -1033,7 +1032,7 @@ get_pseudo_ti_init (tree type, tree var_desc, bool *non_public_p)
         }
       else if (var_desc == si_class_desc_type_node)
 	{
-          tree base_binfos = BINFO_BASETYPES (TYPE_BINFO (type));
+          tree base_binfos = BINFO_BASE_BINFOS (TYPE_BINFO (type));
 	  tree base_binfo = TREE_VEC_ELT (base_binfos, 0);
 	  tree tinfo = get_tinfo_ptr (BINFO_TYPE (base_binfo));
 	  tree base_inits = tree_cons (NULL_TREE, tinfo, NULL_TREE);
@@ -1044,9 +1043,9 @@ get_pseudo_ti_init (tree type, tree var_desc, bool *non_public_p)
         {
 	  int hint = class_hint_flags (type);
 	  tree binfo = TYPE_BINFO (type);
-          int nbases = BINFO_N_BASETYPES (binfo);
-          tree base_binfos = BINFO_BASETYPES (binfo);
-	  tree base_accesses = BINFO_BASEACCESSES (binfo);
+          int nbases = BINFO_N_BASE_BINFOS (binfo);
+          tree base_binfos = BINFO_BASE_BINFOS (binfo);
+	  tree base_accesses = BINFO_BASE_ACCESSES (binfo);
           tree base_inits = NULL_TREE;
           int ix;
           
@@ -1062,7 +1061,7 @@ get_pseudo_ti_init (tree type, tree var_desc, bool *non_public_p)
               if (TREE_VEC_ELT (base_accesses, ix) == access_public_node)
                 flags |= 2;
               tinfo = get_tinfo_ptr (BINFO_TYPE (base_binfo));
-	      if (TREE_VIA_VIRTUAL (base_binfo))
+	      if (BINFO_VIRTUAL_P (base_binfo))
 		{
 		   /* We store the vtable offset at which the virtual
        		      base offset can be found.  */
@@ -1188,19 +1187,19 @@ get_pseudo_ti_desc (tree type)
 	    cxx_incomplete_type_error (NULL_TREE, type);
 	  return class_desc_type_node;
 	}
-      else if (!CLASSTYPE_N_BASECLASSES (type))
+      else if (!BINFO_N_BASE_BINFOS (TYPE_BINFO (type)))
 	return class_desc_type_node;
       else
 	{
 	  tree binfo = TYPE_BINFO (type);
-	  tree base_binfos = BINFO_BASETYPES (binfo);
-	  tree base_accesses = BINFO_BASEACCESSES (binfo);
+	  tree base_binfos = BINFO_BASE_BINFOS (binfo);
+	  tree base_accesses = BINFO_BASE_ACCESSES (binfo);
 	  tree base_binfo = TREE_VEC_ELT (base_binfos, 0);
 	  int num_bases = TREE_VEC_LENGTH (base_binfos);
 	  
 	  if (num_bases == 1
 	      && TREE_VEC_ELT (base_accesses, 0) == access_public_node
-	      && !TREE_VIA_VIRTUAL (base_binfo)
+	      && !BINFO_VIRTUAL_P (base_binfo)
 	      && integer_zerop (BINFO_OFFSET (base_binfo)))
 	    /* single non-virtual public.  */
 	    return si_class_desc_type_node;
@@ -1383,7 +1382,7 @@ emit_support_tinfos (void)
   pop_nested_namespace (abi_node);
   if (!COMPLETE_TYPE_P (bltn_type))
     return;
-  dtor = TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (bltn_type), 1);
+  dtor = CLASSTYPE_DESTRUCTORS (bltn_type);
   if (DECL_EXTERNAL (dtor))
     return;
   doing_runtime = 1;

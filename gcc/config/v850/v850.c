@@ -64,10 +64,11 @@ static void v850_insert_attributes   (tree, tree *);
 static void v850_select_section (tree, int, unsigned HOST_WIDE_INT);
 static void v850_encode_data_area    (tree, rtx);
 static void v850_encode_section_info (tree, rtx, int);
-static int  v850_use_dfa_pipeline_interface (void);
 static bool v850_return_in_memory    (tree, tree);
 static void v850_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
+static bool v850_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
+				    tree, bool);
 
 /* Information about the various small memory areas.  */
 struct small_memory_info small_memory[ (int)SMALL_MEMORY_max ] =
@@ -119,7 +120,7 @@ static int v850_interrupt_p = FALSE;
 #define TARGET_ADDRESS_COST hook_int_rtx_0
 
 #undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE v850_use_dfa_pipeline_interface
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
 
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG v850_reorg
@@ -129,6 +130,9 @@ static int v850_interrupt_p = FALSE;
 
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY v850_return_in_memory
+
+#undef TARGET_PASS_BY_REFERENCE
+#define TARGET_PASS_BY_REFERENCE v850_pass_by_reference
 
 #undef TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS v850_setup_incoming_varargs
@@ -179,6 +183,20 @@ override_options (void)
 }
 
 
+static bool
+v850_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
+			enum machine_mode mode, tree type,
+			bool named ATTRIBUTE_UNUSED)
+{
+  unsigned HOST_WIDE_INT size;
+
+  if (type)
+    size = int_size_in_bytes (type);
+  else
+    size = GET_MODE_SIZE (mode);
+
+  return size > 8;
+}
 
 /* Return an RTX to represent where a value with mode MODE will be returned
    from a function.  If the result is 0, the argument is pushed.  */
@@ -2345,12 +2363,6 @@ v850_encode_section_info (tree decl, rtx rtl, int first)
     v850_encode_data_area (decl, XEXP (rtl, 0));
 }
 
-static int
-v850_use_dfa_pipeline_interface (void)
-{
-  return 1;
-}
-
 /* Return true if the given RTX is a register which can be restored
    by a function epilogue.  */
 int
@@ -3309,47 +3321,6 @@ construct_prepare_instruction (rtx op)
     }
   
   return buff;
-}
-
-/* Implement `va_arg'.  */
-
-rtx
-v850_va_arg (tree valist, tree type)
-{
-  HOST_WIDE_INT size, rsize;
-  tree addr, incr;
-  rtx addr_rtx;
-  int indirect;
-
-  /* Round up sizeof(type) to a word.  */
-  size = int_size_in_bytes (type);
-  rsize = (size + UNITS_PER_WORD - 1) & -UNITS_PER_WORD;
-  indirect = 0;
-
-  if (size > 8)
-    {
-      size = rsize = UNITS_PER_WORD;
-      indirect = 1;
-    }
-
-  addr = save_expr (valist);
-  incr = fold (build (PLUS_EXPR, ptr_type_node, addr,
-		      build_int_2 (rsize, 0)));
-
-  incr = build (MODIFY_EXPR, ptr_type_node, valist, incr);
-  TREE_SIDE_EFFECTS (incr) = 1;
-  expand_expr (incr, const0_rtx, VOIDmode, EXPAND_NORMAL);
-
-  addr_rtx = expand_expr (addr, NULL, Pmode, EXPAND_NORMAL);
-
-  if (indirect)
-    {
-      addr_rtx = force_reg (Pmode, addr_rtx);
-      addr_rtx = gen_rtx_MEM (Pmode, addr_rtx);
-      set_mem_alias_set (addr_rtx, get_varargs_alias_set ());
-    }
-
-  return addr_rtx;
 }
 
 /* Return an RTX indicating where the return address to the

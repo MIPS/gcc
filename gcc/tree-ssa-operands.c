@@ -80,6 +80,9 @@ typedef struct voperands_d
 
 static void note_addressable (tree, stmt_ann_t);
 static void get_expr_operands (tree, tree *, int, voperands_t);
+static void get_asm_expr_operands (tree, voperands_t);
+static void get_indirect_ref_operands (tree, tree, int, voperands_t);
+static void get_call_expr_operands (tree, tree, voperands_t);
 static inline void append_def (tree *, tree);
 static inline void append_use (tree *, tree);
 static void append_v_may_def (tree, tree, voperands_t);
@@ -741,7 +744,7 @@ get_stmt_operands (tree stmt)
   prev_vops.vuse_ops = VUSE_OPS (ann);
   prev_vops.v_must_def_ops = V_MUST_DEF_OPS (ann);
 
-  /* Dont free the previous values to memory since we're still using them.  */
+  /* Don't free the previous values to memory since we're still using them.  */
   free_v_may_defs (&(ann->v_may_def_ops), false);
   free_vuses (&(ann->vuse_ops), false);
   free_v_must_defs (&(ann->v_must_def_ops), false);
@@ -777,59 +780,7 @@ get_stmt_operands (tree stmt)
       break;
 
     case ASM_EXPR:
-      {
-	int noutputs = list_length (ASM_OUTPUTS (stmt));
-	const char **oconstraints
-	  = (const char **) alloca ((noutputs) * sizeof (const char *));
-	int i;
-	tree link;
-	const char *constraint;
-	bool allows_mem, allows_reg, is_inout;
-
-	for (i=0, link = ASM_OUTPUTS (stmt); link;
-	     ++i, link = TREE_CHAIN (link))
-	  {
-	    oconstraints[i] = constraint
-	      = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
-	    parse_output_constraint (&constraint, i, 0, 0,
-				     &allows_mem, &allows_reg, &is_inout);
-	    if (allows_reg && is_inout)
-	      /* This should have been split in gimplify_asm_expr.  */
-	      abort ();
-
-	    if (!allows_reg && allows_mem)
-	      {
-		tree t = get_base_address (TREE_VALUE (link));
-		if (t && DECL_P (t))
-		  mark_call_clobbered (t);
-	      }
-
-	    get_expr_operands (stmt, &TREE_VALUE (link), opf_is_def,
-			       &prev_vops);
-	  }
-
-	for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
-	  {
-	    constraint
-	      = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
-	    parse_input_constraint (&constraint, 0, 0, noutputs, 0,
-				    oconstraints, &allows_mem, &allows_reg);
-
-	    if (!allows_reg && allows_mem)
-	      {
-		tree t = get_base_address (TREE_VALUE (link));
-		if (t && DECL_P (t))
-		  mark_call_clobbered (t);
-	      }
-
-	    get_expr_operands (stmt, &TREE_VALUE (link), 0, &prev_vops);
-	  }
-
-	/* Clobber memory for asm ("" : : : "memory");  */
-	for (link = ASM_CLOBBERS (stmt); link; link = TREE_CHAIN (link))
-	  if (!strcmp (TREE_STRING_POINTER (TREE_VALUE (link)), "memory"))
-	    add_call_clobber_ops (stmt, &prev_vops);
-      }
+      get_asm_expr_operands (stmt, &prev_vops);
       break;
 
     case RETURN_EXPR:
@@ -857,8 +808,8 @@ get_stmt_operands (tree stmt)
     default:
       /* Notice that if get_expr_operands tries to use &STMT as the operand
 	 pointer (which may only happen for USE operands), we will abort in
-	 append_use.  This default will handle statements like empty statements,
-	 CALL_EXPRs or VA_ARG_EXPRs that may appear on the RHS of a statement
+	 append_use.  This default will handle statements like empty
+	 statements, or CALL_EXPRs that may appear on the RHS of a statement
 	 or as statements themselves.  */
       get_expr_operands (stmt, &stmt, opf_none, &prev_vops);
       break;
@@ -921,30 +872,19 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
   code = TREE_CODE (expr);
   class = TREE_CODE_CLASS (code);
 
-  /* Expressions that make no memory references.  */
-  if (class == 'c'
-      || class == 't'
-      || code == BLOCK
-      || code == FUNCTION_DECL
-      || code == EXC_PTR_EXPR
-      || code == FILTER_EXPR
-      || code == LABEL_DECL)
-    return;
-
-  /* We could have the address of a component, array member, etc which
-     has interesting variable references.  */
-  if (code == ADDR_EXPR)
+  switch (code)
     {
-      enum tree_code subcode = TREE_CODE (TREE_OPERAND (expr, 0));
-
+    case ADDR_EXPR:
+      /* We could have the address of a component, array member,
+	 etc which has interesting variable references.  */
       /* Taking the address of a variable does not represent a
 	 reference to it, but the fact that STMT takes its address will be
 	 of interest to some passes (e.g. alias resolution).  */
       add_stmt_operand (expr_p, stmt, 0, NULL);
 
-      /* If the address is invariant, there may be no interesting variable
-	 references inside.  */
-      if (is_gimple_min_invariant (expr))
+      /* If the address is constant (invariant is not sufficient), there will
+	 be no interesting variable references inside.  */
+      if (TREE_CONSTANT (expr))
 	return;
 
       /* There should be no VUSEs created, since the referenced objects are
@@ -953,134 +893,28 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	 does not allow non-registers as array indices).  */
       flags |= opf_no_vops;
 
-      /* Avoid recursion.  */
-      code = subcode;
-      class = TREE_CODE_CLASS (code);
-      expr_p = &TREE_OPERAND (expr, 0);
-      expr = *expr_p;
-    }
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
+      return;
 
-  /* If we found a variable, add it to DEFS or USES depending on the
-     operand flags.  */
-  if (SSA_VAR_P (expr))
-    {
+    case SSA_NAME:
+    case VAR_DECL:
+    case PARM_DECL:
+    case RESULT_DECL:
+      /* If we found a variable, add it to DEFS or USES depending
+	 on the operand flags.  */
       add_stmt_operand (expr_p, stmt, flags, prev_vops);
       return;
-    }
 
-  /* Pointer dereferences always represent a use of the base pointer.  */
-  if (code == INDIRECT_REF)
-    {
-      tree *pptr = &TREE_OPERAND (expr, 0);
-      tree ptr = *pptr;
-
-      if (REF_ORIGINAL (expr))
-	{
-	  enum tree_code ocode = TREE_CODE (REF_ORIGINAL (expr));
-
-	  /* If we originally accessed part of a structure, we do it still.  */
-	  if (ocode == ARRAY_REF
-	      || ocode == COMPONENT_REF
-	      || ocode == REALPART_EXPR
-	      || ocode == IMAGPART_EXPR)
-	    flags &= ~opf_kill_def;
-	}
-
-      if (SSA_VAR_P (ptr))
-	{
-	  if (!aliases_computed_p)
-	    {
-	      /* If the pointer does not have a memory tag and aliases have not
-		 been computed yet, mark the statement as having volatile
-		 operands to prevent DOM from entering it in equivalence tables
-		 and DCE from killing it.  */
-	      stmt_ann (stmt)->has_volatile_ops = true;
-	    }
-	  else
-	    {
-	      struct ptr_info_def *pi = NULL;
-
-	      /* If we have computed aliasing already, check if PTR has
-		 flow-sensitive points-to information.  */
-	      if (TREE_CODE (ptr) == SSA_NAME
-		  && (pi = SSA_NAME_PTR_INFO (ptr)) != NULL
-		  && pi->name_mem_tag)
-		{
-		  /* PTR has its own memory tag.  Use it.  */
-		  add_stmt_operand (&pi->name_mem_tag, stmt, flags,
-		                    prev_vops);
-		}
-	      else
-		{
-		  /* If PTR is not an SSA_NAME or it doesn't have a name
-		     tag, use its type memory tag.  */
-		  var_ann_t ann;
-
-		  /* If we are emitting debugging dumps, display a warning if
-		     PTR is an SSA_NAME with no flow-sensitive alias
-		     information.  That means that we may need to compute
-		     aliasing again.  */
-		  if (dump_file
-		      && TREE_CODE (ptr) == SSA_NAME
-		      && pi == NULL)
-		    {
-		      fprintf (dump_file,
-			  "NOTE: no flow-sensitive alias info for ");
-		      print_generic_expr (dump_file, ptr, dump_flags);
-		      fprintf (dump_file, " in ");
-		      print_generic_stmt (dump_file, stmt, dump_flags);
-		    }
-
-		  if (TREE_CODE (ptr) == SSA_NAME)
-		    ptr = SSA_NAME_VAR (ptr);
-		  ann = var_ann (ptr);
-		  add_stmt_operand (&ann->type_mem_tag, stmt, flags, prev_vops);
-		}
-	    }
-	}
-
-      /* If a constant is used as a pointer, we can't generate a real
-	 operand for it but we mark the statement volatile to prevent
-	 optimizations from messing things up.  */
-      else if (TREE_CODE (ptr) == INTEGER_CST)
-	{
-	  stmt_ann (stmt)->has_volatile_ops = true;
-	  return;
-	}
-
-      /* Everything else *should* have been folded elsewhere, but users
-	 are smarter than we in finding ways to write invalid code.  We
-	 cannot just abort here.  If we were absolutely certain that we
-	 do handle all valid cases, then we could just do nothing here.
-	 That seems optimistic, so attempt to do something logical... */
-      else if ((TREE_CODE (ptr) == PLUS_EXPR || TREE_CODE (ptr) == MINUS_EXPR)
-	       && TREE_CODE (TREE_OPERAND (ptr, 0)) == ADDR_EXPR
-	       && TREE_CODE (TREE_OPERAND (ptr, 1)) == INTEGER_CST)
-	{
-	  /* Make sure we know the object is addressable.  */
-	  pptr = &TREE_OPERAND (ptr, 0);
-          add_stmt_operand (pptr, stmt, 0, NULL);
-
-	  /* Mark the object itself with a VUSE.  */
-	  pptr = &TREE_OPERAND (*pptr, 0);
-	  get_expr_operands (stmt, pptr, flags, prev_vops);
-	  return;
-	}
-
-      /* Ok, this isn't even is_gimple_min_invariant.  Something's broke.  */
-      else
-	abort ();
-
-      /* Add a USE operand for the base pointer.  */
-      get_expr_operands (stmt, pptr, opf_none, prev_vops);
+    case INDIRECT_REF:
+      get_indirect_ref_operands (stmt, expr, flags, prev_vops);
       return;
-    }
 
-  /* Treat array references as references to the virtual variable
-     representing the array.  The virtual variable for an ARRAY_REF
-     is the VAR_DECL for the array.  */
-  if (code == ARRAY_REF)
-    {
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+      /* Treat array references as references to the virtual variable
+	 representing the array.  The virtual variable for an ARRAY_REF
+	 is the VAR_DECL for the array.  */
+
       /* Add the virtual variable for the ARRAY_REF to VDEFS or VUSES
 	 according to the value of IS_DEF.  Recurse if the LHS of the
 	 ARRAY_REF node is not a regular variable.  */
@@ -1090,23 +924,26 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
 
       get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, prev_vops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, prev_vops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 3), opf_none, prev_vops);
       return;
-    }
 
-  /* Similarly to arrays, references to compound variables (complex types
-     and structures/unions) are globbed.
+    case COMPONENT_REF:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      /* Similarly to arrays, references to compound variables (complex
+	 types and structures/unions) are globbed.
 
-     FIXME: This means that
+	 FIXME: This means that
 
      			a.x = 6;
 			a.y = 7;
 			foo (a.x, a.y);
 
-	   will not be constant propagated because the two partial
-	   definitions to 'a' will kill each other.  Note that SRA may be
-	   able to fix this problem if 'a' can be scalarized.  */
-  if (code == IMAGPART_EXPR || code == REALPART_EXPR || code == COMPONENT_REF)
-    {
+	 will not be constant propagated because the two partial
+	 definitions to 'a' will kill each other.  Note that SRA may be
+	 able to fix this problem if 'a' can be scalarized.  */
+
       /* If the LHS of the compound reference is not a regular variable,
 	 recurse to keep looking for more operands in the subexpression.  */
       if (SSA_VAR_P (TREE_OPERAND (expr, 0)))
@@ -1114,102 +951,119 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
       else
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
 
+      if (code == COMPONENT_REF)
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, prev_vops);
       return;
-    }
 
-  /* Function calls.  Add every argument to USES.  If the callee is
-     neither pure nor const, create a VDEF reference for GLOBAL_VAR
-     (See find_vars_r).  */
-  if (code == CALL_EXPR)
-    {
-      tree op;
-      int call_flags = call_expr_flags (expr);
-
-      /* Find uses in the called function.  */
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, prev_vops);
-
-      for (op = TREE_OPERAND (expr, 1); op; op = TREE_CHAIN (op))
-        get_expr_operands (stmt, &TREE_VALUE (op), opf_none, prev_vops);
-
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, prev_vops);
-
-      if (bitmap_first_set_bit (call_clobbered_vars) >= 0)
-	{
-	  /* A 'pure' or a 'const' functions never call clobber anything. 
-	     A 'noreturn' function might, but since we don't return anyway 
-	     there is no point in recording that.  */ 
-	  if (function_ignores_memory_p (expr))
-	    ;
-	  else if (!(call_flags
-		& (ECF_PURE | ECF_CONST | ECF_NORETURN)))
-	    add_call_clobber_ops (stmt, prev_vops);
-	  else if (!(call_flags & (ECF_CONST | ECF_NORETURN)))
-	    add_call_read_ops (stmt, prev_vops);
-	}
-      else if (!aliases_computed_p)
-	stmt_ann (stmt)->has_volatile_ops = true;
-
-      return;
-    }
-
-  /* Lists.  */
-  if (code == TREE_LIST)
-    {
-      tree op;
-
-      for (op = expr; op; op = TREE_CHAIN (op))
-        get_expr_operands (stmt, &TREE_VALUE (op), flags, prev_vops);
-
-      return;
-    }
-
-  /* Assignments.  */
-  if (code == MODIFY_EXPR)
-    {
+    case WITH_SIZE_EXPR:
+      /* WITH_SIZE_EXPR is a pass-through reference to it's first argument,
+	 and an rvalue reference to its second argument.  */
       get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, prev_vops);
-      if (TREE_CODE (TREE_OPERAND (expr, 0)) == ARRAY_REF 
-          || TREE_CODE (TREE_OPERAND (expr, 0)) == COMPONENT_REF
-	  || TREE_CODE (TREE_OPERAND (expr, 0)) == REALPART_EXPR
-	  || TREE_CODE (TREE_OPERAND (expr, 0)) == IMAGPART_EXPR)
-        get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_is_def, 
-	                   prev_vops);
-      else
-        get_expr_operands (stmt, &TREE_OPERAND (expr, 0), 
-	                   opf_is_def | opf_kill_def, prev_vops);
-      return;
-    }
-
-
-  /* Mark VA_ARG_EXPR nodes as making volatile references.  FIXME,
-     this is needed because we currently do not gimplify VA_ARG_EXPR
-     properly.  */
-  if (code == VA_ARG_EXPR)
-    {
-      stmt_ann (stmt)->has_volatile_ops = true;
-      return;
-    }
-
-  /* Unary expressions.  */
-  if (class == '1'
-      || code == TRUTH_NOT_EXPR
-      || code == BIT_FIELD_REF
-      || code == CONSTRUCTOR)
-    {
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
       return;
-    }
 
-  /* Binary expressions.  */
-  if (class == '2'
-      || class == '<'
-      || code == TRUTH_AND_EXPR
-      || code == TRUTH_OR_EXPR
-      || code == TRUTH_XOR_EXPR
-      || code == COMPOUND_EXPR)
-    {
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags, prev_vops);
+    case CALL_EXPR:
+      get_call_expr_operands (stmt, expr, prev_vops);
       return;
+
+    case MODIFY_EXPR:
+      {
+	int subflags;
+	tree op;
+
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, prev_vops);
+
+	op = TREE_OPERAND (expr, 0);
+	if (TREE_CODE (op) == WITH_SIZE_EXPR)
+	  op = TREE_OPERAND (expr, 0);
+	if (TREE_CODE (op) == ARRAY_REF 
+	    || TREE_CODE (op) == COMPONENT_REF
+	    || TREE_CODE (op) == REALPART_EXPR
+	    || TREE_CODE (op) == IMAGPART_EXPR)
+	  subflags = opf_is_def;
+	else
+	  subflags = opf_is_def | opf_kill_def;
+
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), subflags, prev_vops);
+	return;
+      }
+
+    case CONSTRUCTOR:
+      {
+	/* General aggregate CONSTRUCTORs have been decomposed, but they
+	   are still in use as the COMPLEX_EXPR equivalent for vectors.  */
+
+	tree t;
+	for (t = TREE_OPERAND (expr, 0); t ; t = TREE_CHAIN (t))
+	  get_expr_operands (stmt, &TREE_VALUE (t), opf_none, prev_vops);
+
+	return;
+      }
+
+    case TRUTH_NOT_EXPR:
+    case BIT_FIELD_REF:
+    do_unary:
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
+      return;
+
+    case TRUTH_AND_EXPR:
+    case TRUTH_OR_EXPR:
+    case TRUTH_XOR_EXPR:
+    case COMPOUND_EXPR:
+    case OBJ_TYPE_REF:
+    do_binary:
+      {
+	tree op0 = TREE_OPERAND (expr, 0);
+	tree op1 = TREE_OPERAND (expr, 1);
+
+	/* If it would be profitable to swap the operands, then do so to
+	   canonicalize the statement, enabling better optimization.
+
+	   By placing canonicalization of such expressions here we
+	   transparently keep statements in canonical form, even
+	   when the statement is modified.  */
+	if (tree_swap_operands_p (op0, op1, false))
+	  {
+	    /* For relationals we need to swap the operands
+	       and change the code.  */
+	    if (code == LT_EXPR
+		|| code == GT_EXPR
+		|| code == LE_EXPR
+		|| code == GE_EXPR)
+	      {
+		TREE_SET_CODE (expr, swap_tree_comparison (code));
+		TREE_OPERAND (expr, 0) = op1;
+		TREE_OPERAND (expr, 1) = op0;
+	      }
+	  
+	    /* For a commutative operator we can just swap the operands.  */
+	    else if (commutative_tree_code (code))
+	      {
+		TREE_OPERAND (expr, 0) = op1;
+		TREE_OPERAND (expr, 1) = op0;
+	      }
+	  }
+
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags, prev_vops);
+	return;
+      }
+
+    case BLOCK:
+    case FUNCTION_DECL:
+    case EXC_PTR_EXPR:
+    case FILTER_EXPR:
+    case LABEL_DECL:
+      /* Expressions that make no memory references.  */
+      return;
+
+    default:
+      if (class == '1')
+	goto do_unary;
+      if (class == '2' || class == '<')
+	goto do_binary;
+      if (class == 'c' || class == 't')
+	return;
     }
 
   /* If we get here, something has gone wrong.  */
@@ -1217,6 +1071,244 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
   debug_tree (expr);
   fputs ("\n", stderr);
   abort ();
+}
+
+
+/* Scan operands in ASM_EXPR STMT.  PREV_VOPS is as in append_v_may_def and
+   append_vuse.  */
+
+static void
+get_asm_expr_operands (tree stmt, voperands_t prev_vops)
+{
+  int noutputs = list_length (ASM_OUTPUTS (stmt));
+  const char **oconstraints
+    = (const char **) alloca ((noutputs) * sizeof (const char *));
+  int i;
+  tree link;
+  const char *constraint;
+  bool allows_mem, allows_reg, is_inout;
+  stmt_ann_t s_ann = stmt_ann (stmt);
+
+  for (i=0, link = ASM_OUTPUTS (stmt); link; ++i, link = TREE_CHAIN (link))
+    {
+      oconstraints[i] = constraint
+	= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+      parse_output_constraint (&constraint, i, 0, 0,
+	  &allows_mem, &allows_reg, &is_inout);
+
+#if defined ENABLE_CHECKING
+      /* This should have been split in gimplify_asm_expr.  */
+      if (allows_reg && is_inout)
+	abort ();
+#endif
+
+      /* Memory operands are addressable.  Note that STMT needs the
+	 address of this operand.  */
+      if (!allows_reg && allows_mem)
+	{
+	  tree t = get_base_address (TREE_VALUE (link));
+	  if (t && DECL_P (t))
+	    note_addressable (t, s_ann);
+	}
+
+      get_expr_operands (stmt, &TREE_VALUE (link), opf_is_def, prev_vops);
+    }
+
+  for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
+    {
+      constraint
+	= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+      parse_input_constraint (&constraint, 0, 0, noutputs, 0,
+	  oconstraints, &allows_mem, &allows_reg);
+
+      /* Memory operands are addressable.  Note that STMT needs the
+	 address of this operand.  */
+      if (!allows_reg && allows_mem)
+	{
+	  tree t = get_base_address (TREE_VALUE (link));
+	  if (t && DECL_P (t))
+	    note_addressable (t, s_ann);
+	}
+
+      get_expr_operands (stmt, &TREE_VALUE (link), 0, prev_vops);
+    }
+
+
+  /* Clobber memory for asm ("" : : : "memory");  */
+  for (link = ASM_CLOBBERS (stmt); link; link = TREE_CHAIN (link))
+    if (strcmp (TREE_STRING_POINTER (TREE_VALUE (link)), "memory") == 0)
+      {
+	size_t i;
+
+	/* Clobber all call-clobbered variables (or .GLOBAL_VAR if we
+	   decided to group them).  */
+	if (global_var)
+	  add_stmt_operand (&global_var, stmt, opf_is_def, prev_vops);
+	else
+	  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i,
+	      {
+		tree var = referenced_var (i);
+		add_stmt_operand (&var, stmt, opf_is_def, prev_vops);
+	      });
+
+	/* Now clobber all addressables.  */
+	EXECUTE_IF_SET_IN_BITMAP (addressable_vars, 0, i,
+	    {
+	      tree var = referenced_var (i);
+	      add_stmt_operand (&var, stmt, opf_is_def, prev_vops);
+	    });
+
+	/* If we don't have call-clobbered nor addressable vars and we
+	   still have not computed aliasing information, just mark the
+	   statement as having volatile operands.  If the alias pass
+	   finds some, we will add them at that point.  */
+	if (!aliases_computed_p)
+	  stmt_ann (stmt)->has_volatile_ops = true;
+
+	break;
+      }
+}
+
+/* A subroutine of get_expr_operands to handle INDIRECT_REF.  */
+
+static void
+get_indirect_ref_operands (tree stmt, tree expr, int flags,
+			   voperands_t prev_vops)
+{
+  tree *pptr = &TREE_OPERAND (expr, 0);
+  tree ptr = *pptr;
+
+  if (REF_ORIGINAL (expr))
+    {
+      enum tree_code ocode = TREE_CODE (REF_ORIGINAL (expr));
+
+      /* If we originally accessed part of a structure, we do it still.  */
+      if (ocode == ARRAY_REF
+	  || ocode == COMPONENT_REF
+	  || ocode == REALPART_EXPR
+	  || ocode == IMAGPART_EXPR)
+	flags &= ~opf_kill_def;
+    }
+
+  if (SSA_VAR_P (ptr))
+    {
+      if (!aliases_computed_p)
+	{
+	  /* If the pointer does not have a memory tag and aliases have not
+	     been computed yet, mark the statement as having volatile
+	     operands to prevent DOM from entering it in equivalence tables
+	     and DCE from killing it.  */
+	  stmt_ann (stmt)->has_volatile_ops = true;
+	}
+      else
+	{
+	  struct ptr_info_def *pi = NULL;
+
+	  /* If we have computed aliasing already, check if PTR has
+	     flow-sensitive points-to information.  */
+	  if (TREE_CODE (ptr) == SSA_NAME
+	      && (pi = SSA_NAME_PTR_INFO (ptr)) != NULL
+	      && pi->name_mem_tag)
+	    {
+	      /* PTR has its own memory tag.  Use it.  */
+	      add_stmt_operand (&pi->name_mem_tag, stmt, flags, prev_vops);
+	    }
+	  else
+	    {
+	      /* If PTR is not an SSA_NAME or it doesn't have a name
+		 tag, use its type memory tag.  */
+	      var_ann_t ann;
+
+	      /* If we are emitting debugging dumps, display a warning if
+		 PTR is an SSA_NAME with no flow-sensitive alias
+		 information.  That means that we may need to compute
+		 aliasing again.  */
+	      if (dump_file
+		  && TREE_CODE (ptr) == SSA_NAME
+		  && pi == NULL)
+		{
+		  fprintf (dump_file,
+			   "NOTE: no flow-sensitive alias info for ");
+		  print_generic_expr (dump_file, ptr, dump_flags);
+		  fprintf (dump_file, " in ");
+		  print_generic_stmt (dump_file, stmt, dump_flags);
+		}
+
+	      if (TREE_CODE (ptr) == SSA_NAME)
+		ptr = SSA_NAME_VAR (ptr);
+	      ann = var_ann (ptr);
+	      add_stmt_operand (&ann->type_mem_tag, stmt, flags, prev_vops);
+	    }
+	}
+    }
+
+  /* If a constant is used as a pointer, we can't generate a real
+     operand for it but we mark the statement volatile to prevent
+     optimizations from messing things up.  */
+  else if (TREE_CODE (ptr) == INTEGER_CST)
+    {
+      stmt_ann (stmt)->has_volatile_ops = true;
+      return;
+    }
+
+  /* Everything else *should* have been folded elsewhere, but users
+     are smarter than we in finding ways to write invalid code.  We
+     cannot just abort here.  If we were absolutely certain that we
+     do handle all valid cases, then we could just do nothing here.
+     That seems optimistic, so attempt to do something logical... */
+  else if ((TREE_CODE (ptr) == PLUS_EXPR || TREE_CODE (ptr) == MINUS_EXPR)
+	   && TREE_CODE (TREE_OPERAND (ptr, 0)) == ADDR_EXPR
+	   && TREE_CODE (TREE_OPERAND (ptr, 1)) == INTEGER_CST)
+    {
+      /* Make sure we know the object is addressable.  */
+      pptr = &TREE_OPERAND (ptr, 0);
+      add_stmt_operand (pptr, stmt, 0, NULL);
+
+      /* Mark the object itself with a VUSE.  */
+      pptr = &TREE_OPERAND (*pptr, 0);
+      get_expr_operands (stmt, pptr, flags, prev_vops);
+      return;
+    }
+
+  /* Ok, this isn't even is_gimple_min_invariant.  Something's broke.  */
+  else
+    abort ();
+
+  /* Add a USE operand for the base pointer.  */
+  get_expr_operands (stmt, pptr, opf_none, prev_vops);
+}
+
+/* A subroutine of get_expr_operands to handle CALL_EXPR.  */
+
+static void
+get_call_expr_operands (tree stmt, tree expr, voperands_t prev_vops)
+{
+  tree op;
+  int call_flags = call_expr_flags (expr);
+
+  /* Find uses in the called function.  */
+  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, prev_vops);
+
+  for (op = TREE_OPERAND (expr, 1); op; op = TREE_CHAIN (op))
+    get_expr_operands (stmt, &TREE_VALUE (op), opf_none, prev_vops);
+
+  get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, prev_vops);
+
+  if (bitmap_first_set_bit (call_clobbered_vars) >= 0)
+    {
+      /* A 'pure' or a 'const' functions never call clobber anything. 
+	 A 'noreturn' function might, but since we don't return anyway 
+	 there is no point in recording that.  */ 
+      if (function_ignores_memory_p (expr))
+	;
+      else if (!(call_flags
+		 & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
+	add_call_clobber_ops (stmt, prev_vops);
+      else if (!(call_flags & (ECF_CONST | ECF_NORETURN)))
+	add_call_read_ops (stmt, prev_vops);
+    }
+  else if (!aliases_computed_p)
+    stmt_ann (stmt)->has_volatile_ops = true;
 }
 
 
@@ -1264,18 +1356,6 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 
   sym = (TREE_CODE (var) == SSA_NAME ? SSA_NAME_VAR (var) : var);
   v_ann = var_ann (sym);
-
-  /* FIXME: We currently refuse to optimize variables that have hidden uses
-     (variables used in VLA declarations, MD builtin calls and variables
-     from the parent function in nested functions).  This is because not
-     all uses of these variables are exposed in the IL or the statements
-     that reference them are not in GIMPLE form.  If that's the case, mark
-     the statement as having volatile operands and return.  */
-  if (v_ann->has_hidden_use)
-    {
-      s_ann->has_volatile_ops = true;
-      return;
-    }
 
   /* Don't expose volatile variables to the optimizers.  */
   if (TREE_THIS_VOLATILE (sym))

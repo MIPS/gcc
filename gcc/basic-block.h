@@ -143,7 +143,7 @@ struct edge_def GTY((chain_next ("%h.pred_next")))
   PTR GTY ((skip (""))) aux;
 
   /* Location of any goto implicit in the edge, during tree-ssa.  */
-  location_t *goto_locus;
+  source_locus goto_locus;
 
   int flags;			/* see EDGE_* below  */
   int probability;		/* biased by REG_BR_PROB_BASE */
@@ -418,6 +418,7 @@ extern void commit_edge_insertions (void);
 extern void commit_edge_insertions_watch_calls (void);
 
 extern void remove_fake_edges (void);
+extern void remove_fake_exit_edges (void);
 extern void add_noreturn_fake_exit_edges (void);
 extern void connect_infinite_loops_to_exit (void);
 extern edge unchecked_make_edge (basic_block, basic_block, int);
@@ -630,6 +631,7 @@ extern void find_sub_basic_blocks (basic_block);
 extern void find_many_sub_basic_blocks (sbitmap);
 extern void rtl_make_eh_edge (sbitmap *, basic_block, rtx);
 extern bool can_fallthru (basic_block, basic_block);
+extern bool could_fall_through (basic_block, basic_block);
 extern void flow_nodes_print (const char *, const sbitmap, FILE *);
 extern void flow_edge_list_print (const char *, const edge *, int, FILE *);
 extern void alloc_aux_for_block (basic_block, int);

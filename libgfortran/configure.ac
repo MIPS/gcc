@@ -5,10 +5,6 @@ AC_PREREQ(2.59)
 AC_INIT([GNU Fortran Runtime Library], 0.2,,[libgfortran])
 AC_CONFIG_HEADER(config.h)
 
-# For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:0:0
-AC_SUBST(libtool_VERSION)
-
 # -------
 # Options
 # -------
@@ -160,15 +156,15 @@ AC_CHECK_HEADER([complex.h],[AC_DEFINE([HAVE_COMPLEX_H], [1], [complex.h exists]
 # Check for complex math functions
 AC_CHECK_LIB([m],[csin],[need_math="no"],[need_math="yes"])
 
-# Check for complex math functions in -lmx also
-AC_CHECK_LIB([mx],[csin],[need_math="no"],[need_math="yes"])
-
 # Check for library functions.
 AC_CHECK_FUNCS(getrusage times)
 
 # Check for some C99 functions
 AC_CHECK_LIB([m],[round],[AC_DEFINE([HAVE_ROUND],[1],["c99 function"])])
 AC_CHECK_LIB([m],[roundf],[AC_DEFINE([HAVE_ROUNDF],[1],["c99 function"])])
+# And other IEEE math functions
+AC_CHECK_LIB([m],[nextafter],[AC_DEFINE([HAVE_NEXTAFTER],[1],[libm includes nextafter])])
+AC_CHECK_LIB([m],[nextafterf],[AC_DEFINE([HAVE_NEXTAFTERF],[1],[libm includes nextafterf])])
 
 # Let the user override this
 AC_ARG_ENABLE(cmath,

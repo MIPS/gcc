@@ -84,6 +84,14 @@ gnat_truthvalue_conversion (tree expr)
     case ERROR_MARK:
       return expr;
 
+    case INTEGER_CST:
+      return (integer_zerop (expr) ? convert (type, integer_zero_node)
+	      : convert (type, integer_one_node));
+
+    case REAL_CST:
+      return (real_zerop (expr) ? convert (type, integer_zero_node)
+	      : convert (type, integer_one_node));
+
     case COND_EXPR:
       /* Distribute the conversion into the arms of a COND_EXPR.  */
       return fold
@@ -578,10 +586,8 @@ nonbinary_modular_operation (enum tree_code op_code,
    have to do here is validate the work done by SEM and handle subtypes.  */
 
 tree
-build_binary_op (enum tree_code op_code,
-                 tree result_type,
-                 tree left_operand,
-                 tree right_operand)
+build_binary_op (enum tree_code op_code, tree result_type,
+                 tree left_operand, tree right_operand)
 {
   tree left_type  = TREE_TYPE (left_operand);
   tree right_type = TREE_TYPE (right_operand);
@@ -739,17 +745,7 @@ build_binary_op (enum tree_code op_code,
       if (operation_type != right_type
 	  && (! CONTAINS_PLACEHOLDER_P (TYPE_SIZE (operation_type))))
 	{
-	  /* For a variable-size type, with both BLKmode, convert using
-	     CONVERT_EXPR instead of an unchecked conversion since we don't
-	     need to make a temporary (and can't anyway).  */
-	  if (TREE_CODE (TYPE_SIZE (operation_type)) != INTEGER_CST
-	      && TYPE_MODE (TREE_TYPE (right_operand)) == BLKmode
-	      && TREE_CODE (right_operand) != UNCONSTRAINED_ARRAY_REF)
-	    right_operand = build1 (CONVERT_EXPR, operation_type,
-				    right_operand);
-	  else
-	    right_operand = convert (operation_type, right_operand);
-
+	  right_operand = convert (operation_type, right_operand);
 	  right_type = operation_type;
 	}
 
@@ -778,7 +774,7 @@ build_binary_op (enum tree_code op_code,
     case ARRAY_RANGE_REF:
 
       /* First convert the right operand to its base type.  This will
-	 prevent unneed signedness conversions when sizetype is wider than
+	 prevent unneeded signedness conversions when sizetype is wider than
 	 integer.  */
       right_operand = convert (right_base_type, right_operand);
       right_operand = convert (TYPE_DOMAIN (left_type), right_operand);
@@ -894,7 +890,8 @@ build_binary_op (enum tree_code op_code,
 	 just compare the data pointer.  */
       else if (TYPE_FAT_POINTER_P (left_base_type)
 	       && TREE_CODE (right_operand) == CONSTRUCTOR
-	       && integer_zerop (TREE_VALUE (CONSTRUCTOR_ELTS (right_operand))))
+	       && integer_zerop (TREE_VALUE
+				 (CONSTRUCTOR_ELTS (right_operand))))
 	{
 	  right_operand = build_component_ref (left_operand, NULL_TREE,
 					       TYPE_FIELDS (left_base_type),
@@ -1008,9 +1005,12 @@ build_binary_op (enum tree_code op_code,
     return build1 (NULL_EXPR, operation_type, TREE_OPERAND (left_operand, 0));
   else if (TREE_CODE (right_operand) == NULL_EXPR)
     return build1 (NULL_EXPR, operation_type, TREE_OPERAND (right_operand, 0));
+  else if (op_code == ARRAY_REF || op_code == ARRAY_RANGE_REF)
+    result = fold (build (op_code, operation_type, left_operand, right_operand,
+			  NULL_TREE, NULL_TREE));
   else
-    result = fold (build (op_code, operation_type,
-			  left_operand, right_operand));
+    result
+      = fold (build (op_code, operation_type, left_operand, right_operand));
 
   TREE_SIDE_EFFECTS (result) |= has_side_effects;
   TREE_CONSTANT (result)
@@ -1535,10 +1535,8 @@ gnat_build_constructor (tree type, tree list)
    actual record and know how to look for fields in variant parts.  */
 
 static tree
-build_simple_component_ref (tree record_variable,
-                            tree component,
-                            tree field,
-                            int no_fold_p)
+build_simple_component_ref (tree record_variable, tree component,
+                            tree field, int no_fold_p)
 {
   tree record_type = TYPE_MAIN_VARIANT (TREE_TYPE (record_variable));
   tree ref;
@@ -1610,7 +1608,8 @@ build_simple_component_ref (tree record_variable,
 
   /* It would be nice to call "fold" here, but that can lose a type
      we need to tag a PLACEHOLDER_EXPR with, so we can't do it.  */
-  ref = build (COMPONENT_REF, TREE_TYPE (field), record_variable, field);
+  ref = build (COMPONENT_REF, TREE_TYPE (field), record_variable, field,
+	       NULL_TREE);
 
   if (TREE_READONLY (record_variable) || TREE_READONLY (field))
     TREE_READONLY (ref) = 1;
@@ -1625,10 +1624,8 @@ build_simple_component_ref (tree record_variable,
    reference could not be found.  */
 
 tree
-build_component_ref (tree record_variable,
-                     tree component,
-                     tree field,
-                     int no_fold_p)
+build_component_ref (tree record_variable, tree component,
+                     tree field, int no_fold_p)
 {
   tree ref = build_simple_component_ref (record_variable, component, field,
 					 no_fold_p);
@@ -1754,9 +1751,10 @@ build_call_alloc_dealloc (tree gnu_obj, tree gnu_size, unsigned align,
 	  tree gnu_range
 	    = build_range_type (NULL_TREE, size_one_node, gnu_size);
 	  tree gnu_array_type = build_array_type (char_type_node, gnu_range);
-	  tree gnu_decl =
-	    create_var_decl (get_identifier ("RETVAL"), NULL_TREE,
-			     gnu_array_type, NULL_TREE, 0, 0, 0, 0, 0);
+	  tree gnu_decl
+	    = create_var_decl (get_identifier ("RETVAL"), NULL_TREE,
+			       gnu_array_type, NULL_TREE, 0, 0, 0, 0, 0,
+			       gnat_node);
 
 	  return convert (ptr_void_type_node,
 			  build_unary_op (ADDR_EXPR, NULL_TREE, gnu_decl));
@@ -1782,12 +1780,8 @@ build_call_alloc_dealloc (tree gnu_obj, tree gnu_size, unsigned align,
    the storage pool to use.  */
 
 tree
-build_allocator (tree type,
-                 tree init,
-                 tree result_type,
-                 Entity_Id gnat_proc,
-                 Entity_Id gnat_pool,
-                 Node_Id gnat_node)
+build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
+                 Entity_Id gnat_pool, Node_Id gnat_node)
 {
   tree size = TYPE_SIZE_UNIT (type);
   tree result;
@@ -1930,7 +1924,7 @@ build_allocator (tree type,
       result
 	= build (COMPOUND_EXPR, TREE_TYPE (result),
 		 build_binary_op
-		 (MODIFY_EXPR, TREE_TYPE (TREE_TYPE (result)),
+		 (MODIFY_EXPR, NULL_TREE,
 		  build_unary_op (INDIRECT_REF, TREE_TYPE (TREE_TYPE (result)),
 				  result),
 		  init),
@@ -1993,19 +1987,7 @@ gnat_mark_addressable (tree expr_node)
       case VAR_DECL:
       case PARM_DECL:
       case RESULT_DECL:
-	/* If we have already made a REG for this decl, we must put it
-	   directly into the stack.  Likewise for a MEM whose address is a
-	   pseudo.  Otherwise, set a flag to mark us to do it later.  */
-	if (DECL_RTL_SET_P (expr_node)
-	    && (GET_CODE (DECL_RTL (expr_node)) == REG
-		|| (GET_CODE (DECL_RTL (expr_node)) == MEM
-		    && GET_CODE (XEXP (DECL_RTL (expr_node), 0)) == REG
-		    && (REGNO (XEXP (DECL_RTL (expr_node), 0))
-			> LAST_VIRTUAL_REGISTER))))
-	  put_var_into_stack (expr_node, 1);
-	else
-	  TREE_ADDRESSABLE (expr_node) = 1;
-
+	TREE_ADDRESSABLE (expr_node) = 1;
 	return true;
 
       case FUNCTION_DECL:

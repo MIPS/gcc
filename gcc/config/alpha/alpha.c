@@ -137,6 +137,7 @@ struct alpha_rtx_cost_data
   unsigned char int_mult_di;
   unsigned char int_shift;
   unsigned char int_cmov;
+  unsigned short int_div;
 };
 
 static struct alpha_rtx_cost_data const alpha_rtx_cost_data[PROCESSOR_MAX] =
@@ -150,6 +151,7 @@ static struct alpha_rtx_cost_data const alpha_rtx_cost_data[PROCESSOR_MAX] =
     COSTS_N_INSNS (23),		/* int_mult_di */
     COSTS_N_INSNS (2),		/* int_shift */
     COSTS_N_INSNS (2),		/* int_cmov */
+    COSTS_N_INSNS (70),		/* int_div */
   },
   { /* EV5 */
     COSTS_N_INSNS (4),		/* fp_add */
@@ -160,6 +162,7 @@ static struct alpha_rtx_cost_data const alpha_rtx_cost_data[PROCESSOR_MAX] =
     COSTS_N_INSNS (12),		/* int_mult_di */
     COSTS_N_INSNS (1) + 1,	/* int_shift */
     COSTS_N_INSNS (1),		/* int_cmov */
+    COSTS_N_INSNS (45),		/* int_div */
   },
   { /* EV6 */
     COSTS_N_INSNS (4),		/* fp_add */
@@ -170,7 +173,26 @@ static struct alpha_rtx_cost_data const alpha_rtx_cost_data[PROCESSOR_MAX] =
     COSTS_N_INSNS (7),		/* int_mult_di */
     COSTS_N_INSNS (1),		/* int_shift */
     COSTS_N_INSNS (2),		/* int_cmov */
+    COSTS_N_INSNS (25),		/* int_div */
   },
+};
+
+/* Similar but tuned for code size instead of execution latency.  The
+   extra +N is fractional cost tuning based on latency.  It's used to
+   encourage use of cheaper insns like shift, but only if there's just
+   one of them.  */
+
+static struct alpha_rtx_cost_data const alpha_rtx_cost_size =
+{
+  COSTS_N_INSNS (1),		/* fp_add */
+  COSTS_N_INSNS (1),		/* fp_mult */
+  COSTS_N_INSNS (1),		/* fp_div_sf */
+  COSTS_N_INSNS (1) + 1,	/* fp_div_df */
+  COSTS_N_INSNS (1) + 1,	/* int_mult_si */
+  COSTS_N_INSNS (1) + 2,	/* int_mult_di */
+  COSTS_N_INSNS (1),		/* int_shift */
+  COSTS_N_INSNS (1),		/* int_cmov */
+  COSTS_N_INSNS (6),		/* int_div */
 };
 
 /* Get the number of args of a function in one of two ways.  */
@@ -784,7 +806,6 @@ input_operand (rtx op, enum machine_mode mode)
 	      && local_symbolic_operand (XEXP (op, 0), mode));
 
     case REG:
-    case ADDRESSOF:
       return 1;
 
     case SUBREG:
@@ -1703,9 +1724,6 @@ alpha_legitimate_address_p (enum machine_mode mode, rtx x, int strict)
 	      && CONSTANT_ADDRESS_P (ofs))
 	    return true;
 	}
-      else if (GET_CODE (x) == ADDRESSOF
-	       && GET_CODE (ofs) == CONST_INT)
-	return true;
     }
 
   /* If we're managing explicit relocations, LO_SUM is valid, as
@@ -2103,15 +2121,21 @@ alpha_rtx_costs (rtx x, int code, int outer_code, int *total)
 {
   enum machine_mode mode = GET_MODE (x);
   bool float_mode_p = FLOAT_MODE_P (mode);
+  const struct alpha_rtx_cost_data *cost_data;
+
+  if (optimize_size)
+    cost_data = &alpha_rtx_cost_size;
+  else
+    cost_data = &alpha_rtx_cost_data[alpha_cpu];
 
   switch (code)
     {
+    case CONST_INT:
       /* If this is an 8-bit constant, return zero since it can be used
 	 nearly anywhere with no cost.  If it is a valid operand for an
 	 ADD or AND, likewise return 0 if we know it will be used in that
 	 context.  Otherwise, return 2 since it might be used there later.
 	 All other constants take at least two insns.  */
-    case CONST_INT:
       if (INTVAL (x) >= 0 && INTVAL (x) < 256)
 	{
 	  *total = 0;
@@ -2140,16 +2164,17 @@ alpha_rtx_costs (rtx x, int code, int outer_code, int *total)
 	*total = COSTS_N_INSNS (1 + (outer_code != MEM));
       else if (tls_symbolic_operand_type (x))
 	/* Estimate of cost for call_pal rduniq.  */
+	/* ??? How many insns do we emit here?  More than one...  */
 	*total = COSTS_N_INSNS (15);
       else
 	/* Otherwise we do a load from the GOT.  */
-	*total = COSTS_N_INSNS (alpha_memory_latency);
+	*total = COSTS_N_INSNS (optimize_size ? 1 : alpha_memory_latency);
       return true;
     
     case PLUS:
     case MINUS:
       if (float_mode_p)
-	*total = alpha_rtx_cost_data[alpha_cpu].fp_add;
+	*total = cost_data->fp_add;
       else if (GET_CODE (XEXP (x, 0)) == MULT
 	       && const48_operand (XEXP (XEXP (x, 0), 1), VOIDmode))
 	{
@@ -2161,11 +2186,11 @@ alpha_rtx_costs (rtx x, int code, int outer_code, int *total)
 
     case MULT:
       if (float_mode_p)
-	*total = alpha_rtx_cost_data[alpha_cpu].fp_mult;
+	*total = cost_data->fp_mult;
       else if (mode == DImode)
-	*total = alpha_rtx_cost_data[alpha_cpu].int_mult_di;
+	*total = cost_data->int_mult_di;
       else
-	*total = alpha_rtx_cost_data[alpha_cpu].int_mult_si;
+	*total = cost_data->int_mult_si;
       return false;
 
     case ASHIFT:
@@ -2179,14 +2204,14 @@ alpha_rtx_costs (rtx x, int code, int outer_code, int *total)
 
     case ASHIFTRT:
     case LSHIFTRT:
-      *total = alpha_rtx_cost_data[alpha_cpu].int_shift;
+      *total = cost_data->int_shift;
       return false;
 
     case IF_THEN_ELSE:
       if (float_mode_p)
-        *total = alpha_rtx_cost_data[alpha_cpu].fp_add;
+        *total = cost_data->fp_add;
       else
-        *total = alpha_rtx_cost_data[alpha_cpu].int_cmov;
+        *total = cost_data->int_cmov;
       return false;
 
     case DIV:
@@ -2194,15 +2219,15 @@ alpha_rtx_costs (rtx x, int code, int outer_code, int *total)
     case MOD:
     case UMOD:
       if (!float_mode_p)
-	*total = COSTS_N_INSNS (70);	/* ??? */
+	*total = cost_data->int_div;
       else if (mode == SFmode)
-        *total = alpha_rtx_cost_data[alpha_cpu].fp_div_sf;
+        *total = cost_data->fp_div_sf;
       else
-        *total = alpha_rtx_cost_data[alpha_cpu].fp_div_df;
+        *total = cost_data->fp_div_df;
       return false;
 
     case MEM:
-      *total = COSTS_N_INSNS (alpha_memory_latency);
+      *total = COSTS_N_INSNS (optimize_size ? 1 : alpha_memory_latency);
       return true;
 
     case NEG:
@@ -2216,7 +2241,7 @@ alpha_rtx_costs (rtx x, int code, int outer_code, int *total)
     case ABS:
       if (! float_mode_p)
 	{
-	  *total = COSTS_N_INSNS (1) + alpha_rtx_cost_data[alpha_cpu].int_cmov;
+	  *total = COSTS_N_INSNS (1) + cost_data->int_cmov;
 	  return false;
 	}
       /* FALLTHRU */
@@ -2227,7 +2252,7 @@ alpha_rtx_costs (rtx x, int code, int outer_code, int *total)
     case UNSIGNED_FIX:
     case FLOAT_EXTEND:
     case FLOAT_TRUNCATE:
-      *total = alpha_rtx_cost_data[alpha_cpu].fp_add;
+      *total = cost_data->fp_add;
       return false;
 
     default:
@@ -4457,39 +4482,6 @@ alpha_expand_block_move (rtx operands[])
 	}
     }
 
-  /* Load the entire block into registers.  */
-  if (GET_CODE (XEXP (orig_src, 0)) == ADDRESSOF)
-    {
-      enum machine_mode mode;
-
-      tmp = XEXP (XEXP (orig_src, 0), 0);
-
-      /* Don't use the existing register if we're reading more than
-	 is held in the register.  Nor if there is not a mode that
-	 handles the exact size.  */
-      mode = mode_for_size (bytes * BITS_PER_UNIT, MODE_INT, 1);
-      if (GET_CODE (tmp) == REG
-	  && mode != BLKmode
-	  && GET_MODE_SIZE (GET_MODE (tmp)) >= bytes)
-	{
-	  if (mode == TImode)
-	    {
-	      data_regs[nregs] = gen_lowpart (DImode, tmp);
-	      data_regs[nregs + 1] = gen_highpart (DImode, tmp);
-	      nregs += 2;
-	    }
-	  else
-	    data_regs[nregs++] = gen_lowpart (mode, tmp);
-
-	  goto src_done;
-	}
-
-      /* No appropriate mode; fall back on memory.  */
-      orig_src = replace_equiv_address (orig_src,
-					copy_addr_to_reg (XEXP (orig_src, 0)));
-      src_align = GET_MODE_BITSIZE (GET_MODE (tmp));
-    }
-
   ofs = 0;
   if (src_align >= 64 && bytes >= 8)
     {
@@ -4574,65 +4566,12 @@ alpha_expand_block_move (rtx operands[])
       ofs += 1;
     }
 
- src_done:
-
   if (nregs > ARRAY_SIZE (data_regs))
     abort ();
 
   /* Now save it back out again.  */
 
   i = 0, ofs = 0;
-
-  if (GET_CODE (XEXP (orig_dst, 0)) == ADDRESSOF)
-    {
-      enum machine_mode mode;
-      tmp = XEXP (XEXP (orig_dst, 0), 0);
-
-      mode = mode_for_size (orig_bytes * BITS_PER_UNIT, MODE_INT, 1);
-      if (GET_CODE (tmp) == REG && GET_MODE (tmp) == mode)
-	{
-	  if (nregs == 1)
-	    {
-	      emit_move_insn (tmp, data_regs[0]);
-	      i = 1;
-	      goto dst_done;
-	    }
-
-	  else if (nregs == 2 && mode == TImode)
-	    {
-	      /* Undo the subregging done above when copying between
-		 two TImode registers.  */
-	      if (GET_CODE (data_regs[0]) == SUBREG
-		  && GET_MODE (SUBREG_REG (data_regs[0])) == TImode)
-		emit_move_insn (tmp, SUBREG_REG (data_regs[0]));
-	      else
-		{
-		  rtx seq;
-
-		  start_sequence ();
-		  emit_move_insn (gen_lowpart (DImode, tmp), data_regs[0]);
-		  emit_move_insn (gen_highpart (DImode, tmp), data_regs[1]);
-		  seq = get_insns ();
-		  end_sequence ();
-
-		  emit_no_conflict_block (seq, tmp, data_regs[0],
-					  data_regs[1], NULL_RTX);
-		}
-
-	      i = 2;
-	      goto dst_done;
-	    }
-	}
-
-      /* ??? If nregs > 1, consider reconstructing the word in regs.  */
-      /* ??? Optimize mode < dst_mode with strict_low_part.  */
-
-      /* No appropriate mode; fall back on memory.  We can speed things
-	 up by recognizing extra alignment information.  */
-      orig_dst = replace_equiv_address (orig_dst,
-					copy_addr_to_reg (XEXP (orig_dst, 0)));
-      dst_align = GET_MODE_BITSIZE (GET_MODE (tmp));
-    }
 
   /* Write out the data in whatever chunks reading the source allowed.  */
   if (dst_align >= 64)
@@ -4722,8 +4661,6 @@ alpha_expand_block_move (rtx operands[])
       ofs += 1;
     }
 
- dst_done:
-
   if (i != nregs)
     abort ();
 
@@ -4768,21 +4705,6 @@ alpha_expand_block_clear (rtx operands[])
           else if (a >= 16)
 	    align = a, alignofs = 2 - c % 2;
 	}
-    }
-  else if (GET_CODE (tmp) == ADDRESSOF)
-    {
-      enum machine_mode mode;
-
-      mode = mode_for_size (bytes * BITS_PER_UNIT, MODE_INT, 1);
-      if (GET_MODE (XEXP (tmp, 0)) == mode)
-	{
-	  emit_move_insn (XEXP (tmp, 0), const0_rtx);
-	  return 1;
-	}
-
-      /* No appropriate mode; fall back on memory.  */
-      orig_dst = replace_equiv_address (orig_dst, copy_addr_to_reg (tmp));
-      align = GET_MODE_BITSIZE (GET_MODE (XEXP (tmp, 0)));
     }
 
   /* Handle an unaligned prefix first.  */
@@ -5125,12 +5047,6 @@ alpha_issue_rate (void)
   return (alpha_cpu == PROCESSOR_EV4 ? 2 : 4);
 }
 
-static int
-alpha_use_dfa_pipeline_interface (void)
-{
-  return true;
-}
-
 /* How many alternative schedules to try.  This should be as wide as the
    scheduling freedom in the DFA, but no wider.  Making this value too
    large results extra work for the scheduler.
@@ -5160,6 +5076,9 @@ struct machine_function GTY(())
 
   /* For OSF.  */
   const char *some_ld_name;
+
+  /* For TARGET_LD_BUGGY_LDGP.  */
+  struct rtx_def *gp_save_rtx;
 };
 
 /* How to allocate a 'struct machine_function'.  */
@@ -5184,16 +5103,30 @@ alpha_return_addr (int count, rtx frame ATTRIBUTE_UNUSED)
   return get_hard_reg_initial_val (Pmode, REG_RA);
 }
 
-/* Return or create a pseudo containing the gp value for the current
+/* Return or create a memory slot containing the gp value for the current
    function.  Needed only if TARGET_LD_BUGGY_LDGP.  */
 
 rtx
 alpha_gp_save_rtx (void)
 {
-  rtx r = get_hard_reg_initial_val (DImode, 29);
-  if (GET_CODE (r) != MEM)
-    r = gen_mem_addressof (r, NULL_TREE, /*rescan=*/true);
-  return r;
+  rtx seq, m = cfun->machine->gp_save_rtx;
+
+  if (m == NULL)
+    {
+      start_sequence ();
+
+      m = assign_stack_local (DImode, UNITS_PER_WORD, BITS_PER_WORD);
+      m = validize_mem (m);
+      emit_move_insn (m, pic_offset_table_rtx);
+
+      seq = get_insns ();
+      end_sequence ();
+      emit_insn_after (seq, entry_of_function ());
+
+      cfun->machine->gp_save_rtx = m;
+    }
+
+  return m;
 }
 
 static int
@@ -5849,7 +5782,7 @@ alpha_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt,
       emit_move_insn (gen_rtx_MEM (SImode, addr), temp1);
     }
 
-#ifdef TRANSFER_FROM_TRAMPOLINE
+#ifdef ENABLE_EXECUTE_STACK
   emit_library_call (init_one_libfunc ("__enable_execute_stack"),
 		     0, VOIDmode, 1, tramp, Pmode);
 #endif
@@ -5909,7 +5842,8 @@ function_arg (CUMULATIVE_ARGS cum, enum machine_mode mode, tree type,
 	return alpha_arg_info_reg_val (cum);
 
       num_args = cum.num_args;
-      if (num_args >= 6 || MUST_PASS_IN_STACK (mode, type))
+      if (num_args >= 6
+	  || targetm.calls.must_pass_in_stack (mode, type))
 	return NULL_RTX;
     }
 #elif TARGET_ABI_UNICOSMK
@@ -5952,8 +5886,9 @@ function_arg (CUMULATIVE_ARGS cum, enum machine_mode mode, tree type,
 
       size = ALPHA_ARG_SIZE (mode, type, named);
       num_args = cum.num_reg_words;
-      if (MUST_PASS_IN_STACK (mode, type)
-	  || cum.num_reg_words + size > 6 || cum.force_stack)
+      if (cum.force_stack
+	  || cum.num_reg_words + size > 6
+	  || targetm.calls.must_pass_in_stack (mode, type))
 	return NULL_RTX;
       else if (type && TYPE_MODE (type) == BLKmode)
 	{
@@ -5985,10 +5920,8 @@ function_arg (CUMULATIVE_ARGS cum, enum machine_mode mode, tree type,
       /* VOID is passed as a special flag for "last argument".  */
       if (type == void_type_node)
 	basereg = 16;
-      else if (MUST_PASS_IN_STACK (mode, type))
+      else if (targetm.calls.must_pass_in_stack (mode, type))
 	return NULL_RTX;
-      else if (FUNCTION_ARG_PASS_BY_REFERENCE (cum, mode, type, named))
-	basereg = 16;
     }
 #else
 #error Unhandled ABI
@@ -6042,6 +5975,17 @@ alpha_return_in_memory (tree type, tree fndecl ATTRIBUTE_UNUSED)
 
   /* Otherwise types must fit in one register.  */
   return size > UNITS_PER_WORD;
+}
+
+/* Return true if TYPE should be passed by invisible reference.  */
+
+static bool
+alpha_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+			 enum machine_mode mode,
+			 tree type ATTRIBUTE_UNUSED,
+			 bool named ATTRIBUTE_UNUSED)
+{
+  return mode == TFmode || mode == TCmode;
 }
 
 /* Define how to find the value returned by a function.  VALTYPE is the
@@ -6274,9 +6218,9 @@ alpha_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
       offset_field = TREE_CHAIN (base_field);
 
       base_field = build (COMPONENT_REF, TREE_TYPE (base_field),
-			  valist, base_field);
+			  valist, base_field, NULL_TREE);
       offset_field = build (COMPONENT_REF, TREE_TYPE (offset_field),
-			    valist, offset_field);
+			    valist, offset_field, NULL_TREE);
 
       t = make_tree (ptr_type_node, virtual_incoming_args_rtx);
       t = build (PLUS_EXPR, ptr_type_node, t, build_int_2 (offset, 0));
@@ -6295,11 +6239,10 @@ static tree
 alpha_gimplify_va_arg_1 (tree type, tree base, tree offset, tree *pre_p)
 {
   tree type_size, ptr_type, addend, t, addr, internal_post;
-  bool indirect;
 
   /* If the type could not be passed in registers, skip the block
      reserved for the registers.  */
-  if (MUST_PASS_IN_STACK (TYPE_MODE (type), type))
+  if (targetm.calls.must_pass_in_stack (TYPE_MODE (type), type))
     {
       t = fold_convert (TREE_TYPE (offset), build_int_2 (6*8, 0));
       t = build (MODIFY_EXPR, TREE_TYPE (offset), offset,
@@ -6309,15 +6252,8 @@ alpha_gimplify_va_arg_1 (tree type, tree base, tree offset, tree *pre_p)
 
   addend = offset;
   ptr_type = build_pointer_type (type);
-  indirect = false;
 
-  if (TYPE_MODE (type) == TFmode || TYPE_MODE (type) == TCmode)
-    {
-      type = ptr_type;
-      ptr_type = build_pointer_type (type);
-      indirect = true;
-    }
-  else if (TREE_CODE (type) == COMPLEX_TYPE)
+  if (TREE_CODE (type) == COMPLEX_TYPE)
     {
       tree real_part, imag_part, real_temp;
 
@@ -6348,8 +6284,6 @@ alpha_gimplify_va_arg_1 (tree type, tree base, tree offset, tree *pre_p)
   /* Build the final address and force that value into a temporary.  */
   addr = build (PLUS_EXPR, ptr_type, fold_convert (ptr_type, base),
 	        fold_convert (ptr_type, addend));
-  if (indirect)
-    addr = build (INDIRECT_REF, type, addr);
   internal_post = NULL;
   gimplify_expr (&addr, pre_p, &internal_post, is_gimple_val, fb_rvalue);
   append_to_statement_list (internal_post, pre_p);
@@ -6376,6 +6310,7 @@ static tree
 alpha_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 {
   tree offset_field, base_field, offset, base, t, r;
+  bool indirect;
 
   if (TARGET_ABI_OPEN_VMS || TARGET_ABI_UNICOSMK)
     return std_gimplify_va_arg_expr (valist, type, pre_p, post_p);
@@ -6383,9 +6318,9 @@ alpha_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   base_field = TYPE_FIELDS (va_list_type_node);
   offset_field = TREE_CHAIN (base_field);
   base_field = build (COMPONENT_REF, TREE_TYPE (base_field),
-		      valist, base_field);
+		      valist, base_field, NULL_TREE);
   offset_field = build (COMPONENT_REF, TREE_TYPE (offset_field),
-			valist, offset_field);
+			valist, offset_field, NULL_TREE);
 
   /* Pull the fields of the structure out into temporaries.  Since we never
      modify the base field, we can use a formal temporary.  Sign-extend the
@@ -6395,6 +6330,10 @@ alpha_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   t = fold_convert (lang_hooks.types.type_for_size (64, 0), offset_field);
   offset = get_initialized_tmp_var (t, pre_p, NULL);
 
+  indirect = pass_by_reference (NULL, TYPE_MODE (type), type, false);
+  if (indirect)
+    type = build_pointer_type (type);
+
   /* Find the value.  Note that this will be a stable indirection, or
      a composite of stable indirections in the case of complex.  */
   r = alpha_gimplify_va_arg_1 (type, base, offset, pre_p);
@@ -6403,6 +6342,9 @@ alpha_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   t = build (MODIFY_EXPR, void_type_node, offset_field,
 	     fold_convert (TREE_TYPE (offset_field), offset));
   gimplify_and_add (t, pre_p);
+
+  if (indirect)
+    r = build_fold_indirect_ref (r);
 
   return r;
 }
@@ -6590,8 +6532,8 @@ alpha_init_builtins (void)
   p = zero_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (zero_arg_builtins); ++i, ++p)
     if ((target_flags & p->target_mask) == p->target_mask)
-      builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
-			NULL, NULL_TREE);
+      lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
+				   NULL, NULL_TREE);
 
   ftype = build_function_type_list (long_integer_type_node,
 				    long_integer_type_node, NULL_TREE);
@@ -6599,8 +6541,8 @@ alpha_init_builtins (void)
   p = one_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (one_arg_builtins); ++i, ++p)
     if ((target_flags & p->target_mask) == p->target_mask)
-      builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
-			NULL, NULL_TREE);
+      lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
+				   NULL, NULL_TREE);
 
   ftype = build_function_type_list (long_integer_type_node,
 				    long_integer_type_node,
@@ -6609,18 +6551,18 @@ alpha_init_builtins (void)
   p = two_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (two_arg_builtins); ++i, ++p)
     if ((target_flags & p->target_mask) == p->target_mask)
-      builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
-			NULL, NULL_TREE);
+      lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
+				   NULL, NULL_TREE);
 
   ftype = build_function_type (ptr_type_node, void_list_node);
-  builtin_function ("__builtin_thread_pointer", ftype,
-		    ALPHA_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
-		    NULL, NULL_TREE);
+  lang_hooks.builtin_function ("__builtin_thread_pointer", ftype,
+			       ALPHA_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
+			       NULL, NULL_TREE);
 
   ftype = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
-  builtin_function ("__builtin_set_thread_pointer", ftype,
-		    ALPHA_BUILTIN_SET_THREAD_POINTER, BUILT_IN_MD,
-		    NULL, NULL_TREE);
+  lang_hooks.builtin_function ("__builtin_set_thread_pointer", ftype,
+			       ALPHA_BUILTIN_SET_THREAD_POINTER, BUILT_IN_MD,
+			       NULL, NULL_TREE);
 }
 
 /* Expand an expression EXP that calls a built-in function,
@@ -7898,6 +7840,8 @@ alpha_output_mi_thunk_osf (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 {
   HOST_WIDE_INT hi, lo;
   rtx this, insn, funexp;
+
+  reset_block_changes ();
 
   /* We always require a valid GP.  */
   emit_insn (gen_prologue_ldgp ());
@@ -9350,6 +9294,24 @@ alpha_use_linkage (rtx linkage ATTRIBUTE_UNUSED,
 
 #if TARGET_ABI_UNICOSMK
 
+/* This evaluates to true if we do not know how to pass TYPE solely in
+   registers.  This is the case for all arguments that do not fit in two
+   registers.  */
+
+static bool
+unicosmk_must_pass_in_stack (enum machine_mode mode, tree type)
+{
+  if (type == NULL)
+    return false;
+
+  if (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+    return true;
+  if (TREE_ADDRESSABLE (type))
+    return true;
+
+  return ALPHA_ARG_SIZE (mode, type, 0) > 2;
+}
+
 /* Define the offset between two registers, one to be eliminated, and the
    other its replacement, at the start of a routine.  */
 
@@ -10143,6 +10105,8 @@ alpha_init_libfuncs (void)
 # define TARGET_ASM_UNIQUE_SECTION unicosmk_unique_section
 # undef TARGET_ASM_GLOBALIZE_LABEL
 # define TARGET_ASM_GLOBALIZE_LABEL hook_void_FILEptr_constcharptr
+# undef TARGET_MUST_PASS_IN_STACK
+# define TARGET_MUST_PASS_IN_STACK unicosmk_must_pass_in_stack
 #endif
 
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -10189,8 +10153,7 @@ alpha_init_libfuncs (void)
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE alpha_issue_rate
 #undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE \
-  alpha_use_dfa_pipeline_interface
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
   alpha_multipass_dfa_lookahead
@@ -10231,6 +10194,8 @@ alpha_init_libfuncs (void)
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_false
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY alpha_return_in_memory
+#undef TARGET_PASS_BY_REFERENCE
+#define TARGET_PASS_BY_REFERENCE alpha_pass_by_reference
 #undef TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS alpha_setup_incoming_varargs
 #undef TARGET_STRICT_ARGUMENT_NAMING

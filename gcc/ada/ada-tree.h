@@ -71,7 +71,7 @@ struct lang_type GTY(()) {union lang_tree_node t; };
 /* For RECORD_TYPE, UNION_TYPE, and QUAL_UNION_TYPE, nonzero if this denotes
    a left-justified modular type (will only be true for RECORD_TYPE).  */
 #define TYPE_LEFT_JUSTIFIED_MODULAR_P(NODE) \
-  TYPE_LANG_FLAG_1 (REC_OR_UNION_CHECK (NODE))
+  TYPE_LANG_FLAG_1 (RECORD_OR_UNION_CHECK (NODE))
 
 /* Nonzero in an arithmetic subtype if this is a subtype not known to the
    front-end.  */
@@ -84,7 +84,7 @@ struct lang_type GTY(()) {union lang_tree_node t; };
    type for an object whose type includes its template in addition to
    its value (only true for RECORD_TYPE).  */
 #define TYPE_CONTAINS_TEMPLATE_P(NODE) \
-  TYPE_LANG_FLAG_3 (REC_OR_UNION_CHECK (NODE))
+  TYPE_LANG_FLAG_3 (RECORD_OR_UNION_CHECK (NODE))
 
 /* For INTEGER_TYPE, nonzero if this really represents a VAX
    floating-point type.  */
@@ -262,9 +262,8 @@ struct lang_type GTY(()) {union lang_tree_node t; };
    Start by defining which tree codes are used for statements.  */
 #define IS_STMT(NODE)		(TREE_CODE_CLASS (TREE_CODE (NODE)) == 's')
 #define IS_ADA_STMT(NODE)	(IS_STMT (NODE)				\
-				 && TREE_CODE (NODE) >= DECL_STMT)
+				 && TREE_CODE (NODE) >= STMT_STMT)
 
-#define DECL_STMT_VAR(NODE)	TREE_OPERAND_CHECK_CODE (NODE, DECL_STMT, 0)
 #define STMT_STMT_STMT(NODE)	TREE_OPERAND_CHECK_CODE (NODE, STMT_STMT, 0)
 #define LOOP_STMT_TOP_COND(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_STMT, 0)
 #define LOOP_STMT_BOT_COND(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_STMT, 1)
@@ -272,7 +271,7 @@ struct lang_type GTY(()) {union lang_tree_node t; };
 #define LOOP_STMT_BODY(NODE)	TREE_OPERAND_CHECK_CODE (NODE, LOOP_STMT, 3)
 #define LOOP_STMT_LABEL(NODE)	TREE_OPERAND_CHECK_CODE (NODE, LOOP_STMT, 4)
 #define EXIT_STMT_COND(NODE)	TREE_OPERAND_CHECK_CODE (NODE, EXIT_STMT, 0)
-#define EXIT_STMT_LOOP(NODE)	TREE_OPERAND_CHECK_CODE (NODE, EXIT_STMT, 1)
+#define EXIT_STMT_LABEL(NODE)	TREE_OPERAND_CHECK_CODE (NODE, EXIT_STMT, 1)
 #define REGION_STMT_BODY(NODE)	TREE_OPERAND_CHECK_CODE (NODE, REGION_STMT, 0)
 #define REGION_STMT_HANDLE(NODE) TREE_OPERAND_CHECK_CODE (NODE, REGION_STMT, 1)
 #define REGION_STMT_BLOCK(NODE)	TREE_OPERAND_CHECK_CODE (NODE, REGION_STMT, 2)

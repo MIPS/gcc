@@ -1,4 +1,4 @@
-/* Tail calls optimization on trees.
+/* Tail call optimization on trees.
    Copyright (C) 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -210,7 +210,7 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
       at = SSA_NAME_DEF_STMT (expr);
       bb = bb_for_stmt (at);
 
-      /* The default defininition or defined before the chain.  */
+      /* The default definition or defined before the chain.  */
       if (!bb || !bb->aux)
 	break;
 
@@ -238,6 +238,11 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
 	abort ();
 
       expr = PHI_ARG_DEF_FROM_EDGE (at, e);
+      if (TREE_CODE (expr) != SSA_NAME)
+	{
+	  /* The value is a constant.  */
+	  break;
+	}
     }
 
   /* Unmark the blocks.  */
@@ -339,7 +344,7 @@ propagate_through_phis (tree var, edge e)
   basic_block dest = e->dest;
   tree phi;
 
-  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
     if (PHI_ARG_DEF_FROM_EDGE (phi, e) == var)
       return PHI_RESULT (phi);
 
@@ -379,6 +384,8 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 	{
 	  ass_var = TREE_OPERAND (stmt, 0);
 	  call = TREE_OPERAND (stmt, 1);
+	  if (TREE_CODE (call) == WITH_SIZE_EXPR)
+	    call = TREE_OPERAND (call, 0);
 	}
       else
 	{
@@ -558,7 +565,7 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
 
   if (a_acc)
     {
-      for (phi = phi_nodes (back->dest); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (back->dest); phi; phi = PHI_CHAIN (phi))
 	if (PHI_RESULT (phi) == a_acc)
 	  break;
 
@@ -567,7 +574,7 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
 
   if (m_acc)
     {
-      for (phi = phi_nodes (back->dest); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (back->dest); phi; phi = PHI_CHAIN (phi))
 	if (PHI_RESULT (phi) == m_acc)
 	  break;
 
@@ -594,7 +601,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
 
   if (TREE_CODE (ret_var) == MODIFY_EXPR)
     {
-      ret_var->common.ann = (tree_ann) stmt_ann (ret_stmt);
+      ret_var->common.ann = (tree_ann_t) stmt_ann (ret_stmt);
       bsi_replace (&bsi, ret_var, true);
       SSA_NAME_DEF_STMT (TREE_OPERAND (ret_var, 0)) = ret_var;
       ret_var = TREE_OPERAND (ret_var, 0);
@@ -647,6 +654,7 @@ eliminate_tail_call (struct tailcall *t)
   stmt_ann_t ann;
   v_may_def_optype v_may_defs;
   unsigned i;
+  block_stmt_iterator bsi;
 
   stmt = bsi_stmt (t->call_bsi);
   get_stmt_operands (stmt);
@@ -666,6 +674,21 @@ eliminate_tail_call (struct tailcall *t)
 
   first = ENTRY_BLOCK_PTR->succ->dest;
 
+  /* Remove the code after call_bsi that will become unreachable.  The
+     possibly unreachable code in other blocks is removed later in
+     cfg cleanup.  */
+  bsi = t->call_bsi;
+  bsi_next (&bsi);
+  while (!bsi_end_p (bsi))
+    {
+      /* Do not remove the return statement, so that redirect_edge_and_branch
+	 sees how the block ends.  */
+      if (TREE_CODE (bsi_stmt (bsi)) == RETURN_EXPR)
+	break;
+
+      bsi_remove (&bsi);
+    }
+
   /* Replace the call by a jump to the start of function.  */
   e = redirect_edge_and_branch (t->call_block->succ, first);
   if (!e)
@@ -684,7 +707,7 @@ eliminate_tail_call (struct tailcall *t)
        args = TREE_CHAIN (args))
     {
       
-      for (phi = phi_nodes (first); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (first); phi; phi = PHI_CHAIN (phi))
 	if (param == SSA_NAME_VAR (PHI_RESULT (phi)))
 	  break;
 
@@ -701,7 +724,7 @@ eliminate_tail_call (struct tailcall *t)
   for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
     {
       param = SSA_NAME_VAR (V_MAY_DEF_RESULT (v_may_defs, i));
-      for (phi = phi_nodes (first); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (first); phi; phi = PHI_CHAIN (phi))
 	if (param == SSA_NAME_VAR (PHI_RESULT (phi)))
 	  break;
 
@@ -757,10 +780,7 @@ optimize_tail_call (struct tailcall *t, bool opt_tailcalls)
     {
       tree stmt = bsi_stmt (t->call_bsi);
 
-      if (TREE_CODE (stmt) == MODIFY_EXPR)
-	stmt = TREE_OPERAND (stmt, 1);
-      if (TREE_CODE (stmt) != CALL_EXPR)
-	abort ();
+      stmt = get_call_expr_in (stmt);
       CALL_EXPR_TAILCALL (stmt) = 1;
       if (dump_file && (dump_flags & TDF_DETAILS))
         {

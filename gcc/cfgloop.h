@@ -431,8 +431,8 @@ simple_loop_desc (struct loop *loop)
 
 /* Register pressure estimation for induction variable optimizations & loop
    invariant motion.  */
-extern void init_set_costs (void);
 extern unsigned global_cost_for_size (unsigned, unsigned, unsigned);
+extern void init_set_costs (void);
 
 /* Loop optimizer initialization.  */
 extern struct loops *loop_optimizer_init (FILE *);

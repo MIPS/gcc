@@ -65,6 +65,7 @@ package body Snames is
      "_abort_signal#" &
      "_alignment#" &
      "_assign#" &
+     "_atcb#" &
      "_chain#" &
      "_clean#" &
      "_controller#" &
@@ -145,6 +146,7 @@ package body Snames is
      "target#" &
      "req#" &
      "obj_typecode#" &
+     "stub#" &
      "Oabs#" &
      "Oand#" &
      "Omod#" &
@@ -171,6 +173,7 @@ package body Snames is
      "compile_time_warning#" &
      "component_alignment#" &
      "convention_identifier#" &
+     "detect_blocking#" &
      "discard_names#" &
      "elaboration_checks#" &
      "eliminate#" &
@@ -191,6 +194,7 @@ package body Snames is
      "persistent_data#" &
      "persistent_object#" &
      "profile#" &
+     "profile_warnings#" &
      "propagate_exceptions#" &
      "queuing_policy#" &
      "ravenscar#" &
@@ -423,6 +427,7 @@ package body Snames is
      "first_bit#" &
      "fixed_value#" &
      "fore#" &
+     "has_access_values#" &
      "has_discriminants#" &
      "identity#" &
      "img#" &

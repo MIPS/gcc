@@ -549,18 +549,18 @@ package body Sem_Ch8 is
       end if;
    end Analyze_Expanded_Name;
 
-   ----------------------------------------
-   --  Analyze_Generic_Function_Renaming --
-   ----------------------------------------
+   ---------------------------------------
+   -- Analyze_Generic_Function_Renaming --
+   ---------------------------------------
 
    procedure Analyze_Generic_Function_Renaming  (N : Node_Id) is
    begin
       Analyze_Generic_Renaming (N, E_Generic_Function);
    end Analyze_Generic_Function_Renaming;
 
-   ---------------------------------------
-   --  Analyze_Generic_Package_Renaming --
-   ---------------------------------------
+   --------------------------------------
+   -- Analyze_Generic_Package_Renaming --
+   --------------------------------------
 
    procedure Analyze_Generic_Package_Renaming   (N : Node_Id) is
    begin
@@ -572,9 +572,9 @@ package body Sem_Ch8 is
       Analyze_Generic_Renaming (N, E_Generic_Package);
    end Analyze_Generic_Package_Renaming;
 
-   -----------------------------------------
-   --  Analyze_Generic_Procedure_Renaming --
-   -----------------------------------------
+   ----------------------------------------
+   -- Analyze_Generic_Procedure_Renaming --
+   ----------------------------------------
 
    procedure Analyze_Generic_Procedure_Renaming (N : Node_Id) is
    begin
@@ -1800,6 +1800,12 @@ package body Sem_Ch8 is
       if Form_Num > 2 then
          Error_Msg_N ("too many formals for attribute", N);
 
+      --  Error if the attribute reference has expressions that look
+      --  like formal parameters.
+
+      elsif Present (Expressions (Nam)) then
+         Error_Msg_N ("illegal expressions in attribute reference", Nam);
+
       elsif
         Aname = Name_Compose      or else
         Aname = Name_Exponent     or else
@@ -1935,9 +1941,9 @@ package body Sem_Ch8 is
       Scope_Stack.Table (Scope_Stack.Last).First_Use_Clause := N;
    end Chain_Use_Clause;
 
-   ----------------------------
-   --  Check_Frozen_Renaming --
-   ----------------------------
+   ---------------------------
+   -- Check_Frozen_Renaming --
+   ---------------------------
 
    procedure Check_Frozen_Renaming (N : Node_Id; Subp : Entity_Id) is
       B_Node : Node_Id;
@@ -4794,7 +4800,10 @@ package body Sem_Ch8 is
    -- Install_Use_Clauses --
    -------------------------
 
-   procedure Install_Use_Clauses (Clause : Node_Id) is
+   procedure Install_Use_Clauses
+     (Clause             : Node_Id;
+      Force_Installation : Boolean := False)
+   is
       U  : Node_Id := Clause;
       P  : Node_Id;
       Id : Entity_Id;
@@ -4820,8 +4829,9 @@ package body Sem_Ch8 is
                   then
                      Set_Redundant_Use (P, True);
 
-                  else
+                  elsif Force_Installation or else Applicable_Use (P) then
                      Use_One_Package (Id, U);
+
                   end if;
                end if;
 

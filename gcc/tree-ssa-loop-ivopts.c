@@ -86,6 +86,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
+#include "cfgloop.h"
 
 /* The infinite cost.  */
 #define INFTY 10000000
@@ -544,6 +545,8 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 
 	case BIT_FIELD_REF:
 	case COMPONENT_REF:
+	case IMAGPART_EXPR:
+        case REALPART_EXPR:
 	  nxt = &TREE_OPERAND (*addr_p, 0);
 	  break;
 

@@ -67,7 +67,7 @@ with System.Soft_Links;
 --  Note that we do not use System.Tasking.Initialization directly since
 --  this is a higher level package that we shouldn't depend on. For example
 --  when using the restricted run time, it is replaced by
---  System.Tasking.Restricted.Initialization
+--  System.Tasking.Restricted.Stages.
 
 with System.OS_Primitives;
 --  used for Delay_Modes
@@ -846,28 +846,17 @@ package body System.Task_Primitives.Operations is
       hTask          : HANDLE;
       TaskId         : aliased DWORD;
       pTaskParameter : System.OS_Interface.PVOID;
-      dwStackSize    : DWORD;
       Result         : DWORD;
       Entry_Point    : PTHREAD_START_ROUTINE;
 
    begin
       pTaskParameter := To_Address (T);
 
-      if Stack_Size = Unspecified_Size then
-         dwStackSize := DWORD (Default_Stack_Size);
-
-      elsif Stack_Size < Minimum_Stack_Size then
-         dwStackSize := DWORD (Minimum_Stack_Size);
-
-      else
-         dwStackSize := DWORD (Stack_Size);
-      end if;
-
       Entry_Point := To_PTHREAD_START_ROUTINE (Wrapper);
 
       hTask := CreateThread
          (null,
-          dwStackSize,
+          DWORD (Adjust_Storage_Size (Stack_Size)),
           Entry_Point,
           pTaskParameter,
           DWORD (Create_Suspended),

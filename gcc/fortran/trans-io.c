@@ -59,6 +59,7 @@ static GTY(()) tree ioparm_nextrec;
 static GTY(()) tree ioparm_size;
 static GTY(()) tree ioparm_recl_in;
 static GTY(()) tree ioparm_recl_out;
+static GTY(()) tree ioparm_iolength;
 static GTY(()) tree ioparm_file;
 static GTY(()) tree ioparm_file_len;
 static GTY(()) tree ioparm_status;
@@ -124,6 +125,8 @@ static GTY(()) tree iocall_x_complex;
 static GTY(()) tree iocall_open;
 static GTY(()) tree iocall_close;
 static GTY(()) tree iocall_inquire;
+static GTY(()) tree iocall_iolength;
+static GTY(()) tree iocall_iolength_done;
 static GTY(()) tree iocall_rewind;
 static GTY(()) tree iocall_backspace;
 static GTY(()) tree iocall_endfile;
@@ -136,7 +139,7 @@ static GTY(()) tree iocall_set_nml_val_log;
 /* Variable for keeping track of what the last data transfer statement
    was.  Used for deciding which subroutine to call when the data
    transfer is complete. */
-static enum { READ, WRITE } last_dt;
+static enum { READ, WRITE, IOLENGTH } last_dt;
 
 #define ADD_FIELD(name, type)						\
   ioparm_ ## name = gfc_add_field_to_struct				\
@@ -186,6 +189,8 @@ gfc_build_io_library_fndecls (void)
 
   ADD_FIELD (recl_in, gfc_pint4_type_node);
   ADD_FIELD (recl_out, gfc_pint4_type_node);
+
+  ADD_FIELD (iolength, gfc_pint4_type_node);
 
   ADD_STRING (file);
   ADD_STRING (status);
@@ -282,6 +287,10 @@ gfc_build_io_library_fndecls (void)
     gfc_build_library_function_decl (get_identifier (PREFIX("st_inquire")),
 				     gfc_int4_type_node, 0);
 
+  iocall_iolength =
+    gfc_build_library_function_decl(get_identifier (PREFIX("st_iolength")),
+				    void_type_node, 0);
+
   iocall_rewind =
     gfc_build_library_function_decl (get_identifier (PREFIX("st_rewind")),
 				     gfc_int4_type_node, 0);
@@ -302,6 +311,11 @@ gfc_build_io_library_fndecls (void)
   iocall_write_done =
     gfc_build_library_function_decl (get_identifier (PREFIX("st_write_done")),
 				     gfc_int4_type_node, 0);
+
+  iocall_iolength_done =
+    gfc_build_library_function_decl (get_identifier (PREFIX("st_iolength_done")),
+				     gfc_int4_type_node, 0);
+
   iocall_set_nml_val_int =
     gfc_build_library_function_decl (get_identifier (PREFIX("st_set_nml_var_int")),
                                      void_type_node, 4,
@@ -345,7 +359,7 @@ set_parameter_value (stmtblock_t * block, tree var, gfc_expr * e)
   gfc_conv_expr_type (&se, e, TREE_TYPE (var));
   gfc_add_block_to_block (block, &se.pre);
 
-  tmp = build (COMPONENT_REF, TREE_TYPE (var), ioparm_var, var);
+  tmp = build (COMPONENT_REF, TREE_TYPE (var), ioparm_var, var, NULL_TREE);
   gfc_add_modify_expr (block, tmp, se.expr);
 }
 
@@ -365,7 +379,7 @@ set_parameter_ref (stmtblock_t * block, tree var, gfc_expr * e)
   gfc_conv_expr_type (&se, e, TREE_TYPE (var));
   gfc_add_block_to_block (block, &se.pre);
 
-  tmp = build (COMPONENT_REF, TREE_TYPE (var), ioparm_var, var);
+  tmp = build (COMPONENT_REF, TREE_TYPE (var), ioparm_var, var, NULL_TREE);
   gfc_add_modify_expr (block, tmp, se.expr);
 }
 
@@ -386,16 +400,18 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
   gfc_init_se (&se, NULL);
   gfc_conv_expr (&se, e);
 
-  io = build (COMPONENT_REF, TREE_TYPE (var), ioparm_var, var);
-  len = build (COMPONENT_REF, TREE_TYPE (var_len), ioparm_var, var_len);
+  io = build (COMPONENT_REF, TREE_TYPE (var), ioparm_var, var, NULL_TREE);
+  len = build (COMPONENT_REF, TREE_TYPE (var_len), ioparm_var, var_len,
+	       NULL_TREE);
 
-  /*  Integer variable assigned a format label.  */
+  /* Integer variable assigned a format label.  */
   if (e->ts.type == BT_INTEGER && e->symtree->n.sym->attr.assign == 1)
     {
       msg =
         gfc_build_string_const (37, "Assigned label is not a format label");
       tmp = GFC_DECL_STRING_LEN (se.expr);
-      tmp = build (LE_EXPR, boolean_type_node, tmp, integer_minus_one_node);
+      tmp = build (LE_EXPR, boolean_type_node,
+		   tmp, convert (TREE_TYPE (tmp), integer_minus_one_node));
       gfc_trans_runtime_check (tmp, msg, &se.pre);
       gfc_add_modify_expr (&se.pre, io, GFC_DECL_ASSIGN_ADDR (se.expr));
       gfc_add_modify_expr (&se.pre, len, GFC_DECL_STRING_LEN (se.expr));
@@ -403,7 +419,7 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
   else
     {
       gfc_conv_string_parameter (&se);
-      gfc_add_modify_expr (&se.pre, io, se.expr);
+      gfc_add_modify_expr (&se.pre, io, fold_convert (TREE_TYPE (io), se.expr));
       gfc_add_modify_expr (&se.pre, len, se.string_length);
     }
 
@@ -417,10 +433,10 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
 static void
 set_flag (stmtblock_t *block, tree var)
 {
-  tree tmp;
+  tree tmp, type = TREE_TYPE (var);
 
-  tmp = build (COMPONENT_REF, TREE_TYPE(var), ioparm_var, var);
-  gfc_add_modify_expr (block, tmp, integer_one_node);
+  tmp = build (COMPONENT_REF, type, ioparm_var, var, NULL_TREE);
+  gfc_add_modify_expr (block, tmp, convert (type, integer_one_node));
 }
 
 
@@ -482,7 +498,7 @@ io_result (stmtblock_t * block, gfc_st_label * err_label,
   tmp = gfc_finish_block (&body);
 
   rc = build (COMPONENT_REF, TREE_TYPE (ioparm_library_return), ioparm_var,
-	      ioparm_library_return);
+	      ioparm_library_return, NULL_TREE);
 
   tmp = build_v (SWITCH_EXPR, rc, tmp, NULL_TREE);
 
@@ -793,16 +809,6 @@ gfc_trans_inquire (gfc_code * code)
 }
 
 
-/* Translate the IOLENGTH form of an INQUIRE statement.  We treat
-   this as a third sort of data transfer statement, except that
-   lengths are summed instead of actually transfering any data.  */
-
-tree
-gfc_trans_iolength (gfc_code * c ATTRIBUTE_UNUSED)
-{
-  gfc_todo_error ("IOLENGTH statement");
-}
-
 static gfc_expr *
 gfc_new_nml_name_expr (char * name)
 {
@@ -857,6 +863,8 @@ build_dt (tree * function, gfc_code * code)
 
   set_error_locus (&block, &code->loc);
   dt = code->ext.dt;
+
+  assert (dt != NULL);
 
   if (dt->io_unit)
     {
@@ -973,6 +981,41 @@ build_dt (tree * function, gfc_code * code)
 }
 
 
+/* Translate the IOLENGTH form of an INQUIRE statement.  We treat
+   this as a third sort of data transfer statement, except that
+   lengths are summed instead of actually transfering any data.  */
+
+tree
+gfc_trans_iolength (gfc_code * code)
+{
+  stmtblock_t block;
+  gfc_inquire *inq;
+  tree dt;
+
+  gfc_init_block (&block);
+
+  set_error_locus (&block, &code->loc);
+
+  inq = code->ext.inquire;
+
+  /* First check that preconditions are met.  */
+  assert(inq != NULL);
+  assert(inq->iolength != NULL);
+
+  /* Connect to the iolength variable.  */
+  if (inq->iolength)
+    set_parameter_ref (&block, ioparm_iolength, inq->iolength);
+
+  /* Actual logic.  */
+  last_dt = IOLENGTH;
+  dt = build_dt(&iocall_iolength, code);
+
+  gfc_add_expr_to_block (&block, dt);
+
+  return gfc_finish_block (&block);
+}
+
+
 /* Translate a READ statement.  */
 
 tree
@@ -1005,12 +1048,33 @@ gfc_trans_dt_end (gfc_code * code)
 
   gfc_init_block (&block);
 
-  function = (last_dt == READ) ? iocall_read_done : iocall_write_done;
+  switch (last_dt)
+    {
+    case READ:
+      function = iocall_read_done;
+      break;
+
+    case WRITE:
+      function = iocall_write_done;
+      break;
+
+    case IOLENGTH:
+      function = iocall_iolength_done;
+      break;
+
+    default:
+      abort ();
+    }
 
   tmp = gfc_build_function_call (function, NULL);
   gfc_add_expr_to_block (&block, tmp);
 
-  io_result (&block, code->ext.dt->err, code->ext.dt->end, code->ext.dt->eor);
+  if (last_dt != IOLENGTH)
+    {
+      assert(code->ext.dt != NULL);
+      io_result (&block, code->ext.dt->err,
+		 code->ext.dt->end, code->ext.dt->eor);
+    }
 
   return gfc_finish_block (&block);
 }
@@ -1065,7 +1129,8 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr)
 	  field = c->backend_decl;
 	  assert (field && TREE_CODE (field) == FIELD_DECL);
 
-	  tmp = build (COMPONENT_REF, TREE_TYPE (field), expr, field);
+	  tmp = build (COMPONENT_REF, TREE_TYPE (field), expr, field,
+		       NULL_TREE);
 
 	  if (c->ts.type == BT_CHARACTER)
 	    {
@@ -1087,6 +1152,7 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr)
   tmp = gfc_build_function_call (function, args);
   gfc_add_expr_to_block (&se->pre, tmp);
   gfc_add_block_to_block (&se->pre, &se->post);
+
 }
 
 

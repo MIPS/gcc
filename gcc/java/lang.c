@@ -67,6 +67,7 @@ static bool java_dump_tree (void *, tree);
 static void dump_compound_expr (dump_info_p, tree);
 static bool java_decl_ok_for_sibcall (tree);
 static tree java_get_callee_fndecl (tree);
+static void java_clear_binding_stack (void);
 
 #ifndef TARGET_OBJECT_SUFFIX
 # define TARGET_OBJECT_SUFFIX ".o"
@@ -224,8 +225,6 @@ struct language_function GTY(())
 #define LANG_HOOKS_UNSAFE_FOR_REEVAL java_unsafe_for_reeval
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE java_mark_addressable
-#undef LANG_HOOKS_EXPAND_EXPR
-#define LANG_HOOKS_EXPAND_EXPR java_expand_expr
 #undef LANG_HOOKS_TRUTHVALUE_CONVERSION
 #define LANG_HOOKS_TRUTHVALUE_CONVERSION java_truthvalue_conversion
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
@@ -265,6 +264,9 @@ struct language_function GTY(())
 
 #undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION java_expand_body
+
+#undef LANG_HOOKS_CLEAR_BINDING_STACK
+#define LANG_HOOKS_CLEAR_BINDING_STACK java_clear_binding_stack
 
 /* Each front end provides its own.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -687,7 +689,8 @@ java_print_error_function (diagnostic_context *context ATTRIBUTE_UNUSED,
    2, function prototypes are fully resolved and can be printed when
    reporting errors.  */
 
-void lang_init_source (int level)
+void
+lang_init_source (int level)
 {
   inhibit_error_function_printing = (level == 1);
 }
@@ -1159,6 +1162,15 @@ java_get_callee_fndecl (tree call_expr)
     }
 
   return NULL;
+}
+
+
+/* Clear the binding stack.  */
+static void
+java_clear_binding_stack (void)
+{
+  while (!global_bindings_p ())
+    poplevel (0, 0, 0);
 }
 
 #include "gt-java-lang.h"

@@ -25,6 +25,84 @@ Boston, MA 02111-1307, USA.  */
 /* Note that some other tm.h files include this one and then override
    whatever definitions are necessary.  */
 
+/* Define the specific costs for a given cpu */
+
+struct processor_costs {
+  /* Integer load */
+  const int int_load;
+
+  /* Integer signed load */
+  const int int_sload;
+
+  /* Integer zeroed load */
+  const int int_zload;
+
+  /* Float load */
+  const int float_load;
+
+  /* fmov, fneg, fabs */
+  const int float_move;
+
+  /* fadd, fsub */
+  const int float_plusminus;
+
+  /* fcmp */
+  const int float_cmp;
+
+  /* fmov, fmovr */
+  const int float_cmove;
+
+  /* fmul */
+  const int float_mul;
+
+  /* fdivs */
+  const int float_div_sf;
+
+  /* fdivd */
+  const int float_div_df;
+
+  /* fsqrts */
+  const int float_sqrt_sf;
+
+  /* fsqrtd */
+  const int float_sqrt_df;
+
+  /* umul/smul */
+  const int int_mul;
+
+  /* mulX */
+  const int int_mulX;
+
+  /* integer multiply cost for each bit set past the most
+     significant 3, so the formula for multiply cost becomes:
+
+	if (rs1 < 0)
+	  highest_bit = highest_clear_bit(rs1);
+	else
+	  highest_bit = highest_set_bit(rs1);
+	if (highest_bit < 3)
+	  highest_bit = 3;
+	cost = int_mul{,X} + ((highest_bit - 3) / int_mul_bit_factor);
+
+     A value of zero indicates that the multiply costs is fixed,
+     and not variable.  */
+  const int int_mul_bit_factor;
+
+  /* udiv/sdiv */
+  const int int_div;
+
+  /* divX */
+  const int int_divX;
+
+  /* movcc, movr */
+  const int int_cmove;
+
+  /* penalty for shifts, due to scheduling rules etc. */
+  const int shift_penalty;
+};
+
+extern const struct processor_costs *sparc_costs;
+
 /* Target CPU builtins.  FIXME: Defining sparc is for the benefit of
    Solaris only; otherwise just define __sparc__.  Sadly the headers
    are such a mess there is no Solaris-specific header.  */
@@ -463,7 +541,7 @@ extern int target_flags;
 #define TARGET_HARD_QUAD (target_flags & MASK_HARD_QUAD)
 
 /* Nonzero on little-endian machines.  */
-/* ??? Little endian support currently only exists for sparclet-aout and
+/* ??? Little endian support currently only exists for sparc86x-elf and
    sparc64-elf configurations.  May eventually want to expand the support
    to all targets, but for now it's kept local to only those two.  */
 #define MASK_LITTLE_ENDIAN 0x1000
@@ -1511,16 +1589,15 @@ extern char leaf_reg_remap[];
 #define CAN_ELIMINATE(FROM, TO) \
   ((TO) == HARD_FRAME_POINTER_REGNUM || !FRAME_POINTER_REQUIRED)
 
-#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) \
-  do {								\
-    (OFFSET) = 0;						\
-    if ((TO) == STACK_POINTER_REGNUM)				\
-      /* Note, we always pretend that this is a leaf function	\
-	 because if it's not, there's no point in trying to	\
-	 eliminate the frame pointer.  If it is a leaf		\
-	 function, we guessed right!  */			\
-      (OFFSET) = compute_frame_size (get_frame_size (), 1);	\
-    (OFFSET) += SPARC_STACK_BIAS;				\
+/* We always pretend that this is a leaf function because if it's not,
+   there's no point in trying to eliminate the frame pointer.  If it
+   is a leaf function, we guessed right!  */
+#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) 			\
+  do {									\
+    (OFFSET) = 0;							\
+    if ((TO) == STACK_POINTER_REGNUM)					\
+      (OFFSET) = sparc_compute_frame_size (get_frame_size (), 1);	\
+    (OFFSET) += SPARC_STACK_BIAS;					\
   } while (0)
 
 /* Keep the stack pointer constant throughout the function.
@@ -1636,13 +1713,6 @@ init_cumulative_args (& (CUM), (FNTYPE), (LIBNAME), (FNDECL));
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED) \
 function_arg_advance (& (CUM), (MODE), (TYPE), (NAMED))
 
-/* Nonzero if we do not know how to pass TYPE solely in registers.  */
-
-#define MUST_PASS_IN_STACK(MODE,TYPE)			\
-  ((TYPE) != 0						\
-   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST	\
-       || TREE_ADDRESSABLE (TYPE)))
-
 /* Determine where to put an argument to a function.
    Value is zero to push the argument on the stack,
    or a hard register in which to store the argument.
@@ -1671,15 +1741,6 @@ function_arg (& (CUM), (MODE), (TYPE), (NAMED), 1)
 
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
 function_arg_partial_nregs (& (CUM), (MODE), (TYPE), (NAMED))
-
-/* A C expression that indicates when an argument must be passed by reference.
-   If nonzero for an argument, a copy of that argument is made in memory and a
-   pointer to the argument is passed instead of the argument itself.
-   The pointer is passed in whatever way is appropriate for passing a pointer
-   to that type.  */
-
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-function_arg_pass_by_reference (& (CUM), (MODE), (TYPE), (NAMED))
 
 /* If defined, a C expression which determines whether, and in which direction,
    to pad out an argument with extra space.  The value should be of type
@@ -1775,13 +1836,9 @@ do {									\
  (get_frame_size () != 0	\
   || current_function_calls_alloca || current_function_outgoing_args_size)
 
-#define DELAY_SLOTS_FOR_EPILOGUE 1
-
-#define ELIGIBLE_FOR_EPILOGUE_DELAY(trial, slots_filled) \
-  eligible_for_epilogue_delay (trial, slots_filled)
-
 /* Define registers used by the epilogue and return instruction.  */
-#define EPILOGUE_USES(REGNO) (REGNO == 31)
+#define EPILOGUE_USES(REGNO) ((REGNO) == 31 \
+  || (current_function_calls_eh_return && (REGNO) == 1))
 
 /* Length in units of the trampoline for entering a nested function.  */
 
@@ -1802,9 +1859,6 @@ do {									\
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   sparc_va_start (valist, nextarg)
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) (abort (), NULL_RTX)
 
 /* Generate RTL to flush the register windows so as to make arbitrary frames
    available.  */
@@ -2181,7 +2235,7 @@ do {                                                                    \
 #define MOVE_MAX 8
 
 /* If a memory-to-memory move would take MOVE_RATIO or more simple
-   move-instruction pairs, we will do a movstr or libcall instead.  */
+   move-instruction pairs, we will do a movmem or libcall instead.  */
 
 #define MOVE_RATIO (optimize_size ? 3 : 8)
 
@@ -2211,9 +2265,6 @@ do {                                                                    \
 
 /* Specify the machine mode used for addresses.  */
 #define Pmode (TARGET_ARCH64 ? DImode : SImode)
-
-/* Generate calls to memcpy, memcmp and memset.  */
-#define TARGET_MEM_FUNCTIONS
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point,
@@ -2581,10 +2632,9 @@ do {									\
 {"fcc_reg_operand", {REG}},						\
 {"fcc0_reg_operand", {REG}},						\
 {"icc_or_fcc_reg_operand", {REG}},					\
-{"restore_operand", {REG}},						\
 {"call_operand", {MEM}},						\
 {"call_operand_address", {SYMBOL_REF, LABEL_REF, CONST, CONST_DOUBLE,	\
-	ADDRESSOF, SUBREG, REG, PLUS, LO_SUM, CONST_INT}},		\
+	SUBREG, REG, PLUS, LO_SUM, CONST_INT}},				\
 {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
 {"symbolic_memory_operand", {SUBREG, MEM}},				\
 {"label_ref_operand", {LABEL_REF}},					\

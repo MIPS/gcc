@@ -1,3 +1,7 @@
+2004-07-18  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	Merge from mainline (lno-merge-20040718).
+
 2004-07-17  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Makefile.in (tree-cfg.o): Add CFGLAYOUT_H dependency.

@@ -57,15 +57,15 @@ ssa_remove_edge (edge e)
   /* Remove the appropriate PHI arguments in E's destination block.  */
   for (phi = phi_nodes (e->dest); phi; phi = next)
     {
-      next = TREE_CHAIN (phi);
+      next = PHI_CHAIN (phi);
       remove_phi_arg (phi, e->src);
     }
 
   remove_edge (e);
 }
 
-/* Remove remove the corresponding arguments from the PHI nodes
-   in E's destination block and redirect it to DEST.  Return redirected edge.
+/* Remove the corresponding arguments from the PHI nodes in E's
+   destination block and redirect it to DEST.  Return redirected edge.
    The list of removed arguments is stored in PENDING_STMT (e).  */
 
 edge
@@ -79,7 +79,7 @@ ssa_redirect_edge (edge e, basic_block dest)
   /* Remove the appropriate PHI arguments in E's destination block.  */
   for (phi = phi_nodes (e->dest); phi; phi = next)
     {
-      next = TREE_CHAIN (phi);
+      next = PHI_CHAIN (phi);
 
       i = phi_arg_from_edge (phi, e);
       if (i < 0)
@@ -304,7 +304,7 @@ verify_ssa (void)
       tree phi;
       block_stmt_iterator bsi;
 
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	err |= verify_def (bb, definition_block, PHI_RESULT (phi), phi);
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -388,7 +388,7 @@ verify_ssa (void)
 	}
 
       /* Verify the arguments for every PHI node in the block.  */
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	err |= verify_phi_args (phi, bb, definition_block);
 
       /* Now verify all the uses and vuses in every statement of the block. 
@@ -472,20 +472,11 @@ set_is_used (tree t)
       if (SSA_VAR_P (t))
 	break;
 
-      switch (TREE_CODE (t))
-	{
-	case ARRAY_REF:
-	case COMPONENT_REF:
-	case REALPART_EXPR:
-	case IMAGPART_EXPR:
-	case BIT_FIELD_REF:
-	case INDIRECT_REF:
+      if (TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR)
+	t = TREE_OPERAND (t, 0);
+      else
+	while (handled_component_p (t))
 	  t = TREE_OPERAND (t, 0);
-	  break;
-
-	default:
-	  return;
-	}
     }
 
   if (TREE_CODE (t) == SSA_NAME)
@@ -502,6 +493,7 @@ init_tree_ssa (void)
 {
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
   call_clobbered_vars = BITMAP_XMALLOC ();
+  addressable_vars = BITMAP_XMALLOC ();
   init_ssa_operands ();
   init_ssanames ();
   init_phinodes ();
@@ -540,6 +532,8 @@ delete_tree_ssa (void)
   BITMAP_XFREE (call_clobbered_vars);
   call_clobbered_vars = NULL;
   aliases_computed_p = false;
+  BITMAP_XFREE (addressable_vars);
+  addressable_vars = NULL;
 }
 
 
@@ -577,17 +571,22 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
 
   /* If both the inner and outer types are integral types, then the
      conversion is not necessary if they have the same mode and
-     signedness and precision.  Note that type _Bool can have size of
-     4 (only happens on powerpc-darwin right now but can happen on any
-     target that defines BOOL_TYPE_SIZE to be INT_TYPE_SIZE) and a
-     precision of 1 while unsigned int is the same expect for a
-     precision of 4 so testing of precision is necessary.  */
+     signedness and precision, and both or neither are boolean.  Some
+     code assumes an invariant that boolean types stay boolean and do
+     not become 1-bit bit-field types.  Note that types with precision
+     not using all bits of the mode (such as bit-field types in C)
+     mean that testing of precision is necessary.  */
   else if (INTEGRAL_TYPE_P (inner_type)
            && INTEGRAL_TYPE_P (outer_type)
 	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
 	   && TYPE_UNSIGNED (inner_type) == TYPE_UNSIGNED (outer_type)
 	   && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type))
-    return true;
+    {
+      bool first_boolean = (TREE_CODE (inner_type) == BOOLEAN_TYPE);
+      bool second_boolean = (TREE_CODE (outer_type) == BOOLEAN_TYPE);
+      if (first_boolean == second_boolean)
+	return true;
+    }
 
   /* Recurse for complex types.  */
   else if (TREE_CODE (inner_type) == COMPLEX_TYPE
@@ -609,7 +608,9 @@ tree_ssa_useless_type_conversion (tree expr)
      the top of the RHS to the type of the LHS and the type conversion
      is "safe", then strip away the type conversion so that we can
      enter LHS = RHS into the const_and_copies table.  */
-  if (TREE_CODE (expr) == NOP_EXPR || TREE_CODE (expr) == CONVERT_EXPR)
+  if (TREE_CODE (expr) == NOP_EXPR || TREE_CODE (expr) == CONVERT_EXPR
+      || TREE_CODE (expr) == VIEW_CONVERT_EXPR
+      || TREE_CODE (expr) == NON_LVALUE_EXPR)
     return tree_ssa_useless_type_conversion_1 (TREE_TYPE (expr),
 					       TREE_TYPE (TREE_OPERAND (expr,
 									0)));
@@ -704,6 +705,52 @@ walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data)
     }
 }
 
+/* Replaces VAR with REPL in memory reference expression *X in
+   statement STMT.  */
+
+static void
+propagate_into_addr (tree stmt, tree var, tree *x, tree repl)
+{
+  tree new_var, ass_stmt, addr_var;
+  basic_block bb;
+  block_stmt_iterator bsi;
+
+  /* There is nothing special to handle in the other cases.  */
+  if (TREE_CODE (repl) != ADDR_EXPR)
+    return;
+  addr_var = TREE_OPERAND (repl, 0);
+
+  while (TREE_CODE (*x) == ARRAY_REF
+	 || TREE_CODE (*x) == COMPONENT_REF
+	 || TREE_CODE (*x) == BIT_FIELD_REF)
+    x = &TREE_OPERAND (*x, 0);
+
+  if (TREE_CODE (*x) != INDIRECT_REF
+      || TREE_OPERAND (*x, 0) != var)
+    return;
+
+  modify_stmt (stmt);
+  if (TREE_TYPE (*x) == TREE_TYPE (addr_var))
+    {
+      *x = addr_var;
+      mark_new_vars_to_rename (stmt, vars_to_rename);
+      return;
+    }
+
+  /* Frontends sometimes produce expressions like *&a instead of a[0].
+     Create a temporary variable to handle this case.  */
+  ass_stmt = build2 (MODIFY_EXPR, void_type_node, NULL_TREE, repl);
+  new_var = duplicate_ssa_name (var, ass_stmt);
+  TREE_OPERAND (*x, 0) = new_var;
+  TREE_OPERAND (ass_stmt, 0) = new_var;
+
+  bb = bb_for_stmt (stmt);
+  tree_block_label (bb);
+  bsi = bsi_after_labels (bb);
+  bsi_insert_after (&bsi, ass_stmt, BSI_NEW_STMT);
+
+  mark_new_vars_to_rename (stmt, vars_to_rename);
+}
 
 /* Replaces immediate uses of VAR by REPL.  */
 
@@ -717,6 +764,7 @@ replace_immediate_uses (tree var, tree repl)
   dataflow_t df;
   tree stmt;
   stmt_ann_t ann;
+  bool mark_new_vars;
 
   df = get_immediate_uses (SSA_NAME_DEF_STMT (var));
   n = num_immediate_uses (df);
@@ -741,12 +789,22 @@ replace_immediate_uses (tree var, tree repl)
 	}
 
       get_stmt_operands (stmt);
+      mark_new_vars = false;
       if (is_gimple_reg (SSA_NAME_VAR (var)))
 	{
+	  if (TREE_CODE (stmt) == MODIFY_EXPR)
+	    {
+	      propagate_into_addr (stmt, var, &TREE_OPERAND (stmt, 0), repl);
+	      propagate_into_addr (stmt, var, &TREE_OPERAND (stmt, 1), repl);
+	    }
+
 	  uses = USE_OPS (ann);
 	  for (j = 0; j < (int) NUM_USES (uses); j++)
 	    if (USE_OP (uses, j) == var)
-	      propagate_value (USE_OP_PTR (uses, j), repl);
+	      {
+		propagate_value (USE_OP_PTR (uses, j), repl);
+		mark_new_vars = POINTER_TYPE_P (TREE_TYPE (repl));
+	      }
 	}
       else
 	{
@@ -761,15 +819,15 @@ replace_immediate_uses (tree var, tree repl)
 	      propagate_value (V_MAY_DEF_OP_PTR (v_may_defs, j), repl);
 	}
 
-      modify_stmt (stmt);
-
       /* If REPL is a pointer, it may have different memory tags associated
 	 with it.  For instance, VAR may have had a name tag while REPL
 	 only had a type tag.  In these cases, the virtual operands (if
 	 any) in the statement will refer to different symbols which need
 	 to be renamed.  */
-      if (POINTER_TYPE_P (TREE_TYPE (repl)))
+      if (mark_new_vars)
 	mark_new_vars_to_rename (stmt, vars_to_rename);
+      else
+	modify_stmt (stmt);
     }
 }
 
@@ -820,28 +878,11 @@ check_phi_redundancy (tree phi, tree *eq_to)
   for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
     {
       def = PHI_ARG_DEF (phi, i);
-
-      switch (TREE_CODE (def))
+      if (TREE_CODE (def) == SSA_NAME)
 	{
-	case SSA_NAME:
 	  def = get_eq_name (eq_to, def);
 	  if (def == res)
 	    continue;
-	  break;
-
-	case REAL_CST:
-	case COMPLEX_CST:
-	  break;
-
-	case INTEGER_CST:
-	  if (TREE_CODE (TREE_TYPE (def)) != POINTER_TYPE)
-	    break;
-
-	default:
-	  /* Do not propagate pointer constants.  This might require folding
-	     things like *&foo and rewriting the ssa, which is not worth the
-	     trouble.  */
-	  return;
 	}
 
       if (val
@@ -897,7 +938,7 @@ void
 kill_redundant_phi_nodes (void)
 {
   tree *eq_to;
-  unsigned i;
+  unsigned i, old_num_ssa_names;
   basic_block bb;
   tree phi, var, repl, stmt;
 
@@ -916,6 +957,7 @@ kill_redundant_phi_nodes (void)
      a subset of all the SSA_NAMEs instead of computing it for
      all of the SSA_NAMEs.  */
   compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, NULL);
+  old_num_ssa_names = num_ssa_names;
 
   FOR_EACH_BB (bb)
     {
@@ -927,7 +969,7 @@ kill_redundant_phi_nodes (void)
     }
 
   /* Now propagate the values.  */
-  for (i = 0; i < num_ssa_names; i++)
+  for (i = 0; i < old_num_ssa_names; i++)
     {
       if (!ssa_name (i))
 	continue;
@@ -938,7 +980,7 @@ kill_redundant_phi_nodes (void)
     }
 
   /* And remove the dead phis.  */
-  for (i = 0; i < num_ssa_names; i++)
+  for (i = 0; i < old_num_ssa_names; i++)
     {
       if (!ssa_name (i))
 	continue;
@@ -1086,7 +1128,7 @@ execute_late_warn_uninitialized (void)
   execute_early_warn_uninitialized ();
 
   FOR_EACH_BB (bb)
-    for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+    for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
       warn_uninitialized_phi (phi);
 }
 

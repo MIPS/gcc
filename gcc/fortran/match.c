@@ -791,17 +791,13 @@ not_yes:
 /*********************** Statement level matching **********************/
 
 /* Matches the start of a program unit, which is the program keyword
-   followed by an optional symbol.  */
+   followed by an obligatory symbol.  */
 
 match
 gfc_match_program (void)
 {
   gfc_symbol *sym;
   match m;
-
-  m = gfc_match_eos ();
-  if (m == MATCH_YES)
-    return m;
 
   m = gfc_match ("% %s%t", &sym);
 
@@ -839,6 +835,13 @@ gfc_match_assignment (void)
   if (m != MATCH_YES)
     goto cleanup;
 
+  if (lvalue->symtree->n.sym->attr.flavor == FL_PARAMETER)
+    {
+      gfc_error ("Cannot assign to a PARAMETER variable at %C");
+      m = MATCH_ERROR;
+      goto cleanup;
+    }
+
   m = gfc_match (" %e%t", &rvalue);
   if (m != MATCH_YES)
     goto cleanup;
@@ -848,6 +851,8 @@ gfc_match_assignment (void)
   new_st.op = EXEC_ASSIGN;
   new_st.expr = lvalue;
   new_st.expr2 = rvalue;
+
+  gfc_check_do_variable (lvalue->symtree);
 
   return MATCH_YES;
 
@@ -1235,6 +1240,8 @@ gfc_match_do (void)
     return MATCH_NO;
   if (m == MATCH_ERROR)
     goto cleanup;
+
+  gfc_check_do_variable (iter.var->symtree);
 
   if (gfc_match_eos () != MATCH_YES)
     {
@@ -1692,6 +1699,9 @@ gfc_match_allocate (void)
       if (m == MATCH_ERROR)
 	goto cleanup;
 
+      if (gfc_check_do_variable (tail->expr->symtree))
+	goto cleanup;
+
       if (gfc_pure (NULL)
           && gfc_impure_variable (tail->expr->symtree->n.sym))
 	{
@@ -1727,6 +1737,14 @@ gfc_match_allocate (void)
 	     "procedure");
 	  goto cleanup;
 	}
+
+      if (stat->symtree->n.sym->attr.flavor != FL_VARIABLE)
+	{
+	  gfc_error("STAT expression at %C must be a variable");
+	  goto cleanup;
+	}
+
+      gfc_check_do_variable(stat->symtree);
     }
 
   if (gfc_match (" )%t") != MATCH_YES)
@@ -1770,6 +1788,9 @@ gfc_match_nullify (void)
 	goto cleanup;
       if (m == MATCH_NO)
 	goto syntax;
+
+      if (gfc_check_do_variable(p->symtree))
+	goto cleanup;
 
       if (gfc_pure (NULL) && gfc_impure_variable (p->symtree->n.sym))
 	{
@@ -1845,6 +1866,9 @@ gfc_match_deallocate (void)
       if (m == MATCH_NO)
 	goto syntax;
 
+      if (gfc_check_do_variable (tail->expr->symtree))
+	goto cleanup;
+
       if (gfc_pure (NULL)
           && gfc_impure_variable (tail->expr->symtree->n.sym))
 	{
@@ -1864,11 +1888,29 @@ gfc_match_deallocate (void)
 	break;
     }
 
-  if (stat != NULL && stat->symtree->n.sym->attr.intent == INTENT_IN)
+  if (stat != NULL)
     {
-      gfc_error ("STAT variable '%s' of DEALLOCATE statement at %C cannot be "
-		 "INTENT(IN)", stat->symtree->n.sym->name);
-      goto cleanup;
+      if (stat->symtree->n.sym->attr.intent == INTENT_IN)
+	{
+	  gfc_error ("STAT variable '%s' of DEALLOCATE statement at %C "
+		     "cannot be INTENT(IN)", stat->symtree->n.sym->name);
+	  goto cleanup;
+	}
+
+      if (gfc_pure(NULL) && gfc_impure_variable (stat->symtree->n.sym))
+	{
+	  gfc_error ("Illegal STAT variable in DEALLOCATE statement at %C "
+		     "for a PURE procedure");
+	  goto cleanup;
+	}
+
+      if (stat->symtree->n.sym->attr.flavor != FL_VARIABLE)
+	{
+	  gfc_error("STAT expression at %C must be a variable");
+	  goto cleanup;
+	}
+
+      gfc_check_do_variable(stat->symtree);
     }
 
   if (gfc_match (" )%t") != MATCH_YES)
@@ -1897,6 +1939,13 @@ gfc_match_return (void)
 {
   gfc_expr *e;
   match m;
+  gfc_compile_state s;
+
+  gfc_enclosing_unit (&s);
+  if (s == COMP_PROGRAM
+      && gfc_notify_std (GFC_STD_GNU, "Extension: RETURN statement in "
+			 "main program at %C") == FAILURE)
+      return MATCH_ERROR;
 
   e = NULL;
   if (gfc_match_eos () == MATCH_YES)
@@ -2048,221 +2097,65 @@ cleanup:
 }
 
 
-/* Match an IMPLICIT NONE statement.  Actually, this statement is
-   already matched in parse.c, or we would not end up here in the
-   first place.  So the only thing we need to check, is if there is
-   trailing garbage.  If not, the match is successful.  */
+/* Given a name, return a pointer to the common head structure,
+   creating it if it does not exist. If FROM_MODULE is non-zero, we
+   mangle the name so that it doesn't interfere with commons defined 
+   in the using namespace.
+   TODO: Add to global symbol tree.  */
 
-match
-gfc_match_implicit_none (void)
+gfc_common_head *
+gfc_get_common (const char *name, int from_module)
 {
+  gfc_symtree *st;
+  static int serial = 0;
+  char mangled_name[GFC_MAX_SYMBOL_LEN+1];
 
-  return (gfc_match_eos () == MATCH_YES) ? MATCH_YES : MATCH_NO;
-}
-
-
-/* Match the letter range(s) of an IMPLICIT statement.  */
-
-static match
-match_implicit_range (gfc_typespec * ts)
-{
-  int c, c1, c2, inner;
-  locus cur_loc;
-
-  cur_loc = gfc_current_locus;
-
-  gfc_gobble_whitespace ();
-  c = gfc_next_char ();
-  if (c != '(')
+  if (from_module)
     {
-      gfc_error ("Missing character range in IMPLICIT at %C");
-      goto bad;
+      /* A use associated common block is only needed to correctly layout
+	 the variables it contains.  */
+      snprintf(mangled_name, GFC_MAX_SYMBOL_LEN, "_%d_%s", serial++, name);
+      st = gfc_new_symtree (&gfc_current_ns->common_root, mangled_name);
+    }
+  else
+    {
+      st = gfc_find_symtree (gfc_current_ns->common_root, name);
+
+      if (st == NULL)
+	st = gfc_new_symtree (&gfc_current_ns->common_root, name);
     }
 
-  inner = 1;
-  while (inner)
+  if (st->n.common == NULL)
     {
-      gfc_gobble_whitespace ();
-      c1 = gfc_next_char ();
-      if (!ISALPHA (c1))
-	goto bad;
-
-      gfc_gobble_whitespace ();
-      c = gfc_next_char ();
-
-      switch (c)
-	{
-	case ')':
-	  inner = 0;		/* Fall through */
-
-	case ',':
-	  c2 = c1;
-	  break;
-
-	case '-':
-	  gfc_gobble_whitespace ();
-	  c2 = gfc_next_char ();
-	  if (!ISALPHA (c2))
-	    goto bad;
-
-	  gfc_gobble_whitespace ();
-	  c = gfc_next_char ();
-
-	  if ((c != ',') && (c != ')'))
-	    goto bad;
-	  if (c == ')')
-	    inner = 0;
-
-	  break;
-
-	default:
-	  goto bad;
-	}
-
-      if (c1 > c2)
-	{
-	  gfc_error ("Letters must be in alphabetic order in "
-		     "IMPLICIT statement at %C");
-	  goto bad;
-	}
-
-      /* See if we can add the newly matched range to the pending
-         implicits from this IMPLICIT statement.  We do not check for
-         conflicts with whatever earlier IMPLICIT statements may have
-         set.  This is done when we've successfully finished matching
-         the current one.  */
-      if (gfc_add_new_implicit_range (c1, c2, ts) != SUCCESS)
-	goto bad;
+      st->n.common = gfc_get_common_head ();
+      st->n.common->where = gfc_current_locus;
+      strcpy (st->n.common->name, name);
     }
 
-  return MATCH_YES;
-
-bad:
-  gfc_syntax_error (ST_IMPLICIT);
-
-  gfc_current_locus = cur_loc;
-  return MATCH_ERROR;
-}
-
-
-/* Match an IMPLICIT statement, storing the types for
-   gfc_set_implicit() if the statement is accepted by the parser.
-   There is a strange looking, but legal syntactic construction
-   possible.  It looks like:
-
-     IMPLICIT INTEGER (a-b) (c-d)
-
-   This is legal if "a-b" is a constant expression that happens to
-   equal one of the legal kinds for integers.  The real problem
-   happens with an implicit specification that looks like:
-
-     IMPLICIT INTEGER (a-b)
-
-   In this case, a typespec matcher that is "greedy" (as most of the
-   matchers are) gobbles the character range as a kindspec, leaving
-   nothing left.  We therefore have to go a bit more slowly in the
-   matching process by inhibiting the kindspec checking during
-   typespec matching and checking for a kind later.  */
-
-match
-gfc_match_implicit (void)
-{
-  gfc_typespec ts;
-  locus cur_loc;
-  int c;
-  match m;
-
-  /* We don't allow empty implicit statements.  */
-  if (gfc_match_eos () == MATCH_YES)
-    {
-      gfc_error ("Empty IMPLICIT statement at %C");
-      return MATCH_ERROR;
-    }
-
-  /* First cleanup.  */
-  gfc_clear_new_implicit ();
-
-  do
-    {
-      /* A basic type is mandatory here.  */
-      m = gfc_match_type_spec (&ts, 0);
-      if (m == MATCH_ERROR)
-	goto error;
-      if (m == MATCH_NO)
-	goto syntax;
-
-      cur_loc = gfc_current_locus;
-      m = match_implicit_range (&ts);
-
-      if (m == MATCH_YES)
-	{
-	  /* Looks like we have the <TYPE> (<RANGE>).  */
-	  gfc_gobble_whitespace ();
-	  c = gfc_next_char ();
-	  if ((c == '\n') || (c == ','))
-	    continue;
-
-	  gfc_current_locus = cur_loc;
-	}
-
-      /* Last chance -- check <TYPE> (<KIND>) (<RANGE>).  */
-      m = gfc_match_kind_spec (&ts);
-      if (m == MATCH_ERROR)
-	goto error;
-      if (m == MATCH_NO)
-	{
-	  m = gfc_match_old_kind_spec (&ts);
-	  if (m == MATCH_ERROR)
-	    goto error;
-	  if (m == MATCH_NO)
-	    goto syntax;
-	}
-
-      m = match_implicit_range (&ts);
-      if (m == MATCH_ERROR)
-	goto error;
-      if (m == MATCH_NO)
-	goto syntax;
-
-      gfc_gobble_whitespace ();
-      c = gfc_next_char ();
-      if ((c != '\n') && (c != ','))
-	goto syntax;
-
-    }
-  while (c == ',');
-
-  /* All we need to now is try to merge the new implicit types back
-     into the existing types.  This will fail if another implicit
-     type is already defined for a letter.  */
-  return (gfc_merge_new_implicit () == SUCCESS) ?
-      MATCH_YES : MATCH_ERROR;
-
-syntax:
-  gfc_syntax_error (ST_IMPLICIT);
-
-error:
-  return MATCH_ERROR;
+  return st->n.common;
 }
 
 
 /* Match a common block name.  */
 
 static match
-match_common_name (gfc_symbol ** sym)
+match_common_name (char *name)
 {
   match m;
 
   if (gfc_match_char ('/') == MATCH_NO)
-    return MATCH_NO;
-
-  if (gfc_match_char ('/') == MATCH_YES)
     {
-      *sym = NULL;
+      name[0] = '\0';
       return MATCH_YES;
     }
 
-  m = gfc_match_symbol (sym, 0);
+  if (gfc_match_char ('/') == MATCH_YES)
+    {
+      name[0] = '\0';
+      return MATCH_YES;
+    }
+
+  m = gfc_match_name (name);
 
   if (m == MATCH_ERROR)
     return MATCH_ERROR;
@@ -2279,18 +2172,19 @@ match_common_name (gfc_symbol ** sym)
 match
 gfc_match_common (void)
 {
-  gfc_symbol *sym, *common_name, **head, *tail, *old_blank_common;
+  gfc_symbol *sym, **head, *tail, *old_blank_common;
+  char name[GFC_MAX_SYMBOL_LEN+1];
+  gfc_common_head *t;
   gfc_array_spec *as;
   match m;
 
-  old_blank_common = gfc_current_ns->blank_common;
+  old_blank_common = gfc_current_ns->blank_common.head;
   if (old_blank_common)
     {
       while (old_blank_common->common_next)
 	old_blank_common = old_blank_common->common_next;
     }
 
-  common_name = NULL;
   as = NULL;
 
   if (gfc_match_eos () == MATCH_YES)
@@ -2298,19 +2192,21 @@ gfc_match_common (void)
 
   for (;;)
     {
-      m = match_common_name (&common_name);
+      m = match_common_name (name);
       if (m == MATCH_ERROR)
 	goto cleanup;
 
-      if (common_name == NULL)
-	head = &gfc_current_ns->blank_common;
+      if (name[0] == '\0')
+	{
+	  t = &gfc_current_ns->blank_common;
+	  if (t->head == NULL)
+	    t->where = gfc_current_locus;
+	  head = &t->head;
+	}
       else
 	{
-	  head = &common_name->common_head;
-
-	  if (!common_name->attr.common
-	      && gfc_add_common (&common_name->attr, NULL) == FAILURE)
-	    goto cleanup;
+	  t = gfc_get_common (name, 0);
+	  head = &t->head;
 	}
 
       if (*head == NULL)
@@ -2323,6 +2219,9 @@ gfc_match_common (void)
 	}
 
       /* Grab the list of symbols.  */
+      if (gfc_match_eos () == MATCH_YES)
+	goto done;
+  
       for (;;)
 	{
 	  m = gfc_match_symbol (&sym, 0);
@@ -2338,16 +2237,18 @@ gfc_match_common (void)
 	      goto cleanup;
 	    }
 
+	  if (gfc_add_in_common (&sym->attr, NULL) == FAILURE) 
+	    goto cleanup;
+
 	  if (sym->value != NULL
-	      && (common_name == NULL || !sym->attr.data))
+	      && (name[0] == '\0' || !sym->attr.data))
 	    {
-	      if (common_name == NULL)
+	      if (name[0] == '\0')
 		gfc_error ("Previously initialized symbol '%s' in "
 			   "blank COMMON block at %C", sym->name);
 	      else
 		gfc_error ("Previously initialized symbol '%s' in "
-			   "COMMON block '%s' at %C", sym->name,
-			   common_name->name);
+			   "COMMON block '%s' at %C", sym->name, name);
 	      goto cleanup;
 	    }
 
@@ -2422,7 +2323,7 @@ cleanup:
   if (old_blank_common)
     old_blank_common->common_next = NULL;
   else
-    gfc_current_ns->blank_common = NULL;
+    gfc_current_ns->blank_common.head = NULL;
   gfc_free_array_spec (as);
   return MATCH_ERROR;
 }
@@ -2443,7 +2344,7 @@ gfc_match_block_data (void)
       return MATCH_YES;
     }
 
-  m = gfc_match (" %n%t", name);
+  m = gfc_match ("% %n%t", name);
   if (m != MATCH_YES)
     return MATCH_ERROR;
 
@@ -2827,7 +2728,7 @@ static match
 var_element (gfc_data_variable * new)
 {
   match m;
-  gfc_symbol *sym, *t;
+  gfc_symbol *sym;
 
   memset (new, '\0', sizeof (gfc_data_variable));
 
@@ -2847,17 +2748,20 @@ var_element (gfc_data_variable * new)
       return MATCH_ERROR;
     }
 
+#if 0 // TODO: Find out where to move this message
   if (sym->attr.in_common)
     /* See if sym is in the blank common block.  */
-    for (t = sym->ns->blank_common; t; t = t->common_next)
-      if (sym == t)
+    for (t = &sym->ns->blank_common; t; t = t->common_next)
+      if (sym == t->head)
 	{
 	  gfc_error ("DATA statement at %C may not initialize variable "
 		     "'%s' from blank COMMON", sym->name);
 	  return MATCH_ERROR;
 	}
+#endif
 
-  sym->attr.data = 1;
+  if (gfc_add_data (&sym->attr, &new->expr->where) == FAILURE)
+    return MATCH_ERROR;
 
   return MATCH_YES;
 }
@@ -3102,7 +3006,7 @@ match_case_selector (gfc_case ** cp)
 
   if (gfc_match_char (':') == MATCH_YES)
     {
-      m = gfc_match_expr (&c->high);
+      m = gfc_match_init_expr (&c->high);
       if (m == MATCH_NO)
 	goto need_expr;
       if (m == MATCH_ERROR)
@@ -3111,7 +3015,7 @@ match_case_selector (gfc_case ** cp)
 
   else
     {
-      m = gfc_match_expr (&c->low);
+      m = gfc_match_init_expr (&c->low);
       if (m == MATCH_ERROR)
 	goto cleanup;
       if (m == MATCH_NO)
@@ -3123,7 +3027,7 @@ match_case_selector (gfc_case ** cp)
 	c->high = c->low;
       else
 	{
-	  m = gfc_match_expr (&c->high);
+	  m = gfc_match_init_expr (&c->high);
 	  if (m == MATCH_ERROR)
 	    goto cleanup;
 	  /* MATCH_NO is fine.  It's OK if nothing is there!  */
@@ -3134,7 +3038,7 @@ match_case_selector (gfc_case ** cp)
   return MATCH_YES;
 
 need_expr:
-  gfc_error ("Expected expression in CASE at %C");
+  gfc_error ("Expected initialization expression in CASE at %C");
 
 cleanup:
   free_case (c);

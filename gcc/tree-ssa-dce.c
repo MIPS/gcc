@@ -291,6 +291,7 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
   v_must_def_optype v_must_defs;
   stmt_ann_t ann;
   size_t i;
+  tree op;
 
   /* Statements that are implicitly live.  Most function calls, asm and return
      statements are required.  Labels and BIND_EXPR nodes are kept because
@@ -320,8 +321,8 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
       return;
 
     case MODIFY_EXPR:
-      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR
-	  && TREE_SIDE_EFFECTS (TREE_OPERAND (stmt, 1)))
+      op = get_call_expr_in (stmt);
+      if (op && TREE_SIDE_EFFECTS (op))
 	{
 	  mark_stmt_necessary (stmt, true);
 	  return;
@@ -433,7 +434,7 @@ find_obviously_necessary_stmts (struct edge_list *el)
       tree phi;
 
       /* Check any PHI nodes in the block.  */
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  NECESSARY (phi) = 0;
 
@@ -505,7 +506,7 @@ mark_control_dependent_edges_necessary (basic_block bb, struct edge_list *el)
       SET_BIT (last_stmt_necessary, cd_bb->index);
 
       t = last_stmt (cd_bb);
-      if (is_ctrl_stmt (t))
+      if (t && is_ctrl_stmt (t))
 	mark_stmt_necessary (t, true);
     });
 }
@@ -643,11 +644,9 @@ eliminate_unnecessary_stmts (void)
 	    remove_dead_stmt (&i, bb);
 	  else
 	    {
-	      if (TREE_CODE (t) == CALL_EXPR)
-		notice_special_calls (t);
-	      else if (TREE_CODE (t) == MODIFY_EXPR
-		       && TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR)
-		notice_special_calls (TREE_OPERAND (t, 1));
+	      tree call = get_call_expr_in (t);
+	      if (call)
+		notice_special_calls (call);
 	      bsi_next (&i);
 	    }
 	}
@@ -669,7 +668,7 @@ remove_dead_phis (basic_block bb)
 
       if (! NECESSARY (phi))
 	{
-	  tree next = TREE_CHAIN (phi);
+	  tree next = PHI_CHAIN (phi);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -685,7 +684,7 @@ remove_dead_phis (basic_block bb)
       else
 	{
 	  prev = phi;
-	  phi = TREE_CHAIN (phi);
+	  phi = PHI_CHAIN (phi);
 	}
     }
 }

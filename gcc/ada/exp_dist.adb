@@ -66,7 +66,7 @@ package body Exp_Dist is
    --       converted to and from this type to make it suitable for
    --       System.Partition_Interface.Get_Unique_Remote_Pointer in order
    --       to avoid memory leaks when the same remote object arrive on the
-   --       same partition by following different pathes
+   --       same partition through several paths;
 
    --    2) It also has the same dispatching table as the designated type D,
    --       and thus can be used as an object designated by a value of type
@@ -538,14 +538,14 @@ package body Exp_Dist is
       end if;
    end Add_RACW_Features;
 
-   -------------------------------------------------
-   --  Add_RACW_Primitive_Declarations_And_Bodies --
-   -------------------------------------------------
+   ------------------------------------------------
+   -- Add_RACW_Primitive_Declarations_And_Bodies --
+   ------------------------------------------------
 
    procedure Add_RACW_Primitive_Declarations_And_Bodies
-     (Designated_Type : in Entity_Id;
-      Insertion_Node  : in Node_Id;
-      Decls           : in List_Id)
+     (Designated_Type : Entity_Id;
+      Insertion_Node  : Node_Id;
+      Decls           : List_Id)
    is
       --  Set sloc of generated declaration to be that of the
       --  insertion node, so the declarations are recognized as

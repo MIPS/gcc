@@ -167,8 +167,6 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
   tree type;
   enum machine_mode mode;
 
-  emit_queue ();
-
   switch (code)
     {
     case ERROR_MARK:
@@ -208,7 +206,6 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
            < TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (exp, 0)))))
         goto normal;
     case NON_LVALUE_EXPR:
-    case REFERENCE_EXPR:
     case ABS_EXPR:
     case NEGATE_EXPR:
     case LROTATE_EXPR:
@@ -291,18 +288,14 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
       if (if_false_label == 0)
         if_false_label = drop_through_label = gen_label_rtx ();
       do_jump (TREE_OPERAND (exp, 0), if_false_label, NULL_RTX);
-      start_cleanup_deferral ();
       do_jump (TREE_OPERAND (exp, 1), if_false_label, if_true_label);
-      end_cleanup_deferral ();
       break;
 
     case TRUTH_ORIF_EXPR:
       if (if_true_label == 0)
         if_true_label = drop_through_label = gen_label_rtx ();
       do_jump (TREE_OPERAND (exp, 0), NULL_RTX, if_true_label);
-      start_cleanup_deferral ();
       do_jump (TREE_OPERAND (exp, 1), if_false_label, if_true_label);
-      end_cleanup_deferral ();
       break;
 
     case COMPOUND_EXPR:
@@ -311,7 +304,6 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
       preserve_temp_slots (NULL_RTX);
       free_temp_slots ();
       pop_temp_slots ();
-      emit_queue ();
       do_pending_stack_adjust ();
       do_jump (TREE_OPERAND (exp, 1), if_false_label, if_true_label);
       break;
@@ -363,7 +355,6 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
 
         do_jump (TREE_OPERAND (exp, 0), label1, NULL_RTX);
 
-        start_cleanup_deferral ();
         /* Now the THEN-expression.  */
         do_jump (TREE_OPERAND (exp, 1),
                  if_false_label ? if_false_label : drop_through_label,
@@ -376,7 +367,6 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
         do_jump (TREE_OPERAND (exp, 2),
            if_false_label ? if_false_label : drop_through_label,
            if_true_label ? if_true_label : drop_through_label);
-        end_cleanup_deferral ();
       }
       break;
 
@@ -622,12 +612,10 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
          sequences.  */
       /* Copy to register to avoid generating bad insns by cse
          from (set (mem ...) (arithop))  (set (cc0) (mem ...)).  */
-      if (!cse_not_expected && GET_CODE (temp) == MEM)
+      if (!cse_not_expected && MEM_P (temp))
         temp = copy_to_reg (temp);
 #endif
       do_pending_stack_adjust ();
-      /* Do any postincrements in the expression that was tested.  */
-      emit_queue ();
 
       if (GET_CODE (temp) == CONST_INT
           || (GET_CODE (temp) == CONST_DOUBLE && GET_MODE (temp) == VOIDmode)
@@ -648,7 +636,7 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
 	    {
 	      /* Compare promoted variables in their promoted mode.  */
 	      if (SUBREG_PROMOTED_VAR_P (temp)
-		  && GET_CODE (XEXP (temp, 0)) == REG)
+		  && REG_P (XEXP (temp, 0)))
 		temp = XEXP (temp, 0);
 	      else
 		temp = copy_to_reg (temp);
@@ -1024,9 +1012,6 @@ do_compare_and_jump (tree exp, enum rtx_code signed_code,
       op1 = new_op1;
     }
 #endif
-
-  /* Do any postincrements in the expression that was tested.  */
-  emit_queue ();
 
   do_compare_rtx_and_jump (op0, op1, code, unsignedp, mode,
                            ((mode == BLKmode)

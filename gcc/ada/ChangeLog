@@ -1,3 +1,1036 @@
+2004-07-17  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gigi.h (builtin_function): Declare.
+
+2004-07-15  Robert Dewar  <dewar@gnat.com>
+
+	* makegpr.adb, s-secsta.ads, sem_ch3.adb, sem_case.adb: Minor
+	reformatting
+
+	* gnat_ugn.texi: Add instantiation of direct_io or sequential_io with
+	access values as an example of a warning.
+
+	* gnat_rm.texi: Document new attribute Has_Access_Values
+
+	* gnat-style.texi: Document that box comments belong on nested
+	subprograms
+
+	* sem_util.ads (Has_Access_Values): Improved documentation
+
+	* s-finimp.ads, s-finimp.adb: Fix spelling error in comment
+
+	* sem_prag.adb (Check_Duplicated_Export_Name): New procedure
+	(Process_Interface_Name): Call to this new procedure
+	(Set_Extended_Import_Export_External_Name): Call to this new procedure
+
+	* s-mastop-x86.adb, 9drpc.adb: Fix spelling error in comment
+
+	* a-direio.ads, a-sequio.ads: Warn if Element_Type has access values
+
+	* einfo.ads: Minor comment typo fixed
+
+2004-07-15  Jose Ruiz  <ruiz@act-europe.fr>
+
+	* snames.adb: Add _atcb.
+
+	* snames.ads: Add Name_uATCB.
+
+	* s-tarest.adb (Create_Restricted_Task): ATCBs are always preallocated
+	(in the expanded code) when using the restricted run time.
+
+	* s-tarest.ads (Create_Restricted_Task): Created_Task transformed into
+	a in parameter in order to allow ATCBs to be preallocated (in the
+	expanded code).
+
+	* s-taskin.adb (Initialize_ATCB): T converted into a in parameter in
+	order to allow ATCBs to be preallocated. In case of error, the ATCB is
+	deallocated in System.Tasking.Stages.
+
+	* s-taskin.ads (Initialize_ATCB): T converted into a in parameter in
+	order to allow ATCBs to be preallocated.
+
+	* s-tassta.adb (Create_Task): In case of error the ATCB is deallocated
+	here. It was previously done in Initialize_ATCB.
+
+	* rtsfind.ads: Make the Ada_Task_Control_Block visible.
+
+	* exp_ch9.adb: Preallocate the Ada_Task_Control_Block when using the
+	Restricted run time.
+
+	* exp_ch3.adb: When using the Restricted run time, pass the
+	preallocated Ada_Task_Control_Block when creating a task.
+
+2004-07-15  Ed Schonberg  <schonberg@gnat.com>
+
+	* sem_util.adb (Normalize_Actuals): If there are no actuals on a
+	function call that is itself an actual in an enclosing call, diagnose
+	problem here rather than assuming that resolution will catch it.
+
+	* sem_ch7.adb (Analyze_Package_Specification): If the specification is
+	the local copy of a generic unit for a formal package, and the generic
+	is a child unit, install private part of ancestors before compiling
+	private part of spec.
+
+	* sem_cat.adb (Validate_Categorization_Dependency): Simplify code to
+	use scope entities rather than tree structures, to handle properly
+	parent units that are instances rewritten as bodies for inlining
+	purposes.
+
+	* sem_ch10.adb (Get_Parent_Entity, Implicit_With_On_Parent,
+	Remove_Parents): Handle properly a parent unit that is an
+	instantiation, when the unit has been rewritten as a body for inlining
+	purposes.
+
+	* par.adb (Goto_List): Global variable to collect goto statements in a
+	given unit, for use in detecting natural loops.
+
+	* par-ch5.adb (P_Goto_Statement): Add goto to global Goto_List, for
+	use in detecting natural loops.
+
+	* par-labl.adb (Find_Natural_Loops): Recognize loops create by
+	backwards goto's, and rewrite as a infinite loop, to improve locality
+	of temporaries.
+
+	* exp_util.adb (Force_Evaluation): Recognize a left-hand side
+	subcomponent that includes an indexed reference, to prevent the
+	generation of copies that would miscompile the desired assignment
+	statement.
+	(Build_Task_Image_Decls): Add a numeric suffix to
+	generated name for string variable, to avoid spurious conflicts with
+	the name of the type of a single protected object.
+
+	* exp_ch4.adb (Expand_Array_Equality): If indices are distinct, use a
+	loop with an explicit exit statement, to avoid generating an
+	out-of-range value with 'Succ leading to spurious constraint_errors
+	when compiling with -gnatVo.
+
+2004-07-15  Thomas Quinot  <quinot@act-europe.fr>
+
+	* sem_ch4.adb (Analyze_Slice): Always call Analyze on the prefix: it
+	might not be analyzed yet, even if its Etype is already set (case of an
+	unchecked conversion built using Unchecked_Convert_To, for example).
+	If the prefix has already been analyzed, this will be a nop anyway.
+
+	* exp_ch5.adb (Make_Tag_Ctrl_Assignment): For an assignment of a
+	controller type, or an assignment of a record type with controlled
+	components, copy only user data, and leave the finalization chain
+	pointers untouched.
+
+2004-07-15  Vincent Celier  <celier@gnat.com>
+
+	* make.adb (Collect_Arguments): Improve error message when attempting
+	to compile a source not part of any project, when -x is not used.
+
+	* prj.ads: (Defined_Variable_Kind): New subtype
+
+	* prj-attr.adb (Register_New_Package): Two new procedures to register
+	a package with or without its attributes.
+	(Register_New_Attribute): Mew procedure to register a new attribute in a
+	package.
+	New attribute oriented subprograms: Attribute_Node_Id_Of,
+	Attribute_Kind_Of, Set_Attribute_Kind_Of, Attribute_Name_Of,
+	Variable_Kind_Of, Set_Variable_Kind_Of, Optional_Index_Of,
+	Next_Attribute.
+	New package oriented subprograms: Package_Node_Id_Of,
+	Add_Unknown_Package, First_Attribute_Of, Add_Attribute.
+
+	* prj-attr.ads (Attribute_Node_Id): Now a private, self initialized
+	type.
+	(Package_Node_Id): Now a private, self initialized type
+	(Register_New_Package): New procedure to register a package with its
+	attributes.
+	New attribute oriented subprograms: Attribute_Node_Id_Of,
+	Attribute_Kind_Of, Set_Attribute_Kind_Of, Attribute_Name_Of,
+	Variable_Kind_Of, Set_Variable_Kind_Of, Optional_Index_Of,
+	Next_Attribute.
+	New package oriented subprograms: Package_Node_Id_Of,
+	Add_Unknown_Package, First_Attribute_Of, Add_Attribute.
+
+	* prj-dect.adb (Parse_Attribute_Declaration,
+	Parse_Package_Declaration): Adapt to new spec of Prj.Attr.
+
+	* prj-makr.adb (Make): Parse existing project file before creating
+	other files. Fail if there was an error during parsing.
+
+	* prj-proc.adb (Add_Attributes, Process_Declarative_Items): Adapt to
+	new spec of Prj.Attr.
+
+	* prj-strt.adb (Attribute_Reference, Parse_Variable_Reference): Adapt
+	to new spec of Prj.Attr.
+
+2004-07-15  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* utils2.c: Fix typo in comment.
+
+2004-07-14  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* trans.c (add_decl_expr): Clear TREE_READONLY if clear DECL_INITIAL.
+	* utils.c (unchecked_convert): Don't do two VIEW_CONVERT_EXPRs.
+
+2004-07-14  Andreas Schwab  <schwab@suse.de>
+
+	* trans.c (gnat_init_stmt_group): Remove duplicate definition.
+
+2004-07-13  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* decl.c: (gnat_to_gnu_entity, object case): Convert initializer to
+	object type.
+	(gnat_to_gnu_entity, case E_Record_Subtype): Properly set
+	TYPE_STUB_DECL.
+
+	* misc.c (gnat_types_compatible_p): New function.
+	(LANG_HOOKS_TYPES_COMPATIBLE_P): New hook, to use it.
+	(LANG_HOOKS_TYPE_MAX_SIZE, gnat_type_max_size): New.
+
+	* trans.c (gigi): Move processing of main N_Compilation_Unit here.
+	(gnat_to_gnu, case N_Compilation_Unit): Just handle nested case here.
+	(add_stmt): Force walking of sizes and DECL_INITIAL for DECL_EXPR.
+	(mark_visited): Don't mark dummy type.
+	(tree_transform <N_Procedure_Call_Statement>): Unless this is an In	
+	parameter, we must remove any LJM building from GNU_NAME.
+	(gnat_to_gnu, case N_String_Literal): Fill in indices in CONSTRUCTOR.
+	(pos_to_constructor): Use int_const_binop.
+	(gnat_to_gnu, case N_Identifier): Don't reference DECL_INITIAL of
+	PARM_DECL.
+
+	* utils.c (gnat_init_decl_processing): Don't make two "void" decls.
+	(gnat_pushlevel): Set TREE_USE on BLOCK node.
+	(gnat_install_builtins): Add __builtin_memset.
+
+2004-07-13  Olivier Hainque  <hainque@act-europe.fr>
+
+	* decl.c (gnat_to_gnu_entity <E_Variable>): If we are making a pointer
+	for a renaming, stabilize the initialization expression if we are at a
+	local level.  At the local level, uses of the renaming may be performed
+	by a direct dereference of the initializing expression, and we don't
+	want possible variables there to be evaluated for every use.
+
+	* trans.c (gnat_stabilize_reference, gnat_stabilize_reference_1):
+	Propagate TREE_SIDE_EFFECTS and TREE_THIS_VOLATILE to avoid loosing
+	them on the way.  Account for the fact that we may introduce side
+	effects in the process.
+
+2004-07-13  Richard Henderson  <rth@redhat.com>
+
+	* misc.c (default_pass_by_ref): Use pass_by_reference.
+
+2004-07-11  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* misc.c (LANG_HOOKS_CLEAR_BINDING_STACK, LANG_HOOKS_PUSHLEVEL,
+	LANG_HOOKS_POPLEVEL, LANG_HOOKS_SET_BLOCK): Remove.
+
+2004-07-08  Richard Henderson  <rth@redhat.com>
+
+	* trans.c (gnat_to_gnu <N_Handled_Sequence_Of_Statements>): Update
+	commentary.
+
+2004-07-06  Vincent Celier  <celier@gnat.com>
+
+	* vms_conv.ads: Minor reformatting.
+	Alphabetical order for enumerated values of type Command_Type, to have
+	the command in alphabetical order for the usage.
+
+	* vms_conv.adb (Process_Argument): Set Keep_Temporary_Files to True for
+	the special qualifier /KEEP_TEMPORARY_FILES (minimum 6 characters).
+
+	* gnat_ugn.texi: Document new switch -dn for the GNAT driver.
+
+	* makegpr.adb (Global_Archive_Exists): New global Boolean variable
+	(Add_Archive_Path): Only add the global archive if there is one.
+	(Build_Global_Archive): Set Global_Archive_Exists depending if there is
+	or not any object file to put in the global archive, and don't build
+	a global archive if there is none.
+	(X_Switches): New table
+	(Compile_Link_With_Gnatmake): Pass to gnatmake the -X switches stored
+	in the X_Switches table, if any.
+	(Initialize): Make sure the X_Switches table is empty
+	(Scan_Arg): Record -X switches in table X_Switches
+
+	* opt.ads (Keep_Temporary_Files): New Boolean flag, defaulted to False.
+
+	* make.adb: Minor comment fix
+
+	* gnatname.adb (Gnatname): When not on VMS, and gnatname has been
+	invoked with directory information, add the directory in front of the
+	path.
+
+	* gnatchop.adb (Gnatchop): When not on VMS, and gnatchop has been
+	invoked with directory information, add the directory in front of the
+	path.
+
+	* gnatcmd.adb (Delete_Temp_Config_Files): Only delete temporary files
+	when Keep_Temporary_Files is False.
+	(GNATCmd): When not on VMS, and the GNAT driver has been invoked with
+	directory information, add the directory in front of the path.
+	When not on VMS, handle new switch -dn before the command to set
+	Keep_Temporary_Files to True.
+	(Non_VMS_Usage): Use lower case for the non VMS usage: this is valid
+	everywhere.
+
+	* gnatlink.adb (Gnatlink): When not on VMS, and gnatlink has been
+	invoked with directory information, add the directory in front of the
+	path.
+
+2004-07-06  Thomas Quinot  <quinot@act-europe.fr>
+
+	* snames.ads, snames.adb (Name_Stub): New name for the distributed
+	systems annex.
+
+	* rtsfind.ads: New RTE TC_Object, for DSA/PolyORB.
+	New RTEs RAS_Proxy_Type and RAS_Proxy_Type_Access, for DSA.
+
+	* g-socket.adb (To_Timeval): Fix incorrect conversion of
+	Selector_Duration to Timeval for the case of 0.0.
+
+	* exp_util.ads (Evolve_Or_Else): Fix overenthusiastic copy/paste of
+	documentation from Evolve_And_Then.
+
+2004-07-06  Jose Ruiz  <ruiz@act-europe.fr>
+
+	* s-taprop-tru64.adb, s-taprop-os2.adb,
+	s-taprop-mingw.adb, s-taprop-posix.adb: Update comment.
+
+2004-07-06  Robert Dewar  <dewar@gnat.com>
+
+	* s-osinte-hpux.ads, s-osinte-freebsd.ads,
+	s-osinte-lynxos.ads, s-taprop-lynxos.adb, s-osinte-tru64.ads,
+	s-osinte-aix.ads, s-osinte-irix.ads, s-taprop-irix.adb,
+	s-interr-sigaction.adb, s-taprop-irix-athread.adb,
+	s-osinte-hpux-dce.adb, s-taprop-hpux-dce.adb,
+	s-taprop-linux.adb, s-taprop-dummy.adb, s-taprop-solaris.adb,
+	s-interr-vms.adb, s-osinte-vms.ads, s-taprop-vms.adb,
+	s-osinte-vxworks.ads, s-osprim-vxworks.adb, a-numaux-x86.adb,
+	a-except.adb, a-exexpr.adb, a-intsig.adb, a-tags.adb,
+	a-tags.ads, bindgen.ads, checks.adb, checks.adb,
+	csets.ads, einfo.ads, einfo.ads, elists.adb, exp_ch4.adb,
+	exp_ch7.adb, exp_dist.adb, exp_util.adb, freeze.adb,
+	g-dynhta.adb, gnatmem.adb, g-regexp.adb, inline.adb,
+	i-os2thr.ads, osint.adb, prj.adb, scng.adb, sem_cat.adb,
+	sem_ch10.adb, sem_ch12.adb, sem_ch4.adb, sem_ch7.adb,
+	sem_ch8.adb, sem_disp.adb, sem_prag.adb, sem_res.adb,
+	sem_type.adb, sem_type.ads, sem_warn.adb, s-ficobl.ads,
+	s-finimp.adb, s-htable.adb, sinfo.ads, sinput-l.ads,
+	s-interr.adb, s-interr.ads, sprint.adb, s-tarest.adb,
+	s-tasini.ads, s-taskin.ads, s-taskin.ads, uname.adb,
+	vms_data.ads: Minor reformatting,
+	Fix bad box comment format.
+
+	* gnat_rm.texi: Fix minor grammatical error
+
+	* sem_attr.adb, exp_attr.adb: New attribute Has_Access_Values
+
+	* sem_util.ads, sem_util.adb (Requires_Transient_Scope): Allow many
+	more cases of discriminated records to be recognized as not needing a
+	secondary stack.
+	(Has_Access_Values): New function.
+
+	* snames.h, snames.adb, snames.ads: New attribute Has_Access_Values
+
+	* cstand.adb, layout.ads, layout.adb, sem_ch13.ads: Change name
+	Set_Prim_Alignment to Set_Elem_Alignment (more accurate correspondence
+	with LRM terminology).
+	Change terminology in comments primitive type => elementary type.
+
+2004-07-06  Ed Schonberg  <schonberg@gnat.com>
+
+	PR ada/15602
+	* sem_ch7.adb (Unit_Requires_Body): For a generic package, the formal
+	parameters do not impose any requirements on the presence of a body.
+
+2004-07-06  Ed Schonberg  <schonberg@gnat.com>
+
+	PR ada/15593
+	* sem_ch12.adb (Analyze_Package_Instantiation): If the generic is not a
+	compilation unit and is in an open scope at the point of instantiation,
+	assume that a body may be present later.
+
+2004-07-06  Ed Schonberg  <schonberg@gnat.com>
+
+	* sem_ch13.adb (Analyze_Attribute_Definition_Clause, case 'Size):
+	Improve error message when specified size is not supported.
+
+	* sem_ch6.adb (Maybe_Primitive_Operation): A library-level subprogram
+	is never a primitive operation.
+
+2004-07-05  Andreas Schwab  <schwab@suse.de>
+
+	* ada-tree.h (TYPE_LEFT_JUSTIFIED_MODULAR_P): Use
+	RECORD_OR_UNION_CHECK.
+	(TYPE_CONTAINS_TEMPLATE_P): Likewise.
+
+2004-07-04  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (doc/gnat_ugn_unw.texi): Eliminate explicit
+	dependency on xgnatugn, instead build it via a submake.
+	(ADA_INFOFILES): Add doc/gnat_ugn_unw.texi.
+
+2004-07-04  Richard Henderson  <rth@redhat.com>
+
+	* utils2.c (gnat_mark_addressable): Don't put_var_into_stack.
+
+2004-07-01  Richard Henderson  <rth@redhat.com>
+
+	* trans.c (gnat_stabilize_reference): Don't handle RTL_EXPR.
+	* utils.c (max_size): Likewise.
+
+2004-06-28  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* decl.c: Remove calls to add_decl_expr, pushdecl, rest_of_compilation,
+	and rest_of_type_compilation; add arg to create_*_decl.
+ 	(annotate_decl_with_node): Deleted.
+	(gnat_to_gnu_entity, case E_Array_Type): Set location of fields.
+	* gigi.h (get_decls, block_has_vars, pushdecl): Deleted.
+	(get_current_block_context, gnat_pushdecl): New declarations.
+	(gnat_init_stmt_group): Likewise.
+	(create_var_decl, create_type_decl, create_subprog_decl): Add new arg.
+	* misc.c (LANG_HOOKS_CLEAR_BINDING_STACK): Deleted.
+	(LANG_HOOKS_GETDECLS, LANG_HOOKS_PUSHDECL): Deleted.
+	(gnat_init): Call gnat_init_stmt_group.
+	* trans.c (global_stmt_group, gnu_elab_proc_decl): New variables.
+	(gnu_pending_elaboration_list): Deleted.
+	(mark_visited, mark_unvisited, gnat_init_stmt_group): New functions.
+	(gigi): Rearrange initialization calls and move some to last above.
+	(gnat_to_gnu): If statement and not in procedure, go into elab proc.
+	Delete calls to add_decl_expr; add arg to create_*_decl.
+	(gnat_to_gnu, case N_Loop): Recalculate side effects on COND_EXPR.
+	(gnat_to_gnu, case N_Subprogram_Body): Move some code to 
+	begin_subprog_body and call it.
+	Don't push and pop ggc context.
+	(gnat_to_gnu, case N_Compilation_Unit): Rework to support elab proc.
+	(add_stmt): Remove handling of DECL_EXPR from here.
+	If not in function, mark visited.
+	(add_decl_expr): Put global at top level.
+	Check for cases of DECL_INITIAL we have to handle here.
+	(process_type): Add extra arg to create_type_decl.
+	(build_unit_elab): Rework to just gimplify.
+	* utils.c (pending_elaborations, elist_stack, getdecls): Deleted.
+	(block_has_vars, mark_visited, add_pending_elaborations): Likewise.
+	(get_pending_elaborations, pending_elaborations_p): Likewise.
+	(push_pending_elaborations, pop_pending_elaborations): Likewise.
+	(get_elaboration_location, insert_elaboration_list): Likewise.
+	(gnat_binding_level): Renamed from ada_binding_level.
+	(init_gnat_to_gnu): Don't clear pending_elaborations.
+	(global_bindings_p): Treat as global if no current_binding_level.
+	(set_current_block_context): New function.
+	(gnat_pushdecl): Renamed from pushdecl; major rework.
+	All callers changed.
+	(create_type_decl, create_var_decl, create_subprog_decl): Add new arg.
+	(finish_record_type): Call call pushdecl for stub decl.
+	(function_nesting_depth): Deleted.
+	(begin_subprog_body): Delete obsolete code.
+	* utils2.c (build_call_alloc_dealloc): Add new arg to create_var_decl.
+	
+2004-06-28  Robert Dewar  <dewar@gnat.com>
+
+	* mlib-tgt-tru64.adb, mlib-tgt-aix.adb, mlib-tgt-irix.adb,
+	mlib-tgt-irix.adb, mlib-tgt-hpux.adb, mlib-tgt-linux.adb,
+	mlib-tgt-linux.adb, mlib-tgt-solaris.adb, mlib-tgt-solaris.adb,
+	mlib-tgt-vms-alpha.adb, mlib-tgt-vms-alpha.adb, mlib-tgt-vms-ia64.adb,
+	a-strmap.adb, a-strmap.ads, clean.adb: Minor reformatting
+
+	* exp_util.adb (Is_Possibly_Unaligned_Slice): Completely rewritten, to
+	deal with problem of inefficient slices on machines with strict
+	alignment, when the slice is a component of a composite.
+
+	* checks.adb (Apply_Array_Size_Check): Do not special case 64-bit
+	machines, we need the check there as well.
+
+2004-06-28  Ed Schonberg  <schonberg@gnat.com>
+
+	* exp_ch5.adb (Expand_Assign_Array): Use correct condition to
+	determine safe copying direction for overlapping slice assignments
+	when component is controlled.
+
+	* sem_ch12.adb (Instantiate_Formal_Package): Implicit operations of a
+	formal derived type in the actual for a formal package are visible in
+	the enclosing instance.
+
+2004-06-28  Ed Schonberg  <schonberg@gnat.com>
+
+	PR ada/15600
+	* sem_util.adb (Trace_Components): Diagnose properly an illegal
+	circularity involving a private type whose completion includes a
+	self-referential component.
+	(Enter_Name): Use Is_Inherited_Operation to distinguish a source
+	renaming or an instantiation from an implicit derived operation.
+
+2004-06-28  Pascal Obry  <obry@gnat.com>
+
+	* mlib-tgt-mingw.adb: (Library_Exists_For): Remove "lib" prefix from
+	DLL.
+	(Library_File_Name_For): Idem.
+
+2004-06-28  Matthew Gingell  <gingell@gnat.com>
+
+	* g-traceb.ads: Add explanatory note on the format of addresses
+	expected by addr2line.
+
+2004-06-28  Jerome Guitton  <guitton@act-europe.fr>
+
+	* Makefile.in: Force debugging information on s-tasdeb.adb,
+	a-except.adb and s-assert.adb needed by the debugger.
+
+2004-06-28  Vincent Celier  <celier@gnat.com>
+
+	* make.adb (Collect_Arguments_And_Compile): Change Flag1 to
+	Need_To_Build_Lib.
+	(Gnatmake): Ditto.
+
+	* mlib-prj.adb (Check_Library): Replace Flag1 with Need_To_Build_Lib
+
+	* prj.adb: Minor reformatting
+	(Project_Empty): Change Flag1 to Need_To_Build_Lib. Remove Flag2.
+
+	* prj.ads: Comment updates
+	Minor reformatting
+	(Project_Data): Change Flag1 to Need_To_Build_Lib.
+	Remove Flag2: not used.
+
+	* prj-dect.adb (Parse_Declarative_Items): Accept "null" as a
+	declaration.
+
+	* gnat_ugn.texi: Put a "null;" declaration in one project file example
+
+	* gnat_rm.texi: Document Empty declarations "null;".
+
+	* makegpr.adb (Compile_Link_With_Gnatmake): Put the global archives in
+	front of the linker options.
+	(Link_Foreign): Put the global archives and the libraries in front of
+	the linker options.
+
+2004-06-28  Javier Miranda  <miranda@gnat.com>
+
+	* rtsfind.adb: (Get_Unit_Name): Fix typo in comment
+	(RTU_Loaded): Code cleanup
+	(Set_RTU_Loaded): New procedure to register as *loaded* explicitly
+	withed predefined units.
+
+	* rtsfind.ads (Set_RTU_Loaded): New procedure to register as *loaded*
+	explicitly withed predefined units.
+	Fix typo in comment
+
+	* sem_ch10.adb (Analyze_Compilation_Unit): Register as *loaded*
+	explicitly withed predefined units.
+
+2004-06-26  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* ada-tree.def (DECL_STMT): Deleted.
+	* ada-tree.h (IS_ADA_STMT): Now test against STMT_STMT.
+	(DECL_STMT_VAR): Deleted.
+	* decl.c: add_decl_stmt now add_decl_expr.
+	* gigi.h: Likewise.
+	* trans.c: Likewise.
+ 	(gnat_gimplify_type_sizes, gnat_gimplify_one_sizepos): Deleted.
+	(gnat_to_gnu, case N_Subprogram_Body): Set cfun->function_end_locus.
+	(add_stmt): Only handle padded type here.
+	(add_stmt_with_node): Allow gnat_node to not be present.
+	(gnat_gimplify_stmt, case USE_STMT): Set *STMT_P to null.
+	(gnat_gimplify_stmt, case DECL_STMT): Deleted.
+	(gnat_stabilize_reference_1): If COMPONENT_REF of fat pointer,
+	make a SAVE_EXPR for the entire fat pointer.
+	* utils.c (pushdecl): Walk a DECL_EXPR in global case.
+	(create_index_type): Make a DECL_EXPR.
+	(end_subprog_body): Don't call allocate_struct_function here but
+	do clear cfun.
+
+2004-06-25  Pascal Obry  <obry@gnat.com>
+
+	* makegpr.adb (Build_Library): Remove parameter Lib_Address and
+	Relocatable from Build_Dynamic_Library call.
+
+	* gnat_ugn.texi: Change documentation about Library_Kind. Dynamic and
+	Relocatable are now synonym.
+
+	* Makefile.in: Use s-parame-mingw.adb on MingW platform.
+
+	* mlib-prj.adb (Build_Library): Remove DLL_Address constant definition.
+	Remove parameter Lib_Address and Relocatable from Build_Dynamic_Library
+	call.
+
+	* mlib-tgt.ads, mlib-tgt.adb (Build_Dynamic_Library): Remove parameter
+	Lib_Address and Relocatable.
+	(Default_DLL_Address): Removed.
+
+	* mlib-tgt-tru64.adb, mlib-tgt-aix.adb, mlib-tgt-irix.adb, 
+	mlib-tgt-hpux.adb, mlib-tgt-linux.adb, mlib-tgt-solaris.adb, 
+	mlib-tgt-vms-alpha.adb, mlib-tgt-vms-ia64.adb, mlib-tgt-vxworks.adb:
+	(Build_Dynamic_Library): Remove parameter Lib_Address and Relocatable.
+	(Default_DLL_Address): Removed.
+
+	* mlib-tgt-mingw.adb: Ditto.
+	(Build_Dynamic_Library): Do not add "lib" prefix to the DLL name.
+
+	* s-taprop-mingw.adb (Create_Task): Use Adjust_Storage_Size to compute
+	the initial thread stack size.
+
+	* a-strmap.ads: Move package L to private part as it is not used in
+	the spec. Found while reading code.
+
+2004-06-25  Olivier Hainque  <hainque@act-europe.fr>
+
+	* tracebak.c: Introduce support for a GCC infrastructure based
+	implementation of __gnat_backtrace.
+
+	* raise.c: Don't rely on a C mapping of the GNAT_GCC_Exception record
+	any more. Use accessors instead. This eases maintenance and relaxes
+	some alignment constraints.
+	(_GNAT_Exception structure): Remove the Ada specific fields
+	(EID_For, Adjust_N_Cleanups_For): New accessors, exported by
+	a-exexpr.adb.
+	(is_handled_by, __gnat_eh_personality): Replace component references to
+	exception structure by use of the new accessors.
+
+	* init.c (__gnat_initialize): Adjust comments to match the just
+	reverted meaning of the -static link-time option.
+
+	* adaint.c (convert_addresses): Arrange not to define a stub for
+	mips-irix any more, as we now want to rely on a real version from a
+	recent libaddr2line.
+
+	* a-exexpr.adb: Provide new accessors to a GNAT_GCC occurrence, so that
+	the personality routine can use them and not have to rely on a C
+	counterpart of the record anymore. This simplifies maintenance and
+	relaxes the constraint of having Standard'Maximum_Alignment match
+	BIGGEST_ALIGNMENT.
+	Update comments, and add a section on the common header alignment issue.
+
+2004-06-25  Geert Bosch  <bosch@gnat.com>
+
+	* a-ngelfu.adb (Tanh): Use full 20 digit precision for constants in
+	polynomial approximation. Fixes inconsistency with Cody/Waite algorithm.
+
+2004-06-25  Robert Dewar  <dewar@gnat.com>
+
+	* gnat_rm.texi: Fix section on component clauses to indicate that the
+	restriction on byte boundary placement still applies for bit packed
+	arrays.
+	Add comment on stack usage from Initialize_Scalars
+
+	* gnat_ugn.texi: Add documentation for -gnatyLnnn
+
+	* stylesw.ads, stylesw.adb: Implement new -gnatyLnnn option for
+	limiting nesting level.
+
+	* usage.adb: Add line for -gnatyLnnn switch
+
+	* g-debpoo.ads, xtreeprs.adb, sinput.ads, sem_ch13.ads,
+	sem_ch13.adb, exp_aggr.adb: Minor reformatting
+
+	* sem_prag.adb (Process_Atomic_Shared_Volatile): Set Is_Atomic on base
+	type as well as on the subtype. This corrects a problem in freeze in
+	setting alignments of atomic types.
+
+	* sem_eval.ads: Minor comment typo fixed
+
+	* par-util.adb (Push_Scope_Stack): Check for violation of max nesting
+	level.  Minor reformatting.
+
+	* fname.adb (Is_Predefined_File_Name): Require a letter after the
+	minus sign. This means that file names like a--b.adb will not be
+	considered predefined.
+
+	* freeze.adb: Propagate new flag Must_Be_On_Byte_Boundary to containing
+	record Test new flag and give diagnostic for bad component clause.
+	(Freeze_Entity): Set alignment of array from component alignment in
+	cases where this is safe to do.
+
+	* exp_pakd.adb: Set new flag Must_Be_On_Byte_Boundary for large packed
+	arrays.
+
+	* cstand.adb: (Create_Standard): Set alignment of String to 1
+
+	* einfo.ads, einfo.adb: Introduce new flag Must_Be_On_Byte_Boundary
+
+	* exp_ch4.adb (Expand_Array_Equality): Improve efficiency of generated
+	code in the common constrained array cases.
+
+	* a-storio.adb: Change implementation to avoid possible alignment
+	problems on machines requiring strict alignment (data should be moved
+	as type Buffer, not type Elmt).
+
+	* checks.adb (Apply_Array_Size_Check): Improve these checks by
+	killing the overflow checks which we really do not need (64-bits is
+	enough).
+
+2004-06-25  Vincent Celier  <celier@gnat.com>
+
+	* makegpr.adb (Is_Included_In_Global_Archive): New Boolean function
+	(Add_Archives.Recursive_Add_Archives): Call Add_Archive_Path
+	inconditionally for the main project.
+	(Recursive_Add_Archives.Add_Archive_Path): New procedure
+	(Link_Executables.Check_Time_Stamps): New procedure
+	(Link_Executables.Link_Foreign): New procedure
+	Changes made to reduce nesting level of this package
+	(Check): New procedure
+	(Add_Switches): When not in quiet output, check that a switch is not
+	the concatenation of several valid switches. If it is, issue a warning.
+	(Build_Global_Archive): If the global archive is rebuilt, linking need
+	to be done.
+	(Compile_Sources): Rebuilding a library archive does not imply
+	rebuilding the global archive.
+	(Build_Global_Archive): New procedure
+	(Build_Library): New name for Build_Archive, now only for library
+	project
+	(Check_Archive_Builder): New procedure
+	(Create_Global_Archive_Dependency_File): New procedure
+	(Gprmake): Call Build_Global_Archive before linking
+	* makegpr.adb: Use Other_Sources_Present instead of Sources_Present
+	throughout.
+	(Scan_Arg): Display the Copyright notice when -v is used
+
+	* gnat_ugn.texi: Document new switch -files= (VMS qualifier /FILES=)
+	for gnatls.
+
+	* vms_data.ads: Add qualifier /MAX_NESTING=nnn (-gnatyLnnn) for GNAT
+	COMPILE.
+	Add new GNAT LIST qualifier /FILES=
+	Added qualifier /DIRECTORY= to GNAT METRIC
+	Added qualifier /FILES= to GNAT METRIC
+	Added qualifier /FILES to GNAT PRETTY
+
+	* switch.adb (Is_Front_End_Switch): Refine the test for --RTS or -fRTS,
+	to take into account both versions of the switch.
+
+	* switch-c.adb (Scan_Front_End_Switches): New switch -gnatez. Should
+	always be the last switch to the gcc driver. Disable switch storing so
+	that switches automatically added by the gcc driver are not put in the
+	ALI file.
+
+	* prj.adb (Project_Empty): Take into account changes in components of
+	Project_Data.
+
+	* prj.ads (Languages_Processed): New enumaration value All_Languages.
+
+	* prj.ads (Project_Data): Remove component Lib_Elaboration: never
+	used. Split Boolean component Ada_Sources_Present in two Boolean
+	components Ada_Sources_Present and Other_Sources_Present.
+	Minor reformatting
+
+	* prj-env.adb (For_All_Source_Dirs.Add): Use Ada_Sources_Present
+	instead of Sources_Present.
+	(Set_Ada_Paths.Add.Recursive_Add): Ditto
+
+	* prj-nmsc.adb: Minor reformatting
+	(Check_Ada_Naming_Scheme): New name of procedure Check_Naming_Scheme
+	(Check_Ada_Naming_Scheme_Validity): New name of previous procedure
+	Check_Ada_Naming_Scheme.
+	Change Sources_Present to Ada_Sources_Present or Other_Sources_Present
+	throughout.
+
+	* prj-part.adb (Post_Parse_Context_Clause): New Boolean parameter
+	In_Limited.
+	Make sure that all cycles where there is at least one "limited with"
+	are detected.
+	(Parse_Single_Project): New Boolean parameter In_Limited
+
+	* prj-proc.adb (Recursive_Check): When Process_Languages is
+	All_Languages, call first Prj.Nmsc.Ada_Check, then
+	Prj.Nmsc.Other_Languages_Check.
+
+	* prj-proc.adb (Process): Use Ada_Sources_Present or
+	Other_Sources_Present (instead of Sources_Present) depending on
+	Process_Languages.
+
+	* lang-specs.h: Keep -g and -m switches in the same order, and as the
+	last switches.
+
+	* lib.adb (Switch_Storing_Enabled): New global Boolean flag
+	(Disable_Switch_Storing): New procedure. Set Switch_Storing_Enabled to
+	False.
+	(Store_Compilation_Switch): Do nothing if Switch_Storing_Enabled is
+	False.
+
+	* lib.ads (Disable_Switch_Storing): New procedure.
+
+	* make.adb: Modifications to reduce nesting level of this package.
+	(Check_Standard_Library): New procedure
+	(Gnatmake.Check_Mains): New procedure
+	(Gnatmake.Create_Binder_Mapping_File): New procedure
+	(Compile_Sources.Compile): Add switch -gnatez as the last option
+	(Display): Never display -gnatez
+
+	* Makefile.generic: 
+	When using $(MAIN_OBJECT), always use $(OBJ_DIR)/$(MAIN_OBJECT)
+
+	* gnatcmd.adb (Check_Project): New function
+	(Process_Link): New procedure to reduce nesting depth
+	(Check_Files): New procedure to reduce the nesting depth.
+	For GNAT METRIC, include the inherited sources in extending projects.
+	(GNATCmd): When GNAT LS is invoked with a project file and no files,
+	add the list of files from the sources of the project file. If this list
+	is too long, put it in a temp text files and use switch -files=
+	(Delete_Temp_Config_Files): Delete the temp text file that contains
+	a list of source for gnatpp or gnatmetric, if one has been created.
+	(GNATCmd): For GNAT METRIC and GNAT PRETTY, if the number of sources
+	in the project file is too large, create a temporary text file that
+	list them and pass it to the tool with "-files=<temp text file>".
+	(GNATCmd): For GNAT METRIC add "-d=<abject dir>" as the first switch
+
+	* gnatlink.adb (Gnatlink): Do not compile with --RTS= when the
+	generated file is in not in Ada.
+
+	* gnatls.adb: Remove all parameters And_Save that are no longer used.
+	(Scan_Ls_Arg): Add processing for -files=
+	(Usage): Add line for -files=
+
+	* g-os_lib.adb (On_Windows): New global constant Boolean flag
+	(Normalize_Pathname): When on Windows and the path starts with a
+	directory separator, make sure that the resulting path will start with
+	a drive letter.
+
+	* clean.adb (Clean_Archive): New procedure
+	(Clean_Project): When there is non-Ada code, delete the global archive,
+	the archive dependency files, the object files and their dependency
+	files, if they exist.
+	(Gnatclean): Call Prj.Pars.Parse for All_Languages, not for Ada only.
+
+2004-06-25  Thomas Quinot  <quinot@act-europe.fr>
+
+	* sinfo.ads: Fix typo in comment.
+
+	* sem_dist.adb (Process_Remote_AST_Attribute): Simplify code that uses
+	the TSS for remote access-to-subprogram types, since these TSS are
+	always present once the type has been analyzed.
+	(RAS_E_Dereference): Same.
+
+	* sem_attr.adb (Analyze_Attribute): When analysis of an attribute
+	reference raises Bad_Attribute, mark the reference as analyzed so the
+	node (and any children resulting from rewrites that could have occurred
+	during the analysis that ultimately failed) is not analyzed again.
+
+	* exp_ch7.ads (Find_Final_List): Fix misaligned comment.
+
+	* exp_dist.adb: Minor comment fix.
+
+	* exp_ch4.adb (Expand_N_Allocator): For an allocator whose expected
+	type is an anonymous access type, no unchecked deallocation of the
+	allocated object can occur. If the object is controlled, attach it with
+	a count of 1. This allows attachment to the Global_Final_List, if
+	no other relevant list is available.
+	(Get_Allocator_Final_List): For an anonymous access type that is
+	the type of a discriminant or record component, the corresponding
+	finalisation list is the one of the scope of the type.
+
+2004-06-25  Ed Schonberg  <schonberg@gnat.com>
+
+	* sem_ch3.adb (Replace_Type): When computing the signature of an
+	inherited subprogram, use the first subtype if the derived type
+	declaration has no constraint.
+
+	* exp_ch6.adb (Add_Call_By_Copy_Code): Check that formal is an array
+	before applying previous optimization. Minor code cleanup.
+
+	* exp_util.adb (Is_Possibly_Unaligned_Slice): If the component is
+	placed at the beginning of an unpacked record without explicit
+	alignment, a slice of it will be aligned and does not need a copy when
+	used as an actual.
+
+2004-06-25  Ed Schonberg  <schonberg@gnat.com>
+
+	PR ada/15591
+	PR ada/15592
+	* sem_ch8.adb (Attribute_Renaming): Reject renaming if the attribute
+	reference is written with expressions mimicking parameters.
+
+2004-06-25  Hristian Kirtchev  <kirtchev@gnat.com>
+
+	PR ada/15589
+	* sem_ch3.adb (Build_Derived_Record_Type): Add additional check to
+	STEP 2a. The constraints of a full type declaration of a derived record
+	type are checked for conformance with those declared in the
+	corresponding private extension declaration. The message
+	"not conformant with previous declaration" is emitted if an error is
+	detected.
+
+2004-06-25  Vasiliy Fofanov  <fofanov@act-europe.fr>
+
+	* g-traceb.ads: Document the need for -E binder switch in the spec.
+
+	* g-trasym.ads: Document the need for -E binder switch in the spec.
+
+2004-06-25  Jose Ruiz  <ruiz@act-europe.fr>
+
+	* sem_prag.adb: Add handling of pragma Detect_Blocking.
+
+	* snames.h, snames.ads, snames.adb: Add entry for pragma
+	Detect_Blocking.
+
+	* s-rident.ads: Change reference to pragma Detect_Blocking.
+
+	* targparm.ads, targparm.adb: Allow pragma Detect_Blocking in
+	system.ads.
+
+	* opt.ads (Detect_Blocking): New Boolean variable (defaulted to False)
+	to indicate whether pragma Detect_Blocking is active.
+
+	* par-prag.adb: Add entry for pragma Detect_Blocking.
+
+	* rtsfind.adb (RTU_Loaded): Fix the temporary kludge to get past bug
+	of not handling WITH.
+	Note that this replaces the previous update which was incorrect.
+
+2004-06-25  Javier Miranda  <miranda@gnat.com>
+
+	* sem_ch10.adb (Re_Install_Use_Clauses): Force the installation of the
+	use-clauses to have a clean environment.
+
+	* sem_ch8.adb (Install_Use_Clauses): Addition of a new formal to force
+	the installation of the use-clauses to stablish a clean environment in
+	case of compilation of a separate unit; otherwise the call to
+	use_one_package is protected by the barrier Applicable_Use.
+
+	* sem_ch8.ads (Install_Use_Clauses): Addition of a new formal to force
+	the installation of the use-clauses to stablish a clean environment in
+	case of compilation of a separate unit.
+	(End_Use_Clauses): Minor comment cleanup.
+
+2004-06-25  Sergey Rybin  <rybin@act-europe.fr>
+
+	* gnat_ugn.texi: Add description of the gnatpp 'files' switch
+
+2004-06-23  Richard Henderson  <rth@redhat.com>
+
+	* trans.c (gnat_gimplify_stmt): Update gimplify_type_sizes call.
+
+2004-06-20  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* decl.c (elaborate_expression, elaborate_expression_1): Arguments
+	now bool instead of int.
+	(gnat_to_gnu_entity, elaborate_expression_1): New arg to COMPONENT_REF.
+	* trans.c (gnu_switch_label_stack): New function.
+	(gnat_to_gnu, N_Object_Renaming_Declaration): Result is what the
+	elaboration of renamed entity returns.
+	(gnat_to_gnu, case N_Case_Statement): Add branches to end label.
+	(add_decl_stmt): Don't add TYPE_DECL for UNCONSTRAINED_ARRAY_TYPE.
+	(gnat_gimplify_stmt): Use alloc_stmt_list, not build_empty_stmt.
+	(gnat_gimplify_stmt, case DECL_STMT): gimplify DECL_SIZE and
+	DECL_SIZE_UNIT and simplify variable-sized case.
+	(gnat_gimplify_type_sizes, gnat_gimplify_one_sizepos): Deleted.
+	Callers changes to call gimplify_type_sizes and gimplify_one_sizepos.
+	(gnat_stabilize_reference): Add arg to COMPONENT_REF.
+	(build_unit_elab): Disable for now.
+	* utils.c (mark_visited): New function.
+	(pushdecl): Walk tree to call it for global decl.
+	(update_pointer_to): Update all variants of pointer and ref types.
+	Add arg to COMPONENT_REF.
+	(convert): Likewise.
+	Move check for converting between variants lower down.
+	* utils2.c (build_simple_component_ref): Add arg to COMPONENT_REF.
+	(build_allocator): Don't force type of MODIFY_EXPR.
+	(gnat_mark_addressable, case VAR_DECL): Unconditionally call
+	put_var_into_stack.
+
+2004-06-14  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* ada-tree.def (LOOP_STMT, EXIT_STMT): Update documentation.
+	* ada-tree.h (EXIT_STMT_LABEL): Renamed from EXIT_STMT_LOOP.
+	* decl.c (gnat_to_gnu_entity): Also set force_global for imported
+	subprograms.
+	* trans.c (gnu_loop_label_stack): Renamed from gnu_loop_stmt_stack;
+	all callers changed.
+	(gnat_to_gnu, case N_Loop_Statement, case N_Exit_Statement): Change
+	the way that EXIT_STMT finds the loop label.
+	(gnat_gimplify_stmt, case LOOP_STMT, EXIT_STMT): Likewise.
+	(gnat_gimplify_stmt, case DECL_STMT): Handle variable-sized decls here.
+	(add_stmt): Use annotate_with_locus insted of setting directly.
+	(pos_to_construct): Set TREE_PURPOSE of each entry to index.
+	(gnat_stabilize_reference, case ARRAY_RANGE_REF): Merge with ARRAY_REF.
+	* utils.c (gnat_install_builtins): Install __builtin_memcmp.
+	(build_vms_descriptor): Add extra args to ARRAY_REF.
+	(convert): Use VIEW_CONVERT_EXPR between aggregate types.
+	* utils2.c (gnat_truthvalue_conversion, case INTEGER_CST, REAL_CST):
+	New cases.
+	(build_binary_op): Don't make explicit CONVERT_EXPR.
+	Add extra rgs to ARRAY_REF.
+
+2004-06-14  Pascal Obry  <obry@gnat.com>
+
+	* gnat_ugn.texi: Document relocatable vs. dynamic Library_Kind on
+	Windows.  Fix minor typo.
+
+	* mlib-tgt-mingw.adb: New implementation using the GCC -shared option
+	which is now supported on Windows. With this implementation using the
+	Library Project feature is no different on Windows than on UNIX.
+
+2004-06-14  Vincent Celier  <celier@gnat.com>
+
+	* makegpr.adb (Compile_Sources): Nothing to do when there are no
+	non-Ada sources.
+
+	* mlib-tgt-vxworks.adb (Library_Exists_For): Remove incorrect comment
+
+	* prj-part.adb (Parse_Single_Project): When a duplicate project name is
+	found, show the project name and the path of the previously parsed
+	project file.
+
+2004-06-14  Ed Schonberg  <schonberg@gnat.com>
+
+	* exp_ch6.adb (Add_Call_By_Copy_Code): For an out-parameter that is an
+	array, avoid copying the actual before the call.
+
+2004-06-14  Thomas Quinot  <quinot@act-europe.fr>
+
+	* g-debpoo.adb: Remove alignment assumptions from GNAT.Debug_Pools.
+	Instead, allocate memory on worst-case alignment assumptions, and then
+	return an aligned address within the allocated zone.
+
+2004-06-14  Robert Dewar  <dewar@gnat.com>
+
+	* bindgen.adb (Gen_Adainit_Ada): Do not generate external references to
+	elab entities in predefined units in No_Run_Time_Mode.
+	(Gen_Adainit_C): Same fix
+	(Gen_Elab_Calls_Ada): Do not generate calls to elaborate predefined
+	units in No_Run_Time_Mode
+	(Gen_Elab_Calls_C): Same fix
+
+	* symbols-vms-alpha.adb: Minor reformatting
+
+	* g-debpoo.ads: Minor reformatting
+
+	* lib.adb (In_Same_Extended_Unit): Version working on node id's
+
+	* lib.ads (In_Same_Extended_Unit): Version working on node id's
+
+	* lib-xref.adb: Minor cleanup, use new version of In_Same_Extended_Unit
+	working on nodes.
+
+	* make.adb: Minor reformatting
+
+	* par-ch12.adb: Minor reformatting
+
+	* par-prag.adb: Add dummy entry for pragma Profile_Warnings
+
+	* prj-strt.adb: Minor reformatting
+
+	* restrict.ads, restrict.adb: Redo handling of profile restrictions to
+	be more general.
+
+	* sem_attr.adb: Minor reformatting
+
+	* sem_ch7.adb: Minor reformatting
+
+	* sem_elab.adb (Check_A_Call): Deal with problem of calling init proc
+	for type in the same unit as the object declaration.
+
+	* sem_prag.adb (Check_Arg_Is_External_Name): New procedure, allows
+	static string expressions and not just string literals.
+	Minor reformatting
+	(Set_Warning): Reset restriction warning flag for restriction pragma
+	Implement pragma Profile_Warnings
+	Implement pragma Profile (Restricted)
+	Give obolescent messages for old restrictions and pragmas
+
+	* snames.h, snames.ads, snames.adb: Add new entry for pragma
+	Profile_Warnings.
+
+	* s-rident.ads: Add declarations for restrictions required by profile
+	Restricted and profile Ravenscar.
+
+	* targparm.ads, targparm.adb: Allow pragma Profile in system.ads
+
+	* gnat_ugn.texi: Correct some missing entries in the list of GNAT
+	configuration pragmas.
+
 2004-06-11  Vincent Celier  <celier@gnat.com>
 
 	* mlib-tgt-vms-alpha.adb (Build_Dynamic_Library): Issue switch -R to

@@ -55,7 +55,7 @@ Boston, MA 02111-1307, USA.  */
 
    It may help to think of this as first moving the earlier store to
    the point immediately before the later store.  Again, the single
-   use of the virtual defintion and the post-dominance relationship
+   use of the virtual definition and the post-dominance relationship
    ensure that such movement would be safe.  Clearly if there are 
    back to back stores, then the second is redundant.
 
@@ -244,10 +244,11 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
   if (NUM_V_MAY_DEFS (v_may_defs) == 0)
     return;
 
-  /* We know we have virtual definitions.  If this is a MODIFY_EXPR, then
-     record it into our table.  */
-  if (TREE_CODE (stmt) == MODIFY_EXPR
-      && TREE_CODE (TREE_OPERAND (stmt, 1)) != CALL_EXPR)
+  /* We know we have virtual definitions.  If this is a MODIFY_EXPR that's
+     not also a function call, then record it into our table.  */
+  if (get_call_expr_in (stmt))
+    return;
+  if (TREE_CODE (stmt) == MODIFY_EXPR)
     {
       dataflow_t df = get_immediate_uses (stmt);
       unsigned int num_uses = num_immediate_uses (df);
@@ -332,7 +333,7 @@ dse_record_phis (struct dom_walk_data *walk_data, basic_block bb)
   struct dse_global_data *dse_gd = walk_data->global_data;
   tree phi;
 
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     if (need_imm_uses_for (PHI_RESULT (phi)))
       record_voperand_set (dse_gd->stores,
 			   &bd->stores,
@@ -372,7 +373,7 @@ tree_ssa_dse (void)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	stmt_ann (bsi_stmt (bsi))->uid = uid++;
 
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	stmt_ann (phi)->uid = uid++;
     }
 

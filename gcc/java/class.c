@@ -43,6 +43,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "stdio.h"
 #include "target.h"
 #include "except.h"
+#include "tree-iterator.h"
 
 /* DOS brain-damage */
 #ifndef O_BINARY
@@ -61,8 +62,6 @@ static tree maybe_layout_super_class (tree, tree);
 static void add_miranda_methods (tree, tree);
 static int assume_compiled (const char *);
 static tree build_symbol_entry (tree);
-
-static GTY(()) rtx registerClass_libfunc;
 
 struct obstack temporary_obstack;
 
@@ -319,7 +318,6 @@ make_class (void)
 {
   tree type;
   type = make_node (RECORD_TYPE);
-  TYPE_BINFO (type) = make_tree_vec (BINFO_ELTS);
   MAYBE_CREATE_TYPE_TYPE_LANG_SPECIFIC (type);
 
   return type;
@@ -349,7 +347,8 @@ unmangle_classname (const char *name, int name_length)
 }
 
 
-/* Given a class, create the DECLs for all its associated indirect dispatch tables.  */
+/* Given a class, create the DECLs for all its associated indirect
+   dispatch tables.  */
 void
 gen_indirect_dispatch_tables (tree type)
 {
@@ -473,19 +472,21 @@ set_super_info (int access_flags, tree this_class,
 {
   int total_supers = interfaces_count;
   tree class_decl = TYPE_NAME (this_class);
+  
   if (super_class)
     total_supers++;
 
+  TYPE_BINFO (this_class) = make_tree_binfo (0);
   TYPE_VFIELD (this_class) = TYPE_VFIELD (object_type_node);
-  TYPE_BINFO_BASETYPES (this_class) = make_tree_vec (total_supers);
+  BINFO_BASE_BINFOS (TYPE_BINFO (this_class)) = make_tree_vec (total_supers);
   if (super_class)
     {
-      tree super_binfo = make_tree_vec (BINFO_ELTS);
+      tree super_binfo = make_tree_binfo (0);
       BINFO_TYPE (super_binfo) = super_class;
       BINFO_OFFSET (super_binfo) = integer_zero_node;
-      TREE_VEC_ELT (BINFO_BASETYPES (TYPE_BINFO (this_class)), 0)
+      TREE_VEC_ELT (BINFO_BASE_BINFOS (TYPE_BINFO (this_class)), 0)
 	= super_binfo;
-      CLASS_HAS_SUPER (this_class) = 1;
+      CLASS_HAS_SUPER_FLAG (TYPE_BINFO (this_class)) = 1;
     }
 
   set_class_decl_access_flags (access_flags, class_decl);
@@ -519,7 +520,7 @@ class_depth (tree clas)
   while (clas != object_type_node)
     {
       depth++;
-      clas = TYPE_BINFO_BASETYPE (clas, 0);
+      clas = BINFO_TYPE (BINFO_BASE_BINFO (TYPE_BINFO (clas), 0));
     }
   return depth;
 }
@@ -532,8 +533,9 @@ interface_of_p (tree type1, tree type2)
   int n, i;
   tree basetype_vec;
 
-  if (!(basetype_vec = TYPE_BINFO_BASETYPES (type2)))
+  if (! TYPE_BINFO (type2))
     return 0;
+  basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (type2));
   n = TREE_VEC_LENGTH (basetype_vec);
   for (i = 0; i < n; i++)
     {
@@ -585,10 +587,36 @@ enclosing_context_p (tree type1, tree type2)
   return 0;
 }
 
-/* Return 1 iff there exists a common enclosing context between TYPE1
-   and TYPE2.  */
 
-int common_enclosing_context_p (tree type1, tree type2)
+/* Return 1 iff TYPE1 and TYPE2 share a common enclosing class, regardless of
+   nesting level.  */
+
+int
+common_enclosing_context_p (tree type1, tree type2)
+{
+  while (type1)
+    {
+      tree current;
+      for (current = type2; current;
+	   current = (INNER_CLASS_TYPE_P (current) ?
+		      TREE_TYPE (DECL_CONTEXT (TYPE_NAME (current))) : 
+		      NULL_TREE))
+	if (type1 == current)
+	  return 1;
+
+      if (INNER_CLASS_TYPE_P (type1))
+        type1 = TREE_TYPE (DECL_CONTEXT (TYPE_NAME (type1)));
+      else
+        break;
+    }
+  return 0;
+}
+
+/* Return 1 iff there exists a common enclosing "this" between TYPE1
+   and TYPE2, without crossing any static context.  */
+
+int
+common_enclosing_instance_p (tree type1, tree type2)
 {
   if (!PURE_INNER_CLASS_TYPE_P (type1) || !PURE_INNER_CLASS_TYPE_P (type2))
     return 0;
@@ -611,11 +639,11 @@ int common_enclosing_context_p (tree type1, tree type2)
 static void
 add_interface_do (tree basetype_vec, tree interface_class, int i)
 {
-  tree interface_binfo = make_tree_vec (BINFO_ELTS);
+  tree interface_binfo = make_tree_binfo (0);
   BINFO_TYPE (interface_binfo) = interface_class;
   BINFO_OFFSET (interface_binfo) = integer_zero_node;
   BINFO_VPTR_FIELD (interface_binfo) = integer_zero_node;
-  TREE_VIA_VIRTUAL (interface_binfo) = 1;
+  BINFO_VIRTUAL_P (interface_binfo) = 1;
   TREE_VEC_ELT (basetype_vec, i) = interface_binfo;
 }
 
@@ -626,7 +654,7 @@ add_interface_do (tree basetype_vec, tree interface_class, int i)
 tree
 maybe_add_interface (tree this_class, tree interface_class)
 {
-  tree basetype_vec = TYPE_BINFO_BASETYPES (this_class);
+  tree basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (this_class));
   int i;
   int n = TREE_VEC_LENGTH (basetype_vec);
   for (i = 0; ; i++)
@@ -650,7 +678,7 @@ maybe_add_interface (tree this_class, tree interface_class)
 void
 add_interface (tree this_class, tree interface_class)
 {
-  tree basetype_vec = TYPE_BINFO_BASETYPES (this_class);
+  tree basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (this_class));
   int i;
   int n = TREE_VEC_LENGTH (basetype_vec);
   for (i = 0; ; i++)
@@ -1023,7 +1051,7 @@ build_class_ref (tree type)
 
 	      prim_class = lookup_class (get_identifier (prim_class_name));
 	      return build (COMPONENT_REF, NULL_TREE,
-			    prim_class, TYPE_identifier_node);
+			    prim_class, TYPE_identifier_node, NULL_TREE);
 	    }
 	  decl_name = TYPE_NAME (type);
 	  if (TREE_CODE (decl_name) == TYPE_DECL)
@@ -1088,7 +1116,8 @@ build_static_field_ref (tree fdecl)
 		       (fdecl, &TYPE_ATABLE_METHODS (output_class)), 0);
       tree field_address
 	= build (ARRAY_REF, build_pointer_type (TREE_TYPE (fdecl)), 
-		 TYPE_ATABLE_DECL (output_class), table_index);
+		 TYPE_ATABLE_DECL (output_class), table_index,
+		 NULL_TREE, NULL_TREE);
       return fold (build1 (INDIRECT_REF, TREE_TYPE (fdecl), 
 			   field_address));
     }
@@ -1101,7 +1130,8 @@ build_static_field_ref (tree fdecl)
       int field_index = 0;
       ref = build1 (INDIRECT_REF, class_type_node, ref);
       ref = build (COMPONENT_REF, field_ptr_type_node, ref,
-		   lookup_field (&class_type_node, fields_ident));
+		   lookup_field (&class_type_node, fields_ident),
+		   NULL_TREE);
 
       for (fld = TYPE_FIELDS (fclass); ; fld = TREE_CHAIN (fld))
 	{
@@ -1118,9 +1148,12 @@ build_static_field_ref (tree fdecl)
 			 ref, build_int_2 (field_index, 0)));
       ref = build1 (INDIRECT_REF, field_type_node, ref);
       ref = build (COMPONENT_REF, field_info_union_node,
-		   ref, lookup_field (&field_type_node, info_ident));
+		   ref, lookup_field (&field_type_node, info_ident),
+		   NULL_TREE);
       ref = build (COMPONENT_REF, ptr_type_node,
-		   ref, TREE_CHAIN (TYPE_FIELDS (field_info_union_node)));
+		   ref, TREE_CHAIN (TYPE_FIELDS (field_info_union_node)),
+		   NULL_TREE);
+      ref = build1 (NOP_EXPR, build_pointer_type (TREE_TYPE (fdecl)), ref);
       return fold (build1 (INDIRECT_REF, TREE_TYPE(fdecl), ref));
     }
 }
@@ -1622,7 +1655,8 @@ make_class_data (tree type)
 
   /* Build and emit the array of implemented interfaces. */
   if (type != object_type_node)
-      interface_len = TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (type)) - 1;
+    interface_len = BINFO_N_BASE_BINFOS (TYPE_BINFO (type)) - 1;
+  
   if (interface_len > 0)
     {
       tree init = NULL_TREE;
@@ -1634,7 +1668,7 @@ make_class_data (tree type)
 			  interface_array_type);
       for (i = interface_len;  i > 0; i--)
 	{
-	  tree child = TREE_VEC_ELT (TYPE_BINFO_BASETYPES (type), i);
+	  tree child = TREE_VEC_ELT (BINFO_BASE_BINFOS (TYPE_BINFO (type)), i);
 	  tree iclass = BINFO_TYPE (child);
 	  tree index;
 	  if (! flag_indirect_dispatch
@@ -2027,7 +2061,7 @@ layout_class (tree this_class)
      of this itself.  */
   if (!CLASS_FROM_SOURCE_P (this_class))
     {
-      tree basetype_vec = TYPE_BINFO_BASETYPES (this_class);
+      tree basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (this_class));
 
       if (basetype_vec)
 	{
@@ -2063,7 +2097,7 @@ layout_class (tree this_class)
 static void
 add_miranda_methods (tree base_class, tree search_class)
 {
-  tree basetype_vec = TYPE_BINFO_BASETYPES (search_class);
+  tree basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (search_class));
   int i, n = TREE_VEC_LENGTH (basetype_vec);
   for (i = 1; i < n; ++i)
     {
@@ -2208,9 +2242,24 @@ layout_class_method (tree this_class, tree super_class,
     {
       tree method_sig =
 	build_java_argument_signature (TREE_TYPE (method_decl));
+      bool method_override = false;
       tree super_method = lookup_argument_method (super_class, method_name,
 						  method_sig);
-      if (super_method != NULL_TREE && ! METHOD_PRIVATE (super_method))
+      if (super_method != NULL_TREE)
+        {
+	  method_override = true;
+	  if (! METHOD_PUBLIC (super_method) && 
+	      ! METHOD_PROTECTED (super_method))
+	    {
+	      /* Don't override private method, or default-access method in 
+		 another package.  */
+	      if (METHOD_PRIVATE (super_method) ||
+		  ! in_same_package (TYPE_NAME (this_class), 
+				     TYPE_NAME (super_class)))
+		method_override = false;
+	   }
+	}
+      if (method_override)
 	{
 	  tree method_index = get_method_index (super_method);
 	  set_method_index (method_decl, method_index);
@@ -2255,14 +2304,19 @@ register_class (void)
 /* Emit something to register classes at start-up time.
 
    The preferred mechanism is through the .jcr section, which contain
-   a list of pointers to classes which get registered during
-   constructor invocation time.  The fallback mechanism is to generate
-   a `constructor' function which calls _Jv_RegisterClass for each
-   class in this file.  */
+   a list of pointers to classes which get registered during constructor
+   invocation time.
+
+   The fallback mechanism is to add statements to *LIST_P to call
+   _Jv_RegisterClass for each class in this file.  These statements will
+   be added to a static constructor function for this translation unit.  */
 
 void
-emit_register_classes (void)
+emit_register_classes (tree *list_p)
 {
+  if (registered_class == NULL)
+    return;
+
   /* ??? This isn't quite the correct test.  We also have to know
      that the target is using gcc's crtbegin/crtend objects rather
      than the ones that come with the operating system.  */
@@ -2281,50 +2335,21 @@ emit_register_classes (void)
     }
   else
     {
-      extern tree get_file_function_name (int);
-      tree init_name = get_file_function_name ('I');
-      tree init_type = build_function_type (void_type_node, end_params_node);
-      tree init_decl;
-      tree t;
-      location_t saved_loc = input_location;
-      
-      init_decl = build_decl (FUNCTION_DECL, init_name, init_type);
-      SET_DECL_ASSEMBLER_NAME (init_decl, init_name);
-      DECL_SOURCE_LINE (init_decl) = 0;
-      TREE_STATIC (init_decl) = 1;
-      current_function_decl = init_decl;
-      DECL_RESULT (init_decl) = build_decl (RESULT_DECL, NULL_TREE,
-					    void_type_node);
+      tree klass, t, register_class_fn;
 
-      /* It can be a static function as long as collect2 does not have
-         to scan the object file to find its ctor/dtor routine.  */
-      TREE_PUBLIC (init_decl) = ! targetm.have_ctors_dtors;
+      t = build_function_type_list (void_type_node, class_ptr_type, NULL);
+      t = build_decl (FUNCTION_DECL, get_identifier ("_Jv_RegisterClass"), t);
+      TREE_PUBLIC (t) = 1;
+      DECL_EXTERNAL (t) = 1;
+      register_class_fn = t;
 
-      /* Suppress spurious warnings.  */
-      TREE_USED (init_decl) = 1;
-
-      pushlevel (0);
-      make_decl_rtl (init_decl, NULL);
-      init_function_start (init_decl);
-      expand_function_start (init_decl, 0);
-
-      /* Do not allow the function to be deferred.  */
-      current_function_cannot_inline
-	= "static constructors and destructors cannot be inlined";
-
-      for ( t = registered_class; t; t = TREE_CHAIN (t))
-	emit_library_call (registerClass_libfunc, 0, VOIDmode, 1,
-			   XEXP (DECL_RTL (t), 0), Pmode);
-      input_location = DECL_SOURCE_LOCATION (init_decl);
-      expand_function_end ();
-      poplevel (1, 0, 1);
-      rest_of_compilation (init_decl);
-      current_function_decl = NULL_TREE;
-
-      if (targetm.have_ctors_dtors)
-	(* targetm.asm_out.constructor) (XEXP (DECL_RTL (init_decl), 0),
-					 DEFAULT_INIT_PRIORITY);
-      input_location = saved_loc;
+      for (klass = registered_class; klass; klass = TREE_CHAIN (klass))
+	{
+	  t = build_fold_addr_expr (klass);
+	  t = tree_cons (NULL, t, NULL);
+	  t = build_function_call_expr (register_class_fn, t);
+	  append_to_statement_list (t, list_p);
+	}
     }
 }
 
@@ -2356,8 +2381,8 @@ build_symbol_entry (tree decl)
 /* Emit a symbol table: used by -findirect-dispatch.  */
 
 tree
-emit_symbol_table (tree name, tree the_table, tree decl_list, tree the_syms_decl, 
-			  tree the_array_element_type)
+emit_symbol_table (tree name, tree the_table, tree decl_list,
+                   tree the_syms_decl, tree the_array_element_type)
 {
   tree method_list, method, table, list, null_symbol;
   tree table_size, the_array_type;
@@ -2464,9 +2489,9 @@ emit_catch_table (tree this_class)
 void
 init_class_processing (void)
 {
-  registerClass_libfunc = gen_rtx_SYMBOL_REF (Pmode, "_Jv_RegisterClass");
   fields_ident = get_identifier ("fields");
   info_ident = get_identifier ("info");
+
   gcc_obstack_init (&temporary_obstack);
 }
 
@@ -2532,6 +2557,65 @@ java_treetreehash_create (size_t size, int gc)
   else
     return htab_create_alloc (size, java_treetreehash_hash,
 			      java_treetreehash_compare, free, xcalloc, free);
+}
+
+/* Break down qualified IDENTIFIER into package and class-name components.
+   For example, given SOURCE "pkg.foo.Bar", LEFT will be set to
+   "pkg.foo", and RIGHT to "Bar". */
+
+int
+split_qualified_name (tree *left, tree *right, tree source)
+{
+  char *p, *base;
+  int l = IDENTIFIER_LENGTH (source);
+
+  base = alloca (l + 1);
+  memcpy (base, IDENTIFIER_POINTER (source), l + 1);
+
+  /* Breakdown NAME into REMAINDER . IDENTIFIER.  */
+  p = base + l - 1;
+  while (*p != '.' && p != base)
+    p--;
+
+  /* We didn't find a '.'. Return an error.  */
+  if (p == base)
+    return 1;
+
+  *p = '\0';
+  if (right)
+    *right = get_identifier (p+1);
+  *left = get_identifier (base);
+
+  return 0;
+}
+
+/* Given two classes (TYPE_DECL) or class names (IDENTIFIER), return TRUE 
+   if the classes are from the same package. */
+
+int
+in_same_package (tree name1, tree name2)
+{
+  tree tmp;
+  tree pkg1;
+  tree pkg2;
+
+  if (TREE_CODE (name1) == TYPE_DECL)
+    name1 = DECL_NAME (name1);
+  if (TREE_CODE (name2) == TYPE_DECL)
+    name2 = DECL_NAME (name2);
+
+  if (QUALIFIED_P (name1) != QUALIFIED_P (name2))
+    /* One in empty package. */
+    return 0;
+
+  if (QUALIFIED_P (name1) == 0 && QUALIFIED_P (name2) == 0)
+    /* Both in empty package. */
+    return 1;
+
+  split_qualified_name (&pkg1, &tmp, name1);
+  split_qualified_name (&pkg2, &tmp, name2);
+
+  return (pkg1 == pkg2);
 }
 
 #include "gt-java-class.h"

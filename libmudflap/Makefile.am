@@ -4,7 +4,7 @@
 ## Free Software Foundation, Inc.
 ##
 
-AUTOMAKE_OPTIONS = 1.3 foreign
+AUTOMAKE_OPTIONS = 1.8 foreign
 MAINT_CHARSET = latin1
 SUBDIRS = testsuite
 
@@ -20,18 +20,21 @@ endif
 toolexeclib_LTLIBRARIES = libmudflap.la $(libmudflapth)
 include_HEADERS = mf-runtime.h
 
+
 libmudflap_la_SOURCES = \
 	mf-runtime.c \
 	mf-heuristics.c \
 	mf-hooks1.c \
 	mf-hooks2.c
+mf-runtime.lo: mf-runtime.c splay-tree.c splay-tree.h
 libmudflap_la_LIBADD = 
 libmudflap_la_DEPENDENCIES = $(libmudflap_la_LIBADD)
+libmudflap_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 clean-local:
 	rm -f pth/*.o pth/*.lo
 
-pth/mf-runtime.lo: mf-runtime.c mf-runtime.h mf-impl.h
+pth/mf-runtime.lo: mf-runtime.c mf-runtime.h mf-impl.h splay-tree.c splay-tree.h
 	$(LTCOMPILE) -DLIBMUDFLAPTH -c $(srcdir)/mf-runtime.c -o $@
 pth/mf-heuristics.lo: mf-heuristics.c mf-runtime.h mf-impl.h
 	$(LTCOMPILE) -DLIBMUDFLAPTH -c $(srcdir)/mf-heuristics.c -o $@
@@ -51,7 +54,7 @@ libmudflapth_la_LIBADD = \
 	pth/mf-hooks2.lo \
 	pth/mf-hooks3.lo
 libmudflapth_la_DEPENDENCIES = $(libmudflapth_la_LIBADD)
-
+libmudflapth_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 
 # XXX hack alert
@@ -97,39 +100,6 @@ AM_MAKEFLAGS = \
 	"DESTDIR=$(DESTDIR)"
 
 MAKEOVERRIDES=
-
-# Multilib support variables.
-MULTISRCTOP =
-MULTIBUILDTOP =
-MULTIDIRS =
-MULTISUBDIR =
-MULTIDO = true
-MULTICLEAN = true
-
-# Multilib support.
-.PHONY: all-multi mostlyclean-multi clean-multi distclean-multi \
-	maintainer-clean-multi
-
-all-recursive: all-multi
-install-recursive: install-multi
-mostlyclean-recursive: mostlyclean-multi
-clean-recursive: clean-multi
-distclean-recursive: distclean-multi
-maintainer-clean-recursive: maintainer-clean-multi
-
-all-multi:
-	: $(MAKE) ; exec $(MULTIDO) $(AM_MAKEFLAGS) DO=all multi-do
-install-multi:
-	$(MULTIDO) $(AM_MAKEFLAGS) DO=install multi-do
-mostlyclean-multi:
-	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=mostlyclean multi-clean
-clean-multi:
-	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=clean multi-clean
-distclean-multi:
-	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=distclean multi-clean
-maintainer-clean-multi:
-	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=maintainer-clean multi-clean
-
 
 ## ################################################################
 

@@ -1,3 +1,35 @@
+2004-07-11  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* src/s390/ffi.c (ffi_prep_args): Fix C aliasing violation.
+	(ffi_check_float_struct): Remove unused prototype.
+
+2004-06-30  Geoffrey Keating  <geoffk@apple.com>
+
+	* src/powerpc/ffi_darwin.c (flush_icache): ';' is a comment
+	character on Darwin, use '\n\t' instead.
+
+2004-06-26  Matthias Klose  <doko@debian.org>
+
+	* libtool-version: Fix typo in revision/age.
+
+2004-06-17  Matthias Klose  <doko@debian.org>
+
+	* libtool-version: New.
+	* Makefile.am (libffi_la_LDFLAGS): Use -version-info for soname.
+	* Makefile.in: Regenerate.
+
+2004-06-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.am: Remove useless multilib rules.
+	* Makefile.in: Regenerate.
+	* aclocal.m4: Regenerate with automake 1.8.5.
+	* configure.ac: Remove useless multilib configury.
+	* configure: Regenerate.
+
+2004-06-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* .cvsignore: New file.
+
 2004-06-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* src/ia64/unix.S (ffi_call_unix): Insert group barrier break

@@ -3140,9 +3140,9 @@
 
 ;; The definition of this insn does not really explain what it does,
 ;; but it should suffice that anything generated as this insn will be
-;; recognized as a movstrsi operation, and that it will not successfully
+;; recognized as a movmemsi operation, and that it will not successfully
 ;; combine with anything.
-(define_expand "movstrsi"
+(define_expand "movmemsi"
   [(parallel [(set (match_operand:BLK 0 "" "")
 		   (match_operand:BLK 1 "" ""))
 	      (clobber (match_dup 4))
@@ -3222,7 +3222,7 @@
 ;; operands 0 and 1 are both equivalent to symbolic MEMs.  Thus, we are
 ;; forced to internally copy operands 0 and 1 to operands 7 and 8,
 ;; respectively.  We then split or peephole optimize after reload.
-(define_insn "movstrsi_prereload"
+(define_insn "movmemsi_prereload"
   [(set (mem:BLK (match_operand:SI 0 "register_operand" "r,r"))
 	(mem:BLK (match_operand:SI 1 "register_operand" "r,r")))
    (clobber (match_operand:SI 2 "register_operand" "=&r,&r"))	;loop cnt/tmp
@@ -3315,7 +3315,7 @@
     }
 }")
 
-(define_insn "movstrsi_postreload"
+(define_insn "movmemsi_postreload"
   [(set (mem:BLK (match_operand:SI 0 "register_operand" "+r,r"))
 	(mem:BLK (match_operand:SI 1 "register_operand" "+r,r")))
    (clobber (match_operand:SI 2 "register_operand" "=&r,&r"))	;loop cnt/tmp
@@ -3330,7 +3330,7 @@
   "* return output_block_move (operands, !which_alternative);"
   [(set_attr "type" "multi,multi")])
 
-(define_expand "movstrdi"
+(define_expand "movmemdi"
   [(parallel [(set (match_operand:BLK 0 "" "")
 		   (match_operand:BLK 1 "" ""))
 	      (clobber (match_dup 4))
@@ -3410,7 +3410,7 @@
 ;; operands 0 and 1 are both equivalent to symbolic MEMs.  Thus, we are
 ;; forced to internally copy operands 0 and 1 to operands 7 and 8,
 ;; respectively.  We then split or peephole optimize after reload.
-(define_insn "movstrdi_prereload"
+(define_insn "movmemdi_prereload"
   [(set (mem:BLK (match_operand:DI 0 "register_operand" "r,r"))
 	(mem:BLK (match_operand:DI 1 "register_operand" "r,r")))
    (clobber (match_operand:DI 2 "register_operand" "=&r,&r"))	;loop cnt/tmp
@@ -3503,7 +3503,7 @@
     }
 }")
 
-(define_insn "movstrdi_postreload"
+(define_insn "movmemdi_postreload"
   [(set (mem:BLK (match_operand:DI 0 "register_operand" "+r,r"))
 	(mem:BLK (match_operand:DI 1 "register_operand" "+r,r")))
    (clobber (match_operand:DI 2 "register_operand" "=&r,&r"))	;loop cnt/tmp
@@ -3518,7 +3518,7 @@
   "* return output_block_move (operands, !which_alternative);"
   [(set_attr "type" "multi,multi")])
 
-(define_expand "clrstrsi"
+(define_expand "clrmemsi"
   [(parallel [(set (match_operand:BLK 0 "" "")
 		   (const_int 0))
 	      (clobber (match_dup 3))
@@ -3554,7 +3554,7 @@
   operands[4] = gen_reg_rtx (SImode);
 }")
 
-(define_insn "clrstrsi_prereload"
+(define_insn "clrmemsi_prereload"
   [(set (mem:BLK (match_operand:SI 0 "register_operand" "r,r"))
 	(const_int 0))
    (clobber (match_operand:SI 1 "register_operand" "=&r,&r"))	;loop cnt/tmp
@@ -3616,7 +3616,7 @@
     }
 }")
 
-(define_insn "clrstrsi_postreload"
+(define_insn "clrmemsi_postreload"
   [(set (mem:BLK (match_operand:SI 0 "register_operand" "+r,r"))
 	(const_int 0))
    (clobber (match_operand:SI 1 "register_operand" "=&r,&r"))	;loop cnt/tmp
@@ -3628,7 +3628,7 @@
   "* return output_block_clear (operands, !which_alternative);"
   [(set_attr "type" "multi,multi")])
 
-(define_expand "clrstrdi"
+(define_expand "clrmemdi"
   [(parallel [(set (match_operand:BLK 0 "" "")
 		   (const_int 0))
 	      (clobber (match_dup 3))
@@ -3664,7 +3664,7 @@
   operands[4] = gen_reg_rtx (DImode);
 }")
 
-(define_insn "clrstrdi_prereload"
+(define_insn "clrmemdi_prereload"
   [(set (mem:BLK (match_operand:DI 0 "register_operand" "r,r"))
 	(const_int 0))
    (clobber (match_operand:DI 1 "register_operand" "=&r,&r"))	;loop cnt/tmp
@@ -3726,7 +3726,7 @@
     }
 }")
 
-(define_insn "clrstrdi_postreload"
+(define_insn "clrmemdi_postreload"
   [(set (mem:BLK (match_operand:DI 0 "register_operand" "+r,r"))
 	(const_int 0))
    (clobber (match_operand:DI 1 "register_operand" "=&r,&r"))	;loop cnt/tmp
@@ -9352,3 +9352,141 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
     }
   DONE;
 }")
+
+(define_expand "prefetch"
+  [(match_operand 0 "address_operand" "")
+   (match_operand 1 "const_int_operand" "")
+   (match_operand 2 "const_int_operand" "")]
+  "TARGET_PA_20"
+{
+  /* The PA 2.0 prefetch instructions only support short displacements
+     when a cache control completer needs to be supplied.  Thus, we
+     can't use LO_SUM DLT addresses with the spatial locality completer.  */
+  if (operands[2] == const0_rtx && IS_LO_SUM_DLT_ADDR_P (operands[0]))
+    FAIL;
+
+  /* We change operand0 to a MEM as we don't have the infrastructure to
+     output all the supported address modes for ldw/ldd but we do have
+     it for MEMs.  */
+  operands[0] = gen_rtx_MEM (Pmode, operands[0]);
+
+  if (!TARGET_NO_SPACE_REGS
+      && !cse_not_expected
+      && GET_CODE (XEXP (operands[0], 0)) == PLUS
+      && REG_P (XEXP (XEXP (operands[0], 0), 0))
+      && REG_P (XEXP (XEXP (operands[0], 0), 1)))
+    operands[0]
+      = replace_equiv_address (operands[0],
+			       copy_to_mode_reg (Pmode,
+					 	 XEXP (operands[0], 0)));
+
+  if (TARGET_64BIT)
+    emit_insn (gen_prefetch_64 (operands[0], operands[1], operands[2]));
+  else
+    emit_insn (gen_prefetch_32 (operands[0], operands[1], operands[2]));
+  DONE;
+})
+
+(define_insn "prefetch_64"
+  [(prefetch (match_operand:DI 0 "prefetch_operand" "A,RQ")
+	     (match_operand:DI 1 "const_int_operand" "n,n")
+	     (match_operand:DI 2 "const_int_operand" "n,n"))]
+  "TARGET_64BIT
+   && (operands[2] != const0_rtx
+       || GET_CODE (XEXP (operands[0], 0)) != PLUS
+       || GET_CODE (XEXP (XEXP (operands[0], 0), 1)) != CONST_INT
+       || VAL_5_BITS_P (XEXP (XEXP (operands[0], 0), 1)))"
+{
+  /* The SL completor indicates good spatial locality but poor temporal
+     locality.  The ldw instruction with a target of general register 0
+     prefetches a cache line for a read.  The ldd instruction prefetches
+     a cache line for a write.  */
+  static const char * const instr[2][2][2] = {
+    {
+      {
+	"",
+	"ldw RT'%A0,%%r0",
+      },
+      {
+	"",
+	"ldd RT'%A0,%%r0",
+      },
+    },
+    {
+      {
+	"ldw%M0,sl %0,%%r0",
+	"ldw%M0 %0,%%r0",
+      },
+      {
+	"ldd%M0,sl %0,%%r0",
+	"ldd%M0 %0,%%r0",
+      }
+    }
+  };
+  int read_or_write = INTVAL (operands[1]);
+  int locality = INTVAL (operands[2]);
+
+  if ((which_alternative != 0 && which_alternative != 1)
+      || (read_or_write != 0 && read_or_write != 1)
+      || (locality < 0 || locality > 3))
+    abort ();
+
+  if (which_alternative == 0 && locality == 0)
+    abort ();
+
+  return instr [which_alternative][read_or_write][locality == 0 ? 0 : 1];
+}
+  [(set_attr "type" "load")
+   (set_attr "length" "4")])
+
+(define_insn "prefetch_32"
+  [(prefetch (match_operand:SI 0 "prefetch_operand" "A,RQ")
+	     (match_operand:SI 1 "const_int_operand" "n,n")
+	     (match_operand:SI 2 "const_int_operand" "n,n"))]
+  "TARGET_PA_20
+   && (operands[2] != const0_rtx
+       || GET_CODE (XEXP (operands[0], 0)) != PLUS
+       || GET_CODE (XEXP (XEXP (operands[0], 0), 1)) != CONST_INT
+       || VAL_5_BITS_P (XEXP (XEXP (operands[0], 0), 1)))"
+{
+  /* The SL completor indicates good spatial locality but poor temporal
+     locality.  The ldw instruction with a target of general register 0
+     prefetches a cache line for a read.  The ldd instruction prefetches
+     a cache line for a write.  */
+  static const char * const instr[2][2][2] = {
+    {
+      {
+	"",
+	"ldw RT'%A0,%%r0",
+      },
+      {
+	"",
+	"ldd RT'%A0,%%r0",
+      },
+    },
+    {
+      {
+	"ldw%M0,sl %0,%%r0",
+	"ldw%M0 %0,%%r0",
+      },
+      {
+	"ldd%M0,sl %0,%%r0",
+	"ldd%M0 %0,%%r0",
+      }
+    }
+  };
+  int read_or_write = INTVAL (operands[1]);
+  int locality = INTVAL (operands[2]);
+
+  if ((which_alternative != 0 && which_alternative != 1)
+      || (read_or_write != 0 && read_or_write != 1)
+      || (locality < 0 || locality > 3))
+    abort ();
+
+  if (which_alternative == 0 && locality == 0)
+    abort ();
+
+  return instr [which_alternative][read_or_write][locality == 0 ? 0 : 1];
+}
+  [(set_attr "type" "load")
+   (set_attr "length" "4")])

@@ -192,9 +192,16 @@ static bool       mcore_return_in_memory	(tree, tree);
 
 #undef  TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY		mcore_return_in_memory
+#undef  TARGET_MUST_PASS_IN_STACK
+#define TARGET_MUST_PASS_IN_STACK	must_pass_in_stack_var_size
+#undef  TARGET_PASS_BY_REFERENCE
+#define TARGET_PASS_BY_REFERENCE  hook_pass_by_reference_must_pass_in_stack
 
 #undef  TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS	mcore_setup_incoming_varargs
+
+#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2998,20 +3005,6 @@ mcore_override_options (void)
     target_flags |= M340_BIT;
 }
 
-int
-mcore_must_pass_on_stack (enum machine_mode mode ATTRIBUTE_UNUSED, tree type)
-{
-  if (type == NULL)
-    return 0;
-
-  /* If the argument can have its address taken, it must
-     be placed on the stack.  */
-  if (TREE_ADDRESSABLE (type))
-    return 1;
-
-  return 0;
-}
-
 /* Compute the number of word sized registers needed to 
    hold a function argument of mode MODE and type TYPE.  */
 
@@ -3020,7 +3013,7 @@ mcore_num_arg_regs (enum machine_mode mode, tree type)
 {
   int size;
 
-  if (MUST_PASS_IN_STACK (mode, type))
+  if (targetm.calls.must_pass_in_stack (mode, type))
     return 0;
 
   if (type && mode == BLKmode)
@@ -3115,7 +3108,7 @@ mcore_function_arg (CUMULATIVE_ARGS cum, enum machine_mode mode,
   if (! named)
     return 0;
 
-  if (MUST_PASS_IN_STACK (mode, type))
+  if (targetm.calls.must_pass_in_stack (mode, type))
     return 0;
 
   arg_reg = ROUND_REG (cum, mode);
@@ -3143,7 +3136,7 @@ mcore_function_arg_partial_nregs (CUMULATIVE_ARGS cum, enum machine_mode mode,
   if (named == 0)
     return 0;
 
-  if (MUST_PASS_IN_STACK (mode, type))
+  if (targetm.calls.must_pass_in_stack (mode, type))
     return 0;
       
   /* REG is not the *hardware* register number of the register that holds

@@ -48,8 +48,7 @@ struct JCF;
       SUPPRESS_UNREACHABLE_ERROR (for other _EXPR nodes)
       ANONYMOUS_CLASS_P (in RECORD_TYPE)
       ARG_FINAL_P (in TREE_LIST)
-   1: CLASS_HAS_SUPER_FLAG (in TREE_VEC).
-      IS_A_CLASSFILE_NAME (in IDENTIFIER_NODE)
+   1: IS_A_CLASSFILE_NAME (in IDENTIFIER_NODE)
       COMPOUND_ASSIGN_P (in EXPR (binop_*))
       LOCAL_CLASS_P (in RECORD_TYPE)
       BLOCK_IS_IMPLICIT (in BLOCK)
@@ -122,12 +121,14 @@ struct JCF;
 
 /* True if the class whose TYPE_BINFO this is has a superclass.
    (True of all classes except Object.) */
-#define CLASS_HAS_SUPER_FLAG(BINFO) TREE_LANG_FLAG_1 (TREE_VEC_CHECK (BINFO))
-#define CLASS_HAS_SUPER(TYPE) CLASS_HAS_SUPER_FLAG (TYPE_BINFO (TYPE))
+#define CLASS_HAS_SUPER_FLAG(BINFO) BINFO_FLAG_1 (BINFO)
+#define CLASS_HAS_SUPER(TYPE) \
+  (TYPE_BINFO (TYPE) && CLASS_HAS_SUPER_FLAG (TYPE_BINFO (TYPE)))
 
 /* Return the supertype of class TYPE, or NULL_TREE is it has none. */
-#define CLASSTYPE_SUPER(TYPE) (CLASS_HAS_SUPER (TYPE) ? \
-  BINFO_TYPE (TREE_VEC_ELT (TYPE_BINFO_BASETYPES (TYPE), 0)) : NULL_TREE)
+#define CLASSTYPE_SUPER(TYPE) (CLASS_HAS_SUPER (TYPE) \
+  ? BINFO_TYPE (BINFO_BASE_BINFO (TYPE_BINFO (TYPE), 0)) \
+  : NULL_TREE)
 
 /* True if the class we are compiling is a .java source file;
    false if it is a .class bytecode file. */
@@ -151,9 +152,6 @@ extern int compiling_from_source;
 /* List of all class DECLs seen so far.  */
 #define all_class_list \
   java_global_trees[JTI_ALL_CLASS_LIST]
-
-/* List of all class filenames seen so far.  */
-#define all_class_filename java_global_trees [JTI_ALL_CLASS_FILENAME]
 
 /* List of virtual decls referred to by this translation unit, used to
    generate virtual method offset symbol table.  */
@@ -414,7 +412,6 @@ enum java_tree_index
   JTI_CURRENT_CLASS,
   JTI_OUTPUT_CLASS,
   JTI_ALL_CLASS_LIST,
-  JTI_ALL_CLASS_FILENAME,
 
   JTI_PREDEF_FILENAMES,
 
@@ -1117,6 +1114,9 @@ struct lang_type GTY(())
 #define SEARCH_SUPER          2
 #define SEARCH_VISIBLE        4
 
+/* Defined in java-except.h  */
+struct eh_range;
+
 extern void java_parse_file (int);
 extern bool java_mark_addressable (tree);
 extern tree java_type_for_mode (enum machine_mode, int);
@@ -1167,7 +1167,6 @@ extern tree getdecls (void);
 extern void pushlevel (int);
 extern tree poplevel (int,int, int);
 extern void insert_block (tree);
-extern void set_block (tree);
 extern tree pushdecl (tree);
 extern void java_init_decl_processing (void);
 extern void java_dup_lang_specific_decl (tree);
@@ -1234,6 +1233,7 @@ extern int get_access_flags_from_decl (tree);
 extern int interface_of_p (tree, tree);
 extern int inherits_from_p (tree, tree);
 extern int common_enclosing_context_p (tree, tree);
+extern int common_enclosing_instance_p (tree, tree);
 extern int enclosing_context_p (tree, tree);
 extern tree build_result_decl (tree);
 extern void emit_handlers (void);
@@ -1242,7 +1242,7 @@ extern tree get_method_index (tree decl);
 extern void make_class_data (tree);
 extern void register_class (void);
 extern int alloc_name_constant (int, tree);
-extern void emit_register_classes (void);
+extern void emit_register_classes (tree *);
 extern tree emit_symbol_table (tree, tree, tree, tree, tree);
 extern void lang_init_source (int);
 extern void write_classfile (tree);
@@ -1330,21 +1330,18 @@ extern tree decl_constant_value (tree);
 
 extern void java_mark_class_local (tree);
 
-#if defined(RTX_CODE) && defined (HAVE_MACHINE_MODES)
-struct rtx_def * java_expand_expr (tree, rtx, enum machine_mode, int, rtx *); 
-#endif
 extern void java_inlining_merge_static_initializers (tree, void *);
 extern void java_inlining_map_static_initializers (tree, void *);
 
 extern void compile_resource_data (const char *name, const char *buffer, int);
 extern void compile_resource_file (const char *, const char *);
-extern void write_resource_constructor (void);
-extern void init_resource_processing (void);
+extern void write_resource_constructor (tree *);
 extern tree build_java_empty_stmt (void);
 extern tree add_stmt_to_compound (tree, tree, tree);
 extern tree java_add_stmt (tree);
 extern tree java_add_local_var (tree decl);
 extern tree *get_stmts (void);
+extern void register_exception_range(struct eh_range *, int, int);
 
 extern void finish_method (tree);
 extern void java_expand_body (tree);
@@ -1355,6 +1352,11 @@ extern tree make_catch_class_record (tree, tree);
 extern tree emit_catch_table (tree);
 
 extern void gen_indirect_dispatch_tables (tree type);
+extern int split_qualified_name (tree *left, tree *right, tree source);
+extern int in_same_package (tree, tree);
+
+extern tree builtin_function (const char *, tree, int, enum built_in_class,
+			      const char *, tree);
 
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 
@@ -1428,11 +1430,11 @@ extern void gen_indirect_dispatch_tables (tree type);
 /* The number of virtual methods in this class's dispatch table.
    Does not include initial two dummy entries (one points to the
    Class object, and the other is for G++ -fvtable-thunks compatibility). */
-#define TYPE_NVIRTUALS(TYPE) TYPE_BINFO_VIRTUALS (TYPE)
+#define TYPE_NVIRTUALS(TYPE) BINFO_VIRTUALS (TYPE_BINFO (TYPE))
 
 /* A TREE_VEC (indexed by DECL_VINDEX) containing this class's
    virtual methods. */
-#define TYPE_VTABLE(TYPE) TYPE_BINFO_VTABLE(TYPE)
+#define TYPE_VTABLE(TYPE) BINFO_VTABLE(TYPE_BINFO (TYPE))
 
 /* Use CLASS_LOADED_P? FIXME */
 #define CLASS_COMPLETE_P(DECL) DECL_LANG_FLAG_2 (DECL) 
@@ -1669,16 +1671,6 @@ extern tree *type_map;
 /* On a TYPE_DECL, hold the list of inner classes defined within the
    scope of TYPE_DECL.  */
 #define DECL_INNER_CLASS_LIST(NODE) DECL_INITIAL (TYPE_DECL_CHECK (NODE))
-
-/* Build a IDENTIFIER_NODE for a file name we're considering. Since
-   all_class_filename is a registered root, putting this identifier
-   in a TREE_LIST it holds keeps this node alive.  */
-#define BUILD_FILENAME_IDENTIFIER_NODE(F, S)		\
-  if (!((F) = maybe_get_identifier ((S))))		\
-    {							\
-      (F) = get_identifier ((S));			\
-      tree_cons ((F), NULL_TREE, all_class_filename);	\
-    }
 
 /* Add a FIELD_DECL to RECORD_TYPE RTYPE.
    The field has name NAME (a char*), and type FTYPE.

@@ -299,10 +299,6 @@ struct binding_level GTY(())
        that were entered and exited one level down.  */
     tree blocks;
 
-    /* The BLOCK node for this level, if one has been preallocated.
-       If 0, the BLOCK is allocated (if needed) when the level is popped.  */
-    tree this_block;
-
     /* The binding level which this one is contained in (inherits from).  */
     struct binding_level *level_chain;
 
@@ -313,6 +309,9 @@ struct binding_level GTY(())
 
     /* The statements in this binding level.  */
     tree stmts;
+
+    /* An exception range associated with this binding level.  */
+    struct eh_range * GTY((skip (""))) exception_range;
 
     /* Binding depth at which this level began.  Used only for debugging.  */
     unsigned binding_depth;
@@ -341,8 +340,17 @@ static GTY(()) struct binding_level *global_binding_level;
 /* Binding level structures are initialized by copying this one.  */
 
 static const struct binding_level clear_binding_level
-  = {NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE,
-     NULL_BINDING_LEVEL, LARGEST_PC, 0, NULL_TREE, 0};
+= {
+    NULL_TREE, /* names */
+    NULL_TREE, /* shadowed */
+    NULL_TREE, /* blocks */
+    NULL_BINDING_LEVEL, /* level_chain */
+    LARGEST_PC, /* end_pc */
+    0, /* start_pc */
+    NULL, /* stmts */
+    NULL, /* exception_range */
+    0, /* binding_depth */
+  };
 
 #if 0
 /* A list (chain of TREE_LIST nodes) of all LABEL_DECLs in the function
@@ -439,7 +447,6 @@ java_init_decl_processing (void)
   tree t;
 
   init_class_processing ();
-  init_resource_processing ();
 
   current_function_decl = NULL;
   current_binding_level = NULL_BINDING_LEVEL;
@@ -1265,7 +1272,6 @@ poplevel (int keep, int reverse, int functionbody)
   tree block = 0;
   tree decl;
   tree bind = 0;
-  int block_previously_created;
 
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
   binding_depth--;
@@ -1308,14 +1314,14 @@ poplevel (int keep, int reverse, int functionbody)
      create a BLOCK to record them for the life of this function.  */
 
   block = 0;
-  block_previously_created = (current_binding_level->this_block != 0);
-  if (block_previously_created)
-    block = current_binding_level->this_block;
-  else if (keep || functionbody)
+  if (keep || functionbody)
     {
       block = make_node (BLOCK);
       TREE_TYPE (block) = void_type_node;
     }
+
+  if (current_binding_level->exception_range)
+    expand_end_java_handler (current_binding_level->exception_range);
 
   if (block != 0)
     {
@@ -1342,7 +1348,6 @@ poplevel (int keep, int reverse, int functionbody)
 	    
 	  bind =  build (BIND_EXPR, TREE_TYPE (block), BLOCK_VARS (block), 
 			 BLOCK_EXPR_BODY (block), block);
-
 	  BIND_EXPR_BODY (bind) = current_binding_level->stmts;
 	  
 	  if (BIND_EXPR_BODY (bind)
@@ -1449,24 +1454,26 @@ poplevel (int keep, int reverse, int functionbody)
       DECL_INITIAL (current_function_decl) = block;
       DECL_SAVED_TREE (current_function_decl) = bind;
     }
-  else if (block)
+  else 
     {
-      if (!block_previously_created)
-        current_binding_level->blocks
-          = chainon (current_binding_level->blocks, block);
-    }
-  /* If we did not make a block for the level just exited,
-     any blocks made for inner levels
-     (since they cannot be recorded as subblocks in that level)
-     must be carried forward so they will later become subblocks
-     of something else.  */
-  else if (subblocks)
-    current_binding_level->blocks
-      = chainon (current_binding_level->blocks, subblocks);
+      if (block)
+	{
+	  current_binding_level->blocks
+	    = chainon (current_binding_level->blocks, block);
+	}
+      /* If we did not make a block for the level just exited,
+	 any blocks made for inner levels
+	 (since they cannot be recorded as subblocks in that level)
+	 must be carried forward so they will later become subblocks
+	 of something else.  */
+      else if (subblocks)
+	current_binding_level->blocks
+	  = chainon (current_binding_level->blocks, subblocks);
 
-  if (bind)
-    java_add_stmt (bind);
-  
+      if (bind)
+	java_add_stmt (bind);
+    }
+
   if (block)
     TREE_USED (block) = 1;
   return block;
@@ -1522,11 +1529,7 @@ maybe_poplevels (int pc)
 #endif
 
   while (current_binding_level->end_pc <= pc)
-    {
-      maybe_end_try (current_binding_level->start_pc, pc);
-      poplevel (1, 0, 0);
-    }
-  maybe_end_try (0, pc);
+    poplevel (1, 0, 0);
 }
 
 /* Terminate any binding which began during the range beginning at
@@ -1543,7 +1546,6 @@ force_poplevels (int start_pc)
 	warning ("%JIn %D: overlapped variable and exception ranges at %d",
                  current_function_decl, current_function_decl,
 		 current_binding_level->start_pc);
-      expand_end_bindings (getdecls (), 1, 0);
       poplevel (1, 0, 0);
     }
 }
@@ -1558,19 +1560,6 @@ insert_block (tree block)
   TREE_USED (block) = 1;
   current_binding_level->blocks
     = chainon (current_binding_level->blocks, block);
-}
-
-/* Set the BLOCK node for the innermost scope
-   (the one we are currently in).  */
-
-void
-set_block (tree block)
-{
-  current_binding_level->this_block = block;
-  current_binding_level->names = chainon (current_binding_level->names,
-					  BLOCK_VARS (block));
-  current_binding_level->blocks = chainon (current_binding_level->blocks,
-					   BLOCK_SUBBLOCKS (block));
 }
 
 /* integrate_decl_tree calls this function. */
@@ -1783,6 +1772,14 @@ end_java_method (void)
   flag_unit_at_a_time = 0;
   finish_method (fndecl);
 
+  if (! flag_unit_at_a_time)
+    {
+      /* Nulling these fields when we no longer need them saves
+	 memory.  */
+      DECL_SAVED_TREE (fndecl) = NULL;
+      DECL_STRUCT_FUNCTION (fndecl) = NULL;
+      DECL_INITIAL (fndecl) = NULL_TREE;
+    }
   current_function_decl = NULL_TREE;
 }
 
@@ -1879,8 +1876,7 @@ java_mark_class_local (tree class)
 /* Add a statement to a compound_expr.  */
 
 tree
-add_stmt_to_compound (existing, type, stmt)
-     tree existing, type, stmt;
+add_stmt_to_compound (tree existing, tree type, tree stmt)
 {
   if (!stmt)
     return existing;
@@ -1899,8 +1895,7 @@ add_stmt_to_compound (existing, type, stmt)
    constructed.  */
 
 tree
-java_add_stmt (stmt)
-     tree stmt;
+java_add_stmt (tree stmt)
 {
   if (input_filename)
     annotate_with_locus (stmt, input_location);
@@ -1933,5 +1928,19 @@ get_stmts (void)
   return &current_binding_level->stmts;
 }
 
+/* Register an exception range as belonging to the current binding
+   level.  There may only be one: if there are more, we'll create more
+   binding levels.  However, each range can have multiple handlers,
+   and these are expanded when we call expand_end_java_handler().  */
+
+void
+register_exception_range (struct eh_range *range, int pc, int end_pc)
+{
+  if (current_binding_level->exception_range)
+    abort ();
+  current_binding_level->exception_range = range;
+  current_binding_level->end_pc = end_pc;
+  current_binding_level->start_pc = pc;      
+}
 
 #include "gt-java-decl.h"

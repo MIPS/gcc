@@ -771,8 +771,8 @@ shallow_find_method (tree searched_class, int flags, tree method_name,
    lookup_do.  */
 static tree
 find_method_in_superclasses (tree searched_class, int flags, 
-			     tree method_name, 
-	     tree signature, tree (*signature_builder) (tree))
+                             tree method_name, tree signature,
+                             tree (*signature_builder) (tree))
 {
   tree klass;
   for (klass = CLASSTYPE_SUPER (searched_class); klass != NULL_TREE;
@@ -792,17 +792,16 @@ find_method_in_superclasses (tree searched_class, int flags,
    for a method matching METHOD_NAME and signature SIGNATURE.  A
    private helper for lookup_do.  */
 static tree
-find_method_in_interfaces (tree searched_class, int flags, tree method_name, 
-	     tree signature, tree (*signature_builder) (tree))
+find_method_in_interfaces (tree searched_class, int flags, tree method_name,
+                           tree signature, tree (*signature_builder) (tree))
 {
   int i;
   int interface_len = 
-    TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (searched_class)) - 1;
+    TREE_VEC_LENGTH (BINFO_BASE_BINFOS (TYPE_BINFO (searched_class))) - 1;
 
   for (i = interface_len; i > 0; i--)
     {
-      tree child = 
-	TREE_VEC_ELT (TYPE_BINFO_BASETYPES (searched_class), i);
+      tree child = BINFO_BASE_BINFO (TYPE_BINFO (searched_class), i);
       tree iclass = BINFO_TYPE (child);
       tree method;
 	  

@@ -43,6 +43,9 @@ Boston, MA 02111-1307, USA.  */
 
 #define ASM_SPEC "-arch i686 \
   -force_cpusubtype_ALL \
+  %{gused: -g -feliminate-unused-debug-symbols %<gused }\
+  %{gfull: -g -fno-eliminate-unused-debug-symbols %<gfull }\
+  %{g: %{!gfull: -feliminate-unused-debug-symbols %<gfull }}\
   %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
   %{!Zforce_cpusubtype_ALL:%{mmmx:-force_cpusubtype_ALL}\
 			   %{msse:-force_cpusubtype_ALL}\
@@ -92,6 +95,13 @@ Boston, MA 02111-1307, USA.  */
 /* Define the syntax of pseudo-ops, labels and comments.  */
 
 #define LPREFIX "L"
+
+/* These are used by -fbranch-probabilities */
+#define HOT_TEXT_SECTION_NAME "__TEXT,__text,regular,pure_instructions"
+#define NORMAL_TEXT_SECTION_NAME "__TEXT,__text,regular,pure_instructions"
+#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME \
+                              "__TEXT,__unlikely,regular,pure_instructions"
+#define SECTION_FORMAT_STRING ".section %s\n\t.align 2\n" 
 
 /* Assembler pseudos to introduce constants of various size.  */
 

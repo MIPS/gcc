@@ -127,7 +127,7 @@ static void mark_def_sites_initialize_block (struct dom_walk_data *walk_data,
 					     basic_block bb);
 static void set_def_block (tree, basic_block, bool, bool);
 static void set_livein_block (tree, basic_block);
-static bool prepare_use_operand_for_rename (use_operand_p op_p, size_t *uid_p);
+static bool prepare_use_operand_for_rename (use_operand_p, size_t *uid_p);
 static bool prepare_def_operand_for_rename (tree def, size_t *uid_p);
 static void insert_phi_nodes (bitmap *, bitmap);
 static void rewrite_stmt (struct dom_walk_data *, basic_block,
@@ -482,7 +482,6 @@ ssa_mark_def_sites (struct dom_walk_data *walk_data,
     {
       use = V_MAY_DEF_OP (v_may_defs, i);
       uid = SSA_NAME_VERSION (use);
-
       if (TEST_BIT (gd->names_to_rename, uid)
 	  && !TEST_BIT (kills, uid))
 	set_livein_block (use, bb);
@@ -773,37 +772,12 @@ rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
      node introduces a new version for the associated variable.  */
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {
       tree result = PHI_RESULT (phi);
 
       register_new_def (result, &bd->block_defs);
     }
-}
-
-/* Creates a duplicate of a ssa name NAME defined in statement STMT.  */
-
-tree
-duplicate_ssa_name (tree name, tree stmt)
-{
-  tree new_name = make_ssa_name (SSA_NAME_VAR (name), stmt);
-  struct ptr_info_def *old_ptr_info = SSA_NAME_PTR_INFO (name);
-  struct ptr_info_def *new_ptr_info;
-
-  if (!old_ptr_info)
-    return new_name;
-
-  new_ptr_info = ggc_alloc (sizeof (struct ptr_info_def));
-  *new_ptr_info = *old_ptr_info;
-
-  if (old_ptr_info->pt_vars)
-    {
-      new_ptr_info->pt_vars = BITMAP_GGC_ALLOC ();
-      bitmap_copy (new_ptr_info->pt_vars, old_ptr_info->pt_vars);
-    }
-
-  SSA_NAME_PTR_INFO (new_name) = new_ptr_info;
-  return new_name;
 }
 
 /* Register DEF (an SSA_NAME) to be a new definition for the original

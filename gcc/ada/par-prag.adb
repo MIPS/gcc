@@ -928,6 +928,7 @@ begin
            Pragma_Component_Alignment          |
            Pragma_Controlled                   |
            Pragma_Convention                   |
+           Pragma_Detect_Blocking              |
            Pragma_Discard_Names                |
            Pragma_Eliminate                    |
            Pragma_Elaborate                    |
@@ -994,6 +995,7 @@ begin
            Pragma_Preelaborate                 |
            Pragma_Priority                     |
            Pragma_Profile                      |
+           Pragma_Profile_Warnings             |
            Pragma_Propagate_Exceptions         |
            Pragma_Psect_Object                 |
            Pragma_Pure                         |

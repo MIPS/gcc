@@ -2071,7 +2071,7 @@ hash_scan_set (rtx pat, rtx insn, struct hash_table *table)
   rtx dest = SET_DEST (pat);
   rtx note;
 
-  if (CALL_P (src))
+  if (GET_CODE (src) == CALL)
     hash_scan_call (src, insn, table);
 
   else if (REG_P (dest))
@@ -2231,13 +2231,13 @@ hash_scan_insn (rtx insn, struct hash_table *table, int in_libcall_block)
 	  hash_scan_set (x, insn, table);
 	else if (GET_CODE (x) == CLOBBER)
 	  hash_scan_clobber (x, insn, table);
-	else if (CALL_P (x))
+	else if (GET_CODE (x) == CALL)
 	  hash_scan_call (x, insn, table);
       }
 
   else if (GET_CODE (pat) == CLOBBER)
     hash_scan_clobber (pat, insn, table);
-  else if (CALL_P (pat))
+  else if (GET_CODE (pat) == CALL)
     hash_scan_call (pat, insn, table);
 }
 
@@ -2745,7 +2745,7 @@ mark_set (rtx pat, rtx insn)
   else if (MEM_P (dest))
     record_last_mem_set_info (insn);
 
-  if (CALL_P (SET_SRC (pat)))
+  if (GET_CODE (SET_SRC (pat)) == CALL)
     mark_call (insn);
 }
 
@@ -2785,13 +2785,13 @@ mark_oprs_set (rtx insn)
 	  mark_set (x, insn);
 	else if (GET_CODE (x) == CLOBBER)
 	  mark_clobber (x, insn);
-	else if (CALL_P (x))
+	else if (GET_CODE (x) == CALL)
 	  mark_call (insn);
       }
 
   else if (GET_CODE (pat) == CLOBBER)
     mark_clobber (pat, insn);
-  else if (CALL_P (pat))
+  else if (GET_CODE (pat) == CALL)
     mark_call (insn);
 }
 
@@ -3293,7 +3293,7 @@ constprop_register (rtx insn, rtx from, rtx to, int alter_jumps)
     }
 
   /* Handle normal insns next.  */
-  if (GET_CODE (insn) == INSN
+  if (NONJUMP_INSN_P (insn)
       && try_replace_reg (from, to, insn))
     return 1;
 
@@ -4127,7 +4127,7 @@ bypass_conditional_jumps (void)
 	  for (insn = BB_HEAD (bb);
 	       insn != NULL && insn != NEXT_INSN (BB_END (bb));
 	       insn = NEXT_INSN (insn))
-	    if (GET_CODE (insn) == INSN)
+	    if (NONJUMP_INSN_P (insn))
 	      {
 		if (setcc)
 		  break;
@@ -4427,7 +4427,7 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
      instructions in presence of non-call exceptions.  */
 
   if (JUMP_P (insn)
-      || (GET_CODE (insn) == INSN
+      || (NONJUMP_INSN_P (insn)
 	  && (bb->succ->succ_next || (bb->succ->flags & EDGE_ABNORMAL))))
     {
 #ifdef HAVE_cc0
@@ -4436,7 +4436,7 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
       /* It should always be the case that we can put these instructions
 	 anywhere in the basic block with performing PRE optimizations.
 	 Check this.  */
-      if (GET_CODE (insn) == INSN && pre
+      if (NONJUMP_INSN_P (insn) && pre
 	  && !TEST_BIT (antloc[bb->index], expr->bitmap_index)
 	  && !TEST_BIT (transp[bb->index], expr->bitmap_index))
 	abort ();
@@ -4964,7 +4964,7 @@ one_pre_gcse_pass (int pass)
     }
 
   free_ldst_mems ();
-  remove_fake_edges ();
+  remove_fake_exit_edges ();
   free_hash_table (&expr_hash_table);
 
   if (gcse_file)
@@ -6858,7 +6858,7 @@ store_motion (void)
 
   free_store_memory ();
   free_edge_list (edge_list);
-  remove_fake_edges ();
+  remove_fake_exit_edges ();
   end_alias_analysis ();
 }
 
@@ -7375,7 +7375,7 @@ gcse_after_reload (void)
 	   insn = NEXT_INSN (insn))
 	{
 	  /* Is it a load - of the form (set (reg) (mem))?  */
-	  if (GET_CODE (insn) == INSN
+	  if (NONJUMP_INSN_P (insn)
               && GET_CODE (PATTERN (insn)) == SET
 	      && REG_P (SET_DEST (PATTERN (insn)))
 	      && MEM_P (SET_SRC (PATTERN (insn))))

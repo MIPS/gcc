@@ -135,11 +135,11 @@ static void globalize_decl (tree);
 static void maybe_assemble_visibility (tree);
 static int in_named_entry_eq (const void *, const void *);
 static hashval_t in_named_entry_hash (const void *);
+#ifdef BSS_SECTION_ASM_OP
 #ifdef ASM_OUTPUT_BSS
 static void asm_output_bss (FILE *, tree, const char *,
 			    unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT);
 #endif
-#ifdef BSS_SECTION_ASM_OP
 #ifdef ASM_OUTPUT_ALIGNED_BSS
 static void asm_output_aligned_bss (FILE *, tree, const char *,
 				    unsigned HOST_WIDE_INT, int)
@@ -896,7 +896,7 @@ make_decl_rtl (tree decl, const char *asmspec)
 void
 make_var_volatile (tree var)
 {
-  if (GET_CODE (DECL_RTL (var)) != MEM)
+  if (!MEM_P (DECL_RTL (var)))
     abort ();
 
   MEM_VOLATILE_P (DECL_RTL (var)) = 1;
@@ -1059,7 +1059,7 @@ notice_global_symbol (tree decl)
 	      || (DECL_COMMON (decl)
 		  && (DECL_INITIAL (decl) == 0
 		      || DECL_INITIAL (decl) == error_mark_node))))
-      || GET_CODE (DECL_RTL (decl)) != MEM)
+      || !MEM_P (DECL_RTL (decl)))
     return;
 
   /* We win when global object is found, but it is useful to know about weak
@@ -1378,7 +1378,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
     return;
 
   /* Do nothing for global register variables.  */
-  if (DECL_RTL_SET_P (decl) && GET_CODE (DECL_RTL (decl)) == REG)
+  if (DECL_RTL_SET_P (decl) && REG_P (DECL_RTL (decl)))
     {
       TREE_ASM_WRITTEN (decl) = 1;
       return;
@@ -1563,7 +1563,9 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
   if (!dont_output_data)
     {
-      if (DECL_INITIAL (decl) && DECL_INITIAL (decl) != error_mark_node)
+      if (DECL_INITIAL (decl)
+	  && DECL_INITIAL (decl) != error_mark_node
+	  && !initializer_zerop (DECL_INITIAL (decl)))
 	/* Output the actual data.  */
 	output_constant (DECL_INITIAL (decl),
 			 tree_low_cst (DECL_SIZE_UNIT (decl), 1),
@@ -1652,7 +1654,7 @@ assemble_external (tree decl ATTRIBUTE_UNUSED)
     {
       rtx rtl = DECL_RTL (decl);
 
-      if (GET_CODE (rtl) == MEM && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF
+      if (MEM_P (rtl) && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF
 	  && !SYMBOL_REF_USED (XEXP (rtl, 0))
 	  && !incorporeal_function_p (decl))
 	{
@@ -2039,7 +2041,7 @@ decode_addr_const (tree exp, struct addr_const *value)
       abort ();
     }
 
-  if (GET_CODE (x) != MEM)
+  if (!MEM_P (x))
     abort ();
   x = XEXP (x, 0);
 
@@ -3017,7 +3019,7 @@ output_constant_pool_1 (struct constant_descriptor_rtx *desc)
     case LABEL_REF:
       tmp = XEXP (x, 0);
       if (INSN_DELETED_P (tmp)
-	  || (GET_CODE (tmp) == NOTE
+	  || (NOTE_P (tmp)
 	      && NOTE_LINE_NUMBER (tmp) == NOTE_INSN_DELETED))
 	{
 	  abort ();
@@ -4030,7 +4032,7 @@ mark_weak (tree decl)
   DECL_WEAK (decl) = 1;
 
   if (DECL_RTL_SET_P (decl)
-      && GET_CODE (DECL_RTL (decl)) == MEM
+      && MEM_P (DECL_RTL (decl))
       && XEXP (DECL_RTL (decl), 0)
       && GET_CODE (XEXP (DECL_RTL (decl), 0)) == SYMBOL_REF)
     SYMBOL_REF_WEAK (XEXP (DECL_RTL (decl), 0)) = 1;
@@ -4612,7 +4614,11 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
   else if (TREE_CODE (decl) == VAR_DECL)
     {
       if (DECL_INITIAL (decl) == NULL
-	  || DECL_INITIAL (decl) == error_mark_node)
+	  || DECL_INITIAL (decl) == error_mark_node
+	  || (flag_zero_initialized_in_bss
+	      /* Leave constant zeroes in .rodata so they can be shared.  */
+	      && !TREE_READONLY (decl)
+	      && initializer_zerop (DECL_INITIAL (decl))))
 	ret = SECCAT_BSS;
       else if (! TREE_READONLY (decl)
 	       || TREE_SIDE_EFFECTS (decl)
@@ -4654,7 +4660,11 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
   /* There are no read-only thread-local sections.  */
   if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
     {
-      if (ret == SECCAT_BSS)
+      /* Note that this would be *just* SECCAT_BSS, except that there's
+	 no concept of a read-only thread-local-data section.  */
+      if (ret == SECCAT_BSS
+	  || (flag_zero_initialized_in_bss
+	      && initializer_zerop (DECL_INITIAL (decl))))
 	ret = SECCAT_TBSS;
       else
 	ret = SECCAT_TDATA;
@@ -4894,7 +4904,7 @@ default_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
   int flags;
 
   /* Careful not to prod global register variables.  */
-  if (GET_CODE (rtl) != MEM)
+  if (!MEM_P (rtl))
     return;
   symbol = XEXP (rtl, 0);
   if (GET_CODE (symbol) != SYMBOL_REF)

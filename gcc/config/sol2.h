@@ -39,7 +39,7 @@ Boston, MA 02111-1307, USA.  */
 #undef	WINT_TYPE_SIZE
 #define	WINT_TYPE_SIZE BITS_PER_WORD
 
-#define HANDLE_PRAGMA_REDEFINE_EXTNAME 1
+#define TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME 1
 
 /* ??? Note: in order for -compat-bsd to work fully,
    we must somehow arrange to fixincludes /usr/ucbinclude
@@ -60,7 +60,6 @@ Boston, MA 02111-1307, USA.  */
 	builtin_define_std ("sun");			\
 	builtin_define ("__svr4__");			\
 	builtin_define ("__SVR4");			\
-	builtin_define ("__PRAGMA_REDEFINE_EXTNAME");	\
 	builtin_assert ("system=unix");			\
 	builtin_assert ("system=svr4");			\
 	/* For C++ we need to add some additional macro	\
@@ -163,9 +162,6 @@ Boston, MA 02111-1307, USA.  */
 /*
  * Attempt to turn on access permissions for the stack.
  *
- * This code must be defined when compiling gcc but not when compiling
- * libgcc2.a, unless we're generating code for 64-bit SPARC
- *
  * _SC_STACK_PROT is only defined for post 2.6, but we want this code
  * to run always.  2.6 can change the stack protection but has no way to
  * query it.
@@ -173,10 +169,10 @@ Boston, MA 02111-1307, USA.  */
  */
 
 /* sys/mman.h is not present on some non-Solaris configurations
-   that use sol2.h, so TRANSFER_FROM_TRAMPOLINE must use a magic
+   that use sol2.h, so ENABLE_EXECUTE_STACK must use a magic
    number instead of the appropriate PROT_* flags.  */
 
-#define TRANSFER_FROM_TRAMPOLINE					\
+#define ENABLE_EXECUTE_STACK					\
 									\
 /* #define STACK_PROT_RWX (PROT_READ | PROT_WRITE | PROT_EXEC) */	\
 									\
@@ -196,6 +192,7 @@ extern void __enable_execute_stack (void *);				\
 void									\
 __enable_execute_stack (void *addr)					\
 {									\
+  extern int mprotect(void *, size_t, int);				\
   if (!need_enable_exec_stack)						\
     return;								\
   else {								\

@@ -305,7 +305,6 @@ split_block (basic_block bb, void *i)
   basic_block new_bb;
   bool irr = (bb->flags & BB_IRREDUCIBLE_LOOP) != 0;
   int flags = EDGE_FALLTHRU;
-  edge e;
 
   if (!cfg_hooks->split_block)
     internal_error ("%s does not support split_block.", cfg_hooks->name);
@@ -329,11 +328,7 @@ split_block (basic_block bb, void *i)
       set_immediate_dominator (CDI_DOMINATORS, new_bb, bb);
     }
 
-  e = make_edge (bb, new_bb, flags);
-  e->probability = REG_BR_PROB_BASE;
-  e->count = bb->count;
-
-  return e;
+  return make_single_succ_edge (bb, new_bb, EDGE_FALLTHRU);
 }
 
 /* Splits block BB just after labels.  The newly created edge is returned.  */
@@ -590,6 +585,9 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
 	dummy->frequency = 0;
       if (dummy->count < 0)
 	dummy->count = 0;
+      fallthru->count -= e->count;
+      if (fallthru->count < 0)
+	fallthru->count = 0;
 
       jump = redirect_edge_and_branch_force (e, bb);
       if (jump)

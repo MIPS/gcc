@@ -21,6 +21,9 @@ write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) $(foreach o
 
 ## ################################################################
 
+# autoconf2.13's target_alias
+target_noncanonical = @target_noncanonical@
+
 ##
 ## What gets installed, and where.
 ##
@@ -28,7 +31,7 @@ write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) $(foreach o
 if XLIB_AWT
 cond_x_ltlibrary = lib-gnu-awt-xlib.la
 ## We require libstdc++-v3 to be in the same build tree.
-xlib_includes = -I../libstdc++-v3/include -I../libstdc++-v3/include/$(target_alias) -I$(srcdir)/../libstdc++-v3/libsupc++
+xlib_includes = -I../libstdc++-v3/include -I../libstdc++-v3/include/$(target_noncanonical) -I$(srcdir)/../libstdc++-v3/libsupc++
 else
 cond_x_ltlibrary =
 xlib_includes =
@@ -40,7 +43,7 @@ else
 cond_gtk_ltlibrary =
 endif
 
-toolexeclib_LTLIBRARIES = libgcj.la lib-org-xml-sax.la lib-org-w3c-dom.la \
+toolexeclib_LTLIBRARIES = libgcj.la libgij.la lib-org-xml-sax.la lib-org-w3c-dom.la \
     $(cond_gtk_ltlibrary) $(cond_x_ltlibrary)
 toolexecmainlib_DATA = libgcj.spec
 
@@ -68,22 +71,8 @@ bin_SCRIPTS = addr2name.awk
 ## Compilers and compilation flags.
 ##
 
-## CANADIAN is a misnomer.  Really we check to see if we must pick up
-## the tools from the path.
-if CANADIAN
-if NULL_TARGET
-## In this case, gcj is found outside the build tree.  However, zip is
-## found in the build tree.
-ZIP = $(MULTIBUILDTOP)../$(COMPPATH)/fastjar/jar
-GCJH = gcjh
-else
-ZIP = jar
-GCJH = $(target_alias)-gcjh
-endif
-else # CANADIAN
-GCJH = $(MULTIBUILDTOP)../$(COMPPATH)/gcc/gcjh
-ZIP = $(MULTIBUILDTOP)../$(COMPPATH)/fastjar/jar
-endif # CANADIAN
+GCJH = @GCJH@
+ZIP = @ZIP@
 
 ## The compiler with whatever flags we want for both -c and -C
 ## compiles.
@@ -111,6 +100,8 @@ AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions $(THREADCXXFLAGS) \
 	-fdollars-in-identifiers \
 ## Detect bugs in the verifier implementation, and maybe other places.
 	-Wswitch-enum \
+## Some systems, including Linux, need this to enable > 2GB file support.
+	-D_FILE_OFFSET_BITS=64 \
 	@LIBGCJ_CXXFLAGS@ @X_CFLAGS@ $(WARNINGS) -D_GNU_SOURCE \
 	-DPREFIX="\"$(prefix)\"" -DLIBDIR="\"$(libdir)\"" \
 	-DBOOT_CLASS_PATH="\"$(jardir)/$(jar_DATA)\"" \
@@ -151,6 +142,8 @@ gtk_c_files = $(gtk_c_source_files:.c=.lo)
 javao_files = $(java_source_files:.java=.lo) \
 	$(built_java_source_files:.java=.lo)
 x_javao_files = $(x_java_source_files:.java=.lo)
+
+libgij_la_SOURCES = gij.cc
 
 libgcj_la_SOURCES = prims.cc jni.cc exception.cc \
 	resolve.cc defineclass.cc interpret.cc verify.cc \
@@ -1282,8 +1275,10 @@ java/beans/BeanInfo.java \
 java/beans/Beans.java \
 java/beans/Customizer.java \
 java/beans/DesignMode.java \
+java/beans/EventHandler.java \
 java/beans/EventSetDescriptor.java \
 java/beans/ExceptionListener.java \
+java/beans/Expression.java \
 java/beans/FeatureDescriptor.java \
 java/beans/IndexedPropertyDescriptor.java \
 java/beans/IntrospectionException.java \
@@ -1299,6 +1294,7 @@ java/beans/PropertyEditor.java \
 java/beans/PropertyEditorManager.java \
 java/beans/PropertyEditorSupport.java \
 java/beans/PropertyVetoException.java \
+java/beans/Statement.java \
 java/beans/SimpleBeanInfo.java \
 java/beans/VetoableChangeListener.java \
 java/beans/VetoableChangeListenerProxy.java \
@@ -1322,7 +1318,11 @@ javax/swing/plaf/basic/BasicArrowButton.java \
 javax/swing/plaf/basic/BasicButtonListener.java \
 javax/swing/plaf/basic/BasicButtonUI.java \
 javax/swing/plaf/basic/BasicCheckBoxUI.java \
+javax/swing/plaf/basic/BasicDesktopIconUI.java \
+javax/swing/plaf/basic/BasicDesktopPaneUI.java \
 javax/swing/plaf/basic/BasicGraphicsUtils.java \
+javax/swing/plaf/basic/BasicInternalFrameTitlePane.java \
+javax/swing/plaf/basic/BasicInternalFrameUI.java \
 javax/swing/plaf/basic/BasicLabelUI.java \
 javax/swing/plaf/basic/BasicListUI.java \
 javax/swing/plaf/basic/BasicMenuUI.java \
@@ -1331,6 +1331,7 @@ javax/swing/plaf/basic/BasicMenuItemUI.java \
 javax/swing/plaf/basic/BasicOptionPaneUI.java \
 javax/swing/plaf/basic/BasicPanelUI.java \
 javax/swing/plaf/basic/BasicPopupMenuUI.java \
+javax/swing/plaf/basic/BasicPopupMenuSeparatorUI.java \
 javax/swing/plaf/basic/BasicProgressBarUI.java \
 javax/swing/plaf/basic/BasicRootPaneUI.java \
 javax/swing/plaf/basic/BasicRadioButtonUI.java \
@@ -1345,6 +1346,7 @@ javax/swing/plaf/basic/BasicSplitPaneUI.java \
 javax/swing/plaf/basic/BasicTabbedPaneUI.java \
 javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
+javax/swing/plaf/basic/BasicToolBarUI.java \
 javax/swing/plaf/basic/BasicTreeUI.java \
 javax/swing/plaf/basic/BasicViewportUI.java \
 javax/swing/plaf/basic/BasicLookAndFeel.java \
@@ -1444,6 +1446,7 @@ javax/swing/JRootPane.java \
 javax/swing/JScrollBar.java \
 javax/swing/JScrollPane.java \
 javax/swing/JTabbedPane.java \
+javax/swing/JTextArea.java \
 javax/swing/JTextField.java \
 javax/swing/JToggleButton.java \
 javax/swing/JToolTip.java \
@@ -1739,9 +1742,15 @@ javax/accessibility/AccessibleTable.java \
 javax/accessibility/AccessibleTableModelChange.java \
 javax/accessibility/AccessibleText.java \
 javax/accessibility/AccessibleValue.java \
+javax/imageio/IIOException.java \
 javax/imageio/ImageReader.java \
 javax/imageio/ImageTranscoder.java \
 javax/imageio/ImageWriter.java \
+javax/imageio/event/IIOReadProgressListener.java \
+javax/imageio/event/IIOReadUpdateListener.java \
+javax/imageio/event/IIOReadWarningListener.java \
+javax/imageio/event/IIOWriteProgressListener.java \
+javax/imageio/event/IIOWriteWarningListener.java \
 javax/imageio/spi/IIOServiceProvider.java \
 javax/imageio/spi/ImageInputStreamSpi.java \
 javax/imageio/spi/ImageOutputStreamSpi.java \
@@ -2257,7 +2266,6 @@ gnu/gcj/io/MimeTypes.java \
 gnu/gcj/io/SimpleSHSStream.java	\
 gnu/gcj/runtime/FileDeleter.java \
 gnu/gcj/runtime/FinalizerThread.java \
-gnu/gcj/runtime/FirstThread.java \
 gnu/gcj/runtime/JNIWeakRef.java \
 gnu/gcj/runtime/MethodRef.java \
 gnu/gcj/runtime/NameFinder.java \
@@ -2273,7 +2281,7 @@ gnu/java/io/NullOutputStream.java \
 gnu/java/io/ObjectIdentityWrapper.java \
 gnu/java/lang/ArrayHelper.java \
 gnu/java/lang/ClassHelper.java \
-gnu/java/lang/CharData.java \
+gnu/java/lang/MainThread.java \
 gnu/java/lang/reflect/TypeSignature.java \
 gnu/java/locale/Calendar.java \
 gnu/java/locale/Calendar_de.java \
@@ -2930,13 +2938,12 @@ gnu/gcj/convert/natOutput_SJIS.cc \
 gnu/gcj/io/natSimpleSHSStream.cc \
 gnu/gcj/io/shs.cc \
 gnu/gcj/runtime/natFinalizerThread.cc \
-gnu/gcj/runtime/natFirstThread.cc \
 gnu/gcj/runtime/natNameFinder.cc \
 gnu/gcj/runtime/natSharedLibLoader.cc \
 gnu/gcj/runtime/natStackTrace.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/runtime/natVMClassLoader.cc \
-gnu/java/awt/natEmbeddedWindow.cc \
+gnu/java/lang/natMainThread.cc \
 gnu/java/net/natPlainDatagramSocketImpl.cc \
 gnu/java/net/natPlainSocketImpl.cc \
 gnu/java/net/protocol/core/natCoreInputStream.cc \

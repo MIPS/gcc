@@ -309,9 +309,7 @@ rename_ssa_copies (void)
 	      tree lhs = TREE_OPERAND (stmt, 0);
 	      tree rhs = TREE_OPERAND (stmt, 1);
 
-              if (TREE_CODE (lhs) == SSA_NAME
-		  && !has_hidden_use (SSA_NAME_VAR (lhs))
-		  && TREE_CODE (rhs) == SSA_NAME)
+              if (TREE_CODE (lhs) == SSA_NAME && TREE_CODE (rhs) == SSA_NAME)
 		copy_rename_partition_coalesce (map, lhs, rhs, debug);
 	    }
 	}
@@ -320,15 +318,13 @@ rename_ssa_copies (void)
   FOR_EACH_BB (bb)
     {
       /* Treat PHI nodes as copies between the result and each argument.  */
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
         {
           int i;
 	  tree res = PHI_RESULT (phi);
 
-	  /* Do not process virtual SSA_NAMES or variables which have
-	     hidden uses.  */
-	  if (!is_gimple_reg (SSA_NAME_VAR (res))
-	      || has_hidden_use (SSA_NAME_VAR (res)))
+	  /* Do not process virtual SSA_NAMES.  */
+	  if (!is_gimple_reg (SSA_NAME_VAR (res)))
 	    continue;
 
           for (i = 0; i < PHI_NUM_ARGS (phi); i++)

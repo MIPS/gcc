@@ -835,6 +835,11 @@ us_write (void)
   if (sfree (current_unit->s) == FAILURE)
     generate_error (ERROR_OS, NULL);
 
+  /* for sequential unformatted, we write until we have more bytes than
+      can fit in the record markers. if disk space runs out first it will
+      error on the write */
+  current_unit->recl = g.max_offset;
+
   current_unit->bytes_left = current_unit->recl;
 }
 
@@ -890,7 +895,11 @@ data_transfer_init (int read_flag)
      memset (&u_flags, '\0', sizeof (u_flags));
      u_flags.access = ACCESS_SEQUENTIAL;
      u_flags.action = ACTION_READWRITE;
-     u_flags.form = FORM_UNSPECIFIED;
+     /* is it unformatted ?*/
+     if (ioparm.format == NULL && !ioparm.list_format)
+       u_flags.form = FORM_UNFORMATTED;
+     else
+       u_flags.form = FORM_UNSPECIFIED;
      u_flags.delim = DELIM_UNSPECIFIED;
      u_flags.blank = BLANK_UNSPECIFIED;
      u_flags.pad = PAD_UNSPECIFIED;
@@ -1358,6 +1367,57 @@ finalize_transfer (void)
     }
 
   sfree (current_unit->s);
+}
+
+
+/* Transfer function for IOLENGTH. It doesn't actually do any
+   data transfer, it just updates the length counter.  */
+
+static void
+iolength_transfer (bt type, void *dest, int len)
+{
+  if (ioparm.iolength != NULL)
+    *ioparm.iolength += len;
+}
+
+
+/* Initialize the IOLENGTH data transfer. This function is in essence
+   a very much simplified version of data_transfer_init(), because it
+   doesn't have to deal with units at all.  */
+
+static void
+iolength_transfer_init (void)
+{
+
+  if (ioparm.iolength != NULL)
+    *ioparm.iolength = 0;
+
+  g.item_count = 0;
+
+  /* Set up the subroutine that will handle the transfers.  */
+
+  transfer = iolength_transfer;
+
+}
+
+
+/* Library entry point for the IOLENGTH form of the INQUIRE
+   statement. The IOLENGTH form requires no I/O to be performed, but
+   it must still be a runtime library call so that we can determine
+   the iolength for dynamic arrays and such.  */
+
+void
+st_iolength (void)
+{
+  library_start ();
+
+  iolength_transfer_init ();
+}
+
+void
+st_iolength_done (void)
+{
+  library_end ();
 }
 
 

@@ -100,8 +100,6 @@ static void tree_cfg2vcg (FILE *);
 static void tree_merge_blocks (basic_block, basic_block);
 static bool tree_can_merge_blocks_p (basic_block, basic_block);
 static void remove_bb (basic_block);
-static void group_case_labels (void);
-static void cleanup_dead_labels (void);
 static bool cleanup_control_flow (void);
 static bool cleanup_control_expr_graph (basic_block, block_stmt_iterator);
 static edge find_taken_edge_cond_expr (basic_block, tree);
@@ -419,7 +417,6 @@ static void
 make_edges (void)
 {
   basic_block bb;
-  edge e;
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
@@ -448,36 +445,9 @@ make_edges (void)
 	make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
     }
 
-  /* If there is a fallthru edge to exit out of the last block, transform it
-     to a return statement.  */
-  for (e = EXIT_BLOCK_PTR->prev_bb->succ; e; e = e->succ_next)
-    if (e->flags & EDGE_FALLTHRU)
-      break;
-
-  if (e && e->dest == EXIT_BLOCK_PTR)
-    {
-      block_stmt_iterator bsi;
-      basic_block ret_bb = EXIT_BLOCK_PTR->prev_bb;
-      tree x;
-
-      /* If E->SRC ends with a call that has an abnormal edge (for EH or
-	 nonlocal goto), then we will need to split the edge to insert
-	 an explicit return statement.  */
-      if (e != ret_bb->succ || e->succ_next)
-	{
-	  ret_bb = split_edge (e);
-	  e = ret_bb->succ;
-	}
-      e->flags &= ~EDGE_FALLTHRU;
-
-      x = build (RETURN_EXPR, void_type_node, NULL_TREE);
-      bsi = bsi_last (ret_bb);
-      bsi_insert_after (&bsi, x, BSI_NEW_STMT);
-    }
-
   /* We do not care about fake edges, so remove any that the CFG
      builder inserted for completeness.  */
-  remove_fake_edges ();
+  remove_fake_exit_edges ();
 
   /* Clean up the graph and warn for unreachable code.  */
   cleanup_tree_cfg ();
@@ -539,7 +509,7 @@ make_ctrl_stmt_edges (basic_block bb)
 static void
 make_exit_edges (basic_block bb)
 {
-  tree last = last_stmt (bb);
+  tree last = last_stmt (bb), op;
 
   if (last == NULL_TREE)
     abort ();
@@ -579,8 +549,8 @@ make_exit_edges (basic_block bb)
       /* A MODIFY_EXPR may have a CALL_EXPR on its RHS and the CALL_EXPR
 	 may have an abnormal edge.  Search the RHS for this case and
 	 create any required edges.  */
-      if (TREE_CODE (TREE_OPERAND (last, 1)) == CALL_EXPR
-	  && TREE_SIDE_EFFECTS (TREE_OPERAND (last, 1))
+      op = get_call_expr_in (last);
+      if (op && TREE_SIDE_EFFECTS (op)
 	  && current_function_has_nonlocal_label)
 	make_goto_expr_edges (bb);
 
@@ -648,7 +618,21 @@ make_switch_expr_edges (basic_block bb)
 basic_block
 label_to_block (tree dest)
 {
-  return VARRAY_BB (label_to_block_map, LABEL_DECL_UID (dest));
+  int uid = LABEL_DECL_UID (dest);
+
+  /* We would die hard when faced by undefined label.  Emit label to
+     very first basic block.  This will hopefully make even the dataflow
+     and undefined variable warnings quite right.  */
+  if ((errorcount || sorrycount) && uid < 0)
+    {
+      block_stmt_iterator bsi = bsi_start (BASIC_BLOCK (0));
+      tree stmt;
+
+      stmt = build1 (LABEL_EXPR, void_type_node, dest);
+      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+      uid = LABEL_DECL_UID (dest);
+    }
+  return VARRAY_BB (label_to_block_map, uid);
 }
 
 
@@ -681,7 +665,11 @@ make_goto_expr_edges (basic_block bb)
       if (simple_goto_p (goto_t))
 	{
 	  edge e = make_edge (bb, label_to_block (dest), EDGE_FALLTHRU);
+#ifdef USE_MAPPED_LOCATION
+	  e->goto_locus = EXPR_LOCATION (goto_t);
+#else
 	  e->goto_locus = EXPR_LOCUS (goto_t);
+#endif
 	  bsi_remove (&last);
 	  return;
 	}
@@ -746,8 +734,8 @@ cleanup_tree_cfg (void)
   while (something_changed)
     {
       something_changed = cleanup_control_flow ();
-      something_changed |= thread_jumps ();
       something_changed |= delete_unreachable_blocks ();
+      something_changed |= thread_jumps ();
     }
 
   /* Merging the blocks creates no new opportunities for the other
@@ -780,9 +768,30 @@ update_eh_label (struct eh_region *region)
   tree old_label = get_eh_region_tree_label (region);
   if (old_label)
     {
-      tree new_label = label_for_bb[label_to_block (old_label)->index];
+      tree new_label;
+      basic_block bb = label_to_block (old_label);
+
+      /* ??? After optimizing, there may be EH regions with labels
+	 that have already been removed from the function body, so
+	 there is no basic block for them.  */
+      if (! bb)
+	return;
+
+      new_label = label_for_bb[bb->index];
       set_eh_region_tree_label (region, new_label);
     }
+}
+
+/* Given LABEL return the first label in the same basic block.  */
+static tree
+main_block_label (tree label)
+{
+  basic_block bb = label_to_block (label);
+
+  /* label_to_block possibly inserted undefined label into the chain.  */
+  if (!label_for_bb[bb->index])
+    label_for_bb[bb->index] = label;
+  return label_for_bb[bb->index];
 }
 
 /* Cleanup redundant labels.  This is a three-steo process:
@@ -790,7 +799,7 @@ update_eh_label (struct eh_region *region)
      2) Redirect all references to labels to the leading labels.
      3) Cleanup all useless labels.  */
 
-static void
+void
 cleanup_dead_labels (void)
 {
   basic_block bb;
@@ -844,15 +853,14 @@ cleanup_dead_labels (void)
 	case COND_EXPR:
 	  {
 	    tree true_branch, false_branch;
-	    basic_block true_bb, false_bb;
 
 	    true_branch = COND_EXPR_THEN (stmt);
 	    false_branch = COND_EXPR_ELSE (stmt);
-	    true_bb = label_to_block (GOTO_DESTINATION (true_branch));
-	    false_bb = label_to_block (GOTO_DESTINATION (false_branch));
 
-	    GOTO_DESTINATION (true_branch) = label_for_bb[true_bb->index];
-	    GOTO_DESTINATION (false_branch) = label_for_bb[false_bb->index];
+	    GOTO_DESTINATION (true_branch)
+	      = main_block_label (GOTO_DESTINATION (true_branch));
+	    GOTO_DESTINATION (false_branch)
+	      = main_block_label (GOTO_DESTINATION (false_branch));
 
 	    break;
 	  }
@@ -865,12 +873,8 @@ cleanup_dead_labels (void)
   
 	    /* Replace all destination labels.  */
 	    for (i = 0; i < n; ++i)
-	      {
-		tree label = CASE_LABEL (TREE_VEC_ELT (vec, i));
-
-		CASE_LABEL (TREE_VEC_ELT (vec, i)) =
-		  label_for_bb[label_to_block (label)->index];
-	      }
+	      CASE_LABEL (TREE_VEC_ELT (vec, i))
+		= main_block_label (CASE_LABEL (TREE_VEC_ELT (vec, i)));
   
 	    break;
 	  }
@@ -878,13 +882,12 @@ cleanup_dead_labels (void)
 	/* We have to handle GOTO_EXPRs until they're removed, and we don't
 	   remove them until after we've created the CFG edges.  */
 	case GOTO_EXPR:
-	  {
-	    tree label = GOTO_DESTINATION (stmt);
-	    if (! computed_goto_p (stmt))
-	      GOTO_DESTINATION (stmt) =
-		label_for_bb[label_to_block (label)->index];
-	    break;
-	  }
+          if (! computed_goto_p (stmt))
+	    {
+	      GOTO_DESTINATION (stmt)
+		= main_block_label (GOTO_DESTINATION (stmt));
+	      break;
+	    }
 
 	default:
 	  break;
@@ -929,7 +932,7 @@ cleanup_dead_labels (void)
    same label.
    Eg. three separate entries 1: 2: 3: become one entry 1..3:  */
 
-static void
+void
 group_case_labels (void)
 {
   basic_block bb;
@@ -942,6 +945,7 @@ group_case_labels (void)
 	  tree labels = SWITCH_LABELS (stmt);
 	  int old_size = TREE_VEC_LENGTH (labels);
 	  int i, j, new_size = old_size;
+	  tree default_label = TREE_VEC_ELT (labels, old_size - 1);
 
 	  /* Look for possible opportunities to merge cases.
 	     Ignore the last element of the label vector because it
@@ -955,8 +959,18 @@ group_case_labels (void)
 	      if (! base_case)
 		abort ();
 
-	      type = TREE_TYPE (CASE_LOW (base_case));
 	      base_label = CASE_LABEL (base_case);
+
+	      /* Discard cases that have the same destination as the
+		 default case.  */
+	      if (base_label == default_label)
+		{
+		  TREE_VEC_ELT (labels, i) = NULL_TREE;
+		  i++;
+		  continue;
+		}
+
+	      type = TREE_TYPE (CASE_LOW (base_case));
 	      base_high = CASE_HIGH (base_case) ?
 		CASE_HIGH (base_case) : CASE_LOW (base_case);
 
@@ -1124,9 +1138,10 @@ static void remove_useless_stmts_1 (tree *, struct rus_data *);
 static bool
 remove_useless_stmts_warn_notreached (tree stmt)
 {
-  if (EXPR_LOCUS (stmt))
+  if (EXPR_HAS_LOCATION (stmt))
     {
-      warning ("%Hwill never be executed", EXPR_LOCUS (stmt));
+      location_t loc = EXPR_LOCATION (stmt);
+      warning ("%Hwill never be executed", &loc);
       return true;
     }
 
@@ -1513,7 +1528,7 @@ clear_special_calls (void)
 static void
 remove_useless_stmts_1 (tree *tp, struct rus_data *data)
 {
-  tree t = *tp;
+  tree t = *tp, op;
 
   switch (TREE_CODE (t))
     {
@@ -1559,10 +1574,11 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
     case MODIFY_EXPR:
       data->last_goto = NULL;
       fold_stmt (tp);
-      if (TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR)
+      op = get_call_expr_in (t);
+      if (op)
 	{
-	  update_call_expr_flags (TREE_OPERAND (t, 1));
-	  notice_special_calls (TREE_OPERAND (t, 1));
+	  update_call_expr_flags (op);
+	  notice_special_calls (op);
 	}
       if (tree_could_throw_p (t))
 	data->may_throw = true;
@@ -1726,11 +1742,8 @@ cfg_remove_useless_stmts_bb (basic_block bb)
 
       /* Invalidate the var if we encounter something that could modify it.  */
       if (TREE_CODE (stmt) == ASM_EXPR
-	  || TREE_CODE (stmt) == VA_ARG_EXPR
 	  || (TREE_CODE (stmt) == MODIFY_EXPR
-	      && (TREE_OPERAND (stmt, 0) == var
-		  || TREE_OPERAND (stmt, 0) == val
-		  || TREE_CODE (TREE_OPERAND (stmt, 1)) == VA_ARG_EXPR)))
+	      && TREE_OPERAND (stmt, 0) == var))
 	return;
   
       bsi_next (&bsi);
@@ -1768,7 +1781,7 @@ remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb)
   phi = phi_nodes (bb);
   while (phi)
     {
-      tree next = TREE_CHAIN (phi);
+      tree next = PHI_CHAIN (phi);
       remove_phi_node (phi, NULL_TREE, bb);
       phi = next;
     }
@@ -1785,7 +1798,7 @@ static void
 remove_bb (basic_block bb)
 {
   block_stmt_iterator i;
-  location_t *loc = NULL;
+  source_locus loc = 0;
 
   if (dump_file)
     {
@@ -1808,8 +1821,12 @@ remove_bb (basic_block bb)
 	 jump threading, thus resulting in bogus warnings.  Not great,
 	 since this way we lose warnings for gotos in the original
 	 program that are indeed unreachable.  */
-      if (TREE_CODE (stmt) != GOTO_EXPR && EXPR_LOCUS (stmt) && !loc)
+      if (TREE_CODE (stmt) != GOTO_EXPR && EXPR_HAS_LOCATION (stmt) && !loc)
+#ifdef USE_MAPPED_LOCATION
+	loc = EXPR_LOCATION (stmt);
+#else
 	loc = EXPR_LOCUS (stmt);
+#endif
     }
 
   /* If requested, give a warning that the first statement in the
@@ -1817,7 +1834,11 @@ remove_bb (basic_block bb)
      loop above, so the last statement we process is the first statement
      in the block.  */
   if (warn_notreached && loc)
+#ifdef USE_MAPPED_LOCATION
+    warning ("%Hwill never be executed", &loc);
+#else
     warning ("%Hwill never be executed", loc);
+#endif
 
   remove_phi_nodes_and_edges_for_unreachable_block (bb);
 }
@@ -1978,9 +1999,9 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 }
 
 
-/* Given a control block BB and a constant value VAL, return the edge that
-   will be taken out of the block.  If VAL does not match a unique edge,
-   NULL is returned.  */
+/* Given a control block BB and a predicate VAL, return the edge that
+   will be taken out of the block.  If VAL does not match a unique
+   edge, NULL is returned. */
 
 edge
 find_taken_edge (basic_block bb, tree val)
@@ -1993,6 +2014,24 @@ find_taken_edge (basic_block bb, tree val)
   if (stmt == NULL_TREE || !is_ctrl_stmt (stmt))
     abort ();
 #endif
+
+  /* If VAL is a predicate of the form N RELOP N, where N is an
+     SSA_NAME, we can always determine its truth value (except when
+     doing floating point comparisons that may involve NaNs).  */
+  if (val
+      && TREE_CODE_CLASS (TREE_CODE (val)) == '<'
+      && TREE_OPERAND (val, 0) == TREE_OPERAND (val, 1)
+      && TREE_CODE (TREE_OPERAND (val, 0)) == SSA_NAME
+      && (TREE_CODE (TREE_TYPE (TREE_OPERAND (val, 0))) != REAL_TYPE
+	  || !HONOR_NANS (TYPE_MODE (TREE_TYPE (TREE_OPERAND (val, 0))))))
+    {
+      enum tree_code code = TREE_CODE (val);
+
+      if (code == EQ_EXPR || code == LE_EXPR || code == GE_EXPR)
+	val = boolean_true_node;
+      else if (code == LT_EXPR || code == GT_EXPR || code == NE_EXPR)
+	val = boolean_false_node;
+    }
 
   /* If VAL is not a constant, we can't determine which edge might
      be taken.  */
@@ -2116,7 +2155,7 @@ phi_alternatives_equal (basic_block dest, edge e1, edge e2)
   tree phi, val1, val2;
   int n1, n2;
 
-  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
     {
       n1 = phi_arg_from_edge (phi, e1);
       n2 = phi_arg_from_edge (phi, e2);
@@ -2295,10 +2334,10 @@ dump_cfg_stats (FILE *file)
 {
   static long max_num_merged_labels = 0;
   unsigned long size, total = 0;
-  long n_edges;
+  int n_edges;
   basic_block bb;
   const char * const fmt_str   = "%-30s%-13s%12s\n";
-  const char * const fmt_str_1 = "%-30s%13lu%11lu%c\n";
+  const char * const fmt_str_1 = "%-30s%13d%11lu%c\n";
   const char * const fmt_str_3 = "%-43s%11lu%c\n";
   const char *funcname
     = lang_hooks.decl_printable_name (current_function_decl, 2);
@@ -2313,8 +2352,8 @@ dump_cfg_stats (FILE *file)
 
   size = n_basic_blocks * sizeof (struct basic_block_def);
   total += size;
-  fprintf (file, fmt_str_1, "Basic blocks", n_basic_blocks, SCALE (size),
-	   LABEL (size));
+  fprintf (file, fmt_str_1, "Basic blocks", n_basic_blocks,
+	   SCALE (size), LABEL (size));
 
   n_edges = 0;
   FOR_EACH_BB (bb)
@@ -2466,37 +2505,24 @@ is_ctrl_stmt (tree t)
 bool
 is_ctrl_altering_stmt (tree t)
 {
-  tree call = t;
+  tree call;
 
 #if defined ENABLE_CHECKING
   if (t == NULL)
     abort ();
 #endif
 
-  switch (TREE_CODE (t))
+  call = get_call_expr_in (t);
+  if (call)
     {
-    case MODIFY_EXPR:
-      /* A MODIFY_EXPR with a rhs of a call has the characteristics
-	 of the call.  */
-      call = TREE_OPERAND (t, 1);
-      if (TREE_CODE (call) != CALL_EXPR)
-	break;
-      /* FALLTHRU */
-
-    case CALL_EXPR:
       /* A non-pure/const CALL_EXPR alters flow control if the current
 	 function has nonlocal labels.  */
-      if (TREE_SIDE_EFFECTS (t)
-	  && current_function_has_nonlocal_label)
+      if (TREE_SIDE_EFFECTS (call) && current_function_has_nonlocal_label)
 	return true;
 
       /* A CALL_EXPR also alters control flow if it does not return.  */
       if (call_expr_flags (call) & (ECF_NORETURN | ECF_LONGJMP))
 	return true;
-      break;
-
-    default:
-      return false;
     }
 
   /* If a statement can throw, it alters control flow.  */
@@ -2586,7 +2612,7 @@ disband_implicit_edges (void)
   basic_block bb;
   block_stmt_iterator last;
   edge e;
-  tree stmt, label, forward;
+  tree stmt, label;
 
   FOR_EACH_BB (bb)
     {
@@ -2652,34 +2678,30 @@ disband_implicit_edges (void)
 
       label = tree_block_label (e->dest);
 
-      /* If this is a goto to a goto, jump to the final destination.
-         Handles unfactoring of the computed jumps.
-         ??? Why bother putting this back together when rtl is just
-	 about to take it apart again?  */
-      forward = last_and_only_stmt (e->dest);
-      if (forward
-	  && TREE_CODE (forward) == GOTO_EXPR)
-	label = GOTO_DESTINATION (forward);
-
       stmt = build1 (GOTO_EXPR, void_type_node, label);
+#ifdef USE_MAPPED_LOCATION
+      SET_EXPR_LOCATION (stmt, e->goto_locus);
+#else
       SET_EXPR_LOCUS (stmt, e->goto_locus);
+#endif
       bsi_insert_after (&last, stmt, BSI_NEW_STMT);
       e->flags &= ~EDGE_FALLTHRU;
     }
 }
 
-/* Remove all the blocks and edges that make up the flowgraph.  */
+/* Remove block annotations and other datastructures.  */
 
 void
-delete_tree_cfg (void)
+delete_tree_cfg_annotations (void)
 {
+  basic_block bb;
   if (n_basic_blocks > 0)
     free_blocks_annotations ();
 
-  free_basic_block_vars ();
-  basic_block_info = NULL;
   label_to_block_map = NULL;
   free_rbi_pool ();
+  FOR_EACH_BB (bb)
+    bb->rbi = NULL;
 }
 
 
@@ -3118,7 +3140,7 @@ tree_split_edge (edge edge_in)
   /* Find all the PHI arguments on the original edge, and change them to
      the new edge.  Do it before redirection, so that the argument does not
      get removed.  */
-  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
     {
       num_elem = PHI_NUM_ARGS (phi);
       for (i = 0; i < num_elem; i++)
@@ -3163,13 +3185,20 @@ has_label_p (basic_block bb, tree label)
    properly noticed as such.  */
 
 static tree
-verify_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-	     void *data ATTRIBUTE_UNUSED)
+verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
   tree t = *tp, x;
 
   if (TYPE_P (t))
     *walk_subtrees = 0;
+  
+  /* Check operand N for being valid GIMPLE and give error MSG if not. 
+     We check for constants explicitly since they are not considered
+     gimple invariants if they overflowed.  */
+#define CHECK_OP(N, MSG) \
+  do { if (TREE_CODE_CLASS (TREE_CODE (TREE_OPERAND (t, N))) != 'c'	\
+         && !is_gimple_val (TREE_OPERAND (t, N)))			\
+       { error (MSG); return TREE_OPERAND (t, N); }} while (0)
 
   switch (TREE_CODE (t))
     {
@@ -3187,17 +3216,21 @@ verify_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 	  && is_gimple_reg (TREE_OPERAND (x, 0)))
 	{
 	  error ("GIMPLE register modified with BIT_FIELD_REF");
-	  return *tp;
+	  return t;
 	}
       break;
 
     case ADDR_EXPR:
-      x = TREE_OPERAND (t, 0);
-      while (TREE_CODE (x) == ARRAY_REF
-	     || TREE_CODE (x) == COMPONENT_REF
-	     || TREE_CODE (x) == REALPART_EXPR
-	     || TREE_CODE (x) == IMAGPART_EXPR)
-	x = TREE_OPERAND (x, 0);
+      /* Skip any references (they will be checked when we recurse down the
+	 tree) and ensure that any variable used as a prefix is marked
+	 addressable.  */
+      for (x = TREE_OPERAND (t, 0);
+	   (handled_component_p (x)
+	    || TREE_CODE (x) == REALPART_EXPR
+	    || TREE_CODE (x) == IMAGPART_EXPR);
+	   x = TREE_OPERAND (x, 0))
+	;
+
       if (TREE_CODE (x) != VAR_DECL && TREE_CODE (x) != PARM_DECL)
 	return NULL;
       if (!TREE_ADDRESSABLE (x))
@@ -3228,19 +3261,50 @@ verify_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
     case BIT_NOT_EXPR:
     case NON_LVALUE_EXPR:
     case TRUTH_NOT_EXPR:
-      x = TREE_OPERAND (t, 0);
-      /* We check for constants explicitly since they are not considered
-	 gimple invariants if they overflowed.  */
-      if (TREE_CODE_CLASS (TREE_CODE (x)) != 'c'
-	  && !is_gimple_val (x))
-	{
-	  error ("Invalid operand to unary operator");
-	  return x;
-	}
+      CHECK_OP (0, "Invalid operand to unary operator");
       break;
 
     case REALPART_EXPR:
     case IMAGPART_EXPR:
+    case COMPONENT_REF:
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+    case BIT_FIELD_REF:
+    case VIEW_CONVERT_EXPR:
+      /* We have a nest of references.  Verify that each of the operands
+	 that determine where to reference is either a constant or a variable,
+	 verify that the base is valid, and then show we've already checked
+	 the subtrees.  */
+      while (TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR
+	     || handled_component_p (t))
+	{
+	  if (TREE_CODE (t) == COMPONENT_REF && TREE_OPERAND (t, 2))
+	    CHECK_OP (2, "Invalid COMPONENT_REF offset operator");
+	  else if (TREE_CODE (t) == ARRAY_REF
+		   || TREE_CODE (t) == ARRAY_RANGE_REF)
+	    {
+	      CHECK_OP (1, "Invalid array index.");
+	      if (TREE_OPERAND (t, 2))
+		CHECK_OP (2, "Invalid array lower bound.");
+	      if (TREE_OPERAND (t, 3))
+		CHECK_OP (3, "Invalid array stride.");
+	    }
+	  else if (TREE_CODE (t) == BIT_FIELD_REF)
+	    {
+	      CHECK_OP (1, "Invalid operand to BIT_FIELD_REF");
+	      CHECK_OP (2, "Invalid operand to BIT_FIELD_REF");
+	    }
+
+	  t = TREE_OPERAND (t, 0);
+	}
+
+      if (TREE_CODE_CLASS (TREE_CODE (t)) != 'c'
+	  && !is_gimple_lvalue (t))
+	{
+	  error ("Invalid reference prefix.");
+	  return t;
+	}
+      *walk_subtrees = 0;
       break;
 
     case LT_EXPR:
@@ -3279,30 +3343,16 @@ verify_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case BIT_AND_EXPR:
-      x = TREE_OPERAND (t, 0);
-      /* We check for constants explicitly since they are not considered
-	 gimple invariants if they overflowed.  */
-      if (TREE_CODE_CLASS (TREE_CODE (x)) != 'c'
-	  && !is_gimple_val (x))
-	{
-	  error ("Invalid operand to binary operator");
-	  return x;
-	}
-      x = TREE_OPERAND (t, 1);
-      /* We check for constants explicitly since they are not considered
-	 gimple invariants if they overflowed.  */
-      if (TREE_CODE_CLASS (TREE_CODE (x)) != 'c'
-	  && !is_gimple_val (x))
-	{
-	  error ("Invalid operand to binary operator");
-	  return x;
-	}
+      CHECK_OP (0, "Invalid operand to binary operator");
+      CHECK_OP (1, "Invalid operand to binary operator");
       break;
 
     default:
       break;
     }
   return NULL;
+
+#undef CHECK_OP
 }
 
 
@@ -3310,15 +3360,14 @@ verify_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
    TODO: Implement type checking.  */
 
 static bool
-verify_stmt (tree stmt)
+verify_stmt (tree stmt, bool last_in_block)
 {
   tree addr;
 
   if (!is_gimple_stmt (stmt))
     {
       error ("Is not a valid GIMPLE statement.");
-      debug_generic_stmt (stmt);
-      return true;
+      goto fail;
     }
 
   addr = walk_tree (&stmt, verify_expr, NULL, NULL);
@@ -3328,7 +3377,30 @@ verify_stmt (tree stmt)
       return true;
     }
 
+  /* If the statement is marked as part of an EH region, then it is
+     expected that the statement could throw.  Verify that when we
+     have optimizations that simplify statements such that we prove
+     that they cannot throw, that we update other data structures
+     to match.  */
+  if (lookup_stmt_eh_region (stmt) >= 0)
+    {
+      if (!tree_could_throw_p (stmt))
+	{
+	  error ("Statement marked for throw, but doesn't.");
+	  goto fail;
+	}
+      if (!last_in_block && tree_can_throw_internal (stmt))
+	{
+	  error ("Statement marked for throw in middle of block.");
+	  goto fail;
+	}
+    }
+
   return false;
+
+ fail:
+  debug_generic_stmt (stmt);
+  return true;
 }
 
 
@@ -3345,7 +3417,7 @@ tree_node_can_be_shared (tree t)
       || TREE_CODE (t) == SSA_NAME)
     return true;
 
-  while ((TREE_CODE (t) == ARRAY_REF
+  while (((TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
 	  /* We check for constants explicitly since they are not considered
 	     gimple invariants if they overflowed.  */
 	  && (TREE_CODE_CLASS (TREE_CODE (TREE_OPERAND (t, 1))) == 'c'
@@ -3404,7 +3476,7 @@ verify_stmts (void)
       tree phi;
       int i;
 
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  int phi_num_args = PHI_NUM_ARGS (phi);
 
@@ -3443,10 +3515,11 @@ verify_stmts (void)
 	    }
 	}
 
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); )
 	{
 	  tree stmt = bsi_stmt (bsi);
-	  err |= verify_stmt (stmt);
+	  bsi_next (&bsi);
+	  err |= verify_stmt (stmt, bsi_end_p (bsi));
 	  addr = walk_tree (&stmt, verify_node_sharing, htab, NULL);
 	  if (addr)
 	    {
@@ -3751,7 +3824,7 @@ tree_make_forwarder_block (edge fallthru)
 {
   edge e;
   basic_block dummy, bb;
-  tree phi, new_phi, var;
+  tree phi, new_phi, var, prev, next;
 
   dummy = fallthru->src;
   bb = fallthru->dest;
@@ -3761,7 +3834,7 @@ tree_make_forwarder_block (edge fallthru)
 
   /* If we redirected a branch we must create new phi nodes at the
      start of BB.  */
-  for (phi = phi_nodes (dummy); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (dummy); phi; phi = PHI_CHAIN (phi))
     {
       var = PHI_RESULT (phi);
       new_phi = create_phi_node (var, bb);
@@ -3770,8 +3843,15 @@ tree_make_forwarder_block (edge fallthru)
       add_phi_arg (&new_phi, PHI_RESULT (phi), fallthru);
     }
 
-  /* Ensure that the PHI node chains are in the same order.  */
-  set_phi_nodes (bb, nreverse (phi_nodes (bb)));
+  /* Ensure that the PHI node chain is in the same order.  */
+  prev = NULL;
+  for (phi = phi_nodes (bb); phi; phi = next)
+    {
+      next = PHI_CHAIN (phi);
+      PHI_CHAIN (phi) = prev;
+      prev = phi;
+    }
+  set_phi_nodes (bb, prev);
 
   /* Add the arguments we have stored on edges.  */
   for (e = bb->pred; e; e = e->pred_next)
@@ -3781,7 +3861,7 @@ tree_make_forwarder_block (edge fallthru)
 
       for (phi = phi_nodes (bb), var = PENDING_STMT (e);
 	   phi;
-	   phi = TREE_CHAIN (phi), var = TREE_CHAIN (var))
+	   phi = PHI_CHAIN (phi), var = TREE_CHAIN (var))
 	add_phi_arg (&phi, TREE_VALUE (var), e);
 
       PENDING_STMT (e) = NULL;
@@ -3865,7 +3945,7 @@ static bool
 thread_jumps (void)
 {
   edge e, next, last, old;
-  basic_block bb, dest, tmp;
+  basic_block bb, dest, tmp, old_dest, dom;
   tree phi;
   int arg, old_forwardable;
   bool retval = false;
@@ -3921,6 +4001,11 @@ thread_jumps (void)
 	       last = dest->succ,
 	       dest = dest->succ->dest)
 	    {
+	      /* An infinite loop detected.  We redirect the edge anyway, so
+		 that the loop is shrunk into single basic block.  */
+	      if (!bb_ann (dest)->forwardable)
+		break;
+
 	      if (dest->succ->dest == EXIT_BLOCK_PTR)
 		break;
 
@@ -3958,22 +4043,63 @@ thread_jumps (void)
 
 	  /* Perform the redirection.  */
 	  retval = true;
+	  old_dest = e->dest;
 	  e = redirect_edge_and_branch (e, dest);
-
-	  /* TODO -- updating dominators in this case is simple.  */
-	  free_dominance_info (CDI_DOMINATORS);
 
 	  if (!old)
 	    {
 	      /* Update PHI nodes.   We know that the new argument should
 		 have the same value as the argument associated with LAST.
 		 Otherwise we would have changed our target block above.  */
-	      for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+	      for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
 		{
 		  arg = phi_arg_from_edge (phi, last);
 		  if (arg < 0)
 		    abort ();
 		  add_phi_arg (&phi, PHI_ARG_DEF (phi, arg), e);
+		}
+	    }
+
+	  /* Update the dominators.  */
+	  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+	    {
+	      /* Remove the unreachable blocks (observe that if all blocks
+		 were reachable before, only those in the path we threaded
+		 over and did not have any predecessor outside of the path
+		 become unreachable).  */
+	      for (; old_dest != dest; old_dest = tmp)
+		{
+		  tmp = old_dest->succ->dest;
+
+		  if (old_dest->pred)
+		    break;
+
+		  delete_basic_block (old_dest);
+		}
+	      /* If the dominator of the destination was in the path, set its
+		 dominator to the start of the redirected edge.  */
+	      if (get_immediate_dominator (CDI_DOMINATORS, old_dest) == NULL)
+		set_immediate_dominator (CDI_DOMINATORS, old_dest, bb);
+
+	      /* Now proceed like if we forwarded just over one edge at a time.
+		 Algorithm for forwarding over edge A --> B then is
+
+		 if (idom (B) == A)
+		   idom (B) = idom (A);
+		 recount_idom (A);  */
+
+	      for (; old_dest != dest; old_dest = tmp)
+		{
+		  tmp = old_dest->succ->dest;
+
+		  if (get_immediate_dominator (CDI_DOMINATORS, tmp) == old_dest)
+		    {
+		      dom = get_immediate_dominator (CDI_DOMINATORS, old_dest);
+  		      set_immediate_dominator (CDI_DOMINATORS, tmp, dom);
+		    }
+
+		  dom = recount_dominator (CDI_DOMINATORS, old_dest);
+		  set_immediate_dominator (CDI_DOMINATORS, old_dest, dom);
 		}
 	    }
 	}
@@ -4916,15 +5042,7 @@ static bool
 tree_block_ends_with_call_p (basic_block bb)
 {
   block_stmt_iterator bsi = bsi_last (bb);
-  tree t = tsi_stmt (bsi.tsi);
-
-  if (TREE_CODE (t) == RETURN_EXPR && TREE_OPERAND (t, 0))
-    t = TREE_OPERAND (t, 0);
-
-  if (TREE_CODE (t) == MODIFY_EXPR)
-    t = TREE_OPERAND (t, 1);
-
-  return TREE_CODE (t) == CALL_EXPR;
+  return get_call_expr_in (bsi_stmt (bsi)) != NULL;
 }
 
 
@@ -4945,11 +5063,7 @@ tree_block_ends_with_condjump_p (basic_block bb)
 static bool
 need_fake_edge_p (tree t)
 {
-  if (TREE_CODE (t) == RETURN_EXPR && TREE_OPERAND (t, 0))
-    t = TREE_OPERAND (t, 0);
-
-  if (TREE_CODE (t) == MODIFY_EXPR)
-    t = TREE_OPERAND (t, 1);
+  tree call;
 
   /* NORETURN and LONGJMP calls already have an edge to exit.
      CONST, PURE and ALWAYS_RETURN calls do not need one.
@@ -4958,9 +5072,10 @@ need_fake_edge_p (tree t)
      figured out from the RTL in mark_constant_function, and
      the counter incrementation code from -fprofile-arcs
      leads to different results from -fbranch-probabilities.  */
-  if (TREE_CODE (t) == CALL_EXPR
-      && !(call_expr_flags (t) & 
-	    (ECF_NORETURN | ECF_LONGJMP | ECF_ALWAYS_RETURN)))
+  call = get_call_expr_in (t);
+  if (call
+      && !(call_expr_flags (call) & 
+	   (ECF_NORETURN | ECF_LONGJMP | ECF_ALWAYS_RETURN)))
     return true;
 
   if (TREE_CODE (t) == ASM_EXPR
@@ -5088,6 +5203,40 @@ tree_flow_call_edges_add (sbitmap blocks)
   return blocks_split;
 }
 
+bool
+tree_purge_dead_eh_edges (basic_block bb)
+{
+  bool changed = false;
+  edge e, next;
+  tree stmt = last_stmt (bb);
+
+  if (stmt && tree_can_throw_internal (stmt))
+    return false;
+
+  for (e = bb->succ; e ; e = next)
+    {
+      next = e->succ_next;
+      if (e->flags & EDGE_EH)
+	{
+	  ssa_remove_edge (e);
+	  changed = true;
+	}
+    }
+
+  return changed;
+}
+
+bool
+tree_purge_all_dead_eh_edges (bitmap blocks)
+{
+  bool changed = false;
+  size_t i;
+
+  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
+    { changed |= tree_purge_dead_eh_edges (BASIC_BLOCK (i)); });
+
+  return changed;
+}
 
 struct cfg_hooks tree_cfg_hooks = {
   "tree",
@@ -5134,7 +5283,7 @@ split_critical_edges (void)
 
 struct tree_opt_pass pass_split_crit_edges = 
 {
-  NULL,                          /* name */
+  "crited",                          /* name */
   NULL,                          /* gate */
   split_critical_edges,          /* execute */
   NULL,                          /* sub */
@@ -5145,7 +5294,7 @@ struct tree_opt_pass pass_split_crit_edges =
   PROP_no_crit_edges,            /* properties_provided */
   0,                             /* properties_destroyed */
   0,                             /* todo_flags_start */
-  0,                             /* todo_flags_finish */
+  TODO_dump_func,                             /* todo_flags_finish */
 };
 
 /* Emit return warnings.  */
@@ -5153,7 +5302,11 @@ struct tree_opt_pass pass_split_crit_edges =
 static void
 execute_warn_function_return (void)
 {
+#ifdef USE_MAPPED_LOCATION
+  source_location location;
+#else
   location_t *locus;
+#endif
   tree last;
   edge e;
 
@@ -5168,17 +5321,31 @@ execute_warn_function_return (void)
   if (TREE_THIS_VOLATILE (cfun->decl)
       && EXIT_BLOCK_PTR->pred != NULL)
     {
+#ifdef USE_MAPPED_LOCATION
+      location = UNKNOWN_LOCATION;
+#else
       locus = NULL;
+#endif
       for (e = EXIT_BLOCK_PTR->pred; e ; e = e->pred_next)
 	{
 	  last = last_stmt (e->src);
 	  if (TREE_CODE (last) == RETURN_EXPR
+#ifdef USE_MAPPED_LOCATION
+	      && (location = EXPR_LOCATION (last)) != UNKNOWN_LOCATION)
+#else
 	      && (locus = EXPR_LOCUS (last)) != NULL)
+#endif
 	    break;
 	}
+#ifdef USE_MAPPED_LOCATION
+      if (location == UNKNOWN_LOCATION)
+	location = cfun->function_end_locus;
+      warning ("%H`noreturn' function does return", &location);
+#else
       if (!locus)
 	locus = &cfun->function_end_locus;
       warning ("%H`noreturn' function does return", locus);
+#endif
     }
 
   /* If we see "return;" in some basic block, then we do reach the end
@@ -5193,10 +5360,17 @@ execute_warn_function_return (void)
 	  if (TREE_CODE (last) == RETURN_EXPR
 	      && TREE_OPERAND (last, 0) == NULL)
 	    {
+#ifdef USE_MAPPED_LOCATION
+	      location = EXPR_LOCATION (last);
+	      if (location == UNKNOWN_LOCATION)
+		  location = cfun->function_end_locus;
+	      warning ("%Hcontrol reaches end of non-void function", &location);
+#else
 	      locus = EXPR_LOCUS (last);
 	      if (!locus)
 		locus = &cfun->function_end_locus;
 	      warning ("%Hcontrol reaches end of non-void function", locus);
+#endif
 	      break;
 	    }
 	}
@@ -5237,7 +5411,7 @@ struct tree_opt_pass pass_warn_function_return =
   NULL,					/* next */
   0,					/* static_pass_number */
   0,					/* tv_id */
-  PROP_ssa,				/* properties_required */
+  PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */

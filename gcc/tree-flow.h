@@ -38,9 +38,45 @@ typedef struct basic_block_def *basic_block;
 #endif
 
 /*---------------------------------------------------------------------------
+		      Attributes for SSA_NAMEs.
+  
+  NOTE: These structures are stored in struct tree_ssa_name
+  but are only used by the tree optimizers, so it makes better sense
+  to declare them here to avoid recompiling unrelated files when
+  making changes.
+---------------------------------------------------------------------------*/
+
+/* Aliasing information for SSA_NAMEs representing pointer variables.  */
+struct ptr_info_def GTY(())
+{
+  /* Nonzero if points-to analysis couldn't determine where this pointer
+     is pointing to.  */
+  unsigned int pt_anything : 1;
+
+  /* Nonzero if this pointer is the result of a call to malloc.  */
+  unsigned int pt_malloc : 1;
+
+  /* Nonzero if the value of this pointer escapes the current function.  */
+  unsigned int value_escapes_p : 1;
+
+  /* Nonzero if this pointer is dereferenced.  */
+  unsigned int is_dereferenced : 1;
+
+  /* Set of variables that this pointer may point to.  */
+  bitmap pt_vars;
+
+  /* If this pointer has been dereferenced, and points-to information is
+     more precise than type-based aliasing, indirect references to this
+     pointer will be represented by this memory tag, instead of the type
+     tag computed by TBAA.  */
+  tree name_mem_tag;
+};
+
+
+/*---------------------------------------------------------------------------
 		   Tree annotations stored in tree_common.ann
 ---------------------------------------------------------------------------*/
-enum tree_ann_type { TREE_ANN_COMMON, VAR_ANN, CST_ANN, EXPR_ANN, STMT_ANN };
+enum tree_ann_type { TREE_ANN_COMMON, VAR_ANN, STMT_ANN };
 
 struct tree_ann_common_d GTY(())
 {
@@ -102,17 +138,6 @@ struct var_ann_d GTY(())
 {
   struct tree_ann_common_d common;
 
-  /* Nonzero if this variable has uses which may not appear
-     in the IL.  This can happen in the following cases:
-
-       1. If the variable is used in a variable length
-          array declaration.
-
-	2. If the variable is the return value in a C++
-	   function where the named return value optimization
-	   has been performed.  */
-  unsigned has_hidden_use : 1;
-
   /* Used by the out of SSA pass to determine whether this variable has
      been seen yet or not.  */
   unsigned out_of_ssa_tag : 1;
@@ -171,11 +196,6 @@ struct var_ann_d GTY(())
      live at the same time and this can happen for each call to the
      dominator optimizer.  */
   tree current_def;
-
-  /* The set of expressions represented by this variable if it is a
-     value handle.  This is used by GVN-PRE.  */
-  PTR GTY ((skip)) expr_set;
-  
 };
 
 
@@ -266,44 +286,24 @@ struct stmt_ann_d GTY(())
   unsigned int uid;
 };
 
-
-struct cst_ann_d GTY (())
-{
-  struct tree_ann_common_d common;
-  
-};
-
-struct expr_ann_d GTY(())
-{
-  struct tree_ann_common_d common;
-  
-};
-
-
-union tree_ann_d GTY((desc ("ann_type ((tree_ann)&%h)")))
+union tree_ann_d GTY((desc ("ann_type ((tree_ann_t)&%h)")))
 {
   struct tree_ann_common_d GTY((tag ("TREE_ANN_COMMON"))) common;
   struct var_ann_d GTY((tag ("VAR_ANN"))) decl;
-  struct expr_ann_d GTY((tag ("EXPR_ANN"))) expr;
-  struct cst_ann_d GTY((tag ("CST_ANN"))) cst;
   struct stmt_ann_d GTY((tag ("STMT_ANN"))) stmt;
 };
 
-typedef union tree_ann_d *tree_ann;
+typedef union tree_ann_d *tree_ann_t;
 typedef struct var_ann_d *var_ann_t;
 typedef struct stmt_ann_d *stmt_ann_t;
-typedef struct expr_ann_d *expr_ann_t;
-typedef struct cst_ann_d *cst_ann_t;
 
-static inline cst_ann_t cst_ann (tree);
-static inline cst_ann_t get_cst_ann (tree);
-static inline expr_ann_t expr_ann (tree);
-static inline expr_ann_t get_expr_ann (tree);
+static inline tree_ann_t tree_ann (tree);
+static inline tree_ann_t get_tree_ann (tree);
 static inline var_ann_t var_ann (tree);
 static inline var_ann_t get_var_ann (tree);
 static inline stmt_ann_t stmt_ann (tree);
 static inline stmt_ann_t get_stmt_ann (tree);
-static inline enum tree_ann_type ann_type (tree_ann);
+static inline enum tree_ann_type ann_type (tree_ann_t);
 static inline basic_block bb_for_stmt (tree);
 extern void set_bb_for_stmt (tree, basic_block);
 static inline void modify_stmt (tree);
@@ -322,8 +322,6 @@ static inline bitmap addresses_taken (tree);
 static inline int num_immediate_uses (dataflow_t);
 static inline tree immediate_use (dataflow_t, int);
 static inline dataflow_t get_immediate_uses (tree);
-static inline bool has_hidden_use (tree);
-static inline void set_has_hidden_use (tree);
 static inline void set_default_def (tree, tree);
 static inline tree default_def (tree);
 static inline bool may_be_aliased (tree);
@@ -347,9 +345,6 @@ struct bb_ann_d GTY(())
   /* Chain of PHI nodes for this block.  */
   tree phi_nodes;
 
-  /* Chain of EPHI nodes created in this block.  */
-  tree ephi_nodes;
-  
   /* Number of predecessors for this block.  This is only valid during
      SSA rewriting.  It is not maintained after conversion into SSA form.  */
   int num_preds;
@@ -392,6 +387,10 @@ extern GTY(()) tree global_var;
 /* Call clobbered variables in the function.  If bit I is set, then
    REFERENCED_VARS (I) is call-clobbered.  */
 extern bitmap call_clobbered_vars;
+
+/* Addressable variables in the function.  If bit I is set, then
+   REFERENCED_VARS (I) has had its address taken.  */
+extern bitmap addressable_vars;
 
 /* 'true' after aliases have been computed (see compute_may_aliases).  */
 extern bool aliases_computed_p;
@@ -458,7 +457,7 @@ extern void bsi_replace (const block_stmt_iterator *, tree, bool);
 /* Location to track pending stmt for edge insertion.  */
 #define PENDING_STMT(e)	((e)->insns.t)
 
-extern void delete_tree_cfg (void);
+extern void delete_tree_cfg_annotations (void);
 extern void disband_implicit_edges (void);
 extern bool stmt_ends_bb_p (tree);
 extern bool is_ctrl_stmt (tree);
@@ -475,6 +474,8 @@ extern void debug_cfg_stats (void);
 extern void tree_debug_loop (struct loop *);
 extern void tree_debug_loops (void);
 extern void print_loop_ir (FILE *);
+extern void cleanup_dead_labels (void);
+extern void group_case_labels (void);
 extern void cleanup_tree_cfg (void);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
@@ -493,19 +494,20 @@ extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
 extern void compute_dominance_frontiers (bitmap *);
 extern void verify_stmts (void);
-extern tree tree_block_label (basic_block);
+extern tree tree_block_label (basic_block bb);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *);
+extern bool tree_purge_dead_eh_edges (basic_block);
+extern bool tree_purge_all_dead_eh_edges (bitmap);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
 
 /* In tree-dfa.c  */
 extern var_ann_t create_var_ann (tree);
-extern cst_ann_t create_cst_ann (tree);
-extern expr_ann_t create_expr_ann (tree);
 extern stmt_ann_t create_stmt_ann (tree);
+extern tree_ann_t create_tree_ann (tree);
 extern tree create_phi_node (tree, basic_block);
 extern void add_phi_arg (tree *, tree, edge);
 extern void remove_phi_arg (tree, basic_block);
@@ -548,6 +550,8 @@ extern void dump_alias_info (FILE *);
 extern void debug_alias_info (void);
 extern void dump_points_to_info (FILE *);
 extern void debug_points_to_info (void);
+extern void dump_points_to_info_for (FILE *, tree);
+extern void debug_points_to_info_for (tree);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
@@ -581,9 +585,6 @@ extern void rewrite_ssa_into_ssa (bitmap);
 void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);
 
-/* In tree-ssa-pre.c  */
-extern void tree_perform_ssapre (tree, enum tree_dump_index);
-
 /* In tree-ssa-ccp.c  */
 bool fold_stmt (tree *);
 tree widen_bitfield (tree, tree, tree);
@@ -596,8 +597,55 @@ extern void debug_dominator_optimization_stats (void);
 extern void propagate_value (use_operand_p, tree);
 extern void propagate_tree_value (tree *, tree);
 extern void replace_exp (use_operand_p, tree);
-extern bool cprop_into_stmt (tree, varray_type);
-extern void cprop_into_successor_phis (basic_block, varray_type, bitmap);
+extern bool may_propagate_copy (tree, tree);
+
+/* Description of number of iterations of a loop.  All the expressions inside
+   the structure can be evaluated at the end of the loop's preheader
+   (and due to ssa form, also anywhere inside the body of the loop).  */
+
+struct tree_niter_desc
+{
+  tree assumptions;	/* The boolean expression.  If this expression evalutes
+			   to false, then the other fields in this structure
+			   should not be used; there is no guarantee that they
+			   will be correct.  */
+  tree may_be_zero;	/* The booleand expression.  If it evaluates to true,
+			   the loop will exit in the first iteration (i.e.
+			   its latch will not be executed), even if the niter
+			   field says otherwise.  */
+  tree niter;		/* The expression giving the number of iterations of
+			   a loop (provided that assumptions == true and
+			   may_be_zero == false), more precisely the number
+			   of executions of the latch of the loop.  */
+  tree additional_info;	/* The boolean expression.  Sometimes we use additional
+			   knowledge to simplify the other expressions
+			   contained in this structure (for example the
+			   knowledge about value ranges of operands on entry to
+			   the loop).  If this is a case, conjunction of such
+			   condition is stored in this field, so that we do not
+			   lose the information: for example if may_be_zero
+			   is (n <= 0) and niter is (unsigned) n, we know
+			   that the number of iterations is at most
+			   MAX_SIGNED_INT.  However if the (n <= 0) assumption
+			   is eliminated (by looking at the guard on entry of
+			   the loop), then the information would be lost.  */
+};
+
+/* In tree-ssa-loop*.c  */
+
+void tree_ssa_lim (struct loops *);
+
+void number_of_iterations_cond (tree, tree, tree, enum tree_code, tree, tree,
+				struct tree_niter_desc *);
+bool number_of_iterations_exit (struct loop *, edge,
+				struct tree_niter_desc *niter);
+tree loop_niter_by_eval (struct loop *, edge);
+tree find_loop_niter_by_eval (struct loop *, edge *);
+void estimate_numbers_of_iterations (struct loops *);
+tree can_count_iv_in_wider_type (struct loop *, tree, tree, tree, tree);
+void free_numbers_of_iterations_estimates (struct loops *);
+void loop_commit_inserts (void);
+bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 
 /* In tree-ssa-dce.c.  */
 void tree_ssa_dce_no_cfg_changes (void);
@@ -634,30 +682,8 @@ tree force_gimple_operand (tree, tree *, bool, tree);
 void rewrite_address_base (block_stmt_iterator *, tree *, tree);
 
 
-/* Description of number of iterations of a loop.  */
-struct tree_niter_desc
-{
-  tree assumptions;	/* Assumptions for the number of iterations be valid.  */
-  tree may_be_zero;	/* Condition under that the loop exits in the first
-			   iteration.  */
-  tree niter;		/* Number of iterations.  */
-  tree additional_info;	/* Additional conditions taken into account when
-			   deriving the information above.  */
-};
-
-void number_of_iterations_cond (tree, tree, tree, enum tree_code, tree, tree,
-				struct tree_niter_desc *);
-bool number_of_iterations_exit (struct loop *, edge,
-				struct tree_niter_desc *niter);
-tree loop_niter_by_eval (struct loop *, edge);
-tree find_loop_niter_by_eval (struct loop *, edge *);
-void estimate_numbers_of_iterations (struct loops *);
-tree can_count_iv_in_wider_type (struct loop *, tree, tree, tree, tree);
-void free_numbers_of_iterations_estimates (struct loops *);
-
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);
-static inline bool may_propagate_copy (tree, tree);
 static inline bool is_call_clobbered (tree);
 static inline void mark_call_clobbered (tree);
 
@@ -667,13 +693,30 @@ extern bool tree_could_trap_p (tree);
 extern bool tree_could_throw_p (tree);
 extern bool tree_can_throw_internal (tree);
 extern bool tree_can_throw_external (tree);
+extern int lookup_stmt_eh_region (tree);
 extern void add_stmt_to_eh_region (tree, int);
+extern bool remove_stmt_from_eh_region (tree);
+extern bool maybe_clean_eh_stmt (tree);
 
-/* In tree-ssa-pre.c */
-tree get_value_handle (tree);
-void set_value_handle (tree, tree);
+/* In tree-ssa-pre.c  */
+void add_to_value (tree, tree);
 void debug_value_expressions (tree);
 void print_value_expressions (FILE *, tree);
+
+
+/* In tree-vn.c  */
+bool expressions_equal_p (tree, tree);
+tree get_value_handle (tree);
+hashval_t vn_compute (tree, hashval_t, vuse_optype);
+tree vn_lookup_or_add (tree, vuse_optype);
+void vn_add (tree, tree, vuse_optype);
+tree vn_lookup (tree, vuse_optype);
+void vn_init (void);
+void vn_delete (void);
+
+
+/* In tree-sra.c  */
+void insert_edge_copies (tree stmt, basic_block bb);
 
 #include "tree-flow-inline.h"
 

@@ -2586,13 +2586,6 @@ validate_case_label_expr (gfc_expr * e, gfc_expr * case_expr)
 
   if (e == NULL) return SUCCESS;
 
-  if (e->expr_type != EXPR_CONSTANT)
-    {
-      gfc_error ("Expression in CASE statement at %L must be a constant",
-		 &e->where);
-      return FAILURE;
-    }
-
   if (e->ts.type != case_ts.type)
     {
       gfc_error ("Expression in CASE statement at %L must be of type %s",
@@ -3459,7 +3452,6 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	{
 	case EXEC_NOP:
 	case EXEC_CYCLE:
-	case EXEC_IOLENGTH:
 	case EXEC_PAUSE:
 	case EXEC_STOP:
 	case EXEC_EXIT:
@@ -3627,6 +3619,14 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 
 	case EXEC_INQUIRE:
 	  if (gfc_resolve_inquire (code->ext.inquire) == FAILURE)
+	      break;
+
+	  resolve_branch (code->ext.inquire->err, code);
+	  break;
+
+	case EXEC_IOLENGTH:
+	  assert(code->ext.inquire != NULL);
+	  if (gfc_resolve_inquire (code->ext.inquire) == FAILURE)
 	    break;
 
 	  resolve_branch (code->ext.inquire->err, code);
@@ -3714,7 +3714,7 @@ resolve_symbol (gfc_symbol * sym)
   if (sym->ts.type == BT_UNKNOWN)
     {
       if (sym->attr.flavor == FL_VARIABLE || sym->attr.flavor == FL_PARAMETER)
-	gfc_set_default_type (sym, 0, NULL);
+	gfc_set_default_type (sym, 1, NULL);
 
       if (sym->attr.flavor == FL_PROCEDURE && sym->attr.function)
 	{
@@ -3731,6 +3731,9 @@ resolve_symbol (gfc_symbol * sym)
 	}
     }
 
+  /* Assumed size arrays and assumed shape arrays must be dummy
+     arguments.  */ 
+
   if (sym->as != NULL
       && (sym->as->type == AS_ASSUMED_SIZE
 	  || sym->as->type == AS_ASSUMED_SHAPE)
@@ -3742,12 +3745,14 @@ resolve_symbol (gfc_symbol * sym)
       return;
     }
 
-  if (sym->attr.flavor == FL_PARAMETER
-      && sym->as != NULL && sym->as->type != AS_EXPLICIT)
+  /* A parameter array's shape needs to be constant.  */
+
+  if (sym->attr.flavor == FL_PARAMETER && sym->as != NULL 
+      && !gfc_is_compile_time_shape (sym->as))
     {
-      gfc_error ("Parameter array '%s' at %L must have an explicit shape",
-		 sym->name, &sym->declared_at);
-      return;
+      gfc_error ("Parameter array '%s' at %L cannot be automatic "
+		 "or assumed shape", sym->name, &sym->declared_at);
+	  return;
     }
 
   /* Make sure that character string variables with assumed length are
@@ -3952,7 +3957,7 @@ check_data_variable (gfc_data_variable * var, locus * where)
   mpz_t size;
   mpz_t offset;
   try t;
-  int mark = 0;
+  ar_type mark = AR_UNKNOWN;
   int i;
   mpz_t section_index[GFC_MAX_DIMENSIONS];
   gfc_ref *ref;
@@ -3989,14 +3994,14 @@ check_data_variable (gfc_data_variable * var, locus * where)
       switch (ref->u.ar.type)
 	{
 	case AR_FULL:
-	  mark = 1;
+	  mark = AR_FULL;
 	  break;
 
 	case AR_SECTION:
           ar = &ref->u.ar;
           /* Get the start position of array section.  */
           gfc_get_section_index (ar, section_index, &offset);
-          mark = 2;
+          mark = AR_SECTION;
 	  break;
 
 	default:
@@ -4031,17 +4036,17 @@ check_data_variable (gfc_data_variable * var, locus * where)
       /* Assign initial value to symbol.  */
       gfc_assign_data_value (var->expr, values.vnode->expr, offset);
 
-      if (mark == 1)
+      if (mark == AR_FULL)
         mpz_add_ui (offset, offset, 1);
 
       /* Modify the array section indexes and recalculate the offset for
          next element.  */
-      else if (mark == 2)
+      else if (mark == AR_SECTION)
         gfc_advance_section (section_index, ar, &offset);
 
       mpz_sub_ui (size, size, 1);
     }
-  if (mark == 2)
+  if (mark == AR_SECTION)
     {
       for (i = 0; i < ar->dimen; i++)
         mpz_clear (section_index[i]);

@@ -146,6 +146,16 @@ gfc_add_modify_expr (stmtblock_t * pblock, tree lhs, tree rhs)
 {
   tree tmp;
 
+#ifdef ENABLE_CHECKING
+  /* Make sure that the types of the rhs and the lhs are the same
+     for scalar assignments.  We should probably have something
+     similar for aggregates, but right now removing that check just
+     breaks everything.  */
+  if (TREE_TYPE (rhs) != TREE_TYPE (lhs)
+      && !AGGREGATE_TYPE_P (TREE_TYPE (lhs)))
+    abort ();
+#endif
+
   tmp = fold (build_v (MODIFY_EXPR, lhs, rhs));
   gfc_add_expr_to_block (pblock, tmp);
 }
@@ -306,7 +316,7 @@ gfc_build_array_ref (tree base, tree offset)
   if (DECL_P (base))
     TREE_ADDRESSABLE (base) = 1;
 
-  return build (ARRAY_REF, type, base, offset);
+  return build (ARRAY_REF, type, base, offset, NULL_TREE, NULL_TREE);
 }
 
 

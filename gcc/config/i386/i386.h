@@ -1167,10 +1167,6 @@ do {									\
 #define FIRST_STACK_REG FIRST_FLOAT_REG
 #define LAST_STACK_REG (FIRST_FLOAT_REG + 7)
 
-#define FLAGS_REG 17
-#define FPSR_REG 18
-#define DIRFLAG_REG 19
-
 #define FIRST_SSE_REG (FRAME_POINTER_REGNUM + 1)
 #define LAST_SSE_REG  (FIRST_SSE_REG + 7)
 
@@ -1670,13 +1666,6 @@ enum reg_class
    which.  */
 #define REG_PARM_STACK_SPACE(FNDECL) 0
 
-/* Define as a C expression that evaluates to nonzero if we do not know how
-   to pass TYPE solely in registers.  The file expr.h defines a
-   definition that is usually appropriate, refer to expr.h for additional
-   documentation. If `REG_PARM_STACK_SPACE' is defined, the argument will be
-   computed in the stack and then loaded into a register.  */
-#define MUST_PASS_IN_STACK(MODE, TYPE)  ix86_must_pass_in_stack ((MODE), (TYPE))
-
 /* Value is the number of bytes of arguments automatically
    popped when returning from a subroutine call.
    FUNDECL is the declaration node of the function (as a tree),
@@ -1780,21 +1769,9 @@ typedef struct ix86_args {
 
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
-/* A C expression that indicates when an argument must be passed by
-   reference.  If nonzero for an argument, a copy of that argument is
-   made in memory and a pointer to the argument is passed instead of
-   the argument itself.  The pointer is passed in whatever way is
-   appropriate for passing a pointer to that type.  */
- 
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-  function_arg_pass_by_reference(&CUM, MODE, TYPE, NAMED)
- 
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG) \
   ix86_va_start (VALIST, NEXTARG)
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(VALIST, TYPE) (abort (), NULL_RTX)
 
 #define TARGET_ASM_FILE_END ix86_file_end
 #define NEED_INDICATE_EXEC_STACK 0
@@ -2537,7 +2514,7 @@ enum ix86_builtins
 #define MOVE_MAX_PIECES (TARGET_64BIT ? 8 : 4)
 
 /* If a memory-to-memory move would take MOVE_RATIO or more simple
-   move-instruction pairs, we will do a movstr or libcall instead.
+   move-instruction pairs, we will do a movmem or libcall instead.
    Increasing the value will always make code faster, but eventually
    incurs high cost in increased code size.
 

@@ -233,7 +233,7 @@ validate_change (rtx object, rtx *loc, rtx new, int in_group)
   changes[num_changes].loc = loc;
   changes[num_changes].old = old;
 
-  if (object && GET_CODE (object) != MEM)
+  if (object && !MEM_P (object))
     {
       /* Set INSN_CODE to force rerecognition of insn.  Save old code in
 	 case invalid.  */
@@ -338,7 +338,7 @@ apply_change_group (void)
       if (object == 0 || object == last_validated)
 	continue;
 
-      if (GET_CODE (object) == MEM)
+      if (MEM_P (object))
 	{
 	  if (! memory_address_p (GET_MODE (object), XEXP (object, 0)))
 	    break;
@@ -433,7 +433,7 @@ cancel_changes (int num)
   for (i = num_changes - 1; i >= num; i--)
     {
       *changes[i].loc = changes[i].old;
-      if (changes[i].object && GET_CODE (changes[i].object) != MEM)
+      if (changes[i].object && !MEM_P (changes[i].object))
 	INSN_CODE (changes[i].object) = changes[i].old_code;
     }
   num_changes = num;
@@ -466,7 +466,7 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
      operands look similar.  */
 
   if (x == from
-      || (GET_CODE (x) == REG && GET_CODE (from) == REG
+      || (REG_P (x) && REG_P (from)
 	  && GET_MODE (x) == GET_MODE (from)
 	  && REGNO (x) == REGNO (from))
       || (GET_CODE (x) == GET_CODE (from) && GET_MODE (x) == GET_MODE (from)
@@ -586,7 +586,7 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
          likely to be an insertion operation; if it was, nothing bad will
          happen, we might just fail in some cases).  */
 
-      if (GET_CODE (XEXP (x, 0)) == MEM
+      if (MEM_P (XEXP (x, 0))
 	  && GET_CODE (XEXP (x, 1)) == CONST_INT
 	  && GET_CODE (XEXP (x, 2)) == CONST_INT
 	  && !mode_dependent_address_p (XEXP (XEXP (x, 0), 0))
@@ -715,9 +715,7 @@ next_insn_tests_no_inequality (rtx insn)
   if (next == 0)
     return 0;
 
-  return ((GET_CODE (next) == JUMP_INSN
-	   || GET_CODE (next) == INSN
-	   || GET_CODE (next) == CALL_INSN)
+  return (INSN_P (next)
 	  && ! inequality_comparisons_p (PATTERN (next)));
 }
 #endif
@@ -755,9 +753,9 @@ find_single_use_1 (rtx dest, rtx *loc)
 	 need just check the source.  */
       if (GET_CODE (SET_DEST (x)) != CC0
 	  && GET_CODE (SET_DEST (x)) != PC
-	  && GET_CODE (SET_DEST (x)) != REG
+	  && !REG_P (SET_DEST (x))
 	  && ! (GET_CODE (SET_DEST (x)) == SUBREG
-		&& GET_CODE (SUBREG_REG (SET_DEST (x))) == REG
+		&& REG_P (SUBREG_REG (SET_DEST (x)))
 		&& (((GET_MODE_SIZE (GET_MODE (SUBREG_REG (SET_DEST (x))))
 		      + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
 		    == ((GET_MODE_SIZE (GET_MODE (SET_DEST (x)))
@@ -783,7 +781,7 @@ find_single_use_1 (rtx dest, rtx *loc)
       if (fmt[i] == 'e')
 	{
 	  if (dest == XEXP (x, i)
-	      || (GET_CODE (dest) == REG && GET_CODE (XEXP (x, i)) == REG
+	      || (REG_P (dest) && REG_P (XEXP (x, i))
 		  && REGNO (dest) == REGNO (XEXP (x, i))))
 	    this_result = loc;
 	  else
@@ -802,8 +800,8 @@ find_single_use_1 (rtx dest, rtx *loc)
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    {
 	      if (XVECEXP (x, i, j) == dest
-		  || (GET_CODE (dest) == REG
-		      && GET_CODE (XVECEXP (x, i, j)) == REG
+		  || (REG_P (dest)
+		      && REG_P (XVECEXP (x, i, j))
 		      && REGNO (XVECEXP (x, i, j)) == REGNO (dest)))
 		this_result = loc;
 	      else
@@ -850,7 +848,7 @@ find_single_use (rtx dest, rtx insn, rtx *ploc)
     {
       next = NEXT_INSN (insn);
       if (next == 0
-	  || (GET_CODE (next) != INSN && GET_CODE (next) != JUMP_INSN))
+	  || (!NONJUMP_INSN_P (next) && !JUMP_P (next)))
 	return 0;
 
       result = find_single_use_1 (dest, &PATTERN (next));
@@ -860,11 +858,11 @@ find_single_use (rtx dest, rtx insn, rtx *ploc)
     }
 #endif
 
-  if (reload_completed || reload_in_progress || GET_CODE (dest) != REG)
+  if (reload_completed || reload_in_progress || !REG_P (dest))
     return 0;
 
   for (next = next_nonnote_insn (insn);
-       next != 0 && GET_CODE (next) != CODE_LABEL;
+       next != 0 && !LABEL_P (next);
        next = next_nonnote_insn (next))
     if (INSN_P (next) && dead_or_set_p (next, dest))
       {
@@ -942,7 +940,7 @@ general_operand (rtx op, enum machine_mode mode)
 #ifdef INSN_SCHEDULING
       /* On machines that have insn scheduling, we want all memory
 	 reference to be explicit, so outlaw paradoxical SUBREGs.  */
-      if (GET_CODE (sub) == MEM
+      if (MEM_P (sub)
 	  && GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (sub)))
 	return 0;
 #endif
@@ -953,7 +951,7 @@ general_operand (rtx op, enum machine_mode mode)
 
 	 ??? This is a kludge.  */
       if (!reload_completed && SUBREG_BYTE (op) != 0
-	  && GET_CODE (sub) == MEM)
+	  && MEM_P (sub))
 	return 0;
 
       /* FLOAT_MODE subregs can't be paradoxical.  Combine will occasionally
@@ -978,18 +976,10 @@ general_operand (rtx op, enum machine_mode mode)
       if (! volatile_ok && MEM_VOLATILE_P (op))
 	return 0;
 
-      if (GET_CODE (y) == ADDRESSOF)
-	return 1;
-
       /* Use the mem's mode, since it will be reloaded thus.  */
       mode = GET_MODE (op);
       GO_IF_LEGITIMATE_ADDRESS (mode, y, win);
     }
-
-  /* Pretend this is an operand for now; we'll run force_operand
-     on its replacement in fixup_var_refs_1.  */
-  if (code == ADDRESSOF)
-    return 1;
 
   return 0;
 
@@ -1039,11 +1029,11 @@ register_operand (rtx op, enum machine_mode mode)
 	 (Ideally, (SUBREG (MEM)...) should not exist after reload,
 	 but currently it does result from (SUBREG (REG)...) where the
 	 reg went on the stack.)  */
-      if (! reload_completed && GET_CODE (sub) == MEM)
+      if (! reload_completed && MEM_P (sub))
 	return general_operand (op, mode);
 
 #ifdef CANNOT_CHANGE_MODE_CLASS
-      if (GET_CODE (sub) == REG
+      if (REG_P (sub)
 	  && REGNO (sub) < FIRST_PSEUDO_REGISTER
 	  && REG_CANNOT_CHANGE_MODE_P (REGNO (sub), GET_MODE (sub), mode)
 	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_INT
@@ -1060,14 +1050,9 @@ register_operand (rtx op, enum machine_mode mode)
       op = sub;
     }
 
-  /* If we have an ADDRESSOF, consider it valid since it will be
-     converted into something that will not be a MEM.  */
-  if (GET_CODE (op) == ADDRESSOF)
-    return 1;
-
   /* We don't consider registers whose class is NO_REGS
      to be a register operand.  */
-  return (GET_CODE (op) == REG
+  return (REG_P (op)
 	  && (REGNO (op) >= FIRST_PSEUDO_REGISTER
 	      || REGNO_REG_CLASS (REGNO (op)) != NO_REGS));
 }
@@ -1090,7 +1075,7 @@ scratch_operand (rtx op, enum machine_mode mode)
     return 0;
 
   return (GET_CODE (op) == SCRATCH
-	  || (GET_CODE (op) == REG
+	  || (REG_P (op)
 	      && REGNO (op) < FIRST_PSEUDO_REGISTER));
 }
 
@@ -1202,14 +1187,14 @@ nonmemory_operand (rtx op, enum machine_mode mode)
 	 (Ideally, (SUBREG (MEM)...) should not exist after reload,
 	 but currently it does result from (SUBREG (REG)...) where the
 	 reg went on the stack.)  */
-      if (! reload_completed && GET_CODE (SUBREG_REG (op)) == MEM)
+      if (! reload_completed && MEM_P (SUBREG_REG (op)))
 	return general_operand (op, mode);
       op = SUBREG_REG (op);
     }
 
   /* We don't consider registers whose class is NO_REGS
      to be a register operand.  */
-  return (GET_CODE (op) == REG
+  return (REG_P (op)
 	  && (REGNO (op) >= FIRST_PSEUDO_REGISTER
 	      || REGNO_REG_CLASS (REGNO (op)) != NO_REGS));
 }
@@ -1229,7 +1214,7 @@ push_operand (rtx op, enum machine_mode mode)
   rounded_size = PUSH_ROUNDING (rounded_size);
 #endif
 
-  if (GET_CODE (op) != MEM)
+  if (!MEM_P (op))
     return 0;
 
   if (mode != VOIDmode && GET_MODE (op) != mode)
@@ -1269,7 +1254,7 @@ push_operand (rtx op, enum machine_mode mode)
 int
 pop_operand (rtx op, enum machine_mode mode)
 {
-  if (GET_CODE (op) != MEM)
+  if (!MEM_P (op))
     return 0;
 
   if (mode != VOIDmode && GET_MODE (op) != mode)
@@ -1288,9 +1273,6 @@ pop_operand (rtx op, enum machine_mode mode)
 int
 memory_address_p (enum machine_mode mode ATTRIBUTE_UNUSED, rtx addr)
 {
-  if (GET_CODE (addr) == ADDRESSOF)
-    return 1;
-
   GO_IF_LEGITIMATE_ADDRESS (mode, addr, win);
   return 0;
 
@@ -1312,7 +1294,7 @@ memory_operand (rtx op, enum machine_mode mode)
   if (! reload_completed)
     /* Note that no SUBREG is a memory operand before end of reload pass,
        because (SUBREG (MEM...)) forces reloading into a register.  */
-    return GET_CODE (op) == MEM && general_operand (op, mode);
+    return MEM_P (op) && general_operand (op, mode);
 
   if (mode != VOIDmode && GET_MODE (op) != mode)
     return 0;
@@ -1321,7 +1303,7 @@ memory_operand (rtx op, enum machine_mode mode)
   if (GET_CODE (inner) == SUBREG)
     inner = SUBREG_REG (inner);
 
-  return (GET_CODE (inner) == MEM && general_operand (op, mode));
+  return (MEM_P (inner) && general_operand (op, mode));
 }
 
 /* Return 1 if OP is a valid indirect memory reference with mode MODE;
@@ -1332,7 +1314,7 @@ indirect_operand (rtx op, enum machine_mode mode)
 {
   /* Before reload, a SUBREG isn't in memory (see memory_operand, above).  */
   if (! reload_completed
-      && GET_CODE (op) == SUBREG && GET_CODE (SUBREG_REG (op)) == MEM)
+      && GET_CODE (op) == SUBREG && MEM_P (SUBREG_REG (op)))
     {
       int offset = SUBREG_BYTE (op);
       rtx inner = SUBREG_REG (op);
@@ -1352,7 +1334,7 @@ indirect_operand (rtx op, enum machine_mode mode)
 		  && general_operand (XEXP (XEXP (inner, 0), 0), Pmode)));
     }
 
-  return (GET_CODE (op) == MEM
+  return (MEM_P (op)
 	  && memory_operand (op, mode)
 	  && general_operand (XEXP (op, 0), Pmode));
 }
@@ -1653,7 +1635,7 @@ asm_operand_ok (rtx op, const char *constraint)
 
 	     Match any memory and hope things are resolved after reload.  */
 
-	  if (GET_CODE (op) == MEM
+	  if (MEM_P (op)
 	      && (1
 		  || GET_CODE (XEXP (op, 0)) == PRE_DEC
 		  || GET_CODE (XEXP (op, 0)) == POST_DEC))
@@ -1661,7 +1643,7 @@ asm_operand_ok (rtx op, const char *constraint)
 	  break;
 
 	case '>':
-	  if (GET_CODE (op) == MEM
+	  if (MEM_P (op)
 	      && (1
 		  || GET_CODE (XEXP (op, 0)) == PRE_INC
 		  || GET_CODE (XEXP (op, 0)) == POST_INC))
@@ -1856,7 +1838,7 @@ find_constant_term_loc (rtx *p)
 int
 offsettable_memref_p (rtx op)
 {
-  return ((GET_CODE (op) == MEM)
+  return ((MEM_P (op))
 	  && offsettable_address_p (1, GET_MODE (op), XEXP (op, 0)));
 }
 
@@ -1866,7 +1848,7 @@ offsettable_memref_p (rtx op)
 int
 offsettable_nonstrict_memref_p (rtx op)
 {
-  return ((GET_CODE (op) == MEM)
+  return ((MEM_P (op))
 	  && offsettable_address_p (0, GET_MODE (op), XEXP (op, 0)));
 }
 
@@ -2303,7 +2285,7 @@ constrain_operands (int strict)
 
 	  if (GET_CODE (op) == SUBREG)
 	    {
-	      if (GET_CODE (SUBREG_REG (op)) == REG
+	      if (REG_P (SUBREG_REG (op))
 		  && REGNO (SUBREG_REG (op)) < FIRST_PSEUDO_REGISTER)
 		offset = subreg_regno_offset (REGNO (SUBREG_REG (op)),
 					      GET_MODE (SUBREG_REG (op)),
@@ -2415,7 +2397,7 @@ constrain_operands (int strict)
 		   but the hard reg is not in the class GENERAL_REGS.  */
 		if (strict < 0
 		    || GENERAL_REGS == ALL_REGS
-		    || GET_CODE (op) != REG
+		    || !REG_P (op)
 		    || (reload_in_progress
 			&& REGNO (op) >= FIRST_PSEUDO_REGISTER)
 		    || reg_fits_class_p (op, GENERAL_REGS, offset, mode))
@@ -2432,7 +2414,7 @@ constrain_operands (int strict)
 	      case 'm':
 		/* Memory operands must be valid, to the extent
 		   required by STRICT.  */
-		if (GET_CODE (op) == MEM)
+		if (MEM_P (op))
 		  {
 		    if (strict > 0
 			&& !strict_memory_address_p (GET_MODE (op),
@@ -2447,20 +2429,20 @@ constrain_operands (int strict)
 		else if (strict < 0 && CONSTANT_P (op))
 		  win = 1;
 		/* During reload, accept a pseudo  */
-		else if (reload_in_progress && GET_CODE (op) == REG
+		else if (reload_in_progress && REG_P (op)
 			 && REGNO (op) >= FIRST_PSEUDO_REGISTER)
 		  win = 1;
 		break;
 
 	      case '<':
-		if (GET_CODE (op) == MEM
+		if (MEM_P (op)
 		    && (GET_CODE (XEXP (op, 0)) == PRE_DEC
 			|| GET_CODE (XEXP (op, 0)) == POST_DEC))
 		  win = 1;
 		break;
 
 	      case '>':
-		if (GET_CODE (op) == MEM
+		if (MEM_P (op)
 		    && (GET_CODE (XEXP (op, 0)) == PRE_INC
 			|| GET_CODE (XEXP (op, 0)) == POST_INC))
 		  win = 1;
@@ -2512,12 +2494,12 @@ constrain_operands (int strict)
 		break;
 
 	      case 'V':
-		if (GET_CODE (op) == MEM
+		if (MEM_P (op)
 		    && ((strict > 0 && ! offsettable_memref_p (op))
 			|| (strict < 0
-			    && !(CONSTANT_P (op) || GET_CODE (op) == MEM))
+			    && !(CONSTANT_P (op) || MEM_P (op)))
 			|| (reload_in_progress
-			    && !(GET_CODE (op) == REG
+			    && !(REG_P (op)
 				 && REGNO (op) >= FIRST_PSEUDO_REGISTER))))
 		  win = 1;
 		break;
@@ -2527,9 +2509,9 @@ constrain_operands (int strict)
 		    || (strict == 0 && offsettable_nonstrict_memref_p (op))
 		    /* Before reload, accept what reload can handle.  */
 		    || (strict < 0
-			&& (CONSTANT_P (op) || GET_CODE (op) == MEM))
+			&& (CONSTANT_P (op) || MEM_P (op)))
 		    /* During reload, accept a pseudo  */
-		    || (reload_in_progress && GET_CODE (op) == REG
+		    || (reload_in_progress && REG_P (op)
 			&& REGNO (op) >= FIRST_PSEUDO_REGISTER))
 		  win = 1;
 		break;
@@ -2544,10 +2526,10 @@ constrain_operands (int strict)
 		    {
 		      if (strict < 0
 			  || (strict == 0
-			      && GET_CODE (op) == REG
+			      && REG_P (op)
 			      && REGNO (op) >= FIRST_PSEUDO_REGISTER)
 			  || (strict == 0 && GET_CODE (op) == SCRATCH)
-			  || (GET_CODE (op) == REG
+			  || (REG_P (op)
 			      && reg_fits_class_p (op, class, offset, mode)))
 		        win = 1;
 		    }
@@ -2557,12 +2539,12 @@ constrain_operands (int strict)
 
 		  else if (EXTRA_MEMORY_CONSTRAINT (c, p)
 			   /* Every memory operand can be reloaded to fit.  */
-			   && ((strict < 0 && GET_CODE (op) == MEM)
+			   && ((strict < 0 && MEM_P (op))
 			       /* Before reload, accept what reload can turn
 				  into mem.  */
 			       || (strict < 0 && CONSTANT_P (op))
 			       /* During reload, accept a pseudo  */
-			       || (reload_in_progress && GET_CODE (op) == REG
+			       || (reload_in_progress && REG_P (op)
 				   && REGNO (op) >= FIRST_PSEUDO_REGISTER)))
 		    win = 1;
 		  else if (EXTRA_ADDRESS_CONSTRAINT (c, p)
@@ -2596,9 +2578,9 @@ constrain_operands (int strict)
 		 because we would often report failure when we have
 		 two memory operands, one of which was formerly a REG.  */
 	      if (earlyclobber[eopno]
-		  && GET_CODE (recog_data.operand[eopno]) == REG)
+		  && REG_P (recog_data.operand[eopno]))
 		for (opno = 0; opno < recog_data.n_operands; opno++)
-		  if ((GET_CODE (recog_data.operand[opno]) == MEM
+		  if ((MEM_P (recog_data.operand[opno])
 		       || recog_data.operand_type[opno] != OP_OUT)
 		      && opno != eopno
 		      /* Ignore things like match_operator operands.  */
@@ -2677,9 +2659,7 @@ split_insn (rtx insn)
     return NULL_RTX;
 
   /* try_split returns the NOTE that INSN became.  */
-  PUT_CODE (insn, NOTE);
-  NOTE_SOURCE_FILE (insn) = 0;
-  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+  SET_INSN_DELETED (insn);
 
   /* ??? Coddle to md files that generate subregs in post-reload
      splitters instead of computing the proper hard register.  */
@@ -2758,7 +2738,7 @@ split_all_insns (int upd_life)
 			 BB boundary we are interested in will be set to
 			 previous one.  */
 
-		      while (GET_CODE (last) == BARRIER)
+		      while (BARRIER_P (last))
 			last = PREV_INSN (last);
 		      SET_BIT (blocks, bb->index);
 		      changed = true;
@@ -3095,14 +3075,14 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 		      if (j >= MAX_INSNS_PER_PEEP2 + 1)
 			j -= MAX_INSNS_PER_PEEP2 + 1;
 		      old_insn = peep2_insn_data[j].insn;
-		      if (GET_CODE (old_insn) != CALL_INSN)
+		      if (!CALL_P (old_insn))
 			continue;
 		      was_call = true;
 
 		      new_insn = try;
 		      while (new_insn != NULL_RTX)
 			{
-			  if (GET_CODE (new_insn) == CALL_INSN)
+			  if (CALL_P (new_insn))
 			    break;
 			  new_insn = NEXT_INSN (new_insn);
 			}
@@ -3137,7 +3117,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 			  if (j >= MAX_INSNS_PER_PEEP2 + 1)
 			    j -= MAX_INSNS_PER_PEEP2 + 1;
 			  old_insn = peep2_insn_data[j].insn;
-			  if (GET_CODE (old_insn) == CALL_INSN)
+			  if (CALL_P (old_insn))
 			    abort ();
 			}
 		      break;
@@ -3167,7 +3147,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 			  break;
 
 		      for (x = try ; x != before_try ; x = PREV_INSN (x))
-			if (GET_CODE (x) == CALL_INSN
+			if (CALL_P (x)
 			    || (flag_non_call_exceptions
 				&& may_trap_p (PATTERN (x))
 				&& !find_reg_note (x, REG_EH_REGION, NULL)))
@@ -3186,7 +3166,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 				nfte = split_block (bb, x);
 				flags = (eh_edge->flags
 					 & (EDGE_EH | EDGE_ABNORMAL));
-				if (GET_CODE (x) == CALL_INSN)
+				if (CALL_P (x))
 				  flags |= EDGE_ABNORMAL_CALL;
 				nehe = make_edge (nfte->src, eh_edge->dest,
 						  flags);
@@ -3254,7 +3234,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 		  /* If we generated a jump instruction, it won't have
 		     JUMP_LABEL set.  Recompute after we're done.  */
 		  for (x = try; x != before_try; x = PREV_INSN (x))
-		    if (GET_CODE (x) == JUMP_INSN)
+		    if (JUMP_P (x))
 		      {
 		        do_rebuild_jump_labels = true;
 			break;
@@ -3311,7 +3291,7 @@ store_data_bypass_p (rtx out_insn, rtx in_insn)
   if (! in_set)
     abort ();
 
-  if (GET_CODE (SET_DEST (in_set)) != MEM)
+  if (!MEM_P (SET_DEST (in_set)))
     return false;
 
   out_set = single_set (out_insn);
@@ -3360,7 +3340,7 @@ if_test_bypass_p (rtx out_insn, rtx in_insn)
   in_set = single_set (in_insn);
   if (! in_set)
     {
-      if (GET_CODE (in_insn) == JUMP_INSN || GET_CODE (in_insn) == CALL_INSN)
+      if (JUMP_P (in_insn) || CALL_P (in_insn))
 	return false;
       abort ();
     }

@@ -52,7 +52,6 @@ extern tree lhd_do_nothing_iii_return_null_tree (int, int, int);
 extern int lhd_safe_from_p (rtx, tree);
 extern int lhd_staticp (tree);
 extern int lhd_unsafe_for_reeval (tree);
-extern void lhd_clear_binding_stack (void);
 extern void lhd_print_tree_nothing (FILE *, tree, int);
 extern const char *lhd_decl_printable_name (tree, int);
 extern int lhd_types_compatible_p (tree, tree);
@@ -78,10 +77,7 @@ extern tree lhd_tree_inlining_walk_subtrees (tree *, int *, walk_tree_fn,
 extern int lhd_tree_inlining_cannot_inline_tree_fn (tree *);
 extern int lhd_tree_inlining_disregard_inline_limits (tree);
 extern tree lhd_tree_inlining_add_pending_fn_decls (void *, tree);
-extern int lhd_tree_inlining_tree_chain_matters_p (tree);
 extern int lhd_tree_inlining_auto_var_in_fn_p (tree, tree);
-extern tree lhd_tree_inlining_copy_res_decl_for_inlining (tree, tree, tree,
-							  void *, int *, tree);
 extern int lhd_tree_inlining_anon_aggr_type_p (tree);
 extern int lhd_tree_inlining_start_inlining (tree);
 extern void lhd_tree_inlining_end_inlining (tree);
@@ -98,7 +94,7 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_INIT			hook_bool_void_false
 #define LANG_HOOKS_FINISH		lhd_do_nothing
 #define LANG_HOOKS_PARSE_FILE		lhd_do_nothing_i
-#define LANG_HOOKS_CLEAR_BINDING_STACK	lhd_clear_binding_stack
+#define LANG_HOOKS_CLEAR_BINDING_STACK	lhd_do_nothing
 #define LANG_HOOKS_INIT_OPTIONS		hook_uint_uint_constcharptrptr_0
 #define LANG_HOOKS_INITIALIZE_DIAGNOSTICS lhd_initialize_diagnostics
 #define LANG_HOOKS_HANDLE_OPTION	hook_int_size_t_constcharptr_int_0
@@ -114,9 +110,9 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_STATICP		lhd_staticp
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL lhd_do_nothing_t
 #define LANG_HOOKS_UNSAVE_EXPR_NOW	lhd_unsave_expr_now
-#define LANG_HOOKS_MAYBE_BUILD_CLEANUP	lhd_return_null_tree
 #define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME lhd_set_decl_assembler_name
 #define LANG_HOOKS_CAN_USE_BIT_FIELDS_P lhd_can_use_bit_fields_p
+#define LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS false
 #define LANG_HOOKS_HONOR_READONLY	false
 #define LANG_HOOKS_NO_BODY_BLOCKS	false
 #define LANG_HOOKS_PRINT_STATISTICS	lhd_do_nothing
@@ -130,7 +126,7 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_EXPR_SIZE		lhd_expr_size
 #define LANG_HOOKS_TREE_SIZE		lhd_tree_size
 #define LANG_HOOKS_TYPES_COMPATIBLE_P	lhd_types_compatible_p
-#define LANG_HOOKS_UPDATE_DECL_AFTER_SAVING NULL
+#define LANG_HOOKS_BUILTIN_FUNCTION	builtin_function
 
 #define LANG_HOOKS_FUNCTION_INIT	lhd_do_nothing_f
 #define LANG_HOOKS_FUNCTION_FINAL	lhd_do_nothing_f
@@ -151,39 +147,30 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
   lhd_tree_inlining_disregard_inline_limits
 #define LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS \
   lhd_tree_inlining_add_pending_fn_decls
-#define LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P \
-  lhd_tree_inlining_tree_chain_matters_p
 #define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
   lhd_tree_inlining_auto_var_in_fn_p
-#define LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING \
-  lhd_tree_inlining_copy_res_decl_for_inlining
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P \
   lhd_tree_inlining_anon_aggr_type_p
 #define LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P \
-  hook_bool_tree_false
+  hook_bool_tree_tree_false
 #define LANG_HOOKS_TREE_INLINING_START_INLINING \
   lhd_tree_inlining_start_inlining
 #define LANG_HOOKS_TREE_INLINING_END_INLINING \
   lhd_tree_inlining_end_inlining
 #define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
   lhd_tree_inlining_convert_parm_for_inlining
-#define LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS \
-  NULL
 
 #define LANG_HOOKS_TREE_INLINING_INITIALIZER { \
   LANG_HOOKS_TREE_INLINING_WALK_SUBTREES, \
   LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN, \
   LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS, \
   LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS, \
-  LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P, \
   LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P, \
-  LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING, \
   LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P, \
   LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P, \
   LANG_HOOKS_TREE_INLINING_START_INLINING, \
   LANG_HOOKS_TREE_INLINING_END_INLINING, \
-  LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING, \
-  LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS \
+  LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
 }
 
 #define LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR lhd_callgraph_analyze_expr
@@ -204,7 +191,7 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 
 /* Hooks for tree gimplification.  */
 #define LANG_HOOKS_GIMPLIFY_EXPR lhd_gimplify_expr
-#define LANG_HOOKS_GIMPLE_BEFORE_INLINING true
+#define LANG_HOOKS_FOLD_OBJ_TYPE_REF NULL
 
 /* Tree dump hooks.  */
 extern bool lhd_tree_dump_dump_tree (void *, tree);
@@ -225,6 +212,7 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR lhd_incomplete_type_error
 #define LANG_HOOKS_TYPE_PROMOTES_TO lhd_type_promotes_to
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE lhd_register_builtin_type
+#define LANG_HOOKS_TYPE_MAX_SIZE	lhd_return_null_tree
 #define LANG_HOOKS_HASH_TYPES		true
 
 #define LANG_HOOKS_FOR_TYPES_INITIALIZER { \
@@ -237,15 +225,13 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_TYPE_PROMOTES_TO, \
   LANG_HOOKS_REGISTER_BUILTIN_TYPE, \
   LANG_HOOKS_INCOMPLETE_TYPE_ERROR, \
+  LANG_HOOKS_TYPE_MAX_SIZE, \
   LANG_HOOKS_HASH_TYPES \
 }
 
 /* Declaration hooks.  */
-#define LANG_HOOKS_PUSHLEVEL	pushlevel
-#define LANG_HOOKS_POPLEVEL	poplevel
 #define LANG_HOOKS_GLOBAL_BINDINGS_P global_bindings_p
 #define LANG_HOOKS_INSERT_BLOCK	insert_block
-#define LANG_HOOKS_SET_BLOCK	set_block
 #define LANG_HOOKS_PUSHDECL	pushdecl
 #define LANG_HOOKS_GETDECLS	getdecls
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL lhd_warn_unused_global_decl
@@ -254,11 +240,8 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_DECL_OK_FOR_SIBCALL	lhd_decl_ok_for_sibcall
 
 #define LANG_HOOKS_DECLS { \
-  LANG_HOOKS_PUSHLEVEL, \
-  LANG_HOOKS_POPLEVEL, \
   LANG_HOOKS_GLOBAL_BINDINGS_P, \
   LANG_HOOKS_INSERT_BLOCK, \
-  LANG_HOOKS_SET_BLOCK, \
   LANG_HOOKS_PUSHDECL, \
   LANG_HOOKS_GETDECLS, \
   LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL, \
@@ -293,9 +276,9 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_STATICP, \
   LANG_HOOKS_DUP_LANG_SPECIFIC_DECL, \
   LANG_HOOKS_UNSAVE_EXPR_NOW, \
-  LANG_HOOKS_MAYBE_BUILD_CLEANUP, \
   LANG_HOOKS_SET_DECL_ASSEMBLER_NAME, \
   LANG_HOOKS_CAN_USE_BIT_FIELDS_P, \
+  LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS, \
   LANG_HOOKS_HONOR_READONLY, \
   LANG_HOOKS_NO_BODY_BLOCKS, \
   LANG_HOOKS_PRINT_STATISTICS, \
@@ -308,7 +291,6 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_GET_CALLEE_FNDECL, \
   LANG_HOOKS_PRINT_ERROR_FUNCTION, \
   LANG_HOOKS_EXPR_SIZE, \
-  LANG_HOOKS_UPDATE_DECL_AFTER_SAVING, \
   LANG_HOOKS_ATTRIBUTE_TABLE, \
   LANG_HOOKS_COMMON_ATTRIBUTE_TABLE, \
   LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE, \
@@ -319,7 +301,8 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_DECLS, \
   LANG_HOOKS_FOR_TYPES_INITIALIZER, \
   LANG_HOOKS_GIMPLIFY_EXPR, \
-  LANG_HOOKS_GIMPLE_BEFORE_INLINING \
+  LANG_HOOKS_FOLD_OBJ_TYPE_REF, \
+  LANG_HOOKS_BUILTIN_FUNCTION, \
 }
 
 #endif /* GCC_LANG_HOOKS_DEF_H */

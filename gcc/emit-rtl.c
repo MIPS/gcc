@@ -857,7 +857,7 @@ set_reg_attrs_from_mem (rtx reg, rtx mem)
 void
 set_reg_attrs_for_parm (rtx parm_rtx, rtx mem)
 {
-  if (GET_CODE (parm_rtx) == REG)
+  if (REG_P (parm_rtx))
     set_reg_attrs_from_mem (parm_rtx, mem);
   else if (GET_CODE (parm_rtx) == PARALLEL)
     {
@@ -867,7 +867,7 @@ set_reg_attrs_for_parm (rtx parm_rtx, rtx mem)
       for (; i < XVECLEN (parm_rtx, 0); i++)
 	{
 	  rtx x = XVECEXP (parm_rtx, 0, i);
-	  if (GET_CODE (XEXP (x, 0)) == REG)
+	  if (REG_P (XEXP (x, 0)))
 	    REG_ATTRS (XEXP (x, 0))
 	      = get_reg_attrs (MEM_EXPR (mem),
 			       INTVAL (XEXP (x, 1)));
@@ -884,7 +884,7 @@ set_decl_rtl (tree t, rtx x)
   if (!x)
     return;
   /* For register, we maintain the reverse information too.  */
-  if (GET_CODE (x) == REG)
+  if (REG_P (x))
     REG_ATTRS (x) = get_reg_attrs (t, 0);
   else if (GET_CODE (x) == SUBREG)
     REG_ATTRS (SUBREG_REG (x))
@@ -918,7 +918,7 @@ set_decl_incoming_rtl (tree t, rtx x)
   if (!x)
     return;
   /* For register, we maintain the reverse information too.  */
-  if (GET_CODE (x) == REG)
+  if (REG_P (x))
     REG_ATTRS (x) = get_reg_attrs (t, 0);
   else if (GET_CODE (x) == SUBREG)
     REG_ATTRS (SUBREG_REG (x))
@@ -961,7 +961,7 @@ mark_user_reg (rtx reg)
       REG_USERVAR_P (XEXP (reg, 0)) = 1;
       REG_USERVAR_P (XEXP (reg, 1)) = 1;
     }
-  else if (GET_CODE (reg) == REG)
+  else if (REG_P (reg))
     REG_USERVAR_P (reg) = 1;
   else
     abort ();
@@ -1034,7 +1034,7 @@ subreg_hard_regno (rtx x, int check_mode)
   /* This is where we attempt to catch illegal subregs
      created by the compiler.  */
   if (GET_CODE (x) != SUBREG
-      || GET_CODE (reg) != REG)
+      || !REG_P (reg))
     abort ();
   base_regno = REGNO (reg);
   if (base_regno >= FIRST_PSEUDO_REGISTER)
@@ -1121,7 +1121,7 @@ gen_lowpart_common (enum machine_mode mode, rtx x)
       else if (msize < xsize)
 	return gen_rtx_fmt_e (GET_CODE (x), mode, XEXP (x, 0));
     }
-  else if (GET_CODE (x) == SUBREG || GET_CODE (x) == REG
+  else if (GET_CODE (x) == SUBREG || REG_P (x)
 	   || GET_CODE (x) == CONCAT || GET_CODE (x) == CONST_VECTOR
 	   || GET_CODE (x) == CONST_DOUBLE || GET_CODE (x) == CONST_INT)
     return simplify_gen_subreg (mode, x, innermode, offset);
@@ -1140,7 +1140,7 @@ gen_complex_constant_part (enum machine_mode mode, rtx x, int imagpart_p)
 {
   tree decl, part;
 
-  if (GET_CODE (x) == MEM
+  if (MEM_P (x)
       && GET_CODE (XEXP (x, 0)) == SYMBOL_REF)
     {
       decl = SYMBOL_REF_DECL (XEXP (x, 0));
@@ -1223,7 +1223,7 @@ gen_highpart (enum machine_mode mode, rtx x)
   /* simplify_gen_subreg is not guaranteed to return a valid operand for
      the target if we have a MEM.  gen_highpart must return a valid operand,
      emitting code if necessary to do so.  */
-  if (result != NULL_RTX && GET_CODE (result) == MEM)
+  if (result != NULL_RTX && MEM_P (result))
     result = validize_mem (result);
 
   if (!result)
@@ -1349,7 +1349,7 @@ operand_subword (rtx op, unsigned int offset, int validate_address, enum machine
     return const0_rtx;
 
   /* Form a new MEM at the requested address.  */
-  if (GET_CODE (op) == MEM)
+  if (MEM_P (op))
     {
       rtx new = adjust_address_nv (op, word_mode, offset * UNITS_PER_WORD);
 
@@ -1387,7 +1387,7 @@ operand_subword_force (rtx op, unsigned int offset, enum machine_mode mode)
     {
       /* If this is a register which can not be accessed by words, copy it
 	 to a pseudo register.  */
-      if (GET_CODE (op) == REG)
+      if (REG_P (op))
 	op = copy_to_reg (op);
       else
 	op = force_reg (mode, op);
@@ -1460,8 +1460,8 @@ component_ref_for_mem_expr (tree ref)
   if (inner == TREE_OPERAND (ref, 0))
     return ref;
   else
-    return build (COMPONENT_REF, TREE_TYPE (ref), inner,
-		  TREE_OPERAND (ref, 1));
+    return build (COMPONENT_REF, TREE_TYPE (ref), inner, TREE_OPERAND (ref, 1),
+		  NULL_TREE);
 }
 
 /* Returns 1 if both MEM_EXPR can be considered equal
@@ -1543,6 +1543,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	 && (TYPE_READONLY (type) || (t != type && TREE_READONLY (t))))
 	|| (! TYPE_P (t) && TREE_CONSTANT (t)));
   MEM_POINTER (ref) = POINTER_TYPE_P (type);
+  MEM_NOTRAP_P (ref) = TREE_THIS_NOTRAP (t);
 
   /* If we are making an object of this type, or if this is a DECL, we know
      that it is a scalar if the type is not an aggregate.  */
@@ -1625,28 +1626,22 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	  do
 	    {
 	      tree index = TREE_OPERAND (t2, 1);
-	      tree array = TREE_OPERAND (t2, 0);
-	      tree domain = TYPE_DOMAIN (TREE_TYPE (array));
-	      tree low_bound = (domain ? TYPE_MIN_VALUE (domain) : 0);
-	      tree unit_size = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (array)));
+	      tree low_bound = array_ref_low_bound (t2);
+	      tree unit_size = array_ref_element_size (t2);
 
 	      /* We assume all arrays have sizes that are a multiple of a byte.
 		 First subtract the lower bound, if any, in the type of the
-		 index, then convert to sizetype and multiply by the size of the
-		 array element.  */
-	      if (low_bound != 0 && ! integer_zerop (low_bound))
+		 index, then convert to sizetype and multiply by the size of
+		 the array element.  */
+	      if (! integer_zerop (low_bound))
 		index = fold (build (MINUS_EXPR, TREE_TYPE (index),
 				     index, low_bound));
 
-	      /* If the index has a self-referential type, instantiate it;
-		 likewise for the component size.  */
-	      index = SUBSTITUTE_PLACEHOLDER_IN_EXPR (index, t2);
-	      unit_size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (unit_size, array);
-	      off_tree
-		= fold (build (PLUS_EXPR, sizetype,
-			       fold (build (MULT_EXPR, sizetype,
-					    index, unit_size)),
-			       off_tree));
+	      off_tree = size_binop (PLUS_EXPR,
+				     size_binop (MULT_EXPR, convert (sizetype,
+								     index),
+						 unit_size),
+				     off_tree);
 	      t2 = TREE_OPERAND (t2, 0);
 	    }
 	  while (TREE_CODE (t2) == ARRAY_REF);
@@ -1807,7 +1802,7 @@ change_address_1 (rtx memref, enum machine_mode mode, rtx addr, int validate)
 {
   rtx new;
 
-  if (GET_CODE (memref) != MEM)
+  if (!MEM_P (memref))
     abort ();
   if (mode == VOIDmode)
     mode = GET_MODE (memref);
@@ -2042,6 +2037,7 @@ widen_memory_access (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset)
       if (TREE_CODE (expr) == COMPONENT_REF)
 	{
 	  tree field = TREE_OPERAND (expr, 1);
+	  tree offset = component_ref_field_offset (expr);
 
 	  if (! DECL_SIZE_UNIT (field))
 	    {
@@ -2056,17 +2052,18 @@ widen_memory_access (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset)
 	      && INTVAL (memoffset) >= 0)
 	    break;
 
-	  if (! host_integerp (DECL_FIELD_OFFSET (field), 1))
+	  if (! host_integerp (offset, 1))
 	    {
 	      expr = NULL_TREE;
 	      break;
 	    }
 
 	  expr = TREE_OPERAND (expr, 0);
-	  memoffset = (GEN_INT (INTVAL (memoffset)
-		       + tree_low_cst (DECL_FIELD_OFFSET (field), 1)
-		       + (tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1)
-		          / BITS_PER_UNIT)));
+	  memoffset
+	    = (GEN_INT (INTVAL (memoffset)
+			+ tree_low_cst (offset, 1)
+			+ (tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1)
+			   / BITS_PER_UNIT)));
 	}
       /* Similarly for the decl.  */
       else if (DECL_P (expr)
@@ -2148,8 +2145,8 @@ restore_emit_status (struct function *p ATTRIBUTE_UNUSED)
 /* Go through all the RTL insn bodies and copy any invalid shared
    structure.  This routine should only be called once.  */
 
-void
-unshare_all_rtl (tree fndecl, rtx insn)
+static void
+unshare_all_rtl_1 (tree fndecl, rtx insn)
 {
   tree decl;
 
@@ -2200,7 +2197,13 @@ unshare_all_rtl_again (rtx insn)
 
   reset_used_flags (stack_slot_list);
 
-  unshare_all_rtl (cfun->decl, insn);
+  unshare_all_rtl_1 (cfun->decl, insn);
+}
+
+void
+unshare_all_rtl (void)
+{
+  unshare_all_rtl_1 (current_function_decl, get_insns ());
 }
 
 /* Check that ORIG is not marked when it should not be and mark ORIG as in use,
@@ -2224,7 +2227,6 @@ verify_rtx_sharing (rtx orig, rtx insn)
   switch (code)
     {
     case REG:
-    case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_VECTOR:
@@ -2405,7 +2407,6 @@ copy_most_rtx (rtx orig, rtx may_share)
   switch (code)
     {
     case REG:
-    case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_VECTOR:
@@ -2522,7 +2523,6 @@ repeat:
   switch (code)
     {
     case REG:
-    case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_VECTOR:
@@ -2648,7 +2648,6 @@ repeat:
   switch (code)
     {
     case REG:
-    case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_VECTOR:
@@ -2718,7 +2717,6 @@ set_used_flags (rtx x)
   switch (code)
     {
     case REG:
-    case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_VECTOR:
@@ -2782,11 +2780,11 @@ make_safe_from (rtx x, rtx other)
 	goto done;
       }
  done:
-  if ((GET_CODE (other) == MEM
+  if ((MEM_P (other)
        && ! CONSTANT_P (x)
-       && GET_CODE (x) != REG
+       && !REG_P (x)
        && GET_CODE (x) != SUBREG)
-      || (GET_CODE (other) == REG
+      || (REG_P (other)
 	  && (REGNO (other) < FIRST_PSEUDO_REGISTER
 	      || reg_mentioned_p (other, x))))
     {
@@ -2860,7 +2858,7 @@ get_first_nonnote_insn (void)
   while (insn)
     {
       insn = next_insn (insn);
-      if (insn == 0 || GET_CODE (insn) != NOTE)
+      if (insn == 0 || !NOTE_P (insn))
 	break;
     }
 
@@ -2878,7 +2876,7 @@ get_last_nonnote_insn (void)
   while (insn)
     {
       insn = previous_insn (insn);
-      if (insn == 0 || GET_CODE (insn) != NOTE)
+      if (insn == 0 || !NOTE_P (insn))
 	break;
     }
 
@@ -2929,7 +2927,7 @@ next_insn (rtx insn)
   if (insn)
     {
       insn = NEXT_INSN (insn);
-      if (insn && GET_CODE (insn) == INSN
+      if (insn && NONJUMP_INSN_P (insn)
 	  && GET_CODE (PATTERN (insn)) == SEQUENCE)
 	insn = XVECEXP (PATTERN (insn), 0, 0);
     }
@@ -2946,7 +2944,7 @@ previous_insn (rtx insn)
   if (insn)
     {
       insn = PREV_INSN (insn);
-      if (insn && GET_CODE (insn) == INSN
+      if (insn && NONJUMP_INSN_P (insn)
 	  && GET_CODE (PATTERN (insn)) == SEQUENCE)
 	insn = XVECEXP (PATTERN (insn), 0, XVECLEN (PATTERN (insn), 0) - 1);
     }
@@ -2963,7 +2961,7 @@ next_nonnote_insn (rtx insn)
   while (insn)
     {
       insn = NEXT_INSN (insn);
-      if (insn == 0 || GET_CODE (insn) != NOTE)
+      if (insn == 0 || !NOTE_P (insn))
 	break;
     }
 
@@ -2979,7 +2977,7 @@ prev_nonnote_insn (rtx insn)
   while (insn)
     {
       insn = PREV_INSN (insn);
-      if (insn == 0 || GET_CODE (insn) != NOTE)
+      if (insn == 0 || !NOTE_P (insn))
 	break;
     }
 
@@ -3029,7 +3027,7 @@ last_call_insn (void)
   rtx insn;
 
   for (insn = get_last_insn ();
-       insn && GET_CODE (insn) != CALL_INSN;
+       insn && !CALL_P (insn);
        insn = PREV_INSN (insn))
     ;
 
@@ -3043,8 +3041,8 @@ last_call_insn (void)
 int
 active_insn_p (rtx insn)
 {
-  return (GET_CODE (insn) == CALL_INSN || GET_CODE (insn) == JUMP_INSN
-	  || (GET_CODE (insn) == INSN
+  return (CALL_P (insn) || JUMP_P (insn)
+	  || (NONJUMP_INSN_P (insn)
 	      && (! reload_completed
 		  || (GET_CODE (PATTERN (insn)) != USE
 		      && GET_CODE (PATTERN (insn)) != CLOBBER))));
@@ -3088,7 +3086,7 @@ next_label (rtx insn)
   while (insn)
     {
       insn = NEXT_INSN (insn);
-      if (insn == 0 || GET_CODE (insn) == CODE_LABEL)
+      if (insn == 0 || LABEL_P (insn))
 	break;
     }
 
@@ -3103,7 +3101,7 @@ prev_label (rtx insn)
   while (insn)
     {
       insn = PREV_INSN (insn);
-      if (insn == 0 || GET_CODE (insn) == CODE_LABEL)
+      if (insn == 0 || LABEL_P (insn))
 	break;
     }
 
@@ -3134,7 +3132,7 @@ link_cc0_insns (rtx insn)
 {
   rtx user = next_nonnote_insn (insn);
 
-  if (GET_CODE (user) == INSN && GET_CODE (PATTERN (user)) == SEQUENCE)
+  if (NONJUMP_INSN_P (user) && GET_CODE (PATTERN (user)) == SEQUENCE)
     user = XVECEXP (PATTERN (user), 0, 0);
 
   REG_NOTES (user) = gen_rtx_INSN_LIST (REG_CC_SETTER, insn,
@@ -3160,7 +3158,7 @@ next_cc0_user (rtx insn)
     return XEXP (note, 0);
 
   insn = next_nonnote_insn (insn);
-  if (insn && GET_CODE (insn) == INSN && GET_CODE (PATTERN (insn)) == SEQUENCE)
+  if (insn && NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == SEQUENCE)
     insn = XVECEXP (PATTERN (insn), 0, 0);
 
   if (insn && INSN_P (insn) && reg_mentioned_p (cc0_rtx, PATTERN (insn)))
@@ -3245,7 +3243,7 @@ try_split (rtx pat, rtx trial, int last)
 
   /* If we are splitting a JUMP_INSN, it might be followed by a BARRIER.
      We may need to handle this specially.  */
-  if (after && GET_CODE (after) == BARRIER)
+  if (after && BARRIER_P (after))
     {
       has_barrier = 1;
       after = NEXT_INSN (after);
@@ -3270,7 +3268,7 @@ try_split (rtx pat, rtx trial, int last)
   /* Mark labels.  */
   for (insn = insn_last; insn ; insn = PREV_INSN (insn))
     {
-      if (GET_CODE (insn) == JUMP_INSN)
+      if (JUMP_P (insn))
 	{
 	  mark_jump_label (PATTERN (insn), insn, 0);
 	  njumps++;
@@ -3294,10 +3292,10 @@ try_split (rtx pat, rtx trial, int last)
 
   /* If we are splitting a CALL_INSN, look for the CALL_INSN
      in SEQ and copy our CALL_INSN_FUNCTION_USAGE to it.  */
-  if (GET_CODE (trial) == CALL_INSN)
+  if (CALL_P (trial))
     {
       for (insn = insn_last; insn ; insn = PREV_INSN (insn))
-	if (GET_CODE (insn) == CALL_INSN)
+	if (CALL_P (insn))
 	  {
 	    rtx *p = &CALL_INSN_FUNCTION_USAGE (insn);
 	    while (*p)
@@ -3316,7 +3314,7 @@ try_split (rtx pat, rtx trial, int last)
 	  insn = insn_last;
 	  while (insn != NULL_RTX)
 	    {
-	      if (GET_CODE (insn) == CALL_INSN
+	      if (CALL_P (insn)
 		  || (flag_non_call_exceptions
 		      && may_trap_p (PATTERN (insn))))
 		REG_NOTES (insn)
@@ -3333,7 +3331,7 @@ try_split (rtx pat, rtx trial, int last)
 	  insn = insn_last;
 	  while (insn != NULL_RTX)
 	    {
-	      if (GET_CODE (insn) == CALL_INSN)
+	      if (CALL_P (insn))
 		REG_NOTES (insn)
 		  = gen_rtx_EXPR_LIST (REG_NOTE_KIND (note),
 				       XEXP (note, 0),
@@ -3346,7 +3344,7 @@ try_split (rtx pat, rtx trial, int last)
 	  insn = insn_last;
 	  while (insn != NULL_RTX)
 	    {
-	      if (GET_CODE (insn) == JUMP_INSN)
+	      if (JUMP_P (insn))
 		REG_NOTES (insn)
 		  = gen_rtx_EXPR_LIST (REG_NOTE_KIND (note),
 				       XEXP (note, 0),
@@ -3362,12 +3360,12 @@ try_split (rtx pat, rtx trial, int last)
 
   /* If there are LABELS inside the split insns increment the
      usage count so we don't delete the label.  */
-  if (GET_CODE (trial) == INSN)
+  if (NONJUMP_INSN_P (trial))
     {
       insn = insn_last;
       while (insn != NULL_RTX)
 	{
-	  if (GET_CODE (insn) == INSN)
+	  if (NONJUMP_INSN_P (insn))
 	    mark_label_nuses (PATTERN (insn));
 
 	  insn = PREV_INSN (insn);
@@ -3509,7 +3507,7 @@ add_insn_after (rtx insn, rtx after)
   if (next)
     {
       PREV_INSN (next) = insn;
-      if (GET_CODE (next) == INSN && GET_CODE (PATTERN (next)) == SEQUENCE)
+      if (NONJUMP_INSN_P (next) && GET_CODE (PATTERN (next)) == SEQUENCE)
 	PREV_INSN (XVECEXP (PATTERN (next), 0, 0)) = insn;
     }
   else if (last_insn == after)
@@ -3529,8 +3527,8 @@ add_insn_after (rtx insn, rtx after)
 	abort ();
     }
 
-  if (GET_CODE (after) != BARRIER
-      && GET_CODE (insn) != BARRIER
+  if (!BARRIER_P (after)
+      && !BARRIER_P (insn)
       && (bb = BLOCK_FOR_INSN (after)))
     {
       set_block_for_insn (insn, bb);
@@ -3540,14 +3538,14 @@ add_insn_after (rtx insn, rtx after)
 	 either NOTE or LABEL.  */
       if (BB_END (bb) == after
 	  /* Avoid clobbering of structure when creating new BB.  */
-	  && GET_CODE (insn) != BARRIER
-	  && (GET_CODE (insn) != NOTE
+	  && !BARRIER_P (insn)
+	  && (!NOTE_P (insn)
 	      || NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK))
 	BB_END (bb) = insn;
     }
 
   NEXT_INSN (after) = insn;
-  if (GET_CODE (after) == INSN && GET_CODE (PATTERN (after)) == SEQUENCE)
+  if (NONJUMP_INSN_P (after) && GET_CODE (PATTERN (after)) == SEQUENCE)
     {
       rtx sequence = PATTERN (after);
       NEXT_INSN (XVECEXP (sequence, 0, XVECLEN (sequence, 0) - 1)) = insn;
@@ -3574,7 +3572,7 @@ add_insn_before (rtx insn, rtx before)
   if (prev)
     {
       NEXT_INSN (prev) = insn;
-      if (GET_CODE (prev) == INSN && GET_CODE (PATTERN (prev)) == SEQUENCE)
+      if (NONJUMP_INSN_P (prev) && GET_CODE (PATTERN (prev)) == SEQUENCE)
 	{
 	  rtx sequence = PATTERN (prev);
 	  NEXT_INSN (XVECEXP (sequence, 0, XVECLEN (sequence, 0) - 1)) = insn;
@@ -3597,8 +3595,8 @@ add_insn_before (rtx insn, rtx before)
 	abort ();
     }
 
-  if (GET_CODE (before) != BARRIER
-      && GET_CODE (insn) != BARRIER
+  if (!BARRIER_P (before)
+      && !BARRIER_P (insn)
       && (bb = BLOCK_FOR_INSN (before)))
     {
       set_block_for_insn (insn, bb);
@@ -3608,14 +3606,14 @@ add_insn_before (rtx insn, rtx before)
 	 either NOTE or LABEl.  */
       if (BB_HEAD (bb) == insn
 	  /* Avoid clobbering of structure when creating new BB.  */
-	  && GET_CODE (insn) != BARRIER
-	  && (GET_CODE (insn) != NOTE
+	  && !BARRIER_P (insn)
+	  && (!NOTE_P (insn)
 	      || NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK))
 	abort ();
     }
 
   PREV_INSN (before) = insn;
-  if (GET_CODE (before) == INSN && GET_CODE (PATTERN (before)) == SEQUENCE)
+  if (NONJUMP_INSN_P (before) && GET_CODE (PATTERN (before)) == SEQUENCE)
     PREV_INSN (XVECEXP (PATTERN (before), 0, 0)) = insn;
 }
 
@@ -3631,7 +3629,7 @@ remove_insn (rtx insn)
   if (prev)
     {
       NEXT_INSN (prev) = next;
-      if (GET_CODE (prev) == INSN && GET_CODE (PATTERN (prev)) == SEQUENCE)
+      if (NONJUMP_INSN_P (prev) && GET_CODE (PATTERN (prev)) == SEQUENCE)
 	{
 	  rtx sequence = PATTERN (prev);
 	  NEXT_INSN (XVECEXP (sequence, 0, XVECLEN (sequence, 0) - 1)) = next;
@@ -3657,7 +3655,7 @@ remove_insn (rtx insn)
   if (next)
     {
       PREV_INSN (next) = prev;
-      if (GET_CODE (next) == INSN && GET_CODE (PATTERN (next)) == SEQUENCE)
+      if (NONJUMP_INSN_P (next) && GET_CODE (PATTERN (next)) == SEQUENCE)
 	PREV_INSN (XVECEXP (PATTERN (next), 0, 0)) = prev;
     }
   else if (last_insn == insn)
@@ -3676,7 +3674,7 @@ remove_insn (rtx insn)
       if (stack == 0)
 	abort ();
     }
-  if (GET_CODE (insn) != BARRIER
+  if (!BARRIER_P (insn)
       && (bb = BLOCK_FOR_INSN (insn)))
     {
       if (INSN_P (insn))
@@ -3685,7 +3683,7 @@ remove_insn (rtx insn)
 	{
 	  /* Never ever delete the basic block note without deleting whole
 	     basic block.  */
-	  if (GET_CODE (insn) == NOTE)
+	  if (NOTE_P (insn))
 	    abort ();
 	  BB_HEAD (bb) = next;
 	}
@@ -3699,7 +3697,7 @@ remove_insn (rtx insn)
 void
 add_function_usage_to (rtx call_insn, rtx call_fusage)
 {
-  if (! call_insn || GET_CODE (call_insn) != CALL_INSN)
+  if (! call_insn || !CALL_P (call_insn))
     abort ();
 
   /* Put the register usage information on the CALL.  If there is already
@@ -3774,13 +3772,13 @@ reorder_insns (rtx from, rtx to, rtx after)
 
   reorder_insns_nobb (from, to, after);
 
-  if (GET_CODE (after) != BARRIER
+  if (!BARRIER_P (after)
       && (bb = BLOCK_FOR_INSN (after)))
     {
       rtx x;
       bb->flags |= BB_DIRTY;
 
-      if (GET_CODE (from) != BARRIER
+      if (!BARRIER_P (from)
 	  && (bb2 = BLOCK_FOR_INSN (from)))
 	{
 	  if (BB_END (bb2) == to)
@@ -3792,7 +3790,8 @@ reorder_insns (rtx from, rtx to, rtx after)
 	BB_END (bb) = to;
 
       for (x = from; x != NEXT_INSN (to); x = NEXT_INSN (x))
-	set_block_for_insn (x, bb);
+	if (!BARRIER_P (x))
+	  set_block_for_insn (x, bb);
     }
 }
 
@@ -3805,7 +3804,7 @@ find_line_note (rtx insn)
     return 0;
 
   for (; insn; insn = PREV_INSN (insn))
-    if (GET_CODE (insn) == NOTE
+    if (NOTE_P (insn)
 	&& NOTE_LINE_NUMBER (insn) >= 0)
       break;
 
@@ -3831,7 +3830,7 @@ remove_unnecessary_notes (void)
       next = NEXT_INSN (insn);
 
       /* We're only interested in notes.  */
-      if (GET_CODE (insn) != NOTE)
+      if (!NOTE_P (insn))
 	continue;
 
       switch (NOTE_LINE_NUMBER (insn))
@@ -3891,7 +3890,7 @@ remove_unnecessary_notes (void)
 		break;
 
 	      /* We're only interested in NOTEs.  */
-	      if (GET_CODE (tmp) != NOTE)
+	      if (!NOTE_P (tmp))
 		continue;
 
 	      if (NOTE_LINE_NUMBER (tmp) == NOTE_INSN_BLOCK_BEG)
@@ -4128,7 +4127,9 @@ emit_note_before (int subtype, rtx before)
 {
   rtx note = rtx_alloc (NOTE);
   INSN_UID (note) = cur_insn_uid++;
+#ifndef USE_MAPPED_LOCATION
   NOTE_SOURCE_FILE (note) = 0;
+#endif
   NOTE_LINE_NUMBER (note) = subtype;
   BLOCK_FOR_INSN (note) = NULL;
 
@@ -4148,14 +4149,14 @@ emit_insn_after_1 (rtx first, rtx after)
   rtx after_after;
   basic_block bb;
 
-  if (GET_CODE (after) != BARRIER
+  if (!BARRIER_P (after)
       && (bb = BLOCK_FOR_INSN (after)))
     {
       bb->flags |= BB_DIRTY;
       for (last = first; NEXT_INSN (last); last = NEXT_INSN (last))
-	if (GET_CODE (last) != BARRIER)
+	if (!BARRIER_P (last))
 	  set_block_for_insn (last, bb);
-      if (GET_CODE (last) != BARRIER)
+      if (!BARRIER_P (last))
 	set_block_for_insn (last, bb);
       if (BB_END (bb) == after)
 	BB_END (bb) = last;
@@ -4351,7 +4352,9 @@ emit_note_after (int subtype, rtx after)
 {
   rtx note = rtx_alloc (NOTE);
   INSN_UID (note) = cur_insn_uid++;
+#ifndef USE_MAPPED_LOCATION
   NOTE_SOURCE_FILE (note) = 0;
+#endif
   NOTE_LINE_NUMBER (note) = subtype;
   BLOCK_FOR_INSN (note) = NULL;
   add_insn_after (note, after);
@@ -4626,10 +4629,15 @@ emit_line_note (location_t location)
   
   set_file_and_line_for_stmt (location);
   
+#ifdef USE_MAPPED_LOCATION
+  if (location == last_location)
+    return NULL_RTX;
+#else
   if (location.file && last_location.file
       && !strcmp (location.file, last_location.file)
       && location.line == last_location.line)
     return NULL_RTX;
+#endif
   last_location = location;
   
   if (no_line_numbers)
@@ -4638,8 +4646,12 @@ emit_line_note (location_t location)
       return NULL_RTX;
     }
 
+#ifdef USE_MAPPED_LOCATION
+  note = emit_note ((int) location);
+#else
   note = emit_note (location.line);
   NOTE_SOURCE_FILE (note) = location.file;
+#endif
   
   return note;
 }
@@ -4691,7 +4703,11 @@ emit_note (int note_no)
 void
 force_next_line_note (void)
 {
+#ifdef USE_MAPPED_LOCATION
+  last_location = -1;
+#else
   last_location.line = -1;
+#endif
 }
 
 /* Place a note of KIND on insn INSN with DATUM as the datum. If a
@@ -4743,7 +4759,7 @@ set_unique_reg_note (rtx insn, enum reg_note kind, rtx datum)
 enum rtx_code
 classify_insn (rtx x)
 {
-  if (GET_CODE (x) == CODE_LABEL)
+  if (LABEL_P (x))
     return CODE_LABEL;
   if (GET_CODE (x) == CALL)
     return CALL_INSN;
@@ -4802,13 +4818,12 @@ emit (rtx x)
 /* Space for free sequence stack entries.  */
 static GTY ((deletable)) struct sequence_stack *free_sequence_stack;
 
-/* Begin emitting insns to a sequence which can be packaged in an
-   RTL_EXPR.  If this sequence will contain something that might cause
-   the compiler to pop arguments to function calls (because those
-   pops have previously been deferred; see INHIBIT_DEFER_POP for more
-   details), use do_pending_stack_adjust before calling this function.
-   That will ensure that the deferred pops are not accidentally
-   emitted in the middle of this sequence.  */
+/* Begin emitting insns to a sequence.  If this sequence will contain
+   something that might cause the compiler to pop arguments to function
+   calls (because those pops have previously been deferred; see
+   INHIBIT_DEFER_POP for more details), use do_pending_stack_adjust
+   before calling this function.  That will ensure that the deferred
+   pops are not accidentally emitted in the middle of this sequence.  */
 
 void
 start_sequence (void)
@@ -4826,24 +4841,11 @@ start_sequence (void)
   tem->next = seq_stack;
   tem->first = first_insn;
   tem->last = last_insn;
-  tem->sequence_rtl_expr = seq_rtl_expr;
 
   seq_stack = tem;
 
   first_insn = 0;
   last_insn = 0;
-}
-
-/* Similarly, but indicate that this sequence will be placed in T, an
-   RTL_EXPR.  See the documentation for start_sequence for more
-   information about how to use this function.  */
-
-void
-start_sequence_for_rtl_expr (tree t)
-{
-  start_sequence ();
-
-  seq_rtl_expr = t;
 }
 
 /* Set up the insn chain starting with FIRST as the current sequence,
@@ -4891,7 +4893,6 @@ push_topmost_sequence (void)
 
   first_insn = top->first;
   last_insn = top->last;
-  seq_rtl_expr = top->sequence_rtl_expr;
 }
 
 /* After emitting to the outer-level insn chain, update the outer-level
@@ -4907,7 +4908,6 @@ pop_topmost_sequence (void)
 
   top->first = first_insn;
   top->last = last_insn;
-  /* ??? Why don't we save seq_rtl_expr here?  */
 
   end_sequence ();
 }
@@ -4932,7 +4932,6 @@ end_sequence (void)
 
   first_insn = tem->first;
   last_insn = tem->last;
-  seq_rtl_expr = tem->sequence_rtl_expr;
   seq_stack = tem->next;
 
   memset (tem, 0, sizeof (*tem));
@@ -5002,7 +5001,6 @@ copy_insn_1 (rtx orig)
   switch (code)
     {
     case REG:
-    case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_VECTOR:
@@ -5010,7 +5008,6 @@ copy_insn_1 (rtx orig)
     case CODE_LABEL:
     case PC:
     case CC0:
-    case ADDRESSOF:
       return orig;
     case CLOBBER:
       if (REG_P (XEXP (orig, 0)) && REGNO (XEXP (orig, 0)) < FIRST_PSEUDO_REGISTER)
@@ -5148,11 +5145,9 @@ init_emit (void)
   f->emit = ggc_alloc (sizeof (struct emit_status));
   first_insn = NULL;
   last_insn = NULL;
-  seq_rtl_expr = NULL;
   cur_insn_uid = 1;
   reg_rtx_no = LAST_VIRTUAL_REGISTER + 1;
-  last_location.line = 0;
-  last_location.file = 0;
+  last_location = UNKNOWN_LOCATION;
   first_label_num = label_num;
   last_label_num = 0;
   seq_stack = NULL;
@@ -5444,27 +5439,6 @@ init_emit_once (int line_numbers)
     pic_offset_table_rtx = gen_raw_REG (Pmode, PIC_OFFSET_TABLE_REGNUM);
 }
 
-/* Query and clear/ restore no_line_numbers.  This is used by the
-   switch / case handling in stmt.c to give proper line numbers in
-   warnings about unreachable code.  */
-
-int
-force_line_numbers (void)
-{
-  int old = no_line_numbers;
-
-  no_line_numbers = 0;
-  if (old)
-    force_next_line_note ();
-  return old;
-}
-
-void
-restore_line_number_status (int old_value)
-{
-  no_line_numbers = old_value;
-}
-
 /* Produce exact duplicate of insn INSN after AFTER.
    Care updating of libcall regions if present.  */
 

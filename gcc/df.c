@@ -808,7 +808,7 @@ df_ref_record (struct df *df, rtx reg, rtx *loc, rtx insn,
 {
   unsigned int regno;
 
-  if (GET_CODE (reg) != REG && GET_CODE (reg) != SUBREG)
+  if (!REG_P (reg) && GET_CODE (reg) != SUBREG)
     abort ();
 
   /* For the reg allocator we are interested in some SUBREG rtx's, but not
@@ -924,8 +924,8 @@ df_def_record_1 (struct df *df, rtx x, basic_block bb, rtx insn)
       flags |= DF_REF_READ_WRITE;
     }
 
-  if (GET_CODE (dst) == REG
-      || (GET_CODE (dst) == SUBREG && GET_CODE (SUBREG_REG (dst)) == REG))
+  if (REG_P (dst)
+      || (GET_CODE (dst) == SUBREG && REG_P (SUBREG_REG (dst))))
     df_ref_record (df, dst, loc, insn, DF_REF_REG_DEF, flags);
 }
 
@@ -985,7 +985,7 @@ df_uses_record (struct df *df, rtx *loc, enum df_ref_type ref_type,
     case CLOBBER:
       /* If we are clobbering a MEM, mark any registers inside the address
 	 as being used.  */
-      if (GET_CODE (XEXP (x, 0)) == MEM)
+      if (MEM_P (XEXP (x, 0)))
 	df_uses_record (df, &XEXP (XEXP (x, 0), 0),
 			DF_REF_REG_MEM_STORE, bb, insn, flags);
 
@@ -1000,7 +1000,7 @@ df_uses_record (struct df *df, rtx *loc, enum df_ref_type ref_type,
       /* While we're here, optimize this case.  */
 
       /* In case the SUBREG is not of a REG, do not optimize.  */
-      if (GET_CODE (SUBREG_REG (x)) != REG)
+      if (!REG_P (SUBREG_REG (x)))
 	{
 	  loc = &SUBREG_REG (x);
 	  df_uses_record (df, loc, ref_type, bb, insn, flags);
@@ -1168,7 +1168,7 @@ df_insn_refs_record (struct df *df, basic_block bb, rtx insn)
 	      }
 	  }
 
-      if (GET_CODE (insn) == CALL_INSN)
+      if (CALL_P (insn))
 	{
 	  rtx note;
 	  rtx x;
@@ -1204,26 +1204,15 @@ df_insn_refs_record (struct df *df, basic_block bb, rtx insn)
       df_uses_record (df, &PATTERN (insn),
 		      DF_REF_REG_USE, bb, insn, 0);
 
-      if (GET_CODE (insn) == CALL_INSN)
+      if (CALL_P (insn))
 	{
 	  rtx note;
 
-	  /* The problem here is that there are awfully many hard registers
-	     clobbered by call and "defs" created through them are not
-	     interesting.  So we must just make sure we include them when
+	  /* We do not record hard registers clobbered by the call,
+	     since there are awfully many of them and "defs" created
+	     through them are not interesting (since no use can be legally
+	     reached by them).  So we must just make sure we include them when
 	     computing kill bitmaps.  */
-#if 0
-	  if (df->flags & DF_HARD_REGS)
-	    {
-	      /* Kill all registers invalidated by a call.  */
-	      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-		if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
-		  {
-		    rtx reg_clob = df_reg_clobber_gen (i);
-		    df_defs_record (df, reg_clob, bb, insn);
-		  }
-	    }
-#endif
 
 	  /* There may be extra registers to be clobbered.  */
 	  for (note = CALL_INSN_FUNCTION_USAGE (insn);
@@ -1665,7 +1654,7 @@ df_bb_rd_local_compute (struct df *df, basic_block bb, bitmap call_killed_defs)
 	  bitmap_set_bit (seen, regno);
 	}
 
-      if (GET_CODE (insn) == CALL_INSN && (df->flags & DF_HARD_REGS))
+      if (CALL_P (insn) && (df->flags & DF_HARD_REGS))
 	{
 	  bitmap_operation (bb_info->rd_kill, bb_info->rd_kill,
 			    call_killed_defs, BITMAP_IOR);
@@ -2359,7 +2348,7 @@ prune_to_subcfg (int list[], unsigned len, bitmap blocks)
   return last;
 }
 
-/* Alternative entry point to the analysis.  Analyse just the part of the cfg
+/* Alternative entry point to the analysis.  Analyze just the part of the cfg
    graph induced by BLOCKS.
    
    TODO I am not quite sure how to avoid code duplication with df_analyze_1
@@ -2922,9 +2911,9 @@ df_insns_modify (struct df *df, basic_block bb, rtx first_insn, rtx last_insn)
       /* A non-const call should not have slipped through the net.  If
 	 it does, we need to create a new basic block.  Ouch.  The
 	 same applies for a label.  */
-      if ((GET_CODE (insn) == CALL_INSN
+      if ((CALL_P (insn)
 	   && ! CONST_OR_PURE_CALL_P (insn))
-	  || GET_CODE (insn) == CODE_LABEL)
+	  || LABEL_P (insn))
 	abort ();
 
       uid = INSN_UID (insn);

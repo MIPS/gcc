@@ -114,6 +114,18 @@ union _Jv_word2
   jdouble d;
 };                              
 
+union _Jv_value
+{
+  jbyte byte_value;
+  jshort short_value;
+  jchar char_value;
+  jint int_value;
+  jlong long_value;
+  jfloat float_value;
+  jdouble double_value;
+  jobject object_value;
+};
+
 // An instance of this type is used to represent a single frame in a
 // backtrace.  If the interpreter has been built, we also include
 // information about the interpreted method.
@@ -238,6 +250,9 @@ namespace gcj
   
   /* Set to true by _Jv_CreateJavaVM. */
   extern bool runtimeInitialized;
+
+  /* Print out class names as they are initialized. */
+  extern bool verbose_class_flag;
 }
 
 /* Type of pointer used as finalizer.  */

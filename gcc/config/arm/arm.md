@@ -5493,7 +5493,7 @@
 ;; We could let this apply for blocks of less than this, but it clobbers so
 ;; many registers that there is then probably a better way.
 
-(define_expand "movstrqi"
+(define_expand "movmemqi"
   [(match_operand:BLK 0 "general_operand" "")
    (match_operand:BLK 1 "general_operand" "")
    (match_operand:SI 2 "const_int_operand" "")
@@ -5502,7 +5502,7 @@
   "
   if (TARGET_ARM)
     {
-      if (arm_gen_movstrqi (operands))
+      if (arm_gen_movmemqi (operands))
         DONE;
       FAIL;
     }
@@ -5512,7 +5512,7 @@
           || INTVAL (operands[2]) > 48)
         FAIL;
 
-      thumb_expand_movstrqi (operands);
+      thumb_expand_movmemqi (operands);
       DONE;
     }
   "
@@ -6167,22 +6167,24 @@
   [(set (pc)
 	(if_then_else
 	 (match_operator 5 "equality_operator"
-	  [(and:SI (not:SI (match_operand:SI 3 "s_register_operand" "l,l,l,l"))
-		   (match_operand:SI 2 "s_register_operand" "0,1,1,1"))
+	  [(and:SI (not:SI (match_operand:SI 3 "s_register_operand" "l,l,l,l,l"))
+		   (match_operand:SI 2 "s_register_operand" "0,1,1,1,1"))
 	   (const_int 0)])
 	 (label_ref (match_operand 4 "" ""))
 	 (pc)))
-   (set (match_operand:SI 0 "thumb_cbrch_target_operand" "=l,*?h,*?m,*?m")
+   (set (match_operand:SI 0 "thumb_cbrch_target_operand" "=!l,l,*?h,*?m,*?m")
 	(and:SI (not:SI (match_dup 3)) (match_dup 2)))
-   (clobber (match_scratch:SI 1 "=X,l,&l,&l"))]
+   (clobber (match_scratch:SI 1 "=X,l,l,&l,&l"))]
   "TARGET_THUMB"
   "*
   {
   if (which_alternative == 0)
     output_asm_insn (\"bic\\t%0, %3\", operands);
-  else if (which_alternative == 1)
+  else if (which_alternative <= 2)
     {
       output_asm_insn (\"bic\\t%1, %3\", operands);
+      /* It's ok if OP0 is a lo-reg, even though the mov will set the
+	 conditions again, since we're only testing for equality.  */
       output_asm_insn (\"mov\\t%0, %1\", operands);
     }
   else
@@ -7375,12 +7377,22 @@
   }"
 )
 
-(define_insn "*call_reg"
+(define_insn "*call_reg_armv5"
   [(call (mem:SI (match_operand:SI 0 "s_register_operand" "r"))
          (match_operand 1 "" ""))
    (use (match_operand 2 "" ""))
    (clobber (reg:SI LR_REGNUM))]
-  "TARGET_ARM"
+  "TARGET_ARM && arm_arch5"
+  "blx%?\\t%0"
+  [(set_attr "type" "call")]
+)
+
+(define_insn "*call_reg_arm"
+  [(call (mem:SI (match_operand:SI 0 "s_register_operand" "r"))
+         (match_operand 1 "" ""))
+   (use (match_operand 2 "" ""))
+   (clobber (reg:SI LR_REGNUM))]
+  "TARGET_ARM && !arm_arch5"
   "*
   return output_call (operands);
   "
@@ -7402,35 +7414,29 @@
    (set_attr "type" "call")]
 )
 
-(define_insn "*call_indirect"
+(define_insn "*call_reg_thumb_v5"
   [(call (mem:SI (match_operand:SI 0 "register_operand" "l*r"))
 	 (match_operand 1 "" ""))
    (use (match_operand 2 "" ""))
    (clobber (reg:SI LR_REGNUM))]
-  "TARGET_THUMB"
+  "TARGET_THUMB && arm_arch5"
+  "blx\\t%0"
+  [(set_attr "length" "2")
+   (set_attr "type" "call")]
+)
+
+(define_insn "*call_reg_thumb"
+  [(call (mem:SI (match_operand:SI 0 "register_operand" "l*r"))
+	 (match_operand 1 "" ""))
+   (use (match_operand 2 "" ""))
+   (clobber (reg:SI LR_REGNUM))]
+  "TARGET_THUMB && !arm_arch5"
   "*
   {
     if (TARGET_CALLER_INTERWORKING)
       return \"bl\\t%__interwork_call_via_%0\";
     else
       return \"bl\\t%__call_via_%0\";
-  }"
-  [(set_attr "type" "call")]
-)
-
-(define_insn "*call_value_indirect"
-  [(set (match_operand 0 "" "")
-	(call (mem:SI (match_operand:SI 1 "register_operand" "l*r"))
-	      (match_operand 2 "" "")))
-   (use (match_operand 3 "" ""))
-   (clobber (reg:SI LR_REGNUM))]
-  "TARGET_THUMB"
-  "*
-  {
-    if (TARGET_CALLER_INTERWORKING)
-      return \"bl\\t%__interwork_call_via_%1\";
-    else
-      return \"bl\\t%__call_via_%1\";
   }"
   [(set_attr "type" "call")]
 )
@@ -7457,13 +7463,24 @@
   }"
 )
 
-(define_insn "*call_value_reg"
+(define_insn "*call_value_reg_armv5"
   [(set (match_operand 0 "" "")
         (call (mem:SI (match_operand:SI 1 "s_register_operand" "r"))
 	      (match_operand 2 "" "")))
    (use (match_operand 3 "" ""))
    (clobber (reg:SI LR_REGNUM))]
-  "TARGET_ARM"
+  "TARGET_ARM && arm_arch5"
+  "blx%?\\t%1"
+  [(set_attr "type" "call")]
+)
+
+(define_insn "*call_value_reg_arm"
+  [(set (match_operand 0 "" "")
+        (call (mem:SI (match_operand:SI 1 "s_register_operand" "r"))
+	      (match_operand 2 "" "")))
+   (use (match_operand 3 "" ""))
+   (clobber (reg:SI LR_REGNUM))]
+  "TARGET_ARM && !arm_arch5"
   "*
   return output_call (&operands[1]);
   "
@@ -7483,6 +7500,35 @@
   "
   [(set_attr "length" "12")
    (set_attr "type" "call")]
+)
+
+(define_insn "*call_value_reg_thumb_v5"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (match_operand:SI 1 "register_operand" "l*r"))
+	      (match_operand 2 "" "")))
+   (use (match_operand 3 "" ""))
+   (clobber (reg:SI LR_REGNUM))]
+  "TARGET_THUMB && arm_arch5"
+  "blx\\t%1"
+  [(set_attr "length" "2")
+   (set_attr "type" "call")]
+)
+
+(define_insn "*call_value_reg_thumb"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (match_operand:SI 1 "register_operand" "l*r"))
+	      (match_operand 2 "" "")))
+   (use (match_operand 3 "" ""))
+   (clobber (reg:SI LR_REGNUM))]
+  "TARGET_THUMB && !arm_arch5"
+  "*
+  {
+    if (TARGET_CALLER_INTERWORKING)
+      return \"bl\\t%__interwork_call_via_%1\";
+    else
+      return \"bl\\t%__call_via_%1\";
+  }"
+  [(set_attr "type" "call")]
 )
 
 ;; Allow calls to SYMBOL_REFs specially as they are not valid general addresses
@@ -7655,6 +7701,7 @@
     return output_return_instruction (operands[0], TRUE, TRUE);
   }"
   [(set_attr "conds" "use")
+   (set_attr "length" "12")
    (set_attr "type" "load1")]
 )
 
@@ -7784,6 +7831,7 @@
   ""
 )
 
+;; NB Never uses BX.
 (define_insn "*arm_indirect_jump"
   [(set (pc)
 	(match_operand:SI 0 "s_register_operand" "r"))]
@@ -7792,8 +7840,6 @@
   [(set_attr "predicable" "yes")]
 )
 
-;; Although not supported by the define_expand above,
-;; cse/combine may generate this form.
 (define_insn "*load_indirect_jump"
   [(set (pc)
 	(match_operand:SI 0 "memory_operand" "m"))]
@@ -7805,6 +7851,7 @@
    (set_attr "predicable" "yes")]
 )
 
+;; NB Never uses BX.
 (define_insn "*thumb_indirect_jump"
   [(set (pc)
 	(match_operand:SI 0 "register_operand" "l*r"))]
@@ -10097,6 +10144,7 @@
   "
 )
 
+;; NB never uses BX.
 (define_insn "*thumb_tablejump"
   [(set (pc) (match_operand:SI 0 "register_operand" "l*r"))
    (use (label_ref (match_operand 1 "" "")))]

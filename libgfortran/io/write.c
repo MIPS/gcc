@@ -523,22 +523,22 @@ write_float (fnode *f, const char *source, int len)
          }
 
          memset(p, ' ', nb);
-         res = isinf (n);
+         res = isinf (n); 
          if (res != 0)
          {
-            if (res > 0)
-               fin = '+';
-            else
+            if (signbit(n))   
                fin = '-';
+            else
+               fin = '+';
 
             if (nb > 7)
                memcpy(p + nb - 8, "Infinity", 8); 
             else
                memcpy(p + nb - 3, "Inf", 3);
-            if (nb < 8)
-               memset(p + nb - 4, fin, 1);
+            if (nb < 8 && nb > 3)
+               p[nb - 4] = fin;
             else if (nb > 8)
-               memset(p + nb - 9, fin, 1); 
+               p[nb - 9] = fin; 
           }
          else
              memcpy(p + nb - 3, "NaN", 3);

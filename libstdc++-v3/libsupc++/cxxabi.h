@@ -43,6 +43,7 @@
 #define _CXXABI_H 1
 
 #include <stddef.h>
+#include <bits/cxxabi_tweaks.h>
  
 #ifdef __cplusplus
 namespace __cxxabiv1
@@ -103,9 +104,6 @@ namespace __cxxabiv1
   __cxa_vec_delete3(void* __array_address, size_t __element_size,
 		    size_t __padding_size, void (*__destructor) (void*),
 		    void (*__dealloc) (void*, size_t));
-
-  // The ABI requires a 64-bit type.
-  __extension__ typedef int __guard __attribute__((mode (__DI__)));
 
   int 
   __cxa_guard_acquire(__guard*);

@@ -494,27 +494,33 @@ read_class (tree name)
   if (current_jcf->java_source)
     {
       const char *filename = current_jcf->filename;
-      tree file;
+      tree given_file, real_file;
       FILE *finput;
       int generate;
 
       java_parser_context_save_global ();
       java_push_parser_context ();
-      BUILD_FILENAME_IDENTIFIER_NODE (file, filename);
-      generate = IS_A_COMMAND_LINE_FILENAME_P (file);
+
+      given_file = get_identifier (filename);
+      real_file = get_identifier (lrealpath (filename));
+
+      generate = IS_A_COMMAND_LINE_FILENAME_P (given_file);
       if (wfl_operator == NULL_TREE)
 	wfl_operator = build_expr_wfl (NULL_TREE, NULL, 0, 0);
-      EXPR_WFL_FILENAME_NODE (wfl_operator) = file;
+      EXPR_WFL_FILENAME_NODE (wfl_operator) = given_file;
       input_filename = ggc_strdup (filename);
       output_class = current_class = NULL_TREE;
       current_function_decl = NULL_TREE;
-      if (!HAS_BEEN_ALREADY_PARSED_P (file))
+
+      if (! HAS_BEEN_ALREADY_PARSED_P (real_file))
 	{
-	  if (!(finput = fopen (input_filename, "r")))
+	  if (! (finput = fopen (input_filename, "r")))
 	    fatal_error ("can't reopen %s: %m", input_filename);
-	  parse_source_file_1 (file, finput);
+
+	  parse_source_file_1 (real_file, finput);
 	  parse_source_file_2 ();
 	  parse_source_file_3 ();
+
 	  if (fclose (finput))
 	    fatal_error ("can't close %s: %m", input_filename);
 	}
@@ -556,10 +562,6 @@ read_class (tree name)
 /* Load CLASS_OR_NAME. CLASS_OR_NAME can be a mere identifier if
    called from the parser, otherwise it's a RECORD_TYPE node. If
    VERBOSE is 1, print error message on failure to load a class. */
-
-/* Replace calls to load_class by having callers call read_class directly
-   - and then perhaps rename read_class to load_class.  FIXME */
-
 void
 load_class (tree class_or_name, int verbose)
 {
@@ -575,7 +577,12 @@ load_class (tree class_or_name, int verbose)
     name = TYPE_NAME (TREE_PURPOSE (class_or_name));
   /* Or it's a type in the making */
   else
-    name = DECL_NAME (TYPE_NAME (class_or_name));
+    {
+      /* If the class is from source code, then it must already be loaded.  */
+      if (CLASS_FROM_SOURCE_P (class_or_name))
+        return;
+      name = DECL_NAME (TYPE_NAME (class_or_name));
+    }
 
   saved = name;
   while (1)
@@ -798,11 +805,12 @@ parse_class_file (void)
 /* Parse a source file, as pointed by the current value of INPUT_FILENAME. */
 
 static void
-parse_source_file_1 (tree file, FILE *finput)
+parse_source_file_1 (tree real_file, FILE *finput)
 {
   int save_error_count = java_error_count;
-  /* Mark the file as parsed */
-  HAS_BEEN_ALREADY_PARSED_P (file) = 1;
+
+  /* Mark the file as parsed.  */
+  HAS_BEEN_ALREADY_PARSED_P (real_file) = 1;
 
   jcf_dependency_add_file (input_filename, 0);
 
@@ -865,6 +873,21 @@ predefined_filename_p (tree node)
 	return 1;
     }
   return 0;
+}
+
+/* Generate a function that does all static initialization for this 
+   translation unit.  */
+
+static void
+java_emit_static_constructor (void)
+{
+  tree body = NULL;
+
+  emit_register_classes (&body);
+  write_resource_constructor (&body);
+
+  if (body)
+    cgraph_build_static_cdtor ('I', body, DEFAULT_INIT_PRIORITY);
 }
 
 void
@@ -983,7 +1006,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	    }
 	  else
 	    {
-	      BUILD_FILENAME_IDENTIFIER_NODE (node, value);
+	      node = get_identifier (value);
 	      IS_A_COMMAND_LINE_FILENAME_P (node) = 1;
 	      current_file_list = tree_cons (NULL_TREE, node, 
 					     current_file_list);
@@ -1005,7 +1028,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
       resource_filename = IDENTIFIER_POINTER (TREE_VALUE (current_file_list));
       compile_resource_file (resource_name, resource_filename);
 
-      return;
+      goto finish;
     }
 
   current_jcf = main_jcf;
@@ -1015,9 +1038,11 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
       unsigned char magic_string[4];
       uint32 magic = 0;
       tree name = TREE_VALUE (node);
+      tree real_file;
 
       /* Skip already parsed files */
-      if (HAS_BEEN_ALREADY_PARSED_P (name))
+      real_file = get_identifier (lrealpath (IDENTIFIER_POINTER (name)));
+      if (HAS_BEEN_ALREADY_PARSED_P (real_file))
 	continue;
       
       /* Close previous descriptor, if any */
@@ -1075,7 +1100,8 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	  JAVA_FILE_P (node) = 1;
 	  java_push_parser_context ();
 	  java_parser_context_save_global ();
-	  parse_source_file_1 (name, finput);
+
+	  parse_source_file_1 (real_file, finput);
 	  java_parser_context_restore_global ();
 	  java_pop_parser_context (1);
 	}
@@ -1109,22 +1135,22 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
   input_filename = main_input_filename;
 
   java_expand_classes ();
-  if (!java_report_errors () && !flag_syntax_only)
-    {
-      /* Expand all classes compiled from source.  */
-      java_finish_classes ();
+  if (java_report_errors () || flag_syntax_only)
+    return;
+    
+  /* Expand all classes compiled from source.  */
+  java_finish_classes ();
 
-      /* Emit the .jcf section.  */
-      emit_register_classes ();
+ finish:
+  /* Arrange for any necessary initialization to happen.  */
+  java_emit_static_constructor ();
 
-      /* Only finalize the compilation unit after we've told cgraph which
-	 functions have their addresses stored.  */
-      cgraph_finalize_compilation_unit ();
-      cgraph_optimize ();
-    }
-
-  write_resource_constructor ();
+  /* Only finalize the compilation unit after we've told cgraph which
+     functions have their addresses stored.  */
+  cgraph_finalize_compilation_unit ();
+  cgraph_optimize ();
 }
+
 
 /* Return the name of the class corresponding to the name of the file
    in this zip entry.  The result is newly allocated using ALLOC.  */

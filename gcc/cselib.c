@@ -382,7 +382,7 @@ remove_useless_values (void)
 enum machine_mode
 cselib_reg_set_mode (rtx x)
 {
-  if (GET_CODE (x) != REG)
+  if (!REG_P (x))
     return GET_MODE (x);
 
   if (REG_VALUES (REGNO (x)) == NULL
@@ -402,7 +402,7 @@ rtx_equal_for_cselib_p (rtx x, rtx y)
   const char *fmt;
   int i;
 
-  if (GET_CODE (x) == REG || GET_CODE (x) == MEM)
+  if (REG_P (x) || MEM_P (x))
     {
       cselib_val *e = cselib_lookup (x, GET_MODE (x), 0);
 
@@ -410,7 +410,7 @@ rtx_equal_for_cselib_p (rtx x, rtx y)
 	x = e->u.val_rtx;
     }
 
-  if (GET_CODE (y) == REG || GET_CODE (y) == MEM)
+  if (REG_P (y) || MEM_P (y))
     {
       cselib_val *e = cselib_lookup (y, GET_MODE (y), 0);
 
@@ -434,7 +434,7 @@ rtx_equal_for_cselib_p (rtx x, rtx y)
 	  rtx t = l->loc;
 
 	  /* Avoid infinite recursion.  */
-	  if (GET_CODE (t) == REG || GET_CODE (t) == MEM)
+	  if (REG_P (t) || MEM_P (t))
 	    continue;
 	  else if (rtx_equal_for_cselib_p (t, y))
 	    return 1;
@@ -452,7 +452,7 @@ rtx_equal_for_cselib_p (rtx x, rtx y)
 	{
 	  rtx t = l->loc;
 
-	  if (GET_CODE (t) == REG || GET_CODE (t) == MEM)
+	  if (REG_P (t) || MEM_P (t))
 	    continue;
 	  else if (rtx_equal_for_cselib_p (x, t))
 	    return 1;
@@ -720,7 +720,7 @@ add_mem_for_addr (cselib_val *addr_elt, cselib_val *mem_elt, rtx x)
 
   /* Avoid duplicates.  */
   for (l = mem_elt->locs; l; l = l->next)
-    if (GET_CODE (l->loc) == MEM
+    if (MEM_P (l->loc)
 	&& CSELIB_VAL_PTR (XEXP (l->loc, 0)) == addr_elt)
       return;
 
@@ -884,7 +884,7 @@ cselib_lookup (rtx x, enum machine_mode mode, int create)
   if (GET_CODE (x) == VALUE)
     return CSELIB_VAL_PTR (x);
 
-  if (GET_CODE (x) == REG)
+  if (REG_P (x))
     {
       struct elt_list *l;
       unsigned int i = REGNO (x);
@@ -923,7 +923,7 @@ cselib_lookup (rtx x, enum machine_mode mode, int create)
       return e;
     }
 
-  if (GET_CODE (x) == MEM)
+  if (MEM_P (x))
     return cselib_lookup_mem (x, create);
 
   hashval = hash_rtx (x, mode, create);
@@ -1030,7 +1030,7 @@ cselib_invalidate_regno (unsigned int regno, enum machine_mode mode)
 	    {
 	      rtx x = (*p)->loc;
 
-	      if (GET_CODE (x) == REG && REGNO (x) == i)
+	      if (REG_P (x) && REGNO (x) == i)
 		{
 		  unchain_one_elt_loc_list (p);
 		  break;
@@ -1085,7 +1085,7 @@ cselib_invalidate_mem (rtx mem_rtx)
 
 	  /* MEMs may occur in locations only at the top level; below
 	     that every MEM or REG is substituted by its VALUE.  */
-	  if (GET_CODE (x) != MEM)
+	  if (!MEM_P (x))
 	    {
 	      p = &(*p)->next;
 	      continue;
@@ -1146,9 +1146,9 @@ cselib_invalidate_rtx (rtx dest, rtx ignore ATTRIBUTE_UNUSED,
 	 || GET_CODE (dest) == ZERO_EXTRACT || GET_CODE (dest) == SUBREG)
     dest = XEXP (dest, 0);
 
-  if (GET_CODE (dest) == REG)
+  if (REG_P (dest))
     cselib_invalidate_regno (REGNO (dest), GET_MODE (dest));
-  else if (GET_CODE (dest) == MEM)
+  else if (MEM_P (dest))
     cselib_invalidate_mem (dest);
 
   /* Some machines don't define AUTO_INC_DEC, but they still use push
@@ -1166,7 +1166,7 @@ cselib_invalidate_rtx (rtx dest, rtx ignore ATTRIBUTE_UNUSED,
 static void
 cselib_record_set (rtx dest, cselib_val *src_elt, cselib_val *dest_addr_elt)
 {
-  int dreg = GET_CODE (dest) == REG ? (int) REGNO (dest) : -1;
+  int dreg = REG_P (dest) ? (int) REGNO (dest) : -1;
 
   if (src_elt == 0 || side_effects_p (dest))
     return;
@@ -1199,7 +1199,7 @@ cselib_record_set (rtx dest, cselib_val *src_elt, cselib_val *dest_addr_elt)
 	n_useless_values--;
       src_elt->locs = new_elt_loc_list (src_elt->locs, dest);
     }
-  else if (GET_CODE (dest) == MEM && dest_addr_elt != 0
+  else if (MEM_P (dest) && dest_addr_elt != 0
 	   && cselib_record_memory)
     {
       if (src_elt->locs == 0)
@@ -1274,14 +1274,14 @@ cselib_record_sets (rtx insn)
 	sets[i].dest = dest = XEXP (dest, 0);
 
       /* We don't know how to record anything but REG or MEM.  */
-      if (GET_CODE (dest) == REG
-	  || (GET_CODE (dest) == MEM && cselib_record_memory))
+      if (REG_P (dest)
+	  || (MEM_P (dest) && cselib_record_memory))
         {
 	  rtx src = sets[i].src;
 	  if (cond)
 	    src = gen_rtx_IF_THEN_ELSE (GET_MODE (src), cond, src, dest);
 	  sets[i].src_elt = cselib_lookup (src, GET_MODE (dest), 1);
-	  if (GET_CODE (dest) == MEM)
+	  if (MEM_P (dest))
 	    sets[i].dest_addr_elt = cselib_lookup (XEXP (dest, 0), Pmode, 1);
 	  else
 	    sets[i].dest_addr_elt = 0;
@@ -1303,7 +1303,7 @@ cselib_record_sets (rtx insn)
       for (i = 0; i < n_sets; i++)
 	{
 	  rtx dest = sets[i].dest;
-	  if (GET_CODE (dest) == REG || GET_CODE (dest) == MEM)
+	  if (REG_P (dest) || MEM_P (dest))
 	    {
 	      int j;
 	      for (j = i + 1; j < n_sets; j++)
@@ -1320,8 +1320,8 @@ cselib_record_sets (rtx insn)
   for (i = 0; i < n_sets; i++)
     {
       rtx dest = sets[i].dest;
-      if (GET_CODE (dest) == REG
-	  || (GET_CODE (dest) == MEM && cselib_record_memory))
+      if (REG_P (dest)
+	  || (MEM_P (dest) && cselib_record_memory))
 	cselib_record_set (dest, sets[i].src_elt, sets[i].dest_addr_elt);
     }
 }
@@ -1341,10 +1341,10 @@ cselib_process_insn (rtx insn)
   cselib_current_insn = insn;
 
   /* Forget everything at a CODE_LABEL, a volatile asm, or a setjmp.  */
-  if (GET_CODE (insn) == CODE_LABEL
-      || (GET_CODE (insn) == CALL_INSN
+  if (LABEL_P (insn)
+      || (CALL_P (insn)
 	  && find_reg_note (insn, REG_SETJMP, NULL))
-      || (GET_CODE (insn) == INSN
+      || (NONJUMP_INSN_P (insn)
 	  && GET_CODE (PATTERN (insn)) == ASM_OPERANDS
 	  && MEM_VOLATILE_P (PATTERN (insn))))
     {
@@ -1361,7 +1361,7 @@ cselib_process_insn (rtx insn)
   /* If this is a call instruction, forget anything stored in a
      call clobbered register, or, if this is not a const call, in
      memory.  */
-  if (GET_CODE (insn) == CALL_INSN)
+  if (CALL_P (insn))
     {
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (call_used_regs[i])
@@ -1384,7 +1384,7 @@ cselib_process_insn (rtx insn)
 
   /* Look for any CLOBBERs in CALL_INSN_FUNCTION_USAGE, but only
      after we have processed the insn.  */
-  if (GET_CODE (insn) == CALL_INSN)
+  if (CALL_P (insn))
     for (x = CALL_INSN_FUNCTION_USAGE (insn); x; x = XEXP (x, 1))
       if (GET_CODE (XEXP (x, 0)) == CLOBBER)
 	cselib_invalidate_rtx (XEXP (XEXP (x, 0), 0), NULL_RTX, NULL);

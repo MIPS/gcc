@@ -1,5 +1,4 @@
 /* Java(TM) language-specific gimplification routines.
-
    Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -177,6 +176,11 @@ java_gimplify_block (tree java_block)
      because they use BLOCK_SUBBLOCKS for another purpose.  */
   block = make_node (BLOCK);
   BLOCK_VARS (block) = decls;
+
+  /* The TREE_USED flag on a block determines whether the debug ouput
+     routines generate info for the variables in that block.  */
+  TREE_USED (block) = 1;
+
   if (outer != NULL_TREE)
     {
       outer = BIND_EXPR_BLOCK (outer);
@@ -218,10 +222,11 @@ java_gimplify_new_array_init (tree exp)
 	 bounds checking.  */
       tree lhs = build (COMPONENT_REF, TREE_TYPE (data_field),    
 			build_java_indirect_ref (array_type, tmp, 0),
-			data_field);
+			data_field, NULL_TREE);
       tree assignment = build (MODIFY_EXPR, element_type,
   			       build (ARRAY_REF, element_type, lhs,
-				      build_int_2 (index++, 0)),
+				      build_int_2 (index++, 0),
+				      NULL_TREE, NULL_TREE),
 			       TREE_VALUE (values));
       body = build (COMPOUND_EXPR, element_type, body, assignment);
       values = TREE_CHAIN (values);
