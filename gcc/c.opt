@@ -501,8 +501,8 @@ Handle CW-style assembly blocks
 
 ; APPLE LOCAL -fast or -fastf or -fastcp
 fast
-C
-Used for c optimization
+C C++
+Used for c or c++ optimization
 
 fastcp
 C++
