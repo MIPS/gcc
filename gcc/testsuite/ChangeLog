@@ -1,3 +1,9 @@
+2002-04-26  Richard Henderson  <rth@redhat.com>
+
+	PR c/3581
+	* g++.dg/parse/concat1.C: New test.
+	* gcc.dg/concat2.c: New test.
+
 2004-08-09  Alexandre Oliva  <aoliva@redhat.com>
 
 	* g++.old-deja/g++.pt/crash43.C: Don't require error for legal
