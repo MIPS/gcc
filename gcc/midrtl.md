@@ -110,8 +110,9 @@
 {
   emit_cmp_and_jump_insns (operands[0], operands[1], GET_CODE (operands[3]),
 			   NULL_RTX, GET_MODE (operands[0]),
-			   unsigned_condition (GET_CODE (operands[3]))
-			   == GET_CODE (operands[3]),
+			   INTEGRAL_MODE_P (GET_MODE (operands[0]))
+			   && (unsigned_condition (GET_CODE (operands[3]))
+			       == GET_CODE (operands[3])),
 			   operands[2]);
   DONE;
 })
