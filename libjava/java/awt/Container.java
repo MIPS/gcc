@@ -419,7 +419,6 @@ public class Container extends Component
           layoutMgr.removeLayoutComponent(r);
 
         r.parent = null;
-        r.setVisible(false);
 
         // Post event to notify of adding the container.
         ContainerEvent ce = new ContainerEvent(this,

@@ -1,3 +1,8 @@
+2004-06-09  David Jee  <djee@redhat.com>
+
+	* java/awt/Container.java
+	(remove): Do not set component to invisible.
+
 2004-06-09  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/tree/DefaultMutableTreeNode.java
