@@ -1,3 +1,9 @@
+2003-05-02  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-alias-common.c (alias_get_name): Given unnamed result decls
+	a name.
+	(create_fun_alias_var): Use DECL_RESULT if available.
+
 2003-05-02  Jeff Law  <law@redhat.com>
 
 	* tree-inline.c (expand_call_inline): Avoid creating naked

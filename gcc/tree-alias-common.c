@@ -792,9 +792,17 @@ create_fun_alias_var (decl, force)
       VARRAY_PUSH_GENERIC_PTR (params, fakevar);
     }
 
-  rdecl = create_tmp_alias_var (TREE_TYPE (TREE_TYPE (decl)), "_rv_");
-  DECL_CONTEXT (rdecl) = decl;
-  retvar = current_alias_ops->add_var (current_alias_ops, rdecl);
+  if (!DECL_RESULT (decl))
+    {
+      rdecl = create_tmp_alias_var (TREE_TYPE (TREE_TYPE (decl)), "_rv_");
+      DECL_CONTEXT (rdecl) = decl;
+      retvar = current_alias_ops->add_var (current_alias_ops, rdecl);
+    }
+  else
+    {
+    retvar = current_alias_ops->add_var (current_alias_ops, 
+					 DECL_RESULT (decl));
+    }
   VARRAY_PUSH_GENERIC_PTR (alias_vars, retvar);
   avar = current_alias_ops->add_var (current_alias_ops, decl);
   VARRAY_PUSH_GENERIC_PTR (alias_vars, avar);
@@ -1147,8 +1155,10 @@ alias_get_name (t)
     {
       if (TREE_CODE (t) == FUNCTION_DECL)
 	name = IDENTIFIER_POINTER (DECL_NAME (t));
+      else if (TREE_CODE (t) == RESULT_DECL)
+	name = "<return value>";
       else
-    name = get_name (t);
+	name = get_name (t);
     }
 
   if (!name)
