@@ -1,3 +1,7 @@
+Wed Feb 19 14:25:48 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (cosxf2):  fix conditional.
+
 Sun Feb 16 22:38:39 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* toplev.c: Rename -funit-at-time to -funit-at-a-time
