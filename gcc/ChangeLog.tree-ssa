@@ -1,3 +1,9 @@
+2004-03-16  Dale Johannesen  <dale@apple.com>
+
+	PR optimization/14498
+	* gimplify.c (copy_if_shared_r): Mark VA_ARGS_EXPRs as volatile.
+	(mark_decls_volatile_r): Moved higher in file (unchanged).
+
 2004-03-16  Daniel Berlin  <dberlin@dberlin.org>
 
 	PR optimization/14562

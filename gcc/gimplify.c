@@ -601,6 +601,20 @@ mostly_copy_tree_r (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+/* Mark all the _DECL nodes under *TP as volatile.  FIXME: This must die
+   after VA_ARG_EXPRs are properly lowered.  */
+
+static tree
+mark_decls_volatile_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+		       void *data ATTRIBUTE_UNUSED)
+{
+  if (SSA_VAR_P (*tp))
+    TREE_THIS_VOLATILE (*tp) = 1;
+
+  return NULL_TREE;
+}
+
+
 /* Callback for walk_tree to unshare most of the shared trees rooted at
    *TP.  If *TP has been visited already (i.e., TREE_VISITED (*TP) == 1),
    then *TP is deep copied by calling copy_tree_r.
@@ -622,9 +636,18 @@ copy_if_shared_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
       *walk_subtrees = 0;
     }
   else
+    {
     /* Otherwise, mark the tree as visited and keep looking.  */
     TREE_VISITED (*tp) = 1;
-
+      if (TREE_CODE (*tp) == VA_ARG_EXPR)
+	{
+	  /* Mark any _DECL inside the operand as volatile to avoid the
+	     optimizers messing around with it. FIXME: Remove this once
+	     VA_ARG_EXPRs are properly lowered.  */
+	  walk_tree (&TREE_OPERAND (*tp, 0), mark_decls_volatile_r,
+		     NULL, NULL);
+	}
+    }
   return NULL_TREE;
 }
 
@@ -2926,20 +2949,6 @@ gimplify_to_stmt_list (tree *stmt_p)
       *stmt_p = NULL;
       append_to_statement_list (t, stmt_p);
     }
-}
-
-
-/* Mark all the _DECL nodes under *TP as volatile.  FIXME: This must die
-   after VA_ARG_EXPRs are properly lowered.  */
-
-static tree
-mark_decls_volatile_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-		       void *data ATTRIBUTE_UNUSED)
-{
-  if (SSA_VAR_P (*tp))
-    TREE_THIS_VOLATILE (*tp) = 1;
-
-  return NULL_TREE;
 }
 
 
