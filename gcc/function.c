@@ -329,6 +329,7 @@ free_after_compilation (struct function *f)
   f->emit = NULL;
   f->varasm = NULL;
   f->machine = NULL;
+  f->cfg = NULL;
 
   f->x_avail_temp_slots = NULL;
   f->x_used_temp_slots = NULL;
