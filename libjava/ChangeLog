@@ -1,3 +1,17 @@
+2004-02-13  Kim Ho  <kho@redhat.com>
+
+	* Makefile.am: Updated for new file.
+	* Makefile.in: Regenerated.
+	* javax/swing/JSlider.java: Reimplement.
+	* javax/swing/SwingUtilities.java
+	(layoutCompoundLabel): Use icon height
+	instead of width.
+	(paintComponent): Implement.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java:
+	Add JSlider defaults.
+	* javax/swing/plaf/basic/BasicSliderUI.java:
+	Implement. New file.
+
 2004-02-09  Graydon Hoare  <graydon@redhat.com>
 
 	* javax/swing/ToggleButtonModel.java: Remove dead class.

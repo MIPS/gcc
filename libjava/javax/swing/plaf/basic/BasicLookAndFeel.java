@@ -663,6 +663,9 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "Slider.foreground", new ColorUIResource(Color.lightGray),
       "Slider.highlight", new ColorUIResource(Color.white),
       "Slider.shadow", new ColorUIResource(Color.gray),
+      "Slider.thumbHeight", new Integer(20),
+      "Slider.thumbWidth", new Integer(10),
+      "Slider.tickHeight", new Integer(12),
       "SplitPane.ancestorInputMap", new UIDefaults.LazyInputMap(new Object[] {
         "F6",  "toggleFocus",
         "F8",  "startResize",
