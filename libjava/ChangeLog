@@ -1,5 +1,11 @@
 2005-01-19  Michael Koch  <konqueror@gmx.de>
 
+	* gnu/java/awt/ClasspathToolkit.java:
+	Import statements reworked.
+	(imageCache): Made it of type java.util.HashMap.
+
+2005-01-19  Michael Koch  <konqueror@gmx.de>
+
 	* javax/imageio/stream/MemoryCacheImageInputStream.java:
 	Reworked import statements.
 
