@@ -1,3 +1,9 @@
+2004-11-08  Devang Patel  <dpatel@apple.com>
+
+	Radar 3846514
+	* tree-if-conv.c (clean_predicate_lists): Use loop header and latch
+	directly.
+
 2004-11-08  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3853429

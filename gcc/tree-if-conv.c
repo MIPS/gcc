@@ -662,10 +662,15 @@ add_to_dst_predicate_list (struct loop * loop, tree dst,
 static void
 clean_predicate_lists (struct loop *loop)
 {
-  unsigned int i;
-
-  for (i = 0; i < loop->num_nodes; i++)
-    ifc_bbs[i]->aux = NULL;
+  /* APPLE LOCAL begin if-conversion */
+  /* Radar 3846514 for more info. This is a FSF candidate.
+     Patch is waiting feedback/review since Nov 2nd, 2004.  */
+#ifdef ENABLE_CHECKING
+  gcc_assert (loop->num_nodes == 2);
+#endif
+  loop->header->aux = NULL;
+  loop->latch->aux = NULL;
+  /* APPLE LOCAL end if-conversion */
 }
 
 /* Basic block BB has two predecessors. Using predecessor's aux field, set
