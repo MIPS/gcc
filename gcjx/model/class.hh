@@ -226,7 +226,6 @@ protected:
   void inherit_fields (model_class *, bool = false);
   void inherit_types (model_class *, bool = false);
   void inherit_package_private_members ();
-  void resolve_members ();
   void resolve_members (resolution_scope *);
   void compute_object_interface_methods ();
   void check_members ();
@@ -511,6 +510,11 @@ public:
 
   // Like the above, but valid only for local and anonymous classes.
   virtual void resolve_classes (resolution_scope *);
+
+  // Resolve classes and members.  This means the types of the members
+  // are found, and inheritance is processed.  Resolution of method
+  // bodies is not done.
+  void resolve_members ();
 
   virtual void resolve (resolution_scope *);
 

@@ -1,3 +1,12 @@
+2005-03-26  Tom Tromey  <tromey@redhat.com>
+
+	* model/class.hh (model_class::resolve_members): Now public.
+
+2005-03-26  Tom Tromey  <tromey@redhat.com>
+
+	* model/class.cc (get_accessor): Removed get_location() call.
+	* model/fwdtype.cc (resolve): Do nothing if already resolved.
+
 2005-03-24  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/verify.cc (verify_fail): Take 'char*' argument.
