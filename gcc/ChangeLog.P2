@@ -1,3 +1,7 @@
+1999-08-31  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md: Fix SI->QImode typo in last change.
+
 1999-08-28  Richard Henderson  <rth@cygnus.com>
 
 	* i386.c (pic_label_rtx, pic_label_no): Remove.
