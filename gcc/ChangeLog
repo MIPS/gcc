@@ -1,3 +1,20 @@
+2002-12-20  Jan Hubicka  <jH@suse.cz>
+	    Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (unit_decl): Add new members `min_occ_cycle_num'
+	and `in_set_p'.
+	(gen_cpu_unit): Initialize the new members.
+	(process_regexp_cycles): Calculate minimal finish cycle too.  Set
+	up `min_occ_cycle_num'.
+	(evaluate_max_reserv_cycles): Change the function call.
+	(CLEAR_BIT): New macro.
+	(states_union, state_shift): Use the mask.
+	(initiate_excl_sets, form_reserv_sets_list): Set up `in_set_p'.
+	(form_reservs_matter): New function.
+	(make_automaton): Call the function and use the mask.
+	(estimate_one_automaton_bound): Take `min_occ_cycle_num' into
+	account.
+	
 2002-12-17  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* config/ia64/itanium2.md (lfetch): Change the insn reservation.

@@ -48,7 +48,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       automaton state.
 
    4. Several constructions to describe impossible reservations
-      (`exclusion_set', `presence_set', `fina_presence_set',
+      (`exclusion_set', `presence_set', `final_presence_set',
       `absence_set', and `final_absence_set').
 
    5. No reverse automata are generated.  Trace instruction scheduling
@@ -273,7 +273,8 @@ static void process_regexp_decls         PARAMS ((void));
 static void check_usage                  PARAMS ((void));
 static int loop_in_regexp                PARAMS ((regexp_t, decl_t));
 static void check_loops_in_regexps       PARAMS ((void));
-static int process_regexp_cycles         PARAMS ((regexp_t, int));
+static void process_regexp_cycles        PARAMS ((regexp_t, int, int,
+						  int *, int *));
 static void evaluate_max_reserv_cycles   PARAMS ((void));
 static void check_all_description        PARAMS ((void));
 
@@ -320,8 +321,8 @@ static int state_eq_p                  PARAMS ((const void *, const void *));
 static state_t insert_state            PARAMS ((state_t));
 static void set_state_reserv           PARAMS ((state_t, int, int));
 static int intersected_state_reservs_p PARAMS ((state_t, state_t));
-static state_t states_union            PARAMS ((state_t, state_t));
-static state_t state_shift             PARAMS ((state_t));
+static state_t states_union            PARAMS ((state_t, state_t, reserv_sets_t));
+static state_t state_shift             PARAMS ((state_t, reserv_sets_t));
 static void initiate_states            PARAMS ((void));
 static void finish_states              PARAMS ((void));
 
@@ -380,6 +381,7 @@ static void create_alt_states               PARAMS ((automaton_t));
 
 static void form_ainsn_with_same_reservs    PARAMS ((automaton_t));
 
+static reserv_sets_t form_reservs_matter PARAMS ((automaton_t));
 static void make_automaton           PARAMS ((automaton_t));
 static void form_arcs_marked_by_insn PARAMS ((state_t));
 static int create_composed_state     PARAMS ((state_t, arc_t, vla_ptr_t *));
@@ -750,6 +752,10 @@ struct unit_decl
      which given unit occurs in insns.  Zero value means that given
      unit is not used in insns.  */
   int max_occ_cycle_num;
+  /* The following field value is minimal cycle number (0, ...) on
+     which given unit occurs in insns.  -1 value means that given
+     unit is not used in insns.  */
+  int min_occ_cycle_num;
   /* The following list contains units which conflict with given
      unit.  */
   unit_set_el_t excl_list;
@@ -770,6 +776,11 @@ struct unit_decl
   /* The following field value is number of the automaton to which
      given unit belongs.  */
   int corresponding_automaton_num;
+  /* If the following value is not zero, the cpu unit is present in a
+     `exclusion_set' or in right part of a `presence_set',
+     `final_presence_set', `absence_set', and
+     `final_absence_set'define_query_cpu_unit.  */
+  char in_set_p;
 };
 
 /* This describes define_bypass (see file rtl.def).  */
@@ -1682,6 +1693,8 @@ gen_cpu_unit (def)
       DECL_UNIT (decl)->name = check_name (str_cpu_units [i], decl->pos);
       DECL_UNIT (decl)->automaton_name = (char *) XSTR (def, 1);
       DECL_UNIT (decl)->query_p = 0;
+      DECL_UNIT (decl)->min_occ_cycle_num = -1;
+      DECL_UNIT (decl)->in_set_p = 0;
       VLA_PTR_ADD (decls, decl);
       num_dfa_decls++;
     }
@@ -3329,72 +3342,94 @@ check_loops_in_regexps ()
 }
 
 /* The function recursively processes IR of reservation and defines
-   max and min cycle for reservation of unit and for result in the
-   reservation.  */
-static int
-process_regexp_cycles (regexp, start_cycle)
+   max and min cycle for reservation of unit.  */
+static void
+process_regexp_cycles (regexp, max_start_cycle, min_start_cycle,
+		       max_finish_cycle, min_finish_cycle)
      regexp_t regexp;
-     int start_cycle;
+     int max_start_cycle, min_start_cycle;
+     int *max_finish_cycle, *min_finish_cycle;
 {
   int i;
 
   if (regexp->mode == rm_unit)
     {
-      if (REGEXP_UNIT (regexp)->unit_decl->max_occ_cycle_num < start_cycle)
-	REGEXP_UNIT (regexp)->unit_decl->max_occ_cycle_num = start_cycle;
-      return start_cycle;
+      if (REGEXP_UNIT (regexp)->unit_decl->max_occ_cycle_num < max_start_cycle)
+	REGEXP_UNIT (regexp)->unit_decl->max_occ_cycle_num = max_start_cycle;
+      if (REGEXP_UNIT (regexp)->unit_decl->min_occ_cycle_num > min_start_cycle
+	  || REGEXP_UNIT (regexp)->unit_decl->min_occ_cycle_num == -1)
+	REGEXP_UNIT (regexp)->unit_decl->min_occ_cycle_num = min_start_cycle;
+      *max_finish_cycle = max_start_cycle;
+      *min_finish_cycle = min_start_cycle;
     }
   else if (regexp->mode == rm_reserv)
-    return process_regexp_cycles (REGEXP_RESERV (regexp)->reserv_decl->regexp,
-                                  start_cycle);
+   process_regexp_cycles (REGEXP_RESERV (regexp)->reserv_decl->regexp,
+			  max_start_cycle, min_start_cycle,
+			  max_finish_cycle, min_finish_cycle);
   else if (regexp->mode == rm_repeat)
     {
       for (i = 0; i < REGEXP_REPEAT (regexp)->repeat_num; i++)
-        start_cycle = process_regexp_cycles (REGEXP_REPEAT (regexp)->regexp,
-					     start_cycle) + 1;
-      return start_cycle;
+	{
+	  process_regexp_cycles (REGEXP_REPEAT (regexp)->regexp,
+				 max_start_cycle, min_start_cycle,
+				 max_finish_cycle, min_finish_cycle);
+	  max_start_cycle = *max_finish_cycle + 1;
+	  min_start_cycle = *min_finish_cycle + 1;
+	}
     }
   else if (regexp->mode == rm_sequence)
     {
       for (i = 0; i <REGEXP_SEQUENCE (regexp)->regexps_num; i++)
-	start_cycle
-          = process_regexp_cycles (REGEXP_SEQUENCE (regexp)->regexps [i],
-				   start_cycle) + 1;
-      return start_cycle;
+	{
+	  process_regexp_cycles (REGEXP_SEQUENCE (regexp)->regexps [i],
+				 max_start_cycle, min_start_cycle,
+				 max_finish_cycle, min_finish_cycle);
+	  max_start_cycle = *max_finish_cycle + 1;
+	  min_start_cycle = *min_finish_cycle + 1;
+	}
     }
   else if (regexp->mode == rm_allof)
     {
-      int finish_cycle = 0;
-      int cycle;
+      int max_cycle = 0;
+      int min_cycle = 0;
 
       for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
 	{
-	  cycle = process_regexp_cycles (REGEXP_ALLOF (regexp)->regexps [i],
-					 start_cycle);
-	  if (finish_cycle < cycle)
-	    finish_cycle = cycle;
+	  process_regexp_cycles (REGEXP_ALLOF (regexp)->regexps [i],
+				 max_start_cycle, min_start_cycle,
+				 max_finish_cycle, min_finish_cycle);
+	  if (max_cycle < *max_finish_cycle)
+	    max_cycle = *max_finish_cycle;
+	  if (i == 0 || min_cycle > *min_finish_cycle)
+	    min_cycle = *min_finish_cycle;
 	}
-      return finish_cycle;
+      *max_finish_cycle = max_cycle;
+      *min_finish_cycle = min_cycle;
     }
   else if (regexp->mode == rm_oneof)
     {
-      int finish_cycle = 0;
-      int cycle;
+      int max_cycle = 0;
+      int min_cycle = 0;
 
       for (i = 0; i < REGEXP_ONEOF (regexp)->regexps_num; i++)
 	{
-	  cycle = process_regexp_cycles (REGEXP_ONEOF (regexp)->regexps [i],
-					 start_cycle);
-	  if (finish_cycle < cycle)
-	    finish_cycle = cycle;
+	  process_regexp_cycles (REGEXP_ONEOF (regexp)->regexps [i],
+				 max_start_cycle, min_start_cycle,
+				 max_finish_cycle, min_finish_cycle);
+	  if (max_cycle < *max_finish_cycle)
+	    max_cycle = *max_finish_cycle;
+	  if (i == 0 || min_cycle > *min_finish_cycle)
+	    min_cycle = *min_finish_cycle;
 	}
-      return finish_cycle;
+      *max_finish_cycle = max_cycle;
+      *min_finish_cycle = min_cycle;
     }
   else
     {
       if (regexp->mode != rm_nothing)
 	abort ();
-      return start_cycle;
+      *max_finish_cycle = max_start_cycle;
+      *min_finish_cycle = min_start_cycle;
     }
 }
 
@@ -3404,6 +3439,7 @@ static void
 evaluate_max_reserv_cycles ()
 {
   int max_insn_cycles_num;
+  int min_insn_cycles_num;
   decl_t decl;
   int i;
 
@@ -3413,8 +3449,8 @@ evaluate_max_reserv_cycles ()
       decl = description->decls [i];
       if (decl->mode == dm_insn_reserv)
       {
-        max_insn_cycles_num
-          = process_regexp_cycles (DECL_INSN_RESERV (decl)->regexp, 0);
+        process_regexp_cycles (DECL_INSN_RESERV (decl)->regexp, 0, 0,
+			       &max_insn_cycles_num, &min_insn_cycles_num);
         if (description->max_insn_reserv_cycles < max_insn_cycles_num)
 	  description->max_insn_reserv_cycles = max_insn_cycles_num;
       }
@@ -3740,6 +3776,9 @@ finish_alt_states ()
    effect proof.  */
 #define SET_BIT(bitstring, bitno)					  \
   (((char *) (bitstring)) [(bitno) / CHAR_BIT] |= 1 << (bitno) % CHAR_BIT)
+
+#define CLEAR_BIT(bitstring, bitno)					  \
+  (((char *) (bitstring)) [(bitno) / CHAR_BIT] &= ~(1 << (bitno) % CHAR_BIT))
 
 /* Test if bit number bitno in the bitstring is set.  The macro is not
    side effect proof.  */
@@ -4262,12 +4301,13 @@ intersected_state_reservs_p (state1, state2)
 }
 
 /* Return deterministic state (inserted into the table) which
-   representing the automaton state whic is union of reservations of
-   deterministic states.  */
+   representing the automaton state which is union of reservations of
+   the deterministic states masked by RESERVS.  */
 static state_t
-states_union (state1, state2)
+states_union (state1, state2, reservs)
      state_t state1;
      state_t state2;
+     reserv_sets_t reservs;
 {
   state_t result;
   state_t state_in_table;
@@ -4276,6 +4316,7 @@ states_union (state1, state2)
     abort ();
   result = get_free_state (1, state1->automaton);
   reserv_sets_or (result->reservs, state1->reservs, state2->reservs);
+  reserv_sets_and (result->reservs, result->reservs, reservs);
   state_in_table = insert_state (result);
   if (result != state_in_table)
     {
@@ -4287,16 +4328,18 @@ states_union (state1, state2)
 
 /* Return deterministic state (inserted into the table) which
    represent the automaton state is obtained from deterministic STATE
-   by advancing cpu cycle.  */
+   by advancing cpu cycle and masking by RESERVS.  */
 static state_t
-state_shift (state)
+state_shift (state, reservs)
      state_t state;
+     reserv_sets_t reservs;
 {
   state_t result;
   state_t state_in_table;
 
   result = get_free_state (1, state->automaton);
   reserv_sets_shift (result->reservs, state->reservs);
+  reserv_sets_and (result->reservs, result->reservs, reservs);
   state_in_table = insert_state (result);
   if (result != state_in_table)
     {
@@ -4675,7 +4718,10 @@ initiate_excl_sets ()
 	  for (el = DECL_UNIT (decl)->excl_list;
 	       el != NULL;
 	       el = el->next_unit_set_el)
-            SET_BIT (unit_excl_set, el->unit_decl->unit_num);
+	    {
+	      SET_BIT (unit_excl_set, el->unit_decl->unit_num);
+	      el->unit_decl->in_set_p = TRUE;
+	    }
           unit_excl_set_table [DECL_UNIT (decl)->unit_num] = unit_excl_set;
         }
     }
@@ -4741,7 +4787,10 @@ form_reserv_sets_list (pattern_list)
       curr->reserv = alloc_empty_reserv_sets ();
       curr->next_pattern_reserv = NULL;
       for (i = 0; i < el->units_num; i++)
-	SET_BIT (curr->reserv, el->unit_decls [i]->unit_num);
+	{
+	  SET_BIT (curr->reserv, el->unit_decls [i]->unit_num);
+	  el->unit_decls [i]->in_set_p = TRUE;
+	}
       if (prev != NULL)
 	prev->next_pattern_reserv = curr;
       else
@@ -5797,6 +5846,36 @@ form_ainsn_with_same_reservs (automaton)
   VLA_PTR_DELETE (last_insns);
 }
 
+/* Forming unit reservations which can affect creating the automaton
+   states achieved from a given state.  It permits to build smaller
+   automata in many cases.  We would have the same automata after
+   the minimization without such optimization, but the automaton
+   right after the building could be huge.  So in other words, usage
+   of reservs_matter means some minimization during building the
+   automaton.  */
+static reserv_sets_t
+form_reservs_matter (automaton)
+     automaton_t automaton;
+{
+  int cycle, unit;
+  reserv_sets_t reservs_matter = alloc_empty_reserv_sets();
+
+  for (cycle = 0; cycle < max_cycles_num; cycle++)
+    for (unit = 0; unit < description->units_num; unit++)
+      if (units_array [unit]->automaton_decl
+	  == automaton->corresponding_automaton_decl
+	  && (cycle >= units_array [unit]->min_occ_cycle_num
+	      /* We can not remove queried unit from reservations.  */
+	      || units_array [unit]->query_p
+	      /* We can not remove units which are used
+		 `exclusion_set', `presence_set',
+		 `final_presence_set', `absence_set', and
+		 `final_absence_set'.  */
+	      || units_array [unit]->in_set_p))
+	set_unit_reserv (reservs_matter, cycle, unit);
+  return reservs_matter;
+}
+
 /* The following function creates all states of nondeterministic (if
    NDFA_FLAG has nonzero value) or deterministic AUTOMATON.  */
 static void
@@ -5813,6 +5892,7 @@ make_automaton (automaton)
   arc_t added_arc;
   vla_ptr_t state_stack;
   int states_n;
+  reserv_sets_t reservs_matter = form_reservs_matter (automaton);
 
   VLA_PTR_CREATE (state_stack, 150, "state stack");
   /* Create the start state (empty state).  */
@@ -5844,7 +5924,7 @@ make_automaton (automaton)
                     state2 = alt_state->state;
                     if (!intersected_state_reservs_p (state, state2))
                       {
-                        state2 = states_union (state, state2);
+                        state2 = states_union (state, state2, reservs_matter);
                         if (!state2->it_was_placed_in_stack_for_NDFA_forming)
                           {
                             state2->it_was_placed_in_stack_for_NDFA_forming
@@ -5876,7 +5956,7 @@ make_automaton (automaton)
               advance_cycle_ainsn = ainsn;
           }
       /* Add transition to advance cycle.  */
-      state2 = state_shift (state);
+      state2 = state_shift (state, reservs_matter);
       if (!state2->it_was_placed_in_stack_for_NDFA_forming)
         {
           state2->it_was_placed_in_stack_for_NDFA_forming = 1;
@@ -6794,7 +6874,8 @@ estimate_one_automaton_bound ()
       decl = description->decls [i];
       if (decl->mode == dm_unit)
 	{
-	  root_value = exp (log (DECL_UNIT (decl)->max_occ_cycle_num + 1.0)
+	  root_value = exp (log (DECL_UNIT (decl)->max_occ_cycle_num
+				 - DECL_UNIT (decl)->min_occ_cycle_num + 1.0)
                             / automata_num);
 	  if (MAX_FLOATING_POINT_VALUE_FOR_AUTOMATON_BOUND / root_value
 	      > one_automaton_estimation_bound)
