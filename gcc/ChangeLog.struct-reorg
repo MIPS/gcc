@@ -1,0 +1,7 @@
+2004-09-20  Mostafa Hagog  <mustafa@il.ibm.com>
+
+	* Makefile.in (struct-reorg.o, struct-reorg-cpg.o): New files.
+	* struct-reorg.c, struct-reorg.h, , struct-reorg-cp.c: New files
+	for implementing structure reorganization optimizations.
+	* timevar.def (TV_PEEL_STRUCTS): New.
+	* tree-pass.h (pass_struct_reorg): New.
