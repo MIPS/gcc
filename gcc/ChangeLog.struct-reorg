@@ -17,6 +17,10 @@
 	printout_structure_splitting_hints): New.
 	* struct-reorg.h (fields_in_cluster): New field.
 	(verify_data_structure): Declare.
+	* params.def (PARAM_COLD_FIELD_RATIO, PARAM_COLD_STRUCTURE_RATIO, 
+	PARAM_STRUCT_REORG_CACHE_LINE_SIZE): New.
+	* params.h (COLD_FIELD_RATIO, COLD_STRUCTURE_RATIO, 
+	STRUCT_REORG_CACHE_LINE_SIZE): New macros.
 	
 
 2004-10-21  Caroline Tice  <ctice@apple.com>
