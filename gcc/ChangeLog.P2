@@ -1,3 +1,9 @@
+1999-07-08  Jan Hubicka <hubicka@freesoft.cz>
+
+	* i386.c (pentium_cost): Large insn is 8 bytes.
+	(ix86_safe_length_prefix): New function.
+	(ix86_pent_find_pair): Instruction length should not exceed 7 bytes.
+
 1999-07-08  Jan Hubicka  <hubicka@freesoft.cz>
 
 	* i386.md: (type attribute) New type fsgn.

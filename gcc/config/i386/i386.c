@@ -83,7 +83,7 @@ struct processor_costs pentium_cost = {
   11,					/* cost of starting a multiply */
   0,					/* cost of multiply per each bit set */
   25,					/* cost of a divide/mod */
-  7					/* "large" insn ??? GUESS */
+  8					/* "large" insn */
 };
 
 struct processor_costs pentiumpro_cost = {
@@ -5238,6 +5238,16 @@ ix86_safe_length (insn)
     return 128;
 }
 
+static int
+ix86_safe_length_prefix (insn)
+     rtx insn;
+{
+  if (recog_memoized (insn) >= 0)
+    return get_attr_length(insn);
+  else
+    return 0;
+}
+
 static enum attr_memory
 ix86_safe_memory (insn)
      rtx insn;
@@ -5322,19 +5332,21 @@ ix86_pent_find_pair (e_ready, ready, type, first)
      enum attr_pent_pair type;
      rtx first;
 {
-  int maxlength, mincycles, cycles;
+  int mincycles, cycles;
   enum attr_pent_pair tmp;
   enum attr_memory memory;
   rtx *insnp, *bestinsnp = NULL;
 
-  maxlength = 7 - ix86_safe_length (first);
+  if (ix86_safe_length (first) > 7 + ix86_safe_length_prefix (first))
+    return NULL;
+
   memory = ix86_safe_memory (first);
   cycles = result_ready_cost (first);
   mincycles = INT_MAX;
 
   for (insnp = e_ready; insnp >= ready && mincycles; --insnp)
     if ((tmp = ix86_safe_pent_pair (*insnp)) == type
-	&& ix86_safe_length (*insnp) <= maxlength)
+	&& ix86_safe_length (*insnp) <= 7 + ix86_safe_length_prefix (*insnp))
       {
 	enum attr_memory second_memory;
 	int secondcycles, currentcycles;
