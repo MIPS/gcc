@@ -7853,11 +7853,25 @@ cp_parser_template_id (parser, template_keyword_p, check_dependency_p)
   tree template_id;
   bool saved_greater_than_is_operator_p;
   ptrdiff_t start_of_id;
+  tree access_check = NULL_TREE;
 
   /* If the next token corresponds to a template-id, there is no need
      to reparse it.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_TEMPLATE_ID))
-    return cp_lexer_consume_token (parser->lexer)->value;
+    {
+      tree value;
+      tree check;
+
+      /* Get the stored value.  */
+      value = cp_lexer_consume_token (parser->lexer)->value;
+      /* Perform any access checks that were deferred.  */
+      for (check = TREE_PURPOSE (value); check; check = TREE_CHAIN (check))
+	cp_parser_defer_access_check (parser, 
+				      TREE_PURPOSE (check),
+				      TREE_VALUE (check));
+      /* Return the stored value.  */
+      return TREE_VALUE (value);
+    }
 
   /* Remember where the template-id starts.  */
   if (cp_parser_parsing_tentatively (parser)
@@ -7867,6 +7881,7 @@ cp_parser_template_id (parser, template_keyword_p, check_dependency_p)
       start_of_id = cp_lexer_token_difference (parser->lexer,
 					       parser->lexer->first_token,
 					       next_token);
+      access_check = parser->context->deferred_access_checks;
     }
   else
     start_of_id = -1;
@@ -7935,6 +7950,7 @@ cp_parser_template_id (parser, template_keyword_p, check_dependency_p)
   if (start_of_id >= 0)
     {
       cp_token *token;
+      tree c;
 
       /* Find the token that corresponds to the start of the
 	 template-id.  */
@@ -7942,9 +7958,23 @@ cp_parser_template_id (parser, template_keyword_p, check_dependency_p)
 				      parser->lexer->first_token,
 				      start_of_id);
 
+      /* Remember the access checks associated with this
+	 nested-name-specifier.  */
+      c = parser->context->deferred_access_checks;
+      if (c == access_check)
+	access_check = NULL_TREE;
+      else
+	{
+	  while (TREE_CHAIN (c) != access_check)
+	    c = TREE_CHAIN (c);
+	  access_check = parser->context->deferred_access_checks;
+	  parser->context->deferred_access_checks = TREE_CHAIN (c);
+	  TREE_CHAIN (c) = NULL_TREE;
+	}
+
       /* Reset the contents of the START_OF_ID token.  */
       token->type = CPP_TEMPLATE_ID;
-      token->value = template_id;
+      token->value = build_tree_list (access_check, template_id);
       token->keyword = RID_MAX;
       /* Purge all subsequent tokens.  */
       cp_lexer_purge_tokens_after (parser->lexer, token);
