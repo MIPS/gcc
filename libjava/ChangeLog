@@ -1,3 +1,10 @@
+2004-11-10  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* Makefile.am: List peer JNI header: Java source file
+	dependencies explicitly.  Likewise for JNI .lo: JNI header
+	dependencies.
+	* Makefile.in: Regenerate.
+
 2004-11-10  Graydon Hoare  <graydon@redhat.com>
 
 	* Makefile.am: Add entry for BasicTextPaneUI.java
