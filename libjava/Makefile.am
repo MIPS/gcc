@@ -194,6 +194,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkRobotPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.c \
@@ -239,8 +240,10 @@ gnu/java/awt/peer/gtk/GdkFontPeer.java \
 gnu/java/awt/peer/gtk/GdkGlyphVector.java \
 gnu/java/awt/peer/gtk/GdkGraphics.java \
 gnu/java/awt/peer/gtk/GdkGraphics2D.java \
+gnu/java/awt/peer/gtk/GdkScreenGraphicsDevice.java \
 gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java \
 gnu/java/awt/peer/gtk/GdkPixbufDecoder.java \
+gnu/java/awt/peer/gtk/GdkRobotPeer.java \
 gnu/java/awt/peer/gtk/GtkButtonPeer.java \
 gnu/java/awt/peer/gtk/GtkCanvasPeer.java \
 gnu/java/awt/peer/gtk/GtkCheckboxGroupPeer.java	\
@@ -285,6 +288,7 @@ jniinclude/gnu_java_awt_peer_gtk_GdkGraphics.h: gnu/java/awt/peer/gtk/GdkGraphic
 jniinclude/gnu_java_awt_peer_gtk_GdkGraphics2D.h: gnu/java/awt/peer/gtk/GdkGraphics2D.java
 jniinclude/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.h: gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java
 jniinclude/gnu_java_awt_peer_gtk_GdkPixbufDecoder.h: gnu/java/awt/peer/gtk/GdkPixbufDecoder.java
+jniinclude/gnu_java_awt_peer_gtk_GdkRobotPeer.h: gnu/java/awt/peer/gtk/GdkRobotPeer.java
 jniinclude/gnu_java_awt_peer_gtk_GtkButtonPeer.h: gnu/java/awt/peer/gtk/GtkButtonPeer.java
 jniinclude/gnu_java_awt_peer_gtk_GtkCanvasPeer.h: gnu/java/awt/peer/gtk/GtkCanvasPeer.java
 jniinclude/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.h: gnu/java/awt/peer/gtk/GtkCheckboxGroupPeer.java
@@ -342,7 +346,7 @@ jni/classpath/primlib.h
 lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
 lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
 ## The mysterious backslash is consumed by make.
-        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(X_LIBS) -lXtst
 
 lib_org_w3c_dom_la_SOURCES = org/w3c/dom/Attr.java \
 org/w3c/dom/CDATASection.java \
@@ -548,7 +552,7 @@ $(c_files): java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h
 $(gtk_c_files): %.lo: %.c
 	$(LTCOMPILE) -c -Ijniinclude -I$(srcdir)/jni/classpath -I$(srcdir)/jni/gtk-peer \
 	$(PEDANTIC_CFLAGS) $(GTK_CFLAGS) $(LIBART_CFLAGS) \
-	$(CAIRO_CFLAGS) $(PANGOFT2_CFLAGS) -o $@ $<
+	$(X_CFLAGS) $(CAIRO_CFLAGS) $(PANGOFT2_CFLAGS) -o $@ $<
 
 
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkFontMetrics.h
@@ -558,6 +562,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.lo: $(top_builddir)/jniinclude/
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkGraphics.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkPixbufDecoder.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkRobotPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkRobotPeer.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkTextLayout.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkButtonPeer.h
@@ -3386,6 +3391,7 @@ AM_MAKEFLAGS = \
 	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" \
 	"SHELL=$(SHELL)" \
 	"RUNTESTFLAGS=$(RUNTESTFLAGS)" \
+	"KEYS=$(KEYS)" \
 	"exec_prefix=$(exec_prefix)" \
 	"infodir=$(infodir)" \
 	"libdir=$(libdir)" \

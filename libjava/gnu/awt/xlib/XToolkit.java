@@ -438,5 +438,9 @@ public class XToolkit extends ClasspathToolkit
   {
     throw new java.lang.UnsupportedOperationException ();
   }
-  
+
+  public RobotPeer createRobot (GraphicsDevice screen) throws AWTException
+  {
+    throw new java.lang.UnsupportedOperationException ();
+  }
 }

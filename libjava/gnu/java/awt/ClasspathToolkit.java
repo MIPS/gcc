@@ -47,6 +47,7 @@ import java.awt.DisplayMode;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.GraphicsEnvironment;
+import java.awt.GraphicsDevice;
 import java.awt.Toolkit;
 import java.awt.font.FontRenderContext;
 import java.awt.image.ColorModel;
@@ -58,6 +59,7 @@ import java.net.URL;
 import java.text.AttributedString;
 import java.util.HashMap;
 import java.util.Map;
+import java.awt.peer.RobotPeer;
 
 
 /**
@@ -348,4 +350,6 @@ public abstract class ClasspathToolkit
   {
     return null;
   }
+
+  public abstract RobotPeer createRobot (GraphicsDevice screen);
 }

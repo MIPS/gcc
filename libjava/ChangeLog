@@ -1,3 +1,31 @@
+2004-12-31  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* Makefile.am (gtk_c_source_files): Add GdkRobotPeer.c.
+	(gtk_awt_peer_sources): Add GdkScreenGraphicsDevice.java and
+	GdkRobotPeer.java.
+	(lib_gnu_java_awt_peer_gtk_la_CFLAGS): Add X flags.
+	(lib_gnu_java_awt_peer_gtk_la_LDFLAGS): Add XTest flags.
+	* gnu/awt/xlib/XToolkit.java (createRobot): New method.
+	* gnu/java/awt/ClasspathToolkit.java (createRobot): New method.
+	* gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java
+	(getDefaultScreenDevice): Implement.
+	* gnu/java/awt/peer/gtk/GdkRobotPeer.java: New file.
+	* gnu/java/awt/peer/gtk/GdkScreenGraphicsDevice.java: Likewise.
+	* gnu/java/awt/peer/gtk/GtkToolkit.java (createRobot): New method.
+	* java/awt/Robot.java: Implement.
+	* java/awt/peer/RobotPeer.java: Rename parameters.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkRobotPeer.c: New file.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
+	(awt_keycode_to_keysym): Make non-static.
+	* jni/gtk-peer/gtkpeer.h (AWT_BUTTON1_MASK, AWT_BUTTON2_MASK,
+	AWT_BUTTON3_MASK): Declare constants.
+	(awt_keycode_to_keysym): Declare.
+
+	* Makefile.am (AM_MAKEFLAGS): Set KEYS variable.
+	* testsuite/libjava.mauve/mauve.exp (test_mauve): If KEYS exists
+	and is non-empty pass its value to "make check".
+	(test_mauve_sim): Likewise.
+
 2004-12-31  Michael Koch  <konqueror@gmx.de>
 
 	* javax/imageio/IIOParam.java

@@ -144,7 +144,13 @@ proc test_mauve {} {
   catch {system "ln -s $full_srcdir/libjava.mauve/xfails xfails"}
 
   if {[catch {
-    system "make KEYS=libgcj classes.stamp 2>&1"
+      if { [info exists env(KEYS)] && [string length $env(KEYS)] > 0 } {
+	verbose "running make check with overridden keys: $env(KEYS)"
+	system "make KEYS=\"$env(KEYS)\" classes.stamp 2>&1"
+      } else {
+	verbose "running make check with default keys"
+	system "make KEYS=libgcj classes.stamp 2>&1"
+      }        
   } msg]} then {
     fail "Mauve build"
     verbose "build failed with $msg"
@@ -299,7 +305,13 @@ proc test_mauve_sim {} {
   catch {system "ln -s $full_srcdir/libjava.mauve/xfails xfails"}
 
   if {[catch {
-    system "make KEYS=libgcj classes.stamp 2>&1"
+      if { [info exists env(KEYS)] && [string length $env(KEYS)] > 0 } {
+	verbose "running make check with overridden keys: $env(KEYS)"
+	system "make KEYS=\"$env(KEYS)\" classes.stamp 2>&1"
+      } else {
+	verbose "running make check with default keys"
+	system "make KEYS=libgcj classes.stamp 2>&1"
+      }
   } msg]} then {
     fail "Mauve build"
     verbose "build failed with $msg"
