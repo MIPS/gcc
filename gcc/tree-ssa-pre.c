@@ -3000,7 +3000,7 @@ process_left_occs_and_kills (varray_type bexprs, tree expr)
 	  for (k = 0; k < VARRAY_ACTIVE_SIZE (vuse_ops (ann)); k++)
 	    {
 	      vuse_name = VARRAY_TREE (vuse_ops (ann), k );
-	      for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs) / 2; i++)
+	      for (i = 0; vdefs && i < NUM_VDEFS (vdefs); i++)
 		{
 		  if (names_match_p (VDEF_OP (vdefs, i), vuse_name))
 		    {

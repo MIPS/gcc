@@ -616,8 +616,8 @@ visit_stmt (tree stmt)
   ops = vdef_ops (ann);
   if (ops)
     {
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (ops) / 2; i++)
-	def_to_varying (VARRAY_TREE (ops, i));
+      for (i = 0; i < NUM_VDEFS (ops); i++)
+	def_to_varying (VDEF_RESULT (ops, i));
     }
 }
 
@@ -1103,7 +1103,7 @@ initialize (void)
 	  ops = vdef_ops (ann);
 	  if (ops)
 	    {
-	      for (x = 0; x < VARRAY_ACTIVE_SIZE (ops) / 2; x++)
+	      for (x = 0; x < NUM_VDEFS (ops); x++)
 	        {
 		  tree res = VDEF_RESULT (ops, x);
 		  get_value (res)->lattice_val = VARYING;

@@ -2044,7 +2044,7 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc)
   varray_type vuses = vuse_ops (ann);
 
   if (vdefs)
-    for (i = 0; i < VARRAY_ACTIVE_SIZE (vdefs) / 2; i++)
+    for (i = 0; i < NUM_VDEFS (vdefs); i++)
       {
 	pp_string (buffer, "#   ");
         dump_generic_node (buffer, VDEF_RESULT (vdefs, i), spc + 2, 0, false);

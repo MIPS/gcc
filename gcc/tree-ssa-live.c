@@ -409,7 +409,7 @@ create_ssa_var_map (int flags)
 	    }
 
 	  ops = vdef_ops (ann);
-	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops) / 2; x++)
+	  for (x = 0; ops && x < NUM_VDEFS (ops); x++)
 	    {
 	      tree var = VDEF_OP (ops, x);
 	      set_is_used (var);
@@ -637,7 +637,7 @@ calculate_live_on_entry (var_map map)
 	    }
 
 	  ops = vdef_ops (ann);
-	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0) / 2;
+	  num = (ops ? NUM_VDEFS (ops) : 0);
 	  for (i = 0; i < num; i++)
 	    {
 	      var = VDEF_OP (ops, i);
@@ -653,7 +653,7 @@ calculate_live_on_entry (var_map map)
 	    }
 
 	  ops = vdef_ops (ann);
-	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0) / 2;
+	  num = (ops ? NUM_VDEFS (ops) : 0);
 	  for (i = 0; i < num; i++)
 	    {
 	      var = VDEF_RESULT (ops, i);

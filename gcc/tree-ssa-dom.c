@@ -2123,7 +2123,7 @@ record_equivalences_from_stmt (tree stmt,
 
 	  /* For each VDEF on the original statement, we want to create a
 	     VUSE of the VDEF result on the new statement.  */
-	  for (j = 0; vdefs && j < VARRAY_ACTIVE_SIZE (vdefs) / 2; j++)
+	  for (j = 0; vdefs && j < NUM_VDEFS (vdefs); j++)
 	    {
 	      tree op = VDEF_RESULT (vdefs, j);
 	      add_vuse (op, new, NULL);

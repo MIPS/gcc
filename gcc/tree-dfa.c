@@ -747,7 +747,7 @@ add_vdef (tree var, tree stmt, voperands_t prev_vops)
 
   /* Don't allow duplicate entries.  */
   if (ann->vops && ann->vops->vdef_ops)
-    for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->vops->vdef_ops) / 2; i++)
+    for (i = 0; i < NUM_VDEFS (ann->vops->vdef_ops); i++)
       {
 	tree result = VDEF_RESULT (ann->vops->vdef_ops, i);
 	if (var == result
@@ -763,7 +763,7 @@ add_vdef (tree var, tree stmt, voperands_t prev_vops)
   result = NULL_TREE;
   source = NULL_TREE;
   if (prev_vops && prev_vops->vdef_ops)
-    for (i = 0; i < VARRAY_ACTIVE_SIZE (prev_vops->vdef_ops) / 2; i++)
+    for (i = 0; i < NUM_VDEFS (prev_vops->vdef_ops); i++)
       {
 	result = VDEF_RESULT (prev_vops->vdef_ops, i);
 	source = VDEF_OP (prev_vops->vdef_ops, i);
@@ -1399,7 +1399,7 @@ cleanup_operand_arrays (stmt_ann_t ann)
 	  for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->vops->vuse_ops); i++)
 	    {
 	      bool found = false;
-	      for (j = 0; j < VARRAY_ACTIVE_SIZE (ann->vops->vdef_ops) / 2; j++)
+	      for (j = 0; j < NUM_VDEFS (ann->vops->vdef_ops); j++)
 		{
 		  tree vuse_var, vdef_var;
 		  tree vuse = VARRAY_TREE (ann->vops->vuse_ops, i);
@@ -1819,8 +1819,7 @@ collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 		voperands_t vops = ann->vops;
 
 		if (vops->vdef_ops)
-		  dfa_stats_p->num_vdefs
-		    += VARRAY_ACTIVE_SIZE (vops->vdef_ops) / 2;
+		  dfa_stats_p->num_vdefs += NUM_VDEFS (vops->vdef_ops);
 
 		if (vops->vuse_ops)
 		  dfa_stats_p->num_vuses += VARRAY_ACTIVE_SIZE (vops->vuse_ops);
@@ -2911,7 +2910,7 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
      statement operands.  */
   ann = stmt_ann (stmt);
   vdefs_before = ops = vdef_ops (ann);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops) / 2; i++)
+  for (i = 0; ops && i < NUM_VDEFS (ops); i++)
     {
       tree var = VDEF_RESULT (ops, i);
       if (!DECL_P (var))
@@ -2956,7 +2955,7 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
     }
 
   vdefs_after = ops = vdef_ops (ann);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops) / 2; i++)
+  for (i = 0; ops && i < NUM_VDEFS (ops); i++)
     {
       tree var = VDEF_RESULT (ops, i);
       if (DECL_P (var))

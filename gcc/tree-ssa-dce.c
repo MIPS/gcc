@@ -303,7 +303,7 @@ stmt_useful_p (tree stmt)
       return true;
 
   ops = vdef_ops (ann);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops) / 2; i++)
+  for (i = 0; ops && i < NUM_VDEFS (ops); i++)
     if (need_to_preserve_store (VDEF_RESULT (ops, i)))
       return true;
 
@@ -376,7 +376,7 @@ process_worklist (void)
 	     represent potential definitions that may reach this
 	     statement (VDEF operands allow us to follow def-def links).  */
 	  ops = vdef_ops (ann);
-	  for (k = 0; ops && k < VARRAY_ACTIVE_SIZE (ops) / 2; k++)
+	  for (k = 0; ops && k < NUM_VDEFS (ops); k++)
 	    mark_necessary (VDEF_OP (ops, k), NULL_TREE);
 	}
     }

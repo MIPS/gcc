@@ -595,7 +595,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
 	 definitions is a use of the variable, so it may affect
 	 GLOBALS.  */
       ops = vdef_ops (ann);
-      for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops) / 2; i++)
+      for (i = 0; ops && i < NUM_VDEFS (ops); i++)
         {
           if (prepare_operand_for_rename (&VDEF_OP (ops, i), &uid))
 	    {
@@ -2856,7 +2856,7 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
     }
 
   /* Register new virtual definitions made by the statement.  */
-  for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs) / 2; i++)
+  for (i = 0; vdefs && i < NUM_VDEFS (vdefs); i++)
     {
       rewrite_operand (&(VDEF_OP (vdefs, i)));
 

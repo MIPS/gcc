@@ -16,6 +16,20 @@
 
 2003-11-21  Jeff Law  <law@redhat.com>
 
+        * tree-dfa.c (add_vdef, cleanup_voperand_arrays): Use NUM_VDEFS.
+        (mark_new_vars_to_rename, collect_dfa_status_r): Likewise.
+        * tree-pretty-print.c (dump_vops): Likewise.
+        * tree-sra.c (create_scalar_copies): Likewise.
+        * tree-ssa-dce.c (stmt_useful_p, process_worklist): Likewise.
+        * tree-ssa-live.c (create_ssa_var_map): Likewise.
+        (calculate_live_on_entry): Likewise.
+        * tree-ssa-pre.c (process_left_occs_and_kills): Likewise.
+        * tree-ssa.c (mark_def_sites, rewrite_stmt): Likewise.
+        * tree.h (NUM_VDEFS): Define.
+        * tree-ssa-ccp.c (visit_stmt): Use NUM_VDEFS.  Fix thinko in last
+        change.
+        (initialize): Use NUM_VDEFS.
+ 
 	* tree-dfa.c (add_vdef): Revamp to handle new method for
 	recording vdefs.
 	(cleanup_operand_arrays): Similarly.
