@@ -450,17 +450,31 @@ cgraph_node_name (struct cgraph_node *node)
 {
   return lang_hooks.decl_printable_name (node->decl, 2);
 }
+/* Return name of the node used in debug output.  */
+static const char *
+cgraph_varpool_node_name (struct cgraph_varpool_node *node)
+{
+  return lang_hooks.decl_printable_name (node->decl, 2);
+}
+
+/* Names used to print out the availability enum.  */
+static const char * const availability_names[] = 
+  {"not_available", "overwrittable", "available", "local"};
 
 /* Dump given cgraph node.  */
 void
 dump_cgraph_node (FILE *f, struct cgraph_node *node)
 {
   struct cgraph_edge *edge;
+
   fprintf (f, "%s/%i:", cgraph_node_name (node), node->uid);
   if (node->global.inlined_to)
     fprintf (f, " (inline copy in %s/%i)",
 	     cgraph_node_name (node->global.inlined_to),
 	     node->global.inlined_to->uid);
+  fprintf (f, " availability:%s", availability_names [cgraph_function_body_availability (node)]);
+  if (node->local.self_insns)
+    fprintf (f, " %i insns", node->local.self_insns);
   if (node->local.self_insns)
     fprintf (f, " %i insns", node->local.self_insns);
   if (node->global.insns && node->global.insns != node->local.self_insns)
@@ -503,7 +517,6 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     }
   fprintf (f, "\n");
 }
-
 /* Dump the callgraph.  */
 
 void
@@ -514,6 +527,39 @@ dump_cgraph (FILE *f)
   fprintf (f, "callgraph:\n\n");
   for (node = cgraph_nodes; node; node = node->next)
     dump_cgraph_node (f, node);
+}
+
+/* Dump given cgraph node.  */
+void
+dump_cgraph_varpool_node (FILE *f, struct cgraph_varpool_node *node)
+{
+  fprintf (f, "%s:", cgraph_varpool_node_name (node));
+  fprintf (f, " availability:%s", availability_names [cgraph_variable_initializer_availability (node)]);
+  if (DECL_INITIAL (node->decl))
+    fprintf (f, " initialized");
+  if (node->needed)
+    fprintf (f, " needed");
+  if (node->analyzed)
+    fprintf (f, " analyzed");
+  if (node->finalized)
+    fprintf (f, " finalized");
+  if (node->output)
+    fprintf (f, " output");
+  if (node->externally_visible)
+    fprintf (f, " externally_visible");
+  fprintf (f, "\n");
+}
+
+/* Dump the callgraph.  */
+
+void
+dump_varpool (FILE *f)
+{
+  struct cgraph_varpool_node *node;
+
+  fprintf (f, "variable pool:\n\n");
+  for (node = cgraph_varpool_nodes; node; node = node->next_needed)
+    dump_cgraph_varpool_node (f, node);
 }
 
 /* Returns a hash code for P.  */
@@ -736,5 +782,52 @@ cgraph_unnest_node (struct cgraph_node *node)
     node2 = &(*node2)->next_nested;
   *node2 = node->next_nested;
   node->origin = NULL;
+}
+
+/* Return function availability.  See cgraph.h for description of individual
+   return values.  */
+enum availability
+cgraph_function_body_availability (struct cgraph_node *node)
+{
+  if (!node->local.finalized)
+    return AVAIL_NOT_AVAILABLE;
+  if (node->local.local)
+    return AVAIL_LOCAL;
+  if (!node->local.externally_visible)
+    return AVAIL_AVAILABLE;
+  /* If the function can be overwritted, return OVERWRITTABLE.  Take care
+     at least of two notable extensions - the COMDAT functions used to share
+     template instantiations in C++ (this is symmetric to code
+     cp_cannot_inline_tree_fn and probably shall be shared and the inlinability
+     hooks completelly elliminated).
+     ??? Does C++ one definition rule allow us to always return AVAIL_AVAILABLE
+     here?  That would be good reason to preserve this hook
+     Similarly deal with extern inline functions - this is aggain neccesary to
+     get C++ shared functions having keyed templates right and in the C
+     extension documentation we probably should document the requirement of
+     both versions of function (extern inline and offline) having same side
+     effect characteristics as good optimization is what this optimization
+     is about.  */
+  if (!(*targetm.binds_local_p) (node->decl)
+      && !DECL_COMDAT (node->decl) && !DECL_EXTERNAL (node->decl))
+    return AVAIL_OVERWRITTABLE;
+  return AVAIL_AVAILABLE;
+}
+
+/* Return variable availability.  See cgraph.h for description of individual
+   return values.  */
+enum availability
+cgraph_variable_initializer_availability (struct cgraph_varpool_node *node)
+{
+  if (!node->finalized)
+    return AVAIL_NOT_AVAILABLE;
+  if (!TREE_PUBLIC (node->decl))
+    return AVAIL_AVAILABLE;
+  /* If the variable can be overwritted, return OVERWRITTABLE.  Take care
+     at least of two notable extensions - the COMDAT variables used to share
+     template instantiations in C++.  */
+  if (!(*targetm.binds_local_p) (node->decl) && !DECL_COMDAT (node->decl))
+    return AVAIL_OVERWRITTABLE;
+  return AVAIL_AVAILABLE;
 }
 #include "gt-cgraph.h"

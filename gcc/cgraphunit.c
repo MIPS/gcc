@@ -1969,6 +1969,7 @@ cgraph_optimize (void)
     {
       fprintf (cgraph_dump_file, "Marked ");
       dump_cgraph (cgraph_dump_file);
+      dump_varpool (cgraph_dump_file);
     }
 
   ipa_passes ();
@@ -1977,6 +1978,7 @@ cgraph_optimize (void)
     {
       fprintf (cgraph_dump_file, "Optimized ");
       dump_cgraph (cgraph_dump_file);
+      dump_varpool (cgraph_dump_file);
     }
   timevar_pop (TV_CGRAPHOPT);
 

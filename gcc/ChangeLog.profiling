@@ -1,3 +1,18 @@
+2004-11-02  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_varpool_node_name): New function.
+	(availability_names): New static variable.
+	(dump_cgraph_node): Dump availability.
+	(dump_cgraph_varpool_node): New function.
+	(dump_varpool): New function.
+	(cgraph_function_body_availability): Likewise.
+	(cgraph_variable_initializer_availability): Likewise.
+	* cgraph.h (availability): New enum
+	(dump_varpool,dump_cgraph_varpool_node,
+	cgraph_function_availaibility,
+	cgraph_variable_initializer_availability): New.
+	* cgraphunit.c (cgraph_optimize): Dump varpool.
+
 2004-10-29  Jan Hubicka  <jh@suse.cz>
 
 	* cgraphunit.c (cgraph_reset_node): Break out from ...
