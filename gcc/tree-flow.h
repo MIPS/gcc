@@ -672,6 +672,7 @@ extern basic_block tree_split_bb	PARAMS ((basic_block, tree));
 
 
 /* Functions in tree-dfa.c  */
+extern void find_refs_in_stmt           PARAMS ((tree, basic_block));
 extern void remove_tree_ann		PARAMS ((tree));
 extern tree_ann create_tree_ann 	PARAMS ((tree));
 extern tree_ref create_ref		PARAMS ((tree, HOST_WIDE_INT,
@@ -705,6 +706,8 @@ extern void add_ref_to_list_begin	PARAMS ((ref_list, tree_ref));
 extern void add_ref_to_list_after	PARAMS ((ref_list,
 						 struct ref_list_node *,
 					         tree_ref));
+extern void add_list_to_list_end        PARAMS ((ref_list, ref_list));
+extern void add_list_to_list_begin      PARAMS ((ref_list, ref_list));
 extern void remove_ref_from_list	PARAMS ((ref_list, tree_ref));
 extern struct ref_list_node *find_list_node PARAMS ((ref_list, tree_ref));
 extern const char *ref_type_name	PARAMS ((HOST_WIDE_INT));

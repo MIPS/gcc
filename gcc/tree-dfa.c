@@ -82,7 +82,6 @@ extern int tree_ssa_dump_flags;
 
 
 /* Local functions.  */
-static void find_refs_in_stmt		PARAMS ((tree, basic_block));
 static void find_refs_in_expr		PARAMS ((tree *, HOST_WIDE_INT,
       						 basic_block, tree, tree));
 static void add_referenced_var		PARAMS ((tree));
@@ -174,7 +173,7 @@ tree_find_refs ()
 /* Walk T looking for variable references.  BB is the basic block that
    contains T.  */
 
-static void
+void
 find_refs_in_stmt (t, bb)
      tree t;
      basic_block bb;
@@ -688,6 +687,36 @@ add_ref_to_list_end (list, ref)
   list->last = node;
 }
 
+/* Add the contents of the list TOADD to the list LIST, at the beginning of
+   LIST. */ 
+void 
+add_list_to_list_begin (list, toadd)
+     ref_list list;
+     ref_list toadd;
+{
+  struct ref_list_node *tmp;
+  tree_ref tempref;
+
+  FOR_EACH_REF (tempref, tmp, toadd)
+  {
+    add_ref_to_list_begin (list, tempref);
+  }
+}
+
+/* Add the contents of the list TOADD to the list LIST, at the end of LIST. */
+void
+add_list_to_list_end (list, toadd)
+     ref_list list;
+     ref_list toadd;
+{
+  struct ref_list_node *tmp;
+  tree_ref tempref;
+  
+  FOR_EACH_REF (tempref, tmp, toadd)
+  {
+    add_ref_to_list_end (list, tempref);
+  }
+}
 
 /* Find the list container for reference REF in LIST.  */
 
@@ -697,6 +726,9 @@ find_list_node (list, ref)
      tree_ref ref;
 {
   struct ref_list_node *node = NULL;
+
+  if (list->first == NULL)
+    return NULL;
 
   if (ref == list->first->ref)
     node = list->first;

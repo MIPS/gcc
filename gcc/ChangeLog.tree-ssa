@@ -1,3 +1,14 @@
+2002-09-25  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-dfa.c (add_list_to_ref_list_end): New function.
+	(add_list_to_ref_list_begin): Ditto.
+	(find_list_node): Handle searching in empty lists.
+	(find_refs_in_stmt): De-staticify.
+
+	* tree-flow.h (add_list_to_ref_list_end): New declaration.
+	(add_list_to_ref_list_begin): Ditto.
+	(find_refs_in_stmt): Add prototype.
+
 2002-09-25  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (tree-dfa.o): Depend on flags.h
