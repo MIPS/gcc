@@ -199,6 +199,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case BLOCK:
       NIY;
+      break;
 
     case VOID_TYPE:
     case INTEGER_TYPE:
@@ -302,6 +303,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case OFFSET_TYPE:
       NIY;
+      break;
 
     case REFERENCE_TYPE:
       /* FIXME : What is the exact syntax of this node for C? */
@@ -316,6 +318,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case FILE_TYPE:
       NIY;
+      break;
 
     case ARRAY_TYPE:
       {
@@ -341,6 +344,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case SET_TYPE:
       NIY;
+      break;
 
     case RECORD_TYPE:
     case UNION_TYPE:
@@ -358,10 +362,12 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case QUAL_UNION_TYPE:
       NIY;
+      break;
 
 
     case LANG_TYPE:
       NIY;
+      break;
 
     case INTEGER_CST:
       if (TREE_CODE (TREE_TYPE (node)) == POINTER_TYPE)
@@ -579,6 +585,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case BUFFER_REF:
       NIY;
+      break;
 
     case ARRAY_REF:
       op0 = TREE_OPERAND (node, 0);
@@ -594,6 +601,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case ARRAY_RANGE_REF:
       NIY;
+      break;
 
     case CONSTRUCTOR:
       {
@@ -677,6 +685,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case BIND_EXPR:
       NIY;
+      break;
 
     case CALL_EXPR:
       print_call_name (buffer, node);
@@ -692,18 +701,23 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case METHOD_CALL_EXPR:
       NIY;
+      break;
 
     case WITH_CLEANUP_EXPR:
       NIY;
+      break;
 
     case CLEANUP_POINT_EXPR:
       NIY;
+      break;
 
     case PLACEHOLDER_EXPR:
       NIY;
+      break;
 
     case WITH_RECORD_EXPR:
       NIY;
+      break;
 
       /* Binary arithmetic and logic expressions.  */
     case MULT_EXPR:
@@ -848,24 +862,31 @@ dump_c_node (buffer, node, spc, brief_dump)
       
     case FFS_EXPR:
       NIY;
+      break;
 
     case UNORDERED_EXPR:
       NIY;
+      break;
 
     case ORDERED_EXPR:
       NIY;
+      break;
 
     case IN_EXPR:
       NIY;
+      break;
 
     case SET_LE_EXPR:
       NIY;
+      break;
 
     case CARD_EXPR:
       NIY;
+      break;
 
     case RANGE_EXPR:
       NIY;
+      break;
 
     case FIX_TRUNC_EXPR:
     case FIX_CEIL_EXPR:
@@ -907,9 +928,11 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case RTL_EXPR:
       NIY;
+      break;
 
     case ENTRY_VALUE_EXPR:
       NIY;
+      break;
 
     case COMPLEX_EXPR:
       output_add_string (buffer, "__complex__ (");
@@ -942,12 +965,15 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case TRY_CATCH_EXPR:
       NIY;
+      break;
 
     case TRY_FINALLY_EXPR:
       NIY;
+      break;
 
     case GOTO_SUBROUTINE_EXPR:
       NIY;
+      break;
 
     case LABEL_EXPR:
       INDENT (spc);
@@ -959,18 +985,23 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case GOTO_EXPR:
       NIY;
+      break;
 
     case EXIT_EXPR:
       NIY;
+      break;
 
     case LOOP_EXPR:
       NIY;
+      break;
 
     case LABELED_BLOCK_EXPR:
       NIY;
+      break;
 
     case EXIT_BLOCK_EXPR:
       NIY;
+      break;
 
     case EXPR_WITH_FILE_LOCATION:
       dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
@@ -978,23 +1009,29 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case SWITCH_EXPR:
       NIY;
+      break;
 
     case EXC_PTR_EXPR:
       NIY;
+      break;
 
       /* Nodes from 'c-common.def'.  */
 
     case SRCLOC:
       NIY;
+      break;
 
     case SIZEOF_EXPR:
       NIY;
+      break;
 
     case ARROW_EXPR:
       NIY;
+      break;
 
     case ALIGNOF_EXPR:
       NIY;
+      break;
 
     case EXPR_STMT:
       INDENT (spc);
