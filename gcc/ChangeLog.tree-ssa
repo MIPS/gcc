@@ -1,3 +1,12 @@
+2003-08-01  Paul Brook  <paul@nowt.org>
+
+	* Makefile.in (GMPINC): Set and use.
+	(GMPLIBS): Set it.
+	* configure.in: Add test and switches for the GMP library.
+	(al_need_gmp): Set from config-lang.in.
+	* sourcebuild.texi: Document need_gmp.
+	* configure: regen
+
 2003-08-01  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* tree-inline.c (expand_calls_inline): Fix comments.

@@ -1,3 +1,8 @@
+2003-08-01  Paul Brook  <paul@nowt.org>
+
+	* fortran/Make-lang.in: Use GMPLIBS.
+	* fortran/config-lang.in: Set need_gmp.
+
 2003-07-27  Andreas Jaeger  <aj@suse.de>
 
 	* trans-decl.c (gfc_generate_constructors): Convert prototype to

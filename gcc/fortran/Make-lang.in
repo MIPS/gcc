@@ -86,7 +86,7 @@ F95_ADDITIONAL_OBJS = \
 	tree-alias-common.o tree-alias-type.o gimplify.o
 
 # G95 uses GMP for its internal arithmetics.
-F95_LIBS = $(LIBS) -lgmp
+F95_LIBS = $(GMPLIBS) $(LIBS)
 
 #
 # Define the names for selecting gfortran in LANGUAGES.

@@ -261,6 +261,10 @@ OUTPUT_OPTION = @OUTPUT_OPTION@
 ZLIB = @zlibdir@ -lz
 ZLIBINC = @zlibinc@
 
+# This is where to find the GMP library
+GMPLIBS = @gmplibs@
+GMPINC = @gmpinc@
+
 BANSHEELIB = @BANSHEELIB@
 BANSHEEINC = @BANSHEEINC@
 # Substitution type for target's getgroups 2nd arg.
@@ -748,7 +752,7 @@ BUILD_VARRAY = $(BUILD_PREFIX)varray.o
 # libintl.h will be found in ../intl if we are using the included libintl.
 INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 	   -I$(srcdir)/config -I$(srcdir)/../include @INCINTL@ \
-	   $(BANSHEEINC)
+	   $(BANSHEEINC) $(GMPINC)
 
 # Always use -I$(srcdir)/config when compiling.
 .c.o:
