@@ -2065,8 +2065,9 @@ tree_generator::handle_inc_dec (model_element *element, tree_code op,
 {
   expr->visit (this);
   tree expr_tree = current;
-  current = build2 (op, gcc_builtins->map_type (expr->type ()), expr_tree,
-		    integer_one_node);
+  tree expr_type = gcc_builtins->map_type (expr->type ());
+  current = build2 (op, expr_type, expr_tree,
+		    fold (convert (expr_type, integer_one_node)));
   TREE_SIDE_EFFECTS (current) = 1;
   annotate (current, element);
 }
