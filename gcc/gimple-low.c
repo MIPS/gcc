@@ -52,6 +52,9 @@ static void lower_stmt (tree_stmt_iterator *, struct lower_data *);
 static void lower_bind_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_cond_expr (tree_stmt_iterator *, struct lower_data *);
 static bool simple_goto_p (tree);
+static void record_vars (tree);
+
+tree unexpanded_var_list;
 
 /* Lowers the BODY.  */
 void
@@ -66,6 +69,8 @@ lower_function_body (tree *body)
   BLOCK_SUBBLOCKS (data.block) = NULL_TREE;
   BLOCK_CHAIN (data.block) = NULL_TREE;
 
+  record_vars (BIND_EXPR_VARS (*body));
+  BIND_EXPR_VARS (*body) = NULL_TREE;
   lower_stmt_body (&BIND_EXPR_BODY (*body), &data);
 
   if (data.block != DECL_INITIAL (current_function_decl))
@@ -100,7 +105,9 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     {
     case BIND_EXPR:
       lower_bind_expr (tsi, data);
-      break;
+      /* Avoid moving the tsi -- it has already been moved by delinking the
+	 statement.  */
+      return;
 
     case COMPOUND_EXPR:
       abort ();
@@ -129,6 +136,24 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
   tsi_next (tsi);
 }
 
+/* Record the variables in VARS.  */
+
+static void
+record_vars (tree vars)
+{
+  for (; vars; vars = TREE_CHAIN (vars))
+    {
+      tree var = vars;
+
+      /* Nothing to do in this case.  */
+      if (DECL_EXTERNAL (var))
+	continue;
+
+      /* Record the variable.  */
+      unexpanded_var_list = tree_cons (NULL_TREE, var, unexpanded_var_list);
+    }
+}
+
 /* Lowers a bind_expr TSI.  DATA is passed through the recursion.  */
 
 static void
@@ -149,6 +174,8 @@ lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
       BLOCK_SUBBLOCKS (data->block) = NULL_TREE;
       BLOCK_SUPERCONTEXT (data->block) = old_block;
     }
+
+  record_vars (BIND_EXPR_VARS (stmt));
   lower_stmt_body (&BIND_EXPR_BODY (stmt), data);
 
   if (BIND_EXPR_BLOCK (stmt))
@@ -160,6 +187,11 @@ lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 	      blocks_nreverse (BLOCK_SUBBLOCKS (data->block));
       data->block = old_block;
     }
+
+  /* The BIND_EXPR no longer carries any useful information, so get rid
+     of it.  */
+  tsi_link_chain_before (tsi, BIND_EXPR_BODY (stmt), TSI_SAME_STMT);
+  tsi_delink (tsi);
 }
 
 /* Checks whether EXPR is a simple local goto.  */
@@ -235,4 +267,40 @@ lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 
   if (end_label)
     tsi_link_after (tsi, end_label, TSI_CONTINUE_LINKING);
+}
+
+/* Expand those variables in the unexpanded_var_list that are used.  */
+
+void
+expand_used_vars (void)
+{
+  tree var, cell;
+
+  unexpanded_var_list = nreverse (unexpanded_var_list);
+
+  for (cell = unexpanded_var_list; cell; cell = TREE_CHAIN (cell))
+    {
+      var = TREE_VALUE (cell);
+
+      if (TREE_CODE (var) == VAR_DECL)
+	{
+	  struct var_ann_d *ann = var_ann (var);
+
+	  /* Remove all unused, unaliased temporaries.  Also remove
+	     unused, unaliased local variables during highly
+	     optimizing compilations.  */
+	  ann = var_ann (var);
+	  if (ann
+	      && ! ann->may_aliases
+	      && ! ann->used
+	      && ! ann->has_hidden_use
+	      && ! TREE_ADDRESSABLE (var)
+	      && (DECL_ARTIFICIAL (var) || optimize >= 2))
+	    continue;
+	}
+
+      expand_var (var);
+    }
+
+  unexpanded_var_list = NULL_TREE;
 }

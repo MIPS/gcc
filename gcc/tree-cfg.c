@@ -90,8 +90,7 @@ static void create_blocks_annotations (void);
 static void create_block_annotation (basic_block);
 static void free_blocks_annotations (void);
 static void clear_blocks_annotations (void);
-static basic_block make_blocks (tree *, tree, basic_block, tree);
-static basic_block make_bind_expr_blocks (tree *, tree, basic_block, tree);
+static basic_block make_blocks (tree *, basic_block);
 static inline void append_stmt_to_bb (tree *, basic_block);
 static inline void prepend_stmt_to_bb (tree *, basic_block);
 static void factor_computed_gotos (void);
@@ -105,8 +104,6 @@ static void make_switch_expr_edges (basic_block);
 static void make_goto_expr_edges (basic_block);
 
 /* Various helpers.  */
-static void assign_vars_to_scope (tree);
-static basic_block successor_block (basic_block);
 static tree *first_exec_stmt (tree *);
 static inline bool stmt_starts_bb_p (tree, tree);
 static inline bool stmt_ends_bb_p (tree);
@@ -150,26 +147,6 @@ static tree_stmt_iterator bsi_link_after (tree_stmt_iterator *, tree,
       NODE = TREE_OPERAND (NODE, 0);				\
   } while (0)
 
-
-/* NEXT_BLOCK_LINK is used to store the successor statement of the entry
-   statement to a lexical or control block.  This allows successor_block to
-   find the block that should come after the last statement of the last
-   block inside a lexical scope.  For instance,
-
-	    1	if (...)
-	    2	  {
-	    3	    s1;
-	    4	    {
-	    5	      s2;
-	    6	      s3;
-	    7	    }
-	    8	  }
-	    9	s4;
-
-  When make_blocks starts processing the if() at line 1, it sets
-  NEXT_BLOCK_LINK to be 's4'.  This way, when it finishes the basic block
-  at line 6, it sets NEXT_BLOCK_LINK (s3) to 's4'.  */
-#define NEXT_BLOCK_LINK(STMT)	TREE_CHAIN (STMT)
 
 /* FIXME These need to be filled in with appropriate pointers.  But this
    implies an ABI change in some functions.  */
@@ -230,7 +207,7 @@ build_tree_cfg (tree fnbody)
   if (first_p)
     {
       found_computed_goto = 0;
-      make_blocks (first_p, NULL_TREE, NULL, fnbody);
+      make_blocks (first_p, NULL);
 
       /* Computed gotos are hell to deal with, especially if there are
 	 lots of them with a large number of destinations.  So we factor
@@ -362,7 +339,7 @@ factor_computed_gotos (void)
 
 	      /* Put the new statements into a new basic block.  This must
 		 be done before we link them into the statement chain!  */
-	      make_blocks (&TREE_OPERAND (compound, 0), NULL, NULL, NULL);
+	      make_blocks (&TREE_OPERAND (compound, 0), NULL);
 
 	      /* Now it is safe to link in the new statements.  */
 	      tsi_link_chain_after (&tsi,
@@ -448,14 +425,12 @@ clear_blocks_annotations (void)
    BB is the block where the statements should be added to.  If BB is NULL,
       a new basic block will be created for the statements.
 
-   SCOPE is the BIND_EXPR block containing *FIRST_P.
-
    Return the last basic block added to the graph.  This is used to know if
    a recursive invocation built a sub-graph whose last block can accept
    more statements or not.  */
 
 static basic_block
-make_blocks (tree *first_p, tree next_block_link, basic_block bb, tree scope)
+make_blocks (tree *first_p, basic_block bb)
 {
   tree_stmt_iterator i;
   tree stmt, last;
@@ -485,74 +460,18 @@ make_blocks (tree *first_p, tree next_block_link, basic_block bb, tree scope)
 	  start_new_block = false;
 	}
 
-      NEXT_BLOCK_LINK (stmt) = NULL_TREE;
       code = TREE_CODE (stmt);
 
       /* Now add STMT to BB and create the subgraphs for special statement
 	 codes.  */
       append_stmt_to_bb (stmt_p, bb);
-      get_stmt_ann (stmt)->scope = scope;
 
       if (is_computed_goto (*stmt_p))
 	found_computed_goto = true;
 
+      /* All BIND_EXPRs except for the outermost one are lowered already.  */
       if (code == BIND_EXPR)
-	{
-	  int num_blocks_before;
-	  basic_block last_bb;
-
-	  /* BIND_EXPR nodes are a special case.  We neither force a new
-	     block for their bodies, nor force a new block after creating
-	     the subgraph.  On return from make_bind_expr_blocks, LAST_BB
-	     will be the last basic block of the BIND_EXPR's subgraph.  We
-	     point STMT to LAST_BB's last statement to determine if we
-	     should start a new block or not.  */
- 	  num_blocks_before = n_basic_blocks;
-	  assign_vars_to_scope (stmt);
-	  get_stmt_ann (stmt)->scope_level =
-		  get_stmt_ann (scope)->scope_level + 1;
-
-	  last_bb = make_bind_expr_blocks (stmt_p, next_block_link, bb, stmt);
-	  if (last_bb)
-	    {
-	      bb = last_bb;
-	      stmt = last_stmt (bb);
-	    }
-
-	  /* FIXME.  Obscene hack to work around iterator limitations.  If
-	     during processing of the BIND_EXPR body we were forced to
-	     create new blocks (i.e., the BIND_EXPR body contains control
-	     flow structures), then force the creation of a new basic block
-	     for the next iteration.  This avoids the following problem
-	     (assume that all the Si statements are regular GIMPLE
-	     statements):
-
-		    1	s1;		<-- BLOCK #0
-		    2	{
-		    3	  s2;
-		    4	  s3;
-		    5	  if ()
-		    6	    s4;		<-- BLOCK #1
-		    7	  s5;		<-- BLOCK #2
-		    8	}
-		    9	s6;
-
-	     Since s5 and s6 are two regular statements, they could both be
-	     in block #2.  However, if we started an iterator on block #2,
-	     the iterator would have no way of knowing how to go from
-	     statement s5 to statement s6 because the iterator was started
-	     in the middle of its BIND_EXPR's body, so bsi_step_in_bb() has
-	     not enough context to determine how to get to s6.  */
-	  if (n_basic_blocks > num_blocks_before)
-	    {
-	      start_new_block = true;
-
-	      /* If we are starting the new block just to work around
-		 iterator limitations, keep track of it.  */
-	      if (!stmt || !stmt_ends_bb_p (stmt))
-		cfg_stats.num_failed_bind_expr_merges++;
-	    }
-	}
+	abort ();
 
       /* If STMT is a basic block terminator, set START_NEW_BLOCK for the
 	 next iteration.  Also compute any reachable exception handlers
@@ -563,67 +482,12 @@ make_blocks (tree *first_p, tree next_block_link, basic_block bb, tree scope)
       last = stmt;
     }
 
-  /* If LAST is set, link it to NEXT_BLOCK_LINK.  This allows making edges
-     from the last block inside a lexical scope (see successor_block).  */
   if (last)
-    {
-      NEXT_BLOCK_LINK (last) = next_block_link;
-      return bb_for_stmt (last);
-    }
+    return bb_for_stmt (last);
 
   return NULL;
 }
 
-/* Create the blocks for the BIND_EXPR node pointed by BIND_P.  In contrast
-   with the other make_*_blocks functions, this function will not start a
-   new basic block for the statements in the BIND_EXPR body.  Rather, the
-   statements in the BIND_EXPR body are added to the block ENTRY.
-
-   NEXT_BLOCK_LINK is the first statement of the successor basic block for
-      the block holding *BIND_P.  If *BIND_P is the last statement inside a
-      lexical scope, this will be the statement that comes after *BIND_P's
-      container (see the documentation for NEXT_BLOCK_LINK).
-
-   ENTRY is the block whose last statement is *SWITCH_E_P.
-
-   Return the last basic block added to the BIND_EXPR's subgraph.  This
-   allows the caller to determine whether a new block should be started or
-   not.
-   
-   SCOPE is the BIND_EXPR node holding *BIND_P (in fact it is equal to
-   *BIND_P).  */
-
-static basic_block
-make_bind_expr_blocks (tree *bind_p, tree next_block_link, basic_block entry,
-		       tree scope)
-{
-  tree_stmt_iterator si;
-  tree bind = *bind_p;
-
-  /* Determine NEXT_BLOCK_LINK for statements inside the BIND_EXPR
-     body.  */
-  si = tsi_start (bind_p);
-  tsi_next (&si);
-
-  /* Ignore any empty statements at the tail of this tree.  */
-  while (!tsi_end_p (si) && tsi_stmt (si) == NULL)
-    tsi_next (&si);
-
-  if (!tsi_end_p (si) && tsi_stmt (si) != NULL_TREE)
-    next_block_link = *(tsi_container (si));
-
-  /* By passing the current block ENTRY to make_blocks, we will keep adding
-     statements to ENTRY until we find a block terminating statement inside
-     the body of the BIND_EXPR.  On return from make_blocks, our caller
-     will start a new basic block only if the body of the BIND_EXPR node
-     ends with a block terminating statement.  */
-  STRIP_CONTAINERS (bind);
-  return make_blocks (&BIND_EXPR_BODY (bind), next_block_link, entry, scope);
-}
-
-
-/* Add statement pointed by STMT_P to basic block BB and update BB's
-   boundaries accordingly.  */
 
 static inline void
 append_stmt_to_bb (tree *stmt_p, basic_block bb)
@@ -721,7 +585,7 @@ make_edges (void)
       /* Finally, if no edges were created above, this is a regular
 	 basic block that only needs a fallthru edge.  */
       if (bb->succ == NULL)
-	make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+	make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
     }
 
   /* We do not care about fake edges, so remove any that the CFG
@@ -822,7 +686,7 @@ make_exit_edges (basic_block bb)
 	}
 
       /* Don't forget the fall-thru edge.  */
-      make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+      make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
       break;
 
     case MODIFY_EXPR:
@@ -834,7 +698,7 @@ make_exit_edges (basic_block bb)
 	make_goto_expr_edges (bb);
 
       make_eh_edges (last);
-      make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+      make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
       break;
 
     default:
@@ -1350,31 +1214,6 @@ remove_useless_stmts_and_vars_goto (tree_stmt_iterator i, tree *stmt_p,
 	  data->repeat = true;
 	  *stmt_p = build_empty_stmt ();
 	  return;
-	}
-    }
-  else
-    {
-      /* We are at the end of this tree, we may still have
-	 an unnecessary GOTO_EXPR if NEXT_BLOCK_LINK
-	 points to the target label.  */
-      tree next_block_link = NEXT_BLOCK_LINK (*stmt_p);
-
-      if (next_block_link)
-	{
-	  tree next_stmt;
-
-	  /* Get the statement at NEXT_BLOCK_LINK and see if it
-	     is our target label.  */
-	  next_stmt = tsi_stmt (tsi_start (&next_block_link));
-	  if (next_stmt
-	      && TREE_CODE (next_stmt) == LABEL_EXPR
-	      && (LABEL_EXPR_LABEL (next_stmt)
-		  == GOTO_DESTINATION (*stmt_p)))
-	    {
-	      data->repeat = true;
-	      *stmt_p = build_empty_stmt ();
-	      return;
-	    }
 	}
     }
 
@@ -2441,57 +2280,6 @@ tree_cfg2dot (FILE *file)
 			     Miscellaneous helpers
 ---------------------------------------------------------------------------*/
 
-/* Return the successor block for BB.  If the block has no successors we
-   try the enclosing control structure until we find one.  If we reached
-   nesting level 0, return the exit block.  */
-
-static basic_block
-successor_block (basic_block bb)
-{
-  basic_block succ_bb;
-  tree_stmt_iterator i;
-  tree last_stmt;
-  tree *container_p;
-
-#if defined ENABLE_CHECKING
-  if (bb == NULL)
-    abort ();
-#endif
-
-  /* By default, the successor block will be the block for the statement
-     following BB's last statement.  */
-  i = tsi_start (bb->end_tree_p);
-  last_stmt = tsi_stmt (i);
-
-  /* Special case.  If the block ends in a BIND_EXPR node, the successor
-     block will be inside the BIND_EXPR's body.  */
-  if (last_stmt && TREE_CODE (last_stmt) == BIND_EXPR)
-    i = tsi_start (&BIND_EXPR_BODY (last_stmt));
-  else
-    tsi_next (&i);
-
-  container_p = tsi_container (i);
-  if (container_p)
-    {
-      succ_bb = bb_for_stmt (*container_p);
-      if (succ_bb)
-	return succ_bb;
-    }
-
-  /* We couldn't find a successor for BB.  This means that BB is the last
-     block inside a control structure or lexical scope.  Use the
-     NEXT_BLOCK_LINK for BB's last statement.  If NEXT_BLOCK_LINK is still
-     NULL, then BB is the last basic block in the function.  In which case
-     we have reached the end of the flowgraph and return EXIT_BLOCK_PTR.  */
-  if (last_stmt == NULL_TREE)
-    last_stmt = *bb->end_tree_p;
-
-  if (NEXT_BLOCK_LINK (last_stmt))
-    return bb_for_stmt (NEXT_BLOCK_LINK (last_stmt));
-  else
-    return EXIT_BLOCK_PTR;
-}
-
 /* Return true if T represents a stmt that always transfers control.  */
 
 bool
@@ -2706,14 +2494,12 @@ last_stmt_ptr (basic_block bb)
 
 /* Initialize a block stmt iterator with a container that contains stmt's
    in a specified basic block. If the first real stmt is not in the
-   specified basic block, then return an empty iterator.  If the first
-   real stmt is contained in a BIND_EXPR, descend into the BIND_EXPR and
-   set up the context chains properly. */
+   specified basic block, then return an empty iterator.  */
 
 static block_stmt_iterator
 bsi_init (tree *tp, basic_block bb)
 {
-  block_stmt_iterator i, bind;
+  block_stmt_iterator i;
   tree stmt;
 
   i.tp = tp;
@@ -2724,36 +2510,6 @@ bsi_init (tree *tp, basic_block bb)
       stmt = bsi_stmt (i);
       if (stmt == NULL_TREE)
 	bsi_next_in_bb (&i, bb);
-      else
-        if (TREE_CODE (stmt) == BIND_EXPR)
-	  {
-	    bind = bsi_init (&BIND_EXPR_BODY (stmt), bb);
-
-	    /* If the basic block of the child is the same as this block,
-	       then add this context to the end, and use that iterator.  */
-	    if (bind.tp != NULL)
-	      {
-		tree tmp, end;
-
-	        tmp = build_tree_list  (NULL_TREE, (tree) i.tp);
-	        if (bind.context)
-		  {
-		    for (end = bind.context;
-			 TREE_PURPOSE (end) != NULL;
-			 end = TREE_PURPOSE (end))
-		      ;
-		    TREE_PURPOSE (end) = tmp;
-		  }
-		else
-		  bind.context = tmp;
-
-		return bind;
-	      }
-	    else
-	      /* If the children of the BIND_EXPR are no good, try the next
-	         statement.  */
-	      bsi_next_in_bb (&i, bb);
-	  }
     }
 
   /* Now check that its the right basic block.  */
@@ -2774,7 +2530,6 @@ void
 bsi_next_in_bb (block_stmt_iterator *i, basic_block bb)
 {
   tree t, stmt = NULL_TREE;
-  block_stmt_iterator bind;
 
   /* Go to the next statement skipping over empty statements we may find.  */
   do
@@ -2796,30 +2551,6 @@ bsi_next_in_bb (block_stmt_iterator *i, basic_block bb)
 
   if (i->tp && bb_for_stmt (stmt) != bb)
     i->tp = NULL;
-
-  if (i->tp && TREE_CODE (stmt) == BIND_EXPR)
-    {
-      bind = bsi_init (&BIND_EXPR_BODY (stmt), bb);
-
-      /* If the basic block of the child is the same as this block, then push
-	 this context, and add it to the end of the new iterator.  */
-      if (bind.tp != NULL)
-	{
-	  tree tmp, end;
-	  tmp = build_tree_list (i->context, (tree) i->tp);
-	  if (bind.context)
-	    {
-	      for (end = bind.context;
-		   TREE_PURPOSE (end) != NULL;
-		   end = TREE_PURPOSE (end))
-		;
-	      TREE_PURPOSE (end) = tmp;
-	    }
-	  else
-	    bind.context = tmp;
-	}
-      *i = bind;
-    }
 
   if (i->tp == NULL && i->context != NULL_TREE)
     {
@@ -2935,11 +2666,6 @@ bsi_prev (block_stmt_iterator *i)
 
 /* Initialize a block_stmt_iterator with a statement pointed to by a tree
    iterator. If this cannot be done, a NULL iterator is returned.  */
-
-/* Note this routine is a bit ugly. Since BIND_EXPRs dont cause new block,
-   the block iterator keeps a stack of BIND_EXPRs which have been descended
-   into.  In order to create this stack properly, this routine traverses
-   through the block until it finds the specified tsi stmt.  */
 
 block_stmt_iterator
 bsi_from_tsi (tree_stmt_iterator ti)
@@ -3634,8 +3360,7 @@ pop_bsi (bsi_list_p *list)
    individual statements.
 
    If TP1 is pointing to a COMPOUND_EXPR node, only its LHS operand will be
-   replaced. If TP2 points to a COMPOUND_EXPR, a new BIND_EXPR will be
-   created to wrap the whole chain of statements into a single block.  */
+   replaced. TP2 may not point to a COMPOUND_EXPR.  */
 
 void
 replace_stmt (tree *tp1, tree *tp2)
@@ -3643,16 +3368,9 @@ replace_stmt (tree *tp1, tree *tp2)
   tree t;
 
   if (TREE_CODE (*tp2) == COMPOUND_EXPR)
-    {
-      /* If TP2 points to a COMPOUND_EXPR, create a BIND_EXPR to hold the
-	 chain of statements.  */
-      t = build (BIND_EXPR, void_type_node, NULL_TREE, *tp2, NULL_TREE);
-    }
-  else
-    {
-      /* Otherwise use TP2 statement directly.  */
-      t = *tp2;
-    }
+    abort ();
+      
+  t = *tp2;
 
   /* Relocate annotations for the replacement statement.  */
   SET_EXPR_LOCUS (t, EXPR_LOCUS (*tp1));
@@ -3865,16 +3583,6 @@ tree_loop_optimizer_finalize (struct loops *loops, FILE *dumpfile)
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
-}
-
-/* Assigns a scope to variables defined in bind_expr SCOPE.  */
-static void
-assign_vars_to_scope (tree scope)
-{
-  tree var;
-
-  for (var = BIND_EXPR_VARS (scope); var; var = TREE_CHAIN (var))
-    get_var_ann (var)->scope = scope;
 }
 
 /* Return true if basic block BB does nothing except pass control

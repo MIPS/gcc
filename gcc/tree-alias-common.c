@@ -915,6 +915,8 @@ create_alias_vars (tree fndecl)
   tree fnbody;
 #endif
   size_t i;
+  tree block;
+
   currptadecl = fndecl;
   create_global_var ();
 
@@ -953,6 +955,30 @@ create_alias_vars (tree fndecl)
       find_func_decls, NULL);*/
   walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
 				find_func_aliases, NULL);
+
+
+  /* Visit also the variables inside blocks (whose bind_exprs are no longer
+     in the tree).  */
+  block = DECL_INITIAL (fndecl);
+  while (1)
+    {
+      walk_tree_without_duplicates (&BLOCK_VARS (block),
+				    find_func_aliases, NULL);
+
+      if (BLOCK_SUBBLOCKS (block))
+	{
+	  block = BLOCK_SUBBLOCKS (block);
+	  continue;
+	}
+      while (block && !BLOCK_CHAIN (block))
+	block = BLOCK_SUPERCONTEXT (block);
+
+      if (!block)
+	break;
+
+      block = BLOCK_CHAIN (block);
+    }
+
   global_var = NULL_TREE;
 }
 

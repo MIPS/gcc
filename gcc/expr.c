@@ -6119,6 +6119,70 @@ find_placeholder (tree exp, tree *plist)
   return 0;
 }
 
+/* Expands variable VAR.  */
+
+void
+expand_var (tree var)
+{
+  if (DECL_EXTERNAL (var))
+    return;
+
+  if (TREE_STATIC (var))
+    /* If this is an inlined copy of a static local variable,
+       look up the original decl.  */
+    var = DECL_ORIGIN (var);
+
+  if (TREE_STATIC (var)
+      ? !TREE_ASM_WRITTEN (var)
+      : !DECL_RTL_SET_P (var))
+    {
+      if (TREE_CODE (var) == VAR_DECL && DECL_DEFER_OUTPUT (var))
+	{
+	  /* Prepare a mem & address for the decl.  */
+	  rtx x;
+		    
+	  if (TREE_STATIC (var))
+	    abort ();
+
+	  x = gen_rtx_MEM (DECL_MODE (var),
+			   gen_reg_rtx (Pmode));
+
+	  set_mem_attributes (x, var, 1);
+	  SET_DECL_RTL (var, x);
+	}
+      else if ((*lang_hooks.expand_decl) (var))
+	/* OK.  */;
+      else if (TREE_CODE (var) == VAR_DECL && !TREE_STATIC (var))
+	expand_decl (var);
+      else if (TREE_CODE (var) == VAR_DECL && TREE_STATIC (var))
+	rest_of_decl_compilation (var, NULL, 0, 0);
+      else if (TREE_CODE (var) == TYPE_DECL
+	       || TREE_CODE (var) == CONST_DECL
+	       || TREE_CODE (var) == FUNCTION_DECL
+	       || TREE_CODE (var) == LABEL_DECL)
+	/* No expansion needed.  */;
+      else
+	abort ();
+    }
+}
+
+/* Expands declarations of variables in list VARS.  */
+
+static void
+expand_vars (tree vars)
+{
+  for (; vars; vars = TREE_CHAIN (vars))
+    {
+      tree var = vars;
+
+      if (DECL_EXTERNAL (var))
+	continue;
+
+      expand_var (var);
+      expand_decl_init (var);
+    }
+}
+
 /* Subroutine of expand_expr.  Expand the two operands of a binary
    expression EXP0 and EXP1 placing the results in OP0 and OP1.
    The value may be stored in TARGET if TARGET is nonzero.  The
@@ -6779,52 +6843,7 @@ expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 	  }
 
 	/* If VARS have not yet been expanded, expand them now.  */
-	for (vars = BIND_EXPR_VARS (exp); vars; vars = TREE_CHAIN (vars))
-	  {
-	    tree var = vars;
-
-	    if (DECL_EXTERNAL (var))
-	      continue;
-
-	    if (TREE_STATIC (var))
-	      /* If this is an inlined copy of a static local variable,
-		 look up the original decl.  */
-	      var = DECL_ORIGIN (var);
-
-	    if (TREE_STATIC (var)
-		? !TREE_ASM_WRITTEN (var)
-		: !DECL_RTL_SET_P (var))
-	      {
-		if (TREE_CODE (var) == VAR_DECL && DECL_DEFER_OUTPUT (var))
-		  {
-		    /* Prepare a mem & address for the decl.  */
-		    rtx x;
-		    
-		    if (TREE_STATIC (var))
-		      abort ();
-
-		    x = gen_rtx_MEM (DECL_MODE (var),
-				     gen_reg_rtx (Pmode));
-
-		    set_mem_attributes (x, var, 1);
-		    SET_DECL_RTL (var, x);
-		  }
-		else if ((*lang_hooks.expand_decl) (var))
-		  /* OK.  */;
-		else if (TREE_CODE (var) == VAR_DECL && !TREE_STATIC (var))
-		  expand_decl (var);
-		else if (TREE_CODE (var) == VAR_DECL && TREE_STATIC (var))
-		  rest_of_decl_compilation (var, NULL, 0, 0);
-		else if (TREE_CODE (var) == TYPE_DECL
-			 || TREE_CODE (var) == CONST_DECL
-			 || TREE_CODE (var) == FUNCTION_DECL
-			 || TREE_CODE (var) == LABEL_DECL)
-		  /* No expansion needed.  */;
-		else
-		  abort ();
-	      }
-	    expand_decl_init (var);
-	  }
+	expand_vars (BIND_EXPR_VARS (exp));
 
 	/* TARGET was clobbered early in this function.  The correct
 	   indicator or whether or not we need the value of this 

@@ -45,7 +45,6 @@ static int dump_flags;
 static void copyprop_stmt (tree);
 static void copyprop_phi (tree);
 static inline tree get_original (tree);
-static void move_var_to_scope (tree, tree, tree);
 
 
 /* Main entry point to the copy propagator.  The algorithm is a simple
@@ -128,7 +127,7 @@ copyprop_stmt (tree stmt)
 	      fprintf (dump_file, "\n");
 	    }
 
-	  propagate_copy (use_p, orig, ann->scope);
+	  propagate_copy (use_p, orig);
 	  modified = true;
 	}
     }
@@ -219,12 +218,10 @@ get_original (tree var)
 
 /* Replace the operand pointed to by OP_P with variable VAR.  If *OP_P is a
    pointer, copy the memory tag used originally by *OP_P into VAR.  This is
-   needed in cases where VAR had never been dereferenced in the program.
-   
-   SCOPE is the bind block in that the *OP_P occurs.  */
+   needed in cases where VAR had never been dereferenced in the program.  */
    
 void
-propagate_copy (tree *op_p, tree var, tree scope)
+propagate_copy (tree *op_p, tree var)
 {
 #if defined ENABLE_CHECKING
   if (!may_propagate_copy (*op_p, var))
@@ -247,70 +244,4 @@ propagate_copy (tree *op_p, tree var, tree scope)
     }
 
   *op_p = var;
- 
-  fixup_var_scope (var, scope);
-}
-
-/* Fixes scope of variable VAR if it does not currently belong to SCOPE.  */
-void
-fixup_var_scope (tree var, tree scope)
-{
-  tree old_scope;
-  
-  if (TREE_CODE (var) == SSA_NAME)
-    var = SSA_NAME_VAR (var);
-  old_scope = var_ann (var)->scope;
-
-  /* If there is no old_scope, it is a newly created temporary, i.e. it is
-     in the topmost bind_expr and we have nothing to do.  */
-  if (old_scope)
-    {
-      if (!scope)
-	scope = DECL_SAVED_TREE (current_function_decl);
-      else
-	{
-	  while (stmt_ann (scope)->scope_level
-		 > stmt_ann (old_scope)->scope_level)
-	    scope = stmt_ann (scope)->scope;
-	}
-      if (scope != old_scope)
-	move_var_to_scope (var, old_scope,
-			   DECL_SAVED_TREE (current_function_decl));
-    }
-}
-
-/* Moves variable VAR from OLD_SCOPE to SCOPE.  */
-static void
-move_var_to_scope (tree var, tree old_scope, tree scope)
-{
-  tree avar, prev;
-  tree block = BIND_EXPR_BLOCK (old_scope);
-
-  prev = NULL_TREE;
-  for (avar = BIND_EXPR_VARS (old_scope);
-       avar;
-       prev = avar, avar = TREE_CHAIN (avar))
-    if (avar == var)
-      break;
-  if (!avar)
-    abort ();
-
-  if (block)
-    remove_decl (avar, block);
-  else
-    remove_decl (avar, DECL_INITIAL (current_function_decl));
-
-  if (prev)
-    TREE_CHAIN (prev) = TREE_CHAIN (avar);
-  else
-    BIND_EXPR_VARS (old_scope) = TREE_CHAIN (avar);
-
-  TREE_CHAIN (var) = BIND_EXPR_VARS (scope);
-  BIND_EXPR_VARS (scope) = var;
-  var_ann (var)->scope = scope;
-
-  /* Dwarf2out ices (in add_abstract_origin_attribute) when it encounters
-     variable that is not declared, but has DECL_ABSTRACT_ORIGIN set.  */
-  if (!TREE_STATIC (var))
-    DECL_ABSTRACT_ORIGIN (var) = NULL_TREE;
 }

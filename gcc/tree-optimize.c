@@ -313,6 +313,9 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);
 
+  /* Expand the variables recorded during gimple lowering.  */
+  expand_used_vars ();
+
   /* Allow language dialects to perform special processing.  */
   (*lang_hooks.rtl_expand.start) ();
 

@@ -121,9 +121,6 @@ struct var_ann_d GTY(())
   /* Used by the root-var object in tree-ssa-live.[ch].  */
   unsigned root_index;
 
-  /* The BIND_EXPR in that the variable is declared.  */
-  tree scope;
-
   /* Default definition for this symbol.  If this field is not NULL, it
      means that the first reference to this variable in the function is a
      USE or a VUSE.  In those cases, the SSA renamer creates an SSA name
@@ -234,12 +231,6 @@ struct stmt_ann_d GTY(())
 
   /* Array of variables that have had their address taken in the statement.  */
   varray_type addresses_taken;
-
-  /* The BIND_EXPR to that the statement belongs.  */
-  tree scope;
-
-  /* For BIND_EXPR, its level in the tree of BIND_EXPRs.  */
-  int scope_level;
 };
 
 
@@ -387,6 +378,9 @@ extern GTY(()) tree global_var;
 /* Array of all variables that are call clobbered in the function.  */
 extern GTY(()) varray_type call_clobbered_vars;
 
+/* List of the variables found during gimple lowering pass.  */
+extern GTY(()) tree unexpanded_var_list;
+
 #define num_call_clobbered_vars	VARRAY_ACTIVE_SIZE (call_clobbered_vars)
 #define add_call_clobbered_var(v) VARRAY_PUSH_TREE (call_clobbered_vars, v)
 #define call_clobbered_var(i) VARRAY_TREE (call_clobbered_vars, i)
@@ -484,6 +478,7 @@ extern void mark_new_vars_to_rename (tree, sbitmap);
 
 /* In gimple-low.c  */
 void lower_function_body (tree *);
+void expand_used_vars (void);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
@@ -522,8 +517,7 @@ void tree_ssa_dce (tree, enum tree_dump_index);
 
 /* In tree-ssa-copyprop.c  */
 void tree_ssa_copyprop (tree, enum tree_dump_index);
-void propagate_copy (tree *, tree, tree);
-void fixup_var_scope (tree, tree);
+void propagate_copy (tree *, tree);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);

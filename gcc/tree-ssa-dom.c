@@ -1645,7 +1645,7 @@ cprop_into_stmt (tree stmt)
 	      may_have_exposed_new_symbols = true;
 
 	    if (TREE_CODE (val) == SSA_NAME)
-	      propagate_copy (op_p, val, stmt_ann (stmt)->scope);
+	      propagate_copy (op_p, val);
 	    else
 	      *op_p = val;
 
@@ -1830,11 +1830,9 @@ eliminate_redundant_computations (tree stmt,
 	abort ();
 #endif
 
-      if (TREE_CODE (cached_lhs) == SSA_NAME)
-	fixup_var_scope (cached_lhs, ann->scope);
-      else if (TREE_CODE (cached_lhs) == ADDR_EXPR
-	       || (POINTER_TYPE_P (TREE_TYPE (*expr_p))
-		   && is_gimple_min_invariant (cached_lhs)))
+      if (TREE_CODE (cached_lhs) == ADDR_EXPR
+	  || (POINTER_TYPE_P (TREE_TYPE (*expr_p))
+	      && is_gimple_min_invariant (cached_lhs)))
 	retval = true;
 
       *expr_p = cached_lhs;

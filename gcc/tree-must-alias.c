@@ -97,6 +97,7 @@ tree_compute_must_alias (tree fndecl, sbitmap vars_to_rename,
 	  && !POINTER_TYPE_P (TREE_TYPE (var))
 	  && TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE
 	  && decl_function_context (var) == current_function_decl
+	  && !DECL_NONLOCAL (var)
 	  && !TEST_BIT (addresses_needed, var_ann (var)->uid))
 	promote_var (var, vars_to_rename);
     }

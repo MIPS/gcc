@@ -500,6 +500,8 @@ extern tree find_placeholder (tree, tree *);
    In the case of a void EXP, const0_rtx is returned.  */
 extern rtx expand_expr (tree, rtx, enum machine_mode, enum expand_modifier);
 
+extern void expand_var (tree);
+
 /* At the start of a function, record that we have no previously-pushed
    arguments waiting to be popped.  */
 extern void init_pending_stack_adjust (void);

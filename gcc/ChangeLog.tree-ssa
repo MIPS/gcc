@@ -1,3 +1,35 @@
+2003-11-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* expr.c (expand_vars, expand_var): Split of ...
+	(expand_expr_1): ... here.
+	* expr.h (expand_var): Declare.
+	* gimple-low.c (lower_function_body, lower_stmt, lower_bind_expr):
+	Eliminate BIND_EXPRs.
+	(expand_used_vars): New.
+	* tree-alias-common.c (create_alias_vars): Valk variables in blocks.
+	* tree-cfg.c (make_bind_expr_blocks): Removed.
+	(make_blocks, build_tree_cfg, factor_computed_gotos): Don't handle
+	BIND_EXPRs.
+	(assign_vars_to_scope, successor_block, NEXT_BLOCK_LINK): Removed.
+	(make_edges, make_exit_edges): Don't use successor_block.
+	(remove_useless_stmts_and_vars_goto): Don't expect NEXT_BLOCK_LINK
+	to be set.
+	(bsi_init, bsi_next_in_bb, bsi_from_tsi): Don't handle BIND_EXPRs.
+	(replace_stmt): Don't create BIND_EXPRs.
+	* tree-flow.h (struct var_ann_d): Removed field scope.
+	(struct stmt_ann_d): Removed fields scope and scope_level.
+	(propagate_copy): Declaration changed.
+	(fixup_var_scope): Removed.
+	* tree-must-alias.c (tree_compute_must_alias): Consider DECL_NONLOCAL
+	vars call clobbered.
+	* tree-optimize.c (tree_rest_of_compilation): Call expand_used_vars.
+	* tree-ssa-copyprop.c (move_var_to_scope, fixup_var_scope): Removed.
+	(copyprop_stmt): Call to propagate_copy changed.
+	(propagate_copy): Don't update scope.
+	* tree-ssa-dom.c (cprop_into_stmt): Call to propagate_copy changed.
+	(eliminate_redundant_computations): Don't call fixup_var_scope.
+	* tree-ssa.c (insert_copy_on_edge): Don't update scope.
+
 2003-11-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-inline.c (walk_tree): Tail recursion optimized for
