@@ -2739,9 +2739,17 @@ code_motion (struct expr_info *ei)
 	  modify_stmt (use_stmt);
 	  pre_stats.reloads++;
 	}
-      else if (TREE_CODE (use) == EPHI_NODE 
-	       && ephi_will_be_avail (use) 
-	       && !EPHI_IDENTITY (use))
+    }
+  
+  /* Now do the phi nodes. */
+  for (euse_iter = 0;
+       euse_iter < VARRAY_ACTIVE_SIZE (ei->euses_dt_order);
+       euse_iter++)
+    {
+      use = VARRAY_TREE (ei->euses_dt_order, euse_iter);  
+      if (TREE_CODE (use) == EPHI_NODE 
+	  && ephi_will_be_avail (use) 
+	  && !EPHI_IDENTITY (use))
 	{
 	  int i;
 	  tree argdef;
@@ -2758,24 +2766,18 @@ code_motion (struct expr_info *ei)
 	      argdef = EPHI_ARG_DEF (use, i);
 	      if (argdef == use)
 		rdef = get_temp (use);
+	      else if (EREF_RELOAD (argdef) || EREF_SAVE (argdef))
+		rdef = get_temp (argdef);
+	      else if (TREE_CODE (argdef) == EPHI_NODE)
+		rdef = get_temp (argdef);
 	      else if (argdef 
 		  && EPHI_ARG_HAS_REAL_USE (use, i) 
 		  && EREF_STMT (argdef)
 		  && !EPHI_ARG_INJURED (use, i))
 		rdef = pick_ssa_name (EREF_STMT (argdef));
-	      else if (TREE_CODE (argdef) == EUSE_NODE)
-		rdef = get_temp (argdef);
 	      else
-		{
-#ifdef ENABLE_CHECKING
-		  /* All the operands should be real, inserted, or
-		     other phis.  */
-		  if (TREE_CODE (argdef) != EPHI_NODE)
-		    abort();
-#endif
-		  rdef = get_temp (argdef);
-		}
-	      
+		abort ();
+	      	      
 	      if (!rdef)
 	        abort();
 	      add_phi_arg (&newtemp, rdef, EPHI_ARG_EDGE (use, i));
@@ -2786,7 +2788,6 @@ code_motion (struct expr_info *ei)
 	  pre_stats.newphis++;
 
 	}
-
     }
 }
 

@@ -1,3 +1,9 @@
+2003-12-03  Daniel Berlin  <dberlin@dberlin.org>
+	
+	Fix PR 13177
+	* tree-ssa-pre.c (code_motion): Do phi nodes last, and rearrange
+	how we decide what temporary to choose so that we get it right.
+	
 2003-12-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-dfa.c (get_expr_operands): Don't record VUSEs for invariant
