@@ -1,3 +1,9 @@
+2005-01-03  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3936917
+	* config/rs6000/altivec.md (altivec_vandc): Correct RTL
+	pattern and use its canonical form.
+	
 2005-01-03  Stuart Hastings <stuart@apple.com>
 
 	Radar 3830232, Bugzilla 17526

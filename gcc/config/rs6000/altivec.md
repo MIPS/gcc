@@ -1,5 +1,5 @@
 ;; AltiVec patterns.
-;; Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+;; Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 ;; Contributed by Aldy Hernandez (aldy@quesejoda.com)
 
 ;; This file is part of GCC.
@@ -463,10 +463,10 @@
 
 (define_insn "altivec_vandc"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
-        (and:V4SI (not:V4SI (match_operand:V4SI 1 "register_operand" "v"))
-                  (match_operand:V4SI 2 "register_operand" "v")))]
+        (and:V4SI (not:V4SI (match_operand:V4SI 2 "register_operand" "v"))
+                  (match_operand:V4SI 1 "register_operand" "v")))]
   "TARGET_ALTIVEC"
-  "vandc %0,%2,%1"
+  "vandc %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "altivec_vavgub"
