@@ -2298,20 +2298,24 @@ extern enum reg_class mips_char_to_class[256];
    second operand.
 
    `Q' is for signed 16-bit constants.
-   `R' is for constant move_operands that can be safely loaded into $25.
+   `R' is for single-instruction memory references.  Note that this
+	 constraint has often been used in linux and glibc code.
    `S' is for legitimate constant call addresses.
-   `T' is for constant move_operands that cannot be safely loaded into $25.  */
+   `T' is for constant move_operands that cannot be safely loaded into $25.
+   `U' is for constant move_operands that can be safely loaded into $25.  */
 
 #define EXTRA_CONSTRAINT(OP,CODE)					\
   (((CODE) == 'Q')	  ? const_arith_operand (OP, VOIDmode)		\
-   : ((CODE) == 'R')	  ? (CONSTANT_P (OP)				\
-			     && move_operand (OP, VOIDmode)		\
-			     && !DANGEROUS_FOR_LA25_P (OP))		\
+   : ((CODE) == 'R')	  ? (GET_CODE (OP) == MEM			\
+			     && mips_fetch_insns (OP) == 1)		\
    : ((CODE) == 'S')	  ? (CONSTANT_P (OP)				\
 			     && call_insn_operand (OP, VOIDmode))	\
    : ((CODE) == 'T')	  ? (CONSTANT_P (OP)				\
 			     && move_operand (OP, VOIDmode)		\
 			     && DANGEROUS_FOR_LA25_P (OP))		\
+   : ((CODE) == 'U')	  ? (CONSTANT_P (OP)				\
+			     && move_operand (OP, VOIDmode)		\
+			     && !DANGEROUS_FOR_LA25_P (OP))		\
    : FALSE)
 
 /* Given an rtx X being reloaded into a reg required to be
