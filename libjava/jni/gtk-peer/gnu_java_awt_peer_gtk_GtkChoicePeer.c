@@ -48,7 +48,6 @@ Java_gnu_java_awt_peer_gtk_GtkChoicePeer_create
   GtkWidget *menu;
   GtkComboBox *combobox;
 
-  /* Create global reference and save it for future use */
   NSA_SET_GLOBAL_REF (env, obj);
 
   gdk_threads_enter ();
