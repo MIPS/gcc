@@ -1,3 +1,8 @@
+2003-06-23  Jeff Law  <law@redhat.com>
+
+	* gimplify.c (gimplify_modify_expr): Don't create a new MODIFY_EXPR,
+	reuse the existing one.
+
 2003-06-23  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-cfg.c (find_insert_location): Default case should insert after 

@@ -1,3 +1,7 @@
+2003-06-23  Jeff Law  <law@redhat.com>
+
+	* Make-lang.in (java-gimplify.o): Add dependencies.
+
 2003-06-22  Jeff Sturm  <jsturm@one-point.com>
 
 	* parse.y (source_end_java_method): Don't attempt to inline

@@ -1896,8 +1896,7 @@ gimplify_modify_expr (expr_p, pre_p, post_p, want_value)
 	  || (flag_non_call_exceptions && could_trap_p (*from_p))))
     {
       tree tmp = get_initialized_tmp_var (*from_p, pre_p);
-      *expr_p = build (MODIFY_EXPR, TREE_TYPE (TREE_OPERAND (*expr_p, 0)),
-		       TREE_OPERAND (*expr_p, 0), tmp);
+      TREE_OPERAND (*expr_p, 1) = tmp;
     }
 
   if (want_value)
