@@ -1,3 +1,7 @@
+2003-01-23  Jeff Law <law@redhat.com>
+
+	* tree-cfg.c (make_exit_edges): Fix thinkos.
+
 2003-01-22  Jeff Law <law@redhat.com>
 
  	* tree-cfg.c (make_goto_expr_edges): Check the underlying

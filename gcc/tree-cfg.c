@@ -555,10 +555,10 @@ make_exit_edges (bb)
 
       /* If this is potentially a nonlocal goto, then this should also
 	 create an edge to the exit block.   */
-      if ((GOTO_DESTINATION (last) == LABEL_DECL
+      if ((TREE_CODE (GOTO_DESTINATION (last)) == LABEL_DECL
 	   && (decl_function_context (GOTO_DESTINATION (last))
 	       != current_function_decl))
-	  || (GOTO_DESTINATION (last) != LABEL_DECL
+	  || (TREE_CODE (GOTO_DESTINATION (last)) != LABEL_DECL
 	      && DECL_CONTEXT (current_function_decl)))
 	make_edge (bb, EXIT_BLOCK_PTR, EDGE_ABNORMAL);
       break;
