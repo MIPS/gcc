@@ -66,12 +66,25 @@ struct ggc_tree
 
 static struct ggc_tree *trees;
 
+struct ggc_string
+{
+  struct ggc_string *chain;
+  int magic_mark;
+  char string[1];
+};
+
+#define GGC_STRING_MAGIC	0xa1b2c3d4
+
+static struct ggc_string *strings;
+
 /* Some statistics.  */
 
 static int n_rtxs_collected;
 static int n_vecs_collected;
 static int n_trees_collected;
-int gc_time;
+static int n_strings_collected;
+static int bytes_alloced_since_gc;
+extern int gc_time;
 
 #ifdef GGC_DUMP
 static FILE *dump;
@@ -104,6 +117,8 @@ ggc_alloc_rtx (nslots)
   fprintf (dump, "alloc rtx %p\n", &n->rtx);
 #endif
 
+  bytes_alloced_since_gc += size;
+
   return &n->rtx;
 }
 
@@ -122,6 +137,8 @@ ggc_alloc_rtvec (nelt)
 #ifdef GGC_DUMP
   fprintf(dump, "alloc vec %p\n", &v->vec);
 #endif
+
+  bytes_alloced_since_gc += size;
 
   return &v->vec;
 }
@@ -142,8 +159,44 @@ ggc_alloc_tree (length)
   fprintf(dump, "alloc tree %p\n", &n->tree);
 #endif
 
+  bytes_alloced_since_gc += size;
+
   return &n->tree;
 }
+
+char *
+ggc_alloc_string (contents, length)
+     const char *contents;
+     int length;
+{
+  struct ggc_string *s;
+  int size;
+
+  if (length < 0)
+    {
+      if (contents == NULL)
+	abort();
+      length = strlen (contents);
+    }
+
+  size = (s->string - (char *)s) + length + 1;
+  s = (struct ggc_string *) xmalloc(size);
+  s->chain = strings;
+  s->magic_mark = GGC_STRING_MAGIC;
+  if (contents)
+    bcopy (contents, s->string, length);
+  s->string[length] = 0;
+  strings = s;
+
+#ifdef GGC_DUMP
+  fprintf(dump, "alloc string %p\n", &n->tree);
+#endif
+
+  bytes_allocated_since_gc += size;
+
+  return s->string;
+}
+
 
 /* Freeing a bit of rtl isn't quite as simple as calling free, there are
    a few associated bits that might need freeing as well.  */
@@ -166,22 +219,6 @@ ggc_free_rtx (r)
       free (PARMREG_STACK_LOC (&r->rtx));
 #endif
       break;
-    }
-
-  for (fmt = GET_RTX_FORMAT (GET_CODE (&r->rtx)), i = 0; *fmt ; ++fmt, ++i)
-    {
-      switch (*fmt)
-	{
-#if 0
-	/* ??? Should probably GC these as well.  Temporarily leak them. */
-	case 'S':
-	  if (XSTR (&r->rtx, i))
-	    break;
-	case 's':
-	  free (XSTR (&r->rtx, i));
-	  break;
-#endif
-	}
     }
 
 #ifdef GGC_DUMP
@@ -224,13 +261,6 @@ ggc_free_tree (t)
     case 't': /* A type node.  */
       lang_cleanup_tree (&t->tree);
       break;
-    case 'c': /* A constant.  */
-#if 0
-      /* ??? Should probably GC these as well.  Temporarily leak them. */
-      if (TREE_CODE (&t->tree) == STRING_CST)
-	free (TREE_STRING_POINTER (&t->tree));
-      break;
-#endif
     }
 
 #ifdef GGC_DUMP
@@ -243,7 +273,24 @@ ggc_free_tree (t)
   free (t);
 }
 
-/* Mark all of the nodes referenced by an rtx.  */
+/* Freeing a string is as simple as calling free.  */
+
+static void
+ggc_free_string (v)
+     struct ggc_string *s;
+{
+#ifdef GGC_DUMP
+  fprintf(dump, "collect string %p\n", s->string);
+#endif
+#ifdef GGC_POISON
+  s->magic_mark = 0xDDDDDDDD;
+  s->string[0] = 0xDD;
+#endif
+
+  free (s);
+}
+
+/* Mark a node.  */
 
 void
 ggc_mark_rtx (r)
@@ -305,6 +352,9 @@ ggc_mark_rtx (r)
 	case 'V': case 'E':
 	  ggc_mark_rtvec (XVEC (r, i));
 	  break;
+	case 'S': case 's':
+	  ggc_mark_string (XSTR (r, i));
+	  break;
 	}
     }
 }
@@ -323,8 +373,6 @@ ggc_mark_rtvec (v)
   while (--i >= 0)
     ggc_mark_rtx (RTVEC_ELT (v, i));
 }
-
-/* Mark all of the nodes referenced by a tree.  */
 
 void
 ggc_mark_tree (t)
@@ -373,6 +421,10 @@ ggc_mark_tree (t)
     case COMPLEX_CST:
       ggc_mark_tree (TREE_REALPART (t));
       ggc_mark_tree (TREE_IMAGPART (t));
+      break;
+
+    case STRING_CST:
+      ggc_mark_string (TREE_STRING_POINTER (&t->tree));
       break;
 
     case PARM_DECL:
@@ -448,6 +500,20 @@ ggc_mark_tree (t)
     }
 }
 
+void
+ggc_mark_string (s)
+     char *s;
+{
+  int *magic = (int *)s - 1;
+
+  if (s == NULL)
+    return;
+
+  if ((*magic & ~1) != GGC_STRING_MAGIC)
+    return;   /* abort? */
+  *magic = GGC_STRING_MAGIC | 1;
+}
+
 /* The top level mark-and-sweep routine.  */
 
 void
@@ -457,8 +523,13 @@ ggc_collect (ignore_after)
   struct ggc_rtx *r, **rp;
   struct ggc_rtvec *v, **vp;
   struct ggc_tree *t, **tp;
+  struct ggc_string *s, **sp;
   struct ggc_root *x;
-  int time, n_rtxs, n_trees, n_vecs;
+  int time, n_rtxs, n_trees, n_vecs, n_strings;
+
+  /* See if it's even worth our while.  */
+  if (!ignore_after && bytes_alloced_since_gc < 64*1024)
+    return;
 
   if (!quiet_flag)
     fputs (" {GC ", stderr);
@@ -472,6 +543,8 @@ ggc_collect (ignore_after)
     v->vec.gc_mark = 0;
   for (t = trees; t != NULL; t = t->chain)
     t->tree.common.gc_mark = 0;
+  for (s = strings; s != NULL; s = s->chain)
+    s->magic_mark = GGC_STRING_MAGIC;
 
   /* Mark through all the roots.  */
   for (x = roots; x != NULL; x = x->next)
@@ -537,11 +610,29 @@ ggc_collect (ignore_after)
   *tp = NULL;
   n_trees_collected += n_trees;
 
+  sp = &strings, s = strings, n_strings = 0;
+  while (s != NULL)
+    {
+      struct ggc_string *chain = s->chain;
+      if (!(s->magic_mark & 1))
+        {
+	  ggc_free_string (s);
+	  *sp = chain;
+	  n_strings++;
+        }
+      else
+	sp = &s->chain;
+      s = chain;
+    }
+  *sp = NULL;
+  n_strings_collected += n_strings;
+
   if (ignore_after)
     {
       rtxs = NULL;
       vecs = NULL;
       trees = NULL;
+      strings = NULL;
     }
 
   gc_time += time = get_run_time () - time;
@@ -549,8 +640,8 @@ ggc_collect (ignore_after)
   if (!quiet_flag)
     {
       time = (time + 500) / 1000;
-      fprintf (stderr, "r=%d,v=%d,t=%d, %d.%03d}", n_rtxs, n_vecs, n_trees,
-	       time / 1000, time % 1000);
+      fprintf (stderr, "%d,%d,%d,%d %d.%03d}", n_rtxs, n_vecs, n_trees,
+	       n_strings, time / 1000, time % 1000);
     }
 }
 
@@ -629,8 +720,8 @@ ggc_mark_tree_ptr (elt)
 static void __attribute__((constructor))
 init(void)
 {
-  dump = fopen("zgcdump", "w");
-  setlinebuf(dump);
+  dump = fopen ("zgcdump", "w");
+  setlinebuf (dump);
 }
 #endif
 

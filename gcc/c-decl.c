@@ -7279,6 +7279,7 @@ struct c_function
 };
 
 struct c_function *c_function_chain;
+/* ??? MARK ME */
 
 /* Save and reinitialize the variables
    used during compilation of a C function.  */

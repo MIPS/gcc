@@ -1154,13 +1154,9 @@ build_control_flow (s_preds, s_succs, num_preds, num_succs)
   /* Account for entry/exit edges.  */
   nr_edges += 2;
 
-  in_edges = (int *) xmalloc (n_basic_blocks * sizeof (int));
-  out_edges = (int *) xmalloc (n_basic_blocks * sizeof (int));
-  bzero ((char *) in_edges, n_basic_blocks * sizeof (int));
-  bzero ((char *) out_edges, n_basic_blocks * sizeof (int));
-
-  edge_table = (edge *) xmalloc ((nr_edges) * sizeof (edge));
-  bzero ((char *) edge_table, ((nr_edges) * sizeof (edge)));
+  in_edges = (int *) xcalloc (n_basic_blocks, sizeof (int));
+  out_edges = (int *) xcalloc (n_basic_blocks, sizeof (int));
+  edge_table = (edge *) xcalloc (nr_edges, sizeof (edge));
 
   nr_edges = 0;
   for (i = 0; i < n_basic_blocks; i++)

@@ -4612,13 +4612,8 @@ static int spelling_size;		/* Size of the spelling stack.  */
   if (depth >= spelling_size)						\
     {									\
       spelling_size += 10;						\
-      if (spelling_base == 0)						\
-	spelling_base							\
-	  = (struct spelling *) xmalloc (spelling_size * sizeof (struct spelling));	\
-      else								\
-        spelling_base							\
-	  = (struct spelling *) xrealloc (spelling_base,		\
-					  spelling_size * sizeof (struct spelling));	\
+      spelling_base = (struct spelling *)				\
+	xrealloc (spelling_base, spelling_size * sizeof (struct spelling)); \
       RESTORE_SPELLING_DEPTH (depth);					\
     }									\
 									\
@@ -4714,7 +4709,7 @@ get_spelling (errtype)
      char *errtype;
 {
   static char *buffer;
-  static int size = -1;
+  static int size;
 
   if (errtype == &initialization_message)
     {
@@ -4723,8 +4718,6 @@ get_spelling (errtype)
       register int needed = sizeof (message) + spelling_length () + 1;
       char *temp;
 
-      if (size < 0)
-	buffer = (char *) xmalloc (size = needed);
       if (needed > size)
 	buffer = (char *) xrealloc (buffer, size = needed);
 

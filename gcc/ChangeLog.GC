@@ -1,3 +1,36 @@
+Sat May 16 14:24:34 1998  Richard Henderson  <rth@cygnus.com>
+
+	* c-common.c (c_expand_start_cond): Trust xrealloc to function
+	correctly with first parameter NULL.
+	* c-typeck.c (PUSH_SPELLING): Likewise.
+	(get_spelling): Likewise.
+	* scan.c (make_sstring_space): Likewise.
+
+	* dbxout.c (dbxout_init): Use xcalloc instead of xmalloc+bzero.
+	* dwarf2out.c (dwarf2out_frame_init): Likewise.
+	* except.c (find_exception_handler_labels): Likewise.
+	* final.c (shorten_branches): Likewise.
+	* flow.c (find_basic_blocks): Likewise.
+	* global.c (global_alloc): Likewise.
+	* haifa-sched.c (build_control_flow): Likewise.
+	* stmt.c (check_for_full_enumeration_handling): Likewise.
+	(estimate_case_costs): Likewise.
+	* local-alloc.c (local_alloc): Likewise.
+	* rtl.h, tree.h: Prototype xcalloc.
+	* toplev.c (xcalloc): New function.
+
+	* c-common.c (combine_strings): Use ggc_alloc_string. 
+	* emit-rtl.c (gen_rtx): Likewise.
+	* gengenrtl.c (gendef): Likewise.
+	* tree.c (build_string): Likewise.
+
+	* c-common.c (combine_strings): Clean up wchar_t manipulation.
+
+	* ggc-simple.c (strings, ggc_alloc_string, ggc_free_string): New.
+	(ggc_mark_string): New.
+	(ggc_mark_rtx, ggc_mark_tree): Call it.
+	(ggc_collect): Collect the strings.
+
 Sat May  9 16:08:38 1998  Richard Henderson  <rth@cygnus.com>
 
 	* c-lang.c (lang_mark_tree): Care for identifiers.

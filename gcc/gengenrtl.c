@@ -208,12 +208,18 @@ gendef (f, format)
   fprintf (f, "  PUT_MODE (rt, mode);\n");
 
   for (p = format, i = j = 0; *p ; ++p, ++i)
-    if (*p != '0')
-      {
-	fprintf (f, "  %s (rt, %d) = arg%d;\n",
-		 accessor_from_format (*p), i, j++);
-      }
-
+    {
+      if (*p == 's' || *p == 'S')
+	{
+	  fprintf (f, "  %s (rt, %d) = ggc_alloc_string (arg%d, -1);\n",
+		   accessor_from_format (*p), i, j++);
+	}
+      else if (*p != '0')
+	{
+	  fprintf (f, "  %s (rt, %d) = arg%d;\n",
+		   accessor_from_format (*p), i, j++);
+	}
+    }
   fprintf (f, "\n  return rt;\n}\n\n");
 }
 

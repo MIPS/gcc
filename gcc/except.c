@@ -1675,11 +1675,10 @@ find_exception_handler_labels ()
 
   /* Generate a handy reference to each label.  */
 
-  /* We call xmalloc here instead of alloca; we did the latter in the past,
+  /* We call xcalloc here instead of alloca; we did the latter in the past,
      but found that it can sometimes end up being asked to allocate space
      for more than 1 million labels.  */
-  labels = (rtx *) xmalloc ((max_labelno - min_labelno) * sizeof (rtx));
-  bzero ((char *) labels, (max_labelno - min_labelno) * sizeof (rtx));
+  labels = (rtx *) xcalloc ((max_labelno - min_labelno), sizeof (rtx));
 
   /* Arrange for labels to be indexed directly by CODE_LABEL_NUMBER.  */
   labels -= min_labelno;

@@ -1920,6 +1920,18 @@ xmalloc (size)
   return value;
 }
 
+/* Same as `calloc' but report error if no memory available.  */
+
+char *
+xcalloc (nelt, size)
+     unsigned nelt, size;
+{
+  register char *value = (char *) calloc (nelt, size);
+  if (value == 0 && nelt != 0 && size != 0)
+    fatal ("virtual memory exhausted");
+  return value;
+}
+
 /* Same as `realloc' but report error if no memory available.  
    Also handle null PTR even if the vendor realloc gets it wrong.  */
 

@@ -87,12 +87,7 @@ c_expand_start_cond (cond, exitflag, compstmt_count)
      int compstmt_count;
 {
   /* Make sure there is enough space on the stack.  */
-  if (if_stack_space == 0)
-    {
-      if_stack_space = 10;
-      if_stack = (if_elt *)xmalloc (10 * sizeof (if_elt));
-    }
-  else if (if_stack_space == if_stack_pointer)
+  if (if_stack_space == if_stack_pointer)
     {
       if_stack_space += 10;
       if_stack = (if_elt *)xrealloc (if_stack, if_stack_space * sizeof (if_elt));
@@ -240,7 +235,7 @@ combine_strings (strings)
       if (wide_flag)
 	length = length * wchar_bytes + wide_length;
 
-      p = savealloc (length);
+      p = ggc_alloc_string (NULL, length);
 
       /* Copy the individual strings into the new combined string.
 	 If the combined string is wide, convert the chars to ints
@@ -264,17 +259,26 @@ combine_strings (strings)
 		{
 		  if (WCHAR_TYPE_SIZE == HOST_BITS_PER_SHORT)
 		    ((short *) q)[i] = TREE_STRING_POINTER (t)[i];
-		  else
+		  else if (WCHAR_TYPE_SIZE == HOST_BITS_PER_INT)
 		    ((int *) q)[i] = TREE_STRING_POINTER (t)[i];
+		  else if (WCHAR_TYPE_SIZE == HOST_BITS_PER_LONG)
+		    ((long *) q)[i] = TREE_STRING_POINTER (t)[i];
+		  else
+		    abort ();
 		}
 	      q += len * wchar_bytes;
 	    }
 	}
       if (wide_flag)
 	{
-	  int i;
-	  for (i = 0; i < wchar_bytes; i++)
-	    *q++ = 0;
+	  if (WCHAR_TYPE_SIZE == HOST_BITS_PER_SHORT)
+	    *(short *) q = 0;
+	  else if (WCHAR_TYPE_SIZE == HOST_BITS_PER_INT)
+	    *(int *) q = 0;
+	  else if (WCHAR_TYPE_SIZE == HOST_BITS_PER_LONG)
+	    *(long *) q = 0;
+	  else
+	    abort ();
 	}
       else
 	*q = 0;

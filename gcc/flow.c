@@ -363,8 +363,7 @@ find_basic_blocks (f, nregs, file, live_reachable_p)
   basic_block_loop_depth = (short *) xmalloc (n_basic_blocks * sizeof (short));
   uid_block_number
     = (int *) xmalloc ((max_uid_for_flow + 1) * sizeof (int));
-  uid_volatile = (char *) xmalloc (max_uid_for_flow + 1);
-  bzero (uid_volatile, max_uid_for_flow + 1);
+  uid_volatile = (char *) xcalloc (max_uid_for_flow + 1, 1);
 
   find_basic_blocks_1 (f, nonlocal_label_list, live_reachable_p);
 }

@@ -28,6 +28,7 @@
 struct rtx_def *ggc_alloc_rtx PROTO ((int nslots));
 struct rtvec_def *ggc_alloc_rtvec PROTO ((int nelt));
 union tree_node *ggc_alloc_tree PROTO ((int length));
+char *ggc_alloc_string PROTO ((const char *contents, int length));
 
 /* Invoke the collector.  This is really just a hint, but in the case of
    the simple collector, the only time it will happen.  */
@@ -45,6 +46,7 @@ void ggc_del_root PROTO ((void *base));
 void ggc_mark_rtx PROTO ((struct rtx_def *));
 void ggc_mark_rtvec PROTO ((struct rtvec_def *));
 void ggc_mark_tree PROTO ((union tree_node *));
+void ggc_mark_string PROTO ((char *));
 
 /* Callbacks to the languages.  */
 

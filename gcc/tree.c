@@ -1484,7 +1484,7 @@ build_string (len, str)
 
   register tree s = make_node (STRING_CST);
   TREE_STRING_LENGTH (s) = len;
-  TREE_STRING_POINTER (s) = obstack_copy0 (saveable_obstack, str, len);
+  TREE_STRING_POINTER (s) = ggc_alloc_string (str, len);
   return s;
 }
 

@@ -419,10 +419,8 @@ local_alloc ()
      reload will allocate them.  */
 
   scratch_list_length = max_qty;
-  scratch_list = (rtx *) xmalloc (scratch_list_length * sizeof (rtx));
-  bzero ((char *) scratch_list, scratch_list_length * sizeof (rtx));
-  scratch_block = (int *) xmalloc (scratch_list_length * sizeof (int));
-  bzero ((char *) scratch_block, scratch_list_length * sizeof (int));
+  scratch_list = (rtx *) xcalloc (scratch_list_length, sizeof (rtx));
+  scratch_block = (int *) xcalloc (scratch_list_length, sizeof (int));
   scratch_index = 0;
 
   qty_phys_reg = (short *) alloca (max_qty * sizeof (short));
