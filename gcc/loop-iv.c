@@ -1764,6 +1764,8 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 
   while (1)
     {
+      basic_block tmp_bb;
+
       insn = BB_END (e->src);
       if (any_condjump_p (insn))
 	{
@@ -1795,8 +1797,12 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	    }
 	}
 
-      e = EDGE_PRED (e->src, 0);
-      if (EDGE_COUNT (e->src->preds) > 1
+      /* This is a bit subtle.  Store away e->src in tmp_bb, since we
+	 modify `e' and this can invalidate the subsequent count of
+	 e->src's predecessors by looking at the wrong block.  */
+      tmp_bb = e->src;
+      e = EDGE_PRED (tmp_bb, 0);
+      if (EDGE_COUNT (tmp_bb->preds) > 1
 	  || e->src == ENTRY_BLOCK_PTR)
 	break;
     }

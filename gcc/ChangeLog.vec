@@ -1,3 +1,9 @@
+2004-08-26  Ben Elliston  <bje@au.ibm.com>
+
+	* loop-iv.c (simplify_using_initial_values): Store e->src in a
+	temporary so that we count the predecessor edges from the correct
+	basic block (since `e' is reassigned).
+
 2004-08-23  Ben Elliston  <bje@au.ibm.com>
 
 	* predict.c (propagate_freq): Reformat comment to minimise diffs.
