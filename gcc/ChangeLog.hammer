@@ -1,3 +1,8 @@
+Mon Jul 28 20:06:56 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (memory attribute) Avoid accessing uninitialized memory
+	for ishift1 type instructions.
+
 Sun Jul 27 22:37:23 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* typeck.c (build_address): Add mark_used.
