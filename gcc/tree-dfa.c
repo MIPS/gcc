@@ -106,6 +106,7 @@ static void add_immediate_use		PARAMS ((tree, tree));
 static tree find_vars_r			PARAMS ((tree *, int *, void *));
 static void compute_immediate_uses_for	PARAMS ((tree, int));
 static void add_may_alias		PARAMS ((tree, tree));
+static bool call_may_clobber		PARAMS ((tree));
 
 
 /* Global declarations.  */
@@ -373,17 +374,12 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
      *GLOBAL_VAR (See find_vars_r).  */
   if (code == CALL_EXPR)
     {
-      tree callee;
-      int flags;
-
       /* Find uses in the called function.  */
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), false, prev_vops);
 
       /* If the called function is neither pure nor const, we create a
 	  clobbering definition of *GLOBAL_VAR.  */
-      callee = get_callee_fndecl (expr);
-      flags = (callee) ? flags_from_decl_or_type (callee) : 0;
-      if (! (flags & (ECF_CONST | ECF_PURE)))
+      if (call_may_clobber (expr))
 	{
 	  tree v = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (global_var)),
 		      	   global_var);
@@ -1905,22 +1901,21 @@ find_vars_r (tp, walk_subtrees, data)
   htab_t addressable_vars_found = ((htab_t *) data)[2];
   tree var = *tp;
 
-  /* Function calls.  If the callee is neither pure nor const, consider
-     this a reference for an artificial variable called GLOBAL_VAR. 
-     This variable is a pointer that will alias every global variable and
-     locals that have had their address taken.
+  /* Function calls.  Consider them a reference for an artificial variable
+     called GLOBAL_VAR.  This variable is a pointer that will alias every
+     global variable and locals that have had their address taken.  The
+     exception to this rule are functions marked pure, const or if they are
+     known to not return.
 
-     Stores to *GLOBAL_VAR will reach uses of every call clobbered
-     variable in the function.  Uses of *GLOBAL_VAR will be reached by
-     definitions of call clobbered variables.
-     
+     Stores to *GLOBAL_VAR will reach uses of every call clobbered variable
+     in the function.  Uses of *GLOBAL_VAR will be reached by definitions
+     of call clobbered variables.
+
      This is used to model the effects that the called function may have on
      local and global variables that might be visible to it.  */
   if (TREE_CODE (var) == CALL_EXPR)
     {
-      tree callee = get_callee_fndecl (var);
-      int flags = (callee) ? flags_from_decl_or_type (callee) : 0;
-      if (! (flags & (ECF_CONST | ECF_PURE)))
+      if (call_may_clobber (var))
 	{
 	  if (!is_dereferenced (global_var))
 	    {
@@ -2056,4 +2051,23 @@ get_virtual_var (var)
     }
 
   return var;
+}
+
+
+/* Return true if EXPR is a CALL_EXPR tree to a function that may clobber
+   globals and local addressable variables.  */
+
+static bool
+call_may_clobber (expr)
+     tree expr;
+{
+  tree callee;
+  int flags;
+
+  if (TREE_CODE (expr) != CALL_EXPR)
+    return false;
+
+  callee = get_callee_fndecl (expr);
+  flags = (callee) ? flags_from_decl_or_type (callee) : 0;
+  return (! (flags & (ECF_CONST | ECF_PURE | ECF_NORETURN)));
 }

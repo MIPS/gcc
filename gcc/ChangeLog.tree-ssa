@@ -1,3 +1,9 @@
+2003-01-30  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (call_may_clobber): New function.
+	(get_expr_operands): Call it.
+	(find_vars_r): Call it.
+
 2003-01-30  Jeff Law <law@redhat.com>
 
 	* tree-dfa.c (struct alias_tags): New.  Collector for key information
