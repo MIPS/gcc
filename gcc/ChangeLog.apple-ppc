@@ -1,3 +1,8 @@
+2004-12-21  Stuart Hastings <stuart@apple.com>
+
+	Radar 3905251
+	* gcc/cse.c (fold_rtx): disable CSE of vector constants.
+
 2004-12-17  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 3914905

@@ -3803,6 +3803,13 @@ fold_rtx (rtx x, rtx insn)
 
     case RTX_COMPARE:
     case RTX_COMM_COMPARE:
+      /* APPLE LOCAL begin 3905251 */
+      /* Temporary fix; remove when http://gcc.gnu.org/bugzilla/show_bug.cgi?id=17767 is resolved.  */
+#ifdef TARGET_80387
+      if (VECTOR_MODE_P (mode))
+	break;
+#endif
+      /* APPLE LOCAL end 3905251 */
       /* See what items are actually being compared and set FOLDED_ARG[01]
 	 to those values and CODE to the actual comparison code.  If any are
 	 constant, set CONST_ARG0 and CONST_ARG1 appropriately.  We needn't
