@@ -1,3 +1,12 @@
+2002-12-02  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+        * configure.host [sh-linux* | sh[34]*-linux*]: Don't set
+        CHECKREFSPEC and EXCEPTIONSPEC. Set can_unwind_signal to
+        yes also for sh-linux* and sh[34]*-linux*.
+        * configure.in: Add sh-linux* and sh[34]*-linux* cases and
+        set SIGNAL_HANDLER to use DWARF2 exception for them.
+        * configure: Regenerate.
+
 2002-11-23  H.J. Lu <hjl@gnu.org>
 
 	* acinclude.m4 (AC_COMPILE_CHECK_SIZEOF): Removed.
