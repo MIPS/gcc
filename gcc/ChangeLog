@@ -1,3 +1,9 @@
+2002-07-25  Richard Sandiford  <rsandifo@redhat.com>
+
+	* toplev.h (target_flags_explicit): Declare.
+	* toplev.c (target_flags_explicit): New var.
+	(set_target_switch): Update target_flags_explicit.
+
 2003-03-19  Alan Modra  <amodra@bigpond.net.au>
 
 	* config/rs6000/rs6000.c (rs6000_stack_info): Only require a frame
