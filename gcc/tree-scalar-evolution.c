@@ -1277,6 +1277,8 @@ first_iteration_non_satisfying_1 (enum tree_code code,
 	    return res;
 	  
 	  other_evs = hide_evolution_in_loop (chrec1, loop_nb);
+	  other_evs = chrec_fold_minus (chrec_type (other_evs),
+                                                         other_evs, chrec0);
 	  other_evs = chrec_replace_initial_condition 
 	    (other_evs, convert (chrec_type (other_evs), integer_zero_node));
 	}
@@ -1295,6 +1297,8 @@ first_iteration_non_satisfying_1 (enum tree_code code,
 	    return res;
 	  
 	  other_evs = hide_evolution_in_loop (chrec0, loop_nb);
+	  other_evs = chrec_fold_minus (chrec_type (other_evs),
+                                                         other_evs, chrec1);
 	  other_evs = chrec_replace_initial_condition 
 	    (other_evs, convert (chrec_type (other_evs), integer_zero_node));
 	}
@@ -2721,10 +2725,7 @@ number_of_iterations_in_loop (struct loop *loop)
       opnd1 = TREE_OPERAND (test, 1);
       chrec0 = analyze_scalar_evolution (loop, opnd0);
       chrec1 = analyze_scalar_evolution (loop, opnd1);
-      
-      chrec0 = instantiate_parameters (loop, chrec0);
-      chrec1 = instantiate_parameters (loop, chrec1);
-      
+
       if (chrec0 == chrec_top)
 	/* KEEP_IT_SYMBOLIC.  */
 	chrec0 = opnd0;

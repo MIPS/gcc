@@ -1,3 +1,19 @@
+2004-05-25  Sebastian Pop  <pop@cri.ensmp.fr>
+            Dorit Naishlos <dorit@il.ibm.com>
+
+        * tree-scalar-evolution.c (first_iteration_non_satisfying_1):
+        Include the evolution of the non varying chrec in other_evs.
+        (number_of_iterations_in_loop): Don't instantiate the chrecs
+        before the computation of loop counts.
+
+2004-05-25  Olga Golovanevsky  <olga@il.ibm.com>
+            Dorit Naishlos <dorit@il.ibm.com>
+
+        * tree-vectorizer.c (vect_transform_loop_bound): Advance IVs
+        by correct amount.
+        (vect_transform_loop, vect_build_symbl_bound): Use shifts
+        instead of division/multiplication to advance IVs.
+
 2004-05-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-scalar-evolution.c (number_of_iterations_in_loop):

@@ -1294,7 +1294,7 @@ vect_build_symbl_bound (tree n, int vf, struct loop * loop)
   tree var, stmt, var_name;
   edge pe;
   basic_block new_bb;
-
+  int i = -1;
 
   /* create tmporary variable */
   var = create_tmp_var (TREE_TYPE (n), "bnd");
@@ -1302,9 +1302,16 @@ vect_build_symbl_bound (tree n, int vf, struct loop * loop)
 
   var_name = make_ssa_name (var, NULL_TREE);
 
+  /* vf is power of 2; thus if vf = 2^k, then n/vf = n >> k.   */
+  while (vf)
+    {
+      vf = vf >> 1;
+      i++;
+    }
+
   stmt = build (MODIFY_EXPR, void_type_node, var_name,
-		build (TRUNC_DIV_EXPR, TREE_TYPE (n),
-		       n, build_int_2(vf,0)));
+		build (RSHIFT_EXPR, TREE_TYPE (n),
+		       n, build_int_2(i,0)));
 
   SSA_NAME_DEF_STMT (var_name) = stmt;
 
@@ -1539,7 +1546,7 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo, tree niters)
   if(!symbl_niters)
     new_loop_bound = build_int_2 (old_N/vf, 0);
   else
-    new_loop_bound = vect_build_symbl_bound (niters, vf, loop); 
+    new_loop_bound = niters;
 
   
   cond_stmt = 
@@ -1572,7 +1579,7 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
   int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   block_stmt_iterator si;
   int i;
-  tree var = NULL, var_name = NULL;
+  tree var = NULL, ratio = NULL;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n<<vec_transform_loop>>\n");
@@ -1590,7 +1597,9 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
 
       edge ee,pe;
       basic_block new_bb;
-      tree stmt, ni;
+      tree stmt, ni, ni_name;
+      tree ratio_mult_vf, ratio_mult_vf_name;
+      int vf, i = -1;
 
       tree_duplicate_loop_to_exit (loop, loops);
 
@@ -1611,14 +1620,44 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
       var = create_tmp_var (TREE_TYPE (ni), "niters");
       add_referenced_tmp_var (var);
 
-      var_name = force_gimple_operand (ni, &stmt, false, var);
+      ni_name = force_gimple_operand (ni, &stmt, false, var);
       pe = loop_preheader_edge (loop);
       new_bb = bsi_insert_on_edge_immediate (pe, stmt);
       if (new_bb)
 	add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+      
+      /* ratio = ni / vf  */
 
-      /* Update initial conditions of loop copy. */
-      vect_update_initial_conditions_of_duplicated_loop (loop_vinfo, var_name);
+      vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+      ratio = vect_build_symbl_bound (ni_name, vf, loop);
+       
+      /* Update initial conditions of loop copy.  */
+       
+      /* ratio_mult_vf = ration * vf;  */
+
+      /* vf is power of 2; thus if vf = 2^k, then n/vf = n >> k.   */
+      while (vf)
+	{
+	  vf = vf >> 1;
+	  i++;
+	}
+
+      ratio_mult_vf = create_tmp_var (TREE_TYPE (ni), "ratio_mult_vf");
+      add_referenced_tmp_var (ratio_mult_vf);
+
+      ratio_mult_vf_name = make_ssa_name (ratio_mult_vf, NULL_TREE);
+
+      stmt = build (MODIFY_EXPR, void_type_node, ratio_mult_vf_name,
+		build (LSHIFT_EXPR, TREE_TYPE (ratio),
+		       ratio, build_int_2(i,0)));
+
+      SSA_NAME_DEF_STMT (ratio_mult_vf_name) = stmt;
+
+      new_bb = bsi_insert_on_edge_immediate (pe, stmt);
+      if (new_bb)
+	add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+
+      vect_update_initial_conditions_of_duplicated_loop (loop_vinfo, ratio_mult_vf_name);
     }
 
   /* CHECKME: FORNOW the vectorizer supports only loops which body consist
@@ -1681,7 +1720,7 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
 	}			/* stmts in BB */
     }				/* BBs in loop */
 
-  vect_transform_loop_bound (loop_vinfo, var_name);
+  vect_transform_loop_bound (loop_vinfo, ratio);
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n<<Success! loop vectorized.>>\n");
 }
