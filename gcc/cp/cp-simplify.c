@@ -33,13 +33,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static void genericize_try_block	PARAMS ((tree *));
 static void genericize_catch_block	PARAMS ((tree *));
 static void genericize_eh_spec_block	PARAMS ((tree *));
-static void simplify_must_not_throw_expr PARAMS ((tree *, tree *));
-static void cp_simplify_init_expr	PARAMS ((tree *, tree *, tree *));
+static void gimplify_must_not_throw_expr PARAMS ((tree *, tree *));
+static void cp_gimplify_init_expr	PARAMS ((tree *, tree *, tree *));
 
-/* Genericize a C++ _STMT.  Called from c_simplify_stmt.  */
+/* Genericize a C++ _STMT.  Called from c_gimplify_stmt.  */
 
 int
-cp_simplify_stmt (stmt_p, next_p)
+cp_gimplify_stmt (stmt_p, next_p)
      tree *stmt_p;
      tree *next_p ATTRIBUTE_UNUSED;
 {
@@ -79,12 +79,12 @@ genericize_try_block (stmt_p)
   tree body = TRY_STMTS (*stmt_p);
   tree cleanup = TRY_HANDLERS (*stmt_p);
 
-  c_simplify_stmt (&body);
+  c_gimplify_stmt (&body);
 
   if (CLEANUP_P (*stmt_p))
     /* cleanup is an expression, so it doesn't need to be genericized.  */;
   else
-    c_simplify_stmt (&cleanup);
+    c_gimplify_stmt (&cleanup);
 
   *stmt_p = build (TRY_CATCH_EXPR, void_type_node, body, cleanup);
 }
@@ -98,7 +98,7 @@ genericize_catch_block (stmt_p)
   tree type = HANDLER_TYPE (*stmt_p);
   tree body = HANDLER_BODY (*stmt_p);
 
-  c_simplify_stmt (&body);
+  c_gimplify_stmt (&body);
 
   /* FIXME should the caught type go in TREE_TYPE?  */
   *stmt_p = build (CATCH_EXPR, void_type_node, type, body);
@@ -116,15 +116,15 @@ genericize_eh_spec_block (stmt_p)
   tree failure = build_call (call_unexpected_node,
 			     tree_cons (NULL_TREE, build_exc_ptr (),
 					NULL_TREE));
-  c_simplify_stmt (&body);
+  c_gimplify_stmt (&body);
 
   *stmt_p = gimple_build_eh_filter (body, allowed, failure);
 }
 
-/* Do C++-specific simplification.  Args are as for simplify_expr.  */
+/* Do C++-specific gimplification.  Args are as for gimplify_expr.  */
 
 int
-cp_simplify_expr (expr_p, pre_p, post_p)
+cp_gimplify_expr (expr_p, pre_p, post_p)
      tree *expr_p;
      tree *pre_p;
      tree *post_p;
@@ -136,7 +136,7 @@ cp_simplify_expr (expr_p, pre_p, post_p)
       return 1;
 
     case AGGR_INIT_EXPR:
-      simplify_aggr_init_expr (expr_p);
+      gimplify_aggr_init_expr (expr_p);
       return 1;
 
     case THROW_EXPR:
@@ -146,12 +146,12 @@ cp_simplify_expr (expr_p, pre_p, post_p)
       return 1;
 
     case MUST_NOT_THROW_EXPR:
-      simplify_must_not_throw_expr (expr_p, pre_p);
+      gimplify_must_not_throw_expr (expr_p, pre_p);
       return 1;
 
     case INIT_EXPR:
     case MODIFY_EXPR:
-      cp_simplify_init_expr (expr_p, pre_p, post_p);
+      cp_gimplify_init_expr (expr_p, pre_p, post_p);
       break;
 
     case EMPTY_CLASS_EXPR:
@@ -171,13 +171,13 @@ cp_simplify_expr (expr_p, pre_p, post_p)
       break;
     }
 
-  return c_simplify_expr (expr_p, pre_p, post_p);
+  return c_gimplify_expr (expr_p, pre_p, post_p);
 }
 
-/* Simplify initialization from an AGGR_INIT_EXPR.  */
+/* Gimplify initialization from an AGGR_INIT_EXPR.  */
 
 static void
-cp_simplify_init_expr (expr_p, pre_p, post_p)
+cp_gimplify_init_expr (expr_p, pre_p, post_p)
      tree *expr_p;
      tree *pre_p;
      tree *post_p;
@@ -197,21 +197,21 @@ cp_simplify_init_expr (expr_p, pre_p, post_p)
   /* If we are initializing from an AGGR_INIT_EXPR, drop the INIT_EXPR and
      replace the slot operand with our target.
 
-     Should we add a target parm to simplify_expr instead?  No, as in this
+     Should we add a target parm to gimplify_expr instead?  No, as in this
      case we want to replace the INIT_EXPR.  */
   if (TREE_CODE (from) == AGGR_INIT_EXPR)
     {
-      simplify_expr (&to, pre_p, post_p, is_simple_modify_expr_lhs, fb_lvalue);
+      gimplify_expr (&to, pre_p, post_p, is_gimple_modify_expr_lhs, fb_lvalue);
       TREE_OPERAND (from, 2) = to;
       *expr_p = from;
-      simplify_aggr_init_expr (expr_p);
+      gimplify_aggr_init_expr (expr_p);
     }
 }
 
 /* Replace the AGGR_INIT_EXPR at *TP with an equivalent CALL_EXPR.  */
 
 void
-simplify_aggr_init_expr (tp)
+gimplify_aggr_init_expr (tp)
      tree *tp;
 {
   tree aggr_init_expr = *tp;
@@ -290,10 +290,10 @@ simplify_aggr_init_expr (tp)
   *tp = call_expr;
 }
 
-/* Simplify a MUST_NOT_THROW_EXPR.  */
+/* Gimplify a MUST_NOT_THROW_EXPR.  */
 
 static void
-simplify_must_not_throw_expr (expr_p, pre_p)
+gimplify_must_not_throw_expr (expr_p, pre_p)
      tree *expr_p;
      tree *pre_p;
 {
@@ -301,7 +301,7 @@ simplify_must_not_throw_expr (expr_p, pre_p)
   tree temp = voidify_wrapper_expr (stmt);
   tree body = TREE_OPERAND (stmt, 0);
 
-  simplify_stmt (&body);
+  gimplify_stmt (&body);
 
   stmt = gimple_build_eh_filter (body, NULL_TREE,
 				 build_call (terminate_node, NULL_TREE));

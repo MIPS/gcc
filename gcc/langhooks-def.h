@@ -85,8 +85,8 @@ int lhd_tree_inlining_start_inlining		PARAMS ((tree));
 void lhd_tree_inlining_end_inlining		PARAMS ((tree));
 tree lhd_tree_inlining_convert_parm_for_inlining PARAMS ((tree, tree, tree));
 
-/* Declarations for tree simplification hooks.  */
-int lhd_simplify_expr			     PARAMS ((tree *, tree *, tree *));
+/* Declarations for tree gimplification hooks.  */
+int lhd_gimplify_expr			     PARAMS ((tree *, tree *, tree *));
 
 void write_global_declarations PARAMS ((void));
 
@@ -189,8 +189,8 @@ void write_global_declarations PARAMS ((void));
   LANG_HOOKS_FUNCTION_LEAVE_NESTED		\
 }
 
-/* Hooks for tree simplification.  */
-#define LANG_HOOKS_SIMPLIFY_EXPR lhd_simplify_expr
+/* Hooks for tree gimplification.  */
+#define LANG_HOOKS_GIMPLIFY_EXPR lhd_gimplify_expr
 
 /* Tree dump hooks.  */
 bool lhd_tree_dump_dump_tree 			PARAMS ((void *, tree));
@@ -290,7 +290,7 @@ int lhd_tree_dump_type_quals			PARAMS ((tree));
   LANG_HOOKS_TREE_DUMP_INITIALIZER, \
   LANG_HOOKS_DECLS, \
   LANG_HOOKS_FOR_TYPES_INITIALIZER, \
-  LANG_HOOKS_SIMPLIFY_EXPR \
+  LANG_HOOKS_GIMPLIFY_EXPR \
 }
 
 #endif /* GCC_LANG_HOOKS_DEF_H */

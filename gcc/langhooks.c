@@ -472,10 +472,10 @@ lhd_expr_size (exp)
     return size_in_bytes (TREE_TYPE (exp));
 }
 
-/* lang_hooks.simplify_expr re-writes *EXPR_P into SIMPLE form.  */
+/* lang_hooks.gimplify_expr re-writes *EXPR_P into GIMPLE form.  */
 
 int
-lhd_simplify_expr (expr_p, pre_p, post_p)
+lhd_gimplify_expr (expr_p, pre_p, post_p)
      tree *expr_p ATTRIBUTE_UNUSED;
      tree *pre_p ATTRIBUTE_UNUSED;
      tree *post_p ATTRIBUTE_UNUSED;

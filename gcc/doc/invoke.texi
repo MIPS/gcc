@@ -247,7 +247,7 @@ in the following sections.
 -fdump-tree-cfg -fdump-tree-dot @gol
 -fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-pre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
--fdump-tree-simple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
+-fdump-tree-gimple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -fmem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
@@ -292,7 +292,7 @@ in the following sections.
 -fstrength-reduce  -fstrict-aliasing  -ftracer  -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
--fdisable-simple  -ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
+-fdisable-gimple  -ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
 -fdisable-tree-ssa @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
@@ -3322,10 +3322,10 @@ Dump after all tree based optimization, to @file{@var{file}.optimized}.
 @item inlined
 Dump after function inlining, to @file{@var{file}.inlined}.
 
-@item simple
-@opindex fdump-tree-simple
-Dump each function before and after the simplification pass to a file.  The
-file name is made by appending @file{.simple} to the source file name.
+@item gimple
+@opindex fdump-tree-gimple
+Dump each function before and after the gimplification pass to a file.  The
+file name is made by appending @file{.gimple} to the source file name.
 
 @item cfg
 @opindex fdump-tree-cfg
@@ -4063,10 +4063,10 @@ those which have no call-preserved registers to use instead.
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
-@item -fdisable-simple
-Do not re-write trees into SIMPLE form.  This switch also disables
+@item -fdisable-gimple
+Do not re-write trees into GIMPLE form.  This switch also disables
 tree-based optimizations.  @emph{Note:} This option is only useful when
-debugging the tree simplification pass in GCC.
+debugging the tree gimplification pass in GCC.
 
 @item -fdisable-tree-ssa
 Do not apply SSA optimizations to the tree representation.  @emph{Note:}

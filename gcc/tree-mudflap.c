@@ -119,10 +119,10 @@ mudflap_c_function (t)
   mf_xform_decls (DECL_SAVED_TREE (t), DECL_ARGUMENTS (t));
   mf_xform_derefs (DECL_SAVED_TREE (t));
 
-  /* Simplify mudflap instrumentation.  FIXME  It definitely would be good
-     if mudflap didn't require another simplification pass.  simplification
+  /* Gimplify mudflap instrumentation.  FIXME  It definitely would be good
+     if mudflap didn't require another gimplification pass.  Gimplification
      is the single most expensive part of the tree-ssa path! */
-  simplify_function_tree (t);
+  gimplify_function_tree (t);
 
   {
     FILE *dump_file;

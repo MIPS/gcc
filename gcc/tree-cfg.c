@@ -1878,7 +1878,7 @@ bsi_remove (block_stmt_iterator *i)
 
 
 /* Replace the contents of a stmt with another. The replacement cannot be 
-   a COMPOUND_EXPR node, only a simple stmt.  */
+   a COMPOUND_EXPR node, only a gimple stmt.  */
 
 void
 bsi_replace (block_stmt_iterator bsi, tree stmt)

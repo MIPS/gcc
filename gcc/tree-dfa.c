@@ -339,13 +339,13 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
       expr = *expr_p;
     }
 
-  /* If this reference is associated with a non SIMPLE expression, then we
+  /* If this reference is associated with a non GIMPLE expression, then we
      mark the statement non GIMPLE and recursively clobber every
      variable referenced by STMT.  FIXME: TREE_NOT_GIMPLE must die.  */
   if (stmt && TREE_NOT_GIMPLE (expr))
     {
       struct clobber_data_d cd;
-      mark_not_simple (&stmt);
+      mark_not_gimple (&stmt);
       cd.stmt = stmt;
       cd.prev_vops = prev_vops;
       walk_tree (&stmt, clobber_vars_r, (void *) &cd, NULL);

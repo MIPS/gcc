@@ -3340,7 +3340,7 @@ enum tree_dump_index
   TDI_generic,			/* dump each function after genericizing it */
   TDI_inlined,			/* dump each function after inlining
 				   within it.  */
-  TDI_simple,			/* dump each function after simplifying it.  */
+  TDI_gimple,			/* dump each function after gimplifying it.  */
   TDI_cfg,			/* dump the flowgraph for each function.  */
   TDI_dot,			/* create a dot graph file for each 
 				   function's flowgraph.  */
@@ -3391,7 +3391,7 @@ extern const char *dump_flag_name	PARAMS ((enum tree_dump_index));
 
 extern void set_decl_rtl		PARAMS ((tree, rtx));
 
-extern int simplify_function_tree	PARAMS ((tree));
+extern int gimplify_function_tree	PARAMS ((tree));
 extern const char *get_name		PARAMS ((tree));
 extern tree unshare_expr		PARAMS ((tree));
 

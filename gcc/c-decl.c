@@ -6242,7 +6242,7 @@ finish_function (nested, can_defer_p)
     warning ("no return statement in function returning non-void");
 
   /* Genericize before inlining.  */
-  if (!flag_disable_simple)
+  if (!flag_disable_gimple)
     c_genericize (fndecl);
 
   /* Clear out memory we no longer need.  */
@@ -6423,12 +6423,12 @@ c_expand_body_1 (fndecl, nested_p)
 
   timevar_pop (TV_EXPAND);
 
-  /* Simplify the function.  Don't try to optimize the function if
-     simplification failed.  */
+  /* Gimplify the function.  Don't try to optimize the function if
+     gimplification failed.  */
   if (keep_function_tree_in_gimple_form (fndecl))
     {
-      /* Debugging dump after simplification.  */
-      dump_function (TDI_simple, fndecl);
+      /* Debugging dump after gimplification.  */
+      dump_function (TDI_gimple, fndecl);
 
       /* Invoke the SSA tree optimizer.  */
       if (optimize >= 1 && !flag_disable_tree_ssa)

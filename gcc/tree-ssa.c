@@ -2120,7 +2120,7 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
       if (may_optimize_p)
 	{
 	  if (TREE_CODE (rhs) == SSA_NAME
-	      || (TREE_CONSTANT (rhs) && is_simple_val (rhs)))
+	      || (TREE_CONSTANT (rhs) && is_gimple_val (rhs)))
 	    set_value_for (*def_p, rhs, const_and_copies);
 	}
     }
@@ -2526,7 +2526,7 @@ lookup_avail_expr (tree stmt, varray_type *block_avail_exprs_p)
   rhs = TREE_OPERAND (stmt, 1);
   if (TREE_CONSTANT (rhs)
       || TREE_CODE (rhs) == SSA_NAME
-      || is_simple_cast (rhs))
+      || is_gimple_cast (rhs))
     return NULL_TREE;
 
   slot = htab_find_slot (avail_exprs, stmt, INSERT);

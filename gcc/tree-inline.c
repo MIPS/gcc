@@ -362,7 +362,7 @@ copy_body_r (tp, walk_subtrees, data)
 	  /* Do not create a statement containing a naked RESULT_DECL.  */
 	  if (keep_function_tree_in_gimple_form (id->decl))
 	    if (TREE_CODE (assignment) == RESULT_DECL)
-	      simplify_stmt (&assignment);
+	      gimplify_stmt (&assignment);
 
 	  *tp = build (BIND_EXPR, void_type_node, NULL_TREE,
 		       build (COMPOUND_EXPR, void_type_node,

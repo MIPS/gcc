@@ -428,7 +428,7 @@ find_func_aliases (tp, walk_subtrees, data)
       return NULL_TREE;
     }
 
-  if (is_simple_modify_expr (stp) 
+  if (is_gimple_modify_expr (stp) 
       || (TREE_CODE (stp) == VAR_DECL 
 	  && DECL_INITIAL (stp) != NULL_TREE ))
     {
@@ -460,10 +460,10 @@ find_func_aliases (tp, walk_subtrees, data)
 	 variable, since we can disambiguate based on TBAA first,
 	 and fall back on points-to. */
       /* x = <something> */
-      if (is_simple_varname (op0))
+      if (is_gimple_varname (op0))
 	{
 	  /* x = y or x = foo.y */
-	  if (is_simple_varname (op1))
+	  if (is_gimple_varname (op1))
 	    {
 	      if (rhsAV != NULL)
 		current_alias_ops->simple_assign (current_alias_ops, lhsAV,
@@ -471,7 +471,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	      *walk_subtrees = 0;
 	    }
 	  /* x = (cast) y */
-	  else if (is_simple_cast (op1))
+	  else if (is_gimple_cast (op1))
 	    {
 	      if (rhsAV != NULL)
 		current_alias_ops->simple_assign (current_alias_ops, lhsAV,
@@ -480,7 +480,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	    }
 	  /* x = *y or x = foo->y */
 	  else if (TREE_CODE (op1) == INDIRECT_REF
-		   && is_simple_varname (TREE_OPERAND (op1, 0)))
+		   && is_gimple_varname (TREE_OPERAND (op1, 0)))
 	    {
 	      if (rhsAV != NULL)
 		current_alias_ops->ptr_assign (current_alias_ops, lhsAV, 
@@ -490,7 +490,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	  /* x = &y = x = &foo.y */
 	  else if ((TREE_CODE (op1) == ADDR_EXPR 
 		    || TREE_CODE (op1) == REFERENCE_EXPR)
-		   && is_simple_varname (TREE_OPERAND (op1, 0)))
+		   && is_gimple_varname (TREE_OPERAND (op1, 0)))
 	    {
 	      if (rhsAV != NULL)
 		current_alias_ops->addr_assign (current_alias_ops, lhsAV, 
@@ -498,7 +498,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	      *walk_subtrees = 0;
 	    }
 	  /* x = func(...) */
-	  else if (is_simple_call_expr (op1))
+	  else if (is_gimple_call_expr (op1))
 	    {
 	      /* Heap assignment. These are __attribute__ malloc or
 		 something, i'll deal with it later. */
@@ -632,7 +632,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	  
 	  /* *x = (cast) y */
 	  else if (TREE_CODE (op0) == INDIRECT_REF
-		   && is_simple_cast (op1))
+		   && is_gimple_cast (op1))
 	    {
 	      /* This becomes temp = (cast) y and  *x = temp. */
 	      alias_typevar tempvar;
@@ -657,7 +657,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	}
     }
   /* Calls without return values. */
-  else if (is_simple_call_expr (stp))
+  else if (is_gimple_call_expr (stp))
     {
       varray_type args;
       tree arg;

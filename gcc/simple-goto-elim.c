@@ -1,4 +1,4 @@
-/* Goto statement elimination for Simple.
+/* Goto statement elimination for GIMPLE.
    Copyright (C) 2002 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
@@ -31,7 +31,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-dchain.h"
 #include "diagnostic.h"
 
-/* This implements a goto elimination pass based on the SIMPLE representation.
+/* This implements a goto elimination pass based on the GIMPLE representation.
    The original algorithm was described by Ana M. Erosa and Laurie J. Hendren.
    This implementation follows this algorithm and does not generate breaks.
    Logical variables are declared in the function's outermost scope such that 
@@ -231,7 +231,7 @@ goto_elimination (fn)
     return;
 
   /* Create a new binding level for the temporaries created by the
-     simplification process.  */
+     gimplification process.  */
   pushlevel (0);
 
   /* Initialise the LABEL_STMT hash table.  */
@@ -318,15 +318,15 @@ find_labels_gotos (node)
 
 	case SWITCH_STMT:
 	  /* This implementation of goto_elimination doesn't handle this type of
-	     statement : it works on a subset of SIMPLE that doesn't contain 
-	     SWITCH_STMTs.  This subset of SIMPLE is obtained after the 
+	     statement : it works on a subset of GIMPLE that doesn't contain 
+	     SWITCH_STMTs.  This subset of GIMPLE is obtained after the 
 	     break_continue_elimination.  Run this pass before the goto_elimination.
 	     The main reason for this limitation is that implementating this pass
 	     for SWITCH_STMTs introduces some difficult cases to handle (when the 
 	     LABEL_STMT is in the default_case, flow_in has to figure out what 
 	     cases belongs to the SWITCH_BODY and then choose a value that 
 	     is not in the SWITCH_BODY).  This implementation could be refined
-	     in order to work on SIMPLE with SWITCH_STMTs as it is described in 
+	     in order to work on GIMPLE with SWITCH_STMTs as it is described in 
 	     McGill's papers.  */
 	  fprintf (stderr, "Run break_continue_elimination before goto_elimination.\n");
 	  abort ();

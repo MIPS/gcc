@@ -126,9 +126,9 @@ static void c_init_options PARAMS ((void));
 #undef LANG_HOOKS_TYPE_PROMOTES_TO
 #define LANG_HOOKS_TYPE_PROMOTES_TO c_type_promotes_to
 
-/* Hooks for tree simplification.  */
-#undef LANG_HOOKS_SIMPLIFY_EXPR
-#define LANG_HOOKS_SIMPLIFY_EXPR c_simplify_expr
+/* Hooks for tree gimplification.  */
+#undef LANG_HOOKS_GIMPLIFY_EXPR
+#define LANG_HOOKS_GIMPLIFY_EXPR c_gimplify_expr
 
 /* ### When changing hooks, consider if ObjC needs changing too!! ### */
 

@@ -2399,7 +2399,7 @@ expand_body (fn)
     }
 
   /* Replace AGGR_INIT_EXPRs with appropriate CALL_EXPRs.  */
-  if (flag_disable_simple)
+  if (flag_disable_gimple)
     walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
 				  simplify_aggr_init_exprs_r,
 				  NULL);
@@ -2485,7 +2485,7 @@ expand_body (fn)
   /* Expand the body.  */
   if (STATEMENT_CODE_P (TREE_CODE (DECL_SAVED_TREE (fn))))
     {
-      if (flag_disable_simple)
+      if (flag_disable_gimple)
 	expand_stmt (DECL_SAVED_TREE (fn));
       else
 	abort ();

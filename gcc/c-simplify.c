@@ -1,5 +1,5 @@
-/* Tree lowering pass.  This pass simplifies the tree representation built
-   by the C-based front ends.  The structure of simplified, or
+/* Tree lowering pass.  This pass gimplifies the tree representation built
+   by the C-based front ends.  The structure of gimplified, or
    language-independent, trees is dictated by the grammar described in this
    file.
    Copyright (C) 2002 Free Software Foundation, Inc.
@@ -46,11 +46,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "tree-dump.h"
 
-/*  The simplification pass converts the language-dependent trees
+/*  The gimplification pass converts the language-dependent trees
     (ld-trees) emitted by the parser into language-independent trees
     (li-trees) that are the target of SSA analysis and transformations.  
 
-    Language-independent trees are based on the SIMPLE intermediate
+    Language-independent trees are based on the GIMPLE intermediate
     representation used in the McCAT compiler framework:
 
     "Designing the McCAT Compiler Based on a Family of Structured
@@ -63,43 +63,43 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
     http://www-acaps.cs.mcgill.ca/info/McCAT/McCAT.html
 
-    Basically, we walk down simplifying the nodes that we encounter.  As we
+    Basically, we walk down gimplifying the nodes that we encounter.  As we
     walk back up, we check that they fit our constraints, and copy them
     into temporaries if not.  */
 
 /* Local declarations.  */
 
-void c_simplify_stmt          PARAMS ((tree *));
-static void simplify_expr_stmt       PARAMS ((tree *));
-static void simplify_decl_stmt       PARAMS ((tree *, tree *));
-static void simplify_for_stmt        PARAMS ((tree *, tree *));
-static void simplify_while_stmt      PARAMS ((tree *));
-static void simplify_do_stmt         PARAMS ((tree *));
-static void simplify_if_stmt         PARAMS ((tree *));
-static void simplify_switch_stmt     PARAMS ((tree *));
-static void simplify_return_stmt     PARAMS ((tree *));
-static void simplify_stmt_expr       PARAMS ((tree *));
-static void simplify_compound_literal_expr PARAMS ((tree *));
+void c_gimplify_stmt          PARAMS ((tree *));
+static void gimplify_expr_stmt       PARAMS ((tree *));
+static void gimplify_decl_stmt       PARAMS ((tree *, tree *));
+static void gimplify_for_stmt        PARAMS ((tree *, tree *));
+static void gimplify_while_stmt      PARAMS ((tree *));
+static void gimplify_do_stmt         PARAMS ((tree *));
+static void gimplify_if_stmt         PARAMS ((tree *));
+static void gimplify_switch_stmt     PARAMS ((tree *));
+static void gimplify_return_stmt     PARAMS ((tree *));
+static void gimplify_stmt_expr       PARAMS ((tree *));
+static void gimplify_compound_literal_expr PARAMS ((tree *));
 static void make_type_writable       PARAMS ((tree));
 #if defined ENABLE_CHECKING
 static int is_last_stmt_of_scope     PARAMS ((tree));
 #endif
-static void simplify_block	     PARAMS ((tree *, tree *));
-static void simplify_cleanup	     PARAMS ((tree *, tree *));
-static tree simplify_c_loop	     PARAMS ((tree, tree, tree, int));
+static void gimplify_block	     PARAMS ((tree *, tree *));
+static void gimplify_cleanup	     PARAMS ((tree *, tree *));
+static tree gimplify_c_loop	     PARAMS ((tree, tree, tree, int));
 static void push_context             PARAMS ((void));
 static void pop_context              PARAMS ((void));
 static tree c_build_bind_expr	     PARAMS ((tree, tree));
 static void add_block_to_enclosing   PARAMS ((tree));
 static tree mostly_copy_tree_r       PARAMS ((tree *, int *, void *));
-static void simplify_condition		PARAMS ((tree *));
+static void gimplify_condition		PARAMS ((tree *));
 
 enum bc_t { bc_break = 0, bc_continue = 1 };
 static tree begin_bc_block PARAMS ((enum bc_t));
 static tree finish_bc_block PARAMS ((tree, tree));
 static tree build_bc_goto PARAMS ((enum bc_t));
 
-static struct c_simplify_ctx
+static struct c_gimplify_ctx
 {
   /* For handling break and continue.  */
   tree current_bc_label;
@@ -111,7 +111,7 @@ push_context ()
 {
   if (ctxp)
     abort ();
-  ctxp = (struct c_simplify_ctx *) xcalloc (1, sizeof (struct c_simplify_ctx));
+  ctxp = (struct c_gimplify_ctx *) xcalloc (1, sizeof (struct c_gimplify_ctx));
   ctxp->bc_id[bc_continue] = get_identifier ("continue");
   ctxp->bc_id[bc_break] = get_identifier ("break");
 }
@@ -125,7 +125,7 @@ pop_context ()
   ctxp = NULL;
 }
 
-/* Simplification of statement trees.  */
+/* Gimplification of statement trees.  */
 
 /* Convert the tree representation of FNDECL from C frontend trees to
    GENERIC.  */
@@ -157,9 +157,9 @@ c_genericize (fndecl)
       dump_end (TDI_original, dump_file);
     }
 
-  /* Go ahead and simplify for now.  */
+  /* Go ahead and gimplify for now.  */
   push_context ();
-  simplify_function_tree (fndecl);
+  gimplify_function_tree (fndecl);
   pop_context ();
 
   /* Dump the genericized tree IR.  */
@@ -167,21 +167,21 @@ c_genericize (fndecl)
 }
 
 /*  Entry point for the tree lowering pass.  Recursively scan
-    *STMT_P and convert it to a SIMPLE tree.  */
+    *STMT_P and convert it to a GIMPLE tree.  */
 
 void 
-c_simplify_stmt (stmt_p)
+c_gimplify_stmt (stmt_p)
      tree *stmt_p;
 {
   tree stmt, next;
   tree outer_pre = NULL_TREE;
 
   /* PRE and POST are tree chains that contain the side-effects of the
-     simplified tree.  For instance, given the expression tree:
+     gimplified tree.  For instance, given the expression tree:
 
      		c = ++a * 3 + b++;
 
-     After simplification, the tree will be re-written as:
+     After gimplification, the tree will be re-written as:
 
      		a = a + 1;
 		t1 = a * 3;	<-- PRE
@@ -209,44 +209,44 @@ c_simplify_stmt (stmt_p)
       switch (TREE_CODE (stmt))
 	{
 	case COMPOUND_STMT:
-	  c_simplify_stmt (&COMPOUND_BODY (stmt));
+	  c_gimplify_stmt (&COMPOUND_BODY (stmt));
 	  stmt = COMPOUND_BODY (stmt);
 	  break;
 
 	case SCOPE_STMT:
-	  simplify_block (&stmt, &next);
+	  gimplify_block (&stmt, &next);
 	  break;
 
 	case FOR_STMT:
-	  simplify_for_stmt (&stmt, &pre);
+	  gimplify_for_stmt (&stmt, &pre);
 	  break;
 	  
 	case WHILE_STMT:
-	  simplify_while_stmt (&stmt);
+	  gimplify_while_stmt (&stmt);
 	  break;
 
 	case DO_STMT:
-	  simplify_do_stmt (&stmt);
+	  gimplify_do_stmt (&stmt);
 	  break;
 
 	case IF_STMT:
-	  simplify_if_stmt (&stmt);
+	  gimplify_if_stmt (&stmt);
 	  break;
 	  
 	case SWITCH_STMT:
-	  simplify_switch_stmt (&stmt);
+	  gimplify_switch_stmt (&stmt);
 	  break;
 
 	case EXPR_STMT:
-	  simplify_expr_stmt (&stmt);
+	  gimplify_expr_stmt (&stmt);
 	  break;
 
 	case RETURN_STMT:
-	  simplify_return_stmt (&stmt);
+	  gimplify_return_stmt (&stmt);
 	  break;
 
 	case DECL_STMT:
-	  simplify_decl_stmt (&stmt, &next);
+	  gimplify_decl_stmt (&stmt, &next);
 	  break;
 
 	case LABEL_STMT:
@@ -275,7 +275,7 @@ c_simplify_stmt (stmt_p)
 	  break;
 
 	case CLEANUP_STMT:
-	  simplify_cleanup (&stmt, &next);
+	  gimplify_cleanup (&stmt, &next);
 	  break;
 
 	case ASM_STMT:
@@ -294,10 +294,10 @@ c_simplify_stmt (stmt_p)
 	  goto cont;
 
 	default:
-	  if (lang_simplify_stmt && (*lang_simplify_stmt) (&stmt, &next))
+	  if (lang_gimplify_stmt && (*lang_gimplify_stmt) (&stmt, &next))
 	    break;
 
-	  fprintf (stderr, "unhandled statement node in c_simplify_stmt ():\n");
+	  fprintf (stderr, "unhandled statement node in c_gimplify_stmt ():\n");
 	  debug_tree (stmt);
 	  abort ();
 	  break;
@@ -371,7 +371,7 @@ c_build_bind_expr (block, body)
   TREE_SIDE_EFFECTS (bind) = 1;
 
   gimple_push_bind_expr (bind);
-  c_simplify_stmt (&BIND_EXPR_BODY (bind));
+  c_gimplify_stmt (&BIND_EXPR_BODY (bind));
   gimple_pop_bind_expr ();
 
   return bind;
@@ -383,7 +383,7 @@ c_build_bind_expr (block, body)
    sequence.  */
 
 static void
-simplify_block (stmt_p, next_p)
+gimplify_block (stmt_p, next_p)
      tree *stmt_p;
      tree *next_p;
 {
@@ -426,7 +426,7 @@ simplify_block (stmt_p, next_p)
    EH-only cleanup.  */
 
 static void
-simplify_cleanup (stmt_p, next_p)
+gimplify_cleanup (stmt_p, next_p)
      tree *stmt_p;
      tree *next_p;
 {
@@ -438,13 +438,13 @@ simplify_cleanup (stmt_p, next_p)
 
   cleanup = maybe_protect_cleanup (cleanup);
 
-  c_simplify_stmt (&body);
+  c_gimplify_stmt (&body);
 
   *stmt_p = build (code, void_type_node, body, cleanup);
   *next_p = NULL_TREE;
 }
 
-/*  Simplify an EXPR_STMT node.
+/*  Gimplify an EXPR_STMT node.
 
     STMT is the statement node.
 
@@ -455,17 +455,17 @@ simplify_cleanup (stmt_p, next_p)
 	STMT should be stored.  */
 
 static void
-simplify_expr_stmt (stmt_p)
+gimplify_expr_stmt (stmt_p)
      tree *stmt_p;
 {
   tree stmt = EXPR_STMT_EXPR (*stmt_p);
 
-  /* Simplification of a statement expression will nullify the
+  /* Gimplification of a statement expression will nullify the
      statement if all its side effects are moved to *PRE_P and *POST_P.
 
-     In this case we will not want to emit the simplified statement.
+     In this case we will not want to emit the gimplified statement.
      However, we may still want to emit a warning, so we do that before
-     simplification.  */
+     gimplification.  */
   if (stmt && (extra_warnings || warn_unused_value))
     {
       if (!TREE_SIDE_EFFECTS (stmt))
@@ -494,7 +494,7 @@ simplify_expr_stmt (stmt_p)
    a use of the decl.  Turn such a thing into a COMPOUND_EXPR.  */
 
 static void
-simplify_condition (cond_p)
+gimplify_condition (cond_p)
      tree *cond_p;
 {
   tree cond = *cond_p;
@@ -502,7 +502,7 @@ simplify_condition (cond_p)
     {
       tree decl = TREE_PURPOSE (cond);
       tree value = TREE_VALUE (cond);
-      c_simplify_stmt (&decl);
+      c_gimplify_stmt (&decl);
       *cond_p = build (COMPOUND_EXPR, TREE_TYPE (value), decl, value);
     }
 }
@@ -591,7 +591,7 @@ build_bc_goto (bc)
    loop body as in do-while loops.  */
 
 static tree
-simplify_c_loop (cond, body, incr, cond_is_first)
+gimplify_c_loop (cond, body, incr, cond_is_first)
      tree cond;
      tree body;
      tree incr;
@@ -611,7 +611,7 @@ simplify_c_loop (cond, body, incr, cond_is_first)
 
   if (cond)
     {
-      simplify_condition (&cond);
+      gimplify_condition (&cond);
       exit = build_bc_goto (bc_break);
       exit = build (COND_EXPR, void_type_node, cond, build_empty_stmt (), exit);
       exit = fold (exit);
@@ -621,7 +621,7 @@ simplify_c_loop (cond, body, incr, cond_is_first)
 
   cont_block = begin_bc_block (bc_continue);
 
-  c_simplify_stmt (&body);
+  c_gimplify_stmt (&body);
 
   body = finish_bc_block (cont_block, body);
 
@@ -648,50 +648,50 @@ simplify_c_loop (cond, body, incr, cond_is_first)
   return loop;
 }
 
-/* Simplify a FOR_STMT node.  Move the stuff in the for-init-stmt into the
-   prequeue and hand off to simplify_c_loop.  */
+/* Gimplify a FOR_STMT node.  Move the stuff in the for-init-stmt into the
+   prequeue and hand off to gimplify_c_loop.  */
 
 static void
-simplify_for_stmt (stmt_p, pre_p)
+gimplify_for_stmt (stmt_p, pre_p)
      tree *stmt_p;
      tree *pre_p;
 {
   tree stmt = *stmt_p;
 
   tree init = FOR_INIT_STMT (stmt);
-  c_simplify_stmt (&init);
+  c_gimplify_stmt (&init);
   add_tree (init, pre_p);
 
-  *stmt_p = simplify_c_loop (FOR_COND (stmt), FOR_BODY (stmt),
+  *stmt_p = gimplify_c_loop (FOR_COND (stmt), FOR_BODY (stmt),
 			     FOR_EXPR (stmt), 1);
 }
 
-/* Simplify a WHILE_STMT node.  */
+/* Gimplify a WHILE_STMT node.  */
 
 static void
-simplify_while_stmt (stmt_p)
+gimplify_while_stmt (stmt_p)
      tree *stmt_p;
 {
   tree stmt = *stmt_p;
-  *stmt_p = simplify_c_loop (WHILE_COND (stmt), WHILE_BODY (stmt),
+  *stmt_p = gimplify_c_loop (WHILE_COND (stmt), WHILE_BODY (stmt),
 			     NULL_TREE, 1);
 }
 
-/*  Simplify a DO_STMT node.  */
+/* Gimplify a DO_STMT node.  */
 
 static void
-simplify_do_stmt (stmt_p)
+gimplify_do_stmt (stmt_p)
      tree *stmt_p;
 {
   tree stmt = *stmt_p;
-  *stmt_p = simplify_c_loop (DO_COND (stmt), DO_BODY (stmt),
+  *stmt_p = gimplify_c_loop (DO_COND (stmt), DO_BODY (stmt),
 			     NULL_TREE, 0);
 }
 
 /* Genericize an IF_STMT by turning it into a COND_EXPR.  */
 
 static void
-simplify_if_stmt (stmt_p)
+gimplify_if_stmt (stmt_p)
      tree *stmt_p;
 {
   tree stmt = *stmt_p;
@@ -716,7 +716,7 @@ simplify_if_stmt (stmt_p)
 	      warning ("%Hwill never be executed", &loc);
 	    }
 
-	  c_simplify_stmt (&then_);
+	  c_gimplify_stmt (&then_);
 	  *stmt_p = then_;
 	  return;
         }
@@ -736,15 +736,15 @@ simplify_if_stmt (stmt_p)
 				      : then_);
 	      warning ("%Hwill never be executed", &loc);
 	    }
-	  c_simplify_stmt (&else_);
+	  c_gimplify_stmt (&else_);
 	  *stmt_p = else_;
 	  return;
         }
     }
 
-  simplify_condition (&cond);
-  c_simplify_stmt (&then_);
-  c_simplify_stmt (&else_);
+  gimplify_condition (&cond);
+  c_gimplify_stmt (&then_);
+  c_gimplify_stmt (&else_);
 
   *stmt_p = build (COND_EXPR, void_type_node, cond, then_, else_);
 }
@@ -752,7 +752,7 @@ simplify_if_stmt (stmt_p)
 /* Genericize a SWITCH_STMT by turning it into a SWITCH_EXPR.  */
 
 static void
-simplify_switch_stmt (stmt_p)
+gimplify_switch_stmt (stmt_p)
      tree *stmt_p;
 {
   tree stmt = *stmt_p;
@@ -762,11 +762,11 @@ simplify_switch_stmt (stmt_p)
   const char *stmt_filename = input_filename;
   int stmt_lineno = input_line;
 
-  simplify_condition (&cond);
+  gimplify_condition (&cond);
 
   break_block = begin_bc_block (bc_break);
 
-  c_simplify_stmt (&body);
+  c_gimplify_stmt (&body);
 
   switch_ = build (SWITCH_EXPR, SWITCH_TYPE (stmt), cond, body, NULL_TREE);
   annotate_with_file_line (switch_, stmt_filename, stmt_lineno);
@@ -779,7 +779,7 @@ simplify_switch_stmt (stmt_p)
 /* Genericize a RETURN_STMT by turning it into a RETURN_EXPR.  */
 
 static void
-simplify_return_stmt (stmt_p)
+gimplify_return_stmt (stmt_p)
      tree *stmt_p;
 {
   tree expr = RETURN_STMT_EXPR (*stmt_p);
@@ -789,24 +789,24 @@ simplify_return_stmt (stmt_p)
   *stmt_p = expr;
 }
 
-/*  Simplifies a DECL_STMT node T.
+/* Gimplifies a DECL_STMT node T.
 
-    If a declaration V has an initial value I, create an expression 'V = I'
-    and insert it after the DECL_STMT.
+   If a declaration V has an initial value I, create an expression 'V = I'
+   and insert it after the DECL_STMT.
 
-    PRE_P is a queue for effects that should happen before the DECL_STMT.
+   PRE_P is a queue for effects that should happen before the DECL_STMT.
 
-    MID_P is a queue for effects that should happen after the DECL_STMT,
-    but before uses of the initialized decl.
+   MID_P is a queue for effects that should happen after the DECL_STMT,
+   but before uses of the initialized decl.
 
-    POST_P is a queue for effects that should happen after uses of the
-    initialized decl.
+   POST_P is a queue for effects that should happen after uses of the
+   initialized decl.
 
-    Usually these last two will be the same, but they may need to be
-    different if the DECL_STMT is somehow embedded in an expression.  */
+   Usually these last two will be the same, but they may need to be
+   different if the DECL_STMT is somehow embedded in an expression.  */
 
 static void
-simplify_decl_stmt (stmt_p, next_p)
+gimplify_decl_stmt (stmt_p, next_p)
     tree *stmt_p;
     tree *next_p;
 {
@@ -821,7 +821,7 @@ simplify_decl_stmt (stmt_p, next_p)
       if (!TREE_CONSTANT (DECL_SIZE (decl)))
 	{
 	  /* This is a variable-sized decl.  We need to wrap it in a new
-	     block so that we can simplify the expressions for calculating
+	     block so that we can gimplify the expressions for calculating
 	     its size, and so that any other local variables used in those
 	     expressions will have been initialized.  */
 
@@ -866,7 +866,7 @@ simplify_decl_stmt (stmt_p, next_p)
 	      init = build (MODIFY_EXPR, void_type_node, decl, init);
 	      if (stmts_are_full_exprs_p ())
 		init = build1 (CLEANUP_POINT_EXPR, void_type_node, init);
-	      /* FIXME: Shouldn't we simplify here?  */
+	      /* FIXME: Shouldn't we gimplify here?  */
 	      add_tree (init, &pre);
 	    }
 	  else
@@ -874,13 +874,13 @@ simplify_decl_stmt (stmt_p, next_p)
 	      /* We must still examine initializers for static variables
 		 as they may contain a label address.  However, we must not
 		 make any changes to the node or the queues.  So we
-		 make a copy of the node before calling the simplifier
+		 make a copy of the node before calling the gimplifier
 		 and we use throw-away queues.  */
 	      tree pre = NULL;
 	      tree post = NULL;
 	      tree dummy_init = deep_copy_node (init);
-	      simplify_expr (&dummy_init, &pre, &post,
-			     is_simple_initializer,
+	      gimplify_expr (&dummy_init, &pre, &post,
+			     is_gimple_initializer,
 			     fb_rvalue);
 	    }
 	}
@@ -895,27 +895,27 @@ simplify_decl_stmt (stmt_p, next_p)
   *stmt_p = pre;
 }
 
-/* Simplification of expression trees.  */
+/* Gimplification of expression trees.  */
 
-/* Simplify a C99 compound literal expression.  This just means adding the
+/* Gimplify a C99 compound literal expression.  This just means adding the
    DECL_STMT before the current EXPR_STMT and using its anonymous decl
    instead.  */
 
 static void
-simplify_compound_literal_expr (expr_p)
+gimplify_compound_literal_expr (expr_p)
      tree *expr_p;
 {
   tree decl_s = COMPOUND_LITERAL_EXPR_DECL_STMT (*expr_p);
   tree decl = DECL_STMT_DECL (decl_s);
 
-  simplify_decl_stmt (&decl_s, NULL);
+  gimplify_decl_stmt (&decl_s, NULL);
   *expr_p = decl_s ? decl_s : decl;
 }
 
-/* Do C-specific simplification.  Args are as for simplify_expr.  */
+/* Do C-specific gimplification.  Args are as for gimplify_expr.  */
 
 int
-c_simplify_expr (expr_p, pre_p, post_p)
+c_gimplify_expr (expr_p, pre_p, post_p)
      tree *expr_p;
      tree *pre_p ATTRIBUTE_UNUSED;
      tree *post_p ATTRIBUTE_UNUSED;
@@ -924,17 +924,17 @@ c_simplify_expr (expr_p, pre_p, post_p)
   
   if (STATEMENT_CODE_P (code))
     {
-      c_simplify_stmt (expr_p);
+      c_gimplify_stmt (expr_p);
       return 1;
     }
   else switch (code)
     {
     case COMPOUND_LITERAL_EXPR:
-      simplify_compound_literal_expr (expr_p);
+      gimplify_compound_literal_expr (expr_p);
       return 1;
 
     case STMT_EXPR:
-      simplify_stmt_expr (expr_p);
+      gimplify_stmt_expr (expr_p);
       return 1;
 
     default:
@@ -942,21 +942,21 @@ c_simplify_expr (expr_p, pre_p, post_p)
     }
 }
 
-/* Simplify a STMT_EXPR.  EXPR_P points to the expression to simplify.
-    After simplification, if the STMT_EXPR returns a value, EXPR_P will
-    point to a new temporary that holds that value; otherwise it will be
-    null.
+/* Gimplify a STMT_EXPR.  EXPR_P points to the expression to gimplify.
+   After gimplification, if the STMT_EXPR returns a value, EXPR_P will
+   point to a new temporary that holds that value; otherwise it will be
+   null.
 
-    PRE_P points to the list where side effects that must happen before
-      *EXPR_P should be stored.  */
+   PRE_P points to the list where side effects that must happen before
+     *EXPR_P should be stored.  */
 
 static void
-simplify_stmt_expr (expr_p)
+gimplify_stmt_expr (expr_p)
      tree *expr_p;
 {
   tree body = STMT_EXPR_STMT (*expr_p);
   if (VOID_TYPE_P (TREE_TYPE (*expr_p)))
-    c_simplify_stmt (&body);
+    c_gimplify_stmt (&body);
   else
     {
       tree substmt, last_expr_stmt, last_expr, bind;
@@ -983,7 +983,7 @@ simplify_stmt_expr (expr_p)
 #endif
 
       /* Genericize the block.  */
-      c_simplify_stmt (&body);
+      c_gimplify_stmt (&body);
 
       /* Now retrofit that last expression into the BIND_EXPR.  */
       if (!STMT_EXPR_NO_SCOPE (*expr_p))
@@ -1187,7 +1187,7 @@ deep_copy_node (node)
 
 /* Similar to copy_tree_r() but do not copy SAVE_EXPR nodes.  These nodes
    model computations that should only be done once.  If we were to unshare
-   something like SAVE_EXPR(i++), the simplification process would create
+   something like SAVE_EXPR(i++), the gimplification process would create
    wrong code.  */
 
 static tree

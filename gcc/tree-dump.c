@@ -679,7 +679,7 @@ static struct dump_file_info dump_files[TDI_end] =
   {".original", "dump-tree-original", 0, 0},
   {".generic", "dump-tree-generic", 0, 0},
   {".inlined", "dump-tree-inlined", 0, 0},
-  {".simple", "dump-tree-simple", 0, 0},
+  {".gimple", "dump-tree-gimple", 0, 0},
   {".cfg", "dump-tree-cfg", 0, 0},
   {".dot", "dump-tree-dot", 0, 0},
   {".pta", "dump-tree-pta", 0, 0},

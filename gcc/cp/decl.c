@@ -14054,7 +14054,7 @@ finish_function (int flags)
 	      chain_member (r, BLOCK_VARS (outer))))
 	{
 	  
-	  if (!flag_disable_simple)
+	  if (!flag_disable_gimple)
 	    set_has_hidden_use (r);
 	  DECL_ALIGN (r) = DECL_ALIGN (DECL_RESULT (fndecl));
 	  walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
@@ -14112,7 +14112,7 @@ finish_function (int flags)
   saved_filename = input_filename;
 
   /* Genericize before inlining.  */
-  if (!flag_disable_simple && !processing_template_decl)
+  if (!flag_disable_gimple && !processing_template_decl)
     c_genericize (fndecl);
 
   /* Clear out memory we no longer need.  */

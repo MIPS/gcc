@@ -306,7 +306,7 @@ struct c_language_function GTY(()) {
 /* Language-specific hooks.  */
 
 extern void (*lang_expand_stmt)                 PARAMS ((tree));
-extern int (*lang_simplify_stmt)                PARAMS ((tree *, tree *));
+extern int (*lang_gimplify_stmt)                PARAMS ((tree *, tree *));
 extern void (*lang_expand_decl_stmt)            PARAMS ((tree));
 extern void (*lang_expand_function_end)         PARAMS ((void));
 extern tree gettags				PARAMS ((void));
@@ -1267,7 +1267,7 @@ extern void dump_time_statistics		PARAMS ((void));
 
 extern bool c_dump_tree				PARAMS ((void *, tree));
 
-extern int c_simplify_expr			PARAMS ((tree *, tree *, tree *));
+extern int c_gimplify_expr			PARAMS ((tree *, tree *, tree *));
 extern tree c_walk_subtrees PARAMS ((tree*, int*, walk_tree_fn, void*, void*));
 extern int c_tree_chain_matters_p		PARAMS ((tree));
 
@@ -1281,7 +1281,7 @@ extern void debug_c_node_brief			PARAMS ((tree));
 
 /* In c-simplify.c  */
 extern void c_genericize			PARAMS ((tree));
-extern void c_simplify_stmt			PARAMS ((tree *));
+extern void c_gimplify_stmt			PARAMS ((tree *));
 
 
 extern void pch_init				PARAMS ((void));

@@ -378,10 +378,10 @@ struct lang_hooks
 
   struct lang_hooks_for_types types;
 
-  /* Perform language-specific simplification on the argument.  Returns
-     1 if simplification is complete, or 0 to use default simplification
+  /* Perform language-specific gimplification on the argument.  Returns
+     1 if gimplification is complete, or 0 to use default gimplification
      semantics.  */
-  int (*simplify_expr) PARAMS ((tree *, tree *, tree *));
+  int (*gimplify_expr) PARAMS ((tree *, tree *, tree *));
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */

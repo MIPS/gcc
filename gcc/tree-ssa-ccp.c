@@ -673,7 +673,7 @@ ccp_fold (tree stmt)
 						      op0);
 
       /* If we could not fold the expression, but the arguments are all
-         constants and simple values, then build and return the new
+         constants and gimple values, then build and return the new
 	 expression. 
 
 	 In some cases the new expression is still something we can
@@ -721,7 +721,7 @@ ccp_fold (tree stmt)
 						       op0, op1);
 
       /* If we could not fold the expression, but the arguments are all
-         constants and simple values, then build and return the new
+         constants and gimple values, then build and return the new
 	 expression. 
 
 	 In some cases the new expression is still something we can
@@ -1110,7 +1110,7 @@ replace_uses_in (tree stmt)
       tree *use = VARRAY_GENERIC_PTR (uses, i);
       value *val = get_value (*use);
 
-      if (val->lattice_val == CONSTANT && is_simple_val (val->const_val))
+      if (val->lattice_val == CONSTANT && is_gimple_val (val->const_val))
 	{
 	  *use = val->const_val;
 	  replaced = true;

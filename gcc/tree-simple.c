@@ -29,7 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "expr.h"
 
-/* GCC SIMPLE (GIMPLE) structure
+/* GCC GIMPLE structure
 
    Inspired by the SIMPLE C grammar at
 
@@ -167,12 +167,12 @@ Boston, MA 02111-1307, USA.  */
 
 */
 
-/* FIXME all of the is_simple_* predicates should be changed to only test
+/* FIXME all of the is_gimple_* predicates should be changed to only test
    for appropriate top-level structures; we can safely assume that after
-   simplification, a PLUS_EXPR is a simple PLUS_EXPR, so the predicate only
+   gimplification, a PLUS_EXPR is a gimple PLUS_EXPR, so the predicate only
    needs to decide whether or not a PLUS_EXPR is suitable here.  */
 
-/* Returns nonzero if T is a simple CONSTRUCTOR:
+/* Returns nonzero if T is a gimple CONSTRUCTOR:
 
      aggr_init: '{' vals '}'
      vals: aggr_init_elt | vals ',' aggr_init_elt
@@ -182,7 +182,7 @@ Boston, MA 02111-1307, USA.  */
    eliminated entirely?  */
 
 int
-is_simple_constructor (t)
+is_gimple_constructor (t)
      tree t;
 {
   tree elt_list;
@@ -196,35 +196,35 @@ is_simple_constructor (t)
 
   for (elt_list = CONSTRUCTOR_ELTS (t); elt_list;
        elt_list = TREE_CHAIN (elt_list))
-    if (!is_simple_constructor_elt (TREE_VALUE (elt_list)))
+    if (!is_gimple_constructor_elt (TREE_VALUE (elt_list)))
       return 0;
 
   return 1;
 }
 
-/* Returns nonzero if T is a simple aggr_init_elt, as above.  */
+/* Returns nonzero if T is a GIMPLE aggr_init_elt, as above.  */
 
 int
-is_simple_constructor_elt (t)
+is_gimple_constructor_elt (t)
      tree t;
 {
-  return (is_simple_val (t)
-	  || is_simple_constructor (t));
+  return (is_gimple_val (t)
+	  || is_gimple_constructor (t));
 }
 
-/* Returns nonzero if T is a simple initializer for a decl, for use in the
+/* Returns nonzero if T is a GIMPLE initializer for a decl, for use in the
    INIT_EXPR we will generate.  This is the same as the right side of a
    MODIFY_EXPR, but here we also allow a CONSTRUCTOR.  */
 
 int
-is_simple_initializer (t)
+is_gimple_initializer (t)
      tree t;
 {
-  return (is_simple_rhs (t)
-	  || is_simple_constructor (t));
+  return (is_gimple_rhs (t)
+	  || is_gimple_constructor (t));
 }
 
-/*  Return nonzero if T is a SIMPLE compound statement.
+/*  Return nonzero if T is a GIMPLE compound statement.
 
       compsmt
 	      : '{' all_stmts '}'
@@ -235,9 +235,9 @@ is_simple_initializer (t)
 
 
 
-/* Validation of SIMPLE expressions.  */
+/* Validation of GIMPLE expressions.  */
 
-/*  Return nonzero if T is an expression that complies with the SIMPLE
+/*  Return nonzero if T is an expression that complies with the GIMPLE
     grammar.
 
       expr
@@ -245,42 +245,42 @@ is_simple_initializer (t)
 	      | modify_expr  */
 
 int
-is_simple_expr (t)
+is_gimple_expr (t)
      tree t;
 {
   if (t == NULL_TREE)
     return 1;
 
-  return (is_simple_rhs (t) || is_simple_modify_expr (t));
+  return (is_gimple_rhs (t) || is_gimple_modify_expr (t));
 }
 
 
-/*  Return nonzero if T is a SIMPLE RHS:
+/*  Return nonzero if T is a GIMPLE RHS:
 
       rhs
 	      : binary_expr
 	      | unary_expr  */
 
 int
-is_simple_rhs (t)
+is_gimple_rhs (t)
      tree t;
 {
   if (t == NULL_TREE)
     return 1;
 
-  return (is_simple_binary_expr (t)
-          || is_simple_unary_expr (t));
+  return (is_gimple_binary_expr (t)
+          || is_gimple_unary_expr (t));
 }
 
 
-/*  Return nonzero if T is a SIMPLE assignment expression:
+/*  Return nonzero if T is a GIMPLE assignment expression:
 
       modify_expr
 	      : varname '=' rhs
 	      | '*' ID '=' rhs  */
 
 int
-is_simple_modify_expr (t)
+is_gimple_modify_expr (t)
      tree t;
 {
   if (t == NULL_TREE)
@@ -288,27 +288,27 @@ is_simple_modify_expr (t)
 
   return ((TREE_CODE (t) == MODIFY_EXPR
 	   || TREE_CODE (t) == INIT_EXPR)
-	  && is_simple_modify_expr_lhs (TREE_OPERAND (t, 0))
-	  && is_simple_rhs (TREE_OPERAND (t, 1)));
+	  && is_gimple_modify_expr_lhs (TREE_OPERAND (t, 0))
+	  && is_gimple_rhs (TREE_OPERAND (t, 1)));
 }
 
 
-/*  Return nonzero if T is a valid LHS for a SIMPLE assignment expression.  */
+/*  Return nonzero if T is a valid LHS for a GIMPLE assignment expression.  */
 
 int
-is_simple_modify_expr_lhs (t)
+is_gimple_modify_expr_lhs (t)
      tree t;
 {
   if (t == NULL_TREE)
     return 1;
 
-  return (is_simple_varname (t)
+  return (is_gimple_varname (t)
 	  || (TREE_CODE (t) == INDIRECT_REF
-	      && is_simple_id (TREE_OPERAND (t, 0))));
+	      && is_gimple_id (TREE_OPERAND (t, 0))));
 }
 
 
-/*  Return true if CODE is designates a SIMPLE relop:
+/*  Return true if CODE is designates a GIMPLE relop:
 
       relop
 	      : '<'
@@ -316,7 +316,7 @@ is_simple_modify_expr_lhs (t)
 	      ...  */
     
 bool
-is_simple_relop (code)
+is_gimple_relop (code)
      enum tree_code code;
 {
   return (TREE_CODE_CLASS (code) == '<'
@@ -326,46 +326,46 @@ is_simple_relop (code)
 }
 
 
-/*  Return nonzero if T is a SIMPLE binary expression:
+/*  Return nonzero if T is a GIMPLE binary expression:
 
       binary_expr
 	      : val binop val  */
 
 int
-is_simple_binary_expr (t)
+is_gimple_binary_expr (t)
      tree t;
 {
   if (t == NULL_TREE)
     return 1;
 
   return ((TREE_CODE_CLASS (TREE_CODE (t)) == '2'
-	   || is_simple_relop (TREE_CODE (t)))
-	  && is_simple_val (TREE_OPERAND (t, 0))
-	  && is_simple_val (TREE_OPERAND (t, 1)));
+	   || is_gimple_relop (TREE_CODE (t)))
+	  && is_gimple_val (TREE_OPERAND (t, 0))
+	  && is_gimple_val (TREE_OPERAND (t, 1)));
 }
 
 
-/*  Return nonzero if T is a SIMPLE conditional expression:
+/*  Return nonzero if T is a GIMPLE conditional expression:
 
       condexpr
 	      : val
 	      | val relop val  */
 
 int
-is_simple_condexpr (t)
+is_gimple_condexpr (t)
      tree t;
 {
   if (t == NULL_TREE)
     return 1;
 
-  return (is_simple_val (t)
-	  || (is_simple_relop (TREE_CODE (t))
-	      && is_simple_val (TREE_OPERAND (t, 0))
-	      && is_simple_val (TREE_OPERAND (t, 1))));
+  return (is_gimple_val (t)
+	  || (is_gimple_relop (TREE_CODE (t))
+	      && is_gimple_val (TREE_OPERAND (t, 0))
+	      && is_gimple_val (TREE_OPERAND (t, 1))));
 }
 
 
-/*  Return nonzero if T is a unary expression as defined by the SIMPLE
+/*  Return nonzero if T is a unary expression as defined by the GIMPLE
     grammar:
 
       unary_expr
@@ -379,7 +379,7 @@ is_simple_condexpr (t)
 	      (cast here stands for all valid C typecasts)  */
 
 int
-is_simple_unary_expr (t)
+is_gimple_unary_expr (t)
      tree t;
 {
   if (t == NULL_TREE)
@@ -388,51 +388,51 @@ is_simple_unary_expr (t)
   /* Additions to the original grammar.  Allow VTABLE_REF
      wrappers.  */
   if (TREE_CODE (t) == VTABLE_REF)
-    return is_simple_unary_expr (TREE_OPERAND (t, 0));
+    return is_gimple_unary_expr (TREE_OPERAND (t, 0));
 
-  if (is_simple_varname (t) || is_simple_const (t))
+  if (is_gimple_varname (t) || is_gimple_const (t))
     return 1;
 
   if (TREE_CODE (t) == INDIRECT_REF
-      && is_simple_id (TREE_OPERAND (t, 0)))
+      && is_gimple_id (TREE_OPERAND (t, 0)))
     return 1;
 
   if (TREE_CODE (t) == ADDR_EXPR
-      && is_simple_addr_expr_arg (TREE_OPERAND (t, 0)))
+      && is_gimple_addr_expr_arg (TREE_OPERAND (t, 0)))
     return 1;
 
-  if (is_simple_call_expr (t))
+  if (is_gimple_call_expr (t))
     return 1;
 
   if (TREE_CODE_CLASS (TREE_CODE (t)) == '1'
-      && is_simple_val (TREE_OPERAND (t, 0)))
+      && is_gimple_val (TREE_OPERAND (t, 0)))
     return 1;
 
-  if (is_simple_cast (t))
+  if (is_gimple_cast (t))
     return 1;
 
   /* Addition to the original grammar.  Allow BIT_FIELD_REF nodes where
-     operand 0 is a SIMPLE identifier and operands 1 and 2 are SIMPLE
+     operand 0 is a GIMPLE identifier and operands 1 and 2 are GIMPLE
      values.  */
   if (TREE_CODE (t) == BIT_FIELD_REF)
-    return (is_simple_min_lval (TREE_OPERAND (t, 0))
-	    && is_simple_val (TREE_OPERAND (t, 1))
-	    && is_simple_val (TREE_OPERAND (t, 2)));
+    return (is_gimple_min_lval (TREE_OPERAND (t, 0))
+	    && is_gimple_val (TREE_OPERAND (t, 1))
+	    && is_gimple_val (TREE_OPERAND (t, 2)));
 
   /* Addition to the original grammar.  Allow VA_ARG_EXPR nodes.  */
   if (TREE_CODE (t) == VA_ARG_EXPR)
     return 1;
 
-  /* Addition to the original grammar.  Allow simple constructor
+  /* Addition to the original grammar.  Allow GIMPLE constructor
      expressions.  */
   if (TREE_CODE (t) == CONSTRUCTOR)
-    return is_simple_constructor (t);
+    return is_gimple_constructor (t);
 
   return 0;
 }
 
 
-/*  Return nonzero if T is a SIMPLE call expression:
+/*  Return nonzero if T is a GIMPLE call expression:
 
       call_expr
 	      : ID '(' arglist ')'
@@ -442,7 +442,7 @@ is_simple_unary_expr (t)
 	      | val  */
 
 int
-is_simple_call_expr (t)
+is_gimple_call_expr (t)
      tree t;
 {
   if (t == NULL_TREE)
@@ -451,44 +451,44 @@ is_simple_call_expr (t)
   if (TREE_CODE (t) != CALL_EXPR)
     return 0;
 
-  /* Some builtins cannot be simplified because the require specific
+  /* Some builtins cannot be gimplified because the require specific
      arguments (e.g., MD builtins).  */
-  if (!is_simplifiable_builtin (t))
+  if (!is_gimplifiable_builtin (t))
     {
-      /* Mark the CALL_EXPR not simplifiable so that optimizers don't
+      /* Mark the CALL_EXPR not gimplifiable so that optimizers don't
          assume anything about it.  Return nonzero to prevent any more
 	 gimplification on this expression.  */
-      mark_not_simple (&t);
+      mark_not_gimple (&t);
       return 1;
     }
 
-  return (is_simple_id (TREE_OPERAND (t, 0))
-          && is_simple_arglist (TREE_OPERAND (t, 1)));
+  return (is_gimple_id (TREE_OPERAND (t, 0))
+          && is_gimple_arglist (TREE_OPERAND (t, 1)));
 }
 
 
-/*  Return nonzero if T is a SIMPLE argument list:
+/*  Return nonzero if T is a GIMPLE argument list:
 
       arglist
 	      : arglist ',' val
 	      | val  */
 
 int
-is_simple_arglist (t)
+is_gimple_arglist (t)
      tree t;
 {
   tree op;
 
-  /* Check that each argument is also in SIMPLE form.  */
+  /* Check that each argument is also in GIMPLE form.  */
   for (op = t; op; op = TREE_CHAIN (op))
-    if (! is_simple_val (TREE_VALUE (op)))
+    if (! is_gimple_val (TREE_VALUE (op)))
       return 0;
 
   return 1;
 }
 
 
-/*  Return nonzero if T is SIMPLE variable name:
+/*  Return nonzero if T is GIMPLE variable name:
 
       varname
 	      : arrayref
@@ -496,17 +496,17 @@ is_simple_arglist (t)
 	      | ID     */
 
 int
-is_simple_varname (t)
+is_gimple_varname (t)
      tree t;
 {
   if (t == NULL_TREE)
     return 1;
 
-  return (is_simple_id (t)
+  return (is_gimple_id (t)
 #if 0
-	  || is_simple_arrayref (t) || is_simple_compref (t)
+	  || is_gimple_arrayref (t) || is_gimple_compref (t)
 #else
-	  || is_simple_compound_lval (t)
+	  || is_gimple_compound_lval (t)
 #endif
 	  );
 }
@@ -527,7 +527,7 @@ is_simple_varname (t)
    were splitting up array and member refs.  */
 
 int
-is_simple_compound_lval (t)
+is_gimple_compound_lval (t)
      tree t;
 {
   /* Allow arrays of complex types.  */
@@ -542,11 +542,11 @@ is_simple_compound_lval (t)
        t = TREE_OPERAND (t, 0))
     {
       if (TREE_CODE (t) == ARRAY_REF
-	  && !is_simple_val (TREE_OPERAND (t, 1)))
+	  && !is_gimple_val (TREE_OPERAND (t, 1)))
 	return 0;
     }
 
-  return is_simple_min_lval (t);
+  return is_gimple_min_lval (t);
 }
 
 /*  Return nonzero if T can be used as the argument for an ADDR_EXPR node.
@@ -568,7 +568,7 @@ is_simple_compound_lval (t)
     generate 't = (char *)(char[1] *)&foo ();'.  */
 
 int
-is_simple_addr_expr_arg (t)
+is_gimple_addr_expr_arg (t)
      tree t;
 {
   /* If we're taking the address of a label for the first time, then
@@ -576,13 +576,13 @@ is_simple_addr_expr_arg (t)
   if (TREE_CODE (t) == LABEL_DECL && ! FORCED_LABEL (t))
     return 0;
 
-  return (is_simple_varname (t) || is_simple_call_expr (t));
+  return (is_gimple_varname (t) || is_gimple_call_expr (t));
 }
 
 /*  Return nonzero if T is a constant.  */
 
 int
-is_simple_const (t)
+is_gimple_const (t)
      tree t;
 {
   if (t == NULL_TREE)
@@ -604,16 +604,16 @@ is_simple_const (t)
 }
 
 int
-is_simple_stmt (t)
+is_gimple_stmt (t)
      tree t ATTRIBUTE_UNUSED;
 {
   return 1;
 }
 
-/*  Return nonzero if T is a SIMPLE identifier.  */
+/*  Return nonzero if T is a GIMPLE identifier.  */
 
 int
-is_simple_id (t)
+is_gimple_id (t)
      tree t;
 {
   if (t == NULL_TREE)
@@ -622,7 +622,7 @@ is_simple_id (t)
   /* Allow real and imaginary parts of a complex variable.  */
   if (TREE_CODE (t) == REALPART_EXPR
       || TREE_CODE (t) == IMAGPART_EXPR)
-    return is_simple_id (TREE_OPERAND (t, 0));
+    return is_gimple_id (TREE_OPERAND (t, 0));
 
   return (TREE_CODE (t) == VAR_DECL
 	  || TREE_CODE (t) == FUNCTION_DECL
@@ -643,17 +643,17 @@ is_simple_id (t)
 /*  Return nonzero if T is an identifier or a constant.  */
 
 int
-is_simple_val (t)
+is_gimple_val (t)
      tree t;
 {
   if (t == NULL_TREE)
     return 1;
 
-  return (is_simple_id (t) || is_simple_const (t));
+  return (is_gimple_id (t) || is_gimple_const (t));
 }
 
 
-/*  Return true if T is a SIMPLE minimal lvalue, of the form
+/*  Return true if T is a GIMPLE minimal lvalue, of the form
 
     min_lval: ID | '(' '*' ID ')'
 
@@ -661,15 +661,15 @@ is_simple_val (t)
     repeated in several places.  */
 
 int
-is_simple_min_lval (t)
+is_gimple_min_lval (t)
      tree t;
 {
   if (t == NULL_TREE)
     return 1;
 
-  return (is_simple_id (t)
+  return (is_gimple_id (t)
 	  || (TREE_CODE (t) == INDIRECT_REF
-	      && is_simple_id (TREE_OPERAND (t, 0))));
+	      && is_gimple_id (TREE_OPERAND (t, 0))));
 }
 
 #if 0
@@ -685,7 +685,7 @@ is_simple_min_lval (t)
 	      | reflist '[' val ']'  */
 
 int
-is_simple_arrayref (t)
+is_gimple_arrayref (t)
      tree t;
 {
   if (t == NULL_TREE)
@@ -700,10 +700,10 @@ is_simple_arrayref (t)
     return 0;
 
   for (; TREE_CODE (t) == ARRAY_REF; t = TREE_OPERAND (t, 0))
-    if (! is_simple_val (TREE_OPERAND (t, 1)))
+    if (! is_gimple_val (TREE_OPERAND (t, 1)))
       return 0;
 
-  return is_simple_min_lval (t);
+  return is_gimple_min_lval (t);
 }
 
 
@@ -718,7 +718,7 @@ is_simple_arrayref (t)
 	      | ID  */
 
 int
-is_simple_compref (t)
+is_gimple_compref (t)
      tree t;
 {
   if (t == NULL_TREE)
@@ -728,10 +728,10 @@ is_simple_compref (t)
     return 0;
 
   for (; TREE_CODE (t) == COMPONENT_REF; t = TREE_OPERAND (t, 0))
-    if (! is_simple_id (TREE_OPERAND (t, 1)))
+    if (! is_gimple_id (TREE_OPERAND (t, 1)))
       abort ();
 
-  return is_simple_min_lval (t);
+  return is_gimple_min_lval (t);
 }
 #endif
 
@@ -739,20 +739,20 @@ is_simple_compref (t)
     '(' cast ')' val.  */
 
 int
-is_simple_cast (t)
+is_gimple_cast (t)
      tree t;
 {
   if (t == NULL_TREE)
     return 1;
 
-  return (is_simple_cast_op (t) && is_simple_val (TREE_OPERAND (t, 0)));
+  return (is_gimple_cast_op (t) && is_gimple_val (TREE_OPERAND (t, 0)));
 }
 
 
 /*  Return nonzero if T is a typecast operator.  */
 
 int
-is_simple_cast_op (t)
+is_gimple_cast_op (t)
      tree t;
 {
   if (t == NULL_TREE)
@@ -767,39 +767,39 @@ is_simple_cast_op (t)
 }
 
 
-/*  Return 1 if T is a SIMPLE expression sequence:
+/*  Return 1 if T is a GIMPLE expression sequence:
 
       exprseq
 	      : exprseq ',' expr
 	      | expr  */
 
 int
-is_simple_exprseq (t)
+is_gimple_exprseq (t)
      tree t;
 {
   /* Empty expression sequences are allowed.  */
   if (t == NULL_TREE)
     return 1;
 
-  return (is_simple_expr (t)
+  return (is_gimple_expr (t)
           || (TREE_CODE (t) == COMPOUND_EXPR
-	      && is_simple_expr (TREE_OPERAND (t, 0))
-	      && is_simple_exprseq (TREE_OPERAND (t, 1))));
+	      && is_gimple_expr (TREE_OPERAND (t, 0))
+	      && is_gimple_exprseq (TREE_OPERAND (t, 1))));
 }
 
-/* Return nonzero if FNDECL can be simplified.  This is needed for
+/* Return nonzero if FNDECL can be gimplified.  This is needed for
    target-defined builtins that may need specific tree nodes in their
    argument list.  */
 
 int
-is_simplifiable_builtin (expr)
+is_gimplifiable_builtin (expr)
      tree expr;
 {
   tree decl;
 
   decl = get_callee_fndecl (expr);
 
-  /* Do not simplify target-defined builtin functions.
+  /* Do not gimplify target-defined builtin functions.
      FIXME: Maybe we should add a target hook for allowing this in the
 	    future?  */
   if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_MD)
@@ -879,7 +879,7 @@ rationalize_compound_expr (top)
   return top;
 }
 
-/* Given a SIMPLE varname (an ID, an arrayref or a compref), return the
+/* Given a GIMPLE varname (an ID, an arrayref or a compref), return the
    base symbol for the variable.  */
 
 tree

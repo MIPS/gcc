@@ -903,8 +903,8 @@ int flag_renumber_insns = 1;
 /* If nonzero, use the graph coloring register allocator.  */
 int flag_new_regalloc = 0;
 
-/* Disable tree simplification.  */
-int flag_disable_simple = 0;
+/* Disable tree gimplification.  */
+int flag_disable_gimple = 0;
 
 /* Disable SSA on trees optimizations.  */
 int flag_disable_tree_ssa = 0;
@@ -1256,8 +1256,8 @@ static const lang_independent_options f_options[] =
    N_("Add mudflap instrumentation, with multithreading support") },
   { "new-ra", &flag_new_regalloc, 1,
    N_("Use graph coloring register allocation.") },
-  { "disable-simple", &flag_disable_simple, 1,
-   N_("Do not re-write trees into SIMPLE form") },
+  { "disable-gimple", &flag_disable_gimple, 1,
+   N_("Do not re-write trees into GIMPLE form") },
   { "disable-tree-ssa", &flag_disable_tree_ssa, 1,
    N_("Disable SSA optimizations on trees") },
   { "tree-pre", &flag_tree_pre, 1,
@@ -5496,12 +5496,12 @@ process_options ()
     if (flag_signaling_nans)
       flag_trapping_math = 1;
 
-  /* -fdisable-simple also disables the tree optimizers.  */
-  if (optimize >= 1 && flag_disable_simple)
-    warning ("-fdisable-simple also disables optimizations on trees");
+  /* -fdisable-gimple also disables the tree optimizers.  */
+  if (optimize >= 1 && flag_disable_gimple)
+    warning ("-fdisable-gimple also disables optimizations on trees");
 
-  if (flag_disable_simple && flag_mudflap)
-    warning ("-fdisable-simple also disables mudflap instrumentation");
+  if (flag_disable_gimple && flag_mudflap)
+    warning ("-fdisable-gimple also disables mudflap instrumentation");
 }
 
 /* Initialize the compiler back end.  */

@@ -1,3 +1,8 @@
+2003-06-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* cp-lang.c, cp-simplify.c, cp-tree.h, decl.c, optimize.c,
+	semantics.c, tree.c: Rename SIMPLE to GIMPLE everywhere.
+
 2003-06-05  Frank Ch. Eigler  <fche@redhat.com>
 
 	* cp-mudflap.c (mflang_register_call): Give the synthetic decl

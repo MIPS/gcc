@@ -81,21 +81,21 @@ optimize_function (tree fn)
   /* Undo the call to ggc_push_context above.  */
   --function_depth;
 
-  /* Simplify the function.  Don't try to optimize the function if
-     simplification failed.  */
+  /* Gimplify the function.  Don't try to optimize the function if
+     gimplification failed.  */
   if (keep_function_tree_in_gimple_form (fn))
     {
-      /* Debugging dump after simplification.  */
-      dump_function (TDI_simple, fn);
+      /* Debugging dump after gimplification.  */
+      dump_function (TDI_gimple, fn);
 
       if (flag_mudflap)
 	{
 	  mudflap_c_function (fn);
 
-	  /* Simplify mudflap instrumentation.  FIXME  Long term: Would it
-	     be better for mudflap to simplify each tree as it generates
+	  /* Gimplify mudflap instrumentation.  FIXME  Long term: Would it
+	     be better for mudflap to gimplify each tree as it generates
 	     them?  */
-	  simplify_function_tree (fn);
+	  gimplify_function_tree (fn);
 	}
 
       /* Invoke the SSA tree optimizer.  */

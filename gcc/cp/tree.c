@@ -2315,7 +2315,7 @@ cp_copy_res_decl_for_inlining (result, fn, caller, decl_map_,
      references to the RESULT into references to the target.  */
 
   /* We should have an explicit return slot iff the return type is
-     TREE_ADDRESSABLE.  See simplify_aggr_init_expr.  */
+     TREE_ADDRESSABLE.  See gimplify_aggr_init_expr.  */
   if (TREE_ADDRESSABLE (TREE_TYPE (result))
       != (return_slot_addr != NULL_TREE))
     abort ();
@@ -2389,7 +2389,7 @@ cp_end_inlining (fn)
 void
 init_tree ()
 {
-  lang_simplify_stmt = cp_simplify_stmt;
+  lang_gimplify_stmt = cp_gimplify_stmt;
   list_hash_table = htab_create_ggc (31, list_hash, list_hash_eq, NULL);
 }
 

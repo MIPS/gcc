@@ -1,3 +1,13 @@
+2003-06-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-common.c, c-common.h, c-decl.c, c-lang.c, c-simplify.c,
+	flags.h, gimplify.c, langhooks-def.h, langhooks.c, langhooks.h,
+	simple-break-elim.c, simple-goto-elim.c, toplev.c,
+	tree-alias-common.c, tree-cfg.c, tree-dfa.c, tree-dump.c,
+	tree-inline.c, tree-mudflap.c, tree-simple.c, tree-simple.h,
+	tree-ssa-ccp.c, tree-ssa-pre.c, tree-ssa.c, tree.h, doc/invoke.texi:
+	Rename SIMPLE to GIMPLE everywhere.
+
 2003-06-13  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-cfg.c (bsi_commit_first_edge_insert): Only consider non-abnormal

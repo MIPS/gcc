@@ -1,4 +1,4 @@
-/* Break and continue statement elimination for Simple.
+/* Break and continue statement elimination for GIMPLE.
    Copyright (C) 2002 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
@@ -32,8 +32,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* This pass eliminates all BREAK_STMTs and CONTINUE_STMTs from loops.  
    It performs also dead code elimination.  This pass works on double linked
-   statements on the SIMPLE representation.
-   After this pass we obtain a subset of the SIMPLE grammar since all 
+   statements on the GIMPLE representation.
+   After this pass we obtain a subset of the GIMPLE grammar since all 
    SWITCH_STMTs are trasformed into IF_STMTs.  */
 
 /* For normalizing the flow in the loop body, there are two approaches :
@@ -84,7 +84,7 @@ static PATH_TYPE PATH_TOP;
 
 
 /* Entry point to the break and continue elimination pass.  FN is the 
-   FUNCTION_DECL node for the function we want to simplify.  */
+   FUNCTION_DECL node for the function we want to gimplify.  */
 
 void
 break_continue_elimination (fn)
@@ -101,7 +101,7 @@ break_continue_elimination (fn)
     return;
 
   /* Create a new binding level for the temporaries created by the
-     simplification process.  */
+     gimplification process.  */
   pushlevel (0);
 
   /* Transform breaks and continues from the function's body.  */

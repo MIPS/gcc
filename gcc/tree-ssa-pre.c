@@ -651,9 +651,9 @@ expr_phi_insertion (dfs, ei)
       if (kill != NULL)
 	continue;
       occur = TREE_OPERAND (occur, 1);
-      /*if (is_simple_id (get_operand (occur, 0))
+      /*if (is_gimple_id (get_operand (occur, 0))
 	  || (get_operand (occur, 1) 
-	  && is_simple_id (get_operand (occur, 1))))*/
+	  && is_gimple_id (get_operand (occur, 1))))*/
       {
 	  varray_type uses;
 	  size_t j;
