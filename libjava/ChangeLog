@@ -1,5 +1,10 @@
 2004-06-10  Olga Rodimina  <rodimina@redhat.com>
 
+	* javax/swing/JMenu.java: Fixed file name 
+	in the file comment.
+
+2004-06-10  Olga Rodimina  <rodimina@redhat.com>
+
 	* javax/swing/JMenu.java: Added javadoc.
 	(JMenu): Added MenuChangeListener to listen to 
 	ChangeEvents occuring in menu's model. 
