@@ -2739,29 +2739,37 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	(*lang_hooks.mark_addressable) (TREE_VALUE (link));
 
       tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
-			    is_gimple_lvalue, fb_lvalue | fb_mayfail);
+			    is_inout ? is_gimple_min_lval : is_gimple_lvalue,
+			    fb_lvalue | fb_mayfail);
       if (tret == GS_ERROR)
 	{
 	  error ("invalid lvalue in asm output %d", i);
 	  ret = tret;
 	}
 
-      if (is_inout && allows_reg)
+      if (is_inout)
 	{
-	  /* An input/output operand that allows a register.  To give the
-	     optimizers more flexibility, split it into separate input and
-	     output operands.  */
+	  /* An input/output operand.  To give the optimizers more
+	     flexibility, split it into separate input and output
+ 	     operands.  */
 	  tree input;
 	  char buf[10];
+	  size_t constraint_len = strlen (constraint);
 
 	  /* Turn the in/out constraint into an output constraint.  */
 	  char *p = xstrdup (constraint);
 	  p[0] = '=';
-	  TREE_VALUE (TREE_PURPOSE (link)) = build_string (strlen (p), p);
+	  TREE_VALUE (TREE_PURPOSE (link)) = build_string (constraint_len, p);
+	  free (p);
 
 	  /* And add a matching input constraint.  */
-	  sprintf (buf, "%d", i);
-	  input = build_string (strlen (buf), buf);
+	  if (allows_reg)
+	    {
+	      sprintf (buf, "%d", i);
+	      input = build_string (strlen (buf), buf);
+	    }
+	  else
+	    input = build_string (constraint_len - 1, constraint + 1);
 	  input = build_tree_list (build_tree_list (NULL_TREE, input),
 				   unshare_expr (TREE_VALUE (link)));
 	  ASM_INPUTS (expr) = chainon (ASM_INPUTS (expr), input);

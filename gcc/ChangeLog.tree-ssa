@@ -1,3 +1,10 @@
+2004-05-06  Richard Henderson  <rth@redhat.com>
+
+        * stmt.c (parse_output_constraint): Don't warn for read-write
+        memory operand.
+	* gimplify.c (gimplify_asm_expr): Force in-out memory operands
+	to minimal lvalues, then expand to non-matching constraints.
+
 2004-05-06  Zack Weinberg  <zack@codesourcery.com>
 
 	* c-decl.c (finish_function): When !targetm.have_ctors_dtors,
