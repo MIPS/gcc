@@ -544,6 +544,14 @@ if test x$enable_gather_detailed_mem_stats = xyes ; then
         [Define to enable detailed memory allocation stats gathering.])
 fi
 
+AC_ARG_ENABLE(tree-browser,
+[  --enable-tree-browser   enable the tree browsing routines for debugging], [],
+[enable_tree_browser=no])
+if test x$enable_tree_browser = xyes ; then
+  TREEBROWSER=tree-browser.o
+fi
+AC_SUBST(TREEBROWSER)
+
 # -------------------------------
 # Miscenalleous configure options
 # -------------------------------

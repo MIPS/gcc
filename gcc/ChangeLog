@@ -1,3 +1,10 @@
+2004-04-05  Ben Elliston  <bje@au.ibm.com>
+
+	* Makefile.in (OBJS-common): Remove tree-browser.o.
+	(cc1): Depend on @TREEBROWSER@ and include in list of objects.
+	* configure.ac: Add --enable-tree-browser option.
+	* configure: Rebuild.
+
 2004-03-21  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* config/rs6000/t-darwin (LIB2FUNCS_STATIC_EXTRA):
