@@ -1,3 +1,9 @@
+2003-11-12  Jason Merrill  <jason@redhat.com>
+
+	PR optimization/12547
+	* lang.c (java_tree_inlining_walk_subtrees): Restore.
+	(LANG_HOOKS_TREE_INLINING_WALK_SUBTREES): Restore.
+
 2003-11-12  Richard Henderson  <rth@redhat.com>
 
 	* java-gimplify.c (java_gimplify_expr): Use annotate_with_locus
