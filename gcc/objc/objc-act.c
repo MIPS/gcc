@@ -9301,8 +9301,8 @@ objc_lookup_ivar (tree other, tree id)
   /* In an instance method, a local variable (or parameter) may hide the
      instance variable.  */
   if (TREE_CODE (objc_method_context) == INSTANCE_METHOD_DECL
-      && other && other != error_mark_node
       /* APPLE LOCAL begin Objective-C++ */
+      && other && other != error_mark_node
 #ifdef OBJCPLUS
       && CP_DECL_CONTEXT (other) != global_namespace)
 #else
