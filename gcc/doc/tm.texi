@@ -7684,7 +7684,10 @@ Given a register, this hook should return a parallel of registers to
 represent where to find the register pieces.  Define this hook if the
 register and its mode are represented in Dwarf in non-contiguous
 locations, or if the register should be represented in more than one
-register in Dwarf.  Otherwise, this hook should return @code{NULL_RTX}.
+register in Dwarf.  This hook can also return @code{reg} to force the
+register to be referenced as a single register, even if gcc thinks it is
+split over multiple consecutive registers.  Otherwise, this hook should
+return @code{NULL_RTX}.
 If not defined, the default is to return @code{NULL_RTX}.
 @end deftypefn
 

@@ -8127,6 +8127,16 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs)
       return loc_result;
     }
 
+  /* A single register.  This happens when a single dwarf register overlaps
+     multiple gcc registers.  */
+
+  if (GET_CODE (regs) == REG)
+    {
+      reg = dbx_reg_number (regs);
+
+      return one_reg_loc_descriptor (reg);
+    }
+
   /* Now onto stupid register sets in non contiguous locations.  */
 
   if (GET_CODE (regs) != PARALLEL)

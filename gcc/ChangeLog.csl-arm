@@ -1,3 +1,10 @@
+2005-03-30  Paul Brook  <pau@codesourcery.com>
+
+	* dwarf2out.c (multiple_reg_loc_descriptor): Handle single REG.
+	* config/arm/arm.c (arm_dwarf_register_span): New function.
+	(TARGET_DWARF_REGISTER_SPAN): Define.
+	* doc/tm.dexi: Update documentation for TARGET_DWARF_REGISTER_SPAN.
+
 2005-03-30  Paul Brook  <paul@codesourcery.com>
 
 	* optabs.c (expand_twoval_binop_libfunc): Call protect_from_queue.

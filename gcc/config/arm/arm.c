@@ -185,6 +185,7 @@ static bool arm_cxx_use_aeabi_atexit (void);
 static void arm_init_libfuncs (void);
 
 static bool arm_return_in_msb (tree);
+static rtx arm_dwarf_register_span (rtx);
 
 
 /* Initialize the GCC target structure.  */
@@ -337,6 +338,9 @@ static bool arm_return_in_msb (tree);
 
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM arm_tls_operand_p
+
+#undef TARGET_DWARF_REGISTER_SPAN
+#define TARGET_DWARF_REGISTER_SPAN arm_dwarf_register_span
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -15569,6 +15573,7 @@ arm_cxx_unwind_resume_name (void)
   return default_unwind_resume_name ();
 }
 
+
 static bool
 arm_emit_tls_decoration (FILE *fp, rtx x)
 {
@@ -15648,4 +15653,24 @@ arm_dbx_register_number (unsigned int regno)
 
   abort ();
 }
+
+
+/* Double precision VFP registers are referenced by a single DWARF register,
+   even though they cover two gcc registers.  Return the REG rtx so that gcc
+   doesn't ouptu DW_OP_piece for these.  */
+
+static rtx
+arm_dwarf_register_span (rtx reg)
+{
+  unsigned regno;
+
+  regno = REGNO (reg);
+  /* We could return NULL for single precision values, but it's safe
+     (and easier) to return the REG all the time.  */
+  if (IS_VFP_REGNUM (regno))
+    return reg;
+
+  return NULL;
+}
+
 #include "gt-arm.h"
