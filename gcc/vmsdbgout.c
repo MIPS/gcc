@@ -527,7 +527,7 @@ restart:
 
 /* Output the debug header HEADER.  Also output COMMENT if flag_verbose_asm is
    set.  Return the header size.  Just return the size if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_debug_header (header, comment, dosizeonly)
@@ -559,7 +559,7 @@ write_debug_header (header, comment, dosizeonly)
 
 /* Output the address of SYMBOL.  Also output COMMENT if flag_verbose_asm is
    set.  Return the address size.  Just return the size if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_debug_addr (symbol, comment, dosizeonly)
@@ -580,7 +580,7 @@ write_debug_addr (symbol, comment, dosizeonly)
 
 /* Output the single byte DATA1.  Also output COMMENT if flag_verbose_asm is
    set.  Return the data size.  Just return the size if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_debug_data1 (data1, comment, dosizeonly)
@@ -601,7 +601,7 @@ write_debug_data1 (data1, comment, dosizeonly)
 
 /* Output the single word DATA2.  Also output COMMENT if flag_verbose_asm is
    set.  Return the data size.  Just return the size if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_debug_data2 (data2, comment, dosizeonly)
@@ -621,7 +621,7 @@ write_debug_data2 (data2, comment, dosizeonly)
 }
 
 /* Output double word DATA4.  Also output COMMENT if flag_verbose_asm is set.
-   Return the data size.  Just return the size if DOSIZEONLY is non-zero.  */
+   Return the data size.  Just return the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_debug_data4 (data4, comment, dosizeonly)
@@ -641,7 +641,7 @@ write_debug_data4 (data4, comment, dosizeonly)
 }
 
 /* Output quad word DATA8.  Also output COMMENT if flag_verbose_asm is set.
-   Return the data size.  Just return the size if DOSIZEONLY is non-zero.  */
+   Return the data size.  Just return the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_debug_data8 (data8, comment, dosizeonly)
@@ -662,7 +662,7 @@ write_debug_data8 (data8, comment, dosizeonly)
 
 /* Output the difference between LABEL1 and LABEL2.  Also output COMMENT if
    flag_verbose_asm is set.  Return the data size.  Just return the size if
-   DOSIZEONLY is non-zero.  */
+   DOSIZEONLY is nonzero.  */
 
 static int
 write_debug_delta4 (label1, label2, comment, dosizeonly)
@@ -684,7 +684,7 @@ write_debug_delta4 (label1, label2, comment, dosizeonly)
 
 /* Output a character string STRING.  Also write COMMENT if flag_verbose_asm is
    set.  Return the string length.  Just return the length if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_debug_string (string, comment, dosizeonly)
@@ -704,7 +704,7 @@ write_debug_string (string, comment, dosizeonly)
 }
 
 /* Output a module begin header and return the header size.  Just return the
-   size if DOSIZEONLY is non-zero.  */
+   size if DOSIZEONLY is nonzero.  */
 
 static int
 write_modbeg (dosizeonly)
@@ -768,7 +768,7 @@ write_modbeg (dosizeonly)
 }
 
 /* Output a module end trailer and return the trailer size.   Just return
-   the size if DOSIZEONLY is non-zero.  */
+   the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_modend (dosizeonly)
@@ -788,7 +788,7 @@ write_modend (dosizeonly)
 }
 
 /* Output a routine begin header routine RTNNUM and return the header size.
-   Just return the size if DOSIZEONLY is non-zero.  */
+   Just return the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_rtnbeg (rtnnum, dosizeonly)
@@ -883,7 +883,7 @@ write_rtnbeg (rtnnum, dosizeonly)
 }
 
 /* Output a routine end trailer for routine RTNNUM and return the header size.
-   Just return the size if DOSIZEONLY is non-zero.  */
+   Just return the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_rtnend (rtnnum, dosizeonly)
@@ -927,7 +927,7 @@ write_rtnend (rtnnum, dosizeonly)
   : (I) < 65536 ? DST_K_INCR_LINUM_W : DST_K_INCR_LINUM_L)
 
 /* Output the PC to line number correlations and return the size.  Just return
-   the size if DOSIZEONLY is non-zero */
+   the size if DOSIZEONLY is nonzero */
 
 static int
 write_pclines (dosizeonly)
@@ -1058,7 +1058,7 @@ write_pclines (dosizeonly)
 
 /* Output a source correlation for file FILEID using information saved in
    FILE_INFO_ENTRY and return the size.  Just return the size if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_srccorr (fileid, file_info_entry, dosizeonly)
@@ -1253,7 +1253,7 @@ write_srccorr (fileid, file_info_entry, dosizeonly)
 }
 
 /* Output all the source correlation entries and return the size.  Just return
-   the size if DOSIZEONLY is non-zero.  */
+   the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_srccorrs (dosizeonly)

@@ -244,6 +244,7 @@ static enum reg_class find_valid_class PARAMS ((enum machine_mode, int,
 						unsigned int));
 static int reload_inner_reg_of_subreg PARAMS ((rtx, enum machine_mode));
 static void push_replacement	PARAMS ((rtx *, int, enum machine_mode));
+static void dup_replacements	PARAMS ((rtx *, rtx *));
 static void combine_reloads	PARAMS ((void));
 static int find_reusable_reload	PARAMS ((rtx *, rtx, enum reg_class,
 				       enum reload_type, int, int));
@@ -275,7 +276,7 @@ static int find_inc_amount	PARAMS ((rtx, rtx));
 #ifdef HAVE_SECONDARY_RELOADS
 
 /* Determine if any secondary reloads are needed for loading (if IN_P is
-   non-zero) or storing (if IN_P is zero) X to or from a reload register of
+   nonzero) or storing (if IN_P is zero) X to or from a reload register of
    register class RELOAD_CLASS in mode RELOAD_MODE.  If secondary reloads
    are needed, push them.
 
@@ -367,7 +368,7 @@ push_secondary_reload (in_p, x, opnum, optional, reload_class, reload_mode,
 
   if (icode != CODE_FOR_nothing)
     {
-      /* If IN_P is non-zero, the reload register will be the output in
+      /* If IN_P is nonzero, the reload register will be the output in
 	 operand 0.  If IN_P is zero, the reload register will be the input
 	 in operand 1.  Outputs should have an initial "=", which we must
 	 skip.  */
@@ -835,7 +836,7 @@ reload_inner_reg_of_subreg (x, mode)
    (IN is zero for data not read, and OUT is zero for data not written.)
    INLOC and OUTLOC point to the places in the instructions where
    IN and OUT were found.
-   If IN and OUT are both non-zero, it means the same register must be used
+   If IN and OUT are both nonzero, it means the same register must be used
    to reload both IN and OUT.
 
    CLASS is a register class required for the reloaded data.
@@ -1563,6 +1564,25 @@ push_replacement (loc, reloadnum, mode)
       r->mode = mode;
     }
 }
+
+/* Duplicate any replacement we have recorded to apply at
+   location ORIG_LOC to also be performed at DUP_LOC.
+   This is used in insn patterns that use match_dup.  */
+
+static void
+dup_replacements (dup_loc, orig_loc)
+     rtx *dup_loc;
+     rtx *orig_loc;
+{
+  int i, n = n_replacements;
+
+  for (i = 0; i < n; i++)
+    {
+      struct replacement *r = &replacements[i];
+      if (r->where == orig_loc)
+	push_replacement (dup_loc, r->what, r->mode);
+    }
+}
 
 /* Transfer all replacements that used to be in reload FROM to be in
    reload TO.  */
@@ -1581,7 +1601,7 @@ transfer_replacements (to, from)
 /* IN_RTX is the value loaded by a reload that we now decided to inherit,
    or a subpart of it.  If we have any replacements registered for IN_RTX,
    cancel the reloads that were supposed to load them.
-   Return non-zero if we canceled any reloads.  */
+   Return nonzero if we canceled any reloads.  */
 int
 remove_address_replacements (in_rtx)
      rtx in_rtx;
@@ -1820,7 +1840,7 @@ combine_reloads ()
    If FOR_REAL is -1, this should not be done, because this call
    is just to see if a register can be found, not to find and install it.
 
-   EARLYCLOBBER is non-zero if OUT is an earlyclobber operand.  This
+   EARLYCLOBBER is nonzero if OUT is an earlyclobber operand.  This
    puts an additional constraint on being able to use IN for OUT since
    IN must not appear elsewhere in the insn (it is assumed that IN itself
    is safe from the earlyclobber).  */
@@ -3979,9 +3999,7 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
       {
 	int opno = recog_data.dup_num[i];
 	*recog_data.dup_loc[i] = *recog_data.operand_loc[opno];
-	if (operand_reloadnum[opno] >= 0)
-	  push_replacement (recog_data.dup_loc[i], operand_reloadnum[opno],
-			    insn_data[insn_code_number].operand[opno].mode);
+	dup_replacements (recog_data.dup_loc[i], recog_data.operand_loc[opno]);
       }
 
 #if 0

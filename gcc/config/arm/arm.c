@@ -8059,7 +8059,7 @@ emit_sfm (base_reg, count)
    current stack pointer -> |    | /
                               --
 
-  For a given function some or all of these stack compomnents
+  For a given function some or all of these stack components
   may not be needed, giving rise to the possibility of
   eliminating some of the registers.
 
@@ -9979,6 +9979,9 @@ thumb_unexpanded_epilogue ()
   rtx eh_ofs = cfun->machine->eh_epilogue_sp_ofs;
 
   if (return_used_this_function)
+    return "";
+
+  if (IS_NAKED (arm_current_func_type ()))
     return "";
 
   for (regno = 0; regno <= LAST_LO_REGNUM; regno++)

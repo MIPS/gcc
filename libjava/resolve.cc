@@ -20,6 +20,7 @@ details.  */
 #include <java-cpool.h>
 #include <java/lang/Class.h>
 #include <java/lang/String.h>
+#include <java/lang/StringBuffer.h>
 #include <java/lang/Thread.h>
 #include <java/lang/InternalError.h>
 #include <java/lang/VirtualMachineError.h>
@@ -28,7 +29,7 @@ details.  */
 #include <java/lang/ClassFormatError.h>
 #include <java/lang/IllegalAccessError.h>
 #include <java/lang/AbstractMethodError.h>
-#include <java/lang/ClassNotFoundException.h>
+#include <java/lang/NoClassDefFoundError.h>
 #include <java/lang/IncompatibleClassChangeError.h>
 #include <java/lang/reflect/Modifier.h>
 
@@ -97,7 +98,8 @@ _Jv_ResolvePoolEntry (jclass klass, int index)
       if (! found)
 	{
 	  jstring str = _Jv_NewStringUTF (name->data);
-	  throw new java::lang::ClassNotFoundException (str);
+	  // This exception is specified in JLS 2nd Ed, section 5.1.
+	  throw new java::lang::NoClassDefFoundError (str);
 	}
 
       if ((found->accflags & Modifier::PUBLIC) == Modifier::PUBLIC
@@ -201,12 +203,13 @@ _Jv_ResolvePoolEntry (jclass klass, int index)
     end_of_field_search:
       if (the_field == 0)
 	{
-	  jstring msg = JvNewStringLatin1 ("field ");
-	  msg = msg->concat (owner->getName ());
-	  msg = msg->concat (JvNewStringLatin1("."));
-	  msg = msg->concat (_Jv_NewStringUTF (field_name->data));
-	  msg = msg->concat (JvNewStringLatin1(" was not found."));
-	  throw_incompatible_class_change_error (msg);
+	  java::lang::StringBuffer *sb = new java::lang::StringBuffer();
+	  sb->append(JvNewStringLatin1("field "));
+	  sb->append(owner->getName());
+	  sb->append(JvNewStringLatin1("."));
+	  sb->append(_Jv_NewStringUTF(field_name->data));
+	  sb->append(JvNewStringLatin1(" was not found."));
+	  throw_incompatible_class_change_error(sb->toString());
 	}
 
       pool->data[index].field = the_field;
@@ -300,26 +303,27 @@ _Jv_ResolvePoolEntry (jclass klass, int index)
       // with either loader should produce the same result,
       // i.e., exactly the same jclass object. JVMS 5.4.3.3    
     
+      if (the_method == 0)
+	{
+	  java::lang::StringBuffer *sb = new java::lang::StringBuffer();
+	  sb->append(JvNewStringLatin1("method "));
+	  sb->append(owner->getName());
+	  sb->append(JvNewStringLatin1("."));
+	  sb->append(_Jv_NewStringUTF(method_name->data));
+	  sb->append(JvNewStringLatin1(" was not found."));
+	  throw new java::lang::NoSuchMethodError (sb->toString());
+	}
+      
       if (pool->tags[index] == JV_CONSTANT_InterfaceMethodref)
 	vtable_index = -1;
       else
-	vtable_index = _Jv_DetermineVTableIndex
-	  (found_class, method_name, method_signature);
+	vtable_index = _Jv_DetermineVTableIndex (found_class, method_name,
+						 method_signature);
 
       if (vtable_index == METHOD_NOT_THERE)
 	throw_incompatible_class_change_error
 	  (JvNewStringLatin1 ("method not found"));
 
-      if (the_method == 0)
-	{
-	  jstring msg = JvNewStringLatin1 ("method ");
-	  msg = msg->concat (owner->getName ());
-	  msg = msg->concat (JvNewStringLatin1("."));
-	  msg = msg->concat (_Jv_NewStringUTF (method_name->data));
-	  msg = msg->concat (JvNewStringLatin1(" was not found."));
-	  throw new java::lang::NoSuchMethodError (msg);
-	}
-      
       pool->data[index].rmethod = 
 	_Jv_BuildResolvedMethod(the_method,
 				found_class,

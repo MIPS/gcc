@@ -2332,6 +2332,15 @@ since it is known that the calling function loaded the correct value.
 
 Not all ELF targets support this attribute.
 
+@item tls_model ("@var{tls_model}")
+@cindex @code{tls_model} attribute
+The @code{tls_model} attribute sets thread-local storage model
+(@pxref{Thread-Local}) of a particular @code{__thread} variable,
+overriding @code{-ftls-model=} command line switch on a per-variable
+basis.
+The @var{tls_model} argument should be one of @code{global-dynamic},
+@code{local-dynamic}, @code{initial-exec} or @code{local-exec}.
+
 @item regparm (@var{number})
 @cindex functions that are passed arguments in registers on the 386
 On the Intel 386, the @code{regparm} attribute causes the compiler to
@@ -3700,7 +3709,10 @@ asm volatile ("movc3 %0,%1,%2"
 You may not write a clobber description in a way that overlaps with an
 input or output operand.  For example, you may not have an operand
 describing a register class with one member if you mention that register
-in the clobber list.  There is no way for you to specify that an input
+in the clobber list.  Variables declared to live in specific registers
+(@pxref{Explicit Reg Vars}), and used as asm input or output operands must
+have no part mentioned in the clobber description.
+There is no way for you to specify that an input
 operand is modified without also specifying it as an output
 operand.  Note that if all the output operands you specify are for this
 purpose (and hence unused), you will then also need to specify

@@ -92,7 +92,7 @@ int rs6000_fprs = 1;
 /* String from -misel=.  */
 const char *rs6000_isel_string;
 
-/* Set to non-zero once AIX common-mode calls have been defined.  */
+/* Set to nonzero once AIX common-mode calls have been defined.  */
 static int common_mode_defined;
 
 /* Private copy of original value of flag_pic for ABI_AIX.  */
@@ -593,21 +593,6 @@ rs6000_override_options (default_cpu)
       flag_pic = 0;
     }
 
-#ifdef XCOFF_DEBUGGING_INFO
-  if (flag_function_sections && (write_symbols != NO_DEBUG)
-      && DEFAULT_ABI == ABI_AIX)
-    {
-      warning ("-ffunction-sections disabled on AIX when debugging");
-      flag_function_sections = 0;
-    }
-
-  if (flag_data_sections && (DEFAULT_ABI == ABI_AIX))
-    {
-      warning ("-fdata-sections not supported on AIX");
-      flag_data_sections = 0;
-    }
-#endif
-
   /* For Darwin, always silently make -fpic and -fPIC identical.  */
   if (flag_pic == 1 && DEFAULT_ABI == ABI_DARWIN)
     flag_pic = 2;
@@ -825,7 +810,7 @@ rs6000_file_start (file, default_cpu)
     }
 }
 
-/* Return non-zero if this function is known to have a null epilogue.  */
+/* Return nonzero if this function is known to have a null epilogue.  */
 
 int
 direct_return ()
@@ -2582,8 +2567,22 @@ rs6000_emit_move (dest, source, mode)
       return;
     }
   
-  if (! no_new_pseudos && GET_CODE (operands[0]) != REG)
-    operands[1] = force_reg (mode, operands[1]);
+  if (!no_new_pseudos)
+    {
+      if (GET_CODE (operands[1]) == MEM && optimize > 0
+	  && (mode == QImode || mode == HImode || mode == SImode)
+	  && GET_MODE_SIZE (mode) < GET_MODE_SIZE (word_mode))
+	{
+	  rtx reg = gen_reg_rtx (word_mode);
+
+	  emit_insn (gen_rtx_SET (word_mode, reg,
+				  gen_rtx_ZERO_EXTEND (word_mode,
+						       operands[1])));
+	  operands[1] = gen_lowpart (mode, reg);
+	}
+      if (GET_CODE (operands[0]) != REG)
+	operands[1] = force_reg (mode, operands[1]);
+    }
 
   if (mode == SFmode && ! TARGET_POWERPC
       && TARGET_HARD_FLOAT && TARGET_FPRS
@@ -7393,7 +7392,7 @@ print_operand (file, x, code)
 
     case 'G':
       /* X is a constant integer.  If it is negative, print "m",
-	 otherwise print "z".  This is to make a aze or ame insn.  */
+	 otherwise print "z".  This is to make an aze or ame insn.  */
       if (GET_CODE (x) != CONST_INT)
 	output_operand_lossage ("invalid %%G value");
       else if (INTVAL (x) >= 0)
@@ -8351,7 +8350,7 @@ rs6000_emit_cbranch (code, loc)
    condition code register and its mode specifies what kind of
    comparison we made.
 
-   REVERSED is non-zero if we should reverse the sense of the comparison.
+   REVERSED is nonzero if we should reverse the sense of the comparison.
 
    INSN is the insn.  */
 
@@ -10461,8 +10460,12 @@ rs6000_emit_prologue ()
       && flag_pic && current_function_uses_pic_offset_table)
     {
       rtx dest = gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM);
+#if TARGET_MACHO
+      char *picbase = machopic_function_base_name ();
+      rtx src = gen_rtx_SYMBOL_REF (Pmode, ggc_alloc_string (picbase, -1));
 
-      rs6000_maybe_dead (emit_insn (gen_load_macho_picbase (dest)));
+      rs6000_maybe_dead (emit_insn (gen_load_macho_picbase (dest, src)));
+#endif
 
       rs6000_maybe_dead (
 	emit_move_insn (gen_rtx_REG (Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM),
@@ -11415,18 +11418,34 @@ static unsigned
 rs6000_hash_constant (k)
      rtx k;
 {
-  unsigned result = (GET_CODE (k) << 3) ^ GET_MODE (k);
-  const char *format = GET_RTX_FORMAT (GET_CODE (k));
-  int flen = strlen (format);
-  int fidx;
+  enum rtx_code code = GET_CODE (k);
+  enum machine_mode mode = GET_MODE (k);
+  unsigned result = (code << 3) ^ mode;
+  const char *format;
+  int flen, fidx;
   
-  if (GET_CODE (k) == LABEL_REF)
-    return result * 1231 + (unsigned) INSN_UID (XEXP (k, 0));
+  format = GET_RTX_FORMAT (code);
+  flen = strlen (format);
+  fidx = 0;
 
-  if (GET_CODE (k) == CODE_LABEL)
-    fidx = 3;
-  else
-    fidx = 0;
+  switch (code)
+    {
+    case LABEL_REF:
+      return result * 1231 + (unsigned) INSN_UID (XEXP (k, 0));
+
+    case CONST_DOUBLE:
+      if (mode != VOIDmode)
+	return real_hash (CONST_DOUBLE_REAL_VALUE (k)) * result;
+      flen = 2;
+      break;
+
+    case CODE_LABEL:
+      fidx = 3;
+      break;
+
+    default:
+      break;
+    }
 
   for (; fidx < flen; fidx++)
     switch (format[fidx])
@@ -11463,6 +11482,7 @@ rs6000_hash_constant (k)
       default:
 	abort ();
       }
+
   return result;
 }
 

@@ -411,6 +411,10 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 /* Define the size of `long long'.  The default is the twice the word size.  */
 #define LONG_LONG_TYPE_SIZE 64
 
+/* We're IEEE unless someone says to use VAX.  */
+#define TARGET_FLOAT_FORMAT \
+  (TARGET_FLOAT_VAX ? VAX_FLOAT_FORMAT : IEEE_FLOAT_FORMAT)
+
 /* The two floating-point formats we support are S-floating, which is
    4 bytes, and T-floating, which is 8 bytes.  `float' is S and `double'
    and `long double' are T.  */
@@ -489,7 +493,7 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 /* Every structure's size must be a multiple of this.  */
 #define STRUCTURE_SIZE_BOUNDARY 8
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
 /* No data type wants to be aligned rounder than this.  */

@@ -731,9 +731,6 @@ extern const char * structure_size_string;
 /* Nonzero if move instructions will actually fail to work
    when given unaligned data.  */
 #define STRICT_ALIGNMENT 1
-
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
 
 /* Standard register usage.  */
 
@@ -1073,14 +1070,16 @@ enum reg_class
 
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS  (TARGET_THUMB ? LO_REGS : GENERAL_REGS)
-#define BASE_REG_CLASS   (TARGET_THUMB ? BASE_REGS : GENERAL_REGS)
+#define BASE_REG_CLASS   (TARGET_THUMB ? LO_REGS : GENERAL_REGS)
 
-/* For the Thumb the high registers cannot be used as base
-   registers when addressing quanitities in QI or HI mode.  */
+/* For the Thumb the high registers cannot be used as base registers
+   when addressing quanitities in QI or HI mode; if we don't know the
+   mode, then we must be conservative.  After reload we must also be
+   conservative, since we can't support SP+reg addressing, and we
+   can't fix up any bad substitutions.  */
 #define MODE_BASE_REG_CLASS(MODE)					\
-    (TARGET_ARM ? BASE_REGS :						\
-     (((MODE) == QImode || (MODE) == HImode || (MODE) == VOIDmode)	\
-     ? LO_REGS : BASE_REGS))
+    (TARGET_ARM ? GENERAL_REGS :					\
+     (((MODE) == SImode && !reload_completed) ? BASE_REGS : LO_REGS))
 
 /* When SMALL_REGISTER_CLASSES is nonzero, the compiler allows
    registers explicitly used in the rtl to be used as spill registers
@@ -1550,7 +1549,10 @@ typedef struct
    will output the .text section.
 
    The ``mov ip,lr'' seems like a good idea to stick with cc convention.
-   ``prof'' doesn't seem to mind about this!  */
+   ``prof'' doesn't seem to mind about this!
+
+   Note - this version of the code is designed to work in both ARM and
+   Thumb modes.  */
 #ifndef ARM_FUNCTION_PROFILER
 #define ARM_FUNCTION_PROFILER(STREAM, LABELNO)  	\
 {							\
@@ -1567,20 +1569,16 @@ typedef struct
 }
 #endif
 
-#ifndef THUMB_FUNCTION_PROFILER
-#define THUMB_FUNCTION_PROFILER(STREAM, LABELNO)	\
-{							\
-  fprintf (STREAM, "\tmov\tip, lr\n");			\
-  fprintf (STREAM, "\tbl\tmcount\n");			\
-  fprintf (STREAM, "\t.word\tLP%d\n", LABELNO);		\
-}
-#endif
-
+#ifdef THUMB_FUNCTION_PROFILER
 #define FUNCTION_PROFILER(STREAM, LABELNO)		\
   if (TARGET_ARM)					\
     ARM_FUNCTION_PROFILER (STREAM, LABELNO)		\
   else							\
     THUMB_FUNCTION_PROFILER (STREAM, LABELNO)
+#else
+#define FUNCTION_PROFILER(STREAM, LABELNO)		\
+    ARM_FUNCTION_PROFILER (STREAM, LABELNO)
+#endif
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in

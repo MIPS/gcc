@@ -105,19 +105,16 @@ extern int target_flags;
 #define MASK_INLINE_ALL_STROPS	0x00000400	/* Inline stringops in all cases */
 #define MASK_NO_PUSH_ARGS	0x00000800	/* Use push instructions */
 #define MASK_ACCUMULATE_OUTGOING_ARGS 0x00001000/* Accumulate outgoing args */
-#define MASK_ACCUMULATE_OUTGOING_ARGS_SET 0x00002000
-#define MASK_MMX		0x00004000	/* Support MMX regs/builtins */
-#define MASK_MMX_SET		0x00008000
-#define MASK_SSE		0x00010000	/* Support SSE regs/builtins */
-#define MASK_SSE_SET		0x00020000
-#define MASK_SSE2		0x00040000	/* Support SSE2 regs/builtins */
-#define MASK_SSE2_SET		0x00080000
-#define MASK_3DNOW		0x00100000	/* Support 3Dnow builtins */
-#define MASK_3DNOW_SET		0x00200000
-#define MASK_3DNOW_A		0x00400000	/* Support Athlon 3Dnow builtins */
-#define MASK_3DNOW_A_SET	0x00800000
-#define MASK_128BIT_LONG_DOUBLE 0x01000000	/* long double size is 128bit */
-#define MASK_64BIT		0x02000000	/* Produce 64bit code */
+#define MASK_MMX		0x00002000	/* Support MMX regs/builtins */
+#define MASK_SSE		0x00004000	/* Support SSE regs/builtins */
+#define MASK_SSE2		0x00008000	/* Support SSE2 regs/builtins */
+#define MASK_3DNOW		0x00010000	/* Support 3Dnow builtins */
+#define MASK_3DNOW_A		0x00020000	/* Support Athlon 3Dnow builtins */
+#define MASK_128BIT_LONG_DOUBLE 0x00040000	/* long double size is 128bit */
+#define MASK_64BIT		0x00080000	/* Produce 64bit code */
+
+/* Unused:			0x03f0000	*/
+
 /* ... overlap with subtarget options starts by 0x04000000.  */
 #define MASK_NO_RED_ZONE	0x04000000	/* Do not use red zone */
 
@@ -334,30 +331,25 @@ extern int x86_prefetch_sse;
     N_("Use push instructions to save outgoing arguments") },		      \
   { "no-push-args",		MASK_NO_PUSH_ARGS,			      \
     N_("Do not use push instructions to save outgoing arguments") },	      \
-  { "accumulate-outgoing-args",	(MASK_ACCUMULATE_OUTGOING_ARGS		      \
-				 | MASK_ACCUMULATE_OUTGOING_ARGS_SET),	      \
+  { "accumulate-outgoing-args",	MASK_ACCUMULATE_OUTGOING_ARGS,		      \
     N_("Use push instructions to save outgoing arguments") },		      \
-  { "no-accumulate-outgoing-args",MASK_ACCUMULATE_OUTGOING_ARGS_SET,	      \
+  { "no-accumulate-outgoing-args",-MASK_ACCUMULATE_OUTGOING_ARGS,	      \
     N_("Do not use push instructions to save outgoing arguments") },	      \
-  { "mmx",			 MASK_MMX | MASK_MMX_SET,		      \
+  { "mmx",			 MASK_MMX,				      \
     N_("Support MMX built-in functions") },				      \
   { "no-mmx",			 -MASK_MMX,				      \
     N_("Do not support MMX built-in functions") },			      \
-  { "no-mmx",			 MASK_MMX_SET, "" },			      \
-  { "3dnow",                     MASK_3DNOW | MASK_3DNOW_SET,		      \
+  { "3dnow",                     MASK_3DNOW,				      \
     N_("Support 3DNow! built-in functions") },				      \
-  { "no-3dnow",                  -MASK_3DNOW, "" },			      \
-  { "no-3dnow",                  MASK_3DNOW_SET,			      \
+  { "no-3dnow",                  -MASK_3DNOW,				      \
     N_("Do not support 3DNow! built-in functions") },			      \
-  { "sse",			 MASK_SSE | MASK_SSE_SET,		      \
+  { "sse",			 MASK_SSE,				      \
     N_("Support MMX and SSE built-in functions and code generation") },	      \
-  { "no-sse",			 -MASK_SSE, "" },	 		      \
-  { "no-sse",			 MASK_SSE_SET,				      \
+  { "no-sse",			 -MASK_SSE,				      \
     N_("Do not support MMX and SSE built-in functions and code generation") },\
-  { "sse2",			 MASK_SSE2 | MASK_SSE2_SET,		      \
+  { "sse2",			 MASK_SSE2,				      \
     N_("Support MMX, SSE and SSE2 built-in functions and code generation") }, \
-  { "no-sse2",			 -MASK_SSE2, "" },			      \
-  { "no-sse2",			 MASK_SSE2_SET,				      \
+  { "no-sse2",			 -MASK_SSE2,				      \
     N_("Do not support MMX, SSE and SSE2 built-in functions and code generation") },    \
   { "128bit-long-double",	 MASK_128BIT_LONG_DOUBLE,		      \
     N_("sizeof(long double) is 16") },					      \
@@ -537,6 +529,10 @@ extern int x86_prefetch_sse;
 	builtin_define ("__SSE__");				\
       if (TARGET_SSE2)						\
 	builtin_define ("__SSE2__");				\
+      if (TARGET_SSE_MATH && TARGET_SSE)			\
+	builtin_define ("__SSE_MATH__");			\
+      if (TARGET_SSE_MATH && TARGET_SSE2)			\
+	builtin_define ("__SSE2_MATH__");			\
 								\
       /* Built-ins based on -march=.  */			\
       if (ix86_arch == PROCESSOR_I486)				\
@@ -631,8 +627,7 @@ extern int x86_prefetch_sse;
 
 /* Define for XFmode or TFmode extended real floating point support.
    The XFmode is specified by i386 ABI, while TFmode may be faster
-   due to alignment and simplifications in the address calculations.
- */
+   due to alignment and simplifications in the address calculations.  */
 #define LONG_DOUBLE_TYPE_SIZE (TARGET_128BIT_LONG_DOUBLE ? 128 : 96)
 #define MAX_LONG_DOUBLE_TYPE_SIZE 128
 #ifdef __x86_64__
@@ -640,9 +635,6 @@ extern int x86_prefetch_sse;
 #else
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 96
 #endif
-/* Tell real.c that this is the 80-bit Intel extended float format
-   packaged in a 128-bit or 96bit entity.  */
-#define INTEL_EXTENDED_IEEE_FORMAT 1
 
 /* Set the value of FLT_EVAL_METHOD in float.h.  When using only the
    FPU, assume that the fpcw is set to extended precision; when using
@@ -733,7 +725,11 @@ extern int x86_prefetch_sse;
    supports no vector modes, cut out the complexity and fall back
    on BIGGEST_FIELD_ALIGNMENT.  */
 #ifdef IN_TARGET_LIBS
+#ifdef __x86_64__
+#define BIGGEST_FIELD_ALIGNMENT 128
+#else
 #define BIGGEST_FIELD_ALIGNMENT 32
+#endif
 #else
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
    x86_field_alignment (FIELD, COMPUTED)
@@ -792,7 +788,7 @@ extern int x86_prefetch_sse;
 
 /* If bit field type is int, don't let it cross an int,
    and give entire struct the alignment of an int.  */
-/* Required on the 386 since it doesn't have bitfield insns.  */
+/* Required on the 386 since it doesn't have bit-field insns.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
 /* Standard register usage.  */

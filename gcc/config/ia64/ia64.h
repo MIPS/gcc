@@ -329,10 +329,10 @@ while (0)
 
 /* Define this if you wish to imitate the way many other C compilers handle
    alignment of bitfields and the structures that contain them.
-   The behavior is that the type written for a bitfield (`int', `short', or
+   The behavior is that the type written for a bit-field (`int', `short', or
    other integer type) imposes an alignment for the entire structure, as if the
    structure really did contain an ordinary field of that type.  In addition,
-   the bitfield is placed within the structure so that it would fit within such
+   the bit-field is placed within the structure so that it would fit within such
    a field, not crossing a boundary for it.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
@@ -341,9 +341,6 @@ while (0)
 
 /* Allow pairs of registers to be used, which is the intent of the default.  */
 #define MAX_FIXED_MODE_SIZE GET_MODE_BITSIZE (TImode)
-
-/* A code distinguishing the floating point format of the target machine.  */
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
 
 /* By default, the C++ compiler will use function addresses in the
    vtable entries.  Setting this nonzero tells the compiler to use
@@ -384,9 +381,8 @@ while (0)
 
 #define LONG_DOUBLE_TYPE_SIZE 128
 
-/* Tell real.c that this is the 80-bit Intel extended float format
-   packaged in a 128-bit entity.  */
-
+/* By default we use the 80-bit Intel extended float format packaged
+   in a 128-bit entity.  */
 #define INTEL_EXTENDED_IEEE_FORMAT 1
 
 #define DEFAULT_SIGNED_CHAR 1

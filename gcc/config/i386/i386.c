@@ -937,6 +937,11 @@ override_options ()
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
 
+  /* By default our XFmode is the 80-bit extended format.  If we have
+     use TFmode instead, it's also the 80-bit format, but with padding.  */
+  real_format_for_mode[XFmode - QFmode] = &ieee_extended_intel_96_format;
+  real_format_for_mode[TFmode - QFmode] = &ieee_extended_intel_128_format;
+
 #ifdef SUBTARGET_OVERRIDE_OPTIONS
   SUBTARGET_OVERRIDE_OPTIONS;
 #endif
@@ -996,19 +1001,19 @@ override_options ()
 	/* Default cpu tuning to the architecture.  */
 	ix86_cpu = ix86_arch;
 	if (processor_alias_table[i].flags & PTA_MMX
-	    && !(target_flags & MASK_MMX_SET))
+	    && !(target_flags_explicit & MASK_MMX))
 	  target_flags |= MASK_MMX;
 	if (processor_alias_table[i].flags & PTA_3DNOW
-	    && !(target_flags & MASK_3DNOW_SET))
+	    && !(target_flags_explicit & MASK_3DNOW))
 	  target_flags |= MASK_3DNOW;
 	if (processor_alias_table[i].flags & PTA_3DNOW_A
-	    && !(target_flags & MASK_3DNOW_A_SET))
+	    && !(target_flags_explicit & MASK_3DNOW_A))
 	  target_flags |= MASK_3DNOW_A;
 	if (processor_alias_table[i].flags & PTA_SSE
-	    && !(target_flags & MASK_SSE_SET))
+	    && !(target_flags_explicit & MASK_SSE))
 	  target_flags |= MASK_SSE;
 	if (processor_alias_table[i].flags & PTA_SSE2
-	    && !(target_flags & MASK_SSE2_SET))
+	    && !(target_flags_explicit & MASK_SSE2))
 	  target_flags |= MASK_SSE2;
 	if (processor_alias_table[i].flags & PTA_PREFETCH_SSE)
 	  x86_prefetch_sse = true;
@@ -1115,14 +1120,14 @@ override_options ()
      don't want additional code to keep the stack aligned when
      optimizing for code size.  */
   ix86_preferred_stack_boundary = (optimize_size
-				   ? TARGET_64BIT ? 64 : 32
+				   ? TARGET_64BIT ? 128 : 32
 				   : 128);
   if (ix86_preferred_stack_boundary_string)
     {
       i = atoi (ix86_preferred_stack_boundary_string);
-      if (i < (TARGET_64BIT ? 3 : 2) || i > 12)
+      if (i < (TARGET_64BIT ? 4 : 2) || i > 12)
 	error ("-mpreferred-stack-boundary=%d is not between %d and 12", i,
-	       TARGET_64BIT ? 3 : 2);
+	       TARGET_64BIT ? 4 : 2);
       else
 	ix86_preferred_stack_boundary = (1 << i) * BITS_PER_UNIT;
     }
@@ -1231,7 +1236,7 @@ override_options ()
 	target_flags |= MASK_3DNOW_A;
     }
   if ((x86_accumulate_outgoing_args & CPUMASK)
-      && !(target_flags & MASK_ACCUMULATE_OUTGOING_ARGS_SET)
+      && !(target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS)
       && !optimize_size)
     target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
 
@@ -5077,18 +5082,14 @@ legitimate_pic_address_disp_p (disp)
     case UNSPEC_GOTOFF:
       return local_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     case UNSPEC_GOTTPOFF:
+    case UNSPEC_GOTNTPOFF:
+    case UNSPEC_INDNTPOFF:
       if (saw_plus)
 	return false;
       return initial_exec_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     case UNSPEC_NTPOFF:
-      /* ??? Could support offset here.  */
-      if (saw_plus)
-	return false;
       return local_exec_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     case UNSPEC_DTPOFF:
-      /* ??? Could support offset here.  */
-      if (saw_plus)
-	return false;
       return local_dynamic_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     }
 
@@ -5264,6 +5265,8 @@ legitimate_address_p (mode, addr, strict)
 	    goto is_legitimate_pic;
 
 	  case UNSPEC_GOTTPOFF:
+	  case UNSPEC_GOTNTPOFF:
+	  case UNSPEC_INDNTPOFF:
 	  case UNSPEC_NTPOFF:
 	  case UNSPEC_DTPOFF:
 	    break;
@@ -5539,23 +5542,7 @@ ix86_encode_section_info (decl, first)
       const char *symbol_str;
       char *newstr;
       size_t len;
-      enum tls_model kind;
-
-      if (!flag_pic)
-	{
-	  if (local_p)
-	    kind = TLS_MODEL_LOCAL_EXEC;
-	  else
-	    kind = TLS_MODEL_INITIAL_EXEC;
-	}
-      /* Local dynamic is inefficient when we're not combining the
-	 parts of the address.  */
-      else if (optimize && local_p)
-	kind = TLS_MODEL_LOCAL_DYNAMIC;
-      else
-	kind = TLS_MODEL_GLOBAL_DYNAMIC;
-      if (kind < flag_tls_default)
-	kind = flag_tls_default;
+      enum tls_model kind = decl_tls_model (decl);
 
       symbol_str = XSTR (symbol, 0);
 
@@ -5670,32 +5657,36 @@ legitimize_address (x, oldx, mode)
 		regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
 	      pic = pic_offset_table_rtx;
 	    }
-	  else
+	  else if (!TARGET_GNU_TLS)
 	    {
 	      pic = gen_reg_rtx (Pmode);
 	      emit_insn (gen_set_got (pic));
 	    }
+	  else
+	    pic = NULL;
 
 	  base = get_thread_pointer ();
 
-	  off = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x), UNSPEC_GOTTPOFF);
+	  off = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x),
+				!TARGET_GNU_TLS
+				? UNSPEC_GOTTPOFF
+				: flag_pic ? UNSPEC_GOTNTPOFF
+					   : UNSPEC_INDNTPOFF);
 	  off = gen_rtx_CONST (Pmode, off);
-	  off = gen_rtx_PLUS (Pmode, pic, off);
+	  if (flag_pic || !TARGET_GNU_TLS)
+	    off = gen_rtx_PLUS (Pmode, pic, off);
 	  off = gen_rtx_MEM (Pmode, off);
 	  RTX_UNCHANGING_P (off) = 1;
 	  set_mem_alias_set (off, ix86_GOT_alias_set ());
-
-	  /* Damn Sun for specifing a set of dynamic relocations without
-	     considering the two-operand nature of the architecture!
-	     We'd be much better off with a "GOTNTPOFF" relocation that
-	     already contained the negated constant.  */
-	  /* ??? Using negl and reg+reg addressing appears to be a lose
-	     size-wise.  The negl is two bytes, just like the extra movl
-	     incurred by the two-operand subl, but reg+reg addressing
-	     uses the two-byte modrm form, unlike plain reg.  */
-
 	  dest = gen_reg_rtx (Pmode);
-	  emit_insn (gen_subsi3 (dest, base, off));
+
+	  if (TARGET_GNU_TLS)
+	    {
+	      emit_move_insn (dest, off);
+	      return gen_rtx_PLUS (Pmode, base, dest);
+	    }
+	  else
+	    emit_insn (gen_subsi3 (dest, base, off));
 	  break;
 
         case TLS_MODEL_LOCAL_EXEC:
@@ -5976,6 +5967,7 @@ output_pic_addr_const (file, x, code)
 	  fputs ("@GOTPCREL(%rip)", file);
 	  break;
 	case UNSPEC_GOTTPOFF:
+	  /* FIXME: This might be @TPOFF in Sun ld too.  */
 	  fputs ("@GOTTPOFF", file);
 	  break;
 	case UNSPEC_TPOFF:
@@ -5986,6 +5978,12 @@ output_pic_addr_const (file, x, code)
 	  break;
 	case UNSPEC_DTPOFF:
 	  fputs ("@DTPOFF", file);
+	  break;
+	case UNSPEC_GOTNTPOFF:
+	  fputs ("@GOTNTPOFF", file);
+	  break;
+	case UNSPEC_INDNTPOFF:
+	  fputs ("@INDNTPOFF", file);
 	  break;
 	default:
 	  output_operand_lossage ("invalid UNSPEC as operand");
@@ -6896,6 +6894,7 @@ output_addr_const_extra (file, x)
     {
     case UNSPEC_GOTTPOFF:
       output_addr_const (file, op);
+      /* FIXME: This might be @TPOFF in Sun ld.  */
       fputs ("@GOTTPOFF", file);
       break;
     case UNSPEC_TPOFF:
@@ -6909,6 +6908,14 @@ output_addr_const_extra (file, x)
     case UNSPEC_DTPOFF:
       output_addr_const (file, op);
       fputs ("@DTPOFF", file);
+      break;
+    case UNSPEC_GOTNTPOFF:
+      output_addr_const (file, op);
+      fputs ("@GOTNTPOFF", file);
+      break;
+    case UNSPEC_INDNTPOFF:
+      output_addr_const (file, op);
+      fputs ("@INDNTPOFF", file);
       break;
 
     default:

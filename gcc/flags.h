@@ -467,17 +467,6 @@ extern int flag_pedantic_errors;
 
 extern int flag_pic;
 
-/* Set to the default thread-local storage (tls) model to use.  */
-
-enum tls_model {
-  TLS_MODEL_GLOBAL_DYNAMIC = 1,
-  TLS_MODEL_LOCAL_DYNAMIC,
-  TLS_MODEL_INITIAL_EXEC,
-  TLS_MODEL_LOCAL_EXEC
-};
-
-extern enum tls_model flag_tls_default;
-
 /* Nonzero means generate extra code for exception handling and enable
    exception handling.  */
 
@@ -657,7 +646,7 @@ extern int flag_gcse_sm;
 
 extern int flag_eliminate_dwarf2_dups;
 
-/* Non-zero means to collect statistics which might be expensive
+/* Nonzero means to collect statistics which might be expensive
    and to print them when we are done.  */
 extern int flag_detailed_statistics;
 
