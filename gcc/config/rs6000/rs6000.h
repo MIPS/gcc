@@ -1427,8 +1427,8 @@ enum reg_class
  */
 
 #define PREFERRED_RELOAD_CLASS(X,CLASS)			\
-  (((GET_CODE (X) == CONST_DOUBLE			\
-     && GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT)	\
+   (((CONSTANT_P (X)                                   \
+      && reg_classes_intersect_p ((CLASS), FLOAT_REGS))        \
     ? NO_REGS 						\
     : (GET_MODE_CLASS (GET_MODE (X)) == MODE_INT 	\
        && (CLASS) == NON_SPECIAL_REGS)			\
