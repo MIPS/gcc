@@ -203,7 +203,6 @@ typedef int word_type __attribute__ ((mode (__word__)));
 #define __lshrdi3	__NDW(lshr,3)
 #define __ashldi3	__NDW(ashl,3)
 #define __ashrdi3	__NDW(ashr,3)
-#define __ffsdi2	__NDW(ffs,2)
 #define __cmpdi2	__NDW(cmp,2)
 #define __ucmpdi2	__NDW(ucmp,2)
 #define __udivmoddi4	__NDW(udivmod,4)
@@ -223,6 +222,17 @@ typedef int word_type __attribute__ ((mode (__word__)));
 #define __fixunstfSI	__NW(fixunstf,)
 #define __fixunsdfSI	__NW(fixunsdf,)
 #define __fixunssfSI	__NW(fixunssf,)
+
+#define __ffsSI2	__NW(ffs,2)
+#define __clzSI2	__NW(clz,2)
+#define __ctzSI2	__NW(ctz,2)
+#define __popcountSI2	__NW(popcount,2)
+#define __paritySI2	__NW(parity,2)
+#define __ffsDI2	__NDW(ffs,2)
+#define __clzDI2	__NDW(clz,2)
+#define __ctzDI2	__NDW(ctz,2)
+#define __popcountDI2	__NDW(popcount,2)
+#define __parityDI2	__NDW(parity,2)
 
 extern DWtype __muldi3 (DWtype, DWtype);
 extern DWtype __divdi3 (DWtype, DWtype);
@@ -244,7 +254,6 @@ extern DWtype __negdi2 (DWtype);
 extern DWtype __lshrdi3 (DWtype, word_type);
 extern DWtype __ashldi3 (DWtype, word_type);
 extern DWtype __ashrdi3 (DWtype, word_type);
-extern DWtype __ffsdi2 (DWtype);
 
 /* __udiv_w_sdiv is static inline when building other libgcc2 portions.  */
 #if (!defined(L_udivdi3) && !defined(L_divdi3) && \

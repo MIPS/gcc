@@ -29,16 +29,26 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+
+/* We include auto-host.h here to get HAVE_GAS_HIDDEN.  This is
+   supposedly valid even though this is a "target" file.  */
+#include "auto-host.h"
+
 /* It is incorrect to include config.h here, because this file is being
    compiled for the target, and hence definitions concerning only the host
    do not apply.  */
-
 #include "tconfig.h"
 #include "tsystem.h"
 
 /* Don't use `fancy_abort' here even if config.h says to use it.  */
 #ifdef abort
 #undef abort
+#endif
+
+#ifdef HAVE_GAS_HIDDEN
+#define ATTRIBUTE_HIDDEN  __attribute__ ((__visibility__ ("hidden")))
+#else
+#define ATTRIBUTE_HIDDEN
 #endif
 
 #include "libgcc2.h"
@@ -117,7 +127,7 @@ DWtype
 __subvdi3 (DWtype a, DWtype b)
 {
 #ifdef L_addvdi3
-  return (a, (-b));
+  return __addvdi3 (a, (-b));
 #else
   DWtype w;
 
@@ -328,9 +338,27 @@ __ashrdi3 (DWtype u, word_type b)
 }
 #endif
 
+#ifdef L_ffssi2
+#undef int
+extern int __ffsSI2 (UWtype u);
+int
+__ffsSI2 (UWtype u)
+{
+  UWtype count;
+
+  if (u == 0)
+    return 0;
+
+  count_trailing_zeros (count, u);
+  return count + 1;
+}
+#endif
+
 #ifdef L_ffsdi2
-DWtype
-__ffsdi2 (DWtype u)
+#undef int
+extern int __ffsDI2 (DWtype u);
+int
+__ffsDI2 (DWtype u)
 {
   DWunion uu;
   UWtype word, count, add;
@@ -505,6 +533,175 @@ const UQItype __clz_tab[] =
   8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
   8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
 };
+#endif
+
+#ifdef L_clzsi2
+#undef int
+extern int __clzSI2 (UWtype x);
+int
+__clzSI2 (UWtype x)
+{
+  Wtype ret;
+
+  count_leading_zeros (ret, x);
+
+  return ret;
+}
+#endif
+
+#ifdef L_clzdi2
+#undef int
+extern int __clzDI2 (UDWtype x);
+int
+__clzDI2 (UDWtype x)
+{
+  DWunion uu;
+  UWtype word;
+  Wtype ret, add;
+
+  uu.ll = x;
+  if (uu.s.high)
+    word = uu.s.high, add = 0;
+  else
+    word = uu.s.low, add = W_TYPE_SIZE;
+
+  count_leading_zeros (ret, word);
+  return ret + add;
+}
+#endif
+
+#ifdef L_ctzsi2
+#undef int
+extern int __ctzSI2 (UWtype x);
+int
+__ctzSI2 (UWtype x)
+{
+  Wtype ret;
+
+  count_trailing_zeros (ret, x);
+
+  return ret;
+}
+#endif
+
+#ifdef L_ctzdi2
+#undef int
+extern int __ctzDI2 (UDWtype x);
+int
+__ctzDI2 (UDWtype x)
+{
+  DWunion uu;
+  UWtype word;
+  Wtype ret, add;
+
+  uu.ll = x;
+  if (uu.s.low)
+    word = uu.s.low, add = 0;
+  else
+    word = uu.s.high, add = W_TYPE_SIZE;
+
+  count_trailing_zeros (ret, word);
+  return ret + add;
+}
+#endif
+
+#if (defined (L_popcountsi2) || defined (L_popcountdi2)	\
+     || defined (L_popcount_tab))
+extern const UQItype __popcount_tab[] ATTRIBUTE_HIDDEN;
+#endif
+
+#ifdef L_popcount_tab
+const UQItype __popcount_tab[] =
+{
+    0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,
+    1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+    1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+    2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+    1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+    2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+    2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+    3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8,
+};
+#endif
+
+#ifdef L_popcountsi2
+#undef int
+extern int __popcountSI2 (UWtype x);
+int
+__popcountSI2 (UWtype x)
+{
+  UWtype i, ret = 0;
+
+  for (i = 0; i < W_TYPE_SIZE; i += 8)
+    ret += __popcount_tab[(x >> i) & 0xff];
+
+  return ret;
+}
+#endif
+
+#ifdef L_popcountdi2
+#undef int
+extern int __popcountDI2 (UDWtype x);
+int
+__popcountDI2 (UDWtype x)
+{
+  UWtype i, ret = 0;
+
+  for (i = 0; i < 2*W_TYPE_SIZE; i += 8)
+    ret += __popcount_tab[(x >> i) & 0xff];
+
+  return ret;
+}
+#endif
+
+#ifdef L_paritysi2
+#undef int
+extern int __paritySI2 (UWtype x);
+int
+__paritySI2 (UWtype x)
+{
+#if W_TYPE_SIZE > 64
+# error "fill out the table"
+#endif
+#if W_TYPE_SIZE > 32
+  x ^= x >> 32;
+#endif
+#if W_TYPE_SIZE > 16
+  x ^= x >> 16;
+#endif
+  x ^= x >> 8;
+  x ^= x >> 4;
+  x &= 0xf;
+  return (0x6996 >> x) & 1;
+}
+#endif
+
+#ifdef L_paritydi2
+#undef int
+extern int __parityDI2 (UDWtype x);
+int
+__parityDI2 (UDWtype x)
+{
+  DWunion uu;
+  UWtype nx;
+
+  uu.ll = x;
+  nx = uu.s.low ^ uu.s.high;
+
+#if W_TYPE_SIZE > 64
+# error "fill out the table"
+#endif
+#if W_TYPE_SIZE > 32
+  nx ^= nx >> 32;
+#endif
+#if W_TYPE_SIZE > 16
+  nx ^= nx >> 16;
+#endif
+  nx ^= nx >> 8;
+  nx ^= nx >> 4;
+  nx &= 0xf;
+  return (0x6996 >> nx) & 1;
+}
 #endif
 
 #ifdef L_udivmoddi4
