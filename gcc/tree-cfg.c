@@ -1,5 +1,5 @@
 /* Control flow functions for trees.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -78,7 +78,6 @@ static basic_block make_bind_expr_blocks PARAMS ((tree *, tree, basic_block,
 static inline void add_stmt_to_bb	PARAMS ((tree *, basic_block, tree));
 static inline void append_stmt_to_bb	PARAMS ((tree *, basic_block, tree));
 static inline void set_parent_stmt	PARAMS ((tree *, tree));
-static basic_block create_bb		PARAMS ((void));
 
 /* Edges.  */
 static void make_edges			PARAMS ((void));
@@ -176,6 +175,9 @@ build_tree_cfg (fnbody)
   tree *first_p;
 
   timevar_push (TV_TREE_CFG);
+
+  /* Register specific tree functions.  */
+  tree_register_cfg_hooks ();
 
   /* Initialize the basic block array.  */
   n_basic_blocks = 0;
@@ -634,7 +636,7 @@ append_stmt_to_bb (stmt_p, bb, parent)
 
 /* Create and return a new basic block.  */
 
-static basic_block
+basic_block
 create_bb ()
 {
   basic_block bb;
@@ -677,7 +679,7 @@ make_edges ()
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
-  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
+  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (0), 0);
 
   /* Traverse basic block array placing edges.  */
   FOR_EACH_BB (bb)
@@ -705,7 +707,7 @@ make_edges ()
       /* Finally, if no edges were created above, this is a regular
 	 basic block that only needs a fallthru edge.  */
       if (bb->succ == NULL)
-	make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+	make_edge (bb, successor_block (bb), 0);
     }
 
   /* Clean up the graph and warn for unreachable code.  */
@@ -784,7 +786,7 @@ make_exit_edges (bb)
       else if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
 	{
 	  make_goto_expr_edges (bb);
-          make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+          make_edge (bb, successor_block (bb), 0);
 	}
       break;
 
@@ -800,7 +802,7 @@ make_exit_edges (bb)
 	  && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
 	{
 	  make_goto_expr_edges (bb);
-          make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+          make_edge (bb, successor_block (bb), 0);
 	}
       break;
 
@@ -3018,13 +3020,7 @@ bsi_commit_first_edge_insert (e, stmt)
     }
 
   /* Otherwise, create a new basic block, and split this edge.  */
-
-  if (e->flags & EDGE_ABNORMAL)
-    abort();
-
-  new_bb = create_bb ();
-  redirect_edge_succ  (e, new_bb);
-  make_edge (new_bb, dest, EDGE_FALLTHRU);
+  new_bb = split_edge (e);
 
   bb_ann = (bb_ann_t) xmalloc (sizeof (struct bb_ann_d));
   new_bb->aux = bb_ann;
@@ -3374,3 +3370,35 @@ remap_stmts (basic_block bb1, basic_block bb2, tree *first_p)
 
   return false;
 }
+
+/* Tree specific functions for the cfg loop optimizer.  */
+
+/* Split a (typically critical) edge.  Return the new block.
+   Abort on abnormal edges.  */
+
+basic_block
+tree_split_edge (edge_in)
+     edge edge_in;
+{
+  basic_block new_bb, dest;
+  
+  /* Abnormal edges cannot be split.  */
+  if (edge_in->flags & EDGE_ABNORMAL)
+    abort ();
+  
+  dest = edge_in->dest;
+  new_bb = create_bb ();
+  alloc_aux_for_block (new_bb, sizeof (struct bb_ann_d));
+  redirect_edge_succ  (edge_in, new_bb);
+  make_edge (new_bb, dest, 0);
+  return new_bb;
+}
+
+/* Verifies that the flow information is ok.  */
+
+void 
+tree_verify_flow_info ()
+{
+  
+}
+

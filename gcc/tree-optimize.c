@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-flow.h"
 #include "tree-dump.h"
 #include "timevar.h"
+#include "cfgloop.h"
 
 /* Rewrite a function tree to the SSA form and perform the SSA-based
    optimizations on it.  */
@@ -69,6 +70,11 @@ optimize_function_tree (fndecl)
   /* Begin analysis and optimization passes.  */
   if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
     {
+#if 0
+      struct loops *loops;
+      loops = loop_optimizer_init (NULL);
+      loop_optimizer_finalize (loops, NULL);
+#endif 
       /* Rewrite the function into SSA form.  */
       rewrite_into_ssa (fndecl);
       

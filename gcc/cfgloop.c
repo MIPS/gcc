@@ -28,6 +28,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "cfgloop.h"
 #include "flags.h"
+#include "tree.h"
+#include "tree-flow.h"
 
 /* Ratio of frequencies of edges so that one of more latch edges is
    considered to belong to inner loop with same header.  */
@@ -44,8 +46,10 @@ static basic_block flow_loop_pre_header_find PARAMS ((basic_block,
 static int flow_loop_level_compute	PARAMS ((struct loop *));
 static int flow_loops_level_compute	PARAMS ((struct loops *));
 static void establish_preds		PARAMS ((struct loop *));
-static basic_block make_forwarder_block PARAMS ((basic_block, int, int,
-						 edge, int));
+static basic_block rtl_make_forwarder_block PARAMS ((basic_block, int, int,
+						     edge, int));
+static basic_block tree_make_forwarder_block PARAMS ((basic_block, int, int,
+						      edge, int));
 static void canonicalize_loop_headers   PARAMS ((void));
 static bool glb_enum_p PARAMS ((basic_block, void *));
 static void redirect_edge_with_latch_update PARAMS ((edge, basic_block));
@@ -583,7 +587,8 @@ flow_loop_scan (loops, loop, flags)
   return 1;
 }
 
-#define HEADER_BLOCK(B) (* (int *) (B)->aux)
+static varray_type blocks_headers;
+#define HEADER_BLOCK(B) (VARRAY_INT (blocks_headers, B->index))
 #define LATCH_EDGE(E) (*(int *) (E)->aux)
 
 /* Redirect edge and update latch and header info.  */
@@ -597,7 +602,7 @@ redirect_edge_with_latch_update (e, to)
   jump = redirect_edge_and_branch_force (e, to);
   if (jump)
     {
-      alloc_aux_for_block (jump, sizeof (int));
+      VARRAY_GROW (blocks_headers, last_basic_block);
       HEADER_BLOCK (jump) = 0;
       alloc_aux_for_edge (jump->pred, sizeof (int));
       LATCH_EDGE (jump->succ) = LATCH_EDGE (e);
@@ -612,7 +617,7 @@ redirect_edge_with_latch_update (e, to)
    part.  */
 
 static basic_block
-make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except,
+rtl_make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except,
 		      conn_latch)
      basic_block bb;
      int redirect_latch;
@@ -634,7 +639,7 @@ make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except,
   dummy = fallthru->src;
   bb = fallthru->dest;
 
-  bb->aux = xmalloc (sizeof (int));
+  VARRAY_GROW (blocks_headers, last_basic_block);
   HEADER_BLOCK (dummy) = 0;
   HEADER_BLOCK (bb) = 1;
 
@@ -662,6 +667,64 @@ make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except,
   return dummy;
 }
 
+static basic_block
+tree_make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except,
+			   conn_latch)
+     basic_block bb;
+     int redirect_latch;
+     int redirect_nonlatch;
+     edge except;
+     int conn_latch;
+{
+  edge e, next_e, fallthru;
+  basic_block dummy;
+
+  /* Create the new basic block.  */
+  dummy = create_bb (); 
+  alloc_aux_for_block (dummy, sizeof (struct bb_ann_d));
+  dummy->count = bb->count;
+  dummy->frequency = bb->frequency;
+  dummy->loop_depth = bb->loop_depth;
+  dummy->head_tree_p = NULL;
+  dummy->end_tree_p = NULL;
+
+  /* Redirect the incoming edges.  */
+  dummy->pred = bb->pred;
+  bb->pred = NULL;
+  for (e = dummy->pred; e; e = e->pred_next)
+    e->dest = dummy;
+  
+  fallthru = make_edge (dummy, bb, 0);
+  
+  VARRAY_GROW (blocks_headers, last_basic_block);
+  HEADER_BLOCK (dummy) = 0;
+  HEADER_BLOCK (bb) = 1;
+  
+  /* Redirect back edges we want to keep.  */
+  for (e = dummy->pred; e; e = next_e)
+    {
+      next_e = e->pred_next;
+      if (e == except
+	  || !((redirect_latch && LATCH_EDGE (e))
+	       || (redirect_nonlatch && !LATCH_EDGE (e))))
+	{
+	  dummy->frequency -= EDGE_FREQUENCY (e);
+	  dummy->count -= e->count;
+	  if (dummy->frequency < 0)
+	    dummy->frequency = 0;
+	  if (dummy->count < 0)
+	    dummy->count = 0;
+	  redirect_edge_succ (e, bb);
+	}
+    }
+  
+  alloc_aux_for_edge (fallthru, sizeof (int));
+  LATCH_EDGE (fallthru) = conn_latch;
+
+  return dummy;
+}
+
+
 /* Takes care of merging natural loops with shared headers.  */
 static void
 canonicalize_loop_headers ()
@@ -669,11 +732,14 @@ canonicalize_loop_headers ()
   dominance_info dom;
   basic_block header;
   edge e;
+
+  tree_cfg_hooks.cfgh_make_forwarder_block = &tree_make_forwarder_block;
+  rtl_cfg_hooks.cfgh_make_forwarder_block = &rtl_make_forwarder_block;
   
   /* Compute the dominators.  */
   dom = calculate_dominance_info (CDI_DOMINATORS);
 
-  alloc_aux_for_blocks (sizeof (int));
+  VARRAY_INT_INIT (blocks_headers, last_basic_block, "blocks_headers");
   alloc_aux_for_edges (sizeof (int));
 
   /* Split blocks so that each loop has only single latch.  */
@@ -712,7 +778,7 @@ canonicalize_loop_headers ()
  
       alloc_aux_for_edge (bb->succ, sizeof (int));
       LATCH_EDGE (bb->succ) = 0;
-      alloc_aux_for_block (bb, sizeof (int));
+      VARRAY_GROW (blocks_headers, last_basic_block);
       HEADER_BLOCK (bb) = 0;
     }
 
@@ -765,7 +831,7 @@ canonicalize_loop_headers ()
 	make_forwarder_block (header, true, false, NULL, 1);
     }
 
-  free_aux_for_blocks ();
+  VARRAY_CLEAR (blocks_headers);
   free_aux_for_edges ();
   free_dominance_info (dom);
 }

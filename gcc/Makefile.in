@@ -660,7 +660,7 @@ PARAMS_H = params.h params.def
 TREE_H = tree.h tree.def $(MACHMODE_H) tree-check.h version.h builtins.def \
           location.h
 BASIC_BLOCK_H = basic-block.h bitmap.h sbitmap.h varray.h $(PARTITION_H) \
-          hard-reg-set.h
+          hard-reg-set.h cfghooks.h
 DEMANGLE_H = $(srcdir)/../include/demangle.h
 RECOG_H = recog.h
 EXPR_H = expr.h
@@ -854,7 +854,7 @@ OBJS = tree-cfg.o tree-dfa.o tree-ssa.o tree-optimize.o tree-simple.o      \
  sibcall.o simplify-rtx.o sreal.o ssa.o ssa-ccp.o ssa-dce.o stmt.o	   \
  stor-layout.o stringpool.o timevar.o toplev.o tracer.o tree.o tree-dump.o \
  tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o xcoffout.o \
- alloc-pool.o et-forest.o cgraph.o cgraphunit.o				   \
+ alloc-pool.o et-forest.o cgraph.o cgraphunit.o cfghooks.o		   \
  $(GGC) $(out_object_file) $(EXTRA_OBJS) $(host_hook_obj)
 
 BACKEND = main.o libbackend.a
@@ -1532,7 +1532,7 @@ tree-dfa.o : tree-dfa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
 tree-optimize.o : tree-optimize.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h flags.h tree-alias-common.h \
-   $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H)
+   $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) cfgloop.h
 c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h $(TREE_SIMPLE_H) varray.h flags.h \
    langhooks.h toplev.h rtl.h $(TREE_FLOW_H) langhooks-def.h \
@@ -1748,6 +1748,8 @@ flow.o : flow.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
 cfg.o : cfg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags.h insn-config.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h $(RECOG_H) \
    function.h except.h $(GGC_H) $(TM_P_H) alloc-pool.h
+cfghooks.o: cfghooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
+   $(BASIC_BLOCK_H) tree-flow.h cfglayout.h
 cfgrtl.o : cfgrtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags.h \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h $(RECOG_H) \
    function.h except.h $(GGC_H) $(TM_P_H) insn-config.h

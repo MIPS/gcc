@@ -345,7 +345,8 @@ extern void update_bb_for_insn		PARAMS ((basic_block));
 extern void free_basic_block_vars	PARAMS ((int));
 
 extern edge split_block			PARAMS ((basic_block, rtx));
-extern basic_block split_edge		PARAMS ((edge));
+extern basic_block rtl_split_edge	PARAMS ((edge));
+extern basic_block tree_split_edge	PARAMS ((edge));
 extern void insert_insn_on_edge		PARAMS ((rtx, edge));
 
 extern void commit_edge_insertions	PARAMS ((void));
@@ -386,6 +387,7 @@ extern void dump_edge_info		PARAMS ((FILE *, edge, int));
 extern void clear_edges			PARAMS ((void));
 extern void mark_critical_edges		PARAMS ((void));
 extern rtx first_insn_after_basic_block_note	PARAMS ((basic_block));
+extern basic_block create_bb		        PARAMS ((void));
 
 /* Dominator information for basic blocks.  */
 
@@ -593,7 +595,8 @@ extern void free_aux_for_edges		PARAMS ((void));
 /* This function is always defined so it can be called from the
    debugger, and it is declared extern so we don't get warnings about
    it being unused.  */
-extern void verify_flow_info		PARAMS ((void));
+extern void rtl_verify_flow_info	PARAMS ((void));
+extern void tree_verify_flow_info	PARAMS ((void));
 
 typedef struct conflict_graph_def *conflict_graph;
 
@@ -656,4 +659,7 @@ extern void redirect_immediate_dominators PARAMS ((dominance_info, basic_block,
 						 basic_block));
 void iterate_fix_dominators PARAMS ((dominance_info, basic_block *, int));
 extern void verify_dominators PARAMS ((dominance_info));
+
+#include "cfghooks.h"
+
 #endif /* GCC_BASIC_BLOCK_H */

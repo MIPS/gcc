@@ -2471,6 +2471,9 @@ rest_of_compilation (decl)
 
   timevar_push (TV_REST_OF_COMPILATION);
 
+  /* Register specific tree functions.  */
+  rtl_register_cfg_hooks ();
+
   /* Now that we're out of the frontend, we shouldn't have any more
      CONCATs anywhere.  */
   generating_concat_p = 0;

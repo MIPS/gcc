@@ -41,9 +41,10 @@ loop_optimizer_init (dumpfile)
 
   /* Avoid annoying special cases of edges going to exit
      block.  */
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
-    if ((e->flags & EDGE_FALLTHRU) && e->src->succ->succ_next)
-      split_edge (e);
+  if (cfg_level == AT_RTL_LEVEL)
+    for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+      if ((e->flags & EDGE_FALLTHRU) && e->src->succ->succ_next)
+	split_edge (e);
 
   /* Find the loops.  */
 
@@ -61,11 +62,14 @@ loop_optimizer_init (dumpfile)
   free (loops->cfg.dfs_order);
   loops->cfg.dfs_order = NULL;
 
-  /* Initialize structures for layout changes.  */
-  cfg_layout_initialize (loops);
-
-  /* Create pre-headers.  */
-  create_preheaders (loops, CP_SIMPLE_PREHEADERS | CP_INSIDE_CFGLAYOUT);
+  if (cfg_level == AT_RTL_LEVEL)
+    {
+      /* Initialize structures for layout changes.  */
+      cfg_layout_initialize (loops);
+      
+      /* Create pre-headers.  */
+      create_preheaders (loops, CP_SIMPLE_PREHEADERS | CP_INSIDE_CFGLAYOUT);
+    }
 
   /* Force all latches to have only single successor.  */
   force_single_succ_latches (loops);
@@ -94,19 +98,24 @@ loop_optimizer_finalize (loops, dumpfile)
 
   /* Finalize layout changes.  */
   /* Make chain.  */
-  FOR_EACH_BB (bb)
-    if (bb->next_bb != EXIT_BLOCK_PTR)
-      RBI (bb)->next = bb->next_bb;
+  if (cfg_level == AT_RTL_LEVEL)
+    FOR_EACH_BB (bb)
+      if (bb->next_bb != EXIT_BLOCK_PTR)
+	RBI (bb)->next = bb->next_bb;
 
-  /* Another dump.  */
-  flow_loops_dump (loops, dumpfile, NULL, 1);
-
-  /* Clean up.  */
-  flow_loops_free (loops);
-  free (loops);
+  if (loops)
+    {
+      /* Another dump.  */
+      flow_loops_dump (loops, dumpfile, NULL, 1);
+      
+      /* Clean up.  */
+      flow_loops_free (loops);
+      free (loops);
+    }
  
   /* Finalize changes.  */
-  cfg_layout_finalize ();
+  if (cfg_level == AT_RTL_LEVEL)
+    cfg_layout_finalize ();
 
   /* Checking.  */
 #ifdef ENABLE_CHECKING

@@ -470,9 +470,7 @@ update_bb_for_insn (bb)
 }
 
 /* Split a block BB after insn INSN creating a new fallthru edge.
-   Return the new edge.  Note that to keep other parts of the compiler happy,
-   this function renumbers all the basic blocks so that the new
-   one has a number one greater than the block split.  */
+   Return the new edge.  */
 
 edge
 split_block (bb, insn)
@@ -1227,7 +1225,7 @@ back_edge_of_syntactic_loop_p (bb1, bb2)
    block with multiple predecessors is not handled optimally.  */
 
 basic_block
-split_edge (edge_in)
+rtl_split_edge (edge_in)
      edge edge_in;
 {
   basic_block bb;
@@ -1738,7 +1736,7 @@ update_br_prob_note (bb)
    (reachability of basic blocks, life information, etc. etc.).  */
 
 void
-verify_flow_info ()
+rtl_verify_flow_info ()
 {
   const int max_uid = get_max_uid ();
   const rtx rtx_first = get_insns ();

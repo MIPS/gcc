@@ -59,6 +59,8 @@ static void record_exit_edges		PARAMS ((edge, basic_block *, int,
 static basic_block create_preheader	PARAMS ((struct loop *, dominance_info,
 						int));
 static void fix_irreducible_loops	PARAMS ((basic_block));
+static basic_block loop_split_edge_with_NULL PARAMS ((edge, struct loops *));
+
 
 /* Splits basic block BB after INSN, returns created edge.  Updates loops
    and dominators.  */
@@ -380,7 +382,7 @@ remove_path (loops, e)
      fix -- when e->dest has exactly one predecessor, this corresponds
      to blocks dominated by e->dest, if not, split the edge.  */
   if (e->dest->pred->pred_next)
-    e = loop_split_edge_with (e, NULL_RTX, loops)->pred;
+    e = loop_split_edge_with_NULL (e, loops)->pred;
 
   /* It may happen that by removing path we remove one or more loops
      we belong to.  In this case first unloop the loops, then proceed
@@ -1482,7 +1484,7 @@ force_single_succ_latches (loops)
       for (e = loop->header->pred; e->src != loop->latch; e = e->pred_next)
 	continue;
 
-      loop_split_edge_with (e, NULL_RTX, loops);
+      loop_split_edge_with_NULL (e, loops);
     }
   loops->state |= LOOPS_HAVE_SIMPLE_LATCHES;
 }
@@ -1545,3 +1547,61 @@ loop_split_edge_with (e, insns, loops)
   
   return new_bb;
 }
+
+/* Same function as "loop_split_edge_with (e, NULL, loops)", 
+   independent of the tree/rtl representation.  */
+
+static basic_block
+loop_split_edge_with_NULL (e, loops)
+     edge e;
+     struct loops *loops;
+{
+  basic_block src, dest, new_bb;
+  struct loop *loop_c;
+  edge new_e;
+  
+  src = e->src;
+  dest = e->dest;
+
+  loop_c = find_common_loop (src->loop_father, dest->loop_father);
+
+  /* Create basic block for it.  */
+
+  if (cfg_level == AT_RTL_LEVEL)
+    new_bb = create_basic_block (NULL_RTX, NULL_RTX, EXIT_BLOCK_PTR->prev_bb);
+  else
+    new_bb = create_bb ();
+
+  add_to_dominance_info (loops->cfg.dom, new_bb);
+  add_bb_to_loop (new_bb, loop_c);
+  new_bb->flags = 0;
+
+  new_e = make_edge (new_bb, dest, (cfg_level == AT_RTL_LEVEL) ? EDGE_FALLTHRU : 0);
+  new_e->probability = REG_BR_PROB_BASE;
+  new_e->count = e->count;
+  if (e->flags & EDGE_IRREDUCIBLE_LOOP)
+    {
+      new_bb->flags |= BB_IRREDUCIBLE_LOOP;
+      new_e->flags |= EDGE_IRREDUCIBLE_LOOP;
+    }
+
+  new_bb->count = e->count;
+  new_bb->frequency = EDGE_FREQUENCY (e);
+
+  if (cfg_level == AT_RTL_LEVEL)
+    cfg_layout_redirect_edge (e, new_bb);
+  else
+    redirect_edge_succ (e, new_bb);
+  
+  alloc_aux_for_block (new_bb, sizeof (struct reorder_block_def));
+
+  set_immediate_dominator (loops->cfg.dom, new_bb, src);
+  set_immediate_dominator (loops->cfg.dom, dest,
+    recount_dominator (loops->cfg.dom, dest));
+
+  if (dest->loop_father->latch == src)
+    dest->loop_father->latch = new_bb;
+  
+  return new_bb;
+}
+

@@ -1,3 +1,47 @@
+2003-04-18  Sebastian Pop  <s.pop@laposte.net>
+
+	* cfghooks.h, cfghooks.c: New files.
+	* Makefile.in (BASIC_BLOCK_H): Depends on cfghooks.h.
+	(OBJS): Add cfghooks.o.
+	(tree-optimize.o): Depends on cfgloop.h.
+	(cfghooks.o): New rule.
+	* basic-block.h (split_edge): Rename to rtl_split_edge.
+	(tree_split_edge): Declare.
+	(create_bb): Declare extern here.
+	(verify_flow_info): Rename to rtl_verify_flow_info.
+	(tree_verify_flow_info): Declare.
+	(cfghooks.h): Included here.
+	* cfgloop.c (tree.h, tree-flow.h): Included.
+	(make_forwarder_block): Renamed to rtl_make_forwarder_block.
+	(tree_make_forwarder_block): New static function.
+	(blocks_headers): Declared static.
+	(HEADER_BLOCK): Use blocks_headers instead of bb's .aux field.
+	(redirect_edge_with_latch_update, make_forwarder_block, 
+	canonicalize_loop_headers): Don't allocate .aux, but makes grow 
+	the blocks_headers array.
+	(canonicalize_loop_headers): Register tree_make_forwarder_block 
+	into the tree_cfg_hooks and rtl_make_forwarder_block into the 
+	rtl_cfg_hooks structure.
+	(canonicalize_loop_headers): Initialize/free the blocks_headers 
+	array rather than the bb's .aux field.
+	* cfgloopmanip.c (loop_split_edge_with_NULL): New static function.
+	(remove_path, force_single_succ_latches): 
+	Call loop_split_edge_with_NULL instead of loop_split_edge_with.
+	* cfgrtl.c (split_block): Update the comment.
+	(split_edge): Renamed rtl_split_edge.
+	(verify_flow_info): Renamed rtl_verify_flow_info.
+	* loop-init.c (loop_optimizer_init, loop_optimizer_finalize): 
+	Execute code following the value of cfg_level. 
+	* toplev.c (rest_of_compilation): Call rtl_register_cfg_hooks.
+	* tree-cfg.c (create_bb): Declared extern.
+	(build_tree_cfg): Call tree_register_cfg_hooks.
+	(make_edges, make_exit_edges): Remove the use of EDGE_FALLTHRU.
+	(bsi_commit_first_edge_insert): Use split_edge.
+	(tree_split_edge, tree_verify_flow_info): New functions.
+	* tree-optimize.c (cfgloop.h): Included.
+	(optimize_function_tree): Add #if 0'ed calls to 
+	loop_optimizer_init and loop_optimizer_finalize.
+
 2003-04-16  Jeff Law  <law@redhat.com>
 
 	* Makefile.in (tree-ssa.o): Depend on langhooks.h.
