@@ -1,3 +1,9 @@
+2003-10-31  Diego Novillo  <dnovillo@redhat.com>
+
+	Fix PR optimization/12825
+	* tree-optimize.c (optimize_function_tree): Run SSA renamer after
+	second DOM pass.
+
 2003-10-30  Richard Henderson  <rth@redhat.com>
 
 	* c-common.c (match_case_to_enum_1, match_case_to_enum): New.

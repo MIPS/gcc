@@ -1,3 +1,7 @@
+2003-10-31  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20031031-1.c: New test.
+
 2003-10-30  Richard Henderson  <rth@redhat.com>
 
 	* g++.dg/warn/Wswitch-1.C: Move "case value not in enumerated type"

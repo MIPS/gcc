@@ -160,7 +160,7 @@ optimize_function_tree (tree fndecl)
 
 	  /* There should not be any new symbols exposed.  */
 	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
-	    abort ();
+	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_5);
 	}
 
       /* Run copy propagation.  */
