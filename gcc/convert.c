@@ -761,12 +761,8 @@ convert_to_vector (tree type, tree expr)
       if (TREE_CODE (type) == VECTOR_TYPE  
 	  && TREE_CODE (TREE_TYPE (expr)) == VECTOR_TYPE
 	  && TREE_CODE (expr) == CONSTRUCTOR && TREE_CONSTANT (expr))
-	{
 	  /* converting a constant vector to new vector type with Motorola Syntax. */
-	  tree ret_constructor = build_constructor (type, CONSTRUCTOR_ELTS (expr));
-	  TREE_CONSTANT (ret_constructor) = TREE_CONSTANT (expr);
-	  return ret_constructor;
-	}
+	  return build_constructor (type, CONSTRUCTOR_ELTS (expr));
       /* APPLE LOCAL end AltiVec */
 
       return build1 (NOP_EXPR, type, expr);
