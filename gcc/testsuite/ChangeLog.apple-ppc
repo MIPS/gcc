@@ -1,3 +1,9 @@
+2005-02-28  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4015382
+	* g++.dg/ext/new-delete-1.C: New.
+	* g++.dg/ext/new-delete-2.C: New.
+
 2005-02-25  Stan Shebs  <shebs@apple.com>
 
 	Radar 4020219

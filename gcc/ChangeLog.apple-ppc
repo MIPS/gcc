@@ -1,3 +1,10 @@
+2005-02-28  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4015382
+	* config/darwin.c (machopic_select_section): Do not place
+	non-weak '::operator new' and '::operator delete' definitions
+	in the coalesced section.
+
 2005-02-27  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4015911

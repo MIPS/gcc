@@ -1213,28 +1213,8 @@ machopic_select_section (tree exp, int reloc,
       else
 	base_function ();
     }
-  /* ::operator new and ::operator delete must be coalesced, even
-     if not weak.  There are 8 variants that we look for.  */
-  else if (TREE_CODE (exp) == FUNCTION_DECL
-	   && ! DECL_ONE_ONLY (exp))
-    {
-      const char * name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (exp));
-      if (name[0] == '_' && name[1] == 'Z'
-	  && ((name[2] == 'n' && (name[3] == 'a' || name[3] == 'w')
-	       && name[4] == 'm')
-	      || (name[2] == 'd' && (name[3] == 'a' || name[3] == 'l')
-		  && name[4] == 'P' && name[5] == 'v')))
-	{
-	  bool delete_p = name[2] == 'd';
-	  if (name[5 + delete_p] == 0
-	      || strcmp (name + 5 + delete_p, "KSt9nothrow_t") == 0)
-	    base_funs[reloc][1] ();
-	  else
-	    base_function ();
-	}
-      else
-	base_function ();
-    }
+  /* APPLE LOCAL coalescing */
+  /* Removed special handling of '::operator new' and '::operator delete'.  */
   /* APPLE LOCAL begin darwin_set_section_for_var_p  */
   else if (darwin_set_section_for_var_p (exp, reloc, align))
     ;
