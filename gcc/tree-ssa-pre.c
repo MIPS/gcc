@@ -1839,7 +1839,6 @@ finalize_1 (struct expr_info *ei)
   
   avdefs = xcalloc (class_count + 1, sizeof (tree));
 
-  insert_euse_in_preorder_dt_order (ei);
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
     {
       x = VARRAY_TREE (ei->euses_dt_order, i);
@@ -2363,7 +2362,6 @@ code_motion (struct expr_info *ei)
   bb_ann_t ann;
   basic_block bb;
 
-  insert_euse_in_preorder_dt_order (ei);
   /* First, add the phi node temporaries so the reaching defs are
      always right. */
   for (euse_iter = 0;
@@ -2802,7 +2800,6 @@ pre_expression (struct expr_info *slot, void *data)
 	      fprintf (dump_file, "\n");
 	    }
     }
-  insert_euse_in_preorder_dt_order (ei);
   graph_dump_file = dump_begin (TDI_predot, &graph_dump_flags);
   if (graph_dump_file)
     {

@@ -1,3 +1,10 @@
+2003-09-01  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (finalize_1):  Remove unnecessary call to
+	insert_euse_in_preorder_dt_order.
+	(code_motion): Ditto.
+	(pre_expression): Ditto.
+
 2003-09-01  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 	    Jeff Law  <law@redhat.com>
 
