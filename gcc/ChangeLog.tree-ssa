@@ -1,3 +1,8 @@
+2003-11-24  Richard Henderson  <rth@redhat.com>
+
+	* objc/objc-act.c (build_protocol_expr): Use convert instead of
+	smashing TREE_TYPE.
+
 2003-11-23  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-live.h (SSANORM_PERFORM_TER, SSANORM_COMBINE_TEMPS,

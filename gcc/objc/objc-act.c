@@ -5992,7 +5992,9 @@ build_protocol_expr (tree protoname)
 
   expr = build_unary_op (ADDR_EXPR, PROTOCOL_FORWARD_DECL (p), 0);
 
-  TREE_TYPE (expr) = protocol_type;
+  /* ??? Ideally we'd build the reference with protocol_type directly,
+     if we have it, rather than converting it here.  */
+  expr = convert (protocol_type, expr);
 
   /* The @protocol() expression is being compiled into a pointer to a
      statically allocated instance of the Protocol class.  To become
