@@ -1,5 +1,11 @@
 2003-05-08  Jeff Law  <law@redhat.com>
 
+	* tree-dfa.c (remove_decl): Accept new argument for the block
+	to start the search.
+	* tree-flow.h (remove_decl): Update prototype.
+	* tree-cfg.c (remove_stmt): Pass the toplevel block to
+	remove_decl.
+
 	* tree-dfa.c (find_hidden_use_vars): No longer returns a value.
 	Callers and prototype updated.  No longer need to look for
 	nested functions, instead just mark any variables and

@@ -1819,7 +1819,7 @@ remove_stmt (stmt_p)
   /* If the statement is a LABEL_EXPR, remove the LABEL_DECL from
      the symbol table.  */
   if (TREE_CODE (stmt) == LABEL_EXPR)
-    remove_decl (LABEL_EXPR_LABEL (stmt));
+    remove_decl (LABEL_EXPR_LABEL (stmt), DECL_INITIAL (current_function_decl));
 
   /* If the statement is already in SSA form, mark all the definitions made in
      the statement invalid.

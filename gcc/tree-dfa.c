@@ -2194,12 +2194,13 @@ may_access_global_mem_p (expr, expr_base)
 /* Remove variable DECL from the block that declares it.  */
 
 void
-remove_decl (decl)
+remove_decl (decl, block)
      tree decl;
+     tree block;
 {
   tree *loc;
   
-  loc = find_decl_location (decl, DECL_INITIAL (current_function_decl));
+  loc = find_decl_location (decl, block);
   if (loc)
     *loc = TREE_CHAIN (decl);
 }
