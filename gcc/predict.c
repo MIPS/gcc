@@ -353,12 +353,17 @@ estimate_probability (loops_info)
   for (i = 0; i < loops_info->num; i++)
     {
       int j;
+      int exits;
+      struct loop *loop = &loops_info->array[i];
 
-      for (j = loops_info->array[i].first->index;
-	   j <= loops_info->array[i].last->index;
+      flow_loop_scan (loops_info, loop, LOOP_EXIT_EDGES);
+      exits = loop->num_exits;
+
+      for (j = loop->first->index;
+	   j <= loop->last->index;
 	   ++j)
 	{
-	  if (TEST_BIT (loops_info->array[i].nodes, j))
+	  if (TEST_BIT (loop->nodes, j))
 	    {
 	      int header_found = 0;
 	      edge e;
@@ -373,8 +378,8 @@ estimate_probability (loops_info)
 	      /* Loop branch heuristics - predict as taken an edge back to
 	         a loop's head.  */
 	      for (e = BASIC_BLOCK(j)->succ; e; e = e->succ_next)
-		if (e->dest == loops_info->array[i].header
-		    && e->src == loops_info->array[i].latch)
+		if (e->dest == loop->header
+		    && e->src == loop->latch)
 		  {
 		    header_found = 1;
 		    predict_edge_def (e, PRED_LOOP_BRANCH, TAKEN);
@@ -385,8 +390,11 @@ estimate_probability (loops_info)
 	      if (!header_found)
 		for (e = BASIC_BLOCK(j)->succ; e; e = e->succ_next)
 		  if (e->dest->index <= 0
-		      || !TEST_BIT (loops_info->array[i].nodes, e->dest->index))
-		    predict_edge_def (e, PRED_LOOP_EXIT, NOT_TAKEN);
+		      || !TEST_BIT (loop->nodes, e->dest->index))
+		    predict_edge (e, PRED_LOOP_EXIT,
+				  (REG_BR_PROB_BASE
+				   - predictor_info [(int)PRED_LOOP_EXIT].hitrate)
+				  / exits);
 	    }
 	}
     }
