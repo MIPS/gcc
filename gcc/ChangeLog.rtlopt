@@ -1,3 +1,9 @@
+Sat Dec  7 15:17:02 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* cfglayout.c (cfg_layout_split_block): New function.
+	* cfglayout.h (cfg_layout_split_block): Declare.
+	* cfgloopmanip.c (create_preheader): Use it.
+
 Fri Dec  6 00:30:57 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* cfgcleanup.c: Disable loop header hack.
