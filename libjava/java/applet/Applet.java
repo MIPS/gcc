@@ -458,6 +458,34 @@ public class Applet extends Panel
   }
 
   /**
+   * Returns an instance of {@link Dimension} representing the
+   * applet's width and height parameters.
+   *
+   * @return the applet's preferred size
+   */
+  public Dimension getPreferredSize()
+  {
+    int width = Integer.parseInt(stub.getParameter("width"));
+    int height = Integer.parseInt(stub.getParameter("height"));
+
+    return new Dimension(width, height);
+  }
+
+  /**
+   * Returns an instance of {@link Dimension} representing the
+   * applet's width and height parameters.
+   *
+   * @return the applet's minimum size
+   */
+  public Dimension getMinimumSize()
+  {
+    int width = Integer.parseInt(stub.getParameter("width"));
+    int height = Integer.parseInt(stub.getParameter("height"));
+
+    return new Dimension(width, height);
+  }
+
+  /**
    * This class provides accessibility support for Applets, and is the
    * runtime type returned by {@link #getAccessibleContext()}.
    *
