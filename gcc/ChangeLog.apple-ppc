@@ -1,3 +1,10 @@
+2004-08-18  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3753413
+	* config/darwin.c (darwin_build_constant_cfstring): Strip NOP_EXPRs
+	and dereference string literal argument; mark the ADDR_EXPR of
+	each constant CFString TREE_CONSTANT to squash initializer warnings.
+
 2004-08-18  Devang Patel  <dpatel@apple.com>
 
 	* config/darwin-driver.c (verbose_flag): New.

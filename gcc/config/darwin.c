@@ -1795,13 +1795,19 @@ darwin_build_constant_cfstring (tree str)
 {
   struct cfstring_descriptor *desc, key;
   void **loc;
+  tree addr;
 
-  if (!(str &&
-	((TREE_CODE (str) == STRING_CST) ||
-	 (((TREE_CODE (str) == NOP_EXPR)) &&
-	  TREE_OPERAND (str, 0) &&
-	  (TREE_CODE (TREE_OPERAND (str, 0)) == STRING_CST)))))
+  if (!str)
+    goto invalid_string;
+
+  STRIP_NOPS (str);
+
+  if (TREE_CODE (str) == ADDR_EXPR)
+    str = TREE_OPERAND (str, 0);
+
+  if (TREE_CODE (str) != STRING_CST)
     {
+     invalid_string:
       error ("CFString literal expression is not constant");
       return error_mark_node;
     }
@@ -1847,7 +1853,7 @@ darwin_build_constant_cfstring (tree str)
       field = TREE_CHAIN (field);
       initlist = tree_cons (field, build_int_cst (NULL_TREE, length, 0),
 			    initlist);
-  
+
       constructor = build_constructor (ccfstring_type_node,
 				       nreverse (initlist));
       TREE_READONLY (constructor) = 1;
@@ -1864,8 +1870,12 @@ darwin_build_constant_cfstring (tree str)
       desc->constructor = constructor;
     }
 
-  return build1 (ADDR_EXPR, pccfstring_type_node, desc->constructor);
-}     
+  addr = build1 (ADDR_EXPR, pccfstring_type_node, desc->constructor);
+  TREE_CONSTANT (addr) = 1;
+
+  return addr;
+}
+
 /* APPLE LOCAL end constant cfstrings */
 
 /* APPLE LOCAL begin CW asm blocks */
