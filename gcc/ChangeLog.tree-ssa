@@ -1,3 +1,12 @@
+2003-02-27  Jeff Law  <law@redhat.com>
+
+	* fold-const.c (nondestructive_fold_binary_to_constant): Renamed
+	from nondestructive_fold_binary.  Update comments slightly.
+	(nondestructive_fold_unary_to_constant): Similarly.
+	(fold_relational_hi_lo): Corresponding changes.
+	* tree-ssa-ccp.c (ccp_fold): Corresponding changes.
+	* tree.h: Corresponding changes.
+
 2003-02-26  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-ccp.c (ccp_fold): Also handle folding of calls to

@@ -3192,8 +3192,10 @@ extern void using_eh_for_cleanups		PARAMS ((void));
    subexpressions are not changed.  */
 
 extern tree fold		PARAMS ((tree));
-extern tree nondestructive_fold_unary PARAMS ((enum tree_code, tree, tree));
-extern tree nondestructive_fold_binary PARAMS ((enum tree_code, tree, tree, tree));
+extern tree nondestructive_fold_unary_to_constant
+  PARAMS ((enum tree_code, tree, tree));
+extern tree nondestructive_fold_binary_to_constant
+  PARAMS ((enum tree_code, tree, tree, tree));
 
 extern int force_fit_type	PARAMS ((tree, int));
 extern int add_double		PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT,

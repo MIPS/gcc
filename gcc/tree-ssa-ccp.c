@@ -666,7 +666,9 @@ ccp_fold (stmt)
 	    op0 = get_value (op0)->const_val;
 	}
 
-      retval = nondestructive_fold_unary (code, TREE_TYPE (rhs), op0);
+      retval = nondestructive_fold_unary_to_constant (code,
+		     				      TREE_TYPE (rhs),
+						      op0);
 
       /* If we could not fold the expression, but the arguments are all
          constants and simple values, then build and return the new
@@ -712,7 +714,9 @@ ccp_fold (stmt)
 	    op1 = val->const_val;
 	}
 
-      retval = nondestructive_fold_binary (code, TREE_TYPE (rhs), op0, op1);
+      retval = nondestructive_fold_binary_to_constant (code,
+		     				       TREE_TYPE (rhs),
+						       op0, op1);
 
       /* If we could not fold the expression, but the arguments are all
          constants and simple values, then build and return the new

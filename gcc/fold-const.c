@@ -4988,10 +4988,11 @@ fold_relational_hi_lo (code_p, type_p, op0_p, op1_p)
 			   convert (st0, op0),
 			   convert (st1, integer_zero_node));
 
-	      retval = nondestructive_fold_binary (TREE_CODE (exp),
-			      			   TREE_TYPE (exp),
-						   TREE_OPERAND (exp, 0),
-						   TREE_OPERAND (exp, 1));
+	      retval
+		= nondestructive_fold_binary_to_constant (TREE_CODE (exp),
+							  TREE_TYPE (exp),
+							  TREE_OPERAND (exp, 0),
+							  TREE_OPERAND (exp, 1));
 	      return (retval ? retval : exp);
 	    }
 	}
@@ -5001,10 +5002,12 @@ fold_relational_hi_lo (code_p, type_p, op0_p, op1_p)
 }
 
 /* Given the components of a binary expression CODE, TYPE, OP0 and OP1,
-   attempt to fold the expression without modifying TYPE, OP0 or OP1.
+   attempt to fold the expression to a constant without modifying TYPE,
+   OP0 or OP1.
 
-   If simplification was possible, return the simplified tree.  if
-   no simplification is possible return NULL_TREE.
+   If the expression could be simplified to a constant, then return
+   the constant.  If the expression would not be simplified to a
+   constant, then return NULL_TREE.
 
    Note this is primarily designed to be called after gimplification
    of the tree structures and when at least one operand is a constant.
@@ -5012,7 +5015,7 @@ fold_relational_hi_lo (code_p, type_p, op0_p, op1_p)
    simpler than the generic fold routine.  */
 
 tree
-nondestructive_fold_binary (code, type, op0, op1)
+nondestructive_fold_binary_to_constant (code, type, op0, op1)
      enum tree_code code;
      tree type;
      tree op0;
@@ -5295,10 +5298,12 @@ nondestructive_fold_binary (code, type, op0, op1)
 }
 
 /* Given the components of a unary expression CODE, TYPE and OP0,
-   attempt to fold the expression without modifying TYPE or OP0. 
+   attempt to fold the expression to a constant without modifying
+   TYPE or OP0. 
 
-   If simplification was possible, return the simplified tree.  if
-   no simplification is possible return NULL_TREE.
+   If the expression could be simplified to a constant, then return
+   the constant.  If the expression would not be simplified to a
+   constant, then return NULL_TREE.
 
    Note this is primarily designed to be called after gimplification
    of the tree structures and when op0 is a constant.  As a result
@@ -5306,7 +5311,7 @@ nondestructive_fold_binary (code, type, op0, op1)
    the generic fold routine.  */
 
 tree
-nondestructive_fold_unary (code, type, op0)
+nondestructive_fold_unary_to_constant (code, type, op0)
      enum tree_code code;
      tree type;
      tree op0;
