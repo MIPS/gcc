@@ -732,7 +732,7 @@ df_ref_search_cached (struct df *df, rtx reg, rtx *loc, rtx insn,
   struct ref *this_ref;
   unsigned int uid = INSN_UID (insn);
   struct df_link *link;
-  if (ref_type == DF_REF_REG_DEF)
+  if (ref_type == DF_REF_REG_DEF || ref_type == DF_REF_REG_CLOBBER)
     link = df->insns[uid].defs;
   else
     link = df->insns[uid].uses;
@@ -775,7 +775,7 @@ df_ref_create (struct df *df, rtx reg, rtx *loc, rtx insn,
   DF_REF_TYPE (this_ref) = ref_type;
   DF_REF_FLAGS (this_ref) = ref_flags;
 
-  if (ref_type == DF_REF_REG_DEF)
+  if (ref_type == DF_REF_REG_DEF || ref_type == DF_REF_REG_CLOBBER)
     {
       if (df->def_id >= df->def_size)
 	{
@@ -946,7 +946,10 @@ df_def_record_1 (struct df *df, rtx x, basic_block bb, rtx insn)
 
   if (GET_CODE (dst) == REG
       || (GET_CODE (dst) == SUBREG && GET_CODE (SUBREG_REG (dst)) == REG))
-    df_ref_record (df, dst, loc, insn, DF_REF_REG_DEF, flags);
+    df_ref_record (df, dst, loc, insn,
+		   GET_CODE (x) == CLOBBER
+		     ? DF_REF_REG_CLOBBER : DF_REF_REG_DEF,
+		   flags);
 }
 
 

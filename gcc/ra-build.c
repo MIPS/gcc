@@ -2407,12 +2407,21 @@ add_additional_conflicts (void)
       {
 	int uid = INSN_UID (insn);
 	unsigned int n, num_defs = insn_df[uid].num_defs;
+	int is_asm = INSN_CODE (insn) < 0
+	    	     && asm_noperands (PATTERN (insn)) >= 0;
 	rtx source, dest;
 	for (n = 0; n < num_defs; n++)
 	  {
 	    struct ref *def = insn_df[uid].defs[n];
 	    ra_ref *rdef = DF2RA (df2ra, def);
-	    if (rdef && RA_REF_CLOBBER_P (rdef))
+	    /* Note that also direct clobbers of registers (as part
+	       of an parallel) conflict with the inputs, not just
+	       those marked early-clobber in the constraints.
+	       For handwritten asm insns some users are forced to
+	       write incorrect clobbers (i387 insns) conflicting
+	       with the inputs, so don't add such conflicts.  */
+	    if ((rdef && RA_REF_CLOBBER_P (rdef))
+		|| (!is_asm && DF_REF_TYPE (def) == DF_REF_REG_CLOBBER))
 	      {
 		unsigned int u, num_uses = insn_df[uid].num_uses;
 		struct web *web1 = def2web[DF_REF_ID (def)];

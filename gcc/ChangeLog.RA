@@ -1,3 +1,13 @@
+2003-10-15  Michael Matz  <matz@suse.de>
+
+	* df.h (enum df_ref_type): Add member DF_REF_REG_CLOBBER.
+	(DF_REF_TYPE_NAMES): Adjust.
+	(DF_REF_REG_DEF_P): Check for the above type.
+	* df.c (df_ref_search_cached, df_ref_create): Check for new type.
+	(df_def_record_1): Use new type for CLOBBERs.
+	* ra-build.c (add_additional_conflicts): Add conflicts between
+	CLOBBERs and inputs.
+
 2003-10-13  Michael Matz  <matz@suse.de>
 
 	* ra-build.c (web_class): Use GENERAL_REGS.

@@ -33,10 +33,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define DF_EQUIV_NOTES 2048	/* Mark uses present in EQUIV/EQUAL notes.  */
 #define DF_FOR_REGALLOC 4096    /* If called for the register allocator.  */
 
-enum df_ref_type {DF_REF_REG_DEF, DF_REF_REG_USE, DF_REF_REG_MEM_LOAD,
+enum df_ref_type {DF_REF_REG_DEF, DF_REF_REG_CLOBBER,
+		  DF_REF_REG_USE, DF_REF_REG_MEM_LOAD,
 		  DF_REF_REG_MEM_STORE};
 
-#define DF_REF_TYPE_NAMES {"def", "use", "mem load", "mem store"}
+#define DF_REF_TYPE_NAMES {"def", "clobber", "use", "mem load", "mem store"}
 
 /* Link on a def-use or use-def chain.  */
 struct df_link
@@ -204,7 +205,8 @@ struct df_map
 
 /* Macros to determine the reference type.  */
 
-#define DF_REF_REG_DEF_P(REF) (DF_REF_TYPE (REF) == DF_REF_REG_DEF)
+#define DF_REF_REG_DEF_P(REF) (DF_REF_TYPE (REF) == DF_REF_REG_DEF \
+			       || DF_REF_TYPE (REF) == DF_REF_REG_CLOBBER)
 #define DF_REF_REG_USE_P(REF) ((REF) && ! DF_REF_REG_DEF_P (REF))
 #define DF_REF_REG_MEM_STORE_P(REF) (DF_REF_TYPE (REF) == DF_REF_REG_MEM_STORE)
 #define DF_REF_REG_MEM_LOAD_P(REF) (DF_REF_TYPE (REF) == DF_REF_REG_MEM_LOAD)
