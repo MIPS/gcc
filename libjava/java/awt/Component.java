@@ -882,7 +882,9 @@ public abstract class Component
         if (peer != null)
           peer.setVisible(true);
         invalidate();
-        dispatchEvent(new ComponentEvent(this, ComponentEvent.COMPONENT_SHOWN));
+        ComponentEvent ce =
+          new ComponentEvent(this,ComponentEvent.COMPONENT_SHOWN);
+        getToolkit().getSystemEventQueue().postEvent(ce);
       }
   }
 
@@ -913,7 +915,9 @@ public abstract class Component
           peer.setVisible(false);
         this.visible = false;
         invalidate();
-        dispatchEvent(new ComponentEvent(this, ComponentEvent.COMPONENT_HIDDEN));
+        ComponentEvent ce =
+          new ComponentEvent(this,ComponentEvent.COMPONENT_HIDDEN);
+        getToolkit().getSystemEventQueue().postEvent(ce);
       }
   }
 
@@ -1177,7 +1181,11 @@ public abstract class Component
       }
 
     if (oldx != x || oldy != y)
-      dispatchEvent(new ComponentEvent(this, ComponentEvent.COMPONENT_MOVED));
+      {
+        ComponentEvent ce = new ComponentEvent(this,
+                                               ComponentEvent.COMPONENT_MOVED);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
   }
 
   /**
@@ -1262,7 +1270,11 @@ public abstract class Component
       }
 
     if (oldwidth != width || oldheight != height)
-      dispatchEvent(new ComponentEvent(this, ComponentEvent.COMPONENT_RESIZED));
+      {
+        ComponentEvent ce =
+          new ComponentEvent(this, ComponentEvent.COMPONENT_RESIZED);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
   }
 
   /**
@@ -1377,9 +1389,17 @@ public abstract class Component
       }
 
     if (oldx != x || oldy != y)
-      dispatchEvent(new ComponentEvent(this, ComponentEvent.COMPONENT_MOVED));
+      {
+        ComponentEvent ce = new ComponentEvent(this,
+                                               ComponentEvent.COMPONENT_MOVED);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
     if (oldwidth != width || oldheight != height)
-      dispatchEvent(new ComponentEvent(this, ComponentEvent.COMPONENT_RESIZED));
+      {
+        ComponentEvent ce = new ComponentEvent(this,
+                                               ComponentEvent.COMPONENT_RESIZED);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
   }
 
   /**

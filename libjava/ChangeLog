@@ -1,5 +1,16 @@
 2004-02-17  David Jee  <djee@redhat.com>
 
+	* java/awt/Component.java
+	(show): Dispatch ComponentEvent via system event queue.
+	(hide): Likewise.
+	(move): Likewise.
+	(resize): Likewise.
+	(reshape): Likewise.
+	* java/awt/Window.java
+	(setBoundsCallback): Likewise.
+
+2004-02-17  David Jee  <djee@redhat.com>
+
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
 	(Java_gnu_java_awt_peer_gtk_GtkComponentPeer_setNativeBounds):
 	Use gtk_widget_set_size_request() instead of the deprecated

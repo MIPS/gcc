@@ -792,8 +792,16 @@ public class Window extends Container implements Accessible
     width = w;
     height = h;
     if (resized)
-      dispatchEvent(new ComponentEvent(this, ComponentEvent.COMPONENT_RESIZED));
+      {
+        ComponentEvent ce =
+          new ComponentEvent(this, ComponentEvent.COMPONENT_RESIZED);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
     if (moved)
-      dispatchEvent(new ComponentEvent(this, ComponentEvent.COMPONENT_MOVED));
+      {
+        ComponentEvent ce =
+          new ComponentEvent(this, ComponentEvent.COMPONENT_MOVED);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
   }
 }
