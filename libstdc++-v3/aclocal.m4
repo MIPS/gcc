@@ -2220,6 +2220,23 @@ ac_save_CFLAGS="$CFLAGS"
 CFLAGS=' -lgcc_s'
 AC_TRY_LINK( , [return 0], glibcpp_shared_libgcc=yes, glibcpp_shared_libgcc=no)
 CFLAGS="$ac_save_CFLAGS"
+if test $glibcpp_shared_libgcc = no; then
+  cat > conftest.c <<EOF
+int main (void) { return 0; }
+EOF
+changequote(,)dnl
+  glibcpp_libgcc_s_suffix=`${CC-cc} $CFLAGS $CPPFLAGS $LDFLAGS \
+			   -shared -shared-libgcc -o conftest.so \
+			   conftest.c -v 2>&1 >/dev/null \
+			   | sed -n 's/^.* -lgcc_s\([^ ]*\) .*$/\1/p'`
+changequote([,])dnl
+  rm -f conftest.c conftest.so
+  if test x${glibcpp_libgcc_s_suffix+set} = xset; then
+    CFLAGS=" -lgcc_s$glibcpp_libgcc_s_suffix"
+    AC_TRY_LINK(, [return 0;], glibcpp_shared_libgcc=yes)
+    CFLAGS="$ac_save_CFLAGS"
+  fi
+fi
 AC_MSG_RESULT($glibcpp_shared_libgcc)
 
 # For GNU ld, we need at least this version.  It's 2.12 in the same format
