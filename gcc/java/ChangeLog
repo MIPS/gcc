@@ -1,3 +1,11 @@
+2005-02-23  Tom Tromey  <tromey@redhat.com>
+
+	* classobj.cc (get_descriptor): New methods.
+	(create_one_field_record): Update.
+	(create_method_throws): Likewise.
+	(create_one_method_record): Likewise.
+	(create_index_table): Likewise.
+
 2005-02-22  Tom Tromey  <tromey@redhat.com>
 
 	* builtins.cc (map_class_object): Mark class object as public.
