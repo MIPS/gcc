@@ -46,6 +46,12 @@
 	
 2003-06-11  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (first_exec_block): Kill.
+	(make_edges): Use bb_for_stmt rather than first_exec_block.
+	(make_ctrl_stmt_edges, make_exit_edges): Likewise.
+	(make_loop_expr_edges, make_cond_expr_edges): Likewise.
+	(successor_block): Don't skip empty statements.
+
 	* tree-ssa.c (rewrite_and_optimize_stmt): Do not special case
 	CALL_EXPRs they're caught by the TREE_SIDE_EFFECTS test.
                                                                                 

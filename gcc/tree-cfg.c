@@ -100,7 +100,6 @@ static void make_case_label_edges (basic_block);
 
 /* Various helpers.  */
 static basic_block successor_block (basic_block);
-static basic_block first_exec_block (tree *);
 static tree *first_exec_stmt (tree *);
 static basic_block switch_parent (basic_block);
 static inline bool stmt_starts_bb_p (tree, tree);
@@ -862,7 +861,7 @@ make_edges (void)
     {
       tree try_finally = VARRAY_TREE (try_finallys, i);
       tree *finally_p = &TREE_OPERAND (try_finally, 1);
-      basic_block finally_bb = first_exec_block (finally_p);
+      basic_block finally_bb = bb_for_stmt (*finally_p);
       tree *finally_last_p;
       basic_block last_bb;
       int bb;
@@ -906,7 +905,7 @@ make_edges (void)
 					      dummy_bitmap,
 					      &finally_last_p);
 
-      last_bb = first_exec_block (finally_last_p);
+      last_bb = bb_for_stmt (*finally_last_p);
 
       /* Find edges which exited the TRY block.  For each of those
 	 edges, we want to create a new edge from the FINALLY block
@@ -1076,12 +1075,12 @@ make_ctrl_stmt_edges (basic_block bb)
     case TRY_FINALLY_EXPR:
       VARRAY_PUSH_TREE (try_finallys, last);
       if (first_exec_stmt (&TREE_OPERAND (last, 0)) == NULL)
-	make_edge (bb, first_exec_block (&TREE_OPERAND (last, 1)), EDGE_ABNORMAL);
+	make_edge (bb, bb_for_stmt (TREE_OPERAND (last, 1)), EDGE_ABNORMAL);
 
       /* FALL THROUGH */
     case TRY_CATCH_EXPR:
       {
-	basic_block target_bb = first_exec_block (&TREE_OPERAND (last, 0));
+	basic_block target_bb = bb_for_stmt (TREE_OPERAND (last, 0));
 
 	if (target_bb)
           make_edge (bb, target_bb, EDGE_FALLTHRU);
@@ -1091,7 +1090,7 @@ make_ctrl_stmt_edges (basic_block bb)
 
     case CATCH_EXPR:
       {
-	basic_block target_bb = first_exec_block (&CATCH_BODY (last));
+	basic_block target_bb = bb_for_stmt (CATCH_BODY (last));
 
 	if (target_bb)
 	  make_edge (bb, target_bb, EDGE_FALLTHRU);
@@ -1101,7 +1100,7 @@ make_ctrl_stmt_edges (basic_block bb)
 
     case EH_FILTER_EXPR:
       {
-	basic_block target_bb = first_exec_block (&EH_FILTER_FAILURE (last));
+	basic_block target_bb = bb_for_stmt (EH_FILTER_FAILURE (last));
 
 	if (target_bb)
 	  make_edge (bb, target_bb, EDGE_ABNORMAL);
@@ -1160,7 +1159,7 @@ make_exit_edges (basic_block bb)
 	  for (t = stmt_ann (last)->reachable_exception_handlers;
 	       t;
 	       t = TREE_CHAIN (t))
-	    make_edge (bb, first_exec_block (&TREE_VALUE (t)), EDGE_ABNORMAL);
+	    make_edge (bb, bb_for_stmt (TREE_VALUE (t)), EDGE_ABNORMAL);
 	}
 
       /* Some calls are known not to return.  For such calls we need to
@@ -1197,7 +1196,7 @@ make_exit_edges (basic_block bb)
 		   t;
 		   t = TREE_CHAIN (t))
 		make_edge (bb,
-			   first_exec_block (&TREE_VALUE (t)),
+			   bb_for_stmt (TREE_VALUE (t)),
 			   EDGE_ABNORMAL);
 	    }
 
@@ -1215,7 +1214,7 @@ make_exit_edges (basic_block bb)
 		   t;
 		   t = TREE_CHAIN (t))
 		make_edge (bb,
-			   first_exec_block (&TREE_VALUE (t)),
+			   bb_for_stmt (TREE_VALUE (t)),
 			   EDGE_ABNORMAL);
 	    }
 
@@ -1250,7 +1249,7 @@ make_loop_expr_edges (basic_block bb)
     abort ();
 #endif
 
-  body_bb = first_exec_block (&LOOP_EXPR_BODY (entry));
+  body_bb = bb_for_stmt (LOOP_EXPR_BODY (entry));
   if (body_bb)
     make_edge (bb, body_bb, 0);
 }
@@ -1279,8 +1278,8 @@ make_cond_expr_edges (basic_block bb)
 #endif
 
   /* Entry basic blocks for each component.  */
-  then_bb = first_exec_block (&COND_EXPR_THEN (entry));
-  else_bb = first_exec_block (&COND_EXPR_ELSE (entry));
+  then_bb = bb_for_stmt (COND_EXPR_THEN (entry));
+  else_bb = bb_for_stmt (COND_EXPR_ELSE (entry));
   successor_bb = successor_block (bb);
 
   if (then_bb)
@@ -2640,6 +2639,7 @@ successor_block (basic_block bb)
   basic_block succ_bb;
   tree_stmt_iterator i;
   tree last_stmt;
+  tree *container_p;
 
 #if defined ENABLE_CHECKING
   if (bb == NULL)
@@ -2658,9 +2658,13 @@ successor_block (basic_block bb)
   else
     tsi_next (&i);
 
-  succ_bb = first_exec_block (tsi_container (i));
-  if (succ_bb)
-    return succ_bb;
+  container_p = tsi_container (i);
+  if (container_p)
+    {
+      succ_bb = bb_for_stmt (*container_p);
+      if (succ_bb)
+	return succ_bb;
+    }
 
   /* We couldn't find a successor for BB.  This means that BB is the last
      block inside a control structure or lexical scope.  Use the
@@ -2906,23 +2910,6 @@ first_exec_stmt (tree *entry_p)
 
   return NULL;
 }
-
-
-/* Return the first basic block with executable statements in it, starting
-   at ENTRY_P.  */
-
-static basic_block
-first_exec_block (tree *entry_p)
-{
-  tree *exec_p;
-
-  if (entry_p == NULL)
-    return NULL;
-
-  exec_p = first_exec_stmt (entry_p);
-  return (exec_p) ? bb_for_stmt (*exec_p) : NULL;
-}
-
 
 /* Return the header block for the innermost switch statement containing
    BB.  Return NULL if BB is not inside a switch statement.  */
