@@ -9,12 +9,12 @@
 
 int main (int argc, const char * argv[])
 {
+  altivec_check ();
   int i;
   const float cf = 1.0;
   vector float v;
   const vector float cv = (vector float){1.0, 2.0, 3.0, 4.0};
 
-  altivec_check ();
 
   vec_dst(&cv, i, 0);
   v = vec_ld(0, &cv);	

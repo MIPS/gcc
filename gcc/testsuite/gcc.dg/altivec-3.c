@@ -50,6 +50,7 @@ compare_float4 (float *a, float *b)
 
 main ()
 {
+  altivec_check ();
   int loc1 = 600, loc2 = 800;
   int4 a3 = (int4) { loc1, loc2, 1000, 1200 };
   int4 itmp;
@@ -57,7 +58,6 @@ main ()
   float4 f3 = (float4) { 6.0, 8.0, 10.0, 12.0 };
   float4 ftmp;
 
-  altivec_check ();
 
   vec_store (i3, a3);
   itmp = vec_add_int4 (a1, a2);
