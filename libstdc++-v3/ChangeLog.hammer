@@ -1,5 +1,15 @@
 2004-07-12  Paolo Carlini  <pcarlini@suse.de>
 
+	* config/locale/generic/time_members.cc
+	(__timepunct<char>::_M_initialize_timepunct,
+	__timepunct<wchar_t>::_M_initialize_timepunct): the correct
+	_M_amonth07 in the "C" locale is "Jul" and L"Jul", respectively.
+	* config/locale/gnu/time_members.cc
+	(__timepunct<char>::_M_initialize_timepunct,
+	__timepunct<wchar_t>::_M_initialize_timepunct): Ditto.
+
+2004-07-12  Paolo Carlini  <pcarlini@suse.de>
+
 	PR libstdc++/16154
 	* include/bits/boost_concept_check.h (struct _TrivialIteratorConcept):
 	Don't require the _DefaultConstructibleConcept.

@@ -1,6 +1,6 @@
 // std::time_get, std::time_put implementation, generic version -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -105,7 +105,7 @@ namespace std
       _M_month_a04 = "Apr";
       _M_month_a05 = "May";
       _M_month_a06 = "Jun";
-      _M_month_a07 = "July";
+      _M_month_a07 = "Jul";
       _M_month_a08 = "Aug";
       _M_month_a09 = "Sep";
       _M_month_a10 = "Oct";
@@ -181,7 +181,7 @@ namespace std
       _M_month_a04 = L"Apr";
       _M_month_a05 = L"May";
       _M_month_a06 = L"Jun";
-      _M_month_a07 = L"July";
+      _M_month_a07 = L"Jul";
       _M_month_a08 = L"Aug";
       _M_month_a09 = L"Sep";
       _M_month_a10 = L"Oct";
