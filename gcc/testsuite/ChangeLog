@@ -1,3 +1,7 @@
+2002-11-16  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/execute/20020920-1.c: New test.
+
 2002-11-11  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
 
 	PR c/8467
