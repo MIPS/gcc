@@ -1,5 +1,9 @@
 2004-09-24  Ben Elliston  <bje@au.ibm.com>
 
+	* Branch closed and merged to mainline.
+
+2004-09-24  Ben Elliston  <bje@au.ibm.com>
+
 	* basic-block.h (FOR_EACH_EDGE): Add some more comments.
 	(ei_start, ei_last, ei_end_p, ei_one_before_end_p): Likewise.
 	(ei_next, ei_prev, ei_edge, ei_safe_edge): Likewise.
