@@ -1,4 +1,8 @@
-2004-11-16  Devang Patel  <dpatel@apple.com>
+2004-11-17  Devang Patel  <dpatel@apple.com>
+
+	* gcc.apple/altivec-use.c: Remove.
+
+2004-11-17  Devang Patel  <dpatel@apple.com>
 
 	* gcc.dg/vect/vect-none.c: Now 2 loops are vectorized.
 
