@@ -409,11 +409,11 @@ first_readonly_imm_use (imm_use_iterator *imm, tree var)
 
   imm->end_p = &(SSA_NAME_IMM_USE_NODE (var));
   imm->imm_use = imm->end_p->next;
-  if (end_readonly_imm_use_p (imm))
-    return NULL_USE_OPERAND_P;
 #ifdef ENABLE_CHECKING
   imm->iter_node.next = imm->imm_use->next;
 #endif
+  if (end_readonly_imm_use_p (imm))
+    return NULL_USE_OPERAND_P;
   return imm->imm_use;
 }
 
