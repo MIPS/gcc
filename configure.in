@@ -1609,7 +1609,7 @@ qRAW_CXX_FOR_TARGET=`echo "$RAW_CXX_FOR_TARGET" | sed 's,[&%],\\\&,g'`
 # can be expanded by the nested make as shell variables, not as make
 # macros.
 qqCXX_FOR_TARGET=`echo "$qCXX_FOR_TARGET" | sed -e 's,[$][$],$$$$,g'`
-qqRAW_CXX_FOR_TARGET=`echo "$qCXX_FOR_TARGET" | sed -e 's,[$][$],$$$$,g'`
+qqRAW_CXX_FOR_TARGET=`echo "$qRAW_CXX_FOR_TARGET" | sed -e 's,[$][$],$$$$,g'`
 
 sedtemp=sed.$$
 cat >$sedtemp <<EOF

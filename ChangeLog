@@ -1,5 +1,7 @@
 2002-11-22  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* configure.in: Fix deeply stupid bug.
+
 	* configure.in: Introduce RAW_CXX_FOR_TARGET and simplify embedded
 	shell code in CXX_FOR_TARGET
 	* Makefile.def: Introduce raw_cxx.
