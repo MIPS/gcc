@@ -2166,6 +2166,8 @@ coalesce_spill_slot (web, ref, place)
       s = use2web[DF_REF_ID (info->uses[0])];
       t = def2web[DF_REF_ID (info->defs[0])];
     }
+  else
+    return 0;
   
   if (s == web)
     dweb = t;

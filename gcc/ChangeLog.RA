@@ -1,3 +1,7 @@
+2003-06-30  Michael Matz  <matz@suse.de>
+	* ra-rewrite.c (coalesce_spill_slots): Don't use uninitialized
+	values.
+
 2003-06-23  Michael Matz  <matz@suse.de>
 	* Makefile.in (ra-build.o): Depend on OBSTACK_H.
 	(ra-rewrite.o): Depend on pre-reload.h.
