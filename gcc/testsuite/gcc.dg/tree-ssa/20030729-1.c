@@ -42,7 +42,7 @@ readonly_fields_p (type)
 }
 
 /* A good optimizer would realize that the cast to (unsigned int) is
-   useless as the earlier cast of the same value ot (unsigned char) will
+   useless as the earlier cast of the same value of (unsigned char) will
    always produce the same result.  */
 /* { dg-final { scan-tree-dump-times "\\(unsigned int\\)" 0 "ssa"} } */
  

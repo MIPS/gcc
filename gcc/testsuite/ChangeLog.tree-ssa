@@ -1,3 +1,9 @@
+2003-07-30  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030730-1.c: New test.
+	* gcc.dg/tree-ssa/20030730-2.c: New test.
+	* gcc.dg/tree-ssa/20030729-1.c: Fix comment typo.
+
 2003-07-29  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/20030729-1.c: New test.
