@@ -1,0 +1,14 @@
+libgomp
+* Introduce a target in the make file for testing purposes (which for the 
+  moment can compile and run all the a*c programs).
+* Make two targets for the libraries: libgomp_stubs and libgomp.
+* Reintroduce the test dir and make some use of the test cases we already
+  have.
+
+gcc integration
+* Integration with gcc: remove the config dir and add 
+  AC_CONFIG_AUX_DIR(..) to point to the gcc toplevel.
+* Prefix everything with __gomp_, not omp_ or gomp_; we can use weak
+  aliases to provide omp_* standard names.
+* more?
+

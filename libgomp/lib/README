@@ -1,0 +1,8 @@
+-------------------------------------------------------------------------------
+
+This directory contains the GOMP implementation of the openMP run-time library 
+as described in chapter 3 of the OpenMP C and C++ API, version 2.0 March 2002, 
+cf.  http://www.openmp.org. 
+
+-------------------------------------------------------------------------------
+
