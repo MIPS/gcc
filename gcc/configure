@@ -3618,7 +3618,7 @@ for machine in $build $host $target; do
 		;;
 	arm*-*-aout)
 		tm_file=arm/aout.h
-		tmake_file=arm/t-arm-coff
+		tmake_file=arm/t-arm-aout
 		extra_objs=thumb.o
 		;;
         arm*-*-ecos-elf)

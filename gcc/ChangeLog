@@ -1,3 +1,10 @@
+Tue Oct 26 13:24:16 1999  Nick Clifton  <nickc@cygnus.com>
+
+	* configure.in : Fix arm-*-aout target to use new t-arm-aout
+	script. 
+	* config/arm/t-arm-aout: New file: Makefile script for arm-*-aout
+	targets.
+
 Tue Oct 26 11:27:12 1999  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/thumb.c (output_thumb_prologue): Fix bug creating
