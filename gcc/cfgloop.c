@@ -132,7 +132,8 @@ flow_loop_dump (loop, file, loop_dump_aux, verbose)
 
   flow_edge_list_print (";;  entry edges", loop->entry_edges,
 			loop->num_entries, file);
-  fprintf (file, ";;  %d nodes", loop->num_nodes);
+  fprintf (file, ";;  expected number of iterations %d\n", expected_loop_iterations (loop));
+  fprintf (file, ";;  %d nodes\n", loop->num_nodes);
   fprintf (file, ";;  nodes:");
   bbs = get_loop_body (loop);
   for (i = 0; i < loop->num_nodes; i++)

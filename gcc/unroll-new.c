@@ -253,7 +253,7 @@ simple_increment (loops, loop, body, desc)
     return NULL;
 
   set_src = SET_SRC (set);
-  if (GET_CODE (set_src) != PLUS && GET_CODE (set_src) != MINUS)
+  if (GET_CODE (set_src) != PLUS)
     return NULL;
   if (!rtx_equal_p (XEXP (set_src, 0), desc->var))
     return NULL;
@@ -266,8 +266,6 @@ simple_increment (loops, loop, body, desc)
     desc->grow = 0;
   else
     return NULL;
-  if (GET_CODE (set_src) == MINUS)
-    desc->grow = 1 - desc->grow;
 
   return mod_bb;
 }
@@ -361,6 +359,42 @@ simple_loop_p (loops, loop, desc)
 		     && GET_CODE (desc->init) == CONST_INT;
 
   free (body);
+
+  if (rtl_dump_file)
+    {
+      fprintf (rtl_dump_file, "; Simple loop %i\n", loop->num);
+      if (desc->postincr)
+	fprintf (rtl_dump_file,
+		 ";  does postincrement after loop exit condition\n");
+      if (desc->var)
+	{
+	  fprintf (rtl_dump_file, ";  Induction variable:");
+	  print_simple_rtl (rtl_dump_file, desc->var);
+	  fputc ('\n', rtl_dump_file);
+	}
+      fprintf (rtl_dump_file,
+	       desc->grow ? ";  Counter grows\n": ";  Counter decreases\n");
+      if (desc->init)
+	{
+	  fprintf (rtl_dump_file, ";  Initial value:");
+	  print_simple_rtl (rtl_dump_file, desc->init);
+	  fputc ('\n', rtl_dump_file);
+	}
+      if (desc->lim)
+	{
+	  fprintf (rtl_dump_file, ";  Compared with:");
+	  print_simple_rtl (rtl_dump_file, desc->lim);
+	  fputc ('\n', rtl_dump_file);
+	}
+      if (desc->cond)
+	{
+	  fprintf (rtl_dump_file, ";  Exit condtion:");
+	  if (desc->neg)
+	    fprintf (rtl_dump_file, "(negated)");
+	  fprintf (rtl_dump_file, "%s\n", GET_RTX_NAME (desc->cond));
+	  fputc ('\n', rtl_dump_file);
+	}
+    }
   return true;
 
   ret_false:
@@ -376,29 +410,44 @@ count_loop_iterations (desc, niter, rniter)
      rtx *rniter;
 {
   int delta;
+  HOST_WIDE_INT abs_diff = 0;
+  rtx final_greater = NULL;
 
   if (desc->grow)
     {
       if (rniter)
-	*rniter = expand_simple_binop (GET_MODE (desc->var), MINUS,
-			copy_rtx (desc->lim), copy_rtx (desc->var),
-			NULL_RTX, 0, OPTAB_LIB_WIDEN);
+	{
+	  *rniter = expand_simple_binop (GET_MODE (desc->var), MINUS,
+			  copy_rtx (desc->lim), copy_rtx (desc->var),
+			  NULL_RTX, 0, OPTAB_LIB_WIDEN);
+	}
+      if (niter)
+	{
+          abs_diff = desc->lim_n - desc->init_n;
+	}
     }
   else
     {
       desc->cond = swap_condition (desc->cond);
       if (desc->cond == UNKNOWN)
 	return 0;
-      if (niter)
-	{
-	  desc->init_n = -desc->init_n;
-	  desc->lim_n = -desc->lim_n;
-	}
       if (rniter)
 	*rniter = expand_simple_binop (GET_MODE (desc->var), MINUS,
 			copy_rtx (desc->var), copy_rtx (desc->lim),
 			NULL_RTX, 0, OPTAB_LIB_WIDEN);
+      if (niter)
+	{
+	  abs_diff = desc->init_n - desc->lim_n;
+	}
     }
+
+  /* Given that iteration_var is going to iterate over its own mode,
+     not HOST_WIDE_INT, disregard higher bits that might have come
+     into the picture due to sign extension of initial and final
+     values.  */
+  abs_diff &= ((unsigned HOST_WIDE_INT) 1
+	       << (GET_MODE_BITSIZE (GET_MODE (desc->var)) - 1)
+	       << 1) - 1;
       
   if (desc->neg)
     {
@@ -430,13 +479,17 @@ count_loop_iterations (desc, niter, rniter)
     }
 
   if (niter)
-    *niter = desc->lim_n - desc->init_n + delta;
+    {
+      *niter = abs_diff + delta;
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";  Number of iterations: %i\n", *niter);
+    }
 
   if (rniter && delta)
     expand_simple_binop (GET_MODE (desc->var), PLUS,
 	  *rniter,
-	  gen_rtx_CONST_INT (GET_MODE (desc->var), delta),
-	  *rniter, 0, OPTAB_LIB_WIDEN);
+	  GEN_INT (delta),
+	  NULL_RTX, 0, OPTAB_LIB_WIDEN);
 
   return 1;
 }
@@ -532,6 +585,10 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   edge e;
   sbitmap wont_exit;
 
+  /* We are handling incorrectly situation, where the loop condition is false
+     and number of iterations get negative, so disable the code for now.  */
+  return 0;
+
   /* Force max_unroll + 1 to be power of 2.  */
   for (i = 1; 2 * i <= max_unroll + 1; i *= 2);
   max_unroll = i - 1;
@@ -549,7 +606,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   /* Count modulo by ANDing it with max_unroll.  */
   expand_simple_binop (GET_MODE (desc->var), AND,
 	niter,
-	gen_rtx_CONST_INT (GET_MODE (desc->var), max_unroll),
+	GEN_INT (max_unroll),
 	niter, 0, OPTAB_LIB_WIDEN);
 
   expand_simple_binop (GET_MODE (desc->var), PLUS,

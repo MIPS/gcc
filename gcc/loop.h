@@ -437,8 +437,8 @@ struct loop_desc
   int grow;		/* 1 if it grows, 0 if it decreases.  */
   rtx lim;		/* Expression var is compared with.  */
   rtx init;		/* Initial value of var.  */
-  int lim_n;
-  int init_n;		/* And their integer values.  */
+  HOST_WIDE_INT lim_n;
+  HOST_WIDE_INT init_n;	/* And their integer values.  */
   int const_iter;       /* One if both limits are integer constants.  */
   enum rtx_code cond;	/* Exit condition.  */
   int neg;		/* Set to 1 if loop ends when condition is satisfied.  */
