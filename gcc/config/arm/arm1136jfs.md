@@ -284,7 +284,15 @@
 
 (define_insn_reservation "11_load1" 3
  (and (eq_attr "tune" "arm1136js,arm1136jfs")
-      (eq_attr "type" "load"))
+      (eq_attr "type" "load1"))
+ "l_a+e_1,l_dc1,l_dc2,l_wb")
+
+;; Load byte results are not available until the writeback stage, where
+;; the correct byte is extracted.
+
+(define_insn_reservation "11_loadb" 4
+ (and (eq_attr "tune" "arm1136js,arm1136jfs")
+      (eq_attr "type" "load_byte"))
  "l_a+e_1,l_dc1,l_dc2,l_wb")
 
 (define_insn_reservation "11_store1" 0
@@ -338,17 +346,32 @@
 	       "11_alu_shift_reg_op"
 	       "arm_no_early_alu_shift_dep")
 
+(define_bypass 3 "11_loadb"
+	       "11_alu_op")
+(define_bypass 3 "11_loadb"
+	       "11_alu_shift_op"
+	       "arm_no_early_alu_shift_value_dep")
+(define_bypass 3 "11_loadb"
+	       "11_alu_shift_reg_op"
+	       "arm_no_early_alu_shift_dep")
+
 ;; A mul op can start sooner after a load, if that mul op does not
-;; have an early multipl dependency
+;; have an early multiply dependency
 (define_bypass 2 "11_load1"
 	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
 	       "arm_no_early_mul_dep")
 (define_bypass 3 "11_load34"
 	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
 	       "arm_no_early_mul_dep")
+(define_bypass 3 "11_loadb"
+	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
+	       "arm_no_early_mul_dep")
 
 ;; A store can start sooner after a load, if that load does not
 ;; produce part of the address to access
 (define_bypass 2 "11_load1"
+	       "11_store1"
+	       "arm_no_early_store_addr_dep")
+(define_bypass 3 "11_loadb"
 	       "11_store1"
 	       "arm_no_early_store_addr_dep")

@@ -104,21 +104,21 @@
 (define_insn_reservation "load_ldsched_xscale" 3
   (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "ldsched" "yes") 
-	    (and (eq_attr "type" "load")
+	    (and (eq_attr "type" "load_byte,load1")
 	         (eq_attr "is_xscale" "yes"))))
   "core")
 
 (define_insn_reservation "load_ldsched" 2
   (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "ldsched" "yes") 
-	    (and (eq_attr "type" "load")
+	    (and (eq_attr "type" "load_byte,load1")
 	         (eq_attr "is_xscale" "no"))))
   "core")
 
 (define_insn_reservation "load_or_store" 2
   (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "ldsched" "!yes") 
-	    (eq_attr "type" "load,load2,load3,load4,store1")))
+	    (eq_attr "type" "load_byte,load1,load2,load3,load4,store1")))
   "core*2")
 
 (define_insn_reservation "mult" 16
@@ -143,7 +143,7 @@
 (define_insn_reservation "multi_cycle" 32
   (and (eq_attr "generic_sched" "yes")
        (and (eq_attr "core_cycles" "multi")
-            (eq_attr "type" "!mult,load,load2,load3,load4,store1,store2,store3,store4")))
+            (eq_attr "type" "!mult,load_byte,load1,load2,load3,load4,store1,store2,store3,store4")))
   "core*32")
 
 (define_insn_reservation "single_cycle" 1

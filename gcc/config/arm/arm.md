@@ -201,7 +201,8 @@
 ; r_2_f		fast transfer arm to float
 ; branch	a branch
 ; call		a subroutine call
-; load		load 1 word from memory to arm registers
+; load_byte	load byte(s) from memory to arm registers
+; load1		load 1 word from memory to arm registers
 ; load2         load 2 words from memory to arm registers
 ; load3         load 3 words from memory to arm registers
 ; load4         load 4 words from memory to arm registers
@@ -214,7 +215,7 @@
 ; mav_dmult	Double multiplies (7 cycle)
 ;
 (define_attr "type"
-	"alu,alu_shift,alu_shift_reg,mult,block,float,fdivx,fdivd,fdivs,fmul,ffmul,farith,ffarith,float_em,f_load,f_store,f_mem_r,r_mem_f,f_2_r,r_2_f,branch,call,load,load2,load3,load4,store1,store2,store3,store4,mav_farith,mav_dmult" 
+	"alu,alu_shift,alu_shift_reg,mult,block,float,fdivx,fdivd,fdivs,fmul,ffmul,farith,ffarith,float_em,f_load,f_store,f_mem_r,r_mem_f,f_2_r,r_2_f,branch,call,load_byte,load1,load2,load3,load4,store1,store2,store3,store4,mav_farith,mav_dmult" 
 	(if_then_else 
 	 (eq_attr "insn" "smulxy,smlaxy,smlalxy,smulwy,smlawx,mul,muls,mla,mlas,umull,umulls,umlal,umlals,smull,smulls,smlal,smlals")
 	 (const_string "mult")
@@ -266,7 +267,7 @@
 ; to stall the processor.  Used with model_wbuf above.
 (define_attr "write_conflict" "no,yes"
   (if_then_else (eq_attr "type"
-		 "block,float_em,f_load,f_store,f_mem_r,r_mem_f,call,load")
+		 "block,float_em,f_load,f_store,f_mem_r,r_mem_f,call,load1")
 		(const_string "yes")
 		(const_string "no")))
 
@@ -2941,7 +2942,7 @@
    ldr%?b\\t%Q0, %1\;mov%?\\t%R0, #0"
   [(set_attr "length" "8")
    (set_attr "predicable" "yes")
-   (set_attr "type" "*,load")
+   (set_attr "type" "*,load_byte")
    (set_attr "pool_range" "*,4092")
    (set_attr "neg_pool_range" "*,4084")]
 )
@@ -3070,7 +3071,7 @@
   return \"ldrh\\t%0, %1\";
   "
   [(set_attr "length" "4")
-   (set_attr "type" "load")
+   (set_attr "type" "load_byte")
    (set_attr "pool_range" "60")]
 )
 
@@ -3079,7 +3080,7 @@
 	(zero_extend:SI (match_operand:HI 1 "memory_operand"      "m")))]
   "TARGET_ARM && arm_arch4"
   "ldr%?h\\t%0, %1"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")
    (set_attr "pool_range" "256")
    (set_attr "neg_pool_range" "244")]
@@ -3161,7 +3162,7 @@
   "TARGET_THUMB"
   "ldrb\\t%0, %1"
   [(set_attr "length" "2")
-   (set_attr "type" "load")
+   (set_attr "type" "load_byte")
    (set_attr "pool_range" "32")]
 )
 
@@ -3170,7 +3171,7 @@
 	(zero_extend:SI (match_operand:QI 1 "memory_operand"      "m")))]
   "TARGET_ARM"
   "ldr%?b\\t%0, %1\\t%@ zero_extendqisi2"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")
    (set_attr "pool_range" "4096")
    (set_attr "neg_pool_range" "4084")]
@@ -3303,7 +3304,7 @@
     return \"\";
   }"
   [(set_attr "length" "4")
-   (set_attr "type" "load")
+   (set_attr "type" "load_byte")
    (set_attr "pool_range" "1020")]
 )
 
@@ -3349,7 +3350,7 @@
 	(sign_extend:SI (match_operand:HI 1 "memory_operand"      "m")))]
   "TARGET_ARM && arm_arch4"
   "ldr%?sh\\t%0, %1"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")
    (set_attr "pool_range" "256")
    (set_attr "neg_pool_range" "244")]
@@ -3421,7 +3422,7 @@
     return \"#\";
   return \"ldr%?sb\\t%0, %1\";
   "
-  [(set_attr "type" "load")
+  [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")
    (set_attr "length" "8")
    (set_attr "pool_range" "256")
@@ -3519,7 +3520,7 @@
     return \"#\";
   return \"ldr%?sb\\t%0, %1\";
   "
-  [(set_attr "type" "load")
+  [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")
    (set_attr "length" "8")
    (set_attr "pool_range" "256")
@@ -3634,7 +3635,7 @@
     return \"\";
   }"
   [(set_attr "length" "2,6")
-   (set_attr "type" "load,load")
+   (set_attr "type" "load_byte,load_byte")
    (set_attr "pool_range" "32,32")]
 )
 
@@ -3730,7 +3731,7 @@
   return (output_move_double (operands));
   "
   [(set_attr "length" "8")
-   (set_attr "type" "*,load,store2")
+   (set_attr "type" "*,load2,store2")
    (set_attr "pool_range" "*,1020,*")
    (set_attr "neg_pool_range" "*,1008,*")]
 )
@@ -3778,7 +3779,7 @@
     }
   }"
   [(set_attr "length" "4,4,6,2,2,6,4,4")
-   (set_attr "type" "*,*,*,load,store2,load,store2,*")
+   (set_attr "type" "*,*,*,load2,store2,load2,store2,*")
    (set_attr "pool_range" "*,*,*,*,*,1020,*,*")]
 )
 
@@ -3832,7 +3833,7 @@
    mvn%?\\t%0, #%B1
    ldr%?\\t%0, %1
    str%?\\t%1, %0"
-  [(set_attr "type" "*,*,load,store1")
+  [(set_attr "type" "*,*,load1,store1")
    (set_attr "predicable" "yes")
    (set_attr "pool_range" "*,*,4096,*")
    (set_attr "neg_pool_range" "*,*,4084,*")]
@@ -3869,7 +3870,7 @@
    str\\t%1, %0
    mov\\t%0, %1"
   [(set_attr "length" "2,2,4,4,2,2,2,2,2")
-   (set_attr "type" "*,*,*,*,load,store1,load,store1,*")
+   (set_attr "type" "*,*,*,*,load1,store1,load1,store1,*")
    (set_attr "pool_range" "*,*,*,*,*,*,1020,*,*")]
 )
 
@@ -3921,7 +3922,7 @@
 	(unspec:SI [(match_operand:SI 1 "" "mX")] UNSPEC_PIC_SYM))]
   "TARGET_ARM && flag_pic"
   "ldr%?\\t%0, %1"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load1")
    (set (attr "pool_range")     (const_int 4096))
    (set (attr "neg_pool_range") (const_int 4084))]
 )
@@ -3931,7 +3932,7 @@
 	(unspec:SI [(match_operand:SI 1 "" "mX")] UNSPEC_PIC_SYM))]
   "TARGET_THUMB && flag_pic"
   "ldr\\t%0, %1"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load1")
    (set (attr "pool_range") (const_int 1024))]
 )
 
@@ -3957,7 +3958,7 @@
   output_asm_insn (\"ldr%?\\t%0, %a1\", operands);
   return \"\";
   "
-  [(set_attr "type" "load")
+  [(set_attr "type" "load1")
    (set (attr "pool_range")
 	(if_then_else (eq_attr "is_thumb" "yes")
 		      (const_int 1024)
@@ -4382,7 +4383,7 @@
       return \"ldrh	%0, %1\";
     }"
   [(set_attr "length" "2,4,2,2,2,2")
-   (set_attr "type" "*,load,store1,*,*,*")
+   (set_attr "type" "*,load1,store1,*,*,*")
    (set_attr "pool_range" "*,64,*,*,*,*")]
 )
 
@@ -4401,7 +4402,7 @@
     output_asm_insn (\"ldr%?\\t%0, %1\\t%@ load-rotate\", ops);
     return \"\";
   }"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load1")
    (set_attr "predicable" "yes")]
 )
 
@@ -4469,7 +4470,7 @@
    mvn%?\\t%0, #%B1\\t%@ movhi
    str%?h\\t%1, %0\\t%@ movhi 
    ldr%?h\\t%0, %1\\t%@ movhi"
-  [(set_attr "type" "*,*,store1,load")
+  [(set_attr "type" "*,*,store1,load1")
    (set_attr "predicable" "yes")
    (set_attr "pool_range" "*,*,*,256")
    (set_attr "neg_pool_range" "*,*,*,244")]
@@ -4489,7 +4490,7 @@
    mov%?\\t%0, %1\\t%@ movhi
    mvn%?\\t%0, #%B1\\t%@ movhi
    ldr%?\\t%0, %1\\t%@ movhi"
-  [(set_attr "type" "*,*,load")
+  [(set_attr "type" "*,*,load1")
    (set_attr "predicable" "yes")
    (set_attr "pool_range" "4096")
    (set_attr "neg_pool_range" "4084")]
@@ -4509,7 +4510,7 @@
    mov%?\\t%0, %1\\t%@ movhi
    mvn%?\\t%0, #%B1\\t%@ movhi
    ldr%?\\t%0, %1\\t%@ movhi_bigend\;mov%?\\t%0, %0, asr #16"
-  [(set_attr "type" "*,*,load")
+  [(set_attr "type" "*,*,load1")
    (set_attr "predicable" "yes")
    (set_attr "length" "4,4,8")
    (set_attr "pool_range" "*,*,4092")
@@ -4524,7 +4525,7 @@
    && BYTES_BIG_ENDIAN
    && !TARGET_MMU_TRAPS"
   "ldr%?\\t%0, %1\\t%@ movhi_bigend"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load1")
    (set_attr "predicable" "yes")
    (set_attr "pool_range" "4096")
    (set_attr "neg_pool_range" "4084")]
@@ -4664,7 +4665,7 @@
    mvn%?\\t%0, #%B1
    ldr%?b\\t%0, %1
    str%?b\\t%1, %0"
-  [(set_attr "type" "*,*,load,store1")
+  [(set_attr "type" "*,*,load1,store1")
    (set_attr "predicable" "yes")]
 )
 
@@ -4682,7 +4683,7 @@
    mov\\t%0, %1
    mov\\t%0, %1"
   [(set_attr "length" "2")
-   (set_attr "type" "*,load,store1,*,*,*")
+   (set_attr "type" "*,load1,store1,*,*,*")
    (set_attr "pool_range" "*,32,*,*,*,*")]
 )
 
@@ -4736,7 +4737,7 @@
    str%?\\t%1, %0\\t%@ float"
   [(set_attr "length" "4,4,4")
    (set_attr "predicable" "yes")
-   (set_attr "type" "*,load,store1")
+   (set_attr "type" "*,load1,store1")
    (set_attr "pool_range" "*,4096,*")
    (set_attr "neg_pool_range" "*,4084,*")]
 )
@@ -4757,7 +4758,7 @@
    mov\\t%0, %1
    mov\\t%0, %1"
   [(set_attr "length" "2")
-   (set_attr "type" "*,load,store1,load,store1,*,*")
+   (set_attr "type" "*,load1,store1,load1,store1,*,*")
    (set_attr "pool_range" "*,*,*,1020,*,*,*")]
 )
 
@@ -4832,7 +4833,7 @@
   "
   "* return output_move_double (operands);"
   [(set_attr "length" "8,8,8")
-   (set_attr "type" "*,load,store2")
+   (set_attr "type" "*,load2,store2")
    (set_attr "pool_range" "1020")
    (set_attr "neg_pool_range" "1008")]
 )
@@ -4873,7 +4874,7 @@
     }
   "
   [(set_attr "length" "4,2,2,6,4,4")
-   (set_attr "type" "*,load,store2,load,store2,*")
+   (set_attr "type" "*,load2,store2,load2,store2,*")
    (set_attr "pool_range" "*,*,*,1020,*,*")]
 )
 
@@ -7277,7 +7278,7 @@
       }
     return output_return_instruction (const_true_rtx, TRUE, FALSE);
   }"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load1")
    (set_attr "length" "12")
    (set_attr "predicable" "yes")]
 )
@@ -7300,7 +7301,7 @@
   }"
   [(set_attr "conds" "use")
    (set_attr "length" "12")
-   (set_attr "type" "load")]
+   (set_attr "type" "load1")]
 )
 
 (define_insn "*cond_return_inverted"
@@ -7320,7 +7321,7 @@
     return output_return_instruction (operands[0], TRUE, TRUE);
   }"
   [(set_attr "conds" "use")
-   (set_attr "type" "load")]
+   (set_attr "type" "load1")]
 )
 
 ;; Generate a sequence of instructions to determine if the processor is
@@ -7464,7 +7465,7 @@
 	(match_operand:SI 0 "memory_operand" "m"))]
   "TARGET_ARM"
   "ldr%?\\t%|pc, %0\\t%@ indirect memory jump"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load1")
    (set_attr "pool_range" "4096")
    (set_attr "neg_pool_range" "4084")
    (set_attr "predicable" "yes")]
@@ -8723,7 +8724,7 @@
   }"
   [(set_attr "length" "12")
    (set_attr "predicable" "yes")
-   (set_attr "type" "load")]
+   (set_attr "type" "load1")]
 )
 
 ;; the arm can support extended pre-inc instructions
@@ -8780,7 +8781,7 @@
    && (GET_CODE (operands[2]) != REG
        || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
   "ldr%?b\\t%3, [%0, %2]!"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")]
 )
 
@@ -8796,7 +8797,7 @@
    && (GET_CODE (operands[2]) != REG
        || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
   "ldr%?b\\t%3, [%0, -%2]!"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")]
 )
 
@@ -8813,7 +8814,7 @@
    && (GET_CODE (operands[2]) != REG
        || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
   "ldr%?b\\t%3, [%0, %2]!\\t%@ z_extendqisi"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")]
 )
 
@@ -8830,7 +8831,7 @@
    && (GET_CODE (operands[2]) != REG
        || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
   "ldr%?b\\t%3, [%0, -%2]!\\t%@ z_extendqisi"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")]
 )
 
@@ -8878,7 +8879,7 @@
    && (GET_CODE (operands[2]) != REG
        || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
   "ldr%?\\t%3, [%0, %2]!"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load1")
    (set_attr "predicable" "yes")]
 )
 
@@ -8894,7 +8895,7 @@
    && (GET_CODE (operands[2]) != REG
        || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
   "ldr%?\\t%3, [%0, -%2]!"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load1")
    (set_attr "predicable" "yes")]
 )
 
@@ -8913,7 +8914,7 @@
    && (GET_CODE (operands[2]) != REG
        || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
   "ldr%?\\t%3, [%0, %2]!\\t%@ loadhi"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")]
 )
 
@@ -8932,7 +8933,7 @@
    && (GET_CODE (operands[2]) != REG
        || REGNO (operands[2]) != FRAME_POINTER_REGNUM)"
   "ldr%?\\t%3, [%0, -%2]!\\t%@ loadhi"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")]
 )
 
@@ -8986,7 +8987,7 @@
    && REGNO (operands[1]) != FRAME_POINTER_REGNUM
    && REGNO (operands[3]) != FRAME_POINTER_REGNUM"
   "ldr%?b\\t%5, [%0, %3%S2]!"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")]
 )
 
@@ -9004,7 +9005,7 @@
    && REGNO (operands[1]) != FRAME_POINTER_REGNUM
    && REGNO (operands[3]) != FRAME_POINTER_REGNUM"
   "ldr%?b\\t%5, [%0, -%3%S2]!"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")]
 )
 
@@ -9058,7 +9059,7 @@
    && REGNO (operands[1]) != FRAME_POINTER_REGNUM
    && REGNO (operands[3]) != FRAME_POINTER_REGNUM"
   "ldr%?\\t%5, [%0, %3%S2]!"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load1")
    (set_attr "predicable" "yes")]
 )
 
@@ -9076,7 +9077,7 @@
    && REGNO (operands[1]) != FRAME_POINTER_REGNUM
    && REGNO (operands[3]) != FRAME_POINTER_REGNUM"
   "ldr%?\\t%5, [%0, -%3%S2]!"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load1")
    (set_attr "predicable" "yes")])
 
 (define_insn "*loadhi_shiftpreinc"
@@ -9096,7 +9097,7 @@
    && REGNO (operands[1]) != FRAME_POINTER_REGNUM
    && REGNO (operands[3]) != FRAME_POINTER_REGNUM"
   "ldr%?\\t%5, [%0, %3%S2]!\\t%@ loadhi"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")]
 )
 
@@ -9117,7 +9118,7 @@
    && REGNO (operands[1]) != FRAME_POINTER_REGNUM
    && REGNO (operands[3]) != FRAME_POINTER_REGNUM"
   "ldr%?\\t%5, [%0, -%3%S2]!\\t%@ loadhi"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")]
 )
 

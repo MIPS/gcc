@@ -167,7 +167,7 @@
 
 (define_insn_reservation "load1_op" 2
  (and (eq_attr "tune" "arm1026ejs")
-      (eq_attr "type" "load"))
+      (eq_attr "type" "load_byte,load1"))
  "a_e+l_e,l_m,a_w+l_w")
 
 (define_insn_reservation "store1_op" 0

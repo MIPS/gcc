@@ -394,7 +394,7 @@
     }
   }"
   [(set_attr "length"         "  8,   8,     8,   8,     8,     4,     4,     4")
-   (set_attr "type"           "  *,load,store2,   *,     *,  load,store2,     *")
+   (set_attr "type"           "  *,load2,store2,   *,     *,  load2,store2,     *")
    (set_attr "pool_range"     "  *,1020,     *,   *,     *,     *,     *,     *")
    (set_attr "neg_pool_range" "  *,1012,     *,   *,     *,     *,     *,     *")
    (set_attr "cirrus"         "not, not,   not,move,normal,double,double,normal")]
@@ -419,7 +419,7 @@
    cfldr32%?\\t%V0, %1
    cfstr32%?\\t%V1, %0
    cfsh32%?\\t%V0, %V1, #0"
-  [(set_attr "type"           "*,  *,  load,store1,   *,     *,  load,store1,     *")
+  [(set_attr "type"           "*,  *,  load1,store1,   *,     *,  load1,store1,     *")
    (set_attr "pool_range"     "*,  *,  4096,     *,   *,     *,  1024,     *,     *")
    (set_attr "neg_pool_range" "*,  *,  4084,     *,   *,     *,  1012,     *,     *")
    (set_attr "cirrus"         "not,not, not,   not,move,normal,normal,normal,normal")]
@@ -441,7 +441,7 @@
    ldr%?\\t%0, %1\\t%@ float
    str%?\\t%1, %0\\t%@ float"
   [(set_attr "length"         "     *,     *,   *,     *,     *,  4,   4,     4")
-   (set_attr "type"           "     *,  load,   *,     *,store1,  *,load,store1")
+   (set_attr "type"           "     *,  load1,   *,     *,store1,  *,load1,store1")
    (set_attr "pool_range"     "     *,     *,   *,     *,     *,  *,4096,     *")
    (set_attr "neg_pool_range" "     *,     *,   *,     *,     *,  *,4084,     *")
    (set_attr "cirrus"         "normal,normal,move,normal,normal,not, not,   not")]
@@ -469,7 +469,7 @@
     default: abort ();
     }
   }"
-  [(set_attr "type"           "load,store2,  *,store2,load,     *,  load,   *,     *,store2")
+  [(set_attr "type"           "load1,store2,  *,store2,load1,     *,  load1,   *,     *,store2")
    (set_attr "length"         "   4,     4,  8,     8,   8,     4,     4,   8,     8,     4")
    (set_attr "pool_range"     "   *,     *,  *,     *, 252,     *,     *,   *,     *,     *")
    (set_attr "neg_pool_range" "   *,     *,  *,     *, 244,     *,     *,   *,     *,     *")

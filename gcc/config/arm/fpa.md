@@ -542,7 +542,7 @@
   [(set_attr "length" "4,4,4,4,8,8,4,4,4")
    (set_attr "predicable" "yes")
    (set_attr "type"
-	 "ffarith,ffarith,f_load,f_store,r_mem_f,f_mem_r,*,load,store1")
+	 "ffarith,ffarith,f_load,f_store,r_mem_f,f_mem_r,*,load1,store1")
    (set_attr "pool_range" "*,*,1024,*,*,*,*,4096,*")
    (set_attr "neg_pool_range" "*,*,1012,*,*,*,*,4084,*")]
 )
@@ -576,7 +576,7 @@
   [(set_attr "length" "4,4,8,8,8,4,4,4,4,8,8")
    (set_attr "predicable" "yes")
    (set_attr "type"
-    "load,store2,*,store2,load,ffarith,ffarith,f_load,f_store,r_mem_f,f_mem_r")
+    "load1,store2,*,store2,load1,ffarith,ffarith,f_load,f_store,r_mem_f,f_mem_r")
    (set_attr "pool_range" "*,*,*,*,1020,*,*,1024,*,*,*")
    (set_attr "neg_pool_range" "*,*,*,*,1008,*,*,1008,*,*,*")]
 )

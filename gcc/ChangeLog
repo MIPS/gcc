@@ -1,3 +1,15 @@
+2003-12-19  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.md: Add load1 and load_byte "type" attrs.  Modify
+	insn patterns to match.
+	* config/arm/arm-generic.md: Ditto.
+	* config/arm/cirrus.md: Ditto.
+	* config/arm/fpa.md: Ditto.
+	* config/amm/iwmmxt.md: Ditto.
+	* config/arm/arm1026ejs.md: Ditto.
+	* config/arm/arm1135jfs.md: Ditto.  Add insn_reservation and bypasses
+	for 11_loadb.
+
 2003-12-18  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/arm/arm-protos.h (arm_no_early_alu_shift_value_dep): Declare.
