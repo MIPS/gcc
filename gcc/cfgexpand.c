@@ -1229,8 +1229,6 @@ tree_expand_cfg (void)
   basic_block bb, init_block;
   sbitmap blocks;
 
-  profile_status = PROFILE_ABSENT;
-
   /* Some backends want to know that we are expanding to RTL.  */
   currently_expanding_to_rtl = 1;
 
