@@ -1,3 +1,266 @@
+2003-02-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* hppa/atomicity.h (__Atomicity_lock<__inst>::_S_atomicity_lock):
+	Correct alignment.
+	(__exchange_and_add, __atomic_add): Use PA 2.0 ordered store to reset
+	lock.
+
+2003-02-07  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/27_io/filebuf_virtuals.cc (test08): Fix for
+	unsigned char platforms.
+
+2003-02-06  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9562
+	* include/std/std_istream.h
+	(basic_istream::sentry::operator bool()): Make const.
+	* include/std/std_ostream.h
+	(basic_ostream::sentry::operator bool()): Likewise.
+	* testsuite/27_io/istream_sentry.cc (test03): Add.
+	* testsuite/27_io/ostream_sentry.cc: Add.
+
+2003-02-06  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9548
+	Implement resolution of DR 231 (Ready)
+	* include/bits/locale_facets.h (__num_base::_S_format_float):
+	Change declaration: return void, remove __prec parameter.
+	* src/locale.cc (__num_base::_S_format_float): Implement
+	resolution of DR 231.
+	* include/bits/locale_facets.tcc (num_put::_M_convert_float):
+	Tweak uses. Check for negative precision.
+	* testsuite/22_locale/num_put/put/char/6.cc: Add
+	* testsuite/22_locale/num_put/put/wchar_t/6.cc: Likewise.
+
+2003-02-06  Peter Soetens  <peter.soetens@mech.kuleuven.ac.be>
+
+	* config/io/basic_file_libio.h: Fixups.
+	* config/io/c_io_libio.h: Same.
+	* libio/Makefile.am: Same.
+	* libio/Makefile.in: Regenerated.
+	
+2003-02-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/22_locale/codecvt/encoding/wchar_t/1.cc (test01):
+	Explicitly use the "C" locale.
+	* testsuite/22_locale/codecvt/max_length/wchar_t/1.cc (test01): Same.
+	
+2003-02-06  Petur Runolfsson  <peturr02@ru.is>
+
+	DR 75
+	DR 305
+	PR libstdc++/9028 (partial)
+	PR libstdc++/9224
+	PR libstdc++/9246
+	PR libstdc++/9247
+
+	* src/codecvt.cc
+	(codecvt<wchar_t, char, mbstate_t>::do_encoding,
+	codecvt<wchar_t, char, mbstate_t>::do_length,
+	codecvt<wchar_t, char, mbstate_t>::do_max_length):
+	Move...
+	* config/locale/generic/codecvt_members.cc:  ...here.
+	* config/locale/gnu/codecvt_members.cc:  ...and here.
+
+	* config/locale/generic/codecvt_members.cc,
+	* config/locale/gnu/codecvt_members.cc
+	(codecvt<wchar_t, char, mbstate_t>::do_encoding
+	codecvt<wchar_t, char, mbstate_t>::do_in,
+	codecvt<wchar_t, char, mbstate_t>::do_length,
+	codecvt<wchar_t, char, mbstate_t>::do_max_length,
+	codecvt<wchar_t, char, mbstate_t>::do_out):
+	New implementation that handles stateless encodings,
+	including UTF-8.
+
+	* config/locale/generic/codecvt_members.cc,
+	* config/locale/gnu/codecvt_members.cc,
+	* config/locale/ieee_1003.1-2001/codecvt_specializations.h,
+	* include/bits/codecvt.h,
+	* src/codecvt.cc
+	(codecvt::length, codecvt::do_length):
+	Change type of first argument of length and do_length from
+	'const state_type&' to 'state_type&' according to DR 75.
+
+	* testsuite/22_locale/codecvt/always_noconv/wchar_t/1.cc:  Cleanup.
+	* testsuite/22_locale/codecvt/always_noconv/wchar_t/2.cc:  New test.
+	* testsuite/22_locale/codecvt/always_noconv/wchar_t/3.cc:  New test.
+	* testsuite/22_locale/codecvt/always_noconv/wchar_t/4.cc:  New test.
+	* testsuite/22_locale/codecvt/encoding/wchar_t/1.cc:
+	Cleanup and check for correct return value from encoding
+	for "C" locale.
+	* testsuite/22_locale/codecvt/encoding/wchar_t/2.cc:  New test.
+	* testsuite/22_locale/codecvt/encoding/wchar_t/3.cc:  New test.
+	* testsuite/22_locale/codecvt/encoding/wchar_t/4.cc:  New test.
+	* testsuite/22_locale/codecvt/in/wchar_t/1.cc:  Cleanup.
+	* testsuite/22_locale/codecvt/in/wchar_t/2.cc:  New test.
+	* testsuite/22_locale/codecvt/in/wchar_t/3.cc:  New test.
+	* testsuite/22_locale/codecvt/in/wchar_t/4.cc:  New test.
+	* testsuite/22_locale/codecvt/in/wchar_t/5.cc:  New test.
+	* testsuite/22_locale/codecvt/in/wchar_t/6.cc:  New test.
+	* testsuite/22_locale/codecvt/in/wchar_t/7.cc:  New test.
+	* testsuite/22_locale/codecvt/in/wchar_t/8.cc:  New test.
+	* testsuite/22_locale/codecvt/in/wchar_t/9.cc:  New test.
+	* testsuite/22_locale/codecvt/length/char/1.cc:  Cleanup.
+	* testsuite/22_locale/codecvt/length/char/2.cc:  New test.
+	* testsuite/22_locale/codecvt/length/wchar_t/1.cc:  Cleanup.
+	* testsuite/22_locale/codecvt/length/wchar_t/2.cc:  New test.
+	* testsuite/22_locale/codecvt/length/wchar_t/3.cc:  New test.
+	* testsuite/22_locale/codecvt/length/wchar_t/4.cc:  New test.
+	* testsuite/22_locale/codecvt/length/wchar_t/5.cc:  New test.
+	* testsuite/22_locale/codecvt/length/wchar_t/6.cc:  New test.
+	* testsuite/22_locale/codecvt/length/wchar_t/7.cc:  New test.
+	* testsuite/22_locale/codecvt/max_length/wchar_t/1.cc:  Cleanup.
+	* testsuite/22_locale/codecvt/max_length/wchar_t/2.cc:  New test.
+	* testsuite/22_locale/codecvt/max_length/wchar_t/3.cc:  New test.
+	* testsuite/22_locale/codecvt/max_length/wchar_t/4.cc:  New test.
+	* testsuite/22_locale/codecvt/out/wchar_t/1.cc:  Cleanup.
+	* testsuite/22_locale/codecvt/out/wchar_t/2.cc:  New test.
+	* testsuite/22_locale/codecvt/out/wchar_t/3.cc:  New test.
+	* testsuite/22_locale/codecvt/out/wchar_t/4.cc:  New test.
+	* testsuite/22_locale/codecvt/out/wchar_t/5.cc:  New test.
+	* testsuite/22_locale/codecvt/out/wchar_t/6.cc:  New test.
+	* testsuite/22_locale/codecvt/out/wchar_t/7.cc:  New test.
+	* testsuite/22_locale/codecvt/unicode/1.cc:  New test.
+	* testsuite/22_locale/codecvt/unshift/wchar_t/1.cc:  Cleanup.
+	* testsuite/22_locale/codecvt/unshift/wchar_t/2.cc:  New test.
+	* testsuite/22_locale/codecvt/unshift/wchar_t/3.cc:  New test.
+	* testsuite/22_locale/codecvt/unshfit/wchar_t/4.cc:  New test.
+
+2003-02-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_facets.tcc (time_put::do_put): Use __write.
+	(money_put::do_put): Same.
+
+2003-02-05  Jerry Quinn  <jlquinn@optonline.net>
+
+	* include/bits/ios_base.h (ios_base): Document reserved storage.
+
+	* include/bits/locale_facets.h:	(struct __pad): Comment on
+	implementation.
+	(__verify_grouping): Same.
+	(__add_grouping): Same.		
+	* include/bits/locale_facets.tcc (__verify_grouping): Move
+	comments to declaration.
+	(__add_grouping): Same.
+	
+	* include/bits/locale_facets.tcc: 
+	(__write<_CharT, _OutIter>): New function.
+	(__write<_CharT>): New function specialization.
+	(num_put::_M_insert): Remove explicit loop over iterator.  Use
+	__write.
+	(num_put::_M_widen_float): Remove __basefield. 
+	(num_put::_M_widen_int): Move __basefield to within grouping block.
+	
+	* include/bits/streambuf_iterator.h: Include <streambuf>.
+	(ostreambuf_iterator::_M_put): Add.
+
+2003-02-05  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/26_numerics/valarray_name_lookup.cc: Fix typo.
+
+2003-02-04  Nathan Myers  <ncm@cantrip.org>
+
+	* testsuite/25_algorithms/min_max.cc (test02): Add.
+            
+2003-02-04  Paolo Carlini  <pcarlini@unitus.it>
+	
+	PR libstdc++/9439, PR libstdc++/9425
+	* config/io/basic_file_stdio.cc
+	(__basic_file<char>::seekoff, seekpos): Return -1L if
+	fseek fails.
+	* include/bits/fstream.tcc (basic_filebuf::seekoff):
+	Check _M_file.seekoff return value; always return
+	pos_type(off_type(-1)) in case of failure.
+	(basic_filebuf::pbackfail): Check this->seekoff return
+	value and return traits_type::eof() in case of failure.  
+	* testsuite/27_io/filebuf_virtuals.cc (test09): Add.
+
+2003-02-04  Jerry Quinn  <jlquinn@optonline.net>
+
+	* include/std/std_ostream.h (ostream::_M_write): Declare.	
+        * ostream.tcc (ostream::_M_write): Define.
+	(basic_ostream::write): Use it.
+	(operator<<(basic_ostream, _CharT)): Ditto.
+	(operator<<(basic_ostream, char)): Ditto.
+	(operator<<(basic_ostream, _CharT*)): Ditto.
+	(operator<<(basic_ostream, char*)): Ditto.
+	(operator<<(basic_ostream, basic_string)): Ditto.
+
+2003-02-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/26_numerics/valarray_name_lookup.cc: Fix.
+
+2002-02-04  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/27_io/howto.html: Link to Dietmar Kuehl's IOStream page,
+	add HTML comment about updating links if numbering changes.
+
+2003-02-04  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9538
+	* include/bits/streambuf.tcc (sputbackc): Access
+	this->gptr()[-1] only if _M_in_beg < _M_in_cur.
+	* testsuite/27_io/filebuf_virtuals.cc (test08): Add.
+
+2003-02-04  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9507
+	* include/bits/fstream.tcc (open): If the 'ate' repositioning
+	operation fails, calls close _and_ returns a null pointer
+	to indicate failure (27.8.1.3,4).
+	* testsuite/27_io/filebuf_members.cc (test_06): Add.
+
+2003-02-04  Petur Runolfsson  <peturr02@ru.is>
+
+	* testsuite/27_io/filebuf_members.cc (test_04): Remove exit(0).
+
+2002-02-04  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/27_io/howto.html: New section on stdio_filebuf.
+	* docs/html/ext/howto.html: Move stdio_filebuf notes to 27_io.
+	* docs/html/documentation.html: Regenerate.
+
+2003-02-04  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* docs/html/17_intro/porting.texi: Update to GFDL 1.2.
+	* docs/html/17_intro/porting.html: Regenerate.
+
+2003-02-03  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
+            Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/std/std_bitset.h:  Replace CHAR_BIT with __CHAR_BIT__, use
+	numeric_limits for bits-per-word values.
+	(_Base_bitset::_M_do_count, _Base_bitset<1>::_M_do_count):
+	Use __builtin_popcountl instead.
+	(_Base_bitset::_M_do_find_first, _Base_bitset::_M_do_find_next,
+	_Base_bitset<1>::_M_do_find_first, _Base_bitset<1>::_M_do_find_next):
+	Use __builtin_ctzl instead.
+	(_S_bit_count, _S_first_one):  Remove.
+	* config/linker-map.gnu (GLIBCPP_3.4):  Remove std::_S_bit_count.
+	* src/Makefile.am (sources):  Remove bitset.cc.
+	* src/bitset.cc:  Delete file.
+	* src/Makefile.in:  Regenerate.
+
+2003-02-03  Phil Edwards  <pme@gcc.gnu.org>
+
+	PR libstdc++/9527, PR libstdc++/8713
+	* docs/html/install.html:  Mention glibc version requirement.
+	* docs/html/faq/index.html (3.8):  New note, glibc 2.2.5+ is needed
+	with 3.2.1+ (formatting bugfixes).
+	* docs/html/faq/index.txt:  Regenerate.
+
+2003-02-03  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR libstdc++/9234
+	* include/bits/valarray_before.h (_UnBase::operator[]): Apply unary
+	operator.
+
+	* include/bits/valarray_before.h (__not_equal_to): Use != instead
+	of ==.
+
+	* testsuite/26_numerics/valarray_operators.cc: New test.
+
 2003-02-01  Phil Edwards  <pme@gcc.gnu.org>
 
 	* docs/html/faq/index.html:  Correct link to libg++ information.

@@ -1,3 +1,481 @@
+2003-02-08  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (override_options): Turn off explicit
+	relocs until post-peep2 code duplication resolved.
+
+2003-02-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* optabs.c (expand_unop): Widen clz properly when clz is done
+	via libcall.
+
+2003-02-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/clzsi2.c: Replace "GNU CC" with "GCC".
+	* config/h8300/crti.asm: Likewise.
+	* config/h8300/crtn.asm: Likewise.
+	* config/h8300/ctzsi2.c: Likewise.
+	* config/h8300/fixunssfsi.c: Likewise.
+	* config/h8300/h8300-protos.h: Likewise.
+	* config/h8300/h8300.c: Likewise.
+	* config/h8300/h8300.h: Likewise.
+	* config/h8300/h8300.md: Likewise.
+	* config/h8300/paritysi2.c: Likewise.
+	* config/h8300/popcountsi2.c: Likewise.
+	* config/h8300/rtems.h: Likewise.
+
+2003-02-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* doc/invoke.texi: Documentation for my previous commit.
+	* doc/passes.texi: Ditto.
+
+2003-02-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloop.h (fix_loop_placement, can_duplicate_loop_p,
+	duplicate_loop_to_header_edge, loopify, remove_path, split_loop_bb):
+	Declare.
+	(DLTHE_FLAG_UPDATE_FREQ): New.
+	* cfgloopmanip.c (duplicate_loop, duplicate_subloops, copy_loops_to,
+	loop_redirect_edge, loop_delete_branch_edge, copy_bbs, remove_bbs,
+	rpe_enum_p, find_branch, alp_enum_p, add_loop, fix_loop_placements,
+	fix_bb_placement, fix_bb_placements, place_new_loop,
+	scale_loop_frequencies, scale_bbs_frequencies, record_exit_edges):
+	New static functions.
+	(fix_loop_placement, can_duplicate_loop_p,
+	duplicate_loop_to_header_edge, loopify, remove_path, split_loop_bb):
+	New functions.
+
+	* cfgloop.h (loop_optimizer_init, loop_optimizer_finalize,
+	unswitch_loops): Declare.
+	* loop-init.c: New file.
+	* loop-unswitch.c: New file.
+	* Makefile.in (loop-init.o, loop-unswitch.o): New.
+	* params.def (PARAM_MAX_UNSWITCH_INSNS, PARAM_MAX_UNSWITCH_LEVEL): New.
+	* toplev.c (DFI_loop2): New dump.
+	(flag_unswitch_loops): New.
+	(lang_independent_options): Add it.
+	(rest_of_compilation): Call new loop optimizer.
+	(parse_options_and_default_flags): Turn flag_unswitch_loops on with -O3.
+
+2003-02-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/clzsi2.c: New.
+	* config/h8300/ctzsi2.c: Likewise.
+	* config/h8300/paritysi2.c: Likewise.
+	* config/h8300/popcountsi2.c: Likewise.
+	* config/h8300/t-h8300 (LIB2FUNCS_EXTRA): Add above files.
+
+2003-02-07  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.h (CLZ_DEFINED_VALUE_AT_ZERO): Define.
+	* config/rs6000/rs6000.md (clzsi2): Rename from cntlzw2.
+	(ctzsi2): New pattern.
+	(ffssi2): Use clz instead of unspec.
+	(clzdi2): Rename from cntlzd2.
+	(ctzdi2): New pattern.
+	(ffsdi2): Use clz instead of unspec.
+
+2003-02-07  Loren James Rittle  <ljrittle@acm.org>
+
+	* config/alpha/freebsd.h (LINK_SPEC): Weaken error to notice.
+	* config/ia64/freebsd.h (LINK_SPEC): Likewise.
+	* config/sparc/freebsd.h (LINK_SPEC): Likewise.
+	* config/i386/freebsd.h (LINK_SPEC): Add clause to mirror other arches.
+
+2003-02-07  Wolfgang Bangerth  <bangerth@ticam.utexas.edu>
+
+	* doc/trouble.texi: Document pitfalls of two-stage name lookup.
+
+2003-02-07  Richard Henderson  <rth@redhat.com>
+
+	PR 9226
+        * gcse.c (local_cprop_find_used_regs): New.
+        (local_cprop_pass): Use it.
+
+2003-02-07  Fred Fish  <fnf@intrinsity.com>
+
+	* mips-tfile.c (parse_def): Parenthesize assignments to fix
+        precedence bugs.
+
+2003-02-07  Segher Boessenkool  <segher@koffie.nl>
+
+        * genoutput.c (output_get_insn_name): Handle NOOP_MOVE_INSN_CODE.
+
+2003-02-07  Roger Sayle  <roger@eyesopen.com>
+
+	* builtin-types.def (BT_FN_FLOAT_FLOAT_FLOAT): New built-in type.
+	(BT_FN_LONG_DOUBLE_LONG_DOUBLE_LONG_DOUBLE): Likewise.
+	(BT_FN_DOUBLE_DOUBLE_DOUBLE): Likewise.
+	* builtins.def: Define pow, powf, powl, atan2, atan2f and atan2l
+	builtin functions (and their __builtin_* variants).
+	* builtins.c (mathfn_built_in): Handle missing log{,f,l} cases.
+	(expand_builtin): Don't expand log{,f,l}, pow{,f,l} or atan2{,f,l}
+	when not optimizing.
+
+	* doc/extend.texi: Document new pow and atan2 builtins, and
+	their float and long double variants.  Realphabetize builtins.
+
+Fri Feb  7 23:24:28 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (sse2_nandv2di3): Fix.
+
+2003-03-07  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/i386.h (MS_AGGREGATE_RETURN): New define.
+	* config/i386/cygwin.h (MS_AGGREGATE_RETURN): Override default
+	definition.
+	* config/i386/i386.h (ix86_return_in_memory): Return aggregate
+	types of up to 8 bytes via registers if MS_AGGREGATE_RETURN.
+
+Fri Feb  7 22:22:40 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (movdi_rex64_1): Fix mmx<->int move opcode.
+
+2003-02-07  Daniel Berlin  <dberlin@dberlin.org>
+
+	* cfg.c (dump_flow_info): Add back accidently deleted line.
+
+2003-02-07  Andrey Petrov <petrov@netbsd.org>
+
+	* optabs.c (expand_float): Search wider integer modes first.
+
+2003-02-07  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.h (LIBGCC2_WORDS_BIG_ENDIAN): Set this
+	based on preprocessor flag.
+
+2003-02-07  Roger Sayle  <roger@eyesopen.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	* gcse.c (implicit_sets): New.
+	(compute_hash_table_work): Include them in hash table.
+	(find_implicit_sets, fis_get_condition): New.
+	(one_cprop_pass): Allocate and free implicit_sets; call
+	find_implicit_sets before building hash table.
+
+2003-02-07  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/t-netbsd (USER_H): Revert previous change.
+
+2003-02-07  Gabor Greif  <ggreif@lucent.com>
+
+	* doc/c-tree.texi (Namespaces): Fix typo.
+
+Fri Feb  7 02:18:57 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* regrename.c (do_replace, find_oldest_value_reg,
+	copyprop_hardreg_forward_1): Update register attributes.
+
+2003-02-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (VLA_PTR_CREATE, VLA_PTR_EXPAND, VLA_PTR_ADD,
+	VLA_HWINT_CREATE, VLA_HWINT_EXPAND, VLA_HWINT_ADD): Use temporay
+	variables starting with underscore.
+	(struct unit_usage): New structure.
+	(unit_usages, cycle_alt_unit_usages): New global variables.
+	(check_unit_distribution_in_reserv): Remove it.
+	(store_alt_unit_usage): New function.
+	(check_regexp_units_distribution): Rewrite it.
+
+2003-02-06  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config.gcc (hppa*-*-linux*): Set MASK_NO_SPACE_REGS in
+	target_cpu_default.
+	* pa.c (attr_length_call): Add 8 to call length (long indirect PA 1.X)
+	if not MASK_NO_SPACE_REGS.
+	(output_call): Adjust return pointer, don't load new space register
+	into %sr0, and use %sr4 for call if TARGET_NO_SPACE_REGS is true.
+	(pa_asm_output_mi_thunk): Don't load new space register into %sr0 if
+	TARGET_NO_SPACE_REGS is true.
+	* pa.md (return_external_pic): Add TARGET_NO_SPACE_REGS to insn
+	conditions.
+	(epilogue): Always use return_internal if TARGET_NO_SPACE_REGS is true.
+	(interspace_jump): Add new pattern for when TARGET_NO_SPACE_REGS is
+	true.  Use bve when TARGET_64BIT is true.
+
+2003-02-06  Richard Henderson  <rth@redhat.com>
+
+	* combine.c (nonzero_bits): Fix double break.
+
+2003-02-06  Eric Botcazou <ebotcazou@libertysurf.fr>
+            Richard Henderson <rth@redhat.com>
+
+	PR c/9530
+	* config/i386/i386.c (ix86_function_ok_for_sibcall): Forbid sibcalls
+	from functions that return a float to functions that don't.
+
+Thu Feb  6 00:18:38 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (x86_inter_unit_moves): New variable.
+	(ix86_secondary_memory_needed): Fix 64bit case, honor
+	TARGET_INTER_UNIT_MOVES
+	* i386.h (x86_inter_unit_moves): Declare.
+	(TARGET_INTER_UNIT_MOVES): New macro.
+	* i386.md (movsi_1): Cleanup constraints; disable
+	when not doing inter-unit moves.
+	(movsi_1_nointernunit): New.
+	(movdi_1_rex64): Fix constraints; deal with SSE->GPR moves.
+	(movdi_1_rex64_nointerunit): New.
+	(mivsf_1): disable when not doing inter-unit moves.
+	(movsf_1_nointerunit): New.
+
+	* basic-block.h (inside_basic_block_p):  Declare.
+	* cfgbuild.c (inside_basic_block_p): Make global.
+	* haifa-sched.c (unlink_other_notes0: Deal with NOT_INSN_BASIC_BLOCK.
+	* scheudle-ebb.c  (schedule_ebb): Return last basic block of trace;
+	update CFG.
+	(fix_basic_block_boundaries, add_missing_bbs): New.
+	(rank): Use profile.
+	(scheudle_ebbs): Rely on CFG; update coments.
+
+2003-02-05  Geoffrey Keating  <geoffk@apple.com>
+
+	* Makefile.in (host_hook_obj): New.
+	(OBJS): Add $(host_hook_obj).
+	(host_default.o): New rule.
+	* config.gcc (host_hook_obj): New, default to host-default.o.
+	(powerpc-*-darwin*): Use host-darwin.o.
+	(out_host_hook_obj): New.
+	* configure: Regenerate.
+	* configure.in: Print information about out_host_hook_obj, substitute
+	into output files.
+	* host-default.c: New file.
+	* hosthooks.h: New file.
+	* toplev.c (general_init): Call host_hooks.extra_signals.
+	* config/rs6000/host-darwin.c: New file.
+	* config/rs6000/x-darwin: New file.
+	* doc/hostconfig.texi: Add documentation for new host hook.
+	Rearrange existing documentation.
+
+2003-02-05  Roger Sayle  <roger@eyesopen.com>
+
+	* dwarf2out.c (mem_loc_descriptor): Replace ASM_SIMPLIFY_DWARF_ADDR
+	with *targetm.delegitimize_address.
+	(rtl_for_decl_location): Likewise.
+	* dwarfout.c (output_mem_loc_descriptor): Likewise.  Include target.h.
+	* Makefile.in (dwarf2out.c, dwarfout.c): Depend upon $(TARGET_H)
+
+	* config/i386/i386.h (ASM_SIMPLIFY_DWARF_ADDR): Remove definition.
+	* config/i386/i386-protos.h (i386_simplify_dwarf_addr): Remove
+	prototype.
+	* config/i386/i386.c (ix86_delegitimize_address): Renamed from
+	i386_simplify_dwarf_addr.  Made static.  Prototyped.
+	(TARGET_DELEGITIMIZE_ADDRESS): Update definition from
+	i386_simplify_dwarf_addr to ix86_delegitimize_address.
+	(ix86_find_base_term): Likewise.
+	(maybe_get_pool_constant): Likewise.
+
+	* config/s390/s390.h (ASM_SIMPLIFY_DWARF_ADDR): Remove definition.
+	* config/s390/s390-protos.h (s390_simplify_dwarf_addr): Remove
+	prototype.
+	* config/s390/s390.c (s390_delegitimize_address): Renamed from
+	s390_simplify_dwarf_addr.  Made static.  Prototyped.
+	(TARGET_DELEGITIMIZE_ADDRESS): Define as s390_delegitimize_address.
+
+2003-02-05  Richard Henderson  <rth@redhat.com>
+
+	PR c/8602
+        * integrate.c (output_inline_function): Reset input_filename
+        and lineno from the decl before rest_of_compilation.
+
+2003-02-05  Richard Henderson  <rth@redhat.com>
+
+	* defaults.h (CLZ_DEFINED_VALUE_AT_ZERO): New.
+	(CTZ_DEFINED_VALUE_AT_ZERO): New.
+	* doc/rtl.texi, doc/tm.texi: Document them.
+
+	* combine.c (nonzero_bits) [CLZ, CTZ]: Handle the definedness
+	of the value at zero properly.
+	* fold-const.c (tree_expr_nonnegative_p): Likewise.
+	* simplify-rtx.c (simplify_unary_operation): Likewise.
+
+	* config/alpha/alpha.h (CLZ_DEFINED_VALUE_AT_ZERO): New.
+	(CTZ_DEFINED_VALUE_AT_ZERO): New.
+
+	* config/arm/arm.c (TARGET_INIT_BUILTINS): Remove.
+	(TARGET_EXPAND_BUILTIN): Remove.
+	(def_builtin, arm_init_builtins, arm_expand_builtin): Remove.
+	* config/arm/arm.h (CLZ_DEFINED_VALUE_AT_ZERO): New.
+	(enum arm_builtins): Remove.
+	* config/arm/arm.md (UNSPEC_CLZ): Remove.
+	(clzsi2): Rename from clz; use clz instead of unspec.
+	(ctzsi2): New.
+	* config/arm/arm-protos.h: Update.
+
+Wed Feb  5 23:12:57 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386-protos.h (x86_emit_floatuns):  Declare.
+	* i386.c (x86_emit_floatuns): New global function.
+	* i386.md (floatunssisf2, floatunsdisf2,
+	floatunsdidf2):  New patterns.
+
+2003-01-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloopmanip.c (force_single_succ_latches): Fix missindentation.
+
+2003-02-05  Hans Boehm <Hans.Boehm@hp.com>
+
+	* config/ia64/unwind-ia64.c: include coretypes.h, tm.h to get
+	  config/ia64/linux.h
+
+2002-02-05  Roger Sayle  <roger@eyesopen.com>
+
+	* cfgloop.h (flow_bb_inside_loop_p): Correct prototype again.
+
+2003-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR optimization/8555
+	* config/i386/i386.md (sse_mov?fcc split): Handle op2 == op3 case
+	instead of aborting.
+
+2003-02-04  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.md (UNSPEC_BSF): Remove.
+	(ffssi2): Split into cmove and no_cmove insns and splitters;
+	lose pentium float trick for now.
+	(ffssi_1): Add * to name; use CTZ instead of UNSPEC.
+	(ctzsi2, clzsi2, bsr): New.
+
+2003-02-04  Richard Henderson  <rth@redhat.com>
+
+	* config/ia64/ia64.c (rtx_needs_barrier): Handle POPCOUNT,
+	UNSPEC_GETF_EXP; remove UNSPEC_POPCNT.
+	* config/ia64/ia64.md (UNSPEC_POPCNT): Remove.
+	(ffsdi2): Use popcount instead of unspec.
+	(popcountdi2): Rename from *popcnt.
+	(ctzdi2, clzdi2, getf_exp_tf): New.
+
+2003-02-04  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* genconfig.c (main): Generate CC0_P.
+	* rtl.h (CC0_P): Remove.
+
+2003-02-04  Richard Henderson  <rth@redhat.com>
+
+	* libgcc2.h, libgcc2.c (__ffsSI2): New.
+	(__ffsDI2): Rename from __ffsdi2.
+	* mklibgcc.in (lib2funcs): Add _ffssi2.
+
+2003-02-04  Richard Henderson  <rth@redhat.com>
+
+	* libgcc2.c (__paritysi2, __paritydi2): Replace last two reduction
+	rounds with a "bit table" lookup.
+
+2003-02-04  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* reload.c (find_reloads): Do not use the mode specified in the insn
+	pattern as reload mode for address operands.  Do not generate optional
+	reloads for operands where a mandatory reload was already pushed.
+
+2003-02-04  Richard Henderson  <rth@redhat.com>
+
+	* longlong.h [alpha] (count_leading_zeros, count_trailing_zeros): Use
+	builtins instead of inline assembly.
+
+2003-02-04  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
+
+	PR c/9376
+	* libgcc2.c (__subvdi3): Fix typo.
+
+Tue Feb  4 21:46:05 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (movti_rex64):  Fix constraint.
+
+Tue Feb  4 18:40:42 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (vector push splitters):  Fix typo in resolving conflict.
+
+2003-02-04  Rodney Brown  <rbrown64@csc.com.au>
+
+	* config/i386/i386.c (x86_function_profiler): Fix typo in format.
+
+2003-02-04  Phil Edwards  <pme@gcc.gnu.org>
+
+	* doc/install.texi (*-*-linux-gnu):  Mention glibc requirements
+	for recent libstdc++.  Remove formatting cruft.
+
+2003-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (dwarf2out_finish): Add AT_comp_dir
+	attribute even if input file name is absolute, but one of the
+	includes is relative.
+
+2003-02-04  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/gcc.texi, doc/gccint.texi, doc/gcov.texi,
+	doc/include/fdl.texi, doc/invoke.texi: Update to GFDL 1.2.
+	* doc/install.texi: Update copyright dates.  Update to GFDL 1.2.
+
+2003-02-03  Richard Henderson  <rth@redhat.com>
+
+	* libgcc2.c (__ffsdi2, __clzsi2, __clzdi2, __ctzsi2, __ctzdi2,
+	__popcountsi2, __popcountdi2, __paritysi2, __paritydi2): Change
+	return type to "int".  Shuffle declarations and undef int trap.
+	* libgcc2.h: Remove their declarations.
+	* optabs.c (expand_unop): Force outmode to int for bitops.
+
+2003-02-03  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.c (order_regs_for_local_alloc): Order the
+	coprocessor registers before floating-point registers.
+	* config/xtensa/xtensa.h (REG_ALLOC_ORDER): Adjust register numbers
+	to account for a previously removed register.
+	(SPEC_REG_FIRST, SPEC_REG_LAST, SPEC_REG_NUM, COUNT_REGISTER_REGNUM):
+	Delete unused macros.
+
+Mon Feb  3 21:19:11 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_store_builtin):  Always force op1 to register.
+	(mov*_internal): Fix predicates; require one of operands to not be
+	memory.
+	(SSE?MMX move expanders):  Fix predicates; force one of operands to
+	register.
+	(SSE/MMX push patterns): Reorganize; fix x86-64 code generation.
+	(movups/movupd/movdqu patterns): Force one of operands to not be
+	memory.
+
+2002-02-03  Roger Sayle  <roger@eyesopen.com>
+
+	* hooks.c (hook_rtx_rtx_identity): Generic hook function that
+	takes a single rtx and returns it unmodified.
+	* hooks.h (hook_rtx_rtx_identity): Prototype here.
+	* target.h (struct gcc_target): Add "delegitimize_address"
+	field to target structure.
+	* target-def.h (TARGET_DELEGITIMIZE_ADDRESS):  Provide default
+	for delegitimize_address target using hook_rtx_rtx_identity.
+	(TARGET_INITIALIZER): Initialize delegitimize_address field
+	using TARGET_DELEGITIMIZE_ADDRESS macro.
+	* simplify-rtx.c (avoid_constant_pool_reference): Handle float
+	extensions of constant pool references.  Use delegitimize_address
+	to undo the obfuscation of "-fpic".
+	* Makefile.in (simplify-rtx.o): Add dependency on target.h.
+
+	* config/i386/i386.c (TARGET_DELEGITIMIZE_ADDRESS): Define as
+	i386_simplify_dwarf_addr.
+	(ix86_find_base_term): Simplify using i386_simplify_dwarf_addr.
+  	(maybe_get_pool_constant): Likewise.
+
+Mon Feb  3 16:01:17 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_int_movcc):  Fix setcc sign bit case.
+
+Mon Feb  3 01:30:11 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* regclass.c (cannot_change_mode_set_regs): Correct argument order.
+
+2003-02-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* mips/_tilib.c: Don't include tsystem.h or defaults.h.  Don't
+	define LIBGCC2_WORDS_BIG_ENDIAN.  Include coretypes.h and tm.h.
+
+2003-02-02  Andreas Schwab  <schwab@suse.de>
+
+	* varasm.c (asm_output_aligned_bss): Declare as possibly unused.
+
+2003-02-02  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.md (sibcall_epilogue): Set the "conds" to "clob".
+	(epilogue_insns): Likewise.
+
 2003-02-02  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	* doc/install.texi (hppa*-hp-hpux11*): Update installation notes.
@@ -92,49 +570,49 @@
 
 2003-02-01  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
 
-        * optabs.h (optab_index): Add OTI_clz, OTI_ctz, OTI_popcount and
-        OTI_parity.
-        (clz_optab, ctz_optab, popcount_optab, parity_optab): New.
-        * optabs.c (widen_clz, expand_parity): New.
-        (expand_unop): Handle clz and parity.  Hardcode SImode as outmode
-        for libcalls to clz, ctz, popcount, and parity.
-        (init_optabs): Init clz_optab, ctz_optab, popcount_optab and
-        parity_optab, and set up libfunc handlers.
-        * libgcc2.c (__clzsi2, __clzdi2, __ctzsi2, __ctzdi2,
-        __popcountsi2, __popcountdi2, __paritysi2 __paritydi2,
-        __popcount_tab): New.
-        * libgcc2.h: Declare them.
-        * libgcc-std.ver (GCC_3.4): Add new functions from libgcc2.c.
-        * genopinit.c (optabs): Add clz_optab, ctz_optab, popcount_optab
-        and parity_optab.
-        * builtin-types.def (BT_FN_INT_LONG, BT_FN_INT_LONGLONG): New.
-        * builtins.def (BUILT_IN_CLZ, BUILT_IN_CTZ, BUILT_IN_POPCOUNT,
-        BUILT_IN_PARITY, BUILT_IN_FFSL, BUILT_IN_CLZL, BUILT_IN_CTZL,
-        BUILT_IN_POPCOUNTL, BUILT_IN_PARITYL, BUILT_IN_FFSLL,
-        BUILT_IN_CLZLL, BUILT_IN_CTZLL, BUILT_IN_POPCOUNTLL,
-        BUILT_IN_PARITYLL): New.
-        * builtins.c (expand_builtin_unop): Rename from expand_builtin_ffs
-        and add optab argument.
-        (expand_builtin): Expand BUILT_IN_{FFS,CLZ,POPCOUNT,PARITY}*.
-        * tree.def (CLZ_EXPR, CTZ_EXPR, POPCOUNT_EXPR, PARITY_EXPR): New.
-        * expr.c (expand_expr): Handle them.
-        * fold-const.c (tree_expr_nonnegative_p): Likewise.
-        * rtl.def (CLZ, CTZ, POPCOUNT, PARITY): New.
-        * reload1.c (eliminate_regs): Handle them.
-        (elimination_effects): Likewise.
-        * function.c (instantiate_virtual_regs_1): Likewise
-        * genattrtab.c (check_attr_value): Likewise.
-        * simplify-rtx.c (simplify_unary_operation): Likewise.
-        * c-common.c (c_common_truthvalue_conversion): Handle POPCOUNT_EXPR.
-        * combine.c (combine_simplify_rtx): Handle POPCOUNT and PARITY.
-        (nonzero_bits): Handle CLZ, CTZ, POPCOUNT and PARITY.
-        * config/alpha/alpha.md (clzdi2, ctzdi2, popcountdi2): New.
-        * config/arm/arm.c (arm_init_builtins): Rename __builtin_clz to
-        __builtin_arm_clz.
-        * Makefile.in (LIB2FUNCS_1, LIB2FUNCS_2): Move...
-        * mklibgcc.in (lib2funcs): ...here and merge.  Add new members.
-        * doc/extend.texi (Other Builtins): Add new builtins.
-        * doc/md.texi (Standard Names): Add new patterns.
+	* optabs.h (optab_index): Add OTI_clz, OTI_ctz, OTI_popcount and
+	OTI_parity.
+	(clz_optab, ctz_optab, popcount_optab, parity_optab): New.
+	* optabs.c (widen_clz, expand_parity): New.
+	(expand_unop): Handle clz and parity.  Hardcode SImode as outmode
+	for libcalls to clz, ctz, popcount, and parity.
+	(init_optabs): Init clz_optab, ctz_optab, popcount_optab and
+	parity_optab, and set up libfunc handlers.
+	* libgcc2.c (__clzsi2, __clzdi2, __ctzsi2, __ctzdi2,
+	__popcountsi2, __popcountdi2, __paritysi2 __paritydi2,
+	__popcount_tab): New.
+	* libgcc2.h: Declare them.
+	* libgcc-std.ver (GCC_3.4): Add new functions from libgcc2.c.
+	* genopinit.c (optabs): Add clz_optab, ctz_optab, popcount_optab
+	and parity_optab.
+	* builtin-types.def (BT_FN_INT_LONG, BT_FN_INT_LONGLONG): New.
+	* builtins.def (BUILT_IN_CLZ, BUILT_IN_CTZ, BUILT_IN_POPCOUNT,
+	BUILT_IN_PARITY, BUILT_IN_FFSL, BUILT_IN_CLZL, BUILT_IN_CTZL,
+	BUILT_IN_POPCOUNTL, BUILT_IN_PARITYL, BUILT_IN_FFSLL,
+	BUILT_IN_CLZLL, BUILT_IN_CTZLL, BUILT_IN_POPCOUNTLL,
+	BUILT_IN_PARITYLL): New.
+	* builtins.c (expand_builtin_unop): Rename from expand_builtin_ffs
+	and add optab argument.
+	(expand_builtin): Expand BUILT_IN_{FFS,CLZ,POPCOUNT,PARITY}*.
+	* tree.def (CLZ_EXPR, CTZ_EXPR, POPCOUNT_EXPR, PARITY_EXPR): New.
+	* expr.c (expand_expr): Handle them.
+	* fold-const.c (tree_expr_nonnegative_p): Likewise.
+	* rtl.def (CLZ, CTZ, POPCOUNT, PARITY): New.
+	* reload1.c (eliminate_regs): Handle them.
+	(elimination_effects): Likewise.
+	* function.c (instantiate_virtual_regs_1): Likewise
+	* genattrtab.c (check_attr_value): Likewise.
+	* simplify-rtx.c (simplify_unary_operation): Likewise.
+	* c-common.c (c_common_truthvalue_conversion): Handle POPCOUNT_EXPR.
+	* combine.c (combine_simplify_rtx): Handle POPCOUNT and PARITY.
+	(nonzero_bits): Handle CLZ, CTZ, POPCOUNT and PARITY.
+	* config/alpha/alpha.md (clzdi2, ctzdi2, popcountdi2): New.
+	* config/arm/arm.c (arm_init_builtins): Rename __builtin_clz to
+	__builtin_arm_clz.
+	* Makefile.in (LIB2FUNCS_1, LIB2FUNCS_2): Move...
+	* mklibgcc.in (lib2funcs): ...here and merge.  Add new members.
+	* doc/extend.texi (Other Builtins): Add new builtins.
+	* doc/md.texi (Standard Names): Add new patterns.
 
 2003-02-01  Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -301,7 +779,7 @@ Sat Feb  1 00:28:30 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-01-30  Ralf Corsepius  <corsepiu@faw.uni-ulm.de>
 
-	PR target/9316 
+	PR target/9316
 	* config/rs6000/rtems.h: Add CPP_OS_DEFAULT_SPEC.
 	* config/rs6000/sysv4.h: Add CPP_OS_RTEMS_SPEC.
 	* config/rs6000/t-rtems: New file. multilib variants to match OS.
@@ -380,7 +858,7 @@ Sat Feb  1 00:28:30 CET 2003  Jan Hubicka  <jh@suse.cz>
 2003-01-29  Joel Sherrill  <joel@OARcorp.com>
 
 	PR bootstrap/9293
-	* config/m68k/t-crtstuff: Replace spaces with tabs, add 
+	* config/m68k/t-crtstuff: Replace spaces with tabs, add
 	 $(MULTILIB_CFLAGS) as compiler option and multilib crtbegin/end.o.
 
 2003-01-29  Joel Sherrill  <joel@OARcorp.com>
@@ -428,15 +906,15 @@ Wed Jan 29 10:26:12 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-01-28  Andreas Schwab  <schwab@suse.de>
 
-        * config/m68k/m68k.md (tablejump+2): Don't sign extend an address
-        register.
-        * config/m68k/apollo68.h (ASM_RETURN_CASE_JUMP): Likewise.
-        * config/m68k/coff.h (ASM_RETURN_CASE_JUMP): Likewise.
-        * config/m68k/linux.h (ASM_RETURN_CASE_JUMP): Likewise.
-        * config/m68k/m68kelf.h (ASM_RETURN_CASE_JUMP): Likewise.
-        * config/m68k/mot3300.h (ASM_RETURN_CASE_JUMP): Likewise.
-        * config/m68k/netbsd-elf.h (ASM_RETURN_CASE_JUMP): Likewise.
-        * config/m68k/pbb.h (ASM_RETURN_CASE_JUMP): Likewise.
+	* config/m68k/m68k.md (tablejump+2): Don't sign extend an address
+	register.
+	* config/m68k/apollo68.h (ASM_RETURN_CASE_JUMP): Likewise.
+	* config/m68k/coff.h (ASM_RETURN_CASE_JUMP): Likewise.
+	* config/m68k/linux.h (ASM_RETURN_CASE_JUMP): Likewise.
+	* config/m68k/m68kelf.h (ASM_RETURN_CASE_JUMP): Likewise.
+	* config/m68k/mot3300.h (ASM_RETURN_CASE_JUMP): Likewise.
+	* config/m68k/netbsd-elf.h (ASM_RETURN_CASE_JUMP): Likewise.
+	* config/m68k/pbb.h (ASM_RETURN_CASE_JUMP): Likewise.
 
 2003-01-28  Richard Sandiford  <rsandifo@redhat.com>
 
@@ -509,9 +987,9 @@ Wed Jan 29 10:26:12 CET 2003  Jan Hubicka  <jh@suse.cz>
 	config/i386/i386.c, config/i386/i386.h, config/i960/i960-protos.h,
 	config/i960/i960.c, config/i960/i960.h, config/ip2k/ip2k-protos.h,
 	config/ip2k/ip2k.c, config/ip2k/ip2k.h, config/mips/mips-protos.h,
-	config/mips/mips.c, config/mips/mips.h, 
+	config/mips/mips.c, config/mips/mips.h,
 	config/m68hc11/m68hc11-protos.h, config/m68hc11/m68hc11.c,
-	config/m68hc11/m68hc11.h, config/ns32k/ns32k-protos.h, 
+	config/m68hc11/m68hc11.h, config/ns32k/ns32k-protos.h,
 	config/ns32k/ns32k.c, config/ns32k/ns32k.h, config/pa/pa-protos.h,
 	config/pa/pa.c, config/pa/pa.h, config/s390/s390-protos.h,
 	config/s390/s390.c, config/s390/s390.h, config/vax/vax-protos.h,
@@ -567,7 +1045,7 @@ Wed Jan 29 10:26:12 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* sched-rgn.c (init_ready_list): Ditto.
 	(can_schedule_ready_p): Ditto.
-	
+
 2003-01-28  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* config/i386/i386.md (*movsi_1): Use movdqa to move one xmm
@@ -617,7 +1095,7 @@ Tue Jan 28 12:15:13 CET 2003  Jan Hubicka  <jh@suse.cz>
 	* cse.c (rtx_cost): Use targetm.rtx_costs.
 	* system.h (CONST_COSTS RTX_COSTS DEFAULT_RTX_COSTS): Poison.
 	* doc/tm.texi: Update.
-	
+
 	* target.h (targetm.rtx_costs): New.
 	* target-def.h (TARGET_RTX_COSTS): New.
 	* hooks.c (hook_bool_rtx_int_int_intp_false): New.
@@ -759,7 +1237,7 @@ Tue Jan 28 12:15:13 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* doc/invoke.texi (profile-arcs, test-coverage): Update and
 	clarify.
-	
+
 	* profile.c (index_counts_file): Remove duplicate check for open file.
 
 2003-01-27  Jerry Quinn  <jlquinn@optonline.net>

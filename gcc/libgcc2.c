@@ -129,7 +129,7 @@ DWtype
 __subvdi3 (DWtype a, DWtype b)
 {
 #ifdef L_addvdi3
-  return (a, (-b));
+  return __addvdi3 (a, (-b));
 #else
   DWtype w;
 
@@ -340,9 +340,27 @@ __ashrdi3 (DWtype u, word_type b)
 }
 #endif
 
+#ifdef L_ffssi2
+#undef int
+extern int __ffsSI2 (UWtype u);
+int
+__ffsSI2 (UWtype u)
+{
+  UWtype count;
+
+  if (u == 0)
+    return 0;
+
+  count_trailing_zeros (count, u);
+  return count + 1;
+}
+#endif
+
 #ifdef L_ffsdi2
-Wtype
-__ffsdi2 (DWtype u)
+#undef int
+extern int __ffsDI2 (DWtype u);
+int
+__ffsDI2 (DWtype u)
 {
   DWunion uu;
   UWtype word, count, add;
@@ -520,7 +538,9 @@ const UQItype __clz_tab[] =
 #endif
 
 #ifdef L_clzsi2
-Wtype
+#undef int
+extern int __clzsi2 (USItype x);
+int
 __clzsi2 (USItype x)
 {
   UWtype w = x;
@@ -534,7 +554,9 @@ __clzsi2 (USItype x)
 #endif
 
 #ifdef L_clzdi2
-Wtype
+#undef int
+extern int __clzdi2 (UDItype x);
+int
 __clzdi2 (UDItype x)
 {
   UWtype word;
@@ -559,7 +581,9 @@ __clzdi2 (UDItype x)
 #endif
 
 #ifdef L_ctzsi2
-Wtype
+#undef int
+extern int __ctzsi2 (USItype x);
+int
 __ctzsi2 (USItype x)
 {
   Wtype ret;
@@ -571,7 +595,9 @@ __ctzsi2 (USItype x)
 #endif
 
 #ifdef L_ctzdi2
-Wtype
+#undef int
+extern int __ctzdi2 (UDItype x);
+int
 __ctzdi2 (UDItype x)
 {
   UWtype word;
@@ -615,7 +641,9 @@ const UQItype __popcount_tab[] =
 #endif
 
 #ifdef L_popcountsi2
-Wtype
+#undef int
+extern int __popcountsi2 (USItype x);
+int
 __popcountsi2 (USItype x)
 {
   return __popcount_tab[(x >>  0) & 0xff]
@@ -626,7 +654,9 @@ __popcountsi2 (USItype x)
 #endif
 
 #ifdef L_popcountdi2
-Wtype
+#undef int
+extern int __popcountdi2 (UDItype x);
+int
 __popcountdi2 (UDItype x)
 {
   return __popcount_tab[(x >>  0) & 0xff]
@@ -641,30 +671,32 @@ __popcountdi2 (UDItype x)
 #endif
 
 #ifdef L_paritysi2
-Wtype
+#undef int
+extern int __paritysi2 (USItype x);
+int
 __paritysi2 (USItype x)
 {
   UWtype nx = x;
   nx ^= nx >> 16;
   nx ^= nx >> 8;
   nx ^= nx >> 4;
-  nx ^= nx >> 2;
-  nx ^= nx >> 1;
-  return nx & 1;
+  nx &= 0xf;
+  return (0x6996 >> nx) & 1;
 }
 #endif
 
 #ifdef L_paritydi2
-Wtype
+#undef int
+extern int __paritydi2 (UDItype x);
+int
 __paritydi2 (UDItype x)
 {
   UWtype nx = x ^ (x >> 32);
   nx ^= nx >> 16;
   nx ^= nx >> 8;
   nx ^= nx >> 4;
-  nx ^= nx >> 2;
-  nx ^= nx >> 1;
-  return nx & 1;
+  nx &= 0xf;
+  return (0x6996 >> nx) & 1;
 }
 #endif
 

@@ -634,6 +634,9 @@ namespace std
 
 	if (__prec > static_cast<streamsize>(__max_digits))
 	  __prec = static_cast<streamsize>(__max_digits);
+	else if (__prec < static_cast<streamsize>(0))
+	  // Default precision.
+	  __prec = static_cast<streamsize>(6);
 
 	// Long enough for the max format spec.
 	char __fbuf[16];
@@ -646,24 +649,17 @@ namespace std
 	int __cs_size = __max_digits * 3;
 	char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
 
-	const bool __fp = _S_format_float(__io, __fbuf, __mod, __prec);
-	if (__fp)
-	  __len = __convert_from_v(__cs, __cs_size, __fbuf, __v, 
-				   _S_c_locale, __prec);
-	else
-	  __len = __convert_from_v(__cs, __cs_size, __fbuf, __v, _S_c_locale);
+	_S_format_float(__io, __fbuf, __mod);
+	__len = __convert_from_v(__cs, __cs_size, __fbuf, __v,
+				 _S_c_locale, __prec);
 
 	// If the buffer was not large enough, try again with the correct size.
 	if (__len >= __cs_size)
 	  {
 	    __cs_size = __len + 1; 
 	    __cs = static_cast<char*>(__builtin_alloca(__cs_size));
-	    if (__fp)
-	      __len = __convert_from_v(__cs, __cs_size, __fbuf, __v, 
-				       _S_c_locale, __prec);
-	    else
-	      __len = __convert_from_v(__cs, __cs_size, __fbuf, __v, 
-				       _S_c_locale);
+	    __len = __convert_from_v(__cs, __cs_size, __fbuf, __v,
+				     _S_c_locale, __prec);
 	  }
 #else
 	// Consider the possibility of long ios_base::fixed outputs
@@ -678,10 +674,8 @@ namespace std
 	                              : __max_digits * 3;
 	char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
 
-	if (_S_format_float(__io, __fbuf, __mod, __prec))
-	  __len = __convert_from_v(__cs, 0, __fbuf, __v, _S_c_locale, __prec);
-	else
-	  __len = __convert_from_v(__cs, 0, __fbuf, __v, _S_c_locale);
+	_S_format_float(__io, __fbuf, __mod);
+	__len = __convert_from_v(__cs, 0, __fbuf, __v, _S_c_locale, __prec);
 #endif
 	return _M_widen_float(__s, __io, __fill, __cs, __len);
       }
@@ -750,7 +744,6 @@ namespace std
 //282. What types does numpunct grouping refer to?
       // Add grouping, if necessary. 
       const string __grouping = __np.grouping();
-      ios_base::fmtflags __basefield = __io.flags() & ios_base::basefield;
       if (__grouping.size())
 	{
 	  _CharT* __p2;
@@ -797,7 +790,6 @@ namespace std
       // Add grouping, if necessary. 
       const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc);
       const string __grouping = __np.grouping();
-      const ios_base::fmtflags __basefield = __io.flags() & ios_base::basefield;
       if (__grouping.size())
 	{
 	  // By itself __add_grouping cannot deal correctly with __ws when
@@ -806,6 +798,8 @@ namespace std
 	  // However, remember that the latter do not occur if the number
 	  // printed is '0' (__len == 1).
 	  streamsize __off = 0;
+	  const ios_base::fmtflags __basefield = __io.flags() 
+	    					 & ios_base::basefield;
 	  if ((__io.flags() & ios_base::showbase) && __len > 1)
 	    if (__basefield == ios_base::oct)
 	      {
@@ -840,6 +834,7 @@ namespace std
     {
       typedef char_traits<_CharT> 		__traits_type;
       // [22.2.2.2.2] Stage 3.
+      // If necessary, pad.
       streamsize __w = __io.width();
       _CharT* __ws2 = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
 							    * __w));
@@ -855,9 +850,7 @@ namespace std
 
       // [22.2.2.2.2] Stage 4.
       // Write resulting, fully-formatted string to output iterator.
-      for (int __j = 0; __j < __len; ++__j, ++__s)
-	*__s = __ws[__j];
-      return __s;
+      return __write(__s, __ws, __len);
     }
 
   template<typename _CharT, typename _OutIter>
@@ -1196,7 +1189,8 @@ namespace std
       char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
       int __len = __convert_from_v(__cs, 0, "%.01Lf", __units, _S_c_locale);
 #endif
-      _CharT* __ws = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __cs_size));
+      _CharT* __ws = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
+							   * __cs_size));
       __ctype.widen(__cs, __cs + __len, __ws);
       string_type __digits(__ws);
       return this->do_put(__s, __intl, __io, __fill, __digits); 
@@ -1290,7 +1284,7 @@ namespace std
 		  const char* __gend = __gbeg + __grouping.size();
 		  const int __n = (__end - __beg) * 2;
 		  _CharT* __ws2 =
-		    static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __n));
+       	          static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __n));
 		  _CharT* __ws_end = __add_grouping(__ws2, __sep, __gbeg, 
 						    __gend, __beg, __end);
 		  __value.insert(0, __ws2, __ws_end - __ws2);
@@ -1359,8 +1353,7 @@ namespace std
 	    }
 
 	  // Write resulting, fully-formatted string to output iterator.
-	  for (size_type __j = 0; __j < __len; ++__j, ++__s)
-	    *__s = __res[__j];
+	  __s = __write(__s, __res.c_str(), __len);
 	}
       __io.width(0);
       return __s; 
@@ -1616,7 +1609,8 @@ namespace std
 		    ios_base::iostate& __err) const
     {
       typedef char_traits<_CharT> 		__traits_type;
-      int* __matches = static_cast<int*>(__builtin_alloca(sizeof(int) * __indexlen));
+      int* __matches = static_cast<int*>(__builtin_alloca(sizeof(int) 
+							  * __indexlen));
       size_t __nmatches = 0;
       size_t __pos = 0;
       bool __testvalid = true;
@@ -1633,8 +1627,8 @@ namespace std
 	  // Find smallest matching string.
 	  size_t __minlen = 10;
 	  for (size_t __i2 = 0; __i2 < __nmatches; ++__i2)
-	    __minlen = std::min(__minlen, 
-				__traits_type::length(__names[__matches[__i2]]));
+	    __minlen = min(__minlen, 
+			   __traits_type::length(__names[__matches[__i2]]));
 	  
 	  if (__pos < __minlen && __beg != __end)
 	    {
@@ -1878,8 +1872,7 @@ namespace std
       // NB: This size is arbitrary. Should this be a data member,
       // initialized at construction?
       const size_t __maxlen = 64;
-      char_type* __res =
-	static_cast<char_type*>(__builtin_alloca(sizeof(char_type) * __maxlen));
+      char_type* __res = static_cast<char_type*>(__builtin_alloca(sizeof(char_type) * __maxlen));
 
       // NB: In IEE 1003.1-200x, and perhaps other locale models, it
       // is possible that the format character will be longer than one
@@ -1903,10 +1896,7 @@ namespace std
       __tp._M_put(__res, __maxlen, __fmt, __tm);
 
       // Write resulting, fully-formatted string to output iterator.
-      size_t __len = char_traits<char_type>::length(__res);
-      for (size_t __i = 0; __i < __len; ++__i, ++__s)
-	*__s = __res[__i];
-      return __s;
+      return __write(__s, __res, char_traits<char_type>::length(__res));
     }
 
 
@@ -1946,8 +1936,8 @@ namespace std
       // If the buffer was not large enough, try again with the correct size.
       if (__res >= __len)
 	{
-	  __c =
-	    static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * (__res + 1)));
+	  __c = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
+						      * (__res + 1)));
 	  _M_transform(__c, __lo, __res + 1);
 	}
       return string_type(__c);
@@ -1984,7 +1974,8 @@ namespace std
 				   const streamsize __oldlen, const bool __num)
     {
       size_t __plen = static_cast<size_t>(__newlen - __oldlen);
-      _CharT* __pads = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __plen));
+      _CharT* __pads = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
+							     * __plen));
       _Traits::assign(__pads, __plen, __fill); 
 
       _CharT* __beg;
@@ -2054,14 +2045,6 @@ namespace std
 			  __newlen - __beglen - __mod);
     }
 
-  // Used by both numeric and monetary facets.
-  // Check to make sure that the __grouping_tmp string constructed in
-  // money_get or num_get matches the canonical grouping for a given
-  // locale.
-  // __grouping_tmp is parsed L to R
-  // 1,222,444 == __grouping_tmp of "/1/3/3"
-  // __grouping is parsed R to L
-  // 1,222,444 == __grouping of "/3" == "/3/3/3"
   template<typename _CharT>
     bool
     __verify_grouping(const basic_string<_CharT>& __grouping, 
@@ -2086,11 +2069,6 @@ namespace std
       return __test;
     }
 
-  // Used by both numeric and monetary facets.
-  // Inserts "group separator" characters into an array of characters.
-  // It's recursive, one iteration per group.  It moves the characters
-  // in the buffer this way: "xxxx12345" -> "12,345xxx".  Call this
-  // only with __gbeg != __gend.
   template<typename _CharT>
     _CharT*
     __add_grouping(_CharT* __s, _CharT __sep,  

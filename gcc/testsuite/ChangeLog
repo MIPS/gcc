@@ -1,3 +1,104 @@
+2003-02-07  Loren James Rittle  <ljrittle@acm.org>
+
+	* gcc.dg/20021014-1.c: Annotate with expected notice text.
+
+2003-02-07  Roger Sayle  <roger@eyesopen.com>
+
+	* testsuite/gcc.dg/builtins-4.c: New test case.
+
+2003-02-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/20020430-1.c: Fix dg command typos.
+	* gcc.dg/20020503-1.c: Likewise.
+
+2003-02-06  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/8785
+	* g++.dg/parse/fused-params1.C: New test.
+
+	PR c++/8857
+	* g++.dg/parse/tmpl-tmpl-operator1.C: New test.
+
+	PR c++/8921
+	* g++.dg/parse/non-dependent1.C: New test.
+
+	PR c++/8928
+	* g++.dg/parse/dupl-tmpl-args1.C: New test.
+
+	PR c++/9228
+	* g++.dg/parse/undefined7.C: New test.
+	* g++.dg/parse/non-templ1.C: New test.
+
+	PR c++/9229
+	* g++.dg/parse/too-many-tmpl-args1.C: New test.
+
+2003-02-06  Eric Botcazou <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20030206-1.c: New test.
+
+2003-02-05  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/compile/921206-1.c: Rename undeclared function from
+	"pow" to "foo" to avoid potential confusion with a math built-in.
+
+2003-02-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/20020227-1.x: Update specific XFAIL
+	conditions for SPARC targets.
+
+2003-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20030204-1.c: New test.
+
+2003-02-04  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/38
+	* g++.dg/parse/array-size1.C: New test.
+
+	PR c++/5657
+	* g++.dg/parse/undefined3.C: New test.
+
+	PR c++/5665
+	* g++.dg/parse/undefined4.C: New test.
+
+	PR c++/5975
+	* g++.dg/parse/undefined5.C: New test.
+
+	PR c++/7259
+	* g++.dg/parse/tmpl-tmpl-param1.C: New test.
+
+	PR c++/8578
+	* g++.dg/parse/casting-operator1.C: New test.
+
+	PR c++/8596
+	* g++.dg/parse/undefined6.C: New test.
+
+	PR c++/8736
+	* g++.dg/parse/missing-template1.C: New test.
+
+Tue Feb  4 21:41:09 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/i386-cadd.c:  Compile using -march=k8.
+	* gcc.dg/i386-cmov?.c:  Likewise.
+	* gcc.dg/i386-fpcvt-?.c:  Likewise.
+	* gcc.dg/i386-ssefp-1.c:  Likewise.
+	* gcc.dg/i386-ssetype-?.c:  Likewise; fix for register passing
+	conventions.
+
+2003-02-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7129
+	* testsuite/g++.dg/ext/max.C: New test.
+
+Mon Feb  3 16:05:11 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/execute/20030203-1.c: New test.
+
+2003-02-03  Richard Earnshaw  <rearnsha@arm.com>
+
+	* gcc.c-torture/exectue/ieee/20000320-1.c: The ARM VFP format is
+	'natural-endian'.
+
 2003-02-01  Richard Sandiford  <rsandifo@redhat.com>
 
 	* g++.dg/init/new1.C: Remove -fvolatile dg-options line.

@@ -38,6 +38,8 @@ zero_state(std::mbstate_t& state)
 
 // Required instantiation
 // codecvt<wchar_t, char, mbstate_t>
+//
+// Baseline test for "C" locale
 void test01()
 {
   using namespace std;
@@ -46,17 +48,16 @@ void test01()
   typedef wchar_t				int_type;
   typedef char					ext_type;
   typedef char_traits<wchar_t>			int_traits;
-  typedef char_traits<char>			ext_traits;
 
   bool 			test = true;
   const ext_type* 	e_lit = "black pearl jasmine tea";
   const ext_type*       efrom_next;
   const int_type* 	i_lit = L"black pearl jasmine tea";
-  const int_type*       ifrom_next;
   int 			size = strlen(e_lit);
-  ext_type* 		e_arr = new ext_type[size + 1];
-  ext_type*		eto_next;
   int_type* 		i_arr = new int_type[size + 1];
+  int_type* 		i_ref = new int_type[size + 1];
+  wmemset(i_arr, 0xdeadbeef, size + 1);
+  wmemset(i_ref, 0xdeadbeef, size + 1);
   int_type*		ito_next;
 
   locale 		loc;
@@ -68,12 +69,13 @@ void test01()
   result r1 = cvt->in(state01, e_lit, e_lit + size, efrom_next, 
 		      i_arr, i_arr + size, ito_next);
   VERIFY( r1 == codecvt_base::ok );
-  VERIFY( !int_traits::compare(i_arr, i_lit, size) ); 
   VERIFY( efrom_next == e_lit + size );
   VERIFY( ito_next == i_arr + size );
+  VERIFY( !int_traits::compare(i_arr, i_lit, size) ); 
+  VERIFY( !int_traits::compare(ito_next, i_ref, 1) );
 
-  delete [] e_arr;
   delete [] i_arr;
+  delete [] i_ref;
 }
 
 int main ()

@@ -39,3 +39,4 @@ java/expr.o-warn = -Wno-error
 objc/objc-act.o-warn = -Wno-error
 rs6000.o-warn = -Wno-error
 insn-emit.o-warn = -Wno-error
+simplify-rtx.o-warn = -Wno-error

@@ -1,3 +1,7 @@
+2003-02-09  Diego Novillo  <dnovillo@redhat.com>
+
+	* config/rs6000/t-rs6000 (simplify-rtx.o): Compile with -Wno-error.
+
 2003-02-08  Diego Novillo  <dnovillo@redhat.com>
 
 	* toplev.c (parse_options_and_default_flags): Enable SSA DCE by

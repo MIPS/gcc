@@ -58,9 +58,6 @@
 			;   value to it before trying to dereference it.
    (UNSPEC_PRLG_STK  4) ; A special barrier that prevents frame accesses 
 			;   being scheduled before the stack adjustment insn.
-   (UNSPEC_CLZ	     5) ; `clz' instruction, count leading zeros (SImode):
-			;   operand 0 is the result,
-			;   operand 1 is the parameter.
    (UNSPEC_PROLOGUE_USE 6) ; As USE insns are not meaningful after reload,
    			; this unspec is used to prevent the deletion of
    			; instructions setting registers for EH handling
@@ -8446,7 +8443,11 @@
   "
 ;; Length is absolute worst case
   [(set_attr "length" "44")
-   (set_attr "type" "block")]
+   (set_attr "type" "block")
+   ;; We don't clobber the conditions, but the potential length of this
+   ;; operation is sufficient to make conditionalizing the sequence 
+   ;; unlikely to be profitable.
+   (set_attr "conds" "clob")]
 )
 
 (define_insn "*epilogue_insns"
@@ -8460,7 +8461,11 @@
   "
   ; Length is absolute worst case
   [(set_attr "length" "44")
-   (set_attr "type" "block")]
+   (set_attr "type" "block")
+   ;; We don't clobber the conditions, but the potential length of this
+   ;; operation is sufficient to make conditionalizing the sequence 
+   ;; unlikely to be profitable.
+   (set_attr "conds" "clob")]
 )
 
 (define_expand "eh_epilogue"
@@ -8843,10 +8848,9 @@
 
 ;; V5 Instructions,
 
-(define_insn "clz"
-  [(set (match_operand:SI             0 "s_register_operand" "=r")
-	(unspec:SI [(match_operand:SI 1 "s_register_operand" "r")]
-		   UNSPEC_CLZ))]
+(define_insn "clzsi2"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(clz:SI (match_operand:SI 1 "s_register_operand" "r")))]
   "TARGET_ARM && arm_arch5"
   "clz\\t%0, %1")
 
@@ -8864,8 +8868,28 @@
 
     emit_insn (gen_negsi2 (t1, operands[1]));
     emit_insn (gen_andsi3 (t2, operands[1], t1));
-    emit_insn (gen_clz (t3, t2));
+    emit_insn (gen_clzsi2 (t3, t2));
     emit_insn (gen_subsi3 (operands[0], GEN_INT (32), t3));
+    DONE;
+  }"
+)
+
+(define_expand "ctzsi2"
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(ctz:SI (match_operand:SI 1 "s_register_operand" "")))]
+  "TARGET_ARM && arm_arch5"
+  "
+  {
+    rtx t1, t2, t3;
+
+    t1 = gen_reg_rtx (SImode);
+    t2 = gen_reg_rtx (SImode);
+    t3 = gen_reg_rtx (SImode);
+
+    emit_insn (gen_negsi2 (t1, operands[1]));
+    emit_insn (gen_andsi3 (t2, operands[1], t1));
+    emit_insn (gen_clzsi2 (t3, t2));
+    emit_insn (gen_subsi3 (operands[0], GEN_INT (31), t3));
     DONE;
   }"
 )

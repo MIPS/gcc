@@ -2675,7 +2675,7 @@ expand_unop (mode, unoptab, op0, target, unsignedp)
 	 have them return something that isn't a double-word.  */
       if (unoptab == ffs_optab || unoptab == clz_optab || unoptab == ctz_optab
 	  || unoptab == popcount_optab || unoptab == parity_optab)
-	outmode = word_mode;
+	outmode = TYPE_MODE (integer_type_node);
 
       start_sequence ();
 
@@ -2721,6 +2721,14 @@ expand_unop (mode, unoptab, op0, target, unsignedp)
 	      
 	      temp = expand_unop (wider_mode, unoptab, xop0, NULL_RTX,
 				  unsignedp);
+
+	      /* If we are generating clz using wider mode, adjust the
+		 result.  */
+	      if (unoptab == clz_optab && temp != 0)
+		temp = expand_binop (wider_mode, sub_optab, temp,
+				     GEN_INT (GET_MODE_BITSIZE (wider_mode)
+					      - GET_MODE_BITSIZE (mode)),
+				     target, true, OPTAB_DIRECT);
 
 	      if (temp)
 		{
@@ -4807,10 +4815,10 @@ expand_float (to, from, unsignedp)
      wider mode.  If the integer mode is wider than the mode of FROM,
      we can do the conversion signed even if the input is unsigned.  */
 
-  for (imode = GET_MODE (from); imode != VOIDmode;
-       imode = GET_MODE_WIDER_MODE (imode))
-    for (fmode = GET_MODE (to); fmode != VOIDmode;
-	 fmode = GET_MODE_WIDER_MODE (fmode))
+  for (fmode = GET_MODE (to); fmode != VOIDmode;
+       fmode = GET_MODE_WIDER_MODE (fmode))
+    for (imode = GET_MODE (from); imode != VOIDmode;
+	 imode = GET_MODE_WIDER_MODE (imode))
       {
 	int doing_unsigned = unsignedp;
 

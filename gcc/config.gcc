@@ -99,6 +99,8 @@
 #  host_extra_gcc_objs	List of extra host-dependent objects that should
 #			be linked into the gcc driver.
 #
+#  out_host_hook_obj	An object file that provides the host hooks.
+#
 #  c_target_objs	List of extra target-dependent objects that be
 #			linked into the C compiler only.
 #
@@ -169,6 +171,8 @@
 #			the compiler proper when this system is a host,
 #			for host_extra_objs.
 #
+#  host_hook_obj	An object file that provides the host hooks.
+#
 #  install_headers_dir	Makefile-target for how the header file directory
 #			is installed, when this system is a build system,
 #			for build_install_headers_dir.
@@ -194,6 +198,7 @@ extra_host_objs=
 extra_gcc_objs=
 c_target_objs=
 cxx_target_objs=
+host_hook_obj=host-default.o
 tm_defines=
 xm_defines=
 # Set this to force installation and use of collect2.
@@ -780,7 +785,7 @@ hppa*64*-*-linux* | parisc*64*-*-linux*)
 	need_64bit_hwint=yes
 	;;
 hppa*-*-linux* | parisc*-*-linux*)
-	target_cpu_default="MASK_PA_11"
+	target_cpu_default="MASK_PA_11 | MASK_NO_SPACE_REGS"
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h linux.h pa/pa-linux.h \
 		 pa/pa32-regs.h pa/pa32-linux.h"
 	tmake_file="t-slibgcc-elf-ver t-linux pa/t-linux"
@@ -1981,6 +1986,9 @@ powerpc-*-darwin*)
 	# override ppc default
 	need_64bit_hwint=
 	rebuild_banshee=yes
+	# powerpc-darwin host support.
+	host_hook_obj=host-darwin.o
+	xmake_file=rs6000/x-darwin
 	;;
 powerpc*-*-freebsd*)
 	tm_file="${tm_file} dbxelf.h elfos.h ${fbsd_tm_file} rs6000/sysv4.h rs6000/freebsd.h"
@@ -2957,6 +2965,7 @@ else
 		host_extra_gcc_objs=$extra_gcc_objs
 		host_extra_objs=$extra_host_objs
 		host_exeext=$exeext
+		out_host_hook_obj=$host_hook_obj
 		pass2done=yes
 	fi
 fi
