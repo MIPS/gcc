@@ -1,5 +1,11 @@
 2004-09-16  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/image/Raster.java
+	(createPackedRaster(int,int,int,int,int,Point)): Implement for
+	bands>1.
+
+2004-09-16  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/image/SinglePixelPackedSampleModel.java
 	(SinglePixelPackedSampleModel): Throw exception for unsupported
 	datatype.
