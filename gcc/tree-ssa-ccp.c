@@ -311,6 +311,27 @@ substitute_and_fold (void)
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator i;
+      tree phi;
+
+      /* Propagate our known constants into PHI nodes.  */
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	{
+	  int i;
+
+	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	    {
+	      value *new_val;
+	      tree *orig_p = &PHI_ARG_DEF (phi, i);
+
+	      if (! SSA_VAR_P (*orig_p))
+		break;
+
+	      new_val = get_value (*orig_p);
+	      if (new_val->lattice_val == CONSTANT
+		  && may_propagate_copy (*orig_p, new_val->const_val))
+		*orig_p = new_val->const_val;
+	    }
+	}
 
       for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
 	{

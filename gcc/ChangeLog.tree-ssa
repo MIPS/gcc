@@ -1,3 +1,8 @@
+2003-08-05  Jeff Law  <law@redhat.com>
+
+        * tree-ssa-ccp.c (substitute_and_fold): Substitute known
+        constants into PHI nodes.
+
 2003-08-04  Sebastian Pop  <s.pop@laposte.net>
 
 	* basic-block.h: Declare bb_ann_d.
