@@ -3086,10 +3086,9 @@ tree_verify_flow_info (void)
 		error ("Structured COND_EXPR at end of bb %d\n", bb->index);
 		err = 1;
 	      }
-	    if (bb->succ->flags & EDGE_TRUE_VALUE)
-	      true_edge = bb->succ, false_edge = bb->succ->succ_next;
-	    else
-	      false_edge = bb->succ, true_edge = bb->succ->succ_next;
+
+	    extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
+
 	    if (!true_edge || !false_edge
 		|| !(true_edge->flags & EDGE_TRUE_VALUE)
 		|| !(false_edge->flags & EDGE_FALSE_VALUE)
@@ -4026,6 +4025,30 @@ execute_warn_function_return (void)
 	      break;
 	    }
 	}
+    }
+}
+
+/* Given a basic block which ends with a conditional and has precisely
+   two successors, determine which of the edges is taken if the conditional
+   is true and which is taken if the conditional is false.  Set TRUE_EDGE
+   and FALSE_EDGE appropriately.  */
+
+void
+extract_true_false_edges_from_block (basic_block b,
+				     edge *true_edge,
+				     edge *false_edge)
+{
+  edge e = b->succ;
+
+  if (e->flags & EDGE_TRUE_VALUE)
+    {
+      *true_edge = e;
+      *false_edge = e->succ_next;
+    }
+  else
+    {
+      *false_edge = e;
+      *true_edge = e->succ_next;
     }
 }
 

@@ -254,6 +254,7 @@ in the following sections.
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
 -fdump-tree-gimple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
 -fdump-tree-dom@r{[}-@var{n}@r{]} @gol
+-fdump-tree-phiopt@r{[}-@var{n}@r{]} @gol
 -fdump-tree-loop@r{[}-@var{n}@r{]} -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs @gol
@@ -3520,6 +3521,11 @@ file name is made by appending @file{.sra} to the source file name.
 @opindex fdump-tree-dom
 Dump each function after applying dominator tree optimizations.  The file
 name is made by appending @file{.dom} to the source file name.
+
+@item phiopt
+@opindex fdump-tree-phiopt
+Dump each function after optimizing PHI nodes into straightline code.  The file
+name is made by appending @file{.phiopt} to the source file name.
 
 @item loop
 @opindex fdump-tree-loop

@@ -256,7 +256,6 @@ static void remove_local_expressions_from_table (varray_type locals,
 static void restore_vars_to_original_value (varray_type locals,
 					    unsigned limit, 
 					    varray_type table);
-static void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 static void register_definitions_for_stmt (tree, varray_type *);
 static void redirect_edges_and_update_ssa_graph (varray_type);
 
@@ -1076,31 +1075,6 @@ restore_vars_to_original_value (varray_type locals,
       set_value_for (dest, prev_value, table);
     }
 }
-
-/* Given a basic block which ends with a conditional and has precisely
-   two successors, determine which of the edges is taken if the conditional
-   is true and which is taken if the conditional is false.  Set TRUE_EDGE
-   and FALSE_EDGE appropriately.  */
-
-static void
-extract_true_false_edges_from_block (basic_block b,
-				     edge *true_edge,
-				     edge *false_edge)
-{
-  edge e = b->succ;
-
-  if (e->flags & EDGE_TRUE_VALUE)
-    {
-      *true_edge = e;
-      *false_edge = e->succ_next;
-    }
-  else
-    {
-      *false_edge = e;
-      *true_edge = e->succ_next;
-    }
-}
-
 
 /* We have finished processing the dominator children of BB, perform
    any finalization actions in preparation for leaving this node in
@@ -3151,7 +3125,7 @@ get_eq_expr_value (tree if_stmt,
 	 the value of op0 on both arms of the branch.  */
       if ((TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
 	  && TREE_CODE (op0) == SSA_NAME
-	  && TREE_TYPE (op0) == boolean_type_node
+	  && TREE_CODE (TREE_TYPE (op0)) == BOOLEAN_TYPE
 	  && is_gimple_min_invariant (op1))
 	{
 	  if ((TREE_CODE (cond) == EQ_EXPR && true_arm)
