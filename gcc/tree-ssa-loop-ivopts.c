@@ -1418,7 +1418,8 @@ number_of_iterations_cond (tree cond, struct tree_niter_desc *niter)
 	    assumption = boolean_true_node;
 	  if (integer_nonzerop (assumption))
 	    goto zero_iter;
-	  base0 = fold (build (PLUS_EXPR, type, base0, integer_one_node));
+	  base0 = fold (build (PLUS_EXPR, type, base0,
+			       convert (type, integer_one_node)));
 	}
       else
 	{
@@ -1428,7 +1429,8 @@ number_of_iterations_cond (tree cond, struct tree_niter_desc *niter)
 	    assumption = boolean_true_node;
 	  if (integer_nonzerop (assumption))
 	    goto zero_iter;
-	  base1 = fold (build (MINUS_EXPR, type, base1, integer_one_node));
+	  base1 = fold (build (MINUS_EXPR, type, base1,
+			       convert (type, integer_one_node)));
 	}
       noloop_assumptions = assumption;
       code = LE_EXPR;
@@ -3357,7 +3359,8 @@ cand_value_at (struct iv_cand *cand, struct iv_use *use, tree niter)
 
   if (cand->pos == IP_NORMAL
       && stmt_after_ip_normal_pos (use->stmt))
-    niter = fold (build (PLUS_EXPR, type, niter, integer_one_node));
+    niter = fold (build (PLUS_EXPR, type, niter,
+			 convert (type, integer_one_node)));
 
   val = fold (build (MULT_EXPR, type, cand->iv->step, niter));
 
