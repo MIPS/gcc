@@ -1,3 +1,7 @@
+2003-02-05  Release Manager
+
+	* GCC 3.2.2 Released.
+
 2002-12-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* fastjar.texi (jar @direntry, grepjar @direntry): Add (fastjar).

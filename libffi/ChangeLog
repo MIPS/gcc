@@ -1,3 +1,26 @@
+2003-02-08  Andreas Tobler <a.tobler@schweiz.ch>
+	     
+	* libffi/src/powerpc/darwin_closure.S:
+        Fix alignement bug, allocate 8 bytes for the result.
+        * libffi/src/powerpc/aix_closure.S:
+        Likewise.
+        * libffi/src/powerpc/ffi_darwin.c:
+        Update stackframe description for aix/darwin_closure.S.
+
+2003-02-07  Andreas Tobler <a.tobler@schweiz.ch>
+
+	* libffi/src/ffitest.c
+	add closure testcases
+
+2003-02-07  Kevin B. Hendricks <khendricks@ivey.uwo.ca>
+
+	* libffi/src/powerpc/ffi.c
+	fix alignment bug for float (4 byte aligned iso 8 byte)
+
+2003-02-05  Release Manager
+
+	* GCC 3.2.2 Released.
+
 2003-02-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* src/s390/ffi.c (ffi_closure_helper_SYSV): Add hidden visibility

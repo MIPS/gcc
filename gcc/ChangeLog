@@ -1,3 +1,153 @@
+2003-02-13  Josef Zlomek  <zlomekj@suse.cz>
+
+	* cfgcleanup.c (outgoing_edges_match): When there is single outgoing
+	edge and block ends with a jump insn it must be simple jump.
+
+2003-02-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR9275 and PR8694
+	* inclhack.def (hpux_long_double, hpux10_ctype_declarations1,
+	hpux10_ctype_declarations2, hpux_ctype_macros): New hacks.
+	* fixincl.x: Rebuilt.
+	* tests/base/stdlib.h: Update.
+	* tests/base/ctype.h: New file.
+
+2003-02-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* mips.h (FP_INC): Define.
+
+	Backport fix for PR6362:
+	2002-10-01  Richard Sandiford  <rsandifo@redhat.com>
+	
+	* config/mips/mips-protos.h (mips_emit_fcc_reload): Declare.
+	* config/mips/mips.h (PREDICATE_CODES): Add fcc_register_operand.
+	* config/mips/mips.c (fcc_register_operand): New function.
+	(mips_emit_fcc_reload): New function, extracted from reload_incc.
+	* cnfig/mips/mips.md (reload_incc): Change destination prediate
+	to fcc_register_operand.  Remove misleading source constraint.
+	Use mips_emit_fcc_reload.
+	(reload_outcc): Duplicate reload_incc.
+
+2003-02-11  Bob Wilson  <bob.wilson@acm.org>
+
+	Backport following patch:
+
+	2003-02-11  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.md (set_frame_ptr): Change rtl to set reg a7.
+	* config/xtensa/xtensa.c (xtensa_reorg): Search for UNSPECV_SET_FP
+	as a SET pattern.
+	
+2003-02-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+
+	PR c/7741
+	* c-decl.c (duplicate_decls): Discard the initializer of the
+	new decl when the types are conflicting.
+
+2003-02-01  Daniel Jacobowitz  <drow@mvista.com>
+
+	* dwarf2out.c (gen_type_die): Check for typedefs before calling
+	for TYPE_MAIN_VARIANT.
+
+2003-02-07  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (output_millicode_call): Use $PIC_pcrel$0 for long PIC
+	millicode calls when !TARGET_SOM and TARGET_GAS is true.
+	* pa.md (jump): Likewise.
+
+2003-02-06  Eric Botcazou <ebotcazou@libertysurf.fr>
+            Richard Henderson <rth@redhat.com>
+    
+	PR c/9530
+	* config/i386/i386.h (FUNCTION_OK_FOR_SIBCALL): Forbid sibcalls
+	from functions that return a float to functions that don't.
+
+2003-02-03  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.c (order_regs_for_local_alloc): Order the
+	coprocessor registers before floating-point registers.
+	* config/xtensa/xtensa.h (REG_ALLOC_ORDER): Adjust register numbers
+	to account for a previously removed register.
+	(SPEC_REG_FIRST, SPEC_REG_LAST, SPEC_REG_NUM, COUNT_REGISTER_REGNUM):
+	Delete unused macros.
+
+2003-02-05  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* doc/include/gcc-common.texi: Bump version.
+	* version.c(version_string): Update.
+
+2003-02-05  Release Manager
+
+	* GCC 3.2.2 Released.
+
+2003-02-03  Chris Lingard <chris@stockwith.co.uk>
+	    Dan Osterrath <do3@mail.inf.tu-dresden.de>
+
+	* configure.in: Handle binutils versions with 4 dot separated
+	numbers.
+	* configure: Rebuilt.
+
+2003-02-03  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	Backport following patch:
+
+	2002-08-01  Richard Henderson  <rth@redhat.com>
+
+	* integrate.c (copy_rtx_and_substitute): Squash MEM_EXPR when it
+	refers to a subroutine parameter.
+
+2003-02-03  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR ice-on-legal-code/9493
+	* cfgcleanup.c (try_forward_edges): Check for null insn.
+
+2003-02-03  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+	Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR wrong-code/9492
+	Backport following patches:
+
+	2002-09-16  Richard Henderson  <rth@redhat.com>
+
+        * emit-rtl.c (set_mem_attributes_minus_bitpos): Adjust SIZE
+        as well as OFFSET for BITPOS.
+
+	2002-09-08  Jan Hubicka  <jh@suse.cz>
+
+        * emit-rtl.c (set_mem_attributes_minus_bitpos): Fix array_ref
+        handling.
+
+	2002-07-29  Richard Henderson  <rth@redhat.com>
+
+        * emit-rtl.c (set_mem_attributes_minus_bitpos): Rename from
+        set_mem_attributes and add BITPOS argument.  Subtract it from
+        OFFSET when same is adjusted.
+        (set_mem_attributes): New wrapper function.
+        * expr.c (expand_assignment): Use set_mem_attributes_minus_bitpos;
+        remove offset adjustment hack.
+        * expr.h (set_mem_attributes_minus_bitpos): Declare.
+
+	2002-07-25  Richard Henderson  <rth@redhat.com>
+
+        * emit-rtl.c (set_mem_attributes): Fix size and alignment thinkos
+        in ARRAY_REF of DECL_P case.
+
+	2002-07-21  Richard Henderson  <rth@redhat.com>
+
+        * emit-rtl.c (set_mem_attributes): Preserve indirection of PARM_DECL
+        when flag_argument_noalias == 2.
+        * alias.c (nonoverlapping_memrefs_p): Handle that.
+        * print-rtl.c (print_mem_expr): Likewise.
+
+	2002-06-03  Dan Nicolaescu  <dann@godzilla.ics.uci.edu>
+
+        * alias.c (nonoverlapping_memrefs_p): Fix off by one error.
+
+2003-02-03  Steve Ellcey  <sje@cup.hp.com>
+
+        * config/pa/pa64-hpux.h (INIT_ENVIRONMENT): New.
+
 2003-02-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR optimization/8555
