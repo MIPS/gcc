@@ -1,3 +1,7 @@
+2003-12-08  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-alias-ander.c (andersen_same_points_to_set): Fix memory leak.
+	
 2003-12-08  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-live.c (register_ssa_partition): Kill legacy code which

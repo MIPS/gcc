@@ -865,16 +865,25 @@ andersen_same_points_to_set (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
     }
   
   if (aterm_list_length (ptset1) != aterm_list_length (ptset2))
-    return false;
+    {
+      deleteregion (scratch_rgn);
+      return false;
+    }
 
   if (ptset1 == ptset2)
-    return true;
+    {
+      deleteregion (scratch_rgn);
+      return true;
+    }
 
   ptset1 = aterm_list_copy (scratch_rgn, ptset1);
   ptset2 = aterm_list_copy (scratch_rgn, ptset2);
   
   if (aterm_list_length (ptset1) != aterm_list_length (ptset2))
-    return false;
+    {
+      deleteregion (scratch_rgn);
+      return false;
+    }
 
   ptset1 = aterm_list_sort (ptset1, simple_cmp);
   ptset2 = aterm_list_sort (ptset2, simple_cmp);
