@@ -570,7 +570,7 @@ static void collapse_cycle(setst_var witness, setst_var_list cycle) deletes
   /* remove self edges */
   st_repair_bounds(witness);
 }
-
+/*
 static bool cycle_detect(setst_var goal, setst_var_list path,
 			 setst_var_list *result)
 {
@@ -598,8 +598,7 @@ static bool cycle_detect(setst_var goal, setst_var_list path,
     return FALSE;
 }
 
-
-/*
+*/
 static bool cycle_detect(setst_var goal, setst_var_list path,
 			 setst_var_list *result)
 {
@@ -624,7 +623,6 @@ static bool cycle_detect(setst_var goal, setst_var_list path,
       return TRUE;
     }
 }
-*/
 
 static jcoll tlb_aux(gen_e e,int path_len,setst_var_list path) deletes
 {
@@ -712,7 +710,6 @@ static void match_sinks(incl_fn_ptr setst_incl)
       gen_e_list tlbs = tlb((gen_e)v);
       gen_e_list snks = st_get_sinks(v);
       
-      st_set_seen(v,TRUE);
       
       if(gen_e_list_empty(st_get_sinks(v)))
 	{
@@ -730,6 +727,7 @@ static void match_sinks(incl_fn_ptr setst_incl)
 	  setst_stats.unchanged_vars++;
 	  continue;
 	}
+      st_set_seen(v,TRUE);
       
       st_set_src_sz(v,gen_e_list_length(tlbs));
       st_set_snk_sz(v,gen_e_list_length(snks));
