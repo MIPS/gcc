@@ -41,6 +41,10 @@ Boston, MA 02111-1307, USA.  */
 #undef CC1_SPEC
 #define CC1_SPEC "%{!static:-fPIC}"
 
+/* Use the following macro for any Darwin/x86-specific command-line option
+   translation.  */
+#define SUBTARGET_OPTION_TRANSLATE_TABLE
+
 /* The Darwin assembler mostly follows AT&T syntax.  */
 #undef ASSEMBLER_DIALECT
 #define ASSEMBLER_DIALECT ASM_ATT
