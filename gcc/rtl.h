@@ -2057,11 +2057,6 @@ extern rtx expand_mult_highpart		PARAMS ((enum machine_mode, rtx,
 						unsigned HOST_WIDE_INT, rtx,
 						int, int));
 
-/* In gcse.c */
-#ifdef BUFSIZ
-extern int gcse_main			PARAMS ((rtx, FILE *));
-#endif
-
 /* In global.c */
 extern void mark_elimination		PARAMS ((int, int));
 #ifdef BUFSIZ
@@ -2086,8 +2081,6 @@ extern void regclass			PARAMS ((rtx, int, FILE *));
 extern void reg_scan			PARAMS ((rtx, unsigned int, int));
 extern void reg_scan_update		PARAMS ((rtx, rtx, unsigned int));
 extern void fix_register		PARAMS ((const char *, int, int));
-
-extern int delete_null_pointer_checks	PARAMS ((rtx));
 
 /* In regmove.c */
 #ifdef BUFSIZ

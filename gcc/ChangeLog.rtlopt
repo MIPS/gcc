@@ -1,3 +1,80 @@
+2002-10-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+	* gcse-globals.h: New.
+	* gcse-utils.h: New.
+	* gcse-classic.c: New.
+	* gcse-hoist.c: New.
+	* gcse-pre.c: New.
+	* gcse-utils.c: New.
+	* gcse-cprop.c: New.
+	* gcse-null.c: New.
+	* gcse-store.c: New.
+	* toplev.c: Include gcse-globals.h.
+	* Makefile.in: Modified to reflect the split.
+	* rtl.h (gcse_main, delete_null_pointer_checks): Declaration moved to
+	gcse-globals.h.
+	* gcse.c (one_classic_gcse_pass, one_code_hoisting_pass,
+	one_cprop_pass, one_pre_gcse_pass, store_motion, struct reg_use,
+	struct expr, struct occr, struct hash_table, struct reg_avail_info,
+	struct reg_set, struct reg_set_table, struct ls_expr,
+	struct rd, struct ae, struct pre_global, struct classic_global,
+	struct hoist_global, struct store_global, struct cprop_global,
+	struct null_pointer_info, gcse_file, debug_stderr, gcse_obstack,
+	uid_cuid, max_uid, max_cuid, cuid_insn, max_gcse_regno,
+	reg_set_table, pre_ldst_mems, reg_set_bitmap, reg_set_in_block,
+	modify_mem_list, modify_mem_list_set, canon_modify_mem_list,
+	canon_modify_mem_list_set, bytes_used, gcse_subst_count,
+	gcse_create_count, const_prop_count, copy_prop_count):
+	Declarations moved to gcse-globals.h.
+	(gmalloc, grealloc, gcse_alloc, compute_hash_table, alloc_hash_table,
+	free_hash_table, dump_hash_table, lookup_expr, lookup_set,
+	next_set, want_to_gcse_p, record_last_mem_set_info,
+	compute_local_properties, reset_opr_set_tables, oprs_not_set_p,
+	mark_oprs_set, clear_modify_mem_tables, free_modify_mem_tables,
+	ldst_entry, free_ldst_mems, first_ls_expr, next_ls_expr,
+	free_ldst_entry, print_ldst_list, find_rtx_in_ldst,
+	enumerate_ldsts, alloc_reg_set_mem, free_reg_set_mem,
+	record_one_set, record_set_info, gcse_emit_move_after,
+	process_insert_insn, insert_insn_end_bb, insert_insn_start_bb,
+	expr_equiv_p, expr_killed_p): Declarations moved to gcse-utils.h,
+	definitions to gcse-utils.c.
+	(compute_can_copy, oprs_unchanged_p, oprs_anticipatable_p,
+	oprs_available_p, record_last_set_info, record_last_reg_set_info,
+	hash_scan_insn, hash_scan_set, hash_scan_clobber, hash_scan_call,
+	insert_expr_in_table, insert_set_in_table, hash_expr, hash_expr_1,
+	hash_string_1, hash_set, compute_hash_table_work, canon_list_insert,
+	mems_conflict_for_gcse_p, load_killed_in_block_p, compute_transp,
+	mark_call, mark_set, mark_clobber, free_insn_expr_list_list,
+	add_label_notes): Moved to gcse-utils.c.
+	(alloc_rd_mem, free_rd_mem, handle_rd_kill_set, compute_kill_rd,
+	compute_rd, alloc_avail_expr_mem, free_avail_expr_mem, compute_ae_gen,
+	compute_ae_kill, expr_reaches_here_p_work, expr_reaches_here_p,
+	computing_insn, def_reaches_here_p, can_disregard_other_sets,
+	handle_avail_expr, classic_gcse, one_classic_gcse_pass): Moved to
+	gcse-classic.c.
+	(alloc_cprop_mem, free_cprop_mem, cprop_jump, cprop_insn,
+	compute_cprop_data, find_used_regs, try_replace_reg, find_avail_set,
+	constprop_register, find_bypass_set, bypass_block,
+	bypass_conditional_jumps, do_local_cprop, adjust_libcall_notes,
+	local_cprop_pass, cprop, one_cprop_pass): Moved to gcse-cprop.c
+	(compute_transpout, alloc_code_hoist_mem, free_code_hoist_mem,
+	compute_code_hoist_vbeinout, compute_code_hoist_data,
+	hoist_expr_reaches_here_p, hoist_code, one_code_hoisting_pass):
+	Moved to gcse-hoist.c.
+	(alloc_pre_mem, free_pre_mem, compute_pre_data,
+	pre_expr_reaches_here_p_work, pre_expr_reaches_here_p,
+	pre_insert_copy_insn, pre_insert_copies, pre_delete, pre_edge_insert,
+	simple_mem, invalidate_any_buried_refs, compute_ld_motion_mems,
+	trim_ld_motion_mems, update_ld_motion_stores, pre_gcse,
+	one_pre_gcse_pass): Moved to gcse-pre.c.
+	(reg_set_info, store_ops_ok, find_moveable_store, compute_store_table,
+	load_kills_store, find_loads, store_killed_in_insn, store_killed_after,
+	store_killed_before, build_store_vectors, insert_store,
+	replace_store_insn, delete_store, free_store_memory, store_motion):
+	Moved to gcse-store.c.
+	(get_bitmap_width, invalidate_nonnull_info,
+	delete_null_pointer_checks_1, delete_null_pointer_checks): Moved to
+	gcse-null.c.
+
 2002-09-22  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
         * gcse.c (run_jump_opt_after_gcse, can_copy_p, can_copy_init_p,

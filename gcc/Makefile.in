@@ -737,9 +737,10 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
  cfgrtl.o combine.o conflict.o convert.o cse.o cselib.o dbxout.o	   \
  debug.o dependence.o df.o diagnostic.o doloop.o dominance.o		   \
- dwarf2asm.o dwarf2out.o dwarfout.o emit-rtl.o except.o explow.o	   \
- expmed.o expr.o final.o flow.o fold-const.o function.o gcse.o		   \
- genrtl.o ggc-common.o global.o graph.o gtype-desc.o			   \
+ dwarf2asm.o dwarf2out.o dwarfout.o emit-rtl.o except.o explow.o expmed.o  \
+ expr.o final.o flow.o fold-const.o function.o gcse.o gcse-utils.o	   \
+ gcse-classic.o gcse-hoist.o gcse-cprop.o gcse-pre.o gcse-store.o	   \
+ gcse-null.o genrtl.o ggc-common.o global.o graph.o gtype-desc.o	   \
  haifa-sched.o hashtable.o hooks.o ifcvt.o insn-attrtab.o insn-emit.o	   \
  insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	   \
  integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o	   \
@@ -1396,7 +1397,7 @@ toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) function.h \
    dwarf2out.h sdbout.h dbxout.h $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) \
    graph.h $(LOOP_H) except.h $(REGS_H) $(TIMEVAR_H) $(lang_options_files) \
    ssa.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) \
-   langhooks.h insn-flags.h options.h cfglayout.h
+   langhooks.h insn-flags.h options.h cfglayout.h gcse-globals.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  -DTARGET_NAME=\"$(target_alias)\" \
 	  -c $(srcdir)/toplev.c $(OUTPUT_OPTION)
@@ -1500,7 +1501,36 @@ cse.o : cse.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) hard-reg-set.h flags.h 
    $(BASIC_BLOCK_H) $(GGC_H) $(TM_P_H) $(TIMEVAR_H)
 gcse.o : gcse.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) hard-reg-set.h \
    flags.h real.h insn-config.h ggc.h $(RECOG_H) $(EXPR_H) $(BASIC_BLOCK_H) \
-   function.h output.h toplev.h $(TM_P_H) $(PARAMS_H) except.h gt-gcse.h
+   function.h output.h toplev.h $(TM_P_H) $(PARAMS_H) except.h \
+   gcse-globals.h gcse-utils.h
+gcse-utils.o : gcse-utils.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) \
+   hard-reg-set.h flags.h real.h insn-config.h ggc.h $(RECOG_H) $(EXPR_H) \
+   $(BASIC_BLOCK_H) function.h output.h toplev.h $(TM_P_H) $(PARAMS_H) \
+   except.h gcse-globals.h gcse-utils.h gt-gcse-utils.h
+gcse-classic.o : gcse-classic.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) \
+   hard-reg-set.h flags.h real.h insn-config.h ggc.h $(RECOG_H) $(EXPR_H) \
+   $(BASIC_BLOCK_H) function.h output.h toplev.h $(TM_P_H) $(PARAMS_H) \
+   except.h gcse-globals.h gcse-utils.h
+gcse-hoist.o : gcse-hoist.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) \
+   hard-reg-set.h flags.h real.h insn-config.h ggc.h $(RECOG_H) $(EXPR_H) \
+   $(BASIC_BLOCK_H) function.h output.h toplev.h $(TM_P_H) $(PARAMS_H) \
+   except.h gcse-globals.h gcse-utils.h
+gcse-cprop.o : gcse-cprop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) \
+   hard-reg-set.h flags.h real.h insn-config.h ggc.h $(RECOG_H) $(EXPR_H) \
+   $(BASIC_BLOCK_H) function.h output.h toplev.h $(TM_P_H) $(PARAMS_H) \
+   except.h gcse-globals.h gcse-utils.h
+gcse-null.o : gcse-null.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) \
+   hard-reg-set.h flags.h real.h insn-config.h ggc.h $(RECOG_H) $(EXPR_H) \
+   $(BASIC_BLOCK_H) function.h output.h toplev.h $(TM_P_H) $(PARAMS_H) \
+   except.h gcse-globals.h gcse-utils.h
+gcse-pre.o : gcse-pre.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) \
+   hard-reg-set.h flags.h real.h insn-config.h ggc.h $(RECOG_H) $(EXPR_H) \
+   $(BASIC_BLOCK_H) function.h output.h toplev.h $(TM_P_H) $(PARAMS_H) \
+   except.h gcse-globals.h gcse-utils.h
+gcse-store.o : gcse-store.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) \
+   hard-reg-set.h flags.h real.h insn-config.h ggc.h $(RECOG_H) $(EXPR_H) \
+   $(BASIC_BLOCK_H) function.h output.h toplev.h $(TM_P_H) $(PARAMS_H) \
+   except.h gcse-globals.h gcse-utils.h
 sibcall.o : sibcall.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) function.h \
    hard-reg-set.h flags.h insn-config.h $(RECOG_H) $(BASIC_BLOCK_H)
 resource.o : resource.c $(CONFIG_H) $(RTL_H) hard-reg-set.h $(SYSTEM_H) \
@@ -1858,8 +1888,8 @@ GTFILES = $(GCONFIG_H) $(srcdir)/location.h \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c \
   $(srcdir)/dependence.c $(srcdir)/dwarf2out.c $(srcdir)/emit-rtl.c \
   $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
-  $(srcdir)/fold-const.c $(srcdir)/function.c \
-  $(srcdir)/gcse.c $(srcdir)/integrate.c $(srcdir)/lists.c $(srcdir)/optabs.c \
+  $(srcdir)/fold-const.c $(srcdir)/function.c $(srcdir)/gcse-utils.c \
+  $(srcdir)/integrate.c $(srcdir)/lists.c $(srcdir)/optabs.c \
   $(srcdir)/profile.c $(srcdir)/ra-build.c $(srcdir)/regclass.c \
   $(srcdir)/reg-stack.c \
   $(srcdir)/sdbout.c $(srcdir)/stmt.c $(srcdir)/stor-layout.c \
@@ -1875,11 +1905,11 @@ GTFILES_SRCDIR = @srcdir@
 gtype-desc.h gtype-desc.c gt-except.h gt-function.h : s-gtype; @true
 gt-integrate.h gt-stmt.h gt-tree.h gt-varasm.h gt-emit-rtl.h : s-gtype; @true
 gt-explow.h gt-stor-layout.h gt-regclass.h gt-lists.h : s-gtype; @true
-gt-alias.h gt-cselib.h gt-fold-const.h gt-gcse.h gt-profile.h : s-gtype; @true
+gt-alias.h gt-cselib.h gt-fold-const.h gt-profile.h : s-gtype; @true
 gt-expr.h gt-sdbout.h gt-optabs.h gt-bitmap.h gt-dwarf2out.h : s-gtype ; @true
 gt-ra-build.h gt-reg-stack.h gt-dependence.h : s-gtype ; @true
 gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h : s-gtype; @true
-gt-c-objc-common.h gtype-c.h gt-location.h : s-gtype ; @true
+gt-c-objc-common.h gtype-c.h gt-location.h gt-gcse-utils.h : s-gtype ; @true
 
 gtyp-gen.h: Makefile
 	echo "/* This file is machine generated.  Do not edit.  */" > tmp-gtyp.h
