@@ -949,6 +949,7 @@ struct tree_block
 #define TYPE_PRECISION(NODE) (TYPE_CHECK (NODE)->type.precision)
 #define TYPE_SYMTAB_ADDRESS(NODE) (TYPE_CHECK (NODE)->type.symtab.address)
 #define TYPE_SYMTAB_POINTER(NODE) (TYPE_CHECK (NODE)->type.symtab.pointer)
+#define TYPE_SYMTAB_DIE(NODE) (TYPE_CHECK (NODE)->type.symtab.die)
 #define TYPE_NAME(NODE) (TYPE_CHECK (NODE)->type.name)
 #define TYPE_NEXT_VARIANT(NODE) (TYPE_CHECK (NODE)->type.next_variant)
 #define TYPE_MAIN_VARIANT(NODE) (TYPE_CHECK (NODE)->type.main_variant)
@@ -1186,6 +1187,8 @@ struct tree_block
 #define MAX_POINTER_DEPTH 2
 #define VA_LIST_POINTER_DEPTH 3
 
+struct die_struct;
+
 struct tree_type
 {
   struct tree_common common;
@@ -1218,7 +1221,11 @@ struct tree_type
   unsigned int align;
   tree pointer_to;
   tree reference_to;
-  union {int address; char *pointer; } symtab;
+  union tree_type_symtab {
+    int address; 
+    char *pointer;
+    struct die_struct *die;
+  } symtab;
   tree name;
   tree minval;
   tree maxval;

@@ -5107,7 +5107,7 @@ lookup_type_die (type)
   if (TREE_CODE (type) == VECTOR_TYPE)
     type = TYPE_DEBUG_REPRESENTATION_TYPE (type);
 
-  return (dw_die_ref) TYPE_SYMTAB_POINTER (type);
+  return TYPE_SYMTAB_DIE (type);
 }
 
 /* Equate a DIE to a given type specifier.  */
@@ -5117,7 +5117,7 @@ equate_type_number_to_die (type, type_die)
      tree type;
      dw_die_ref type_die;
 {
-  TYPE_SYMTAB_POINTER (type) = (char *) type_die;
+  TYPE_SYMTAB_DIE (type) = type_die;
 }
 
 /* Return the DIE associated with a given declaration.  */

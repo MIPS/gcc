@@ -1,5 +1,12 @@
 2002-02-13  Geoffrey Keating  <geoffk@redhat.com>
 
+	* dwarf2out.c (lookup_type_die): Use TYPE_SYMTAB_DIE.
+	(equate_type_number_to_die): Likewise.
+	* tree.h (TYPE_SYMTAB_DIE): New macro.
+	(struct die_struct): Predeclare.
+	(struct tree_type): Add field symtab.die.   Add a tag
+	to the union type of field symtab.
+
 	* varray.h (VARRAY_RTVEC_INIT): A varray of rtvec contains
 	'struct rtvec_def *', not 'struct rtvec_def'.
 
