@@ -269,15 +269,16 @@ calculate_G_format (fnode *f, double value, int len, int *num_blank)
 static void
 output_float (fnode *f, double value, int len)
 {
-  int w, d, e;
+  int w, d, e, e_new;
   int digits;
   int nsign, nblank, nesign;
   int sca, neval, itmp;
   char *p;
-  const char *q, *intstr;
+  const char *q, *intstr, *base;
   double n;
   format_token ft;
   char exp_char = 'E';
+  int with_exp = 1;
   int scale_flag = 1 ;
   double minv = 0.0, maxv = 0.0;
   sign_t sign = SIGN_NONE, esign = SIGN_NONE;
@@ -300,7 +301,7 @@ output_float (fnode *f, double value, int len)
   if (n < 0)
     n = -n;
 
-  nsign = sign == SIGN_NONE ? 0 : 1;
+  nsign = (sign == SIGN_NONE ? 0 : 1);
 
   digits = 0;
   if (ft != FMT_F)
@@ -362,21 +363,6 @@ output_float (fnode *f, double value, int len)
      }
   if (ft != FMT_F)
     {
-      j = neval;
-      if (e <= 0)
-        {
-          while (j > 0)
-            {
-              j = j / 10;
-              e ++ ;
-            }
-         if (e <= 0)
-           e = 2;
-       }
-
-     if (e < digits)
-       e = digits ;
-
      if (neval >= 0)
        esign = SIGN_PLUS;
      else
@@ -385,9 +371,22 @@ output_float (fnode *f, double value, int len)
          neval = - neval ;
        }
 
-     nesign =  1 ;
+      e_new = 0;
+      j = neval;
+      while (j > 0)
+        {
+           j = j / 10;
+           e_new ++ ;
+        }
+      if (e <= e_new)
+         e = e_new;
+
+     if (e < digits)
+       e = digits ;
+
+     nesign =  1 ;  /* position for exp_char */
      if (e > 0)
-       nesign = e + nesign ;
+       nesign = e + nesign + (esign != SIGN_NONE ? 1 : 0);
    }
 
   intval = n;
@@ -405,7 +404,16 @@ output_float (fnode *f, double value, int len)
   if (p == NULL)
     return;
 
-  nblank = w - (nsign + intlen + d + nesign + (ft == FMT_F ? 0 : 1) );
+  base = p;
+
+  nblank = w - (nsign + intlen + d + nesign);
+  if (nblank == -1 && ft != FMT_F)
+     {
+       with_exp = 0;
+       nesign -= 1;
+       nblank = w - (nsign + intlen + d + nesign);
+     }
+
   if (nblank < 0)
     {
       star_fill (p, w);
@@ -431,7 +439,8 @@ output_float (fnode *f, double value, int len)
 
   if (e > 0 && nesign > 0)
     {
-      *p++ = exp_char;
+      if (with_exp)
+         *p++ = exp_char;
       switch (esign)
         {
         case SIGN_PLUS:
@@ -445,6 +454,7 @@ output_float (fnode *f, double value, int len)
         }
       q = itoa (neval);
       digits = strlen (q);
+
       for (itmp = 0; itmp < e - digits; itmp++)
         *p++ = '0';
       memcpy (p, q, digits);
@@ -462,20 +472,35 @@ static void
 write_float (fnode *f, const char *source, int len)
 {
   double n;
-  int nb =0 ;
-  char * p;
+  int nb =0, res;
+  char * p, fin;
   fnode *f2 = NULL;
 
   n = extract_real (source, len);
 
   if (f->format != FMT_B && f->format != FMT_O && f->format != FMT_Z)
    {
-     if (isinf (n))
+     res = finite (n);
+     if (res == 0)
        {
          nb =  f->u.real.w;
+         if (nb <= 4)
+            nb = 4;
          p = write_block (nb);
          memset (p, ' ' , 1);
-         memset (p+1, '+' , nb-1);
+         
+         res = isinf (n);
+         if (res != 0)
+         {
+            if (res > 0)
+               fin = '+';
+            else
+               fin = '-';
+         
+             memset (p + 1, fin, nb - 1);
+          }
+         else
+             sprintf(p + 1, "NaN");
          return;
        }
    }
