@@ -1,3 +1,11 @@
+2004-01-12  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tree-ssa/20030808-1.c: Fix dump option.
+	* gcc.dg/tree-ssa/20031015-1.c: Update dump name.
+	* gcc.dg/tree-ssa/tailcall-1.c, gcc.dg/tree-ssa/tailrecursion-1.c,
+	gcc.dg/tree-ssa/tailrecursion-2.c, gcc.dg/tree-ssa/tailrecursion-3.c,
+	gcc.dg/tree-ssa/tailrecursion-4.c: Likewise.
+
 2004-01-11  Paul Brook  <paul@codesourcery.com>
 
 	* gfortran.fortran-torture/execute/emptyif.f90: New test.
