@@ -7300,6 +7300,8 @@ perform_loop_transpose (tree *tp, int *walk_subtrees,
       tree allloops_stmt;
       tree outloopafter;
       tree outloopbefore;
+      tree save_chain = NULL_TREE;
+      
       allloops_stmt = build_stmt (COMPOUND_STMT, NULL_TREE);
       outloopbefore = build_stmt (FOR_STMT, outer_init,
 				  TREE_OPERAND (outer_loop, 1),
@@ -7325,7 +7327,14 @@ perform_loop_transpose (tree *tp, int *walk_subtrees,
 	 before_inner_loop if it is a scope statement */
       if (before_inner_loop != NULL_TREE
 	  && TREE_CODE (before_inner_loop) == SCOPE_STMT)
-	before_inner_loop = TREE_CHAIN (before_inner_loop);
+	{
+	  if (right_before_inner_loop)
+	    {
+	      save_chain = TREE_CHAIN (right_before_inner_loop);
+	      TREE_CHAIN (right_before_inner_loop) = NULL_TREE;
+	    }
+	  before_inner_loop = TREE_CHAIN (before_inner_loop);
+	}
       
       /* Are there statements before the inner loop? */
       if (before_inner_loop != NULL_TREE)
@@ -7335,19 +7344,28 @@ perform_loop_transpose (tree *tp, int *walk_subtrees,
 	  beforeloopbody = build_stmt (COMPOUND_STMT, NULL_TREE);
 	  COMPOUND_BODY (beforeloopbody) = before_inner_loop;
 	  FOR_BODY (outloopbefore) = beforeloopbody;
+	  
 	  /* If the outer loop body depends on the inner variable we can't do
 	     the transposition. */
 	  if (tree_contains (outloopbefore, inner_var))
-	    return NULL_TREE;
+	    {
+	      if (right_before_inner_loop)
+		TREE_CHAIN (right_before_inner_loop) = save_chain;
+	      return NULL_TREE;
+	    }
 
 	  for (find = already_modified; find != NULL_TREE;
 	      find = TREE_CHAIN (find))
 	    {
 	      tree temp3 = TREE_VALUE(find);
 	      if (tree_contains(outloopbefore, temp3))
-		/* We cannot do the transposition because there is a reference
-		   to something modified in the outer loop. */
-		return NULL_TREE;
+		{
+		  /* We cannot do the transposition because there is a reference
+		     to something modified in the outer loop. */
+		  if (right_before_inner_loop)
+		    TREE_CHAIN (right_before_inner_loop) = save_chain;
+		  return NULL_TREE;
+		}
 	    }
 	  /* If the new before loop body is independent
 	     of the outer variable, remove the loop 
@@ -7401,6 +7419,8 @@ perform_loop_transpose (tree *tp, int *walk_subtrees,
 	      variable, we cannot do the transposition. */
 	   if (tree_contains (afterloopbody, inner_var))
 	     {
+	       if (right_before_inner_loop)
+		 TREE_CHAIN (right_before_inner_loop) = save_chain;
 	       if (save_scope_spot)
 		 *save_scope_spot = saved_scope;
 	       return NULL_TREE;
@@ -7419,6 +7439,8 @@ perform_loop_transpose (tree *tp, int *walk_subtrees,
 		  transposition. */
 	       if (tree_contains(afterloopbody, temp3))
 		 {
+		   if (right_before_inner_loop)
+		     TREE_CHAIN (right_before_inner_loop) = save_chain;
 		   if (save_scope_spot)
 		     *save_scope_spot = saved_scope;
 		   return NULL_TREE;

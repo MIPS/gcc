@@ -1,3 +1,7 @@
+2006-06-29  Aandrew Pinski  <apinski@apple.com>
+
+	* testsuite/gcc.apple/loop-transpose-1.c: New test.
+
 2004-06-29  Dorit Naishlos <dorit@il.ibm.com>
 
 	* gcc.dg/tree-ssa-vect/tree-ssa-vect-4*.c: Abort instead of print.

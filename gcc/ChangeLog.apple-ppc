@@ -1,3 +1,8 @@
+2004-06-29  Andrew Pinski  <apinski@apple.com>
+
+	* c-decl.c (perform_loop_transpose): Save chain of right_before_inner_loop
+	and set to NULL.  Restore the chain before rejecting the loop.
+
 2004-06-29  Dorit Naishlos <dorit@il.ibm.com>
 
 	* tree-vectorizer.c (vect_create_data_ref) INDIRECT_REF check moved to 
