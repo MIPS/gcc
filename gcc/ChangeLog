@@ -1,3 +1,7 @@
+Thu Oct 31 16:22:31 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (negdf2_ifs_rex64): Don't allow GPR operand.
+
 2002-10-30  Zack Weinberg  <zack@codesourcery.com>
 
 	* gthr.h, gthr-dce.h, gthr-posix.h, gthr-rtems.h,
