@@ -3033,6 +3033,8 @@ because that scope has been reached. Only dump such items when they
 are directly reachable by some other path.
 @item refs
 Print the list of references made to each variable in the program.
+@item rdefs
+Print the list of reaching definitions for each variable used in the program.
 @item all
 Turn on all options.
 @end table

@@ -84,9 +84,10 @@ static void create_bb_ann PARAMS ((basic_block));
 
 static void insert_before_ctrl_stmt PARAMS ((tree, tree, basic_block));
 static void insert_before_normal_stmt PARAMS ((tree, tree, basic_block));
-static void insert_after_ctrl_stmt PARAMS ((tree, tree, basic_block));
+static void insert_after_ctrl_stmt PARAMS ((tree, basic_block));
 static void insert_after_normal_stmt PARAMS ((tree, tree, basic_block));
 static void insert_after_loop_body PARAMS ((tree, basic_block));
+
 
 /* Create basic blocks.  */
 
@@ -225,6 +226,11 @@ make_blocks (t, control_parent, compound_stmt, prev_chain_p)
 	{
 	  prev_chain_p = &(TREE_CHAIN (t));
 	  t = TREE_CHAIN (t);
+
+	  /* If the statement ends a scope, pop the top element from the
+	     scope bindings stack.  */
+	  if (t && TREE_CODE (t) == SCOPE_STMT && SCOPE_END_P (t))
+	    VARRAY_POP (binding_stack);
 	}
     }
 }
@@ -445,8 +451,8 @@ create_bb (head, end, control_parent, prev_chain_p)
   bb = (basic_block) ggc_alloc (sizeof (*bb));
   memset (bb, 0, sizeof (*bb));
 
-  /* Initialize the binding stack with the first block.  */
-  if (n_basic_blocks == 0)
+  /* If this block starts a new scope, push it into the stack of bindings.  */
+  if (TREE_CODE (head) == SCOPE_STMT && SCOPE_BEGIN_P (head))
     VARRAY_PUSH_BB (binding_stack, bb);
 
   bb->head_tree = head;
@@ -455,14 +461,6 @@ create_bb (head, end, control_parent, prev_chain_p)
   get_bb_ann (bb)->parent = control_parent;
   get_bb_ann (bb)->prev_chain_p = prev_chain_p;
   get_bb_ann (bb)->binding_scope = VARRAY_TOP_BB (binding_stack);
-
-  /* If this block starts a new scope, push it into the stack of bindings.  */
-  if (TREE_CODE (bb->head_tree) == SCOPE_STMT && SCOPE_BEGIN_P (bb->head_tree))
-    VARRAY_PUSH_BB (binding_stack, bb);
-
-  /* If the block ends a scope, pop it from the stack.  */
-  if (TREE_CODE (bb->end_tree) == SCOPE_STMT && SCOPE_END_P (bb->end_tree))
-    VARRAY_POP (binding_stack);
 
   /* Grow the basic block array if needed.  */
   if ((size_t) n_basic_blocks == VARRAY_SIZE (basic_block_info))
@@ -1892,7 +1890,7 @@ insert_stmt_tree_after (stmt, where, bb)
   cfg_dump_file = dump_begin (TDI_cfg, &cfg_dump_flags);
 
   if (bb->flags & BB_CONTROL_EXPR)
-    insert_after_ctrl_stmt (stmt, where, bb);
+    insert_after_ctrl_stmt (stmt, bb);
   else
     insert_after_normal_stmt (stmt, where, bb);
 
@@ -1908,9 +1906,8 @@ insert_stmt_tree_after (stmt, where, bb)
    statement header blocks.  */
 
 static void
-insert_after_ctrl_stmt (stmt, where, bb)
+insert_after_ctrl_stmt (stmt, bb)
      tree stmt;
-     tree where;
      basic_block bb;
 {
   basic_block parent_bb;
@@ -2369,7 +2366,6 @@ tree_dump_bb (outf, prefix, bb, indent)
     fprintf (outf, "%d\n", BB_BINDING_SCOPE (bb)->index);
   else
     fputs ("nil\n", outf);
-
 
   fprintf (outf, "%s%sLoop depth: %d\n", s_indent, prefix, bb->loop_depth);
 }

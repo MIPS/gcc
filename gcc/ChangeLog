@@ -1,3 +1,16 @@
+2001-09-30  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (insert_after_ctrl_stmt): Remove unused argument.
+	(make_blocks): Pop top element from scope binding stack when an end
+	of scope statement is found.
+	(create_bb): Remove code for popping top element from scope binding
+	stack.
+	Do not push basic block 0 to initialize scope binding stack.
+	(insert_stmt_tree_after): Remove unused argument from call to
+	insert_after_ctrl_stmt.
+	(tree_dump_bb):
+	* doc/invoke.texi: Document debugging option -ftree-dump-ssa-rdefs.
+
 2001-09-29  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (tree-ssa.o): Update dependencies.
