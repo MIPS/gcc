@@ -1,3 +1,43 @@
+1999-07-25  Richard Henderson  <rth@cygnus.com>
+
+	* com.c (ptr_type_node, va_list_type_node): New.
+	(ffecom_init_0): Init and use ptr_type_node.
+
+1999-07-17  Alexandre Oliva  <oliva@dcc.unicamp.br>
+        
+	* root.texi: Update e-mail addresses to gcc.gnu.org.
+	* g77spec.c (lang_specific_driver): Updated URL with bug reporting 
+	instructions to gcc.gnu.org.  Removed e-mail address.
+
+Sat Jul 17 11:28:43 1999  Craig Burley  <craig@jcb-sc.com>
+
+	* root.texi, g77install.texi: Switchover to GCC terminology.
+	Also, FSF-G77 had been mistakenly set at some point.
+
+Thu Jul  8 15:38:50 1999  Craig Burley  <craig@jcb-sc.com>
+
+	* news.texi: Describe DATE intrinsic fix.
+
+Mon Jun 28 21:44:19 1999  Craig Burley  <craig@jcb-sc.com>
+
+	* version.c: Denote experimental version.
+
+Mon Jun 28 10:43:11 1999  Craig Burley  <craig@jcb-sc.com>
+
+	* com.c (ffecom_prepare_expr_): A COMPLEX intrinsic needs
+	a temp even if -fno-f2c.
+
+	* version.c: Bump version.
+
+Mon Jun 28 21:31:35 1999  Craig Burley  <craig@jcb-sc.com>
+
+	* bugs.texi, news.texi: Doc upgrade to netlib libf2c as of today.
+	Explain that this fixes the NAMELIST-read bug.
+
+Fri Jun 25 11:06:32 1999  Craig Burley  <craig@jcb-sc.com>
+
+	* bugs.texi: Describe K(5)=10*3 NAMELIST-read bug.
+
 Mon Jun 21 12:40:17 1999  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* g77.texi: Update links.

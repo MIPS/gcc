@@ -127,24 +127,6 @@ override_options ()
     m68k_align_funcs = def_align;
 }
 
-/* Emit a (use pic_offset_table_rtx) if we used PIC relocation in the 
-   function at any time during the compilation process.  In the future 
-   we should try and eliminate the USE if we can easily determine that 
-   all PIC references were deleted from the current function.  That would 
-   save an address register */
-   
-void
-finalize_pic ()
-{
-  if (flag_pic && current_function_uses_pic_offset_table)
-    {
-      rtx insn = gen_rtx_USE (VOIDmode, pic_offset_table_rtx);
-      emit_insn_after (insn, get_insns ());
-      emit_insn (insn);
-    }
-}
-
-
 /* This function generates the assembly code for function entry.
    STREAM is a stdio stream to output the code to.
    SIZE is an int: how many units of temporary storage to allocate.
@@ -375,6 +357,11 @@ output_function_prologue (stream, size)
       mask &= ~ (1 << (15 - FRAME_POINTER_REGNUM));
       num_saved_regs--;
     }
+  if (flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
+    {
+      mask |= 1 << (15 - PIC_OFFSET_TABLE_REGNUM);
+      num_saved_regs++;
+    }
 
 #if NEED_PROBE
 #ifdef MOTOROLA
@@ -582,6 +569,11 @@ output_function_epilogue (stream, size)
         nregs++;
 	mask |= 1 << regno;
       }
+  if (flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
+    {
+      nregs++;
+      mask |= 1 << PIC_OFFSET_TABLE_REGNUM;
+    }
   offset = foffset + nregs * 4;
   /* FIXME : leaf_function_p below is too strong.
      What we really need to know there is if there could be pending

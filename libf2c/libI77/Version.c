@@ -1,9 +1,9 @@
-static char junk[] = "\n@(#) LIBI77 VERSION pjw,dmg-mods 19990618\n";
+static char junk[] = "\n@(#) LIBI77 VERSION pjw,dmg-mods 19990627\n";
 
 /*
 */
 
-char __G77_LIBI77_VERSION__[] = "0.5.25 19990616 (prerelease)";
+char __G77_LIBI77_VERSION__[] = "0.5.25 19990730 (prerelease)";
 
 /*
 2.01	$ format added
@@ -302,6 +302,9 @@ wrtfmt.c:
 		 by formats Inn or Lnn with nn > 83. */
 /* 3 May 1999:	open.c: insert two casts for machines with 64-bit longs. */
 /* 18 June 1999: backspace.c: allow for b->ufd changing in t_runc */
+/* 27 June 1999: rsne.c: fix bug in namelist input: a misplaced increment */
+/*		 could cause wrong array elements to be assigned; e.g.,	*/
+/*		 "&input k(5)=10*1 &end" assigned k(5) and k(15..23)	*/
 
 
 

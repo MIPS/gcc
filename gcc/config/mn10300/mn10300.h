@@ -472,7 +472,6 @@ extern struct rtx_def *function_arg ();
 
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
   function_arg_partial_nregs (&CUM, MODE, TYPE, NAMED)
-
 
 #define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED)		\
   ((TYPE) && int_size_in_bytes (TYPE) > 8)
@@ -570,7 +569,17 @@ extern struct rtx_def *function_arg ();
    _builtin_saveregs, so we must make this explicit.  */
 
 extern struct rtx_def *mn10300_builtin_saveregs ();
-#define EXPAND_BUILTIN_SAVEREGS(ARGLIST) mn10300_builtin_saveregs (ARGLIST)
+#define EXPAND_BUILTIN_SAVEREGS() mn10300_builtin_saveregs ()
+
+/* Implement `va_start' for varargs and stdarg.  */
+extern void mn10300_va_start();
+#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
+  mn10300_va_start (stdarg, valist, nextarg)
+
+/* Implement `va_arg'.  */
+extern struct rtx_def *mn10300_va_arg();
+#define EXPAND_BUILTIN_VA_ARG(valist, type) \
+  mn10300_va_arg (valist, type)
 
 /* Addressing modes, and classification of registers for them.  */
 

@@ -1,3 +1,161 @@
+1999-07-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* expr.c (build_java_soft_divmod): Provide a default case in switch.
+	(java_lang_expand_expr): Mark parameters `target', `tmode' and
+	`modifier' with ATTRIBUTE_UNUSED.
+
+	* gjavah.c (process_file): Add braces around ambiguous `else'.
+
+	* jcf-dump.c (print_access_flags, localvar_free): Change return
+	type to void.
+
+	* parse.y (java_complete_expand_method): Initialize variable
+	`exception_copy'.
+	(resolve_qualified_expression_name): Likewise for `field_decl'.
+	(patch_method_invocation): Likewise for `class_to_search'.
+	(qualify_ambiguous_name): Likewise for `name' and `ptr_type'.
+	(patch_assignment): Likewise for `lhs_type'.
+
+	* verify.c (verify_jvm_instructions): Remove unused variable
+	`caller'.
+
+1999-07-25  Richard Henderson  <rth@cygnus.com>
+
+	* decl.c (va_list_type_node): New.
+
+1999-07-25  Anthony Green  <green@cygnus.com>
+
+	* gjavah.c (print_stub): New function.
+	(METHOD_IS_NATIVE): New macro.
+	(print_mangled_classname): Make static.
+	(HANDLE_END_FIELD): Don't emit fields during stub generation.
+	(process_file): Perform stub generation.
+	(HANDLE_METHOD): Don't emit class decls during stub
+	generation.
+	(HANDLE_END_METHOD): Take into account stub generation.
+	(print_method_info): Handle stub generation.
+	(print_stub): New function.
+	(print_cxx_classname): Make signature consistant with others.
+	(help): Describe -stubs option.
+	(main): Create stub file.
+	(version): Use version.c.
+	(print_full_cxx_name): New function.
+	(print_c_decl): Use print_full_cxx_name.
+
+Thu Jul 22 12:41:12 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* check-init.c (check_init): Handle MAX_EXPR.
+
+1999-07-15  Andrew Haley  <aph@cygnus.com>
+
+        * lang.c (flag_use_divide_subroutine): New variable.
+        * typeck.c: (convert_ieee_real_to_integer): Bounds check
+        fp-to-integer conversion.
+        (convert): Call convert_ieee_real_to_integer when flag_fast_math
+        is not set.
+
+        * expr.c (build_java_soft_divmod): New function.
+        (build_java_binop): Call build_java_soft_divmod if
+        flag_use_divide_subroutine is set.
+        * decl.c: soft_idiv_node, soft_irem_node, soft_ldiv_node, tree
+        soft_lrem_node: new builtin functions.
+        (init_decl_processing) Initialize the new builtins.
+        * java-tree.h soft_idiv_node, soft_irem_node, soft_ldiv_node, tree
+        soft_lrem_node: new builtin functions.
+        (build_java_soft_divmod): New function.
+        * parse.y: Call build_java_soft_divmod if
+        flag_use_divide_subroutine is set.
+        * parse.c: Rebuilt.
+
+        * jvspec.c (lang_specific_driver): Always allow an extra arg (for
+        a --specs= arg) even if not linking.
+        * lang-options.h (DEFINE_LANG_NAME ("Java")): Add
+        -fuse-divide-subroutine
+
+Tue Jul 20 13:20:05 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (resolve_and_layout): Check methods only once.
+	(resolve_qualified_expression_name): Verify thrown exceptions
+ 	compatibility.
+	(check_thrown_exceptions): Reject exceptions thrown in
+ 	initializer. Error message tuned.
+	
+1999-07-14  Andrew Haley  <aph@cygnus.com>
+
+        * expr.c (expand_expr): Do not return the last statement in a
+        block as the block's value.
+
+Sat Jul  3 22:26:32 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* expr.c (force_evaluation_order): Save the COMPOUND_EXPR'ed
+ 	CALL_EXPR, to avoid order of evaluation changes.
+
+Fri Jul  2 17:44:08 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (qualify_ambiguous_name): Do not use
+ 	IDENTIFIER_LOCAL_VALUE when name is a STRING_CST.
+
+Thu Jul  1 23:31:16 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* check-init.c (check_init): Handle MAX_EXPR.
+	* expr.c (force_evaluation_order): Force method call arguments to
+ 	be evaluated in left-to-right order.
+	* parse.y (qualify_ambiguous_name): Loop again to qualify
+ 	NEW_ARRAY_EXPR properly.
+
+Wed Jun 30 17:27:58 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (patch_invoke): Resolve unresolved invoked method
+ 	returned type.
+	(qualify_ambiguous_name): STRING_CST to qualify expression for
+ 	type name resolution.
+
+1999-06-24  Andrew Haley  <aph@cygnus.com>
+
+	* class.c (finish_class): Whenever a deferred method is
+	output, rescan the list of methods to see if a new candidate for
+	output can be found.
+
+1999-06-28  Tom Tromey  <tromey@cygnus.com>
+
+	* jvspec.c (lang_specific_driver): Recognize --help.
+
+Fri Jun 25 13:35:19 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (resolve_package): Fixed bogus return statement.
+	(patch_method_invocation): Resolve method invocation beginning with
+ 	a package name qualifier.
+
+1999-06-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Make-lang.in (java.stage1): Depend on stage1-start.
+	(java.stage2): Likewise for stage2-start.
+	(java.stage3): Likewise for stage3-start.
+	(java.stage4): Likewise for stage4-start.
+
+Thu Jun 24 13:12:15 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (java_complete_lhs): When doing cross referencing, don't
+ 	try to keep file location on a WFL expanded as a CALL_EXPR.
+
+Wed Jun 23 14:37:15 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (finish_method_declaration): Insert a RETURN_EXPR when
+ 	compiling to class file a void method with an empty method body.
+  	As a side effect, the bytecode backend will generate the
+ 	appropriate `return' instruction.
+	
+Tue Jun 22 20:43:49 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (lookup_package_type_and_set_next): New function prototype.
+	(resolve_package): Search current and imported packages.
+	(lookup_package_type_and_set_next): New function.
+
+1999-06-22  Andrew Haley  <aph@cygnus.com>
+
+	* verify.c (verify_jvm_instructions): Check for pending blocks
+	before invalid PC test and opcode switch, not after.
+
 1999-06-21  Andrew Haley  <aph@cygnus.com>
 
         * except.c (find_handler_in_range): The upper limit for exception

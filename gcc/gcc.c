@@ -694,7 +694,7 @@ static struct compiler default_compilers[] =
    {"%{!M:%{!MM:%{!E:cc1 %i %1 %{!Q:-quiet} %{d*} %{m*} %{a*}\
 			%{g*} %{O*} %{W*} %{w} %{pedantic*} %{std*}\
 			%{traditional} %{v:-version} %{pg:-p} %{p} %{f*}\
-			%{aux-info*} %{Qn:-fno-ident}\
+			%{aux-info*} %{Qn:-fno-ident} -fpreprocessed\
 			%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
 			%{S:%W{o*}%{!o*:-o %b.s}}%{!S:-o %{|!pipe:%g.s}} |\n\
 		     %{!S:as %a %Y\
@@ -4818,18 +4818,7 @@ main (argc, argv)
   if (access (specs_file, R_OK) == 0)
     read_specs (specs_file, TRUE);
  
-  /* Process any user specified specs in the order given on the command
-     line.  */
-  for (uptr = user_specs_head; uptr; uptr = uptr->next)
-    {
-      char *filename = find_a_file (&startfile_prefixes, uptr->filename, R_OK);
-      read_specs (filename ? filename : uptr->filename, FALSE);
-    }
-
   /* If not cross-compiling, look for startfiles in the standard places.  */
-  /* The fact that these are done here, after reading the specs file,
-     means that it cannot be found in these directories.
-     But that's okay.  It should never be there anyway.  */
   if (*cross_compile == '0')
     {
 #ifdef MD_EXEC_PREFIX
@@ -4890,6 +4879,14 @@ main (argc, argv)
 		    concat (gcc_exec_prefix, machine_suffix,
 			    standard_startfile_prefix, NULL_PTR),
 		    "BINUTILS", 0, 0, NULL_PTR);
+    }
+
+  /* Process any user specified specs in the order given on the command
+     line.  */
+  for (uptr = user_specs_head; uptr; uptr = uptr->next)
+    {
+      char *filename = find_a_file (&startfile_prefixes, uptr->filename, R_OK);
+      read_specs (filename ? filename : uptr->filename, FALSE);
     }
 
   /* If we have a GCC_EXEC_PREFIX envvar, modify it for cpp's sake.  */
@@ -4965,8 +4962,8 @@ main (argc, argv)
 
       if (! verbose_flag)
 	{
-	  printf ("\nReport bugs to egcs-bugs@egcs.cygnus.com.\n");
-	  printf ("Please see the file BUGS (included with the sources) first.\n");
+	  printf ("\nFor bug reporting instructions, please see:\n");
+	  printf ("<URL:http://gcc.gnu.org/faq.html#bugreport>.\n");
 	  
 	  exit (0);
 	}
@@ -5158,8 +5155,8 @@ main (argc, argv)
 
   if (print_help_list)
     {
-      printf ("\nReport bugs to egcs-bugs@egcs.cygnus.com.\n");
-      printf ("Please see the file BUGS (included with the sources) first.\n");
+      printf ("\nFor bug reporting instructions, please see:\n");
+      printf ("<URL:http://gcc.gnu.org/faq.html#bugreport>\n");
     }
   
   exit (error_count > 0 ? (signal_count ? 2 : 1) : 0);

@@ -186,6 +186,9 @@ rs6000_override_options (default_cpu)
 	 {"powerpc", PROCESSOR_POWERPC,
 	    MASK_POWERPC | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
+	 {"powerpc64", PROCESSOR_POWERPC64,
+	    MASK_POWERPC | MASK_POWERPC64 | MASK_NEW_MNEMONICS,
+	    POWER_MASKS | POWERPC_OPT_MASKS},
 	 {"rios", PROCESSOR_RIOS1,
 	    MASK_POWER | MASK_MULTIPLE | MASK_STRING,
 	    MASK_POWER2 | POWERPC_MASKS | MASK_NEW_MNEMONICS},
@@ -201,6 +204,9 @@ rs6000_override_options (default_cpu)
 	 {"rios2", PROCESSOR_RIOS2,
 	    MASK_POWER | MASK_MULTIPLE | MASK_STRING | MASK_POWER2,
 	    POWERPC_MASKS | MASK_NEW_MNEMONICS},
+	 {"rs64a", PROCESSOR_RS64A,
+	    MASK_POWERPC | MASK_NEW_MNEMONICS,
+	    POWER_MASKS | POWERPC_OPT_MASKS},
 	 {"401", PROCESSOR_PPC403,
 	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
@@ -234,6 +240,9 @@ rs6000_override_options (default_cpu)
 	 {"620", PROCESSOR_PPC620,
 	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | MASK_PPC_GPOPT},
+	 {"630", PROCESSOR_PPC630,
+	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
+	    POWER_MASKS | MASK_PPC_GPOPT},
 	 {"740", PROCESSOR_PPC750,
  	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
  	    POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
@@ -262,7 +271,7 @@ rs6000_override_options (default_cpu)
 
   /* Identify the processor type */
   rs6000_select[0].string = default_cpu;
-  rs6000_cpu = PROCESSOR_DEFAULT;
+  rs6000_cpu = TARGET_POWERPC64 ? PROCESSOR_DEFAULT64 : PROCESSOR_DEFAULT;
 
   for (i = 0; i < sizeof (rs6000_select) / sizeof (rs6000_select[0]); i++)
     {
@@ -1072,7 +1081,7 @@ reg_or_mem_operand (op, mode)
 }
 
 /* Return 1 if the operand is a general register or memory operand without
-   pre-inc or pre_dec which produces invalid form of PowerPC lwa
+   pre_inc or pre_dec which produces invalid form of PowerPC lwa
    instruction.  */
 
 int
@@ -1253,6 +1262,7 @@ init_cumulative_args (cum, fntype, libname, incoming)
   cum->fregno = FP_ARG_MIN_REG;
   cum->prototype = (fntype && TYPE_ARG_TYPES (fntype));
   cum->call_cookie = CALL_NORMAL;
+  cum->sysv_gregno = GP_ARG_MIN_REG;
 
   if (incoming)
     cum->nargs_prototype = 1000;		/* don't return a PARALLEL */
@@ -1338,7 +1348,8 @@ function_arg_boundary (mode, type)
      enum machine_mode mode;
      tree type;
 {
-  if ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS) && mode == DImode)
+  if ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
+      && (mode == DImode || mode == DFmode))
     return 64;
 
   if (DEFAULT_ABI != ABI_NT || TARGET_64BIT)
@@ -1361,48 +1372,85 @@ function_arg_advance (cum, mode, type, named)
      tree type;
      int named;
 {
-  int align = (TARGET_32BIT && (cum->words & 1) != 0
-	       && function_arg_boundary (mode, type) == 64) ? 1 : 0;
-  cum->words += align;
   cum->nargs_prototype--;
 
   if (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
     {
-      /* Long longs must not be split between registers and stack */
-      if ((GET_MODE_CLASS (mode) != MODE_FLOAT || TARGET_SOFT_FLOAT)
-	  && type && !AGGREGATE_TYPE_P (type)
-	  && cum->words < GP_ARG_NUM_REG
-	  && cum->words + RS6000_ARG_SIZE (mode, type, named) > GP_ARG_NUM_REG)
+      if (TARGET_HARD_FLOAT
+	  && (mode == SFmode || mode == DFmode))
 	{
-	  cum->words = GP_ARG_NUM_REG;
+	  if (cum->fregno <= FP_ARG_V4_MAX_REG)
+	    cum->fregno++;
+	  else
+	    {
+	      if (mode == DFmode)
+	        cum->words += cum->words & 1;
+	      cum->words += RS6000_ARG_SIZE (mode, type, 1);
+	    }
+	}
+      else
+	{
+	  int n_words;
+	  int gregno = cum->sysv_gregno;
+
+	  /* Aggregates and IEEE quad get passed by reference.  */
+	  if ((type && AGGREGATE_TYPE_P (type))
+	      || mode == TFmode)
+	    n_words = 1;
+	  else 
+	    n_words = RS6000_ARG_SIZE (mode, type, 1);
+
+	  /* Long long is put in odd registers.  */
+	  if (n_words == 2 && (gregno & 1) == 0)
+	    gregno += 1;
+
+	  /* Long long is not split between registers and stack.  */
+	  if (gregno + n_words - 1 > GP_ARG_MAX_REG)
+	    {
+	      /* Long long is aligned on the stack.  */
+	      if (n_words == 2)
+		cum->words += cum->words & 1;
+	      cum->words += n_words;
+	    }
+
+	  /* Note: continuing to accumulate gregno past when we've started
+	     spilling to the stack indicates the fact that we've started
+	     spilling to the stack to expand_builtin_saveregs.  */
+	  cum->sysv_gregno = gregno + n_words;
 	}
 
-      /* Aggregates get passed as pointers */
-      if (type && AGGREGATE_TYPE_P (type))
-	cum->words++;
-
-      /* Floats go in registers, & don't occupy space in the GP registers
-	 like they do for AIX unless software floating point.  */
-      else if (GET_MODE_CLASS (mode) == MODE_FLOAT
-	       && TARGET_HARD_FLOAT
-	       && cum->fregno <= FP_ARG_V4_MAX_REG)
-	cum->fregno++;
-
-      else
-	cum->words += RS6000_ARG_SIZE (mode, type, 1);
+      if (TARGET_DEBUG_ARG)
+	{
+	  fprintf (stderr, "function_adv: words = %2d, fregno = %2d, ",
+		   cum->words, cum->fregno);
+	  fprintf (stderr, "gregno = %2d, nargs = %4d, proto = %d, ",
+		   cum->sysv_gregno, cum->nargs_prototype, cum->prototype);
+	  fprintf (stderr, "mode = %4s, named = %d\n",
+		   GET_MODE_NAME (mode), named);
+	}
     }
   else
-    if (named)
-      {
-	cum->words += RS6000_ARG_SIZE (mode, type, named);
-	if (GET_MODE_CLASS (mode) == MODE_FLOAT && TARGET_HARD_FLOAT)
-	  cum->fregno++;
-      }
+    {
+      int align = (TARGET_32BIT && (cum->words & 1) != 0
+		   && function_arg_boundary (mode, type) == 64) ? 1 : 0;
+      cum->words += align;
 
-  if (TARGET_DEBUG_ARG)
-    fprintf (stderr,
-	     "function_adv: words = %2d, fregno = %2d, nargs = %4d, proto = %d, mode = %4s, named = %d, align = %d\n",
-	     cum->words, cum->fregno, cum->nargs_prototype, cum->prototype, GET_MODE_NAME (mode), named, align);
+      if (named)
+	{
+	  cum->words += RS6000_ARG_SIZE (mode, type, named);
+	  if (GET_MODE_CLASS (mode) == MODE_FLOAT && TARGET_HARD_FLOAT)
+	    cum->fregno++;
+	}
+
+      if (TARGET_DEBUG_ARG)
+	{
+	  fprintf (stderr, "function_adv: words = %2d, fregno = %2d, ",
+		   cum->words, cum->fregno);
+	  fprintf (stderr, "nargs = %4d, proto = %d, mode = %4s, ",
+		   cum->nargs_prototype, cum->prototype, GET_MODE_NAME (mode));
+	  fprintf (stderr, "named = %d, align = %d\n", named, align);
+	}
+    }
 }
 
 /* Determine where to put an argument to a function.
@@ -1435,22 +1483,14 @@ function_arg (cum, mode, type, named)
      tree type;
      int named;
 {
-  int align = (TARGET_32BIT && (cum->words & 1) != 0
-	       && function_arg_boundary (mode, type) == 64) ? 1 : 0;
-  int align_words = cum->words + align;
+  enum rs6000_abi abi = DEFAULT_ABI;
 
-  if (TARGET_DEBUG_ARG)
-    fprintf (stderr,
-	     "function_arg: words = %2d, fregno = %2d, nargs = %4d, proto = %d, mode = %4s, named = %d, align = %d\n",
-	     cum->words, cum->fregno, cum->nargs_prototype, cum->prototype, GET_MODE_NAME (mode), named, align);
-
-  /* Return a marker to indicate whether CR1 needs to set or clear the bit that V.4
-     uses to say fp args were passed in registers.  Assume that we don't need the
-     marker for software floating point, or compiler generated library calls.  */
+  /* Return a marker to indicate whether CR1 needs to set or clear the bit
+     that V.4 uses to say fp args were passed in registers.  Assume that we
+     don't need the marker for software floating point, or compiler generated
+     library calls.  */
   if (mode == VOIDmode)
     {
-      enum rs6000_abi abi = DEFAULT_ABI;
-
       if ((abi == ABI_V4 || abi == ABI_SOLARIS)
 	  && TARGET_HARD_FLOAT
 	  && cum->nargs_prototype < 0
@@ -1465,31 +1505,65 @@ function_arg (cum, mode, type, named)
       return GEN_INT (cum->call_cookie);
     }
 
-  if (!named)
+  if (abi == ABI_V4 || abi == ABI_SOLARIS)
     {
-      if (DEFAULT_ABI != ABI_V4 && DEFAULT_ABI != ABI_SOLARIS)
-	return NULL_RTX;
+      if (TARGET_HARD_FLOAT
+	  && (mode == SFmode || mode == DFmode))
+	{
+	  if (cum->fregno <= FP_ARG_V4_MAX_REG)
+	    return gen_rtx_REG (mode, cum->fregno);
+	  else
+	    return NULL;
+	}
+      else
+	{
+	  int n_words;
+	  int gregno = cum->sysv_gregno;
+
+	  /* Aggregates and IEEE quad get passed by reference.  */
+	  if ((type && AGGREGATE_TYPE_P (type))
+	      || mode == TFmode)
+	    n_words = 1;
+	  else 
+	    n_words = RS6000_ARG_SIZE (mode, type, 1);
+
+	  /* Long long is put in odd registers.  */
+	  if (n_words == 2 && (gregno & 1) == 0)
+	    gregno += 1;
+
+	  /* Long long is not split between registers and stack.  */
+	  if (gregno + n_words - 1 <= GP_ARG_MAX_REG)
+	    return gen_rtx_REG (mode, gregno);
+	  else
+	    return NULL;
+	}
     }
-
-  if (type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
-    return NULL_RTX;
-
-  if (USE_FP_FOR_ARG_P (*cum, mode, type))
+  else
     {
-      if (DEFAULT_ABI == ABI_V4 /* V.4 never passes FP values in GP registers */
-	  || DEFAULT_ABI == ABI_SOLARIS
-	  || ! type
-	  || ((cum->nargs_prototype > 0)
-	      /* IBM AIX extended its linkage convention definition always to
-		 require FP args after register save area hole on the stack.  */
-	      && (DEFAULT_ABI != ABI_AIX
-		  || ! TARGET_XL_CALL
-		  || (align_words < GP_ARG_NUM_REG))))
-	return gen_rtx_REG (mode, cum->fregno);
+      int align = (TARGET_32BIT && (cum->words & 1) != 0
+	           && function_arg_boundary (mode, type) == 64) ? 1 : 0;
+      int align_words = cum->words + align;
 
-      return gen_rtx_PARALLEL (mode,
-		      gen_rtvec
-		      (2,
+      if (!named)
+	return NULL_RTX;
+
+      if (type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+        return NULL_RTX;
+
+      if (USE_FP_FOR_ARG_P (*cum, mode, type))
+	{
+	  if (! type
+	      || ((cum->nargs_prototype > 0)
+	          /* IBM AIX extended its linkage convention definition always
+		     to require FP args after register save area hole on the
+		     stack.  */
+	          && (DEFAULT_ABI != ABI_AIX
+		      || ! TARGET_XL_CALL
+		      || (align_words < GP_ARG_NUM_REG))))
+	    return gen_rtx_REG (mode, cum->fregno);
+
+          return gen_rtx_PARALLEL (mode,
+	    gen_rtvec (2,
 		       gen_rtx_EXPR_LIST (VOIDmode,
 				((align_words >= GP_ARG_NUM_REG)
 				 ? NULL_RTX
@@ -1507,21 +1581,12 @@ function_arg (cum, mode, type, named)
 		       gen_rtx_EXPR_LIST (VOIDmode,
 				gen_rtx_REG (mode, cum->fregno),
 				const0_rtx)));
+	}
+      else if (align_words < GP_ARG_NUM_REG)
+	return gen_rtx_REG (mode, GP_ARG_MIN_REG + align_words);
+      else
+	return NULL_RTX;
     }
-
-  /* Long longs won't be split between register and stack;
-     FP arguments get passed on the stack if they didn't get a register.  */
-  else if ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS) &&
-	   (align_words + RS6000_ARG_SIZE (mode, type, named) > GP_ARG_NUM_REG
-	    || (GET_MODE_CLASS (mode) == MODE_FLOAT && TARGET_HARD_FLOAT)))
-    {
-      return NULL_RTX;
-    }
-
-  else if (align_words < GP_ARG_NUM_REG)
-    return gen_rtx_REG (mode, GP_ARG_MIN_REG + align_words);
-
-  return NULL_RTX;
 }
 
 /* For an arg passed partly in registers and partly in memory,
@@ -1576,7 +1641,8 @@ function_arg_pass_by_reference (cum, mode, type, named)
      int named ATTRIBUTE_UNUSED;
 {
   if ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
-      && type && AGGREGATE_TYPE_P (type))
+      && ((type && AGGREGATE_TYPE_P (type))
+	  || mode == TFmode))
     {
       if (TARGET_DEBUG_ARG)
 	fprintf (stderr, "function_arg_pass_by_reference: aggregate\n");
@@ -1611,73 +1677,87 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
      int no_rtl;
 
 {
-  rtx save_area = virtual_incoming_args_rtx;
-  int reg_size	= TARGET_32BIT ? 4 : 8;
-
-  if (TARGET_DEBUG_ARG)
-    fprintf (stderr,
-	     "setup_vararg: words = %2d, fregno = %2d, nargs = %4d, proto = %d, mode = %4s, no_rtl= %d\n",
-	     cum->words, cum->fregno, cum->nargs_prototype, cum->prototype, GET_MODE_NAME (mode), no_rtl);
+  CUMULATIVE_ARGS next_cum;
+  int reg_size = TARGET_32BIT ? 4 : 8;
+  rtx save_area;
+  int first_reg_offset;
 
   if (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
     {
+      tree fntype;
+      int stdarg_p;
+
+      fntype = TREE_TYPE (current_function_decl);
+      stdarg_p = (TYPE_ARG_TYPES (fntype) != 0
+		  && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
+		      != void_type_node));
+
+      /* For varargs, we do not want to skip the dummy va_dcl argument.
+         For stdargs, we do want to skip the last named argument.  */
+      next_cum = *cum;
+      if (stdarg_p)
+	function_arg_advance (&next_cum, mode, type, 1);
+
+      /* Indicate to allocate space on the stack for varargs save area.  */
+      /* ??? Does this really have to be located at a magic spot on the
+	 stack, or can we allocate this with assign_stack_local instead.  */
       rs6000_sysv_varargs_p = 1;
       if (! no_rtl)
 	save_area = plus_constant (virtual_stack_vars_rtx,
 				   - RS6000_VARARGS_SIZE);
+
+      first_reg_offset = next_cum.sysv_gregno - GP_ARG_MIN_REG;
     }
   else
-    rs6000_sysv_varargs_p = 0;
-
-  if (cum->words < 8)
     {
-      int first_reg_offset = cum->words;
+      save_area = virtual_incoming_args_rtx;
+      rs6000_sysv_varargs_p = 0;
 
+      first_reg_offset = cum->words;
       if (MUST_PASS_IN_STACK (mode, type))
 	first_reg_offset += RS6000_ARG_SIZE (TYPE_MODE (type), type, 1);
+    }
 
-      if (first_reg_offset > GP_ARG_NUM_REG)
-	first_reg_offset = GP_ARG_NUM_REG;
+  if (!no_rtl && first_reg_offset < GP_ARG_NUM_REG)
+    {
+      move_block_from_reg
+	(GP_ARG_MIN_REG + first_reg_offset,
+	 gen_rtx_MEM (BLKmode,
+		      plus_constant (save_area, first_reg_offset * reg_size)),
+	 GP_ARG_NUM_REG - first_reg_offset,
+	 (GP_ARG_NUM_REG - first_reg_offset) * UNITS_PER_WORD);
 
-      if (!no_rtl && first_reg_offset != GP_ARG_NUM_REG)
-	move_block_from_reg
-	  (GP_ARG_MIN_REG + first_reg_offset,
-	   gen_rtx_MEM (BLKmode,
-		    plus_constant (save_area, first_reg_offset * reg_size)),
-	   GP_ARG_NUM_REG - first_reg_offset,
-	   (GP_ARG_NUM_REG - first_reg_offset) * UNITS_PER_WORD);
-
+      /* ??? Does ABI_V4 need this at all?  */
       *pretend_size = (GP_ARG_NUM_REG - first_reg_offset) * UNITS_PER_WORD;
     }
 
   /* Save FP registers if needed.  */
-  if ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS) && TARGET_HARD_FLOAT && !no_rtl)
+  if ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
+      && TARGET_HARD_FLOAT && !no_rtl
+      && next_cum.fregno <= FP_ARG_V4_MAX_REG)
     {
-      int fregno     = cum->fregno;
-      int num_fp_reg = FP_ARG_V4_MAX_REG + 1 - fregno;
+      int fregno = next_cum.fregno;
+      rtx cr1 = gen_rtx_REG (CCmode, 69);
+      rtx lab = gen_label_rtx ();
+      int off = (GP_ARG_NUM_REG * reg_size) + ((fregno - FP_ARG_MIN_REG) * 8);
 
-      if (num_fp_reg >= 0)
-	{
-	  rtx cr1 = gen_rtx_REG (CCmode, 69);
-	  rtx lab = gen_label_rtx ();
-	  int off = (GP_ARG_NUM_REG * reg_size) + ((fregno - FP_ARG_MIN_REG) * 8);
-
-	  emit_jump_insn (gen_rtx_SET (VOIDmode,
+      emit_jump_insn (gen_rtx_SET (VOIDmode,
 				   pc_rtx,
 				   gen_rtx_IF_THEN_ELSE (VOIDmode,
-					    gen_rtx_NE (VOIDmode, cr1, const0_rtx),
+					    gen_rtx_NE (VOIDmode, cr1,
+						        const0_rtx),
 					    gen_rtx_LABEL_REF (VOIDmode, lab),
 					    pc_rtx)));
 
-	  while ( num_fp_reg-- >= 0)
-	    {
-	      emit_move_insn (gen_rtx_MEM (DFmode, plus_constant (save_area, off)),
-			      gen_rtx_REG (DFmode, fregno++));
-	      off += 8;
-	    }
-
-	  emit_label (lab);
+      while (fregno <= FP_ARG_V4_MAX_REG)
+	{
+	  emit_move_insn (gen_rtx_MEM (DFmode, plus_constant (save_area, off)),
+			  gen_rtx_REG (DFmode, fregno));
+	  fregno++;
+	  off += 8;
 	}
+
+      emit_label (lab);
     }
 }
 
@@ -1687,12 +1767,6 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
    are made.  The return value of this function should be an RTX that
    contains the value to use as the return of `__builtin_saveregs'.
 
-   The argument ARGS is a `tree_list' containing the arguments that
-   were passed to `__builtin_saveregs'.
-
-   If this macro is not defined, the compiler will output an ordinary
-   call to the library function `__builtin_saveregs'.
-   
    On the Power/PowerPC return the address of the area on the stack
    used to hold arguments.  Under AIX, this includes the 8 word register
    save area. 
@@ -1703,8 +1777,7 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
    to a block copy.  This is similar to the way we do things on Alpha.  */
 
 struct rtx_def *
-expand_builtin_saveregs (args)
-     tree args ATTRIBUTE_UNUSED;
+rs6000_expand_builtin_saveregs ()
 {
   rtx block, mem_gpr_fpr, mem_reg_save_area, mem_overflow, tmp;
   tree fntype;
@@ -1733,9 +1806,18 @@ expand_builtin_saveregs (args)
 						     2 * UNITS_PER_WORD));
 
   /* Construct the two characters of `gpr' and `fpr' as a unit.  */
-  words = current_function_args_info.words - !stdarg_p;
-  gpr = (words > 8 ? 8 : words);
-  fpr = current_function_args_info.fregno - 33;
+  words = current_function_args_info.words;
+  gpr = current_function_args_info.sysv_gregno - GP_ARG_MIN_REG;
+  fpr = current_function_args_info.fregno - FP_ARG_MIN_REG;
+
+  /* Varargs has the va_dcl argument, but we don't count it.  */
+  if (!stdarg_p)
+    {
+      if (gpr > GP_ARG_NUM_REG)
+        words -= 1;
+      else
+        gpr -= 1;
+    }
 
   if (BYTES_BIG_ENDIAN)
     {
@@ -1754,12 +1836,9 @@ expand_builtin_saveregs (args)
   emit_move_insn (mem_gpr_fpr, tmp);
 
   /* Find the overflow area.  */
-  if (words <= 8)
-    tmp = virtual_incoming_args_rtx;
-  else
-    tmp = expand_binop (Pmode, add_optab, virtual_incoming_args_rtx,
-		        GEN_INT ((words - 8) * UNITS_PER_WORD),
-		        mem_overflow, 0, OPTAB_WIDEN);
+  tmp = expand_binop (Pmode, add_optab, virtual_incoming_args_rtx,
+		      GEN_INT (words * UNITS_PER_WORD),
+		      mem_overflow, 0, OPTAB_WIDEN);
   if (tmp != mem_overflow)
     emit_move_insn (mem_overflow, tmp);
 
@@ -1773,7 +1852,6 @@ expand_builtin_saveregs (args)
   /* Return the address of the va_list constructor.  */
   return XEXP (block, 0);
 }
-
 
 /* Generate a memory reference for expand_block_move, copying volatile,
    and other bits from an original memory reference.  */
@@ -2286,15 +2364,16 @@ secondary_reload_class (class, mode, in)
 {
   int regno;
 
+#if TARGET_ELF
   /* We can not copy a symbolic operand directly into anything other than
      BASE_REGS for TARGET_ELF.  So indicate that a register from BASE_REGS
      is needed as an intermediate register.  */
-  if (TARGET_ELF
-      && class != BASE_REGS
+  if (class != BASE_REGS
       && (GET_CODE (in) == SYMBOL_REF
 	  || GET_CODE (in) == LABEL_REF
 	  || GET_CODE (in) == CONST))
     return BASE_REGS;
+#endif
 
   if (GET_CODE (in) == REG)
     {
@@ -2400,10 +2479,11 @@ rs6000_got_register (value)
   /* The second flow pass currently (June 1999) can't update regs_ever_live
      without disturbing other parts of the compiler, so update it here to
      make the prolog/epilogue code happy. */
-  if (no_new_pseudos && !regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
+  if (no_new_pseudos && ! regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
     regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
 
   current_function_uses_pic_offset_table = 1;
+
   return pic_offset_table_rtx;
 }
 
@@ -2693,10 +2773,11 @@ print_operand (file, x, code)
 	     we have already done it, we can just use an offset of word.  */
 	  if (GET_CODE (XEXP (x, 0)) == PRE_INC
 	      || GET_CODE (XEXP (x, 0)) == PRE_DEC)
-	    output_address (plus_constant (XEXP (XEXP (x, 0), 0),
-					   UNITS_PER_WORD));
+	    output_address (plus_constant_for_output (XEXP (XEXP (x, 0), 0),
+						      UNITS_PER_WORD));
 	  else
-	    output_address (plus_constant (XEXP (x, 0), UNITS_PER_WORD));
+	    output_address (plus_constant_for_output (XEXP (x, 0),
+						      UNITS_PER_WORD));
 	  if (small_data_operand (x, GET_MODE (x)))
 	    fprintf (file, "@%s(%s)", SMALL_DATA_RELOC,
 		     reg_names[SMALL_DATA_REG]);
@@ -3141,12 +3222,14 @@ print_operand_address (file, x)
     }
   else if (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 1)) == CONST_INT)
     fprintf (file, "%d(%s)", INTVAL (XEXP (x, 1)), reg_names[ REGNO (XEXP (x, 0)) ]);
-  else if (TARGET_ELF && !TARGET_64BIT && GET_CODE (x) == LO_SUM
-	   && GET_CODE (XEXP (x, 0)) == REG && CONSTANT_P (XEXP (x, 1)))
+#if TARGET_ELF
+  else if (GET_CODE (x) == LO_SUM && GET_CODE (XEXP (x, 0)) == REG
+           && CONSTANT_P (XEXP (x, 1)))
     {
       output_addr_const (file, XEXP (x, 1));
       fprintf (file, "@l(%s)", reg_names[ REGNO (XEXP (x, 0)) ]);
     }
+#endif
   else
     abort ();
 }
@@ -4729,6 +4812,7 @@ output_toc (file, x, labelno)
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
       REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
+
       if (TARGET_64BIT)
 	{
 	  if (TARGET_MINIMAL_TOC)
@@ -4741,9 +4825,9 @@ output_toc (file, x, labelno)
       else
 	{
 	  if (TARGET_MINIMAL_TOC)
-	    fprintf (file, "\t.long %ld\n\t.long %ld\n", k[0], k[1]);
+	    fprintf (file, "\t.long 0x%lx\n\t.long 0x%lx\n", k[0], k[1]);
 	  else
-	    fprintf (file, "\t.tc FD_%lx_%lx[TC],%ld,%ld\n",
+	    fprintf (file, "\t.tc FD_%lx_%lx[TC],0x%lx,0x%lx\n",
 		     k[0], k[1], k[0], k[1]);
 	  return;
 	}
@@ -4757,11 +4841,22 @@ output_toc (file, x, labelno)
       REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
       REAL_VALUE_TO_TARGET_SINGLE (rv, l);
 
-      if (TARGET_MINIMAL_TOC)
-	fprintf (file, TARGET_32BIT ? "\t.long %ld\n" : "\t.llong %ld\n", l);
+      if (TARGET_64BIT)
+	{
+	  if (TARGET_MINIMAL_TOC)
+	    fprintf (file, "\t.llong 0x%lx00000000\n", l);
+	  else
+	    fprintf (file, "\t.tc FS_%lx[TC],0x%lx00000000\n", l, l);
+	  return;
+	}
       else
-	fprintf (file, "\t.tc FS_%lx[TC],%ld\n", l, l);
-      return;
+	{
+	  if (TARGET_MINIMAL_TOC)
+	    fprintf (file, "\t.long 0x%lx\n", l);
+	  else
+	    fprintf (file, "\t.tc FS_%lx[TC],0x%lx\n", l, l);
+	  return;
+	}
     }
   else if (GET_MODE (x) == DImode
 	   && (GET_CODE (x) == CONST_INT || GET_CODE (x) == CONST_DOUBLE)
@@ -4800,10 +4895,10 @@ output_toc (file, x, labelno)
       else
 	{
 	  if (TARGET_MINIMAL_TOC)
-	    fprintf (file, "\t.long %ld\n\t.long %ld\n",
+	    fprintf (file, "\t.long 0x%lx\n\t.long 0x%lx\n",
 		     (long)high, (long)low);
 	  else
-	    fprintf (file, "\t.tc ID_%lx_%lx[TC],%ld,%ld\n",
+	    fprintf (file, "\t.tc ID_%lx_%lx[TC],0x%lx,0x%lx\n",
 		     (long)high, (long)low, (long)high, (long)low);
 	  return;
 	}
@@ -5177,7 +5272,8 @@ rs6000_adjust_priority (insn, priority)
 
       case TYPE_IMUL:
       case TYPE_IDIV:
-	fprintf (stderr, "priority was %#x (%d) before adjustment\n", priority, priority);
+	fprintf (stderr, "priority was %#x (%d) before adjustment\n",
+		 priority, priority);
 	if (priority >= 0 && priority < 0x01000000)
 	  priority >>= 3;
 	break;
@@ -5192,21 +5288,18 @@ rs6000_adjust_priority (insn, priority)
 int get_issue_rate()
 {
   switch (rs6000_cpu_attr) {
-  case CPU_RIOS1:
-    return 3;       /* ? */
-  case CPU_RIOS2:
-    return 4;
-  case CPU_PPC601:
-    return 3;       /* ? */
+  case CPU_RIOS1:  /* ? */
+  case CPU_RS64A:
+  case CPU_PPC601: /* ? */
+    return 3;
   case CPU_PPC603:
-    return 2; 
   case CPU_PPC750:
     return 2; 
+  case CPU_RIOS2:
   case CPU_PPC604:
-    return 4;
   case CPU_PPC604E:
-    return 4;
   case CPU_PPC620:
+  case CPU_PPC630:
     return 4;
   default:
     return 1;
@@ -5436,9 +5529,9 @@ rs6000_valid_type_attribute_p (type, attributes, identifier, args)
       if (is_attribute_p ("dllexport", identifier))
 	return (args == NULL_TREE);
 
-      /* Exception attribute allows the user to specify 1-2 strings or identifiers
-	 that will fill in the 3rd and 4th fields of the structured exception
-	 table.  */
+      /* Exception attribute allows the user to specify 1-2 strings
+	 or identifiers that will fill in the 3rd and 4th fields
+	 of the structured exception table.  */
       if (is_attribute_p ("exception", identifier))
 	{
 	  int i;
@@ -5483,6 +5576,7 @@ void
 rs6000_set_default_type_attributes (type)
      tree type ATTRIBUTE_UNUSED;
 {
+  return;
 }
 
 /* Return a dll import reference corresponding to a call's SYMBOL_REF */
@@ -5508,13 +5602,15 @@ rs6000_dll_import_ref (call_ref)
   strcat (p, call_name);
   node = get_identifier (p);
 
-  reg1 = force_reg (Pmode, gen_rtx_SYMBOL_REF (VOIDmode, IDENTIFIER_POINTER (node)));
+  reg1 = force_reg (Pmode, gen_rtx_SYMBOL_REF (VOIDmode,
+					       IDENTIFIER_POINTER (node)));
   emit_move_insn (reg2, gen_rtx_MEM (Pmode, reg1));
 
   return reg2;
 }
 
-/* Return a reference suitable for calling a function with the longcall attribute.  */
+/* Return a reference suitable for calling a function with the
+   longcall attribute.  */
 struct rtx_def *
 rs6000_longcall_ref (call_ref)
      rtx call_ref;
@@ -5584,25 +5680,27 @@ rs6000_select_section (decl, reloc)
   else if (TREE_CODE (decl) == VAR_DECL)
     {
       if ((flag_pic && reloc)
-	  || !TREE_READONLY (decl)
+	  || ! TREE_READONLY (decl)
 	  || TREE_SIDE_EFFECTS (decl)
-	  || !DECL_INITIAL (decl)
+	  || ! DECL_INITIAL (decl)
 	  || (DECL_INITIAL (decl) != error_mark_node
-	      && !TREE_CONSTANT (DECL_INITIAL (decl))))
+	      && ! TREE_CONSTANT (DECL_INITIAL (decl))))
 	{
-	  if (rs6000_sdata != SDATA_NONE && (size > 0) && (size <= g_switch_value))
+	  if (rs6000_sdata != SDATA_NONE && (size > 0)
+	      && (size <= g_switch_value))
 	    sdata_section ();
 	  else
 	    data_section ();
 	}
       else
 	{
-	  if (rs6000_sdata != SDATA_NONE && (size > 0) && (size <= g_switch_value))
+	  if (rs6000_sdata != SDATA_NONE && (size > 0)
+	      && (size <= g_switch_value))
 	    {
 	      if (rs6000_sdata == SDATA_EABI)
 		sdata2_section ();
 	      else
-		sdata_section ();	/* System V doesn't have .sdata2/.sbss2 */
+		sdata_section ();  /* System V doesn't have .sdata2/.sbss2 */
 	    }
 	  else
 	    const_section ();
@@ -5613,7 +5711,6 @@ rs6000_select_section (decl, reloc)
 }
 
 
-
 /* If we are referencing a function that is static or is known to be
    in this file, make the SYMBOL_REF special.  We can use this to indicate
    that we can branch to this function without emitting a no-op after the
@@ -5664,12 +5761,18 @@ rs6000_encode_section_info (decl)
 
       if ((size > 0 && size <= g_switch_value)
 	  || (name
-	      && ((len == sizeof (".sdata")-1 && strcmp (name, ".sdata") == 0)
-		  || (len == sizeof (".sdata2")-1 && strcmp (name, ".sdata2") == 0)
-		  || (len == sizeof (".sbss")-1 && strcmp (name, ".sbss") == 0)
-		  || (len == sizeof (".sbss2")-1 && strcmp (name, ".sbss2") == 0)
-		  || (len == sizeof (".PPC.EMB.sdata0")-1 && strcmp (name, ".PPC.EMB.sdata0") == 0)
-		  || (len == sizeof (".PPC.EMB.sbss0")-1 && strcmp (name, ".PPC.EMB.sbss0") == 0))))
+	      && ((len == sizeof (".sdata")-1
+		   && strcmp (name, ".sdata") == 0)
+		  || (len == sizeof (".sdata2")-1
+		      && strcmp (name, ".sdata2") == 0)
+		  || (len == sizeof (".sbss")-1
+		      && strcmp (name, ".sbss") == 0)
+		  || (len == sizeof (".sbss2")-1
+		      && strcmp (name, ".sbss2") == 0)
+		  || (len == sizeof (".PPC.EMB.sdata0")-1
+		      && strcmp (name, ".PPC.EMB.sdata0") == 0)
+		  || (len == sizeof (".PPC.EMB.sbss0")-1
+		      && strcmp (name, ".PPC.EMB.sbss0") == 0))))
 	{
 	  rtx sym_ref = XEXP (DECL_RTL (decl), 0);
 	  char *str = permalloc (2 + strlen (XSTR (sym_ref, 0)));
@@ -5684,7 +5787,11 @@ rs6000_encode_section_info (decl)
 
 
 /* Return a REG that occurs in ADDR with coefficient 1.
-   ADDR can be effectively incremented by incrementing REG.  */
+   ADDR can be effectively incremented by incrementing REG.
+
+   r0 is special and we must not select it as an address
+   register by this routine since our caller will try to
+   increment the returned register via an "la" instruction.  */
 
 struct rtx_def *
 find_addr_reg (addr)
@@ -5692,9 +5799,11 @@ find_addr_reg (addr)
 {
   while (GET_CODE (addr) == PLUS)
     {
-      if (GET_CODE (XEXP (addr, 0)) == REG)
+      if (GET_CODE (XEXP (addr, 0)) == REG
+	  && REGNO (XEXP (addr, 0)) != 0)
 	addr = XEXP (addr, 0);
-      else if (GET_CODE (XEXP (addr, 1)) == REG)
+      else if (GET_CODE (XEXP (addr, 1)) == REG
+	       && REGNO (XEXP (addr, 1)) != 0)
 	addr = XEXP (addr, 1);
       else if (CONSTANT_P (XEXP (addr, 0)))
 	addr = XEXP (addr, 1);
@@ -5703,7 +5812,7 @@ find_addr_reg (addr)
       else
 	abort ();
     }
-  if (GET_CODE (addr) == REG)
+  if (GET_CODE (addr) == REG && REGNO (addr) != 0)
     return addr;
   abort ();
 }

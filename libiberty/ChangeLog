@@ -1,3 +1,23 @@
+1999-07-14  Richard Henderson  <rth@cygnus.com>
+
+	* argv.c: Include stdlib.h and string.h instead of 
+	prototyping directly.
+	* choose-temp.c: Conditionally include string.h.
+
+1999-07-12  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* Makefile.in (NEEDED): Add bcmp, bcopy, bzero.
+
+1999-07-11  Ian Lance Taylor  <ian@zembu.com>
+
+	* splay-tree.c (splay_tree_insert): Add initialization to avoid
+	warning.
+
+1999-07-07  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* Makefile.in (needed-list): Only include stuff we actually need
+	for libstdc++.
+
 1999-06-21  Andreas Schwab  <schwab@issan.cs.uni-dortmund.de>
 
 	* configure.in (checkfuncs): Add gettimeofday.

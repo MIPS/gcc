@@ -1,3 +1,456 @@
+1999-07-28  Mark Mitchell  <mark@codesourcery.com>
+
+	* call.c (conditional_conversion): Don't build BASE_CONVs for
+	conversions between things that have the same type.
+	(build_conditional_expr): Tweak.
+	(convert_like): Some BASE_CONVs really do require the generation
+	of code.
+	
+	* init.c (perform_member_init): Don't go through build_modify_expr
+	for simple initializations.
+
+1999-07-27  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* cp-tree.h (DECL_VIRTUAL_CONTEXT): New macro.
+	* typeck.c (expand_ptrmemfunc_cst): Calculate delta correctly for
+	virtual functions and MI.  Simplify.
+
+	* method.c: Remove prototype for largest_union_member.
+	* pt.c (determine_specialization): Fix uninitialized warning.
+	* lex.c (real_yylex): Likewise.
+
+1999-07-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (override_one_vtable): Adjust the use of BINFO_VIRTUALS
+	here too.
+
+	* cp-tree.h (BINFO_VIRTUALS): Document new format.
+	* class.c (modify_one_vtable): Change prototype accordingly.
+	(modify_all_vtables): Likewise.
+	(modify_all_direct_vtables): Likewise.
+	(modify_all_indirect_vtables): Likewise.
+	(build_vtable_entry_for_fn): New function.
+	(set_rtti_entry): Simplify for new BINFO_VIRTUALS format.
+	(modify_vtable_entry): Likewise.
+	(add_virtual_function): Likewise.
+	(build_vtbl_initializer): New function.
+	(finish_vtbls): Simplify for new BINFO_VIRTUALS format.
+	(fixup_vtable_deltas1): Likewise.
+	(fixup_vtable_deltas): Likewise.
+	(override_one_vtable): Likewise.
+	(finish_struct_1): Likewise.
+
+	* error.c (dump_expr): Likewise.
+	* search.c (get_abstract_virtuals_1): Likewise.
+	(get_abstract_virtuals): Likewise.
+	(expand_upcast_fixups): Likewise.
+	* tree.c (debug_binfo): Likewise.
+	* decl2.c (mark_vtable_entries): Don't bash abstract virtuals to
+	__pure_virtual here.
+	
+1999-07-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* tree.c (build_cplus_new): Adjust call to abstract_virtuals_error
+	as per 1999-07-26 change.
+
+	* typeck.c (c_sizeof): Don't allow non-static data members.
+	(expr_sizeof): Likewise.
+
+1999-07-26  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* input.c (feed_input): Only touch lineno and input_filename
+	if !USE_CPPLIB.  Save the old values before setting the new ones.
+
+	* input.c (feed_input): Add file, line parms.
+	* lex.c (begin_definition_of_inclass_inline, feed_defarg): Adjust.
+	(real_yylex): Check linemode before input_redirected().
+
+	* typeck.c (c_expand_return): Downgrade pedwarn about returning NULL
+	from op new to warning.
+
+1999-07-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (ncp_convert): Rename to perform_implicit_conversion.
+	* call.c: All uses changed.
+	* typeck.c: Likewise.
+
+1999-07-26  Nathan Sidwell  <nathan@acm.org>
+
+	* exception.cc (__cplus_type_matcher): Match __eh_matcher
+	prototype.
+
+1999-07-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (CP_INTEGRAL_TYPE_P): New macro.
+	(ARITHMETIC_TYPE_P): Adjust definition for standard conformance.
+	(strip_top_quals): Declare.
+	(ncp_convert): Likewise.
+	(type_after_usual_arithmetic_converions): Likewise.
+	(composite_pointer_type): Likewise.
+	* call.c (strip_top_quals): Don't make it static.
+	(promoted_arithmetic_type_p): New function.
+	(conditional_conversion): Likewise.
+	(null_ptr_cst_p): Allow `false' as a NULL pointer constant.
+	(standard_conversion): Use same_type_p.  Don't build BASE_CONVs
+	for converting a type to itself.
+	(reference_binding): Honor LOOKUP_NO_TEMP_BIND.
+	(implicit_conversion): Make sure the from and to types are
+	complete.
+	(add_builtin_candidate): Correct handling of ?: operator.
+	(add_builtin_candidates): Improve documentation.
+	(build_conditional_expr): New function.
+	(can_convert): Implement in terms of can_convert_arg.
+	(ncp_convert): New function.
+	* typeck.c (type_after_usual_arithmetic_conversions): New
+	function, split out from common_type.
+	(composite_pointer_type): New function, split out from
+	build_conditional_expr.
+	(common_type): Use type_after_usual_arithmetic_conversions.
+	Remove redundant attribute merging.
+	(comptypes): Tidy.  Handle COMPLEX_TYPE.
+	(build_binary_op_nodefault): Use null_ptr_cst_p.
+	(build_conditional_expr): Remove.
+	(convert_for_assignment): Use new conversion functions.
+	
+	* cp-tree.h (abstract_virtuals_error): Change declaration.
+	* typeck2.c (abstract_virtuals_error): Check to see if an error
+	ocurred, and return a boolean value accordingly.
+	(build_functional_cast): Adjust accordingly.
+	* class.c (finish_struct_1): Likewise.
+	* cvt.c (ocp_convert): Likewise.
+	* decl.c (cp_finish_decl): Likewise.
+	(grokparams): Likewise.
+	(grok_op_properties): Likewise.
+	(start_function): Likewise.
+	* init.c (build_new_1): Likewise.
+
+	* pt.c (unify): Don't get confused by pointers-to-member functions.
+
+	* search.c (build_cplus_new): Robustify.
+	
+1999-07-24  Richard Henderson  <rth@cygnus.com>
+
+	* decl.c (ptr_type_node, va_list_type_node): New.
+	* gxx.gperf (__builtin_va_arg): New.
+	* parse.y (VA_ARG): New token.
+	(unary_expr): Recognize it.
+
+Sun Jul 25 15:24:21 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* g++FAQ.texi: Deleted per Joe Buck's request.
+	* Makefile.in: Corresponding changes.
+
+1999-07-23  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* lex.c: Sync with C frontend.
+	(whitespace_cr): New fn.
+	(skip_white_space): Use it.
+	(init_parse): Reorder.
+	(yyprint): Support CONSTANT.
+	(pragma_getc, pragma_ungetc): Bring back.
+	(read_line_number): Change in_system_header directly.
+	(handle_generic_pragma, handle_cp_pragma, yyerror): Move up in file.
+	(parse_float): Update to C version.
+	(yylex): Handle '$' under the letter case.
+	Remove looking_for_typename handling.
+	Support hex floating point constants.
+	Follow C's lead for choosing type of integer constants.
+	Rearrange stuff to match C frontend.
+	(yyungetc, reinit_parse_for_block, yylex): Support indent_level.
+	* spew.c (yylex): Clear looking_for_typename if we see a TYPESPEC.
+
+1999-07-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* call.c (reference_binding): Tweak.
+	(mayble_handle_implicit_object): Use direct_reference_binding to
+	create the right implicit conversion sequence.
+
+1999-07-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* pt.c (convert_nontype_argument): Don't call decl_constant_value
+	if we're converting to a reference type.
+
+	* call.c (NEED_TEMPORARY_P): New macro.
+	(standard_conversion): Set it, for derived-to-base conversions.
+	(reference_related_p): New function.
+	(reference_compatible_p): Likewise.
+	(convert_class_to_reference): Likewise.
+	(direct_reference_binding): Likewise.
+	(reference_binding): Rework for standards-compliance.
+	(convert_like): Adjust accordingly.
+	(maybe_handle_ref_bind): Simplify; the right conversion sequences
+	are now built up in reference_binding.
+	(initialize_reference): New function.
+	* cp-tree.h (ICS_USER_FLAG): Document.
+	(ICS_THIS_FLAG): Likewise.
+	(ICS_BAD_FLAG): Likewise.
+	(NEED_TEMPORARY_P): Likewise.
+	(cp_lvalue_kind): New type.
+	(real_lvalue_p): Return it.
+	* error.c (dump_expr): Provide more accurate representation for
+	AGGR_INIT_EXPRs.
+	* init.c (expand_default_init): Do not try to perform implicit
+	conversions for a brace-enclosed initializer.
+	* search.c (lookup_conversions): Document.
+	* tree.c (lvalue_p_1): Return a cp_lvalue_kind.  Calculate
+	appropriately.
+	(real_lvalue_p): Adjust accordingly.
+	(lvalue_p): Likewise.
+	(build_cplus_new): Don't allow the creation of an abstract class.
+	* typeck.c (convert_for_initialization): Use initialize_reference.
+	
+1999-07-21  Gavin Romig-Koch  <gavin@cygnus.com>
+
+	* lex.c (real_yylex) : Correct the test for overflow when lexing
+	integer literals.
+
+1999-07-20  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (warn_extern_redeclared_static): Check DECL_ARTIFICIAL,
+	not DECL_BUILT_IN, to determine if a function is internally declared.
+	(duplicate_decls): Likewise.  Improve handling of builtins.
+	(push_overloaded_decl): Remove special handling of builtins.
+
+	* cp-tree.h (ANON_AGGR_TYPE_P): Use CLASS_TYPE_P.
+
+	* decl.c (grokdeclarator): Pull out decl_constant_value in
+	templates, too.
+
+	* class.c (finish_struct, finish_struct_1): Remove 'warn_anon' parm.
+	* cp-tree.h, pt.c, semantics.c: Adjust.
+	* method.c (largest_union_member): Remove.
+
+	* lang-specs.h (c++-cpp-output): Pass -fpreprocessed.
+
+	* lex.c (token_getch, token_put_back): New fns.
+	(real_yylex): Use them.
+
+	* lex.c (lang_init): Generalize.
+	(lang_init_options): Tell cpplib this is C++.
+	(nextchar): Remove.  Replace uses with put_back.
+	(skip_white_space): Handle linemode here.  Optimize for cpplib.
+	(extend_token_buffer_to): New fn.
+	(extend_token_buffer): Use it.
+	(read_line_number, check_newline): Just deal with tokens.
+	(real_yylex): More cpplib optimizations.  Simplify.  Don't produce
+	EXTERN_LANG_STRING, LEFT_RIGHT or PAREN_STAR_PAREN here.
+	* spew.c (yylex): Produce LEFT_RIGHT and EXTERN_LANG_STRING.
+	* parse.y (PAREN_STAR_PAREN): Remove.
+	* input.c: Don't use the putback machinery with cpplib.
+	(sub_getch): Fold back into getch.
+	(getch): Don't handle linemode here.
+	(feed_input): Unget any text in the token buffer.
+
+	* lex.c	(set_typedecl_interface_info, set_vardecl_interface_info,
+	nextyychar, nextyylval): Remove.
+
+1999-07-20  Michael Tiemann  <tiemann@holodeck.cygnus.com>
+	    Jason Merrill  <jason@yorick.cygnus.com>
+
+	* lex.c (indent_level): New variable.
+	(init_parse): Set cpp_token to CPP_DIRECTIVE.
+	(consume_string): Make this smart about USE_CPPLIB.
+	(yyungetc): Use put_back function.
+	(pragma_getc, pragma_ungetc): Functions deleted.
+	(check_newline): Rewrite to be intelligent about USE_CPPLIB.
+	Also, call HANDLE_PRAGMA with getch, yyungetc, not pragma_getc and
+	pragma_ungetc.
+	(real_yylex): Rewrite to be intelligent about USE_CPPLIB.
+	Also, clean up cases where we redundantly set token_buffer[0].
+	(read_line_number): New fn.
+	* input.c (feed_input): Use integrated cpplib if USE_CPPLIB.
+	(end_input): Call cpp_pop_buffer if USE_CPPLIB.
+	(sub_getch): Conditionalize out code that's not appropriate if
+	USE_CPPLIB.
+	(put_back): Rewrite in case USE_CPPLIB is defined.
+	(input_redirected): Ditto.
+
+Tue Jul 20 11:24:19 1999  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* cp-tree.h: Delete lots of declarations of tree nodes; replaced by
+	c_global_trees and accessor macros defined in c-common.h.
+	(cp_tree_index): New enumeration.
+	(cp_global_trees): Declare new array.  Add accessor macros for it, and
+	delete declarations of tree nodes replaced by it.
+	(builtin_function): Delete macro, add declaration for new function.
+	Include c-common.h.
+	* decl.c: Delete definitions for tree nodes that were replaced by
+	cp_global_trees and c_global_trees.
+	(init_decl_processing): Call c_common_nodes_and_builtins; delete code
+	to generate the common builtins here.
+	(builtin_function): New function.
+	* decl2.c (abort_fndecl): Delete declaration.
+	* except.c (expand_builtin_return_address): Delete declaration.
+	(builtin_return_address_fndecl): Delete variable.
+	(const_ptr_type_node): Delete declaration.
+	* lex.c (cons_up_default_function): Delete declaration of
+	void_list_node.
+	* parse.y (void_list_node): Delete declaration.
+	* rtti.c (type_info_type_node, tinfo_fn_id, tinfo_fn_type):
+	Delete variables.
+	(const_string_type_node): Delete declaration.
+	* search.c (abort_fndecl): Delete declaration.
+	* Makefile.in: Update dependencies.
+
+1999-07-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* pt.c (check_default_tmpl_args): Move test for missing default
+	arguments here, from ...
+	(end_template_parm_list): Here.
+
+1999-07-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (lookup_nested_type): Remove.
+	(pushtag): Don't call it.
+
+Sat Jul 17 23:51:30 1999  Jeffrey A Law  (law@cygnus.com)
+
+        * Makefile.in (INTERFACE): Bump to 2.
+
+1999-07-17  Alexandre Oliva  <oliva@dcc.unicamp.br>
+        
+	* typeck2.c (my_friendly_abort): Updated URL with bug reporting
+	instructions to gcc.gnu.org.  Removed e-mail address.
+
+1999-07-17  Mark Mitchell  <mark@codesourcery.com>
+
+	* pt.c (determine_specialization): Tighten error-checking.
+	(end_template_parm_list): Likewise.
+
+1999-07-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* pt.c (check_default_tmpl_args): Handle friends defined in the
+	class just like member functions defined in the class.
+
+1999-07-09  Michael Tiemann  <tiemann@happy.cygnus.com>
+	    Jason Merrill  <jason@yorick.cygnus.com>
+
+	* cp-tree.h (struct lang_decl): Added field for storing sorted
+	FIELD_DECLs (used in TYPE_DECLs).
+	(DECL_PENDING_INLINE_INFO): Adjusted to use 'u' union.
+	(DECL_SORTED_FIELDS): New macro.
+	* class.c (method_name_cmp): New function.
+	(finish_struct_methods): Modified to support sorting and searching
+	methods.
+	(finish_struct_anon): Changed code in inner loop to use ELT rather 
+	than UELT (which required an extra indirection for every reference).
+	(field_decl_cmp): New function to support sorting FIELD_DECLs.
+	(finish_struct_1): Sort fields.
+	* search.c (lookup_field_1): Use DECL_SORTED_FIELDS if we have them.
+	(lookup_fnfields_1): Search sorted methods in METHOD_VEC.
+	Also, switch to using array indexing rather than a changing pointer.
+	* ptree.c (print_lang_decl): Handle TYPE_DECLs that have
+	DECL_SORTED_FIELDS.
+
+1999-07-09  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl2.c (reparse_absdcl_as_casts): Don't warn about old-style
+	casts in system headers or extern "C" blocks.
+
+	* pt.c (do_decl_instantiation): Downgrade duplicate instantiation
+	errors to pedwarn.
+
+1999-07-09  Michael Tiemann  <tiemann@happy.cygnus.com>
+
+	* decl2.c (write_virtuals): Deleted declaration.
+	* cp-tree.h (write_virtuals): Deleted extern declaration.
+	* class.c (finish_struct_1): Removed #if 0'd code that mentions
+	write_virtuals.
+	* semantics.c (begin_class_definition): Rewrite code to not depend
+	on write_virtuals.
+
+	* lex.c (cp_pragma_interface): New function.
+	(cp_pragma_implementation): Likewise.
+	(handle_cp_pragma): Call them.
+
+	* typeck.c (comptypes): Simplify C code in look_hard.
+
+	* xref.c (PALLOC): Use xcalloc, not calloc.
+	(SALLOC): Use xmalloc, not malloc.
+
+	* rtti.c (synthesize_tinfo_fn): Add missing call to pop_momentary.
+
+	* search.c (note_debug_info_needed): Don't search if WRITE_SYMBOLS
+	is NO_DEBUG.
+
+	* decl.c (duplicate_decls): If a redeclaration doesn't match the
+	initial declaration, then don't save the inline info and by all
+	means don't mark the function as a builtin function.
+
+	* decl.c (lookup_name_real): Set NONCLASS to 1 if 
+	CURRENT_CLASS_TYPE is 0.
+
+	* class.c (duplicate_tag_error): Set TYPE_NONCOPIED_PARTS to
+	NULL_TREE.
+
+	* ptree.c (print_lang_type): Added vtable-needs-writing.
+
+Wed Jul  7 01:26:47 1999  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* decl2.c (mark_vtable_entries): Fix check for rtti offset.
+
+1999-07-06  Gavin Romig-Koch  <gavin@cygnus.com>
+
+	* typeck.c (unsigned_type,signed_type,signed_or_unsigned_type) :
+	Merged into c-common.
+
+1999-07-05  Dave Brolley  <brolley@cygnus.com>
+
+	* lex.c (errorcount): Declare it.
+	(finish_parse): Update errorcount for when using CPPLIB.
+
+1999-07-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (IS_AGGR_TYPE): Include instantiated template template
+	parameters.
+	(IMPLICIT_TYPENAME_TYPE_DECL_P): New macro.
+	* decl.c (push_class_binding): Use it.
+	(lookup_name_real): Likewise.
+
+1999-07-02  Gavin Romig-Koch  <gavin@cygnus.com>
+
+	* cp-tree.h (widest_integer_literal_type_node,
+	widest_unsigned_literal_type) : New.
+	* decl.c (widest_integer_literal_type_node,
+	widest_unsigned_literal_type) : New.
+	(init_decl_processing): Handle/use the two new types.
+	* lex.c (real_yylex): Same.
+	* typeck.c (unsigned_type,signed_type,signed_or_unsigned_type) :
+	Same. 
+
+1999-07-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (grokdeclarator): Don't give names "for linkage purposes"
+	to anonymous cv-qualified types.
+
+1999-07-01  Gavin Romig-Koch  <gavin@cygnus.com>
+
+	* lex.c (real_yylex) : Change integer literal overflow handling to
+	be like c-lex.c.
+
+	* lex.c (real_yylex): Improve 'integer constant out of range' messages.
+
+1999-06-28  Richard Henderson  <rth@cygnus.com>
+
+        * decl.c (cp_finish_decl): Fix typo in cp_warning_at call.
+
+1999-06-28  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* error.c (dump_type_real): Handle TREE_LIST again.
+
+	* typeck.c (comp_target_parms): Don't complain about 
+	converting from () to (...) if !flag_strict_prototype.
+
+	* decl.c (grokdeclarator): Update the names of all variants when
+	de-anonymizing.
+
+1999-06-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* init.c (expand_aggr_vbase_init): Rename to
+	construct_virtual_bases.  Conditionalize construction here, 
+	rather than ...
+	(emit_base_init): Here.
+
 1999-06-19  Mark Mitchell  <mark@codesourcery.com>
 
 	* semantics.c (finish_asm_statement): Apply decay conversions to
@@ -525,7 +978,7 @@ Tue May 18 00:21:34 1999  Zack Weinberg  <zack@rabi.phys.columbia.edu>
 	(get_priority_info): Clear initializations_p and destructions_p.
 	(do_static_initialization): Tweak comment.
 	(do_static_destruction): Likewise.  Fix condition on sentries for
-	destruction. 
+	destruction.
 	(generate_ctor_or_dtor_function): Call all of the static storage
 	duration functions.
 	(generate_ctor_or_dtor_function_for_priority): Check
@@ -533,7 +986,7 @@ Tue May 18 00:21:34 1999  Zack Weinberg  <zack@rabi.phys.columbia.edu>
 	initialization functions.
 	(finish_file): Rework to generate multiple static storage duration
 	functions, rather than just one.
-	
+
 	* typeck.c (build_const_cast): Tweak last change to handle
 	templates correctly.
 
@@ -572,7 +1025,7 @@ Tue May 18 00:21:34 1999  Zack Weinberg  <zack@rabi.phys.columbia.edu>
 	comment.
 	(build_x_function_call): Use cp_error.
 	(build_unary_op): Adjust call of build_component_addr.
-	
+
 1999-04-28  Mark Mitchell  <mark@codesourcery.com>
 
 	* pt.c (tsubst_friend_class): Check for NULL.
@@ -670,7 +1123,7 @@ Wed Apr 28 11:42:22 1999  Andreas Schwab  <schwab@issan.cs.uni-dortmund.de>
 	(saved_inlines): Make it a varray.
 	(saved_inlines_used): New variable.
 	(finish_static_data_member): Change method of updating
-	pending_statics. 
+	pending_statics.
 	(mark_inline_for_output): Remove #if 0'd code.  Change method of
 	updating saved_inlines.
 	(walk_vtables): Remove.
@@ -722,7 +1175,7 @@ Wed Apr 28 11:42:22 1999  Andreas Schwab  <schwab@issan.cs.uni-dortmund.de>
 	(maybe_begin_member_template_processing): Update them.
 	(maybe_end_member_template_processing): Use them, rather than
 	guessing how many levels to pop.
-	
+
 	* decl.c (make_typename_type): Tighten error-checking.
 
 1999-04-20  Mark Mitchell  <mark@codesourcery.com>
@@ -757,7 +1210,7 @@ Wed Apr 28 11:42:22 1999  Andreas Schwab  <schwab@issan.cs.uni-dortmund.de>
 	(get_delta_difference): Likewise.
 	(build_ptrmemfunc): Likewise.
 	(expand_ptrmemfunc_cst): Likewise.
-	
+
 1999-04-20  Jason Merrill  <jason@yorick.cygnus.com>
 
 	* decl.c (grokfndecl): Always call cplus_decl_attributes.
@@ -768,12 +1221,12 @@ Wed Apr 28 11:42:22 1999  Andreas Schwab  <schwab@issan.cs.uni-dortmund.de>
 	* cp-tree.h (finish_static_data_member_decl): New function.
 	* decl2.c (finish_static_data_member_decl): Split out from ...
 	(grokfield): Here.
-	* pt.c (instantiate_class_template): Use it here instead of 
+	* pt.c (instantiate_class_template): Use it here instead of
 	trying to fake it.
 	(tsubst_decl): Don't set DECL_ASSEMBLER_NAME;
 	finish_static_data_member_decl will do that.  Explicit set
 	DECL_EXTERNAL to match non-template processing.
-	
+
 1999-04-18  Mark Mitchell  <mark@codesourcery.com>
 
 	* cp-tree.h (finish_class_definition): Add parameter.
@@ -789,7 +1242,7 @@ Wed Apr 28 11:42:22 1999  Andreas Schwab  <schwab@issan.cs.uni-dortmund.de>
 	templates in template classes.
 	(tsubst_friend_class): Handle friend declarations for nested
 	member template classes.
-	
+
 1999-04-16  Mark Mitchell  <mark@codesourcery.com>
 
 	* class.c (finish_struct): Remove unused variable.
@@ -812,7 +1265,7 @@ Wed Apr 28 11:42:22 1999  Andreas Schwab  <schwab@issan.cs.uni-dortmund.de>
 	(pushtag): Tidy.  Don't use TREE_NONLOCAL_FLAG.
 	* method.c (hack_identifier): Likewise.
 	* search.c (lookup_member): Likewise.
-	
+
 	* decl.c (warn_about_implicit_typename_lookup): New function.
 	(lookup_name_real): Use it.  Rework handling of implicit typename
 	extension.
@@ -826,7 +1279,7 @@ Wed Apr 28 11:42:22 1999  Andreas Schwab  <schwab@issan.cs.uni-dortmund.de>
 	(start_decl): Use push_nested_class, not just pushclass.
 	(cp_finish_decl): Use pop_nested_class, not just popclass.
 	* search.c (lookup_nested_field): Remove.
-	
+
 	* cp-tree.h (lang_type): Add documentation.
 	* decl2.c (handle_class_head): Create template declarations here,
 	as appropriate.
@@ -842,12 +1295,12 @@ Wed Apr 28 11:42:22 1999  Andreas Schwab  <schwab@issan.cs.uni-dortmund.de>
 	anonymous union is itself an anonymous union.
 	* semantics.c (begin_class_definition): Don't create template
 	declarations here.
-	
+
 1999-04-15  Jason Merrill  <jason@yorick.cygnus.com>
 
 	* parse.y (after_type_declarator_intern): New nonterminal.
 	(after_type_declarator): Use it.
-	(direct_after_type_declarator): Likewise.  Move above 
+	(direct_after_type_declarator): Likewise.  Move above
 	nonnested_type to fix reduce/reduce conflict resolution.
 	(declmods): Reducing from just 'attributes' has EMPTY precedence.
 	* Makefile.in (CONFLICTS): Update.
@@ -879,7 +1332,7 @@ Wed Apr 28 11:42:22 1999  Andreas Schwab  <schwab@issan.cs.uni-dortmund.de>
 	* pt.c (instantiate_class_template): Move call to pushclass, and
 	document.  Pass no arguments to popclass.
 	(regenerate_decl_from_template): Likewise.
-	
+
 1999-04-14  Jason Merrill  <jason@yorick.cygnus.com>
 
 	* typeck.c (build_unary_op): Handle taking the address of a unique

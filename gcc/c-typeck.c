@@ -722,89 +722,6 @@ self_promoting_type_p (type)
   return 1;
 }
 
-/* Return an unsigned type the same as TYPE in other respects.  */
-
-tree
-unsigned_type (type)
-     tree type;
-{
-  tree type1 = TYPE_MAIN_VARIANT (type);
-  if (type1 == signed_char_type_node || type1 == char_type_node)
-    return unsigned_char_type_node;
-  if (type1 == integer_type_node)
-    return unsigned_type_node;
-  if (type1 == short_integer_type_node)
-    return short_unsigned_type_node;
-  if (type1 == long_integer_type_node)
-    return long_unsigned_type_node;
-  if (type1 == long_long_integer_type_node)
-    return long_long_unsigned_type_node;
-  if (type1 == intDI_type_node)
-    return unsigned_intDI_type_node;
-  if (type1 == intSI_type_node)
-    return unsigned_intSI_type_node;
-  if (type1 == intHI_type_node)
-    return unsigned_intHI_type_node;
-  if (type1 == intQI_type_node)
-    return unsigned_intQI_type_node;
-
-  return signed_or_unsigned_type (1, type);
-}
-
-/* Return a signed type the same as TYPE in other respects.  */
-
-tree
-signed_type (type)
-     tree type;
-{
-  tree type1 = TYPE_MAIN_VARIANT (type);
-  if (type1 == unsigned_char_type_node || type1 == char_type_node)
-    return signed_char_type_node;
-  if (type1 == unsigned_type_node)
-    return integer_type_node;
-  if (type1 == short_unsigned_type_node)
-    return short_integer_type_node;
-  if (type1 == long_unsigned_type_node)
-    return long_integer_type_node;
-  if (type1 == long_long_unsigned_type_node)
-    return long_long_integer_type_node;
-  if (type1 == unsigned_intDI_type_node)
-    return intDI_type_node;
-  if (type1 == unsigned_intSI_type_node)
-    return intSI_type_node;
-  if (type1 == unsigned_intHI_type_node)
-    return intHI_type_node;
-  if (type1 == unsigned_intQI_type_node)
-    return intQI_type_node;
-
-  return signed_or_unsigned_type (0, type);
-}
-
-/* Return a type the same as TYPE except unsigned or
-   signed according to UNSIGNEDP.  */
-
-tree
-signed_or_unsigned_type (unsignedp, type)
-     int unsignedp;
-     tree type;
-{
-  if ((! INTEGRAL_TYPE_P (type) && ! POINTER_TYPE_P (type))
-      || TREE_UNSIGNED (type) == unsignedp)
-    return type;
-  if (TYPE_PRECISION (type) == TYPE_PRECISION (signed_char_type_node))
-    return unsignedp ? unsigned_char_type_node : signed_char_type_node;
-  if (TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node)) 
-    return unsignedp ? unsigned_type_node : integer_type_node;
-  if (TYPE_PRECISION (type) == TYPE_PRECISION (short_integer_type_node)) 
-    return unsignedp ? short_unsigned_type_node : short_integer_type_node;
-  if (TYPE_PRECISION (type) == TYPE_PRECISION (long_integer_type_node)) 
-    return unsignedp ? long_unsigned_type_node : long_integer_type_node;
-  if (TYPE_PRECISION (type) == TYPE_PRECISION (long_long_integer_type_node)) 
-    return (unsignedp ? long_long_unsigned_type_node
-	    : long_long_integer_type_node);
-  return type;
-}
-
 /* Compute the value of the `sizeof' operator.  */
 
 tree
@@ -6233,7 +6150,16 @@ output_init_element (value, type, field, pending)
 	    = TREE_INT_CST_HIGH (tem);
 	}
       else if (TREE_CODE (constructor_type) == RECORD_TYPE)
-	constructor_unfilled_fields = TREE_CHAIN (constructor_unfilled_fields);
+	{
+	  constructor_unfilled_fields =
+	    TREE_CHAIN (constructor_unfilled_fields);
+	  /* Skip any nameless bit fields.  */
+	  while (constructor_unfilled_fields != 0
+		 && DECL_C_BIT_FIELD (constructor_unfilled_fields)
+		 && DECL_NAME (constructor_unfilled_fields) == 0)
+	    constructor_unfilled_fields =
+	      TREE_CHAIN (constructor_unfilled_fields);
+	}
       else if (TREE_CODE (constructor_type) == UNION_TYPE)
 	constructor_unfilled_fields = 0;
 
@@ -6568,6 +6494,12 @@ process_init_element (value)
 		= TREE_INT_CST_HIGH (temp);
 
 	      constructor_unfilled_fields = TREE_CHAIN (constructor_fields);
+	      /* Skip any nameless bit fields.  */
+	      while (constructor_unfilled_fields != 0
+		     && DECL_C_BIT_FIELD (constructor_unfilled_fields)
+		     && DECL_NAME (constructor_unfilled_fields) == 0)
+		constructor_unfilled_fields =
+		  TREE_CHAIN (constructor_unfilled_fields);
 	    }
 
 	  constructor_fields = TREE_CHAIN (constructor_fields);

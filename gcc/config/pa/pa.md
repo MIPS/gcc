@@ -1478,7 +1478,20 @@
 
 ;; Load or store with base-register modification.
 
-(define_insn "pre_ldwm"
+(define_expand "pre_load"
+  [(parallel [(set (match_operand:SI 0 "register_operand" "")
+	      (mem (plus (match_operand 1 "register_operand" "")
+			       (match_operand 2 "pre_cint_operand" ""))))
+	      (set (match_dup 1)
+		   (plus (match_dup 1) (match_dup 2)))])]
+  ""
+  "
+{
+  emit_insn (gen_pre_ldw (operands[0], operands[1], operands[2]));
+  DONE;
+}")
+
+(define_insn "pre_ldw"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(mem:SI (plus:SI (match_operand:SI 1 "register_operand" "+r")
 			 (match_operand:SI 2 "pre_cint_operand" ""))))
@@ -1494,7 +1507,7 @@
   [(set_attr "type" "load")
    (set_attr "length" "4")])
 
-(define_insn "pre_stwm"
+(define_insn ""
   [(set (mem:SI (plus:SI (match_operand:SI 0 "register_operand" "+r")
 			 (match_operand:SI 1 "pre_cint_operand" "")))
 	(match_operand:SI 2 "reg_or_0_operand" "rM"))
@@ -1510,7 +1523,7 @@
   [(set_attr "type" "store")
    (set_attr "length" "4")])
 
-(define_insn "post_ldwm"
+(define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(mem:SI (match_operand:SI 1 "register_operand" "+r")))
    (set (match_dup 1)
@@ -1526,7 +1539,20 @@
   [(set_attr "type" "load")
    (set_attr "length" "4")])
 
-(define_insn "post_stwm"
+(define_expand "post_store"
+  [(parallel [(set (mem (match_operand 0 "register_operand" ""))
+		   (match_operand 1 "reg_or_0_operand" ""))
+	      (set (match_dup 0)
+		   (plus (match_dup 0)
+			 (match_operand 2 "post_cint_operand" "")))])]
+  ""
+  "
+{
+  emit_insn (gen_post_stw (operands[0], operands[1], operands[2]));
+  DONE;
+}")
+
+(define_insn "post_stw"
   [(set (mem:SI (match_operand:SI 0 "register_operand" "+r"))
 	(match_operand:SI 1 "reg_or_0_operand" "rM"))
    (set (match_dup 0)
@@ -1584,7 +1610,7 @@
   [(set_attr "type" "multi")
    (set_attr "length" "16")])		; 12 or 16
 
-(define_insn "pic2_highpart"
+(define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=a")
 	(plus:SI (match_operand:SI 1 "register_operand" "r")
 		 (high:SI (match_operand 2 "" ""))))]
@@ -1598,11 +1624,12 @@
 ; We need this to make sure CSE doesn't simplify a memory load with a
 ; symbolic address, whose content it think it knows.  For PIC, what CSE
 ; think is the real value will be the address of that value.
-(define_insn "pic2_lo_sum"
+(define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=r")
-	(mem:SI (lo_sum:SI (match_operand:SI 1 "register_operand" "r")
-			   (unspec:SI [(match_operand:SI 2 "symbolic_operand" "")] 0))))]
-  ""
+	(mem:SI
+	  (lo_sum:SI (match_operand:SI 1 "register_operand" "r")
+		     (unspec:SI
+			[(match_operand:SI 2 "symbolic_operand" "")] 0))))]
   "*
 {
   if (flag_pic != 2)
@@ -1611,7 +1638,6 @@
 }"
   [(set_attr "type" "load")
    (set_attr "length" "4")])
-
 
 ;; Always use addil rather than ldil;add sequences.  This allows the
 ;; HP linker to eliminate the dp relocation if the symbolic operand
@@ -1642,7 +1668,7 @@
 ;; Because of the additional %r1 pressure, we probably do not
 ;; want to use this in general code, so make it available
 ;; only after reload.
-(define_insn "add_high_const"
+(define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=!a,*r")
 	(plus:SI (match_operand:SI 1 "register_operand" "r,r")
 		 (high:SI (match_operand 2 "const_int_operand" ""))))]
@@ -2447,8 +2473,6 @@
   [(set_attr "type" "move")
    (set_attr "length" "8")])
 
-;;; Experimental
-
 (define_insn ""
   [(set (match_operand:DI 0 "reg_or_nonsymb_mem_operand"
 			  "=r,o,Q,r,r,r,f,f,*TR")
@@ -2900,7 +2924,14 @@
 
 ;;- arithmetic instructions
 
-(define_insn "adddi3"
+(define_expand "adddi3"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(plus:DI (match_operand:DI 1 "register_operand" "")
+		 (match_operand:DI 2 "arith11_operand" "")))]
+  ""
+  "")
+
+(define_insn ""
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(plus:DI (match_operand:DI 1 "register_operand" "%r")
 		 (match_operand:DI 2 "arith11_operand" "rI")))]
@@ -3025,7 +3056,14 @@
   [(set_attr "type" "binary")
    (set_attr "length" "8")])
 
-(define_insn "subdi3"
+(define_expand "subdi3"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(minus:DI (match_operand:DI 1 "register_operand" "")
+		  (match_operand:DI 2 "register_operand" "")))]
+  ""
+  "")
+
+(define_insn ""
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(minus:DI (match_operand:DI 1 "register_operand" "r")
 		  (match_operand:DI 2 "register_operand" "r")))]
@@ -3843,7 +3881,7 @@
       rtx temp = gen_reg_rtx (SImode);
       emit_insn (gen_subsi3 (temp, GEN_INT (31), operands[2]));
       if (GET_CODE (operands[1]) == CONST_INT)
-	emit_insn (gen_zvdep_imm (operands[0], operands[1], temp));
+	emit_insn (gen_zvdep_imm32 (operands[0], operands[1], temp));
       else
 	emit_insn (gen_zvdep32 (operands[0], operands[1], temp));
       DONE;
@@ -3862,10 +3900,10 @@
   [(set_attr "type" "shift")
    (set_attr "length" "4")])
 
-; Match cases of op1 a CONST_INT here that zvdep_imm doesn't handle.
+; Match cases of op1 a CONST_INT here that zvdep_imm32 doesn't handle.
 ; Doing it like this makes slightly better code since reload can
 ; replace a register with a known value in range -16..15 with a
-; constant.  Ideally, we would like to merge zvdep32 and zvdep_imm,
+; constant.  Ideally, we would like to merge zvdep32 and zvdep_imm32,
 ; but since we have no more CONST_OK... characters, that is not
 ; possible.
 (define_insn "zvdep32"
@@ -3880,7 +3918,7 @@
   [(set_attr "type" "shift,shift")
    (set_attr "length" "4,4")])
 
-(define_insn "zvdep_imm"
+(define_insn "zvdep_imm32"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(ashift:SI (match_operand:SI 1 "lhs_lshift_cint_operand" "")
 		   (minus:SI (const_int 31)
@@ -4283,8 +4321,8 @@
     call_insn = emit_call_insn (gen_call_internal_symref (op, operands[1]));
   else
     {
-      rtx tmpreg = gen_rtx_REG (SImode, 22);
-      emit_move_insn (tmpreg, force_reg (SImode, op));
+      rtx tmpreg = gen_rtx_REG (word_mode, 22);
+      emit_move_insn (tmpreg, force_reg (word_mode, op));
       call_insn = emit_call_insn (gen_call_internal_reg (operands[1]));
     }
 
@@ -4298,7 +4336,7 @@
          This will set regs_ever_live for the callee saved register we
 	 stored the PIC register in.  */
       emit_move_insn (pic_offset_table_rtx,
-		      gen_rtx_REG (SImode, PIC_OFFSET_TABLE_REGNUM_SAVED));
+		      gen_rtx_REG (word_mode, PIC_OFFSET_TABLE_REGNUM_SAVED));
       emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
 
       /* Gross.  We have to keep the scheduler from moving the restore
@@ -4425,7 +4463,7 @@
   rtx call_insn;
 
   if (TARGET_PORTABLE_RUNTIME)
-    op = force_reg (SImode, XEXP (operands[1], 0));
+    op = force_reg (word_mode, XEXP (operands[1], 0));
   else
     op = XEXP (operands[1], 0);
 
@@ -4440,8 +4478,8 @@
 								operands[2]));
   else
     {
-      rtx tmpreg = gen_rtx_REG (SImode, 22);
-      emit_move_insn (tmpreg, force_reg (SImode, op));
+      rtx tmpreg = gen_rtx_REG (word_mode, 22);
+      emit_move_insn (tmpreg, force_reg (word_mode, op));
       call_insn = emit_call_insn (gen_call_value_internal_reg (operands[0],
 							       operands[2]));
     }
@@ -4455,7 +4493,7 @@
          This will set regs_ever_live for the callee saved register we
 	 stored the PIC register in.  */
       emit_move_insn (pic_offset_table_rtx,
-		      gen_rtx_REG (SImode, PIC_OFFSET_TABLE_REGNUM_SAVED));
+		      gen_rtx_REG (word_mode, PIC_OFFSET_TABLE_REGNUM_SAVED));
       emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
 
       /* Gross.  We have to keep the scheduler from moving the restore
@@ -4640,8 +4678,8 @@
 
 ;;; Hope this is only within a function...
 (define_insn "indirect_jump"
-  [(set (pc) (match_operand:SI 0 "register_operand" "r"))]
-  ""
+  [(set (pc) (match_operand 0 "register_operand" "r"))]
+  "GET_MODE (operands[0]) == word_mode"
   "bv%* %%r0(%0)"
   [(set_attr "type" "branch")
    (set_attr "length" "4")])
@@ -5130,8 +5168,8 @@
 
 (define_insn "dcacheflush"
   [(unspec_volatile [(const_int 1)] 0)
-   (use (mem:SI (match_operand:SI 0 "register_operand" "r")))
-   (use (mem:SI (match_operand:SI 1 "register_operand" "r")))]
+   (use (mem:SI (match_operand 0 "register_operand" "r")))
+   (use (mem:SI (match_operand 1 "register_operand" "r")))]
   ""
   "fdc 0(%0)\;fdc 0(%1)\;sync"
   [(set_attr "type" "multi")
@@ -5139,11 +5177,11 @@
 
 (define_insn "icacheflush"
   [(unspec_volatile [(const_int 2)] 0)
-   (use (mem:SI (match_operand:SI 0 "register_operand" "r")))
-   (use (mem:SI (match_operand:SI 1 "register_operand" "r")))
-   (use (match_operand:SI 2 "register_operand" "r"))
-   (clobber (match_operand:SI 3 "register_operand" "=&r"))
-   (clobber (match_operand:SI 4 "register_operand" "=&r"))]
+   (use (mem:SI (match_operand 0 "register_operand" "r")))
+   (use (mem:SI (match_operand 1 "register_operand" "r")))
+   (use (match_operand 2 "register_operand" "r"))
+   (clobber (match_operand 3 "register_operand" "=&r"))
+   (clobber (match_operand 4 "register_operand" "=&r"))]
   ""
   "mfsp %%sr0,%4\;ldsid (%2),%3\;mtsp %3,%%sr0\;fic 0(%%sr0,%0)\;fic 0(%%sr0,%1)\;sync\;mtsp %4,%%sr0\;nop\;nop\;nop\;nop\;nop\;nop"
   [(set_attr "type" "multi")

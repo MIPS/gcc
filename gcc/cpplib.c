@@ -2027,7 +2027,11 @@ cpp_get_token (pfile)
   if (c == EOF)
     {
     handle_eof:
-      if (CPP_BUFFER (pfile)->seen_eof)
+      if (CPP_BUFFER (pfile)->manual_pop)
+	/* If we've been reading from redirected input, the
+	   frontend will pop the buffer.  */
+	return CPP_EOF;
+      else if (CPP_BUFFER (pfile)->seen_eof)
 	{
 	  if (CPP_PREV_BUFFER (CPP_BUFFER (pfile)) == CPP_NULL_BUFFER (pfile))
 	    return CPP_EOF;
@@ -2172,8 +2176,25 @@ cpp_get_token (pfile)
 	  c2 = PEEKC ();
 	  if (c2 == '-' && opts->chill)
 	    goto comment;  /* Chill style comment */
-	  if (c2 == '-' || c2 == '=' || c2 == '>')
+	  if (c2 == '-' || c2 == '=')
 	    goto op2;
+	  if (c2 == '>')
+	    {
+	      if (opts->cplusplus && PEEKN (1) == '*')
+		{
+		  /* In C++, there's a ->* operator.  */
+		op3:
+		  token = CPP_OTHER;
+		  pfile->only_seen_white = 0;
+		  CPP_RESERVE (pfile, 4);
+		  CPP_PUTC_Q (pfile, c);
+		  CPP_PUTC_Q (pfile, GETC ());
+		  CPP_PUTC_Q (pfile, GETC ());
+		  CPP_NUL_TERMINATE_Q (pfile);
+		  return token;
+		}
+	      goto op2;
+	    }
 	  goto randomchar;
 
 	case '<':
@@ -2219,7 +2240,8 @@ cpp_get_token (pfile)
 	  c2 = PEEKC ();
 	  if (c2 == '=')
 	    goto op2;
-	  if (c2 != c)
+	  /* GNU C++ supports MIN and MAX operators <? and >?.  */
+	  if (c2 != c && (!opts->cplusplus || c2 != '?'))
 	    goto randomchar;
 	  FORWARD(1);
 	  CPP_RESERVE (pfile, 4);
@@ -2241,6 +2263,11 @@ cpp_get_token (pfile)
 	      c = GETC ();
 	      goto number;
 	    }
+
+	  /* In C++ there's a .* operator.  */
+	  if (opts->cplusplus && c2 == '*')
+	    goto op2;
+
 	  if (c2 == '.' && PEEKN(1) == '.')
 	    {
 	      CPP_RESERVE(pfile, 4);
@@ -2549,7 +2576,7 @@ parse_name (pfile, c)
 /* Parse a string starting with C.  A single quoted string is treated
    like a double -- some programs (e.g., troff) are perverse this way.
    (However, a single quoted string is not allowed to extend over
-   multiple lines.  */
+   multiple lines.)  */
 static void
 parse_string (pfile, c)
      cpp_reader *pfile;

@@ -370,6 +370,10 @@ void (*restore_machine_status) PROTO((struct function *));
 
 extern int rtx_equal_function_value_matters;
 extern tree sequence_rtl_expr;
+
+/* These arrays record the INSN_UIDs of the prologue and epilogue insns.  */
+static int *prologue;
+static int *epilogue;
 
 /* In order to evaluate some expressions, such as function calls returning
    structures in memory, we need to temporarily allocate stack locations.
@@ -6019,6 +6023,9 @@ init_function_start (subr, filename, line)
   /* By default assume not varargs or stdarg.  */
   current_function_varargs = 0;
   current_function_stdarg = 0;
+
+  /* No prologue/epilogue insns yet.  */
+  prologue = epilogue = 0;
 }
 
 /* Indicate that the current function uses extra args
@@ -6625,11 +6632,6 @@ expand_function_end (filename, line, end_bindings)
   expand_fixups (get_insns ());
 }
 
-/* These arrays record the INSN_UIDs of the prologue and epilogue insns.  */
-
-static int *prologue;
-static int *epilogue;
-
 /* Create an array that records the INSN_UIDs of INSNS (either a sequence
    or a single insn).  */
 
@@ -6684,6 +6686,17 @@ contains (insn, vec)
     }
   return 0;
 }
+
+int
+prologue_epilogue_contains (insn)
+     rtx insn;
+{
+  if (prologue && contains (insn, prologue))
+    return 1;
+  if (epilogue && contains (insn, epilogue))
+    return 1;
+  return 0;
+}
 #endif /* HAVE_prologue || HAVE_epilogue */
 
 /* Generate the prologue and epilogue RTL if the machine supports it.  Thread
@@ -6696,7 +6709,6 @@ thread_prologue_and_epilogue_insns (f)
 {
   int insertted = 0;
 
-  prologue = 0;
 #ifdef HAVE_prologue
   if (HAVE_prologue)
     {
@@ -6731,7 +6743,6 @@ thread_prologue_and_epilogue_insns (f)
     }
 #endif
 
-  epilogue = 0;
 #ifdef HAVE_epilogue
   if (HAVE_epilogue)
     {

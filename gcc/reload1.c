@@ -6297,13 +6297,12 @@ choose_reload_regs (chain)
 	     is mentioned in reload_in of the reload we are going to inherit.
 	     A special case are auto_inc expressions; even if the input is
 	     inherited, we still need the address for the output.  We can
-	     recognize them because they have RELOAD_OUT set but not
-	     RELOAD_OUT_REG.
+	     recognize them because they have RELOAD_OUT set to RELOAD_IN.
 	     If we suceeded removing some reload and we are doing a preliminary
 	     pass just to remove such reloads, make another pass, since the
 	     removal of one reload might allow us to inherit another one.  */
-	  else if ((! reload_out[r] || reload_out_reg[r])
-		   && reload_in[r]
+	  else if (reload_in[r]
+		   && reload_out[r] != reload_in[r]
 		   && remove_address_replacements (reload_in[r]) && pass)
 	    pass = 2;
 	}
@@ -7811,17 +7810,27 @@ gen_reload (out, in, opnum, type)
       delete_insns_since (last);
 
       /* If that failed, we must use a conservative two-insn sequence.
-	 use move to copy constant, MEM, or pseudo register to the reload
-	 register since "move" will be able to handle an arbitrary operand,
-	 unlike add which can't, in general.  Then add the registers.
+
+	 Use a move to copy one operand into the reload register.  Prefer
+	 to reload a constant, MEM or pseudo since the move patterns can
+	 handle an arbitrary operand.  If OP1 is not a constant, MEM or
+	 pseudo and OP1 is not a valid operand for an add instruction, then
+	 reload OP1.
+
+	 After reloading one of the operands into the reload register, add
+	 the reload register to the output register.
 
 	 If there is another way to do this for a specific machine, a
 	 DEFINE_PEEPHOLE should be specified that recognizes the sequence
 	 we emit below.  */
 
+      code = (int) add_optab->handlers[(int) GET_MODE (out)].insn_code;
+
       if (CONSTANT_P (op1) || GET_CODE (op1) == MEM || GET_CODE (op1) == SUBREG
 	  || (GET_CODE (op1) == REG
-	      && REGNO (op1) >= FIRST_PSEUDO_REGISTER))
+	      && REGNO (op1) >= FIRST_PSEUDO_REGISTER)
+	  || (code != CODE_FOR_nothing
+	      && ! (*insn_operand_predicate[code][2]) (op1, insn_operand_mode[code][2])))
 	tem = op0, op0 = op1, op1 = tem;
 
       gen_reload (out, op0, opnum, type);

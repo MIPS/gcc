@@ -1052,6 +1052,57 @@ expand_iinc (local_var_index, ival, pc)
     expand_assignment (local_var, res, 0, 0);
 }
 
+      
+tree
+build_java_soft_divmod (op, type, op1, op2)
+    enum tree_code op;
+    tree type, op1, op2;
+{
+  tree call = NULL;
+  tree arg1 = convert (type, op1);
+  tree arg2 = convert (type, op2);
+
+  if (type == int_type_node)
+    {	  
+      switch (op)
+	{
+	case TRUNC_DIV_EXPR:
+	  call = soft_idiv_node;
+	  break;
+	case TRUNC_MOD_EXPR:
+	  call = soft_irem_node;
+	  break;
+	default:
+	  break;
+	}
+    }
+  else if (type == long_type_node)
+    {	  
+      switch (op)
+	{
+	case TRUNC_DIV_EXPR:
+	  call = soft_ldiv_node;
+	  break;
+	case TRUNC_MOD_EXPR:
+	  call = soft_lrem_node;
+	  break;
+	default:
+	  break;
+	}
+    }
+
+  if (! call)
+    fatal ("Internal compiler error in build_java_soft_divmod");
+		  
+  call = build (CALL_EXPR, type,
+		build_address_of (call),
+		tree_cons (NULL_TREE, arg1,
+			   build_tree_list (NULL_TREE, arg2)),
+		NULL_TREE);
+	  
+  return call;
+}
+
 tree
 build_java_binop (op, type, arg1, arg2)
      enum tree_code op;
@@ -1100,10 +1151,11 @@ build_java_binop (op, type, arg1, arg2)
 					    integer_zero_node));
 	return fold (build (COND_EXPR, int_type_node,
 			    ifexp1, integer_negative_one_node, second_compare));
-      }
-
+      }      
+    case TRUNC_DIV_EXPR:
     case TRUNC_MOD_EXPR:
-      if (TREE_CODE (type) == REAL_TYPE)
+      if (TREE_CODE (type) == REAL_TYPE
+	  && op == TRUNC_MOD_EXPR)
 	{
 	  tree call;
 	  if (type != double_type_node)
@@ -1120,6 +1172,12 @@ build_java_binop (op, type, arg1, arg2)
 	    call = convert (type, call);
 	  return call;
 	}
+      
+      if (TREE_CODE (type) == INTEGER_TYPE
+	  && flag_use_divide_subroutine
+	  && ! flag_syntax_only)
+	return build_java_soft_divmod (op, type, arg1, arg2);
+      
       break;
     default:  ;
     }
@@ -1819,9 +1877,9 @@ case_identity (t, v)
 struct rtx_def *
 java_lang_expand_expr (exp, target, tmode, modifier)
      register tree exp;
-     rtx target;
-     enum machine_mode tmode;
-     enum expand_modifier modifier;
+     rtx target ATTRIBUTE_UNUSED;
+     enum machine_mode tmode ATTRIBUTE_UNUSED;
+     enum expand_modifier modifier ATTRIBUTE_UNUSED;
 {
   tree current;
 
@@ -1895,7 +1953,6 @@ java_lang_expand_expr (exp, target, tmode, modifier)
 	{
 	  tree local;
 	  tree body = BLOCK_EXPR_BODY (exp);
-	  struct rtx_def *to_return;
 	  pushlevel (2);	/* 2 and above */
 	  expand_start_bindings (0);
 	  local = BLOCK_EXPR_DECLS (exp);
@@ -1913,10 +1970,11 @@ java_lang_expand_expr (exp, target, tmode, modifier)
 	      emit_queue ();
 	      body = TREE_OPERAND (body, 1);
 	    }
-	  to_return = expand_expr (body, target, tmode, modifier);
+	  expand_expr (body, const0_rtx, VOIDmode, 0);
+	  emit_queue ();
 	  poplevel (1, 1, 0);
 	  expand_end_bindings (getdecls (), 1, 0);
-	  return to_return;
+	  return const0_rtx;
 	}
       break;
 
@@ -2578,6 +2636,10 @@ process_jvm_instruction (PC, byte_ops, length)
 
    We fix this by using save_expr.  This forces the sub-operand to be
    copied into a fresh virtual register,
+
+   For method invocation, we modify the arguments so that a
+   left-to-right order evaluation is performed. Saved expressions
+   will, in CALL_EXPR order, be reused when the call will be expanded.
 */
 
 tree
@@ -2593,19 +2655,30 @@ force_evaluation_order (node)
     }
   else if (TREE_CODE (node) == CALL_EXPR || TREE_CODE (node) == NEW_CLASS_EXPR)
     {
-      tree last_side_effecting_arg = NULL_TREE;
-      tree arg = TREE_OPERAND (node, 1);
-      for (; arg != NULL_TREE; arg = TREE_CHAIN (arg))
+      tree arg, cmp;
+
+      if (!TREE_OPERAND (node, 1))
+	return node;
+
+      /* This reverses the evaluation order. This is a desired effect. */
+      for (cmp = NULL_TREE, arg = TREE_OPERAND (node, 1); 
+	   arg; arg = TREE_CHAIN (arg))
 	{
-	  if (TREE_SIDE_EFFECTS (TREE_VALUE (arg)))
-	    last_side_effecting_arg = arg;
+	  tree saved = save_expr (TREE_VALUE (arg));
+	  cmp = (cmp == NULL_TREE ? saved :
+		 build (COMPOUND_EXPR, void_type_node, cmp, saved));
+	  TREE_VALUE (arg) = saved;
 	}
-      arg = TREE_OPERAND (node, 1);
-      for (; arg != NULL_TREE;  arg = TREE_CHAIN (arg))
+      
+      if (cmp && TREE_CODE (cmp) == COMPOUND_EXPR)
+	TREE_SIDE_EFFECTS (cmp) = 1;
+
+      if (cmp)
 	{
-	  if (arg == last_side_effecting_arg)
-	    break;
-	  TREE_VALUE (arg) = save_expr (TREE_VALUE (arg)); 
+	  cmp = save_expr (build (COMPOUND_EXPR, TREE_TYPE (node), cmp, node));
+	  CAN_COMPLETE_NORMALLY (cmp) = CAN_COMPLETE_NORMALLY (node);
+	  TREE_SIDE_EFFECTS (cmp) = 1;
+	  node = cmp;
 	}
     }
   return node;

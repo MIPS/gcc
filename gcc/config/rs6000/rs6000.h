@@ -400,6 +400,7 @@ enum processor_type
  {
    PROCESSOR_RIOS1,
    PROCESSOR_RIOS2,
+   PROCESSOR_RS64A,
    PROCESSOR_MPCCORE,
    PROCESSOR_PPC403,
    PROCESSOR_PPC601,
@@ -407,6 +408,7 @@ enum processor_type
    PROCESSOR_PPC604,
    PROCESSOR_PPC604e,
    PROCESSOR_PPC620,
+   PROCESSOR_PPC630,
    PROCESSOR_PPC750
 };
 
@@ -416,12 +418,14 @@ extern enum processor_type rs6000_cpu;
 #define rs6000_cpu_attr ((enum attr_cpu)rs6000_cpu)
 
 /* Define generic processor types based upon current deployment.  */
-#define PROCESSOR_COMMON  PROCESSOR_PPC601
-#define PROCESSOR_POWER   PROCESSOR_RIOS1
-#define PROCESSOR_POWERPC PROCESSOR_PPC604
+#define PROCESSOR_COMMON    PROCESSOR_PPC601
+#define PROCESSOR_POWER     PROCESSOR_RIOS1
+#define PROCESSOR_POWERPC   PROCESSOR_PPC604
+#define PROCESSOR_POWERPC64 PROCESSOR_RS64A
 
 /* Define the default processor.  This is overridden by other tm.h files.  */
-#define PROCESSOR_DEFAULT PROCESSOR_RIOS1
+#define PROCESSOR_DEFAULT   PROCESSOR_RIOS1
+#define PROCESSOR_DEFAULT64 PROCESSOR_RS64A
 
 /* Specify the dialect of assembler to use.  New mnemonics is dialect one
    and the old mnemonics are dialect zero.  */
@@ -511,7 +515,7 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 #define PROMOTE_MODE(MODE,UNSIGNEDP,TYPE)	\
   if (GET_MODE_CLASS (MODE) == MODE_INT		\
       && GET_MODE_SIZE (MODE) < UNITS_PER_WORD) \
-    (MODE) = (! TARGET_POWERPC64 ? SImode : DImode);
+    (MODE) = word_mode;
 
 /* Define this if function arguments should also be promoted using the above
    procedure.  */
@@ -1435,17 +1439,22 @@ extern int rs6000_sysv_varargs_p;
    floating-point register number, and the third says how many more args we
    have prototype types for.
 
+   For ABI_V4, we treat these slightly differently -- `sysv_gregno' is
+   the next availible GP register, `fregno' is the next available FP
+   register, and `words' is the number of words used on the stack.
+
    The varargs/stdarg support requires that this structure's size
-   be a multiple of sizeof(int). */
+   be a multiple of sizeof(int).  */
 
 typedef struct rs6000_args
 {
-  int words;			/* # words uses for passing GP registers */
+  int words;			/* # words used for passing GP registers */
   int fregno;			/* next available FP register */
   int nargs_prototype;		/* # args left in the current prototype */
   int orig_nargs;		/* Original value of nargs_prototype */
   int prototype;		/* Whether a prototype was defined */
   int call_cookie;		/* Do special things for this call */
+  int sysv_gregno;		/* next available GP register */
 } CUMULATIVE_ARGS;
 
 /* Define intermediate macro to compute the size (in registers) of an argument
@@ -1561,16 +1570,10 @@ typedef struct rs6000_args
    code for a call to `__builtin_saveregs'.  This code will be moved
    to the very beginning of the function, before any parameter access
    are made.  The return value of this function should be an RTX that
-   contains the value to use as the return of `__builtin_saveregs'.
+   contains the value to use as the return of `__builtin_saveregs'.  */
 
-   The argument ARGS is a `tree_list' containing the arguments that
-   were passed to `__builtin_saveregs'.
-
-   If this macro is not defined, the compiler will output an ordinary
-   call to the library function `__builtin_saveregs'.  */
-
-#define EXPAND_BUILTIN_SAVEREGS(ARGS) \
-  expand_builtin_saveregs (ARGS)
+#define EXPAND_BUILTIN_SAVEREGS() \
+  rs6000_expand_builtin_saveregs ()
 
 /* This macro generates the assembly code for function entry.
    FILE is a stdio stream to output the code to.
@@ -1927,7 +1930,7 @@ typedef struct rs6000_args
 
 #define LEGITIMATE_LO_SUM_ADDRESS_P(MODE, X)		\
   (TARGET_ELF						\
-   && !flag_pic && !TARGET_TOC				\
+   && ! flag_pic && ! TARGET_TOC			\
    && (MODE) != DImode					\
    && (MODE) != TImode					\
    && (TARGET_HARD_FLOAT || (MODE) != DFmode)		\
@@ -2308,6 +2311,12 @@ do {                                                                    \
 		? COSTS_N_INSNS (5)					\
 		: INTVAL (XEXP (X, 1)) >= -256 && INTVAL (XEXP (X, 1)) <= 255 \
 		? COSTS_N_INSNS (3) : COSTS_N_INSNS (4));		\
+      case PROCESSOR_RS64A:						\
+        return (GET_CODE (XEXP (X, 1)) != CONST_INT			\
+		? GET_MODE (XEXP (X, 1)) != DImode			\
+		? COSTS_N_INSNS (20) : COSTS_N_INSNS (34)		\
+		: INTVAL (XEXP (X, 1)) >= -256 && INTVAL (XEXP (X, 1)) <= 255 \
+		? COSTS_N_INSNS (12) : COSTS_N_INSNS (14));		\
       case PROCESSOR_RIOS2:						\
       case PROCESSOR_MPCCORE:						\
       case PROCESSOR_PPC604e:						\
@@ -2322,8 +2331,14 @@ do {                                                                    \
 		? COSTS_N_INSNS (2) : COSTS_N_INSNS (3));		\
       case PROCESSOR_PPC403:						\
       case PROCESSOR_PPC604:						\
-      case PROCESSOR_PPC620:						\
         return COSTS_N_INSNS (4);					\
+      case PROCESSOR_PPC620:						\
+      case PROCESSOR_PPC630:						\
+        return (GET_CODE (XEXP (X, 1)) != CONST_INT			\
+		? GET_MODE (XEXP (X, 1)) != DImode			\
+		? COSTS_N_INSNS (4) : COSTS_N_INSNS (7)			\
+		: INTVAL (XEXP (X, 1)) >= -256 && INTVAL (XEXP (X, 1)) <= 255 \
+		? COSTS_N_INSNS (3) : COSTS_N_INSNS (4));		\
       }									\
   case DIV:								\
   case MOD:								\
@@ -2339,6 +2354,10 @@ do {                                                                    \
 	return COSTS_N_INSNS (19);					\
       case PROCESSOR_RIOS2:						\
 	return COSTS_N_INSNS (13);					\
+      case PROCESSOR_RS64A:						\
+        return (GET_MODE (XEXP (X, 1)) != DImode			\
+		? COSTS_N_INSNS (65)					\
+		: COSTS_N_INSNS (67));					\
       case PROCESSOR_MPCCORE:						\
 	return COSTS_N_INSNS (6);					\
       case PROCESSOR_PPC403:						\
@@ -2349,8 +2368,12 @@ do {                                                                    \
 	return COSTS_N_INSNS (37);					\
       case PROCESSOR_PPC604:						\
       case PROCESSOR_PPC604e:						\
-      case PROCESSOR_PPC620:						\
 	return COSTS_N_INSNS (20);					\
+      case PROCESSOR_PPC620:						\
+      case PROCESSOR_PPC630:						\
+        return (GET_MODE (XEXP (X, 1)) != DImode			\
+		? COSTS_N_INSNS (21)					\
+		: COSTS_N_INSNS (37));					\
       case PROCESSOR_PPC750:						\
         return COSTS_N_INSNS (19);					\
       }									\
@@ -3274,7 +3297,7 @@ extern struct rtx_def *function_arg ();
 extern int function_arg_partial_nregs ();
 extern int function_arg_pass_by_reference ();
 extern void setup_incoming_varargs ();
-extern struct rtx_def *expand_builtin_saveregs ();
+extern struct rtx_def *rs6000_expand_builtin_saveregs ();
 extern struct rtx_def *rs6000_stack_temp ();
 extern int expand_block_move ();
 extern int load_multiple_operation ();

@@ -48,10 +48,6 @@ static void expand_ptr_desc PROTO((tree, tree));
 static void expand_generic_desc PROTO((tree, tree, const char *));
 static tree throw_bad_cast PROTO((void));
 static tree throw_bad_typeid PROTO((void));
-
-tree type_info_type_node;
-tree tinfo_fn_id;
-tree tinfo_fn_type;
 
 void
 init_rtti_processing ()
@@ -726,8 +722,6 @@ build_dynamic_cast (type, expr)
    Note: these constructors always return the address of the descriptor
    info, since that is simplest for their mutual interaction.  */
 
-extern tree const_string_type_node;
-
 /* Build an initializer for a __si_type_info node.  */
 
 static void
@@ -1178,5 +1172,6 @@ synthesize_tinfo_fn (fndecl)
   tmp = cp_convert (build_pointer_type (type_info_type_node), addr);
   tmp = build_indirect_ref (tmp, 0);
   c_expand_return (tmp);
+  pop_momentary ();
   finish_function (lineno, 0, 0);
 }

@@ -955,7 +955,6 @@ determine_specialization (template_id, decl, targs_out,
      tree* targs_out;
      int need_member_template;
 {
-  tree fn;
   tree fns;
   tree targs;
   tree explicit_targs;
@@ -974,14 +973,20 @@ determine_specialization (template_id, decl, targs_out,
     return error_mark_node;
 
   /* Check for baselinks. */
-  if (TREE_CODE (fns) == TREE_LIST)
+  if (BASELINK_P (fns))
     fns = TREE_VALUE (fns);
+
+  if (!is_overloaded_fn (fns))
+    {
+      cp_error ("`%D' is not a function template", fns);
+      return error_mark_node;
+    }
 
   for (; fns; fns = OVL_NEXT (fns))
     {
       tree tmpl;
 
-      fn = OVL_CURRENT (fns);
+      tree fn = OVL_CURRENT (fns);
 
       if (TREE_CODE (fn) == TEMPLATE_DECL)
 	/* DECL might be a specialization of FN.  */
@@ -1856,7 +1861,9 @@ end_template_parm_list (parms)
     = tree_cons (build_int_2 (0, processing_template_decl),
 		 saved_parmlist, current_template_parms);
 
-  for (parm = parms, nparms = 0; parm; parm = TREE_CHAIN (parm), nparms++)
+  for (parm = parms, nparms = 0; 
+       parm; 
+       parm = TREE_CHAIN (parm), nparms++)
     TREE_VEC_ELT (saved_parmlist, nparms) = parm;
 
   --processing_template_parmlist;
@@ -2200,7 +2207,8 @@ check_default_tmpl_args (decl, parms, is_primary, is_partial)
      int is_partial;
 {
   const char *msg;
-  int   last_level_to_check;
+  int last_level_to_check;
+  tree parm_level;
 
   /* [temp.param] 
 
@@ -2211,13 +2219,45 @@ check_default_tmpl_args (decl, parms, is_primary, is_partial)
 
   if (current_class_type
       && !TYPE_BEING_DEFINED (current_class_type)
-      && DECL_REAL_CONTEXT (decl) == current_class_type
       && DECL_LANG_SPECIFIC (decl)
-      && DECL_DEFINED_IN_CLASS_P (decl)) 
+      /* If this is either a friend defined in the scope of the class
+	 or a member function.  */
+      && DECL_CLASS_CONTEXT (decl) == current_class_type
+      /* And, if it was a member function, it really was defined in
+	 the scope of the class.  */
+      && (!DECL_FUNCTION_MEMBER_P (decl) || DECL_DEFINED_IN_CLASS_P (decl)))
     /* We already checked these parameters when the template was
-       declared, so there's no need to do it again now.  This is an
-       inline member function definition.  */
+       declared, so there's no need to do it again now.  This function
+       was defined in class scope, but we're processing it's body now
+       that the class is complete.  */
     return;
+
+  /* [temp.param]
+	 
+     If a template-parameter has a default template-argument, all
+     subsequent template-parameters shall have a default
+     template-argument supplied.  */
+  for (parm_level = parms; parm_level; parm_level = TREE_CHAIN (parm_level))
+    {
+      tree inner_parms = TREE_VALUE (parm_level);
+      int ntparms = TREE_VEC_LENGTH (inner_parms);
+      int seen_def_arg_p = 0; 
+      int i;
+
+      for (i = 0; i < ntparms; ++i) 
+	{
+	  tree parm = TREE_VEC_ELT (inner_parms, i);
+	  if (TREE_PURPOSE (parm))
+	    seen_def_arg_p = 1;
+	  else if (seen_def_arg_p)
+	    {
+	      cp_error ("no default argument for `%D'", TREE_VALUE (parm));
+	      /* For better subsequent error-recovery, we indicate that
+		 there should have been a default argument.  */
+	      TREE_PURPOSE (parm) = error_mark_node;
+	    }
+	}
+    }
 
   if (TREE_CODE (decl) != TYPE_DECL || is_partial || !is_primary)
     /* For an ordinary class template, default template arguments are
@@ -2261,11 +2301,13 @@ check_default_tmpl_args (decl, parms, is_primary, is_partial)
     /* Check everything.  */
     last_level_to_check = 0;
 
-  for (; parms && TMPL_PARMS_DEPTH (parms) >= last_level_to_check; 
-       parms = TREE_CHAIN (parms))
+  for (parm_level = parms; 
+       parm_level && TMPL_PARMS_DEPTH (parm_level) >= last_level_to_check; 
+       parm_level = TREE_CHAIN (parm_level))
     {
-      tree inner_parms = TREE_VALUE (parms);
-      int i, ntparms;
+      tree inner_parms = TREE_VALUE (parm_level);
+      int i;
+      int ntparms;
 
       ntparms = TREE_VEC_LENGTH (inner_parms);
       for (i = 0; i < ntparms; ++i) 
@@ -2638,9 +2680,12 @@ convert_nontype_argument (type, expr)
      
      --a pointer to member expressed as described in _expr.unary.op_.  */
 
-  /* An integral constant-expression can include const variables
-     or enumerators.  */
-  if (INTEGRAL_TYPE_P (expr_type) && TREE_READONLY_DECL_P (expr))
+  /* An integral constant-expression can include const variables or
+     enumerators.  Simplify things by folding them to their values,
+     unless we're about to bind the declaration to a reference
+     parameter.  */
+  if (INTEGRAL_TYPE_P (expr_type) && TREE_READONLY_DECL_P (expr)
+      && TREE_CODE (type) != REFERENCE_TYPE)
     expr = decl_constant_value (expr);
 
   if (is_overloaded_fn (expr))
@@ -5140,7 +5185,7 @@ instantiate_class_template (type)
   input_filename = DECL_SOURCE_FILE (typedecl);
 
   unreverse_member_declarations (type);
-  finish_struct_1 (type, 0);
+  finish_struct_1 (type);
   CLASSTYPE_GOT_SEMICOLON (type) = 1;
 
   /* Clear this now so repo_template_used is happy.  */
@@ -8292,10 +8337,6 @@ unify (tparms, targs, parm, arg, strict)
       {
 	int sub_strict;
 
-	if (TREE_CODE (arg) == RECORD_TYPE && TYPE_PTRMEMFUNC_FLAG (arg))
-	  return (unify (tparms, targs, parm, 
-			 TYPE_PTRMEMFUNC_FN_TYPE (arg), strict));
-	
 	if (TREE_CODE (arg) != POINTER_TYPE)
 	  return 1;
 	
@@ -8315,14 +8356,13 @@ unify (tparms, targs, parm, arg, strict)
 	   this is probably OK.  */
 	sub_strict = strict;
 	
-	if (TREE_CODE (TREE_TYPE (arg)) != RECORD_TYPE
-	    || TYPE_PTRMEMFUNC_FLAG (TREE_TYPE (arg)))
+	if (TREE_CODE (TREE_TYPE (arg)) != RECORD_TYPE)
 	  /* The derived-to-base conversion only persists through one
 	     level of pointers.  */
 	  sub_strict &= ~UNIFY_ALLOW_DERIVED;
 
-	return unify (tparms, targs, TREE_TYPE (parm), TREE_TYPE
-		      (arg), sub_strict);
+	return unify (tparms, targs, TREE_TYPE (parm), 
+		      TREE_TYPE (arg), sub_strict);
       }
 
     case REFERENCE_TYPE:
@@ -8402,13 +8442,20 @@ unify (tparms, targs, parm, arg, strict)
 
     case RECORD_TYPE:
     case UNION_TYPE:
-      if (TYPE_PTRMEMFUNC_FLAG (parm))
-	return unify (tparms, targs, TYPE_PTRMEMFUNC_FN_TYPE (parm),
-		      arg, strict);
-
       if (TREE_CODE (arg) != TREE_CODE (parm))
 	return 1;
   
+      if (TYPE_PTRMEMFUNC_P (parm))
+	{
+	  if (!TYPE_PTRMEMFUNC_P (arg))
+	    return 1;
+
+	  return unify (tparms, targs, 
+			TYPE_PTRMEMFUNC_FN_TYPE (parm),
+			TYPE_PTRMEMFUNC_FN_TYPE (arg),
+			strict);
+	}
+
       if (CLASSTYPE_TEMPLATE_INFO (parm))
 	{
 	  tree t = NULL_TREE;
@@ -8952,8 +8999,8 @@ do_decl_instantiation (declspecs, declarator, storage)
 
 	 No program shall both explicitly instantiate and explicitly
 	 specialize a template.  */
-      cp_error ("explicit instantiation of `%#D' after", result);
-      cp_error_at ("explicit specialization here", result);
+      cp_pedwarn ("explicit instantiation of `%#D' after", result);
+      cp_pedwarn_at ("explicit specialization here", result);
       return;
     }
   else if (DECL_EXPLICIT_INSTANTIATION (result))
@@ -8967,7 +9014,7 @@ do_decl_instantiation (declspecs, declarator, storage)
 	 first instantiation was `extern' and the second is not, and
 	 EXTERN_P for the opposite case.  */
       if (DECL_INTERFACE_KNOWN (result) && !extern_p)
-	cp_error ("duplicate explicit instantiation of `%#D'", result);
+	cp_pedwarn ("duplicate explicit instantiation of `%#D'", result);
 
       /* If we've already instantiated the template, just return now.  */
       if (DECL_INTERFACE_KNOWN (result))

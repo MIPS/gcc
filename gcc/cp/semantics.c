@@ -1320,7 +1320,6 @@ begin_class_definition (t)
   /* Don't change signatures.  */
   if (! IS_SIGNATURE (t))
     {
-      int needs_writing;
       tree name = TYPE_IDENTIFIER (t);
       
       if (! ANON_AGGRNAME_P (name))
@@ -1329,16 +1328,12 @@ begin_class_definition (t)
 	  SET_CLASSTYPE_INTERFACE_UNKNOWN_X
 	    (t, interface_unknown);
 	}
-      
-      /* Record how to set the access of this class's
-	 virtual functions.  If write_virtuals == 3, then
-	 inline virtuals are ``extern inline''.  */
-      if (write_virtuals == 3)
-	needs_writing = ! CLASSTYPE_INTERFACE_ONLY (t)
-	  && CLASSTYPE_INTERFACE_KNOWN (t);
-      else
-	needs_writing = 1;
-      CLASSTYPE_VTABLE_NEEDS_WRITING (t) = needs_writing;
+
+      /* Only leave this bit clear if we know this
+	 class is part of an interface-only specification.  */
+      if (! CLASSTYPE_INTERFACE_KNOWN (t)
+	  || ! CLASSTYPE_INTERFACE_ONLY (t))
+	CLASSTYPE_VTABLE_NEEDS_WRITING (t) = 1;
     }
 #if 0
   tmp = TYPE_IDENTIFIER ($<ttype>0);
@@ -1468,7 +1463,7 @@ finish_class_definition (t, attributes, semi, pop_scope_p)
     ;
   else
     {
-      t = finish_struct (t, attributes, semi);
+      t = finish_struct (t, attributes);
       if (semi) 
 	note_got_semicolon (t);
     }

@@ -211,6 +211,11 @@ dump_type_real (t, v, canonical_name)
       OB_PUTS ("{unknown type}");
       break;
 
+    case TREE_LIST:
+      /* A list of function parms.  */
+      dump_parameters (t, 0, canonical_name);
+      break;
+
     case IDENTIFIER_NODE:
       OB_PUTID (t);
       break;
@@ -1404,7 +1409,22 @@ dump_expr (t, nop)
       break;
 
     case AGGR_INIT_EXPR:
-      OB_PUTID (TYPE_IDENTIFIER (TREE_TYPE (t)));
+      {
+	tree fn = NULL_TREE;
+	
+	if (TREE_CODE (TREE_OPERAND (t, 0)) == ADDR_EXPR)
+	  fn = TREE_OPERAND (TREE_OPERAND (t, 0), 0);
+
+	if (fn && TREE_CODE (fn) == FUNCTION_DECL)
+	  {
+	    if (DECL_CONSTRUCTOR_P (fn))
+	      OB_PUTID (TYPE_IDENTIFIER (TREE_TYPE (t)));
+	    else
+	      dump_decl (fn, 0);
+	  }
+	else
+	  dump_expr (TREE_OPERAND (t, 0), 0);
+      }
       OB_PUTC ('(');
       if (TREE_OPERAND (t, 1))
 	dump_expr_list (TREE_CHAIN (TREE_OPERAND (t, 1)));
@@ -1650,7 +1670,7 @@ dump_expr (t, nop)
 
 	      t = TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE (TREE_TYPE (t)));
 	      t = TYPE_METHOD_BASETYPE (t);
-	      virtuals = BINFO_VIRTUALS (TYPE_BINFO (TYPE_MAIN_VARIANT (t)));
+	      virtuals = TYPE_BINFO_VIRTUALS (TYPE_MAIN_VARIANT (t));
 	      
 	      n = TREE_INT_CST_LOW (idx);
 
@@ -1665,7 +1685,7 @@ dump_expr (t, nop)
 		}
 	      if (virtuals)
 		{
-		  dump_expr (FNADDR_FROM_VTABLE_ENTRY (TREE_VALUE (virtuals)), 0);
+		  dump_expr (TREE_VALUE (virtuals), 0);
 		  break;
 		}
 	    }

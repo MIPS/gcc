@@ -375,13 +375,6 @@ int flag_detailed_statistics;
 
 int flag_this_is_variable;
 
-/* 3 means write out only virtuals function tables `defined'
-   in this implementation file.
-   0 means write out virtual function tables and give them
-   (C) static access (default).  */
-
-int write_virtuals;
-
 /* Nonzero means we should attempt to elide constructors when possible.  */
 
 int flag_elide_constructors = 1;
@@ -2401,8 +2394,6 @@ coerce_delete_type (type)
   return type;
 }
 
-extern tree abort_fndecl;
-
 static void
 mark_vtable_entries (decl)
      tree decl;
@@ -2414,19 +2405,15 @@ mark_vtable_entries (decl)
       tree fnaddr;
       tree fn;
 
-      if (TREE_CODE (TREE_VALUE (entries)) == NOP_EXPR)
+      fnaddr = (flag_vtable_thunks ? TREE_VALUE (entries) 
+		: FNADDR_FROM_VTABLE_ENTRY (TREE_VALUE (entries)));
+
+      if (TREE_CODE (fnaddr) == NOP_EXPR)
 	/* RTTI offset.  */
 	continue;
 
-      fnaddr = (flag_vtable_thunks ? TREE_VALUE (entries) 
-		: FNADDR_FROM_VTABLE_ENTRY (TREE_VALUE (entries)));
       fn = TREE_OPERAND (fnaddr, 0);
       TREE_ADDRESSABLE (fn) = 1;
-      if (DECL_LANG_SPECIFIC (fn) && DECL_ABSTRACT_VIRTUAL_P (fn))
-	{
-	  TREE_OPERAND (fnaddr, 0) = abort_fndecl;
-	  mark_used (abort_fndecl);
-	}
       if (TREE_CODE (fn) == THUNK_DECL && DECL_EXTERNAL (fn))
 	{
 	  DECL_EXTERNAL (fn) = 0;
@@ -3817,7 +3804,8 @@ reparse_absdcl_as_casts (decl, expr)
       expr = build_c_cast (type, expr);
     }
 
-  if (warn_old_style_cast)
+  if (warn_old_style_cast && ! in_system_header
+      && current_lang_name != lang_name_c)
     warning ("use of old-style cast");
 
   return expr;

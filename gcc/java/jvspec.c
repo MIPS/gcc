@@ -223,6 +223,8 @@ lang_specific_driver (fn, in_argc, in_argv, in_added_libraries)
 	      main_class_name = argv[i] + 7;
 	      added--;
 	    }
+	  else if (strcmp (argv[i], "-fhelp") == 0)
+	    will_link = 0;
 	  else if (strcmp (argv[i], "-v") == 0)
 	    {
 	      saw_verbose_flag = 1;
@@ -374,8 +376,7 @@ lang_specific_driver (fn, in_argc, in_argv, in_added_libraries)
     }
   if (saw_g + saw_O == 0)
     num_args++;
-  if (will_link)
-    num_args++;
+  num_args++;
   arglist = (char **) xmalloc ((num_args + 1) * sizeof (char *));
 
   for (i = 0, j = 0; i < argc; i++, j++)
@@ -406,7 +407,7 @@ lang_specific_driver (fn, in_argc, in_argv, in_added_libraries)
 	  continue;
 	}
 
-      if (will_link && spec_file == NULL && strncmp (argv[i], "-L", 2) == 0)
+      if (spec_file == NULL && strncmp (argv[i], "-L", 2) == 0)
 	spec_file = find_spec_file (argv[i] + 2);
 
       if (strncmp (argv[i], "-fmain=", 7) == 0)
@@ -451,10 +452,10 @@ lang_specific_driver (fn, in_argc, in_argv, in_added_libraries)
   if (saw_g + saw_O == 0)
     arglist[j++] = "-g1";
 
-  /* Read the specs file corresponding to libgcj, but only if linking.
+  /* Read the specs file corresponding to libgcj.
      If we didn't find the spec file on the -L path, then we hope it
      is somewhere in the standard install areas.  */
-  if (will_link)
+  if (! saw_C)
     arglist[j++] = spec_file == NULL ? "-specs=libgcj.spec" : spec_file;
 
   if (saw_C)

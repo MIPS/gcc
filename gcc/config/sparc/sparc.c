@@ -207,7 +207,8 @@ sparc_override_options ()
     { "f930",       PROCESSOR_F930, MASK_ISA|MASK_FPU, MASK_SPARCLITE },
     { "f934",       PROCESSOR_F934, MASK_ISA, MASK_SPARCLITE|MASK_FPU },
     { "hypersparc", PROCESSOR_HYPERSPARC, MASK_ISA, MASK_V8|MASK_FPU },
-    { "sparclite86x",  PROCESSOR_SPARCLITE86X, MASK_ISA|MASK_FPU, MASK_V8 },
+    { "sparclite86x",  PROCESSOR_SPARCLITE86X, MASK_ISA|MASK_FPU,
+      MASK_SPARCLITE },
     { "sparclet",   PROCESSOR_SPARCLET, MASK_ISA, MASK_SPARCLET },
     /* TEMIC sparclet */
     { "tsc701",     PROCESSOR_TSC701, MASK_ISA, MASK_SPARCLET },
@@ -4256,14 +4257,12 @@ function_value (type, mode, incoming_p)
   return gen_rtx_REG (mode, regno);
 }
 
-/* Do what is necessary for `va_start'.  The argument is ignored.
-
-   We look at the current function to determine if stdarg or varargs
-   is used and return the address of the first unnamed parameter.  */
+/* Do what is necessary for `va_start'.  We look at the current function
+   to determine if stdarg or varargs is used and return the address of
+   the first unnamed parameter.  */
 
 rtx
-sparc_builtin_saveregs (arglist)
-     tree arglist ATTRIBUTE_UNUSED;
+sparc_builtin_saveregs ()
 {
   int first_reg = current_function_args_info.words;
   rtx address;
@@ -6879,8 +6878,6 @@ ultra_flush_pipeline ()
   ultra_pipe.free_slot_mask = 0xf;
 }
 
-static int ultra_reorder_called_this_block;
-
 /* Init our data structures for this current block.  */
 void
 ultrasparc_sched_init (dump, sched_verbose)
@@ -6890,7 +6887,6 @@ ultrasparc_sched_init (dump, sched_verbose)
   bzero ((char *) ultra_pipe_hist, sizeof ultra_pipe_hist);
   ultra_cur_hist = 0;
   ultra_cycles_elapsed = 0;
-  ultra_reorder_called_this_block = 0;
   ultra_pipe.free_slot_mask = 0xf;
 }
 
@@ -6979,14 +6975,6 @@ ultrasparc_sched_reorder (dump, sched_verbose, ready, n_ready)
 {
   struct ultrasparc_pipeline_state *up = &ultra_pipe;
   int i, this_insn;
-
-  /* We get called once unnecessarily per block of insns
-     scheduled.  */
-  if (ultra_reorder_called_this_block == 0)
-    {
-      ultra_reorder_called_this_block = 1;
-      return;
-    }
 
   if (sched_verbose)
     {

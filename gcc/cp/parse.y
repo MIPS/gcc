@@ -47,7 +47,6 @@ Boston, MA 02111-1307, USA.  */
    definition here.  (fnf) */
 char *language_string = "GNU C++";
 
-extern tree void_list_node;
 extern struct obstack permanent_obstack;
 
 extern int end_of_file;
@@ -134,7 +133,7 @@ empty_parms ()
 %token BREAK CONTINUE RETURN_KEYWORD GOTO ASM_KEYWORD TYPEOF ALIGNOF
 %token SIGOF
 %token ATTRIBUTE EXTENSION LABEL
-%token REALPART IMAGPART
+%token REALPART IMAGPART VA_ARG
 
 /* the reserved words... C++ extensions */
 %token <ttype> AGGR
@@ -179,7 +178,7 @@ empty_parms ()
 %left <code> POINTSAT_STAR DOT_STAR
 %right <code> UNARY PLUSPLUS MINUSMINUS '~'
 %left HYPERUNARY
-%left <ttype> PAREN_STAR_PAREN LEFT_RIGHT
+%left <ttype> LEFT_RIGHT
 %left <code> POINTSAT '.' '(' '['
 
 %right SCOPE			/* C++ extension */
@@ -1163,6 +1162,9 @@ unary_expr:
 		{ $$ = build_x_unary_op (REALPART_EXPR, $2); }
 	| IMAGPART cast_expr %prec UNARY
 		{ $$ = build_x_unary_op (IMAGPART_EXPR, $2); }
+	| VA_ARG '(' expr_no_commas ',' type_id ')'
+		{ $$ = build_va_arg ($3, groktypename ($5.t));
+		  check_for_new_type ("__builtin_va_arg", $5); }
 	;
 
         /* Note this rule is not suitable for use in new_placement
@@ -3175,7 +3177,6 @@ direct_abstract_declarator:
 	  '(' absdcl_intern ')'
 		{ $$ = $2; }
 	  /* `(typedef)1' is `int'.  */
-	| PAREN_STAR_PAREN
 	| direct_abstract_declarator '(' parmlist ')' cv_qualifiers exception_specification_opt  %prec '.'
 		{ $$ = make_call_declarator ($$, $3, $5, $6); }
 	| direct_abstract_declarator LEFT_RIGHT cv_qualifiers exception_specification_opt  %prec '.'

@@ -46,8 +46,6 @@ Boston, MA 02111-1307, USA.  */
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
 
-extern tree builtin_return_address_fndecl;
-
 extern struct obstack permanent_obstack;
 extern struct obstack* saveable_obstack;
 
@@ -132,7 +130,6 @@ static struct stack_level *decl_stack;
 #endif
 
 static tree grokparms				PROTO((tree, int));
-static tree lookup_nested_type			PROTO((tree, tree));
 static const char *redeclaration_error_message	PROTO((tree, tree));
 
 static struct stack_level *push_decl_level PROTO((struct stack_level *,
@@ -208,150 +205,88 @@ tree error_mark_node;
 /* Erroneous argument lists can use this *IFF* they do not modify it.  */
 tree error_mark_list;
 
-/* INTEGER_TYPE and REAL_TYPE nodes for the standard data types */
+/* The following symbols are subsumed in the cp_global_trees array, and
+   listed here individually for documentation purposes. 
 
-tree short_integer_type_node;
-tree integer_type_node;
-tree long_integer_type_node;
-tree long_long_integer_type_node;
+   C++ extensions
+	tree wchar_decl_node;
+	tree void_zero_node;
 
-tree short_unsigned_type_node;
-tree unsigned_type_node;
-tree long_unsigned_type_node;
-tree long_long_unsigned_type_node;
+	tree vtable_entry_type;
+	tree delta_type_node;
+#if 0
+   Old rtti stuff.
+	tree __baselist_desc_type_node;
+	tree __i_desc_type_node, __m_desc_type_node;
+	tree __t_desc_array_type, __i_desc_array_type, __m_desc_array_type;
+#endif
+	tree __t_desc_type_node;
+#if 0
+	tree __tp_desc_type_node;
+#endif
+	tree __access_mode_type_node;
+	tree __bltn_desc_type_node, __user_desc_type_node, __class_desc_type_node;
+	tree __ptr_desc_type_node, __attr_desc_type_node, __func_desc_type_node;
+	tree __ptmf_desc_type_node, __ptmd_desc_type_node;
+#if 0
+   Not needed yet?  May be needed one day?
+	tree __bltn_desc_array_type, __user_desc_array_type, __class_desc_array_type;
+	tree __ptr_desc_array_type, __attr_dec_array_type, __func_desc_array_type;
+	tree __ptmf_desc_array_type, __ptmd_desc_array_type;
+#endif
 
-tree ptrdiff_type_node;
+	tree class_star_type_node;
+	tree class_type_node, record_type_node, union_type_node, enum_type_node;
+	tree unknown_type_node;
+	tree opaque_type_node, signature_type_node;
+	tree sigtable_entry_type;
 
-tree unsigned_char_type_node;
-tree signed_char_type_node;
+   Array type `vtable_entry_type[]'
+
+	tree vtbl_type_node;
+	tree vtbl_ptr_type_node;
+
+   Nnamespace std
+
+	tree std_node;
+
+   A FUNCTION_DECL which can call `abort'.  Not necessarily the
+   one that the user will declare, but sufficient to be called
+   by routines that want to abort the program.
+
+	tree abort_fndecl;
+
+   The FUNCTION_DECL for the default `::operator delete'.
+
+	tree global_delete_fndecl;
+
+   Used by RTTI
+	tree type_info_type_node, tinfo_fn_id, tinfo_fn_type;
+
+*/
+
+tree cp_global_trees[CPTI_MAX];
+
+/* These can't be part of the above array, since they are declared
+   individually in tree.h, and used by the debug output routines.  */
+
+tree void_type_node;
 tree char_type_node;
-tree wchar_type_node;
-tree signed_wchar_type_node;
-tree unsigned_wchar_type_node;
+tree integer_type_node;
+tree unsigned_type_node;
 
-tree wchar_decl_node;
-
-tree float_type_node;
-tree double_type_node;
-tree long_double_type_node;
-
-tree complex_integer_type_node;
-tree complex_float_type_node;
-tree complex_double_type_node;
-tree complex_long_double_type_node;
-
-tree intQI_type_node;
-tree intHI_type_node;
-tree intSI_type_node;
-tree intDI_type_node;
-#if HOST_BITS_PER_WIDE_INT >= 64
-tree intTI_type_node;
-#endif
-
-tree unsigned_intQI_type_node;
-tree unsigned_intHI_type_node;
-tree unsigned_intSI_type_node;
-tree unsigned_intDI_type_node;
-#if HOST_BITS_PER_WIDE_INT >= 64
-tree unsigned_intTI_type_node;
-#endif
-
-tree java_byte_type_node;
-tree java_short_type_node;
-tree java_int_type_node;
-tree java_long_type_node;
-tree java_float_type_node;
-tree java_double_type_node;
-tree java_char_type_node;
-tree java_boolean_type_node;
-
-/* A VOID_TYPE node, and the same, packaged in a TREE_LIST.  */
-
-tree void_type_node, void_list_node;
-tree void_zero_node;
-
-/* Nodes for types `void *' and `const void *'.  */
+/* These can't be part of the above array, since they are declared
+   individially in tree.h and used by the target routines.  */
 
 tree ptr_type_node;
-tree const_ptr_type_node;
-
-/* Nodes for types `char *' and `const char *'.  */
-
-tree string_type_node, const_string_type_node;
-
-/* Type `char[256]' or something like it.
-   Used when an array of char is needed and the size is irrelevant.  */
-
-tree char_array_type_node;
-
-/* Type `int[256]' or something like it.
-   Used when an array of int needed and the size is irrelevant.  */
-
-tree int_array_type_node;
-
-/* Type `wchar_t[256]' or something like it.
-   Used when a wide string literal is created.  */
-
-tree wchar_array_type_node;
-
-/* The bool data type, and constants */
-tree boolean_type_node, boolean_true_node, boolean_false_node;
-
-/* Type `int ()' -- used for implicit declaration of functions.  */
-
-tree default_function_type;
-
-/* Function types `double (double)' and `double (double, double)', etc.  */
-
-static tree double_ftype_double, double_ftype_double_double;
-static tree int_ftype_int, long_ftype_long;
-static tree float_ftype_float;
-static tree ldouble_ftype_ldouble;
-
-/* Function type `int (const void *, const void *, size_t)' */
-static tree int_ftype_cptr_cptr_sizet;
-
-/* C++ extensions */
-tree vtable_entry_type;
-tree delta_type_node;
-#if 0
-/* Old rtti stuff.  */
-tree __baselist_desc_type_node;
-tree __i_desc_type_node, __m_desc_type_node;
-tree __t_desc_array_type, __i_desc_array_type, __m_desc_array_type;
-#endif
-tree __t_desc_type_node;
-#if 0
-tree __tp_desc_type_node;
-#endif
-tree __access_mode_type_node;
-tree __bltn_desc_type_node, __user_desc_type_node, __class_desc_type_node;
-tree __ptr_desc_type_node, __attr_desc_type_node, __func_desc_type_node;
-tree __ptmf_desc_type_node, __ptmd_desc_type_node;
-#if 0
-/* Not needed yet?  May be needed one day?  */
-tree __bltn_desc_array_type, __user_desc_array_type, __class_desc_array_type;
-tree __ptr_desc_array_type, __attr_dec_array_type, __func_desc_array_type;
-tree __ptmf_desc_array_type, __ptmd_desc_array_type;
-#endif
+tree va_list_type_node;
 
 /* Indicates that there is a type value in some namespace, although
-   that is not necessarily in scope at the moment. */
+   that is not necessarily in scope at the moment.  */
 
 static tree global_type_node;
 
-tree class_star_type_node;
-tree class_type_node, record_type_node, union_type_node, enum_type_node;
-tree unknown_type_node;
-tree opaque_type_node, signature_type_node;
-tree sigtable_entry_type;
-
-/* Array type `vtable_entry_type[]' */
-tree vtbl_type_node;
-tree vtbl_ptr_type_node;
-
-/* namespace std */
-tree std_node;
+/* Namespace std.  */
 int in_std = 0;
 
 /* Expect only namespace names now. */
@@ -378,16 +313,6 @@ static rtx last_parm_cleanup_insn;
    the pointer to the initialized object.  */
 
 tree ctor_label;
-
-/* A FUNCTION_DECL which can call `abort'.  Not necessarily the
-   one that the user will declare, but sufficient to be called
-   by routines that want to abort the program.  */
-
-tree abort_fndecl;
-
-/* A FUNCTION_DECL for the default `::operator delete'.  */
-
-tree global_delete_fndecl;
 
 extern rtx cleanup_label, return_label;
 
@@ -1248,8 +1173,7 @@ push_class_binding (id, decl)
 	 context for an implicit typename declaration is always
 	 the derived class in which the lookup was done, so the checks
 	 based on the context of DECL below will not trigger.  */
-      if (TREE_CODE (decl) == TYPE_DECL 
-	  && IMPLICIT_TYPENAME_P (TREE_TYPE (decl)))
+      if (IMPLICIT_TYPENAME_TYPE_DECL_P (decl))
 	INHERITED_VALUE_BINDING_P (binding) = 1;
       else
 	{
@@ -2860,9 +2784,8 @@ pushtag (name, type, globalize)
       if (IDENTIFIER_TYPE_VALUE (name) != type)
         {
           register tree d = NULL_TREE;
-	  int newdecl = 0, in_class = 0;
+	  int in_class = 0;
 	  tree context;
-	  tree c_decl = NULL_TREE;
 
 	  context = type ? TYPE_CONTEXT (type) : NULL_TREE;
 	  if (! context)
@@ -2878,31 +2801,19 @@ pushtag (name, type, globalize)
 		   containing the local class, not the namespace scope.  */
 		context = hack_decl_function_context (get_type_decl (cs));
 	    }
-	  if (context)
-	    c_decl = TREE_CODE (context) == FUNCTION_DECL
-	      ? context : TYPE_MAIN_DECL (context);
-
 	  if (!context)
 	    context = current_namespace;
 
 	  if ((b->pseudo_global && b->level_chain->parm_flag == 2)
 	      || b->parm_flag == 2)
 	    in_class = 1;
-	  else
-	    d = lookup_nested_type (type, c_decl);
 
-	  if (d == NULL_TREE)
-	    {
-	      newdecl = 1;
-	      d = build_decl (TYPE_DECL, name, type);
-	      if (current_lang_name == lang_name_java)
-		TYPE_FOR_JAVA (type) = 1;
-	      SET_DECL_ARTIFICIAL (d);
-	      if (! in_class)
-		set_identifier_type_value_with_scope (name, type, b);
-	    }
-	  else
-	    d = TYPE_MAIN_DECL (d);
+	  d = build_decl (TYPE_DECL, name, type);
+	  if (current_lang_name == lang_name_java)
+	    TYPE_FOR_JAVA (type) = 1;
+	  SET_DECL_ARTIFICIAL (d);
+	  if (! in_class)
+	    set_identifier_type_value_with_scope (name, type, b);
 
 	  TYPE_NAME (type) = d;
 	  DECL_CONTEXT (d) = FROB_CONTEXT (context);
@@ -2912,7 +2823,7 @@ pushtag (name, type, globalize)
 
 	  if (b->parm_flag == 2)
 	    {
-	      if (newdecl && !PROCESSING_REAL_TEMPLATE_DECL_P ())
+	      if (!PROCESSING_REAL_TEMPLATE_DECL_P ())
 		/* Put this TYPE_DECL on the TYPE_FIELDS list for the
 		   class.  But if it's a member template class, we
 		   want the TEMPLATE_DECL, not the TYPE_DECL, so this
@@ -2924,17 +2835,14 @@ pushtag (name, type, globalize)
 	  else
 	    d = pushdecl_with_scope (d, b);
 
-	  if (newdecl)
-	    {
-	      if (ANON_AGGRNAME_P (name))
-		DECL_IGNORED_P (d) = 1;
+	  if (ANON_AGGRNAME_P (name))
+	    DECL_IGNORED_P (d) = 1;
 
-	      TYPE_CONTEXT (type) = DECL_CONTEXT (d);
-	      DECL_ASSEMBLER_NAME (d) = DECL_NAME (d);
-	      if (!uses_template_parms (type))
-		DECL_ASSEMBLER_NAME (d)
-		  = get_identifier (build_overload_name (type, 1, 1));
-	    }
+	  TYPE_CONTEXT (type) = DECL_CONTEXT (d);
+	  DECL_ASSEMBLER_NAME (d) = DECL_NAME (d);
+	  if (!uses_template_parms (type))
+	    DECL_ASSEMBLER_NAME (d)
+	      = get_identifier (build_overload_name (type, 1, 1));
         }
       if (b->parm_flag == 2)
 	{
@@ -3146,8 +3054,7 @@ warn_extern_redeclared_static (newdecl, olddecl)
       if (! (TREE_CODE (newdecl) == FUNCTION_DECL
 	     && olddecl != NULL_TREE
 	     && TREE_CODE (olddecl) == FUNCTION_DECL
-	     && (DECL_BUILT_IN (olddecl)
-		 || DECL_BUILT_IN_NONANSI (olddecl))))
+	     && DECL_ARTIFICIAL (olddecl)))
 	{
 	  cp_pedwarn (IDENTIFIER_IMPLICIT_DECL (name)
 		      ? implicit_extern_static_warning
@@ -3190,44 +3097,58 @@ duplicate_decls (newdecl, olddecl)
  
   /* Check for redeclaration and other discrepancies. */
   if (TREE_CODE (olddecl) == FUNCTION_DECL
-      && DECL_ARTIFICIAL (olddecl)
-      && (DECL_BUILT_IN (olddecl) || DECL_BUILT_IN_NONANSI (olddecl)))
+      && DECL_ARTIFICIAL (olddecl))
     {
-      /* If you declare a built-in or predefined function name as static,
-	 the old definition is overridden, but optionally warn this was a
-	 bad choice of name.  Ditto for overloads.  */
-      if (! TREE_PUBLIC (newdecl)
-	  || (TREE_CODE (newdecl) == FUNCTION_DECL
-	      && DECL_LANGUAGE (newdecl) != DECL_LANGUAGE (olddecl)))
+      if (TREE_CODE (newdecl) != FUNCTION_DECL)
 	{
-	  if (warn_shadow)
-	    cp_warning ("shadowing %s function `%#D'",
-			DECL_BUILT_IN (olddecl) ? "built-in" : "library",
-			olddecl);
-	  /* Discard the old built-in function.  */
-	  return 0;
-	}
-      else if (! types_match)
-	{
-	  if (TREE_CODE (newdecl) != FUNCTION_DECL)
+	  /* If you declare a built-in or predefined function name as static,
+	     the old definition is overridden, but optionally warn this was a
+	     bad choice of name.  */
+	  if (! TREE_PUBLIC (newdecl))
 	    {
-	      /* If the built-in is not ansi, then programs can override
-		 it even globally without an error.  */
-	      if (! DECL_BUILT_IN (olddecl))
-		cp_warning ("library function `%#D' redeclared as non-function `%#D'",
-			    olddecl, newdecl);
-	      else
-		{
-		  cp_error ("declaration of `%#D'", newdecl);
-		  cp_error ("conflicts with built-in declaration `%#D'",
+	      if (warn_shadow)
+		cp_warning ("shadowing %s function `%#D'",
+			    DECL_BUILT_IN (olddecl) ? "built-in" : "library",
 			    olddecl);
-		}
+	      /* Discard the old built-in function.  */
 	      return 0;
 	    }
+	  /* If the built-in is not ansi, then programs can override
+	     it even globally without an error.  */
+	  else if (! DECL_BUILT_IN (olddecl))
+	    cp_warning ("library function `%#D' redeclared as non-function `%#D'",
+			olddecl, newdecl);
+	  else
+	    {
+	      cp_error ("declaration of `%#D'", newdecl);
+	      cp_error ("conflicts with built-in declaration `%#D'",
+			olddecl);
+	    }
+	  return 0;
+	}
+      else if (!types_match)
+	{
+	  if ((DECL_LANGUAGE (newdecl) == lang_c
+	       && DECL_LANGUAGE (olddecl) == lang_c)
+	      || compparms (TYPE_ARG_TYPES (TREE_TYPE (newdecl)),
+			    TYPE_ARG_TYPES (TREE_TYPE (olddecl))))
+	    {
+	      /* A near match; override the builtin.  */
 
-	  cp_warning ("declaration of `%#D'", newdecl);
-	  cp_warning ("conflicts with built-in declaration `%#D'",
-		      olddecl);
+	      if (TREE_PUBLIC (newdecl))
+		{
+		  cp_warning ("new declaration `%#D'", newdecl);
+		  cp_warning ("ambiguates built-in declaration `%#D'",
+			      olddecl);
+		}
+	      else if (warn_shadow)
+		cp_warning ("shadowing %s function `%#D'",
+			    DECL_BUILT_IN (olddecl) ? "built-in" : "library",
+			    olddecl);
+	    }
+	  else
+	    /* Discard the old built-in function.  */
+	    return 0;
 	}
     }
   else if (TREE_CODE (olddecl) != TREE_CODE (newdecl))
@@ -3691,7 +3612,9 @@ duplicate_decls (newdecl, olddecl)
 	}
       if (! types_match || new_defines_function)
 	{
-	  /* These need to be copied so that the names are available.  */
+	  /* These need to be copied so that the names are available.
+	     Note that if the types do match, we'll preserve inline
+	     info and other bits, but if not, we won't.  */
 	  DECL_ARGUMENTS (olddecl) = DECL_ARGUMENTS (newdecl);
 	  DECL_RESULT (olddecl) = DECL_RESULT (newdecl);
 	}
@@ -3699,7 +3622,7 @@ duplicate_decls (newdecl, olddecl)
 	/* If defining a function declared with other language
 	   linkage, use the previously declared language linkage.  */
 	DECL_LANGUAGE (newdecl) = DECL_LANGUAGE (olddecl);
-      else
+      else if (types_match)
 	{
 	  /* If redeclaring a builtin function, and not a definition,
 	     it stays built in.  */
@@ -4565,17 +4488,7 @@ push_overloaded_decl (decl, flags)
   int doing_global = (namespace_bindings_p () || !(flags & PUSH_LOCAL));
 
   if (doing_global)
-    {
-      old = namespace_binding (name, DECL_CONTEXT (decl));
-      if (old && TREE_CODE (old) == FUNCTION_DECL
-	  && DECL_ARTIFICIAL (old)
-	  && (DECL_BUILT_IN (old) || DECL_BUILT_IN_NONANSI (old)))
-	{
-	  if (duplicate_decls (decl, old))
-	    return old;
-	  old = NULL_TREE;
-	}
-    }
+    old = namespace_binding (name, DECL_CONTEXT (decl));
   else
     old = lookup_name_current_level (name);
 
@@ -5292,48 +5205,6 @@ lookup_tag_reverse (type, name)
   return NULL_TREE;
 }
 
-/* Lookup TYPE in CONTEXT (a chain of nested types or a FUNCTION_DECL).
-   Return the type value, or NULL_TREE if not found.  */
-
-static tree
-lookup_nested_type (type, context)
-     tree type;
-     tree context;
-{
-  if (context == NULL_TREE)
-    return NULL_TREE;
-  while (context)
-    {
-      switch (TREE_CODE (context))
-	{
-	case TYPE_DECL:
-	  {
-	    tree ctype = TREE_TYPE (context);
-	    tree match = value_member (type, CLASSTYPE_TAGS (ctype));
-	    if (match)
-	      return TREE_VALUE (match);
-	    context = DECL_CONTEXT (context);
-
-	    /* When we have a nested class whose member functions have
-	       local types (e.g., a set of enums), we'll arrive here
-	       with the DECL_CONTEXT as the actual RECORD_TYPE node for
-	       the enclosing class.  Instead, we want to make sure we
-	       come back in here with the TYPE_DECL, not the RECORD_TYPE.  */
-	    if (context && TREE_CODE (context) == RECORD_TYPE)
-	      context = TREE_CHAIN (context);
-	  }
-	  break;
-	case FUNCTION_DECL:
-	  if (TYPE_NAME (type) && TYPE_IDENTIFIER (type))
-	    return lookup_name (TYPE_IDENTIFIER (type), 1);
-	  return NULL_TREE;
-	default:
-	  my_friendly_abort (12);
-	}
-    }
-  return NULL_TREE;
-}
-
 /* Look up NAME in the NAMESPACE.  */
 
 tree
@@ -5851,6 +5722,10 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
     }
 
   /* First, look in non-namespace scopes.  */
+
+  if (current_class_type == NULL_TREE)
+    nonclass = 1;
+
   for (t = IDENTIFIER_BINDING (name); t; t = TREE_CHAIN (t))
     {
       tree binding;
@@ -5869,15 +5744,13 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
 	binding = NULL_TREE;
 
       if (binding
-	  && (!val || !(TREE_CODE (binding) == TYPE_DECL
-			&& IMPLICIT_TYPENAME_P (TREE_TYPE (binding)))))
+	  && (!val || !IMPLICIT_TYPENAME_TYPE_DECL_P (binding)))
 	{
 	  if (val_is_implicit_typename && !yylex)
 	    warn_about_implicit_typename_lookup (val, binding);
 	  val = binding;
 	  val_is_implicit_typename 
-	    = (TREE_CODE (val) == TYPE_DECL
-	       && IMPLICIT_TYPENAME_P (TREE_TYPE (val)));
+	    = IMPLICIT_TYPENAME_TYPE_DECL_P (val);
 	  if (!val_is_implicit_typename)
 	    break;
 	}
@@ -6202,19 +6075,10 @@ auto_function (name, type, code)
 void
 init_decl_processing ()
 {
-  register tree endlink, int_endlink, double_endlink, unsigned_endlink;
   tree fields[20];
-  /* Data type of memcpy.  */
-  tree memcpy_ftype, strlen_ftype;
   int wchar_type_size;
-  tree temp;
   tree array_domain_type;
   tree vb_off_identifier = NULL_TREE;
-  /* Function type `char *(char *, char *)' and similar ones */
-  tree string_ftype_ptr_ptr, int_ftype_string_string;
-  tree sizetype_endlink;
-  tree ptr_ftype, ptr_ftype_unsigned, ptr_ftype_sizetype;
-  tree void_ftype, void_ftype_int, void_ftype_ptr;
 
   /* Have to make these distinct before we try using them.  */
   lang_name_cplusplus = get_identifier ("C++");
@@ -6355,6 +6219,15 @@ init_decl_processing ()
   record_builtin_type (RID_MAX, "signed char", signed_char_type_node);
   unsigned_char_type_node = make_unsigned_type (CHAR_TYPE_SIZE);
   record_builtin_type (RID_MAX, "unsigned char", unsigned_char_type_node);
+
+  /* Create the widest literal types. */
+  widest_integer_literal_type_node = make_signed_type (HOST_BITS_PER_WIDE_INT * 2);
+  pushdecl (build_decl (TYPE_DECL, NULL_TREE, 
+			widest_integer_literal_type_node));
+
+  widest_unsigned_literal_type_node = make_unsigned_type (HOST_BITS_PER_WIDE_INT * 2);
+  pushdecl (build_decl (TYPE_DECL, NULL_TREE, 
+			widest_unsigned_literal_type_node));
 
   /* These are types that type_for_size and type_for_mode use.  */
   intQI_type_node = make_signed_type (GET_MODE_BITSIZE (QImode));
@@ -6502,268 +6375,23 @@ init_decl_processing ()
      need to look inside this envelope.  */
   class_star_type_node = build_pointer_type (make_lang_type (RECORD_TYPE));
 
+  if (flag_huge_objects)
+    delta_type_node = long_integer_type_node;
+  else
+    delta_type_node = short_integer_type_node;
+
   default_function_type
     = build_function_type (integer_type_node, NULL_TREE);
 
   ptr_type_node = build_pointer_type (void_type_node);
   const_ptr_type_node
     = build_pointer_type (build_qualified_type (void_type_node,
-						TYPE_QUAL_CONST)); 
-#if 0
-  record_builtin_type (RID_MAX, NULL_PTR, ptr_type_node);
-#endif
-  endlink = void_list_node;
-  int_endlink = tree_cons (NULL_TREE, integer_type_node, endlink);
-  double_endlink = tree_cons (NULL_TREE, double_type_node, endlink);
-  unsigned_endlink = tree_cons (NULL_TREE, unsigned_type_node, endlink);
+						TYPE_QUAL_CONST));
+  c_common_nodes_and_builtins (1, flag_no_builtin, flag_no_nonansi_builtin);
 
-  ptr_ftype = build_function_type (ptr_type_node, NULL_TREE);
-  ptr_ftype_unsigned = build_function_type (ptr_type_node, unsigned_endlink);
-  sizetype_endlink = tree_cons (NULL_TREE, sizetype, endlink);
-  /* We realloc here because sizetype could be int or unsigned.  S'ok.  */
-  ptr_ftype_sizetype = build_function_type (ptr_type_node, sizetype_endlink);
-
-  void_ftype = build_function_type (void_type_node, endlink);
-  void_ftype_int = build_function_type (void_type_node, int_endlink);
-  void_ftype_ptr
-    = build_function_type (void_type_node,
- 			   tree_cons (NULL_TREE, ptr_type_node, endlink));
   void_ftype_ptr
     = build_exception_variant (void_ftype_ptr,
 			       tree_cons (NULL_TREE, NULL_TREE, NULL_TREE));
-
-  float_ftype_float
-    = build_function_type (float_type_node,
-			   tree_cons (NULL_TREE, float_type_node, endlink));
-
-  double_ftype_double
-    = build_function_type (double_type_node, double_endlink);
-
-  ldouble_ftype_ldouble
-    = build_function_type (long_double_type_node,
-			   tree_cons (NULL_TREE, long_double_type_node,
-				      endlink));
-
-  double_ftype_double_double
-    = build_function_type (double_type_node,
-			   tree_cons (NULL_TREE, double_type_node,
-				      double_endlink));
-
-  int_ftype_int
-    = build_function_type (integer_type_node, int_endlink);
-
-  long_ftype_long
-    = build_function_type (long_integer_type_node,
-			   tree_cons (NULL_TREE, long_integer_type_node,
-				      endlink));
-
-  int_ftype_cptr_cptr_sizet
-    = build_function_type (integer_type_node,
-			   tree_cons (NULL_TREE, const_ptr_type_node,
-				      tree_cons (NULL_TREE, const_ptr_type_node,
-						 tree_cons (NULL_TREE,
-							    sizetype,
-							    endlink))));
-
-  string_ftype_ptr_ptr		/* strcpy prototype */
-    = build_function_type (string_type_node,
-			   tree_cons (NULL_TREE, string_type_node,
-				      tree_cons (NULL_TREE,
-						 const_string_type_node,
-						 endlink)));
-
-  int_ftype_string_string	/* strcmp prototype */
-    = build_function_type (integer_type_node,
-			   tree_cons (NULL_TREE, const_string_type_node,
-				      tree_cons (NULL_TREE,
-						 const_string_type_node,
-						 endlink)));
-
-  strlen_ftype		/* strlen prototype */
-    = build_function_type (sizetype,
-			   tree_cons (NULL_TREE, const_string_type_node,
-				      endlink));
-
-  memcpy_ftype	/* memcpy prototype */
-    = build_function_type (ptr_type_node,
-			   tree_cons (NULL_TREE, ptr_type_node,
-				      tree_cons (NULL_TREE, const_ptr_type_node,
-						 sizetype_endlink)));
-
-  if (flag_huge_objects)
-    delta_type_node = long_integer_type_node;
-  else
-    delta_type_node = short_integer_type_node;
-
-  builtin_function ("__builtin_constant_p", default_function_type,
-		    BUILT_IN_CONSTANT_P, NULL_PTR);
-
-  builtin_return_address_fndecl
-    = builtin_function ("__builtin_return_address", ptr_ftype_unsigned,
-			BUILT_IN_RETURN_ADDRESS, NULL_PTR);
-
-  builtin_function ("__builtin_frame_address", ptr_ftype_unsigned,
-		    BUILT_IN_FRAME_ADDRESS, NULL_PTR);
-
-  builtin_function ("__builtin_alloca", ptr_ftype_sizetype,
-		    BUILT_IN_ALLOCA, "alloca");
-  builtin_function ("__builtin_ffs", int_ftype_int, BUILT_IN_FFS, NULL_PTR);
-  /* Define alloca, ffs as builtins.
-     Declare _exit just to mark it as volatile.  */
-  if (! flag_no_builtin && !flag_no_nonansi_builtin)
-    {
-      temp = builtin_function ("alloca", ptr_ftype_sizetype,
-			       BUILT_IN_ALLOCA, NULL_PTR);
-      /* Suppress error if redefined as a non-function.  */
-      DECL_BUILT_IN_NONANSI (temp) = 1;
-      temp = builtin_function ("ffs", int_ftype_int, BUILT_IN_FFS, NULL_PTR);
-      /* Suppress error if redefined as a non-function.  */
-      DECL_BUILT_IN_NONANSI (temp) = 1;
-      temp = builtin_function ("_exit", void_ftype_int,
-			       NOT_BUILT_IN, NULL_PTR);
-      TREE_THIS_VOLATILE (temp) = 1;
-      TREE_SIDE_EFFECTS (temp) = 1;
-      /* Suppress error if redefined as a non-function.  */
-      DECL_BUILT_IN_NONANSI (temp) = 1;
-    }
-
-  builtin_function ("__builtin_abs", int_ftype_int, BUILT_IN_ABS, NULL_PTR);
-  builtin_function ("__builtin_fabsf", float_ftype_float, BUILT_IN_FABS,
-		    NULL_PTR);
-  builtin_function ("__builtin_fabs", double_ftype_double, BUILT_IN_FABS,
-		    NULL_PTR);
-  builtin_function ("__builtin_fabsl", ldouble_ftype_ldouble, BUILT_IN_FABS,
-		    NULL_PTR);
-  builtin_function ("__builtin_labs", long_ftype_long,
-		    BUILT_IN_LABS, NULL_PTR);
-  builtin_function ("__builtin_saveregs", ptr_ftype,
-		    BUILT_IN_SAVEREGS, NULL_PTR);
-  builtin_function ("__builtin_classify_type", default_function_type,
-		    BUILT_IN_CLASSIFY_TYPE, NULL_PTR);
-  builtin_function ("__builtin_next_arg", ptr_ftype,
-		    BUILT_IN_NEXT_ARG, NULL_PTR);
-  builtin_function ("__builtin_args_info", int_ftype_int,
-		    BUILT_IN_ARGS_INFO, NULL_PTR);
-  builtin_function ("__builtin_setjmp",
-		    build_function_type (integer_type_node,
-					 tree_cons (NULL_TREE, ptr_type_node,
-						    endlink)),
-		    BUILT_IN_SETJMP, NULL_PTR);
-  builtin_function ("__builtin_longjmp",
-		    build_function_type (integer_type_node,
-					 tree_cons (NULL_TREE, ptr_type_node,
-						    tree_cons (NULL_TREE,
-							       integer_type_node,
-							       endlink))),
-		    BUILT_IN_LONGJMP, NULL_PTR);
-
-  /* Untyped call and return.  */
-  builtin_function ("__builtin_apply_args", ptr_ftype,
-		    BUILT_IN_APPLY_ARGS, NULL_PTR);
-
-  temp = tree_cons (NULL_TREE,
-		    build_pointer_type (build_function_type (void_type_node,
-							     NULL_TREE)),
-		    tree_cons (NULL_TREE, ptr_ftype_sizetype, NULL_TREE));
-  builtin_function ("__builtin_apply",
-		    build_function_type (ptr_type_node, temp),
-		    BUILT_IN_APPLY, NULL_PTR);
-  builtin_function ("__builtin_return", void_ftype_ptr,
-		    BUILT_IN_RETURN, NULL_PTR);
-
-  /* Currently under experimentation.  */
-  builtin_function ("__builtin_memcpy", memcpy_ftype,
-		    BUILT_IN_MEMCPY, "memcpy");
-  builtin_function ("__builtin_memcmp", int_ftype_cptr_cptr_sizet,
-		    BUILT_IN_MEMCMP, "memcmp");
-  builtin_function ("__builtin_strcmp", int_ftype_string_string,
-		    BUILT_IN_STRCMP, "strcmp");
-  builtin_function ("__builtin_strcpy", string_ftype_ptr_ptr,
-		    BUILT_IN_STRCPY, "strcpy");
-  builtin_function ("__builtin_strlen", strlen_ftype,
-		    BUILT_IN_STRLEN, "strlen");
-  builtin_function ("__builtin_sqrtf", float_ftype_float, 
-		    BUILT_IN_FSQRT, "sqrtf");
-  builtin_function ("__builtin_fsqrt", double_ftype_double,
-		    BUILT_IN_FSQRT, NULL_PTR);
-  builtin_function ("__builtin_sqrtl", ldouble_ftype_ldouble, 
-		    BUILT_IN_FSQRT, "sqrtl");
-  builtin_function ("__builtin_sinf", float_ftype_float, 
-		    BUILT_IN_SIN, "sinf");
-  builtin_function ("__builtin_sin", double_ftype_double, 
-		    BUILT_IN_SIN, "sin");
-  builtin_function ("__builtin_sinl", ldouble_ftype_ldouble, 
-		    BUILT_IN_SIN, "sinl");
-  builtin_function ("__builtin_cosf", float_ftype_float, 
-		    BUILT_IN_COS, "cosf");
-  builtin_function ("__builtin_cos", double_ftype_double, 
-		    BUILT_IN_COS, "cos");
-  builtin_function ("__builtin_cosl", ldouble_ftype_ldouble, 
-		    BUILT_IN_COS, "cosl");
-
-  if (!flag_no_builtin)
-    {
-      builtin_function ("abs", int_ftype_int, BUILT_IN_ABS, NULL_PTR);
-      builtin_function ("fabs", double_ftype_double, BUILT_IN_FABS, NULL_PTR);
-      builtin_function ("labs", long_ftype_long, BUILT_IN_LABS, NULL_PTR);
-      builtin_function ("fabsf", float_ftype_float, BUILT_IN_FABS, NULL_PTR);
-      builtin_function ("fabsl", ldouble_ftype_ldouble, BUILT_IN_FABS,
-			NULL_PTR);
-      builtin_function ("memcpy", memcpy_ftype, BUILT_IN_MEMCPY, NULL_PTR);
-      builtin_function ("memcmp", int_ftype_cptr_cptr_sizet, BUILT_IN_MEMCMP,
-			NULL_PTR);
-      builtin_function ("strcmp", int_ftype_string_string, BUILT_IN_STRCMP,
-			NULL_PTR);
-      builtin_function ("strcpy", string_ftype_ptr_ptr, BUILT_IN_STRCPY,
-			NULL_PTR);
-      builtin_function ("strlen", strlen_ftype, BUILT_IN_STRLEN, NULL_PTR);
-      builtin_function ("sqrtf", float_ftype_float, BUILT_IN_FSQRT, NULL_PTR);
-      builtin_function ("sqrt", double_ftype_double, BUILT_IN_FSQRT, NULL_PTR);
-      builtin_function ("sqrtl", ldouble_ftype_ldouble, BUILT_IN_FSQRT,
-			NULL_PTR);
-      builtin_function ("sinf", float_ftype_float, BUILT_IN_SIN, NULL_PTR);
-      builtin_function ("sin", double_ftype_double, BUILT_IN_SIN, NULL_PTR);
-      builtin_function ("sinl", ldouble_ftype_ldouble, BUILT_IN_SIN, NULL_PTR);
-      builtin_function ("cosf", float_ftype_float, BUILT_IN_COS, NULL_PTR);
-      builtin_function ("cos", double_ftype_double, BUILT_IN_COS, NULL_PTR);
-      builtin_function ("cosl", ldouble_ftype_ldouble, BUILT_IN_COS, NULL_PTR);
-
-      /* Declare these functions volatile
-	 to avoid spurious "control drops through" warnings.  */
-      temp = builtin_function ("abort", void_ftype,
-			       NOT_BUILT_IN, NULL_PTR);
-      TREE_THIS_VOLATILE (temp) = 1;
-      TREE_SIDE_EFFECTS (temp) = 1;
-      /* Well, these are actually ANSI, but we can't set DECL_BUILT_IN on
-         them...  */
-      DECL_BUILT_IN_NONANSI (temp) = 1;
-      temp = builtin_function ("exit", void_ftype_int,
-			       NOT_BUILT_IN, NULL_PTR);
-      TREE_THIS_VOLATILE (temp) = 1;
-      TREE_SIDE_EFFECTS (temp) = 1;
-      DECL_BUILT_IN_NONANSI (temp) = 1;
-    }
-
-#if 0
-  /* Support for these has not been written in either expand_builtin
-     or build_function_call.  */
-  builtin_function ("__builtin_div", default_ftype, BUILT_IN_DIV, NULL_PTR);
-  builtin_function ("__builtin_ldiv", default_ftype, BUILT_IN_LDIV, NULL_PTR);
-  builtin_function ("__builtin_ffloor", double_ftype_double, BUILT_IN_FFLOOR,
-		    NULL_PTR);
-  builtin_function ("__builtin_fceil", double_ftype_double, BUILT_IN_FCEIL,
-		    NULL_PTR);
-  builtin_function ("__builtin_fmod", double_ftype_double_double,
-		    BUILT_IN_FMOD, NULL_PTR);
-  builtin_function ("__builtin_frem", double_ftype_double_double,
-		    BUILT_IN_FREM, NULL_PTR);
-  builtin_function ("__builtin_memset", ptr_ftype_ptr_int_int,
-		    BUILT_IN_MEMSET, NULL_PTR);
-  builtin_function ("__builtin_getexp", double_ftype_double, BUILT_IN_GETEXP,
-		    NULL_PTR);
-  builtin_function ("__builtin_getman", double_ftype_double, BUILT_IN_GETMAN,
-		    NULL_PTR);
-#endif
 
   /* C++ extensions */
 
@@ -7006,6 +6634,16 @@ define_function (name, type, function_code, pfn, library_name)
       DECL_FUNCTION_CODE (decl) = function_code;
     }
   return decl;
+}
+
+tree
+builtin_function (name, type, code, libname)
+     const char *name;
+     tree type;
+     enum built_in_function code;
+     const char *libname;
+{
+  return define_function (name, type, code, (void (*) PROTO((tree)))pushdecl, libname);
 }
 
 /* When we call finish_struct for an anonymous union, we create
@@ -8133,7 +7771,7 @@ cp_finish_decl (decl, init, asmspec_tree, need_pop, flags)
 	      else if (! DECL_ARTIFICIAL (decl))
 		{
 		  cp_warning_at ("sorry: semantics of inline function static data `%#D' are wrong (you'll wind up with multiple copies)", decl);
-		  cp_warning_at ("  you can work around this by removing the initializer"), decl;
+		  cp_warning_at ("  you can work around this by removing the initializer", decl);
 		}
 	    }
 	}
@@ -8219,14 +7857,9 @@ cp_finish_decl (decl, init, asmspec_tree, need_pop, flags)
       if (was_temp)
 	resume_temporary_allocation ();
 
-      if (type != error_mark_node
-	  && TYPE_LANG_SPECIFIC (core_type)
-	  && CLASSTYPE_ABSTRACT_VIRTUALS (core_type))
-	abstract_virtuals_error (decl, core_type);
-      else if ((TREE_CODE (type) == FUNCTION_TYPE
-		|| TREE_CODE (type) == METHOD_TYPE)
-	       && TYPE_LANG_SPECIFIC (TREE_TYPE (type))
-	       && CLASSTYPE_ABSTRACT_VIRTUALS (TREE_TYPE (type)))
+      if (!abstract_virtuals_error (decl, core_type)
+	  && (TREE_CODE (type) == FUNCTION_TYPE
+	      || TREE_CODE (type) == METHOD_TYPE))
 	abstract_virtuals_error (decl, TREE_TYPE (type));
 
       if (TYPE_LANG_SPECIFIC (core_type) && IS_SIGNATURE (core_type))
@@ -10384,6 +10017,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		if (TREE_CODE (size) == NOP_EXPR
 		    && TREE_TYPE (size) == TREE_TYPE (TREE_OPERAND (size, 0)))
 		  size = TREE_OPERAND (size, 0);
+		if (TREE_READONLY_DECL_P (size))
+		  size = decl_constant_value (size);
 
 		/* If this involves a template parameter, it will be a
 		   constant at instantiation time, but we don't know
@@ -10419,8 +10054,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 			      dname);
 		    size = integer_one_node;
 		  }
-		if (TREE_READONLY_DECL_P (size))
-		  size = decl_constant_value (size);
 		if (pedantic && integer_zerop (size))
 		  cp_pedwarn ("ANSI C++ forbids zero-size array `%D'", dname);
 		if (TREE_CONSTANT (size))
@@ -11064,20 +10697,17 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
       if (type != error_mark_node
 	  && TYPE_NAME (type)
 	  && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
-	  && ANON_AGGRNAME_P (TYPE_IDENTIFIER (type)))
+	  && ANON_AGGRNAME_P (TYPE_IDENTIFIER (type))
+	  && CP_TYPE_QUALS (type) == TYPE_UNQUALIFIED)
 	{
-	  /* FIXME: This is bogus; we should not be doing this for
-	            cv-qualified types.  */
-
-	  /* For anonymous structs that are cv-qualified, need to use
-             TYPE_MAIN_VARIANT so that name will mangle correctly. As
-             type not referenced after this block, don't bother
-             resetting type to original type, ie. TREE_TYPE (decl). */
-	  type = TYPE_MAIN_VARIANT (type);
+	  tree oldname = TYPE_NAME (type);
+	  tree t;
 
 	  /* Replace the anonymous name with the real name everywhere.  */
 	  lookup_tag_reverse (type, declarator);
-	  TYPE_NAME (type) = decl;
+	  for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+	    if (TYPE_NAME (t) == oldname)
+	      TYPE_NAME (t) = decl;
 
 	  if (TYPE_LANG_SPECIFIC (type))
 	    TYPE_WAS_ANONYMOUS (type) = 1;
@@ -11979,13 +11609,8 @@ grokparms (first_parm, funcdef_flag)
 		      type = build_pointer_type (type);
 		      TREE_TYPE (decl) = type;
 		    }
-                  else if (TREE_CODE (type) == RECORD_TYPE
-                           && TYPE_LANG_SPECIFIC (type)
-                           && CLASSTYPE_ABSTRACT_VIRTUALS (type))
-                    {
-                      abstract_virtuals_error (decl, type);
-                      any_error = 1;  /* Seems like a good idea. */
-                    }
+                  else if (abstract_virtuals_error (decl, type))
+		    any_error = 1;  /* Seems like a good idea. */
                   else if (TREE_CODE (type) == RECORD_TYPE
                            && TYPE_LANG_SPECIFIC (type)
                            && IS_SIGNATURE (type))
@@ -12398,9 +12023,7 @@ grok_op_properties (decl, virtualp, friendp)
       else if (name == ansi_opname[(int) COND_EXPR])
 	{
 	  /* 13.4.0.3 */
-	  pedwarn ("ANSI C++ prohibits overloading operator ?:");
-	  if (list_length (argtypes) != 4)
-	    cp_error ("`%D' must take exactly three arguments", decl);
+	  cp_error ("ANSI C++ prohibits overloading operator ?:");
 	}	  
       else if (ambi_op_p (name))
 	{
@@ -13478,9 +13101,7 @@ start_function (declspecs, declarator, attrs, pre_parsed_p)
 	    = CP_TYPE_VOLATILE_P (TREE_TYPE (fntype));
 	}
 
-      if (TYPE_LANG_SPECIFIC (TREE_TYPE (fntype))
-	  && CLASSTYPE_ABSTRACT_VIRTUALS (TREE_TYPE (fntype)))
-	abstract_virtuals_error (decl1, TREE_TYPE (fntype));
+      abstract_virtuals_error (decl1, TREE_TYPE (fntype));
     }
 
   /* Effective C++ rule 15.  See also c_expand_return.  */

@@ -1,6 +1,7 @@
 /* Input handling for G++.
    Copyright (C) 1992, 93-98, 1999 Free Software Foundation, Inc.
    Written by Ken Raeburn (raeburn@cygnus.com) while at Watchmaker Computing.
+   Enhanced by Michael Tiemann (tiemann@cygnus.com) to better support USE_CPPLIB
 
 This file is part of GNU CC.
 
@@ -31,13 +32,15 @@ Boston, MA 02111-1307, USA.  */
 
 #include "system.h"
 
-extern FILE *finput;
-
+#if !USE_CPPLIB
 struct putback_buffer {
   char *buffer;
   int   buffer_size;
   int   index;
 };
+
+static struct putback_buffer putback = {NULL, 0, -1};
+#endif
 
 struct input_source {
   /* saved string */
@@ -48,10 +51,12 @@ struct input_source {
   /* linked list maintenance */
   struct input_source *next;
   /* values to restore after reading all of current string */
+  struct pending_input *input;
+#if !USE_CPPLIB
   char *filename;
   int lineno;
-  struct pending_input *input;
   struct putback_buffer putback;
+#endif
 };
 
 static struct input_source *input, *free_inputs;
@@ -62,12 +67,9 @@ extern int lineno;
 #if USE_CPPLIB
 extern unsigned char *yy_cur, *yy_lim;
 extern int yy_get_token ();
-#define GETC() (yy_cur < yy_lim ? *yy_cur++ : yy_get_token ())
-#else
-#define GETC() getc (finput)
 #endif
 
-extern void feed_input PROTO((char *, int));
+extern void feed_input PROTO((char *, int, char *, int));
 extern void put_input PROTO((int));
 extern void put_back PROTO((int));
 extern int getch PROTO((void));
@@ -76,7 +78,6 @@ extern int input_redirected PROTO((void));
 static inline struct input_source * allocate_input PROTO((void));
 static inline void free_input PROTO((struct input_source *));
 static inline void end_input PROTO((void));
-static inline int sub_getch PROTO((void));
 
 static inline struct input_source *
 allocate_input ()
@@ -104,16 +105,16 @@ free_input (inp)
   free_inputs = inp;
 }
 
-static struct putback_buffer putback = {NULL, 0, -1};
-
 /* Some of these external functions are declared inline in case this file
    is included in lex.c.  */
 
 inline
 void
-feed_input (str, len)
+feed_input (str, len, file, line)
      char *str;
      int len;
+     char *file;
+     int line;
 {
   struct input_source *inp = allocate_input ();
 
@@ -121,21 +122,34 @@ feed_input (str, len)
   while (len && !str[len-1])
     len--;
 
+#if USE_CPPLIB
+  if (yy_lim > yy_cur)
+    /* If we've started reading the next token, we're hosed.  The
+       token_getch stuff is supposed to prevent this from happening.  */
+    my_friendly_abort (990710);
+  cpp_push_buffer (&parse_in, str, len);
+  CPP_BUFFER (&parse_in)->manual_pop = 1;
+  CPP_BUFFER (&parse_in)->nominal_fname
+    = CPP_BUFFER (&parse_in)->fname = file;
+  CPP_BUFFER (&parse_in)->lineno = parse_in.lineno = line;
+#else
   inp->str = str;
   inp->length = len;
   inp->offset = 0;
-  inp->next = input;
+  inp->putback = putback;
   inp->filename = input_filename;
   inp->lineno = lineno;
-  inp->input = save_pending_input ();
-  inp->putback = putback;
   putback.buffer = NULL;
   putback.buffer_size = 0;
   putback.index = -1;
+#endif
+  inp->next = input;
+  inp->input = save_pending_input ();
   input = inp;
+  lineno = line;
+  input_filename = file;
 }
 
-struct pending_input *to_be_restored; /* XXX */
 extern int end_of_file;
 
 static inline void
@@ -143,20 +157,28 @@ end_input ()
 {
   struct input_source *inp = input;
 
-  end_of_file = 0;
-  input = inp->next;
+#if USE_CPPLIB
+  cpp_pop_buffer (&parse_in);
+#else
+  putback = inp->putback;
   input_filename = inp->filename;
   lineno = inp->lineno;
+#endif
+
+  end_of_file = 0;
+  input = inp->next;
   /* Get interface/implementation back in sync.  */
   extract_interface_info ();
-  putback = inp->putback;
   restore_pending_input (inp->input);
   free_input (inp);
 }
 
-static inline int
-sub_getch ()
+inline int
+getch ()
 {
+#if USE_CPPLIB
+  return (yy_cur < yy_lim ? *yy_cur++ : yy_get_token ());
+#else
   if (putback.index != -1)
     {
       int ch = putback.buffer[putback.index];
@@ -178,7 +200,8 @@ sub_getch ()
 	}
       return (unsigned char)input->str[input->offset++];
     }
-  return GETC ();
+  return getc (finput);
+#endif
 }
 
 inline
@@ -186,6 +209,14 @@ void
 put_back (ch)
      int ch;
 {
+#if USE_CPPLIB
+  if (ch == EOF)
+    ;
+  else if (yy_cur[-1] != ch)
+    my_friendly_abort (990709);
+  else
+    yy_cur--;
+#else
   if (ch != EOF)
     {
       if (putback.index == putback.buffer_size - 1)
@@ -196,25 +227,16 @@ put_back (ch)
       my_friendly_assert (putback.buffer != NULL, 224);
       putback.buffer[++putback.index] = ch;
     }
-}
-
-extern int linemode;
-
-int
-getch ()
-{
-  int ch = sub_getch ();
-  if (linemode && ch == '\n')
-    {
-      put_back (ch);
-      ch = EOF;
-    }
-  return ch;
+#endif
 }
 
 inline
 int
 input_redirected ()
 {
+#ifdef USE_CPPLIB
+  return CPP_BUFFER(&parse_in)->manual_pop;
+#else
   return input != 0;
+#endif
 }

@@ -639,9 +639,9 @@ convert_pointer_to (binfo, expr)
   if (TREE_CODE (binfo) == TREE_VEC)
     type = BINFO_TYPE (binfo);
   else if (IS_AGGR_TYPE (binfo))
-      type = binfo;
+    type = binfo;
   else
-      type = binfo;
+    type = binfo;
   return convert_pointer_to_real (type, expr);
 }
 
@@ -826,11 +826,8 @@ ocp_convert (type, expr, convtype, flags)
 
       ctor = e;
 
-      if (IS_AGGR_TYPE (type) && CLASSTYPE_ABSTRACT_VIRTUALS (type))
-	{
-	  abstract_virtuals_error (NULL_TREE, type);
-	  return error_mark_node;
-	}
+      if (abstract_virtuals_error (NULL_TREE, type))
+	return error_mark_node;
 
       if ((flags & LOOKUP_ONLYCONVERTING)
 	  && ! (IS_AGGR_TYPE (dtype) && DERIVED_FROM_P (type, dtype)))

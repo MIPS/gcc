@@ -19,6 +19,8 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#include "c-common.h"
+
 #ifndef _CP_TREE_H
 #define _CP_TREE_H
 
@@ -32,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
       TREE_INDIRECT_USING (in NAMESPACE_DECL).
       IDENTIFIER_MARKED (used by search routines).
       LOCAL_BINDING_P (in CPLUS_BINDING)
+      ICS_USER_FLAG (in _CONV)
    1: IDENTIFIER_VIRTUAL_P.
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -41,17 +44,21 @@ Boston, MA 02111-1307, USA.  */
       C_DECLARED_LABEL_FLAG.
       INHERITED_VALUE_BINDING_P (in CPLUS_BINDING)
       BASELINK_P (in TREE_LIST)
+      ICS_ELLIPSIS_FLAG (in _CONV)
    2: IDENTIFIER_OPNAME_P.
       BINFO_VBASE_MARKED.
       BINFO_FIELDS_MARKED.
       TYPE_VIRTUAL_P.
+      ICS_THIS_FLAG (in _CONV)
    3: TYPE_USES_VIRTUAL_BASECLASSES (in a class TYPE).
       BINFO_VTABLE_PATH_MARKED.
       BINFO_PUSHDECLS_MARKED.
       (TREE_REFERENCE_EXPR) (in NON_LVALUE_EXPR) (commented-out).
+      ICS_BAD_FLAG (in _CONV)
    4: BINFO_NEW_VTABLE_MARKED.
       TREE_HAS_CONSTRUCTOR (in INDIRECT_REF, SAVE_EXPR, CONSTRUCTOR,
           or FIELD_DECL).
+      NEED_TEMPORARY_P (in REF_BIND, BASE_CONV)
    5: Not used.
    6: Not used.
 
@@ -91,7 +98,14 @@ Boston, MA 02111-1307, USA.  */
 
    DECL_SAVED_INSNS/DECL_FIELD_SIZE
      For a static VAR_DECL, this is DECL_INIT_PRIORITY.
-*/
+
+   BINFO_VIRTUALS
+     For a binfo, this is a TREE_LIST.  The TREE_PURPOSE of each node
+     gives the amount by which to adjust the `this' pointer when
+     calling the function.  The TREE_VALUE is the declaration for the 
+     virtual function itself.  When CLASSTYPE_COM_INTERFACE_P does not
+     hold, the first entry does not have a TREE_VALUE; it is just an
+     offset.  */ 
 
 /* Language-dependent contents of an identifier.  */
 
@@ -198,12 +212,12 @@ struct tree_overload
    indicating a particular base class, and whose TREE_VALUE is a
    (possibly overloaded) function from that base class.  */
 #define BASELINK_P(NODE) \
-  (TREE_CODE ((NODE)) == TREE_LIST && TREE_LANG_FLAG_1 ((NODE)))
+  (TREE_CODE (NODE) == TREE_LIST && TREE_LANG_FLAG_1 (NODE))
 #define SET_BASELINK_P(NODE) \
-  (TREE_LANG_FLAG_1 ((NODE)) = 1)
+  (TREE_LANG_FLAG_1 (NODE) = 1)
 
-#define WRAPPER_PTR(NODE) (((struct tree_wrapper*)NODE)->u.ptr)
-#define WRAPPER_INT(NODE) (((struct tree_wrapper*)NODE)->u.i)
+#define WRAPPER_PTR(NODE) (((struct tree_wrapper*)(NODE))->u.ptr)
+#define WRAPPER_INT(NODE) (((struct tree_wrapper*)(NODE))->u.i)
 
 struct tree_wrapper
 {
@@ -329,39 +343,96 @@ extern int pedantic;
    next exception handler.  */
 extern tree exception_throw_decl;
 
-extern tree double_type_node, long_double_type_node, float_type_node;
-extern tree char_type_node, unsigned_char_type_node, signed_char_type_node;
-extern tree ptrdiff_type_node;
+enum cp_tree_index
+{
+    CPTI_JAVA_BYTE_TYPE,
+    CPTI_JAVA_SHORT_TYPE,
+    CPTI_JAVA_INT_TYPE,
+    CPTI_JAVA_LONG_TYPE,
+    CPTI_JAVA_FLOAT_TYPE,
+    CPTI_JAVA_DOUBLE_TYPE,
+    CPTI_JAVA_CHAR_TYPE,
+    CPTI_JAVA_BOOLEAN_TYPE,
 
-extern tree short_integer_type_node, short_unsigned_type_node;
-extern tree long_integer_type_node, long_unsigned_type_node;
-extern tree long_long_integer_type_node, long_long_unsigned_type_node;
-extern tree unsigned_type_node;
-extern tree string_type_node, char_array_type_node, int_array_type_node;
-extern tree wchar_array_type_node;
-extern tree wchar_type_node, signed_wchar_type_node, unsigned_wchar_type_node;
+    CPTI_VOID_ZERO,
+    CPTI_WCHAR_DECL,
+    CPTI_VTABLE_ENTRY_TYPE,
+    CPTI_DELTA_TYPE,
 
-extern tree complex_integer_type_node;
-extern tree complex_float_type_node;
-extern tree complex_double_type_node;
-extern tree complex_long_double_type_node;
+    CPTI_TP_DESC_TYPE,
+    CPTI_ACCESS_MODE_TYPE,
+    CPTI_BLTN_DESC_TYPE,
+    CPTI_USER_DESC_TYPE,
+    CPTI_CLASS_DESC_TYPE,
+    CPTI_PTR_DESC_TYPE,
+    CPTI_ATTR_DESC_TYPE,
+    CPTI_FUNC_DESC_TYPE,
+    CPTI_PTMF_DESC_TYPE,
+    CPTI_PTMD_DESC_TYPE,
+    
+    CPTI_CLASS_STAR_TYPE,
+    CPTI_CLASS_TYPE,
+    CPTI_RECORD_TYPE,
+    CPTI_UNION_TYPE,
+    CPTI_ENUM_TYPE,
+    CPTI_UNKNOWN_TYPE,
+    CPTI_OPAQUE_TYPE,
+    CPTI_SIGNATURE_TYPE,
+    CPTI_SIGTABLE_ENTRY_TYPE,
+    CPTI_VTBL_TYPE,
+    CPTI_VTBL_PTR_TYPE,
+    CPTI_STD,
+    CPTI_TYPE_INFO_TYPE,
+    CPTI_TINFO_FN_ID,
+    CPTI_TINFO_FN_TYPE,
+    CPTI_ABORT_FNDECL,
+    CPTI_GLOBAL_DELETE_FNDECL,
 
-extern tree intQI_type_node, unsigned_intQI_type_node;
-extern tree intHI_type_node, unsigned_intHI_type_node;
-extern tree intSI_type_node, unsigned_intSI_type_node;
-extern tree intDI_type_node, unsigned_intDI_type_node;
-#if HOST_BITS_PER_WIDE_INT >= 64
-extern tree intTI_type_node, unsigned_intTI_type_node;
-#endif
+    CPTI_MAX
+};
 
-extern tree java_byte_type_node;
-extern tree java_short_type_node;
-extern tree java_int_type_node;
-extern tree java_long_type_node;
-extern tree java_float_type_node;
-extern tree java_double_type_node;
-extern tree java_char_type_node;
-extern tree java_boolean_type_node;
+extern tree cp_global_trees[CPTI_MAX];
+
+#define java_byte_type_node		cp_global_trees[CPTI_JAVA_BYTE_TYPE]
+#define java_short_type_node		cp_global_trees[CPTI_JAVA_SHORT_TYPE]
+#define java_int_type_node		cp_global_trees[CPTI_JAVA_INT_TYPE]
+#define java_long_type_node		cp_global_trees[CPTI_JAVA_LONG_TYPE]
+#define java_float_type_node		cp_global_trees[CPTI_JAVA_FLOAT_TYPE]
+#define java_double_type_node		cp_global_trees[CPTI_JAVA_DOUBLE_TYPE]
+#define java_char_type_node		cp_global_trees[CPTI_JAVA_CHAR_TYPE]
+#define java_boolean_type_node		cp_global_trees[CPTI_JAVA_BOOLEAN_TYPE]
+
+#define void_zero_node			cp_global_trees[CPTI_VOID_ZERO]
+#define wchar_decl_node			cp_global_trees[CPTI_WCHAR_DECL]
+#define vtable_entry_type		cp_global_trees[CPTI_VTABLE_ENTRY_TYPE]
+#define delta_type_node			cp_global_trees[CPTI_DELTA_TYPE]
+#define __tp_desc_type_node		cp_global_trees[CPTI_TP_DESC_TYPE]
+#define __access_mode_type_node		cp_global_trees[CPTI_ACCESS_MODE_TYPE]
+#define __bltn_desc_type_node		cp_global_trees[CPTI_BLTN_DESC_TYPE]
+#define __user_desc_type_node		cp_global_trees[CPTI_USER_DESC_TYPE]
+#define __class_desc_type_node		cp_global_trees[CPTI_CLASS_DESC_TYPE]
+#define __ptr_desc_type_node		cp_global_trees[CPTI_PTR_DESC_TYPE]
+#define __attr_desc_type_node		cp_global_trees[CPTI_ATTR_DESC_TYPE]
+#define __func_desc_type_node		cp_global_trees[CPTI_FUNC_DESC_TYPE]
+#define __ptmf_desc_type_node		cp_global_trees[CPTI_PTMF_DESC_TYPE]
+#define __ptmd_desc_type_node		cp_global_trees[CPTI_PTMD_DESC_TYPE]
+#define class_star_type_node		cp_global_trees[CPTI_CLASS_STAR_TYPE]
+#define class_type_node			cp_global_trees[CPTI_CLASS_TYPE]
+#define record_type_node		cp_global_trees[CPTI_RECORD_TYPE]
+#define union_type_node			cp_global_trees[CPTI_UNION_TYPE]
+#define enum_type_node			cp_global_trees[CPTI_ENUM_TYPE]
+#define unknown_type_node		cp_global_trees[CPTI_UNKNOWN_TYPE]
+#define opaque_type_node		cp_global_trees[CPTI_OPAQUE_TYPE]
+#define signature_type_node		cp_global_trees[CPTI_SIGNATURE_TYPE]
+#define sigtable_entry_type		cp_global_trees[CPTI_SIGTABLE_ENTRY_TYPE]
+#define vtbl_type_node			cp_global_trees[CPTI_VTBL_TYPE]
+#define vtbl_ptr_type_node		cp_global_trees[CPTI_VTBL_PTR_TYPE]
+#define std_node			cp_global_trees[CPTI_STD]
+#define type_info_type_node		cp_global_trees[CPTI_TYPE_INFO_TYPE]
+#define tinfo_fn_id			cp_global_trees[CPTI_TINFO_FN_ID]
+#define tinfo_fn_type			cp_global_trees[CPTI_TINFO_FN_TYPE]
+#define abort_fndecl			cp_global_trees[CPTI_ABORT_FNDECL]
+#define global_delete_fndecl		cp_global_trees[CPTI_GLOBAL_DELETE_FNDECL]
 
 extern int current_function_returns_value;
 extern int current_function_returns_null;
@@ -489,18 +560,6 @@ extern int warn_old_style_cast;
 
 extern int flag_signed_bitfields;
 
-/* 3 means write out only virtuals function tables `defined'
-   in this implementation file.
-   2 means write out only specific virtual function tables
-   and give them (C) public access.
-   1 means write out virtual function tables and give them
-   (C) public access.
-   0 means write out virtual function tables and give them
-   (C) static access (default).
-   -1 means declare virtual function tables extern.  */
-
-extern int write_virtuals;
-
 /* True for more efficient but incompatible (not fully tested)
    vtable implementation (using thunks).
    0 is old behavior; 1 is new behavior.  */
@@ -586,13 +645,16 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 #define TYPE_MAIN_DECL(NODE) (TYPE_STUB_DECL (TYPE_MAIN_VARIANT (NODE)))
 
 /* Nonzero if T is a class (or struct or union) type.  Also nonzero
-   for template type parameters and typename types.  Despite its name,
+   for template type parameters, typename types, and instantiated
+   template template parameters.  Despite its name,
    this macro has nothing to do with the definition of aggregate given
    in the standard.  Think of this macro as MAYBE_CLASS_TYPE_P.  */
 #define IS_AGGR_TYPE(t)				\
-  (TREE_CODE (t) == TEMPLATE_TYPE_PARM 		\
-   || TREE_CODE (t) == TYPENAME_TYPE 		\
+  (TREE_CODE (t) == TEMPLATE_TYPE_PARM		\
+   || TREE_CODE (t) == TYPENAME_TYPE		\
    || TREE_CODE (t) == TYPEOF_TYPE		\
+   || (TREE_CODE (t) == TEMPLATE_TEMPLATE_PARM	\
+       && TYPE_TEMPLATE_INFO (t))		\
    || TYPE_LANG_FLAG_5 (t))
 
 /* Set IS_AGGR_TYPE for T to VAL.  T must be a class, struct, or 
@@ -1126,8 +1188,8 @@ struct lang_type
 
 /* For FUNCTION_TYPE or METHOD_TYPE, a list of the exceptions that
    this type can raise.  Each TREE_VALUE is a _TYPE.  The TREE_VALUE
-   will be NULL_TREE to indicate a throw specification of `(...)', or,
-   equivalently, no throw specification.  */
+   will be NULL_TREE to indicate a throw specification of `()', or
+   no exceptions allowed.  */
 #define TYPE_RAISES_EXCEPTIONS(NODE) TYPE_NONCOPIED_PARTS (NODE)
 
 /* For FUNCTION_TYPE or METHOD_TYPE, return 1 iff it is declared `throw()'.  */
@@ -1202,7 +1264,11 @@ struct lang_decl
 
   tree main_decl_variant;
   tree befriending_classes;
-  struct pending_inline *pending_inline_info;
+  union
+  {
+    tree sorted_fields;
+    struct pending_inline *pending_inline_info;
+  } u;
 };
 
 /* Non-zero if NODE is a _DECL with TREE_READONLY set.  */
@@ -1338,6 +1404,10 @@ struct lang_decl
   (DECL_CONTEXT (NODE) ? DECL_CONTEXT (NODE) : global_namespace)
 #define FROB_CONTEXT(NODE)   ((NODE) == global_namespace ? NULL_TREE : (NODE))
 
+/* For a virtual function, the base where we find its vtable entry.
+   For a non-virtual function, the base where it is defined.  */
+#define DECL_VIRTUAL_CONTEXT(NODE) DECL_CONTEXT (NODE)
+
 /* 1 iff NODE has namespace scope, including the global namespace.  */
 #define DECL_NAMESPACE_SCOPE_P(NODE) \
   (DECL_CONTEXT (NODE) == NULL_TREE \
@@ -1387,7 +1457,11 @@ struct lang_decl
 /* For a FUNCTION_DECL: if this function was declared inline inside of
    a class declaration, this is where the text for the function is
    squirreled away.  */
-#define DECL_PENDING_INLINE_INFO(NODE) (DECL_LANG_SPECIFIC(NODE)->pending_inline_info)
+#define DECL_PENDING_INLINE_INFO(NODE) (DECL_LANG_SPECIFIC(NODE)->u.pending_inline_info)
+
+/* For a TYPE_DECL: if this function has many fields, we'll sort them
+   and put them into a TREE_VEC. */
+#define DECL_SORTED_FIELDS(NODE) (DECL_LANG_SPECIFIC(NODE)->u.sorted_fields)
 
 /* True if on the saved_inlines (see decl2.c) list.  */
 #define DECL_SAVED_INLINE(DECL) \
@@ -1516,6 +1590,13 @@ struct lang_decl
 #define IMPLICIT_TYPENAME_P(NODE) \
   (TREE_CODE (NODE) == TYPENAME_TYPE && TREE_TYPE (NODE))
 
+/* Nonzero if NODE is a TYPE_DECL that should not be visible because
+   it is from a dependent base class.  */
+#define IMPLICIT_TYPENAME_TYPE_DECL_P(NODE) 	\
+  (TREE_CODE (NODE) == TYPE_DECL		\
+   && DECL_ARTIFICIAL (NODE)			\
+   && IMPLICIT_TYPENAME_P (TREE_TYPE (NODE)))
+
 /* Nonzero in INTEGER_CST means that this int is negative by dint of
    using a twos-complement negated operand.  */
 #define TREE_NEGATED_INT(NODE) (TREE_LANG_FLAG_0 (NODE))
@@ -1590,7 +1671,24 @@ extern int flag_new_for_scope;
 
 #define INTEGRAL_CODE_P(CODE) \
   (CODE == INTEGER_TYPE || CODE == ENUMERAL_TYPE || CODE == BOOLEAN_TYPE)
-#define ARITHMETIC_TYPE_P(TYPE) (INTEGRAL_TYPE_P (TYPE) || FLOAT_TYPE_P (TYPE))
+
+/* [basic.fundamental]
+
+   Types  bool, char, wchar_t, and the signed and unsigned integer types
+   are collectively called integral types.  
+
+   Note that INTEGRAL_TYPE_P, as defined in tree.h, allows enumeration
+   types as well, which is incorrect in C++.  */
+#define CP_INTEGRAL_TYPE_P(TYPE) 		\
+  (TREE_CODE ((TYPE)) == BOOLEAN_TYPE 		\
+   || TREE_CODE ((TYPE)) == INTEGER_TYPE)
+
+/* [basic.fundamental]
+
+   Integral and floating types are collectively called arithmetic
+   types.  */
+#define ARITHMETIC_TYPE_P(TYPE) \
+  (CP_INTEGRAL_TYPE_P (TYPE) || TREE_CODE (TYPE) == REAL_TYPE)
 
 /* Mark which labels are explicitly declared.
    These may be shadowed, and may be referenced from nested functions.  */
@@ -1783,8 +1881,7 @@ extern int flag_new_for_scope;
    flag for this because "A union for which objects or pointers are
    declared is not an anonymous union" [class.union].  */
 #define ANON_AGGR_TYPE_P(NODE)				\
-  (TYPE_LANG_SPECIFIC (NODE)				\
-   && TYPE_LANG_SPECIFIC (NODE)->type_flags.anon_aggr)
+  (CLASS_TYPE_P (NODE) && TYPE_LANG_SPECIFIC (NODE)->type_flags.anon_aggr)
 #define SET_ANON_AGGR_TYPE_P(NODE)			\
   (TYPE_LANG_SPECIFIC (NODE)->type_flags.anon_aggr = 1)
 
@@ -2041,9 +2138,6 @@ extern int flag_new_for_scope;
 #define DEFARG_LENGTH(NODE)	(DEFARG_NODE_CHECK(NODE)->identifier.length)
 #define DEFARG_POINTER(NODE)	(DEFARG_NODE_CHECK(NODE)->identifier.pointer)
 
-#define builtin_function(NAME, TYPE, CODE, LIBNAME) \
-  define_function (NAME, TYPE, CODE, (void (*) PROTO((tree)))pushdecl, LIBNAME)
-
 /* These macros provide convenient access to the various _STMT nodes
    created when parsing template declarations.  */
 #define IF_COND(NODE)           TREE_OPERAND (NODE, 0)
@@ -2078,6 +2172,14 @@ extern int flag_new_for_scope;
 /* An enumeration of the kind of tags that C++ accepts.  */
 enum tag_types { record_type, class_type, union_type, enum_type,
 		   signature_type };
+
+/* The various kinds of lvalues we distinguish.  */
+typedef enum cp_lvalue_kind {
+  clk_none = 0,     /* Things that are not an lvalue.  */
+  clk_ordinary = 1, /* An ordinary lvalue.  */
+  clk_class = 2,    /* An rvalue of class-type.  */
+  clk_bitfield = 4, /* An lvalue for a bit-field.  */
+} cp_lvalue_kind;
 
 /* Zero means prototype weakly, as in ANSI C (no args means nothing).
    Each language context defines how this variable should be set.  */
@@ -2146,22 +2248,6 @@ extern tree type_for_size                       PROTO((unsigned, int));
 extern int c_get_alias_set                      PROTO((tree));
 
 /* in decl{2}.c */
-extern tree void_list_node;
-extern tree void_zero_node;
-extern tree default_function_type;
-extern tree vtable_entry_type;
-extern tree sigtable_entry_type;
-extern tree __t_desc_type_node;
-#if 0
-extern tree __tp_desc_type_node;
-#endif
-extern tree __access_mode_type_node;
-extern tree __bltn_desc_type_node, __user_desc_type_node;
-extern tree __class_desc_type_node, __attr_desc_type_node;
-extern tree __ptr_desc_type_node, __func_desc_type_node;
-extern tree __ptmf_desc_type_node, __ptmd_desc_type_node;
-extern tree type_info_type_node;
-extern tree class_star_type_node;
 extern tree this_identifier;
 extern tree ctor_identifier, dtor_identifier;
 extern tree pfn_identifier;
@@ -2175,35 +2261,18 @@ extern tree vt_off_identifier;
 /* A node that is a list (length 1) of error_mark_nodes.  */
 extern tree error_mark_list;
 
-extern tree ptr_type_node;
-extern tree class_type_node, record_type_node, union_type_node, enum_type_node;
-extern tree unknown_type_node;
-extern tree opaque_type_node, signature_type_node;
-
 /* Node for "pointer to (virtual) function".
    This may be distinct from ptr_type_node so gdb can distinguish them.  */
 #define vfunc_ptr_type_node \
   (flag_vtable_thunks ? vtable_entry_type : ptr_type_node)
 
-/* The type of a vtbl, i.e., an array of vtable entries.  */
-extern tree vtbl_type_node;
-/* The type of a class vtbl pointer, i.e., a pointer to a vtable entry.  */
-extern tree vtbl_ptr_type_node;
-extern tree delta_type_node;
-extern tree std_node;
 
-extern tree long_long_integer_type_node, long_long_unsigned_type_node;
 /* For building calls to `delete'.  */
 extern tree integer_two_node, integer_three_node;
-extern tree boolean_type_node, boolean_true_node, boolean_false_node;
 
 extern tree null_node;
 
 extern tree anonymous_namespace_name;
-
-/* The FUNCTION_DECL for the default `::operator delete'.  */
-
-extern tree global_delete_fndecl;
 
 /* in pt.c  */
 
@@ -2725,6 +2794,9 @@ extern int enforce_access                       PROTO((tree, tree));
 extern tree convert_default_arg                 PROTO((tree, tree, tree));
 extern tree convert_arg_to_ellipsis             PROTO((tree));
 extern int is_properly_derived_from             PROTO((tree, tree));
+extern tree initialize_reference                PROTO((tree, tree));
+extern tree strip_top_quals                     PROTO((tree));
+extern tree perform_implicit_conversion         PROTO((tree, tree));
 
 /* in class.c */
 extern tree build_vbase_path			PROTO((enum tree_code, tree, tree, tree, int));
@@ -2734,8 +2806,8 @@ extern void add_method				PROTO((tree, tree *, tree));
 extern int currently_open_class			PROTO((tree));
 extern tree get_vfield_offset			PROTO((tree));
 extern void duplicate_tag_error			PROTO((tree));
-extern tree finish_struct			PROTO((tree, tree, int));
-extern void finish_struct_1			PROTO((tree, int));
+extern tree finish_struct			PROTO((tree, tree));
+extern void finish_struct_1			PROTO((tree));
 extern int resolves_to_fixed_type_p		PROTO((tree, int *));
 extern void init_class_processing		PROTO((void));
 extern int is_empty_class			PROTO((tree));
@@ -2855,7 +2927,7 @@ extern void init_decl_processing		PROTO((void));
 extern int init_type_desc			PROTO((void));
 extern tree define_function
 	PROTO((const char *, tree, enum built_in_function,
-	       void (*) (tree), const char *));
+	       void (*) (tree), const char *));  
 extern tree check_tag_decl			PROTO((tree));
 extern void shadow_tag				PROTO((tree));
 extern tree groktypename			PROTO((tree));
@@ -3335,7 +3407,7 @@ extern tree arbitrate_lookup			PROTO((tree, tree, tree));
 extern int pod_type_p				PROTO((tree));
 extern void unshare_base_binfos			PROTO((tree));
 extern int member_p				PROTO((tree));
-extern int real_lvalue_p			PROTO((tree));
+extern cp_lvalue_kind real_lvalue_p		PROTO((tree));
 extern tree build_min				PVPROTO((enum tree_code, tree, ...));
 extern tree build_min_nt			PVPROTO((enum tree_code, ...));
 extern tree min_tree_cons			PROTO((tree, tree, tree));
@@ -3492,12 +3564,14 @@ extern tree build_ptrmemfunc1                   PROTO((tree, tree, tree, tree, t
 extern void expand_ptrmemfunc_cst               PROTO((tree, tree *, tree *, tree *, tree *));
 extern tree delta2_from_ptrmemfunc              PROTO((tree));
 extern tree pfn_from_ptrmemfunc                 PROTO((tree));
+extern tree type_after_usual_arithmetic_conversions PROTO((tree, tree));
+extern tree composite_pointer_type              PROTO((tree, tree, tree, tree, char*));
 
 /* in typeck2.c */
 extern tree error_not_base_type			PROTO((tree, tree));
 extern tree binfo_or_else			PROTO((tree, tree));
 extern void readonly_error			PROTO((tree, const char *, int));
-extern void abstract_virtuals_error		PROTO((tree, tree));
+extern int abstract_virtuals_error		PROTO((tree, tree));
 extern void signature_error			PROTO((tree, tree));
 extern void incomplete_type_error		PROTO((tree, tree));
 extern void my_friendly_abort			PROTO((int))

@@ -1442,6 +1442,67 @@ gen_push (arg)
 		  arg);
 }
 
+/* Compute the size of local storage taking into consideration the
+   desired stack alignment which is to be maintained.  Also determine
+   the number of registers saved below the local storage.  */
+
+HOST_WIDE_INT
+ix86_compute_frame_size (size, nregs_on_stack)
+     HOST_WIDE_INT size;
+     int *nregs_on_stack;
+{
+  int limit;
+  int nregs;
+  int regno;
+  int padding;
+  int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
+				  || current_function_uses_const_pool);
+  HOST_WIDE_INT total_size;
+
+  limit = frame_pointer_needed
+	  ? FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM;
+
+  nregs = 0;
+
+  for (regno = limit - 1; regno >= 0; regno--)
+    if ((regs_ever_live[regno] && ! call_used_regs[regno])
+	|| (regno == PIC_OFFSET_TABLE_REGNUM && pic_reg_used))
+      nregs++;
+
+  padding = 0;
+  total_size = size + (nregs * UNITS_PER_WORD);
+
+#ifdef PREFERRED_STACK_BOUNDARY
+  {
+    int offset;
+    int preferred_alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
+
+    offset = 4;
+    if (frame_pointer_needed)
+      offset += UNITS_PER_WORD;
+
+    total_size += offset;
+    
+    padding = ((total_size + preferred_alignment - 1)
+	       & -preferred_alignment) - total_size;
+
+    if (padding < (((offset + preferred_alignment - 1)
+		    & -preferred_alignment) - offset))
+      padding += preferred_alignment;
+
+    /* Don't bother aligning the stack of a leaf function
+       which doesn't allocate any stack slots.  */
+    if (size == 0 && current_function_is_leaf)
+      padding = 0;
+  }
+#endif
+
+  if (nregs_on_stack)
+    *nregs_on_stack = nregs;
+
+  return size + padding;
+}
+
 /* Expand the prologue into a bunch of separate insns. */
 
 void
@@ -2302,67 +2363,6 @@ legitimize_address (x, oldx, mode)
    and subtraction are the only arithmetic that may appear in these
    expressions.  FILE is the stdio stream to write to, X is the rtx, and
    CODE is the operand print code from the output string.  */
-
-/* Compute the size of local storage taking into consideration the
-   desired stack alignment which is to be maintained.  Also determine
-   the number of registers saved below the local storage.  */
-
-HOST_WIDE_INT
-ix86_compute_frame_size (size, nregs_on_stack)
-     HOST_WIDE_INT size;
-     int *nregs_on_stack;
-{
-  int limit;
-  int nregs;
-  int regno;
-  int padding;
-  int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
-				  || current_function_uses_const_pool);
-  HOST_WIDE_INT total_size;
-
-  limit = frame_pointer_needed
-	  ? FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM;
-
-  nregs = 0;
-
-  for (regno = limit - 1; regno >= 0; regno--)
-    if ((regs_ever_live[regno] && ! call_used_regs[regno])
-	|| (regno == PIC_OFFSET_TABLE_REGNUM && pic_reg_used))
-      nregs++;
-
-  padding = 0;
-  total_size = size + (nregs * UNITS_PER_WORD);
-
-#ifdef PREFERRED_STACK_BOUNDARY
-  {
-    int offset;
-    int preferred_alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
-
-    offset = 4;
-    if (frame_pointer_needed)
-      offset += UNITS_PER_WORD;
-
-    total_size += offset;
-    
-    padding = ((total_size + preferred_alignment - 1)
-	       & -preferred_alignment) - total_size;
-
-    if (padding < (((offset + preferred_alignment - 1)
-		    & -preferred_alignment) - offset))
-      padding += preferred_alignment;
-
-    /* Don't bother aligning the stack of a leaf function
-       which doesn't allocate any stack slots.  */
-    if (size == 0 && current_function_is_leaf)
-      padding = 0;
-  }
-#endif
-
-  if (nregs_on_stack)
-    *nregs_on_stack = nregs;
-
-  return size + padding;
-}
 
 static void
 output_pic_addr_const (file, x, code)
@@ -5514,24 +5514,24 @@ ix86_pent_find_pair (e_ready, ready, type, first)
 /* We are about to being issuing insns for this clock cycle.  
    Override the default sort algorithm to better slot instructions.  */
 
-void
-ix86_sched_reorder (dump, sched_verbose, ready, n_ready)
+int
+ix86_sched_reorder (dump, sched_verbose, ready, n_ready, clock_var)
      FILE *dump ATTRIBUTE_UNUSED;
      int sched_verbose ATTRIBUTE_UNUSED;
      rtx *ready;
-     int n_ready;
+     int n_ready, clock_var;
 {
   rtx *e_ready = ready + n_ready - 1;
   rtx *insnp;
   int i;
 
   if (n_ready < 2)
-    return;
+    goto out;
 
   switch (ix86_cpu)
     {
     default:
-      return;
+      goto out;
 
     case PROCESSOR_PENTIUM:
       /* This wouldn't be necessary if Haifa knew that static insn ordering
@@ -5544,7 +5544,7 @@ ix86_sched_reorder (dump, sched_verbose, ready, n_ready)
 
 	/* If the first insn is non-pairable, let it be.  */
 	if (pair1 == PENT_PAIR_NP)
-	  return;
+	  goto out;
 	pair2 = PENT_PAIR_NP;
 
 	/* If the first insn is UV or PV pairable, search for a PU
@@ -5579,7 +5579,7 @@ ix86_sched_reorder (dump, sched_verbose, ready, n_ready)
 	  }
 
 	if (pair2 == PENT_PAIR_NP)
-	  return;
+	  goto out;
 
 	/* Found something!  Decide if we need to swap the order.  */
 	if (pair1 == PENT_PAIR_PV || pair2 == PENT_PAIR_PU
@@ -5673,6 +5673,9 @@ ix86_sched_reorder (dump, sched_verbose, ready, n_ready)
       }
       break;
     }
+
+out:
+  return ix86_issue_rate ();
 }
 
 /* We are about to issue INSN.  Return the number of insns left on the

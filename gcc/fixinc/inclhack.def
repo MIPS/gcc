@@ -3,8 +3,67 @@
 autogen definitions inclhack;
 
 /*
- *  Define all the fixes we know about for repairing damaged headers
- */
+
+Define all the fixes we know about for repairing damaged headers
+
+The rules for making fixes:
+
+1.  Every fix must have a "hackname" that is compatible with C syntax
+    for variable names and is unique without regard to alphabetic case.
+
+2.  If the problem is known to exist only in certain files,
+    then name each such file with a "files = " entry.
+
+3.  It is relatively expensive to fire off a process to fix a source
+    file, therefore write apply tests to avoid unnecessary fix
+    processes.  The preferred apply tests are "select" and "bypass"
+    because they are performed internally.  "test" sends a command
+    to a server shell that actually fires off one or more processes
+    to do the testing.  Avoid it, if you can, but it is still more
+    efficient than a fix process.
+
+    These tests are required to:
+
+    1.  Be positive for all header files that require the fix.
+
+    It is desireable to:
+
+    2.  Be negative as often as possible whenever the fix is not
+        required, avoiding the process overhead.
+
+    It is nice if:
+
+    3.  The expression is as simple as possible to both
+        process and uderstand by people.  :-)
+
+        Please take advantage of the fact AutoGen will glue
+        together string fragments.  It helps.  Also take note
+        that double quote strings and single quote strings have
+        different formation rules.  Double quote strings are
+        a tiny superset of C string syntax.  Single quote strings
+        follow shell single quote string formation rules, except
+        that the backslash is processed before '\\', '\'' and '#'
+        characters (using C character syntax).
+
+4.  There are currently two methods of fixing a file:
+
+    1.  a series of sed expressions.  Each will be an individual
+        "-e" argument to a single invocation of sed.
+
+    2.  a shell script.  These scripts are _required_ to read all
+        of stdin in order to avoid pipe stalls.  They may choose to
+        discard the input.
+
+    A C language subroutine method is planned for both tests and fixes
+    in the near term.  Awk ought to be possible too, but there may
+    be portability issues that I am not familiar with.
+
+5.  If the fix is to remove the file (i.e. the fixing process broke
+    the file), then you must use a shell script that deletes all
+    copies of the output file and does not write _anything_ to stdout.
+    See the "zzz_*" fixes at the end of this file.
+
+Let the fixes begin: */
 
 /*
  *  sys/wait.h on AIX 3.2.5 puts the declaration of wait3 before the definition
@@ -402,45 +461,27 @@ fix = {
     files    = "sys/stat.h";
 
     sed = "/^static int[ \t]*[a-z]*stat(/i\\\n"
-	"#ifdef __cplusplus\\\n"
-	"extern \"C\"\\\n"
-	"{\\\n"
-	"#endif\\\n";
+        "#ifdef __cplusplus\\\n"
+        "extern \"C\"\\\n"
+        "{\\\n"
+        "#endif\\\n";
 
     sed = "/^}$/a\\\n"
-	"#ifdef __cplusplus\\\n"
-	"}\\\n"
-	"#endif \/* __cplusplus *\/\\\n";
+        "#ifdef __cplusplus\\\n"
+        "}\\\n"
+        "#endif \/* __cplusplus *\/\\\n";
 };
 
 
 
 /*
- *  Fix else directives that contain non-commentary text
- *
- * The fixinc_eol stuff is to work around a bug in the sed
+ *  Fix else and endif directives that contain non-commentary text
  */
 fix = {
-    hackname = else_label;
-    select   = "^[ \t]*#[ \t]*else[ \t]+[!-.0-~]";
-    sed =      ":loop\n"
-               '/\\\\$/'                       "N\n"
-               's/\\\\$/\\\\+++fixinc_eol+++/' "\n"
-               '/\\\\$/'                       "b loop\n"
-               's/\\\\+++fixinc_eol+++/\\\\/g' "\n"
+    hackname = end_else_label;
 
-               "s%^\\([ \t]*#[ \t]*else\\)[ \t]*/[^*].*%\\1%\n"
-               "s%^\\([ \t]*#[ \t]*else\\)[ \t]*[^/ \t].*%\\1%";
-};
-
-
-/*
- *  Fix endif directives that contain non-commentary text
- */
-fix = {
-    hackname = endif_label;
     /*
-     *  Select files that contain '#endif' directives with
+     *  Select files that contain '#endif' or '#else' directives with
      *  some sort of following junk.  (Between the ascii '.'
      *  and '0' lies the character '/'.  This will *NOT*
      *  match '#endif / * foo * /', but it also wont match
@@ -452,13 +493,14 @@ fix = {
      *  "#endif /% blah %/ which appear on OSF4.0A and AIX4.2
      *  repsectively.
      * 
-     *  We use the pattern [!-.0-z{|}~] instead of [^/ \t] to match a noncomment
-     *  following #else or #endif because some buggy egreps think [^/] matches
-     *  newline, and they thus think `#else ' matches
+     *  We use the pattern [!-.0-z{|}~] instead of [^/ \t] to match a
+     *  noncomment following #else or #endif because some buggy egreps
+     *  think [^/] matches newline, and they thus think `#else ' matches
      *  `#e[ndiflse]*[ \t]+[^/ \t]'.
      *  [!-.0-~] does not work properly on AIX 4.1.
      */
-    select   = "^[ \t]*#[ \t]*endif[ \t]+[!-.0-z\{\|\}\~]|^[ \t]*#[ \t]*endif[ \t]+/[^\*]";
+    select   = "^[ \t]*#[ \t]*(else|endif)[ \t]+"
+               "("  '[!-.0-z\{\|\}\~]'  "|"  '/[^\*]'  ")";
 
     /*
      *  First, join the continued input lines.
@@ -476,9 +518,11 @@ fix = {
                '/\\\\$/'                       "b loop\n"
                's/\\\\+++fixinc_eol+++/\\\\/g' "\n"
 
-               "s%^\\([ \t]*#[ \t]*endif\\)[ \t]*/[^*].*%\\1%\n"
-               "s%^\\([ \t]*#[ \t]*endif\\)[ \t]*\\*[^/].*%\\1%\n"
-               "s%^\\([ \t]*#[ \t]*endif\\)[ \t]*[^/* \t].*%\\1%";
+               "s%^\\([ \t]*#[ \t]*else\\)[ \t][ \t]*/[^*].*%\\1%\n"
+               "s%^\\([ \t]*#[ \t]*else\\)[ \t][ \t]*[^/ \t].*%\\1%\n"
+               "s%^\\([ \t]*#[ \t]*endif\\)[ \t][ \t]*/[^*].*%\\1%\n"
+               "s%^\\([ \t]*#[ \t]*endif\\)[ \t][ \t]*\\*[^/].*%\\1%\n"
+               "s%^\\([ \t]*#[ \t]*endif\\)[ \t][ \t]*[^/* \t].*%\\1%";
 };
 
 
@@ -1250,15 +1294,14 @@ fix = {
 /*
  *  Fix return type of fread and fwrite on sysV68
  */
-#ifdef LATER
 fix = {
     hackname = read_ret_type;
     files    = stdio.h;
+    select   = "extern int\t.*, fread\\(\\), fwrite\\(\\)";
     sed      = "s/^\\(extern int\tfclose(), fflush()\\), "
                  "\\(fread(), fwrite()\\)\\(.*\\)$"
                "/extern unsigned int\t\\2;\\\n\\1\\3/";
 };
-#endif
 
 
 /*
@@ -1392,7 +1435,7 @@ fix = {
 
   sed -e 's@ va_list @ __gnuc_va_list @' \\
       -e 's@ va_list)@ __gnuc_va_list)@' \\
-      -e 's@ _BSD_VA_LIST_));@ __gnuc_va_list));@' \\
+      -e 's@ _BSD_VA_LIST_))@ __gnuc_va_list))@' \\
       -e 's@ _VA_LIST_));@ __gnuc_va_list));@' \\
       -e 's@ va_list@ __va_list__@' \\
       -e 's@\\*va_list@*__va_list__@' \\
@@ -2401,7 +2444,7 @@ fix = {
     select   = 'These definitions are for HP Internal developers';
     shell    =
          "echo \"Removing incorrect fix to <$file>\" >&2\n"
-         "rm -f ${DESTDIR}/$file ${DESTDIR}/fixinc.tmp\n"
+         "rm -f ${DESTFILE} ${DESTDIR}/fixinc.tmp\n"
          "cat > /dev/null";
 };
 
@@ -2415,7 +2458,7 @@ fix = {
     select   = '11.00 HP-UX LP64';
     shell    =
          "echo \"Removing incorrect fix to <$file>\" >&2\n"
-         "rm -f ${DESTDIR}/$file ${DESTDIR}/fixinc.tmp\n"
+         "rm -f ${DESTFILE} ${DESTDIR}/fixinc.tmp\n"
          "cat > /dev/null";
 };
 
@@ -2429,7 +2472,7 @@ fix = {
     select   = 'kthread_create_caller_t';
     shell    =
          "echo \"Removing incorrect fix to <$file>\" >&2\n"
-         "rm -f ${DESTDIR}/$file ${DESTDIR}/fixinc.tmp\n"
+         "rm -f ${DESTFILE} ${DESTDIR}/fixinc.tmp\n"
          "cat > /dev/null";
 };
 
@@ -2443,7 +2486,7 @@ fix = {
     select   = 'Kernel Instrumentation Definitions';
     shell    =
          "echo \"Removing incorrect fix to <$file>\" >&2\n"
-         "rm -f ${DESTDIR}/$file ${DESTDIR}/fixinc.tmp\n"
+         "rm -f ${DESTFILE} ${DESTDIR}/fixinc.tmp\n"
          "cat > /dev/null";
 };
 
@@ -2460,7 +2503,7 @@ fix = {
     /* shouldn't there be a select expression here??? */
     shell    =
          "echo \"Removing incorrect fix to <$file>\" >&2\n"
-         "rm -f ${DESTDIR}/$file ${DESTDIR}/fixinc.tmp\n"
+         "rm -f ${DESTFILE} ${DESTDIR}/fixinc.tmp\n"
          "cat > /dev/null";
 };
 
@@ -2474,7 +2517,7 @@ fix = {
     select   = '11.0 and later representation of ki time';
     shell    =
          "echo \"Removing incorrect fix to <$file>\" >&2\n"
-         "rm -f ${DESTDIR}/$file ${DESTDIR}/fixinc.tmp\n"
+         "rm -f ${DESTFILE} ${DESTDIR}/fixinc.tmp\n"
          "cat > /dev/null";
 };
 

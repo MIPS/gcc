@@ -83,7 +83,7 @@ Dave Love					d.love@dl.ac.uk
 Mark Mitchell					mark@codesourcery.com
 Kaveh Ghazi					ghazi@caip.rutgers.edu
 Andreas Schwab					schwab@issan.informatik.uni-dortmund.de
-Manfred Hollstein				manfred.h@gmx.net
+Manfred Hollstein				mhollstein@cygnus.com
 *Paul Eggert					eggert@twinsun.com
 Klaus Kaempf					kkaempf@progis.de
 Marc Lehmann					pcg@goof.com
@@ -92,7 +92,7 @@ Catherine Moore					clm@cygnus.com
 Vladimir Markarov				vmakarov@cygnus.com
 Martin v. Löwis					loewis@informatik.hu-berlin.de
 Bernd Schmidt					crux@pool.informatik.rwth-aachen.de
-Zack Weinberg					zack@rabi.columbia.edu
+Zack Weinberg					zack@bitmover.com
 John Wehle					john@feith.com
 Nathan Sidwell					nathan@acm.org
 Tom Tromey					tromey@cygnus.com
@@ -102,6 +102,7 @@ Anthony Green					green@cygnus.com
 Stu Grossman					grossman@cygnus.com
 Gabriel Dos Reis                                dosreis@cmla.ens-cachan.fr
 Don Lindsay					dlindsay@cygnus.com
+Geoff Keating					geoffk@cygnus.com
 
 * Indicates folks we need to get Kerberos/ssh accounts ready so they
 can write in the source tree

@@ -2078,8 +2078,8 @@ while (0)
 #define MD_SCHED_INIT(DUMP, SCHED_VERBOSE) \
   ix86_sched_init (DUMP, SCHED_VERBOSE)
 
-#define MD_SCHED_REORDER(DUMP, SCHED_VERBOSE, READY, N_READY) \
-  ix86_sched_reorder (DUMP, SCHED_VERBOSE, READY, N_READY)
+#define MD_SCHED_REORDER(DUMP, SCHED_VERBOSE, READY, N_READY, CLOCK, CIM) \
+  (CIM) = ix86_sched_reorder (DUMP, SCHED_VERBOSE, READY, N_READY, CLOCK)
 
 #define MD_SCHED_VARIABLE_ISSUE(DUMP, SCHED_VERBOSE, INSN, CAN_ISSUE_MORE) \
   ((CAN_ISSUE_MORE) =							   \
@@ -2461,6 +2461,10 @@ extern int ix86_can_use_return_insn_p XPARAMS((void));
 
 extern void asm_output_function_prefix XPARAMS((FILE, char *));
 extern void load_pic_register XPARAMS((void));
+#if 0
+/* HOST_WIDE_INT isn't defined yet.  */
+extern HOST_WIDE_INT ix86_compute_frame_size XPARAMS ((HOST_WIDE_INT, int *));
+#endif
 extern void ix86_expand_prologue XPARAMS((void));
 extern void ix86_expand_epilogue XPARAMS((void));
 
@@ -2505,7 +2509,7 @@ extern int ix86_attr_length_default XPARAMS((xrtx));
 extern int ix86_issue_rate XPARAMS((void));
 extern int ix86_adjust_cost XPARAMS((xrtx, xrtx, xrtx, int));
 extern void ix86_sched_init XPARAMS((FILE *, int));
-extern void ix86_sched_reorder XPARAMS((FILE *, int, xrtx *, int));
+extern int ix86_sched_reorder XPARAMS((FILE *, int, xrtx *, int));
 extern int ix86_variable_issue XPARAMS((FILE *, int, xrtx, int));
 
 

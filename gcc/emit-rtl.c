@@ -966,6 +966,11 @@ gen_realpart (mode, x)
 {
   if (GET_CODE (x) == CONCAT && GET_MODE (XEXP (x, 0)) == mode)
     return XEXP (x, 0);
+  else if (WORDS_BIG_ENDIAN
+	   && GET_MODE_BITSIZE (mode) < BITS_PER_WORD
+	   && REG_P (x)
+	   && REGNO (x) < FIRST_PSEUDO_REGISTER)
+    fatal ("Unable to access real part of complex value in a hard register on this target");
   else if (WORDS_BIG_ENDIAN)
     return gen_highpart (mode, x);
   else
@@ -984,6 +989,11 @@ gen_imagpart (mode, x)
     return XEXP (x, 1);
   else if (WORDS_BIG_ENDIAN)
     return gen_lowpart (mode, x);
+  else if (!WORDS_BIG_ENDIAN
+	   && GET_MODE_BITSIZE (mode) < BITS_PER_WORD
+	   && REG_P (x)
+	   && REGNO (x) < FIRST_PSEUDO_REGISTER)
+    fatal ("Unable to access imaginary part of complex value in a hard register on this target");
   else
     return gen_highpart (mode, x);
 }
@@ -1286,6 +1296,7 @@ operand_subword (op, i, validate_address, mode)
 
       MEM_COPY_ATTRIBUTES (new, op);
       RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (op);
+      MEM_ALIAS_SET (new) = MEM_ALIAS_SET (op);
 
       return new;
     }
@@ -1479,26 +1490,7 @@ operand_subword (op, i, validate_address, mode)
   if (BITS_PER_WORD < HOST_BITS_PER_WIDE_INT)
     val = ((val >> ((i % size_ratio) * BITS_PER_WORD)));
 
-  /* Clear the bits that don't belong in our mode, unless they and our sign
-     bit are all one.  So we get either a reasonable negative value or a
-     reasonable unsigned value for this mode.  */
-  if (BITS_PER_WORD < HOST_BITS_PER_WIDE_INT
-      && ((val & ((HOST_WIDE_INT) (-1) << (bits_per_word - 1)))
-          != ((HOST_WIDE_INT) (-1) << (bits_per_word - 1))))
-    val &= ((HOST_WIDE_INT) 1 << bits_per_word) - 1;
-
-  /* If this would be an entire word for the target, but is not for
-     the host, then sign-extend on the host so that the number will look
-     the same way on the host that it would on the target.
-
-     For example, when building a 64 bit alpha hosted 32 bit sparc
-     targeted compiler, then we want the 32 bit unsigned value -1 to be
-     represented as a 64 bit value -1, and not as 0x00000000ffffffff.
-     The later confuses the sparc backend.  */
-
-  if (BITS_PER_WORD < HOST_BITS_PER_WIDE_INT
-      && (val & ((HOST_WIDE_INT) 1 << (bits_per_word - 1))))
-    val |= ((HOST_WIDE_INT) (-1) << bits_per_word);
+  val = trunc_int_for_mode (val, word_mode);
 
   return GEN_INT (val);
 }
@@ -1607,6 +1599,7 @@ change_address (memref, mode, addr)
   new = gen_rtx_MEM (mode, addr);
   RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (memref);
   MEM_COPY_ATTRIBUTES (new, memref);
+  MEM_ALIAS_SET (new) = MEM_ALIAS_SET (memref);
   return new;
 }
 

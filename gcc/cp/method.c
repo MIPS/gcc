@@ -71,7 +71,6 @@ static void process_modifiers PROTO((tree));
 static void process_overload_item PROTO((tree,int));
 static void do_build_assign_ref PROTO((tree));
 static void do_build_copy_constructor PROTO((tree));
-static tree largest_union_member PROTO((tree));
 static void build_template_template_parm_names PROTO((tree));
 static void build_template_parm_names PROTO((tree, tree));
 static void build_underscore_int PROTO((int));
@@ -2179,24 +2178,6 @@ emit_thunk (thunk_fndecl)
 }
 
 /* Code for synthesizing methods which have default semantics defined.  */
-
-/* For the anonymous union in TYPE, return the member that is at least as
-   large as the rest of the members, so we can copy it.  */
-
-static tree
-largest_union_member (type)
-     tree type;
-{
-  tree f, type_size = TYPE_SIZE (type);
-
-  for (f = TYPE_FIELDS (type); f; f = TREE_CHAIN (f))
-    if (simple_cst_equal (DECL_SIZE (f), type_size) == 1)
-      return f;
-
-  /* We should always find one.  */
-  my_friendly_abort (323);
-  return NULL_TREE;
-}
 
 /* Generate code for default X(X&) constructor.  */
 

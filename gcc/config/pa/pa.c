@@ -71,10 +71,6 @@ int hp_profile_labelno;
    registers which were saved by the current function's prologue.  */
 static int gr_saved, fr_saved;
 
-/* Whether or not the current function uses an out-of-line prologue
-   and epilogue.  */
-static int out_of_line_prologue_epilogue;
-
 static rtx find_addr_reg ();
 
 /* Keep track of the number of bytes we have output in the CODE subspaces
@@ -172,12 +168,6 @@ override_options ()
   if (flag_pic && profile_flag)
     {
       warning ("PIC code generation is not compatible with profiling\n");
-    }
-
-  if (TARGET_SPACE && (flag_pic || profile_flag))
-    {
-      warning ("Out of line entry/exit sequences are not compatible\n");
-      warning ("with PIC or profiling\n");
     }
 
   if (! TARGET_GAS && write_symbols != NO_DEBUG)
@@ -649,11 +639,13 @@ legitimize_pic_address (orig, mode, reg)
 
       if (flag_pic == 2)
 	{
-	  emit_insn (gen_pic2_highpart (reg, pic_offset_table_rtx, orig));
+	  emit_move_insn (reg,
+			  gen_rtx_PLUS (word_mode, pic_offset_table_rtx,
+					gen_rtx_HIGH (word_mode, orig)));
 	  pic_ref
 	    = gen_rtx_MEM (Pmode,
 			   gen_rtx_LO_SUM (Pmode, reg,
-					   gen_rtx_UNSPEC (SImode,
+					   gen_rtx_UNSPEC (Pmode,
 							   gen_rtvec (1, orig),
 							   0)));
 	}
@@ -767,8 +759,8 @@ hppa_legitimize_address (x, oldx, mode)
       && GET_CODE (XEXP (x, 0)) == REG
       && GET_CODE (XEXP (x, 1)) == SYMBOL_REF)
     {
-      rtx reg = force_reg (SImode, XEXP (x, 1));
-      return force_reg (SImode, gen_rtx_PLUS (SImode, reg, XEXP (x, 0)));
+      rtx reg = force_reg (Pmode, XEXP (x, 1));
+      return force_reg (Pmode, gen_rtx_PLUS (Pmode, reg, XEXP (x, 0)));
     }
 
   /* Note we must reject symbols which represent function addresses
@@ -1108,7 +1100,11 @@ hppa_address_cost (X)
 
    Return 1 if we have written out everything that needs to be done to
    do the move.  Otherwise, return 0 and the caller will emit the move
-   normally.  */
+   normally. 
+
+   Note SCRATCH_REG may not be in the proper mode depending on how it
+   will be used.  This routine is resposible for creating a new copy
+   of SCRATCH_REG in the proper mode.  */
 
 int
 emit_move_sequence (operands, mode, scratch_reg)
@@ -1169,15 +1165,18 @@ emit_move_sequence (operands, mode, scratch_reg)
       if (GET_CODE (operand1) == SUBREG)
 	operand1 = XEXP (operand1, 0);
 
-      scratch_reg = gen_rtx_REG (SImode, REGNO (scratch_reg));
+      /* SCRATCH_REG will hold an address and maybe the actual data.  We want
+	 it in WORD_MODE regardless of what mode it was originally given
+	 to us.  */
+      scratch_reg = gen_rtx_REG (word_mode, REGNO (scratch_reg));
 
       /* D might not fit in 14 bits either; for such cases load D into
 	 scratch reg.  */
-      if (!memory_address_p (SImode, XEXP (operand1, 0)))
+      if (!memory_address_p (Pmode, XEXP (operand1, 0)))
 	{
 	  emit_move_insn (scratch_reg, XEXP (XEXP (operand1, 0), 1));
 	  emit_move_insn (scratch_reg, gen_rtx_fmt_ee (GET_CODE (XEXP (operand1, 0)),
-						       SImode,
+						       Pmode,
 						       XEXP (XEXP (operand1, 0), 0),
 						       scratch_reg));
 	}
@@ -1198,15 +1197,19 @@ emit_move_sequence (operands, mode, scratch_reg)
       if (GET_CODE (operand0) == SUBREG)
 	operand0 = XEXP (operand0, 0);
 
-      scratch_reg = gen_rtx_REG (SImode, REGNO (scratch_reg));
+      /* SCRATCH_REG will hold an address and maybe the actual data.  We want
+	 it in WORD_MODE regardless of what mode it was originally given
+	 to us.  */
+      scratch_reg = gen_rtx_REG (word_mode, REGNO (scratch_reg));
+
       /* D might not fit in 14 bits either; for such cases load D into
 	 scratch reg.  */
-      if (!memory_address_p (SImode, XEXP (operand0, 0)))
+      if (!memory_address_p (Pmode, XEXP (operand0, 0)))
 	{
 	  emit_move_insn (scratch_reg, XEXP (XEXP (operand0, 0), 1));
 	  emit_move_insn (scratch_reg, gen_rtx_fmt_ee (GET_CODE (XEXP (operand0,
 								        0)),
-						       SImode,
+						       Pmode,
 						       XEXP (XEXP (operand0, 0),
 								   0),
 						       scratch_reg));
@@ -1232,6 +1235,11 @@ emit_move_sequence (operands, mode, scratch_reg)
     {
       rtx xoperands[2];
 
+      /* SCRATCH_REG will hold an address and maybe the actual data.  We want
+	 it in WORD_MODE regardless of what mode it was originally given
+	 to us.  */
+      scratch_reg = gen_rtx_REG (word_mode, REGNO (scratch_reg));
+
       /* Force the constant into memory and put the address of the
 	 memory location into scratch_reg.  */
       xoperands[0] = scratch_reg;
@@ -1252,15 +1260,20 @@ emit_move_sequence (operands, mode, scratch_reg)
 		   && FP_REG_CLASS_P (REGNO_REG_CLASS (REGNO (operand1)))))
 	   && scratch_reg)
     {
+      /* SCRATCH_REG will hold an address and maybe the actual data.  We want
+	 it in WORD_MODE regardless of what mode it was originally given
+	 to us.  */
+      scratch_reg = gen_rtx_REG (word_mode, REGNO (scratch_reg));
+
       /* D might not fit in 14 bits either; for such cases load D into
 	 scratch reg.  */
       if (GET_CODE (operand1) == MEM
-	  && !memory_address_p (SImode, XEXP (operand1, 0)))
+	  && !memory_address_p (Pmode, XEXP (operand1, 0)))
 	{
 	  emit_move_insn (scratch_reg, XEXP (XEXP (operand1, 0), 1));	
 	  emit_move_insn (scratch_reg, gen_rtx_fmt_ee (GET_CODE (XEXP (operand1,
 								        0)),
-						       SImode,
+						       Pmode,
 						       XEXP (XEXP (operand1, 0),
 						       0),
 						       scratch_reg));
@@ -1344,7 +1357,13 @@ emit_move_sequence (operands, mode, scratch_reg)
 
 	      /* Figure out what (if any) scratch register to use.  */
 	      if (reload_in_progress || reload_completed)
-		scratch_reg = scratch_reg ? scratch_reg : operand0;
+		{
+		  scratch_reg = scratch_reg ? scratch_reg : operand0;
+		  /* SCRATCH_REG will hold an address and maybe the actual
+		     data.  We want it in WORD_MODE regardless of what mode it
+		     was originally given to us.  */
+		  scratch_reg = gen_rtx_REG (word_mode, REGNO (scratch_reg));
+		}
 	      else if (flag_pic)
 		scratch_reg = gen_reg_rtx (Pmode);
 
@@ -1396,7 +1415,13 @@ emit_move_sequence (operands, mode, scratch_reg)
 	      rtx temp;
 
 	      if (reload_in_progress || reload_completed)
-		temp = scratch_reg ? scratch_reg : operand0;
+		{
+		  temp = scratch_reg ? scratch_reg : operand0;
+		  /* TEMP will hold an address and maybe the actual
+		     data.  We want it in WORD_MODE regardless of what mode it
+		     was originally given to us.  */
+		  temp = gen_rtx_REG (word_mode, REGNO (temp));
+		}
 	      else
 		temp = gen_reg_rtx (Pmode);
 
@@ -1429,7 +1454,13 @@ emit_move_sequence (operands, mode, scratch_reg)
 	      rtx temp, set;
 
 	      if (reload_in_progress || reload_completed)
-		temp = scratch_reg ? scratch_reg : operand0;
+		{
+		  temp = scratch_reg ? scratch_reg : operand0;
+		  /* TEMP will hold an address and maybe the actual
+		     data.  We want it in WORD_MODE regardless of what mode it
+		     was originally given to us.  */
+		  temp = gen_rtx_REG (word_mode, REGNO (temp));
+		}
 	      else
 		temp = gen_reg_rtx (mode);
 
@@ -1591,7 +1622,7 @@ singlemove_string (operands)
    useful for copying IMM to a register using the zdepi
    instructions.  Store the immediate value to insert in OP[0].  */
 void
-compute_zdepi_operands (imm, op)
+compute_zdepwi_operands (imm, op)
      unsigned HOST_WIDE_INT imm;
      unsigned *op;
 {
@@ -2461,7 +2492,7 @@ remove_useless_addtr_insns (insns, check_notes)
 */
 
 /* Emit RTL to store REG at the memory location specified by BASE+DISP.
-   Handle case where DISP > 8k by using the add_high_const pattern.
+   Handle case where DISP > 8k by using the add_high_const patterns.
 
    Note in DISP > 8k case, we will leave the high part of the address
    in %r1.  There is code in expand_hppa_{prologue,epilogue} that knows this.*/
@@ -2471,27 +2502,27 @@ store_reg (reg, disp, base)
 {
   if (VAL_14_BITS_P (disp))
     {
-      emit_move_insn (gen_rtx_MEM (SImode,
-				   gen_rtx_PLUS (SImode,
-						 gen_rtx_REG (SImode, base),
+      emit_move_insn (gen_rtx_MEM (word_mode,
+				   gen_rtx_PLUS (Pmode,
+						 gen_rtx_REG (Pmode, base),
 						 GEN_INT (disp))),
-				   gen_rtx_REG (SImode, reg));
+				   gen_rtx_REG (word_mode, reg));
     }
   else
     {
-      emit_insn (gen_add_high_const (gen_rtx_REG (SImode, 1),
-				     gen_rtx_REG (SImode, base),
-				     GEN_INT (disp)));
-      emit_move_insn (gen_rtx_MEM (SImode,
-				   gen_rtx_LO_SUM (SImode,
-						   gen_rtx_REG (SImode, 1),
+      emit_move_insn (gen_rtx_REG (Pmode, 1),
+		      gen_rtx_PLUS (Pmode, gen_rtx_REG (Pmode, base),
+				    gen_rtx_HIGH (Pmode, GEN_INT (disp))));
+      emit_move_insn (gen_rtx_MEM (word_mode,
+				   gen_rtx_LO_SUM (Pmode,
+						   gen_rtx_REG (Pmode, 1),
 						   GEN_INT (disp))),
-		      gen_rtx_REG (SImode, reg));
+		      gen_rtx_REG (word_mode, reg));
     }
 }
 
 /* Emit RTL to load REG from the memory location specified by BASE+DISP.
-   Handle case where DISP > 8k by using the add_high_const pattern.
+   Handle case where DISP > 8k by using the add_high_const patterns.
 
    Note in DISP > 8k case, we will leave the high part of the address
    in %r1.  There is code in expand_hppa_{prologue,epilogue} that knows this.*/
@@ -2501,27 +2532,27 @@ load_reg (reg, disp, base)
 {
   if (VAL_14_BITS_P (disp))
     {
-      emit_move_insn (gen_rtx_REG (SImode, reg),
-		      gen_rtx_MEM (SImode,
-				   gen_rtx_PLUS (SImode,
-						 gen_rtx_REG (SImode, base),
+      emit_move_insn (gen_rtx_REG (word_mode, reg),
+		      gen_rtx_MEM (word_mode,
+				   gen_rtx_PLUS (Pmode,
+						 gen_rtx_REG (Pmode, base),
 				            GEN_INT (disp))));
     }
   else
     {
-      emit_insn (gen_add_high_const (gen_rtx_REG (SImode, 1),
-				     gen_rtx_REG (SImode, base),
-				     GEN_INT (disp)));
-      emit_move_insn (gen_rtx_REG (SImode, reg),
-		      gen_rtx_MEM (SImode,
-				   gen_rtx_LO_SUM (SImode,
-						   gen_rtx_REG (SImode, 1),
+      emit_move_insn (gen_rtx_REG (Pmode, 1),
+		      gen_rtx_PLUS (Pmode, gen_rtx_REG (Pmode, base),
+				    gen_rtx_HIGH (Pmode, GEN_INT (disp))));
+      emit_move_insn (gen_rtx_REG (word_mode, reg),
+		      gen_rtx_MEM (word_mode,
+				   gen_rtx_LO_SUM (Pmode,
+						   gen_rtx_REG (Pmode, 1),
 						   GEN_INT (disp))));
     }
 }
 
 /* Emit RTL to set REG to the value specified by BASE+DISP.
-   Handle case where DISP > 8k by using the add_high_const pattern.
+   Handle case where DISP > 8k by using the add_high_const patterns.
 
    Note in DISP > 8k case, we will leave the high part of the address
    in %r1.  There is code in expand_hppa_{prologue,epilogue} that knows this.*/
@@ -2531,19 +2562,19 @@ set_reg_plus_d(reg, base, disp)
 {
   if (VAL_14_BITS_P (disp))
     {
-      emit_move_insn (gen_rtx_REG (SImode, reg),
-		      gen_rtx_PLUS (SImode,
-				    gen_rtx_REG (SImode, base),
+      emit_move_insn (gen_rtx_REG (Pmode, reg),
+		      gen_rtx_PLUS (Pmode,
+				    gen_rtx_REG (Pmode, base),
 				    GEN_INT (disp)));
     }
   else
     {
-      emit_insn (gen_add_high_const (gen_rtx_REG (SImode, 1),
-				     gen_rtx_REG (SImode, base),
-				     GEN_INT (disp)));
-      emit_move_insn (gen_rtx_REG (SImode, reg),
-		      gen_rtx_LO_SUM (SImode,
-				      gen_rtx_REG (SImode, 1),
+      emit_move_insn (gen_rtx_REG (Pmode, 1),
+		      gen_rtx_PLUS (Pmode, gen_rtx_REG (Pmode, base),
+				    gen_rtx_HIGH (Pmode, GEN_INT (disp))));
+      emit_move_insn (gen_rtx_REG (Pmode, reg),
+		      gen_rtx_LO_SUM (Pmode,
+				      gen_rtx_REG (Pmode, 1),
 				       GEN_INT (disp)));
     }
 }
@@ -2566,38 +2597,26 @@ compute_frame_size (size, fregs_live)
      we need to add this in because of STARTING_FRAME_OFFSET. */
   fsize = size + (size || frame_pointer_needed ? 8 : 0);
 
-  /* We must leave enough space for all the callee saved registers
-     from 3 .. highest used callee save register since we don't
-     know if we're going to have an inline or out of line prologue
-     and epilogue.  */
   for (i = 18; i >= 3; i--)
     if (regs_ever_live[i])
-      {
-	fsize += 4 * (i - 2);
-	break;
-      }
+      fsize += UNITS_PER_WORD;
 
   /* Round the stack.  */
   fsize = (fsize + 7) & ~7;
 
-  /* We must leave enough space for all the callee saved registers
-     from 3 .. highest used callee save register since we don't
-     know if we're going to have an inline or out of line prologue
-     and epilogue.  */
   for (i = 66; i >= 48; i -= 2)
     if (regs_ever_live[i] || regs_ever_live[i + 1])
       {
 	if (fregs_live)
 	  *fregs_live = 1;
 
-	fsize += 4 * (i - 46);
-	break;
+	fsize += 8;
       }
 
   fsize += current_function_outgoing_args_size;
   if (! leaf_function_p () || fsize)
     fsize += 32;
-  return (fsize + 63) & ~63;
+  return (fsize + STACK_BOUNDARY - 1) & ~(STACK_BOUNDARY - 1);
 }
 
 rtx hp_profile_label_rtx;
@@ -2610,7 +2629,9 @@ output_function_prologue (file, size)
   /* The function's label and associated .PROC must never be
      separated and must be output *after* any profiling declarations
      to avoid changing spaces/subspaces within a procedure.  */
+#ifdef OBJ_SOM
   ASM_OUTPUT_LABEL (file, XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));
+#endif
   fputs ("\t.PROC\n", file);
 
   /* hppa_expand_prologue does the dirty work now.  We just need
@@ -2686,93 +2707,8 @@ hppa_expand_prologue()
   actual_fsize = compute_frame_size (size, &save_fregs);
 
   /* Compute a few things we will use often.  */
-  tmpreg = gen_rtx_REG (SImode, 1);
+  tmpreg = gen_rtx_REG (word_mode, 1);
   size_rtx = GEN_INT (actual_fsize);
-
-  /* Handle out of line prologues and epilogues.  */
-  if (TARGET_SPACE)
-    {
-      rtx operands[2];
-      int saves = 0;
-      int outline_insn_count = 0;
-      int inline_insn_count = 0;
-
-      /* Count the number of insns for the inline and out of line
-	 variants so we can choose one appropriately.
-
-	 No need to screw with counting actual_fsize operations -- they're
-	 done for both inline and out of line prologues.  */
-      if (regs_ever_live[2])
-	inline_insn_count += 1;
-
-      if (! cint_ok_for_move (local_fsize))
-	outline_insn_count += 2;
-      else
-	outline_insn_count += 1;
-
-      /* Put the register save info into %r22.  */
-      for (i = 18; i >= 3; i--)
-	if (regs_ever_live[i] && ! call_used_regs[i])
-	  {
-	    /* -1 because the stack adjustment is normally done in
-	       the same insn as a register save.  */
-	    inline_insn_count += (i - 2) - 1;
-	    saves = i;
-            break;
-	  }
-  
-      for (i = 66; i >= 48; i -= 2)
-	if (regs_ever_live[i] || regs_ever_live[i + 1])
-	  {
-	    /* +1 needed as we load %r1 with the start of the freg
-	       save area.  */
-	    inline_insn_count += (i/2 - 23) + 1;
-	    saves |= ((i/2 - 12 ) << 16);
-	    break;
-	  }
-
-      if (frame_pointer_needed)
-	inline_insn_count += 3;
-
-      if (! cint_ok_for_move (saves))
-	outline_insn_count += 2;
-      else
-	outline_insn_count += 1;
-
-      if (TARGET_PORTABLE_RUNTIME)
-	outline_insn_count += 2;
-      else
-	outline_insn_count += 1;
-	
-      /* If there's a lot of insns in the prologue, then do it as
-	 an out-of-line sequence.  */
-      if (inline_insn_count > outline_insn_count)
-	{
-	  /* Put the local_fisze into %r19.  */
-	  operands[0] = gen_rtx_REG (SImode, 19);
-	  operands[1] = GEN_INT (local_fsize);
-	  emit_move_insn (operands[0], operands[1]);
-
-	  /* Put the stack size into %r21.  */
-	  operands[0] = gen_rtx_REG (SImode, 21);
-	  operands[1] = size_rtx;
-	  emit_move_insn (operands[0], operands[1]);
-
-	  operands[0] = gen_rtx_REG (SImode, 22);
-	  operands[1] = GEN_INT (saves);
-	  emit_move_insn (operands[0], operands[1]);
-
-	  /* Now call the out-of-line prologue.  */
-	  emit_insn (gen_outline_prologue_call ());
-	  emit_insn (gen_blockage ());
-
-	  /* Note that we're using an out-of-line prologue.  */
-	  out_of_line_prologue_epilogue = 1;
-	  return;     
-	}
-    }
-
-  out_of_line_prologue_epilogue = 0;
 
   /* Save RP first.  The calling conventions manual states RP will
      always be stored into the caller's frame at sp-20.  */
@@ -2793,7 +2729,7 @@ hppa_expand_prologue()
 	emit_move_insn (tmpreg, frame_pointer_rtx);
 	emit_move_insn (frame_pointer_rtx, stack_pointer_rtx);
 	if (VAL_14_BITS_P (actual_fsize))
-	  emit_insn (gen_post_stwm (stack_pointer_rtx, tmpreg, size_rtx));
+	  emit_insn (gen_post_store (stack_pointer_rtx, tmpreg, size_rtx));
 	else
 	  {
 	    /* It is incorrect to store the saved frame pointer at *sp,
@@ -2802,7 +2738,8 @@ hppa_expand_prologue()
 	       So instead use stwm to store at *sp and post-increment the
 	       stack pointer as an atomic operation.  Then increment sp to
 	       finish allocating the new frame.  */
-	    emit_insn (gen_post_stwm (stack_pointer_rtx, tmpreg, GEN_INT (64)));
+	    emit_insn (gen_post_store (stack_pointer_rtx, tmpreg,
+		       GEN_INT (64)));
 	    set_reg_plus_d (STACK_POINTER_REGNUM,
 			    STACK_POINTER_REGNUM,
 			    actual_fsize - 64);
@@ -2865,7 +2802,7 @@ hppa_expand_prologue()
 	 place to get the expected results.   sprintf here is just to
 	 put something in the name.  */
       sprintf(hp_profile_label_name, "LP$%04d", -1);
-      hp_profile_label_rtx = gen_rtx_SYMBOL_REF (SImode, hp_profile_label_name);
+      hp_profile_label_rtx = gen_rtx_SYMBOL_REF (Pmode, hp_profile_label_name);
       if (current_function_returns_struct)
 	store_reg (STRUCT_VALUE_REGNUM, - 12 - offsetadj, basereg);
       if (current_function_needs_context)
@@ -2879,10 +2816,10 @@ hppa_expand_prologue()
 	    pc_offset += VAL_14_BITS_P (arg_offset) ? 4 : 8;
 	  }
 
-      emit_move_insn (gen_rtx_REG (SImode, 26), gen_rtx_REG (SImode, 2));
-      emit_move_insn (tmpreg, gen_rtx_HIGH (SImode, hp_profile_label_rtx));
-      emit_move_insn (gen_rtx_REG (SImode, 24),
-		      gen_rtx_LO_SUM (SImode, tmpreg, hp_profile_label_rtx));
+      emit_move_insn (gen_rtx_REG (word_mode, 26), gen_rtx_REG (word_mode, 2));
+      emit_move_insn (tmpreg, gen_rtx_HIGH (Pmode, hp_profile_label_rtx));
+      emit_move_insn (gen_rtx_REG (Pmode, 24),
+		      gen_rtx_LO_SUM (Pmode, tmpreg, hp_profile_label_rtx));
       /* %r25 is set from within the output pattern.  */
       emit_insn (gen_call_profiler (GEN_INT (- pc_offset - 20)));
 
@@ -2908,7 +2845,7 @@ hppa_expand_prologue()
 	if (regs_ever_live[i] && ! call_used_regs[i])
 	  {
 	    store_reg (i, offset, FRAME_POINTER_REGNUM);
-	    offset += 4;
+	    offset += UNITS_PER_WORD;
 	    gr_saved++;
 	  }
       /* Account for %r3 which is saved in a special place.  */
@@ -2925,13 +2862,13 @@ hppa_expand_prologue()
 	    if (merge_sp_adjust_with_store)
 	      {
 		merge_sp_adjust_with_store = 0;
-	        emit_insn (gen_post_stwm (stack_pointer_rtx,
-					  gen_rtx_REG (SImode, i),
-					  GEN_INT (-offset)));
+	        emit_insn (gen_post_store (stack_pointer_rtx,
+					   gen_rtx_REG (word_mode, i),
+					   GEN_INT (-offset)));
 	      }
 	    else
 	      store_reg (i, offset, STACK_POINTER_REGNUM);
-	    offset += 4;
+	    offset += UNITS_PER_WORD;
 	    gr_saved++;
 	  }
 
@@ -2987,8 +2924,8 @@ hppa_expand_prologue()
      Avoid this if the callee saved register wasn't used (these are
      leaf functions).  */
   if (flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM_SAVED])
-    emit_move_insn (gen_rtx_REG (SImode, PIC_OFFSET_TABLE_REGNUM_SAVED),
-		    gen_rtx_REG (SImode, PIC_OFFSET_TABLE_REGNUM));
+    emit_move_insn (gen_rtx_REG (word_mode, PIC_OFFSET_TABLE_REGNUM_SAVED),
+		    gen_rtx_REG (word_mode, PIC_OFFSET_TABLE_REGNUM));
 }
 
 
@@ -3036,50 +2973,8 @@ hppa_expand_epilogue ()
   int offset,i;
   int merge_sp_adjust_with_load  = 0;
 
-  /* Handle out of line prologues and epilogues.  */
-  if (TARGET_SPACE && out_of_line_prologue_epilogue)
-    {
-      int saves = 0;
-      rtx operands[2];
-
-      /* Put the register save info into %r22.  */
-      for (i = 18; i >= 3; i--)
-	if (regs_ever_live[i] && ! call_used_regs[i])
-	  {
-	    saves = i;
-            break;
-	  }
-	  
-      for (i = 66; i >= 48; i -= 2)
-	if (regs_ever_live[i] || regs_ever_live[i + 1])
-	  {
-	    saves |= ((i/2 - 12 ) << 16);
-	    break;
-	  }
-
-      emit_insn (gen_blockage ());
-
-      /* Put the local_fisze into %r19.  */
-      operands[0] = gen_rtx_REG (SImode, 19);
-      operands[1] = GEN_INT (local_fsize);
-      emit_move_insn (operands[0], operands[1]);
-
-      /* Put the stack size into %r21.  */
-      operands[0] = gen_rtx_REG (SImode, 21);
-      operands[1] = GEN_INT (actual_fsize);
-      emit_move_insn (operands[0], operands[1]);
-
-      operands[0] = gen_rtx_REG (SImode, 22);
-      operands[1] = GEN_INT (saves);
-      emit_move_insn (operands[0], operands[1]);
-
-      /* Now call the out-of-line epilogue.  */
-      emit_insn (gen_outline_epilogue_call ());
-      return;
-    }
-
   /* We will use this often.  */
-  tmpreg = gen_rtx_REG (SImode, 1);
+  tmpreg = gen_rtx_REG (word_mode, 1);
 
   /* Try to restore RP early to avoid load/use interlocks when
      RP gets used in the return (bv) instruction.  This appears to still
@@ -3101,7 +2996,7 @@ hppa_expand_epilogue ()
 	if (regs_ever_live[i] && ! call_used_regs[i])
 	  {
 	    load_reg (i, offset, FRAME_POINTER_REGNUM);
-	    offset += 4;
+	    offset += UNITS_PER_WORD;
 	  }
     }
   else
@@ -3119,7 +3014,7 @@ hppa_expand_epilogue ()
 	        merge_sp_adjust_with_load = i;
 	      else
 	        load_reg (i, offset, STACK_POINTER_REGNUM);
-	      offset += 4;
+	      offset += UNITS_PER_WORD;
 	    }
 	}
     }
@@ -3179,13 +3074,13 @@ hppa_expand_epilogue ()
   else if (frame_pointer_needed)
     {
       set_reg_plus_d (STACK_POINTER_REGNUM, FRAME_POINTER_REGNUM, 64);
-      emit_insn (gen_pre_ldwm (frame_pointer_rtx, 
+      emit_insn (gen_pre_load (frame_pointer_rtx, 
 			       stack_pointer_rtx,
 			       GEN_INT (-64)));
     }
   /* If we were deferring a callee register restore, do it now.  */
   else if (! frame_pointer_needed  && merge_sp_adjust_with_load)
-    emit_insn (gen_pre_ldwm (gen_rtx_REG (SImode, merge_sp_adjust_with_load),
+    emit_insn (gen_pre_load (gen_rtx_REG (word_mode, merge_sp_adjust_with_load),
 			     stack_pointer_rtx,
 			     GEN_INT (- actual_fsize)));
   else if (actual_fsize != 0)
@@ -3904,7 +3799,7 @@ print_operand (file, x, code)
     case 'Z':
       {
 	unsigned op[3];
-	compute_zdepi_operands (INTVAL (x), op);
+	compute_zdepwi_operands (INTVAL (x), op);
 	fprintf (file, "%d,%d,%d", op[0], op[1], op[2]);
 	return;
       }
@@ -4087,7 +3982,7 @@ output_mul_insn (unsignedp, insn)
      rtx insn;
 {
   import_milli (mulI);
-  return output_millicode_call (insn, gen_rtx_SYMBOL_REF (SImode, "$$mulI"));
+  return output_millicode_call (insn, gen_rtx_SYMBOL_REF (Pmode, "$$mulI"));
 }
 
 /* Emit the rtl for doing a division by a constant. */
@@ -4406,14 +4301,12 @@ function_arg_padding (mode, type)
 }
 
 
-/* Do what is necessary for `va_start'.  The argument is ignored;
-   We look at the current function to determine if stdargs or varargs
-   is used and fill in an initial va_list.  A pointer to this constructor
-   is returned.  */
+/* Do what is necessary for `va_start'.  We look at the current function
+   to determine if stdargs or varargs is used and fill in an initial
+   va_list.  A pointer to this constructor is returned.  */
 
 struct rtx_def *
-hppa_builtin_saveregs (arglist)
-     tree arglist ATTRIBUTE_UNUSED;
+hppa_builtin_saveregs ()
 {
   rtx offset, dest;
   tree fntype = TREE_TYPE (current_function_decl);
@@ -4431,6 +4324,7 @@ hppa_builtin_saveregs (arglist)
   dest = gen_rtx_MEM (BLKmode,
 		      plus_constant (current_function_internal_arg_pointer,
 				     -16));
+  MEM_ALIAS_SET (dest) = get_varargs_alias_set ();
   move_block_from_reg (23, dest, 4, 4 * UNITS_PER_WORD);
 
   /* move_block_from_reg will emit code to store the argument registers
@@ -4455,6 +4349,73 @@ hppa_builtin_saveregs (arglist)
 				    current_function_internal_arg_pointer,
 				    offset, 0, 0, OPTAB_LIB_WIDEN));
 }
+
+void
+hppa_va_start (stdarg_p, valist, nextarg)
+     int stdarg_p;
+     tree valist;
+     rtx nextarg;
+{
+  nextarg = expand_builtin_saveregs ();
+  std_expand_builtin_va_start (1, valist, nextarg);
+}
+
+rtx
+hppa_va_arg (valist, type)
+     tree valist, type;
+{
+  HOST_WIDE_INT align, size, ofs;
+  tree t, ptr, pptr;
+
+  /* Compute the rounded size of the type.  */
+  align = PARM_BOUNDARY / BITS_PER_UNIT;
+  size = int_size_in_bytes (type);
+
+  ptr = build_pointer_type (type);
+
+  /* "Large" types are passed by reference.  */
+  if (size > 8)
+    {
+      t = build (PREDECREMENT_EXPR, TREE_TYPE (valist), valist, 
+		 build_int_2 (POINTER_SIZE / BITS_PER_UNIT, 0));
+      TREE_SIDE_EFFECTS (t) = 1;
+
+      pptr = build_pointer_type (ptr);
+      t = build1 (NOP_EXPR, pptr, t);
+      TREE_SIDE_EFFECTS (t) = 1;
+
+      t = build1 (INDIRECT_REF, ptr, t);
+      TREE_SIDE_EFFECTS (t) = 1;
+    }
+  else
+    {
+      t = build (PLUS_EXPR, TREE_TYPE (valist), valist,
+		 build_int_2 (-size, -1));
+
+      /* ??? Copied from va-pa.h, but we probably don't need to align
+	 to word size, since we generate and preserve that invariant.  */
+      t = build (BIT_AND_EXPR, TREE_TYPE (valist), t,
+		 build_int_2 ((size > 4 ? -8 : -4), -1));
+
+      t = build (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
+      TREE_SIDE_EFFECTS (t) = 1;
+      
+      ofs = (8 - size) % 4;
+      if (ofs)
+	{
+	  t = build (PLUS_EXPR, TREE_TYPE (valist), t, build_int_2 (ofs, 0));
+	  TREE_SIDE_EFFECTS (t) = 1;
+	}
+
+      t = build1 (NOP_EXPR, ptr, t);
+      TREE_SIDE_EFFECTS (t) = 1;
+    }
+
+  /* Calculate!  */
+  return expand_expr (t, NULL_RTX, Pmode, EXPAND_NORMAL);
+}
+
+
 
 /* This routine handles all the normal conditional branch sequences we
    might need to generate.  It handles compare immediate vs compare

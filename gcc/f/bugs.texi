@@ -9,7 +9,7 @@
 @c in the standalone derivations of this file (e.g. BUGS).
 @set copyrights-bugs 1995-1999
 
-@set last-update-bugs 1999-05-06
+@set last-update-bugs 1999-06-28
 
 @include root.texi
 
