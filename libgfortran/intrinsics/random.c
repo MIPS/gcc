@@ -2,6 +2,18 @@
    Copyright 2002 Free Software Foundation, Inc.
    Contributed by Lars Segerlund <seger@linuxmail.org>
 
+  The algorithm was taken from the paper :
+
+	Mersenne Twister:	623-dimensionally equidistributed
+				uniform pseudorandom generator.
+
+	by:	Makoto Matsumoto
+		Takuji Nishimura
+
+	Which appeared in the: ACM Transactions on Modelling and Computer
+	Simulations: Special Issue on Uniform Random Number
+	Generation. ( Early in 1998 ).
+
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or
@@ -63,26 +75,6 @@ void
 random_seed (GFC_INTEGER_4 * size, const gfc_array_i4 * put,
 	     const gfc_array_i4 * get)
 {
-  /* Return the size of the seed.  */
-  if (size != NULL)
-    *size = N;
-
-  /* Set the seed to PUT data.  */
-  if (put != NULL)
-    {
-      abort ();
-      for (i = 0; i < N; i++)
-	seed[i] = put->data[i];
-    }
-
-  /* Return the seed to GET data.  */
-  if (get != NULL)
-    {
-      abort ();
-      for (i = 0; i < N; i++)
-	get->data[i] = seed[i];
-    }
-
   /* Initialize the seed in system dependent manner.  */
   if (get == NULL && put == NULL && size == NULL)
     {
@@ -104,6 +96,58 @@ random_seed (GFC_INTEGER_4 * size, const gfc_array_i4 * put,
 	  read (fd, &seed[0], sizeof (GFC_UINTEGER_4) * N);
 	  close (fd);
 	}
+      return;
+    }
+
+  /* Return the size of the seed */
+  if (size != NULL)
+    {
+      *size = N;
+      return;
+    }
+
+  /* if we have gotten to this pount we have a get or put
+   * now we check it the array fulfills the demands in the standard .
+   */
+
+  /* Set the seed to PUT data */
+  if (put != NULL)
+    {
+      /* if the rank of the array is not 1 abort */
+      if (GFC_DESCRIPTOR_RANK (put) != 1)
+	abort ();
+
+      /* if the array is too small abort */
+      if (((put->dim[0].ubound + 1 - put->dim[0].lbound)) < N)
+	abort ();
+
+      /* If this is the case the array is a temporary */
+      if (get->dim[0].stride == 0)
+	return;
+
+      /*  This code now should do correct strides. */
+      for (i = 0; i < N; i++)
+	seed[i] = put->data[i * put->dim[0].stride];
+    }
+
+  /* Return the seed to GET data */
+  if (get != NULL)
+    {
+      /* if the rank of the array is not 1 abort */
+      if (GFC_DESCRIPTOR_RANK (get) != 1)
+	abort ();
+
+      /* if the array is too small abort */
+      if (((get->dim[0].ubound + 1 - get->dim[0].lbound)) < N)
+	abort ();
+
+      /* If this is the case the array is a temporary */
+      if (get->dim[0].stride == 0)
+	return;
+
+      /*  This code now should do correct strides. */
+      for (i = 0; i < N; i++)
+	get->data[i * get->dim[0].stride] = seed[i];
     }
 }
 
@@ -116,7 +160,7 @@ random_seed (GFC_INTEGER_4 * size, const gfc_array_i4 * put,
 static void
 random_generate (void)
 {
-  /* 32 bit's */
+  /* 32 bits.  */
   GFC_UINTEGER_4 y;
 
   /* Generate batch of N.  */
@@ -155,7 +199,7 @@ random_r4 (GFC_REAL_4 * harv)
 void
 random_r8 (GFC_REAL_8 * harv)
 {
-  /* Regenerate if we need to, may waste one value (32 bit).  */
+  /* Regenerate if we need to, may waste one 32-bit value.  */
   if ((i + 1) >= N)
     random_generate ();
 
@@ -173,7 +217,72 @@ random_r8 (GFC_REAL_8 * harv)
 void
 arandom_r4 (gfc_array_r4 * harv)
 {
-  abort ();
+  index_type count[GFC_MAX_DIMENSIONS - 1];
+  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type stride[GFC_MAX_DIMENSIONS - 1];
+  index_type stride0;
+  index_type dim;
+  GFC_REAL_4 *dest;
+  int n;
+
+  dest = harv->data;
+
+  if (harv->dim[0].stride == 0)
+    harv->dim[0].stride = 1;
+
+  dim = GFC_DESCRIPTOR_RANK (harv);
+
+  for (n = 0; n < dim; n++)
+    {
+      count[n] = 0;
+      stride[n] = harv->dim[n].stride;
+      extent[n] = harv->dim[n].ubound + 1 - harv->dim[n].lbound;
+      if (extent[n] <= 0)
+	return;
+    }
+
+  stride0 = stride[0];
+
+  while (dest)
+    {
+      /* Set the elements.  */
+
+      /* regenerate if we need to */
+      if (i >= N)
+	random_generate ();
+
+      /* Convert uint32 to float in a hopefully g95 compiant manner */
+      *dest = (GFC_REAL_4) ((GFC_REAL_4) (GFC_UINTEGER_4) seed[i++] /
+			    (GFC_REAL_4) (~(GFC_UINTEGER_4) 0));
+
+      /* Advance to the next element.  */
+      dest += stride0;
+      count[0]++;
+      /* Advance to the next source element.  */
+      n = 0;
+      while (count[n] == extent[n])
+	{
+	  /* When we get to the end of a dimension,
+	     reset it and increment
+	     the next dimension.  */
+	  count[n] = 0;
+	  /* We could precalculate these products,
+	     but this is a less
+	     frequently used path so proabably not worth it.  */
+	  dest -= stride[n] * extent[n];
+	  n++;
+	  if (n == dim)
+	    {
+	      dest = NULL;
+	      break;
+	    }
+	  else
+	    {
+	      count[n]++;
+	      dest += stride[n];
+	    }
+	}
+    }
 }
 
 /* REAL(KIND=8) array.  */
@@ -182,6 +291,72 @@ arandom_r4 (gfc_array_r4 * harv)
 void
 arandom_r8 (gfc_array_r8 * harv)
 {
-  abort ();
+  index_type count[GFC_MAX_DIMENSIONS - 1];
+  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type stride[GFC_MAX_DIMENSIONS - 1];
+  index_type stride0;
+  index_type dim;
+  GFC_REAL_8 *dest;
+  int n;
+
+  dest = harv->data;
+
+  if (harv->dim[0].stride == 0)
+    harv->dim[0].stride = 1;
+
+  dim = GFC_DESCRIPTOR_RANK (harv);
+
+  for (n = 0; n < dim; n++)
+    {
+      count[n] = 0;
+      stride[n] = harv->dim[n].stride;
+      extent[n] = harv->dim[n].ubound + 1 - harv->dim[n].lbound;
+      if (extent[n] <= 0)
+	return;
+    }
+
+  stride0 = stride[0];
+
+  while (dest)
+    {
+      /* Set the elements.  */
+
+      /* regenerate if we need to, may waste one 32-bit value */
+      if ((i + 1) >= N)
+	random_generate ();
+
+      /* Convert two uint32 to a REAL(KIND=8).  */
+      *dest = ((GFC_REAL_8) ((((GFC_UINTEGER_8) seed[i+1]) << 32) + seed[i])) /
+	      (GFC_REAL_8) (~(GFC_UINTEGER_8) 0);
+      i += 2;
+
+      /* Advance to the next element.  */
+      dest += stride0;
+      count[0]++;
+      /* Advance to the next source element.  */
+      n = 0;
+      while (count[n] == extent[n])
+	{
+	  /* When we get to the end of a dimension,
+	     reset it and increment
+	     the next dimension.  */
+	  count[n] = 0;
+	  /* We could precalculate these products,
+	     but this is a less
+	     frequently used path so proabably not worth it.  */
+	  dest -= stride[n] * extent[n];
+	  n++;
+	  if (n == dim)
+	    {
+	      dest = NULL;
+	      break;
+	    }
+	  else
+	    {
+	      count[n]++;
+	      dest += stride[n];
+	    }
+	}
+    }
 }
 

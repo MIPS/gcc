@@ -1,3 +1,9 @@
+2003-10-30  Lars Segerlund  <Lars.Segerlund@comsys.se>
+
+	* intrinsics/random.c: Add reference to paper containing algorithm.
+	(random_seed): Extra error checking and proper handling of arrays.
+	(arandom_r4, arandom_r8): Implement.
+
 2003-10-29  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	PR fortran/12703
