@@ -306,7 +306,6 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_lower_cf);
   NEXT_PASS (pass_lower_eh);
   NEXT_PASS (pass_build_cfg);
-  NEXT_PASS (pass_tree_profile);
   NEXT_PASS (pass_all_optimizations);
   NEXT_PASS (pass_del_cfg);
   NEXT_PASS (pass_mudflap_2);
@@ -314,6 +313,7 @@ init_tree_optimization_passes (void)
   *p = NULL;
 
   p = &pass_all_optimizations.sub;
+  NEXT_PASS (pass_tree_profile);
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_build_pta);
   NEXT_PASS (pass_build_ssa);

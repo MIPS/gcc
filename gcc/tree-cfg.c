@@ -472,6 +472,9 @@ make_edges (void)
 
   /* To speed up statement iterator walks, we first purge dead labels.  */
   cleanup_dead_labels ();
+
+  /* Clean up the graph and warn for unreachable code.  */
+  cleanup_tree_cfg ();
 }
 
 /* Create edges for control statement at basic block BB.  */
@@ -678,15 +681,6 @@ make_goto_expr_edges (basic_block bb)
       if (simple_goto_p (goto_t))
 	{
 	  make_edge (bb, label_to_block (dest), EDGE_FALLTHRU);
-
-	  /* Preserve the line number information.  */
-	  if (EXPR_LOCUS (goto_t))
-	    {
-	      tree stmt = build_empty_stmt ();
-	      SET_EXPR_LOCUS (stmt, EXPR_LOCUS (goto_t));
-	      bsi_insert_before (&last, stmt, BSI_NEW_STMT);
-	      bsi_next (&last);
-	    }
 	  bsi_remove (&last);
 	  return;
 	}
@@ -2789,22 +2783,6 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi)
       tmp = bsi_stmt (*bsi);
       if (!stmt_ends_bb_p (tmp))
 	return true;
-
-      /* Insert code just before returning the value.  We may need to decompose
-         the return in the case it contains non-trivial operand.  */
-      if (TREE_CODE (tmp) == RETURN_EXPR)
-        {
-	  tree op = TREE_OPERAND (tmp, 0);
-	  if (!is_gimple_val (op))
-	    {
-	      if (TREE_CODE (op) != MODIFY_EXPR)
-		abort ();
-	      bsi_insert_before (bsi, op, BSI_NEW_STMT);
-	      TREE_OPERAND (tmp, 0) = TREE_OPERAND (op, 0);
-	    }
-	  bsi_prev (bsi);
-	  return true;
-        }
     }
 
   /* Otherwise, create a new basic block, and split this edge.  */

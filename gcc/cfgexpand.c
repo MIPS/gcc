@@ -83,7 +83,7 @@ expand_block (basic_block bb, FILE * dump_file)
       /* At the moment not all abnormal edges match the RTL representation.
          It is safe to remove them here as find_sub_basic_blocks will
          rediscover them.  In the future we should get this fixed properly.  */
-      if (e->flags & (EDGE_ABNORMAL | EDGE_EH))
+      if (e->flags & EDGE_ABNORMAL)
 	remove_edge (e);
     }
 

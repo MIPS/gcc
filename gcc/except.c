@@ -1799,7 +1799,14 @@ emit_to_new_bb_before (rtx seq, rtx insn)
 {
   rtx last;
   basic_block bb;
+  edge e;
 
+  /* If there happens to be an fallthru edge (possibly created by cleanup_cfg
+     call), we don't want it to go into newly created landing pad or other EH 
+     construct.  */
+  for (e = BLOCK_FOR_INSN (insn)->pred; e; e = e->pred_next)
+    if (e->flags & EDGE_FALLTHRU)
+      force_nonfallthru (e);
   last = emit_insn_before (seq, insn);
   if (GET_CODE (last) == BARRIER)
     last = PREV_INSN (last);
@@ -3111,6 +3118,11 @@ can_throw_internal (rtx insn)
 	}
       return false;
     }
+
+  if (GET_CODE (insn) == JUMP_INSN
+      && GET_CODE (PATTERN (insn)) == RESX
+      && XINT (PATTERN (insn), 0) > 0)
+    return can_throw_internal_1 (XINT (PATTERN (insn), 0));
 
   /* Every insn that might throw has an EH_REGION note.  */
   note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
