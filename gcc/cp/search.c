@@ -331,9 +331,7 @@ lookup_base (t, base, access, kind_ptr)
 	    /* Rather than inventing a public member, we use the implicit
 	       public typedef created in the scope of every class.  */
 	    decl = TYPE_FIELDS (base);
-	    while (TREE_CODE (decl) != TYPE_DECL
-		   || !DECL_ARTIFICIAL (decl)
-		   || DECL_NAME (decl) != constructor_name (base))
+	    while (!DECL_SELF_REFERENCE_P (decl))
 	      decl = TREE_CHAIN (decl);
 	    while (ANON_AGGR_TYPE_P (t))
 	      t = TYPE_CONTEXT (t);
@@ -1008,15 +1006,9 @@ void
 type_access_control (type, val)
      tree type, val;
 {
-  /* The check processing_specialization is here because the parser in 3.3
-     does not set current_class_type while parsing class head of class
-     template specialization.  Access checking, if performed, will be
-     evaluated in the wrong context so we disable it here.  This doesn't
-     apply to the new parser in 3.4.  */
   if (val == NULL_TREE
       || (TREE_CODE (val) != TEMPLATE_DECL && TREE_CODE (val) != TYPE_DECL)
-      || ! DECL_CLASS_SCOPE_P (val)
-      || processing_specialization)
+      || ! DECL_CLASS_SCOPE_P (val))
     return;
 
   if (type_lookups == error_mark_node)

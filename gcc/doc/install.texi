@@ -558,7 +558,7 @@ The following systems are the only ones where it makes a difference
 whether you use the GNU assembler.  On any other system,
 @option{--with-gnu-as} has no effect.
 
-@itemize bullet
+@itemize @bullet
 @item @samp{hppa1.0-@var{any}-@var{any}}
 @item @samp{hppa1.1-@var{any}-@var{any}}
 @item @samp{i386-@var{any}-sysv}
@@ -835,10 +835,12 @@ compiler and may only work properly if you are building the compiler
 with GCC@.  This is on by default when building from CVS or snapshots,
 but off for releases.  More control over the checks may be had by
 specifying @var{list}; the categories of checks available are
-@samp{misc}, @samp{tree}, @samp{gc}, @samp{rtl}, @samp{rtlflag} and
-@samp{gcac}.  The
-default when @var{list} is not specified is @samp{misc,tree,gc,rtlflag}; the
-checks @samp{rtl} and @samp{gcac} are very expensive.
+@samp{misc}, @samp{tree}, @samp{gc}, @samp{rtl}, @samp{rtlflag},
+@samp{gcac} and @samp{valgrind}.  The check @samp{valgrind} requires the
+external @command{valgrind} simulator, available from
+@uref{http://developer.kde.org/~sewardj/}.  The default when @var{list} is
+not specified is @samp{misc,tree,gc,rtlflag}; the checks @samp{rtl},
+@samp{gcac} and @samp{valgrind} are very expensive.
 
 @item --enable-coverage
 @item --enable-coverage=@var{level}
@@ -1651,6 +1653,8 @@ GNU Compiler Collection on your machine.
 @item
 @uref{#ia64-*-linux,,ia64-*-linux}
 @item
+@uref{#ia64-*-hpux*,,ia64-*-hpux*}
+@item
 @uref{#*-lynx-lynxos,,*-lynx-lynxos}
 @item
 @uref{#*-ibm-aix*,,*-ibm-aix*}
@@ -2313,7 +2317,8 @@ gas/binutils version 2.5.2 or later.
 @end html
 @heading @anchor{ix86-*-linux*}i?86-*-linux*
 
-You will need binutils 2.9.1.0.15 or newer for exception handling to work.
+As of GCC 3.3, binutils 2.13.1 or later is required for this platform.
+See @uref{http://gcc.gnu.org/PR10877,,bug 10877} for more information.
 
 If you receive Signal 11 errors when building on GNU/Linux, then it is
 possible you have a hardware problem.  Further information on this can be
@@ -2466,6 +2471,18 @@ user programs on GNU/Linux systems built using earlier compiler releases.
 GCC 3.0.2 is recommended for compiling linux, the kernel.
 GCC 3.0.2 is believed to be fully ABI compliant, and hence no more major
 ABI changes are expected.
+
+@html
+<hr />
+@end html
+@heading @anchor{ia64-*-hpux*}ia64-*-hpux*
+Building GCC on this target requires the GNU Assembler. The bundled HP
+assembler will not work. To prevent GCC from using the wrong assembler,
+the option @option{--with-gnu-as} may be necessary.
+
+The GCC libunwind library has not been ported to HPUX. This means that for
+GCC versions 3.2.3 and earlier, @option{--enable-libunwind-exceptions}
+is required to build GCC. For GCC 3.3 and later, this is the default.
 
 @html
 <hr />

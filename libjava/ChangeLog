@@ -1,3 +1,33 @@
+2003-07-11  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/gcj/convert/natIconv.cc
+	(iconv_init): Fixed possible memory leak by releasing allocated iconv
+	handle.
+
+2003-07-11  Jeff Sturm  <jsturm@one-point.com>
+
+	PR libgcj/10886:
+	* gnu/java/rmi/server/UnicastRemoteCall.java (returnValue):
+	Test for empty vector.
+
+2003-07-11 Jeff Sturm  <jsturm@one-point.com>
+
+	PR libgcj/10838:
+	* java/io/ObjectInputStream (enableResolveObject):
+	Fixed spelling of permission name.
+
+2003-07-11  Matt Kraai  <kraii@alumni.cmu.edu>
+
+	* gnu/gcj/runtime/SharedLibLoader.java: Fix misspelling.
+	* gnu/gcj/runtime/natSharedLibLoader.cc: Likewise.
+	* java/awt/im/InputContext.java: Remove a redundant
+	partial line.
+
+2003-07-11  Jeff Sturm  <jsturm@one-point.com>
+
+	* gnu/gcj/runtime/FirstThread.java (KinputASCII, KoutputASCII):
+	Create dummy references for static linking.
+
 2003-07-07  Adam Megacz <adam@xwt.org>
 
 	* posix.cc: added #include<stdio.h>

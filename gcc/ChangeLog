@@ -1,3 +1,151 @@
+2003-07-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR debug/11473
+	* dbxout.c (dbxout_type): Use TYPE_SIZE to determine the sizes of
+	base classes.
+
+2003-07-15  James A. Morrison  <ja2morri@student.math.uwaterloo.ca>
+
+	* doc/include/texinfo.tex: Upgrade to texinfo 4.6.
+
+2003-07-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/11320
+	* sched-int.h (struct deps) [reg_conditional_sets]: New field.
+	(struct sched_info) [compute_jump_reg_dependencies]: New prototype.
+	* sched-deps.c (sched_analyze_insn) [JUMP_INSN]: Update call to
+	current_sched_info->compute_jump_reg_dependencies. Record which
+	registers are used and which registers are set by the jump.
+	Clear deps->reg_conditional_sets after a barrier.
+	Set deps->reg_conditional_sets if the insn is a COND_EXEC.
+	Clear deps->reg_conditional_sets if the insn is not a COND_EXEC.
+	(init_deps): Initialize reg_conditional_sets.
+	(free_deps): Clear reg_conditional_sets.
+	* sched-ebb.c (compute_jump_reg_dependencies): New prototype.
+	Mark registers live on entry of the fallthrough block and conditionally
+	set as set by the jump. Mark registers live on entry of non-fallthrough
+	blocks as used by the jump.
+	* sched-rgn.c (compute_jump_reg_dependencies): New prototype.
+	Mark new parameters as unused.
+
+2003-07-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR debug/11098
+	* integrate.c (copy_decl_for_inlining): Do not mark copied decls
+	as DECL_ABSTRACT.
+
+2003-07-14  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	PR optimization/11440
+	* gcse.c (try_replace_reg): Don't attach notes to ZERO_EXTRACT or
+	SIGN_EXTRACT SETs.
+
+2003-07-13  Aaron W. LaFramboise  <awlaframboise@aol.com>
+
+	* config/i386/gthr-win32.c (__GTHREAD_HIDE_WIN32API): Define to 1.
+
+2003-07-13  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/11059
+	* expr.c (can_store_by_pieces): Return true if length is zero.
+	(store_by_pieces): Do nothing if length is zero.
+	(clear_by_pieces): Do nothing if length is zero.
+	(clear_storage): Do nothing if length is zero.
+	(store_constructor): Simplify code when size is zero, or the
+	target has already been cleared.  This avoids emitting a
+	blockage instruction when initializing empty structures.
+
+2003-07-13  Richard Henderson  <rth@redhat.com>
+
+	* libgcc-std.ver (GCC_3.3.1): Export __gcc_personality_sj0,
+	__gcc_personality_v0.
+
+2003-07-11  Dara Hazeghi  <dhazeghi@yahoo.com>
+
+	PR optimization/10877
+	* doc/install.tex: Update required binutils for i?86-*-linux*
+
+2003-07-11  Ben Elliston  <bje@redhat.com>
+
+	PR c++/1607
+	* doc/extend.texi (Function Attributes): Document the effect of
+	the C++ "this" parameter on the counting of arguments for the
+	"format" and "format_arg" attributes.
+
+2003-07-11  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	Backport from mainline.
+
+	2003-05-13  Richard Henderson  <rth@redhat.com>
+
+	* c-decl.c (duplicate_decls): Re-invoke make_decl_rtl if
+	the old decl had instantiated DECL_RTL.
+
+	2003-05-21  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR c++/9738
+	* config/i386/winnt.c (i386_pe_encode_section_info): Enable
+	even if not first.
+
+	2003-07-04  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR c++/5287, PR c++/7910, PR c++/11021
+	* config/i386/winnt.c (ix86_handle_dll_attribute): Don't add
+	dllimport attribute if function is defined at declaration, but
+	report error instead. Likewise for dllimport'd variable
+	definitions.  Set implicit TREE_PUBLIC for dllimport'd variables
+	declared within functions, Report error if dllimport or dllexport
+	symbol is not global.
+	(i386_pe_dllimport_p): Ignore dllimport attribute of functions
+	if defined after declaration or if inlined. Don't allow definition
+	of static data members of C++ classes. Don't dllimport virtual
+	methods.
+	(i386_pe_mark_dllexport): Warn about inconsistent dll attributes.
+	(i386_pe_mark_dllimport): Remove unnecessary checks.
+	(i386_pe_encode_section_info): Warn if the dllimport attribute
+	and symbol prefix have been instantiated and then overridden.
+
+	* doc/extend.texi: Document dllimport and dllexport attributes.
+
+2003-07-10  James E Wilson  <wilson@tuliptree.org>
+
+	PR optimization/9745
+	* loop.c (loop_iv_add_mult_emit_before): Call loop_regs_update before
+	loop_insn_emit_before.
+	(loop_iv_add_mult_sink, loop_iv_add_mult_hoist): Likewise.
+	
+2003-07-10  Dara Hazeghi  <dhazeghi@yahoo.com>
+
+	PR bootstrap/10758
+	* doc/install.texi: Document requirements for ia64-*-hpux* target.
+
+2003-07-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10032
+	* doc/invoke.texi (C++ Dialect Options): Change documentation of
+	-fpermissive.
+
+2003-07-10  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* doc/invoke.texi: Fix misspelling of "@item".
+
+2003-07-09  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* doc/install.texi (Configuration): Document the valgrind option
+	to --enable-checking.
+
+2003-07-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR Target/11453
+	* pa.md: Disparage all mtsar constraints.
+	(extzv, extv, insv): Don't fail on length of {32|64}.
+
+2003-07-08  James E Wilson  <wilson@tuliptree.org>
+
+	PR target/10021
+	* emit-rtl.c (set_mem_attribute_minus_bitpos): When handle ARRAY_REF,
+	loop over new variable t2 instead of t.
+
 2003-06-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* builtins.c (c_strlen): Add only_value argument.
@@ -122,10 +270,6 @@
 
 	* doc/contrib.texi: Fix typos.
 	* doc/sourcebuild.texi: Likewise.
-
-2003-06-29  Aaron W. LaFramboise  <awlaframboise@aol.com>
-
-	* config/i386/gthr-win32.h (__GTHREAD_HIDE_WIN32API): Define to 1.
 
 2003-06-27  Gunther Nikl  <gni@gecko.de>
 
@@ -4341,7 +4485,8 @@ Mon Apr  7 15:56:30 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	* df.c (df_uses_record): Handle CC0.
 
 2003-01-25  Jan Hubicka  <jh@suse.cz>
-			      Eric Botcazou <ebotcazou@libertysurf.fr>
+            Eric Botcazou <ebotcazou@libertysurf.fr>
+
 	PR opt/8492
 	* gcse.c (one_cprop_pass): Delete unreachable blocks.
 

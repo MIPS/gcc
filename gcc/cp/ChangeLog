@@ -1,4 +1,74 @@
+2003-07-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7053
+	* pt.c (unregister_specialization): Rename to ...
+	(reregister_specialization): ... this.
+	(tsubst_friend_function): Use it.
+	(regenerate_decl_from_template): Likewise.
+
+2003-07-14  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/11154
+	* pt.c (more_specialized_class): Add full_args parameter.
+	(most_specialized_class): Adjust calls to more_specialized_class.
+	* cp-tree.h (more_specialized_class): Adjust declaration.
+
+2003-07-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11503
+	* cp-tree.h (DECL_SELF_REFERENCE_P): New macro.
+	(SET_DECL_SELF_REFERENCE_P): Likewise.
+	* class.c (build_self_reference): Use SET_DECL_SELF_REFERENCE_P.
+	* pt.c (tsubst_decl): Copy it.
+	* search.c (lookup_base): Use DECL_SELF_REFERENCE_P.
+
+2003-07-11  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	Backport from mainline.
+
+	2003-05-21  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR c++/9738
+	* decl.c (duplicate_decls): Re-invoke make_decl_rtl
+	if the old decl had instantiated DECL_RTL.
+	(Based on Richard Henderson 2003-05-13 patch to c-decl.c).
+
+2003-07-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8164
+	* decl.c (duplicate_decls): Avoid mangling names unnecessarily.
+
+2003-07-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10558
+	* parse.y (class_template_ok_as_expr): New variable.
+	(template_arg_1): New non-terminal.
+	(primary): Issue errors about uses of class templates as
+	expressions.
+
+2003-07-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10032
+	* decl.c (cxx_init_decl_processing): With -pedantic, pedwarns are
+	still errors.
+
+	PR c++/10527
+	* error.c (decl_to_string): Do not print default argument
+	expressions.
+
+2003-07-10  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10849
+	* decl2.c (handle_class_head_apparent_template): New function.
+	* cp-tree.h (handle_class_head_apparent_template): Add declaration.
+	* parse.y (class_head_defn): Use it.
+	* search.c (type_access_control): Revert my 2003-05-25 change.
+
 2003-07-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11236
+	* cvt.c (convert_to_void): Treat an overloaded function like
+	"((void) 0)" after issuing a diagnostic.
 
 	PR c++/11345
 	* search.c (lookup_base_r): Remove is_non_public and
