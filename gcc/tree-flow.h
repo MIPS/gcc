@@ -635,7 +635,7 @@ extern void propagate_tree_value (tree *, tree);
 extern void replace_exp (use_operand_p, tree);
 extern bool may_propagate_copy (tree, tree);
 extern bool may_propagate_copy_into_asm (tree);
-extern void execute_copy_prop (void);
+extern void execute_copy_prop (bool);
 
 /* Description of number of iterations of a loop.  All the expressions inside
    the structure can be evaluated at the end of the loop's preheader

@@ -838,7 +838,11 @@ Replace SSA temporaries with better names in copies.
 
 ftree-copy-prop
 Common Report Var(flag_tree_copy_prop)
-Enable expression propagation and simplification on trees
+Enable copy propagation on trees
+
+ftree-store-copy-prop
+Common Report Var(flag_tree_store_copy_prop)
+Enable copy propagation for stores and loads
 
 ftree-dce
 Common Report Var(flag_tree_dce)

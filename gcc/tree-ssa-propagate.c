@@ -683,20 +683,6 @@ ssa_propagate (ssa_prop_visit_stmt_fn visit_stmt,
 }
 
 
-/* Return the first VUSE or V_MAY_DEF operand for STMT.  */
-
-tree
-first_vuse (tree stmt)
-{
-  if (NUM_VUSES (STMT_VUSE_OPS (stmt)) > 0)
-    return VUSE_OP (STMT_VUSE_OPS (stmt), 0);
-  else if (NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) > 0)
-    return V_MAY_DEF_OP (STMT_V_MAY_DEF_OPS (stmt), 0);
-  else
-    gcc_unreachable ();
-}
-
-
 /* Return the first V_MAY_DEF or V_MUST_DEF operand for STMT.  */
 
 tree
@@ -760,6 +746,30 @@ stmt_makes_single_store (tree stmt)
   return (!TREE_THIS_VOLATILE (lhs)
           && (DECL_P (lhs)
 	      || TREE_CODE_CLASS (TREE_CODE (lhs)) == tcc_reference));
+}
+
+
+/* If STMT makes a single memory load and all the virtual use operands
+   have the same value in array VALUES, return it.  Otherwise, return
+   NULL.  */
+
+prop_value_t *
+get_value_loaded_by (tree stmt, prop_value_t *values)
+{
+  ssa_op_iter i;
+  tree vuse;
+  prop_value_t *prev_val = NULL;
+  prop_value_t *val = NULL;
+
+  FOR_EACH_SSA_TREE_OPERAND (vuse, stmt, i, SSA_OP_VIRTUAL_USES)
+    {
+      val = &values[SSA_NAME_VERSION (vuse)];
+      if (prev_val && prev_val->value != val->value)
+	return NULL;
+      prev_val = val;
+    }
+
+  return val;
 }
 
 #include "gt-tree-ssa-propagate.h"

@@ -363,7 +363,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_profile);
   NEXT_PASS (pass_sra);
   NEXT_PASS (pass_store_ccp);
-  NEXT_PASS (pass_copy_prop);
+  NEXT_PASS (pass_store_copy_prop);
   NEXT_PASS (pass_fre);
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_dominator);

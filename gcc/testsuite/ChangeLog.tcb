@@ -1,3 +1,7 @@
+2004-10-19  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/execute/20041019-1.c: New test.
+
 2004-10-14  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.dg/tree-ssa/20030711-2.c: Update.

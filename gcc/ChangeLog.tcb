@@ -1,3 +1,61 @@
+2004-10-19  Diego Novillo  <dnovillo@redhat.com>
+
+	* common.opt (-ftree-store-copy-prop): New flag.
+	* opts.c (decode_options): Enable STORE-COPY-PROP at O2.
+	* timevar.def (TV_TREE_STORE_COPY_PROP): Define.
+	* tree-flow.h (execute_copy_prop): Add boolean argument.
+	* tree-optimize.c (init_tree_optimization_passes): Schedule
+	STORE-COPY-PROP after SRA.
+	* tree-pass.h (pass_store_copy_prop): Declare.
+	* tree-ssa-ccp.c (set_lattice_value): Fix typo in comment.
+	(replace_uses_in): Call may_propagate_copy before doing the
+	final propagation.
+	(replace_vuses_in): Call get_value_loaded_by.
+	(ccp_lattice_meet): Do not test for memory reference equality
+	if DO_STORE_CCP is false.
+	(ccp_fold): Call get_value_loaded_by.
+	(visit_assignment): Likewise.
+	Set all the virtual definitions in the statement to the newly
+	computed value.
+	(ccp_visit_stmt): Reformat dump output.
+	(do_ssa_store_ccp): If STORE-CCP is not enabled, run standard
+	CCP.
+	(gate_store_ccp): Return true if either CCP or STORE-CCP are
+	enabled.
+	(pass_store_ccp): Rename dump suffix.
+	* tree-ssa-copy.c (cached_last_copy_of): Declare.
+	(stmt_may_generate_copy): Return false if the name occurs in
+	an abnormal PHI.
+	(copy_chains): Remove.  Update all functions to use COPY_OF
+	instead.
+	(get_copy_of_val): Rename from get_first_copy.  Return a
+	pointer to the COPY_OF slot for VAR.
+	(set_copy_of_val): Rename from set_first_copy_of.
+	Used CACHED_LAST_COPY_OF to determine whether the copy-of
+	chain has changed.
+	(copy_prop_visit_assignment): Do not call may_propagate_copy.
+	In the case of STORE-COPY-PROP set the copy-of value for all
+	the virtual definitions.
+	(copy_prop_visit_stmt): Reformat dump output.
+	(copy_prop_visit_phi_node): Support STORE-COPY-PROP by
+	checking memory references for each argument.
+	Do not allow copies to flow through abnormal edges.
+	(init_copy_prop): Allocate cached_last_copy_of.
+	(fini_copy_prop): Free cached_last_copy_of
+	(execute_copy_prop): Add new boolean argument to determine
+	whether to enable STORE-COPY-PROP.
+	(do_copy_prop): New function.
+	(pass_copy_prop): Call do_copy_prop.
+	(gate_store_copy_prop): New function.
+	(store_copy_prop): New function.
+	(pass_store_copy_prop): Define.
+	* tree-ssa-propagate.c (first_vuse): Remove.
+	(get_value_loaded_by): New function.
+	* tree-ssa-propagate.h (first_vuse): Remove.
+	(get_value_loaded_by): Declare.
+	* doc/invoke.texi (-ftree-store-copy-prop): Document.
+	(-fdump-tree-store_copyprop): Document.
+
 2004-10-15  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa-ccp.c: Document SSA-CCP and STORE-CCP.

@@ -308,7 +308,7 @@ get_default_value (tree var)
       val.lattice_val = VARYING;
     }
   else if (SSA_NAME_VALUE (var)
-      && is_gimple_min_invariant (SSA_NAME_VALUE (var)))
+	   && is_gimple_min_invariant (SSA_NAME_VALUE (var)))
     {
       val.lattice_val = CONSTANT;
       val.value = SSA_NAME_VALUE (var);
@@ -391,7 +391,7 @@ set_lattice_value (tree var, prop_value_t new_val)
      1- If *OLD_VAL and NEW_VAL are the same, return false to
 	inform the caller that this was a non-transition.
 
-     2- If we are doing store-ccp (ie, DOIN_STORE_CCP is true),
+     2- If we are doing store-ccp (i.e., DOING_STORE_CCP is true),
 	allow CONSTANT->UNKNOWN_VAL.  The UNKNOWN_VAL state is a
 	special type of UNDEFINED state which prevents the short
 	circuit evaluation of PHI arguments (see ccp_visit_phi_node
@@ -636,6 +636,9 @@ replace_uses_in (tree stmt, bool *replaced_addresses_p,
 	  && !may_propagate_copy_into_asm (tuse))
 	continue;
 
+      if (!may_propagate_copy (tuse, val))
+	continue;
+
       if (TREE_CODE (val) != SSA_NAME)
 	prop_stats.num_const_prop++;
       else
@@ -728,41 +731,43 @@ replace_vuses_in (tree stmt, bool *replaced_addresses_p,
       /* If STMT is an assignment whose RHS is a single memory load,
 	 see if we are trying to propagate a constant or a GIMPLE
 	 register (case #1 above).  */
-      tree var = first_vuse (stmt);
-      prop_value_t val = prop_value[SSA_NAME_VERSION (var)];
+      prop_value_t *val = get_value_loaded_by (stmt, prop_value);
       tree rhs = TREE_OPERAND (stmt, 1);
 
-      if (val.value
-	  && val.value != var
-	  && (is_gimple_reg (val.value) || is_gimple_min_invariant (val.value))
-	  && simple_cst_equal (rhs, val.mem_ref) == 1)
+      if (val
+	  && val->value
+	  && (is_gimple_reg (val->value)
+	      || is_gimple_min_invariant (val->value))
+	  && simple_cst_equal (rhs, val->mem_ref) == 1)
 
 	{
+	  /* If we are replacing a constant address, inform our
+	     caller.  */
+	  if (TREE_CODE (val->value) != SSA_NAME
+	      && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (stmt, 1)))
+	      && replaced_addresses_p)
+	    *replaced_addresses_p = true;
+
 	  /* We can only perform the substitution if the load is done
 	     from the same memory location as the original store.
 	     Since we already know that there are no intervening
 	     stores between DEF_STMT and STMT, we only need to check
 	     that the RHS of STMT is the same as the memory reference
 	     propagated together with the value.  */
-	  TREE_OPERAND (stmt, 1) = val.value;
+	  TREE_OPERAND (stmt, 1) = val->value;
 
-	  if (TREE_CODE (val.value) != SSA_NAME)
+	  if (TREE_CODE (val->value) != SSA_NAME)
 	    prop_stats.num_const_prop++;
 	  else
 	    prop_stats.num_copy_prop++;
-
-	  /* If we are replacing a constant address, inform our
-	     caller.  */
-	  if (TREE_CODE (val.value) != SSA_NAME
-	      && POINTER_TYPE_P (TREE_TYPE (var))
-	      && replaced_addresses_p)
-	    *replaced_addresses_p = true;
 
 	  /* Since we have replaced the whole RHS of STMT, there
 	     is no point in checking the other VUSEs, as they will
 	     all have the same value.  */
 	  return true;
 	}
+      else
+	return false;
     }
 
   /* Otherwise, the values for every VUSE operand must be other
@@ -1005,7 +1010,7 @@ ccp_lattice_meet (prop_value_t *val1, prop_value_t *val2)
   else if (val1->lattice_val == CONSTANT
 	   && val2->lattice_val == CONSTANT
 	   && simple_cst_equal (val1->value, val2->value) == 1
-	   && ((val1->mem_ref == NULL_TREE && val2->mem_ref == NULL_TREE)
+	   && (!do_store_ccp
 	       || simple_cst_equal (val1->mem_ref, val2->mem_ref) == 1))
     {
       /* Ci M Cj = Ci		if (i == j)
@@ -1172,12 +1177,9 @@ ccp_fold (tree stmt)
   else if (do_store_ccp && stmt_makes_single_load (stmt))
     {
       /* If the RHS is a memory load, see if the VUSEs associated with
-	 it are a valid constant for that memory load.  Since this is
-	 a single load operation, all the VUSE operands will be
-	 associated with the same constant, so we only examine the
-	 first VUSE operand.  */
-      prop_value_t *val = get_value (first_vuse (stmt), true);
-      if (simple_cst_equal (val->mem_ref, rhs) == 1)
+	 it are a valid constant for that memory load.  */
+      prop_value_t *val = get_value_loaded_by (stmt, const_val);
+      if (val && simple_cst_equal (val->mem_ref, rhs) == 1)
 	return val->value;
       else
 	return NULL_TREE;
@@ -1387,17 +1389,11 @@ visit_assignment (tree stmt, tree *output_p)
     {
       /* Same as above, but the RHS is not a gimple register and yet
          has a known VUSE.  If STMT is loading from the same memory
-	 location that created the SSA_NAME for the first VUSE
-	 operand, we can propagate the value on the RHS.
+	 location that created the SSA_NAMEs for the virtual operands,
+	 we can propagate the value on the RHS.  */
+      prop_value_t *nval = get_value_loaded_by (stmt, const_val);
 
-	 Notice that it is enough to check the very first VUSE operand
-	 because (1) we know that STMT is an assignment with a single
-	 memory load on the RHS, and, (2) every VUSE operand for the
-	 RHS will have been created at the same statement, so all the
-	 values will be identical.  */
-      prop_value_t *nval = get_value (first_vuse (stmt), true);
-
-      if (simple_cst_equal (nval->mem_ref, rhs) == 1)
+      if (nval && simple_cst_equal (nval->mem_ref, rhs) == 1)
 	val = *nval;
       else
 	val = evaluate_stmt (stmt);
@@ -1448,9 +1444,12 @@ visit_assignment (tree stmt, tree *output_p)
     }
   else if (do_store_ccp && stmt_makes_single_store (stmt))
     {
-      /* Otherwise, set the first name in the V_MAY_DEF/V_MUST_DEF to
-	 the new constant value and mark the LHS as the memory
+      /* Otherwise, set the names in V_MAY_DEF/V_MUST_DEF operands
+	 to the new constant value and mark the LHS as the memory
 	 reference associated with VAL.  */
+      ssa_op_iter i;
+      tree vdef;
+      bool changed;
 
       /* Stores cannot take on an UNDEFINED value.  */
       if (val.lattice_val == UNDEFINED)
@@ -1459,8 +1458,18 @@ visit_assignment (tree stmt, tree *output_p)
       /* Mark VAL as stored in the LHS of this assignment.  */
       val.mem_ref = lhs;
 
+      /* Set the value of every VDEF to VAL.  */
+      changed = false;
+      FOR_EACH_SSA_TREE_OPERAND (vdef, stmt, i, SSA_OP_VIRTUAL_DEFS)
+	changed |= set_lattice_value (vdef, val);
+      
+      /* Note that for propagation purposes, we are only interested in
+	 visiting statements that load the exact same memory reference
+	 stored here.  Those statements will have the exact same list
+	 of virtual uses, so it is enough to set the output of this
+	 statement to be its first virtual definition.  */
       *output_p = first_vdef (stmt);
-      if (set_lattice_value (*output_p, val))
+      if (changed)
 	{
 	  if (val.lattice_val == VARYING)
 	    retval = SSA_PROP_VARYING;
@@ -1518,8 +1527,8 @@ ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "\nVisiting statement: ");
-      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+      fprintf (dump_file, "\nVisiting statement:\n");
+      print_generic_stmt (dump_file, stmt, dump_flags);
       fprintf (dump_file, "\n");
     }
 
@@ -1608,19 +1617,23 @@ struct tree_opt_pass pass_ccp =
 static void
 do_ssa_store_ccp (void)
 {
-  execute_ssa_ccp (true);
+  /* If STORE-CCP is not enabled, we just run regular CCP.  */
+  execute_ssa_ccp (flag_tree_store_ccp != 0);
 }
 
 static bool
 gate_store_ccp (void)
 {
-  return flag_tree_store_ccp != 0;
+  /* STORE-CCP is enabled only with -ftree-store-ccp, but when
+     -fno-tree-store-ccp is specified, we should run regular CCP.
+     That's why the pass is enabled with either flag.  */
+  return flag_tree_store_ccp != 0 || flag_tree_ccp != 0;
 }
 
 
 struct tree_opt_pass pass_store_ccp = 
 {
-  "storeccp",				/* name */
+  "store_ccp",				/* name */
   gate_store_ccp,			/* gate */
   do_ssa_store_ccp,			/* execute */
   NULL,					/* sub */

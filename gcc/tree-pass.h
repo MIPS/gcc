@@ -163,5 +163,6 @@ extern struct tree_opt_pass pass_fre;
 extern struct tree_opt_pass pass_linear_transform;
 extern struct tree_opt_pass pass_copy_prop;
 extern struct tree_opt_pass pass_store_ccp;
+extern struct tree_opt_pass pass_store_copy_prop;
 
 #endif /* GCC_TREE_PASS_H */
