@@ -1,3 +1,14 @@
+2004-07-06  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkContainerPeer.java
+	(setBounds): Do not validate awtComponent here.
+	* gnu/java/awt/peer/gtk/GtkScrollPanePeer.java
+	(getPreferredSize): New method.
+	* java/awt/ScrollPane.java
+	(ScrollPane): Set default size to 100x100.
+	(addNotify): If child is not a Panel, wrap it with a new Panel.
+	(paramString): Implement.
+
 2004-07-05  Olga Rodimina  <rodimina@redhat.com>
 
 	* javax/swing/JMenu.java:
