@@ -1,3 +1,8 @@
+2002-10-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (cp_finish_decl): Make sure array types are laid out,
+	even if the array bounds are unknown.
+
 2002-09-30  Steve Ellcey  <sje@cup.hp.com>
 
 	* class.c (build_vtbl_initializer): Add cast.
@@ -57,12 +62,12 @@
 	(dfs_unuse_fields): Likewise.
 	* tree.c (pod_type_p): Handle error_mark_node.
 	(zero_init_p): Likewise.
-	* typeck.c (lookup_anon_field): Skip FIELD_DECLs for base 
+	* typeck.c (lookup_anon_field): Skip FIELD_DECLs for base
 	subobjects.
 	* typeck2.c (store_init_value): Remove #if 0'd code.
 	(force_store_init_value): Remove.
 	(process_init_constructor): Use build_zero_init.
-	
+
 2002-09-29  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/7788
@@ -90,7 +95,7 @@
 	even number of bytes when computing the size without virtual
 	bases.
 	* cp/cp-tree.h (abi_version_at_least): New macro.
-	
+
 2002-09-21  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* ChangeLog: Follow spelling conventions.
