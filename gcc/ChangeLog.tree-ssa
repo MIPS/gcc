@@ -1,3 +1,8 @@
+2003-05-20  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-ccp.c (set_rhs): Fix typo in handling of
+	RETURN_EXPR nodes.
+
 2003-05-19  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* tree-alias-common.c (alias_get_name): Handle unnamed variables once

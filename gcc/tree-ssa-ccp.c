@@ -1257,7 +1257,7 @@ set_rhs (stmt, expr)
 	  && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR)
 	TREE_OPERAND (TREE_OPERAND (stmt, 0), 1) = expr;
       else
-	TREE_OPERAND (stmt, 0) == expr;
+	TREE_OPERAND (stmt, 0) = expr;
     }
   else if (code == GOTO_EXPR)
     GOTO_DESTINATION (stmt) = expr;
