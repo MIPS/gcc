@@ -1,3 +1,10 @@
+2004-10-28  Aldy Hernandez  <aldyh@redhat.com>
+
+	* expr.c (emit_group_store): Fix undefine reference to MEM_P.
+	(emit_group_load): Same.
+
+	* function.c (assign_parms): Handle parallels correctly.
+
 2004-10-27  Richard Henderson  <rth@redhat.com>
 
         PR middle-end/18163

@@ -4769,8 +4769,29 @@ assign_parms (tree fndecl)
 	    {
 	      unsigned int regno = REGNO (parmreg);
 
-	      emit_group_store (parmreg, entry_parm, TREE_TYPE (parm),
-				int_size_in_bytes (TREE_TYPE (parm)));
+	      /* For values returned in multiple registers, handle possible
+		 incompatible calls to emit_group_store.
+
+		 For example, the following would be invalid, and would have to
+		 be fixed by the conditional below:
+
+		 emit_group_store ((reg:SF), (parallel:DF))
+		 emit_group_store ((reg:SI), (parallel:DI))
+
+		 An example of this are doubles in e500 v2:
+		   (parallel:DF (expr_list (reg:SI) (const_int 0))
+		                (expr_list (reg:SI) (const_int 4))).  */
+	      if (nominal_mode != passed_mode)
+		{
+		  rtx t = gen_reg_rtx (GET_MODE (entry_parm));
+
+		  emit_group_store (t, entry_parm, NULL_TREE,
+				    GET_MODE_SIZE (GET_MODE (entry_parm)));
+		  convert_move (parmreg, t, 0);
+		}
+	      else
+		emit_group_store (parmreg, entry_parm, TREE_TYPE (parm),
+				  int_size_in_bytes (TREE_TYPE (parm)));
 	      SET_DECL_RTL (parm, parmreg);
 
 	      if (regno >= max_parm_reg)

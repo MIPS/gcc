@@ -1852,7 +1852,7 @@ emit_group_load (rtx dst, rtx orig_src, tree type ATTRIBUTE_UNUSED, int ssize)
     abort ();
 
   if (!SCALAR_INT_MODE_P (m)
-      && !MEM_P (orig_src) && GET_CODE (orig_src) != CONCAT)
+      && GET_CODE (orig_src) != MEM && GET_CODE (orig_src) != CONCAT)
     {
       enum machine_mode imode = int_mode_for_mode (GET_MODE (orig_src));
       if (imode == BLKmode)
@@ -2031,7 +2031,7 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
     abort ();
 
   if (!SCALAR_INT_MODE_P (m)
-      && !MEM_P (orig_dst) && GET_CODE (orig_dst) != CONCAT)
+      && GET_CODE (orig_dst) != MEM && GET_CODE (orig_dst) != CONCAT)
     {
       enum machine_mode imode = int_mode_for_mode (GET_MODE (orig_dst));
       if (imode == BLKmode)
