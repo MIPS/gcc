@@ -1,3 +1,8 @@
+2003-04-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.c (mips_classify_symbol): Add catch-all case for
+	handling local labels when TARGET_ABICALLS.
+
 2003-04-04  Richard Sandiford  <rsandifo@redhat.com>
 
 	* config/mips/mips-protos.h (mips_expand_epilogue): Add an

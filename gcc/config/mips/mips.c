@@ -919,14 +919,19 @@ mips_classify_symbol (x)
       return SYMBOL_GENERAL;
     }
 
-  /* SYMBOL_REF_FLAG is overloaded for mips16 code: it can indicate a
-     string constant or a GP-relative access.  Check for strings here.  */
-  if (TARGET_MIPS16
-      && SYMBOL_REF_FLAG (x)
-      && XSTR (x, 0)[0] == '*'
+  if (XSTR (x, 0)[0] == '*'
       && strncmp (XSTR (x, 0) + 1, LOCAL_LABEL_PREFIX,
 		  sizeof LOCAL_LABEL_PREFIX - 1) == 0)
-    return SYMBOL_CONSTANT_POOL;
+    {
+      /* The symbol is a local label.  For TARGET_MIPS16, SYMBOL_REF_FLAG
+	 will be set if the symbol refers to a string in the current
+	 function's constant pool.  */
+      if (TARGET_MIPS16 && SYMBOL_REF_FLAG (x))
+	return SYMBOL_CONSTANT_POOL;
+
+      if (TARGET_ABICALLS)
+	return SYMBOL_GOT_LOCAL;
+    }
 
   if (TARGET_ABICALLS)
     return (SYMBOL_REF_FLAG (x) ? SYMBOL_GOT_LOCAL : SYMBOL_GOT_GLOBAL);
