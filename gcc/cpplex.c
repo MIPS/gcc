@@ -105,6 +105,7 @@ _cpp_clean_line (cpp_reader *pfile)
   cpp_buffer *buffer;
   const uchar *s;
   uchar c, *d, *p;
+  int nlines = 0;
 
   buffer = pfile->buffer;
   buffer->cur_note = buffer->notes_used = 0;
@@ -139,6 +140,7 @@ _cpp_clean_line (cpp_reader *pfile)
 	      add_line_note (buffer, p - 1, p != d ? ' ': '\\');
 	      d = p - 2;
 	      buffer->next_line = p - 1;
+	      nlines++;
 	    }
 	  else if (c == '?' && s[1] == '?' && _cpp_trigraph_map[s[2]])
 	    {
@@ -170,7 +172,8 @@ _cpp_clean_line (cpp_reader *pfile)
      line numbers correctly!  FIXME! */
   while (d < s)
     *d++ = ' ';
-  /* *d = '\n'; */
+  for (; nlines >= 0;  nlines--)
+    d[-nlines] = '\n';
   /* A sentinel note that should never be processed.  */
   add_line_note (buffer, d + 1, '\n');
   buffer->next_line = s + 1;

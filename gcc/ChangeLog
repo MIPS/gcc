@@ -1,5 +1,10 @@
 2003-08-21  Per Bothner  <pbothner@apple.com>
 
+	* cpplex.c (_cpp_clean_line):  Add extra '\n' into buffer,
+	in case it is re-used.
+
+2003-08-21  Per Bothner  <pbothner@apple.com>
+
 	* cpplib.h (struct cpp_token):  Change type of field line to fileline.
 	(cpp_error_with_line):  Use fileline for appropriate parameter.
 	* cpphash.h (struct cpp_macro):  Change type of field line to fileline.
