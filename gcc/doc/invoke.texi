@@ -285,7 +285,7 @@ in the following sections.
 -freduce-all-givs -fregmove  -frename-registers @gol
 -freorder-blocks -freorder-functions @gol
 -frerun-cse-after-loop  -frerun-loop-opt @gol
--fschedule-insns  -fschedule-insns2 @gol
+-fschedule-insns  -fschedule-insns2 -fschedule-superblocks -fschedule-traces @gol
 -fno-sched-interblock  -fno-sched-spec  -fsched-spec-load @gol
 -fsched-spec-load-dangerous  -fsignaling-nans @gol
 -fsingle-precision-constant  -fssa -fssa-ccp -fssa-dce @gol
@@ -3872,6 +3872,21 @@ Similar to @option{-fschedule-insns}, but requests an additional pass of
 instruction scheduling after register allocation has been done.  This is
 especially useful on machines with a relatively small number of
 registers and where memory load instructions take more than one cycle.
+
+@item -fschedule-superblocks
+@opindex fschedule-superblocks
+Do schedule superblocks in the second scheduler pass.  This allows more of
+motion to be done and should result in faster code than
+@code{-fschedule-insns2}, however number of the motion is speculative and
+without accurate profile it may cause too many of dead computations to happen.
+
+@item -fschedule-traces
+@opindex fschedule-traces
+Same as @code{-fschedule-superblocks} but does imply @code{-ftracer} to perform
+code duplication to enlarge superblock size and disables first crossjumping
+pass.  The programs should be faster but results are even more dependent on the
+quality of profile.  Also the late crossjumping pass has much fewer
+oppurtunities for code unifications, so the programs are significantly larger.
 
 @item -fno-sched-interblock
 @opindex fno-sched-interblock

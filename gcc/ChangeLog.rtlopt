@@ -1,3 +1,30 @@
+Sun Dec 22 18:29:20 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* basic-block.h (inside_basic_block_p, control_flow_insn_p): Declare.
+	* cfgbuild.c (inside_basic_block_p, control_flow_insn_p): Make global.
+	* invoke.texi (-fschedule-traces, -fschedule-superblocks): Document
+	* flags.h (flag_superblock_scheduling, flag_trace_scheduling): Declare.
+	* haifa-sched.c (unlink_other_notes): Unlink basic block notes.
+	* params.def (tracer-min-branch-probability-feedback): Fix default value.
+	* schedule-ebbs.c (params.h, profile.h): Include.
+	(schedule_ebb): Return last basic block in the sequence.
+	(fix_basic_block_boundaries, add_missing_blocks): New static functions.
+	(schedule_ebbs): Use TRACER_MIN_BRANCH_PROBABILITY to discover traces;
+	Use CFG for profile information.
+	* flags.c (flag_superblock_scheduling, flag_trace_scheduling): New global
+	variables.
+	(lang_independent_options): Add -fschedule-superblocks, -fschedule-traces.
+	(rest_of_compilation): Suppress crossjumping when trace scheduling is on;
+	invoke superblock scheduling when asked for.
+	(parse_options_and_default_flags):  Default to superblock scheduling for -O2
+	and trace scheduling for -O3.
+	(process_options): Imply tracer and superblock scheduling by trace scheduling.
+	Imply 2nd scheduler pass by superblock scheduling.
+
+	* params.def (tracer-min-branch-probability-feedback): Fix default.
+
+	* final.c (compute_alignments): Use profile to avoid code bloat.
+
 2002-12-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgloop.h: Spellcheck.

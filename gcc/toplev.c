@@ -779,6 +779,8 @@ int flag_pedantic_errors = 0;
    global_alloc.  */
 
 int flag_schedule_insns = 0;
+int flag_superblock_scheduling = 0;
+int flag_trace_scheduling = 0;
 int flag_schedule_insns_after_reload = 0;
 
 /* The following flags have effect only for scheduling before register
@@ -1113,6 +1115,10 @@ static const lang_independent_options f_options[] =
    N_("Delete useless null pointer checks") },
   {"schedule-insns", &flag_schedule_insns, 1,
    N_("Reschedule instructions before register allocation") },
+  {"schedule-superblocks", &flag_superblock_scheduling, 1,
+   N_("When scheduling, do superblock sheduling") },
+  {"schedule-traces", &flag_trace_scheduling, 1,
+   N_("When scheduling, do trace sheduling") },
   {"schedule-insns2", &flag_schedule_insns_after_reload, 1,
    N_("Reschedule instructions after register allocation") },
   {"sched-interblock",&flag_schedule_interblock, 1,
@@ -3505,7 +3511,8 @@ rest_of_compilation (decl)
     {
       life_analysis (insns, rtl_dump_file, PROP_FINAL);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
-		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
+		   | (flag_crossjumping && !flag_trace_scheduling
+		      ? CLEANUP_CROSSJUMP : 0));
 
       /* This is kind of a heuristic.  We need to run combine_stack_adjustments
          even for machines with possibly nonzero RETURN_POPS_ARGS
@@ -3577,9 +3584,19 @@ rest_of_compilation (decl)
 
       split_all_insns (1);
 
-      schedule_insns (rtl_dump_file);
+      if (flag_superblock_scheduling)
+	{
+	  schedule_ebbs (rtl_dump_file);
+	  /* No liveness updating code yet, but it should be easy to do  */
+	  count_or_remove_death_notes (NULL, 1);
+	  life_analysis (get_insns (), rtl_dump_file, PROP_FINAL);
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
+		       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
+	}
+      else
+	schedule_insns (rtl_dump_file);
 
-      close_dump_file (DFI_sched2, print_rtl_with_bb, insns);
+      close_dump_file (DFI_sched2, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_SCHED2);
 
       ggc_collect ();
@@ -4976,6 +4993,7 @@ parse_options_and_default_flags (argc, argv)
 #ifdef INSN_SCHEDULING
       flag_schedule_insns = 1;
       flag_schedule_insns_after_reload = 1;
+      flag_superblock_scheduling = 1;
 #endif
       flag_regmove = 1;
       flag_strict_aliasing = 1;
@@ -4992,6 +5010,9 @@ parse_options_and_default_flags (argc, argv)
       flag_unswitch_loops = 1;
       flag_peel_loops = 1;
       flag_unroll_loops = 1;
+#ifdef INSN_SCHEDULING
+      flag_trace_scheduling = 1;
+#endif
     }
 
   if (optimize < 2 || optimize_size)
@@ -5183,6 +5204,10 @@ process_options ()
     flag_asynchronous_unwind_tables = 1;
   if (flag_asynchronous_unwind_tables)
     flag_unwind_tables = 1;
+  if (flag_trace_scheduling)
+    flag_tracer = flag_superblock_scheduling = 1;
+  if (flag_superblock_scheduling)
+    flag_schedule_insns_after_reload = 1;
 
   /* Warn about options that are not supported on this machine.  */
 #ifndef INSN_SCHEDULING
