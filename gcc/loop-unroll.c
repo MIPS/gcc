@@ -901,10 +901,19 @@ decide_peel_simple (loops, loop, flags)
     loop->simple = simple_loop_p (loops, loop, &loop->desc);
 
   /* Check number of iterations.  */
-  if (loop->simple &&loop->desc.const_iter)
+  if (loop->simple && loop->desc.const_iter)
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, ";; Loop iterates constant times\n");
+      return;
+    }
+
+  /* Do not simply peel loops with branches inside -- it increases number
+     of mispredicts.  */
+  if (loop->desc.n_branches > 1)
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not peeling, contains branches\n");
       return;
     }
 
@@ -1034,6 +1043,15 @@ decide_unroll_stupid (loops, loop, flags)
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, ";; The loop is simple\n");
+      return;
+    }
+
+  /* Do not unroll loops with branches inside -- it increases number
+     of mispredicts.  */
+  if (loop->desc.n_branches > 1)
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unrolling, contains branches\n");
       return;
     }
 

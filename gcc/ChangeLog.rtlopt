@@ -1,3 +1,10 @@
+2002-11-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloopanal.c (simple_loop_p): Count desc->n_branches.
+	* cfgloop.h (struct loop_desc): Add n_branches field.
+	* loop-unroll.c (decide_peel_simple, decide_unroll_stupid): Do not
+	unroll/peel loops containing branches.
+
 Wed Nov 27 17:51:37 CET 2002  Josef Zlomek
 
 	* bb-reorder.c (copy_bb_p): New debug message.

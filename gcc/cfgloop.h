@@ -53,6 +53,7 @@ struct loop_desc
   int neg;		/* Set to 1 if loop ends when condition is satisfied.  */
   edge out_edge;	/* The exit edge.  */
   edge in_edge;		/* And the other one.  */
+  int n_branches;	/* Number of branches inside the loop.  */
 };
 
 /* Structure to hold information for each natural loop.  */

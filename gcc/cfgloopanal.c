@@ -740,6 +740,7 @@ simple_loop_p (loops, loop, desc)
   regset invariant_regs;
   regset_head invariant_regs_head;
   rtx *single_set_regs;
+  int n_branches;
   
   body = get_loop_body (loop);
 
@@ -749,6 +750,7 @@ simple_loop_p (loops, loop, desc)
   blocks_invariant_registers (body, loop->num_nodes, invariant_regs);
   blocks_single_set_registers (body, loop->num_nodes, single_set_regs);
 
+  n_branches = 0;
   for (i = 0; i < loop->num_nodes; i++)
     {
       for (e = body[i]->succ; e; e = e->succ_next)
@@ -764,7 +766,11 @@ simple_loop_p (loops, loop, desc)
 	      continue;
 	    *desc = act;
 	  }
+
+      if (body[i]->succ && body[i]->succ->succ_next)
+	n_branches++;
     }
+  desc->n_branches = n_branches;
 
   if (rtl_dump_file && any)
     {
@@ -797,6 +803,10 @@ simple_loop_p (loops, loop, desc)
       if (desc->neg)
 	fprintf (rtl_dump_file, "(negated)");
       fprintf (rtl_dump_file, "%s\n", GET_RTX_NAME (desc->cond));
+
+      fprintf (rtl_dump_file, ";  Number of branches:");
+      fprintf (rtl_dump_file, "%d\n", desc->n_branches);
+
       fputc ('\n', rtl_dump_file);
     }
 
