@@ -1703,6 +1703,8 @@ GNU Compiler Collection on your machine.
 @item
 @uref{#vax-dec-ultrix,,vax-dec-ultrix}
 @item
+@uref{#*-*-vxworks*,,*-*-vxworks*}
+@item
 @uref{#xtensa-*-elf,,xtensa-*-elf}
 @item
 @uref{#xtensa-*-linux*,,xtensa-*-linux*}
@@ -3195,6 +3197,41 @@ On a System V release 4 system, make sure @file{/usr/bin} precedes
 @heading @anchor{vax-dec-ultrix}vax-dec-ultrix
 Don't try compiling with VAX C (@code{vcc}).  It produces incorrect code
 in some cases (for example, when @code{alloca} is used).
+
+@html
+<hr />
+@end html
+@heading @anchor{*-*-vxworks*}*-*-vxworks*
+Support for VxWorks is in flux.  At present GCC supports @emph{only} the
+very recent VxWorks 5.5 (aka Tornado 2.2) release, and only on PowerPC.
+We welcome patches for other architectures supported by VxWorks 5.5.
+Support for VxWorks AE would also be welcome; we believe this is merely
+a matter of writing an appropriate ``configlette'' (see below).  We are
+not interested in supporting older, a.out or COFF-based, versions of
+VxWorks in GCC 3.
+
+VxWorks comes with an older version of GCC installed in
+@file{@var{$WIND_BASE}/host}; we recommend you do not overwrite it.
+Choose an installation @var{prefix} entirely outside @var{$WIND_BASE}.
+Before running @command{configure}, create the directories @file{@var{prefix}}
+and @file{@var{prefix}/bin}.  Link or copy the appropriate assembler,
+linker, etc. into @file{@var{prefix}/bin}, and set your @var{PATH} to
+include that directory while running both @command{configure} and
+@command{make}.
+
+You must give @command{configure} the
+@option{--with-headers=@var{$WIND_BASE}/target/h} switch so that it can
+find the VxWorks system headers.  Since VxWorks is a cross compilation
+target only, you must also specify @option{--target=@var{target}}.
+@command{configure} will attempt to create the directory
+@file{@var{prefix}/@var{target}/sys-include} and copy files into it;
+make sure the user running @command{configure} has sufficient privilege
+to do so.
+
+GCC's exception handling runtime requires a special ``configlette''
+module, @file{contrib/gthr_supp_vxw_5x.c}.  Follow the instructions in
+that file to add the module to your kernel build.  (Future versions of
+VxWorks will incorporate this module.)  
 
 @html
 <hr />

@@ -1,5 +1,8 @@
 2002-11-09  Zack Weinberg  <zack@codesourcery.com>
 
+	* doc/install.texi: Add *-*-vxworks* specific installation
+	instructions.
+
 	* config/vxlib.c: Rewrite using generation numbers to identify
 	valid TSD keys.
 
