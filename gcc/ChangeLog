@@ -459,23 +459,6 @@
 	* Makefile.in (install-libgcc, install-multilib): Pass
 	mkinstalldirs var to libgcc.mk.
 
-
-2004-02-28  Andrew Pinski  <pinskia@physics.uc.edu>
-
-	* config/darwin.h (machopic_finish): Output stub even if the
-	symbol is already defined.
-
-2004-02-27  Dale Johannesen  <dalej@apple.com>
-
-        * config/darwin.c (machopic_output_possible_stub_label):  Remove.
-        config/darwin-protos.h:  Ditto.
-        config/darwin.h:  Remove call to it.
-
-2004-02-27  Dale Johannesen  <dalej@apple.com>
-
-	* combine.c (distribute_notes): Do not place a REG_DEAD note
-	when value is both set and used.
-
 2004-03-01  Mark Mitchell  <mark@codesourcery.com>
 
 	PR bootstrap/14356
