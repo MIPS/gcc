@@ -1,3 +1,9 @@
+2004-07-12  Daniel Jacobowitz  <dan@debian.org>
+
+	* config.gcc (i[34567]86-*-solaris2*): Handle Solaris 2.10.
+	* config/i386/sol2-10.h: New file.
+	* config/i386/sol2.h (ASM_QUAD): Don't undefine for biarch targets.
+
 2004-07-10  Daniel Jacobowitz  <dan@debian.org>
 
 	* config/i386/i386.c (override_options): Pick a 64-bit CPU

@@ -1,5 +1,6 @@
 /* Target definitions for GCC for Intel 80386 running Solaris 2
-   Copyright (C) 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
+   2004
    Free Software Foundation, Inc.
    Contributed by Fred Fish (fnf@cygnus.com).
 
@@ -62,8 +63,10 @@ Boston, MA 02111-1307, USA.  */
 #undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX "."
 
-/* The Solaris assembler does not support .quad.  Do not use it.  */
+/* The 32-bit Solaris assembler does not support .quad.  Do not use it.  */
+#ifndef TARGET_BI_ARCH
 #undef ASM_QUAD
+#endif
 
 /* The Solaris assembler wants a .local for non-exported aliases.  */
 #define ASM_OUTPUT_DEF_FROM_DECLS(FILE, DECL, TARGET)	\
