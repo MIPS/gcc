@@ -1,3 +1,415 @@
+Tue Aug 29 15:17:54 EDT 2000  John Wehle  (john@feith.com)
+
+	* loop.c (prescan_loop): Don't check unknown_address_altered
+	when deciding if insert_loop_mem is safe.  Add BLKmode MEMs
+	to loop_store_mems as necessary.
+	(loop_invariant_p): Don't check unknown_address_altered
+	or unknown_constant_address_altered.
+
+2000-08-29  J. David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* vax.md (sltu, sgeu): Delete sltu and sgeu insn patterns.
+
+2000-08-29  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpperror.c (print_file_and_line): If line is (unsigned int)-1,
+	print just the filename.
+	* cpplex.c (_cpp_run_directive): Add additional argument, the
+	name to give the synthetic buffer.  This defaults to
+	translated "<command line>".
+	* cpplib.c (cpp_define, cpp_undef, cpp_assert, cpp_unassert):
+	Adjust to match.
+	(_cpp_define_builtin): New function.
+	* cppinit.c (initialize_builtins): Use _cpp_define_builtin.
+	* cpphash.h: Update prototypes.
+
+	* tradcpp.c (main): Process -D and -U simultaneously, in the
+	order they appeared on the command line.
+
+2000-08-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* c-decl.c (define_label): Call warning_with_file_and_line and
+	error_with_file_and_line instead of plain warning or error.
+
+	* c-parse.in (label): Use save_filename/save_lineno to ensure
+	correct values for calls to define_label.
+
+2000-08-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* calls.c (expand_call): Don't create a VAR_DECL just to throw it
+	away.
+	* expr.c (expand_expr, case TARGET_EXPR): Don't call
+	mark_addressable.
+	* tree.h (get_file_function_name): Remove two duplicate
+	declarations.
+
+2000-08-28  Kazu Hirata  <kazu@hxi.com>
+
+	* tree.c: Fix formatting.
+
+	* xcoffout.c: Fix formatting.
+
+2000-08-28  Jason Merrill  <jason@redhat.com>
+
+	* dwarf2out.c (attr_checksum): Also ignore DW_AT_producer.
+
+2000-08-28  Daniel Berlin  <dberlin@redhat.com>
+
+	* dwarf2out.c (dwarf2out_finish): Don't bother calling
+	break_out_includes if it won't do anything.
+
+2000-08-28  Richard Henderson  <rth@cygnus.com>
+
+	* reload.c (push_secondary_reload): Revert 2000-08-16 change.
+	(find_reloads): Likewise.
+	* config/alpha/alpha.md (reload_inqi): Revert 2000-08-11 change.
+	(reload_inhi): Likewise.
+
+2000-08-28  Richard Henderson  <rth@cygnus.com>
+
+	* config/i386/i386.c: Don't error on EXTRA_CONSTRAINT defined.
+	(call_insn_operand): Don't expect a surrounding mem.
+	(constant_call_address_operand): Likewise.
+	* config/i386/i386.h (PREDICATE_CODES): Update.
+	* config/i386/i386.md (call patterns): Move the match_operand
+	for the call destination inside the mem.
+
+2000-08-28  Richard Henderson  <rth@cygnus.com>
+
+	* local-alloc.c (requires_inout): Don't use reserved range for
+	EXTRA_CONSTRAINTS; use anything not matched by REG_CLASS_FROM_LETTER.
+	* recog.c (asm_operand_ok): Likewise.
+	(preprocess_constraints, constrain_operands): Likewise.
+	* regclass.c (record_reg_classes): Likewise.
+	* reload.c (find_reloads): Likewise.
+	* reload1.c (maybe_fix_stack_asms): Likewise.
+	(reload_cse_simplify_operands): Likewise.
+	* stmt.c (expand_asm_operands): Likewise.
+
+	* md.texi: Update constraints documentation.
+	* tm.texi (EXTRA_CONSTRAINT): Update.
+
+2000-08-28  Daniel Berlin  <dberlin@redhat.com>
+
+	* dwarf2out.c (DIE_LABEL_PREFIX): Remove leading "__".
+	(print_die): If we don't know the offset of the
+	target die, try the symbol.  Add a trailing newline.
+	(reverse_all_dies): New fn.
+	(dwarf2out_finish): Call it.
+	(break_out_includes): Reorganize for clarity.
+	(add_sibling_attributes): Don't call reverse_die_lists.
+	(output_comp_unit): Rename from output_comdat_comp_unit.  Use for
+	primary CU, too.
+	* flags.h: Add flag_eliminate_dwarf2_dups.
+	* toplev.c (f_options): Support -feliminate-dwarf2-dups.
+
+2000-08-28  Jason Merrill  <jason@redhat.com>
+
+	* dwarf2.h (DW_TAG_GNU_BINCL, DW_TAG_GNU_EINCL): New tags.
+	* dwarf2out.c: #include "md5.h".
+	(DIE_LABEL_PREFIX): New macro.
+	(dw_val_struct): Add 'external' flag to val_die_ref.
+	(add_AT_die_ref, AT_ref): Adjust.
+	(AT_ref_external, set_AT_ref_external): New fns.
+	(build_abbrev_table): Call set_AT_ref_external.
+	(value_format): Call AT_ref_external.
+	(die_struct): Add die_symbol field.
+	(new_die): Clear it.
+	(dwarf_tag_name): Handle BINCL/EINCL.
+	(dwarf2out_start_source_file): Add BINCL DIE.
+	(dwarf2out_end_source_file): Add EINCL DIE.
+	(push_new_compile_unit, pop_compile_unit, clear_die_sizes): New fns.
+	(loc_checksum, attr_checksum, die_checksum): New fns.
+	(is_type_die, is_comdat_die, is_symbol_die): New fns.
+	(compute_section_prefix, assign_symbol_names): New fns.
+	(gen_internal_sym, output_die_symbol, output_symbolic_ref): New fns.
+	(output_die): Call output_die_symbol and AT_ref_external.
+	(output_comdat_comp_unit): New fn, split out from...
+	(dwarf2out_finish): ...here.  Also call add_sibling_attributes for 
+	secondary CUs.
+	(output_pubnames, output_aranges): Abort if we see entries from
+	secondary CUs.
+	* toplev.h: Declare file_name_nondirectory.
+	* toplev.c (file_name_nondirectory): New fn, moved from C++ frontend.
+	(rest_of_type_compilation): Call dwarf2out_decl if at toplevel.
+	(debug_start_source_file): Call dwarf2out_start_source_file
+	regardless of debug verbosity.
+	(debug_end_source_file): Similarly.
+	* tree.h: Declare clean_symbol_name.
+	* tree.c (clean_symbol_name): Split out from...
+	(get_file_function_name_long): ...here.
+
+	* dwarf2out.c (new_loc_descr): Use calloc.
+	(splice_child_die): Remove the die from the right parent.
+	(gen_struct_or_union_die): Don't add AT_name to a specification DIE.
+
+Mon Aug 28 19:02:13 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* toplev.c (decode_g_option): Don't give warning for unknown -g
+	option; return 0 instead.
+	(main): If -g option is not recognized by front end or
+	language-independent code, give warning.
+
+2000-08-28  Greg McGary  <greg@mcgary.org>
+
+	* config/i386/i386-protos.h (ix86_expand_compare): Add extern decl.
+	* config/i386/i386.c (ix86_expand_compare): Remove `static'.
+	* config/i386/i386.md (trap, conditional_trap): New insn & expand.
+
+2000-08-27  Greg McGary  <greg@mcgary.org>
+
+	* cpplex.c (parse_string): Don't look for backslash
+	before first char in `namebuf'.
+	* loop.c (strength_reduce): Skip NOTEs.
+
+2000-08-27  Jason Merrill  <jason@redhat.com>
+
+	* c-decl.c (duplicate_decls): Don't set TREE_STATIC or clear
+	DECL_EXTERNAL on a local extern.  Don't set DECL_IGNORED_P or
+	TREE_ASM_WRITTEN, either.
+	(finish_decl): Adjust.
+
+2000-08-28  Philipp Thomas  <pthomas@suse.de>
+
+	* ABOUT-GCC-NLS: Remove gettext patches from Paul Eggert as
+	they have been incorporated into the gettext CVS. Change the text to
+	reflect the current status of NLS. Add instructions for accessing
+	the gettext CVS and add the patch from Martin v. Loewis.
+
+2000-08-27  Geoff Keating  <geoffk@cygnus.com>
+
+	* config/rs6000/rs6000.md (movdi_internal64+5): Make SUBREG-safe
+	by using gen_lowpart_common.
+	(movdi_internal64+6): Likewise.
+
+2000-08-26  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tm.texi (FINI_SECTION_ASM_OP, CRT_CALL_STATIC_FUNCTION):
+	Document.
+
+	* config/mn10300/mn10300.h (DBX_REGISTER_NUMBER): Remap register
+	numbers to the ranges used by GDB.
+
+2000-08-25  Richard Henderson  <rth@cygnus.com>
+
+	* config/ia64/ia64.h (struct machine_function): Add n_varargs.
+	* config/ia64/ia64.c (ia64_compute_frame_size): Use it.
+	(ia64_expand_prologue): Likewise.
+	(ia64_setup_incoming_varargs): Set it.  Properly skip the current
+	argument for stdargs.
+
+2000-08-25  Jason Merrill  <jason@redhat.com>
+
+	* integrate.c (expand_inline_function): Pull out the original decl.
+
+2000-08-25  Jim Wilson  <wilson@cygnus.com>
+
+	* cse.c (cse_insn): Don't pass label subtraction to force_const_mem.
+
+	* function.c (gen_mem_addressof): Clear MEM_ALIAS_SET if no decl.
+
+2000-08-25  Greg McGary  <greg@mcgary.org>
+
+	* flow.c (dump_edge_info): Use ARRAY_SIZE.
+	* config/alpha/alpha.c (alpha_expand_block_move): Likewise.
+
+2000-08-25  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.h (STRUCT_VALUE): Define to 0, not NULL.
+
+Fri Aug 25 12:52:49 EDT 2000  John Wehle  (john@feith.com)
+
+	* i386.c (ix86_find_base_term): New.
+	* i386-protos.h (ix86_find_base_term): Prototype.
+	* i386.h (FIND_BASE_TERM): Define.
+	* alias.c (find_base_term): Use it.
+	* tm.texi (FIND_BASE_TERM): Document it.
+
+	* alias.c (true_dependence, write_dependence_p): Unchanging
+	memory can't conflict with non-unchanging memory.
+
+	* alias.c (memrefs_conflict_p): A BLKmode reference
+	to a symbol (or CONST_INT address) always conflicts
+	with a reference to another symbol.
+
+2000-08-25  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* c-common.c (time_char_table): Don't allow width and flags with
+	"z" format.
+
+2000-08-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_expand_branch): Treat GE and GEU the same
+	way as LT and LTU when the second operand has 0 in low word.
+
+2000-08-26  Michael Hayes  <mhayes@cygnus.com>
+
+	* basic-block.h (struct loop): Rename `exits' field to
+	`exit_edges'.  Add `entry_edges' and `num_entries' fields.
+
+	* flow.c (flow_loop_exit_edges_find): Rename from flow_loop_exits_find.
+	(flow_loop_entry_edges_find): Add.
+	(flow_edge_list_print): Rename from flow_exits_print.
+	(flow_loops_find): Call flow_loop_entry_edges_find.
+	(flow_loop_dump): Dump entry_edges list.
+	(flow_loops_free): Free entry_edges.
+	
+2000-08-26  Michael Hayes  <mhayes@cygnus.com>
+	
+	* loop.c (loop_dump_aux, debug_loop): New functions.
+	(LOOP_BLOCK_NUM_1, LOOP_BLOCK_NUM, LOOP_INSN_UID): New macros.
+
+	* flow.c (flow_loops_dump): Add callback parameter.
+	(flow_loop_dump): Add callback parameter and call it.  Move
+	loop note debugging code to loop_dump_aux.
+
+	* basic-block.h (flow_loop_dump): Add callback parameter
+	(flow_loops_dump): Likewise.
+
+	* toplev.c (rest_of_compilation): Add NULL callback function pointer
+	to call to flow_loops_dump.
+	
+2000-08-26  Michael Hayes  <mhayes@cygnus.com>
+
+	* loop.c (count_loop_regs_set): Replace start and end arguments
+	with loop argument.  All callers udated.
+	
+2000-08-26  Michael Hayes  <mhayes@cygnus.com>
+	
+	* loop.c (constant_high_bytes): Delete.
+
+2000-08-26  Michael Hayes  <mhayes@cygnus.com>
+
+	* loop.c (prescan_loop): Move checks for NOTE_INSN_LOOP_CONT
+	and NOTE_INSN_LOOP_VTOP to...
+	(find_and_verify_loops) ...here.
+
+Fri Aug 25 04:21:13 2000  Alexandre Oliva  <aoliva@redhat.com>
+
+	* crtstuff.c (CRT_CALL_STATIC_FUNCTION): Define default.
+	(fini_dummy, init_dummy): Use it.
+
+Fri 25-Aug-2000 08:03:27 BST  Neil Booth  <NeilB@earthling.net>
+
+	* cpplex.c (is_macro_disabled): Caller has already checked
+	that we're not a preprocessed file.
+
+2000-08-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* Makefile.in (C_AND_OBJC_OBJS): Remove c-iterate.o.
+	(c-iterate.o): Remove target.
+	* gcc/c-common.h (enum rid): Remove RID_ITERATOR.
+	* gcc/c-decl.c (init_decl_processing): Remove call to init_iterators.
+	(finish_decl): Don't handle iterators.
+	(grokdeclarator): Likewise.
+	* gcc/c-parse.gperf: Remove __iterator and __iterator__ keywords.
+	* gcc/c-gperf.h: Regenerated.
+	* gcc/c-iterate.c: Removed.
+	* gcc/c-lex.c (init_lex): Don't handle iterators.
+	* gcc/c-parse.in (primary): Remove pop_iterator_stack call.
+	(compstmt_primary_start): Remove push_iterator_stack call.
+	(stmt): Don't allow iterator statements.  Replace iterator_expand
+	with expand_expr_stmt.
+	(all_iter_stmt): Remove.
+	(all_iter_stmt_simple): Likewise.
+	(all_iter_stmt_with_decl): Likewise.
+	* gcc/c-tree.h (ITERATOR_P): Remove.
+	(ITERATOR_BOUND_P): Likewise.
+	(init_iterators): Remove declaration.
+	(iterator_expand): Likewise.
+	(iterator_for_loop_start): Likewise.
+	(iterator_for_loop_end): Likewise.
+	(iterator_for_loop_record): Likewise.
+	(push_iterator_stack): Likewise.
+	(pop_iterator_stack): Likewise.
+	* gcc/c-typeck.c (decl_constant_value): Don't check ITERATOR_P.
+	(readonly_warning): Likewise.
+	* gcc/tree.h (ITERATOR_BOUND_P): Don't mention it.
+		
+2000-08-24  Jim Wilson  <wilson@cygnus.com>
+
+	* c-common.c (decl_attributes, case A_ALIGN): Revert last change.
+	Copy type in a TYPE_DECL, just like pushdecl does.
+
+2000-08-24  Richard Henderson  <rth@cygnus.com>
+
+	* toplev.c (main): Enable flag_reorder_blocks at -O2.
+
+2000-08-24  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* ggc-page.c (alloc_page): If HAVE_MMAP_ANYWHERE and we're  
+	asked for one page, allocate GGC_QUIRE_SIZE of them and put
+	the extras on the free list.
+	(release_pages): Clean up.
+	(ggc_set_mark): Don't adjust G.allocated here...
+	(sweep_pages): ... do it here.
+
+2000-08-24  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cppfiles.c (read_include_file): Rearrange initializations.
+
+2000-08-24  Richard Henderson  <rth@cygnus.com>
+
+	* stmt.c (expand_asm_operands): Treat EXTRA_CONSTRAINT like g or X.
+
+	* config/ia64/ia64-protos.h: Update.
+	* config/ia64/ia64.c (gr_register_operand): New.
+	(fr_register_operand, grfr_register_operand): New.
+	(gr_nonimmediate_operand, grfr_nonimmediate_operand): New.
+	(grfr_reg_or_8bit_operand): New.
+	(gr_reg_or_0_operand): Rename from reg_or_0_operand and 
+	use gr_register_operand.
+	(gr_reg_or_5bit_operand, gr_reg_or_6bit_operand): Likewise.
+	(gr_reg_or_8bit_operand, gr_reg_or_8bit_adjusted_operand): Likewise.
+	(gr_reg_or_8bit_and_adjusted_operand): Likewise.
+	(gr_reg_or_14bit_operand, gr_reg_or_22bit_operand): Likewise.
+	(fr_reg_or_fp01_operand): Likewise.
+	(not_postinc_memory_operand): New.
+	(ia64_split_timode): Remove unused variables.
+	(rtx_needs_barrier): Check arguments to cmpxchg.
+	(builtin_description): Remove.
+	(bdesc_2argsi, bdesc_2argdi): Remove.
+	(ia64_init_builtins): Declare all builtins directly.
+	(ia64_expand_fetch_and_op): Rewrite to be called from
+	ia64_expand_builtin directly.  Use expand_binop and co.
+	(ia64_expand_op_and_fetch): Likewise.
+	(ia64_expand_compare_and_swap): Likewise.
+	(ia64_expand_binop_builtin): Remove.
+	(ia64_expand_lock_test_and_set): New.
+	(ia64_expand_lock_release): New.
+	(ia64_expand_builtin): Use them.
+	* config/ia64/ia64.h (CONSTRAINT_OK_FOR_S): New.
+	(EXTRA_CONSTRAINT): Use it.
+	(PREDICATE_CODES): Update.
+	* config/ia64/ia64.md (*): Use gr_register_operand and co.
+	(mf): Indicate that we set memory as well as use it.
+	(fetchadd_acq_si): Show memory being modified as well.
+	(fetchadd_acq_di, cmpxchg_acq_si, cmpxchg_acq_di): Likewise. 
+	(val_compare_and_swap_si, val_compare_and_swap_di): Remove.
+	(lock_test_and_set_si, lock_test_and_set_di): Remove.
+	(fetch_and_add_si, fetch_and_sub_si, fetch_and_or_si): Remove.
+	(fetch_and_and_si, fetch_and_xor_si, fetch_and_nand_si): Remove.
+	(fetch_and_add_di, fetch_and_sub_di, fetch_and_or_di): Remove.
+	(fetch_and_and_di, fetch_and_xor_di, fetch_and_nand_di): Remove.
+	(add_and_fetch_di, sub_and_fetch_di, or_and_fetch_di): Remove.
+	(and_and_fetch_di, xor_and_fetch_di, nand_and_fetch_di): Remove.
+	(add_and_fetch_si, sub_and_fetch_si, or_and_fetch_si): Remove.
+	(and_and_fetch_si, xor_and_fetch_si, nand_and_fetch_si): Remove.
+	* config/ia64/ia64intrin.h (*): Cast result to the appropriate
+	return type.  Pretty print definitions.
+
+2000-08-24  Jim Wilson  <wilson@cygnus.com>
+
+	* config/ia64/ia64.md (movdi): Don't call gen_movdi_symbolic if
+	we have a SYMBOL_REF with SYMBOL_REF_FLAG set.
+
+2000-08-24  Jason Merrill  <jason@redhat.com>
+
+	* dwarf2out.c (AT_flag, AT_int, AT_unsigned, AT_string, AT_ref,
+	AT_loc, AT_addr, AT_lbl): Abort on unsuitable input.
+	(get_AT_low_pc, get_AT_hi_pc, get_AT_string, get_AT_flag, 
+	get_AT_unsigned, get_AT_ref): Don't call them if get_AT fails.
+
 2000-08-24  Greg McGary  <greg@mcgary.org>
 
 	* optabs.c (init_optabs): Initialize fixtab, fixtrunctab, floattab,

@@ -42,15 +42,6 @@ Boston, MA 02111-1307, USA. */
 #include "basic-block.h"
 #include "ggc.h"
 
-#ifdef EXTRA_CONSTRAINT
-/* If EXTRA_CONSTRAINT is defined, then the 'S'
-   constraint in REG_CLASS_FROM_LETTER will no longer work, and various
-   asm statements that need 'S' for class SIREG will break.  */
- error EXTRA_CONSTRAINT conflicts with S constraint letter
-/* The previous line used to be #error, but some compilers barf
-   even if the conditional was untrue.  */
-#endif
-
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT -1
 #endif
@@ -1090,10 +1081,6 @@ call_insn_operand (op, mode)
      rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  if (GET_CODE (op) != MEM)
-    return 0;
-  op = XEXP (op, 0);
-
   /* Disallow indirect through a virtual register.  This leads to
      compiler aborts when trying to eliminate them.  */
   if (GET_CODE (op) == REG
@@ -1126,9 +1113,7 @@ constant_call_address_operand (op, mode)
      rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  return (GET_CODE (op) == MEM
-	  && CONSTANT_ADDRESS_P (XEXP (op, 0))
-	  && GET_CODE (XEXP (op, 0)) !=  CONST_INT);
+  return GET_CODE (op) == SYMBOL_REF;
 }
 
 /* Match exactly zero and one.  */
@@ -2341,6 +2326,40 @@ ix86_address_cost (x)
     cost += 10;
       
   return cost;
+}
+
+/* If X is a machine specific address (i.e. a symbol or label being
+   referenced as a displacement from the GOT implemented using an
+   UNSPEC), then return the base term.  Otherwise return X.  */
+
+rtx
+ix86_find_base_term (x)
+     rtx x;
+{
+  rtx term;
+
+  if (GET_CODE (x) != PLUS
+      || XEXP (x, 0) != pic_offset_table_rtx
+      || GET_CODE (XEXP (x, 1)) != CONST)
+    return x;
+
+  term = XEXP (XEXP (x, 1), 0);
+
+  if (GET_CODE (term) == PLUS && GET_CODE (XEXP (term, 1)) == CONST_INT)
+    term = XEXP (term, 0);
+
+  if (GET_CODE (term) != UNSPEC
+      || XVECLEN (term, 0) != 1
+      || XINT (term, 1) !=  7)
+    return x;
+
+  term = XVECEXP (term, 0, 0);
+
+  if (GET_CODE (term) != SYMBOL_REF
+      && GET_CODE (term) != LABEL_REF)
+    return x;
+
+  return term;
 }
 
 /* Determine if a given CONST RTX is a valid memory displacement
@@ -4988,17 +5007,21 @@ ix86_expand_branch (code, label)
 	    return;
 	  }
 
-	/* Otherwise, if we are doing less-than, op1 is a constant and the
-	   low word is zero, then we can just examine the high word.  */
+	/* Otherwise, if we are doing less-than or greater-or-equal-than,
+	   op1 is a constant and the low word is zero, then we can just
+	   examine the high word.  */
 
-	if (GET_CODE (hi[1]) == CONST_INT && lo[1] == const0_rtx
-	    && (code == LT || code == LTU))
-	  {
-	    ix86_compare_op0 = hi[0];
-	    ix86_compare_op1 = hi[1];
-	    ix86_expand_branch (code, label);
-	    return;
-	  }
+	if (GET_CODE (hi[1]) == CONST_INT && lo[1] == const0_rtx)
+	  switch (code)
+	    {
+	    case LT: case LTU: case GE: case GEU:
+	      ix86_compare_op0 = hi[0];
+	      ix86_compare_op1 = hi[1];
+	      ix86_expand_branch (code, label);
+	      return;
+	    default:
+	      break;
+	    }
 
 	/* Otherwise, we need two or three jumps.  */
 

@@ -1489,9 +1489,6 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	  case 's':  case 'i':  case 'n':
 	  case 'I':  case 'J':  case 'K':  case 'L':  case 'M':
 	  case 'N':  case 'O':  case 'P':  case ',':
-#ifdef EXTRA_CONSTRAINT
-	  case 'Q':  case 'R':  case 'S':  case 'T':  case 'U':
-#endif
 	    break;
 
 	  case '0':  case '1':  case '2':  case '3':  case '4':
@@ -1516,8 +1513,28 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	    break;
 
 	  case 'p': case 'r':
-	  default:
 	    allows_reg = 1;
+	    break;
+
+	  default:
+	    if (! ISALPHA (constraint[j]))
+	      {
+		error ("invalid punctuation `%c' in constraint",
+		       constraint[j]);
+		return;
+	      }
+	    if (REG_CLASS_FROM_LETTER (constraint[j]) != NO_REGS)
+	      allows_reg = 1;
+#ifdef EXTRA_CONSTRAINT
+	    else
+	      {
+		/* Otherwise we can't assume anything about the nature of
+		   the constraint except that it isn't purely registers.
+		   Treat it like "g" and hope for the best.  */
+		allows_reg = 1;
+		allows_mem = 1;
+	      }
+#endif
 	    break;
 	  }
 
@@ -1643,13 +1660,10 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 
 	  case '<':  case '>':
 	  case '?':  case '!':  case '*':
-	  case 'E':  case 'F':  case 'G':  case 'H':  case 'X':
+	  case 'E':  case 'F':  case 'G':  case 'H':
 	  case 's':  case 'i':  case 'n':
 	  case 'I':  case 'J':  case 'K':  case 'L':  case 'M':
 	  case 'N':  case 'O':  case 'P':  case ',':
-#ifdef EXTRA_CONSTRAINT
-	  case 'Q':  case 'R':  case 'S':  case 'T':  case 'U':
-#endif
 	    break;
 
 	    /* Whether or not a numeric constraint allows a register is
@@ -1684,13 +1698,33 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	    /* ... fall through ... */
 
 	  case 'p':  case 'r':
-	  default:
 	    allows_reg = 1;
 	    break;
 
-	  case 'g':
+	  case 'g':  case 'X':
 	    allows_reg = 1;
 	    allows_mem = 1;
+	    break;
+
+	  default:
+	    if (! ISALPHA (constraint[j]))
+	      {
+		error ("invalid punctuation `%c' in constraint",
+		       constraint[j]);
+		return;
+	      }
+	    if (REG_CLASS_FROM_LETTER (constraint[j]) != NO_REGS)
+	      allows_reg = 1;
+#ifdef EXTRA_CONSTRAINT
+	    else
+	      {
+		/* Otherwise we can't assume anything about the nature of
+		   the constraint except that it isn't purely registers.
+		   Treat it like "g" and hope for the best.  */
+		allows_reg = 1;
+		allows_mem = 1;
+	      }
+#endif
 	    break;
 	  }
 

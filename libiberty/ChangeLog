@@ -1,3 +1,45 @@
+2000-08-28  Richard Henderson  <rth@cygnus.com>
+
+	* Makefile.in (md5.o): Depend on config.h.
+
+2000-08-28  Jason Merrill  <jason@redhat.com>
+
+	* Makefile.in (REQUIRED_OFILES): Add md5.o.
+	(CFILES): Add md5.c.
+	* md5.c: New file.
+
+2000-08-27  Alex Samuel  <samuel@codesourcery.com>
+
+	* cp-demangle.c (demangle_name): Initialize template_p in local
+	name case.  Don't re-add substitutions as candidates.
+	(demangle_nested_name): Use <unqualified-name>.
+	(demangle_prefix): Likewise.  Don't add template names as
+	substitution candidates twice, or re-add a substitution or the
+	last prefix component.
+	(demangle_local_name): Adjust output format.
+
+2000-08-25  Alex Samuel  <samuel@codesourcery.com>
+
+	* cp-demangle.c (result_add_separated_char): Change parameter to
+	int.
+	(substitution_add): Don't check for duplicates.  Check if
+	previously allocated size is zero.
+	(demangle_name): Remove duplicate check for std substitution.
+	Clear template flag appropriately.
+	(demangle_prefix): Remove argument to demangle_substitution.
+	Don't check that template flag is already set.
+	(demangle_operator_name): Add pt operator.
+	(demangle_type): Don't treat r as built-in type.  Remove argument
+	to demangle_substitution.  Fix substitution candidate mechanics.
+	Handle <template-template-parm>s.  Improve comments.
+	(demangle_template_param): Don't handle template arg lists here. 
+	(demangle_substitution): Remove parameter.
+	(print_usage): Remove extra fprintf option.
+
+2000-08-24  Greg McGary  <greg@mcgary.org>
+
+	* libiberty/random.c (end_ptr): Revert previous change.
+
 2000-08-24  Greg McGary  <greg@mcgary.org>
 
 	* libiberty/cplus-dem.c (cplus_demangle_opname, cplus_mangle_opname,

@@ -240,7 +240,8 @@ static int consec_sets_invariant_p PARAMS ((const struct loop *,
 static int labels_in_range_p PARAMS ((rtx, int));
 static void count_one_set PARAMS ((rtx, rtx, varray_type, rtx *));
 
-static void count_loop_regs_set PARAMS ((rtx, rtx, varray_type, varray_type,
+static void count_loop_regs_set PARAMS ((const struct loop*,
+					 varray_type, varray_type,
 					 int *, int));
 static void note_addr_stored PARAMS ((rtx, rtx, void *));
 static void note_set_pseudo_multiple_uses PARAMS ((rtx, rtx, void *));
@@ -311,6 +312,9 @@ static void try_swap_copy_prop PARAMS ((const struct loop *, rtx,
 static int replace_label PARAMS ((rtx *, void *));
 static rtx check_insn_for_givs PARAMS((struct loop *, rtx, int, int));
 static rtx check_insn_for_bivs PARAMS((struct loop *, rtx, int, int));
+
+static void loop_dump_aux PARAMS ((const struct loop *, FILE *, int));
+void debug_loop PARAMS ((const struct loop *));
 
 typedef struct rtx_and_int {
   rtx r;
@@ -706,8 +710,8 @@ scan_loop (loop, flags)
   VARRAY_CHAR_INIT (may_not_optimize, nregs, "may_not_optimize");
   VARRAY_RTX_INIT (reg_single_usage, nregs, "reg_single_usage");
 
-  count_loop_regs_set (loop->top ? loop->top : loop->start, loop->end,
-		       may_not_optimize, reg_single_usage, &insn_count, nregs);
+  count_loop_regs_set (loop, may_not_optimize, reg_single_usage, 
+		       &insn_count, nregs);
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
@@ -2328,48 +2332,6 @@ count_nonfixed_reads (loop, x)
   return value;
 }
 
-#if 0
-/* P is an instruction that sets a register to the result of a ZERO_EXTEND.
-   Replace it with an instruction to load just the low bytes
-   if the machine supports such an instruction,
-   and insert above LOOP_START an instruction to clear the register.  */
-
-static void
-constant_high_bytes (p, loop_start)
-     rtx p, loop_start;
-{
-  register rtx new;
-  register int insn_code_number;
-
-  /* Try to change (SET (REG ...) (ZERO_EXTEND (..:B ...)))
-     to (SET (STRICT_LOW_PART (SUBREG:B (REG...))) ...).  */
-
-  new
-    = gen_rtx_SET
-      (VOIDmode,
-       gen_rtx_STRICT_LOW_PART
-       (VOIDmode,
-	gen_rtx_SUBREG (GET_MODE (XEXP (SET_SRC (PATTERN (p)), 0)),
-			SET_DEST (PATTERN (p)), 0)),
-       XEXP (SET_SRC (PATTERN (p)), 0));
-
-  insn_code_number = recog (new, p);
-
-  if (insn_code_number)
-    {
-      register int i;
-
-      /* Clear destination register before the loop.  */
-      emit_insn_before (gen_rtx_SET (VOIDmode,
-				     SET_DEST (PATTERN (p)), const0_rtx),
-			loop_start);
-
-      /* Inside the loop, just load the low part.  */
-      PATTERN (p) = new;
-    }
-}
-#endif
-
 /* Scan a loop setting the elements `cont', `vtop', `loops_enclosed',
    `has_call', `has_volatile', and `has_tablejump' within LOOP.
    Set the global variables `unknown_address_altered',
@@ -2396,8 +2358,6 @@ prescan_loop (loop)
   loop_info->has_volatile = 0;
   loop_info->has_tablejump = 0;
   loop_info->has_multiple_exit_targets = 0;
-  loop->cont = 0;
-  loop->vtop = 0;
   loop->level = 1;
 
   unknown_address_altered = 0;
@@ -2421,25 +2381,6 @@ prescan_loop (loop)
 	  else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END)
 	    {
 	      --level;
-	      if (level == 0)
-		{
-		  end = insn;
-		  break;
-		}
-	    }
-	  else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_CONT)
-	    {
-	      if (level == 1)
-		loop->cont = insn;
-	    }
-	  else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_VTOP)
-	    {
-	      /* If there is a NOTE_INSN_LOOP_VTOP, then this is a for
-		 or while style loop, with a loop exit test at the
-		 start.  Thus, we can assume that the loop condition
-		 was true when the loop was entered.  */
-	      if (level == 1)
-		loop->vtop = insn;
 	    }
 	}
       else if (GET_CODE (insn) == CALL_INSN)
@@ -2510,11 +2451,9 @@ prescan_loop (loop)
     }
 
   /* Now, rescan the loop, setting up the LOOP_MEMS array.  */
-  if (/* We can't tell what MEMs are aliased by what.  */
-      ! unknown_address_altered
-      /* An exception thrown by a called function might land us
+  if (/* An exception thrown by a called function might land us
 	 anywhere.  */
-      && ! loop_info->has_call
+      ! loop_info->has_call
       /* We don't want loads for MEMs moved to a location before the
 	 one at which their stack memory becomes allocated.  (Note
 	 that this is not a problem for malloc, etc., since those
@@ -2526,13 +2465,30 @@ prescan_loop (loop)
     for (insn = NEXT_INSN (start); insn != NEXT_INSN (end);
 	 insn = NEXT_INSN (insn))
       for_each_rtx (&insn, insert_loop_mem, 0);
+
+  /* BLKmode MEMs are added to LOOP_STORE_MEM as necessary so
+     that loop_invariant_p and load_mems can use true_dependence
+     to determine what is really clobbered.  */
+  if (unknown_address_altered)
+    {
+      rtx mem = gen_rtx_MEM (BLKmode, const0_rtx);
+
+      loop_store_mems = gen_rtx_EXPR_LIST (VOIDmode, mem, loop_store_mems);
+    }
+  if (unknown_constant_address_altered)
+    {
+      rtx mem = gen_rtx_MEM (BLKmode, const0_rtx);
+
+      RTX_UNCHANGING_P (mem) = 1;
+      loop_store_mems = gen_rtx_EXPR_LIST (VOIDmode, mem, loop_store_mems);
+    }
 }
 
 /* LOOP->CONT_DOMINATOR is now the last label between the loop start
    and the continue note that is a the destination of a (cond)jump after
    the continue note.  If there is any (cond)jump between the loop start
    and what we have so far as LOOP->CONT_DOMINATOR that has a
-   target between LOOP->DOMINATOR and the continue note, move
+   target between LOOP->CONT_DOMINATOR and the continue note, move
    LOOP->CONT_DOMINATOR forward to that label; if a jump's
    destination cannot be determined, clear LOOP->CONT_DOMINATOR.  */
 
@@ -2640,6 +2596,11 @@ find_and_verify_loops (f, loops)
 	  case NOTE_INSN_LOOP_CONT:
 	    current_loop->cont = insn;
 	    break;
+
+	  case NOTE_INSN_LOOP_VTOP:
+	    current_loop->vtop = insn;
+	    break;
+
 	  case NOTE_INSN_LOOP_END:
 	    if (! current_loop)
 	      abort ();
@@ -2653,7 +2614,7 @@ find_and_verify_loops (f, loops)
 	    break;
 	  }
       /* If for any loop, this is a jump insn between the NOTE_INSN_LOOP_CONT
-	 and NOTE_INSN_LOOP_END notes, update loop->dominator.  */
+	 and NOTE_INSN_LOOP_END notes, update loop->cont_dominator.  */
       else if (GET_CODE (insn) == JUMP_INSN
 	       && GET_CODE (PATTERN (insn)) != RETURN
 	       && current_loop)
@@ -2670,7 +2631,7 @@ find_and_verify_loops (f, loops)
 	      if (loop->cont && loop->cont_dominator != const0_rtx)
 		{
 		  /* If the jump destination is not known, invalidate
-		     loop->const_dominator.  */
+		     loop->cont_dominator.  */
 		  if (! label)
 		    loop->cont_dominator = const0_rtx;
 		  else
@@ -3190,9 +3151,8 @@ note_set_pseudo_multiple_uses (x, y, data)
 
    The value is 2 if we refer to something only conditionally invariant.
 
-   If `unknown_address_altered' is nonzero, no memory ref is invariant.
-   Otherwise, a memory ref is invariant if it does not conflict with
-   anything stored in `loop_store_mems'.  */
+   A memory ref is invariant if it is not volatile and does not conflict
+   with anything stored in `loop_store_mems'.  */
 
 int
 loop_invariant_p (loop, x)
@@ -3259,14 +3219,6 @@ loop_invariant_p (loop, x)
 	 checking for read-only items, so that volatile read-only items
 	 will be rejected also.  */
       if (MEM_VOLATILE_P (x))
-	return 0;
-
-      /* If we had a subroutine call, any location in memory could
-	 have been clobbered.  We used to test here for volatile and
-	 readonly, but true_dependence knows how to do that better
-	 than we do.  */
-      if (RTX_UNCHANGING_P (x)
-	  ? unknown_constant_address_altered : unknown_address_altered)
 	return 0;
 
       /* See if there is any dependence between a store and this load.  */
@@ -3537,8 +3489,8 @@ count_one_set (insn, x, may_not_move, last_set)
    In that case, it is the insn that last set reg n.  */
 
 static void
-count_loop_regs_set (from, to, may_not_move, single_usage, count_ptr, nregs)
-     register rtx from, to;
+count_loop_regs_set (loop, may_not_move, single_usage, count_ptr, nregs)
+     const struct loop *loop;
      varray_type may_not_move;
      varray_type single_usage;
      int *count_ptr;
@@ -3548,7 +3500,8 @@ count_loop_regs_set (from, to, may_not_move, single_usage, count_ptr, nregs)
   register rtx insn;
   register int count = 0;
 
-  for (insn = from; insn != to; insn = NEXT_INSN (insn))
+  for (insn = loop->top ? loop->top : loop->start; insn != loop->end;
+       insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
 	{
@@ -4241,8 +4194,9 @@ strength_reduce (loop, insn_count, flags)
 	      /* Some bivs are incremented with a multi-insn sequence.
 		 The first insn contains the add.  */
 	      next_loc_insn = next->insn;
-	      while (! loc_mentioned_in_p (next->location,
-					   PATTERN (next_loc_insn)))
+	      while (NOTE_P (next_loc_insn)
+		     || ! loc_mentioned_in_p (next->location,
+					      PATTERN (next_loc_insn)))
 		next_loc_insn = PREV_INSN (next_loc_insn);
 
 	      if (next_loc_insn == v->insn)
@@ -9369,8 +9323,7 @@ load_mems_and_recount_loop_regs_set (loop, insn_count)
       bzero ((char *) &may_not_optimize->data, nregs * sizeof (char));
       bzero ((char *) &reg_single_usage->data, nregs * sizeof (rtx));
 
-      count_loop_regs_set (loop->top ? loop->top : loop->start, loop->end,
-			   may_not_optimize, reg_single_usage,
+      count_loop_regs_set (loop, may_not_optimize, reg_single_usage,
 			   insn_count, nregs);
 
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -10009,4 +9962,90 @@ replace_label (x, data)
   --LABEL_NUSES (old_label);
 
   return 0;
+}
+
+#define LOOP_BLOCK_NUM_1(INSN) \
+((INSN) ? (BLOCK_FOR_INSN (INSN) ? BLOCK_NUM (INSN) : - 1) : -1)
+
+/* The notes do not have an assigned block, so look at the next insn.  */
+#define LOOP_BLOCK_NUM(INSN) \
+((INSN) ? (GET_CODE (INSN) == NOTE \
+            ? LOOP_BLOCK_NUM_1 (next_nonnote_insn (INSN)) \
+            : LOOP_BLOCK_NUM_1 (INSN)) \
+        : -1)
+
+#define LOOP_INSN_UID(INSN) ((INSN) ? INSN_UID (INSN) : -1)
+
+static void loop_dump_aux (loop, file, verbose)
+     const struct loop *loop;
+     FILE *file;
+     int verbose;
+{
+  rtx label;
+
+  if (! loop || ! file)
+    return;
+
+  /* Print diagnostics to compare our concept of a loop with
+     what the loop notes say.  */
+  if (! PREV_INSN (loop->first->head)
+      || GET_CODE (PREV_INSN (loop->first->head)) != NOTE
+      || NOTE_LINE_NUMBER (PREV_INSN (loop->first->head))
+      != NOTE_INSN_LOOP_BEG)
+    fprintf (file, ";;  No NOTE_INSN_LOOP_BEG at %d\n", 
+	     INSN_UID (PREV_INSN (loop->first->head)));
+  if (! NEXT_INSN (loop->last->end)
+      || GET_CODE (NEXT_INSN (loop->last->end)) != NOTE
+      || NOTE_LINE_NUMBER (NEXT_INSN (loop->last->end))
+      != NOTE_INSN_LOOP_END)
+    fprintf (file, ";;  No NOTE_INSN_LOOP_END at %d\n",
+	     INSN_UID (NEXT_INSN (loop->last->end)));
+
+  if (loop->start)
+    {
+      fprintf (file,
+	       ";;  start %d (%d), cont dom %d (%d), cont %d (%d), vtop %d (%d), end %d (%d)\n",
+	       LOOP_BLOCK_NUM (loop->start),
+	       LOOP_INSN_UID (loop->start),
+	       LOOP_BLOCK_NUM (loop->cont),
+	       LOOP_INSN_UID (loop->cont),
+	       LOOP_BLOCK_NUM (loop->cont),
+	       LOOP_INSN_UID (loop->cont),
+	       LOOP_BLOCK_NUM (loop->vtop),
+	       LOOP_INSN_UID (loop->vtop),
+	       LOOP_BLOCK_NUM (loop->end),
+	       LOOP_INSN_UID (loop->end));
+      fprintf (file, ";;  top %d (%d), scan start %d (%d)\n",
+	       LOOP_BLOCK_NUM (loop->top),
+	       LOOP_INSN_UID (loop->top) ,
+	       LOOP_BLOCK_NUM (loop->scan_start),
+	       LOOP_INSN_UID (loop->scan_start));
+      fprintf (file, ";;  exit_count %d", loop->exit_count);
+      if (loop->exit_count)
+	{
+	  fputs (", labels:", file);
+	  for (label = loop->exit_labels; label; label = LABEL_NEXTREF (label))
+	    {
+	      fprintf (file, " %d ",
+		       LOOP_INSN_UID (XEXP (label, 0)));
+	    }
+	}
+      fputs ("\n", file);
+      
+      /* This can happen when a marked loop appears as two nested loops,
+	 say from while (a || b) {}.  The inner loop won't match
+	 the loop markers but the outer one will.  */
+      if (LOOP_BLOCK_NUM (loop->cont) != loop->latch->index)
+	fprintf (file, ";;  NOTE_INSN_LOOP_CONT not in loop latch\n");
+    }
+}
+  
+
+/* Call this function from the debugger to dump LOOP.  */
+
+void
+debug_loop (loop)
+     const struct loop *loop;
+{
+  flow_loop_dump (loop, stderr, loop_dump_aux, 1);
 }

@@ -422,6 +422,10 @@ tree (*lang_expand_constant) PARAMS ((tree)) = 0;
 
 void (*incomplete_decl_finalize_hook) PARAMS ((tree)) = 0;
 
+/* Nonzero if doing dwarf2 duplicate elimination.  */
+
+int flag_eliminate_dwarf2_dups = 0;
+
 /* Nonzero if generating code to do profiling.  */
 
 int profile_flag = 0;
@@ -958,6 +962,8 @@ const char *user_label_prefix;
 
 lang_independent_options f_options[] =
 {
+  {"eliminate-dwarf2-dups", &flag_eliminate_dwarf2_dups, 1, 
+   "Perform DWARF2 duplicate elimination"},
   {"float-store", &flag_float_store, 1,
    "Do not store floats in registers" },
   {"volatile", &flag_volatile, 1,
@@ -1670,6 +1676,21 @@ strip_off_ending (name, len)
 	  break;
 	}
     }
+}
+
+/* Given a file name X, return the nondirectory portion.  */
+
+char *
+file_name_nondirectory (x)
+     const char *x;
+{
+  char *tmp = (char *) rindex (x, '/');
+  if (DIR_SEPARATOR != '/' && ! tmp)
+    tmp = (char *) rindex (x, DIR_SEPARATOR);
+  if (tmp)
+    return (char *) (tmp + 1);
+  else
+    return (char *) x;
 }
 
 /* Output a quoted string.  */
@@ -2599,6 +2620,10 @@ rest_of_type_compilation (type, toplev)
   if (write_symbols == SDB_DEBUG)
     sdbout_symbol (TYPE_STUB_DECL (type), !toplev);
 #endif
+#ifdef DWARF2_DEBUGGING_INFO
+  if (write_symbols == DWARF2_DEBUG && toplev)
+    dwarf2out_decl (TYPE_STUB_DECL (type));
+#endif
   timevar_pop (TV_SYMOUT);
 }
 
@@ -3203,7 +3228,7 @@ rest_of_compilation (decl)
       estimate_probability (&loops);
 
       if (rtl_dump_file)
-	flow_loops_dump (&loops, rtl_dump_file, 0);
+	flow_loops_dump (&loops, rtl_dump_file, NULL, 0);
 
       flow_loops_free (&loops);
     }
@@ -4260,7 +4285,7 @@ ignoring option `%s' due to invalid debug level specification",
     }
 
   if (! da->arg)
-    warning ("`%s': unknown or unsupported -g option", arg - 2);
+    return 0;
 
   return 1;
 }
@@ -4594,6 +4619,7 @@ main (argc, argv)
       flag_regmove = 1;
       flag_strict_aliasing = 1;
       flag_delete_null_pointer_checks = 1;
+      flag_reorder_blocks = 1;
     }
 
   if (optimize >= 3)
@@ -4643,8 +4669,7 @@ main (argc, argv)
       indep_processed = independent_decode_option (argc - i, argv + i);
 
       if (lang_processed || indep_processed)
-	i += (lang_processed > indep_processed
-	      ? lang_processed : indep_processed);
+	i += MAX (lang_processed, indep_processed);
       else
 	{
 	  const char *option = NULL;
@@ -4674,10 +4699,13 @@ main (argc, argv)
 		{
 		  warning ("Ignoring command line option '%s'", argv[i]);
 		  if (lang)
-		    warning ("\
-(It is valid for %s but not the selected language)", lang);
+		    warning
+		      ("(It is valid for %s but not the selected language)",
+		       lang);
 		}
 	    }
+	  else if (argv[i][0] == '-' && argv[i][1] == 'g')
+	    warning ("`%s': unknown or unsupported -g option", &argv[i][2]);
 	  else
 	    error ("Unrecognized option `%s'", argv[i]);
 
@@ -5010,8 +5038,7 @@ debug_start_source_file (filename)
     dwarfout_start_new_source_file (filename);
 #endif /* DWARF_DEBUGGING_INFO  */
 #ifdef DWARF2_DEBUGGING_INFO
-  if (debug_info_level == DINFO_LEVEL_VERBOSE
-      && write_symbols == DWARF2_DEBUG)
+  if (write_symbols == DWARF2_DEBUG)
     dwarf2out_start_source_file (filename);
 #endif /* DWARF2_DEBUGGING_INFO  */
 #ifdef SDB_DEBUGGING_INFO
@@ -5037,8 +5064,7 @@ debug_end_source_file (lineno)
     dwarfout_resume_previous_source_file (lineno);
 #endif /* DWARF_DEBUGGING_INFO  */
 #ifdef DWARF2_DEBUGGING_INFO
-  if (debug_info_level == DINFO_LEVEL_VERBOSE
-      && write_symbols == DWARF2_DEBUG)
+  if (write_symbols == DWARF2_DEBUG)
     dwarf2out_end_source_file ();
 #endif /* DWARF2_DEBUGGING_INFO  */
 #ifdef SDB_DEBUGGING_INFO

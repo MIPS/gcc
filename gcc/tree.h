@@ -220,8 +220,6 @@ struct tree_common
 
        TREE_READONLY in
            all expressions
-       ITERATOR_BOUND_P in
-           VAR_DECL if iterator (C)
        TYPE_READONLY in
            ..._TYPE
 
@@ -2504,7 +2502,7 @@ extern tree builtin_function			PARAMS ((const char *, tree, int,
 
 /* In tree.c */
 extern char *perm_calloc			PARAMS ((int, long));
-extern tree get_file_function_name		PARAMS ((int));
+extern void clean_symbol_name			PARAMS ((char *));
 extern tree get_file_function_name_long 	PARAMS ((const char *));
 extern tree get_set_constructor_bits		PARAMS ((tree, char *, int));
 extern tree get_set_constructor_bytes		PARAMS ((tree,
@@ -2717,7 +2715,6 @@ extern void preserve_momentary		PARAMS ((void));
 extern void saveable_allocation		PARAMS ((void));
 extern void temporary_allocation	PARAMS ((void));
 extern void resume_temporary_allocation	PARAMS ((void));
-extern tree get_file_function_name	PARAMS ((int));
 extern void set_identifier_size		PARAMS ((int));
 extern int int_fits_type_p		PARAMS ((tree, tree));
 extern int tree_log2			PARAMS ((tree));

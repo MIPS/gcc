@@ -411,11 +411,17 @@ static void dump_edge_info		PARAMS ((FILE *, edge, int));
 static void invalidate_mems_from_autoinc PARAMS ((struct propagate_block_info *,
 						  rtx));
 static void remove_fake_successors	PARAMS ((basic_block));
-static void flow_nodes_print	PARAMS ((const char *, const sbitmap, FILE *));
-static void flow_exits_print PARAMS ((const char *, const edge *, int, FILE *));
-static void flow_loops_cfg_dump		PARAMS ((const struct loops *, FILE *));
-static int flow_loop_nested_p		PARAMS ((struct loop *, struct loop *));
-static int flow_loop_exits_find		PARAMS ((const sbitmap, edge **));
+static void flow_nodes_print		PARAMS ((const char *, const sbitmap, 
+						 FILE *));
+static void flow_edge_list_print	PARAMS ((const char *, const edge *,
+						 int, FILE *));
+static void flow_loops_cfg_dump		PARAMS ((const struct loops *,
+						 FILE *));
+static int flow_loop_nested_p		PARAMS ((struct loop *, 
+						 struct loop *));
+static int flow_loop_entry_edges_find	PARAMS ((basic_block, const sbitmap, 
+						 edge **));
+static int flow_loop_exit_edges_find	PARAMS ((const sbitmap, edge **));
 static int flow_loop_nodes_find	PARAMS ((basic_block, basic_block, sbitmap));
 static int flow_depth_first_order_compute PARAMS ((int *, int *));
 static void flow_dfs_compute_reverse_init
@@ -5903,7 +5909,7 @@ dump_edge_info (file, e, do_succ)
 
 	    if (comma)
 	      fputc (',', file);
-	    if (i < (int) (sizeof (bitnames) / sizeof (*bitnames)))
+	    if (i < (int) ARRAY_SIZE (bitnames))
 	      fputs (bitnames[i], file);
 	    else
 	      fprintf (file, "%d", i);
@@ -7119,7 +7125,7 @@ redirect_edge_pred (e, new_pred)
 
 /* Dump the list of basic blocks in the bitmap NODES.  */
 
-static void
+static void 
 flow_nodes_print (str, nodes, file)
      const char *str;
      const sbitmap nodes;
@@ -7127,27 +7133,36 @@ flow_nodes_print (str, nodes, file)
 {
   int node;
 
+  if (! nodes)
+    return;
+
   fprintf (file, "%s { ", str);
   EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, node, {fprintf (file, "%d ", node);});
   fputs ("}\n", file);
 }
 
-/* Dump the list of exiting edges in the array EDGES.  */
 
-static void
-flow_exits_print (str, edges, num_edges, file)
+/* Dump the list of edges in the array EDGE_LIST.  */
+
+static void 
+flow_edge_list_print (str, edge_list, num_edges, file)
      const char *str;
-     const edge *edges;
+     const edge *edge_list;
      int num_edges;
      FILE *file;
 {
   int i;
 
+  if (! edge_list)
+    return;
+
   fprintf (file, "%s { ", str);
   for (i = 0; i < num_edges; i++)
-    fprintf (file, "%d->%d ", edges[i]->src->index, edges[i]->dest->index);
+    fprintf (file, "%d->%d ", edge_list[i]->src->index,
+	     edge_list[i]->dest->index);
   fputs ("}\n", file);
 }
+
 
 /* Dump loop related CFG information.  */
 
@@ -7199,12 +7214,51 @@ flow_loop_nested_p (outer, loop)
   return sbitmap_a_subset_b_p (loop->nodes, outer->nodes);
 }
 
-/* Dump the loop information specified by LOOPS to the stream FILE.  */
 
+/* Dump the loop information specified by LOOP to the stream FILE
+   using auxiliary dump callback function LOOP_DUMP_AUX if non null.  */
 void
-flow_loops_dump (loops, file, verbose)
+flow_loop_dump (loop, file, loop_dump_aux, verbose)
+     const struct loop *loop;
+     FILE *file;
+     void (*loop_dump_aux)(const struct loop *, FILE *, int);
+     int verbose;
+{
+  if (! loop || ! loop->header)
+    return;
+
+  fprintf (file, ";;\n;; Loop %d (%d to %d):%s%s\n",
+	   loop->num, INSN_UID (loop->first->head),
+	   INSN_UID (loop->last->end),
+	   loop->shared ? " shared" : "",
+	   loop->invalid ? " invalid" : "");
+  fprintf (file, ";;  header %d, latch %d, pre-header %d, first %d, last %d\n",
+	   loop->header->index, loop->latch->index,
+	   loop->pre_header ? loop->pre_header->index : -1,
+	   loop->first->index, loop->last->index);
+  fprintf (file, ";;  depth %d, level %d, outer %ld\n",
+	   loop->depth, loop->level,
+	   (long) (loop->outer ? loop->outer->num : -1));
+
+  flow_edge_list_print (";;   entry edges", loop->entry_edges,
+			loop->num_entries, file);
+  fprintf (file, ";;  %d", loop->num_nodes);
+  flow_nodes_print (" nodes", loop->nodes, file);
+  flow_edge_list_print (";;   exit edges", loop->exit_edges,
+			loop->num_exits, file);
+
+  if (loop_dump_aux)
+    loop_dump_aux (loop, file, verbose);
+}
+
+
+/* Dump the loop information specified by LOOPS to the stream FILE,
+   using auxiliary dump callback function LOOP_DUMP_AUX if non null.  */
+void 
+flow_loops_dump (loops, file, loop_dump_aux, verbose)
      const struct loops *loops;
      FILE *file;
+     void (*loop_dump_aux)(const struct loop *, FILE *, int);
      int verbose;
 {
   int i;
@@ -7214,23 +7268,14 @@ flow_loops_dump (loops, file, verbose)
   if (! num_loops || ! file)
     return;
 
-  fprintf (file, ";; %d loops found, %d levels\n",
+  fprintf (file, ";; %d loops found, %d levels\n", 
 	   num_loops, loops->levels);
 
   for (i = 0; i < num_loops; i++)
     {
       struct loop *loop = &loops->array[i];
 
-      fprintf (file, ";; loop %d (%d to %d):\n;;   header %d, latch %d, pre-header %d, depth %d, level %d, outer %ld\n",
-	       i, INSN_UID (loop->header->head), INSN_UID (loop->latch->end),
-	       loop->header->index, loop->latch->index,
-	       loop->pre_header ? loop->pre_header->index : -1,
-	       loop->depth, loop->level,
-	       (long) (loop->outer ? (loop->outer - loops->array) : -1));
-      fprintf (file, ";;   %d", loop->num_nodes);
-      flow_nodes_print (" nodes", loop->nodes, file);
-      fprintf (file, ";;   %d", loop->num_exits);
-      flow_exits_print (" exits", loop->exits, loop->num_exits, file);
+      flow_loop_dump (loop, file, loop_dump_aux, verbose);
 
       if (loop->shared)
 	{
@@ -7252,34 +7297,19 @@ flow_loops_dump (loops, file, verbose)
 		     must be disjoint.  */
 		  disjoint = ! flow_loop_nested_p (smaller ? loop : oloop,
 						   smaller ? oloop : loop);
-		  fprintf (file,
+		  fprintf (file, 
 			   ";; loop header %d shared by loops %d, %d %s\n",
 			   loop->header->index, i, j,
 			   disjoint ? "disjoint" : "nested");
 		}
 	    }
 	}
-
-      if (verbose)
-	{
-	  /* Print diagnostics to compare our concept of a loop with
-	     what the loop notes say.  */
-	  if (GET_CODE (PREV_INSN (loop->first->head)) != NOTE
-	      || NOTE_LINE_NUMBER (PREV_INSN (loop->first->head))
-	      != NOTE_INSN_LOOP_BEG)
-	    fprintf (file, ";; No NOTE_INSN_LOOP_BEG at %d\n",
-		     INSN_UID (PREV_INSN (loop->first->head)));
-	  if (GET_CODE (NEXT_INSN (loop->last->end)) != NOTE
-	      || NOTE_LINE_NUMBER (NEXT_INSN (loop->last->end))
-	      != NOTE_INSN_LOOP_END)
-	    fprintf (file, ";; No NOTE_INSN_LOOP_END at %d\n",
-		     INSN_UID (NEXT_INSN (loop->last->end)));
-	}
     }
 
   if (verbose)
     flow_loops_cfg_dump (loops, file);
 }
+
 
 /* Free all the memory allocated for LOOPS.  */
 
@@ -7301,8 +7331,10 @@ flow_loops_free (loops)
 
 	  if (loop->nodes)
 	    sbitmap_free (loop->nodes);
-	  if (loop->exits)
-	    free (loop->exits);
+	  if (loop->entry_edges)
+	    free (loop->entry_edges);
+	  if (loop->exit_edges)
+	    free (loop->exit_edges);
 	}
       free (loops->array);
       loops->array = NULL;
@@ -7316,29 +7348,73 @@ flow_loops_free (loops)
     }
 }
 
-/* Find the exits from the loop using the bitmap of loop nodes NODES
-   and store in EXITS array.  Return the number of exits from the
-   loop.  */
+
+/* Find the entry edges into the loop with header HEADER and nodes
+   NODES and store in ENTRY_EDGES array.  Return the number of entry
+   edges from the loop.  */
 
 static int
-flow_loop_exits_find (nodes, exits)
+flow_loop_entry_edges_find (header, nodes, entry_edges)
+     basic_block header;
      const sbitmap nodes;
-     edge **exits;
+     edge **entry_edges;
+{
+  edge e;
+  int num_entries;
+
+  *entry_edges = NULL;
+
+  num_entries = 0;
+  for (e = header->pred; e; e = e->pred_next)
+    {
+      basic_block src = e->src;
+      
+      if (src == ENTRY_BLOCK_PTR || ! TEST_BIT (nodes, src->index))
+	num_entries++;
+    }
+
+  if (! num_entries)
+    abort ();
+
+  *entry_edges = (edge *) xmalloc (num_entries * sizeof (edge *));
+
+  num_entries = 0;
+  for (e = header->pred; e; e = e->pred_next)
+    {
+      basic_block src = e->src;
+      
+      if (src == ENTRY_BLOCK_PTR || ! TEST_BIT (nodes, src->index))
+	(*entry_edges)[num_entries++] = e;
+    }
+
+  return num_entries;
+}
+
+
+/* Find the exit edges from the loop using the bitmap of loop nodes
+   NODES and store in EXIT_EDGES array.  Return the number of
+   exit edges from the loop.  */
+
+static int
+flow_loop_exit_edges_find (nodes, exit_edges)
+     const sbitmap nodes;
+     edge **exit_edges;
 {
   edge e;
   int node;
   int num_exits;
 
-  *exits = NULL;
+  *exit_edges = NULL;
 
   /* Check all nodes within the loop to see if there are any
      successors not in the loop.  Note that a node may have multiple
-     exiting edges.  */
+     exiting edges ?????  A node can have one jumping edge and one fallthru
+     edge so only one of these can exit the loop.  */
   num_exits = 0;
   EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, node, {
     for (e = BASIC_BLOCK (node)->succ; e; e = e->succ_next)
       {
-	basic_block dest = e->dest;
+	basic_block dest = e->dest;	  
 
 	if (dest == EXIT_BLOCK_PTR || ! TEST_BIT (nodes, dest->index))
 	    num_exits++;
@@ -7348,22 +7424,23 @@ flow_loop_exits_find (nodes, exits)
   if (! num_exits)
     return 0;
 
-  *exits = (edge *) xmalloc (num_exits * sizeof (edge *));
+  *exit_edges = (edge *) xmalloc (num_exits * sizeof (edge *));
 
   /* Store all exiting edges into an array.  */
   num_exits = 0;
   EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, node, {
     for (e = BASIC_BLOCK (node)->succ; e; e = e->succ_next)
       {
-	basic_block dest = e->dest;
+	basic_block dest = e->dest;	  
 
 	if (dest == EXIT_BLOCK_PTR || ! TEST_BIT (nodes, dest->index))
-	  (*exits)[num_exits++] = e;
+	  (*exit_edges)[num_exits++] = e;
       }
   });
 
   return num_exits;
 }
+
 
 /* Find the nodes contained within the loop with header HEADER and
    latch LATCH and store in NODES.  Return the number of nodes within
@@ -7904,10 +7981,17 @@ flow_loops_find (loops)
 		  loop->last
 		    = BASIC_BLOCK (sbitmap_last_set_bit (loop->nodes));
 
-		  /* Find edges which exit the loop.  Note that a node
-		     may have several exit edges.  */
+		  /* Find edges which enter the loop header.
+		     Note that the entry edges should only
+		     enter the header of a natural loop.  */
+		  loop->num_entries
+		    = flow_loop_entry_edges_find (loop->header, loop->nodes,
+						  &loop->entry_edges);
+
+		  /* Find edges which exit the loop.  */
 		  loop->num_exits
-		    = flow_loop_exits_find (loop->nodes, &loop->exits);
+		    = flow_loop_exit_edges_find (loop->nodes,
+						 &loop->exit_edges);
 
 		  /* Look to see if the loop has a pre-header node.  */
 		  loop->pre_header = flow_loop_pre_header_find (header, dom);

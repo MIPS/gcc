@@ -1,3 +1,80 @@
+2000-08-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* typeck.c (mark_addressable): Remove code that pokes around in
+	RTL.
+
+2000-08-28  Jason Merrill  <jason@redhat.com>
+
+	* lex.c (file_name_nondirectory): Move to toplev.c.
+
+	* cp-tree.h (LOCAL_CLASS_P): New macro.
+	* class.c (finish_struct_1): Use it.
+
+2000-08-27  Alex Samuel  <samuel@codesourcery.com>
+
+	* mangle.c (CLASSTYPE_TEMPLATE_ID_P): Remove unexplained voodoo.
+	(write_encoding): Pass another argument to write_name.
+	(write_name): Add ignore_local_scope parameter.  Fix handling of
+	local names.
+	(write_nested_name): Use write_unqualified_name.
+	(write_prefix): Likewise.  Skip out on FUNCTION_DECLs.
+	(write_template_prefix): Use write_unqualified_name.
+	(write_component): Remove.
+	(write_local_name): Add parameter.  Use direct local entity to
+	discriminator calculation.
+	(write_class_enum_type): Pass another argument to write_name.	
+	(write_template_template_arg): Likewise.
+	(make_guard_variable): Likewise.
+	
+2000-08-27  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (pushdecl): Matching decls for local externs are found in
+	the current level.  Propagate linkage information from previous
+	declarations.
+
+2000-08-26  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* ir.texi (Expressions): Fix typo.
+
+2000-08-25  Greg McGary  <greg@mcgary.org>
+
+	* tree.c (init_tree): Use ARRAY_SIZE.
+
+2000-08-25  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* error.c (cp_tree_printer): Rework.
+
+2000-08-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* Make-lang.in (CXX_LIB2FUNCS): Remove cp-demangle.o and
+	dyn-string.o.
+	(CXX_LIB2SRCS): Remove cp-demangle.c and dyn-string.c.
+	(cp-demangle.o): Remove target.
+	(dyn-string.o): Likewise.
+
+	* decl.c (grokfndecl): Require that `main' return an `int'.
+	* mangle.c (write_encoding): Don't mangle return types for
+	conversion functions.
+
+2000-08-25  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* error.c (tree_formatting_info): New data type.
+	(tree_being_formatted): New macro.
+	(tree_formatting_flags): Likewise.
+	(put_whitespace): Likewise.
+	(print_tree_identifier): Likewise.
+	(print_identifier): Likewise.
+	(cp_tree_printer, print_function_argument_list, print_declaration,
+	print_expression, print_function_declaration,
+	print_function_parameter, print_type, print_cv_qualifier): New
+	functions. 
+	(init_error): Initialize lang_printer.
+
+2000-08-24  Jason Merrill  <jason@redhat.com>
+
+	* typeck.c (build_ptrmemfunc): Just reinterpret if there's no
+	adjustment necessary.
+
 2000-08-24  Greg McGary  <greg@mcgary.org>
 
 	* cp-tree.h (MAIN_NAME_P): Remove macro.

@@ -400,8 +400,6 @@ push_secondary_reload (in_p, x, opnum, optional, reload_class, reload_mode,
 	  t_icode = icode;
 	  icode = CODE_FOR_nothing;
 	}
-
-      secondary_type = in_p ? RELOAD_FOR_INPUT : RELOAD_FOR_OUTPUT;
     }
 
   /* This case isn't valid, so fail.  Reload is allowed to use the same
@@ -3142,21 +3140,18 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
 		  = (int) reg_class_subunion[this_alternative[i]][(int) GENERAL_REGS];
 		goto reg;
 
-#ifdef EXTRA_CONSTRAINT
-	      case 'Q':
-	      case 'R':
-	      case 'S':
-	      case 'T':
-	      case 'U':
-		if (EXTRA_CONSTRAINT (operand, c))
-		  win = 1;
-		break;
-#endif
-
 	      default:
+		if (REG_CLASS_FROM_LETTER (c) == NO_REGS)
+		  {
+#ifdef EXTRA_CONSTRAINT
+		    if (EXTRA_CONSTRAINT (operand, c))
+		      win = 1;
+#endif
+		    break;
+		  }
+
 		this_alternative[i]
 		  = (int) reg_class_subunion[this_alternative[i]][(int) REG_CLASS_FROM_LETTER (c)];
-
 	      reg:
 		if (GET_MODE (operand) == BLKmode)
 		  break;
@@ -3933,11 +3928,8 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
   for (i = 0; i < n_reloads; i++)
     {
       if (rld[i].secondary_p
-	  && rld[i].when_needed == operand_type[rld[i].opnum]
-          && (operand_reloadnum[rld[i].opnum] < 0
-	      || (rld[operand_reloadnum[rld[i].opnum]].secondary_in_icode == -1
-		  && rld[operand_reloadnum[rld[i].opnum]].secondary_out_icode == -1)))
-	  rld[i].when_needed = address_type[rld[i].opnum];
+	  && rld[i].when_needed == operand_type[rld[i].opnum])
+	rld[i].when_needed = address_type[rld[i].opnum];
 
       if ((rld[i].when_needed == RELOAD_FOR_INPUT_ADDRESS
 	   || rld[i].when_needed == RELOAD_FOR_OUTPUT_ADDRESS
@@ -3956,15 +3948,13 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
 	      int secondary_in_reload = rld[i].secondary_in_reload;
 
 	      rld[secondary_in_reload].when_needed
-		= (rld[i].secondary_in_icode == -1
-		   ? RELOAD_FOR_OPADDR_ADDR
-		   : RELOAD_FOR_OPERAND_ADDRESS);
+		= RELOAD_FOR_OPADDR_ADDR;
 
 	      /* If there's a tertiary reload we have to change it also.  */
 	      if (secondary_in_reload > 0
 		  && rld[secondary_in_reload].secondary_in_reload != -1)
 		rld[rld[secondary_in_reload].secondary_in_reload].when_needed
-		  = rld[secondary_in_reload].when_needed;
+		  = RELOAD_FOR_OPADDR_ADDR;
 	    }
 
 	  if ((rld[i].when_needed == RELOAD_FOR_OUTPUT_ADDRESS
@@ -3974,15 +3964,13 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
 	      int secondary_out_reload = rld[i].secondary_out_reload;
 
 	      rld[secondary_out_reload].when_needed
-		= (rld[i].secondary_out_icode == -1
-		   ? RELOAD_FOR_OPADDR_ADDR
-		   : RELOAD_FOR_OPERAND_ADDRESS);
+		= RELOAD_FOR_OPADDR_ADDR;
 
 	      /* If there's a tertiary reload we have to change it also.  */
 	      if (secondary_out_reload
 		  && rld[secondary_out_reload].secondary_out_reload != -1)
 		rld[rld[secondary_out_reload].secondary_out_reload].when_needed
-		  = rld[secondary_out_reload].when_needed;
+		  = RELOAD_FOR_OPADDR_ADDR;
 	    }
 
 	  if (rld[i].when_needed == RELOAD_FOR_INPADDR_ADDRESS

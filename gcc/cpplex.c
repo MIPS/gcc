@@ -1123,7 +1123,7 @@ parse_string (pfile, list, token, terminator)
 	  if (is_vspace (c))
 	    {
 	      /* Drop a backslash newline, and continue. */
-	      if (namebuf[-1] == '\\')
+	      if (namebuf > list->namebuf && namebuf[-1] == '\\')
 		{
 		  handle_newline (cur, buffer->rlimit, c);
 		  namebuf--;
@@ -2240,10 +2240,6 @@ is_macro_disabled (pfile, expansion, token)
      const cpp_token *token;
 {
   cpp_context *context = CURRENT_CONTEXT (pfile);
-
-  /* Don't expand anything if this file has already been preprocessed.  */
-  if (CPP_OPTION (pfile, preprocessed))
-    return 1;
 
   /* Arguments on either side of ## are inserted in place without
      macro expansion (6.10.3.3.2).  Conceptually, any macro expansion
@@ -3586,15 +3582,22 @@ _cpp_skip_rest_of_line (pfile)
 /* Directive handler wrapper used by the command line option
    processor.  */
 void
-_cpp_run_directive (pfile, dir, buf, count)
+_cpp_run_directive (pfile, dir, buf, count, name)
      cpp_reader *pfile;
      const struct directive *dir;
      const char *buf;
      size_t count;
+     const char *name;
 {
   if (cpp_push_buffer (pfile, (const U_CHAR *)buf, count) != NULL)
     {
       unsigned int prev_lvl = 0;
+
+      if (name)
+	CPP_BUFFER (pfile)->nominal_fname = name;
+      else
+	CPP_BUFFER (pfile)->nominal_fname = _("<command line>");
+      CPP_BUFFER (pfile)->lineno = (unsigned int)-1;
 
       /* Scan the line now, else prevent_macro_expansion won't work.  */
       lex_next (pfile, 1);

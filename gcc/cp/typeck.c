@@ -4976,19 +4976,6 @@ mark_addressable (exp)
 	    return 1;
 	  }
       case VAR_DECL:
-	if (TREE_STATIC (x) && TREE_READONLY (x)
-	    && DECL_RTL (x) != 0
-	    && ! DECL_IN_MEMORY_P (x))
-	  {
-	    TREE_ASM_WRITTEN (x) = 0;
-	    DECL_RTL (x) = 0;
-	    rest_of_decl_compilation (x, 0, 
-				      !DECL_FUNCTION_SCOPE_P (x),
-				      0);
-	    TREE_ADDRESSABLE (x) = 1;
-
-	    return 1;
-	  }
 	/* Caller should not be trying to mark initialized
 	   constant fields addressable.  */
 	my_friendly_assert (DECL_LANG_SPECIFIC (x) == 0
@@ -5003,8 +4990,6 @@ mark_addressable (exp)
 	  cp_warning ("address requested for `%D', which is declared `register'",
 		      x);
 	TREE_ADDRESSABLE (x) = 1;
-	if (cfun && expanding_p)
-	  put_var_into_stack (x);
 	return 1;
 
       case FUNCTION_DECL:
@@ -6176,12 +6161,21 @@ build_ptrmemfunc (type, pfn, force)
 	cp_error ("invalid conversion to type `%T' from type `%T'", 
 		  to_type, pfn_type);
 
+      n = get_delta_difference (TYPE_PTRMEMFUNC_OBJECT_TYPE (pfn_type),
+				TYPE_PTRMEMFUNC_OBJECT_TYPE (to_type),
+				force);
+
       /* We don't have to do any conversion to convert a
 	 pointer-to-member to its own type.  But, we don't want to
 	 just return a PTRMEM_CST if there's an explicit cast; that
 	 cast should make the expression an invalid template argument.  */
-      if (TREE_CODE (pfn) != PTRMEM_CST && same_type_p (to_type, pfn_type))
-	return pfn;
+      if (TREE_CODE (pfn) != PTRMEM_CST)
+	{
+	  if (same_type_p (to_type, pfn_type))
+	    return pfn;
+	  else if (integer_zerop (n))
+	    return build_reinterpret_cast (to_type, pfn);
+	}
 
       if (TREE_SIDE_EFFECTS (pfn))
 	pfn = save_expr (pfn);
@@ -6193,9 +6187,6 @@ build_ptrmemfunc (type, pfn, force)
 	  npfn = build_component_ref (pfn, pfn_identifier, NULL_TREE, 0);
 	  delta = build_component_ref (pfn, delta_identifier, NULL_TREE, 0);
 	  delta = cp_convert (ptrdiff_type_node, delta);
-	  n = get_delta_difference (TYPE_PTRMEMFUNC_OBJECT_TYPE (pfn_type),
-				    TYPE_PTRMEMFUNC_OBJECT_TYPE (to_type),
-				    force);
 	  delta = cp_build_binary_op (PLUS_EXPR, delta, n);
 	  return build_ptrmemfunc1 (to_type, delta, NULL_TREE, npfn,
 				    NULL_TREE);
@@ -6224,9 +6215,6 @@ build_ptrmemfunc (type, pfn, force)
 	  idx = build_component_ref (pfn, index_identifier, NULL_TREE, 0);
 	}
 
-      n = get_delta_difference (TYPE_PTRMEMFUNC_OBJECT_TYPE (pfn_type),
-				TYPE_PTRMEMFUNC_OBJECT_TYPE (to_type),
-				force);
       delta = cp_build_binary_op (PLUS_EXPR, ndelta, n);
       delta2 = cp_build_binary_op (PLUS_EXPR, ndelta2, n);
       e1 = fold (build (GT_EXPR, boolean_type_node, idx, integer_zero_node));
