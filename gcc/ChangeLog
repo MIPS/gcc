@@ -1,3 +1,10 @@
+2003-10-20  Zack Weinberg  <zack@codesourcery.com>
+                                                                                
+	* config/i386/i386.c (print_reg): Abort if REGNO (x) is a
+	virtual register, but only if file == asm_out_file.
+	* config/i386/i386.h (HI_REGISTER_NAMES): Use "argp", not "",
+	for ARG_POINTER_REGNUM.
+
 2003-10-17  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* ifcvt.c (noce_try_addcc): Handle ifs with 'else' case.
