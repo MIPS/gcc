@@ -1,3 +1,12 @@
+2003-07-30  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	Merge from mainline:
+	2003-04-07  J"orn Rennecke <joern.rennecke@superh.com>
+
+		* gcse.c (replace_store_insn): Use single_set.
+
+	* gcse-store.c (replace_store_insn): Use single_set.
+
 2003-07-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* stmt.c (expand_end_loop): Fix.
