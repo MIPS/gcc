@@ -1,3 +1,9 @@
+2005-01-19  Mike Stump  <mrs@apple.com>
+
+	Radar 3962625
+	* c-incpath.c (hmap_construct_pathname): Warn when headermaps find
+	files with mismatched case.
+
 2005-01-13  Dale Johannesen  <dalej@apple.com>
 
 	Radars 3942172 3897795 3944716 3941494
