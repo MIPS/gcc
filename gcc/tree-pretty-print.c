@@ -2137,10 +2137,13 @@ dump_phi_nodes (pretty_printer *buffer, basic_block bb, int indent, int flags)
 
   for (; phi; phi = TREE_CHAIN (phi))
     {
-      INDENT (indent);
-      pp_string (buffer, "# ");
-      dump_generic_node (buffer, phi, indent, flags, false);
-      pp_newline (buffer);
+      if (is_gimple_reg (PHI_RESULT (phi)) || (flags && TDF_VOPS))
+        {
+          INDENT (indent);
+          pp_string (buffer, "# ");
+          dump_generic_node (buffer, phi, indent, flags, false);
+          pp_newline (buffer);
+        }
     }
 }
 
@@ -2161,8 +2164,7 @@ dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
   if (flags & TDF_BLOCKS)
     dump_bb_header (buffer, bb, indent, flags);
 
-  if (flags & TDF_VOPS)
-    dump_phi_nodes (buffer, bb, indent, flags);
+  dump_phi_nodes (buffer, bb, indent, flags);
   
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
