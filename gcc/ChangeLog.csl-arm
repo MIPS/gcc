@@ -1,5 +1,9 @@
 2004-10-12  Paul Brook  <paul@coodesourcery.com>
 
+	* doc/invoke.texi: Add missing "-" in arm cpu names.
+
+2004-10-12  Paul Brook  <paul@coodesourcery.com>
+
 	* config/arm/bpabi.h (SUBTARGET_EXTRA_ASM_SPEC): Change meabi=3 to
 	meabi=4.
 
