@@ -134,7 +134,7 @@ static inline int opnum_of_ephi (const tree, const edge);
 static tree subst_phis (struct expr_info *, tree, basic_block, basic_block);
 static void generate_expr_as_of_bb (tree, int, basic_block);
 static void generate_vops_as_of_bb (tree, int, basic_block);
-void rename_1 (struct expr_info *);
+static void rename_1 (struct expr_info *);
 static void process_delayed_rename (struct expr_info *, tree, tree);
 static void assign_new_class (tree, varray_type *, varray_type *);
 static void insert_occ_in_preorder_dt_order (struct expr_info *);
@@ -755,7 +755,7 @@ append_eref_to_block (tree ref, basic_block bb)
 {
   bb_ann_t ann = bb_ann (bb);
   if (ann->erefs == NULL)
-    VARRAY_TREE_INIT (ann->erefs, 1, "Expression references");
+    VARRAY_GENERIC_PTR_NOGC_INIT (ann->erefs, 1, "Expression references");
   VARRAY_PUSH_TREE (ann->erefs, ref);
 }
 
@@ -771,7 +771,7 @@ clear_all_eref_arrays (void)
     {
       ann = bb_ann (bb);
       if (ann->erefs)
-	VARRAY_CLEAR (ann->erefs);
+	VARRAY_FREE (ann->erefs);
       ann->erefs = NULL;
       if (ann->ephi_nodes)
 	{
@@ -1594,7 +1594,7 @@ fast_a_dominates_b (basic_block bb1, basic_block bb2)
    except that we try to use earlier defined occurrences if they are
    available in order to keep the number of saves down.  */
 
-void
+static void
 rename_1 (struct expr_info *ei)
 {
   tree occur;
@@ -1602,7 +1602,7 @@ rename_1 (struct expr_info *ei)
   size_t i;
   varray_type stack;
 
-  VARRAY_TREE_INIT (stack, 1, "Stack for renaming");
+  VARRAY_GENERIC_PTR_NOGC_INIT (stack, 1, "Stack for renaming");
 
   insert_occ_in_preorder_dt_order (ei);
   
@@ -1726,6 +1726,7 @@ rename_1 (struct expr_info *ei)
 	  }
       }
   }
+  VARRAY_FREE (stack);
 }
 
 /* Determine if the EPHI has an argument we could never insert
@@ -2948,11 +2949,11 @@ static void
 free_expr_info (struct expr_info *v1)
 {
   struct expr_info *e1 = (struct expr_info *)v1;
-  VARRAY_CLEAR (e1->occurs);
-  VARRAY_CLEAR (e1->kills);
-  VARRAY_CLEAR (e1->lefts);
-  VARRAY_CLEAR (e1->reals);
-  VARRAY_CLEAR (e1->euses_dt_order);
+  VARRAY_FREE (e1->occurs);
+  VARRAY_FREE (e1->kills);
+  VARRAY_FREE (e1->lefts);
+  VARRAY_FREE (e1->reals);
+  VARRAY_FREE (e1->euses_dt_order);
 }
 
 /* Process left occurrences and kills due to EXPR.  */
@@ -3213,11 +3214,11 @@ collect_expressions (basic_block block, varray_type *bexprsp)
 		{
 		  slot = ggc_alloc (sizeof (struct expr_info));
 		  slot->expr = expr;
-		  VARRAY_TREE_INIT (slot->occurs, 1, "Occurrence");
-		  VARRAY_TREE_INIT (slot->kills, 1, "Kills");
-		  VARRAY_TREE_INIT (slot->lefts, 1, "Left occurrences");
-		  VARRAY_TREE_INIT (slot->reals, 1, "Real occurrences");
-		  VARRAY_TREE_INIT (slot->euses_dt_order, 1, "EUSEs");
+		  VARRAY_GENERIC_PTR_NOGC_INIT (slot->occurs, 1, "Occurrence");
+		  VARRAY_GENERIC_PTR_NOGC_INIT (slot->kills, 1, "Kills");
+		  VARRAY_GENERIC_PTR_NOGC_INIT (slot->lefts, 1, "Left occurrences");
+		  VARRAY_GENERIC_PTR_NOGC_INIT (slot->reals, 1, "Real occurrences");
+		  VARRAY_GENERIC_PTR_NOGC_INIT (slot->euses_dt_order, 1, "EUSEs");
 		  
 		  VARRAY_PUSH_TREE (slot->occurs, orig_expr);
 		  VARRAY_PUSH_TREE (slot->kills, NULL);

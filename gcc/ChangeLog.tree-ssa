@@ -1,5 +1,15 @@
 2003-11-18  Daniel Berlin  <dberlin@dberlin.org>
 
+	* tree-ssa-pre.c (rename_1): This should be static.
+	(append_eref_to_block): Don't gc allocate.
+	(clear_all_eref_arrays): Free the array rather than
+	clear them.
+	(rename_1): Ditto on both counts.
+	(free_expr_info): Free the arrays.
+	(collect_expressions): Don't gc allocate the arrays.
+
+2003-11-18  Daniel Berlin  <dberlin@dberlin.org>
+
 	* tree-ssa-pre.c (insert_one_operand): Handle self-referential
 	ephi's properly.
 
