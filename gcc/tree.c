@@ -4612,6 +4612,7 @@ dump_tree_statistics (void)
   fprintf (stderr, "%-20s %7d %10d\n", "Total", total_nodes, total_bytes);
   fprintf (stderr, "---------------------------------------\n");
   ssanames_print_statistics ();
+  phinodes_print_statistics ();
 #else
   fprintf (stderr, "(No per-node statistics)\n");
 #endif
@@ -5160,66 +5161,6 @@ add_var_to_bind_expr (tree bind_expr, tree var)
   if (BIND_EXPR_BLOCK (bind_expr))
     BLOCK_VARS (BIND_EXPR_BLOCK (bind_expr))
       = BIND_EXPR_VARS (bind_expr);
-}
-
-
-/* Return a new PHI_NODE for variable VAR and LEN number of arguments.  */
-
-tree
-make_phi_node (tree var, int len)
-{
-  tree phi;
-  int size;
-
-  size = sizeof (struct tree_phi_node) + (len - 1) * sizeof (struct phi_arg_d);
-
-#ifdef GATHER_STATISTICS
-  tree_node_counts[(int) phi_kind]++;
-  tree_node_sizes[(int) phi_kind] += size;
-#endif
-
-  phi = ggc_alloc_tree (size);
-  memset ((PTR) phi, 0, size);
-
-  TREE_SET_CODE (phi, PHI_NODE);
-  PHI_NUM_ARGS (phi) = 0;
-  PHI_ARG_CAPACITY (phi) = len;
-  if (TREE_CODE (var) == SSA_NAME)
-    PHI_RESULT (phi) = var;
-  else
-    PHI_RESULT (phi) = make_ssa_name (var, phi);
-
-  return phi;
-}
-
-
-/* Resize an existing PHI node.  The only way is up.  Return the
-   possibly relocated phi.  */
-
-void
-resize_phi_node (tree *phi, int len)
-{
-  int size;
-  tree new_phi;
-  int i, old_len;
-
-#ifdef ENABLE_CHECKING
-  if (len < PHI_ARG_CAPACITY (*phi))
-    abort ();
-#endif
-
-  size = sizeof (struct tree_phi_node) + (len - 1) * sizeof (struct phi_arg_d);
-  new_phi = ggc_realloc (*phi, size);
-  old_len = PHI_ARG_CAPACITY (new_phi);
-  PHI_ARG_CAPACITY (new_phi) = len;
-
-  for (i = old_len; i < len; i++)
-    {
-      PHI_ARG_DEF (new_phi, i) = NULL_TREE;
-      PHI_ARG_EDGE (new_phi, i) = NULL;
-    }
-
-  *phi = new_phi;
 }
 
 /* Build an empty statement.  */

@@ -2960,6 +2960,7 @@ init_tree_ssa (void)
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
   VARRAY_TREE_INIT (call_clobbered_vars, 20, "call_clobbered_vars");
   init_ssanames ();
+  init_phinodes ();
   memset (&ssa_stats, 0, sizeof (ssa_stats));
   global_var = NULL_TREE;
 }
@@ -2980,6 +2981,7 @@ delete_tree_ssa (tree fndecl)
     referenced_var (i)->common.ann = NULL;
 
   fini_ssanames ();
+  fini_phinodes ();
 
   referenced_vars = NULL;
   global_var = NULL_TREE;

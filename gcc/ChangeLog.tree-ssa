@@ -1,3 +1,19 @@
+2003-11-25  Jeff law  <law@redhat.com>
+
+	* Makefile.in (OBJS-common): Add tree-phinodes.o.
+	(tree-phinodes.o): Add dependencies.
+	* tree-phinodes.c: New file.
+	* tree-dfa.c (create_phi_node): Moved to tree-phinodes.o.
+	(add_phi_arg, remove_phi_arg, remove_phi_arg_num): Similarly.
+	(remove_phi_node, remove_all_phi_nodes_for): Similarly.
+	* tree-ssa.c (init_tree_ssa): Initialize PHI node management.
+	(delete_tree_ssa): Finalize PHI node management.
+	* tree.c (dump_tree_statistics): Dump PHI node stats.
+	(make_phi_node, resize_phi_node): Moved to tree-phinodes.o.
+	* tree.h (init_phinodes): Prototype.
+	(fini_phinodes, release_phi_node): Likewise.
+	(phinodes_print_statistics): Likewise.
+
 2003-11-25  Jan Hubicka  <jh@suse.cz>
 
 	* tree-inline.c (save_body): New body
