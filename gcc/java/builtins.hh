@@ -94,7 +94,7 @@ public:
 		      const std::string &);
 
   tree map_method_call (aot_class *, tree, tree, model_method *, bool);
-  tree map_new (model_class *, tree, tree);
+  tree map_new (aot_class *, model_class *, tree, tree);
   tree map_class_object (model_class *);
 
   /// Memoize a utf8const.

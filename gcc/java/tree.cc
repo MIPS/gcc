@@ -133,7 +133,7 @@ tree_generator::visit_method (model_method *meth,
 	  tree k;
 	  if (meth->static_p ())
 	    // FIXME: this is kind of wrong for new ABI code.
-	    k = build_class_ref (meth->get_declaring_class ());
+	    k = build_class_ref (meth->get_declaring_class (), meth);
 	  else
 	    k = this_tree;
 	  current = wrap_synchronized (k, current);
@@ -372,8 +372,10 @@ tree_generator::transform_list (const std::list<ref_stmt> &vals)
        i != vals.end ();
        ++i)
     {
+      current = NULL_TREE;
       (*i)->visit (this);
-      tsi_link_after (&out, current, TSI_CONTINUE_LINKING);
+      if (current != NULL_TREE)
+	tsi_link_after (&out, current, TSI_CONTINUE_LINKING);
     }
   return result;
 }
@@ -749,29 +751,20 @@ tree_generator::visit_switch_block (model_switch_block *swblock,
 tree
 tree_generator::wrap_synchronized (tree expr, tree body)
 {
-  // Generate a temporary variable to hold the expression's value.
-  char buf[20];
-  sprintf (buf, "$synctemp%d", temp_counter);
-  ++temp_counter;
-
-  tree expr_decl = build_decl (VAR_DECL, get_identifier (buf),
-			       TREE_TYPE (expr));
-  DECL_INITIAL (expr_decl) = current;
-  DECL_CONTEXT (expr_decl) = method_tree;
-  TREE_CHAIN (expr_decl) = BLOCK_VARS (current_block);
-  BLOCK_VARS (current_block) = expr_decl;
+  // Make sure we only evaluate the expression once.
+  expr = save_expr (expr);
 
   // Emit a call to enter the monitor.
   tree enter = build3 (CALL_EXPR, void_type_node,
 		       builtin_Jv_MonitorEnter,
-		       build_tree_list (NULL_TREE, expr_decl),
+		       build_tree_list (NULL_TREE, expr),
 		       NULL_TREE);
   TREE_SIDE_EFFECTS (enter) = 1;
 
   // Build a call to leave the monitor, we use it shortly.
   tree exit_tree = build3 (CALL_EXPR, void_type_node,
 			   builtin_Jv_MonitorExit,
-			   build_tree_list (NULL_TREE, expr_decl),
+			   build_tree_list (NULL_TREE, expr),
 			   NULL_TREE);
   TREE_SIDE_EFFECTS (exit_tree) = 1;
 
@@ -899,14 +892,13 @@ tree_generator::visit_while (model_while *wstmt,
 
   // Now wrap the body in a loop, and add the "done" label.
   body_tree = build1 (LOOP_EXPR, void_type_node, body_tree);
+  annotate (body_tree, wstmt);
 
   current = alloc_stmt_list ();
   out = tsi_start (current);
   tsi_link_after (&out, body_tree, TSI_CONTINUE_LINKING);
   tsi_link_after (&out, build1 (LABEL_EXPR, void_type_node, done),
 		  TSI_CONTINUE_LINKING);
-
-  annotate (current, wstmt);
 }
 
 
@@ -1325,8 +1317,8 @@ tree_generator::visit_cast (model_cast *,
 
   if (dest->type ()->primitive_p ())
     {
-      current = build1 (CONVERT_EXPR, gcc_builtins->map_type (dest->type ()),
-			expr_tree);
+      current = fold_convert (gcc_builtins->map_type (dest->type ()),
+			      expr_tree);
       TREE_SIDE_EFFECTS (current) = TREE_SIDE_EFFECTS (expr_tree);
     }
   else
@@ -1352,10 +1344,10 @@ tree_generator::visit_cast (model_cast *,
 }
 
 void
-tree_generator::visit_class_ref (model_class_ref *,
+tree_generator::visit_class_ref (model_class_ref *ref,
 				 const ref_forwarding_type &req)
 {
-  current = build_class_ref (req->type ());
+  current = build_class_ref (req->type (), ref);
 }
 
 void
@@ -1508,13 +1500,13 @@ tree_generator::handle_instanceof (tree expr_tree, tree class_tree)
 }
 
 void
-tree_generator::visit_instanceof (model_instanceof *,
+tree_generator::visit_instanceof (model_instanceof *stmt,
 				  const ref_expression &expr,
 				  const ref_forwarding_type &klass)
 {
   expr->visit (this);
   tree expr_tree = save_expr (current);
-  tree class_tree = build_class_ref (klass->type ());
+  tree class_tree = build_class_ref (klass->type (), stmt);
   current = handle_instanceof (expr_tree, class_tree);
 }
 
@@ -1735,7 +1727,7 @@ tree_generator::visit_new (model_new *,
   model_class *klassp = assert_cast<model_class *> (klass->type ());
   gcc_builtins->lay_out_class (klassp);
   current
-    = gcc_builtins->map_new (klassp,
+    = gcc_builtins->map_new (class_wrapper, klassp,
 			     gcc_builtins->map_method (const_cast<model_method *>(constructor)),
 			     arg_tree);
 }
@@ -1753,7 +1745,7 @@ tree_generator::visit_new_array (model_new_array *new_elt,
 
       tree ind_tree = current;
       if (elt_type->type ()->primitive_p ())
-	current = build_new_array (elt_type->type (), ind_tree);
+	current = build_new_array (elt_type->type (), ind_tree, new_elt);
       else
 	current = build_new_object_array (elt_type->type (), ind_tree);
     }
@@ -1893,19 +1885,25 @@ tree_generator::build_long (jlong val)
 }
 
 tree
-tree_generator::build_new_array (model_type *elt_type, tree size)
+tree_generator::build_new_array (model_type *elt_type, tree size,
+				 model_element *request)
 {
   assert (elt_type->primitive_p ());
   model_type *array_type = elt_type->array ();
 
   tree array_type_tree = gcc_builtins->map_type (array_type);
 
-  tree insn = build3 (CALL_EXPR, array_type_tree, 
+  tree insn = build3 (CALL_EXPR,
+		      TREE_TYPE (TREE_TYPE (builtin_Jv_NewPrimArray)),
 		      builtin_Jv_NewPrimArray,
 		      tree_cons (NULL_TREE,
-				 build_class_ref (elt_type),
+				 build_class_ref (elt_type, request),
 				 tree_cons (NULL_TREE, size, NULL_TREE)),
 		      NULL_TREE);
+  TREE_SIDE_EFFECTS (insn) = 1;
+
+  // Now cast to correct type.
+  insn = build1 (NOP_EXPR, array_type_tree, insn);
   TREE_SIDE_EFFECTS (insn) = 1;
 
   return insn;
@@ -1956,13 +1954,49 @@ tree_generator::build_exception_object_ref (tree type)
   return obj;
 }
 
-tree
-tree_generator::build_class_ref (model_type *t)
+// FIXME: this is (sort of) duplicated in bytecode_generator.
+model_field *
+tree_generator::find_field (const std::string &name,
+			    model_class *klass, model_type *type,
+			    model_element *request)
 {
-  gcj_abi *abi = gcc_builtins->find_abi ();
-  // FIXME: we can see "int.class".
-  return abi->build_class_reference (gcc_builtins, class_wrapper,
-				     assert_cast<model_class *> (t));
+  std::set<model_field *> result;
+  klass->find_members (name, result, klass, NULL);
+  if (result.size () == 1)
+    {
+      model_field *field = *(result.begin ());
+      if (field->type () == type)
+	return field;
+    }
+  throw request->error ("couldn't find field %1 of type %2 in class %3")
+    % name % type % klass;
+}
+
+tree
+tree_generator::build_class_ref (model_type *t, model_element *request)
+{
+  tree result;
+
+  assert (t != null_type);
+  if (t->primitive_p () || t == primitive_void_type)
+    {
+      model_class *wrapper = box_primitive_type (t);
+      // Maybe for BC we could still emit a direct reference to the
+      // primitive class?
+      model_field *field
+	= find_field ("TYPE", wrapper,
+		      global->get_compiler ()->java_lang_Class (),
+		      request);
+      result = gcc_builtins->map_field_ref (class_wrapper, NULL_TREE,
+					    field);
+    }
+  else
+    {
+      gcj_abi *abi = gcc_builtins->find_abi ();
+      result = abi->build_class_reference (gcc_builtins, class_wrapper,
+					   assert_cast<model_class *> (t));
+    }
+  return result;
 }
 
 tree

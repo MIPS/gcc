@@ -181,21 +181,30 @@ cxx_abi::build_class_reference (tree_builtins *builtins,
 
 tree
 cxx_abi::build_new (tree_builtins *builtins, aot_class *current,
-		    tree klass, tree constructor, tree arguments)
+		    model_class *klass, tree constructor, tree arguments)
 {
   tree allocator = builtin_Jv_AllocObject;  // FIXME: finalizer
+  tree klass_tree = builtins->map_type (klass);
   // Allocate the object.
-  tree n = build3 (CALL_EXPR, klass, allocator,
+  tree n = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (allocator)), allocator,
 		   build_tree_list (NULL_TREE,
 				    build_class_reference (builtins, current,
-							   // FIXME
-							   NULL)),
+							   klass)),
 		   NULL_TREE);
   TREE_SIDE_EFFECTS (n) = 1;
+
+  n = build1 (NOP_EXPR, klass_tree, n);
+  TREE_SIDE_EFFECTS (n) = 1;
+
+  tree mem = save_expr (n);
+
   // Call the constructor.
-  n = build3 (CALL_EXPR, klass, constructor,
-	      tree_cons (NULL_TREE, n, arguments),
+  n = build3 (CALL_EXPR, void_type_node, build_address_of (constructor),
+	      tree_cons (NULL_TREE, mem, arguments),
 	      NULL_TREE);
+  TREE_SIDE_EFFECTS (n) = 1;
+
+  n = build2 (COMPOUND_EXPR, klass_tree, n, mem);
   TREE_SIDE_EFFECTS (n) = 1;
 
   return n;
@@ -293,7 +302,7 @@ bc_abi::build_class_reference (tree_builtins *builtins,
 
 tree
 bc_abi::build_new (tree_builtins *builtins, aot_class *current,
-		   tree klass, tree constructor, tree arguments)
+		   model_class *klass, tree constructor, tree arguments)
 {
   abort ();
 }

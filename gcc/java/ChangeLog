@@ -1,5 +1,43 @@
 2005-03-03  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_while): Annotate the loop, not the statements.
+
+	* tree.cc (wrap_synchronized): Use save_expr, not a temporary
+	variable.
+
+	* tree.cc (build_new_array): Cast result to correct type.
+	(build_class_ref): Return result.
+
+	* tree.cc (find_field): Rewrote.
+
+	* lower.cc (visit_bytecode_block): Updated.
+	* tree.hh (tree_generator::find_field): Declare.
+	(tree_generator::build_class_ref): Updated.
+	(tree_generator::build_new_array): Updated.
+	* tree.cc (find_field): New method.
+	(build_class_ref): Handle primitive classes.  Added 'request'
+	argument.
+	(visit_method): Updated.
+	(visit_class_ref): Updated.
+	(visit_instanceof): Updated.
+	(build_new_array): Updated.  Added 'request' argument.
+	(visit_new_array): Updated.
+
+	* builtins.hh (tree_builtins::map_new): Updated.
+	* tree.cc (visit_new): Pass class_wrapper to map_new.
+	(visit_cast): Use fold_convert.
+	(transform_list): Handle case where 'current' is NULL_TREE.
+	* builtins.cc (map_new): Updated.
+	(map_new): Added 'current' argument.
+	* abi.cc (build_new): Changed type of 'klass' argument.  Build a
+	COMPOUND_EXPR.
+	(build_new): Updated.
+	* abi.hh (gcj_abi::build_new): Changed type of 'klass' argument.
+	(cxx_abi::build_new): Updated.
+	(bc_abi::build_new): Updated.
+
+2005-03-03  Tom Tromey  <tromey@redhat.com>
+
 	* decl.cc (initialize_builtin_functions): Fixed type of
 	_Jv_MonitorEnter and _Jv_MonitorExit.
 	(initialize_builtin_functions): Fixed type of first

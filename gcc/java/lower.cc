@@ -1335,7 +1335,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  {
 	    model_type *elt_type = vfy_get_primitive_type (get1u (bytes, pc));
 	    tree size = pop (type_jint);
-	    insn = build_new_array (elt_type, size);
+	    insn = build_new_array (elt_type, size, block);
 	  }
 	  break;
 

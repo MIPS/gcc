@@ -103,7 +103,7 @@ class tree_generator : public visitor
   void annotate (tree, model_element *);
   tree wrap_synchronized (tree, tree);
   tree add_var (const ref_variable_decl &);
-  tree build_class_ref (model_type *);
+  tree build_class_ref (model_type *, model_element *);
   tree build_class_ref (const std::string &);
   tree handle_instanceof (tree, tree);
   void handle_inc_dec (tree_code, const ref_expression &);
@@ -123,7 +123,7 @@ class tree_generator : public visitor
   tree handle_float (jfloat);
   tree handle_double (jdouble);
   tree build_ref_from_constant_pool (tree, int);
-  tree build_new_array (model_type *, tree);
+  tree build_new_array (model_type *, tree, model_element *);
   tree build_new_object_array (model_type *, tree);
   model_type *find_model_class (const std::string &);
   tree build_divide (tree, tree, tree);
@@ -157,6 +157,9 @@ class tree_generator : public visitor
   tree find_class (const std::string &);
   tree handle_ldc (constant_pool *, uint16);
   bool type_wide_p (tree) const;
+  model_field *find_field (const std::string &name,
+			   model_class *klass, model_type *type,
+			   model_element *request);
 
 public:
 

@@ -370,11 +370,11 @@ tree_builtins::map_method_call (aot_class *wrapper,
 }
 
 tree
-tree_builtins::map_new (model_class *klass, tree constructor, tree arguments)
+tree_builtins::map_new (aot_class *current, model_class *klass,
+			tree constructor, tree arguments)
 {
   gcj_abi *abi = find_abi ();
-  return abi->build_new (this, get_class (klass),
-			 map_type (klass), constructor, arguments);
+  return abi->build_new (this, current, klass, constructor, arguments);
 }
 
 tree
