@@ -750,7 +750,7 @@ synthesize_method (fndecl)
   DECL_SOURCE_FILE (fndecl) = input_filename;
 
   interface_unknown = 1;
-  start_function (NULL_TREE, fndecl, NULL_TREE, SF_DEFAULT | SF_PRE_PARSED);
+  push_scope_and_start_function (fndecl);
   clear_last_expr ();
 
   if (DECL_OVERLOADED_OPERATOR_P (fndecl) == NOP_EXPR)
@@ -778,7 +778,7 @@ synthesize_method (fndecl)
       finish_compound_stmt (/*has_no_scope=*/0, compound_stmt);
     }
 
-  expand_body (finish_function (0));
+  expand_body (finish_function_and_pop_scope ());
 
   extract_interface_info ();
   if (! context)

@@ -1537,14 +1537,8 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
   if (declspecs == NULL_TREE
       && TREE_CODE (declarator) == SCOPE_REF
       && TREE_CODE (TREE_OPERAND (declarator, 1)) == IDENTIFIER_NODE)
-    {
-      /* Access declaration */
-      if (! IS_AGGR_TYPE_CODE (TREE_CODE (TREE_OPERAND (declarator, 0))))
-	;
-      else if (TREE_COMPLEXITY (declarator) == current_class_depth)
-	pop_nested_class ();
-      return do_class_using_decl (declarator);
-    }
+    /* Access declaration */
+    return do_class_using_decl (declarator);
 
   if (init
       && TREE_CODE (init) == TREE_LIST
@@ -1906,6 +1900,19 @@ constructor_name (thing)
     return thing;
   return t;
 }
+
+/* Returns TRUE iff NAME could name a constructor in the scope of
+   TYPE.  */
+
+bool
+constructor_name_p (name, type)
+     tree name;
+     tree type;
+{
+  return (constructor_name (type) == name
+	  || constructor_name_full (type) == name);
+}
+
 
 /* Defer the compilation of the FN until the end of compilation.  */
 
@@ -4103,6 +4110,8 @@ reparse_decl_as_expr (type, decl)
     return decl;
 }
 
+/* FIXME: This can go.  */
+
 /* This is something of the form `int (*a)' that has turned out to be a
    decl.  It was only converted into parse nodes, so we need to do the
    checking that make_{pointer,reference}_declarator do.  */
@@ -4524,7 +4533,7 @@ push_scope (t)
   if (TREE_CODE (t) == NAMESPACE_DECL)
     push_decl_namespace (t);
   else
-    pushclass (t, 2);
+    push_nested_class (t, 2);
 }
 
 /* Leave scope pushed by push_scope. */
@@ -4536,7 +4545,7 @@ pop_scope (t)
   if (TREE_CODE (t) == NAMESPACE_DECL)
     pop_decl_namespace ();
   else
-    popclass ();
+    pop_nested_class ();
 }
 
 /* [basic.lookup.koenig] */

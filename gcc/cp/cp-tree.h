@@ -3062,6 +3062,8 @@ enum ptrmemfunc_vbit_where_t
 #define CTOR_END_P(NODE) \
   (!CTOR_BEGIN_P (NODE))
 
+/* FIXME: Rename all of these to FUNCTION_DECLARATOR_*.  */
+
 /* The parameters for a call-declarator.  */
 #define CALL_DECLARATOR_PARMS(NODE) \
   (TREE_PURPOSE (TREE_OPERAND ((NODE), 1)))
@@ -3101,24 +3103,6 @@ typedef enum scope_kind {
 			specialization.  There is never anything in
 			this scope.  */
 } scope_kind;
-
-/* Various kinds of template specialization, instantiation, etc.  */
-typedef enum tmpl_spec_kind {
-  tsk_none,                /* Not a template at all.  */
-  tsk_invalid_member_spec, /* An explicit member template
-			      specialization, but the enclosing
-			      classes have not all been explicitly
-			      specialized.  */
-  tsk_invalid_expl_inst,   /* An explicit instantiation containing
-			      template parameter lists.  */
-  tsk_excessive_parms,     /* A template declaration with too many
-			      template parameter lists.  */
-  tsk_insufficient_parms,  /* A template declaration with too few
-			      parameter lists.  */
-  tsk_template,            /* A template declaration.  */
-  tsk_expl_spec,           /* An explicit specialization.  */
-  tsk_expl_inst            /* An explicit instantiation.  */
-} tmpl_spec_kind;
 
 /* The various kinds of access.  BINFO_ACCESS depends on these being
    two bit quantities.  The numerical values are important; they are
@@ -3869,7 +3853,9 @@ extern tree start_enum				PARAMS ((tree));
 extern void finish_enum				PARAMS ((tree));
 extern void build_enumerator			PARAMS ((tree, tree, tree));
 extern int start_function			PARAMS ((tree, tree, tree, int));
+extern void push_scope_and_start_function       PARAMS ((tree));
 extern tree finish_function			PARAMS ((int));
+extern tree finish_function_and_pop_scope       PARAMS ((void));
 extern tree start_method			PARAMS ((tree, tree, tree));
 extern tree finish_method			PARAMS ((tree));
 extern void hack_incomplete_structures		PARAMS ((tree));
@@ -3905,7 +3891,6 @@ extern int local_variable_p                     PARAMS ((tree));
 extern int nonstatic_local_decl_p               PARAMS ((tree));
 extern tree declare_global_var                  PARAMS ((tree, tree));
 extern void register_dtor_fn                    PARAMS ((tree));
-extern tmpl_spec_kind current_tmpl_spec_kind    PARAMS ((int));
 extern tree cp_fname_init			PARAMS ((const char *));
 
 /* in decl2.c */
@@ -3931,6 +3916,7 @@ extern int copy_assignment_arg_p		PARAMS ((tree, int));
 extern void cplus_decl_attributes		PARAMS ((tree, tree, tree));
 extern tree constructor_name_full		PARAMS ((tree));
 extern tree constructor_name			PARAMS ((tree));
+extern bool constructor_name_p                  PARAMS ((tree, tree));
 extern void defer_fn            		PARAMS ((tree));
 extern tree get_temp_name			PARAMS ((tree));
 extern void finish_anon_union			PARAMS ((tree));
@@ -4120,7 +4106,7 @@ extern void reset_specialization                PARAMS ((void));
 extern void end_specialization                  PARAMS ((void));
 extern void begin_explicit_instantiation        PARAMS ((void));
 extern void end_explicit_instantiation          PARAMS ((void));
-extern tree check_explicit_specialization       PARAMS ((tree, tree, int, int));
+extern tree check_explicit_specialization       PARAMS ((tree, tree, int));
 extern tree process_template_parm		PARAMS ((tree, tree));
 extern tree end_template_parm_list		PARAMS ((tree));
 extern void end_template_decl			PARAMS ((void));
@@ -4301,7 +4287,7 @@ extern tree finish_unary_op_expr                PARAMS ((enum tree_code, tree));
 extern tree finish_id_expr                      PARAMS ((tree));
 extern void save_type_access_control		PARAMS ((tree));
 extern void decl_type_access_control		PARAMS ((tree));
-extern int begin_function_definition            PARAMS ((tree, tree));
+extern int begin_function_definition            PARAMS ((tree, tree, tree));
 extern tree begin_constructor_declarator        PARAMS ((tree, tree));
 extern tree finish_declarator                   PARAMS ((tree, tree, tree, tree, int));
 extern void finish_translation_unit             PARAMS ((void));
@@ -4332,7 +4318,7 @@ extern void setup_vtbl_ptr			PARAMS ((tree, tree));
 extern void clear_out_block                     PARAMS ((void));
 extern tree begin_global_stmt_expr              PARAMS ((void));
 extern tree finish_global_stmt_expr             PARAMS ((tree));
-
+extern tree finish_fname                        PARAMS ((tree));
 
 /* in spew.c */
 extern void init_spew				PARAMS ((void));

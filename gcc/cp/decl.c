@@ -76,7 +76,7 @@ static void warn_extern_redeclared_static PARAMS ((tree, tree));
 static tree grok_reference_init PARAMS ((tree, tree, tree));
 static tree grokfndecl PARAMS ((tree, tree, tree, tree, int,
 			      enum overload_flags, tree,
-			      tree, int, int, int, int, int, int, tree));
+			      tree, int, int, int, int, int, tree));
 static tree grokvardecl PARAMS ((tree, tree, RID_BIT_TYPE *, int, int, tree));
 static tree lookup_tag PARAMS ((enum tree_code, tree,
 			      struct binding_level *, int));
@@ -144,7 +144,7 @@ static tree check_special_function_return_type
   PARAMS ((special_function_kind, tree, tree));
 static tree push_cp_library_fn PARAMS ((enum tree_code, tree));
 static tree build_cp_library_fn PARAMS ((tree, enum tree_code, tree));
-static void store_parm_decls PARAMS ((tree));
+static void store_parm_decls PARAMS ((tree, tree));
 static int cp_missing_noreturn_ok_p PARAMS ((tree));
 
 #if defined (DEBUG_CP_BINDING_LEVELS)
@@ -265,7 +265,6 @@ static tree last_function_parm_tags;
 
 /* Similar, for last_function_parm_tags.  */
 tree last_function_parms;
-static tree current_function_parm_tags;
 
 /* A list of all LABEL_DECLs in the function that have names.  Here so
    we can clear out their names' definitions at the end of the
@@ -732,95 +731,6 @@ int
 template_parm_scope_p ()
 {
   return current_binding_level->template_parms_p;
-}
-
-/* Returns the kind of template specialization we are currently
-   processing, given that it's declaration contained N_CLASS_SCOPES
-   explicit scope qualifications.  */
-
-tmpl_spec_kind
-current_tmpl_spec_kind (n_class_scopes)
-     int n_class_scopes;
-{
-  int n_template_parm_scopes = 0;
-  int seen_specialization_p = 0;
-  int innermost_specialization_p = 0;
-  struct binding_level *b;
-
-  /* Scan through the template parameter scopes.  */
-  for (b = current_binding_level; b->template_parms_p; b = b->level_chain)
-    {
-      /* If we see a specialization scope inside a parameter scope,
-	 then something is wrong.  That corresponds to a declaration
-	 like:
-
-	    template <class T> template <> ...
-
-	 which is always illegal since [temp.expl.spec] forbids the
-	 specialization of a class member template if the enclosing
-	 class templates are not explicitly specialized as well.  */
-      if (b->template_spec_p)
-	{
-	  if (n_template_parm_scopes == 0)
-	    innermost_specialization_p = 1;
-	  else
-	    seen_specialization_p = 1;
-	}
-      else if (seen_specialization_p == 1)
-	return tsk_invalid_member_spec;
-
-      ++n_template_parm_scopes;
-    }
-
-  /* Handle explicit instantiations.  */
-  if (processing_explicit_instantiation)
-    {
-      if (n_template_parm_scopes != 0)
-	/* We've seen a template parameter list during an explicit
-	   instantiation.  For example:
-
-	     template <class T> template void f(int);
-
-	   This is erroneous.  */
-	return tsk_invalid_expl_inst;
-      else
-	return tsk_expl_inst;
-    }
-
-  if (n_template_parm_scopes < n_class_scopes)
-    /* We've not seen enough template headers to match all the
-       specialized classes present.  For example:
-
-         template <class T> void R<T>::S<T>::f(int);
-
-       This is illegal; there needs to be one set of template
-       parameters for each class.  */
-    return tsk_insufficient_parms;
-  else if (n_template_parm_scopes == n_class_scopes)
-    /* We're processing a non-template declaration (even though it may
-       be a member of a template class.)  For example:
-
-         template <class T> void S<T>::f(int);
-
-       The `class T' maches the `S<T>', leaving no template headers
-       corresponding to the `f'.  */
-    return tsk_none;
-  else if (n_template_parm_scopes > n_class_scopes + 1)
-    /* We've got too many template headers.  For example:
-
-         template <> template <class T> void f (T);
-
-       There need to be more enclosing classes.  */
-    return tsk_excessive_parms;
-  else
-    /* This must be a template.  It's of the form:
-
-         template <class T> template <class U> void S<T>::f(U);
-
-       This is a specialization if the innermost level was a
-       specialization; otherwise it's just a definition of the
-       template.  */
-    return innermost_specialization_p ? tsk_expl_spec : tsk_template;
 }
 
 void
@@ -6634,7 +6544,6 @@ init_decl_processing ()
 
   ggc_add_tree_root (&last_function_parm_tags, 1);
   ggc_add_tree_root (&current_function_return_value, 1);
-  ggc_add_tree_root (&current_function_parm_tags, 1);
   ggc_add_tree_root (&last_function_parms, 1);
   ggc_add_tree_root (&error_mark_list, 1);
 
@@ -7184,14 +7093,6 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
 
   context = DECL_CONTEXT (decl);
 
-  if (initialized && context && TREE_CODE (context) == NAMESPACE_DECL
-      && context != current_namespace && TREE_CODE (decl) == VAR_DECL)
-    {
-      /* When parsing the initializer, lookup should use the object's
-	 namespace. */
-      push_decl_namespace (context);
-    }
-
   /* We are only interested in class contexts, later. */
   if (context && TREE_CODE (context) == NAMESPACE_DECL)
     context = NULL_TREE;
@@ -7247,8 +7148,6 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
 
   if (context && COMPLETE_TYPE_P (complete_type (context)))
     {
-      push_nested_class (context, 2);
-
       if (TREE_CODE (decl) == VAR_DECL)
 	{
 	  tree field = lookup_field (context, DECL_NAME (decl), 0, 0);
@@ -8060,16 +7959,6 @@ cp_finish_decl (decl, init, asmspec_tree, flags)
       && (DECL_INITIAL (decl) || init))
     DECL_INITIALIZED_IN_CLASS_P (decl) = 1;
 
-  if (TREE_CODE (decl) == VAR_DECL
-      && DECL_CONTEXT (decl)
-      && TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL
-      && DECL_CONTEXT (decl) != current_namespace
-      && init)
-    {
-      /* Leave the namespace of the object. */
-      pop_decl_namespace ();
-    }
-
   type = TREE_TYPE (decl);
 
   if (type == error_mark_node)
@@ -8088,7 +7977,7 @@ cp_finish_decl (decl, init, asmspec_tree, flags)
     {
       if (init && DECL_INITIAL (decl))
 	DECL_INITIAL (decl) = init;
-      goto finish_end0;
+      goto finish_end;
     }
 
   /* Parameters are handled by store_parm_decls, not cp_finish_decl.  */
@@ -8215,26 +8104,6 @@ cp_finish_decl (decl, init, asmspec_tree, flags)
 	      || TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
 	    expand_static_init (decl, init);
 	}
-    finish_end0:
-
-      /* Undo call to `pushclass' that was done in `start_decl'
-	 due to initialization of qualified member variable.
-	 I.e., Foo::x = 10;  */
-      {
-	tree context = CP_DECL_CONTEXT (decl);
-	if (context
-	    && TYPE_P (context)
-	    && (TREE_CODE (decl) == VAR_DECL
-		/* We also have a pushclass done that we need to undo here
-		   if we're at top level and declare a method.  */
-		|| TREE_CODE (decl) == FUNCTION_DECL)
-	    /* If size hasn't been set, we're still defining it,
-	       and therefore inside the class body; don't pop
-	       the binding level..  */
-	    && COMPLETE_TYPE_P (context)
-	    && context == current_class_type)
-	  pop_nested_class ();
-      }
     }
 
  finish_end:
@@ -8772,14 +8641,14 @@ bad_specifiers (object, type, virtualp, quals, inlinep, friendp, raises)
 static tree
 grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
 	    raises, check, friendp, publicp, inlinep, funcdef_flag,
-	    template_count, in_namespace)
+	    in_namespace)
      tree ctype, type;
      tree declarator;
      tree orig_declarator;
      int virtualp;
      enum overload_flags flags;
      tree quals, raises;
-     int check, friendp, publicp, inlinep, funcdef_flag, template_count;
+     int check, friendp, publicp, inlinep, funcdef_flag;
      tree in_namespace;
 {
   tree decl;
@@ -8996,7 +8865,6 @@ grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
     grokclassfn (ctype, decl, flags, quals);
 
   decl = check_explicit_specialization (orig_declarator, decl,
-					template_count,
 					2 * (funcdef_flag != 0) +
 					4 * (friendp != 0));
   if (decl == error_mark_node)
@@ -9057,38 +8925,31 @@ grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
 }
 
 static tree
-grokvardecl (type, declarator, specbits_in, initialized, constp, in_namespace)
+grokvardecl (type, declarator, specbits_in, initialized, constp, context)
      tree type;
      tree declarator;
      RID_BIT_TYPE *specbits_in;
      int initialized;
      int constp;
-     tree in_namespace;
+     tree context;
 {
   tree decl;
   RID_BIT_TYPE specbits;
 
   specbits = *specbits_in;
 
-  if (TREE_CODE (type) == OFFSET_TYPE)
+  if (context && TYPE_P (context))
     {
       /* If you declare a static member so that it
 	 can be initialized, the code will reach here.  */
-      tree basetype = TYPE_OFFSET_BASETYPE (type);
-      type = TREE_TYPE (type);
       decl = build_lang_decl (VAR_DECL, declarator, type);
-      DECL_CONTEXT (decl) = basetype;
+      DECL_CONTEXT (decl) = context;
     }
   else
     {
-      tree context;
-
-      if (in_namespace)
-	context = in_namespace;
-      else if (namespace_bindings_p () || RIDBIT_SETP (RID_EXTERN, specbits))
+      if (!context
+	  && (namespace_bindings_p () || RIDBIT_SETP (RID_EXTERN, specbits)))
 	context = current_namespace;
-      else
-	context = NULL_TREE;
 
       /* For namespace-scope variables, declared in a template, we
 	 need the full lang_decl.  The same is true for
@@ -9112,8 +8973,8 @@ grokvardecl (type, declarator, specbits_in, initialized, constp, in_namespace)
 	mangle_decl (decl);
     }
 
-  if (in_namespace)
-    set_decl_namespace (decl, in_namespace, 0);
+  if (context && TREE_CODE (context) == NAMESPACE_DECL)
+    set_decl_namespace (decl, context, 0);
 
   if (RIDBIT_SETP (RID_EXTERN, specbits))
     {
@@ -9619,7 +9480,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
   enum overload_flags flags = NO_SPECIAL;
   tree quals = NULL_TREE;
   tree raises = NULL_TREE;
-  int template_count = 0;
   tree in_namespace = NULL_TREE;
   tree inner_attrs;
   int ignore_attrs;
@@ -9644,11 +9504,13 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	decl = *next;
 	switch (TREE_CODE (decl))
 	  {
+	    /* FIXME: This can go.  */
 	  case TREE_LIST:
 	    /* For attributes.  */
 	    next = &TREE_VALUE (decl);
 	    break;
 
+	    /* FIXME: This can go, too.  */
 	  case COND_EXPR:
 	    ctype = NULL_TREE;
 	    next = &TREE_OPERAND (decl, 0);
@@ -9712,10 +9574,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    if (ctype
 		&& TREE_OPERAND (decl, 0)
 		&& (TREE_CODE (TREE_OPERAND (decl, 0)) == TYPE_DECL
-		    && ((DECL_NAME (TREE_OPERAND (decl, 0))
-			 == constructor_name_full (ctype))
-			|| (DECL_NAME (TREE_OPERAND (decl, 0))
-			    == constructor_name (ctype)))))
+		    && constructor_name_p (DECL_NAME (TREE_OPERAND
+						      (decl, 0)),
+					   ctype)))
 	      TREE_OPERAND (decl, 0) = constructor_name (ctype);
 	    next = &TREE_OPERAND (decl, 0);
 	    decl = *next;
@@ -9808,8 +9669,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		}
 	      else if (ctype == NULL_TREE)
 		ctype = cname;
-	      else if (TREE_COMPLEXITY (decl) == current_class_depth)
-		TREE_OPERAND (decl, 0) = ctype;
 	      else
 		{
 		  if (! UNIQUELY_DERIVED_FROM_P (cname, ctype))
@@ -9823,10 +9682,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		}
 
 	      if (ctype && TREE_CODE (TREE_OPERAND (decl, 1)) == TYPE_DECL
-		  && ((DECL_NAME (TREE_OPERAND (decl, 1))
-		       == constructor_name_full (ctype))
-		      || (DECL_NAME (TREE_OPERAND (decl, 1))
-			  == constructor_name (ctype))))
+		  && constructor_name_p (DECL_NAME (TREE_OPERAND
+						    (decl, 1)),
+					 ctype))
 		TREE_OPERAND (decl, 1) = constructor_name (ctype);
 	      next = &TREE_OPERAND (decl, 1);
 	      decl = *next;
@@ -9840,8 +9698,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		    }
 		  else if (TREE_CODE (decl) == BIT_NOT_EXPR
 			   && TREE_CODE (TREE_OPERAND (decl, 0)) == IDENTIFIER_NODE
-			   && (constructor_name (ctype) == TREE_OPERAND (decl, 0)
-			       || constructor_name_full (ctype) == TREE_OPERAND (decl, 0)))
+			   && constructor_name_p (TREE_OPERAND (decl, 0),
+						  ctype))
 		    {
 		      sfk = sfk_destructor;
 		      ctor_return_type = ctype;
@@ -10087,6 +9945,35 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		    name);
 
       type = integer_type_node;
+    }
+
+  /* Consider:
+     
+       template <typename T>
+       struct S {
+	 typedef int I;
+	 static I i;
+       };
+
+       template <typename T>
+       typename S<T>::I i;
+     
+     The question is whether or not the type of the definition matches
+     the type of the declaration.  There is an open core issue
+     regarding this question.  The current proposed resolution
+     indicates that the definition does have the same type as the
+     declaration, which means that we have to resolve the
+     TYPENAME_TYPE to get at the underlying type definition.  We
+     perform that resolution using `tsubst'.  When the committee more
+     precisely defines exactly what is supposed to happen, we may have
+     to change the exact way in which the resolution occurs.  */
+  if (ctype 
+      && current_template_parms
+      && uses_template_parms (type)
+      && uses_template_parms (ctype))
+    {
+      tree args = current_template_args ();
+      type = tsubst (type, args, /*complain=*/1, NULL_TREE);
     }
 
   ctype = NULL_TREE;
@@ -10400,7 +10287,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	 an INDIRECT_REF (for *...),
 	 a CALL_EXPR (for ...(...)),
 	 an identifier (for the name being declared)
-	 or a null pointer (for the place in an absolute declarator
+	 or a null pointer (for the place in an abstract declarator
 	 where the name was omitted).
 	 For the last two cases, we have just exited the loop.
 
@@ -10789,7 +10676,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	       resolve to.  The code here just needs to build
 	       up appropriate member types.  */
 	    tree sname = TREE_OPERAND (declarator, 1);
-	    tree t;
 
 	    /* Destructors can have their visibilities changed as well.  */
 	    if (TREE_CODE (sname) == BIT_NOT_EXPR)
@@ -10805,29 +10691,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		continue;
 	      }
 	    ctype = TREE_OPERAND (declarator, 0);
-
-	    t = ctype;
-	    while (t != NULL_TREE && CLASS_TYPE_P (t))
-	      {
-		/* You're supposed to have one `template <...>'
-		   for every template class, but you don't need one
-		   for a full specialization.  For example:
-
-		     template <class T> struct S{};
-		     template <> struct S<int> { void f(); };
-		     void S<int>::f () {}
-
-		   is correct; there shouldn't be a `template <>' for
-		   the definition of `S<int>::f'.  */
-		if (CLASSTYPE_TEMPLATE_INFO (t)
-		    && (CLASSTYPE_TEMPLATE_INSTANTIATION (t)
-			|| uses_template_parms (CLASSTYPE_TI_ARGS (t)))
-	            && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (t)))
-		  template_count += 1;
-
-		t = TYPE_MAIN_DECL (t);
-		t = DECL_CONTEXT (t);
-	      }
 
 	    if (sname == NULL_TREE)
 	      goto done_scoping;
@@ -11319,7 +11182,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
 			       declarator,
 			       virtualp, flags, quals, raises,
 			       friendp ? -1 : 0, friendp, publicp, inlinep,
-			       funcdef_flag, template_count, in_namespace);
+			       funcdef_flag, in_namespace);
 	    if (decl == NULL_TREE)
 	      return decl;
 #if 0
@@ -11362,7 +11225,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
 	    decl = grokfndecl (ctype, type, declarator, declarator,
 			       virtualp, flags, quals, raises,
 			       friendp ? -1 : 0, friendp, 1, 0, funcdef_flag,
-			       template_count, in_namespace);
+			       in_namespace);
 	    if (decl == NULL_TREE)
 	      return NULL_TREE;
 	  }
@@ -11417,7 +11280,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
                   {
               	    decl = check_explicit_specialization
               	            (declarator, decl,
-              	             template_count, 2 * (funcdef_flag != 0) + 4);
+              	             2 * (funcdef_flag != 0) + 4);
               	    if (decl == error_mark_node)
               	      return error_mark_node;
                   }
@@ -11557,7 +11420,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
 			   virtualp, flags, quals, raises,
 			   1, friendp,
 			   publicp, inlinep, funcdef_flag,
-			   template_count, in_namespace);
+			   in_namespace);
 	if (decl == NULL_TREE)
 	  return NULL_TREE;
 
@@ -11594,7 +11457,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
 	decl = grokvardecl (type, declarator, &specbits,
 			    initialized,
 			    (type_quals & TYPE_QUAL_CONST) != 0,
-			    in_namespace);
+			    in_namespace ? in_namespace : ctype);
 	bad_specifiers (decl, "variable", virtualp, quals != NULL_TREE,
 			inlinep, friendp, raises != NULL_TREE);
 
@@ -13215,6 +13078,7 @@ start_function (declspecs, declarator, attrs, flags)
   int doing_friend = 0;
   struct binding_level *bl;
   tree current_function_parms;
+  tree current_function_parm_tags;
 
   /* Sanity check.  */
   my_friendly_assert (TREE_CODE (TREE_VALUE (void_list_node)) == VOID_TYPE, 160);
@@ -13313,13 +13177,6 @@ start_function (declspecs, declarator, attrs, flags)
   if (! warn_implicit
       && IDENTIFIER_IMPLICIT_DECL (DECL_NAME (decl1)) != NULL_TREE)
     cp_warning_at ("`%D' implicitly declared before its definition", IDENTIFIER_IMPLICIT_DECL (DECL_NAME (decl1)));
-
-  /* Set up current_class_type, and enter the scope of the class, if
-     appropriate.  */
-  if (ctype)
-    push_nested_class (ctype, 1);
-  else if (DECL_STATIC_FUNCTION_P (decl1))
-    push_nested_class (DECL_CONTEXT (decl1), 2);
 
   /* Now that we have entered the scope of the class, we must restore
      the bindings for any template parameters surrounding DECL1, if it
@@ -13570,9 +13427,21 @@ start_function (declspecs, declarator, attrs, flags)
 
   start_fname_decls ();
   
-  store_parm_decls (current_function_parms);
+  store_parm_decls (current_function_parms,
+		    current_function_parm_tags);
 
   return 1;
+}
+
+void
+push_scope_and_start_function (decl)
+     tree decl;
+{
+  tree scope = DECL_CONTEXT (decl);
+
+  if (scope)
+    push_scope (scope);
+  start_function (NULL_TREE, decl, NULL_TREE, SF_PRE_PARSED);
 }
 
 /* Store the parameter declarations into the current function declaration.
@@ -13582,16 +13451,14 @@ start_function (declspecs, declarator, attrs, flags)
    Also install to binding contour return value identifier, if any.  */
 
 static void
-store_parm_decls (current_function_parms)
+store_parm_decls (current_function_parms, parmtags)
      tree current_function_parms;
+     tree parmtags;
 {
   register tree fndecl = current_function_decl;
   register tree parm;
   int parms_have_cleanups = 0;
   tree cleanups = NULL_TREE;
-
-  /* This is a list of types declared among parms in a prototype.  */
-  tree parmtags = current_function_parm_tags;
 
   /* This is a chain of any other decls that came in among the parm
      declarations.  If a parm is declared with  enum {foo, bar} x;
@@ -13992,10 +13859,6 @@ finish_function (flags)
   if (inclass_inline)
     maybe_end_member_template_processing ();
 
-  /* Leave the scope of the class.  */
-  if (ctype)
-    pop_nested_class ();
-
   --function_depth;
 
   /* Clean up.  */
@@ -14007,6 +13870,22 @@ finish_function (flags)
 
   return fndecl;
 }
+
+tree
+finish_function_and_pop_scope ()
+{
+  tree decl;
+  tree scope;
+
+  decl = finish_function (0);
+
+  scope = DECL_CONTEXT (decl);
+  if (scope)
+    pop_scope (scope);
+
+  return decl;
+}
+
 
 /* Create the FUNCTION_DECL for a function definition.
    DECLSPECS and DECLARATOR are the parts of the declaration;

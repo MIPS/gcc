@@ -1526,6 +1526,21 @@ finish_id_expr (expr)
   return expr;
 }
 
+/* Finish processing `__FUNCTION__', `__PRETTY_FUNCTION__', or
+   `__func__'.  ID is the IDENTIFIER_NODE indicating which name was
+   used.  */
+
+tree
+finish_fname (id)
+     tree id;
+{
+  tree decl = fname_decl (C_RID_CODE (id), id);
+  if (processing_template_decl)
+    decl = build_min_nt (LOOKUP_EXPR, DECL_NAME (decl));
+
+  return decl;
+}
+
 static tree current_type_lookups;
 
 /* Perform deferred access control for types used in the type of a
@@ -1602,20 +1617,18 @@ reset_type_access_control ()
   current_type_lookups = NULL_TREE;
 }
 
-/* Begin a function definition declared with DECL_SPECS and
-   DECLARATOR.  Returns non-zero if the function-declaration is
-   legal.  */
+/* Begin a function definition declared with DECL_SPECIFIERS,
+   ATTRIBUTES, and DECLARATOR.  Returns non-zero if the
+   function-declaration is legal.  */
 
 int
-begin_function_definition (decl_specs, declarator)
-     tree decl_specs;
+begin_function_definition (decl_specifiers, attributes, declarator)
+     tree decl_specifiers;
+     tree attributes;
      tree declarator;
 {
-  tree specs;
-  tree attrs;
-
-  split_specs_attrs (decl_specs, &specs, &attrs);
-  if (!start_function (specs, declarator, attrs, SF_DEFAULT))
+  if (!start_function (decl_specifiers, declarator, 
+		       attributes, SF_DEFAULT))
     return 0;
 
   deferred_type_access_control ();

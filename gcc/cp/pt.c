@@ -1290,33 +1290,15 @@ copy_default_args_to_explicit_spec (decl)
    2: The function has a definition.
    4: The function is a friend.
 
-   The TEMPLATE_COUNT is the number of references to qualifying
-   template classes that appeared in the name of the function.  For
-   example, in
-
-     template <class T> struct S { void f(); };
-     void S<int>::f();
-     
-   the TEMPLATE_COUNT would be 1.  However, explicitly specialized
-   classes are not counted in the TEMPLATE_COUNT, so that in
-
-     template <class T> struct S {};
-     template <> struct S<int> { void f(); }
-     template <> void S<int>::f();
-
-   the TEMPLATE_COUNT would be 0.  (Note that this declaration is
-   illegal; there should be no template <>.)
-
    If the function is a specialization, it is marked as such via
    DECL_TEMPLATE_SPECIALIZATION.  Furthermore, its DECL_TEMPLATE_INFO
    is set up correctly, and it is added to the list of specializations 
    for that template.  */
 
 tree
-check_explicit_specialization (declarator, decl, template_count, flags)
+check_explicit_specialization (declarator, decl, flags)
      tree declarator;
      tree decl;
-     int template_count;
      int flags;
 {
   int have_def = flags & 2;
@@ -1326,125 +1308,16 @@ check_explicit_specialization (declarator, decl, template_count, flags)
   int member_specialization = 0;
   tree ctype = DECL_CLASS_CONTEXT (decl);
   tree dname = DECL_NAME (decl);
-  tmpl_spec_kind tsk;
 
-  tsk = current_tmpl_spec_kind (template_count);
-
-  switch (tsk)
+  if (processing_explicit_instantiation)
+    explicit_instantiation = 1;
+  else if (processing_specialization)
     {
-    case tsk_none:
-      if (processing_specialization) 
-	{
-	  specialization = 1;
-	  SET_DECL_TEMPLATE_SPECIALIZATION (decl);
-	}
-      else if (TREE_CODE (declarator) == TEMPLATE_ID_EXPR)
-	{
-	  if (is_friend)
-	    /* This could be something like:
-
-	       template <class T> void f(T);
-	       class S { friend void f<>(int); }  */
-	    specialization = 1;
-	  else
-	    {
-	      /* This case handles bogus declarations like template <>
-		 template <class T> void f<int>(); */
-
-	      cp_error ("template-id `%D' in declaration of primary template",
-			declarator);
-	      return decl;
-	    }
-	}
-      break;
-
-    case tsk_invalid_member_spec:
-      /* The error has already been reported in
-	 check_specialization_scope.  */
-      return error_mark_node;
-
-    case tsk_invalid_expl_inst:
-      cp_error ("template parameter list used in explicit instantiation");
-
-      /* Fall through.  */
-
-    case tsk_expl_inst:
-      if (have_def)
-	cp_error ("definition provided for explicit instantiation");
-      
-      explicit_instantiation = 1;
-      break;
-
-    case tsk_excessive_parms:
-      cp_error ("too many template parameter lists in declaration of `%D'", 
-		decl);
-      return error_mark_node;
-
-      /* Fall through.  */
-    case tsk_expl_spec:
       SET_DECL_TEMPLATE_SPECIALIZATION (decl);
       if (ctype)
 	member_specialization = 1;
       else
 	specialization = 1;
-      break;
-     
-    case tsk_insufficient_parms:
-      if (template_header_count)
-	{
-	  cp_error("too few template parameter lists in declaration of `%D'", 
-		   decl);
-	  return decl;
-	}
-      else if (ctype != NULL_TREE
-	       && !TYPE_BEING_DEFINED (ctype)
-	       && CLASSTYPE_TEMPLATE_INSTANTIATION (ctype)
-	       && !is_friend)
-	{
-	  /* For backwards compatibility, we accept:
-
-	       template <class T> struct S { void f(); };
-	       void S<int>::f() {} // Missing template <>
-
-	     That used to be legal C++.  */
-	  if (pedantic)
-	    cp_pedwarn
-	      ("explicit specialization not preceded by `template <>'");
-	  specialization = 1;
-	  SET_DECL_TEMPLATE_SPECIALIZATION (decl);
-	}
-      break;
-
-    case tsk_template:
-      if (TREE_CODE (declarator) == TEMPLATE_ID_EXPR)
-	{
-	  /* This case handles bogus declarations like template <>
-	     template <class T> void f<int>(); */
-
-	  if (uses_template_parms (declarator))
-	    cp_error ("partial specialization `%D' of function template",
-		      declarator);
-	  else
-	    cp_error ("template-id `%D' in declaration of primary template",
-		      declarator);
-	  return decl;
-	}
-
-      if (ctype && CLASSTYPE_TEMPLATE_INSTANTIATION (ctype))
-	/* This is a specialization of a member template, without
-	   specialization the containing class.  Something like:
-
-	     template <class T> struct S {
-	       template <class U> void f (U); 
-             };
-	     template <> template <class U> void S<int>::f(U) {}
-	     
-	   That's a specialization -- but of the entire template.  */
-	specialization = 1;
-      break;
-
-    default:
-      my_friendly_abort (20000309);
     }
 
   if (specialization || member_specialization)
@@ -1530,8 +1403,7 @@ check_explicit_specialization (declarator, decl, template_count, flags)
 	  tree fns = NULL_TREE;
 	  int idx;
 
-	  if (name == constructor_name (ctype) 
-	      || name == constructor_name_full (ctype))
+	  if (constructor_name_p (name, ctype))
 	    {
 	      int is_constructor = DECL_CONSTRUCTOR_P (decl);
 	      
@@ -1648,7 +1520,7 @@ check_explicit_specialization (declarator, decl, template_count, flags)
 	  /* If this is a specialization of a member template of a
 	     template class.  In we want to return the TEMPLATE_DECL,
 	     not the specialization of it.  */
-	  if (tsk == tsk_template)
+	  if (processing_template_decl)
 	    {
 	      SET_DECL_TEMPLATE_SPECIALIZATION (tmpl);
 	      DECL_INITIAL (DECL_TEMPLATE_RESULT (tmpl)) = NULL_TREE;
@@ -9927,7 +9799,7 @@ instantiate_decl (d, defer_ok)
 			  NULL, NULL);
 
       /* Set up context.  */
-      start_function (NULL_TREE, d, NULL_TREE, SF_PRE_PARSED);
+      push_scope_and_start_function (d);
 
       /* Substitute into the body of the function.  */
       tsubst_expr (DECL_SAVED_TREE (code_pattern), args,
@@ -9938,7 +9810,7 @@ instantiate_decl (d, defer_ok)
       local_specializations = saved_local_specializations;
 
       /* Finish the function.  */
-      expand_body (finish_function (0));
+      expand_body (finish_function_and_pop_scope ());
     }
 
   /* We're not deferring instantiation any more.  */

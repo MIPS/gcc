@@ -1142,7 +1142,7 @@ maybe_clone_body (fn)
 
       /* Start processing the function.  */
       push_to_top_level ();
-      start_function (NULL_TREE, clone, NULL_TREE, SF_PRE_PARSED);
+      push_scope_and_start_function (clone);
 
       /* Just clone the body, as if we were making an inline call.
 	 But, remap the parameters in the callee to the parameters of
@@ -1221,7 +1221,7 @@ maybe_clone_body (fn)
       VARRAY_FREE (id.fns);
 
       /* Now, expand this function into RTL, if appropriate.  */
-      finish_function (0);
+      finish_function_and_pop_scope ();
       BLOCK_ABSTRACT_ORIGIN (DECL_INITIAL (clone)) = DECL_INITIAL (fn);
       expand_body (clone);
       pop_from_top_level ();

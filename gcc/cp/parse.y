@@ -809,19 +809,21 @@ constructor_declarator:
 fn.def1:
 	  typed_declspecs declarator
 		{ check_for_new_type ("return type", $1);
-		  if (!begin_function_definition ($1.t, $2))
+		  if (!begin_function_definition ($1.t, NULL_TREE, $2))
 		    YYERROR1; }
 	| declmods notype_declarator
-		{ if (!begin_function_definition ($1.t, $2))
+		{ if (!begin_function_definition ($1.t, NULL_TREE, $2))
 		    YYERROR1; }
 	| notype_declarator
-		{ if (!begin_function_definition (NULL_TREE, $1))
+		{ if (!begin_function_definition (NULL_TREE,
+						  NULL_TREE, $1))
 		    YYERROR1; }
 	| declmods constructor_declarator
-		{ if (!begin_function_definition ($1.t, $2))
+		{ if (!begin_function_definition ($1.t, NULL_TREE, $2))
 		    YYERROR1; }
 	| constructor_declarator
-		{ if (!begin_function_definition (NULL_TREE, $1))
+		{ if (!begin_function_definition (NULL_TREE,
+						  NULL_TREE, $1))
 		    YYERROR1; }
 	;
 
@@ -1552,11 +1554,7 @@ primary:
 		       TYPE_DOMAIN (TREE_TYPE ($$)));
 		}
 	| VAR_FUNC_NAME
-		{
-		  $$ = fname_decl (C_RID_CODE ($$), $$);
-		  if (processing_template_decl)
-		    $$ = build_min_nt (LOOKUP_EXPR, DECL_NAME ($$));
-		}
+                { $$ = finish_fname ($$); }
 	| '(' expr ')'
 		{ $$ = finish_parenthesized_expr ($2); }
 	| '(' expr_or_declarator_intern ')'
