@@ -64,7 +64,7 @@ extract_component (block_stmt_iterator *bsi, tree t, bool imagpart_p)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   return gimplify_val (bsi, inner_type, ret);
@@ -285,7 +285,7 @@ expand_complex_division (block_stmt_iterator *bsi, tree inner_type,
       break;
     default:
       /* C99-like requirements for complex divide (not yet implemented).  */
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -349,7 +349,7 @@ expand_complex_comparison (block_stmt_iterator *bsi, tree ar, tree ai,
       TREE_OPERAND (stmt, 0) = cc;
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   modify_stmt (stmt);
@@ -472,7 +472,7 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -486,8 +486,7 @@ build_replicated_const (tree type, tree inner_type, HOST_WIDE_INT value)
   unsigned HOST_WIDE_INT low, high, mask;
   tree ret;
 
-  if (n == 0)
-    abort ();
+  gcc_assert (n);
 
   if (width == HOST_BITS_PER_WIDE_INT)
     low = value;
@@ -504,7 +503,7 @@ build_replicated_const (tree type, tree inner_type, HOST_WIDE_INT value)
   else if (TYPE_PRECISION (type) == 2 * HOST_BITS_PER_WIDE_INT)
     high = low;
   else
-    abort ();
+    gcc_unreachable ();
 
   ret = build_int_cst_wide (type, low, high);
   return ret;
@@ -783,10 +782,8 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
 
   if (code == NOP_EXPR || code == VIEW_CONVERT_EXPR)
     return;
-
-  if (code == CONVERT_EXPR)
-    abort ();
-
+  
+  gcc_assert (code != CONVERT_EXPR);
   op = optab_for_tree_code (code, type);
 
   /* Optabs will try converting a negation into a subtraction, so
@@ -935,7 +932,8 @@ struct tree_opt_pass pass_lower_vector_ssa =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars	/* todo_flags_finish */
     | TODO_ggc_collect | TODO_verify_ssa
-    | TODO_verify_stmts | TODO_verify_flow
+    | TODO_verify_stmts | TODO_verify_flow,
+  0					/* letter */
 };
 
 struct tree_opt_pass pass_pre_expand = 
@@ -952,5 +950,6 @@ struct tree_opt_pass pass_pre_expand =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_ggc_collect
-    | TODO_verify_stmts			/* todo_flags_finish */
+    | TODO_verify_stmts,		/* todo_flags_finish */
+  0					/* letter */
 };

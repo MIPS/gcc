@@ -374,6 +374,9 @@ void gfc_add_decl_to_function (tree);
 /* Make prototypes for runtime library functions.  */
 void gfc_build_builtin_function_decls (void);
 
+/* Set the backend source location of a decl.  */
+void gfc_set_decl_location (tree, locus *);
+
 /* Return the variable decl for a symbol.  */
 tree gfc_get_symbol_decl (gfc_symbol *);
 
@@ -396,6 +399,8 @@ tree gfc_advance_chain (tree, int);
 void gfc_create_function_decl (gfc_namespace *);
 /* Generate the code for a function.  */
 void gfc_generate_function_code (gfc_namespace *);
+/* Output a BLOCK DATA program unit.  */
+void gfc_generate_block_data (gfc_namespace *);
 /* Output a decl for a module variable.  */
 void gfc_generate_module_vars (gfc_namespace *);
 

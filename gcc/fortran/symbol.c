@@ -25,7 +25,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 
 #include "gfortran.h"
 #include "parse.h"
@@ -1763,13 +1762,13 @@ ambiguous_symbol (const char *name, gfc_symtree * st)
 }
 
 
-/* Search for a symbol starting in the current namespace, resorting to
+/* Search for a symtree starting in the current namespace, resorting to
    any parent namespaces if requested by a nonzero parent_flag.
-   Returns nonzero if the symbol is ambiguous.  */
+   Returns nonzero if the name is ambiguous.  */
 
 int
 gfc_find_sym_tree (const char *name, gfc_namespace * ns, int parent_flag,
-		 gfc_symtree ** result)
+		   gfc_symtree ** result)
 {
   gfc_symtree *st;
 
@@ -1802,6 +1801,8 @@ gfc_find_sym_tree (const char *name, gfc_namespace * ns, int parent_flag,
   return 0;
 }
 
+
+/* Same, but returns the symbol instead.  */
 
 int
 gfc_find_symbol (const char *name, gfc_namespace * ns, int parent_flag,
@@ -2204,7 +2205,7 @@ gfc_free_namespace (gfc_namespace * ns)
   ns->refs--;
   if (ns->refs > 0)
     return;
-  assert (ns->refs == 0);
+  gcc_assert (ns->refs == 0);
 
   gfc_free_statements (ns->code);
 

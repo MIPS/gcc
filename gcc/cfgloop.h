@@ -272,6 +272,7 @@ extern unsigned get_loop_level (const struct loop *);
 /* Loops & cfg manipulation.  */
 extern basic_block *get_loop_body (const struct loop *);
 extern basic_block *get_loop_body_in_dom_order (const struct loop *);
+extern basic_block *get_loop_body_in_bfs_order (const struct loop *);
 extern edge *get_loop_exit_edges (const struct loop *, unsigned *);
 extern unsigned num_loop_branches (const struct loop *);
 
@@ -422,6 +423,17 @@ simple_loop_desc (struct loop *loop)
 {
   return loop->aux;
 }
+
+/* The properties of the target.  */
+
+extern unsigned target_avail_regs;	/* Number of available registers.  */
+extern unsigned target_res_regs;	/* Number of reserved registers.  */
+extern unsigned target_small_cost;	/* The cost for register when there
+					   is a free one.  */
+extern unsigned target_pres_cost;	/* The cost for register when there are
+					   not too many free ones.  */
+extern unsigned target_spill_cost;	/* The cost for register when we need
+					   to spill.  */
 
 /* Register pressure estimation for induction variable optimizations & loop
    invariant motion.  */

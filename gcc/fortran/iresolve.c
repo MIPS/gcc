@@ -31,7 +31,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "config.h"
 #include <string.h>
 #include <stdarg.h>
-#include <assert.h>
 
 #include "gfortran.h"
 #include "intrinsic.h"
@@ -266,6 +265,24 @@ gfc_resolve_atan2 (gfc_expr * f, gfc_expr * x,
   f->ts = x->ts;
   f->value.function.name =
     gfc_get_string ("__atan2_%c%d", gfc_type_letter (x->ts.type), x->ts.kind);
+}
+
+
+/* Resolve the BESYN and BESJN intrinsics.  */
+
+void
+gfc_resolve_besn (gfc_expr * f, gfc_expr * n, gfc_expr * x)
+{
+  gfc_typespec ts;
+  
+  f->ts = x->ts;
+  if (n->ts.kind != gfc_c_int_kind)
+    {
+      ts.type = BT_INTEGER;
+      ts.kind = gfc_c_int_kind;
+      gfc_convert_type (n, &ts, 2);
+    }
+  f->value.function.name = gfc_get_string ("<intrinsic>");
 }
 
 
@@ -541,6 +558,16 @@ gfc_resolve_fraction (gfc_expr * f, gfc_expr * x)
 
   f->ts = x->ts;
   f->value.function.name = gfc_get_string ("__fraction_%d", x->ts.kind);
+}
+
+
+/* Resolve single-argument g77 math intrinsics, eg BESY0, ERF.  */
+
+void
+gfc_resolve_g77_math1 (gfc_expr * f, gfc_expr * x)
+{
+  f->ts = x->ts;
+  f->value.function.name = gfc_get_string ("<intrinsic>");
 }
 
 

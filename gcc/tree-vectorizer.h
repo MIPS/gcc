@@ -28,7 +28,7 @@ enum vect_var_kind {
   vect_pointer_var
 };
 
-/* Defines type of operation: unary or binary. */
+/* Defines type of operation: unary or binary.  */
 enum operation_type {
   unary_op = 1,
   binary_op
@@ -52,7 +52,7 @@ typedef struct _stmt_vec_info {
   /* The stmt to which this info struct refers to.  */
   tree stmt;
 
-  /* The loop with resprct to which STMT is vectorized.  */
+  /* The loop with respect to which STMT is vectorized.  */
   struct loop *loop;
 
   /* Not all stmts in the loop need to be vectorized. e.g, the incrementation

@@ -50,7 +50,7 @@
    proceeds as follows:
 
    1- Initially, all edges of the CFG are marked not executable and
-      the CFG worklist seeded with all the statements in the entry
+      the CFG worklist is seeded with all the statements in the entry
       basic block (block 0).
 
    2- Every statement S is simulated with a call to the call-back
@@ -68,14 +68,14 @@
 
 	SSA_PROP_INTERESTING: S produces a value that can be computed
 	    at compile time.  Its result can be propagated into the
-	    statements that feed from S.  Furhtermore, if S is a
+	    statements that feed from S.  Furthermore, if S is a
 	    conditional jump, only the edge known to be taken is added
 	    to the work list.  Edges that are known not to execute are
 	    never simulated.
 
    3- PHI nodes are simulated with a call to SSA_PROP_VISIT_PHI.  The
       return value from SSA_PROP_VISIT_PHI has the same semantics as
-      described in #3.
+      described in #2.
 
    4- Three work lists are kept.  Statements are only added to these
       lists if they produce one of SSA_PROP_INTERESTING or
@@ -215,10 +215,8 @@ cfg_blocks_get (void)
 
   bb = VARRAY_BB (cfg_blocks, cfg_blocks_head);
 
-#ifdef ENABLE_CHECKING
-  if (cfg_blocks_empty_p () || !bb)
-    abort ();
-#endif
+  gcc_assert (!cfg_blocks_empty_p ());
+  gcc_assert (bb);
 
   cfg_blocks_head = (cfg_blocks_head + 1) % VARRAY_SIZE (cfg_blocks);
   --cfg_blocks_num;

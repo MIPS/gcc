@@ -1081,6 +1081,8 @@ ipa_edges_free (void)
 void 
 ipcp_driver (void)
 {
+  /* FIXME: Temporary hack until per-pass dump files are at place.  */
+  FILE *cgraph_dump_file = NULL;
   if (cgraph_dump_file)
      fprintf (cgraph_dump_file, "\nIPA constant propagation start:\n");
   ipa_nodes_create ();

@@ -292,7 +292,7 @@ output_float (fnode *f, double value, int len)
 
   /* Use sprintf to print the number in the format +D.DDDDe+ddd
      For an N digit exponent, this gives us (32-6)-N digits after the
-     decimal point, plus annother one before the decimal point.  */
+     decimal point, plus another one before the decimal point.  */
   sign = calculate_sign (value < 0.0);
   if (value < 0)
     value = -value;
@@ -307,7 +307,8 @@ output_float (fnode *f, double value, int len)
 	edigits = 2;
     }
   
-  if (FMT_F || FMT_ES)
+  if (ft == FMT_F || ft == FMT_EN
+      || ((ft == FMT_D || ft == FMT_E) && g.scale_factor != 0))
     {
       /* Always convert at full precision to avoid double rounding.  */
       ndigits = 27 - edigits;
@@ -324,14 +325,11 @@ output_float (fnode *f, double value, int len)
 	ndigits = 27 - edigits;
     }
 
-  sprintf (buffer, "%+-31.*e", ndigits - 1, value);
+  sprintf (buffer, "%+-#31.*e", ndigits - 1, value);
   
   /* Check the resulting string has punctuation in the correct places.  */
   if (buffer[2] != '.' || buffer[ndigits + 2] != 'e')
-    {
-      printf ("'%s', %d\n", buffer, ndigits);
       internal_error ("printf is broken");
-    }
 
   /* Read the exponent back in.  */
   e = atoi (&buffer[ndigits + 3]) + 1;
@@ -368,18 +366,26 @@ output_float (fnode *f, double value, int len)
     case FMT_E:
     case FMT_D:
       i = g.scale_factor;
+      e -= i;
       if (i < 0)
 	{
 	  nbefore = 0;
 	  nzero = -i;
 	  nafter = d + i;
 	}
-      else
+      else if (i > 0)
 	{
 	  nbefore = i;
 	  nzero = 0;
-	  nafter = d - i;
+	  nafter = (d - i) + 1;
 	}
+      else /* i == 0 */
+	{
+	  nbefore = 0;
+	  nzero = 0;
+	  nafter = d;
+	}
+
       if (ft = FMT_E)
 	expchar = 'E';
       else

@@ -104,19 +104,19 @@ tree last_assemble_variable_decl;
    partitions hot and cold basic blocks into separate sections of the .o
    file.  */
 
-bool unlikely_section_label_printed = false;
+static bool unlikely_section_label_printed = false;
 
 /* The following global variable indicates the label name to be put at
    the start of the first cold section within each function, when
    partitioning basic blocks into hot and cold sections.  */
 
-char *unlikely_section_label = NULL;
+static char *unlikely_section_label = NULL;
  
 /* The following global variable indicates the section name to be used
    for the current cold section, when partitioning hot and cold basic
    blocks into separate sections.  */
 
-char *unlikely_text_section_name = NULL;
+static char *unlikely_text_section_name = NULL;
 
 /* We give all constants their own alias set.  Perhaps redundant with
    MEM_READONLY_P, but pre-dates it.  */
@@ -1187,10 +1187,8 @@ assemble_start_function (tree decl, const char *fnname)
   unlikely_section_label_printed = false;
   unlikely_text_section_name = NULL;
   
-  if (unlikely_section_label)
-    free (unlikely_section_label);
-  unlikely_section_label = xmalloc ((strlen (fnname) + 18) * sizeof (char));
-  sprintf (unlikely_section_label, "%s_unlikely_section", fnname);
+  unlikely_section_label = reconcat (unlikely_section_label, 
+				     fnname, ".unlikely_section", NULL);
   
   /* The following code does not need preprocessing in the assembler.  */
 
@@ -1643,7 +1641,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 		 * (BIGGEST_ALIGNMENT / BITS_PER_UNIT));
 
 #if !defined(ASM_OUTPUT_ALIGNED_COMMON) && !defined(ASM_OUTPUT_ALIGNED_DECL_COMMON) && !defined(ASM_OUTPUT_ALIGNED_BSS)
-      if ((unsigned HOST_WIDE_INT) DECL_ALIGN (decl) / BITS_PER_UNIT > rounded)
+      if ((unsigned HOST_WIDE_INT) DECL_ALIGN_UNIT (decl) > rounded)
 	warning ("%Jrequested alignment for '%D' is greater than "
                  "implemented alignment of %d", decl, decl, rounded);
 #endif
@@ -1671,10 +1669,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
   /* Output the alignment of this data.  */
   if (align > BITS_PER_UNIT)
-    {
-      ASM_OUTPUT_ALIGN (asm_out_file,
-			floor_log2 (DECL_ALIGN (decl) / BITS_PER_UNIT));
-    }
+    ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (DECL_ALIGN_UNIT (decl)));
 
   /* Do any machine/system dependent processing of the object.  */
 #ifdef ASM_DECLARE_OBJECT_NAME
@@ -2659,7 +2654,7 @@ output_constant_def_contents (rtx symbol)
   int reloc = compute_reloc_for_constant (exp);
 
   /* Align the location counter as required by EXP's data type.  */
-  int align = TYPE_ALIGN (TREE_TYPE (exp));
+  unsigned int align = TYPE_ALIGN (TREE_TYPE (exp));
 #ifdef CONSTANT_ALIGNMENT
   align = CONSTANT_ALIGNMENT (exp, align);
 #endif
@@ -3463,7 +3458,14 @@ initializer_constant_valid_p (tree value, tree endtype)
 
     case ADDR_EXPR:
     case FDESC_EXPR:
-      return staticp (TREE_OPERAND (value, 0)) ? TREE_OPERAND (value, 0) : 0;
+      value = staticp (TREE_OPERAND (value, 0));
+      /* "&(*a).f" is like unto pointer arithmetic.  If "a" turns out to
+	 be a constant, this is old-skool offsetof-like nonsense.  */
+      if (value
+	  && TREE_CODE (value) == INDIRECT_REF
+	  && TREE_CONSTANT (TREE_OPERAND (value, 0)))
+	return null_pointer_node;
+      return value;
 
     case VIEW_CONVERT_EXPR:
     case NON_LVALUE_EXPR:
@@ -3565,16 +3567,17 @@ initializer_constant_valid_p (tree value, tree endtype)
 	  /* Since GCC guarantees that string constants are unique in the
 	     generated code, a subtraction between two copies of the same
 	     constant string is absolute.  */
-	  if (valid0 && TREE_CODE (valid0) == STRING_CST &&
-	      valid1 && TREE_CODE (valid1) == STRING_CST &&
-	      TREE_STRING_POINTER (valid0) == TREE_STRING_POINTER (valid1))
+	  if (valid0 && TREE_CODE (valid0) == STRING_CST
+	      && valid1 && TREE_CODE (valid1) == STRING_CST
+	      && operand_equal_p (valid0, valid1, 1))
 	    return null_pointer_node;
 	}
 
-      /* Support differences between labels.  */
+      /* Support narrowing differences.  */
       if (INTEGRAL_TYPE_P (endtype))
 	{
 	  tree op0, op1;
+
 	  op0 = TREE_OPERAND (value, 0);
 	  op1 = TREE_OPERAND (value, 1);
 
@@ -3609,11 +3612,25 @@ initializer_constant_valid_p (tree value, tree endtype)
 	      op1 = inner;
 	    }
 
-	  if (TREE_CODE (op0) == ADDR_EXPR
-	      && TREE_CODE (TREE_OPERAND (op0, 0)) == LABEL_DECL
-	      && TREE_CODE (op1) == ADDR_EXPR
-	      && TREE_CODE (TREE_OPERAND (op1, 0)) == LABEL_DECL)
-	    return null_pointer_node;
+	  op0 = initializer_constant_valid_p (op0, endtype);
+	  op1 = initializer_constant_valid_p (op1, endtype);
+
+	  /* Both initializers must be known.  */
+	  if (op0 && op1)
+	    {
+	      if (op0 == op1)
+		return null_pointer_node;
+
+	      /* Support differences between labels.  */
+	      if (TREE_CODE (op0) == LABEL_DECL
+		  && TREE_CODE (op1) == LABEL_DECL)
+		return null_pointer_node;
+
+	      if (TREE_CODE (op0) == STRING_CST
+		  && TREE_CODE (op1) == STRING_CST
+		  && operand_equal_p (op0, op1, 1))
+		return null_pointer_node;
+	    }
 	}
       break;
 

@@ -578,7 +578,7 @@ check_java_method (tree method)
 
 /* Sanity check: report error if this function FUNCTION is not
    really a member of the class (CTYPE) it is supposed to belong to.
-   TEMPLATE_PARMS is used to specifiy the template parameters of a member
+   TEMPLATE_PARMS is used to specify the template parameters of a member
    template passed as FUNCTION_DECL. If the member template is passed as a 
    TEMPLATE_DECL, it can be NULL since the parameters can be extracted
    from the declaration. If the function is not a function template, it
@@ -953,14 +953,14 @@ grokfield (const cp_declarator *declarator,
   if (attrlist)
     cplus_decl_attributes (&value, attrlist, 0);
 
-  if (TREE_CODE (value) == VAR_DECL)
+  switch (TREE_CODE (value))
     {
+    case VAR_DECL:
       finish_static_data_member_decl (value, init, asmspec_tree, 
 				      flags);
       return value;
-    }
-  if (TREE_CODE (value) == FIELD_DECL)
-    {
+
+    case FIELD_DECL:
       if (asmspec)
 	error ("`asm' specifiers are not permitted on non-static data members");
       if (DECL_INITIAL (value) == error_mark_node)
@@ -969,9 +969,8 @@ grokfield (const cp_declarator *declarator,
       DECL_INITIAL (value) = init;
       DECL_IN_AGGR_P (value) = 1;
       return value;
-    }
-  if (TREE_CODE (value) == FUNCTION_DECL)
-    {
+
+    case  FUNCTION_DECL:
       if (asmspec)
 	set_user_assembler_name (value, asmspec);
       if (!DECL_FRIEND_P (value))
@@ -985,9 +984,10 @@ grokfield (const cp_declarator *declarator,
 
       DECL_IN_AGGR_P (value) = 1;
       return value;
+      
+    default:
+      gcc_unreachable ();
     }
-  abort ();
-  /* NOTREACHED */
   return NULL_TREE;
 }
 
@@ -1399,7 +1399,7 @@ maybe_make_one_only (tree decl)
   if (! flag_weak)
     return;
 
-  /* We can't set DECL_COMDAT on functions, or finish_file will think
+  /* We can't set DECL_COMDAT on functions, or cp_finish_file will think
      we can get away with not emitting them if they aren't used.  We need
      to for variables so that cp_finish_decl will update their linkage,
      because their DECL_INITIAL may not have been set properly yet.  */
@@ -1438,7 +1438,7 @@ import_export_class (tree ctype)
   if (CLASSTYPE_INTERFACE_KNOWN (ctype))
     return;
 
-  /* If MULTIPLE_SYMBOL_SPACES is defined and we saw a #pragma interface,
+  /* If MULTIPLE_SYMBOL_SPACES is set and we saw a #pragma interface,
      we will have CLASSTYPE_INTERFACE_ONLY set but not
      CLASSTYPE_INTERFACE_KNOWN.  In that case, we don't want to use this
      heuristic because someone will supply a #pragma implementation
@@ -1472,10 +1472,10 @@ import_export_class (tree ctype)
 	import_export = (DECL_REALLY_EXTERN (method) ? -1 : 1);
     }
 
-#ifdef MULTIPLE_SYMBOL_SPACES
-  if (import_export == -1)
+  /* When MULTIPLE_SYMBOL_SPACES is set, we cannot count on seeing
+     a definition anywhere else.  */
+  if (MULTIPLE_SYMBOL_SPACES && import_export == -1)
     import_export = 0;
-#endif
 
   /* Allow backends the chance to overrule the decision.  */
   if (targetm.cxx.import_export_class)
@@ -1559,6 +1559,12 @@ maybe_emit_vtables (tree ctype)
   if (TREE_TYPE (primary_vtbl) == void_type_node)
     return false;
 
+  /* On some targets, we cannot determine the key method until the end
+     of the translation unit -- which is when this function is
+     called.  */
+  if (!targetm.cxx.key_method_may_be_inline ())
+    determine_key_method (ctype);
+
   /* See if any of the vtables are needed.  */
   for (vtbl = CLASSTYPE_VTABLES (ctype); vtbl; vtbl = TREE_CHAIN (vtbl))
     {
@@ -1586,9 +1592,10 @@ maybe_emit_vtables (tree ctype)
 
       if (TREE_TYPE (DECL_INITIAL (vtbl)) == 0)
 	{
+	  tree expr = store_init_value (vtbl, DECL_INITIAL (vtbl));
+	  
 	  /* It had better be all done at compile-time.  */
-	  if (store_init_value (vtbl, DECL_INITIAL (vtbl)))
-	    abort ();
+	  gcc_assert (!expr);
 	}
 
       /* Write it out.  */
@@ -1648,17 +1655,25 @@ determine_visibility (tree decl)
      the visibility of their containing class.  */
   if (class_type)
     {
-      if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
-	  && lookup_attribute ("dllexport", TYPE_ATTRIBUTES (class_type)))
+      if (TREE_CODE (decl) == VAR_DECL
+	  && targetm.cxx.export_class_data ()
+	  && (DECL_TINFO_P (decl)
+	      || (DECL_VTABLE_OR_VTT_P (decl)
+		  /* Construction virtual tables are not emitted
+		     because they cannot be referred to from other
+		     object files; their name is not standardized by
+		     the ABI.  */
+		  && !DECL_CONSTRUCTION_VTABLE_P (decl))))
+	DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
+      else if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
+	       && lookup_attribute ("dllexport", TYPE_ATTRIBUTES (class_type)))
 	{
 	  DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
 	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
-	  return;
 	}
-
-      if (TREE_CODE (decl) == FUNCTION_DECL
-	  && DECL_DECLARED_INLINE_P (decl)
-	  && visibility_options.inlines_hidden)
+      else if (TREE_CODE (decl) == FUNCTION_DECL
+	       && DECL_DECLARED_INLINE_P (decl)
+	       && visibility_options.inlines_hidden)
 	{
 	  DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
 	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
@@ -2708,7 +2723,7 @@ cxx_callgraph_analyze_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
    first, since that way we only need to reverse the decls once.  */
 
 void
-finish_file (void)
+cp_finish_file (void)
 {
   tree vars;
   bool reconsider;
@@ -2734,9 +2749,6 @@ finish_file (void)
      about source for LINENO-1 lines.  */
   input_line -= 1;
 #endif
-
-  interface_unknown = 1;
-  interface_only = 0;
 
   /* We now have to write out all the stuff we put off writing out.
      These include:
@@ -2983,7 +2995,7 @@ finish_file (void)
 	reconsider = true;
 
       /* Ask the back end to emit functions and variables that are
-	 enqued.  These emissions may result in marking more entities
+	 enqueued.  These emissions may result in marking more entities
 	 as needed.  */
       if (cgraph_assemble_pending_functions ())
 	reconsider = true;

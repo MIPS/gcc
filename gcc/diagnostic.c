@@ -107,7 +107,8 @@ diagnostic_initialize (diagnostic_context *context)
   context->printer->prefixing_rule = DIAGNOSTICS_SHOW_PREFIX_ONCE;
 
   memset (context->diagnostic_count, 0, sizeof context->diagnostic_count);
-  context->warnings_are_errors_message = warnings_are_errors;
+  context->issue_warnings_are_errors_message = true;
+  context->warning_as_error_requested = false;
   context->abort_on_error = false;
   context->internal_error = NULL;
   diagnostic_starter (context) = default_diagnostic_starter;
@@ -115,7 +116,6 @@ diagnostic_initialize (diagnostic_context *context)
   context->last_module = 0;
   context->last_function = NULL;
   context->lock = 0;
-  context->x_data = NULL;
 }
 
 /* Returns true if the next format specifier in TEXT is a format specifier
@@ -174,8 +174,7 @@ diagnostic_build_prefix (diagnostic_info *diagnostic)
     "must-not-happen"
   };
   expanded_location s = expand_location (diagnostic->location);
-  if (diagnostic->kind >= DK_LAST_DIAGNOSTIC_KIND)
-    abort();
+  gcc_assert (diagnostic->kind < DK_LAST_DIAGNOSTIC_KIND);
 
   return s.file
     ? build_message_string ("%s:%d: %s",
@@ -194,8 +193,7 @@ diagnostic_count_diagnostic (diagnostic_context *context,
   switch (kind)
     {
     default:
-      abort();
-      break;
+      gcc_unreachable ();
 
     case DK_ICE:
 #ifndef ENABLE_CHECKING
@@ -226,17 +224,16 @@ diagnostic_count_diagnostic (diagnostic_context *context,
       if (!diagnostic_report_warnings_p ())
         return false;
 
-      if (!warnings_are_errors)
+      if (!context->warning_as_error_requested)
         {
           ++diagnostic_kind_count (context, DK_WARNING);
           break;
         }
-
-      if (context->warnings_are_errors_message)
+      else if (context->issue_warnings_are_errors_message)
         {
 	  pp_verbatim (context->printer,
                        "%s: warnings being treated as errors\n", progname);
-          context->warnings_are_errors_message = false;
+          context->issue_warnings_are_errors_message = false;
         }
 
       /* And fall through.  */

@@ -207,7 +207,7 @@ complete_type_check_abstract (tree type)
       pat = prev;
 
       /* Go through the list, and call abstract_virtuals_error for each
-	element: it will issue a diagostic if the type is abstract.  */
+	element: it will issue a diagnostic if the type is abstract.  */
       while (pat)
 	{
 	  gcc_assert (type == pat->type);
@@ -373,7 +373,7 @@ cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
       (*p_msg_at) ("`%D' has incomplete type", value);
       decl = 1;
     }
-retry:
+ retry:
   /* We must print an error message.  Be clever about what it says.  */
 
   switch (TREE_CODE (type))
@@ -423,7 +423,7 @@ retry:
       break;
     
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -509,7 +509,7 @@ split_nonconstant_init_1 (tree dest, tree init)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -568,9 +568,8 @@ store_init_value (tree decl, tree init)
 
   if (IS_AGGR_TYPE (type))
     {
-      if (! TYPE_HAS_TRIVIAL_INIT_REF (type)
-	  && TREE_CODE (init) != CONSTRUCTOR)
-	abort ();
+      gcc_assert (TYPE_HAS_TRIVIAL_INIT_REF (type)
+		  || TREE_CODE (init) == CONSTRUCTOR);
 
       if (TREE_CODE (init) == TREE_LIST)
 	{
@@ -610,7 +609,7 @@ store_init_value (tree decl, tree init)
   else if (TYPE_NEEDS_CONSTRUCTING (type))
     return build2 (INIT_EXPR, type, decl, value);
   else if (TREE_STATIC (decl)
-	   && (! TREE_CONSTANT (value)
+	   && (TREE_SIDE_EFFECTS (value)
 	       || ! initializer_constant_valid_p (value, TREE_TYPE (value))))
     return split_nonconstant_init (decl, value);
   
@@ -1107,8 +1106,7 @@ process_init_constructor (tree type, tree init, tree* elts)
 
 	  next1 = digest_init (TREE_TYPE (field),
 			       TREE_VALUE (tail), &tail1);
-	  if (tail1 != 0 && TREE_CODE (tail1) != TREE_LIST)
-	    abort ();
+	  gcc_assert (!tail1 || TREE_CODE (tail1) == TREE_LIST);
 	  tail = tail1;
 	}
       else

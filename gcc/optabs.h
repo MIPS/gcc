@@ -183,9 +183,10 @@ enum optab_index
   /* Rounding functions */
   OTI_floor,
   OTI_ceil,
-  OTI_trunc,
+  OTI_btrunc,
   OTI_round,
   OTI_nearbyint,
+  OTI_rint,
   /* Tangent */
   OTI_tan,
   /* Inverse tangent */
@@ -299,9 +300,10 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define log1p_optab (optab_table[OTI_log1p])
 #define floor_optab (optab_table[OTI_floor])
 #define ceil_optab (optab_table[OTI_ceil])
-#define btrunc_optab (optab_table[OTI_trunc])
+#define btrunc_optab (optab_table[OTI_btrunc])
 #define round_optab (optab_table[OTI_round])
 #define nearbyint_optab (optab_table[OTI_nearbyint])
+#define rint_optab (optab_table[OTI_rint])
 #define tan_optab (optab_table[OTI_tan])
 #define atan_optab (optab_table[OTI_atan])
 
@@ -419,7 +421,7 @@ extern int expand_twoval_binop (optab, rtx, rtx, rtx, rtx, int);
 
 /* Generate code to perform an operation on two operands with two
    results, using a library function.  */
-extern bool expand_twoval_binop_libfunc (optab, rtx, rtx, rtx, rtx, 
+extern bool expand_twoval_binop_libfunc (optab, rtx, rtx, rtx, rtx,
 					 enum rtx_code);
 
 /* Expand a unary arithmetic operation given optab rtx operand.  */
@@ -428,9 +430,6 @@ extern rtx expand_unop (enum machine_mode, optab, rtx, rtx, int);
 /* Expand the absolute value operation.  */
 extern rtx expand_abs_nojump (enum machine_mode, rtx, rtx, int);
 extern rtx expand_abs (enum machine_mode, rtx, rtx, int, int);
-
-/* Expand the complex absolute value operation.  */
-extern rtx expand_complex_abs (enum machine_mode, rtx, rtx, int);
 
 /* Generate an instruction with a given INSN_CODE with an output and
    an input.  */

@@ -145,11 +145,8 @@ remove_last_stmt_and_useless_edges (basic_block bb, basic_block dest_bb)
 
   bsi = bsi_last (bb);
 
-#ifdef ENABLE_CHECKING
-  if (TREE_CODE (bsi_stmt (bsi)) != COND_EXPR
-      && TREE_CODE (bsi_stmt (bsi)) != SWITCH_EXPR)
-    abort ();
-#endif
+  gcc_assert (TREE_CODE (bsi_stmt (bsi)) == COND_EXPR
+	      || TREE_CODE (bsi_stmt (bsi)) == SWITCH_EXPR);
 
   bsi_remove (&bsi);
 
@@ -207,8 +204,8 @@ create_block_for_threading (basic_block bb, struct redirection_data *rd)
    and may expose new optimization opportunities.  Note that we have
    to update dominator tree and SSA graph after such changes.
 
-   The key to keeping the SSA graph update managable is to duplicate
-   the side effects occuring in BB so that those side effects still
+   The key to keeping the SSA graph update manageable is to duplicate
+   the side effects occurring in BB so that those side effects still
    occur on the paths which bypass BB after redirecting edges.
 
    We accomplish this by creating duplicates of BB and arranging for

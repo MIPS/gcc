@@ -869,7 +869,7 @@ Optional Features:
                  allow compilation of several files at once
 
   --enable-libgcj-debug   enable runtime debugging code
-  --enable-gc-debug	include full support for pointer backtracing etc.
+  --enable-gc-debug       include full support for pointer backtracing etc.
   --enable-interpreter    enable interpreter
   --enable-sjlj-exceptions
                           force use of builtin_setjmp for exceptions
@@ -5722,7 +5722,8 @@ fi;
 if test "${enable_gc_debug+set}" = set; then
   enableval="$enable_gc_debug"
    if test "$enable_gc_debug" = "yes"; then
-    cat >>confdefs.h <<\_ACEOF
+
+cat >>confdefs.h <<\_ACEOF
 #define LIBGCJ_GC_DEBUG 1
 _ACEOF
 
@@ -5765,7 +5766,7 @@ if test "${enable_sjlj_exceptions+set}" = set; then
   :
 else
   cat > conftest.$ac_ext << EOF
-#line 5768 "configure"
+#line 5769 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -17385,25 +17386,6 @@ case " $CONFIG_FILES " in
    ac_file=Makefile . ${libgcj_basedir}/../config-ml.in
    ;;
 esac
-
-# Make subdirectories and `.d' files.  Look in both srcdir and
-# builddir for the .java files.
-h=`${PWDCMD-pwd}`
-: > deps.mk
-( (cd $srcdir && find . \( -name '*.java' -o -name '*.cc' -o -name '*.c' \) -print) ;
-  find . \( -name '*.java' -o -name '*.cc' -o -name '*.c' \) -print) | \
-   fgrep -v testsuite | \
-   sed -e 's/\.java/.d/'\;'s/\.cc/.d/'\;'s/\.c/.d/' | \
-   while read f; do
-      echo "include $f" >> deps.mk
-      test -f $f || {
-	 d=`echo $f | sed -e 's,/[^/]*$,,'`
-	 if test ! -d $d; then
-	   $libgcj_basedir/../mkinstalldirs $d
-	 fi;
-	 echo > $f
-      }
-   done
  ;;
   esac
 done

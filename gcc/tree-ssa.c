@@ -41,7 +41,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-inline.h"
 #include "varray.h"
 #include "timevar.h"
-#include "tree-alias-common.h"
 #include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
@@ -643,13 +642,22 @@ delete_tree_ssa (void)
   /* Remove annotations from every tree in the function.  */
   FOR_EACH_BB (bb)
     for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-      bsi_stmt (bsi)->common.ann = NULL;
+      {
+	tree stmt = bsi_stmt (bsi);
+        release_defs (stmt);
+	ggc_free (stmt->common.ann);
+	stmt->common.ann = NULL;
+      }
 
   /* Remove annotations from every referenced variable.  */
   if (referenced_vars)
     {
       for (i = 0; i < num_referenced_vars; i++)
-	referenced_var (i)->common.ann = NULL;
+	{
+	  tree var = referenced_var (i);
+	  ggc_free (var->common.ann);
+	  var->common.ann = NULL;
+	}
       referenced_vars = NULL;
     }
 
@@ -838,10 +846,7 @@ walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data,
 {
   tree def_stmt;
 
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (var) != SSA_NAME)
-    abort ();
-#endif
+  gcc_assert (TREE_CODE (var) == SSA_NAME);
 
   def_stmt = SSA_NAME_DEF_STMT (var);
 
@@ -873,9 +878,9 @@ propagate_into_addr (tree stmt, tree var, tree *x, tree repl)
     return;
   addr_var = TREE_OPERAND (repl, 0);
 
-  while (TREE_CODE (*x) == ARRAY_REF
-	 || TREE_CODE (*x) == COMPONENT_REF
-	 || TREE_CODE (*x) == BIT_FIELD_REF)
+  while (handled_component_p (*x)
+	 || TREE_CODE (*x) == REALPART_EXPR
+	 || TREE_CODE (*x) == IMAGPART_EXPR)
     x = &TREE_OPERAND (*x, 0);
 
   if (TREE_CODE (*x) != INDIRECT_REF
@@ -913,7 +918,6 @@ replace_immediate_uses (tree var, tree repl)
   int i, j, n;
   dataflow_t df;
   tree stmt;
-  stmt_ann_t ann;
   bool mark_new_vars;
   ssa_op_iter iter;
   use_operand_p use_p;
@@ -924,7 +928,6 @@ replace_immediate_uses (tree var, tree repl)
   for (i = 0; i < n; i++)
     {
       stmt = immediate_use (df, i);
-      ann = stmt_ann (stmt);
 
       if (TREE_CODE (stmt) == PHI_NODE)
 	{
@@ -1040,8 +1043,7 @@ check_phi_redundancy (tree phi, tree *eq_to)
 
   /* At least one of the arguments should not be equal to the result, or
      something strange is happening.  */
-  if (!val)
-    abort ();
+  gcc_assert (val);
 
   if (get_eq_name (eq_to, res) == val)
     return;
@@ -1157,7 +1159,8 @@ struct tree_opt_pass pass_redundant_phi =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars 
-    | TODO_ggc_collect | TODO_verify_ssa /* todo_flags_finish */
+    | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Emit warnings for uninitialized variables.  This is done in two passes.
@@ -1297,7 +1300,8 @@ struct tree_opt_pass pass_early_warn_uninitialized =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,                                    /* todo_flags_finish */
+  0				        /* letter */
 };
 
 struct tree_opt_pass pass_late_warn_uninitialized =
@@ -1313,5 +1317,6 @@ struct tree_opt_pass pass_late_warn_uninitialized =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,                                    /* todo_flags_finish */
+  0				        /* letter */
 };

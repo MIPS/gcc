@@ -472,9 +472,9 @@ finstrument-functions
 Common Report Var(flag_instrument_function_entry_exit)
 Instrument function entry and exit with profiling calls
 
-fivcanon
-Common Report Var(flag_ivcanon)
-Create canonical induction variables in loops
+fivopts
+Common Report Var(flag_ivopts) Init(1)
+Optimize induction variables on trees
 
 fkeep-inline-functions
 Common Report Var(flag_keep_inline_functions)
@@ -522,10 +522,6 @@ Common RejectNegative Joined UInteger
 fmodulo-sched
 Common Report Var(flag_modulo_sched)
 Perform SMS based modulo scheduling before the first scheduling pass
-
-fmove-all-movables
-Common Report Var(flag_move_all_movables)
-Force all loop invariant computations out of loops
 
 fmove-loop-invariants
 Common Report Var(flag_move_loop_invariants)
@@ -578,6 +574,10 @@ Optimize sibling and tail recursive calls
 fpack-struct
 Common Report Var(flag_pack_struct)
 Pack structure members together without holes
+
+fpack-struct=
+Common RejectNegative Joined UInteger
+-fpack-struct=<number>	Set initial maximum structure member alignment
 
 fpcc-struct-return
 Common Report Var(flag_pcc_struct_return,1) VarExists
@@ -641,10 +641,6 @@ Common
 frandom-seed=
 Common Joined RejectNegative
 -frandom-seed=<string>	Make compile reproducible using <string>
-
-freduce-all-givs
-Common Report Var(flag_reduce_all_givs)
-Strength reduce all loop general induction variables
 
 freg-struct-return
 Common Report Var(flag_pcc_struct_return,0) VarExists
@@ -752,6 +748,10 @@ fsingle-precision-constant
 Common Report Var(flag_single_precision_constant)
 Convert floating point constants to single precision constants
 
+fspeculative-prefetching
+Common Report Var(flag_speculative_prefetching)
+Use value profiling for speculative prefetching
+
 ; Emit code to probe the stack, to help detect stack overflow; also
 ; may cause large objects to be allocated dynamically.
 fstack-check
@@ -809,7 +809,7 @@ Perform superblock formation via tail duplication
 ; (user-visible) trap.  This is the case, for example, in nonstop
 ; IEEE 754 arithmetic.
 ftrapping-math
-Common Report Var(flag_trapping_math)
+Common Report Var(flag_trapping_math) Init(1)
 Assume floating-point operations can trap
 
 ftrapv
@@ -852,16 +852,21 @@ ftree-fre
 Common Report Var(flag_tree_fre)
 Enable Full Redundancy Elimination (FRE) on trees
 
-ftree-lim
-Common Report Var(flag_tree_lim) Init(1)
+ftree-loop-im
+Common Report Var(flag_tree_loop_im) Init(1)
 Enable loop invariant motion on trees
+
+ftree-loop-linear
+Common Report Var(flag_tree_loop_linear)
+Enable linear loop transforms on trees
+
+ftree-loop-ivcanon
+Common Report Var(flag_tree_loop_ivcanon)
+Create canonical induction variables in loops
 
 ftree-loop-optimize
 Common Report Var(flag_tree_loop_optimize) Init(1)
 Enable loop optimizations on tree level
-
-ftree-points-to=
-Common Joined RejectNegative
 
 ftree-pre
 Common Report Var(flag_tree_pre)

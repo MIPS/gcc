@@ -160,7 +160,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifdef HAVE_conditional_execution
 #ifndef REVERSE_CONDEXEC_PREDICATES_P
-#define REVERSE_CONDEXEC_PREDICATES_P(x, y) ((x) == reverse_condition (y))
+#define REVERSE_CONDEXEC_PREDICATES_P(x, y) \
+  (GET_CODE ((x)) == reversed_comparison_code ((y), NULL))
 #endif
 #endif
 
@@ -345,8 +346,7 @@ first_insn_after_basic_block_note (basic_block block)
     return NULL_RTX;
   if (LABEL_P (insn))
     insn = NEXT_INSN (insn);
-  if (!NOTE_INSN_BASIC_BLOCK_P (insn))
-    abort ();
+  gcc_assert (NOTE_INSN_BASIC_BLOCK_P (insn));
 
   return NEXT_INSN (insn);
 }
@@ -486,13 +486,12 @@ verify_wide_reg (int regno, basic_block bb)
 	break;
       head = NEXT_INSN (head);
     }
-
   if (dump_file)
     {
       fprintf (dump_file, "Register %d died unexpectedly.\n", regno);
       dump_bb (bb, dump_file, 0);
     }
-  abort ();
+  fatal_error ("internal consistency failure");
 }
 
 /* A subroutine of update_life_info.  Verify that there are no untoward
@@ -516,7 +515,7 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
 	      fputs ("Old:\n", dump_file);
 	      dump_bb (bb, dump_file, 0);
 	    }
-	  abort ();
+	  fatal_error ("internal consistency failure");
 	}
     }
   else
@@ -537,9 +536,8 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
 			   "Register %d died unexpectedly.\n", i);
 		  dump_bb (bb, dump_file, 0);
 		}
-	      abort ();
+	      fatal_error ("internal consistency failure");
 	    }
-
 	  /* Verify that the now-live register is wider than word_mode.  */
 	  verify_wide_reg (i, bb);
 	});
@@ -586,9 +584,8 @@ update_life_info (sbitmap blocks, enum update_life_extent extent, int prop_flags
 
   /* Changes to the CFG are only allowed when
      doing a global update for the entire CFG.  */
-  if ((prop_flags & PROP_ALLOW_CFG_CHANGES)
-      && (extent == UPDATE_LIFE_LOCAL || blocks))
-    abort ();
+  gcc_assert (!(prop_flags & PROP_ALLOW_CFG_CHANGES)
+	      || (extent != UPDATE_LIFE_LOCAL && !blocks));
 
   /* For a global update, we go through the relaxation process again.  */
   if (extent != UPDATE_LIFE_LOCAL)
@@ -903,8 +900,7 @@ mark_reg (rtx reg, void *xset)
   regset set = (regset) xset;
   int regno = REGNO (reg);
 
-  if (GET_MODE (reg) == BLKmode)
-    abort ();
+  gcc_assert (GET_MODE (reg) != BLKmode);
 
   SET_REGNO_REG_SET (set, regno);
   if (regno < FIRST_PSEUDO_REGISTER)
@@ -1027,8 +1023,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
      sick behavior here.  */
 #ifdef ENABLE_CHECKING
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-    if (bb->aux)
-      abort ();
+    gcc_assert (!bb->aux);
 #endif
 
   tmp = INITIALIZE_REG_SET (tmp_head);
@@ -1438,8 +1433,7 @@ allocate_reg_life_data (void)
   int i;
 
   max_regno = max_reg_num ();
-  if (reg_deaths)
-    abort ();
+  gcc_assert (!reg_deaths);
   reg_deaths = xcalloc (sizeof (*reg_deaths), max_regno);
 
   /* Recalculate the register space, in case it has grown.  Old style
@@ -1847,14 +1841,13 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 	      bb_false = bb_true;
 	      bb_true = t;
 	    }
-	  else if (! (bb->succ->succ_next->flags & EDGE_FALLTHRU))
-	    abort ();
+	  else
+	    gcc_assert (bb->succ->succ_next->flags & EDGE_FALLTHRU);
 	}
       else
 	{
 	  /* This can happen with a conditional jump to the next insn.  */
-	  if (JUMP_LABEL (BB_END (bb)) != BB_HEAD (bb_true))
-	    abort ();
+	  gcc_assert (JUMP_LABEL (BB_END (bb)) == BB_HEAD (bb_true));
 
 	  /* Simplest way to do nothing.  */
 	  bb_false = bb_true;
@@ -2470,8 +2463,7 @@ mark_set_regs (struct propagate_block_info *pbi, rtx x, rtx insn)
 	    switch (code = GET_CODE (sub))
 	      {
 	      case COND_EXEC:
-		if (cond != NULL_RTX)
-		  abort ();
+		gcc_assert (!cond);
 
 		cond = COND_EXEC_TEST (sub);
 		sub = COND_EXEC_CODE (sub);
@@ -2960,8 +2952,8 @@ flush_reg_cond_reg_1 (splay_tree_node node, void *data)
       xdata[1] = node->key;
       return -1;
     }
-  else if (rcli->condition == const1_rtx)
-    abort ();
+  else
+    gcc_assert (rcli->condition != const1_rtx);
 
   return 0;
 }
@@ -2999,7 +2991,7 @@ ior_reg_cond (rtx old, rtx x, int add)
   if (COMPARISON_P (old))
     {
       if (COMPARISON_P (x)
-	  && REVERSE_CONDEXEC_PREDICATES_P (GET_CODE (x), GET_CODE (old))
+	  && REVERSE_CONDEXEC_PREDICATES_P (x, old)
 	  && REGNO (XEXP (x, 0)) == REGNO (XEXP (old, 0)))
 	return const1_rtx;
       if (GET_CODE (x) == GET_CODE (old)
@@ -3075,29 +3067,25 @@ ior_reg_cond (rtx old, rtx x, int add)
       return gen_rtx_IOR (0, old, x);
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
 static rtx
 not_reg_cond (rtx x)
 {
-  enum rtx_code x_code;
-
   if (x == const0_rtx)
     return const1_rtx;
   else if (x == const1_rtx)
     return const0_rtx;
-  x_code = GET_CODE (x);
-  if (x_code == NOT)
+  if (GET_CODE (x) == NOT)
     return XEXP (x, 0);
   if (COMPARISON_P (x)
       && REG_P (XEXP (x, 0)))
     {
-      if (XEXP (x, 1) != const0_rtx)
-	abort ();
+      gcc_assert (XEXP (x, 1) == const0_rtx);
 
-      return gen_rtx_fmt_ee (reverse_condition (x_code),
+      return gen_rtx_fmt_ee (reversed_comparison_code (x, NULL),
 			     VOIDmode, XEXP (x, 0), const0_rtx);
     }
   return gen_rtx_NOT (0, x);
@@ -3111,7 +3099,7 @@ and_reg_cond (rtx old, rtx x, int add)
   if (COMPARISON_P (old))
     {
       if (COMPARISON_P (x)
-	  && GET_CODE (x) == reverse_condition (GET_CODE (old))
+	  && GET_CODE (x) == reversed_comparison_code (old, NULL)
 	  && REGNO (XEXP (x, 0)) == REGNO (XEXP (old, 0)))
 	return const0_rtx;
       if (GET_CODE (x) == GET_CODE (old)
@@ -3187,7 +3175,7 @@ and_reg_cond (rtx old, rtx x, int add)
       return gen_rtx_AND (0, old, x);
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -3247,7 +3235,7 @@ elim_reg_cond (rtx x, unsigned int regno)
       return x;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 #endif /* HAVE_conditional_execution */
@@ -3269,6 +3257,7 @@ attempt_auto_inc (struct propagate_block_info *pbi, rtx inc, rtx insn,
   rtx q = SET_DEST (set);
   rtx y = SET_SRC (set);
   int opnum = XEXP (y, 0) == incr_reg ? 0 : 1;
+  int changed;
 
   /* Make sure this reg appears only once in this insn.  */
   if (count_occurrences (PATTERN (insn), incr_reg, 1) != 1)
@@ -3368,8 +3357,8 @@ attempt_auto_inc (struct propagate_block_info *pbi, rtx inc, rtx insn,
 
   /* Modify the old increment-insn to simply copy
      the already-incremented value of our register.  */
-  if (! validate_change (incr, &SET_SRC (set), incr_reg, 0))
-    abort ();
+  changed = validate_change (incr, &SET_SRC (set), incr_reg, 0);
+  gcc_assert (changed);
 
   /* If that makes it a no-op (copying the register into itself) delete
      it so it won't appear to be a "use" and a "set" of this
@@ -3575,10 +3564,7 @@ mark_used_reg (struct propagate_block_info *pbi, rtx reg,
       for (i = regno_first; i <= regno_last; ++i)
 	if (! REGNO_REG_SET_P (pbi->reg_live, i))
 	  {
-#ifdef ENABLE_CHECKING
-	    if (reg_deaths[i])
-	      abort ();
-#endif
+	    gcc_assert (!reg_deaths[i]);
 	    reg_deaths[i] = pbi->insn_num;
 	  }
     }
@@ -3930,8 +3916,7 @@ mark_used_regs (struct propagate_block_info *pbi, rtx x, rtx cond, rtx insn)
       }
 
     case COND_EXEC:
-      if (cond != NULL_RTX)
-	abort ();
+      gcc_assert (!cond);
 
       mark_used_regs (pbi, COND_EXEC_TEST (x), NULL_RTX, insn);
 

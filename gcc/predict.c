@@ -315,7 +315,7 @@ dump_prediction (FILE *file, enum br_predictor predictor, int probability,
   fprintf (file, "\n");
 }
 
-/* We can not predict the probabilities of ougtoing edges of bb.  Set them
+/* We can not predict the probabilities of outgoing edges of bb.  Set them
    evenly and hope for the best.  */
 static void
 set_even_probabilities (basic_block bb)
@@ -1893,5 +1893,6 @@ struct tree_opt_pass pass_profile =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_ggc_collect | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_ggc_collect | TODO_verify_ssa,			/* todo_flags_finish */
+  0					/* letter */
 };

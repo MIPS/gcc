@@ -233,8 +233,7 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
       for (e = bb->pred; e; e = e->pred_next)
 	if (e->src->aux)
 	  break;
-      if (!e)
-	abort ();
+      gcc_assert (e);
 
       expr = PHI_ARG_DEF_FROM_EDGE (at, e);
       if (TREE_CODE (expr) != SSA_NAME)
@@ -282,6 +281,13 @@ process_assignment (tree ass, tree stmt, block_stmt_iterator call, tree *m,
 
   if (TREE_CODE_CLASS (code) != '2')
     return false;
+
+  /* Accumulator optimizations will reverse the order of operations.
+     We can only do that for floating-point types if we're assuming
+     that addition and multiplication are associative.  */
+  if (!flag_unsafe_math_optimizations)
+    if (FLOAT_TYPE_P (TREE_TYPE (DECL_RESULT (current_function_decl))))
+      return false;
 
   /* We only handle the code like
 
@@ -395,11 +401,12 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
       if (TREE_CODE (call) == CALL_EXPR)
 	break;
 
-      /* If the statement has virtual operands, fail.  */
+      /* If the statement has virtual or volatile operands, fail.  */
       ann = stmt_ann (stmt);
       if (NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann))
           || NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann))
-	  || NUM_VUSES (VUSE_OPS (ann)))
+	  || NUM_VUSES (VUSE_OPS (ann))
+	  || ann->has_volatile_ops)
 	return;
     }
 
@@ -591,8 +598,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
   tree ret_type = TREE_TYPE (DECL_RESULT (current_function_decl));
   block_stmt_iterator bsi = bsi_last (bb);
 
-  if (TREE_CODE (ret_stmt) != RETURN_EXPR)
-    abort ();
+  gcc_assert (TREE_CODE (ret_stmt) == RETURN_EXPR);
 
   ret_var = TREE_OPERAND (ret_stmt, 0);
   if (!ret_var)
@@ -690,8 +696,7 @@ eliminate_tail_call (struct tailcall *t)
 
   /* Replace the call by a jump to the start of function.  */
   e = redirect_edge_and_branch (t->call_block->succ, first);
-  if (!e)
-    abort ();
+  gcc_assert (e);
   PENDING_STMT (e) = NULL_TREE;
 
   /* Add phi node entries for arguments.  Not every PHI node corresponds to
@@ -750,8 +755,7 @@ eliminate_tail_call (struct tailcall *t)
 	  /* For all calls the same set of variables should be clobbered.  This
 	     means that there always should be the appropriate phi node except
 	     for the first time we eliminate the call.  */
-	  if (first->pred->pred_next->pred_next)
-	    abort ();
+	  gcc_assert (!first->pred->pred_next->pred_next);
 	}
 
       add_phi_arg (&phi, V_MAY_DEF_OP (v_may_defs, i), e);
@@ -874,8 +878,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	  add_referenced_tmp_var (tmp);
 
 	  phi = create_phi_node (tmp, first);
-	  add_phi_arg (&phi, fold_convert (ret_type, integer_zero_node),
-		       first->pred);
+	  add_phi_arg (&phi, build_int_cst (ret_type, 0), first->pred);
 	  a_acc = PHI_RESULT (phi);
 	}
 
@@ -887,8 +890,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	  add_referenced_tmp_var (tmp);
 
 	  phi = create_phi_node (tmp, first);
-	  add_phi_arg (&phi, fold_convert (ret_type, integer_one_node),
-		       first->pred);
+	  add_phi_arg (&phi, build_int_cst (ret_type, 1), first->pred);
 	  m_acc = PHI_RESULT (phi);
 	}
     }
@@ -951,7 +953,8 @@ struct tree_opt_pass pass_tail_recursion =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
+  0					/* letter */
 };
 
 struct tree_opt_pass pass_tail_calls = 
@@ -967,5 +970,6 @@ struct tree_opt_pass pass_tail_calls =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
+  0					/* letter */
 };

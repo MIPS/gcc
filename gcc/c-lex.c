@@ -82,10 +82,8 @@ init_c_lex (void)
   struct cpp_callbacks *cb;
   struct c_fileinfo *toplevel;
 
-  /* Set up filename timing.  Must happen before cpp_read_main_file.  */
-  file_info_tree = splay_tree_new ((splay_tree_compare_fn)strcmp,
-				   0,
-				   (splay_tree_delete_value_fn)free);
+  /* The get_fileinfo data structure must be initialized before
+     cpp_read_main_file is called.  */
   toplevel = get_fileinfo ("<top level>");
   if (flag_detailed_statistics)
     {
@@ -117,6 +115,11 @@ get_fileinfo (const char *name)
 {
   splay_tree_node n;
   struct c_fileinfo *fi;
+
+  if (!file_info_tree)
+    file_info_tree = splay_tree_new ((splay_tree_compare_fn)strcmp,
+				     0,
+				     (splay_tree_delete_value_fn)free);
 
   n = splay_tree_lookup (file_info_tree, (splay_tree_key) name);
   if (n)
@@ -266,9 +269,6 @@ fe_file_change (const struct line_map *new_map)
   input_filename = new_map->to_file;
   input_line = new_map->to_line;
 #endif
-
-  /* Hook for C++.  */
-  extract_interface_info ();
 }
 
 static void
@@ -373,7 +373,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
 	    break;
 
 	  default:
-	    abort ();
+	    gcc_unreachable ();
 	  }
       }
       break;
@@ -435,7 +435,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
     case CPP_HEADER_NAME:
     case CPP_COMMENT:
     case CPP_MACRO_ARG:
-      abort ();
+      gcc_unreachable ();
 
     default:
       *value = NULL_TREE;
@@ -737,12 +737,11 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
 
       if (c_lex_string_translate == -1)
 	{
-	  if (!cpp_interpret_string_notranslate (parse_in, strs, count,
-						 &istr, wide))
-	    /* Assume that, if we managed to translate the string
-	       above, then the untranslated parsing will always
-	       succeed.  */
-	    abort ();
+	  int xlated = cpp_interpret_string_notranslate (parse_in, strs, count,
+							 &istr, wide);
+	  /* Assume that, if we managed to translate the string above,
+	     then the untranslated parsing will always succeed.  */
+	  gcc_assert (xlated);
 	  
 	  if (TREE_STRING_LENGTH (value) != (int)istr.len
 	      || 0 != strncmp (TREE_STRING_POINTER (value), (char *)istr.text,

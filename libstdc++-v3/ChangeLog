@@ -1,3 +1,95 @@
+2004-09-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/linker-map.gnu (GLIBCXX_3.4.3): New, adjust symbol exports.
+
+2004-09-03  Jan Beulich  <jbeulich@novell.com>
+
+	* crossconfig.m4: Add NetWare as a target.
+	* configure: Regenerate.
+
+2004-09-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* libsupc++/typeinfo: Honor __GXX_MERGED_TYPEINFO_NAMES if already
+	defined. 
+
+2004-09-02  Benjamin Kosnik  <bkoz@redhat.com>
+            Simon Richter  <Simon.Richter@hogyros.de>
+	
+	PR libstdc++/16715
+	* include/bits/istream.tcc: Add extern template for iostream
+	char and wchar_t instantiations.
+
+2004-09-02  Benjamin Kosnik  <bkoz@redhat.com>
+            Leland Wang  <llwang@infor.org>
+	
+	PR libstdc++/17259
+	* include/ext/ropeimpl.h (rope::_S_compare): Use
+	_Rope_constants::_S_leaf.
+
+2004-09-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/16848
+	* include/Makefile.am (ext_headers): Remove demangle.h.
+	* include/Makefile.in: Regenerate.
+	* include/ext/demangle.h: Remove.
+
+2004-09-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/16614
+	* include/ext/mt_allocator.h (__mt_base): Not type dependent,
+	split into..
+	(__pool): New, specialize.
+	(__common_pool): New, static bits here.
+	(__per_type_pool): New, and here.
+	(__mt_alloc_base): New.
+	(__mt_alloc): Add template parameter, inherit from it.
+	* src/allocator.cc: Split this...
+	* src/allocator-inst.cc: And this...
+	* src/pool_allocator.cc: ...into this.
+	* src/mt_allocator.cc: ... and this. Add definitions for
+	__mt_base.
+	* src/Makefile.am (sources): Split allocator.cc to
+	pool_allocator.cc and mt_allocator.cc.
+	* src/Makefile.in: Regenerate.
+	* config/linker-map.gnu: Add symbols.
+	* docs/html/ext/mt_allocator.html: Document new design.
+	* testsuite/ext/mt_allocator/tune-1.cc: New.
+	* testsuite/ext/mt_allocator/tune-2.cc: New.
+	* testsuite/ext/mt_allocator/tune-3.cc: New.
+	* testsuite/ext/mt_allocator/tune-4.cc: New.	
+
+	* testsuite/testsuite_allocator.h (__gnu_test::check_new): New.
+	* testsuite/ext/allocators.cc: Use check_new, split into...
+	* testsuite/ext/mt_allocator/check_new.cc: this.
+	* testsuite/ext/pool_allocator/check_new.cc: this.
+	* testsuite/ext/malloc_allocator/check_new.cc: this.	
+	* testsuite/ext/debug_allocator/check_new.cc: this.	
+	* testsuite/ext/mt_allocator/instantiate.cc: this.
+	* testsuite/ext/pool_allocator/instantiate.cc: this.
+	* testsuite/ext/malloc_allocator/instantiate.cc: this.	
+	* testsuite/ext/debug_allocator/instantiate.cc: this.
+	
+2004-08-30  Phil Edwards  <phil@codesourcery.com>
+
+	* docs/html/install.html:  Update locales list (from Paolo).
+	Remove other redundant information and point to the GCC install
+	documentation.
+
+2004-08-30  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/pool_allocator.h: Rename __pool_base to
+	__pool_alloc_base.
+	* src/allocator.cc: Same.
+	* config/linker-map.gnu: Same.
+
+2004-08-30  Paolo Carlini  <pcarlini@suse.de>
+	    Kenneth C. Schalk  <ken@xorian.net>
+
+	PR libstdc++/17215
+	* config/io/basic_file_stdio.cc (__basic_file<char>::close()):
+	Check the return value of fclose/sync, loop on EINTR.
+	(__basic_file<char>::sys_open): Likewise, for sync.
+
 2004-08-29  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/locale_facets.tcc (time_get<>::_M_extract_via_format,

@@ -83,8 +83,8 @@ extern char arm_arch_name[];
 /* The various ARM cores.  */
 enum processor_type
 {
-#define ARM_CORE(NAME, ARCH, FLAGS, COSTS) \
-  NAME,
+#define ARM_CORE(NAME, IDENT, ARCH, FLAGS, COSTS) \
+  IDENT,
 #include "arm-cores.def"
 #undef ARM_CORE
   /* Used to indicate that no processor has been specified.  */
@@ -93,8 +93,8 @@ enum processor_type
 
 enum target_cpus
 {
-#define ARM_CORE(NAME, ARCH, FLAGS, COSTS) \
-  TARGET_CPU_##NAME,
+#define ARM_CORE(NAME, IDENT, ARCH, FLAGS, COSTS) \
+  TARGET_CPU_##IDENT,
 #include "arm-cores.def"
 #undef ARM_CORE
   TARGET_CPU_generic
@@ -2059,7 +2059,7 @@ typedef struct
 
 /* Set the short-call flag for any function compiled in the current
    compilation unit.  We skip this for functions with the section
-   attirubte when long-calls are in effect as this tells the compiler
+   attribute when long-calls are in effect as this tells the compiler
    that the section might be placed a long way from the caller.
    See arm_is_longcall_p() for more information.  */
 #define ARM_DECLARE_FUNCTION_SIZE(STREAM, NAME, DECL)	\
@@ -2304,7 +2304,12 @@ extern int making_const_table;
 
 #define SELECT_CC_MODE(OP, X, Y)  arm_select_cc_mode (OP, X, Y)
 
-#define REVERSIBLE_CC_MODE(MODE) ((MODE) != CCFPEmode)
+#define REVERSIBLE_CC_MODE(MODE) 1
+
+#define REVERSE_CONDITION(CODE,MODE) \
+  (((MODE) == CCFPmode || (MODE) == CCFPEmode) \
+   ? reverse_condition_maybe_unordered (code) \
+   : reverse_condition (code))
 
 #define CANONICALIZE_COMPARISON(CODE, OP0, OP1)				\
   do									\

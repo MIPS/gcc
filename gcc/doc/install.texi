@@ -294,7 +294,7 @@ the @option{--with-gmp} or @option{--with-gmp-dir} configure option.
 @item MPFR Library
 
 Necessary to build the Fortran frontend.  It can be downloaded from
-@uref{http://http://www.mpfr.org/}.  It is also included in the current GMP
+@uref{http://www.mpfr.org/}.  It is also included in the current GMP
 release (4.1.3) when configured with @option{--enable-mpfr}.
 
 The @option{--with-mpfr} or @option{--with-mpfr-dir} configure option should
@@ -937,6 +937,8 @@ Sun Solaris 2 thread support.
 VxWorks thread support.
 @item win32
 Microsoft Win32 API thread support.
+@item nks
+Novell Kernel Services thread support.
 @end table
 
 @item --with-cpu=@var{cpu}
@@ -956,6 +958,18 @@ These configure options provide default values for the @option{-mschedule=},
 options and for @option{-mhard-float} or @option{-msoft-float}.  As with
 @option{--with-cpu}, which switches will be accepted and acceptable values
 of the arguments depend on the target.
+
+@item --with-divide=@var{type}
+Specify how the compiler should generate code for checking for
+division by zero.  This option is only supported on the MIPS target.
+The possibilities for @var{type} are:
+@table @code
+@item traps
+Division by zero checks use conditional traps (this is the default on
+systems that support conditional traps).
+@item breaks
+Division by zero checks use the break instruction.
+@end table
 
 @item --enable-altivec
 Specify that the target supports AltiVec vector enhancements.  This
@@ -1097,17 +1111,21 @@ compiler and may only work properly if you are building the compiler
 with GCC@.  This is on by default when building from CVS or snapshots,
 but off for releases.  More control over the checks may be had by
 specifying @var{list}; the categories of checks available are
-@samp{assert}, @samp{misc}, @samp{tree}, @samp{gc}, @samp{rtl},
-@samp{rtlflag}, @samp{fold}, @samp{gcac} and @samp{valgrind}.  The check
-@samp{valgrind} requires the external @command{valgrind} simulator,
-available from @uref{http://valgrind.kde.org/}.  The default when
-@var{list} is not specified is @samp{assert,misc,tree,gc,rtlflag}; the
-checks @samp{rtl}, @samp{gcac} and @samp{valgrind} are very expensive.
-When checking is neither explicitly enabled nor disabled, assertion
-checks are still done.  To disable all checking,
-@samp{--disable-checking} must be explicitly requested.  Disabling
-assertions will make the compiler slightly faster but increase the risk
-undetected internal errors causing wrong code to be generated.
+@samp{release}, @samp{assert}, @samp{misc}, @samp{tree}, @samp{gc},
+@samp{rtl}, @samp{rtlflag}, @samp{fold}, @samp{gcac} and
+@samp{valgrind}.  The @samp{release} category enables only those checks
+suitable for release builds, currently this is just @samp{assert}.  The
+check @samp{valgrind} requires the external @command{valgrind}
+simulator, available from @uref{http://valgrind.kde.org/}.  The checks
+@samp{rtl}, @samp{gcac} and @samp{valgrind} are very expensive.  The
+default when @var{list} is not specified is
+@samp{assert,misc,tree,gc,rtlflag}.  That is also the default for
+development builds, when @samp{--enable-checking} is not specified.  For
+release builds the default, when @samp{--enable-checking} is not given,
+is @samp{release}.  To disable all checking, @samp{--disable-checking}
+must be explicitly requested.  Disabling assertions will make the
+compiler slightly faster but increase the risk of undetected internal
+errors causing wrong code to be generated.
 
 @item --enable-coverage
 @itemx --enable-coverage=@var{level}
@@ -1337,7 +1355,7 @@ Specifies the AWT peer library or libraries to build alongside
 @samp{libgcj}. If this option is unspecified or disabled, AWT
 will be non-functional. Current valid values are @option{gtk} and
 @option{xlib}. Multiple libraries should be separated by a
-comma (i.e. @option{--enable-java-awt=gtk,xlib}).
+comma (i.e.@: @option{--enable-java-awt=gtk,xlib}).
 
 @item --enable-gtk-cairo
 Build the cairo Graphics2D implementation on GTK.
@@ -2931,8 +2949,9 @@ have installed.
 IA-64 processor (also known as IPF, or Itanium Processor Family)
 running GNU/Linux.
 
-If you are using the optional libunwind library, then you must use
-libunwind 0.96 or later.
+If you are using the installed system libunwind library with
+@option{--with-system-libunwind}, then you must use libunwind 0.98 or
+later.
 
 None of the following versions of GCC has an ABI that is compatible
 with any of the other versions in this list, with the exception that
@@ -2954,6 +2973,8 @@ the option @option{--with-gnu-as} may be necessary.
 The GCC libunwind library has not been ported to HPUX. This means that for
 GCC versions 3.2.3 and earlier, @option{--enable-libunwind-exceptions}
 is required to build GCC. For GCC 3.3 and later, this is the default.
+For gcc 3.4.3 and later, @option{--enable-libunwind-exceptions} is
+removed and the system libunwind library will always be used.
 
 @html
 <hr />
@@ -3191,6 +3212,16 @@ make @samp{mips*-*-*} use the generic implementation instead.  You can also
 configure for @samp{mipsel-elf} as a workaround.  The
 @samp{mips*-*-linux*} target continues to use the MIPS II routines.  More
 work on this is expected in future releases.
+
+MIPS systems check for division by zero (unless
+@option{-mno-check-zero-division} is passed to the compiler) by
+generating either a conditional trap or a break instruction.  Using
+trap results in smaller code, but is only supported on MIPS II and
+later.  Also, some versions of the Linux kernel have a bug that
+prevents trap from generating the proper signal (SIGFPE).  To enable
+the use of break, use the @option{--with-divide=breaks}
+@command{configure} option when configuring GCC.  The default is to
+use traps on systems that support them.
 
 Cross-compilers for the Mips as target using the Mips assembler
 currently do not work, because the auxiliary programs
@@ -3503,7 +3534,7 @@ GCC 3.3 and GCC 3.4 trigger code generation bugs in earlier versions of
 the GNU compiler (especially GCC 3.0.x versions), which lead to the
 miscompilation of the stage1 compiler and the subsequent failure of the
 bootstrap process.  A workaround is to use GCC 3.2.3 as an intermediary
-stage, i.e. to bootstrap that compiler with the base compiler and then
+stage, i.e.@: to bootstrap that compiler with the base compiler and then
 use it to bootstrap the final compiler.
 
 GCC 3.4 triggers a code generation bug in versions 5.4 (Sun ONE Studio 7)

@@ -240,14 +240,6 @@ extern enum graph_dump_types graph_dump_format;
    and to print them when we are done.  */
 extern int flag_detailed_statistics;
 
-/* Enable points-to analysis on trees.  */
-enum pta_type
-  {
-    PTA_NONE,
-    PTA_ANDERSEN
-  };
-extern enum pta_type flag_tree_points_to;
-
 extern int flag_web;
 
 /* Nonzero means that we defer emitting functions until they are actually
@@ -256,6 +248,10 @@ extern int flag_remove_unreachable_functions;
 
 /* Nonzero if we should track variables.  */
 extern int flag_var_tracking;
+
+/* True if flag_speculative_prefetching was set by user.  Used to suppress
+   warning message in case flag was set by -fprofile-{generate,use}.  */
+extern bool flag_speculative_prefetching_set;
 
 /* A string that's used when a random name is required.  NULL means
    to make it really random.  */

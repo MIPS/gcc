@@ -403,6 +403,43 @@ pop_labels (tree block)
   named_labels = NULL;
 }
 
+/* The following two routines are used to interface to Objective-C++.
+   The binding level is purposely treated as an opaque type.  */
+
+void *
+objc_get_current_scope (void)
+{
+  return current_binding_level;
+}
+
+/* The following routine is used by the NeXT-style SJLJ exceptions;
+   variables get marked 'volatile' so as to not be clobbered by
+   _setjmp()/_longjmp() calls.  All variables in the current scope,
+   as well as parent scopes up to (but not including) ENCLOSING_BLK
+   shall be thusly marked.  */
+
+void
+objc_mark_locals_volatile (void *enclosing_blk)
+{
+  struct cp_binding_level *scope;
+
+  for (scope = current_binding_level;
+       scope && scope != enclosing_blk && scope->kind == sk_block;
+       scope = scope->level_chain)
+    {
+      tree decl;
+
+      for (decl = scope->names; decl; decl = TREE_CHAIN (decl))
+        {
+	  if (TREE_CODE (decl) == VAR_DECL)
+	    {
+              DECL_REGISTER (decl) = 0;
+              TREE_THIS_VOLATILE (decl) = 1;
+	    }
+        }
+    }
+}
+
 /* Exit a binding level.
    Pop the level off, and restore the state of the identifier-decl mappings
    that were in effect when this level was entered.
@@ -602,18 +639,20 @@ poplevel (int keep, int reverse, int functionbody)
 	}
       else
 	{
+	  tree name;
+	  
 	  /* Remove the binding.  */
 	  decl = link;
 
 	  if (TREE_CODE (decl) == TREE_LIST)
 	    decl = TREE_VALUE (decl);
+	  name = decl;
+	  
+	  if (TREE_CODE (name) == OVERLOAD)
+	    name = OVL_FUNCTION (name);
 
-	  if (DECL_P (decl))
-	    pop_binding (DECL_NAME (decl), decl);
-	  else if (TREE_CODE (decl) == OVERLOAD)
-	    pop_binding (DECL_NAME (OVL_FUNCTION (decl)), decl);
-	  else
-	    abort ();
+	  gcc_assert (DECL_P (name));
+	  pop_binding (DECL_NAME (name), decl);
 	}
     }
 
@@ -1425,7 +1464,7 @@ duplicate_decls (tree newdecl, tree olddecl)
          A namespace-name or namespace-alias shall not be declared as
 	 the name of any other entity in the same declarative region.
 	 A namespace-name defined at global scope shall not be
-	 declared as the name of any other entity in any glogal scope
+	 declared as the name of any other entity in any global scope
 	 of the program.  */
       error ("declaration of `namespace %D' conflicts with", newdecl);
       cp_error_at ("previous declaration of `namespace %D' here", olddecl);
@@ -2702,8 +2741,7 @@ make_unbound_class_template (tree context, tree name, tsubst_flags_t complain)
     name = TYPE_IDENTIFIER (name);
   else if (DECL_P (name))
     name = DECL_NAME (name);
-  if (TREE_CODE (name) != IDENTIFIER_NODE)
-    abort ();
+  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
 
   if (!dependent_type_p (context)
       || currently_open_class (context))
@@ -4324,7 +4362,7 @@ reshape_init (tree type, tree *initp)
 	    }
 	}
       else
-	abort ();
+	gcc_unreachable ();
 
       /* The initializers were placed in reverse order in the
 	 CONSTRUCTOR.  */
@@ -4561,10 +4599,11 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
     {
       /* Fool with the linkage of static consts according to #pragma
 	 interface.  */
-      if (!interface_unknown && !TREE_PUBLIC (decl))
+      struct c_fileinfo *finfo = get_fileinfo (input_filename);
+      if (!finfo->interface_unknown && !TREE_PUBLIC (decl))
 	{
 	  TREE_PUBLIC (decl) = 1;
-	  DECL_EXTERNAL (decl) = interface_only;
+	  DECL_EXTERNAL (decl) = finfo->interface_only;
 	}
 
       defer_p = 1;
@@ -4637,6 +4676,22 @@ initialize_local_var (tree decl, tree init)
   cleanup = cxx_maybe_build_cleanup (decl);
   if (DECL_SIZE (decl) && cleanup)
     finish_decl_cleanup (decl, cleanup);
+}
+
+/* DECL is a VAR_DECL for a compiler-generated variable with static
+   storage duration (like a virtual table) whose initializer is a
+   compile-time constant.  Initialize the variable and provide it to
+   the back end.  */
+
+void
+initialize_artificial_var (tree decl, tree init)
+{
+  DECL_INITIAL (decl) = build_constructor (NULL_TREE, init);
+  DECL_INITIALIZED_P (decl) = 1;
+  determine_visibility (decl);
+  layout_var_decl (decl);
+  maybe_commonize_var (decl);
+  make_rtl_for_nonlocal_decl (decl, init, /*asmspec=*/NULL);
 }
 
 /* Finish processing of a declaration;
@@ -5006,8 +5061,6 @@ static GTY(()) int start_cleanup_cnt;
 static tree
 start_cleanup_fn (void)
 {
-  int old_interface_only = interface_only;
-  int old_interface_unknown = interface_unknown;
   char name[32];
   tree parmtypes;
   tree fntype;
@@ -5017,9 +5070,6 @@ start_cleanup_fn (void)
 
   /* No need to mangle this.  */
   push_lang_context (lang_name_c);
-
-  interface_only = 0;
-  interface_unknown = 1;
 
   /* Build the parameter-types.  */
   parmtypes = void_list_node;
@@ -5059,9 +5109,6 @@ start_cleanup_fn (void)
 
   pushdecl (fndecl);
   start_preparsed_function (fndecl, NULL_TREE, SF_PRE_PARSED);
-
-  interface_unknown = old_interface_unknown;
-  interface_only = old_interface_only;
 
   pop_lang_context ();
 
@@ -5746,7 +5793,7 @@ set_linkage_for_static_data_member (tree decl)
   TREE_STATIC (decl) = 1;
   /* For non-template classes, static data members are always put
      out in exactly those files where they are defined, just as
-     with ordinarly namespace-scope variables.  */
+     with ordinary namespace-scope variables.  */
   if (!processing_template_decl)
     DECL_INTERFACE_KNOWN (decl) = 1;
 }
@@ -6128,7 +6175,7 @@ get_scope_of_declarator (const cp_declarator *declarator)
       && TREE_CODE (declarator->u.id.name) == SCOPE_REF)
     return TREE_OPERAND (declarator->u.id.name, 0);
 
-  /* Otherwise, the declarator is not a quablified name; the entity will
+  /* Otherwise, the declarator is not a qualified name; the entity will
      be declared in the current scope.  */
   return NULL_TREE;
 }
@@ -6240,7 +6287,7 @@ check_special_function_return_type (special_function_kind sfk,
       if (type)
 	error ("return type specification for destructor invalid");
       /* We can't use the proper return type here because we run into
-	 problems with abiguous bases and covariant returns.
+	 problems with ambiguous bases and covariant returns.
 	 Java classes are left unchanged because (void *) isn't a valid
 	 Java type, and we don't want to change the Java ABI.  */
       if (targetm.cxx.cdtor_returns_this () && !TYPE_FOR_JAVA (optype))
@@ -6258,8 +6305,7 @@ check_special_function_return_type (special_function_kind sfk,
       break;
 
     default:
-      abort ();
-      break;
+      gcc_unreachable ();
     }
 
   return type;
@@ -6404,7 +6450,7 @@ grokdeclarator (const cp_declarator *declarator,
 	    if (TREE_CODE (decl) == SCOPE_REF)
 	      {
 		tree qualifying_scope = TREE_OPERAND (decl, 0);
-;
+
 		/* It is valid to write:
 
 		   class C { void f(); };
@@ -6493,7 +6539,7 @@ grokdeclarator (const cp_declarator *declarator,
 		break;
 
 	      default:
-		abort ();
+		gcc_unreachable ();
 	      }
 	    break;
 
@@ -6507,7 +6553,7 @@ grokdeclarator (const cp_declarator *declarator,
 	    break;
 
 	  default:
-	    abort ();
+	    gcc_unreachable ();
 	  }
 	}
       if (id_declarator->kind == cdk_id)
@@ -6982,7 +7028,7 @@ grokdeclarator (const cp_declarator *declarator,
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -7236,7 +7282,7 @@ grokdeclarator (const cp_declarator *declarator,
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -7619,10 +7665,8 @@ grokdeclarator (const cp_declarator *declarator,
 	error ("unnamed variable or field declared void");
       else if (TREE_CODE (unqualified_id) == IDENTIFIER_NODE)
 	{
-	  if (IDENTIFIER_OPNAME_P (unqualified_id))
-	    abort ();
-	  else
-	    error ("variable or field `%s' declared void", name);
+	  gcc_assert (!IDENTIFIER_OPNAME_P (unqualified_id));
+	  error ("variable or field `%s' declared void", name);
 	}
       else
 	error ("variable or field declared void");
@@ -8524,7 +8568,7 @@ grok_op_properties (tree decl, int friendp, bool complain)
 #include "operators.def"
 #undef DEF_OPERATOR
 
-	abort ();
+	gcc_unreachable ();
       }
     while (0);
   gcc_assert (operator_code != LAST_CPLUS_TREE_CODE);
@@ -8694,7 +8738,7 @@ grok_op_properties (tree decl, int friendp, bool complain)
 		  break;
 
 		default:
-		  abort ();
+		  gcc_unreachable ();
 		}
 
 	      SET_OVERLOADED_OPERATOR_CODE (decl, operator_code);
@@ -8825,7 +8869,7 @@ tag_name (enum tag_types code)
     case enum_type:
       return "enum";
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -8946,7 +8990,7 @@ xref_tag (enum tag_types tag_code, tree name,
       code = ENUMERAL_TYPE;
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   if (! globalize)
@@ -9095,8 +9139,8 @@ xref_basetypes (tree ref, tree base_list)
 {
   tree *basep;
   tree binfo, base_binfo;
-  unsigned max_vbases = 0; /* Maxium direct & indirect virtual bases. */
-  unsigned max_bases = 0;  /* Maxium direct bases.  */
+  unsigned max_vbases = 0; /* Maximum direct & indirect virtual bases. */
+  unsigned max_bases = 0;  /* Maximum direct bases.  */
   int i;
   tree default_access;
   tree igo_prev; /* Track Inheritance Graph Order.  */
@@ -9218,7 +9262,7 @@ xref_basetypes (tree ref, tree base_list)
       if (CLASS_TYPE_P (basetype) && !dependent_type_p (basetype))
 	{
 	  base_binfo = TYPE_BINFO (basetype);
-	  /* The orignal basetype could have been a typedef'd type.  */
+	  /* The original basetype could have been a typedef'd type.  */
 	  basetype = BINFO_TYPE (base_binfo);
 
 	  /* Inherit flags from the base.  */
@@ -9417,7 +9461,7 @@ finish_enum (tree enumtype)
      narrower than their underlying type are suitably zero or sign
      extended to fill their mode.  g++ doesn't make these guarantees.
      Until the middle-end can represent such paradoxical types, we
-     set the TYPE_PRECISON to the width of the underlying type.  */
+     set the TYPE_PRECISION to the width of the underlying type.  */
   TYPE_PRECISION (enumtype) = TYPE_PRECISION (underlying_type);
 
   set_min_and_max_values_for_integral_type (enumtype, precision, unsignedp);
@@ -9506,18 +9550,25 @@ build_enumerator (tree name, tree value, tree enumtype)
       /* Default based on previous value.  */
       if (value == NULL_TREE)
 	{
-	  tree prev_value;
-
 	  if (TYPE_VALUES (enumtype))
 	    {
-	      /* The next value is the previous value ...  */
-	      prev_value = DECL_INITIAL (TREE_VALUE (TYPE_VALUES (enumtype)));
-	      /* ... plus one.  */
-	      value = cp_build_binary_op (PLUS_EXPR,
-					  prev_value,
-					  integer_one_node);
+	      HOST_WIDE_INT hi;
+	      unsigned HOST_WIDE_INT lo;
+	      tree prev_value;
+	      bool overflowed;
 
-	      if (tree_int_cst_lt (value, prev_value))
+	      /* The next value is the previous value plus one.  We can
+	         safely assume that the previous value is an INTEGER_CST.
+		 add_double doesn't know the type of the target expression,
+		 so we must check with int_fits_type_p as well.  */
+	      prev_value = DECL_INITIAL (TREE_VALUE (TYPE_VALUES (enumtype)));
+	      overflowed = add_double (TREE_INT_CST_LOW (prev_value),
+				       TREE_INT_CST_HIGH (prev_value),
+				       1, 0, &lo, &hi);
+	      value = build_int_cst_wide (TREE_TYPE (prev_value), lo, hi);
+	      overflowed |= !int_fits_type_p (value, TREE_TYPE (prev_value));
+
+	      if (overflowed)
 		error ("overflow in enumeration values at `%D'", name);
 	    }
 	  else
@@ -9640,6 +9691,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   int doing_friend = 0;
   struct cp_binding_level *bl;
   tree current_function_parms;
+  struct c_fileinfo *finfo = get_fileinfo (input_filename);
 
   /* Sanity check.  */
   gcc_assert (TREE_CODE (TREE_VALUE (void_list_node)) == VOID_TYPE);
@@ -9845,8 +9897,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 	}
       if (DECL_HAS_VTT_PARM_P (decl1))
 	{
-	  if (DECL_NAME (t) != vtt_parm_identifier)
-	    abort ();
+	  gcc_assert (DECL_NAME (t) == vtt_parm_identifier);
 	  current_vtt_parm = t;
 	}
     }
@@ -9867,7 +9918,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   /* If this function belongs to an interface, it is public.
      If it belongs to someone else's interface, it is also external.
      This only affects inlines and template instantiations.  */
-  else if (interface_unknown == 0
+  else if (finfo->interface_unknown == 0
 	   && ! DECL_TEMPLATE_INSTANTIATION (decl1))
     {
       if (DECL_DECLARED_INLINE_P (decl1)
@@ -9875,7 +9926,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 	  || processing_template_decl)
 	{
 	  DECL_EXTERNAL (decl1)
-	    = (interface_only
+	    = (finfo->interface_only
 	       || (DECL_DECLARED_INLINE_P (decl1)
 		   && ! flag_implement_inlines
 		   && !DECL_VINDEX (decl1)));
@@ -9893,14 +9944,15 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
       if (!DECL_EXTERNAL (decl1))
 	mark_needed (decl1);
     }
-  else if (interface_unknown && interface_only
+  else if (finfo->interface_unknown && finfo->interface_only
 	   && ! DECL_TEMPLATE_INSTANTIATION (decl1))
     {
       /* If MULTIPLE_SYMBOL_SPACES is defined and we saw a #pragma
-	 interface, we will have interface_only set but not
-	 interface_known.  In that case, we don't want to use the normal
-	 heuristics because someone will supply a #pragma implementation
-	 elsewhere, and deducing it here would produce a conflict.  */
+	 interface, we will have both finfo->interface_unknown and
+	 finfo->interface_only set.  In that case, we don't want to
+	 use the normal heuristics because someone will supply a
+	 #pragma implementation elsewhere, and deducing it here would
+	 produce a conflict.  */
       comdat_linkage (decl1);
       DECL_EXTERNAL (decl1) = 0;
       DECL_INTERFACE_KNOWN (decl1) = 1;
@@ -10356,8 +10408,7 @@ finish_function (int flags)
   if (current_binding_level->kind != sk_function_parms)
     {
       /* Make sure we have already experienced errors.  */
-      if (errorcount == 0)
-	abort ();
+      gcc_assert (errorcount);
 
       /* Throw away the broken statement tree and extra binding
          levels.  */
@@ -10439,11 +10490,23 @@ finish_function (int flags)
   /* Genericize before inlining.  */
   if (!processing_template_decl)
     {
+      struct language_function *f = DECL_SAVED_FUNCTION_DATA (fndecl);
       cp_genericize (fndecl);
+      /* Clear out the bits we don't need.  */
+      f->x_current_class_ptr = NULL;
+      f->x_current_class_ref = NULL;
+      f->x_eh_spec_block = NULL;
+      f->x_in_charge_parm = NULL;
+      f->x_vtt_parm = NULL;
+      f->x_return_value = NULL;
+      f->bindings = NULL;
 
       /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
       c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
     }
+  /* Clear out the bits we don't need.  */
+  local_names = NULL;
+  named_label_uses = NULL;
 
   /* We're leaving the context of this function, so zap cfun.  It's still in
      DECL_STRUCT_FUNCTION, and we'll restore it in tree_rest_of_compilation.  */
@@ -10822,4 +10885,3 @@ cp_missing_noreturn_ok_p (tree decl)
 }
 
 #include "gt-cp-decl.h"
-#include "gtype-cp.h"

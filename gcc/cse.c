@@ -925,8 +925,7 @@ make_new_qty (unsigned int reg, enum machine_mode mode)
   struct qty_table_elem *ent;
   struct reg_eqv_elem *eqv;
 
-  if (next_qty >= max_qty)
-    abort ();
+  gcc_assert (next_qty < max_qty);
 
   q = REG_QTY (reg) = next_qty++;
   ent = &qty_table[q];
@@ -953,8 +952,7 @@ make_regs_eqv (unsigned int new, unsigned int old)
   ent = &qty_table[q];
 
   /* Nothing should become eqv until it has a "non-invalid" qty number.  */
-  if (! REGNO_QTY_VALID_P (old))
-    abort ();
+  gcc_assert (REGNO_QTY_VALID_P (old));
 
   REG_QTY (new) = q;
   firstr = ent->first_reg;
@@ -1424,8 +1422,7 @@ insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mo
 
   /* If X is a register and we haven't made a quantity for it,
      something is wrong.  */
-  if (REG_P (x) && ! REGNO_QTY_VALID_P (REGNO (x)))
-    abort ();
+  gcc_assert (!REG_P (x) || REGNO_QTY_VALID_P (REGNO (x)));
 
   /* If X is a hard register, show it is being put in the table.  */
   if (REG_P (x) && REGNO (x) < FIRST_PSEUDO_REGISTER)
@@ -1832,7 +1829,7 @@ invalidate (rtx x, enum machine_mode full_mode)
       return;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -2334,8 +2331,9 @@ hash_rtx (rtx x, enum machine_mode mode, int *do_not_record_p,
   fmt = GET_RTX_FORMAT (code);
   for (; i >= 0; i--)
     {
-      if (fmt[i] == 'e')
+      switch (fmt[i])
 	{
+	case 'e':
 	  /* If we are about to do the last recursive call
 	     needed at this level, change it into iteration.
 	     This function  is called enough to be worth it.  */
@@ -2347,24 +2345,29 @@ hash_rtx (rtx x, enum machine_mode mode, int *do_not_record_p,
 
 	  hash += hash_rtx (XEXP (x, i), 0, do_not_record_p,
 			    hash_arg_in_memory_p, have_reg_qty);
-	}
+	  break;
 
-      else if (fmt[i] == 'E')
-	for (j = 0; j < XVECLEN (x, i); j++)
-	  {
+	case 'E':
+	  for (j = 0; j < XVECLEN (x, i); j++)
 	    hash += hash_rtx (XVECEXP (x, i, j), 0, do_not_record_p,
 			      hash_arg_in_memory_p, have_reg_qty);
-	  }
+	  break;
 
-      else if (fmt[i] == 's')
-	hash += hash_rtx_string (XSTR (x, i));
-      else if (fmt[i] == 'i')
-	hash += (unsigned int) XINT (x, i);
-      else if (fmt[i] == '0' || fmt[i] == 't')
-	/* Unused.  */
-	;
-      else
-	abort ();
+	case 's':
+	  hash += hash_rtx_string (XSTR (x, i));
+	  break;
+
+	case 'i':
+	  hash += (unsigned int) XINT (x, i);
+	  break;
+
+	case '0': case 't':
+	  /* Unused.  */
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
     }
 
   return hash;
@@ -2573,7 +2576,7 @@ exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -3784,7 +3787,16 @@ fold_rtx (rtx x, rtx insn)
 	new = simplify_unary_operation (code, mode,
 					const_arg0 ? const_arg0 : folded_arg0,
 					mode_arg0);
-	if (new != 0 && is_const)
+	/* NEG of PLUS could be converted into MINUS, but that causes
+	   expressions of the form
+	   (CONST (MINUS (CONST_INT) (SYMBOL_REF)))
+	   which many ports mistakenly treat as LEGITIMATE_CONSTANT_P.
+	   FIXME: those ports should be fixed.  */
+	if (new != 0 && is_const
+	    && GET_CODE (new) == PLUS
+	    && (GET_CODE (XEXP (new, 0)) == SYMBOL_REF
+		|| GET_CODE (XEXP (new, 0)) == LABEL_REF)
+	    && GET_CODE (XEXP (new, 1)) == CONST_INT)
 	  new = gen_rtx_CONST (mode, new);
       }
       break;
@@ -6979,8 +6991,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
 	}
     }
 
-  if (next_qty > max_qty)
-    abort ();
+  gcc_assert (next_qty <= max_qty);
 
   free (qty_table + max_reg);
 
@@ -7099,7 +7110,7 @@ count_reg_usage (rtx x, int *counts, int incr)
       return;
 
     case INSN_LIST:
-      abort ();
+      gcc_unreachable ();
 
     default:
       break;
@@ -7458,8 +7469,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
 
 		      if (mode != comp_mode)
 			{
-			  if (! can_change_mode)
-			    abort ();
+			  gcc_assert (can_change_mode);
 			  mode = comp_mode;
 			  PUT_MODE (cc_src, mode);
 			}
@@ -7507,8 +7517,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
 	  submode = cse_cc_succs (e->dest, cc_reg, cc_src, false);
 	  if (submode != VOIDmode)
 	    {
-	      if (submode != mode)
-		abort ();
+	      gcc_assert (submode == mode);
 	      found_equiv = true;
 	      can_change_mode = false;
 	    }
@@ -7636,8 +7645,7 @@ cse_condition_code_reg (void)
       mode = cse_cc_succs (bb, cc_reg, cc_src, true);
       if (mode != VOIDmode)
 	{
-	  if (mode != GET_MODE (cc_src))
-	    abort ();
+	  gcc_assert (mode == GET_MODE (cc_src));
 	  if (mode != orig_mode)
 	    {
 	      rtx newreg = gen_rtx_REG (mode, REGNO (cc_reg));

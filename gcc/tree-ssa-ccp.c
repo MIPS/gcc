@@ -100,7 +100,7 @@ dump_lattice_value (FILE *outf, const char *prefix, value val)
       print_generic_expr (outf, val.const_val, dump_flags);
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -129,10 +129,7 @@ get_default_value (tree var)
     sym = SSA_NAME_VAR (var);
   else
     {
-#ifdef ENABLE_CHECKING
-      if (!DECL_P (var))
-	abort ();
-#endif
+      gcc_assert (DECL_P (var));
       sym = var;
     }
 
@@ -182,7 +179,6 @@ get_default_value (tree var)
   return val;
 }
 
-
 /* Get the constant value associated with variable VAR.  */
 
 static value *
@@ -190,10 +186,7 @@ get_value (tree var)
 {
   value *val;
 
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (var) != SSA_NAME)
-    abort ();
-#endif
+  gcc_assert (TREE_CODE (var) == SSA_NAME);
 
   val = &value_vector[SSA_NAME_VERSION (var)];
   if (val->lattice_val == UNINITIALIZED)
@@ -211,32 +204,24 @@ set_lattice_value (tree var, value val)
 {
   value *old = get_value (var);
 
-#ifdef ENABLE_CHECKING
   if (val.lattice_val == UNDEFINED)
     {
       /* CONSTANT->UNDEFINED is never a valid state transition.  */
-      if (old->lattice_val == CONSTANT)
-	abort ();
+      gcc_assert (old->lattice_val != CONSTANT);
 	
       /* UNKNOWN_VAL->UNDEFINED is never a valid state transition.  */
-      if (old->lattice_val == UNKNOWN_VAL)
-	abort ();
+      gcc_assert (old->lattice_val != UNKNOWN_VAL);
 
       /* VARYING->UNDEFINED is generally not a valid state transition,
 	 except for values which are initialized to VARYING.  */
-      if (old->lattice_val == VARYING
-	  && get_default_value (var).lattice_val != VARYING)
-	abort ();
+      gcc_assert (old->lattice_val != VARYING
+		  || get_default_value (var).lattice_val == VARYING);
     }
   else if (val.lattice_val == CONSTANT)
-    {
-      /* VARYING -> CONSTANT is an invalid state transition, except
-	 for objects which start off in a VARYING state.  */
-      if (old->lattice_val == VARYING
-	  && get_default_value (var).lattice_val != VARYING)
-	abort ();
-    }
-#endif
+    /* VARYING -> CONSTANT is an invalid state transition, except
+	for objects which start off in a VARYING state.  */
+    gcc_assert (old->lattice_val != VARYING
+		|| get_default_value (var).lattice_val == VARYING);
 
   /* If the constant for VAR has changed, then this VAR is really varying.  */
   if (old->lattice_val == CONSTANT
@@ -328,11 +313,8 @@ likely_value (tree stmt)
       if (val->lattice_val == UNKNOWN_VAL)
         return UNKNOWN_VAL;
 	
-#ifdef ENABLE_CHECKING
-  /* There should be no VUSE operands that are UNDEFINED. */
-  if (val->lattice_val == UNDEFINED)
-    abort ();
-#endif
+      /* There should be no VUSE operands that are UNDEFINED.  */
+      gcc_assert (val->lattice_val != UNDEFINED);
 	
       if (val->lattice_val == CONSTANT)
 	found_constant = 1;
@@ -721,7 +703,7 @@ ccp_visit_phi_node (tree phi)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   for (i = 0; i < PHI_NUM_ARGS (phi); i++)
@@ -774,7 +756,7 @@ ccp_visit_phi_node (tree phi)
       fprintf (dump_file, "\n\n");
     }
 
-  /* Check for an invalid change from UNKNOWN_VAL to UNDEFINED. */
+  /* Check for an invalid change from UNKNOWN_VAL to UNDEFINED.  */
   if (old_val->lattice_val == UNKNOWN_VAL
       && new_val.lattice_val == UNDEFINED)
     return SSA_PROP_NOT_INTERESTING;
@@ -1018,12 +1000,9 @@ visit_assignment (tree stmt, tree *output_p)
   vuses = STMT_VUSE_OPS (stmt);
   v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
 
-#if defined ENABLE_CHECKING
-  if (NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) > 0
-      || (NUM_V_MUST_DEFS (v_must_defs) != 1
-          && TREE_CODE (lhs) != SSA_NAME))
-    abort ();
-#endif
+  gcc_assert (NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) == 0);
+  gcc_assert (NUM_V_MUST_DEFS (v_must_defs) == 1
+	      || TREE_CODE (lhs) == SSA_NAME);
 
   /* We require the SSA version number of the lhs for the value_vector.
      Make sure we have it.  */
@@ -1077,7 +1056,7 @@ visit_assignment (tree stmt, tree *output_p)
   }
 
   /* If LHS is not a gimple register, then it cannot take on an
-     UNDEFINED value. */
+     UNDEFINED value.  */
   if (!is_gimple_reg (SSA_NAME_VAR (lhs)) 
       && val.lattice_val == UNDEFINED)
     val.lattice_val = UNKNOWN_VAL;      
@@ -1169,10 +1148,8 @@ ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
 
   /* Any other kind of statement is not interesting for constant
      propagation and, therefore, not worth simulating.  */
-#if 0
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "No interesting values produced.  Marked VARYING.\n");
-#endif
 
   /* Definitions made by statements other than assignments to
      SSA_NAMEs represent unknown modifications to their outputs.
@@ -1223,7 +1200,8 @@ struct tree_opt_pass pass_ccp =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars
     | TODO_ggc_collect | TODO_verify_ssa
-    | TODO_verify_stmts			/* todo_flags_finish */
+    | TODO_verify_stmts,		/* todo_flags_finish */
+  0					/* letter */
 };
 
 
@@ -1253,10 +1231,7 @@ widen_bitfield (tree val, tree field, tree var)
   if (field_size > HOST_BITS_PER_WIDE_INT || var_size > HOST_BITS_PER_WIDE_INT)
     return NULL_TREE;
 
-#if defined ENABLE_CHECKING
-  if (var_size < field_size)
-    abort ();
-#endif
+  gcc_assert (var_size >= field_size);
 
   /* If the sign bit of the value is not set or the field's type is unsigned,
      just mask off the high order bits of the value.  */
@@ -1381,7 +1356,7 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
 
   return build (ARRAY_REF, orig_type, base, idx, min_idx,
 		size_int (tree_low_cst (elt_size, 1)
-			  / (TYPE_ALIGN (elt_type) / BITS_PER_UNIT)));
+			  / (TYPE_ALIGN_UNIT (elt_type))));
 }
 
 
@@ -2003,7 +1978,7 @@ ccp_fold_builtin (tree stmt, tree fn)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   if (result && ignore)
@@ -2167,5 +2142,6 @@ struct tree_opt_pass pass_fold_builtins =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
+  0					/* letter */
 };

@@ -61,6 +61,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define VALGRIND_DISCARD(x)
 #endif
 
+/* When set, ggc_collect will do collection.  */
+bool ggc_force_collect;
+
 /* Statistics about the allocation.  */
 static ggc_statistics *ggc_stats;
 
@@ -194,16 +197,14 @@ ggc_calloc (size_t s1, size_t s2)
 void *
 ggc_splay_alloc (int sz, void *nl)
 {
-  if (nl != NULL)
-    abort ();
+  gcc_assert (!nl);
   return ggc_alloc (sz);
 }
 
 void
 ggc_splay_dont_free (void * x ATTRIBUTE_UNUSED, void *nl)
 {
-  if (nl != NULL)
-    abort ();
+  gcc_assert (!nl);
 }
 
 /* Print statistics that are independent of the collector in use.  */
@@ -263,9 +264,8 @@ gt_pch_note_object (void *obj, void *note_ptr_cookie,
 			      INSERT);
   if (*slot != NULL)
     {
-      if ((*slot)->note_ptr_fn != note_ptr_fn
-	  || (*slot)->note_ptr_cookie != note_ptr_cookie)
-	abort ();
+      gcc_assert ((*slot)->note_ptr_fn == note_ptr_fn
+		  && (*slot)->note_ptr_cookie == note_ptr_cookie);
       return 0;
     }
 
@@ -292,9 +292,7 @@ gt_pch_note_reorder (void *obj, void *note_ptr_cookie,
     return;
 
   data = htab_find_with_hash (saving_htab, obj, POINTER_HASH (obj));
-  if (data == NULL
-      || data->note_ptr_cookie != note_ptr_cookie)
-    abort ();
+  gcc_assert (data && data->note_ptr_cookie == note_ptr_cookie);
 
   data->reorder_fn = reorder_fn;
 }
@@ -373,8 +371,7 @@ relocate_ptrs (void *ptr_p, void *state_p)
     return;
 
   result = htab_find_with_hash (saving_htab, *ptr, POINTER_HASH (*ptr));
-  if (result == NULL)
-    abort ();
+  gcc_assert (result);
   *ptr = result->new_addr;
 }
 
@@ -780,6 +777,8 @@ struct loc_descriptor
   int times;
   size_t allocated;
   size_t overhead;
+  size_t freed;
+  size_t collected;
 };
 
 /* Hashtable used for statistics.  */
@@ -802,6 +801,32 @@ eq_descriptor (const void *p1, const void *p2)
 
   return (d->file == d2->file && d->line == d2->line
 	  && d->function == d2->function);
+}
+
+/* Hashtable converting address of allocated field to loc descriptor.  */
+static htab_t ptr_hash;
+struct ptr_hash_entry
+{
+  void *ptr;
+  struct loc_descriptor *loc;
+  size_t size;
+};
+
+/* Hash table helpers functions.  */
+static hashval_t
+hash_ptr (const void *p)
+{
+  const struct ptr_hash_entry *d = p;
+
+  return htab_hash_pointer (d->ptr);
+}
+
+static int
+eq_ptr (const void *p1, const void *p2)
+{
+  const struct ptr_hash_entry *p = p1;
+
+  return (p->ptr == p2);
 }
 
 /* Return descriptor for given call site, create new one if needed.  */
@@ -829,14 +854,59 @@ loc_descriptor (const char *name, int line, const char *function)
 
 /* Record ALLOCATED and OVERHEAD bytes to descriptor NAME:LINE (FUNCTION).  */
 void
-ggc_record_overhead (size_t allocated, size_t overhead,
+ggc_record_overhead (size_t allocated, size_t overhead, void *ptr,
 		     const char *name, int line, const char *function)
 {
   struct loc_descriptor *loc = loc_descriptor (name, line, function);
+  struct ptr_hash_entry *p = xmalloc (sizeof (struct ptr_hash_entry));
+  PTR *slot;
+
+  p->ptr = ptr;
+  p->loc = loc;
+  p->size = allocated + overhead;
+  if (!ptr_hash)
+    ptr_hash = htab_create (10, hash_ptr, eq_ptr, NULL);
+  slot = htab_find_slot_with_hash (ptr_hash, ptr, htab_hash_pointer (ptr), INSERT);
+  gcc_assert (!*slot);
+  *slot = p;
 
   loc->times++;
   loc->allocated+=allocated;
   loc->overhead+=overhead;
+}
+
+/* Helper function for prune_overhead_list.  See if SLOT is still marked and
+   remove it from hashtable if it is not.  */
+static int
+ggc_prune_ptr (void **slot, void *b ATTRIBUTE_UNUSED)
+{
+  struct ptr_hash_entry *p = *slot;
+  if (!ggc_marked_p (p->ptr))
+    {
+      p->loc->collected += p->size;
+      htab_clear_slot (ptr_hash, slot);
+      free (p);
+    }
+  return 1;
+}
+
+/* After live values has been marked, walk all recorded pointers and see if
+   they are still live.  */
+void
+ggc_prune_overhead_list (void)
+{
+  htab_traverse (ptr_hash, ggc_prune_ptr, NULL);
+}
+
+/* Notice that the pointer has been freed.  */
+void ggc_free_overhead (void *ptr)
+{
+  PTR *slot = htab_find_slot_with_hash (ptr_hash, ptr, htab_hash_pointer (ptr),
+					NO_INSERT);
+  struct ptr_hash_entry *p = *slot;
+  p->loc->freed += p->size;
+  htab_clear_slot (ptr_hash, slot);
+  free (p);
 }
 
 /* Helper for qsort; sort descriptors by amount of memory consumed.  */
@@ -845,7 +915,8 @@ cmp_statistic (const void *loc1, const void *loc2)
 {
   struct loc_descriptor *l1 = *(struct loc_descriptor **) loc1;
   struct loc_descriptor *l2 = *(struct loc_descriptor **) loc2;
-  return (l1->allocated + l1->overhead) - (l2->allocated + l2->overhead);
+  return ((l1->allocated + l1->overhead - l1->freed) -
+	  (l2->allocated + l2->overhead - l1->freed));
 }
 
 /* Collect array of the descriptors from hashtable.  */
@@ -866,24 +937,26 @@ void dump_ggc_loc_statistics (void)
 #ifdef GATHER_STATISTICS
   int nentries = 0;
   char s[4096];
-  size_t count, size, overhead;
+  size_t collected = 0, freed = 0, allocated = 0, overhead = 0, times = 0;
   int i;
+
+  ggc_force_collect = true;
+  ggc_collect ();
 
   loc_array = xcalloc (sizeof (*loc_array), loc_hash->n_elements);
   fprintf (stderr, "-------------------------------------------------------\n");
-  fprintf (stderr, "\n%-60s %10s %10s %10s\n",
-	   "source location", "Times", "Allocated", "Overhead");
+  fprintf (stderr, "\n%-48s %10s       %10s       %10s       %10s       %10s\n",
+	   "source location", "Garbage", "Freed", "Leak", "Overhead", "Times");
   fprintf (stderr, "-------------------------------------------------------\n");
-  count = 0;
-  size = 0;
-  overhead = 0;
   htab_traverse (loc_hash, add_statistics, &nentries);
   qsort (loc_array, nentries, sizeof (*loc_array), cmp_statistic);
   for (i = 0; i < nentries; i++)
     {
       struct loc_descriptor *d = loc_array[i];
-      size += d->allocated;
-      count += d->times;
+      allocated += d->allocated;
+      times += d->times;
+      freed += d->freed;
+      collected += d->collected;
       overhead += d->overhead;
     }
   for (i = 0; i < nentries; i++)
@@ -896,13 +969,26 @@ void dump_ggc_loc_statistics (void)
 	  while ((s2 = strstr (s1, "gcc/")))
 	    s1 = s2 + 4;
 	  sprintf (s, "%s:%i (%s)", s1, d->line, d->function);
-	  fprintf (stderr, "%-60s %10i %10li %10li:%.3f%%\n", s,
-		   d->times, (long)d->allocated, (long)d->overhead,
-		   (d->allocated + d->overhead) *100.0 / (size + overhead));
+	  s[48] = 0;
+	  fprintf (stderr, "%-48s %10li:%4.1f%% %10li:%4.1f%% %10li:%4.1f%% %10li:%4.1f%% %10li\n", s,
+		   (long)d->collected,
+		   (d->collected) * 100.0 / collected,
+		   (long)d->freed,
+		   (d->freed) * 100.0 / freed,
+		   (long)(d->allocated + d->overhead - d->freed - d->collected),
+		   (d->allocated + d->overhead - d->freed - d->collected) * 100.0
+		   / (allocated + overhead - freed - collected),
+		   (long)d->overhead,
+		   d->overhead * 100.0 / overhead,
+		   (long)d->times);
 	}
     }
-  fprintf (stderr, "%-60s %10ld %10ld %10ld\n",
-	   "Total", (long)count, (long)size, (long)overhead);
+  fprintf (stderr, "%-48s %10ld       %10ld       %10ld       %10ld       %10ld\n",
+	   "Total", (long)collected, (long)freed,
+	   (long)(allocated + overhead - freed - collected), (long)overhead,
+	   (long)times);
+  fprintf (stderr, "%-48s %10s       %10s       %10s       %10s       %10s\n",
+	   "source location", "Garbage", "Freed", "Leak", "Overhead", "Times");
   fprintf (stderr, "-------------------------------------------------------\n");
 #endif
 }

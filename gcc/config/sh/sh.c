@@ -283,6 +283,8 @@ static tree sh_build_builtin_va_list (void);
 static tree sh_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 static bool sh_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, bool);
+static bool sh_callee_copies (CUMULATIVE_ARGS *, enum machine_mode,
+			      tree, bool);
 
 
 /* Initialize the GCC target structure.  */
@@ -438,6 +440,8 @@ static bool sh_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE sh_pass_by_reference
+#undef TARGET_CALLEE_COPIES
+#define TARGET_CALLEE_COPIES sh_callee_copies
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST sh_build_builtin_va_list
@@ -1379,7 +1383,8 @@ output_branch (int logic, rtx insn, rtx *operands)
 	     place for it is after the label.  final will do that by default.  */
 
 	  if (final_sequence
-	      && ! INSN_ANNULLED_BRANCH_P (XVECEXP (final_sequence, 0, 0)))
+	      && ! INSN_ANNULLED_BRANCH_P (XVECEXP (final_sequence, 0, 0))
+	      && get_attr_length (XVECEXP (final_sequence, 0, 1)))
 	    {
 	      asm_fprintf (asm_out_file, "\tb%s%ss\t%LLF%d\n", logic ? "f" : "t",
 	                   ASSEMBLER_DIALECT ? "/" : ".", label);
@@ -6606,6 +6611,18 @@ sh_pass_by_reference (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
 
   return false;
+}
+
+static bool
+sh_callee_copies (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+		  tree type, bool named ATTRIBUTE_UNUSED)
+{
+  /* ??? How can it possibly be correct to return true only on the
+     caller side of the equation?  Is there someplace else in the
+     sh backend that's magically producing the copies?  */
+  return (cum->outgoing
+	  && ((mode == BLKmode ? TYPE_ALIGN (type) : GET_MODE_ALIGNMENT (mode))
+	      % SH_MIN_ALIGN_FOR_CALLEE_COPY == 0));
 }
 
 /* Define where to put the arguments to a function.

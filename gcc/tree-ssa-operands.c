@@ -26,6 +26,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "function.h"
 #include "diagnostic.h"
+#include "errors.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
@@ -33,9 +34,9 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 
 
-/* This file contains the code required to mnage the operands cache of the 
+/* This file contains the code required to manage the operands cache of the 
    SSA optimizer.  For every stmt, we maintain an operand cache in the stmt 
-   annotation.  This cache contains operands that will be of interets to 
+   annotation.  This cache contains operands that will be of interest to 
    optimizers and other passes wishing to manipulate the IL. 
 
    The operand type are broken up into REAL and VIRTUAL operands.  The real 
@@ -51,7 +52,7 @@ Boston, MA 02111-1307, USA.  */
    get_stmt_operands() in the primary entry point. 
 
    The operand tree is the parsed by the various get_* routines which look 
-   through the stmt tree for the occurence of operands which may be of 
+   through the stmt tree for the occurrence of operands which may be of 
    interest, and calls are made to the append_* routines whenever one is 
    found.  There are 5 of these routines, each representing one of the 
    5 types of operands. Defs, Uses, Virtual Uses, Virtual May Defs, and 
@@ -290,6 +291,16 @@ init_ssa_operands (void)
 void
 fini_ssa_operands (void)
 {
+  ggc_free (build_defs);
+  ggc_free (build_uses);
+  ggc_free (build_v_may_defs);
+  ggc_free (build_vuses);
+  ggc_free (build_v_must_defs);
+  build_defs = NULL;
+  build_uses = NULL;
+  build_v_may_defs = NULL;
+  build_vuses = NULL;
+  build_v_must_defs = NULL;
 }
 
 
@@ -312,11 +323,8 @@ finalize_ssa_defs (def_optype *old_ops_p, tree stmt ATTRIBUTE_UNUSED)
   if (num == 0)
     return NULL;
 
-#ifdef ENABLE_CHECKING
   /* There should only be a single real definition per assignment.  */
-  if (TREE_CODE (stmt) == MODIFY_EXPR && num > 1)
-    abort ();
-#endif
+  gcc_assert (TREE_CODE (stmt) != MODIFY_EXPR || num <= 1);
 
   old_ops = *old_ops_p;
 
@@ -372,8 +380,7 @@ finalize_ssa_uses (use_optype *old_ops_p, tree stmt ATTRIBUTE_UNUSED)
        initial call to get_stmt_operands does not pass a pointer to a 
        statement).  */
     for (x = 0; x < num; x++)
-      if (*(VARRAY_TREE_PTR (build_uses, x)) == stmt)
-	abort ();
+      gcc_assert (*(VARRAY_TREE_PTR (build_uses, x)) != stmt);
   }
 #endif
   old_ops = *old_ops_p;
@@ -615,7 +622,6 @@ finalize_ssa_vuses (vuse_optype *old_ops_p)
   return vuse_ops;
 }
 
-
 /* Return a new v_must_def operand vector for STMT, comparing to OLD_OPS_P.  */
 
 static v_must_def_optype
@@ -630,11 +636,8 @@ finalize_ssa_v_must_defs (v_must_def_optype *old_ops_p,
   if (num == 0)
     return NULL;
 
-#ifdef ENABLE_CHECKING
   /* There should only be a single V_MUST_DEF per assignment.  */
-  if (TREE_CODE (stmt) == MODIFY_EXPR && num > 1)
-    abort ();
-#endif
+  gcc_assert (TREE_CODE (stmt) != MODIFY_EXPR || num <= 1);
 
   old_ops = *old_ops_p;
 
@@ -712,14 +715,11 @@ finalize_ssa_stmt_operands (tree stmt, stmt_operands_p old_ops,
 static inline void
 start_ssa_stmt_operands (void)
 {
-#ifdef ENABLE_CHECKING
-  if (VARRAY_ACTIVE_SIZE (build_defs) > 0 
-      || VARRAY_ACTIVE_SIZE (build_uses) > 0
-      || VARRAY_ACTIVE_SIZE (build_vuses) > 0
-      || VARRAY_ACTIVE_SIZE (build_v_may_defs) > 0
-      || VARRAY_ACTIVE_SIZE (build_v_must_defs) > 0)
-    abort ();
-#endif
+  gcc_assert (VARRAY_ACTIVE_SIZE (build_defs) == 0);
+  gcc_assert (VARRAY_ACTIVE_SIZE (build_uses) == 0);
+  gcc_assert (VARRAY_ACTIVE_SIZE (build_vuses) == 0);
+  gcc_assert (VARRAY_ACTIVE_SIZE (build_v_may_defs) == 0);
+  gcc_assert (VARRAY_ACTIVE_SIZE (build_v_must_defs) == 0);
 }
 
 
@@ -795,7 +795,7 @@ append_v_must_def (tree var)
    will be destroyed.  It is appropriate to call free_stmt_operands() on 
    the value returned in old_ops.
 
-   The rationale for this: Certain optimizations wish to exmaine the difference
+   The rationale for this: Certain optimizations wish to examine the difference
    between new_ops and old_ops after processing.  If a set of operands don't
    change, new_ops will simply assume the pointer in old_ops, and the old_ops
    pointer will be set to NULL, indicating no memory needs to be cleared.  
@@ -926,12 +926,9 @@ get_stmt_operands (tree stmt)
   stmt_ann_t ann;
   stmt_operands_t old_operands;
 
-#if defined ENABLE_CHECKING
   /* The optimizers cannot handle statements that are nothing but a
      _DECL.  This indicates a bug in the gimplifier.  */
-  if (SSA_VAR_P (stmt))
-    abort ();
-#endif
+  gcc_assert (!SSA_VAR_P (stmt));
 
   /* Ignore error statements.  */
   if (TREE_CODE (stmt) == ERROR_MARK)
@@ -1071,6 +1068,12 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       get_call_expr_operands (stmt, expr);
       return;
 
+    case COND_EXPR:
+      get_expr_operands (stmt, &COND_EXPR_COND (expr), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+      return;
+
     case MODIFY_EXPR:
       {
 	int subflags;
@@ -1174,14 +1177,17 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     }
 
   /* If we get here, something has gone wrong.  */
+#ifdef ENABLE_CHECKING
   fprintf (stderr, "unhandled expression in get_expr_operands():\n");
   debug_tree (expr);
   fputs ("\n", stderr);
-  abort ();
+  internal_error ("internal error");
+#endif
+  gcc_unreachable ();
 }
 
 
-/* Scan operands in the ASM_EXPR stmt refered to in INFO.  */
+/* Scan operands in the ASM_EXPR stmt referred to in INFO.  */
 
 static void
 get_asm_expr_operands (tree stmt)
@@ -1202,11 +1208,8 @@ get_asm_expr_operands (tree stmt)
       parse_output_constraint (&constraint, i, 0, 0,
 	  &allows_mem, &allows_reg, &is_inout);
 
-#if defined ENABLE_CHECKING
       /* This should have been split in gimplify_asm_expr.  */
-      if (allows_reg && is_inout)
-	abort ();
-#endif
+      gcc_assert (!allows_reg || !is_inout);
 
       /* Memory operands are addressable.  Note that STMT needs the
 	 address of this operand.  */
@@ -1280,6 +1283,18 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
   /* Stores into INDIRECT_REF operands are never killing definitions.  */
   flags &= ~opf_kill_def;
 
+  if (REF_ORIGINAL (expr))
+    {
+      enum tree_code ocode = TREE_CODE (REF_ORIGINAL (expr));
+
+      /* If we originally accessed part of a structure, we do it still.  */
+      if (ocode == ARRAY_REF
+	  || ocode == COMPONENT_REF
+	  || ocode == REALPART_EXPR
+	  || ocode == IMAGPART_EXPR)
+	flags &= ~opf_kill_def;
+    }
+
   if (SSA_VAR_P (ptr))
     {
       struct ptr_info_def *pi = NULL;
@@ -1352,7 +1367,7 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 
   /* Ok, this isn't even is_gimple_min_invariant.  Something's broke.  */
   else
-    abort ();
+    gcc_unreachable ();
 
   /* Add a USE operand for the base pointer.  */
   get_expr_operands (stmt, pptr, opf_none);
@@ -1460,23 +1475,11 @@ add_stmt_operand (tree *var_p, tree stmt, int flags)
 	  /* The variable is not aliased or it is an alias tag.  */
 	  if (flags & opf_is_def)
 	    {
-	      if (v_ann->is_alias_tag)
-	        {
-		  /* Alias tagged vars get V_MAY_DEF to avoid breaking
-		     def-def chains with the other variables in their
-		     alias sets.  */
-		  if (s_ann)
-		    s_ann->makes_aliased_stores = 1;
-		  append_v_may_def (var);
-		}
-	      else if (flags & opf_kill_def)
+	      if (flags & opf_kill_def)
 		{
-#if defined ENABLE_CHECKING
 		  /* Only regular variables may get a V_MUST_DEF
 		     operand.  */
-		  if (v_ann->mem_tag_kind != NOT_A_TAG)
-		    abort ();
-#endif
+		  gcc_assert (v_ann->mem_tag_kind == NOT_A_TAG);
 		  /* V_MUST_DEF for non-aliased, non-GIMPLE register 
 		    variable definitions.  */
 		  append_v_must_def (var);
@@ -1501,10 +1504,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags)
 
 	  /* The variable is aliased.  Add its aliases to the virtual
 	     operands.  */
-#if defined ENABLE_CHECKING
-	  if (VARRAY_ACTIVE_SIZE (aliases) == 0)
-	    abort ();
-#endif
+	  gcc_assert (VARRAY_ACTIVE_SIZE (aliases) != 0);
 
 	  if (flags & opf_is_def)
 	    {
@@ -1659,9 +1659,9 @@ copy_virtual_operands (tree dst, tree src)
 
 
 /* Specifically for use in DOM's expression analysis.  Given a store, we
-   create an artifical stmt which looks like a load from the store, this can
+   create an artificial stmt which looks like a load from the store, this can
    be used to eliminate redundant loads.  OLD_OPS are the operands from the 
-   store stmt, and NEW_STMT is the new load which reperesent a load of the
+   store stmt, and NEW_STMT is the new load which represents a load of the
    values stored.  */
 
 void

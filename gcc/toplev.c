@@ -74,7 +74,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 #include "cfglayout.h"
-#include "tree-alias-common.h" 
 #include "cfgloop.h"
 #include "hosthooks.h"
 #include "cgraph.h"
@@ -221,9 +220,9 @@ int optimize_size = 0;
    or 0 if between functions.  */
 tree current_function_decl;
 
-/* Set to the FUNC_BEGIN label of the current function, or NULL_TREE
+/* Set to the FUNC_BEGIN label of the current function, or NULL
    if none.  */
-tree current_function_func_begin_label;
+const char * current_function_func_begin_label;
 
 /* Temporarily suppress certain warnings.
    This is set while reading code from a system header file.  */
@@ -332,9 +331,6 @@ rtx stack_limit_rtx;
    one, unconditionally renumber instruction UIDs.  */
 int flag_renumber_insns = 1;
 
-/* Enable points-to analysis on trees.  */
-enum pta_type flag_tree_points_to = PTA_NONE;
-
 /* Nonzero if we should track variables.  When
    flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING it will be set according
    to optimize, debug_info_level and debug_hooks in process_options ().  */
@@ -422,7 +418,7 @@ int warn_return_type;
 FILE *asm_out_file;
 FILE *aux_info_file;
 FILE *dump_file = NULL;
-FILE *cgraph_dump_file = NULL;
+char *dump_file_name;
 
 /* The current working directory of a translation.  It's generally the
    directory from which compilation was initiated, but a preprocessed
@@ -839,6 +835,7 @@ check_global_declarations (tree *vec, int len)
 	  && DECL_INITIAL (decl) == 0
 	  && DECL_EXTERNAL (decl)
 	  && ! DECL_ARTIFICIAL (decl)
+	  && ! TREE_NO_WARNING (decl)
 	  && ! TREE_PUBLIC (decl)
 	  && (warn_unused_function
 	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
@@ -903,11 +900,14 @@ warn_deprecated_use (tree node)
       const char *what = NULL;
       tree decl = TYPE_STUB_DECL (node);
 
-      if (TREE_CODE (TYPE_NAME (node)) == IDENTIFIER_NODE)
-	what = IDENTIFIER_POINTER (TYPE_NAME (node));
-      else if (TREE_CODE (TYPE_NAME (node)) == TYPE_DECL
-	       && DECL_NAME (TYPE_NAME (node)))
-	what = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node)));
+      if (TYPE_NAME (node))
+	{
+	  if (TREE_CODE (TYPE_NAME (node)) == IDENTIFIER_NODE)
+	    what = IDENTIFIER_POINTER (TYPE_NAME (node));
+	  else if (TREE_CODE (TYPE_NAME (node)) == TYPE_DECL
+		   && DECL_NAME (TYPE_NAME (node)))
+	    what = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node)));
+	}
 
       if (decl)
 	{
@@ -923,9 +923,9 @@ warn_deprecated_use (tree node)
       else
 	{
 	  if (what)
-	    warning ("type is deprecated");
-	  else
 	    warning ("`%s' is deprecated", what);
+	  else
+	    warning ("type is deprecated");
 	}
     }
 }
@@ -980,6 +980,7 @@ compile_file (void)
 {
   /* Initialize yet another pass.  */
 
+  init_cgraph ();
   init_final (main_input_filename);
   coverage_init (aux_base_name);
 
@@ -1500,7 +1501,7 @@ default_pch_valid_p (const void *data_p, size_t len)
 	      goto make_message;
 	    }
 	}
-      abort ();
+      gcc_unreachable ();
     }
   data += sizeof (target_flags);
   len -= sizeof (target_flags);
@@ -1730,6 +1731,17 @@ process_options (void)
   if (flag_value_profile_transformations)
     flag_profile_values = 1;
 
+  /* Speculative prefetching implies the value profiling.  We also switch off
+     the prefetching in the loop optimizer, so that we do not emit double
+     prefetches.  TODO -- we should teach these two to cooperate; the loop
+     based prefetching may sometimes do a better job, especially in connection
+     with reuse analysis.  */
+  if (flag_speculative_prefetching)
+    {
+      flag_profile_values = 1;
+      flag_prefetch_loop_arrays = 0;
+    }
+
   /* Warn about options that are not supported on this machine.  */
 #ifndef INSN_SCHEDULING
   if (flag_schedule_insns || flag_schedule_insns_after_reload)
@@ -1804,8 +1816,9 @@ process_options (void)
     default_debug_hooks = &vmsdbg_debug_hooks;
 #endif
 
+  debug_hooks = &do_nothing_debug_hooks;
   if (write_symbols == NO_DEBUG)
-    debug_hooks = &do_nothing_debug_hooks;
+    ;
 #if defined(DBX_DEBUGGING_INFO)
   else if (write_symbols == DBX_DEBUG)
     debug_hooks = &dbx_debug_hooks;
@@ -1895,11 +1908,23 @@ process_options (void)
       warning ("-fprefetch-loop-arrays not supported for this target");
       flag_prefetch_loop_arrays = 0;
     }
+  if (flag_speculative_prefetching)
+    {
+      if (flag_speculative_prefetching_set)
+	warning ("-fspeculative-prefetching not supported for this target");
+      flag_speculative_prefetching = 0;
+    }
 #else
   if (flag_prefetch_loop_arrays && !HAVE_prefetch)
     {
       warning ("-fprefetch-loop-arrays not supported for this target (try -march switches)");
       flag_prefetch_loop_arrays = 0;
+    }
+  if (flag_speculative_prefetching && !HAVE_prefetch)
+    {
+      if (flag_speculative_prefetching_set)
+	warning ("-fspeculative-prefetching not supported for this target (try -march switches)");
+      flag_speculative_prefetching = 0;
     }
 #endif
 
@@ -1958,7 +1983,7 @@ lang_dependent_init (const char *name)
 {
   location_t save_loc = input_location;
   if (dump_base_name == 0)
-    dump_base_name = name ? name : "gccdump";
+    dump_base_name = name && name[0] ? name : "gccdump";
 
   /* Other front-end initialization.  */
 #ifdef USE_MAPPED_LOCATION
@@ -1977,7 +2002,6 @@ lang_dependent_init (const char *name)
      front end is initialized.  */
   init_eh ();
   init_optabs ();
-  init_optimization_passes ();
 
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */

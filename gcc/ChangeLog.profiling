@@ -1,3 +1,7 @@
+2004-09-12  Jan Hubicka  <jh@suse.cz>
+
+	Merge from mainline (tree-profiling-merge-20040912)
+	
 2004-09-09  Jan Hubicka  <jh@suse.cz>
 
 	* function.c (free_after_compilation): Plug Steven's grand memory leak

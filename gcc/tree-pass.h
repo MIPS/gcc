@@ -26,8 +26,12 @@ Boston, MA 02111-1307, USA.  */
 /* Global variables used to communicate with passes.  */
 extern FILE *dump_file;
 extern int dump_flags;
+extern const char *dump_file_name;
 
 extern struct bitmap_head_def *vars_to_rename;
+
+/* Return the dump_file_info for the given phase.  */
+extern struct dump_file_info *get_dump_file_info (enum tree_dump_index);
 
 /* Describe one pass.  */
 struct tree_opt_pass
@@ -64,6 +68,20 @@ struct tree_opt_pass
   /* Flags indicating common sets things to do before and after.  */
   unsigned int todo_flags_start;
   unsigned int todo_flags_finish;
+
+  /* Letter for RTL dumps.  */
+  char letter;
+};
+
+/* Define a tree dump switch.  */
+struct dump_file_info
+{
+  const char *suffix;           /* suffix to give output file.  */
+  const char *swtch;            /* command line switch */
+  int flags;                    /* user flags */
+  int state;                    /* state of play */
+  int num;                      /* dump file number */
+  int letter;                   /* enabling letter for RTL dumps */
 };
 
 /* Pass properties.  */
@@ -101,8 +119,6 @@ extern struct tree_opt_pass pass_lower_eh;
 extern struct tree_opt_pass pass_build_cfg;
 extern struct tree_opt_pass pass_tree_profile;
 extern struct tree_opt_pass pass_referenced_vars;
-extern struct tree_opt_pass pass_build_pta;
-extern struct tree_opt_pass pass_del_pta;
 extern struct tree_opt_pass pass_sra;
 extern struct tree_opt_pass pass_tail_recursion;
 extern struct tree_opt_pass pass_tail_calls;
@@ -110,8 +126,10 @@ extern struct tree_opt_pass pass_loop;
 extern struct tree_opt_pass pass_loop_init;
 extern struct tree_opt_pass pass_lim;
 extern struct tree_opt_pass pass_iv_canon;
+extern struct tree_opt_pass pass_if_conversion;
 extern struct tree_opt_pass pass_vectorize;
 extern struct tree_opt_pass pass_complete_unroll;
+extern struct tree_opt_pass pass_iv_optimize;
 extern struct tree_opt_pass pass_loop_done;
 extern struct tree_opt_pass pass_ch;
 extern struct tree_opt_pass pass_ccp;
@@ -140,6 +158,6 @@ extern struct tree_opt_pass pass_rename_ssa_copies;
 extern struct tree_opt_pass pass_expand;
 extern struct tree_opt_pass pass_rest_of_compilation;
 extern struct tree_opt_pass pass_fre;
-
+extern struct tree_opt_pass pass_linear_transform;
 
 #endif /* GCC_TREE_PASS_H */

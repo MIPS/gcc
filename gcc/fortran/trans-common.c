@@ -103,7 +103,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "trans.h"
 #include "trans-types.h"
 #include "trans-const.h"
-#include <assert.h>
 
 
 /* Holds a single variable in a equivalence set.  */
@@ -226,6 +225,7 @@ build_field (segment_info *h, tree union_type, record_layout_info rli)
 
   name = get_identifier (h->sym->name);
   field = build_decl (FIELD_DECL, name, h->field);
+  gfc_set_decl_location (field, &h->sym->declared_at);
   known_align = (offset & -offset) * BITS_PER_UNIT;
   if (known_align == 0 || known_align > BIGGEST_ALIGNMENT)
     known_align = BIGGEST_ALIGNMENT;
@@ -268,6 +268,11 @@ build_equiv_decl (tree union_type, bool is_init)
 
   TREE_ADDRESSABLE (decl) = 1;
   TREE_USED (decl) = 1;
+
+  /* The source location has been lost, and doesn't really matter.
+     We need to set it to something though.  */
+  gfc_set_decl_location (decl, &gfc_current_locus);
+
   gfc_add_decl_to_function (decl);
 
   return decl;
@@ -320,6 +325,8 @@ build_common_decl (gfc_common_head *com, tree union_type, bool is_init)
       TREE_STATIC (decl) = 1;
       DECL_ALIGN (decl) = BIGGEST_ALIGNMENT;
       DECL_USER_ALIGN (decl) = 0;
+
+      gfc_set_decl_location (decl, &com->where);
 
       /* Place the back end declaration for this common block in
          GLOBAL_BINDING_LEVEL.  */
@@ -406,7 +413,7 @@ create_common (gfc_common_head *com)
               offset = s->offset + s->length;
             }
         }
-      assert (list);
+      gcc_assert (list);
       ctor = build1 (CONSTRUCTOR, union_type, nreverse(list));
       TREE_CONSTANT (ctor) = 1;
       TREE_INVARIANT (ctor) = 1;
@@ -415,7 +422,7 @@ create_common (gfc_common_head *com)
 
 #ifdef ENABLE_CHECKING
       for (tmp = CONSTRUCTOR_ELTS (ctor); tmp; tmp = TREE_CHAIN (tmp))
-	assert (TREE_CODE (TREE_PURPOSE (tmp)) == FIELD_DECL);
+	gcc_assert (TREE_CODE (TREE_PURPOSE (tmp)) == FIELD_DECL);
 #endif
     }
 
@@ -797,6 +804,9 @@ gfc_trans_common (gfc_namespace *ns)
   if (ns->blank_common.head != NULL)
     {
       c = gfc_get_common_head ();
+      /* We've lost the real location, so use the location of the
+	 enclosing procedure.  */
+      c->where = ns->proc_name->declared_at;
       strcpy (c->name, BLANK_COMMON_NAME);
       translate_common (c, ns->blank_common.head);
     }

@@ -330,7 +330,7 @@ type_can_instantiate_all_elements (tree type)
       return true;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -380,7 +380,7 @@ sra_hash_tree (tree t)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   return h;
@@ -399,7 +399,7 @@ sra_elt_hash (const void *x)
 
   /* Take into account everything back up the chain.  Given that chain
      lengths are rarely very long, this should be acceptable.  If we
-     truely identify this as a performance problem, it should work to
+     truly identify this as a performance problem, it should work to
      hash the pointer value "e->parent".  */
   for (p = e->parent; p ; p = p->parent)
     h = (h * 65521) ^ sra_hash_tree (p->element);
@@ -447,7 +447,7 @@ sra_elt_eq (const void *x, const void *y)
       return fields_compatible_p (ae, be);
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -745,8 +745,7 @@ sra_walk_expr (tree *expr_p, block_stmt_iterator *bsi, bool is_output,
       default:
 #ifdef ENABLE_CHECKING
 	/* Validate that we're not missing any references.  */
-	if (walk_tree (&inner, sra_find_candidate_decl, NULL, NULL))
-	  abort ();
+	gcc_assert (!walk_tree (&inner, sra_find_candidate_decl, NULL, NULL));
 #endif
 	return;
       }
@@ -1247,7 +1246,7 @@ instantiate_missing_elements (struct sra_elt *elt)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -1439,7 +1438,7 @@ generate_one_element_ref (struct sra_elt *elt, tree base)
 	return build (IMAGPART_EXPR, elt->type, base);
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -1496,8 +1495,7 @@ generate_element_copy (struct sra_elt *dst, struct sra_elt *src, tree *list_p)
   for (dc = dst->children; dc ; dc = dc->sibling)
     {
       sc = lookup_element (src, dc->element, NULL, NO_INSERT);
-      if (sc == NULL)
-	abort ();
+      gcc_assert (sc);
       generate_element_copy (dc, sc, list_p);
     }
 
@@ -1505,8 +1503,7 @@ generate_element_copy (struct sra_elt *dst, struct sra_elt *src, tree *list_p)
     {
       tree t;
 
-      if (src->replacement == NULL)
-	abort ();
+      gcc_assert (src->replacement);
 
       t = build (MODIFY_EXPR, void_type_node, dst->replacement,
 		 src->replacement);
@@ -1537,11 +1534,8 @@ generate_element_zero (struct sra_elt *elt, tree *list_p)
     {
       tree t;
 
-      if (elt->is_scalar)
-	t = fold_convert (elt->type, integer_zero_node);
-      else
-	/* We generated a replacement for a non-scalar?  */
-	abort ();
+      gcc_assert (elt->is_scalar);
+      t = fold_convert (elt->type, integer_zero_node);
 
       t = build (MODIFY_EXPR, void_type_node, elt->replacement, t);
       append_to_statement_list (t, list_p);
@@ -1789,12 +1783,9 @@ scalarize_copy (struct sra_elt *lhs_elt, struct sra_elt *rhs_elt,
       /* If we have two scalar operands, modify the existing statement.  */
       stmt = bsi_stmt (*bsi);
 
-#ifdef ENABLE_CHECKING
       /* See the commentary in sra_walk_function concerning
 	 RETURN_EXPR, and why we should never see one here.  */
-      if (TREE_CODE (stmt) != MODIFY_EXPR)
-	abort ();
-#endif
+      gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
 
       TREE_OPERAND (stmt, 0) = lhs_elt->replacement;
       TREE_OPERAND (stmt, 1) = rhs_elt->replacement;
@@ -1836,8 +1827,7 @@ scalarize_copy (struct sra_elt *lhs_elt, struct sra_elt *rhs_elt,
 
       list = NULL;
       generate_element_copy (lhs_elt, rhs_elt, &list);
-      if (list == NULL)
-	abort ();
+      gcc_assert (list);
       sra_replace (bsi, list);
     }
 }
@@ -1895,8 +1885,7 @@ scalarize_init (struct sra_elt *lhs_elt, tree rhs, block_stmt_iterator *bsi)
     {
       /* The LHS is fully instantiated.  The list of initializations
 	 replaces the original structure assignment.  */
-      if (!list)
-	abort ();
+      gcc_assert (list);
       mark_all_v_defs (bsi_stmt (*bsi));
       sra_replace (bsi, list);
     }
@@ -1930,8 +1919,7 @@ scalarize_ldst (struct sra_elt *elt, tree other,
 		block_stmt_iterator *bsi, bool is_output)
 {
   /* Shouldn't have gotten called for a scalar.  */
-  if (elt->replacement)
-    abort ();
+  gcc_assert (!elt->replacement);
 
   if (elt->use_block_copy)
     {
@@ -1949,8 +1937,7 @@ scalarize_ldst (struct sra_elt *elt, tree other,
 
       mark_all_v_defs (stmt);
       generate_copy_inout (elt, is_output, other, &list);
-      if (list == NULL)
-	abort ();
+      gcc_assert (list);
 
       /* Preserve EH semantics.  */
       if (stmt_ends_bb_p (stmt))
@@ -2108,5 +2095,6 @@ struct tree_opt_pass pass_sra =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars
-    | TODO_ggc_collect | TODO_verify_ssa  /* todo_flags_finish */
+    | TODO_ggc_collect | TODO_verify_ssa,  /* todo_flags_finish */
+  0					/* letter */
 };

@@ -89,11 +89,8 @@ target_noncanonical = @target_noncanonical@
 
 if XLIB_AWT
 cond_xlib_ltlibrary = lib-gnu-awt-xlib.la
-## We require libstdc++-v3 to be in the same build tree.
-xlib_includes = -I../libstdc++-v3/include -I../libstdc++-v3/include/$(target_noncanonical) -I$(srcdir)/../libstdc++-v3/libsupc++
 else
 cond_xlib_ltlibrary =
-xlib_includes =
 endif
 
 if GTK_AWT
@@ -137,7 +134,6 @@ ZIP = @ZIP@
 ## compiles.
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated
 
-GCJCOMPILE = $(LIBTOOL) --tag=GCJ --mode=compile $(GCJ_WITH_FLAGS) -fclasspath= -fbootclasspath=$(here) $(JC1FLAGS) -MD -MT $@ -MF $(@:.lo=.d) -c
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
 LIBLINK = $(LIBTOOL) --tag=CXX --mode=link $(CXX) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
 
@@ -170,6 +166,7 @@ AM_CXXFLAGS = \
 
 AM_GCJFLAGS = \
 	@LIBGCJ_JAVAFLAGS@ \
+	-fclasspath= -fbootclasspath=$(here) \
 	--encoding=UTF-8 \
 	-Wno-deprecated
 
@@ -187,8 +184,8 @@ JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
 
 LIBFFIINCS = @LIBFFIINCS@
 
-INCLUDES = -I$(top_srcdir) -Iinclude -I$(top_srcdir)/include \
-	$(GCINCS) $(THREADINCS) $(INCLTDL) $(xlib_includes) \
+AM_CPPFLAGS = -I$(top_srcdir) -Iinclude -I$(top_srcdir)/include \
+	$(GCINCS) $(THREADINCS) $(INCLTDL) \
 	$(GCC_UNWIND_INCLUDE) $(ZINCS) $(LIBFFIINCS)
 
 ## ################################################################
@@ -268,6 +265,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextComponentPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c	\
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c \
 jni/gtk-peer/gthread-jni.c \
 jni/classpath/jcl.c \
 jni/classpath/jnilink.c	\
@@ -284,8 +282,6 @@ gnu/java/awt/peer/gtk/GdkGraphics.java \
 gnu/java/awt/peer/gtk/GdkGraphics2D.java \
 gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java \
 gnu/java/awt/peer/gtk/GdkPixbufDecoder.java \
-gnu/java/awt/peer/gtk/GtkArg.java \
-gnu/java/awt/peer/gtk/GtkArgList.java \
 gnu/java/awt/peer/gtk/GtkButtonPeer.java \
 gnu/java/awt/peer/gtk/GtkCanvasPeer.java \
 gnu/java/awt/peer/gtk/GtkCheckboxGroupPeer.java	\
@@ -319,7 +315,10 @@ gnu/java/awt/peer/gtk/GtkTextAreaPeer.java \
 gnu/java/awt/peer/gtk/GtkTextComponentPeer.java	\
 gnu/java/awt/peer/gtk/GtkTextFieldPeer.java \
 gnu/java/awt/peer/gtk/GtkToolkit.java \
-gnu/java/awt/peer/gtk/GtkWindowPeer.java
+gnu/java/awt/peer/gtk/GtkWindowPeer.java \
+gnu/java/awt/peer/gtk/GThreadMutex.java \
+gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java
+
 
 gtk_jni_headers = $(patsubst %.java,jniinclude/%.h,$(subst /,_,$(gtk_awt_peer_sources)))
 
@@ -344,7 +343,8 @@ jni/classpath/primlib.h
 
 lib_gnu_java_awt_peer_gtk_la_CFLAGS = \
 	-Ijniinclude -I$(srcdir)/jni/classpath \
-	-I$(srcdir)/jni/gtk-peer $(GTK_CFLAGS) $(LIBART_CFLAGS)
+	-I$(srcdir)/jni/gtk-peer $(PEDANTIC_CFLAGS) $(GTK_CFLAGS) $(LIBART_CFLAGS) \
+	$(CAIRO_CFLAGS) $(PANGOFT2_CFLAGS)
 lib_gnu_java_awt_peer_gtk_la_GCJFLAGS = $(AM_GCJFLAGS) -fjni
 lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
 lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = $(gtk_jni_headers) libgcj-@gcc_version@.jar libgcj.la libgcj.spec
@@ -425,6 +425,11 @@ lib_gnu_awt_xlib_la_SOURCES = \
 	$(xlib_nat_source_files)
 lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-@gcc_version@.jar libgcj.la libgcj.spec
 lib_gnu_awt_xlib_la_LIBADD = $(xlib_javao_files)
+## We require libstdc++-v3 to be in the same build tree.
+lib_gnu_awt_xlib_la_CPPFLAGS = \
+	-I../libstdc++-v3/include \
+	-I../libstdc++-v3/include/$(target_noncanonical) \
+	-I$(srcdir)/../libstdc++-v3/libsupc++
 ## The mysterious backslash in the grep pattern is consumed by make.
 lib_gnu_awt_xlib_la_LDFLAGS = ../libstdc++-v3/src/libstdc++.la \
 	@X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
@@ -450,7 +455,7 @@ gnu/regexp/MessagesBundle_fr.properties
 propertyo_files = $(property_files:.properties=.properties.lo) 
 
 %.properties.lo: %.properties
-	$(GCJCOMPILE) -o $@ -c $< -Wc,--resource,`echo $@ | sed "s/\.lo$$//"`
+	$(LTGCJCOMPILE) -o $@ -c $< -Wc,--resource,`echo $@ | sed "s/\.lo$$//"`
 
 if ONESTEP
 
@@ -516,16 +521,16 @@ SUFFIXES = .class .java .h .properties
 ## Note: we omit StackTrace here, since it has an explicit rule a bit
 ## later, and GNU make will warn in this case.
 $(filter-out gnu/gcj/runtime/StackTrace.lo, $(javao_files)) $(xlib_javao_files) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS): %.lo: %.java
-	$(GCJCOMPILE) -o $@ $<
+	$(LTGCJCOMPILE) -o $@ -c $<
 
 $(gtk_awt_peer_sources:.java=.lo): %.lo: %.java
-	$(GCJCOMPILE) -fjni -o $@ $<
+	$(LTGCJCOMPILE) -fjni -o $@ -c $<
 
 ## A special case.  The sibcall optimization can change the number of
 ## frames on the stack, and StackTrace makes assumptions about this
 ## number.
 gnu/gcj/runtime/StackTrace.lo: gnu/gcj/runtime/StackTrace.java
-	$(GCJCOMPILE) -fno-optimize-sibling-calls -o $@ $<
+	$(LTGCJCOMPILE) -fno-optimize-sibling-calls -o $@ -c $<
 
 lib-gnu-awt-xlib.la: $(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_DEPENDENCIES)
 	@echo Creating list of files to link...
@@ -1327,12 +1332,19 @@ javax/swing/border/TitledBorder.java \
 javax/swing/GrayFilter.java \
 javax/swing/AbstractAction.java \
 javax/swing/AbstractButton.java \
+javax/swing/AbstractSpinnerModel.java \
 javax/swing/plaf/basic/BasicArrowButton.java \
 javax/swing/plaf/basic/BasicButtonListener.java \
 javax/swing/plaf/basic/BasicButtonUI.java \
 javax/swing/plaf/basic/BasicCheckBoxUI.java \
+javax/swing/plaf/basic/BasicColorChooserUI.java \
+javax/swing/plaf/basic/BasicComboBoxUI.java \
+javax/swing/plaf/basic/BasicComboBoxEditor.java \
+javax/swing/plaf/basic/BasicComboBoxRenderer.java \
+javax/swing/plaf/basic/BasicComboPopup.java \
 javax/swing/plaf/basic/BasicDesktopIconUI.java \
 javax/swing/plaf/basic/BasicDesktopPaneUI.java \
+javax/swing/plaf/basic/BasicFormattedTextFieldUI.java \
 javax/swing/plaf/basic/BasicGraphicsUtils.java \
 javax/swing/plaf/basic/BasicInternalFrameTitlePane.java \
 javax/swing/plaf/basic/BasicInternalFrameUI.java \
@@ -1343,6 +1355,7 @@ javax/swing/plaf/basic/BasicMenuBarUI.java \
 javax/swing/plaf/basic/BasicMenuItemUI.java \
 javax/swing/plaf/basic/BasicOptionPaneUI.java \
 javax/swing/plaf/basic/BasicPanelUI.java \
+javax/swing/plaf/basic/BasicPasswordFieldUI.java \
 javax/swing/plaf/basic/BasicPopupMenuUI.java \
 javax/swing/plaf/basic/BasicPopupMenuSeparatorUI.java \
 javax/swing/plaf/basic/BasicProgressBarUI.java \
@@ -1354,19 +1367,25 @@ javax/swing/plaf/basic/BasicScrollBarUI.java \
 javax/swing/plaf/basic/BasicScrollPaneUI.java \
 javax/swing/plaf/basic/BasicSeparatorUI.java \
 javax/swing/plaf/basic/BasicSliderUI.java \
+javax/swing/plaf/basic/BasicSpinnerUI.java \
 javax/swing/plaf/basic/BasicSplitPaneDivider.java \
 javax/swing/plaf/basic/BasicSplitPaneUI.java \
 javax/swing/plaf/basic/BasicTabbedPaneUI.java \
+javax/swing/plaf/basic/BasicTableUI.java \
+javax/swing/plaf/basic/BasicTableHeaderUI.java \
+javax/swing/plaf/basic/BasicTextAreaUI.java \
 javax/swing/plaf/basic/BasicTextFieldUI.java \
 javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
 javax/swing/plaf/basic/BasicToolBarSeparatorUI.java \
 javax/swing/plaf/basic/BasicToolBarUI.java \
+javax/swing/plaf/basic/BasicToolTipUI.java \
 javax/swing/plaf/basic/BasicTreeUI.java \
 javax/swing/plaf/basic/BasicViewportUI.java \
 javax/swing/plaf/basic/BasicLookAndFeel.java \
 javax/swing/plaf/basic/BasicBorders.java \
 javax/swing/plaf/basic/BasicIconFactory.java \
+javax/swing/plaf/basic/ComboPopup.java \
 javax/swing/plaf/BorderUIResource.java \
 javax/swing/plaf/UIResource.java \
 javax/swing/plaf/ButtonUI.java \
@@ -1415,6 +1434,10 @@ javax/swing/colorchooser/AbstractColorChooserPanel.java \
 javax/swing/colorchooser/ColorChooserComponentFactory.java \
 javax/swing/colorchooser/ColorSelectionModel.java \
 javax/swing/colorchooser/DefaultColorSelectionModel.java \
+javax/swing/colorchooser/DefaultPreviewPanel.java \
+javax/swing/colorchooser/DefaultSwatchChooserPanel.java \
+javax/swing/colorchooser/DefaultHSBChooserPanel.java \
+javax/swing/colorchooser/DefaultRGBChooserPanel.java \
 javax/swing/filechooser/FileFilter.java \
 javax/swing/filechooser/FileSystemView.java \
 javax/swing/filechooser/FileView.java \
@@ -1460,6 +1483,7 @@ javax/swing/JRadioButton.java \
 javax/swing/JRootPane.java \
 javax/swing/JScrollBar.java \
 javax/swing/JScrollPane.java \
+javax/swing/JSpinner.java \
 javax/swing/JTabbedPane.java \
 javax/swing/JTextArea.java \
 javax/swing/JTextField.java \
@@ -1474,11 +1498,15 @@ javax/swing/ListModel.java \
 javax/swing/ListSelectionModel.java \
 javax/swing/LookAndFeel.java \
 javax/swing/Scrollable.java \
+javax/swing/SpinnerModel.java \
+javax/swing/SpinnerNumberModel.java \
 javax/swing/Spring.java \
 javax/swing/SpringLayout.java \
 javax/swing/SwingConstants.java \
 javax/swing/SwingUtilities.java \
 javax/swing/Timer.java \
+javax/swing/ToolTipManager.java \
+javax/swing/TransferHandler.java \
 javax/swing/UIDefaults.java \
 javax/swing/UIManager.java \
 javax/swing/UnsupportedLookAndFeelException.java \
@@ -1550,12 +1578,18 @@ javax/swing/text/PlainDocument.java \
 javax/swing/text/PlainView.java \
 javax/swing/text/Position.java \
 javax/swing/text/Segment.java \
+javax/swing/text/SimpleAttributeSet.java \
 javax/swing/text/Style.java \
+javax/swing/text/StyleConstants.java \
+javax/swing/text/StyleContext.java \
 javax/swing/text/StyledDocument.java \
 javax/swing/text/StyledEditorKit.java \
-javax/swing/text/TabExpander.java \
 javax/swing/text/TabableView.java \
+javax/swing/text/TabExpander.java \
+javax/swing/text/TabSet.java \
+javax/swing/text/TabStop.java \
 javax/swing/text/TextAction.java \
+javax/swing/text/Utilities.java \
 javax/swing/text/View.java \
 javax/swing/text/ViewFactory.java \
 javax/swing/text/html/HTML.java \
@@ -1638,7 +1672,6 @@ javax/swing/ProgressMonitor.java \
 javax/swing/ProgressMonitorInputStream.java \
 javax/swing/RepaintManager.java \
 javax/swing/ScrollPaneLayout.java \
-javax/swing/ToolTipManager.java \
 javax/swing/ViewportLayout.java
 
 rmi_java_source_files =	\
@@ -3108,8 +3141,6 @@ texinfo: TexinfoDoclet.class
 ##
 ## Dependency tracking madness.
 ##
-
--include deps.mk
 
 ## This is an evil hack to work around an automake limitation.  We
 ## need to ensure that all CNI headers are built, not just the ones used

@@ -22,7 +22,6 @@ Software Foundation, 59 Temple Place - Suite 330,Boston, MA
 #include "config.h"
 #include "gfortran.h"
 #include "arith.h"  /* For gfc_compare_expr().  */
-#include <assert.h>
 #include <string.h>
 
 /* Stack to push the current if we descend into a block during
@@ -345,7 +344,7 @@ resolve_entries (gfc_namespace * ns)
     return;
 
   /* If this isn't a procedure something has gone horribly wrong.   */
-  assert (ns->proc_name->attr.flavor == FL_PROCEDURE);
+  gcc_assert (ns->proc_name->attr.flavor == FL_PROCEDURE);
   
   /* Remember the current namespace.  */
   old_ns = gfc_current_ns;
@@ -375,7 +374,7 @@ resolve_entries (gfc_namespace * ns)
 	    master_count++, ns->proc_name->name);
   name[GFC_MAX_SYMBOL_LEN] = '\0';
   gfc_get_ha_symbol (name, &proc);
-  assert (proc != NULL);
+  gcc_assert (proc != NULL);
 
   gfc_add_procedure (&proc->attr, PROC_INTERNAL, NULL);
   if (ns->proc_name->attr.subroutine)
@@ -2962,6 +2961,61 @@ resolve_select (gfc_code * code)
 }
 
 
+/* Resolve a transfer statement. This is making sure that:
+   -- a derived type being transferred has only non-pointer components
+   -- a derived type being transferred doesn't have private components
+   -- we're not trying to transfer a whole assumed size array.  */
+
+static void
+resolve_transfer (gfc_code * code)
+{
+  gfc_typespec *ts;
+  gfc_symbol *sym;
+  gfc_ref *ref;
+  gfc_expr *exp;
+
+  exp = code->expr;
+
+  if (exp->expr_type != EXPR_VARIABLE)
+    return;
+
+  sym = exp->symtree->n.sym;
+  ts = &sym->ts;
+
+  /* Go to actual component transferred.  */
+  for (ref = code->expr->ref; ref; ref = ref->next)
+    if (ref->type == REF_COMPONENT)
+      ts = &ref->u.c.component->ts;
+
+  if (ts->type == BT_DERIVED)
+    {
+      /* Check that transferred derived type doesn't contain POINTER
+	 components.  */
+      if (derived_pointer (ts->derived))
+	{
+	  gfc_error ("Data transfer element at %L cannot have "
+		     "POINTER components", &code->loc);
+	  return;
+	}
+
+      if (ts->derived->component_access == ACCESS_PRIVATE)
+	{
+	  gfc_error ("Data transfer element at %L cannot have "
+		     "PRIVATE components",&code->loc);
+	  return;
+	}
+    }
+
+  if (sym->as != NULL && sym->as->type == AS_ASSUMED_SIZE
+      && exp->ref->type == REF_ARRAY && exp->ref->u.ar.type == AR_FULL)
+    {
+      gfc_error ("Data transfer element at %L cannot be a full reference to "
+		 "an assumed-size array", &code->loc);
+      return;
+    }
+}
+
+
 /*********** Toplevel code resolution subroutines ***********/
 
 /* Given a branch to a label and a namespace, if the branch is conforming.
@@ -3169,7 +3223,7 @@ gfc_find_forall_index (gfc_expr *expr, gfc_symbol *symbol)
   switch (expr->expr_type)
     {
     case EXPR_VARIABLE:
-      assert (expr->symtree->n.sym);
+      gcc_assert (expr->symtree->n.sym);
 
       /* A scalar assignment  */
       if (!expr->ref)
@@ -3241,7 +3295,7 @@ gfc_find_forall_index (gfc_expr *expr, gfc_symbol *symbol)
       if (expr->ref)
         {
           tmp = expr->ref;
-          assert(expr->ref->type == REF_SUBSTRING);
+          gcc_assert (expr->ref->type == REF_SUBSTRING);
           if (gfc_find_forall_index (tmp->u.ss.start, symbol) == SUCCESS)
             return SUCCESS;
           if (gfc_find_forall_index (tmp->u.ss.end, symbol) == SUCCESS)
@@ -3568,7 +3622,6 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	case EXEC_EXIT:
 	case EXEC_CONTINUE:
 	case EXEC_DT_END:
-	case EXEC_TRANSFER:
 	case EXEC_ENTRY:
 	  break;
 
@@ -3737,7 +3790,7 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	  break;
 
 	case EXEC_IOLENGTH:
-	  assert(code->ext.inquire != NULL);
+	  gcc_assert (code->ext.inquire != NULL);
 	  if (gfc_resolve_inquire (code->ext.inquire) == FAILURE)
 	    break;
 
@@ -3752,6 +3805,10 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	  resolve_branch (code->ext.dt->err, code);
 	  resolve_branch (code->ext.dt->end, code);
 	  resolve_branch (code->ext.dt->eor, code);
+	  break;
+
+	case EXEC_TRANSFER:
+	  resolve_transfer (code);
 	  break;
 
 	case EXEC_FORALL:
@@ -4101,7 +4158,7 @@ check_data_variable (gfc_data_variable * var, locus * where)
 	    continue;
 	  break;
 	}
-      assert (ref);
+      gcc_assert (ref);
 
       /* Set marks asscording to the reference pattern.  */
       switch (ref->u.ar.type)
@@ -4118,7 +4175,7 @@ check_data_variable (gfc_data_variable * var, locus * where)
 	  break;
 
 	default:
-	  abort();
+	  gcc_unreachable ();
 	}
 
       if (gfc_array_size (e, &size) == FAILURE)

@@ -33,7 +33,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-gimple.h"
 #include "tree-inline.h"
 #include "timevar.h"
-#include "tree-alias-common.h"
 #include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
@@ -49,7 +48,7 @@ extern void rename_ssa_copies (void);
 
    Each copy is examined to determine if it is possible to rename the base
    variable of one of the operands to the same variable as the other operand.
-   ie.
+   i.e.
    T.3_5 = <blah>
    a_1 = T.3_5
 
@@ -120,10 +119,8 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
   var_ann_t ann1, ann2, ann3;
   bool ign1, ign2;
 
-#ifdef ENABLE_CHECKING
-  if (TREE_CODE (var1) != SSA_NAME || TREE_CODE (var2) != SSA_NAME)
-    abort ();
-#endif
+  gcc_assert (TREE_CODE (var1) == SSA_NAME);
+  gcc_assert (TREE_CODE (var2) == SSA_NAME);
 
   register_ssa_partition (map, var1, false);
   register_ssa_partition (map, var2, true);
@@ -140,10 +137,8 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
       fprintf (debug, "(P%d)", p2);
     }
 
-#ifdef ENABLE_CHECKING
-  if (p1 == NO_PARTITION || p2 == NO_PARTITION)
-    abort ();
-#endif
+  gcc_assert (p1 != NO_PARTITION);
+  gcc_assert (p2 != NO_PARTITION);
 
   root1 = SSA_NAME_VAR (partition_to_var (map, p1));
   root2 = SSA_NAME_VAR (partition_to_var (map, p2));
@@ -391,6 +386,7 @@ struct tree_opt_pass pass_rename_ssa_copies =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */ 
-  TODO_dump_func | TODO_verify_ssa      /* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa,     /* todo_flags_finish */
+  0					/* letter */
 }; 
 

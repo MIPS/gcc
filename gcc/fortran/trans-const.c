@@ -30,7 +30,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "real.h"
 #include <gmp.h>
-#include <assert.h>
 #include <math.h>
 #include "gfortran.h"
 #include "trans.h"
@@ -70,7 +69,7 @@ gfc_build_const (tree type, tree intval)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
   return val;
 }
@@ -85,7 +84,7 @@ gfc_build_string_const (int length, const char *s)
   len = build_int_cst (NULL_TREE, length);
   TREE_TYPE (str) =
     build_array_type (gfc_character1_type_node,
-		      build_range_type (gfc_strlen_type_node,
+		      build_range_type (gfc_charlen_type_node,
 					integer_one_node, len));
   return str;
 }
@@ -102,10 +101,10 @@ gfc_conv_string_init (tree length, gfc_expr * expr)
   int slen;
   tree str;
 
-  assert (expr->expr_type == EXPR_CONSTANT);
-  assert (expr->ts.type == BT_CHARACTER && expr->ts.kind == 1);
-  assert (INTEGER_CST_P (length));
-  assert (TREE_INT_CST_HIGH (length) == 0);
+  gcc_assert (expr->expr_type == EXPR_CONSTANT);
+  gcc_assert (expr->ts.type == BT_CHARACTER && expr->ts.kind == 1);
+  gcc_assert (INTEGER_CST_P (length));
+  gcc_assert (TREE_INT_CST_HIGH (length) == 0);
 
   len = TREE_INT_CST_LOW (length);
   slen = expr->value.character.length;
@@ -176,39 +175,27 @@ gfc_conv_mpz_to_tree (mpz_t i, int kind)
     }
   else
     {
-      /* Note that mp_limb_t can be anywhere from short to long long,
-	 which gives us a nice variety of cases to choose from.  */
+      unsigned HOST_WIDE_INT words[2];
+      size_t count;
 
-      if (sizeof (mp_limb_t) == sizeof (HOST_WIDE_INT))
-	{
-	  low = mpz_getlimbn (i, 0);
-	  high = mpz_getlimbn (i, 1);
-	}
-      else if (sizeof (mp_limb_t) == 2 * sizeof (HOST_WIDE_INT))
-	{
-	  mp_limb_t limb0 = mpz_getlimbn (i, 0);
-	  int shift = (sizeof (mp_limb_t) - sizeof (HOST_WIDE_INT)) * CHAR_BIT;
-	  low = limb0;
-	  high = limb0 >> shift;
-	}
-      else if (sizeof (mp_limb_t) < sizeof (HOST_WIDE_INT))
-	{
-	  int shift = sizeof (mp_limb_t) * CHAR_BIT;
-	  int n, count = sizeof (HOST_WIDE_INT) / sizeof (mp_limb_t);
-	  for (low = n = 0; n < count; ++n)
-	    {
-	      low <<= shift;
-	      low |= mpz_getlimbn (i, n);
-	    }
-	  for (high = 0, n = count; n < 2*count; ++n)
-	    {
-	      high <<= shift;
-	      high |= mpz_getlimbn (i, n);
-	    }
-	}
+      /* Since we know that the value is not zero (mpz_fits_slong_p),
+	 we know that at one word will be written, but we don't know
+	 about the second.  It's quicker to zero the second word before
+	 that conditionally clear it later.  */
+      words[1] = 0;
 
-      /* By extracting limbs we constructed the absolute value of the
-	 desired number.  Negate if necessary.  */
+      /* Extract the absolute value into words.  */
+      mpz_export (words, &count, -1, sizeof (HOST_WIDE_INT), 0, 0, i);
+
+      /* We assume that all numbers are in range for its type, and that
+	 we never create a type larger than 2*HWI, which is the largest
+	 that the middle-end can handle.  */
+      gcc_assert (count == 1 || count == 2);
+
+      low = words[0];
+      high = words[1];
+
+      /* Negate if necessary.  */
       if (mpz_sgn (i) < 0)
 	{
 	  if (low == 0)
@@ -240,7 +227,7 @@ gfc_conv_mpfr_to_tree (mpfr_t f, int kind)
       if (gfc_real_kinds[n].kind == kind)
 	break;
     }
-  assert (gfc_real_kinds[n].kind);
+  gcc_assert (gfc_real_kinds[n].kind);
 
   n = MAX (abs (gfc_real_kinds[n].min_exponent),
 	   abs (gfc_real_kinds[n].max_exponent));
@@ -304,7 +291,7 @@ gfc_conv_mpfr_to_tree (mpfr_t f, int kind)
 tree
 gfc_conv_constant_to_tree (gfc_expr * expr)
 {
-  assert (expr->expr_type == EXPR_CONSTANT);
+  gcc_assert (expr->expr_type == EXPR_CONSTANT);
 
   switch (expr->ts.type)
     {
@@ -344,13 +331,13 @@ gfc_conv_constant_to_tree (gfc_expr * expr)
 void
 gfc_conv_constant (gfc_se * se, gfc_expr * expr)
 {
-  assert (expr->expr_type == EXPR_CONSTANT);
+  gcc_assert (expr->expr_type == EXPR_CONSTANT);
 
   if (se->ss != NULL)
     {
-      assert (se->ss != gfc_ss_terminator);
-      assert (se->ss->type == GFC_SS_SCALAR);
-      assert (se->ss->expr == expr);
+      gcc_assert (se->ss != gfc_ss_terminator);
+      gcc_assert (se->ss->type == GFC_SS_SCALAR);
+      gcc_assert (se->ss->expr == expr);
 
       se->expr = se->ss->data.scalar.expr;
       se->string_length = se->ss->string_length;

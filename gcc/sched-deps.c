@@ -141,29 +141,38 @@ static rtx
 get_condition (rtx insn)
 {
   rtx pat = PATTERN (insn);
-  rtx cond;
+  rtx src;
 
   if (pat == 0)
     return 0;
+
   if (GET_CODE (pat) == COND_EXEC)
     return COND_EXEC_TEST (pat);
-  if (!JUMP_P (insn))
+
+  if (!any_condjump_p (insn) || !onlyjump_p (insn))
     return 0;
-  if (GET_CODE (pat) != SET || SET_SRC (pat) != pc_rtx)
-    return 0;
-  if (GET_CODE (SET_DEST (pat)) != IF_THEN_ELSE)
-    return 0;
-  pat = SET_DEST (pat);
-  cond = XEXP (pat, 0);
-  if (GET_CODE (XEXP (cond, 1)) == LABEL_REF
-      && XEXP (cond, 2) == pc_rtx)
-    return cond;
-  else if (GET_CODE (XEXP (cond, 2)) == LABEL_REF
-	   && XEXP (cond, 1) == pc_rtx)
-    return gen_rtx_fmt_ee (reverse_condition (GET_CODE (cond)), GET_MODE (cond),
-			   XEXP (cond, 0), XEXP (cond, 1));
-  else
-    return 0;
+
+  src = SET_SRC (pc_set (insn));
+#if 0
+  /* The previous code here was completely invalid and could never extract
+     the condition from a jump.  This code does the correct thing, but that
+     triggers latent bugs later in the scheduler on ports with conditional
+     execution.  So this is disabled for now.  */
+  if (XEXP (src, 2) == pc_rtx)
+    return XEXP (src, 0);
+  else if (XEXP (src, 1) == pc_rtx)
+    {
+      rtx cond = XEXP (src, 0);
+      enum rtx_code revcode = reversed_comparison_code (cond, insn);
+
+      if (revcode == UNKNOWN)
+	return 0;
+      return gen_rtx_fmt_ee (revcode, GET_MODE (cond), XEXP (cond, 0),
+			     XEXP (cond, 1));
+    }
+#endif
+
+  return 0;
 }
 
 /* Return nonzero if conditions COND1 and COND2 can never be both true.  */
@@ -173,7 +182,7 @@ conditions_mutex_p (rtx cond1, rtx cond2)
 {
   if (COMPARISON_P (cond1)
       && COMPARISON_P (cond2)
-      && GET_CODE (cond1) == reverse_condition (GET_CODE (cond2))
+      && GET_CODE (cond1) == reversed_comparison_code (cond2, NULL)
       && XEXP (cond1, 0) == XEXP (cond2, 0)
       && XEXP (cond1, 1) == XEXP (cond2, 1))
     return 1;
@@ -243,8 +252,8 @@ add_dependence (rtx insn, rtx elem, enum reg_note dep_type)
     {
       enum reg_note present_dep_type = 0;
 
-      if (anti_dependency_cache == NULL || output_dependency_cache == NULL)
-	abort ();
+      gcc_assert (anti_dependency_cache);
+      gcc_assert (output_dependency_cache);
       if (bitmap_bit_p (&true_dependency_cache[INSN_LUID (insn)],
 			INSN_LUID (elem)))
 	/* Do nothing (present_set_type is already 0).  */
@@ -272,15 +281,21 @@ add_dependence (rtx insn, rtx elem, enum reg_note dep_type)
              may be changed.  */
 	  if (true_dependency_cache != NULL)
 	    {
-	      if (REG_NOTE_KIND (link) == REG_DEP_ANTI)
-		bitmap_clear_bit (&anti_dependency_cache[INSN_LUID (insn)],
-				  INSN_LUID (elem));
-	      else if (REG_NOTE_KIND (link) == REG_DEP_OUTPUT
-		       && output_dependency_cache)
-		bitmap_clear_bit (&output_dependency_cache[INSN_LUID (insn)],
-				  INSN_LUID (elem));
-	      else
-		abort ();
+	      enum reg_note kind = REG_NOTE_KIND (link);
+	      switch (kind)
+		{
+		case REG_DEP_ANTI:
+		  bitmap_clear_bit (&anti_dependency_cache[INSN_LUID (insn)],
+				    INSN_LUID (elem));
+		  break;
+		case REG_DEP_OUTPUT:
+		  gcc_assert (output_dependency_cache);
+		  bitmap_clear_bit (&output_dependency_cache[INSN_LUID (insn)],
+				    INSN_LUID (elem));
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
 	    }
 #endif
 
@@ -509,9 +524,8 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
 	 purpose already.  */
       else if (regno >= deps->max_reg)
 	{
-	  if (GET_CODE (PATTERN (insn)) != USE
-	      && GET_CODE (PATTERN (insn)) != CLOBBER)
-	    abort ();
+	  gcc_assert (GET_CODE (PATTERN (insn)) == USE
+		      || GET_CODE (PATTERN (insn)) == CLOBBER);
 	}
       else
 	{
@@ -650,9 +664,8 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 	   purpose already.  */
 	else if (regno >= deps->max_reg)
 	  {
-	    if (GET_CODE (PATTERN (insn)) != USE
-		&& GET_CODE (PATTERN (insn)) != CLOBBER)
-	      abort ();
+	    gcc_assert (GET_CODE (PATTERN (insn)) == USE
+			|| GET_CODE (PATTERN (insn)) == CLOBBER);
 	  }
 	else
 	  {
@@ -1354,7 +1367,7 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
 	  return;
 	}
     }
-  abort ();
+  gcc_unreachable ();
 }
 
 
@@ -1373,14 +1386,15 @@ add_forward_dependence (rtx from, rtx to, enum reg_note dep_type)
 
      However, if we have enabled checking we might as well go
      ahead and verify that add_dependence worked properly.  */
-  if (NOTE_P (from)
-      || INSN_DELETED_P (from)
-      || (forward_dependency_cache != NULL
-	  && bitmap_bit_p (&forward_dependency_cache[INSN_LUID (from)],
-			   INSN_LUID (to)))
-      || (forward_dependency_cache == NULL
-	  && find_insn_list (to, INSN_DEPEND (from))))
-    abort ();
+  gcc_assert (!NOTE_P (from));
+  gcc_assert (!INSN_DELETED_P (from));
+  if (forward_dependency_cache)
+    gcc_assert (!bitmap_bit_p (&forward_dependency_cache[INSN_LUID (from)],
+			       INSN_LUID (to)));
+  else
+    gcc_assert (!find_insn_list (to, INSN_DEPEND (from)));
+
+  /* ??? If bitmap_bit_p is a predicate, what is this supposed to do? */
   if (forward_dependency_cache != NULL)
     bitmap_bit_p (&forward_dependency_cache[INSN_LUID (from)],
 		  INSN_LUID (to));

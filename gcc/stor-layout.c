@@ -43,7 +43,9 @@ tree sizetype_tab[(int) TYPE_KIND_LAST];
 
 /* If nonzero, this is an upper limit on alignment of structure fields.
    The value is measured in bits.  */
-unsigned int maximum_field_alignment;
+unsigned int maximum_field_alignment = TARGET_DEFAULT_PACK_STRUCT * BITS_PER_UNIT;
+/* ... and its original value in bytes, specified via -fpack-struct=<value>.  */
+unsigned int initial_max_fld_align = TARGET_DEFAULT_PACK_STRUCT;
 
 /* If nonzero, the alignment of a bitstring or (power-)set value, in bits.
    May be overridden by front-ends.  */
@@ -106,9 +108,7 @@ put_pending_size (tree expr)
 void
 put_pending_sizes (tree chain)
 {
-  if (pending_sizes)
-    abort ();
-
+  gcc_assert (!pending_sizes);
   pending_sizes = chain;
 }
 
@@ -218,7 +218,7 @@ smallest_mode_for_size (unsigned int size, enum mode_class class)
     if (GET_MODE_PRECISION (mode) >= size)
       return mode;
 
-  abort ();
+  gcc_unreachable ();
 }
 
 /* Find an integer mode of the exact same size, or BLKmode on failure.  */
@@ -248,7 +248,7 @@ int_mode_for_mode (enum machine_mode mode)
 
     case MODE_CC:
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   return mode;
@@ -300,10 +300,10 @@ layout_decl (tree decl, unsigned int known_align)
 
   if (code == CONST_DECL)
     return;
-  else if (code != VAR_DECL && code != PARM_DECL && code != RESULT_DECL
-	   && code != TYPE_DECL && code != FIELD_DECL)
-    abort ();
-
+  
+  gcc_assert (code == VAR_DECL || code == PARM_DECL || code == RESULT_DECL
+	      || code == TYPE_DECL ||code == FIELD_DECL);
+  
   rtl = DECL_RTL_IF_SET (decl);
 
   if (type == error_mark_node)
@@ -1195,8 +1195,8 @@ finalize_record_size (record_layout_info rli)
 
   /* Round the size up to be a multiple of the required alignment.  */
   TYPE_SIZE (rli->t) = round_up (unpadded_size, TYPE_ALIGN (rli->t));
-  TYPE_SIZE_UNIT (rli->t) = round_up (unpadded_size_unit,
-				      TYPE_ALIGN (rli->t) / BITS_PER_UNIT);
+  TYPE_SIZE_UNIT (rli->t)
+    = round_up (unpadded_size_unit, TYPE_ALIGN_UNIT (rli->t));
 
   if (warn_padded && TREE_CONSTANT (unpadded_size)
       && simple_cst_equal (unpadded_size, TYPE_SIZE (rli->t)) == 0)
@@ -1357,8 +1357,8 @@ finalize_type_size (tree type)
   if (TYPE_SIZE (type) != 0)
     {
       TYPE_SIZE (type) = round_up (TYPE_SIZE (type), TYPE_ALIGN (type));
-      TYPE_SIZE_UNIT (type)
-	= round_up (TYPE_SIZE_UNIT (type), TYPE_ALIGN (type) / BITS_PER_UNIT);
+      TYPE_SIZE_UNIT (type) = round_up (TYPE_SIZE_UNIT (type),
+					TYPE_ALIGN_UNIT (type));
     }
 
   /* Evaluate nonconstant sizes only once, either now or as soon as safe.  */
@@ -1475,8 +1475,7 @@ finish_builtin_struct (tree type, const char *name, tree fields,
 void
 layout_type (tree type)
 {
-  if (type == 0)
-    abort ();
+  gcc_assert (type);
 
   if (type == error_mark_node)
     return;
@@ -1490,7 +1489,7 @@ layout_type (tree type)
     case LANG_TYPE:
       /* This kind of type is the responsibility
 	 of the language-specific code.  */
-      abort ();
+      gcc_unreachable ();
 
     case BOOLEAN_TYPE:  /* Used for Java, Pascal, and Chill.  */
       if (TYPE_PRECISION (type) == 0)
@@ -1534,8 +1533,7 @@ layout_type (tree type)
 	tree nunits_tree = build_int_cst (NULL_TREE, nunits);
 	tree innertype = TREE_TYPE (type);
 
-	if (nunits & (nunits - 1))
-	  abort ();
+	gcc_assert (!(nunits & (nunits - 1)));
 
 	/* Find an appropriate mode for the vector type.  */
 	if (TYPE_MODE (type) == VOIDmode)
@@ -1756,33 +1754,37 @@ layout_type (tree type)
       break;
 
     case SET_TYPE:  /* Used by Chill and Pascal.  */
-      if (TREE_CODE (TYPE_MAX_VALUE (TYPE_DOMAIN (type))) != INTEGER_CST
-	  || TREE_CODE (TYPE_MIN_VALUE (TYPE_DOMAIN (type))) != INTEGER_CST)
-	abort ();
-      else
-	{
+      {
+	unsigned int alignment;
+	HOST_WIDE_INT size_in_bits;
+	HOST_WIDE_INT rounded_size;
+
+	gcc_assert (TREE_CODE (TYPE_MAX_VALUE (TYPE_DOMAIN (type)))
+		    == INTEGER_CST);
+	gcc_assert (TREE_CODE (TYPE_MIN_VALUE (TYPE_DOMAIN (type)))
+		    == INTEGER_CST);
+
 #ifndef SET_WORD_SIZE
 #define SET_WORD_SIZE BITS_PER_WORD
 #endif
-	  unsigned int alignment
-	    = set_alignment ? set_alignment : SET_WORD_SIZE;
-	  HOST_WIDE_INT size_in_bits
-	    = (tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (type)), 0)
-	       - tree_low_cst (TYPE_MIN_VALUE (TYPE_DOMAIN (type)), 0) + 1);
-	  HOST_WIDE_INT rounded_size
-	    = ((size_in_bits + alignment - 1) / alignment) * alignment;
+	alignment = set_alignment ? set_alignment : SET_WORD_SIZE;
+	size_in_bits
+	  = (tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (type)), 0)
+	     - tree_low_cst (TYPE_MIN_VALUE (TYPE_DOMAIN (type)), 0) + 1);
+	rounded_size
+	  = ((size_in_bits + alignment - 1) / alignment) * alignment;
 
-	  if (rounded_size > (int) alignment)
-	    TYPE_MODE (type) = BLKmode;
-	  else
-	    TYPE_MODE (type) = mode_for_size (alignment, MODE_INT, 1);
+	if (rounded_size > (int) alignment)
+	  TYPE_MODE (type) = BLKmode;
+	else
+	  TYPE_MODE (type) = mode_for_size (alignment, MODE_INT, 1);
 
-	  TYPE_SIZE (type) = bitsize_int (rounded_size);
-	  TYPE_SIZE_UNIT (type) = size_int (rounded_size / BITS_PER_UNIT);
-	  TYPE_ALIGN (type) = alignment;
-	  TYPE_USER_ALIGN (type) = 0;
-	  TYPE_PRECISION (type) = size_in_bits;
-	}
+	TYPE_SIZE (type) = bitsize_int (rounded_size);
+	TYPE_SIZE_UNIT (type) = size_int (rounded_size / BITS_PER_UNIT);
+	TYPE_ALIGN (type) = alignment;
+	TYPE_USER_ALIGN (type) = 0;
+	TYPE_PRECISION (type) = size_in_bits;
+      }
       break;
 
     case FILE_TYPE:
@@ -1794,7 +1796,7 @@ layout_type (tree type)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* Compute the final TYPE_SIZE, TYPE_ALIGN, etc. for TYPE.  For
@@ -1884,8 +1886,7 @@ set_sizetype (tree type)
 		       2 * HOST_BITS_PER_WIDE_INT);
   tree t;
 
-  if (TYPE_UNSIGNED (type) != TYPE_UNSIGNED (sizetype))
-    abort ();
+  gcc_assert (TYPE_UNSIGNED (type) == TYPE_UNSIGNED (sizetype));
 
   t = build_distinct_type_copy (type);
   /* We do want to use sizetype's cache, as we will be replacing that
@@ -2107,8 +2108,7 @@ get_mode_bounds (enum machine_mode mode, int sign,
   unsigned size = GET_MODE_BITSIZE (mode);
   unsigned HOST_WIDE_INT min_val, max_val;
 
-  if (size > HOST_BITS_PER_WIDE_INT)
-    abort ();
+  gcc_assert (size <= HOST_BITS_PER_WIDE_INT);
 
   if (sign)
     {

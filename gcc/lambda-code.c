@@ -47,7 +47,7 @@
    math.
  
  A little terminology and a general sketch of the algorithm.  See "A singular
- loop transformatrion framework based on non-singular matrices" by Wei Li and
+ loop transformation framework based on non-singular matrices" by Wei Li and
  Keshav Pingali for formal proofs that the various statements below are
  correct. 
 
@@ -74,20 +74,20 @@
 
  For a dense source space, we take the transformation matrix, decompose it
  into a lower triangular part (H) and a unimodular part (U). 
- We then compute the auxillary space from the unimodular part (source loop
- nest . U = auxillary space) , which has two important properties:
+ We then compute the auxiliary space from the unimodular part (source loop
+ nest . U = auxiliary space) , which has two important properties:
   1. It traverses the iterations in the same lexicographic order as the source
   space.
   2. It is a dense space when the source is a dense space (even if the target
   space is going to be sparse).
  
- Given the auxillary space, we use the lower triangular part to compute the
+ Given the auxiliary space, we use the lower triangular part to compute the
  bounds in the target space by simple matrix multiplication.
  The gaps in the target space (IE the new loop step sizes) will be the
  diagonals of the H matrix.
 
  Sparse source spaces require another step, because you can't directly compute
- the exact bounds of the auxillary and target space from the sparse space.
+ the exact bounds of the auxiliary and target space from the sparse space.
  Rather than try to come up with a separate algorithm to handle sparse source
  spaces directly, we just find a legal transformation matrix that gives you
  the sparse source space, from a dense space, and then transform the dense
@@ -169,8 +169,7 @@ lambda_body_vector_compute_new (lambda_trans_matrix transform,
   int depth;
 
   /* Make sure the matrix is square.  */
-  if (LTM_ROWSIZE (transform) != LTM_COLSIZE (transform))
-    abort ();
+  gcc_assert (LTM_ROWSIZE (transform) == LTM_COLSIZE (transform));
 
   depth = LTM_ROWSIZE (transform);
 
@@ -288,7 +287,7 @@ print_lambda_linear_expression (FILE * outfile,
 /* Print a lambda loop structure LOOP to OUTFILE.  The depth/number of
    coefficients is given by DEPTH, the number of invariants is 
    given by INVARIANTS, and the character to start variable names with is given
-   by START. */
+   by START.  */
 
 void
 print_lambda_loop (FILE * outfile, lambda_loop loop, int depth,
@@ -297,8 +296,7 @@ print_lambda_loop (FILE * outfile, lambda_loop loop, int depth,
   int step;
   lambda_linear_expression expr;
 
-  if (!loop)
-    abort ();
+  gcc_assert (loop);
 
   expr = LL_LINEAR_OFFSET (loop);
   step = LL_STEP (loop);
@@ -393,8 +391,7 @@ lambda_lattice_compute_base (lambda_loopnest nest)
   for (i = 0; i < depth; i++)
     {
       loop = LN_LOOPS (nest)[i];
-      if (!loop)
-	abort ();
+      gcc_assert (loop);
       step = LL_STEP (loop);
       /* If we have a step of 1, then the base is one, and the
          origin and invariant coefficients are 0.  */
@@ -412,9 +409,8 @@ lambda_lattice_compute_base (lambda_loopnest nest)
 	  /* Otherwise, we need the lower bound expression (which must
 	     be an affine function)  to determine the base.  */
 	  expression = LL_LOWER_BOUND (loop);
-	  if (!expression
-	      || LLE_NEXT (expression) || LLE_DENOMINATOR (expression) != 1)
-	    abort ();
+	  gcc_assert (expression && LLE_NEXT (expression) 
+		      && LLE_DENOMINATOR (expression) == 1);
 
 	  /* The lower triangular portion of the base is going to be the
 	     coefficient times the step */
@@ -487,7 +483,7 @@ lcm (int a, int b)
 }
 
 /* Compute the loop bounds for the auxiliary space NEST.
-   Input system used is Ax <= b.  TRANS is the unimodular transformation. */
+   Input system used is Ax <= b.  TRANS is the unimodular transformation.  */
 
 static lambda_loopnest
 lambda_compute_auxillary_space (lambda_loopnest nest,
@@ -556,8 +552,8 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
 
 	  size++;
 	  /* Need to increase matrix sizes above.  */
-	  if (size > 127)
-	    abort ();
+	  gcc_assert (size <= 127);
+	  
 	}
 
       /* Then do the exact same thing for the upper bounds.  */
@@ -585,8 +581,8 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
 	  A[size][i] = LLE_DENOMINATOR (expression);
 	  size++;
 	  /* Need to increase matrix sizes above.  */
-	  if (size > 127)
-	    abort ();
+	  gcc_assert (size <= 127);
+
 	}
     }
 
@@ -702,7 +698,7 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
 
 	    }
 	}
-      /* creates a new system by deleting the i'th variable. */
+      /* creates a new system by deleting the i'th variable.  */
       newsize = 0;
       for (j = 0; j < size; j++)
 	{
@@ -753,7 +749,7 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
 }
 
 /* Compute the loop bounds for the target space, using the bounds of
-   the auxillary nest AUXILLARY_NEST, and the triangular matrix H.  This is
+   the auxiliary nest AUXILLARY_NEST, and the triangular matrix H.  This is
    done by matrix multiplication and then transformation of the new matrix
    back into linear expression form.
    Return the target loopnest.  */
@@ -1205,7 +1201,7 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   tree test;
   int stepint;
   int extra = 0;
-
+  tree uboundvar;
   use_optype uses;
 
   /* Find out induction var and set the pointer so that the caller can
@@ -1225,19 +1221,7 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
     }
 
   test = TREE_OPERAND (exit_cond, 0);
-  if (TREE_CODE (test) != LE_EXPR
-      && TREE_CODE (test) != LT_EXPR && TREE_CODE (test) != NE_EXPR)
-    {
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file,
-		   "Unable to convert loop: Loop exit test uses unhandled test condition:");
-	  print_generic_stmt (dump_file, test, 0);
-	  fprintf (dump_file, "\n");
-	}
-      return NULL;
-    }
   if (SSA_NAME_DEF_STMT (inductionvar) == NULL_TREE)
     {
 
@@ -1349,25 +1333,39 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
 
       return NULL;
     }
-  if (TREE_CODE (TREE_OPERAND (test, 1)) == SSA_NAME)
-    if (invariant_in_loop (loop, TREE_OPERAND (test, 1)))
-      VEC_safe_push (tree, *invariants, TREE_OPERAND (test, 1));
+  /* One part of the test may be a loop invariant tree.  */
+  if (TREE_CODE (TREE_OPERAND (test, 1)) == SSA_NAME
+      && invariant_in_loop (loop, TREE_OPERAND (test, 1)))
+    VEC_safe_push (tree, *invariants, TREE_OPERAND (test, 1));
+  else if (TREE_CODE (TREE_OPERAND (test, 0)) == SSA_NAME
+	   && invariant_in_loop (loop, TREE_OPERAND (test, 0)))
+    VEC_safe_push (tree, *invariants, TREE_OPERAND (test, 0));
+  
+  /* The non-induction variable part of the test is the upper bound variable.
+   */
+  if (TREE_OPERAND (test, 0) == inductionvar)
+    uboundvar = TREE_OPERAND (test, 1);
+  else
+    uboundvar = TREE_OPERAND (test, 0);
+    
 
   /* We only size the vectors assuming we have, at max, 2 times as many
      invariants as we do loops (one for each bound).
      This is just an arbitrary number, but it has to be matched against the
      code below.  */
-  if (VEC_length (tree, *invariants) > (unsigned int) (2 * depth))
-    abort ();
+  gcc_assert (VEC_length (tree, *invariants) <= (unsigned int) (2 * depth));
+  
 
-  /* We might have some leftover. */
+  /* We might have some leftover.  */
   if (TREE_CODE (test) == LT_EXPR)
     extra = -1 * stepint;
   else if (TREE_CODE (test) == NE_EXPR)
     extra = -1 * stepint;
+  else if (TREE_CODE (test) == GT_EXPR)
+    extra = -1 * stepint;
 
   ubound = gcc_tree_to_linear_expression (depth,
-					  TREE_OPERAND (test, 1),
+					  uboundvar,
 					  outerinductionvars,
 					  *invariants, extra);
   if (!ubound)
@@ -1393,6 +1391,7 @@ static tree
 find_induction_var_from_exit_cond (struct loop *loop)
 {
   tree expr = get_loop_exit_condition (loop);
+  tree ivarop;
   tree test;
   if (expr == NULL_TREE)
     return NULL_TREE;
@@ -1401,12 +1400,31 @@ find_induction_var_from_exit_cond (struct loop *loop)
   test = TREE_OPERAND (expr, 0);
   if (TREE_CODE_CLASS (TREE_CODE (test)) != '<')
     return NULL_TREE;
-  if (TREE_CODE (TREE_OPERAND (test, 0)) != SSA_NAME)
+ /* This is a guess.  We say that for a <,!=,<= b, a is the induction
+     variable.
+     For >, >=, we guess b is the induction variable.
+     If we are wrong, it'll fail the rest of the induction variable tests, and
+     everything will be fine anyway.  */
+  switch (TREE_CODE (test))
+    {
+    case LT_EXPR:
+    case LE_EXPR:
+    case NE_EXPR:
+      ivarop = TREE_OPERAND (test, 0);
+      break;
+    case GT_EXPR:
+    case GE_EXPR:
+      ivarop = TREE_OPERAND (test, 1);
+      break;
+    default:
+      gcc_unreachable();
+    }
+  if (TREE_CODE (ivarop) != SSA_NAME)
     return NULL_TREE;
-  return TREE_OPERAND (test, 0);
+  return ivarop;
 }
 
-DEF_VEC_P(lambda_loop);
+DEF_VEC_GC_P(lambda_loop);
 /* Generate a lambda loopnest from a gcc loopnest LOOP_NEST.
    Return the new loop nest.  
    INDUCTIONVARS is a pointer to an array of induction variables for the
@@ -1693,7 +1711,7 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 				 name, build_int_cst (integer_type_node,
 						      LLE_DENOMINATOR (lle))));
 	  else
-	    abort ();
+	    gcc_unreachable();
 
 	  /* name = {ceil, floor}(name/denominator) */
 	  name = make_ssa_name (resvar, stmt);
@@ -1706,9 +1724,8 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 
   /* Again, out of laziness, we don't handle this case yet.  It's not
      hard, it just hasn't occurred.  */
-  if (VEC_length (tree, results) > 2)
-    abort ();
-
+  gcc_assert (VEC_length (tree, results) <= 2);
+  
   /* We may need to wrap the results in a MAX_EXPR or MIN_EXPR.  */
   if (VEC_length (tree, results) > 1)
     {
@@ -1785,15 +1802,14 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       newloop = LN_LOOPS (new_loopnest)[i];
 
       /* Linear offset is a bit tricky to handle.  Punt on the unhandled
-         cases for now. */
+         cases for now.  */
       offset = LL_LINEAR_OFFSET (newloop);
 
-      if (LLE_DENOMINATOR (offset) != 1
-	  || !lambda_vector_zerop (LLE_COEFFICIENTS (offset), depth))
-	abort ();
-
+      gcc_assert (LLE_DENOMINATOR (offset) == 1 &&
+		  lambda_vector_zerop (LLE_COEFFICIENTS (offset), depth));
+      
       /* Now build the  new lower bounds, and insert the statements
-         necessary to generate it on the loop preheader. */
+         necessary to generate it on the loop preheader.  */
       newlowerbound = lle_to_gcc_expression (LL_LOWER_BOUND (newloop),
 					     LL_LINEAR_OFFSET (newloop),
 					     new_ivs,
@@ -1915,7 +1931,7 @@ lambda_vector_lexico_pos (lambda_vector v, unsigned n)
    matrix T is legal when applied to a loop nest with a set of
    lexicographically non-negative distance vectors RDG if and only if
    for each vector d in RDG, (T.d >= 0) is lexicographically positive.
-   ie.: if and only if it transforms the lexicographically positive
+   i.e.: if and only if it transforms the lexicographically positive
    distance vectors to lexicographically positive vectors.  Note that
    a unimodular matrix must transform the zero vector (and only it) to
    the zero vector." S.Muchnick.  */
@@ -1929,8 +1945,8 @@ lambda_transform_legal_p (lambda_trans_matrix trans,
   struct data_dependence_relation *ddr;
 
 #if defined ENABLE_CHECKING
-  if (LTM_COLSIZE (trans) != nb_loops || LTM_ROWSIZE (trans) != nb_loops)
-    abort ();
+  gcc_assert (LTM_COLSIZE (trans) == nb_loops 
+	      && LTM_ROWSIZE (trans) == nb_loops);
 #endif
 
   /* When there is an unknown relation in the dependence_relations, we

@@ -107,16 +107,26 @@ am__objects_1 = gnu/gcj/xlib/Clip.lo gnu/gcj/xlib/Colormap.lo \
 	gnu/awt/xlib/XGraphicsConfiguration.lo \
 	gnu/awt/xlib/XOffScreenImage.lo gnu/awt/xlib/XPanelPeer.lo \
 	gnu/awt/xlib/XFontPeer.lo gnu/awt/xlib/XToolkit.lo
-am__objects_2 = gnu/gcj/xlib/natClip.lo gnu/gcj/xlib/natColormap.lo \
-	gnu/gcj/xlib/natDisplay.lo gnu/gcj/xlib/natDrawable.lo \
-	gnu/gcj/xlib/natFont.lo gnu/gcj/xlib/natGC.lo \
-	gnu/gcj/xlib/natPixmap.lo gnu/gcj/xlib/natScreen.lo \
-	gnu/gcj/xlib/natVisual.lo gnu/gcj/xlib/natWMSizeHints.lo \
-	gnu/gcj/xlib/natWindow.lo gnu/gcj/xlib/natWindowAttributes.lo \
-	gnu/gcj/xlib/natXAnyEvent.lo gnu/gcj/xlib/natXButtonEvent.lo \
-	gnu/gcj/xlib/natXColor.lo gnu/gcj/xlib/natXConfigureEvent.lo \
-	gnu/gcj/xlib/natXException.lo gnu/gcj/xlib/natXExposeEvent.lo \
-	gnu/gcj/xlib/natXImage.lo gnu/gcj/xlib/natXUnmapEvent.lo
+am__objects_2 = gnu/gcj/xlib/lib_gnu_awt_xlib_la-natClip.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natColormap.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDisplay.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDrawable.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natFont.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natGC.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natPixmap.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natScreen.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natVisual.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWMSizeHints.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindow.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindowAttributes.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXAnyEvent.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXButtonEvent.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXColor.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXConfigureEvent.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXException.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXExposeEvent.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXImage.lo \
+	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXUnmapEvent.lo
 am_lib_gnu_awt_xlib_la_OBJECTS = $(am__objects_1) $(am__objects_2)
 lib_gnu_awt_xlib_la_OBJECTS = $(am_lib_gnu_awt_xlib_la_OBJECTS)
 @XLIB_AWT_TRUE@am_lib_gnu_awt_xlib_la_rpath = -rpath $(toolexeclibdir)
@@ -130,8 +140,6 @@ am__lib_gnu_java_awt_peer_gtk_la_SOURCES_DIST =  \
 	gnu/java/awt/peer/gtk/GdkGraphics2D.java \
 	gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java \
 	gnu/java/awt/peer/gtk/GdkPixbufDecoder.java \
-	gnu/java/awt/peer/gtk/GtkArg.java \
-	gnu/java/awt/peer/gtk/GtkArgList.java \
 	gnu/java/awt/peer/gtk/GtkButtonPeer.java \
 	gnu/java/awt/peer/gtk/GtkCanvasPeer.java \
 	gnu/java/awt/peer/gtk/GtkCheckboxGroupPeer.java \
@@ -166,6 +174,8 @@ am__lib_gnu_java_awt_peer_gtk_la_SOURCES_DIST =  \
 	gnu/java/awt/peer/gtk/GtkTextFieldPeer.java \
 	gnu/java/awt/peer/gtk/GtkToolkit.java \
 	gnu/java/awt/peer/gtk/GtkWindowPeer.java \
+	gnu/java/awt/peer/gtk/GThreadMutex.java \
+	gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.c \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.c \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c \
@@ -202,6 +212,7 @@ am__lib_gnu_java_awt_peer_gtk_la_SOURCES_DIST =  \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.c \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c \
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c \
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c \
 	jni/gtk-peer/gthread-jni.c jni/classpath/jcl.c \
 	jni/classpath/jnilink.c jni/classpath/native_state.c \
 	jni/classpath/primlib.c jni/gtk-peer/gthread-jni.h \
@@ -216,8 +227,6 @@ am__objects_3 = gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathF
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkGraphics2D.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkGraphicsEnvironment.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkPixbufDecoder.lo \
-	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArg.lo \
-	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArgList.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkButtonPeer.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkCanvasPeer.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkCheckboxGroupPeer.lo \
@@ -251,7 +260,9 @@ am__objects_3 = gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathF
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkTextComponentPeer.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkTextFieldPeer.lo \
 	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkToolkit.lo \
-	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkWindowPeer.lo
+	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkWindowPeer.lo \
+	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.lo \
+	gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.lo
 @GTK_CAIRO_TRUE@am__objects_4 = jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.lo \
 @GTK_CAIRO_TRUE@	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.lo \
 @GTK_CAIRO_TRUE@	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkGlyphVector.lo \
@@ -289,6 +300,7 @@ am__objects_5 = $(am__objects_4) \
 	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkTextFieldPeer.lo \
 	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkToolkit.lo \
 	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkWindowPeer.lo \
+	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.lo \
 	jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gthread-jni.lo \
 	jni/classpath/lib_gnu_java_awt_peer_gtk_la-jcl.lo \
 	jni/classpath/lib_gnu_java_awt_peer_gtk_la-jnilink.lo \
@@ -1542,12 +1554,19 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc resolve.cc \
 	javax/swing/border/TitledBorder.java \
 	javax/swing/GrayFilter.java javax/swing/AbstractAction.java \
 	javax/swing/AbstractButton.java \
+	javax/swing/AbstractSpinnerModel.java \
 	javax/swing/plaf/basic/BasicArrowButton.java \
 	javax/swing/plaf/basic/BasicButtonListener.java \
 	javax/swing/plaf/basic/BasicButtonUI.java \
 	javax/swing/plaf/basic/BasicCheckBoxUI.java \
+	javax/swing/plaf/basic/BasicColorChooserUI.java \
+	javax/swing/plaf/basic/BasicComboBoxUI.java \
+	javax/swing/plaf/basic/BasicComboBoxEditor.java \
+	javax/swing/plaf/basic/BasicComboBoxRenderer.java \
+	javax/swing/plaf/basic/BasicComboPopup.java \
 	javax/swing/plaf/basic/BasicDesktopIconUI.java \
 	javax/swing/plaf/basic/BasicDesktopPaneUI.java \
+	javax/swing/plaf/basic/BasicFormattedTextFieldUI.java \
 	javax/swing/plaf/basic/BasicGraphicsUtils.java \
 	javax/swing/plaf/basic/BasicInternalFrameTitlePane.java \
 	javax/swing/plaf/basic/BasicInternalFrameUI.java \
@@ -1558,6 +1577,7 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc resolve.cc \
 	javax/swing/plaf/basic/BasicMenuItemUI.java \
 	javax/swing/plaf/basic/BasicOptionPaneUI.java \
 	javax/swing/plaf/basic/BasicPanelUI.java \
+	javax/swing/plaf/basic/BasicPasswordFieldUI.java \
 	javax/swing/plaf/basic/BasicPopupMenuUI.java \
 	javax/swing/plaf/basic/BasicPopupMenuSeparatorUI.java \
 	javax/swing/plaf/basic/BasicProgressBarUI.java \
@@ -1569,19 +1589,25 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc resolve.cc \
 	javax/swing/plaf/basic/BasicScrollPaneUI.java \
 	javax/swing/plaf/basic/BasicSeparatorUI.java \
 	javax/swing/plaf/basic/BasicSliderUI.java \
+	javax/swing/plaf/basic/BasicSpinnerUI.java \
 	javax/swing/plaf/basic/BasicSplitPaneDivider.java \
 	javax/swing/plaf/basic/BasicSplitPaneUI.java \
 	javax/swing/plaf/basic/BasicTabbedPaneUI.java \
+	javax/swing/plaf/basic/BasicTableUI.java \
+	javax/swing/plaf/basic/BasicTableHeaderUI.java \
+	javax/swing/plaf/basic/BasicTextAreaUI.java \
 	javax/swing/plaf/basic/BasicTextFieldUI.java \
 	javax/swing/plaf/basic/BasicTextUI.java \
 	javax/swing/plaf/basic/BasicToggleButtonUI.java \
 	javax/swing/plaf/basic/BasicToolBarSeparatorUI.java \
 	javax/swing/plaf/basic/BasicToolBarUI.java \
+	javax/swing/plaf/basic/BasicToolTipUI.java \
 	javax/swing/plaf/basic/BasicTreeUI.java \
 	javax/swing/plaf/basic/BasicViewportUI.java \
 	javax/swing/plaf/basic/BasicLookAndFeel.java \
 	javax/swing/plaf/basic/BasicBorders.java \
 	javax/swing/plaf/basic/BasicIconFactory.java \
+	javax/swing/plaf/basic/ComboPopup.java \
 	javax/swing/plaf/BorderUIResource.java \
 	javax/swing/plaf/UIResource.java \
 	javax/swing/plaf/ButtonUI.java \
@@ -1626,6 +1652,10 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc resolve.cc \
 	javax/swing/colorchooser/ColorChooserComponentFactory.java \
 	javax/swing/colorchooser/ColorSelectionModel.java \
 	javax/swing/colorchooser/DefaultColorSelectionModel.java \
+	javax/swing/colorchooser/DefaultPreviewPanel.java \
+	javax/swing/colorchooser/DefaultSwatchChooserPanel.java \
+	javax/swing/colorchooser/DefaultHSBChooserPanel.java \
+	javax/swing/colorchooser/DefaultRGBChooserPanel.java \
 	javax/swing/filechooser/FileFilter.java \
 	javax/swing/filechooser/FileSystemView.java \
 	javax/swing/filechooser/FileView.java \
@@ -1658,17 +1688,21 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc resolve.cc \
 	javax/swing/JOptionPane.java javax/swing/JPanel.java \
 	javax/swing/JRadioButton.java javax/swing/JRootPane.java \
 	javax/swing/JScrollBar.java javax/swing/JScrollPane.java \
-	javax/swing/JTabbedPane.java javax/swing/JTextArea.java \
-	javax/swing/JTextField.java javax/swing/JToggleButton.java \
-	javax/swing/JToolTip.java javax/swing/JTree.java \
-	javax/swing/JViewport.java javax/swing/JWindow.java \
-	javax/swing/KeyStroke.java javax/swing/ListCellRenderer.java \
-	javax/swing/ListModel.java javax/swing/ListSelectionModel.java \
+	javax/swing/JSpinner.java javax/swing/JTabbedPane.java \
+	javax/swing/JTextArea.java javax/swing/JTextField.java \
+	javax/swing/JToggleButton.java javax/swing/JToolTip.java \
+	javax/swing/JTree.java javax/swing/JViewport.java \
+	javax/swing/JWindow.java javax/swing/KeyStroke.java \
+	javax/swing/ListCellRenderer.java javax/swing/ListModel.java \
+	javax/swing/ListSelectionModel.java \
 	javax/swing/LookAndFeel.java javax/swing/Scrollable.java \
-	javax/swing/Spring.java javax/swing/SpringLayout.java \
-	javax/swing/SwingConstants.java \
+	javax/swing/SpinnerModel.java \
+	javax/swing/SpinnerNumberModel.java javax/swing/Spring.java \
+	javax/swing/SpringLayout.java javax/swing/SwingConstants.java \
 	javax/swing/SwingUtilities.java javax/swing/Timer.java \
-	javax/swing/UIDefaults.java javax/swing/UIManager.java \
+	javax/swing/ToolTipManager.java \
+	javax/swing/TransferHandler.java javax/swing/UIDefaults.java \
+	javax/swing/UIManager.java \
 	javax/swing/UnsupportedLookAndFeelException.java \
 	javax/swing/event/AncestorEvent.java \
 	javax/swing/event/AncestorListener.java \
@@ -1735,12 +1769,17 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc resolve.cc \
 	javax/swing/text/NavigationFilter.java \
 	javax/swing/text/PlainDocument.java \
 	javax/swing/text/PlainView.java javax/swing/text/Position.java \
-	javax/swing/text/Segment.java javax/swing/text/Style.java \
+	javax/swing/text/Segment.java \
+	javax/swing/text/SimpleAttributeSet.java \
+	javax/swing/text/Style.java \
+	javax/swing/text/StyleConstants.java \
+	javax/swing/text/StyleContext.java \
 	javax/swing/text/StyledDocument.java \
 	javax/swing/text/StyledEditorKit.java \
-	javax/swing/text/TabExpander.java \
 	javax/swing/text/TabableView.java \
-	javax/swing/text/TextAction.java javax/swing/text/View.java \
+	javax/swing/text/TabExpander.java javax/swing/text/TabSet.java \
+	javax/swing/text/TabStop.java javax/swing/text/TextAction.java \
+	javax/swing/text/Utilities.java javax/swing/text/View.java \
 	javax/swing/text/ViewFactory.java \
 	javax/swing/text/html/HTML.java \
 	javax/swing/text/html/parser/ParserDelegator.java \
@@ -1807,7 +1846,6 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc resolve.cc \
 	javax/swing/ProgressMonitorInputStream.java \
 	javax/swing/RepaintManager.java \
 	javax/swing/ScrollPaneLayout.java \
-	javax/swing/ToolTipManager.java \
 	javax/swing/ViewportLayout.java \
 	gnu/gcj/convert/BytesToUnicode.java \
 	gnu/gcj/convert/Convert.java gnu/gcj/convert/Input_8859_1.java \
@@ -2679,12 +2717,19 @@ am__objects_11 = gnu/awt/LightweightRedirector.lo \
 	javax/swing/border/SoftBevelBorder.lo \
 	javax/swing/border/TitledBorder.lo javax/swing/GrayFilter.lo \
 	javax/swing/AbstractAction.lo javax/swing/AbstractButton.lo \
+	javax/swing/AbstractSpinnerModel.lo \
 	javax/swing/plaf/basic/BasicArrowButton.lo \
 	javax/swing/plaf/basic/BasicButtonListener.lo \
 	javax/swing/plaf/basic/BasicButtonUI.lo \
 	javax/swing/plaf/basic/BasicCheckBoxUI.lo \
+	javax/swing/plaf/basic/BasicColorChooserUI.lo \
+	javax/swing/plaf/basic/BasicComboBoxUI.lo \
+	javax/swing/plaf/basic/BasicComboBoxEditor.lo \
+	javax/swing/plaf/basic/BasicComboBoxRenderer.lo \
+	javax/swing/plaf/basic/BasicComboPopup.lo \
 	javax/swing/plaf/basic/BasicDesktopIconUI.lo \
 	javax/swing/plaf/basic/BasicDesktopPaneUI.lo \
+	javax/swing/plaf/basic/BasicFormattedTextFieldUI.lo \
 	javax/swing/plaf/basic/BasicGraphicsUtils.lo \
 	javax/swing/plaf/basic/BasicInternalFrameTitlePane.lo \
 	javax/swing/plaf/basic/BasicInternalFrameUI.lo \
@@ -2695,6 +2740,7 @@ am__objects_11 = gnu/awt/LightweightRedirector.lo \
 	javax/swing/plaf/basic/BasicMenuItemUI.lo \
 	javax/swing/plaf/basic/BasicOptionPaneUI.lo \
 	javax/swing/plaf/basic/BasicPanelUI.lo \
+	javax/swing/plaf/basic/BasicPasswordFieldUI.lo \
 	javax/swing/plaf/basic/BasicPopupMenuUI.lo \
 	javax/swing/plaf/basic/BasicPopupMenuSeparatorUI.lo \
 	javax/swing/plaf/basic/BasicProgressBarUI.lo \
@@ -2706,19 +2752,25 @@ am__objects_11 = gnu/awt/LightweightRedirector.lo \
 	javax/swing/plaf/basic/BasicScrollPaneUI.lo \
 	javax/swing/plaf/basic/BasicSeparatorUI.lo \
 	javax/swing/plaf/basic/BasicSliderUI.lo \
+	javax/swing/plaf/basic/BasicSpinnerUI.lo \
 	javax/swing/plaf/basic/BasicSplitPaneDivider.lo \
 	javax/swing/plaf/basic/BasicSplitPaneUI.lo \
 	javax/swing/plaf/basic/BasicTabbedPaneUI.lo \
+	javax/swing/plaf/basic/BasicTableUI.lo \
+	javax/swing/plaf/basic/BasicTableHeaderUI.lo \
+	javax/swing/plaf/basic/BasicTextAreaUI.lo \
 	javax/swing/plaf/basic/BasicTextFieldUI.lo \
 	javax/swing/plaf/basic/BasicTextUI.lo \
 	javax/swing/plaf/basic/BasicToggleButtonUI.lo \
 	javax/swing/plaf/basic/BasicToolBarSeparatorUI.lo \
 	javax/swing/plaf/basic/BasicToolBarUI.lo \
+	javax/swing/plaf/basic/BasicToolTipUI.lo \
 	javax/swing/plaf/basic/BasicTreeUI.lo \
 	javax/swing/plaf/basic/BasicViewportUI.lo \
 	javax/swing/plaf/basic/BasicLookAndFeel.lo \
 	javax/swing/plaf/basic/BasicBorders.lo \
 	javax/swing/plaf/basic/BasicIconFactory.lo \
+	javax/swing/plaf/basic/ComboPopup.lo \
 	javax/swing/plaf/BorderUIResource.lo \
 	javax/swing/plaf/UIResource.lo javax/swing/plaf/ButtonUI.lo \
 	javax/swing/plaf/ComponentUI.lo javax/swing/plaf/LabelUI.lo \
@@ -2754,6 +2806,10 @@ am__objects_11 = gnu/awt/LightweightRedirector.lo \
 	javax/swing/colorchooser/ColorChooserComponentFactory.lo \
 	javax/swing/colorchooser/ColorSelectionModel.lo \
 	javax/swing/colorchooser/DefaultColorSelectionModel.lo \
+	javax/swing/colorchooser/DefaultPreviewPanel.lo \
+	javax/swing/colorchooser/DefaultSwatchChooserPanel.lo \
+	javax/swing/colorchooser/DefaultHSBChooserPanel.lo \
+	javax/swing/colorchooser/DefaultRGBChooserPanel.lo \
 	javax/swing/filechooser/FileFilter.lo \
 	javax/swing/filechooser/FileSystemView.lo \
 	javax/swing/filechooser/FileView.lo \
@@ -2785,17 +2841,19 @@ am__objects_11 = gnu/awt/LightweightRedirector.lo \
 	javax/swing/JOptionPane.lo javax/swing/JPanel.lo \
 	javax/swing/JRadioButton.lo javax/swing/JRootPane.lo \
 	javax/swing/JScrollBar.lo javax/swing/JScrollPane.lo \
-	javax/swing/JTabbedPane.lo javax/swing/JTextArea.lo \
-	javax/swing/JTextField.lo javax/swing/JToggleButton.lo \
-	javax/swing/JToolTip.lo javax/swing/JTree.lo \
-	javax/swing/JViewport.lo javax/swing/JWindow.lo \
-	javax/swing/KeyStroke.lo javax/swing/ListCellRenderer.lo \
-	javax/swing/ListModel.lo javax/swing/ListSelectionModel.lo \
-	javax/swing/LookAndFeel.lo javax/swing/Scrollable.lo \
-	javax/swing/Spring.lo javax/swing/SpringLayout.lo \
-	javax/swing/SwingConstants.lo javax/swing/SwingUtilities.lo \
-	javax/swing/Timer.lo javax/swing/UIDefaults.lo \
-	javax/swing/UIManager.lo \
+	javax/swing/JSpinner.lo javax/swing/JTabbedPane.lo \
+	javax/swing/JTextArea.lo javax/swing/JTextField.lo \
+	javax/swing/JToggleButton.lo javax/swing/JToolTip.lo \
+	javax/swing/JTree.lo javax/swing/JViewport.lo \
+	javax/swing/JWindow.lo javax/swing/KeyStroke.lo \
+	javax/swing/ListCellRenderer.lo javax/swing/ListModel.lo \
+	javax/swing/ListSelectionModel.lo javax/swing/LookAndFeel.lo \
+	javax/swing/Scrollable.lo javax/swing/SpinnerModel.lo \
+	javax/swing/SpinnerNumberModel.lo javax/swing/Spring.lo \
+	javax/swing/SpringLayout.lo javax/swing/SwingConstants.lo \
+	javax/swing/SwingUtilities.lo javax/swing/Timer.lo \
+	javax/swing/ToolTipManager.lo javax/swing/TransferHandler.lo \
+	javax/swing/UIDefaults.lo javax/swing/UIManager.lo \
 	javax/swing/UnsupportedLookAndFeelException.lo \
 	javax/swing/event/AncestorEvent.lo \
 	javax/swing/event/AncestorListener.lo \
@@ -2858,13 +2916,17 @@ am__objects_11 = gnu/awt/LightweightRedirector.lo \
 	javax/swing/text/NavigationFilter.lo \
 	javax/swing/text/PlainDocument.lo \
 	javax/swing/text/PlainView.lo javax/swing/text/Position.lo \
-	javax/swing/text/Segment.lo javax/swing/text/Style.lo \
+	javax/swing/text/Segment.lo \
+	javax/swing/text/SimpleAttributeSet.lo \
+	javax/swing/text/Style.lo javax/swing/text/StyleConstants.lo \
+	javax/swing/text/StyleContext.lo \
 	javax/swing/text/StyledDocument.lo \
 	javax/swing/text/StyledEditorKit.lo \
-	javax/swing/text/TabExpander.lo \
-	javax/swing/text/TabableView.lo javax/swing/text/TextAction.lo \
-	javax/swing/text/View.lo javax/swing/text/ViewFactory.lo \
-	javax/swing/text/html/HTML.lo \
+	javax/swing/text/TabableView.lo \
+	javax/swing/text/TabExpander.lo javax/swing/text/TabSet.lo \
+	javax/swing/text/TabStop.lo javax/swing/text/TextAction.lo \
+	javax/swing/text/Utilities.lo javax/swing/text/View.lo \
+	javax/swing/text/ViewFactory.lo javax/swing/text/html/HTML.lo \
 	javax/swing/text/html/parser/ParserDelegator.lo \
 	javax/swing/tree/TreeNode.lo \
 	javax/swing/tree/AbstractLayoutCache.lo \
@@ -2923,7 +2985,7 @@ am__objects_11 = gnu/awt/LightweightRedirector.lo \
 	javax/swing/PopupFactory.lo javax/swing/ProgressMonitor.lo \
 	javax/swing/ProgressMonitorInputStream.lo \
 	javax/swing/RepaintManager.lo javax/swing/ScrollPaneLayout.lo \
-	javax/swing/ToolTipManager.lo javax/swing/ViewportLayout.lo
+	javax/swing/ViewportLayout.lo
 am__objects_12 = gnu/gcj/convert/BytesToUnicode.lo \
 	gnu/gcj/convert/Convert.lo gnu/gcj/convert/Input_8859_1.lo \
 	gnu/gcj/convert/Input_ASCII.lo gnu/gcj/convert/Input_EUCJIS.lo \
@@ -3775,6 +3837,7 @@ LTCXXCOMPILE = $(LIBTOOL) --mode=compile $(CXX) $(DEFS) \
 CXXLD = $(CXX)
 CXXLINK = $(LIBTOOL) --mode=link $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
+GCJCOMPILE = $(GCJ) $(AM_GCJFLAGS) $(GCJFLAGS)
 LTGCJCOMPILE = $(LIBTOOL) --mode=compile $(GCJ) $(AM_GCJFLAGS) \
 	$(GCJFLAGS)
 GCJLD = $(GCJ)
@@ -4061,8 +4124,6 @@ ACLOCAL_AMFLAGS = -I .
 write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) $(foreach object,$(1),$(shell echo $(object) >> $(2)))
 @XLIB_AWT_FALSE@cond_xlib_ltlibrary = 
 @XLIB_AWT_TRUE@cond_xlib_ltlibrary = lib-gnu-awt-xlib.la
-@XLIB_AWT_FALSE@xlib_includes = 
-@XLIB_AWT_TRUE@xlib_includes = -I../libstdc++-v3/include -I../libstdc++-v3/include/$(target_noncanonical) -I$(srcdir)/../libstdc++-v3/libsupc++
 @GTK_AWT_FALSE@cond_gtk_ltlibrary = 
 @GTK_AWT_TRUE@cond_gtk_ltlibrary = lib-gnu-java-awt-peer-gtk.la
 toolexeclib_LTLIBRARIES = libgcj.la libgij.la lib-org-xml-sax.la lib-org-w3c-dom.la \
@@ -4077,7 +4138,6 @@ secdir = $(libdir)/security
 propdir = $(libdir)
 bin_SCRIPTS = addr2name.awk
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated
-GCJCOMPILE = $(LIBTOOL) --tag=GCJ --mode=compile $(GCJ_WITH_FLAGS) -fclasspath= -fbootclasspath=$(here) $(JC1FLAGS) -MD -MT $@ -MF $(@:.lo=.d) -c
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
 LIBLINK = $(LIBTOOL) --tag=CXX --mode=link $(CXX) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
 JAVAC = $(GCJ_WITH_FLAGS) -C
@@ -4100,6 +4160,7 @@ AM_CXXFLAGS = \
 
 AM_GCJFLAGS = \
 	@LIBGCJ_JAVAFLAGS@ \
+	-fclasspath= -fbootclasspath=$(here) \
 	--encoding=UTF-8 \
 	-Wno-deprecated
 
@@ -4108,8 +4169,8 @@ AM_GCJFLAGS = \
 PEDANTIC_CFLAGS = -ansi -pedantic -Wall -Wno-long-long
 JCFLAGS = -g
 JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
-INCLUDES = -I$(top_srcdir) -Iinclude -I$(top_srcdir)/include \
-	$(GCINCS) $(THREADINCS) $(INCLTDL) $(xlib_includes) \
+AM_CPPFLAGS = -I$(top_srcdir) -Iinclude -I$(top_srcdir)/include \
+	$(GCINCS) $(THREADINCS) $(INCLTDL) \
 	$(GCC_UNWIND_INCLUDE) $(ZINCS) $(LIBFFIINCS)
 
 libgij_la_SOURCES = gij.cc
@@ -4180,6 +4241,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextComponentPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c	\
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c \
 jni/gtk-peer/gthread-jni.c \
 jni/classpath/jcl.c \
 jni/classpath/jnilink.c	\
@@ -4195,8 +4257,6 @@ gnu/java/awt/peer/gtk/GdkGraphics.java \
 gnu/java/awt/peer/gtk/GdkGraphics2D.java \
 gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java \
 gnu/java/awt/peer/gtk/GdkPixbufDecoder.java \
-gnu/java/awt/peer/gtk/GtkArg.java \
-gnu/java/awt/peer/gtk/GtkArgList.java \
 gnu/java/awt/peer/gtk/GtkButtonPeer.java \
 gnu/java/awt/peer/gtk/GtkCanvasPeer.java \
 gnu/java/awt/peer/gtk/GtkCheckboxGroupPeer.java	\
@@ -4230,7 +4290,9 @@ gnu/java/awt/peer/gtk/GtkTextAreaPeer.java \
 gnu/java/awt/peer/gtk/GtkTextComponentPeer.java	\
 gnu/java/awt/peer/gtk/GtkTextFieldPeer.java \
 gnu/java/awt/peer/gtk/GtkToolkit.java \
-gnu/java/awt/peer/gtk/GtkWindowPeer.java
+gnu/java/awt/peer/gtk/GtkWindowPeer.java \
+gnu/java/awt/peer/gtk/GThreadMutex.java \
+gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java
 
 gtk_jni_headers = $(patsubst %.java,jniinclude/%.h,$(subst /,_,$(gtk_awt_peer_sources)))
 lib_gnu_java_awt_peer_gtk_la_SOURCES = \
@@ -4245,7 +4307,8 @@ jni/classpath/primlib.h
 
 lib_gnu_java_awt_peer_gtk_la_CFLAGS = \
 	-Ijniinclude -I$(srcdir)/jni/classpath \
-	-I$(srcdir)/jni/gtk-peer $(GTK_CFLAGS) $(LIBART_CFLAGS)
+	-I$(srcdir)/jni/gtk-peer $(PEDANTIC_CFLAGS) $(GTK_CFLAGS) $(LIBART_CFLAGS) \
+	$(CAIRO_CFLAGS) $(PANGOFT2_CFLAGS)
 
 lib_gnu_java_awt_peer_gtk_la_GCJFLAGS = $(AM_GCJFLAGS) -fjni
 lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
@@ -4325,6 +4388,11 @@ lib_gnu_awt_xlib_la_SOURCES = \
 
 lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-@gcc_version@.jar libgcj.la libgcj.spec
 lib_gnu_awt_xlib_la_LIBADD = $(xlib_javao_files)
+lib_gnu_awt_xlib_la_CPPFLAGS = \
+	-I../libstdc++-v3/include \
+	-I../libstdc++-v3/include/$(target_noncanonical) \
+	-I$(srcdir)/../libstdc++-v3/libsupc++
+
 lib_gnu_awt_xlib_la_LDFLAGS = ../libstdc++-v3/src/libstdc++.la \
 	@X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
         -rpath $(toolexeclibdir) \
@@ -4846,12 +4914,19 @@ javax/swing/border/TitledBorder.java \
 javax/swing/GrayFilter.java \
 javax/swing/AbstractAction.java \
 javax/swing/AbstractButton.java \
+javax/swing/AbstractSpinnerModel.java \
 javax/swing/plaf/basic/BasicArrowButton.java \
 javax/swing/plaf/basic/BasicButtonListener.java \
 javax/swing/plaf/basic/BasicButtonUI.java \
 javax/swing/plaf/basic/BasicCheckBoxUI.java \
+javax/swing/plaf/basic/BasicColorChooserUI.java \
+javax/swing/plaf/basic/BasicComboBoxUI.java \
+javax/swing/plaf/basic/BasicComboBoxEditor.java \
+javax/swing/plaf/basic/BasicComboBoxRenderer.java \
+javax/swing/plaf/basic/BasicComboPopup.java \
 javax/swing/plaf/basic/BasicDesktopIconUI.java \
 javax/swing/plaf/basic/BasicDesktopPaneUI.java \
+javax/swing/plaf/basic/BasicFormattedTextFieldUI.java \
 javax/swing/plaf/basic/BasicGraphicsUtils.java \
 javax/swing/plaf/basic/BasicInternalFrameTitlePane.java \
 javax/swing/plaf/basic/BasicInternalFrameUI.java \
@@ -4862,6 +4937,7 @@ javax/swing/plaf/basic/BasicMenuBarUI.java \
 javax/swing/plaf/basic/BasicMenuItemUI.java \
 javax/swing/plaf/basic/BasicOptionPaneUI.java \
 javax/swing/plaf/basic/BasicPanelUI.java \
+javax/swing/plaf/basic/BasicPasswordFieldUI.java \
 javax/swing/plaf/basic/BasicPopupMenuUI.java \
 javax/swing/plaf/basic/BasicPopupMenuSeparatorUI.java \
 javax/swing/plaf/basic/BasicProgressBarUI.java \
@@ -4873,19 +4949,25 @@ javax/swing/plaf/basic/BasicScrollBarUI.java \
 javax/swing/plaf/basic/BasicScrollPaneUI.java \
 javax/swing/plaf/basic/BasicSeparatorUI.java \
 javax/swing/plaf/basic/BasicSliderUI.java \
+javax/swing/plaf/basic/BasicSpinnerUI.java \
 javax/swing/plaf/basic/BasicSplitPaneDivider.java \
 javax/swing/plaf/basic/BasicSplitPaneUI.java \
 javax/swing/plaf/basic/BasicTabbedPaneUI.java \
+javax/swing/plaf/basic/BasicTableUI.java \
+javax/swing/plaf/basic/BasicTableHeaderUI.java \
+javax/swing/plaf/basic/BasicTextAreaUI.java \
 javax/swing/plaf/basic/BasicTextFieldUI.java \
 javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
 javax/swing/plaf/basic/BasicToolBarSeparatorUI.java \
 javax/swing/plaf/basic/BasicToolBarUI.java \
+javax/swing/plaf/basic/BasicToolTipUI.java \
 javax/swing/plaf/basic/BasicTreeUI.java \
 javax/swing/plaf/basic/BasicViewportUI.java \
 javax/swing/plaf/basic/BasicLookAndFeel.java \
 javax/swing/plaf/basic/BasicBorders.java \
 javax/swing/plaf/basic/BasicIconFactory.java \
+javax/swing/plaf/basic/ComboPopup.java \
 javax/swing/plaf/BorderUIResource.java \
 javax/swing/plaf/UIResource.java \
 javax/swing/plaf/ButtonUI.java \
@@ -4934,6 +5016,10 @@ javax/swing/colorchooser/AbstractColorChooserPanel.java \
 javax/swing/colorchooser/ColorChooserComponentFactory.java \
 javax/swing/colorchooser/ColorSelectionModel.java \
 javax/swing/colorchooser/DefaultColorSelectionModel.java \
+javax/swing/colorchooser/DefaultPreviewPanel.java \
+javax/swing/colorchooser/DefaultSwatchChooserPanel.java \
+javax/swing/colorchooser/DefaultHSBChooserPanel.java \
+javax/swing/colorchooser/DefaultRGBChooserPanel.java \
 javax/swing/filechooser/FileFilter.java \
 javax/swing/filechooser/FileSystemView.java \
 javax/swing/filechooser/FileView.java \
@@ -4979,6 +5065,7 @@ javax/swing/JRadioButton.java \
 javax/swing/JRootPane.java \
 javax/swing/JScrollBar.java \
 javax/swing/JScrollPane.java \
+javax/swing/JSpinner.java \
 javax/swing/JTabbedPane.java \
 javax/swing/JTextArea.java \
 javax/swing/JTextField.java \
@@ -4993,11 +5080,15 @@ javax/swing/ListModel.java \
 javax/swing/ListSelectionModel.java \
 javax/swing/LookAndFeel.java \
 javax/swing/Scrollable.java \
+javax/swing/SpinnerModel.java \
+javax/swing/SpinnerNumberModel.java \
 javax/swing/Spring.java \
 javax/swing/SpringLayout.java \
 javax/swing/SwingConstants.java \
 javax/swing/SwingUtilities.java \
 javax/swing/Timer.java \
+javax/swing/ToolTipManager.java \
+javax/swing/TransferHandler.java \
 javax/swing/UIDefaults.java \
 javax/swing/UIManager.java \
 javax/swing/UnsupportedLookAndFeelException.java \
@@ -5069,12 +5160,18 @@ javax/swing/text/PlainDocument.java \
 javax/swing/text/PlainView.java \
 javax/swing/text/Position.java \
 javax/swing/text/Segment.java \
+javax/swing/text/SimpleAttributeSet.java \
 javax/swing/text/Style.java \
+javax/swing/text/StyleConstants.java \
+javax/swing/text/StyleContext.java \
 javax/swing/text/StyledDocument.java \
 javax/swing/text/StyledEditorKit.java \
-javax/swing/text/TabExpander.java \
 javax/swing/text/TabableView.java \
+javax/swing/text/TabExpander.java \
+javax/swing/text/TabSet.java \
+javax/swing/text/TabStop.java \
 javax/swing/text/TextAction.java \
+javax/swing/text/Utilities.java \
 javax/swing/text/View.java \
 javax/swing/text/ViewFactory.java \
 javax/swing/text/html/HTML.java \
@@ -5157,7 +5254,6 @@ javax/swing/ProgressMonitor.java \
 javax/swing/ProgressMonitorInputStream.java \
 javax/swing/RepaintManager.java \
 javax/swing/ScrollPaneLayout.java \
-javax/swing/ToolTipManager.java \
 javax/swing/ViewportLayout.java
 
 rmi_java_source_files = \
@@ -6771,45 +6867,65 @@ gnu/awt/xlib/XFontPeer.lo: gnu/awt/xlib/$(am__dirstamp) \
 	gnu/awt/xlib/$(DEPDIR)/$(am__dirstamp)
 gnu/awt/xlib/XToolkit.lo: gnu/awt/xlib/$(am__dirstamp) \
 	gnu/awt/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natClip.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natClip.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natColormap.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natColormap.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natDisplay.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDisplay.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natDrawable.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDrawable.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natFont.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natFont.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natGC.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natGC.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natPixmap.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natPixmap.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natScreen.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natScreen.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natVisual.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natVisual.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natWMSizeHints.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWMSizeHints.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natWindow.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindow.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natWindowAttributes.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindowAttributes.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natXAnyEvent.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXAnyEvent.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natXButtonEvent.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXButtonEvent.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natXColor.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXColor.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natXConfigureEvent.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXConfigureEvent.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natXException.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXException.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natXExposeEvent.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXExposeEvent.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natXImage.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXImage.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/gcj/xlib/natXUnmapEvent.lo: gnu/gcj/xlib/$(am__dirstamp) \
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXUnmapEvent.lo:  \
+	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
 gnu/java/awt/peer/gtk/$(am__dirstamp):
 	@$(mkdir_p) gnu/java/awt/peer/gtk
@@ -6839,12 +6955,6 @@ gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkGraphicsEnvironment.lo:  \
 	gnu/java/awt/peer/gtk/$(am__dirstamp) \
 	gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
 gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkPixbufDecoder.lo:  \
-	gnu/java/awt/peer/gtk/$(am__dirstamp) \
-	gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
-gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArg.lo:  \
-	gnu/java/awt/peer/gtk/$(am__dirstamp) \
-	gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
-gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArgList.lo:  \
 	gnu/java/awt/peer/gtk/$(am__dirstamp) \
 	gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
 gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkButtonPeer.lo:  \
@@ -6947,6 +7057,12 @@ gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkToolkit.lo:  \
 	gnu/java/awt/peer/gtk/$(am__dirstamp) \
 	gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
 gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkWindowPeer.lo:  \
+	gnu/java/awt/peer/gtk/$(am__dirstamp) \
+	gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.lo:  \
+	gnu/java/awt/peer/gtk/$(am__dirstamp) \
+	gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
+gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.lo:  \
 	gnu/java/awt/peer/gtk/$(am__dirstamp) \
 	gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
 jni/gtk-peer/$(am__dirstamp):
@@ -7061,6 +7177,9 @@ jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkToolkit.lo:  
 	jni/gtk-peer/$(am__dirstamp) \
 	jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
 jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkWindowPeer.lo:  \
+	jni/gtk-peer/$(am__dirstamp) \
+	jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
+jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.lo:  \
 	jni/gtk-peer/$(am__dirstamp) \
 	jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
 jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gthread-jni.lo:  \
@@ -11244,6 +11363,8 @@ javax/swing/AbstractAction.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
 javax/swing/AbstractButton.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
+javax/swing/AbstractSpinnerModel.lo: javax/swing/$(am__dirstamp) \
+	javax/swing/$(DEPDIR)/$(am__dirstamp)
 javax/swing/plaf/basic/$(am__dirstamp):
 	@$(mkdir_p) javax/swing/plaf/basic
 	@: > javax/swing/plaf/basic/$(am__dirstamp)
@@ -11262,10 +11383,28 @@ javax/swing/plaf/basic/BasicButtonUI.lo:  \
 javax/swing/plaf/basic/BasicCheckBoxUI.lo:  \
 	javax/swing/plaf/basic/$(am__dirstamp) \
 	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
+javax/swing/plaf/basic/BasicColorChooserUI.lo:  \
+	javax/swing/plaf/basic/$(am__dirstamp) \
+	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
+javax/swing/plaf/basic/BasicComboBoxUI.lo:  \
+	javax/swing/plaf/basic/$(am__dirstamp) \
+	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
+javax/swing/plaf/basic/BasicComboBoxEditor.lo:  \
+	javax/swing/plaf/basic/$(am__dirstamp) \
+	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
+javax/swing/plaf/basic/BasicComboBoxRenderer.lo:  \
+	javax/swing/plaf/basic/$(am__dirstamp) \
+	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
+javax/swing/plaf/basic/BasicComboPopup.lo:  \
+	javax/swing/plaf/basic/$(am__dirstamp) \
+	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
 javax/swing/plaf/basic/BasicDesktopIconUI.lo:  \
 	javax/swing/plaf/basic/$(am__dirstamp) \
 	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
 javax/swing/plaf/basic/BasicDesktopPaneUI.lo:  \
+	javax/swing/plaf/basic/$(am__dirstamp) \
+	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
+javax/swing/plaf/basic/BasicFormattedTextFieldUI.lo:  \
 	javax/swing/plaf/basic/$(am__dirstamp) \
 	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
 javax/swing/plaf/basic/BasicGraphicsUtils.lo:  \
@@ -11296,6 +11435,9 @@ javax/swing/plaf/basic/BasicOptionPaneUI.lo:  \
 	javax/swing/plaf/basic/$(am__dirstamp) \
 	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
 javax/swing/plaf/basic/BasicPanelUI.lo:  \
+	javax/swing/plaf/basic/$(am__dirstamp) \
+	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
+javax/swing/plaf/basic/BasicPasswordFieldUI.lo:  \
 	javax/swing/plaf/basic/$(am__dirstamp) \
 	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
 javax/swing/plaf/basic/BasicPopupMenuUI.lo:  \
@@ -11331,6 +11473,9 @@ javax/swing/plaf/basic/BasicSeparatorUI.lo:  \
 javax/swing/plaf/basic/BasicSliderUI.lo:  \
 	javax/swing/plaf/basic/$(am__dirstamp) \
 	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
+javax/swing/plaf/basic/BasicSpinnerUI.lo:  \
+	javax/swing/plaf/basic/$(am__dirstamp) \
+	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
 javax/swing/plaf/basic/BasicSplitPaneDivider.lo:  \
 	javax/swing/plaf/basic/$(am__dirstamp) \
 	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
@@ -11338,6 +11483,15 @@ javax/swing/plaf/basic/BasicSplitPaneUI.lo:  \
 	javax/swing/plaf/basic/$(am__dirstamp) \
 	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
 javax/swing/plaf/basic/BasicTabbedPaneUI.lo:  \
+	javax/swing/plaf/basic/$(am__dirstamp) \
+	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
+javax/swing/plaf/basic/BasicTableUI.lo:  \
+	javax/swing/plaf/basic/$(am__dirstamp) \
+	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
+javax/swing/plaf/basic/BasicTableHeaderUI.lo:  \
+	javax/swing/plaf/basic/$(am__dirstamp) \
+	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
+javax/swing/plaf/basic/BasicTextAreaUI.lo:  \
 	javax/swing/plaf/basic/$(am__dirstamp) \
 	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
 javax/swing/plaf/basic/BasicTextFieldUI.lo:  \
@@ -11355,6 +11509,9 @@ javax/swing/plaf/basic/BasicToolBarSeparatorUI.lo:  \
 javax/swing/plaf/basic/BasicToolBarUI.lo:  \
 	javax/swing/plaf/basic/$(am__dirstamp) \
 	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
+javax/swing/plaf/basic/BasicToolTipUI.lo:  \
+	javax/swing/plaf/basic/$(am__dirstamp) \
+	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
 javax/swing/plaf/basic/BasicTreeUI.lo:  \
 	javax/swing/plaf/basic/$(am__dirstamp) \
 	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
@@ -11368,6 +11525,9 @@ javax/swing/plaf/basic/BasicBorders.lo:  \
 	javax/swing/plaf/basic/$(am__dirstamp) \
 	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
 javax/swing/plaf/basic/BasicIconFactory.lo:  \
+	javax/swing/plaf/basic/$(am__dirstamp) \
+	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
+javax/swing/plaf/basic/ComboPopup.lo:  \
 	javax/swing/plaf/basic/$(am__dirstamp) \
 	javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
 javax/swing/plaf/$(am__dirstamp):
@@ -11495,6 +11655,18 @@ javax/swing/colorchooser/ColorSelectionModel.lo:  \
 javax/swing/colorchooser/DefaultColorSelectionModel.lo:  \
 	javax/swing/colorchooser/$(am__dirstamp) \
 	javax/swing/colorchooser/$(DEPDIR)/$(am__dirstamp)
+javax/swing/colorchooser/DefaultPreviewPanel.lo:  \
+	javax/swing/colorchooser/$(am__dirstamp) \
+	javax/swing/colorchooser/$(DEPDIR)/$(am__dirstamp)
+javax/swing/colorchooser/DefaultSwatchChooserPanel.lo:  \
+	javax/swing/colorchooser/$(am__dirstamp) \
+	javax/swing/colorchooser/$(DEPDIR)/$(am__dirstamp)
+javax/swing/colorchooser/DefaultHSBChooserPanel.lo:  \
+	javax/swing/colorchooser/$(am__dirstamp) \
+	javax/swing/colorchooser/$(DEPDIR)/$(am__dirstamp)
+javax/swing/colorchooser/DefaultRGBChooserPanel.lo:  \
+	javax/swing/colorchooser/$(am__dirstamp) \
+	javax/swing/colorchooser/$(DEPDIR)/$(am__dirstamp)
 javax/swing/filechooser/$(am__dirstamp):
 	@$(mkdir_p) javax/swing/filechooser
 	@: > javax/swing/filechooser/$(am__dirstamp)
@@ -11607,6 +11779,8 @@ javax/swing/JScrollBar.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
 javax/swing/JScrollPane.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
+javax/swing/JSpinner.lo: javax/swing/$(am__dirstamp) \
+	javax/swing/$(DEPDIR)/$(am__dirstamp)
 javax/swing/JTabbedPane.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
 javax/swing/JTextArea.lo: javax/swing/$(am__dirstamp) \
@@ -11635,6 +11809,10 @@ javax/swing/LookAndFeel.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
 javax/swing/Scrollable.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
+javax/swing/SpinnerModel.lo: javax/swing/$(am__dirstamp) \
+	javax/swing/$(DEPDIR)/$(am__dirstamp)
+javax/swing/SpinnerNumberModel.lo: javax/swing/$(am__dirstamp) \
+	javax/swing/$(DEPDIR)/$(am__dirstamp)
 javax/swing/Spring.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
 javax/swing/SpringLayout.lo: javax/swing/$(am__dirstamp) \
@@ -11644,6 +11822,10 @@ javax/swing/SwingConstants.lo: javax/swing/$(am__dirstamp) \
 javax/swing/SwingUtilities.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
 javax/swing/Timer.lo: javax/swing/$(am__dirstamp) \
+	javax/swing/$(DEPDIR)/$(am__dirstamp)
+javax/swing/ToolTipManager.lo: javax/swing/$(am__dirstamp) \
+	javax/swing/$(DEPDIR)/$(am__dirstamp)
+javax/swing/TransferHandler.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
 javax/swing/UIDefaults.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
@@ -11841,17 +12023,30 @@ javax/swing/text/Position.lo: javax/swing/text/$(am__dirstamp) \
 	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
 javax/swing/text/Segment.lo: javax/swing/text/$(am__dirstamp) \
 	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
+javax/swing/text/SimpleAttributeSet.lo:  \
+	javax/swing/text/$(am__dirstamp) \
+	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
 javax/swing/text/Style.lo: javax/swing/text/$(am__dirstamp) \
+	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
+javax/swing/text/StyleConstants.lo: javax/swing/text/$(am__dirstamp) \
+	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
+javax/swing/text/StyleContext.lo: javax/swing/text/$(am__dirstamp) \
 	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
 javax/swing/text/StyledDocument.lo: javax/swing/text/$(am__dirstamp) \
 	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
 javax/swing/text/StyledEditorKit.lo: javax/swing/text/$(am__dirstamp) \
 	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
-javax/swing/text/TabExpander.lo: javax/swing/text/$(am__dirstamp) \
-	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
 javax/swing/text/TabableView.lo: javax/swing/text/$(am__dirstamp) \
 	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
+javax/swing/text/TabExpander.lo: javax/swing/text/$(am__dirstamp) \
+	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
+javax/swing/text/TabSet.lo: javax/swing/text/$(am__dirstamp) \
+	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
+javax/swing/text/TabStop.lo: javax/swing/text/$(am__dirstamp) \
+	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
 javax/swing/text/TextAction.lo: javax/swing/text/$(am__dirstamp) \
+	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
+javax/swing/text/Utilities.lo: javax/swing/text/$(am__dirstamp) \
 	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
 javax/swing/text/View.lo: javax/swing/text/$(am__dirstamp) \
 	javax/swing/text/$(DEPDIR)/$(am__dirstamp)
@@ -12058,8 +12253,6 @@ javax/swing/ProgressMonitorInputStream.lo:  \
 javax/swing/RepaintManager.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
 javax/swing/ScrollPaneLayout.lo: javax/swing/$(am__dirstamp) \
-	javax/swing/$(DEPDIR)/$(am__dirstamp)
-javax/swing/ToolTipManager.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
 javax/swing/ViewportLayout.lo: javax/swing/$(am__dirstamp) \
 	javax/swing/$(DEPDIR)/$(am__dirstamp)
@@ -13242,46 +13435,46 @@ mostlyclean-compile:
 	-rm -f gnu/gcj/xlib/XImage.lo
 	-rm -f gnu/gcj/xlib/XUnmapEvent.$(OBJEXT)
 	-rm -f gnu/gcj/xlib/XUnmapEvent.lo
-	-rm -f gnu/gcj/xlib/natClip.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natClip.lo
-	-rm -f gnu/gcj/xlib/natColormap.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natColormap.lo
-	-rm -f gnu/gcj/xlib/natDisplay.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natDisplay.lo
-	-rm -f gnu/gcj/xlib/natDrawable.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natDrawable.lo
-	-rm -f gnu/gcj/xlib/natFont.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natFont.lo
-	-rm -f gnu/gcj/xlib/natGC.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natGC.lo
-	-rm -f gnu/gcj/xlib/natPixmap.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natPixmap.lo
-	-rm -f gnu/gcj/xlib/natScreen.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natScreen.lo
-	-rm -f gnu/gcj/xlib/natVisual.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natVisual.lo
-	-rm -f gnu/gcj/xlib/natWMSizeHints.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natWMSizeHints.lo
-	-rm -f gnu/gcj/xlib/natWindow.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natWindow.lo
-	-rm -f gnu/gcj/xlib/natWindowAttributes.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natWindowAttributes.lo
-	-rm -f gnu/gcj/xlib/natXAnyEvent.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natXAnyEvent.lo
-	-rm -f gnu/gcj/xlib/natXButtonEvent.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natXButtonEvent.lo
-	-rm -f gnu/gcj/xlib/natXColor.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natXColor.lo
-	-rm -f gnu/gcj/xlib/natXConfigureEvent.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natXConfigureEvent.lo
-	-rm -f gnu/gcj/xlib/natXException.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natXException.lo
-	-rm -f gnu/gcj/xlib/natXExposeEvent.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natXExposeEvent.lo
-	-rm -f gnu/gcj/xlib/natXImage.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natXImage.lo
-	-rm -f gnu/gcj/xlib/natXUnmapEvent.$(OBJEXT)
-	-rm -f gnu/gcj/xlib/natXUnmapEvent.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natClip.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natClip.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natColormap.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natColormap.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDisplay.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDisplay.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDrawable.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDrawable.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natFont.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natFont.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natGC.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natGC.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natPixmap.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natPixmap.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natScreen.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natScreen.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natVisual.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natVisual.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWMSizeHints.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWMSizeHints.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindow.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindow.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindowAttributes.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindowAttributes.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXAnyEvent.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXAnyEvent.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXButtonEvent.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXButtonEvent.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXColor.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXColor.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXConfigureEvent.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXConfigureEvent.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXException.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXException.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXExposeEvent.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXExposeEvent.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXImage.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXImage.lo
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXUnmapEvent.$(OBJEXT)
+	-rm -f gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXUnmapEvent.lo
 	-rm -f gnu/java/awt/BitMaskExtent.$(OBJEXT)
 	-rm -f gnu/java/awt/BitMaskExtent.lo
 	-rm -f gnu/java/awt/BitwiseXORComposite.$(OBJEXT)
@@ -13308,6 +13501,10 @@ mostlyclean-compile:
 	-rm -f gnu/java/awt/peer/EmbeddedWindowPeer.lo
 	-rm -f gnu/java/awt/peer/GLightweightPeer.$(OBJEXT)
 	-rm -f gnu/java/awt/peer/GLightweightPeer.lo
+	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.$(OBJEXT)
+	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.lo
+	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.$(OBJEXT)
+	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.lo
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.$(OBJEXT)
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.lo
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeerMetrics.$(OBJEXT)
@@ -13324,10 +13521,6 @@ mostlyclean-compile:
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkGraphicsEnvironment.lo
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkPixbufDecoder.$(OBJEXT)
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkPixbufDecoder.lo
-	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArg.$(OBJEXT)
-	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArg.lo
-	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArgList.$(OBJEXT)
-	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArgList.lo
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkButtonPeer.$(OBJEXT)
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkButtonPeer.lo
 	-rm -f gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkCanvasPeer.$(OBJEXT)
@@ -16786,6 +16979,8 @@ mostlyclean-compile:
 	-rm -f javax/swing/AbstractListModel.lo
 	-rm -f javax/swing/AbstractSet.$(OBJEXT)
 	-rm -f javax/swing/AbstractSet.lo
+	-rm -f javax/swing/AbstractSpinnerModel.$(OBJEXT)
+	-rm -f javax/swing/AbstractSpinnerModel.lo
 	-rm -f javax/swing/Action.$(OBJEXT)
 	-rm -f javax/swing/Action.lo
 	-rm -f javax/swing/ActionMap.$(OBJEXT)
@@ -16914,6 +17109,8 @@ mostlyclean-compile:
 	-rm -f javax/swing/JSeparator.lo
 	-rm -f javax/swing/JSlider.$(OBJEXT)
 	-rm -f javax/swing/JSlider.lo
+	-rm -f javax/swing/JSpinner.$(OBJEXT)
+	-rm -f javax/swing/JSpinner.lo
 	-rm -f javax/swing/JSplitPane.$(OBJEXT)
 	-rm -f javax/swing/JSplitPane.lo
 	-rm -f javax/swing/JTabbedPane.$(OBJEXT)
@@ -16982,6 +17179,10 @@ mostlyclean-compile:
 	-rm -f javax/swing/SizeRequirements.lo
 	-rm -f javax/swing/SizeSequence.$(OBJEXT)
 	-rm -f javax/swing/SizeSequence.lo
+	-rm -f javax/swing/SpinnerModel.$(OBJEXT)
+	-rm -f javax/swing/SpinnerModel.lo
+	-rm -f javax/swing/SpinnerNumberModel.$(OBJEXT)
+	-rm -f javax/swing/SpinnerNumberModel.lo
 	-rm -f javax/swing/Spring.$(OBJEXT)
 	-rm -f javax/swing/Spring.lo
 	-rm -f javax/swing/SpringLayout.$(OBJEXT)
@@ -16994,6 +17195,8 @@ mostlyclean-compile:
 	-rm -f javax/swing/Timer.lo
 	-rm -f javax/swing/ToolTipManager.$(OBJEXT)
 	-rm -f javax/swing/ToolTipManager.lo
+	-rm -f javax/swing/TransferHandler.$(OBJEXT)
+	-rm -f javax/swing/TransferHandler.lo
 	-rm -f javax/swing/UIDefaults.$(OBJEXT)
 	-rm -f javax/swing/UIDefaults.lo
 	-rm -f javax/swing/UIManager.$(OBJEXT)
@@ -17032,6 +17235,14 @@ mostlyclean-compile:
 	-rm -f javax/swing/colorchooser/ColorSelectionModel.lo
 	-rm -f javax/swing/colorchooser/DefaultColorSelectionModel.$(OBJEXT)
 	-rm -f javax/swing/colorchooser/DefaultColorSelectionModel.lo
+	-rm -f javax/swing/colorchooser/DefaultHSBChooserPanel.$(OBJEXT)
+	-rm -f javax/swing/colorchooser/DefaultHSBChooserPanel.lo
+	-rm -f javax/swing/colorchooser/DefaultPreviewPanel.$(OBJEXT)
+	-rm -f javax/swing/colorchooser/DefaultPreviewPanel.lo
+	-rm -f javax/swing/colorchooser/DefaultRGBChooserPanel.$(OBJEXT)
+	-rm -f javax/swing/colorchooser/DefaultRGBChooserPanel.lo
+	-rm -f javax/swing/colorchooser/DefaultSwatchChooserPanel.$(OBJEXT)
+	-rm -f javax/swing/colorchooser/DefaultSwatchChooserPanel.lo
 	-rm -f javax/swing/event/AncestorEvent.$(OBJEXT)
 	-rm -f javax/swing/event/AncestorEvent.lo
 	-rm -f javax/swing/event/AncestorListener.$(OBJEXT)
@@ -17218,10 +17429,22 @@ mostlyclean-compile:
 	-rm -f javax/swing/plaf/basic/BasicCheckBoxMenuItemUI.lo
 	-rm -f javax/swing/plaf/basic/BasicCheckBoxUI.$(OBJEXT)
 	-rm -f javax/swing/plaf/basic/BasicCheckBoxUI.lo
+	-rm -f javax/swing/plaf/basic/BasicColorChooserUI.$(OBJEXT)
+	-rm -f javax/swing/plaf/basic/BasicColorChooserUI.lo
+	-rm -f javax/swing/plaf/basic/BasicComboBoxEditor.$(OBJEXT)
+	-rm -f javax/swing/plaf/basic/BasicComboBoxEditor.lo
+	-rm -f javax/swing/plaf/basic/BasicComboBoxRenderer.$(OBJEXT)
+	-rm -f javax/swing/plaf/basic/BasicComboBoxRenderer.lo
+	-rm -f javax/swing/plaf/basic/BasicComboBoxUI.$(OBJEXT)
+	-rm -f javax/swing/plaf/basic/BasicComboBoxUI.lo
+	-rm -f javax/swing/plaf/basic/BasicComboPopup.$(OBJEXT)
+	-rm -f javax/swing/plaf/basic/BasicComboPopup.lo
 	-rm -f javax/swing/plaf/basic/BasicDesktopIconUI.$(OBJEXT)
 	-rm -f javax/swing/plaf/basic/BasicDesktopIconUI.lo
 	-rm -f javax/swing/plaf/basic/BasicDesktopPaneUI.$(OBJEXT)
 	-rm -f javax/swing/plaf/basic/BasicDesktopPaneUI.lo
+	-rm -f javax/swing/plaf/basic/BasicFormattedTextFieldUI.$(OBJEXT)
+	-rm -f javax/swing/plaf/basic/BasicFormattedTextFieldUI.lo
 	-rm -f javax/swing/plaf/basic/BasicGraphicsUtils.$(OBJEXT)
 	-rm -f javax/swing/plaf/basic/BasicGraphicsUtils.lo
 	-rm -f javax/swing/plaf/basic/BasicIconFactory.$(OBJEXT)
@@ -17246,6 +17469,8 @@ mostlyclean-compile:
 	-rm -f javax/swing/plaf/basic/BasicOptionPaneUI.lo
 	-rm -f javax/swing/plaf/basic/BasicPanelUI.$(OBJEXT)
 	-rm -f javax/swing/plaf/basic/BasicPanelUI.lo
+	-rm -f javax/swing/plaf/basic/BasicPasswordFieldUI.$(OBJEXT)
+	-rm -f javax/swing/plaf/basic/BasicPasswordFieldUI.lo
 	-rm -f javax/swing/plaf/basic/BasicPopupMenuSeparatorUI.$(OBJEXT)
 	-rm -f javax/swing/plaf/basic/BasicPopupMenuSeparatorUI.lo
 	-rm -f javax/swing/plaf/basic/BasicPopupMenuUI.$(OBJEXT)
@@ -17266,12 +17491,20 @@ mostlyclean-compile:
 	-rm -f javax/swing/plaf/basic/BasicSeparatorUI.lo
 	-rm -f javax/swing/plaf/basic/BasicSliderUI.$(OBJEXT)
 	-rm -f javax/swing/plaf/basic/BasicSliderUI.lo
+	-rm -f javax/swing/plaf/basic/BasicSpinnerUI.$(OBJEXT)
+	-rm -f javax/swing/plaf/basic/BasicSpinnerUI.lo
 	-rm -f javax/swing/plaf/basic/BasicSplitPaneDivider.$(OBJEXT)
 	-rm -f javax/swing/plaf/basic/BasicSplitPaneDivider.lo
 	-rm -f javax/swing/plaf/basic/BasicSplitPaneUI.$(OBJEXT)
 	-rm -f javax/swing/plaf/basic/BasicSplitPaneUI.lo
 	-rm -f javax/swing/plaf/basic/BasicTabbedPaneUI.$(OBJEXT)
 	-rm -f javax/swing/plaf/basic/BasicTabbedPaneUI.lo
+	-rm -f javax/swing/plaf/basic/BasicTableHeaderUI.$(OBJEXT)
+	-rm -f javax/swing/plaf/basic/BasicTableHeaderUI.lo
+	-rm -f javax/swing/plaf/basic/BasicTableUI.$(OBJEXT)
+	-rm -f javax/swing/plaf/basic/BasicTableUI.lo
+	-rm -f javax/swing/plaf/basic/BasicTextAreaUI.$(OBJEXT)
+	-rm -f javax/swing/plaf/basic/BasicTextAreaUI.lo
 	-rm -f javax/swing/plaf/basic/BasicTextFieldUI.$(OBJEXT)
 	-rm -f javax/swing/plaf/basic/BasicTextFieldUI.lo
 	-rm -f javax/swing/plaf/basic/BasicTextUI.$(OBJEXT)
@@ -17282,10 +17515,14 @@ mostlyclean-compile:
 	-rm -f javax/swing/plaf/basic/BasicToolBarSeparatorUI.lo
 	-rm -f javax/swing/plaf/basic/BasicToolBarUI.$(OBJEXT)
 	-rm -f javax/swing/plaf/basic/BasicToolBarUI.lo
+	-rm -f javax/swing/plaf/basic/BasicToolTipUI.$(OBJEXT)
+	-rm -f javax/swing/plaf/basic/BasicToolTipUI.lo
 	-rm -f javax/swing/plaf/basic/BasicTreeUI.$(OBJEXT)
 	-rm -f javax/swing/plaf/basic/BasicTreeUI.lo
 	-rm -f javax/swing/plaf/basic/BasicViewportUI.$(OBJEXT)
 	-rm -f javax/swing/plaf/basic/BasicViewportUI.lo
+	-rm -f javax/swing/plaf/basic/ComboPopup.$(OBJEXT)
+	-rm -f javax/swing/plaf/basic/ComboPopup.lo
 	-rm -f javax/swing/plaf/metal/MetalLookAndFeel.$(OBJEXT)
 	-rm -f javax/swing/plaf/metal/MetalLookAndFeel.lo
 	-rm -f javax/swing/table/AbstractTableModel.$(OBJEXT)
@@ -17356,18 +17593,30 @@ mostlyclean-compile:
 	-rm -f javax/swing/text/Position.lo
 	-rm -f javax/swing/text/Segment.$(OBJEXT)
 	-rm -f javax/swing/text/Segment.lo
+	-rm -f javax/swing/text/SimpleAttributeSet.$(OBJEXT)
+	-rm -f javax/swing/text/SimpleAttributeSet.lo
 	-rm -f javax/swing/text/Style.$(OBJEXT)
 	-rm -f javax/swing/text/Style.lo
+	-rm -f javax/swing/text/StyleConstants.$(OBJEXT)
+	-rm -f javax/swing/text/StyleConstants.lo
+	-rm -f javax/swing/text/StyleContext.$(OBJEXT)
+	-rm -f javax/swing/text/StyleContext.lo
 	-rm -f javax/swing/text/StyledDocument.$(OBJEXT)
 	-rm -f javax/swing/text/StyledDocument.lo
 	-rm -f javax/swing/text/StyledEditorKit.$(OBJEXT)
 	-rm -f javax/swing/text/StyledEditorKit.lo
 	-rm -f javax/swing/text/TabExpander.$(OBJEXT)
 	-rm -f javax/swing/text/TabExpander.lo
+	-rm -f javax/swing/text/TabSet.$(OBJEXT)
+	-rm -f javax/swing/text/TabSet.lo
+	-rm -f javax/swing/text/TabStop.$(OBJEXT)
+	-rm -f javax/swing/text/TabStop.lo
 	-rm -f javax/swing/text/TabableView.$(OBJEXT)
 	-rm -f javax/swing/text/TabableView.lo
 	-rm -f javax/swing/text/TextAction.$(OBJEXT)
 	-rm -f javax/swing/text/TextAction.lo
+	-rm -f javax/swing/text/Utilities.$(OBJEXT)
+	-rm -f javax/swing/text/Utilities.lo
 	-rm -f javax/swing/text/View.$(OBJEXT)
 	-rm -f javax/swing/text/View.lo
 	-rm -f javax/swing/text/ViewFactory.$(OBJEXT)
@@ -17470,6 +17719,8 @@ mostlyclean-compile:
 	-rm -f jni/classpath/lib_gnu_java_awt_peer_gtk_la-native_state.lo
 	-rm -f jni/classpath/lib_gnu_java_awt_peer_gtk_la-primlib.$(OBJEXT)
 	-rm -f jni/classpath/lib_gnu_java_awt_peer_gtk_la-primlib.lo
+	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.$(OBJEXT)
+	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.lo
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.$(OBJEXT)
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.lo
 	-rm -f jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.$(OBJEXT)
@@ -17773,26 +18024,26 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/XID.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/XImage.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/XUnmapEvent.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natClip.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natColormap.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natDisplay.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natDrawable.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natFont.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natGC.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natPixmap.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natScreen.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natVisual.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natWMSizeHints.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natWindow.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natWindowAttributes.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natXAnyEvent.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natXButtonEvent.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natXColor.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natXConfigureEvent.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natXException.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natXExposeEvent.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natXImage.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/natXUnmapEvent.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natClip.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natColormap.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natDisplay.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natDrawable.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natFont.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natGC.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natPixmap.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natScreen.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natVisual.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natWMSizeHints.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natWindow.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natWindowAttributes.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXAnyEvent.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXButtonEvent.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXColor.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXConfigureEvent.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXException.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXExposeEvent.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXImage.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXUnmapEvent.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/$(DEPDIR)/BitMaskExtent.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/$(DEPDIR)/BitwiseXORComposite.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/$(DEPDIR)/Buffers.Plo@am__quote@
@@ -17806,6 +18057,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/$(DEPDIR)/ClasspathFontPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/$(DEPDIR)/EmbeddedWindowPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/$(DEPDIR)/GLightweightPeer.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkClasspathFontPeerMetrics.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkFontMetrics.Plo@am__quote@
@@ -17814,8 +18067,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkGraphics2D.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkGraphicsEnvironment.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GdkPixbufDecoder.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkArg.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkArgList.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkButtonPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkCanvasPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkCheckboxGroupPeer.Plo@am__quote@
@@ -19545,6 +19796,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/AbstractCellEditor.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/AbstractListModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/AbstractSet.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/AbstractSpinnerModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/Action.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/ActionMap.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/BorderFactory.Plo@am__quote@
@@ -19609,6 +19861,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/JScrollPane.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/JSeparator.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/JSlider.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/JSpinner.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/JSplitPane.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/JTabbedPane.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/JTable.Plo@am__quote@
@@ -19643,12 +19896,15 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/SingleSelectionModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/SizeRequirements.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/SizeSequence.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/SpinnerModel.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/SpinnerNumberModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/Spring.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/SpringLayout.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/SwingConstants.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/SwingUtilities.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/Timer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/ToolTipManager.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/TransferHandler.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/UIDefaults.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/UIManager.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/$(DEPDIR)/UnsupportedLookAndFeelException.Plo@am__quote@
@@ -19668,6 +19924,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/colorchooser/$(DEPDIR)/ColorChooserComponentFactory.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/colorchooser/$(DEPDIR)/ColorSelectionModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/colorchooser/$(DEPDIR)/DefaultColorSelectionModel.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/colorchooser/$(DEPDIR)/DefaultHSBChooserPanel.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/colorchooser/$(DEPDIR)/DefaultPreviewPanel.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/colorchooser/$(DEPDIR)/DefaultRGBChooserPanel.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/colorchooser/$(DEPDIR)/DefaultSwatchChooserPanel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/event/$(DEPDIR)/AncestorEvent.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/event/$(DEPDIR)/AncestorListener.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/event/$(DEPDIR)/CaretEvent.Plo@am__quote@
@@ -19761,8 +20021,14 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicButtonUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicCheckBoxMenuItemUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicCheckBoxUI.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicColorChooserUI.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicComboBoxEditor.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicComboBoxRenderer.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicComboBoxUI.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicComboPopup.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicDesktopIconUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicDesktopPaneUI.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicFormattedTextFieldUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicGraphicsUtils.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicIconFactory.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicInternalFrameTitlePane.Plo@am__quote@
@@ -19775,6 +20041,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicMenuUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicOptionPaneUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicPanelUI.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicPasswordFieldUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicPopupMenuSeparatorUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicPopupMenuUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicProgressBarUI.Plo@am__quote@
@@ -19785,16 +20052,22 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicScrollPaneUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicSeparatorUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicSliderUI.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicSpinnerUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicSplitPaneDivider.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicSplitPaneUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicTabbedPaneUI.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicTableHeaderUI.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicTableUI.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicTextAreaUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicTextFieldUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicTextUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicToggleButtonUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicToolBarSeparatorUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicToolBarUI.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicToolTipUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicTreeUI.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/BasicViewportUI.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/basic/$(DEPDIR)/ComboPopup.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/plaf/metal/$(DEPDIR)/MetalLookAndFeel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/table/$(DEPDIR)/AbstractTableModel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/table/$(DEPDIR)/DefaultTableCellRenderer.Plo@am__quote@
@@ -19830,12 +20103,18 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/PlainView.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/Position.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/Segment.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/SimpleAttributeSet.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/Style.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/StyleConstants.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/StyleContext.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/StyledDocument.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/StyledEditorKit.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/TabExpander.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/TabSet.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/TabStop.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/TabableView.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/TextAction.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/Utilities.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/View.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/$(DEPDIR)/ViewFactory.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/swing/text/html/$(DEPDIR)/HTML.Plo@am__quote@
@@ -19887,6 +20166,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@jni/classpath/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-jnilink.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/classpath/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-native_state.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/classpath/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-primlib.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GdkFontMetrics.Plo@am__quote@
@@ -20257,6 +20537,13 @@ jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkWindowPeer.lo
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GtkWindowPeer.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
 
+jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.lo: jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -MT jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.lo -MD -MP -MF "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.Tpo" -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c; \
+@am__fastdepCC_TRUE@	then mv -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.Tpo" "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.Plo"; else rm -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c' object='jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.lo `test -f 'jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c' || echo '$(srcdir)/'`jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c
+
 jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gthread-jni.lo: jni/gtk-peer/gthread-jni.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_gnu_java_awt_peer_gtk_la_CFLAGS) $(CFLAGS) -MT jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gthread-jni.lo -MD -MP -MF "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gthread-jni.Tpo" -c -o jni/gtk-peer/lib_gnu_java_awt_peer_gtk_la-gthread-jni.lo `test -f 'jni/gtk-peer/gthread-jni.c' || echo '$(srcdir)/'`jni/gtk-peer/gthread-jni.c; \
 @am__fastdepCC_TRUE@	then mv -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gthread-jni.Tpo" "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gthread-jni.Plo"; else rm -f "jni/gtk-peer/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-gthread-jni.Tpo"; exit 1; fi
@@ -20315,6 +20602,146 @@ jni/classpath/lib_gnu_java_awt_peer_gtk_la-primlib.lo: jni/classpath/primlib.c
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(LTCXXCOMPILE) -c -o $@ $<
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natClip.lo: gnu/gcj/xlib/natClip.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natClip.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natClip.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natClip.lo `test -f 'gnu/gcj/xlib/natClip.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natClip.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natClip.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natClip.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natClip.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natClip.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natClip.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natClip.lo `test -f 'gnu/gcj/xlib/natClip.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natClip.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natColormap.lo: gnu/gcj/xlib/natColormap.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natColormap.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natColormap.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natColormap.lo `test -f 'gnu/gcj/xlib/natColormap.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natColormap.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natColormap.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natColormap.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natColormap.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natColormap.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natColormap.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natColormap.lo `test -f 'gnu/gcj/xlib/natColormap.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natColormap.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDisplay.lo: gnu/gcj/xlib/natDisplay.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDisplay.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natDisplay.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDisplay.lo `test -f 'gnu/gcj/xlib/natDisplay.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natDisplay.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natDisplay.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natDisplay.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natDisplay.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natDisplay.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDisplay.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDisplay.lo `test -f 'gnu/gcj/xlib/natDisplay.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natDisplay.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDrawable.lo: gnu/gcj/xlib/natDrawable.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDrawable.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natDrawable.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDrawable.lo `test -f 'gnu/gcj/xlib/natDrawable.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natDrawable.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natDrawable.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natDrawable.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natDrawable.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natDrawable.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDrawable.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natDrawable.lo `test -f 'gnu/gcj/xlib/natDrawable.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natDrawable.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natFont.lo: gnu/gcj/xlib/natFont.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natFont.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natFont.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natFont.lo `test -f 'gnu/gcj/xlib/natFont.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natFont.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natFont.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natFont.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natFont.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natFont.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natFont.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natFont.lo `test -f 'gnu/gcj/xlib/natFont.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natFont.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natGC.lo: gnu/gcj/xlib/natGC.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natGC.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natGC.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natGC.lo `test -f 'gnu/gcj/xlib/natGC.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natGC.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natGC.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natGC.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natGC.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natGC.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natGC.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natGC.lo `test -f 'gnu/gcj/xlib/natGC.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natGC.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natPixmap.lo: gnu/gcj/xlib/natPixmap.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natPixmap.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natPixmap.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natPixmap.lo `test -f 'gnu/gcj/xlib/natPixmap.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natPixmap.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natPixmap.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natPixmap.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natPixmap.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natPixmap.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natPixmap.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natPixmap.lo `test -f 'gnu/gcj/xlib/natPixmap.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natPixmap.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natScreen.lo: gnu/gcj/xlib/natScreen.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natScreen.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natScreen.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natScreen.lo `test -f 'gnu/gcj/xlib/natScreen.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natScreen.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natScreen.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natScreen.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natScreen.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natScreen.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natScreen.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natScreen.lo `test -f 'gnu/gcj/xlib/natScreen.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natScreen.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natVisual.lo: gnu/gcj/xlib/natVisual.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natVisual.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natVisual.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natVisual.lo `test -f 'gnu/gcj/xlib/natVisual.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natVisual.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natVisual.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natVisual.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natVisual.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natVisual.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natVisual.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natVisual.lo `test -f 'gnu/gcj/xlib/natVisual.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natVisual.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWMSizeHints.lo: gnu/gcj/xlib/natWMSizeHints.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWMSizeHints.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natWMSizeHints.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWMSizeHints.lo `test -f 'gnu/gcj/xlib/natWMSizeHints.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natWMSizeHints.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natWMSizeHints.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natWMSizeHints.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natWMSizeHints.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natWMSizeHints.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWMSizeHints.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWMSizeHints.lo `test -f 'gnu/gcj/xlib/natWMSizeHints.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natWMSizeHints.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindow.lo: gnu/gcj/xlib/natWindow.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindow.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natWindow.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindow.lo `test -f 'gnu/gcj/xlib/natWindow.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natWindow.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natWindow.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natWindow.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natWindow.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natWindow.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindow.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindow.lo `test -f 'gnu/gcj/xlib/natWindow.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natWindow.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindowAttributes.lo: gnu/gcj/xlib/natWindowAttributes.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindowAttributes.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natWindowAttributes.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindowAttributes.lo `test -f 'gnu/gcj/xlib/natWindowAttributes.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natWindowAttributes.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natWindowAttributes.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natWindowAttributes.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natWindowAttributes.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natWindowAttributes.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindowAttributes.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natWindowAttributes.lo `test -f 'gnu/gcj/xlib/natWindowAttributes.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natWindowAttributes.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXAnyEvent.lo: gnu/gcj/xlib/natXAnyEvent.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXAnyEvent.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXAnyEvent.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXAnyEvent.lo `test -f 'gnu/gcj/xlib/natXAnyEvent.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXAnyEvent.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXAnyEvent.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXAnyEvent.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXAnyEvent.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natXAnyEvent.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXAnyEvent.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXAnyEvent.lo `test -f 'gnu/gcj/xlib/natXAnyEvent.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXAnyEvent.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXButtonEvent.lo: gnu/gcj/xlib/natXButtonEvent.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXButtonEvent.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXButtonEvent.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXButtonEvent.lo `test -f 'gnu/gcj/xlib/natXButtonEvent.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXButtonEvent.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXButtonEvent.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXButtonEvent.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXButtonEvent.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natXButtonEvent.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXButtonEvent.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXButtonEvent.lo `test -f 'gnu/gcj/xlib/natXButtonEvent.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXButtonEvent.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXColor.lo: gnu/gcj/xlib/natXColor.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXColor.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXColor.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXColor.lo `test -f 'gnu/gcj/xlib/natXColor.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXColor.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXColor.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXColor.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXColor.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natXColor.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXColor.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXColor.lo `test -f 'gnu/gcj/xlib/natXColor.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXColor.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXConfigureEvent.lo: gnu/gcj/xlib/natXConfigureEvent.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXConfigureEvent.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXConfigureEvent.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXConfigureEvent.lo `test -f 'gnu/gcj/xlib/natXConfigureEvent.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXConfigureEvent.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXConfigureEvent.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXConfigureEvent.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXConfigureEvent.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natXConfigureEvent.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXConfigureEvent.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXConfigureEvent.lo `test -f 'gnu/gcj/xlib/natXConfigureEvent.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXConfigureEvent.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXException.lo: gnu/gcj/xlib/natXException.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXException.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXException.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXException.lo `test -f 'gnu/gcj/xlib/natXException.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXException.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXException.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXException.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXException.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natXException.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXException.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXException.lo `test -f 'gnu/gcj/xlib/natXException.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXException.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXExposeEvent.lo: gnu/gcj/xlib/natXExposeEvent.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXExposeEvent.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXExposeEvent.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXExposeEvent.lo `test -f 'gnu/gcj/xlib/natXExposeEvent.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXExposeEvent.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXExposeEvent.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXExposeEvent.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXExposeEvent.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natXExposeEvent.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXExposeEvent.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXExposeEvent.lo `test -f 'gnu/gcj/xlib/natXExposeEvent.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXExposeEvent.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXImage.lo: gnu/gcj/xlib/natXImage.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXImage.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXImage.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXImage.lo `test -f 'gnu/gcj/xlib/natXImage.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXImage.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXImage.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXImage.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXImage.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natXImage.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXImage.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXImage.lo `test -f 'gnu/gcj/xlib/natXImage.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXImage.cc
+
+gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXUnmapEvent.lo: gnu/gcj/xlib/natXUnmapEvent.cc
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXUnmapEvent.lo -MD -MP -MF "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXUnmapEvent.Tpo" -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXUnmapEvent.lo `test -f 'gnu/gcj/xlib/natXUnmapEvent.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXUnmapEvent.cc; \
+@am__fastdepCXX_TRUE@	then mv -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXUnmapEvent.Tpo" "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXUnmapEvent.Plo"; else rm -f "gnu/gcj/xlib/$(DEPDIR)/lib_gnu_awt_xlib_la-natXUnmapEvent.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='gnu/gcj/xlib/natXUnmapEvent.cc' object='gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXUnmapEvent.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXUnmapEvent.lo `test -f 'gnu/gcj/xlib/natXUnmapEvent.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXUnmapEvent.cc
 
 .java.o:
 @am__fastdepGCJ_TRUE@	depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`; \
@@ -20395,20 +20822,6 @@ gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkPixbufDecoder.lo: gnu/java
 @AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='gnu/java/awt/peer/gtk/GdkPixbufDecoder.java' object='gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkPixbufDecoder.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepGCJ_FALSE@	$(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GdkPixbufDecoder.lo `test -f 'gnu/java/awt/peer/gtk/GdkPixbufDecoder.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GdkPixbufDecoder.java
-
-gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArg.lo: gnu/java/awt/peer/gtk/GtkArg.java
-@am__fastdepGCJ_TRUE@	if $(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -MT gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArg.lo -MD -MP -MF "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkArg.Tpo" -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArg.lo `test -f 'gnu/java/awt/peer/gtk/GtkArg.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GtkArg.java; \
-@am__fastdepGCJ_TRUE@	then mv -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkArg.Tpo" "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkArg.Plo"; else rm -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkArg.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='gnu/java/awt/peer/gtk/GtkArg.java' object='gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArg.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepGCJ_FALSE@	$(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArg.lo `test -f 'gnu/java/awt/peer/gtk/GtkArg.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GtkArg.java
-
-gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArgList.lo: gnu/java/awt/peer/gtk/GtkArgList.java
-@am__fastdepGCJ_TRUE@	if $(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -MT gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArgList.lo -MD -MP -MF "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkArgList.Tpo" -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArgList.lo `test -f 'gnu/java/awt/peer/gtk/GtkArgList.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GtkArgList.java; \
-@am__fastdepGCJ_TRUE@	then mv -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkArgList.Tpo" "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkArgList.Plo"; else rm -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkArgList.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='gnu/java/awt/peer/gtk/GtkArgList.java' object='gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArgList.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepGCJ_FALSE@	$(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkArgList.lo `test -f 'gnu/java/awt/peer/gtk/GtkArgList.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GtkArgList.java
 
 gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkButtonPeer.lo: gnu/java/awt/peer/gtk/GtkButtonPeer.java
 @am__fastdepGCJ_TRUE@	if $(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -MT gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkButtonPeer.lo -MD -MP -MF "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GtkButtonPeer.Tpo" -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkButtonPeer.lo `test -f 'gnu/java/awt/peer/gtk/GtkButtonPeer.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GtkButtonPeer.java; \
@@ -20647,6 +21060,20 @@ gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkWindowPeer.lo: gnu/java/aw
 @AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='gnu/java/awt/peer/gtk/GtkWindowPeer.java' object='gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkWindowPeer.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepGCJ_FALSE@	$(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GtkWindowPeer.lo `test -f 'gnu/java/awt/peer/gtk/GtkWindowPeer.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GtkWindowPeer.java
+
+gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.lo: gnu/java/awt/peer/gtk/GThreadMutex.java
+@am__fastdepGCJ_TRUE@	if $(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -MT gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.lo -MD -MP -MF "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.Tpo" -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.lo `test -f 'gnu/java/awt/peer/gtk/GThreadMutex.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GThreadMutex.java; \
+@am__fastdepGCJ_TRUE@	then mv -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.Tpo" "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.Plo"; else rm -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='gnu/java/awt/peer/gtk/GThreadMutex.java' object='gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepGCJ_FALSE@	$(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadMutex.lo `test -f 'gnu/java/awt/peer/gtk/GThreadMutex.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GThreadMutex.java
+
+gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.lo: gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java
+@am__fastdepGCJ_TRUE@	if $(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -MT gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.lo -MD -MP -MF "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.Tpo" -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.lo `test -f 'gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java; \
+@am__fastdepGCJ_TRUE@	then mv -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.Tpo" "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.Plo"; else rm -f "gnu/java/awt/peer/gtk/$(DEPDIR)/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java' object='gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepGCJ_FALSE@	$(LIBTOOL) --mode=compile $(GCJ) $(lib_gnu_java_awt_peer_gtk_la_GCJFLAGS) $(GCJFLAGS) -c -o gnu/java/awt/peer/gtk/lib_gnu_java_awt_peer_gtk_la-GThreadNativeMethodRunner.lo `test -f 'gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java' || echo '$(srcdir)/'`gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -21133,270 +21560,270 @@ clean-generic:
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
-	-rm -f java/sql/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/nio/channels/spi/$(am__dirstamp)
-	-rm -f java/util/regex/$(am__dirstamp)
-	-rm -f javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/rmi/rmic/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/net/protocol/file/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/net/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/lang/ref/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/swing/table/$(am__dirstamp)
-	-rm -f javax/swing/$(am__dirstamp)
-	-rm -f java/awt/datatransfer/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/swing/tree/$(am__dirstamp)
-	-rm -f javax/swing/text/$(am__dirstamp)
-	-rm -f javax/naming/spi/$(am__dirstamp)
-	-rm -f javax/naming/ldap/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/print/attribute/standard/$(am__dirstamp)
-	-rm -f java/util/$(am__dirstamp)
-	-rm -f java/awt/dnd/peer/$(am__dirstamp)
-	-rm -f javax/print/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/swing/tree/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/awt/$(am__dirstamp)
-	-rm -f java/applet/$(am__dirstamp)
-	-rm -f gnu/classpath/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/security/auth/x500/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/rmi/server/$(am__dirstamp)
-	-rm -f java/rmi/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/lang/ref/$(am__dirstamp)
-	-rm -f gnu/java/rmi/rmic/$(am__dirstamp)
-	-rm -f gnu/java/awt/image/$(am__dirstamp)
-	-rm -f gnu/java/net/protocol/jar/$(DEPDIR)/$(am__dirstamp)
-	-rm -f jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/util/prefs/$(am__dirstamp)
-	-rm -f java/util/regex/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/util/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/awt/peer/$(am__dirstamp)
-	-rm -f java/awt/image/renderable/$(am__dirstamp)
-	-rm -f javax/transaction/xa/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/awt/image/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/swing/filechooser/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/awt/datatransfer/$(am__dirstamp)
-	-rm -f gnu/java/beans/editors/$(am__dirstamp)
-	-rm -f java/awt/font/$(am__dirstamp)
-	-rm -f gnu/java/locale/$(am__dirstamp)
-	-rm -f gnu/gcj/$(am__dirstamp)
-	-rm -f gnu/gcj/xlib/$(am__dirstamp)
-	-rm -f javax/naming/directory/$(am__dirstamp)
-	-rm -f java/awt/$(am__dirstamp)
-	-rm -f gnu/java/rmi/dgc/$(am__dirstamp)
-	-rm -f java/security/cert/$(am__dirstamp)
-	-rm -f javax/swing/event/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/gcj/convert/$(am__dirstamp)
-	-rm -f gnu/java/security/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/util/zip/$(am__dirstamp)
-	-rm -f javax/swing/text/html/parser/$(am__dirstamp)
-	-rm -f org/xml/sax/helpers/$(am__dirstamp)
-	-rm -f javax/swing/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/awt/font/$(DEPDIR)/$(am__dirstamp)
-	-rm -f sysdep/$(am__dirstamp)
-	-rm -f javax/swing/text/html/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/awt/geom/$(am__dirstamp)
-	-rm -f javax/transaction/xa/$(am__dirstamp)
-	-rm -f gnu/java/nio/$(DEPDIR)/$(am__dirstamp)
-	-rm -f org/w3c/dom/ranges/$(am__dirstamp)
-	-rm -f javax/swing/plaf/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/rmi/registry/$(am__dirstamp)
-	-rm -f javax/swing/undo/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/rmi/registry/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/accessibility/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/awt/peer/$(am__dirstamp)
-	-rm -f java/nio/channels/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/imageio/spi/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/naming/$(am__dirstamp)
+	-rm -f java/util/logging/$(DEPDIR)/$(am__dirstamp)
 	-rm -f java/beans/$(am__dirstamp)
-	-rm -f gnu/java/lang/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/awt/color/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/lang/reflect/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/io/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/security/interfaces/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/util/prefs/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/nio/channels/$(am__dirstamp)
-	-rm -f java/nio/charset/spi/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/lang/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/awt/im/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/imageio/stream/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/awt/image/$(am__dirstamp)
-	-rm -f java/security/spec/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/text/$(am__dirstamp)
-	-rm -f javax/imageio/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/rmi/$(am__dirstamp)
-	-rm -f javax/naming/directory/$(DEPDIR)/$(am__dirstamp)
-	-rm -f org/xml/sax/$(am__dirstamp)
-	-rm -f java/security/interfaces/$(am__dirstamp)
-	-rm -f javax/swing/colorchooser/$(am__dirstamp)
-	-rm -f java/awt/print/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/sql/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/util/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/rmi/$(am__dirstamp)
-	-rm -f org/xml/sax/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/awt/peer/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/awt/dnd/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/beans/info/$(am__dirstamp)
-	-rm -f java/beans/beancontext/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/nio/charset/spi/$(am__dirstamp)
-	-rm -f javax/naming/spi/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/gcj/convert/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/swing/plaf/$(am__dirstamp)
-	-rm -f java/nio/charset/$(am__dirstamp)
-	-rm -f javax/swing/text/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/util/prefs/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/security/cert/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/swing/text/html/parser/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/security/acl/$(am__dirstamp)
-	-rm -f gnu/java/net/protocol/jar/$(am__dirstamp)
-	-rm -f java/text/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/print/attribute/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/gcj/runtime/$(am__dirstamp)
-	-rm -f javax/swing/filechooser/$(am__dirstamp)
-	-rm -f gnu/java/security/der/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/regexp/$(am__dirstamp)
-	-rm -f javax/security/auth/x500/$(am__dirstamp)
+	-rm -f gnu/java/awt/$(am__dirstamp)
+	-rm -f javax/swing/border/$(DEPDIR)/$(am__dirstamp)
 	-rm -f org/w3c/dom/traversal/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/awt/im/$(am__dirstamp)
-	-rm -f gnu/java/security/$(am__dirstamp)
-	-rm -f gnu/java/net/$(am__dirstamp)
-	-rm -f java/nio/charset/$(DEPDIR)/$(am__dirstamp)
-	-rm -f jni/gtk-peer/$(am__dirstamp)
-	-rm -f javax/swing/event/$(am__dirstamp)
-	-rm -f gnu/java/net/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/awt/peer/gtk/$(am__dirstamp)
+	-rm -f java/rmi/activation/$(am__dirstamp)
+	-rm -f java/security/interfaces/$(am__dirstamp)
+	-rm -f gnu/java/locale/$(am__dirstamp)
+	-rm -f gnu/java/beans/$(am__dirstamp)
+	-rm -f gnu/java/net/protocol/jar/$(am__dirstamp)
+	-rm -f java/awt/$(am__dirstamp)
+	-rm -f org/xml/sax/helpers/$(am__dirstamp)
+	-rm -f org/xml/sax/ext/$(am__dirstamp)
+	-rm -f java/security/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/net/protocol/file/$(DEPDIR)/$(am__dirstamp)
+	-rm -f org/w3c/dom/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/swing/colorchooser/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/util/prefs/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/lang/$(am__dirstamp)
+	-rm -f java/lang/reflect/$(am__dirstamp)
+	-rm -f java/math/$(am__dirstamp)
+	-rm -f gnu/java/net/protocol/file/$(am__dirstamp)
+	-rm -f javax/transaction/xa/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/naming/ldap/$(am__dirstamp)
+	-rm -f java/awt/geom/$(am__dirstamp)
+	-rm -f gnu/java/security/provider/$(am__dirstamp)
+	-rm -f javax/naming/event/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/awt/font/$(am__dirstamp)
+	-rm -f java/text/$(am__dirstamp)
+	-rm -f gnu/java/util/prefs/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/rmi/rmic/$(am__dirstamp)
+	-rm -f javax/print/event/$(am__dirstamp)
+	-rm -f gnu/java/nio/charset/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/rmi/dgc/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/security/$(am__dirstamp)
+	-rm -f javax/swing/plaf/metal/$(am__dirstamp)
+	-rm -f gnu/gcj/convert/$(am__dirstamp)
+	-rm -f java/nio/channels/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/rmi/dgc/$(am__dirstamp)
+	-rm -f gnu/gcj/runtime/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/math/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/util/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/gcj/runtime/$(am__dirstamp)
+	-rm -f java/nio/charset/$(am__dirstamp)
+	-rm -f jni/classpath/$(am__dirstamp)
+	-rm -f gnu/awt/$(am__dirstamp)
+	-rm -f javax/security/auth/x500/$(am__dirstamp)
 	-rm -f java/awt/dnd/peer/$(DEPDIR)/$(am__dirstamp)
 	-rm -f javax/swing/border/$(am__dirstamp)
-	-rm -f java/awt/geom/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/rmi/server/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/regexp/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/net/protocol/file/$(am__dirstamp)
-	-rm -f gnu/java/lang/reflect/$(am__dirstamp)
-	-rm -f java/net/$(am__dirstamp)
-	-rm -f gnu/java/lang/reflect/$(DEPDIR)/$(am__dirstamp)
-	-rm -f org/xml/sax/ext/$(am__dirstamp)
-	-rm -f gnu/java/awt/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/locale/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/transaction/$(am__dirstamp)
-	-rm -f java/rmi/registry/$(am__dirstamp)
-	-rm -f gnu/java/security/action/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/print/$(am__dirstamp)
-	-rm -f java/awt/print/$(am__dirstamp)
-	-rm -f java/text/$(am__dirstamp)
-	-rm -f java/util/logging/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/transaction/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/swing/undo/$(am__dirstamp)
-	-rm -f gnu/java/security/util/$(am__dirstamp)
-	-rm -f java/nio/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/print/attribute/standard/$(DEPDIR)/$(am__dirstamp)
-	-rm -f org/w3c/dom/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/rmi/activation/$(am__dirstamp)
-	-rm -f java/rmi/activation/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/accessibility/$(am__dirstamp)
-	-rm -f gnu/java/nio/charset/$(am__dirstamp)
-	-rm -f java/security/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/util/jar/$(am__dirstamp)
-	-rm -f gnu/awt/j2d/$(am__dirstamp)
-	-rm -f javax/imageio/$(am__dirstamp)
-	-rm -f java/lang/$(am__dirstamp)
-	-rm -f org/w3c/dom/traversal/$(am__dirstamp)
-	-rm -f gnu/java/security/x509/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/awt/image/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/security/x509/$(am__dirstamp)
-	-rm -f java/beans/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/rmi/server/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/beans/editors/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/imageio/event/$(am__dirstamp)
-	-rm -f java/io/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/gcj/runtime/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/swing/table/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/security/der/$(am__dirstamp)
-	-rm -f javax/imageio/event/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/rmi/registry/$(DEPDIR)/$(am__dirstamp)
-	-rm -f jni/classpath/$(am__dirstamp)
-	-rm -f javax/imageio/stream/$(am__dirstamp)
-	-rm -f gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/swing/colorchooser/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/classpath/$(am__dirstamp)
-	-rm -f gnu/java/nio/charset/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/awt/image/renderable/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/beans/beancontext/$(am__dirstamp)
-	-rm -f gnu/java/beans/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/util/zip/$(DEPDIR)/$(am__dirstamp)
-	-rm -f org/w3c/dom/ranges/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/awt/peer/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/swing/plaf/basic/$(am__dirstamp)
-	-rm -f gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/awt/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/print/event/$(am__dirstamp)
-	-rm -f gnu/awt/xlib/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/swing/plaf/metal/$(am__dirstamp)
-	-rm -f java/util/logging/$(am__dirstamp)
-	-rm -f java/lang/reflect/$(am__dirstamp)
-	-rm -f gnu/java/security/provider/$(am__dirstamp)
-	-rm -f gnu/java/beans/info/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/sql/$(am__dirstamp)
-	-rm -f javax/naming/$(am__dirstamp)
-	-rm -f java/security/spec/$(am__dirstamp)
-	-rm -f java/awt/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/net/protocol/gcjlib/$(am__dirstamp)
-	-rm -f gnu/java/rmi/dgc/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/rmi/dgc/$(am__dirstamp)
-	-rm -f gnu/gcj/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/awt/event/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/sql/$(am__dirstamp)
-	-rm -f java/util/jar/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/math/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/beans/$(am__dirstamp)
-	-rm -f javax/naming/ldap/$(am__dirstamp)
-	-rm -f java/util/prefs/$(am__dirstamp)
-	-rm -f gnu/java/net/protocol/gcjlib/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/awt/color/$(am__dirstamp)
-	-rm -f javax/swing/border/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/gcj/io/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/lang/$(am__dirstamp)
-	-rm -f sysdep/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/applet/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/rmi/server/$(am__dirstamp)
-	-rm -f gnu/java/rmi/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/naming/event/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/math/$(am__dirstamp)
-	-rm -f gnu/java/text/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/imageio/spi/$(am__dirstamp)
-	-rm -f gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/naming/event/$(am__dirstamp)
-	-rm -f gnu/java/awt/$(am__dirstamp)
-	-rm -f java/awt/im/spi/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/net/protocol/core/$(am__dirstamp)
-	-rm -f gnu/java/io/$(am__dirstamp)
-	-rm -f javax/swing/text/html/$(am__dirstamp)
-	-rm -f org/xml/sax/ext/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/util/$(am__dirstamp)
-	-rm -f java/rmi/dgc/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/nio/channels/spi/$(DEPDIR)/$(am__dirstamp)
 	-rm -f gnu/java/nio/channels/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/awt/xlib/$(am__dirstamp)
-	-rm -f gnu/awt/j2d/$(DEPDIR)/$(am__dirstamp)
-	-rm -f javax/print/event/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/io/$(am__dirstamp)
-	-rm -f org/xml/sax/helpers/$(DEPDIR)/$(am__dirstamp)
-	-rm -f org/w3c/dom/$(am__dirstamp)
-	-rm -f javax/print/attribute/$(am__dirstamp)
-	-rm -f gnu/java/math/$(am__dirstamp)
-	-rm -f java/math/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/awt/im/spi/$(am__dirstamp)
-	-rm -f gnu/java/net/protocol/core/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/nio/$(am__dirstamp)
-	-rm -f java/awt/dnd/$(am__dirstamp)
-	-rm -f gnu/gcj/io/$(am__dirstamp)
-	-rm -f java/security/acl/$(DEPDIR)/$(am__dirstamp)
-	-rm -f java/awt/event/$(am__dirstamp)
-	-rm -f javax/naming/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/net/protocol/http/$(am__dirstamp)
-	-rm -f javax/swing/plaf/metal/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/security/util/$(DEPDIR)/$(am__dirstamp)
-	-rm -f gnu/java/security/action/$(am__dirstamp)
-	-rm -f java/nio/$(am__dirstamp)
-	-rm -f java/nio/channels/$(am__dirstamp)
-	-rm -f java/security/$(am__dirstamp)
 	-rm -f jni/classpath/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/swing/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/net/$(am__dirstamp)
+	-rm -f javax/swing/tree/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/naming/ldap/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/nio/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/awt/peer/$(am__dirstamp)
+	-rm -f java/awt/image/renderable/$(am__dirstamp)
+	-rm -f gnu/java/security/$(am__dirstamp)
+	-rm -f javax/naming/spi/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/nio/$(am__dirstamp)
+	-rm -f java/nio/charset/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/net/protocol/core/$(am__dirstamp)
+	-rm -f gnu/java/nio/$(am__dirstamp)
+	-rm -f java/lang/ref/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/rmi/dgc/$(am__dirstamp)
+	-rm -f java/awt/peer/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/awt/color/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/util/zip/$(am__dirstamp)
+	-rm -f java/awt/datatransfer/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/awt/image/renderable/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/util/zip/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/swing/plaf/basic/$(am__dirstamp)
+	-rm -f gnu/gcj/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/swing/plaf/basic/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/awt/xlib/$(am__dirstamp)
+	-rm -f gnu/awt/j2d/$(am__dirstamp)
+	-rm -f java/util/jar/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/lang/reflect/$(am__dirstamp)
+	-rm -f javax/print/attribute/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/swing/colorchooser/$(am__dirstamp)
+	-rm -f javax/print/attribute/$(am__dirstamp)
+	-rm -f javax/print/$(am__dirstamp)
+	-rm -f java/security/cert/$(am__dirstamp)
+	-rm -f gnu/awt/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/naming/directory/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/security/action/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/security/x509/$(DEPDIR)/$(am__dirstamp)
+	-rm -f org/w3c/dom/$(am__dirstamp)
+	-rm -f java/nio/channels/spi/$(am__dirstamp)
+	-rm -f gnu/java/lang/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/rmi/server/$(am__dirstamp)
+	-rm -f gnu/gcj/xlib/$(am__dirstamp)
+	-rm -f gnu/java/rmi/server/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/awt/color/$(am__dirstamp)
+	-rm -f java/awt/print/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/lang/reflect/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/security/der/$(am__dirstamp)
+	-rm -f gnu/java/net/protocol/http/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/swing/text/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/util/prefs/$(am__dirstamp)
+	-rm -f gnu/java/security/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/awt/print/$(am__dirstamp)
+	-rm -f java/awt/geom/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/imageio/event/$(am__dirstamp)
+	-rm -f javax/imageio/spi/$(am__dirstamp)
+	-rm -f gnu/gcj/io/$(am__dirstamp)
+	-rm -f gnu/java/nio/charset/$(am__dirstamp)
+	-rm -f javax/swing/plaf/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/naming/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/net/protocol/gcjlib/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/nio/channels/spi/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/awt/im/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/transaction/xa/$(am__dirstamp)
+	-rm -f javax/swing/table/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/security/cert/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/beans/$(DEPDIR)/$(am__dirstamp)
+	-rm -f org/w3c/dom/traversal/$(am__dirstamp)
+	-rm -f javax/swing/$(am__dirstamp)
+	-rm -f java/rmi/registry/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/awt/image/$(am__dirstamp)
+	-rm -f javax/naming/directory/$(am__dirstamp)
+	-rm -f javax/swing/plaf/metal/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/lang/reflect/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/imageio/spi/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/print/event/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/nio/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/swing/tree/$(am__dirstamp)
+	-rm -f gnu/java/rmi/dgc/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/awt/image/$(DEPDIR)/$(am__dirstamp)
+	-rm -f sysdep/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/text/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/classpath/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/rmi/$(am__dirstamp)
+	-rm -f javax/imageio/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/awt/xlib/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/security/x509/$(am__dirstamp)
+	-rm -f gnu/java/awt/image/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/beans/beancontext/$(am__dirstamp)
+	-rm -f gnu/java/rmi/$(am__dirstamp)
+	-rm -f gnu/regexp/$(am__dirstamp)
+	-rm -f java/security/interfaces/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/net/protocol/http/$(am__dirstamp)
+	-rm -f jni/gtk-peer/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/awt/peer/gtk/$(am__dirstamp)
+	-rm -f javax/accessibility/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/imageio/event/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/accessibility/$(am__dirstamp)
+	-rm -f gnu/java/awt/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/regexp/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/security/util/$(am__dirstamp)
+	-rm -f javax/print/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/rmi/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/awt/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/awt/event/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/beans/editors/$(am__dirstamp)
+	-rm -f java/nio/charset/spi/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/text/$(am__dirstamp)
+	-rm -f gnu/classpath/$(am__dirstamp)
+	-rm -f java/math/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/net/$(am__dirstamp)
+	-rm -f javax/swing/text/$(am__dirstamp)
+	-rm -f javax/swing/table/$(am__dirstamp)
+	-rm -f gnu/java/beans/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/swing/text/html/$(am__dirstamp)
+	-rm -f java/io/$(am__dirstamp)
+	-rm -f gnu/gcj/$(am__dirstamp)
+	-rm -f java/util/jar/$(am__dirstamp)
+	-rm -f javax/print/attribute/standard/$(am__dirstamp)
+	-rm -f javax/security/auth/x500/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/naming/spi/$(am__dirstamp)
+	-rm -f javax/swing/filechooser/$(am__dirstamp)
+	-rm -f javax/swing/event/$(am__dirstamp)
+	-rm -f javax/sql/$(am__dirstamp)
+	-rm -f java/awt/image/$(am__dirstamp)
+	-rm -f gnu/java/beans/info/$(am__dirstamp)
+	-rm -f java/awt/event/$(am__dirstamp)
+	-rm -f gnu/java/net/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/rmi/registry/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/transaction/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/util/$(am__dirstamp)
+	-rm -f gnu/java/io/$(am__dirstamp)
+	-rm -f java/beans/beancontext/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/util/regex/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/beans/info/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/swing/undo/$(am__dirstamp)
+	-rm -f java/awt/dnd/peer/$(am__dirstamp)
+	-rm -f javax/swing/undo/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/rmi/registry/$(am__dirstamp)
+	-rm -f sysdep/$(am__dirstamp)
+	-rm -f java/applet/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/swing/text/html/parser/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/lang/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/imageio/$(am__dirstamp)
+	-rm -f java/sql/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/awt/peer/$(am__dirstamp)
+	-rm -f java/rmi/activation/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/swing/text/html/parser/$(am__dirstamp)
+	-rm -f gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/security/spec/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/rmi/registry/$(am__dirstamp)
+	-rm -f gnu/java/awt/peer/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/security/der/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/sql/$(DEPDIR)/$(am__dirstamp)
+	-rm -f org/w3c/dom/ranges/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/security/acl/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/rmi/server/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/net/protocol/gcjlib/$(am__dirstamp)
+	-rm -f gnu/java/locale/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/awt/datatransfer/$(am__dirstamp)
+	-rm -f gnu/java/util/prefs/$(am__dirstamp)
+	-rm -f java/security/spec/$(am__dirstamp)
+	-rm -f java/util/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/net/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/lang/ref/$(am__dirstamp)
+	-rm -f gnu/java/util/$(am__dirstamp)
+	-rm -f gnu/java/nio/channels/$(am__dirstamp)
+	-rm -f java/rmi/$(DEPDIR)/$(am__dirstamp)
+	-rm -f org/xml/sax/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/rmi/rmic/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/transaction/$(am__dirstamp)
+	-rm -f gnu/java/math/$(am__dirstamp)
+	-rm -f java/util/regex/$(am__dirstamp)
+	-rm -f gnu/java/security/action/$(am__dirstamp)
+	-rm -f gnu/java/net/protocol/jar/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/nio/charset/spi/$(am__dirstamp)
+	-rm -f java/awt/im/$(am__dirstamp)
+	-rm -f javax/swing/text/html/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/awt/im/spi/$(am__dirstamp)
+	-rm -f java/io/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/security/util/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/awt/dnd/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/imageio/stream/$(am__dirstamp)
+	-rm -f org/w3c/dom/ranges/$(am__dirstamp)
+	-rm -f java/awt/dnd/$(am__dirstamp)
+	-rm -f gnu/java/beans/editors/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/awt/font/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/swing/plaf/$(am__dirstamp)
+	-rm -f java/util/logging/$(am__dirstamp)
+	-rm -f gnu/java/net/protocol/core/$(DEPDIR)/$(am__dirstamp)
+	-rm -f jni/gtk-peer/$(am__dirstamp)
+	-rm -f gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/print/attribute/standard/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/rmi/server/$(am__dirstamp)
+	-rm -f gnu/awt/j2d/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/swing/event/$(DEPDIR)/$(am__dirstamp)
+	-rm -f org/xml/sax/$(am__dirstamp)
+	-rm -f gnu/java/awt/peer/gtk/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/security/acl/$(am__dirstamp)
+	-rm -f gnu/java/io/$(DEPDIR)/$(am__dirstamp)
+	-rm -f org/xml/sax/ext/$(DEPDIR)/$(am__dirstamp)
+	-rm -f org/xml/sax/helpers/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/awt/im/spi/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/gcj/convert/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/lang/$(am__dirstamp)
+	-rm -f gnu/java/text/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/nio/channels/$(am__dirstamp)
+	-rm -f java/sql/$(am__dirstamp)
+	-rm -f javax/imageio/stream/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/gcj/io/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/swing/filechooser/$(DEPDIR)/$(am__dirstamp)
+	-rm -f java/applet/$(am__dirstamp)
+	-rm -f javax/naming/event/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -21495,7 +21922,7 @@ $(gtk_jni_headers): $(gtk_awt_peer_sources)
 $(lib_gnu_java_awt_peer_gtk_la_OBJECTS): $(lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES)
 
 %.properties.lo: %.properties
-	$(GCJCOMPILE) -o $@ -c $< -Wc,--resource,`echo $@ | sed "s/\.lo$$//"`
+	$(LTGCJCOMPILE) -o $@ -c $< -Wc,--resource,`echo $@ | sed "s/\.lo$$//"`
 
 # Compile all classfiles in one go.
 
@@ -21540,13 +21967,13 @@ clean-nat:
 	rm -f $(nat_files) $(xlib_nat_files)
 
 $(filter-out gnu/gcj/runtime/StackTrace.lo, $(javao_files)) $(xlib_javao_files) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS): %.lo: %.java
-	$(GCJCOMPILE) -o $@ $<
+	$(LTGCJCOMPILE) -o $@ -c $<
 
 $(gtk_awt_peer_sources:.java=.lo): %.lo: %.java
-	$(GCJCOMPILE) -fjni -o $@ $<
+	$(LTGCJCOMPILE) -fjni -o $@ -c $<
 
 gnu/gcj/runtime/StackTrace.lo: gnu/gcj/runtime/StackTrace.java
-	$(GCJCOMPILE) -fno-optimize-sibling-calls -o $@ $<
+	$(LTGCJCOMPILE) -fno-optimize-sibling-calls -o $@ -c $<
 
 lib-gnu-awt-xlib.la: $(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_DEPENDENCIES)
 	@echo Creating list of files to link...
@@ -21794,8 +22221,6 @@ texinfo: TexinfoDoclet.class
 	javadoc -outfile $(srcdir)/doc/java-util.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/util/*.java
 	javadoc -outfile $(srcdir)/doc/java-util-jar.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/util/jar/*.java
 	javadoc -outfile $(srcdir)/doc/java-util-zip.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/util/zip/*.java
-
--include deps.mk
 
 all-recursive: libgcj-@gcc_version@.jar $(nat_headers) $(xlib_nat_headers)
 
