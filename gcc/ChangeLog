@@ -1,3 +1,8 @@
+2004-02-02  Richard Henderson  <rth@redhat.com>
+
+	PR target/13789
+	* expr.c (store_expr): Use force_operand before emit_move_insn.
+
 2004-01-26  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* config/arm/arm.c (TARGET_PROMOTE_FUNCTION_ARGS): New.
