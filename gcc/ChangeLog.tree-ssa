@@ -1,3 +1,8 @@
+2003-01-26  Jeff Law <law@redhat.com>
+
+	* c-simplify.c (simplify_decl_stmt): Fix comment typo.
+	Use correct predicate when "simplifying" a static initializer.
+
 2003-01-26  Andreas Jaeger  <aj@suse.de>
 
 	* Makefile.in (gt-dependence.h): New rule.

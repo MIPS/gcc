@@ -802,7 +802,7 @@ simplify_decl_stmt (stmt_p, next_p)
 	  else
 	    {
 	      /* We must still examine initializers for static variables
-		 as they may a label address.  However, we must not
+		 as they may contain a label address.  However, we must not
 		 make any changes to the node or the queues.  So we
 		 make a copy of the node before calling the simplifier
 		 and we use throw-away queues.  */
@@ -810,7 +810,7 @@ simplify_decl_stmt (stmt_p, next_p)
 	      tree post = NULL;
 	      tree dummy_init = deep_copy_node (init);
 	      simplify_expr (&dummy_init, &pre, &post,
-			     is_simple_constructor,
+			     is_simple_initializer,
 			     fb_rvalue);
 	    }
 	}
