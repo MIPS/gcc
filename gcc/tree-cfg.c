@@ -131,6 +131,7 @@ static void replace_stmt (tree *, tree *);
 static void merge_tree_blocks (basic_block, basic_block);
 static bool remap_stmts (basic_block, basic_block, tree *);
 static tree *handle_switch_split (basic_block, basic_block);
+static tree *handle_switch_fallthru (tree, basic_block, basic_block);
 static enum eh_region_type get_eh_region_type (tree);
 
 /* Block iterator helpers.  */
@@ -148,7 +149,8 @@ enum find_location_action {
   EDGE_INSERT_LOCATION_AFTER,
   EDGE_INSERT_LOCATION_THEN,
   EDGE_INSERT_LOCATION_ELSE,
-  EDGE_INSERT_LOCATION_NEW_ELSE };
+  EDGE_INSERT_LOCATION_NEW_ELSE,
+  EDGE_INSERT_LOCATION_BSI_AFTER };
 
 static tree_stmt_iterator find_insert_location
 	(basic_block, basic_block, basic_block, enum find_location_action *);
@@ -2059,6 +2061,7 @@ cleanup_cond_expr_graph (basic_block bb)
 static void
 cleanup_switch_expr_graph (basic_block switch_bb)
 {
+  int found = 0;
 #if defined ENABLE_CHECKING
   tree switch_expr = last_stmt (switch_bb);
 #endif
@@ -2073,16 +2076,23 @@ cleanup_switch_expr_graph (basic_block switch_bb)
 
   /* If the switch() has a default label, remove the fallthru edge that was
      created when we processed the entry block for the switch() statement.  */
-  for (e = switch_bb->succ; e; e = e->succ_next)
+  for (e = switch_bb->succ; e && !found; e = e->succ_next)
     {
-      tree t = first_stmt (e->dest);
-      if (t && TREE_CODE (t) == CASE_LABEL_EXPR && CASE_LOW (t) == NULL_TREE)
-	{
-	  basic_block chain_bb = successor_block (switch_bb);
-	  edge e = find_edge (switch_bb, chain_bb);
-	  if (e)
-	    ssa_remove_edge (e);
-	  break;
+      block_stmt_iterator bsi;
+      for (bsi = bsi_start (e->dest); !bsi_end_p (bsi); bsi_next (&bsi))
+        {
+	  tree t = bsi_stmt (bsi);
+          if (TREE_CODE (t) != CASE_LABEL_EXPR)
+	    break;
+	  if (CASE_LOW (t) == NULL_TREE)
+	    {
+	      basic_block chain_bb = successor_block (switch_bb);
+	      edge e = find_edge (switch_bb, chain_bb);
+	      if (e)
+		ssa_remove_edge (e);
+	      found = 1;
+	      break;
+	    }
 	}
     }
 }
@@ -3242,7 +3252,7 @@ bsi_prev (block_stmt_iterator *i)
 
 /* Note this routine is a bit ugly. Since BIND_EXPRs dont cause new block, 
    the block iterator keeps a stack of BIND_EXPRs which have been decended
-   into. In order to create this stack properly, this routine traverses 
+   into.  In order to create this stack properly, this routine traverses 
    through the block until it finds the specified tsi stmt.  */
 
 block_stmt_iterator
@@ -3442,7 +3452,7 @@ bsi_insert_after (block_stmt_iterator *curr_bsi, tree t,
   if (curr_container)
     {
       curr_stmt = bsi_stmt (*curr_bsi);
-      curr_bb = bb_for_stmt (*curr_container);
+      curr_bb = bb_for_stmt (curr_stmt);
       parent = parent_stmt (curr_stmt);
     }
   else
@@ -3523,8 +3533,8 @@ bsi_insert_before (block_stmt_iterator *curr_bsi, tree t,
   if (curr_container == NULL || bsi_stmt (*curr_bsi) == NULL_TREE)
     bsi_insert_after (curr_bsi, t, mode);
     
-  curr_bb = bb_for_stmt (*curr_container);
   curr_stmt = bsi_stmt (*curr_bsi);
+  curr_bb = bb_for_stmt (curr_stmt);
   parent = parent_stmt (curr_stmt);
   inserted_tsi = tsi_from_bsi (*curr_bsi);
 
@@ -3586,9 +3596,88 @@ bsi_insert_before (block_stmt_iterator *curr_bsi, tree t,
   return;
 }
 
+/* When inserting on a FALLTHRU edge from a switch, create a new default case 
+   for the code. If there is a fallthru edge, there should be no default case.
+   Inputs are the SWITCH source block, the original DEST block, and the new
+   block which will contain the new default case.  The edge from src->dest
+   has already been split at this point.  */
+
+static tree *
+handle_switch_fallthru (tree sw_stmt, basic_block dest, basic_block new_bb)
+{
+  tree_stmt_iterator tsi;
+  block_stmt_iterator bsi;
+  tree goto_stmt, stmt, label, tmp;
+  basic_block src, tmp_bb;
+  edge e;
+
+
+  /* First, make all predecessors which don't explicitly goto the DEST block
+     do so, except for SRC->DEST.  */
+
+  bsi = bsi_start (dest);
+  stmt = bsi_stmt (bsi);
+  if (TREE_CODE (stmt) != LABEL_EXPR)
+    {
+      /* DEST does not start with a label, add one.  */
+      label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+      stmt = build1 (LABEL_EXPR, void_type_node, label);
+      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+    }
+  else
+    label = LABEL_EXPR_LABEL (stmt);
+
+  src = bb_for_stmt (sw_stmt);
+  for (e = dest->pred; e; e = e->pred_next)
+    if (e->src != new_bb)
+      {
+        stmt = last_stmt (e->src);
+	if (TREE_CODE (stmt) != GOTO_EXPR)
+	  {
+	    goto_stmt = build1 (GOTO_EXPR, void_type_node, label);
+	    tmp = PENDING_STMT (e);
+	    SET_PENDING_STMT (e, NULL_TREE);
+	    bsi_insert_on_edge_immediate (e, goto_stmt, NULL, &tmp_bb);
+	    SET_PENDING_STMT (e, tmp);
+	    /* Insertion should never cause a new block.  */
+	    if (tmp_bb)
+	      abort ();
+	  }
+      }
+    else
+      /* This will no longer be a fallthru edge.  */
+      e->flags = e->flags & ~EDGE_FALLTHRU;
+
+  /* Now there are no fall throughs to the DEST block, so simple create
+     the default case, and insert there.  */
+
+  stmt = SWITCH_BODY (sw_stmt);
+  /* If the switch isn't inside a BIND_EXPR, make one.  */
+  if (TREE_CODE (stmt) != BIND_EXPR)
+    {
+      tree bind = build (BIND_EXPR, void_type_node, NULL_TREE, stmt, NULL_TREE);
+      set_bb_for_stmt (bind, bb_for_stmt (stmt));
+      SWITCH_BODY (sw_stmt) = bind;
+    }
+
+  tsi = tsi_last (&BIND_EXPR_BODY (SWITCH_BODY (sw_stmt))); 
+  label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+  DECL_CONTEXT (label) = current_function_decl;
+  stmt = build (CASE_LABEL_EXPR, void_type_node, NULL_TREE, NULL_TREE, label);
+
+  /* Update block in the new CE node.  */
+  tsi_link_after (&tsi, stmt, TSI_SAME_STMT);
+  append_stmt_to_bb (tsi_container (tsi), new_bb, sw_stmt);
+  tsi_next (&tsi);
+  append_stmt_to_bb (tsi_container (tsi), new_bb, sw_stmt);
+
+  new_bb->succ->flags = new_bb->succ->flags | EDGE_FALLTHRU;
+
+  return tsi_container (tsi);
+}
 
 /* Arrange for a place to insert a stmt when we are splitting a block which is
-   targetting by a switch stmt.  Return the container which is used to build
+   targeted by a switch stmt.  Return the container which is used to build
    a TSI where the edge stmt should be inserted after. 
 
    Fallthrough code must be directed around the target label, and a target 
@@ -3603,132 +3692,53 @@ bsi_insert_before (block_stmt_iterator *curr_bsi, tree t,
    will be turned into:
 
      case X:
-  BB_b
        goto newlab;
-  BB_c
+  BB_b
      case Y:
        inserted_code;
   BB_a
      newlab:
        code;
   
-   This will cause the creation of 2 new basic blocks, and require some 
-   edges to be redirected.  
-
    Note that upon entry to this function, src is *not* the switch stmt's block
    any more. bsi_insert_on_edge_immediate() has already split the edge from
    src->dest, so we have   original_src -> src -> dest. This new src block 
-   is currently empty. 
+   is currently empty.  */
    
-   This routine will create BB_b. BB_c will be the SRC block passed in.
-   BB_a will remain the DEST block.  */
 
 static tree *
 handle_switch_split (basic_block src, basic_block dest)
 {
   block_stmt_iterator bsi, tmp;
   tree_stmt_iterator tsi;
-  tree stmt, label, parent;
-  tree phi;
+  tree stmt, label, goto_stmt;
+  tree tmp_tree;
   basic_block new_bb;
-  edge e, new_edge;
-  int num_elems, i;
-  bb_ann_t ann;
-
-
-  /* 1.  Insert the goto immediately preceeding the labels that are targeted. 
-     This should place the goto in the correct location in the tree.  */
-
-  tsi = tsi_start (dest->head_tree_p);
-  parent = parent_stmt (tsi_stmt (tsi));
+  edge e;
 
   label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+  DECL_CONTEXT (label) = current_function_decl;
   TREE_USED (label) = 1;
-  stmt = build1 (GOTO_EXPR, void_type_node, label);
 
-  tsi_link_before (&tsi, stmt, TSI_NEW_STMT);
-  modify_stmt (stmt);
-
-  /* 2.  Make a new basic block of which this stmt is the sole member.  */
-
-  new_bb = create_bb ();
-  alloc_aux_for_block (new_bb, sizeof (struct bb_ann_d));
-  ann = bb_ann (new_bb);
-  ann->phi_nodes = NULL_TREE;
-  ann->ephi_nodes = NULL_TREE;
-  ann->dom_children = (bitmap) NULL;
-  append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
-
-  /* Reset the head of dest since the container might be different now.  */
-  tsi_next (&tsi);
-  dest->head_tree_p = tsi_container (tsi);
-
-  /* 3. Redirect all the edges except the one from src to point to this
-	block.  */
+  /* Insert a goto on all edges except the one from src to this label. */
     
-  for (e = dest->pred; e ; )
+  for (e = dest->pred; e ; e = e->pred_next)
     {
-      new_edge = e;
-      e = e->pred_next;
-      if (new_edge->src == src)
-	continue;
-      redirect_edge_succ (new_edge, new_bb);
-    }
+      if (e->src != src)
+        {
+	  goto_stmt = build1 (GOTO_EXPR, void_type_node, label);
+	  tmp_tree = PENDING_STMT (e);
+	  SET_PENDING_STMT (e, NULL_TREE);
+	  bsi_insert_on_edge_immediate (e, goto_stmt, NULL, &new_bb);   
+	  SET_PENDING_STMT (e, tmp_tree);
 
-  /* 4. Now make dest the target of the new block.  Examine the PHI's and
-	decide what to do.  */
-
-  new_edge = make_edge (new_bb, dest, 0);
-  phi = phi_nodes (dest);
-  if (phi)
-    {
-      /* All PHI nodes should have the same number of elements.  */
-      num_elems = PHI_NUM_ARGS (phi);
-
-      /* The easy case is if there are only 2 arguments. One edge has been 
-	 updated already by the original edge split, so now update the 
-	 other argument to come from this new edge.  */
-      if (num_elems == 2)
-	{
-	  for (; phi; phi = TREE_CHAIN (phi))
-	    for (i = 0; i < num_elems; i++)
-	      if (PHI_ARG_EDGE (phi, i)->src != src)
-		PHI_ARG_EDGE (phi, i) = new_edge;
-	}
-      else
-	{
-	  /* There is more than one edge coming into the new basic block,
-	     so a new PHI node must be created for this block (BB_c), and 
-	     then it must feed into another PHI node at the orginal 
-	     block (BB_a).  This will require the creation of new PHI 
-	     result variables for one of the 2 PHI nodes.  */
-
-	  for (; phi; phi = TREE_CHAIN (phi))
-	    {
-	      tree new_phi;
-	      new_phi = create_phi_node (SSA_NAME_VAR (PHI_RESULT (phi)),
-					 new_bb);
-	      /* Add elements to the new PHI node.  */
-	      for (i = 0; i < num_elems; i++)
-	        {
-		  e = PHI_ARG_EDGE (phi, i);
-		  if (e->src != src)
-		    add_phi_arg (new_phi, PHI_ARG_DEF (phi, i), e);
-		}
-
-	      /* Remove the redirected edges from the old PHI node.  */
-	      for (e = new_bb->pred; e ; e = e->pred_next)
-		remove_phi_arg (phi, e->src);
-	      
-	      /* The original PHI node in BB_a should now contain only an
-	         argument from src.  Add an argument from the new PHI node to
-		 this PHI node.  */
-	      add_phi_arg (phi, PHI_RESULT (new_phi), new_edge);
-	    }
+	  /* Splitting this edge should never result in a new block.  */
+	  if (new_bb)
+	    abort ();
 	}
     }
 
-  /* 5. Find the last case label.  That will be where the code seperation
+  /* Find the last case label.  That will be where the code seperation
      between bb_c and bb_a will be formed.  Upon exit of the loop, bsi will
      point to the first stmt in BB_a.  */
 
@@ -3738,8 +3748,6 @@ handle_switch_split (basic_block src, basic_block dest)
       stmt = bsi_stmt (bsi);
       if (is_label_stmt (bsi_stmt (bsi)))
 	{
-	  /* FIXME.  This block may also be the target of a GOTO.  Hopefully 
-	     there are no case stmts after the label. ick.  */
 	  if (TREE_CODE (stmt) != CASE_LABEL_EXPR)
 	    break;
 	}
@@ -3748,11 +3756,11 @@ handle_switch_split (basic_block src, basic_block dest)
       tmp = bsi;
     }
 
-  /* 6. Now the stmts delinieating the new block are known. Change the basic
-	block for those stmts. It cannot be done in the above loop, for 
-	changing the basic block of a stmt pointed to by an iterator will cause
-	the iterator to think its reached the end of a block. (It is now 
-	pointing to BB_c, the next stmt is in BB_a, so it terminates.  */
+  /* Now the stmts delineating the new block are known. Change the basic
+     block for those stmts. It cannot be done in the above loop, for 
+     changing the basic block of a stmt pointed to by an iterator will cause
+     the iterator to think its reached the end of a block. (It is now 
+     pointing to BB_b, the next stmt is in BB_a, so it terminates.  */
 
   for (tsi = tsi_start (dest->head_tree_p); 
        !tsi_end_p (tsi) && (tsi_container (tsi) != bsi_container (bsi));
@@ -3760,8 +3768,8 @@ handle_switch_split (basic_block src, basic_block dest)
     append_stmt_to_bb (tsi_container (tsi), src, parent_stmt (tsi_stmt (tsi)));
 
 
-  /* 7. Issue the label at the beginning of DEST, and update DEST's head
-	and end pointers.  */
+  /* Issue the label at the beginning of DEST, and update DEST's head
+     and end pointers.  */
 
   stmt = build1 (LABEL_EXPR, void_type_node, label);
   if (bsi_end_p (bsi))
@@ -3783,7 +3791,8 @@ handle_switch_split (basic_block src, basic_block dest)
       bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
     }
 
-  return bsi_container (tmp);
+  bsi = bsi_last (src);
+  return bsi_container (bsi);
 }
 
 /* Given an edge between src and dest, return a TSI representing the location
@@ -3840,8 +3849,17 @@ find_insert_location (basic_block src, basic_block dest, basic_block new_block,
 	    break;
 
 	  case SWITCH_EXPR:
-	    ret = handle_switch_split (new_block, dest);
-	    *location = EDGE_INSERT_LOCATION_AFTER;
+	    bsi = bsi_start (dest);
+	    if (TREE_CODE (bsi_stmt (bsi)) != CASE_LABEL_EXPR)
+	      {
+		ret = handle_switch_fallthru (stmt, dest, new_block);
+		*location = EDGE_INSERT_LOCATION_BSI_AFTER;
+	      }
+	    else
+	      {
+		ret = handle_switch_split (new_block, dest);
+		*location = EDGE_INSERT_LOCATION_AFTER;
+	      }
 	    break;
 
 	  default:
@@ -4037,11 +4055,20 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
       case EDGE_INSERT_LOCATION_AFTER:
 	tsi_link_after (&tsi, stmt, TSI_NEW_STMT);
 	break;
+      
+      case EDGE_INSERT_LOCATION_BSI_AFTER:
+        bsi = bsi_from_tsi (tsi);
+	bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
     }
 
-  append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
-  inserted_stmt = tsi_stmt (tsi);
-  bsi = bsi_from_tsi (tsi);
+  if (location != EDGE_INSERT_LOCATION_BSI_AFTER)
+    {
+      append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
+      inserted_stmt = tsi_stmt (tsi);
+      bsi = bsi_from_tsi (tsi);
+    }
+  else
+    inserted_stmt = bsi_stmt (bsi);
 
   switch (location)
     {
@@ -4075,6 +4102,9 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
 	if (tsi_container (tsi))
 	  append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
 	break;
+
+      case EDGE_INSERT_LOCATION_BSI_AFTER:
+        break;
     }
 
   /* Now update the required SSA bits.  */

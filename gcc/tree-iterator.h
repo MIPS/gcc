@@ -45,6 +45,7 @@ typedef struct {
 } tree_stmt_iterator;
 
 static inline tree_stmt_iterator tsi_start 	PARAMS ((tree *));
+static inline tree_stmt_iterator tsi_last 	PARAMS ((tree *));
 static inline bool tsi_end_p			PARAMS ((tree_stmt_iterator));
 static inline void tsi_next			PARAMS ((tree_stmt_iterator *));
 static inline void tsi_prev			PARAMS ((tree_stmt_iterator *));
@@ -58,6 +59,20 @@ tsi_start (tp)
      tree *tp;
 {
   tree_stmt_iterator i;
+  i.tp = tp;
+  return i;
+}
+
+/* Return an iterator pointing to the last stmt in a chain.  */
+static inline tree_stmt_iterator
+tsi_last (tp)
+     tree *tp;
+{
+  tree_stmt_iterator i;
+
+  while (TREE_CODE (*tp) == COMPOUND_EXPR)
+    tp = &TREE_OPERAND (*tp, 1);
+
   i.tp = tp;
   return i;
 }

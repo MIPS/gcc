@@ -1,3 +1,15 @@
+2003-06-18  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-cfg.c (EDGE_INSERT_LOCATION_BSI_AFTER): New location code.
+	(cleanup_switch_expr_graph): Find default case correctly.
+	(bsi_insert_after): Get BB from stmt when its avialble.
+	(bsi_insert_before): Get BB from stmt when its avialble.
+	(handle_switch_fallthru): New. Handle edge from switch to the fallthru.
+	(handle_switch_split): Re-implement using new scheme.
+	(find_insert_location): Use handle_switch_fallthru ().
+	(bsi_insert_on_edge_immediate): Handle EDGE_INSERT_LOCATION_BSI_AFTER.
+	* tree-iterator.h (tsi_last): New. Find last stmt in a chain.
+
 2003-06-17  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-alias-common.c (find_func_aliases): Guard cast op
