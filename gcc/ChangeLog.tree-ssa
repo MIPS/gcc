@@ -1,3 +1,8 @@
+2003-05-08  Diego Novillo  <dnovillo@redhat.com>
+
+	* version.c (version_string): Change format to show daily
+	datestamp and merged date.
+
 2003-05-07  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (remove_useless_stmts_and_vars): Do not remove
