@@ -4440,7 +4440,6 @@ These flags may change in the future. You cannot override any of these options i
 To build shared libraries with @option{-fast}, specify @option{-fPIC} on command line. 
 
 @gccoptlist{-O3
--floop-transpose
 -fgcse-sm
 -funroll-loops
 -fstrict-aliasing

@@ -1,3 +1,24 @@
+2004-11-15  Dale Johannesen  <dalej@apple.com>
+
+	* c-decl.c (find_tree_with_code_1):  Remove.
+	(find_tree_with_code):  Ditto.
+	(find_pointer):  Ditto.
+	(struct should_transpose_for_loops_t):  Ditto.
+	(should_transpose_for_loops_1):  Ditto.
+	(should_transpose_for_loops):  Ditto.
+	(tree_contains_1):  Ditto.
+	(tree_contains):  Ditto.
+	(perform_loop_transpose):  Ditto.
+	(loop_transpose):  Ditto.
+	(finish_function):  Don't call it.
+	* common.opt (-floop-transpose):  Remove.
+	* flags.h (flag_loop_transpose):  Remove.
+	* opts.c (OPT_floop_transpose):  Remove.
+	* toplev.c (flag_loop_transpose):  Remove.
+	* config/rs6000/rs6000.c (rs6000_override_options):  Don't set it.
+	* doc/invoke.texi (-fast):  Remove reference.
+	* testsuite/gcc.apple/loop-transpose-1.c:  Remove.
+
 2004-11-15  Matt Austern  <austern@apple.com>
 
 	Radar 3878983

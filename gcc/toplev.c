@@ -357,11 +357,6 @@ rtx stack_limit_rtx;
    one, unconditionally renumber instruction UIDs.  */
 int flag_renumber_insns = 1;
 
-/* APPLE LOCAL begin loop transposition */
-/* Nonzero if we should perform automatic loop transposition. */
-int flag_loop_transpose = 0;
-/* APPLE LOCAL end loop transposition */
-
 /* APPLE LOCAL begin predictive compilation */
 int predictive_compilation = -1;
 /* APPLE LOCAL end predictive compilation */

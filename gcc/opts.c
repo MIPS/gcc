@@ -787,12 +787,6 @@ common_handle_option (size_t scode, const char *arg, int value)
       dump_base_name = arg;
       break;
 
-    /* APPLE LOCAL begin -floop-transpose */
-    case OPT_floop_transpose:
-      flag_loop_transpose = value;
-      break;
-    /* APPLE LOCAL end -floop-transpose */
-
     case OPT_falign_functions_:
       align_functions = value;
       break;

@@ -517,12 +517,6 @@ floop-optimize
 Common Report Var(flag_loop_optimize)
 Perform loop optimizations
 
-; APPLE LOCAL begin -floop-transpose 
-floop-transpose
-Common
-Interchange loops to improve cache locality
-; APPLE LOCAL end -floop-transpose
-
 floop-optimize2
 Common Report Var(flag_loop_optimize2)
 Perform loop optimizations using the new loop optimizer

@@ -318,11 +318,6 @@ extern int flag_fastcp;
 extern int flag_debug_only_used_symbols;
 #endif
 
-/* APPLE LOCAL begin loop transposition */
-/* Nonzero if we should perform automatic loop transposition. */
-extern int flag_loop_transpose;
-/* APPLE LOCAL end loop transposition */
-
 /* APPLE LOCAL begin predictive compilation */
 extern int predictive_compilation;
 /* APPLE LOCAL end predictive compilation */

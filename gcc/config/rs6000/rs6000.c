@@ -1322,7 +1322,6 @@ rs6000_override_options (const char *default_cpu)
   if (flag_fast || flag_fastf || flag_fastcp)
     {
       flag_gcse_sm = 1;
-      flag_loop_transpose = 1;
       rs6000_sched_insert_nops = sched_finish_regroup_exact;
       flag_unroll_loops = 1;
       flag_strict_aliasing = 1;
