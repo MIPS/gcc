@@ -492,7 +492,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	case FIX_FLOOR_EXPR:
 	case FIX_ROUND_EXPR:
 	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-			 is_simple_val, fb_rvalue);
+			 is_simple_varname, fb_rvalue);
 	  recalculate_side_effects (*expr_p);
 	  break;
 
@@ -937,7 +937,9 @@ simplify_return_expr (stmt, pre_p)
 	     Therefore, if the RHS is a CALL_EXPR, then simplify the
 	     RHS to a simple_val.  Otherwise allow any simple_rhs.  */
 	  simplify_expr (&TREE_OPERAND (ret_expr, 1), pre_p, NULL,
-			 is_simple_val, fb_rvalue);
+			 (TREE_CODE (TREE_OPERAND (ret_expr, 1)) == CALL_EXPR
+			  ? is_simple_val : is_simple_rhs),
+			 fb_rvalue);
 	  TREE_OPERAND (stmt, 0) = ret_expr;
         }
     }
@@ -1520,11 +1522,8 @@ shortcut_cond_expr (tree expr)
   tree pred = TREE_OPERAND (expr, 0);
   tree then_ = TREE_OPERAND (expr, 1);
   tree else_ = TREE_OPERAND (expr, 2);
-  tree true_label, false_label, end_label;
-  tree *true_label_p;
-  tree *false_label_p;
-  bool emit_end, emit_false;
-  tree_stmt_iterator si;
+  tree false_label, end_label;
+  bool emit_end;
 
   /* First do simple transformations.  */
   if (!TREE_SIDE_EFFECTS (else_))
@@ -1568,71 +1567,35 @@ shortcut_cond_expr (tree expr)
        no: d; end:
      and recursively simplify the condition.  */
 
-  true_label = false_label = end_label = NULL_TREE;
+  false_label = end_label = NULL_TREE;
+  emit_end = true;  
 
-  /* If our arms just jump somewhere, hijack those labels so we don't
-     generate jumps to jumps.  */
-  si = tsi_start (&then_);
-  expr = tsi_stmt (si);
-  if (TREE_CODE (expr) == GOTO_EXPR
-      && TREE_CODE (GOTO_DESTINATION (expr)) == LABEL_DECL)
-    {
-      true_label = GOTO_DESTINATION (expr);
-      tsi_delink (&si);
-    }
-  si = tsi_start (&else_);
-  expr = tsi_stmt (si);
-  if (TREE_CODE (expr) == GOTO_EXPR
-      && TREE_CODE (GOTO_DESTINATION (expr)) == LABEL_DECL)
-    {
-      false_label = GOTO_DESTINATION (expr);
-      tsi_delink (&si);
-    }
-
-  /* If we aren't hijacking a label for the 'then' branch, it falls through. */
-  if (true_label)
-    true_label_p = &true_label;
-  else
-    true_label_p = NULL;
-
-  /* The 'else' branch also needs a label if it contains interesting code.  */
-  if (false_label || TREE_SIDE_EFFECTS (else_))
-    false_label_p = &false_label;
-  else
-    false_label_p = NULL;
-
-  /* If there was nothing else in our arms, just forward the label(s).  */
-  if (!TREE_SIDE_EFFECTS (then_) && !TREE_SIDE_EFFECTS (else_))
-    return shortcut_cond_r (pred, true_label_p, false_label_p);
-
-  /* If our last subexpression already has a terminal label, reuse it.  */
+  /* If our subexpression already has a terminal label, reuse it.  */
   if (TREE_SIDE_EFFECTS (else_))
     expr = expr_last (else_);
   else
     expr = expr_last (then_);
   if (TREE_CODE (expr) == LABEL_EXPR)
-    end_label = LABEL_EXPR_LABEL (expr);
+    {
+      emit_end = false;
+      end_label = LABEL_EXPR_LABEL (expr);
+      if (!TREE_SIDE_EFFECTS (else_))
+	false_label = end_label;
+    }
 
-  /* If we don't care about jumping to the 'else' branch, jump to the end
-     if the condition is false.  */
-  if (!false_label_p)
-    false_label_p = &end_label;
-
-  /* We only want to emit these labels if we aren't hijacking them.  */
-  emit_end = (end_label == NULL_TREE);
-  emit_false = (false_label == NULL_TREE);
-
-  expr = shortcut_cond_r (pred, true_label_p, false_label_p);
+  expr = shortcut_cond_r (pred, NULL, &false_label);
 
   add_tree (then_, &expr);
   if (TREE_SIDE_EFFECTS (else_))
     {
       add_tree (build_and_jump (&end_label), &expr);
-      if (emit_false)
-	add_tree (build1 (LABEL_EXPR, void_type_node, false_label), &expr);
+      add_tree (build1 (LABEL_EXPR, void_type_node, false_label), &expr);
       add_tree (else_, &expr);
     }
-  if (emit_end && end_label)
+  else
+    end_label = false_label;
+
+  if (emit_end)
     add_tree (build1 (LABEL_EXPR, void_type_node, end_label), &expr);
 
   return expr;
@@ -1749,8 +1712,7 @@ simplify_modify_expr (expr_p, pre_p, post_p, want_value)
   tree *from_p = &TREE_OPERAND (*expr_p, 1);
   tree *to_p = &TREE_OPERAND (*expr_p, 0);
   tree type = TREE_TYPE (*to_p);
-  int (*pred) (tree);
-
+  
 #if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != MODIFY_EXPR
       && TREE_CODE (*expr_p) != INIT_EXPR)
@@ -1832,12 +1794,7 @@ simplify_modify_expr (expr_p, pre_p, post_p, want_value)
   if (!want_value)
     post_p = NULL;
 
-  if (AGGREGATE_TYPE_P (TREE_TYPE (*from_p)))
-    pred = is_simple_rhs;
-  else
-    pred = is_simple_val;
-    
-  simplify_expr (from_p, pre_p, post_p, pred, fb_rvalue);
+  simplify_expr (from_p, pre_p, post_p, is_simple_rhs, fb_rvalue);
 
   if (want_value)
     {
@@ -1986,7 +1943,7 @@ simplify_save_expr (expr_p, pre_p, post_p)
   else
     {
       /* Simplify this now so post-effects go on the normal postqueue.  */
-      simplify_expr (&val, pre_p, post_p, is_simple_val, fb_rvalue);
+      simplify_expr (&val, pre_p, post_p, is_simple_rhs, fb_rvalue);
       val = get_initialized_tmp_var (val, pre_p);
       TREE_OPERAND (*expr_p, 0) = val;
       *expr_p = val;
@@ -2365,14 +2322,8 @@ static tree
 internal_get_tmp_var (tree val, tree *pre_p, bool is_formal)
 {
   tree t, mod;
-  int (*pred) (tree);
 
-  if (is_formal)
-    pred = is_simple_rhs;
-  else
-    pred = is_simple_val;
-
-  simplify_expr (&val, pre_p, NULL, pred, fb_rvalue);
+  simplify_expr (&val, pre_p, NULL, is_simple_rhs, fb_rvalue);
 
   t = lookup_tmp_var (val, is_formal);
 
