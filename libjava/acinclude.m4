@@ -101,7 +101,7 @@ test -z "$glibjava_CXX" && AC_MSG_ERROR([no acceptable c++ found in \$PATH])
 
 AC_PROG_CXX_GNU
 
-if test $ac_cv_prog_gxx = yes; then
+if test "$ac_cv_prog_gxx" = yes; then
   GXX=yes
 dnl Check whether -g works, even if CXXFLAGS is set, in case the package
 dnl plays around with CXXFLAGS (such as to build both debugging and
@@ -112,7 +112,7 @@ dnl normal versions of a library), tasteless as that idea is.
   AC_PROG_CXX_G
   if test "$ac_test_CXXFLAGS" = set; then
     CXXFLAGS="$ac_save_CXXFLAGS"
-  elif test $ac_cv_prog_cxx_g = yes; then
+  elif test "$ac_cv_prog_cxx_g" = yes; then
     CXXFLAGS="-g -O2"
   else
     CXXFLAGS="-O2"
@@ -277,11 +277,11 @@ size_t iconv();
 # serial 2
 
 AC_DEFUN([AM_LC_MESSAGES],
-  [if test $ac_cv_header_locale_h = yes; then
+  [if test "$ac_cv_header_locale_h" = yes; then
     AC_CACHE_CHECK([for LC_MESSAGES], am_cv_val_LC_MESSAGES,
       [AC_TRY_LINK([#include <locale.h>], [return LC_MESSAGES],
        am_cv_val_LC_MESSAGES=yes, am_cv_val_LC_MESSAGES=no)])
-    if test $am_cv_val_LC_MESSAGES = yes; then
+    if test "$am_cv_val_LC_MESSAGES" = yes; then
       AC_DEFINE(HAVE_LC_MESSAGES, 1,
         [Define if your <locale.h> file defines LC_MESSAGES.])
     fi

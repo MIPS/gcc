@@ -1,3 +1,10 @@
+2002-07-08  Christopher Faylor  <cgf@redhat.com>
+
+	* configure.in: Invalidate cross-compilation assumption.
+	* configure: Regenerate.
+	* acinclude.m4: Fix several unguarded use of variables in test
+	statements.
+
 2002-06-09  David Billinghurst <David.Billinghurst@riotinto.com>
 
 	2002-05-29  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
@@ -12,4 +19,3 @@
 	
 	* java/lang/natSystem.cc: Use _timezone on cygwin. Simplified
 	version of mainline patch.
-

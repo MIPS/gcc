@@ -465,7 +465,7 @@ changequote([,])dnl
 AC_SUBST(tool_include_dir)
 AC_SUBST(gcc_version)
 
-if test -n "${with_cross_host}"; then
+if test -n "${with_cross_host_stupid}"; then
    # We are being configured with a cross compiler.  AC_REPLACE_FUNCS
    # may not work correctly, because the compiler may not be able to
    # link executables.
