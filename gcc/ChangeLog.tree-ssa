@@ -1,3 +1,19 @@
+2002-08-15  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-pretty-print.c: Move extern definitions to diagnostic.h.
+	(print_c_node_brief): New function.
+	(debug_c_node_brief): New function.
+	(debug_c_node): Add option for showing brief versions of statement
+	nodes.  Update all callers.
+	(print_declaration): Ditto.
+	* c-simplify.c (simplify_function_tree): Add newline to debug
+	output.
+	* c-tree.h (print_c_node_brief): Declare.
+	(debug_c_node_brief): Declare.
+	* tree-cfg.c: Call print_c_node_brief in debugging otuput.
+	* tree-mudflap.c (dump_c_node): Remove extern declaration.
+	(mf_varname_tree): Update call to dump_c_node.
+
 2002-08-15  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-cfg.c (find_expr_in_tree_helper): Renamed from find_expr_in_tree.

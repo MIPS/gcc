@@ -1716,9 +1716,9 @@ insert_before_ctrl_stmt (stmt, where, bb)
   if (dump_file)
     {
       fprintf (dump_file, "\nAbout to insert statement: ");
-      print_c_node (dump_file, stmt);
+      print_c_node_brief (dump_file, stmt);
       fprintf (dump_file, "\nBefore statement: ");
-      print_c_node (dump_file, parent);
+      print_c_node_brief (dump_file, parent);
       fprintf (dump_file, " (line %d)\n", STMT_LINENO (parent));
       fprintf (dump_file, "At basic block %d\n", bb->index);
     }
@@ -1859,9 +1859,9 @@ insert_before_normal_stmt (stmt, where, bb)
       if (dump_file)
 	{
 	  fprintf (dump_file, "\nInserted statement: ");
-	  print_c_node (dump_file, stmt);
+	  print_c_node_brief (dump_file, stmt);
 	  fprintf (dump_file, "\nBefore statement  : ");
-	  print_c_node (dump_file, where);
+	  print_c_node_brief (dump_file, where);
 	  fprintf (dump_file, " (line %d)\n", STMT_LINENO (where));
 	  fprintf (dump_file, "At basic block %d\n", bb->index);
 	}
@@ -1892,9 +1892,9 @@ insert_before_normal_stmt (stmt, where, bb)
       if (dump_file)
 	{
 	  fprintf (dump_file, "\nInserted statement: ");
-	  print_c_node (dump_file, stmt);
+	  print_c_node_brief (dump_file, stmt);
 	  fprintf (dump_file, "\nBefore statement  : ");
-	  print_c_node (dump_file, where);
+	  print_c_node_brief (dump_file, where);
 	  fprintf (dump_file, " (line %d)\n", STMT_LINENO (where));
 	  if (new_bb)
 	    fprintf (dump_file, "Created new basic block %d\n",
@@ -1962,9 +1962,9 @@ insert_after_ctrl_stmt (stmt, bb)
   if (dump_file)
     {
       fprintf (dump_file, "\nAbout to insert statement: ");
-      print_c_node (dump_file, stmt);
+      print_c_node_brief (dump_file, stmt);
       fprintf (dump_file, "\nAfter statement: ");
-      print_c_node (dump_file, parent);
+      print_c_node_brief (dump_file, parent);
       fprintf (dump_file, " (line %d)\n", STMT_LINENO (parent));
       fprintf (dump_file, "At basic block %d\n", bb->index);
     }
@@ -2129,9 +2129,9 @@ insert_after_normal_stmt (stmt, where, bb)
   if (dump_file)
     {
       fprintf (dump_file, "\nInserted statement: ");
-      print_c_node (dump_file, stmt);
+      print_c_node_brief (dump_file, stmt);
       fprintf (dump_file, "\nAfter statement  : ");
-      print_c_node (dump_file, where);
+      print_c_node_brief (dump_file, where);
       fprintf (dump_file, " (line %d)\n", STMT_LINENO (where));
       fprintf (dump_file, "At basic block %d\n", bb->index);
     }
@@ -2204,22 +2204,22 @@ replace_expr_in_tree (t, old_expr, new_expr)
       if (old_expr_p)
 	{
 	  fprintf (dump_file, "\nRequested expression: ");
-	  print_c_node (dump_file, old_expr);
+	  print_c_node_brief (dump_file, old_expr);
 
 	  fprintf (dump_file, "\nReplaced expression:  ");
-	  print_c_node (dump_file, *old_expr_p);
+	  print_c_node_brief (dump_file, *old_expr_p);
 
 	  fprintf (dump_file, "\nWith expression:      ");
-	  print_c_node (dump_file, new_expr);
+	  print_c_node_brief (dump_file, new_expr);
 	}
       else
 	{
 	  fprintf (dump_file, "\nCould not find expression: ");
-	  print_c_node (dump_file, old_expr);
+	  print_c_node_brief (dump_file, old_expr);
 	}
 
       fprintf (dump_file, "\nIn statement:        ");
-      print_c_node (dump_file, t);
+      print_c_node_brief (dump_file, t);
 
       fprintf (dump_file, "\nBasic block:         ");
       if (statement_code_p (TREE_CODE (t)))
@@ -2388,7 +2388,7 @@ tree_dump_bb (outf, prefix, bb, indent)
   if (head)
     {
       lineno = (statement_code_p (TREE_CODE (head))) ? STMT_LINENO (head) : -1;
-      print_c_node (outf, head);
+      print_c_node_brief (outf, head);
       fprintf (outf, " (line: %d)\n", lineno);
     }
   else
@@ -2398,7 +2398,7 @@ tree_dump_bb (outf, prefix, bb, indent)
   if (end)
     {
       lineno = (statement_code_p (TREE_CODE (end))) ? STMT_LINENO (end) : -1;
-      print_c_node (outf, end);
+      print_c_node_brief (outf, end);
       fprintf (outf, " (line: %d)\n", lineno);
     }
   else
@@ -2410,19 +2410,6 @@ tree_dump_bb (outf, prefix, bb, indent)
   else
     fputs ("nil\n", outf);
 
-  fprintf (outf, "%s%sPrevious stmt: ", s_indent, prefix);
-  if (BB_PREV_CHAIN_P (bb))
-    {
-      tree *t = BB_PREV_CHAIN_P (bb);
-      lineno = (*t && statement_code_p (TREE_CODE (*t)))
-	       ? STMT_LINENO (*t)
-	       : -1;
-      print_c_node (outf, *t);
-      fprintf (outf, " (line: %d)\n", lineno);
-    }
-  else
-    fputs ("nil\n", outf);
-    
   fprintf (outf, "%s%sBinding scope block: ", s_indent, prefix);
   if (BB_BINDING_SCOPE (bb))
     fprintf (outf, "%d\n", BB_BINDING_SCOPE (bb)->index);

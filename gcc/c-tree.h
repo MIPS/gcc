@@ -327,13 +327,15 @@ extern GTY(()) tree static_ctors;
 extern GTY(()) tree static_dtors;
 
 /* In c-pretty-print.c  */
-extern void print_c_tree  PARAMS ((FILE*, tree));
-extern void print_c_node  PARAMS ((FILE*, tree));
-extern void debug_c_tree  PARAMS ((tree));
-extern void debug_c_node  PARAMS ((tree));
+extern void print_c_tree		PARAMS ((FILE*, tree));
+extern void print_c_node		PARAMS ((FILE*, tree));
+extern void print_c_node_brief		PARAMS ((FILE*, tree));
+extern void debug_c_tree		PARAMS ((tree));
+extern void debug_c_node		PARAMS ((tree));
+extern void debug_c_node_brief		PARAMS ((tree));
 
 /* In c-call-graph.c  */
-extern void print_call_graph PARAMS ((FILE*, tree));
-extern void debug_call_graph PARAMS ((tree));
+extern void print_call_graph		PARAMS ((FILE*, tree));
+extern void debug_call_graph		PARAMS ((tree));
 
 #endif /* ! GCC_C_TREE_H */

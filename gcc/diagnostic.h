@@ -329,4 +329,12 @@ extern void inform     PARAMS ((const char *, ...)) ATTRIBUTE_PRINTF_1;
 
 extern void debug_output_buffer		PARAMS ((output_buffer *));
 
+/* In c-pretty-print.c  */
+extern void dump_c_tree PARAMS ((output_buffer *, tree, HOST_WIDE_INT));
+extern int dump_c_node PARAMS ((output_buffer *, tree, HOST_WIDE_INT, int));
+extern void print_declaration PARAMS ((output_buffer *, tree, HOST_WIDE_INT,
+                                       int));
+extern void print_function_decl PARAMS ((output_buffer *, tree, HOST_WIDE_INT));
+extern void print_struct_decl PARAMS ((output_buffer *, tree, HOST_WIDE_INT));
+
 #endif /* ! GCC_DIAGNOSTIC_H */

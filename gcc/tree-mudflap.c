@@ -339,10 +339,6 @@ mx_external_ref (t, fun)
 
 
 
-/* import from c-pretty-print.c */
-extern int dump_c_node PARAMS ((output_buffer *, tree, HOST_WIDE_INT));
-
-
 /* Create a properly typed STRING_CST node that describes the given
    declaration.  It will be used as an argument for __mf_register().
    Try to construct a helpful string, including file/function/variable
@@ -398,7 +394,7 @@ mf_varname_tree (decl)
   output_add_string (buf, ") ");
 
   /* Add <variable-declaration> */
-  dump_c_node (buf, decl, 0);
+  dump_c_node (buf, decl, 0, 0);
 
   /* Return the lot as a new STRING_CST.  */
   buf_contents = output_finalize_message (buf);

@@ -180,6 +180,7 @@ simplify_function_tree (fndecl)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
       else
 	print_c_tree (dump_file, fnbody);
+      fprintf (dump_file, "\n");
 
       dump_end (TDI_simple, dump_file);
     }
