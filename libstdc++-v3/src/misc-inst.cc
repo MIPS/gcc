@@ -38,6 +38,7 @@
 #include <algorithm>
 #include <vector>
 #include <bits/atomicity.h>
+#include <iterator>
 
 namespace std
 {
@@ -86,6 +87,19 @@ namespace std
     (vector<string>::const_iterator, vector<string>::const_iterator, 
      string*, __false_type);
 #endif
+
+  // The Codesourcery testsuite revealed that in the hammer branch
+  // those symbols were not exported anymore.
+  template
+    istreambuf_iterator<char>::int_type
+    istreambuf_iterator<char>::_M_get() const;
+
+#ifdef _GLIBCPP_USE_WCHAR_T
+  template
+    istreambuf_iterator<wchar_t>::int_type
+    istreambuf_iterator<wchar_t>::_M_get() const;
+#endif  
+
 } // namespace std
 
 #ifdef _GLIBCPP_NEED_GENERIC_MUTEX
