@@ -1,3 +1,11 @@
+2005-01-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.misc-tests/bprob.exp: Same.
+
+	* gcc.c-torture/execute/ieee/ieee.exp: Disable tests for SPE.
+
+	* gcc.c-torture/execute/20020720-1.x: Disable on SPE.
+
 2005-01-14  Aldy Hernandez  <aldyh@redhat.com>
 
 	* config/rs6000/rs6000.h (CLASS_MAX_NREGS): DF goes in 1 register
