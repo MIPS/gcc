@@ -608,13 +608,10 @@ mostly_copy_tree_r (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
-/* APPLE LOCAL begin PR 14489, etc --bowdidge */
+/* APPLE LOCAL begin PR 14498, etc --bowdidge */
 /* This routine was deleted from FSF mainline and lno-branch; however,
    we're still using it in the next routine.  Keep a local copy until 
-   we can rewrite that other stuff.  The FIXME on this worries me. 
-
-   Note the bug number appears to be wrong, so I have no idea what
-   this fixes. */
+   we can rewrite that other stuff.  The FIXME on this worries me. */
 
 /* Mark all the _DECL nodes under *TP as volatile.  FIXME: This must die
    after VA_ARG_EXPRs are properly lowered.  */
@@ -628,7 +625,7 @@ mark_decls_volatile_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 
   return NULL_TREE;
 }
-/* APPLE LOCAL end PR 14489, etc --bowdidge */
+/* APPLE LOCAL end PR 14498, etc --bowdidge */
 
 /* Callback for walk_tree to unshare most of the shared trees rooted at
    *TP.  If *TP has been visited already (i.e., TREE_VISITED (*TP) == 1),
