@@ -1,3 +1,8 @@
+2003-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* expr.c (store_by_pieces): If length is zero and endp is two, abort,
+	othwerise, if length is zero and endp is not two, return "to".
+
 2003-07-26  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* doc/install.texi (Testing): Adjust required versions of DejaGnu.

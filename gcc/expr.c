@@ -2808,7 +2808,11 @@ store_by_pieces (to, len, constfun, constfundata, align, endp)
   struct store_by_pieces data;
 
   if (len == 0)
-    return;
+    {
+      if (endp == 2)
+	abort ();
+      return to;
+    }
 
   if (! MOVE_BY_PIECES_P (len, align))
     abort ();
