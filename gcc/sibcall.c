@@ -144,7 +144,7 @@ static rtx
 skip_copy_to_return_value (rtx orig_insn)
 {
   rtx insn, set = NULL_RTX;
-  rtx hardret, softret;
+  rtx hardret = NULL_RTX, softret = NULL_RTX;
 
   /* If there is no return value, we have nothing to do.  */
   if (! identify_call_return_value (PATTERN (orig_insn), &hardret, &softret))

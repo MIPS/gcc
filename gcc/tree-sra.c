@@ -176,6 +176,17 @@ can_be_scalarized_p (tree var)
       return false;
     }
 
+  if (TREE_THIS_VOLATILE (var))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "Cannot scalarize variable ");
+	  print_generic_expr (dump_file, var, 0);	 
+	  fprintf (dump_file, " because it is declared volatile\n");
+	}
+      return false;
+    }
+
   type = TREE_TYPE (var);
   nfields = 0;
   for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))

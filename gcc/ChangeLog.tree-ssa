@@ -1,3 +1,10 @@
+2003-12-15  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-sra.c (can_be_scalarized_p): Reject volatile variables.
+
+	* sibcall.c (skip_copy_to_return_value): Initialize 'hardret' and
+	'softret'.
+
 2003-12-16  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c (cgraph_remove_node): Ignore DECL_EXTERNAL clones.
