@@ -101,19 +101,6 @@ struct ref_list_priv GTY(())
 typedef struct ref_list_priv *ref_list;
 
 
-/* Iterators for reference lists.  */
-#define FOR_REF_BETWEEN(REF, TMP, FROM, TO, DIR)		\
-  if (FROM) \
-  for (TMP = FROM, REF = TMP->ref;  TMP != TO; TMP = TMP->DIR, REF = (TMP ? TMP->ref : NULL))
-
-#define FOR_EACH_REF(REF, TMP, LIST)				\
-  if (LIST)							\
-  FOR_REF_BETWEEN (REF, TMP, LIST->first, LIST->last->next, next)
-
-#define FOR_EACH_REF_REV(REF, TMP, LIST)			\
-  if (LIST)							\
-  FOR_REF_BETWEEN (REF, TMP, LIST->last, LIST->first->prev, prev)
-
 /* Forward declare structures for the garbage collector GTY markers.  */
 #ifndef GCC_BASIC_BLOCK_H
 struct edge_def;
@@ -613,6 +600,19 @@ extern void gsi_insert_after (tree stmt, gimple_stmt_iterator, basic_block);
 extern void gsi_delete (gimple_stmt_iterator, basic_block);
 extern void gsi_replace (tree stmt, gimple_stmt_iterator, basic_block);
 #endif
+
+/* Iterators for reference lists.  */
+typedef struct {
+  struct ref_list_node *node;
+} ref_list_iterator;
+
+static inline ref_list_iterator rli_start     PARAMS ((ref_list));
+static inline ref_list_iterator rli_start_rev PARAMS ((ref_list));
+static inline ref_list_iterator rli_start_at  PARAMS ((struct ref_list_node *));
+static inline bool rli_after_end	PARAMS ((ref_list_iterator));
+static inline void rli_step		PARAMS ((ref_list_iterator *));
+static inline void rli_step_rev		PARAMS ((ref_list_iterator *));
+static inline tree_ref rli_ref		PARAMS ((ref_list_iterator));
 
 
 /* Global declarations.  */

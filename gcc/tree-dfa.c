@@ -580,36 +580,35 @@ add_ref_to_list_end (list, ref)
   list->last = node;
 }
 
+
 /* Add the contents of the list TOADD to the list LIST, at the beginning of
-   LIST. */ 
+   LIST.  */
+
 void 
 add_list_to_list_begin (list, toadd)
      ref_list list;
      ref_list toadd;
 {
-  struct ref_list_node *tmp;
-  tree_ref tempref;
+  ref_list_iterator i;
 
-  FOR_EACH_REF (tempref, tmp, toadd)
-  {
-    add_ref_to_list_begin (list, tempref);
-  }
+  for (i = rli_start (toadd); !rli_after_end (i); rli_step (&i))
+    add_ref_to_list_begin (list, rli_ref (i));
 }
 
-/* Add the contents of the list TOADD to the list LIST, at the end of LIST. */
+
+/* Add the contents of the list TOADD to the list LIST, at the end of LIST.  */
+
 void
 add_list_to_list_end (list, toadd)
      ref_list list;
      ref_list toadd;
 {
-  struct ref_list_node *tmp;
-  tree_ref tempref;
-  
-  FOR_EACH_REF (tempref, tmp, toadd)
-  {
-    add_ref_to_list_end (list, tempref);
-  }
+  ref_list_iterator i;
+ 
+  for (i = rli_start (toadd); !rli_after_end (i); rli_step (&i))
+    add_ref_to_list_end (list, rli_ref (i));
 }
+
 
 /* Find the list container for reference REF in LIST.  */
 
@@ -969,11 +968,11 @@ function_may_recurse_p ()
      function is not recursive.  */
   FOR_EACH_BB (bb)
     {
-      struct ref_list_node *tmp;
-      tree_ref ref;
+      ref_list_iterator i;
 
-      FOR_EACH_REF (ref, tmp, bb_refs (bb))
-	if (ref_var (ref) == global_var && is_clobbering_def (ref))
+      for (i = rli_start (bb_refs (bb)); !rli_after_end (i); rli_step (&i))
+	if (ref_var (rli_ref (i)) == global_var
+	    && is_clobbering_def (rli_ref (i)))
 	  return true;
     }
 
@@ -1109,14 +1108,10 @@ dump_ref_list (outf, prefix, reflist, indent, details)
      int indent;
      int details;
 {
-  struct ref_list_node *tmp;
-  tree_ref ref;
+  ref_list_iterator i;
 
-  if (reflist == NULL)
-    return;
-
-  FOR_EACH_REF (ref, tmp, reflist)
-    dump_ref (outf, prefix, ref, indent, details);
+  for (i = rli_start (reflist); !rli_after_end (i); rli_step (&i))
+    dump_ref (outf, prefix, rli_ref (i), indent, details);
 }
 
 
@@ -1503,11 +1498,11 @@ count_tree_refs (dfa_stats_p, list)
      struct dfa_stats_d *dfa_stats_p;
      ref_list list;
 {
-  tree_ref ref;
-  struct ref_list_node *tmp;
+  ref_list_iterator i;
 
-  FOR_EACH_REF (ref, tmp, list)
+  for (i = rli_start (list); !rli_after_end (i); rli_step (&i))
     {
+      tree_ref ref = rli_ref (i);
       dfa_stats_p->num_tree_refs++;
 
       if (ref->vref.alias_imm_rdefs)
@@ -1554,10 +1549,9 @@ count_ref_list_nodes (dfa_stats_p, list)
      struct dfa_stats_d *dfa_stats_p;
      ref_list list;
 {
-  tree_ref ref;
-  struct ref_list_node *tmp;
+  ref_list_iterator i;
 
-  FOR_EACH_REF (ref, tmp, list)
+  for (i = rli_start (list); !rli_after_end (i); rli_step (&i))
     dfa_stats_p->num_ref_list_nodes++;
 }
 

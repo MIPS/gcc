@@ -259,8 +259,8 @@ static bool
 is_strred_cand (expr)
      tree expr;
 {
-  tree_ref ref, def, use;
-  struct ref_list_node *tmp;
+  tree_ref def, use;
+  ref_list_iterator i;
   
   STRIP_WFL (expr);
   /* Multiplications that def a variable they use can't be strength reduced.
@@ -270,15 +270,17 @@ is_strred_cand (expr)
     return false;
   
   def = use = NULL;
-  FOR_EACH_REF (ref, tmp, tree_refs (expr))
-    {
-      if (ref_type (ref) == V_DEF)	
-	  def = ref;
-    }
+  for (i = rli_start (tree_refs (expr)); !rli_after_end (i); rli_step (&i))
+    if (ref_type (rli_ref (i)) == V_DEF)	
+	def = rli_ref (i);
+
   if (!def)
     return true;
-  FOR_EACH_REF (ref, tmp, tree_refs (expr))
+
+  for (i = rli_start (tree_refs (expr)); !rli_after_end (i); rli_step (&i))
     {
+      tree_ref ref = rli_ref (i);
+
       if (ref_type (ref) == V_USE)
 	{
 	  use = ref;
@@ -444,14 +446,12 @@ static inline tree_ref
 find_def_for_stmt (stmt)
      tree stmt;
 {
-  struct ref_list_node *tmp;
-  tree_ref ref;
+  ref_list_iterator i;
 
-  FOR_EACH_REF (ref, tmp, tree_refs (stmt))
-    {
-      if (ref_type (ref) == V_DEF)
-        return ref;
-    }
+  for (i = rli_start (tree_refs (stmt)); !rli_after_end (i); rli_step (&i))
+    if (ref_type (rli_ref (i)) == V_DEF)
+      return rli_ref (i);
+
   return NULL;
 }
 
@@ -475,12 +475,14 @@ maybe_find_rhs_use_for_var (def, var)
      tree_ref def;
      tree var;
 {
-  struct ref_list_node *tmp;
-  tree_ref ref;
+  ref_list_iterator i;
 
   /* Now look for the use of var in that expression. */
-  FOR_EACH_REF (ref, tmp, tree_refs (ref_expr (def)))
+  i = rli_start (tree_refs (ref_expr (def)));
+  for (; !rli_after_end (i); rli_step (&i))
     {
+      tree_ref ref = rli_ref (i);
+
       if (ref_type (ref) != V_USE
 	  || !is_simple_modify_expr (ref_expr (ref)))
         continue;
@@ -506,8 +508,7 @@ defs_y_dom_x (ei, y, x)
      most. */
   for (i =  0; i < 2; i++)
     {
-      tree_ref ref;
-      struct ref_list_node *tmp;
+      ref_list_iterator j;
       tree yexpr, refexpr;
       
       yexpr = ref_expr (y);
@@ -516,8 +517,12 @@ defs_y_dom_x (ei, y, x)
       
       if (!TREE_OPERAND (yexpr, i))
         continue;
-      FOR_EACH_REF (ref, tmp, tree_refs (ref_stmt (y)))
+
+      j = rli_start (tree_refs (ref_stmt (y)));
+      for (; !rli_after_end (j); rli_step (&j))
         {
+	  tree_ref ref = rli_ref (j);
+
           /* Find the ref for this operand. */
 	  if (ref_type (ref) != V_USE)
 	    continue;
@@ -560,18 +565,18 @@ defs_match_p (ei, t1, t2)
      tree t1;
      tree t2;
 {
-  tree_ref use1;
   tree_ref use2;
   tree origt2;
-  struct ref_list_node *tmp;
+  ref_list_iterator i;
   
   STRIP_WFL (t1);
   STRIP_WFL (t2);
   origt2 = t2;
   t2 = TREE_OPERAND (t2, 1);
   
-  FOR_EACH_REF (use1, tmp, tree_refs (t1))
+  for (i = rli_start (tree_refs (t1)); !rli_after_end (i); rli_step (&i))
     {
+      tree_ref use1 = rli_ref (i);
       tree use1expr = ref_expr (use1);
       if (ref_type (use1) != V_USE
 	  || !is_simple_modify_expr (use1expr))
@@ -764,20 +769,22 @@ phi_opnd_from_res (ei, Z, j, b)
      basic_block b;
 {
   varray_type Q;
-  tree_ref v;
   size_t i = 0;
-  struct ref_list_node *tmp;
+  ref_list_iterator k;
 
   VARRAY_GENERIC_PTR_INIT (Q, 1, "Temp ops");
 
   /* b <- block containing phi that defines Z.
      Q <- copy of Z */
-  FOR_EACH_REF (v, tmp, tree_refs (ref_stmt (Z)))
-    VARRAY_PUSH_GENERIC_PTR (Q, v);
+  k = rli_start (tree_refs (ref_stmt (Z)));
+  for (; !rli_after_end (k); rli_step (&k))
+    VARRAY_PUSH_GENERIC_PTR (Q, rli_ref (k));
 
   /* For each variable v in Z */
-  FOR_EACH_REF (v, tmp, tree_refs (ref_stmt (Z)))
+  k = rli_start (tree_refs (ref_stmt (Z)));
+  for (; !rli_after_end (k); rli_step (&k))
     {
+      tree_ref v = rli_ref (k);
       if (ref_type (v) == V_USE)
 	if (ei->strred_cand)
 	  while  (is_injuring_def (ei, ref_expr (imm_reaching_def (v))))
@@ -885,14 +892,15 @@ rename_2 (ei, rename2_set)
 	      if (ref_type (X) == E_USE)
                 {
                   bool match = true;
-		  tree_ref op1;
-		  struct ref_list_node *tmp2;
+		  ref_list_iterator l;
 		  
 		  /* if (all corresponding variables in Y and X have
 		     the same SSA version) */
 		  k = 0;
-		  FOR_EACH_REF (op1, tmp2, tree_refs (ref_stmt (X)))
+		  l = rli_start (tree_refs (ref_stmt (X)));
+		  for (; !rli_after_end (l); rli_step (&l))
 		  {
+		    tree_ref op1 = rli_ref (l);
 		    tree_ref op2;
 		    if ((ref_type (op1) != V_USE))
 		      continue;
@@ -1476,8 +1484,6 @@ finalize_1 (ei, temp)
 		  tree *place;
 		  basic_block bb;
 		  tree endtree;
-		  struct ref_list_node *tmp;
-		  tree_ref tempref;
 
                   /* Insert definition of expr at end of BB containing X. */
 		  if (dump_file)
@@ -1536,12 +1542,13 @@ finalize_1 (ei, temp)
 		   create_ref is not correct.  We should keep statement and
 		   expression pointers here.  */
 		  find_refs_in_stmt (stmt, bb);
-		  FOR_EACH_REF (tempref, tmp, tree_refs (stmt))
-		  {
-		    if (ref_type (tempref) != V_USE)
-		      continue;
-		    find_reaching_def_of_var (tempref, bb, phi);  
-		  }
+		  i = rli_start (tree_refs (stmt));
+		  for (; !rli_after_end (i); rli_step (&i))
+		    {
+		      if (ref_type (rli_ref (i)) != V_USE)
+			continue;
+		      find_reaching_def_of_var (rli_ref (i), bb, phi);  
+		    }
 		  
 		  splay_tree_insert (new_stmt_map, 
 				     (splay_tree_key) expr,
@@ -1598,11 +1605,13 @@ expr_phi_insertion (dfs, ei)
 	  || (TREE_OPERAND (real, 1) 
 	      && is_simple_id (TREE_OPERAND (real, 1))))
         {
-          tree_ref ref;
-	  struct ref_list_node *tmp;
           int varcount = 0;
-	  FOR_EACH_REF (ref, tmp, tree_refs (VARRAY_TREE (ei->realstmts, i)))
+	  ref_list_iterator j;
+
+	  j = rli_start (tree_refs (VARRAY_TREE (ei->realstmts, i)));
+	  for (; !rli_after_end (j); rli_step (&j))
 	  {
+	    tree_ref ref = rli_ref (j);
 	    if (ei->strred_cand)
 	      while (ref_type (ref) == V_USE
 		     && ref_var (ref) == TREE_OPERAND (real, 0)
@@ -1965,7 +1974,6 @@ repair_injury (ei, use, temp, orig_euse)
   int i;
   tree expr, stmt;
   basic_block bb;
-  struct ref_list_node *tmp;
   ref_list toprocess = create_ref_list();
      
   for (i = 0; i < 2; i++)
@@ -1981,6 +1989,8 @@ repair_injury (ei, use, temp, orig_euse)
 
       if (ref_type (v) == V_DEF)
 	{
+	  ref_list_iterator j;
+
 	  /* If this isn't a def of *this* variable, ignore it, since it can't
 	   *possibly* injure it. */
 	  if (ref_var (find_def_for_stmt (ref_stmt (v))) 
@@ -2002,49 +2012,50 @@ repair_injury (ei, use, temp, orig_euse)
 	  /* The *first* reference will probably not have a reaching def we can
 	     set yet, since it'll come from a save that hasn't been done
 	     yet. */
-	  FOR_EACH_REF (v, tmp, toprocess)
-	  {	    
-	    if (htab_find (ei->repaired, ref_expr (v)) == NULL)
-	      {
+	  for (j = rli_start (toprocess); !rli_after_end (j); rli_step (&j))
+	    {
+	      v = rli_ref (j);
+	      if (htab_find (ei->repaired, ref_expr (v)) == NULL)
+		{
 #if DEBUGGING_STRRED
-		if (dump_file)
-		    {
-		      fprintf (dump_file, "Injuring def to repair is: ");
-		      print_generic_tree (dump_file, ref_expr (v));
-		      fprintf (dump_file, "\n");
-		    }
+		  if (dump_file)
+		      {
+			fprintf (dump_file, "Injuring def to repair is: ");
+			print_generic_tree (dump_file, ref_expr (v));
+			fprintf (dump_file, "\n");
+		      }
 #endif
-		  incr = calculate_increment (ei, ref_expr (v));
-		  expr = build_modify_expr (temp, NOP_EXPR, 
-					    fold (build (PLUS_EXPR, 
-							 TREE_TYPE (temp),
-							 temp, incr)));
-		  stmt = build (COMPOUND_EXPR, void_type_node, ref_stmt (v), expr);
-		  TREE_TYPE (stmt) = TREE_TYPE (expr);
-		  bb = ref_bb (use);
-		  replace_ref_stmt_with (v, stmt);
-		  *(htab_find_slot (ei->repaired, ref_expr (v), INSERT)) = ref_expr (v);
+		    incr = calculate_increment (ei, ref_expr (v));
+		    expr = build_modify_expr (temp, NOP_EXPR, 
+					      fold (build (PLUS_EXPR, 
+							  TREE_TYPE (temp),
+							  temp, incr)));
+		    stmt = build (COMPOUND_EXPR, void_type_node, ref_stmt (v), expr);
+		    TREE_TYPE (stmt) = TREE_TYPE (expr);
+		    bb = ref_bb (use);
+		    replace_ref_stmt_with (v, stmt);
+		    *(htab_find_slot (ei->repaired, ref_expr (v), INSERT)) = ref_expr (v);
 #if WAITING_FOR_DFA_UPDATE		  
-		  /* Update SSA for the repair.  
-		     1. Find the refs in the statement.
-		     2. Add the ref to the list of refs to find reaching defs
-		     for later (we don't necessarily have the eventual defs
-		     inserted yet). 
-		     3. Insert into new statement map the tuple (orig_euse,
-		     repair stmt).
-		  */
-		/* FIXME: Hack.  Passing the address of local trees to
-		   create_ref is not correct.  We should keep statement and
-		   expression pointers here.  */
-		  find_refs_in_stmt (stmt, bb);
-		  add_ref_to_list_begin (ei->injfixups, 
-					 find_def_for_stmt (stmt));
-		  splay_tree_insert (new_stmt_map, 
-				     (splay_tree_key) orig_euse,
-				     (splay_tree_value) stmt);
+		    /* Update SSA for the repair.  
+		      1. Find the refs in the statement.
+		      2. Add the ref to the list of refs to find reaching defs
+		      for later (we don't necessarily have the eventual defs
+		      inserted yet). 
+		      3. Insert into new statement map the tuple (orig_euse,
+		      repair stmt).
+		    */
+		  /* FIXME: Hack.  Passing the address of local trees to
+		    create_ref is not correct.  We should keep statement and
+		    expression pointers here.  */
+		    find_refs_in_stmt (stmt, bb);
+		    add_ref_to_list_begin (ei->injfixups, 
+					  find_def_for_stmt (stmt));
+		    splay_tree_insert (new_stmt_map, 
+				      (splay_tree_key) orig_euse,
+				      (splay_tree_value) stmt);
 #endif
-		}
-	  }
+		  }
+	    }
 	}
       else if (ref_type (imm_reaching_def (v)) == V_PHI)
 	{
@@ -2076,8 +2087,7 @@ find_reaching_def_of_var (var, stmtbb, phi)
      basic_block stmtbb;
      tree_ref phi;
 {
-  tree_ref tempref;
-  struct ref_list_node *tmp;
+  ref_list_iterator i;
   struct ref_list_node *thisref;
   struct ref_list_node *fromhere;
 
@@ -2085,24 +2095,27 @@ find_reaching_def_of_var (var, stmtbb, phi)
     return NULL;
   
   if (phi)
-    FOR_EACH_REF (tempref, tmp, bb_refs (ref_bb (phi)))
-    {
-      if (ref_type (tempref) != V_PHI)
-	continue;
-      if (ref_var (tempref) == ref_var (var))
-	{
-	  int opnum;
-	  phi_node_arg realphiarg;
-	  
-	  opnum = opnum_of_phi (tempref, stmtbb->index);
-	  realphiarg = VARRAY_GENERIC_PTR (phi_args (tempref), opnum);
-	  
-	  set_imm_reaching_def (var, phi_arg_def (realphiarg));
-	  add_ref_to_list_end (imm_uses (phi_arg_def (realphiarg)), var);
-	  
-	  return 1;
-	}   
-    }
+    for (i = rli_start (bb_refs (ref_bb (phi)));
+	 !rli_after_end (i);
+	 rli_step (&i))
+      {
+	tree_ref tempref = rli_ref (i);
+	if (ref_type (tempref) != V_PHI)
+	  continue;
+	if (ref_var (tempref) == ref_var (var))
+	  {
+	    int opnum;
+	    phi_node_arg realphiarg;
+
+	    opnum = opnum_of_phi (tempref, stmtbb->index);
+	    realphiarg = VARRAY_GENERIC_PTR (phi_args (tempref), opnum);
+
+	    set_imm_reaching_def (var, phi_arg_def (realphiarg));
+	    add_ref_to_list_end (imm_uses (phi_arg_def (realphiarg)), var);
+
+	    return 1;
+	  }   
+      }
   
   /* If this is the bb of the var, we start looking *before* the var */
   fromhere = bb_refs (stmtbb)->last;
@@ -2113,27 +2126,28 @@ find_reaching_def_of_var (var, stmtbb, phi)
 	fromhere = thisref;
     }
 
-  FOR_REF_BETWEEN (tempref, tmp, fromhere, bb_refs (stmtbb)->first->prev, prev)
-  {
-    if ((ref_type (tempref) != V_DEF
-        && ref_type (tempref) != V_USE)
-	|| ref_expr (var) == ref_expr (tempref)) 
-      continue;
-    if (ref_var (tempref) == ref_var (var))
-      {
-	if (ref_type (tempref) == V_USE)
-	  {
-	    set_imm_reaching_def (var, imm_reaching_def (tempref));
-	    add_ref_to_list_end (imm_uses (imm_reaching_def (tempref)), var);
-	  }
-	else
-	  {
-	    set_imm_reaching_def (var, tempref);
-	    add_ref_to_list_end (imm_uses (tempref), var);
-	  }
-	return 1;
-      }
-  }
+  for (i = rli_start_at (fromhere); !rli_after_end (i); rli_step_rev (&i))
+    {
+      tree_ref tempref = rli_ref (i);
+      if ((ref_type (tempref) != V_DEF
+	    && ref_type (tempref) != V_USE)
+	  || ref_expr (var) == ref_expr (tempref)) 
+	continue;
+      if (ref_var (tempref) == ref_var (var))
+	{
+	  if (ref_type (tempref) == V_USE)
+	    {
+	      set_imm_reaching_def (var, imm_reaching_def (tempref));
+	      add_ref_to_list_end (imm_uses (imm_reaching_def (tempref)), var);
+	    }
+	  else
+	    {
+	      set_imm_reaching_def (var, tempref);
+	      add_ref_to_list_end (imm_uses (tempref), var);
+	    }
+	  return 1;
+	}
+    }
   return find_reaching_def_of_var (var,
 				   get_immediate_dominator (pre_idom, stmtbb),
 				   NULL);    
@@ -2151,8 +2165,7 @@ update_ssa_for_new_use (temp, newuse, defby, bb)
      basic_block bb;
      
 {
-  tree_ref tempref;
-  struct ref_list_node *tmp;
+  ref_list_iterator i;
   splay_tree_node reachingnode;
   tree_ref use_orig_ref;
   tree_ref olddefref, newdefref, newuseref;
@@ -2184,44 +2197,45 @@ update_ssa_for_new_use (temp, newuse, defby, bb)
      the reaching def's immediate uses, etc.
   */
 
-  FOR_EACH_REF (tempref, tmp, tree_refs (newuse))
-  {
-    if (ref_type (tempref) == V_DEF)
-      {
-	use_orig_ref = tempref;
-	break;
-      }
-  }
+  for (i = rli_start (tree_refs (newuse)); !rli_after_end (i); rli_step (&i))
+    {
+      if (ref_type (rli_ref (i)) == V_DEF)
+	{
+	  use_orig_ref = rli_ref (i);
+	  break;
+	}
+    }
 #if WAITING_FOR_DFA_UPDATE
   olddefref = find_def_for_stmt (ref_stmt (use_orig_ref));
-  FOR_EACH_REF (tempref, tmp, tree_refs (ref_expr (use_orig_ref)))
-  {
-    remove_ref_from_list (tree_refs (ref_stmt (use_orig_ref)),
-			  tempref);
-    if (ref_type (tempref) == V_DEF)
-      {
-	add_list_to_list_end (immtoadd, imm_uses (tempref));
-	add_list_to_list_end (reachedtoadd, 
-			      reached_uses (tempref));
-      }
-    if (ref_type (tempref) != V_USE)
-      continue;
-    remove_tree_ref (ref_var (tempref), tempref);
-    remove_bb_ref (bb, tempref);
-    if (imm_reaching_def (tempref) != NULL)
-      {
-	tree_ref rdef = imm_reaching_def (tempref);
-	
-	remove_ref_from_list (imm_uses (rdef), tempref);
-	remove_ref_from_list (reached_uses (rdef), tempref);
-      }
-    add_ref_to_list_end (todelete, tempref);		
-  }
+  i = rli_start (tree_refs (ref_expr (use_orig_def)));
+  for (; !rli_after_end (i); rli_step (&i))
+    {
+      tree_ref tempref = rli_ref (i);
+      remove_ref_from_list (tree_refs (ref_stmt (use_orig_ref)),
+	  tempref);
+      if (ref_type (tempref) == V_DEF)
+	{
+	  add_list_to_list_end (immtoadd, imm_uses (tempref));
+	  add_list_to_list_end (reachedtoadd, 
+	      reached_uses (tempref));
+	}
+      if (ref_type (tempref) != V_USE)
+	continue;
+      remove_tree_ref (ref_var (tempref), tempref);
+      remove_bb_ref (bb, tempref);
+      if (imm_reaching_def (tempref) != NULL)
+	{
+	  tree_ref rdef = imm_reaching_def (tempref);
+
+	  remove_ref_from_list (imm_uses (rdef), tempref);
+	  remove_ref_from_list (reached_uses (rdef), tempref);
+	}
+      add_ref_to_list_end (todelete, tempref);		
+    }
   
-  FOR_EACH_REF (tempref, tmp, todelete)
-  {
-    remove_tree_ref (ref_expr (use_orig_ref), tempref);
-  }
+  for (i = rli_start (todelete); !rli_after_end (i); rli_step (&i))
+    remove_tree_ref (ref_expr (use_orig_ref), rli_ref (i));
+
   ref_expr (use_orig_ref)->common.ann = NULL;
 #endif
   useexpr = ref_expr (use_orig_ref);
@@ -2295,20 +2309,21 @@ update_phis_in_list (refs, old, new)
      tree_ref new;   
 {
   size_t i;
-  struct ref_list_node *tmp;
-  tree_ref tempref;
+  ref_list_iterator j;
   
-  FOR_EACH_REF (tempref, tmp, refs)
-  {
-    if (ref_type (tempref) != V_PHI)
-      continue;
-    
-    for (i = 0; i < VARRAY_ACTIVE_SIZE (phi_args (tempref)); i++)
-      {
-	if (phi_arg_def (phi_arg (tempref, i)) == old)
-	  phi_arg (tempref, i)->def = new;
-      }
-  }
+  for (j = rli_start (refs); !rli_after_end (j); rli_step (&j))
+    {
+      tree_ref tempref = rli_ref (j);
+
+      if (ref_type (tempref) != V_PHI)
+	continue;
+
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (phi_args (tempref)); i++)
+	{
+	  if (phi_arg_def (phi_arg (tempref, i)) == old)
+	    phi_arg (tempref, i)->def = new;
+	}
+    }
 }
 
 /* Perform actual code motion.  */                        
@@ -2319,8 +2334,6 @@ code_motion (ei, temp)
 {
   fibheap_t exprs;
   tree_ref use;
-  struct ref_list_node *tmp;
-  tree_ref tempref;
   
   ei->injfixups = create_ref_list ();
   need_repair_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
@@ -2357,18 +2370,18 @@ code_motion (ei, temp)
 	      tree use_expr = ref_expr (use);
 	      tree_ref use_orig_ref = NULL;
 	      tree newexpr, newstmt;
-	      struct ref_list_node *tmp2;
-	      tree_ref a;
 	      size_t j;	      
+	      ref_list_iterator i;
 	      
-	      FOR_EACH_REF (tempref, tmp, tree_refs (use_expr))
-	      {
-		if (ref_type (tempref) == V_DEF)
-		  {
-		    use_orig_ref = tempref;
-		    break;
-		  }
-	      }
+	      i = rli_start (tree_refs (use_expr));
+	      for (; !rli_after_end (i); rli_step (&i))
+		{
+		  if (ref_type (rli_ref (i)) == V_DEF)
+		    {
+		      use_orig_ref = rli_ref (i);
+		      break;
+		    }
+		}
 	      if (!use_orig_ref)
 		abort ();
 	      if (dump_file)
@@ -2392,14 +2405,16 @@ code_motion (ei, temp)
 	      use->common.stmt_p = &TREE_OPERAND (newstmt, 1);
 	      use->common.expr_p = &TREE_OPERAND (newstmt, 1);
 	      /* REMOVE AFTER DFA UPDATE */
-	      FOR_EACH_REF (a, tmp2, tree_refs (use_stmt))
-	      {
-		if (ref_stmt (a) == newstmt)
-		  {
-		    a->common.stmt_p = &TREE_OPERAND (newstmt, 1);
-		    a->common.expr_p = &TREE_OPERAND (newstmt, 1);
-		  }
-	      }	      
+	      i = rli_start (tree_refs (use_stmt));
+	      for (; !rli_after_end (i); rli_step (&i))
+		{
+		  tree_ref a = rli_ref (i);
+		  if (ref_stmt (a) == newstmt)
+		    {
+		      a->common.stmt_p = &TREE_OPERAND (newstmt, 1);
+		      a->common.expr_p = &TREE_OPERAND (newstmt, 1);
+		    }
+		}	      
 	      /* END REMOVE AFTER DFA UPDATE */
 	      update_ssa_for_new_use (temp, ref_expr (use), use, use_bb);
 
@@ -2415,17 +2430,19 @@ code_motion (ei, temp)
 		 expression pointers here.  */
 	      find_refs_in_stmt (newstmt, use_bb);
 	      
-	      FOR_EACH_REF (tempref, tmp, tree_refs (newexpr))
-	      {
-		tree_ref olddef;
-		if (ref_type (tempref) != V_USE)
-		  continue;
-		
-		olddef = find_use_for_var (use_expr, ref_var (tempref));
-		olddef = imm_reaching_def (olddef);
-		
-		set_imm_reaching_def (tempref, olddef);
-	      }
+	      i = rli_start (tree_refs (newexpr));
+	      for (; !rli_after_end (i); rli_step (&i))
+		{
+		  tempref = rli_ref (i);
+		  tree_ref olddef;
+		  if (ref_type (tempref) != V_USE)
+		    continue;
+
+		  olddef = find_use_for_var (use_expr, ref_var (tempref));
+		  olddef = imm_reaching_def (olddef);
+
+		  set_imm_reaching_def (tempref, olddef);
+		}
 	      
 	      splay_tree_insert (new_stmt_map, 
 				 (splay_tree_key) ref_expr (use), 
@@ -2562,24 +2579,27 @@ code_motion (ei, temp)
     }
 #endif
 #if WAITING_FOR_DFA_UPDATE
-  FOR_EACH_REF (tempref, tmp, ei->injfixups)
+  for (i = rli_start (ei->injfixups); !rli_after_end (i); rli_step (&i))
   {
-    tree_ref tempref2;
-    struct ref_list_node *tmp2;
-    
-    FOR_EACH_REF (tempref2, tmp2, tree_refs (ref_expr (tempref)))
-    {
-      if (ref_type (tempref2) != V_USE)
-	continue;    
-      find_reaching_def_of_var (tempref2, ref_bb (tempref2), NULL);
+    ref_list_iterator j;
+    tempref = rli_ref (i);
+
+    j = rli_start (tree_refs (ref_expr (tempref)));
+    for (; !rli_after_end (j); rli_step (&j))
+      {
+	tree_ref tempref2 = rli_ref (j);
+
+	if (ref_type (tempref2) != V_USE)
+	  continue;    
+	find_reaching_def_of_var (tempref2, ref_bb (tempref2), NULL);
 #if DEBUGGING_SSA_UPDATE
-      if (dump_file)
-	{
-	  fprintf (dump_file, "Injury use and new reaching def:\n");
-	  dump_ref (dump_file, "", tempref2, 0, 1);
-	}
+	if (dump_file)
+	  {
+	    fprintf (dump_file, "Injury use and new reaching def:\n");
+	    dump_ref (dump_file, "", tempref2, 0, 1);
+	  }
 #endif
-    }
+      }
 #endif
   }
 
@@ -2752,12 +2772,12 @@ tree_perform_ssapre ()
   calculate_preorder ();
   FOR_EACH_BB (bb)
     {    
-      tree_ref ref;
-      struct ref_list_node *tmp;
+      ref_list_iterator i;
 
       htab_empty (seen);
-      FOR_EACH_REF (ref, tmp, bb_refs (bb))
+      for (i = rli_start (bb_refs (bb)); !rli_after_end (i); rli_step (&i))
 	{
+	  tree_ref ref = rli_ref (i);
 	  tree expr = ref_expr (ref);
 	  tree orig_expr = expr;
 	  tree stmt = ref_stmt (ref);

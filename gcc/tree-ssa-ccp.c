@@ -195,8 +195,7 @@ simulate_block (block)
      basic_block block;
 {
   ref_list blockrefs;
-  tree_ref ref;
-  struct ref_list_node *tmp;
+  ref_list_iterator i;
 
   /* There is nothing to do for the exit block.  */
   if (block == EXIT_BLOCK_PTR)
@@ -212,11 +211,9 @@ simulate_block (block)
 
   /* Always simulate PHI nodes, even if we have simulated this block
      before.  Note that all PHI nodes are consecutive within a block.  */
-  FOR_EACH_REF (ref, tmp, blockrefs)
-    {
-      if (ref_type (ref) == V_PHI)
-	visit_phi_node (ref);
-    }
+  for (i = rli_start (blockrefs); !rli_after_end (i); rli_step (&i))
+    if (ref_type (rli_ref (i)) == V_PHI)
+      visit_phi_node (rli_ref (i));
 
 #if defined ENABLE_CHECKING
   if (block->index < 0 || block->index > last_basic_block)
@@ -232,11 +229,11 @@ simulate_block (block)
       /* Note that we have simulated this block.  */
       SET_BIT (executable_blocks, block->index);
 
-      FOR_EACH_REF (ref, tmp, blockrefs)
+      for (i = rli_start (blockrefs); !rli_after_end (i); rli_step (&i))
 	{
 	  /* Simulate each reference within the block.  */
-	  if (ref_type (ref) != V_PHI)
-	    visit_expression_for (ref);
+	  if (ref_type (rli_ref (i)) != V_PHI)
+	    visit_expression_for (rli_ref (i));
 	} 
 
       /* If we haven't looked at the next block, and it has a
@@ -256,15 +253,16 @@ static void
 simulate_def_use_chains (def)
      tree_ref def;
 {
-  tree_ref ref;
-  struct ref_list_node *tmp;
+  ref_list_iterator i;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_ref (dump_file, "\nSimulating def-use edges for definition: ",
 		 def, 0, 0);
 
-  FOR_EACH_REF (ref, tmp, imm_uses (def))
+  for (i = rli_start (imm_uses (def)); !rli_after_end (i); rli_step (&i))
     {
+      tree_ref ref = rli_ref (i);
+
       /* Note that we only visit unmodified V_USE references.  We don't
 	 want to deal with any modifiers here.  */
       if (is_pure_use (ref)
@@ -309,14 +307,11 @@ optimize_unexecutable_edges (edges)
 	  if (edge->dest != EXIT_BLOCK_PTR)
 	    {
 	      ref_list blockrefs = bb_refs (edge->dest);
-	      tree_ref ref;
-	      struct ref_list_node *tmp;
+	      ref_list_iterator i;
 
-	      FOR_EACH_REF (ref, tmp, blockrefs)
-		{
-		  if (ref_type (ref) == V_PHI)
-		    tree_ssa_remove_phi_alternative (ref, edge->src);
-		}
+	      for (i = rli_start (blockrefs); !rli_after_end (i); rli_step (&i))
+		if (ref_type (rli_ref (i)) == V_PHI)
+		  tree_ssa_remove_phi_alternative (rli_ref (i), edge->src);
 	    }
 
 	  /* Since the edge was not executable, remove it from the CFG.  */
@@ -339,12 +334,12 @@ substitute_and_fold ()
   /* Substitute constants in every expression of every basic block.  */
   FOR_EACH_BB (bb)
     {
-      tree_ref ref;
-      struct ref_list_node *tmp;
       tree new_expr;
+      ref_list_iterator i;
 
-      FOR_EACH_REF (ref, tmp, bb_refs (bb))
+      for (i = rli_start (bb_refs (bb)); !rli_after_end (i); rli_step (&i))
 	{
+	  tree_ref ref = rli_ref (i);
 	  tree expr = ref_expr (ref);
 	  tree stmt = ref_stmt (ref);
 
@@ -856,12 +851,12 @@ initialize ()
   values = (value *) xmalloc (next_tree_ref_id * sizeof (value));
   for (i = 0; i < num_referenced_vars; i++)
     {
-      struct ref_list_node *tmp;
-      tree_ref r;
       tree var = referenced_var (i);
+      ref_list_iterator j;
 
-      FOR_EACH_REF (r, tmp, tree_refs (var))
+      for (j = rli_start (tree_refs (var)); !rli_after_end (j); rli_step (&j))
 	{
+	  tree_ref r = rli_ref (j);
 	  unsigned long id = ref_id (r);
 
 	  values[id].lattice_val = UNDEFINED;
@@ -1006,11 +1001,11 @@ replace_uses_in (expr)
      tree expr;
 {
   ref_list refs = tree_refs (expr);
-  struct ref_list_node *tmp;
-  tree_ref use;
+  ref_list_iterator i;
 
-  FOR_EACH_REF (use, tmp, refs)
+  for (i = rli_start (refs); !rli_after_end (i); rli_step (&i))
     {
+      tree_ref use = rli_ref (i);
       HOST_WIDE_INT rdef_id;
       tree_ref rdef;
 
@@ -1055,15 +1050,14 @@ restore_expr (expr)
      tree expr;
 {
   ref_list refs = tree_refs (expr);
-  struct ref_list_node *tmp;
-  tree_ref use;
+  ref_list_iterator i;
 
-  FOR_EACH_REF (use, tmp, refs)
+  for (i = rli_start (refs); !rli_after_end (i); rli_step (&i))
     {
       /* Only restore pure V_USE references (those are the only types
 	 of references changed by replace_uses_in.  */
-      if (is_pure_use (use))
-	restore_ref_operand (use);
+      if (is_pure_use (rli_ref (i)))
+	restore_ref_operand (rli_ref (i));
     }
 }
 

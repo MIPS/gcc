@@ -752,4 +752,66 @@ is_pure_use (ref)
 	 && ref_type (ref) == V_USE;
 }
 
+/* Start a new forward iterator on the first element of LIST.  */
+static inline ref_list_iterator
+rli_start (list)
+     ref_list list;
+{
+  ref_list_iterator i;
+  i.node = (list) ? list->first : NULL;
+  return i;
+}
+
+/* Start a new reverse iterator on the last element of LIST.  */
+static inline ref_list_iterator
+rli_start_rev (list)
+     ref_list list;
+{
+  ref_list_iterator i;
+  i.node = (list) ? list->last : NULL;
+  return i;
+}
+
+/* Start a new reverse iterator on a specific list node N.  */
+static inline ref_list_iterator
+rli_start_at (n)
+     struct ref_list_node *n;
+{
+  ref_list_iterator i;
+  i.node = n;
+  return i;
+}
+
+/* Return TRUE if we reached the end of the list with iterator I.  */
+static inline bool
+rli_after_end (i)
+     ref_list_iterator i;
+{
+  return i.node == NULL;
+}
+
+/* Move iterator I to the next element in the list.  */
+static inline void
+rli_step (i)
+     ref_list_iterator *i;
+{
+  i->node = i->node->next;
+}
+
+/* Move iterator I to the previous element in the list.  */
+static inline void
+rli_step_rev (i)
+     ref_list_iterator *i;
+{
+  i->node = i->node->prev;
+}
+
+/* Return the reference at the current position of iterator I.  */
+static inline tree_ref
+rli_ref (i)
+     ref_list_iterator i;
+{
+  return i.node->ref;
+}
+
 #endif /* _TREE_FLOW_INLINE_H  */

@@ -795,8 +795,7 @@ block_invalidates_loop (bb, loop)
      basic_block bb;
      struct loop *loop;
 {
-  tree_ref ref;
-  struct ref_list_node *tmp;
+  ref_list_iterator i;
 
   /* Valid loops cannot contain a return statement.  */
   if (TREE_CODE (last_stmt (bb)) == RETURN_EXPR)
@@ -811,8 +810,8 @@ block_invalidates_loop (bb, loop)
   /* If the node contains a non-pure function call, mark it invalid.  A
      non-pure function call is marked by the presence of a clobbering
      definition of GLOBAL_VAR.  */
-  FOR_EACH_REF (ref, tmp, bb_refs (bb))
-    if (ref_var (ref) == global_var && is_clobbering_def (ref))
+  for (i = rli_start (bb_refs (bb)); !rli_after_end (i); rli_step (&i))
+    if (ref_var (rli_ref (i)) == global_var && is_clobbering_def (rli_ref (i)))
       return true;
 
   return false;

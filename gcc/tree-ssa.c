@@ -345,14 +345,14 @@ search_fud_chains (bb, idom)
 {
   edge e;
   basic_block child_bb;
-  struct ref_list_node *tmp;
-  tree_ref ref;
+  ref_list_iterator i;
 
   /* Chain every V_USE reference in the block to its immediate reaching
      definition.  Update the current definition of a variable when V_DEF
      references are found.  */
-  FOR_EACH_REF (ref, tmp, bb_refs (bb))
+  for (i = rli_start (bb_refs (bb)); !rli_after_end (i); rli_step (&i))
     {
+      tree_ref ref = rli_ref (i);
       tree var = ref_var (ref);
 
       if (ref_type (ref) != V_DEF
@@ -392,23 +392,26 @@ search_fud_chains (bb, idom)
      is reaching the PHI node.  */
   for (e = bb->succ; e; e = e->succ_next)
     {
-      tree_ref phi;
+      ref_list_iterator i;
 
-      FOR_EACH_REF (phi, tmp, bb_refs (e->dest))
-	if (ref_type (phi) == V_PHI)
-	  {
-	    tree_ref currdef = currdef_for (ref_var (phi));
-	    if (currdef == NULL)
-	      currdef = create_default_def (ref_var (phi));
+      for (i = rli_start (bb_refs (e->dest)); !rli_after_end (i); rli_step (&i))
+	{
+	  tree_ref phi = rli_ref (i);
+	  if (ref_type (phi) == V_PHI)
+	    {
+	      tree_ref currdef = currdef_for (ref_var (phi));
+	      if (currdef == NULL)
+		currdef = create_default_def (ref_var (phi));
 
-	    /* Besides storing the incoming definition CURRDEF, we also
-	       store E, which is the edge that we are receiving CURRDEF
-	       from.  */
-	    add_phi_arg (phi, currdef, e);
+	      /* Besides storing the incoming definition CURRDEF, we also
+		store E, which is the edge that we are receiving CURRDEF
+		from.  */
+	      add_phi_arg (phi, currdef, e);
 
-	    /* Set a def-use edge between CURRDEF and this PHI node.  */
-	    add_ref_to_list_end (imm_uses (currdef), phi);
-	  }
+	      /* Set a def-use edge between CURRDEF and this PHI node.  */
+	      add_ref_to_list_end (imm_uses (currdef), phi);
+	    }
+	}
     }
 
 
@@ -420,19 +423,23 @@ search_fud_chains (bb, idom)
 
   /* Restore the current reaching definition for each variable referenced
      in the block (in reverse order).  */
-  FOR_EACH_REF_REV (ref, tmp, bb_refs (bb))
-    if (ref_type (ref) == V_DEF || ref_type (ref) == V_PHI)
-      {
-	size_t i;
-	unsigned long id = ref_id (ref);
-	tree var = ref_var (ref);
+  for (i = rli_start_rev (bb_refs (bb)); !rli_after_end (i); rli_step_rev (&i))
+    {
+      tree_ref ref = rli_ref (i);
 
-	set_currdef_for (var, save_chain[id]);
+      if (ref_type (ref) == V_DEF || ref_type (ref) == V_PHI)
+	{
+	  size_t i;
+	  unsigned long id = ref_id (ref);
+	  tree var = ref_var (ref);
 
-	/* Also restore CURRDEF for every alias of REF's variable.  */
-	for (i = 0; i < num_may_alias (var); i++)
-	  set_currdef_for (may_alias (var, i), save_chain[id]);
-      }
+	  set_currdef_for (var, save_chain[id]);
+
+	  /* Also restore CURRDEF for every alias of REF's variable.  */
+	  for (i = 0; i < num_may_alias (var); i++)
+	    set_currdef_for (may_alias (var, i), save_chain[id]);
+	}
+    }
 }
 
 
@@ -451,11 +458,11 @@ tree_compute_rdefs ()
   for (i = 0; i < num_referenced_vars; i++)
     {
       tree var = referenced_var (i);
-      tree_ref r;
-      struct ref_list_node *tmp;
+      ref_list_iterator j;
 
-      FOR_EACH_REF (r, tmp, tree_refs (var))
+      for (j = rli_start (tree_refs (var)); !rli_after_end (j); rli_step (&j))
 	{
+	  tree_ref r = rli_ref (j);
 	  if (ref_type (r) == V_USE)
 	    empty_ref_list (reaching_defs (r));
 	  else if (ref_type (r) == V_DEF || ref_type (r) == V_PHI)
@@ -475,12 +482,14 @@ tree_compute_rdefs ()
   for (i = 0; i < num_referenced_vars; i++)
     {
       tree var = referenced_var (i);
-      tree_ref u;
-      struct ref_list_node *tmp;
+      ref_list_iterator j;
 
-      FOR_EACH_REF (u, tmp, tree_refs (var))
-	if (ref_type (u) == V_USE)
-	  follow_chain (imm_reaching_def (u), u);
+      for (j = rli_start (tree_refs (var)); !rli_after_end (j); rli_step (&j))
+	{
+	  tree_ref u = rli_ref (j);
+	  if (ref_type (u) == V_USE)
+	    follow_chain (imm_reaching_def (u), u);
+	}
     }
 
   free (marked);
@@ -508,8 +517,7 @@ analyze_rdefs ()
   for (i = 0; i < num_referenced_vars; i++)
     {
       tree var = referenced_var (i);
-      struct ref_list_node *tmp;
-      tree_ref use;
+      ref_list_iterator j;
 
       /* Uninitialized warning messages are only given for local variables
 	 with auto declarations.  */
@@ -522,11 +530,11 @@ analyze_rdefs ()
       /* For each use of VAR, if the use is reached by VAR's default
 	 definition, then the variable may have been used uninitialized in
 	 the function.  */
-      FOR_EACH_REF (use, tmp, tree_refs (var))
+      for (j = rli_start (tree_refs (var)); !rli_after_end (j); rli_step (&j))
 	{
+	  tree_ref use = rli_ref (j);
 	  int found_default;
-	  tree_ref def;
-	  struct ref_list_node *tmp2;
+	  ref_list_iterator k;
 
 	  if (ref_type (use) != V_USE)
 	    continue;
@@ -534,11 +542,10 @@ analyze_rdefs ()
 	  /* Check all the reaching definitions looking for the default
 	     definition.  */
 	  found_default = 0;
-	  FOR_EACH_REF (def, tmp2, reaching_defs (use))
-	    {
-	      if (is_default_def (def))
-		found_default = 1;
-	    }
+	  k = rli_start (reaching_defs (use));
+	  for (; !rli_after_end (k); rli_step (&k))
+	    if (is_default_def (rli_ref (k)))
+	      found_default = 1;
 
 	  /* If we found a default definition for VAR, then the reference may
 	     be accessing an uninitialized variable.  If the default def is the
@@ -679,13 +686,13 @@ dump_reaching_defs (file)
   for (i = 0; i < num_referenced_vars; i++)
     {
       tree var = referenced_var (i);
-      struct ref_list_node *tmp;
-      tree_ref u;
+      ref_list_iterator j;
 
       dump_variable (file, var);
 
-      FOR_EACH_REF (u, tmp, tree_refs (var))
+      for (j = rli_start (tree_refs (var)); !rli_after_end (j); rli_step (&j))
 	{
+	  tree_ref u = rli_ref (j);
 	  if (ref_type (u) == V_USE)
 	    {
 	      dump_ref (file, "", u, 4, 0);
@@ -747,8 +754,7 @@ insert_phi_nodes_for (var, dfs)
      tree var;
      sbitmap *dfs;
 {
-  tree_ref ref;
-  struct ref_list_node *tmp;
+  ref_list_iterator i;
 
 #if defined ENABLE_CHECKING
   /* Variables in referenced_vars must have at least 1 reference.  */
@@ -758,16 +764,17 @@ insert_phi_nodes_for (var, dfs)
 
   /* Add to the worklist all the basic blocks that have definitions of
      VAR.  */
-  FOR_EACH_REF (ref, tmp, tree_refs (var))
-  {
-    basic_block bb = ref_bb (ref);
+  for (i = rli_start (tree_refs (var)); !rli_after_end (i); rli_step (&i))
+    {
+      tree_ref ref = rli_ref (i);
+      basic_block bb = ref_bb (ref);
 
-    if (ref_type (ref) == V_DEF)
-      {
-	VARRAY_PUSH_BB (work_stack, bb);
-	VARRAY_TREE (in_work, bb->index) = var;
-      }
-  }
+      if (ref_type (ref) == V_DEF)
+	{
+	  VARRAY_PUSH_BB (work_stack, bb);
+	  VARRAY_TREE (in_work, bb->index) = var;
+	}
+    }
 
   /* Insert PHI nodes at the dominance frontier of all the basic blocks
      in the worklist.  */

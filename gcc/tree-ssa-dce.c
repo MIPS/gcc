@@ -132,7 +132,6 @@ tree_ssa_eliminate_dead_code (fndecl)
 {
   basic_block bb;
   tree fnbody, t;
-  struct ref_list_node *tmp;
 
   stats.total = stats.removed = 0;
 
@@ -161,7 +160,6 @@ tree_ssa_eliminate_dead_code (fndecl)
   /* Find obviously useful instructions.  */
   FOR_EACH_BB (bb)
     {
-      tree_ref ref;
       ref_list blockrefs;
       gimple_stmt_iterator i;
 
@@ -170,6 +168,7 @@ tree_ssa_eliminate_dead_code (fndecl)
 	  
       for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step (&i))
 	{
+	  ref_list_iterator j;
 	  t = gsi_stmt (i);
 
 	  if (TREE_CODE (t) == ASM_EXPR)
@@ -188,8 +187,9 @@ tree_ssa_eliminate_dead_code (fndecl)
 	  if (! blockrefs)
 	    continue;
 
-	  FOR_EACH_REF (ref, tmp, blockrefs)
+	  for (j = rli_start (blockrefs); !rli_after_end (j); rli_step (&j))
 	    {
+	      tree_ref ref = rli_ref (j);
 	      enum tree_ref_type type = ref_type (ref);
 
 	      if (type == V_DEF)
@@ -222,7 +222,7 @@ tree_ssa_eliminate_dead_code (fndecl)
     {
       tree i, j;
       basic_block b;
-      tree_ref r, rdef;
+      ref_list_iterator k;
 
       /* Take `i' from worklist.  */
       i = VARRAY_TOP_TREE (worklist);
@@ -232,14 +232,19 @@ tree_ssa_eliminate_dead_code (fndecl)
       b = bb_for_stmt (i);
 
       /* For each use by `i' .. */
-      FOR_EACH_REF (r, tmp, tree_refs (i))
+      for (k = rli_start (tree_refs (i)); !rli_after_end (k); rli_step (&k))
 	{
-	  struct ref_list_node *tmp2;
+	  ref_list_iterator l;
+	  tree_ref r = rli_ref (k);
+
 	  if (ref_type (r) != V_USE)
 	    continue;
 
-	  FOR_EACH_REF (rdef, tmp2, reaching_defs (r))
+	  l = rli_start (reaching_defs (r));
+	  for (; !rli_after_end (l); rli_step (&l))
 	    {
+	      tree_ref rdef = rli_ref (l);
+
 	      /* J = definition (T).  */
 	      j = ref_stmt (rdef);
 	      if (j && ! necessary_p (j))

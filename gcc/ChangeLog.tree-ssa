@@ -1,3 +1,16 @@
+2002-10-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-flow-inline.h (rli_start): New function.
+	(rli_start_rev): New function.
+	(rli_start_at): New function.
+	(rli_after_end): New function.
+	(rli_step): New function.
+	(rli_step_rev): New function.
+	(rli_ref): New function.
+	* tree-flow.h (struct ref_list_iterator): Declare.
+	(FOR_REF_BETWEEN, FOR_EACH_REF, FOR_EACH_REF_REV): Replace with new
+	rli_* iterator functions.  Update all users.
+
 2002-10-21  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-cfg.c (make_blocks): Ignore TRY_FINALLY_EXPR and
