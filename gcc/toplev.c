@@ -3578,6 +3578,19 @@ rest_of_compilation (decl)
       timevar_pop (TV_IFCVT2);
     }
 
+  /* Copy propagation and if conversion possibly introduced new splittable
+     instructions.  When scheduling it is profitable to split then now.
+     When doing reg-stack it is a must as we can't split after the stack
+     registers are converted.  */
+#if defined (INSN_SCHEDULING) || defined (STACK_REGS)
+  if ((flag_if_conversion2 || flag_rename_registers || flag_cprop_registers)
+#ifndef STACK_REGS
+      && optimize > 0 && flag_schedule_insns_after_reload
+#endif
+      )
+      split_all_insns (1);
+#endif
+
 #ifdef INSN_SCHEDULING
   if (optimize > 0 && flag_schedule_insns_after_reload)
     {
@@ -3586,8 +3599,6 @@ rest_of_compilation (decl)
 
       /* Do control and data sched analysis again,
 	 and write some more of the results to dump file.  */
-
-      split_all_insns (1);
 
       schedule_insns (rtl_dump_file);
 
@@ -3673,7 +3684,7 @@ rest_of_compilation (decl)
     }
 #endif
 
-#ifdef HAVE_ATTR_length
+#if defined (HAVE_ATTR_length) && !defined (STACK_REGS)
   timevar_push (TV_SHORTEN_BRANCH);
   split_all_insns_noflow ();
   timevar_pop (TV_SHORTEN_BRANCH);

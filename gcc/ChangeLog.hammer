@@ -1,5 +1,8 @@
 Sun Mar  9 12:08:18 CET 2003  Jan Hubicka  <jh@suse.cz>
 
+	* toplev.c (rest_of_compilation):  Do split insns after post-reload
+	copy propagation.
+
 	* toplev.c (rest_of_compilation): re-enable insn splitting after
 	reg-stack.
 

@@ -629,5 +629,3 @@ cgraph_optimize ()
     }
   cgraph_expand_functions ();
 }
-
-#include "gt-callgraph.h"
