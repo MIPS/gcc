@@ -837,6 +837,11 @@ DEFTREECODE (LOOP_EXPR, "loop_expr", 's', 1)
 DEFTREECODE (EXIT_BLOCK_EXPR, "exit_block_expr", 's', 2)
 
 /* Switch expression.
+
+   TREE_TYPE is the original type of the condition, before any
+   language required type conversions.  It may be NULL, in which case
+   the original type and final types are assumed to be the same.
+
    Operand 0 is the expression used to perform the branch,
    Operand 1 is the body of the switch, which probably contains CASE_LABEL_EXPRs.
    Operand 2 is either NULL_TREE or a TREE_VEC of all the CASE_LABEL_EXPRs in the

@@ -384,6 +384,7 @@ simplify_block (stmt_p, next_p)
   tree block;
   tree bind;
   int depth;
+  int stmt_lineno;
 
   if (!SCOPE_BEGIN_P (*stmt_p))
     abort ();
@@ -403,11 +404,14 @@ simplify_block (stmt_p, next_p)
   if (SCOPE_STMT_BLOCK (*p) != block)
     abort ();
 
+  stmt_lineno = STMT_LINENO (*p);
+
   *next_p = TREE_CHAIN (*p);
   *p = NULL_TREE;
 
   bind = c_build_bind_expr (block, TREE_CHAIN (*stmt_p));
   *stmt_p = bind;
+  lineno = stmt_lineno;
 }
 
 /* Genericize a CLEANUP_STMT.  Just wrap everything from here to the end of
@@ -702,7 +706,8 @@ simplify_switch_stmt (stmt_p)
 
   c_simplify_stmt (&body);
 
-  switch_ = build (SWITCH_EXPR, void_type_node, cond, body, NULL_TREE);
+  switch_ = build (SWITCH_EXPR, SWITCH_TYPE (stmt), cond, body, NULL_TREE);
+  annotate_with_file_line (switch_, input_filename, lineno);
 
   switch_ = finish_bc_block (break_block, switch_);
 

@@ -1,5 +1,15 @@
 2003-03-12  Jeff Law  <law@redhat.com>
 
+	* c-simplify.c (simplify_switch_stmt): Save the type of the original
+	condition in TREE_TYPE (SWITCH_EXPR (...)).  Annotate the SWITCH_EXPR
+	with file/line information.
+	* expr.c (expand_expr, case SWITCH_EXPR): Use expand_end_case_type.
+	* tree.def (SWITCH_EXPR): Document meaning of TREE_TYPE field of
+	the SWITCH_EXPR.
+
+	* c-simplify.c (simplify_block): Set the current line number to
+	the line associated with the end of the block.
+
 	* c-decl.c (finish_function): No longer save/restore the
 	current filename or linenumber around simplification.  Instead
 	save/restore it around inlining.

@@ -9514,7 +9514,7 @@ expand_expr (exp, target, tmode, modifier)
       expand_start_case (0, SWITCH_COND (exp), integer_type_node,
 			 "switch");
       expand_expr_stmt (SWITCH_BODY (exp));
-      expand_end_case (SWITCH_COND (exp));
+      expand_end_case_type (SWITCH_COND (exp), TREE_TYPE (exp));
       return const0_rtx;
 
     case LABEL_EXPR:
