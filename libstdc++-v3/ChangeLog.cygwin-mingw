@@ -1,3 +1,19 @@
+2002-08-08 Danny Smith  <dannysmith@users.sourceforge.net>
+
+	Merge newlib ctype fixes from trunk. 
+
+	2002-08-02 Danny Smith  <dannysmith@users.sourceforge.net>
+	* config/os/newlib/bit/ctype_inline.h (is): Don't offset
+	_M_table.
+	(scan_is): Use this->is.
+	(scan_not): Likewise.
+
+	2002-08-01  Rick Danos  <rdanos@hotmail.com>
+	PR libstdc++/7461
+	* config/os/newlib/bits/ctype_noninline.h (classic_table):
+	Add offset
+	* config/os/newlib/bits/ctype_inline.h (is): Use static_cast.
+
 2002-07-29  Danny Smith  <dannysmith@users.sourceforge.net>
 
 	*config/os/mingw32/bits/os_defines.h
