@@ -1,3 +1,8 @@
+2003-09-16  Paul Brook  <paul@nowt.org>
+
+	* array.c (compare_bounds): New function.
+	(gfc_compare_array_spec): Use it.
+
 2003-09-14  Paul Brook  <paul@nowt.org>
 
 	* primary.c (gfc_match_rvalue): Make sure sym->result is set.

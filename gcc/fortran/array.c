@@ -489,13 +489,32 @@ gfc_copy_array_spec (gfc_array_spec * src)
   return dest;
 }
 
+/* Returns nonzero if the two expressions are equal.  Only handles integer
+   constants.  */
 
-/* Compares two array specifications.  */
+static int
+compare_bounds (gfc_expr * bound1, gfc_expr * bound2)
+{
+  if (bound1 == NULL || bound2 == NULL
+      || bound1->expr_type != EXPR_CONSTANT
+      || bound2->expr_type != EXPR_CONSTANT
+      || bound1->ts.type != BT_INTEGER
+      || bound2->ts.type != BT_INTEGER)
+    gfc_internal_error ("gfc_compare_array_spec(): Array spec clobbered");
+
+  if (mpz_cmp (bound1->value.integer, bound2->value.integer) == 0)
+    return 1;
+  else
+    return 0;
+}
+
+/* Compares two array specifications.  They must be constant or deferred
+   shape.  */
 
 int
 gfc_compare_array_spec (gfc_array_spec * as1, gfc_array_spec * as2)
 {
-  int i, a1, a2;
+  int i;
 
   if (as1 == NULL && as2 == NULL)
     return 1;
@@ -515,26 +534,14 @@ gfc_compare_array_spec (gfc_array_spec * as1, gfc_array_spec * as2)
   if (as1->type == AS_EXPLICIT)
     for (i = 0; i < as1->rank; i++)
       {
-	if (gfc_extract_int (as1->lower[i], &a1) != NULL)
-	  goto error;
-	if (gfc_extract_int (as2->lower[i], &a2) != NULL)
-	  goto error;
-	if (a1 != a2)
+	if (compare_bounds (as1->lower[i], as2->lower[i]) == 0)
 	  return 0;
 
-	if (gfc_extract_int (as1->upper[i], &a1) != NULL)
-	  goto error;
-	if (gfc_extract_int (as2->upper[i], &a2) != NULL)
-	  goto error;
-	if (a1 != a2)
+	if (compare_bounds (as1->upper[i], as2->upper[i]) == 0)
 	  return 0;
       }
 
   return 1;
-
-error:
-  gfc_internal_error ("gfc_compare_array_spec(): Array spec clobbered");
-  /* Not reached */
 }
 
 
