@@ -1,3 +1,8 @@
+2004-09-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* libstdc++-v3/libsupc++/typeinfo: Honor
+	_GXX_MERGED_TYPEINFO_NAMES if already defined.
+
 2004-08-16  Mark Mitchell  <mark@codesourcery.com>
 
 	Backport:

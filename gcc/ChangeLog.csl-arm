@@ -1,5 +1,13 @@
 2004-09-02  Mark Mitchell  <mark@codesourcery.com>
 
+	* config/arm/bpabi.h (TARGET_BPABI_CPP_BUILTINS): Define.
+	(TARGET_OS_CPP_BUILTINS): Likewise.
+	* config/arm/symbian.h (TARGET_OS_CPP_BUILTINS): Include
+	TARGET_BPABI_CPP_BUILTINS.
+	* testsuite/g++.dg/abi/arm_rtti1.C: New test.
+	
+2004-09-02  Mark Mitchell  <mark@codesourcery.com>
+
 	* config/arm/symbian.h (LIB_SPEC): Define to empty.
 	* config/arm/t-symbian (SHLIB_LC): Likewise.
 
