@@ -2385,79 +2385,88 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 
     case ADDR_EXPR:
       /* Note that this operation never does default_conversion.  */
+      {
+	bool maybe_addressof;
 
-      /* Let &* cancel out to simplify resulting code.  */
-      if (TREE_CODE (arg) == INDIRECT_REF)
-	{
-	  /* Don't let this be an lvalue.  */
-	  if (lvalue_p (TREE_OPERAND (arg, 0)))
-	    return non_lvalue (TREE_OPERAND (arg, 0));
-	  return TREE_OPERAND (arg, 0);
-	}
+	/* Let &* cancel out to simplify resulting code.  */
+	if (TREE_CODE (arg) == INDIRECT_REF)
+	  {
+	    /* Don't let this be an lvalue.  */
+	    if (lvalue_p (TREE_OPERAND (arg, 0)))
+	      return non_lvalue (TREE_OPERAND (arg, 0));
+	    return TREE_OPERAND (arg, 0);
+	  }
 
-      /* For &x[y], return x+y */
-      if (TREE_CODE (arg) == ARRAY_REF)
-	{
-	  if (!c_mark_addressable (TREE_OPERAND (arg, 0)))
-	    return error_mark_node;
+	/* Handle offsetof by detecting a constant at the bottom of a
+	   sequence of component and array references.  We will want
+	   to use a PLUS to find the address.  If we don't, then we won't
+	   have the constant folded early enough to qualify for an
+	   integer constant expression.  */
+	/* ??? Note that the common macro definition of offsetof itself
+	   does not qualify as an integer constant expression.  It has
+	   been suggested that we implement __builtin_offsetof for this
+	   case, but that's quite ugly grammar-wise, so it is being put
+	   off until it is made necessary by fixing the rest of the front
+	   end wrt integer constant expression compliance.  */
+	maybe_addressof = c_address_looks_like_offsetof (arg);
+
+        /* For offsetof, and &x[y], return x+y.  */
+	if (maybe_addressof && TREE_CODE (arg) == ARRAY_REF)
 	  return build_binary_op (PLUS_EXPR, TREE_OPERAND (arg, 0),
 				  TREE_OPERAND (arg, 1), 1);
-	}
 
-      /* Handle complex lvalues (when permitted)
-	 by reduction to simpler cases.  */
-      val = unary_complex_lvalue (code, arg, flag);
-      if (val != 0)
-	return val;
+	/* Handle complex lvalues (when permitted) by reduction to
+	   simpler cases.  */
+	val = unary_complex_lvalue (ADDR_EXPR, arg, flag);
+	if (val != 0)
+	  return val;
 
-      /* Anything not already handled and not a true memory reference
-	 or a non-lvalue array is an error.  */
-      else if (typecode != FUNCTION_TYPE && !flag
-	       && !lvalue_or_else (arg, "invalid lvalue in unary `&'"))
-	return error_mark_node;
+	/* Anything not already handled and not a true memory reference
+	   or a non-lvalue array is an error.  */
+	if (typecode != FUNCTION_TYPE && !flag
+	    && !lvalue_or_else (arg, "invalid lvalue in unary `&'"))
+	  return error_mark_node;
 
-      /* Ordinary case; arg is a COMPONENT_REF or a decl.  */
-      argtype = TREE_TYPE (arg);
+	/* Ordinary case; arg is a COMPONENT_REF or a decl.  */
+	argtype = TREE_TYPE (arg);
 
-      /* If the lvalue is const or volatile, merge that into the type
-         to which the address will point.  Note that you can't get a
-	 restricted pointer by taking the address of something, so we
-	 only have to deal with `const' and `volatile' here.  */
-      if ((DECL_P (arg) || TREE_CODE_CLASS (TREE_CODE (arg)) == 'r')
-	  && (TREE_READONLY (arg) || TREE_THIS_VOLATILE (arg)))
+	/* If the lvalue is const or volatile, merge that into the type
+	   to which the address will point.  Note that you can't get a
+	   restricted pointer by taking the address of something, so we
+	   only have to deal with `const' and `volatile' here.  */
+	if ((DECL_P (arg) || TREE_CODE_CLASS (TREE_CODE (arg)) == 'r')
+	    && (TREE_READONLY (arg) || TREE_THIS_VOLATILE (arg)))
 	  argtype = c_build_type_variant (argtype,
 					  TREE_READONLY (arg),
 					  TREE_THIS_VOLATILE (arg));
 
-      argtype = build_pointer_type (argtype);
+	argtype = build_pointer_type (argtype);
 
-      if (!c_mark_addressable (arg))
-	return error_mark_node;
+	if (!c_mark_addressable (arg))
+	  return error_mark_node;
 
-      {
-	tree addr;
-
-	if (TREE_CODE (arg) == COMPONENT_REF)
+        /* For offsetof, and s.f, return &s + offsetof(f).  */
+	if (maybe_addressof && TREE_CODE (arg) == COMPONENT_REF)
 	  {
 	    tree field = TREE_OPERAND (arg, 1);
+	    tree addr;
 
 	    addr = build_unary_op (ADDR_EXPR, TREE_OPERAND (arg, 0), flag);
 
 	    if (DECL_C_BIT_FIELD (field))
 	      {
-		error ("attempt to take address of bit-field structure member `%s'",
+		error ("attempt to take address of bit-field "
+		       "structure member `%s'",
 		       IDENTIFIER_POINTER (DECL_NAME (field)));
 		return error_mark_node;
 	      }
 
-	    addr = fold (build (PLUS_EXPR, argtype,
+	    return fold (build (PLUS_EXPR, argtype,
 				convert (argtype, addr),
 				convert (argtype, byte_position (field))));
 	  }
-	else
-	  addr = build1 (code, argtype, arg);
 
-	return addr;
+	return build1 (ADDR_EXPR, argtype, arg);
       }
 
     default:
@@ -6337,7 +6346,8 @@ c_expand_return (tree retval)
 	    case ADDR_EXPR:
 	      inner = TREE_OPERAND (inner, 0);
 
-	      while (TREE_CODE_CLASS (TREE_CODE (inner)) == 'r')
+	      while (TREE_CODE (inner) == COMPONENT_REF
+		     || TREE_CODE (inner) == ARRAY_REF)
 		inner = TREE_OPERAND (inner, 0);
 
 	      if (TREE_CODE (inner) == VAR_DECL

@@ -1489,6 +1489,8 @@ likely_value (tree stmt)
    BASE is an array type.  OFFSET is a byte displacement.  ORIG_TYPE
    is the desired result type.   */
 
+static tree maybe_fold_offset_to_aggregate_ref (tree, tree, tree);
+
 static tree
 maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
 {
@@ -1496,31 +1498,42 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
   HOST_WIDE_INT hquo, hrem;
   tree elt_size, min_idx, idx;
   tree array_type, elt_type;
+  bool recurse;
 
   /* Ignore stupid user tricks of indexing non-array variables.  */
   array_type = TREE_TYPE (base);
   if (TREE_CODE (array_type) != ARRAY_TYPE)
     return NULL_TREE;
   elt_type = TREE_TYPE (array_type);
-  if (TYPE_MAIN_VARIANT (orig_type) != TYPE_MAIN_VARIANT (elt_type))
+
+  /* If the array is of the type we're looking for, then we'll not
+     need to search further.  */
+  if (TYPE_MAIN_VARIANT (orig_type) == TYPE_MAIN_VARIANT (elt_type))
+    recurse = false;
+  /* If the element type is an aggregate, then (given that we have
+     a type mismatch) we'll need to search that type for the subtype.  */
+  else if (AGGREGATE_TYPE_P (elt_type))
+    recurse = true;
+  /* Otherwise we have no way to resolve the matter.  */
+  else
     return NULL_TREE;
-	
+
   /* Whee.  Ignore indexing of variable sized types.  */
   elt_size = TYPE_SIZE_UNIT (elt_type);
   if (TREE_CODE (elt_size) != INTEGER_CST)
     return NULL_TREE;
 
-  /* If the division isn't exact, then don't do anything.  Equally
-     invalid as the above indexing of non-array variables.  */
-  if (div_and_round_double (TRUNC_DIV_EXPR, 1,
+  /* If the division overflows... can it overflow?  */
+  if (div_and_round_double (TRUNC_DIV_EXPR,
+			    TREE_UNSIGNED (TREE_TYPE (offset)),
 			    TREE_INT_CST_LOW (offset),
 			    TREE_INT_CST_HIGH (offset),
 			    TREE_INT_CST_LOW (elt_size),
 			    TREE_INT_CST_HIGH (elt_size),
-			    &lquo, &hquo, &lrem, &hrem)
-      || lrem || hrem)
-    return NULL_TREE;
+			    &lquo, &hquo, &lrem, &hrem))
+    abort ();
   idx = build_int_2_wide (lquo, hquo);
+  TREE_TYPE (idx) = TREE_TYPE (offset);
 
   /* Re-bias the index by the min index of the array type.  */
   min_idx = TYPE_DOMAIN (TREE_TYPE (base));
@@ -1534,6 +1547,20 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
 	    idx = int_const_binop (PLUS_EXPR, idx, min_idx, 1);
 	}
     }
+
+  if (recurse)
+    {
+      base = build (ARRAY_REF, elt_type, base, idx);
+      offset = build_int_2_wide (lrem, hrem);
+      TREE_TYPE (idx) = TREE_TYPE (offset);
+
+      return maybe_fold_offset_to_aggregate_ref (base, offset, orig_type);
+    }
+
+  /* If we didn't recurse, and we have a remainder, then what we just
+     computed is wrong.  */
+  if (lrem || hrem)
+    return NULL_TREE;
 
   return build (ARRAY_REF, orig_type, base, idx);
 }
@@ -1622,14 +1649,26 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 	base = build1 (INDIRECT_REF, record_type, base);
       base = build (COMPONENT_REF, field_type, base, f);
 
-      t = maybe_fold_offset_to_array_ref (base, offset, orig_type);
-      if (t)
-	return t;
-      return maybe_fold_offset_to_component_ref (field_type, base, offset,
-					         orig_type, false);
+      return maybe_fold_offset_to_aggregate_ref (base, offset, orig_type);
     }
 
   return NULL_TREE;
+}
+
+/* A subroutine of fold_stmt_r.  Attempts to fold BASE+OFFSET to
+   an aggregate reference to ORIG_TYPE.  */
+
+static tree
+maybe_fold_offset_to_aggregate_ref (tree base, tree offset, tree orig_type)
+{
+  tree t;
+
+  t = maybe_fold_offset_to_array_ref (base, offset, orig_type);
+  if (t)
+    return t;
+
+  return maybe_fold_offset_to_component_ref (TREE_TYPE (base), base,
+					     offset, orig_type, false);
 }
 
 /* A subroutine of fold_stmt_r.  Attempt to simplify *(BASE+OFFSET).
@@ -1670,14 +1709,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
       /* Strip the ADDR_EXPR.  */
       base = TREE_OPERAND (base, 0);
 
-      /* Try folding *(&B+O) to B[X].  */
-      t = maybe_fold_offset_to_array_ref (base, offset, TREE_TYPE (expr));
-      if (t)
-	return t;
-
-      /* Try folding *(&B+O) to B.X.  */
-      t = maybe_fold_offset_to_component_ref (TREE_TYPE (base), base, offset,
-					      TREE_TYPE (expr), false);
+      t = maybe_fold_offset_to_aggregate_ref (base, offset, TREE_TYPE (expr));
       if (t)
 	return t;
 
@@ -1800,10 +1832,7 @@ maybe_fold_stmt_plus (tree expr)
   ptd_type = TREE_TYPE (ptr_type);
 
   /* At which point we can try some of the same things as for indirects.  */
-  t = maybe_fold_offset_to_array_ref (op0, op1, ptd_type);
-  if (!t)
-    t = maybe_fold_offset_to_component_ref (TREE_TYPE (op0), op0, op1,
-					    ptd_type, false);
+  t = maybe_fold_offset_to_aggregate_ref (op0, op1, ptd_type);
   if (t)
     t = build1 (ADDR_EXPR, ptr_type, t);
 

@@ -1,3 +1,25 @@
+2003-12-07  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (c_address_looks_like_offsetof): New.
+	* c-common.h (c_address_looks_like_offsetof): Declare.
+	* c-typeck.c (build_unary_op) <ADDR_EXPR>: Use it.  Don't lower
+	address references not destined for offsetof.
+	(c_expand_return): Only look inside ARRAY_REF and COMPONENT_REF
+	when looking for returning address of local variable.
+	* expr.c (expand_expr_1): Don't dereference size of unbounded arrays.
+	* gimplify.c (gimplify_addr_expr): Only fold address of variable size
+	array elements.
+	* tree-simple.c (is_gimple_min_invariant): Also check
+	is_gimple_variable before disallowing offset address for type.
+	* tree-ssa-ccp.c (maybe_fold_offset_to_aggregate_ref): New.
+	(maybe_fold_offset_to_component_ref): Use it.
+	(maybe_fold_stmt_indirect, maybe_fold_stmt_plus): Likewise.
+	(maybe_fold_offset_to_array_ref): Likewise.  Don't fail for division
+	remainder non-zero.
+	* varasm.c (initializer_constant_valid_p) <ADDR_EXPR>: Use 
+	handled_component_p and look inside references.
+	<MINUS_EXPR>: Always look past widening casts.
+
 2003-12-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-cfg.c (compute_dominance_frontiers): Don't assume that

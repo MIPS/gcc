@@ -6140,4 +6140,32 @@ c_warn_unused_result (tree *top_p)
     }
 }
 
+/* Return true if the address of EXP consists of nested ARRAY_REFs
+   and COMPONENT_REFs, with an dereference of an integer constant
+   at the bottom.  */
+/* ??? It has been suggested that we implement __builtin_offsetof
+   instead, but that's quite ugly grammar-wise, so it is being put
+   off until it is made necessary by fixing the rest of the front
+   end wrt integer constant expression compliance.  */
+
+bool
+c_address_looks_like_offsetof (tree exp)
+{
+  if (TREE_CODE (exp) != ARRAY_REF && TREE_CODE (exp) != COMPONENT_REF)
+    return false;
+  do
+    {
+      exp = TREE_OPERAND (exp, 0);
+    }
+  while (TREE_CODE (exp) == ARRAY_REF || TREE_CODE (exp) == COMPONENT_REF);
+
+  if (TREE_CODE (exp) != INDIRECT_REF)
+    return false;
+  exp = TREE_OPERAND (exp, 0);
+
+  STRIP_NOPS (exp);
+
+  return TREE_CODE (exp) == INTEGER_CST;
+}
+
 #include "gt-c-common.h"

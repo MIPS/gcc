@@ -2429,15 +2429,22 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
       break;
 
     case ARRAY_REF:
-      /* Fold &a[6] to (&a + 6).  */
-      ret = gimplify_array_ref_to_plus (&TREE_OPERAND (expr, 0),
-					pre_p, post_p);
+      /* If the size of the array elements is not constant, computing
+	 the offset is non-trivial, so expose it.  If we don't do this
+	 here, then gimplify_array_ref will, and the result won't match
+	 is_gimple_addr_expr_arg.  */
+      if (!TREE_CONSTANT (TYPE_SIZE_UNIT (TREE_TYPE (op0))))
+	{
+	  ret = gimplify_array_ref_to_plus (&TREE_OPERAND (expr, 0),
+					    pre_p, post_p);
 
-      /* This added an INDIRECT_REF.  Fold it away.  */
-      op0 = TREE_OPERAND (TREE_OPERAND (expr, 0), 0);
+	  /* This added an INDIRECT_REF.  Fold it away.  */
+	  op0 = TREE_OPERAND (TREE_OPERAND (expr, 0), 0);
 
-      *expr_p = op0;
-      break;
+	  *expr_p = op0;
+	  break;
+	}
+      /* FALLTHRU */
 
     default:
       /* We use fb_either here because the C frontend sometimes takes
