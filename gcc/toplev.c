@@ -3027,12 +3027,12 @@ rest_of_compilation (decl)
 	  if (flag_unswitch_loops)
 	    unswitch_loops (loops);
 
- 	  if (flag_peel_loops)
- 	    peel_loops (loops, flag_new_unroll_loops);
+ 	  if (flag_peel_loops || flag_new_unroll_loops)
+ 	    unroll_and_peel_loops (loops,
+		(flag_peel_loops ? UAP_PEEL : 0) |
+		(flag_new_unroll_loops ? UAP_UNROLL : 0) |
+		(flag_new_unroll_all_loops ? UAP_UNROLL_ALL : 0));
  
- 	  if (flag_new_unroll_loops)
- 	    unroll_loops (loops, flag_new_unroll_all_loops);
-
 	  loop_optimizer_finalize (loops, rtl_dump_file);
 	}
 

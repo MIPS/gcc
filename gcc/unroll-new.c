@@ -46,50 +46,44 @@ static basic_block simple_exit PARAMS ((struct loops *, struct loop *, basic_blo
 static bool simple_condition_p PARAMS ((struct loop *, basic_block *, rtx, struct loop_desc *));
 static basic_block simple_increment PARAMS ((struct loops *, struct loop *, basic_block *, struct loop_desc *));
 static rtx variable_initial_value PARAMS ((struct loop *, rtx));
-static int count_loop_iterations PARAMS ((struct loop_desc *, int *, rtx *));
-static int unroll_loop_new PARAMS ((struct loops *, struct loop *, int));
-static int peel_loop PARAMS ((struct loops *, struct loop *, int));
 static bool simple_loop_p PARAMS ((struct loops *, struct loop *, struct loop_desc *));
-static int unroll_simple_loop PARAMS ((struct loops *, struct loop *, int, struct loop_desc *));
+static int count_loop_iterations PARAMS ((struct loop_desc *, int *, rtx *));
+static int unroll_or_peel_loop PARAMS ((struct loops *, struct loop *, int));
+static int peel_loop_simple PARAMS ((struct loops *, struct loop *, int));
+static int peel_loop_completely PARAMS ((struct loops *, struct loop *, struct loop_desc *));
+static int unroll_loop_stupid PARAMS ((struct loops *, struct loop *, int));
 static int unroll_loop_constant_iterations PARAMS ((struct loops *, struct loop *, int, struct loop_desc *));
 static int unroll_loop_runtime_iterations PARAMS ((struct loops *, struct loop *, int, struct loop_desc *));
 
-/* Unroll LOOPS.  */
+/* Unroll and peel (depending on FLAGS) LOOPS.  */
 void
-unroll_loops (loops, unroll_all)
+unroll_and_peel_loops (loops, flags)
      struct loops *loops;
-     int unroll_all;
+     int flags;
 {
-  int i;
-  /* Scan the loops, last ones first, since this means inner ones are done
-     before outer ones.  Perhaps it is not best to rely on it, as this
-     could change, but for now it is true.  */
-  for (i = loops->num - 1; i > 0; i--)
-    {
-      struct loop *loop = loops->parray[i];
-      unroll_loop_new (loops, loop, unroll_all);
-#ifdef ENABLE_CHECKING
-      verify_dominators ();
-      verify_loop_structure (loops, VLS_FOR_LOOP_NEW);
-#endif
-    }
-}
+  struct loop *loop = loops->tree_root, *next;
 
-/* Peel LOOPS.  */
-void
-peel_loops (loops, will_unroll)
-     struct loops *loops;
-     int will_unroll;
-{
-  int i;
-  for (i = loops->num - 1; i > 0; i--)
+  while (loop->inner)
+    loop = loop->inner;
+
+  /* Scan the loops, inner ones first.  */
+  while (loop != loops->tree_root)
     {
-      struct loop *loop = loops->parray[i];
-      peel_loop (loops, loop, will_unroll);
+      if (loop->next)
+	{
+	  next = loop->next;
+	  while (next->inner)
+	    next = next->inner;
+	}
+      else
+	next = loop->outer;
+
+      unroll_or_peel_loop (loops, loop, flags);
 #ifdef ENABLE_CHECKING
       verify_dominators ();
       verify_loop_structure (loops, VLS_FOR_LOOP_NEW);
 #endif
+      loop = next;
     }
 }
 
@@ -156,11 +150,12 @@ simple_condition_p (loop, body, condition, desc)
       case LT:
       case GE:
       case GT:
+	break;
+      /* We are excluding these cases for now, to keep the rest simpler.  */
       case GEU:
       case GTU:
       case LEU:
       case LTU:
-	break;
       default:
 	return false;
     }
@@ -411,6 +406,7 @@ count_loop_iterations (desc, niter, rniter)
 {
   int delta;
   HOST_WIDE_INT abs_diff = 0;
+  enum rtx_code cond = desc->cond;
 
   if (desc->grow)
     {
@@ -427,9 +423,10 @@ count_loop_iterations (desc, niter, rniter)
     }
   else
     {
-      desc->cond = swap_condition (desc->cond);
-      if (desc->cond == UNKNOWN)
+      cond = swap_condition (cond);
+      if (cond == UNKNOWN)
 	return 0;
+
       if (rniter)
 	*rniter = expand_simple_binop (GET_MODE (desc->var), MINUS,
 			copy_rtx (desc->var), copy_rtx (desc->lim),
@@ -450,8 +447,8 @@ count_loop_iterations (desc, niter, rniter)
       
   if (desc->neg)
     {
-      desc->cond = reverse_condition (desc->cond);
-      if (desc->cond == UNKNOWN)
+      cond = reverse_condition (cond);
+      if (cond == UNKNOWN)
 	return 0;
     }
 
@@ -459,7 +456,7 @@ count_loop_iterations (desc, niter, rniter)
   if (!desc->postincr)
     delta--;
 
-  switch (desc->cond)
+  switch (cond)
     {
       case NE:
       case LT:
@@ -493,6 +490,36 @@ count_loop_iterations (desc, niter, rniter)
   return 1;
 }
 
+/* Peel NPEEL iterations from LOOP, remove exit edges (and cancel the loop
+   completely).  */
+static int
+peel_loop_completely (loops, loop, desc)
+     struct loops *loops;
+     struct loop *loop;
+     struct loop_desc *desc;
+{
+  sbitmap wont_exit;
+  int npeel;
+
+  if (!count_loop_iterations (desc, &npeel, NULL))
+    abort ();  /* Tested already.  */
+
+  wont_exit = sbitmap_alloc (npeel + 2);
+  sbitmap_ones (wont_exit);
+  RESET_BIT (wont_exit, 0);
+  RESET_BIT (wont_exit, npeel + 1);
+
+  if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
+	loops, npeel + 1, wont_exit, DLTHE_FLAG_ALL))
+    abort ();
+
+  free (wont_exit);
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file, ";; Peeled loop completely, %d times\n",npeel);
+
+  return 1;
+}
+
 /* Unroll LOOP with constant number of iterations described by DESC.
    MAX_UNROLL is maximal number of allowed unrollings.  */
 static int
@@ -507,11 +534,7 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
 
   /* Normalization.  */
   if (!count_loop_iterations (desc, &niter, NULL))
-    {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Not unrolling loop, can't count loop iterations\n");
-      return 0;
-    }  
+    abort ();  /* Tested already.  */
 
   if (niter < 0)
     {
@@ -524,27 +547,11 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
 	  niter = niter % i + 256;
 	}
       else
-	niter = 0;
+	abort ();  /* Should not get here.  */
     }
 
   if (niter <= max_unroll)
-    {
-      /* We may peel the loop completely, and remove all
-	 exit edges but the last one.  */
-      wont_exit = sbitmap_alloc (niter + 2);
-      sbitmap_ones (wont_exit);
-      RESET_BIT (wont_exit, 0);
-      RESET_BIT (wont_exit, niter + 1);
-
-      if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-		loops, niter + 1, wont_exit, DLTHE_FLAG_ALL))
-	abort ();
-
-      free (wont_exit);
-      if (rtl_dump_file)
-        fprintf (rtl_dump_file, ";; Unrolled loop %d times\n",niter);
-      return 1;
-    }
+    abort ();  /* Should get into peeling instead.  */
 
   wont_exit = sbitmap_alloc (max_unroll + 1);
   sbitmap_ones (wont_exit);
@@ -598,7 +605,7 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
 
   free (wont_exit);
   if (rtl_dump_file)
-    fprintf (rtl_dump_file, ";; Unrolled loop %d times\n",max_unroll);
+    fprintf (rtl_dump_file, ";; Unrolled loop %d times, constant # of iterations\n",max_unroll);
   
   return 1;
 }
@@ -619,18 +626,6 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   edge e;
   sbitmap wont_exit;
   int may_exit_copy, n_peel;
-  int expected_niter;
-
-  expected_niter = expected_loop_iterations (loop);
-  if (expected_niter < max_unroll && flag_branch_probabilities)
-    max_unroll = expected_niter;
-
-  if (max_unroll <= 1)
-    {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Not unrolling loop, expected number of iteration is low\n");
-      return 0;
-    }
 
   /* Force max_unroll + 1 to be power of 2.  */
   for (i = 1; 2 * i <= max_unroll + 1; i *= 2);
@@ -639,12 +634,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   /* Normalization.  */
   start_sequence ();
   if (!count_loop_iterations (desc, NULL, &niter))
-    {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Not unrolling loop, can't count loop iterations\n");      
-      end_sequence ();
-      return 0;
-    }
+    abort (); /* Tested already.  */
 
   /* Count modulo by ANDing it with max_unroll.  */
   niter = expand_simple_binop (GET_MODE (desc->var), AND,
@@ -762,112 +752,19 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 
   free (wont_exit);
   if (rtl_dump_file)
-    fprintf (rtl_dump_file, ";; Unrolled loop %d times\n", max_unroll);
+    fprintf (rtl_dump_file, ";; Unrolled loop %d times, counting # of iterations in runtime\n", max_unroll);
+ 
+  return 1;
+  }
   
-  return 1;
-}
-
-/* Unroll a simple for LOOP described by DESC.  MAX_UNROLL is the maximal
-   number of unrollings allowed.  */
-static int
-unroll_simple_loop (loops, loop, max_unroll, desc)
-     struct loops *loops;
-     struct loop *loop;
-     int max_unroll;
-     struct loop_desc *desc;
-{
-  if (!can_duplicate_loop_p (loop))
-    {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Not unrolling loop, can't duplicate\n");
-      return 0;
-    }
-
-  switch (desc->cond)
-    {
-      case GEU:
-      case GTU:
-      case LEU:
-      case LTU:
-	if (rtl_dump_file)
-	  fprintf (rtl_dump_file, ";;  Not unrolling loop, GEU/GTU/LEU/LTU condition\n");
-	/* I'm not brave enough to cope with this.  */
-	return 0;
-      default:
-	break;
-    }
-
-  if (desc->const_iter)
-    {
-      /* Simple case -- we know number of iterations exactly.  */
-      return unroll_loop_constant_iterations (loops, loop, max_unroll, desc);
-    }
-  else
-    {
-      /* Try to calculate it in runtime.  */
-      return unroll_loop_runtime_iterations (loops, loop, max_unroll, desc);
-    }
-  return 1;
-}
-
 /* Peel a LOOP.  Returs 0 if impossible, 1 otherwise.  */
 static int
-peel_loop (loops, loop, will_unroll)
+peel_loop_simple (loops, loop, npeel)
      struct loops *loops;
      struct loop *loop;
-     int will_unroll;
+     int npeel;
 {
-  int ninsns = 0, npeel;
-  int niter;
-  struct loop_desc desc;
   sbitmap wont_exit;
-
-  if (!can_duplicate_loop_p (loop))
-    {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Not peeling loop, can't duplicate\n");
-      return 0;
-    }
-
-  /* Do not peel cold areas.  */
-  if (!maybe_hot_bb_p (loop->header))
-    {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Not peeling loop, header is cold area\n");
-      return 1;
-    }
-
-  /* Only peel innermost loops.  */
-  if (loop->inner)
-    {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Not peeling loop, not innermost loop\n");
-      return 1;
-    }
-      
-  ninsns = num_loop_insns (loop);
-
-  npeel = PARAM_VALUE (PARAM_MAX_PEELED_INSNS) / ninsns - 1;
-  if (npeel > PARAM_VALUE (PARAM_MAX_PEEL_TIMES))
-    npeel = PARAM_VALUE (PARAM_MAX_PEEL_TIMES);
-
-  /* Do not peel loops that roll too much.  */
-  niter = expected_loop_iterations (loop);
-  if (niter > npeel - 1)
-    {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Not peeling loop, rolls too much (%d iterations > %d [maximum peelings - 1])\n", niter, npeel - 1);
-      return 1;
-    }
-  npeel = niter;
-  
-  /* Neither big loops.  */
-  if (npeel <= 0)
-    {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Not peeling loop, is too big\n");
-      return 1;
-    }
 
   wont_exit = sbitmap_alloc (npeel + 1);
   sbitmap_zero (wont_exit);
@@ -879,7 +776,7 @@ peel_loop (loops, loop, will_unroll)
 	fprintf (rtl_dump_file, ";; Peeling unsuccessful\n");
       return 0;
     }
-
+  
   free (wont_exit);
 
   if (rtl_dump_file)
@@ -887,67 +784,16 @@ peel_loop (loops, loop, will_unroll)
 
   return 1;
 }
-
+  
 /* Unroll a LOOP.  Returs 0 if impossible, 1 otherwise.  */
 static int
-unroll_loop_new (loops, loop, unroll_all)
+unroll_loop_stupid (loops, loop, nunroll)
      struct loops *loops;
      struct loop *loop;
-     int unroll_all;
+     int nunroll;
 {
-  int ninsns = 0, nunroll, niter;
-  struct loop_desc desc;
   sbitmap wont_exit;
 
-  /* Do not unroll cold areas.  */
-  if (!maybe_hot_bb_p (loop->header))
-    {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Not unrolling loop, cold area\n");
-      return 1;
-    }
-
-  if (!can_duplicate_loop_p (loop))
-    {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Not unrolling loop, can't duplicate\n");
-      return 0;
-    }
-
-  ninsns = num_loop_insns (loop);
-
-  nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / ninsns - 1;
-  if (nunroll > PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
-    nunroll = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
-
-  /* Neither big loops.  */
-  if (nunroll <= 0)
-    {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Not unrolling loop, is too big\n");
-      return 1;
-    }
-
-  if (simple_loop_p (loops, loop, &desc))
-    {
-      /* Simple for loop.  */
-      if (unroll_simple_loop (loops, loop, nunroll, &desc))
-	return 1;
-    }
-  
-  if (!unroll_all)
-    return 1;
-  
-  /* Do not unroll loops that do not roll.  */
-  niter = expected_loop_iterations (loop);
-  if (niter < 2 * nunroll && flag_branch_probabilities)
-    {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Not unrolling loop, doesn't roll\n");
-      return 1;
-    }
-
-  /* Some hard case; try stupid unrolling anyway.  */
   wont_exit = sbitmap_alloc (nunroll + 1);
   sbitmap_zero (wont_exit);
 
@@ -964,4 +810,184 @@ unroll_loop_new (loops, loop, unroll_all)
     fprintf (rtl_dump_file, ";; Unrolled loop %d times\n", nunroll);
 	  
   return 1;
+}
+
+/* Unroll or peel (depending on FLAGS) LOOP.  */
+static int
+unroll_or_peel_loop (loops, loop, flags)
+     struct loops *loops;
+     struct loop *loop;
+     int flags;
+{
+  int nunroll, npeel, ninsns, ret;
+  struct loop_desc desc;
+  HOST_WIDE_INT niter;
+  bool simple, exact;
+
+  /* Do not unroll/peel cold areas.  */
+  if (!maybe_hot_bb_p (loop->header))
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unrolling/peeling loop, cold area\n");
+      return 1;
+    }
+
+  /* Can the loop be manipulated?  */
+  if (!can_duplicate_loop_p (loop))
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unrolling/peeling loop, cannot duplicate\n");
+      return 1;
+    }
+  
+  /* Only peel innermost loops.  */
+  if (loop->inner)
+    {
+      if ((flags & UAP_PEEL) && rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not peeling loop, not innermost loop\n");
+      flags &= ~UAP_PEEL;
+    }
+
+  /* Count maximal number of unrollings/peelings.  */
+  ninsns = num_loop_insns (loop);
+
+  /* npeel = number of iterations to peel. */
+  npeel = PARAM_VALUE (PARAM_MAX_PEELED_INSNS) / ninsns - 1;
+  if (npeel > PARAM_VALUE (PARAM_MAX_PEEL_TIMES))
+    npeel = PARAM_VALUE (PARAM_MAX_PEEL_TIMES);
+
+  /* nunroll = total number of copies of the original loop body in
+     unrolled loop (i.e. if it is 2, we have to duplicate loop body once.  */
+  nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / ninsns;
+  if (nunroll > PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
+    nunroll = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
+
+  /* Skip big loops.  */
+  if (nunroll <= 1)
+    {
+      if ((flags & UAP_UNROLL) && rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unrolling loop, is too big\n");
+      flags &= ~(UAP_UNROLL | UAP_UNROLL_ALL);
+    }
+
+  if (npeel <= 0)
+    {
+      if ((flags & UAP_PEEL) && rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not peeling loop, is too big\n");
+      flags &= ~UAP_PEEL;
+    }
+
+  /* Shortcut.  */
+  if (!flags)
+    return 1;
+
+  /* Check for simple loops.  */
+  simple = simple_loop_p (loops, loop, &desc);
+  if (!simple && !(flags & UAP_UNROLL_ALL))
+    {
+      if ((flags & UAP_UNROLL) && rtl_dump_file)
+	fprintf (rtl_dump_file, ";;  Not unrolling loop, isn't simple\n");
+      flags &= ~UAP_UNROLL;
+    }
+
+  /* Try to guess number of iterations.  */
+  exact = false;
+  if (simple)
+    {
+      /* Loop with constant number of iterations?  */
+      if (count_loop_iterations (&desc, &niter, NULL))
+	exact = desc.const_iter;
+      else
+	simple = false;       
+    }
+  if (exact && niter < 0)
+    {
+      /* Negative number of iterations; it may be overflow.  */
+      if (desc.cond == NE)
+	/* It is hard to say what the number of iterations will be;
+	   but we may expect it to be high.  */
+	niter = 2 * nunroll;
+      else
+	niter = 0;
+      }
+
+  if (!exact)
+    {
+      /* Use profile information.  */
+      niter = expected_loop_iterations (loop);
+      if (flag_branch_probabilities)
+	exact = true;
+    }
+
+  if (exact)
+    {
+      /* If estimate is good, use it to decide and bound number of peelings.  */
+      if (niter > npeel)
+	{
+	  if ((flags & UAP_PEEL) && rtl_dump_file)
+	    fprintf (rtl_dump_file, ";; Not peeling loop, rolls too much (%d iterations > %d [maximum peelings])\n", niter, npeel);
+	  flags &= ~UAP_PEEL;
+	}
+      npeel = niter;
+
+      /* And unrollings.  */
+      if (niter < 2 * nunroll)
+	{
+	  if (rtl_dump_file)
+	    fprintf (rtl_dump_file, ";; Not unrolling loop, doesn't roll\n");
+	  flags &= ~(UAP_UNROLL | UAP_UNROLL_ALL);
+	}
+    }
+
+  /* We might have lost simpleness when counting loop iterations.  */
+  if (!simple && !(flags & UAP_UNROLL_ALL))
+    {
+      if ((flags & UAP_UNROLL) && rtl_dump_file)
+	fprintf (rtl_dump_file, ";;  Not unrolling loop, isn't simple\n");
+      flags &= ~UAP_UNROLL;
+    }
+
+  /* Shortcut.  */
+  if (!flags)
+    return 1;
+
+  /* If we still may both unroll and peel, then unroll.  */
+  if ((flags & UAP_UNROLL) && (flags & UAP_PEEL))
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";;  Not peelling loop, unrolling instead\n");
+      flags &= ~UAP_PEEL;
+    }
+
+  /* Now we have several cases:  */
+  if (flags & UAP_UNROLL)
+    {
+      /* Unrolling:  */
+
+      if (simple)
+	{
+	  if (desc.const_iter)
+            /* Loops with constant number of iterations.  */
+	    ret = unroll_loop_constant_iterations (loops, loop, nunroll, &desc);
+	  else
+            /* Loops with countable number of iterations.  */
+	    ret = unroll_loop_runtime_iterations (loops, loop, nunroll, &desc);
+	}
+      else
+	/* Stupid unrolling.  */
+	ret = unroll_loop_stupid (loops, loop, nunroll);
+    }
+  else
+    {
+    /* Peeling:  */
+
+      if (simple && desc.const_iter)
+        /* Peel and remove the loop completely.  */
+	ret = peel_loop_completely (loops, loop, &desc);
+      else
+        /* Simple loop peeling.  */
+	ret = peel_loop_simple (loops, loop, npeel);
+    }
+
+  return ret;
 }

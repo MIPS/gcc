@@ -424,8 +424,11 @@ int doloop_optimize PARAMS ((const struct loop *));
 struct loops *loop_optimizer_init PARAMS ((FILE *));
 void loop_optimizer_finalize PARAMS ((struct loops *, FILE *));
 
-void unroll_loops PARAMS ((struct loops *, int));
-void peel_loops PARAMS ((struct loops *, int));
+#define UAP_PEEL 1
+#define UAP_UNROLL 2
+#define UAP_UNROLL_ALL 4
+
+void unroll_and_peel_loops PARAMS ((struct loops *, int));
 void unswitch_loops PARAMS ((struct loops *));
 
 /* Other exported functions.  */
@@ -440,7 +443,7 @@ struct loop_desc
   rtx init;		/* Initial value of var.  */
   HOST_WIDE_INT lim_n;
   HOST_WIDE_INT init_n;	/* And their integer values.  */
-  int const_iter;       /* One if both limits are integer constants.  */
+  bool const_iter;      /* True if both limits are integer constants.  */
   enum rtx_code cond;	/* Exit condition.  */
   int neg;		/* Set to 1 if loop ends when condition is satisfied.  */
 };
