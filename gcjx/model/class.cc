@@ -390,9 +390,13 @@ model_class::get_class_signature ()
 {
   std::string result;
   result = type_parameters.get_signature ();
-  model_type *sup = (interface ? global->get_compiler ()->java_lang_Object ()
-		     : superclass->type ());
-  result += sup->get_signature ();
+  model_type *sup = NULL;
+  if (interface)
+    sup = global->get_compiler ()->java_lang_Object ();
+  else if (superclass)
+    sup = superclass->type ();
+  if (sup)
+    result += sup->get_signature ();
   for (std::list<ref_forwarding_type>::const_iterator i = interfaces.begin ();
        i != interfaces.end ();
        ++i)

@@ -1,5 +1,9 @@
 2005-02-04  Tom Tromey  <tromey@redhat.com>
 
+	* model/class.cc (get_class_signature): Handle Object case.
+
+2005-02-04  Tom Tromey  <tromey@redhat.com>
+
 	* model/import.cc (resolve): New method.
 	* model/import.hh (model_static_import_single::resolve): Declare.
 
