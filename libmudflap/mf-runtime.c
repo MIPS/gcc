@@ -1,5 +1,3 @@
-/* {{{ Copyright */
-
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
    Copyright (C) 2002 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
@@ -9,8 +7,6 @@ This file is part of GCC.
 
 XXX: libgcc license?
 */
-
-/* }}} */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,7 +36,7 @@ XXX: libgcc license?
 #endif
 
 /* ------------------------------------------------------------------------ */
-/* {{{ Utility macros */
+/* Utility macros */
 
 /* Protect against recursive calls. */
 #define BEGIN_RECURSION_PROTECT           \
@@ -54,9 +50,8 @@ XXX: libgcc license?
   __mf_state = old_state;
 
 
-/* }}} */
 /* ------------------------------------------------------------------------ */
-/* {{{ Required globals.  */
+/* Required globals.  */
 
 #ifndef LOOKUP_CACHE_MASK_DFL
 #define LOOKUP_CACHE_MASK_DFL 1023
@@ -79,9 +74,8 @@ enum __mf_state __mf_state = inactive;
 struct __mf_dynamic __mf_dynamic;
 #endif
 
-/* }}} */
 /* ------------------------------------------------------------------------ */
-/* {{{ Configuration engine */
+/* Configuration engine */
 
 static void
 __mf_set_default_options ()
@@ -446,9 +440,8 @@ void __mf_fini ()
   TRACE_OUT;
 }
 
-/* }}} */
 /* ------------------------------------------------------------------------ */
-/* {{{ stats-related globals.  */
+/* stats-related globals.  */
 
 static unsigned long __mf_count_check;
 static unsigned long __mf_lookup_cache_reusecount [LOOKUP_CACHE_SIZE_MAX];
@@ -459,9 +452,8 @@ static unsigned long __mf_count_unregister;
 static unsigned long __mf_total_unregister_size;
 static unsigned long __mf_count_violation [__MF_VIOL_UNREGISTER+1];
 
-/* }}} */
 /* ------------------------------------------------------------------------ */
-/* {{{ MODE_CHECK-related globals.  */
+/* MODE_CHECK-related globals.  */
 
 typedef struct __mf_object
 {
@@ -505,9 +497,8 @@ static void __mf_link_object (__mf_object_tree_t *obj);
 static void __mf_unlink_object (__mf_object_tree_t *obj);
 static void __mf_describe_object (__mf_object_t *obj);
 
-/* }}} */
 /* ------------------------------------------------------------------------ */
-/* {{{ __mf_check */
+/* __mf_check */
 
 void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 {
@@ -599,8 +590,7 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 		    __MF_VIOL_CHECK);
 }
 
-/* }}} */
-/* {{{ __mf_register */
+/* __mf_register */
 
 static __mf_object_tree_t *
 __mf_insert_new_object (uintptr_t low, uintptr_t high, int type, 
@@ -679,7 +669,8 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 
     case mode_check:
       {
-	__mf_object_tree_t *ovr_obj[1];
+	enum { max_objs = 1 };
+	__mf_object_tree_t *ovr_obj [max_objs];
 	unsigned num_overlapping_objs;
 	uintptr_t low = ptr;
 	uintptr_t high = CLAMPSZ (ptr, sz);
@@ -690,7 +681,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 	/* Treat unknown size indication as 1.  */
 	if (UNLIKELY (sz == 0)) sz = 1;
 	
-	num_overlapping_objs = __mf_find_objects (low, high, ovr_obj, 1);
+	num_overlapping_objs = __mf_find_objects (low, high, ovr_obj, max_objs);
 	if (UNLIKELY (num_overlapping_objs > 0))
 	  {
 	    /* Normally, this would be a violation.  However, accept a
@@ -712,7 +703,8 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 		unsigned i;
 		int all_guesses = 1;
 
-		for (i = 0; i < num_overlapping_objs; ++i)
+		/* XXX: need generalization for max_objs > 1 */
+		for (i = 0; i < min (num_overlapping_objs, max_objs); ++i)
 		  {
 		    if (ovr_obj[i]->data.type != __MF_TYPE_GUESS)
 		      {
@@ -735,7 +727,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 			   low,
 			   low, high);
 
-		    for (i = 0; i < num_overlapping_objs; ++i)
+		    for (i = 0; i < min (max_objs, num_overlapping_objs); ++i)
 		      {
 			DECLARE (void, free, void *ptr);
 			__mf_remove_old_object (ovr_obj[i]);
@@ -757,7 +749,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 	    else
 	      {
 		unsigned i;
-		for (i = 0; i < num_overlapping_objs; ++i)
+		for (i = 0; i < min (num_overlapping_objs, max_objs) ; ++i)
 		  {
 		    if (ovr_obj[i]->data.type == __MF_TYPE_GUESS)
 		      {
@@ -838,8 +830,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
     }
 }
 
-/* }}} */
-/* {{{ __mf_unregister */
+/* __mf_unregister */
 
 void
 __mf_unregister (uintptr_t ptr, uintptr_t sz)
@@ -981,9 +972,8 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
   END_RECURSION_PROTECT;
 }
 
-/* }}} */
 /* ------------------------------------------------------------------------ */
-/* {{{ __mf_validate_live_object_tree, _object_cemetary */
+/* __mf_validate_live_object_tree, _object_cemetary */
 
 static void
 __mf_validate_live_object_tree (__mf_object_tree_t *obj)
@@ -1038,8 +1028,7 @@ __mf_validate_objects ()
     __mf_validate_object_cemetary ();
 }
 
-/* }}} */
-/* {{{ __mf_find_object[s] */
+/* __mf_find_object[s] */
 
 /* Find overlapping live objecs between [low,high].  Return up to
    max_objs of their pointers in objs[].  Return total count of
@@ -1155,8 +1144,7 @@ __mf_find_objects (uintptr_t ptr_low, uintptr_t ptr_high,
   return __mf_find_objects_rec (ptr_low, ptr_high, & __mf_object_root, objs, max_objs);
 }
 
-/* }}} */
-/* {{{ __mf_link_object */
+/* __mf_link_object */
 
 static void
 __mf_link_object2 (__mf_object_tree_t *ptr, __mf_object_tree_t **link)
@@ -1188,8 +1176,7 @@ __mf_link_object (__mf_object_tree_t *ptr)
   return __mf_link_object2 (ptr, & __mf_object_root);
 }
 
-/* }}} */
-/* {{{ __mf_unlink_object */
+/* __mf_unlink_object */
 
 static void
 __mf_unlink_object2 (__mf_object_tree_t *ptr, __mf_object_tree_t **link)
@@ -1233,8 +1220,7 @@ __mf_unlink_object (__mf_object_tree_t *node)
   __mf_unlink_object2 (node, & __mf_object_root);
 }
 
-/* }}} */
-/* {{{ __mf_find_dead_objects */
+/* __mf_find_dead_objects */
 
 /* Find overlapping dead objecs between [low,high].  Return up to
    max_objs of their pointers in objs[].  Return total count of
@@ -1298,8 +1284,7 @@ __mf_find_dead_objects (uintptr_t low, uintptr_t high,
     }
 }
 
-/* }}} */
-/* {{{ __mf_describe_object */
+/* __mf_describe_object */
 
 static void
 __mf_describe_object (__mf_object_t *obj)
@@ -1365,9 +1350,8 @@ __mf_report_leaks (__mf_object_tree_t *node)
   return count;
 }
 
-/* }}} */
 /* ------------------------------------------------------------------------ */
-/* {{{ __mf_report */
+/* __mf_report */
 
 void
 __mf_report ()
@@ -1439,8 +1423,7 @@ __mf_report ()
     }
 }
 
-/* }}} */
-/* {{{ __mf_backtrace */
+/* __mf_backtrace */
 
 size_t
 __mf_backtrace (char ***symbols, void *guess_pc, unsigned guess_omit_levels)
@@ -1479,9 +1462,8 @@ __mf_backtrace (char ***symbols, void *guess_pc, unsigned guess_omit_levels)
   return remaining_size;
 }
 
-/* }}} */
 /* ------------------------------------------------------------------------ */
-/* {{{ __mf_violation */
+/* __mf_violation */
 
 void
 __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, 
@@ -1571,27 +1553,32 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
 	      break;
 
 	    tries ++;
+
+	    /* XXX: tune this search strategy.  It's too dependent on
+	     sz, which can vary from 1 to very big (when array index
+	     checking) numbers. */
 	    s_low = CLAMPSUB (s_low, (sz * tries * tries));
 	    s_high = CLAMPADD (s_high, (sz * tries * tries));
 	  }
 
-	for (i = 0; i < num_objs; i++)
+	for (i = 0; i < min (num_objs, max_objs); i++)
 	  {
 	    __mf_object_t *obj = & objs[i]->data;
 	    uintptr_t low = ptr;
 	    uintptr_t high = CLAMPSZ (ptr, sz);
-	    unsigned before = (high < obj->low) ? obj->low - high : 0;
-	    unsigned after = (low > obj->high) ? low - obj->high : 0;
-	    unsigned into = (high >= obj->low && low <= obj->high) ? low - obj->low : 0;
+	    unsigned before1 = (low < obj->low) ? obj->low - low : 0;
+	    unsigned after1 = (low > obj->high) ? low - obj->high : 0;
+	    unsigned into1 = (high >= obj->low && low <= obj->high) ? low - obj->low : 0;
+	    unsigned before2 = (high < obj->low) ? obj->low - high : 0;
+	    unsigned after2 = (high > obj->high) ? high - obj->high : 0;
+	    unsigned into2 = (high >= obj->low && low <= obj->high) ? high - obj->low : 0;
 
-	    fprintf (stderr, "Nearby object %u: region is %uB %s\n",
+	    fprintf (stderr, "Nearby object %u: checked region begins %uB %s and ends %uB %s\n",
 		     i + 1,
-		     (before ? before :
-		      after ? after :
-		      into),
-		     (before ? "before" :
-		      after ? "after" :
-		      "into"));
+		     (before1 ? before1 : after1 ? after1 : into1),
+		     (before1 ? "before" : after1 ? "after" : "into"),
+		     (before2 ? before2 : after2 ? after2 : into2),
+		     (before2 ? "before" : after2 ? "after" : "into"));
 	    __mf_describe_object (obj);
 	  }
 	num_helpful += num_objs;
@@ -1627,5 +1614,4 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
   END_RECURSION_PROTECT;
 }
 
-/* }}} */
 /* ------------------------------------------------------------------------ */

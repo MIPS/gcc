@@ -1,5 +1,3 @@
-/* {{{ Copyright */
-
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
    Copyright (C) 2002 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
@@ -8,8 +6,6 @@
 This file is part of GCC.
 XXX: libgcc license?
 */
-
-/* }}} */
 
 #include <string.h>
 #include <stdio.h>
@@ -62,7 +58,7 @@ XXX: libgcc license?
 
 
 
-/* {{{ malloc/free etc. */
+/* malloc/free etc. */
 
 #ifdef WRAP_malloc
 WRAPPER(void *, malloc, size_t c)
@@ -361,8 +357,7 @@ WRAPPER(void *, alloca, size_t c)
 
 
 
-/* }}} */
-/* {{{ str*,mem*,b* */
+/* str*,mem*,b* */
 
 #ifdef WRAP_memcpy
 WRAPPER(void *, memcpy, void *dest, const void *src, size_t n)
@@ -834,11 +829,8 @@ WRAPPER(char *, rindex, const char *s, int c)
 }
 #endif
 
-/* }}} */
-/* {{{ *printf,*scanf */
+/* *printf,*scanf */
 
 
-
-/* }}} */
 
 /* ------------------------------------------------------------------------ */
