@@ -1,6 +1,10 @@
 2004-03-09  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* tree-ssa-phiopt.c (conditional_replacement):
+	Initialize new_var to NULL to prevent the
+	uninitialized warning.
+
+	* tree-ssa-phiopt.c (conditional_replacement):
 	Disable the making a new variable for different
 	types.
 

@@ -189,7 +189,7 @@ conditional_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
   tree last0, last1, new, cond;
   block_stmt_iterator bsi;
   edge true_edge, false_edge;
-  tree new_var;
+  tree new_var = NULL;
 
   /* The PHI arguments have the constants 0 and 1, then convert
     it to the conditional.  */
