@@ -852,9 +852,9 @@ common_handle_option (size_t scode, const char *arg, int value)
     case OPT_fprofile_generate:
       if (!profile_arc_flag_set)
         profile_arc_flag = value;
+#if 0
       if (!flag_profile_values_set)
         flag_profile_values = value;
-#if 0
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
 #ifdef HAVE_prefetch
