@@ -8847,7 +8847,7 @@ cp_parser_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
 					      abstract_p,
 					      ctor_dtor_or_conv_p);
 
-  if (attributes)
+  if (attributes && declarator != error_mark_node)
     declarator = tree_cons (attributes, declarator, NULL_TREE);
   
   return declarator;
@@ -10741,8 +10741,8 @@ cp_parser_member_specification_opt (parser)
 
       /* Peek at the next token.  */
       token = cp_lexer_peek_token (parser->lexer);
-      /* If it's a `}', then we've seen all the members.  */
-      if (token->type == CPP_CLOSE_BRACE)
+      /* If it's a `}', or EOF then we've seen all the members.  */
+      if (token->type == CPP_CLOSE_BRACE || token->type == CPP_EOF)
 	break;
 
       /* See if this token is a keyword.  */
