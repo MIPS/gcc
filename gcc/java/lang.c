@@ -885,9 +885,10 @@ java_unsafe_for_reeval (tree t)
 /* APPLE LOCAL begin AltiVec */
 /* Placeholders to make linking work, remove when altivec support is correct */
 
+int comptypes (tree type1, tree type2);
+
 int
-comptypes (type1, type2)
-     tree type1, type2;
+comptypes (tree type1, tree type2)
 {
   register tree t1 = type1;
   register tree t2 = type2;
@@ -897,21 +898,31 @@ comptypes (type1, type2)
   return 0;
 }
 
+tree default_conversion (tree exp);
+
 tree
-default_conversion (exp)
-     tree exp;
+default_conversion (tree exp)
 {
   return exp;
 }
 
+tree lang_build_type_variant (tree type, int constp ATTRIBUTE_UNUSED, int volatilep ATTRIBUTE_UNUSED);
+
 tree
-lang_build_type_variant (type, constp, volatilep)
-     tree type;
-     int constp, volatilep;
+lang_build_type_variant (tree type, int constp ATTRIBUTE_UNUSED, int volatilep ATTRIBUTE_UNUSED)
 {
   return type;
 }
 /* APPLE LOCAL end AltiVec */
+
+/* APPLE LOCAL begin constant cfstrings */
+enum { blabla } c_language;
+const char *constant_string_class_name = "die die";
+int flag_next_runtime = 1;
+/* APPLE LOCAL end constant cfstrings */
+
+/* APPLE LOCAL disable_typechecking_for_spec_flag */
+int disable_typechecking_for_spec_flag = 0;
 
 /* Every call to a static constructor has an associated boolean
    variable which is in the outermost scope of the calling method.
