@@ -1502,7 +1502,6 @@ easy_vector_constant (rtx op, enum machine_mode mode)
 	  break;
 	cst = cst >> 8;
       case V16QImode:
-	  debug_rtx (op);
 	if (EASY_VECTOR_15 (cst, op, mode))
 	  return 1;
       default: 
