@@ -1,3 +1,8 @@
+2005-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.in (gnatlib-shared-default): Disallow dlopening of
+	libgnat.so.
+
 2005-02-13  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR ada/19942
