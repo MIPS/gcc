@@ -1,7 +1,7 @@
 /* APPLE LOCAL file PPC_INTRINSICS */
 
 /* Definitions for PowerPC intrinsic instructions
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -34,9 +34,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  *   __eieio    - Enforce In-Order Execution of I/O
  *   __isync    - Instruction Synchronize
  *   __sync     - Synchronize
+ *   __lwsync   - Lightweight Synchronize
  *
  * Manipulating the Contents of a Variable or Register
  *   __cntlzw   - Count Leading Zeros Word
+ *   __cntlzd   - Count Leading Zeros Double Word
  *   __rlwimi   - Rotate Left Word Immediate then Mask Insert
  *   __rlwinm   - Rotate Left Word Immediate then AND with Mask
  *   __rlwnm    - Rotate Left Word then AND with Mask
@@ -49,11 +51,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  *
  * Data Cache Manipulation
  *   __dcba     - Data Cache Block Allocate
- *   __dcba     - Data Cache Block Flush
+ *   __dcbf     - Data Cache Block Flush
  *   __dcbst    - Data Cache Block Store
  *   __dcbt     - Data Cache Block Touch
  *   __dcbtst   - Data Cache Block Touch for Store
- *   __dcbz     - Data Cache Block Set to Zero
+ *   __dcbzl    - Data Cache Block Set to Zero
+ *   __dcbz     - Data Cache Block Set to Zero (32-bytes only)
  *
  * Setting the Floating-Point Environment
  *   __setflm   - Set Floating-point Mode
@@ -63,6 +66,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  *   __fnabs    - Floating Negative Absolute Value
  *   __fctiw    - Floating Convert to Integer Word
  *   __fctiwz   - Floating Convert to Integer Word with Round toward Zero
+ *   __fctidz   - Floating Convert to Integer Doubleword with Round toward Zero
+ *   __fctid    - Floating Convert to Integer Doubleword
+ *   __fcfid    - Floating Convert From Integer Doubleword
  *   __fmadd    - Floating Multiply-Add (Double-Precision)
  *   __fmadds   - Floating Multiply-Add Single
  *   __fmsub    - Floating Multiply-Subract (Double-Precision)
@@ -86,6 +92,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  *   __stfiwx   - Store Floating-Point as Integer Word Indexed
  *
  * Miscellaneous Functions
+ *   __nop      - PPC preferred form of no operation
  *   __astrcmp  - assembly strcmp
  *   __icbi     - Instruction Cache Block Invalidate
  *   __mffs     - Move from FPSCR
@@ -114,8 +121,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  *   has been added where it appears that it should not be needed are
  *   lhbrx and lwbrx.
  *
- * Contributors: Fred Forsman (editor), Turly O'Connor, Ian Ollmann
- * Last modified: June 4, 2002
+ * Contributors: Fred Forsman (editor), Turly O'Connor, Ian Ollmann, Sanjay Patel
+ * Last modified: October 6, 2004
  */
 
 #ifndef _PPC_INTRINSICS_H_
@@ -191,6 +198,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  */
 #define __sync() __asm__ volatile ("sync")
 
+/*
+ * __lwsync - Lightweight Synchronize, see PPC2.01, Book 2
+ *
+ *  void __lwsync (void);
+ */
+#define __lwsync() __asm__ volatile ("sync 1")
+
 
 /*******************************************************************
  *                     Byte-Reversing Functions                    *
@@ -250,6 +264,22 @@ __cntlzw (int value)
            /* inputs:   */ : "r" (value));
   return result;
 }
+
+#if defined( __ppc64__ )
+/*
+ * __cntlzd - Count Leading Zeros Double Word
+ */
+static inline long __cntlzd (long value) __attribute__((always_inline));
+static inline long 
+__cntlzd (long value)
+{
+  long result;
+  __asm__ ("cntlzd %0, %1" 
+           /* outputs:  */ : "=r" (result) 
+           /* inputs:   */ : "r" (value));
+  return result;
+}
+#endif
 
 /*
  * __rlwimi - Rotate Left Word Immediate then Mask Insert
@@ -361,7 +391,17 @@ __cntlzw (int value)
   __asm__ ("dcbtst %0, %1" : /*no result*/ : "b%" (index), "r" (base) : "memory")
 
 /*
- * __dcbz - Data Cache Block Set to Zero
+ * __dcbzl - Data Cache Block Set to Zero
+ *
+ *   void __dcbzl(void *, int);
+ */
+#define __dcbzl(base, index)     \
+  __asm__ ("dcbzl %0, %1" : /*no result*/ : "b%" (index), "r" (base) : "memory")
+
+/*
+ * __dcbz - Data Cache Block Set to Zero (32-bytes only)
+ *
+ * WARNING: this is for legacy purposes only
  *
  *   void __dcbz(void *, int);
  */
@@ -460,6 +500,67 @@ __fctiwz (double b)
 {
   double result;
   __asm__ ("fctiwz %0, %1" 
+           /* outputs:  */ : "=f" (result) 
+           /* inputs:   */ : "f" (b));
+  return result;
+}
+
+/*
+ * fctidz - Floating Convert to Integer Double Word with Round toward Zero
+ *
+ * Convert the input value to a signed 64-bit int and place in the FP
+ * destination register.  Clip to LLONG_MIN (-2**63) or LLONG_MAX (2**63-1) 
+ * if the FP value exceeds the range representable by a int64_t.
+ * 
+ * WARNING: fctidz is a valid instruction only on 64-bit PowerPC 
+ */
+static inline double __fctidz (double b) __attribute__((always_inline));
+static inline double 
+__fctidz (double b)
+{
+  double result;
+  __asm__ ("fctidz %0, %1" 
+           /* outputs:  */ : "=f" (result) 
+           /* inputs:   */ : "f" (b));
+  return result;
+}
+
+/*
+ * fctid - Floating Convert to Integer Double Word
+ *
+ * Convert the input value to a signed 64-bit int and place in the FP
+ * destination register.  Clip to LLONG_MIN (-2**63) or LLONG_MAX (2**63-1) 
+ * if the FP value exceeds the range representable by a int64_t. Use the 
+ * rounding mode indicated in the FPSCR.
+ * 
+ * WARNING: fctid is a valid instruction only on 64-bit PowerPC 
+ */
+static inline double __fctid (double b) __attribute__((always_inline));
+static inline double 
+__fctid (double b)
+{
+  double result;
+  __asm__ ("fctid %0, %1" 
+           /* outputs:  */ : "=f" (result) 
+           /* inputs:   */ : "f" (b));
+  return result;
+}
+
+/*
+ * fcfid - Floating Convert From Integer Double Word
+ *
+ * Convert the 64-bit signed integer input value to a 64-bit FP value.  
+ * Use the rounding mode indicated in the FPSCR if the integer is out of
+ * double precision range.
+ * 
+ * WARNING: fcfid is a valid instruction only on 64-bit PowerPC 
+ */
+static inline double __fcfid (double b) __attribute__((always_inline));
+static inline double 
+__fcfid (double b)
+{
+  double result;
+  __asm__ ("fcfid %0, %1" 
            /* outputs:  */ : "=f" (result) 
            /* inputs:   */ : "f" (b));
   return result;
@@ -816,6 +917,14 @@ __mulhwu (unsigned int a, unsigned int b)
 /*******************************************************************
  *                     Miscellaneous Functions                     *
  *******************************************************************/
+
+/*
+ * __nop - no operation (PowerPC preferred form)
+ *
+ *   void __nop();
+ */
+#define __nop()    \
+  __asm__ ("ori 0,0,0")
 
 /*
  * __icbi - Instruction Cache Block Invalidate

@@ -1,3 +1,9 @@
+2004-10-11  Devang Patel  <dpatel@apple.com>
+
+	Radar 3208244
+	* more-hdrs/ppc_intrinsics.h (__lwsync, __cntlzd, __dcbzl,
+	__fctidz, __fctid, __fcfid, __nop): New.
+
 2004-10-07  Robert Bowdidge <bowdidge@apple.com>
         * build_gcc: remove directories /usr/libexec/gcc/darwin/arch/4.0  and
         /usr/lib/gcc/darwin/arch/4.0 that are no longer needed.
