@@ -468,13 +468,13 @@ visit_phi_node (phi_node)
   /* Compute the meet operator over all the PHI arguments. */
   for (i = 0; i < num_phi_args (phi_node); i++)
     {
-      tree_ref arg = phi_arg (phi_node, i);
-      edge e = imm_reaching_def_edge (arg);
+      phi_node_arg arg = phi_arg (phi_node, i);
+      edge e = phi_arg_edge (arg);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "\n    Examining argument #%d: ", i);
-	  dump_ref (dump_file, "", arg, 0, 1);
+	  dump_ref (dump_file, "", phi_arg_def (arg), 0, 1);
 	  fprintf (dump_file, "    incoming via basic block %d\n",
 	           e->src->index);
 	  fprintf (dump_file, "    Edge (%d -> %d) is %sexecutable\n",
@@ -486,7 +486,7 @@ visit_phi_node (phi_node)
 	 the existing value of the PHI node and the current PHI argument.  */
       if (e->flags & EDGE_EXECUTABLE)
 	{
-	  tree_ref rdef = imm_reaching_def (arg);
+	  tree_ref rdef = phi_arg_def (arg);
 	  phi_val = cp_lattice_meet (phi_val, values[ref_id (rdef)]);
 	  if (phi_val.lattice_val == VARYING)
 	    break;

@@ -1,4 +1,54 @@
+2002-09-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (V_PHI_ARG): Remove.  Adjust related constants.
+	Update all users.
+	(add_ref_to_list_after): Don't allocate memory for the
+	node when adding to the beginning or the end of the list.
+	(add_phi_arg): Don't call create_ref to add a new argument.
+	(debug_phi_args): New function.
+	(dump_phi_args): New function.
+	(dump_ref): Call it.
+	(dump_referenced_vars): Use 'file' instead of 'dump_file'.
+
+	* tree-flow.h (V_PHI_ARG): Remove.  Update all users.
+	(struct var_ref): Move fields used in distinct
+	reference types to other structures.  Update all users.
+	(struct var_def): New.
+	(struct var_phi): New.
+	(struct var_use): New.
+	(union tree_ref_d): Add members vdef, vphi, vuse and vphi_arg.
+	Update all users.
+	(save_chain): Remove.  Update all users.
+	(set_save_chain): Remove.  Update all users.
+	(marked_with): Remove.  Update all users.
+	(mark_def_with): Remove.  Update all users.
+	(dump_reaching_defs): Declare.
+	(debug_reaching_defs): Declare.
+
+	(struct phi_node_arg_d): New structure.
+	(phi_node_arg): New type.
+	(phi_arg): Change return type to phi_node_arg.
+	(imm_reaching_def_edge): Rename to phi_arg_edge.
+	(set_imm_reaching_def_edge): Rename to set_phi_arg_edge.
+	(phi_arg_def): New inline function.
+	(set_phi_arg_def): New inline function.
+	(debug_phi_args): Declare.
+	(dump_phi_args): Declare.
+
+	* tree-ssa-ccp.c: Use new phi_node_arg type when examining PHI node
+	arguments.
+
+	* tree-ssa-pre.c: Ditto.
+
+	* tree-ssa.c (save_chain): New local variable.
+	(build_fud_chains, search_fud_chains): Use it.
+	(marked): New local variable.
+	(tree_compute_rdefs, follow_chain): Use it.
+	(dump_reaching_defs): New function.
+	(debug_reaching_defs): New function.
+
 2002-09-09  Daniel Berlin <dberlin@dberlin.org>
+
 	* Makefile.in (tree-alias-steen.o): Remove gt-tree-alias-steen.h
 	(tree-alias-common.o): Add dependency on c-common.h
 	

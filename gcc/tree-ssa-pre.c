@@ -268,7 +268,7 @@ set_var_phis (phi, i)
            curr_phi_operand < num_phi_args (phi); 
            curr_phi_operand++)
         {
-          phi_operand = imm_reaching_def (phi_arg (phi, curr_phi_operand));
+          phi_operand = phi_arg_def (phi_arg (phi, curr_phi_operand));
           if (ref_type (phi_operand) & V_PHI)
             set_var_phis (phi_operand, i);
         }
@@ -554,7 +554,7 @@ opnum_of_phi (phi, j)
      order is dependent on the traversal order.  */
   for (i = 0 ; i < num_phi_args (phi); i++)
     {
-      if (imm_reaching_def_edge (phi_arg (phi, i))->src->index == j)
+      if (phi_arg_edge (phi_arg (phi, i))->src->index == j)
 	return i;
     }
   
@@ -592,7 +592,7 @@ phi_opnd_from_res (Z, j, b)
 	    {
 	      /* replace v in Q by j'th operand of v's phi */
               int opnum = opnum_of_phi (phi, j);
-              tree_ref op = imm_reaching_def (phi_arg (phi, opnum));
+              tree_ref op = phi_arg_def (phi_arg (phi, opnum));
               VARRAY_GENERIC_PTR (Q, i) = op;
             }
           

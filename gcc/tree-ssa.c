@@ -45,20 +45,27 @@ Boston, MA 02111-1307, USA.  */
 #include "ssa.h"
 #include "varray.h"
 
+
 /* Nonzero to warn about variables used before they are initialized.  Used
    by analyze_rdefs().  */
-
 int tree_warn_uninitialized = 0;
 
 
-/* Dump file and flags.  */
+/* Array of saved definition chains.  Used by search_fud_chains to restore
+   the previous definition chain when returning from a recursive call.  */
+static tree_ref *save_chain;
 
+
+/* Visited marks.  Used when computing reaching definitions (follow_chain).  */
+static tree_ref *marked;
+
+
+/* Dump file and flags.  */
 static FILE *dump_file;
 static int dump_flags;
 
 
 /* Local functions.  */
-
 static void insert_phi_terms PARAMS ((sbitmap *));
 static void build_fud_chains PARAMS ((dominance_info));
 static void search_fud_chains PARAMS ((basic_block, dominance_info));
@@ -225,8 +232,17 @@ build_fud_chains (idom)
   for (i = 0; i < num_referenced_vars; i++)
     set_currdef_for (referenced_var (i), NULL);
 
+  /* Initialize the array of saved definition chains.  Used by
+     search_fud_chains to restore the previous definition chain when
+     returning from a recursive call.  */
+  save_chain = (tree_ref *) xmalloc (next_tree_ref_id * sizeof (tree_ref));
+  if (save_chain == NULL)
+    abort ();
+
   /* Search FUD chains starting with the entry block.  */
   search_fud_chains (ENTRY_BLOCK_PTR, idom);
+
+  free (save_chain);
 }
 
 
@@ -279,7 +295,7 @@ search_fud_chains (bb, idom)
 	{
 	  /* Save the current definition chain and replace the current reaching
 	     definition with a new one.  */
-	  set_save_chain (ref, currdef);
+	  save_chain[ref_id (ref)] = currdef;
 
 	  /* If the current reference (REF) is a non-killing definition
 	     (may-def or partial-def), then set a def-def chain between REF
@@ -362,12 +378,12 @@ search_fud_chains (bb, idom)
   FOR_EACH_REF_REV (ref, tmp, bb_refs (bb))
     {
       if (ref_type (ref) & (V_DEF | V_PHI))
-	set_currdef_for (ref_var (ref), save_chain (ref));
+	set_currdef_for (ref_var (ref), save_chain[ref_id (ref)]);
     }
 }
 
 
-/*  Deallocate memory associated with SSA data structures.  */
+/* Deallocate memory associated with SSA data structures.  */
 
 void
 delete_ssa ()
@@ -414,6 +430,12 @@ tree_compute_rdefs ()
 	}
     }
 
+  /* Initialize the mark array to keep track of which definitions have been
+     visited already.  */
+  marked = (tree_ref *) xmalloc (next_tree_ref_id * sizeof (tree_ref));
+  if (marked == NULL)
+    abort ();
+
   /* Traverse all the uses following their use-def chains looking for
      reaching definitions and reached uses.  */
   for (i = 0; i < num_referenced_vars; i++)
@@ -429,43 +451,19 @@ tree_compute_rdefs ()
 	}
     }
 
+  free (marked);
+
   analyze_rdefs ();
 
   /* Debugging dumps.  */
   dump_file = dump_begin (TDI_ssa, &dump_flags);
-
-  if (dump_file && (dump_flags & TDF_RDEFS))
-    {
-      fprintf (dump_file, ";; Function %s\n\n",
-	       IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
-
-      fprintf (dump_file, "Reaching definitions:\n");
-
-      for (i = 0; i < num_referenced_vars; i++)
-	{
-	  tree var = referenced_var (i);
-	  struct ref_list_node *tmp;
-	  tree_ref u;
-	  
-	  fprintf (dump_file, "Variable: ");
-	  print_node_brief (dump_file, "", var, 0);
-	  fprintf (dump_file, "\n");
-
-	  FOR_EACH_REF (u, tmp, tree_refs (var))
-	    {
-	      if (ref_type (u) & V_USE)
-		{
-		  dump_ref (dump_file, "", u, 4, 0);
-		  dump_ref_list (dump_file, "", reaching_defs (u), 6, 0);
-		  fprintf (dump_file, "\n");
-		}
-	    }
-	  fprintf (dump_file, "\n");
-	}
-    }
-
   if (dump_file)
-    dump_end (TDI_ssa, dump_file);
+    {
+      if (dump_flags & TDF_RDEFS)
+	dump_reaching_defs (dump_file);
+
+      dump_end (TDI_ssa, dump_file);
+    }
 }
 
 
@@ -559,10 +557,10 @@ follow_chain (d, u)
 #endif
 
   /* Do nothing if we've already visited this definition.  */
-  if (marked_with (d) == u)
+  if (marked[ref_id (d)] == u)
     return;
 
-  mark_def_with (d, u);
+  marked[ref_id (d)] = u;
 
   /* If D is a definition for U, add it to the list of definitions reaching
      U.  Similarly, add U to the list of reached uses of D.  */
@@ -576,9 +574,8 @@ follow_chain (d, u)
   if (ref_type (d) & V_PHI)
     {
       size_t i;
-
       for (i = 0; i < num_phi_args (d); i++)
-	follow_chain (imm_reaching_def (phi_arg (d, i)), u);
+	follow_chain (phi_arg_def (phi_arg (d, i)), u);
     }
 
   /* If D is a non-killing definition of U (i.e., D is a may-def or a
@@ -649,11 +646,11 @@ tree_ssa_remove_phi_alternative (phi_node, block)
     {
       tree_ref ref;
       basic_block src_bb;
-      tree_ref arg;
+      phi_node_arg arg;
 
       arg = phi_arg (phi_node, i);
-      ref = imm_reaching_def (arg);
-      src_bb = imm_reaching_def_edge (arg)->src;
+      ref = phi_arg_def (arg);
+      src_bb = phi_arg_edge (arg)->src;
 
       if (src_bb == block)
 	{
@@ -666,4 +663,48 @@ tree_ssa_remove_phi_alternative (phi_node, block)
 	  VARRAY_ACTIVE_SIZE (phi_vec) -= 1;
 	}
     }
+}
+
+/* Dump reaching definitions for all the definitions in the function.  */
+void
+dump_reaching_defs (dump_file)
+     FILE *dump_file;
+{
+  size_t i;
+
+  fprintf (dump_file, ";; Function %s\n\n",
+      IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
+
+  fprintf (dump_file, "Reaching definitions:\n");
+
+  for (i = 0; i < num_referenced_vars; i++)
+    {
+      tree var = referenced_var (i);
+      struct ref_list_node *tmp;
+      tree_ref u;
+
+      fprintf (dump_file, "Variable: ");
+      print_node_brief (dump_file, "", var, 0);
+      fprintf (dump_file, "\n");
+
+      FOR_EACH_REF (u, tmp, tree_refs (var))
+	{
+	  if (ref_type (u) & V_USE)
+	    {
+	      dump_ref (dump_file, "", u, 4, 0);
+	      dump_ref_list (dump_file, "", reaching_defs (u), 6, 0);
+	      fprintf (dump_file, "\n");
+	    }
+	}
+      fprintf (dump_file, "\n");
+    }
+}
+
+
+/* Dump reaching definitions on stderr.  */
+
+void
+debug_reaching_defs ()
+{
+  dump_reaching_defs (stderr);
 }

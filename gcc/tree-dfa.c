@@ -87,21 +87,20 @@ HOST_WIDE_INT next_tree_ref_id;
 const HOST_WIDE_INT V_DEF	= 1 << 0;
 const HOST_WIDE_INT V_USE	= 1 << 1;
 const HOST_WIDE_INT V_PHI	= 1 << 2;
-const HOST_WIDE_INT V_PHI_ARG	= 1 << 3;
-const HOST_WIDE_INT E_FCALL	= 1 << 4;
-const HOST_WIDE_INT E_PHI	= 1 << 5;
-const HOST_WIDE_INT E_USE	= 1 << 6;
-const HOST_WIDE_INT E_KILL	= 1 << 7;
-const HOST_WIDE_INT E_INJ	= 1 << 8;
+const HOST_WIDE_INT E_FCALL	= 1 << 3;
+const HOST_WIDE_INT E_PHI	= 1 << 4;
+const HOST_WIDE_INT E_USE	= 1 << 5;
+const HOST_WIDE_INT E_KILL	= 1 << 6;
+const HOST_WIDE_INT E_INJ	= 1 << 7;
 
 /* Reference type modifiers.  */
-const HOST_WIDE_INT M_DEFAULT	= 1 << 9;
-const HOST_WIDE_INT M_CLOBBER	= 1 << 10;
-const HOST_WIDE_INT M_MAY	= 1 << 11;
-const HOST_WIDE_INT M_PARTIAL	= 1 << 12;
-const HOST_WIDE_INT M_INITIAL	= 1 << 13;
-const HOST_WIDE_INT M_INDIRECT	= 1 << 14;
-const HOST_WIDE_INT M_VOLATILE	= 1 << 15;
+const HOST_WIDE_INT M_DEFAULT	= 1 << 8;
+const HOST_WIDE_INT M_CLOBBER	= 1 << 9;
+const HOST_WIDE_INT M_MAY	= 1 << 10;
+const HOST_WIDE_INT M_PARTIAL	= 1 << 11;
+const HOST_WIDE_INT M_INITIAL	= 1 << 12;
+const HOST_WIDE_INT M_INDIRECT	= 1 << 13;
+const HOST_WIDE_INT M_VOLATILE	= 1 << 14;
 
 
 /* Look for variable references in every block of the flowgraph.  */
@@ -649,14 +648,13 @@ add_ref_to_list_after (list, node, ref)
      struct ref_list_node *node;
      tree_ref ref;
 {
-  struct ref_list_node *new = xmalloc (sizeof (struct ref_list_node));
-
   if (node == list->last)
     add_ref_to_list_end (list, ref);
   else if (node == list->first)
     add_ref_to_list_begin (list, ref);
   else
     {
+      struct ref_list_node *new = xmalloc (sizeof (struct ref_list_node));
       new->ref = ref;
       new->prev = node;
       new->next = node->next;
@@ -725,8 +723,8 @@ create_ref (var, ref_type, bb, parent_stmt, parent_expr, operand_p, add_to_bb)
   /* Create containers according to the type of reference.  */
   if (ref_type & (V_DEF | V_PHI))
     {
-      ref->vref.imm_uses = create_ref_list ();
-      ref->vref.reached_uses = create_ref_list ();
+      ref->vdef.imm_uses = create_ref_list ();
+      ref->vdef.reached_uses = create_ref_list ();
       if (ref_type & V_PHI)
 	{
 	  unsigned num;
@@ -736,11 +734,11 @@ create_ref (var, ref_type, bb, parent_stmt, parent_expr, operand_p, add_to_bb)
 	  for (in = bb->pred, num = 0; in; in = in->pred_next)
 	    num++;
 
-	  VARRAY_GENERIC_PTR_INIT (ref->vref.phi_args, num, "phi_args");
+	  VARRAY_GENERIC_PTR_INIT (ref->vphi.phi_args, num, "phi_args");
 	}
     }
   else if (ref_type & V_USE)
-    ref->vref.rdefs = create_ref_list ();
+    ref->vuse.rdefs = create_ref_list ();
   else if (ref_type & E_PHI)
     {
       VARRAY_GENERIC_PTR_INIT (EXPRPHI_PHI_ARGS (ref), 
@@ -810,15 +808,15 @@ add_phi_arg (phi, def, e)
      tree_ref def;
      edge e;
 {
-  tree_ref arg;
+  phi_node_arg arg;
 
-  arg = create_ref (ref_var (phi), V_PHI_ARG, ref_bb (phi), ref_stmt (phi),
-		    ref_expr (phi), NULL, true);
+  arg = (phi_node_arg) ggc_alloc (sizeof (*arg));
+  memset ((void *) arg, 0, sizeof (*arg));
 
-  set_imm_reaching_def (arg, def);
-  set_imm_reaching_def_edge (arg, e);
+  arg->def = def;
+  arg->e = e;
 
-  VARRAY_PUSH_GENERIC_PTR (phi->vref.phi_args, (PTR)arg);
+  VARRAY_PUSH_GENERIC_PTR (phi->vphi.phi_args, (PTR)arg);
 }
 
 
@@ -1078,7 +1076,7 @@ dump_ref (outf, prefix, ref, indent, details)
 	  if (phi_args (ref))
 	    {
 	      fputs (" phi-args:\n", outf);
-	      dump_ref_array (outf, prefix, phi_args (ref), indent + 4, 0);
+	      dump_phi_args (outf, prefix, phi_args (ref), indent + 4, 0);
 	    }
 
 	  if (imm_uses (ref))
@@ -1223,10 +1221,10 @@ dump_referenced_vars (file)
   for (i = 0; i < num_referenced_vars; i++)
     {
       tree var = referenced_var (i);
-      print_node_brief (dump_file, "", var, 0);
-      fputc ('\n', dump_file);
-      dump_ref_list (dump_file, "", tree_refs (var), 4, 1);
-      fputc ('\n', dump_file);
+      print_node_brief (file, "", var, 0);
+      fputc ('\n', file);
+      dump_ref_list (file, "", tree_refs (var), 4, 1);
+      fputc ('\n', file);
     }
 }
 
@@ -1240,7 +1238,42 @@ debug_referenced_vars ()
 }
 
 
+/* Dump the given array of phi arguments on stderr.  */
+
+void
+debug_phi_args (args)
+     varray_type args;
+{
+  dump_phi_args (stderr, "", args, 0, 0);
+}
+
+
+/* Display the given array of PHI arguments definitions on stream OUTF.  PREFIX
+   is a string that is prefixed to every line of output, and INDENT is the
+   amount of left margin to leave.  If DETAILS is nonzero, the output is more
+   verbose.  */
+
+void
+dump_phi_args (outf, prefix, args, indent, details)
+     FILE *outf;
+     const char *prefix;
+     varray_type args;
+     int indent;
+     int details;
+{
+  size_t i;
+
+  if (args == NULL)
+    return;
+
+  for (i = 0; i < VARRAY_SIZE (args); i++)
+    dump_ref (outf, prefix, phi_arg_def (VARRAY_GENERIC_PTR (args, i)), indent,
+	      details);
+}
+
+
 /* Return the reference type as a string.  */
+
 const char *
 ref_type_name (type)
      HOST_WIDE_INT type;
@@ -1256,7 +1289,6 @@ ref_type_name (type)
   strncpy (str, type & V_DEF ? "V_DEF"
 	        : type & V_USE ? "V_USE"
 	        : type & V_PHI ? "V_PHI"
-		: type & V_PHI_ARG ? "V_PHI_ARG"
 	        : type & E_FCALL ? "E_FCALL"
 	        : type & E_PHI ? "E_PHI"
 	        : type & E_USE ? "E_USE"
@@ -1312,10 +1344,6 @@ validate_ref_type (type)
   else if (type & V_PHI)
     {
       return type == V_PHI;
-    }
-  else if (type & V_PHI_ARG)
-    {
-      return type == V_PHI_ARG;
     }
   else if (type & E_FCALL)
     {

@@ -58,10 +58,6 @@ extern const HOST_WIDE_INT V_USE;
 /* A V_PHI represents an SSA PHI operation on the associated variable.  */
 extern const HOST_WIDE_INT V_PHI;
 
-/* A V_PHI_ARG represents a PHI argument.  Its immediate reaching
-   definition is one of the N definitions reaching the PHI node.  */
-extern const HOST_WIDE_INT V_PHI_ARG;
-
 /* An E_FCALL reference indicates a function call site.  Its associated
    variable is the CALL_EXPR node.  Used to insert may-def/may-use
    references when the compiler doesn't know what the called function might
@@ -235,43 +231,69 @@ struct tree_ref_common
   HOST_WIDE_INT id;
 };
 
-
-/* Variable definitions.  */
+/* Generic variable references.  */
 struct var_ref
 {
   struct tree_ref_common common;
 
+  /* Immediate reaching definition for this reference.  This is applicable
+     to both variable definitions and uses because we are interested in
+     building def-def chains (for non-killing definitions).  */
+  union tree_ref_d *imm_rdef;
+};
+
+/* Variable definitions.  */
+struct var_def
+{
+  struct var_ref common;
+
   /* Immediate uses for this definition.  */
   ref_list imm_uses;
 
-  /* Saved definition chain.  Used by the FUD chain building algorithm
-     (tree-ssa.c:build_fud_chains).  */
-  union tree_ref_d *save_chain;
-
   /* Uses reached by this definition.  */
   ref_list reached_uses;
+};
 
-  /* Visited mark.  Used when computing reaching definitions.  */
-  union tree_ref_d *marked;
+/* Variable PHIs.  */
+struct var_phi
+{
+  struct var_def common;
 
   /* Array of PHI arguments.  The number of arguments to a PHI node is the
      number of incoming edges to the basic block where that PHI node
-     resides.  */
+     resides.  Each member of the array is of type phi_node_arg.  */
   varray_type phi_args;
+};
 
-  /* Immediate reaching definition for this reference.  Notice that this is
-     also applicable to variable definitions because we are intersted in
-     building def-def chains (for non-killing definitions.  */
-  union tree_ref_d *imm_rdef;
+/* Variable uses.  */
+struct var_use
+{
+  struct var_ref common;
 
   /* Definitions reaching this use.  */
   ref_list rdefs;
-
-  /* Incoming edge where we are receiving imm_rdef from.  NOTE: only valid
-     in V_PHI_ARG references.  */
-  edge imm_rdef_edge;
 };
 
+/* PHI arguments.
+
+   NOTE: These are not regular tree_ref objects!  We used to model them as
+   just another tree_ref, but the space overhead for jumpy functions with
+   many PHI nodes and arguments was horrible.
+   
+   All yyparse() functions in the different front ends were causing cc1 to
+   grow to the 100-300 Mb range.  Furthermore, the number of references
+   would grow into the millions, making the optimizers waste unnecessary
+   cycles when traversing all the references in the function.  */
+struct phi_node_arg_d
+{
+  /* Immediate reaching definition for this argument.  */
+  union tree_ref_d *def;
+
+  /* Incoming edge where we are receiving imm_rdef from.  */
+  edge e;
+};
+
+typedef struct phi_node_arg_d *phi_node_arg;
 
 /*---------------------------------------------------------------------------
 			     Expression references
@@ -362,6 +384,9 @@ union tree_ref_d
 {
   struct tree_ref_common common;
   struct var_ref vref;
+  struct var_def vdef;
+  struct var_phi vphi;
+  struct var_use vuse;
   struct expr_ref_common ecommon;
   struct expr_use euse;
   struct expr_phi ephi;
@@ -380,39 +405,38 @@ static inline tree ref_stmt			PARAMS ((tree_ref));
 static inline tree ref_expr			PARAMS ((tree_ref));
 static inline basic_block ref_bb		PARAMS ((tree_ref));
 static inline HOST_WIDE_INT ref_id		PARAMS ((tree_ref));
-
 static inline void replace_ref_operand_with	PARAMS ((tree_ref, tree));
 static inline void restore_ref_operand		PARAMS ((tree_ref));
 
 
 /* For var_ref.  */
 static inline ref_list imm_uses			PARAMS ((tree_ref));
-static inline tree_ref save_chain		PARAMS ((tree_ref));
-static inline void set_save_chain		PARAMS ((tree_ref, tree_ref));
 static inline ref_list reached_uses		PARAMS ((tree_ref));
-static inline tree_ref marked_with		PARAMS ((tree_ref));
-static inline void mark_def_with		PARAMS ((tree_ref, tree_ref));
-
-static inline varray_type phi_args		PARAMS ((tree_ref));
-static inline unsigned int num_phi_args		PARAMS ((tree_ref));
-static inline tree_ref phi_arg			PARAMS ((tree_ref, unsigned));
-static inline void set_phi_arg			PARAMS ((tree_ref, unsigned,
-                                                         tree_ref));
-extern void add_phi_arg				PARAMS ((tree_ref, tree_ref,
-                                                         edge));
 static inline tree_ref imm_reaching_def		PARAMS ((tree_ref));
 static inline void set_imm_reaching_def		PARAMS ((tree_ref, tree_ref));
-static inline edge imm_reaching_def_edge	PARAMS ((tree_ref));
-static inline void set_imm_reaching_def_edge	PARAMS ((tree_ref, edge));
 static inline ref_list reaching_defs		PARAMS ((tree_ref));
+static inline varray_type phi_args		PARAMS ((tree_ref));
+static inline unsigned int num_phi_args		PARAMS ((tree_ref));
+static inline phi_node_arg phi_arg		PARAMS ((tree_ref, unsigned));
+static inline void set_phi_arg			PARAMS ((tree_ref, unsigned,
+                                                         phi_node_arg));
+extern void add_phi_arg				PARAMS ((tree_ref, tree_ref,
+                                                         edge));
 
+/* For phi_node_arg.  */
+static inline edge phi_arg_edge			PARAMS ((phi_node_arg));
+static inline void set_phi_arg_edge		PARAMS ((phi_node_arg, edge));
+static inline tree_ref phi_arg_def		PARAMS ((phi_node_arg));
+static inline void set_phi_arg_def		PARAMS ((phi_node_arg,
+      							 tree_ref));
 
 
 /*---------------------------------------------------------------------------
 		   Tree annotations stored in tree_common.aux
 ---------------------------------------------------------------------------*/
 /* Tree flags.  */
-enum tree_flags {
+enum tree_flags
+{
   /* Expression tree should be folded.  */
   TF_FOLD	= 1 << 0,
 
@@ -625,10 +649,13 @@ extern void dump_ref			PARAMS ((FILE *, const char *, tree_ref,
       						 int, int));
 extern void debug_ref_list		PARAMS ((ref_list));
 extern void debug_ref_array		PARAMS ((varray_type));
+extern void debug_phi_args		PARAMS ((varray_type));
 extern void dump_ref_list		PARAMS ((FILE *, const char *, ref_list,
       						 int, int));
 extern void dump_ref_array		PARAMS ((FILE *, const char *,
                                                  varray_type, int, int));
+extern void dump_phi_args		PARAMS ((FILE *, const char *,
+      						 varray_type, int, int));
 extern void debug_referenced_vars	PARAMS ((void));
 extern void dump_referenced_vars	PARAMS ((FILE *));
 extern int function_may_recurse_p	PARAMS ((void));
@@ -657,6 +684,8 @@ extern void analyze_rdefs		PARAMS ((void));
 extern bool is_upward_exposed		PARAMS ((tree, sbitmap, int));
 extern void delete_ssa			PARAMS ((void));
 extern void tree_ssa_remove_phi_alternative PARAMS ((tree_ref, basic_block));
+extern void dump_reaching_defs		PARAMS ((FILE *));
+extern void debug_reaching_defs		PARAMS ((void));
 
 /* Functions in tree-alias-steen.c  */
 extern void create_alias_vars		PARAMS ((void));
@@ -718,7 +747,7 @@ static inline ref_list
 imm_uses (def)
      tree_ref def;
 {
-  return def->vref.imm_uses;
+  return def->vdef.imm_uses;
 }
 
 /* Return a list of all the uses reached by DEF.  */
@@ -726,26 +755,7 @@ static inline ref_list
 reached_uses (ref)
      tree_ref ref;
 {
-  return ref->vref.reached_uses;
-}
-
-/* Return the saved definition chain for DEF (used when placing FUD chains
-   in tree-ssa.c:search_fud_chains.  */
-static inline tree_ref
-save_chain (ref)
-     tree_ref ref;
-{
-  return ref->vref.save_chain;
-}
-
-/* Return the use reference that was last used to mark definition DEF.
-   Used to compute reaching definitions and reached uses in
-   tree-ssa.c:tree_compute_rdefs.  */
-static inline tree_ref
-marked_with (ref)
-     tree_ref ref;
-{
-  return ref->vref.marked;
+  return ref->vdef.reached_uses;
 }
 
 /* Return the immediately reaching definition for USE.  */
@@ -765,13 +775,38 @@ set_imm_reaching_def (use, def)
   use->vref.imm_rdef = def;
 }
 
-/* Set E to be the edge where the given USE is coming from.  */
+/* Set DEF to be the definition reaching a given PHI_ARG.  */
 static inline void
-set_imm_reaching_def_edge (use, e)
-     tree_ref use;
+set_phi_arg_def (phi_arg, def)
+     phi_node_arg phi_arg;
+     tree_ref def;
+{
+  phi_arg->def = def;
+}
+
+/* Return the definition reaching PHI_ARG.  */
+static inline tree_ref
+phi_arg_def (phi_arg)
+     phi_node_arg phi_arg;
+{
+  return phi_arg->def;
+}
+
+/* Set E to be the edge where the given PHI_ARG is coming from.  */
+static inline void
+set_phi_arg_edge (phi_arg, e)
+     phi_node_arg phi_arg;
      edge e;
 {
-  use->vref.imm_rdef_edge = e;
+  phi_arg->e = e;
+}
+
+/* Return the edge where the PHI argument PHI_ARG is coming from.  */
+static inline edge
+phi_arg_edge (phi_arg)
+     phi_node_arg phi_arg;
+{
+  return phi_arg->e;
 }
 
 /* Return the list of all definitions that may reach USE.  This is only
@@ -780,7 +815,7 @@ static inline ref_list
 reaching_defs (use)
      tree_ref use;
 {
-  return use->vref.rdefs;
+  return use->vuse.rdefs;
 }
 
 
@@ -789,7 +824,7 @@ static inline varray_type
 phi_args (phi)
      tree_ref phi;
 {
-  return phi->vref.phi_args;
+  return phi->vphi.phi_args;
 }
 
 /* Return the number of arguments for the given PHI node.  */
@@ -797,16 +832,16 @@ static inline unsigned int
 num_phi_args (phi)
      tree_ref phi;
 {
-  return VARRAY_ACTIVE_SIZE (phi->vref.phi_args);
+  return VARRAY_ACTIVE_SIZE (phi->vphi.phi_args);
 }
 
 /* Return the Ith argument for the given PHI node.  */
-static inline tree_ref
+static inline phi_node_arg
 phi_arg (phi, i)
      tree_ref phi;
      unsigned int i;
 {
-  return (tree_ref)(VARRAY_GENERIC_PTR (phi->vref.phi_args, i));
+  return (phi_node_arg)(VARRAY_GENERIC_PTR (phi->vphi.phi_args, i));
 }
 
 /* Set the Ith argument of the given PHI node to ARG.  */
@@ -814,38 +849,9 @@ static inline void
 set_phi_arg (phi, i, arg)
      tree_ref phi;
      unsigned int i;
-     tree_ref arg;
+     phi_node_arg arg;
 {
-  VARRAY_GENERIC_PTR (phi->vref.phi_args, i) = (PTR)arg;
-}
-
-/* Return the edge where the PHI argument PHI_ARG is coming from.  */
-static inline edge
-imm_reaching_def_edge (phi_arg)
-     tree_ref phi_arg;
-{
-  return phi_arg->vref.imm_rdef_edge;
-}
-
-/* Save CHAIN as the current definition chain for DEF.  Used by
-   tree-ssa.c:search_fud_chains when building the SSA web.  */
-static inline void
-set_save_chain (def, chain)
-     tree_ref def;
-     tree_ref chain;
-{
-  def->vref.save_chain = chain;
-}
-
-/* Mark DEF as having been visited with USE.  Used by
-   tree-ssa.c:tree_compute_rdefs when traversing FUD chains to compute
-   reaching definitions.  */
-static inline void
-mark_def_with (def, use)
-     tree_ref def;
-     tree_ref use;
-{
-  def->vref.marked = use;
+  VARRAY_GENERIC_PTR (phi->vphi.phi_args, i) = (PTR)arg;
 }
 
 /* Replaces the operand that REF is pointing to with a new operand OP.
