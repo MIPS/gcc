@@ -38,6 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "function.h"
 #include "diagnostic.h"
+#include "tree-dump.h"
 #include "tree-simple.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
@@ -2132,6 +2133,7 @@ compute_alias_sets (void)
     {
       dump_alias_info (dump_file);
       dump_referenced_vars (dump_file);
+      dump_function_to_file (current_function_decl, dump_file, dump_flags);
       dump_end (TDI_alias, dump_file);
     }
 }
@@ -2354,8 +2356,18 @@ may_access_global_mem_p (tree expr)
   if (TREE_CONSTANT (expr) && !integer_zerop (expr))
     return true;
 
-  /* Recursively check the expression's operands.  */
   class = TREE_CODE_CLASS (TREE_CODE (expr));
+
+  /* If EXPR is a reference, see if its base address may access global
+     memory.  */
+  if (class == 'r')
+    {
+      while (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (expr))))
+	expr = TREE_OPERAND (expr, 0);
+      return may_access_global_mem_p (expr);
+    }
+
+  /* Recursively check the expression's operands.  */
   if (IS_EXPR_CODE_CLASS (class))
     {
       unsigned char i;

@@ -1580,7 +1580,8 @@ tree-iterator.o : tree-iterator.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
 tree-dfa.o : tree-dfa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h diagnostic.h \
    errors.h tree-inline.h $(HASHTAB_H) flags.h function.h $(TIMEVAR_H) \
-   tree-alias-common.h convert.h $(TM_H) coretypes.h langhooks.h
+   tree-alias-common.h convert.h $(TM_H) coretypes.h langhooks.h \
+   $(TREE_DUMP_H)
 tree-eh.o : tree-eh.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_H) flags.h function.h except.h langhooks.h
 tree-optimize.o : tree-optimize.c $(TREE_FLOW_H) $(CONFIG_H) \

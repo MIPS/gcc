@@ -1,5 +1,11 @@
 2003-11-21  Diego Novillo  <dnovillo@redhat.com>
 
+	* Makefile.in (tree-dfa.o): Add dependency on $(TREE_DUMP_H)
+	* tree-dfa.c: Include tree-dump.h
+	(compute_alias_sets): Call dump_function_to_file.
+	(may_access_global_mem_p): Check if the base address of _REF nodes
+	may point to global memory.
+
 	* cfgcleanup.c (try_crossjump_to_edge): Initialize newpos1 and
 	newpos2.
 
