@@ -42,7 +42,9 @@
 
 #pragma GCC system_header
 
-#include <bits/atomicity.h>
+// Define the base class to std::basic_string.
+#include <bits/c++string.h>
+
 #include <debug/debug.h>
 
 namespace std
@@ -59,55 +61,12 @@ namespace std
    *  <a href="tables.html#67">sequence</a>.  Of the
    *  <a href="tables.html#68">optional sequence requirements</a>, only
    *  @c push_back, @c at, and array access are supported.
-   *
-   *  @doctodo
-   *
-   *
-   *  @if maint
-   *  Documentation?  What's that?
-   *  Nathan Myers <ncm@cantrip.org>.
-   *
-   *  A string looks like this:
-   *
-   *  @code
-   *                                        [_Rep]
-   *                                        _M_length
-   *   [basic_string<char_type>]            _M_capacity
-   *   _M_dataplus                          _M_refcount
-   *   _M_p ---------------->               unnamed array of char_type
-   *  @endcode
-   *
-   *  Where the _M_p points to the first character in the string, and
-   *  you cast it to a pointer-to-_Rep and subtract 1 to get a
-   *  pointer to the header.
-   *
-   *  This approach has the enormous advantage that a string object
-   *  requires only one allocation.  All the ugliness is confined
-   *  within a single pair of inline functions, which each compile to
-   *  a single "add" instruction: _Rep::_M_data(), and
-   *  string::_M_rep(); and the allocation function which gets a
-   *  block of raw bytes and with room enough and constructs a _Rep
-   *  object at the front.
-   *
-   *  The reason you want _M_data pointing to the character array and
-   *  not the _Rep is so that the debugger can see the string
-   *  contents. (Probably we should add a non-inline member to get
-   *  the _Rep for the debugger to use, so users can check the actual
-   *  string length.)
-   *
-   *  Note that the _Rep object is a POD so that you can have a
-   *  static "empty string" _Rep object already "constructed" before
-   *  static constructors have run.  The reference-count encoding is
-   *  chosen so that a 0 indicates one reference, so you never try to
-   *  destroy the empty-string _Rep object.
-   *
-   *  All but the last paragraph is considered pretty conventional
-   *  for a C++ string implementation.
-   *  @endif
-  */
+   */
+
   // 21.3  Template class basic_string
   template<typename _CharT, typename _Traits, typename _Alloc>
     class basic_string
+    : private ___glibcxx_base_string<_CharT, _Traits, _Alloc>
     {
       // Types:
     public:
@@ -126,134 +85,9 @@ namespace std
       typedef std::reverse_iterator<const_iterator>	const_reverse_iterator;
       typedef std::reverse_iterator<iterator>		    reverse_iterator;
 
-    private:
-      // _Rep: string representation
-      //   Invariants:
-      //   1. String really contains _M_length + 1 characters: due to 21.3.4
-      //      must be kept null-terminated.
-      //   2. _M_capacity >= _M_length
-      //      Allocated memory is always (_M_capacity + 1) * sizeof(_CharT).
-      //   3. _M_refcount has three states:
-      //      -1: leaked, one reference, no ref-copies allowed, non-const.
-      //       0: one reference, non-const.
-      //     n>0: n + 1 references, operations require a lock, const.
-      //   4. All fields==0 is an empty string, given the extra storage
-      //      beyond-the-end for a null terminator; thus, the shared
-      //      empty string representation needs no constructor.
+      typedef typename ___glibcxx_base_string<_CharT, _Traits, _Alloc>
+                                                            __string_base;
 
-      struct _Rep_base
-      {
-	size_type		_M_length;
-	size_type		_M_capacity;
-	_Atomic_word		_M_refcount;
-      };
-
-      struct _Rep : _Rep_base
-      {
-	// Types:
-	typedef typename _Alloc::template rebind<char>::other _Raw_bytes_alloc;
-
-	// (Public) Data members:
-
-	// The maximum number of individual char_type elements of an
-	// individual string is determined by _S_max_size. This is the
-	// value that will be returned by max_size().  (Whereas npos
-	// is the maximum number of bytes the allocator can allocate.)
-	// If one was to divvy up the theoretical largest size string,
-	// with a terminating character and m _CharT elements, it'd
-	// look like this:
-	// npos = sizeof(_Rep) + (m * sizeof(_CharT)) + sizeof(_CharT)
-	// Solving for m:
-	// m = ((npos - sizeof(_Rep))/sizeof(CharT)) - 1
-	// In addition, this implementation quarters this amount.
-	static const size_type	_S_max_size;
-	static const _CharT	_S_terminal;
-
-	// The following storage is init'd to 0 by the linker, resulting
-        // (carefully) in an empty string with one reference.
-        static size_type _S_empty_rep_storage[];
-
-        static _Rep&
-        _S_empty_rep()
-        { return *reinterpret_cast<_Rep*>(&_S_empty_rep_storage); }
-
-        bool
-	_M_is_leaked() const
-        { return this->_M_refcount < 0; }
-
-        bool
-	_M_is_shared() const
-        { return this->_M_refcount > 0; }
-
-        void
-	_M_set_leaked()
-        { this->_M_refcount = -1; }
-
-        void
-	_M_set_sharable()
-        { this->_M_refcount = 0; }
-
-	void
-	_M_set_length_and_sharable(size_type __n)
-	{ 
-	  this->_M_set_sharable();  // One reference.
-	  this->_M_length = __n;
-	  this->_M_refdata()[__n] = _S_terminal; // grrr. (per 21.3.4)
-	  // You cannot leave those LWG people alone for a second.
-	}
-
-	_CharT*
-	_M_refdata() throw()
-	{ return reinterpret_cast<_CharT*>(this + 1); }
-
-	_CharT*
-	_M_grab(const _Alloc& __alloc1, const _Alloc& __alloc2)
-	{
-	  return (!_M_is_leaked() && __alloc1 == __alloc2)
-	          ? _M_refcopy() : _M_clone(__alloc1);
-	}
-
-	// Create & Destroy
-	static _Rep*
-	_S_create(size_type, size_type, const _Alloc&);
-
-	void
-	_M_dispose(const _Alloc& __a)
-	{
-#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
-	  if (__builtin_expect(this != &_S_empty_rep(), false))
-#endif
-	    if (__gnu_cxx::__exchange_and_add(&this->_M_refcount, -1) <= 0)
-	      _M_destroy(__a);
-	}  // XXX MT
-
-	void
-	_M_destroy(const _Alloc&) throw();
-
-	_CharT*
-	_M_refcopy() throw()
-	{
-#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
-	  if (__builtin_expect(this != &_S_empty_rep(), false))
-#endif
-            __gnu_cxx::__atomic_add(&this->_M_refcount, 1);
-	  return _M_refdata();
-	}  // XXX MT
-
-	_CharT*
-	_M_clone(const _Alloc&, size_type __res = 0);
-      };
-
-      // Use empty-base optimization: http://www.cantrip.org/emptyopt.html
-      struct _Alloc_hider : _Alloc
-      {
-	_Alloc_hider(_CharT* __dat, const _Alloc& __a)
-	: _Alloc(__a), _M_p(__dat) { }
-
-	_CharT* _M_p; // The actual data.
-      };
-
-    public:
       // Data Members (public):
       // NB: This is an unsigned type, and thus represents the maximum
       // size that the allocator can hold.
@@ -261,38 +95,6 @@ namespace std
       static const size_type	npos = static_cast<size_type>(-1);
 
     private:
-      // Data Members (private):
-      mutable _Alloc_hider	_M_dataplus;
-
-      _CharT*
-      _M_data() const
-      { return  _M_dataplus._M_p; }
-
-      _CharT*
-      _M_data(_CharT* __p)
-      { return (_M_dataplus._M_p = __p); }
-
-      _Rep*
-      _M_rep() const
-      { return &((reinterpret_cast<_Rep*> (_M_data()))[-1]); }
-
-      // For the internal use we have functions similar to `begin'/`end'
-      // but they do not call _M_leak.
-      iterator
-      _M_ibegin() const
-      { return iterator(_M_data()); }
-
-      iterator
-      _M_iend() const
-      { return iterator(_M_data() + this->size()); }
-
-      void
-      _M_leak()    // for use in begin() & non-const op[]
-      {
-	if (!_M_rep()->_M_is_leaked())
-	  _M_leak_hard();
-      }
-
       size_type
       _M_check(size_type __pos, const char* __s) const
       {
@@ -320,74 +122,19 @@ namespace std
       bool
       _M_disjunct(const _CharT* __s) const
       {
-	return (less<const _CharT*>()(__s, _M_data())
-		|| less<const _CharT*>()(_M_data() + this->size(), __s));
+	return (less<const _CharT*>()(__s, this->_M_data())
+		|| less<const _CharT*>()(this->_M_data() + this->size(), __s));
       }
 
-      // When __n = 1 way faster than the general multichar
-      // traits_type::copy/move/assign.
-      static void
-      _M_copy(_CharT* __d, const _CharT* __s, size_type __n)
-      {
-	if (__n == 1)
-	  traits_type::assign(*__d, *__s);
-	else
-	  traits_type::copy(__d, __s, __n);
-      }
+      // For the internal use we have functions similar to `begin'/`end'
+      // but they do not call _M_leak.
+      iterator
+      _M_ibegin() const
+      { return iterator(this->_M_data()); }
 
-      static void
-      _M_move(_CharT* __d, const _CharT* __s, size_type __n)
-      {
-	if (__n == 1)
-	  traits_type::assign(*__d, *__s);
-	else
-	  traits_type::move(__d, __s, __n);	  
-      }
-
-      static void
-      _M_assign(_CharT* __d, size_type __n, _CharT __c)
-      {
-	if (__n == 1)
-	  traits_type::assign(*__d, __c);
-	else
-	  traits_type::assign(__d, __n, __c);	  
-      }
-
-      // _S_copy_chars is a separate template to permit specialization
-      // to optimize for the common case of pointers as iterators.
-      template<class _Iterator>
-        static void
-        _S_copy_chars(_CharT* __p, _Iterator __k1, _Iterator __k2)
-        {
-	  for (; __k1 != __k2; ++__k1, ++__p)
-	    traits_type::assign(*__p, *__k1); // These types are off.
-	}
-
-      static void
-      _S_copy_chars(_CharT* __p, iterator __k1, iterator __k2)
-      { _S_copy_chars(__p, __k1.base(), __k2.base()); }
-
-      static void
-      _S_copy_chars(_CharT* __p, const_iterator __k1, const_iterator __k2)
-      { _S_copy_chars(__p, __k1.base(), __k2.base()); }
-
-      static void
-      _S_copy_chars(_CharT* __p, _CharT* __k1, _CharT* __k2)
-      { _M_copy(__p, __k1, __k2 - __k1); }
-
-      static void
-      _S_copy_chars(_CharT* __p, const _CharT* __k1, const _CharT* __k2)
-      { _M_copy(__p, __k1, __k2 - __k1); }
-
-      void
-      _M_mutate(size_type __pos, size_type __len1, size_type __len2);
-
-      void
-      _M_leak_hard();
-
-      static _Rep&
-      _S_empty_rep()
-      { return _Rep::_S_empty_rep(); }
+      iterator
+      _M_iend() const
+      { return iterator(this->_M_data() + this->_M_rep()->_M_length); }
 
     public:
       // Construct/copy/destroy:
@@ -397,21 +144,26 @@ namespace std
       /**
        *  @brief  Default constructor creates an empty string.
        */
-      inline
-      basic_string();
-
+      basic_string()
+      : __string_base() { }
+      
       /**
        *  @brief  Construct an empty string using allocator a.
        */
       explicit
-      basic_string(const _Alloc& __a);
+      basic_string(const _Alloc& __a)
+      : __string_base(__a) { }
 
       // NB: per LWG issue 42, semantics different from IS:
       /**
        *  @brief  Construct string with copy of value of @a str.
        *  @param  str  Source string.
        */
-      basic_string(const basic_string& __str);
+      basic_string(const basic_string& __str)
+      : __string_base(__str._M_grab(_Alloc(__str.get_allocator()),
+				    __str.get_allocator()),
+		      __str.get_allocator()) { }
+
       /**
        *  @brief  Construct string as copy of a substring.
        *  @param  str  Source string.
@@ -419,7 +171,12 @@ namespace std
        *  @param  n  Number of characters to copy (default remainder).
        */
       basic_string(const basic_string& __str, size_type __pos,
-		   size_type __n = npos);
+		   size_type __n = npos)
+      : __string_base(__str._M_data()
+		      + __str._M_check(__pos, "basic_string::basic_string"),
+		      __str._M_data() + __str._M_limit(__pos, __n)
+		      + __pos, _Alloc()) { }
+
       /**
        *  @brief  Construct string as copy of a substring.
        *  @param  str  Source string.
@@ -428,7 +185,11 @@ namespace std
        *  @param  a  Allocator to use.
        */
       basic_string(const basic_string& __str, size_type __pos,
-		   size_type __n, const _Alloc& __a);
+		   size_type __n, const _Alloc& __a)
+      : __string_base(__str._M_data()
+		      + __str._M_check(__pos, "basic_string::basic_string"),
+		      __str._M_data() + __str._M_limit(__pos, __n)
+		      + __pos, __a) { }
 
       /**
        *  @brief  Construct string initialized by a character array.
@@ -440,20 +201,26 @@ namespace std
        *  meaning.
        */
       basic_string(const _CharT* __s, size_type __n,
-		   const _Alloc& __a = _Alloc());
+		   const _Alloc& __a = _Alloc())
+      : __string_base(__s, __s + __n, __a) { }
+
       /**
        *  @brief  Construct string as copy of a C string.
        *  @param  s  Source C string.
        *  @param  a  Allocator to use (default is default allocator).
        */
-      basic_string(const _CharT* __s, const _Alloc& __a = _Alloc());
+      basic_string(const _CharT* __s, const _Alloc& __a = _Alloc())
+      : __string_base(__s, __s ? __s + traits_type::length(__s) :
+		      __s + npos, __a) { }
+
       /**
        *  @brief  Construct string as multiple characters.
        *  @param  n  Number of characters.
        *  @param  c  Character to use.
        *  @param  a  Allocator to use (default is default allocator).
        */
-      basic_string(size_type __n, _CharT __c, const _Alloc& __a = _Alloc());
+      basic_string(size_type __n, _CharT __c, const _Alloc& __a = _Alloc())
+      : __string_base(__n, __c, __a) { }
 
       /**
        *  @brief  Construct string as copy of a range.
@@ -463,13 +230,13 @@ namespace std
        */
       template<class _InputIterator>
         basic_string(_InputIterator __beg, _InputIterator __end,
-		     const _Alloc& __a = _Alloc());
+		     const _Alloc& __a = _Alloc())
+	: __string_base(__beg, __end, __a) { }
 
       /**
        *  @brief  Destroy the string instance.
        */
-      ~basic_string()
-      { _M_rep()->_M_dispose(this->get_allocator()); }
+      ~basic_string() { }	
 
       /**
        *  @brief  Assign the value of @a str to this string.
@@ -509,8 +276,8 @@ namespace std
       iterator
       begin()
       {
-	_M_leak();
-	return iterator(_M_data());
+	this->_M_leak();
+	return iterator(this->_M_data());
       }
 
       /**
@@ -519,7 +286,7 @@ namespace std
        */
       const_iterator
       begin() const
-      { return const_iterator(_M_data()); }
+      { return const_iterator(this->_M_data()); }
 
       /**
        *  Returns a read/write iterator that points one past the last
@@ -528,8 +295,8 @@ namespace std
       iterator
       end()
       {
-	_M_leak();
-	return iterator(_M_data() + this->size());
+	this->_M_leak();
+	return iterator(this->_M_data() + this->size());
       }
 
       /**
@@ -538,7 +305,7 @@ namespace std
        */
       const_iterator
       end() const
-      { return const_iterator(_M_data() + this->size()); }
+      { return const_iterator(this->_M_data() + this->size()); }
 
       /**
        *  Returns a read/write reverse iterator that points to the last
@@ -582,18 +349,18 @@ namespace std
       ///  null-termination.
       size_type
       size() const
-      { return _M_rep()->_M_length; }
+      { return this->_M_rep()->_M_length; }
 
       ///  Returns the number of characters in the string, not including any
       ///  null-termination.
       size_type
       length() const
-      { return _M_rep()->_M_length; }
+      { return this->_M_rep()->_M_length; }
 
       /// Returns the size() of the largest possible %string.
       size_type
       max_size() const
-      { return _Rep::_S_max_size; }
+      { return __string_base::_S_max_size; }
 
       /**
        *  @brief  Resizes the %string to the specified number of characters.
@@ -628,7 +395,7 @@ namespace std
        */
       size_type
       capacity() const
-      { return _M_rep()->_M_capacity; }
+      { return this->_M_rep()->_M_capacity; }
 
       /**
        *  @brief  Attempt to preallocate enough memory for specified number of
@@ -655,7 +422,7 @@ namespace std
        */
       void
       clear()
-      { _M_mutate(0, this->size(), 0); }
+      { this->_M_mutate(0, this->size(), 0); }
 
       /**
        *  Returns true if the %string is empty.  Equivalent to *this == "".
@@ -678,8 +445,8 @@ namespace std
       const_reference
       operator[] (size_type __pos) const
       {
-	_GLIBCXX_DEBUG_ASSERT(__pos <= size());
-	return _M_data()[__pos];
+	_GLIBCXX_DEBUG_ASSERT(__pos <= this->size());
+	return this->_M_data()[__pos];
       }
 
       /**
@@ -695,9 +462,9 @@ namespace std
       reference
       operator[](size_type __pos)
       {
-	_GLIBCXX_DEBUG_ASSERT(__pos < size());
-	_M_leak();
-	return _M_data()[__pos];
+	_GLIBCXX_DEBUG_ASSERT(__pos < this->size());
+	this->_M_leak();
+	return this->_M_data()[__pos];
       }
 
       /**
@@ -715,7 +482,7 @@ namespace std
       {
 	if (__n >= this->size())
 	  __throw_out_of_range(__N("basic_string::at"));
-	return _M_data()[__n];
+	return this->_M_data()[__n];
       }
 
       /**
@@ -732,10 +499,10 @@ namespace std
       reference
       at(size_type __n)
       {
-	if (__n >= size())
+	if (__n >= this->size())
 	  __throw_out_of_range(__N("basic_string::at"));
-	_M_leak();
-	return _M_data()[__n];
+	this->_M_leak();
+	return this->_M_data()[__n];
       }
 
       // Modifiers:
@@ -845,10 +612,10 @@ namespace std
       push_back(_CharT __c)
       { 
 	const size_type __len = 1 + this->size();
-	if (__len > this->capacity() || _M_rep()->_M_is_shared())
+	if (__len > this->capacity() || this->_M_rep()->_M_is_shared())
 	  this->reserve(__len);
-	traits_type::assign(_M_data()[this->size()], __c);
-	_M_rep()->_M_set_length_and_sharable(__len);
+	traits_type::assign(this->_M_data()[this->size()], __c);
+	this->_M_rep()->_M_set_length(__len);
       }
 
       /**
@@ -1084,8 +851,8 @@ namespace std
 	_GLIBCXX_DEBUG_PEDASSERT(__p >= _M_ibegin() && __p <= _M_iend());
 	const size_type __pos = __p - _M_ibegin();
 	_M_replace_aux(__pos, size_type(0), size_type(1), __c);
-	_M_rep()->_M_set_leaked();
-	return this->_M_ibegin() + __pos;
+	this->_M_rep()->_M_set_leaked();
+	return _M_ibegin() + __pos;
       }
 
       /**
@@ -1105,8 +872,8 @@ namespace std
       basic_string&
       erase(size_type __pos = 0, size_type __n = npos)
       { 
-	_M_mutate(_M_check(__pos, "basic_string::erase"),
-		  _M_limit(__pos, __n), size_type(0));
+	this->_M_mutate(_M_check(__pos, "basic_string::erase"),
+			_M_limit(__pos, __n), size_type(0));
 	return *this;
       }
 
@@ -1124,8 +891,8 @@ namespace std
 	_GLIBCXX_DEBUG_PEDASSERT(__position >= _M_ibegin()
 				 && __position < _M_iend());
 	const size_type __pos = __position - _M_ibegin();
-	_M_mutate(__pos, size_type(1), size_type(0));
-	_M_rep()->_M_set_leaked();
+	this->_M_mutate(__pos, size_type(1), size_type(0));
+	this->_M_rep()->_M_set_leaked();
 	return _M_ibegin() + __pos;
       }
 
@@ -1144,8 +911,8 @@ namespace std
 	_GLIBCXX_DEBUG_PEDASSERT(__first >= _M_ibegin() && __first <= __last
 				 && __last <= _M_iend());
         const size_type __pos = __first - _M_ibegin();
-	_M_mutate(__pos, __last - __first, size_type(0));
-	_M_rep()->_M_set_leaked();
+	this->_M_mutate(__pos, __last - __first, size_type(0));
+	this->_M_rep()->_M_set_leaked();
 	return _M_ibegin() + __pos;
       }
 
@@ -1414,7 +1181,8 @@ namespace std
 	basic_string&
 	_M_replace_dispatch(iterator __i1, iterator __i2, _Integer __n,
 			    _Integer __val, __true_type)
-        { return _M_replace_aux(__i1 - _M_ibegin(), __i2 - __i1, __n, __val); }
+        { return _M_replace_aux(__i1 - _M_ibegin(), __i2 - __i1,
+				__n, __val); }
 
       template<class _InputIterator>
 	basic_string&
@@ -1428,48 +1196,6 @@ namespace std
       basic_string&
       _M_replace_safe(size_type __pos1, size_type __n1, const _CharT* __s,
 		      size_type __n2);
-
-      // _S_construct_aux is used to implement the 21.3.1 para 15 which
-      // requires special behaviour if _InIter is an integral type
-      template<class _InIterator>
-        static _CharT*
-        _S_construct_aux(_InIterator __beg, _InIterator __end,
-			 const _Alloc& __a, __false_type)
-	{
-          typedef typename iterator_traits<_InIterator>::iterator_category _Tag;
-          return _S_construct(__beg, __end, __a, _Tag());
-	}
-
-      template<class _InIterator>
-        static _CharT*
-        _S_construct_aux(_InIterator __beg, _InIterator __end,
-			 const _Alloc& __a, __true_type)
-	{ return _S_construct(static_cast<size_type>(__beg),
-			      static_cast<value_type>(__end), __a); }
-
-      template<class _InIterator>
-        static _CharT*
-        _S_construct(_InIterator __beg, _InIterator __end, const _Alloc& __a)
-	{
-	  typedef typename std::__is_integer<_InIterator>::__type _Integral;
-	  return _S_construct_aux(__beg, __end, __a, _Integral());
-        }
-
-      // For Input Iterators, used in istreambuf_iterators, etc.
-      template<class _InIterator>
-        static _CharT*
-         _S_construct(_InIterator __beg, _InIterator __end, const _Alloc& __a,
-		      input_iterator_tag);
-
-      // For forward_iterators up to random_access_iterators, used for
-      // string::iterator, _CharT*, etc.
-      template<class _FwdIterator>
-        static _CharT*
-        _S_construct(_FwdIterator __beg, _FwdIterator __end, const _Alloc& __a,
-		     forward_iterator_tag);
-
-      static _CharT*
-      _S_construct(size_type __req, _CharT __c, const _Alloc& __a);
 
     public:
 
@@ -1506,7 +1232,7 @@ namespace std
       */
       const _CharT*
       c_str() const
-      { return _M_data(); }
+      { return this->_M_data(); }
 
       /**
        *  @brief  Return const pointer to contents.
@@ -1516,14 +1242,14 @@ namespace std
       */
       const _CharT*
       data() const
-      { return _M_data(); }
+      { return this->_M_data(); }
 
       /**
        *  @brief  Return copy of allocator used to construct this string.
       */
       allocator_type
       get_allocator() const
-      { return _M_dataplus; }
+      { return this->_M_get_allocator(); }
 
       /**
        *  @brief  Find position of a C substring.
@@ -1895,8 +1621,8 @@ namespace std
       */
       basic_string
       substr(size_type __pos = 0, size_type __n = npos) const
-      { return basic_string(*this,
-			    _M_check(__pos, "basic_string::substr"), __n); }
+      { return basic_string(*this, _M_check(__pos, "basic_string::substr"),
+			    __n); }
 
       /**
        *  @brief  Compare to a string.
@@ -1916,7 +1642,7 @@ namespace std
 	const size_type __osize = __str.size();
 	const size_type __len = std::min(__size, __osize);
 
-	int __r = traits_type::compare(_M_data(), __str.data(), __len);
+	int __r = traits_type::compare(this->_M_data(), __str.data(), __len);
 	if (!__r)
 	  __r =  __size - __osize;
 	return __r;
@@ -2020,16 +1746,7 @@ namespace std
       int
       compare(size_type __pos, size_type __n1, const _CharT* __s,
 	      size_type __n2) const;
-  };
-
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    inline basic_string<_CharT, _Traits, _Alloc>::
-    basic_string()
-#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
-    : _M_dataplus(_S_empty_rep()._M_refdata(), _Alloc()) { }
-#else
-    : _M_dataplus(_S_construct(size_type(), _CharT(), _Alloc()), _Alloc()) { }
-#endif
+    };
 
   // operator+
   /**
@@ -2066,7 +1783,7 @@ namespace std
    *  @return  New string with @a lhs followed by @a rhs.
    */
   template<typename _CharT, typename _Traits, typename _Alloc>
-    basic_string<_CharT,_Traits,_Alloc>
+    basic_string<_CharT, _Traits, _Alloc>
     operator+(_CharT __lhs, const basic_string<_CharT,_Traits,_Alloc>& __rhs);
 
   /**
@@ -2412,7 +2129,10 @@ namespace std
     basic_istream<wchar_t>&
     getline(basic_istream<wchar_t>& __in, basic_string<wchar_t>& __str,
 	    wchar_t __delim);
-#endif  
+#endif
+
+  // Undefine.
+#undef ___glibcxx_base_string
 } // namespace std
 
 #endif /* _BASIC_STRING_H */

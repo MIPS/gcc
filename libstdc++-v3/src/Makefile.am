@@ -1,6 +1,6 @@
 ## Makefile for the src subdirectory of the GNU C++ Standard library.
 ##
-## Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+## Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005
 ## Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
@@ -134,9 +134,11 @@ sources = \
 	sstream-inst.cc \
 	streambuf-inst.cc \
 	streambuf.cc \
+	rc_string-inst.cc \
 	string-inst.cc \
 	valarray-inst.cc \
 	wlocale-inst.cc \
+	wrc_string-inst.cc \
 	wstring-inst.cc \
 	${host_sources} \
 	${host_sources_extra}

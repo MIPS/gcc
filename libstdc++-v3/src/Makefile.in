@@ -73,8 +73,9 @@ am__objects_3 = bitmap_allocator.lo pool_allocator.lo mt_allocator.lo \
 	concept-inst.lo fstream-inst.lo ext-inst.lo io-inst.lo \
 	istream-inst.lo istream.lo locale-inst.lo locale-misc-inst.lo \
 	misc-inst.lo ostream-inst.lo sstream-inst.lo streambuf-inst.lo \
-	streambuf.lo string-inst.lo valarray-inst.lo wlocale-inst.lo \
-	wstring-inst.lo $(am__objects_1) $(am__objects_2)
+	streambuf.lo rc_string-inst.lo string-inst.lo valarray-inst.lo \
+	wlocale-inst.lo wrc_string-inst.lo wstring-inst.lo \
+	$(am__objects_1) $(am__objects_2)
 am_libstdc___la_OBJECTS = $(am__objects_3)
 libstdc___la_OBJECTS = $(am_libstdc___la_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
@@ -187,6 +188,8 @@ SECTION_FLAGS = @SECTION_FLAGS@
 SECTION_LDFLAGS = @SECTION_LDFLAGS@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+STRING_H = @STRING_H@
+STRING_NAME = @STRING_NAME@
 STRIP = @STRIP@
 SYMVER_MAP = @SYMVER_MAP@
 TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
@@ -343,9 +346,11 @@ sources = \
 	sstream-inst.cc \
 	streambuf-inst.cc \
 	streambuf.cc \
+	rc_string-inst.cc \
 	string-inst.cc \
 	valarray-inst.cc \
 	wlocale-inst.cc \
+	wrc_string-inst.cc \
 	wstring-inst.cc \
 	${host_sources} \
 	${host_sources_extra}

@@ -1,3 +1,36 @@
+2005-02-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* acinclude.m4 ([GLIBCXX_ENABLE_STRING]): New, allows to
+	configure at build time the memory allocation policy.
+	* configure.ac: Use it.
+	* config/linker-map.gnu: Add symbols.
+	* config/string/rc_string_base.h: New.
+	* include/Makefile.am: Add new headers.
+	(host_headers_extra): Add c++string.h.
+	* include/bits/basic_string.h: Remove the low level memory
+	allocation bits, now configurable: basic_string derives 
+	from ___glibcxx_base_string, included via c++string.h.
+	* include/bits/basic_string.tcc: Likewise use facilities
+	provided by the base class.
+	* include/ext/rc_string.h: New, __rc_string encapsulates
+	a reference-counted memory allocation policy, very similar
+	to the traditional one; derives from __string_utility.
+	* include/ext/string_util.h: New, class __string_utility
+	provides static utility function for moving and copying
+	chars.
+	* src/rc_string-inst.cc: New, __rc_string instantiations.
+	* src/wrc_string-inst.cc: Likewise.
+	* src/Makefile.am: Add.
+	* src/string-inst.cc: Tweak consistently.
+	* Makefile.in: Regenerate
+	* configure: Likewise.
+	* include/Makefile.in: Likewise.
+	* libmath/Makefile.in: Likewise.
+	* libsupc++/Makefile.in: Likewise.
+	* po/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
 2005-02-16  Paolo Carlini  <pcarlini@suse.de>
 
         Merged to mainline at tag libstdcxx_so_7-merge-20050216.

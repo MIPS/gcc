@@ -1,9 +1,8 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
-// Free Software Foundation, Inc.
+// Copyright (C) 2005 Free Software Foundation, Inc.
 //
-// This file is part of the GNU ISO C++ Library.  This library is free
+// This file is part of the GNU ISO C++ Librarbooly.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
 // Free Software Foundation; either version 2, or (at your option)
@@ -29,49 +28,12 @@
 // the GNU General Public License.
 
 //
-// ISO C++ 14882: 21  Strings library
+// ISO C++ 14882:
 //
 
-// Written by Jason Merrill based upon the specification by Takanori Adachi
-// in ANSI X3J16/94-0013R2.  Rewritten by Nathan Myers.
+#include <bits/c++config.h>
 
-#include <string>
-
-// Instantiation configuration.
-#ifndef C
-# define C char
+#ifdef _GLIBCXX_USE_WCHAR_T
+#define C wchar_t
+#include "rc_string-inst.cc"
 #endif
-
-namespace std
-{
-  typedef basic_string<C> S;
-
-  template class basic_string<C>;
-  template S operator+(const C*, const S&);
-  template S operator+(C, const S&);
-  template S operator+(const S&, const S&);
-
-  // Only one template keyword allowed here. 
-  // See core issue #46 (NAD)
-  // http://anubis.dkuug.dk/jtc1/sc22/wg21/docs/cwg_closed.html#46
-  template
-    S::basic_string(C*, C*, const allocator<C>&);
-
-  template
-    S::basic_string(const C*, const C*, const allocator<C>&);
-
-  template 
-    S::basic_string(S::iterator, S::iterator, const allocator<C>&);
-
-  // Used in str::find.
-  template
-    const C*
-    search(const C*, const C*, const C*, const C*, bool(*)(const C&, const C&));
-} // namespace std
-
-namespace __gnu_cxx
-{
-  using std::S;
-  template bool operator==(const S::iterator&, const S::iterator&);
-  template bool operator==(const S::const_iterator&, const S::const_iterator&);
-} // namespace __gnu_cxx

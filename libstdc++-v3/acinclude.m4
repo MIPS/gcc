@@ -1365,6 +1365,59 @@ AC_DEFUN([GLIBCXX_ENABLE_ALLOCATOR], [
 
 
 dnl
+dnl Check for which std::basic_string base class to use.  The choice is
+dnl mapped from a subdirectory of include/ext.
+dnl
+dnl Default is rc_string.
+dnl
+AC_DEFUN([GLIBCXX_ENABLE_STRING], [
+  AC_MSG_CHECKING([for std::basic_string base class to use])
+  GLIBCXX_ENABLE(libstdcxx-string,auto,[=KIND],
+    [use KIND for target std::basic_string base],
+    [permit rc|yes|no|auto])
+
+  # If they didn't use this option switch, or if they specified --enable
+  # with no specific model, we'll have to look for one.  If they
+  # specified --disable (???), do likewise.
+  if test $enable_libstdcxx_string = no ||
+     test $enable_libstdcxx_string = yes;
+  then
+     enable_libstdcxx_string=auto
+  fi
+
+  # Either a known package, or "auto". Auto implies the default choice
+  # for a particular platform.
+  enable_libstdcxx_string_flag=$enable_libstdcxx_string
+
+  # Probe for host-specific support if no specific model is specified.
+  # Default to "new".
+  if test $enable_libstdcxx_string_flag = auto; then
+    case ${target_os} in
+      linux* | gnu* | kfreebsd*-gnu | knetbsd*-gnu)
+        enable_libstdcxx_string_flag=rc
+        ;;
+      *)
+        enable_libstdcxx_string_flag=rc
+        ;;
+    esac
+  fi
+  AC_MSG_RESULT($enable_libstdcxx_string_flag)
+  
+
+  # Set configure bits for specified locale package
+  case ${enable_libstdcxx_string_flag} in
+    rc)
+      STRING_H=config/string/rc_string_base.h
+      STRING_NAME=__gnu_cxx::__rc_string
+      ;;
+  esac
+
+  AC_SUBST(STRING_H)
+  AC_SUBST(STRING_NAME)
+])
+
+
+dnl
 dnl Check for whether the Boost-derived checks should be turned on.
 dnl
 dnl --enable-concept-checks turns them on.

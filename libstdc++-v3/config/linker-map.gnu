@@ -1,6 +1,6 @@
 ## Linker script for GNU ld 2.13.91+ only.
 ##
-## Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+## Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ##
@@ -291,7 +291,16 @@ GLIBCXX_3.6 {
     _ZN9__gnu_cxx9free_list12_S_bfl_mutexE;
     _ZN9__gnu_cxx9free_list6_M_getE*;
     _ZN9__gnu_cxx9free_list8_M_clearEv;
-	
+
+    # Added in libstdcxx_so_7-branch   
+    _ZN9__gnu_cxx11__rc_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
+    _ZNK9__gnu_cxx11__rc_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
+    _ZZN9__gnu_cxx11__rc_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
+    
+    _ZZN9__gnu_cxx20__common_pool_policyINS_6__poolELb1EE11_S_get_poolEvE7_S_pool;
+    _ZZN9__gnu_cxx20__common_pool_policyINS_6__poolELb1EE18_S_initialize_onceEvE6__init;
+    _ZGVZN9__gnu_cxx20__common_pool_policyINS_6__poolELb1EE11_S_get_poolEvE7_S_pool;
+
   # DO NOT DELETE THIS LINE.  Port-specific symbols, if any, will be here.
 
   local:

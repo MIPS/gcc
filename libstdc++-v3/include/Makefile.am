@@ -219,6 +219,8 @@ ext_headers = \
 	${ext_srcdir}/pod_char_traits.h \
 	${ext_srcdir}/pool_allocator.h \
 	${ext_srcdir}/rb_tree \
+	${ext_srcdir}/rc_string.h \
+	${ext_srcdir}/string_util.h \
 	${ext_srcdir}/rope \
 	${ext_srcdir}/ropeimpl.h \
 	${ext_srcdir}/slist \
@@ -363,6 +365,7 @@ host_headers_extra = \
 	${host_builddir}/basic_file.h \
 	${host_builddir}/c++config.h \
 	${host_builddir}/c++allocator.h \
+	${host_builddir}/c++string.h \
 	${host_builddir}/c++io.h \
 	${host_builddir}/c++locale.h \
 	${host_builddir}/messages_members.h \
@@ -503,6 +506,7 @@ stamp-host: ${host_headers} ${host_headers_noinst} stamp-${host_alias}
 	  $(LN_S) ${host_headers} . || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(BASIC_FILE_H) basic_file.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(ALLOCATOR_H) c++allocator.h || true ;\
+	  $(LN_S) ${glibcxx_srcdir}/$(STRING_H) c++string.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CSTDIO_H) c++io.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CLOCALE_H) c++locale.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CLOCALE_INTERNAL_H) . || true ;\
