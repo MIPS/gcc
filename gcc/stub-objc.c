@@ -40,7 +40,7 @@ is_class_name (tree arg ATTRIBUTE_UNUSED)
 }
 
 tree
-objc_is_id (tree arg ATTRIBUTE_UNUSED)
+objc_is_object_ptr (tree arg ATTRIBUTE_UNUSED)
 {
   return 0;
 }

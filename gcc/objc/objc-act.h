@@ -54,8 +54,7 @@ tree is_ivar					PARAMS ((tree, tree));
 int is_private					PARAMS ((tree));
 int is_public					PARAMS ((tree, tree));
 tree add_instance_variable			PARAMS ((tree, int, tree, tree, tree));
-tree add_class_method				PARAMS ((tree, tree));
-tree add_instance_method			PARAMS ((tree, tree));
+tree add_method					PARAMS ((tree, tree, int));
 tree get_super_receiver				PARAMS ((void));
 void objc_clear_super_receiver			PARAMS ((void));
 tree get_class_ivars_from_name			PARAMS ((tree));
@@ -119,10 +118,12 @@ tree build_encode_expr				PARAMS ((tree));
 #define PROTOCOL_CLS_METHODS(CLASS) ((CLASS)->type.maxval)
 #define PROTOCOL_FORWARD_DECL(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 1)
 #define PROTOCOL_DEFINED(CLASS) TREE_USED (CLASS)
-#define TYPE_PROTOCOL_LIST(TYPE)					\
-  ((!TYPE_CHECK (TYPE)->type.context					\
-    || TREE_CODE ((TYPE)->type.context) == TRANSLATION_UNIT_DECL)	\
-   ? NULL_TREE : (TYPE)->type.context)
+/* We need to distinguish TYPE_PROTOCOL_LISTs from TYPE_CONTEXTs, both of which
+   are stored in the same accessor slot.  */
+#define TYPE_PROTOCOL_LIST(TYPE)				\
+	((TYPE_CHECK (TYPE)->type.context			\
+	  && TREE_CODE ((TYPE)->type.context) == TREE_LIST)	\
+	 ? (TYPE)->type.context : NULL_TREE)
 #define SET_TYPE_PROTOCOL_LIST(TYPE, P) (TYPE_CHECK (TYPE)->type.context = (P))
 
 /* Set by `continue_class' and checked by `is_public'.  */

@@ -156,7 +156,6 @@ static tree build_category_initializer		PARAMS ((tree, tree, tree,
 						       tree, tree, tree));
 static tree build_protocol_initializer		PARAMS ((tree, tree, tree,
 						       tree, tree));
-
 static void synth_forward_declarations		PARAMS ((void));
 static int ivar_list_length			PARAMS ((tree));
 static tree get_class_ivars			PARAMS ((tree, int));
@@ -189,8 +188,7 @@ static void hash_enter				PARAMS ((hash *, tree));
 static hash hash_lookup				PARAMS ((hash *, tree));
 static void hash_add_attr			PARAMS ((hash, tree));
 static tree lookup_method			PARAMS ((tree, tree));
-static tree lookup_instance_method_static	PARAMS ((tree, tree));
-static tree lookup_class_method_static		PARAMS ((tree, tree));
+static tree lookup_method_static		PARAMS ((tree, tree, int));
 static tree add_class				PARAMS ((tree));
 static void add_category			PARAMS ((tree, tree));
 
@@ -221,12 +219,14 @@ static void encode_type_qualifiers		PARAMS ((tree));
 static void encode_pointer			PARAMS ((tree, int, int));
 static void encode_array			PARAMS ((tree, int, int));
 static void encode_aggregate			PARAMS ((tree, int, int));
-static void encode_bitfield			PARAMS ((int));
+static void encode_next_bitfield		PARAMS ((int));
+static void encode_gnu_bitfield			PARAMS ((int, tree, int));
 static void encode_type				PARAMS ((tree, int, int));
 static void encode_field_decl			PARAMS ((tree, int, int));
 
 static void really_start_method			PARAMS ((tree, tree));
 static int comp_method_with_proto		PARAMS ((tree, tree));
+static int objc_types_are_equivalent		PARAMS ((tree, tree));
 static int comp_proto_with_proto		PARAMS ((tree, tree));
 static tree get_arg_type_list			PARAMS ((tree, int, int));
 static tree objc_expr_last			PARAMS ((tree));
@@ -306,7 +306,6 @@ static void generate_classref_translation_entry	PARAMS ((tree));
 static void handle_class_ref			PARAMS ((tree));
 static void generate_struct_by_value_array	PARAMS ((void))
      ATTRIBUTE_NORETURN;
-static void encode_complete_bitfield		PARAMS ((int, tree, int));
 static void mark_referenced_methods		PARAMS ((void));
 
 /*** Private Interface (data) ***/
@@ -573,18 +572,6 @@ define_decl (declarator, declspecs)
   finish_decl (decl, NULL_TREE, NULL_TREE);
   return decl;
 }
-
-/* Return 1 if LHS and RHS are compatible types for assignment or
-   various other operations.  Return 0 if they are incompatible, and
-   return -1 if we choose to not decide.  When the operation is
-   REFLEXIVE, check for compatibility in either direction.
-
-   For statically typed objects, an assignment of the form `a' = `b'
-   is permitted if:
-
-   `a' is of type "id",
-   `a' and `b' are the same class type, or
-   `a' and `b' are of class types A and B such that B is a descendant of A.  */
 
 static tree
 lookup_method_in_protocol_list (rproto_list, sel_name, class_meth)
@@ -1112,10 +1099,7 @@ lookup_and_install_protocols (protocols)
 	{
 	  error ("cannot find protocol declaration for `%s'",
 		 IDENTIFIER_POINTER (ident));
-	  if (prev)
-	    TREE_CHAIN (prev) = TREE_CHAIN (proto);
-	  else
-	    return_value = TREE_CHAIN (proto);
+	  return error_mark_node;
 	}
       else
 	{
@@ -2645,17 +2629,24 @@ is_class_name (ident)
   return 0;
 }
 
+/* Check whether TYPE is either 'id', 'Class', or a pointer to an ObjC
+   class instance.  This is needed by other parts of the compiler to 
+   handle ObjC types gracefully.  */
+
 tree
-objc_is_id (ident)
-     tree ident;
+objc_is_object_ptr (type)
+     tree type;
 {
+  type = TYPE_MAIN_VARIANT (type);
+  if (!type || TREE_CODE (type) != POINTER_TYPE)
+    return 0;
   /* NB: This function may be called before the ObjC front-end
      has been initialized, in which case ID_TYPE will be NULL. */
-  return (id_type && ident && TYPE_P (ident)
-	  && (IS_ID (ident)
-	      || TREE_TYPE (ident) == TREE_TYPE (objc_class_type)) 
-	  ? ident 
-	  : NULL_TREE);
+  if (id_type && type && TYPE_P (type)
+      && (IS_ID (type)
+	  || TREE_TYPE (type) == TREE_TYPE (objc_class_type)))
+    return type;
+  return is_class_name (OBJC_TYPE_NAME (TREE_TYPE (type)));
 }
 
 tree
@@ -5339,7 +5330,7 @@ synth_id_with_class_suffix (preamble, ctxt)
     {
       const char *const class_name
 	= IDENTIFIER_POINTER (CLASS_NAME (objc_implementation_context));
-      string = alloca (strlen (preamble) + strlen (class_name) + 3);
+      string = (char *) alloca (strlen (preamble) + strlen (class_name) + 3);
       sprintf (string, "%s_%s", preamble,
 	       IDENTIFIER_POINTER (CLASS_NAME (ctxt)));
     }
@@ -5492,7 +5483,13 @@ build_keyword_selector (selector)
       if (TREE_CODE (selector) == KEYWORD_DECL)
 	key_name = KEYWORD_KEY_NAME (key_chain);
       else if (TREE_CODE (selector) == TREE_LIST)
-	key_name = TREE_PURPOSE (key_chain);
+	{
+	  key_name = TREE_PURPOSE (key_chain);
+	  /* The keyword decl chain will later be used as a function argument
+	     chain.  Unhook the selector itself so as to not confuse other
+	     parts of the compiler.  */
+	  TREE_PURPOSE (key_chain) = NULL_TREE;
+	}
       else
 	abort ();
 
@@ -5542,12 +5539,13 @@ build_method_decl (code, ret_type, selector, add_args)
 #define METHOD_DEF 0
 #define METHOD_REF 1
 
-/* Used by `build_objc_method_call' and `comp_method_types'.  Return
+/* Used by `build_objc_method_call' and `comp_proto_with_proto'.  Return
    an argument list for method METH.  CONTEXT is either METHOD_DEF or
    METHOD_REF, saying whether we are trying to define a method or call
    one.  SUPERFLAG says this is for a send to super; this makes a
    difference for the NeXT calling sequence in which the lookup and
-   the method call are done together.  */
+   the method call are done together.  If METH is null, user-defined
+   arguments (i.e., beyond self and _cmd) shall be represented by `...'.  */
 
 static tree
 get_arg_type_list (meth, context, superflag)
@@ -5567,6 +5565,11 @@ get_arg_type_list (meth, context, superflag)
 
   /* Selector type - will eventually change to `int'.  */
   chainon (arglist, build_tree_list (NULL_TREE, selector_type));
+
+  /* No actual method prototype given -- assume that remaining arguments
+     are `...'.  */
+  if (!meth)
+    return arglist;
 
   /* Build a list of argument types.  */
   for (akey = METHOD_SEL_ARGS (meth); akey; akey = TREE_CHAIN (akey))
@@ -5604,16 +5607,19 @@ check_duplicates (hsh)
 
       if (hsh->list)
         {
-	  /* We have two methods with the same name and different types.  */
+	  /* We have two or more methods with the same name but different types.  */
 	  attr loop;
 	  char type = (TREE_CODE (meth) == INSTANCE_METHOD_DECL) ? '-' : '+';
 
-	  warning ("multiple declarations for method `%s'",
+	  warning ("multiple methods named `%c%s' found", type,
 		   IDENTIFIER_POINTER (METHOD_SEL_NAME (meth)));
 
-	  warn_with_method ("using", type, meth);
+	  warn_with_method ("could be using", type, meth);
 	  for (loop = hsh->list; loop; loop = loop->next)
-	    warn_with_method ("also found", type, loop->value);
+	    warn_with_method ("or", type, loop->value);
+
+	  /* Mark the method as `...', to indicate ambiguity.  */
+	  meth = objc_ellipsis_node;
         }
     }
   return meth;
@@ -5756,15 +5762,14 @@ static tree
 lookup_method_in_hash_lists (sel_name)
      tree sel_name;
 {
-  tree method_prototype = check_duplicates 
-			  (hash_lookup (nst_method_hash_list, 
-					sel_name));
+  hash method_prototype = hash_lookup (nst_method_hash_list, 
+				       sel_name);
 					  
   if (!method_prototype)
-    method_prototype = check_duplicates 
-		       (hash_lookup (cls_method_hash_list, 
-			sel_name));
-  return method_prototype;
+    method_prototype = hash_lookup (cls_method_hash_list, 
+				    sel_name);
+
+  return check_duplicates (method_prototype);
 }    
 
 /* The 'finish_message_expr' routine is called from within
@@ -5824,7 +5829,7 @@ finish_message_expr (receiver, sel_name, method_params)
   /* If receiver is of type `id' or `Class' (or if the @interface for a
      class is not visible), we shall be satisfied with the existence of 
      any instance or class method. */
-  if (!rtype || IS_ID (rtype) 
+  if (!rtype || IS_ID (rtype)
 	|| TREE_TYPE (rtype) == TREE_TYPE (objc_class_type))
     {
       if (!rtype)
@@ -5834,7 +5839,7 @@ finish_message_expr (receiver, sel_name, method_params)
 	  rprotos = TYPE_PROTOCOL_LIST (rtype);
 	  rtype = NULL_TREE;
 	}
-      else	
+      else
 	is_class = TYPE_NAME (rtype) = get_identifier ("Class");
 
       if (rprotos)
@@ -5877,9 +5882,7 @@ finish_message_expr (receiver, sel_name, method_params)
 	     in the published @interface for the class (and its
 	     superclasses). */
 	  method_prototype 
-	    = (is_class
-	       ? lookup_class_method_static (rtype, sel_name)
-	       : lookup_instance_method_static (rtype, sel_name));
+	    = lookup_method_static (rtype, sel_name, is_class != NULL_TREE);
 
 	  /* If the method was not found in the @interface, it may still
 	     exist locally as part of the @implementation.  */
@@ -5904,13 +5907,14 @@ finish_message_expr (receiver, sel_name, method_params)
 	{
 	  warning ("invalid receiver type `%s'",
 		   gen_declaration (orig_rtype, errbuf));   
-	  rtype = NULL_TREE;
-	  method_prototype = lookup_method_in_hash_lists (sel_name);
+	  rtype = rprotos = NULL_TREE;
 	}
     }	  
 
   if (!method_prototype)
     {
+      static bool warn_missing_methods = false;
+
       if (rtype)
 	warning ("`%s' may not respond to `%c%s'",
 		 IDENTIFIER_POINTER (OBJC_TYPE_NAME (rtype)),
@@ -5920,10 +5924,26 @@ finish_message_expr (receiver, sel_name, method_params)
 	warning ("`%c%s' not implemented by protocol(s)",
 		 (is_class ? '+' : '-'),
 		 IDENTIFIER_POINTER (sel_name));
-      if (!(method_prototype = lookup_method_in_hash_lists (sel_name)))
-	warning ("cannot find method `%c%s'; return type `id' assumed",
-		 (is_class ? '+' : '-'),
-		 IDENTIFIER_POINTER (sel_name));
+      if (!warn_missing_methods)
+	{
+	  warning ("(Messages without a matching method signature");
+	  warning ("will be assumed to return `id' and accept");
+	  warning ("`...' as arguments.)");
+	  warn_missing_methods = true;
+	}
+    }
+  else if (method_prototype == objc_ellipsis_node)
+    {
+      static bool warn_ambiguous_methods = false;
+
+      if (!warn_ambiguous_methods)
+	{
+	  warning ("(Messages matching multiple method signatures");
+	  warning ("will be assumed to return `id' and accept");
+	  warning ("`...' as arguments.)");
+	  warn_ambiguous_methods = true;
+	}
+      method_prototype = NULL_TREE;
     }
 
   /* Save the selector name for printing error messages.  */
@@ -5964,31 +5984,21 @@ build_objc_method_call (super_flag, method_prototype, lookup_object,
 		  ? umsg_decl
 		  : umsg_nonnil_decl));
   tree rcv_p = (super_flag ? super_type : id_type);
-  
+
   /* If a prototype for the method to be called exists, then cast
-     the sender's return type to match that of the  method.  Otherwise,
-     leave sender as is.  */
-  /* If the sender's return type is 'void', treat it as if it were
-     'id' instead.  This is because the sender signature may in
-     fact be incorrect, especially if the type of the receiver is
-     not known.  The same applies to sender's arguments (other than
-     self and _cmd), so just cast them as '...'.  */
-  tree ret_type = (method_prototype
-		   ? groktypename (TREE_TYPE (method_prototype))
-		   : id_type);
-  tree sender_cast = build_pointer_type
-		     (build_function_type 
-		      ((ret_type == void_type_node 
-			? id_type 
-			: ret_type),
-		      tree_cons (NULL_TREE,
-				 (super_flag && flag_next_runtime
-				  ? super_type
-				  : id_type),
-				 tree_cons (NULL_TREE, 
-					    selector_type,
-					    NULL_TREE))));
-	 
+     the sender's return type and arguments to match that of the method.
+     Otherwise, leave sender as is.  */
+  tree ret_type
+    = (method_prototype
+       ? groktypename (TREE_TYPE (method_prototype))
+       : id_type);
+  tree sender_cast
+    = build_pointer_type
+      (build_function_type 
+       (ret_type,
+	get_arg_type_list
+	(method_prototype, METHOD_REF, super_flag)));
+
   lookup_object = build_c_cast (rcv_p, lookup_object);
 
   if (flag_next_runtime)
@@ -6014,13 +6024,12 @@ build_objc_method_call (super_flag, method_prototype, lookup_object,
       TREE_USED (sender) = 1;
       assemble_external (sender);
       /* We want to cast the sender, not convert it.  */
-      return build_function_call 
-	     (build_c_cast (sender_cast, sender), 
-	      method_params);
+      return build_function_call (build_c_cast (sender_cast, sender), 
+				  method_params);
     }
   else
     {
-      /* This is the portable way.  */
+      /* This is the portable (GNU) way.  */
       tree method, object;
 
       /* First, call the lookup function to get a pointer to the method,
@@ -6039,10 +6048,10 @@ build_objc_method_call (super_flag, method_prototype, lookup_object,
       /* Pass the object to the method.  */
       TREE_USED (method) = 1;
       assemble_external (method);
-      return build_function_call (build_c_cast (sender_cast, method),
-				  tree_cons (NULL_TREE, object,
-					     tree_cons (NULL_TREE, selector,
-							method_params)));
+      return build_function_call
+	     (build_c_cast (sender_cast, method),
+	      tree_cons (NULL_TREE, object,
+			 tree_cons (NULL_TREE, selector, method_params)));
     }
 }
 
@@ -6339,98 +6348,42 @@ lookup_method (mchain, method)
 }
 
 static tree
-lookup_instance_method_static (interface, ident)
+lookup_method_static (interface, ident, is_class)
      tree interface;
      tree ident;
+     int is_class;
 {
+  tree meth = NULL_TREE, root_inter = NULL_TREE;
   tree inter = interface;
-  tree chain = CLASS_NST_METHODS (inter);
-  tree meth = NULL_TREE;
 
-  do
+  while (inter)
     {
+      tree chain = is_class ? CLASS_CLS_METHODS (inter) : CLASS_NST_METHODS (inter);
+      tree category = inter;
+
+      /* First, look up the method in the class itself.  */
       if ((meth = lookup_method (chain, ident)))
 	return meth;
 
-      if (CLASS_CATEGORY_LIST (inter))
+      /* Failing that, look for the method in each category of the class.  */
+      while ((category = CLASS_CATEGORY_LIST (category)))
 	{
-	  tree category = CLASS_CATEGORY_LIST (inter);
-	  chain = CLASS_NST_METHODS (category);
+	  chain = is_class ? CLASS_CLS_METHODS (category) : CLASS_NST_METHODS (category);
 
-	  do
-	    {
-	      if ((meth = lookup_method (chain, ident)))
-		return meth;
-
-	      /* Check for instance methods in protocols in categories.  */
-	      if (CLASS_PROTOCOL_LIST (category))
-		{
-		  if ((meth = (lookup_method_in_protocol_list
-			       (CLASS_PROTOCOL_LIST (category), ident, 0))))
-		    return meth;
-		}
-
-	      if ((category = CLASS_CATEGORY_LIST (category)))
-		chain = CLASS_NST_METHODS (category);
-	    }
-	  while (category);
-	}
-
-      if (CLASS_PROTOCOL_LIST (inter))
-	{
-	  if ((meth = (lookup_method_in_protocol_list
-		       (CLASS_PROTOCOL_LIST (inter), ident, 0))))
+	  /* Check directly in each category.  */
+	  if ((meth = lookup_method (chain, ident)))
 	    return meth;
-	}
 
-      if ((inter = lookup_interface (CLASS_SUPER_NAME (inter))))
-	chain = CLASS_NST_METHODS (inter);
-    }
-  while (inter);
-
-  return meth;
-}
-
-static tree
-lookup_class_method_static (interface, ident)
-     tree interface;
-     tree ident;
-{
-  tree inter = interface;
-  tree chain = CLASS_CLS_METHODS (inter);
-  tree meth = NULL_TREE;
-  tree root_inter = NULL_TREE;
-
-  do
-    {
-      if ((meth = lookup_method (chain, ident)))
-	return meth;
-
-      if (CLASS_CATEGORY_LIST (inter))
-	{
-	  tree category = CLASS_CATEGORY_LIST (inter);
-	  chain = CLASS_CLS_METHODS (category);
-
-	  do
+	  /* Failing that, check in each category's protocols.  */
+	  if (CLASS_PROTOCOL_LIST (category))
 	    {
-	      if ((meth = lookup_method (chain, ident)))
+	      if ((meth = (lookup_method_in_protocol_list
+			   (CLASS_PROTOCOL_LIST (category), ident, is_class))))
 		return meth;
-
-	      /* Check for class methods in protocols in categories.  */
-	      if (CLASS_PROTOCOL_LIST (category))
-		{
-		  if ((meth = (lookup_method_in_protocol_list
-			       (CLASS_PROTOCOL_LIST (category), ident, 1))))
-		    return meth;
-		}
-
-	      if ((category = CLASS_CATEGORY_LIST (category)))
-		chain = CLASS_CLS_METHODS (category);
 	    }
-	  while (category);
 	}
 
-      /* Check for class methods in protocols.  */
+      /* If not found in categories, check in protocols of the main class.  */
       if (CLASS_PROTOCOL_LIST (inter))
 	{
 	  if ((meth = (lookup_method_in_protocol_list
@@ -6438,98 +6391,71 @@ lookup_class_method_static (interface, ident)
 	    return meth;
 	}
 
+      /* Failing that, climb up the inheritance hierarchy.  */
       root_inter = inter;
-      if ((inter = lookup_interface (CLASS_SUPER_NAME (inter))))
-	chain = CLASS_CLS_METHODS (inter);
+      inter = lookup_interface (CLASS_SUPER_NAME (inter));
     }
   while (inter);
 
   /* If no class (factory) method was found, check if an _instance_
      method of the same name exists in the root class.  This is what
-     the Objective-C runtime will do.  */
-  return lookup_instance_method_static (root_inter, ident);
+     the Objective-C runtime will do.  If an instance method was not
+     found, return 0.  */
+  return is_class ? lookup_method_static (root_inter, ident, 0): NULL_TREE;
 }
 
 tree
-add_class_method (class, method)
+add_method (class, method, is_class)
      tree class;
      tree method;
+     int is_class;
 {
   tree mth;
   hash hsh;
 
-  if (!(mth = lookup_method (CLASS_CLS_METHODS (class), method)))
+  if (!(mth = lookup_method (is_class ? CLASS_CLS_METHODS (class) : CLASS_NST_METHODS (class), method)))
     {
       /* put method on list in reverse order */
-      TREE_CHAIN (method) = CLASS_CLS_METHODS (class);
-      CLASS_CLS_METHODS (class) = method;
+      if (is_class)
+	{
+	  TREE_CHAIN (method) = CLASS_CLS_METHODS (class);
+	  CLASS_CLS_METHODS (class) = method;
+	}
+      else
+	{
+	  TREE_CHAIN (method) = CLASS_NST_METHODS (class);
+	  CLASS_NST_METHODS (class) = method;
+	}
     }
   else
     {
-      if (TREE_CODE (class) == CLASS_IMPLEMENTATION_TYPE)
-	error ("duplicate definition of class method `%s'",
-	       IDENTIFIER_POINTER (METHOD_SEL_NAME (mth)));
-      else
-        {
-	  /* Check types; if different, complain.  */
-	  if (!comp_proto_with_proto (method, mth))
-	    error ("duplicate declaration of class method `%s'",
-		   IDENTIFIER_POINTER (METHOD_SEL_NAME (mth)));
-        }
+      /* When processing an @interface for a class or category, give hard errors on methods with
+	 identical selectors but differing argument and/or return types. We do not do this for 
+	 @implementations, because C/C++ will do it for us (i.e., there will be
+	 duplicate function definition errors).  */
+      if ((TREE_CODE (class) == CLASS_INTERFACE_TYPE
+	   || TREE_CODE (class) == CATEGORY_INTERFACE_TYPE)
+	  && !comp_proto_with_proto (method, mth))
+	error ("duplicate declaration of method `%c%s'",
+		is_class ? '+' : '-', IDENTIFIER_POINTER (METHOD_SEL_NAME (mth)));
     }
 
-  if (!(hsh = hash_lookup (cls_method_hash_list, METHOD_SEL_NAME (method))))
+  if (!(hsh = hash_lookup (is_class 
+			   ? cls_method_hash_list
+			   : nst_method_hash_list, METHOD_SEL_NAME (method))))
     {
       /* Install on a global chain.  */
-      hash_enter (cls_method_hash_list, method);
+      hash_enter (is_class ? cls_method_hash_list : nst_method_hash_list, method);
     }
   else
     {
-      /* Check types; if different, add to a list.  */
-      if (!comp_proto_with_proto (method, hsh->key))
-        hash_add_attr (hsh, method);
-    }
-  return method;
-}
-
-tree
-add_instance_method (class, method)
-     tree class;
-     tree method;
-{
-  tree mth;
-  hash hsh;
-
-  if (!(mth = lookup_method (CLASS_NST_METHODS (class), method)))
-    {
-      /* Put method on list in reverse order.  */
-      TREE_CHAIN (method) = CLASS_NST_METHODS (class);
-      CLASS_NST_METHODS (class) = method;
-    }
-  else
-    {
-      if (TREE_CODE (class) == CLASS_IMPLEMENTATION_TYPE)
-	error ("duplicate definition of instance method `%s'",
-	       IDENTIFIER_POINTER (METHOD_SEL_NAME (mth)));
-      else
-        {
-	  /* Check types; if different, complain.  */
-	  if (!comp_proto_with_proto (method, mth))
-	    error ("duplicate declaration of instance method `%s'",
-		   IDENTIFIER_POINTER (METHOD_SEL_NAME (mth)));
-        }
-    }
-
-  if (!(hsh = hash_lookup (nst_method_hash_list, METHOD_SEL_NAME (method))))
-    {
-      /* Install on a global chain.  */
-      hash_enter (nst_method_hash_list, method);
-    }
-  else
-    {
-      /* Check types; if different, add to a list.  */
-      if (!comp_proto_with_proto (method, hsh->key))
-        hash_add_attr (hsh, method);
+      /* Check types against those; if different, add to a list.  */
+      attr loop;
+      int already_there = comp_proto_with_proto (method, hsh->key);
+      for (loop = hsh->list; !already_there && loop; loop = loop->next)
+	already_there |= comp_proto_with_proto (method, loop->value);
+      if (!already_there)
+	hash_add_attr (hsh, method);
     }
   return method;
 }
@@ -7594,20 +7520,11 @@ encode_aggregate (type, curtype, format)
     }
 }
 
-/* Support bitfields.  The current version of Objective-C does not support
-   them.  The string will consist of one or more "b:n"'s where n is an
-   integer describing the width of the bitfield. Currently, classes in
-   the kit implement a method "-(char *)describeBitfieldStruct:" that
-   simulates this. If they do not implement this method, the archiver
-   assumes the bitfield is 16 bits wide (padded if necessary) and packed
-   according to the GNU compiler. After looking at the "kit", it appears
-   that all classes currently rely on this default behavior, rather than
-   hand generating this string (which is tedious).  */
-
-/* TODO: The above comment is now outdated; revisit after madness subsides. */
+/* Encode a bitfield NeXT-style (i.e., without a bit offset or the underlying
+   field type.  */
 
 static void
-encode_bitfield (width)
+encode_next_bitfield (width)
      int width;
 {
   char buffer[40];
@@ -7697,7 +7614,7 @@ encode_type (type, curtype, format)
 }
 
 static void
-encode_complete_bitfield (position, type, size)
+encode_gnu_bitfield (position, type, size)
      int position;
      tree type;
      int size;
@@ -7779,9 +7696,9 @@ encode_field_decl (field_decl, curtype, format)
       int size = tree_low_cst (DECL_SIZE (field_decl), 1);
 
       if (flag_next_runtime)
-	encode_bitfield (size);
+	encode_next_bitfield (size);
       else
-	encode_complete_bitfield (int_bit_position (field_decl),
+	encode_gnu_bitfield (int_bit_position (field_decl),
 				  DECL_BIT_FIELD_TYPE (field_decl), size);
     }
   else
@@ -7927,27 +7844,59 @@ comp_method_with_proto (method, proto)
 		    false);
 }
 
-/* Return 1 if PROTO1 is consistent with PROTO2.  */
+/* Return 1 if TYPE1 is equivalent to TYPE2.  */
 
 static int
-comp_proto_with_proto (proto0, proto1)
-     tree proto0, proto1;
+objc_types_are_equivalent (type1, type2)
+     tree type1, type2;
 {
-  /* Create a couple of function_template nodes at most once.  */
-  if (!function1_template)
-    function1_template = make_node (FUNCTION_TYPE);
-  if (!function2_template)
-    function2_template = make_node (FUNCTION_TYPE);
+  if (type1 == type2)
+    return 1;
+  if (TYPE_MAIN_VARIANT (type1) != TYPE_MAIN_VARIANT (type2))
+    return 0;
+  type1 = TYPE_PROTOCOL_LIST (type1);
+  type2 = TYPE_PROTOCOL_LIST (type2);
+  if (list_length (type1) == list_length (type2))
+    {
+      for (; type2; type2 = TREE_CHAIN (type2))
+	if (!lookup_protocol_in_reflist (type1, TREE_VALUE (type2)))
+	  return 0;
+      return 1;
+    }
+  return 0;
+}
 
-  /* Install argument types; normally set by build_function_type.  */
-  TYPE_ARG_TYPES (function1_template) = get_arg_type_list (proto0, METHOD_REF, 0);
-  TYPE_ARG_TYPES (function2_template) = get_arg_type_list (proto1, METHOD_REF, 0);
+/* Return 1 if PROTO1 is equivalent to PROTO2.  */
 
-  /* Install return type.  */
-  TREE_TYPE (function1_template) = groktypename (TREE_TYPE (proto0));
-  TREE_TYPE (function2_template) = groktypename (TREE_TYPE (proto1));
+static int
+comp_proto_with_proto (proto1, proto2)
+     tree proto1, proto2;
+{
+  tree type1, type2;
 
-  return comptypes (function1_template, function2_template, false);
+  /* The following test is needed in case there are hashing
+     collisions.  */
+  if (METHOD_SEL_NAME (proto1) != METHOD_SEL_NAME (proto2))
+    return 0;
+
+  /* Compare return types.  */
+  type1 = groktypename (TREE_TYPE (proto1));
+  type2 = groktypename (TREE_TYPE (proto2));
+
+  if (!objc_types_are_equivalent (type1, type2))
+    return 0;
+
+  /* Compare argument types.  */
+  for (type1 = get_arg_type_list (proto1, METHOD_REF, 0), 
+       type2 = get_arg_type_list (proto2, METHOD_REF, 0);
+       type1 && type2;
+       type1 = TREE_CHAIN (type1), type2 = TREE_CHAIN (type2))
+    {
+      if (!objc_types_are_equivalent (TREE_VALUE (type1), TREE_VALUE (type2)))
+	return 0;
+    }
+
+  return (!type1 && !type2);
 }
 
 /* - Generate an identifier for the function. the format is "_n_cls",
@@ -7986,6 +7935,12 @@ really_start_method (method, parmlist)
 			 class_name, cat_name, sel_name, method_slot);
 
   method_id = get_identifier (buf);
+
+#ifdef OBJCPLUS
+  /* Objective-C methods cannot be overloaded, so we don't need
+     the type encoding appended.  It looks bad anyway... */
+  push_lang_context (lang_name_c);
+#endif
 
   method_decl = build_nt (CALL_EXPR, method_id, parmlist, NULL_TREE);
 
@@ -8039,14 +7994,10 @@ really_start_method (method, parmlist)
 
   if (implementation_template != objc_implementation_context)
     {
-      tree proto;
-
-      if (TREE_CODE (method) == INSTANCE_METHOD_DECL)
-	proto = lookup_instance_method_static (implementation_template,
-					       METHOD_SEL_NAME (method));
-      else
-	proto = lookup_class_method_static (implementation_template,
-					    METHOD_SEL_NAME (method));
+      tree proto
+	= lookup_method_static (implementation_template,
+				METHOD_SEL_NAME (method),
+				TREE_CODE (method) == CLASS_METHOD_DECL);
 
       if (proto && ! comp_method_with_proto (method, proto))
 	{
@@ -9157,36 +9108,12 @@ finish_objc ()
          selector which has multiple methods.  */
 
       for (slot = 0; slot < SIZEHASHTABLE; slot++)
-	for (hsh = cls_method_hash_list[slot]; hsh; hsh = hsh->next)
-	  if (hsh->list)
-	    {
-	      tree meth = hsh->key;
-	      char type = (TREE_CODE (meth) == INSTANCE_METHOD_DECL
-			   ? '-' : '+');
-	      attr loop;
-
-	      warning ("potential selector conflict for method `%s'",
-		       IDENTIFIER_POINTER (METHOD_SEL_NAME (meth)));
-	      warn_with_method ("found", type, meth);
-	      for (loop = hsh->list; loop; loop = loop->next)
-		warn_with_method ("found", type, loop->value);
-	    }
-
-      for (slot = 0; slot < SIZEHASHTABLE; slot++)
-	for (hsh = nst_method_hash_list[slot]; hsh; hsh = hsh->next)
-	  if (hsh->list)
-	    {
-	      tree meth = hsh->key;
-	      char type = (TREE_CODE (meth) == INSTANCE_METHOD_DECL
-			   ? '-' : '+');
-	      attr loop;
-
-	      warning ("potential selector conflict for method `%s'",
-		       IDENTIFIER_POINTER (METHOD_SEL_NAME (meth)));
-	      warn_with_method ("found", type, meth);
-	      for (loop = hsh->list; loop; loop = loop->next)
-		warn_with_method ("found", type, loop->value);
-	    }
+	{
+	  for (hsh = cls_method_hash_list[slot]; hsh; hsh = hsh->next)
+	    check_duplicates (hsh);
+	  for (hsh = nst_method_hash_list[slot]; hsh; hsh = hsh->next)
+	    check_duplicates (hsh);
+	}
     }
 
   warn_missing_braces = save_warn_missing_braces;
@@ -9325,6 +9252,10 @@ handle_impent (impent)
     }
 }
 
+/* The Fix-and-Countinue functionality available in Mac OS X 10.3 and
+   later requires that ObjC translation units participating in F&C be
+   specially marked.  The following routine accomplishes this.  */
+
 /* static int _OBJC_IMAGE_INFO[2] = { 0, 1 }; */
 
 static void
