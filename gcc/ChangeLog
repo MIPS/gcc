@@ -1,3 +1,10 @@
+2001-07-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* params.def (PARAM_MAX_INLINE_AST): New parameter.
+	(PARAM_ARG_INLINE_AST): New parameter.
+	* doc/invoke.texi (max-inline-ast, arg-inline-ast): Document
+	parameters.
+
 2001-07-21  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* doc/tm.texi: Remove DEFAULT_VTABLE_THUNKS.

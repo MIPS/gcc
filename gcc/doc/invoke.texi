@@ -3813,6 +3813,15 @@ If an function contains more than this many instructions, it
 will not be inlined.  This option is precisely equivalent to
 @option{-finline-limit}.
 
+@item max-inline-ast @r{(C++ only)}
+When inlining on abstract syntax trees (AST), this sets the limit on a
+function's AST size, above which it will not be inlined into its
+callers.
+
+@item arg-inline-ast @r{(C++ only)}
+When inlining on abstract syntax trees, this sets the additional
+size an inlinable function is permitted per argument.
+
 @end table
 @end table
 

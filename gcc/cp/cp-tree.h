@@ -1738,7 +1738,9 @@ struct lang_decl_flags
   unsigned global_dtor_p : 1;
   unsigned assignment_operator_p : 1;
   unsigned anticipated_p : 1;
-  /* Three unused bits.  */
+  unsigned optimized_p : 1;
+  unsigned optimized_partial_p : 1;
+  /* One unused bit.  */
 
   union {
     /* In a FUNCTION_DECL, VAR_DECL, TYPE_DECL, or TEMPLATE_DECL, this
@@ -1780,10 +1782,6 @@ struct lang_decl
 
   /* In a FUNCTION_DECL, this is DECL_CLONED_FUNCTION.  */
   tree cloned_function;
-
-  /* In a FUNCTION_DECL, these are function data which is to be kept
-     as long as FUNCTION_DECL is kept.  */
-  tree inlined_fns;
 
   union
   {
@@ -1910,10 +1908,6 @@ struct lang_decl
    cloned.  */
 #define DECL_CLONED_FUNCTION(NODE) \
   (DECL_LANG_SPECIFIC (NODE)->cloned_function)
-
-/* List of FUNCION_DECLs inlined into this function's body.  */
-#define DECL_INLINED_FNS(NODE) \
-  (DECL_LANG_SPECIFIC (NODE)->inlined_fns)
 
 /* Nonzero if NODE has DECL_DISCRIMINATOR and not DECL_ACCESS.  */
 #define DECL_DISCRIMINATOR_P(NODE)	\
@@ -2399,6 +2393,16 @@ extern int flag_new_for_scope;
    not yet seen a prototype for that function.  */
 #define DECL_ANTICIPATED(NODE) \
   (DECL_LANG_SPECIFIC (DECL_CHECK (NODE))->decl_flags.anticipated_p)
+
+/* Nonzero if NODE is a FUNCTION_DECL whose DECL_SAVED_TREE has been
+   optimized. */
+#define DECL_OPTIMIZED_P(NODE) \
+  (DECL_LANG_SPECIFIC (DECL_CHECK (NODE))->decl_flags.optimized_p)
+
+/* Nonzero if NODE is a FUNCTION_DECL whose DECL_SAVED_TREE has been
+   partially optimized (upto the inlining point). */
+#define DECL_OPTIMIZED_PARTIAL_P(NODE) \
+  (DECL_LANG_SPECIFIC (DECL_CHECK (NODE))->decl_flags.optimized_partial_p)
 
 /* Record whether a typedef for type `int' was actually `signed int'.  */
 #define C_TYPEDEF_EXPLICITLY_SIGNED(exp) DECL_LANG_FLAG_1 ((exp))

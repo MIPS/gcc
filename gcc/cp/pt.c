@@ -9732,6 +9732,7 @@ instantiate_decl (d, defer_ok)
   tree code_pattern;
   tree spec;
   tree gen_tmpl;
+  tree clone_name = NULL_TREE;
   int pattern_defined;
   int line = lineno;
   int need_push;
@@ -9745,7 +9746,11 @@ instantiate_decl (d, defer_ok)
   /* Don't instantiate cloned functions.  Instead, instantiate the
      functions they cloned.  */
   if (TREE_CODE (d) == FUNCTION_DECL && DECL_CLONED_FUNCTION_P (d))
-    d = DECL_CLONED_FUNCTION (d);
+    {
+      /* Remember the clone so we can locate the instantiated clone. */
+      clone_name = DECL_NAME (d);
+      d = DECL_CLONED_FUNCTION (d);
+    }
 
   if (DECL_TEMPLATE_INSTANTIATED (d))
     /* D has already been instantiated.  It might seem reasonable to
@@ -9753,7 +9758,7 @@ instantiate_decl (d, defer_ok)
        stop here.  But when an explicit instantiation is deferred
        until the end of the compilation, DECL_EXPLICIT_INSTANTIATION
        is set, even though we still need to do the instantiation.  */
-    return d;
+    goto find_clone;
 
   /* If we already have a specialization of this declaration, then
      there's no reason to instantiate it.  Note that
@@ -9763,11 +9768,14 @@ instantiate_decl (d, defer_ok)
   gen_tmpl = most_general_template (tmpl);
   spec = retrieve_specialization (gen_tmpl, args);
   if (spec != NULL_TREE && DECL_TEMPLATE_SPECIALIZATION (spec))
-    return spec;
+    {
+      d = spec;
+      goto find_clone;
+    }
 
   /* This needs to happen before any tsubsting.  */
   if (! push_tinst_level (d))
-    return d;
+    goto find_clone;
 
   timevar_push (TV_PARSE);
 
@@ -9978,6 +9986,22 @@ out:
 
   timevar_pop (TV_PARSE);
 
+find_clone:
+  if (clone_name)
+    {
+      tree d_clone;
+
+      for (d_clone = TREE_CHAIN (d);
+	   d_clone && DECL_CLONED_FUNCTION_P (d_clone);
+	   d_clone = TREE_CHAIN (d_clone))
+	if (DECL_NAME (d_clone) == clone_name)
+	  {
+	    d = d_clone;
+	    break;
+	  }
+      my_friendly_assert (DECL_CLONED_FUNCTION_P (d), 20010702);
+    }
+  
   return d;
 }
 

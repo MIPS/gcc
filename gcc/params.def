@@ -79,6 +79,19 @@ DEFPARAM(PARAM_MAX_GCSE_PASSES,
 	"max-gcse-passes",
 	"The maximum number of passes to make when doing GCSE",
 	1)
+
+/* The maximum number of tree nodes in a function eligible for tree
+   based inlining. */
+DEFPARAM(PARAM_MAX_INLINE_AST,
+	 "max-inline-ast",
+	 "The maximum number of tree nodes in a function eligible for inlining",
+	 50)
+/* The number of additional tree nodes allowable per argument. */
+DEFPARAM (PARAM_ARG_INLINE_AST,
+	  "arg-inline-ast",
+	  "Additional tree nodes per argument allowed for an inlinable function",
+	  8)
+
 /*
 Local variables:
 mode:c

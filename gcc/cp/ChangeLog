@@ -1,3 +1,38 @@
+2001-07-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Change tree optimizer to bottom up inlining.
+	* cp-tree.h (lang_decl_flags): Add optimized_p, optimized_partial_p.
+	(lang_decl): Remove inlined_fns.
+	(DECL_OPTIMIZED_P): New macro.
+	(DECL_OPTIMIZED_PARTIAL_P): New macro.
+	(DECL_INLINED_FNS): Remove.
+	* pt.c (instantiate_decl): If we're given a cloned function,
+	return the instantiated clone.
+	* decl.c (lang_mark_tree): Remove inlined_fns member.
+	* optimize.c (struct call_site_data): New structure.
+	(struct inline_data): Remove first_inlined_fn, inlined_fns,
+	inlined_stmts. Add first_fn, fn, inlinable_call_sites, usage.
+	(remap_decl): Use id->fn. Don't walk DECL_SIZE and
+	DECL_SIZE_UNIT. Only copy TREE_TYPE of a variable length
+	array.
+	(remap_block): Use id->fn.
+	(copy_body_r): Allow meeting the return label. Inhibit subwalk
+	of remapped local decls.
+	(initialize_inlined_parameters): Use id->fn. Don't fold
+	argument values.
+	(declare_return_variable): Use id->fn.
+	(inlinable_function_p): Remove.
+	(expand_call_inline): Change parameters, adjust for bottom up.
+	(expand_calls_inline): Remove.
+	(inlinable_size_p): New function.
+	(find_inlinable_call_sites): New function.
+	(compare_inlinable_call_sites): Likewise.
+	(optimize_inline_calls): Add ID parameter. Adjust.
+	(optimize_function_real): New function, broken out of ...
+	(optimize_function): ... here. Set up ID.
+	(maybe_clone_body): Set up id.fn.
+	(dump_function): Return stream, take flag pointer parameter.
+
 2001-07-21  Nathan Sidwell  <nathan@codesourcery.com>
 
 	Remove flag_vtable_thunk. It is always on for the 3.0 ABI.
