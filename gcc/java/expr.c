@@ -585,9 +585,10 @@ build_java_jsr (int target_pc, int return_pc)
   push_value (ret_label);
   flush_quick_stack ();
   java_add_stmt (build (GOTO_EXPR, void_type_node, where));
-  java_add_stmt (build (LABEL_EXPR, void_type_node, ret));
-  if (instruction_bits [return_pc] & BCODE_VERIFIED)
-    load_type_state (ret);
+
+  /* Do not need to emit the label here.  We noted the existance of the
+     label as a jump target in note_instructions; we'll emit the label
+     for real at the beginning of the expand_byte_code loop.  */
 }
 
 static void
