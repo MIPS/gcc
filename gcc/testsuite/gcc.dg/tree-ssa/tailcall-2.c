@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-tailc-details" } */
-/* Test provided by Richard Guenther in PR 14312.  */
+/* Test provided by Richard Earnshaw in PR 14312.  */
 
 void bar (int i);
 void baz (int *);
