@@ -434,7 +434,7 @@ mf_build_check_statement_for (tree addr, tree size,
 
   /* We expect that the conditional jump we will construct will not
      be taken very often as it basically is an exception condition.  */
-  predict_edge_def (then_bb->pred, PRED_BUILTIN_EXPECT, NOT_TAKEN);
+  predict_edge_def (then_bb->pred, PRED_MUDFLAP, NOT_TAKEN);
 
   /* Update dominance info.  Note that bb_join's data was
      updated by split_block.  */

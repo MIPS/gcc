@@ -20,7 +20,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Before including this file, you should define a macro:
 
-     DEF_PREDICTOR (ENUM, NAME, HITRATE)
+     DEF_PREDICTOR (ENUM, NAME, HITRATE, FLAGS)
 
    This macro will be called once for each predictor.  The ENUM will
    be of type `enum predictor', and will enumerate all supported
@@ -117,3 +117,7 @@ DEF_PREDICTOR (PRED_NEGATIVE_RETURN, "negative return", HITRATE (96), 0)
 
 /* Branch ending with return; is probably not taken */
 DEF_PREDICTOR (PRED_NULL_RETURN, "null return", HITRATE (90), 0)
+
+/* Branches to a mudflap bounds check are extremely unlikely.  */
+DEF_PREDICTOR (PRED_MUDFLAP, "mudflap check", HITRATE (99), 0)
+
