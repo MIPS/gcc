@@ -13205,7 +13205,7 @@ thumb_expand_prologue (void)
 	      RTX_FRAME_RELATED_P (insn) = 1;
 	      dwarf = gen_rtx_SET (SImode, stack_pointer_rtx,
 				   plus_constant (stack_pointer_rtx,
-						  GEN_INT (- amount)));
+						  -amount));
 	      RTX_FRAME_RELATED_P (dwarf) = 1;
 	      REG_NOTES (insn)
 		= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
@@ -13231,7 +13231,7 @@ thumb_expand_prologue (void)
 	      RTX_FRAME_RELATED_P (insn) = 1;
 	      dwarf = gen_rtx_SET (SImode, stack_pointer_rtx,
 				   plus_constant (stack_pointer_rtx,
-						  GEN_INT (- amount)));
+						  -amount));
 	      RTX_FRAME_RELATED_P (dwarf) = 1;
 	      REG_NOTES (insn)
 		= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,

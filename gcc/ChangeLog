@@ -1,3 +1,7 @@
+2004-07-21  Paul brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (thumb_expand_prologue): Remove bogus GEN_INT.
+
 2004-07-19  Paul Brook  <paul@codesourcery.com>
 
 	* target.h (struct gcc_target): Put unwind_emit in the right place.
