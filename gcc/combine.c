@@ -2121,7 +2121,8 @@ try_combine (i3, i2, i1, new_direct_jump_p)
   insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
 
   /* If the result isn't valid, see if it is a PARALLEL of two SETs where
-     the second SET's destination is a register that is unused.  In that case,
+     the second SET's destination is a register that is unused and isn't
+     marked as an instruction that might trap in an EH region.  In that case,
      we just need the first SET.   This can occur when simplifying a divmod
      insn.  We *must* test for this case here because the code below that
      splits two independent SETs doesn't handle this case correctly when it
@@ -2133,33 +2134,47 @@ try_combine (i3, i2, i1, new_direct_jump_p)
       && XVECLEN (newpat, 0) == 2
       && GET_CODE (XVECEXP (newpat, 0, 0)) == SET
       && GET_CODE (XVECEXP (newpat, 0, 1)) == SET
-      && GET_CODE (SET_DEST (XVECEXP (newpat, 0, 1))) == REG
-      && find_reg_note (i3, REG_UNUSED, SET_DEST (XVECEXP (newpat, 0, 1)))
-      && ! side_effects_p (SET_SRC (XVECEXP (newpat, 0, 1)))
       && asm_noperands (newpat) < 0)
     {
-      newpat = XVECEXP (newpat, 0, 0);
-      insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
-    }
+      rtx set0 = XVECEXP (newpat, 0, 0);
+      rtx set1 = XVECEXP (newpat, 0, 1);
+      rtx note;
 
-  else if (insn_code_number < 0 && GET_CODE (newpat) == PARALLEL
-	   && XVECLEN (newpat, 0) == 2
-	   && GET_CODE (XVECEXP (newpat, 0, 0)) == SET
-	   && GET_CODE (XVECEXP (newpat, 0, 1)) == SET
-	   && GET_CODE (SET_DEST (XVECEXP (newpat, 0, 0))) == REG
-	   && find_reg_note (i3, REG_UNUSED, SET_DEST (XVECEXP (newpat, 0, 0)))
-	   && ! side_effects_p (SET_SRC (XVECEXP (newpat, 0, 0)))
-	   && asm_noperands (newpat) < 0)
-    {
-      newpat = XVECEXP (newpat, 0, 1);
-      insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
- 
-      if (insn_code_number >= 0)
+      if (GET_CODE (SET_DEST (set1)) == REG
+	  && find_reg_note (i3, REG_UNUSED, SET_DEST (set1))
+	  && (!(note = find_reg_note (i3, REG_EH_REGION, NULL_RTX))
+	      || INTVAL (XEXP (note, 0)) <= 0)
+	  && ! side_effects_p (SET_SRC (set1))
+	  /* It's pointless doing this if combining then splitting
+	     the parallel results in the original instructions.  */
+	  && ! rtx_equal_p (set0, PATTERN (i3)))
 	{
-	  /* If we will be able to accept this, we have made a change to the
-	     destination of I3.  This requires us to do a few adjustments.  */
-	  PATTERN (i3) = newpat;
-	  adjust_for_new_dest (i3);
+	  newpat = set0;
+	  insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
+	}
+
+      else if (GET_CODE (SET_DEST (set0)) == REG
+	       && find_reg_note (i3, REG_UNUSED, SET_DEST (set0))
+	       && (!(note = find_reg_note (i3, REG_EH_REGION, NULL_RTX))
+		   || INTVAL (XEXP (note, 0)) <= 0)
+	       && ! side_effects_p (SET_SRC (set0))
+	       /* It's pointless doing this if combining then splitting
+		  the parallel results in the original instructions.
+		  The net effect is only to move instructions around,
+		  which makes debug info less accurate.  */
+	       && ! rtx_equal_p (set1, PATTERN (i2)))
+	{
+	  newpat = set1;
+	  insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
+ 
+	  if (insn_code_number >= 0)
+	    {
+	      /* If we will be able to accept this, we have made a
+		 change to the destination of I3.  This requires us to
+		 do a few adjustments.  */
+	      PATTERN (i3) = newpat;
+	      adjust_for_new_dest (i3);
+	    }
 	}
     }
 

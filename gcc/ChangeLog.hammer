@@ -1,5 +1,10 @@
 2004-02-15  Alan Modra  <amodra@bigpond.net.au>
 
+	PR optimization/14119
+	* combine.c (try_combine): When attemting to fix unrecognized insns,
+	don't delete SETs marked with REG_EH_REGION notes.  Also, don't split
+	a PARALLEL when that results in the original insns.
+
 	Apply patch from mainline.
 	2003-09-04  Jan Hubicka  <jh@suse.cz>
 	* toplev.c (wrapup_global_declarations): Fix final pass in
