@@ -1,3 +1,10 @@
+2004-11-15  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/print/PrinterJob.java (lookupPrintServices,
+	getPrintService, setPrintService): Implement.
+	(lookupStreamPrintServices): Add commented out implementation.
+	(printer): New field.
+
 2004-11-14  Mark Wielaard  <mark@klomp.org>
 
 	* javax/swing/ToolTipManager.java (mouseMoved): Set currentComponent
@@ -7600,7 +7607,7 @@
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.c:
 	Likewise.
 
-2004-03-09  Kim Ho  <kho@redhat.com>
+2004-03-09? Kim Ho  <kho@redhat.com>
 
 	* java/awt/Container.java: (visitChild): Move
 	the x and y coordinate of the component rectangle
@@ -7914,7 +7921,7 @@
 	(setBackground): If c is null, inherit from closest ancestor whose
 	background color is set.
 
-2004-02-26  Kim Ho  <kho@redhat.com>
+2004-02-26? Kim Ho? <kho@redhat.com>
 
 	* Makefile.am: Add new files.
 	* Makefile.in: Re-generate.
@@ -8090,7 +8097,7 @@
 	(getMaximumSize): ditto.
 	(paintTicks): Use doubles to find the
 	tick location.
-	(paintHorizontalLabel):  Use preferredSize
+	(paintHorizontalLabel):? Use preferredSize
 	as initial width and height.
 	(paintVerticalLabel): ditto.
 
@@ -8218,7 +8225,7 @@
 	* javax/swing/plaf/basic/BasicLookAndFeel.java:
 	Added constant.
 
-2004-02-16  Kim Ho  <kho@redhat.com>
+2004-02-16? Kim Ho? <kho@redhat.com>
 
 	* javax/swing/JSlider.java: Fix indentation and comments.
 	(setModel): Remove null check to conform with Sun's.
@@ -8300,7 +8307,7 @@
         (hide): Only do something if component is visible at the moment.
         (reshape): If lightweight, erase old bounds and repaint new bounds.
 
-2004-02-13  Kim Ho  <kho@redhat.com>
+2004-02-13? Kim Ho? <kho@redhat.com>
 
 	* Makefile.am: Updated for new file.
 	* Makefile.in: Regenerated.
@@ -9482,7 +9489,7 @@
 	Reset the queue after transferring its contents.
 	(push): Start a new dispatch thread if none is running.
 
-2004-01-16Â  Olga Rodimina <rodimina@redhat.com>
+2004-01-16?? Olga Rodimina <rodimina@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GdkGraphics2D.java:
 	(doPolygon): set fill rule of polygon to 
@@ -9597,14 +9604,14 @@
 	* gnu/java/awt/peer/gtk/TestAWT.java (DialogWindow): Add WindowAdapter
 	to handle Window "Closing" events.
  
-2004-01-13Â  David JeeÂ  <djee@redhat.com>
+2004-01-13?? David Jee?? <djee@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkContainerPeer.java
 	(setBackground): New method. Children with no explicitly-set
 	background will be repainted with the parent container's new
 	background color.
 
-2004-01-13Â  David JeeÂ  <djee@redhat.com>
+2004-01-13?? David Jee?? <djee@redhat.com>
 
 	* Makefile.am: Add BitwiseXORComposite.java.
 	* Makefile.in: Regenerated.
