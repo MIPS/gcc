@@ -16,36 +16,48 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// 25.1.7 [lib.mismatch]
-
-// { dg-do compile }
+// 25.3.3.3 [lib.equal.range]
 
 #include <algorithm>
 #include <utility>
+#include <testsuite_hooks.h>
 #include <testsuite_iterators.h>
 
-using __gnu_test::input_iterator_wrapper;
+using __gnu_test::test_container;
+using __gnu_test::forward_iterator_wrapper;
+using std::equal_range;
 
-struct Lhs1 { };
+typedef test_container<int, forward_iterator_wrapper> Container;
+int array[] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2};
 
-struct Rhs1 { };
-
-bool operator==(const Lhs1&, const Rhs1&) {return true;}
-
-struct Lhs2 { };
-
-struct Rhs2 { };
-
-bool predicate(const Lhs2&, const Rhs2&) {return true;}
-
-std::pair<input_iterator_wrapper<Lhs1>, input_iterator_wrapper<Rhs1> >
-test1(input_iterator_wrapper<Lhs1>& lhs1, input_iterator_wrapper<Rhs1>& rhs1)
+void 
+test1()
 {
-  return std::mismatch(lhs1, lhs1, rhs1);
+  for(int i = 0; i < 6; ++i)
+    for(int j = 6; j < 12; ++j)
+      {
+	Container con(array + i, array + j);
+        VERIFY(equal_range(con.begin(), con.end(), 1).first.ptr ==
+	       array + std::max(i, 4));
+        VERIFY(equal_range(con.begin(), con.end(), 1).second.ptr ==
+               array + std::min(j, 8));
+      }
 }
 
-std::pair<input_iterator_wrapper<Lhs2>, input_iterator_wrapper<Rhs2> >
-test2(input_iterator_wrapper<Lhs2>& lhs2, input_iterator_wrapper<Rhs2>& rhs2)
+void
+test2()
 {
-  return std::mismatch(lhs2, lhs2, rhs2, predicate);
+  int array[]={0, 0, 2, 2, 2};
+  Container con(array, array + 5);
+  VERIFY(equal_range(con.begin(), con.end(), 1).first.ptr ==
+	 array + 2);
+  VERIFY(equal_range(con.begin(), con.end(), 1).second.ptr ==
+	 array + 2);
+}
+
+int 
+main()
+{
+  test1();
+  test2();
 }

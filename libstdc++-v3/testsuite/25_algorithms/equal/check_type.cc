@@ -16,9 +16,13 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
+// 25.1.8 [lib.alg.equal]
+
 // { dg-do compile }
 
 #include <algorithm>
+#include <testsuite_iterators.h>
+using __gnu_test::input_iterator_wrapper;
 
 struct Lhs1 { };
 
@@ -30,15 +34,15 @@ struct Lhs2 { };
 
 struct Rhs2 { };
 
-bool predicate(const Lhs2&, const Rhs2&) {return true;}
+bool 
+predicate(const Lhs2&, const Rhs2&) {return true;}
 
-void test1()
-{
-  Lhs1 lhs1[1];
-  Rhs1 rhs1[1];
-  std::equal(lhs1, lhs1 + 1, rhs1);
+bool 
+test1(input_iterator_wrapper<Lhs1>& lhs1,
+      input_iterator_wrapper<Rhs1>& rhs1)
+{ return std::equal(lhs1, lhs1, rhs1); }
 
-  Lhs2 lhs2[1];
-  Rhs2 rhs2[1];
-  std::equal(lhs2, lhs2 + 1, rhs2, predicate);
-}
+bool 
+test2(input_iterator_wrapper<Lhs2>& lhs2,
+      input_iterator_wrapper<Rhs2>& rhs2)
+{ return std::equal(lhs2, lhs2, rhs2, predicate); }

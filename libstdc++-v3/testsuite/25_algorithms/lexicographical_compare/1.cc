@@ -16,6 +16,8 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
+// 25.3.8 [lib.alg.lex.comparison]
+
 #include <algorithm>
 #include <testsuite_hooks.h>
 #include <testsuite_iterators.h>
@@ -28,7 +30,8 @@ int array1[] = {0, 1};
 int array2[] = {1, 0};
 int array3[] = {1, 0, 1};
 
-void test1()
+void 
+test1()
 {
   Container con1(array1, array1);
   Container con2(array2, array2);
@@ -36,7 +39,8 @@ void test1()
 					con2.begin(), con2.end()) );
 }
 
-void test2()
+void 
+test2()
 {
   Container con1(array1, array1 + 2);
   Container con2(array2, array2 + 2);
@@ -44,7 +48,8 @@ void test2()
 				       con2.begin(), con2.end()) );
 }
 
-void test3()
+void 
+test3()
 {
   Container con1(array1, array1 + 2);
   Container con2(array2, array2 + 2);
@@ -52,7 +57,8 @@ void test3()
 				        con1.begin(), con1.end()) );
 }
 
-void test4()
+void 
+test4()
 {
   Container con3(array3, array3 + 3);
   Container con2(array2, array2 + 2);
@@ -60,7 +66,8 @@ void test4()
 				       con3.begin(), con3.end()) );
 }
 
-void test5()
+void 
+test5()
 {
   Container con3(array3, array3 + 3);
   Container con2(array2, array2 + 2);
@@ -68,7 +75,8 @@ void test5()
 					con2.begin(), con2.end()) );
 }
 
-int main()
+int 
+main()
 {
   test1();
   test2();

@@ -16,7 +16,7 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// 25.3.8 [lib.alg.lex.comparison]
+// 25.1.3 [lib.alg.find.end]
 
 // { dg-do compile }
 
@@ -24,28 +24,30 @@
 #include <algorithm>
 #include <testsuite_iterators.h>
 
-using __gnu_test::input_iterator_wrapper;
+using __gnu_test::forward_iterator_wrapper;
 
 struct Lhs1 { };
 
 struct Rhs1 { };
 
-bool 
-operator<(const Lhs1&, const Rhs1&) {return true;}
+bool operator==(const Lhs1&, const Rhs1&) {return true;}
 
-bool 
-operator<(const Rhs1&, const Lhs1&) {return false;}
+struct X1 { };
 
-struct X { };
+struct X2 { };
 
-bool 
-predicate(const X&, const X&) {return true;}
+bool predicate(const X1&, const X2&) {return true;}
 
-bool 
-test1(input_iterator_wrapper<Lhs1>& lhs1,
-      input_iterator_wrapper<Rhs1>& rhs1)
-{ return std::lexicographical_compare(lhs1, lhs1, rhs1, rhs1); }
+forward_iterator_wrapper<Lhs1>
+test1(forward_iterator_wrapper<Lhs1>& lhs1, 
+      forward_iterator_wrapper<Rhs1>& rhs1)
+{
+  return std::find_end(lhs1, lhs1, rhs1, rhs1);
+}
 
-bool 
-test2(input_iterator_wrapper<X>& x)
-{ return std::lexicographical_compare(x, x, x, x, predicate); }
+forward_iterator_wrapper<X1>
+test2(forward_iterator_wrapper<X1>& x1,
+      forward_iterator_wrapper<X2>& x2)
+{
+  return std::find_end(x1, x1, x2, x2, predicate);
+}

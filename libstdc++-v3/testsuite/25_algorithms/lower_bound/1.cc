@@ -16,36 +16,32 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// 25.3.8 [lib.alg.lex.comparison]
-
-// { dg-do compile }
-
+// 25.3.3.1 [lib.lower.bound]
 
 #include <algorithm>
+#include <testsuite_hooks.h>
 #include <testsuite_iterators.h>
 
-using __gnu_test::input_iterator_wrapper;
+using __gnu_test::test_container;
+using __gnu_test::forward_iterator_wrapper;
+using std::lower_bound;
 
-struct Lhs1 { };
+typedef test_container<int, forward_iterator_wrapper> Container;
+int array[] = {0, 0, 0, 0, 1, 1, 1, 1};
 
-struct Rhs1 { };
+void 
+test1()
+{
+  for(int i = 0; i < 5; ++i)
+    for(int j = 4; j < 7; ++j)
+      {
+	Container con(array + i, array + j);
+	VERIFY(lower_bound(con.begin(), con.end(), 1).ptr == array + 4);
+      }
+}
 
-bool 
-operator<(const Lhs1&, const Rhs1&) {return true;}
-
-bool 
-operator<(const Rhs1&, const Lhs1&) {return false;}
-
-struct X { };
-
-bool 
-predicate(const X&, const X&) {return true;}
-
-bool 
-test1(input_iterator_wrapper<Lhs1>& lhs1,
-      input_iterator_wrapper<Rhs1>& rhs1)
-{ return std::lexicographical_compare(lhs1, lhs1, rhs1, rhs1); }
-
-bool 
-test2(input_iterator_wrapper<X>& x)
-{ return std::lexicographical_compare(x, x, x, x, predicate); }
+int 
+main()
+{
+  test1();
+}

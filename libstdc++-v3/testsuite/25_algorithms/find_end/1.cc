@@ -16,36 +16,42 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// 25.3.8 [lib.alg.lex.comparison]
-
-// { dg-do compile }
-
+// 25.1.3 [lib.alg.find.end]
 
 #include <algorithm>
+#include <testsuite_hooks.h>
 #include <testsuite_iterators.h>
 
-using __gnu_test::input_iterator_wrapper;
+using __gnu_test::test_container;
+using __gnu_test::forward_iterator_wrapper;
 
-struct Lhs1 { };
+typedef test_container<int, forward_iterator_wrapper> Container;
 
-struct Rhs1 { };
+using std::find_end;
 
-bool 
-operator<(const Lhs1&, const Rhs1&) {return true;}
+void
+test1()
+{
+  int array[] = {0};
+  Container con1(array, array);
+  Container con2(array, array + 1);
+  VERIFY(find_end(con1.begin(), con1.end(), con1.begin(), con1.end()).ptr == array);
+  VERIFY(find_end(con1.begin(), con1.end(), con2.begin(), con2.end()).ptr == array);
+  VERIFY(find_end(con2.begin(), con2.end(), con1.begin(), con1.end()).ptr == array + 1);
+}
 
-bool 
-operator<(const Rhs1&, const Lhs1&) {return false;}
+void 
+test2()
+{
+  int array1[] = {2, 2, 1, 2, 2, 1};
+  int array2[] = {2, 2};
+  Container con1(array1, array1 + 6);
+  Container con2(array2, array2 + 2);
+  VERIFY(find_end(con1.begin(), con1.end(), con2.begin(), con2.end()).ptr == array1 + 3);
+}
 
-struct X { };
-
-bool 
-predicate(const X&, const X&) {return true;}
-
-bool 
-test1(input_iterator_wrapper<Lhs1>& lhs1,
-      input_iterator_wrapper<Rhs1>& rhs1)
-{ return std::lexicographical_compare(lhs1, lhs1, rhs1, rhs1); }
-
-bool 
-test2(input_iterator_wrapper<X>& x)
-{ return std::lexicographical_compare(x, x, x, x, predicate); }
+int main()
+{
+  test1();
+  test2();
+}

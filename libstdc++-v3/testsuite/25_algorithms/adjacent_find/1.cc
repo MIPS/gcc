@@ -16,36 +16,52 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// 25.3.8 [lib.alg.lex.comparison]
-
-// { dg-do compile }
-
+// 25.1.5 [lib.alg.adjacent_find]
 
 #include <algorithm>
+#include <testsuite_hooks.h>
 #include <testsuite_iterators.h>
 
-using __gnu_test::input_iterator_wrapper;
+using __gnu_test::test_container;
+using __gnu_test::forward_iterator_wrapper;
+using std::adjacent_find;
 
-struct Lhs1 { };
+typedef test_container<int, forward_iterator_wrapper> Container;
+int array[] = {0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1};
 
-struct Rhs1 { };
+void 
+test01()
+{
+  Container con(array, array);
+  VERIFY(adjacent_find(con.begin(), con.end()).ptr == array);
+}  
 
-bool 
-operator<(const Lhs1&, const Rhs1&) {return true;}
+void 
+test02()
+{
+  Container con(array, array + 1);
+  VERIFY(adjacent_find(con.begin(), con.end()).ptr == array + 1);
+}
 
-bool 
-operator<(const Rhs1&, const Lhs1&) {return false;}
+void 
+test03()
+{
+  Container con(array, array + 2);
+  VERIFY(adjacent_find(con.begin(), con.end()).ptr == array);
+}
 
-struct X { };
+void 
+test04()
+{
+  Container con(array + 1, array + 10);
+  VERIFY(adjacent_find(con.begin(), con.end()).ptr == array + 10);
+}
 
-bool 
-predicate(const X&, const X&) {return true;}
-
-bool 
-test1(input_iterator_wrapper<Lhs1>& lhs1,
-      input_iterator_wrapper<Rhs1>& rhs1)
-{ return std::lexicographical_compare(lhs1, lhs1, rhs1, rhs1); }
-
-bool 
-test2(input_iterator_wrapper<X>& x)
-{ return std::lexicographical_compare(x, x, x, x, predicate); }
+int 
+main()
+{
+  test01();
+  test02();
+  test03();
+  test04();
+}
