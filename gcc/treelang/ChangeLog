@@ -1,3 +1,75 @@
+2003-07-04  H.J. Lu <hongjiu.lu@intel.com>
+
+	* Make-lang.in: Replace PWD with PWD_COMMAND.
+
+2003-07-02  Neil Booth  <neil@daikokuya.co.uk>
+
+	* tree1.c (treelang_init_options): Update prototype.
+	* treelang.h (treelang_init_options): Update prototype.
+
+2003-07-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Update.
+	* tree1.c: Include c-common.h.  Define c_language.
+
+2003-06-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* treetree.c (tree_code_create_function_wrapup): Adjust
+	expand_function_end call.
+
+2003-06-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* treetree.c (build_stmt): Remove VPARAMS.
+	(pedwarn_c99): Likewise.
+
+2003-06-15  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang.opt: Declare Treelang.  Update.
+	* tree1.c (treelang_init_options): Update.
+
+2003-06-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* treetree.c (tree_code_create_function_initial): Adjust
+	init_function_start call.
+
+2003-06-14  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Update to use options.c and options.h.
+	* tree1.c: Include options.h not t-options.h.
+	(treelang_init_options): New.
+	(treelang_handle_option): Abort on unrecognized switch.
+	* treetree.c (LANG_HOOKS_INIT_OPTIONS): Override.
+	* treetree.h (treelang_init_options): New.
+
+2003-06-12  Andreas Jaeger  <aj@suse.de>
+
+	* treetree.c: Remove cl_options-count and cl_options.
+
+2003-06-11  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Update for option handling.
+	* lang.opt: New.
+	* tree1.c: Include opts.h and t-options.h.
+	(treelang_decode_option): Remove.
+	(treelang_handle_option): New.
+	* treetree.c (LANG_HOOKS_DECODE_OPTION): Remove.
+	(LANG_HOOKS_HANDLE_OPTION): Override.
+	* treetree.h (treelang_decode_option): Remove.
+	(treelang_handle_option): New.
+
+2003-06-08  Andreas Jaeger  <aj@suse.de>
+
+	* Make-lang.in: Update.
+	* treetree.c: Include opts.h. Define cl_options_count and cl_options.
+
+2003-06-08  Tim Josling  <tej@melbpc.org.au>
+
+	* treetree.c (c_lex): Add fake routine to satisfy RS6000 backend.
+
+Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* Make-lang.in:  Add support for stageprofile and stagefeedback
+
 2003-05-21  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* treetree.c (reswords): Remove __bounded__, __unbounded__.

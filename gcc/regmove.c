@@ -1289,7 +1289,8 @@ regmove_optimize (f, nregs, regmove_dump_file)
 	      if (GET_CODE (dst) != REG
 		  || REGNO (dst) < FIRST_PSEUDO_REGISTER
 		  || REG_LIVE_LENGTH (REGNO (dst)) < 0
-		  || RTX_UNCHANGING_P (dst))
+		  || RTX_UNCHANGING_P (dst)
+		  || GET_MODE (src) != GET_MODE (dst))
 		continue;
 
 	      /* If the operands already match, then there is nothing to do.  */
@@ -2069,7 +2070,7 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
 }
 
 
-/* return nonzero if X is stable and mentions no regsiters but for
+/* return nonzero if X is stable and mentions no registers but for
    mentioning SRC or mentioning / changing DST .  If in doubt, presume
    it is unstable.
    The rationale is that we want to check if we can move an insn easily
@@ -2322,14 +2323,14 @@ record_stack_memrefs (xp, data)
       return 1;
     case REG:
       /* ??? We want be able to handle non-memory stack pointer
-	 references later.  For now just discard all insns refering to
+	 references later.  For now just discard all insns referring to
 	 stack pointer outside mem expressions.  We would probably
 	 want to teach validate_replace to simplify expressions first.
 
 	 We can't just compare with STACK_POINTER_RTX because the
 	 reference to the stack pointer might be in some other mode.
 	 In particular, an explicit clobber in an asm statement will
-	 result in a QImode clober.  */
+	 result in a QImode clobber.  */
       if (REGNO (x) == STACK_POINTER_REGNUM)
 	return 1;
       break;

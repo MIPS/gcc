@@ -31,8 +31,6 @@ load_lib gcc-defs.exp
 
 
 set gpp_compile_options ""
-set additional_sources ""
-set additional_files ""
 
 #
 # g++_version -- extract and print the version number of the compiler
@@ -82,22 +80,11 @@ proc g++_include_flags { paths } {
       return "${flags}"
     }
 
-    set dir [lookfor_file ${srcdir} libg++]
-    if { ${dir} != "" } {
-      append flags "-I${dir} -I${dir}/src "
-    }
-
     set gccpath ${paths}
 
-    if { ${HAVE_LIBSTDCXX_V3} } {
-      set odir_v3 [lookfor_file ${gccpath} libstdc++-v3]
-      if { ${odir_v3} != "" } {
-        append flags [exec sh ${odir_v3}/testsuite_flags --build-includes]
-      }
-    } else {
-      set odir_v2 [lookfor_file ${gccpath} libstdc++]
-      set sdir_v2 [lookfor_file ${srcdir} libstdc++]
-      append flags "-I${sdir_v2} -I${sdir_v2}/stl "
+    set odir [lookfor_file ${gccpath} libstdc++-v3]
+    if { ${odir} != "" } {
+      append flags [exec sh ${odir}/scripts/testsuite_flags --build-includes]  
     }
 
     return "$flags"
@@ -306,33 +293,9 @@ proc g++_target_compile { source dest type options } {
 	exec rm -f $rponame
     }
 
-    global additional_sources
-    global additional_files
-    set to_download ""
-    if { $additional_sources != "" } then {
-	if [is_remote host] {
-	    lappend options "additional_flags=$additional_sources"
-	}
-	regsub -all "^| " $additional_sources " [file dirname $source]/" additional_sources
-	if ![is_remote host] {
-	    lappend options "additional_flags=$additional_sources"
-	}
-	set to_download [concat $to_download $additional_sources]
-    }
-    if { $additional_files != "" } then { 
-	regsub -all " " $additional_files " [file dirname $source]/" additional_files
-	set to_download [concat $to_download $additional_files]
-    }
-    if [is_remote host] {
-	foreach file $to_download {
-	    remote_download host $file
-	}
-    }
+    set options [dg-additional-files-options $options $source]
 
     set result [target_compile $source $dest $type $options]
-
-    set additional_sources ""
-    set additional_files ""
 
     return $result
 }

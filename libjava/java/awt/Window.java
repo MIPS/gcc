@@ -43,29 +43,37 @@ import java.awt.event.WindowFocusListener;
 import java.awt.event.WindowListener;
 import java.awt.event.WindowStateListener;
 import java.awt.peer.WindowPeer;
-import java.awt.peer.ComponentPeer;
 import java.util.EventListener;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleContext;
 
 /**
  * This class represents a top-level window with no decorations.
  *
- * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @author Aaron M. Renn <arenn@urbanophile.com>
  * @author Warren Levy  <warrenl@cygnus.com>
  */
-public class Window extends Container
+public class Window extends Container implements Accessible
 {
+  private static final long serialVersionUID = 4497834738069338734L;
+
   // Serialized fields, from Sun's serialization spec.
-  // private FocusManager focusMgr;  // FIXME: what is this?  
   private String warningString = null;
-  private int state = 0;
   private int windowSerializedDataVersion = 0; // FIXME
+  /** @since 1.2 */
+  // private FocusManager focusMgr;  // FIXME: what is this?  
+  /** @since 1.2 */
+  private int state = 0;
+  /** @since 1.4 */
+  private boolean focusableWindowState = true;
 
   private transient WindowListener windowListener;
   private transient WindowFocusListener windowFocusListener;
   private transient WindowStateListener windowStateListener;
   private transient GraphicsConfiguration graphicsConfiguration;
+  private transient AccessibleContext accessibleContext;
 
   /** 
    * This (package access) constructor is used by subclasses that want
@@ -76,7 +84,7 @@ public class Window extends Container
   Window()
   {
     setVisible(false);
-    setLayout((LayoutManager) new BorderLayout());
+    setLayout(new BorderLayout());
   }
 
   Window(GraphicsConfiguration gc)
@@ -84,7 +92,7 @@ public class Window extends Container
     this();
     graphicsConfiguration = gc;
   }
-    
+
   /**
    * Initializes a new instance of <code>Window</code> with the specified
    * parent.  The window will initially be invisible.
@@ -582,7 +590,7 @@ public class Window extends Container
    */
   public void applyResourceBundle(ResourceBundle rb)
   {
-    // FIXME
+    throw new Error ("Not implemented");
   }
 
   /**
@@ -597,12 +605,12 @@ public class Window extends Container
       applyResourceBundle(rb);    
   }
 
-  /*
   public AccessibleContext getAccessibleContext()
   {
     // FIXME
+    //return null;
+    throw new Error ("Not implemented");
   }
-  */
 
   /** 
    * Get graphics configuration.  The implementation for Window will
@@ -644,5 +652,44 @@ public class Window extends Container
     if (windowStateListener != null
         && event.getID () == WindowEvent.WINDOW_STATE_CHANGED)
       windowStateListener.windowStateChanged (event);
+  }
+
+  /**
+   * Returns whether this <code>Window</code> can get the focus or not.
+   *
+   * @since 1.4
+   */
+  public final boolean isFocusableWindow ()
+  {
+    if (getFocusableWindowState () == false)
+      return false;
+
+    if (this instanceof Dialog
+        || this instanceof Frame)
+      return true;
+
+    // FIXME: Implement more possible cases for returning true.
+
+    return false;
+  }
+  
+  /**
+   * Returns the value of the focusableWindowState property.
+   * 
+   * @since 1.4
+   */
+  public boolean getFocusableWindowState ()
+  {
+    return focusableWindowState;
+  }
+
+  /**
+   * Sets the value of the focusableWindowState property.
+   * 
+   * @since 1.4
+   */
+  public void setFocusableWindowState (boolean focusableWindowState)
+  {
+    this.focusableWindowState = focusableWindowState;
   }
 }

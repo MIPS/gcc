@@ -149,6 +149,10 @@ enum optab_index
   OTI_trunc,
   OTI_round,
   OTI_nearbyint,
+  /* Tangent */
+  OTI_tan,
+  /* Inverse tangent */
+  OTI_atan,
 
   /* Compare insn; two operands.  */
   OTI_cmp,
@@ -232,6 +236,8 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define trunc_optab (optab_table[OTI_trunc])
 #define round_optab (optab_table[OTI_round])
 #define nearbyint_optab (optab_table[OTI_nearbyint])
+#define tan_optab (optab_table[OTI_tan])
+#define atan_optab (optab_table[OTI_atan])
 
 #define cmp_optab (optab_table[OTI_cmp])
 #define ucmp_optab (optab_table[OTI_ucmp])
@@ -306,6 +312,7 @@ extern int expand_twoval_binop PARAMS ((optab, rtx, rtx, rtx, rtx, int));
 extern rtx expand_unop PARAMS ((enum machine_mode, optab, rtx, rtx, int));
 
 /* Expand the absolute value operation.  */
+extern rtx expand_abs_nojump PARAMS ((enum machine_mode, rtx, rtx, int));
 extern rtx expand_abs PARAMS ((enum machine_mode, rtx, rtx, int, int));
 
 /* Expand the complex absolute value operation.  */

@@ -180,6 +180,12 @@ struct lang_hooks_for_decls
   /* Obtain a list of globals and do final output on them at end
      of compilation */
   void (*final_write_globals) PARAMS ((void));
+
+  /* Do necessary preparations before assemble_variable can proceed.  */
+  void (*prepare_assemble_variable) PARAMS ((tree));
+
+  /* True if this decl may be called via a sibcall.  */
+  bool (*ok_for_sibcall) PARAMS ((tree));
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */
@@ -199,18 +205,20 @@ struct lang_hooks
   size_t (*tree_size) PARAMS ((enum tree_code));
 
   /* The first callback made to the front end, for simple
-     initialization needed before any calls to decode_option.  */
-  void (*init_options) PARAMS ((void));
+     initialization needed before any calls to handle_option.  Return
+     the language mask to filter the switch array with.  */
+  unsigned int (*init_options) (unsigned int argc, const char **argv);
 
-  /* Function called with an option vector as argument, to decode a
-     single option (typically starting with -f or -W or +).  It should
-     return the number of command-line arguments it uses if it handles
-     the option, or 0 and not complain if it does not recognize the
-     option.  If this function returns a negative number, then its
-     absolute value is the number of command-line arguments used, but,
-     in addition, no language-independent option processing should be
-     done for this option.  */
-  int (*decode_option) PARAMS ((int, char **));
+  /* Handle the switch CODE, which has real type enum opt_code from
+     options.h.  If the switch takes an argument, it is passed in ARG
+     which points to permanent storage.  The handler is responsible for
+     checking whether ARG is NULL, which indicates that no argument
+     was in fact supplied.  For -f and -W switches, VALUE is 1 or 0
+     for the positive and negative forms respectively.
+
+     Return 1 if the switch is valid, 0 if invalid, and -1 if it's
+     valid and should not be treated as language-independent too.  */
+  int (*handle_option) (size_t code, const char *arg, int value);
 
   /* Called when all command line options have been parsed to allow
      further processing and initialization
@@ -323,6 +331,11 @@ struct lang_hooks
 
   /* Nonzero if TYPE_READONLY and TREE_READONLY should always be honored.  */
   bool honor_readonly;
+
+  /* Nonzero if this front end does not generate a dummy BLOCK between
+     the outermost scope of the function and the FUNCTION_DECL.  See
+     is_body_block in stmt.c, and its callers.  */
+  bool no_body_blocks;
 
   /* The front end can add its own statistics to -fmem-report with
      this hook.  It should output to stderr.  */

@@ -1304,7 +1304,8 @@ mudflap_enqueue_decl (tree obj, const char *label)
 	  found_p = 1;
 
       if (found_p)
-	warning ("mudflap cannot track lifetime of `%D'", obj);
+	warning ("mudflap cannot track lifetime of `%s'",
+		 IDENTIFIER_POINTER (DECL_NAME (obj)));
       else
 	{
 	  VARRAY_PUSH_TREE (deferred_static_decls, obj);

@@ -151,7 +151,7 @@ typedef struct edge_def {
 #define EDGE_CAN_FALLTHRU	64	/* Candidate for straight line
 					   flow.  */
 #define EDGE_IRREDUCIBLE_LOOP	128	/* Part of irreducible loop.  */
-
+#define EDGE_SIBCALL		256	/* Edge from sibcall to exit.  */
 #define EDGE_TRUE_VALUE		512	/* Edge taken when controlling
 					   predicate is non zero.  */
 #define EDGE_FALSE_VALUE	1024	/* Edge taken when controlling
@@ -163,7 +163,7 @@ typedef struct edge_def {
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 
 /* Counter summary from the last set of coverage counts read by
-   profile.c. */
+   profile.c.  */
 extern const struct gcov_ctr_summary *profile_info;
 
 /* Declared in cfgloop.h.  */
@@ -247,6 +247,9 @@ typedef struct basic_block_def {
 
   /* Various flags.  See BB_* below.  */
   int flags;
+
+  /* Additional data maintained by cfg_layout routines.  */
+  struct reorder_block_def *rbi;
 } *basic_block;
 
 #define BB_FREQ_MAX 10000
@@ -348,10 +351,8 @@ extern void update_bb_for_insn		PARAMS ((basic_block));
 
 extern void free_basic_block_vars	PARAMS ((int));
 
-extern edge split_block			PARAMS ((basic_block, rtx));
-extern basic_block rtl_split_edge	PARAMS ((edge));
-extern basic_block tree_split_edge	PARAMS ((edge));
 extern void insert_insn_on_edge		PARAMS ((rtx, edge));
+bool safe_insert_insn_on_edge (rtx, edge);
 
 extern void commit_edge_insertions	PARAMS ((void));
 extern void commit_edge_insertions_watch_calls	PARAMS ((void));
@@ -373,11 +374,7 @@ extern void redirect_edge_succ		PARAMS ((edge, basic_block));
 extern edge redirect_edge_succ_nodup	PARAMS ((edge, basic_block));
 extern void redirect_edge_pred		PARAMS ((edge, basic_block));
 extern basic_block create_basic_block_structure PARAMS ((rtx, rtx, rtx, basic_block));
-extern basic_block create_basic_block	PARAMS ((rtx, rtx, basic_block));
-extern int flow_delete_block		PARAMS ((basic_block));
-extern int flow_delete_block_noexpunge	PARAMS ((basic_block));
 extern void clear_bb_flags		PARAMS ((void));
-extern void merge_blocks_nomove		PARAMS ((basic_block, basic_block));
 extern void tidy_fallthru_edge		PARAMS ((edge, basic_block,
 						 basic_block));
 extern void tidy_fallthru_edges		PARAMS ((void));
@@ -502,7 +499,7 @@ enum update_life_extent
 				 | PROP_ALLOW_CFG_CHANGES \
 				 | PROP_SCAN_DEAD_STORES)
 
-#define CLEANUP_EXPENSIVE	1	/* Do relativly expensive optimizations
+#define CLEANUP_EXPENSIVE	1	/* Do relatively expensive optimizations
 					   except for edge forwarding */
 #define CLEANUP_CROSSJUMP	2	/* Do crossjumping.  */
 #define CLEANUP_POST_REGSTACK	4	/* We run after reg-stack and need
@@ -515,6 +512,7 @@ enum update_life_extent
 #define CLEANUP_THREADING	64	/* Do jump threading.  */
 #define CLEANUP_NO_INSN_DEL	128	/* Do not try to delete trivially dead
 					   insns.  */
+#define CLEANUP_CFGLAYOUT	256	/* Do cleanup in cfglayout mode.  */
 extern void life_analysis	PARAMS ((rtx, FILE *, int));
 extern int update_life_info	PARAMS ((sbitmap, enum update_life_extent,
 					 int));
@@ -551,14 +549,12 @@ extern rtx emit_block_insn_before	PARAMS ((rtx, rtx, basic_block));
 extern void estimate_probability        PARAMS ((struct loops *));
 extern void note_prediction_to_br_prob	PARAMS ((void));
 extern void expected_value_to_br_prob	PARAMS ((void));
-extern void note_prediction_to_br_prob	PARAMS ((void));
 extern bool maybe_hot_bb_p		PARAMS ((basic_block));
 extern bool probably_cold_bb_p		PARAMS ((basic_block));
 extern bool probably_never_executed_bb_p PARAMS ((basic_block));
 
 /* In flow.c */
 extern void init_flow                   PARAMS ((void));
-extern void reorder_basic_blocks	PARAMS ((void));
 extern void dump_bb			PARAMS ((basic_block, FILE *));
 extern void debug_bb			PARAMS ((basic_block));
 extern basic_block debug_bb_n		PARAMS ((int));
@@ -573,9 +569,7 @@ extern void compact_blocks		PARAMS ((void));
 extern basic_block alloc_block		PARAMS ((void));
 extern void find_unreachable_blocks	PARAMS ((void));
 extern int delete_noop_moves		PARAMS ((rtx));
-extern basic_block redirect_edge_and_branch_force PARAMS ((edge, basic_block));
 extern basic_block force_nonfallthru	PARAMS ((edge));
-extern bool redirect_edge_and_branch	PARAMS ((edge, basic_block));
 extern rtx block_label			PARAMS ((basic_block));
 extern bool forwarder_block_p		PARAMS ((basic_block));
 extern bool purge_all_dead_edges	PARAMS ((int));
@@ -599,8 +593,7 @@ extern void free_aux_for_edges		PARAMS ((void));
 /* This function is always defined so it can be called from the
    debugger, and it is declared extern so we don't get warnings about
    it being unused.  */
-extern void rtl_verify_flow_info	PARAMS ((void));
-extern void tree_verify_flow_info	PARAMS ((void));
+extern void verify_flow_info		PARAMS ((void));
 
 typedef struct conflict_graph_def *conflict_graph;
 
@@ -637,6 +630,9 @@ extern rtx hoist_insn_after		PARAMS ((rtx, rtx, rtx, rtx));
 extern rtx hoist_insn_to_edge		PARAMS ((rtx, edge, rtx, rtx));
 extern bool inside_basic_block_p	PARAMS ((rtx));
 extern bool control_flow_insn_p		PARAMS ((rtx));
+
+/* In bb-reorder.c */
+extern void reorder_basic_blocks (void);
 
 /* In dominance.c */
 

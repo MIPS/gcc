@@ -41,3 +41,5 @@ Boston, MA 02111-1307, USA.  */
 #undef LIB_SPEC
 #define LIB_SPEC \
 "%{pthread:-lpthread} %{shared:-lc}%{!shared:%{profile:-lc_p}%{!profile:-lc}} "
+
+#define TARGET_ASM_FILE_END file_end_indicate_exec_stack

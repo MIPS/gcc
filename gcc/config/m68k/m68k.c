@@ -59,6 +59,7 @@ static void m68k_svr3_asm_out_constructor PARAMS ((rtx, int));
 #endif
 #ifdef HPUX_ASM
 static void m68k_hp320_internal_label PARAMS ((FILE *, const char *, unsigned long));
+static void m68k_hp320_file_start PARAMS ((void));
 #endif
 static void m68k_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 					  HOST_WIDE_INT, tree));
@@ -130,6 +131,9 @@ int m68k_last_compare_had_fp_operands;
 #define TARGET_ASM_OUTPUT_MI_THUNK m68k_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
+
+#undef TARGET_ASM_FILE_START_APP_OFF
+#define TARGET_ASM_FILE_START_APP_OFF true
 
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS m68k_rtx_costs
@@ -251,69 +255,6 @@ m68k_save_reg (regno)
 
 /* Note that the order of the bit mask for fmovem is the opposite
    of the order for movem!  */
-
-#ifdef CRDS
-
-static void
-m68k_output_function_prologue (stream, size)
-     FILE *stream;
-     HOST_WIDE_INT size;
-{
-  register int regno;
-  register int mask = 0;
-  HOST_WIDE_INT fsize = ((size) + 3) & -4;
-
-  /* unos stack probe */
-  if (fsize > 30000)
-    {
-      fprintf (stream, "\tmovel sp,a0\n");
-      fprintf (stream, "\taddl $-" HOST_WIDE_INT_PRINT_DEC ",a0\n",
-	       2048 + fsize);
-      fprintf (stream, "\ttstb (a0)\n");
-    }
-  else
-    fprintf (stream, "\ttstb -" HOST_WIDE_INT_PRINT_DEC "(sp)\n",
-	     2048 + fsize);
-
-  if (frame_pointer_needed)
-    {
-      if (TARGET_68020 || fsize < 0x8000)
-	fprintf (stream, "\tlink a6,$" HOST_WIDE_INT_PRINT_DEC "\n", -fsize);
-      else
-	fprintf (stream,
-		 "\tlink a6,$0\n\tsubl $" HOST_WIDE_INT_PRINT_DEC ",sp\n",
-		 fsize);
-    }
-  else if (fsize)
-    {
-      /* Adding negative number is faster on the 68040.  */
-      if (fsize + 4 < 0x8000)
-	fprintf (stream, "\tadd.w $" HOST_WIDE_INT_PRINT_DEC ",sp\n",
-		 - (fsize + 4));
-      else
-	fprintf (stream, "\tadd.l $" HOST_WIDE_INT_PRINT_DEC ",sp\n",
-		 - (fsize + 4));
-    }
-
-  for (regno = 16; regno < 24; regno++)
-    if (m68k_save_reg (regno))
-      mask |= 1 << (regno - 16);
-
-  if ((mask & 0xff) != 0)
-    fprintf (stream, "\tfmovem $0x%x,-(sp)\n", mask & 0xff);
-
-  mask = 0;
-  for (regno = 0; regno < 16; regno++)
-    if (m68k_save_reg (regno))
-      mask |= 1 << (15 - regno);
-
-  if (exact_log2 (mask) >= 0)
-    fprintf (stream, "\tmovel %s,-(sp)\n", reg_names[15 - exact_log2 (mask)]);
-  else if (mask)
-    fprintf (stream, "\tmovem $0x%x,-(sp)\n", mask);
-}
-
-#else  /* !CRDS */
 
 static void
 m68k_output_function_prologue (stream, size)
@@ -639,7 +580,6 @@ m68k_output_function_prologue (stream, size)
 #endif
     }
 }
-#endif   /* !CRDS  */
 
 /* Return true if this function's epilogue can be output as RTL.  */
 
@@ -665,108 +605,6 @@ use_return_insn ()
    It should use the frame pointer only, if there is a frame pointer.
    This is mandatory because of alloca; we also take advantage of it to
    omit stack adjustments before returning.  */
-
-#ifdef CRDS
-
-static void
-m68k_output_function_epilogue (stream, size)
-     FILE *stream;
-     HOST_WIDE_INT size;
-{
-  register int regno;
-  register int mask, fmask;
-  register int nregs;
-  HOST_WIDE_INT offset, foffset;
-  HOST_WIDE_INT fsize = ((size) + 3) & -4;
-  int big = 0;
-
-  nregs = 0;  fmask = 0;
-  for (regno = 16; regno < 24; regno++)
-    if (m68k_save_reg (regno))
-      {
-	nregs++;
-	fmask |= 1 << (23 - regno);
-      }
-
-  foffset = nregs * 12;
-  nregs = 0;  mask = 0;
-
-  for (regno = 0; regno < 16; regno++)
-    if (m68k_save_reg (regno))
-      {
-	nregs++;
-	mask |= 1 << regno;
-      }
-
-  offset = foffset + nregs * 4;
-  if (offset + fsize >= 0x8000
-      && frame_pointer_needed
-      && (mask || fmask))
-    {
-      fprintf (stream, "\tmovel $" HOST_WIDE_INT_PRINT_DEC ",a0\n", -fsize);
-      fsize = 0, big = 1;
-    }
-
-  if (exact_log2 (mask) >= 0)
-    {
-      if (big)
-	fprintf (stream, "\tmovel -" HOST_WIDE_INT_PRINT_DEC "(a6,a0.l),%s\n",
-		 offset + fsize, reg_names[exact_log2 (mask)]);
-      else if (! frame_pointer_needed)
-	fprintf (stream, "\tmovel (sp)+,%s\n",
-		 reg_names[exact_log2 (mask)]);
-      else
-	fprintf (stream, "\tmovel -" HOST_WIDE_INT_PRINT_DEC "(a6),%s\n",
-		 offset + fsize, reg_names[exact_log2 (mask)]);
-    }
-  else if (mask)
-    {
-      if (big)
-	fprintf (stream,
-		 "\tmovem -" HOST_WIDE_INT_PRINT_DEC "(a6,a0.l),$0x%x\n",
-		 offset + fsize, mask);
-      else if (! frame_pointer_needed)
-	fprintf (stream, "\tmovem (sp)+,$0x%x\n", mask);
-      else
-	fprintf (stream, "\tmovem -" HOST_WIDE_INT_PRINT_DEC "(a6),$0x%x\n",
-		 offset + fsize, mask);
-    }
-
-  if (fmask)
-    {
-      if (big)
-	fprintf (stream,
-		 "\tfmovem -" HOST_WIDE_INT_PRINT_DEC "(a6,a0.l),$0x%x\n",
-		 foffset + fsize, fmask);
-      else if (! frame_pointer_needed)
-	fprintf (stream, "\tfmovem (sp)+,$0x%x\n", fmask);
-      else
-	fprintf (stream, "\tfmovem -" HOST_WIDE_INT_PRINT_DEC "(a6),$0x%x\n",
-		 foffset + fsize, fmask);
-    }
-
-  if (frame_pointer_needed)
-    fprintf (stream, "\tunlk a6\n");
-  else if (fsize)
-    {
-      if (fsize + 4 < 0x8000)
-	fprintf (stream, "\tadd.w $" HOST_WIDE_INT_PRINT_DEC ",sp\n",
-		 fsize + 4);
-      else
-	fprintf (stream, "\tadd.l $" HOST_WIDE_INT_PRINT_DEC ",sp\n",
-		 fsize + 4);
-    }
-
-  if (current_function_calls_eh_return)
-    fprintf (stream, "\tadd.l a0,sp\n");
-
-  if (current_function_pops_args)
-    fprintf (stream, "\trtd $%d\n", current_function_pops_args);
-  else
-    fprintf (stream, "\trts\n");
-}
-
-#else  /* !CRDS */
 
 static void
 m68k_output_function_epilogue (stream, size)
@@ -1041,7 +879,6 @@ m68k_output_function_epilogue (stream, size)
   else
     fprintf (stream, "\trts\n");
 }
-#endif   /* !CRDS  */
 
 /* Similar to general_operand, but exclude stack_pointer_rtx.  */
 
@@ -1768,27 +1605,27 @@ output_move_const_into_data_reg (operands)
   switch (const_method (operands[1]))
     {
     case MOVQ :
-#if defined (MOTOROLA) && !defined (CRDS)
+#if defined (MOTOROLA)
       return "moveq%.l %1,%0";
 #else
       return "moveq %1,%0";
 #endif
     case NOTB :
       operands[1] = GEN_INT (i ^ 0xff);
-#if defined (MOTOROLA) && !defined (CRDS)
+#if defined (MOTOROLA)
       return "moveq%.l %1,%0\n\tnot%.b %0";
 #else
       return "moveq %1,%0\n\tnot%.b %0";
 #endif	 
     case NOTW :
       operands[1] = GEN_INT (i ^ 0xffff);
-#if defined (MOTOROLA) && !defined (CRDS)
+#if defined (MOTOROLA)
       return "moveq%.l %1,%0\n\tnot%.w %0";
 #else
       return "moveq %1,%0\n\tnot%.w %0";
 #endif	 
     case NEGW :
-#if defined (MOTOROLA) && !defined (CRDS)
+#if defined (MOTOROLA)
       return "moveq%.l %#-128,%0\n\tneg%.w %0";
 #else
       return "moveq %#-128,%0\n\tneg%.w %0";
@@ -1798,7 +1635,7 @@ output_move_const_into_data_reg (operands)
 	unsigned u = i;
 
 	operands[1] = GEN_INT ((u << 16) | (u >> 16));
-#if defined (MOTOROLA) && !defined (CRDS)
+#if defined (MOTOROLA)
 	return "moveq%.l %1,%0\n\tswap %0";
 #else
 	return "moveq %1,%0\n\tswap %0";
@@ -1881,7 +1718,7 @@ output_move_himode (operands)
 	       && INTVAL (operands[1]) < 128
 	       && INTVAL (operands[1]) >= -128)
 	{
-#if defined(MOTOROLA) && !defined(CRDS)
+#if defined(MOTOROLA)
 	  return "moveq%.l %1,%0";
 #else
 	  return "moveq %1,%0";
@@ -1985,7 +1822,7 @@ output_move_qimode (operands)
       && INTVAL (operands[1]) < 128
       && INTVAL (operands[1]) >= -128)
     {
-#if defined(MOTOROLA) && !defined(CRDS)
+#if defined(MOTOROLA)
       return "moveq%.l %1,%0";
 #else
       return "moveq %1,%0";
@@ -2791,7 +2628,7 @@ floating_exact_log2 (x)
    '@' for a reference to the top word on the stack:
        sp@, (sp) or (%sp) depending on the style of syntax.
    '#' for an immediate operand prefix (# in MIT and Motorola syntax
-       but & in SGS syntax, $ in CRDS/UNOS syntax).
+       but & in SGS syntax).
    '!' for the cc register (used in an `and to cc' insn).
    '$' for the letter `s' in an op code, but only on the 68040.
    '&' for the letter `d' in an op code, but only on the 68040.
@@ -2815,7 +2652,7 @@ print_operand (file, op, letter)
 {
   if (letter == '.')
     {
-#if defined (MOTOROLA) && !defined (CRDS)
+#if defined (MOTOROLA)
       fprintf (file, ".");
 #endif
     }
@@ -3384,7 +3221,7 @@ const_sint32_operand (op, mode)
 
 /* Operand predicates for implementing asymmetric pc-relative addressing
    on m68k.  The m68k supports pc-relative addressing (mode 7, register 2)
-   when used as a source operand, but not as a destintation operand.
+   when used as a source operand, but not as a destination operand.
 
    We model this by restricting the meaning of the basic predicates
    (general_operand, memory_operand, etc) to forbid the use of this
@@ -3663,6 +3500,16 @@ m68k_hp320_internal_label (stream, prefix, labelno)
   else
     fprintf (stream, "%s%ld:\n", prefix, labelno);
 }
+
+static void
+m68k_hp320_file_start ()
+{
+  /* version 1: 68010.
+             2: 68020 without FPU.
+	     3: 68020 with FPU.  */
+  fprintf (asm_out_file, "\tversion %d\n",
+	   TARGET_68020 ? (TARGET_68881 ? 3 : 2) : 1);
+}
 #endif
 
 static void
@@ -3677,12 +3524,23 @@ m68k_output_mi_thunk (file, thunk, delta, vcall_offset, function)
   const char *fmt;
 
   if (delta > 0 && delta <= 8)
+#ifdef MOTOROLA
     asm_fprintf (file, "\taddq.l %I%d,4(%Rsp)\n", (int) delta);
+#else
+    asm_fprintf (file, "\taddql %I%d,%Rsp@(4)\n", (int) delta);
+#endif
   else if (delta < 0 && delta >= -8)
+#ifdef MOTOROLA
     asm_fprintf (file, "\tsubq.l %I%d,4(%Rsp)\n", (int) -delta);
+#else
+    asm_fprintf (file, "\tsubql %I%d,%Rsp@(4)\n", (int) -delta);
+#endif
   else
-    asm_fprintf (file, "\tadd.l %I" HOST_WIDE_INT_PRINT_DEC ",4(%Rsp)\n",
-		 delta);
+#ifdef MOTOROLA
+    asm_fprintf (file, "\tadd.l %I%wd,4(%Rsp)\n", delta);
+#else
+    asm_fprintf (file, "\taddl %I%wd,%Rsp@(4)\n", delta);
+#endif
 
   xops[0] = DECL_RTL (function);
 
@@ -3707,7 +3565,7 @@ m68k_output_mi_thunk (file, thunk, delta, vcall_offset, function)
 #ifdef USE_GAS
 	  fmt = "bra.l %0";
 #else
-	  fmt = "jbra %0,a1";
+	  fmt = "jra %0,a1";
 #endif
 #endif
 	}
@@ -3721,7 +3579,7 @@ m68k_output_mi_thunk (file, thunk, delta, vcall_offset, function)
       fmt = "jmp %0";
 #endif
 #else
-      fmt = "jbra %0";
+      fmt = "jra %0";
 #endif
     }
 

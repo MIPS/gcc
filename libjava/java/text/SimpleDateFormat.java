@@ -1,6 +1,6 @@
 /* SimpleDateFormat.java -- A class for parsing/formating simple 
    date constructs
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -182,6 +182,7 @@ public class SimpleDateFormat extends DateFormat
     compileFormat(pattern);
     numberFormat = NumberFormat.getInstance(locale);
     numberFormat.setGroupingUsed (false);
+    numberFormat.setParseIntegerOnly (true);
   }
   
   /**
@@ -208,6 +209,7 @@ public class SimpleDateFormat extends DateFormat
     this.pattern = pattern;
     numberFormat = NumberFormat.getInstance(locale);
     numberFormat.setGroupingUsed (false);
+    numberFormat.setParseIntegerOnly (true);
   }
 
   /**
@@ -225,6 +227,7 @@ public class SimpleDateFormat extends DateFormat
     this.pattern = pattern;
     numberFormat = NumberFormat.getInstance();
     numberFormat.setGroupingUsed (false);
+    numberFormat.setParseIntegerOnly (true);
   }
 
   // What is the difference between localized and unlocalized?  The
@@ -381,16 +384,27 @@ public class SimpleDateFormat extends DateFormat
 
     SimpleDateFormat sdf = (SimpleDateFormat)o;
 
-    if (!toPattern().equals(sdf.toPattern()))
+    if (defaultCentury != sdf.defaultCentury)
       return false;
 
-    if (!get2DigitYearStart().equals(sdf.get2DigitYearStart()))
+    if (!toPattern().equals(sdf.toPattern()))
       return false;
 
     if (!getDateFormatSymbols().equals(sdf.getDateFormatSymbols()))
       return false;
 
     return true;
+  }
+
+  /**
+   * This method returns a hash value for this object.
+   *
+   * @return A hash value for this object.
+   */
+  public int hashCode()
+  {
+    return super.hashCode() ^ toPattern().hashCode() ^ defaultCentury ^
+      getDateFormatSymbols().hashCode();
   }
 
 
@@ -567,6 +581,14 @@ public class SimpleDateFormat extends DateFormat
 	while (++fmt_index < fmt_max && pattern.charAt(fmt_index) == ch)
 	  ;
 	int fmt_count = fmt_index - first;
+
+	// We might need to limit the number of digits to parse in
+	// some cases.  We look to the next pattern character to
+	// decide.
+	boolean limit_digits = false;
+	if (fmt_index < fmt_max
+	    && standardChars.indexOf(pattern.charAt(fmt_index)) >= 0)
+	  limit_digits = true;
 	--fmt_index;
 
 	// We can handle most fields automatically: most either are
@@ -699,6 +721,8 @@ public class SimpleDateFormat extends DateFormat
 	if (is_numeric)
 	  {
 	    numberFormat.setMinimumIntegerDigits(fmt_count);
+	    if (limit_digits)
+	      numberFormat.setMaximumIntegerDigits(fmt_count);
 	    if (maybe2DigitYear)
 	      index = pos.getIndex();
 	    Number n = numberFormat.parse(dateStr, pos);

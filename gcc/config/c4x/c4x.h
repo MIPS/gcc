@@ -775,7 +775,7 @@ enum reg_class
    is defined since the MPY|ADD insns require the classes R0R1_REGS and
    R2R3_REGS which are used by the function return registers (R0,R1) and
    the register arguments (R2,R3), respectively.  I'm reluctant to define
-   this macro since it stomps on many potential optimisations.  Ideally
+   this macro since it stomps on many potential optimizations.  Ideally
    it should have a register class argument so that not all the register
    classes gets penalised for the sake of a naughty few...  For long
    double arithmetic we need two additional registers that we can use as
@@ -1548,35 +1548,6 @@ fini_section ()							\
 
 
 /* Overall Framework of an Assembler File.  */
-/* We need to have a data section we can identify so that we can set
-   the DP register back to a data pointer in the small memory model.
-   This is only required for ISRs if we are paranoid that someone
-   may have quietly changed this register on the sly.  */
-
-#define ASM_FILE_START(FILE)					\
-{								\
-    int dspversion = 0;						\
-    if (TARGET_C30) dspversion = 30;				\
-    if (TARGET_C31) dspversion = 31;				\
-    if (TARGET_C32) dspversion = 32;				\
-    if (TARGET_C33) dspversion = 33;                            \
-    if (TARGET_C40) dspversion = 40;				\
-    if (TARGET_C44) dspversion = 44;				\
-    fprintf (FILE, "\t.version\t%d\n", dspversion);		\
-    fprintf (FILE, "\t.file\t");				\
-    if (TARGET_TI)						\
-      {								\
-        const char *p;						\
-        const char *after_dir = main_input_filename;		\
-	for (p = main_input_filename; *p; p++)			\
-	  if (*p == '/')					\
-	    after_dir = p + 1;					\
-	output_quoted_string (FILE, after_dir);			\
-      }								\
-    else							\
-      output_quoted_string (FILE, main_input_filename);		\
-    fputs ("\n\t.data\ndata_sec:\n", FILE);			\
-}
 
 #define ASM_COMMENT_START ";"
 
@@ -1602,9 +1573,6 @@ c4x_external_ref (NAME)
 #define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN) \
 c4x_external_ref (XSTR (FUN, 0))
 
-#define	ASM_FILE_END(FILE) \
-c4x_file_end (FILE)
-
 /* The prefix to add to user-visible assembler symbols.  */
 
 #define USER_LABEL_PREFIX "_"
@@ -1615,7 +1583,7 @@ c4x_file_end (FILE)
    This is suitable for output with `assemble_name'.  */
 
 #define ASM_GENERATE_INTERNAL_LABEL(BUFFER, PREFIX, NUM) \
-    sprintf (BUFFER, "*%s%d", PREFIX, NUM)
+    sprintf (BUFFER, "*%s%lu", PREFIX, (unsigned long)(NUM))
 
 /* A C statement to output to the stdio stream STREAM assembler code which
    defines (equates) the symbol NAME to have the value VALUE.  */

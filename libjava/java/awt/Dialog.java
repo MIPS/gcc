@@ -39,16 +39,13 @@ exception statement from your version. */
 package java.awt;
 
 import java.awt.peer.DialogPeer;
-import java.awt.peer.WindowPeer;
-import java.awt.peer.ContainerPeer;
-import java.awt.peer.ComponentPeer;
 
 /**
-  * A dialog box widget class.
-  *
-  * @author Aaron M. Renn (arenn@urbanophile.com)
-  * @author Tom Tromey <tromey@redhat.com>
-  */
+ * A dialog box widget class.
+ *
+ * @author Aaron M. Renn <arenn@urbanophile.com>
+ * @author Tom Tromey <tromey@redhat.com>
+ */
 public class Dialog extends Window
 {
 
@@ -80,6 +77,11 @@ private boolean resizable;
   * <code>null</code>.
   */
 private String title;
+
+  /**
+   * This field indicates whether the dialog is undecorated or not.
+   */
+  private boolean undecorated = false;
 
 /*************************************************************************/
 
@@ -395,5 +397,30 @@ paramString()
 	  ",resizable=" + resizable + "," + super.paramString());
 }
 
+  /**
+   * Returns whether this frame is undecorated or not.
+   * 
+   * @since 1.4
+   */
+  public boolean isUndecorated ()
+  {
+    return undecorated;
+  }
+
+  /**
+   * Disables or enables decorations for this frame. This method can only be
+   * called while the frame is not displayable.
+   * 
+   * @exception IllegalComponentStateException If this frame is displayable.
+   * 
+   * @since 1.4
+   */
+  public void setUndecorated (boolean undecorated)
+  {
+    if (isDisplayable ())
+      throw new IllegalComponentStateException ();
+
+    this.undecorated = undecorated;
+  }
 } // class Dialog
 

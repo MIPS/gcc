@@ -31,7 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 #include "langhooks-def.h"
 
-static void objc_init_options                   PARAMS ((void));
+enum c_language_kind c_language = clk_objc;
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU Objective-C"
@@ -40,9 +40,9 @@ static void objc_init_options                   PARAMS ((void));
 #undef LANG_HOOKS_FINISH
 #define LANG_HOOKS_FINISH c_common_finish
 #undef LANG_HOOKS_INIT_OPTIONS
-#define LANG_HOOKS_INIT_OPTIONS objc_init_options
-#undef LANG_HOOKS_DECODE_OPTION
-#define LANG_HOOKS_DECODE_OPTION c_common_decode_option
+#define LANG_HOOKS_INIT_OPTIONS c_common_init_options
+#undef LANG_HOOKS_HANDLE_OPTION
+#define LANG_HOOKS_HANDLE_OPTION c_common_handle_option
 #undef LANG_HOOKS_POST_OPTIONS
 #define LANG_HOOKS_POST_OPTIONS c_common_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
@@ -67,6 +67,8 @@ static void objc_init_options                   PARAMS ((void));
 #define LANG_HOOKS_UNSAFE_FOR_REEVAL c_common_unsafe_for_reeval
 #undef LANG_HOOKS_STATICP
 #define LANG_HOOKS_STATICP c_staticp
+#undef LANG_HOOKS_NO_BODY_BLOCKS
+#define LANG_HOOKS_NO_BODY_BLOCKS true
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL c_dup_lang_specific_decl
 #undef LANG_HOOKS_PRINT_IDENTIFIER
@@ -168,10 +170,3 @@ const char * const tree_code_name[] = {
 #include "objc-tree.def"
 };
 #undef DEFTREECODE
-
-static void 
-objc_init_options ()
-{
-  flag_objc = 1;
-  c_common_init_options (clk_c);
-}

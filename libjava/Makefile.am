@@ -748,8 +748,8 @@ gnu/awt/j2d/MappedRaster.java \
 gnu/java/awt/BitMaskExtent.java \
 gnu/java/awt/Buffers.java \
 gnu/java/awt/ComponentDataBlitOp.java \
-gnu/java/awt/GLightweightPeer.java \
 gnu/java/awt/EventModifier.java \
+gnu/java/awt/GLightweightPeer.java \
 gnu/java/awt/image/ImageDecoder.java \
 gnu/java/awt/image/XBMDecoder.java \
 gnu/java/beans/editors/ColorEditor.java	\
@@ -1144,14 +1144,15 @@ javax/rmi/CORBA/UtilDelegate.java \
 javax/rmi/CORBA/Util.java \
 javax/rmi/CORBA/ValueHandler.java \
 javax/swing/border/AbstractBorder.java \
+javax/swing/border/BevelBorder.java \
 javax/swing/border/Border.java \
 javax/swing/border/CompoundBorder.java \
 javax/swing/border/EmptyBorder.java \
-javax/swing/border/MatteBorder.java \
-javax/swing/border/TitledBorder.java \
-javax/swing/border/BevelBorder.java \
 javax/swing/border/EtchedBorder.java \
 javax/swing/border/LineBorder.java \
+javax/swing/border/MatteBorder.java \
+javax/swing/border/SoftBevelBorder.java \
+javax/swing/border/TitledBorder.java \
 javax/swing/GrayFilter.java \
 javax/swing/AbstractAction.java \
 javax/swing/AbstractButton.java \
@@ -1165,6 +1166,8 @@ javax/swing/plaf/basic/BasicOptionPaneUI.java \
 javax/swing/plaf/basic/BasicPanelUI.java \
 javax/swing/plaf/basic/BasicRadioButtonUI.java \
 javax/swing/plaf/basic/BasicScrollPaneUI.java \
+javax/swing/plaf/basic/BasicSplitPaneDivider.java \
+javax/swing/plaf/basic/BasicSplitPaneUI.java \
 javax/swing/plaf/basic/BasicTabbedPaneUI.java \
 javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
@@ -1209,6 +1212,7 @@ javax/swing/plaf/RootPaneUI.java \
 javax/swing/plaf/ScrollBarUI.java \
 javax/swing/plaf/SeparatorUI.java \
 javax/swing/plaf/SliderUI.java \
+javax/swing/plaf/SpinnerUI.java \
 javax/swing/plaf/SplitPaneUI.java \
 javax/swing/plaf/TableHeaderUI.java \
 javax/swing/plaf/TableUI.java \
@@ -1226,6 +1230,7 @@ javax/swing/filechooser/FileView.java \
 javax/swing/table/AbstractTableModel.java \
 javax/swing/table/DefaultTableColumnModel.java \
 javax/swing/table/DefaultTableModel.java \
+javax/swing/table/JTableHeader.java \
 javax/swing/table/TableCellEditor.java \
 javax/swing/table/TableCellRenderer.java \
 javax/swing/table/TableColumn.java \
@@ -1429,6 +1434,8 @@ javax/swing/JSplitPane.java \
 javax/swing/JTextPane.java \
 javax/swing/JToolBar.java \
 javax/swing/OverlayLayout.java \
+javax/swing/Popup.java \
+javax/swing/PopupFactory.java \
 javax/swing/ProgressMonitor.java \
 javax/swing/ProgressMonitorInputStream.java \
 javax/swing/RepaintManager.java \
@@ -2099,7 +2106,6 @@ gnu/java/math/MPN.java \
 gnu/java/nio/DatagramChannelImpl.java \
 gnu/java/nio/FileChannelImpl.java \
 gnu/java/nio/FileLockImpl.java \
-gnu/java/nio/MappedByteFileBuffer.java \
 gnu/java/nio/PipeImpl.java \
 gnu/java/nio/SelectionKeyImpl.java \
 gnu/java/nio/SelectorImpl.java \
@@ -2242,6 +2248,7 @@ java/nio/LongBuffer.java \
 java/nio/LongBufferImpl.java \
 java/nio/LongViewBufferImpl.java \
 java/nio/MappedByteBuffer.java \
+java/nio/MappedByteBufferImpl.java \
 java/nio/ReadOnlyBufferException.java \
 java/nio/ShortBuffer.java \
 java/nio/ShortBufferImpl.java \
@@ -2565,9 +2572,7 @@ gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/runtime/natVMClassLoader.cc \
 gnu/java/nio/natFileChannelImpl.cc \
 gnu/java/nio/natFileLockImpl.cc \
-gnu/java/nio/natMappedByteFileBuffer.cc \
 gnu/java/nio/natSelectorImpl.cc \
-gnu/java/nio/natSocketChannelImpl.cc \
 java/io/natFile.cc \
 java/io/natFileDescriptor.cc \
 java/io/natObjectInputStream.cc \

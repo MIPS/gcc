@@ -42,14 +42,13 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "diagnostic.h"
 
-static tree process_init_constructor PARAMS ((tree, tree, tree *));
+static tree process_init_constructor (tree, tree, tree *);
 
 /* Print an error message stemming from an attempt to use
    BASETYPE as a base class for TYPE.  */
 
 tree
-error_not_base_type (basetype, type)
-     tree basetype, type;
+error_not_base_type (tree basetype, tree type)
 {
   if (TREE_CODE (basetype) == FUNCTION_DECL)
     basetype = DECL_CONTEXT (basetype);
@@ -58,8 +57,7 @@ error_not_base_type (basetype, type)
 }
 
 tree
-binfo_or_else (base, type)
-     tree base, type;
+binfo_or_else (tree base, tree type)
 {
   tree binfo = lookup_base (type, base, ba_ignore, NULL);
 
@@ -76,13 +74,10 @@ binfo_or_else (base, type)
    example, conversions to references.)  */
 
 void
-readonly_error (arg, string, soft)
-     tree arg;
-     const char *string;
-     int soft;
+readonly_error (tree arg, const char* string, int soft)
 {
   const char *fmt;
-  void (*fn) PARAMS ((const char *, ...));
+  void (*fn) (const char *, ...);
 
   if (soft)
     fn = pedwarn;
@@ -128,9 +123,7 @@ readonly_error (arg, string, soft)
    occurred; zero if all was well.  */
 
 int
-abstract_virtuals_error (decl, type)
-     tree decl;
-     tree type;
+abstract_virtuals_error (tree decl, tree type)
 {
   tree u;
   tree tu;
@@ -194,14 +187,11 @@ abstract_virtuals_error (decl, type)
    pedwarn.  */
 
 void
-cxx_incomplete_type_diagnostic (value, type, diag_type)
-     tree value;
-     tree type;
-     int diag_type;
+cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
 {
   int decl = 0;
-  void (*p_msg) PARAMS ((const char *, ...));
-  void (*p_msg_at) PARAMS ((const char *, ...));
+  void (*p_msg) (const char *, ...);
+  void (*p_msg_at) (const char *, ...);
 
   if (diag_type == 1)
     {
@@ -288,9 +278,7 @@ retry:
    required by ../tree.c.  */
 #undef cxx_incomplete_type_error
 void
-cxx_incomplete_type_error (value, type)
-     tree value;
-     tree type;
+cxx_incomplete_type_error (tree value, tree type)
 {
   cxx_incomplete_type_diagnostic (value, type, 0);
 }
@@ -316,8 +304,7 @@ cxx_incomplete_type_error (value, type)
    the storing.  */
 
 tree
-store_init_value (decl, init)
-     tree decl, init;
+store_init_value (tree decl, tree init)
 {
   register tree value, type;
 
@@ -409,8 +396,7 @@ store_init_value (decl, init)
    TYPE is an aggregate and INIT is not a constructor.  */
 
 tree
-digest_init (type, init, tail)
-     tree type, init, *tail;
+digest_init (tree type, tree init, tree* tail)
 {
   enum tree_code code = TREE_CODE (type);
   tree element = NULL_TREE;
@@ -605,8 +591,7 @@ digest_init (type, init, tail)
    constants that the assembler and linker can compute them.  */
 
 static tree
-process_init_constructor (type, init, elts)
-     tree type, init, *elts;
+process_init_constructor (tree type, tree init, tree* elts)
 {
   register tree tail;
   /* List of the elements of the result constructor,
@@ -964,10 +949,7 @@ process_init_constructor (type, init, elts)
    binfo for the specific base subobject we want to convert to.  */
 
 tree
-build_scoped_ref (datum, basetype, binfo_p)
-     tree datum;
-     tree basetype;
-     tree *binfo_p;
+build_scoped_ref (tree datum, tree basetype, tree* binfo_p)
 {
   tree binfo;
 
@@ -998,8 +980,7 @@ build_scoped_ref (datum, basetype, binfo_p)
    delegation is detected.  */
 
 tree
-build_x_arrow (datum)
-     tree datum;
+build_x_arrow (tree datum)
 {
   tree types_memoized = NULL_TREE;
   register tree rval = datum;
@@ -1011,12 +992,6 @@ build_x_arrow (datum)
 
   if (processing_template_decl)
     return build_min_nt (ARROW_EXPR, rval);
-
-  if (TREE_CODE (rval) == OFFSET_REF)
-    {
-      rval = resolve_offset_ref (datum);
-      type = TREE_TYPE (rval);
-    }
 
   if (TREE_CODE (type) == REFERENCE_TYPE)
     {
@@ -1055,7 +1030,7 @@ build_x_arrow (datum)
 	last_rval = convert_from_reference (last_rval);
     }
   else
-    last_rval = default_conversion (rval);
+    last_rval = decay_conversion (rval);
 
   if (TREE_CODE (TREE_TYPE (last_rval)) == POINTER_TYPE)
     return build_indirect_ref (last_rval, NULL);
@@ -1067,73 +1042,32 @@ build_x_arrow (datum)
   return error_mark_node;
 }
 
-/* Make an expression to refer to the COMPONENT field of
-   structure or union value DATUM.  COMPONENT is an arbitrary
-   expression.  DATUM has not already been checked out to be of
-   aggregate type.
-
-   For C++, COMPONENT may be a TREE_LIST.  This happens when we must
-   return an object of member type to a method of the current class,
-   but there is not yet enough typing information to know which one.
-   As a special case, if there is only one method by that name,
-   it is returned.  Otherwise we return an expression which other
-   routines will have to know how to deal with later.  */
+/* Return an expression for "DATUM .* COMPONENT".  DATUM has not
+   already been checked out to be of aggregate type.  */
 
 tree
-build_m_component_ref (datum, component)
-     tree datum, component;
+build_m_component_ref (tree datum, tree component)
 {
-  tree type;
+  tree ptrmem_type;
   tree objtype;
-  tree field_type;
-  int type_quals;
+  tree type;
   tree binfo;
-
-  if (processing_template_decl)
-    return build_min_nt (DOTSTAR_EXPR, datum, component);
 
   datum = decay_conversion (datum);
 
   if (datum == error_mark_node || component == error_mark_node)
     return error_mark_node;
 
-  objtype = TYPE_MAIN_VARIANT (TREE_TYPE (datum));  
-
-  if (TYPE_PTRMEMFUNC_P (TREE_TYPE (component)))
-    {
-      type = TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE (TREE_TYPE (component)));
-      field_type = type;
-    }
-  else if (TYPE_PTRMEM_P (TREE_TYPE (component)))
-    {
-      type = TREE_TYPE (TREE_TYPE (component));
-      field_type = TREE_TYPE (type);
-      
-      /* Compute the type of the field, as described in [expr.ref].  */
-      type_quals = TYPE_UNQUALIFIED;
-      if (TREE_CODE (field_type) == REFERENCE_TYPE)
-	/* The standard says that the type of the result should be the
-       	   type referred to by the reference.  But for now, at least,
-       	   we do the conversion from reference type later.  */
-	;
-      else
-	{
-	  type_quals = (cp_type_quals (field_type)  
-			| cp_type_quals (TREE_TYPE (datum)));
-
-	  /* There's no such thing as a mutable pointer-to-member, so
-	     things are not as complex as they are for references to
-	     non-static data members.  */
-	  field_type = cp_build_qualified_type (field_type, type_quals);
-	}
-    }
-  else
+  ptrmem_type = TREE_TYPE (component);
+  if (!TYPE_PTRMEM_P (ptrmem_type) 
+      && !TYPE_PTRMEMFUNC_P (ptrmem_type))
     {
       error ("`%E' cannot be used as a member pointer, since it is of type `%T'", 
-		component, TREE_TYPE (component));
+	     component, ptrmem_type);
       return error_mark_node;
     }
-
+    
+  objtype = TYPE_MAIN_VARIANT (TREE_TYPE (datum));  
   if (! IS_AGGR_TYPE (objtype))
     {
       error ("cannot apply member pointer `%E' to `%E', which is of non-aggregate type `%T'",
@@ -1141,29 +1075,41 @@ build_m_component_ref (datum, component)
       return error_mark_node;
     }
 
-  binfo = lookup_base (objtype, TYPE_METHOD_BASETYPE (type),
+  type = TYPE_PTRMEM_POINTED_TO_TYPE (ptrmem_type);
+  binfo = lookup_base (objtype, TYPE_PTRMEM_CLASS_TYPE (ptrmem_type),
 		       ba_check, NULL);
   if (!binfo)
     {
       error ("member type `%T::' incompatible with object type `%T'",
-		TYPE_METHOD_BASETYPE (type), objtype);
+	     type, objtype);
       return error_mark_node;
     }
   else if (binfo == error_mark_node)
     return error_mark_node;
 
-  component = build (OFFSET_REF, field_type, datum, component);
-  if (TREE_CODE (type) == OFFSET_TYPE)
-    component = resolve_offset_ref (component);
-  return component;
+  if (TYPE_PTRMEM_P (ptrmem_type))
+    {
+      /* Compute the type of the field, as described in [expr.ref].
+	 There's no such thing as a mutable pointer-to-member, so
+	 things are not as complex as they are for references to
+	 non-static data members.  */
+      type = cp_build_qualified_type (type,
+				      (cp_type_quals (type)  
+				       | cp_type_quals (TREE_TYPE (datum))));
+
+      datum = build_base_path (PLUS_EXPR, build_address (datum), binfo, 1);
+      component = cp_convert (ptrdiff_type_node, component);
+      datum = build (PLUS_EXPR, build_pointer_type (type), datum, component);
+      return build_indirect_ref (datum, 0);
+    }
+  else
+    return build (OFFSET_REF, type, datum, component);
 }
 
 /* Return a tree node for the expression TYPENAME '(' PARMS ')'.  */
 
 tree
-build_functional_cast (exp, parms)
-     tree exp;
-     tree parms;
+build_functional_cast (tree exp, tree parms)
 {
   /* This is either a call to a constructor,
      or a C cast in C++'s `functional' notation.  */
@@ -1251,9 +1197,7 @@ build_functional_cast (exp, parms)
    know what we're doing.  */
 
 tree
-add_exception_specifier (list, spec, complain)
-     tree list, spec;
-     int complain;
+add_exception_specifier (tree list, tree spec, int complain)
 {
   int ok;
   tree core = spec;
@@ -1313,8 +1257,7 @@ add_exception_specifier (list, spec, complain)
    their union.  */
 
 tree
-merge_exception_specifiers (list, add)
-     tree list, add;
+merge_exception_specifiers (tree list, tree add)
 {
   if (!list || !add)
     return NULL_TREE;
@@ -1352,8 +1295,7 @@ merge_exception_specifiers (list, add)
    function is defined or called.  See also add_exception_specifier.  */
 
 void
-require_complete_eh_spec_types (fntype, decl)
-     tree fntype, decl;
+require_complete_eh_spec_types (tree fntype, tree decl)
 {
   tree raises;
   /* Don't complain about calls to op new.  */

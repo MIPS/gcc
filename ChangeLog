@@ -1,10 +1,153 @@
+2003-07-04  Zack Weinberg  <zack@codesourcery.com>
+
+	* Makefile.tpl (all-bootstrap): Depend on maybe-all-intl.
+	* Makefile.in: Regenerate.
+
+2003-07-04  H.J. Lu <hongjiu.lu@intel.com>
+
+	* Makefile.tpl: Replace PWD with PWD_COMMAND.
+	* Makefile.in: Regenerated.
+
+	* config-ml.in: Replace PWD with PWD_COMMAND.
+
+2003-07-04  Zack Weinberg  <zack@codesourcery.com>
+
+	* intl: New directory; see intl/ChangeLog for details.
+	* ABOUT-NLS, config.rpath: Import from gettext 0.12.1.
+	* Makefile.tpl: all-gcc depends on maybe-all-intl.
+	* Makefile.in: Regenerate.
+
+2003-06-27  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Clean up config-lang.in handling.  Delete
+	useless assignment to "subdirs".
+	* configure: Regenerate.
+
+2003-06-26  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Rename 'target_libs' to 'target_libraries'.
+	Remove useless reference to 'target_libs'.
+	* configure: Regenerate.
+
+2003-06-23  Keith Seitz  <kseitz@sources.redhat.com>
+
+	* Makefile.tpl: Add maybe-configure-itcl to configure-gdb.
+	* Makefile.in: Regenerate.
+
+2003-06-23  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.def: Introduce flags_to_pass.
+	* Makefile.tpl: Generate BASE_FLAGS_TO_PASS using it.
+	* Makefile.in: Regenerate.
+
+2003-06-23  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* configure.in (noconfigdirs) <cris-*-*>: Disable target-newlib
+	and target-libgloss.
+	<d30v-*-*, fr30-*-*, i960-*-*, m32r-*-*>: Disable gdb.
+	<h8300*-*-*>: Disable libf2c and ${libgcj}.
+	* configure: Regenerate.
+
+2003-06-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.in: Update testsuite_flags to new location.
+	* configure. Regenerate.
+
+2003-06-18  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Remove BUILD_CC stuff.
+	* Makefile.in: Regenerate.
+
+2003-06-17  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* MAINTAINERS (Write After Approval): Remove Andrew Haley.
+
+2003-06-16  Graeme Peterson <gp@qnx.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2003-06-14  H.J. Lu <hongjiu.lu@intel.com>
+
+	* config.guess: Update to 2003-06-12 version.
+	* config.sub: Update to 2003-06-13 version.
+
+2003-06-12  H.J. Lu <hongjiu.lu@intel.com>
+
+	* config.guess: Update to 2003-06-06 version.
+	* config.sub: Update to 2003-06-06 version.
+
+2003-06-11  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in: Don't pass --with-stabs for mips*-sgi-irix6*o32.
+	* configure. Regenerate.
+
+2003-06-10  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Disable serial configure by default.
+	* configure: Regenerate.
+	* Makefile.tpl: Abolish .NOTPARALLEL.
+	* Makefile.in: Regenerate.
+
+	* Makefile.tpl: Replace {build,host,target}_canonical by
+	{build,host,target}.
+	* Makefile.in: Regenerate.
+
+	* Makefile.tpl: Fix stupid pasto.
+	* Makefile.in: Regenerate.
+
+2003-06-09  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Remove bogus conditional.
+	* Makefile.in: Regenerate.
+
+2003-06-05  Jan Hubicka  <jh@suse.cz>
+
+	* Makefile.tpl (profiledbootstrap): New target.
+	* Makefile.in (profiledbootstrap): New target.
+
+2003-06-05  Wolfgang Bangerth  <bangerth@dealii.org>
+
+	* MAINTAINERS (Bugzilla only): Add Dara Hazeghi and Andrew
+	Pinski. Remove user names from other bugzilla-only maintainers.
+
+2003-06-03  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Make 'recursive targets' using autogen rather
+	than shell loop.  Remove duplicate 'clean' targets and false
+	comments.
+	* Makefile.def: Add systematic dependencies to 'recursive' targets.
+	Add systematic method of specifying missing targets in subdirs.
+	Add copyright boilerplate.
+	* Makefile.in: Regenerate.
+	* configure.in: Add 'recursive targets' to maybe list.
+	* configure: Regenerate.
+
+	* MAINTAINERS: "GNATS only" -> "Bug database only".
+
+	* Makefile.tpl: Rename [+target+] to [+make_target+].
+	* Makefile.def: Rename 'target' to 'make_target'.
+
+2003-05-31  Neil Booth  <neil@daikokuya.co.uk>
+
+	* MAINTAINERS: Add self as options handling maintainer.
+
+2003-05-28  Michael Meissner  <gnu@the-meissners.org>
+
+	* MAINTAINERS: Remove myself as m32r/v850 maintainer, since it has
+	been too long since I touched those ports.
+
+2003-05-28  DJ Delorie  <dj@redhat.com>
+
+	* Makefile.tpl: Make maybe-check-gcc .PHONY.
+	* Makefile.in: Regenerate.
+
 2003-05-21  Maciej W. Rozycki  <macro@ds2.pg.gda.pl>
 
 	* configure.in: Use curly braces in the definition of tooldir.
 	* configure: Regenerate.
 
 2003-05-21  DJ Delorie  <dj@redhat.com>
-	
+
 	* Makefile.tpl (configure-target-libiberty): Depend only on gcc, not
 	newlib or libgloss.
 	* Makefile.in: Regenerate.
@@ -21,7 +164,7 @@
 2003-05-19  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* configure.in: Switch more things to use maybe dependencies.
-	* Makefile.tpl: Switch more things to use maybe dependencies.  
+	* Makefile.tpl: Switch more things to use maybe dependencies.
 	Factor out common code from autogen IF statements.
 	* configure: Regenerate.
 	* Makefile.in: Regenerate.
@@ -75,8 +218,8 @@
 
 2003-05-02  Chris Demetriou  <cgd@broadcom.com>
 
-        * Makefile.tpl: Require "makeinfo" from texinfo 4.2 or later.
-        * Makefile.in: Regenerate.
+	* Makefile.tpl: Require "makeinfo" from texinfo 4.2 or later.
+	* Makefile.in: Regenerate.
 
 2003-05-02  Wolfgang Bangerth  <bangerth@dealii.org>
 

@@ -2220,8 +2220,10 @@ simplify_relational_operation (code, mode, op0, op1)
     return const0_rtx;
 
   /* For modes without NaNs, if the two operands are equal, we know the
-     result.  */
-  if (!HONOR_NANS (GET_MODE (trueop0)) && rtx_equal_p (trueop0, trueop1))
+     result except if they have side-effects.  */
+  if (! HONOR_NANS (GET_MODE (trueop0))
+      && rtx_equal_p (trueop0, trueop1)
+      && ! side_effects_p (trueop0))
     equal = 1, op0lt = 0, op0ltu = 0, op1lt = 0, op1ltu = 0;
 
   /* If the operands are floating-point constants, see if we can fold
@@ -2657,6 +2659,10 @@ simplify_subreg (outermode, op, innermode, byte)
 	  unsigned i = BYTES_BIG_ENDIAN ? offset : offset + n_elts - 1;
 	  unsigned step = BYTES_BIG_ENDIAN ? 1 : -1;
 	  int shift = BITS_PER_UNIT * elt_size;
+	  unsigned HOST_WIDE_INT unit_mask;
+
+	  unit_mask = (unsigned HOST_WIDE_INT) -1
+	    >> (sizeof (HOST_WIDE_INT) * BITS_PER_UNIT - shift);
 
 	  for (; n_elts--; i += step)
 	    {
@@ -2675,7 +2681,7 @@ simplify_subreg (outermode, op, innermode, byte)
 	      if (high >> (HOST_BITS_PER_WIDE_INT - shift))
 		return NULL_RTX;
 	      high = high << shift | sum >> (HOST_BITS_PER_WIDE_INT - shift);
-	      sum = (sum << shift) + INTVAL (elt);
+	      sum = (sum << shift) + (INTVAL (elt) & unit_mask);
 	    }
 	  if (GET_MODE_BITSIZE (outermode) <= HOST_BITS_PER_WIDE_INT)
 	    return GEN_INT (trunc_int_for_mode (sum, outermode));
@@ -2707,8 +2713,7 @@ simplify_subreg (outermode, op, innermode, byte)
       int offset, part;
       unsigned HOST_WIDE_INT val = 0;
 
-      if (GET_MODE_CLASS (outermode) == MODE_VECTOR_INT
-	  || GET_MODE_CLASS (outermode) == MODE_VECTOR_FLOAT)
+      if (VECTOR_MODE_P (outermode))
 	{
 	  /* Construct a CONST_VECTOR from individual subregs.  */
 	  enum machine_mode submode = GET_MODE_INNER (outermode);
@@ -2722,7 +2727,7 @@ simplify_subreg (outermode, op, innermode, byte)
 	      /* This might fail, e.g. if taking a subreg from a SYMBOL_REF.  */
 	      /* ??? It would be nice if we could actually make such subregs
 		 on targets that allow such relocations.  */
-	      if (byte >= GET_MODE_UNIT_SIZE (innermode))
+	      if (byte >= GET_MODE_SIZE (innermode))
 		elt = CONST0_RTX (submode);
 	      else
 	        elt = simplify_subreg (submode, op, innermode, byte);
@@ -2892,7 +2897,7 @@ simplify_subreg (outermode, op, innermode, byte)
 	    return NULL_RTX;
 	}
 
-      /* Recurse for futher possible simplifications.  */
+      /* Recurse for further possible simplifications.  */
       new = simplify_subreg (outermode, SUBREG_REG (op),
 			     GET_MODE (SUBREG_REG (op)),
 			     final_offset);

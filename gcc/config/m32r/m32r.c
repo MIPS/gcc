@@ -77,6 +77,8 @@ static tree  m32r_handle_model_attribute PARAMS ((tree *, tree, tree, int, bool 
 static void  m32r_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void  m32r_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
+static void  m32r_file_start PARAMS ((void));
+
 static int    m32r_adjust_cost 	   PARAMS ((rtx, rtx, rtx, int));
 static int    m32r_adjust_priority PARAMS ((rtx, int));
 static void   m32r_sched_init	   PARAMS ((FILE *, int, int));
@@ -102,6 +104,9 @@ static bool m32r_rtx_costs PARAMS ((rtx, int, int, int *));
 #define TARGET_ASM_FUNCTION_PROLOGUE m32r_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE m32r_output_function_epilogue
+
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START m32r_file_start
 
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST m32r_adjust_cost
@@ -1002,13 +1007,28 @@ large_insn_p (op, mode)
   return get_attr_length (op) != 2;
 }
 
+/* Return nonzero if TYPE must be passed or returned in memory.
+   The m32r treats both directions the same so we handle both directions
+   in this function.  */
+
+int
+m32r_pass_by_reference (type)
+     tree type;
+{
+  int size = int_size_in_bytes (type);
+
+  if (size < 0 || size > 8)
+    return 1;
+
+  return 0;
+}
 
 /* Comparisons.  */
 
 /* X and Y are two things to compare using CODE.  Emit the compare insn and
    return the rtx for compare [arg0 of the if_then_else].
    If need_compare is true then the comparison insn must be generated, rather
-   than being susummed into the following branch instruction.  */
+   than being subsumed into the following branch instruction.  */
 
 rtx
 gen_compare (code, x, y, need_compare)
@@ -1287,7 +1307,7 @@ gen_split_move_double (operands)
 		ld r1,r3+; ld r2,r3
 
 	     if r3 were not used subsequently.  However, the REG_NOTES aren't
-	     propigated correctly by the reload phase, and it can cause bad
+	     propagated correctly by the reload phase, and it can cause bad
 	     code to be generated.  We could still try:
 
 		ld r1,r3+; ld r2,r3; addi r3,-4
@@ -1314,7 +1334,7 @@ gen_split_move_double (operands)
 	st r1,r3; st r2,+r3
 
      if r3 were not used subsequently.  However, the REG_NOTES aren't
-     propigated correctly by the reload phase, and it can cause bad
+     propagated correctly by the reload phase, and it can cause bad
      code to be generated.  We could still try:
 
 	st r1,r3; st r2,+r3; addi r3,-4
@@ -1425,7 +1445,7 @@ m32r_va_arg (valist, type)
   size = int_size_in_bytes (type);
   rsize = (size + UNITS_PER_WORD - 1) & -UNITS_PER_WORD;
 
-  if (size > 8)
+  if (m32r_pass_by_reference (type))
     {
       tree type_ptr, type_ptr_ptr;
 
@@ -1559,7 +1579,7 @@ m32r_sched_reorder (stream, verbose, ready, n_readyp, clock)
       rtx * new_tail = new_head + (n_ready - 1);
       int   i;
 
-      /* Loop through the instructions, classifing them as short/long.  Try
+      /* Loop through the instructions, classifying them as short/long.  Try
 	 to keep 2 short together and/or 1 long.  Note, the ready list is
 	 actually ordered backwards, so keep it in that manner.  */
       for (i = n_ready-1; i >= 0; i--)
@@ -2200,15 +2220,13 @@ m32r_initialize_trampoline (tramp, fnaddr, cxt)
 {
 }
 
-/* Set the cpu type and print out other fancy things,
-   at the top of the file.  */
-
-void
-m32r_asm_file_start (file)
-     FILE * file;
+static void
+m32r_file_start ()
 {
+  default_file_start ();
+
   if (flag_verbose_asm)
-    fprintf (file,
+    fprintf (asm_out_file,
 	     "%s M32R/D special options: -G " HOST_WIDE_INT_PRINT_UNSIGNED "\n",
 	     ASM_COMMENT_START, g_switch_value);
 }
@@ -2568,7 +2586,7 @@ conditional_move_operand (operand, mode)
   if (mode != SImode && mode != HImode && mode != QImode)
     return FALSE;
 
-  /* At the moment we can hanndle moving registers and loading constants.  */
+  /* At the moment we can handle moving registers and loading constants.  */
   /* To be added: Addition/subtraction/bitops/multiplication of registers.  */
 
   switch (GET_CODE (operand))
@@ -2710,7 +2728,7 @@ block_move_call (dest_reg, src_reg, bytes_rtx)
 
 /* The maximum number of bytes to copy using pairs of load/store instructions.
    If a block is larger than this then a loop will be generated to copy
-   MAX_MOVE_BYTES chunks at a time.  The value of 32 is a semi-arbitary choice.
+   MAX_MOVE_BYTES chunks at a time.  The value of 32 is a semi-arbitrary choice.
    A customer uses Dhrystome as their benchmark, and Dhrystone has a 31 byte
    string copy in it.  */
 #define MAX_MOVE_BYTES 32
@@ -2770,7 +2788,7 @@ m32r_expand_block_move (operands)
       /* If we are going to have to perform this loop more than
 	 once, then generate a label and compute the address the
 	 source register will contain upon completion of the final
-	 itteration.  */
+	 iteration.  */
       if (bytes > MAX_MOVE_BYTES)
 	{
 	  final_src = gen_reg_rtx (Pmode);
@@ -2940,6 +2958,26 @@ m32r_block_immediate_operand (op, mode)
   if (GET_CODE (op) != CONST_INT
       || INTVAL (op) > MAX_MOVE_BYTES
       || INTVAL (op) <= 0)
+    return 0;
+
+  return 1;
+}
+
+/* Return true if using NEW_REG in place of OLD_REG is ok.  */
+
+int
+m32r_hard_regno_rename_ok (old_reg, new_reg)
+     unsigned int old_reg ATTRIBUTE_UNUSED;
+     unsigned int new_reg;
+{
+  /* Interrupt routines can't clobber any register that isn't already used.  */
+  if (lookup_attribute ("interrupt", DECL_ATTRIBUTES (current_function_decl))
+      && !regs_ever_live[new_reg])
+    return 0;
+
+  /* We currently emit epilogues as text, not rtl, so the liveness
+     of the return address register isn't visible.  */
+  if (current_function_is_leaf && new_reg == RETURN_ADDR_REGNUM)
     return 0;
 
   return 1;

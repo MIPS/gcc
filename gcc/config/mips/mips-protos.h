@@ -28,10 +28,6 @@ Boston, MA 02111-1307, USA.  */
 
 extern HOST_WIDE_INT	compute_frame_size PARAMS ((HOST_WIDE_INT));
 extern int		mips_initial_elimination_offset PARAMS ((int, int));
-extern void		mips_asm_file_end PARAMS ((FILE *));
-extern void		mips_asm_file_start PARAMS ((FILE *));
-extern void		iris6_asm_file_start PARAMS ((FILE *));
-extern void		iris6_asm_file_end PARAMS ((FILE *));
 extern void		iris6_asm_output_align PARAMS ((FILE *, unsigned));
 extern const char *	current_section_name PARAMS ((void));
 extern unsigned int	current_section_flags PARAMS ((void));
@@ -80,7 +76,7 @@ extern tree		mips_build_va_list PARAMS ((void));
 extern void		mips_va_start PARAMS ((tree, rtx));
 extern struct rtx_def  *mips_va_arg PARAMS ((tree, tree));
 
-extern void		expand_block_move PARAMS ((rtx *));
+extern bool		mips_expand_block_move PARAMS ((rtx, rtx, rtx));
 extern bool		mips_expand_unaligned_load PARAMS ((rtx, rtx,
 							    unsigned int,
 							    int));
@@ -100,17 +96,17 @@ extern void		mips_split_64bit_move PARAMS ((rtx, rtx));
 extern const char      *mips_output_move PARAMS ((rtx, rtx));
 extern const char      *mips_emit_prefetch PARAMS ((rtx *));
 extern const char      *mips_restore_gp PARAMS ((rtx *));
-extern const char      *output_block_move PARAMS ((rtx, rtx *, int,
-						   enum block_move_type));
 extern void		override_options PARAMS ((void));
 extern void		mips_conditional_register_usage PARAMS ((void));
 extern void		print_operand_address PARAMS ((FILE *, rtx));
 extern void		print_operand PARAMS ((FILE *, rtx, int));
 extern struct rtx_def *	embedded_pic_offset PARAMS ((rtx));
 extern int		build_mips16_call_stub PARAMS ((rtx, rtx, rtx, int));
+extern const char	*mips_output_load_label PARAMS ((void));
 extern const char       *mips_output_conditional_branch PARAMS ((rtx, rtx *,
 								 int, int, int,
 								 int));
+extern const char	*mips_output_division PARAMS ((const char *, rtx *));
 extern int              mips_adjust_insn_length PARAMS ((rtx, int));
 extern enum reg_class	mips_secondary_reload_class PARAMS ((enum reg_class,
 							     enum machine_mode,

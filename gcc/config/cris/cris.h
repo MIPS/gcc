@@ -1392,28 +1392,6 @@ call_ ## FUNC (void)						\
 
 /* Node: File Framework */
 
-/* NO_APP *only at file start* means faster assembly.
-   It also means comments are not allowed.
-   In some cases comments will be output for debugging purposes.
-   Make sure they are allowed then.  */
-/* Override previous definitions (elfos.h).  */
-#undef ASM_FILE_START
-#define ASM_FILE_START(STREAM)					\
-  do								\
-    {								\
-      if (TARGET_PDEBUG || flag_print_asm_name)			\
-	fprintf ((STREAM), "#APP\n");				\
-      else							\
-	fprintf ((STREAM), "#NO_APP\n");			\
-      if (TARGET_ELF)						\
-	output_file_directive ((STREAM), main_input_filename);	\
-    }								\
-  while (0)
-
-/* Override previous definitions (elfos.h).  */
-#undef ASM_FILE_END
-#define ASM_FILE_END(STREAM)
-
 /* We don't want an .ident for gcc.  To avoid that but still support
    #ident, we override ASM_OUTPUT_IDENT and, since the gcc .ident is its
    only use besides ASM_OUTPUT_IDENT, undef IDENT_ASM_OP from elfos.h.  */
@@ -1670,7 +1648,7 @@ call_ ## FUNC (void)						\
 #define CASE_VECTOR_PC_RELATIVE 1
 
 /* FIXME: Investigate CASE_VECTOR_SHORTEN_MODE to make sure HImode is not
-   used when broken-.word could possibly fail (plus test-case).  */
+   used when broken-.word could possibly fail (plus testcase).  */
 
 #define FIXUNS_TRUNC_LIKE_FIX_TRUNC
 
@@ -1682,8 +1660,6 @@ call_ ## FUNC (void)						\
 /* Maybe SHIFT_COUNT_TRUNCATED is safe to define?  FIXME: Check later.  */
 
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
-
-#define STORE_FLAG_VALUE 1
 
 #define Pmode SImode
 

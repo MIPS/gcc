@@ -2281,7 +2281,7 @@ real_nan (r, str, quiet, mode)
 }
 
 /* Fills R with the largest finite value representable in mode MODE.
-   If SIGN is non-zero, R is set to the most negative finite value.  */
+   If SIGN is nonzero, R is set to the most negative finite value.  */
 
 void
 real_maxval (r, sign, mode)
@@ -3033,7 +3033,7 @@ const struct real_format mips_double_format =
 
 
 /* IEEE extended double precision format.  This comes in three
-   flavours: Intel's as a 12 byte image, Intel's as a 16 byte image,
+   flavors: Intel's as a 12 byte image, Intel's as a 16 byte image,
    and Motorola's.  */
 
 static void encode_ieee_extended PARAMS ((const struct real_format *fmt,
@@ -3326,6 +3326,25 @@ const struct real_format ieee_extended_intel_128_format =
     true
   };
 
+/* The following caters to i386 systems that set the rounding precision
+   to 53 bits instead of 64, e.g. FreeBSD.  */
+const struct real_format ieee_extended_intel_96_round_53_format = 
+  {
+    encode_ieee_extended,
+    decode_ieee_extended,
+    2,
+    1,
+    53,
+    53,
+    -16381,
+    16384,
+    79,
+    true,
+    true,
+    true,
+    true,
+    true
+  };
 
 /* IBM 128-bit extended precision format: a pair of IEEE double precision
    numbers whose sum is equal to the extended precision value.  The number
@@ -4727,5 +4746,51 @@ real_powi (r, mode, x, n)
 
   real_convert (r, mode, &t);
   return inexact;
+}
+
+/* Round X to the nearest integer not larger in absolute value, i.e.
+   towards zero, placing the result in R in mode MODE.  */
+
+void
+real_trunc (r, mode, x)
+     REAL_VALUE_TYPE *r;
+     enum machine_mode mode;
+     const REAL_VALUE_TYPE *x;
+{
+  do_fix_trunc (r, x);
+  if (mode != VOIDmode)
+    real_convert (r, mode, r);
+}
+
+/* Round X to the largest integer not greater in value, i.e. round
+   down, placing the result in R in mode MODE.  */
+
+void
+real_floor (r, mode, x)
+     REAL_VALUE_TYPE *r;
+     enum machine_mode mode;
+     const REAL_VALUE_TYPE *x;
+{
+  do_fix_trunc (r, x);
+  if (! real_identical (r, x) && r->sign)
+    do_add (r, r, &dconstm1, 0);
+  if (mode != VOIDmode)
+    real_convert (r, mode, r);
+}
+
+/* Round X to the smallest integer not less then argument, i.e. round
+   up, placing the result in R in mode MODE.  */
+
+void
+real_ceil (r, mode, x)
+     REAL_VALUE_TYPE *r;
+     enum machine_mode mode;
+     const REAL_VALUE_TYPE *x;
+{
+  do_fix_trunc (r, x);
+  if (! real_identical (r, x) && ! r->sign)
+    do_add (r, r, &dconst1, 0);
+  if (mode != VOIDmode)
+    real_convert (r, mode, r);
 }
 

@@ -58,11 +58,12 @@ static int    out_adj_frame_ptr    PARAMS ((FILE *, int));
 static int    out_set_stack_ptr    PARAMS ((FILE *, int, int));
 static RTX_CODE compare_condition  PARAMS ((rtx insn));
 static int    compare_sign_p       PARAMS ((rtx insn));
-static int    reg_was_0            PARAMS ((rtx insn, rtx op));
 static tree   avr_handle_progmem_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree   avr_handle_fndecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
 const struct attribute_spec avr_attribute_table[];
 static bool   avr_assemble_integer PARAMS ((rtx, unsigned int, int));
+static void   avr_file_start PARAMS ((void));
+static void   avr_file_end PARAMS ((void));
 static void   avr_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void   avr_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void   avr_unique_section PARAMS ((tree, int));
@@ -218,6 +219,12 @@ int avr_case_values_threshold = 30000;
 #define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
 #undef TARGET_ASM_INTEGER
 #define TARGET_ASM_INTEGER avr_assemble_integer
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START avr_file_start
+#undef TARGET_ASM_FILE_START_FILE_DIRECTIVE
+#define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
+#undef TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END avr_file_end
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE avr_output_function_prologue
@@ -1445,19 +1452,12 @@ final_prescan_insn (insn, operand, num_operands)
 	       rtx_cost (PATTERN (insn), INSN));
     }
   last_insn_address = INSN_ADDRESSES (uid);
-
-  if (TARGET_RTL_DUMP)
-    {
-      fprintf (asm_out_file, "/*****************\n");
-      print_rtl_single (asm_out_file, insn);
-      fprintf (asm_out_file, "*****************/\n");
-    }
 }
 
 /* Return 0 if undefined, 1 if always true or always false.  */
 
 int
-avr_simplify_comparision_p (mode, operator, x)
+avr_simplify_comparison_p (mode, operator, x)
      enum machine_mode mode;
      RTX_CODE operator;
      rtx x;
@@ -1611,9 +1611,6 @@ output_movqi (insn, operands, l)
 		return AS1 (clr,%0);
 	      else if (src == const1_rtx)
 		{
-		  if (reg_was_0 (insn, dest))
-		    return AS1 (inc,%0 ; reg_was_0);
-
 		  *l = 2;
 		  return (AS1 (clr,%0) CR_TAB
 			  AS1 (inc,%0));
@@ -1621,9 +1618,6 @@ output_movqi (insn, operands, l)
 	      else if (src == constm1_rtx)
 		{
 		  /* Immediate constants -1 to any register */
-		  if (reg_was_0 (insn, dest))
-		    return AS1 (dec,%0 ; reg_was_0);
-
 		  *l = 2;
 		  return (AS1 (clr,%0) CR_TAB
 			  AS1 (dec,%0));
@@ -1634,19 +1628,10 @@ output_movqi (insn, operands, l)
 
 		  if (bit_nr >= 0)
 		    {
-		      if (reg_was_0 (insn, dest))
-			{
-			  *l = 2;
-			  if (!real_l)
-			    output_asm_insn ("set ; reg_was_0", operands);
-			}
-		      else
-			{
-			  *l = 3;
-			  if (!real_l)
-			    output_asm_insn ((AS1 (clr,%0) CR_TAB
-					      "set"), operands);
-			}
+		      *l = 3;
+		      if (!real_l)
+			output_asm_insn ((AS1 (clr,%0) CR_TAB
+					  "set"), operands);
 		      if (!real_l)
 			avr_output_bld (operands, bit_nr);
 
@@ -1752,13 +1737,6 @@ output_movhi (insn, operands, l)
 	{
 	  if (test_hard_reg_class (LD_REGS, dest)) /* ldi d,i */
 	    {
-	      if (byte_immediate_operand (src, HImode)
-		  && reg_was_0 (insn, dest))
-		{
-		  *l = 1;
-		  return (AS2 (ldi,%A0,lo8(%1) ; reg_was_0));
-		}
-
 	      *l = 2;
 	      return (AS2 (ldi,%A0,lo8(%1)) CR_TAB
 		      AS2 (ldi,%B0,hi8(%1)));
@@ -1774,12 +1752,6 @@ output_movhi (insn, operands, l)
 		}
 	      else if (src == const1_rtx)
 		{
-		  if (reg_was_0 (insn, dest))
-		    {
-		      *l = 1;
-		      return AS1 (inc,%0 ; reg_was_0);
-		    }
-
 		  *l = 3;
 		  return (AS1 (clr,%A0) CR_TAB
 			  AS1 (clr,%B0) CR_TAB
@@ -1788,13 +1760,6 @@ output_movhi (insn, operands, l)
 	      else if (src == constm1_rtx)
 		{
 		  /* Immediate constants -1 to any register */
-		  if (reg_was_0 (insn, dest))
-		    {
-		      *l = 2;
-		      return (AS1 (dec,%A0 ; reg_was_0) CR_TAB
-			      AS1 (dec,%B0));
-		    }
-
 		  *l = 3;
 		  return (AS1 (clr,%0)  CR_TAB
 			  AS1 (dec,%A0) CR_TAB
@@ -1806,20 +1771,11 @@ output_movhi (insn, operands, l)
 
 		  if (bit_nr >= 0)
 		    {
-		      if (reg_was_0 (insn, dest))
-			{
-			  *l = 2;
-			  if (!real_l)
-			    output_asm_insn ("set ; reg_was_0", operands);
-			}
-		      else
-			{
-			  *l = 4;
-			  if (!real_l)
-			    output_asm_insn ((AS1 (clr,%A0) CR_TAB
-					      AS1 (clr,%B0) CR_TAB
-					      "set"), operands);
-			}
+		      *l = 4;
+		      if (!real_l)
+			output_asm_insn ((AS1 (clr,%A0) CR_TAB
+					  AS1 (clr,%B0) CR_TAB
+					  "set"), operands);
 		      if (!real_l)
 			avr_output_bld (operands, bit_nr);
 
@@ -2451,13 +2407,6 @@ output_movsisf(insn, operands, l)
 	{
 	  if (test_hard_reg_class (LD_REGS, dest)) /* ldi d,i */
 	    {
-	      if (byte_immediate_operand (src, SImode)
-		  && reg_was_0 (insn, dest))
-		{
-		  *l = 1;
-		  return (AS2 (ldi,%A0,lo8(%1) ; reg_was_0));
-		}
-
 	      *l = 4;
 	      return (AS2 (ldi,%A0,lo8(%1))  CR_TAB
 		      AS2 (ldi,%B0,hi8(%1))  CR_TAB
@@ -2483,11 +2432,6 @@ output_movsisf(insn, operands, l)
 		}
 	      else if (src == const1_rtx)
 		{
-		  if (reg_was_0 (insn, dest))
-		    {
-		      *l = 1;
-		      return AS1 (inc,%A0 ; reg_was_0);
-		    }
 		  if (!real_l)
 		    output_asm_insn (clr_op0, operands);
 		  *l = AVR_ENHANCED ? 4 : 5;
@@ -2496,21 +2440,6 @@ output_movsisf(insn, operands, l)
 	      else if (src == constm1_rtx)
 		{
 		  /* Immediate constants -1 to any register */
-		  if (reg_was_0 (insn, dest))
-		    {
-		      if (AVR_ENHANCED)
-			{
-			  *l = 3;
-			  return (AS1 (dec,%A0) CR_TAB
-				  AS1 (dec,%B0) CR_TAB
-				  AS2 (movw,%C0,%A0));
-			}
-		      *l = 4;
-		      return (AS1 (dec,%D0 ; reg_was_0) CR_TAB
-			      AS1 (dec,%C0)             CR_TAB
-			      AS1 (dec,%B0)             CR_TAB
-			      AS1 (dec,%A0));
-		    }
 		  if (AVR_ENHANCED)
 		    {
 		      *l = 4;
@@ -2532,20 +2461,11 @@ output_movsisf(insn, operands, l)
 
 		  if (bit_nr >= 0)
 		    {
-		      if (reg_was_0 (insn, dest))
+		      *l = AVR_ENHANCED ? 5 : 6;
+		      if (!real_l)
 			{
-			  *l = 2;
-			  if (!real_l)
-			    output_asm_insn ("set ; reg_was_0", operands);
-			}
-		      else
-			{
-			  *l = AVR_ENHANCED ? 5 : 6;
-			  if (!real_l)
-			    {
-			      output_asm_insn (clr_op0, operands);
-			      output_asm_insn ("set", operands);
-			    }
+			  output_asm_insn (clr_op0, operands);
+			  output_asm_insn ("set", operands);
 			}
 		      if (!real_l)
 			avr_output_bld (operands, bit_nr);
@@ -4885,30 +4805,30 @@ avr_section_type_flags (decl, name, reloc)
   return flags;
 }
 
-/* Outputs to the stdio stream FILE some
-   appropriate text to go at the start of an assembler file.  */
+/* Outputs some appropriate text to go at the start of an assembler
+   file.  */
 
-void
-asm_file_start (file)
-     FILE *file;
+static void
+avr_file_start ()
 {
   if (avr_asm_only_p)
     error ("MCU `%s' supported for assembler only", avr_mcu_name);
 
-  output_file_directive (file, main_input_filename);
-  fprintf (file, "\t.arch %s\n", avr_mcu_name);
+  default_file_start ();
+
+  fprintf (asm_out_file, "\t.arch %s\n", avr_mcu_name);
   fputs ("__SREG__ = 0x3f\n"
 	 "__SP_H__ = 0x3e\n"
-	 "__SP_L__ = 0x3d\n", file);
+	 "__SP_L__ = 0x3d\n", asm_out_file);
   
   fputs ("__tmp_reg__ = 0\n" 
-         "__zero_reg__ = 1\n", file);
+         "__zero_reg__ = 1\n", asm_out_file);
 
   /* FIXME: output these only if there is anything in the .data / .bss
      sections - some code size could be saved by not linking in the
      initialization code from libgcc if one or both sections are empty.  */
-  fputs ("\t.global __do_copy_data\n", file);
-  fputs ("\t.global __do_clear_bss\n", file);
+  fputs ("\t.global __do_copy_data\n", asm_out_file);
+  fputs ("\t.global __do_clear_bss\n", asm_out_file);
 
   commands_in_file = 0;
   commands_in_prologues = 0;
@@ -4918,13 +4838,12 @@ asm_file_start (file)
 /* Outputs to the stdio stream FILE some
    appropriate text to go at the end of an assembler file.  */
 
-void
-asm_file_end (file)
-     FILE *file;
+static void
+avr_file_end ()
 {
-  fputs ("/* File ", file);
-  output_quoted_string (file, main_input_filename);
-  fprintf (file,
+  fputs ("/* File ", asm_out_file);
+  output_quoted_string (asm_out_file, main_input_filename);
+  fprintf (asm_out_file,
 	   ": code %4d = 0x%04x (%4d), prologues %3d, epilogues %3d */\n",
 	   commands_in_file,
 	   commands_in_file,
@@ -5189,7 +5108,7 @@ avr_normalize_condition (condition)
     }
 }
 
-/* This fnction optimizes conditional jumps */
+/* This function optimizes conditional jumps.  */
 
 static void
 avr_reorg ()
@@ -5240,7 +5159,7 @@ avr_reorg ()
 		  rtx t = XEXP (src,0);
 		  enum machine_mode mode = GET_MODE (XEXP (pattern, 0));
 
-		  if (avr_simplify_comparision_p (mode, GET_CODE (t), x))
+		  if (avr_simplify_comparison_p (mode, GET_CODE (t), x))
 		    {
 		      XEXP (pattern, 1) = gen_int_mode (INTVAL (x) + 1, mode);
 		      PUT_CODE (t, avr_normalize_condition (GET_CODE (t)));
@@ -5399,25 +5318,6 @@ avr_hard_regno_mode_ok (regno, mode)
   /*  if (regno < 24 && !AVR_ENHANCED)
       return 1;*/
   return !(regno & 1);
-}
-
-/* Returns 1 if we know register operand OP was 0 before INSN.  */
-
-static int
-reg_was_0 (insn, op)
-     rtx insn;
-     rtx op;
-{
-  rtx link;
-  return (optimize > 0 && insn && op && REG_P (op)
-	  && (link = find_reg_note (insn, REG_WAS_0, 0))
-	  /* Make sure the insn that stored the 0 is still present.  */
-	  && ! INSN_DELETED_P (XEXP (link, 0))
-	  && GET_CODE (XEXP (link, 0)) != NOTE
-	  /* Make sure cross jumping didn't happen here.  */
-	  && no_labels_between_p (XEXP (link, 0), insn)
-	  /* Make sure the reg hasn't been clobbered.  */
-	  && ! reg_set_between_p (op, XEXP (link, 0), insn));
 }
 
 /* Returns 1 if X is a valid address for an I/O register of size SIZE

@@ -1,5 +1,5 @@
 /* Precompiled header implementation for the C languages.
-   Copyright (C) 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -46,10 +46,9 @@ struct c_pch_header
 
 static FILE *pch_outfile;
 
-extern char *asm_file_name;
 static long asm_file_startpos;
 
-static const char * get_ident PARAMS((void));
+static const char *get_ident (void);
 
 /* Compute an appropriate 8-byte magic number for the PCH file, so that
    utilities like file(1) can identify it, and so that GCC can quickly
@@ -57,18 +56,15 @@ static const char * get_ident PARAMS((void));
    format.  */
 
 static const char *
-get_ident()
+get_ident(void)
 {
   static char result[IDENT_LENGTH];
   static const char template[IDENT_LENGTH] = "gpch.011";
+  static const char c_language_chars[] = "Co+O";
   
   memcpy (result, template, IDENT_LENGTH);
-  if (c_language == clk_c)
-    result[4] = flag_objc ? 'o' : 'C';
-  else if (c_language == clk_cplusplus)
-    result[4] = flag_objc ? 'O' : '+';
-  else
-    abort ();
+  result[4] = c_language_chars[c_language];
+
   return result;
 }
 
@@ -76,7 +72,7 @@ get_ident()
    compilation.  */
 
 void
-pch_init ()
+pch_init (void)
 {
   FILE *f;
   struct c_pch_validity v;
@@ -112,7 +108,7 @@ pch_init ()
    will produce a PCH file.  */
 
 void
-c_common_write_pch ()
+c_common_write_pch (void)
 {
   char *buf;
   long asm_file_end;
@@ -147,6 +143,8 @@ c_common_write_pch ()
       written += size;
     }
   free (buf);
+  /* asm_out_file can be written afterwards, so must be flushed first.  */
+  fflush (asm_out_file);
 
   gt_pch_save (pch_outfile);
   cpp_write_pch_state (parse_in, pch_outfile);
@@ -158,10 +156,7 @@ c_common_write_pch ()
    in this compilation.  */
 
 int
-c_common_valid_pch (pfile, name, fd)
-     cpp_reader *pfile;
-     const char *name;
-     int fd;
+c_common_valid_pch (cpp_reader *pfile, const char *name, int fd)
 {
   int sizeread;
   int result;
@@ -233,11 +228,8 @@ c_common_valid_pch (pfile, name, fd)
    by ORIG_NAME.  */
 
 void
-c_common_read_pch (pfile, name, fd, orig_name)
-     cpp_reader *pfile;
-     const char *name;
-     int fd;
-     const char *orig_name ATTRIBUTE_UNUSED;
+c_common_read_pch (cpp_reader *pfile, const char *name,
+		   int fd, const char *orig_name ATTRIBUTE_UNUSED)
 {
   FILE *f;
   struct c_pch_header h;

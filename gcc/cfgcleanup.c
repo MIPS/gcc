@@ -1,6 +1,6 @@
 /* Control flow optimization code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -67,36 +67,29 @@ enum bb_flags
 
 #define FORWARDER_BLOCK_P(BB) (BB_FLAGS (BB) & BB_FORWARDER_BLOCK)
 
-static bool try_crossjump_to_edge	PARAMS ((int, edge, edge));
-static bool try_crossjump_bb		PARAMS ((int, basic_block));
-static bool outgoing_edges_match	PARAMS ((int,
-						 basic_block, basic_block));
-static int flow_find_cross_jump		PARAMS ((int, basic_block, basic_block,
-						 rtx *, rtx *));
-static bool insns_match_p		PARAMS ((int, rtx, rtx));
+static bool try_crossjump_to_edge (int, edge, edge);
+static bool try_crossjump_bb (int, basic_block);
+static bool outgoing_edges_match (int, basic_block, basic_block);
+static int flow_find_cross_jump (int, basic_block, basic_block, rtx *, rtx *);
+static bool insns_match_p (int, rtx, rtx);
 
-static bool label_is_jump_target_p	PARAMS ((rtx, rtx));
-static bool tail_recursion_label_p	PARAMS ((rtx));
-static void merge_blocks_move_predecessor_nojumps PARAMS ((basic_block,
-							  basic_block));
-static void merge_blocks_move_successor_nojumps PARAMS ((basic_block,
-							basic_block));
-static basic_block merge_blocks		PARAMS ((edge,basic_block,basic_block,
-						 int));
-static bool try_optimize_cfg		PARAMS ((int));
-static bool try_simplify_condjump	PARAMS ((basic_block));
-static bool try_forward_edges		PARAMS ((int, basic_block));
-static edge thread_jump			PARAMS ((int, edge, basic_block));
-static bool mark_effect			PARAMS ((rtx, bitmap));
-static void notice_new_block		PARAMS ((basic_block));
-static void update_forwarder_flag	PARAMS ((basic_block));
-static int mentions_nonequal_regs	PARAMS ((rtx *, void *));
+static bool label_is_jump_target_p (rtx, rtx);
+static bool tail_recursion_label_p (rtx);
+static void merge_blocks_move_predecessor_nojumps (basic_block, basic_block);
+static void merge_blocks_move_successor_nojumps (basic_block, basic_block);
+static bool try_optimize_cfg (int);
+static bool try_simplify_condjump (basic_block);
+static bool try_forward_edges (int, basic_block);
+static edge thread_jump (int, edge, basic_block);
+static bool mark_effect (rtx, bitmap);
+static void notice_new_block (basic_block);
+static void update_forwarder_flag (basic_block);
+static int mentions_nonequal_regs (rtx *, void *);
 
 /* Set flags for newly created block.  */
 
 static void
-notice_new_block (bb)
-     basic_block bb;
+notice_new_block (basic_block bb)
 {
   if (!bb)
     return;
@@ -108,8 +101,7 @@ notice_new_block (bb)
 /* Recompute forwarder flag after block has been modified.  */
 
 static void
-update_forwarder_flag (bb)
-     basic_block bb;
+update_forwarder_flag (basic_block bb)
 {
   if (forwarder_block_p (bb))
     BB_SET_FLAG (bb, BB_FORWARDER_BLOCK);
@@ -121,8 +113,7 @@ update_forwarder_flag (bb)
    Return true if something changed.  */
 
 static bool
-try_simplify_condjump (cbranch_block)
-     basic_block cbranch_block;
+try_simplify_condjump (basic_block cbranch_block)
 {
   basic_block jump_block, jump_dest_block, cbranch_dest_block;
   edge cbranch_jump_edge, cbranch_fallthru_edge;
@@ -180,7 +171,7 @@ try_simplify_condjump (cbranch_block)
   update_br_prob_note (cbranch_block);
 
   /* Delete the block with the unconditional jump, and clean up the mess.  */
-  flow_delete_block (jump_block);
+  delete_basic_block (jump_block);
   tidy_fallthru_edge (cbranch_jump_edge, cbranch_block, cbranch_dest_block);
 
   return true;
@@ -190,9 +181,7 @@ try_simplify_condjump (cbranch_block)
    on register.  Used by jump threading.  */
 
 static bool
-mark_effect (exp, nonequal)
-     rtx exp;
-     regset nonequal;
+mark_effect (rtx exp, regset nonequal)
 {
   int regno;
   rtx dest;
@@ -241,9 +230,7 @@ mark_effect (exp, nonequal)
 /* Return nonzero if X is an register set in regset DATA.
    Called via for_each_rtx.  */
 static int
-mentions_nonequal_regs (x, data)
-     rtx *x;
-     void *data;
+mentions_nonequal_regs (rtx *x, void *data)
 {
   regset nonequal = (regset) data;
   if (REG_P (*x))
@@ -268,10 +255,7 @@ mentions_nonequal_regs (x, data)
    if exist, NULL otherwise.  */
 
 static edge
-thread_jump (mode, e, b)
-     int mode;
-     edge e;
-     basic_block b;
+thread_jump (int mode, edge e, basic_block b)
 {
   rtx set1, set2, cond1, cond2, insn;
   enum rtx_code code1, code2, reversed_code2;
@@ -413,9 +397,7 @@ failed_exit:
    Return true if successful.  */
 
 static bool
-try_forward_edges (mode, b)
-     basic_block b;
-     int mode;
+try_forward_edges (int mode, basic_block b)
 {
   bool changed = false;
   edge e, next, *threaded_edges = NULL;
@@ -648,8 +630,7 @@ try_forward_edges (mode, b)
    not apply to the fallthru case of a conditional jump.  */
 
 static bool
-label_is_jump_target_p (label, jump_insn)
-     rtx label, jump_insn;
+label_is_jump_target_p (rtx label, rtx jump_insn)
 {
   rtx tmp = JUMP_LABEL (jump_insn);
 
@@ -672,8 +653,7 @@ label_is_jump_target_p (label, jump_insn)
 /* Return true if LABEL is used for tail recursion.  */
 
 static bool
-tail_recursion_label_p (label)
-     rtx label;
+tail_recursion_label_p (rtx label)
 {
   rtx x;
 
@@ -689,8 +669,7 @@ tail_recursion_label_p (label)
    any jumps (aside from the jump from A to B).  */
 
 static void
-merge_blocks_move_predecessor_nojumps (a, b)
-     basic_block a, b;
+merge_blocks_move_predecessor_nojumps (basic_block a, basic_block b)
 {
   rtx barrier;
 
@@ -724,7 +703,7 @@ merge_blocks_move_predecessor_nojumps (a, b)
   link_block (a, b->prev_bb);
 
   /* Now blocks A and B are contiguous.  Merge them.  */
-  merge_blocks_nomove (a, b);
+  merge_blocks (a, b);
 }
 
 /* Blocks A and B are to be merged into a single block.  B has no outgoing
@@ -732,8 +711,7 @@ merge_blocks_move_predecessor_nojumps (a, b)
    any jumps (aside from the jump from A to B).  */
 
 static void
-merge_blocks_move_successor_nojumps (a, b)
-     basic_block a, b;
+merge_blocks_move_successor_nojumps (basic_block a, basic_block b)
 {
   rtx barrier, real_b_end;
 
@@ -779,26 +757,23 @@ merge_blocks_move_successor_nojumps (a, b)
 	     b->index, a->index);
 
   /* Now blocks A and B are contiguous.  Merge them.  */
-  merge_blocks_nomove (a, b);
+  merge_blocks (a, b);
 }
 
 /* Attempt to merge basic blocks that are potentially non-adjacent.
    Return NULL iff the attempt failed, otherwise return basic block
    where cleanup_cfg should continue.  Because the merging commonly
    moves basic block away or introduces another optimization
-   possiblity, return basic block just before B so cleanup_cfg don't
+   possibility, return basic block just before B so cleanup_cfg don't
    need to iterate.
 
    It may be good idea to return basic block before C in the case
    C has been moved after B and originally appeared earlier in the
-   insn seqeunce, but we have no infromation available about the
+   insn sequence, but we have no information available about the
    relative ordering of these two.  Hopefully it is not too common.  */
 
 static basic_block
-merge_blocks (e, b, c, mode)
-     edge e;
-     basic_block b, c;
-     int mode;
+merge_blocks_move (edge e, basic_block b, basic_block c, int mode)
 {
   basic_block next;
   /* If C has a tail recursion label, do not merge.  There is no
@@ -814,7 +789,7 @@ merge_blocks (e, b, c, mode)
   if (e->flags & EDGE_FALLTHRU)
     {
       int b_index = b->index, c_index = c->index;
-      merge_blocks_nomove (b, c);
+      merge_blocks (b, c);
       update_forwarder_flag (b);
 
       if (rtl_dump_file)
@@ -895,9 +870,7 @@ merge_blocks (e, b, c, mode)
 /* Return true if I1 and I2 are equivalent and thus can be crossjumped.  */
 
 static bool
-insns_match_p (mode, i1, i2)
-     int mode ATTRIBUTE_UNUSED;
-     rtx i1, i2;
+insns_match_p (int mode ATTRIBUTE_UNUSED, rtx i1, rtx i2)
 {
   rtx p1, p2;
 
@@ -1010,10 +983,8 @@ insns_match_p (mode, i1, i2)
    store the head of the blocks in *F1 and *F2.  */
 
 static int
-flow_find_cross_jump (mode, bb1, bb2, f1, f2)
-     int mode ATTRIBUTE_UNUSED;
-     basic_block bb1, bb2;
-     rtx *f1, *f2;
+flow_find_cross_jump (int mode ATTRIBUTE_UNUSED, basic_block bb1,
+		      basic_block bb2, rtx *f1, rtx *f2)
 {
   rtx i1, i2, last1, last2, afterlast1, afterlast2;
   int ninsns = 0;
@@ -1122,10 +1093,7 @@ flow_find_cross_jump (mode, bb1, bb2, f1, f2)
    We may assume that there exists one edge with a common destination.  */
 
 static bool
-outgoing_edges_match (mode, bb1, bb2)
-     int mode;
-     basic_block bb1;
-     basic_block bb2;
+outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 {
   int nehedges1 = 0, nehedges2 = 0;
   edge fallthru1 = 0, fallthru2 = 0;
@@ -1271,7 +1239,7 @@ outgoing_edges_match (mode, bb1, bb2)
 	  /* The labels should never be the same rtx.  If they really are same
 	     the jump tables are same too. So disable crossjumping of blocks BB1
 	     and BB2 because when deleting the common insns in the end of BB1
-	     by flow_delete_block () the jump table would be deleted too.  */
+	     by delete_basic_block () the jump table would be deleted too.  */
 	  /* If LABEL2 is referenced in BB1->END do not do anything
 	     because we would loose information when replacing
 	     LABEL1 by LABEL2 and then LABEL2 by LABEL1 in BB1->END.  */
@@ -1384,7 +1352,7 @@ outgoing_edges_match (mode, bb1, bb2)
 	return false;
     }
 
-  /* We don't need to match the rest of edges as above checks should be enought
+  /* We don't need to match the rest of edges as above checks should be enough
      to ensure that they are equivalent.  */
   return true;
 }
@@ -1394,9 +1362,7 @@ outgoing_edges_match (mode, bb1, bb2)
    (maybe the middle of) E1->SRC to (maybe the middle of) E2->SRC.  */
 
 static bool
-try_crossjump_to_edge (mode, e1, e2)
-     int mode;
-     edge e1, e2;
+try_crossjump_to_edge (int mode, edge e1, edge e2)
 {
   int nmatch;
   basic_block src1 = e1->src, src2 = e2->src;
@@ -1568,7 +1534,7 @@ try_crossjump_to_edge (mode, e1, e2)
   to_remove = redirect_from->succ->dest;
 
   redirect_edge_and_branch_force (redirect_from->succ, redirect_to);
-  flow_delete_block (to_remove);
+  delete_basic_block (to_remove);
 
   update_forwarder_flag (redirect_from);
 
@@ -1580,9 +1546,7 @@ try_crossjump_to_edge (mode, e1, e2)
    any changes made.  */
 
 static bool
-try_crossjump_bb (mode, bb)
-     int mode;
-     basic_block bb;
+try_crossjump_bb (int mode, basic_block bb)
 {
   edge e, e2, nexte2, nexte, fallthru;
   bool changed;
@@ -1675,8 +1639,7 @@ try_crossjump_bb (mode, bb)
    instructions etc.  Return nonzero if changes were made.  */
 
 static bool
-try_optimize_cfg (mode)
-     int mode;
+try_optimize_cfg (int mode)
 {
   bool changed_overall = false;
   bool changed;
@@ -1721,8 +1684,9 @@ try_optimize_cfg (mode)
 		    fprintf (rtl_dump_file, "Deleting block %i.\n",
 			     b->index);
 
-		  flow_delete_block (b);
-		  changed = true;
+		  delete_basic_block (b);
+		  if (!(mode & CLEANUP_CFGLAYOUT))
+		    changed = true;
 		  b = c;
 		}
 
@@ -1748,15 +1712,24 @@ try_optimize_cfg (mode)
 		{
 		  rtx label = b->head;
 
-		  b->head = NEXT_INSN (b->head);
 		  delete_insn_chain (label, label);
+		  /* In the case label is undeletable, move it after the
+		     BASIC_BLOCK note.  */
+		  if (NOTE_LINE_NUMBER (b->head) == NOTE_INSN_DELETED_LABEL)
+		    {
+		      rtx bb_note = NEXT_INSN (b->head);
+
+		      reorder_insns_nobb (label, label, bb_note);
+		      b->head = bb_note;
+		    }
 		  if (rtl_dump_file)
 		    fprintf (rtl_dump_file, "Deleted label in block %i.\n",
 			     b->index);
 		}
 
 	      /* If we fall through an empty block, we can remove it.  */
-	      if (b->pred->pred_next == NULL
+	      if (!(mode & CLEANUP_CFGLAYOUT)
+		  && b->pred->pred_next == NULL
 		  && (b->pred->flags & EDGE_FALLTHRU)
 		  && GET_CODE (b->head) != CODE_LABEL
 		  && FORWARDER_BLOCK_P (b)
@@ -1772,7 +1745,7 @@ try_optimize_cfg (mode)
 
 		  c = b->prev_bb == ENTRY_BLOCK_PTR ? b->next_bb : b->prev_bb;
 		  redirect_edge_succ_nodup (b->pred, b->succ->dest);
-		  flow_delete_block (b);
+		  delete_basic_block (b);
 		  changed = true;
 		  b = c;
 		}
@@ -1782,21 +1755,39 @@ try_optimize_cfg (mode)
 		  && !(s->flags & EDGE_COMPLEX)
 		  && (c = s->dest) != EXIT_BLOCK_PTR
 		  && c->pred->pred_next == NULL
-		  && b != c
-		  /* If the jump insn has side effects,
-		     we can't kill the edge.  */
-		  && (GET_CODE (b->end) != JUMP_INSN
-		      || (flow2_completed
-			  ? simplejump_p (b->end)
-			  : onlyjump_p (b->end)))
-		  && (next = merge_blocks (s, b, c, mode)))
-	        {
-		  b = next;
-		  changed_here = true;
+		  && b != c)
+		{
+		  /* When not in cfg_layout mode use code aware of reordering
+		     INSN.  This code possibly creates new basic blocks so it
+		     does not fit merge_blocks interface and is kept here in
+		     hope that it will become useless once more of compiler
+		     is transformed to use cfg_layout mode.  */
+		     
+		  if ((mode & CLEANUP_CFGLAYOUT)
+		      && can_merge_blocks_p (b, c))
+		    {
+		      merge_blocks (b, c);
+		      update_forwarder_flag (b);
+		      changed_here = true;
+		    }
+		  else if (!(mode & CLEANUP_CFGLAYOUT)
+			   /* If the jump insn has side effects,
+			      we can't kill the edge.  */
+			   && (GET_CODE (b->end) != JUMP_INSN
+			       || (flow2_completed
+				   ? simplejump_p (b->end)
+				   : onlyjump_p (b->end)))
+			   && (next = merge_blocks_move (s, b, c, mode)))
+		      {
+			b = next;
+			changed_here = true;
+		      }
 		}
 
 	      /* Simplify branch over branch.  */
-	      if ((mode & CLEANUP_EXPENSIVE) && try_simplify_condjump (b))
+	      if ((mode & CLEANUP_EXPENSIVE)
+		   && !(mode & CLEANUP_CFGLAYOUT)
+		   && try_simplify_condjump (b))
 		changed_here = true;
 
 	      /* If B has a single outgoing edge, but uses a
@@ -1856,7 +1847,7 @@ try_optimize_cfg (mode)
 /* Delete all unreachable basic blocks.  */
 
 bool
-delete_unreachable_blocks ()
+delete_unreachable_blocks (void)
 {
   bool changed = false;
   basic_block b, next_bb;
@@ -1871,7 +1862,7 @@ delete_unreachable_blocks ()
 
       if (!(b->flags & BB_REACHABLE))
 	{
-	  flow_delete_block (b);
+	  delete_basic_block (b);
 	  changed = true;
 	}
     }
@@ -1884,8 +1875,7 @@ delete_unreachable_blocks ()
 /* Tidy the CFG by deleting unreachable code and whatnot.  */
 
 bool
-cleanup_cfg (mode)
-     int mode;
+cleanup_cfg (int mode)
 {
   bool changed = false;
 

@@ -44,7 +44,6 @@ Boston, MA 02111-1307, USA.  */
 /* This declaration should be present. */
 extern int target_flags;
 
-#define MASK_RTL_DUMP		0x00000010
 #define MASK_ALL_DEBUG		0x00000FE0
 #define MASK_ORDER_1		0x00001000
 #define MASK_INSN_SIZE_DUMP	0x00002000
@@ -65,11 +64,6 @@ extern int target_flags;
 #define TARGET_TINY_STACK	(target_flags & MASK_TINY_STACK)
 #define TARGET_NO_TABLEJUMP	(target_flags & MASK_NO_TABLEJUMP)
 #define TARGET_SHORT_CALLS	(target_flags & MASK_SHORT_CALLS)
-
-/* Dump each assembler insn's rtl into the output file.
-   This is for debugging the compiler itself.  */
-
-#define TARGET_RTL_DUMP		(target_flags & MASK_RTL_DUMP)
 #define TARGET_ALL_DEBUG	(target_flags & MASK_ALL_DEBUG)
 
 #define TARGET_SWITCHES {						\
@@ -86,7 +80,6 @@ extern int target_flags;
     N_("Do not generate tablejump insns") },				\
   { "short-calls", MASK_SHORT_CALLS,					\
     N_("Use rjmp/rcall (limited range) on >8K devices") },		\
-  { "rtl", MASK_RTL_DUMP, NULL },					\
   { "size", MASK_INSN_SIZE_DUMP,					\
     N_("Output instruction sizes to the asm file") },			\
   { "deb", MASK_ALL_DEBUG, NULL },					\
@@ -371,7 +364,7 @@ extern int avr_asm_only_p;
 
    One use of this macro is on machines where the highest numbered
    registers must always be saved and the save-multiple-registers
-   instruction supports only sequences of consetionve registers.  On
+   instruction supports only sequences of consecutive registers.  On
    such machines, define `REG_ALLOC_ORDER' to be an initializer that
    lists the highest numbered allocatable register first. */
 
@@ -1589,11 +1582,6 @@ do {									    \
 
    If the value of this macro is always zero, it need not be defined.
 
-   `DONT_REDUCE_ADDR'
-   Define this macro to inhibit strength reduction of memory
-   addresses.  (On some machines, such strength reduction seems to do
-   harm rather than good.)
-
    `MOVE_RATIO'
    The number of scalar move insns which should be generated instead
    of a string move insn or a library call.  Increasing the value
@@ -1692,29 +1680,6 @@ progmem_section ()							      \
    This macro is irrelevant if there is no separate readonly data
    section.  */
 
-#define ASM_FILE_START(STREAM) asm_file_start (STREAM)
-/* A C expression which outputs to the stdio stream STREAM some
-   appropriate text to go at the start of an assembler file.
-
-   Normally this macro is defined to output a line containing
-   `#NO_APP', which is a comment that has no effect on most
-   assemblers but tells the GNU assembler that it can save time by not
-   checking for certain assembler constructs.
-
-   On systems that use SDB, it is necessary to output certain
-   commands; see `attasm.h'.  */
-
-#define ASM_FILE_END(STREAM) asm_file_end (STREAM)
-/* A C expression which outputs to the stdio stream STREAM some
-   appropriate text to go at the end of an assembler file.
-
-   If this macro is not defined, the default is to output nothing
-   special at the end of the file.  Most systems don't require any
-   definition.
-
-   On systems that use SDB, it is necessary to output certain
-   commands; see `attasm.h'.  */
-
 #define ASM_COMMENT_START " ; "
 /* A C string constant describing how to begin a comment in the target
    assembler language.  The compiler assumes that the comment will
@@ -1734,7 +1699,8 @@ progmem_section ()							      \
    time-saving assumptions that are valid for ordinary compiler
    output.  */
 
-#define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE) fprintf (STREAM,"/* line: %d */\n",LINE)
+#define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE, COUNTER) \
+  fprintf (STREAM,"/* line: %d */\n",LINE)
 /* A C statement to output DBX or SDB debugging information before
    code for line number LINE of the current source file to the stdio
    stream STREAM.
@@ -1744,13 +1710,6 @@ progmem_section ()							      \
 
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION default_elf_asm_named_section
-
-#define OBJC_PROLOGUE {}
-/* A C statement to output any assembler statements which are
-   required to precede any Objective-C object definitions or message
-   sending.  The statement is executed only when compiling an
-   Objective-C program.  */
-
 
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)	 gas_output_ascii (FILE,P,SIZE)
 /* `ASM_OUTPUT_ASCII (STREAM, PTR, LEN)'
@@ -1778,7 +1737,7 @@ progmem_section ()							      \
 do {									   \
      fputs ("\t.comm ", (STREAM));					   \
      assemble_name ((STREAM), (NAME));					   \
-     fprintf ((STREAM), ",%d,1\n", (SIZE));				   \
+     fprintf ((STREAM), ",%lu,1\n", (unsigned long)(SIZE));		   \
 } while (0)
 /* A C statement (sans semicolon) to output to the stdio stream
    STREAM the assembler definition of a common-label named NAME whose
@@ -2007,7 +1966,7 @@ do {									 \
    be emitted as one-only.  */
 
 #define ASM_GENERATE_INTERNAL_LABEL(STRING, PREFIX, NUM)	\
-sprintf (STRING, "*.%s%d", PREFIX, NUM)
+sprintf (STRING, "*.%s%lu", PREFIX, (unsigned long)(NUM))
 /* A C statement to store into the string STRING a label whose name
    is made from the string PREFIX and the number NUM.
 
@@ -2200,7 +2159,7 @@ sprintf (STRING, "*.%s%d", PREFIX, NUM)
    of the jump-table.  */
 
 #define ASM_OUTPUT_SKIP(STREAM, N)		\
-fprintf (STREAM, "\t.skip %d,0\n", (int)N)
+fprintf (STREAM, "\t.skip %lu,0\n", (unsigned long)(N))
 /* A C statement to output to the stdio stream STREAM an assembler
    instruction to advance the location counter by NBYTES bytes.
    Those bytes should be zero when loaded.  NBYTES will be a C

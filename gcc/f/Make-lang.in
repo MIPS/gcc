@@ -63,7 +63,8 @@ F77 f77: f771$(exeext)
   f77.install-common f77.install-info f77.install-man \
   f77.uninstall f77.mostlyclean f77.clean f77.distclean \
   f77.extraclean f77.maintainer-clean f77.rebuilt \
-  f77.stage1 f77.stage2 f77.stage3 f77.stage4
+  f77.stage1 f77.stage2 f77.stage3 f77.stage4 \
+  f77.stageprofile f77.stagefeedback
 
 g77spec.o: $(srcdir)/f/g77spec.c $(SYSTEM_H) coretypes.h $(TM_H) $(GCC_H) \
 	$(CONFIG_H)
@@ -128,11 +129,11 @@ f/str-ot.h f/str-ot.j: f/fini$(build_exeext) f/str-ot.fin
 	./f/fini$(build_exeext) $(srcdir)/f/str-ot.fin f/str-ot.j f/str-ot.h
 
 f/fini$(build_exeext): f/fini.o $(BUILD_LIBDEPS)
-	$(BUILD_CC) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) -o f/fini$(build_exeext) \
+	$(CC_FOR_BUILD) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) -o f/fini$(build_exeext) \
 		f/fini.o $(BUILD_LIBS)
 
 f/fini.o:
-	$(BUILD_CC) $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) \
+	$(CC_FOR_BUILD) $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) \
 	      -c $(srcdir)/f/fini.c $(OUTPUT_OPTION)
 
 gt-f-lex.h gt-f-where.h gt-f-com.h gt-f-ste.h gtype-f.h : s-gtype; @true
@@ -218,7 +219,7 @@ $(srcdir)/f/intdoc.texi: $(INTDOC_DEPS) $(srcdir)/f/intdoc.in
 
 f/intdoc$(build_exeext): $(INTDOC_DEPS) f/intdoc.h0 bconfig.h \
   $(SYSTEM_H) coretypes.h $(TM_H) $(BUILD_LIBDEPS)
-	  $(BUILD_CC) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) $(INCLUDES) \
+	  $(CC_FOR_BUILD) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) $(INCLUDES) \
 		  $(srcdir)/f/intdoc.c $(BUILD_LIBS) -o f/intdoc$(build_exeext)
 
 f/intdoc.h0: f/intdoc.in f/ansify$(build_exeext)
@@ -226,7 +227,7 @@ f/intdoc.h0: f/intdoc.in f/ansify$(build_exeext)
 		< $(srcdir)/f/intdoc.in > f/intdoc.h0
 
 f/ansify$(build_exeext): f/ansify.c bconfig.h $(SYSTEM_H) coretypes.h $(TM_H)
-	  $(BUILD_CC) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) $(INCLUDES) \
+	  $(CC_FOR_BUILD) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) $(INCLUDES) \
 	  	$(srcdir)/f/ansify.c -o f/ansify$(build_exeext)
 
 $(srcdir)/f/BUGS: f/bugs0.texi f/bugs.texi f/root.texi
@@ -349,6 +350,11 @@ f77.stage3: stage3-start
 f77.stage4: stage4-start
 	-mv -f $(G77STAGESTUFF) stage4/f
 
+f77.stageprofile: stageprofile-start
+	-mv -f $(G77STAGESTUFF) stageprofile/f
+
+f77.stagefeedback: stageprofile-start
+	-mv -f $(G77STAGESTUFF) stagefeedback/f
 #
 # .o: .h dependencies.
 
@@ -536,7 +542,7 @@ f/top.o: f/top.c f/proj.h $(CONFIG_H) $(SYSTEM_H) f/top.h f/malloc.h f/where.h \
  f/info-w.def f/target.h f/lex.h f/type.h f/lab.h f/storag.h \
  f/symbol.h f/symbol.def f/equiv.h f/global.h f/name.h f/intrin.h \
  f/intrin.def f/data.h f/expr.h f/implic.h f/src.h f/st.h flags.h \
- toplev.h coretypes.h $(TM_H)
+ toplev.h coretypes.h $(TM_H) opts.h options.h
 f/type.o: f/type.c f/proj.h $(CONFIG_H) $(SYSTEM_H) f/type.h f/malloc.h \
  coretypes.h $(TM_H)
 f/where.o: f/where.c f/proj.h $(CONFIG_H) $(SYSTEM_H) f/where.h glimits.h \

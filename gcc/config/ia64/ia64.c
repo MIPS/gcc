@@ -49,6 +49,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "hashtab.h"
 #include "langhooks.h"
+#include "cfglayout.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
    ASM_OUTPUT_LABELREF.  */
@@ -240,6 +241,7 @@ static void bundling PARAMS ((FILE *, int, rtx, rtx));
 
 static void ia64_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 					  HOST_WIDE_INT, tree));
+static void ia64_file_start PARAMS ((void));
 
 static void ia64_select_rtx_section PARAMS ((enum machine_mode, rtx,
 					     unsigned HOST_WIDE_INT));
@@ -257,6 +259,9 @@ static unsigned int ia64_rwreloc_section_type_flags
 
 static void ia64_hpux_add_extern_decl PARAMS ((const char *name))
      ATTRIBUTE_UNUSED;
+static void ia64_hpux_file_end PARAMS ((void))
+     ATTRIBUTE_UNUSED;
+
 
 /* Table of valid machine attributes.  */
 static const struct attribute_spec ia64_attribute_table[] =
@@ -351,6 +356,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_ASM_OUTPUT_MI_THUNK ia64_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
+
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START ia64_file_start
 
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS ia64_rtx_costs
@@ -1491,11 +1499,7 @@ ia64_expand_call (retval, addr, nextarg, sibcall_p)
     }
 
   if (sibcall_p)
-    {
-      use_reg (&CALL_INSN_FUNCTION_USAGE (insn), b0);
-      use_reg (&CALL_INSN_FUNCTION_USAGE (insn),
-	       gen_rtx_REG (DImode, AR_PFS_REGNUM));
-    }
+    use_reg (&CALL_INSN_FUNCTION_USAGE (insn), b0);
 }
 
 void
@@ -1549,7 +1553,7 @@ ia64_split_call (retval, addr, retaddr, scratch_r, scratch_b,
 
   /* If we find we're calling through a register, then we're actually
      calling through a descriptor, so load up the values.  */
-  if (REG_P (addr))
+  if (REG_P (addr) && GR_REGNO_P (REGNO (addr)))
     {
       rtx tmp;
       bool addr_dead_p;
@@ -1604,9 +1608,15 @@ ia64_split_call (retval, addr, retaddr, scratch_r, scratch_b,
 
 /* Begin the assembly file.  */
 
+static void
+ia64_file_start ()
+{
+  default_file_start ();
+  emit_safe_across_calls ();
+}
+
 void
-emit_safe_across_calls (f)
-     FILE *f;
+emit_safe_across_calls ()
 {
   unsigned int rs, re;
   int out_state;
@@ -1623,19 +1633,19 @@ emit_safe_across_calls (f)
 	continue;
       if (out_state == 0)
 	{
-	  fputs ("\t.pred.safe_across_calls ", f);
+	  fputs ("\t.pred.safe_across_calls ", asm_out_file);
 	  out_state = 1;
 	}
       else
-	fputc (',', f);
+	fputc (',', asm_out_file);
       if (re == rs + 1)
-	fprintf (f, "p%u", rs);
+	fprintf (asm_out_file, "p%u", rs);
       else
-	fprintf (f, "p%u-p%u", rs, re - 1);
+	fprintf (asm_out_file, "p%u-p%u", rs, re - 1);
       rs = re + 1;
     }
   if (out_state)
-    fputc ('\n', f);
+    fputc ('\n', asm_out_file);
 }
 
 /* Helper function for ia64_compute_frame_size: find an appropriate general
@@ -2771,7 +2781,7 @@ ia64_expand_epilogue (sibcall_p)
       reg = gen_rtx_REG (DImode, AR_PFS_REGNUM);
       emit_move_insn (reg, alt_reg);
     }
-  else if (! current_function_is_leaf)
+  else if (TEST_HARD_REG_BIT (current_frame_info.mask, AR_PFS_REGNUM))
     {
       alt_regno = next_scratch_gr_reg ();
       alt_reg = gen_rtx_REG (DImode, alt_regno);
@@ -4258,7 +4268,7 @@ ia64_secondary_reload_class (class, mode, x)
       break;
 
     case FR_REGS:
-      /* Need to go through general regsters to get to other class regs.  */
+      /* Need to go through general registers to get to other class regs.  */
       if (regno >= 0 && ! (FR_REGNO_P (regno) || GENERAL_REGNO_P (regno)))
 	return GR_REGS;
  
@@ -8249,6 +8259,9 @@ ia64_expand_builtin (exp, target, subtarget, mode, ignore)
       if (! target || ! register_operand (target, DImode))
 	target = gen_reg_rtx (DImode);
       emit_insn (gen_bsp_value (target));
+#ifdef POINTERS_EXTEND_UNSIGNED
+      target = convert_memory_address (ptr_mode, target);
+#endif
       return target;
 
     case IA64_BUILTIN_FLUSHRS:
@@ -8359,9 +8372,8 @@ ia64_hpux_add_extern_decl (name)
 
 /* Print out the list of used global functions.  */
 
-void
-ia64_hpux_asm_file_end (file)
-	FILE *file;
+static void
+ia64_hpux_file_end ()
 {
   while (extern_func_head)
     {
@@ -8376,12 +8388,13 @@ ia64_hpux_asm_file_end (file)
         {
 	  if (decl)
 	    TREE_ASM_WRITTEN (decl) = 1;
-	  (*targetm.asm_out.globalize_label) (file, extern_func_head->name);
-	  fprintf (file, "%s", TYPE_ASM_OP);
-	  assemble_name (file, extern_func_head->name);
-	  putc (',', file);
-	  fprintf (file, TYPE_OPERAND_FMT, "function");
-	  putc ('\n', file);
+	  (*targetm.asm_out.globalize_label) (asm_out_file,
+					      extern_func_head->name);
+	  fputs (TYPE_ASM_OP, asm_out_file);
+	  assemble_name (asm_out_file, extern_func_head->name);
+	  putc (',', asm_out_file);
+	  fprintf (asm_out_file, TYPE_OPERAND_FMT, "function");
+	  putc ('\n', asm_out_file);
         }
       extern_func_head = extern_func_head->next;
     }
@@ -8463,6 +8476,7 @@ ia64_output_mi_thunk (file, thunk, delta, vcall_offset, function)
   rtx this, insn, funexp;
 
   reload_completed = 1;
+  epilogue_completed = 1;
   no_new_pseudos = 1;
 
   /* Set things up as ia64_expand_prologue might.  */
@@ -8477,7 +8491,7 @@ ia64_output_mi_thunk (file, thunk, delta, vcall_offset, function)
     reg_names[IN_REG (0)] = ia64_reg_numbers[0];
 
   /* Mark the end of the (empty) prologue.  */
-  emit_note (NULL, NOTE_INSN_PROLOGUE_END);
+  emit_note (NOTE_INSN_PROLOGUE_END);
 
   this = gen_rtx_REG (Pmode, IN_REG (0));
 
@@ -8530,6 +8544,7 @@ ia64_output_mi_thunk (file, thunk, delta, vcall_offset, function)
 
   /* Code generation for calls relies on splitting.  */
   reload_completed = 1;
+  epilogue_completed = 1;
   try_split (PATTERN (insn), insn, 0);
 
   emit_barrier ();
@@ -8539,6 +8554,7 @@ ia64_output_mi_thunk (file, thunk, delta, vcall_offset, function)
      instruction scheduling worth while.  Note that use_thunk calls
      assemble_start_function and assemble_end_function.  */
 
+  insn_locators_initialize ();
   emit_all_insn_group_barriers (NULL);
   insn = get_insns ();
   shorten_branches (insn);
@@ -8547,6 +8563,7 @@ ia64_output_mi_thunk (file, thunk, delta, vcall_offset, function)
   final_end_function ();
 
   reload_completed = 0;
+  epilogue_completed = 0;
   no_new_pseudos = 0;
 }
 

@@ -31,16 +31,10 @@
 			%{pg:gcrti.o%s}%{!pg:crti.o%s} \
 			crtbegin.o%s"
 
-/* Output at beginning/end of assembler file.  */
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE)                            \
-  (output_file_directive ((FILE), main_input_filename), \
-   asm_file_start (FILE))
-
 #undef USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX "_"
 
 #define JUMP_TABLES_IN_TEXT_SECTION (flag_pic)
 
 #undef LINK_SPEC
-#define LINK_SPEC "%{mh:-m h8300helf} %{ms:-m h8300self}"
+#define LINK_SPEC "%{mh:%{mn:-m h8300hnelf}} %{mh:%{!mn:-m h8300helf}} %{ms:%{mn:-m h8300snelf}} %{ms:%{!mn:-m h8300self}}"

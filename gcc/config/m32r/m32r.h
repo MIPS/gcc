@@ -30,7 +30,6 @@ Boston, MA 02111-1307, USA.  */
 #undef PTRDIFF_TYPE
 #undef WCHAR_TYPE
 #undef WCHAR_TYPE_SIZE
-#undef ASM_FILE_START
 #undef ASM_OUTPUT_EXTERNAL_LIBCALL
 #undef TARGET_VERSION
 #undef CPP_SPEC
@@ -175,8 +174,6 @@ Boston, MA 02111-1307, USA.  */
 /* Options to pass on to the assembler.  */
 #undef  ASM_SPEC
 #define ASM_SPEC "%{v} %(asm_cpu) %(relax)"
-
-#undef  ASM_FINAL_SPEC
 
 #define LINK_SPEC "%{v} %(link_cpu) %(relax)"
 
@@ -657,6 +654,9 @@ extern unsigned int m32r_mode_class[];
  && GET_MODE_CLASS (MODE2) == MODE_INT		\
  && GET_MODE_SIZE (MODE1) <= UNITS_PER_WORD	\
  && GET_MODE_SIZE (MODE2) <= UNITS_PER_WORD)
+
+#define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG) \
+  m32r_hard_regno_rename_ok (OLD_REG, NEW_REG)
 
 /* Register classes and constants.  */
 
@@ -1133,7 +1133,7 @@ M32R_STACK_ALIGN (current_function_outgoing_args_size)
    appropriate for passing a pointer to that type.  */
 /* All arguments greater than 8 bytes are passed this way.  */
 #define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-  ((TYPE) && int_size_in_bytes (TYPE) > 8)
+  ((TYPE) && m32r_pass_by_reference (TYPE))
 
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
@@ -1209,8 +1209,7 @@ M32R_STACK_ALIGN (current_function_outgoing_args_size)
    to return the function value in memory, just as large structures are
    always returned.  Here TYPE will be a C expression of type `tree',
    representing the data type of the value.  */
-#define RETURN_IN_MEMORY(TYPE) \
-(int_size_in_bytes (TYPE) > 8)
+#define RETURN_IN_MEMORY(TYPE) m32r_pass_by_reference (TYPE)
 
 /* Tell GCC to use RETURN_IN_MEMORY.  */
 #define DEFAULT_PCC_STRUCT_RETURN 0
@@ -1517,9 +1516,6 @@ do {									\
 
 /* Control the assembler format that we output.  */
 
-/* Output at beginning of assembler file.  */
-#define ASM_FILE_START(FILE) m32r_asm_file_start (FILE)
-
 /* A C string constant describing how to begin a comment in the target
    assembler language.  The compiler assumes that the comment will
    end at the end of the line.  */
@@ -1545,19 +1541,17 @@ do {									\
    of a word.  */
 
 #undef	ASM_OUTPUT_SOURCE_LINE
-#define ASM_OUTPUT_SOURCE_LINE(file, line)				\
+#define ASM_OUTPUT_SOURCE_LINE(file, line, counter)			\
   do									\
     {									\
-      static int sym_lineno = 1;					\
       fprintf (file, ".stabn 68,0,%d,.LM%d-",				\
-	       line, sym_lineno);					\
+	       line, counter);						\
       assemble_name							\
 	(file, XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));	\
       fprintf (file, (optimize_size || TARGET_M32R)			\
 	       ? "\n\t.debugsym .LM%d\n"				\
 	       : "\n.LM%d:\n",						\
-	       sym_lineno);						\
-      sym_lineno += 1;							\
+	       counter);						\
     }									\
   while (0)
 
@@ -1687,8 +1681,6 @@ extern char m32r_punct_chars[256];
 #define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGN)		\
   do									\
     {									\
-      extern unsigned HOST_WIDE_INT g_switch_value;			\
-									\
       if (! TARGET_SDATA_NONE						\
 	  && (SIZE) > 0 && (SIZE) <= g_switch_value)			\
 	fprintf ((FILE), "%s", SCOMMON_ASM_OP);				\
@@ -1764,10 +1756,6 @@ extern char m32r_punct_chars[256];
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
-
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-#define STORE_FLAG_VALUE 1
 
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction

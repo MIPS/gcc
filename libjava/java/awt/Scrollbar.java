@@ -38,10 +38,9 @@ exception statement from your version. */
 
 package java.awt;
 
-import java.awt.peer.ScrollbarPeer;
-import java.awt.peer.ComponentPeer;
 import java.awt.event.AdjustmentListener;
 import java.awt.event.AdjustmentEvent;
+import java.awt.peer.ScrollbarPeer;
 import java.util.EventListener;
 import javax.accessibility.Accessible;
 
@@ -118,6 +117,8 @@ private int visibleAmount;
 
 // List of AdjustmentListener's.
 private AdjustmentListener adjustment_listeners;
+
+private transient boolean valueIsAdjusting = false;
 
 /*************************************************************************/
 
@@ -724,6 +725,26 @@ paramString()
   public AdjustmentListener[] getAdjustmentListeners ()
   {
     return (AdjustmentListener[]) getListeners (AdjustmentListener.class);
+  }
+
+  /**
+   * Returns true if the value is in the process of changing.
+   *
+   * @since 1.4
+   */
+  public boolean getValueIsAdjusting ()
+  {
+    return valueIsAdjusting;
+  }
+
+  /**
+   * Sets the value of valueIsAdjusting.
+   *
+   * @since 1.4
+   */
+  public void setValueIsAdjusting (boolean valueIsAdjusting)
+  {
+    this.valueIsAdjusting = valueIsAdjusting;
   }
 } // class Scrollbar 
 

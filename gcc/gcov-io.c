@@ -90,7 +90,7 @@ gcov_open (const char *name, int mode)
    on failure or error flag set.  */
 
 GCOV_LINKAGE int
-gcov_close ()
+gcov_close (void)
 {
   if (gcov_var.file)
     {
@@ -313,7 +313,7 @@ gcov_write_tag_length (gcov_unsigned_t tag, gcov_unsigned_t length)
   return;
 }
 
-/* Write a summary structure to the gcov file.  Return non-zero on
+/* Write a summary structure to the gcov file.  Return nonzero on
    overflow.  */
 
 GCOV_LINKAGE void
@@ -338,7 +338,7 @@ gcov_write_summary (gcov_unsigned_t tag, const struct gcov_summary *summary)
 #endif /*!IN_GCOV */
 
 /* Return a pointer to read BYTES bytes from the gcov file. Returns
-   NULL on failure (read past EOF). */
+   NULL on failure (read past EOF).  */
 
 static const unsigned char *
 gcov_read_bytes (unsigned bytes)
@@ -388,7 +388,7 @@ gcov_read_bytes (unsigned bytes)
    error, overflow flag on overflow */
 
 GCOV_LINKAGE gcov_unsigned_t
-gcov_read_unsigned ()
+gcov_read_unsigned (void)
 {
   gcov_unsigned_t value = 0;
   unsigned ix;
@@ -411,7 +411,7 @@ gcov_read_unsigned ()
    error, overflow flag on overflow */
 
 GCOV_LINKAGE gcov_type
-gcov_read_counter ()
+gcov_read_counter (void)
 {
   gcov_type value = 0;
   unsigned ix;
@@ -438,7 +438,7 @@ gcov_read_counter ()
 
 #if !IN_LIBGCOV
 GCOV_LINKAGE const char *
-gcov_read_string ()
+gcov_read_string (void)
 {
   unsigned length = gcov_read_unsigned ();
   
@@ -489,7 +489,7 @@ gcov_sync (gcov_position_t base, gcov_unsigned_t length)
 
 #if IN_LIBGCOV
 /* Move to the a set position in a gcov file.  BASE is zero to move to
-   the end, and non-zero to move to that position. */
+   the end, and nonzero to move to that position.  */
 
 GCOV_LINKAGE void
 gcov_seek (gcov_position_t base)
@@ -506,7 +506,7 @@ gcov_seek (gcov_position_t base)
 /* Return the modification time of the current gcov file.  */
 
 GCOV_LINKAGE time_t
-gcov_time ()
+gcov_time (void)
 {
   struct stat status;
   

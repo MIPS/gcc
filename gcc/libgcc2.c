@@ -1,7 +1,7 @@
 /* More subroutines needed by GCC output code on some machines.  */
 /* Compile this one with gcc.  */
 /* Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003  Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -109,9 +109,6 @@ __addvdi3 (DWtype a, DWtype b)
 Wtype
 __subvsi3 (Wtype a, Wtype b)
 {
-#ifdef L_addvsi3
-  return __addvsi3 (a, (-b));
-#else
   DWtype w;
 
   w = a - b;
@@ -120,7 +117,6 @@ __subvsi3 (Wtype a, Wtype b)
     abort ();
 
   return w;
-#endif
 }
 #endif
 
@@ -128,9 +124,6 @@ __subvsi3 (Wtype a, Wtype b)
 DWtype
 __subvdi3 (DWtype a, DWtype b)
 {
-#ifdef L_addvdi3
-  return __addvdi3 (a, (-b));
-#else
   DWtype w;
 
   w = a - b;
@@ -139,19 +132,21 @@ __subvdi3 (DWtype a, DWtype b)
     abort ();
 
   return w;
-#endif
 }
 #endif
 
 #ifdef L_mulvsi3
+#define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
 Wtype
 __mulvsi3 (Wtype a, Wtype b)
 {
   DWtype w;
 
-  w = a * b;
+  w = (DWtype) a * (DWtype) b;
 
-  if (((a >= 0) == (b >= 0)) ? w < 0 : w > 0)
+  if (((a >= 0) == (b >= 0))
+      ? (UDWtype) w > (UDWtype) (((DWtype) 1 << (WORD_SIZE - 1)) - 1)
+      : (UDWtype) w < (UDWtype) ((DWtype) -1 << (WORD_SIZE - 1)))
     abort ();
 
   return w;
@@ -215,8 +210,8 @@ __absvdi2 (DWtype a)
   DWtype w = a;
 
   if (a < 0)
-#ifdef L_negvsi2
-    w = __negvsi2 (a);
+#ifdef L_negvdi2
+    w = __negvdi2 (a);
 #else
     w = -a;
 
@@ -229,17 +224,132 @@ __absvdi2 (DWtype a)
 #endif
 
 #ifdef L_mulvdi3
+#define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
 DWtype
 __mulvdi3 (DWtype u, DWtype v)
 {
-  DWtype w;
+  /* The unchecked multiplication needs 3 Wtype x Wtype multiplications,
+     but the checked multiplication needs only two.  */
+  DWunion uu, vv;
 
-  w = u * v;
+  uu.ll = u;
+  vv.ll = v;
 
-  if (((u >= 0) == (v >= 0)) ? w < 0 : w > 0)
-    abort ();
+  if (__builtin_expect (uu.s.high == uu.s.low >> (WORD_SIZE - 1), 1))
+    {
+      /* u fits in a single Wtype.  */
+      if (__builtin_expect (vv.s.high == vv.s.low >> (WORD_SIZE - 1), 1))
+	{
+	  /* v fits in a single Wtype as well.  */
+	  /* A single multiplication.  No overflow risk.  */
+	  return (DWtype) uu.s.low * (DWtype) vv.s.low;
+	}
+      else
+	{
+	  /* Two multiplications.  */
+	  DWunion w0, w1;
 
-  return w;
+	  w0.ll = (UDWtype) (UWtype) uu.s.low * (UDWtype) (UWtype) vv.s.low;
+	  w1.ll = (UDWtype) (UWtype) uu.s.low * (UDWtype) (UWtype) vv.s.high;
+	  if (vv.s.high < 0)
+	    w1.s.high -= uu.s.low;
+	  if (uu.s.low < 0)
+	    w1.ll -= vv.ll;
+	  w1.ll += (UWtype) w0.s.high;
+	  if (__builtin_expect (w1.s.high == w1.s.low >> (WORD_SIZE - 1), 1))
+	    {
+	      w0.s.high = w1.s.low;
+	      return w0.ll;
+	    }
+	}
+    }
+  else
+    {
+      if (__builtin_expect (vv.s.high == vv.s.low >> (WORD_SIZE - 1), 1))
+	{
+	  /* v fits into a single Wtype.  */
+	  /* Two multiplications.  */
+	  DWunion w0, w1;
+
+	  w0.ll = (UDWtype) (UWtype) uu.s.low * (UDWtype) (UWtype) vv.s.low;
+	  w1.ll = (UDWtype) (UWtype) uu.s.high * (UDWtype) (UWtype) vv.s.low;
+	  if (uu.s.high < 0)
+	    w1.s.high -= vv.s.low;
+	  if (vv.s.low < 0)
+	    w1.ll -= uu.ll;
+	  w1.ll += (UWtype) w0.s.high;
+	  if (__builtin_expect (w1.s.high == w1.s.low >> (WORD_SIZE - 1), 1))
+	    {
+	      w0.s.high = w1.s.low;
+	      return w0.ll;
+	    }
+	}
+      else
+	{
+	  /* A few sign checks and a single multiplication.  */
+	  if (uu.s.high >= 0)
+	    {
+	      if (vv.s.high >= 0)
+		{
+		  if (uu.s.high == 0 && vv.s.high == 0)
+		    {
+		      DWtype w;
+
+		      w = (UDWtype) (UWtype) uu.s.low
+			  * (UDWtype) (UWtype) vv.s.low;
+		      if (__builtin_expect (w >= 0, 1))
+			return w;
+		    }
+		}
+	      else
+		{
+		  if (uu.s.high == 0 && vv.s.high == (Wtype) -1)
+		    {
+		      DWunion ww;
+
+		      ww.ll = (UDWtype) (UWtype) uu.s.low
+			      * (UDWtype) (UWtype) vv.s.low;
+		      ww.s.high -= uu.s.low;
+		      if (__builtin_expect (ww.s.high < 0, 1))
+			return ww.ll;
+		    }
+		}
+	    }
+	  else
+	    {
+	      if (vv.s.high >= 0)
+		{
+		  if (uu.s.high == (Wtype) -1 && vv.s.high == 0)
+		    {
+		      DWunion ww;
+
+		      ww.ll = (UDWtype) (UWtype) uu.s.low
+			      * (UDWtype) (UWtype) vv.s.low;
+		      ww.s.high -= vv.s.low;
+		      if (__builtin_expect (ww.s.high < 0, 1))
+			return ww.ll;
+		    }
+		}
+	      else
+		{
+		  if (uu.s.high == (Wtype) -1 && vv.s.high == (Wtype) - 1)
+		    {
+		      DWunion ww;
+
+		      ww.ll = (UDWtype) (UWtype) uu.s.low
+			      * (UDWtype) (UWtype) vv.s.low;
+		      ww.s.high -= uu.s.low;
+		      ww.s.high -= vv.s.low;
+		      if (__builtin_expect (ww.s.high >= 0, 1))
+			return ww.ll;
+		    }
+		}
+	    }
+	}
+    }
+
+  /* Overflow.  */
+  abort ();
 }
 #endif
 
@@ -1436,113 +1546,12 @@ __eprintf (const char *string, const char *expression,
 #ifdef L_clear_cache
 /* Clear part of an instruction cache.  */
 
-#define INSN_CACHE_PLANE_SIZE (INSN_CACHE_SIZE / INSN_CACHE_DEPTH)
-
 void
 __clear_cache (char *beg __attribute__((__unused__)),
 	       char *end __attribute__((__unused__)))
 {
 #ifdef CLEAR_INSN_CACHE
   CLEAR_INSN_CACHE (beg, end);
-#else
-#ifdef INSN_CACHE_SIZE
-  static char array[INSN_CACHE_SIZE + INSN_CACHE_PLANE_SIZE + INSN_CACHE_LINE_WIDTH];
-  static int initialized;
-  int offset;
-  void *start_addr
-  void *end_addr;
-  typedef (*function_ptr) (void);
-
-#if (INSN_CACHE_SIZE / INSN_CACHE_LINE_WIDTH) < 16
-  /* It's cheaper to clear the whole cache.
-     Put in a series of jump instructions so that calling the beginning
-     of the cache will clear the whole thing.  */
-
-  if (! initialized)
-    {
-      int ptr = (((int) array + INSN_CACHE_LINE_WIDTH - 1)
-		 & -INSN_CACHE_LINE_WIDTH);
-      int end_ptr = ptr + INSN_CACHE_SIZE;
-
-      while (ptr < end_ptr)
-	{
-	  *(INSTRUCTION_TYPE *)ptr
-	    = JUMP_AHEAD_INSTRUCTION + INSN_CACHE_LINE_WIDTH;
-	  ptr += INSN_CACHE_LINE_WIDTH;
-	}
-      *(INSTRUCTION_TYPE *) (ptr - INSN_CACHE_LINE_WIDTH) = RETURN_INSTRUCTION;
-
-      initialized = 1;
-    }
-
-  /* Call the beginning of the sequence.  */
-  (((function_ptr) (((int) array + INSN_CACHE_LINE_WIDTH - 1)
-		    & -INSN_CACHE_LINE_WIDTH))
-   ());
-
-#else /* Cache is large.  */
-
-  if (! initialized)
-    {
-      int ptr = (((int) array + INSN_CACHE_LINE_WIDTH - 1)
-		 & -INSN_CACHE_LINE_WIDTH);
-
-      while (ptr < (int) array + sizeof array)
-	{
-	  *(INSTRUCTION_TYPE *)ptr = RETURN_INSTRUCTION;
-	  ptr += INSN_CACHE_LINE_WIDTH;
-	}
-
-      initialized = 1;
-    }
-
-  /* Find the location in array that occupies the same cache line as BEG.  */
-
-  offset = ((int) beg & -INSN_CACHE_LINE_WIDTH) & (INSN_CACHE_PLANE_SIZE - 1);
-  start_addr = (((int) (array + INSN_CACHE_PLANE_SIZE - 1)
-		 & -INSN_CACHE_PLANE_SIZE)
-		+ offset);
-
-  /* Compute the cache alignment of the place to stop clearing.  */
-#if 0  /* This is not needed for gcc's purposes.  */
-  /* If the block to clear is bigger than a cache plane,
-     we clear the entire cache, and OFFSET is already correct.  */
-  if (end < beg + INSN_CACHE_PLANE_SIZE)
-#endif
-    offset = (((int) (end + INSN_CACHE_LINE_WIDTH - 1)
-	       & -INSN_CACHE_LINE_WIDTH)
-	      & (INSN_CACHE_PLANE_SIZE - 1));
-
-#if INSN_CACHE_DEPTH > 1
-  end_addr = (start_addr & -INSN_CACHE_PLANE_SIZE) + offset;
-  if (end_addr <= start_addr)
-    end_addr += INSN_CACHE_PLANE_SIZE;
-
-  for (plane = 0; plane < INSN_CACHE_DEPTH; plane++)
-    {
-      int addr = start_addr + plane * INSN_CACHE_PLANE_SIZE;
-      int stop = end_addr + plane * INSN_CACHE_PLANE_SIZE;
-
-      while (addr != stop)
-	{
-	  /* Call the return instruction at ADDR.  */
-	  ((function_ptr) addr) ();
-
-	  addr += INSN_CACHE_LINE_WIDTH;
-	}
-    }
-#else /* just one plane */
-  do
-    {
-      /* Call the return instruction at START_ADDR.  */
-      ((function_ptr) start_addr) ();
-
-      start_addr += INSN_CACHE_LINE_WIDTH;
-    }
-  while ((start_addr % INSN_CACHE_SIZE) != offset);
-#endif /* just one plane */
-#endif /* Cache is large */
-#endif /* Cache exists */
 #endif /* CLEAR_INSN_CACHE */
 }
 
@@ -1597,51 +1606,6 @@ mprotect (char *addr, int len, int prot)
 #ifdef TRANSFER_FROM_TRAMPOLINE
 TRANSFER_FROM_TRAMPOLINE
 #endif
-
-#ifdef __sysV68__
-
-#include <sys/signal.h>
-#include <errno.h>
-
-/* Motorola forgot to put memctl.o in the libp version of libc881.a,
-   so define it here, because we need it in __clear_insn_cache below */
-/* On older versions of this OS, no memctl or MCT_TEXT are defined;
-   hence we enable this stuff only if MCT_TEXT is #define'd.  */
-
-#ifdef MCT_TEXT
-asm("\n\
-	global memctl\n\
-memctl:\n\
-	movq &75,%d0\n\
-	trap &0\n\
-	bcc.b noerror\n\
-	jmp cerror%\n\
-noerror:\n\
-	movq &0,%d0\n\
-	rts");
-#endif
-
-/* Clear instruction cache so we can call trampolines on stack.
-   This is called from FINALIZE_TRAMPOLINE in mot3300.h.  */
-
-void
-__clear_insn_cache (void)
-{
-#ifdef MCT_TEXT
-  int save_errno;
-
-  /* Preserve errno, because users would be surprised to have
-  errno changing without explicitly calling any system-call.  */
-  save_errno = errno;
-
-  /* Keep it simple : memctl (MCT_TEXT) always fully clears the insn cache.
-     No need to use an address derived from _start or %sp, as 0 works also.  */
-  memctl(0, 4096, MCT_TEXT);
-  errno = save_errno;
-#endif
-}
-
-#endif /* __sysV68__ */
 #endif /* L_trampoline */
 
 #ifndef __CYGWIN__
@@ -1769,79 +1733,4 @@ func_ptr __DTOR_LIST__[2];
 #endif
 #endif /* no INIT_SECTION_ASM_OP and not CTOR_LISTS_DEFINED_EXTERNALLY */
 #endif /* L_ctors */
-
-#ifdef L_exit
 
-#include "gbl-ctors.h"
-
-#ifdef NEED_ATEXIT
-
-#ifndef ON_EXIT
-
-# include <errno.h>
-
-static func_ptr *atexit_chain = 0;
-static long atexit_chain_length = 0;
-static volatile long last_atexit_chain_slot = -1;
-
-int
-atexit (func_ptr func)
-{
-  if (++last_atexit_chain_slot == atexit_chain_length)
-    {
-      atexit_chain_length += 32;
-      if (atexit_chain)
-	atexit_chain = (func_ptr *) realloc (atexit_chain, atexit_chain_length
-					     * sizeof (func_ptr));
-      else
-	atexit_chain = (func_ptr *) malloc (atexit_chain_length
-					    * sizeof (func_ptr));
-      if (! atexit_chain)
-	{
-	  atexit_chain_length = 0;
-	  last_atexit_chain_slot = -1;
-	  errno = ENOMEM;
-	  return (-1);
-	}
-    }
-  atexit_chain[last_atexit_chain_slot] = func;
-  return (0);
-}
-
-extern void _cleanup (void);
-extern void _exit (int) __attribute__ ((__noreturn__));
-
-void
-exit (int status)
-{
-  if (atexit_chain)
-    {
-      for ( ; last_atexit_chain_slot-- >= 0; )
-	{
-	  (*atexit_chain[last_atexit_chain_slot + 1]) ();
-	  atexit_chain[last_atexit_chain_slot + 1] = 0;
-	}
-      free (atexit_chain);
-      atexit_chain = 0;
-    }
-#ifdef EXIT_BODY
-  EXIT_BODY;
-#else
-  _cleanup ();
-#endif
-  _exit (status);
-}
-
-#else /* ON_EXIT */
-
-/* Simple; we just need a wrapper for ON_EXIT.  */
-int
-atexit (func_ptr func)
-{
-  return ON_EXIT (func);
-}
-
-#endif /* ON_EXIT */
-#endif /* NEED_ATEXIT */
-
-#endif /* L_exit */

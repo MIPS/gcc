@@ -47,6 +47,8 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "c-common.h"
 #include "tree-mudflap.h"
+#include "cgraph.h"
+#include "tree-inline.h"
 
 extern cpp_reader *parse_in;
 
@@ -68,7 +70,6 @@ static void add_using_namespace (tree, tree, bool);
 static cxx_binding *ambiguous_decl (tree, cxx_binding *, cxx_binding *, int);
 static tree build_anon_union_vars (tree);
 static bool acceptable_java_type (tree);
-static void output_vtable_inherit (tree);
 static tree start_objects (int, int);
 static void finish_objects (int, int, tree);
 static tree merge_functions (tree, tree);
@@ -408,16 +409,9 @@ grok_array_decl (tree array_expr, tree index_exp)
     return build_min (ARRAY_REF, type ? TREE_TYPE (type) : NULL_TREE,
 		      array_expr, index_exp);
 
-  if (type == NULL_TREE)
-    {
-      /* Something has gone very wrong.  Assume we are mistakenly reducing
-	 an expression instead of a declaration.  */
-      error ("parser may be lost: is there a '{' missing somewhere?");
-      return NULL_TREE;
-    }
+  my_friendly_assert (type, 20030626);
 
-  if (TREE_CODE (type) == OFFSET_TYPE
-      || TREE_CODE (type) == REFERENCE_TYPE)
+  if (TREE_CODE (type) == REFERENCE_TYPE)
     type = TREE_TYPE (type);
 
   /* If they have an `operator[]', use that.  */
@@ -489,8 +483,6 @@ delete_sanity (tree exp, tree size, int doing_vec, int use_global_delete)
       return t;
     }
 
-  if (TREE_CODE (exp) == OFFSET_REF)
-    exp = resolve_offset_ref (exp);
   exp = convert_from_reference (exp);
   t = build_expr_type_conversion (WANT_POINTER, exp, true);
 
@@ -890,8 +882,14 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
     }
 
   /* Pass friendly classes back.  */
-  if (TREE_CODE (value) == VOID_TYPE)
-    return void_type_node;
+  if (value == void_type_node)
+    return value;
+
+  /* Pass friend decls back. */
+  if ((TREE_CODE (value) == FUNCTION_DECL
+       || TREE_CODE (value) == TEMPLATE_DECL)
+      && DECL_CONTEXT (value) != current_class_type)
+    return value;
 
   if (DECL_NAME (value) != NULL_TREE
       && IDENTIFIER_POINTER (DECL_NAME (value))[0] == '_'
@@ -954,12 +952,7 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
 		init = decl_constant_value (init);
 	      else if (TREE_CODE (init) == CONSTRUCTOR)
 		init = digest_init (TREE_TYPE (value), init, (tree *)0);
-	      if (init == error_mark_node)
-		/* We must make this look different than `error_mark_node'
-		   because `decl_const_value' would mis-interpret it
-		   as only meaning that this VAR_DECL is defined.  */
-		init = build1 (NOP_EXPR, TREE_TYPE (value), init);
-	      else if (! TREE_CONSTANT (init))
+	      if (init != error_mark_node && ! TREE_CONSTANT (init))
 		{
 		  /* We can allow references to things that are effectively
 		     static, since references are initialized with the
@@ -976,7 +969,7 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
 	}
     }
 
-  if (processing_template_decl && ! current_function_decl
+  if (processing_template_decl
       && (TREE_CODE (value) == VAR_DECL || TREE_CODE (value) == FUNCTION_DECL))
     value = push_template_decl (value);
 
@@ -1195,6 +1188,7 @@ defer_fn (tree fn)
   if (DECL_DEFERRED_FN (fn))
     return;
   DECL_DEFERRED_FN (fn) = 1;
+  DECL_DEFER_OUTPUT (fn) = 1;
   if (!deferred_fns)
     VARRAY_TREE_INIT (deferred_fns, 32, "deferred_fns");
 
@@ -1395,7 +1389,9 @@ mark_vtable_entries (tree decl)
     {
       tree fnaddr = TREE_VALUE (entries);
       tree fn;
-      
+
+      STRIP_NOPS (fnaddr);
+
       if (TREE_CODE (fnaddr) != ADDR_EXPR
 	  && TREE_CODE (fnaddr) != FDESC_EXPR)
 	/* This entry is an offset: a virtual base class offset, a
@@ -1606,11 +1602,15 @@ import_export_class (tree ctype)
 /* We need to describe to the assembler the relationship between
    a vtable and the vtable of the parent class.  */
 
-static void
-output_vtable_inherit (tree vars)
+void
+prepare_assemble_variable (tree vars)
 {
   tree parent;
   rtx child_rtx, parent_rtx;
+
+  if (!flag_vtable_gc || TREE_CODE (vars) != VAR_DECL
+      || !DECL_VTABLE_OR_VTT_P (vars))
+    return;
 
   child_rtx = XEXP (DECL_RTL (vars), 0);	  /* strip the mem ref  */
 
@@ -1673,6 +1673,11 @@ maybe_emit_vtables (tree ctype)
       /* Write it out.  */
       import_export_vtable (vtbl, ctype, 1);
       mark_vtable_entries (vtbl);
+
+      /* If we know that DECL is needed, mark it as such for the varpool.  */
+      if (CLASSTYPE_EXPLICIT_INSTANTIATION (ctype))
+	cgraph_varpool_mark_needed_node (cgraph_varpool_node (vtbl));
+
       if (TREE_TYPE (DECL_INITIAL (vtbl)) == 0)
 	store_init_value (vtbl, DECL_INITIAL (vtbl));
 
@@ -1707,9 +1712,6 @@ maybe_emit_vtables (tree ctype)
 	comdat_linkage (vtbl);
 
       rest_of_decl_compilation (vtbl, NULL, 1, 1);
-
-      if (flag_vtable_gc)
-	output_vtable_inherit (vtbl);
 
       /* Because we're only doing syntax-checking, we'll never end up
 	 actually marking the variable as written.  */
@@ -1888,8 +1890,7 @@ get_guard (tree decl)
       
       DECL_ARTIFICIAL (guard) = 1;
       TREE_USED (guard) = 1;
-      pushdecl_top_level (guard);
-      cp_finish_decl (guard, NULL_TREE, NULL_TREE, 0);
+      pushdecl_top_level_and_finish (guard, NULL_TREE);
     }
   return guard;
 }
@@ -1997,7 +1998,7 @@ start_objects (int method_type, int initp)
 
   /* We cannot allow these functions to be elided, even if they do not
      have external linkage.  And, there's no point in deferring
-     copmilation of thes functions; they're all going to have to be
+     compilation of thes functions; they're all going to have to be
      out anyhow.  */
   current_function_cannot_inline
     = "static constructors and destructors cannot be inlined";
@@ -2016,7 +2017,7 @@ finish_objects (int method_type, int initp, tree body)
   /* Finish up.  */
   finish_compound_stmt (/*has_no_scope=*/0, body);
   fn = finish_function (0);
-  expand_body (fn);
+  expand_or_defer_fn (fn);
 
   /* When only doing semantic analysis, and no RTL generation, we
      can't call functions that directly emit assembly code; there is
@@ -2169,7 +2170,7 @@ finish_static_storage_duration_function (tree body)
 {
   /* Close out the function.  */
   finish_compound_stmt (/*has_no_scope=*/0, body);
-  expand_body (finish_function (0));
+  expand_or_defer_fn (finish_function (0));
 }
 
 /* Return the information about the indicated PRIORITY level.  If no
@@ -2470,6 +2471,7 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority,
 {
   char function_key;
   tree arguments;
+  tree fndecl;
   tree body;
   size_t i;
 
@@ -2478,25 +2480,31 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority,
   
   /* We use `I' to indicate initialization and `D' to indicate
      destruction.  */
-  if (constructor_p)
-    function_key = 'I';
-  else
-    function_key = 'D';
+  function_key = constructor_p ? 'I' : 'D';
 
-  /* Begin the function.  */
-  body = start_objects (function_key, priority);
+  /* We emit the function lazily, to avoid generating empty
+     global constructors and destructors.  */
+  body = NULL_TREE;
 
   /* Call the static storage duration function with appropriate
      arguments.  */
   if (ssdf_decls)
     for (i = 0; i < ssdf_decls->elements_used; ++i) 
       {
-	arguments = tree_cons (NULL_TREE, build_int_2 (priority, 0), 
-			       NULL_TREE);
-	arguments = tree_cons (NULL_TREE, build_int_2 (constructor_p, 0),
-			       arguments);
-	finish_expr_stmt (build_function_call (VARRAY_TREE (ssdf_decls, i),
-					       arguments));
+	fndecl = VARRAY_TREE (ssdf_decls, i);
+
+	/* Calls to pure or const functions will expand to nothing.  */
+	if (! (flags_from_decl_or_type (fndecl) & (ECF_CONST | ECF_PURE)))
+	  {
+	    if (! body)
+	      body = start_objects (function_key, priority);
+
+	    arguments = tree_cons (NULL_TREE, build_int_2 (priority, 0), 
+				   NULL_TREE);
+	    arguments = tree_cons (NULL_TREE, build_int_2 (constructor_p, 0),
+				   arguments);
+	    finish_expr_stmt (build_function_call (fndecl, arguments));
+	  }
       }
 
   /* If we're generating code for the DEFAULT_INIT_PRIORITY, throw in
@@ -2509,11 +2517,22 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority,
       for (fns = constructor_p ? static_ctors : static_dtors; 
 	   fns;
 	   fns = TREE_CHAIN (fns))
-	finish_expr_stmt (build_function_call (TREE_VALUE (fns), NULL_TREE));
+	{
+	  fndecl = TREE_VALUE (fns);
+
+	  /* Calls to pure/const functions will expand to nothing.  */
+	  if (! (flags_from_decl_or_type (fndecl) & (ECF_CONST | ECF_PURE)))
+	    {
+	      if (! body)
+		body = start_objects (function_key, priority);
+	      finish_expr_stmt (build_function_call (fndecl, NULL_TREE));
+	    }
+	}
     }
 
   /* Close out the function.  */
-  finish_objects (function_key, priority, body);
+  if (body)
+    finish_objects (function_key, priority, body);
 }
 
 /* Generate constructor and destructor functions for the priority
@@ -2537,6 +2556,26 @@ generate_ctor_and_dtor_functions_for_priority (splay_tree_node n, void * data)
 
   /* Keep iterating.  */
   return 0;
+}
+
+/* Callgraph code does not understand the member pointers.  Mark the methods
+   referenced as used.  */
+static tree
+mark_member_pointers (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+		      void *data ATTRIBUTE_UNUSED)
+{
+  if (TREE_CODE (*tp) == PTRMEM_CST)
+    cgraph_mark_needed_node (cgraph_node (PTRMEM_CST_MEMBER (*tp)), 1);
+  return 0;
+}
+
+/* Called via LANGHOOK_CALLGRAPH_LOWER_FUNCTION.  It is supposed to lower
+   frontend specific constructs that would otherwise confuse the middle end.  */
+void
+lower_function (tree fn)
+{
+  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn), mark_member_pointers,
+				NULL);
 }
 
 /* This routine is called from the last rule in yyparse ().
@@ -2776,20 +2815,16 @@ finish_file ()
 	  if (!DECL_EXTERNAL (decl)
 	      && DECL_NEEDED_P (decl)
 	      && DECL_SAVED_TREE (decl)
-	      && !TREE_ASM_WRITTEN (decl))
+	      && !TREE_ASM_WRITTEN (decl)
+	      && (!flag_unit_at_a_time 
+		  || !cgraph_node (decl)->local.finalized))
 	    {
-	      int saved_not_really_extern;
-
-	      /* When we call finish_function in expand_body, it will
-		 try to reset DECL_NOT_REALLY_EXTERN so we save and
-		 restore it here.  */
-	      saved_not_really_extern = DECL_NOT_REALLY_EXTERN (decl);
+	      /* We will output the function; no longer consider it in this
+		 loop.  */
+	      DECL_DEFER_OUTPUT (decl) = 0;
 	      /* Generate RTL for this function now that we know we
 		 need it.  */
-	      expand_body (decl);
-	      /* Undo the damage done by finish_function.  */
-	      DECL_EXTERNAL (decl) = 0;
-	      DECL_NOT_REALLY_EXTERN (decl) = saved_not_really_extern;
+	      expand_or_defer_fn (decl);
 	      /* If we're compiling -fsyntax-only pretend that this
 		 function has been written out so that we don't try to
 		 expand it again.  */
@@ -2799,10 +2834,6 @@ finish_file ()
 	    }
 	}
 
-      if (deferred_fns_used
-	  && wrapup_global_declarations (&VARRAY_TREE (deferred_fns, 0),
-					 deferred_fns_used))
-	reconsider = true;
       if (walk_namespaces (wrapup_globals_for_namespace, /*data=*/0))
 	reconsider = true;
 
@@ -2875,6 +2906,12 @@ finish_file ()
   /* We're done with static constructors, so we can go back to "C++"
      linkage now.  */
   pop_lang_context ();
+
+  if (flag_unit_at_a_time)
+    {
+      cgraph_finalize_compilation_unit ();
+      cgraph_optimize ();
+    }
 
   /* Now, issue warnings about static, but not defined, functions,
      etc., and emit debugging information.  */
@@ -3631,8 +3668,10 @@ ambiguous_decl (tree name, cxx_binding *old, cxx_binding *new, int flags)
       if (flags & LOOKUP_COMPLAIN)
         {
           error ("`%D' denotes an ambiguous type",name);
-          cp_error_at ("  first type here", BINDING_TYPE (old));
-          cp_error_at ("  other type here", type);
+          error ("%H  first type here",
+		 TREE_LOCUS (TYPE_MAIN_DECL (BINDING_TYPE (old))));
+          error ("%H  other type here",
+		 TREE_LOCUS (TYPE_MAIN_DECL (type)));
         }
     }
   return old;
@@ -4024,7 +4063,19 @@ arg_assoc_class (struct arg_lookup *k, tree type)
 static bool
 arg_assoc_type (struct arg_lookup *k, tree type)
 {
-  switch (TREE_CODE (type))
+  /* As we do not get the type of non-type dependent expressions
+     right, we can end up with such things without a type.  */
+  if (!type)
+    return false;
+
+  if (TYPE_PTRMEM_P (type))
+    {
+      /* Pointer to member: associate class type and value type.  */
+      if (arg_assoc_type (k, TYPE_PTRMEM_CLASS_TYPE (type)))
+	return true;
+      return arg_assoc_type (k, TYPE_PTRMEM_POINTED_TO_TYPE (type));
+    }
+  else switch (TREE_CODE (type))
     {
     case ERROR_MARK:
       return false;
@@ -4047,11 +4098,6 @@ arg_assoc_type (struct arg_lookup *k, tree type)
     case UNION_TYPE:
     case ENUMERAL_TYPE:
       return arg_assoc_namespace (k, decl_namespace (TYPE_MAIN_DECL (type)));
-    case OFFSET_TYPE:
-      /* Pointer to member: associate class type and value type.  */
-      if (arg_assoc_type (k, TYPE_OFFSET_BASETYPE (type)))
-	return true;
-      return arg_assoc_type (k, TREE_TYPE (type));
     case METHOD_TYPE:
       /* The basetype is referenced in the first arg type, so just
 	 fall through.  */
@@ -4598,7 +4644,9 @@ mark_used (tree decl)
   if ((DECL_NON_THUNK_FUNCTION_P (decl) || TREE_CODE (decl) == VAR_DECL)
       && DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl)
       && (!DECL_EXPLICIT_INSTANTIATION (decl)
-	  || (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))))
+	  || (TREE_CODE (decl) == FUNCTION_DECL 
+	      && DECL_INLINE (DECL_TEMPLATE_RESULT 
+			      (template_for_substitution (decl))))))
     {
       bool defer;
 

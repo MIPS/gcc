@@ -439,7 +439,6 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Empty Structures::    Structures with no members.
 * Variadic Macros::	Macros with a variable number of arguments.
 * Escaped Newlines::    Slightly looser rules for escaped newlines.
-* Multi-line Strings::  String literals with embedded newlines.
 * Subscripting::        Any array can be subscripted, even if not an lvalue.
 * Pointer Arith::       Arithmetic on @code{void}-pointers and function pointers.
 * Initializers::        Non-constant initializers.
@@ -1529,27 +1528,14 @@ argument, these arguments are not macro expanded.
 
 Recently, the preprocessor has relaxed its treatment of escaped
 newlines.  Previously, the newline had to immediately follow a
-backslash.  The current implementation allows whitespace in the form of
-spaces, horizontal and vertical tabs, and form feeds between the
+backslash.  The current implementation allows whitespace in the form
+of spaces, horizontal and vertical tabs, and form feeds between the
 backslash and the subsequent newline.  The preprocessor issues a
 warning, but treats it as a valid escaped newline and combines the two
 lines to form a single logical line.  This works within comments and
-tokens, including multi-line strings, as well as between tokens.
-Comments are @emph{not} treated as whitespace for the purposes of this
-relaxation, since they have not yet been replaced with spaces.
-
-@node Multi-line Strings
-@section String Literals with Embedded Newlines
-@cindex multi-line string literals
-
-As an extension, GNU CPP permits string literals to cross multiple lines
-without escaping the embedded newlines.  Each embedded newline is
-replaced with a single @samp{\n} character in the resulting string
-literal, regardless of what form the newline took originally.
-
-CPP currently allows such strings in directives as well (other than the
-@samp{#include} family).  This is deprecated and will eventually be
-removed.
+tokens, as well as between tokens.  Comments are @emph{not} treated as
+whitespace for the purposes of this relaxation, since they have not
+yet been replaced with spaces.
 
 @node Subscripting
 @section Non-Lvalue Arrays May Have Subscripts
@@ -2563,6 +2549,67 @@ use the normal calling convention based on @code{jsr} and @code{rts}.
 This attribute can be used to cancel the effect of the @option{-mlong-calls}
 option.
 
+@item dllimport
+@cindex @code{__declspec(dllimport)}
+On Windows targets, the @code{dllimport} attribute causes the compiler
+to reference a function or variable via a global pointer to a pointer
+that is set up by the Windows dll library. The pointer name is formed by
+combining @code{_imp__} and the function or variable name. The attribute
+implies @code{extern} storage.
+
+Currently, the attribute is ignored for inlined functions. If the
+attribute is applied to a symbol @emph{definition}, an error is reported.
+If a symbol previously declared @code{dllimport} is later defined, the
+attribute is ignored in subsequent references, and a warning is emitted.
+The attribute is also overriden by a subsequent declaration as
+@code{dllexport}. 
+
+When applied to C++ classes, the attribute marks non-inlined
+member functions and static data members as imports.  However, the
+attribute is ignored for virtual methods to allow creation of vtables
+using thunks.
+
+On cygwin, mingw and arm-pe targets, @code{__declspec(dllimport)} is
+recognized as a synonym for @code{__attribute__ ((dllimport))} for
+compatibility with other Windows compilers.
+
+The use of the @code{dllimport} attribute on functions is not necessary,
+but provides a small performance benefit by eliminating a thunk in the
+dll. The use of the @code{dllimport} attribute on imported variables was
+required on older versions of GNU ld, but can now be avoided by passing
+the @option{--enable-auto-import} switch to ld. As with functions, using
+the attribute for a variable eliminates a thunk in the dll. 
+
+One drawback to using this attribute is that a pointer to a function or
+variable marked as dllimport cannot be used as a constant address. The
+attribute can be disabled for functions by setting the
+@option{-mnop-fun-dllimport} flag.
+
+@item dllexport
+@cindex @code{__declspec(dllexport)}
+On Windows targets the @code{dllexport} attribute causes the compiler to
+provide a global pointer to a pointer in a dll, so that it can be
+referenced with the @code{dllimport} attribute. The pointer name is
+formed by combining @code{_imp__} and the function or variable name.
+
+Currently, the @code{dllexport}attribute is ignored for inlined
+functions, but export can be forced by using the
+@option{-fkeep-inline-functions} flag. The attribute is also ignored for
+undefined symbols.
+
+When applied to C++ classes. the attribute marks defined non-inlined
+member functions and static data members as exports. Static consts
+initialized in-class are not marked unless they are also defined
+out-of-class.
+
+On cygwin, mingw and arm-pe targets, @code{__declspec(dllexport)} is
+recognized as a synonym for @code{__attribute__ ((dllexport))} for
+compatibility with other Windows compilers.
+
+Alternative methods for including the symbol in the dll's export table
+are to use a .def file with an @code{EXPORTS} section or, with GNU ld,
+using the @option{--export-all} linker flag.
+
 @end table
 
 You can specify multiple attributes in a declaration by separating them
@@ -3034,6 +3081,22 @@ up to a maximum of 8 byte alignment, then specifying @code{aligned(16)}
 in an @code{__attribute__} will still only provide you with 8 byte
 alignment.  See your linker documentation for further information.
 
+@item cleanup (@var{cleanup_function})
+@cindex @code{cleanup} attribute
+The @code{cleanup} attribute runs a function when the variable goes
+out of scope.  This attribute can only be applied to auto function
+scope variables; it may not be applied to parameters or variables
+with static storage duration.  The function must take one parameter,
+a pointer to a type compatible with the variable.  The return value
+of the function (if any) is ignored.
+
+If @option{-fexceptions} is enabled, then @var{cleanup_function}
+will be run during the stack unwinding that happens during the
+processing of the exception.  Note that the @code{cleanup} attribute
+does not allow the exception to be caught, only to perform an action.
+It is undefined what happens if @var{cleanup_function} does not
+return normally.
+
 @item common
 @itemx nocommon
 @cindex @code{common} attribute
@@ -3147,7 +3210,7 @@ section, consider using the facilities of the linker instead.
 
 @item shared
 @cindex @code{shared} variable attribute
-On Windows NT, in addition to putting variable definitions in a named
+On Windows, in addition to putting variable definitions in a named
 section, the section can also be shared among all running copies of an
 executable or DLL@.  For example, this small program defines shared data
 by putting it in a named section @code{shared} and marking the section
@@ -3170,7 +3233,7 @@ You may only use the @code{shared} attribute along with @code{section}
 attribute with a fully initialized global definition because of the way
 linkers work.  See @code{section} attribute for more information.
 
-The @code{shared} attribute is only available on Windows NT@.
+The @code{shared} attribute is only available on Windows@.
 
 @item tls_model ("@var{tls_model}")
 @cindex @code{tls_model} attribute
@@ -3227,6 +3290,13 @@ the @code{int}.
 
 @item weak
 The @code{weak} attribute is described in @xref{Function Attributes}.
+
+@item dllimport
+The @code{dllimport} attribute is described in @xref{Function Attributes}.
+
+@item dlexport
+The @code{dllexport} attribute is described in @xref{Function Attributes}.
+
 @end table
 
 @subsection M32R/D Variable Attributes
@@ -4353,18 +4423,47 @@ This extension is not supported by GNU C++.
 
 @node Function Names
 @section Function Names as Strings
+@cindex @code{__func__} identifier
 @cindex @code{__FUNCTION__} identifier
 @cindex @code{__PRETTY_FUNCTION__} identifier
-@cindex @code{__func__} identifier
 
-GCC predefines two magic identifiers to hold the name of the current
-function.  The identifier @code{__FUNCTION__} holds the name of the function
-as it appears in the source.  The identifier @code{__PRETTY_FUNCTION__}
-holds the name of the function pretty printed in a language specific
-fashion.
+GCC provides three magic variables which hold the name of the current
+function, as a string.  The first of these is @code{__func__}, which
+is part of the C99 standard:
 
-These names are always the same in a C function, but in a C++ function
-they may be different.  For example, this program:
+@display
+The identifier @code{__func__} is implicitly declared by the translator
+as if, immediately following the opening brace of each function
+definition, the declaration
+
+@smallexample
+static const char __func__[] = "function-name";
+@end smallexample
+
+appeared, where function-name is the name of the lexically-enclosing
+function.  This name is the unadorned name of the function.
+@end display
+
+@code{__FUNCTION__} is another name for @code{__func__}.  Older
+versions of GCC recognize only this name.  However, it is not
+standardized.  For maximum portability, we recommend you use
+@code{__func__}, but provide a fallback definition with the
+preprocessor:
+
+@smallexample
+#if __STDC_VERSION__ < 199901L
+# if __GNUC__ >= 2
+#  define __func__ __FUNCTION__
+# else
+#  define __func__ "<unknown>"
+# endif
+#endif
+@end smallexample
+
+In C, @code{__PRETTY_FUNCTION__} is yet another name for
+@code{__func__}.  However, in C++, @code{__PRETTY_FUNCTION__} contains
+the type signature of the function as well as its bare name.  For
+example, this program:
 
 @smallexample
 extern "C" @{
@@ -4394,46 +4493,16 @@ gives this output:
 
 @smallexample
 __FUNCTION__ = sub
-__PRETTY_FUNCTION__ = int  a::sub (int)
+__PRETTY_FUNCTION__ = void a::sub(int)
 @end smallexample
 
-The compiler automagically replaces the identifiers with a string
-literal containing the appropriate name.  Thus, they are neither
-preprocessor macros, like @code{__FILE__} and @code{__LINE__}, nor
-variables.  This means that they catenate with other string literals, and
-that they can be used to initialize char arrays.  For example
-
-@smallexample
-char here[] = "Function " __FUNCTION__ " in " __FILE__;
-@end smallexample
-
-On the other hand, @samp{#ifdef __FUNCTION__} does not have any special
-meaning inside a function, since the preprocessor does not do anything
-special with the identifier @code{__FUNCTION__}.
-
-Note that these semantics are deprecated, and that GCC 3.2 will handle
-@code{__FUNCTION__} and @code{__PRETTY_FUNCTION__} the same way as
-@code{__func__}.  @code{__func__} is defined by the ISO standard C99:
-
-@display
-The identifier @code{__func__} is implicitly declared by the translator
-as if, immediately following the opening brace of each function
-definition, the declaration
-
-@smallexample
-static const char __func__[] = "function-name";
-@end smallexample
-
-appeared, where function-name is the name of the lexically-enclosing
-function.  This name is the unadorned name of the function.
-@end display
-
-By this definition, @code{__func__} is a variable, not a string literal.
-In particular, @code{__func__} does not catenate with other string
-literals.
-
-In @code{C++}, @code{__FUNCTION__} and @code{__PRETTY_FUNCTION__} are
-variables, declared in the same way as @code{__func__}.
+These identifiers are not preprocessor macros.  In GCC 3.3 and
+earlier, in C only, @code{__FUNCTION__} and @code{__PRETTY_FUNCTION__}
+were treated as string literals; they could be used to initialize
+@code{char} arrays, and they could be concatenated with other string
+literals.  GCC 3.4 and later treat them as variables, like
+@code{__func__}.  In C++, @code{__FUNCTION__} and
+@code{__PRETTY_FUNCTION__} have always been variables.
 
 @node Return Address
 @section Getting the Return or Frame Address of a Function
@@ -4598,6 +4667,9 @@ v4si f (v4si a, v4si b, v4si c)
 @findex atanl
 @findex bcmp
 @findex bzero
+@findex cabs
+@findex cabsf
+@findex cabsl
 @findex calloc
 @findex ceil
 @findex ceilf
@@ -4726,8 +4798,11 @@ All these functions have corresponding versions
 prefixed with @code{__builtin_}, which may be used even in strict C89
 mode.
 
-The ISO C99 functions @code{conj}, @code{conjf}, @code{conjl}, @code{creal},
-@code{crealf}, @code{creall}, @code{cimag}, @code{cimagf}, @code{cimagl},
+The ISO C99 functions
+@code{cabs}, @code{cabsf}, @code{cabsl},
+@code{conj}, @code{conjf}, @code{conjl},
+@code{creal}, @code{crealf}, @code{creall},
+@code{cimag}, @code{cimagf}, @code{cimagl},
 @code{_Exit}, @code{imaxabs}, @code{llabs},
 @code{nearbyint}, @code{nearbyintf}, @code{nearbyintl},
 @code{round}, @code{roundf}, @code{roundl}, @code{snprintf},
@@ -5142,6 +5217,7 @@ instructions, but allow the compiler to schedule those calls.
 
 @menu
 * Alpha Built-in Functions::
+* ARM Built-in Functions::
 * X86 Built-in Functions::
 * PowerPC AltiVec Built-in Functions::
 @end menu
@@ -5226,6 +5302,164 @@ PAL calls, but when invoked with @option{-mtls-kernel}, they invoke
 @example
 void *__builtin_thread_pointer (void)
 void __builtin_set_thread_pointer (void *)
+@end example
+
+@node ARM Built-in Functions
+@subsection ARM Built-in Functions
+
+These built-in functions are available for the ARM family of
+processors, when the @option{-mcpu=iwmmxt} switch is used:
+
+@example
+typedef int __v2si __attribute__ ((__mode__ (__V2SI__)))
+
+v2si __builtin_arm_waddw (v2si, v2si)
+v2si __builtin_arm_waddw (v2si, v2si)
+v2si __builtin_arm_wsubw (v2si, v2si)
+v2si __builtin_arm_wsubw (v2si, v2si)
+v2si __builtin_arm_waddwss (v2si, v2si)
+v2si __builtin_arm_wsubwss (v2si, v2si)
+v2si __builtin_arm_wsubwss (v2si, v2si)
+v2si __builtin_arm_wsubwss (v2si, v2si)
+v2si __builtin_arm_wsubwss (v2si, v2si)
+v2si __builtin_arm_waddwus (v2si, v2si)
+v2si __builtin_arm_wsubwus (v2si, v2si)
+v2si __builtin_arm_wsubwus (v2si, v2si)
+v2si __builtin_arm_wmaxuw (v2si, v2si)
+v2si __builtin_arm_wmaxsw (v2si, v2si)
+v2si __builtin_arm_wavg2br (v2si, v2si)
+v2si __builtin_arm_wavg2hr (v2si, v2si)
+v2si __builtin_arm_wavg2b (v2si, v2si)
+v2si __builtin_arm_wavg2h (v2si, v2si)
+v2si __builtin_arm_waccb (v2si)
+v2si __builtin_arm_wacch (v2si)
+v2si __builtin_arm_waccw (v2si)
+v2si __builtin_arm_wmacs (v2si, v2si, v2si)
+v2si __builtin_arm_wmacsz (v2si, v2si, v2si)
+v2si __builtin_arm_wmacu (v2si, v2si, v2si)
+v2si __builtin_arm_wmacuz (v2si, v2si)
+v2si __builtin_arm_wsadb (v2si, v2si)
+v2si __builtin_arm_wsadbz (v2si, v2si)
+v2si __builtin_arm_wsadh (v2si, v2si)
+v2si __builtin_arm_wsadhz (v2si, v2si)
+v2si __builtin_arm_walign (v2si, v2si)
+v2si __builtin_arm_tmia (v2si, int, int)
+v2si __builtin_arm_tmiaph (v2si, int, int)
+v2si __builtin_arm_tmiabb (v2si, int, int)
+v2si __builtin_arm_tmiabt (v2si, int, int)
+v2si __builtin_arm_tmiatb (v2si, int, int)
+v2si __builtin_arm_tmiatt (v2si, int, int)
+int  __builtin_arm_tmovmskb (v2si)
+int  __builtin_arm_tmovmskh (v2si)
+int  __builtin_arm_tmovmskw (v2si)
+v2si __builtin_arm_wmadds (v2si, v2si)
+v2si __builtin_arm_wmaddu (v2si, v2si)
+v2si __builtin_arm_wpackhss (v2si, v2si)
+v2si __builtin_arm_wpackwss (v2si, v2si)
+v2si __builtin_arm_wpackdss (v2si, v2si)
+v2si __builtin_arm_wpackhus (v2si, v2si)
+v2si __builtin_arm_wpackwus (v2si, v2si)
+v2si __builtin_arm_wpackdus (v2si, v2si)
+v2si __builtin_arm_waddb (v2si, v2si)
+v2si __builtin_arm_waddh (v2si, v2si)
+v2si __builtin_arm_waddw (v2si, v2si)
+v2si __builtin_arm_waddbss (v2si, v2si)
+v2si __builtin_arm_waddhss (v2si, v2si)
+v2si __builtin_arm_waddwss (v2si, v2si)
+v2si __builtin_arm_waddbus (v2si, v2si)
+v2si __builtin_arm_waddhus (v2si, v2si)
+v2si __builtin_arm_waddwus (v2si, v2si)
+v2si __builtin_arm_wsubb (v2si, v2si)
+v2si __builtin_arm_wsubh (v2si, v2si)
+v2si __builtin_arm_wsubw (v2si, v2si)
+v2si __builtin_arm_wsubbss (v2si, v2si)
+v2si __builtin_arm_wsubhss (v2si, v2si)
+v2si __builtin_arm_wsubwss (v2si, v2si)
+v2si __builtin_arm_wsubbus (v2si, v2si)
+v2si __builtin_arm_wsubhus (v2si, v2si)
+v2si __builtin_arm_wsubwus (v2si, v2si)
+v2si __builtin_arm_wand (v2si, v2si)
+v2si __builtin_arm_wandn (v2si, v2si)
+v2si __builtin_arm_wor (v2si, v2si)
+v2si __builtin_arm_wxor (v2si, v2si)
+v2si __builtin_arm_wcmpeqb (v2si, v2si)
+v2si __builtin_arm_wcmpeqh (v2si, v2si)
+v2si __builtin_arm_wcmpeqw (v2si, v2si)
+v2si __builtin_arm_wcmpgtub (v2si, v2si)
+v2si __builtin_arm_wcmpgtuh (v2si, v2si)
+v2si __builtin_arm_wcmpgtuw (v2si, v2si)
+v2si __builtin_arm_wcmpgtsb (v2si, v2si)
+v2si __builtin_arm_wcmpgtsh (v2si, v2si)
+v2si __builtin_arm_wcmpgtsw (v2si, v2si)
+int  __builtin_arm_textrmsb (v2si, int)
+int  __builtin_arm_textrmsh (v2si, int)
+int  __builtin_arm_textrmsw (v2si, int)
+int  __builtin_arm_textrmub (v2si, int)
+int  __builtin_arm_textrmuh (v2si, int)
+int  __builtin_arm_textrmuw (v2si, int)
+v2si __builtin_arm_tinsrb (v2si, int, int)
+v2si __builtin_arm_tinsrh (v2si, int, int)
+v2si __builtin_arm_tinsrw (v2si, int, int)
+v2si __builtin_arm_wmaxsw (v2si, v2si)
+v2si __builtin_arm_wmaxsh (v2si, v2si)
+v2si __builtin_arm_wmaxsb (v2si, v2si)
+v2si __builtin_arm_wmaxuw (v2si, v2si)
+v2si __builtin_arm_wmaxuh (v2si, v2si)
+v2si __builtin_arm_wmaxub (v2si, v2si)
+v2si __builtin_arm_wminsw (v2si, v2si)
+v2si __builtin_arm_wminsh (v2si, v2si)
+v2si __builtin_arm_wminsb (v2si, v2si)
+v2si __builtin_arm_wminuw (v2si, v2si)
+v2si __builtin_arm_wminuh (v2si, v2si)
+v2si __builtin_arm_wminub (v2si, v2si)
+v2si __builtin_arm_wmuluh (v2si, v2si)
+v2si __builtin_arm_wmulsh (v2si, v2si)
+v2si __builtin_arm_wmulul (v2si, v2si)
+v2si __builtin_arm_wshufh (v2si, int)
+v2si __builtin_arm_wsllh (v2si, v2si)
+v2si __builtin_arm_wsllw (v2si, v2si)
+v2si __builtin_arm_wslld (v2si, v2si)
+v2si __builtin_arm_wsrah (v2si, v2si)
+v2si __builtin_arm_wsraw (v2si, v2si)
+v2si __builtin_arm_wsrad (v2si, v2si)
+v2si __builtin_arm_wsrlh (v2si, v2si)
+v2si __builtin_arm_wsrlw (v2si, v2si)
+v2si __builtin_arm_wsrld (v2si, v2si)
+v2si __builtin_arm_wrorh (v2si, v2si)
+v2si __builtin_arm_wrorw (v2si, v2si)
+v2si __builtin_arm_wrord (v2si, v2si)
+v2si __builtin_arm_wsllhi (v2si, int)
+v2si __builtin_arm_wsllwi (v2si, int)
+v2si __builtin_arm_wslldi (v2si, v2si)
+v2si __builtin_arm_wsrahi (v2si, int)
+v2si __builtin_arm_wsrawi (v2si, int)
+v2si __builtin_arm_wsradi (v2si, v2si)
+v2si __builtin_arm_wsrlwi (v2si, int)
+v2si __builtin_arm_wsrldi (v2si, int)
+v2si __builtin_arm_wrorhi (v2si, int)
+v2si __builtin_arm_wrorwi (v2si, int)
+v2si __builtin_arm_wrordi (v2si, int)
+v2si __builtin_arm_wunpckihb (v2si, v2si)
+v2si __builtin_arm_wunpckihh (v2si, v2si)
+v2si __builtin_arm_wunpckihw (v2si, v2si)
+v2si __builtin_arm_wunpckilb (v2si, v2si)
+v2si __builtin_arm_wunpckilh (v2si, v2si)
+v2si __builtin_arm_wunpckilw (v2si, v2si)
+v2si __builtin_arm_wunpckehsb (v2si)
+v2si __builtin_arm_wunpckehsh (v2si)
+v2si __builtin_arm_wunpckehsw (v2si)
+v2si __builtin_arm_wunpckehub (v2si)
+v2si __builtin_arm_wunpckehuh (v2si)
+v2si __builtin_arm_wunpckehuw (v2si)
+v2si __builtin_arm_wunpckelsb (v2si)
+v2si __builtin_arm_wunpckelsh (v2si)
+v2si __builtin_arm_wunpckelsw (v2si)
+v2si __builtin_arm_wunpckelub (v2si)
+v2si __builtin_arm_wunpckeluh (v2si)
+v2si __builtin_arm_wunpckeluw (v2si)
+v2si __builtin_arm_wsubwss (v2si, v2si)
+v2si __builtin_arm_wsraw (v2si, v2si)
+v2si __builtin_arm_wsrad (v2si, v2si)
 @end example
 
 @node X86 Built-in Functions
@@ -5409,6 +5643,31 @@ Generates the @code{movlps} machine instruction as a load from memory
 Generates the @code{movhps} machine instruction as a store to memory.
 @item void __builtin_ia32_storelps (v4sf, v2si *)
 Generates the @code{movlps} machine instruction as a store to memory.
+@end table
+
+The following built-in functions are available when @option{-mpni} is used.
+All of them generate the machine instruction that is part of the name.
+
+@example
+v2df __builtin_ia32_addsubpd (v2df, v2df)
+v2df __builtin_ia32_addsubps (v2df, v2df)
+v2df __builtin_ia32_haddpd (v2df, v2df)
+v2df __builtin_ia32_haddps (v2df, v2df)
+v2df __builtin_ia32_hsubpd (v2df, v2df)
+v2df __builtin_ia32_hsubps (v2df, v2df)
+v16qi __builtin_ia32_lddqu (char const *)
+void __builtin_ia32_monitor (void *, unsigned int, unsigned int)
+v2df __builtin_ia32_movddup (v2df)
+v4sf __builtin_ia32_movshdup (v4sf)
+v4sf __builtin_ia32_movsldup (v4sf)
+void __builtin_ia32_mwait (unsigned int, unsigned int)
+@end example
+
+The following built-in functions are available when @option{-mpni} is used.
+
+@table @code
+@item v2df __builtin_ia32_loadddup (double const *)
+Generates the @code{movddup} machine instruction as a load from memory.
 @end table
 
 The following built-in functions are available when @option{-m3dnow} is used.
@@ -6931,7 +7190,7 @@ Add @code{__thread} to the list of specifiers in paragraph 3.
 New section before @b{[basic.stc.static]}
 
 @quotation
-The keyword @code{__thread} applied to an non-local object gives the
+The keyword @code{__thread} applied to a non-local object gives the
 object thread storage duration.
 
 A local variable or class data member declared both @code{static}

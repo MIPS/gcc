@@ -1,3 +1,39 @@
+2003-07-21  Steven Bosscher  <steven@gcc.gnu.org>
+            Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (install-po): Check if $CATALOGS is empty to avoid
+	buggy shells.
+	* basic-block.h (rtl_verify_flow_info): Remove.
+	(tree_verify_flow_info): Remove.
+	(verify_flow_info): Declare.
+	* builtins.c: Rearrange to simplify merges.  Add #if 0 around
+	expand_ functions that are not used in the branch and move new code
+	to the end of the file.
+	* c-opts.c (c_common_handle_option): Move handling of -fdump- to
+	opts.c.
+	* cfgloopmanip.c (loop_split_edge_with_NULL): Remove.  Update all
+	users.
+	* common.opt: Add all the tree-ssa switches.
+	* opts.c: Handle them.
+	* flags.h (flag_tree_cp): Remove unused variable.
+	(enum pta_type): Move from tree-must-alias.h
+	(flag_tree_points_to): Likewise.
+	* toplev.c (flag_tree_cp): Remove unused variable.
+	* tree-cfg.c: Move cfg_hooks structures and functions for
+	trees from cfghooks.c.
+	* tree-mudflap.c (mudflap_enqueue_decl): Don't use %D to
+	avoid warning about format specifiers.
+
+2003-07-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* gimplify.c (gimplify_function_tree): Move gimplification of the
+	function body ...
+	(gimplify_body): ... here.
+	* tree-simple.h (gimplify_body): Declare.
+	* tree-inline.c (initialize_inlined_parameters): If the
+	emitted assignment is not in GIMPLE form, gimplify the
+	body of assignments emitted.
+
 2003-07-17  Jeff Law  <law@redhat.com>
 
 	* tree-dfa.c (remove_phi_arg): Update PHI_ARG_CAPACITY.

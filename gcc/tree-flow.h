@@ -409,6 +409,7 @@ extern edge find_taken_edge (basic_block, tree);
 extern int call_expr_flags (tree);
 extern int remove_useless_stmts_and_vars (tree *, int);
 extern int could_trap_p (tree);
+extern basic_block tree_split_edge (edge);
 
 /* In tree-dfa.c  */
 extern void get_stmt_operands (tree);

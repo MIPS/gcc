@@ -530,6 +530,7 @@ build_vtable (tree class_type, tree name, tree vtable_type)
   TREE_READONLY (decl) = 1;
   DECL_VIRTUAL_P (decl) = 1;
   DECL_ALIGN (decl) = TARGET_VTABLE_ENTRY_ALIGN;
+  DECL_VTABLE_OR_VTT_P (decl) = 1;
 
   /* At one time the vtable info was grabbed 2 words at a time.  This
      fails on sparc unless you have 8-byte alignment.  (tiemann) */
@@ -926,7 +927,7 @@ add_method (tree type, tree method, int error_p)
 	      else
 		{
 		  cp_error_at ("`%#D' and `%#D' cannot be overloaded",
-			       method, fn, method);
+			       method, fn);
 
 		  /* We don't call duplicate_decls here to merge
 		     the declarations because that will confuse
@@ -1063,8 +1064,7 @@ alter_access (tree t, tree fdecl, tree access)
   if (!DECL_LANG_SPECIFIC (fdecl))
     retrofit_lang_decl (fdecl);
 
-  if (DECL_DISCRIMINATOR_P (fdecl))
-    abort ();
+  my_friendly_assert (!DECL_DISCRIMINATOR_P (fdecl), 20030624);
 
   elem = purpose_member (t, DECL_ACCESS (fdecl));
   if (elem)
@@ -1086,7 +1086,7 @@ alter_access (tree t, tree fdecl, tree access)
     }
   else
     {
-      perform_or_defer_access_check (t, fdecl);
+      perform_or_defer_access_check (TYPE_BINFO (t), fdecl);
       DECL_ACCESS (fdecl) = tree_cons (t, access, DECL_ACCESS (fdecl));
       return 1;
     }
@@ -1107,6 +1107,9 @@ handle_using_decl (tree using_decl, tree t)
   tree fdecl, binfo;
   tree flist = NULL_TREE;
   tree old_value;
+
+  if (ctype == error_mark_node)
+    return;
 
   binfo = lookup_base (t, ctype, ba_any, NULL);
   if (! binfo)
@@ -2958,7 +2961,7 @@ check_field_decl (tree field,
       /* `build_class_init_list' does not recognize
 	 non-FIELD_DECLs.  */
       if (TREE_CODE (t) == UNION_TYPE && any_default_members != 0)
-	cp_error_at ("multiple fields in union `%T' initialized");
+	error ("multiple fields in union `%T' initialized", t);
       *any_default_members = 1;
     }
 }
@@ -3085,12 +3088,6 @@ check_field_decls (tree t, tree *access_decls,
       else if (TREE_CODE (type) == METHOD_TYPE)
 	{
 	  cp_error_at ("field `%D' invalidly declared method type", x);
-	  type = build_pointer_type (type);
-	  TREE_TYPE (x) = type;
-	}
-      else if (TREE_CODE (type) == OFFSET_TYPE)
-	{
-	  cp_error_at ("field `%D' invalidly declared offset type", x);
 	  type = build_pointer_type (type);
 	  TREE_TYPE (x) = type;
 	}
@@ -7817,13 +7814,13 @@ add_vcall_offset (tree orig_fn, tree binfo, vtbl_init_data *vid)
 	  vcall_offset = fold (build1 (NOP_EXPR, vtable_entry_type,
 				       vcall_offset));
 	}
-      /* Add the intiailizer to the vtable.  */
+      /* Add the initializer to the vtable.  */
       *vid->last_init = build_tree_list (NULL_TREE, vcall_offset);
       vid->last_init = &TREE_CHAIN (*vid->last_init);
     }
 }
 
-/* Return vtbl initializers for the RTTI entries coresponding to the
+/* Return vtbl initializers for the RTTI entries corresponding to the
    BINFO's vtable.  The RTTI entries should indicate the object given
    by VID->rtti_binfo.  */
 

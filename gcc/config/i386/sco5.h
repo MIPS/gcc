@@ -36,7 +36,7 @@ Boston, MA 02111-1307, USA.  */
  * Here's the reason why. If we dont define them, and we dont define them
  * to always emit to the same section, the default is to emit to "named"
  * ctors and dtors sections. This would be great if we could use GNU ld,
- * but we can't. The native linker could possibly be trained to coallesce
+ * but we can't. The native linker could possibly be trained to coalesce
  * named ctors sections, but that hasn't been done either. So if we don't
  * define these, many C++ ctors and dtors dont get run, because they never
  * wind up in the ctors/dtors arrays.
@@ -44,15 +44,9 @@ Boston, MA 02111-1307, USA.  */
 #define CTORS_SECTION_ASM_OP		"\t.section\t.ctors, \"aw\""
 #define DTORS_SECTION_ASM_OP		"\t.section\t.dtors, \"aw\""
 
-#undef ASM_FILE_START_1
-#define ASM_FILE_START_1(FILE)
-
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE)						\
-do {									\
-  output_file_directive((FILE),main_input_filename);			\
-  fprintf ((FILE), "\t.version\t\"01.01\"\n");				\
-} while (0)
+#define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
+#undef X86_FILE_START_VERSION_DIRECTIVE
+#define X86_FILE_START_VERSION_DIRECTIVE true
 
 /* A C statement (sans semicolon) to output to the stdio stream
    FILE the assembler definition of uninitialized global DECL named

@@ -149,11 +149,11 @@ typedef struct block_info
     struct
     {
       /* Single line graph cycle workspace.  Used for all-blocks
-	 mode. */
+	 mode.  */
       arc_t *arc;
       unsigned ident;
     } cycle; /* Used in all-blocks mode, after blocks are linked onto
-	       lines. */
+	       lines.  */
   } u;
 
   /* Temporary chain for solving graph, and for chaining blocks on one
@@ -218,9 +218,9 @@ typedef struct line_info
   {
     arc_t *branches; 	   /* branches from blocks that end on this
 			      line. Used for branch-counts when not
-			      all-blocks mode. */
+			      all-blocks mode.  */
     block_t *blocks;       /* blocks which start on this line.  Used
-			      in all-blocks mode. */
+			      in all-blocks mode.  */
   } u;
   unsigned exists : 1;
 } line_t;
@@ -445,6 +445,7 @@ static const struct option options[] =
   { "object-directory",     required_argument, NULL, 'o' },
   { "object-file",          required_argument, NULL, 'o' },
   { "unconditional-branches", no_argument,     NULL, 'u' },
+  { 0, 0, 0, 0 }
 };
 
 /* Process args, return index to first non-arg.  */
@@ -651,7 +652,7 @@ create_file_names (file_name)
   
   if (base)
     {
-      /* Append source file name */
+      /* Append source file name.  */
       cptr = strrchr (file_name, '/');
       strcat (name, cptr ? cptr + 1 : file_name);
     }
@@ -942,7 +943,7 @@ read_graph_file ()
 	fn_n = fn->next;
 	fn->next = fn_p;
 
-	/* Reverse the arcs */
+	/* Reverse the arcs.  */
 	for (ix = fn->num_blocks; ix--;)
 	  {
 	    arc_t *arc, *arc_p, *arc_n;
@@ -1146,7 +1147,7 @@ solve_flow_graph (fn)
 	      {
 		arc->is_unconditional = 1;
 		/* If this block is instrumenting a call, it might be
-		   an artifical block. It is not artificial if it has
+		   an artificial block. It is not artificial if it has
 		   a non-fallthrough exit, or the destination of this
 		   arc has more than one entry.  Mark the destination
 		   block as a return site, if none of those conditions
@@ -1622,7 +1623,7 @@ accumulate_line_counts (src)
 	  block_t *block, *block_p, *block_n;
 	  gcov_type count = 0;
 	  
-	  /* Reverse the block information */
+	  /* Reverse the block information.  */
 	  for (block = line->u.blocks, block_p = NULL; block;
 	       block_p = block, block = block_n)
 	    {
@@ -1690,7 +1691,7 @@ accumulate_line_counts (src)
 		      arc_t *cycle_arc = arc;
 		      arc_t *probe_arc;
 		      
-		      /* Locate the smallest arc count of the loop. */
+		      /* Locate the smallest arc count of the loop.  */
 		      for (dst = head; (probe_arc = dst->u.cycle.arc);
 			   dst = probe_arc->src)
 			if (cycle_count > probe_arc->count)
@@ -1722,7 +1723,7 @@ accumulate_line_counts (src)
 	      arc = head->u.cycle.arc;
 	      if (arc)
 		{
-		  /* It was not the first vertex. Move onto next arc. */
+		  /* It was not the first vertex. Move onto next arc.  */
 		  head->u.cycle.arc = NULL;
 		  head = arc->src;
 		  arc = arc->succ_next;
@@ -1744,7 +1745,7 @@ accumulate_line_counts (src)
     }
 }
 
-/* Ouput information about ARC number IX.  Returns non-zero if
+/* Ouput information about ARC number IX.  Returns nonzero if
    anything is output.  */
 
 static int

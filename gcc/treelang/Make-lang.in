@@ -59,7 +59,7 @@ GCC_EXTRAS = -B./ -B$(build_tooldir)/bin/ -isystem $(build_tooldir)/include
 TREE_GENERATED = $(srcdir)/treelang/lex.c $(srcdir)/treelang/parse.c\
 	$(srcdir)/treelang/parse.h $(srcdir)/treelang/parse.output $(srcdir)/treelang/TAGS
 
-TREE_SOURCE = ${srcdir}/treelang/parse.y ${srcdir}/treelang/lex.l ${srcdir}/treelang/tree1.c ${srcdir}/treelang/treelang.h ${srcdir}/treelang/treetree.c $(srcdir)/treelang/treetree.h
+TREE_SOURCE = ${srcdir}/treelang/parse.y ${srcdir}/treelang/lex.l ${srcdir}/treelang/tree1.c ${srcdir}/treelang/treelang.h ${srcdir}/treelang/treetree.c $(srcdir)/treelang/treetree.h ${srcdir}/treelang/opts.h
 
 TREE_EXES = tree1$(exeext)
 
@@ -98,7 +98,7 @@ tree1$(exeext): treelang/tree1.o treelang/treetree.o treelang/lex.o treelang/par
 
 treelang/tree1.o: treelang/tree1.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   flags.h toplev.h $(GGC_H) $(TREE_H) diagnostic.h treelang/treelang.h \
-  input.h treelang/treetree.h \
+  input.h treelang/treetree.h options.h opts.h $(C_COMMON_H) \
   treelang/treetree.h gt-treelang-tree1.h gtype-treelang.h
 
 treelang/treetree.o: treelang/treetree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
@@ -122,6 +122,7 @@ $(srcdir)/treelang/lex.c: $(srcdir)/treelang/lex.l
 $(srcdir)/treelang/parse.c $(srcdir)/treelang/parse.h: $(srcdir)/treelang/parse.y
 	$(BISON) $(BISONFLAGS) -v --defines \
 	--output=$(srcdir)/treelang/parse.c $(srcdir)/treelang/parse.y
+
 # -v
 
 gt-treelang-tree1.h gtype-treelang.h : s-gtype; @true
@@ -155,7 +156,7 @@ treelang.dvi: $(srcdir)/treelang/treelang.texi \
 	 $(srcdir)/doc/include/gpl.texi \
 	 $(srcdir)/doc/include/fdl.texi \
 	 $(srcdir)/doc/include/funding.texi
-	s=`cd $(srcdir); ${PWD}`; export s; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	cd treelang && $(TEXI2DVI) -I $$s/doc/include $$s/treelang/treelang.texi
 
 treelang.generated-manpages:
@@ -266,6 +267,10 @@ treelang.stage3: stage3-start
 	-mv treelang/*$(objext) stage3/treelang
 treelang.stage4: stage4-start
 	-mv treelang/*$(objext) stage4/treelang
+treelang.stageprofile: stageprofile-start
+	-mv treelang/*$(objext) stageprofile/treelang
+treelang.stagefeedback: stagefeedback-start
+	-mv treelang/*$(objext) stagefeedback/treelang
 #
 # Maintenance hooks:
 
@@ -288,23 +293,23 @@ treelang.check: $(TESTSUITEDIR)/site.exp
 # patch files for new empty files as required for cvs.
 # STAMP does not cut it here as I need an empty file.
 	touch $(srcdir)/testsuite/treelang/{a01gcco01runpgmerr,a01gcc.out01,a01gcc.out01err}
-	-rootme=`${PWD}`; export rootme; \
-	srcdir=`cd ${srcdir}; ${PWD}` ; export srcdir ; \
+	-rootme=`${PWD_COMMAND}`; export rootme; \
+	srcdir=`cd ${srcdir}; ${PWD_COMMAND}` ; export srcdir ; \
 	cd testsuite; \
 	EXPECT=${EXPECT} ; export EXPECT ; \
 	TRANSFORM=$(program_transform_name); export TRANSFORM; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
-	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD}` ; \
+	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD_COMMAND}` ; \
 	   export TCL_LIBRARY ; fi ; \
-	PATH=`cd ..;${PWD}`:$$PATH; export PATH; \
-	gcc_extras="-B`cd ..;${PWD}` -B`cd ..;${PWD}`/treelang"; export gcc_extras; \
+	PATH=`cd ..;${PWD_COMMAND}`:$$PATH; export PATH; \
+	gcc_extras="-B`cd ..;${PWD_COMMAND}` -B`cd ..;${PWD_COMMAND}`/treelang"; export gcc_extras; \
 	$(RUNTEST) --tool treelang $(RUNTESTFLAGS)
 	rm $(srcdir)/testsuite/treelang/{a01gcco01runpgmerr,a01gcc.out01,a01gcc.out01err}
 #	GCC_EXTRAS="$(GCC_EXTRAS)"; export GCC_EXTRAS; \
 
 # copy the output files from the current test to source ie say the new results are OK
 treelang.check.fix: force
-	srcdir=`cd ${srcdir}; ${PWD}` ; export srcdir ;
+	srcdir=`cd ${srcdir}; ${PWD_COMMAND}` ; export srcdir ;
 	-cp testsuite/treelang/*.out* t
 	-cp testsuite/treelang/*runpgm* t
 	-rm -f t/*nofilename

@@ -126,11 +126,5 @@ extern void delete_alias_vars (void);
 extern void init_alias_vars (void);
 extern bool ptr_may_alias_var (tree, tree);
 
-enum pta_type
-  {
-    PTA_NONE,
-    PTA_ANDERSEN
-  };
-extern enum pta_type flag_tree_points_to;
 extern const char *alias_get_name (tree);
 #endif

@@ -88,6 +88,11 @@ enum insn_code setcc_gen_code[NUM_RTX_CODE];
 enum insn_code movcc_gen_code[NUM_MACHINE_MODES];
 #endif
 
+/* The insn generating function can not take an rtx_code argument.
+   TRAP_RTX is used as an rtx argument.  Its code is replaced with
+   the code to be used in the trap insn and all other fields are ignored.  */
+static GTY(()) rtx trap_rtx;
+
 static int add_equal_note	PARAMS ((rtx, rtx, enum rtx_code, rtx, rtx));
 static rtx widen_operand	PARAMS ((rtx, enum machine_mode,
 				       enum machine_mode, int, int));
@@ -114,9 +119,6 @@ static inline optab init_optabv	PARAMS ((enum rtx_code));
 static void init_libfuncs PARAMS ((optab, int, int, const char *, int));
 static void init_integral_libfuncs PARAMS ((optab, const char *, int));
 static void init_floating_libfuncs PARAMS ((optab, const char *, int));
-#ifdef HAVE_conditional_trap
-static void init_traps PARAMS ((void));
-#endif
 static void emit_cmp_and_jump_insn_1 PARAMS ((rtx, rtx, enum machine_mode,
 					    enum rtx_code, int, rtx));
 static void prepare_float_lib_cmp PARAMS ((rtx *, rtx *, enum rtx_code *,
@@ -128,6 +130,11 @@ static rtx expand_vector_unop PARAMS ((enum machine_mode, optab, rtx, rtx,
 				       int));
 static rtx widen_clz PARAMS ((enum machine_mode, rtx, rtx));
 static rtx expand_parity PARAMS ((enum machine_mode, rtx, rtx));
+
+#ifndef HAVE_conditional_trap
+#define HAVE_conditional_trap 0
+#define gen_conditional_trap(a,b) (abort (), NULL_RTX)
+#endif
 
 /* Add a REG_EQUAL note to the last insn in INSNS.  TARGET is being set to
    the result of operation CODE applied to OP0 (and OP1 if it is a binary
@@ -700,8 +707,17 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
 
   if (flag_force_mem)
     {
-      op0 = force_not_mem (op0);
-      op1 = force_not_mem (op1);
+      /* Load duplicate non-volatile operands once.  */
+      if (rtx_equal_p (op0, op1) && ! volatile_refs_p (op0))
+	{
+	  op0 = force_not_mem (op0);
+	  op1 = op0;
+	}
+      else
+	{
+	  op0 = force_not_mem (op0);
+	  op1 = force_not_mem (op1);
+	}
     }
 
   /* If subtracting an integer constant, convert this into an addition of
@@ -1536,7 +1552,7 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
       rtx equiv_value;
       int ok = 0;
 
-      /* Find the correct mode for the real and imaginary parts */
+      /* Find the correct mode for the real and imaginary parts.  */
       enum machine_mode submode = GET_MODE_INNER(mode);
 
       if (submode == BLKmode)
@@ -1638,8 +1654,13 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
 	      temp1 = expand_binop (submode, binoptab, real0, imag1,
 				    NULL_RTX, unsignedp, methods);
 
-	      temp2 = expand_binop (submode, binoptab, real1, imag0,
-				    NULL_RTX, unsignedp, methods);
+	      /* Avoid expanding redundant multiplication for the common
+		 case of squaring a complex number.  */
+	      if (rtx_equal_p (real0, real1) && rtx_equal_p (imag0, imag1))
+		temp2 = temp1;
+	      else
+		temp2 = expand_binop (submode, binoptab, real1, imag0,
+				      NULL_RTX, unsignedp, methods);
 
 	      if (temp1 == 0 || temp2 == 0)
 		break;
@@ -2579,7 +2600,7 @@ expand_unop (mode, unoptab, op0, target, unsignedp)
       rtx x;
       rtx seq;
 
-      /* Find the correct mode for the real and imaginary parts */
+      /* Find the correct mode for the real and imaginary parts.  */
       enum machine_mode submode = GET_MODE_INNER (mode);
 
       if (submode == BLKmode)
@@ -2773,14 +2794,13 @@ expand_unop (mode, unoptab, op0, target, unsignedp)
  */
 
 rtx
-expand_abs (mode, op0, target, result_unsignedp, safe)
+expand_abs_nojump (mode, op0, target, result_unsignedp)
      enum machine_mode mode;
      rtx op0;
      rtx target;
      int result_unsignedp;
-     int safe;
 {
-  rtx temp, op1;
+  rtx temp;
 
   if (! flag_trapv)
     result_unsignedp = 1;
@@ -2867,6 +2887,26 @@ expand_abs (mode, op0, target, result_unsignedp, safe)
       if (temp != 0)
 	return temp;
     }
+
+  return NULL_RTX;
+}
+
+rtx
+expand_abs (mode, op0, target, result_unsignedp, safe)
+     enum machine_mode mode;
+     rtx op0;
+     rtx target;
+     int result_unsignedp;
+     int safe;
+{
+  rtx temp, op1;
+
+  if (! flag_trapv)
+    result_unsignedp = 1;
+
+  temp = expand_abs_nojump (mode, op0, target, result_unsignedp);
+  if (temp != 0)
+    return temp;
 
   /* If that does not win, use conditional jump and negate.  */
 
@@ -3409,6 +3449,11 @@ emit_libcall_block (insns, target, result, equiv)
 
 	  add_insn (insn);
 	}
+
+      /* Some ports use a loop to copy large arguments onto the stack.
+	 Don't move anything outside such a loop.  */
+      if (GET_CODE (insn) == CODE_LABEL)
+	break;
     }
 
   prev = get_last_insn ();
@@ -3571,8 +3616,17 @@ prepare_cmp_insn (px, py, pcomparison, size, pmode, punsignedp, purpose)
 
   if (mode != BLKmode && flag_force_mem)
     {
-      x = force_not_mem (x);
-      y = force_not_mem (y);
+      /* Load duplicate non-volatile operands once.  */
+      if (rtx_equal_p (x, y) && ! volatile_refs_p (x))
+	{
+	  x = force_not_mem (x);
+	  y = x;
+	}
+      else
+	{
+	  x = force_not_mem (x);
+	  y = force_not_mem (y);
+	}
     }
 
   /* If we are inside an appropriately-short loop and one operand is an
@@ -5069,7 +5123,7 @@ expand_fix (to, from, unsignedp)
 
      In the other path we know the value is positive in the range 2^63..2^64-1
      inclusive.  (as for other imput overflow happens and result is undefined)
-     So we know that the most important bit set in mantisa corresponds to
+     So we know that the most important bit set in mantissa corresponds to
      2^63.  The subtraction of 2^63 should not generate any rounding as it
      simply clears out that bit.  The rest is trivial.  */
 
@@ -5503,6 +5557,8 @@ init_optabs ()
   cos_optab = init_optab (UNKNOWN);
   exp_optab = init_optab (UNKNOWN);
   log_optab = init_optab (UNKNOWN);
+  tan_optab = init_optab (UNKNOWN);
+  atan_optab = init_optab (UNKNOWN);
   strlen_optab = init_optab (UNKNOWN);
   cbranch_optab = init_optab (UNKNOWN);
   cmov_optab = init_optab (UNKNOWN);
@@ -5767,9 +5823,8 @@ init_optabs ()
   gcov_flush_libfunc = init_one_libfunc ("__gcov_flush");
   gcov_init_libfunc = init_one_libfunc ("__gcov_init");
 
-#ifdef HAVE_conditional_trap
-  init_traps ();
-#endif
+  if (HAVE_conditional_trap)
+    trap_rtx = gen_rtx_fmt_ee (EQ, VOIDmode, NULL_RTX, NULL_RTX);
 
 #ifdef INIT_TARGET_OPTABS
   /* Allow the target to add more libcalls or rename some, etc.  */
@@ -5777,24 +5832,6 @@ init_optabs ()
 #endif
 }
 
-static GTY(()) rtx trap_rtx;
-
-#ifdef HAVE_conditional_trap
-/* The insn generating function can not take an rtx_code argument.
-   TRAP_RTX is used as an rtx argument.  Its code is replaced with
-   the code to be used in the trap insn and all other fields are
-   ignored.  */
-
-static void
-init_traps ()
-{
-  if (HAVE_conditional_trap)
-    {
-      trap_rtx = gen_rtx_fmt_ee (EQ, VOIDmode, NULL_RTX, NULL_RTX);
-    }
-}
-#endif
-
 /* Generate insns to trap with code TCODE if OP1 and OP2 satisfy condition
    CODE.  Return 0 on failure.  */
 
@@ -5804,30 +5841,34 @@ gen_cond_trap (code, op1, op2, tcode)
      rtx op1, op2 ATTRIBUTE_UNUSED, tcode ATTRIBUTE_UNUSED;
 {
   enum machine_mode mode = GET_MODE (op1);
+  enum insn_code icode;
+  rtx insn;
+
+  if (!HAVE_conditional_trap)
+    return 0;
 
   if (mode == VOIDmode)
     return 0;
 
-#ifdef HAVE_conditional_trap
-  if (HAVE_conditional_trap
-      && cmp_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
-    {
-      rtx insn;
-      start_sequence ();
-      emit_insn (GEN_FCN (cmp_optab->handlers[(int) mode].insn_code) (op1, op2));
-      PUT_CODE (trap_rtx, code);
-      insn = gen_conditional_trap (trap_rtx, tcode);
-      if (insn)
-	{
-	  emit_insn (insn);
-	  insn = get_insns ();
-	}
-      end_sequence ();
-      return insn;
-    }
-#endif
+  icode = cmp_optab->handlers[(int) mode].insn_code;
+  if (icode == CODE_FOR_nothing)
+    return 0;
 
-  return 0;
+  start_sequence ();
+  op1 = prepare_operand (icode, op1, 0, mode, mode, 0);
+  op2 = prepare_operand (icode, op2, 1, mode, mode, 0);
+  emit_insn (GEN_FCN (icode) (op1, op2));
+
+  PUT_CODE (trap_rtx, code);
+  insn = gen_conditional_trap (trap_rtx, tcode);
+  if (insn)
+    {
+      emit_insn (insn);
+      insn = get_insns ();
+    }
+  end_sequence ();
+
+  return insn;
 }
 
 #include "gt-optabs.h"

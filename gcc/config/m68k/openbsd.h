@@ -46,7 +46,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* m68k as needs to know about the processor subtype.  */
 #undef ASM_SPEC
-#define ASM_SPEC "%{m68030} %{m68040} %{m68060} %{fpic:-k} %{fPIC:-k -K}"
+#define ASM_SPEC "%{m68030} %{m68040} %{m68060} %{fpic|fpie:-k} %{fPIC|fPIE:-k -K}"
 
 #define AS_NEEDS_DASH_FOR_PIPED_INPUT
 
@@ -91,6 +91,5 @@ Boston, MA 02111-1307, USA.  */
 /* Assembler format: exception region output.  */
 
 /* All configurations that don't use elf must be explicit about not using
-   dwarf unwind information. egcs doesn't try too hard to check internal
-   configuration files...  */
+   dwarf unwind information.  */
 #define DWARF2_UNWIND_INFO 0

@@ -58,7 +58,6 @@ Note:
 #include "target.h"
 #include "target-def.h"
 
-static void print_options PARAMS ((FILE *));
 static void emit_move_after_reload PARAMS ((rtx, rtx, rtx));
 static rtx simplify_logical PARAMS ((enum machine_mode, int, rtx, rtx *));
 static void m68hc11_emit_logical PARAMS ((enum machine_mode, int, rtx *));
@@ -82,6 +81,7 @@ static void asm_print_register PARAMS ((FILE *, int));
 static void m68hc11_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void m68hc11_asm_out_constructor PARAMS ((rtx, int));
 static void m68hc11_asm_out_destructor PARAMS ((rtx, int));
+static void m68hc11_file_start PARAMS ((void));
 static void m68hc11_encode_section_info PARAMS((tree, rtx, int));
 static int autoinc_mode PARAMS((rtx));
 static int m68hc11_make_autoinc_notes PARAMS((rtx *, void *));
@@ -229,6 +229,11 @@ static int nb_soft_regs;
 
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE m68hc11_output_function_epilogue
+
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START m68hc11_file_start
+#undef TARGET_ASM_FILE_START_FILE_DIRECTIVE
+#define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO  m68hc11_encode_section_info
@@ -2095,7 +2100,7 @@ dead_register_here (x, reg)
     x_reg = 0;
 
   for (p = PREV_INSN (x); p && GET_CODE (p) != CODE_LABEL; p = PREV_INSN (p))
-    if (GET_RTX_CLASS (GET_CODE (p)) == 'i')
+    if (INSN_P (p))
       {
 	rtx body;
 
@@ -2361,7 +2366,7 @@ print_operand (file, op, letter)
 }
 
 /* Returns true if the operand 'op' must be printed with parenthesis
-   arround it.  This must be done only if there is a symbol whose name
+   around it.  This must be done only if there is a symbol whose name
    is a processor register.  */
 static int
 must_parenthesize (op)
@@ -3290,17 +3295,6 @@ m68hc11_gen_movhi (insn, operands)
 	{
 	  if (SP_REG_P (operands[0]))
 	    output_asm_insn ("lds\t%1", operands);
-	  else if (0 /* REG_WAS_0 note is boggus;  don't rely on it.  */
-                   && !D_REG_P (operands[0])
-                   && GET_CODE (operands[1]) == CONST_INT
-                   && (INTVAL (operands[1]) == 1 || INTVAL (operands[1]) == -1)
-                   && find_reg_note (insn, REG_WAS_0, 0))
-            {
-              if (INTVAL (operands[1]) == 1)
-                output_asm_insn ("in%0", operands);
-              else
-                output_asm_insn ("de%0", operands);
-            }
 	  else
 	    output_asm_insn ("ld%0\t%1", operands);
 	}
@@ -3484,16 +3478,6 @@ m68hc11_gen_movhi (insn, operands)
 	      cc_status = cc_prev_status;
 	      output_asm_insn ("tsx", operands);
 	    }
-	  else if (0 /* REG_WAS_0 note is boggus;  don't rely on it.  */
-                   && GET_CODE (operands[1]) == CONST_INT
-                   && (INTVAL (operands[1]) == 1 || INTVAL (operands[1]) == -1)
-                   && find_reg_note (insn, REG_WAS_0, 0))
-            {
-              if (INTVAL (operands[1]) == 1)
-                output_asm_insn ("in%0", operands);
-              else
-                output_asm_insn ("de%0", operands);
-            }
 	  else
 	    {
 	      output_asm_insn ("ldx\t%1", operands);
@@ -3542,16 +3526,6 @@ m68hc11_gen_movhi (insn, operands)
 	      cc_status = cc_prev_status;
 	      output_asm_insn ("tsy", operands);
 	    }
-	  else if (0 /* REG_WAS_0 note is boggus;  don't rely on it.  */
-                   && GET_CODE (operands[1]) == CONST_INT
-                   && (INTVAL (operands[1]) == 1 || INTVAL (operands[1]) == -1)
-                   && find_reg_note (insn, REG_WAS_0, 0))
-            {
-              if (INTVAL (operands[1]) == 1)
-                output_asm_insn ("in%0", operands);
-              else
-                output_asm_insn ("de%0", operands);
-            }
           else
 	    {
 	      output_asm_insn ("ldy\t%1", operands);
@@ -3792,16 +3766,6 @@ m68hc11_gen_movqi (insn, operands)
 		  output_asm_insn ("ldab\t%T0", operands);
 		}
 	    }
-	  else if (0 /* REG_WAS_0 note is boggus;  don't rely on it.  */
-                   && GET_CODE (operands[1]) == CONST_INT
-                   && (INTVAL (operands[1]) == 1 || INTVAL (operands[1]) == -1)
-                   && find_reg_note (insn, REG_WAS_0, 0))
-            {
-              if (INTVAL (operands[1]) == 1)
-                output_asm_insn ("inc%b0", operands);
-              else
-                output_asm_insn ("dec%b0", operands);
-            }          
 	  else if (!DB_REG_P (operands[1]) && !D_REG_P (operands[1])
 		   && !DA_REG_P (operands[1]))
 	    {
@@ -4917,7 +4881,7 @@ m68hc11_find_z_replacement (insn, info)
 /* The insn uses the Z register.  Find a replacement register for it
    (either X or Y) and replace it in the insn and the next ones until
    the flow changes or the replacement register is used.  Instructions
-   are emited before and after the Z-block to preserve the value of
+   are emitted before and after the Z-block to preserve the value of
    Z and of the replacement register.  */
 
 static void
@@ -5153,7 +5117,7 @@ m68hc11_reassign_regs (first)
 	  || GET_CODE (insn) == NOTE || GET_CODE (insn) == BARRIER)
 	continue;
 
-      if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+      if (!INSN_P (insn))
 	continue;
 
       body = PATTERN (insn);
@@ -5282,7 +5246,7 @@ m68hc11_reorg ()
 
 	if (INSN_DELETED_P (insn))
 	  continue;
-	if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+	if (!INSN_P (insn))
 	  continue;
 
 	/* Remove the (set (R) (R)) insns generated by some splits.  */
@@ -5631,9 +5595,6 @@ m68hc11_rtx_costs (x, code, outer_code, total)
 	*total = 0;
       return true;
     
-       if (outer_code == SET)
-	 *total = 1 - reload_completed;
-
     case ROTATE:
     case ROTATERT:
     case ASHIFT:
@@ -5663,64 +5624,12 @@ m68hc11_rtx_costs (x, code, outer_code, total)
 }
 
 
-/* print_options - called at the start of the code generation for a
-   module.  */
-
-extern char *asm_file_name;
-
-#include <time.h>
-#include <sys/types.h>
-
 static void
-print_options (out)
-     FILE *out;
+m68hc11_file_start ()
 {
-  const char *a_time;
-  long c_time;
-  int i;
-  extern int save_argc;
-  extern char **save_argv;
-
-  fprintf (out, ";;; Command:\t");
-  for (i = 0; i < save_argc; i++)
-    {
-      fprintf (out, "%s", save_argv[i]);
-      if (i + 1 < save_argc)
-	fprintf (out, " ");
-    }
-  fprintf (out, "\n");
-  c_time = time (0);
-  a_time = ctime (&c_time);
-  fprintf (out, ";;; Compiled:\t%s", a_time);
-#ifdef __GNUC__
-#ifndef __VERSION__
-#define __VERSION__ "[unknown]"
-#endif
-  fprintf (out, ";;; (META)compiled by GNU C version %s.\n", __VERSION__);
-#else
-  fprintf (out, ";;; (META)compiled by CC.\n");
-#endif
-}
-
-void
-m68hc11_asm_file_start (out, main_file)
-     FILE *out;
-     const char *main_file;
-{
-  fprintf (out, ";;;-----------------------------------------\n");
-  fprintf (out, ";;; Start %s gcc assembly output\n",
-           TARGET_M6811
-           ? "MC68HC11"
-           : TARGET_M68S12 ? "MC68HCS12" : "MC68HC12");
-  fprintf (out, ";;; gcc compiler %s\n", version_string);
-  print_options (out);
-  fprintf (out, ";;;-----------------------------------------\n");
-  output_file_directive (out, main_file);
-
-  if (TARGET_SHORT)
-    fprintf (out, "\t.mode mshort\n");
-  else
-    fprintf (out, "\t.mode mlong\n");
+  default_file_start ();
+  
+  fprintf (asm_out_file, "\t.mode %s\n", TARGET_SHORT ? "mshort" : "mlong");
 }
 
 

@@ -37,8 +37,8 @@
  *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
  */
 
-#ifndef _CPP_FSTREAM
-#define _CPP_FSTREAM	1
+#ifndef _FSTREAM
+#define _FSTREAM 1
 
 #pragma GCC system_header
 
@@ -105,6 +105,13 @@ namespace std
       */
       __file_type 		_M_file;
 
+      /**
+       *  @if maint
+       *  Place to stash in || out || in | out settings for current filebuf.
+       *  @endif
+      */
+      ios_base::openmode 	_M_mode;
+
       // Current and beginning state type for codecvt.
       /**
        *  @if maint
@@ -137,18 +144,21 @@ namespace std
        *  @endif
       */
       bool			_M_buf_allocated;
-      
-      // XXX Needed?
-      bool			_M_last_overflowed;
 
-      // The position in the buffer corresponding to the external file
-      // pointer.
       /**
        *  @if maint
-       *  @doctodo
+       *  _M_reading == false && _M_writing == false for 'uncommitted' mode;  
+       *  _M_reading == true for 'read' mode;
+       *  _M_writing == true for 'write' mode;
+       *
+       *  NB: _M_reading == true && _M_writing == true is unused.
        *  @endif
-      */
-      char_type*		_M_filepos;
+      */ 
+      bool                      _M_reading;
+      bool                      _M_writing;
+
+      // XXX Needed?
+      bool			_M_last_overflowed;
 
       //@{
       /**
@@ -158,7 +168,7 @@ namespace std
        *  @note pbacks of over one character are not currently supported.
        *  @endif
       */
-      char_type			_M_pback[1]; 
+      char_type			_M_pback; 
       char_type*		_M_pback_cur_save;
       char_type*		_M_pback_end_save;
       bool			_M_pback_init; 
@@ -175,9 +185,9 @@ namespace std
       {
 	if (!_M_pback_init)
 	  {
-	    _M_pback_cur_save = this->_M_in_cur;
-	    _M_pback_end_save = this->_M_in_end;
-	    this->setg(_M_pback, _M_pback, _M_pback + 1);
+	    _M_pback_cur_save = this->gptr();
+	    _M_pback_end_save = this->egptr();
+	    this->setg(&_M_pback, &_M_pback, &_M_pback + 1);
 	    _M_pback_init = true;
 	  }
       }
@@ -191,9 +201,8 @@ namespace std
 	if (_M_pback_init)
 	  {
 	    // Length _M_in_cur moved in the pback buffer.
-	    const size_t __off_cur = this->_M_in_cur - _M_pback;
-	    this->setg(this->_M_buf, _M_pback_cur_save + __off_cur, 
-		       _M_pback_end_save);
+	    _M_pback_cur_save += this->gptr() != this->eback();
+	    this->setg(this->_M_buf, _M_pback_cur_save, _M_pback_end_save);
 	    _M_pback_init = false;
 	  }
       }
@@ -213,11 +222,7 @@ namespace std
       */
       virtual
       ~basic_filebuf()
-      {
-	this->close();
-	_M_buf_size = 0;
-	_M_last_overflowed = false;
-      }
+      { this->close(); }
 
       // Members:
       /**
@@ -283,46 +288,13 @@ namespace std
       // charater from the real input source when the buffer is empty.
       // Buffered input uses underflow()
 
-      // The only difference between underflow() and uflow() is that the
-      // latter bumps _M_in_cur after the read.  In the sync_with_stdio
-      // case, this is important, as we need to unget the read character in
-      // the underflow() case in order to maintain synchronization.  So
-      // instead of calling underflow() from uflow(), we create a common
-      // subroutine to do the real work.
-      /**
-       *  @if maint
-       *  @doctodo
-       *  @endif
-      */
-      int_type
-      _M_underflow(bool __bump);
-
       // [documentation is inherited]
       virtual int_type
-      underflow()
-      { return _M_underflow(false); }
-
-      // [documentation is inherited]
-      virtual int_type
-      uflow()
-      { return _M_underflow(true); }
+      underflow();
 
       // [documentation is inherited]
       virtual int_type
       pbackfail(int_type __c = _Traits::eof());
-
-      // NB: For what the standard expects of the overflow function,
-      // see _M_overflow(), below. Because basic_streambuf's
-      // sputc/sputn call overflow directly, and the complications of
-      // this implementation's setting of the initial pointers all
-      // equal to _M_buf when initializing, it seems essential to have
-      // this in actuality be a helper function that checks for the
-      // eccentricities of this implementation, and then call
-      // overflow() if indeed the buffer is full.
-
-      // [documentation is inherited]
-      virtual int_type
-      overflow(int_type __c = _Traits::eof());
 
       // Stroustrup, 1998, p 648
       // The overflow() function is called to transfer characters to the
@@ -336,8 +308,8 @@ namespace std
        *  @doctodo
        *  @endif
       */
-      int_type
-      _M_overflow(int_type __c = _Traits::eof());
+      virtual int_type
+      overflow(int_type __c = _Traits::eof());
 
       // Convert internal byte sequence to external, char-based
       // sequence via codecvt.
@@ -379,23 +351,23 @@ namespace std
       sync()
       {
 	int __ret = 0;
-	const bool __testput = this->_M_out_beg < this->_M_out_lim;
 
 	// Make sure that the internal buffer resyncs its idea of
 	// the file position with the external file.
-	if (__testput)
+	// NB: _M_file.sync() will be called within.
+	if (this->pbase() < this->pptr())
 	  {
-	    // Need to restore current position after the write.
-	    off_type __off = this->_M_out_cur - this->_M_out_lim;
-
-	    // _M_file.sync() will be called within
-	    if (traits_type::eq_int_type(_M_overflow(), traits_type::eof()))
+	    int_type __tmp = this->overflow();
+	    if (traits_type::eq_int_type(__tmp, traits_type::eof()))
 	      __ret = -1;
-	    else if (__off)
-	      _M_file.seekoff(__off, ios_base::cur);
+	    else
+	      {
+		_M_set_buffer(-1);
+		_M_reading = false;
+		_M_writing = false;
+	      }
 	  }
-	else
-	  _M_file.sync();
+
 	_M_last_overflowed = false;
 	return __ret;
       }
@@ -408,16 +380,15 @@ namespace std
       virtual streamsize
       xsgetn(char_type* __s, streamsize __n)
       {
-	streamsize __ret = 0;
 	// Clear out pback buffer before going on to the real deal...
+	streamsize __ret = 0;
 	if (this->_M_pback_init)
 	  {
-	    while (__ret < __n && this->_M_in_cur < this->_M_in_end)
+	    if (__n && this->gptr() == this->eback())
 	      {
-		*__s = *this->_M_in_cur;
-		++__ret;
-		++__s;
-		++this->_M_in_cur;
+		*__s++ = *this->gptr();
+		this->gbump(1);
+		__ret = 1;
 	      }
 	    _M_destroy_pback();
 	  }
@@ -443,10 +414,13 @@ namespace std
       _M_output_unshift();
 
       // This function sets the pointers of the internal buffer, both get
-      // and put areas. Typically, __off == _M_in_end - _M_in_beg upon
-      // _M_underflow; __off == 0 upon _M_overflow, seekoff, open, setbuf.
+      // and put areas. Typically:
+      //
+      //  __off == egptr() - eback() upon underflow/uflow ('read' mode);
+      //  __off == 0 upon overflow ('write' mode);
+      //  __off == -1 upon open, setbuf, seekoff/pos ('uncommitted' mode).
       // 
-      // NB: _M_out_end - _M_out_beg == _M_buf_size - 1, since _M_buf_size
+      // NB: epptr() - pbase() == _M_buf_size - 1, since _M_buf_size
       // reflects the actual allocated memory and the last cell is reserved
       // for the overflow char of a full put area.
       void
@@ -454,17 +428,16 @@ namespace std
       {
  	const bool __testin = this->_M_mode & ios_base::in;
  	const bool __testout = this->_M_mode & ios_base::out;
-	if (_M_buf_size)
-	  {
-	    if (__testin)
-	      this->setg(this->_M_buf, this->_M_buf, this->_M_buf + __off);
-	    if (__testout)
-	      {
-		this->setp(this->_M_buf, this->_M_buf + this->_M_buf_size - 1);
-		this->_M_out_lim += __off;
-	      }
-	    _M_filepos = this->_M_buf + __off;
-	  }
+	
+	if (__testin && __off > 0)
+	  this->setg(this->_M_buf, this->_M_buf, this->_M_buf + __off);
+	else
+	  this->setg(this->_M_buf, this->_M_buf, this->_M_buf);
+
+	if (__testout && __off == 0 && this->_M_buf_size > 1 )
+	  this->setp(this->_M_buf, this->_M_buf + this->_M_buf_size - 1);
+	else
+	  this->setp(NULL, NULL);
       }
     };
 
@@ -839,10 +812,10 @@ namespace std
     };
 } // namespace std
 
-#ifdef _GLIBCPP_NO_TEMPLATE_EXPORT
+#ifdef _GLIBCXX_NO_TEMPLATE_EXPORT
 # define export
 #endif
-#ifdef  _GLIBCPP_FULLY_COMPLIANT_HEADERS
+#ifdef  _GLIBCXX_FULLY_COMPLIANT_HEADERS
 # include <bits/fstream.tcc>
 #endif
 

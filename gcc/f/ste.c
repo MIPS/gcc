@@ -2951,16 +2951,19 @@ ffeste_R838 (ffelab label, ffebld target)
       TREE_CONSTANT (label_tree) = 1;
 
       target_tree = ffecom_expr_assign_w (target);
-      if (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (target_tree)))
-	  < GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (label_tree))))
-	error ("ASSIGN to variable that is too small");
+      if (TREE_CODE (target_tree) != ERROR_MARK)
+      {
+        if (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (target_tree)))
+            < GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (label_tree))))
+	  error ("ASSIGN to variable that is too small");
 
-      label_tree = convert (TREE_TYPE (target_tree), label_tree);
+        label_tree = convert (TREE_TYPE (target_tree), label_tree);
 
-      expr_tree = ffecom_modify (void_type_node,
+        expr_tree = ffecom_modify (void_type_node,
 				 target_tree,
 				 label_tree);
-      expand_expr_stmt (expr_tree);
+        expand_expr_stmt (expr_tree);
+      }
     }
 }
 
@@ -2979,11 +2982,15 @@ ffeste_R839 (ffebld target)
      seen here should never require use of temporaries.  */
 
   t = ffecom_expr_assign (target);
-  if (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (t)))
-      < GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (null_pointer_node))))
-    error ("ASSIGNed GOTO target variable is too small");
 
-  expand_computed_goto (convert (TREE_TYPE (null_pointer_node), t));
+  if (TREE_CODE (t) != ERROR_MARK)
+  {
+       if (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (t)))
+         < GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (null_pointer_node))))
+       error ("ASSIGNed GOTO target variable is too small");
+
+       expand_computed_goto (convert (TREE_TYPE (null_pointer_node), t));
+  }
 }
 
 /* Arithmetic IF statement.  */
@@ -4430,54 +4437,6 @@ ffeste_R1227 (ffestw block UNUSED, ffebld expr)
 
 /* REWRITE statement -- start.  */
 
-#if FFESTR_VXT
-void
-ffeste_V018_start (ffestpRewriteStmt *info, ffestvFormat format)
-{
-  ffeste_check_start_ ();
-}
-
-/* REWRITE statement -- I/O item.  */
-
-void
-ffeste_V018_item (ffebld expr)
-{
-  ffeste_check_item_ ();
-}
-
-/* REWRITE statement -- end.  */
-
-void
-ffeste_V018_finish ()
-{
-  ffeste_check_finish_ ();
-}
-
-/* ACCEPT statement -- start.  */
-
-void
-ffeste_V019_start (ffestpAcceptStmt *info, ffestvFormat format)
-{
-  ffeste_check_start_ ();
-}
-
-/* ACCEPT statement -- I/O item.  */
-
-void
-ffeste_V019_item (ffebld expr)
-{
-  ffeste_check_item_ ();
-}
-
-/* ACCEPT statement -- end.  */
-
-void
-ffeste_V019_finish ()
-{
-  ffeste_check_finish_ ();
-}
-
-#endif
 /* TYPE statement -- start.  */
 
 void
@@ -4505,102 +4464,6 @@ ffeste_V020_finish ()
 
 /* DELETE statement.  */
 
-#if FFESTR_VXT
-void
-ffeste_V021 (ffestpDeleteStmt *info)
-{
-  ffeste_check_simple_ ();
-}
-
-/* UNLOCK statement.  */
-
-void
-ffeste_V022 (ffestpBeruStmt *info)
-{
-  ffeste_check_simple_ ();
-}
-
-/* ENCODE statement -- start.  */
-
-void
-ffeste_V023_start (ffestpVxtcodeStmt *info)
-{
-  ffeste_check_start_ ();
-}
-
-/* ENCODE statement -- I/O item.  */
-
-void
-ffeste_V023_item (ffebld expr)
-{
-  ffeste_check_item_ ();
-}
-
-/* ENCODE statement -- end.  */
-
-void
-ffeste_V023_finish ()
-{
-  ffeste_check_finish_ ();
-}
-
-/* DECODE statement -- start.  */
-
-void
-ffeste_V024_start (ffestpVxtcodeStmt *info)
-{
-  ffeste_check_start_ ();
-}
-
-/* DECODE statement -- I/O item.  */
-
-void
-ffeste_V024_item (ffebld expr)
-{
-  ffeste_check_item_ ();
-}
-
-/* DECODE statement -- end.  */
-
-void
-ffeste_V024_finish ()
-{
-  ffeste_check_finish_ ();
-}
-
-/* DEFINEFILE statement -- start.  */
-
-void
-ffeste_V025_start ()
-{
-  ffeste_check_start_ ();
-}
-
-/* DEFINE FILE statement -- item.  */
-
-void
-ffeste_V025_item (ffebld u, ffebld m, ffebld n, ffebld asv)
-{
-  ffeste_check_item_ ();
-}
-
-/* DEFINE FILE statement -- end.  */
-
-void
-ffeste_V025_finish ()
-{
-  ffeste_check_finish_ ();
-}
-
-/* FIND statement.  */
-
-void
-ffeste_V026 (ffestpFindStmt *info)
-{
-  ffeste_check_simple_ ();
-}
-
-#endif
 
 #ifdef ENABLE_CHECKING
 void

@@ -1,3 +1,215 @@
+2003-07-05  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR Fortran/11301
+	* com.c (ffecom_sym_transform_): Only install
+	FFEINFO_whereGLOBAL symbols in the global binding
+	level if not -fno-globals.
+
+Wed Jul  2 21:16:02 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* top.c (ffe_init_options): Update prototype.
+	* top.h (ffe_init_options): Update prototype.
+
+2003-06-27  Zack Weinberg  <zack@codesourcery.com>
+
+	* com.c (input_file_stack_tick): Delete redundant declaration.
+
+Thu Jun 26 07:06:29 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* top.c (ffe_handle_option): Don't check for missing arguments.
+
+Wed Jun 25 06:52:12 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* top.c (ffe_handle_option): Add missing break;.
+
+2003-06-24  Scott Snyder  <snyder@fnal.gov>
+
+	PR fortran/11299
+	* com.c (ffe_init): Call push_srcloc() to ensure that
+	input_file_stack is initialized.
+
+Sat Jun 21 21:29:38 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang.opt: Add -fpreprocessed.
+	* top.c (ffe_handle_option): Handle it.
+
+Fri Jun 20 10:00:31 2003  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* com.c (finish_function): Adjust expand_function_end call.
+
+2003-06-17  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Make-lang.in: Replace BUILD_CC references with CC_FOR_BUILD.
+
+Sun Jun 15 15:56:51 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang.opt: Declare F77.
+
+Sat Jun 14 18:13:00 2003  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* com.c (stor_parm_decls): Adjust init_function_start call.
+
+Sat Jun 14 13:25:00 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Update to use options.c and options.h.
+	* top.c: Include options.h not f-options.h.
+	(ffe_init_options): From com.c.  Request F77 options.
+	(ffe_handle_options): Abort on unrecognized switch.
+	* com.c (ffe_init_options): Move to top.c.
+	* top.h (fee_init_options): New.
+
+2003-06-13  Richard Henderson  <rth@redhat.com>
+
+	PR debug/9864
+	* com.c (ffecom_sym_transform_): Install FFEINFO_whereGLOBAL
+	symbols in the global binding level.
+
+Sun Jun  8 15:42:09 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in (F77_OBJS, f77.mostlyclean, f/com.o): Update.
+	(f/f-options.c, f/f-options.h): New.
+	* com.c: Include opts.h and f-options.h.
+	(ffecom_decode_include_option_): Remove.
+	(LANG_HOOKS_HANDLE_OPTION): New.
+	(LANG_HOOKS_DECODE_OPTION): Drop.
+	(struct file_name_list, ffecom_decode_include_option,
+	ffecom_open_include_): Constify.
+	* com.h (ffecom_decode_include_option): Update.
+	* lang.opt: New.
+	* top.c: Include f-options.h, opts.h.
+	(ffe_is_digit_string_): Constify.
+	(ffe_decode_option): Transform to ffe_handle_option.
+	* top.h (ffe_decode_option): Replace with ffe_handle_option.
+
+2003-06-08  Andreas Jaeger  <aj@suse.de>
+
+	* std.c: Remove #if 0'ed functions.
+
+	* sta.c: Remove usage of HARD_F90, FFESTR_F90 and FFESTR_VXT.
+	* stb.c: Likewise.
+	* stb.h: Likewise.
+	* stc.c: Likewise.
+	* stc.h: Likewise.
+	* std.c: Likewise.
+	* std.h: Likewise.
+	* ste.c: Likewise.
+	* ste.h: Likewise.
+
+	* str.h (FFESTR_F90): Remove macro.
+	(FFESTR_VXT): Remove macro.
+
+	* bld.c: Remove usage of FFETARGET_okCHARACTER2,
+	FFETARGET_okCHARACTER3, FFETARGET_okCHARACTER4,
+	FFETARGET_okCHARACTER5, FFETARGET_okCHARACTER6,
+	FFETARGET_okCHARACTER7, FFETARGET_okCHARACTER8,
+	FFETARGET_okCOMPLEX4, FFETARGET_okCOMPLEX5, FFETARGET_okCOMPLEX6,
+	FFETARGET_okCOMPLEX7, FFETARGET_okCOMPLEX8, FFETARGET_okINTEGER5,
+	FFETARGET_okINTEGER6, FFETARGET_okINTEGER7, FFETARGET_okINTEGER8,
+	FFETARGET_okLOGICAL5, FFETARGET_okLOGICAL6, FFETARGET_okLOGICAL7,
+	FFETARGET_okLOGICAL8, FFETARGET_okREAL4, FFETARGET_okREAL5,
+	FFETARGET_okREAL6, FFETARGET_okREAL7 and FFETARGET_okREAL8.
+	* bld.h: Likewise.
+	* expr.c: Likewise.
+	* target.h: Likewise.
+	* com.c: Likewise.
+
+Sun Jun  8 12:28:14 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Update.
+	* top.c: Include opts.h. Define cl_options_count and cl_options.
+
+2003-06-07  Andreas Jaeger  <aj@suse.de>
+
+	* symbol.c (ffesymbol_new_): Remove tests for macro
+	FFECOM_symbolHOOK.
+	* symbol.h: Likewise.
+
+	* storag.c (ffestorag_new): Remove tests for macro
+	FFECOM_storageHOOK.
+	* storag.h: Likewise.
+
+	* lab.c (ffelab_new): Remove tests for macro FFECOM_labelHOOK.
+	* lab.h: Likewise.
+
+	* global.c: Remove tests for macro FFECOM_globalHOOK.
+	* global.h (struct _ffeglobal_): Likewise.
+
+	* bld.h: Remove tests for macros FFECOM_constantHOOK,
+	FFECOM_nonterHOOK, FFECOM_globalHOOK, FFECOM_labelHOOK,
+	FFECOM_storageHOOK, FFECOM_symbolHOOK.
+	Remove code dependend on FFECOM_itemHOOK.
+	* bld.c: Likewise.
+
+	* com.h (FFECOM_constantHOOK): Remove define.
+	(FFECOM_nonterHOOK): Remove.
+	(FFECOM_globalHOOK): Remove.
+	(FFECOM_labelHOOK): Remove.
+	(FFECOM_storageHOOK): Remove.
+	(FFECOM_symbolHOOK): Remove.
+
+	* com.c (ffecom_get_external_identifier_): Remove usage of
+	FFETARGET_isENFORCED_MAIN_NAME.
+
+	* bld.c: Remove code dependend on FFEBLD_BLANK_, FFECOM_itemHOOK.
+	(ffebld_new_accter): Likewise.
+	(ffebld_new_arrter): Likewise.
+	(ffebld_new_conter_with_orig): Likewise.
+	(ffebld_new_item): Likewise.
+	(ffebld_new_labter): Likewise.
+	(ffebld_new_labtok): Likewise.
+	(ffebld_new_none): Likewise.
+	(ffebld_new_one): Likewise.
+	(ffebld_new_symter): Likewise.
+	(ffebld_new_two): Likewise.
+
+Sat Jun  7 12:10:41 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* com.c (ffe_init_options): Update.
+
+Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* Make-lang.in:  Add support for stageprofile and stagefeedback
+
+2003-06-04  Andreas Jaeger  <aj@suse.de>
+
+	* g77spec.c (lang_specific_driver): Remove ALT_LIBM usage.
+
+2003-06-01  Bud Davis  <bdavis9659@comcast.net>
+
+	* ste.c (ffeste_R838): Handle ERROR_MARK.
+	(ffeste_R839): Ditto.
+
+2003-06-01  Andreas Jaeger  <aj@suse.de>
+
+	* lex.c (ffelex_file_fixed): Remove usage of
+	REDUCE_CARD_SIZE_AFTER_BIGGY.
+
+	* expr.c (ffeexpr_exprstack_push_operand_): Remove code depenend
+	on WEIRD_NONFORTRAN_RULES.
+
+	* com.c (ffecom_arg_ptr_to_expr): Remove
+	PASS_HOLLERITH_BY_DESCRIPTOR dependend code.
+	(ffecom_const_expr): Remove usage of NEWCOMMON.
+	(ffecom_expand_let_stmt): Remove MOVE_EXPR.
+
+2003-05-31  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/10843
+	* sta.c (ffesta_second_): Parse GO TO correctly,
+	even in free source format.
+
+2003-05-31  Andreas Jaeger  <aj@suse.de>
+
+	* lex.c (ffelex_hash_): Remove HANDLE_PRAGMA and
+	HANDLE_GENERIC_PRAGMA dependend code, remove #if 0 code.
+	(pragma_getc): Removed.
+	(pragma_ungetc): Removed.
+
+2003-05-30  Roger Sayle  <roger@eyesopen.com>
+
+	* com.c (ffecom_init_0): Define built-in functions for tan and atan.
+	* com-rt.def: Use then to implement g77's tan and atan intrinsics.
+
 2003-05-22  Bud Davis  <bdavis9659@comcast.net>
 
 	* com.c (ffecom_sym_transform_): Error out on unallocatable
@@ -87,7 +299,7 @@
 
 2003-05-02  Nathan Sidwell  <nathan@codesourcery.com>
 
- 	* lex.c (ffelex_file_pop_): Adjust file_stack member use.
+	* lex.c (ffelex_file_pop_): Adjust file_stack member use.
 	(ffelex_file_push_): Likewise.
 	(ffelex_hash_): Likewise.
 

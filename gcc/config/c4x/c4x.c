@@ -44,7 +44,6 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "loop.h"
 #include "recog.h"
-#include "c-tree.h"
 #include "ggc.h"
 #include "cpplib.h"
 #include "toplev.h"
@@ -186,6 +185,8 @@ static int c4x_valid_operands PARAMS ((enum rtx_code, rtx *,
 				       enum machine_mode, int));
 static int c4x_arn_reg_operand PARAMS ((rtx, enum machine_mode, unsigned int));
 static int c4x_arn_mem_operand PARAMS ((rtx, enum machine_mode, unsigned int));
+static void c4x_file_start PARAMS ((void));
+static void c4x_file_end PARAMS ((void));
 static void c4x_check_attribute PARAMS ((const char *, tree, tree, tree *));
 static int c4x_r11_set_p PARAMS ((rtx));
 static int c4x_rptb_valid_p PARAMS ((rtx, rtx));
@@ -207,6 +208,12 @@ static int c4x_address_cost PARAMS ((rtx));
 #define TARGET_ASM_ALIGNED_HI_OP NULL
 #undef TARGET_ASM_ALIGNED_SI_OP
 #define TARGET_ASM_ALIGNED_SI_OP NULL
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START c4x_file_start
+#undef TARGET_ASM_FILE_START_FILE_DIRECTIVE
+#define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
+#undef TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END c4x_file_end
 
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE c4x_attribute_table
@@ -1685,7 +1692,7 @@ c4x_legitimize_address (orig, mode)
 
 /* Provide the costs of an addressing mode that contains ADDR.
    If ADDR is not a valid address, its cost is irrelevant.  
-   This is used in cse and loop optimisation to determine
+   This is used in cse and loop optimization to determine
    if it is worthwhile storing a common address into a register. 
    Unfortunately, the C4x address cost depends on other operands.  */
 
@@ -2430,7 +2437,7 @@ c4x_rptb_insert (insn)
 
 /* We need to use direct addressing for large constants and addresses
    that cannot fit within an instruction.  We must check for these
-   after after the final jump optimisation pass, since this may
+   after after the final jump optimization pass, since this may
    introduce a local_move insn for a SYMBOL_REF.  This pass
    must come before delayed branch slot filling since it can generate
    additional instructions.
@@ -3635,7 +3642,7 @@ c4x_address_conflict (op0, op1, store0, store1)
 	 cause problems except when writing to a hardware device such
 	 as a FIFO since the second write will be lost.  The user
 	 should flag the hardware location as being volatile so that
-	 we don't do this optimisation.  While it is unlikely that we
+	 we don't do this optimization.  While it is unlikely that we
 	 have an aliased address if both locations are not marked
 	 volatile, it is probably safer to flag a potential conflict
 	 if either location is volatile.  */
@@ -4027,7 +4034,7 @@ legitimize_operands (code, operands, mode)
       /* During RTL generation, force constants into pseudos so that
 	 they can get hoisted out of loops.  This will tie up an extra
 	 register but can save an extra cycle.  Only do this if loop
-	 optimisation enabled.  (We cannot pull this trick for add and
+	 optimization enabled.  (We cannot pull this trick for add and
 	 sub instructions since the flow pass won't find
 	 autoincrements etc.)  This allows us to generate compare
 	 instructions like CMPI R0, *AR0++ where R0 = 42, say, instead
@@ -4561,10 +4568,29 @@ c4x_external_ref (name)
   extern_head = p;
 }
 
+/* We need to have a data section we can identify so that we can set
+   the DP register back to a data pointer in the small memory model.
+   This is only required for ISRs if we are paranoid that someone
+   may have quietly changed this register on the sly.  */
+static void
+c4x_file_start ()
+{
+  int dspversion = 0;
+  if (TARGET_C30) dspversion = 30;
+  if (TARGET_C31) dspversion = 31;
+  if (TARGET_C32) dspversion = 32;
+  if (TARGET_C33) dspversion = 33;
+  if (TARGET_C40) dspversion = 40;
+  if (TARGET_C44) dspversion = 44;
 
-void
-c4x_file_end (fp)
-     FILE *fp;
+  default_file_start ();
+  fprintf (asm_out_file, "\t.version\t%d\n", dspversion);
+  fputs ("\n\t.data\ndata_sec:\n", asm_out_file);
+}
+
+
+static void
+c4x_file_end ()
 {
   struct name_list *p;
   
@@ -4572,12 +4598,12 @@ c4x_file_end (fp)
   p = extern_head;
   while (p)
     {
-      fprintf (fp, "\t.ref\t");
-      assemble_name (fp, p->name);
-      fprintf (fp, "\n");
+      fprintf (asm_out_file, "\t.ref\t");
+      assemble_name (asm_out_file, p->name);
+      fprintf (asm_out_file, "\n");
       p = p->next;
     }
-  fprintf (fp, "\t.end\n");
+  fprintf (asm_out_file, "\t.end\n");
 }
 
 

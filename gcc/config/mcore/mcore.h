@@ -258,7 +258,7 @@ extern const char * mcore_stack_increment_string;
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY  	32
 
-/* Doubles must be alogned to an 8 byte boundary.  */
+/* Doubles must be aligned to an 8 byte boundary.  */
 #define FUNCTION_ARG_BOUNDARY(MODE, TYPE) \
   ((MODE != BLKmode && (GET_MODE_SIZE (MODE) == 8)) \
    ? BIGGEST_ALIGNMENT : PARM_BOUNDARY)
@@ -790,7 +790,7 @@ extern const enum reg_class reg_class_from_letter[];
 /* Output assembler code for a block containing the constant parts
    of a trampoline, leaving space for the variable parts.
 
-   On the MCore, the trapoline looks like:
+   On the MCore, the trampoline looks like:
    	lrw	r1,  function
      	lrw	r13, area
    	jmp	r13
@@ -976,10 +976,6 @@ extern const enum reg_class reg_class_from_letter[];
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS TARGET_SLOW_BYTES
-
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-#define STORE_FLAG_VALUE 1
 
 /* Immediate shift counts are truncated by the output routines (or was it
    the assembler?).  Shift counts in a register are truncated by ARM.  Note
@@ -1178,7 +1174,7 @@ extern long mcore_current_compilation_timestamp;
         {							\
           fputs ("\t.comm\t", FILE);				\
           assemble_name (FILE, NAME);				\
-          fprintf (FILE, ",%d\n", SIZE);			\
+          fprintf (FILE, ",%lu\n", (unsigned long)(SIZE));	\
         }							\
     }								\
   while (0)
@@ -1199,7 +1195,7 @@ extern long mcore_current_compilation_timestamp;
    games. This is because when we use this, we get a marked 
    reference through the call to assemble_name and this forces C++
    inlined member functions (or any inlined function) to be instantiated
-   regardless of whether any callsites remain.
+   regardless of whether any call sites remain.
    This makes this aspect of the compiler non-ABI compliant.  */
 
 /* Similar, but for libcall. FUN is an rtx.  */

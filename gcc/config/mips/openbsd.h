@@ -21,7 +21,7 @@ Boston, MA 02111-1307, USA.  */
 /* Definitions needed for OpenBSD, to avoid picking mips 'defaults'.  */
 
 /* GAS must know this.  */
-#define SUBTARGET_ASM_SPEC "%{fPIC:-KPIC}"
+#define SUBTARGET_ASM_SPEC "%{fPIC|fPIE:-KPIC}"
 
 #define AS_NEEDS_DASH_FOR_PIPED_INPUT
 
@@ -109,19 +109,6 @@ Boston, MA 02111-1307, USA.  */
 /* Switch into a generic section.  */
 #undef TARGET_ASM_NAMED_SECTION
 #define TARGET_ASM_NAMED_SECTION  default_elf_asm_named_section
-
-/* Not having TARGET_GAS here seems a mistake.  If we actually need to
-   be prepared for file switching, then we need a custom
-   TARGET_ASM_NAMED_SECTION too.  */
-
-#undef TEXT_SECTION
-#define TEXT_SECTION()				\
-do {						\
-  if (TARGET_FILE_SWITCHING)			\
-    abort ();					\
-  fputs (TEXT_SECTION_ASM_OP, asm_out_file);	\
-  fputc ('\n', asm_out_file);			\
-} while (0)
 
 /* collect2 support (Macros for initialization).  */
 

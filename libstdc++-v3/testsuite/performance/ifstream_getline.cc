@@ -26,17 +26,36 @@
 // the GNU General Public License.
 
 #include <fstream>
+#include <testsuite_performance.h>
 
 // libstdc++/5001 (100,000 line input file)
 int main ()
 {
   using namespace std;
-  const char* name = "/usr/share/dict/linux.words";
+  using namespace __gnu_cxx_test;
 
-  ifstream in(name);
-  char buffer[BUFSIZ];
-  while(!in.eof()) 
+  time_counter time;
+  resource_counter resource;
+
+  const char* name1 = "/usr/share/dict/words";
+  const char* name2 = "/usr/share/dict/linux.words";
+  ifstream in;
+  in.open(name1);
+  if (!in.is_open())
     {
-      in.getline(buffer, BUFSIZ);
+      in.clear();
+      in.open(name2);
     }
+
+  char buffer[BUFSIZ];
+  start_counters(time, resource);
+  if (in.is_open())
+    {
+      while (in.good()) 
+	in.getline(buffer, BUFSIZ);
+    }
+  stop_counters(time, resource);
+  report_performance(__FILE__, "", time, resource);
+
+  return 0;
 }

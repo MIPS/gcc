@@ -93,6 +93,7 @@ do {									\
 
 
 #define CC1_SPEC "\
+%{gused: -feliminate-unused-debug-symbols %<gused }\
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
 %{!static:%{!mdynamic-no-pic:-fPIC}}"
 
@@ -142,7 +143,7 @@ do {									\
 
 #undef  RS6000_OUTPUT_BASENAME
 #define RS6000_OUTPUT_BASENAME(FILE, NAME)	\
-    assemble_name (FILE, NAME);
+    assemble_name (FILE, NAME)
 
 /* Globalizing directive for a label.  */
 #undef GLOBAL_ASM_OP
@@ -207,7 +208,7 @@ do {									\
 #define PROCESSOR_DEFAULT  PROCESSOR_PPC7400
 
 /* Default target flag settings.  Despite the fact that STMW/LMW
-   serializes, it's still a big codesize win to use them.  Use FSEL by
+   serializes, it's still a big code size win to use them.  Use FSEL by
    default as well.  */
 
 #undef  TARGET_DEFAULT

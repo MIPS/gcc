@@ -58,8 +58,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef __GLIBCPP_INTERNAL_TEMPBUF_H
-#define __GLIBCPP_INTERNAL_TEMPBUF_H
+#ifndef _TEMPBUF_H
+#define _TEMPBUF_H 1
 
 namespace std
 {
@@ -75,7 +75,7 @@ template <class _ForwardIterator, class _Tp>
   class _Temporary_buffer
 {
   // concept requirements
-  __glibcpp_class_requires(_ForwardIterator, _ForwardIteratorConcept)
+  __glibcxx_class_requires(_ForwardIterator, _ForwardIteratorConcept)
 
   ptrdiff_t  _M_original_len;
   ptrdiff_t  _M_len;
@@ -99,7 +99,7 @@ template <class _ForwardIterator, class _Tp>
 
   void _M_initialize_buffer(const _Tp&, __true_type) {}
   void _M_initialize_buffer(const _Tp& val, __false_type) {
-    uninitialized_fill_n(_M_buffer, _M_len, val);
+    std::uninitialized_fill_n(_M_buffer, _M_len, val);
   }
 
 public:
@@ -133,7 +133,7 @@ public:
   }
  
   ~_Temporary_buffer() {  
-    _Destroy(_M_buffer, _M_buffer + _M_len);
+    std::_Destroy(_M_buffer, _M_buffer + _M_len);
     free(_M_buffer);
   }
 
@@ -145,5 +145,5 @@ private:
     
 } // namespace std
 
-#endif /* __GLIBCPP_INTERNAL_TEMPBUF_H */
+#endif /* _TEMPBUF_H */
 

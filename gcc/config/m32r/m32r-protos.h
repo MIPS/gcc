@@ -30,7 +30,6 @@ extern unsigned m32r_compute_frame_size		PARAMS ((int));
 extern int    m32r_first_insn_address		PARAMS ((void));
 extern void   m32r_expand_prologue		PARAMS ((void));
 extern void   m32r_finalize_pic			PARAMS ((void));
-extern void   m32r_asm_file_start		PARAMS ((FILE *));
 extern int    direct_return 			PARAMS ((void));
 #ifdef TREE_CODE
 extern enum m32r_function_type m32r_compute_function_type PARAMS ((tree));
@@ -55,6 +54,8 @@ extern void   m32r_expand_block_move 		PARAMS ((rtx *));
 extern void   m32r_print_operand		PARAMS ((FILE *, rtx, int));
 extern void   m32r_print_operand_address	PARAMS ((FILE *, rtx));
 extern int    m32r_not_same_reg 		PARAMS ((rtx, rtx));
+extern int    m32r_hard_regno_rename_ok		PARAMS ((unsigned int,
+							 unsigned int));
 
 #ifdef HAVE_MACHINE_MODES
 extern int    call_address_operand		PARAMS ((rtx, Mmode));
@@ -91,6 +92,7 @@ extern int    reg_or_zero_operand               PARAMS ((rtx, Mmode));
 
 #ifdef TREE_CODE
 extern struct rtx_def * m32r_va_arg		PARAMS ((tree, tree));
+extern int m32r_pass_by_reference		PARAMS ((tree));
 #endif /* TREE_CODE */
 #endif /* RTX_CODE */
 

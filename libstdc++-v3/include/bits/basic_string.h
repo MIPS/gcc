@@ -1,6 +1,6 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -37,8 +37,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _CPP_BITS_STRING_H
-#define _CPP_BITS_STRING_H        1
+#ifndef _BASIC_STRING_H
+#define _BASIC_STRING_H 1
 
 #pragma GCC system_header
 
@@ -140,7 +140,15 @@ namespace std
       //   4. All fields==0 is an empty string, given the extra storage
       //      beyond-the-end for a null terminator; thus, the shared
       //      empty string representation needs no constructor.
-      struct _Rep
+
+      struct _Rep_base
+      {
+	size_type 		_M_length;
+	size_type 		_M_capacity;
+	_Atomic_word		_M_references;
+      };
+
+      struct _Rep : _Rep_base
       {
 	// Types:
 	typedef typename _Alloc::template rebind<char>::other _Raw_bytes_alloc;
@@ -157,29 +165,33 @@ namespace std
 	// npos = sizeof(_Rep) + (m * sizeof(_CharT)) + sizeof(_CharT)
 	// Solving for m:
 	// m = ((npos - sizeof(_Rep))/sizeof(CharT)) - 1
-	// In addition, this implementation quarters this ammount.
+	// In addition, this implementation quarters this amount.
 	static const size_type 	_S_max_size;
 	static const _CharT 	_S_terminal;
 
-	size_type 		_M_length;
-	size_type 		_M_capacity;
-	_Atomic_word		_M_references;
+	// The following storage is init'd to 0 by the linker, resulting
+        // (carefully) in an empty string with one reference.
+        static size_type _S_empty_rep_storage[];
 
+        static _Rep& 
+        _S_empty_rep()
+        { return *reinterpret_cast<_Rep*>(&_S_empty_rep_storage); }
+ 
         bool
 	_M_is_leaked() const
-        { return _M_references < 0; }
+        { return this->_M_references < 0; }
 
         bool
 	_M_is_shared() const
-        { return _M_references > 0; }
+        { return this->_M_references > 0; }
 
         void
 	_M_set_leaked()
-        { _M_references = -1; }
+        { this->_M_references = -1; }
 
         void
 	_M_set_sharable()
-        { _M_references = 0; }
+        { this->_M_references = 0; }
 
 	_CharT*
 	_M_refdata() throw()
@@ -203,8 +215,9 @@ namespace std
 	void
 	_M_dispose(const _Alloc& __a)
 	{
-	  if (__exchange_and_add(&_M_references, -1) <= 0)
-	    _M_destroy(__a);
+	  if (__builtin_expect(this != &_S_empty_rep(), false))
+	    if (__exchange_and_add(&this->_M_references, -1) <= 0)
+	      _M_destroy(__a);
 	}  // XXX MT
 
 	void
@@ -213,7 +226,8 @@ namespace std
 	_CharT*
 	_M_refcopy() throw()
 	{
-	  __atomic_add(&_M_references, 1);
+	  if (__builtin_expect(this != &_S_empty_rep(), false))
+            __atomic_add(&this->_M_references, 1);
 	  return _M_refdata();
 	}  // XXX MT
 
@@ -239,10 +253,6 @@ namespace std
     private:
       // Data Members (private):
       mutable _Alloc_hider 	_M_dataplus;
-
-      // The following storage is init'd to 0 by the linker, resulting
-      // (carefully) in an empty string with one reference.
-      static size_type _S_empty_rep_storage[(sizeof(_Rep) + sizeof(_CharT) + sizeof(size_type) - 1)/sizeof(size_type)];
 
       _CharT*
       _M_data() const
@@ -283,8 +293,8 @@ namespace std
       iterator
       _M_fold(size_type __pos, size_type __off) const
       {
-	bool __testoff =  __off < this->size() - __pos;
-	size_type __newoff = __testoff ? __off : this->size() - __pos;
+	const bool __testoff =  __off < this->size() - __pos;
+	const size_type __newoff = __testoff ? __off : this->size() - __pos;
 	return (_M_ibegin() + __pos + __newoff);
       }
 
@@ -322,7 +332,7 @@ namespace std
 
       static _Rep&
       _S_empty_rep()
-      { return *reinterpret_cast<_Rep*>(&_S_empty_rep_storage); }
+      { return _Rep::_S_empty_rep(); }
 
     public:
       // Construct/copy/destroy:
@@ -378,8 +388,8 @@ namespace std
       iterator
       end()
       {
-         _M_leak();
-	 return iterator(_M_data() + this->size());
+	_M_leak();
+	return iterator(_M_data() + this->size());
       }
 
       const_iterator
@@ -550,7 +560,7 @@ namespace std
       iterator
       insert(iterator __p, _CharT __c = _CharT())
       {
-	size_type __pos = __p - _M_ibegin();
+	const size_type __pos = __p - _M_ibegin();
 	this->insert(_M_check(__pos), size_type(1), __c);
 	_M_rep()->_M_set_leaked();
  	return this->_M_ibegin() + __pos;
@@ -566,7 +576,7 @@ namespace std
       iterator
       erase(iterator __position)
       {
-	size_type __i = __position - _M_ibegin();
+	const size_type __i = __position - _M_ibegin();
         this->replace(__position, __position + 1, _M_data(), _M_data());
 	_M_rep()->_M_set_leaked();
 	return _M_ibegin() + __i;
@@ -575,10 +585,10 @@ namespace std
       iterator
       erase(iterator __first, iterator __last)
       {
-        size_type __i = __first - _M_ibegin();
+        const size_type __i = __first - _M_ibegin();
 	this->replace(__first, __last, _M_data(), _M_data());
 	_M_rep()->_M_set_leaked();
-       return _M_ibegin() + __i;
+	return _M_ibegin() + __i;
       }
 
       basic_string&
@@ -615,14 +625,15 @@ namespace std
       { return this->replace(__i1, __i2, __s, traits_type::length(__s)); }
 
       basic_string&
-      replace(iterator __i1, iterator __i2, size_type __n, _CharT __c);
+      replace(iterator __i1, iterator __i2, size_type __n, _CharT __c)
+      { return _M_replace_aux(__i1, __i2, __n, __c); }
 
       template<class _InputIterator>
         basic_string&
         replace(iterator __i1, iterator __i2,
 		_InputIterator __k1, _InputIterator __k2)
-        { return _M_replace(__i1, __i2, __k1, __k2,
-	     typename iterator_traits<_InputIterator>::iterator_category()); }
+        { typedef typename _Is_integer<_InputIterator>::_Integral _Integral;
+	  return _M_replace_dispatch(__i1, __i2, __k1, __k2, _Integral()); }
 
       // Specializations for the common case of pointer and iterator:
       // useful to avoid the overhead of temporary buffering in _M_replace.
@@ -649,6 +660,25 @@ namespace std
 	}
 
     private:
+      template<class _Integer>
+	basic_string&
+	_M_replace_dispatch(iterator __i1, iterator __i2, _Integer __n, 
+			    _Integer __val, __true_type)
+        { return _M_replace_aux(__i1, __i2, __n, __val); }
+
+      template<class _InputIterator>
+	basic_string&
+	_M_replace_dispatch(iterator __i1, iterator __i2, _InputIterator __k1,
+			    _InputIterator __k2, __false_type)
+        { 
+	  typedef typename iterator_traits<_InputIterator>::iterator_category
+	    _Category;
+	  return _M_replace(__i1, __i2, __k1, __k2, _Category());
+	}
+
+      basic_string&
+      _M_replace_aux(iterator __i1, iterator __i2, size_type __n2, _CharT __c);
+
       template<class _InputIterator>
         basic_string&
         _M_replace(iterator __i1, iterator __i2, _InputIterator __k1,
@@ -661,43 +691,43 @@ namespace std
 
       // _S_construct_aux is used to implement the 21.3.1 para 15 which
       // requires special behaviour if _InIter is an integral type
-      template<class _InIter>
+      template<class _InIterator>
         static _CharT*
-        _S_construct_aux(_InIter __beg, _InIter __end, const _Alloc& __a,
+        _S_construct_aux(_InIterator __beg, _InIterator __end, const _Alloc& __a,
 			 __false_type)
 	{
-          typedef typename iterator_traits<_InIter>::iterator_category _Tag;
+          typedef typename iterator_traits<_InIterator>::iterator_category _Tag;
           return _S_construct(__beg, __end, __a, _Tag());
 	}
 
-      template<class _InIter>
+      template<class _InIterator>
         static _CharT*
-        _S_construct_aux(_InIter __beg, _InIter __end, const _Alloc& __a,
+        _S_construct_aux(_InIterator __beg, _InIterator __end, const _Alloc& __a,
 			 __true_type)
 	{
 	  return _S_construct(static_cast<size_type>(__beg),
 			      static_cast<value_type>(__end), __a);
 	}
 
-      template<class _InIter>
+      template<class _InIterator>
         static _CharT*
-        _S_construct(_InIter __beg, _InIter __end, const _Alloc& __a)
+        _S_construct(_InIterator __beg, _InIterator __end, const _Alloc& __a)
 	{
-	  typedef typename _Is_integer<_InIter>::_Integral _Integral;
+	  typedef typename _Is_integer<_InIterator>::_Integral _Integral;
 	  return _S_construct_aux(__beg, __end, __a, _Integral());
         }
 
       // For Input Iterators, used in istreambuf_iterators, etc.
-      template<class _InIter>
+      template<class _InIterator>
         static _CharT*
-         _S_construct(_InIter __beg, _InIter __end, const _Alloc& __a,
+         _S_construct(_InIterator __beg, _InIterator __end, const _Alloc& __a,
 		      input_iterator_tag);
 
       // For forward_iterators up to random_access_iterators, used for
       // string::iterator, _CharT*, etc.
-      template<class _FwdIter>
+      template<class _FwdIterator>
         static _CharT*
-        _S_construct(_FwdIter __beg, _FwdIter __end, const _Alloc& __a,
+        _S_construct(_FwdIterator __beg, _FwdIterator __end, const _Alloc& __a,
 		     forward_iterator_tag);
 
       static _CharT*
@@ -716,7 +746,7 @@ namespace std
       c_str() const
       {
 	// MT: This assumes concurrent writes are OK.
-	size_type __n = this->size();
+	const size_type __n = this->size();
 	traits_type::assign(_M_data()[__n], _Rep::_S_terminal);
         return _M_data();
       }
@@ -825,9 +855,9 @@ namespace std
       int
       compare(const basic_string& __str) const
       {
-	size_type __size = this->size();
-	size_type __osize = __str.size();
-	size_type __len = std::min(__size, __osize);
+	const size_type __size = this->size();
+	const size_type __osize = __str.size();
+	const size_type __len = std::min(__size, __osize);
 
 	int __r = traits_type::compare(_M_data(), __str.data(), __len);
 	if (!__r)
@@ -845,8 +875,8 @@ namespace std
       int
       compare(const _CharT* __s) const;
 
-      // _GLIBCPP_RESOLVE_LIB_DEFECTS
-      // 5. String::compare specification questionable
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 5 String::compare specification questionable
       int
       compare(size_type __pos, size_type __n1, const _CharT* __s) const;
 
@@ -859,7 +889,7 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline basic_string<_CharT, _Traits, _Alloc>::
     basic_string()
-    : _M_dataplus(_S_empty_rep()._M_refcopy(), _Alloc()) { }
+    : _M_dataplus(_S_empty_rep()._M_refdata(), _Alloc()) { }
 
   // operator+
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -1044,4 +1074,4 @@ namespace std
 	    basic_string<_CharT, _Traits, _Alloc>& __str);
 } // namespace std
 
-#endif /* _CPP_BITS_STRING_H */
+#endif /* _BASIC_STRING_H */

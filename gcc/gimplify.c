@@ -215,12 +215,9 @@ keep_function_tree_in_gimple_form (tree fndecl)
 int
 gimplify_function_tree (tree fndecl)
 {
-  tree fnbody;
   int done;
+  tree fnbody;
   tree oldfn;
-  tree tmp;
-  const char *saved_input_filename = input_filename;
-  int saved_lineno = input_line;
 
   /* Don't bother doing anything if the program has errors.  */
   if (errorcount || sorrycount)
@@ -235,28 +232,46 @@ gimplify_function_tree (tree fndecl)
   if (fnbody == NULL_TREE)
     return 0;
 
-  timevar_push (TV_TREE_GIMPLIFY);
-
   oldfn = current_function_decl;
   current_function_decl = fndecl;
+
+  done = gimplify_body (&fnbody, fndecl);
+
+  DECL_SAVED_TREE (fndecl) = fnbody;
+  current_function_decl = oldfn;
+
+  return done;
+}
+
+
+/* Gimplify the body of statements pointed by BODY_P.  FNDECL is the
+   function decl containing BODY.  */
+
+int
+gimplify_body (tree *body_p, tree fndecl)
+{
+  int done;
+  const char *saved_input_filename = input_filename;
+  int saved_lineno = input_line;
+
+  timevar_push (TV_TREE_GIMPLIFY);
 
   push_gimplify_context ();
 
   /* Unshare most shared trees in the body.  */
-  unshare_all_trees (fnbody);
+  unshare_all_trees (*body_p);
 
   /* Gimplify the function's body.  */
-  done = gimplify_stmt (&fnbody);
+  done = gimplify_stmt (body_p);
 
   /* Unshare again, in case gimplification was sloppy.  */
-  unshare_all_trees (fnbody);
+  unshare_all_trees (*body_p);
 
   /* If there isn't an outer BIND_EXPR, add one.  */
-  tmp = fnbody;
-  if (TREE_CODE (tmp) != BIND_EXPR)
+  if (TREE_CODE (*body_p) != BIND_EXPR)
     {
-      fnbody = build (BIND_EXPR, void_type_node, NULL_TREE, fnbody, NULL_TREE);
-      TREE_SIDE_EFFECTS (fnbody) = 1;
+      *body_p = build (BIND_EXPR, void_type_node, NULL_TREE, *body_p, NULL_TREE);
+      TREE_SIDE_EFFECTS (*body_p) = 1;
       input_line = get_lineno (fndecl);
       input_filename = get_filename (fndecl);
     }
@@ -266,19 +281,16 @@ gimplify_function_tree (tree fndecl)
       input_filename = saved_input_filename;
     }
 
-  DECL_SAVED_TREE (fndecl) = fnbody;
-
   /* Declare the new temporary variables.  */
-  declare_tmp_vars (gimplify_ctxp->temps, fnbody);
+  declare_tmp_vars (gimplify_ctxp->temps, *body_p);
 
   pop_gimplify_context ();
-
-  current_function_decl = oldfn;
 
   timevar_pop (TV_TREE_GIMPLIFY);
 
   return done;
 }
+
 
 /* Gimplification of expression trees.  */
 

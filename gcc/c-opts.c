@@ -35,6 +35,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cppdefault.h"
 #include "c-incpath.h"
 #include "debug.h"		/* For debug_hooks.  */
+#include "opts.h"
+#include "options.h"
 
 #ifndef DOLLARS_IN_IDENTIFIERS
 # define DOLLARS_IN_IDENTIFIERS true
@@ -42,10 +44,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifndef TARGET_SYSTEM_ROOT
 # define TARGET_SYSTEM_ROOT NULL
-#endif
-
-#ifndef TARGET_EBCDIC
-# define TARGET_EBCDIC 0
 #endif
 
 static int saved_lineno;
@@ -90,330 +88,62 @@ static bool quote_chain_split;
 /* If -Wunused-macros.  */
 static bool warn_unused_macros;
 
-/* Number of deferred options, deferred options array size.  */
-static size_t deferred_count, deferred_size;
+/* Number of deferred options.  */
+static size_t deferred_count;
 
 /* Number of deferred options scanned for -include.  */
 static size_t include_cursor;
 
-static void missing_arg PARAMS ((size_t));
-static size_t find_opt PARAMS ((const char *, int));
-static void set_Wimplicit PARAMS ((int));
-static void complain_wrong_lang PARAMS ((size_t));
-static void write_langs PARAMS ((char *, int));
-static void print_help PARAMS ((void));
-static void handle_OPT_d PARAMS ((const char *));
-static void set_std_cxx98 PARAMS ((int));
-static void set_std_c89 PARAMS ((int, int));
-static void set_std_c99 PARAMS ((int));
-static void check_deps_environment_vars PARAMS ((void));
-static void handle_deferred_opts PARAMS ((void));
-static void sanitize_cpp_opts PARAMS ((void));
-static void add_prefixed_path PARAMS ((const char *, size_t));
-static void push_command_line_include PARAMS ((void));
-static void cb_file_change PARAMS ((cpp_reader *, const struct line_map *));
-static void finish_options PARAMS ((void));
+/* Permit Fotran front-end options.  */
+static bool permit_fortran_options;
+
+void missing_arg (enum opt_code);
+static void set_Wimplicit (int);
+static void print_help (void);
+static void handle_OPT_d (const char *);
+static void set_std_cxx98 (int);
+static void set_std_c89 (int, int);
+static void set_std_c99 (int);
+static void check_deps_environment_vars (void);
+static void handle_deferred_opts (void);
+static void sanitize_cpp_opts (void);
+static void add_prefixed_path (const char *, size_t);
+static void push_command_line_include (void);
+static void cb_file_change (cpp_reader *, const struct line_map *);
+static void finish_options (void);
 
 #ifndef STDC_0_IN_SYSTEM_HEADERS
 #define STDC_0_IN_SYSTEM_HEADERS 0
 #endif
 
-#define CL_C_ONLY	(1 << 0) /* Only C.  */
-#define CL_OBJC_ONLY	(1 << 1) /* Only ObjC.  */
-#define CL_CXX_ONLY	(1 << 2) /* Only C++.  */
-#define CL_OBJCXX_ONLY	(1 << 3) /* Only ObjC++.  */
-#define CL_JOINED	(1 << 4) /* If takes joined argument.  */
-#define CL_SEPARATE	(1 << 5) /* If takes a separate argument.  */
-
-#define CL_ARG		(CL_JOINED | CL_SEPARATE)
-#define CL_C		(CL_C_ONLY | CL_OBJC_ONLY)
-#define CL_OBJC		(CL_OBJC_ONLY | CL_OBJCXX_ONLY)
-#define CL_CXX		(CL_CXX_ONLY | CL_OBJCXX_ONLY)
-#define CL_ALL		(CL_C | CL_CXX)
-
-/* This is the list of all command line options, with the leading "-"
-   removed.  It must be sorted in ASCII collating order.  All options
-   beginning with "f" or "W" are implicitly assumed to take a "no-"
-   form; this form should not be listed.  The variable "on" is true if
-   the positive form is given, otherwise it is false.  If you don't
-   want to allow a "no-" form, your handler should reject "on" being
-   false by returning zero.  See, for example, the handling of
-   -ftabstop=.
-
-   If the user gives an option to a front end that doesn't support it,
-   an error is output, mentioning which front ends the option is valid
-   for.  If you don't want this, you must accept it for all front
-   ends, and test for the front end in the option handler.  See, for
-   example, the handling of -Wno-strict-prototypes for C++.
-
-   If you request an argument with CL_JOINED, CL_SEPARATE or their
-   combination CL_ARG, it is stored in the variable "arg", which is
-   guaranteed to be non-NULL and to not be an empty string.  It points
-   to the argument either within the argv[] vector or within one of
-   that vector's strings, and so the text is permanent and copies need
-   not be made.  Be sure to add an error message in missing_arg() if
-   the default is not appropriate.  */
-
-#define COMMAND_LINE_OPTIONS						     \
-  OPT("-help",                  CL_ALL,   OPT__help)			     \
-  OPT("-output-pch=",		CL_ALL | CL_ARG, OPT__output_pch)	     \
-  OPT("A",                      CL_ALL | CL_ARG, OPT_A)			     \
-  OPT("C",                      CL_ALL,   OPT_C)			     \
-  OPT("CC",                     CL_ALL,   OPT_CC)			     \
-  OPT("D",                      CL_ALL | CL_ARG, OPT_D)			     \
-  OPT("E",			CL_ALL,   OPT_E)			     \
-  OPT("H",                      CL_ALL,   OPT_H)			     \
-  OPT("I",                      CL_ALL | CL_ARG, OPT_I)			     \
-  OPT("M",                      CL_ALL,   OPT_M)			     \
-  OPT("MD",                     CL_ALL | CL_SEPARATE, OPT_MD)		     \
-  OPT("MF",                     CL_ALL | CL_ARG, OPT_MF)		     \
-  OPT("MG",                     CL_ALL,   OPT_MG)			     \
-  OPT("MM",                     CL_ALL,   OPT_MM)			     \
-  OPT("MMD",                    CL_ALL | CL_SEPARATE, OPT_MMD)		     \
-  OPT("MP",                     CL_ALL,   OPT_MP)			     \
-  OPT("MQ",                     CL_ALL | CL_ARG, OPT_MQ)		     \
-  OPT("MT",                     CL_ALL | CL_ARG, OPT_MT)		     \
-  OPT("P",                      CL_ALL,   OPT_P)			     \
-  OPT("U",                      CL_ALL | CL_ARG, OPT_U)			     \
-  OPT("Wabi",                   CL_CXX,   OPT_Wabi)                          \
-  OPT("Wall",			CL_ALL,   OPT_Wall)			     \
-  OPT("Wbad-function-cast",	CL_C,     OPT_Wbad_function_cast)	     \
-  OPT("Wcast-qual",		CL_ALL,   OPT_Wcast_qual)		     \
-  OPT("Wchar-subscripts",	CL_ALL,   OPT_Wchar_subscripts)		     \
-  OPT("Wcomment",		CL_ALL,   OPT_Wcomment)			     \
-  OPT("Wcomments",              CL_ALL,   OPT_Wcomments)		     \
-  OPT("Wconversion",		CL_ALL,   OPT_Wconversion)		     \
-  OPT("Wctor-dtor-privacy",	CL_CXX,   OPT_Wctor_dtor_privacy)	     \
-  OPT("Wdeprecated",		CL_CXX,   OPT_Wdeprecated)		     \
-  OPT("Wdiv-by-zero",		CL_C,     OPT_Wdiv_by_zero)		     \
-  OPT("Weffc++",		CL_CXX,   OPT_Weffcxx)			     \
-  OPT("Wendif-labels",		CL_ALL,   OPT_Wendif_labels)		     \
-  OPT("Werror",                 CL_ALL,   OPT_Werror)			     \
-  OPT("Werror-implicit-function-declaration",				     \
-	     			CL_C,     OPT_Werror_implicit_function_decl) \
-  OPT("Wfloat-equal",		CL_ALL,   OPT_Wfloat_equal)		     \
-  OPT("Wformat",		CL_ALL,   OPT_Wformat)			     \
-  OPT("Wformat-extra-args",	CL_ALL,   OPT_Wformat_extra_args)	     \
-  OPT("Wformat-nonliteral",	CL_ALL,   OPT_Wformat_nonliteral)	     \
-  OPT("Wformat-security",	CL_ALL,   OPT_Wformat_security)		     \
-  OPT("Wformat-y2k",		CL_ALL,   OPT_Wformat_y2k)		     \
-  OPT("Wformat-zero-length",	CL_C,     OPT_Wformat_zero_length)	     \
-  OPT("Wformat=",		CL_ALL | CL_JOINED, OPT_Wformat_eq)	     \
-  OPT("Wimplicit",		CL_ALL,   OPT_Wimplicit)		     \
-  OPT("Wimplicit-function-declaration",	CL_C, OPT_Wimplicit_function_decl)   \
-  OPT("Wimplicit-int",		CL_C,	  OPT_Wimplicit_int)		     \
-  OPT("Wimport",                CL_ALL,   OPT_Wimport)			     \
-  OPT("Winvalid-offsetof",      CL_CXX,   OPT_Winvalid_offsetof)             \
-  OPT("Winvalid-pch",           CL_ALL,   OPT_Winvalid_pch)		     \
-  OPT("Wlong-long",		CL_ALL,   OPT_Wlong_long)		     \
-  OPT("Wmain",			CL_C,     OPT_Wmain)			     \
-  OPT("Wmissing-braces",	CL_ALL,   OPT_Wmissing_braces)		     \
-  OPT("Wmissing-declarations",	CL_C,     OPT_Wmissing_declarations)	     \
-  OPT("Wmissing-format-attribute",CL_ALL, OPT_Wmissing_format_attribute)     \
-  OPT("Wmissing-prototypes",	CL_C,     OPT_Wmissing_prototypes)	     \
-  OPT("Wmultichar",		CL_ALL,   OPT_Wmultichar)		     \
-  OPT("Wnested-externs",	CL_C,     OPT_Wnested_externs)		     \
-  OPT("Wnon-template-friend",	CL_CXX,   OPT_Wnon_template_friend)	     \
-  OPT("Wnon-virtual-dtor",	CL_CXX,   OPT_Wnon_virtual_dtor)	     \
-  OPT("Wnonnull",		CL_C,     OPT_Wnonnull)			     \
-  OPT("Wold-style-cast",	CL_CXX,   OPT_Wold_style_cast)		     \
-  OPT("Woverloaded-virtual",	CL_CXX,   OPT_Woverloaded_virtual)	     \
-  OPT("Wparentheses",		CL_ALL,   OPT_Wparentheses)		     \
-  OPT("Wpmf-conversions",	CL_CXX,   OPT_Wpmf_conversions)		     \
-  OPT("Wpointer-arith",		CL_ALL,   OPT_Wpointer_arith)		     \
-  OPT("Wprotocol",		CL_OBJC,  OPT_Wprotocol)		     \
-  OPT("Wredundant-decls",	CL_ALL,   OPT_Wredundant_decls)		     \
-  OPT("Wreorder",		CL_CXX,   OPT_Wreorder)			     \
-  OPT("Wreturn-type",		CL_ALL,   OPT_Wreturn_type)		     \
-  OPT("Wselector",		CL_OBJC,  OPT_Wselector)		     \
-  OPT("Wsequence-point",	CL_C,     OPT_Wsequence_point)		     \
-  OPT("Wsign-compare",		CL_ALL,   OPT_Wsign_compare)		     \
-  OPT("Wsign-promo",		CL_CXX,   OPT_Wsign_promo)		     \
-  OPT("Wstrict-prototypes",	CL_C,     OPT_Wstrict_prototypes)	     \
-  OPT("Wsynth",			CL_CXX,   OPT_Wsynth)			     \
-  OPT("Wsystem-headers",	CL_ALL,   OPT_Wsystem_headers)		     \
-  OPT("Wtraditional",		CL_C,     OPT_Wtraditional)		     \
-  OPT("Wtrigraphs",		CL_ALL,   OPT_Wtrigraphs)		     \
-  OPT("Wundeclared-selector",	CL_OBJC,  OPT_Wundeclared_selector)	     \
-  OPT("Wundef",			CL_ALL,   OPT_Wundef)			     \
-  OPT("Wunknown-pragmas",	CL_ALL,   OPT_Wunknown_pragmas)		     \
-  OPT("Wunused-macros",		CL_ALL,   OPT_Wunused_macros)		     \
-  OPT("Wwrite-strings",		CL_ALL,   OPT_Wwrite_strings)		     \
-  OPT("ansi",			CL_ALL,   OPT_ansi)			     \
-  OPT("d",                      CL_ALL | CL_JOINED, OPT_d)		     \
-  OPT("fabi-version=",          CL_CXX | CL_JOINED, OPT_fabi_version)        \
-  OPT("faccess-control",	CL_CXX,   OPT_faccess_control)		     \
-  OPT("fall-virtual",		CL_CXX,   OPT_fall_virtual)		     \
-  OPT("falt-external-templates",CL_CXX,   OPT_falt_external_templates)	     \
-  OPT("fasm",			CL_ALL,   OPT_fasm)			     \
-  OPT("fbuiltin",		CL_ALL,   OPT_fbuiltin)			     \
-  OPT("fbuiltin-",		CL_ALL | CL_JOINED, OPT_fbuiltin_)	     \
-  OPT("fcheck-new",		CL_CXX,   OPT_fcheck_new)		     \
-  OPT("fcond-mismatch",		CL_ALL,   OPT_fcond_mismatch)		     \
-  OPT("fconserve-space",	CL_CXX,   OPT_fconserve_space)		     \
-  OPT("fconst-strings",		CL_CXX,   OPT_fconst_strings)		     \
-  OPT("fconstant-string-class=", CL_OBJC | CL_JOINED,			     \
-					  OPT_fconstant_string_class)	     \
-  OPT("fdefault-inline",	CL_CXX,   OPT_fdefault_inline)		     \
-  OPT("fdollars-in-identifiers",CL_ALL,   OPT_fdollars_in_identifiers)	     \
-  OPT("fdump-",			CL_ALL | CL_JOINED, OPT_fdump)		     \
-  OPT("felide-constructors",	CL_CXX,   OPT_felide_constructors)	     \
-  OPT("fenforce-eh-specs",	CL_CXX,   OPT_fenforce_eh_specs)	     \
-  OPT("fenum-int-equiv",	CL_CXX,   OPT_fenum_int_equiv)		     \
-  OPT("fexternal-templates",	CL_CXX,   OPT_fexternal_templates)	     \
-  OPT("ffixed-form",		CL_C,	  OPT_ffixed_form)		     \
-  OPT("ffixed-line-length-",	CL_C | CL_JOINED, OPT_ffixed_line_length)    \
-  OPT("ffor-scope",		CL_CXX,   OPT_ffor_scope)		     \
-  OPT("ffreestanding",		CL_C,     OPT_ffreestanding)		     \
-  OPT("fgnu-keywords",		CL_CXX,   OPT_fgnu_keywords)		     \
-  OPT("fgnu-runtime",		CL_OBJC,  OPT_fgnu_runtime)		     \
-  OPT("fguiding-decls",		CL_CXX,   OPT_fguiding_decls)		     \
-  OPT("fhandle-exceptions",	CL_CXX,   OPT_fhandle_exceptions)	     \
-  OPT("fhonor-std",		CL_CXX,   OPT_fhonor_std)		     \
-  OPT("fhosted",		CL_C,     OPT_fhosted)			     \
-  OPT("fhuge-objects",		CL_CXX,   OPT_fhuge_objects)		     \
-  OPT("fimplement-inlines",	CL_CXX,   OPT_fimplement_inlines)	     \
-  OPT("fimplicit-inline-templates", CL_CXX, OPT_fimplicit_inline_templates)  \
-  OPT("fimplicit-templates",	CL_CXX,   OPT_fimplicit_templates)	     \
-  OPT("flabels-ok",		CL_CXX,   OPT_flabels_ok)		     \
-  OPT("fms-extensions",		CL_ALL,   OPT_fms_extensions)		     \
-  OPT("fname-mangling-version-",CL_CXX | CL_JOINED, OPT_fname_mangling)	     \
-  OPT("fnew-abi",		CL_CXX,   OPT_fnew_abi)			     \
-  OPT("fnext-runtime",		CL_OBJC,  OPT_fnext_runtime)		     \
-  OPT("fnonansi-builtins",	CL_CXX,   OPT_fnonansi_builtins)	     \
-  OPT("fnonnull-objects",	CL_CXX,   OPT_fnonnull_objects)		     \
-  OPT("foperator-names",	CL_CXX,   OPT_foperator_names)		     \
-  OPT("foptional-diags",	CL_CXX,   OPT_foptional_diags)		     \
-  OPT("fpch-deps",		CL_ALL,	  OPT_fpch_deps)		     \
-  OPT("fpermissive",		CL_CXX,   OPT_fpermissive)		     \
-  OPT("fpreprocessed",		CL_ALL,   OPT_fpreprocessed)		     \
-  OPT("frepo",			CL_CXX,   OPT_frepo)			     \
-  OPT("frtti",			CL_CXX,   OPT_frtti)			     \
-  OPT("fshort-double",		CL_ALL,   OPT_fshort_double)		     \
-  OPT("fshort-enums",		CL_ALL,   OPT_fshort_enums)		     \
-  OPT("fshort-wchar",		CL_ALL,   OPT_fshort_wchar)		     \
-  OPT("fshow-column",		CL_ALL,   OPT_fshow_column)		     \
-  OPT("fsigned-bitfields",	CL_ALL,   OPT_fsigned_bitfields)	     \
-  OPT("fsigned-char",		CL_ALL,   OPT_fsigned_char)		     \
-  OPT("fsquangle",		CL_CXX,   OPT_fsquangle)		     \
-  OPT("fstats",			CL_CXX,   OPT_fstats)			     \
-  OPT("fstrict-prototype",	CL_CXX,   OPT_fstrict_prototype)	     \
-  OPT("ftabstop=",              CL_ALL | CL_JOINED, OPT_ftabstop)	     \
-  OPT("ftemplate-depth-",	CL_CXX | CL_JOINED, OPT_ftemplate_depth)     \
-  OPT("fthis-is-variable",	CL_CXX,   OPT_fthis_is_variable)	     \
-  OPT("funsigned-bitfields",	CL_ALL,   OPT_funsigned_bitfields)	     \
-  OPT("funsigned-char",		CL_ALL,   OPT_funsigned_char)		     \
-  OPT("fuse-cxa-atexit",	CL_CXX,   OPT_fuse_cxa_atexit)		     \
-  OPT("fvtable-gc",		CL_CXX,   OPT_fvtable_gc)		     \
-  OPT("fvtable-thunks",		CL_CXX,   OPT_fvtable_thunks)		     \
-  OPT("fweak",			CL_CXX,   OPT_fweak)			     \
-  OPT("fxref",			CL_CXX,   OPT_fxref)			     \
-  OPT("gen-decls",		CL_OBJC,  OPT_gen_decls)		     \
-  OPT("idirafter",              CL_ALL | CL_ARG, OPT_idirafter)              \
-  OPT("imacros",                CL_ALL | CL_ARG, OPT_imacros)		     \
-  OPT("include",                CL_ALL | CL_ARG, OPT_include)		     \
-  OPT("iprefix",		CL_ALL | CL_ARG, OPT_iprefix)		     \
-  OPT("isysroot",               CL_ALL | CL_ARG, OPT_isysroot)               \
-  OPT("isystem",                CL_ALL | CL_ARG, OPT_isystem)                \
-  OPT("iwithprefix",            CL_ALL | CL_ARG, OPT_iwithprefix)            \
-  OPT("iwithprefixbefore",      CL_ALL | CL_ARG, OPT_iwithprefixbefore)	     \
-  OPT("lang-asm",		CL_C_ONLY, OPT_lang_asm)		     \
-  OPT("lang-objc",              CL_ALL,   OPT_lang_objc)		     \
-  OPT("nostdinc",               CL_ALL,   OPT_nostdinc)			     \
-  OPT("nostdinc++",             CL_ALL,   OPT_nostdincplusplus)		     \
-  OPT("o",			CL_ALL | CL_ARG, OPT_o)                      \
-  OPT("pedantic",		CL_ALL,   OPT_pedantic)			     \
-  OPT("pedantic-errors",	CL_ALL,   OPT_pedantic_errors)		     \
-  OPT("print-objc-runtime-info", CL_OBJC, OPT_print_objc_runtime_info)	     \
-  OPT("remap",			CL_ALL,   OPT_remap)                         \
-  OPT("std=c++98",		CL_CXX,	  OPT_std_cplusplus98)		     \
-  OPT("std=c89",		CL_C,     OPT_std_c89)			     \
-  OPT("std=c99",		CL_C,     OPT_std_c99)			     \
-  OPT("std=c9x",		CL_C,     OPT_std_c9x)			     \
-  OPT("std=gnu++98",		CL_CXX,	  OPT_std_gnuplusplus98)	     \
-  OPT("std=gnu89",		CL_C,     OPT_std_gnu89)		     \
-  OPT("std=gnu99",		CL_C,     OPT_std_gnu99)		     \
-  OPT("std=gnu9x",		CL_C,     OPT_std_gnu9x)		     \
-  OPT("std=iso9899:1990",	CL_C,     OPT_std_iso9899_1990)		     \
-  OPT("std=iso9899:199409",	CL_C,     OPT_std_iso9899_199409)	     \
-  OPT("std=iso9899:1999",	CL_C,     OPT_std_iso9899_1999)		     \
-  OPT("std=iso9899:199x",	CL_C,     OPT_std_iso9899_199x)		     \
-  OPT("traditional-cpp",	CL_ALL,   OPT_traditional_cpp)		     \
-  OPT("trigraphs",              CL_ALL,   OPT_trigraphs)		     \
-  OPT("undef",			CL_ALL,   OPT_undef)			     \
-  OPT("v",                      CL_ALL,   OPT_v)			     \
-  OPT("w",                      CL_ALL,   OPT_w)
-
-#define OPT(text, flags, code) code,
-enum opt_code
-{
-  COMMAND_LINE_OPTIONS
-  N_OPTS
-};
-#undef OPT
-
-struct cl_option
-{
-  const char *opt_text;
-  unsigned char opt_len;
-  unsigned char flags;
-  ENUM_BITFIELD (opt_code) opt_code : 2 * CHAR_BIT;
-};
-
-#define OPT(text, flags, code) { text, sizeof(text) - 1, flags, code },
-#ifdef HOST_EBCDIC
-static struct cl_option cl_options[] =
-#else
-static const struct cl_option cl_options[] =
-#endif
-{
-  COMMAND_LINE_OPTIONS
-};
-#undef OPT
-#undef COMMAND_LINE_OPTIONS
-
-/* Holds switches parsed by c_common_decode_option (), but whose
+/* Holds switches parsed by c_common_handle_option (), but whose
    handling is deferred to c_common_post_options ().  */
-static void defer_opt PARAMS ((enum opt_code, const char *));
+static void defer_opt (enum opt_code, const char *);
 static struct deferred_opt
 {
   enum opt_code code;
   const char *arg;
 } *deferred_opts;
 
-
-#ifdef HOST_EBCDIC
-static int opt_comp PARAMS ((const void *, const void *));
-
-/* Run-time sorting of options array.  */
-static int
-opt_comp (p1, p2)
-     const void *p1, *p2;
-{
-  return strcmp (((struct cl_option *) p1)->opt_text,
-		 ((struct cl_option *) p2)->opt_text);
-}
-#endif
-
 /* Complain that switch OPT_INDEX expects an argument but none was
    provided.  */
-static void
-missing_arg (opt_index)
-     size_t opt_index;
+void
+missing_arg (enum opt_code code)
 {
-  const char *opt_text = cl_options[opt_index].opt_text;
+  const char *opt_text = cl_options[code].opt_text;
 
-  switch (cl_options[opt_index].opt_code)
+  switch (code)
     {
-    case OPT__output_pch:
-    case OPT_Wformat_eq:
+    case OPT__output_pch_:
+    case OPT_Wformat_:
     case OPT_d:
-    case OPT_fabi_version:
+    case OPT_fabi_version_:
     case OPT_fbuiltin_:
-    case OPT_fdump:
-    case OPT_fname_mangling:
-    case OPT_ftabstop:
-    case OPT_ftemplate_depth:
+    case OPT_fname_mangling_version_:
+    case OPT_ftabstop_:
+    case OPT_fexec_charset_:
+    case OPT_fwide_exec_charset_:
+    case OPT_ftemplate_depth_:
     case OPT_iprefix:
     case OPT_iwithprefix:
     case OPT_iwithprefixbefore:
@@ -421,7 +151,7 @@ missing_arg (opt_index)
       error ("missing argument to \"-%s\"", opt_text);
       break;
 
-    case OPT_fconstant_string_class:
+    case OPT_fconstant_string_class_:
       error ("no class name specified with \"-%s\"", opt_text);
       break;
 
@@ -457,259 +187,102 @@ missing_arg (opt_index)
     }
 }
 
-/* Perform a binary search to find which option the command-line INPUT
-   matches.  Returns its index in the option array, and N_OPTS on
-   failure.
-
-   Complications arise since some options can be suffixed with an
-   argument, and multiple complete matches can occur, e.g. -pedantic
-   and -pedantic-errors.  Also, some options are only accepted by some
-   languages.  If a switch matches for a different language and
-   doesn't match any alternatives for the true front end, the index of
-   the matched switch is returned anyway.  The caller should check for
-   this case.  */
-static size_t
-find_opt (input, lang_flag)
-     const char *input;
-     int lang_flag;
-{
-  size_t md, mn, mx;
-  size_t opt_len;
-  size_t result = N_OPTS;
-  int comp;
-
-  mn = 0;
-  mx = N_OPTS;
-
-  while (mx > mn)
-    {
-      md = (mn + mx) / 2;
-
-      opt_len = cl_options[md].opt_len;
-      comp = strncmp (input, cl_options[md].opt_text, opt_len);
-
-      if (comp < 0)
-	mx = md;
-      else if (comp > 0)
-	mn = md + 1;
-      else
-	{
-	  /* The switch matches.  It it an exact match?  */
-	  if (input[opt_len] == '\0')
-	    return md;
-	  else
-	    {
-	      mn = md + 1;
-
-	      /* If the switch takes no arguments this is not a proper
-		 match, so we continue the search (e.g. input="stdc++"
-		 match was "stdc").  */
-	      if (!(cl_options[md].flags & CL_JOINED))
-		continue;
-
-	      /* Is this switch valid for this front end?  */
-	      if (!(cl_options[md].flags & lang_flag))
-		{
-		  /* If subsequently we don't find a better match,
-		     return this and let the caller report it as a bad
-		     match.  */
-		  result = md;
-		  continue;
-		}
-
-	      /* Two scenarios remain: we have the switch's argument,
-		 or we match a longer option.  This can happen with
-		 -iwithprefix and -withprefixbefore.  The longest
-		 possible option match succeeds.
-
-		 Scan forwards, and return an exact match.  Otherwise
-		 return the longest valid option-accepting match (mx).
-		 This loops at most twice with current options.  */
-	      mx = md;
-	      for (md = md + 1; md < (size_t) N_OPTS; md++)
-		{
-		  opt_len = cl_options[md].opt_len;
-		  if (strncmp (input, cl_options[md].opt_text, opt_len))
-		    break;
-		  if (input[opt_len] == '\0')
-		    return md;
-		  if (cl_options[md].flags & lang_flag
-		      && cl_options[md].flags & CL_JOINED)
-		    mx = md;
-		}
-
-	      return mx;
-	    }
-	}
-    }
-
-  return result;
-}
-
 /* Defer option CODE with argument ARG.  */
 static void
-defer_opt (code, arg)
-     enum opt_code code;
-     const char *arg;
+defer_opt (enum opt_code code, const char *arg)
 {
-  /* FIXME: this should be in c_common_init_options, which should take
-     argc and argv.  */
-  if (!deferred_opts)
-    {
-      extern int save_argc;
-      deferred_size = save_argc;
-      deferred_opts = (struct deferred_opt *)
-	xmalloc (deferred_size * sizeof (struct deferred_opt));
-    }
-
-  if (deferred_count == deferred_size)
-    abort ();
-
   deferred_opts[deferred_count].code = code;
   deferred_opts[deferred_count].arg = arg;
   deferred_count++;
 }
 
 /* Common initialization before parsing options.  */
-void
-c_common_init_options (lang)
-     enum c_language_kind lang;
+unsigned int
+c_common_init_options (unsigned int argc, const char **argv ATTRIBUTE_UNUSED)
 {
-#ifdef HOST_EBCDIC
-  /* For non-ASCII hosts, the cl_options array needs to be sorted at
-     runtime.  */
-  qsort (cl_options, N_OPTS, sizeof (struct cl_option), opt_comp);
-#endif
-#if ENABLE_CHECKING
- {
-  size_t i;
+  static const unsigned int lang_flags[] = {CL_C, CL_ObjC, CL_CXX, CL_ObjCXX};
+  unsigned int result;
 
-  for (i = 1; i < N_OPTS; i++)
-    if (strcmp (cl_options[i - 1].opt_text, cl_options[i].opt_text) >= 0)
-      error ("options array incorrectly sorted: %s is before %s",
-	     cl_options[i - 1].opt_text, cl_options[i].opt_text);
- }
-#endif
+  /* This is conditionalized only because that is the way the front
+     ends used to do it.  Maybe this should be unconditional?  */
+  if (c_dialect_cxx ())
+    {
+      /* By default wrap lines at 80 characters.  Is getenv
+	 ("COLUMNS") preferable?  */
+      diagnostic_line_cutoff (global_dc) = 80;
+      /* By default, emit location information once for every
+	 diagnostic message.  */
+      diagnostic_prefixing_rule (global_dc) = DIAGNOSTICS_SHOW_PREFIX_ONCE;
+    }
 
-  c_language = lang;
-  parse_in = cpp_create_reader (lang == clk_c ? CLK_GNUC89 : CLK_GNUCXX,
+  parse_in = cpp_create_reader (c_dialect_cxx () ? CLK_GNUCXX: CLK_GNUC89,
 				ident_hash);
+
   cpp_opts = cpp_get_options (parse_in);
   cpp_opts->dollars_in_ident = DOLLARS_IN_IDENTIFIERS;
-  if (flag_objc)
-    cpp_opts->objc = 1;
+  cpp_opts->objc = c_dialect_objc ();
 
-  flag_const_strings = (lang == clk_cplusplus);
-  warn_pointer_arith = (lang == clk_cplusplus);
+  /* Reset to avoid warnings on internal definitions.  We set it just
+     before passing on command-line options to cpplib.  */
+  cpp_opts->warn_dollars = 0;
+
+  flag_const_strings = c_dialect_cxx ();
+  flag_exceptions = c_dialect_cxx ();
+  warn_pointer_arith = c_dialect_cxx ();
+
+  deferred_opts = (struct deferred_opt *)
+    xmalloc (argc * sizeof (struct deferred_opt));
+
+  result = lang_flags[c_language];
+
+  /* If potentially preprocessing Fortran we have to accept its front
+     end options since the driver passes most of them through.  */
+#ifdef CL_F77
+  if (c_language == clk_c && argc > 2
+      && !strcmp (argv[2], "-traditional-cpp" ))
+    {
+      permit_fortran_options = true;
+      result |= CL_F77;
+    }
+#endif
+
+  return result;
 }
 
-/* Handle one command-line option in (argc, argv).
-   Can be called multiple times, to handle multiple sets of options.
-   Returns number of strings consumed.  */
+/* Handle switch SCODE with argument ARG.  ON is true, unless no-
+   form of an -f or -W option was given.  Returns 0 if the switch was
+   invalid, a negative number to prevent language-independent
+   processing in toplev.c (a hack necessary for the short-term).  */
 int
-c_common_decode_option (argc, argv)
-     int argc;
-     char **argv;
+c_common_handle_option (size_t scode, const char *arg, int value)
 {
-  static const int lang_flags[] = {CL_C_ONLY, CL_C, CL_CXX_ONLY, CL_CXX};
-  size_t opt_index;
-  const char *opt, *arg = 0;
-  char *dup = 0;
-  bool on = true;
-  int result = 0, lang_flag;
-  const struct cl_option *option;
-  enum opt_code code;
+  const struct cl_option *option = &cl_options[scode];
+  enum opt_code code = (enum opt_code) scode;
+  int result = 1;
 
-  opt = argv[0];
-
-  /* Interpret "-" or a non-switch as a file name.  */
-  if (opt[0] != '-' || opt[1] == '\0')
+  if (code == N_OPTS)
     {
       if (!in_fname)
-	in_fname = opt;
+	in_fname = arg;
       else if (!out_fname)
-	out_fname = opt;
+	out_fname = arg;
       else
-	{
 	  error ("too many filenames given.  Type %s --help for usage",
 		 progname);
-	  return argc;
-	}
-
       return 1;
     }
 
-  /* Drop the "no-" from negative switches.  */
-  if ((opt[1] == 'W' || opt[1] == 'f')
-      && opt[2] == 'n' && opt[3] == 'o' && opt[4] == '-')
+  switch (code)
     {
-      size_t len = strlen (opt) - 3;
-
-      dup = xmalloc (len + 1);
-      dup[0] = '-';
-      dup[1] = opt[1];
-      memcpy (dup + 2, opt + 5, len - 2 + 1);
-      opt = dup;
-      on = false;
-    }
-
-  /* Skip over '-'.  */
-  lang_flag = lang_flags[(c_language << 1) + flag_objc];
-  opt_index = find_opt (opt + 1, lang_flag);
-  if (opt_index == N_OPTS)
-    goto done;
-
-  result = 1;
-  option = &cl_options[opt_index];
-
-  /* Sort out any argument the switch takes.  */
-  if (option->flags & CL_ARG)
-    {
-      if (option->flags & CL_JOINED)
-	{
-	  /* Have arg point to the original switch.  This is because
-	     some code, such as disable_builtin_function, expects its
-	     argument to be persistent until the program exits.  */
-	  arg = argv[0] + cl_options[opt_index].opt_len + 1;
-	  if (!on)
-	    arg += strlen ("no-");
-	}
-
-      /* If we don't have an argument, and CL_SEPARATE, try the next
-	 argument in the vector.  */
-      if (!arg || (*arg == '\0' && option->flags & CL_SEPARATE))
-	{
-	  arg = argv[1];
-	  result = 2;
-	}
-
-      if (!arg || *arg == '\0')
-	{
-	  missing_arg (opt_index);
-	  result = argc;
-	  goto done;
-	}
-    }
-
-  /* Complain about the wrong language after we've swallowed any
-     necessary extra argument.  Eventually make this a hard error
-     after the call to find_opt, and return argc.  */
-  if (!(cl_options[opt_index].flags & lang_flag))
-    {
-      complain_wrong_lang (opt_index);
-      goto done;
-    }
-
-  switch (code = option->opt_code)
-    {
-    case N_OPTS: /* Shut GCC up.  */
+    default:
+      result = permit_fortran_options;
       break;
 
     case OPT__help:
       print_help ();
       break;
 
-    case OPT__output_pch:
+    case OPT__output_pch_:
       pch_file = arg;
       break;
 
@@ -797,310 +370,304 @@ c_common_decode_option (argc, argv)
       break;
 
     case OPT_Wabi:
-      warn_abi = on;
+      warn_abi = value;
       break;
 
     case OPT_Wall:
-      set_Wunused (on);
-      set_Wformat (on);
-      set_Wimplicit (on);
-      warn_char_subscripts = on;
-      warn_missing_braces = on;
-      warn_parentheses = on;
-      warn_return_type = on;
-      warn_sequence_point = on;	/* Was C only.  */
-      if (c_language == clk_cplusplus)
-	warn_sign_compare = on;
-      warn_switch = on;
-      warn_strict_aliasing = on;
-      
+      set_Wunused (value);
+      set_Wformat (value);
+      set_Wimplicit (value);
+      warn_char_subscripts = value;
+      warn_missing_braces = value;
+      warn_parentheses = value;
+      warn_return_type = value;
+      warn_sequence_point = value;	/* Was C only.  */
+      if (c_dialect_cxx ())
+	warn_sign_compare = value;
+      warn_switch = value;
+      warn_strict_aliasing = value;
+
       /* Only warn about unknown pragmas that are not in system
-	 headers.  */                                        
-      warn_unknown_pragmas = on;
+	 headers.  */
+      warn_unknown_pragmas = value;
 
       /* We save the value of warn_uninitialized, since if they put
 	 -Wuninitialized on the command line, we need to generate a
 	 warning about not using it without also specifying -O.  */
       if (warn_uninitialized != 1)
-	warn_uninitialized = (on ? 2 : 0);
+	warn_uninitialized = (value ? 2 : 0);
 
-      if (c_language == clk_c)
+      if (!c_dialect_cxx ())
 	/* We set this to 2 here, but 1 in -Wmain, so -ffreestanding
 	   can turn it off only if it's not explicit.  */
-	warn_main = on * 2;
+	warn_main = value * 2;
       else
 	{
 	  /* C++-specific warnings.  */
-	  warn_nonvdtor = on;
-	  warn_reorder = on;
-	  warn_nontemplate_friend = on;
+	  warn_nonvdtor = value;
+	  warn_reorder = value;
+	  warn_nontemplate_friend = value;
 	}
 
-      cpp_opts->warn_trigraphs = on;
-      cpp_opts->warn_comments = on;
-      cpp_opts->warn_num_sign_change = on;
-      cpp_opts->warn_multichar = on;	/* Was C++ only.  */
+      cpp_opts->warn_trigraphs = value;
+      cpp_opts->warn_comments = value;
+      cpp_opts->warn_num_sign_change = value;
+      cpp_opts->warn_multichar = value;	/* Was C++ only.  */
       break;
 
     case OPT_Wbad_function_cast:
-      warn_bad_function_cast = on;
+      warn_bad_function_cast = value;
       break;
 
     case OPT_Wcast_qual:
-      warn_cast_qual = on;
+      warn_cast_qual = value;
       break;
 
     case OPT_Wchar_subscripts:
-      warn_char_subscripts = on;
+      warn_char_subscripts = value;
       break;
 
     case OPT_Wcomment:
     case OPT_Wcomments:
-      cpp_opts->warn_comments = on;
+      cpp_opts->warn_comments = value;
       break;
 
     case OPT_Wconversion:
-      warn_conversion = on;
+      warn_conversion = value;
       break;
 
     case OPT_Wctor_dtor_privacy:
-      warn_ctor_dtor_privacy = on;
+      warn_ctor_dtor_privacy = value;
       break;
 
     case OPT_Wdeprecated:
-      warn_deprecated = on;
-      cpp_opts->warn_deprecated = on;
+      warn_deprecated = value;
+      cpp_opts->warn_deprecated = value;
       break;
 
     case OPT_Wdiv_by_zero:
-      warn_div_by_zero = on;
+      warn_div_by_zero = value;
       break;
 
-    case OPT_Weffcxx:
-      warn_ecpp = on;
+    case OPT_Weffc__:
+      warn_ecpp = value;
       break;
 
     case OPT_Wendif_labels:
-      cpp_opts->warn_endif_labels = on;
+      cpp_opts->warn_endif_labels = value;
       break;
 
     case OPT_Werror:
-      cpp_opts->warnings_are_errors = on;
+      cpp_opts->warnings_are_errors = value;
       break;
 
-    case OPT_Werror_implicit_function_decl:
-      if (!on)
-	result = 0;
-      else
-	mesg_implicit_function_declaration = 2;
+    case OPT_Werror_implicit_function_declaration:
+      mesg_implicit_function_declaration = 2;
       break;
 
     case OPT_Wfloat_equal:
-      warn_float_equal = on;
+      warn_float_equal = value;
       break;
 
     case OPT_Wformat:
-      set_Wformat (on);
+      set_Wformat (value);
       break;
 
-    case OPT_Wformat_eq:
+    case OPT_Wformat_:
       set_Wformat (atoi (arg));
       break;
 
     case OPT_Wformat_extra_args:
-      warn_format_extra_args = on;
+      warn_format_extra_args = value;
       break;
 
     case OPT_Wformat_nonliteral:
-      warn_format_nonliteral = on;
+      warn_format_nonliteral = value;
       break;
 
     case OPT_Wformat_security:
-      warn_format_security = on;
+      warn_format_security = value;
       break;
 
     case OPT_Wformat_y2k:
-      warn_format_y2k = on;
+      warn_format_y2k = value;
       break;
 
     case OPT_Wformat_zero_length:
-      warn_format_zero_length = on;
+      warn_format_zero_length = value;
       break;
 
     case OPT_Wimplicit:
-      set_Wimplicit (on);
+      set_Wimplicit (value);
       break;
 
-    case OPT_Wimplicit_function_decl:
-      mesg_implicit_function_declaration = on;
+    case OPT_Wimplicit_function_declaration:
+      mesg_implicit_function_declaration = value;
       break;
 
     case OPT_Wimplicit_int:
-      warn_implicit_int = on;
+      warn_implicit_int = value;
       break;
 
     case OPT_Wimport:
-      cpp_opts->warn_import = on;
+      cpp_opts->warn_import = value;
       break;
 
     case OPT_Winvalid_offsetof:
-      warn_invalid_offsetof = on;
+      warn_invalid_offsetof = value;
       break;
 
     case OPT_Winvalid_pch:
-      cpp_opts->warn_invalid_pch = on;
+      cpp_opts->warn_invalid_pch = value;
       break;
 
     case OPT_Wlong_long:
-      warn_long_long = on;
+      warn_long_long = value;
       break;
 
     case OPT_Wmain:
-      if (on)
+      if (value)
 	warn_main = 1;
       else
 	warn_main = -1;
       break;
 
     case OPT_Wmissing_braces:
-      warn_missing_braces = on;
+      warn_missing_braces = value;
       break;
 
     case OPT_Wmissing_declarations:
-      warn_missing_declarations = on;
+      warn_missing_declarations = value;
       break;
 
     case OPT_Wmissing_format_attribute:
-      warn_missing_format_attribute = on;
+      warn_missing_format_attribute = value;
       break;
 
     case OPT_Wmissing_prototypes:
-      warn_missing_prototypes = on;
+      warn_missing_prototypes = value;
       break;
 
     case OPT_Wmultichar:
-      cpp_opts->warn_multichar = on;
+      cpp_opts->warn_multichar = value;
       break;
 
     case OPT_Wnested_externs:
-      warn_nested_externs = on;
+      warn_nested_externs = value;
       break;
 
     case OPT_Wnon_template_friend:
-      warn_nontemplate_friend = on;
+      warn_nontemplate_friend = value;
       break;
 
     case OPT_Wnon_virtual_dtor:
-      warn_nonvdtor = on;
+      warn_nonvdtor = value;
       break;
 
     case OPT_Wnonnull:
-      warn_nonnull = on;
+      warn_nonnull = value;
       break;
 
     case OPT_Wold_style_cast:
-      warn_old_style_cast = on;
+      warn_old_style_cast = value;
       break;
 
     case OPT_Woverloaded_virtual:
-      warn_overloaded_virtual = on;
+      warn_overloaded_virtual = value;
       break;
 
     case OPT_Wparentheses:
-      warn_parentheses = on;
+      warn_parentheses = value;
       break;
 
     case OPT_Wpmf_conversions:
-      warn_pmf2ptr = on;
+      warn_pmf2ptr = value;
       break;
 
     case OPT_Wpointer_arith:
-      warn_pointer_arith = on;
+      warn_pointer_arith = value;
       break;
 
     case OPT_Wprotocol:
-      warn_protocol = on;
+      warn_protocol = value;
       break;
 
     case OPT_Wselector:
-      warn_selector = on;
+      warn_selector = value;
       break;
 
     case OPT_Wredundant_decls:
-      warn_redundant_decls = on;
+      warn_redundant_decls = value;
       break;
 
     case OPT_Wreorder:
-      warn_reorder = on;
+      warn_reorder = value;
       break;
 
     case OPT_Wreturn_type:
-      warn_return_type = on;
+      warn_return_type = value;
       break;
 
     case OPT_Wsequence_point:
-      warn_sequence_point = on;
+      warn_sequence_point = value;
       break;
 
     case OPT_Wsign_compare:
-      warn_sign_compare = on;
+      warn_sign_compare = value;
       break;
 
     case OPT_Wsign_promo:
-      warn_sign_promo = on;
+      warn_sign_promo = value;
       break;
 
     case OPT_Wstrict_prototypes:
-      if (!on && c_language == clk_cplusplus)
-	warning ("-Wno-strict-prototypes is not supported in C++");
-      else
-	warn_strict_prototypes = on;
+      warn_strict_prototypes = value;
       break;
 
     case OPT_Wsynth:
-      warn_synth = on;
+      warn_synth = value;
       break;
 
     case OPT_Wsystem_headers:
-      cpp_opts->warn_system_headers = on;
+      cpp_opts->warn_system_headers = value;
       break;
 
     case OPT_Wtraditional:
-      warn_traditional = on;
-      cpp_opts->warn_traditional = on;
+      warn_traditional = value;
+      cpp_opts->warn_traditional = value;
       break;
 
     case OPT_Wtrigraphs:
-      cpp_opts->warn_trigraphs = on;
+      cpp_opts->warn_trigraphs = value;
       break;
 
     case OPT_Wundeclared_selector:
-      warn_undeclared_selector = on;
+      warn_undeclared_selector = value;
       break;
 
     case OPT_Wundef:
-      cpp_opts->warn_undef = on;
+      cpp_opts->warn_undef = value;
       break;
 
     case OPT_Wunknown_pragmas:
       /* Set to greater than 1, so that even unknown pragmas in
-	 system headers will be warned about.  */  
-      warn_unknown_pragmas = on * 2;
+	 system headers will be warned about.  */
+      warn_unknown_pragmas = value * 2;
       break;
 
     case OPT_Wunused_macros:
-      warn_unused_macros = on;
+      warn_unused_macros = value;
       break;
 
     case OPT_Wwrite_strings:
-      if (c_language == clk_c)
-	flag_const_strings = on;
+      if (!c_dialect_cxx ())
+	flag_const_strings = value;
       else
-	warn_write_strings = on;
+	warn_write_strings = value;
       break;
-      
+
     case OPT_ansi:
-      if (c_language == clk_c)
+      if (!c_dialect_cxx ())
 	set_std_c89 (false, true);
       else
 	set_std_cxx98 (true);
@@ -1111,9 +678,9 @@ c_common_decode_option (argc, argv)
       break;
 
     case OPT_fcond_mismatch:
-      if (c_language == clk_c)
+      if (!c_dialect_cxx ())
 	{
-	  flag_cond_mismatch = on;
+	  flag_cond_mismatch = value;
 	  break;
 	}
       /* Fall through.  */
@@ -1124,7 +691,7 @@ c_common_decode_option (argc, argv)
     case OPT_fhonor_std:
     case OPT_fhuge_objects:
     case OPT_flabels_ok:
-    case OPT_fname_mangling:
+    case OPT_fname_mangling_version_:
     case OPT_fnew_abi:
     case OPT_fnonnull_objects:
     case OPT_fsquangle:
@@ -1132,236 +699,231 @@ c_common_decode_option (argc, argv)
     case OPT_fthis_is_variable:
     case OPT_fvtable_thunks:
     case OPT_fxref:
-      warning ("switch \"%s\" is no longer supported", argv[0]);
+      warning ("switch \"%s\" is no longer supported", option->opt_text);
       break;
 
-    case OPT_fabi_version:
-      flag_abi_version = read_integral_parameter (arg, argv[0], 1);
+    case OPT_fabi_version_:
+      flag_abi_version = value;
       break;
 
     case OPT_faccess_control:
-      flag_access_control = on;
+      flag_access_control = value;
       break;
 
     case OPT_falt_external_templates:
-      flag_alt_external_templates = on;
-      if (on)
+      flag_alt_external_templates = value;
+      if (value)
 	flag_external_templates = true;
     cp_deprecated:
-      warning ("switch \"%s\" is deprecated, please see documentation for details", argv[0]);
+      warning ("switch \"%s\" is deprecated, please see documentation for details", option->opt_text);
       break;
 
     case OPT_fasm:
-      flag_no_asm = !on;
+      flag_no_asm = !value;
       break;
 
     case OPT_fbuiltin:
-      flag_no_builtin = !on;
+      flag_no_builtin = !value;
       break;
 
     case OPT_fbuiltin_:
-      if (on)
+      if (value)
 	result = 0;
       else
 	disable_builtin_function (arg);
       break;
 
     case OPT_fdollars_in_identifiers:
-      cpp_opts->dollars_in_ident = on;
-      break;
-
-    case OPT_fdump:
-      if (!on || !dump_switch_p (argv[0] + strlen ("-f")))
-	result = 0;
+      cpp_opts->dollars_in_ident = value;
       break;
 
     case OPT_ffreestanding:
-      on = !on;
+      value = !value;
       /* Fall through...  */
     case OPT_fhosted:
-      flag_hosted = on;
-      flag_no_builtin = !on;
+      flag_hosted = value;
+      flag_no_builtin = !value;
       /* warn_main will be 2 if set by -Wall, 1 if set by -Wmain */
-      if (!on && warn_main == 2)
+      if (!value && warn_main == 2)
 	warn_main = 0;
       break;
 
     case OPT_fshort_double:
-      flag_short_double = on;
+      flag_short_double = value;
       break;
 
     case OPT_fshort_enums:
-      flag_short_enums = on;
+      flag_short_enums = value;
       break;
 
     case OPT_fshort_wchar:
-      flag_short_wchar = on;
+      flag_short_wchar = value;
       break;
 
     case OPT_fsigned_bitfields:
-      flag_signed_bitfields = on;
+      flag_signed_bitfields = value;
       explicit_flag_signed_bitfields = 1;
       break;
 
     case OPT_fsigned_char:
-      flag_signed_char = on;
+      flag_signed_char = value;
       break;
 
     case OPT_funsigned_bitfields:
-      flag_signed_bitfields = !on;
+      flag_signed_bitfields = !value;
       explicit_flag_signed_bitfields = 1;
       break;
 
     case OPT_funsigned_char:
-      flag_signed_char = !on;
+      flag_signed_char = !value;
       break;
 
     case OPT_fcheck_new:
-      flag_check_new = on;
+      flag_check_new = value;
       break;
 
     case OPT_fconserve_space:
-      flag_conserve_space = on;
+      flag_conserve_space = value;
       break;
 
     case OPT_fconst_strings:
-      flag_const_strings = on;
+      flag_const_strings = value;
       break;
 
-    case OPT_fconstant_string_class:
+    case OPT_fconstant_string_class_:
       constant_string_class_name = arg;
       break;
 
     case OPT_fdefault_inline:
-      flag_default_inline = on;
+      flag_default_inline = value;
       break;
 
     case OPT_felide_constructors:
-      flag_elide_constructors = on;
+      flag_elide_constructors = value;
       break;
 
     case OPT_fenforce_eh_specs:
-      flag_enforce_eh_specs = on;
+      flag_enforce_eh_specs = value;
       break;
 
     case OPT_fexternal_templates:
-      flag_external_templates = on;
+      flag_external_templates = value;
       goto cp_deprecated;
 
     case OPT_ffixed_form:
-    case OPT_ffixed_line_length:
+    case OPT_ffixed_line_length_:
       /* Fortran front end options ignored when preprocessing only.  */
-      if (flag_preprocess_only)
-        result = -1;
+      if (!flag_preprocess_only)
+        result = 0;
       break;
 
     case OPT_ffor_scope:
-      flag_new_for_scope = on;
+      flag_new_for_scope = value;
       break;
 
     case OPT_fgnu_keywords:
-      flag_no_gnu_keywords = !on;
+      flag_no_gnu_keywords = !value;
       break;
 
     case OPT_fgnu_runtime:
-      flag_next_runtime = !on;
+      flag_next_runtime = !value;
       break;
 
     case OPT_fhandle_exceptions:
-      warning ("-fhandle-exceptions has been renamed to -fexceptions (and is now on by default)");
-      flag_exceptions = on;
+      warning ("-fhandle-exceptions has been renamed -fexceptions (and is now on by default)");
+      flag_exceptions = value;
       break;
 
     case OPT_fimplement_inlines:
-      flag_implement_inlines = on;
+      flag_implement_inlines = value;
       break;
 
     case OPT_fimplicit_inline_templates:
-      flag_implicit_inline_templates = on;
+      flag_implicit_inline_templates = value;
       break;
 
     case OPT_fimplicit_templates:
-      flag_implicit_templates = on;
+      flag_implicit_templates = value;
       break;
 
     case OPT_fms_extensions:
-      flag_ms_extensions = on;
+      flag_ms_extensions = value;
       break;
 
     case OPT_fnext_runtime:
-      flag_next_runtime = on;
+      flag_next_runtime = value;
       break;
 
     case OPT_fnonansi_builtins:
-      flag_no_nonansi_builtin = !on;
+      flag_no_nonansi_builtin = !value;
       break;
 
     case OPT_foperator_names:
-      cpp_opts->operator_names = on;
+      cpp_opts->operator_names = value;
       break;
 
     case OPT_foptional_diags:
-      flag_optional_diags = on;
+      flag_optional_diags = value;
       break;
 
     case OPT_fpch_deps:
-      cpp_opts->restore_pch_deps = on;
+      cpp_opts->restore_pch_deps = value;
       break;
 
     case OPT_fpermissive:
-      flag_permissive = on;
+      flag_permissive = value;
       break;
 
     case OPT_fpreprocessed:
-      cpp_opts->preprocessed = on;
+      cpp_opts->preprocessed = value;
       break;
 
     case OPT_frepo:
-      flag_use_repository = on;
-      if (on)
+      flag_use_repository = value;
+      if (value)
 	flag_implicit_templates = 0;
       break;
 
     case OPT_frtti:
-      flag_rtti = on;
+      flag_rtti = value;
       break;
 
     case OPT_fshow_column:
-      cpp_opts->show_column = on;
+      cpp_opts->show_column = value;
       break;
 
     case OPT_fstats:
-      flag_detailed_statistics = on;
+      flag_detailed_statistics = value;
       break;
 
-    case OPT_ftabstop:
-      /* Don't recognize -fno-tabstop=.  */
-      if (!on)
-	return 0;
-
+    case OPT_ftabstop_:
       /* It is documented that we silently ignore silly values.  */
-	{
-	  char *endptr;
-	  long tabstop = strtol (arg, &endptr, 10);
-	  if (*endptr == '\0' && tabstop >= 1 && tabstop <= 100)
-	    cpp_opts->tabstop = tabstop;
-	}
+      if (value >= 1 && value <= 100)
+	cpp_opts->tabstop = value;
       break;
 
-    case OPT_ftemplate_depth:
-      max_tinst_depth = read_integral_parameter (arg, argv[0], 0);
+    case OPT_fexec_charset_:
+      cpp_opts->narrow_charset = arg;
+      break;
+
+    case OPT_fwide_exec_charset_:
+      cpp_opts->wide_charset = arg;
+      break;
+
+    case OPT_ftemplate_depth_:
+      max_tinst_depth = value;
       break;
 
     case OPT_fvtable_gc:
-      flag_vtable_gc = on;
+      flag_vtable_gc = value;
       break;
 
     case OPT_fuse_cxa_atexit:
-      flag_use_cxa_atexit = on;
+      flag_use_cxa_atexit = value;
       break;
 
     case OPT_fweak:
-      flag_weak = on;
+      flag_weak = value;
       break;
 
     case OPT_gen_decls:
@@ -1410,7 +972,7 @@ c_common_decode_option (argc, argv)
       std_inc = false;
       break;
 
-    case OPT_nostdincplusplus:
+    case OPT_nostdinc__:
       std_cxx_inc = false;
       break;
 
@@ -1418,10 +980,7 @@ c_common_decode_option (argc, argv)
       if (!out_fname)
 	out_fname = arg;
       else
-	{
-	  error ("output filename specified twice");
-	  result = argc;
-	}
+	error ("output filename specified twice");
       break;
 
       /* We need to handle the -pedantic switches here, rather than in
@@ -1443,9 +1002,9 @@ c_common_decode_option (argc, argv)
       cpp_opts->remap = 1;
       break;
 
-    case OPT_std_cplusplus98:
-    case OPT_std_gnuplusplus98:
-      set_std_cxx98 (code == OPT_std_cplusplus98 /* ISO */);
+    case OPT_std_c__98:
+    case OPT_std_gnu__98:
+      set_std_cxx98 (code == OPT_std_c__98 /* ISO */);
       break;
 
     case OPT_std_c89:
@@ -1491,16 +1050,12 @@ c_common_decode_option (argc, argv)
       break;
     }
 
- done:
-  if (dup)
-    free (dup);
   return result;
 }
 
 /* Post-switch processing.  */
 bool
-c_common_post_options (pfilename)
-     const char **pfilename;
+c_common_post_options (const char **pfilename)
 {
   /* Canonicalize the input and output filenames.  */
   if (in_fname == NULL || !strcmp (in_fname, "-"))
@@ -1517,8 +1072,7 @@ c_common_post_options (pfilename)
   sanitize_cpp_opts ();
 
   register_include_chains (parse_in, sysroot, iprefix,
-			   std_inc, std_cxx_inc && c_language == clk_cplusplus,
-			   verbose);
+			   std_inc, std_cxx_inc && c_dialect_cxx (), verbose);
 
   flag_inline_trees = 1;
 
@@ -1598,7 +1152,7 @@ c_common_post_options (pfilename)
 
 /* Front end initialization common to C, ObjC and C++.  */
 bool
-c_common_init ()
+c_common_init (void)
 {
   input_line = saved_lineno;
 
@@ -1609,7 +1163,11 @@ c_common_init ()
   cpp_opts->int_precision = TYPE_PRECISION (integer_type_node);
   cpp_opts->wchar_precision = TYPE_PRECISION (wchar_type_node);
   cpp_opts->unsigned_wchar = TREE_UNSIGNED (wchar_type_node);
-  cpp_opts->EBCDIC = TARGET_EBCDIC;
+  cpp_opts->bytes_big_endian = BYTES_BIG_ENDIAN;
+
+  /* This can't happen until after wchar_precision and bytes_big_endian
+     are known.  */
+  cpp_init_iconv (parse_in);
 
   if (flag_preprocess_only)
     {
@@ -1624,13 +1182,12 @@ c_common_init ()
   return true;
 }
 
-/* A thin wrapper around the real parser that initializes the 
+/* A thin wrapper around the real parser that initializes the
    integrated preprocessor after debug output has been initialized.
    Also, make sure the start_source_file debug hook gets called for
    the primary source file.  */
 void
-c_common_parse_file (set_yydebug)
-     int set_yydebug ATTRIBUTE_UNUSED;
+c_common_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 {
 #if YYDEBUG != 0
   yydebug = set_yydebug;
@@ -1638,7 +1195,6 @@ c_common_parse_file (set_yydebug)
   warning ("YYDEBUG not defined");
 #endif
 
-  (*debug_hooks->start_source_file) (input_line, input_filename);
   finish_options();
   pch_init();
   yyparse ();
@@ -1647,7 +1203,7 @@ c_common_parse_file (set_yydebug)
 
 /* Common finish hook for the C, ObjC and C++ front ends.  */
 void
-c_common_finish ()
+c_common_finish (void)
 {
   FILE *deps_stream = NULL;
 
@@ -1685,7 +1241,7 @@ c_common_finish ()
    rather than overwriting it, and like Sun's compiler
    SUNPRO_DEPENDENCIES suppresses the dependency on the main file.  */
 static void
-check_deps_environment_vars ()
+check_deps_environment_vars (void)
 {
   char *spec;
 
@@ -1723,7 +1279,7 @@ check_deps_environment_vars ()
 
 /* Handle deferred command line switches.  */
 static void
-handle_deferred_opts ()
+handle_deferred_opts (void)
 {
   size_t i;
 
@@ -1739,7 +1295,7 @@ handle_deferred_opts ()
 /* These settings are appropriate for GCC, but not necessarily so for
    cpplib as a library.  */
 static void
-sanitize_cpp_opts ()
+sanitize_cpp_opts (void)
 {
   /* If we don't know what style of dependencies to output, complain
      if any other dependency switches have been given.  */
@@ -1771,9 +1327,7 @@ sanitize_cpp_opts ()
 
 /* Add include path with a prefix at the front of its name.  */
 static void
-add_prefixed_path (suffix, chain)
-     const char *suffix;
-     size_t chain;
+add_prefixed_path (const char *suffix, size_t chain)
 {
   char *path;
   const char *prefix;
@@ -1793,7 +1347,7 @@ add_prefixed_path (suffix, chain)
 
 /* Handle -D, -U, -A, -imacros, and the first -include.  */
 static void
-finish_options ()
+finish_options (void)
 {
   if (!cpp_opts->preprocessed)
     {
@@ -1802,6 +1356,18 @@ finish_options ()
       cpp_change_file (parse_in, LC_RENAME, _("<built-in>"));
       cpp_init_builtins (parse_in, flag_hosted);
       c_cpp_builtins (parse_in);
+
+      /* We're about to send user input to cpplib, so make it warn for
+	 things that we previously (when we sent it internal definitions)
+	 told it to not warn.
+
+	 C99 permits implementation-defined characters in identifiers.
+	 The documented meaning of -std= is to turn off extensions that
+	 conflict with the specified standard, and since a strictly
+	 conforming program cannot contain a '$', we do not condition
+	 their acceptance on the -std= setting.  */
+      cpp_opts->warn_dollars = (cpp_opts->pedantic && !cpp_opts->c99);
+
       cpp_change_file (parse_in, LC_RENAME, _("<command line>"));
       for (i = 0; i < deferred_count; i++)
 	{
@@ -1836,21 +1402,22 @@ finish_options ()
 
 /* Give CPP the next file given by -include, if any.  */
 static void
-push_command_line_include ()
+push_command_line_include (void)
 {
   if (cpp_opts->preprocessed)
     return;
-    
+
   while (include_cursor < deferred_count)
     {
       struct deferred_opt *opt = &deferred_opts[include_cursor++];
-      
+
       if (opt->code == OPT_include && cpp_push_include (parse_in, opt->arg))
 	return;
     }
 
   if (include_cursor == deferred_count)
     {
+      free (deferred_opts);
       /* Restore the line map from <command line>.  */
       cpp_change_file (parse_in, LC_RENAME, main_input_filename);
       /* -Wunused-macros should only warn about macros defined hereafter.  */
@@ -1861,9 +1428,8 @@ push_command_line_include ()
 
 /* File change callback.  Has to handle -include files.  */
 static void
-cb_file_change (pfile, new_map)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
-     const struct line_map *new_map;
+cb_file_change (cpp_reader *pfile ATTRIBUTE_UNUSED,
+		const struct line_map *new_map)
 {
   if (flag_preprocess_only)
     pp_file_change (new_map);
@@ -1877,8 +1443,7 @@ cb_file_change (pfile, new_map)
 /* Set the C 89 standard (with 1994 amendments if C94, without GNU
    extensions if ISO).  There is no concept of gnu94.  */
 static void
-set_std_c89 (c94, iso)
-     int c94, iso;
+set_std_c89 (int c94, int iso)
 {
   cpp_set_lang (parse_in, c94 ? CLK_STDC94: iso ? CLK_STDC89: CLK_GNUC89);
   flag_iso = iso;
@@ -1893,8 +1458,7 @@ set_std_c89 (c94, iso)
 
 /* Set the C 99 standard (without GNU extensions if ISO).  */
 static void
-set_std_c99 (iso)
-     int iso;
+set_std_c99 (int iso)
 {
   cpp_set_lang (parse_in, iso ? CLK_STDC99: CLK_GNUC99);
   flag_no_asm = iso;
@@ -1908,8 +1472,7 @@ set_std_c99 (iso)
 
 /* Set the C++ 98 standard (without GNU extensions if ISO).  */
 static void
-set_std_cxx98 (iso)
-     int iso;
+set_std_cxx98 (int iso)
 {
   cpp_set_lang (parse_in, iso ? CLK_CXX98: CLK_GNUCXX);
   flag_no_gnu_keywords = iso;
@@ -1920,8 +1483,7 @@ set_std_cxx98 (iso)
 
 /* Handle setting implicit to ON.  */
 static void
-set_Wimplicit (on)
-     int on;
+set_Wimplicit (int on)
 {
   warn_implicit = on;
   warn_implicit_int = on;
@@ -1937,8 +1499,7 @@ set_Wimplicit (on)
 /* Args to -d specify what to dump.  Silently ignore
    unrecognized options; they may be aimed at toplev.c.  */
 static void
-handle_OPT_d (arg)
-     const char *arg;
+handle_OPT_d (const char *arg)
 {
   char c;
 
@@ -1957,46 +1518,9 @@ handle_OPT_d (arg)
       }
 }
 
-/* Write a slash-separated list of languages in FLAGS to BUF.  */
-static void
-write_langs (buf, flags)
-     char *buf;
-     int flags;
-{
-  *buf = '\0';
-  if (flags & CL_C_ONLY)
-    strcat (buf, "C");
-  if (flags & CL_OBJC_ONLY)
-    {
-      if (*buf)
-	strcat (buf, "/");
-      strcat (buf, "ObjC");
-    }
-  if (flags & CL_CXX_ONLY)
-    {
-      if (*buf)
-	strcat (buf, "/");
-      strcat (buf, "C++");
-    }
-}
-
-/* Complain that switch OPT_INDEX does not apply to this front end.  */
-static void
-complain_wrong_lang (opt_index)
-     size_t opt_index;
-{
-  char ok_langs[60], bad_langs[60];
-  int ok_flags = cl_options[opt_index].flags;
-
-  write_langs (ok_langs, ok_flags);
-  write_langs (bad_langs, ~ok_flags);
-  warning ("\"-%s\" is valid for %s but not for %s",
-	   cl_options[opt_index].opt_text, ok_langs, bad_langs);
-}
-
 /* Handle --help output.  */
 static void
-print_help ()
+print_help (void)
 {
   /* To keep the lines from getting too long for some compilers, limit
      to about 500 characters (6 lines) per chunk.  */
@@ -2069,6 +1593,12 @@ Switches:\n\
   fputs (_("\
   -f[no-]preprocessed       Treat the input file as already preprocessed\n\
   -ftabstop=<number>        Distance between tab stops for column reporting\n\
+  -ftarget-charset=<c>      Convert all strings and character constants\n\
+                            to character set <c>\n\
+  -ftarget-wide-charset=<c> Convert all wide strings and character constants\n\
+                            to character set <c>\n\
+"), stdout);
+  fputs (_("\
   -isysroot <dir>           Set <dir> to be the system root directory\n\
   -P                        Do not generate #line directives\n\
   -remap                    Remap file names when including files\n\

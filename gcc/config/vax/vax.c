@@ -41,8 +41,8 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 
-static int follows_p PARAMS ((rtx, rtx));
 static void vax_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+static void vax_file_start PARAMS ((void));
 static void vax_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 					 HOST_WIDE_INT, tree));
 static int vax_address_cost_1 PARAMS ((rtx));
@@ -56,6 +56,11 @@ static bool vax_rtx_costs PARAMS ((rtx, int, int, int *));
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE vax_output_function_prologue
+
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START vax_file_start
+#undef TARGET_ASM_FILE_START_APP_OFF
+#define TARGET_ASM_FILE_START_APP_OFF true
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK vax_output_mi_thunk
@@ -121,9 +126,21 @@ vax_output_function_prologue (file, size)
 
   size -= STARTING_FRAME_OFFSET;
   if (size >= 64)
-    asm_fprintf (file, "\tmovab %d(%Rsp),%Rsp\n", -size);
+    asm_fprintf (file, "\tmovab %wd(%Rsp),%Rsp\n", -size);
   else if (size)
-    asm_fprintf (file, "\tsubl2 $%d,%Rsp\n", size);
+    asm_fprintf (file, "\tsubl2 $%wd,%Rsp\n", size);
+}
+
+/* When debugging with stabs, we want to output an extra dummy label
+   so that gas can distinguish between D_float and G_float prior to
+   processing the .stabs directive identifying type double.  */
+static void
+vax_file_start ()
+{
+  default_file_start ();
+
+  if (write_symbols == DBX_DEBUG)
+    fprintf (asm_out_file, "___vax_%c_doubles:\n", ASM_DOUBLE_CHAR);
 }
 
 /* This is like nonimmediate_operand with a restriction on the type of MEM.  */
@@ -737,41 +754,6 @@ vax_rtx_costs (x, code, outer_code, total)
   return true;
 }
 
-/* Return 1 if insn A follows B.  */
-
-static int
-follows_p (a, b)
-     rtx a, b;
-{
-  register rtx p;
-
-  for (p = a; p != b; p = NEXT_INSN (p))
-    if (! p)
-      return 1;
-
-  return 0;
-}
-
-/* Returns 1 if we know operand OP was 0 before INSN.  */
-
-int
-reg_was_0_p (insn, op)
-     rtx insn, op;
-{
-  rtx link;
-
-  return ((link = find_reg_note (insn, REG_WAS_0, 0))
-	  /* Make sure the insn that stored the 0 is still present
-	     and doesn't follow INSN in the insn sequence.  */
-	  && ! INSN_DELETED_P (XEXP (link, 0))
-	  && GET_CODE (XEXP (link, 0)) != NOTE
-	  && ! follows_p (XEXP (link, 0), insn)
-	  /* Make sure cross jumping didn't happen here.  */
-	  && no_labels_between_p (XEXP (link, 0), insn)
-	  /* Make sure the reg hasn't been clobbered.  */
-	  && ! reg_set_between_p (op, XEXP (link, 0), insn));
-}
-
 /* Output code to add DELTA to the first argument, and then jump to FUNCTION.
    Used for C++ multiple inheritance.
 	.mask	^m<r2,r3,r4,r5,r6,r7,r8,r9,r10,r11>  #conservative entry mask

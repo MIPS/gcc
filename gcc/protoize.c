@@ -1,6 +1,6 @@
 /* Protoize program - Original version by Ron Guilmette (rfg@segfault.us.com).
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -48,11 +48,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #endif
 
 /* Macro to see if the paths match.  */
-#ifdef HAVE_DOS_BASED_FILE_SYSTEM
-#define IS_SAME_PATH(a,b) (strcasecmp (a, b) == 0)
-#else
-#define IS_SAME_PATH(a,b) (strcmp (a, b) == 0)
-#endif
+#define IS_SAME_PATH(a,b) (FILENAME_CMP (a, b) == 0)
 
 /* Suffix for aux-info files.  */
 #ifdef __MSDOS__
@@ -84,8 +80,8 @@ static void notice PARAMS ((const char *, ...)) ATTRIBUTE_PRINTF_1;
 static char *savestring PARAMS ((const char *, unsigned int));
 static char *dupnstr PARAMS ((const char *, size_t));
 static const char *substr PARAMS ((const char *, const char * const));
-static int safe_read PARAMS ((int, PTR, int));
-static void safe_write PARAMS ((int, PTR, int, const char *));
+static int safe_read PARAMS ((int, void *, int));
+static void safe_write PARAMS ((int, void *, int, const char *));
 static void save_pointers PARAMS ((void));
 static void restore_pointers PARAMS ((void));
 static int is_id_char PARAMS ((int));
@@ -94,7 +90,6 @@ static int directory_specified_p PARAMS ((const char *));
 static int file_excluded_p PARAMS ((const char *));
 static char *unexpand_if_needed PARAMS ((const char *));
 static char *abspath PARAMS ((const char *, const char *));
-static int is_abspath PARAMS ((const char *));
 static void check_aux_info PARAMS ((int));
 static const char *find_corresponding_lparen PARAMS ((const char *));
 static int referenced_file_is_newer PARAMS ((const char *, time_t));
@@ -227,9 +222,7 @@ struct string_list *exclude_list;
 static const char * const other_var_style = "stdarg";
 #else /* !defined (UNPROTOIZE) */
 static const char * const other_var_style = "varargs";
-/* Note that this is a string containing the expansion of va_alist.
-   But in `main' we discard all but the first token.  */
-static const char *varargs_style_indicator = STRINGX (va_alist);
+static const char *varargs_style_indicator = "va_alist";
 #endif /* !defined (UNPROTOIZE) */
 
 /* The following two types are used to create hash tables.  In this program,
@@ -590,7 +583,7 @@ outer:
 static int
 safe_read (desc, ptr, len)
      int desc;
-     PTR ptr;
+     void *ptr;
      int len;
 {
   int left = len;
@@ -619,7 +612,7 @@ safe_read (desc, ptr, len)
 static void
 safe_write (desc, ptr, len, out_fname)
      int desc;
-     PTR ptr;
+     void *ptr;
      int len;
      const char *out_fname;
 {
@@ -696,7 +689,7 @@ in_system_include_dir (path)
 {
   const struct default_include *p;
 
-  if (! is_abspath (path))
+  if (! IS_ABSOLUTE_PATH (path))
     abort ();		/* Must be an absolutized filename.  */
 
   for (p = cpp_include_defaults; p->fname; p++)
@@ -1020,7 +1013,7 @@ static void
 free_def_dec (p)
      def_dec_info *p;
 {
-  free ((NONCONST PTR) p->ansi_decl);
+  free ((NONCONST void *) p->ansi_decl);
 
 #ifndef UNPROTOIZE
   {
@@ -1030,7 +1023,7 @@ free_def_dec (p)
     for (curr = p->f_list_chain; curr; curr = next)
       {
 	next = curr->chain_next;
-	free ((NONCONST PTR) curr);
+	free ((NONCONST void *) curr);
       }
   }
 #endif /* !defined (UNPROTOIZE) */
@@ -1116,20 +1109,6 @@ continue_outer: ;
   return (got_unexpanded ? savestring (line_buf, copy_p - line_buf) : 0);
 }
 
-/* Return 1 if pathname is absolute.  */
-
-static int
-is_abspath (path)
-     const char *path;
-{
-  return (IS_DIR_SEPARATOR (path[0])
-#ifdef HAVE_DOS_BASED_FILE_SYSTEM
-	  /* Check for disk name on MS-DOS-based systems.  */
-	  || (path[0] && path[1] == ':' && IS_DIR_SEPARATOR (path[2]))
-#endif
-	  );
-}
-
 /* Return the absolutized filename for the given relative
    filename.  Note that if that filename is already absolute, it may
    still be returned in a modified form because this routine also
@@ -1158,7 +1137,7 @@ abspath (cwd, rel_filename)
   {
     const char *src_p;
 
-    if (! is_abspath (rel_filename))
+    if (! IS_ABSOLUTE_PATH (rel_filename))
       {
 	src_p = cwd2;
 	while ((*endp++ = *src_p++))
@@ -2266,7 +2245,7 @@ start_over: ;
       continue;
     aux_info_second_line = p;
     aux_info_relocated_name = 0;
-    if (! is_abspath (invocation_filename))
+    if (! IS_ABSOLUTE_PATH (invocation_filename))
       {
 	/* INVOCATION_FILENAME is relative;
 	   append it to BASE_SOURCE_FILENAME's dir.  */

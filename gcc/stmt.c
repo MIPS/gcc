@@ -1,4 +1,4 @@
-/* Expands front end tree to back end RTL for GNU C-Compiler
+/* Expands front end tree to back end RTL for GCC
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
    1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
@@ -918,11 +918,11 @@ expand_fixup (tree_label, rtl_label, last_insn)
 	  }
 
 	start_sequence ();
-	start = emit_note (NULL, NOTE_INSN_BLOCK_BEG);
+	start = emit_note (NOTE_INSN_BLOCK_BEG);
 	if (cfun->x_whole_function_mode_p)
 	  NOTE_BLOCK (start) = block;
-	fixup->before_jump = emit_note (NULL, NOTE_INSN_DELETED);
-	end = emit_note (NULL, NOTE_INSN_BLOCK_END);
+	fixup->before_jump = emit_note (NOTE_INSN_DELETED);
+	end = emit_note (NOTE_INSN_BLOCK_END);
 	if (cfun->x_whole_function_mode_p)
 	  NOTE_BLOCK (end) = block;
 	fixup->context = block;
@@ -1775,7 +1775,9 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 
       val = TREE_VALUE (tail);
       type = TREE_TYPE (val);
-      op = expand_expr (val, NULL_RTX, VOIDmode, 0);
+      op = expand_expr (val, NULL_RTX, VOIDmode,
+			(allows_mem && !allows_reg
+			 ? EXPAND_MEMORY : EXPAND_NORMAL));
 
       /* Never pass a CONCAT to an ASM.  */
       if (GET_CODE (op) == CONCAT)
@@ -1790,38 +1792,36 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	  else if (!allows_mem)
 	    warning ("asm operand %d probably doesn't match constraints",
 		     i + noutputs);
-	  else if (CONSTANT_P (op))
+	  else if (GET_CODE (op) == MEM)
 	    {
-	      op = force_const_mem (TYPE_MODE (type), op);
-	      op = validize_mem (op);
+	      /* We won't recognize either volatile memory or memory
+		 with a queued address as available a memory_operand
+		 at this point.  Ignore it: clearly this *is* a memory.  */
 	    }
-	  else if (GET_CODE (op) == REG
-		   || GET_CODE (op) == SUBREG
-		   || GET_CODE (op) == ADDRESSOF
-		   || GET_CODE (op) == CONCAT)
-	    {
-	      tree qual_type = build_qualified_type (type,
-						     (TYPE_QUALS (type)
-						      | TYPE_QUAL_CONST));
-	      rtx memloc = assign_temp (qual_type, 1, 1, 1);
-	      memloc = validize_mem (memloc);
-	      emit_move_insn (memloc, op);
-	      op = memloc;
-	    }
-
-	  else if (GET_CODE (op) == MEM && MEM_VOLATILE_P (op))
-	    {
-	      /* We won't recognize volatile memory as available a
-		 memory_operand at this point.  Ignore it.  */
-	    }
-	  else if (queued_subexp_p (op))
-	    ;
 	  else
-	    /* ??? Leave this only until we have experience with what
-	       happens in combine and elsewhere when constraints are
-	       not satisfied.  */
-	    warning ("asm operand %d probably doesn't match constraints",
-		     i + noutputs);
+	    {
+	      warning ("use of memory input without lvalue in "
+		       "asm operand %d is deprecated", i + noutputs);
+
+	      if (CONSTANT_P (op))
+		{
+		  op = force_const_mem (TYPE_MODE (type), op);
+		  op = validize_mem (op);
+		}
+	      else if (GET_CODE (op) == REG
+		       || GET_CODE (op) == SUBREG
+		       || GET_CODE (op) == ADDRESSOF
+		       || GET_CODE (op) == CONCAT)
+		{
+		  tree qual_type = build_qualified_type (type,
+							 (TYPE_QUALS (type)
+							  | TYPE_QUAL_CONST));
+		  rtx memloc = assign_temp (qual_type, 1, 1, 1);
+		  memloc = validize_mem (memloc);
+		  emit_move_insn (memloc, op);
+		  op = memloc;
+		}
+	    }
 	}
 
       generating_concat_p = old_generating_concat_p;
@@ -1857,7 +1857,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 
       sprintf (buffer, "%d", j);
       ASM_OPERANDS_INPUT_CONSTRAINT_EXP (body, ninputs - ninout + i)
-	= gen_rtx_ASM_INPUT (inout_mode[i], ggc_alloc_string (buffer, -1));
+	= gen_rtx_ASM_INPUT (inout_mode[i], ggc_strdup (buffer));
     }
 
   generating_concat_p = old_generating_concat_p;
@@ -2636,7 +2636,7 @@ expand_start_loop (exit_flag)
 
   do_pending_stack_adjust ();
   emit_queue ();
-  emit_note (NULL, NOTE_INSN_LOOP_BEG);
+  emit_note (NOTE_INSN_LOOP_BEG);
   emit_label (thisloop->data.loop.start_label);
 
   return thisloop;
@@ -2668,7 +2668,7 @@ expand_start_null_loop ()
   thisloop->next = loop_stack;
   thisloop->all = nesting_stack;
   thisloop->depth = ++nesting_depth;
-  thisloop->data.loop.start_label = emit_note (NULL, NOTE_INSN_DELETED);
+  thisloop->data.loop.start_label = emit_note (NOTE_INSN_DELETED);
   thisloop->data.loop.end_label = gen_label_rtx ();
   thisloop->data.loop.continue_label = thisloop->data.loop.end_label;
   thisloop->exit_label = thisloop->data.loop.end_label;
@@ -2687,7 +2687,7 @@ void
 expand_loop_continue_here ()
 {
   do_pending_stack_adjust ();
-  emit_note (NULL, NOTE_INSN_LOOP_CONT);
+  emit_note (NOTE_INSN_LOOP_CONT);
   emit_label (loop_stack->data.loop.continue_label);
 }
 
@@ -2839,7 +2839,7 @@ expand_end_loop ()
     }
 
   emit_jump (start_label);
-  emit_note (NULL, NOTE_INSN_LOOP_END);
+  emit_note (NOTE_INSN_LOOP_END);
   emit_label (loop_stack->data.loop.end_label);
 
   POPSTACK (loop_stack);
@@ -2874,7 +2874,7 @@ expand_continue_loop (whichloop)
 
   if (flag_guess_branch_prob)
     {
-      note = emit_note (NULL, NOTE_INSN_PREDICTION);
+      note = emit_note (NOTE_INSN_PREDICTION);
       NOTE_PREDICTION (note) = NOTE_PREDICT (PRED_CONTINUE, IS_TAKEN);
     }
   clear_last_expr ();
@@ -2957,7 +2957,7 @@ expand_exit_loop_top_cond (whichloop, cond)
   if (! expand_exit_loop_if_false (whichloop, cond))
     return 0;
 
-  emit_note (NULL, NOTE_INSN_LOOP_END_TOP_COND);
+  emit_note (NOTE_INSN_LOOP_END_TOP_COND);
   return 1;
 }
 
@@ -3074,7 +3074,7 @@ expand_value_return (val)
       /* Emit information for branch prediction.  */
       rtx note;
 
-      note = emit_note (NULL, NOTE_INSN_PREDICTION);
+      note = emit_note (NOTE_INSN_PREDICTION);
 
       NOTE_PREDICTION (note) = NOTE_PREDICT (pred, NOT_TAKEN);
 
@@ -3494,11 +3494,11 @@ expand_start_bindings_and_block (flags, block)
   /* Create a note to mark the beginning of the block.  */
   if (block_flag)
     {
-      note = emit_note (NULL, NOTE_INSN_BLOCK_BEG);
+      note = emit_note (NOTE_INSN_BLOCK_BEG);
       NOTE_BLOCK (note) = block;
     }
   else
-    note = emit_note (NULL, NOTE_INSN_DELETED);
+    note = emit_note (NOTE_INSN_DELETED);
 
   /* Make an entry on block_stack for the block we are entering.  */
 
@@ -3519,7 +3519,7 @@ expand_start_bindings_and_block (flags, block)
      fix this is to just insert another instruction here, so that the
      instructions inserted after the last unconditional cleanup are
      never the last instruction.  */
-  emit_note (NULL, NOTE_INSN_DELETED);
+  emit_note (NOTE_INSN_DELETED);
 
   if (block_stack
       && !(block_stack->data.block.cleanups == NULL_TREE
@@ -3585,6 +3585,9 @@ int
 is_body_block (stmt)
      tree stmt;
 {
+  if (lang_hooks.no_body_blocks)
+    return 0;
+
   if (TREE_CODE (stmt) == BLOCK)
     {
       tree parent = BLOCK_SUPERCONTEXT (stmt);
@@ -3918,7 +3921,7 @@ expand_end_bindings (vars, mark_ends, dont_jump_in)
 
   if (mark_ends)
     {
-      rtx note = emit_note (NULL, NOTE_INSN_BLOCK_END);
+      rtx note = emit_note (NOTE_INSN_BLOCK_END);
       NOTE_BLOCK (note) = NOTE_BLOCK (thisblock->data.block.first_insn);
     }
   else
@@ -4260,7 +4263,7 @@ expand_decl_cleanup (decl, cleanup)
 	     fix this is to just insert another instruction here, so that the
 	     instructions inserted after the last unconditional cleanup are
 	     never the last instruction.  */
-	  emit_note (NULL, NOTE_INSN_DELETED);
+	  emit_note (NOTE_INSN_DELETED);
 	}
     }
   return 1;
@@ -4533,7 +4536,7 @@ expand_start_case (exit_flag, expr, type, printname)
   /* Make sure case_stmt.start points to something that won't
      need any transformation before expand_end_case.  */
   if (GET_CODE (get_last_insn ()) != NOTE)
-    emit_note (NULL, NOTE_INSN_DELETED);
+    emit_note (NOTE_INSN_DELETED);
 
   thiscase->data.case_stmt.start = get_last_insn ();
 
@@ -5682,7 +5685,7 @@ expand_end_case_type (orig_index, orig_type)
 	      /* For constant index expressions we need only
 		 issue an unconditional branch to the appropriate
 		 target code.  The job of removing any unreachable
-		 code is left to the optimisation phase if the
+		 code is left to the optimization phase if the
 		 "-O" option is specified.  */
 	      for (n = thiscase->data.case_stmt.case_list; n; n = n->right)
 		if (! tree_int_cst_lt (index_expr, n->low)
@@ -5771,7 +5774,7 @@ expand_end_case_type (orig_index, orig_type)
 	    if (labelvec[i] == 0)
 	      labelvec[i] = gen_rtx_LABEL_REF (Pmode, default_label);
 
-	  /* Output the table */
+	  /* Output the table.  */
 	  emit_label (table_label);
 
 	  if (CASE_VECTOR_PC_RELATIVE || flag_pic)
@@ -5843,7 +5846,7 @@ do_jump_if_equal (op1, op2, label, unsignedp)
 {
   if (GET_CODE (op1) == CONST_INT && GET_CODE (op2) == CONST_INT)
     {
-      if (INTVAL (op1) == INTVAL (op2))
+      if (op1 == op2)
 	emit_jump (label);
     }
   else

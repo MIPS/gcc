@@ -88,6 +88,7 @@ typedef enum fallback_t {
 } fallback_t;
 int gimplify_expr (tree *, tree *, tree *, int (*) (tree), fallback_t);
 int gimplify_stmt (tree *);
+int gimplify_body (tree *, tree);
 
 /* Miscellaneous helpers.  */
 tree get_base_symbol (tree);

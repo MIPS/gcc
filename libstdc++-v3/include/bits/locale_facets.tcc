@@ -30,8 +30,8 @@
 
 // Warning: this file is not meant for user inclusion. Use <locale>.
 
-#ifndef _CPP_BITS_LOCFACETS_TCC
-#define _CPP_BITS_LOCFACETS_TCC 1
+#ifndef _LOCALE_FACETS_TCC
+#define _LOCALE_FACETS_TCC 1
 
 #pragma GCC system_header
 
@@ -86,6 +86,21 @@ namespace std
       return static_cast<const _Facet&>(*__facets[__i]);
     }
 
+  // Routine to access a cache for the facet.  If the cache didn't
+  // exist before, it gets constructed on the fly.
+  template<typename _Facet>
+    const _Facet&
+    __use_cache(const locale& __loc);
+
+  template<>
+    const __numpunct_cache<char>&
+    __use_cache(const locale& __loc);
+
+#ifdef _GLIBCXX_USE_WCHAR_T
+  template<>
+    const __numpunct_cache<wchar_t>&
+    __use_cache(const locale& __loc);
+#endif
 
   // Stage 1: Determine a conversion specifier.
   template<typename _CharT, typename _InIter>
@@ -376,7 +391,7 @@ namespace std
       return __beg;
     }
 
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
   //17.  Bad bool parsing
   template<typename _CharT, typename _InIter>
     _InIter
@@ -510,7 +525,7 @@ namespace std
       return __beg;
     }
 
-#ifdef _GLIBCPP_USE_LONG_LONG
+#ifdef _GLIBCXX_USE_LONG_LONG
   template<typename _CharT, typename _InIter>
     _InIter
     num_get<_CharT, _InIter>::
@@ -643,7 +658,7 @@ namespace std
 		       const _CharT* __lit, ios_base::fmtflags __flags)
     { return __int_to_char(__out, __size, __v, __lit, __flags, false); }
 
-#ifdef _GLIBCPP_USE_LONG_LONG
+#ifdef _GLIBCXX_USE_LONG_LONG
   template<typename _CharT>
     inline int
     __int_to_char(_CharT* __out, const int __size, long long __v,
@@ -677,7 +692,22 @@ namespace std
       _CharT* __buf = __out + __size - 1;
       _CharT* __bufend = __out + __size;
 
-      if (__builtin_expect(__basefield == ios_base::oct, false))
+      if (__builtin_expect(__basefield != ios_base::oct &&
+			   __basefield != ios_base::hex, true))
+	{
+	  // Decimal.
+	  do 
+	    {
+	      *__buf-- = __lit[(__v % 10) + __num_base::_S_odigits];
+	      __v /= 10;
+	    } 
+	  while (__v != 0);
+	  if (__neg)
+	    *__buf-- = __lit[__num_base::_S_ominus];
+	  else if (__flags & ios_base::showpos)
+	    *__buf-- = __lit[__num_base::_S_oplus];
+	}
+	else if (__basefield == ios_base::oct)
 	{
 	  // Octal.
 	  do 
@@ -689,7 +719,7 @@ namespace std
 	  if (__showbase)
 	    *__buf-- = __lit[__num_base::_S_odigits];
 	}
-      else if (__builtin_expect(__basefield == ios_base::hex, false))
+      else
 	{
 	  // Hex.
 	  const bool __uppercase = __flags & ios_base::uppercase;
@@ -708,20 +738,6 @@ namespace std
 	      // '0'
 	      *__buf-- = __lit[__num_base::_S_odigits];
 	    }
-	}
-      else
-	{
-	  // Decimal.
-	  do 
-	    {
-	      *__buf-- = __lit[(__v % 10) + __num_base::_S_odigits];
-	      __v /= 10;
-	    } 
-	  while (__v != 0);
-	  if (__neg)
-	    *__buf-- = __lit[__num_base::_S_ominus];
-	  else if (__flags & ios_base::showpos)
-	    *__buf-- = __lit[__num_base::_S_oplus];
 	}
       int __ret = __bufend - __buf - 1;
       return __ret;
@@ -768,11 +784,12 @@ namespace std
       _M_convert_int(_OutIter __s, ios_base& __io, _CharT __fill, 
 		     _ValueT __v) const
       {
-	typedef __locale_cache<_CharT> __cache_type;
-	__cache_type& __lc = static_cast<__cache_type&>(__io._M_cache());
-	_CharT* __lit = __lc._M_literals;
+	typedef typename numpunct<_CharT>::__cache_type  __cache_type;
+	const locale& __loc = __io._M_getloc();
+	const __cache_type& __lc = __use_cache<__cache_type>(__loc);
+	const _CharT* __lit = __lc._M_atoms_out;
 
-	// Long enough to hold hex, dec, and octal representations.
+ 	// Long enough to hold hex, dec, and octal representations.
 	int __ilen = 4 * sizeof(_ValueT);
 	_CharT* __cs = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
 							     * __ilen));
@@ -818,7 +835,7 @@ namespace std
     _M_group_float(const string& __grouping, _CharT __sep, const _CharT* __p, 
 		   _CharT* __new, _CharT* __cs, int& __len) const
     {
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
       //282. What types does numpunct grouping refer to?
       // Add grouping, if necessary. 
       _CharT* __p2;
@@ -840,7 +857,7 @@ namespace std
     }
 
   // The following code uses snprintf (or sprintf(), when
-  // _GLIBCPP_USE_C99 is not defined) to convert floating point values
+  // _GLIBCXX_USE_C99 is not defined) to convert floating point values
   // for insertion into a stream.  An optimization would be to replace
   // them with code that works directly on a wide buffer and then use
   // __pad to do the padding.  It would be good to replace them anyway
@@ -872,15 +889,16 @@ namespace std
 	else if (__prec < static_cast<streamsize>(0))
 	  __prec = static_cast<streamsize>(6);
 
-	typedef __locale_cache<_CharT> __cache_type;
-	__cache_type& __lc = static_cast<__cache_type&>(__io._M_cache());
+	typedef typename numpunct<_CharT>::__cache_type  __cache_type;
+	const locale& __loc = __io._M_getloc();
+	const __cache_type& __lc = __use_cache<__cache_type>(__loc);
 
 	// [22.2.2.2.2] Stage 1, numeric conversion to character.
 	int __len;
 	// Long enough for the max format spec.
 	char __fbuf[16];
 
-#ifdef _GLIBCPP_USE_C99
+#ifdef _GLIBCXX_USE_C99
 	// First try a buffer perhaps big enough (for sure sufficient
 	// for non-ios_base::fixed outputs)
 	int __cs_size = __max_digits * 3;
@@ -918,7 +936,6 @@ namespace std
 
       // [22.2.2.2.2] Stage 2, convert to char_type, using correct
       // numpunct.decimal_point() values for '.' and adding grouping.
-      const locale __loc = __io.getloc();
       const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc);
 
       _CharT* __ws = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
@@ -974,8 +991,10 @@ namespace std
         }
       else
         {
-	  typedef __locale_cache<_CharT> __cache_type;
-	  __cache_type& __lc = static_cast<__cache_type&>(__io._M_cache());
+	  typedef typename numpunct<_CharT>::__cache_type  __cache_type;
+	  const locale& __loc = __io._M_getloc();
+	  const __cache_type& __lc = __use_cache<__cache_type>(__loc);
+
 	  typedef basic_string<_CharT> 	__string_type;
 	  __string_type __name;
           if (__v)
@@ -1013,7 +1032,7 @@ namespace std
            unsigned long __v) const
     { return _M_convert_int(__s, __io, __fill, __v); }
 
-#ifdef _GLIBCPP_USE_LONG_LONG
+#ifdef _GLIBCXX_USE_LONG_LONG
   template<typename _CharT, typename _OutIter>
     _OutIter
     num_put<_CharT, _OutIter>::
@@ -1254,7 +1273,7 @@ namespace std
 	}
 
       // Strip leading zeros.
-      while (__tmp_units[0] == __ctype.widen('0'))
+      while (!__tmp_units.empty() && __tmp_units[0] == __ctype.widen('0'))
 	__tmp_units.erase(__tmp_units.begin());
 
       if (__sign.size() && __sign == __neg_sign)
@@ -1270,6 +1289,18 @@ namespace std
       // Iff no more characters are available.      
       if (__c == __eof)
 	__err |= ios_base::eofbit;
+
+      // Iff not enough digits were supplied after the decimal-point.
+      if (__testdecfound)
+	{
+	  const int __frac = __intl ? __mpt.frac_digits() 
+				    : __mpf.frac_digits();
+	  if (__frac > 0)
+	    {
+	      if (__sep_pos != __frac)
+		__testvalid = false;
+	    }
+	}
 
       // Iff valid sequence is not recognized.
       if (!__testvalid || !__tmp_units.size())
@@ -1289,7 +1320,7 @@ namespace std
     { 
       const locale __loc = __io.getloc();
       const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc);
-#ifdef _GLIBCPP_USE_C99
+#ifdef _GLIBCXX_USE_C99
       // First try a buffer perhaps big enough.
       int __cs_size = 64;
       char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
@@ -2261,35 +2292,10 @@ namespace std
       return __s;
     }
 
-  // Generic definition, locale cache initialization.
-  template<typename _CharT>
-    void
-    __locale_cache<_CharT>::_M_init(const locale& __loc)
-    {
-      if (__builtin_expect(has_facet<numpunct<_CharT> >(__loc), true))
-	{
-	  const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc);
-	  _M_falsename = __np.falsename();
-	  _M_truename = __np.truename();
-	  _M_thousands_sep = __np.thousands_sep();
-	  _M_decimal_point = __np.decimal_point();
-	  _M_grouping = __np.grouping();
-	  _M_use_grouping = _M_grouping.size() != 0 
-	    		    && _M_grouping.data()[0] != 0;
-	}
-      if (__builtin_expect(has_facet<ctype<_CharT> >(__loc), true))
-	{
-	  const ctype<_CharT>& __ct = use_facet<ctype<_CharT> >(__loc);
-	  __ct.widen(__num_base::_S_atoms_out,
-		     __num_base::_S_atoms_out + __num_base::_S_oend, 
-		     _M_literals);
-	}
-    }
-
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.  
   // NB: This syntax is a GNU extension.
-#if _GLIBCPP_EXTERN_TEMPLATE
+#if _GLIBCXX_EXTERN_TEMPLATE
   extern template class moneypunct<char, false>;
   extern template class moneypunct<char, true>;
   extern template class moneypunct_byname<char, false>;
@@ -2416,7 +2422,7 @@ namespace std
     bool
     has_facet<messages<char> >(const locale&);
 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
   extern template class moneypunct<wchar_t, false>;
   extern template class moneypunct<wchar_t, true>;
   extern template class moneypunct_byname<wchar_t, false>;

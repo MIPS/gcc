@@ -25,13 +25,14 @@
 Language
 Treelang
 
+-help
+Treelang
+
 flexer-trace
 Treelang
-Trace lexical analysis
 
 fparser-trace
 Treelang
-Trace the parsing process
 
 v
 Treelang

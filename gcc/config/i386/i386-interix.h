@@ -71,9 +71,9 @@ Boston, MA 02111-1307, USA.  */
 	else								\
 	  {								\
 	     builtin_define_std ("LANGUAGE_C");				\
-	     if (c_language == clk_cplusplus)				\
+	     if (c_dialect_cxx ())					\
 	       builtin_define_std ("LANGUAGE_C_PLUS_PLUS");		\
-	     if (flag_objc)						\
+	     if (c_dialect_objc ())					\
 	       builtin_define_std ("LANGUAGE_OBJECTIVE_C");		\
 	  } 								\
     }									\
@@ -92,16 +92,8 @@ Boston, MA 02111-1307, USA.  */
 /* The global __fltused is necessary to cause the printf/scanf routines
    for outputting/inputting floating point numbers to be loaded.  Since this
    is kind of hard to detect, we just do it all the time.  */
-
-#ifdef ASM_FILE_START
-#undef ASM_FILE_START
-#endif
-#define ASM_FILE_START(FILE) \
-  do {  fprintf (FILE, "\t.file\t");                            \
-        output_quoted_string (FILE, dump_base_name);            \
-        fprintf (FILE, "\n");                                   \
-        fprintf (FILE, ".global\t__fltused\n");                 \
-  } while (0)
+#undef X86_FILE_START_FLTUSED
+#define X86_FILE_START_FLTUSED 1
 
 /* A table of bytes codes used by the ASM_OUTPUT_ASCII and
    ASM_OUTPUT_LIMITED_STRING macros.  Each byte in the table
@@ -244,7 +236,7 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_NOP_FUN_DLLIMPORT 1
 #define drectve_section()  /* nothing */
 
-/* Objective C has its own packing rules...
+/* Objective-C has its own packing rules...
    Objc tries to parallel the code in stor-layout.c at runtime	
    (see libobjc/encoding.c).  This (compile-time) packing info isn't 
    available at runtime, so it's hopeless to try.

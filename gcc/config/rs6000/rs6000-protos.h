@@ -27,7 +27,7 @@
 #ifdef RTX_CODE
 
 #ifdef TREE_CODE
-extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, rtx, int));
+extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, rtx, int, int));
 extern void rs6000_va_start PARAMS ((tree, rtx));
 #endif /* TREE_CODE */
 
@@ -101,6 +101,7 @@ extern int includes_rldic_lshift_p PARAMS ((rtx, rtx));
 extern int includes_rldicr_lshift_p PARAMS ((rtx, rtx));
 extern int registers_ok_for_quad_peep PARAMS ((rtx, rtx));
 extern int addrs_ok_for_quad_peep PARAMS ((rtx, rtx));
+extern int altivec_in_gprs_p (rtx, rtx);
 extern enum reg_class secondary_reload_class PARAMS ((enum reg_class,
 						      enum machine_mode, rtx));
 extern int ccr_bit PARAMS ((rtx, int));
@@ -125,6 +126,7 @@ extern int mtcrf_operation PARAMS ((rtx, enum machine_mode));
 extern int lmw_operation PARAMS ((rtx, enum machine_mode));
 extern struct rtx_def *create_TOC_reference PARAMS ((rtx));
 extern void rs6000_emit_eh_toc_restore PARAMS ((rtx));
+extern void rs6000_split_altivec_in_gprs (rtx *);
 extern void rs6000_emit_move PARAMS ((rtx, rtx, enum machine_mode));
 extern rtx rs6000_legitimize_address PARAMS ((rtx, rtx, enum machine_mode));
 extern rtx rs6000_legitimize_reload_address PARAMS ((rtx, enum machine_mode,
@@ -153,8 +155,11 @@ extern void setup_incoming_varargs PARAMS ((CUMULATIVE_ARGS *,
 					    enum machine_mode, tree,
 					    int *, int));
 extern rtx rs6000_function_value (tree, tree);
+extern rtx rs6000_libcall_value (enum machine_mode);
 extern struct rtx_def *rs6000_va_arg PARAMS ((tree, tree));
 extern int function_ok_for_sibcall PARAMS ((tree));
+extern void rs6000_elf_declare_function_name
+  PARAMS ((FILE *, const char *, tree));
 #ifdef ARGS_SIZE_RTX
 /* expr.h defines ARGS_SIZE_RTX and `enum direction' */
 extern enum direction function_arg_padding PARAMS ((enum machine_mode, tree));
@@ -164,7 +169,6 @@ extern enum direction function_arg_padding PARAMS ((enum machine_mode, tree));
 
 extern void optimization_options PARAMS ((int, int));
 extern void rs6000_override_options PARAMS ((const char *));
-extern void rs6000_file_start PARAMS ((FILE *, const char *));
 extern int direct_return PARAMS ((void));
 extern union tree_node *rs6000_build_va_list PARAMS ((void));
 extern int first_reg_to_save PARAMS ((void));

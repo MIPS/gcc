@@ -168,7 +168,7 @@ tree ffecom_tree_type[FFEINFO_basictype][FFEINFO_kindtype];
    appropriate _tree_type array element.  */
 
 static GTY(()) tree ffecom_tree_fun_type[FFEINFO_basictype][FFEINFO_kindtype];
-static GTY(()) tree 
+static GTY(()) tree
   ffecom_tree_ptr_to_fun_type[FFEINFO_basictype][FFEINFO_kindtype];
 static GTY(()) tree ffecom_tree_subr_type;
 static GTY(()) tree ffecom_tree_ptr_to_subr_type;
@@ -389,7 +389,6 @@ static tree start_decl (tree decl, bool is_top_level);
 static void start_function (tree name, tree type, int nested, int public);
 static void ffecom_file_ (const char *name);
 static void ffecom_close_include_ (FILE *f);
-static int ffecom_decode_include_option_ (char *spec);
 static FILE *ffecom_open_include_ (char *name, ffewhereLine l,
 				   ffewhereColumn c);
 
@@ -604,18 +603,18 @@ struct lang_identifier GTY(())
   (((struct lang_identifier *)(NODE))->invented)
 
 /* The resulting tree type.  */
-union lang_tree_node 
+union lang_tree_node
   GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
        chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
 {
-  union tree_node GTY ((tag ("0"), 
-			desc ("tree_node_structure (&%h)"))) 
+  union tree_node GTY ((tag ("0"),
+			desc ("tree_node_structure (&%h)")))
     generic;
   struct lang_identifier GTY ((tag ("1"))) identifier;
 };
 
 /* Fortran doesn't use either of these.  */
-struct lang_decl GTY(()) 
+struct lang_decl GTY(())
 {
 };
 struct lang_type GTY(())
@@ -2918,7 +2917,7 @@ ffecom_do_entry_ (ffesymbol fn, int entrynum)
   finish_function (0);
 
   input_location = old_loc;
-  
+
   ffecom_doing_entry_ = FALSE;
 }
 
@@ -6047,11 +6046,7 @@ ffecom_get_external_identifier_ (ffesymbol s)
 
   if (!ffe_is_underscoring ()
       || (strcmp (name, FFETARGET_nameBLANK_COMMON) == 0)
-#if FFETARGET_isENFORCED_MAIN_NAME
-      || (strcmp (name, FFETARGET_nameENFORCED_NAME) == 0)
-#else
       || (strcmp (name, FFETARGET_nameUNNAMED_MAIN) == 0)
-#endif
       || (strcmp (name, FFETARGET_nameUNNAMED_BLOCK_DATA) == 0))
     return get_identifier (name);
 
@@ -7294,7 +7289,7 @@ ffecom_sym_transform_ (ffesymbol s)
   ffeinfoKindtype kt;
   ffeglobal g;
   location_t old_loc = input_location;
-  
+
   /* Must ensure special ASSIGN variables are declared at top of outermost
      block, else they'll end up in the innermost block when their first
      ASSIGN is seen, which leaves them out of scope when they're the
@@ -8083,8 +8078,8 @@ ffecom_sym_transform_ (ffesymbol s)
 	  DECL_EXTERNAL (t) = 1;
 	  TREE_PUBLIC (t) = 1;
 
-	  t = start_decl (t, FALSE);
-	  finish_decl (t, NULL_TREE, FALSE);
+	  t = start_decl (t, ffe_is_globals ());
+	  finish_decl (t, NULL_TREE, TRUE);
 
 	  if ((g != NULL)
 	      && ((ffeglobal_type (g) == FFEGLOBAL_typeSUBR)
@@ -10111,9 +10106,6 @@ ffecom_arg_ptr_to_expr (ffebld expr, tree *length)
     case FFEBLD_opPERCENT_DESCR:
       switch (ffeinfo_basictype (ffebld_info (expr)))
 	{
-#ifdef PASS_HOLLERITH_BY_DESCRIPTOR
-	case FFEINFO_basictypeHOLLERITH:
-#endif
 	case FFEINFO_basictypeCHARACTER:
 	  break;		/* Passed by descriptor anyway. */
 
@@ -10128,21 +10120,6 @@ ffecom_arg_ptr_to_expr (ffebld expr, tree *length)
     default:
       break;
     }
-
-#ifdef PASS_HOLLERITH_BY_DESCRIPTOR
-  if ((ffeinfo_basictype (ffebld_info (expr)) == FFEINFO_basictypeHOLLERITH)
-      && (length != NULL))
-    {				/* Pass Hollerith by descriptor. */
-      ffetargetHollerith h;
-
-      assert (ffebld_op (expr) == FFEBLD_opCONTER);
-      h = ffebld_cu_val_hollerith (ffebld_constant_union
-				   (ffebld_conter (expr)));
-      *length
-	= build_int_2 (h.length, 0);
-      TREE_TYPE (*length) = ffecom_f2c_ftnlen_type_node;
-    }
-#endif
 
   if (ffeinfo_basictype (ffebld_info (expr)) != FFEINFO_basictypeCHARACTER)
     return ffecom_ptr_to_expr (expr);
@@ -10441,12 +10418,6 @@ ffecom_constantunion (ffebldConstantUnion *cu, ffeinfoBasictype bt,
 	    break;
 #endif
 
-#if FFETARGET_okREAL4
-	  case FFEINFO_kindtypeREAL4:
-	    val = ffetarget_value_real4 (ffebld_cu_val_real4 (*cu));
-	    break;
-#endif
-
 	  default:
 	    assert ("bad REAL constant kind type" == NULL);
 	    /* Fall through. */
@@ -10483,13 +10454,6 @@ ffecom_constantunion (ffebldConstantUnion *cu, ffeinfoBasictype bt,
 	  case FFEINFO_kindtypeREAL3:
 	    real = ffetarget_value_real3 (ffebld_cu_val_complex3 (*cu).real);
 	    imag = ffetarget_value_real3 (ffebld_cu_val_complex3 (*cu).imaginary);
-	    break;
-#endif
-
-#if FFETARGET_okCOMPLEX4
-	  case FFEINFO_kindtypeREAL4:
-	    real = ffetarget_value_real4 (ffebld_cu_val_complex4 (*cu).real);
-	    imag = ffetarget_value_real4 (ffebld_cu_val_complex4 (*cu).imaginary);
 	    break;
 #endif
 
@@ -10608,7 +10572,7 @@ ffecom_constantunion_with_type (ffebldConstantUnion *cu,
   {
 #if FFETARGET_okINTEGER1
 	  case  FFEBLD_constINTEGER1:
-         	  val = ffebld_cu_val_integer1 (*cu);
+	  val = ffebld_cu_val_integer1 (*cu);
 		  item = build_int_2 (val, (val < 0) ? -1 : 0);
 		  break;
 #endif
@@ -10695,10 +10659,6 @@ ffecom_const_expr (ffebld expr)
 
   if (ffebld_arity (expr) == 0
       && (ffebld_op (expr) != FFEBLD_opSYMTER
-#if NEWCOMMON
-	  /* ~~Enable once common/equivalence is handled properly?  */
-	  || ffebld_where (expr) == FFEINFO_whereCOMMON
-#endif
 	  || ffebld_where (expr) == FFEINFO_whereGLOBAL
 	  || ffebld_where (expr) == FFEINFO_whereINTRINSIC))
     {
@@ -10734,12 +10694,6 @@ void
 ffecom_close_include (FILE *f)
 {
   ffecom_close_include_ (f);
-}
-
-int
-ffecom_decode_include_option (char *spec)
-{
-  return ffecom_decode_include_option_ (spec);
 }
 
 /* End a compound statement (block).  */
@@ -10930,16 +10884,6 @@ ffecom_expand_let_stmt (ffebld dest, ffebld source)
 	expr_tree = source_tree;
       else if (assign_temp)
 	{
-#ifdef MOVE_EXPR
-	  /* The back end understands a conceptual move (evaluate source;
-	     store into dest), so use that, in case it can determine
-	     that it is going to use, say, two registers as temporaries
-	     anyway.  So don't use the temp (and someday avoid generating
-	     it, once this code starts triggering regularly).  */
-	  expr_tree = ffecom_2s (MOVE_EXPR, void_type_node,
-				 dest_tree,
-				 source_tree);
-#else
 	  expr_tree = ffecom_2s (MODIFY_EXPR, void_type_node,
 				 assign_temp,
 				 source_tree);
@@ -10947,7 +10891,6 @@ ffecom_expand_let_stmt (ffebld dest, ffebld source)
 	  expr_tree = ffecom_2s (MODIFY_EXPR, void_type_node,
 				 dest_tree,
 				 assign_temp);
-#endif
 	}
       else
 	expr_tree = ffecom_2s (MODIFY_EXPR, void_type_node,
@@ -11753,6 +11696,13 @@ ffecom_init_0 ()
   ffecom_tree_blockdata_type
     = build_function_type (void_type_node, NULL_TREE);
 
+  builtin_function ("__builtin_atanf", float_ftype_float,
+		    BUILT_IN_ATANF, BUILT_IN_NORMAL, "atanf", NULL_TREE);
+  builtin_function ("__builtin_atan", double_ftype_double,
+		    BUILT_IN_ATAN, BUILT_IN_NORMAL, "atan", NULL_TREE);
+  builtin_function ("__builtin_atanl", ldouble_ftype_ldouble,
+		    BUILT_IN_ATANL, BUILT_IN_NORMAL, "atanl", NULL_TREE);
+
   builtin_function ("__builtin_atan2f", float_ftype_float_float,
 		    BUILT_IN_ATAN2F, BUILT_IN_NORMAL, "atan2f", NULL_TREE);
   builtin_function ("__builtin_atan2", double_ftype_double_double,
@@ -11815,6 +11765,13 @@ ffecom_init_0 ()
 		    BUILT_IN_SQRT, BUILT_IN_NORMAL, "sqrt", NULL_TREE);
   builtin_function ("__builtin_sqrtl", ldouble_ftype_ldouble,
 		    BUILT_IN_SQRTL, BUILT_IN_NORMAL, "sqrtl", NULL_TREE);
+
+  builtin_function ("__builtin_tanf", float_ftype_float,
+		    BUILT_IN_TANF, BUILT_IN_NORMAL, "tanf", NULL_TREE);
+  builtin_function ("__builtin_tan", double_ftype_double,
+		    BUILT_IN_TAN, BUILT_IN_NORMAL, "tan", NULL_TREE);
+  builtin_function ("__builtin_tanl", ldouble_ftype_ldouble,
+		    BUILT_IN_TANL, BUILT_IN_NORMAL, "tanl", NULL_TREE);
 
   pedantic_lvalues = FALSE;
 
@@ -13647,7 +13604,7 @@ finish_function (int nested)
 
       /* Obey `register' declarations if `setjmp' is called in this fn.  */
       /* Generate rtl for function exit.  */
-      expand_function_end (input_filename, input_line, 0);
+      expand_function_end ();
 
       /* If this is a nested function, protect the local variables in the stack
 	 above us from being collected while we're compiling this function.  */
@@ -13927,11 +13884,9 @@ store_parm_decls (int is_main_program UNUSED)
   DECL_ARGUMENTS (fndecl) = storedecls (nreverse (getdecls ()));
 
   /* Initialize the RTL code for the function.  */
-
-  init_function_start (fndecl, input_filename, input_line);
+  init_function_start (fndecl);
 
   /* Set up parameters and prepare for return, for the function.  */
-
   expand_function_start (fndecl, 0);
 }
 
@@ -14168,7 +14123,6 @@ insert_block (tree block)
 static bool ffe_init PARAMS ((void));
 static void ffe_finish PARAMS ((void));
 static bool ffe_post_options PARAMS ((const char **));
-static void ffe_init_options PARAMS ((void));
 static void ffe_print_identifier PARAMS ((FILE *, tree, int));
 
 struct language_function GTY(())
@@ -14184,8 +14138,8 @@ struct language_function GTY(())
 #define LANG_HOOKS_FINISH		ffe_finish
 #undef  LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS		ffe_init_options
-#undef  LANG_HOOKS_DECODE_OPTION
-#define LANG_HOOKS_DECODE_OPTION	ffe_decode_option
+#undef  LANG_HOOKS_HANDLE_OPTION
+#define LANG_HOOKS_HANDLE_OPTION	ffe_handle_option
 #undef  LANG_HOOKS_POST_OPTIONS
 #define LANG_HOOKS_POST_OPTIONS		ffe_post_options
 #undef  LANG_HOOKS_PARSE_FILE
@@ -14292,6 +14246,8 @@ ffe_init ()
      to try doing this.  */
   ffelex_hash_kludge (finput);
 
+  push_srcloc (input_filename, 0);
+
   /* FIXME: The ffelex_hash_kludge code needs to be cleaned up to
      set the new file name.  Maybe in ffe_post_options.  */
   return true;
@@ -14306,18 +14262,6 @@ ffe_finish ()
     malloc_pool_display (malloc_pool_image ());
 
   fclose (finput);
-}
-
-static void
-ffe_init_options ()
-{
-  /* Set default options for Fortran.  */
-  flag_move_all_movables = 1;
-  flag_reduce_all_givs = 1;
-  flag_argument_noalias = 2;
-  flag_merge_constants = 2;
-  flag_errno_math = 0;
-  flag_complex_divide_method = 1;
 }
 
 static bool
@@ -15153,7 +15097,7 @@ static int max_include_len = 0;
 struct file_name_list
   {
     struct file_name_list *next;
-    char *fname;
+    const char *fname;
     /* Mapping of file names for this directory.  */
     struct file_name_map *name_map;
     /* Nonzero if name_map is valid.  */
@@ -15181,7 +15125,6 @@ static struct file_buf {
 } instack[INPUT_STACK_MAX];
 
 static int last_error_tick = 0;	   /* Incremented each time we print it.  */
-static int input_file_stack_tick = 0;  /* Incremented when status changes.  */
 
 /* Current nesting level of input sources.
    `instack[indepth]' is the level currently being read.  */
@@ -15520,26 +15463,20 @@ ffecom_close_include_ (FILE *f)
   ffewhere_column_kill (instack[indepth].column);
 }
 
-static int
-ffecom_decode_include_option_ (char *spec)
+void
+ffecom_decode_include_option (const char *dir)
 {
-  struct file_name_list *dirtmp;
-
-  if (! ignore_srcdir && !strcmp (spec, "-"))
+  if (! ignore_srcdir && !strcmp (dir, "-"))
     ignore_srcdir = 1;
   else
     {
-      dirtmp = (struct file_name_list *)
+      struct file_name_list *dirtmp = (struct file_name_list *)
 	xmalloc (sizeof (struct file_name_list));
       dirtmp->next = 0;		/* New one goes on the end */
-      dirtmp->fname = spec;
+      dirtmp->fname = dir;
       dirtmp->got_name_map = 0;
-      if (spec[0] == 0)
-	error ("directory name must immediately follow -I");
-      else
-	append_include_chain (dirtmp, dirtmp);
+      append_include_chain (dirtmp, dirtmp);
     }
-  return 1;
 }
 
 /* Open INCLUDEd file.  */
@@ -15594,9 +15531,10 @@ ffecom_open_include_ (char *name, ffewhereLine l, ffewhereColumn c)
 	      if (ep != NULL)
 		{
 		  n = ep - nam;
-		  dsp[0].fname = (char *) xmalloc (n + 1);
-		  strncpy (dsp[0].fname, nam, n);
-		  dsp[0].fname[n] = '\0';
+		  fname = xmalloc (n + 1);
+		  strncpy (fname, nam, n);
+		  fname[n] = '\0';
+		  dsp[0].fname = fname;
 		  if (n + INCLUDE_LEN_FUDGE > max_include_len)
 		    max_include_len = n + INCLUDE_LEN_FUDGE;
 		}
@@ -15704,7 +15642,7 @@ ffecom_open_include_ (char *name, ffewhereLine l, ffewhereColumn c)
     }
 
   if (dsp[0].fname != NULL)
-    free (dsp[0].fname);
+    free ((char *) dsp[0].fname);
 
   if (f == NULL)
     return NULL;

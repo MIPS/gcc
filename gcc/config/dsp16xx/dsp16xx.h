@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  AT&T DSP1600.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Contributed by Michael Collison (collison@isisinc.net).
 
@@ -1455,16 +1455,13 @@ extern struct dsp16xx_frame_info current_frame_info;
 /* Define this macro as a C expression which is nonzero if accessing less
    than a word of memory (i.e a char or short) is no faster than accessing
    a word of memory, i.e if such access require more than one instruction
-   or if ther is no difference in cost between byte and (aligned) word
+   or if there is no difference in cost between byte and (aligned) word
    loads.  */
 #define SLOW_BYTE_ACCESS 1
 
 /* Define this macro if unaligned accesses have a cost many times greater than
    aligned accesses, for example if they are emulated in a trap handler */
 /* define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) */
-
-/* Define this macro to inhibit strength reduction of memory addresses */
-/* #define DONT_REDUCE_ADDR */
 
 
 /* DIVIDING THE OUTPUT IN SECTIONS */
@@ -1489,9 +1486,6 @@ extern struct dsp16xx_frame_info current_frame_info;
 #define DEFAULT_CHIP_NAME "1610"
 
 /* THE OVERALL FRAMEWORK OF AN ASSEMBLER FILE */
-
-/* Output at beginning of assembler file.  */
-#define ASM_FILE_START(FILE) coff_dsp16xx_file_start (FILE) 
 
 /* A C string constant describing how to begin a comment in the target
    assembler language.  */
@@ -1615,7 +1609,7 @@ extern struct dsp16xx_frame_info current_frame_info;
    PREFIX is the class of label and NUM is the number within the class.
    This is suitable for output with `assemble_name'.  */
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
-  sprintf (LABEL, "*%s%d", PREFIX, NUM)
+  sprintf (LABEL, "*%s%lu", PREFIX, (unsigned long)(NUM))
 
 
 /* OUTPUT OF ASSEMBLER INSTRUCTIONS */

@@ -46,29 +46,25 @@ struct depth_first_search_dsS {
 };
 typedef struct depth_first_search_dsS *depth_first_search_ds;
 
-static void flow_dfs_compute_reverse_init
-  PARAMS ((depth_first_search_ds));
-static void flow_dfs_compute_reverse_add_bb
-  PARAMS ((depth_first_search_ds, basic_block));
-static basic_block flow_dfs_compute_reverse_execute
-  PARAMS ((depth_first_search_ds));
-static void flow_dfs_compute_reverse_finish
-  PARAMS ((depth_first_search_ds));
-static void remove_fake_successors	PARAMS ((basic_block));
-static bool need_fake_edge_p		PARAMS ((rtx));
-static bool flow_active_insn_p		PARAMS ((rtx));
+static void flow_dfs_compute_reverse_init (depth_first_search_ds);
+static void flow_dfs_compute_reverse_add_bb (depth_first_search_ds,
+					     basic_block);
+static basic_block flow_dfs_compute_reverse_execute (depth_first_search_ds);
+static void flow_dfs_compute_reverse_finish (depth_first_search_ds);
+static void remove_fake_successors (basic_block);
+static bool need_fake_edge_p (rtx);
+static bool flow_active_insn_p (rtx);
 
 /* Like active_insn_p, except keep the return value clobber around
    even after reload.  */
 
 static bool
-flow_active_insn_p (insn)
-     rtx insn;
+flow_active_insn_p (rtx insn)
 {
   if (active_insn_p (insn))
     return true;
 
-  /* A clobber of the function return value exists for buggy 
+  /* A clobber of the function return value exists for buggy
      programs that fail to return a value.  Its effect is to
      keep the return value from being live across the entire
      function.  If we allow it to be skipped, we introduce the
@@ -85,8 +81,7 @@ flow_active_insn_p (insn)
    its single destination.  */
 
 bool
-forwarder_block_p (bb)
-     basic_block bb;
+forwarder_block_p (basic_block bb)
 {
   rtx insn;
 
@@ -106,16 +101,15 @@ forwarder_block_p (bb)
 /* Return nonzero if we can reach target from src by falling through.  */
 
 bool
-can_fallthru (src, target)
-     basic_block src, target;
+can_fallthru (basic_block src, basic_block target)
 {
   rtx insn = src->end;
-  rtx insn2 = target->head;
+  rtx insn2 = target == EXIT_BLOCK_PTR ? NULL : target->head;
 
   if (src->next_bb != target)
     return 0;
 
-  if (!active_insn_p (insn2))
+  if (insn2 && !active_insn_p (insn2))
     insn2 = next_active_insn (insn2);
 
   /* ??? Later we may add code to move jump tables offline.  */
@@ -133,7 +127,7 @@ can_fallthru (src, target)
    and heavily borrowed from flow_depth_first_order_compute.  */
 
 bool
-mark_dfs_back_edges ()
+mark_dfs_back_edges (void)
 {
   edge *stack;
   int *pre;
@@ -217,7 +211,7 @@ mark_dfs_back_edges ()
 /* Set the flag EDGE_CAN_FALLTHRU for edges that can be fallthru.  */
 
 void
-set_edge_can_fallthru_flag ()
+set_edge_can_fallthru_flag (void)
 {
   basic_block bb;
 
@@ -252,8 +246,7 @@ set_edge_can_fallthru_flag ()
    Helper function for the flow_call_edges_add.  */
 
 static bool
-need_fake_edge_p (insn)
-     rtx insn;
+need_fake_edge_p (rtx insn)
 {
   if (!INSN_P (insn))
     return false;
@@ -282,8 +275,7 @@ need_fake_edge_p (insn)
    that all subsequent instructions must be executed.  */
 
 int
-flow_call_edges_add (blocks)
-     sbitmap blocks;
+flow_call_edges_add (sbitmap blocks)
 {
   int i;
   int blocks_split = 0;
@@ -405,7 +397,7 @@ flow_call_edges_add (blocks)
    block is reachable.  */
 
 void
-find_unreachable_blocks ()
+find_unreachable_blocks (void)
 {
   edge e;
   basic_block *tos, *worklist, bb;
@@ -461,7 +453,7 @@ find_unreachable_blocks ()
    and the data structure is filled in.  */
 
 struct edge_list *
-create_edge_list ()
+create_edge_list (void)
 {
   struct edge_list *elist;
   edge e;
@@ -499,8 +491,7 @@ create_edge_list ()
 /* This function free's memory associated with an edge list.  */
 
 void
-free_edge_list (elist)
-     struct edge_list *elist;
+free_edge_list (struct edge_list *elist)
 {
   if (elist)
     {
@@ -512,9 +503,7 @@ free_edge_list (elist)
 /* This function provides debug output showing an edge list.  */
 
 void
-print_edge_list (f, elist)
-     FILE *f;
-     struct edge_list *elist;
+print_edge_list (FILE *f, struct edge_list *elist)
 {
   int x;
 
@@ -541,9 +530,7 @@ print_edge_list (f, elist)
    extra edges.  */
 
 void
-verify_edge_list (f, elist)
-     FILE *f;
-     struct edge_list *elist;
+verify_edge_list (FILE *f, struct edge_list *elist)
 {
   int pred, succ, index;
   edge e;
@@ -624,9 +611,7 @@ find_edge (pred, succ)
    a specified predecessor and successor.  */
 
 int
-find_edge_index (edge_list, pred, succ)
-     struct edge_list *edge_list;
-     basic_block pred, succ;
+find_edge_index (struct edge_list *edge_list, basic_block pred, basic_block succ)
 {
   int x;
 
@@ -641,10 +626,7 @@ find_edge_index (edge_list, pred, succ)
 /* Dump the list of basic blocks in the bitmap NODES.  */
 
 void
-flow_nodes_print (str, nodes, file)
-     const char *str;
-     const sbitmap nodes;
-     FILE *file;
+flow_nodes_print (const char *str, const sbitmap nodes, FILE *file)
 {
   int node;
 
@@ -659,11 +641,7 @@ flow_nodes_print (str, nodes, file)
 /* Dump the list of edges in the array EDGE_LIST.  */
 
 void
-flow_edge_list_print (str, edge_list, num_edges, file)
-     const char *str;
-     const edge *edge_list;
-     int num_edges;
-     FILE *file;
+flow_edge_list_print (const char *str, const edge *edge_list, int num_edges, FILE *file)
 {
   int i;
 
@@ -684,8 +662,7 @@ flow_edge_list_print (str, edge_list, num_edges, file)
    list it is in.  */
 
 static void
-remove_fake_successors (bb)
-     basic_block bb;
+remove_fake_successors (basic_block bb)
 {
   edge e;
 
@@ -704,7 +681,7 @@ remove_fake_successors (bb)
    fake predecessors.  */
 
 void
-remove_fake_edges ()
+remove_fake_edges (void)
 {
   basic_block bb;
 
@@ -717,7 +694,7 @@ remove_fake_edges ()
    edges to exist.  */
 
 void
-add_noreturn_fake_exit_edges ()
+add_noreturn_fake_exit_edges (void)
 {
   basic_block bb;
 
@@ -738,7 +715,7 @@ add_noreturn_fake_exit_edges ()
    nodes not reachable from the exit block.  */
 
 void
-connect_infinite_loops_to_exit ()
+connect_infinite_loops_to_exit (void)
 {
   basic_block unvisited_block;
   struct depth_first_search_dsS dfs_ds;
@@ -763,11 +740,10 @@ connect_infinite_loops_to_exit ()
   return;
 }
 
-/* Compute reverse top sort order */
+/* Compute reverse top sort order.  */
 
 void
-flow_reverse_top_sort_order_compute (rts_order)
-     int *rts_order;
+flow_reverse_top_sort_order_compute (int *rts_order)
 {
   edge *stack;
   int sp;
@@ -835,9 +811,7 @@ flow_reverse_top_sort_order_compute (rts_order)
   possible.  */
 
 int
-flow_depth_first_order_compute (dfs_order, rc_order)
-     int *dfs_order;
-     int *rc_order;
+flow_depth_first_order_compute (int *dfs_order, int *rc_order)
 {
   edge *stack;
   int sp;
@@ -938,8 +912,7 @@ struct dfst_node
      2) Walking the resulting tree from right to left.  */
 
 void
-flow_preorder_transversal_compute (pot_order)
-     int *pot_order;
+flow_preorder_transversal_compute (int *pot_order)
 {
   edge e;
   edge *stack;
@@ -1078,8 +1051,7 @@ flow_preorder_transversal_compute (pot_order)
    element on the stack.  */
 
 static void
-flow_dfs_compute_reverse_init (data)
-     depth_first_search_ds data;
+flow_dfs_compute_reverse_init (depth_first_search_ds data)
 {
   /* Allocate stack for back-tracking up CFG.  */
   data->stack = (basic_block *) xmalloc ((n_basic_blocks - (INVALID_BLOCK + 1))
@@ -1100,9 +1072,7 @@ flow_dfs_compute_reverse_init (data)
    block.  */
 
 static void
-flow_dfs_compute_reverse_add_bb (data, bb)
-     depth_first_search_ds data;
-     basic_block bb;
+flow_dfs_compute_reverse_add_bb (depth_first_search_ds data, basic_block bb)
 {
   data->stack[data->sp++] = bb;
   SET_BIT (data->visited_blocks, bb->index - (INVALID_BLOCK + 1));
@@ -1114,8 +1084,7 @@ flow_dfs_compute_reverse_add_bb (data, bb)
    available.  */
 
 static basic_block
-flow_dfs_compute_reverse_execute (data)
-     depth_first_search_ds data;
+flow_dfs_compute_reverse_execute (depth_first_search_ds data)
 {
   basic_block bb;
   edge e;
@@ -1143,8 +1112,7 @@ flow_dfs_compute_reverse_execute (data)
    reverse graph.  */
 
 static void
-flow_dfs_compute_reverse_finish (data)
-     depth_first_search_ds data;
+flow_dfs_compute_reverse_finish (depth_first_search_ds data)
 {
   free (data->stack);
   sbitmap_free (data->visited_blocks);
@@ -1154,13 +1122,9 @@ flow_dfs_compute_reverse_finish (data)
    if REVERSE, go against direction of edges.  Returns number of blocks
    found and their list in RSLT.  RSLT can contain at most RSLT_MAX items.  */
 int
-dfs_enumerate_from (bb, reverse, predicate, rslt, rslt_max, data)
-     basic_block bb;
-     int reverse;
-     bool (*predicate) PARAMS ((basic_block, void *));
-     basic_block *rslt;
-     int rslt_max;
-     void *data;
+dfs_enumerate_from (basic_block bb, int reverse,
+		    bool (*predicate) (basic_block, void *),
+		    basic_block *rslt, int rslt_max, void *data)
 {
   basic_block *st, lbb;
   int sp = 0, tv = 0;

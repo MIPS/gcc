@@ -28,19 +28,8 @@ Boston, MA 02111-1307, USA.  */
 #include "basic-block.h"
 #include "tree-flow.h"
 
-
-/* Containers.  */
-struct cfg_hooks tree_cfg_hooks = {
-  tree_split_edge,
-  tree_verify_flow_info,
-  NULL
-};
-
-struct cfg_hooks rtl_cfg_hooks = {
-  rtl_split_edge,
-  rtl_verify_flow_info,
-  NULL
-};
+extern struct cfg_hooks rtl_cfg_hooks;
+extern struct cfg_hooks cfg_layout_rtl_cfg_hooks;
 
 /* A pointer to one of the hooks containers.  */
 struct cfg_hooks *cfg_hooks;
@@ -48,15 +37,6 @@ struct cfg_hooks *cfg_hooks;
 /* A global variable that keeps track of the state of the cfg.  */
 enum cfg_level cfg_level;
 
-
-/* Initialization of functions specific to the tree IR.  */
-
-void 
-tree_register_cfg_hooks ()
-{
-  cfg_level = AT_TREE_LEVEL;
-  cfg_hooks = &tree_cfg_hooks;
-}
 
 /* Initialization of functions specific to the rtl IR.  */
 
@@ -67,3 +47,9 @@ rtl_register_cfg_hooks ()
   cfg_hooks = &rtl_cfg_hooks;
 }
 
+/* Initialization of functions specific to the rtl IR.  */
+void
+cfg_layout_rtl_register_cfg_hooks (void)
+{
+  cfg_hooks = &cfg_layout_rtl_cfg_hooks;
+}

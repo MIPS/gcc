@@ -63,14 +63,14 @@ static output_buffer *scratch_buffer = &scratch_buffer_rec;
    output_clear_message_text (scratch_buffer)
 
 static const char *args_to_string (tree, int);
-static const char *assop_to_string (enum tree_code, int);
-static const char *code_to_string (enum tree_code, int);
+static const char *assop_to_string (enum tree_code);
+static const char *code_to_string (enum tree_code);
 static const char *cv_to_string (tree, int);
 static const char *decl_to_string (tree, int);
-static const char *expr_to_string (tree, int);
+static const char *expr_to_string (tree);
 static const char *fndecl_to_string (tree, int);
-static const char *op_to_string	(enum tree_code, int);
-static const char *parm_to_string (int, int);
+static const char *op_to_string	(enum tree_code);
+static const char *parm_to_string (int);
 static const char *type_to_string (tree, int);
 
 static void dump_type (tree, int);
@@ -104,15 +104,15 @@ static const char *function_category (tree);
 static void maybe_print_instantiation_context (diagnostic_context *);
 static void print_instantiation_full_context (diagnostic_context *);
 static void print_instantiation_partial_context (diagnostic_context *,
-                                                 tree, const char *, int);
+                                                 tree, location_t);
 static void cp_diagnostic_starter (diagnostic_context *, diagnostic_info *);
 static void cp_diagnostic_finalizer (diagnostic_context *, diagnostic_info *);
 static void cp_print_error_function (diagnostic_context *, diagnostic_info *);
 
 static bool cp_printer (output_buffer *, text_info *);
 static void print_non_consecutive_character (output_buffer *, int);
-static void print_integer (output_buffer *, HOST_WIDE_INT);
 static tree locate_error (const char *, va_list);
+static location_t location_of (tree);
 
 void
 init_error (void)
@@ -185,10 +185,6 @@ dump_qualifiers (tree t, enum pad p)
     p = none;
   return p;
 }
-
-/* This must be large enough to hold any printed integer or floating-point
-   value.  */
-static char digit_buffer[128];
 
 /* Dump the template ARGument under control of FLAGS.  */
 
@@ -359,7 +355,7 @@ dump_type (tree t, int flags)
       break;
 
     case VECTOR_TYPE:
-      output_add_string (scratch_buffer, "vector ");
+      output_add_string (scratch_buffer, "__vector__ ");
       {
 	/* The subtype of a VECTOR_TYPE is something like intQI_type_node,
 	   which has no name and is not very useful for diagnostics.  So
@@ -724,7 +720,7 @@ dump_type_suffix (tree t, int flags)
       if (TYPE_DOMAIN (t))
 	{
 	  if (host_integerp (TYPE_MAX_VALUE (TYPE_DOMAIN (t)), 0))
-	    print_integer
+	    output_host_wide_integer
               (scratch_buffer,
                tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (t)), 0) + 1);
 	  else if (TREE_CODE (TYPE_MAX_VALUE (TYPE_DOMAIN (t))) == MINUS_EXPR)
@@ -881,6 +877,13 @@ dump_decl (tree t, int flags)
       dump_type (t, flags);
       break;
 
+    case BIT_NOT_EXPR:
+      /* This is a pseudo destructor call which has not been folded into
+         a PSEUDO_DTOR_EXPR yet.  */
+      output_add_character (scratch_buffer, '~');
+      dump_type (TREE_OPERAND (t, 0), flags);
+      break;
+
     case TYPE_EXPR:
       abort ();
       break;
@@ -978,7 +981,7 @@ dump_decl (tree t, int flags)
       output_add_string (scratch_buffer, "using ");
       dump_type (DECL_INITIAL (t), flags);
       print_scope_operator (scratch_buffer);
-      print_tree_identifier (scratch_buffer, DECL_NAME (t));
+      dump_decl (DECL_NAME (t), flags);
       break;
 
     case BASELINK:
@@ -1371,10 +1374,8 @@ dump_char (int c)
       if (ISPRINT (c))
 	output_add_character (scratch_buffer, c);
       else
-	{
-	  sprintf (digit_buffer, "\\%03o", (int) c);
-	  output_add_string (scratch_buffer, digit_buffer);
-	}
+        output_formatted_scalar (scratch_buffer, "\\%03o", (unsigned) c);
+      break;
     }
 }
 
@@ -1471,20 +1472,22 @@ dump_expr (tree t, int flags)
 				       ~TREE_INT_CST_HIGH (val)
 	                               + !TREE_INT_CST_LOW (val));
 	          }
-		sprintf (digit_buffer, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
+		sprintf (scratch_buffer->digit_buffer,
+                         HOST_WIDE_INT_PRINT_DOUBLE_HEX,
 			 TREE_INT_CST_HIGH (val), TREE_INT_CST_LOW (val));
-		output_add_string (scratch_buffer, digit_buffer);
+		output_add_string
+                  (scratch_buffer, scratch_buffer->digit_buffer);
 	      }
 	    else
-	      print_integer (scratch_buffer, TREE_INT_CST_LOW (t));
+	      output_host_wide_integer (scratch_buffer, TREE_INT_CST_LOW (t));
 	  }
       }
       break;
 
     case REAL_CST:
-      real_to_decimal (digit_buffer, &TREE_REAL_CST (t),
-		       sizeof (digit_buffer), 0, 1);
-      output_add_string (scratch_buffer, digit_buffer);
+      real_to_decimal (scratch_buffer->digit_buffer, &TREE_REAL_CST (t),
+		       sizeof (scratch_buffer->digit_buffer), 0, 1);
+      output_add_string (scratch_buffer, scratch_buffer->digit_buffer);
       break;
 
     case PTRMEM_CST:
@@ -1510,9 +1513,20 @@ dump_expr (tree t, int flags)
 
     case COMPOUND_EXPR:
       print_left_paren (scratch_buffer);
-      dump_expr (TREE_OPERAND (t, 0), flags | TFF_EXPR_IN_PARENS);
-      separate_with_comma (scratch_buffer);
-      dump_expr (TREE_OPERAND (t, 1), flags | TFF_EXPR_IN_PARENS);
+      /* Within templates, a COMPOUND_EXPR has only one operand,
+         containing a TREE_LIST of the two operands. */
+      if (TREE_CODE (TREE_OPERAND (t, 0)) == TREE_LIST)
+      {
+        if (TREE_OPERAND (t, 1))
+          abort();
+        dump_expr_list (TREE_OPERAND (t, 0), flags | TFF_EXPR_IN_PARENS);
+      }
+      else
+      {
+        dump_expr (TREE_OPERAND (t, 0), flags | TFF_EXPR_IN_PARENS);
+        separate_with_comma (scratch_buffer);
+        dump_expr (TREE_OPERAND (t, 1), flags | TFF_EXPR_IN_PARENS);
+      }
       print_right_paren (scratch_buffer);
       break;
 
@@ -1956,7 +1970,7 @@ dump_expr (tree t, int flags)
       if (TYPE_P (TREE_OPERAND (t, 0)))
 	dump_type (TREE_OPERAND (t, 0), flags);
       else
-	dump_unary_op ("*", t, flags | TFF_EXPR_IN_PARENS);
+        dump_expr (TREE_OPERAND (t, 0), flags);
       print_right_paren (scratch_buffer);
       break;
 
@@ -2117,40 +2131,17 @@ lang_decl_name (tree decl, int v)
   return output_finalize_message (scratch_buffer);
 }
 
-const char *
-cp_file_of (tree t)
+static location_t
+location_of (tree t)
 {
   if (TREE_CODE (t) == PARM_DECL && DECL_CONTEXT (t))
-    return TREE_FILENAME (DECL_CONTEXT (t));
+    t = DECL_CONTEXT (t);
   else if (TYPE_P (t))
-    return TREE_FILENAME (TYPE_MAIN_DECL (t));
+    t = TYPE_MAIN_DECL (t);
   else if (TREE_CODE (t) == OVERLOAD)
-    return TREE_FILENAME (OVL_FUNCTION (t));
-  else
-    return TREE_FILENAME (t);
-}
-
-int
-cp_line_of (tree t)
-{
-  int line = 0;
-  if (TREE_CODE (t) == PARM_DECL && DECL_CONTEXT (t))
-    line = TREE_LINENO (DECL_CONTEXT (t));
-  if (TREE_CODE (t) == TYPE_DECL && DECL_ARTIFICIAL (t)
-      && TYPE_MAIN_DECL (TREE_TYPE (t)))
-    t = TREE_TYPE (t);
-
-  if (TYPE_P (t))
-    line = TREE_LINENO (TYPE_MAIN_DECL (t));
-  else if (TREE_CODE (t) == OVERLOAD)
-    line = TREE_LINENO (OVL_FUNCTION (t));
-  else
-    line = TREE_LINENO (t);
-
-  if (line == 0)
-    return input_line;
-
-  return line;
+    t = OVL_FUNCTION (t);
+  
+  return *(TREE_LOCUS (t));
 }
 
 /* Now the interfaces from error et al to dump_type et al. Each takes an
@@ -2179,7 +2170,7 @@ decl_to_string (tree decl, int verbose)
 }
 
 static const char *
-expr_to_string (tree decl, int verbose ATTRIBUTE_UNUSED)
+expr_to_string (tree decl)
 {
   reinit_global_formatting_buffer ();
 
@@ -2205,13 +2196,13 @@ fndecl_to_string (tree fndecl, int verbose)
 
 
 static const char *
-code_to_string (enum tree_code c, int v ATTRIBUTE_UNUSED)
+code_to_string (enum tree_code c)
 {
   return tree_code_name [c];
 }
 
 const char *
-language_to_string (enum languages c, int v ATTRIBUTE_UNUSED)
+language_to_string (enum languages c)
 {
   switch (c)
     {
@@ -2233,22 +2224,23 @@ language_to_string (enum languages c, int v ATTRIBUTE_UNUSED)
 /* Return the proper printed version of a parameter to a C++ function.  */
 
 static const char *
-parm_to_string (int p, int v ATTRIBUTE_UNUSED)
+parm_to_string (int p)
 {
   if (p < 0)
-    return "`this'";
+    output_add_string (scratch_buffer, "'this'");
+  else
+    output_decimal (scratch_buffer, p + 1);
 
-  sprintf (digit_buffer, "%d", p+1);
-  return digit_buffer;
+  return output_finalize_message (scratch_buffer);
 }
 
 static const char *
-op_to_string (enum tree_code p, int v ATTRIBUTE_UNUSED)
+op_to_string (enum tree_code p)
 {
   tree id;
 
   id = operator_name_info[(int) p].identifier;
-  return id ? IDENTIFIER_POINTER (id) : "{unknown}";
+  return id ? IDENTIFIER_POINTER (id) : "<unknown>";
 }
 
 static const char *
@@ -2269,7 +2261,7 @@ type_to_string (tree typ, int verbose)
 }
 
 static const char *
-assop_to_string (enum tree_code p, int v ATTRIBUTE_UNUSED)
+assop_to_string (enum tree_code p)
 {
   tree id;
 
@@ -2421,24 +2413,26 @@ print_instantiation_full_context (diagnostic_context *context)
 	}
     }
 
-  print_instantiation_partial_context (context, p,
-				       location.file, location.line);
+  print_instantiation_partial_context (context, p, location);
 }
 
 /* Same as above but less verbose.  */
 static void
 print_instantiation_partial_context (diagnostic_context *context,
-                                     tree t, const char *file, int line)
+                                     tree t, location_t loc)
 {
   for (; t; t = TREE_CHAIN (t))
     {
       output_verbatim
-        (&context->buffer, "%s:%d:   instantiated from `%s'\n", file, line,
-         decl_as_string (TINST_DECL (t), TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE));
-      line = TREE_LINENO (t);
-      file = TREE_FILENAME (t);
+        (&context->buffer, "%s:%d:   instantiated from `%s'\n",
+	 loc.file, loc.line,
+         decl_as_string (TINST_DECL (t),
+	                 TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE));
+      loc.line = TREE_LINENO (t);
+      loc.file = TREE_FILENAME (t);
     }
-  output_verbatim (&context->buffer, "%s:%d:   instantiated from here\n", file, line);
+  output_verbatim (&context->buffer, "%s:%d:   instantiated from here\n",
+		   loc.file, loc.line);
 }
 
 /* Called from cp_thing to print the template context for an error.  */
@@ -2457,7 +2451,7 @@ void
 print_instantiation_context (void)
 {
   print_instantiation_partial_context
-    (global_dc, current_instantiation (), input_filename, input_line);
+    (global_dc, current_instantiation (), input_location);
   diagnostic_flush_buffer (global_dc);
 }
 
@@ -2495,14 +2489,14 @@ cp_printer (output_buffer *buffer, text_info *text)
   switch (*text->format_spec)
     {
     case 'A': result = args_to_string (next_tree, verbose);	break;
-    case 'C': result = code_to_string (next_tcode, verbose);	break;
+    case 'C': result = code_to_string (next_tcode);	        break;
     case 'D': result = decl_to_string (next_tree, verbose);	break;
-    case 'E': result = expr_to_string (next_tree, verbose);	break;
+    case 'E': result = expr_to_string (next_tree);      	break;
     case 'F': result = fndecl_to_string (next_tree, verbose);	break;
-    case 'L': result = language_to_string (next_lang, verbose); break;
-    case 'O': result = op_to_string (next_tcode, verbose);	break;
-    case 'P': result = parm_to_string (next_int, verbose);	break;
-    case 'Q': result = assop_to_string (next_tcode, verbose);	break;
+    case 'L': result = language_to_string (next_lang);          break;
+    case 'O': result = op_to_string (next_tcode);       	break;
+    case 'P': result = parm_to_string (next_int);	        break;
+    case 'Q': result = assop_to_string (next_tcode);	        break;
     case 'T': result = type_to_string (next_tree, verbose);	break;
     case 'V': result = cv_to_string (next_tree, verbose);	break;
  
@@ -2516,13 +2510,6 @@ cp_printer (output_buffer *buffer, text_info *text)
 #undef next_tcode
 #undef next_lang
 #undef next_int
-}
-
-static void
-print_integer (output_buffer *buffer, HOST_WIDE_INT i)
-{
-  sprintf (digit_buffer, HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT) i);
-  output_add_string (buffer, digit_buffer);
 }
 
 static void
@@ -2560,6 +2547,7 @@ locate_error (const char *msgid, va_list ap)
 	    {
 	      /* Just ignore these possibilities.  */
 	    case '%':						break;
+	    case 'P':
 	    case 'd':	(void) va_arg (ap, int);		break;
 	    case 's':	(void) va_arg (ap, char *);		break;
 	    case 'L':	(void) va_arg (ap, enum languages);	break;
@@ -2573,7 +2561,6 @@ locate_error (const char *msgid, va_list ap)
 	    case 'D':
 	    case 'E':
 	    case 'F':
-	    case 'P':
 	    case 'T':
 	    case 'V':
 	      t = va_arg (ap, tree);
@@ -2608,7 +2595,7 @@ cp_error_at (const char *msgid, ...)
 
   va_start (ap, msgid);
   diagnostic_set_info (&diagnostic, msgid, &ap,
-                       cp_file_of (here), cp_line_of (here), DK_ERROR);
+                       location_of (here), DK_ERROR);
   report_diagnostic (&diagnostic);
   va_end (ap);
 }
@@ -2626,7 +2613,7 @@ cp_warning_at (const char *msgid, ...)
 
   va_start (ap, msgid);
   diagnostic_set_info (&diagnostic, msgid, &ap,
-                       cp_file_of (here), cp_line_of (here), DK_WARNING);
+                       location_of (here), DK_WARNING);
   report_diagnostic (&diagnostic);
   va_end (ap);
 }
@@ -2644,8 +2631,7 @@ cp_pedwarn_at (const char *msgid, ...)
 
   va_start (ap, msgid);
   diagnostic_set_info (&diagnostic, msgid, &ap,
-                       cp_file_of (here), cp_line_of (here),
-                       pedantic_error_kind());
+                       location_of (here), pedantic_error_kind());
   report_diagnostic (&diagnostic);
   va_end (ap);
 }

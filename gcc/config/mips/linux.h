@@ -46,7 +46,7 @@ Boston, MA 02111-1307, USA.  */
    `varasm.c' when defining this macro.  */
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)	\
 do {								\
-  if (SIZE > 0 && SIZE <= mips_section_threshold)		\
+  if (SIZE > 0 && (long)(SIZE) <= mips_section_threshold)	\
     sbss_section ();						\
   else								\
     bss_section ();						\
@@ -126,7 +126,7 @@ void FN ()							\
 	builtin_define_std ("linux");				\
 	builtin_assert ("system=linux");			\
 	/* The GNU C++ standard library requires this.  */	\
-	if (c_language == clk_cplusplus)			\
+	if (c_dialect_cxx ())					\
 	  builtin_define ("_GNU_SOURCE");			\
 								\
       if (mips_abi == ABI_N32)					\
@@ -163,7 +163,7 @@ void FN ()							\
 #undef  SUBTARGET_CPP_SPEC
 #define SUBTARGET_CPP_SPEC "\
 %{fno-PIC:-U__PIC__ -U__pic__} %{fno-pic:-U__PIC__ -U__pic__} \
-%{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} \
+%{fPIC|fPIE|fpic|fpie:-D__PIC__ -D__pic__} \
 %{pthread:-D_REENTRANT}"
 
 /* From iris5.h */
@@ -254,6 +254,7 @@ void FN ()							\
 
 #undef LIB_SPEC
 #define LIB_SPEC "\
+%{shared: -lc} \
 %{!static:-rpath-link %R/lib:%R/usr/lib} \
-%{!shared: %{pthread:-lthread} \
+%{!shared: %{pthread:-lpthread} \
   %{profile:-lc_p} %{!profile: -lc}}"

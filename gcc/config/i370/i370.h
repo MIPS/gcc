@@ -54,7 +54,7 @@ extern char *mvs_function_name;
 
 /* The length of the function name malloc'd area.  */
 
-extern int mvs_function_name_length;
+extern size_t mvs_function_name_length;
 
 /* Compile using char instructions (mvc, nc, oc, xc).  On 4341 use this since
    these are more than twice as fast as load-op-store.
@@ -141,7 +141,7 @@ extern int mvs_function_name_length;
 /* but only define it if really needed, since otherwise it will break builds */
 
 #ifdef TARGET_EBCDIC
-#ifdef HOST_EBCDIC
+#if HOST_CHARSET == HOST_CHARSET_EBCDIC
 #define MAP_CHARACTER(c) ((char)(c))
 #else
 #define MAP_CHARACTER(c) ((char)mvs_map_char (c))
@@ -877,10 +877,7 @@ enum reg_class
 
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC)	(OUTPREC != 16)
 
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-
-/* #define STORE_FLAG_VALUE (-1) */
+/* ??? Investigate defining STORE_FLAG_VALUE to (-1).  */
 
 /* When a prototype says `char' or `short', really pass an `int'.  */
 
@@ -1032,11 +1029,6 @@ enum reg_class
   "0",  "2",  "4",  "6"							\
 }
 
-#define ASM_FILE_START(FILE)						\
-{ fputs ("\tRMODE\tANY\n", FILE);					\
-  fputs ("\tCSECT\n", FILE); }
-
-#define ASM_FILE_END(FILE) fputs ("\tEND\n", FILE);
 #define ASM_COMMENT_START "*"
 #define ASM_APP_OFF ""
 #define ASM_APP_ON ""
@@ -1074,7 +1066,7 @@ enum reg_class
 }
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)			\
-  sprintf (LABEL, "*%s%d", PREFIX, NUM)
+  sprintf (LABEL, "*%s%lu", PREFIX, (unsigned long)(NUM))
 
 /* Generate case label.  For HLASM we can change to the data CSECT
    and put the vectors out of the code body. The assembler just

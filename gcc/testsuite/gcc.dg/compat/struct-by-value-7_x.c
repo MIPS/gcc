@@ -1,19 +1,8 @@
-#ifdef DBG
-#include <stdio.h>
-#define DEBUG_FPUTS(x) fputs (x, stdout)
-#define DEBUG_DOT putc ('.', stdout)
-#define DEBUG_NL putc ('\n', stdout)
-#else
-#define DEBUG_FPUTS(x)
-#define DEBUG_DOT
-#define DEBUG_NL
-#endif
+#include "compat-common.h"
 
 #include "fp-struct-defs.h"
 #include "fp-struct-check.h"
 #include "fp-struct-test-by-value-x.h"
-
-extern void abort (void);
 
 DEFS(ld, long double)
 CHECKS(ld, long double)
@@ -40,6 +29,8 @@ TEST(Sld16, long double)
 void
 struct_by_value_7_x ()
 {
+DEBUG_INIT
+
 #define T(TYPE, MTYPE) testit##TYPE ();
 
 T(Sld1, long double)
@@ -58,6 +49,11 @@ T(Sld13, long double)
 T(Sld14, long double)
 T(Sld15, long double)
 T(Sld16, long double)
+
+DEBUG_FINI
+
+if (fails != 0)
+  abort ();
 
 #undef T
 }

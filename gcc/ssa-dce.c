@@ -83,7 +83,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* A map from blocks to the edges on which they are control dependent.  */
 typedef struct {
-  /* An dynamically allocated array.  The Nth element corresponds to
+  /* A dynamically allocated array.  The Nth element corresponds to
      the block with index N + 2.  The Ith bit in the bitmap is set if
      that block is dependent on the Ith edge.  */
   bitmap *data;
@@ -211,7 +211,7 @@ control_dependent_block_to_edge_map_free (c)
   int i;
   for (i = 0; i < c->length; ++i)
     BITMAP_XFREE (c->data[i]);
-  free ((PTR) c);
+  free (c);
 }
 
 /* Record all blocks' control dependences on all edges in the edge
@@ -566,7 +566,7 @@ ssa_eliminate_dead_code ()
 	  /* Propagate through the operands.  */
 	  for_each_rtx (&current_instruction,
 			&propagate_necessity_through_operand,
-			(PTR) &unprocessed_instructions);
+			&unprocessed_instructions);
 
 	  /* PHI nodes are somewhat special in that each PHI alternative
 	     has data and control dependencies.  The data dependencies
@@ -738,6 +738,6 @@ ssa_eliminate_dead_code ()
   if (VARRAY_ACTIVE_SIZE (unprocessed_instructions) != 0)
     abort ();
   control_dependent_block_to_edge_map_free (cdbte);
-  free ((PTR) pdom);
+  free (pdom);
   free_edge_list (el);
 }

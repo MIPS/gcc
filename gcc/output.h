@@ -1,7 +1,7 @@
 /* Declarations for insn-output.c.  These functions are defined in recog.c,
    final.c, and varasm.c.
    Copyright (C) 1987, 1991, 1994, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -19,6 +19,9 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
+
+#ifndef GCC_OUTPUT_H
+#define GCC_OUTPUT_H
 
 /* Compute branch alignments based on frequency information in the CFG.  */
 extern void compute_alignments  PARAMS ((void));
@@ -105,7 +108,17 @@ extern void output_addr_const PARAMS ((FILE *, rtx));
 
 /* Output a string of assembler code, substituting numbers, strings
    and fixed syntactic prefixes.  */
-extern void asm_fprintf		PARAMS ((FILE *file, const char *p, ...));
+#if GCC_VERSION >= 3004
+#define ATTRIBUTE_ASM_FPRINTF(m, n) __attribute__ ((__format__ (__asm_fprintf__, m, n))) ATTRIBUTE_NONNULL(m)
+/* This is a magic identifier which allows GCC to figure out the type
+   of HOST_WIDE_INT for %wd specifier checks.  You must issue this
+   typedef before using the __asm_fprintf__ format attribute.  */
+typedef HOST_WIDE_INT __gcc_host_wide_int__;
+#else
+#define ATTRIBUTE_ASM_FPRINTF(m, n) ATTRIBUTE_NONNULL(m)
+#endif
+
+extern void asm_fprintf		PARAMS ((FILE *file, const char *p, ...)) ATTRIBUTE_ASM_FPRINTF(2, 3);
 
 /* Split up a CONST_DOUBLE or integer constant rtx into two rtx's for single
    words.  */
@@ -170,10 +183,6 @@ extern void dtors_section PARAMS ((void));
 extern void bss_section PARAMS ((void));
 #endif
 
-#ifdef CONST_SECTION_ASM_OP
-extern void const_section PARAMS ((void));
-#endif
-
 #ifdef INIT_SECTION_ASM_OP
 extern void init_section PARAMS ((void));
 #endif
@@ -186,20 +195,12 @@ extern void fini_section PARAMS ((void));
 extern void exports_section PARAMS ((void));
 #endif
 
-#ifdef TDESC_SECTION_ASM_OP
-extern void tdesc_section PARAMS ((void));
-#endif
-
 #ifdef DRECTVE_SECTION_ASM_OP
 extern void drectve_section PARAMS ((void));
 #endif
 
 #ifdef SDATA_SECTION_ASM_OP
 extern void sdata_section PARAMS ((void));
-#endif
-
-#ifdef RDATA_SECTION_ASM_OP
-extern void rdata_section PARAMS ((void));
 #endif
 
 /* Tell assembler to change to section NAME for DECL.
@@ -518,6 +519,8 @@ extern bool default_binds_local_p PARAMS ((tree));
 extern bool default_binds_local_p_1 PARAMS ((tree, int));
 extern void default_globalize_label PARAMS ((FILE *, const char *));
 extern void default_internal_label PARAMS ((FILE *, const char *, unsigned long));
+extern void default_file_start PARAMS ((void));
+extern void file_end_indicate_exec_stack PARAMS ((void));
 extern bool default_valid_pointer_mode PARAMS ((enum machine_mode));
 
 /* Emit data for vtable gc for GNU binutils.  */
@@ -526,3 +529,5 @@ extern void assemble_vtable_inherit PARAMS ((struct rtx_def *,
 					     struct rtx_def *));
 
 extern int default_address_cost PARAMS ((rtx));
+
+#endif /* ! GCC_OUTPUT_H */

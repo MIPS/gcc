@@ -197,7 +197,7 @@ extern int target_flags;
    difference calls.  This is a call variant similar to the long pic
    pc-relative call.  Long pic symbol difference calls are only used with
    the HP SOM linker.  Currently, only the HP assembler supports these
-   calls.  GAS doesn't allow an arbritrary difference of two symbols.  */
+   calls.  GAS doesn't allow an arbitrary difference of two symbols.  */
 #define TARGET_LONG_PIC_SDIFF_CALL (!TARGET_GAS)
 
 /* Define to a C expression evaluating to true to use long pic
@@ -312,6 +312,13 @@ extern int target_flags;
     N_("Specify architecture for code generation.  Values are 1.0, 1.1, and 2.0.  2.0 requires gas snapshot 19990413 or later."), 0}\
 }
 
+/* Support for a compile-time default CPU, et cetera.  The rules are:
+   --with-schedule is ignored if -mschedule is specified.
+   --with-arch is ignored if -march is specified.  */
+#define OPTION_DEFAULT_SPECS \
+  {"arch", "%{!march=*:-march=%(VALUE)}" }, \
+  {"schedule", "%{!mschedule=*:-mschedule=%(VALUE)}" }
+
 /* Specify the dialect of assembler to use.  New mnemonics is dialect one
    and the old mnemonics are dialect zero.  */
 #define ASSEMBLER_DIALECT (TARGET_PA_20 ? 1 : 0)
@@ -381,8 +388,7 @@ do {								\
 	builtin_define_std ("hp800");				\
 	builtin_define_std ("hp9000");				\
 	builtin_define_std ("hp9k8");				\
-	if (c_language != clk_cplusplus				\
-	    && !flag_iso)					\
+	if (!c_dialect_cxx () && !flag_iso)			\
 	  builtin_define ("hppa");				\
 	builtin_define_std ("spectrum");			\
 	builtin_define_std ("unix");				\
@@ -1578,11 +1584,6 @@ do { 									\
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-
-#define STORE_FLAG_VALUE 1
-
 /* When a prototype says `char' or `short', really pass an `int'.  */
 #define PROMOTE_PROTOTYPES 1
 #define PROMOTE_FUNCTION_RETURN 1
@@ -1675,10 +1676,6 @@ do { 									\
 
 #define ASM_APP_OFF ""
 
-/* Output deferred plabels at the end of the file.  */
-
-#define ASM_FILE_END(FILE) output_deferred_plabels (FILE)
-
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
 
@@ -1748,7 +1745,8 @@ do { 									\
     fprintf (FILE, "\t.align %d\n", (1<<(LOG)))
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.blockz "HOST_WIDE_INT_PRINT_UNSIGNED"\n", (SIZE))
+  fprintf (FILE, "\t.blockz "HOST_WIDE_INT_PRINT_UNSIGNED"\n",		\
+	   (unsigned HOST_WIDE_INT)(SIZE))
 
 /* This says how to output an assembler line to define a global common symbol
    with size SIZE (in bytes) and alignment ALIGN (in bits).  */
@@ -1757,7 +1755,8 @@ do { 									\
 { bss_section ();							\
   assemble_name ((FILE), (NAME));					\
   fprintf ((FILE), "\t.comm "HOST_WIDE_INT_PRINT_UNSIGNED"\n",		\
-	   MAX ((SIZE), ((ALIGNED) / BITS_PER_UNIT)));}
+	   MAX ((unsigned HOST_WIDE_INT)(SIZE),				\
+		((unsigned HOST_WIDE_INT)(ALIGNED) / BITS_PER_UNIT)));}
 
 /* This says how to output an assembler line to define a local common symbol
    with size SIZE (in bytes) and alignment ALIGN (in bits).  */
@@ -1767,7 +1766,7 @@ do { 									\
   fprintf ((FILE), "\t.align %d\n", ((ALIGNED) / BITS_PER_UNIT));	\
   assemble_name ((FILE), (NAME));					\
   fprintf ((FILE), "\n\t.block "HOST_WIDE_INT_PRINT_UNSIGNED"\n",	\
-	   (SIZE));}
+	   (unsigned HOST_WIDE_INT)(SIZE));}
   
 #define ASM_PN_FORMAT "%s___%lu"
 

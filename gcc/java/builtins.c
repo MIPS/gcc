@@ -66,14 +66,10 @@ enum builtin_type
 static tree max_builtin (tree, tree);
 static tree min_builtin (tree, tree);
 static tree abs_builtin (tree, tree);
-static tree cos_builtin (tree, tree);
-static tree sin_builtin (tree, tree);
-static tree sqrt_builtin (tree, tree);
 
 static tree java_build_function_call_expr (tree, tree);
 static void define_builtin (enum built_in_function, const char *,
-			    enum built_in_class, tree, int, int);
-static tree define_builtin_type (int, int, int, int, int);
+			    tree, const char *);
 
 
 
@@ -97,22 +93,25 @@ struct builtin_record GTY(())
   union string_or_tree GTY ((desc ("1"))) class_name;
   union string_or_tree GTY ((desc ("1"))) method_name;
   builtin_creator_function * GTY((skip (""))) creator;
+  enum built_in_function builtin_code;
 };
 
 static GTY(()) struct builtin_record java_builtins[] =
 {
-  { { "java.lang.Math" }, { "min" }, min_builtin },
-  { { "java.lang.Math" }, { "max" }, max_builtin },
-  { { "java.lang.Math" }, { "abs" }, abs_builtin },
-  { { "java.lang.Math" }, { "cos" }, cos_builtin },
-  { { "java.lang.Math" }, { "sin" }, sin_builtin },
-  { { "java.lang.Math" }, { "sqrt" }, sqrt_builtin },
-  { { NULL }, { NULL }, NULL }
+  { { "java.lang.Math" }, { "min" }, min_builtin, 0 },
+  { { "java.lang.Math" }, { "max" }, max_builtin, 0 },
+  { { "java.lang.Math" }, { "abs" }, abs_builtin, 0 },
+  { { "java.lang.Math" }, { "atan" }, NULL, BUILT_IN_ATAN },
+  { { "java.lang.Math" }, { "atan2" }, NULL, BUILT_IN_ATAN2 },
+  { { "java.lang.Math" }, { "cos" }, NULL, BUILT_IN_COS },
+  { { "java.lang.Math" }, { "exp" }, NULL, BUILT_IN_EXP },
+  { { "java.lang.Math" }, { "log" }, NULL, BUILT_IN_LOG },
+  { { "java.lang.Math" }, { "pow" }, NULL, BUILT_IN_POW },
+  { { "java.lang.Math" }, { "sin" }, NULL, BUILT_IN_SIN },
+  { { "java.lang.Math" }, { "sqrt" }, NULL, BUILT_IN_SQRT },
+  { { "java.lang.Math" }, { "tan" }, NULL, BUILT_IN_TAN },
+  { { NULL }, { NULL }, NULL, END_BUILTINS }
 };
-
-/* This is only used transiently, so we don't mark it as roots for the
-   GC.  */
-static tree builtin_types[(int) BT_LAST];
 
 
 /* Internal functions which implement various builtin conversions.  */
@@ -120,24 +119,24 @@ static tree builtin_types[(int) BT_LAST];
 static tree
 max_builtin (tree method_return_type, tree method_arguments)
 {
-  return build (MAX_EXPR, method_return_type,
-		TREE_VALUE (method_arguments),
-		TREE_VALUE (TREE_CHAIN (method_arguments)));
+  return fold (build (MAX_EXPR, method_return_type,
+		      TREE_VALUE (method_arguments),
+		      TREE_VALUE (TREE_CHAIN (method_arguments))));
 }
 
 static tree
 min_builtin (tree method_return_type, tree method_arguments)
 {
-  return build (MIN_EXPR, method_return_type,
-		TREE_VALUE (method_arguments),
-		TREE_VALUE (TREE_CHAIN (method_arguments)));
+  return fold (build (MIN_EXPR, method_return_type,
+		      TREE_VALUE (method_arguments),
+		      TREE_VALUE (TREE_CHAIN (method_arguments))));
 }
 
 static tree
 abs_builtin (tree method_return_type, tree method_arguments)
 {
-  return build1 (ABS_EXPR, method_return_type,
-		 TREE_VALUE (method_arguments));
+  return fold (build1 (ABS_EXPR, method_return_type,
+		       TREE_VALUE (method_arguments)));
 }
 
 /* Mostly copied from ../builtins.c.  */
@@ -150,37 +149,7 @@ java_build_function_call_expr (tree fn, tree arglist)
   call_expr = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)),
 		     call_expr, arglist);
   TREE_SIDE_EFFECTS (call_expr) = 1;
-  return call_expr;
-}
-
-static tree
-cos_builtin (tree method_return_type ATTRIBUTE_UNUSED, tree method_arguments)
-{
-  /* FIXME: this assumes that jdouble and double are the same.  */
-  tree fn = built_in_decls[BUILT_IN_COS];
-  if (fn == NULL_TREE)
-    return NULL_TREE;
-  return java_build_function_call_expr (fn, method_arguments);
-}
-
-static tree
-sin_builtin (tree method_return_type ATTRIBUTE_UNUSED, tree method_arguments)
-{
-  /* FIXME: this assumes that jdouble and double are the same.  */
-  tree fn = built_in_decls[BUILT_IN_SIN];
-  if (fn == NULL_TREE)
-    return NULL_TREE;
-  return java_build_function_call_expr (fn, method_arguments);
-}
-
-static tree
-sqrt_builtin (tree method_return_type ATTRIBUTE_UNUSED, tree method_arguments)
-{
-  /* FIXME: this assumes that jdouble and double are the same.  */
-  tree fn = built_in_decls[BUILT_IN_SQRT];
-  if (fn == NULL_TREE)
-    return NULL_TREE;
-  return java_build_function_call_expr (fn, method_arguments);
+  return fold (call_expr);
 }
 
 
@@ -189,70 +158,22 @@ sqrt_builtin (tree method_return_type ATTRIBUTE_UNUSED, tree method_arguments)
 static void
 define_builtin (enum built_in_function val,
 		const char *name,
-		enum built_in_class class,
 		tree type,
-		int fallback_p,
-		int implicit)
+		const char *libname)
 {
   tree decl;
 
-  if (! name || ! type)
-    return;
-
-  if (strncmp (name, "__builtin_", strlen ("__builtin_")) != 0)
-    abort ();
   decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
   DECL_EXTERNAL (decl) = 1;
   TREE_PUBLIC (decl) = 1;
-  if (fallback_p)
-    SET_DECL_ASSEMBLER_NAME (decl,
-			     get_identifier (name + strlen ("__builtin_")));
+  SET_DECL_ASSEMBLER_NAME (decl, get_identifier (libname));
   make_decl_rtl (decl, NULL);
   pushdecl (decl);
-  DECL_BUILT_IN_CLASS (decl) = class;
+  DECL_BUILT_IN_CLASS (decl) = BUILT_IN_NORMAL;
   DECL_FUNCTION_CODE (decl) = val;
+
+  implicit_built_in_decls[val] = decl;
   built_in_decls[val] = decl;
-  if (implicit)
-    implicit_built_in_decls[val] = decl;
-}
-
-/* Compute the type for a builtin.  */
-static tree
-define_builtin_type (int ret, int arg1, int arg2, int arg3, int arg4)
-{
-  tree args;
-
-  if (builtin_types[ret] == NULL_TREE)
-    return NULL_TREE;
-
-  args = void_list_node;
-
-  if (arg4 != -1)
-    {
-      if (builtin_types[arg4] == NULL_TREE)
-	return NULL_TREE;
-      args = tree_cons (NULL_TREE, builtin_types[arg4], args);
-    }
-  if (arg3 != -1)
-    {
-      if (builtin_types[arg3] == NULL_TREE)
-	return NULL_TREE;
-      args = tree_cons (NULL_TREE, builtin_types[arg3], args);
-    }
-  if (arg2 != -1)
-    {
-      if (builtin_types[arg2] == NULL_TREE)
-	return NULL_TREE;
-      args = tree_cons (NULL_TREE, builtin_types[arg2], args);
-    }
-  if (arg1 != -1)
-    {
-      if (builtin_types[arg1] == NULL_TREE)
-	return NULL_TREE;
-      args = tree_cons (NULL_TREE, builtin_types[arg1], args);
-    }
-  
-  return build_function_type (builtin_types[ret], args);
 }
 
 
@@ -261,9 +182,12 @@ define_builtin_type (int ret, int arg1, int arg2, int arg3, int arg4)
 void
 initialize_builtins (void)
 {
+  tree double_ftype_double, double_ftype_double_double;
+  tree float_ftype_float, float_ftype_float_float;
+  tree t;
   int i;
 
-  for (i = 0; java_builtins[i].creator != NULL; ++i)
+  for (i = 0; java_builtins[i].builtin_code != END_BUILTINS; ++i)
     {
       tree klass_id = get_identifier (java_builtins[i].class_name.s);
       tree m = get_identifier (java_builtins[i].method_name.s);
@@ -274,48 +198,39 @@ initialize_builtins (void)
 
   void_list_node = end_params_node;
 
-  /* Work around C-specific junk in builtin-types.def.  */
-#define intmax_type_node NULL_TREE
-#define c_size_type_node NULL_TREE
-#define const_string_type_node NULL_TREE
-#define va_list_ref_type_node NULL_TREE
-#define va_list_arg_type_node NULL_TREE
-#define flag_isoc99 0
+  t = tree_cons (NULL_TREE, float_type_node, end_params_node);
+  float_ftype_float = build_function_type (float_type_node, t);
+  t = tree_cons (NULL_TREE, float_type_node, t);
+  float_ftype_float_float = build_function_type (float_type_node, t);
 
-#define DEF_PRIMITIVE_TYPE(ENUM, VALUE)					      \
-  builtin_types[(int) ENUM] = VALUE;
-#define DEF_FUNCTION_TYPE_0(ENUM, RETURN)		\
-  builtin_types[(int) ENUM]				\
-    = define_builtin_type (RETURN, -1, -1, -1, -1);
-#define DEF_FUNCTION_TYPE_1(ENUM, RETURN, ARG1)				\
-  builtin_types[(int) ENUM]						\
-    = define_builtin_type (RETURN, ARG1, -1, -1, -1);
-#define DEF_FUNCTION_TYPE_2(ENUM, RETURN, ARG1, ARG2)	\
-  builtin_types[(int) ENUM]				\
-    = define_builtin_type (RETURN, ARG1, ARG2, -1, -1);
-#define DEF_FUNCTION_TYPE_3(ENUM, RETURN, ARG1, ARG2, ARG3)		 \
-  builtin_types[(int) ENUM]						 \
-    = define_builtin_type (RETURN, ARG1, ARG2, ARG3, -1);
-#define DEF_FUNCTION_TYPE_4(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4)	\
-  builtin_types[(int) ENUM]						\
-    = define_builtin_type (RETURN, ARG1, ARG2, ARG3, ARG4);
-#define DEF_FUNCTION_TYPE_VAR_0(ENUM, RETURN)			\
-  builtin_types[(int) ENUM] = NULL_TREE;
-#define DEF_FUNCTION_TYPE_VAR_1(ENUM, RETURN, ARG1)		\
-   builtin_types[(int) ENUM] = NULL_TREE;
-#define DEF_FUNCTION_TYPE_VAR_2(ENUM, RETURN, ARG1, ARG2)	\
-   builtin_types[(int) ENUM] = NULL_TREE;
-#define DEF_FUNCTION_TYPE_VAR_3(ENUM, RETURN, ARG1, ARG2, ARG3)	\
-   builtin_types[(int) ENUM] = NULL_TREE;
-#define DEF_POINTER_TYPE(ENUM, TYPE)			\
-  builtin_types[(int) ENUM] = NULL_TREE;
+  t = tree_cons (NULL_TREE, double_type_node, end_params_node);
+  double_ftype_double = build_function_type (double_type_node, t);
+  t = tree_cons (NULL_TREE, double_type_node, t);
+  double_ftype_double_double = build_function_type (double_type_node, t);
 
-#include "builtin-types.def"
+  define_builtin (BUILT_IN_FMOD, "__builtin_fmod",
+		  double_ftype_double_double, "fmod");
+  define_builtin (BUILT_IN_FMODF, "__builtin_fmodf",
+		  float_ftype_float_float, "fmodf");
 
-#define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, \
-                    FALLBACK_P, NONANSI_P, ATTRS, IMPLICIT) \
-  define_builtin (ENUM, NAME, CLASS, builtin_types[TYPE], FALLBACK_P, IMPLICIT);
-#include "builtins.def"
+  define_builtin (BUILT_IN_ATAN, "__builtin_atan",
+		  double_ftype_double, "_ZN4java4lang4Math4atanEd");
+  define_builtin (BUILT_IN_ATAN2, "__builtin_atan2",
+		  double_ftype_double_double, "_ZN4java4lang4Math5atan2Edd");
+  define_builtin (BUILT_IN_COS, "__builtin_cos",
+		  double_ftype_double, "_ZN4java4lang4Math3cosEd");
+  define_builtin (BUILT_IN_EXP, "__builtin_exp",
+		  double_ftype_double, "_ZN4java4lang4Math3expEd");
+  define_builtin (BUILT_IN_LOG, "__builtin_log",
+		  double_ftype_double, "_ZN4java4lang4Math3logEd");
+  define_builtin (BUILT_IN_POW, "__builtin_pow",
+		  double_ftype_double_double, "_ZN4java4lang4Math3powEdd");
+  define_builtin (BUILT_IN_SIN, "__builtin_sin",
+		  double_ftype_double, "_ZN4java4lang4Math3sinEd");
+  define_builtin (BUILT_IN_SQRT, "__builtin_sqrt",
+		  double_ftype_double, "_ZN4java4lang4Math4sqrtEd");
+  define_builtin (BUILT_IN_TAN, "__builtin_tan",
+		  double_ftype_double, "_ZN4java4lang4Math3tanEd");
 }
 
 /* If the call matches a builtin, return the
@@ -331,13 +246,20 @@ check_for_builtin (tree method, tree call)
       tree method_name = DECL_NAME (method);
       tree method_return_type = TREE_TYPE (TREE_TYPE (method));
 
-      for (i = 0; java_builtins[i].creator != NULL; ++i)
+      for (i = 0; java_builtins[i].builtin_code != END_BUILTINS; ++i)
 	{
 	  if (method_class == java_builtins[i].class_name.t
 	      && method_name == java_builtins[i].method_name.t)
 	    {
-	      return (*java_builtins[i].creator) (method_return_type,
-						  method_arguments);
+	      tree fn;
+
+	      if (java_builtins[i].creator != NULL)
+		return (*java_builtins[i].creator) (method_return_type,
+						    method_arguments);
+	      fn = built_in_decls[java_builtins[i].builtin_code];
+	      if (fn == NULL_TREE)
+		return NULL_TREE;
+	      return java_build_function_call_expr (fn, method_arguments);
 	    }
 	}
     }

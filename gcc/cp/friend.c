@@ -264,17 +264,34 @@ make_friend_class (type, friend_type)
   if (is_template_friend)
     friend_type = CLASSTYPE_TI_TEMPLATE (friend_type);
 
-  classes = CLASSTYPE_FRIEND_CLASSES (type);
-  while (classes 
-	 /* Stop if we find the same type on the list.  */
-	 && !(TREE_CODE (TREE_VALUE (classes)) == TEMPLATE_DECL ?
-	      friend_type == TREE_VALUE (classes) :
-	      same_type_p (TREE_VALUE (classes), friend_type)))
-    classes = TREE_CHAIN (classes);
-  if (classes) 
-    warning ("`%T' is already a friend of `%T'",
-		TREE_VALUE (classes), type);
-  else
+  /* See if it is already a friend.  */
+  for (classes = CLASSTYPE_FRIEND_CLASSES (type);
+       classes;
+       classes = TREE_CHAIN (classes))
+    {
+      tree probe = TREE_VALUE (classes);
+
+      if (TREE_CODE (friend_type) == TEMPLATE_DECL)
+	{
+	  if (friend_type == probe)
+	    {
+	      warning ("`%D' is already a friend of `%T'",
+		       probe, type);
+	      break;
+	    }
+	}
+      else if (TREE_CODE (probe) != TEMPLATE_DECL)
+	{
+	  if (same_type_p (probe, friend_type))
+	    {
+	      warning ("`%T' is already a friend of `%T'",
+		       probe, type);
+	      break;
+	    }
+	}
+    }
+  
+  if (!classes) 
     {
       maybe_add_class_template_decl_list (type, friend_type, /*friend_p=*/1);
 
@@ -289,10 +306,7 @@ make_friend_class (type, friend_type)
     }
 }
 
-/* Main friend processor.  This is large, and for modularity purposes,
-   has been removed from grokdeclarator.  It returns `void_type_node'
-   to indicate that something happened, though a FIELD_DECL is
-   not returned.
+/* Main friend processor. 
 
    CTYPE is the class this friend belongs to.
 

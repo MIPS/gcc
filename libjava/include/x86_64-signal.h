@@ -21,7 +21,7 @@ details.  */
 #define HANDLE_SEGV 1
 
 #define SIGNAL_HANDLER(_name)	\
-static void _Jv_##_name (int, siginfo_t *_sip, void *_p)
+static void _Jv_##_name (int, siginfo_t *, void *_p)
 
 extern "C" 
 {
@@ -34,16 +34,16 @@ extern "C"
   };
 }
 
-#define MAKE_THROW_FRAME(_exception)					\
-do									\
-{									\
-  /* Advance the program counter so that it is after the start of the	\
-     instruction:  the x86_64 exception handler expects			\
-     the PC to point to the instruction after a call. */		\
-  struct ucontext *_uc = (struct ucontext *)_p;				\
+#define MAKE_THROW_FRAME(_exception)					     \
+do									     \
+{									     \
+  /* Advance the program counter so that it is after the start of the	     \
+     instruction:  the x86_64 exception handler expects			     \
+     the PC to point to the instruction after a call. */		     \
+  struct ucontext *_uc = (struct ucontext *)_p;				     \
   volatile struct sigcontext *_sc = (struct sigcontext *) &_uc->uc_mcontext; \
-  _sc->rip += 2;							\
-}									\
+  _sc->rip += 2;							     \
+}									     \
 while (0)
 
 #define RESTORE(name, syscall) RESTORE2 (name, syscall)
@@ -64,7 +64,6 @@ static void restore_rt (void) asm ("__restore_rt");
 #define INIT_SEGV						\
 do								\
   {								\
-    nullp = new java::lang::NullPointerException ();		\
     struct kernel_sigaction act;				\
     act.k_sa_sigaction = _Jv_catch_segv;			\
     sigemptyset (&act.k_sa_mask);				\

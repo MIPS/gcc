@@ -78,14 +78,14 @@ Boston, MA 02111-1307, USA.  */
     {							\
       if (preprocessing_asm_p ())			\
 	builtin_define_std ("LANGUAGE_ASSEMBLY");	\
-      else if (c_language == clk_c)			\
-	builtin_define_std ("LANGUAGE_C");		\
-      else if (c_language == clk_cplusplus)		\
+      else if (c_dialect_cxx ())			\
 	{						\
 	  builtin_define ("__LANGUAGE_C_PLUS_PLUS");	\
 	  builtin_define ("__LANGUAGE_C_PLUS_PLUS__");	\
 	}						\
-      if (flag_objc)					\
+      else						\
+	builtin_define_std ("LANGUAGE_C");		\
+      if (c_dialect_objc ())				\
 	{						\
 	  builtin_define ("__LANGUAGE_OBJECTIVE_C");	\
 	  builtin_define ("__LANGUAGE_OBJECTIVE_C__");	\
@@ -364,6 +364,13 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
   {"tls-size=",		&alpha_tls_size_string,		\
    N_("Specify bit size of immediate TLS offsets"), 0},	\
 }
+
+/* Support for a compile-time default CPU, et cetera.  The rules are:
+   --with-cpu is ignored if -mcpu is specified.
+   --with-tune is ignored if -mtune is specified.  */
+#define OPTION_DEFAULT_SPECS \
+  {"cpu", "%{!mcpu=*:-mcpu=%(VALUE)}" }, \
+  {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }
 
 /* This macro defines names of additional specifications to put in the
    specs that can be used in various specifications like CC1_SPEC.  Its
@@ -987,25 +994,14 @@ extern int alpha_memory_latency;
    On Alpha the value is found in $0 for integer functions and
    $f0 for floating-point functions.  */
 
-#define FUNCTION_VALUE(VALTYPE, FUNC)	\
-  gen_rtx_REG (((INTEGRAL_TYPE_P (VALTYPE)			\
-		 && TYPE_PRECISION (VALTYPE) < BITS_PER_WORD)	\
-		|| POINTER_TYPE_P (VALTYPE))			\
-	       ? word_mode : TYPE_MODE (VALTYPE),		\
-	       ((TARGET_FPREGS					\
-		 && (TREE_CODE (VALTYPE) == REAL_TYPE		\
-		     || TREE_CODE (VALTYPE) == COMPLEX_TYPE))	\
-		? 32 : 0))
+#define FUNCTION_VALUE(VALTYPE, FUNC) \
+  function_value (VALTYPE, FUNC, VOIDmode)
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
 
-#define LIBCALL_VALUE(MODE)	\
-   gen_rtx_REG (MODE,						\
-		(TARGET_FPREGS					\
-		 && (GET_MODE_CLASS (MODE) == MODE_FLOAT	\
-		     || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT) \
-		 ? 32 : 0))
+#define LIBCALL_VALUE(MODE) \
+  function_value (NULL, NULL, MODE)
 
 /* The definition of this macro implies that there are cases where
    a scalar value cannot be returned in registers.
@@ -1014,10 +1010,7 @@ extern int alpha_memory_latency;
    are integers whose size is larger than 64 bits.  */
 
 #define RETURN_IN_MEMORY(TYPE) \
-  (TYPE_MODE (TYPE) == BLKmode \
-   || TYPE_MODE (TYPE) == TFmode \
-   || TYPE_MODE (TYPE) == TCmode \
-   || (TREE_CODE (TYPE) == INTEGER_TYPE && TYPE_PRECISION (TYPE) > 64))
+  return_in_memory (TYPE, VOIDmode)
 
 /* 1 if N is a possible register number for a function value
    as seen by the caller.  */
@@ -1094,13 +1087,6 @@ extern int alpha_memory_latency;
 
 #define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
   ((MODE) == TFmode || (MODE) == TCmode)
-
-/* Specify the padding direction of arguments.
-
-   On the Alpha, we must pad upwards in order to be able to pass args in
-   registers.  */
-
-#define FUNCTION_ARG_PADDING(MODE, TYPE)	upward
 
 /* For an arg passed partly in registers and partly in memory,
    this is the number of registers used.
@@ -1424,11 +1410,6 @@ do {									     \
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
-
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-
-#define STORE_FLAG_VALUE 1
 
 /* The CIX ctlz and cttz instructions return 64 for zero.  */
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE)  ((VALUE) = 64, TARGET_CIX)
@@ -1776,7 +1757,7 @@ extern long alpha_auto_offset;
 #define DEBUGGER_ARG_OFFSET(OFFSET, X) (OFFSET + alpha_arg_offset)
 
 
-#define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE)				\
+#define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE, COUNTER)			\
   alpha_output_lineno (STREAM, LINE)
 
 #define ASM_OUTPUT_SOURCE_FILENAME(STREAM, NAME)			\
@@ -1887,3 +1868,6 @@ do {							\
 
 /* Generate calls to memcpy, etc., not bcopy, etc.  */
 #define TARGET_MEM_FUNCTIONS 1
+
+/* Pass complex arguments independently.  */
+#define SPLIT_COMPLEX_ARGS 1

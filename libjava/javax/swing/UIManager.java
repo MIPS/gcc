@@ -35,19 +35,18 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
-import java.io.*;
-import java.awt.*;
-
-import javax.swing.border.*;
-import javax.swing.plaf.*;
-import javax.swing.plaf.basic.*;
-import javax.swing.plaf.metal.*;
-
-
-import java.beans.*;
-
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.Insets;
+import java.beans.PropertyChangeListener;
+import java.io.Serializable;
+import javax.swing.border.Border;
+import javax.swing.plaf.ComponentUI;
+import javax.swing.plaf.metal.MetalLookAndFeel;
 
 public class UIManager implements Serializable
 {
@@ -175,11 +174,21 @@ public class UIManager implements Serializable
 	System.out.println("UIManager.getDim");
 	return new Dimension(200,100);
     }
-    static  Font getFont(Object key)
-    //      Returns a drawing font from the defaults table. 
-    {
-	return (Font) getLookAndFeel().getDefaults().get(key);
-    }
+
+
+  /**
+   * Retrieves a font from the defaults table of the current
+   * LookAndFeel.
+   *
+   * @param key an Object that specifies the font. Typically,
+   *        this is a String such as
+   *        <code>&quot;TitledBorder.font&quot;</code>.
+   */
+  public static Font getFont(Object key)
+  {
+    return (Font) getLookAndFeel().getDefaults().get(key);
+  }
+
     static  Icon getIcon(Object key)
     //      Returns an Icon from the defaults table. 
     {
@@ -208,11 +217,17 @@ public class UIManager implements Serializable
 	return look_and_feel;
     }
 
-    static  UIDefaults getLookAndFeelDefaults()
-    //      Returns the default values for this look and feel. 
-    {
-	return getLookAndFeel().getDefaults();
-    }
+
+  /**
+   * Returns the <code>UIDefaults</code> table of the currently active
+   * look and feel.
+   */
+  public static UIDefaults getLookAndFeelDefaults()
+  {
+    return getLookAndFeel().getDefaults();
+  }
+
+
     static  String getString(Object key)
     //      Returns a string from the defaults table. 
     {

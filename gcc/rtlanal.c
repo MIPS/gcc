@@ -754,8 +754,6 @@ reg_mentioned_p (reg, in)
       return 0;
 
     case CONST_INT:
-      return GET_CODE (reg) == CONST_INT && INTVAL (in) == INTVAL (reg);
-
     case CONST_VECTOR:
     case CONST_DOUBLE:
       /* These are kept unique for a given value.  */
@@ -3276,7 +3274,7 @@ insns_safe_to_move_p (from, to, new_to)
   return 0;
 }
 
-/* Return nonzero if IN contains a piece of rtl that has the address LOC */
+/* Return nonzero if IN contains a piece of rtl that has the address LOC.  */
 int
 loc_mentioned_in_p (loc, in)
      rtx *loc, in;
@@ -3427,21 +3425,15 @@ subreg_offset_representable_p (xregno, xmode, offset, ymode)
 
 #ifdef ENABLE_CHECKING
   /* This should always pass, otherwise we don't know how to verify the
-     constraint. 
-
-     These conditions may be relaxed but subreg_offset would need to be
-     redesigned.  */
+     constraint.  These conditions may be relaxed but subreg_offset would
+     need to be redesigned.  */
   if (GET_MODE_SIZE (xmode) % GET_MODE_SIZE (ymode)
       || GET_MODE_SIZE (ymode) % nregs_ymode
-      || (GET_MODE_BITSIZE (mode_for_size (GET_MODE_BITSIZE (xmode)
-			      		   / nregs_xmode,
-					   MODE_INT, 0))
-	  != GET_MODE_BITSIZE (xmode) / nregs_xmode)
       || nregs_xmode % nregs_ymode)
     abort ();
 #endif
 
-  /* The XMODE value can be seen as an vector of NREGS_XMODE
+  /* The XMODE value can be seen as a vector of NREGS_XMODE
      values.  The subreg must represent an lowpart of given field.
      Compute what field it is.  */
   offset -= subreg_lowpart_offset (ymode, 
@@ -3608,7 +3600,7 @@ hoist_test_store (x, val, live)
   if (rtx_equal_p (x, val))
     return true;
 
-  /* Allow subreg of X in case it is not writting just part of multireg pseudo.
+  /* Allow subreg of X in case it is not writing just part of multireg pseudo.
      Then we would need to update all users to care hoisting the store too.
      Caller may represent that by specifying whole subreg as val.  */
 
@@ -3629,7 +3621,7 @@ hoist_test_store (x, val, live)
   if (!REG_P (x))
     return false;
 
-  /* Pseudo registers can be allways replaced by another pseudo to avoid
+  /* Pseudo registers can be always replaced by another pseudo to avoid
      the side effect, for hard register we must ensure that they are dead.
      Eventually we may want to add code to try turn pseudos to hards, but it
      is unlikely useful.  */
@@ -3701,7 +3693,7 @@ can_hoist_insn_p (insn, val, live)
 	      break;
 	    case USE:
 	      /* We need to fix callers to really ensure availability
-	         of all values inisn uses, but for now it is safe to prohibit
+	         of all values insn uses, but for now it is safe to prohibit
 		 hoisting of any insn having such a hidden uses.  */
 	      return false;
 	      break;
@@ -3844,7 +3836,7 @@ hoist_insn_to_edge (insn, e, val, new)
   if (e->insns == NULL_RTX)
     {
       start_sequence ();
-      emit_note (NULL, NOTE_INSN_DELETED);
+      emit_note (NOTE_INSN_DELETED);
     }
   else
     push_to_sequence (e->insns);

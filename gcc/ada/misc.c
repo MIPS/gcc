@@ -74,15 +74,15 @@
 #include "ada-tree.h"
 #include "gigi.h"
 #include "adadecode.h"
+#include "opts.h"
+#include "options.h"
 
 extern FILE *asm_out_file;
-extern int save_argc;
-extern char **save_argv;
 
 static size_t gnat_tree_size		PARAMS ((enum tree_code));
 static bool gnat_init			PARAMS ((void));
-static void gnat_init_options		PARAMS ((void));
-static int gnat_decode_option		PARAMS ((int, char **));
+static unsigned int gnat_init_options	(unsigned int, const char **);
+static int gnat_handle_option (size_t scode, const char *arg, int value);
 static HOST_WIDE_INT gnat_get_alias_set	PARAMS ((tree));
 static void gnat_print_decl		PARAMS ((FILE *, tree, int));
 static void gnat_print_type		PARAMS ((FILE *, tree, int));
@@ -105,8 +105,8 @@ static rtx gnat_expand_expr		PARAMS ((tree, rtx, enum machine_mode,
 #define LANG_HOOKS_INIT			gnat_init
 #undef  LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS		gnat_init_options
-#undef  LANG_HOOKS_DECODE_OPTION
-#define LANG_HOOKS_DECODE_OPTION	gnat_decode_option
+#undef  LANG_HOOKS_HANDLE_OPTION
+#define LANG_HOOKS_HANDLE_OPTION	gnat_handle_option
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE		gnat_parse_file
 #undef LANG_HOOKS_HONOR_READONLY
@@ -179,6 +179,10 @@ const char *const tree_code_name[] = {
 };
 #undef DEFTREECODE
 
+/* Command-line argc and argv.  */
+unsigned int save_argc;
+const char **save_argv;
+
 /* gnat standard argc argv */
 
 extern int gnat_argc;
@@ -216,97 +220,79 @@ gnat_parse_file (set_yydebug)
    from ARGV that it successfully decoded; 0 indicates failure.  */
 
 static int
-gnat_decode_option (argc, argv)
-     int argc ATTRIBUTE_UNUSED;
-     char **argv;
+gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
 {
-  char *p = argv[0];
-  int i;
+  enum opt_code code = (enum opt_code) scode;
+  char *q;
+  unsigned int i;
 
-  if (!strncmp (p, "-I", 2))
-    {
-      /* We might get -I foo or -Ifoo.  Canonicalize to the latter.  */
-      if (p[2] == '\0')
-	{
-	  char *q;
-
-	  if (argv[1] == 0)
-	    return 0;
-
-	  q = xmalloc (sizeof("-I") + strlen (argv[1]));
-	  strcpy (q, "-I");
-	  strcat (q, argv[1]);
-
-	  gnat_argv[gnat_argc] = q;
-	  gnat_argc ++;
-	  return 2;  /* consumed argument */
-	}
-      else
-	{
-	  gnat_argv[gnat_argc] = p;
-	  gnat_argc ++;
-	  return 1;
-	}
-    }
-
-  else if (!strncmp (p, "-gant", 5))
-    {
-      char *q = xstrdup (p);
-
-      warning ("`-gnat' misspelled as `-gant'");
-      q[2] = 'n', q[3] = 'a';
-      p = q;
+  /* Ignore file names.  */
+  if (code == N_OPTS)
       return 1;
-    }
 
-  else if (!strncmp (p, "-gnat", 5))
+  switch (code)
     {
-      /* Recopy the switches without the 'gnat' prefix */
+    default:
+      abort();
 
-      gnat_argv[gnat_argc] =  (char *) xmalloc (strlen (p) - 3);
+    case OPT_I:
+      q = xmalloc (sizeof("-I") + strlen (arg));
+      strcpy (q, "-I");
+      strcat (q, arg);
+      gnat_argv[gnat_argc] = q;
+      gnat_argc++;
+      break;
+
+    case OPT_Wall:
+      /* All front ends are expected to accept this.  */
+      break;
+
+    case OPT_fRTS:
+      gnat_argv[gnat_argc] = xstrdup ("-fRTS");
+      gnat_argc++;
+      break;
+
+    case OPT_gant:
+      warning ("`-gnat' misspelled as `-gant'");
+      break;
+
+    case OPT_gnat:
+      /* Recopy the switches without the 'gnat' prefix */
+      gnat_argv[gnat_argc] = xmalloc (strlen (arg) + 2);
       gnat_argv[gnat_argc][0] = '-';
-      strcpy (gnat_argv[gnat_argc] + 1, p + 5);
-      gnat_argc ++;
-      if (p[5] == 'O')
+      strcpy (gnat_argv[gnat_argc] + 1, arg);
+      gnat_argc++;
+
+      if (arg[0] == 'O')
 	for (i = 1; i < save_argc - 1; i++) 
 	  if (!strncmp (save_argv[i], "-gnatO", 6))
 	    if (save_argv[++i][0] != '-')
 	      {
 		/* Preserve output filename as GCC doesn't save it for GNAT. */
-		gnat_argv[gnat_argc] = save_argv[i];
+		gnat_argv[gnat_argc] = xstrdup (save_argv[i]);
 		gnat_argc++;
 		break;
 	      }
-
-      return 1;
+      break;
     }
 
-  /* Handle the --RTS switch.  The real option we get is -fRTS. This
-     modification is done by the driver program.  */
-  if (!strncmp (p, "-fRTS", 5))
-    {
-      gnat_argv[gnat_argc] = p;
-      gnat_argc ++;
-      return 1;
-    }
-
-  /* Ignore -W flags since people may want to use the same flags for all
-     languages.  */
-  else if (p[0] == '-' && p[1] == 'W' && p[2] != 0)
-    return 1;
-
-  return 0;
+  return 1;
 }
 
 /* Initialize for option processing.  */
 
-static void
-gnat_init_options ()
+static unsigned int
+gnat_init_options (unsigned int argc, const char **argv)
 {
-  /* Initialize gnat_argv with save_argv size */
-  gnat_argv = (char **) xmalloc ((save_argc + 1) * sizeof (gnat_argv[0])); 
-  gnat_argv[0] = save_argv[0];     /* name of the command */ 
+  /* Initialize gnat_argv with save_argv size.  */
+  gnat_argv = (char **) xmalloc ((argc + 1) * sizeof (argv[0])); 
+  gnat_argv[0] = xstrdup (argv[0]);     /* name of the command */ 
   gnat_argc = 1;
+
+  save_argc = argc;
+  save_argv = argv;
+
+  return CL_Ada;
 }
 
 /* Here is the function to handle the compiler error processing in GCC.  */
@@ -581,21 +567,8 @@ static void
 gnat_adjust_rli (rli)
      record_layout_info rli ATTRIBUTE_UNUSED;
 {
-#if 0
-  /* This code seems to have no actual effect; record_align should already
+  /* This function has no actual effect; record_align should already
      reflect the largest alignment desired by a field.  jason 2003-04-01  */
-  unsigned int record_align = rli->unpadded_align;
-  tree field;
-
-  /* If any fields have variable size, we need to force the record to be at
-     least as aligned as the alignment of that type.  */
-  for (field = TYPE_FIELDS (rli->t); field; field = TREE_CHAIN (field))
-    if (TREE_CODE (DECL_SIZE_UNIT (field)) != INTEGER_CST)
-      record_align = MAX (record_align, DECL_ALIGN (field));
-
-  if (TYPE_PACKED (rli->t))
-    rli->record_align = record_align;
-#endif
 }
 
 /* Make a TRANSFORM_EXPR to later expand GNAT_NODE into code.  */
@@ -751,7 +724,7 @@ record_code_position (gnat_node)
        addressable needs some fixups and also for above reason.  */
     save_gnu_tree (gnat_node,
 		   build (RTL_EXPR, void_type_node, NULL_TREE,
-			  (tree) emit_note (0, NOTE_INSN_DELETED)),
+			  (tree) emit_note (NOTE_INSN_DELETED)),
 		   1);
 }
 

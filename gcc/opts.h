@@ -26,7 +26,6 @@ extern void decode_options (unsigned int argc, const char **argv);
 struct cl_option
 {
   const char *opt_text;
-  const char *help;
   unsigned short back_chain;
   unsigned char opt_len;
   unsigned int flags;
@@ -42,6 +41,5 @@ extern const char *const lang_names[];
 #define CL_MISSING_OK		(1 << 27) /* Missing argument OK (joined).  */
 #define CL_UINTEGER		(1 << 28) /* Argument is an integer >=0.  */
 #define CL_COMMON		(1 << 29) /* Language-independent.  */
-#define CL_UNDOCUMENTED		(1 << 30) /* Do not output with --help.  */
 
 #endif

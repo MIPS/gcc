@@ -97,7 +97,11 @@ extern int target_flags;
 /* configure can arrange to make this 2, to force a 486.  */
 
 #ifndef TARGET_CPU_DEFAULT
+#ifdef TARGET_64BIT_DEFAULT
+#define TARGET_CPU_DEFAULT TARGET_CPU_DEFAULT_k8
+#else
 #define TARGET_CPU_DEFAULT 0
+#endif
 #endif
 
 /* Masks for the -m switches */
@@ -117,11 +121,13 @@ extern int target_flags;
 #define MASK_MMX		0x00002000	/* Support MMX regs/builtins */
 #define MASK_SSE		0x00004000	/* Support SSE regs/builtins */
 #define MASK_SSE2		0x00008000	/* Support SSE2 regs/builtins */
-#define MASK_3DNOW		0x00010000	/* Support 3Dnow builtins */
-#define MASK_3DNOW_A		0x00020000	/* Support Athlon 3Dnow builtins */
-#define MASK_128BIT_LONG_DOUBLE 0x00040000	/* long double size is 128bit */
-#define MASK_64BIT		0x00080000	/* Produce 64bit code */
-#define MASK_MS_BITFIELD_LAYOUT 0x00100000	/* Use native (MS) bitfield layout */
+#define MASK_PNI		0x00010000	/* Support PNI regs/builtins */
+#define MASK_3DNOW		0x00020000	/* Support 3Dnow builtins */
+#define MASK_3DNOW_A		0x00040000	/* Support Athlon 3Dnow builtins */
+#define MASK_128BIT_LONG_DOUBLE 0x00080000	/* long double size is 128bit */
+#define MASK_64BIT		0x00100000	/* Produce 64bit code */
+#define MASK_MS_BITFIELD_LAYOUT 0x00200000	/* Use native (MS) bitfield layout */
+#define MASK_TLS_DIRECT_SEG_REFS 0x00400000	/* Avoid adding %gs:0  */
 
 /* Unused:			0x03e0000	*/
 
@@ -200,6 +206,9 @@ extern int target_flags;
 #endif
 #endif
 #endif
+
+/* Avoid adding %gs:0 in TLS references; use %gs:address directly.  */
+#define TARGET_TLS_DIRECT_SEG_REFS (target_flags & MASK_TLS_DIRECT_SEG_REFS)
 
 #define TARGET_386 (ix86_tune == PROCESSOR_I386)
 #define TARGET_486 (ix86_tune == PROCESSOR_I486)
@@ -292,8 +301,9 @@ extern int x86_prefetch_sse;
 
 #define ASSEMBLER_DIALECT (ix86_asm_dialect)
 
-#define TARGET_SSE ((target_flags & (MASK_SSE | MASK_SSE2)) != 0)
+#define TARGET_SSE ((target_flags & MASK_SSE) != 0)
 #define TARGET_SSE2 ((target_flags & MASK_SSE2) != 0)
+#define TARGET_PNI ((target_flags & MASK_PNI) != 0)
 #define TARGET_SSE_MATH ((ix86_fpmath & FPMATH_SSE) != 0)
 #define TARGET_MIX_SSE_I387 ((ix86_fpmath & FPMATH_SSE) \
 			     && (ix86_fpmath & FPMATH_387))
@@ -389,6 +399,10 @@ extern int x86_prefetch_sse;
     N_("Support MMX, SSE and SSE2 built-in functions and code generation") }, \
   { "no-sse2",			 -MASK_SSE2,				      \
     N_("Do not support MMX, SSE and SSE2 built-in functions and code generation") },    \
+  { "pni",			 MASK_PNI,				      \
+    N_("Support MMX, SSE, SSE2 and PNI built-in functions and code generation") },\
+  { "no-pni",			 -MASK_PNI,				      \
+    N_("Do not support MMX, SSE, SSE2 and PNI built-in functions and code generation") },\
   { "128bit-long-double",	 MASK_128BIT_LONG_DOUBLE,		      \
     N_("sizeof(long double) is 16") },					      \
   { "96bit-long-double",	-MASK_128BIT_LONG_DOUBLE,		      \
@@ -405,11 +419,20 @@ extern int x86_prefetch_sse;
     N_("Use red-zone in the x86-64 code") },				      \
   { "no-red-zone",		MASK_NO_RED_ZONE,			      \
     N_("Do not use red-zone in the x86-64 code") },			      \
+  { "tls-direct-seg-refs",	MASK_TLS_DIRECT_SEG_REFS,		      \
+    N_("Use direct references against %gs when accessing tls data") },	      \
+  { "no-tls-direct-seg-refs",	-MASK_TLS_DIRECT_SEG_REFS,		      \
+    N_("Do not use direct references against %gs when accessing tls data") }, \
   SUBTARGET_SWITCHES							      \
-  { "", TARGET_DEFAULT | TARGET_64BIT_DEFAULT | TARGET_SUBTARGET_DEFAULT, 0 }}
+  { "",									      \
+    TARGET_DEFAULT | TARGET_64BIT_DEFAULT | TARGET_SUBTARGET_DEFAULT	      \
+    | TARGET_TLS_DIRECT_SEG_REFS_DEFAULT, 0 }}
 
 #ifndef TARGET_64BIT_DEFAULT
 #define TARGET_64BIT_DEFAULT 0
+#endif
+#ifndef TARGET_TLS_DIRECT_SEG_REFS_DEFAULT
+#define TARGET_TLS_DIRECT_SEG_REFS_DEFAULT 0
 #endif
 
 /* Once GDB has been enhanced to deal with functions without frame
@@ -482,6 +505,12 @@ extern int x86_prefetch_sse;
 /* Define this to change the optimizations performed by default.  */
 #define OPTIMIZATION_OPTIONS(LEVEL, SIZE) \
   optimization_options ((LEVEL), (SIZE))
+
+/* Support for configure-time defaults of some command line options.  */
+#define OPTION_DEFAULT_SPECS \
+  {"arch", "%{!march=*:-march=%(VALUE)}"}, \
+  {"tune", "%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}" }, \
+  {"cpu", "%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}" }
 
 /* Specs for the compiler proper */
 
@@ -588,6 +617,8 @@ extern int x86_prefetch_sse;
 	builtin_define ("__SSE__");				\
       if (TARGET_SSE2)						\
 	builtin_define ("__SSE2__");				\
+      if (TARGET_PNI)						\
+	builtin_define ("__PNI__");				\
       if (TARGET_SSE_MATH && TARGET_SSE)			\
 	builtin_define ("__SSE_MATH__");			\
       if (TARGET_SSE_MATH && TARGET_SSE2)			\
@@ -1092,6 +1123,9 @@ do {									\
 	       && (TARGET_64BIT || !TARGET_PARTIAL_REG_STALL))	\
 	   || ((MODE2) == DImode && TARGET_64BIT))))
 
+/* It is possible to write patterns to move flags; but until someone
+   does it,  */
+#define AVOID_CCMODE_COPIES
 
 /* Specify the modes required to caller save a given hard regno.
    We do this on i386 to prevent flags from being saved at all.
@@ -1214,7 +1248,7 @@ do {									\
 #define RETURN_IN_MEMORY(TYPE) \
   ix86_return_in_memory (TYPE)
 
-/* This is overriden by <cygwin.h>.  */
+/* This is overridden by <cygwin.h>.  */
 #define MS_AGGREGATE_RETURN 0
 
 
@@ -1806,11 +1840,8 @@ typedef struct ix86_args {
 #define EXPAND_BUILTIN_VA_ARG(VALIST, TYPE) \
   ix86_va_arg ((VALIST), (TYPE))
 
-/* This macro is invoked at the end of compilation.  It is used here to
-   output code for -fpic that will load the return address into %ebx.  */
-
-#undef ASM_FILE_END
-#define ASM_FILE_END(FILE)  ix86_asm_file_end (FILE)
+#define TARGET_ASM_FILE_END ix86_file_end
+#define NEED_INDICATE_EXEC_STACK 0
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
@@ -2496,6 +2527,22 @@ enum ix86_builtins
   IX86_BUILTIN_MFENCE,
   IX86_BUILTIN_LFENCE,
 
+  /* Prescott New Instructions.  */
+  IX86_BUILTIN_ADDSUBPS,
+  IX86_BUILTIN_HADDPS,
+  IX86_BUILTIN_HSUBPS,
+  IX86_BUILTIN_MOVSHDUP,
+  IX86_BUILTIN_MOVSLDUP,
+  IX86_BUILTIN_ADDSUBPD,
+  IX86_BUILTIN_HADDPD,
+  IX86_BUILTIN_HSUBPD,
+  IX86_BUILTIN_LOADDDUP,
+  IX86_BUILTIN_MOVDDUP,
+  IX86_BUILTIN_LDDQU,
+
+  IX86_BUILTIN_MONITOR,
+  IX86_BUILTIN_MWAIT,
+
   IX86_BUILTIN_MAX
 };
 
@@ -2556,11 +2603,6 @@ enum ix86_builtins
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
-
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-
-#define STORE_FLAG_VALUE 1
 
 /* When a prototype says `char' or `short', really pass an `int'.
    (The 386 can't easily push less than an int.)  */
@@ -2652,12 +2694,6 @@ do {							\
    If the value of this macro is always zero, it need not be defined.  */
 
 /* #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) 0 */
-
-/* Define this macro to inhibit strength reduction of memory
-   addresses.  (On some machines, such strength reduction seems to do
-   harm rather than good.)  */
-
-/* #define DONT_REDUCE_ADDR */
 
 /* Define this macro if it is as good or better to call a constant
    function address than to call an address kept in a register.
@@ -3028,6 +3064,8 @@ do {						\
   {"register_and_not_fp_reg_operand", {REG}},				\
   {"zero_extended_scalar_load_operand", {MEM}},				\
   {"vector_move_operand", {CONST_VECTOR, SUBREG, REG, MEM}},		\
+  {"no_seg_address_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF, \
+			      LABEL_REF, SUBREG, REG, MEM, PLUS, MULT}},
 
 /* A list of predicates that do special things with modes, and so
    should not elicit warnings for VOIDmode match_operand.  */
@@ -3217,6 +3255,10 @@ struct machine_function GTY(())
 #define ix86_stack_locals (cfun->machine->stack_locals)
 #define ix86_save_varrargs_registers (cfun->machine->save_varrargs_registers)
 #define ix86_optimize_mode_switching (cfun->machine->optimize_mode_switching)
+
+/* Control behavior of x86_file_start.  */
+#define X86_FILE_START_VERSION_DIRECTIVE false
+#define X86_FILE_START_FLTUSED false
 
 /*
 Local variables:

@@ -3,20 +3,20 @@
    Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc and Ubicom, Inc.
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify
+   GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   GNU CC is distributed in the hope that it will be useful,
+   GCC is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
+   along with GCC; see the file COPYING.  If not, write to
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
@@ -110,12 +110,6 @@ const struct attribute_spec ip2k_attribute_table[];
 #define TARGET_MACHINE_DEPENDENT_REORG ip2k_reorg
 
 struct gcc_target targetm = TARGET_INITIALIZER;
-
-/* Commands in the functions prologues in the compiled file.  */
-static int commands_in_prologues;
-
-/* Commands in the functions epilogues in the compiled file.  */
-static int commands_in_epilogues;
 
 /* Prologue/Epilogue size in words.  */
 static int prologue_size;
@@ -536,8 +530,6 @@ function_epilogue (file, size)
     }
   
   fprintf (file, "/* epilogue end (size=%d) */\n", epilogue_size);
-  commands_in_prologues += prologue_size;
-  commands_in_epilogues += epilogue_size;
 }
 
 /* Return the difference between the registers after the function
@@ -3242,32 +3234,6 @@ ip2k_handle_fndecl_attribute (node, name, args, flags, no_add_attrs)
   return NULL_TREE;
 }
 
-/* Outputs to the stdio stream FILE some
-   appropriate text to go at the start of an assembler file.  */
-
-void
-asm_file_start (file)
-     FILE *file;
-{
-  output_file_directive (file, main_input_filename);
-  
-  commands_in_prologues = 0;
-  commands_in_epilogues = 0;
-}
-
-/* Outputs to the stdio stream FILE some
-   appropriate text to go at the end of an assembler file.  */
-
-void
-asm_file_end (file)
-     FILE *file;
-{
-  fprintf
-    (file,
-     "/* File %s: prologues %3d, epilogues %3d */\n",
-     main_input_filename, commands_in_prologues, commands_in_epilogues);
-}
-
 /* Cost functions.  */
 
 /* Compute a (partial) cost for rtx X.  Return true if the complete
@@ -5393,7 +5359,7 @@ ip2k_reorg ()
 	  || GET_CODE (insn) == BARRIER)
 	continue;
 
-      if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+      if (!INSN_P (insn))
 	continue;
 
       body = PATTERN (insn);

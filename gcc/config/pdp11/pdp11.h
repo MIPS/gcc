@@ -918,11 +918,6 @@ extern int may_call_alloca;
 #define SELECT_CC_MODE(OP,X,Y)	\
 (GET_MODE_CLASS(GET_MODE(X)) == MODE_FLOAT? CCFPmode : CCmode)
 
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-
-/* #define STORE_FLAG_VALUE 1 */
-
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
@@ -995,20 +990,6 @@ extern struct rtx_def *cc0_reg_rtx;
 
 /* Control the assembler format that we output.  */
 
-/* Output at beginning of assembler file.  */
-
-#if 0
-#define ASM_FILE_START(FILE) \
-(								\
-fprintf (FILE, "\t.data\n"),					\
-fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
-/* do we need reg def's R0 = %0 etc ??? */			\
-)
-#else
-#define ASM_FILE_START(FILE)
-#endif
-
-
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
 
@@ -1047,7 +1028,7 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
    This is suitable for output with `assemble_name'.  */
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
-  sprintf (LABEL, "*%s_%d", PREFIX, NUM)
+  sprintf (LABEL, "*%s_%lu", PREFIX, (unsigned long)(NUM))
 
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)  \
   output_ascii (FILE, P, SIZE)

@@ -26,7 +26,7 @@ Boston, MA 02111-1307, USA.  */
    whatever definitions are necessary.  */
 
 /* Target CPU builtins.  FIXME: Defining sparc is for the benefit of
-   Solaris only; otheriwse just define __sparc__.  Sadly the headers
+   Solaris only; otherwise just define __sparc__.  Sadly the headers
    are such a mess there is no Solaris-specific header.  */
 #define TARGET_CPU_CPP_BUILTINS()		\
   do						\
@@ -336,7 +336,7 @@ extern enum cmodel sparc_cmodel;
 /* Special flags to the Sun-4 assembler when using pipe for input.  */
 
 #define ASM_SPEC "\
-%{R} %{!pg:%{!p:%{fpic:-k} %{fPIC:-k}}} %{keep-local-as-symbols:-L} \
+%{R} %{!pg:%{!p:%{fpic|fPIC|fpie|fPIE:-k}}} %{keep-local-as-symbols:-L} \
 %(asm_cpu) %(asm_relax)"
 
 #define AS_NEEDS_DASH_FOR_PIPED_INPUT
@@ -655,6 +655,16 @@ extern enum processor_type sparc_cpu;
 
 /* This is meant to be redefined in target specific files.  */
 #define SUBTARGET_OPTIONS
+
+/* Support for a compile-time default CPU, et cetera.  The rules are:
+   --with-cpu is ignored if -mcpu is specified.
+   --with-tune is ignored if -mtune is specified.
+   --with-float is ignored if -mhard-float, -msoft-float, -mfpu, or -mno-fpu
+     are specified.  */
+#define OPTION_DEFAULT_SPECS \
+  {"cpu", "%{!mcpu=*:-mcpu=%(VALUE)}" }, \
+  {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
+  {"float", "%{!msoft-float:%{!mhard-float:%{!fpu:%{!no-fpu:-m%(VALUE)-float}}}}" }
 
 /* sparc_select[0] is reserved for the default cpu.  */
 struct sparc_cpu_select
@@ -1033,7 +1043,7 @@ while (0)
       : (GET_MODE_SIZE (MODE) + 3) / 4)					\
    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
-/* Due to the ARCH64 descrepancy above we must override this next
+/* Due to the ARCH64 discrepancy above we must override this next
    macro too.  */
 #define REGMODE_NATURAL_SIZE(MODE) \
   ((TARGET_ARCH64 && FLOAT_MODE_P (MODE)) ? 4 : UNITS_PER_WORD)
@@ -1268,7 +1278,7 @@ extern enum reg_class sparc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 
    We know in this case that we will not end up with a leaf function.
 
-   The register allocater is given the global and out registers first
+   The register allocator is given the global and out registers first
    because these registers are call clobbered and thus less useful to
    global register allocation.
 
@@ -1381,7 +1391,8 @@ extern char leaf_reg_remap[];
    `K' is used for constants which can be loaded with a single sethi insn.
    `L' is used for the range of constants supported by the movcc insns.
    `M' is used for the range of constants supported by the movrcc insns.
-   `N' is like K, but for constants wider than 32 bits.  */
+   `N' is like K, but for constants wider than 32 bits.
+   `O' is used for the range which is just 4096.  */
 
 #define SPARC_SIMM10_P(X) ((unsigned HOST_WIDE_INT) (X) + 0x200 < 0x400)
 #define SPARC_SIMM11_P(X) ((unsigned HOST_WIDE_INT) (X) + 0x400 < 0x800)
@@ -1405,6 +1416,7 @@ extern char leaf_reg_remap[];
    : (C) == 'L' ? SPARC_SIMM11_P (VALUE)		\
    : (C) == 'M' ? SPARC_SIMM10_P (VALUE)		\
    : (C) == 'N' ? SPARC_SETHI_P (VALUE)			\
+   : (C) == 'O' ? (VALUE) == 4096			\
    : 0)
 
 /* Similar, but for floating constants, and defining letters G and H.
@@ -1413,6 +1425,7 @@ extern char leaf_reg_remap[];
 #define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)	\
   ((C) == 'G' ? fp_zero_operand (VALUE, GET_MODE (VALUE))	\
    : (C) == 'H' ? arith_double_operand (VALUE, DImode)		\
+   : (C) == 'O' ? arith_double_4096_operand (VALUE, DImode)	\
    : 0)
 
 /* Given an rtx X being reloaded into a reg required to be
@@ -2476,11 +2489,6 @@ do {                                                                    \
    and maybe make use of that.  */
 #define SLOW_BYTE_ACCESS 1
 
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-
-#define STORE_FLAG_VALUE 1
-
 /* When a prototype says `char' or `short', really pass an `int'.  */
 #define PROMOTE_PROTOTYPES (TARGET_ARCH32)
 
@@ -2659,10 +2667,6 @@ do {                                                                    \
             ? 8 : 3))
 
 /* Control the assembler format that we output.  */
-
-/* Output at beginning of assembler file.  */
-
-#define ASM_FILE_START(file)
 
 /* A C string constant describing how to begin a comment in the target
    assembler language.  The compiler assumes that the comment will end at

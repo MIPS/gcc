@@ -82,34 +82,10 @@ Boston, MA 02111-1307, USA.  */
 /* Assembler format: exception region output.  */
 
 /* All configurations that don't use elf must be explicit about not using
-   dwarf unwind information. egcs doesn't try too hard to check internal
-   configuration files...  */
+   dwarf unwind information. */
 #ifdef INCOMING_RETURN_ADDR_RTX
 #undef DWARF2_UNWIND_INFO
 #define DWARF2_UNWIND_INFO 0
-#endif
-
-/* Assembler format: file framework.  */
-
-/* Taken from alpha/osf.h. This used to be common to all alpha
-   configurations, but elf has departed from it.
-   Check alpha/alpha.h, alpha/osf.h for it when egcs is upgraded.  */
-#ifndef ASM_FILE_START
-#define ASM_FILE_START(FILE)					\
-{								\
-  alpha_write_verstamp (FILE);					\
-  fprintf (FILE, "\t.set noreorder\n");				\
-  fprintf (FILE, "\t.set volatile\n");                          \
-  fprintf (FILE, "\t.set noat\n");				\
-  if (TARGET_SUPPORT_ARCH)					\
-    fprintf (FILE, "\t.arch %s\n",				\
-             TARGET_CPU_EV6 ? "ev6"				\
-	     : (TARGET_CPU_EV5					\
-		? (TARGET_MAX ? "pca56" : TARGET_BWX ? "ev56" : "ev5") \
-		: "ev4"));					\
-								\
-  ASM_OUTPUT_SOURCE_FILENAME (FILE, main_input_filename);	\
-}
 #endif
 
 /* Assembler format: label output.  */

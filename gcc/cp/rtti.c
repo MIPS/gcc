@@ -76,31 +76,31 @@ Boston, MA 02111-1307, USA.  */
 /* A varray of all tinfo decls that haven't yet been emitted. */
 varray_type unemitted_tinfo_decls;
 
-static tree build_headof PARAMS((tree));
-static tree ifnonnull PARAMS((tree, tree));
-static tree tinfo_name PARAMS((tree));
-static tree build_dynamic_cast_1 PARAMS((tree, tree));
-static tree throw_bad_cast PARAMS((void));
-static tree throw_bad_typeid PARAMS((void));
-static tree get_tinfo_decl_dynamic PARAMS((tree));
-static tree get_tinfo_ptr PARAMS((tree));
-static bool typeid_ok_p PARAMS((void));
-static int qualifier_flags PARAMS((tree));
+static tree build_headof (tree);
+static tree ifnonnull (tree, tree);
+static tree tinfo_name (tree);
+static tree build_dynamic_cast_1 (tree, tree);
+static tree throw_bad_cast (void);
+static tree throw_bad_typeid (void);
+static tree get_tinfo_decl_dynamic (tree);
+static tree get_tinfo_ptr (tree);
+static bool typeid_ok_p (void);
+static int qualifier_flags (tree);
 static bool target_incomplete_p (tree);
-static tree tinfo_base_init PARAMS((tree, tree));
-static tree generic_initializer PARAMS((tree, tree));
+static tree tinfo_base_init (tree, tree);
+static tree generic_initializer (tree, tree);
 static tree ptr_initializer (tree, tree, bool *);
 static tree ptm_initializer (tree, tree, bool *);
-static tree dfs_class_hint_mark PARAMS ((tree, void *));
-static tree dfs_class_hint_unmark PARAMS ((tree, void *));
-static int class_hint_flags PARAMS((tree));
-static tree class_initializer PARAMS((tree, tree, tree));
-static tree create_pseudo_type_info PARAMS((const char *, int, ...));
-static tree get_pseudo_ti_init PARAMS ((tree, tree, bool *));
-static tree get_pseudo_ti_desc PARAMS((tree));
-static void create_tinfo_types PARAMS((void));
+static tree dfs_class_hint_mark (tree, void *);
+static tree dfs_class_hint_unmark (tree, void *);
+static int class_hint_flags (tree);
+static tree class_initializer (tree, tree, tree);
+static tree create_pseudo_type_info (const char *, int, ...);
+static tree get_pseudo_ti_init (tree, tree, bool *);
+static tree get_pseudo_ti_desc (tree);
+static void create_tinfo_types (void);
 static bool typeinfo_in_lib_p (tree);
-static bool unemitted_tinfo_decl_p PARAMS((tree));
+static bool unemitted_tinfo_decl_p (tree);
 
 static int doing_runtime = 0;
 
@@ -364,9 +364,8 @@ get_tinfo_decl (tree type)
       DECL_EXTERNAL (d) = 1;
       SET_DECL_ASSEMBLER_NAME (d, name);
       DECL_COMDAT (d) = 1;
-      cp_finish_decl (d, NULL_TREE, NULL_TREE, 0);
 
-      pushdecl_top_level (d);
+      pushdecl_top_level_and_finish (d, NULL_TREE);
 
       if (CLASS_TYPE_P (type))
 	CLASSTYPE_TYPEINFO_VAR (TYPE_MAIN_VARIANT (type)) = d;
@@ -388,8 +387,11 @@ get_tinfo_decl (tree type)
 static tree
 get_tinfo_ptr (tree type)
 {
+  tree decl = get_tinfo_decl (type);
+
+  mark_used (decl);
   return build_nop (type_info_ptr_type, 
-		    build_address (get_tinfo_decl (type)));
+		    build_address (decl));
 }
 
 /* Return the type_info object for TYPE.  */
@@ -469,12 +471,6 @@ build_dynamic_cast_1 (tree type, tree expr)
     default:
       errstr = "target is not pointer or reference";
       goto fail;
-    }
-
-  if (TREE_CODE (expr) == OFFSET_REF)
-    {
-      expr = resolve_offset_ref (expr);
-      exprtype = TREE_TYPE (expr);
     }
 
   if (tc == POINTER_TYPE)
@@ -613,8 +609,12 @@ build_dynamic_cast_1 (tree type, tree expr)
 
 	  target_type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
 	  static_type = TYPE_MAIN_VARIANT (TREE_TYPE (exprtype));
-	  td2 = build_unary_op (ADDR_EXPR, get_tinfo_decl (target_type), 0);
-	  td3 = build_unary_op (ADDR_EXPR, get_tinfo_decl (static_type), 0);
+	  td2 = get_tinfo_decl (target_type);
+	  mark_used (td2);
+	  td2 = build_unary_op (ADDR_EXPR, td2, 0);
+	  td3 = get_tinfo_decl (static_type);
+	  mark_used (td3);
+	  td3 = build_unary_op (ADDR_EXPR, td3, 0);
 
           /* Determine how T and V are related.  */
           boff = get_dynamic_cast_base_type (static_type, target_type);
@@ -770,8 +770,8 @@ tinfo_base_init (tree desc, tree target)
     SET_DECL_ASSEMBLER_NAME (name_decl,
 			     mangle_typeinfo_string_for_type (target));
     DECL_INITIAL (name_decl) = name_string;
-    cp_finish_decl (name_decl, name_string, NULL_TREE, 0);
-    pushdecl_top_level (name_decl);
+    mark_used (name_decl);
+    pushdecl_top_level_and_finish (name_decl, name_string);
   }
 
   vtable_ptr = TINFO_VTABLE_DECL (desc);
@@ -1463,6 +1463,7 @@ emit_tinfo_decl (tree decl)
     DECL_COMDAT (decl) = 0;
 
   DECL_INITIAL (decl) = var_init;
+  mark_used (decl);
   cp_finish_decl (decl, var_init, NULL_TREE, 0);
   /* cp_finish_decl will have dealt with linkage.  */
   

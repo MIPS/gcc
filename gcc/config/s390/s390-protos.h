@@ -2,22 +2,22 @@
    Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* Declare functions in s390.c.  */
 
@@ -29,7 +29,7 @@ extern void s390_emit_epilogue PARAMS ((void));
 extern void s390_function_profiler PARAMS ((FILE *, int));
 
 #ifdef RTX_CODE
-extern int q_constraint PARAMS ((rtx));
+extern int s390_extra_constraint PARAMS ((rtx, int));
 extern int const0_operand PARAMS ((rtx, enum machine_mode));
 extern int consttable_operand PARAMS ((rtx, enum machine_mode));
 extern int larl_operand PARAMS ((rtx, enum machine_mode));
@@ -42,6 +42,7 @@ extern int s390_single_hi PARAMS ((rtx, enum machine_mode, int));
 extern int s390_extract_hi PARAMS ((rtx, enum machine_mode, int));
 extern int s390_single_qi PARAMS ((rtx, enum machine_mode, int));
 extern int s390_extract_qi PARAMS ((rtx, enum machine_mode, int));
+extern bool s390_split_ok_p PARAMS ((rtx, rtx, enum machine_mode, int));
 extern int tls_symbolic_operand PARAMS ((rtx));
 
 extern int s390_match_ccmode PARAMS ((rtx, enum machine_mode));
@@ -60,6 +61,7 @@ extern rtx legitimize_pic_address PARAMS ((rtx, rtx));
 extern rtx legitimize_address PARAMS ((rtx, rtx, enum machine_mode));
 extern enum reg_class s390_preferred_reload_class PARAMS ((rtx, enum reg_class));
 extern enum reg_class s390_secondary_input_reload_class PARAMS ((enum reg_class, enum machine_mode, rtx));
+extern enum reg_class s390_secondary_output_reload_class PARAMS ((enum reg_class, enum machine_mode, rtx));
 extern int s390_plus_operand PARAMS ((rtx, enum machine_mode));
 extern void s390_expand_plus_operand PARAMS ((rtx, rtx, rtx));
 extern void emit_symbolic_move PARAMS ((rtx *));

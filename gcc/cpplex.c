@@ -1,5 +1,5 @@
 /* CPP Library - lexical analysis.
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -44,7 +44,7 @@ static const unsigned char *const digraph_spellings[] =
 { U"%:", U"%:%:", U"<:", U":>", U"<%", U"%>" };
 
 #define OP(e, s) { SPELL_OPERATOR, U s           },
-#define TK(e, s) { s,              U STRINGX (e) },
+#define TK(e, s) { s,              U #e },
 static const struct token_spelling token_spellings[N_TTYPES] = { TTYPE_TABLE };
 #undef OP
 #undef TK
@@ -52,24 +52,21 @@ static const struct token_spelling token_spellings[N_TTYPES] = { TTYPE_TABLE };
 #define TOKEN_SPELL(token) (token_spellings[(token)->type].category)
 #define TOKEN_NAME(token) (token_spellings[(token)->type].name)
 
-static void add_line_note PARAMS ((cpp_buffer *, const uchar *, unsigned int));
-static int skip_line_comment PARAMS ((cpp_reader *));
-static void skip_whitespace PARAMS ((cpp_reader *, cppchar_t));
-static cpp_hashnode *lex_identifier PARAMS ((cpp_reader *, const uchar *));
-static void lex_number PARAMS ((cpp_reader *, cpp_string *));
-static bool forms_identifier_p PARAMS ((cpp_reader *, int));
-static void lex_string PARAMS ((cpp_reader *, cpp_token *, const uchar *));
-static void save_comment PARAMS ((cpp_reader *, cpp_token *, const uchar *,
-				  cppchar_t));
-static void create_literal PARAMS ((cpp_reader *, cpp_token *, const uchar *,
-				    unsigned int, enum cpp_ttype));
-static bool warn_in_comment PARAMS ((cpp_reader *, _cpp_line_note *));
-static int name_p PARAMS ((cpp_reader *, const cpp_string *));
-static cppchar_t maybe_read_ucn PARAMS ((cpp_reader *, const uchar **));
-static tokenrun *next_tokenrun PARAMS ((tokenrun *));
+static void add_line_note (cpp_buffer *, const uchar *, unsigned int);
+static int skip_line_comment (cpp_reader *);
+static void skip_whitespace (cpp_reader *, cppchar_t);
+static cpp_hashnode *lex_identifier (cpp_reader *, const uchar *);
+static void lex_number (cpp_reader *, cpp_string *);
+static bool forms_identifier_p (cpp_reader *, int);
+static void lex_string (cpp_reader *, cpp_token *, const uchar *);
+static void save_comment (cpp_reader *, cpp_token *, const uchar *, cppchar_t);
+static void create_literal (cpp_reader *, cpp_token *, const uchar *,
+			    unsigned int, enum cpp_ttype);
+static bool warn_in_comment (cpp_reader *, _cpp_line_note *);
+static int name_p (cpp_reader *, const cpp_string *);
+static tokenrun *next_tokenrun (tokenrun *);
 
-static unsigned int hex_digit_value PARAMS ((unsigned int));
-static _cpp_buff *new_buff PARAMS ((size_t));
+static _cpp_buff *new_buff (size_t);
 
 
 /* Utility routine:
@@ -77,9 +74,7 @@ static _cpp_buff *new_buff PARAMS ((size_t));
    Compares, the token TOKEN to the NUL-terminated string STRING.
    TOKEN must be a CPP_NAME.  Returns 1 for equal, 0 for unequal.  */
 int
-cpp_ideq (token, string)
-     const cpp_token *token;
-     const char *string;
+cpp_ideq (const cpp_token *token, const char *string)
 {
   if (token->type != CPP_NAME)
     return 0;
@@ -90,10 +85,7 @@ cpp_ideq (token, string)
 /* Record a note TYPE at byte POS into the current cleaned logical
    line.  */
 static void
-add_line_note (buffer, pos, type)
-     cpp_buffer *buffer;
-     const uchar *pos;
-     unsigned int type;
+add_line_note (cpp_buffer *buffer, const uchar *pos, unsigned int type)
 {
   if (buffer->notes_used == buffer->notes_cap)
     {
@@ -110,8 +102,7 @@ add_line_note (buffer, pos, type)
 /* Returns with a logical line that contains no escaped newlines or
    trigraphs.  This is a time-critical inner loop.  */
 void
-_cpp_clean_line (pfile)
-     cpp_reader *pfile;
+_cpp_clean_line (cpp_reader *pfile)
 {
   cpp_buffer *buffer;
   const uchar *s;
@@ -184,15 +175,13 @@ _cpp_clean_line (pfile)
 /* Return true if the trigraph indicated by NOTE should be warned
    about in a comment.  */
 static bool
-warn_in_comment (pfile, note)
-     cpp_reader *pfile;
-     _cpp_line_note *note;
+warn_in_comment (cpp_reader *pfile, _cpp_line_note *note)
 {
   const uchar *p;
 
   /* Within comments we don't warn about trigraphs, unless the
      trigraph forms an escaped newline, as that may change
-     behaviour.  */
+     behavior.  */
   if (note->type != '/')
     return false;
 
@@ -214,9 +203,7 @@ warn_in_comment (pfile, note)
 /* Process the notes created by add_line_note as far as the current
    location.  */
 void
-_cpp_process_line_notes (pfile, in_comment)
-     cpp_reader *pfile;
-     int in_comment;
+_cpp_process_line_notes (cpp_reader *pfile, int in_comment)
 {
   cpp_buffer *buffer = pfile->buffer;
 
@@ -275,8 +262,7 @@ _cpp_process_line_notes (pfile, in_comment)
 
    Buffer->cur points to the initial asterisk of the comment.  */
 bool
-_cpp_skip_block_comment (pfile)
-     cpp_reader *pfile;
+_cpp_skip_block_comment (cpp_reader *pfile)
 {
   cpp_buffer *buffer = pfile->buffer;
   cppchar_t c;
@@ -324,8 +310,7 @@ _cpp_skip_block_comment (pfile)
    terminating newline.  Handles escaped newlines.  Returns nonzero
    if a multiline comment.  */
 static int
-skip_line_comment (pfile)
-     cpp_reader *pfile;
+skip_line_comment (cpp_reader *pfile)
 {
   cpp_buffer *buffer = pfile->buffer;
   unsigned int orig_line = pfile->line;
@@ -339,9 +324,7 @@ skip_line_comment (pfile)
 
 /* Skips whitespace, saving the next non-whitespace character.  */
 static void
-skip_whitespace (pfile, c)
-     cpp_reader *pfile;
-     cppchar_t c;
+skip_whitespace (cpp_reader *pfile, cppchar_t c)
 {
   cpp_buffer *buffer = pfile->buffer;
   bool saw_NUL = false;
@@ -374,9 +357,7 @@ skip_whitespace (pfile, c)
 /* See if the characters of a number token are valid in a name (no
    '.', '+' or '-').  */
 static int
-name_p (pfile, string)
-     cpp_reader *pfile;
-     const cpp_string *string;
+name_p (cpp_reader *pfile, const cpp_string *string)
 {
   unsigned int i;
 
@@ -390,9 +371,7 @@ name_p (pfile, string)
 /* Returns TRUE if the sequence starting at buffer->cur is invalid in
    an identifier.  FIRST is TRUE if this starts an identifier.  */
 static bool
-forms_identifier_p (pfile, first)
-     cpp_reader *pfile;
-     int first;
+forms_identifier_p (cpp_reader *pfile, int first)
 {
   cpp_buffer *buffer = pfile->buffer;
 
@@ -402,9 +381,9 @@ forms_identifier_p (pfile, first)
 	return false;
 
       buffer->cur++;
-      if (pfile->warn_dollars && !pfile->state.skipping)
+      if (CPP_OPTION (pfile, warn_dollars) && !pfile->state.skipping)
 	{
-	  pfile->warn_dollars = false;
+	  CPP_OPTION (pfile, warn_dollars) = 0;
 	  cpp_error (pfile, DL_PEDWARN, "'$' in identifier or number");
 	}
 
@@ -416,7 +395,7 @@ forms_identifier_p (pfile, first)
       && (buffer->cur[1] == 'u' || buffer->cur[1] == 'U'))
     {
       buffer->cur += 2;
-      if (_cpp_valid_ucn (pfile, &buffer->cur, 1 + !first))
+      if (_cpp_valid_ucn (pfile, &buffer->cur, buffer->rlimit, 1 + !first))
 	return true;
       buffer->cur -= 2;
     }
@@ -426,9 +405,7 @@ forms_identifier_p (pfile, first)
 
 /* Lex an identifier starting at BUFFER->CUR - 1.  */
 static cpp_hashnode *
-lex_identifier (pfile, base)
-     cpp_reader *pfile;
-     const uchar *base;
+lex_identifier (cpp_reader *pfile, const uchar *base)
 {
   cpp_hashnode *result;
   const uchar *cur;
@@ -462,7 +439,8 @@ lex_identifier (pfile, base)
       if (result == pfile->spec_nodes.n__VA_ARGS__
 	  && !pfile->state.va_args_ok)
 	cpp_error (pfile, DL_PEDWARN,
-	"__VA_ARGS__ can only appear in the expansion of a C99 variadic macro");
+		   "__VA_ARGS__ can only appear in the expansion"
+		   " of a C99 variadic macro");
     }
 
   return result;
@@ -470,9 +448,7 @@ lex_identifier (pfile, base)
 
 /* Lex a number to NUMBER starting at BUFFER->CUR - 1.  */
 static void
-lex_number (pfile, number)
-     cpp_reader *pfile;
-     cpp_string *number;
+lex_number (cpp_reader *pfile, cpp_string *number)
 {
   const uchar *cur;
   const uchar *base;
@@ -500,12 +476,8 @@ lex_number (pfile, number)
 
 /* Create a token of type TYPE with a literal spelling.  */
 static void
-create_literal (pfile, token, base, len, type)
-     cpp_reader *pfile;
-     cpp_token *token;
-     const uchar *base;
-     unsigned int len;
-     enum cpp_ttype type;
+create_literal (cpp_reader *pfile, cpp_token *token, const uchar *base,
+		unsigned int len, enum cpp_ttype type)
 {
   uchar *dest = _cpp_unaligned_alloc (pfile, len + 1);
 
@@ -524,10 +496,7 @@ create_literal (pfile, token, base, len, type)
    The spelling is NUL-terminated, but it is not guaranteed that this
    is the first NUL since embedded NULs are preserved.  */
 static void
-lex_string (pfile, token, base)
-     cpp_reader *pfile;
-     cpp_token *token;
-     const uchar *base;
+lex_string (cpp_reader *pfile, cpp_token *token, const uchar *base)
 {
   bool saw_NUL = false;
   const uchar *cur;
@@ -573,11 +542,8 @@ lex_string (pfile, token, base)
 
 /* The stored comment includes the comment start and any terminator.  */
 static void
-save_comment (pfile, token, from, type)
-     cpp_reader *pfile;
-     cpp_token *token;
-     const unsigned char *from;
-     cppchar_t type;
+save_comment (cpp_reader *pfile, cpp_token *token, const unsigned char *from,
+	      cppchar_t type)
 {
   unsigned char *buffer;
   unsigned int len, clen;
@@ -617,9 +583,7 @@ save_comment (pfile, token, from, type)
 
 /* Allocate COUNT tokens for RUN.  */
 void
-_cpp_init_tokenrun (run, count)
-     tokenrun *run;
-     unsigned int count;
+_cpp_init_tokenrun (tokenrun *run, unsigned int count)
 {
   run->base = xnewvec (cpp_token, count);
   run->limit = run->base + count;
@@ -628,8 +592,7 @@ _cpp_init_tokenrun (run, count)
 
 /* Returns the next tokenrun, or creates one if there is none.  */
 static tokenrun *
-next_tokenrun (run)
-     tokenrun *run;
+next_tokenrun (tokenrun *run)
 {
   if (run->next == NULL)
     {
@@ -646,8 +609,7 @@ next_tokenrun (run)
    same as the last lexed token, so that diagnostics appear in the
    right place.  */
 cpp_token *
-_cpp_temp_token (pfile)
-     cpp_reader *pfile;
+_cpp_temp_token (cpp_reader *pfile)
 {
   cpp_token *old, *result;
 
@@ -668,8 +630,7 @@ _cpp_temp_token (pfile)
    like directive handling, token lookahead, multiple include
    optimization and skipping.  */
 const cpp_token *
-_cpp_lex_token (pfile)
-     cpp_reader *pfile;
+_cpp_lex_token (cpp_reader *pfile)
 {
   cpp_token *result;
 
@@ -701,7 +662,7 @@ _cpp_lex_token (pfile)
 	      && _cpp_handle_directive (pfile, result->flags & PREV_WHITE))
 	    continue;
 	  if (pfile->cb.line_change && !pfile->state.skipping)
-	    (*pfile->cb.line_change)(pfile, result, pfile->state.parsing_args);
+	    pfile->cb.line_change (pfile, result, pfile->state.parsing_args);
 	}
 
       /* We don't skip tokens in directives.  */
@@ -710,7 +671,7 @@ _cpp_lex_token (pfile)
 
       /* Outside a directive, invalidate controlling macros.  At file
 	 EOF, _cpp_lex_direct takes care of popping the buffer, so we never
-	 get here and MI optimisation works.  */
+	 get here and MI optimization works.  */
       pfile->mi_valid = false;
 
       if (!pfile->state.skipping || result->type == CPP_EOF)
@@ -722,8 +683,7 @@ _cpp_lex_token (pfile)
 
 /* Returns true if a fresh line has been loaded.  */
 bool
-_cpp_get_fresh_line (pfile)
-     cpp_reader *pfile;
+_cpp_get_fresh_line (cpp_reader *pfile)
 {
   /* We can't get a new line until we leave the current directive.  */
   if (pfile->state.in_directive)
@@ -784,7 +744,7 @@ _cpp_get_fresh_line (pfile)
    get diagnostics pointing to the correct location.
 
    Does not handle issues such as token lookahead, multiple-include
-   optimisation, directives, skipping etc.  This function is only
+   optimization, directives, skipping etc.  This function is only
    suitable for use by _cpp_lex_token, and in special cases like
    lex_expansion_token which doesn't care for any of these issues.
 
@@ -792,8 +752,7 @@ _cpp_get_fresh_line (pfile)
    otherwise returns to the start of the token buffer if permissible.
    Returns the location of the lexed token.  */
 cpp_token *
-_cpp_lex_direct (pfile)
-     cpp_reader *pfile;
+_cpp_lex_direct (cpp_reader *pfile)
 {
   cppchar_t c;
   cpp_buffer *buffer;
@@ -1128,8 +1087,7 @@ _cpp_lex_direct (pfile)
 /* An upper bound on the number of bytes needed to spell TOKEN.
    Does not include preceding whitespace.  */
 unsigned int
-cpp_token_len (token)
-     const cpp_token *token;
+cpp_token_len (const cpp_token *token)
 {
   unsigned int len;
 
@@ -1145,13 +1103,11 @@ cpp_token_len (token)
 
 /* Write the spelling of a token TOKEN to BUFFER.  The buffer must
    already contain the enough space to hold the token's spelling.
-   Returns a pointer to the character after the last character
-   written.  */
+   Returns a pointer to the character after the last character written.
+   FIXME: Would be nice if we didn't need the PFILE argument.  */
 unsigned char *
-cpp_spell_token (pfile, token, buffer)
-     cpp_reader *pfile;		/* Would be nice to be rid of this...  */
-     const cpp_token *token;
-     unsigned char *buffer;
+cpp_spell_token (cpp_reader *pfile, const cpp_token *token,
+		 unsigned char *buffer)
 {
   switch (TOKEN_SPELL (token))
     {
@@ -1195,9 +1151,7 @@ cpp_spell_token (pfile, token, buffer)
 /* Returns TOKEN spelt as a null-terminated string.  The string is
    freed when the reader is destroyed.  Useful for diagnostics.  */
 unsigned char *
-cpp_token_as_text (pfile, token)
-     cpp_reader *pfile;
-     const cpp_token *token;
+cpp_token_as_text (cpp_reader *pfile, const cpp_token *token)
 { 
   unsigned int len = cpp_token_len (token) + 1;
   unsigned char *start = _cpp_unaligned_alloc (pfile, len), *end;
@@ -1211,8 +1165,7 @@ cpp_token_as_text (pfile, token)
 /* Used by C front ends, which really should move to using
    cpp_token_as_text.  */
 const char *
-cpp_type2name (type)
-     enum cpp_ttype type;
+cpp_type2name (enum cpp_ttype type)
 {
   return (const char *) token_spellings[type].name;
 }
@@ -1221,9 +1174,7 @@ cpp_type2name (type)
    Separated from cpp_spell_token for efficiency - to avoid stdio
    double-buffering.  */
 void
-cpp_output_token (token, fp)
-     const cpp_token *token;
-     FILE *fp;
+cpp_output_token (const cpp_token *token, FILE *fp)
 {
   switch (TOKEN_SPELL (token))
     {
@@ -1264,8 +1215,7 @@ cpp_output_token (token, fp)
 
 /* Compare two tokens.  */
 int
-_cpp_equiv_tokens (a, b)
-     const cpp_token *a, *b;
+_cpp_equiv_tokens (const cpp_token *a, const cpp_token *b)
 {
   if (a->type == b->type && a->flags == b->flags)
     switch (TOKEN_SPELL (a))
@@ -1291,9 +1241,8 @@ _cpp_equiv_tokens (a, b)
    conservative, and occasionally advises a space where one is not
    needed, e.g. "." and ".2".  */
 int
-cpp_avoid_paste (pfile, token1, token2)
-     cpp_reader *pfile;
-     const cpp_token *token1, *token2;
+cpp_avoid_paste (cpp_reader *pfile, const cpp_token *token1,
+		 const cpp_token *token2)
 {
   enum cpp_ttype a = token1->type, b = token2->type;
   cppchar_t c;
@@ -1349,9 +1298,7 @@ cpp_avoid_paste (pfile, token1, token2)
    character, to FP.  Leading whitespace is removed.  If there are
    macros, special token padding is not performed.  */
 void
-cpp_output_line (pfile, fp)
-     cpp_reader *pfile;
-     FILE *fp;
+cpp_output_line (cpp_reader *pfile, FILE *fp)
 {
   const cpp_token *token;
 
@@ -1365,299 +1312,6 @@ cpp_output_line (pfile, fp)
     }
 
   putc ('\n', fp);
-}
-
-/* Returns the value of a hexadecimal digit.  */
-static unsigned int
-hex_digit_value (c)
-     unsigned int c;
-{
-  if (hex_p (c))
-    return hex_value (c);
-  else
-    abort ();
-}
-
-/* Read a possible universal character name starting at *PSTR.  */
-static cppchar_t
-maybe_read_ucn (pfile, pstr)
-     cpp_reader *pfile;
-     const uchar **pstr;
-{
-  cppchar_t result, c = (*pstr)[-1];
-
-  result = _cpp_valid_ucn (pfile, pstr, false);
-  if (result)
-    {
-      if (CPP_WTRADITIONAL (pfile))
-	cpp_error (pfile, DL_WARNING,
-		   "the meaning of '\\%c' is different in traditional C",
-		   (int) c);
-
-      if (CPP_OPTION (pfile, EBCDIC))
-	{
-	  cpp_error (pfile, DL_ERROR,
-		     "universal character with an EBCDIC target");
-	  result = 0x3f;  /* EBCDIC invalid character */
-	}
-    }
-
-  return result;
-}
-
-/* Returns the value of an escape sequence, truncated to the correct
-   target precision.  PSTR points to the input pointer, which is just
-   after the backslash.  LIMIT is how much text we have.  WIDE is true
-   if the escape sequence is part of a wide character constant or
-   string literal.  Handles all relevant diagnostics.  */
-cppchar_t
-cpp_parse_escape (pfile, pstr, limit, wide)
-     cpp_reader *pfile;
-     const unsigned char **pstr;
-     const unsigned char *limit;
-     int wide;
-{
-  /* Values of \a \b \e \f \n \r \t \v respectively.  */
-  static const uchar ascii[]  = {  7,  8, 27, 12, 10, 13,  9, 11 };
-  static const uchar ebcdic[] = { 47, 22, 39, 12, 21, 13,  5, 11 };
-
-  int unknown = 0;
-  const unsigned char *str = *pstr, *charconsts;
-  cppchar_t c, ucn, mask;
-  unsigned int width;
-
-  if (CPP_OPTION (pfile, EBCDIC))
-    charconsts = ebcdic;
-  else
-    charconsts = ascii;
-
-  if (wide)
-    width = CPP_OPTION (pfile, wchar_precision);
-  else
-    width = CPP_OPTION (pfile, char_precision);
-  if (width < BITS_PER_CPPCHAR_T)
-    mask = ((cppchar_t) 1 << width) - 1;
-  else
-    mask = ~0;
-
-  c = *str++;
-  switch (c)
-    {
-    case '\\': case '\'': case '"': case '?': break;
-    case 'b': c = charconsts[1];  break;
-    case 'f': c = charconsts[3];  break;
-    case 'n': c = charconsts[4];  break;
-    case 'r': c = charconsts[5];  break;
-    case 't': c = charconsts[6];  break;
-    case 'v': c = charconsts[7];  break;
-
-    case '(': case '{': case '[': case '%':
-      /* '\(', etc, are used at beginning of line to avoid confusing Emacs.
-	 '\%' is used to prevent SCCS from getting confused.  */
-      unknown = CPP_PEDANTIC (pfile);
-      break;
-
-    case 'a':
-      if (CPP_WTRADITIONAL (pfile))
-	cpp_error (pfile, DL_WARNING,
-		   "the meaning of '\\a' is different in traditional C");
-      c = charconsts[0];
-      break;
-
-    case 'e': case 'E':
-      if (CPP_PEDANTIC (pfile))
-	cpp_error (pfile, DL_PEDWARN,
-		   "non-ISO-standard escape sequence, '\\%c'", (int) c);
-      c = charconsts[2];
-      break;
-
-    case 'u': case 'U':
-      ucn = maybe_read_ucn (pfile, &str);
-      if (ucn)
-	c = ucn;
-      else
-	unknown = true;
-      break;
-
-    case 'x':
-      if (CPP_WTRADITIONAL (pfile))
-	cpp_error (pfile, DL_WARNING,
-		   "the meaning of '\\x' is different in traditional C");
-
-      {
-	cppchar_t i = 0, overflow = 0;
-	int digits_found = 0;
-
-	while (str < limit)
-	  {
-	    c = *str;
-	    if (! ISXDIGIT (c))
-	      break;
-	    str++;
-	    overflow |= i ^ (i << 4 >> 4);
-	    i = (i << 4) + hex_digit_value (c);
-	    digits_found = 1;
-	  }
-
-	if (!digits_found)
-	  cpp_error (pfile, DL_ERROR,
-		       "\\x used with no following hex digits");
-
-	if (overflow | (i != (i & mask)))
-	  {
-	    cpp_error (pfile, DL_PEDWARN,
-		       "hex escape sequence out of range");
-	    i &= mask;
-	  }
-	c = i;
-      }
-      break;
-
-    case '0':  case '1':  case '2':  case '3':
-    case '4':  case '5':  case '6':  case '7':
-      {
-	size_t count = 0;
-	cppchar_t i = c - '0';
-
-	while (str < limit && ++count < 3)
-	  {
-	    c = *str;
-	    if (c < '0' || c > '7')
-	      break;
-	    str++;
-	    i = (i << 3) + c - '0';
-	  }
-
-	if (i != (i & mask))
-	  {
-	    cpp_error (pfile, DL_PEDWARN,
-		       "octal escape sequence out of range");
-	    i &= mask;
-	  }
-	c = i;
-      }
-      break;
-
-    default:
-      unknown = 1;
-      break;
-    }
-
-  if (unknown)
-    {
-      if (ISGRAPH (c))
-	cpp_error (pfile, DL_PEDWARN,
-		   "unknown escape sequence '\\%c'", (int) c);
-      else
-	cpp_error (pfile, DL_PEDWARN,
-		   "unknown escape sequence: '\\%03o'", (int) c);
-    }
-
-  if (c > mask)
-    {
-      cpp_error (pfile, DL_PEDWARN, "escape sequence out of range for its type");
-      c &= mask;
-    }
-
-  *pstr = str;
-  return c;
-}
-
-/* Interpret a (possibly wide) character constant in TOKEN.
-   WARN_MULTI warns about multi-character charconsts.  PCHARS_SEEN
-   points to a variable that is filled in with the number of
-   characters seen, and UNSIGNEDP to a variable that indicates whether
-   the result has signed type.  */
-cppchar_t
-cpp_interpret_charconst (pfile, token, pchars_seen, unsignedp)
-     cpp_reader *pfile;
-     const cpp_token *token;
-     unsigned int *pchars_seen;
-     int *unsignedp;
-{
-  const unsigned char *str, *limit;
-  unsigned int chars_seen = 0;
-  size_t width, max_chars;
-  cppchar_t c, mask, result = 0;
-  bool unsigned_p;
-
-  str = token->val.str.text + 1 + (token->type == CPP_WCHAR);
-  limit = token->val.str.text + token->val.str.len - 1;
-
-  if (token->type == CPP_CHAR)
-    {
-      width = CPP_OPTION (pfile, char_precision);
-      max_chars = CPP_OPTION (pfile, int_precision) / width;
-      unsigned_p = CPP_OPTION (pfile, unsigned_char);
-    }
-  else
-    {
-      width = CPP_OPTION (pfile, wchar_precision);
-      max_chars = 1;
-      unsigned_p = CPP_OPTION (pfile, unsigned_wchar);
-    }
-
-  if (width < BITS_PER_CPPCHAR_T)
-    mask = ((cppchar_t) 1 << width) - 1;
-  else
-    mask = ~0;
-
-  while (str < limit)
-    {
-      c = *str++;
-
-      if (c == '\\')
-	c = cpp_parse_escape (pfile, &str, limit, token->type == CPP_WCHAR);
-
-#ifdef MAP_CHARACTER
-      if (ISPRINT (c))
-	c = MAP_CHARACTER (c);
-#endif
-
-      chars_seen++;
-
-      /* Truncate the character, scale the result and merge the two.  */
-      c &= mask;
-      if (width < BITS_PER_CPPCHAR_T)
-	result = (result << width) | c;
-      else
-	result = c;
-    }
-
-  if (chars_seen == 0)
-    cpp_error (pfile, DL_ERROR, "empty character constant");
-  else if (chars_seen > 1)
-    {
-      /* Multichar charconsts are of type int and therefore signed.  */
-      unsigned_p = 0;
-
-      if (chars_seen > max_chars)
-	{
-	  chars_seen = max_chars;
-	  cpp_error (pfile, DL_WARNING,
-		     "character constant too long for its type");
-	}
-      else if (CPP_OPTION (pfile, warn_multichar))
-	cpp_error (pfile, DL_WARNING, "multi-character character constant");
-    }
-
-  /* Sign-extend or truncate the constant to cppchar_t.  The value is
-     in WIDTH bits, but for multi-char charconsts it's value is the
-     full target type's width.  */
-  if (chars_seen > 1)
-    width *= max_chars;
-  if (width < BITS_PER_CPPCHAR_T)
-    {
-      mask = ((cppchar_t) 1 << width) - 1;
-      if (unsigned_p || !(result & (1 << (width - 1))))
-	result &= mask;
-      else
-	result |= ~mask;
-    }
-
-  *pchars_seen = chars_seen;
-  *unsignedp = unsigned_p;
-  return result;
 }
 
 /* Memory buffers.  Changing these three constants can have a dramatic
@@ -1678,8 +1332,7 @@ cpp_interpret_charconst (pfile, token, pchars_seen, unsignedp)
 /* Create a new allocation buffer.  Place the control block at the end
    of the buffer, so that buffer overflows will cause immediate chaos.  */
 static _cpp_buff *
-new_buff (len)
-     size_t len;
+new_buff (size_t len)
 {
   _cpp_buff *result;
   unsigned char *base;
@@ -1699,9 +1352,7 @@ new_buff (len)
 
 /* Place a chain of unwanted allocation buffers on the free list.  */
 void
-_cpp_release_buff (pfile, buff)
-     cpp_reader *pfile;
-     _cpp_buff *buff;
+_cpp_release_buff (cpp_reader *pfile, _cpp_buff *buff)
 {
   _cpp_buff *end = buff;
 
@@ -1713,9 +1364,7 @@ _cpp_release_buff (pfile, buff)
 
 /* Return a free buffer of size at least MIN_SIZE.  */
 _cpp_buff *
-_cpp_get_buff (pfile, min_size)
-     cpp_reader *pfile;
-     size_t min_size;
+_cpp_get_buff (cpp_reader *pfile, size_t min_size)
 {
   _cpp_buff *result, **p;
 
@@ -1744,10 +1393,7 @@ _cpp_get_buff (pfile, min_size)
    the excess bytes to the new buffer.  Chains the new buffer after
    BUFF, and returns the new buffer.  */
 _cpp_buff *
-_cpp_append_extend_buff (pfile, buff, min_extra)
-     cpp_reader *pfile;
-     _cpp_buff *buff;
-     size_t min_extra;
+_cpp_append_extend_buff (cpp_reader *pfile, _cpp_buff *buff, size_t min_extra)
 {
   size_t size = EXTENDED_BUFF_SIZE (buff, min_extra);
   _cpp_buff *new_buff = _cpp_get_buff (pfile, size);
@@ -1763,10 +1409,7 @@ _cpp_append_extend_buff (pfile, buff, min_extra)
    Chains the new buffer before the buffer pointed to by BUFF, and
    updates the pointer to point to the new buffer.  */
 void
-_cpp_extend_buff (pfile, pbuff, min_extra)
-     cpp_reader *pfile;
-     _cpp_buff **pbuff;
-     size_t min_extra;
+_cpp_extend_buff (cpp_reader *pfile, _cpp_buff **pbuff, size_t min_extra)
 {
   _cpp_buff *new_buff, *old_buff = *pbuff;
   size_t size = EXTENDED_BUFF_SIZE (old_buff, min_extra);
@@ -1793,9 +1436,7 @@ _cpp_free_buff (buff)
 
 /* Allocate permanent, unaligned storage of length LEN.  */
 unsigned char *
-_cpp_unaligned_alloc (pfile, len)
-     cpp_reader *pfile;
-     size_t len;
+_cpp_unaligned_alloc (cpp_reader *pfile, size_t len)
 {
   _cpp_buff *buff = pfile->u_buff;
   unsigned char *result = buff->cur;
@@ -1823,9 +1464,7 @@ _cpp_unaligned_alloc (pfile, len)
    All existing other uses clearly fit this restriction: storing
    registered pragmas during initialization.  */
 unsigned char *
-_cpp_aligned_alloc (pfile, len)
-     cpp_reader *pfile;
-     size_t len;
+_cpp_aligned_alloc (cpp_reader *pfile, size_t len)
 {
   _cpp_buff *buff = pfile->a_buff;
   unsigned char *result = buff->cur;

@@ -37,6 +37,9 @@ loop_optimizer_init (dumpfile)
   struct loops *loops = xcalloc (1, sizeof (struct loops));
   edge e;
 
+  /* Initialize structures for layout changes.  */
+  cfg_layout_initialize ();
+
   /* Avoid annoying special cases of edges going to exit
      block.  */
   if (cfg_level == AT_RTL_LEVEL)
@@ -48,9 +51,16 @@ loop_optimizer_init (dumpfile)
 
   if (flow_loops_find (loops, LOOP_TREE) <= 1)
     {
+      basic_block bb;
+
       /* No loops.  */
       flow_loops_free (loops);
       free (loops);
+      /* Make chain.  */
+      FOR_EACH_BB (bb)
+	if (bb->next_bb != EXIT_BLOCK_PTR)
+	  bb->rbi->next = bb->next_bb;
+	  cfg_layout_finalize ();
       return NULL;
     }
 
@@ -60,14 +70,9 @@ loop_optimizer_init (dumpfile)
   free (loops->cfg.dfs_order);
   loops->cfg.dfs_order = NULL;
 
+  /* Create pre-headers.  */
   if (cfg_level == AT_RTL_LEVEL)
-    {
-      /* Initialize structures for layout changes.  */
-      cfg_layout_initialize (loops);
-      
-      /* Create pre-headers.  */
-      create_preheaders (loops, CP_SIMPLE_PREHEADERS | CP_INSIDE_CFGLAYOUT);
-    }
+    create_preheaders (loops, CP_SIMPLE_PREHEADERS);
 
   /* Force all latches to have only single successor.  */
   force_single_succ_latches (loops);
@@ -99,7 +104,7 @@ loop_optimizer_finalize (loops, dumpfile)
   if (cfg_level == AT_RTL_LEVEL)
     FOR_EACH_BB (bb)
       if (bb->next_bb != EXIT_BLOCK_PTR)
-	RBI (bb)->next = bb->next_bb;
+	bb->rbi->next = bb->next_bb;
 
   if (loops)
     {

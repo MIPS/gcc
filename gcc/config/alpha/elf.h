@@ -49,27 +49,6 @@ Boston, MA 02111-1307, USA.    */
 #undef  ASM_SPEC
 #define ASM_SPEC  "%{G*} %{relax:-relax} %{!gstabs*:-no-mdebug}%{gstabs*:-mdebug}"
 
-/* Output at beginning of assembler file.  */
-#undef  ASM_FILE_START
-#define ASM_FILE_START(FILE)					\
-do {								\
-  if (write_symbols == DBX_DEBUG)				\
-    {								\
-      alpha_write_verstamp (FILE);				\
-      output_file_directive (FILE, main_input_filename);	\
-    }								\
-  fprintf (FILE, "\t.set noat\n");				\
-  fprintf (FILE, "\t.set noreorder\n");				\
-  if (TARGET_EXPLICIT_RELOCS)					\
-    fprintf (FILE, "\t.set nomacro\n");				\
-  if (TARGET_BWX | TARGET_MAX | TARGET_FIX | TARGET_CIX)	\
-    {								\
-      fprintf (FILE, "\t.arch %s\n",				\
-               (TARGET_CPU_EV6 ? "ev6"				\
-                : TARGET_MAX ? "pca56" : "ev56"));		\
-    }								\
-} while (0)
-
 #undef  IDENT_ASM_OP
 #define IDENT_ASM_OP "\t.ident\t"
 
@@ -132,7 +111,7 @@ do {								\
 do {									\
   fprintf ((FILE), "%s", COMMON_ASM_OP);				\
   assemble_name ((FILE), (NAME));					\
-  fprintf ((FILE), ",%u,%u\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
+  fprintf ((FILE), "," HOST_WIDE_INT_PRINT_UNSIGNED ",%u\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
 } while (0)
 
 /* This says how to output assembler code to declare an
@@ -170,7 +149,7 @@ do {									\
    not defined, the default value is `BIGGEST_ALIGNMENT'. 
 
    This value is really 2^63.  Since gcc figures the alignment in bits,
-   we could only potentially get to 2^60 on suitible hosts.  Due to other
+   we could only potentially get to 2^60 on suitable hosts.  Due to other
    considerations in varasm, we must restrict this to what fits in an int.  */
 
 #undef  MAX_OFILE_ALIGNMENT
@@ -231,8 +210,8 @@ do {									\
   SECTION_FUNCTION_TEMPLATE(sbss_section, in_sbss, SBSS_SECTION_ASM_OP)	\
   SECTION_FUNCTION_TEMPLATE(sdata_section, in_sdata, SDATA_SECTION_ASM_OP)
 
-extern void sbss_section		PARAMS ((void));
-extern void sdata_section		PARAMS ((void));
+extern void sbss_section (void);
+extern void sdata_section (void);
 
 #undef  SECTION_FUNCTION_TEMPLATE
 #define SECTION_FUNCTION_TEMPLATE(FN, ENUM, OP)	\
@@ -413,11 +392,15 @@ void FN ()					\
    before entering `main'.   */
 
 #undef	STARTFILE_SPEC
+#ifdef HAVE_LD_PIE
 #define STARTFILE_SPEC \
-  "%{!shared: \
-     %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}}\
-   crti.o%s %{static:crtbeginT.o%s}\
-   %{!static:%{shared:crtbeginS.o%s}%{!shared:crtbegin.o%s}}"
+  "%{!shared: %{pg|p:gcrt1.o%s;pie:Scrt1.o%s;:crt1.o%s}}\
+   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s}"
+#else
+#define STARTFILE_SPEC \
+  "%{!shared: %{pg|p:gcrt1.o%s;:crt1.o%s}}\
+   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s}"
+#endif
 
 /* Provide a ENDFILE_SPEC appropriate for ELF.  Here we tack on the
    magical crtend.o file which provides part of the support for
@@ -427,7 +410,7 @@ void FN ()					\
 #undef	ENDFILE_SPEC
 #define ENDFILE_SPEC \
   "%{ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
-   %{shared:crtendS.o%s}%{!shared:crtend.o%s} crtn.o%s"
+   %{shared|pie:crtendS.o%s;:crtend.o%s} crtn.o%s"
 
 /* We support #pragma.  */
 #define HANDLE_SYSV_PRAGMA 1

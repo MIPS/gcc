@@ -1,4 +1,4 @@
-/* Print RTL for GNU C Compiler.
+/* Print RTL for GCC.
    Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999, 2000, 2002, 2003
    Free Software Foundation, Inc.
 
@@ -379,7 +379,17 @@ print_rtx (in_rtx)
 	break;
 
       case 'i':
-	if (i == 6 && GET_CODE (in_rtx) == NOTE)
+	if (i == 4 && INSN_P (in_rtx))
+	  {
+#ifndef GENERATOR_FILE
+	    /*  Pretty-print insn locators.  Ignore scoping as it is mostly
+		redundant with line number information and do not print anything
+		when there is no location information available.  */
+	    if (INSN_LOCATOR (in_rtx) && insn_file (in_rtx))
+	      fprintf(outfile, " %s:%i", insn_file (in_rtx), insn_line (in_rtx));
+#endif
+	  }
+	else if (i == 6 && GET_CODE (in_rtx) == NOTE)
 	  {
 	    /* This field is only used for NOTE_INSN_DELETED_LABEL, and
 	       other times often contains garbage from INSN->NOTE death.  */

@@ -1,5 +1,6 @@
 /* Compilation switch flag definitions for GCC.
-   Copyright (C) 1987, 1988, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002
+   Copyright (C) 1987, 1988, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002,
+   2003
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -21,9 +22,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifndef GCC_FLAGS_H
 #define GCC_FLAGS_H
-
-/* Name of the input .c file being compiled.  */
-extern const char *main_input_filename;
 
 enum debug_info_type
 {
@@ -59,6 +57,9 @@ extern enum debug_info_level debug_info_level;
    debugging information.  */
 extern int use_gnu_debug_info_extensions;
 
+/* Nonzero means emit debugging information only for symbols which are used.  */
+extern int flag_debug_only_used_symbols;
+
 /* Nonzero means do optimizations.  -opt.  */
 
 extern int optimize;
@@ -79,66 +80,62 @@ extern int mem_report;
 
 /* Don't print warning messages.  -w.  */
 
-extern int inhibit_warnings;
+extern bool inhibit_warnings;
 
 /* Don't suppress warnings from system headers.  -Wsystem-headers.  */
 
-extern int warn_system_headers;
+extern bool warn_system_headers;
 
 /* Do print extra warnings (such as for uninitialized variables).
    -W/-Wextra.  */
 
-extern int extra_warnings;
+extern bool extra_warnings;
+
+/* If -Werror.  */
+
+extern bool warnings_are_errors;
 
 /* Nonzero to warn about unused variables, functions et.al.  Use
    set_Wunused() to update the -Wunused-* flags that correspond to the
    -Wunused option.  */
 
-extern void set_Wunused PARAMS ((int setting));
+extern void set_Wunused (int setting);
 
-extern int warn_unused_function;
-extern int warn_unused_label;
-extern int warn_unused_parameter;
-extern int warn_unused_variable;
-extern int warn_unused_value;
+extern bool warn_unused_function;
+extern bool warn_unused_label;
+extern bool warn_unused_parameter;
+extern bool warn_unused_variable;
+extern bool warn_unused_value;
 
 /* Nonzero to warn about code which is never reached.  */
 
-extern int warn_notreached;
+extern bool warn_notreached;
 
 /* Nonzero means warn if inline function is too large.  */
 
-extern int warn_inline;
+extern bool warn_inline;
 
 /* Nonzero to warn about variables used before they are initialized.  */
 
 extern int warn_uninitialized;
 
-/* Zero if unknown pragmas are ignored
-   One if the compiler should warn about an unknown pragma not in
-   a system include file.
-   Greater than one if the compiler should warn for all unknown
-   pragmas.  */
-
-extern int warn_unknown_pragmas;
-
 /* Nonzero means warn about all declarations which shadow others.  */
 
-extern int warn_shadow;
+extern bool warn_shadow;
 
 /* Warn if a switch on an enum, that does not have a default case,
    fails to have a case for every enum value.  */
 
-extern int warn_switch;
+extern bool warn_switch;
 
 /* Warn if a switch does not have a default case.  */
 
-extern int warn_switch_default;
+extern bool warn_switch_default;
 
 /* Warn if a switch on an enum fails to have a case for every enum
    value (regardless of the presence or otherwise of a default case).  */
 
-extern int warn_switch_enum;
+extern bool warn_switch_enum;
 
 /* Nonzero means warn about function definitions that default the return type
    or that use a null return and have a return-type other than void.  */
@@ -147,47 +144,47 @@ extern int warn_return_type;
 
 /* Warn about functions which might be candidates for attribute noreturn.  */
 
-extern int warn_missing_noreturn;
+extern bool warn_missing_noreturn;
 
 /* Nonzero means warn about pointer casts that increase the required
    alignment of the target type (and might therefore lead to a crash
    due to a misaligned access).  */
 
-extern int warn_cast_align;
+extern bool warn_cast_align;
 
 /* Nonzero means warn about any objects definitions whose size is larger
    than N bytes.  Also want about function definitions whose returned
    values are larger than N bytes. The value N is in `larger_than_size'.  */
 
-extern int warn_larger_than;
+extern bool warn_larger_than;
 extern HOST_WIDE_INT larger_than_size;
 
 /* Warn if a function returns an aggregate,
    since there are often incompatible calling conventions for doing this.  */
 
-extern int warn_aggregate_return;
+extern bool warn_aggregate_return;
 
 /* Warn if packed attribute on struct is unnecessary and inefficient.  */
 
-extern int warn_packed;
+extern bool warn_packed;
 
 /* Warn when gcc pads a structure to an alignment boundary.  */
 
-extern int warn_padded;
+extern bool warn_padded;
 
 /* Warn when an optimization pass is disabled.  */
 
-extern int warn_disabled_optimization;
+extern bool warn_disabled_optimization;
 
 /* Nonzero means warn about uses of __attribute__((deprecated)) 
    declarations.  */
 
-extern int warn_deprecated_decl;
+extern bool warn_deprecated_decl;
 
 /* Nonzero means warn about constructs which might not be strict
    aliasing safe.  */
 
-extern int warn_strict_aliasing;
+extern bool warn_strict_aliasing;
 
 /* Nonzero if generating code to do profiling.  */
 
@@ -196,6 +193,10 @@ extern int profile_flag;
 /* Nonzero if generating code to profile program flow graph arcs.  */
 
 extern int profile_arc_flag;
+
+/* Nonzero if value profile should be measured.  */
+
+extern int flag_profile_values;
 
 /* Nonzero if generating info for gcov to calculate line test coverage.  */
 
@@ -462,16 +463,26 @@ extern int flag_pedantic_errors;
 
 extern int flag_pic;
 
+/* Nonzero if we are compiling position independent code for executable.
+   1 vs 2 for a target-dependent "small" or "large" mode.  */
+      
+extern int flag_pie;
+      
+/* Nonzero if we are compiling code for a shared library, zero for
+   executable.  */
+
+extern int flag_shlib;
+
 /* Nonzero means generate extra code for exception handling and enable
    exception handling.  */
 
 extern int flag_exceptions;
 
-/* Nonzero means generate frame unwind info table when supported */
+/* Nonzero means generate frame unwind info table when supported.  */
 
 extern int flag_unwind_tables;
 
-/* Nonzero means generate frame unwind info table exact at each insn boundary */
+/* Nonzero means generate frame unwind info table exact at each insn boundary.  */
 
 extern int flag_asynchronous_unwind_tables;
 
@@ -585,9 +596,12 @@ extern int frame_pointer_needed;
    for PLUS / SUB / MULT.  */
 extern int flag_trapv;
 
+/* Nonzero if the signed arithmetic overflow should wrap around.  */
+extern int flag_wrapv;
+
 /* Value of the -G xx switch, and whether it was passed or not.  */
 extern unsigned HOST_WIDE_INT g_switch_value;
-extern int g_switch_set;
+extern bool g_switch_set;
 
 /* Values of the -falign-* flags: how much to align labels in code. 
    0 means `use default', 1 means `don't align'.  
@@ -639,6 +653,16 @@ extern int flag_gcse_lm;
 
 extern int flag_gcse_sm;
 
+/* Perform branch target register optimization before prologue / epilogue
+   threading.  */
+
+extern int flag_branch_target_load_optimize;
+
+/* Perform branch target register optimization after prologue / epilogue
+   threading and jump2.  */
+
+extern int flag_branch_target_load_optimize2;
+
 
 /* Nonzero means we should do dwarf2 duplicate elimination.  */
 
@@ -668,9 +692,6 @@ extern int flag_disable_tree_ssa;
 /* Enable SSA-PRE on trees.  */
 extern int flag_tree_pre;
 
-/* Enable SSA-CP on trees. */
-extern int flag_tree_cp;
-
 /* Enable SSA-CCP on trees.  */
 extern int flag_tree_ccp;
 
@@ -685,6 +706,14 @@ extern int flag_tree_dom;
 
 /* Enable promotion of virtual to real operands in must-alias situations.  */
 extern int flag_tree_must_alias;
+
+/* Enable points-to analysis on trees.  */
+enum pta_type
+  {
+    PTA_NONE,
+    PTA_ANDERSEN
+  };
+extern enum pta_type flag_tree_points_to;
 
 /* Nonzero means put zero initialized data in the bss section.  */
 extern int flag_zero_initialized_in_bss;

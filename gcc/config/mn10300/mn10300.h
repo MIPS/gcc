@@ -23,7 +23,6 @@ Boston, MA 02111-1307, USA.  */
 
 
 #undef ASM_SPEC
-#undef ASM_FINAL_SPEC
 #undef LIB_SPEC
 #undef ENDFILE_SPEC
 #undef LINK_SPEC
@@ -839,10 +838,6 @@ struct cum_arg {int nbytes; };
 #define TEXT_SECTION_ASM_OP "\t.section .text"
 #define DATA_SECTION_ASM_OP "\t.section .data"
 #define BSS_SECTION_ASM_OP "\t.section .bss"
-
-/* Output at beginning/end of assembler file.  */
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE) asm_file_start(FILE)
 
 #define ASM_COMMENT_START "#"
 

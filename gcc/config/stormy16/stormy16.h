@@ -24,20 +24,8 @@ Boston, MA 02111-1307, USA.  */
 /* Driver configuration */
 
 /* Defined in svr4.h.  */
-/* #define SWITCH_TAKES_ARG(CHAR) */
-
-/* Defined in svr4.h.  */
-/* #define WORD_SWITCH_TAKES_ARG(NAME) */
-
-/* Defined in svr4.h.  */
 #undef ASM_SPEC
 #define ASM_SPEC ""
-
-/* Defined in svr4.h.  */
-/* #define ASM_FINAL_SPEC "" */
-
-/* Defined in svr4.h.  */
-/* #define LINK_SPEC "" */
 
 /* For xstormy16:
    - If -msim is specified, everything is built and linked as for the sim.
@@ -508,7 +496,7 @@ enum reg_class
   if (! SECOND_TIME) \
     xstormy16_setup_incoming_varargs (ARGS_SO_FAR, MODE, TYPE, & PRETEND_ARGS_SIZE)
 
-/* Build up the stdarg/varargs va_list type tree, assinging it to NODE.  If not
+/* Build up the stdarg/varargs va_list type tree, assigning it to NODE.  If not
    defined, it is assumed that va_list is a void * pointer.  */
 #define BUILD_VA_LIST_TYPE(NODE) \
   ((NODE) = xstormy16_build_va_list ())

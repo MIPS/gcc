@@ -36,8 +36,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _CPP_BASIC_FILE
-#define _CPP_BASIC_FILE 1
+#ifndef _BASIC_FILE_STDIO_H
+#define _BASIC_FILE_STDIO_H 1
 
 #pragma GCC system_header
 
@@ -99,12 +99,12 @@ namespace std
       streamsize 
       xsgetn(char* __s, streamsize __n);
 
-      streamoff
+      streampos
       seekoff(streamoff __off, ios_base::seekdir __way, 
 	      ios_base::openmode __mode = ios_base::in | ios_base::out);
 
-      streamoff
-      seekpos(streamoff __pos, 
+      streampos
+      seekpos(streampos __pos, 
 	      ios_base::openmode __mode = ios_base::in | ios_base::out);
 
       int 

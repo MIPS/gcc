@@ -50,11 +50,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "expr.h"
 #include "real.h"
 #include "except.h"
+#include "diagnostic.h"
 #include "toplev.h"
 #include "reload.h"
 #include "predict.h"
 #include "timevar.h"
-#include "diagnostic.h"
 
 /* Optimize jump y; x: ... y: jumpif... x?
    Don't know if it is worth bothering with.  */
@@ -357,10 +357,6 @@ duplicate_loop_exit_test (loop_start)
 	  break;
 	case JUMP_INSN:
 	case INSN:
-	  /* The code below would grossly mishandle REG_WAS_0 notes,
-	     so get rid of them here.  */
-	  while ((p = find_reg_note (insn, REG_WAS_0, NULL_RTX)) != 0)
-	    remove_note (insn, p);
 	  if (++num_insns > 20
 	      || find_reg_note (insn, REG_RETVAL, NULL_RTX)
 	      || find_reg_note (insn, REG_LIBCALL, NULL_RTX))
@@ -429,7 +425,7 @@ duplicate_loop_exit_test (loop_start)
 	    replace_regs (PATTERN (copy), reg_map, max_reg, 1);
 
 	  mark_jump_label (PATTERN (copy), copy, 0);
-	  INSN_SCOPE (copy) = INSN_SCOPE (insn);
+	  INSN_LOCATOR (copy) = INSN_LOCATOR (insn);
 
 	  /* Copy all REG_NOTES except REG_LABEL since mark_jump_label will
 	     make them.  */
@@ -455,7 +451,7 @@ duplicate_loop_exit_test (loop_start)
 	case JUMP_INSN:
 	  copy = emit_jump_insn_before (copy_insn (PATTERN (insn)),
 					loop_start);
-	  INSN_SCOPE (copy) = INSN_SCOPE (insn);
+	  INSN_LOCATOR (copy) = INSN_LOCATOR (insn);
 	  if (reg_map)
 	    replace_regs (PATTERN (copy), reg_map, max_reg, 1);
 	  mark_jump_label (PATTERN (copy), copy, 0);
@@ -685,7 +681,7 @@ reversed_comparison_code_parts (code, arg0, arg1, insn)
     case NE:
     case EQ:
       /* It is always safe to reverse EQ and NE, even for the floating
-	 point.  Similary the unsigned comparisons are never used for
+	 point.  Similarly the unsigned comparisons are never used for
 	 floating point so we can reverse them in the default way.  */
       return reverse_condition (code);
     case ORDERED:
@@ -760,7 +756,7 @@ reversed_comparison_code_parts (code, arg0, arg1, insn)
   return UNKNOWN;
 }
 
-/* An wrapper around the previous function to take COMPARISON as rtx
+/* A wrapper around the previous function to take COMPARISON as rtx
    expression.  This simplifies many callers.  */
 enum rtx_code
 reversed_comparison_code (comparison, insn)
@@ -1834,18 +1830,6 @@ delete_related_insns (insn)
 
   return next;
 }
-
-/* Advance from INSN till reaching something not deleted
-   then return that.  May return INSN itself.  */
-
-rtx
-next_nondeleted_insn (insn)
-     rtx insn;
-{
-  while (INSN_DELETED_P (insn))
-    insn = NEXT_INSN (insn);
-  return insn;
-}
 
 /* Delete a range of insns from FROM to TO, inclusive.
    This is for the sake of peephole optimization, so assume
@@ -2338,10 +2322,8 @@ rtx_renumbered_equal_p (x, y)
     case CC0:
     case ADDR_VEC:
     case ADDR_DIFF_VEC:
-      return 0;
-
     case CONST_INT:
-      return INTVAL (x) == INTVAL (y);
+      return 0;
 
     case LABEL_REF:
       /* We can't assume nonlocal labels have their following insns yet.  */

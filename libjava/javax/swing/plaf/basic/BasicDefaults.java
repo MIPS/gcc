@@ -38,9 +38,12 @@ exception statement from your version. */
 
 package javax.swing.plaf.basic;
 
-import javax.swing.*;
-import java.awt.*;
-import javax.swing.border.*;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Graphics;
+import java.awt.Insets;
+import javax.swing.UIDefaults;
+import javax.swing.border.MatteBorder;
 
 class BasicBorder extends MatteBorder
 {
@@ -48,7 +51,7 @@ class BasicBorder extends MatteBorder
 
 	BasicBorder()
 	{
-	    super(5,5,5,5, null);
+		super(5,5,5,5, Color.black);
 	}
 	
 	public void paintBorder(Component  c,
@@ -72,7 +75,7 @@ class PanelBorder extends MatteBorder
 {
     PanelBorder()
     {
-	super(5,5,5,5, null);
+	super(5,5,5,5, Color.black);
 	}
 	
 	public void paintBorder(Component  c,

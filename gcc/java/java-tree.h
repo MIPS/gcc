@@ -192,7 +192,7 @@ extern int flag_emit_xref;
 extern int do_not_fold;
 
 /* Resource name.  */
-extern char * resource_name;
+extern const char *resource_name;
 
 /* Turned to 1 if -Wall was encountered. See lang.c for their meanings.  */
 extern int flag_wall;
@@ -770,6 +770,8 @@ union lang_tree_node
 /* Number of local variable slots needed for the arguments of this function. */
 #define DECL_ARG_SLOT_COUNT(DECL) \
   (DECL_LANG_SPECIFIC(DECL)->u.f.arg_slot_count)
+/* Line number of end of function. */
+#define DECL_FUNCTION_LAST_LINE(DECL) (DECL_LANG_SPECIFIC(DECL)->u.f.last_line)
 /* Information on declaration location */
 #define DECL_FUNCTION_WFL(DECL)  (DECL_LANG_SPECIFIC(DECL)->u.f.wfl)
 /* List of checked thrown exceptions, as specified with the `throws'
@@ -965,6 +967,7 @@ struct lang_decl_func GTY(())
   int max_locals;
   int max_stack;
   int arg_slot_count;
+  int last_line; 		/* End line number for a function decl */
   tree wfl;			/* Information on the original location */
   tree throws_list;		/* Exception specified by `throws' */
   tree function_decl_body;	/* Hold all function's statements */
@@ -1118,7 +1121,6 @@ extern tree build_dtable_decl (tree);
 extern tree build_internal_class_name (tree);
 extern tree build_constants_constructor (void);
 extern tree build_ref_from_constant_pool (int);
-extern void compile_resource_file (char *, const char *);
 extern tree build_utf8_ref (tree);
 extern tree ident_subst (const char*, int, const char*, int, int, const char*);
 extern tree identifier_subst (const tree, const char *, int, int, const char *);
@@ -1295,9 +1297,9 @@ struct rtx_def * java_expand_expr (tree, rtx, enum machine_mode, int);
 extern void java_inlining_merge_static_initializers (tree, void *);
 extern void java_inlining_map_static_initializers (tree, void *);
 
-extern void compile_resource_data (char *name, const char *buffer, int length);
+extern void compile_resource_data (const char *name, const char *buffer, int);
+extern void compile_resource_file (const char *, const char *);
 extern void write_resource_constructor (void);
-extern void compile_resource_file (char *name, const char *filename);
 extern void init_resource_processing (void);
 extern tree build_java_empty_stmt (void);
 

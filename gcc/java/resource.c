@@ -41,6 +41,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "stdio.h"
 #include "target.h"
 #include "expr.h"
+
 /* DOS brain-damage */
 #ifndef O_BINARY
 #define O_BINARY 0 /* MS-DOS brain-damage */
@@ -56,7 +57,7 @@ static GTY(()) rtx registerResource_libfunc;
 static int Jr_count = 0;
 
 void
-compile_resource_data (char *name, const char *buffer, int length)
+compile_resource_data (const char *name, const char *buffer, int length)
 {
   tree rtype, field = NULL_TREE, data_type, rinit, data, decl;
   char buf[60];
@@ -103,6 +104,7 @@ write_resource_constructor (void)
 {
   tree init_name, init_type, init_decl;
   tree iter;
+  location_t saved_loc = input_location;
 
   /* Only do work if required.  */
   if (resources == NULL_TREE)
@@ -112,6 +114,7 @@ write_resource_constructor (void)
   init_type = build_function_type (void_type_node, end_params_node);
 
   init_decl = build_decl (FUNCTION_DECL, init_name, init_type);
+  TREE_LINENO (init_decl) = 0;
   SET_DECL_ASSEMBLER_NAME (init_decl, init_name);
   TREE_STATIC (init_decl) = 1;
   current_function_decl = init_decl;
@@ -124,7 +127,7 @@ write_resource_constructor (void)
 
   pushlevel (0);
   make_decl_rtl (init_decl, NULL);
-  init_function_start (init_decl, input_filename, 0);
+  init_function_start (init_decl);
   expand_function_start (init_decl, 0);
 
   /* Write out entries in the same order in which they were defined.  */
@@ -132,12 +135,13 @@ write_resource_constructor (void)
        iter = TREE_CHAIN (iter))
     {
       emit_library_call (registerResource_libfunc, 0, VOIDmode, 1,
-                         expand_expr (build_address_of (TREE_VALUE (iter)),
-                                      0, Pmode, 0),
+			 expand_expr (build_address_of (TREE_VALUE (iter)),
+				      0, Pmode, 0),
 			 Pmode);
     }
 
-  expand_function_end (input_filename, 0, 0);
+  input_location = *(TREE_LOCUS (init_decl));
+  expand_function_end ();
   poplevel (1, 0, 1);
   { 
     /* Force generation, even with -O3 or deeper.  Gross hack.
@@ -150,6 +154,7 @@ write_resource_constructor (void)
   current_function_decl = NULL_TREE;
   (* targetm.asm_out.constructor) (XEXP (DECL_RTL (init_decl), 0),
 				   DEFAULT_INIT_PRIORITY);
+  input_location = saved_loc;
 }
 
 /* Generate a byte array representing the contents of FILENAME.  The
@@ -157,7 +162,7 @@ write_resource_constructor (void)
    compiled Java resource, which is accessed by the runtime using
    NAME.  */
 void
-compile_resource_file (char *name, const char *filename)
+compile_resource_file (const char *name, const char *filename)
 {
   struct stat stat_buf;
   int fd;

@@ -70,7 +70,7 @@ extern const char * const *h8_reg_names;
     }							\
   while (0)
 
-#define LINK_SPEC "%{mh:-m h8300h} %{ms:-m h8300s}"
+#define LINK_SPEC "%{mh:%{mn:-m h8300hn}} %{mh:%{!mn:-m h8300h}} %{ms:%{mn:-m h8300sn}} %{ms:%{!mn:-m h8300s}}"
 
 #define LIB_SPEC "%{mrelax:-relax} %{g:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}"
 
@@ -101,7 +101,6 @@ extern int target_flags;
 #define MASK_SLOWBYTE		0x00000100
 #define MASK_NORMAL_MODE 	0x00000200
 #define MASK_RELAX		0x00000400
-#define MASK_RTL_DUMP		0x00000800
 #define MASK_H8300H		0x00001000
 #define MASK_ALIGN_300		0x00002000
 
@@ -119,10 +118,6 @@ extern int target_flags;
 
 /* Pretend byte accesses are slow.  */
 #define TARGET_SLOWBYTE (target_flags & MASK_SLOWBYTE)
-
-/* Dump each assembler insn's rtl into the output file.
-   This is for debugging the compiler only.  */
-#define TARGET_RTL_DUMP	(target_flags & MASK_RTL_DUMP)
 
 /* Select between the H8/300 and H8/300H CPUs.  */
 #define TARGET_H8300	(! TARGET_H8300H && ! TARGET_H8300S)
@@ -160,7 +155,6 @@ extern int target_flags;
   {"slowbyte",		 MASK_SLOWBYTE,					    \
    N_("Consider access to byte sized memory slow")},			    \
   {"relax",		 MASK_RELAX, N_("Enable linker relaxing")},	    \
-  {"rtl-dump",		 MASK_RTL_DUMP, NULL},				    \
   {"h",			 MASK_H8300H, N_("Generate H8/300H code")},	    \
   {"n",			 MASK_NORMAL_MODE, N_("Enable the normal mode")},   \
   {"no-h",		-MASK_H8300H, N_("Do not generate H8/300H code")},  \
@@ -244,7 +238,7 @@ extern int target_flags;
 #define SHORT_TYPE_SIZE	16
 #define INT_TYPE_SIZE		(TARGET_INT32 ? 32 : 16)
 #define LONG_TYPE_SIZE		32
-#define LONG_LONG_TYPE_SIZE	32
+#define LONG_LONG_TYPE_SIZE	64
 #define FLOAT_TYPE_SIZE	32
 #define DOUBLE_TYPE_SIZE	32
 #define LONG_DOUBLE_TYPE_SIZE	DOUBLE_TYPE_SIZE
@@ -490,7 +484,7 @@ enum reg_class {
   `G' is a floating-point zero.  */
 
 #define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)	\
-  ((C) == 'G' ? (VALUE) == CONST0_RTX (DFmode)	\
+  ((C) == 'G' ? (VALUE) == CONST0_RTX (SFmode)	\
    : 0)
 
 /* Given an rtx X being reloaded into a reg required to be
@@ -641,8 +635,9 @@ enum reg_class {
 #define STRUCT_VALUE 0
 
 /* Return true if X should be returned in memory.  */
-#define RETURN_IN_MEMORY(X) \
-  (TYPE_MODE (X) == BLKmode || GET_MODE_SIZE (TYPE_MODE (X)) > 4)
+#define RETURN_IN_MEMORY(X)					\
+  (TYPE_MODE (X) == BLKmode					\
+   || GET_MODE_SIZE (TYPE_MODE (X)) > (TARGET_H8300 ? 4 : 8))
 
 /* When defined, the compiler allows registers explicitly used in the
    rtl to be used as spill registers but prevents the compiler from
@@ -807,7 +802,7 @@ struct cum_arg
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 
-#define LEGITIMATE_CONSTANT_P(X) (GET_CODE (X) != CONST_DOUBLE)
+#define LEGITIMATE_CONSTANT_P(X) (1)
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -1007,9 +1002,6 @@ struct cum_arg
    so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE QImode
 
-#define ADJUST_INSN_LENGTH(INSN, LENGTH) \
-  LENGTH += h8300_adjust_insn_length (INSN, LENGTH);
-
 #define BRANCH_COST 0
 
 /* Tell final.c how to eliminate redundant test instructions.  */
@@ -1034,12 +1026,6 @@ struct cum_arg
 #define CC_NO_CARRY CC_NO_OVERFLOW
 
 /* Control the assembler format that we output.  */
-
-/* Output at beginning/end of assembler file.  */
-
-#define ASM_FILE_START(FILE) asm_file_start (FILE)
-
-#define ASM_FILE_END(FILE) asm_file_end (FILE)
 
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
@@ -1135,12 +1121,12 @@ struct cum_arg
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
-   This is suitable for output with `assemble_name'.  
+   This is suitable for output with `assemble_name'.
 
    N.B.: The h8300.md branch_true and branch_false patterns also know
    how to generate internal labels.  */
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)	\
-  sprintf (LABEL, "*.%s%d", PREFIX, NUM)
+  sprintf (LABEL, "*.%s%lu", PREFIX, (unsigned long)(NUM))
 
 /* This is how to output an insn to push a register on the stack.
    It need not be very fast code.  */
@@ -1187,7 +1173,7 @@ struct cum_arg
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)	\
 ( fputs ("\t.comm ", (FILE)),				\
   assemble_name ((FILE), (NAME)),			\
-  fprintf ((FILE), ",%d\n", (SIZE)))
+  fprintf ((FILE), ",%lu\n", (unsigned long)(SIZE)))
 
 /* This says how to output the assembler to define a global
    uninitialized but not common symbol.

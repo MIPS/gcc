@@ -1,19 +1,1024 @@
+2003-07-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.old-deja/g++.jason/typeid1.C: Make it a compile test, not a
+	run test.
+	
+	PR c++/11431
+	* g++.dg/expr/static_cast3.C: New test.
+
+2003-07-04  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.c-torture/execute/wchar_t-1.x: New file; XFAIL wchar_t-1.c
+	everywhere.
+	* gcc.dg/concat.c: Concatenation of string constants with
+	__FUNCTION__ / __PRETTY_FUNCTION__ is now a hard error.
+	* gcc.dg/wtr-strcat-1.c: Loosen dg-warning regexp.
+	* gcc.dg/cpp/escape-2.c: Use wide character constants where
+	necessary to avoid multi-character character constant warning.
+	* gcc.dg/cpp/escape.c: Likewise.
+	* gcc.dg/cpp/ucs.c: Likewise.
+	Remove backslashes from dg-bogus comments, as they confuse Tcl.
+	Fix a typo.
+
+2003-07-04  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR c/11428
+	* gcc.c-torture/compile/20030704-1.c: New.
+
+2003-07-04  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.dg/compat/fnptr-by-value-1_x.c: Add a prototype for testva.
+
+2003-07-04  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR c++/5287, PR c++/7910,  PR c++/11021
+	* testsuite/g++.dg/ext/dllimport1.C: Add mingw32 as target. Add
+	tests for warnings.
+	* testsuite/g++.dg/ext/dllimport2.C: Add tests for warnings.
+	* testsuite/g++.dg/ext/dllimport3.C: Likewise.
+	* testsuite/g++.dg/ext/dllimport4.C: New file.
+	* testsuite/g++.dg/ext/dllimport5.C: New file.
+	* testsuite/g++.dg/ext/dllimport6.C: New file.
+	* testsuite/g++.dg/ext/dllimport7.C: New file.
+	* testsuite/g++.dg/ext/dllimport8.C: New file.
+	* testsuite/g++.dg/ext/dllimport9.C: New file.
+	* testsuite/g++.dg/ext/dllimport10.C: New file.
+	* testsuite/g++.dg/ext/dllexport1.C: New file.
+
+2003-07-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.old-deja/g++.jason/typeid1.C: Add dg-error marker.
+	* g++.old-deja/g++.mike/net36.C: Tweak error messages.
+
+2003-07-03  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-25.c: New testcase.
+	* gcc.dg/builtins-26.c: New testcase.
+
+2003-07-03  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/compat/vector-defs.h: New file.
+	* gcc.dg/compat/vector-setup.h: New file.
+	* gcc.dg/compat/vector-check.h: New file.
+	* gcc.dg/compat/vector-1_main.c: New file.
+	* gcc.dg/compat/vector-1_x.c: New file.
+	* gcc.dg/compat/vector-1_y.c: New file.
+	* gcc.dg/compat/vector-2_main.c: New file.
+	* gcc.dg/compat/vector-2_x.c: New file.
+	* gcc.dg/compat/vector-2_y.c: New file.
+
+	* gcc.dg/compat/fnptr-by-value-1_main.c: New file.
+	* gcc.dg/compat/fnptr-by-value-1_x.c: New file.
+	* gcc.dg/compat/fnptr-by-value-1_y.c: New file.
+	* gcc.dg/compat/struct-align-1.h: New file.
+	* gcc.dg/compat/struct-align-1_main.c: New file.
+	* gcc.dg/compat/struct-align-1_x.c: New file.
+	* gcc.dg/compat/struct-align-1_y.c: New file.
+	* gcc.dg/compat/struct-align-2.h: New file.
+	* gcc.dg/compat/struct-align-2_main.c: New file.
+	* gcc.dg/compat/struct-align-2_x.c: New file.
+	* gcc.dg/compat/struct-align-2_y.c: New file.
+
+	* gcc.dg/compat/compat-common.h (DEBUG_FINI): New.
+	* gcc.dg/compat/scalar-by-value-1_x.c: Use it.
+	* gcc.dg/compat/scalar-by-value-2_x.c: Ditto.
+	* gcc.dg/compat/scalar-by-value-3_x.c: Ditto.
+	* gcc.dg/compat/scalar-by-value-4_x.c: Ditto.
+	* gcc.dg/compat/scalar-return-1_x.c: Ditto.
+	* gcc.dg/compat/scalar-return-2_x.c: Ditto.
+	* gcc.dg/compat/scalar-return-3_x.c: Ditto.
+	* gcc.dg/compat/scalar-return-4_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-10_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-11_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-12_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-13_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-14_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-15_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-16_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-17_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-18_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-2_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-3_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-4_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-5_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-6_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-7_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-8_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-9_x.c: Ditto.
+	* gcc.dg/compat/struct-return-10_x.c: Ditto.
+	* gcc.dg/compat/struct-return-2_x.c: Ditto.
+	* gcc.dg/compat/struct-return-3_x.c: Ditto.
+
+2003-07-03  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-call-1.c: New test.
+
+2003-07-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9162
+	* g++.dg/parse/defarg4.C: New.
+
+2003-07-03  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/10700
+	* gcc.c-torture/compile/20030703-1.c: New test case.
+
+2003-07-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/template/local3.C: Remove extra semicolon.
+
+2003-07-03  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-volatile-1.c: New test.
+
+2003-07-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/11072
+	* g++.dg/other/offsetof2.C: XFAIL.
+	* g++.dg/other/offsetof5.C: New.
+
+	PR c++/10219
+	* g++.dg/template/error1.C: New.
+
+	PR c++/9779
+	* g++.dg/template/dependent-expr1.C: New.
+
+2003-07-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6949
+	* g++.dg/template/local3.C: New test.
+
+	PR c++/11149
+	* g++.dg/lookup/scoped6.C: New test.
+
+2003-07-01  Giovanni Bajo  <giovannibajo@libero.it>
+
+	PR c++/8046
+	* g++.dg/other/error7.C: New test.
+
+2003-07-01  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* g++.old-deja/g++.abi/vbase1.C: Fix comment typos.
+	* g++.old-deja/g++.abi/vtable3.h: Likewise.
+	* g++.old-deja/g++.law/code-gen5.C: Likewise.
+	* g++.old-deja/g++.other/union2.C: Likewise.
+	* gcc.dg/c90-const-expr-2.c: Likewise.
+	* gcc.dg/c90-const-expr-3.c: Likewise.
+	* gcc.dg/c99-const-expr-2.c: Likewise.
+	* gcc.dg/c99-const-expr-3.c: Likewise.
+	* gcc.dg/concat.c: Likewise.
+
+2003-07-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9559
+	* g++.dg/init/static1.C: New test.
+
+2003-06-30  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* Changelog: Remove ">>>>>>>" from previous change.
+
+2003-06-30  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* g++.old-deja/g++.niklas/README: Fix spelling for "testcase".
+	* g++.old-deja/g++.other/access2.C: Likewise.
+	* g++.old-deja/g++.other/decl2.C: Likewise.
+	* gcc.c-torture/execute/20020615-1.c: Likewise.
+
+2003-06-30  Giovanni Bajo  <giovannibajo@libero.it>
+
+	PR c++/4933
+	* g++.dg/template/sizeof4.C: New test.
+
+2003-06-30  Giovanni Bajo  <giovannibajo@libero.it>
+
+	* g++.dg/other/error6.C: New test.
+
+2003-06-30  Giovanni Bajo  <giovannibajo@libero.it>
+
+	PR c++/10750
+	* g++.dg/parse/constant2.C: New test.
+
+2003-06-30  Giovanni Bajo <giovannibajo@libero.it>
+
+	PR c++/11106
+	* g++.dg/other/error5.C: New test.
+
+2003-06-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/format/gcc_diag-1.c: New test.
+
+2003-06-28  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.c-torture/execute/multi-ix.c: Fix off-by-one bugs.
+
+2003-06-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.robertl/eb133.C: Set expected line number.
+	* g++.old-deja/g++.robertl/eb133a.C: Likewise.
+	* g++.old-deja/g++.robertl/eb133b.C: Likewise.
+
+2003-06-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/builtins/string-8.c: New test.
+	* gcc.c-torture/execute/builtins/string-8-lib.c: New.
+	* gcc.c-torture/execute/stdio-opt-1.c (main): Add new tests.
+	* gcc.c-torture/execute/string-opt-7.c (main): Add new test.
+
+2003-06-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10468
+	* g++.dg/ext/typeof6.C: New test.
+
+2003-06-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10796
+	* g++.dg/init/enum1.C: New test.
+
+2003-06-27  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20030627-1.c: New test.
+
+2003-06-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11332
+	* g++.dg/expr/static_cast2.C: New test.
+
+2003-06-26  Roger Sayle  <roger@eyesopen.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/string-opt-16.c: Remove test for disabled
+	sprintf(dst,"%s",src) optimization.
+	* gcc.c-torture/execute/20030626-1.c: New test case.
+	* gcc.c-torture/execute/20030626-2.c: New test case.
+
+2003-06-26  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.c-torture/execute/multi-ix.c: New test.
+
+	* gcc.c-torture/execute/simd-4.c (main):
+	Added missing semicolon at end of union.
+
+2003-06-26  Giovanni Bajo  <giovannibajo@libero.it>
+
+	PR c++/8266
+	* g++.dg/template/explicit-instantiation3.C: New test.
+
+2003-06-26  Eric Botcazou <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/20030626-1.c: Use signed char.
+
+2003-06-26  Eric Botcazou <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/20030626-1.c: New test.
+
+2003-06-26  Neil Booth  <neil@daikokuya.co.uk>
+
+	* const-str-2.m: Update.
+
+2003-06-25  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10990
+	* g++.dg/rtti/dyncast1.C: New test.
+	* g++.dg/abi/mangle4.C: Correct base-specifier access.
+	* g++.dg/lookup/scoped1.C: Remove XFAIL.
+	* g++.old-deja/g++.martin/pmf1.C: Correct base-specifier access.
+
+	PR c++/10931
+	* g++.dg/expr/static_cast1.C: New test.
+
+2003-06-25  Josef Zlomek  <zlomekj@suse.cz>
+
+	* gcc.dg/20030625-1.c: New test.
+
+2003-06-24  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/compile/20030624-1.c: New test case.
+
+2003-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/string-opt-17.c: New test.
+
+2003-06-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5754
+	* g++.dg/parse/crash6.C: New test.
+
+2003-06-23  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-24.c: New test case.
+
+2003-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/opt/operator1.C: New test.
+
+2003-06-22  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/string-opt-16.c: New test case.
+
+2003-06-21  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	* g++.old-deja/g++.benjamin/16077.C: Add -Wconversion  option.
+	* g++.old-deja/g++.other/conv7.C: Likewise
+	* g++.old-deja/g++.other/overcnv2.C: Likewise.
+	* g++.old-deja/g++.other/overload14.C: Likewise.
+
+2003-06-21  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	* g++.old-deja/g++.jason/conversion5.C: Adjust option.
+	* g++.old-deja/g++.bugs/900215_01.C: Likewise.
+
+2003-06-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10888
+	* g++.dg/warn/Winline-3.C: New test.
+
+2003-06-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/target-supports.exp (check_alias_available): Make the test
+	program acceptable to the Solaris assembler.
+
+	PR c++/10749
+	* g++.dg/template/memclass2.C: New test.
+
+2003-06-20  Mark Mitchell  <mark@codesourcery.com>
+	    Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* lib/gcc-dg.exp (dg-xfail-if): Do not process conditional xfail
+	data for non-matching targets.
+	* gcc.c-torture/compile/simd-5.c: Fix typo in conditional xfail.
+
+2003-06-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10845
+	* g++.dg/template/member3.C: New test.
+
+2003-06-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10939
+	* g++.dg/template/func1.C: New test.
+
+	PR c++/9649
+	* g++.dg/template/static4.C: New test.
+	* g++.old-deja/g++.other/anon7.C: Remove spurious error messages.
+
+	PR c++/11041
+	* g++.dg/init/ref7.C: New test.
+
+2003-06-19  Matt Austern  <austern@apple.com>
+
+	PR c++/11228
+	* g++.dg/anew1.C: New test.
+	* g++.dg/anew2.C: New test.
+	* g++.dg/anew3.C: New test.
+	* g++.dg/anew4.C: New test.
+
+2003-06-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/compile/simd-5.c: Don't XFAIL on H8.
+
+2003-06-19  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.c-torture/execute/simd-4.c (main): Make expected value
+	endian-dependent.
+
+2003-06-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* lib/g++.exp (g++_include_flags): Tweak path to testsuite_flags.
+	Remove cruft.
+
+2003-06-17  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/compile/20020604-1.c: Use dg-xfail-if for h8300.
+	* gcc.c-torture/compile/961203-1.c: Likewise.
+	* gcc.c-torture/compile/980506-1.c: Likewise.
+
+2003-06-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10712
+	* g++.dg/lookup/using7.C: New test.
+
+2003-06-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11105
+	* g++.dg/abi/conv1.C: Remove it.
+	* g++.dg/template/conv7.C: New test.
+	* g++.dg/template/conv8.C: Likewise.
+	* g++.old-deja/g++.ext/pretty2.C: Do not test __FUNCTION__ for a
+	conversion operator.
+
+2003-06-17  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/compat/compat-common.h (DEBUG_INIT): New.
+	* gcc.dg/compat/scalar-by-value-1_x.c: Use it.
+	* gcc.dg/compat/scalar-by-value-2_x.c: Ditto.
+	* gcc.dg/compat/scalar-by-value-3_x.c: Ditto.
+	* gcc.dg/compat/scalar-by-value-4_x.c: Ditto.
+	* gcc.dg/compat/scalar-return-1_x.c: Ditto.
+	* gcc.dg/compat/scalar-return-2_x.c: Ditto.
+	* gcc.dg/compat/scalar-return-3_x.c: Ditto.
+	* gcc.dg/compat/scalar-return-4_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-10_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-11_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-12_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-13_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-14_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-15_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-16_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-17_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-18_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-2_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-3_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-4_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-5_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-6_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-7_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-8_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-9_x.c: Ditto.
+	* gcc.dg/compat/struct-return-10_x.c: Ditto.
+	* gcc.dg/compat/struct-return-2_x.c: Ditto.
+	* gcc.dg/compat/struct-return-3_x.c: Ditto.
+
+2003-06-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/gcc-dg.exp (dg-xfail-if): Fix thinko.
+	* gcc.c-torture/compile/simd-5.c: Remove spurious PowerPC-64 XFAIL
+	indications.
+
+2003-06-16  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/i386-387-5.c: New test case.
+	* gcc.dg/i386-387-6.c: New test case.
+	* gcc.dg/builtins-23.c: New test case.
+
+2003-06-15  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-22.c: New test case.
+	* gcc.dg/i386-387-1.c: Update to test exp.
+	* gcc.dg/i386-387-2.c: Likewise.
+
+2003-06-13  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/format/asm_fprintf-1.c: Update width/precision checks.
+
+2003-06-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/gcc-dg.exp (dg-require-dll): New function.
+	(dg-xfail-if): Likewise.
+	* gcc.c-torture/compile/compile.exp: Use dg rather than c-torture
+	driver.
+
+	* gcc.c-torture/compile/20000804-1.c: Convert to dg format.
+	* gcc.c-torture/compile/20001205-1.c: Likewise.
+	* gcc.c-torture/compile/20001226-1.c: Likewise.
+	* gcc.c-torture/compile/20010518-2.c: Likewise.
+	* gcc.c-torture/compile/20020312-1.c: Likewise.
+	* gcc.c-torture/compile/20020604-1.c: Likewise.
+	* gcc.c-torture/compile/920501-12.c: Likewise.
+	* gcc.c-torture/compile/920501-4.c: Likewise.
+	* gcc.c-torture/compile/920520-1.c: Likewise.
+	* gcc.c-torture/compile/920521-1.c: Likewise.
+	* gcc.c-torture/compile/920625-1.c: Likewise.
+	* gcc.c-torture/compile/961203-1.c: Likewise.
+	* gcc.c-torture/compile/980506-1.c: Likewise.
+	* gcc.c-torture/compile/981006-1.c: Likewise.
+	* gcc.c-torture/compile/981022-1.c: Likewise.
+	* gcc.c-torture/compile/981223-1.c: Likewise.
+	* gcc.c-torture/compile/990617-1.c: Likewise.
+	* gcc.c-torture/compile/dll.c: Likewise.
+	* gcc.c-torture/compile/labels-3.c: Likewise.
+	* gcc.c-torture/compile/mipscop-1.c: Likewise.
+	* gcc.c-torture/compile/mipscop-2.c: Likewise.
+	* gcc.c-torture/compile/mipscop-3.c: Likewise.
+	* gcc.c-torture/compile/mipscop-4.c: Likewise.
+	* gcc.c-torture/compile/simd-5.c: Likewise.
+	* gcc.c-torture/compile/20000804-1.x: Remove.
+	* gcc.c-torture/compile/20001205-1.x: Likewise.
+	* gcc.c-torture/compile/20001226-1.x: Likewise.
+	* gcc.c-torture/compile/20010518-2.x: Likewise.
+	* gcc.c-torture/compile/20020312-1.x: Likewise.
+	* gcc.c-torture/compile/20020604-1.x: Likewise.
+	* gcc.c-torture/compile/920501-12.x: Likewise.
+	* gcc.c-torture/compile/920501-4.x: Likewise.
+	* gcc.c-torture/compile/920520-1.x: Likewise.
+	* gcc.c-torture/compile/920521-1.x: Likewise.
+	* gcc.c-torture/compile/920625-1.x: Likewise.
+	* gcc.c-torture/compile/961203-1.x: Likewise.
+	* gcc.c-torture/compile/980506-1.x: Likewise.
+	* gcc.c-torture/compile/981006-1.x: Likewise.
+	* gcc.c-torture/compile/981022-1.x: Likewise.
+	* gcc.c-torture/compile/981223-1.x: Likewise.
+	* gcc.c-torture/compile/990617-1.x: Likewise.
+	* gcc.c-torture/compile/mipscop-1.x: Likewise.
+	* gcc.c-torture/compile/mipscop-2.x: Likewise.
+	* gcc.c-torture/compile/mipscop-3.x: Likewise.
+	* gcc.c-torture/compile/mipscop-4.x: Likewise.
+	* gcc.c-torture/compile/simd-5.x: Likewise.
+
+	* gcc.c-torture/compile/20021205-1.c: Remove bogus dg commands.
+
+2003-06-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20030611-1.c: New test.
+
+2003-06-12  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/168
+	* gcc.dg/20030612-1.c: New test case.
+
+2003-06-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10635
+	* g++.dg/expr/cast1.C: New test.
+
+2003-06-12  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-21.c: New test case.
+
+2003-06-11  Kelley Cook  <kelleycook@wideopenwest.com>
+
+	* lib/gcc.exp (gcc_target_compile): Put TOOL_OPTIONS at front of
+	options instead of at the end.
+	* lib/objc.exp (objc_target_compile): Likewise.
+
+2003-06-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10432
+	* g++.dg/parse/error1.C: New test.
+
+2003-06-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/compat/struct-by-value-11_main.c: New file.
+	* gcc.dg/compat/struct-by-value-11_x.c: New file.
+	* gcc.dg/compat/struct-by-value-11_y.c: New file.
+	* gcc.dg/compat/struct-by-value-12_main.c: New file.
+	* gcc.dg/compat/struct-by-value-12_x.c: New file.
+	* gcc.dg/compat/struct-by-value-12_y.c: New file.
+	* gcc.dg/compat/struct-by-value-13_main.c: New file.
+	* gcc.dg/compat/struct-by-value-13_x.c: New file.
+	* gcc.dg/compat/struct-by-value-13_y.c: New file.
+	* gcc.dg/compat/struct-by-value-14_main.c: New file.
+	* gcc.dg/compat/struct-by-value-14_x.c: New file.
+	* gcc.dg/compat/struct-by-value-14_y.c: New file.
+	* gcc.dg/compat/struct-by-value-15_main.c: New file.
+	* gcc.dg/compat/struct-by-value-15_x.c: New file.
+	* gcc.dg/compat/struct-by-value-15_y.c: New file.
+	* gcc.dg/compat/struct-by-value-16_main.c: New file.
+	* gcc.dg/compat/struct-by-value-16_x.c: New file.
+	* gcc.dg/compat/struct-by-value-16_y.c: New file.
+	* gcc.dg/compat/struct-by-value-17_main.c: New file.
+	* gcc.dg/compat/struct-by-value-17_x.c: New file.
+	* gcc.dg/compat/struct-by-value-17_y.c: New file.
+	* gcc.dg/compat/struct-by-value-18_main.c: New file.
+	* gcc.dg/compat/struct-by-value-18_x.c: New file.
+	* gcc.dg/compat/struct-by-value-18_y.c: New file.
+
+	* gcc.dg/compat/scalar-by-value-3_main.c: New file.
+	* gcc.dg/compat/scalar-by-value-3_x.c: New file.
+	* gcc.dg/compat/scalar-by-value-3_y.c: New file.
+	* gcc.dg/compat/scalar-by-value-4_main.c: New file.
+	* gcc.dg/compat/scalar-by-value-4_x.c: New file.
+	* gcc.dg/compat/scalar-by-value-4_y.c: New file.
+	* gcc.dg/compat/scalar-return-3_main.c: New file.
+	* gcc.dg/compat/scalar-return-3_x.c: New file.
+	* gcc.dg/compat/scalar-return-3_y.c: New file.
+	* gcc.dg/compat/scalar-return-4_main.c: New file.
+	* gcc.dg/compat/scalar-return-4_x.c: New file.
+	* gcc.dg/compat/scalar-return-4_y.c: New file.
+
+2003-06-10  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/compat/fp2-struct-check.h: New file.
+	* gcc.dg/compat/fp2-struct-defs.h: New file.
+	* gcc.dg/compat/fp2-struct-init.h: New file.
+	* gcc.dg/compat/struct-by-value-10_main.c: New file.
+	* gcc.dg/compat/struct-by-value-10_x.c: New file.
+	* gcc.dg/compat/struct-by-value-10_y.c: New file.
+	* gcc.dg/compat/struct-return-10_main.c: New file.
+	* gcc.dg/compat/struct-return-10_x.c: New file.
+	* gcc.dg/compat/struct-return-10_y.c: New file.
+
+	* gcc.dg/compat/compat-common.h: New file.
+	* gcc.dg/compat/fp-struct-check.h: Improve debugging output.
+	* gcc.dg/compat/fp-struct-test-by-value-x.h: Ditto.
+	* gcc.dg/compat/fp-struct-test-by-value-y.h: Ditto.
+	* gcc.dg/compat/scalar-by-value-1_main.c: Ditto.
+	* gcc.dg/compat/scalar-by-value-1_x.c: Ditto.
+	* gcc.dg/compat/scalar-by-value-1_y.c: Ditto.
+	* gcc.dg/compat/scalar-by-value-2_main.c: Ditto.
+	* gcc.dg/compat/scalar-by-value-2_x.c: Ditto.
+	* gcc.dg/compat/scalar-by-value-2_y.c: Ditto.
+	* gcc.dg/compat/scalar-return-1_main.c: Ditto.
+	* gcc.dg/compat/scalar-return-1_x.c: Ditto.
+	* gcc.dg/compat/scalar-return-1_y.c: Ditto.
+	* gcc.dg/compat/scalar-return-2_main.c: Ditto.
+	* gcc.dg/compat/scalar-return-2_x.c: Ditto.
+	* gcc.dg/compat/scalar-return-2_y.c: Ditto.
+	* gcc.dg/compat/small-struct-check.h: Ditto.
+	* gcc.dg/compat/struct-by-value-2_main.c: Ditto.
+	* gcc.dg/compat/struct-by-value-2_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-2_y.c: Ditto.
+	* gcc.dg/compat/struct-by-value-3_main.c: Ditto.
+	* gcc.dg/compat/struct-by-value-3_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-3_y.c: Ditto.
+	* gcc.dg/compat/struct-by-value-4_main.c: Ditto.
+	* gcc.dg/compat/struct-by-value-4_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-4_y.c: Ditto.
+	* gcc.dg/compat/struct-by-value-5_main.c: Ditto.
+	* gcc.dg/compat/struct-by-value-5_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-5_y.c: Ditto.
+	* gcc.dg/compat/struct-by-value-6_main.c: Ditto.
+	* gcc.dg/compat/struct-by-value-6_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-6_y.c: Ditto.
+	* gcc.dg/compat/struct-by-value-7_main.c: Ditto.
+	* gcc.dg/compat/struct-by-value-7_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-7_y.c: Ditto.
+	* gcc.dg/compat/struct-by-value-8_main.c: Ditto.
+	* gcc.dg/compat/struct-by-value-8_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-8_y.c: Ditto.
+	* gcc.dg/compat/struct-by-value-9_main.c: Ditto.
+	* gcc.dg/compat/struct-by-value-9_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-9_y.c: Ditto.
+	* gcc.dg/compat/struct-return-2_main.c: Ditto.
+	* gcc.dg/compat/struct-return-2_x.c: Ditto.
+	* gcc.dg/compat/struct-return-2_y.c: Ditto.
+	* gcc.dg/compat/struct-return-3_main.c: Ditto.
+	* gcc.dg/compat/struct-return-3_x.c: Ditto.
+	* gcc.dg/compat/struct-return-3_y.c: Ditto.
+
+2003-06-10  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/pch/static-1.C: New file.
+	* g++.dg/pch/static-1.Hs: New file.
+
+2003-06-10  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/asm-7.c: Adjust expected warning text.
+
+2003-06-10  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-20.c: New test case.
+
+2003-06-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11131
+	* g++.dg/opt/template1.C: New test.
+
+2003-06-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/gcc-dg.exp (dg-test): Clear additional_files and
+	additional_sources.
+
+2003-05-21  David Taylor  <dtaylor@emc.com>
+
+	* gcc.dg/Wpadded.c: New file.
+
+2003-06-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/special/20000419-2.c: Fix dg-require-alias syntax.
+	* gcc.dg/special/weak-2.c: Add dg-require-weak.
+	* gcc.dg/weak/weak-3.c: Reverse order of dg-do and
+	dg-require-weak.
+
+2003-06-09  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* g++.dg/other/offsetof3.C: Adjust linenumber of last expected warning.
+
+2003-06-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/gcc-dg.exp (dg-require-weak): Fix typo.
+	(dg-require-alias): Likewise.
+	(dg-require-gc-sections): Likewise.
+	* lib/target-supports.exp (check_gc_sections_available): Likewise.
+
+2003-06-08  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/20011029-2.c: Fix the array reference.
+	* gcc.dg/asm-7.c: New.
+
+2003-06-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/compile/20000804-1.x: Disable on h8300 port.
+
+2003-06-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/gcc-dg.exp (dg-require-alias): Fix typo.
+	(dg-require-gc-sections): Likewise.
+
+Sun Jun  8 16:46:04 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386-cmov1.c: Fix regular expression.
+	* i386-cvt-1.c: Likewise.
+	* i386-local.c: Likewise.
+	* i386-local2.c: Likewise.
+	* i386-mul.c: Likewise.
+	* i386-ssetype-1.c: Likewise.
+	* i386-ssetype-3.c: Likewise.
+	* i386-ssetype-5.c: Likewise.
+
+2003-06-08  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/11039
+	* g++.dg/warn/implicit-typename2.C: New test.
+	* g++.dg/warn/implicit-typename3.C: New test.
+
+2003-06-07  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/other/offsetof3.C: Use size_t.
+	* g++.dg/other/offsetof4.C: Likewise.
+
+2003-06-07  H.J. Lu <hongjiu.lu@intel.com>
+
+	* lib/copy-file.exp: New. Implement gcc_copy_files.
+
+	* lib/dg-pch.exp: Load copy-file.exp
+	(dg-pch): Use gcc_copy_files instead of "file copy".
+
+2003-06-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/weak/weak.exp: Simplify.
+	* gcc.dg/weak/typeof-2.c: Use dg-require-weak.
+	* gcc.dg/weak/weak-1.c: Likewise.
+	* gcc.dg/weak/weak-2.c: Likewise.
+	* gcc.dg/weak/weak-3.c: Likewise.
+	* gcc.dg/weak/weak-4.c: Likewise.
+	* gcc.dg/weak/weak-5.c: Likewise.
+	* gcc.dg/weak/weak-6.c: Likewise.
+	* gcc.dg/weak/weak-7.c: Likewise.
+	* gcc.dg/weak/weak-8.c: Likewise.
+	* gcc.dg/weak/weak-9.c: Likewise.
+
+2003-06-06  Richard Earnshaw  <rearnsha@arm.com>
+
+	gcc.c-torture/execute/20030606-1.c: New.
+
+2003-06-06  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-2.c: Correct check-in of incorrect version.
+	* gcc.dg/builtins-19.c: Likewise.
+
+2003-06-06  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-2.c: Add some more tests.
+	* gcc.dg/builtins-18.c: New test case.
+	* gcc.dg/builtins-19.c: New test case.
+
+2003-06-06  Roger Sayle  <roger@eyesopen.com>
+	    Jim Wilson  <wilson@tuliptree.org>
+
+	* gcc.dg/uninit-C.c: Only test TImode on 64-bit platforms.
+
+2003-06-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/builtins/string-4.c (main_test): Allow some
+	mempcpy/stpcpy calls not to be optimized into something else.
+	* gcc.c-torture/execute/string-opt-3.c: Moved to...
+	* gcc.c-torture/execute/builtins/string-7.c: ...here.
+	* gcc.c-torture/execute/builtins/string-7-lib.c: New.
+
+2003-06-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/format/asm_fprintf-1.c: New test.
+
+2003-06-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/gcc-defs.exp (additional_sources): New variable.
+	(dg-additional-sources): New function.
+	(additional_files): New variable.
+	(dg-additional-files): New function.
+	(dg-additional-files-options): Likewise.
+	* lib/gcc-dg.exp (dg-require-weak): New function.
+	(dg-require-alias): Likewise.
+	(dg-require-gc-sections): Likewise.
+	* lib/target-supports.exp (check_alias_available): Remove testfile
+	parameter.
+	(check_gc_sections_available): New function.
+	* lib/g++-dg.exp (dg-gpp-additional-sources): Remove.
+	(dg-gpp-additional-files): Likewise.
+	* lib/g++.exp (additional_sources): Remove.
+	(additional_files): Likewise.
+	(g++_target_compile): Use dg-additional-files-options.
+
+	* gcc.dg/special/special.exp: Add "ecos" tests.  Remove complex
+	Tcl logic.
+	* gcc.dg/special/ecos.exp: Remove.
+	* gcc.dg/special/20000419-2.c: Use dg-require-*.
+	* gcc.dg/special/alias-1.c: Likewise.
+	* gcc.dg/special/alias-2.c: Likewise.
+	* gcc.dg/special/gcsec-1.c: Likewise.
+	* gcc.dg/special/weak-1.c: Likewise.
+	* gcc.dg/special/weak-2.c: Likewise.
+	* gcc.dg/special/wkali-1.c: Likewise.
+	* gcc.dg/special/wkali-2.c: Likewise.
+
+	* g++.dg/special/conpr-2.C: Use dg-additional-*, not
+	dg-gpp-additional-*.
+	* g++.dg/special/conpr-3.C: Likewise.
+	* g++.dg/special/conpr-4.C: Likewise.
+	* g++.old-deja/g++.abi/vtable3a.C: Likewise.
+	* g++.old-deja/g++.abi/vtable3b.C: Likewise.
+	* g++.old-deja/g++.abi/vtable3c.C: Likewise.
+	* g++.old-deja/g++.abi/vtable3d.C: Likewise.
+	* g++.old-deja/g++.abi/vtable3e.C: Likewise.
+	* g++.old-deja/g++.abi/vtable3f.C: Likewise.
+	* g++.old-deja/g++.abi/vtable3g.C: Likewise.
+	* g++.old-deja/g++.abi/vtable3h.C: Likewise.
+	* g++.old-deja/g++.abi/vtable3i.C: Likewise.
+	* g++.old-deja/g++.abi/vtable3j.C: Likewise.
+	* g++.old-deja/g++.oliva/linkage1.C: Likewise.
+	* g++.old-deja/g++.other/comdat1.C: Likewise.
+	* g++.old-deja/g++.other/comdat2.C: Likewise.
+	* g++.old-deja/g++.other/comdat3.C: Likewise.
+	* g++.old-deja/g++.other/ctor1.C: Likewise.
+	* g++.old-deja/g++.pt/instantiate5.C: Likewise.
+
+2003-06-05  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/debug/20030605-1.c: New.
+
+2003-06-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* README.QMTEST: Update.
+
+2003-06-04  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/cleanup-1.c: New.
+	* gcc.dg/cleanup-2.c: New.
+	* gcc.dg/cleanup-3.c: New.
+	* gcc.dg/cleanup-4.c: New.
+	* gcc.dg/cleanup-5.c: New.
+	* gcc.dg/cleanup-6.c: New.
+	* gcc.dg/cleanup-7.c: New.
+
+2003-06-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/vague1.C: Use xfail, rather than embedded Tcl code.
+
+	* lib/dg-pch.exp: New file.
+	* g++.dg/pch/pch.exp: Use dg-pch.exp.
+	* gcc.dg/pch/pch.exp: Likewise.
+
+2003-06-04  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-2.c: Add tests for tan(atan(x)).
+	* gcc.dg/builtins-3.c: Add tests for tan(0.0) and atan(0.0).
+	* gcc.dg/builtins-7.c: Add tests for tan(atan(x)) == x.
+	* gcc.dg/builtins-17.c: New test case.
+	* gcc.dg/i386-387-4.c: New test case.
+	* gcc.c-torture/execute/ieee/mzero4.c: New test case.
+
+2003-06-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/ultrasp9.c: New test.
+
+2003-06-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20030604-1.c: New test.
+	* gcc.dg/sparc-constant-1.c: New test.
+
+2003-06-03  Glen Nakamura  <glen@imodulo.com>
+
+ 	* gcc.dg/20020525-1.c: Replace 0x5a5a5a5a with -1.
+
+2003-06-03  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* g++.dg/abi/empty6.C (B): Request alignment of 8 bytes.
+
+	* gcc.dg/torture/builtin-noret-1.c (_exit, _Exit): Make weak.
+	* gcc.dg/torture/builtin-noret-2.c (_exit, _Exit): Likewise.
+
+2003-06-03  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.c-torture/compile/simd-5.x: Remove xfail for PPC64.
+
+2003-06-03  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10940
+	* g++.dg/template/spec10.C: New test.
+
+2003-06-03  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-16.c: New test case.
+
+2003-06-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/builtins/string-4.c (main_test): Remove
+	mempcpy test with post-increments.
+	* gcc.c-torture/execute/string-opt-3.c: New test.
+	* gcc.dg/string-opt-1.c: New test.
+
+2003-06-03  David Billinghurst (David.Billinghurst@riotinto.com)
+
+	PR fortran/10965
+	* g77.f-torture/compile/20000601-2.f: Fix non-standard code.
+
+2003-06-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/scanasm.exp (dg-scan): New function, factored out of ...
+	(scan-assembler): ... here.  Use dg-scan.
+	(scan-assembler-not): Likewise.
+	(scan-file): New function.
+	(scan-file-not): Likewise.
+	* gcc.dg/cpp/19990228-1.c: Use scan-file and/or scan-file-not.
+	* gcc.dg/cpp/_Pragma4.c: Likewise.
+	* gcc.dg/cpp/_Pragma5.c: Likewise.
+	* gcc.dg/cpp/avoidpaste1.c: Likewise.
+	* gcc.dg/cpp/avoidpaste2.c: Likewise.
+	* gcc.dg/cpp/cmdlne-C2.c: Likewise.
+	* gcc.dg/cpp/cmdlne-P.c: Likewise.
+	* gcc.dg/cpp/cmdlne-dD-M.c: Likewise.
+	* gcc.dg/cpp/cmdlne-dD-dM.c: Likewise.
+	* gcc.dg/cpp/cmdlne-dI-M.c: Likewise.
+	* gcc.dg/cpp/cmdlne-dM-M.c: Likewise.
+	* gcc.dg/cpp/cmdlne-dM-dD.c: Likewise.
+	* gcc.dg/cpp/cmdlne-dN-M.c: Likewise.
+	* gcc.dg/cpp/cxxcom1.c: Likewise.
+	* gcc.dg/cpp/line1.c: Likewise.
+	* gcc.dg/cpp/maccom1.c: Likewise.
+	* gcc.dg/cpp/maccom2.c: Likewise.
+	* gcc.dg/cpp/maccom3.c: Likewise.
+	* gcc.dg/cpp/maccom4.c: Likewise.
+	* gcc.dg/cpp/maccom5.c: Likewise.
+	* gcc.dg/cpp/maccom6.c: Likewise.
+	* gcc.dg/cpp/multiline.c: Likewise.
+	* gcc.dg/cpp/spacing1.c: Likewise.
+	* gcc.dg/cpp/spacing2.c: Likewise.
+	* gcc.dg/cpp/trad/cmdlne-C2.c: Likewise.
+	* gcc.dg/cpp/trad/maccom1.c: Likewise.
+	* gcc.dg/cpp/trad/maccom2.c: Likewise.
+	* gcc.dg/cpp/trad/maccom3.c: Likewise.
+	* gcc.dg/cpp/trad/maccom4.c: Likewise.
+	* gcc.dg/cpp/trad/maccom6.c: Likewise.
+	* gcc.dg/cpp/cxxcom2.c: Likewise.
+	* gcc.dg/cpp/cxxcom2.h: New file.
+
+	* gcc.dg/cpp/truefalse.cpp: Move it to ...
+	* g++.dg/cpp/truefalse.C: Here.
+	* gcc.dg/cpp/cpp.exp: Remove scanning of ".cpp" files.
+
+2003-06-01  Loren James Rittle  <ljrittle@acm.org>
+
+	* gcc.dg/cpp/redef3.c: New file.
+
+2003-06-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-loop-3.c: New test.
+
+2003-05-31  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* g77.dg/ffree-form-2.f: XFAIL removed, because fixed.
+
+2003-05-31  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/fwrapv-1.c: New test case.
+	* gcc.dg/fwrapv-2.c: New test case.
+
+2003-05-31  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10956
+	* g++.dg/template/spec9.C: New test.
+
+2003-05-29  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/duff-4.c: New test case.
+
+2003-05-27  David Billinghurst (David.Billinghurst@riotinto.com)
+
+	PR fortran/10843
+	* g77.dg/ffixed-form-1.f: New test
+	* g77.dg/ffixed-form-2.f: New test
+	* g77.dg/ffree-form-2.f: New test - XFAIL pending fix
+	* g77.dg/ffree-form-3.f: New test
+
+2003-05-26  Andreas Tobler <a.tobler@schweiz.ch>
+
+	* gcc.dg/wchar_t-1.c: XFAIL on darwin, no wchar.h available.
+	* gcc.dg/wint_t-1.c: Likewise.
+
+2003-05-25  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/template/access11.C: New test.
+
+2003-05-25  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10849
+	* g++.dg/template/access10.C: New test.
+
 2003-05-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
-            Kaveh R. Ghazi <ghazi@caip.rutgers.edu>
+	    Kaveh R. Ghazi <ghazi@caip.rutgers.edu>
 
 	* gcc.c-torture/compile/simd-5.x: XFAIL on SPARC64.
 
 2003-05-24  Andreas Tobler <a.tobler@schweiz.ch>
 
-        * gcc.dg/torture/builtin-noret-1.c: Add dg-option -multiply_defined
-        suppress for powerpc-*-darwin*.
+	* gcc.dg/torture/builtin-noret-1.c: Add dg-option -multiply_defined
+	suppress for powerpc-*-darwin*.
 	* gcc.dg/torture/builtin-noret-2.c: Likewise.
 
 2003-05-24  Andreas Tobler <a.tobler@schweiz.ch>
 
 	* gcc.c-torture/execute/builtins/builtins.exp: Add -multiply_defined
 	suppress option for powerpc-*-darwin*.
-	
+
 2003-05-23  Roger Sayle  <roger@eyesopen.com>
 
 	* gcc.dg/builtins-1.c: Add tests for tan and atan.
@@ -140,7 +1145,7 @@
 	* lib/g++-dg.exp: Use gcc-dg.exp to implement all functionality.
 	* lib/g77-dg.exp: Likewise.
 	* lib/obj-dg.exp: Likewise.
-	
+
 2003-05-16  Jakub Jelinek  <jakub@redhat.com>
 
 	Merge from gcc-3_2-rhl8-branch:
@@ -333,13 +1338,13 @@
 
 2003-05-07  Richard Henderson  <rth@redhat.com>
 
-        PR c++/10570
-        * g++.dg/eh/forced1.C: Expect catch-all handlers to run.
-        Verify exception_cleanup not called for rethrows.
-        * g++.dg/eh/forced2.C: Test that exception_cleanup is called
-        when exiting catch block without rethrowing.
-        * g++.dg/eh/forced3.C: New.
-        * g++.dg/eh/forced4.C: New.
+	PR c++/10570
+	* g++.dg/eh/forced1.C: Expect catch-all handlers to run.
+	Verify exception_cleanup not called for rethrows.
+	* g++.dg/eh/forced2.C: Test that exception_cleanup is called
+	when exiting catch block without rethrowing.
+	* g++.dg/eh/forced3.C: New.
+	* g++.dg/eh/forced4.C: New.
 
 2003-05-07  Aldy Hernandez  <aldyh@redhat.com>
 

@@ -738,7 +738,7 @@ enum reg_class
    replace with a big comment.
    The definition needs to match or be a subset of
    FUNCTION_ARG_PASS_BY_REFERENCE, since not all callers check that before
-   usage.  Watch lots of C++ test-cases fail if set to 1, for example
+   usage.  Watch lots of C++ testcases fail if set to 1, for example
    g++.dg/init/byval1.C.  */
 #define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) \
  mmix_function_arg_pass_by_reference (&(CUM), MODE, TYPE, NAMED)
@@ -871,7 +871,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
    comparisons with -1 to LT and GE respectively, and LT, LTU, GE or GEU
    comparisons with 256 to 255 and LE, LEU, GT and GTU has been
    ineffective; the code path for performing the changes did not trig for
-   neither the GCC test-suite nor ghostscript-6.52 nor Knuth's mmix.tar.gz
+   neither the GCC testsuite nor ghostscript-6.52 nor Knuth's mmix.tar.gz
    itself (core GCC functionality supposedly handling it) with sources
    from 2002-06-06.  */
 
@@ -919,12 +919,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
 /* Node: File Framework */
 
-#define ASM_FILE_START(STREAM) \
- mmix_asm_file_start (STREAM)
-
-#define ASM_FILE_END(STREAM) \
- mmix_asm_file_end (STREAM)
-
 /* While any other punctuation character but ";" would do, we prefer "%"
    or "!"; "!" is an unary operator and so will not be mistakenly included
    in correctly formed expressions.  The hash character adds mass; catches
@@ -942,7 +936,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #define OUTPUT_QUOTED_STRING(STREAM, STRING) \
  mmix_output_quoted_string (STREAM, STRING, strlen (STRING))
 
-#define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE) \
+#define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE, COUNTER) \
  mmix_asm_output_source_line  (STREAM, LINE)
 
 #define TARGET_ASM_NAMED_SECTION default_elf_asm_named_section
@@ -1147,11 +1141,8 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
-/* We have a choice here too.  */
-#if 0
-/* FIXME:  Revisit, we don't have scc expanders yet.  */
-#define STORE_FLAG_VALUE 1
-#endif
+/* ??? MMIX allows a choice of STORE_FLAG_VALUE.  Revisit later,
+   we don't have scc expanders yet.  */
 
 #define Pmode DImode
 

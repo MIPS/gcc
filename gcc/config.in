@@ -1,4 +1,4 @@
-/* config.in.  Generated automatically from configure.in by autoheader.  */
+/* config.in.  Generated automatically from configure.in by autoheader 2.13.  */
 
 /* Define if using alloca.c.  */
 #undef C_ALLOCA
@@ -23,8 +23,8 @@
 /* Define if you have <alloca.h> and it should be used (not on Ultrix).  */
 #undef HAVE_ALLOCA_H
 
-/* Define if you have the ANSI # stringizing operator in cpp. */
-#undef HAVE_STRINGIZE
+/* Define if you have a working `mmap' system call.  */
+#undef HAVE_MMAP
 
 /* Define if you have <sys/wait.h> that is POSIX.1 compatible.  */
 #undef HAVE_SYS_WAIT_H
@@ -111,12 +111,6 @@
 /* Define if you have the dup2 function.  */
 #undef HAVE_DUP2
 
-/* Define if you have the feof_unlocked function.  */
-#undef HAVE_FEOF_UNLOCKED
-
-/* Define if you have the fgets_unlocked function.  */
-#undef HAVE_FGETS_UNLOCKED
-
 /* Define if you have the fprintf_unlocked function.  */
 #undef HAVE_FPRINTF_UNLOCKED
 
@@ -132,15 +126,6 @@
 /* Define if you have the getcwd function.  */
 #undef HAVE_GETCWD
 
-/* Define if you have the getegid function.  */
-#undef HAVE_GETEGID
-
-/* Define if you have the geteuid function.  */
-#undef HAVE_GETEUID
-
-/* Define if you have the getgid function.  */
-#undef HAVE_GETGID
-
 /* Define if you have the getpagesize function.  */
 #undef HAVE_GETPAGESIZE
 
@@ -153,9 +138,6 @@
 /* Define if you have the gettimeofday function.  */
 #undef HAVE_GETTIMEOFDAY
 
-/* Define if you have the getuid function.  */
-#undef HAVE_GETUID
-
 /* Define if you have the kill function.  */
 #undef HAVE_KILL
 
@@ -165,8 +147,11 @@
 /* Define if you have the mbstowcs function.  */
 #undef HAVE_MBSTOWCS
 
-/* Define if you have the mempcpy function.  */
-#undef HAVE_MEMPCPY
+/* Define if you have the mincore function.  */
+#undef HAVE_MINCORE
+
+/* Define if you have the mmap function.  */
+#undef HAVE_MMAP
 
 /* Define if you have the munmap function.  */
 #undef HAVE_MUNMAP
@@ -201,23 +186,14 @@
 /* Define if you have the strchr function.  */
 #undef HAVE_STRCHR
 
-/* Define if you have the strdup function.  */
-#undef HAVE_STRDUP
-
 /* Define if you have the strsignal function.  */
 #undef HAVE_STRSIGNAL
-
-/* Define if you have the strtoul function.  */
-#undef HAVE_STRTOUL
 
 /* Define if you have the sysconf function.  */
 #undef HAVE_SYSCONF
 
 /* Define if you have the times function.  */
 #undef HAVE_TIMES
-
-/* Define if you have the tsearch function.  */
-#undef HAVE_TSEARCH
 
 /* Define if you have the wcswidth function.  */
 #undef HAVE_WCSWIDTH
@@ -264,6 +240,9 @@
 /* Define if you have the <sys/file.h> header file.  */
 #undef HAVE_SYS_FILE_H
 
+/* Define if you have the <sys/mman.h> header file.  */
+#undef HAVE_SYS_MMAN_H
+
 /* Define if you have the <sys/param.h> header file.  */
 #undef HAVE_SYS_PARAM_H
 
@@ -285,6 +264,9 @@
 /* Define if you have the <unistd.h> header file.  */
 #undef HAVE_UNISTD_H
 
+/* Define if you have the <values.h> header file.  */
+#undef HAVE_VALUES_H
+
 /* Define if you have the <wchar.h> header file.  */
 #undef HAVE_WCHAR_H
 
@@ -293,12 +275,6 @@
 
 /* Define to enable the use of a default assembler. */
 #undef DEFAULT_ASSEMBLER
-
-/* Define if your compiler understands volatile. */
-#undef HAVE_VOLATILE
-
-/* Define if your compiler supports the `long double' type. */
-#undef HAVE_LONG_DOUBLE
 
 /* Define if your compiler supports the `long long' type. */
 #undef HAVE_LONG_LONG
@@ -323,9 +299,6 @@
 
 /* The number of bytes in type __int64 */
 #undef SIZEOF___INT64
-
-/* Define if the host execution character set is EBCDIC. */
-#undef HOST_EBCDIC
 
 /* Define if you want more run-time sanity checks.  This one gets a grab
    bag of miscellaneous but relatively cheap checks. */
@@ -361,12 +334,6 @@
 
 /* Define if valgrind's memcheck.h header is installed. */
 #undef HAVE_MEMCHECK_H
-
-/* Define if you want to use __cxa_atexit, rather than atexit, to
-   register C++ destructors for local statics and global objects.
-   This is essential for fully standards-compliant handling of
-   destructors, but requires __cxa_atexit in libc. */
-#undef DEFAULT_USE_CXA_ATEXIT
 
 /* Define if you want the C and C++ compilers to support multibyte
    character sets for source code. */
@@ -404,14 +371,14 @@
 /* Define if printf supports %p. */
 #undef HAVE_PRINTF_PTR
 
-/* Define if mmap can get us zeroed pages from /dev/zero. */
-#undef HAVE_MMAP_DEV_ZERO
-
-/* Define if mmap can get us zeroed pages using MAP_ANON(YMOUS). */
-#undef HAVE_MMAP_ANON
-
 /* Define if read-only mmap of a plain file works. */
 #undef HAVE_MMAP_FILE
+
+/* Define if mmap of /dev/zero works. */
+#undef HAVE_MMAP_DEV_ZERO
+
+/* Define if mmap with MAP_ANON(YMOUS) works. */
+#undef HAVE_MMAP_ANON
 
 /* Define if you have the iconv() function. */
 #undef HAVE_ICONV
@@ -527,6 +494,12 @@
 /* Define to 1 if HOST_WIDE_INT must be 64 bits wide (see hwint.h). */
 #undef NEED_64BIT_HOST_WIDE_INT
 
+/* Define if you want to use __cxa_atexit, rather than atexit, to
+   register C++ destructors for local statics and global objects.
+   This is essential for fully standards-compliant handling of
+   destructors, but requires __cxa_atexit in libc. */
+#undef DEFAULT_USE_CXA_ATEXIT
+
 /* Define to the name of a file containing a list of extra machine modes
    for this architecture. */
 #undef EXTRA_MODES_FILE
@@ -535,31 +508,17 @@
    the results of comparisons. */
 #undef EXTRA_CC_MODES
 
-/* Define if you have the iconv() function. */
-#undef HAVE_ICONV
+/* Define if you have the stpcpy function */
+#undef HAVE_STPCPY
 
-/* Define as const if the declaration of iconv() needs const. */
-#undef ICONV_CONST
-
-/* Define if you have <langinfo.h> and nl_langinfo(CODESET). */
-#undef HAVE_LANGINFO_CODESET
-
-/* Define if your <locale.h> file defines LC_MESSAGES. */
+/* Define if your locale.h file contains LC_MESSAGES. */
 #undef HAVE_LC_MESSAGES
 
-/* Define to 1 if translation of program messages to the user's native language
-   is requested. */
+/* Define to 1 if NLS is requested */
 #undef ENABLE_NLS
 
-/* Define if you have the <libintl.h> header file. */
-#undef HAVE_LIBINTL_H
-
-/* Define if the GNU gettext() function is already present or preinstalled. */
+/* Define as 1 if you have gettext and don't want to use GNU gettext. */
 #undef HAVE_GETTEXT
-
-/* Define to use the libintl included with this package instead of any
-   version in the system libraries. */
-#undef USE_INCLUDED_LIBINTL
 
 /* Define to 1 if installation paths should be looked up in Windows32
    Registry. Ignored on non windows32 hosts. */
@@ -630,6 +589,9 @@
 
 /* Define if your linker supports --eh-frame-hdr option. */
 #undef HAVE_LD_EH_FRAME_HDR
+
+/* Define if your linker supports -pie option. */
+#undef HAVE_LD_PIE
 
 /* Define if your MIPS libgloss linker scripts consistently include STARTUP directives. */
 #undef HAVE_MIPS_LIBGLOSS_STARTUP_DIRECTIVES

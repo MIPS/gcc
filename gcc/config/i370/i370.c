@@ -85,7 +85,7 @@ int mvs_page_lit;
 char *mvs_function_name = 0;
 
 /* Current function name length.  */
-int mvs_function_name_length = 0;
+size_t mvs_function_name_length = 0;
 
 /* Page number for multi-page functions.  */
 int mvs_page_num = 0;
@@ -107,6 +107,9 @@ static void i370_globalize_label PARAMS ((FILE *, const char *));
 #endif
 static void i370_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void i370_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void i370_file_start PARAMS ((void));
+static void i370_file_end PARAMS ((void));
+
 #ifdef LONGEXTERNAL
 static int mvs_hash_alias PARAMS ((const char *));
 #endif
@@ -118,7 +121,7 @@ static bool i370_rtx_costs PARAMS ((rtx, int, int, int *));
 #ifdef TARGET_HLASM
 
 #define MVS_HASH_PRIME 999983
-#if defined(HOST_EBCDIC)
+#if HOST_CHARSET == HOST_CHARSET_EBCDIC
 #define MVS_SET_SIZE 256
 #else
 #define MVS_SET_SIZE 128
@@ -153,7 +156,7 @@ static alias_node_t *alias_anchor = 0;
    and must handled in a special manner.  */
 static const char *const mvs_function_table[MVS_FUNCTION_TABLE_LENGTH] =
 {
-#if defined(HOST_EBCDIC) /* Changed for EBCDIC collating sequence */
+#if HOST_CHARSET == HOST_CHARSET_EBCDIC /* Changed for EBCDIC collating sequence */
    "ceil",     "edc_acos", "edc_asin", "edc_atan", "edc_ata2", "edc_cos",
    "edc_cosh", "edc_erf",  "edc_erfc", "edc_exp",  "edc_gamm", "edc_lg10",
    "edc_log",  "edc_sin",  "edc_sinh", "edc_sqrt", "edc_tan",  "edc_tanh",
@@ -173,7 +176,7 @@ static const char *const mvs_function_table[MVS_FUNCTION_TABLE_LENGTH] =
 #endif /* TARGET_HLASM */
 /* ===================================================== */
 
-#if defined(TARGET_EBCDIC) && !defined(HOST_EBCDIC)
+#if defined(TARGET_EBCDIC) && HOST_CHARSET == HOST_CHARSET_ASCII
 /* ASCII to EBCDIC conversion table.  */
 static const unsigned char ascebc[256] =
 {
@@ -226,10 +229,9 @@ static const unsigned char ascebc[256] =
      0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F,
      0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0xFF
 };
-#endif /* TARGET_EBCDIC && ! HOST_EBCDIC */
+#endif /* target EBCDIC, host ASCII */
 
-
-#if defined(HOST_EBCDIC) && !defined(TARGET_EBCDIC)
+#if !defined(TARGET_EBCDIC) && HOST_CHARSET == HOST_CHARSET_EBCDIC
 /* EBCDIC to ASCII conversion table.  */
 static const unsigned char ebcasc[256] =
 {
@@ -298,7 +300,7 @@ static const unsigned char ebcasc[256] =
  /*F8   8     9                                     */
      0x38, 0x39, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF
 };
-#endif /* HOST_EBCDIC && ! TARGET_EBCDIC */
+#endif /* target ASCII, host EBCDIC */
 
 /* Initialize the GCC target structure.  */
 #ifdef TARGET_HLASM
@@ -318,6 +320,10 @@ static const unsigned char ebcasc[256] =
 #define TARGET_ASM_FUNCTION_PROLOGUE i370_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE i370_output_function_epilogue
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START i370_file_start
+#undef TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END i370_file_end
 #undef TARGET_ASM_INTERNAL_LABEL
 #define  TARGET_ASM_INTERNAL_LABEL i370_internal_label
 #undef TARGET_RTX_COSTS
@@ -344,11 +350,11 @@ char
 mvs_map_char (c)
      int c;
 {
-#if defined(TARGET_EBCDIC) && !defined(HOST_EBCDIC)
+#if defined(TARGET_EBCDIC) && HOST_CHARSET == HOST_CHARSET_ASCII
   fprintf (stderr, "mvs_map_char: TE & !HE: c = %02x\n", c);
   return ascebc[c];
 #else
-#if defined(HOST_EBCDIC) && !defined(TARGET_EBCDIC)
+#if !defined(TARGET_EBCDIC) && HOST_CHARSET == HOST_CHARSET_EBCDIC
   fprintf (stderr, "mvs_map_char: !TE & HE: c = %02x\n", c);
   return ebcasc[c];
 #else
@@ -1596,6 +1602,18 @@ i370_output_function_epilogue (file, l)
   mvs_free_label_list();
   for (i = function_base_page; i < mvs_page_num; i++)
     fprintf (file, "\tDC\tA(PG%d)\n", i);
+}
+
+static void
+i370_file_start ()
+{
+  fputs ("\tRMODE\tANY\n\tCSECT\n", asm_out_file);
+}
+
+static void
+i370_file_end ()
+{
+  fputs ("\tEND\n", asm_out_file);
 }
 
 static void

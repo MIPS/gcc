@@ -42,7 +42,7 @@ do {							\
 	builtin_define("__fpreg=long double");		\
 	builtin_define("__float80=long double");	\
 	builtin_define("__float128=long double");	\
-	if (c_language == clk_cplusplus || !flag_iso)	\
+	if (c_dialect_cxx () || !flag_iso)		\
 	  {						\
 	    builtin_define("_HPUX_SOURCE");		\
 	    builtin_define("__STDC_EXT__");		\
@@ -136,7 +136,7 @@ do {								\
 
 /* Put out the needed function declarations at the end.  */
 
-#define ASM_FILE_END(STREAM) ia64_hpux_asm_file_end(STREAM)
+#define TARGET_ASM_FILE_END ia64_hpux_file_end
 
 #undef CTORS_SECTION_ASM_OP
 #define CTORS_SECTION_ASM_OP  "\t.section\t.init_array,\t\"aw\",\"init_array\""

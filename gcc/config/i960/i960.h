@@ -422,9 +422,9 @@ extern int target_flags;
    library functions.  */
 #define CONSTANT_ALIGNMENT(EXP, ALIGN) \
   (TREE_CODE (EXP) == STRING_CST	\
-   && i960_object_bytes_bitalign (int_size_in_bytes (TREE_TYPE (EXP))) > (ALIGN) \
+   && i960_object_bytes_bitalign (int_size_in_bytes (TREE_TYPE (EXP))) > (int)(ALIGN) \
    ? i960_object_bytes_bitalign (int_size_in_bytes (TREE_TYPE (EXP)))	    \
-   : (ALIGN))
+   : (int)(ALIGN))
 
 /* Macros to determine size of aggregates (structures and unions
    in C).  Normally, these may be defined to simply return the maximum
@@ -1115,11 +1115,6 @@ struct cum_args { int ca_nregparms; int ca_nstackparms; };
 
 #define SLOW_BYTE_ACCESS 1
 
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-
-#define STORE_FLAG_VALUE 1
-
 /* Define this to be nonzero if shift instructions ignore all but the low-order
    few bits.  */
 #define SHIFT_COUNT_TRUNCATED 0
@@ -1166,10 +1161,6 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 
 /* Control the assembler format that we output.  */
 
-/* Output at beginning of assembler file.  */
-
-#define ASM_FILE_START(file)
-
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
 
@@ -1211,7 +1202,7 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 /* This is how to output a note to DBX telling it the line number
    to which the following sequence of instructions corresponds.  */
 
-#define ASM_OUTPUT_SOURCE_LINE(FILE, LINE)			\
+#define ASM_OUTPUT_SOURCE_LINE(FILE, LINE, COUNTER)		\
 { if (write_symbols == SDB_DEBUG) {				\
     fprintf ((FILE), "\t.ln	%d\n",				\
 	     (sdb_begin_function_line				\
@@ -1233,7 +1224,7 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
    This is suitable for output with `assemble_name'.  */
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
-  sprintf (LABEL, "*%s%d", PREFIX, NUM)
+  sprintf (LABEL, "*%s%lu", PREFIX, (unsigned long)(NUM))
 
 #define ASM_OUTPUT_REG_PUSH(FILE,REGNO)  \
   fprintf (FILE, "\tst\t%s,(sp)\n\taddo\t4,sp,sp\n", reg_names[REGNO])

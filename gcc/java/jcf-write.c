@@ -40,16 +40,12 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "ggc.h"
 #include "tm_p.h"
 
-#ifndef DIR_SEPARATOR
-#define DIR_SEPARATOR '/'
-#endif
-
 extern struct obstack temporary_obstack;
 
 /* Base directory in which `.class' files should be written.
    NULL means to put the file into the same directory as the
    corresponding .java file.  */
-char *jcf_write_base_directory = NULL;
+const char *jcf_write_base_directory = NULL;
 
 /* Make sure bytecode.data is big enough for at least N more bytes. */
 

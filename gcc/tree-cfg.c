@@ -107,6 +107,8 @@ static inline bool stmt_starts_bb_p (tree, tree);
 static inline bool stmt_ends_bb_p (tree);
 static void find_contained_blocks (tree *, bitmap, tree **);
 static void compute_reachable_eh (tree);
+static int tree_verify_flow_info (void);
+static basic_block tree_make_forwarder_block (basic_block, int, int, edge, int);
 
 /* Flowgraph optimization and cleanup.  */
 static void remove_unreachable_blocks (void);
@@ -190,6 +192,21 @@ static tree_stmt_iterator find_insert_location
   at line 6, it sets NEXT_BLOCK_LINK (s3) to 's4'.  */
 #define NEXT_BLOCK_LINK(STMT)	TREE_CHAIN (STMT)
 
+/* FIXME These need to be filled in with appropriate pointers.  But this
+   implies an ABI change in some functions.  */
+struct cfg_hooks tree_cfg_hooks = {
+  tree_verify_flow_info,
+  NULL,				/* dump_bb  */
+  NULL,				/* create_basic_block  */
+  NULL,				/* redirect_edge_and_branch  */
+  NULL,				/* redirect_edge_and_branch_force  */
+  NULL,				/* delete_basic_block  */
+  NULL,				/* split_block  */
+  NULL,				/* can_merge_blocks_p  */
+  NULL,				/* merge_blocks  */
+  tree_split_edge,		/* cfgh_split_edge  */
+  tree_make_forwarder_block	/* cfgh_make_forward_block  */
+};
 
 /*---------------------------------------------------------------------------
 			      Create basic blocks
@@ -4759,9 +4776,77 @@ tree_split_edge (edge edge_in)
 }
 
 
-/* Verifies that the flow information is ok.  */
+/* Verifies that the flow information is OK.  */
 
-void 
+static int 
 tree_verify_flow_info (void)
 {
+  return 0;
+}
+
+
+/* Split BB into entry part and rest; if REDIRECT_LATCH, redirect edges
+   marked as latch into entry part, analogically for REDIRECT_NONLATCH.
+   In both of these cases, ignore edge EXCEPT.  If CONN_LATCH, set edge
+   between created entry part and BB as latch one.  Return created entry
+   part.  */
+
+static basic_block
+tree_make_forwarder_block (basic_block bb, int redirect_latch,
+                           int redirect_nonlatch, edge except, int conn_latch)
+{
+  edge e, next_e, fallthru;
+  basic_block dummy;
+
+  /* Create the new basic block.  */
+  dummy = create_bb (); 
+  alloc_aux_for_block (dummy, sizeof (struct bb_ann_d));
+  dummy->count = bb->count;
+  dummy->frequency = bb->frequency;
+  dummy->loop_depth = bb->loop_depth;
+  dummy->head_tree_p = NULL;
+  dummy->end_tree_p = NULL;
+
+  /* Redirect the incoming edges.  */
+  dummy->pred = bb->pred;
+  bb->pred = NULL;
+  for (e = dummy->pred; e; e = e->pred_next)
+    e->dest = dummy;
+  
+  fallthru = make_edge (dummy, bb, 0);
+  
+  HEADER_BLOCK (dummy) = 0;
+  HEADER_BLOCK (bb) = 1;
+  
+  /* Redirect back edges we want to keep.  */
+  for (e = dummy->pred; e; e = next_e)
+    {
+      next_e = e->pred_next;
+      if (e == except
+	  || !((redirect_latch && LATCH_EDGE (e))
+	       || (redirect_nonlatch && !LATCH_EDGE (e))))
+	{
+	  dummy->frequency -= EDGE_FREQUENCY (e);
+	  dummy->count -= e->count;
+	  if (dummy->frequency < 0)
+	    dummy->frequency = 0;
+	  if (dummy->count < 0)
+	    dummy->count = 0;
+	  redirect_edge_succ (e, bb);
+	}
+    }
+  
+  alloc_aux_for_edge (fallthru, sizeof (int));
+  LATCH_EDGE (fallthru) = conn_latch;
+
+  return dummy;
+}
+
+/* Initialization of functions specific to the tree IR.  */
+
+void 
+tree_register_cfg_hooks ()
+{
+  cfg_level = AT_TREE_LEVEL;
+  cfg_hooks = &tree_cfg_hooks;
 }

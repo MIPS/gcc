@@ -56,7 +56,6 @@ static edge find_best_predecessor PARAMS ((basic_block));
 static int find_trace		PARAMS ((basic_block, basic_block *));
 static void tail_duplicate	PARAMS ((void));
 static void layout_superblocks	PARAMS ((void));
-static bool ignore_bb_p		PARAMS ((basic_block));
 
 /* Minimal outgoing edge probability considered for superblock formation.  */
 static int probability_cutoff;
@@ -65,7 +64,7 @@ static int branch_ratio_cutoff;
 /* Return true if BB has been seen - it is connected to some trace
    already.  */
 
-#define seen(bb) (RBI (bb)->visited || RBI (bb)->next)
+#define seen(bb) (bb->rbi->visited || bb->rbi->next)
 
 /* Return true if we should ignore the basic block for purposes of tracing.  */
 static bool
@@ -296,8 +295,8 @@ tail_duplicate ()
 		fprintf (rtl_dump_file, "Duplicated %i as %i [%i]\n",
 			 old->index, bb2->index, bb2->frequency);
 	    }
-	  RBI (bb)->next = bb2;
-	  RBI (bb2)->visited = 1;
+	  bb->rbi->next = bb2;
+	  bb2->rbi->visited = 1;
 	  bb = bb2;
 	  /* In case the trace became infrequent, stop duplicating.  */
 	  if (ignore_bb_p (bb))
@@ -317,7 +316,7 @@ tail_duplicate ()
   fibheap_delete (heap);
 }
 
-/* Connect the superblocks into linear seuqence.  At the moment we attempt to keep
+/* Connect the superblocks into linear sequence.  At the moment we attempt to keep
    the original order as much as possible, but the algorithm may be made smarter
    later if needed.  BB reordering pass should void most of the benefits of such
    change though.  */
@@ -331,28 +330,28 @@ layout_superblocks ()
   while (bb != EXIT_BLOCK_PTR)
     {
       edge e, best = NULL;
-      while (RBI (end)->next)
-	end = RBI (end)->next;
+      while (end->rbi->next)
+	end = end->rbi->next;
 
       for (e = end->succ; e; e = e->succ_next)
 	if (e->dest != EXIT_BLOCK_PTR
 	    && e->dest != ENTRY_BLOCK_PTR->succ->dest
-	    && !RBI (e->dest)->visited
+	    && !e->dest->rbi->visited
 	    && (!best || EDGE_FREQUENCY (e) > EDGE_FREQUENCY (best)))
 	  best = e;
 
       if (best)
 	{
-	  RBI (end)->next = best->dest;
-	  RBI (best->dest)->visited = 1;
+	  end->rbi->next = best->dest;
+	  best->dest->rbi->visited = 1;
 	}
       else
 	for (; bb != EXIT_BLOCK_PTR; bb = bb->next_bb)
 	  {
-	    if (!RBI (bb)->visited)
+	    if (!bb->rbi->visited)
 	      {
-		RBI (end)->next = bb;
-		RBI (bb)->visited = 1;
+		end->rbi->next = bb;
+		bb->rbi->visited = 1;
 		break;
 	      }
 	  }
@@ -366,7 +365,7 @@ tracer ()
 {
   if (n_basic_blocks <= 1)
     return;
-  cfg_layout_initialize (NULL);
+  cfg_layout_initialize ();
   mark_dfs_back_edges ();
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);

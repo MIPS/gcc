@@ -73,6 +73,7 @@
 
 #include "treelang.h"
 #include "treetree.h"
+#include "opts.h"
 
 extern int option_main;
 extern char **file_names;
@@ -111,8 +112,10 @@ extern char **file_names;
 #define LANG_HOOKS_NAME	"GNU treelang"
 #undef LANG_HOOKS_FINISH
 #define LANG_HOOKS_FINISH		treelang_finish
-#undef LANG_HOOKS_DECODE_OPTION
-#define LANG_HOOKS_DECODE_OPTION treelang_decode_option
+#undef LANG_HOOKS_INIT_OPTIONS
+#define LANG_HOOKS_INIT_OPTIONS  treelang_init_options
+#undef LANG_HOOKS_HANDLE_OPTION
+#define LANG_HOOKS_HANDLE_OPTION treelang_handle_option
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
 /* Tree code type/name/code tables.  */
@@ -379,8 +382,7 @@ tree_code_create_function_initial (tree prev_saved,
      execute this?  */
   make_decl_rtl (fn_decl, NULL);
 
-  /* Use filename/lineno from above.  */
-  init_function_start (fn_decl, loc.file, loc.line);
+  init_function_start (fn_decl);
 
   /* Create rtl for startup code of function, such as saving registers.  */
 
@@ -450,7 +452,7 @@ tree_code_create_function_wrapup (location_t loc)
 
   /* Emit rtl for end of function.  */
 
-  expand_function_end (loc.file, loc.line, 0);
+  expand_function_end ();
 
   /* Pop the level.  */
 
@@ -854,10 +856,20 @@ objc_comptypes (tree lhs ATTRIBUTE_UNUSED,
   return 0;
 }
 
+/* Should not be called for treelang.  Needed by RS6000 backend.  */
+
+int c_lex (tree *value);
+
+int
+c_lex (tree *value ATTRIBUTE_UNUSED)
+{
+  abort ();
+}
+
 /* Should not be called for treelang.   */
 
 tree
-build_stmt VPARAMS ((enum tree_code code  ATTRIBUTE_UNUSED, ...))
+build_stmt (enum tree_code code  ATTRIBUTE_UNUSED, ...)
 {
   abort ();
 }
@@ -918,7 +930,7 @@ make_rtl_for_local_static (tree decl ATTRIBUTE_UNUSED)
 /* C warning, ignore.  */
 
 void
-pedwarn_c99 VPARAMS ((const char *msgid ATTRIBUTE_UNUSED, ...))
+pedwarn_c99 (const char *msgid ATTRIBUTE_UNUSED, ...)
 {
   return;
 }
@@ -1310,3 +1322,4 @@ get_string (const char *s, size_t l)
   t = get_identifier_with_length (s, l);
   return IDENTIFIER_POINTER(t);
 }
+

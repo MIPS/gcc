@@ -29,8 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_OS_CPP_BUILTINS()		\
   do						\
     {						\
-	if (c_language != clk_cplusplus		\
-	    && !flag_iso)			\
+	if (!c_dialect_cxx () && !flag_iso)	\
 	  {					\
 	    builtin_define ("hppa");		\
 	    builtin_define_std ("PWB");		\
@@ -64,7 +63,8 @@ Boston, MA 02111-1307, USA.  */
 { bss_section ();							\
   assemble_name ((FILE), (NAME));					\
   fprintf ((FILE), "\t.comm "HOST_WIDE_INT_PRINT_UNSIGNED"\n",		\
-	   MAX ((SIZE), ((ALIGNED) / BITS_PER_UNIT)));}
+	   MAX ((unsigned HOST_WIDE_INT)(SIZE),				\
+		((unsigned HOST_WIDE_INT)(ALIGNED) / BITS_PER_UNIT)));}
 
 /* This says how to output an assembler line to define a local common symbol
    with size SIZE (in bytes) and alignment ALIGN (in bits).  */
@@ -74,4 +74,5 @@ Boston, MA 02111-1307, USA.  */
 { bss_section ();							\
   fprintf ((FILE), "\t.align %d\n", ((ALIGNED) / BITS_PER_UNIT));	\
   assemble_name ((FILE), (NAME));					\
-  fprintf ((FILE), "\n\t.block "HOST_WIDE_INT_PRINT_UNSIGNED"\n", (SIZE));}
+  fprintf ((FILE), "\n\t.block "HOST_WIDE_INT_PRINT_UNSIGNED"\n",	\
+	   (unsigned HOST_WIDE_INT)(SIZE));}

@@ -20,7 +20,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 /* Get Xtensa configuration settings */
-#include "xtensa/xtensa-config.h"
+#include "xtensa-config.h"
 
 /* Standard GCC variables that we reference.  */
 extern int current_function_calls_alloca;
@@ -691,7 +691,6 @@ extern enum reg_class xtensa_char_to_class[256];
    operand types.
 
    R = memory that can be accessed with a 4-bit unsigned offset
-   S = memory where the second word can be addressed with a 4-bit offset
    T = memory in a constant pool (addressable with a pc-relative load)
    U = memory *NOT* in a constant pool
 
@@ -713,7 +712,6 @@ extern enum reg_class xtensa_char_to_class[256];
 	&& reload_in_progress && GET_CODE (OP) == REG			\
         && REGNO (OP) >= FIRST_PSEUDO_REGISTER)				\
    : ((CODE) == 'R') ? smalloffset_mem_p (OP)				\
-   : ((CODE) == 'S') ? smalloffset_double_mem_p (OP)			\
    : ((CODE) == 'T') ? !TARGET_CONST16 && constantpool_mem_p (OP)	\
    : ((CODE) == 'U') ? !constantpool_mem_p (OP)				\
    : FALSE)
@@ -944,7 +942,7 @@ typedef struct xtensa_args {
    _mcount uses a window size of 8 to make sure that it doesn't clobber
    any incoming argument values. */
 
-#define NO_PROFILE_COUNTERS
+#define NO_PROFILE_COUNTERS	1
 
 #define FUNCTION_PROFILER(FILE, LABELNO) \
   do {									\
@@ -1281,13 +1279,10 @@ typedef struct xtensa_args {
 /* Prefer word-sized loads.  */
 #define SLOW_BYTE_ACCESS 1
 
-/* Xtensa doesn't have any instructions that set integer values based on the
-   results of comparisons, but the simplification code in the combiner also
-   uses this macro.  The value should be either 1 or -1 to enable some
-   optimizations in the combiner; I'm not sure which is better for us.
-   Since we've been using 1 for a while, it should probably stay that way for
-   compatibility.  */
-#define STORE_FLAG_VALUE 1
+/* ??? Xtensa doesn't have any instructions that set integer values
+   based on the results of comparisons, but the simplification code in
+   the combiner also uses STORE_FLAG_VALUE.  The default value (1) is
+   fine for us, but (-1) might be better.  */
 
 /* Shift instructions ignore all but the low-order few bits.  */
 #define SHIFT_COUNT_TRUNCATED 1

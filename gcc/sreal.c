@@ -34,7 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    otherwise two HOST_WIDE_INTs are used for the significant.
    Only a half of significant bits is used (in normalized sreals) so that we do
    not have problems with overflow, for example when c->sig = a->sig * b->sig.
-   So the precission for 64-bit and 32-bit machines is 32-bit.
+   So the precision for 64-bit and 32-bit machines is 32-bit.
 			
    Invariant: The numbers are normalized before and after each call of sreal_*.
 
@@ -56,7 +56,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "sreal.h"
 
-void dump_sreal			PARAMS ((FILE *, sreal *));
 static inline void copy		PARAMS ((sreal *, sreal *));
 static inline void shift_right	PARAMS ((sreal *, int));
 static void normalize		PARAMS ((sreal *));

@@ -3,19 +3,20 @@
    Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
+
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
@@ -66,16 +67,18 @@ void i386_pe_mark_dllimport PARAMS ((tree));
 /* Handle a "dllimport" or "dllexport" attribute;
    arguments as in struct attribute_spec.handler.  */
 tree
-ix86_handle_dll_attribute (node, name, args, flags, no_add_attrs)
-     tree *node;
+ix86_handle_dll_attribute (pnode, name, args, flags, no_add_attrs)
+     tree * pnode;
      tree name;
      tree args;
      int flags;
      bool *no_add_attrs;
 {
+  tree node = *pnode;
+
   /* These attributes may apply to structure and union types being created,
      but otherwise should pass to the declaration involved.  */
-  if (!DECL_P (*node))
+  if (!DECL_P (node))
     {
       if (flags & ((int) ATTR_FLAG_DECL_NEXT | (int) ATTR_FLAG_FUNCTION_NEXT
 		   | (int) ATTR_FLAG_ARRAY_NEXT))
@@ -83,20 +86,58 @@ ix86_handle_dll_attribute (node, name, args, flags, no_add_attrs)
 	  *no_add_attrs = true;
 	  return tree_cons (name, args, NULL_TREE);
 	}
-      if (TREE_CODE (*node) != RECORD_TYPE && TREE_CODE (*node) != UNION_TYPE)
+      if (TREE_CODE (node) != RECORD_TYPE && TREE_CODE (node) != UNION_TYPE)
 	{
 	  warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
+
+      return NULL_TREE;
     }
 
-  /* `extern' needn't be specified with dllimport.
-     Specify `extern' now and hope for the best.  Sigh.  */
-  else if (TREE_CODE (*node) == VAR_DECL
-	   && is_attribute_p ("dllimport", name))
+  /* Report error on dllimport ambiguities seen now before they cause
+     any damage.  */
+  else if (is_attribute_p ("dllimport", name))
     {
-      DECL_EXTERNAL (*node) = 1;
-      TREE_PUBLIC (*node) = 1;
+      /* Like MS, treat definition of dllimported variables and
+	 non-inlined functions on declaration as syntax errors.
+	 We allow the attribute for function definitions if declared
+	 inline, but just ignore it in i386_pe_dllimport_p.  */
+      if (TREE_CODE (node) == FUNCTION_DECL  && DECL_INITIAL (node)
+          && !DECL_INLINE (node))
+	{
+	  error ("%Hfunction `%D' definition is marked dllimport.",
+		 TREE_LOCUS (node), node);
+	  *no_add_attrs = true;
+	}
+
+      else if (TREE_CODE (node) == VAR_DECL)
+	{
+	  if (DECL_INITIAL (node))
+	    {
+	      error ("%Hvariable `%D' definition is marked dllimport.",
+		     TREE_LOCUS (node), node);
+	      *no_add_attrs = true;
+	    }
+
+	  /* `extern' needn't be specified with dllimport.
+	     Specify `extern' now and hope for the best.  Sigh.  */
+	  DECL_EXTERNAL (node) = 1; 
+	  /* Also, implicitly give dllimport'd variables declared within
+	     a function global scope, unless declared static.  */
+	  if (current_function_decl != NULL_TREE && !TREE_STATIC (node))
+  	    TREE_PUBLIC (node) = 1;
+	}
+    }
+
+  /*  Report error if symbol is not accessible at global scope. */
+  if (!TREE_PUBLIC (node)
+      && (TREE_CODE (node) == VAR_DECL
+	  || TREE_CODE (node) == FUNCTION_DECL)) 
+    {
+      error ("%Hexternal linkage required for symbol '%D' because of '%s' attribute.",
+	       TREE_LOCUS (node), node, IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
     }
 
   return NULL_TREE;
@@ -181,6 +222,7 @@ i386_pe_dllimport_p (decl)
      tree decl;
 {
   tree imp;
+  int context_imp = 0;
 
   if (TREE_CODE (decl) == FUNCTION_DECL
       && TARGET_NOP_FUN_DLLIMPORT)
@@ -189,17 +231,65 @@ i386_pe_dllimport_p (decl)
   if (TREE_CODE (decl) != VAR_DECL
       && TREE_CODE (decl) != FUNCTION_DECL)
     return 0;
+
   imp = lookup_attribute ("dllimport", DECL_ATTRIBUTES (decl));
-  if (imp)
-    return 1;
 
   /* Class members get the dllimport status of their class.  */
-  if (associated_type (decl))
+  if (!imp && associated_type (decl))
     {
       imp = lookup_attribute ("dllimport",
 			      TYPE_ATTRIBUTES (associated_type (decl)));
       if (imp)
-	return 1;
+	context_imp = 1;
+    }
+
+  if (imp)
+    {
+      /* Don't mark defined functions as dllimport.  If the definition
+	 itself was marked with dllimport, than ix86_handle_dll_attribute
+	 reports an error. This handles the case when the definition
+	 overrides an earlier declaration.  */
+      if (TREE_CODE (decl) ==  FUNCTION_DECL && DECL_INITIAL (decl)
+	  && !DECL_INLINE (decl))
+	{
+	   /* Don't warn about artificial methods.  */
+	  if (!DECL_ARTIFICIAL (decl))
+	    warning ("%H function '%D' is defined after prior declaration as dllimport: attribute ignored",
+		     TREE_LOCUS (decl), decl);
+	  return 0;
+	}
+
+      /* We ignore the dllimport attribute for inline member functions.
+	 This differs from MSVC behavior which treats it like GNUC
+     	 'extern inline' extension.   */
+      else if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))
+        {
+	  if (extra_warnings)
+	    warning ("%Hinline function '%D' is declared as dllimport: attribute ignored.", 
+		     TREE_LOCUS (decl), decl);
+	  return 0;
+	}
+
+      /*  Don't allow definitions of static data members in dllimport class,
+	  Just ignore attribute for vtable data.  */
+      else if (TREE_CODE (decl) == VAR_DECL
+	       && TREE_STATIC (decl) && TREE_PUBLIC (decl)
+	       && !DECL_EXTERNAL (decl) && context_imp)
+	{
+	  if (!DECL_VIRTUAL_P (decl))
+	      error ("%Hdefinition of static data member '%D' of dllimport'd class.", 
+		     TREE_LOCUS (decl), decl);
+           return 0;
+	}
+
+      /* Since we can't treat a pointer to a dllimport'd symbol as a
+	 constant address, we turn off the attribute on C++ virtual
+	 methods to allow creation of vtables using thunks. */
+      else if (TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE
+	       && (DECL_VIRTUAL_P (decl)))
+           return 0;
+
+      return 1;
     }
 
   return 0;
@@ -246,10 +336,15 @@ i386_pe_mark_dllexport (decl)
   else
     abort ();
   if (i386_pe_dllimport_name_p (oldname))
-    /* Remove DLL_IMPORT_PREFIX.  */
-    oldname += strlen (DLL_IMPORT_PREFIX);
+    {
+      warning ("%Hinconsistent dll linkage for '%D, dllexport assumed.",
+	       TREE_LOCUS (decl), decl);
+     /* Remove DLL_IMPORT_PREFIX.  */
+      oldname += strlen (DLL_IMPORT_PREFIX);
+      DECL_NON_ADDR_CONST_P (decl) = 0;
+    }
   else if (i386_pe_dllexport_name_p (oldname))
-    return; /* already done */
+    return;  /*  already done  */
 
   newname = alloca (strlen (DLL_EXPORT_PREFIX) + strlen (oldname) + 1);
   sprintf (newname, "%s%s", DLL_EXPORT_PREFIX, oldname);
@@ -291,38 +386,13 @@ i386_pe_mark_dllimport (decl)
     }
   else if (i386_pe_dllimport_name_p (oldname))
     {
-      /* Already done, but force correct linkage since the redeclaration 
-         might have omitted explicit extern.  Sigh.  */
-      if (TREE_CODE (decl) == VAR_DECL
-	  /* ??? Is this test for vtables needed?  */
-	  && !DECL_VIRTUAL_P (decl))
+      /* Already done, but do a sanity check to prevent assembler errors. */
+      if (!DECL_EXTERNAL (decl) || !TREE_PUBLIC (decl))
 	{
-	  DECL_EXTERNAL (decl) = 1;
-	  TREE_PUBLIC (decl) = 1;
+	  error ("%Hfailure in redeclaration of '%D': dllimport'd symbol lacks external linkage.", 
+		 TREE_LOCUS (decl), decl);
+	  abort();
 	}
-      return;
-    }
-
-  /* ??? One can well ask why we're making these checks here,
-     and that would be a good question.  */
-
-  /* Imported variables can't be initialized. Note that C++ classes
-     are marked initial, so we need to check.  */
-  if (TREE_CODE (decl) == VAR_DECL
-      && !DECL_VIRTUAL_P (decl)
-      && (DECL_INITIAL (decl)
-          && ! TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl))))
-    {
-      error_with_decl (decl, "initialized variable `%s' is marked dllimport");
-      return;
-    }
-  /* Nor can they be static.  */
-  if (TREE_CODE (decl) == VAR_DECL
-      /* ??? Is this test for vtables needed?  */
-      && !DECL_VIRTUAL_P (decl)
-      && 0 /*???*/)
-    {
-      error_with_decl (decl, "static variable `%s' is marked dllimport");
       return;
     }
 
@@ -443,7 +513,7 @@ i386_pe_encode_section_info (decl, rtl, first)
 
   /* Mark the decl so we can tell from the rtl whether the object is
      dllexport'd or dllimport'd.  This also handles dllexport/dllimport
-     override semantics.   */
+     override semantics.  */
 
   if (i386_pe_dllexport_p (decl))
     i386_pe_mark_dllexport (decl);
@@ -465,6 +535,12 @@ i386_pe_encode_section_info (decl, rtl, first)
       /* Remove DLL_IMPORT_PREFIX.  */
       tree idp = get_identifier (oldname + strlen (DLL_IMPORT_PREFIX));
       rtx newrtl = gen_rtx (SYMBOL_REF, Pmode, IDENTIFIER_POINTER (idp));
+
+      warning ("%H%s '%D' %s after being referenced with dllimport linkage.",
+	         TREE_LOCUS (decl),
+	         TREE_CODE (decl) == VAR_DECL ? "variable" : "function", 
+	         decl, (DECL_INITIAL (decl) || !DECL_EXTERNAL (decl))
+			? "defined locally" : "redeclared without dllimport attribute");
 
       XEXP (DECL_RTL (decl), 0) = newrtl;
 
@@ -519,8 +595,8 @@ void i386_pe_output_labelref (stream, name)
 {
   if (strncmp (name, DLL_IMPORT_PREFIX, strlen (DLL_IMPORT_PREFIX))
       == 0)
-   /* A dll import */ 
-   {
+    /* A dll import */ 
+    {
       if (name[strlen (DLL_IMPORT_PREFIX)] == FASTCALL_PREFIX)
       /* A dllimport fastcall symbol.  */   
         {
@@ -763,12 +839,11 @@ i386_pe_record_exported_symbol (name, is_data)
    output the .drectve section.  */
 
 void
-i386_pe_asm_file_end (file)
-     FILE *file;
+i386_pe_file_end ()
 {
   struct extern_list *p;
 
-  ix86_asm_file_end (file);
+  ix86_file_end ();
 
   for (p = extern_head; p != NULL; p = p->next)
     {
@@ -780,7 +855,8 @@ i386_pe_asm_file_end (file)
       if (! TREE_ASM_WRITTEN (decl) && TREE_SYMBOL_REFERENCED (decl))
 	{
 	  TREE_ASM_WRITTEN (decl) = 1;
-	  i386_pe_declare_function_type (file, p->name, TREE_PUBLIC (decl));
+	  i386_pe_declare_function_type (asm_out_file, p->name,
+			  		 TREE_PUBLIC (decl));
 	}
     }
 
@@ -790,10 +866,9 @@ i386_pe_asm_file_end (file)
       drectve_section ();
       for (q = export_head; q != NULL; q = q->next)
 	{
-	  fprintf (file, "\t.ascii \" -export:%s%s\"\n",
+	  fprintf (asm_out_file, "\t.ascii \" -export:%s%s\"\n",
 		   i386_pe_strip_name_encoding (q->name),
 		   (q->is_data) ? ",data" : "");
 	}
     }
 }
-

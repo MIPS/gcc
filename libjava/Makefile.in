@@ -86,10 +86,11 @@ GCOBJS = @GCOBJS@
 GCSPEC = @GCSPEC@
 GCTESTSPEC = @GCTESTSPEC@
 GLIB_CFLAGS = @GLIB_CFLAGS@
-GLIB_CONFIG = @GLIB_CONFIG@
+GLIB_GENMARSHAL = @GLIB_GENMARSHAL@
 GLIB_LIBS = @GLIB_LIBS@
+GLIB_MKENUMS = @GLIB_MKENUMS@
+GOBJECT_QUERY = @GOBJECT_QUERY@
 GTK_CFLAGS = @GTK_CFLAGS@
-GTK_CONFIG = @GTK_CONFIG@
 GTK_LIBS = @GTK_LIBS@
 HASH_SYNC_SPEC = @HASH_SYNC_SPEC@
 IEEESPEC = @IEEESPEC@
@@ -115,6 +116,7 @@ OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PERL = @PERL@
+PKG_CONFIG = @PKG_CONFIG@
 PLATFORMOBJS = @PLATFORMOBJS@
 RANLIB = @RANLIB@
 STRIP = @STRIP@
@@ -517,8 +519,8 @@ gnu/awt/j2d/MappedRaster.java \
 gnu/java/awt/BitMaskExtent.java \
 gnu/java/awt/Buffers.java \
 gnu/java/awt/ComponentDataBlitOp.java \
-gnu/java/awt/GLightweightPeer.java \
 gnu/java/awt/EventModifier.java \
+gnu/java/awt/GLightweightPeer.java \
 gnu/java/awt/image/ImageDecoder.java \
 gnu/java/awt/image/XBMDecoder.java \
 gnu/java/beans/editors/ColorEditor.java	\
@@ -913,14 +915,15 @@ javax/rmi/CORBA/UtilDelegate.java \
 javax/rmi/CORBA/Util.java \
 javax/rmi/CORBA/ValueHandler.java \
 javax/swing/border/AbstractBorder.java \
+javax/swing/border/BevelBorder.java \
 javax/swing/border/Border.java \
 javax/swing/border/CompoundBorder.java \
 javax/swing/border/EmptyBorder.java \
-javax/swing/border/MatteBorder.java \
-javax/swing/border/TitledBorder.java \
-javax/swing/border/BevelBorder.java \
 javax/swing/border/EtchedBorder.java \
 javax/swing/border/LineBorder.java \
+javax/swing/border/MatteBorder.java \
+javax/swing/border/SoftBevelBorder.java \
+javax/swing/border/TitledBorder.java \
 javax/swing/GrayFilter.java \
 javax/swing/AbstractAction.java \
 javax/swing/AbstractButton.java \
@@ -934,6 +937,8 @@ javax/swing/plaf/basic/BasicOptionPaneUI.java \
 javax/swing/plaf/basic/BasicPanelUI.java \
 javax/swing/plaf/basic/BasicRadioButtonUI.java \
 javax/swing/plaf/basic/BasicScrollPaneUI.java \
+javax/swing/plaf/basic/BasicSplitPaneDivider.java \
+javax/swing/plaf/basic/BasicSplitPaneUI.java \
 javax/swing/plaf/basic/BasicTabbedPaneUI.java \
 javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
@@ -978,6 +983,7 @@ javax/swing/plaf/RootPaneUI.java \
 javax/swing/plaf/ScrollBarUI.java \
 javax/swing/plaf/SeparatorUI.java \
 javax/swing/plaf/SliderUI.java \
+javax/swing/plaf/SpinnerUI.java \
 javax/swing/plaf/SplitPaneUI.java \
 javax/swing/plaf/TableHeaderUI.java \
 javax/swing/plaf/TableUI.java \
@@ -995,6 +1001,7 @@ javax/swing/filechooser/FileView.java \
 javax/swing/table/AbstractTableModel.java \
 javax/swing/table/DefaultTableColumnModel.java \
 javax/swing/table/DefaultTableModel.java \
+javax/swing/table/JTableHeader.java \
 javax/swing/table/TableCellEditor.java \
 javax/swing/table/TableCellRenderer.java \
 javax/swing/table/TableColumn.java \
@@ -1198,6 +1205,8 @@ javax/swing/JSplitPane.java \
 javax/swing/JTextPane.java \
 javax/swing/JToolBar.java \
 javax/swing/OverlayLayout.java \
+javax/swing/Popup.java \
+javax/swing/PopupFactory.java \
 javax/swing/ProgressMonitor.java \
 javax/swing/ProgressMonitorInputStream.java \
 javax/swing/RepaintManager.java \
@@ -1861,7 +1870,6 @@ gnu/java/math/MPN.java \
 gnu/java/nio/DatagramChannelImpl.java \
 gnu/java/nio/FileChannelImpl.java \
 gnu/java/nio/FileLockImpl.java \
-gnu/java/nio/MappedByteFileBuffer.java \
 gnu/java/nio/PipeImpl.java \
 gnu/java/nio/SelectionKeyImpl.java \
 gnu/java/nio/SelectorImpl.java \
@@ -2004,6 +2012,7 @@ java/nio/LongBuffer.java \
 java/nio/LongBufferImpl.java \
 java/nio/LongViewBufferImpl.java \
 java/nio/MappedByteBuffer.java \
+java/nio/MappedByteBufferImpl.java \
 java/nio/ReadOnlyBufferException.java \
 java/nio/ShortBuffer.java \
 java/nio/ShortBufferImpl.java \
@@ -2326,9 +2335,7 @@ gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/runtime/natVMClassLoader.cc \
 gnu/java/nio/natFileChannelImpl.cc \
 gnu/java/nio/natFileLockImpl.cc \
-gnu/java/nio/natMappedByteFileBuffer.cc \
 gnu/java/nio/natSelectorImpl.cc \
-gnu/java/nio/natSocketChannelImpl.cc \
 java/io/natFile.cc \
 java/io/natFileDescriptor.cc \
 java/io/natObjectInputStream.cc \
@@ -2501,8 +2508,7 @@ gnu/gcj/runtime/natFinalizerThread.lo gnu/gcj/runtime/natFirstThread.lo \
 gnu/gcj/runtime/natNameFinder.lo gnu/gcj/runtime/natSharedLibLoader.lo \
 gnu/gcj/runtime/natStackTrace.lo gnu/gcj/runtime/natStringBuffer.lo \
 gnu/gcj/runtime/natVMClassLoader.lo gnu/java/nio/natFileChannelImpl.lo \
-gnu/java/nio/natFileLockImpl.lo gnu/java/nio/natMappedByteFileBuffer.lo \
-gnu/java/nio/natSelectorImpl.lo gnu/java/nio/natSocketChannelImpl.lo \
+gnu/java/nio/natFileLockImpl.lo gnu/java/nio/natSelectorImpl.lo \
 java/io/natFile.lo java/io/natFileDescriptor.lo \
 java/io/natObjectInputStream.lo java/io/natVMObjectStreamClass.lo \
 java/lang/natCharacter.lo java/lang/natClass.lo \
@@ -2965,8 +2971,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/locale/LocaleInformation_zh_TW.P \
 .deps/gnu/java/math/MPN.P .deps/gnu/java/nio/DatagramChannelImpl.P \
 .deps/gnu/java/nio/FileChannelImpl.P .deps/gnu/java/nio/FileLockImpl.P \
-.deps/gnu/java/nio/MappedByteFileBuffer.P .deps/gnu/java/nio/PipeImpl.P \
-.deps/gnu/java/nio/SelectionKeyImpl.P .deps/gnu/java/nio/SelectorImpl.P \
+.deps/gnu/java/nio/PipeImpl.P .deps/gnu/java/nio/SelectionKeyImpl.P \
+.deps/gnu/java/nio/SelectorImpl.P \
 .deps/gnu/java/nio/SelectorProviderImpl.P \
 .deps/gnu/java/nio/ServerSocketChannelImpl.P \
 .deps/gnu/java/nio/SocketChannelImpl.P \
@@ -2981,9 +2987,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/nio/charset/UTF_8.P \
 .deps/gnu/java/nio/natFileChannelImpl.P \
 .deps/gnu/java/nio/natFileLockImpl.P \
-.deps/gnu/java/nio/natMappedByteFileBuffer.P \
 .deps/gnu/java/nio/natSelectorImpl.P \
-.deps/gnu/java/nio/natSocketChannelImpl.P \
 .deps/gnu/java/rmi/RMIMarshalledObjectInputStream.P \
 .deps/gnu/java/rmi/RMIMarshalledObjectOutputStream.P \
 .deps/gnu/java/rmi/dgc/DGCImpl.P .deps/gnu/java/rmi/dgc/DGCImpl_Skel.P \
@@ -3498,7 +3502,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/nio/IntBufferImpl.P .deps/java/nio/IntViewBufferImpl.P \
 .deps/java/nio/InvalidMarkException.P .deps/java/nio/LongBuffer.P \
 .deps/java/nio/LongBufferImpl.P .deps/java/nio/LongViewBufferImpl.P \
-.deps/java/nio/MappedByteBuffer.P \
+.deps/java/nio/MappedByteBuffer.P .deps/java/nio/MappedByteBufferImpl.P \
 .deps/java/nio/ReadOnlyBufferException.P .deps/java/nio/ShortBuffer.P \
 .deps/java/nio/ShortBufferImpl.P .deps/java/nio/ShortViewBufferImpl.P \
 .deps/java/nio/channels/AlreadyConnectedException.P \
@@ -3995,7 +3999,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/MenuElement.P \
 .deps/javax/swing/MenuSelectionManager.P \
 .deps/javax/swing/MutableComboBoxModel.P \
-.deps/javax/swing/OverlayLayout.P .deps/javax/swing/ProgressMonitor.P \
+.deps/javax/swing/OverlayLayout.P .deps/javax/swing/Popup.P \
+.deps/javax/swing/PopupFactory.P .deps/javax/swing/ProgressMonitor.P \
 .deps/javax/swing/ProgressMonitorInputStream.P \
 .deps/javax/swing/Renderer.P .deps/javax/swing/RepaintManager.P \
 .deps/javax/swing/RootPaneContainer.P \
@@ -4017,6 +4022,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/border/EtchedBorder.P \
 .deps/javax/swing/border/LineBorder.P \
 .deps/javax/swing/border/MatteBorder.P \
+.deps/javax/swing/border/SoftBevelBorder.P \
 .deps/javax/swing/border/TitledBorder.P \
 .deps/javax/swing/colorchooser/AbstractColorChooserPanel.P \
 .deps/javax/swing/colorchooser/ColorChooserComponentFactory.P \
@@ -4094,7 +4100,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/ScrollBarUI.P \
 .deps/javax/swing/plaf/ScrollPaneUI.P \
 .deps/javax/swing/plaf/SeparatorUI.P .deps/javax/swing/plaf/SliderUI.P \
-.deps/javax/swing/plaf/SplitPaneUI.P \
+.deps/javax/swing/plaf/SpinnerUI.P .deps/javax/swing/plaf/SplitPaneUI.P \
 .deps/javax/swing/plaf/TabbedPaneUI.P \
 .deps/javax/swing/plaf/TableHeaderUI.P .deps/javax/swing/plaf/TableUI.P \
 .deps/javax/swing/plaf/TextUI.P .deps/javax/swing/plaf/ToolBarUI.P \
@@ -4113,6 +4119,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/basic/BasicPanelUI.P \
 .deps/javax/swing/plaf/basic/BasicRadioButtonUI.P \
 .deps/javax/swing/plaf/basic/BasicScrollPaneUI.P \
+.deps/javax/swing/plaf/basic/BasicSplitPaneDivider.P \
+.deps/javax/swing/plaf/basic/BasicSplitPaneUI.P \
 .deps/javax/swing/plaf/basic/BasicTabbedPaneUI.P \
 .deps/javax/swing/plaf/basic/BasicTextUI.P \
 .deps/javax/swing/plaf/basic/BasicToggleButtonUI.P \
@@ -4123,6 +4131,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/table/DefaultTableCellRenderer.P \
 .deps/javax/swing/table/DefaultTableColumnModel.P \
 .deps/javax/swing/table/DefaultTableModel.P \
+.deps/javax/swing/table/JTableHeader.P \
 .deps/javax/swing/table/TableCellEditor.P \
 .deps/javax/swing/table/TableCellRenderer.P \
 .deps/javax/swing/table/TableColumn.P \
@@ -4277,7 +4286,7 @@ Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status $(BUILT_SOURCES)
 	  && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ configure.in  acinclude.m4 \
-		./acinclude.m4 ./aclocal.m4 ./glib.m4 ./gtk.m4 \
+		./acinclude.m4 ./aclocal.m4 ./glib-2.0.m4 ./gtk-2.0.m4 \
 		./libart.m4
 	cd $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
 

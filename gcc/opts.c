@@ -21,7 +21,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
-#include "intl.h"
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
@@ -128,12 +127,6 @@ bool warn_unused_value;
 /* Hack for cooperation between set_Wunused and set_Wextra.  */
 static bool maybe_warn_unused_parameter;
 
-/* Columns of --help display.  */
-static unsigned int columns = 80;
-
-/* What to print when a switch has no documentation.  */
-static const char undocumented_msg[] = N_("This switch lacks documentation");
-
 static size_t find_opt (const char *, int);
 static int common_handle_option (size_t scode, const char *arg, int value);
 static void handle_param (const char *);
@@ -143,11 +136,6 @@ static char *write_langs (unsigned int lang_mask);
 static void complain_wrong_lang (const char *, const struct cl_option *,
 				 unsigned int lang_mask);
 static void handle_options (unsigned int, const char **, unsigned int);
-static void wrap_help (const char *help, const char *item, unsigned int);
-static void print_help (void);
-static void print_param_help (void);
-static void print_filtered_help (unsigned int flag);
-static unsigned int print_switch (const char *text, unsigned int indent);
 
 /* Perform a binary search to find which option the command-line INPUT
    matches.  Returns its index in the option array, and N_OPTS
@@ -189,7 +177,7 @@ find_opt (const char *input, int lang_mask)
     {
       md = (mn + mx) / 2;
       opt_len = cl_options[md].opt_len;
-      comp = strncmp (input, cl_options[md].opt_text + 1, opt_len);
+      comp = strncmp (input, cl_options[md].opt_text, opt_len);
 
       if (comp < 0)
 	mx = md;
@@ -209,7 +197,7 @@ find_opt (const char *input, int lang_mask)
       const struct cl_option *opt = &cl_options[mn];
 
       /* Is this switch a prefix of the input?  */
-      if (!strncmp (input, opt->opt_text + 1, opt->opt_len))
+      if (!strncmp (input, opt->opt_text, opt->opt_len))
 	{
 	  /* If language is OK, and the match is exact or the switch
 	     takes a joined argument, return it.  */
@@ -309,96 +297,106 @@ handle_option (const char **argv, unsigned int lang_mask)
 
   opt = argv[0];
 
-  /* Drop the "no-" from negative switches.  */
-  if ((opt[1] == 'W' || opt[1] == 'f')
-      && opt[2] == 'n' && opt[3] == 'o' && opt[4] == '-')
+  /* Interpret "-" or a non-switch as a file name.  */
+  if (opt[0] != '-' || opt[1] == '\0')
     {
-      size_t len = strlen (opt) - 3;
-
-      dup = xmalloc (len + 1);
-      dup[0] = '-';
-      dup[1] = opt[1];
-      memcpy (dup + 2, opt + 5, len - 2 + 1);
-      opt = dup;
-      value = 0;
+      opt_index = cl_options_count;
+      arg = opt;
+      main_input_filename = opt;
+      result = (*lang_hooks.handle_option) (opt_index, arg, value);
     }
-
-  opt_index = find_opt (opt + 1, lang_mask | CL_COMMON);
-  if (opt_index == cl_options_count)
-    goto done;
-
-  option = &cl_options[opt_index];
-
-  /* Reject negative form of switches that don't take negatives as
-     unrecognized.  */
-  if (!value && (option->flags & CL_REJECT_NEGATIVE))
-    goto done;
-
-  /* We've recognized this switch.  */
-  result = 1;
-
-  /* Sort out any argument the switch takes.  */
-  if (option->flags & CL_JOINED)
+  else
     {
-      /* Have arg point to the original switch.  This is because
-	 some code, such as disable_builtin_function, expects its
-	 argument to be persistent until the program exits.  */
-      arg = argv[0] + cl_options[opt_index].opt_len + 1;
-      if (!value)
-	arg += strlen ("no-");
-
-      if (*arg == '\0' && !(option->flags & CL_MISSING_OK))
+      /* Drop the "no-" from negative switches.  */
+      if ((opt[1] == 'W' || opt[1] == 'f')
+	  && opt[2] == 'n' && opt[3] == 'o' && opt[4] == '-')
 	{
-	  if (option->flags & CL_SEPARATE)
-	    {
-	      arg = argv[1];
-	      result = 2;
-	    }
-	  else
-	    /* Missing argument.  */
-	    arg = NULL;
+	  size_t len = strlen (opt) - 3;
+
+	  dup = xmalloc (len + 1);
+	  dup[0] = '-';
+	  dup[1] = opt[1];
+	  memcpy (dup + 2, opt + 5, len - 2 + 1);
+	  opt = dup;
+	  value = 0;
 	}
-    }
-  else if (option->flags & CL_SEPARATE)
-    {
-      arg = argv[1];
-      result = 2;
-    }
 
-  /* Now we've swallowed any potential argument, complain if this
-     is a switch for a different front end.  */
-  if (!(option->flags & (lang_mask | CL_COMMON)))
-    {
-      complain_wrong_lang (argv[0], option, lang_mask);
-      goto done;
-    }
+      opt_index = find_opt (opt + 1, lang_mask | CL_COMMON);
+      if (opt_index == cl_options_count)
+	goto done;
 
-  if (arg == NULL && (option->flags & (CL_JOINED | CL_SEPARATE)))
-    {
-      if (!(*lang_hooks.missing_argument) (opt, opt_index))
-	error ("missing argument to \"%s\"", opt);
-      goto done;
-    }
+      option = &cl_options[opt_index];
 
-  /* If the switch takes an integer, convert it.  */
-  if (arg && (option->flags & CL_UINTEGER))
-    {
-      value = integral_argument (arg);
-      if (value == -1)
+      /* Reject negative form of switches that don't take negatives as
+	 unrecognized.  */
+      if (!value && (option->flags & CL_REJECT_NEGATIVE))
+	goto done;
+
+      /* We've recognized this switch.  */
+      result = 1;
+
+      /* Sort out any argument the switch takes.  */
+      if (option->flags & CL_JOINED)
 	{
-	  error ("argument to \"%s\" should be a non-negative integer",
-		 option->opt_text);
+	  /* Have arg point to the original switch.  This is because
+	     some code, such as disable_builtin_function, expects its
+	     argument to be persistent until the program exits.  */
+	  arg = argv[0] + cl_options[opt_index].opt_len + 1;
+	  if (!value)
+	    arg += strlen ("no-");
+
+	  if (*arg == '\0' && !(option->flags & CL_MISSING_OK))
+	    {
+	      if (option->flags & CL_SEPARATE)
+		{
+		  arg = argv[1];
+		  result = 2;
+		}
+	      else
+		/* Missing argument.  */
+		arg = NULL;
+	    }
+	}
+      else if (option->flags & CL_SEPARATE)
+	{
+	  arg = argv[1];
+	  result = 2;
+	}
+
+      /* Now we've swallowed any potential argument, complain if this
+	 is a switch for a different front end.  */
+      if (!(option->flags & (lang_mask | CL_COMMON)))
+	{
+	  complain_wrong_lang (argv[0], option, lang_mask);
 	  goto done;
 	}
+
+      if (arg == NULL && (option->flags & (CL_JOINED | CL_SEPARATE)))
+	{
+	  error ("missing argument to \"-%s\"", argv[0]);
+	  goto done;
+	}
+
+      /* If the switch takes an integer, convert it.  */
+      if (arg && (option->flags & CL_UINTEGER))
+	{
+	  value = integral_argument (arg);
+	  if (value == -1)
+	    {
+	      error ("argument to \"-%s\" should be a non-negative integer",
+		     option->opt_text);
+	      goto done;
+	    }
+	}
+
+      if (option->flags & lang_mask)
+	if ((*lang_hooks.handle_option) (opt_index, arg, value) == 0)
+	  result = 0;
+
+      if (result && (option->flags & CL_COMMON))
+	if (common_handle_option (opt_index, arg, value) == 0)
+	  result = 0;
     }
-
-  if (option->flags & lang_mask)
-    if ((*lang_hooks.handle_option) (opt_index, arg, value) == 0)
-      result = 0;
-
-  if (result && (option->flags & CL_COMMON))
-    if (common_handle_option (opt_index, arg, value) == 0)
-      result = 0;
 
  done:
   if (dup)
@@ -416,23 +414,12 @@ handle_options (unsigned int argc, const char **argv, unsigned int lang_mask)
 
   for (i = 1; i < argc; i += n)
     {
-      const char *opt = argv[i];
-
-      /* Interpret "-" or a non-switch as a file name.  */
-      if (opt[0] != '-' || opt[1] == '\0')
-	{
-	  main_input_filename = opt;
-	  (*lang_hooks.handle_filename) (opt);
-	  n = 1;
-	  continue;
-	}
-
       n = handle_option (argv + i, lang_mask);
 
       if (!n)
 	{
 	  n = 1;
-	  error ("unrecognized command line option \"%s\"", opt);
+	  error ("unrecognized command line option \"%s\"", argv[i]);
 	}
     }
 }
@@ -501,6 +488,10 @@ decode_options (unsigned int argc, const char **argv)
       flag_crossjumping = 1;
       flag_if_conversion = 1;
       flag_if_conversion2 = 1;
+      flag_tree_ccp = 1;
+      flag_tree_dce = 1;
+      flag_tree_copyprop = 1;
+      flag_tree_dom = 1;
     }
 
   if (optimize >= 2)
@@ -525,6 +516,11 @@ decode_options (unsigned int argc, const char **argv)
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
+      /* FIXME: Apparently, dominator optimizations get in the way of
+	 SSA-PRE.  For now, if -ftree-pre is given, disable dominator
+	 optimizations at -O2 and higher.  */
+      if (flag_tree_pre)
+	flag_tree_dom = 0;
     }
 
   if (optimize >= 3)
@@ -616,7 +612,14 @@ static int
 common_handle_option (size_t scode, const char *arg,
 		      int value ATTRIBUTE_UNUSED)
 {
+  const struct cl_option *option = &cl_options[scode];
   enum opt_code code = (enum opt_code) scode;
+
+  if (arg == NULL && (option->flags & (CL_JOINED | CL_SEPARATE)))
+    {
+      error ("missing argument to \"-%s\"", option->opt_text);
+      return 1;
+    }
 
   switch (code)
     {
@@ -624,7 +627,7 @@ common_handle_option (size_t scode, const char *arg,
       abort ();
 
     case OPT__help:
-      print_help ();
+      display_help ();
       exit_after_options = true;
       break;
 
@@ -794,35 +797,23 @@ common_handle_option (size_t scode, const char *arg,
       break;
 
     case OPT_falign_functions:
+    case OPT_falign_functions_:
       align_functions = !value;
       break;
 
-    case OPT_falign_functions_:
-      align_functions = value;
-      break;
-
     case OPT_falign_jumps:
+    case OPT_falign_jumps_:
       align_jumps = !value;
       break;
 
-    case OPT_falign_jumps_:
-      align_jumps = value;
-      break;
-
     case OPT_falign_labels:
+    case OPT_falign_labels_:
       align_labels = !value;
       break;
 
-    case OPT_falign_labels_:
-      align_labels = value;
-      break;
-
     case OPT_falign_loops:
-      align_loops = !value;
-      break;
-
     case OPT_falign_loops_:
-      align_loops = value;
+      align_loops = !value;
       break;
 
     case OPT_fargument_alias:
@@ -916,6 +907,19 @@ common_handle_option (size_t scode, const char *arg,
 	diagnostic_prefixing_rule (global_dc)
 	  = DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE;
       else
+	return 0;
+      break;
+
+    case OPT_fdisable_gimple:
+      flag_disable_gimple = value;
+      break;
+
+    case OPT_fdisable_tree_ssa:
+      flag_disable_tree_ssa = value;
+      break;
+
+    case OPT_fdump_:
+      if (!dump_switch_p (arg))
 	return 0;
       break;
 
@@ -1076,6 +1080,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_fmove_all_movables:
       flag_move_all_movables = value;
+      break;
+
+    case OPT_fmudflap:
+      flag_mudflap = value;
       break;
 
     case OPT_fnew_ra:
@@ -1327,6 +1335,44 @@ common_handle_option (size_t scode, const char *arg,
       flag_trapv = value;
       break;
 
+    case OPT_ftree_ccp:
+      flag_tree_ccp = value;
+      break;
+
+    case OPT_ftree_copyprop:
+      flag_tree_copyprop = value;
+      break;
+
+    case OPT_ftree_dce:
+      flag_tree_dce = value;
+      break;
+
+    case OPT_ftree_dominator_opts:
+      flag_tree_dom = value;
+      break;
+
+    case OPT_ftree_must_alias:
+      flag_tree_must_alias = value;
+      break;
+
+    case OPT_ftree_points_to_:
+      if (!strcmp (arg, "andersen"))
+#ifdef HAVE_BANSHEE
+        flag_tree_points_to = PTA_ANDERSEN;
+#else
+        warning ("Andersen's PTA not available - libbanshee not compiled.");
+#endif
+      else
+	{
+	  warning ("`%s`: unknown points-to analysis algorithm", arg);
+	  return 0;
+	}
+      break;
+
+    case OPT_ftree_pre:
+      flag_tree_pre = value;
+      break;
+
     case OPT_funit_at_a_time:
       flag_unit_at_a_time = value;
       break;
@@ -1488,216 +1534,4 @@ fast_math_flags_set_p (void)
 	  && flag_unsafe_math_optimizations
 	  && flag_finite_math_only
 	  && !flag_errno_math);
-}
-
-/* Output --help text.  */
-static void
-print_help (void)
-{
-  size_t i;
-  const char *p;
-
-  GET_ENVIRONMENT (p, "COLUMNS");
-  if (p)
-    {
-      int value = atoi (p);
-      if (value > 0)
-	columns = value;
-    }
-
-  puts (_("The following options are language-independent:\n"));
-
-  print_filtered_help (CL_COMMON);
-  print_param_help ();
-
-  for (i = 0; lang_names[i]; i++)
-    {
-      printf (_("The %s front end recognizes the following options:\n\n"),
-	      lang_names[i]);
-      print_filtered_help (1U << i);
-    }
-
-  display_help ();
-}
-
-/* Print the help for --param.  */
-static void
-print_param_help (void)
-{
-  size_t i;
-
-  puts (_("The --param option recognizes the following as parameters:\n"));
-
-  for (i = 0; i < LAST_PARAM; i++)
-    {
-      const char *help = compiler_params[i].help;
-      const char *param = compiler_params[i].option;
-
-      if (help == NULL || *help == '\0')
-	help = undocumented_msg;
-
-      /* Get the translation.  */
-      help = _(help);
-
-      wrap_help (help, param, strlen (param));
-    }
-
-  putchar ('\n');
-}
-
-/* Print help for a specific front-end, etc.  */
-static void
-print_filtered_help (unsigned int flag)
-{
-  unsigned int i, len, filter, indent = 0;
-  bool duplicates = false;
-  const char *help, *opt, *tab;
-  static char *printed;
-
-  if (flag == CL_COMMON)
-    {
-      filter = flag;
-      if (!printed)
-	printed = xmalloc (cl_options_count);
-      memset (printed, 0, cl_options_count);
-    }
-  else
-    {
-      /* Don't print COMMON options twice.  */
-      filter = flag | CL_COMMON;
-
-      for (i = 0; i < cl_options_count; i++)
-	{
-	  if ((cl_options[i].flags & filter) != flag)
-	    continue;
-
-	  /* Skip help for internal switches.  */
-	  if (cl_options[i].flags & CL_UNDOCUMENTED)
-	    continue;
-
-	  /* Skip switches that have already been printed, mark them to be
-	     listed later.  */
-	  if (printed[i])
-	    {
-	      duplicates = true;
-	      indent = print_switch (cl_options[i].opt_text, indent);
-	    }
-	}
-
-      if (duplicates)
-	{
-	  putchar ('\n');
-	  putchar ('\n');
-	}
-    }
-
-  for (i = 0; i < cl_options_count; i++)
-    {
-      if ((cl_options[i].flags & filter) != flag)
-	continue;
-
-      /* Skip help for internal switches.  */
-      if (cl_options[i].flags & CL_UNDOCUMENTED)
-	continue;
-
-      /* Skip switches that have already been printed.  */
-      if (printed[i])
-	continue;
-
-      printed[i] = true;
-
-      help = cl_options[i].help;
-      if (!help)
-	help = undocumented_msg;
-
-      /* Get the translation.  */
-      help = _(help);
-
-      tab = strchr (help, '\t');
-      if (tab)
-	{
-	  len = tab - help;
-	  opt = help;
-	  help = tab + 1;
-	}
-      else
-	{
-	  opt = cl_options[i].opt_text;
-	  len = strlen (opt);
-	}
-
-      wrap_help (help, opt, len);
-    }
-
-  putchar ('\n');
-}
-
-/* Output ITEM, of length ITEM_WIDTH, in the left column, followed by
-   word-wrapped HELP in a second column.  */
-static unsigned int
-print_switch (const char *text, unsigned int indent)
-{
-  unsigned int len = strlen (text) + 1; /* trailing comma */
-
-  if (indent)
-    {
-      putchar (',');
-      if (indent + len > columns)
-	{
-	  putchar ('\n');
-	  putchar (' ');
-	  indent = 1;
-	}
-    }
-  else
-    putchar (' ');
-
-  putchar (' ');
-  fputs (text, stdout);
-
-  return indent + len + 1;
-}
-
-/* Output ITEM, of length ITEM_WIDTH, in the left column, followed by
-   word-wrapped HELP in a second column.  */
-static void
-wrap_help (const char *help, const char *item, unsigned int item_width)
-{
-  unsigned int col_width = 27;
-  unsigned int remaining, room, len;
-
-  remaining = strlen (help);
-
-  do
-    {
-      room = columns - 3 - MAX (col_width, item_width);
-      if (room > columns)
-	room = 0;
-      len = remaining;
-
-      if (room < len)
-	{
-	  unsigned int i;
-
-	  for (i = 0; help[i]; i++)
-	    {
-	      if (i >= room && len != remaining)
-		break;
-	      if (help[i] == ' ')
-		len = i;
-	      else if ((help[i] == '-' || help[i] == '/')
-		       && help[i + 1] != ' '
-		       && ISALPHA (help[i - 1]))
-		len = i + 1;
-	    }
-	}
-
-      printf( "  %-*.*s %.*s\n", col_width, item_width, item, len, help);
-      item_width = 0;
-      while (help[len] == ' ')
-	len++;
-      help += len;
-      remaining -= len;
-    }
-  while (remaining);
 }

@@ -25,13 +25,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Output at beginning of assembler file.  */
 /* The .file command should always begin the output.  */
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE)						\
-  do {									\
-	output_file_directive (FILE, main_input_filename);		\
-	if (ix86_asm_dialect == ASM_INTEL)				\
-	  fputs ("\t.intel_syntax\n", FILE);				\
-  } while (0)
+#define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
 
 #define TARGET_VERSION fprintf (stderr, " (i386 Linux/ELF)");
 
@@ -39,6 +33,10 @@ Boston, MA 02111-1307, USA.  */
    in memory.  */
 #undef DEFAULT_PCC_STRUCT_RETURN
 #define DEFAULT_PCC_STRUCT_RETURN 1
+
+/* We arrange for the whole %gs segment to map the tls area.  */
+#undef TARGET_TLS_DIRECT_SEG_REFS_DEFAULT
+#define TARGET_TLS_DIRECT_SEG_REFS_DEFAULT MASK_TLS_DIRECT_SEG_REFS
 
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START "#"
@@ -51,7 +49,7 @@ Boston, MA 02111-1307, USA.  */
    To the best of my knowledge, no Linux libc has required the label
    argument to mcount.  */
 
-#define NO_PROFILE_COUNTERS
+#define NO_PROFILE_COUNTERS	1
 
 #undef MCOUNT_NAME
 #define MCOUNT_NAME "mcount"
@@ -219,6 +217,9 @@ Boston, MA 02111-1307, USA.  */
 	   : "=d"(BASE))
 #endif
 
+#undef NEED_INDICATE_EXEC_STACK
+#define NEED_INDICATE_EXEC_STACK 1
+
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
 
@@ -227,7 +228,7 @@ Boston, MA 02111-1307, USA.  */
    signal-turned-exceptions for them.  There's also no configure-run for
    the target, so we can't check on (e.g.) HAVE_SYS_UCONTEXT_H.  Using the
    target libc1 macro should be enough.  */
-#ifndef USE_GNULIBC_1
+#if !(defined (USE_GNULIBC_1) || (__GLIBC__ == 2 && __GLIBC_MINOR__ == 0))
 #include <signal.h>
 #include <sys/ucontext.h>
 

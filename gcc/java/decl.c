@@ -1364,8 +1364,7 @@ poplevel (int keep, int reverse, int functionbody)
 	    {
 	      error_with_decl (label, "label `%s' used but not defined");
 	      /* Avoid crashing later.  */
-	      define_label (input_filename, lineno,
-			    DECL_NAME (label));
+	      define_label (input_location, DECL_NAME (label));
 	    }
 	  else if (warn_unused[UNUSED_LABEL] && !TREE_USED (label))
 	    warning_with_decl (label, "label `%s' defined but not used");
@@ -1668,7 +1667,7 @@ complete_start_java_method (tree fndecl)
   if (! flag_emit_class_files)
     {
       /* Initialize the RTL code for the function.  */
-      init_function_start (fndecl, input_filename, input_line);
+      init_function_start (fndecl);
 
       /* Set up parameters and prepare for return, for the function.  */
       expand_function_start (fndecl, 0);
@@ -1813,7 +1812,7 @@ end_java_method (void)
   BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
 
   /* Generate rtl for function exit.  */
-  expand_function_end (input_filename, input_line, 0);
+  expand_function_end ();
 
   /* Run the optimizers and output assembler code for this function. */
   rest_of_compilation (fndecl);

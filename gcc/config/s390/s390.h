@@ -2,22 +2,23 @@
    Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
-This file is part of GNU CC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+This file is part of GCC.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #ifndef _S390_H
 #define _S390_H
@@ -37,19 +38,37 @@ enum processor_type
   PROCESSOR_9672_G5,		
   PROCESSOR_9672_G6,		
   PROCESSOR_2064_Z900,		
+  PROCESSOR_2084_Z990,
   PROCESSOR_max
 };
 
-extern enum processor_type s390_cpu;
+/* Optional architectural facilities supported by the processor.  */
+
+enum processor_flags
+{
+  PF_IEEE_FLOAT = 1,
+  PF_ZARCH = 2,
+  PF_LONG_DISPLACEMENT = 4
+};
+
+extern enum processor_type s390_tune;
+extern enum processor_flags s390_tune_flags;
 extern const char *s390_tune_string;
 
 extern enum processor_type s390_arch;
+extern enum processor_flags s390_arch_flags;
 extern const char *s390_arch_string;
 
-#define TARGET_CPU_DEFAULT_9672 0
-#define TARGET_CPU_DEFAULT_2064 2
+#define TARGET_CPU_IEEE_FLOAT \
+	(s390_arch_flags & PF_IEEE_FLOAT)
+#define TARGET_CPU_ZARCH \
+	(s390_arch_flags & PF_ZARCH)
+#define TARGET_CPU_LONG_DISPLACEMENT \
+	(s390_arch_flags & PF_LONG_DISPLACEMENT)
 
-#define TARGET_CPU_DEFAULT_NAMES {"g5", "g6", "z900"}
+#define TARGET_LONG_DISPLACEMENT \
+       (TARGET_ZARCH && TARGET_CPU_LONG_DISPLACEMENT)
+
 
 /* Run-time target specification.  */
 
@@ -118,6 +137,25 @@ extern int target_flags;
   { "arch=",            &s390_arch_string,                      \
     N_("Generate code for given CPU"), 0},                      \
 }
+
+/* Support for configure-time defaults.  */
+#define OPTION_DEFAULT_SPECS 					\
+  { "mode", "%{!mesa:%{!mzarch:-m%(VALUE)}}" },			\
+  { "arch", "%{!march=*:-march=%(VALUE)}" },			\
+  { "tune", "%{!mtune=*:-mtune=%(VALUE)}" }
+
+/* Defaulting rules.  */
+#ifdef DEFAULT_TARGET_64BIT
+#define DRIVER_SELF_SPECS					\
+  "%{!m31:%{!m64:-m64}}",					\
+  "%{!mesa:%{!mzarch:%{m31:-mesa}%{m64:-mzarch}}}",		\
+  "%{!march=*:%{mesa:-march=g5}%{mzarch:-march=z900}}"
+#else
+#define DRIVER_SELF_SPECS					\
+  "%{!m31:%{!m64:-m31}}",					\
+  "%{!mesa:%{!mzarch:%{m31:-mesa}%{m64:-mzarch}}}",		\
+  "%{!march=*:%{mesa:-march=g5}%{mzarch:-march=z900}}"
+#endif
 
 /* Target version string.  Overridden by the OS header.  */
 #ifdef DEFAULT_TARGET_64BIT
@@ -460,6 +498,11 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
 #define SECONDARY_INPUT_RELOAD_CLASS(CLASS, MODE, IN)	\
   s390_secondary_input_reload_class ((CLASS), (MODE), (IN))
 
+/* We need a secondary reload when storing a double-word
+   to a non-offsettable memory address.  */
+#define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, OUT)	\
+  s390_secondary_output_reload_class ((CLASS), (MODE), (OUT))
+
 /* We need secondary memory to move data between GPRs and FPRs.  */
 #define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE) \
  ((CLASS1) != (CLASS2) && ((CLASS1) == FP_REGS || (CLASS2) == FP_REGS))
@@ -488,10 +531,11 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
 #define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)  1
 
 #define EXTRA_CONSTRAINT(OP, C)                               	\
-     ((C) == 'Q' ?  q_constraint (OP) : 			\
-      (C) == 'S' ?  larl_operand (OP, GET_MODE (OP)) : 0)
-
-#define EXTRA_MEMORY_CONSTRAINT(C,STR) ((C) == 'Q')
+  s390_extra_constraint ((OP), (C))
+#define EXTRA_MEMORY_CONSTRAINT(C, STR)				\
+  ((C) == 'Q' || (C) == 'R' || (C) == 'S' || (C) == 'T')
+#define EXTRA_ADDRESS_CONSTRAINT(C, STR)			\
+  ((C) == 'U' || (C) == 'W')
 
 
 /* Stack layout and calling conventions.  */

@@ -622,7 +622,7 @@ struct curr_use {
    4 if both are SUBREG's of different size, but have bytes in common.
    -1 is a special case, for when DEF and USE refer to the same regno, but
       have for other reasons no bits in common (can only happen with
-      subregs refering to different words, or to words which already were
+      subregs referring to different words, or to words which already were
       defined for this USE).
    Furthermore it modifies use->undefined to clear the bits which get defined
    by DEF (only for cases with partial overlap).
@@ -667,7 +667,7 @@ defuse_overlap_p_1 (def, use)
 	     if they refer to the same word.  */
 	  if (SUBREG_BYTE (def) == SUBREG_BYTE (use->x))
 	    return 1;
-	/* Now the more difficult part: the same regno is refered, but the
+	/* Now the more difficult part: the same regno is referred, but the
 	   sizes of the references or the words differ.  E.g.
            (subreg:SI (reg:CDI a) 0) and (subreg:DI (reg:CDI a) 2) do not
 	   overlap, whereas the latter overlaps with (subreg:SI (reg:CDI a) 3).

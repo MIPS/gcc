@@ -7,7 +7,8 @@ rs6000.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   real.h insn-config.h conditions.h insn-attr.h flags.h $(RECOG_H) \
   $(OBSTACK_H) $(TREE_H) $(EXPR_H) $(OPTABS_H) except.h function.h \
   output.h $(BASIC_BLOCK_H) $(INTEGRATE_H) toplev.h $(GGC_H) $(HASHTAB_H) \
-  $(TM_P_H) $(TARGET_H) $(TARGET_DEF_H) langhooks.h reload.h gt-rs6000.h
+  $(TM_P_H) $(TARGET_H) $(TARGET_DEF_H) langhooks.h reload.h gt-rs6000.h \
+  cfglayout.h
 
 rs6000-c.o: $(srcdir)/config/rs6000/rs6000-c.c \
     $(srcdir)/config/rs6000/rs6000-protos.h \
@@ -17,9 +18,6 @@ rs6000-c.o: $(srcdir)/config/rs6000/rs6000-c.c \
 
 # The rs6000 backend doesn't cause warnings in these files.
 insn-conditions.o-warn =
-$(out_object_file)-warn =
-# varasm.o causes a warning for asm_output_aligned_bss defined but not used.
-varasm.o-warn = -Wno-error
 # The files below trigger warnings in tree-ssa because of the gimplifier
 # emitting code that confuse the compiler into thinking that some variables
 # are used uninitialized.

@@ -1,5 +1,6 @@
 /* Static Single Assignment conversion routines for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -144,7 +145,7 @@ static void ssa_rename_from_free
 typedef int (*srf_trav) PARAMS ((int regno, rtx r, sbitmap canonical_elements, partition reg_partition));
 static void ssa_rename_from_traverse
   PARAMS ((htab_trav callback_function, sbitmap canonical_elements, partition reg_partition));
-/*static Avoid warnign message.  */ void ssa_rename_from_print
+/*static Avoid warning message.  */ void ssa_rename_from_print
   PARAMS ((void));
 static int ssa_rename_from_print_1
   PARAMS ((void **slot, void *data));
@@ -215,8 +216,6 @@ static int record_canonical_element_1
   PARAMS ((void **srfp, void *data));
 static int check_hard_regs_in_partition
   PARAMS ((partition reg_partition));
-static int rename_equivalent_regs_in_insn
-  PARAMS ((rtx *ptr, void *data));
 
 /* These are used in the register coalescing algorithm.  */
 static int coalesce_if_unconflicting
@@ -364,7 +363,7 @@ ssa_rename_from_print ()
 }
 
 /* Print the contents of the hash table entry SLOT, passing the unused
-   sttribute DATA.  Used as a callback function with htab_traverse ().  */
+   attribute DATA.  Used as a callback function with htab_traverse ().  */
 
 static int
 ssa_rename_from_print_1 (slot, data)
@@ -503,7 +502,7 @@ find_evaluations (evals, nregs)
 
 /* Computing the Dominance Frontier:
 
-   As decribed in Morgan, section 3.5, this may be done simply by
+   As described in Morgan, section 3.5, this may be done simply by
    walking the dominator tree bottom-up, computing the frontier for
    the children before the parent.  When considering a block B,
    there are two cases:
@@ -1636,7 +1635,7 @@ make_regs_equivalent_over_bad_edges (bb, reg_partition)
 }
 
 /* Consider phi insns in basic block BB pairwise.  If the set target
-   of both isns are equivalent pseudos, make the corresponding phi
+   of both insns are equivalent pseudos, make the corresponding phi
    alternatives in each phi corresponding equivalent.
 
    Return nonzero if any new register classes were unioned.  */

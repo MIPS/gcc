@@ -64,8 +64,6 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_APP_OFF
 #define ASM_APP_OFF "#NO_APP\n"
 
-#undef ASM_FINAL_SPEC
-
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START "#"
 
@@ -76,7 +74,7 @@ Boston, MA 02111-1307, USA.  */
 /* Output assembler code to FILE to call the profiler.  */
 
 #undef NO_PROFILE_COUNTERS
-#define NO_PROFILE_COUNTERS
+#define NO_PROFILE_COUNTERS	1
 
 #undef FUNCTION_PROFILER
 #define FUNCTION_PROFILER(FILE, LABELNO)				\

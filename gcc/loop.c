@@ -71,7 +71,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define gen_prefetch(a,b,c) (abort(), NULL_RTX)
 #endif
 
-/* Give up the prefetch optimizations once we exceed a given threshhold.
+/* Give up the prefetch optimizations once we exceed a given threshold.
    It is unlikely that we would be able to optimize something in a loop
    with so many detected prefetches.  */
 #define MAX_PREFETCHES 100
@@ -314,7 +314,7 @@ static int consec_sets_giv PARAMS ((const struct loop *, int, rtx,
 static int check_dbra_loop PARAMS ((struct loop *, int));
 static rtx express_from_1 PARAMS ((rtx, rtx, rtx));
 static rtx combine_givs_p PARAMS ((struct induction *, struct induction *));
-static int cmp_combine_givs_stats PARAMS ((const PTR, const PTR));
+static int cmp_combine_givs_stats PARAMS ((const void *, const void *));
 static void combine_givs PARAMS ((struct loop_regs *, struct iv_class *));
 static int product_cheap_p PARAMS ((rtx, rtx));
 static int maybe_eliminate_biv PARAMS ((const struct loop *, struct iv_class *,
@@ -1774,7 +1774,7 @@ add_label_notes (x, insns)
   if (code == LABEL_REF && !LABEL_REF_NONLOCAL_P (x))
     {
       /* This code used to ignore labels that referred to dispatch tables to
-         avoid flow generating (slighly) worse code.
+         avoid flow generating (slightly) worse code.
 
          We no longer ignore such label references (see LABEL_REF handling in
          mark_jump_label for additional information).  */
@@ -3617,7 +3617,7 @@ count_one_set (regs, insn, x, last_set)
 		 it must be set in two basic blocks, so it cannot
 		 be moved out of the loop.  */
 	      if (regs->array[regno].set_in_loop > 0
-		  && last_set == 0)
+		  && last_set[regno] == 0)
 		regs->array[regno+i].may_not_optimize = 1;
 	      /* If this is not first setting in current basic block,
 		 see if reg was used in between previous one and this.
@@ -5578,14 +5578,10 @@ check_insn_for_givs (loop, p, not_every_iteration, maybe_multiple)
 	}
     }
 
-#ifndef DONT_REDUCE_ADDR
   /* Look for givs which are memory addresses.  */
-  /* This resulted in worse code on a VAX 8600.  I wonder if it
-     still does.  */
   if (GET_CODE (p) == INSN)
     find_mem_givs (loop, PATTERN (p), p, not_every_iteration,
 		   maybe_multiple);
-#endif
 
   /* Update the status of whether giv can derive other givs.  This can
      change when we pass a label or an insn that updates a biv.  */
@@ -6462,6 +6458,9 @@ basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val, location)
 	return 0;
 
     case SIGN_EXTEND:
+      /* Ignore this BIV if signed arithmetic overflow is defined.  */
+      if (flag_wrapv)
+	return 0;
       return basic_induction_var (loop, XEXP (x, 0), GET_MODE (XEXP (x, 0)),
 				  dest_reg, p, inc_val, mult_val, location);
 
@@ -7646,8 +7645,8 @@ struct combine_givs_stats
 
 static int
 cmp_combine_givs_stats (xp, yp)
-     const PTR xp;
-     const PTR yp;
+     const void *xp;
+     const void *yp;
 {
   const struct combine_givs_stats * const x =
     (const struct combine_givs_stats *) xp;
@@ -10651,7 +10650,7 @@ loop_insn_sink (loop, pattern)
   return loop_insn_emit_before (loop, 0, loop->sink, pattern);
 }
 
-/* bl->final_value can be eighter general_operand or PLUS of general_operand
+/* bl->final_value can be either general_operand or PLUS of general_operand
    and constant.  Emit sequence of instructions to load it into REG.  */
 static rtx
 gen_load_of_final_value (reg, final_value)

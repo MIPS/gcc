@@ -38,7 +38,7 @@
 ;; the insn that sets CR bits should be separated from the branch insn
 ;; that evaluates them.  There is no advantage have more than 10 cycles
 ;; of separation.
-;; This could be artificially achieved by exagerating the latency of
+;; This could be artificially achieved by exaggerating the latency of
 ;; compare insns but at the expense of a poorer schedule.
 
 ;; Branches go straight to the BPU.  All other insns are handled
@@ -59,7 +59,7 @@
   "ppc750_du,lsu_7xx")
 
 (define_insn_reservation "ppc750-integer" 1
-  (and (eq_attr "type" "integer")
+  (and (eq_attr "type" "integer,insert_word")
        (eq_attr "cpu" "ppc750,ppc7400"))
   "ppc750_du,(iu1_7xx|iu2_7xx)")
 

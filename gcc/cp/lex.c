@@ -38,21 +38,20 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "tm_p.h"
 #include "timevar.h"
-#include "diagnostic.h"
 
-static int interface_strcmp PARAMS ((const char *));
-static void init_cp_pragma PARAMS ((void));
+static int interface_strcmp (const char *);
+static void init_cp_pragma (void);
 
-static tree parse_strconst_pragma PARAMS ((const char *, int));
-static void handle_pragma_vtable PARAMS ((cpp_reader *));
-static void handle_pragma_unit PARAMS ((cpp_reader *));
-static void handle_pragma_interface PARAMS ((cpp_reader *));
-static void handle_pragma_implementation PARAMS ((cpp_reader *));
-static void handle_pragma_java_exceptions PARAMS ((cpp_reader *));
+static tree parse_strconst_pragma (const char *, int);
+static void handle_pragma_vtable (cpp_reader *);
+static void handle_pragma_unit (cpp_reader *);
+static void handle_pragma_interface (cpp_reader *);
+static void handle_pragma_implementation (cpp_reader *);
+static void handle_pragma_java_exceptions (cpp_reader *);
 
-static int is_global PARAMS ((tree));
-static void init_operators PARAMS ((void));
-static void copy_lang_type PARAMS ((tree));
+static int is_global (tree);
+static void init_operators (void);
+static void copy_lang_type (tree);
 
 /* A constraint that can be tested at compile time.  */
 #define CONSTRAINT(name, expr) extern int constraint_##name [(expr) ? 1 : -1]
@@ -94,8 +93,7 @@ static struct impl_files *impl_file_chain;
    and whose type is the modifier list.  */
 
 tree
-make_pointer_declarator (cv_qualifiers, target)
-     tree cv_qualifiers, target;
+make_pointer_declarator (tree cv_qualifiers, tree target)
 {
   if (target && TREE_CODE (target) == IDENTIFIER_NODE
       && ANON_AGGRNAME_P (target))
@@ -114,8 +112,7 @@ make_pointer_declarator (cv_qualifiers, target)
    and whose type is the modifier list.  */
 
 tree
-make_reference_declarator (cv_qualifiers, target)
-     tree cv_qualifiers, target;
+make_reference_declarator (tree cv_qualifiers, tree target)
 {
   target = build_nt (ADDR_EXPR, target);
   TREE_TYPE (target) = cv_qualifiers;
@@ -123,8 +120,8 @@ make_reference_declarator (cv_qualifiers, target)
 }
 
 tree
-make_call_declarator (target, parms, cv_qualifiers, exception_specification)
-     tree target, parms, cv_qualifiers, exception_specification;
+make_call_declarator (tree target, tree parms, tree cv_qualifiers, 
+                      tree exception_specification)
 {
   target = build_nt (CALL_EXPR, target,
 		     tree_cons (parms, cv_qualifiers, NULL_TREE),
@@ -136,8 +133,8 @@ make_call_declarator (target, parms, cv_qualifiers, exception_specification)
 }
 
 void
-set_quals_and_spec (call_declarator, cv_qualifiers, exception_specification)
-     tree call_declarator, cv_qualifiers, exception_specification;
+set_quals_and_spec (tree call_declarator, tree cv_qualifiers, 
+                    tree exception_specification)
 {
   CALL_DECLARATOR_QUALS (call_declarator) = cv_qualifiers;
   CALL_DECLARATOR_EXCEPTION_SPEC (call_declarator) = exception_specification;
@@ -149,24 +146,8 @@ int interface_unknown;		/* whether or not we know this class
 				   to behave according to #pragma interface.  */
 
 
-/* Initialization before switch parsing.  */
 void
-cxx_init_options ()
-{
-  c_common_init_options (clk_cplusplus);
-
-  /* Default exceptions on.  */
-  flag_exceptions = 1;
-  /* By default wrap lines at 80 characters.  Is getenv ("COLUMNS")
-     preferable?  */
-  diagnostic_line_cutoff (global_dc) = 80;
-  /* By default, emit location information once for every
-     diagnostic message.  */
-  diagnostic_prefixing_rule (global_dc) = DIAGNOSTICS_SHOW_PREFIX_ONCE;
-}
-
-void
-cxx_finish ()
+cxx_finish (void)
 {
   c_common_finish ();
 }
@@ -184,7 +165,7 @@ operator_name_info_t assignment_operator_name_info[(int) LAST_CPLUS_TREE_CODE];
 #undef DEF_OPERATOR
 
 static void
-init_operators ()
+init_operators (void)
 {
   tree identifier;
   char buffer[256];
@@ -367,7 +348,7 @@ static const struct resword reswords[] =
 };
 
 void
-init_reswords ()
+init_reswords (void)
 {
   unsigned int i;
   tree id;
@@ -386,7 +367,7 @@ init_reswords ()
 }
 
 static void
-init_cp_pragma ()
+init_cp_pragma (void)
 {
   c_register_pragma (0, "vtable", handle_pragma_vtable);
   c_register_pragma (0, "unit", handle_pragma_unit);
@@ -461,7 +442,7 @@ cxx_init (void)
    information.  */
 
 void
-extract_interface_info ()
+extract_interface_info (void)
 {
   struct c_fileinfo *finfo = 0;
 
@@ -483,8 +464,7 @@ extract_interface_info ()
    INTERFACE/IMPLEMENTATION pair.  Otherwise, return 0.  */
 
 static int
-interface_strcmp (s)
-     const char *s;
+interface_strcmp (const char* s)
 {
   /* Set the interface/implementation bits for this scope.  */
   struct impl_files *ifiles;
@@ -521,8 +501,7 @@ interface_strcmp (s)
 }
 
 void
-note_got_semicolon (type)
-     tree type;
+note_got_semicolon (tree type)
 {
   if (!TYPE_P (type))
     abort ();
@@ -531,8 +510,7 @@ note_got_semicolon (type)
 }
 
 void
-note_list_got_semicolon (declspecs)
-     tree declspecs;
+note_list_got_semicolon (tree declspecs)
 {
   tree link;
 
@@ -549,9 +527,7 @@ note_list_got_semicolon (declspecs)
 /* Parse a #pragma whose sole argument is a string constant.
    If OPT is true, the argument is optional.  */
 static tree
-parse_strconst_pragma (name, opt)
-     const char *name;
-     int opt;
+parse_strconst_pragma (const char* name, int opt)
 {
   tree result, x;
   enum cpp_ttype t;
@@ -573,24 +549,21 @@ parse_strconst_pragma (name, opt)
 }
 
 static void
-handle_pragma_vtable (dfile)
-     cpp_reader *dfile ATTRIBUTE_UNUSED;
+handle_pragma_vtable (cpp_reader* dfile ATTRIBUTE_UNUSED )
 {
   parse_strconst_pragma ("vtable", 0);
   sorry ("#pragma vtable no longer supported");
 }
 
 static void
-handle_pragma_unit (dfile)
-     cpp_reader *dfile ATTRIBUTE_UNUSED;
+handle_pragma_unit (cpp_reader* dfile ATTRIBUTE_UNUSED )
 {
   /* Validate syntax, but don't do anything.  */
   parse_strconst_pragma ("unit", 0);
 }
 
 static void
-handle_pragma_interface (dfile)
-     cpp_reader *dfile ATTRIBUTE_UNUSED;
+handle_pragma_interface (cpp_reader* dfile ATTRIBUTE_UNUSED )
 {
   tree fname = parse_strconst_pragma ("interface", 1);
   struct c_fileinfo *finfo;
@@ -632,8 +605,7 @@ handle_pragma_interface (dfile)
    a matching #p interface for this to have any effect.  */
 
 static void
-handle_pragma_implementation (dfile)
-     cpp_reader *dfile ATTRIBUTE_UNUSED;
+handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
 {
   tree fname = parse_strconst_pragma ("implementation", 1);
   const char *main_filename;
@@ -674,8 +646,7 @@ handle_pragma_implementation (dfile)
 
 /* Indicate that this file uses Java-personality exception handling.  */
 static void
-handle_pragma_java_exceptions (dfile)
-     cpp_reader *dfile ATTRIBUTE_UNUSED;
+handle_pragma_java_exceptions (cpp_reader* dfile ATTRIBUTE_UNUSED )
 {
   tree x;
   if (c_lex (&x) != CPP_EOF)
@@ -687,8 +658,7 @@ handle_pragma_java_exceptions (dfile)
 /* Return true if d is in a global scope.  */
 
 static int
-is_global (d)
-  tree d;
+is_global (tree d)
 {
   while (1)
     switch (TREE_CODE (d))
@@ -740,9 +710,7 @@ unqualified_name_lookup_error (tree name)
 }
 
 tree
-do_identifier (token, args)
-     register tree token;
-     tree args;
+do_identifier (register tree token, tree args)
 {
   register tree id;
 
@@ -792,7 +760,7 @@ do_identifier (token, args)
     {
       /* Check access.  */
       if (IDENTIFIER_CLASS_VALUE (token) == id)
-	perform_or_defer_access_check (CP_DECL_CONTEXT(id), id);
+	perform_or_defer_access_check (TYPE_BINFO (DECL_CONTEXT (id)), id);
       if (!processing_template_decl || DECL_TEMPLATE_PARM_P (id))
 	id = DECL_INITIAL (id);
     }
@@ -821,9 +789,7 @@ do_identifier (token, args)
 }
 
 tree
-do_scoped_id (token, id)
-     tree token;
-     tree id;
+do_scoped_id (tree token, tree id)
 {
   timevar_push (TV_NAME_LOOKUP);
   if (!id || (TREE_CODE (id) == FUNCTION_DECL
@@ -872,8 +838,7 @@ do_scoped_id (token, id)
 }
 
 tree
-identifier_typedecl_value (node)
-     tree node;
+identifier_typedecl_value (tree node)
 {
   tree t, type;
   type = IDENTIFIER_TYPE_VALUE (node);
@@ -932,10 +897,7 @@ extern int tree_node_sizes[];
 #endif
 
 tree
-build_lang_decl (code, name, type)
-     enum tree_code code;
-     tree name;
-     tree type;
+build_lang_decl (enum tree_code code, tree name, tree type)
 {
   tree t;
 
@@ -949,8 +911,7 @@ build_lang_decl (code, name, type)
    and pushdecl (for functions generated by the backend).  */
 
 void
-retrofit_lang_decl (t)
-     tree t;
+retrofit_lang_decl (tree t)
 {
   struct lang_decl *ld;
   size_t size;
@@ -984,8 +945,7 @@ retrofit_lang_decl (t)
 }
 
 void
-cxx_dup_lang_specific_decl (node)
-     tree node;
+cxx_dup_lang_specific_decl (tree node)
 {
   int size;
   struct lang_decl *ld;
@@ -1010,8 +970,7 @@ cxx_dup_lang_specific_decl (node)
 /* Copy DECL, including any language-specific parts.  */
 
 tree
-copy_decl (decl)
-     tree decl;
+copy_decl (tree decl)
 {
   tree copy;
 
@@ -1023,8 +982,7 @@ copy_decl (decl)
 /* Replace the shared language-specific parts of NODE with a new copy.  */
 
 static void
-copy_lang_type (node)
-     tree node;
+copy_lang_type (tree node)
 {
   int size;
   struct lang_type *lt;
@@ -1049,8 +1007,7 @@ copy_lang_type (node)
 /* Copy TYPE, including any language-specific parts.  */
 
 tree
-copy_type (type)
-     tree type;
+copy_type (tree type)
 {
   tree copy;
 
@@ -1060,8 +1017,7 @@ copy_type (type)
 }
 
 tree
-cxx_make_type (code)
-     enum tree_code code;
+cxx_make_type (enum tree_code code)
 {
   register tree t = make_node (code);
 
@@ -1113,8 +1069,7 @@ cxx_make_type (code)
 }
 
 tree
-make_aggr_type (code)
-     enum tree_code code;
+make_aggr_type (enum tree_code code)
 {
   tree t = cxx_make_type (code);
 
@@ -1128,8 +1083,7 @@ make_aggr_type (code)
    RID.  */
 
 int
-cp_type_qual_from_rid (rid)
-     tree rid;
+cp_type_qual_from_rid (tree rid)
 {
   if (rid == ridpointers[(int) RID_CONST])
     return TYPE_QUAL_CONST;

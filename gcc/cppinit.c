@@ -27,10 +27,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "cpphash.h"
 #include "mkdeps.h"
 
-static void init_library		PARAMS ((void));
-static void mark_named_operators	PARAMS ((cpp_reader *));
-static void read_original_filename	PARAMS ((cpp_reader *));
-static void post_options		PARAMS ((cpp_reader *));
+static void init_library (void);
+static void mark_named_operators (cpp_reader *);
+static void read_original_filename (cpp_reader *);
+static void post_options (cpp_reader *);
 
 /* If we have designated initializers (GCC >2.7) these tables can be
    initialized, constant data.  Otherwise, they have to be filled in at
@@ -47,7 +47,7 @@ __extension__ const uchar _cpp_trigraph_map[UCHAR_MAX + 1] = {
 #else
 
 #define TRIGRAPH_MAP uchar _cpp_trigraph_map[UCHAR_MAX + 1] = { 0 }; \
- static void init_trigraph_map PARAMS ((void)) { \
+ static void init_trigraph_map (void) { \
  unsigned char *x = _cpp_trigraph_map;
 
 #define END }
@@ -91,9 +91,7 @@ static const struct lang_flags lang_defaults[] =
 
 /* Sets internal flags correctly for a given language.  */
 void
-cpp_set_lang (pfile, lang)
-     cpp_reader *pfile;
-     enum c_lang lang;
+cpp_set_lang (cpp_reader *pfile, enum c_lang lang)
 {
   const struct lang_flags *l = &lang_defaults[(int) lang];
 
@@ -110,7 +108,7 @@ cpp_set_lang (pfile, lang)
 
 /* Initialize library global state.  */
 static void
-init_library ()
+init_library (void)
 {
   static int initialized = 0;
 
@@ -127,9 +125,7 @@ init_library ()
 
 /* Initialize a cpp_reader structure.  */
 cpp_reader *
-cpp_create_reader (lang, table)
-     enum c_lang lang;
-     hash_table *table;
+cpp_create_reader (enum c_lang lang, hash_table *table)
 {
   cpp_reader *pfile;
 
@@ -151,6 +147,7 @@ cpp_create_reader (lang, table)
   CPP_OPTION (pfile, warn_deprecated) = 1;
   CPP_OPTION (pfile, warn_long_long) = !CPP_OPTION (pfile, c99);
   CPP_OPTION (pfile, dollars_in_ident) = 1;
+  CPP_OPTION (pfile, warn_dollars) = 1;
 
   /* Default CPP arithmetic to something sensible for the host for the
      benefit of dumb users like fix-header.  */
@@ -160,6 +157,11 @@ cpp_create_reader (lang, table)
   CPP_OPTION (pfile, int_precision) = CHAR_BIT * sizeof (int);
   CPP_OPTION (pfile, unsigned_char) = 0;
   CPP_OPTION (pfile, unsigned_wchar) = 1;
+  CPP_OPTION (pfile, bytes_big_endian) = 1;  /* does not matter */
+
+  /* Default to no charset conversion.  */
+  CPP_OPTION (pfile, narrow_charset) = 0;
+  CPP_OPTION (pfile, wide_charset) = 0;
 
   /* Initialize the line map.  Start at logical line 1, so we can use
      a line number of zero for special states.  */
@@ -204,8 +206,7 @@ cpp_create_reader (lang, table)
 /* Free resources used by PFILE.  Accessing PFILE after this function
    returns leads to undefined behavior.  Returns the error count.  */
 void
-cpp_destroy (pfile)
-     cpp_reader *pfile;
+cpp_destroy (cpp_reader *pfile)
 {
   cpp_context *context, *contextn;
   tokenrun *run, *runn;
@@ -220,7 +221,7 @@ cpp_destroy (pfile)
 
   if (pfile->macro_buffer)
     {
-      free ((PTR) pfile->macro_buffer);
+      free (pfile->macro_buffer);
       pfile->macro_buffer = NULL;
       pfile->macro_buffer_len = 0;
     }
@@ -231,6 +232,7 @@ cpp_destroy (pfile)
 
   _cpp_destroy_hashtable (pfile);
   _cpp_cleanup_includes (pfile);
+  _cpp_destroy_iconv (pfile);
 
   _cpp_free_buff (pfile->a_buff);
   _cpp_free_buff (pfile->u_buff);
@@ -308,8 +310,7 @@ static const struct builtin operator_array[] =
 
 /* Mark the C++ named operators in the hash table.  */
 static void
-mark_named_operators (pfile)
-     cpp_reader *pfile;
+mark_named_operators (cpp_reader *pfile)
 {
   const struct builtin *b;
 
@@ -328,9 +329,7 @@ mark_named_operators (pfile)
    macros, into the hash table.  HOSTED is true if this is a hosted
    environment.  */
 void
-cpp_init_builtins (pfile, hosted)
-     cpp_reader *pfile;
-     int hosted;
+cpp_init_builtins (cpp_reader *pfile, int hosted)
 {
   const struct builtin *b;
   size_t n = ARRAY_SIZE (builtin_array);
@@ -367,9 +366,8 @@ cpp_init_builtins (pfile, hosted)
 /* Sanity-checks are dependent on command-line options, so it is
    called as a subroutine of cpp_read_main_file ().  */
 #if ENABLE_CHECKING
-static void sanity_checks PARAMS ((cpp_reader *));
-static void sanity_checks (pfile)
-     cpp_reader *pfile;
+static void sanity_checks (cpp_reader *);
+static void sanity_checks (cpp_reader *pfile)
 {
   cppchar_t test = 0;
   size_t max_precision = 2 * CHAR_BIT * sizeof (cpp_num_part);
@@ -382,7 +380,8 @@ static void sanity_checks (pfile)
 
   if (CPP_OPTION (pfile, precision) > max_precision)
     cpp_error (pfile, DL_ICE,
-	       "preprocessor arithmetic has maximum precision of %lu bits; target requires %lu bits",
+	       "preprocessor arithmetic has maximum precision of %lu bits;"
+	       " target requires %lu bits",
 	       (unsigned long) max_precision,
 	       (unsigned long) CPP_OPTION (pfile, precision));
 
@@ -407,7 +406,8 @@ static void sanity_checks (pfile)
 
   if (CPP_OPTION (pfile, wchar_precision) > BITS_PER_CPPCHAR_T)
     cpp_error (pfile, DL_ICE,
-	       "CPP on this host cannot handle wide character constants over %lu bits, but the target requires %lu bits",
+	       "CPP on this host cannot handle wide character constants over"
+	       " %lu bits, but the target requires %lu bits",
 	       (unsigned long) BITS_PER_CPPCHAR_T,
 	       (unsigned long) CPP_OPTION (pfile, wchar_precision));
 }
@@ -419,10 +419,7 @@ static void sanity_checks (pfile)
    cpp_read_main_file().  If no targets have been added before
    cpp_read_main_file(), then the default target is used.  */
 void
-cpp_add_dependency_target (pfile, target, quote)
-     cpp_reader *pfile;
-     const char *target;
-     int quote;
+cpp_add_dependency_target (cpp_reader *pfile, const char *target, int quote)
 {
   if (!pfile->deps)
     pfile->deps = deps_init ();
@@ -435,9 +432,7 @@ cpp_add_dependency_target (pfile, target, quote)
    or stdin if it is the empty string.  Return the original filename
    on success (e.g. foo.i->foo.c), or NULL on failure.  */
 const char *
-cpp_read_main_file (pfile, fname)
-     cpp_reader *pfile;
-     const char *fname;
+cpp_read_main_file (cpp_reader *pfile, const char *fname)
 {
   sanity_checks (pfile);
 
@@ -479,8 +474,7 @@ cpp_read_main_file (pfile, fname)
    generate file_change callbacks, which the front ends must handle
    appropriately given their state of initialization.  */
 static void
-read_original_filename (pfile)
-     cpp_reader *pfile;
+read_original_filename (cpp_reader *pfile)
 {
   const cpp_token *token, *token1;
 
@@ -511,9 +505,7 @@ read_original_filename (pfile)
    Maybe it should also reset state, such that you could call
    cpp_start_read with a new filename to restart processing.  */
 int
-cpp_finish (pfile, deps_stream)
-     cpp_reader *pfile;
-     FILE *deps_stream;
+cpp_finish (cpp_reader *pfile, FILE *deps_stream)
 {
   /* Warn about unused macros before popping the final buffer.  */
   if (CPP_OPTION (pfile, warn_unused_macros))
@@ -545,8 +537,7 @@ cpp_finish (pfile, deps_stream)
 }
 
 static void
-post_options (pfile)
-     cpp_reader *pfile;
+post_options (cpp_reader *pfile)
 {
   /* -Wtraditional is not useful in C++ mode.  */
   if (CPP_OPTION (pfile, cplusplus))
@@ -570,11 +561,4 @@ post_options (pfile)
       CPP_OPTION (pfile, trigraphs) = 0;
       CPP_OPTION (pfile, warn_trigraphs) = 0;
     }
-
-  /* C99 permits implementation-defined characters in identifiers.
-     The documented meaning of -std= is to turn off extensions that
-     conflict with the specified standard, and since a strictly
-     conforming program cannot contain a '$', we do not condition
-     their acceptance on the -std= setting.  */
-  pfile->warn_dollars = CPP_PEDANTIC (pfile) && !CPP_OPTION (pfile, c99);
 }

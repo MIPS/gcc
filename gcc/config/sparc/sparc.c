@@ -1,24 +1,24 @@
-/* Subroutines for insn-output.c for Sun SPARC.
+/* Subroutines for insn-output.c for SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
-   64 bit SPARC V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
+   64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -47,6 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #include "debug.h"
 #include "target.h"
 #include "target-def.h"
+#include "cfglayout.h"
 
 /* 1 if the caller has placed an "unimp" insn immediately after the call.
    This is used in v8 code when calling a function that returns a structure.
@@ -1367,7 +1368,7 @@ input_operand (op, mode)
 
 
 /* We know it can't be done in one insn when we get here,
-   the movsi expander guarentees this.  */
+   the movsi expander guarantees this.  */
 void
 sparc_emit_set_const32 (op0, op1)
      rtx op0;
@@ -3401,7 +3402,7 @@ mem_min_alignment (mem, desired)
 
 
 /* Vectors to keep interesting information about registers where it can easily
-   be got.  We use to use the actual mode value as the bit number, but there
+   be got.  We used to use the actual mode value as the bit number, but there
    are more than 32 modes now.  Instead we use two tables: one indexed by
    hard register number, and one indexed by mode.  */
 
@@ -4530,10 +4531,13 @@ function_arg_slotno (cum, mode, type, named, incoming_p, pregno, ppadding)
 
 struct function_arg_record_value_parms
 {
-  rtx ret;
-  int slotno, named, regbase;
-  unsigned int nregs;
-  int intoffset;
+  rtx ret;		/* return expression being built.  */
+  int slotno;		/* slot number of the argument.  */
+  int named;		/* whether the argument is named.  */
+  int regbase;		/* regno of the base register.  */
+  int stack;		/* 1 if part of the argument is on the stack.  */
+  int intoffset;	/* offset of the pending integer field.  */
+  unsigned int nregs;	/* number of words passed in registers.  */
 };
 
 static void function_arg_record_value_3
@@ -4548,7 +4552,7 @@ static rtx function_arg_record_value
 	PARAMS ((tree, enum machine_mode, int, int, int));
 
 /* A subroutine of function_arg_record_value.  Traverse the structure
-   recusively and determine how many registers will be required.  */
+   recursively and determine how many registers will be required.  */
 
 static void
 function_arg_record_value_1 (type, startbitpos, parms)
@@ -4608,8 +4612,13 @@ function_arg_record_value_1 (type, startbitpos, parms)
 		  this_slotno = parms->slotno + parms->intoffset
 		    / BITS_PER_WORD;
 
-		  intslots = MIN (intslots, SPARC_INT_ARG_MAX - this_slotno);
-		  intslots = MAX (intslots, 0);
+		  if (intslots > 0 && intslots > SPARC_INT_ARG_MAX - this_slotno)
+		    {
+		      intslots = MAX (0, SPARC_INT_ARG_MAX - this_slotno);
+		      /* We need to pass this field on the stack.  */
+		      parms->stack = 1;
+		    }
+
 		  parms->nregs += intslots;
 		  parms->intoffset = -1;
 		}
@@ -4674,7 +4683,7 @@ function_arg_record_value_3 (bitpos, parms)
     {
       regno = parms->regbase + this_slotno;
       reg = gen_rtx_REG (mode, regno);
-      XVECEXP (parms->ret, 0, parms->nregs)
+      XVECEXP (parms->ret, 0, parms->stack + parms->nregs)
 	= gen_rtx_EXPR_LIST (VOIDmode, reg, GEN_INT (intoffset));
 
       this_slotno += 1;
@@ -4747,7 +4756,7 @@ function_arg_record_value_2 (type, startbitpos, parms)
 		default: break;
 		}
 	      reg = gen_rtx_REG (mode, regno);
-	      XVECEXP (parms->ret, 0, parms->nregs)
+	      XVECEXP (parms->ret, 0, parms->stack + parms->nregs)
 		= gen_rtx_EXPR_LIST (VOIDmode, reg,
 			   GEN_INT (bitpos / BITS_PER_UNIT));
 	      parms->nregs += 1;
@@ -4755,7 +4764,7 @@ function_arg_record_value_2 (type, startbitpos, parms)
 		{
 		  regno += GET_MODE_SIZE (mode) / 4;
 	  	  reg = gen_rtx_REG (mode, regno);
-		  XVECEXP (parms->ret, 0, parms->nregs)
+		  XVECEXP (parms->ret, 0, parms->stack + parms->nregs)
 		    = gen_rtx_EXPR_LIST (VOIDmode, reg,
 			GEN_INT ((bitpos + GET_MODE_BITSIZE (mode))
 				 / BITS_PER_UNIT));
@@ -4772,8 +4781,19 @@ function_arg_record_value_2 (type, startbitpos, parms)
 }
 
 /* Used by function_arg and function_value to implement the complex
-   SPARC64 structure calling conventions.  */
+   conventions of the 64-bit ABI for passing and returning structures.
+   Return an expression valid as a return value for the two macros
+   FUNCTION_ARG and FUNCTION_VALUE.
 
+   TYPE is the data type of the argument (as a tree).
+    This is null for libcalls where that information may
+    not be available.
+   MODE is the argument's machine mode.
+   SLOTNO is the index number of the argument's slot in the parameter array.
+   NAMED is nonzero if this argument is a named parameter
+    (otherwise it is an extra parameter matching an ellipsis).
+   REGBASE is the regno of the base register for the parameter array.  */
+   
 static rtx
 function_arg_record_value (type, mode, slotno, named, regbase)
      tree type;
@@ -4788,6 +4808,7 @@ function_arg_record_value (type, mode, slotno, named, regbase)
   parms.slotno = slotno;
   parms.named = named;
   parms.regbase = regbase;
+  parms.stack = 0;
 
   /* Compute how many registers we need.  */
   parms.nregs = 0;
@@ -4804,8 +4825,12 @@ function_arg_record_value (type, mode, slotno, named, regbase)
       intslots = (endbit - startbit) / BITS_PER_WORD;
       this_slotno = slotno + parms.intoffset / BITS_PER_WORD;
 
-      intslots = MIN (intslots, SPARC_INT_ARG_MAX - this_slotno);
-      intslots = MAX (intslots, 0);
+      if (intslots > 0 && intslots > SPARC_INT_ARG_MAX - this_slotno)
+        {
+	  intslots = MAX (0, SPARC_INT_ARG_MAX - this_slotno);
+	  /* We need to pass this field on the stack.  */
+	  parms.stack = 1;
+        }
 
       parms.nregs += intslots;
     }
@@ -4835,7 +4860,17 @@ function_arg_record_value (type, mode, slotno, named, regbase)
   if (nregs == 0)
     abort ();
 
-  parms.ret = gen_rtx_PARALLEL (mode, rtvec_alloc (nregs));
+  parms.ret = gen_rtx_PARALLEL (mode, rtvec_alloc (parms.stack + nregs));
+
+  /* If at least one field must be passed on the stack, generate
+     (parallel [(expr_list (nil) ...) ...]) so that all fields will
+     also be passed on the stack.  We can't do much better because the
+     semantics of FUNCTION_ARG_PARTIAL_NREGS doesn't handle the case
+     of structures for which the fields passed exclusively in registers
+     are not at the beginning of the structure.  */
+  if (parms.stack)
+    XVECEXP (parms.ret, 0, 0)
+      = gen_rtx_EXPR_LIST (VOIDmode, NULL_RTX, const0_rtx);
 
   /* Fill in the entries.  */
   parms.nregs = 0;
@@ -4924,7 +4959,7 @@ function_arg (cum, mode, type, named, incoming_p)
 
 	     This is due to locate_and_pad_parm being called in
 	     expand_call whenever reg_parm_stack_space > 0, which
-	     while benefical to our example here, would seem to be
+	     while beneficial to our example here, would seem to be
 	     in error from what had been intended.  Ho hum...  -- r~ */
 #endif
 	    return reg;
@@ -5039,7 +5074,7 @@ function_arg_partial_nregs (cum, mode, type, named)
 	}
       else if (GET_MODE_CLASS (mode) == MODE_COMPLEX_INT
 	       || (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
-		   && ! TARGET_FPU))
+		   && ! (TARGET_FPU && named)))
 	{
 	  if (GET_MODE_ALIGNMENT (mode) == 128)
 	    {
@@ -5294,6 +5329,7 @@ sparc_va_arg (valist, type)
 	    {
 	      indirect = 1;
 	      size = rsize = UNITS_PER_WORD;
+	      align = 0;
 	    }
 	  /* SPARC v9 ABI states that structures up to 8 bytes in size are
 	     given one 8 byte slot.  */
@@ -6095,7 +6131,7 @@ sparc_splitdi_legitimate (reg, mem)
 }
 
 /* Return 1 if x and y are some kind of REG and they refer to
-   different hard registers.  This test is guarenteed to be
+   different hard registers.  This test is guaranteed to be
    run after reload.  */
 
 int
@@ -7969,6 +8005,8 @@ sparc_check_64 (x, insn)
   return 0;
 }
 
+/* Returns assembly code to perform a DImode shift using
+   a 64-bit global or out register on SPARC-V8+.  */
 char *
 sparc_v8plus_shift (operands, insn, opcode)
      rtx *operands;
@@ -7977,8 +8015,11 @@ sparc_v8plus_shift (operands, insn, opcode)
 {
   static char asm_code[60];
 
-  if (GET_CODE (operands[3]) == SCRATCH)
+  /* The scratch register is only required when the destination
+     register is not a 64-bit global or out register.  */
+  if (which_alternative != 2)
     operands[3] = operands[0];
+
   if (GET_CODE (operands[1]) == CONST_INT)
     {
       output_asm_insn ("mov\t%1, %3", operands);
@@ -7992,6 +8033,7 @@ sparc_v8plus_shift (operands, insn, opcode)
     }
 
   strcpy(asm_code, opcode);
+
   if (which_alternative != 2)
     return strcat (asm_code, "\t%0, %2, %L0\n\tsrlx\t%L0, 32, %H0");
   else
@@ -8547,10 +8589,11 @@ sparc_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
   rtx this, insn, funexp, delta_rtx, tmp;
 
   reload_completed = 1;
+  epilogue_completed = 1;
   no_new_pseudos = 1;
   current_function_uses_only_leaf_regs = 1;
 
-  emit_note (NULL, NOTE_INSN_PROLOGUE_END);
+  emit_note (NOTE_INSN_PROLOGUE_END);
 
   /* Find the "this" pointer.  Normally in %o0, but in ARCH64 if the function
      returns a structure, the structure return pointer is there instead.  */
@@ -8592,12 +8635,14 @@ sparc_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
      instruction scheduling worth while.  Note that use_thunk calls
      assemble_start_function and assemble_end_function.  */
   insn = get_insns ();
+  insn_locators_initialize ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
   final (insn, file, 1, 0);
   final_end_function ();
 
   reload_completed = 0;
+  epilogue_completed = 0;
   no_new_pseudos = 0;
 }
 

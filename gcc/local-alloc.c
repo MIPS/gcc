@@ -283,9 +283,9 @@ static void update_equiv_regs	PARAMS ((void));
 static void no_equiv		PARAMS ((rtx, rtx, void *));
 static void block_alloc		PARAMS ((int));
 static int qty_sugg_compare    	PARAMS ((int, int));
-static int qty_sugg_compare_1	PARAMS ((const PTR, const PTR));
+static int qty_sugg_compare_1	PARAMS ((const void *, const void *));
 static int qty_compare    	PARAMS ((int, int));
-static int qty_compare_1	PARAMS ((const PTR, const PTR));
+static int qty_compare_1	PARAMS ((const void *, const void *));
 static int combine_regs		PARAMS ((rtx, rtx, int, int, rtx, int));
 static int reg_meets_class_p	PARAMS ((int, enum reg_class));
 static void update_qty_class	PARAMS ((int, int));
@@ -922,7 +922,7 @@ update_equiv_regs ()
 	      || (CLASS_LIKELY_SPILLED_P (reg_preferred_class (regno))
 		  && GET_CODE (src) == MEM))
 	    {
-	      /* This might be seting a SUBREG of a pseudo, a pseudo that is
+	      /* This might be setting a SUBREG of a pseudo, a pseudo that is
 		 also set somewhere else to a constant.  */
 	      note_stores (set, no_equiv, NULL);
 	      continue;
@@ -1035,7 +1035,7 @@ update_equiv_regs ()
      registers only used that once.  If so, see if we can replace the
      reference with the equivalent from.  If we can, delete the
      initializing reference and this register will go away.  If we
-     can't replace the reference, and the initialzing reference is
+     can't replace the reference, and the initializing reference is
      within the same loop (or in an inner loop), then move the register
      initialization just before the use, so that they are in the same
      basic block.  */
@@ -1701,8 +1701,8 @@ qty_compare (q1, q2)
 
 static int
 qty_compare_1 (q1p, q2p)
-     const PTR q1p;
-     const PTR q2p;
+     const void *q1p;
+     const void *q2p;
 {
   int q1 = *(const int *) q1p, q2 = *(const int *) q2p;
   int tem = QTY_CMP_PRI (q2) - QTY_CMP_PRI (q1);
@@ -1741,8 +1741,8 @@ qty_sugg_compare (q1, q2)
 
 static int
 qty_sugg_compare_1 (q1p, q2p)
-     const PTR q1p;
-     const PTR q2p;
+     const void *q1p;
+     const void *q2p;
 {
   int q1 = *(const int *) q1p, q2 = *(const int *) q2p;
   int tem = QTY_CMP_SUGG (q1) - QTY_CMP_SUGG (q2);

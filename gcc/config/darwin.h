@@ -310,7 +310,7 @@ do { text_section ();							\
 
 /* Our profiling scheme doesn't LP labels and counter words.  */
 
-#define NO_PROFILE_COUNTERS
+#define NO_PROFILE_COUNTERS	1
 
 #undef	INIT_SECTION_ASM_OP
 #define INIT_SECTION_ASM_OP
@@ -326,21 +326,11 @@ do { text_section ();							\
 
 /* Don't output a .file directive.  That is only used by the assembler for
    error reporting.  */
+#undef	TARGET_ASM_FILE_START_FILE_DIRECTIVE
+#define TARGET_ASM_FILE_START_FILE_DIRECTIVE false
 
-#undef	ASM_FILE_START
-#define ASM_FILE_START(FILE)
-
-#undef	ASM_FILE_END
-#define ASM_FILE_END(FILE)					\
-  do {								\
-    machopic_finish (asm_out_file);                             \
-    if (strcmp (lang_hooks.name, "GNU C++") == 0)		\
-      {								\
-	constructor_section ();					\
-	destructor_section ();					\
-	ASM_OUTPUT_ALIGN (FILE, 1);				\
-      }								\
-  } while (0)
+#undef  TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END darwin_file_end
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
   fprintf (FILE, "\t.space "HOST_WIDE_INT_PRINT_UNSIGNED"\n", SIZE)

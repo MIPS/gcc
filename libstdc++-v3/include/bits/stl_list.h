@@ -58,8 +58,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef __GLIBCPP_INTERNAL_LIST_H
-#define __GLIBCPP_INTERNAL_LIST_H
+#ifndef _LIST_H
+#define _LIST_H 1
 
 #include <bits/concept_check.h>
 
@@ -247,7 +247,7 @@ namespace std
     typename _Alloc_traits<_List_node<_Tp>, _Allocator>::allocator_type
              _M_node_allocator;
   
-    _List_node<_Tp>* _M_node;
+    _List_node_base _M_node;
   };
   
   /// @if maint Specialization for instanceless allocators.  @endif
@@ -278,7 +278,7 @@ namespace std
     _M_put_node(_List_node<_Tp>* __p)
     { _Alloc_type::deallocate(__p, 1); }
   
-    _List_node<_Tp>* _M_node;
+    _List_node_base _M_node;
   };
   
   
@@ -301,16 +301,14 @@ namespace std
     _List_base(const allocator_type& __a)
     : _Base(__a)
     {
-      this->_M_node = _M_get_node();
-      this->_M_node->_M_next = this->_M_node;
-      this->_M_node->_M_prev = this->_M_node;
+      this->_M_node._M_next = &this->_M_node;
+      this->_M_node._M_prev = &this->_M_node;
     }
   
     // This is what actually destroys the list.
     ~_List_base()
     {
       __clear();
-      _M_put_node(this->_M_node);
     }
   
     void
@@ -366,7 +364,7 @@ namespace std
     class list : protected _List_base<_Tp, _Alloc>
   {
     // concept requirements
-    __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
+    __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
   
     typedef _List_base<_Tp, _Alloc>                       _Base;
   
@@ -376,8 +374,8 @@ namespace std
     typedef const value_type*                             const_pointer;
     typedef _List_iterator<_Tp,_Tp&,_Tp*>                 iterator;
     typedef _List_iterator<_Tp,const _Tp&,const _Tp*>     const_iterator;
-    typedef std::reverse_iterator<const_iterator>     const_reverse_iterator;
-    typedef std::reverse_iterator<iterator>                 reverse_iterator;
+    typedef std::reverse_iterator<const_iterator>         const_reverse_iterator;
+    typedef std::reverse_iterator<iterator>               reverse_iterator;
     typedef value_type&                                   reference;
     typedef const value_type&                             const_reference;
     typedef size_t                                        size_type;
@@ -410,7 +408,7 @@ namespace std
     {
       _Node* __p = _M_get_node();
       try {
-        _Construct(&__p->_M_data, __x);
+        std::_Construct(&__p->_M_data, __x);
       }
       catch(...)
       {
@@ -431,7 +429,7 @@ namespace std
     {
       _Node* __p = _M_get_node();
       try {
-        _Construct(&__p->_M_data);
+        std::_Construct(&__p->_M_data);
       }
       catch(...)
       {
@@ -506,11 +504,11 @@ namespace std
       { this->insert(begin(), __first, __last); }
   
     /**
-     *  The dtor only erases the elements, and note that if the elements
+     *  No explicit dtor needed as the _Base dtor takes care of things.
+     *  The _Base dtor only erases the elements, and note that if the elements
      *  themselves are pointers, the pointed-to memory is not touched in any
      *  way.  Managing the pointer is the user's responsibilty.
     */
-    ~list() { }
   
     /**
      *  @brief  %List assignment operator.
@@ -566,28 +564,28 @@ namespace std
      *  %list.  Iteration is done in ordinary element order.
     */
     iterator
-    begin() { return static_cast<_Node*>(this->_M_node->_M_next); }
+    begin() { return static_cast<_Node*>(this->_M_node._M_next); }
   
     /**
      *  Returns a read-only (constant) iterator that points to the first element
      *  in the %list.  Iteration is done in ordinary element order.
     */
     const_iterator
-    begin() const { return static_cast<_Node*>(this->_M_node->_M_next); }
+    begin() const { return static_cast<_Node*>(this->_M_node._M_next); }
   
     /**
      *  Returns a read/write iterator that points one past the last element in
      *  the %list.  Iteration is done in ordinary element order.
     */
     iterator
-    end() { return this->_M_node; }
+    end() { return static_cast<_Node*>(&this->_M_node); }
   
     /**
      *  Returns a read-only (constant) iterator that points one past the last
      *  element in the %list.  Iteration is done in ordinary element order.
     */
     const_iterator
-    end() const { return this->_M_node; }
+    end() const { return const_cast<_Node *>(static_cast<const _Node*>(&this->_M_node)); }
   
     /**
      *  Returns a read/write reverse iterator that points to the last element in
@@ -625,7 +623,7 @@ namespace std
      *  Returns true if the %list is empty.  (Thus begin() would equal end().)
     */
     bool
-    empty() const { return this->_M_node->_M_next == this->_M_node; }
+    empty() const { return this->_M_node._M_next == &this->_M_node; }
   
     /**  Returns the number of elements in the %list.  */
     size_type
@@ -773,12 +771,12 @@ namespace std
      *  time, and does not invalidate iterators and references.
     */
     void
-    insert(iterator __pos, size_type __n, const value_type& __x)
-    { _M_fill_insert(__pos, __n, __x); }
+    insert(iterator __position, size_type __n, const value_type& __x)
+    { _M_fill_insert(__position, __n, __x); }
   
     /**
      *  @brief  Inserts a range into the %list.
-     *  @param  pos  An iterator into the %list.
+     *  @param  position  An iterator into the %list.
      *  @param  first  An input iterator.
      *  @param  last   An input iterator.
      *
@@ -790,11 +788,11 @@ namespace std
     */
     template<typename _InputIterator>
       void
-      insert(iterator __pos, _InputIterator __first, _InputIterator __last)
+      insert(iterator __position, _InputIterator __first, _InputIterator __last)
       {
         // Check whether it's an integral type.  If so, it's not an iterator.
         typedef typename _Is_integer<_InputIterator>::_Integral _Integral;
-        _M_insert_dispatch(__pos, __first, __last, _Integral());
+        _M_insert_dispatch(__position, __first, __last, _Integral());
       }
   
     /**
@@ -848,12 +846,11 @@ namespace std
      *  @param  x  A %list of the same element and allocator types.
      *
      *  This exchanges the elements between two lists in constant time.
-     *  (It is only swapping a single pointer, so it should be quite fast.)
      *  Note that the global std::swap() function is specialized such that
      *  std::swap(l1,l2) will feed to this function.
     */
     void
-    swap(list& __x) { std::swap(this->_M_node, __x._M_node); }
+    swap(list& __x);
   
     /**
      *  Erases all the elements.  Note that this function only erases the
@@ -940,7 +937,7 @@ namespace std
      *  @doctodo
     */
     void
-    reverse() { __List_base_reverse(this->_M_node); }
+    reverse() { __List_base_reverse(&this->_M_node); }
   
     /**
      *  @doctodo
@@ -968,9 +965,9 @@ namespace std
       }
   
     // called by the range assign to implement [23.1.1]/9
-    template<typename _InputIter>
+    template<typename _InputIterator>
       void
-      _M_assign_dispatch(_InputIter __first, _InputIter __last, __false_type);
+      _M_assign_dispatch(_InputIterator __first, _InputIterator __last, __false_type);
   
     // Called by assign(n,t), and the range assign when it turns out to be the
     // same thing.
@@ -1073,8 +1070,8 @@ namespace std
     inline bool
     operator<(const list<_Tp,_Alloc>& __x, const list<_Tp,_Alloc>& __y)
     {
-      return lexicographical_compare(__x.begin(), __x.end(),
-                                     __y.begin(), __y.end());
+      return std::lexicographical_compare(__x.begin(), __x.end(),
+					  __y.begin(), __y.end());
     }
   
   /// Based on operator==
@@ -1108,4 +1105,4 @@ namespace std
     { __x.swap(__y); }
 } // namespace std
 
-#endif /* __GLIBCPP_INTERNAL_LIST_H */
+#endif /* _LIST_H */

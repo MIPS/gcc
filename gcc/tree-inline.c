@@ -537,6 +537,7 @@ initialize_inlined_parameters (id, args, fn, bind_expr)
   tree a;
   tree p;
   tree vars = NULL_TREE;
+  bool gimplify_init_stmts_p = false;
 
   /* Figure out what the parameters are.  */
   parms = DECL_ARGUMENTS (fn);
@@ -634,12 +635,19 @@ initialize_inlined_parameters (id, args, fn, bind_expr)
 	 the argument to the proper type in case it was promoted.  */
       if (value)
 	{
+	  tree rhs = convert (TREE_TYPE (var), value);
+
 	  /* We want to use MODIFY_EXPR, not INIT_EXPR here so that we
 	     keep our trees in gimple form.  */
-	  init_stmt = build (MODIFY_EXPR, TREE_TYPE (var), var,
-			     convert (TREE_TYPE (var), value));
+	  init_stmt = build (MODIFY_EXPR, TREE_TYPE (var), var, rhs);
 	  init_stmts = add_stmt_to_compound (init_stmts, void_type_node,
 					     init_stmt);
+
+	  /* If the conversion needed to assign VALUE to VAR is not a
+	     GIMPLE expression, flag that we will need to gimplify
+	     INIT_STMTS at the end.  */
+	  if (!is_gimple_rhs (rhs))
+	    gimplify_init_stmts_p = true;
 	}
 
 #if 0
@@ -670,6 +678,10 @@ initialize_inlined_parameters (id, args, fn, bind_expr)
       init_stmts = add_stmt_to_compound (init_stmts, void_type_node,
 					 value);
     }
+
+  if (gimplify_init_stmts_p
+      && keep_function_tree_in_gimple_form (fn))
+    gimplify_body (&init_stmts, fn);
 
   add_var_to_bind_expr (bind_expr, vars);
   return init_stmts;
@@ -813,8 +825,10 @@ inlinable_function_p (fn, id, nolimit)
   if (DECL_UNINLINABLE (fn))
     return 0;
 
-  /* Assume it is not inlinable.  */
-  inlinable = 0;
+  /* See if there is any language-specific reason it cannot be
+     inlined.  (It is important that this hook be called early because
+     in C++ it may result in template instantiation.)  */
+  inlinable = !(*lang_hooks.tree_inlining.cannot_inline_tree_fn) (&fn);
        
   /* We may be here either because fn is declared inline or because
      we use -finline-functions.  For the second case, we are more
@@ -827,7 +841,7 @@ inlinable_function_p (fn, id, nolimit)
 
   /* If we're not inlining things, then nothing is inlinable.  */
   if (! flag_inline_trees)
-    ;
+    inlinable = 0;
   /* If we're not inlining all functions and the function was not
      declared `inline', we don't inline it.  Don't think of
      disregarding DECL_INLINE when flag_inline_trees == 2; it's the
@@ -835,35 +849,29 @@ inlinable_function_p (fn, id, nolimit)
      dwarf2out loses if a function is inlined that doesn't have
      DECL_INLINE set.  */
   else if (! DECL_INLINE (fn) && !nolimit)
-    ;
+    inlinable = 0;
   /* We can't inline functions that are too big.  Only allow a single
      function to be of MAX_INLINE_INSNS_SINGLE size.  Make special
      allowance for extern inline functions, though.  */
   else if (!nolimit
 	   && ! (*lang_hooks.tree_inlining.disregard_inline_limits) (fn)
 	   && currfn_insns > max_inline_insns_single)
-    ;
+    inlinable = 0;
   /* We can't inline functions that call __builtin_longjmp at all.
-     The non-local goto machenery really requires the destination
+     The non-local goto machinery really requires the destination
      be in a different function.  If we allow the function calling
      __builtin_longjmp to be inlined into the function calling
      __builtin_setjmp, Things will Go Awry.  */
   /* ??? Need front end help to identify "regular" non-local goto.  */
   else if (find_builtin_longjmp_call (DECL_SAVED_TREE (fn)))
-    ;
+    inlinable = 0;
   /* Refuse to inline alloca call unless user explicitly forced so as this may
      change program's memory overhead drastically when the function using alloca
      is called in loop.  In GCC present in SPEC2000 inlining into schedule_block
      cause it to require 2GB of ram instead of 256MB.  */
   else if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) == NULL
 	   && find_alloca_call (DECL_SAVED_TREE (fn)))
-    ;
-  /* All is well.  We can inline this function.  Traditionally, GCC
-     has refused to inline functions using alloca, or functions whose
-     values are returned in a PARALLEL, and a few other such obscure
-     conditions.  We are not equally constrained at the tree level.  */
-  else
-    inlinable = 1;
+    inlinable = 0;
 
   /* Squirrel away the result so that we don't have to check again.  */
   DECL_UNINLINABLE (fn) = ! inlinable;
@@ -893,9 +901,6 @@ inlinable_function_p (fn, id, nolimit)
 	    inlinable = 0;
 	}
     }
-
-  if (inlinable && (*lang_hooks.tree_inlining.cannot_inline_tree_fn) (&fn))
-    inlinable = 0;
 
   /* If we don't have the function body available, we can't inline
      it.  */
@@ -1018,7 +1023,8 @@ expand_call_inline (tp, walk_subtrees, data)
        || !cgraph_global_info (fn)->inline_once)
       && !inlinable_function_p (fn, id, 0))
     {
-      if (warn_inline && DECL_INLINE (fn))
+      if (warn_inline && DECL_INLINE (fn) && !DID_INLINE_FUNC (fn)
+	  && !DECL_IN_SYSTEM_HEADER (fn))
 	{
 	  warning_with_decl (fn, "inlining failed in call to `%s'");
 	  warning ("called from here");

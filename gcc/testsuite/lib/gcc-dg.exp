@@ -251,3 +251,104 @@ proc gcc-dg-debug-runtest { target_compile trivial opt_opts testcases } {
 	}
     }
 }
+
+# If this target does not support weak symbols, skip this test.
+
+proc dg-require-weak { args } {
+    upvar dg-do-what dg-do-what
+    upvar name name
+
+    set weak_available [ check_weak_available ]
+    if { $weak_available == -1 } {
+	unresolved "$name"
+    }
+    if { $weak_available != 1 } {
+	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+	return
+    }
+}
+
+# If this target does not support the "alias" attribute, skip this
+# test.
+
+proc dg-require-alias { args } {
+    upvar dg-do-what dg-do-what
+    upvar name name
+
+    set alias_available [ check_alias_available ]
+    if { $alias_available == -1 } {
+	unresolved "$name"
+    }
+    if { $alias_available < 2 } {
+	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+	return
+    }
+}
+
+# If this target's linker does not support the --gc-sections flag,
+# skip this test.
+
+proc dg-require-gc-sections { args } {
+    if { ![ check_gc_sections_available ] } {
+	upvar dg-do-what dg-do-what
+	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+	return
+    }
+}
+
+# If this target does not support DLL attributes skip this test.
+
+proc dg-require-dll { args } { 
+    global target_triplet
+    # As a special case, the mcore-*-elf supports dllimport/dllexport.
+    if { [string match "mcore-*-elf" $target_triplet] } {
+	return
+    }
+    # PE/COFF targets support dllimport/dllexport.
+    if { [gcc_target_object_format] == "pe" } {
+	return
+    }
+
+    upvar dg-do-what dg-do-what
+    set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+}
+
+# Like check_conditional_xfail, but callable from a dg test.
+
+proc dg-xfail-if { args } {
+    set args [lreplace $args 0 0]
+    set selector "target [join [lindex $args 1]]"
+    if { [dg-process-target $selector] == "S" } {
+	global compiler_conditional_xfail_data
+	set compiler_conditional_xfail_data $args
+    }
+}
+
+
+# We need to make sure that additional_files and additional_sources
+# are both cleared out after every test.  It is not enough to clear
+# them out *before* the next test run because gcc-target-compile gets
+# run directly from some .exp files (outside of any test).  (Those
+# uses should eventually be eliminated.) 
+
+# Because the DG framework doesn't provide a hook that is run at the
+# end of a test, we must replace dg-test with a wrapper.
+
+if { [info procs saved-dg-test] == [list] } {
+    rename dg-test saved-dg-test
+
+    proc dg-test { args } {
+	global additional_files
+	global additional_sources
+	global errorInfo
+
+	if { [ catch { eval saved-dg-test $args } errmsg ] } {
+	    set saved_info $errorInfo
+	    set additional_files ""
+	    set additional_sources ""
+	    error $errmsg $saved_info
+	}
+	set additional_files ""
+	set additional_sources ""
+    }
+}

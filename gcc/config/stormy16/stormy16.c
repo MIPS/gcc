@@ -1,5 +1,5 @@
 /* Xstormy16 target functions.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
@@ -40,7 +40,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "expr.h"
 #include "optabs.h"
-#include "output.h"
 #include "except.h"
 #include "function.h"
 #include "target.h"
@@ -698,6 +697,12 @@ xstormy16_extra_constraint_p (x, c)
       return (GET_CODE (x) == CONST_INT
 	      && (INTVAL (x) < 2 || INTVAL (x) > 15));
 
+      /* 'Z' is for CONST_INT value zero.  This is for adding zero to
+	 a register in addhi3, which would otherwise require a carry.  */
+    case 'Z':
+      return (GET_CODE (x) == CONST_INT
+	      && (INTVAL (x) == 0));
+
     default:
       return 0;
     }
@@ -724,7 +729,7 @@ nonimmediate_nonstack_operand (op, mode)
 	  && ! xstormy16_extra_constraint_p (op, 'R'));
 }
 
-/* Splitter for the 'move' patterns, for modes not directly implemeted
+/* Splitter for the 'move' patterns, for modes not directly implemented
    by hardware.  Emit insns to copy a value of mode MODE from SRC to
    DEST.
 

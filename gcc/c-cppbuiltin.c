@@ -45,35 +45,29 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #endif
 
 /* Non-static as some targets don't use it.  */
-void builtin_define_std PARAMS ((const char *)) ATTRIBUTE_UNUSED;
-static void builtin_define_with_value_n PARAMS ((const char *, const char *,
-						 size_t));
-static void builtin_define_with_int_value PARAMS ((const char *,
-						   HOST_WIDE_INT));
-static void builtin_define_with_hex_fp_value PARAMS ((const char *, tree,
-						      int, const char *,
-						      const char *));
-static void builtin_define_type_max PARAMS ((const char *, tree, int));
-static void builtin_define_type_precision PARAMS ((const char *, tree));
-static void builtin_define_float_constants PARAMS ((const char *,
-						    const char *, tree));
-static void define__GNUC__		PARAMS ((void));
+void builtin_define_std (const char *) ATTRIBUTE_UNUSED;
+static void builtin_define_with_value_n (const char *, const char *,
+					 size_t);
+static void builtin_define_with_int_value (const char *, HOST_WIDE_INT);
+static void builtin_define_with_hex_fp_value (const char *, tree,
+					      int, const char *,
+					      const char *);
+static void builtin_define_type_max (const char *, tree, int);
+static void builtin_define_type_precision (const char *, tree);
+static void builtin_define_float_constants (const char *, const char *,
+					    tree);
+static void define__GNUC__ (void);
 
 /* Define NAME with value TYPE precision.  */
 static void
-builtin_define_type_precision (name, type)
-     const char *name;
-     tree type;
+builtin_define_type_precision (const char *name, tree type)
 {
   builtin_define_with_int_value (name, TYPE_PRECISION (type));
 }
 
 /* Define the float.h constants for TYPE using NAME_PREFIX and FP_SUFFIX.  */
 static void
-builtin_define_float_constants (name_prefix, fp_suffix, type)
-     const char *name_prefix;
-     const char *fp_suffix;
-     tree type;
+builtin_define_float_constants (const char *name_prefix, const char *fp_suffix, tree type)
 {
   /* Used to convert radix-based values to base 10 values in several cases.
 
@@ -107,7 +101,7 @@ builtin_define_float_constants (name_prefix, fp_suffix, type)
      p radix b digits and back again without change to the q decimal digits,
 
 	p log10 b			if b is a power of 10
- 	floor((p - 1) log10 b)		otherwise
+	floor((p - 1) log10 b)		otherwise
   */
   dig = (fmt->p - 1) * log10_b;
   sprintf (name, "__%s_DIG__", name_prefix);
@@ -166,7 +160,7 @@ builtin_define_float_constants (name_prefix, fp_suffix, type)
 
   /* The number of decimal digits, n, such that any floating-point number
      can be rounded to n decimal digits and back again without change to
-     the value. 
+     the value.
 
 	p * log10(b)			if b is a power of 10
 	ceil(1 + p * log10(b))		otherwise
@@ -233,7 +227,7 @@ builtin_define_float_constants (name_prefix, fp_suffix, type)
 
   /* For C++ std::numeric_limits<T>::has_infinity.  */
   sprintf (name, "__%s_HAS_INFINITY__", name_prefix);
-  builtin_define_with_int_value (name, 
+  builtin_define_with_int_value (name,
 				 MODE_HAS_INFINITIES (TYPE_MODE (type)));
   /* For C++ std::numeric_limits<T>::has_quiet_NaN.  We do not have a
      predicate to distinguish a target that has both quiet and
@@ -246,7 +240,7 @@ builtin_define_float_constants (name_prefix, fp_suffix, type)
 
 /* Define __GNUC__, __GNUC_MINOR__ and __GNUC_PATCHLEVEL__.  */
 static void
-define__GNUC__ ()
+define__GNUC__ (void)
 {
   /* The format of the version string, enforced below, is
      ([^0-9]*-)?[0-9]+[.][0-9]+([.][0-9]+)?([- ].*)?  */
@@ -261,7 +255,7 @@ define__GNUC__ ()
   while (ISDIGIT (*v))
     v++;
   builtin_define_with_value_n ("__GNUC__", q, v - q);
-  if (c_language == clk_cplusplus)
+  if (c_dialect_cxx ())
     builtin_define_with_value_n ("__GNUG__", q, v - q);
 
   if (*v != '.' || !ISDIGIT (v[1]))
@@ -289,8 +283,7 @@ define__GNUC__ ()
 
 /* Hook that registers front end and target-specific built-ins.  */
 void
-c_cpp_builtins (pfile)
-     cpp_reader *pfile;
+c_cpp_builtins (cpp_reader *pfile)
 {
   /* -undef turns off target-specific built-ins.  */
   if (flag_undef)
@@ -301,17 +294,19 @@ c_cpp_builtins (pfile)
   /* For stddef.h.  They require macros defined in c-common.c.  */
   c_stddef_cpp_builtins ();
 
-  if (c_language == clk_cplusplus)
+  if (c_dialect_cxx ())
     {
       if (SUPPORTS_ONE_ONLY)
 	cpp_define (pfile, "__GXX_WEAK__=1");
       else
 	cpp_define (pfile, "__GXX_WEAK__=0");
-      if (flag_exceptions)
-	cpp_define (pfile, "__EXCEPTIONS");
       if (warn_deprecated)
 	cpp_define (pfile, "__DEPRECATED");
     }
+  /* Note that we define this for C as well, so that we know if
+     __attribute__((cleanup)) will interface with EH.  */
+  if (flag_exceptions)
+    cpp_define (pfile, "__EXCEPTIONS");
 
   /* represents the C++ ABI version, always defined so it can be used while
      preprocessing C and assembler.  */
@@ -355,7 +350,7 @@ c_cpp_builtins (pfile)
       cpp_define (pfile, "_LP64");
       cpp_define (pfile, "__LP64__");
     }
-  
+
   /* Other target-independent built-ins determined by command-line
      options.  */
   if (optimize_size)
@@ -380,11 +375,11 @@ c_cpp_builtins (pfile)
   if (!flag_signed_char)
     cpp_define (pfile, "__CHAR_UNSIGNED__");
 
-  if (c_language == clk_cplusplus && TREE_UNSIGNED (wchar_type_node))
+  if (c_dialect_cxx () && TREE_UNSIGNED (wchar_type_node))
     cpp_define (pfile, "__WCHAR_UNSIGNED__");
 
   /* Make the choice of ObjC runtime visible to source code.  */
-  if (flag_objc && flag_next_runtime)
+  if (c_dialect_objc () && flag_next_runtime)
     cpp_define (pfile, "__NEXT_RUNTIME__");
 
   /* A straightforward target hook doesn't work, because of problems
@@ -408,8 +403,7 @@ c_cpp_builtins (pfile)
    "unix".  Passing "_mips" defines "__mips", "__mips__" and possibly
    "_mips".  */
 void
-builtin_define_std (macro)
-     const char *macro;
+builtin_define_std (const char *macro)
 {
   size_t len = strlen (macro);
   char *buff = alloca (len + 5);
@@ -448,10 +442,7 @@ builtin_define_std (macro)
    parameter says whether or not to turn the value into a string
    constant.  */
 void
-builtin_define_with_value (macro, expansion, is_str)
-     const char *macro;
-     const char *expansion;
-     int is_str;
+builtin_define_with_value (const char *macro, const char *expansion, int is_str)
 {
   char *buf;
   size_t mlen = strlen (macro);
@@ -473,14 +464,11 @@ builtin_define_with_value (macro, expansion, is_str)
 /* Pass an object-like macro and a value to define it to.  The third
    parameter is the length of the expansion.  */
 static void
-builtin_define_with_value_n (macro, expansion, elen)
-     const char *macro;
-     const char *expansion;
-     size_t elen;
+builtin_define_with_value_n (const char *macro, const char *expansion, size_t elen)
 {
   char *buf;
   size_t mlen = strlen (macro);
-  
+
   /* Space for an = and a NUL.  */
   buf = alloca (mlen + elen + 2);
   memcpy (buf, macro, mlen);
@@ -493,9 +481,7 @@ builtin_define_with_value_n (macro, expansion, elen)
 
 /* Pass an object-like macro and an integer value to define it to.  */
 static void
-builtin_define_with_int_value (macro, value)
-     const char *macro;
-     HOST_WIDE_INT value;
+builtin_define_with_int_value (const char *macro, HOST_WIDE_INT value)
 {
   char *buf;
   size_t mlen = strlen (macro);
@@ -512,12 +498,9 @@ builtin_define_with_int_value (macro, value)
 
 /* Pass an object-like macro a hexadecimal floating-point value.  */
 static void
-builtin_define_with_hex_fp_value (macro, type, digits, hex_str, fp_suffix)
-     const char *macro;
-     tree type ATTRIBUTE_UNUSED;
-     int digits;
-     const char *hex_str;
-     const char *fp_suffix;
+builtin_define_with_hex_fp_value (const char *macro,
+				  tree type ATTRIBUTE_UNUSED, int digits,
+				  const char *hex_str, const char *fp_suffix)
 {
   REAL_VALUE_TYPE real;
   char dec_str[64], buf[256];
@@ -528,7 +511,7 @@ builtin_define_with_hex_fp_value (macro, type, digits, hex_str, fp_suffix)
      pedwarn from the preprocessor, which has no context, so we can't
      suppress the warning with __extension__.
 
-     So instead what we do is construct the number in hex (because 
+     So instead what we do is construct the number in hex (because
      it's easy to get the exact correct value), parse it as a real,
      then print it back out as decimal.  */
 
@@ -544,10 +527,7 @@ builtin_define_with_hex_fp_value (macro, type, digits, hex_str, fp_suffix)
    unsigned types, since wchar_t might be unsigned.  */
 
 static void
-builtin_define_type_max (macro, type, is_long)
-     const char *macro;
-     tree type;
-     int is_long;
+builtin_define_type_max (const char *macro, tree type, int is_long)
 {
   static const char *const values[]
     = { "127", "255",

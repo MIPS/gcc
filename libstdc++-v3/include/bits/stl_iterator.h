@@ -62,8 +62,8 @@
  *  supporting functions and overloaded operators.
  */
 
-#ifndef __GLIBCPP_INTERNAL_ITERATOR_H
-#define __GLIBCPP_INTERNAL_ITERATOR_H
+#ifndef _ITERATOR_H
+#define _ITERATOR_H 1
 
 namespace std
 {
@@ -106,9 +106,12 @@ namespace std
 
     public:
       /**
-       *  The default constructor gives an undefined state to this %iterator.
+       *  The default constructor default-initializes member @p current.
+       *  If it is a pointer, that means it is zero-initialized.
       */
-      reverse_iterator() { }
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 235 No specification of default ctor for reverse_iterator
+      reverse_iterator() : current() { }
 
       /**
        *  This %iterator will move in the opposite direction that @p x does.
@@ -569,16 +572,14 @@ namespace __gnu_cxx
   using std::iterator;
   template<typename _Iterator, typename _Container>
     class __normal_iterator
-      : public iterator<typename iterator_traits<_Iterator>::iterator_category,
-                        typename iterator_traits<_Iterator>::value_type,
-                        typename iterator_traits<_Iterator>::difference_type,
-                        typename iterator_traits<_Iterator>::pointer,
-                        typename iterator_traits<_Iterator>::reference>
     {
     protected:
       _Iterator _M_current;
       
     public:
+      typedef typename iterator_traits<_Iterator>::iterator_category
+                                                               iterator_category;
+      typedef typename iterator_traits<_Iterator>::value_type  value_type;
       typedef typename iterator_traits<_Iterator>::difference_type 	
       							       difference_type;
       typedef typename iterator_traits<_Iterator>::reference   reference;
@@ -721,7 +722,7 @@ namespace __gnu_cxx
 	     const __normal_iterator<_Iterator, _Container>& __rhs)
   { return __lhs.base() >= __rhs.base(); }
 
-  // _GLIBCPP_RESOLVE_LIB_DEFECTS
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
   // According to the resolution of DR179 not only the various comparison
   // operators but also operator- must accept mixed iterator/const_iterator
   // parameters.

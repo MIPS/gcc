@@ -407,6 +407,16 @@ extern enum processor_type rs6000_cpu;
    SUBTARGET_OPTIONS							\
 }
 
+/* Support for a compile-time default CPU, et cetera.  The rules are:
+   --with-cpu is ignored if -mcpu is specified.
+   --with-tune is ignored if -mtune is specified.
+   --with-float is ignored if -mhard-float or -msoft-float are
+    specified.  */
+#define OPTION_DEFAULT_SPECS \
+  {"cpu", "%{!mcpu=*:-mcpu=%(VALUE)}" }, \
+  {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
+  {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }
+
 /* rs6000_select[0] is reserved for the default cpu defined via --with-cpu */
 struct rs6000_cpu_select
 {
@@ -989,6 +999,10 @@ extern int rs6000_alignment_flags;
    ? GET_MODE_CLASS (MODE2) == MODE_CC		\
    : GET_MODE_CLASS (MODE2) == MODE_CC		\
    ? GET_MODE_CLASS (MODE1) == MODE_CC		\
+   : SPE_VECTOR_MODE (MODE1)			\
+   ? SPE_VECTOR_MODE (MODE2)			\
+   : SPE_VECTOR_MODE (MODE2)			\
+   ? SPE_VECTOR_MODE (MODE1)			\
    : ALTIVEC_VECTOR_MODE (MODE1)		\
    ? ALTIVEC_VECTOR_MODE (MODE2)		\
    : ALTIVEC_VECTOR_MODE (MODE2)		\
@@ -1406,7 +1420,7 @@ enum reg_class
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)			\
   (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)				\
    ? reg_classes_intersect_p (FLOAT_REGS, CLASS)			\
-   : (SPE_VECTOR_MODE (FROM) + SPE_VECTOR_MODE (TO)) == 1		\
+   : (TARGET_SPE && (SPE_VECTOR_MODE (FROM) + SPE_VECTOR_MODE (TO)) == 1) \
    ? reg_classes_intersect_p (GENERAL_REGS, CLASS) 			\
    : 0)
 
@@ -1583,11 +1597,7 @@ typedef struct rs6000_stack {
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
 
-#define LIBCALL_VALUE(MODE)						\
-  gen_rtx_REG (MODE, ALTIVEC_VECTOR_MODE (MODE) ? ALTIVEC_ARG_RETURN	\
-		     : GET_MODE_CLASS (MODE) == MODE_FLOAT		\
-		     && TARGET_HARD_FLOAT && TARGET_FPRS		\
-		     ? FP_ARG_RETURN : GP_ARG_RETURN)
+#define LIBCALL_VALUE(MODE) rs6000_libcall_value ((MODE))
 
 /* The AIX ABI for the RS/6000 specifies that all structures are
    returned in memory.  The Darwin ABI does the same.  The SVR4 ABI
@@ -1655,6 +1665,7 @@ typedef struct rs6000_stack {
 #define CALL_V4_CLEAR_FP_ARGS	0x00000002	/* V.4, no FP args passed */
 #define CALL_V4_SET_FP_ARGS	0x00000004	/* V.4, FP args were passed */
 #define CALL_LONG		0x00000008	/* always call indirect */
+#define CALL_LIBCALL		0x00000010	/* libcall */
 
 /* 1 if N is a possible register number for a function value
    as seen by the caller.
@@ -1715,6 +1726,7 @@ typedef struct rs6000_args
   int nargs_prototype;		/* # args left in the current prototype */
   int orig_nargs;		/* Original value of nargs_prototype */
   int prototype;		/* Whether a prototype was defined */
+  int stdarg;			/* Whether function is a stdarg function.  */
   int call_cookie;		/* Do special things for this call */
   int sysv_gregno;		/* next available GP register */
 } CUMULATIVE_ARGS;
@@ -1732,13 +1744,18 @@ typedef struct rs6000_args
    For a library call, FNTYPE is 0.  */
 
 #define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT) \
-  init_cumulative_args (&CUM, FNTYPE, LIBNAME, FALSE)
+  init_cumulative_args (&CUM, FNTYPE, LIBNAME, FALSE, FALSE)
 
 /* Similar, but when scanning the definition of a procedure.  We always
    set NARGS_PROTOTYPE large so we never return an EXPR_LIST.  */
 
 #define INIT_CUMULATIVE_INCOMING_ARGS(CUM,FNTYPE,LIBNAME) \
-  init_cumulative_args (&CUM, FNTYPE, LIBNAME, TRUE)
+  init_cumulative_args (&CUM, FNTYPE, LIBNAME, TRUE, FALSE)
+
+/* Like INIT_CUMULATIVE_ARGS' but only used for outgoing libcalls.  */
+
+#define INIT_CUMULATIVE_LIBCALL_ARGS(CUM, MODE, LIBNAME) \
+  init_cumulative_args (&CUM, NULL_TREE, LIBNAME, FALSE, TRUE)
 
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
@@ -1814,6 +1831,13 @@ typedef struct rs6000_args
 
 #define FUNCTION_ARG_BOUNDARY(MODE, TYPE) \
   function_arg_boundary (MODE, TYPE)
+
+/* Define to nonzero if complex arguments should be split into their
+   corresponding components.
+
+   This should be set for Linux and Darwin as well, but we can't break
+   the ABIs at the moment.  For now, only AIX gets fixed.  */
+#define SPLIT_COMPLEX_ARGS (DEFAULT_ABI == ABI_AIX)
 
 /* Perform any needed actions needed for a function that is receiving a
    variable number of arguments.
@@ -2022,9 +2046,12 @@ typedef struct rs6000_args
    acceptable.  */
 
 #define LEGITIMATE_CONSTANT_P(X)				\
-  ((GET_CODE (X) != CONST_DOUBLE || GET_MODE (X) == VOIDmode	\
+  (((GET_CODE (X) != CONST_DOUBLE				\
+     && GET_CODE (X) != CONST_VECTOR)				\
+    || GET_MODE (X) == VOIDmode					\
     || (TARGET_POWERPC64 && GET_MODE (X) == DImode)		\
-    || easy_fp_constant (X, GET_MODE (X)))			\
+    || easy_fp_constant (X, GET_MODE (X))			\
+    || easy_vector_constant (X, GET_MODE (X)))			\
    && !rs6000_tls_referenced_p (X))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
@@ -2404,6 +2431,8 @@ extern int toc_initialized;
       ASM_OUTPUT_DEF (FILE, alias, name);				\
     }									\
    while (0)
+
+#define TARGET_ASM_FILE_START rs6000_file_start
 
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */

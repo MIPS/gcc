@@ -125,6 +125,8 @@ static const char * const optabs[] =
   "cos_optab->handlers[$A].insn_code = CODE_FOR_$(cos$a2$)",
   "exp_optab->handlers[$A].insn_code = CODE_FOR_$(exp$a2$)",
   "log_optab->handlers[$A].insn_code = CODE_FOR_$(log$a2$)",
+  "tan_optab->handlers[$A].insn_code = CODE_FOR_$(tan$a2$)",
+  "atan_optab->handlers[$A].insn_code = CODE_FOR_$(atan$a2$)",
   "strlen_optab->handlers[$A].insn_code = CODE_FOR_$(strlen$a$)",
   "one_cmpl_optab->handlers[$A].insn_code = CODE_FOR_$(one_cmpl$a2$)",
   "ffs_optab->handlers[$A].insn_code = CODE_FOR_$(ffs$a2$)",
@@ -149,11 +151,10 @@ static const char * const optabs[] =
   "movstr_optab[$A] = CODE_FOR_$(movstr$a$)",
   "clrstr_optab[$A] = CODE_FOR_$(clrstr$a$)" };
 
-static void gen_insn PARAMS ((rtx));
+static void gen_insn (rtx);
 
 static void
-gen_insn (insn)
-     rtx insn;
+gen_insn (rtx insn)
 {
   const char *name = XSTR (insn, 0);
   int m1 = 0, m2 = 0, op = 0;
@@ -321,12 +322,10 @@ gen_insn (insn)
   printf (";\n");
 }
 
-extern int main PARAMS ((int, char **));
+extern int main (int, char **);
 
 int
-main (argc, argv)
-     int argc;
-     char **argv;
+main (int argc, char **argv)
 {
   rtx desc;
 
@@ -353,7 +352,7 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"optabs.h\"\n");
   printf ("#include \"reload.h\"\n\n");
 
-  printf ("void\ninit_all_optabs ()\n{\n");
+  printf ("void\ninit_all_optabs (void)\n{\n");
 
   /* Read the machine description.  */
 
@@ -377,8 +376,7 @@ from the machine description file `md'.  */\n\n");
 
 /* Define this so we can link with print-rtl.o to get debug_rtx function.  */
 const char *
-get_insn_name (code)
-     int code ATTRIBUTE_UNUSED;
+get_insn_name (int code ATTRIBUTE_UNUSED)
 {
   return NULL;
 }

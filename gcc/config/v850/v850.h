@@ -23,8 +23,7 @@
 #ifndef GCC_V850_H
 #define GCC_V850_H
 
-/* These are defiend in svr4.h but we want to override them.  */
-#undef ASM_FINAL_SPEC
+/* These are defined in svr4.h but we want to override them.  */
 #undef LIB_SPEC
 #undef ENDFILE_SPEC
 #undef LINK_SPEC
@@ -1145,10 +1144,6 @@ zbss_section ()								\
 #define ZCOMMON_ASM_OP 	       "\t.zcomm\t"
 #define TCOMMON_ASM_OP 	       "\t.tcomm\t"
 
-/* Output at beginning/end of assembler file.  */
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE) asm_file_start(FILE)
-
 #define ASM_COMMENT_START "#"
 
 /* Output to assembler file text saying following lines
@@ -1313,8 +1308,6 @@ zbss_section ()								\
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
-
-#define STORE_FLAG_VALUE 1
 
 #define MULDI3_LIBCALL  "__muldi3"
 #define UCMPDI2_LIBCALL "__ucmpdi2"

@@ -30,6 +30,8 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 #include "langhooks-def.h"
 
+enum c_language_kind c_language = clk_cxx;
+
 static HOST_WIDE_INT cxx_get_alias_set (tree);
 static bool ok_to_generate_alias_set_for_type (tree);
 static bool cxx_warn_unused_global_decl (tree);
@@ -49,9 +51,9 @@ static int cp_expand_decl (tree);
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
 #define LANG_HOOKS_CLEAR_BINDING_STACK pop_everything
 #undef LANG_HOOKS_INIT_OPTIONS
-#define LANG_HOOKS_INIT_OPTIONS cxx_init_options
-#undef LANG_HOOKS_DECODE_OPTION
-#define LANG_HOOKS_DECODE_OPTION c_common_decode_option
+#define LANG_HOOKS_INIT_OPTIONS c_common_init_options
+#undef LANG_HOOKS_HANDLE_OPTION
+#define LANG_HOOKS_HANDLE_OPTION c_common_handle_option
 #undef LANG_HOOKS_POST_OPTIONS
 #define LANG_HOOKS_POST_OPTIONS c_common_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
@@ -145,6 +147,14 @@ static int cp_expand_decl (tree);
 #define LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN cp_type_quals
 #undef LANG_HOOKS_EXPR_SIZE
 #define LANG_HOOKS_EXPR_SIZE cp_expr_size
+
+#undef LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE 
+#define LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE prepare_assemble_variable
+
+#undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
+#define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION expand_body
+#undef LANG_HOOKS_CALLGRAPH_LOWER_FUNCTION
+#define LANG_HOOKS_CALLGRAPH_LOWER_FUNCTION lower_function
 
 #undef LANG_HOOKS_MAKE_TYPE
 #define LANG_HOOKS_MAKE_TYPE cxx_make_type

@@ -11,6 +11,11 @@
 #undef DWARF2_UNWIND_INFO
 #define DWARF2_UNWIND_INFO 1
 
+/* Override mips.h version to match DWARF 2 default.  */
+#undef MDEBUG_ASM_SPEC
+#define MDEBUG_ASM_SPEC "%{gstabs*|gcoff*:-mdebug} \
+%{!gstabs*:%{!gcoff*:-no-mdebug}}"
+
 /* Override iris5.h version to invoke [cd]tors and register eh frame
    information.  */
 #undef LINK_SPEC
@@ -50,18 +55,16 @@ crtbegin.o%s"
    avoid conflicting with ELF directives.  These are only recognized
    by gas, anyhow, not the native assembler.  */
 #undef PUT_SDB_SIZE
-#define PUT_SDB_SIZE(a)                                       \
-do {                                                  \
-  extern FILE *asm_out_text_file;                     \
-  fprintf (asm_out_text_file, "\t.esize\t" HOST_WIDE_INT_PRINT_DEC ";", \
- 	   (HOST_WIDE_INT) (a));		      \
+#define PUT_SDB_SIZE(a)					\
+do {							\
+  fprintf (asm_out_file, "\t.esize\t" HOST_WIDE_INT_PRINT_DEC ";", \
+ 	   (HOST_WIDE_INT) (a));			\
 } while (0)
 
 #undef PUT_SDB_TYPE
-#define PUT_SDB_TYPE(a)                                       \
-do {                                                  \
-  extern FILE *asm_out_text_file;                     \
-  fprintf (asm_out_text_file, "\t.etype\t0x%x;", (a));        \
+#define PUT_SDB_TYPE(a)					\
+do {							\
+  fprintf (asm_out_file, "\t.etype\t0x%x;", (a));	\
 } while (0)
 
 /* Switch into a generic section.  */

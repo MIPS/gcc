@@ -163,7 +163,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    Each file table has offsets for where the line numbers, local
    strings, local symbols, and procedure table starts from within the
-   global tables, and the indexs are reset to 0 for each of those
+   global tables, and the indices are reset to 0 for each of those
    tables for the file.
 
    The procedure table contains the binary equivalents of the .ent
@@ -611,6 +611,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define saber_stop()
 #endif
 
+/* Include getopt.h for the sake of getopt_long.  */
+#include "getopt.h"
+
 #ifndef __LINE__
 #define __LINE__ 0
 #endif
@@ -895,13 +898,10 @@ enum alloc_type {
    pages.  On systems with a BSD malloc that define USE_MALLOC, the
    MAX_CLUSTER_PAGES should be 1 less than a power of two, since malloc
    adds its overhead, and rounds up to the next power of 2.  Pages are
-   linked together via a linked list.
-
-   If PAGE_SIZE is > 4096, the string length in the shash_t structure
-   can't be represented (assuming there are strings > 4096 bytes).  */
+   linked together via a linked list.  */
 
 #ifndef PAGE_SIZE
-#define PAGE_SIZE 4096		/* size of varray pages */
+#define PAGE_SIZE 32768		/* size of varray pages */
 #endif
 
 #define PAGE_USIZE ((Size_t) PAGE_SIZE)
@@ -1510,6 +1510,7 @@ static unsigned	cur_line_alloc	= 0;		/* # bytes total in buffer */
 static long	line_number	= 0;		/* current input line number */
 static int	debug		= 0; 		/* trace functions */
 static int	version		= 0; 		/* print version # */
+static int	verbose		= 0;
 static int	had_errors	= 0;		/* != 0 if errors were found */
 static int	rename_output	= 0;		/* != 0 if rename output file*/
 static int	delete_input	= 0;		/* != 0 if delete input after done */
@@ -1663,6 +1664,15 @@ static const pseudo_ops_t pseudo_ops[] = {
   { "#@stabs",	sizeof("#@stabs")-1,	mark_stabs },
 };
 
+
+/* Command line options for getopt_long.  */
+
+static const struct option options[] =
+{
+  { "version", 0, 0, 'V' },
+  { "verbose", 0, 0, 'v' },
+  { 0, 0, 0, 0 }
+};
 
 /* Add a page to a varray object.  */
 
@@ -2878,7 +2888,7 @@ parse_def (name_start)
 	  && memcmp (dir_start, ".endef", sizeof (".endef")-1) == 0)
 	break;
 
-      /* Pick up the subdirective now */
+      /* Pick up the subdirective now.  */
       for (dir_end_p1 = dir_start+1;
 	   (ch = *dir_end_p1) != ' ' && ch != '\t';
 	   dir_end_p1++)
@@ -3807,7 +3817,7 @@ parse_input ()
 
   while ((p = read_line ()) != (char *) 0)
     {
-      /* Skip leading blanks */
+      /* Skip leading blanks.  */
       while (ISSPACE ((unsigned char)*p))
 	p++;
 
@@ -4050,7 +4060,7 @@ write_varray (vp, offset, str)
   if (debug)
     {
       fputs ("\twarray\tvp = ", stderr);
-      fprintf (stderr, HOST_PTR_PRINTF, (PTR) vp);
+      fprintf (stderr, HOST_PTR_PRINTF, (void *) vp);
       fprintf (stderr, ", offset = %7lu, size = %7lu, %s\n",
 	       (unsigned long) offset, vp->num_allocated * vp->object_size, str);
     }
@@ -4065,7 +4075,7 @@ write_varray (vp, offset, str)
 	? vp->objects_last_page * vp->object_size
 	: vp->objects_per_page  * vp->object_size;
 
-      sys_write = fwrite ((PTR) ptr->datum, 1, num_write, object_stream);
+      sys_write = fwrite (ptr->datum, 1, num_write, object_stream);
       if (sys_write <= 0)
 	pfatal_with_name (object_name);
 
@@ -4092,12 +4102,12 @@ write_object ()
   if (debug)
     {
       fputs ("\n\twrite\tvp = ", stderr);
-      fprintf (stderr, HOST_PTR_PRINTF, (PTR) &symbolic_header);
+      fprintf (stderr, HOST_PTR_PRINTF, (void *) &symbolic_header);
       fprintf (stderr, ", offset = %7u, size = %7lu, %s\n",
 	       0, (unsigned long) sizeof (symbolic_header), "symbolic header");
     }
 
-  sys_write = fwrite ((PTR) &symbolic_header,
+  sys_write = fwrite (&symbolic_header,
 		      1,
 		      sizeof (symbolic_header),
 		      object_stream);
@@ -4125,13 +4135,13 @@ write_object ()
       if (debug)
 	{
 	  fputs ("\twrite\tvp = ", stderr);
-	  fprintf (stderr, HOST_PTR_PRINTF, (PTR) &orig_linenum);
+	  fprintf (stderr, HOST_PTR_PRINTF, (void *) &orig_linenum);
 	  fprintf (stderr, ", offset = %7lu, size = %7lu, %s\n",
 		   (long) symbolic_header.cbLineOffset,
 		   (long) symbolic_header.cbLine, "Line numbers");
 	}
 
-      sys_write = fwrite ((PTR) orig_linenum,
+      sys_write = fwrite (orig_linenum,
 			  1,
 			  symbolic_header.cbLine,
 			  object_stream);
@@ -4160,13 +4170,13 @@ write_object ()
       if (debug)
 	{
 	  fputs ("\twrite\tvp = ", stderr);
-	  fprintf (stderr, HOST_PTR_PRINTF, (PTR) &orig_opt_syms);
+	  fprintf (stderr, HOST_PTR_PRINTF, (void *) &orig_opt_syms);
 	  fprintf (stderr, ", offset = %7lu, size = %7lu, %s\n",
 		   (long) symbolic_header.cbOptOffset,
 		   num_write, "Optimizer symbols");
 	}
 
-      sys_write = fwrite ((PTR) orig_opt_syms,
+      sys_write = fwrite (orig_opt_syms,
 			  1,
 			  num_write,
 			  object_stream);
@@ -4252,7 +4262,7 @@ write_object ()
 	  if (debug)
 	    {
 	      fputs ("\twrite\tvp = ", stderr);
-	      fprintf (stderr, HOST_PTR_PRINTF, (PTR) &file_ptr->fdr);
+	      fprintf (stderr, HOST_PTR_PRINTF, (void *) &file_ptr->fdr);
 	      fprintf (stderr, ", offset = %7lu, size = %7lu, %s\n",
 		       file_offset, (unsigned long) sizeof (FDR),
 		       "File header");
@@ -4288,7 +4298,7 @@ write_object ()
       if (debug)
 	{
 	  fputs ("\twrite\tvp = ", stderr);
-	  fprintf (stderr, HOST_PTR_PRINTF, (PTR) &orig_rfds);
+	  fprintf (stderr, HOST_PTR_PRINTF, (void *) &orig_rfds);
 	  fprintf (stderr, ", offset = %7lu, size = %7lu, %s\n",
 		   (long) symbolic_header.cbRfdOffset,
 		   num_write, "Relative file descriptors");
@@ -4368,7 +4378,7 @@ read_seek (size, offset, str)
 	pfatal_with_name (obj_in_name);
     }
 
-  sys_read = fread ((PTR) ptr, 1, size, obj_in_stream);
+  sys_read = fread (ptr, 1, size, obj_in_stream);
   if (sys_read <= 0)
     pfatal_with_name (obj_in_name);
 
@@ -4411,7 +4421,7 @@ copy_object ()
       || fseek (obj_in_stream, 0L, SEEK_SET) != 0)
     pfatal_with_name (obj_in_name);
 
-  sys_read = fread ((PTR) &orig_file_header,
+  sys_read = fread (&orig_file_header,
 		    1,
 		    sizeof (struct filehdr),
 		    obj_in_stream);
@@ -4438,7 +4448,7 @@ copy_object ()
   if (fseek (obj_in_stream, (long) orig_file_header.f_symptr, SEEK_SET) != 0)
     pfatal_with_name (input_name);
 
-  sys_read = fread ((PTR) &orig_sym_hdr,
+  sys_read = fread (&orig_sym_hdr,
 		    1,
 		    sizeof (orig_sym_hdr),
 		    obj_in_stream);
@@ -4736,7 +4746,7 @@ copy_object ()
       num_write
 	= (remaining <= (int) sizeof (buffer))
 	  ? remaining : (int) sizeof (buffer);
-      sys_read = fread ((PTR) buffer, 1, num_write, obj_in_stream);
+      sys_read = fread (buffer, 1, num_write, obj_in_stream);
       if (sys_read <= 0)
 	pfatal_with_name (obj_in_name);
 
@@ -4809,7 +4819,7 @@ main (argc, argv)
   void_type_info = type_info_init;
   void_type_info.basic_type = bt_Void;
 
-  while ((option = getopt (argc, argv, "d:i:I:o:v")) != EOF)
+  while ((option = getopt_long (argc, argv, "d:i:I:o:v", options, NULL)) != -1)
     switch (option)
       {
       default:
@@ -4849,9 +4859,23 @@ main (argc, argv)
 	break;
 
       case 'v':
+	verbose++;
+	break;
+
+      case 'V':
 	version++;
 	break;
       }
+
+  if (version)
+    {
+      printf (_("mips-tfile (GCC) %s\n"), version_string);
+      fputs (_("Copyright (C) 2003 Free Software Foundation, Inc.\n"), stdout);
+      fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
+     	     stdout);
+      exit (0);
+    }
 
   if (obj_in_name == (char *) 0 && optind <= argc - 2)
     obj_in_name = argv[--argc];
@@ -4868,7 +4892,19 @@ main (argc, argv)
       delete_input = 1;
     }
 
-  if (object_name == (char *) 0 || had_errors || optind != argc - 1)
+  if (optind != argc - 1)
+    had_errors++;
+
+  if (verbose || had_errors)
+    {
+      fprintf (stderr, _("mips-tfile (GCC) %s"), version_string);
+#ifdef TARGET_VERSION
+      TARGET_VERSION;
+#endif
+      fputc ('\n', stderr);
+    }
+
+  if (object_name == (char *) 0 || had_errors)
     {
       fprintf (stderr, _("Calling Sequence:\n"));
       fprintf (stderr, _("\tmips-tfile [-d <num>] [-v] [-i <o-in-file>] -o <o-out-file> <s-file> (or)\n"));
@@ -4881,16 +4917,6 @@ main (argc, argv)
       fprintf (stderr, _("    3\tDebug level 2 + trace all symbols.\n"));
       fprintf (stderr, _("    4\tDebug level 3 + trace memory allocations.\n"));
       return 1;
-    }
-
-
-  if (version)
-    {
-      fprintf (stderr, _("mips-tfile version %s"), version_string);
-#ifdef TARGET_VERSION
-      TARGET_VERSION;
-#endif
-      fputc ('\n', stderr);
     }
 
   if (obj_in_name == (char *) 0)
@@ -5078,7 +5104,7 @@ allocate_cluster (npages)
     {
       fprintf (stderr, "\talloc\tnpages = %lu, value = ",
 	       (unsigned long) npages);
-      fprintf (stderr, HOST_PTR_PRINTF, (PTR) ptr);
+      fprintf (stderr, HOST_PTR_PRINTF, (void *) ptr);
       fputs ("\n", stderr);
     }
 
@@ -5149,7 +5175,7 @@ free_multiple_pages (page_ptr, npages)
      the free pages is done right after an allocate.  */
 
 #else	/* MALLOC_CHECK */
-  free ((char *) page_ptr);
+  free (page_ptr);
 
 #endif	/* MALLOC_CHECK */
 }
@@ -5229,7 +5255,7 @@ free_scope (ptr)
   alloc_counts[ (int) alloc_type_scope ].free_list.f_scope = ptr;
 
 #else
-  free ((PTR) ptr);
+  free (ptr);
 #endif
 
 }
@@ -5386,7 +5412,7 @@ free_tag (ptr)
   alloc_counts[ (int) alloc_type_tag ].free_list.f_tag = ptr;
 
 #else
-  free ((PTR) ptr);
+  free (ptr);
 #endif
 
 }
@@ -5444,7 +5470,7 @@ free_forward (ptr)
   alloc_counts[ (int) alloc_type_forward ].free_list.f_forward = ptr;
 
 #else
-  free ((PTR) ptr);
+  free (ptr);
 #endif
 
 }
@@ -5502,7 +5528,7 @@ free_thead (ptr)
   alloc_counts[ (int) alloc_type_thead ].free_list.f_thead = ptr;
 
 #else
-  free ((PTR) ptr);
+  free (ptr);
 #endif
 
 }
@@ -5510,7 +5536,7 @@ free_thead (ptr)
 #endif /* MIPS_DEBUGGING_INFO */
 
 
-/* Output an error message and exit */
+/* Output an error message and exit.  */
 
 void
 fatal (const char *format, ...)

@@ -1,4 +1,4 @@
-/* Definitions of target machine for gcc for Hitachi / SuperH SH using ELF.
+/* Definitions of target machine for gcc for Renesas / SuperH SH using ELF.
    Copyright (C) 1997, 1998, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Jörn Rennecke <joern.rennecke@superh.com>.
 
@@ -22,10 +22,6 @@ Boston, MA 02111-1307, USA.  */
 /* Generate SDB debugging information.  */
 
 #define SDB_DEBUGGING_INFO 1
-
-/* Output DBX (stabs) debugging information if doing -gstabs.  */
-
-#include "dbxcoff.h"
 
 #define SDB_DELIM ";"
 

@@ -58,20 +58,20 @@
  *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
  */
 
-#ifndef _CPP_STACK
-#define _CPP_STACK 1
+#ifndef _STACK
+#define _STACK 1
 
 #pragma GCC system_header
 
 #include <bits/stl_algobase.h>
-#include <bits/stl_alloc.h>
+#include <bits/allocator.h>
 #include <bits/stl_construct.h>
 #include <bits/stl_uninitialized.h>
 #include <bits/stl_deque.h>
 #include <bits/stl_stack.h>
 
-#ifdef _GLIBCPP_NO_TEMPLATE_EXPORT
+#ifdef _GLIBCXX_NO_TEMPLATE_EXPORT
 #  include <bits/deque.tcc>
 #endif
 
-#endif /* _CPP_STACK */
+#endif /* _STACK */

@@ -86,7 +86,6 @@ ADA_FLAGS_TO_PASS = \
 ada-warn = $(ALL_ADA_CFLAGS) $(WERROR)
 # unresolved warnings in a couple of files
 ada/tracebak.o-warn = -Wno-error
-ada/b_gnatb.o-warn = -Wno-error
 
 .adb.o:
 	$(ADAC) -c $(ALL_ADAFLAGS) $(ADA_INCLUDES) $< $(OUTPUT_OPTION)
@@ -210,7 +209,7 @@ gnat1$(exeext): $(TARGET_ADA_SRCS) $(GNAT1_OBJS) $(ADA_BACKEND) $(LIBDEPS)
 
 gnatbind$(exeext): ada/b_gnatb.o $(CONFIG_H) $(GNATBIND_OBJS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ ada/b_gnatb.o $(GNATBIND_OBJS) \
-	     $(LIBIBERTY) $(LIBS) $(SYSLIBS)
+	     $(LIBS) $(SYSLIBS)
 
 # use target-gcc target-gnatmake target-gnatbind target-gnatlink 
 gnattools: $(GCC_PARTS) $(CONFIG_H) prefix.o force
@@ -347,7 +346,7 @@ ada.tags: force
 
 # Generate documentation.
 #
-# The generated Texinfo files for the User Guideare stored in
+# The generated Texinfo files for the User Guide are stored in
 # $(srcdir), like the Info files.
 
 ada/doctools/xgnatug : ada/xgnatug.adb
@@ -428,32 +427,32 @@ ada.install-info:
 
 ada/gnat_ug_unx.dvi : $(srcdir)/ada/gnat_ug_unx.texi \
 	$(srcdir)/doc/include/fdl.texi $(srcdir)/doc/include/gcc-common.texi
-	s=`cd $(srcdir); ${PWD}`; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; \
 	cd ada && $(TEXI2DVI) -c -I $$s/doc/include -o gnat_ug_unx.dvi $$s/ada/gnat_ug_unx.texi
 
 ada/gnat_ug_vms.dvi : $(srcdir)/ada/gnat_ug_vms.texi \
 	$(srcdir)/doc/include/fdl.texi $(srcdir)/doc/include/gcc-common.texi
-	s=`cd $(srcdir); ${PWD}`; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; \
 	cd ada && $(TEXI2DVI) -c -I $$s/doc/include -o gnat_ug_vms.dvi $$s/ada/gnat_ug_vms.texi
 
 ada/gnat_ug_vxw.dvi : $(srcdir)/ada/gnat_ug_vxw.texi \
 	$(srcdir)/doc/include/fdl.texi $(srcdir)/doc/include/gcc-common.texi
-	s=`cd $(srcdir); ${PWD}`; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; \
 	cd ada && $(TEXI2DVI) -c -I $$s/doc/include -o gnat_ug_vxw.dvi $$s/ada/gnat_ug_vxw.texi
 
 ada/gnat_ug_wnt.dvi : $(srcdir)/ada/gnat_ug_wnt.texi \
 	$(srcdir)/doc/include/fdl.texi $(srcdir)/doc/include/gcc-common.texi
-	s=`cd $(srcdir); ${PWD}`; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; \
 	cd ada && $(TEXI2DVI) -c -I $$s/doc/include -o gnat_ug_wnt.dvi $$s/ada/gnat_ug_wnt.texi
 
 ada/gnat_rm.dvi : $(srcdir)/ada/gnat_rm.texi \
 	$(srcdir)/doc/include/fdl.texi $(srcdir)/doc/include/gcc-common.texi
-	s=`cd $(srcdir); ${PWD}`; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; \
 	cd ada && $(TEXI2DVI) -c -I $$s/doc/include -o gnat_rm.dvi $$s/ada/gnat_rm.texi
 
 ada/gnat-style.dvi : $(srcdir)/ada/gnat-style.texi \
 	$(srcdir)/doc/include/fdl.texi
-	s=`cd $(srcdir); ${PWD}`; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; \
 	cd ada && $(TEXI2DVI) -c -I $$s/doc/include -o gnat-style.dvi $$s/ada/gnat-style.texi
 
 ada.dvi: ada/gnat_ug_vms.dvi ada/gnat_ug_wnt.dvi \
@@ -808,6 +807,12 @@ ada.stage3: stage3-start
 ada.stage4: stage4-start
 	-$(MV) ada/*$(objext) ada/*.ali ada/b_*.c stage4/ada
 	-$(MV) ada/stamp-* stage4/ada
+ada.stageprofile: stageprofile-start
+	-$(MV) ada/*$(objext) ada/*.ali ada/b_*.c stageprofile/ada
+	-$(MV) ada/stamp-* stageprofile/ada
+ada.stagefeedback: stagefeedback-start
+	-$(MV) ada/*$(objext) ada/*.ali ada/b_*.c stagefeedback/ada
+	-$(MV) ada/stamp-* stagefeedback/ada
 
 check-ada:
 
@@ -1009,7 +1014,7 @@ ada/misc.o : ada/misc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    diagnostic.h output.h except.h $(TM_P_H) langhooks.h debug.h $(LANGHOOKS_DEF_H) \
    libfuncs.h $(OPTABS_H) ada/ada.h ada/types.h ada/atree.h ada/nlists.h \
    ada/elists.h ada/sinfo.h ada/einfo.h ada/namet.h ada/stringt.h ada/uintp.h \
-   ada/fe.h $(ADA_TREE_H) ada/gigi.h ada/adadecode.h
+   ada/fe.h $(ADA_TREE_H) ada/gigi.h ada/adadecode.h opts.h options.h
 
 ada/targtyps.o : ada/targtyps.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    ada/ada.h ada/types.h ada/atree.h ada/nlists.h ada/elists.h ada/uintp.h \

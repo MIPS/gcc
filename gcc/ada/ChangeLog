@@ -1,3 +1,143 @@
+2003-07-04  H.J. Lu <hongjiu.lu@intel.com>
+
+	* Make-lang.in: Replace PWD with PWD_COMMAND.
+	* Makefile.adalib: Likewise.
+	* Makefile.in: Likewise.
+
+2003-07-04  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* misc.c (gnat_argv): Revert last change.
+	(gnat_handle_option, gnat_init_options): Copy arguments.
+
+2003-07-03  Neil Booth  <neil@daikokuya.co.uk>
+
+	* misc.c (gnat_argv): Make const.
+
+2003-07-02  Neil Booth  <neil@daikokuya.co.uk>
+
+	* misc.c (save_argc, save_argv): Keep non-static!
+
+2003-07-02  Neil Booth  <neil@daikokuya.co.uk>
+
+	* misc.c (save_argc, save_argv): Make static.
+	(gnat_init_options): New prototype.
+	(gnat_init_options): Update.
+
+2003-07-01  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* gnat_ug.texi: Remove unlikely characters from @vars.
+	* gnat_ug_vms.texi: Regenerate.
+
+2003-06-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* misc.c (record_code_position): Adjust emit_note call.
+
+2003-06-26  Neil Booth  <neil@daikokuya.co.uk>
+
+	* misc.c (gnat_handle_option): Don't check for missing arguments.
+
+2003-06-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* utils.c (end_subprog_body): Adjust expand_function_end call.
+
+2003-06-16  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* bindgen.adb (Gen_Main_Ada, Gen_Main_C): Do not test
+	Bind_Main_Program.
+
+2003-06-15  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang.opt: Declare Ada.
+	* misc.c (gnat_init_options): Update.
+
+2003-06-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* utils.c (begin_subprog_body): Adjust init_function_start call.
+
+2003-06-14  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Update to use options.c and options.h.
+	* misc.c: Include options.h not aoptions.h.
+	(gnat_handle_option): Abort on unrecognized switch.
+	(gnat_init_options): Request Ada switches.
+
+2003-06-14  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang.opt: Add -Wall.
+	* misc.c (gnat_handle_option): Handle it.
+
+2003-06-12  Neil Booth  <neil@daikokuya.co.uk>
+
+	* misc.c (gnat_handle_option): Fix warnings.
+
+2003-06-11  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* Make-lang.in (gnatbind): Remove $(LIBIBERTY).
+
+2003-06-11  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Update to handle command-line options.
+	* lang.opt: New file.
+	* misc.c: Include aoptions.h.
+	(cl_options_count, cl_options): Remove.
+	(gnat_handle_option): New.
+	(gnat_decode_option): Remove.
+	(LANG_HOOKS_DECODE_OPTION): Remove.
+	(LANG_HOOKS_HANDLE_OPTION): Override.
+
+2003-06-10  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* init.c, misc.c, trans.c, utils.c: Remove dead code.
+
+2003-06-09  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.in: Replace "host_canonical" with "host" for autoconf
+	substitution.
+
+2003-06-08  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Update.
+	* misc.c: Include opts.h. Define cl_options_count and cl_options.
+
+2003-06-07  Neil Booth  <neil@daikokuya.co.uk>
+
+	* misc.c (gnat_init_options): Update.
+
+2003-06-05  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* Make-lang.in (ada/b_gnatb.o-warn): Remove.
+	* bindgen.adb (Gen_Main_C): Mark ensure_reference with
+	__attribute__ ((__unused__)).
+
+Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* Make-lang.in:  Add support for stageprofile and stagefeedback
+
+2003-06-05  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* bindgen.adb (Gen_Adafinal_C, Gen_Adainit_C, Gen_Elab_Defs_C)
+	(Gen_Main_C, Gen_Output_File_C): Generate ISO C.
+
+2003-06-04  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* gnat_ug.texi (The GNAT Run-Time Library Builder gnatlbr):
+	Remove non-VMS directive.
+	(Switches for gnatlbr, Optimization Levels): Remove non-VMS
+	alternatives.
+	(Examples of gnatls Usage): Remove VMS alternative.
+
+2003-06-04  Olivier Hainque  <hainque@act-europe.fr>
+
+        PR ada/9953:
+        * 5hsystem.ads: Remove pragma Linker_Option for pthreads library,
+        and turn ZCX_By_Default back to False since the underlying support
+        is not quite there yet.
+
+2003-06-01  Andreas Jaeger  <aj@suse.de>
+
+	* utils.c (finish_record_type): Remove usages of ROUND_TYPE_SIZE
+	and ROUND_TYPE_SIZE_UNIT.
+
 2003-05-22   Geert Bosch <bosch@gnat.com>
 
 	* gnat_rm.texi : Remove reference to Ada Core Technologies.
@@ -19,10 +159,10 @@
 
 2003-05-01  Laurent Guerby <guerby@acm.org>
 
-        PR ada/10546 
+        PR ada/10546
         * 5iosinte.ads: Increase pthread_cond_t size to match recent
         LinuxThread and NPTL version, merge from ACT.
-	
+
 2003-04-28  Zack Weinberg  <zack@codesourcery.com>
 
 	* utils.c (convert): No need to clear TREE_CST_RTL.

@@ -40,8 +40,8 @@
  *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
  */
 
-#ifndef _CPP_COMPLEX
-#define _CPP_COMPLEX	1
+#ifndef _COMPLEX
+#define _COMPLEX 1
 
 #pragma GCC system_header
 
@@ -243,7 +243,7 @@ namespace std
     complex<_Tp>::operator/=(const complex<_Up>& __z)
     {
       const _Tp __r =  _M_real * __z.real() + _M_imag * __z.imag();
-      const _Tp __n = norm(__z);
+      const _Tp __n = std::norm(__z);
       _M_imag = (_M_imag * __z.real() - _M_real * __z.imag()) / __n;
       _M_real = __r / __n;
       return *this;
@@ -411,18 +411,18 @@ namespace std
     {
       _Tp __x = __z.real();
       _Tp __y = __z.imag();
-      const _Tp __s = std::max(abs(__x), abs(__y));
+      const _Tp __s = std::max(std::abs(__x), std::abs(__y));
       if (__s == _Tp())  // well ...
         return __s;
       __x /= __s; 
       __y /= __s;
-      return __s * sqrt(__x * __x + __y * __y);
+      return __s * std::sqrt(__x * __x + __y * __y);
     }
 
   template<typename _Tp>
     inline _Tp
     arg(const complex<_Tp>& __z)
-    { return atan2(__z.imag(), __z.real()); }
+    { return std::atan2(__z.imag(), __z.real()); }
 
   // 26.2.7/5: norm(__z) returns the squared magintude of __z.
   //     As defined, norm() is -not- a norm is the common mathematical
@@ -447,7 +447,7 @@ namespace std
       template<typename _Tp>
         static inline _Tp _S_do_it(const complex<_Tp>& __z)
         {
-          _Tp __res = abs(__z);
+          _Tp __res = std::abs(__z);
           return __res * __res;
         }
     };
@@ -456,13 +456,13 @@ namespace std
     inline _Tp
     norm(const complex<_Tp>& __z)
     {
-      return _Norm_helper<__is_floating<_Tp>::_M_type && !_GLIBCPP_FAST_MATH>::_S_do_it(__z);
+      return _Norm_helper<__is_floating<_Tp>::_M_type && !_GLIBCXX_FAST_MATH>::_S_do_it(__z);
     }
 
   template<typename _Tp>
     inline complex<_Tp>
     polar(const _Tp& __rho, const _Tp& __theta)
-    { return complex<_Tp>(__rho * cos(__theta), __rho * sin(__theta)); }
+    { return complex<_Tp>(__rho * std::cos(__theta), __rho * std::sin(__theta)); }
 
   template<typename _Tp>
     inline complex<_Tp>
@@ -476,7 +476,7 @@ namespace std
     {
       const _Tp __x = __z.real();
       const _Tp __y = __z.imag();
-      return complex<_Tp>(cos(__x) * cosh(__y), -sin(__x) * sinh(__y));
+      return complex<_Tp>(std::cos(__x) * std::cosh(__y), -std::sin(__x) * std::sinh(__y));
     }
 
   template<typename _Tp>
@@ -485,23 +485,23 @@ namespace std
     {
       const _Tp __x = __z.real();
       const _Tp __y = __z.imag();
-      return complex<_Tp>(cosh(__x) * cos(__y), sinh(__x) * sin(__y));
+      return complex<_Tp>(std::cosh(__x) * std::cos(__y), std::sinh(__x) * std::sin(__y));
     }
 
   template<typename _Tp>
     inline complex<_Tp>
     exp(const complex<_Tp>& __z)
-    { return polar(exp(__z.real()), __z.imag()); }
+    { return std::polar(std::exp(__z.real()), __z.imag()); }
 
   template<typename _Tp>
     inline complex<_Tp>
     log(const complex<_Tp>& __z)
-    { return complex<_Tp>(log(abs(__z)), arg(__z)); }
+    { return complex<_Tp>(std::log(std::abs(__z)), std::arg(__z)); }
 
   template<typename _Tp>
     inline complex<_Tp>
     log10(const complex<_Tp>& __z)
-    { return log(__z) / log(_Tp(10.0)); }
+    { return std::log(__z) / std::log(_Tp(10.0)); }
 
   template<typename _Tp>
     inline complex<_Tp>
@@ -509,7 +509,7 @@ namespace std
     {
       const _Tp __x = __z.real();
       const _Tp __y = __z.imag();
-      return complex<_Tp>(sin(__x) * cosh(__y), cos(__x) * sinh(__y)); 
+      return complex<_Tp>(std::sin(__x) * std::cosh(__y), std::cos(__x) * std::sinh(__y)); 
     }
 
   template<typename _Tp>
@@ -518,7 +518,7 @@ namespace std
     {
       const _Tp __x = __z.real();
       const _Tp  __y = __z.imag();
-      return complex<_Tp>(sinh(__x) * cos(__y), cosh(__x) * sin(__y));
+      return complex<_Tp>(std::sinh(__x) * std::cos(__y), std::cosh(__x) * std::sin(__y));
     }
 
   template<typename _Tp>
@@ -530,16 +530,16 @@ namespace std
 
       if (__x == _Tp())
         {
-          _Tp __t = sqrt(abs(__y) / 2);
+          _Tp __t = std::sqrt(std::abs(__y) / 2);
           return complex<_Tp>(__t, __y < _Tp() ? -__t : __t);
         }
       else
         {
-          _Tp __t = sqrt(2 * (abs(__z) + abs(__x)));
+          _Tp __t = std::sqrt(2 * (std::abs(__z) + std::abs(__x)));
           _Tp __u = __t / 2;
           return __x > _Tp()
             ? complex<_Tp>(__u, __y / __t)
-            : complex<_Tp>(abs(__y) / __t, __y < _Tp() ? -__u : __u);
+            : complex<_Tp>(std::abs(__y) / __t, __y < _Tp() ? -__u : __u);
         }
     }
 
@@ -547,21 +547,21 @@ namespace std
     inline complex<_Tp>
     tan(const complex<_Tp>& __z)
     {
-      return sin(__z) / cos(__z);
+      return std::sin(__z) / std::cos(__z);
     }
 
   template<typename _Tp>
     inline complex<_Tp>
     tanh(const complex<_Tp>& __z)
     {
-      return sinh(__z) / cosh(__z);
+      return std::sinh(__z) / std::cosh(__z);
     }
 
   template<typename _Tp>
     inline complex<_Tp>
     pow(const complex<_Tp>& __z, int __n)
     {
-      return __pow_helper(__z, __n);
+      return std::__pow_helper(__z, __n);
     }
 
   template<typename _Tp>
@@ -569,17 +569,17 @@ namespace std
     pow(const complex<_Tp>& __x, const _Tp& __y)
     {
       if (__x.imag() == _Tp())
-        return pow(__x.real(), __y);
+        return std::pow(__x.real(), __y);
 
-      complex<_Tp> __t = log(__x);
-      return polar(exp(__y * __t.real()), __y * __t.imag());
+      complex<_Tp> __t = std::log(__x);
+      return std::polar(std::exp(__y * __t.real()), __y * __t.imag());
     }
 
   template<typename _Tp>
     inline complex<_Tp>
     pow(const complex<_Tp>& __x, const complex<_Tp>& __y)
     {
-      return __x == _Tp() ? _Tp() : exp(__y * log(__x));
+      return __x == _Tp() ? _Tp() : std::exp(__y * std::log(__x));
     }
 
   template<typename _Tp>
@@ -588,7 +588,7 @@ namespace std
     {
       return __x == _Tp()
         ? _Tp()
-        : polar(pow(__x, __y.real()), __y.imag() * log(__x));
+        : std::polar(std::pow(__x, __y.real()), __y.imag() * std::log(__x));
     }
 
   // 26.2.3  complex specializations
@@ -599,7 +599,7 @@ namespace std
     typedef float value_type;
     
     complex(float = 0.0f, float = 0.0f);
-#ifdef _GLIBCPP_BUGGY_COMPLEX
+#ifdef _GLIBCXX_BUGGY_COMPLEX
     complex(const complex& __z) : _M_value(__z._M_value) { }
 #endif
     explicit complex(const complex<double>&);
@@ -746,7 +746,7 @@ namespace std
     typedef double value_type;
 
     complex(double  =0.0, double =0.0);
-#ifdef _GLIBCPP_BUGGY_COMPLEX
+#ifdef _GLIBCXX_BUGGY_COMPLEX
     complex(const complex& __z) : _M_value(__z._M_value) { }
 #endif
     complex(const complex<float>&);
@@ -892,7 +892,7 @@ namespace std
     typedef long double value_type;
 
     complex(long double = 0.0L, long double = 0.0L);
-#ifdef _GLIBCPP_BUGGY_COMPLEX
+#ifdef _GLIBCXX_BUGGY_COMPLEX
     complex(const complex& __z) : _M_value(__z._M_value) { }
 #endif
     complex(const complex<float>&);
@@ -1062,4 +1062,4 @@ namespace std
   : _M_value(_ComplexT(__z._M_value)) { }
 } // namespace std
 
-#endif	/* _CPP_COMPLEX */
+#endif	/* _COMPLEX */

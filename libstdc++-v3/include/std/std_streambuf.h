@@ -37,8 +37,8 @@
  *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
  */
 
-#ifndef _CPP_STREAMBUF
-#define _CPP_STREAMBUF	1
+#ifndef _STREAMBUF
+#define _STREAMBUF 1
 
 #pragma GCC system_header
 
@@ -159,14 +159,6 @@ namespace std
 			  __streambuf_type* __sbin,__streambuf_type* __sbout);
       
     protected:
-      /**
-       *  @if maint
-       *  True iff _M_in_* and _M_out_* buffers should always point to
-       *  the same place.  True for fstreams, false for sstreams.
-       *  @endif
-      */
-      bool 			_M_buf_unified;	
-
       //@{
       /**
        *  @if maint
@@ -184,25 +176,6 @@ namespace std
       char_type* 		_M_out_cur;    // Current put area. 
       char_type* 		_M_out_end;    // End of put area.
 
-      //@{
-      /**
-       *  @if maint
-       *  setp (and _M_set_buffer(0) in basic_filebuf) set it equal to
-       *  _M_out_beg, then at each put operation it may be moved
-       *  forward (toward _M_out_end) by _M_out_cur_move.
-       *  @endif
-      */      
-      char_type*                _M_out_lim;    // End limit of used put area.
-
-      //@}
-
-      /**
-       *  @if maint
-       *  Place to stash in || out || in | out settings for current streambuf.
-       *  @endif
-      */
-      ios_base::openmode 	_M_mode;	
-
       /**
        *  @if maint
        *  Current locale setting.
@@ -210,57 +183,11 @@ namespace std
       */
       locale 			_M_buf_locale;	
 
-      /**
-       *  @if maint
-       *  Yet unused.
-       *  @endif
-      */
-      fpos<__state_type>	_M_pos;
-
-      // Correctly sets the _M_in_cur pointer, and bumps the
-      // _M_out_cur pointer as well if necessary.
-      void 
-      _M_move_in_cur(off_type __n) // argument needs to be +-
-      {
-	const bool __testout = _M_out_cur;
-	_M_in_cur += __n;
-	if (__testout && _M_buf_unified)
-	  _M_out_cur += __n;
-      }
-
-      // Correctly sets the _M_out_cur pointer, and bumps the
-      // appropriate _M_out_lim and _M_in_end pointers as well. Necessary
-      // for the un-tied stringbufs, in in|out mode.
-      // Invariant:
-      // __n + _M_out_[cur, lim] <= _M_out_end
-      // Assuming all _M_out_[beg, cur, lim] pointers are operating on
-      // the same range:
-      // _M_out_beg <= _M_*_ <= _M_out_end
-      void 
-      _M_move_out_cur(off_type __n) // argument needs to be +-
-      {
-	const bool __testin = _M_in_cur;
-
-	_M_out_cur += __n;
-	if (__testin && _M_buf_unified)
-	  _M_in_cur += __n;
-	if (_M_out_cur > _M_out_lim)
-	  {
-	    _M_out_lim = _M_out_cur;
-	    // NB: in | out buffers drag the _M_in_end pointer along...
-	    if (__testin)
-	      _M_in_end += __n;
-	  }
-      }
-
   public:
       /// Destructor deallocates no buffer space.
       virtual 
       ~basic_streambuf() 
-      {
-	_M_buf_unified = false;
-	_M_mode = ios_base::openmode(0);
-      }
+      { }
 
       // [27.5.2.2.1] locales
       /**
@@ -329,7 +256,7 @@ namespace std
       streamsize 
       in_avail() 
       { 
-	streamsize __ret = _M_in_end - _M_in_cur;
+	const streamsize __ret = this->egptr() - this->gptr();
 	return __ret ? __ret : this->showmanyc();
       }
 
@@ -344,7 +271,8 @@ namespace std
       snextc()
       {
 	int_type __ret = traits_type::eof();
-	if (!traits_type::eq_int_type(this->sbumpc(), __ret))
+	if (__builtin_expect(!traits_type::eq_int_type(this->sbumpc(), 
+						       __ret), true))
 	  __ret = this->sgetc();
 	return __ret;
       }
@@ -358,7 +286,18 @@ namespace std
        *  @c uflow().
       */
       int_type 
-      sbumpc();
+      sbumpc()
+      {
+	int_type __ret;
+	if (__builtin_expect(this->gptr() < this->egptr(), true))
+	  {
+	    __ret = traits_type::to_int_type(*this->gptr());
+	    this->gbump(1);
+	  }
+	else 
+	  __ret = this->uflow();
+	return __ret;
+      }
 
       /**
        *  @brief  Getting the next character.
@@ -372,8 +311,8 @@ namespace std
       sgetc()
       {
 	int_type __ret;
-	if (_M_in_cur < _M_in_end)
-	  __ret = traits_type::to_int_type(*this->_M_in_cur);
+	if (__builtin_expect(this->gptr() < this->egptr(), true))
+	  __ret = traits_type::to_int_type(*this->gptr());
 	else 
 	  __ret = this->underflow();
 	return __ret;
@@ -402,7 +341,20 @@ namespace std
        *  fetched from the input stream will be @a c.
       */
       int_type 
-      sputbackc(char_type __c);
+      sputbackc(char_type __c)
+      {
+	int_type __ret;
+	const bool __testpos = this->eback() < this->gptr();
+	if (__builtin_expect(!__testpos || 
+			     !traits_type::eq(__c, this->gptr()[-1]), false))
+	  __ret = this->pbackfail(traits_type::to_int_type(__c));
+	else 
+	  {
+	    this->gbump(-1);
+	    __ret = traits_type::to_int_type(*this->gptr());
+	  }
+	return __ret;
+      }
 
       /**
        *  @brief  Moving backwards in the input stream.
@@ -414,7 +366,18 @@ namespace std
        *  "gotten".
       */
       int_type 
-      sungetc();
+      sungetc()
+      {
+	int_type __ret;
+	if (__builtin_expect(this->eback() < this->gptr(), true))
+	  {
+	    this->gbump(-1);
+	    __ret = traits_type::to_int_type(*this->gptr());
+	  }
+	else 
+	  __ret = this->pbackfail();
+	return __ret;
+      }
 
       // [27.5.2.2.5] put area
       /**
@@ -430,7 +393,19 @@ namespace std
        *  position is not available, returns @c overflow(c).
       */
       int_type 
-      sputc(char_type __c);
+      sputc(char_type __c)
+      {
+	int_type __ret;
+	if (__builtin_expect(this->pptr() < this->epptr(), true))
+	  {
+	    *this->pptr() = __c;
+	    this->pbump(1);
+	    __ret = traits_type::to_int_type(__c);
+	  }
+	else
+	  __ret = this->overflow(traits_type::to_int_type(__c));
+	return __ret;
+      }
 
       /**
        *  @brief  Entry point for all single-character output functions.
@@ -458,9 +433,8 @@ namespace std
        *  - this is not an error
       */
       basic_streambuf()
-      : _M_buf_unified(false), _M_in_beg(0), _M_in_cur(0),
-      _M_in_end(0), _M_out_beg(0), _M_out_cur(0), _M_out_end(0),
-      _M_out_lim(0), _M_mode(ios_base::openmode(0)),
+      : _M_in_beg(0), _M_in_cur(0), _M_in_end(0), 
+      _M_out_beg(0), _M_out_cur(0), _M_out_end(0),
       _M_buf_locale(locale()) 
       { }
 
@@ -552,7 +526,7 @@ namespace std
       void 
       setp(char_type* __pbeg, char_type* __pend)
       { 
-	_M_out_beg = _M_out_cur = _M_out_lim = __pbeg; 
+	_M_out_beg = _M_out_cur = __pbeg; 
 	_M_out_end = __pend;
       }
 
@@ -702,10 +676,10 @@ namespace std
 	int_type __ret = traits_type::eof();
 	const bool __testeof = traits_type::eq_int_type(this->underflow(), 
 							__ret);
-	if (!__testeof && _M_in_cur < _M_in_end)
+	if (!__testeof)
 	  {
-	    __ret = traits_type::to_int_type(*_M_in_cur);
-	    ++_M_in_cur;
+	    __ret = traits_type::to_int_type(*this->gptr());
+	    this->gbump(1);
 	  }
 	return __ret;    
       }
@@ -767,7 +741,7 @@ namespace std
       overflow(int_type /* __c */ = traits_type::eof())
       { return traits_type::eof(); }
 
-#ifdef _GLIBCPP_DEPRECATED
+#ifdef _GLIBCXX_DEPRECATED
     // Annex D.6
     public:
       /**
@@ -779,20 +753,20 @@ namespace std
        *  See http://gcc.gnu.org/ml/libstdc++/2002-05/msg00168.html
        *
        *  @note  This function has been deprecated by the standard.  You
-       *         must define @c _GLIBCPP_DEPRECATED to make this visible; see
+       *         must define @c _GLIBCXX_DEPRECATED to make this visible; see
        *         c++config.h.
       */
       void 
       stossc() 
       {
-	if (_M_in_cur < _M_in_end) 
-	  ++_M_in_cur;
+	if (this->gptr() < this->egptr()) 
+	  this->gbump(1);
 	else 
 	  this->uflow();
       }
 #endif
 
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
     // Side effect of DR 50. 
     private:
       basic_streambuf(const __streambuf_type&) { }; 
@@ -803,10 +777,10 @@ namespace std
     };
 } // namespace std
 
-#ifdef _GLIBCPP_NO_TEMPLATE_EXPORT
+#ifdef _GLIBCXX_NO_TEMPLATE_EXPORT
 # define export
 #endif
-#ifdef  _GLIBCPP_FULLY_COMPLIANT_HEADERS
+#ifdef  _GLIBCXX_FULLY_COMPLIANT_HEADERS
 #include <bits/streambuf.tcc>
 #endif
 

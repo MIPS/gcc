@@ -157,57 +157,19 @@ public class ServerSocket
     if (impl == null)
       throw new IOException("Cannot initialize Socket implementation");
 
-    SecurityManager s = System.getSecurityManager();
-    if (s != null)
-      s.checkListen(port);
-
-    if (bindAddr == null)
-      bindAddr = InetAddress.ANY_IF;
-
     // create socket
     impl.create(true);
 
-    // bind to address/port
-    try
-      {
-        impl.bind(bindAddr, port);
-      }
-    catch (IOException exception)
-      {
-        impl.close();
-        throw exception;
-      }
-    catch (RuntimeException exception)
-      {
-        impl.close();
-        throw exception;
-      }
-    catch (Error error)
-      {
-        impl.close();
-        throw error;
-      }
+    // bind/listen socket
+    bind (new InetSocketAddress (bindAddr, port), backlog);
+  }
 
-    // listen on socket
-    try
-      {
-        impl.listen(backlog);
-      }
-    catch (IOException exception)
-      {
-        impl.close();
-        throw exception;
-      }
-    catch (RuntimeException exception)
-      {
-        impl.close();
-        throw exception;
-      }
-    catch (Error error)
-      {
-        impl.close();
-        throw error;
-      }
+  /*
+   * This method may only be used by java.nio.channels.ServerSocketChannel.open.
+   */
+  void setChannel (ServerSocketChannel ch)
+  {
+    this.ch = ch;
   }
 
   /**
@@ -258,8 +220,47 @@ public class ServerSocket
     if (s != null)
       s.checkListen (tmp.getPort ());
 
+    // bind to address/port
+    try
+      {
     impl.bind (tmp.getAddress (), tmp.getPort ());
+      }
+    catch (IOException exception)
+      {
+        impl.close();
+        throw exception;
+      }
+    catch (RuntimeException exception)
+      {
+        impl.close();
+        throw exception;
+      }
+    catch (Error error)
+      {
+        impl.close();
+        throw error;
+      }
+
+    // listen on socket
+    try
+      {
     impl.listen(backlog);
+  }
+    catch (IOException exception)
+      {
+        impl.close();
+        throw exception;
+      }
+    catch (RuntimeException exception)
+      {
+        impl.close();
+        throw exception;
+      }
+    catch (Error error)
+      {
+        impl.close();
+        throw error;
+      }
   }
   
   /**

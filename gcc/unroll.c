@@ -791,9 +791,9 @@ unroll_loop (loop, insn_count, strength_reduce_p)
       /* We must limit the generic test to max_reg_before_loop, because only
 	 these pseudo registers have valid regno_first_uid info.  */
       for (r = FIRST_PSEUDO_REGISTER; r < max_reg_before_loop; ++r)
-	if (REGNO_FIRST_UID (r) > 0 && REGNO_FIRST_UID (r) <= max_uid_for_loop
+	if (REGNO_FIRST_UID (r) > 0 && REGNO_FIRST_UID (r) < max_uid_for_loop
 	    && REGNO_FIRST_LUID (r) >= copy_start_luid
-	    && REGNO_LAST_UID (r) > 0 && REGNO_LAST_UID (r) <= max_uid_for_loop
+	    && REGNO_LAST_UID (r) > 0 && REGNO_LAST_UID (r) < max_uid_for_loop
 	    && REGNO_LAST_LUID (r) <= copy_end_luid)
 	  {
 	    /* However, we must also check for loop-carried dependencies.
@@ -1735,29 +1735,18 @@ final_reg_note_copy (notesp, map)
 
       if (GET_CODE (note) == INSN_LIST)
 	{
-	  /* Sometimes, we have a REG_WAS_0 note that points to a
-	     deleted instruction.  In that case, we can just delete the
-	     note.  */
-	  if (REG_NOTE_KIND (note) == REG_WAS_0)
+	  rtx insn = map->insn_map[INSN_UID (XEXP (note, 0))];
+
+	  /* If we failed to remap the note, something is awry.
+	     Allow REG_LABEL as it may reference label outside
+	     the unrolled loop.  */
+	  if (!insn)
 	    {
-	      *notesp = XEXP (note, 1);
-	      continue;
+	      if (REG_NOTE_KIND (note) != REG_LABEL)
+		abort ();
 	    }
 	  else
-	    {
-	      rtx insn = map->insn_map[INSN_UID (XEXP (note, 0))];
-
-	      /* If we failed to remap the note, something is awry.
-		 Allow REG_LABEL as it may reference label outside
-		 the unrolled loop.  */
-	      if (!insn)
-		{
-		  if (REG_NOTE_KIND (note) != REG_LABEL)
-		    abort ();
-		}
-	      else
-	        XEXP (note, 0) = insn;
-	    }
+	    XEXP (note, 0) = insn;
 	}
 
       notesp = &XEXP (note, 1);
@@ -2040,7 +2029,7 @@ copy_loop_body (loop, copy_start, copy_end, map, exit_label, last_iteration,
 	      copy = emit_insn (pattern);
 	    }
 	  REG_NOTES (copy) = initial_reg_note_copy (REG_NOTES (insn), map);
-	  INSN_SCOPE (copy) = INSN_SCOPE (insn);
+	  INSN_LOCATOR (copy) = INSN_LOCATOR (insn);
 
 	  /* If there is a REG_EQUAL note present whose value
 	     is not loop invariant, then delete it, since it
@@ -2094,7 +2083,7 @@ copy_loop_body (loop, copy_start, copy_end, map, exit_label, last_iteration,
 	  pattern = copy_rtx_and_substitute (PATTERN (insn), map, 0);
 	  copy = emit_jump_insn (pattern);
 	  REG_NOTES (copy) = initial_reg_note_copy (REG_NOTES (insn), map);
-	  INSN_SCOPE (copy) = INSN_SCOPE (insn);
+	  INSN_LOCATOR (copy) = INSN_LOCATOR (insn);
 
 	  if (JUMP_LABEL (insn))
 	    {
@@ -2218,7 +2207,7 @@ copy_loop_body (loop, copy_start, copy_end, map, exit_label, last_iteration,
 	  pattern = copy_rtx_and_substitute (PATTERN (insn), map, 0);
 	  copy = emit_call_insn (pattern);
 	  REG_NOTES (copy) = initial_reg_note_copy (REG_NOTES (insn), map);
-	  INSN_SCOPE (copy) = INSN_SCOPE (insn);
+	  INSN_LOCATOR (copy) = INSN_LOCATOR (insn);
 	  SIBLING_CALL_P (copy) = SIBLING_CALL_P (insn);
 	  CONST_OR_PURE_CALL_P (copy) = CONST_OR_PURE_CALL_P (insn);
 
@@ -2264,13 +2253,13 @@ copy_loop_body (loop, copy_start, copy_end, map, exit_label, last_iteration,
 	     this new block.  */
 
 	  if (NOTE_LINE_NUMBER (insn) != NOTE_INSN_DELETED
-	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_DELETED_LABEL
-	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK
-	      && ((NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_VTOP
-		   && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_CONT)
-		  || (last_iteration && unroll_type != UNROLL_COMPLETELY)))
-	    copy = emit_note (NOTE_SOURCE_FILE (insn),
-			      NOTE_LINE_NUMBER (insn));
+		   && NOTE_LINE_NUMBER (insn) != NOTE_INSN_DELETED_LABEL
+		   && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK
+		   && ((NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_VTOP
+			&& NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_CONT)
+		       || (last_iteration
+			   && unroll_type != UNROLL_COMPLETELY)))
+	    copy = emit_note_copy (insn);
 	  else
 	    copy = 0;
 	  break;
@@ -2316,12 +2305,11 @@ copy_loop_body (loop, copy_start, copy_end, map, exit_label, last_iteration,
 	     can be a NOTE_INSN_LOOP_CONT note if there is no VTOP note,
 	     as in a do .. while loop.  */
 	  if (GET_CODE (insn) == NOTE
-	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_DELETED
-	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_DELETED_LABEL
-	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK
-	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_VTOP
-	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_CONT)
-	    emit_note (NOTE_SOURCE_FILE (insn), NOTE_LINE_NUMBER (insn));
+	      && ((NOTE_LINE_NUMBER (insn) != NOTE_INSN_DELETED
+		   && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK
+		   && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_VTOP
+		   && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_CONT)))
+	    emit_note_copy (insn);
 	}
     }
 

@@ -86,7 +86,7 @@
     %{mmedia} %{mno-media} \
     %{mmuladd} %{mno-muladd} \
     %{mpack} %{mno-pack} \
-    %{fpic: -mpic} %{fPIC: -mPIC} %{mlibrary-pic}}"
+    %{fpic|fpie: -mpic} %{fPIC|fPIE: -mPIC} %{mlibrary-pic}}"
 
 /* Another C string constant used much like `LINK_SPEC'.  The difference
    between the two is that `STARTFILE_SPEC' is used at the very beginning of
@@ -2780,8 +2780,6 @@ extern int size_directive_output;
 #undef ASM_OUTPUT_ALIGNED_DECL_LOCAL
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(STREAM, DECL, NAME, SIZE, ALIGN)	\
 do {                                                                   	\
-  extern unsigned HOST_WIDE_INT g_switch_value;				\
-									\
   if ((SIZE) > 0 && (SIZE) <= g_switch_value)				\
     sbss_section ();                                                 	\
   else                                                                 	\

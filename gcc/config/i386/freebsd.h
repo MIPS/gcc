@@ -43,7 +43,7 @@ Boston, MA 02111-1307, USA.  */
   (TARGET_64BIT ? dbx64_register_map[n] : svr4_dbx_register_map[n])
 
 #undef  NO_PROFILE_COUNTERS
-#define NO_PROFILE_COUNTERS
+#define NO_PROFILE_COUNTERS	1
 
 /* Tell final.c that we don't need a label passed to mcount.  */
 
@@ -133,3 +133,13 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  DEFAULT_PCC_STRUCT_RETURN
 #define DEFAULT_PCC_STRUCT_RETURN 0
+
+/* FreeBSD sets the rounding precision of the FPU to 53 bits.  Let the
+   compiler get the contents of <float.h> and std::numeric_limits correct.  */
+#define SUBTARGET_OVERRIDE_OPTIONS			\
+  do {							\
+    real_format_for_mode[XFmode - QFmode]		\
+      = &ieee_extended_intel_96_round_53_format;	\
+    real_format_for_mode[TFmode - QFmode]		\
+      = &ieee_extended_intel_96_round_53_format;	\
+  } while (0)

@@ -24,16 +24,56 @@ Boston, MA 02111-1307, USA.  */
 
 struct cfg_hooks
 {
-  basic_block (*cfgh_split_edge)        PARAMS ((edge));
-  void (*cfgh_verify_flow_info)	        PARAMS ((void));
-  basic_block (*cfgh_make_forwarder_block) PARAMS ((basic_block, int, int, 
-						    edge, int));
+  /* Debugging.  Do not use macros to hook these so they can be called from
+     debugger!  */
+  int (*cfgh_verify_flow_info) (void);
+  void (*dump_bb) (basic_block, FILE *);
 
+  /* Basic CFG manipulation.  */
+
+  /* Return new basic block */
+  basic_block (*create_basic_block)	PARAMS ((void *head, void *end, basic_block after));
+
+  /* Redirect edge E to the given basic block B and update underlying program
+     representation.  Returns false when edge is not easily redirectable for
+     whatever reason.  */
+  bool (*redirect_edge_and_branch) (edge e, basic_block b);
+
+  /* Same as the above but allows redirecting of fallthru edges.  In that case
+     newly created forwarder basic block is returned.  It aborts when called
+     on abnormal edge.  */
+  basic_block (*redirect_edge_and_branch_force) (edge, basic_block);
+
+  /* Remove given basic block and all edges possibly pointing into it.  */
+  void (*delete_basic_block) (basic_block);
+
+  /* Split basic block B after specified instruction I.  */
+  edge (*split_block) (basic_block b, void * i);
+
+  /* Return true when blocks A and B can be merged into single basic block.  */
+  bool (*can_merge_blocks_p)		PARAMS ((basic_block a, basic_block b));
+
+  /* Merge blocks A and B.  */
+  void (*merge_blocks)			PARAMS ((basic_block a, basic_block b));
+
+  /* Higher level functions representable by primitive operations above if
+     we didn't have some oddities in RTL and Tree representations.  */
+  basic_block (*cfgh_split_edge) (edge);
+  basic_block (*cfgh_make_forwarder_block) (basic_block, int, int, edge, int);
 };
 
+#define redirect_edge_and_branch(e,b)        cfg_hooks->redirect_edge_and_branch (e,b)
+#define redirect_edge_and_branch_force(e,b)  cfg_hooks->redirect_edge_and_branch_force (e,b)
+#define split_block(e,i)                     cfg_hooks->split_block (e,i)
+#define delete_basic_block(b)                cfg_hooks->delete_basic_block (b)
 #define split_edge(e)                        cfg_hooks->cfgh_split_edge (e)
-#define verify_flow_info()                   cfg_hooks->cfgh_verify_flow_info ()
+#define create_basic_block(h,e,a)            cfg_hooks->create_basic_block (h,e,a)
+#define can_merge_blocks_p(a,b)		     cfg_hooks->can_merge_blocks_p (a,b)
+#define merge_blocks(a,b)		     cfg_hooks->merge_blocks (a,b)
 #define make_forwarder_block(a, b, c, d, e)  cfg_hooks->cfgh_make_forwarder_block (a, b, c, d, e)
+
+#define HEADER_BLOCK(B) (* (int *) (B)->aux)
+#define LATCH_EDGE(E) (*(int *) (E)->aux)
 
 /* Hooks containers.  */
 extern struct cfg_hooks tree_cfg_hooks;
@@ -51,7 +91,8 @@ enum cfg_level {
 extern enum cfg_level cfg_level;
 
 /* Declarations.  */
-extern void tree_register_cfg_hooks    PARAMS ((void));
-extern void rtl_register_cfg_hooks     PARAMS ((void));
+extern void rtl_register_cfg_hooks (void);
+extern void cfg_layout_rtl_register_cfg_hooks (void);
+extern void tree_register_cfg_hooks (void);
 
 #endif  /* GCC_CFGHOOKS_H */

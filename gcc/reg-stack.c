@@ -591,6 +591,9 @@ get_true_reg (pat)
       }
 }
 
+/* Set if we find any malformed asms in a block.  */
+static bool any_malformed_asm;
+
 /* There are many rules that an asm statement for stack-like regs must
    follow.  Those rules are explained at the top of this file: the rule
    numbers below refer to that explanation.  */
@@ -772,6 +775,7 @@ check_asm_stack_operands (insn)
     {
       /* Avoid further trouble with this insn.  */
       PATTERN (insn) = gen_rtx_USE (VOIDmode, const0_rtx);
+      any_malformed_asm = true;
       return 0;
     }
 
@@ -1707,6 +1711,8 @@ subst_stack_regs_pat (insn, regstack, pat)
 	      {
 	      case UNSPEC_SIN:
 	      case UNSPEC_COS:
+	      case UNSPEC_FRNDINT:
+	      case UNSPEC_F2XM1:
 		/* These insns only operate on the top of the stack.  */
 
 		src1 = get_true_reg (&XVECEXP (pat_src, 0, 0));
@@ -1730,6 +1736,7 @@ subst_stack_regs_pat (insn, regstack, pat)
 
 	      case UNSPEC_FPATAN:
 	      case UNSPEC_FYL2X:
+	      case UNSPEC_FSCALE:
 		/* These insns operate on the top two stack slots.  */
 
 		src1 = get_true_reg (&XVECEXP (pat_src, 0, 0));
@@ -2664,7 +2671,7 @@ compensate_edge (e, file)
       start_sequence ();
 
       /* ??? change_stack needs some point to emit insns after.  */
-      after = emit_note (NULL, NOTE_INSN_DELETED);
+      after = emit_note (NOTE_INSN_DELETED);
 
       tmpstack = regstack;
       change_stack (after, &tmpstack, target_stack, EMIT_BEFORE);
@@ -2692,6 +2699,7 @@ convert_regs_1 (file, block)
   edge e, beste = NULL;
 
   inserted = 0;
+  any_malformed_asm = false;
 
   /* Find the edge we will copy stack from.  It should be the most frequent
      one as it will get cheapest after compensation code is generated,
@@ -2805,9 +2813,12 @@ convert_regs_1 (file, block)
 	}
     }
 
-  /* Something failed if the stack lives don't match.  */
+  /* Something failed if the stack lives don't match.  If we had malformed
+     asms, we zapped the instruction itself, but that didn't produce the
+     same pattern of register kills as before.  */
   GO_IF_HARD_REG_EQUAL (regstack.reg_set, bi->out_reg_set, win);
-  abort ();
+  if (!any_malformed_asm)
+    abort ();
  win:
   bi->stack_out = regstack;
 

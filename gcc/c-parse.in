@@ -108,7 +108,7 @@ do {									\
 %start program
 
 %union {long itype; tree ttype; enum tree_code code;
-	const char *filename; int lineno; }
+	location_t location; }
 
 /* All identifiers that are not reserved words
    and are not declared typedefs in the current block */
@@ -151,9 +151,7 @@ do {									\
 %token ATTRIBUTE EXTENSION LABEL
 %token REALPART IMAGPART VA_ARG CHOOSE_EXPR TYPES_COMPATIBLE_P
 %token PTR_VALUE PTR_BASE PTR_EXTENT
-
-/* function name can be a string const or a var decl. */
-%token STRING_FUNC_NAME VAR_FUNC_NAME
+%token FUNC_NAME
 
 /* Add precedence rules to solve dangling else s/r conflict */
 %nonassoc IF
@@ -183,6 +181,7 @@ do {									\
    Objective C, so that the token codes are the same in both.  */
 %token INTERFACE IMPLEMENTATION END SELECTOR DEFS ENCODE
 %token CLASSNAME PUBLIC PRIVATE PROTECTED PROTOCOL OBJECTNAME CLASS ALIAS
+%token OBJC_STRING
 
 %type <code> unop
 %type <ttype> ENUM STRUCT UNION IF ELSE WHILE DO FOR SWITCH CASE DEFAULT
@@ -238,8 +237,7 @@ do {									\
 
 %type <itype> setspecs setspecs_fp
 
-%type <filename> save_filename
-%type <lineno> save_lineno
+%type <location> save_location
 
 ifobjc
 /* the Objective-C nonterminals */
@@ -250,9 +248,9 @@ ifobjc
 %type <ttype> keywordexpr keywordarglist keywordarg
 %type <ttype> myparms myparm optparmlist reservedwords objcselectorexpr
 %type <ttype> selectorarg keywordnamelist keywordname objcencodeexpr
-%type <ttype> objc_string non_empty_protocolrefs protocolrefs identifier_list objcprotocolexpr
+%type <ttype> non_empty_protocolrefs protocolrefs identifier_list objcprotocolexpr
 
-%type <ttype> CLASSNAME OBJECTNAME
+%type <ttype> CLASSNAME OBJECTNAME OBJC_STRING
 end ifobjc
 
 %{
@@ -341,7 +339,6 @@ static bool parsing_iso_function_signature;
 static void yyprint	  PARAMS ((FILE *, int, YYSTYPE));
 static void yyerror	  PARAMS ((const char *));
 static int yylexname	  PARAMS ((void));
-static int yylexstring	  PARAMS ((void));
 static inline int _yylex  PARAMS ((void));
 static int  yylex	  PARAMS ((void));
 static void init_reswords PARAMS ((void));
@@ -434,10 +431,10 @@ fndef:
 					all_prefix_attributes))
 		    YYERROR1;
 		}
-	  old_style_parm_decls  save_filename save_lineno
-		{ annotate_with_file_line (current_function_decl, $6, $7);
+	  old_style_parm_decls  save_location
+		{ annotate_with_file_line (current_function_decl, $6.file, $6.line);
 		  store_parm_decls (); }
-	 compstmt_or_error
+	  compstmt_or_error
 		{ finish_function (0, 1);
 		  POP_DECLSPEC_STACK; }
 	| declspecs_ts setspecs declarator error
@@ -447,8 +444,8 @@ fndef:
 					all_prefix_attributes))
 		    YYERROR1;
 		}
-	  old_style_parm_decls save_filename save_lineno
-		{ annotate_with_file_line (current_function_decl, $6, $7);
+	  old_style_parm_decls save_location
+		{ annotate_with_file_line (current_function_decl, $6.file, $6.line);
 		  store_parm_decls (); }
 	  compstmt_or_error
 		{ finish_function (0, 1);
@@ -460,8 +457,8 @@ fndef:
 					all_prefix_attributes))
 		    YYERROR1;
 		}
-	  old_style_parm_decls save_filename save_lineno
-		{ annotate_with_file_line (current_function_decl, $5, $6);
+	  old_style_parm_decls save_location
+		{ annotate_with_file_line (current_function_decl, $5.file, $5.line);
 		  store_parm_decls (); }
 	  compstmt_or_error
 		{ finish_function (0, 1);
@@ -658,8 +655,7 @@ primary:
 		}
 	| CONSTANT
 	| STRING
-		{ $$ = fix_string_type ($$); }
-	| VAR_FUNC_NAME
+	| FUNC_NAME
 		{ $$ = fname_decl (C_RID_CODE ($$), $$); }
 	| '(' typename ')' '{'
 		{ start_init (NULL_TREE, NULL, 0);
@@ -764,21 +760,10 @@ ifobjc
 		{ $$ = build_protocol_expr ($1); }
 	| objcencodeexpr
 		{ $$ = build_encode_expr ($1); }
-	| objc_string
+	| OBJC_STRING
 		{ $$ = build_objc_string_object ($1); }
 end ifobjc
 	;
-
-ifobjc
-/* Produces an STRING_CST with perhaps more STRING_CSTs chained
-   onto it, which is to be read as an ObjC string object.  */
-objc_string:
-	  '@' STRING
-		{ $$ = $2; }
-	| objc_string '@' STRING
-		{ $$ = chainon ($1, $3); }
-	;
-end ifobjc
 
 old_style_parm_decls:
 	old_style_parm_decls_1
@@ -802,7 +787,7 @@ old_style_parm_decls_1:
    except that they do not allow nested functions.
    They are used for old-style parm decls.  */
 lineno_datadecl:
-	  save_filename save_lineno datadecl
+	  save_location datadecl
 		{ }
 	;
 
@@ -834,7 +819,7 @@ datadecl:
    This is to avoid shift/reduce conflicts in contexts
    where statement labels are allowed.  */
 lineno_decl:
-	  save_filename save_lineno decl
+	  save_location decl
 		{ }
 	;
 
@@ -1590,9 +1575,9 @@ nested_function:
 		    }
 		  parsing_iso_function_signature = false; /* Don't warn about nested functions.  */
 		}
-	   old_style_parm_decls save_filename save_lineno
+	   old_style_parm_decls save_location
 		{ tree decl = current_function_decl;
-		  annotate_with_file_line (decl, $4, $5);
+		  annotate_with_file_line (decl, $4.file, $4.line);
 		  store_parm_decls (); }
 /* This used to use compstmt_or_error.
    That caused a bug with input `f(g) int g {}',
@@ -1621,9 +1606,9 @@ notype_nested_function:
 		    }
 		  parsing_iso_function_signature = false; /* Don't warn about nested functions.  */
 		}
-	  old_style_parm_decls save_filename save_lineno
+	  old_style_parm_decls save_location
 		{ tree decl = current_function_decl;
-		  annotate_with_file_line (decl, $4, $5);
+		  annotate_with_file_line (decl, $4.file, $4.line);
 		  store_parm_decls (); }
 /* This used to use compstmt_or_error.
    That caused a bug with input `f(g) int g {}',
@@ -1857,7 +1842,7 @@ component_decl:
 	  declspecs_nosc_ts setspecs components
 		{ $$ = $3;
 		  POP_DECLSPEC_STACK; }
-	| declspecs_nosc_ts setspecs save_filename save_lineno
+	| declspecs_nosc_ts setspecs
 		{
 		  /* Support for unnamed structs or unions as members of
 		     structs or unions (which is [a] useful and [b] supports
@@ -1865,7 +1850,7 @@ component_decl:
 		  if (pedantic)
 		    pedwarn ("ISO C doesn't support unnamed structs/unions");
 
-		  $$ = grokfield($3, $4, NULL, current_declspecs, NULL_TREE);
+		  $$ = grokfield(NULL, current_declspecs, NULL_TREE);
 		  POP_DECLSPEC_STACK; }
 	| declspecs_nosc_nots setspecs components_notype
 		{ $$ = $3;
@@ -1895,29 +1880,33 @@ components_notype:
 	;
 
 component_declarator:
-	  save_filename save_lineno declarator maybe_attribute
-		{ $$ = grokfield ($1, $2, $3, current_declspecs, NULL_TREE);
-		  decl_attributes (&$$, chainon ($4, all_prefix_attributes), 0); }
-	| save_filename save_lineno
-	  declarator ':' expr_no_commas maybe_attribute
-		{ $$ = grokfield ($1, $2, $3, current_declspecs, $5);
-		  decl_attributes (&$$, chainon ($6, all_prefix_attributes), 0); }
-	| save_filename save_lineno ':' expr_no_commas maybe_attribute
-		{ $$ = grokfield ($1, $2, NULL_TREE, current_declspecs, $4);
-		  decl_attributes (&$$, chainon ($5, all_prefix_attributes), 0); }
+	  declarator maybe_attribute
+		{ $$ = grokfield ($1, current_declspecs, NULL_TREE);
+		  decl_attributes (&$$,
+				   chainon ($2, all_prefix_attributes), 0); }
+	| declarator ':' expr_no_commas maybe_attribute
+		{ $$ = grokfield ($1, current_declspecs, $3);
+		  decl_attributes (&$$,
+				   chainon ($4, all_prefix_attributes), 0); }
+	| ':' expr_no_commas maybe_attribute
+		{ $$ = grokfield (NULL_TREE, current_declspecs, $2);
+		  decl_attributes (&$$,
+				   chainon ($3, all_prefix_attributes), 0); }
 	;
 
 component_notype_declarator:
-	  save_filename save_lineno notype_declarator maybe_attribute
-		{ $$ = grokfield ($1, $2, $3, current_declspecs, NULL_TREE);
-		  decl_attributes (&$$, chainon ($4, all_prefix_attributes), 0); }
-	| save_filename save_lineno
-	  notype_declarator ':' expr_no_commas maybe_attribute
-		{ $$ = grokfield ($1, $2, $3, current_declspecs, $5);
-		  decl_attributes (&$$, chainon ($6, all_prefix_attributes), 0); }
-	| save_filename save_lineno ':' expr_no_commas maybe_attribute
-		{ $$ = grokfield ($1, $2, NULL_TREE, current_declspecs, $4);
-		  decl_attributes (&$$, chainon ($5, all_prefix_attributes), 0); }
+	  notype_declarator maybe_attribute
+		{ $$ = grokfield ($1, current_declspecs, NULL_TREE);
+		  decl_attributes (&$$,
+				   chainon ($2, all_prefix_attributes), 0); }
+	| notype_declarator ':' expr_no_commas maybe_attribute
+		{ $$ = grokfield ($1, current_declspecs, $3);
+		  decl_attributes (&$$,
+				   chainon ($4, all_prefix_attributes), 0); }
+	| ':' expr_no_commas maybe_attribute
+		{ $$ = grokfield (NULL_TREE, current_declspecs, $2);
+		  decl_attributes (&$$,
+				   chainon ($3, all_prefix_attributes), 0); }
 	;
 
 /* We chain the enumerators in reverse order.
@@ -2225,8 +2214,7 @@ if_prefix:
 		{ c_expand_start_cond (c_common_truthvalue_conversion ($4),
 				       compstmt_count,$<ttype>2);
 		  $<itype>$ = stmt_count;
-		  if_stmt_locus.file = $<filename>-2;
-		  if_stmt_locus.line = $<lineno>-1; }
+		  if_stmt_locus = $<location>-1; }
         ;
 
 /* This is a subroutine of stmt.
@@ -2252,16 +2240,11 @@ do_stmt_start:
 /* The forced readahead in here is because we might be at the end of a
    line, and the line and file won't be bumped until yylex absorbs the
    first token on the next line.  */
-save_filename:
-		{ if (yychar == YYEMPTY)
-		    yychar = YYLEX;
-		  $$ = input_filename; }
-	;
 
-save_lineno:
+save_location:
 		{ if (yychar == YYEMPTY)
 		    yychar = YYLEX;
-		  $$ = input_line; }
+		  $$ = input_location; }
 	;
 
 lineno_labeled_stmt:
@@ -2277,10 +2260,10 @@ c99_block_lineno_labeled_stmt:
 	;
 
 lineno_stmt:
-	  save_filename save_lineno stmt
-		{ if ($3)
+	  save_location stmt
+		{ if ($2)
 		    {
-		      STMT_LINENO ($3) = $2;
+		      STMT_LINENO ($2) = $1.line;
 		      /* ??? We currently have no way of recording
 			 the filename for a statement.  This probably
 			 matters little in practice at the moment,
@@ -2291,10 +2274,10 @@ lineno_stmt:
 	;
 
 lineno_label:
-	  save_filename save_lineno label
-		{ if ($3)
+	  save_location label
+		{ if ($2)
 		    {
-		      STMT_LINENO ($3) = $2;
+		      STMT_LINENO ($2) = $1.line;
 		    }
 		}
 	;
@@ -2449,12 +2432,12 @@ label:	  CASE expr_no_commas ':'
 	| DEFAULT ':'
                 { stmt_count++;
 		  $$ = do_case (NULL_TREE, NULL_TREE); }
-	| identifier save_filename save_lineno ':' maybe_attribute
-		{ tree label = define_label ($2, $3, $1);
+	| identifier save_location ':' maybe_attribute
+		{ tree label = define_label ($2, $1);
 		  stmt_count++;
 		  if (label)
 		    {
-		      decl_attributes (&label, $5, 0);
+		      decl_attributes (&label, $4, 0);
 		      $$ = add_stmt (build_stmt (LABEL_STMT, label));
 		    }
 		  else
@@ -3498,9 +3481,9 @@ static const short rid_to_yy[RID_MAX] =
   /* RID_CHOOSE_EXPR */			CHOOSE_EXPR,
   /* RID_TYPES_COMPATIBLE_P */		TYPES_COMPATIBLE_P,
 
-  /* RID_FUNCTION_NAME */		STRING_FUNC_NAME,
-  /* RID_PRETTY_FUNCTION_NAME */	STRING_FUNC_NAME,
-  /* RID_C99_FUNCTION_NAME */		VAR_FUNC_NAME,
+  /* RID_FUNCTION_NAME */		FUNC_NAME,
+  /* RID_PRETTY_FUNCTION_NAME */	FUNC_NAME,
+  /* RID_C99_FUNCTION_NAME */		FUNC_NAME,
 
   /* C++ */
   /* RID_BOOL */	TYPESPEC,
@@ -3555,7 +3538,7 @@ init_reswords ()
   int mask = (flag_isoc99 ? 0 : D_C89)
 	      | (flag_no_asm ? (flag_isoc99 ? D_EXT : D_EXT|D_EXT89) : 0);
 
-  if (!flag_objc)
+  if (!c_dialect_objc ())
      mask |= D_OBJC;
 
   ridpointers = (tree *) ggc_calloc ((int) RID_MAX, sizeof (tree));
@@ -3631,22 +3614,9 @@ ifobjc
 	  && (!OBJC_IS_PQ_KEYWORD (rid_code) || objc_pq_context))
 end ifobjc
       {
-	int yycode = rid_to_yy[(int) rid_code];
-	if (yycode == STRING_FUNC_NAME)
-	  {
-	    /* __FUNCTION__ and __PRETTY_FUNCTION__ get converted
-	       to string constants.  */
-	    const char *name = fname_string (rid_code);
-
-	    yylval.ttype = build_string (strlen (name) + 1, name);
-	    C_ARTIFICIAL_STRING_P (yylval.ttype) = 1;
-	    last_token = CPP_STRING;  /* so yyerror won't choke */
-	    return STRING;
-	  }
-
 	/* Return the canonical spelling for this keyword.  */
 	yylval.ttype = ridpointers[(int) rid_code];
-	return yycode;
+	return rid_to_yy[(int) rid_code];
       }
     }
 
@@ -3673,58 +3643,6 @@ ifobjc
 end ifobjc
 
   return IDENTIFIER;
-}
-
-/* Concatenate strings before returning them to the parser.  This isn't quite
-   as good as having it done in the lexer, but it's better than nothing.  */
-
-static int
-yylexstring ()
-{
-  enum cpp_ttype next_type;
-  tree orig = yylval.ttype;
-
-  next_type = c_lex (&yylval.ttype);
-  if (next_type == CPP_STRING
-      || next_type == CPP_WSTRING
-      || (next_type == CPP_NAME && yylexname () == STRING))
-    {
-      varray_type strings;
-
-ifc
-      static int last_lineno = 0;
-      static const char *last_input_filename = 0;
-      if (warn_traditional && !in_system_header
-	  && (input_line != last_lineno || !last_input_filename ||
-	      strcmp (last_input_filename, input_filename)))
-	{
-	  warning ("traditional C rejects string concatenation");
-	  last_lineno = input_line;
-	  last_input_filename = input_filename;
-	}
-end ifc
-
-      VARRAY_TREE_INIT (strings, 32, "strings");
-      VARRAY_PUSH_TREE (strings, orig);
-
-      do
-	{
-	  VARRAY_PUSH_TREE (strings, yylval.ttype);
-	  next_type = c_lex (&yylval.ttype);
-	}
-      while (next_type == CPP_STRING
-	     || next_type == CPP_WSTRING
-	     || (next_type == CPP_NAME && yylexname () == STRING));
-
-      yylval.ttype = combine_strings (strings);
-    }
-  else
-    yylval.ttype = orig;
-
-  /* We will have always read one token too many.  */
-  _cpp_backup_tokens (parse_in, 1);
-
-  return STRING;
 }
 
 static inline int
@@ -3792,13 +3710,11 @@ _yylex ()
       return 0;
 
     case CPP_NAME:
-      {
-	int ret = yylexname ();
-	if (ret == STRING)
-	  return yylexstring ();
-	else
-	  return ret;
-      }
+      return yylexname ();
+
+    case CPP_AT_NAME:
+      /* This only happens in Objective-C; it must be a keyword.  */
+      return rid_to_yy [(int) C_RID_CODE (yylval.ttype)];
 
     case CPP_NUMBER:
     case CPP_CHAR:
@@ -3807,30 +3723,10 @@ _yylex ()
 
     case CPP_STRING:
     case CPP_WSTRING:
-      return yylexstring ();
-
-      /* This token is Objective-C specific.  It gives the next token
-	 special significance.  */
-    case CPP_ATSIGN:
-ifobjc
-      {
-	tree after_at;
-	enum cpp_ttype after_at_type;
-
-	after_at_type = c_lex (&after_at);
-
-	if (after_at_type == CPP_NAME
-	    && C_IS_RESERVED_WORD (after_at)
-	    && OBJC_IS_AT_KEYWORD (C_RID_CODE (after_at)))
-	  {
-	    yylval.ttype = after_at;
-	    last_token = after_at_type;
-	    return rid_to_yy [(int) C_RID_CODE (after_at)];
-	  }
-	_cpp_backup_tokens (parse_in, 1);
-	return '@';
-      }
-end ifobjc
+      return STRING;
+      
+    case CPP_OBJC_STRING:
+      return OBJC_STRING;
 
       /* These tokens are C++ specific (and will not be generated
          in C mode, but let's be cautious).  */
