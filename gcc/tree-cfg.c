@@ -137,7 +137,11 @@ tree_find_basic_blocks (t)
  
    COMPOUND_STMT is the immediately enclosing compound statement to which T
    belongs.  These statements are not represented in the flowgraph, but are
-   important to determine successor basic blocks in successor_block().  */
+   important to determine successor basic blocks in successor_block().
+
+   When creating basic blocks one important property should be maintained:
+   It must be possible to traverse all the trees inside a basic block by
+   following the TREE_CHAIN from bb->head_tree.  */
 
 static void
 make_blocks (t, control_parent, compound_stmt)
@@ -204,17 +208,25 @@ make_for_stmt_blocks (t, control_parent, compound_stmt)
      tree compound_stmt;
 {
   basic_block bb;
-  tree cond;
+  tree expr, cond;
 
-  /* Make sure that the condition block will be created even if the loop
-     has no condition.  This avoids a self-referencing edge into the loop
-     header (which would create loop carried dependencies for the
-     statements in FOR_INIT_STMT.  */
+  /* Make sure that both condition and expression blocks will be created
+     for the loop.
+     
+     A condition block avoids a self-referencing edge into the loop header
+     (which would create loop carried dependencies for the statements in
+     FOR_INIT_STMT.
+
+     An expression block avoids having multiple back edges to the condition
+     block.  This, in turn, helps the natural loop recognizer identify only
+     one loop instead of several shared ones.  */
   cond = (FOR_COND (t)) ? FOR_COND (t) : build_int_2 (1, 0);
+  expr = (FOR_EXPR (t)) ? FOR_EXPR (t) : build_int_2 (1, 0);
 
-  bb = create_bb (t, FOR_INIT_STMT (t), control_parent);
+  bb = create_bb (t, t, control_parent);
+  create_maximal_bb (FOR_INIT_STMT (t), bb, compound_stmt);
   create_maximal_bb (cond, bb, compound_stmt);
-  create_maximal_bb (FOR_EXPR (t), bb, compound_stmt);
+  create_maximal_bb (expr, bb, compound_stmt);
   make_blocks (FOR_BODY (t), bb, compound_stmt);
 }
 
@@ -231,6 +243,11 @@ make_while_stmt_blocks (t, control_parent, compound_stmt)
      tree compound_stmt;
 {
   basic_block bb = create_bb (t, t, control_parent);
+  
+  /* END_WHILE block.  Needed to avoid multiple back edges that would
+     result in multiple natural loops instead of just one.  */
+  create_maximal_bb (build_int_2 (1, 0), bb, compound_stmt);
+
   make_blocks (WHILE_BODY (t), bb, compound_stmt);
 }
 
@@ -263,7 +280,7 @@ make_if_stmt_blocks (t, control_parent, compound_stmt)
      basic_block control_parent;
      tree compound_stmt;
 {
-  basic_block bb = create_bb (t, IF_COND (t), control_parent);
+  basic_block bb = create_bb (t, t, control_parent);
   make_blocks (THEN_CLAUSE (t), bb, compound_stmt);
   make_blocks (ELSE_CLAUSE (t), bb, compound_stmt);
 }
@@ -577,9 +594,9 @@ make_for_stmt_edges (edge_cache, bb)
      sbitmap *edge_cache;
      basic_block bb;
 {
-  tree entry = bb->head_tree;
+  tree body_t, entry = bb->head_tree;
   int ix;
-  basic_block cond_bb, expr_bb, body_bb;
+  basic_block init_bb, cond_bb, expr_bb, body_bb;
 
   if (TREE_CODE (entry) != FOR_STMT)
     abort ();
@@ -588,14 +605,19 @@ make_for_stmt_edges (edge_cache, bb)
 
      		FOR_STMT
 		   |
+		   v
+	      FOR_INIT_STMT
+		   |
                    v
-            +-- FOR_COND <----------+
-            |      |                |
-            |      |             FOR_EXPR
-            |      |
-            |      v
-            |   FOR_BODY
-            |
+            +-- FOR_COND <-+
+            |      |       |
+            |      |       |
+            |      |       |
+            |      v       |
+            |   FOR_BODY   |
+	    |              |
+	    |              |
+            |   FOR_EXPR --+
 	    |
             +--> Next block
    
@@ -610,21 +632,18 @@ make_for_stmt_edges (edge_cache, bb)
      determined by make_for_stmt_blocks().  */
   ix = bb->index + 1;
 
-  /* make_for_stmt_blocks() guarantees that the condition block is created
-     even for unconditional loops.  */
+  /* make_for_stmt_blocks() guarantees that both condition and expression
+     blocks exist in every for loop.  */
+  init_bb = BASIC_BLOCK (ix++);
   cond_bb = BASIC_BLOCK (ix++);
-  expr_bb = (FOR_EXPR (entry)) ? BASIC_BLOCK (ix++) : cond_bb;
-  body_bb = (first_exec_stmt (FOR_BODY (entry))) ? BASIC_BLOCK (ix) : expr_bb;
+  expr_bb = BASIC_BLOCK (ix++);
+  body_t = first_exec_stmt (FOR_BODY (entry));
+  body_bb = (body_t) ? BB_FOR_STMT (body_t) : expr_bb;
 
-  make_edge (edge_cache, bb, cond_bb, 0);
+  make_edge (edge_cache, bb, init_bb, 0);
+  make_edge (edge_cache, init_bb, cond_bb, 0);
   make_edge (edge_cache, cond_bb, body_bb, 0);
-
-  /* Special case.  Only create the edge expr_bb -> cond_bb if there really
-     is a block for FOR_EXPR.  Otherwise, if the loop has a body, and since
-     in this case expr_bb == cond_bb, we end up with an unnecessary
-     self-referencing edge in cond_bb.  */
-  if (FOR_EXPR (entry))
-    make_edge (edge_cache, expr_bb, cond_bb, 0);
+  make_edge (edge_cache, expr_bb, cond_bb, 0);
   make_edge (edge_cache, cond_bb, successor_block (bb), 0);
 }
 
@@ -639,8 +658,8 @@ make_while_stmt_edges (edge_cache, bb)
      sbitmap *edge_cache;
      basic_block bb;
 {
-  tree entry = bb->head_tree;
-  basic_block body_bb;
+  tree body_t, entry = bb->head_tree;
+  basic_block end_bb, body_bb, exit_bb;
 
   if (TREE_CODE (entry) != WHILE_STMT)
     abort ();
@@ -648,24 +667,29 @@ make_while_stmt_edges (edge_cache, bb)
   /* Create the following edges.  The other edges will be naturally created
      by the main loop in create_edges().
 
-          +- WHILE_STMT
-	  |      |
-          |      v
-          |  WHILE_BODY
-	  |
-	  |
-	  +--> EXIT
+         +-> WHILE_STMT ---+
+	 |       |         |
+         |       v         |
+         |   WHILE_BODY    |
+	 |                 |
+	 |                 |
+	 +-- END_WHILE     |
+	                   |
+		           |
+	     Next block <--+
           
      If the body doesn't exist, we use the header instead.  */
 
   /* Basic blocks for each component.  Note that the block numbers are
      determined by make_while_stmt_blocks().  */
-  body_bb = (first_exec_stmt (WHILE_BODY (entry)))
-            ? BASIC_BLOCK (bb->index + 1)
-	    : bb;
+  exit_bb = successor_block (bb);
+  end_bb = latch_block (bb);
+  body_t = first_exec_stmt (WHILE_BODY (entry));
+  body_bb = (body_t) ? BB_FOR_STMT (body_t) : end_bb;
 
   make_edge (edge_cache, bb, body_bb, 0);
-  make_edge (edge_cache, bb, successor_block (bb), 0);
+  make_edge (edge_cache, end_bb, bb, 0);
+  make_edge (edge_cache, bb, exit_bb, 0);
 }
 
 /* }}} */
@@ -679,7 +703,7 @@ make_do_stmt_edges (edge_cache, bb)
      sbitmap *edge_cache;
      basic_block bb;
 {
-  tree entry = bb->head_tree;
+  tree body_t, entry = bb->head_tree;
   basic_block cond_bb, body_bb;
 
   if (TREE_CODE (entry) != DO_STMT)
@@ -697,17 +721,15 @@ make_do_stmt_edges (edge_cache, bb)
 	    DO_COND --+
 	       |
 	       v
-	     EXIT
+	   Next block
 
      If the body doesn't exist, we use the condition instead.  */
 
   /* Basic blocks for each component. Note that the block numbers are
      determined by make_do_stmt_blocks().  */
-  cond_bb = BASIC_BLOCK (bb->index + 1);	/* This block always exists.  */
-
-  body_bb = (first_exec_stmt (DO_BODY (entry)))
-	    ? BASIC_BLOCK (bb->index + 2)
-	    : cond_bb;
+  cond_bb = latch_block (bb);
+  body_t = first_exec_stmt (DO_BODY (entry));
+  body_bb = (body_t) ? BB_FOR_STMT (body_t) : cond_bb;
 
   make_edge (edge_cache, bb, body_bb, 0);
   make_edge (edge_cache, cond_bb, body_bb, 0);
@@ -868,7 +890,7 @@ make_continue_stmt_edges (edge_cache, bb)
       return;
     }
 
-  make_edge (edge_cache, bb, condition_block (loop_bb), 0);
+  make_edge (edge_cache, bb, latch_block (loop_bb), 0);
 }
 
 /* }}} */
@@ -1100,7 +1122,7 @@ successor_block (bb)
       /* If BB is the last block inside a loop body, return the condition
          block for the loop structure.  */
       if (is_loop_stmt (parent_bb->head_tree))
-	return condition_block (parent_bb);
+	return latch_block (parent_bb);
 
       /* Otherwise, If BB's control parent has a successor, return its
          block.  */
@@ -1259,41 +1281,27 @@ loop_parent (bb)
 
 /* }}} */
 
-/* {{{ condition_block()
+/* {{{ latch_block()
 
-   Returns the block containing the condition expression controlling the
-   loop starting at LOOP_BB (i.e., the block containing DO_COND or
-   WHILE_COND or FOR_EXPR).
-
-   Since these blocks hold expressions, not statements, we cannot use
-   BB_FOR_STMT() to determine their basic block.  Instead, we count from
-   the basic block for the loop entry.
+   Returns the block marking the end of the loop body.  This is the block
+   that contains the back edge to the start of the loop (i.e., to the block
+   containing DO_COND or WHILE_COND or FOR_COND).
    
    ??? Note that this relies heavily on the order in which basic blocks
        get constructed, but I couldn't find another way of dealing with
        this.  */
 
 basic_block
-condition_block (loop_bb)
+latch_block (loop_bb)
      basic_block loop_bb;
 {
   int index;
   enum tree_code code = TREE_CODE (loop_bb->head_tree);
 
   if (code == FOR_STMT)
-    {
-      /* Usually, the loop expression in a FOR_STMT will be the second
-         block after the loop entry block.  However, the FOR_EXPR block
-         does not always exist.  */
-      if (FOR_EXPR (loop_bb->head_tree))
-	index = loop_bb->index + 2;
-      else
-	index = loop_bb->index + 1;
-    }
-  else if (code == DO_STMT)
+    index = loop_bb->index + 3;
+  else if (code == DO_STMT || code == WHILE_STMT)
     index = loop_bb->index + 1;
-  else if (code == WHILE_STMT)
-    index = loop_bb->index;
   else
     abort ();
 

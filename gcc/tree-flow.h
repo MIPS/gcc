@@ -242,7 +242,7 @@ extern void tree_dump_cfg PARAMS ((FILE *));
 extern void tree_debug_cfg PARAMS ((void));
 extern void tree_cfg2dot PARAMS ((FILE *));
 extern basic_block loop_parent PARAMS ((basic_block));
-extern basic_block condition_block PARAMS ((basic_block));
+extern basic_block latch_block PARAMS ((basic_block));
 extern basic_block switch_parent PARAMS ((basic_block));
 extern tree first_exec_stmt PARAMS ((tree));
 extern int is_exec_stmt PARAMS ((tree));

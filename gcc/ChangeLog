@@ -1,3 +1,31 @@
+2001-09-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (tree_find_basic_blocks): Document how to traverse
+	trees inside a basic block.
+	(make_for_stmt_blocks): Make sure that there is always a block for
+	FOR_EXPR, even if the loop does not have an expression.
+	Create a separate block for FOR_INIT_STMT.
+	(make_while_stmt_blocks): Always create an "end_while" block. 
+	(make_if_stmt_blocks): Do not store IF_COND in the header block of
+	an IF statement.
+	(make_for_stmt_edges): Create an edge from the block header to the
+	block for FOR_INIT_STMT.
+	Determine the first block of the loop body calling BB_FOR_STMT on
+	the first executable statement in the body.
+	Remove the special case for missing FOR_EXPR trees.
+	(make_while_stmt_edges): Create a back edge from the end_while
+	block to the header block.
+	Determine the first block of the loop body calling BB_FOR_STMT on
+	the first executable statement in the body.
+	(make_do_stmt_edges): Determine the first block of the loop body
+	calling BB_FOR_STMT on the first executable statement in the body.
+	(condition_block): Rename to latch_block.  Return the latch
+	block for the given loop header.
+	(make_continue_stmt_edges): Rename condition_block to
+	latch_block.
+	(successor_block): Ditto.
+	* tree-flow.h (condition_block): Rename to latch_block.
+
 2001-09-06  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (tree_find_varrefs): Use TDF_REFS instead of TDF_VARREF.
