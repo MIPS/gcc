@@ -1,5 +1,8 @@
 2004-06-15  J"orn Rennecke <joern.rennecke@superh.com>
 
+	* cfglayout.c (fixup_reorder_chain): Handle case where the
+	destination od E_TAKEN is EXIT_BLOCK_PTR.
+
 	* cse.c (note_dead_set): Make static.
 
 2004-06-11  J"orn Rennecke <joern.rennecke@superh.com>
