@@ -1,3 +1,8 @@
+2002-08-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-simple.c (is_simple_condexpr): Update comment.
+	* tree-ssa-ccp.c (ssa_ccp_substitute_constants): Add debugging code.
+
 2002-08-12  Jason Merrill  <jason@redhat.com>
 
 	* c-typeck.c (build_component_ref): Don't add a NON_LVALUE_EXPR

@@ -651,6 +651,9 @@ ssa_ccp_substitute_constants ()
 {
   basic_block bb;
 
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "\nSubstituing constants and folding expressions\n\n");
+
   /* Substitute constants.  */
   FOR_EACH_BB (bb)
     {

@@ -417,11 +417,6 @@ is_simple_condexpr (t)
 	      | call_expr
 	      | unop val
 	      | '(' cast ')' varname
-	      | '({' all_stmts '})'	=> Original grammar does not
-	                                   allow expression-statements.
-					   We shouldn't, either.  But
-					   for now it is easier if we
-					   do.
 
 	      (cast here stands for all valid C typecasts)  */
 
