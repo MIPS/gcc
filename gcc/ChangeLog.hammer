@@ -1,3 +1,7 @@
+2004-08-10  Michael Matz  <matz@suse.de>
+
+	Merged to 3.3 branch at tag hammer-3_3-merge-20040809 .
+
 2004-08-06  Alan Modra  <amodra@bigpond.net.au>
 
 	* config/rs6000/rs6000.c (function_arg_padding): Revert 2004-07-28.

@@ -1,3 +1,7 @@
+2004-08-10  Michael Matz  <matz@suse.de>
+
+	Merged to 3.3 branch at tag hammer-3_3-merge-20040809 .
+
 2004-05-11  Michael Matz  <matz@suse.de>
 
 	Backport of various C++ stuff regarding ppc ABI with vector
