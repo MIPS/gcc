@@ -1,3 +1,8 @@
+2003-12-21  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-ccp.c (fold_stmt): Return when there is no RHS
+	(get_rhs): Return for RETURN_EXPR with no operand.
+
 2003-12-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-cfg.c (tree_make_forwarder_block): Use split_block.

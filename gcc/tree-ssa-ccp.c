@@ -1890,6 +1890,8 @@ fold_stmt (tree *stmt_p)
     }
 
   rhs = get_rhs (stmt);
+  if (!rhs)
+    return changed;
   result = NULL_TREE;
 
   /* Check for builtins that CCP can handle using information not
@@ -1935,6 +1937,8 @@ get_rhs (tree stmt)
     return SWITCH_COND (stmt);
   else if (code == RETURN_EXPR)
     {
+      if (!TREE_OPERAND (stmt, 0))
+	return NULL_TREE;
       if (TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR)
 	return TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
       else
