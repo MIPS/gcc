@@ -1,5 +1,8 @@
 2004-08-17  Ben Elliston  <bje@au.ibm.com>
 
+	* basic-block.h (FOR_EACH_EDGE): Output file and function names
+	when throwing an internal error.
+
 	* cfganal.c (remove_fake_predecessors): Don't use FOR_EACH_EDGE
 	for loops that alter the edge vector.
 	* cfgexpand.c (expand_gimple_tailcall): Likewise.

@@ -542,7 +542,7 @@ do {									\
       if (ENABLE_CHECKING						\
 	  && (__ix >= EDGE_COUNT (__ev)					\
 	      || EDGE_I (__ev, __ix) != __check_edge))			\
-	internal_error ("edge modified in FOR_EACH_EDGE");		\
+	internal_error ("edge modified in FOR_EACH_EDGE: %s:%s", __FILE__, __FUNCTION__); \
     }									\
 }									\
 while (0)
