@@ -93,11 +93,11 @@ make_ifcvt_temp_variable (tree type, tree exp, tree orig_stmt, block_stmt_iterat
   else
     bsi_insert_after (bsi, stmt, BSI_SAME_STMT);
 
-  if ((is_gimple_variable(exp) || is_gimple_addr_expr_arg (exp))
+  if ((is_gimple_variable (exp) || is_gimple_addr_expr_arg (exp))
       && !is_gimple_reg (exp) 
       && orig_stmt)
     {
-      /* Set vuse manuually.  */
+      /* Set vuse manually.  */
       vuse_optype vuses;
       stmt_ann_t ann = stmt_ann (orig_stmt);
       unsigned int i;

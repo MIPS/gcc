@@ -1,5 +1,9 @@
 2004-06-28  Devang Patel  <dpatel@apple.com>
 
+	* tree-if-conv.c (make_ifcvt_temp_variable): Fix formatting.
+
+2004-06-28  Devang Patel  <dpatel@apple.com>
+
 	* tree-if-conv.c (make_ifcvt_temp_variable): Add new parameter for 
 	original stmt. Update new statement's vuse approritatly based on 
 	original stmt.
