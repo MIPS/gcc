@@ -319,6 +319,7 @@ gnu/java/awt/peer/gtk/GdkGlyphVector.java \
 gnu/java/awt/peer/gtk/GdkGraphics.java \
 gnu/java/awt/peer/gtk/GdkGraphics2D.java \
 gnu/java/awt/peer/gtk/GdkPixbufDecoder.java \
+gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java \
 gnu/java/awt/peer/gtk/GtkArg.java \
 gnu/java/awt/peer/gtk/GtkArgList.java \
 gnu/java/awt/peer/gtk/GtkButtonPeer.java \
@@ -2744,6 +2745,7 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkGraphics.lo \
 @GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkGraphics2D.lo \
 @GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkPixbufDecoder.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.lo \
 @GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkArg.lo \
 @GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkArgList.lo \
 @GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkButtonPeer.lo \
@@ -2821,6 +2823,7 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_TRUE@gnu/java/awt/peer/gtk/GdkGraphics.lo \
 @GTK_CAIRO_TRUE@gnu/java/awt/peer/gtk/GdkGraphics2D.lo \
 @GTK_CAIRO_TRUE@gnu/java/awt/peer/gtk/GdkPixbufDecoder.lo \
+@GTK_CAIRO_TRUE@gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.lo \
 @GTK_CAIRO_TRUE@gnu/java/awt/peer/gtk/GtkArg.lo \
 @GTK_CAIRO_TRUE@gnu/java/awt/peer/gtk/GtkArgList.lo \
 @GTK_CAIRO_TRUE@gnu/java/awt/peer/gtk/GtkButtonPeer.lo \
@@ -3037,6 +3040,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/awt/peer/gtk/GdkGlyphVector.P \
 .deps/gnu/java/awt/peer/gtk/GdkGraphics.P \
 .deps/gnu/java/awt/peer/gtk/GdkGraphics2D.P \
+.deps/gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.P \
 .deps/gnu/java/awt/peer/gtk/GdkPixbufDecoder.P \
 .deps/gnu/java/awt/peer/gtk/GtkArg.P \
 .deps/gnu/java/awt/peer/gtk/GtkArgList.P \
