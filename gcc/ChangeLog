@@ -20,6 +20,27 @@
 	* cpphash.h:  Update function declarations.
 	* cpplib.h:  Update function declarations.
 
+	* c-opts.c (c_common_post_options):  Don't call cpp_find_main_file yet.
+	(push_command_line_include):  When done with options, pass LC_LEAVE
+	instead of LC_RENAME to cpp_change_file and finally cpp_push_main_file.
+	(c_common_post_options):  Move finish_options call to here.
+	(finish_options):  Take file name parameter, as in mainline.
+	Don't do cpp cpp processing for "<built-in>" here.
+	(init_c_common_once):  Don't call finish_options here, but do inline
+	cpp processing for "<built-in>".
+	Don't register_cpp_callbacks if flag_preprocess_only.
+	(fe_file_change):  Handle NULL new_map, and simplify.
+	* cpplex.c (_cpp_get_fresh_line):  Revert my no-longer-needed
+	08-28 change, since we're never called with a NULL buffer.
+	(_cpp_lex_direct):  Likewise.
+	* cpptrad.c (_cpp_read_logical_line_trad):  Likewise.
+	Return false if buffer is NULL at end.
+
+	* cpplex.c (_cpp_get_fresh_line):  Return value now just depends on
+	whether pfile->buffer is NULL after pop, ignoring return_at_eof.
+	* cpphash.h (struct cpp_buffer):  Remove unused return_at_eof field.
+	* cpplib.c (cpp_push_buffer):  Since we no longer set return_at_eof,
+	remove the unused return_at_eof parameter.
 	* cppfiles.c, cpplib.c, cppmacro.c, cpppch.c, fix-header.c:
 	Update callers of cpp_push_buffer.
 

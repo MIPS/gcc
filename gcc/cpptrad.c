@@ -304,7 +304,7 @@ _cpp_read_logical_line_trad (cpp_reader *pfile)
     }
   while (!_cpp_scan_out_logical_line (pfile, NULL) || pfile->state.skipping);
 
-  return true;
+  return pfile->buffer != NULL;
 }
 
 /* Set up state for finding the opening '(' of a function-like

@@ -496,7 +496,7 @@ static void
 run_directive (cpp_reader *pfile, int dir_no, const char *buf, size_t count)
 {
   cpp_push_buffer (pfile, (const uchar *) buf, count,
-		   /* from_stage3 */ true, 1);
+		   /* from_stage3 */ true);
   /* Disgusting hack.  */
   if (dir_no == T_PRAGMA)
     pfile->buffer->file = pfile->buffer->prev->file;
@@ -2039,7 +2039,7 @@ cpp_set_callbacks (cpp_reader *pfile, cpp_callbacks *cb)
    is the responsibility of the caller.  */
 cpp_buffer *
 cpp_push_buffer (cpp_reader *pfile, const uchar *buffer, size_t len,
-		 int from_stage3, int return_at_eof)
+		 int from_stage3)
 {
   cpp_buffer *new = xobnew (&pfile->buffer_ob, cpp_buffer);
 
@@ -2050,7 +2050,6 @@ cpp_push_buffer (cpp_reader *pfile, const uchar *buffer, size_t len,
   new->rlimit = buffer + len;
   new->from_stage3 = from_stage3;
   new->prev = pfile->buffer;
-  new->return_at_eof = return_at_eof;
   new->need_line = true;
 
   new->saved_current_fragment = pfile->current_fragment;

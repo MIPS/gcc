@@ -107,7 +107,7 @@ static void sanitize_cpp_opts (void);
 static void add_prefixed_path (const char *, size_t);
 static void push_command_line_include (void);
 static void cb_file_change (cpp_reader *, const struct line_map *);
-static void finish_options (void);
+static void finish_options (const char *);
 
 #ifndef STDC_0_IN_SYSTEM_HEADERS
 #define STDC_0_IN_SYSTEM_HEADERS 0
@@ -1088,10 +1088,7 @@ c_common_post_options (const char **pfilename)
   /* kludge - should be moved */
   cpp_post_options (parse_in);
 
-  *pfilename = cpp_read_main_file (parse_in, *pfilename);
-
-  /* Do this just after processing the main file.  */
-  push_command_line_include ();
+  finish_options (*pfilename);
 
   if (flag_preprocess_only)
     {
@@ -1126,7 +1123,9 @@ init_c_common_once ()
      are known.  */
   cpp_init_iconv (parse_in);
 
-  register_cpp_callbacks ();
+  if (! flag_preprocess_only)
+    register_cpp_callbacks ();
+
   if (server_mode > 1
       || server_mode == 0 /* ??? */)
     {
@@ -1181,7 +1180,28 @@ init_c_common_once ()
   if (warn_missing_format_attribute && !warn_format)
     warning ("-Wmissing-format-attribute ignored without -Wformat");
 
-  finish_options ();
+  if (!cpp_opts->preprocessed)
+    {
+      cpp_change_file (parse_in, LC_ENTER, _("<built-in>"));
+      cpp_init_builtins (parse_in, flag_hosted);
+      c_cpp_builtins (parse_in); 
+
+      /* We're about to send user input to cpplib, so make it warn for
+	 things that we previously (when we sent it internal definitions)
+	 told it to not warn.
+
+	 C99 permits implementation-defined characters in identifiers.
+	 The documented meaning of -std= is to turn off extensions that
+	 conflict with the specified standard, and since a strictly
+	 conforming program cannot contain a '$', we do not condition
+	 their acceptance on the -std= setting.  */
+      cpp_opts->warn_dollars = (cpp_opts->pedantic && !cpp_opts->c99);
+
+      cpp_change_file (parse_in, LC_LEAVE, NULL);
+    }
+
+  if (! flag_preprocess_only)
+    cpp_get_callbacks (parse_in)->file_change = cb_file_change;
 #if 0
   if (flag_preprocess_onl
       && num_in_fnames > 1)
@@ -1373,33 +1393,17 @@ add_prefixed_path (const char *suffix, size_t chain)
   add_path (path, chain, 0);
 }
 
-/* Handle -D, -U, -A, -imacros, and the first -include.  */
+/* Handle -D, -U, -A, -imacros, and the first -include.  
+   TIF is the input file to which we will return after processing all
+   the includes.  */
 static void
-finish_options ()
+finish_options (const char *tif)
 {
   if (!cpp_opts->preprocessed)
     {
       size_t i;
 
-      if (! flag_preprocess_only)
-	cpp_get_callbacks (parse_in)->file_change = cb_file_change;
-
-      cpp_change_file (parse_in, LC_ENTER, _("<built-in>"));
-      cpp_init_builtins (parse_in, flag_hosted);
-      c_cpp_builtins (parse_in);
-
-      /* We're about to send user input to cpplib, so make it warn for
-	 things that we previously (when we sent it internal definitions)
-	 told it to not warn.
-
-	 C99 permits implementation-defined characters in identifiers.
-	 The documented meaning of -std= is to turn off extensions that
-	 conflict with the specified standard, and since a strictly
-	 conforming program cannot contain a '$', we do not condition
-	 their acceptance on the -std= setting.  */
-      cpp_opts->warn_dollars = (cpp_opts->pedantic && !cpp_opts->c99);
-
-      cpp_change_file (parse_in, LC_RENAME, _("<command line>"));
+      cpp_change_file (parse_in, LC_ENTER, _("<command line>"));
       for (i = 0; i < deferred_count; i++)
 	{
 	  struct deferred_opt *opt = &deferred_opts[i];
@@ -1426,32 +1430,36 @@ finish_options ()
 	      && cpp_push_include (parse_in, opt->arg))
 	    cpp_scan_nooutput (parse_in);
 	}
-      cpp_change_file (parse_in, LC_LEAVE, NULL);
     }
 
   include_cursor = 0;
+
+  cpp_find_main_file (parse_in, tif);
+  push_command_line_include ();
 }
 
 /* Give CPP the next file given by -include, if any.  */
 static void
 push_command_line_include (void)
 {
-  if (cpp_opts->preprocessed)
-    return;
-
   while (include_cursor < deferred_count)
     {
       struct deferred_opt *opt = &deferred_opts[include_cursor++];
 
-      if (opt->code == OPT_include && cpp_push_include (parse_in, opt->arg))
+      if (! cpp_opts->preprocessed && opt->code == OPT_include
+	  && cpp_push_include (parse_in, opt->arg))
 	return;
     }
 
   if (include_cursor == deferred_count)
     {
+      include_cursor++;
+      /* Restore the line map from <command line>.  */
+      if (! cpp_opts->preprocessed)
+	cpp_change_file (parse_in, LC_LEAVE, NULL);
       /* -Wunused-macros should only warn about macros defined hereafter.  */
       cpp_opts->warn_unused_macros = warn_unused_macros;
-      include_cursor++;
+      cpp_push_main_file (parse_in);
     }
 }
 
@@ -1464,6 +1472,9 @@ cb_file_change (cpp_reader *pfile ATTRIBUTE_UNUSED,
     pp_file_change (new_map);
   else
     fe_file_change (new_map);
+
+  if (new_map == 0 || (new_map->reason == LC_LEAVE && MAIN_FILE_P (new_map)))
+    push_command_line_include ();
 }
 
 /* Set the C 89 standard (with 1994 amendments if C94, without GNU

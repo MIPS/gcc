@@ -728,13 +728,9 @@ _cpp_get_fresh_line (cpp_reader *pfile)
 			       "no newline at end of file");
 	}
  
-      if (buffer->return_at_eof)
-	{
-	  _cpp_pop_buffer (pfile);
-	  return false;
-	}
-
       _cpp_pop_buffer (pfile);
+      if (pfile->buffer == NULL)
+	return false;
     }
 }
 
