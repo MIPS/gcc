@@ -1,3 +1,14 @@
+2005-03-04  Devang Patel  <dpatel@apple.com>
+
+	Radar 4028625
+	* doc/invoke.texi: Remove reference to webpage that does not exist.
+
+2005-03-04  Devang Patel  <dpatel@apple.com>
+
+	Radar 4017230
+	* doc/invoke.texi: Use 4.0 instead of 3.4 at the beginning of manual.
+
+
 2005-03-03  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3897244
