@@ -1,3 +1,14 @@
+2003-08-18  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-alias-ander.c: Remove doxygen markers.
+	(eq_to_var): remove.
+	(simple_cmp): Add.
+	(throwaway_global): Add.
+	(andersen_same_points_to_set): Handle ignoring global var aliasing the 
+	right way here.
+	(andersen_may_alias): Use list_member to avoid stupid hack.
+	* tree-alias-common.c: Remove hacks for disabling global var aliasing.
+
 2003-08-17  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree.c (resize_phi_node): Initialize new entries.

@@ -49,15 +49,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "libcompat/regions.h"
 #include "andersen_terms.h"
 
-/**
-   @file tree-alias-ander.c
-   Andersen's interprocedural points-to analysis.
-   This is a flow-insensitive, context insensitive algorithm.
-
-   @todo Don't pass alias ops as first argument, just have a global
-   "current_alias_ops".
-*/
-
+/*  Andersen's interprocedural points-to analysis.
+    This is a flow-insensitive, context insensitive algorithm.
+    
+    Todo: Don't pass alias ops as first argument, just have a global
+    "current_alias_ops".  */
+				
 static unsigned int id_num = 1;
 static FILE *dump_file;
 static int dump_flags;
@@ -695,26 +692,50 @@ andersen_function_call (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 }
 
 
-static aterm stupid_hack;
-static bool eq_to_var (const aterm);
-static bool
-eq_to_var (const aterm term)
-{
-  return stupid_hack == term;
-}
-static int simple_eq (const aterm a, const aterm b)
+/* Simple pointer comparison function for list sorting.  */
+static int 
+simple_cmp (const aterm a, const aterm b)
 {
   return (int *)a - (int *)b;
 }
+
+/* All this global var hackiness is because global_var is overloaded
+   in meaning. It's used for both call clobbering, and determining if
+   the global variable is aliased.  In order not to break call
+   clobbering, we delete global var when we are done, if we created
+   it.  
+   We also ignore global_var aliasing in that case, but we still
+   have to go through the motions because something like this can
+   happen (IE global var still participates in aliasing relationships):
+   global_var = &a;
+   b = global_var;  */
 extern bool we_created_global_var;
+extern tree old_global_var;
+
+/* Simple function that returns false if the aterm is the global
+   variable's aterm, and true otherwise.  */
+static bool 
+throwaway_global (const aterm a)
+{
+  if (DECL_PTA_TYPEVAR (old_global_var))
+    {
+      if (a == ALIAS_TVAR_ATERM (DECL_PTA_TYPEVAR (old_global_var)))
+	return false;
+    }
+  return true;
+}
+
+/* Determine if two aterm's have the same points-to set.
+   When we didn't create global_var, we can just get the two points-to
+   sets and compare the lengths, then the names.
+   When we did create global_var, we have to filter it out.  */
 static bool
 andersen_same_points_to_set (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 			     alias_typevar ptrtv, alias_typevar vartv)
 {
   aterm_list ptset1, ptset2;
   aterm_list_scanner scan1, scan2;
-  void *data1, *data2;
-  size_t length1, length2;
+  aterm data1, data2;
   region scratch_rgn = newregion ();
 
   ptset1 = ALIAS_TVAR_PTSET (ptrtv);
@@ -729,28 +750,47 @@ andersen_same_points_to_set (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
       ptset2 = aterm_tlb (pta_get_contents (ALIAS_TVAR_ATERM (vartv)));
       ALIAS_TVAR_PTSET (vartv) = ptset2;
     }
-  if (aterm_list_length (ptset1) != aterm_list_length (ptset2))
-    return false;
+  
+  if (!we_created_global_var)
+    {
+      if (aterm_list_length (ptset1) != aterm_list_length (ptset2))
+	return false;
+    }
   if (ptset1 == ptset2)
     return true;
-  length1 = aterm_list_length (ptset1);
-  length2 = aterm_list_length (ptset2);
+
   ptset1 = aterm_list_copy (scratch_rgn, ptset1);
   ptset2 = aterm_list_copy (scratch_rgn, ptset2);
   
-  ptset1 = aterm_list_sort (ptset1, simple_eq);
-  ptset2 = aterm_list_sort (ptset2, simple_eq);
+  if (we_created_global_var)
+    {
+      ptset1 = aterm_list_filter (scratch_rgn, ptset1, throwaway_global);
+      ptset2 = aterm_list_filter (scratch_rgn, ptset2, throwaway_global);
+    }
+  if (aterm_list_length (ptset1) != aterm_list_length (ptset2))
+    return false;
+
+  ptset1 = aterm_list_sort (ptset1, simple_cmp);
+  ptset2 = aterm_list_sort (ptset2, simple_cmp);
   
   aterm_list_scan (ptset1, &scan1);
   aterm_list_scan (ptset2, &scan2);
-  while (list_next (&scan1, &data1))
+  while (aterm_list_next (&scan1, &data1))
     {
-      list_next (&scan2, &data2);
+      aterm_list_next (&scan2, &data2);
       if (data1 != data2)
-	return false;
+	{
+	  deleteregion(scratch_rgn);
+	  return false;
+	}
     }
+  deleteregion(scratch_rgn);
   return true;  
 }
+
+
+/* Determine if two variables may alias.  In our case, this means
+   whether the decl represented by PTRTV can point to VARTV.  */
 static bool
 andersen_may_alias (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 		    alias_typevar ptrtv, alias_typevar vartv)
@@ -767,7 +807,5 @@ andersen_may_alias (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
   if (aterm_list_empty (ptset))
     return false;
 
-  stupid_hack = ALIAS_TVAR_ATERM (vartv);
-
-  return aterm_list_find (ptset, eq_to_var) != NULL;
+  return aterm_list_member (ptset, ALIAS_TVAR_ATERM (vartv));
 }

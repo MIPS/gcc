@@ -321,14 +321,11 @@ intra_function_call (varray_type args)
 	  alias_typevar tempvar;
 	  tree temp = create_tmp_alias_var (void_type_node, "aliastmp");
 	  tempvar = current_alias_ops->add_var (current_alias_ops, temp);
-	  if (!we_created_global_var)
-	    {
-	      /* Arguments can alias globals, and whatever they point to
-		 can point to a global as well. */
-	      current_alias_ops->addr_assign (current_alias_ops, argav, av);
-	      current_alias_ops->addr_assign (current_alias_ops, tempvar, av);
-	      current_alias_ops->assign_ptr (current_alias_ops, argav, tempvar);
-	    }
+	  /* Arguments can alias globals, and whatever they point to
+	     can point to a global as well. */
+	  current_alias_ops->addr_assign (current_alias_ops, argav, av);
+	  current_alias_ops->addr_assign (current_alias_ops, tempvar, av);
+	  current_alias_ops->assign_ptr (current_alias_ops, argav, tempvar);
 	}
     }
   /* We assume assignments among the actual parameters. */
@@ -443,16 +440,6 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       lhsAV = get_alias_var (op0);
       /* rhsAV might not have one, c.f. c = 5 */
       rhsAV = get_alias_var (op1);
-
-      if (we_created_global_var)
-	{
-	  rhsAV = rhsAV == get_alias_var (global_var) ? NULL : rhsAV;
-	  if (lhsAV == get_alias_var (global_var))
-	    {
-	      *walk_subtrees = 0;
-	      return NULL_TREE;
-	    }
-	}
 
       /* You would think we could test rhsAV at the top, rather than
 	 50 separate times, but we can't, because it can be NULL for
@@ -747,7 +734,7 @@ create_fun_alias_var (tree decl, int force)
 	      /* FIXME: Need to let analyzer decide in partial case. */
 	      && (!current_alias_ops->ip_partial
 		  || !TREE_STATIC (decl)
-		  || TREE_PUBLIC (decl)) && !we_created_global_var)
+		  || TREE_PUBLIC (decl)))
 	    current_alias_ops->addr_assign (current_alias_ops, tvar,
 					    get_alias_var (global_var));
 	}
@@ -930,7 +917,7 @@ create_alias_var (tree decl)
 
   return avar;
 }
-
+tree old_global_var = NULL_TREE;
 /**
    @brief Create points-to sets for a function.
    @param fndecl Function we are creating alias variables for.
@@ -950,6 +937,7 @@ create_alias_vars (tree fndecl)
   currptadecl = fndecl;
   if (!global_var)
     {
+      old_global_var = NULL_TREE;
       create_global_var ();
       we_created_global_var = true;
     }
@@ -989,7 +977,10 @@ create_alias_vars (tree fndecl)
   walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
 				find_func_aliases, NULL);
   if (we_created_global_var)
-    global_var = NULL_TREE;
+    {  
+      old_global_var = global_var;
+      global_var = NULL_TREE;
+    }
 
 }
 
