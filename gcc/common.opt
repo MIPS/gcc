@@ -1,5 +1,5 @@
 ; Options for the language- and target-independent parts of the compiler.
-; Copyright (C) 2003 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -206,6 +206,10 @@ Align the start of loops
 
 falign-loops=
 Common RejectNegative Joined UInteger
+
+fall-data-deps
+Common
+Analyze all the data dependences 
 
 fargument-alias
 Common
@@ -576,6 +580,10 @@ frounding-math
 Common
 Disable optimizations that assume default FP rounding behavior
 
+fscalar-evolutions
+Common
+Enable the analysis of scalar evolutions on trees
+
 fsched-interblock
 Common
 Enable scheduling across basic blocks
@@ -707,10 +715,6 @@ ftree-combine-temps
 Common
 Coalesce memory temporaries in the SSA->normal pass
 
-ftree-ter
-Common
-Replace temporary expressions in the SSA->normal pass
-
 ftree-dominator-opts
 Common
 Enable dominator optimizations
@@ -723,10 +727,6 @@ ftree-must-alias
 Common
 Detect must-alias relations to remove pointer de-references
 
-ftree-sra
-Common
-Perform scalar replacement of aggregates
-
 ftree-points-to=
 Common Joined RejectNegative
 
@@ -734,13 +734,13 @@ ftree-pre
 Common
 Enable SSA-PRE optimization on trees
 
-fscalar-evolutions
+ftree-sra
 Common
-Enable the analysis of scalar evolutions on trees
+Perform scalar replacement of aggregates
 
-fall-data-deps
+ftree-ter
 Common
-Analyze all the data dependences 
+Replace temporary expressions in the SSA->normal pass
 
 ftree-vectorize
 Common

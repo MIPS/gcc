@@ -1,3 +1,7 @@
+2004-01-04  Andreas Jaeger  <aj@suse.de>
+
+	* common.opt: Re-order some options in ASCII collating orders.
+
 2004-01-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfghooks.h (struct cfg_hooks): New fields split_block_after_labels
