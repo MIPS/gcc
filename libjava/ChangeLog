@@ -1,5 +1,12 @@
 2004-06-28  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/plaf/basic/BasicRootPaneUI.java:
+	Import javax.swing.UIManager explicitely.
+	* javax/swing/plaf/basic/BasicTabbedPaneUI.java
+	(ScrollingButton): Made it static.
+
+2004-06-28  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/text/AttributeSet.java
 	(CharacterAttribute): New interface
 	(ColorAttribute): Likewise.
