@@ -50,7 +50,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static void mf_xform_derefs PARAMS ((tree));
 static void mf_xform_decls PARAMS ((tree, tree));
 static void mf_init_extern_trees PARAMS ((void));
-static tree mf_find_addrof PARAMS ((tree, tree));
 static tree mf_varname_tree PARAMS ((tree));
 static tree mf_file_function_line_tree PARAMS ((const char *, int));
 static void mf_enqueue_register_call PARAMS ((const char*, tree, tree, tree));
@@ -59,7 +58,6 @@ static tree mf_mostly_copy_tree_r PARAMS ((tree *, int *, void *));
 static tree mx_flag PARAMS ((tree));
 static tree mx_xfn_indirect_ref PARAMS ((tree *, int *, void *));
 static tree mx_xfn_xform_decls PARAMS ((tree *, int *, void *));
-static tree mx_xfn_find_addrof PARAMS ((tree *, int *, void *));
 
 static tree mf_offset_expr_of_array_ref PARAMS ((tree, tree *, tree *, tree *));
 static tree mf_build_check_statement_for PARAMS ((tree, tree, tree, tree, 
@@ -993,7 +991,7 @@ mx_register_decls (decl, compound_expr)
 	  (! DECL_EXTERNAL (decl)) && /* not extern variable */
 	  (COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (decl))) && /* complete type */
 	  (! TREE_MUDFLAPPED_P (decl)) && /* not already processed */
-	  mf_find_addrof (*compound_expr, decl)) /* has address taken */
+	  (TREE_ADDRESSABLE (decl))) /* has address taken */
 	{
 	  /* (& VARIABLE, sizeof (VARIABLE)) */
 	  tree unregister_fncall_params =
@@ -1120,77 +1118,6 @@ mf_xform_decls (fnbody, fnparams)
   walk_tree_without_duplicates (& fnbody, mx_xfn_xform_decls, & d);
 }
 
-
-
-/* As a tree traversal function, find the first expression node within
-   the given tree that is an ADDR_EXPR or ARRAY_REF of the given
-   VAR_DECL.
-*/
-static tree
-mx_xfn_find_addrof (t, continue_p, data)
-     tree *t;
-     int *continue_p;
-     void *data;
-{
-  tree decl = (tree) data;
-  tree gotit = NULL;
-  tree operand = NULL;
-
-  *continue_p = 1;
-
-  if (*t == NULL_TREE)
-    return gotit;
-
-  if (TREE_MUDFLAPPED_P (*t))
-    return gotit;
-
-  switch (TREE_CODE(*t))
-    {
-    case ARRAY_REF:
-    case ADDR_EXPR:
-      operand = TREE_OPERAND (*t, 0);
-
-      /* Back out to the largest containing structure. */
-      while (TREE_CODE (operand) == COMPONENT_REF)
-	operand = TREE_OPERAND (operand, 0);
-
-      /* Is the enclosing object the declared thing we're looking for? */
-      if ((TREE_CODE (operand) == VAR_DECL ||
-	   TREE_CODE (operand) == PARM_DECL) && 
-	  (decl == operand))
-	gotit = *t;
-      break;
-
-    default:
-      break;
-    }
-
-
-#if 0
-	if (gotit != NULL)
-	  {
-	  fprintf (stderr, "matched decl=");
-	  print_generic_expr (stderr, decl, 0);
-	  fprintf (stderr, " in tree=");
-	  print_generic_expr (stderr, gotit, 0);
-	  fprintf (stderr, "\n");
-	  }
-#endif
-
-  return gotit;
-}
-
-
-
-/* Find and return any instance of an ADDR_EXPR tree referring to decl
-   under the given statement.  */
-static tree
-mf_find_addrof (stmt, decl)
-     tree stmt;
-     tree decl;
-{
-  return walk_tree_without_duplicates (& stmt, mx_xfn_find_addrof, decl);
-}
 
 /* ------------------------------------------------------------------------ */
 /* global variable transform */
