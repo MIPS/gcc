@@ -1,3 +1,8 @@
+2003-12-23  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (all_architectures): Add armv6.
+	* doc/invoke.texi: Document it.
+
 2003-12-23  Zack Weinberg  <zack@codesourcery.com>
 	    Nathan Sidwell  <nathan@codesourcery.com>
 	    Mark Mitchell  <mark@codesourcery.com>
