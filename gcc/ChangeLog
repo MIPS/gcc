@@ -1,4 +1,50 @@
-2003-08-15  Per Bothner  <per@bothner.com>
+2003-08-15  Per Bothner  <pbothner@apple.com>
+
+	* toplev.c (server_argv, server_argc):  New static variables.
+	(server_loop):  Save options from 'F' command in server_argv
+	and server_argc, after comparing with previously saved options.
+
+	* gcc.c (write_switch_fds_request):  Use 'D' rather 'F' as command.
+	* toplev.c (server_loop):  Fix conflicting use of 'F' command.
+
+	* gcc.c (default_compilers):  Don't pass -fserver to @.cc1-server.
+	(execute):  Pass command options to server as 'F' command.
+	* toplev.c (server_get_command):  Recognize and ignore 'F' command.
+
+2003-08-15  Mike Stump  <mrs@apple.com>
+
+	* gcc.c:  Add stdin/stderr/stdout redirection, fixes -pipe.
+	(send_fd, write_switch_fds_request):  New function.
+	* toplev.c:  Add stdin/stderr/stdout redirection, fixes -pipe.
+	(get_fd, push_to_fd, pop_fd):  New functions.
+	* toplev.c:  Add umask support for server.
+	
+2003-08-15  Per Bothner  <pbothner@apple.com>
+
+	* gcc.c (ENABLE_SERVER):  New macro.
+	(struct infile, infile, n_infiles, input_file_compiler):  Move earlier.
+	(use_server, kill_server, server_socket_name, server_socket):
+	New variables.
+	(cpp_unique_options, cc1_options, default_compilers):  Handle --server.
+	(option_map):  New entries for --server and --kill-server.
+	(delete_temp_fie):  Handle (poorly) kill_server.
+	(execute):  If --server, pass command to server.
+	(process_command):  Handle -server and --kill-server.
+	(get_server_socket, write_input_request, write_output_request,
+	write_input_requests):	New functions.
+	* toplev.c (ENABLE_SERVER):  New macros.
+	(server_mode, server_timeout):  New variable.
+	(f_options):  Add server_mode.
+	* toplev.c (server_get_command, server_loop):  New functions.
+	(compile_file):  Split into compile_file_parse and compile_file_finish.
+ 	(process_options):  Move stuff to do_compile and lang_dependent_init.
+	(do_compile):  Move backend_init call to lang_dependent_init.
+	(finalize):  Re-set first_global_object_name and
+	weak_global_object_name.
+	(do_compile):  Loop over in_fnames.
+	(toplev_main):  Call server_loop if requested.
+
+2003-08-15  Per Bothner  <pbothner@apple.com>
 
 	* c-decl.c (first_builtin_decl,  last_builtin_decl):  Removed fields.
 	Susbumed by builtins_fragment.

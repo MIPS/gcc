@@ -84,6 +84,14 @@ compilation is specified by a string called a "spec".  */
 #include "gcc.h"
 #include "flags.h"
 
+#define ENABLE_SERVER 1
+
+#ifdef ENABLE_SERVER
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/uio.h>
+#endif
+
 #ifdef HAVE_SYS_RESOURCE_H
 #include <sys/resource.h>
 #endif
@@ -222,6 +230,23 @@ static int save_temps_flag;
 
 static int use_pipes;
 
+#ifdef ENABLE_SERVER
+static int use_server;
+static int kill_server;
+#endif
+
+struct infile
+{
+  const char *name;
+  const char *language;
+};
+
+/* Also a vector of input files specified.  */
+
+static struct infile *infiles;
+
+int n_infiles;
+
 /* The compiler version.  */
 
 static const char *compiler_version;
@@ -344,6 +369,15 @@ static int execute (void);
 static void alloc_args (void);
 static void clear_args (void);
 static void fatal_error (int);
+#ifdef ENABLE_SERVER
+static int server_socket = -1;
+static const char *server_socket_name = NULL;
+static int get_server_socket (const char *);
+static void write_input_request (const char *, int, int);
+static void write_input_requests (int);
+static void write_switch_fds_request (int);
+static void write_output_request (const char *, int);
+#endif
 #ifdef ENABLE_SHARED_LIBGCC
 static void init_gcc_specs (struct obstack *, const char *, const char *,
 			    const char *);
@@ -745,7 +779,7 @@ static const char *cpp_unique_options =
  %{MMD:-MMD %{!o:%b.d}%{o*:%.d%*}}\
  %{M} %{MM} %{MF*} %{MG} %{MP} %{MQ*} %{MT*}\
  %{!E:%{!M:%{!MM:%{MD|MMD:%{o*:-MQ %*}}}}}\
- %{trigraphs} %{remap} %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %i\
+ %{trigraphs} %{remap} %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %{!server:%i}\
  %{E|M|MM:%W{o*}}";
 
 /* This contains cpp options which are common with cc1_options and are passed
@@ -764,14 +798,14 @@ static const char *cpp_debug_options = "%{d*}";
 /* NB: This is shared amongst all front-ends.  */
 static const char *cc1_options =
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
- %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
- -auxbase%{c|S:%{o*:-strip %*}%{!o*: %b}}%{!c:%{!S: %b}}\
+ %1 %{!Q:-quiet} %{!server:-dumpbase %B} %{d*} %{m*} %{a*}\
+ %{!server:-auxbase%{c|S:%{o*:-strip %*}%{!o*: %b}}%{!c:%{!S: %b}}}\
  %{g*} %{O*} %{W*&pedantic*} %{w} %{std*} %{ansi}\
  %{v:-version} %{pg:-p} %{p} %{f*} %{undef}\
  %{Qn:-fno-ident} %{--help:--help}\
- %{--target-help:--target-help}\
+ %{--target-help:--target-help} %{-param*}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
- %{fsyntax-only:-o %j} %{-param*}";
+ %{fsyntax-only:-o %j}";
 
 static const char *asm_options =
 "%a %Y %{c:%W{o*}%{!o*:-o %w%b%O}}%{!c:-o %d%w%u%O}";
@@ -909,7 +943,7 @@ static const struct compiler default_compilers[] =
 		    cc1 -fpreprocessed %{save-temps:%b.i} %{!save-temps:%g.i} \
 			%(cc1_options)}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
-		cc1 %(cpp_unique_options) %(cc1_options)}}}\
+		%{!server:cc1} %{server:@.cc1-server} %(cpp_unique_options) %(cc1_options)}}}\
         %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {"-",
    "%{!E:%e-E required when input is from standard input}\
@@ -959,6 +993,9 @@ static const struct compiler default_compilers[] =
 /* Number of elements in default_compilers, not counting the terminator.  */
 
 static const int n_default_compilers = ARRAY_SIZE (default_compilers) - 1;
+
+/* The compiler used to process the current input file.  */
+static struct compiler *input_file_compiler;
 
 /* A vector of options to give to the linker.
    These options are accumulated by %x,
@@ -1029,6 +1066,7 @@ static const struct option_map option_map[] =
    {"--include-with-prefix", "-iwithprefix", "a"},
    {"--include-with-prefix-before", "-iwithprefixbefore", "a"},
    {"--include-with-prefix-after", "-iwithprefix", "a"},
+   {"--kill-server", "-kill-server", 0},
    {"--language", "-x", "a"},
    {"--library-directory", "-L", "a"},
    {"--machine", "-m", "aj"},
@@ -1062,6 +1100,7 @@ static const struct option_map option_map[] =
    {"--quiet", "-q", 0},
    {"--resource", "-fcompile-resource=", "aj"},
    {"--save-temps", "-save-temps", 0},
+   {"--server", "-server", 0},
    {"--shared", "-shared", 0},
    {"--silent", "-q", 0},
    {"--specs", "-specs=", "aj"},
@@ -2247,6 +2286,18 @@ delete_temp_files (void)
   for (temp = always_delete_queue; temp; temp = temp->next)
     delete_if_ordinary (temp->name);
   always_delete_queue = 0;
+
+#ifdef ENABLE_SERVER
+  if (kill_server)
+    {
+      static char kill_request[5] = "T'0'\n";
+      get_server_socket (".cc1-server"); /* FIXME */
+      if (write (server_socket, kill_request, 5) != 5)
+	pfatal_with_name ("(socket write)");
+    }
+  if (server_socket >= 0)
+    close (server_socket);
+#endif
 }
 
 /* Delete all the files to be deleted on error.  */
@@ -2607,6 +2658,7 @@ execute (void)
   int i;
   int n_commands;		/* # of command.  */
   char *string;
+  int ret_code = 0;
   struct command
   {
     const char *prog;		/* program name.  */
@@ -2743,6 +2795,82 @@ execute (void)
       char *errmsg_fmt, *errmsg_arg;
       const char *string = commands[i].argv[0];
 
+#ifdef ENABLE_SERVER
+      if (use_server && string[0] == '@' && string[1] == '.')
+	{
+	  int sock = get_server_socket (string + 1);
+	  char buf[1024];
+	  int has_o;
+	  int argc;
+	  int n_read;
+	  int rcode = 0;
+	  void *base;
+	  int wlen;
+
+	  for (argc = 0; commands[i].argv[argc] != NULL; argc++) ;
+	  has_o = argc > 2 &&  strcmp (commands[i].argv[argc-2], "-o") == 0;
+	  fprintf (stderr, "before writing to socket!\n");
+	  write_switch_fds_request (sock);
+
+	  { /* Send flags to server. */
+	    int j;
+	    obstack_1grow (&obstack, 'F');
+	    for (j = 1;  j < argc - 2 * has_o;  j++)
+	      {
+		char *arg = commands[i].argv[j];
+		obstack_1grow (&obstack, '\000');
+		obstack_grow (&obstack, arg, strlen (arg) + 1);
+	      }
+	    obstack_1grow (&obstack, '\n');
+	    base = obstack_base (&obstack);
+	    wlen = obstack_object_size (&obstack);
+	    if (write (sock, base, wlen) != wlen)
+	      pfatal_with_name ("(socket write)");
+	    obstack_free (&obstack, base);
+	  }
+
+	  write_input_requests (sock);
+	  if (has_o)
+	    write_output_request (commands[i].argv[argc-1], sock);
+	  else
+	    write_output_request ("", sock);
+	  for (;;)
+	    {
+	      int j;
+	      n_read = read (sock, buf, sizeof(buf));
+	      if (n_read <= 0)
+		break; /* FIXME */
+	      for (j = 0;  j < n_read;  j++)
+		{
+		  char c = buf[j];
+		  if (c == 1)
+		    {
+		      j++;
+		      if (j == n_read)
+			{
+			  n_read = read (sock, buf, 1);
+			  j = 0;
+			}
+		      rcode = buf[j];
+		      goto close_socket;
+		    }
+		  putc (c, stderr);
+		}
+	    }
+	close_socket:
+	  /*close (sock);*/
+	  fprintf (stderr, "server's return code: %d\n", rcode);
+	  if (rcode >= MIN_FATAL_STATUS)
+	    {
+	      if (rcode > greatest_status)
+		greatest_status = rcode;
+	      ret_code = -1;
+	    }
+	  commands[i].pid = -1;
+	}
+      else
+#endif
+	{
       /* For some bizarre reason, the second argument of execvp() is
 	 char *const *, not const char *const *.  */
       commands[i].pid = pexecute (string, (char *const *) commands[i].argv,
@@ -2759,6 +2887,7 @@ execute (void)
 
       if (string != commands[i].prog)
 	free ((void *) string);
+	}
     }
 
   execution_count++;
@@ -2770,7 +2899,6 @@ execute (void)
      since they can be spawned by the process that exec'ed us.  */
 
   {
-    int ret_code = 0;
 #ifdef HAVE_GETRUSAGE
     struct timeval d;
     double ut = 0.0, st = 0.0;
@@ -2780,9 +2908,17 @@ execute (void)
       {
 	int j;
 	int status;
-	int pid;
+	int pid = commands[i].pid;;
 
-	pid = pwait (commands[i].pid, &status, 0);
+#ifdef ENABLE_SERVER
+	if (pid == -1)
+	  {
+	    i++;
+	    continue;
+	  }
+#endif
+
+	pid = pwait (pid, &status, 0);
 	if (pid < 0)
 	  abort ();
 
@@ -2881,18 +3017,6 @@ struct switchstr
 static struct switchstr *switches;
 
 static int n_switches;
-
-struct infile
-{
-  const char *name;
-  const char *language;
-};
-
-/* Also a vector of input files specified.  */
-
-static struct infile *infiles;
-
-int n_infiles;
 
 /* True if multiple input files are being compiled to a single
    assembly file.  */
@@ -3085,8 +3209,8 @@ process_command (int argc, const char *const *argv)
   char *temp1;
   const char *spec_lang = 0;
   int last_language_n_infiles;
-  int have_c = 0;
-  int have_o = 0;
+  int have_c;
+  int have_o;
   int lang_n_infiles = 0;
 #ifdef MODIFY_TARGET_NAME
   int is_modify_target_name;
@@ -3525,6 +3649,18 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  use_pipes = 1;
 	  n_switches++;
 	}
+#ifdef ENABLE_SERVER
+      else if (strcmp (argv[i], "-server") == 0)
+	{
+	  use_server = 1;
+	  n_switches++;
+	}
+      else if (strcmp (argv[i], "-kill-server") == 0)
+	{
+	  kill_server = 1;
+	  n_switches++;
+	}
+#endif
       else if (strcmp (argv[i], "-###") == 0)
 	{
 	  /* This is similar to -v except that there is no execution
@@ -3831,7 +3967,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
   n_infiles = 0;
   last_language_n_infiles = -1;
 
-  /* This, time, copy the text of each switch and store a pointer
+  /* This time, copy the text of each switch and store a pointer
      to the copy in the vector of switches.
      Store all the infiles in their vector.  */
 
@@ -3871,6 +4007,8 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	;
       else if (! strcmp (argv[i], "-ftarget-help"))
 	;
+      else if (! strcmp (argv[i], "-fkill-server"))
+	switches[n_switches++].validated = 1;
       else if (! strcmp (argv[i], "-fhelp"))
 	;
       else if (argv[i][0] == '+' && argv[i][1] == 'e')
@@ -4033,6 +4171,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	}
     }
 
+
   if (n_infiles == last_language_n_infiles && spec_lang != 0)
     error ("warning: `-x %s' after last input file has no effect", spec_lang);
 
@@ -4146,9 +4285,6 @@ static const char *input_basename;
 static const char *input_suffix;
 static struct stat input_stat;
 static int input_stat_set;
-
-/* The compiler used to process the current input file.  */
-static struct compiler *input_file_compiler;
 
 /* These are variables used within do_spec and do_spec_1.  */
 
@@ -5654,6 +5790,135 @@ process_brace_body (const char *p, const char *atom, const char *end_atom,
 
   return p;
 }
+
+#ifdef ENABLE_SERVER
+static int
+get_server_socket (const char *socket_name)
+{
+  struct sockaddr_un server;
+  if (server_socket >= 0
+      && server_socket_name != NULL
+      && strcmp (server_socket_name, socket_name) != 0)
+    {
+      free ((PTR) server_socket_name);
+      server_socket_name = NULL;
+      close (server_socket);
+      server_socket = -1;
+    }
+  if (server_socket < 0)
+    {
+      server_socket = socket (AF_UNIX, SOCK_STREAM, 0);
+      if (server_socket < 0)
+	fatal ("can't create socket");
+      server.sun_family = AF_UNIX;
+      fprintf (stderr, "created socket: %d path:%s max:%d\n", server_socket,
+	      socket_name, (int) sizeof(server.sun_path));
+      sprintf (server.sun_path, "%.*s", (int) sizeof (server.sun_path)-1,
+	      socket_name);
+      server_socket_name = xstrdup (socket_name);
+
+      if (connect (server_socket, (struct sockaddr *) &server, sizeof(struct sockaddr_un)) < 0)
+	{
+#if 0
+	  ... try starting server ...;
+#endif
+	  close (server_socket);
+	  perror ("connecting stream socket");
+	  exit (1);
+	}
+    }
+  return server_socket;
+}
+
+static void
+write_input_request (const char *filename, int filename_length, int fd)
+{
+  int wlen;
+  void *base;
+  obstack_grow (&obstack, "I\000", 2);
+  obstack_grow (&obstack, filename, filename_length);
+  obstack_grow (&obstack, "\000\n", 2);
+  base = obstack_base (&obstack);
+  wlen = obstack_object_size (&obstack);
+  if (write (fd, base, wlen) != wlen)
+    pfatal_with_name ("(socket write)");
+  obstack_free (&obstack, base);
+}
+
+static void
+write_output_request (const char *filename, int fd)
+{
+  int filename_length = strlen (filename);
+  int wlen;
+  void *base;
+  obstack_grow (&obstack, "O\000", 2);
+  obstack_grow (&obstack, filename, filename_length);
+  obstack_grow (&obstack, "\000\n", 2);
+  base = obstack_base (&obstack);
+  wlen = obstack_object_size (&obstack);
+  if (write (fd, base, wlen) != wlen)
+    pfatal_with_name ("(socket write)");
+  obstack_free (&obstack, base);
+}
+
+static void
+write_input_requests (int sock)
+{
+  if (combine_inputs)
+    {
+      int j;
+      for (j = 0; (int) j < n_infiles; j++)
+	write_input_request (infiles[j].name,
+			     strlen (infiles[j].name),
+			     sock);
+    }
+  else
+    {
+      write_input_request (input_filename, input_filename_length, sock);
+    }
+}
+
+static void
+send_fd (int fd, int sock)
+{
+  struct msghdr msg;
+  char controlmsg[CMSG_SPACE(sizeof (fd))];
+  struct cmsghdr *cmsg;
+  struct iovec vec;
+  char *str = "x";
+  
+  msg.msg_name = 0;
+  msg.msg_namelen = 0;
+  vec.iov_base = str;
+  vec.iov_len = 1;
+  msg.msg_iov = &vec;
+  msg.msg_iovlen = 1;
+  msg.msg_control = controlmsg;
+  msg.msg_controllen = sizeof (controlmsg);
+  cmsg = CMSG_FIRSTHDR(&msg);
+  cmsg->cmsg_level = SOL_SOCKET;
+  cmsg->cmsg_type = SCM_RIGHTS;
+  cmsg->cmsg_len = CMSG_LEN(sizeof (fd));
+  *(int*)CMSG_DATA(cmsg) = fd;
+  msg.msg_controllen = cmsg->cmsg_len;
+  msg.msg_flags = 0;
+
+  if (sendmsg (sock, &msg, 0) == -1)
+    abort ();
+}
+
+static void
+write_switch_fds_request (int sock)
+{
+  static char req[2] = "D\n";
+  if (write (sock, req, 2) != 2)
+    pfatal_with_name ("(socket write)");
+  send_fd (0, sock);
+  send_fd (1, sock);
+  send_fd (2, sock);
+}
+#endif
+
 
 /* Return 0 iff switch number SWITCHNUM is obsoleted by a later switch
    on the command line.  PREFIX_LENGTH is the length of XXX in an {XXX*}

@@ -79,6 +79,23 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "opts.h"
 #include "coverage.h"
 
+#define ENABLE_SERVER 1
+#define USE_SELECT 1
+
+#ifdef USE_POLL
+#include <sys/poll.h>
+#endif
+#ifdef USE_SELECT
+#include <sys/time.h>
+#include <sys/time.h>
+#include <unistd.h>
+#endif
+#ifdef ENABLE_SERVER
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/uio.h>
+#endif
+
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
 #endif
@@ -113,9 +130,13 @@ static int lang_dependent_init (const char *);
 static void init_asm_output (const char *);
 static void finalize (void);
 
+static int server_get_command (int, char**, int*, int*, int*);
+static void server_loop (void);
+
 static void crash_signal (int) ATTRIBUTE_NORETURN;
 static void setup_core_dumping (void);
-static void compile_file (void);
+static void compile_file_parse (void);
+static void compile_file_finish (void);
 
 static int print_single_switch (FILE *, int, int, const char *,
 				const char *, const char *,
@@ -176,6 +197,9 @@ const char *progname;
 /* Copy of argument vector to toplev_main.  */
 static const char **save_argv;
 
+/* -1: compile single file; 0: compile multiple files; 1: server. */
+int server_mode = -1;
+
 /* Name of top-level original source file (what was input to cpp).
    This comes from the #-command at the beginning of the actual input.
    If there isn't any there, then this is the cc1 input file name.  */
@@ -1006,6 +1030,7 @@ static const param_info lang_independent_params[] = {
 
 static const lang_independent_options f_options[] =
 {
+  {"server", &server_mode, 2 },
   {"eliminate-dwarf2-dups", &flag_eliminate_dwarf2_dups, 1 },
   {"eliminate-unused-debug-symbols", &flag_debug_only_used_symbols, 1 },
   {"eliminate-unused-debug-types", &flag_eliminate_unused_debug_types, 1 },
@@ -1713,13 +1738,13 @@ pop_srcloc (void)
   input_file_stack_tick++;
 }
 
-/* Compile an entire translation unit.  Write a file of assembly
-   output and various debugging dumps.  */
+/* Compile an entire translation unit.  Write a file of assembly output
+   and various debugging dumps.  Called once for each translation unit.  */
 
 static void
-compile_file (void)
-{
-  /* Initialize yet another pass.  */
+compile_file_parse (void)
+{ 
+ /* Initialize yet another pass.  */
 
   init_final (main_input_filename);
   coverage_init (aux_base_name);
@@ -1737,7 +1762,14 @@ compile_file (void)
   /* Compilation is now finished except for writing
      what's left of the symbol table output.  */
   timevar_pop (TV_PARSE);
+}
 
+/* After processing an entire translation unit, finish the compilation.
+   Only called once for each output file, even for many input files.  */
+
+static void
+compile_file_finish ()
+{
   if (flag_syntax_only)
     return;
 
@@ -4030,30 +4062,10 @@ general_init (const char *argv0)
 static void
 process_options (void)
 {
-  /* Allow the front end to perform consistency checks and do further
-     initialization based on the command line options.  This hook also
-     sets the original filename if appropriate (e.g. foo.i -> foo.c)
-     so we can correctly initialize debug output.  */
-  no_backend = (*lang_hooks.post_options) (&main_input_filename);
-  input_filename = main_input_filename;
-
 #ifdef OVERRIDE_OPTIONS
   /* Some machines may reject certain combinations of options.  */
   OVERRIDE_OPTIONS;
 #endif
-
-  /* Set aux_base_name if not already set.  */
-  if (aux_base_name)
-    ;
-  else if (main_input_filename)
-    {
-      char *name = xstrdup (lbasename (main_input_filename));
-
-      strip_off_ending (name, strlen (name));
-      aux_base_name = name;
-    }
-  else
-    aux_base_name = "gccaux";
 
   /* Set up the align_*_log variables, defaulting them to 1 if they
      were still unset.  */
@@ -4272,12 +4284,28 @@ backend_init (void)
 static int
 lang_dependent_init (const char *name)
 {
+  /* Set aux_base_name if not already set.  */
+  if (aux_base_name)
+    ;
+  else if (dump_base_name)
+    {
+      char *aname = xstrdup (dump_base_name);
+      
+      strip_off_ending (aname, strlen (aname));
+      aux_base_name = aname;
+    }
+  else
+    aux_base_name = "gccaux";
+
   if (dump_base_name == 0)
     dump_base_name = name ? name : "gccdump";
 
   /* Other front-end initialization.  */
   if ((*lang_hooks.init_eachsrc) () == 0)
     return 0;
+
+  /* Set up the back-end if requested.  */
+  backend_init ();
 
   init_asm_output (name);
 
@@ -4365,6 +4393,18 @@ finalize (void)
 
   /* Language-specific end of compilation actions.  */
   (*lang_hooks.finish) ();
+
+  if (first_global_object_name != NULL)
+    {
+      free ((void *) first_global_object_name);
+      first_global_object_name = NULL;
+    }
+
+  if (weak_global_object_name != NULL)
+    {
+      free ((void *) weak_global_object_name);
+      weak_global_object_name = NULL;
+    }
 }
 
 /* Initialize the compiler.  */
@@ -4373,6 +4413,9 @@ init_compile_once (void)
 {
   /* The bulk of the command line switch processing.  */
   process_options ();
+
+  if (server_mode < 0 && num_in_fnames > 1)
+    server_mode = 0;
 
   init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
 		  || debug_info_level == DINFO_LEVEL_VERBOSE
@@ -4386,49 +4429,388 @@ init_compile_once (void)
   (*lang_hooks.init_once) ();
 }
 
-/* Initialize the compiler, and compile the input file.  */
+/* Do most of the (post-initialization) compilation, if not in server mode. */
 static void
 do_compile (void)
 {
+  unsigned i;
+
   /* Initialize timing first.  The C front ends read the main file in
      the post_options hook, and C++ does file timings.  */
   if (time_report || !quiet_flag  || flag_detailed_statistics)
     timevar_init ();
   timevar_start (TV_TOTAL);
 
-  /* Don't do any more if an error has already occurred.  */
-  if (!errorcount)
+  lang_dependent_init (in_fnames[0]);
+  for (i = 0;  i < num_in_fnames;  i++)
     {
-      /* Set up the back-end if requested.  */
-      if (!no_backend)
-	backend_init ();
+      const char *filename = in_fnames[i];
+      main_input_filename = input_filename = filename;
 
-      /* Language-dependent initialization.  Returns true on success.  */
-      if (lang_dependent_init (main_input_filename))
+      if (flag_unit_at_a_time)
 	{
-	  if (flag_unit_at_a_time)
-	    {
-	      open_dump_file (DFI_cgraph, NULL);
-	      cgraph_dump_file = rtl_dump_file;
-	      rtl_dump_file = NULL;
-	    }
-
-	  compile_file ();
-
-	  if (flag_unit_at_a_time)
-	    {
-	      rtl_dump_file = cgraph_dump_file;
-	      cgraph_dump_file = NULL;
-              close_dump_file (DFI_cgraph, NULL, NULL_RTX);
-	    }
+	  open_dump_file (DFI_cgraph, NULL);
+	  cgraph_dump_file = rtl_dump_file;
+	  rtl_dump_file = NULL;
 	}
 
-      finalize ();
+      no_backend = (*lang_hooks.post_options) (&filename);
+
+      if (! no_backend)
+	{
+	  if (i > 0)
+	    (*lang_hooks.init_eachsrc) ();
+	  compile_file_parse ();
+	}
+      if (flag_unit_at_a_time)
+	{
+	  rtl_dump_file = cgraph_dump_file;
+	  cgraph_dump_file = NULL;
+	  close_dump_file (DFI_cgraph, NULL, NULL_RTX);
+	}
     }
+  if (! no_backend)
+    compile_file_finish ();
+  finalize ();
 
   /* Stop timing and print the times.  */
   timevar_stop (TV_TOTAL);
   timevar_print (stderr);
+}
+
+/* Read a single server command from FD.
+   Each server command starts with a command letter.
+   Next is an arbitrary char interpreted as the quote delimiter
+   for the current command. (For human-readable command input or debugging,
+   use '"' or '\''; for production use '\0' is recommended.)
+   The command ends with the first CR or LF which is not within quotes.
+   (*BUFP) is used as an input buffer, which may be reallocated if needed.
+   (*BLENP) is the allocated length of (*BUFP).
+   (*LIMP) is the index just past the last valid byte in (*BUFP).
+   (*POSP) is where to start reading the next line.
+   Returns the first char (the command letter) or -1 on end of file or timeout.
+   On successful return, the command letter is in (*BUFP)[0],
+   and the ending CR or LF is in (*BUFP)[*POSP-1].  */
+static int
+server_get_command (int fd, char **bufp, int *posp, int *limp, int *blenp)
+{
+  int quote = 0;
+  int in_quote = 0;
+  int pos = *posp;
+  int blen = *blenp;
+  int limit = *limp;
+  char *buf = *bufp;
+ again:
+  if (pos > 0)
+    {
+      memmove (buf, buf + pos, limit - pos);
+      limit -= pos;
+      pos = 0;
+    }
+  for (;;)
+    {
+      char ch;
+      if (pos >= limit)
+	{
+	  ssize_t count;
+	  int avail = blen - limit;
+	  if (avail < 100)
+	    {
+	      blen = 2 * blen;
+	      buf = xrealloc (buf, blen);
+	      *bufp = buf;
+	      *blenp = blen;
+	      avail = blen - limit;
+	    }
+	  count = read (fd, buf + pos, avail);
+	  if (count <= 0)
+	    {
+	      if (pos > 0)
+		fatal_error ("unexpected end-of-file in server command input");
+	      return -1;
+	    }
+	  limit += count;
+	}
+      ch = buf[pos++];
+      if ((ch == '\r' || ch == '\n') && ! in_quote)
+	{
+	  if (pos == 1)
+	    goto again;
+	  *posp = pos;
+	  *limp = limit;
+	  return buf[0] & 0xff;
+	}
+      if (pos == 2)
+	quote = ch;
+      if (ch == quote)
+	in_quote = 1 - in_quote;
+    }
+}
+
+static int
+get_fd (int sock)
+{
+  struct msghdr msg;
+  struct iovec iov;
+  char buf[1];
+  int rv;
+  char controlmsg[CMSG_SPACE(sizeof (int))];
+  struct cmsghdr *cmsg;
+
+  iov.iov_base = buf;
+  iov.iov_len = 1;
+  msg.msg_name = 0;
+  msg.msg_namelen = 0;
+  msg.msg_iov = &iov;
+  msg.msg_iovlen = 1;
+  msg.msg_control = controlmsg;
+  msg.msg_controllen = sizeof (controlmsg);
+    
+  rv = recvmsg (sock, &msg, 0);
+  if (rv == -1) {
+    perror ("recvmsg");
+    return -1;
+  }
+
+  cmsg = CMSG_FIRSTHDR(&msg);
+  if (!cmsg->cmsg_type == SCM_RIGHTS) {
+    /* fprintf (stderr, "bad type for control message: %d\n", cmsg->cmsg_type); */
+    return -1;
+  }
+  return *(int*)CMSG_DATA(cmsg);
+} 
+
+static int old_fd[3] = { -1, -1, -1 };
+
+static void
+push_to_fd (int fd0, int fd1, int fd2)
+{
+  if (old_fd[0] != -1)
+    abort ();
+  old_fd[0] = dup (0);
+  old_fd[1] = dup (1);
+  old_fd[2] = dup (2);
+  close (0);
+  close (1);
+  close (2);
+  dup2 (fd0, 0);
+  dup2 (fd1, 1);
+  dup2 (fd2, 2);
+}
+
+static void
+pop_fd (void)
+{
+  if (old_fd[0] == -1)
+    abort ();
+  close (0);
+  close (1);
+  close (2);
+  dup2 (old_fd[0], 0);
+  dup2 (old_fd[1], 1);
+  dup2 (old_fd[2], 2);
+  close (old_fd[0]);
+  close (old_fd[1]);
+  close (old_fd[2]);
+  old_fd[0] = -1;
+  old_fd[1] = -1;
+  old_fd[2] = -1;
+}
+
+/* How long server should  wait for request, in milliseconds. */
+
+static long server_timeout;
+
+/* The options passed by the gcc client when we're in server mode. */
+static char** server_argv;
+
+/* The number of elements of server_argv. */
+static int server_argc;
+
+/* Main "event loop" when in compile server mode.
+   Read a server command and process it. */
+
+static void
+server_loop ()
+{
+  int blen = 200;
+  char *command_buffer = xmalloc (blen);
+  int fd = 0;
+  int pos = 0;
+  int limit = 0;
+  int command;
+  int omask;
+#ifdef ENABLE_SERVER
+  struct sockaddr_un server;
+  int sock = socket (AF_UNIX, SOCK_STREAM, 0);
+
+  if (sock < 0)
+    fatal_error ("can't create server socket: %m");
+  server.sun_family = AF_UNIX;
+  sprintf (server.sun_path, "./.%s-server", progname);
+
+  /* We tighten down the compile server to the current user.  */
+  omask = umask (0077);
+  /* FIXME - remove for production, testing is easier if we don't do this. */
+  /* unlink (server.sun_path); */
+  if (bind (sock, (struct sockaddr *) &server, sizeof (struct sockaddr_un))) 
+    {
+      /* This is a second invocation of a compiler server, we don't need two.  */
+      if (errno == EADDRINUSE)
+	{
+	  close (sock);
+	  return;
+	}
+	
+      fatal_error ("can't bind server socket %s: %m", server.sun_path);
+    }
+  listen (sock, 5);
+  umask (omask);
+  fd = -1;
+#endif /* ENABLE_SERVER */
+  for (;;)
+    {
+#ifdef ENABLE_SERVER
+      if (fd < 0)
+	{
+	  fd = accept (sock, 0, 0);
+	  if (fd < 0)
+	    fatal_error("can't connect to client socket: %m");
+	}
+#endif /* ENABLE_SERVER */
+      /* dup2 (fd, 2); */
+      command = server_get_command (fd, &command_buffer, &pos, &limit, &blen);
+      if (command < 0)
+	{
+#ifdef ENABLE_SERVER
+	  close (fd);
+	  fd = -1;
+	  continue;
+#else /* ! ENABLE_SERVER */
+	  break;
+#endif /* ! ENABLE_SERVER */
+	}
+
+      /*fprintf (stderr, "command '%c', '%.*s'\n", command, pos-2, command_buffer+1);*/
+      if (command == 'O') /* "output" */
+	{
+	  int i;
+	  char xbuf[100];
+	  int asm_name_length = pos - 4;
+	  char *abuf = xmalloc (asm_name_length+1);
+	  char *fname = command_buffer + 2;
+	  fname [asm_name_length] = 0;
+	  memcpy (abuf, fname, asm_name_length+1);
+	  asm_file_name = abuf;
+	  if (! quiet_flag)
+	    fprintf (stderr, "Assembler file: '%s'\n", asm_file_name);
+
+	  do_compile ();
+
+	  for (i = num_in_fnames;  --i >= 0; )
+	    {
+	      const char *name = in_fnames[i];
+	      free ((void*) name);
+	      in_fnames[i] = NULL;
+	    }
+	  in_fnames = NULL;
+	  num_in_fnames = 0;
+	  sprintf (xbuf, "(done compiling)\n");
+	  write (fd, xbuf, strlen (xbuf));
+	  xbuf[0] = 1;
+	  xbuf[1] = (errorcount || sorrycount ? FATAL_EXIT_CODE
+		     : SUCCESS_EXIT_CODE);
+	  write (fd, xbuf, 2);
+	  if (old_fd[0] != -1)
+	    pop_fd ();
+	}
+      else if (command == 'I') /* "input" */
+	{
+	  const char *filename;
+	  command_buffer[pos-2] = 0;
+	  filename = xstrdup (command_buffer + 2);
+	  fprintf (stderr, "Source file: '%s'\n", filename);
+	  add_input_filename (filename);
+	}
+      else if (command == 'F') /* flags */
+	{
+	  int quote = command_buffer[1];
+	  int nargs = 0;
+	  int matches_old_flags;
+	  int i;
+	  char *start;
+	  matches_old_flags = server_argv != NULL;
+
+	  start = command_buffer + 2;;
+	  for (i = 2;  i < pos - 1;  i++)
+	    {
+	      if (command_buffer[i] == quote)
+		{
+		  command_buffer[i] = '\0';  /* In case quote != '\0'. */
+		  if (start != NULL)
+		    { /* End of argument */
+		      if (nargs >= server_argc
+			  ||  strcmp (server_argv[nargs], start) != 0)
+			matches_old_flags = 0;
+		      nargs++;
+		      start = NULL;
+		    }
+		  else
+		    start = command_buffer + i + 1;
+		}
+	    }
+	  if (! matches_old_flags)
+	    {
+	      char ** argv = xmalloc (nargs * sizeof (char*));
+	      int iarg = 0;
+	      start = command_buffer + 2;
+	      for (i = 2;  i < pos - 1;  i++)
+		{
+		  if (command_buffer[i] == '\0')
+		    {
+		      if (start != NULL)
+			{
+			  argv[iarg++] = xstrdup (start);
+			  start = NULL;
+			}
+		      else
+			start = command_buffer + i + 1;
+		    }
+		}
+	      if (server_argv != NULL)
+		free (server_argv);
+	      server_argv = argv;
+	      server_argc = nargs;
+#if 0
+	      for (iarg = 0;  iarg < server_argc;  iarg++)
+		fprintf (stderr, "Flag: '%s'\n", server_argv[iarg]);
+#endif
+	    }
+	}
+      else if (command == 'T')
+	{
+	  char *num = command_buffer + 1;
+	  char first = *num;
+	  if (first < '0' || first > '9')  num++;
+	  server_timeout = atol (num);
+	  if (server_timeout == 0)
+	    break;
+	  warning ("non-zero server timeout not implemented");
+	}
+      else if (command == 'D')
+	{
+	  int fd0 = get_fd (fd);
+	  int fd1 = get_fd (fd);
+	  int fd2 = get_fd (fd);
+	  push_to_fd (fd0, fd1, fd2);
+	}
+      else
+	fatal_error ("server received uncognized command");
+    }
+#ifdef ENABLE_SERVER
+  close (sock);
+  unlink (server.sun_path);
+#endif
 }
 
 /* Entry point of cc1, cc1plus, jc1, f771, etc.
@@ -4458,7 +4840,12 @@ toplev_main (unsigned int argc, const char **argv)
 
       /* If an error has already occurred, give up.  */
       if (! errorcount)
-	do_compile ();
+	{
+	  if (server_mode > 0)
+	    server_loop ();
+	  else
+	    do_compile ();
+	}
     }
 
   if (errorcount || sorrycount)
