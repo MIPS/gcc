@@ -4247,6 +4247,8 @@ p   * <li>the set of backward traversal keys
       case MouseEvent.MOUSE_EXITED:
       case MouseEvent.MOUSE_PRESSED:
       case MouseEvent.MOUSE_RELEASED:
+      case MouseEvent.MOUSE_MOVED:
+      case MouseEvent.MOUSE_DRAGGED:
         return (mouseListener != null
                 || mouseMotionListener != null
                 || (eventMask & AWTEvent.MOUSE_EVENT_MASK) != 0);

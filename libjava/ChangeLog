@@ -1,3 +1,10 @@
+2004-02-24  David Jee  <djee@redhat.com>
+
+	* java/awt/Component.java
+	(eventTypeEnabled): Add MOUSE_MOVED and MOUSE_DRAGGED event types.
+	* java/awt/Container.java
+	(addNotifyContainerChildren): Fix event enabling.
+
 2004-02-23  Olga Rodimina  <rodimina@redhat.com>
 
 	* Makefile.am: Added 

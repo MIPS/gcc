@@ -1337,10 +1337,10 @@ public class Container extends Component
 
                 // If we're not lightweight, and we just got a lightweight
                 // child, we need a lightweight dispatcher to feed it events.
-                if (! this.isLightweight() 
-                    && dispatcher == null)
+                if (! this.isLightweight()) 
                   {
-                    dispatcher = new LightweightDispatcher (this);
+                    if (dispatcher == null)
+                      dispatcher = new LightweightDispatcher (this);
                     dispatcher.enableEvents (component[i].eventMask);
                   }	
 	  
