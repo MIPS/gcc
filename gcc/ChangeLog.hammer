@@ -1,5 +1,7 @@
 2003-11-10  Andreas Jaeger  <aj@suse.de>
 
+	* ada/Makefile.in (gnattools2): Remove gnatpsta.
+
 	* ada/7sosprim.adb: tv_usec of struct_timeval and time_t are
 	long integer.
 

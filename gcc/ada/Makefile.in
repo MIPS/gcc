@@ -1609,7 +1609,7 @@ gnattools2: ../stamp-tools
 	  TOOLSCASE=native \
 	  ../../gnatchop$(exeext) ../../gnat$(exeext) ../../gnatkr$(exeext) \
 	  ../../gnatls$(exeext) ../../gnatprep$(exeext) \
-	  ../../gnatpsta$(exeext) ../../gnatxref$(exeext) \
+	  ../../gnatxref$(exeext) \
           ../../gnatfind$(exeext) ../../gnatname$(exeext)
 
 # These tools are only built for the native version.
