@@ -257,7 +257,7 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
 	         with the next edge out of the current node.  */
 	      if (bn == ex_block || di->dfs_order[bn->index])
 		{
-	  	  ix++;
+		  ix++;
 		  continue;
 		}
 	      bb = e->dest;
@@ -269,7 +269,7 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
 	      bn = e->dest;
 	      if (bn == ex_block || di->dfs_order[bn->index])
 		{
-	  	  ix++;
+		  ix++;
 		  continue;
 		}
 	      bb = e->src;
@@ -488,6 +488,7 @@ calc_idoms (struct dom_info *di, enum cdi_direction reverse)
   TBB v, w, k, par;
   basic_block en_block;
   VEC(edge) *ev;
+  unsigned ix, ix_next;
 
   if (reverse)
     en_block = EXIT_BLOCK_PTR;
@@ -500,17 +501,19 @@ calc_idoms (struct dom_info *di, enum cdi_direction reverse)
     {
       basic_block bb = di->dfs_to_bb[v];
       edge e;
-      unsigned ix;
 
       par = di->dfs_parent[v];
       k = v;
+
       ev = (reverse) ? bb->succs : bb->preds;
+      ix = 0;
+
       if (reverse)
 	{
 	  /* If this block has a fake edge to exit, process that first.  */
 	  if (bitmap_bit_p (di->fake_exit_edge, bb->index))
 	    {
-	      ix = -1;
+	      ix_next = 0;
 	      goto do_fake_exit_edge;
 	    }
 	}
@@ -519,10 +522,14 @@ calc_idoms (struct dom_info *di, enum cdi_direction reverse)
          to them.  That way we have the smallest node with also a path to
          us only over nodes behind us.  In effect we search for our
          semidominator.  */
-      FOR_EACH_EDGE (e, ev)
+      while (ix < EDGE_COUNT (ev))
 	{
 	  TBB k1;
-	  basic_block b = (reverse) ? e->dest : e->src;
+	  basic_block b;
+
+	  e = EDGE_I (ev, ix);
+	  b = (reverse) ? e->dest : e->src;
+	  ix_next = ix + 1;
 
 	  if (b == en_block)
 	    {
@@ -538,8 +545,9 @@ calc_idoms (struct dom_info *di, enum cdi_direction reverse)
 	    k1 = di->key[eval (di, k1)];
 	  if (k1 < k)
 	    k = k1;
+
+	  ix = ix_next;
 	}
-      END_FOR_EACH_EDGE;
 
       di->key[v] = k;
       link_roots (di, par, v);
