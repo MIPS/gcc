@@ -1,3 +1,220 @@
+2004-07-14  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	Backport from mainline:
+	2004-07-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/13926
+	* config/sparc/sparc-protos.h (output_ubranch): New prototype.
+	* config/sparc/sparc.c (output_ubranch): New function.
+	* config/sparc/sparc.md (jump pattern): Use it.
+
+2004-07-13  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR rtl-optimization/16380
+	* loop.c (check_dbra_loop): Sink comparison instructions if they
+	do something other than set cc0.
+
+2004-07-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/16494
+	* config/sparc/sparc.c (output_cbranch): Properly guard
+	the code handling far branches with TARGET_V9.
+	* config/sparc/sparc.md (length attribute): Document the
+	side-effect of having a length greater or equal to 3.
+
+2004-07-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Lloyd Parkes  <lloyd@must-have-coffee.gen.nz>
+
+	PR target/15186
+	* config/sparc/sol2-bi.h (LINK_ARCH64_SPEC_BASE): Pass
+	/usr/ucblib/sparcv9 as -R path when -compat-bsd is specified.
+
+2004-07-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Martin Sebor  <sebor@roguewave.com>
+
+	PR target/12602
+	* doc/invoke.texi (SPARC options): Document -threads
+	and -pthreads on Solaris.
+
+2004-07-13  Anthony Heading  <aheading@jpmorgan.com>
+
+	* configure.ac (gcc_cv_as_offsetable_lo10: Fix a typo.
+	* configure: Rebuilt.
+
+2004-07-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/16445
+	* config/ia64/ia64.c (bundling): Don't count ignored insns.
+
+2004-07-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (output_indirect_call): Only use %r2 as the link register in
+	indirect calls with the long PA 2.0 pc-relative branch.
+
+2004-07-10  James E Wilson  <wilson@specifixinc.com>
+
+	* config/gofast.h (gofast_maybe_init_libfuncs): Use SImode for litodp.
+
+2004-07-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* Backport from mainline:
+	2004-07-08  Paolo Bonzini  <bonzini@gnu.org>
+		    Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (override_options): Enable
+	SSE prefetches with -mtune, as long as we are
+	compiling for i686 or higher.  All i686 processors
+	accept SSE prefetches as NOPS, some i586's don't.
+
+	2004-07-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (override_options): Don't set x86_prefetch_sse
+	from -mtune= option.
+
+2004-07-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/16372
+	* fold-const.c (build_range_check): Use TYPE_MODE's precision for
+	enumerals.
+
+2004-07-09  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/16459
+	* pa.c (output_indirect_call): Use %r2 as the link register when
+	calling $$dyncall with a pc-relative branch.
+
+2004-07-08  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (Binaries): Mention OpenPKG.
+
+2004-07-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/16416
+	* config/sparc/sol2-bi.h (OPTION_DEFAULT_SPECS): New macro.
+	Override default settings to account for -m32 and -m64.
+
+2004-07-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/16414
+	* config/ia64/ia64.c (ia64_dfa_new_cycle): Fix typo in comparison
+	of asm_noperands result.
+
+2004-07-08  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/16430
+	* config/sparc/sparc.c (function_value): In 64-bit mode,
+	return the aggregates larger than 16 bytes like unions.
+
+2004-07-08  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/16199
+	* config/sparc/sparc.c (sparc_emit_set_symbolic_const64): When
+	'temp' is zero, generate new pseudos as needed and emit the
+	sequence of insns in single-assignment form.  Resync comments
+	with code.
+	(sparc_emit_set_const64): Pass zero as 'temp' argument to above
+	function before reload.
+
+2004-07-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR target/16407
+	* config/mips/mips-protos.h (mips_declare_common_object): Declare.
+	* config/mips/mips.c (mips_declare_common_object): New function,
+	mostly split out from...
+	(mips_output_aligned_decl_common): ...here.
+	* config/mips/mips.h (ASM_OUTPUT_LOCAL): Remove in favor of...
+	(ASM_OUTPUT_ALIGNED_LOCAL): ...this new definition.
+	* config/mips/iris6.h (ASM_OUTPUT_ALIGNED_LOCAL): Undefine this
+	rather than ASM_OUTPUT_LOCAL.  Call mips_declare_common_object.
+
+2004-07-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/15815
+	* doc/extend.texi (C++ Interface): Correct information and
+	discourage use.
+
+2004-07-07  Andreas Schwab  <schwab@suse.de>
+
+	* config/ia64/ia64.md: Define new attribute "empty".
+	(prologue_use, nop_x, insn_group_barrier): Set it.
+
+	* config/ia64/ia64.c (ia64_reorg): When looking for trailing call
+	skip over "empty" insns.
+
+2004-07-07  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/16130
+	PR target/16142
+	PR target/16143
+	* config/ia64/ia64.c (ia64_dfa_new_cycle): Reset DFA state for asm
+	insn.
+	
+2004-07-06  Kazuhiro Inaoka  <inaoka.kazuhiro@renesas.com>
+
+	PR target/1679.
+	* config/m32r/m32r.c (m32r_function_symbol): New function:
+	Generate a symbol name RTX with the correct m32r specific flags
+	set. 
+	(block_move_call): Use new function to generate correct symbol.
+	* config/m32r/m32r-protos.h: Add prototype for new funcion.
+	* config/m32r/m32r.h (INITIALIZE_TRAMPOLINE): Use the new
+	function.
+
+2004-07-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR target/16357
+	* config/mips/mips.c (mips_block_move_straight): Pass BLKmode memrefs
+	to mips_expand_unaligned_load, mips_expand_unaligned_store, and
+	move_by_pieces.
+
+2004-07-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR target/15869
+	* config/mips/mips.c (mips_avoid_hazards): Call split_all_insns_noflow.
+
+2004-07-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* doc/include/gcc-common.texi: Increment version number.
+	* version.c (version_string): Likewise.
+
+2004-07-06  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/sourcebuild.texi: Use semicolons instead of commas in
+	section title.
+
+2004-07-06  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/bugreport.texi, doc/configterms.texi, doc/contrib.texi,
+	doc/contribute.texi, doc/cpp.texi, doc/cppinternals.texi,
+	doc/extend.texi, doc/install.texi, doc/invoke.texi, doc/md.texi,
+	doc/portability.texi, doc/trouble.texi: Avoid some first-person
+	references and patronizing comments.  Based on printed manual.
+	* doc/invoke.texi: Don't reference fortran@gnu.org.
+	* doc/trouble.texi (Warning when a non-void function value is
+	ignored): Rewrite.  From Russ Allbery and Chris Devers.
+
+2004-07-06  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/cppinternals.texi, doc/install.texi, doc/invoke.texi,
+	doc/md.texi, doc/sourcebuild.texi, doc/tm.texi, doc/trouble.texi:
+	Use terminology "testsuite" and "enumerated".
+
+2004-07-06  Eric Christopher  <echristo@redhat.com>
+
+	PR rtl-optimization/14700
+	Backport from mainline:
+	2004-06-30  Zack Weinberg  <zack@codesourcery.com>
+	* combine.c (distribute_notes): Don't look at global_regs for
+        pseudos.
+
+	2004-06-24  Eric Christopher  <echristo@redhat.com>
+	* combine.c (distribute_notes): Don't delete sets to
+        global register variables.
+
+2004-07-04  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/contrib.texi (Contributors): Adjust link for GNU Classpath.
+
 2004-07-01  Release Manager
 
 	* GCC 3.4.1 released.
@@ -24,13 +241,13 @@
 	PR wrong-code/15089
 	* loop.c (scan_loop): Do not move user-specified register
 	assignments.
-	
+
 2004-06-25  Mark Mitchell  <mark@codesourcery.com>
 
 	PR wrong-code/16129
 	* alias.c (get_alias_set): Adjust setting of
 	DECL_POINTER_ALIAS_SET for pointers to aggregates.
-	
+
 2004-06-25  Richard Sandiford  <rsandifo@redhat.com>
 
 	PR target/16144

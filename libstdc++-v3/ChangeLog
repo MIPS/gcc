@@ -1,3 +1,114 @@
+2004-07-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (time_get<>::do_get_time,
+	time_get<>::do_get_date): Use only once _M_extract_via_format,
+	instead of going through "%X"/"%x" and calling it two times
+	(+ using widen).
+
+2004-07-14  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/16401
+	* include/bits/sstream.tcc (overflow): When reallocating _M_string
+	use an exponential grow policy.
+	* testsuite/27_io/basic_stringbuf/overflow/char/1.cc: New.
+	* testsuite/performance/27_io/stringbuf_overflow.cc: New.
+
+2004-07-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/concurrence.h: Tweak comments.
+
+2004-07-12  Benjamin Kosnik  <bkoz@redhat.com>
+            Per Bothner  <per@bothner.com>
+	    Mohan Embar  <gnustuff@thisiscool.com>
+
+	PR libstdc++/16248
+	* include/bits/concurrence.h (__glibcxx_mutex_type): New.
+	(__glibcxx_mutex): Encapsulate mutex init function into type for
+	threaded configurations without __GTHREAD_MUTEX_INIT.
+	(lock::lock): Make device member a reference.
+	(lock::~lock): Same.
+	* include/ext/pool_allocator.h (__pool_base::_M_get_mutex): Change
+	to mutex_type.
+	* src/allocator.cc: Same.
+
+2004-07-12  Brad Spencer  <spencer@infointeractive.com>
+
+	* include/ext/mt_allocator.h: Handle allocations at static
+	initialization that happen before _S_options is (automatically)
+	constructed; set _S_init even if _M_force_new is true.
+
+2004-07-12  Paul Brook  <paul@codesourcery.com>
+
+	* include/bits/concurrence.h: Still create mutex object when
+	single-threaded.
+
+2004-07-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/concurrence.h (__gnu_cxx::lock): New.
+	* include/ext/pool_allocator.h (__pool_base::_Lock::_S_lock): Remove.
+	(__pool_base::_M_get_mutex): New.
+	* include/bits/allocator.h: Tweak.
+	* src/allocator.cc (__pool_base::_M_get_free_list): Correct offset.
+
+	* src/allocator.cc: Move all instantiations...
+	* src/allocator-inst.cc: ...here.
+
+2004-07-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/pool_allocator.h: Qualify __throw_bad_alloc.
+	(__pool_base): Remove unused template parameter.  Add
+	protected. Move lock data into __pool_base::_Lock. Remove static
+	on member functions.
+	(__pool_base::_M_get_free_list): New.
+	(__pool_alloc): Move _S_force new here.
+	* src/allocator.cc: Move out of line __pool_base definitions here.
+	* config/linker-map.gnu: Export bits from __pool_base.
+
+2004-07-07  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.ac (libtool_VERSION): To 6:2:0.
+	* configure: Regenerated.
+
+	* testsuite/testsuite_abi.cc (check_version): Add 3.4.2.
+
+2004-07-07  Aaron W. LaFramboise  <aaronraolete36@aaronwl.com>
+
+	PR libstdc++/16411
+	* config/linker-map.gnu: Add stdio_sync_filebuf::file exports.
+	
+2004-07-06  Anssi Hannula  <anssi.hannula@mbnet.fi>
+
+	PR libstdc++/15928
+	* crossconfig.m4: Add in bits for djgpp.
+	* configure: Regenerate.
+
+2004-07-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/16210
+	* acinclude.m4 (GLIBCXX_ENABLE_LONG_LONG): Do not check for the
+	availability of strto(u)ll, not used anymore in the iostreams.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2004-07-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/cpp_type_traits.h: Move the additions to
+	namespace __gnu_internal outside of namespace std; trivial
+	formatting fixes.
+
+2004-07-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/17_intro/contribute.html: Update some links.
+	* docs/html/17_intro/porting-howto.html: Likewise.
+	* docs/html/17_intro/porting-howto.xml: Likewise.
+	* docs/html/18_support/howto.html: Likewise.
+	* docs/html/21_strings/howto.html: Likewise.
+	* docs/html/27_io/howto.html: Likewise.
+	* docs/html/configopts.html: Likewise.
+	* docs/html/ext/howto.html: Likewise.
+	* docs/html/faq/index.html: Likewise.
+	* docs/html/install.html: Don't mention 2.x compilers.
+
 2004-07-01  Release Manager
 
 	* GCC 3.4.1 released.

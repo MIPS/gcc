@@ -3460,33 +3460,33 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
      the source has enough alignment, otherwise use left/right pairs.  */
   for (offset = 0, i = 0; offset + delta <= length; offset += delta, i++)
     {
-      rtx part;
-
       regs[i] = gen_reg_rtx (mode);
-      part = adjust_address (src, mode, offset);
-      if (MEM_ALIGN (part) >= bits)
-	emit_move_insn (regs[i], part);
-      else if (!mips_expand_unaligned_load (regs[i], part, bits, 0))
-	abort ();
+      if (MEM_ALIGN (src) >= bits)
+	emit_move_insn (regs[i], adjust_address (src, mode, offset));
+      else
+	{
+	  rtx part = adjust_address (src, BLKmode, offset);
+	  if (!mips_expand_unaligned_load (regs[i], part, bits, 0))
+	    abort ();
+	}
     }
 
   /* Copy the chunks to the destination.  */
   for (offset = 0, i = 0; offset + delta <= length; offset += delta, i++)
-    {
-      rtx part;
-
-      part = adjust_address (dest, mode, offset);
-      if (MEM_ALIGN (part) >= bits)
-	emit_move_insn (part, regs[i]);
-      else if (!mips_expand_unaligned_store (part, regs[i], bits, 0))
-	abort ();
-    }
+    if (MEM_ALIGN (dest) >= bits)
+      emit_move_insn (adjust_address (dest, mode, offset), regs[i]);
+    else
+      {
+	rtx part = adjust_address (dest, BLKmode, offset);
+	if (!mips_expand_unaligned_store (part, regs[i], bits, 0))
+	  abort ();
+      }
 
   /* Mop up any left-over bytes.  */
   if (offset < length)
     {
-      src = adjust_address (src, mode, offset);
-      dest = adjust_address (dest, mode, offset);
+      src = adjust_address (src, BLKmode, offset);
+      dest = adjust_address (dest, BLKmode, offset);
       move_by_pieces (dest, src, length - offset,
 		      MIN (MEM_ALIGN (src), MEM_ALIGN (dest)), 0);
     }
@@ -6029,17 +6029,32 @@ mips_output_aligned_decl_common (FILE *stream, tree decl, const char *name,
 			   ":\n\t.space\t" HOST_WIDE_INT_PRINT_UNSIGNED "\n",
 			   size);
     }
-  else if (TARGET_SGI_O32_AS)
+  else
+    /* The SGI o32 assembler doesn't accept an alignment.  */
+    mips_declare_common_object (stream, name, "\n\t.comm\t",
+				size, align, !TARGET_SGI_O32_AS);
+}
+
+/* Declare a common object of SIZE bytes using asm directive INIT_STRING.
+   NAME is the name of the object and ALIGN is the required alignment
+   in bytes.  TAKES_ALIGNMENT_P is true if the directive takes a third
+   alignment argument.  */
+
+void
+mips_declare_common_object (FILE *stream, const char *name,
+			    const char *init_string,
+			    unsigned HOST_WIDE_INT size,
+			    unsigned int align, bool takes_alignment_p)
+{
+  if (!takes_alignment_p)
     {
-      /* The SGI o32 assembler doesn't accept an alignment, so round up
-	 the size instead.  */
       size += (align / BITS_PER_UNIT) - 1;
       size -= size % (align / BITS_PER_UNIT);
-      mips_declare_object (stream, name, "\n\t.comm\t",
+      mips_declare_object (stream, name, init_string,
 			   "," HOST_WIDE_INT_PRINT_UNSIGNED "\n", size);
     }
   else
-    mips_declare_object (stream, name, "\n\t.comm\t",
+    mips_declare_object (stream, name, init_string,
 			 "," HOST_WIDE_INT_PRINT_UNSIGNED ",%u\n",
 			 size, align / BITS_PER_UNIT);
 }
@@ -8754,6 +8769,9 @@ mips_avoid_hazards (void)
 {
   rtx insn, last_insn, lo_reg, delayed_reg;
   int hilo_delay, i;
+
+  /* Force all instructions to be split into their final form.  */
+  split_all_insns_noflow ();
 
   /* Recalculate instruction lengths without taking nops into account.  */
   cfun->machine->ignore_hazard_length_p = true;

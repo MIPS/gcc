@@ -6268,16 +6268,22 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
 	}
       else if (reload_completed)
 	setup_clocks_p = TRUE;
-      memcpy (curr_state, prev_cycle_state, dfa_state_size);
-      state_transition (curr_state, dfa_stop_insn);
-      state_transition (curr_state, dfa_pre_cycle_insn);
-      state_transition (curr_state, NULL);
+      if (GET_CODE (PATTERN (last_scheduled_insn)) == ASM_INPUT
+	  || asm_noperands (PATTERN (last_scheduled_insn)) >= 0)
+	state_reset (curr_state);
+      else
+	{
+	  memcpy (curr_state, prev_cycle_state, dfa_state_size);
+	  state_transition (curr_state, dfa_stop_insn);
+	  state_transition (curr_state, dfa_pre_cycle_insn);
+	  state_transition (curr_state, NULL);
+	}
     }
   else if (reload_completed)
     setup_clocks_p = TRUE;
   if (setup_clocks_p && ia64_tune == PROCESSOR_ITANIUM
       && GET_CODE (PATTERN (insn)) != ASM_INPUT
-      && asm_noperands (PATTERN (insn)) == 0)
+      && asm_noperands (PATTERN (insn)) < 0)
     {
       enum attr_itanium_class c = ia64_safe_itanium_class (insn);
 
@@ -7143,7 +7149,9 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 		      = gen_bundle_selector (GEN_INT (2)); /* -> MFI */
 		  break;
 		}
-	      else if (recog_memoized (last) != CODE_FOR_insn_group_barrier)
+	      else if (recog_memoized (last) != CODE_FOR_insn_group_barrier
+		       && (ia64_safe_itanium_class (last)
+			   != ITANIUM_CLASS_IGNORE))
 		n++;
 	    /* Some check of correctness: the stop is not at the
 	       bundle start, there are no more 3 insns in the bundle,
@@ -7602,11 +7610,12 @@ ia64_reorg (void)
       insn = get_last_insn ();
       if (! INSN_P (insn))
         insn = prev_active_insn (insn);
-      if (GET_CODE (insn) == INSN
-	  && GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
-	  && XINT (PATTERN (insn), 1) == UNSPECV_INSN_GROUP_BARRIER)
-	{
-	  saw_stop = 1;
+      /* Skip over insns that expand to nothing.  */
+      while (GET_CODE (insn) == INSN && get_attr_empty (insn) == EMPTY_YES)
+        {
+	  if (GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
+	      && XINT (PATTERN (insn), 1) == UNSPECV_INSN_GROUP_BARRIER)
+	    saw_stop = 1;
 	  insn = prev_active_insn (insn);
 	}
       if (GET_CODE (insn) == CALL_INSN)

@@ -1,3 +1,43 @@
+2004-07-13  Richard Sandiford  <rsandifo@redhat.com>
+
+	Brought in from mainline:
+	* gcc.c-torture/execute/20040706-1.c: New test.
+
+2004-07-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.mist-tests/i386-prefetch.exp (PREFETCH_SSE): Change all
+	-march=i386 into -march=i686.  Add -march=i686 -mtune=x and
+	-march=x for pentium3, pentium3m, pentium-m, pentium4m,
+	prescott and c3-2.
+	(PREFETCH_3DNOW): Add -march=c3.
+
+2004-07-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/16372
+	* gcc.dg/range-test-1.c: New test.
+	* g++.dg/opt/range-test-1.C: New test.
+
+2004-07-09  Loren James Rittle  <ljrittle@acm.org> 
+
+	* gcc.dg/builtins-config.h: Handle FreeBSD.
+
+2004-07-08  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20040708-1.c: New test.
+
+2004-07-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/16276
+	* g++.dg/rtti/tinfo1.C: New file.
+
+2004-07-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20040707-1.c: New test.
+
+2004-07-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/compile/20040705-1.c: New test.
+
 2004-07-01  Release Manager
 
 	* GCC 3.4.1 released.

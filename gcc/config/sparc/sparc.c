@@ -1420,18 +1420,25 @@ sparc_emit_set_const32 (rtx op0, rtx op1)
 }
 
 
-/* SPARC-v9 code-model support.  */
-void
-sparc_emit_set_symbolic_const64 (rtx op0, rtx op1, rtx temp1)
-{
-  rtx ti_temp1 = 0;
+/* Load OP1, a symbolic 64-bit constant, into OP0, a DImode register.
+   If TEMP is non-zero, we are forbidden to use any other scratch
+   registers.  Otherwise, we are allowed to generate them as needed.
 
-  if (temp1 && GET_MODE (temp1) == TImode)
+   Note that TEMP may have TImode if the code model is TARGET_CM_MEDANY
+   or TARGET_CM_EMBMEDANY (see the reload_indi and reload_outdi patterns).  */
+void
+sparc_emit_set_symbolic_const64 (rtx op0, rtx op1, rtx temp)
+{
+  rtx temp1, temp2, temp3, temp4, temp5;
+  rtx ti_temp = 0;
+
+  if (temp && GET_MODE (temp) == TImode)
     {
-      ti_temp1 = temp1;
-      temp1 = gen_rtx_REG (DImode, REGNO (temp1));
+      ti_temp = temp;
+      temp = gen_rtx_REG (DImode, REGNO (temp));
     }
 
+  /* SPARC-V9 code-model support.  */
   switch (sparc_cmodel)
     {
     case CM_MEDLOW:
@@ -1443,8 +1450,13 @@ sparc_emit_set_symbolic_const64 (rtx op0, rtx op1, rtx temp1)
 	 The executable must be in the low 4TB of the virtual address
 	 space.
 
-	 sethi	%hi(symbol), %temp
-	 or	%temp, %lo(symbol), %reg  */
+	 sethi	%hi(symbol), %temp1
+	 or	%temp1, %lo(symbol), %reg  */
+      if (temp)
+	temp1 = temp;  /* op0 is allowed.  */
+      else
+	temp1 = gen_reg_rtx (DImode);
+
       emit_insn (gen_rtx_SET (VOIDmode, temp1, gen_rtx_HIGH (DImode, op1)));
       emit_insn (gen_rtx_SET (VOIDmode, op0, gen_rtx_LO_SUM (DImode, temp1, op1)));
       break;
@@ -1462,11 +1474,24 @@ sparc_emit_set_symbolic_const64 (rtx op0, rtx op1, rtx temp1)
 	 or	%temp1, %m44(symbol), %temp2
 	 sllx	%temp2, 12, %temp3
 	 or	%temp3, %l44(symbol), %reg  */
-      emit_insn (gen_seth44 (op0, op1));
-      emit_insn (gen_setm44 (op0, op0, op1));
-      emit_insn (gen_rtx_SET (VOIDmode, temp1,
-			      gen_rtx_ASHIFT (DImode, op0, GEN_INT (12))));
-      emit_insn (gen_setl44 (op0, temp1, op1));
+      if (temp)
+	{
+	  temp1 = op0;
+	  temp2 = op0;
+	  temp3 = temp;  /* op0 is allowed.  */
+	}
+      else
+	{
+	  temp1 = gen_reg_rtx (DImode);
+	  temp2 = gen_reg_rtx (DImode);
+	  temp3 = gen_reg_rtx (DImode);
+	}
+
+      emit_insn (gen_seth44 (temp1, op1));
+      emit_insn (gen_setm44 (temp2, temp1, op1));
+      emit_insn (gen_rtx_SET (VOIDmode, temp3,
+			      gen_rtx_ASHIFT (DImode, temp2, GEN_INT (12))));
+      emit_insn (gen_setl44 (op0, temp3, op1));
       break;
 
     case CM_MEDANY:
@@ -1481,29 +1506,44 @@ sparc_emit_set_symbolic_const64 (rtx op0, rtx op1, rtx temp1)
 	 sethi	%hh(symbol), %temp1
 	 sethi	%lm(symbol), %temp2
 	 or	%temp1, %hm(symbol), %temp3
-	 or	%temp2, %lo(symbol), %temp4
-	 sllx	%temp3, 32, %temp5
-	 or	%temp4, %temp5, %reg  */
-
-      /* It is possible that one of the registers we got for operands[2]
-	 might coincide with that of operands[0] (which is why we made
-	 it TImode).  Pick the other one to use as our scratch.  */
-      if (rtx_equal_p (temp1, op0))
+	 sllx	%temp3, 32, %temp4
+	 or	%temp4, %temp2, %temp5
+	 or	%temp5, %lo(symbol), %reg  */
+      if (temp)
 	{
-	  if (ti_temp1)
-	    temp1 = gen_rtx_REG (DImode, REGNO (temp1) + 1);
-	  else
-	    abort();
+	  /* It is possible that one of the registers we got for operands[2]
+	     might coincide with that of operands[0] (which is why we made
+	     it TImode).  Pick the other one to use as our scratch.  */
+	  if (rtx_equal_p (temp, op0))
+	    {
+	      if (ti_temp)
+		temp = gen_rtx_REG (DImode, REGNO (temp) + 1);
+	      else
+		abort();
+	    }
+	  temp1 = op0;
+	  temp2 = temp;  /* op0 is _not_ allowed, see above.  */
+	  temp3 = op0;
+	  temp4 = op0;
+	  temp5 = op0;
+	}
+      else
+	{
+	  temp1 = gen_reg_rtx (DImode);
+	  temp2 = gen_reg_rtx (DImode);
+	  temp3 = gen_reg_rtx (DImode);
+	  temp4 = gen_reg_rtx (DImode);
+	  temp5 = gen_reg_rtx (DImode);
 	}
 
-      emit_insn (gen_sethh (op0, op1));
-      emit_insn (gen_setlm (temp1, op1));
-      emit_insn (gen_sethm (op0, op0, op1));
-      emit_insn (gen_rtx_SET (VOIDmode, op0,
-			      gen_rtx_ASHIFT (DImode, op0, GEN_INT (32))));
-      emit_insn (gen_rtx_SET (VOIDmode, op0,
-			      gen_rtx_PLUS (DImode, op0, temp1)));
-      emit_insn (gen_setlo (op0, op0, op1));
+      emit_insn (gen_sethh (temp1, op1));
+      emit_insn (gen_setlm (temp2, op1));
+      emit_insn (gen_sethm (temp3, temp1, op1));
+      emit_insn (gen_rtx_SET (VOIDmode, temp4,
+			      gen_rtx_ASHIFT (DImode, temp3, GEN_INT (32))));
+      emit_insn (gen_rtx_SET (VOIDmode, temp5,
+			      gen_rtx_PLUS (DImode, temp4, temp2)));
+      emit_insn (gen_setlo (op0, temp5, op1));
       break;
 
     case CM_EMBMEDANY:
@@ -1515,42 +1555,69 @@ sparc_emit_set_symbolic_const64 (rtx op0, rtx op1, rtx temp1)
 	 look different.
 
 	 Data segment:	sethi	%hi(symbol), %temp1
-			or	%temp1, %lo(symbol), %temp2
-			add	%temp2, EMBMEDANY_BASE_REG, %reg
-
-	 Text segment:	sethi	%uhi(symbol), %temp1
-			sethi	%hi(symbol), %temp2
-			or	%temp1, %ulo(symbol), %temp3
-			or	%temp2, %lo(symbol), %temp4
-			sllx	%temp3, 32, %temp5
-			or	%temp4, %temp5, %reg  */
+			add	%temp1, EMBMEDANY_BASE_REG, %temp2
+			or	%temp2, %lo(symbol), %reg  */
       if (data_segment_operand (op1, GET_MODE (op1)))
 	{
-	  emit_insn (gen_embmedany_sethi (temp1, op1));
-	  emit_insn (gen_embmedany_brsum (op0, temp1));
-	  emit_insn (gen_embmedany_losum (op0, op0, op1));
-	}
-      else
-	{
-	  /* It is possible that one of the registers we got for operands[2]
-	     might coincide with that of operands[0] (which is why we made
-	     it TImode).  Pick the other one to use as our scratch.  */
-	  if (rtx_equal_p (temp1, op0))
+	  if (temp)
 	    {
-	      if (ti_temp1)
-		temp1 = gen_rtx_REG (DImode, REGNO (temp1) + 1);
-	      else
-		abort();
+	      temp1 = temp;  /* op0 is allowed.  */
+	      temp2 = op0;
+	    }
+	  else
+	    {
+	      temp1 = gen_reg_rtx (DImode);
+	      temp2 = gen_reg_rtx (DImode);
 	    }
 
-	  emit_insn (gen_embmedany_textuhi (op0, op1));
-	  emit_insn (gen_embmedany_texthi  (temp1, op1));
-	  emit_insn (gen_embmedany_textulo (op0, op0, op1));
-	  emit_insn (gen_rtx_SET (VOIDmode, op0,
-				  gen_rtx_ASHIFT (DImode, op0, GEN_INT (32))));
-	  emit_insn (gen_rtx_SET (VOIDmode, op0,
-				  gen_rtx_PLUS (DImode, op0, temp1)));
-	  emit_insn (gen_embmedany_textlo  (op0, op0, op1));
+	  emit_insn (gen_embmedany_sethi (temp1, op1));
+	  emit_insn (gen_embmedany_brsum (temp2, temp1));
+	  emit_insn (gen_embmedany_losum (op0, temp2, op1));
+	}
+
+      /* Text segment:	sethi	%uhi(symbol), %temp1
+			sethi	%hi(symbol), %temp2
+			or	%temp1, %ulo(symbol), %temp3
+			sllx	%temp3, 32, %temp4
+			or	%temp4, %temp2, %temp5
+			or	%temp5, %lo(symbol), %reg  */
+      else
+	{
+	  if (temp)
+	    {
+	      /* It is possible that one of the registers we got for operands[2]
+		 might coincide with that of operands[0] (which is why we made
+		 it TImode).  Pick the other one to use as our scratch.  */
+	      if (rtx_equal_p (temp, op0))
+		{
+		  if (ti_temp)
+		    temp = gen_rtx_REG (DImode, REGNO (temp) + 1);
+		  else
+		    abort();
+		}
+	      temp1 = op0;
+	      temp2 = temp;  /* op0 is _not_ allowed, see above.  */
+	      temp3 = op0;
+	      temp4 = op0;
+	      temp5 = op0;
+	    }
+	  else
+	    {
+	      temp1 = gen_reg_rtx (DImode);
+	      temp2 = gen_reg_rtx (DImode);
+	      temp3 = gen_reg_rtx (DImode);
+	      temp4 = gen_reg_rtx (DImode);
+	      temp5 = gen_reg_rtx (DImode);
+	    }
+
+	  emit_insn (gen_embmedany_textuhi (temp1, op1));
+	  emit_insn (gen_embmedany_texthi  (temp2, op1));
+	  emit_insn (gen_embmedany_textulo (temp3, temp1, op1));
+	  emit_insn (gen_rtx_SET (VOIDmode, temp4,
+				  gen_rtx_ASHIFT (DImode, temp3, GEN_INT (32))));
+	  emit_insn (gen_rtx_SET (VOIDmode, temp5,
+				  gen_rtx_PLUS (DImode, temp4, temp2)));
+	  emit_insn (gen_embmedany_textlo  (op0, temp5, op1));
 	}
       break;
 
@@ -1930,7 +1997,7 @@ sparc_emit_set_const64 (rtx op0, rtx op1)
   unsigned HOST_WIDE_INT high_bits, low_bits;
   int lowest_bit_set, highest_bit_set;
   int all_bits_between_are_set;
-  rtx temp;
+  rtx temp = 0;
 
   /* Sanity check that we know what we are working with.  */
   if (! TARGET_ARCH64)
@@ -1946,8 +2013,6 @@ sparc_emit_set_const64 (rtx op0, rtx op1)
 
   if (reload_in_progress || reload_completed)
     temp = op0;
-  else
-    temp = gen_reg_rtx (DImode);
 
   if (GET_CODE (op1) != CONST_DOUBLE
       && GET_CODE (op1) != CONST_INT)
@@ -1955,6 +2020,9 @@ sparc_emit_set_const64 (rtx op0, rtx op1)
       sparc_emit_set_symbolic_const64 (op0, op1, temp);
       return;
     }
+
+  if (! temp)
+    temp = gen_reg_rtx (DImode);
 
   if (GET_CODE (op1) == CONST_DOUBLE)
     {
@@ -5740,6 +5808,18 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
 	    abort ();
 
 	  mode = mode_for_size (bytes * BITS_PER_UNIT, MODE_INT, 0);
+
+	  /* ??? We probably should have made the same ABI change in
+	     3.4.0 as the one we made for unions.   The latter was
+	     required by the SCD though, while the former is not
+	     specified, so we favored compatibility and efficiency.
+
+	     Now we're stuck for aggregates larger than 16 bytes,
+	     because OImode vanished in the meantime.  Let's not
+	     try to be unduly clever, and simply follow the ABI
+	     for unions in that case.  */
+	  if (mode == BLKmode)
+	    return function_arg_union_value (bytes, mode, regbase);
 	}
       else if (GET_MODE_CLASS (mode) == MODE_INT
 	       && GET_MODE_SIZE (mode) < UNITS_PER_WORD)
@@ -5907,18 +5987,77 @@ sparc_va_arg (tree valist, tree type)
   return addr_rtx;
 }
 
+/* Return the string to output an unconditional branch to LABEL, which is
+   the operand number of the label.
+
+   DEST is the destination insn (i.e. the label), INSN is the source.  */
+
+const char *
+output_ubranch (rtx dest, int label, rtx insn)
+{
+  static char string[64];
+  bool noop = false;
+  char *p;
+
+  /* TurboSPARC is reported to have problems with
+     with
+	foo: b,a foo
+     i.e. an empty loop with the annul bit set.  The workaround is to use 
+        foo: b foo; nop
+     instead.  */
+
+  if (! TARGET_V9 && flag_delayed_branch
+      && (INSN_ADDRESSES (INSN_UID (dest))
+	  == INSN_ADDRESSES (INSN_UID (insn))))
+    {
+      strcpy (string, "b\t");
+      noop = true;
+    }
+  else
+    {
+      bool v9_form = false;
+
+      if (TARGET_V9 && INSN_ADDRESSES_SET_P ())
+	{
+	  int delta = (INSN_ADDRESSES (INSN_UID (dest))
+		       - INSN_ADDRESSES (INSN_UID (insn)));
+	  /* Leave some instructions for "slop".  */
+	  if (delta >= -260000 && delta < 260000)
+	    v9_form = true;
+	}
+
+      if (v9_form)
+	strcpy (string, "ba%*,pt\t%%xcc, ");
+      else
+	strcpy (string, "b%*\t");
+    }
+
+  p = strchr (string, '\0');
+  *p++ = '%';
+  *p++ = 'l';
+  *p++ = '0' + label;
+  *p++ = '%';
+  if (noop)
+    *p++ = '#';
+  else
+    *p++ = '(';
+  *p = '\0';
+
+  return string;
+}
+
 /* Return the string to output a conditional branch to LABEL, which is
    the operand number of the label.  OP is the conditional expression.
    XEXP (OP, 0) is assumed to be a condition code register (integer or
    floating point) and its mode specifies what kind of comparison we made.
 
+   DEST is the destination insn (i.e. the label), INSN is the source.
+
    REVERSED is nonzero if we should reverse the sense of the comparison.
 
    ANNUL is nonzero if we should generate an annulling branch.
 
-   NOOP is nonzero if we have to follow this branch by a noop.
-
-   INSN, if set, is the insn.  */
+   NOOP is nonzero if we have to follow this branch by a noop.  */
 
 char *
 output_cbranch (rtx op, rtx dest, int label, int reversed, int annul,
@@ -5953,7 +6092,7 @@ output_cbranch (rtx op, rtx dest, int label, int reversed, int annul,
      nop
      ba .LC29  */
 
-  far = get_attr_length (insn) >= 3;
+  far = TARGET_V9 && (get_attr_length (insn) >= 3);
   if (reversed ^ far)
     {
       /* Reversal of FP compares takes care -- an ordered compare
@@ -6083,9 +6222,7 @@ output_cbranch (rtx op, rtx dest, int label, int reversed, int annul,
       spaces -= 2;
     }
 
-  if (! TARGET_V9)
-    labelno = "";
-  else
+  if (TARGET_V9)
     {
       rtx note;
       int v8 = 0;
@@ -6135,6 +6272,9 @@ output_cbranch (rtx op, rtx dest, int label, int reversed, int annul,
 	  spaces -= 3;
 	}
     }
+  else
+    labelno = "";
+
   if (spaces > 0)
     *p++ = '\t';
   else
@@ -6338,6 +6478,8 @@ sparc_emit_floatunsdi (rtx *operands)
    register REG.  LABEL is the operand number of the label; REG is the
    operand number of the reg.  OP is the conditional expression.  The mode
    of REG says what kind of comparison we made.
+
+   DEST is the destination insn (i.e. the label), INSN is the source.
 
    REVERSED is nonzero if we should reverse the sense of the comparison.
 
