@@ -30,5 +30,8 @@ extern void default_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode
 extern rtx default_builtin_setjmp_frame_value (void);
 extern bool hook_bool_CUMULATIVE_ARGS_false (CUMULATIVE_ARGS *);
 extern bool default_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *);
+/* APPLE LOCAL begin Altivec */
+extern bool default_skip_vec_args (tree, int, int*);
+/* APPLE LOCAL end Altivec */
 
 extern bool hook_bool_CUMULATIVE_ARGS_true (CUMULATIVE_ARGS *);

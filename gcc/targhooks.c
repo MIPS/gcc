@@ -127,6 +127,14 @@ default_pretend_outgoing_varargs_named(CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
   return (targetm.calls.setup_incoming_varargs != default_setup_incoming_varargs);
 }
 
+bool
+default_skip_vec_args(tree type ATTRIBUTE_UNUSED,
+		      int pass ATTRIBUTE_UNUSED,
+		      int* last_pass ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
 /* Generic hook that takes a CUMULATIVE_ARGS pointer and returns true.  */
 
 bool

@@ -4240,6 +4240,10 @@ assign_parms (tree fndecl)
   int reg_parm_stack_space ATTRIBUTE_UNUSED = 0;
   rtx conversion_insns = 0;
 
+  /* APPLE LOCAL begin Altivec */
+  int pass, last_pass;
+  /* APPLE LOCAL end Altivec */
+
   /* Nonzero if function takes extra anonymous args.
      This means the last named arg must be on the stack
      right before the anonymous ones.  */
@@ -4299,7 +4303,14 @@ assign_parms (tree fndecl)
      caller did.  */
   current_function_pretend_args_size = 0;
 
-  for (parm = fnargs; parm; parm = TREE_CHAIN (parm))
+  /* APPLE LOCAL begin Altivec */
+  /* In first pass over formal arguments, only consider non-vector args.
+     In 2nd pass, if needed, consider all vector args. */
+  last_pass = 1;
+  for (pass = 1; pass <= last_pass; pass++)
+  {
+  /* APPLE LOCAL end Altivec */
+    for (parm = fnargs; parm; parm = TREE_CHAIN (parm))
     {
       rtx entry_parm;
       rtx stack_parm;
@@ -4361,6 +4372,11 @@ assign_parms (tree fndecl)
 	  DECL_INCOMING_RTL (parm) = DECL_RTL (parm);
 	  continue;
 	}
+
+      /* APPLE LOCAL begin Altivec */
+      if (!stdarg && targetm.calls.skip_vec_args (passed_type, pass, &last_pass))
+	continue;
+      /* APPLE LOCAL end Altivec */
 
       /* If the parm is to be passed as a transparent union, use the
 	 type of the first field for the tests below.  We have already
@@ -5157,6 +5173,9 @@ assign_parms (tree fndecl)
 	  SET_DECL_RTL (parm, stack_parm);
 	}
     }
+  /* APPLE LOCAL begin Altivec */
+  }
+  /* APPLE LOCAL end Altivec */
 
   if (SPLIT_COMPLEX_ARGS && fnargs != orig_fnargs)
     {

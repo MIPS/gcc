@@ -1,3 +1,17 @@
+2004-04-28  Fariborz Jahanian <fjahanian@apple.com>
+
+	* function.c (skip_vec_args): New function.
+	(assign_parms): Add 2nd iteration over vector args
+	if needed.
+	* calls.c (initialize_argument_information): Add new argument,
+	add 2nd iteration over vector arguments if needed.
+	* target-def.h (default_skip_vec_args, TARGET_SKIP_VEC_ARGS): New.
+	* target.h (skip_vec_args): Added to calls structure.
+	* targhooks.c (default_skip_vec_args): Default 
+	definition.
+	* targhooks.h (default_skip_vec_args): Declaration.
+	* config/rs6000/rs6000.c (skip_vec_args): New definition.
+		
 2004-04-27  Devang Patel  <dpatel@apple.com>
 
 	* config/darwin.h (LINK_COMMAND_SPEC): Use darwin_arch_ld_spec.

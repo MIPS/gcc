@@ -134,7 +134,7 @@ static void initialize_argument_information (int, struct arg_data *,
 					     struct args_size *, int, tree,
 					     tree, CUMULATIVE_ARGS *, int,
 					     rtx *, int *, int *, int *,
-					     bool *, bool);
+					     bool *, bool, tree);
 static void compute_argument_addresses (struct arg_data *, rtx, int);
 static rtx rtx_for_function_call (tree, tree);
 static void load_register_parameters (struct arg_data *, int, rtx *, int,
@@ -1053,7 +1053,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 				 int reg_parm_stack_space,
 				 rtx *old_stack_level, int *old_pending_adj,
 				 int *must_preallocate, int *ecf_flags,
-				 bool *may_tailcall, bool call_from_thunk_p)
+				 bool *may_tailcall, bool call_from_thunk_p,
+				 tree type_arg_types)
 {
   /* 1 if scanning parms front to back, -1 if scanning back to front.  */
   int inc;
@@ -1063,6 +1064,12 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
   int i;
   tree p;
+
+   /* APPLE LOCAL begin Altivec */
+  int pass, last_pass;
+  int save_i, save_inc;
+  int stdarg;
+   /* APPLE LOCAL end Altivec */
 
   args_size->constant = 0;
   args_size->var = 0;
@@ -1082,12 +1089,30 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
       i = 0, inc = 1;
     }
 
-  /* I counts args in order (to be) pushed; ARGPOS counts in order written.  */
-  for (p = actparms, argpos = 0; p; p = TREE_CHAIN (p), i += inc, argpos++)
+   /* APPLE LOCAL begin Altivec */
+  stdarg = (type_arg_types != 0 
+	    && TREE_VALUE (tree_last (type_arg_types)) != void_type_node);
+  last_pass = 1;
+  save_i = i;
+  save_inc = inc;
+  for (pass = 1; pass <= last_pass; pass++)
+  {
+    i = save_i;
+    inc = save_inc;
+   /* APPLE LOCAL end Altivec */
+    /* I counts args in order (to be) pushed; ARGPOS counts in order written.  */
+    for (p = actparms, argpos = 0; p; p = TREE_CHAIN (p), i += inc, argpos++)
     {
       tree type = TREE_TYPE (TREE_VALUE (p));
       int unsignedp;
       enum machine_mode mode;
+
+      /* APPLE LOCAL begin Altivec */
+      /* In 1st iteration over actual arguments, only consider non-vectors. 
+	 During 2nd iteration, finish off with vector parameters. */
+      if (!stdarg && targetm.calls.skip_vec_args (type, pass, &last_pass))
+	continue;
+      /* APPLE LOCAL end Altivec */
 
       args[i].tree_value = TREE_VALUE (p);
 
@@ -1294,6 +1319,9 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
       FUNCTION_ARG_ADVANCE (*args_so_far, TYPE_MODE (type), type,
 			    argpos < n_named_args);
     }
+  /* APPLE LOCAL begin Altivec */
+  }
+  /* APPLE LOCAL end Altivec */
 }
 
 /* Update ARGS_SIZE to contain the total size for the argument block.
@@ -2356,7 +2384,8 @@ expand_call (tree exp, rtx target, int ignore)
 				   &args_so_far, reg_parm_stack_space,
 				   &old_stack_level, &old_pending_adj,
 				   &must_preallocate, &flags,
-				   &try_tail_call, CALL_FROM_THUNK_P (exp));
+				   &try_tail_call, CALL_FROM_THUNK_P (exp),
+				   type_arg_types);
 
   if (args_size.var)
     {

@@ -353,6 +353,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_SETUP_INCOMING_VARARGS default_setup_incoming_varargs
 #define TARGET_STRICT_ARGUMENT_NAMING hook_bool_CUMULATIVE_ARGS_false
 #define TARGET_PRETEND_OUTGOING_VARARGS_NAMED default_pretend_outgoing_varargs_named
+/* APPLE LOCAL begin Altivec */
+#define TARGET_SKIP_VEC_ARGS default_skip_vec_args
+/* APPLE LOCAL end Altivec */
 
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_ARGS,				\
@@ -365,6 +368,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SETUP_INCOMING_VARARGS,				\
    TARGET_STRICT_ARGUMENT_NAMING,				\
    TARGET_PRETEND_OUTGOING_VARARGS_NAMED,			\
+   /* APPLE LOCAL begin Altivec */				\
+   TARGET_SKIP_VEC_ARGS,					\
+   /* APPLE LOCAL end Altivec */				\
    }
 
 /* The whole shebang.  */

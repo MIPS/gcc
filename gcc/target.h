@@ -491,6 +491,9 @@ struct gcc_target
        targetm.calls.setup_incoming_varargs() and/or
        targetm.calls.strict_argument_naming().  */
     bool (*pretend_outgoing_varargs_named) (CUMULATIVE_ARGS *ca);
+    /* APPLE LOCAL begin Altivec */
+    bool (*skip_vec_args) (tree, int, int*);
+    /* APPLE LOCAL end Altivec */
   } calls;
 };
 

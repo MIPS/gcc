@@ -430,6 +430,9 @@ static void rs6000_move_block_from_reg (int regno, rtx x, int nregs);
 static void setup_incoming_varargs (CUMULATIVE_ARGS *,
 				    enum machine_mode, tree,
 				    int *, int);
+/* APPLE LOCAL begin Altivec */
+static bool skip_vec_args (tree, int, int*);
+/* APPLE LOCAL begin Altivec */
 #if TARGET_MACHO
 static void macho_branch_islands (void);
 static void add_compiler_branch_island (tree, tree, int);
@@ -634,6 +637,11 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS setup_incoming_varargs
+
+/* APPLE LOCAL begin Altivec */
+#undef TARGET_SKIP_VEC_ARGS
+#define TARGET_SKIP_VEC_ARGS skip_vec_args
+/* APPLE LOCAL end Altivec */
 
 /* Always strict argument naming on rs6000.  */
 #undef TARGET_STRICT_ARGUMENT_NAMING
@@ -4548,8 +4556,8 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	       is either wholly in GPRs or half in GPRs and half not.  */
 	    part_mode = DImode;
 	  
-	  if ((TARGET_32BIT && TARGET_POWERPC64)
-	      || (align_words == GP_ARG_NUM_REG - 2))
+	  if (TARGET_32BIT
+	      && (TARGET_POWERPC64 || (align_words == GP_ARG_NUM_REG - 2)))
 	    return rs6000_mixed_function_arg (cum, part_mode, type, align_words);
 	  else
 	    return gen_rtx_REG (part_mode, GP_ARG_MIN_REG + align_words);
@@ -4827,6 +4835,33 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       emit_label (lab);
     }
 }
+
+/* APPLE LOCAL begin Altivec */
+
+/* This routine determins if an extra pass over argument list is needed
+   for vector aruments. It returns true, if current argument need be
+   skipped. This depends on if we are in the first iteration (to skip
+   vectors), or 2nd iteration (to skip non-vectors).
+*/
+
+static
+bool skip_vec_args(tree arg_type, int pass, int *last_pass)
+{  
+  if (DEFAULT_ABI != ABI_DARWIN)
+    return false;
+
+  if (TREE_CODE (arg_type) == VECTOR_TYPE)
+    {
+      *last_pass = 2;
+      if (pass == 1)
+        return true;
+    }
+    else if (pass == 2)
+           return true; 
+  return false;
+}  
+/* APPLE LOCAL end Altivec */
+
 
 /* Create the va_list data type.  */
 
