@@ -1,6 +1,6 @@
 // Compilation unit.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -95,8 +95,9 @@ model_unit_source::resolve (resolution_scope *scope)
 	{
 	  if (pub)
 	    std::cerr << (*i)->error ("%1 cannot be public in a compilation "
-	                              "unit already containing public class %2")
-	      % (*i) -> get_pretty_name () % pub -> get_pretty_name ();
+	                              "unit already containing "
+				      "public class %2")
+	      % (*i)->get_pretty_name () % pub->get_pretty_name ();
 	  else
 	    pub = (*i).get ();
 	}

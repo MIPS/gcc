@@ -1,5 +1,9 @@
 2005-02-04  Tom Tromey  <tromey@redhat.com>
 
+	* model/unit.cc (resolve): Indentation fixes.
+
+2005-02-04  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/signature.cc (parse_ref_type): End inner loop when ';'
 	seen.
 
