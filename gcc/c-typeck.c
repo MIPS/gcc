@@ -4176,6 +4176,14 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
 	  if (flag_pedantic_errors)
 	    inside_init = error_mark_node;
 	}
+      /* APPLE LOCAL begin AltiVec */
+      /* This test catches a Motorola-syntax Altivec vector
+         represented as a constructor of vector type. This tree
+	 is not constant but can be initializer to a const vector. */
+      else if (require_constant
+	       && (code == VECTOR_TYPE && TREE_CODE (init) == CONSTRUCTOR))
+	  return inside_init;
+      /* APPLE LOCAL end AltiVec */
       else if (require_constant
 	       && (!TREE_CONSTANT (inside_init)
 		   /* This test catches things like `7 / 0' which
