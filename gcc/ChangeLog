@@ -1,3 +1,14 @@
+2000-04-05  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (mark_set_reg): Don't free condition expr twice.
+	(free_reg_cond_life_info): Fix typos.
+	(flush_reg_cond_reg_1): Adjust for splay_tree_value being a
+	reg_cond_life_info, not an rtx.
+	(nand_reg_cond): Return const0_rtx for false.
+	(mark_used_reg): Wrap naked condition in an EXPR_LIST.
+
+	* ggc.h (struct rtx_def): Forward declare.
+
 Wed Apr  5 16:13:54 2000  Michael Meissner  <meissner@cygnus.com>
 			  Richard Henderson  <rth@cygnus.com>
 

@@ -4299,7 +4299,11 @@ mark_set_reg (pbi, new_dead, reg, cond, p_some_was_live, p_some_was_dead)
 	      ncond = nand_reg_cond (ncond, cond);
 
 	      if (ncond == const0_rtx)
-		splay_tree_remove (pbi->reg_cond_live, regno);
+		{
+		  /* nand_reg_cond freed the (single) EXPR_LIST node.  */
+		  rcli->condition = NULL_TREE;
+		  splay_tree_remove (pbi->reg_cond_live, regno);
+		}
 	      else
 		{
 		  rcli->condition = ncond;
@@ -4335,7 +4339,7 @@ static void
 free_reg_cond_life_info (value)
      splay_tree_value value;
 {
-  struct reg_cond_live_info *rcli = (struct reg_cond_live_info *) value;
+  struct reg_cond_life_info *rcli = (struct reg_cond_life_info *) value;
   free_EXPR_LIST_list (&rcli->condition);
   free (rcli);
 }
@@ -4347,18 +4351,19 @@ flush_reg_cond_reg_1 (node, data)
      splay_tree_node node;
      void *data;
 {
+  struct reg_cond_life_info *rcli;
   int *xdata = (int *) data;
   int regno = xdata[0];
-  rtx orig, c, *prev;
+  rtx c, *prev;
 
   /* Don't need to search if last flushed value was farther on in
      the in-order traversal.  */
-  if (xdata[1] >= regno)
+  if (xdata[1] >= (int) node->key)
     return 0;
 
   /* Splice out portions of the expression that refer to regno.  */
-  orig = (rtx) node->value;
-  c = *(prev = &orig);
+  rcli = (struct reg_cond_life_info *) node->value;
+  c = *(prev = &rcli->condition);
   while (c)
     {
       if (regno == REGNO (XEXP (XEXP (c, 0), 0)))
@@ -4371,10 +4376,8 @@ flush_reg_cond_reg_1 (node, data)
 	c = *(prev = &XEXP (c, 1));
     }
 
-  /* Put the expression back in place.  If it's NULL, signal the
-     node to be removed.  */
-  node->value = (splay_tree_value) orig;
-  if (! orig)
+  /* If the entire condition is now NULL, signal the node to be removed.  */
+  if (! rcli->condition)
     {
       xdata[1] = node->key;
       return -1;
@@ -4489,7 +4492,7 @@ nand_reg_cond (old, x)
 	    {
 	      *prev = XEXP (c, 1);
 	      free_EXPR_LIST_node (c);
-	      return old;
+	      return old ? old : const0_rtx;
 	    }
 
 	  /* If we find X being a compliment of a condition in OLD, 
@@ -4754,7 +4757,7 @@ mark_used_reg (pbi, new_live, reg, cond, insn)
 	  /* The register was not previously live at all.  Record
 	     the condition under which it is now live.  */
 	  rcli = (struct reg_cond_life_info *) xmalloc (sizeof (*rcli));
-	  rcli->condition = cond;
+	  rcli->condition = alloc_EXPR_LIST (0, cond, NULL_RTX);
 	  splay_tree_insert (pbi->reg_cond_live, regno,
 			     (splay_tree_value) rcli);
 	}
