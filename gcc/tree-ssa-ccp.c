@@ -52,6 +52,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-simple.h"
 #include "tree-dump.h"
 #include "timevar.h"
+#include "expr.h"
 
 /* Possible lattice values.  */
 typedef enum
@@ -122,11 +123,13 @@ static tree widen_bitfield (tree, tree, tree);
 static bool replace_uses_in (tree);
 static latticevalue likely_value (tree);
 static tree get_rhs (tree);
-static void set_rhs (tree, tree);
+static void set_rhs (tree *, tree);
 static value *get_value (tree);
 static value get_default_value (tree);
 static hashval_t value_map_hash (const void *);
 static int value_map_eq (const void *, const void *);
+static tree ccp_fold_builtin (tree, tree);
+static tree get_strlen (tree);
 
 
 /* Debugging dumps.  */
@@ -327,7 +330,7 @@ substitute_and_fold (void)
 
 	  if (replace_uses_in (stmt))
 	    {
-	      fold_stmt (stmt);
+	      fold_stmt (bsi_stmt_ptr (i));
 	      modify_stmt (stmt);
 	    }
 
@@ -1178,6 +1181,32 @@ replace_uses_in (tree stmt)
 	}
     }
 
+  /* Some builtins like strlen may evaluate to a constant value even if
+     they have non-constant operands.  For instance,
+     'strlen (g++ ? "foo" : "bar")' will always evaluate to 3.  If the
+     statement contains a call to one of these builtins, pretend that we
+     replaced constant operands in it so that it can be handed to
+     fold_stmt().  */
+  if (!replaced
+      && (TREE_CODE (stmt) == CALL_EXPR
+	  || (TREE_CODE (stmt) == MODIFY_EXPR
+	      && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)))
+
+    {
+      tree rhs = (TREE_CODE (stmt) == MODIFY_EXPR)
+		  ? TREE_OPERAND (stmt, 1)
+		  : stmt;
+      tree callee = get_callee_fndecl (rhs);
+
+      /* For now, we are only interested in handling a few builtins.  */
+      if (callee
+	  && DECL_BUILT_IN (callee)
+	  && DECL_BUILT_IN_CLASS (callee) != BUILT_IN_MD)
+	replaced = (DECL_FUNCTION_CODE (callee) == BUILT_IN_STRLEN
+	            || DECL_FUNCTION_CODE (callee) == BUILT_IN_FPUTS
+		    || DECL_FUNCTION_CODE (callee) == BUILT_IN_FPUTS_UNLOCKED);
+    }
+
   return replaced;
 }
 
@@ -1224,18 +1253,35 @@ likely_value (tree stmt)
 }
 
 
-/* Fold statement STMT.  */
+/* Fold the statement pointed by STMT_P.  In some cases, this function may
+   replace the whole statement with a new one.  */
 
 void
-fold_stmt (tree stmt)
+fold_stmt (tree *stmt_p)
 {
-  tree rhs, result;
+  tree rhs, result, stmt;
 
+  stmt = *stmt_p;
   rhs = get_rhs (stmt);
   if (rhs && !TREE_CONSTANT (rhs))
     {
-      result = fold (rhs);
-      set_rhs (stmt, result);
+      result = NULL_TREE;
+
+      /* Check for builtins that CCP can handle using information not
+	 available in the generic fold routines.  */
+      if (TREE_CODE (rhs) == CALL_EXPR)
+	{
+	  tree callee = get_callee_fndecl (rhs);
+	  if (callee && DECL_BUILT_IN (callee))
+	    result = ccp_fold_builtin (stmt, rhs);
+	}
+
+      /* If we couldn't fold the RHS, hand it over to the generic fold
+	 routines.  */
+      if (result == NULL_TREE)
+	result = fold (rhs);
+
+      set_rhs (stmt_p, result);
     }
 }
 
@@ -1269,16 +1315,17 @@ get_rhs (tree stmt)
 }
 
 
-/* Set the main expression of STMT to EXPR.  */
+/* Set the main expression of *STMT_P to EXPR.  */
 
 static void
-set_rhs (tree stmt, tree expr)
+set_rhs (tree *stmt_p, tree expr)
 {
+  tree stmt = *stmt_p;
   enum tree_code code = TREE_CODE (stmt);
 
   if (code == MODIFY_EXPR)
     TREE_OPERAND (stmt, 1) = expr;
-  if (code == COND_EXPR)
+  else if (code == COND_EXPR)
     COND_EXPR_COND (stmt) = expr;
   else if (code == SWITCH_EXPR)
     SWITCH_COND (stmt) = expr;
@@ -1294,6 +1341,12 @@ set_rhs (tree stmt, tree expr)
     GOTO_DESTINATION (stmt) = expr;
   else if (code == LABEL_EXPR)
     LABEL_EXPR_LABEL (stmt) = expr;
+  else
+    {
+      stmt_ann_t ann = stmt_ann (stmt);
+      *stmt_p = expr;
+      (*stmt_p)->common.ann = (tree_ann) ann;
+    }
 }
 
 
@@ -1389,4 +1442,125 @@ value_map_eq (const void *p1, const void *p2)
 {
   return ((const struct value_map_d *)p1)->var
 	 == ((const struct value_map_d *)p2)->var;
+}
+
+
+/* Fold builtin call FN in statement STMT.  If it cannot be folded into a
+   constant, return NULL_TREE.  Otherwise, return its constant value.  */
+
+static tree
+ccp_fold_builtin (tree stmt, tree fn)
+{
+  tree result;
+  tree arglist = TREE_OPERAND (fn, 1);
+  tree callee = get_callee_fndecl (fn);
+
+  /* Ignore MD builtins.  */
+  if (DECL_BUILT_IN_CLASS (callee) == BUILT_IN_MD)
+    return NULL_TREE;
+
+  /* First try the generic builtin folder.  If that succeeds, return the
+     result directly.  */
+  result = fold_builtin (fn);
+  if (result)
+    return result;
+
+  /* Otherwise, try to use the dataflow information gathered by the CCP
+     process.  */
+  switch (DECL_FUNCTION_CODE (callee))
+    {
+      case BUILT_IN_STRLEN:
+	return get_strlen (TREE_VALUE (arglist));
+
+      case BUILT_IN_FPUTS:
+	return simplify_builtin_fputs (arglist,
+				       TREE_CODE (stmt) != MODIFY_EXPR, 0,
+				       get_strlen (TREE_VALUE (arglist)));
+      case BUILT_IN_FPUTS_UNLOCKED:
+	return simplify_builtin_fputs (arglist,
+				       TREE_CODE (stmt) != MODIFY_EXPR, 1,
+				       get_strlen (TREE_VALUE (arglist)));
+
+      default:
+	break;
+    }
+
+
+  return NULL_TREE;
+}
+
+
+/* Return the string length of ARG.  If ARG is an SSA name variable, follow
+   its use-def chains.  If all the reaching definitions for VAR have the
+   same length L, this function returns L.  Otherwise, it returns NULL_TREE
+   indicating that the length cannot be determined statically.  */
+
+static tree
+get_strlen (tree arg)
+{
+  tree var, def_stmt;
+  
+  if (TREE_CODE (arg) != SSA_NAME)
+    return c_strlen (arg, 1);
+
+  var = arg;
+  def_stmt = SSA_NAME_DEF_STMT (var);
+
+  switch (TREE_CODE (def_stmt))
+    {
+      case MODIFY_EXPR:
+	{
+	  tree len, rhs;
+	  
+	  /* The RHS of the statement defining VAR must either have a
+	     constant length or come from another SSA_NAME with a constant
+	     length.  */
+	  rhs = TREE_OPERAND (def_stmt, 1);
+	  STRIP_NOPS (rhs);
+	  if (TREE_CODE (rhs) == SSA_NAME)
+	    return get_strlen (rhs);
+
+	  /* See if the RHS is a constant length.  */
+	  len = c_strlen (rhs, 1);
+	  if (len)
+	    {
+	      /* Convert from the internal "sizetype" type to "size_t".  */
+	      if (size_type_node)
+		len = convert (size_type_node, len);
+	      return len;
+	    }
+
+	  break;
+	}
+
+      case PHI_NODE:
+	{
+	  /* All the arguments of the PHI node must have the same constant
+	     length.  */
+	  int i;
+	  tree arg_len, prev_arg_len;
+
+	  arg_len = prev_arg_len = NULL_TREE;
+	  for (i = 0; i < PHI_NUM_ARGS (def_stmt); i++)
+	    {
+	      arg_len = get_strlen (PHI_ARG_DEF (def_stmt, i));
+	      if (arg_len == NULL_TREE)
+		return NULL_TREE;
+
+	      if (prev_arg_len
+		  && simple_cst_equal (prev_arg_len, arg_len) != 1)
+		return NULL_TREE;
+
+	      prev_arg_len = arg_len;
+	    }
+
+	  return arg_len;
+	}
+
+      default:
+	break;
+    }
+
+
+  return NULL_TREE;
 }

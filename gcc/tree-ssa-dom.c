@@ -553,10 +553,12 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 		fprintf (dump_file, "'\n");
 	      }
 
-	    /* If VAL is an ADDR_EXPR, note that we may need to have a
-	       second SSA pass to rename variables exposed by the folding of
-	       *&VAR expressions.  */
-	    if (TREE_CODE (val) == ADDR_EXPR)
+	    /* If VAL is an ADDR_EXPR or a constant of pointer type, note
+	       that we may need to have a second SSA pass to rename
+	       variables exposed by the folding of *&VAR expressions.  */
+	    if (TREE_CODE (val) == ADDR_EXPR
+		|| (POINTER_TYPE_P (TREE_TYPE (*op_p))
+		    && is_unchanging_value (val)))
 	      addr_expr_propagated_p = true;
 
 	    if (TREE_CODE (val) == SSA_NAME)
@@ -574,7 +576,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
   /* If the statement has been modified with constant replacements,
      fold its RHS before checking for redundant computations.  */
   if (ann->modified)
-    fold_stmt (stmt);
+    fold_stmt (bsi_stmt_ptr (si));
 
   /* Check for redundant computations.  Do this optimization only
      for assignments that make no calls and have no aliased stores

@@ -3124,6 +3124,7 @@ extern tree build_function_call_expr (tree, tree);
 extern tree mathfn_built_in (tree, enum built_in_function fn);
 extern tree strip_float_extensions (tree);
 extern tree simplify_builtin (tree, int);
+extern tree c_strlen (tree, int);
 
 /* In convert.c */
 extern tree strip_float_extensions (tree);

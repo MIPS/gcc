@@ -89,7 +89,6 @@ static REAL_VALUE_TYPE dconstpi;
 static REAL_VALUE_TYPE dconste;
 
 static int get_pointer_alignment (tree, unsigned int);
-static tree c_strlen (tree, int);
 static const char *c_getstr (tree);
 static rtx c_readstr (const char *, enum machine_mode);
 static int target_char_cast (tree, char *);
@@ -176,9 +175,9 @@ static tree simplify_builtin_strcat (tree);
 static tree simplify_builtin_strncat (tree);
 static tree simplify_builtin_strspn (tree);
 static tree simplify_builtin_strcspn (tree);
-static tree simplify_builtin_fputs (tree, int, int);
 static void simplify_builtin_next_arg (tree);
 static void simplify_builtin_va_start (tree);
+static tree simplify_builtin_sprintf (tree, int);
 
 /* Initialize mathematical constants for constant folding builtins.
    These constants need to be given to at least 160 bits precision.  */
@@ -278,7 +277,7 @@ get_pointer_alignment (tree exp, unsigned int max_align)
    Unfortunately, string_constant can't access the values of const char
    arrays with initializers, so neither can we do so here.  */
 
-static tree
+tree
 c_strlen (tree src, int only_value)
 {
   tree offset_node;
@@ -4585,6 +4584,7 @@ expand_builtin_cabs (tree arglist, rtx target)
   return expand_complex_abs (mode, op0, target, 0);
 }
 
+#if 0
 /* Expand a call to sprintf with argument list ARGLIST.  Return 0 if
    a normal call should be emitted rather than expanding the function
    inline.  If convenient, the result should be placed in TARGET with
@@ -4669,6 +4669,7 @@ expand_builtin_sprintf (tree arglist, rtx target, enum machine_mode mode)
 
   return 0;
 }
+#endif
 
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
@@ -5132,6 +5133,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FPUTS:
     case BUILT_IN_FPUTS_UNLOCKED:
     case BUILT_IN_STRCMP:
+    case BUILT_IN_SPRINTF:
       {
 	tree new;
 	new = simplify_builtin (exp, ignore);
@@ -5255,12 +5257,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       if (target)
 	return target;
       break;
-#endif
     case BUILT_IN_SPRINTF:
       target = expand_builtin_sprintf (arglist, target, mode);
       if (target)
 	return target;
       break;
+#endif
 
       /* Various hooks for the DWARF 2 __throw routine.  */
     case BUILT_IN_UNWIND_INIT:
@@ -6283,7 +6285,8 @@ validate_arglist (tree arglist, ...)
 	     match the specified code, return false.  Otherwise continue
 	     checking any remaining arguments.  */
 	  if (arglist == 0
-	      || code != TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))))
+	      || code != TREE_CODE (TREE_TYPE (TREE_VALUE (arglist)))
+	      || TREE_SIDE_EFFECTS (TREE_VALUE (arglist)))
 	    goto end;
 	  break;
 	}
@@ -6378,9 +6381,9 @@ simplify_builtin (tree exp, int ignore)
   switch (fcode)
     {
     case BUILT_IN_FPUTS:
-      return simplify_builtin_fputs (arglist, ignore, 0);
+      return simplify_builtin_fputs (arglist, ignore, 0, NULL_TREE);
     case BUILT_IN_FPUTS_UNLOCKED:
-      return simplify_builtin_fputs (arglist, ignore, 1);
+      return simplify_builtin_fputs (arglist, ignore, 1, NULL_TREE);
     case BUILT_IN_STRSTR:
       return simplify_builtin_strstr (arglist);
     case BUILT_IN_STRCAT:
@@ -6413,6 +6416,8 @@ simplify_builtin (tree exp, int ignore)
     case BUILT_IN_VA_START:
       simplify_builtin_va_start (arglist);
       return NULL_TREE;
+    case BUILT_IN_SPRINTF:
+      return simplify_builtin_sprintf (arglist, ignore);
     default:
       return NULL_TREE;
     }
@@ -7270,10 +7275,14 @@ simplify_builtin_strcspn (tree arglist)
    COMPOUND_EXPR will be an argument which must be evaluated.
    COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
    COMPOUND_EXPR in the chain will contain the tree for the simplified
-   form of the builtin function call.  */
+   form of the builtin function call.
 
-static tree
-simplify_builtin_fputs (tree arglist, int ignore, int unlocked)
+   If KNOWN_LEN is non-NULL, it represents the known length of the string.
+   This is determined by SSA-CCP in cases where the string itself is not
+   known to be constant but its length is always the same constant.  */
+
+tree
+simplify_builtin_fputs (tree arglist, int ignore, int unlocked, tree known_len)
 {
   tree len, fn;
   tree fn_fputc = unlocked ? implicit_built_in_decls[BUILT_IN_FPUTC_UNLOCKED]
@@ -7290,9 +7299,11 @@ simplify_builtin_fputs (tree arglist, int ignore, int unlocked)
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return 0;
 
+  len = (known_len) ? known_len : c_strlen (TREE_VALUE (arglist), 0);
+
   /* Get the length of the string passed to fputs.  If the length
      can't be determined, punt.  */
-  if (!(len = c_strlen (TREE_VALUE (arglist), 0))
+  if (!len
       || TREE_CODE (len) != INTEGER_CST)
     return 0;
 
@@ -7386,4 +7397,85 @@ simplify_builtin_next_arg (tree arglist)
     /* Evidently an out of date version of <stdarg.h>; can't validate
        va_start's second argument, but can still work as intended.  */
     warning ("`__builtin_next_arg' called without an argument");
+}
+
+
+/* Simplify a call to the sprintf builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.  If IGNORED is true, it means that
+   the caller does not use the returned value of the function.  */
+
+static tree
+simplify_builtin_sprintf (tree arglist, int ignored)
+{
+  tree call, retval, dest, fmt;
+  const char *fmt_str = NULL;
+
+  /* Verify the required arguments in the original call.  We deal with two
+     types of sprintf() calls: 'sprintf (str, fmt)' and
+     'sprintf (dest, "%s", orig)'.  */
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE)
+      && !validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, POINTER_TYPE,
+	                    VOID_TYPE))
+    return NULL_TREE;
+
+  /* Get the destination string and the format specifier.  */
+  dest = TREE_VALUE (arglist);
+  fmt = TREE_VALUE (TREE_CHAIN (arglist));
+
+  /* Check whether the format is a literal string constant.  */
+  fmt_str = c_getstr (fmt);
+  if (fmt_str == NULL)
+    return NULL_TREE;
+
+  call = NULL_TREE;
+  retval = NULL_TREE;
+
+  /* If the format doesn't contain % args or %%, use strcpy.  */
+  if (strchr (fmt_str, '%') == NULL)
+    {
+      tree fn = implicit_built_in_decls[BUILT_IN_STRCPY];
+
+      if (!fn)
+	return NULL_TREE;
+
+      /* Convert sprintf (str, fmt) into strcpy (str, fmt) when
+	 'format' is known to contain no % formats.  */
+      arglist = build_tree_list (NULL_TREE, fmt);
+      arglist = tree_cons (NULL_TREE, dest, arglist);
+      call = build_function_call_expr (fn, arglist);
+      if (!ignored)
+	retval = build_int_2 (strlen (fmt_str), 0);
+    }
+
+  /* If the format is "%s", use strcpy if the result isn't used.  */
+  else if (fmt_str && strcmp (fmt_str, "%s") == 0)
+    {
+      tree fn, orig;
+      fn = implicit_built_in_decls[BUILT_IN_STRCPY];
+
+      if (!fn)
+	return NULL_TREE;
+
+      /* Convert sprintf (str1, "%s", str2) into strcpy (str1, str2).  */
+      orig = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+      arglist = build_tree_list (NULL_TREE, orig);
+      arglist = tree_cons (NULL_TREE, dest, arglist);
+      if (!ignored)
+	{
+	  retval = c_strlen (orig, 1);
+	  if (!retval || TREE_CODE (retval) != INTEGER_CST)
+	    return NULL_TREE;
+	}
+      call = build_function_call_expr (fn, arglist);
+    }
+
+  if (call && retval)
+    return build (COMPOUND_EXPR,
+	          TREE_TYPE (implicit_built_in_decls[BUILT_IN_SPRINTF]),
+		  call,
+		  retval);
+  else
+    return call;
 }

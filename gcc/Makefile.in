@@ -1737,7 +1737,8 @@ ssa-ccp.o : ssa-ccp.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) hard-
     errors.h $(GGC_H) df.h function.h
 tree-ssa-ccp.o : tree-ssa-ccp.c $(CONFIG_H) system.h errors.h $(TREE_H) \
     $(RTL_H) $(TM_P_H) $(TREE_FLOW_H) diagnostic.h tree-inline.h \
-    $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) $(TREE_SIMPLE_H)
+    $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) $(TREE_SIMPLE_H) \
+    $(EXPR_H)
 tree-ssa-copyprop.o : tree-ssa-copyprop.c $(CONFIG_H) system.h errors.h \
     $(TREE_H) $(RTL_H) $(TM_P_H) $(TREE_FLOW_H) diagnostic.h $(TIMEVAR_H) \
     $(TREE_DUMP_H) coretypes.h $(TREE_SIMPLE_H) $(TM_H)

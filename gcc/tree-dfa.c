@@ -377,6 +377,15 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	  add_stmt_operand (&TREE_OPERAND (ptr, 0), stmt, flags, prev_vops);
 	  return;
 	}
+      else if (TREE_CONSTANT (ptr) && !integer_zerop (ptr))
+	{
+	  /* If a constant is used as a pointer, we can't generate a real
+	     operand for it but we mark the statement volatile to prevent
+	     optimizations from messing things up.  */
+	  stmt_ann (stmt)->has_volatile_ops = true;
+	  return;
+	}
+
 
       /* Add a USE operand for the base pointer.  */
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, prev_vops);
@@ -2110,6 +2119,10 @@ may_access_global_mem_p (tree expr)
 
   /* Call expressions that return pointers may point to global memory.  */
   if (TREE_CODE (expr) == CALL_EXPR)
+    return true;
+
+  /* A non-NULL constant used as a pointer points to global memory.  */
+  if (TREE_CONSTANT (expr) && !integer_zerop (expr))
     return true;
 
   /* Recursively check the expression's operands.  */

@@ -1,3 +1,41 @@
+2003-07-31  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (tree-ssa-ccp.o): Depend on $(EXPR_H).
+	* builtins.c (c_strlen): Remove static declaration.
+	(simplify_builtin_fputs): Remove static declaration.
+	(simplify_builtin_sprintf): New local function.
+	(expand_builtin_sprintf): Remove by surrounding with #if 0.
+	(expand_builtin): Add BUILT_IN_SPRINTF to the list of built-ins
+	handed over to simplify_builtin.
+	(validate_arglist): Do not allow arguments with TREE_SIDE_EFFECTS.
+	(simplify_builtin_fputs): Add new argument KNOWN_LEN.  If it's set,
+	use it instead of trying to compute the length of the string.
+	Update all callers.
+	* expr.h (simplify_builtin_fputs): Declare.
+	* tree-flow.h (fold_stmt): Change argument type to tree *.  Update
+	all users.
+	* tree-ssa-ccp.c: Include expr.h.
+	(replace_uses_in): If the statement makes a call to some selected
+	built-ins, mark it for folding.
+	(get_strlen): New local function.
+	(ccp_fold_builtin): New local function.
+	(fold_stmt): Call it.
+	(set_rhs): Fix if-else-if chaining.  Handle cases where the whole
+	statement needs to be replaced.
+	* tree.h (c_strlen): Declare.
+
+2003-07-31  Diego Novillo  <dnovillo@redhat.com>
+
+	Fix PR optimization/11373
+	* tree-ssa-dce.c (stmt_useful_p): Get statement operands before
+	checking for volatile operands.
+	* tree-dfa.c (get_expr_operands): If a constant is dereferenced as a
+	pointer, mark the statement as having volatile operands.
+	(may_access_global_mem_p): If a non-NULL constant is used as a
+	pointer, consider it as pointing to global memory.
+	* tree-ssa-dom.c (optimize_stmt): Set addr_expr_propagated_p when
+	propagating pointers that are integer constants.
+
 2003-07-31  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-dfa.c (add_stmt_operand): Don't treat complex types as scalars.

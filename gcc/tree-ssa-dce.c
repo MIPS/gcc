@@ -283,12 +283,12 @@ stmt_useful_p (tree stmt)
 	    return true;
     }
 
+  /* Examine all the stores in this statement.  */
+  get_stmt_operands (stmt);
+
   /* If the statement has volatile operands, it needs to be preserved.  */
   if (stmt_ann (stmt)->has_volatile_ops)
     return true;
-
-  /* Examine all the stores in this statement.  */
-  get_stmt_operands (stmt);
 
   ops = def_ops (stmt);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)

@@ -469,7 +469,7 @@ extern void tree_perform_ssapre (tree);
 
 /* In tree-ssa-ccp.c  */
 void tree_ssa_ccp (tree);
-void fold_stmt (tree);
+void fold_stmt (tree *);
 
 /* In tree-ssa-dom.c  */
 extern bool tree_ssa_dominator_optimize (tree);
