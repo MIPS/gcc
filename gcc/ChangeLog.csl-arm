@@ -1,3 +1,16 @@
+2004-02-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* configure.ac: Never set STMP_FIXINC or STMP_FIXPROTO when
+	building a Canadian cross.
+	* configure: Regenerated.
+
+	* unwind-arm.h (abort): Use a prototype, not a K&R declaration.
+	(__gnu_unwind_execute): Declare.
+	* config/arm/lib1funcs.asm: Do not include libunwind.S.
+	* config/arm/libunwind.S: Include lib1funcs.asm.
+	* config/arm/t-bpabi (LIB1ASMFUNCS): Remove _unwind.
+	(LIB2ADDEH): Add $(srcdir)/config/arm/libunwind.S.
+
 2005-02-16  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/unwind-arm.c (__gnu_Unwind_Find_exidx): Add prototype.
