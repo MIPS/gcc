@@ -3956,6 +3956,7 @@ expand_builtin_expect_jump (exp, if_false_label, if_true_label)
     {
       int num_jumps = 0;
       rtx insn;
+      int save_pending_stack_adjust = pending_stack_adjust;
 
       /* If we fail to locate an appropriate conditional jump, we'll
 	 fall back to normal evaluation.  Ensure that the expression
@@ -4051,7 +4052,10 @@ expand_builtin_expect_jump (exp, if_false_label, if_true_label)
       /* If no jumps were modified, fail and do __builtin_expect the normal
 	 way.  */
       if (num_jumps == 0)
-	ret = NULL_RTX;
+	{
+	  ret = NULL_RTX;
+	  pending_stack_adjust = save_pending_stack_adjust;
+	}
     }
 
   return ret;
