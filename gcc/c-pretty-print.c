@@ -145,6 +145,7 @@ dump_c_node (buffer, node, spc)
 {
   tree type;
   tree op0, op1;
+  const char* str;
 
   if (node == NULL_TREE)
     return spc;
@@ -541,12 +542,18 @@ dump_c_node (buffer, node, spc)
 
     case COMPONENT_REF:
       op0 = TREE_OPERAND (node, 0);
+      str = ".";
+      if (TREE_CODE (op0) == INDIRECT_REF)
+	{
+	  op0 = TREE_OPERAND (op0, 0);
+	  str = "->";
+	}
       if (op_prio (op0) < op_prio (node))
 	output_add_character (buffer, '(');
       dump_c_node (buffer, op0, spc);
       if (op_prio (op0) < op_prio (node))
 	output_add_character (buffer, ')');
-      output_add_character (buffer, '.');
+      output_add_string (buffer, str);
       dump_c_node (buffer, TREE_OPERAND (node, 1), spc);
       break;
 

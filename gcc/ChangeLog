@@ -1,3 +1,8 @@
+2002-06-18  Jason Merrill  <jason@redhat.com>
+
+	* c-pretty-print.c (dump_c_node) [COMPONENT_REF]: Print "->" if
+	appropriate.
+
 2002-06-17  Frank Ch. Eigler  <fche@redhat.com>
 
 	* c-pretty-print.c (dump_c_node): Print pointer-type
