@@ -1,3 +1,219 @@
+2004-12-20  Devang Patel  <dpatel@apple.com>
+
+	Backport vectorizatin patches from Mainline.
+	Radar 3907012 3917979 3917991 3917994 3917999
+
+        PR tree-optimization/18009
+	2004-11-03  Dorit Naishlos  <dorit@il.ibm.com>
+	
+        * tree-vectorizer.h (enum dr_alignment_support): New type.
+        (MAX_NUMBER_OF_UNALIGNED_DATA_REFS): Removed.
+        (LOOP_UNALIGNED_DR): replaced with LOOP_VINFO_UNALIGNED_DR and holds a
+        single data_reference (instead of a varray of references).
+        * tree-vectorizer.c (new_loop_vec_info): Likewise.
+        (vect_gen_niters_for_prolog_loop): Likewise.
+        (vect_update_inits_of_drs): Likewise.
+	        
+        (vect_update_inits_of_drs): Setting of DR_MISALIGNMENT moved to
+        vect_enhance_data_refs_alignment.
+        (vect_do_peeling_for_alignment): Likewise.
+        (vect_enhance_data_refs_alignment): Decide if and by how much to peel;
+        this functionality used to be in vect_analyze_data_refs_alignment.
+        Also update DR_MISALIGNMENT due to peeling; this functionality used to
+        be in vect_update_inits_of_drs and vect_do_peeling_for_alignment).
+        (vect_analyze_data_refs_alignment): Decision on whether and by how much
+        to peel moved to vect_enhance_data_refs_alignment. Call
+        vect_supportable_dr_alignment.
+	        
+        (vect_compute_data_ref_alignment): Set STMT_VINFO_VECTYPE.
+        (vect_compute_data_refs_alignment): Return bool. Consider return value
+        of vect_compute_data_ref_alignment and return true/false accordingly.
+        (vect_enhance_data_refs_alignment): Consider return value of
+        vect_compute_data_refs_alignment and return true/false accordingly.
+	        
+        (vect_supportable_dr_alignment): New function.
+        (vectorizable_store): Call vect_supportable_dr_alignment.
+        (vectorizable_load): Call vect_supportable_dr_alignment. Alignment
+        support checks moved from here to vect_supportable_dr_alignment.
+	        
+        (vect_transform_loop): Avoid 80 columns overflow.
+
+        2004-11-11  Dorit Naishlos  <dorit@il.ibm.com>
+	        
+        * tree-vectorizer.c (update_phi_nodes_for_guard): Call reverse_phis.
+        (vect_update_ivs_after_vectorizer): Update function documentation.
+        Avoid quadratic behavior and direct write to PHI_ARG_DEF.
+
+        2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
+        Andrew Pinski  <pinskia@physics.uc.edu>
+	        
+        PR tree-opt/18425
+        * tree-vectorize.c (vect_build_loop_niters): Do not insert
+        NULL into the instruction stream. Initialize new_bb to NULL.
+        (vect_update_ivs_after_vectorizer): Likewise.
+        (vect_gen_niters_for_prolog_loop): Likewise.
+
+        PR tree-opt/18400
+        * tree-vectorizer.c (make_loop_iterate_ntimes): Set loop->nb_iterations.
+        (vect_transform_loop_bound): Set loop->nb_iterations.
+
+        2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
+	        
+        PR tree-opt/18400
+        * gcc.dg/vect/pr18400.c: New test.
+	        
+        2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
+        Andrew Pinski  <pinskia@physics.uc.edu>
+	        
+        PR tree-opt/18425
+        * gcc.dg/vect/pr18425.c: New test.
+
+	2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
+	 
+	* gcc.dg/vect/vect-78.c: Now vectorized on powerpc*.
+
+	2004-11-19  Dorit Naishlos  <dorit@il.ibm.com>
+
+        * tree-vectorizer.c (slpeel_tree_peel_loop_to_edge): New name for
+        function previously called tree_duplicate_loop_to_edge.
+        (slpeel_tree_duplicate_loop_to_edge_cfg): New name for function
+        previously called tree_duplicate_loop_to_edge_cfg.
+        (slpeel_update_phis_for_duplicate_loop): Prefix 'slpeel' added to
+        function name.
+        (slpeel_update_phi_nodes_for_guard): Likewise.
+        (slpeel_make_loop_iterate_ntimes): Likewise.
+        (slpeel_add_loop_guard): Likewise.
+        (allocate_new_names, free_new_names): Function declaration moved to top
+        of file.
+        (rename_use_op, rename_def_op): Likewise.
+        (rename_variables_in_bb, rename_variables_in_loop): Likewise.
+        (vect_generate_tmps_on_preheader): Function declaration moved.
+        (vect_transform_for_unknown_loop_bound): Added missing function
+        declaration.
+
+	2004-11-19  Dorit Naishlos  <dorit@il.ibm.com>	
+
+        * tree-vectorizer.c (slpeel_can_duplicate_loop_p): New name for function
+        previously called verify_loop_for_duplication. All conditions compacted
+        into one compound condition. Removed debug dumps.
+        (vect_analyze_loop_with_symbolic_num_of_iters): Removed. Some of the
+        functionality moved to vect_can_advance_ivs_p, and some to
+        vect_analyze_loop_form.
+        (vect_can_advance_ivs_p): New function. Contains functionality that was
+        taken out of vect_analyze_loop_with_symbolic_num_of_iters.
+        (slpeel_tree_peel_loop_to_edge): Call slpeel_can_duplicate_loop_p.
+        (vect_analyze_operations): Call vect_can_advance_ivs_p and
+        slpeel_can_duplicate_loop_p.
+        (vect_get_loop_niters): Added documentation.
+        (vect_analyze_loop_form): Check the loop entry always - not only in case
+        of unknown loop bound. Create preheader and exit bb if necessary. Apply
+        a check that used to take place in
+        vect_analyze_loop_with_symbolic_num_of_iters.
+        (vectorize_loops): Call verify_loop_closed_ssa under ENABLE_CHECKING.
+        Remove redundant call to rewrite_into_loop_closed_ssa.
+        (vect_compute_data_refs_alignment): Removed obsolete comment.
+
+
+	2004-11-19  Dorit Naishlos  <dorit@il.ibm.com> 
+	
+        * tree-vectorizer.c (slpeel_make_loop_iterate_ntimes): Last two
+        arguments removed.
+        (slpeel_tree_peel_loop_to_edge): Call slpeel_make_loop_iterate_ntimes
+        without last two arguments. Update single_exit of loops.
+        (vect_update_niters_after_peeling): Removed. Its functionality was
+        moved to vect_do_peeling_for_alignment.
+        (vect_do_peeling_for_loop_bound): New name for function previously
+        called vect_transform_for_unknown_loop_bound.
+        (vect_transform_loop_bound): Call slpeel_make_loop_iterate_ntimes
+        instead of code that duplicates the same functionality.
+        (vect_do_peeling_for_alignment): Functionality of
+        vect_update_niters_after_peeling moved here.
+        (vect_transform_loop): Unify call to vect_do_peeling_for_loop_bound -
+        previously named vect_transform_for_unknown_loop_bound - for both known
+        and unknown loop bound cases.
+
+        2004-11-19  Andreas Tobler  <a.tobler@schweiz.ch>
+	        
+        * tree-vectorizer.c (slpeel_verify_cfg_after_peeling): Define only
+        if checking is enabled.
+
+	2004-11-22  Dorit Naishlos  <dorit@il.ibm.com>
+	
+        PR tree-opt/18544
+        * tree-vectorizer.c (vect_analyze_data_refs): Fail if memtag not found.
+
+	2004-11-22  Dorit Naishlos  <dorit@il.ibm.com>
+
+        PR tree-opt/18536
+        * tree-vectorizer.c (make_loop_iterate_ntimes): Use type of niters when
+        creating iv instead of integer_type.
+        (vect_build_loop_niters): Remove redundant code.
+        (vect_transform_loop_bound): Removed (duplicates functionality of
+        make_loop_iterate_ntimes.
+        (vect_gen_niters_for_prolog_loop): Add documentation. Call
+        lang_hooks.types.type_for_size to create a type of the required size.
+        Use that type instead of integer_type. Remove redundant code.
+        (vect_update_niters_after_peeling): Use type of niters instead of
+        integer_type.
+        (vect_transform_loop): Unify handling of known and unknown loop bound
+        cases. Call make_loop_iterate_ntimes instead of
+        vect_transform_loop_bound.
+
+	2004-11-23  Dorit Naishlos  <dorit@il.ibm.com>
+	
+        PR tree-opt/18403
+        PR tree-opt/18505
+        * tree-vectorizer.c (vect_create_data_ref_ptr): Use
+        lang_hooks.types.type_for_size instead of integer_type_node for the
+        type of ptr_update.
+
+	2004-11-23  Dorit Naishlos  <dorit@il.ibm.com> 
+        * tree-vectorizer.c (vect_analyze_operations): Don't vectorize if
+        the vectorization factor is greater than the iteration count.
+        (vect_gen_niters_for_prolog_loop): No need to calculate min if the
+        iteration count is known.
+        
+        (vect_build_symbol_bound): Removed. Its functionality moved to
+        vect_generate_tmps_on_preheader.
+        (vect_generate_tmps_on_preheader): Moved content of
+        vect_build_symbol_bound here instead of calling it.  Changed some
+        variables names.
+        
+        (vect_build_loop_niters): We don't expect a new_bb to be generated -
+        use gcc_assert.
+        (vect_gen_niters_for_prolog_loop): Likewise.
+        (vect_gen_niters_for_prolog_loo): Likewise.
+	        
+        (slpeel_make_loop_iterate_ntimes): Use buildN instead of build.
+        (slpeel_add_loop_guard): Likewise.
+        (slpeel_tree_peel_loop_to_edge): Likewise.
+        (vect_do_peeling_for_alignment): Likewise.
+	        
+        (vect_get_first_index): Missing space.
+
+	2004-11-30  Dorit Naishlos  <dorit@il.ibm.com>
+	PR tree-opt/18173
+
+        * tree-vectorizer.c (vect_can_force_dr_alignment_p): Return false for
+        decls that are assembled before vectorization takes place.
+        (vect_compute_data_ref_alignment): Set DECL_USER_ALIGN to 1.
+
+	2004-11-30  Dorit Naishlos  <dorit@il.ibm.com>
+        * tree-vectorizer.c (vect_gen_niters_for_prolog_loop): Use
+        tree_low_cst instead of TREE_INT_CST_LOW.
+
+        2004-11-30  Ira Rosen  <irar@il.ibm.com>
+	        
+        PR tree-opt/18607
+        * tree-vectorizer.c (vect_analyze_data_refs): Use temporary
+        variable for data_reference when looking for memtag.
+
+	2004-12-02  Dorit Naishlos  <dorit@il.ibm.com>
+
+        PR tree-opt/18716
+        * tree-vectorizer.c (slpeel_make_loop_iterate_ntimes): Properly set
+        then and else labels.
+
 2004-12-17  Mike Stump  <mrs@apple.com>
 
 	Radar 3549855
