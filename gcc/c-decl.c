@@ -1843,7 +1843,8 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
     }
 
   /* Merge the storage class information.  */
-  DECL_WEAK (newdecl) |= DECL_WEAK (olddecl);
+  merge_weak (newdecl, olddecl);
+
   /* For functions, static overrides non-static.  */
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
@@ -4381,7 +4382,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		     even if it is (eg) a const variable with known value.  */
 		  size_varies = 1;
 
-		  if (pedantic)
+		  if (!flag_isoc99 && pedantic)
 		    {
 		      if (TREE_CONSTANT (size))
 			pedwarn ("ISO C89 forbids array `%s' whose size can't be evaluated",
@@ -4429,10 +4430,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	    }
 	  else if (decl_context == FIELD)
 	    {
-	      /* ??? Need to check somewhere that this is a structure
-		 and not a union, that this field is last, and that
-		 this structure has at least one other named member.  */
-
 	      if (pedantic && !flag_isoc99 && !in_system_header)
 		pedwarn ("ISO C89 does not support flexible array members");
 

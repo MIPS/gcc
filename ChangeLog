@@ -1,3 +1,29 @@
+2002-04-29  Nathanael Nerode  <neroden@doctormoo.dyndns.org>
+
+	* configure.in: delete reference to absent file
+
+	* configure.in: replace '[' with 'test'
+
+	* configure.in: Eliminate references to gash.
+	* Makefile.in: Eliminate references to gash.
+
+	* configure.in: remove useless references to 'pic' makefile fragments.
+
+	* configure.in: (*-*-windows*) Finish removing.
+
+	* configure.in: Eliminate redundant test for libgui.
+
+2002-04-29  Roger Sayle  <roger@eyesopen.com>
+
+	* MAINTAINERS: Add self and realphabetize.  Update entries
+	for Dan Berlin, Chris Demetriou and Michael Matz.  Remove
+	entry for a29k port maintainer.
+
+2002-04-26	Joel Sherrill <joel@OARcorp.com>
+
+	* configure.in (h8300*-*-rtems*): Disable libf2c and libgcj.
+	(sparc-*-elf*, sparc64-*-elf*): Disable libgcj.
+
 2002-04-19  Nathanael Nerode  <neroden@twcny.rr.com>
 
 	* configure.in: remove references to dead files

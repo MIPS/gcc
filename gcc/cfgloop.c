@@ -44,6 +44,7 @@ static basic_block make_forwarder_block PARAMS ((basic_block, int, int,
 static void canonicalize_loop_headers   PARAMS ((void));
 static bool glb_enum_p PARAMS ((basic_block, void *));
 static void redirect_edge_with_latch_update PARAMS ((edge, basic_block));
+static void flow_loop_free PARAMS ((struct loop *));
 
 
 /* Dump loop related CFG information.  */
@@ -171,11 +172,30 @@ flow_loops_dump (loops, file, loop_dump_aux, verbose)
     {
       struct loop *loop = loops->parray[i];
 
+      if (!loop)
+	continue;
+
       flow_loop_dump (loop, file, loop_dump_aux, verbose);
     }
 
   if (verbose)
     flow_loops_cfg_dump (loops, file);
+}
+
+/* Free data allocated for LOOP.  */
+static void
+flow_loop_free (loop)
+     struct loop *loop;
+{
+  if (loop->pre_header_edges)
+    free (loop->pre_header_edges);
+  if (loop->entry_edges)
+    free (loop->entry_edges);
+  if (loop->exit_edges)
+    free (loop->exit_edges);
+  if (loop->pred)
+    free (loop->pred);
+  free (loop);
 }
 
 /* Free all the memory allocated for LOOPS.  */
@@ -196,15 +216,10 @@ flow_loops_free (loops)
 	{
 	  struct loop *loop = loops->parray[i];
 
-	  if (loop->pre_header_edges)
-	    free (loop->pre_header_edges);
-	  if (loop->entry_edges)
-	    free (loop->entry_edges);
-	  if (loop->exit_edges)
-	    free (loop->exit_edges);
-	  if (loop->pred)
-	    free (loop->pred);
-	  free (loop);
+	  if (!loop)
+	    continue;
+
+	  flow_loop_free (loop);
 	}
 
       free (loops->parray);
@@ -473,6 +488,7 @@ flow_loop_tree_node_remove (loop)
 
   loop->depth = -1;
   free (loop->pred);
+  loop->pred = NULL;
 }
 
 /* Helper function to compute loop nesting depth and enclosed loop level
@@ -1067,6 +1083,44 @@ remove_bb_from_loops (bb)
    bb->loop_depth = 0;
  }
 
+/* Cancels the LOOP; it must be innermost one.  */
+void
+cancel_loop (loops, loop)
+     struct loops *loops;
+     struct loop *loop;
+{
+  basic_block *bbs;
+  int i;
+
+  if (loop->inner)
+    abort ();
+
+  /* Move blocks up one level (they should be removed as soon as possible).  */
+  bbs = get_loop_body (loop);
+  for (i = 0; i < loop->num_nodes; i++)
+    bbs[i]->loop_father = loop->outer;
+
+  /* Remove the loop from structure.  */
+  flow_loop_tree_node_remove (loop);
+
+  /* Remove loop from loops array.  */
+  loops->parray[loop->num] = NULL;
+
+  /* Free loop data.  */
+  flow_loop_free (loop);
+}
+
+/* Cancels LOOP and all its subloops.  */
+void
+cancel_loop_tree (loops, loop)
+     struct loops *loops;
+     struct loop *loop;
+{
+  while (loop->inner)
+    cancel_loop_tree (loops, loop->inner);
+  cancel_loop (loops, loop);
+}
+
 /* Finds nearest common ancestor in loop tree for given loops.  */
 struct loop *
 find_common_loop (loop_s, loop_d)
@@ -1111,12 +1165,17 @@ void verify_loop_structure (loops, flags)
       sizes[loop->num]++;
 
   for (i = 0; i < loops->num; i++)
-    if (loops->parray[i]->num_nodes != sizes[i])
-      {
-	error ("Size of loop %d should be %d, not %d.",
-		 i, sizes[i], loops->parray[i]->num_nodes);
-	err = 1;
-      }
+    {
+      if (!loops->parray[i])
+        continue;
+
+      if (loops->parray[i]->num_nodes != sizes[i])
+	{
+	  error ("Size of loop %d should be %d, not %d.",
+		   i, sizes[i], loops->parray[i]->num_nodes);
+	  err = 1;
+	}
+    }
 
   free (sizes);
 
@@ -1124,6 +1183,8 @@ void verify_loop_structure (loops, flags)
   for (i = 1; i < loops->num; i++)
     {
       loop = loops->parray[i];
+      if (!loop)
+	continue;
       bbs = get_loop_body (loop);
 
       for (j = 0; j < loop->num_nodes; j++)
@@ -1140,6 +1201,9 @@ void verify_loop_structure (loops, flags)
   for (i = 1; i < loops->num; i++)
     {
       loop = loops->parray[i];
+      if (!loop)
+	continue;
+
       if ((flags & VLS_EXPECT_PREHEADERS)
 	  && (!loop->header->pred->pred_next
 	      || loop->header->pred->pred_next->pred_next))

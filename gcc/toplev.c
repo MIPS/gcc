@@ -126,6 +126,9 @@ static int print_single_switch PARAMS ((FILE *, int, int, const char *,
 static void print_switch_values PARAMS ((FILE *, int, int, const char *,
 				       const char *, const char *));
 
+/* Nonzero to dump debug info whilst parsing (-dy option).  */
+static int set_yydebug;
+
 /* Length of line when printing switch values.  */
 #define MAX_LINE 75
 
@@ -637,6 +640,14 @@ static int flag_loop_optimize;
 
 static int flag_crossjumping;
 
+/* Nonzero means perform if conversion.  */
+
+static int flag_if_conversion;
+
+/* Nonzero means perform if conversion after reload.  */
+
+static int flag_if_conversion2;
+
 /* Nonzero means to use global dataflow analysis to eliminate
    useless null pointer tests.  */
 
@@ -1075,6 +1086,10 @@ static const lang_independent_options f_options[] =
    N_("Perform the loop optimizations") },
   {"crossjumping", &flag_crossjumping, 1,
    N_("Perform cross-jumping optimization") },
+  {"if-conversion", &flag_if_conversion, 1,
+   N_("Perform conversion of conditional jumps to branchless equivalents") },
+  {"if-conversion2", &flag_if_conversion2, 1,
+   N_("Perform conversion of conditional jumps to conditional execution") },
   {"rerun-cse-after-loop", &flag_rerun_cse_after_loop, 1,
    N_("Run CSE pass after loop optimizations") },
   {"rerun-loop-opt", &flag_rerun_loop_opt, 1,
@@ -1120,6 +1135,8 @@ static const lang_independent_options f_options[] =
    N_("Use profiling information for branch probabilities") },
   {"midlevel-rtl", &flag_midlevel_rtl, 1,
    N_("Use midlevel RTL") },
+  {"profile", &profile_flag, 1,
+   N_("Enable basic program profiling code") },
   {"reorder-blocks", &flag_reorder_blocks, 1,
    N_("Reorder basic blocks to improve code placement") },
   {"reorder-functions", &flag_reorder_functions, 1,
@@ -2101,7 +2118,7 @@ compile_file ()
 
   /* Call the parser, which parses the entire file (calling
      rest_of_compilation for each function).  */
-  (*lang_hooks.parse_file) ();
+  (*lang_hooks.parse_file) (set_yydebug);
 
   /* In case there were missing block closers,
      get us back to the global binding level.  */
@@ -2717,7 +2734,7 @@ rest_of_compilation (decl)
 
   timevar_push (TV_JUMP);
 
-  if (optimize > 0)
+  if (flag_delete_null_pointer_checks || flag_if_conversion)
     {
       open_dump_file (DFI_web, decl);
       find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);
@@ -2746,7 +2763,8 @@ rest_of_compilation (decl)
 	delete_null_pointer_checks (get_insns ());
 
       timevar_push (TV_IFCVT);
-      if_convert (0);
+      if (flag_if_conversion)
+        if_convert (0);
       timevar_pop (TV_IFCVT);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       close_dump_file (DFI_null, print_rtl_with_bb, get_insns ());
@@ -3136,7 +3154,8 @@ rest_of_compilation (decl)
 
 	  timevar_push (TV_IFCVT);
 	  cleanup_cfg (CLEANUP_EXPENSIVE);
-	  if_convert (0);
+	  if (flag_if_conversion)
+	    if_convert (0);
 	  timevar_pop(TV_IFCVT);
 
 	  timevar_pop (TV_JUMP);
@@ -3249,7 +3268,7 @@ rest_of_compilation (decl)
 
   /* Rerun if-conversion, as combine may have simplified things enough to
      now meet sequence length restrictions.  */
-  if (optimize > 0)
+  if (flag_if_conversion)
     {
       timevar_push (TV_IFCVT);
       open_dump_file (DFI_ce2, decl);
@@ -3477,7 +3496,7 @@ rest_of_compilation (decl)
     }
 #endif
 
-  if (flag_rename_registers || flag_cprop_registers)
+  if (optimize > 0 && (flag_rename_registers || flag_cprop_registers))
     {
       timevar_push (TV_RENAME_REGISTERS);
       open_dump_file (DFI_rnreg, decl);
@@ -3491,7 +3510,7 @@ rest_of_compilation (decl)
       timevar_pop (TV_RENAME_REGISTERS);
     }
 
-  if (optimize > 0)
+  if (flag_if_conversion2)
     {
       timevar_push (TV_IFCVT2);
       open_dump_file (DFI_ce3, decl);
@@ -4004,7 +4023,7 @@ decode_d_option (arg)
 	rtl_dump_and_exit = 1;
 	break;
       case 'y':
-	(*lang_hooks.set_yydebug) (1);
+	set_yydebug = 1;
 	break;
       case 'D':	/* These are handled by the preprocessor.  */
       case 'I':
@@ -4874,6 +4893,8 @@ parse_options_and_default_flags (argc, argv)
       flag_cprop_registers = 1;
       flag_loop_optimize = 1;
       flag_crossjumping = 1;
+      flag_if_conversion = 1;
+      flag_if_conversion2 = 1;
     }
 
   if (optimize >= 2)

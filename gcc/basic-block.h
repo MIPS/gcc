@@ -703,13 +703,16 @@ extern edge loop_latch_edge PARAMS ((struct loop *));
 
 extern void add_bb_to_loop PARAMS ((basic_block, struct loop *));
 extern void remove_bb_from_loops PARAMS ((basic_block));
-struct loop * find_common_loop PARAMS ((struct loop *, struct loop *));
+extern struct loop * find_common_loop PARAMS ((struct loop *, struct loop *));
 
-void verify_loop_structure PARAMS ((struct loops *, int));
+extern void cancel_loop PARAMS ((struct loops *, struct loop *));
+extern void cancel_loop_tree PARAMS ((struct loops *, struct loop *));
+
+extern void verify_loop_structure PARAMS ((struct loops *, int));
 #define VLS_EXPECT_PREHEADERS 1
 #define VLS_EXPECT_SIMPLE_LATCHES 2
 #define VLS_FOR_LOOP_NEW (VLS_EXPECT_PREHEADERS | VLS_EXPECT_SIMPLE_LATCHES)
-int expected_loop_iterations PARAMS ((const struct loop *));
+extern int expected_loop_iterations PARAMS ((const struct loop *));
 
 typedef struct conflict_graph_def *conflict_graph;
 
@@ -766,7 +769,7 @@ extern int get_dominated_by PARAMS ((sbitmap *, basic_block, basic_block **));
 basic_block recount_dominator PARAMS ((sbitmap *, basic_block));
 extern void redirect_immediate_dominators PARAMS ((sbitmap *, basic_block,
 						 basic_block));
-void iterate_fix_dominators PARAMS ((sbitmap *, basic_block *, int, int));
+void iterate_fix_dominators PARAMS ((sbitmap *, basic_block *, int));
 extern void verify_dominators PARAMS ((void));
 
 /* In cfgloopanal.c */

@@ -1928,6 +1928,7 @@ enum tree_index
   TI_UV4HI_TYPE,
   TI_UV2SI_TYPE,
   TI_UV2SF_TYPE,
+  TI_UV2DI_TYPE,
   TI_UV16QI_TYPE,
 
   TI_V4SF_TYPE,
@@ -1938,6 +1939,8 @@ enum tree_index
   TI_V4HI_TYPE,
   TI_V2SI_TYPE,
   TI_V2SF_TYPE,
+  TI_V2DF_TYPE,
+  TI_V2DI_TYPE,
   TI_V16QI_TYPE,
 
   TI_MAIN_IDENTIFIER,
@@ -2005,6 +2008,7 @@ extern tree global_trees[TI_MAX];
 #define unsigned_V8HI_type_node		global_trees[TI_UV8HI_TYPE]
 #define unsigned_V4HI_type_node		global_trees[TI_UV4HI_TYPE]
 #define unsigned_V2SI_type_node		global_trees[TI_UV2SI_TYPE]
+#define unsigned_V2DI_type_node		global_trees[TI_UV2DI_TYPE]
 
 #define V16QI_type_node			global_trees[TI_V16QI_TYPE]
 #define V4SF_type_node			global_trees[TI_V4SF_TYPE]
@@ -2014,6 +2018,8 @@ extern tree global_trees[TI_MAX];
 #define V4HI_type_node			global_trees[TI_V4HI_TYPE]
 #define V2SI_type_node			global_trees[TI_V2SI_TYPE]
 #define V2SF_type_node			global_trees[TI_V2SF_TYPE]
+#define V2DI_type_node			global_trees[TI_V2DI_TYPE]
+#define V2DF_type_node			global_trees[TI_V2DF_TYPE]
 #define V16SF_type_node			global_trees[TI_V16SF_TYPE]
 
 /* An enumeration of the standard C integer types.  These must be
@@ -2220,8 +2226,6 @@ struct attribute_spec
   tree (*const handler) PARAMS ((tree *node, tree name, tree args,
 				 int flags, bool *no_add_attrs));
 };
-
-extern const struct attribute_spec default_target_attribute_table[];
 
 /* Flags that may be passed in the third argument of decl_attributes, and
    to handler functions for attributes.  */
@@ -2925,18 +2929,6 @@ extern int setjmp_call_p		PARAMS ((tree));
    returned to be applied at a later stage (for example, to apply
    a decl attribute to the declaration rather than to its type).  */
 extern tree decl_attributes		PARAMS ((tree *, tree, int));
-
-/* The following function must be provided by front ends
-   using attribs.c.  */
-
-/* Table of machine-independent attributes for checking formats, if used.  */
-extern const struct attribute_spec *format_attribute_table;
-
-/* Table of machine-independent attributes for a particular language.  */
-extern const struct attribute_spec *lang_attribute_table;
-
-/* Flag saying whether common language attributes are to be supported.  */
-extern int lang_attribute_common;
 
 /* In integrate.c */
 extern void save_for_inline		PARAMS ((tree));

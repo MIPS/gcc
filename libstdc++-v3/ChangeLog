@@ -1,3 +1,60 @@
+2002-04-30  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/6511
+	* config/os/solaris/solaris2.7/bits/ctype_noninline.h: Fix typo.
+
+2002-04-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/5820
+	* include/bits/fstream.tcc (basic_filebuf::_M_underflow_common):
+	Check for eof.
+	* include/bits/streambuf_iterator.h: Match stream_iterator.h.
+	(istreambuf_iterator::operator++): Invalidate on eof.
+	(istreambuf_iterator::operator++(int)): Same.
+	(istreambuf_iterator::operator*): Same.
+	
+2002-04-29  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* testsuite/lib/libstdc++-v3-dg.exp (libstdc++-v3-init): Set all
+	of LD_LIBRARY_PATH, SHLIB_PATH, LD_LIBRARYN32_PATH,
+	LD_LIBRARY64_PATH. 
+
+2002-04-28  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/5820
+	* config/io/basic_file_stdio.h (__basic_file::sys_getc): Return int.
+	(__basic_file::sys_ungetc): Take int.
+	* config/io/basic_file_stdio.cc (__basic_file::sys_ungetc): Same.
+	* include/bits/fstream.tcc (basic_filebuf::_M_underflow_common):
+	Use sys_getc for unbuffered input.
+	* testsuite/27_io/narrow_stream_objects.cc (test06): New.
+	
+	* src/ios.cc (_M_grow_words): Adjust error checking.
+	* testsuite/27_io/ios_base_storage.cc: Same.
+
+2002-04-28  Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
+
+	* include/ext/stl_hashtable.h: Import __iterator_category
+
+2002-04-28  Paolo Carlini  <pcarlini@unitus.it>
+            Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
+
+	* testsuite/ext/hash_set.cc: New testfile.
+
+2002-04-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/os/solaris/solaris2.5/bits/os_defines.h: Remove
+	_G_USING_THUNKS.
+	* config/os/solaris/solaris2.6/bits/os_defines.h: Same.
+	* config/os/solaris/solaris2.7/bits/os_defines.h: Same.
+
+2002-04-26  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/basic_string.h (replace(__pos, __n1, __s, __n2):
+	Fix and tighten __throw_length_error check.
+	* testsuite/21_strings/replace.cc (test05): New.
+	* testsuite/21_strings/replace.cc (test02, test03, test04): Tweak.
+
 2002-04-23  Loren J. Rittle <ljrittle@acm.org>
 
 	* include/std/std_fstream.h (basic_filebuf::sync): Hoist

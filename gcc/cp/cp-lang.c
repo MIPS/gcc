@@ -88,8 +88,6 @@ static bool cxx_warn_unused_global_decl PARAMS ((tree));
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	cxx_printable_name
 #undef LANG_HOOKS_PRINT_ERROR_FUNCTION
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION	cxx_print_error_function
-#undef LANG_HOOKS_SET_YYDEBUG
-#define LANG_HOOKS_SET_YYDEBUG cxx_set_yydebug
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL cxx_warn_unused_global_decl
 
@@ -99,6 +97,14 @@ static bool cxx_warn_unused_global_decl PARAMS ((tree));
 #define LANG_HOOKS_FUNCTION_FREE cxx_pop_function_context
 #undef LANG_HOOKS_FUNCTION_MARK
 #define LANG_HOOKS_FUNCTION_MARK cxx_mark_function_context
+
+/* Attribute hooks.  */
+#undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
+#define LANG_HOOKS_COMMON_ATTRIBUTE_TABLE c_common_attribute_table
+#undef LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE
+#define LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE c_common_format_attribute_table
+#undef LANG_HOOKS_ATTRIBUTE_TABLE
+#define LANG_HOOKS_ATTRIBUTE_TABLE cxx_attribute_table
 
 #undef LANG_HOOKS_TREE_INLINING_WALK_SUBTREES
 #define LANG_HOOKS_TREE_INLINING_WALK_SUBTREES \

@@ -183,28 +183,20 @@ recount_dominator (dom, bb)
    return dom_bb;
 }
 
-/* Iteratively recount dominators of BBS. If LOCAL is set, the change is
-   supposed to be local and not to grow further.  Otherwise BBS is supposed
-   to be able to hold all affected blocks (i.e. n_basic_blocks worst case).  */
+/* Iteratively recount dominators of BBS. The change is supposed to be local
+   and not to grow further.  */
 void
-iterate_fix_dominators (doms, bbs, n, local)
+iterate_fix_dominators (doms, bbs, n)
      sbitmap *doms;
      basic_block *bbs;
      int n;
-     int local;
 {
-  sbitmap affected;
   int i, changed = 1;
   basic_block old_dom, new_dom;
-  edge e;
 
-  if (!local)
-    affected = sbitmap_alloc (n_basic_blocks);
   while (changed)
     {
       changed = 0;
-      if (!local)
-	sbitmap_zero (affected);
       for (i = 0; i < n; i++)
 	{
 	  old_dom = get_immediate_dominator (doms, bbs[i]);
@@ -213,22 +205,9 @@ iterate_fix_dominators (doms, bbs, n, local)
 	    {
 	      changed = 1;
 	      set_immediate_dominator (doms, bbs[i], new_dom);
-	      if (!local)
-		for (e = bbs[i]->pred; e; e = e->pred_next)
-		  SET_BIT (affected, e->src->index);
 	    }
 	}
-      if (changed && !local)
-	{
-	  n = 0;
-	  EXECUTE_IF_SET_IN_SBITMAP (affected, 0, i,
-	    {
-	      bbs[n++] = BASIC_BLOCK (i);
-	    });
-	}
     }
-  if (!local)
-    sbitmap_free (affected);
 }
 
 static struct loop * duplicate_loop PARAMS ((struct loops *, struct loop *, struct loop *));
@@ -241,13 +220,12 @@ static void remove_exit_edges PARAMS ((basic_block *, int, basic_block));
 static struct loop *unswitch_loop PARAMS ((struct loops *, struct loop *, basic_block));
 static void remove_bbs PARAMS ((basic_block *, int));
 static bool rpe_enum_p PARAMS ((basic_block, void *));
-static int find_branch PARAMS ((edge, sbitmap *, struct loop *, basic_block **));
-static void remove_path PARAMS ((edge, struct loop *, sbitmap *, int));
-static int try_remove_path PARAMS ((struct loops *, struct loop *, edge));
+static int find_branch PARAMS ((edge, sbitmap *, basic_block **));
 static struct loop *loopify PARAMS ((struct loops *, edge, edge, basic_block));
 static bool alp_enum_p PARAMS ((basic_block, void *));
 static void add_loop PARAMS ((struct loops *, struct loop *));
-static void fix_loop_placement PARAMS ((struct loop *));
+static int fix_loop_placement PARAMS ((struct loop *));
+static void fix_loop_placements PARAMS ((struct loop *));
 static void place_new_loop PARAMS ((struct loops *, struct loop *));
 static void unswitch_single_loop PARAMS ((struct loops *, struct loop *, rtx, int));
 static bool may_unswitch_on_p PARAMS ((struct loops *, basic_block, struct loop *, basic_block *));
@@ -336,12 +314,22 @@ void
 unswitch_loops (loops)
      struct loops *loops;
 {
-  int i;
-  /* Scan the loops, last ones first, since this means inner ones are done
-     before outer ones.  */
-  for (i = loops->num - 1; i > 0; i--)
+  int i, num;
+  struct loop *loop;
+
+  /* Go through inner loops (only original ones).  */
+  num = loops->num;
+  
+  for (i = 1; i < num; i++)
     {
-      struct loop *loop = loops->parray[i];
+      /* Removed loop?  */
+      loop = loops->parray[i];
+      if (!loop)
+	continue;
+      /* Not innermost?  */
+      if (loop->inner)
+	continue;
+
       unswitch_single_loop (loops, loop, NULL_RTX, 0);
 #ifdef ENABLE_CHECKING
       verify_dominators ();
@@ -550,23 +538,19 @@ unswitch_single_loop (loops, loop, cond_checked, num)
 	abort ();
       if (always_true)
 	{
-	  /* Attempt to remove false path if possible.  */
+	  /* Remove false path.  */
  	  for (e = bbs[i]->succ; !(e->flags & EDGE_FALLTHRU); e = e->succ_next);
-	  if (try_remove_path (loops, loop, e))
-	    {
-	      free (bbs);
-	      repeat = 1;
-	    }
+	  remove_path (loops, e);
+	  free (bbs);
+	  repeat = 1;
 	}
       else if (always_false)
 	{
-	  /* Attempt to remove true path if possible.  */
+	  /* Remove true path.  */
 	  for (e = bbs[i]->succ; e->flags & EDGE_FALLTHRU; e = e->succ_next);
-	  if (try_remove_path (loops, loop, e))
-	    {
-	      free (bbs);
-	      repeat = 1;
-	    }
+	  remove_path (loops, e);
+	  free (bbs);
+	  repeat = 1;
 	}
     } while (repeat);
  
@@ -600,7 +584,6 @@ unswitch_single_loop (loops, loop, cond_checked, num)
 /* Checks whether BB is inside RPE_LOOP and is dominated by RPE_DOM.  */
 struct rpe_data
  {
-   struct loop *loop;
    basic_block dom;
    sbitmap *doms;
  };
@@ -611,8 +594,7 @@ rpe_enum_p (bb, data)
      void *data;
 {
   struct rpe_data *rpe = data;
-  return flow_bb_inside_loop_p (rpe->loop, bb)
-	 && dominated_by_p (rpe->doms, bb, rpe->dom);
+  return dominated_by_p (rpe->doms, bb, rpe->dom);
 }
 
 /* Remove BBS.  */
@@ -637,12 +619,11 @@ remove_bbs (bbs, nbbs)
     }
 }
 
-/* Find branch beginning at Edge inside LOOP and put it into BBS.  */
+/* Find branch beginning at Edge and put it into BBS.  */
 static int
-find_branch (e, doms, loop, bbs)
+find_branch (e, doms, bbs)
      edge e;
      sbitmap *doms;
-     struct loop *loop;
      basic_block **bbs;
 {
   edge ae = NULL;
@@ -662,111 +643,58 @@ find_branch (e, doms, loop, bbs)
     }
 
   /* Find bbs we are interested in.  */
-  rpe.loop = loop;
   rpe.dom = e->dest;
   rpe.doms = doms;
-  *bbs = xcalloc (loop->num_nodes, sizeof (basic_block));
+  *bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
   return dfs_enumerate_from (e->dest, 0, rpe_enum_p, *bbs,
-			     loop->num_nodes, &rpe);
+			     n_basic_blocks, &rpe);
 }
 
-/* Remove given edge E and all bbs inside LOOP that are dominated by target 
-   of E.  Fix dominators by redirecting to copy if FIX is set.  */
-static void
-remove_path (e, loop, doms, fix)
-     edge e;
-     struct loop *loop;
-     sbitmap *doms;
-     int fix;
-{
-  int nrem, i, j;
-  basic_block *rem_bbs, bb, nbb, *dom_bbs, dom_bb, ndom;
-  int n_dom_bbs;
-  
-  nrem = find_branch (e, doms, loop, &rem_bbs);
-  
-  if (fix)
-    {
-      /* Fix dominators.  */
-      for (i = 0; i < nrem; i++)
-	{
-	  bb = rem_bbs[i];
-	  ndom = RBI (bb)->copy;
-	  n_dom_bbs = get_dominated_by (doms, bb, &dom_bbs);
-	  for (j = 0; j < n_dom_bbs; j++)
-	    {
-	      /* This may also be bbs inside loop; but it does not matter,
-		 as they will be deleted anyway.  */
-	      dom_bb = dom_bbs[j];
-	      set_immediate_dominator (doms, dom_bb, ndom);
-	    }
-	  free (dom_bbs);
-	}
-      /* Fix frequencies.  */
-      for (i = 0; i < nrem; i++)
-	{
-	  bb = rem_bbs[i];
-	  nbb = RBI (bb)->copy;
-	  nbb->frequency += bb->frequency;
-	  nbb->count += bb->count;
-	}
-    }
-  else
-    {
-      /* Fix frequencies.  */
-      for (i = 0; i < nrem; i++)
-	{
-	  bb = rem_bbs[i];
-	  nbb = RBI (bb)->original;
-	  nbb->frequency += bb->frequency;
-	  nbb->count += bb->count;
-	}
-     }
-
-  /* Remove the jump and edge.  */
-  loop_delete_branch_edge (e);
-
-  /* Remove the blocks.  */
-  remove_bbs (rem_bbs, nrem);
-  free (rem_bbs);
-}
-
-/* Attempts to remove path beginning at E from LOOP. Returns 1 if successful.
-   */
-static int
-try_remove_path (loops, loop, e)
+/* Removes path beginning at E.  */
+void
+remove_path (loops, e)
      struct loops *loops;
-     struct loop *loop;
      edge e;
 {
   edge ae;
-  basic_block *rem_bbs, *dom_bbs, from, *border_bbs;
-  int i, j, nrem, n_dom_bbs, n_border_bbs;
+  basic_block *rem_bbs, *bord_bbs, *dom_bbs, from, bb;
+  int i, nrem, n_bord_bbs, n_dom_bbs;
+  sbitmap seen;
 
   /* First identify the branch.  */
-  nrem = find_branch (e, loops->cfg.dom, loop, &rem_bbs);
+  nrem = find_branch (e, loops->cfg.dom, &rem_bbs);
 
-  /* Check whether we would not create unreachable blocks.  */
+  /* Now cancel contained loops.  */
   for (i = 0; i < nrem; i++)
+    if (rem_bbs[i]->loop_father->header == rem_bbs[i])
+      cancel_loop_tree (loops, rem_bbs[i]->loop_father);
+
+  /* Find blocks whose immediate dominators may be affected.  */
+  n_dom_bbs = 0;
+  n_bord_bbs = 0;
+  dom_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
+  bord_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
+  seen = sbitmap_alloc (n_basic_blocks);
+  sbitmap_zero (seen);
+
+  /* Find border hexes.  */
+  for (i = 0; i < nrem; i++)
+    SET_BIT (seen, rem_bbs[i]->index);
+  if (nrem)
     {
-      n_dom_bbs = get_dominated_by (loops->cfg.dom, rem_bbs[i], &dom_bbs);
-      for (j = 0; j < n_dom_bbs; j++)
-	if (!flow_bb_inside_loop_p (loop, dom_bbs[j]))
-	  {
-	    free (dom_bbs);
-	    free (rem_bbs);
-	    return 0;
-	  }
-      free (dom_bbs);
+      for (i = 0; i < nrem; i++)
+	{
+	  bb = rem_bbs[i];
+	  for (ae = rem_bbs[i]->succ; ae; ae = ae->succ_next)
+	    if (ae->dest != EXIT_BLOCK_PTR && !TEST_BIT (seen, ae->dest->index))
+	      {
+		SET_BIT (seen, ae->dest->index);
+		bord_bbs[n_bord_bbs++] = ae->dest;
+	      }
+	}
     }
-
-  /* Remember border blocks.  */
-  border_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
-  n_border_bbs = 0;
-  for (i = 0; i < nrem; i++)
-    for (ae = rem_bbs[i]->succ; ae; ae = ae->succ_next)
-      if (!flow_bb_inside_loop_p (loop, ae->dest))
-	border_bbs[n_border_bbs++] = ae->dest;
+  else
+    bord_bbs[n_bord_bbs++] = e->dest;
 
   /* OK. Remove the path.  */
   from = e->src;
@@ -774,19 +702,34 @@ try_remove_path (loops, loop, e)
   remove_bbs (rem_bbs, nrem);
   free (rem_bbs);
 
-  /* Recount dominators for from.  */
-  n_dom_bbs = get_dominated_by (loops->cfg.dom, from, &dom_bbs);
-  iterate_fix_dominators (loops->cfg.dom, dom_bbs, n_dom_bbs, 1);
+  /* Find blocks with affected dominators.  */
+  sbitmap_zero (seen);
+  for (i = 0; i < n_bord_bbs; i++)
+    {
+      int j, nldom;
+      basic_block *ldom;
+
+      bb = get_immediate_dominator (loops->cfg.dom, bord_bbs[i]);
+      if (TEST_BIT (seen, bb->index))
+	continue;
+      SET_BIT (seen, bb->index);
+
+      nldom = get_dominated_by (loops->cfg.dom, bb, &ldom);
+      for (j = 0; j < nldom; j++)
+	if (!dominated_by_p (loops->cfg.dom, from, ldom[j]))
+	  dom_bbs[n_dom_bbs++] = ldom[j];
+      free(ldom);
+    }
+
+  free (bord_bbs);
+  free (seen);
+
+  /* Recount dominators.  */
+  iterate_fix_dominators (loops->cfg.dom, dom_bbs, n_dom_bbs);
   free (dom_bbs);
 
-  /* Recount dominators for border bbs.  */
-  iterate_fix_dominators (loops->cfg.dom, border_bbs, n_border_bbs, 0);
-  free (border_bbs);
-
-  /* Fix loop placement.  */
-  fix_loop_placement (loop);
-
-  return 1;
+  /* Fix loop placements.  */
+  fix_loop_placements (from->loop_father);
 }
 
 /* Predicate for enumeration in add_loop.  */
@@ -859,10 +802,10 @@ scale_loop_frequencies (loop, num, den)
 }
 
 /* Make area between HEADER_EDGE and LATCH_EDGE a loop by connecting
-   latch to header.  Everything between them plus LATCH_EDGE destrination
-   must be dominated by HEADER_EDGE destination.  Add SWITCH_BB to original
-   entry edge.  Returns newly created loop.  Dominators outside the area
-   are intentionally left wrong.  */
+   latch to header.  Everything between them plus LATCH_EDGE destination
+   must be dominated by HEADER_EDGE destination, and backreachable from
+   LATCH_EDGE source.  Add SWITCH_BB to original entry edge.  Returns newly
+   created loop.  */
 static struct loop *
 loopify (loops, latch_edge, header_edge, switch_bb)
      struct loops *loops;
@@ -872,6 +815,9 @@ loopify (loops, latch_edge, header_edge, switch_bb)
 {
   basic_block succ_bb = latch_edge->dest;
   basic_block pred_bb = header_edge->src;
+  basic_block *dom_bbs, *body;
+  int n_dom_bbs, i, j;
+  sbitmap seen;
   struct loop *loop = xcalloc (1, sizeof (struct loop));
   struct loop *outer = succ_bb->loop_father->outer;
   int freq, prob, tot_prob;
@@ -915,12 +861,43 @@ loopify (loops, latch_edge, header_edge, switch_bb)
   scale_loop_frequencies (loop, prob, tot_prob);
   scale_loop_frequencies (succ_bb->loop_father, tot_prob - prob, tot_prob);
 
+  /* Update dominators of outer blocks.  */
+  dom_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
+  n_dom_bbs = 0;
+  seen = sbitmap_alloc (n_basic_blocks);
+  sbitmap_zero (seen);
+  body = get_loop_body (loop);
+
+  for (i = 0; i < loop->num_nodes; i++)
+    SET_BIT (seen, body[i]->index);
+
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      int nldom;
+      basic_block *ldom;
+
+      nldom = get_dominated_by (loops->cfg.dom, body[i], &ldom);
+      for (j = 0; j < nldom; j++)
+	if (!TEST_BIT (seen, ldom[j]->index))
+	  {
+	    SET_BIT (seen, ldom[j]->index);
+	    dom_bbs[n_dom_bbs++] = ldom[j];
+	  }
+      free (ldom);
+    }
+
+  iterate_fix_dominators (loops->cfg.dom, dom_bbs, n_dom_bbs);
+
+  free (body);
+  free (seen);
+  free (dom_bbs);
+
   return loop;
 }
 
 /* Move LOOP up the hierarchy while it is not backward reachable from the
    latch of the outer loop.  */
-static void
+static int
 fix_loop_placement (loop)
      struct loop *loop;
 {
@@ -946,6 +923,24 @@ fix_loop_placement (loop)
 	act->num_nodes -= loop->num_nodes;
       flow_loop_tree_node_remove (loop);
       flow_loop_tree_node_add (father, loop);
+      return 1;
+    }
+  return 0;
+}
+
+/* Fix placement of superloops of LOOP.  */
+static void
+fix_loop_placements (loop)
+     struct loop *loop;
+{
+  struct loop *outer;
+
+  while (loop->outer)
+    {
+      outer = loop->outer;
+      if (!fix_loop_placement (loop))
+        break;
+      loop = outer;
     }
 }
 
@@ -961,10 +956,8 @@ unswitch_loop (loops, loop, unswitch_on)
      basic_block unswitch_on;
 {
   edge entry, e, latch_edge;
-  basic_block switch_bb, unswitch_on_alt, *bbs, *dom_bbs, dom_bb;
+  basic_block switch_bb, unswitch_on_alt;
   struct loop *nloop;
-  int n_dom_bbs, i, j;
-  int just_one_edge;
   sbitmap zero_bitmap;
 
   /* Some sanity checking.  */
@@ -995,7 +988,7 @@ unswitch_loop (loops, loop, unswitch_on)
   /* Make a copy.  */
   zero_bitmap = sbitmap_alloc (2);
   sbitmap_zero (zero_bitmap);
-  if (!duplicate_loop_to_header_edge (loop, entry, loops, 1, zero_bitmap, 0))
+  if (!duplicate_loop_to_header_edge (loop, entry, loops, 1, zero_bitmap, DLTHE_FLAG_UPDATE_DOMINATORS))
     return NULL;
   free (zero_bitmap);
 
@@ -1012,59 +1005,20 @@ unswitch_loop (loops, loop, unswitch_on)
        latch_edge = latch_edge->succ_next);
   nloop = loopify (loops, latch_edge,
 		   RBI (loop->header)->copy->pred, switch_bb);
-  
-  /* Remove paths from loop copies and update dominators.
-     We rely on the fact that cfg_layout_duplicate_bb reverses
-     list of edges here.  */
+ 
+  /* Remove paths from loop copies.  We rely on the fact that
+     cfg_layout_duplicate_bb reverses list of edges here.  */
   for (e = unswitch_on->succ->succ_next->dest->pred; e; e = e->pred_next)
     if (e->src != unswitch_on &&
 	!dominated_by_p (loops->cfg.dom, e->src, e->dest))
       break;
-  just_one_edge = (e != NULL);
-  remove_path (unswitch_on->succ, loop, loops->cfg.dom, 1);
-  remove_path (unswitch_on_alt->succ, nloop, loops->cfg.dom, 0);
+  remove_path (loops, unswitch_on->succ);
+  remove_path (loops, unswitch_on_alt->succ);
 
   /* One of created loops do not have to be subloop of the outer loop now.  */
   fix_loop_placement (loop);
   fix_loop_placement (nloop);
 
-  /* Now fix dominators of outside blocks.  */
-  bbs = get_loop_body (loop);
-  for (i = 0; i < loop->num_nodes; i++)
-    {
-      if (!just_one_edge &&
-	  dominated_by_p (loops->cfg.dom, bbs[i], unswitch_on->succ->dest))
-	continue;
-      n_dom_bbs = get_dominated_by (loops->cfg.dom, bbs[i], &dom_bbs);
-      for (j = 0; j < n_dom_bbs; j++)
-	{
-	  dom_bb = dom_bbs[j];
-	  if (flow_bb_inside_loop_p (loop, dom_bb))
-	    continue;
-	  set_immediate_dominator (loops->cfg.dom, dom_bb, switch_bb);
-	}
-      free (dom_bbs);
-    }
-  free (bbs);
-
-  /* Now the hard case.  Dominators of blocks inside loop immediatelly
-     dominated by unswitch_on may behave really weird.  */
-  n_dom_bbs = get_dominated_by (loops->cfg.dom, unswitch_on, &dom_bbs);
-  j = 0;
-  for (i = 0; i < n_dom_bbs; i++)
-    if (flow_bb_inside_loop_p (loop, dom_bbs[i]))
-      dom_bbs[j++] = dom_bbs [i];
-  iterate_fix_dominators (loops->cfg.dom, dom_bbs, j, 1);
-  free (dom_bbs);
-
-  n_dom_bbs = get_dominated_by (loops->cfg.dom, unswitch_on_alt, &dom_bbs);
-  j = 0;
-  for (i = 0; i < n_dom_bbs; i++)
-    if (flow_bb_inside_loop_p (nloop, dom_bbs[i]))
-      dom_bbs[j++] = dom_bbs [i];
-  iterate_fix_dominators (loops->cfg.dom, dom_bbs, j, 1);
-  free (dom_bbs);
-  
   return nloop;
 }
 

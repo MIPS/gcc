@@ -1366,7 +1366,7 @@ do_if (pfile)
   int skip = 1;
 
   if (! pfile->state.skipping)
-    skip = _cpp_parse_expr (pfile) == 0;
+    skip = _cpp_parse_expr (pfile) == false;
 
   push_conditional (pfile, skip, T_IF, pfile->mi_ind_cmacro);
 }
@@ -1652,7 +1652,7 @@ find_answer (node, candidate)
 int
 _cpp_test_assertion (pfile, value)
      cpp_reader *pfile;
-     int *value;
+     unsigned int *value;
 {
   struct answer *answer;
   cpp_hashnode *node;

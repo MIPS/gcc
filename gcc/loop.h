@@ -446,6 +446,8 @@ struct loop_desc
   bool const_iter;      /* True if both limits are integer constants.  */
   enum rtx_code cond;	/* Exit condition.  */
   int neg;		/* Set to 1 if loop ends when condition is satisfied.  */
+  edge out_edge;	/* The exit edge.  */
+  edge in_edge;		/* And the other one.  */
 };
 
 bool can_duplicate_loop_p PARAMS ((struct loop *loop));
@@ -454,4 +456,4 @@ bool can_duplicate_loop_p PARAMS ((struct loop *loop));
 #define DLTHE_FLAG_ALL			(DLTHE_FLAG_UPDATE_DOMINATORS \
 					| DLTHE_FLAG_UPDATE_FREQ)
 int duplicate_loop_to_header_edge PARAMS ((struct loop *, edge, struct loops *, int, sbitmap, int));
-
+void remove_path PARAMS ((struct loops *, edge));

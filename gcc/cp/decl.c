@@ -49,8 +49,6 @@ Boston, MA 02111-1307, USA.  */
 #include "c-pragma.h"
 #include "diagnostic.h"
 
-extern const struct attribute_spec *lang_attribute_table;
-
 #ifndef BOOL_TYPE_SIZE
 /* `bool' has size and alignment `1', on all platforms.  */
 #define BOOL_TYPE_SIZE CHAR_TYPE_SIZE
@@ -3642,7 +3640,8 @@ duplicate_decls (newdecl, olddecl)
     }
 
   /* Merge the storage class information.  */
-  DECL_WEAK (newdecl) |= DECL_WEAK (olddecl);
+  merge_weak (newdecl, olddecl);
+
   DECL_ONE_ONLY (newdecl) |= DECL_ONE_ONLY (olddecl);
   DECL_DEFER_OUTPUT (newdecl) |= DECL_DEFER_OUTPUT (olddecl);
   TREE_PUBLIC (newdecl) = TREE_PUBLIC (olddecl);
@@ -5333,6 +5332,8 @@ follow_tag_typedef (type)
   tree original;
 
   original = original_type (type);
+  if (! TYPE_NAME (original))
+    return NULL_TREE;
   if (TYPE_IDENTIFIER (original) == TYPE_IDENTIFIER (type)
       && (CP_DECL_CONTEXT (TYPE_NAME (original))
 	  == CP_DECL_CONTEXT (TYPE_NAME (type)))
@@ -6530,8 +6531,6 @@ cxx_init_decl_processing ()
   push_namespace (std_identifier);
   std_node = current_namespace;
   pop_namespace ();
-
-  lang_attribute_table = cp_attribute_table;
 
   c_common_nodes_and_builtins ();
 
@@ -11263,6 +11262,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	  && TYPE_NAME (type)
 	  && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
 	  && TYPE_ANONYMOUS_P (type)
+	  /* Don't do this if there are attributes.  */
+	  && (!attrlist || !*attrlist)
 	  && cp_type_quals (type) == TYPE_UNQUALIFIED)
 	{
 	  tree oldname = TYPE_NAME (type);
@@ -12680,10 +12681,12 @@ grok_op_properties (decl, friendp)
       /* Effective C++ rule 23.  */
       if (warn_ecpp
 	  && arity == 2
+	  && !DECL_ASSIGNMENT_OPERATOR_P (decl)
 	  && (operator_code == PLUS_EXPR
 	      || operator_code == MINUS_EXPR
 	      || operator_code == TRUNC_DIV_EXPR
-	      || operator_code == MULT_EXPR)
+	      || operator_code == MULT_EXPR
+	      || operator_code == TRUNC_MOD_EXPR)
 	  && TREE_CODE (TREE_TYPE (TREE_TYPE (decl))) == REFERENCE_TYPE)
 	warning ("`%D' should return by value", decl);
 

@@ -166,6 +166,8 @@ simple_condition_p (loop, body, condition, desc)
       case LEU:
       case LTU:
 	break;
+      default:
+	return false;
     }
 
   /* Of integers or pointers.  */
@@ -324,12 +326,24 @@ simple_loop_p (loops, loop, desc)
   basic_block exit_bb, *body, mod_bb;
   int fallthru_out;
   rtx condition;
+  edge ei, eo, tmp;
 
   body = get_loop_body (loop);
 
   /* There must be only a single exit from loop.  */
   if (!(exit_bb = simple_exit (loops, loop, body, &fallthru_out)))
     goto ret_false;
+
+  ei = exit_bb->succ;
+  eo = exit_bb->succ->succ_next;
+  if ((ei->flags & EDGE_FALLTHRU) && fallthru_out)
+    {
+      tmp = ei;
+      ei = eo;
+      eo = tmp;
+    }
+  desc->out_edge = eo;
+  desc->in_edge = ei;
 
   /* Condition must be a simple comparison in that one of operands
      is register and the other one is invariant.  */
@@ -418,10 +432,18 @@ count_loop_iterations (desc, niter, rniter)
   unsigned HOST_WIDE_INT abs_diff = 0;
   enum rtx_code cond = desc->cond;
 
+  /* Ensure that we always handle the condition to stay inside loop.  */
+  if (desc->neg)
+    {
+      cond = reverse_condition (cond);
+      if (cond == UNKNOWN)
+	return false;
+    }
+
   if (desc->grow)
     {
       /* Bypass nonsential tests.  */
-      if (cond == GE || cond == GT || cond == GEU || cond == GTU)
+      if (cond == EQ || cond == GE || cond == GT || cond == GEU || cond == GTU)
 	return false;
       if (rniter)
 	{
@@ -437,7 +459,7 @@ count_loop_iterations (desc, niter, rniter)
   else
     {
       /* Bypass nonsential tests.  */
-      if (cond == LE || cond == LT || cond == LEU || cond == LTU)
+      if (cond == EQ || cond == LE || cond == LT || cond == LEU || cond == LTU)
 	return false;
       if (rniter)
 	*rniter = expand_simple_binop (GET_MODE (desc->var), MINUS,
@@ -458,13 +480,6 @@ count_loop_iterations (desc, niter, rniter)
 		 << (GET_MODE_BITSIZE (GET_MODE (desc->var)) - 1)
 		 << 1) - 1;
       
-  if (desc->neg)
-    {
-      cond = reverse_condition (cond);
-      if (cond == UNKNOWN)
-	return false;
-    }
-
   delta = 0;
   if (!desc->postincr)
     delta--;
@@ -481,14 +496,14 @@ count_loop_iterations (desc, niter, rniter)
 	  {
 	    /* We would need HOST_BITS_PER_WIDE_INT + 1 bits.  */
 	    if (abs_diff == 0 && delta < 0)
-	      return 0;
+	      return false;
 	    /* Similary we would overflow for loops wrapping around in wide
 	       mode.  */
 	    if (GET_MODE_BITSIZE (GET_MODE (desc->var))
 	        > HOST_BITS_PER_WIDE_INT
 		&& ((desc->init_n >= desc->lim_n && desc->grow)
 		    || (desc->init_n <= desc->lim_n && !desc->grow)))
-	      return 0;
+	      return false;
 	  }
 	break;
       case LT:
@@ -503,6 +518,7 @@ count_loop_iterations (desc, niter, rniter)
       case GE:
 	if (desc->init_n - !desc->postincr <= desc->lim_n)
 	  abs_diff = 0;
+	delta++;
       case GT:
 	if (desc->init_n - !desc->postincr < desc->lim_n)
 	  abs_diff = -1;
@@ -522,13 +538,12 @@ count_loop_iterations (desc, niter, rniter)
 	if ((unsigned HOST_WIDE_INT)(desc->init_n - !desc->postincr)
 	    <= (unsigned HOST_WIDE_INT)desc->lim_n)
 	  abs_diff = 0;
+	delta++;
       case GTU:
 	if ((unsigned HOST_WIDE_INT)(desc->init_n - !desc->postincr)
 	    < (unsigned HOST_WIDE_INT)desc->lim_n)
 	  abs_diff = -1;
 	break;
-      case EQ:
-	return false;
       default:
 	abort ();
     }
@@ -559,6 +574,7 @@ peel_loop_completely (loops, loop, desc)
 {
   sbitmap wont_exit;
   unsigned HOST_WIDE_INT npeel;
+  edge e;
 
   if (!count_loop_iterations (desc, &npeel, NULL))
     abort ();  /* Tested already.  */
@@ -573,6 +589,14 @@ peel_loop_completely (loops, loop, desc)
     abort ();
 
   free (wont_exit);
+
+  /* Now remove the loop.  */
+  for (e = RBI (desc->in_edge->src)->copy->succ;
+       e->dest != RBI (desc->in_edge->dest)->copy;
+       e = e->succ_next);
+
+  remove_path (loops, e);
+
   if (rtl_dump_file)
     fprintf (rtl_dump_file, ";; Peeled loop completely, %d times\n",npeel);
 

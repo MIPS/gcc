@@ -267,6 +267,7 @@ in the following sections.
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
 -fforce-addr  -fforce-mem  -ffunction-sections @gol
 -fgcse  -fgcse-lm  -fgcse-sm -floop-optimize -fcrossjumping @gol
+-fif-conversion -fif-conversion2 @gol
 -finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
 -fmove-all-movables  -fno-default-inline  -fno-defer-pop @gol
@@ -2722,8 +2723,6 @@ supported).  This is the format used by DEBUG on VMS systems.
 @itemx -gstabs@var{level}
 @itemx -gcoff@var{level}
 @itemx -gxcoff@var{level}
-@itemx -gdwarf@var{level}
-@itemx -gdwarf-2@var{level}
 @itemx -gvms@var{level}
 Request debugging information and also use @var{level} to specify how
 much information.  The default level is 2.
@@ -2736,6 +2735,11 @@ about local variables and no line numbers.
 Level 3 includes extra information, such as all the macro definitions
 present in the program.  Some debuggers support macro expansion when
 you use @option{-g3}.
+
+Note that in order to avoid confusion between DWARF1 debug level 2,
+and DWARF2, neither @option{-gdwarf} nor @option{-gdwarf-2} accept
+a concatenated debug level.  Instead use an additional @option{-g@var{level}}
+option to change the debug level for DWARF1 or DWARF2.
 
 @cindex @code{prof}
 @item -p
@@ -3521,6 +3525,18 @@ well.
 @opindex crossjumping
 Perform cross-jumping transformation. This transformation unifies equivalent code and save code size. The
 resulting code may or may not perform better than without cross-jumping.
+
+@item -fif-conversion
+@opindex if-conversion
+Attempt to transform conditional jumps into branch-less equivalents.  This
+include use of conditional moves, min, max, set flags and abs instructions, and
+some tricks doable by standard arithmetics.  The use of conditional execution
+on chips where it is available is controlled by @code{if-conversion2}.
+
+@item -fif-conversion2
+@opindex if-conversion2
+Use conditional execution (where available) to transform conditional jumps into
+branch-less equivalents.
 
 @item -fdelete-null-pointer-checks
 @opindex fdelete-null-pointer-checks
@@ -7645,9 +7661,10 @@ Enable the use of assembler directives only GAS understands.
 @opindex mschedule
 Schedule code according to the constraints for the machine type
 @var{cpu-type}.  The choices for @var{cpu-type} are @samp{700}
-@samp{7100}, @samp{7100LC}, @samp{7200}, and @samp{8000}.  Refer to
-@file{/usr/lib/sched.models} on an HP-UX system to determine the
-proper scheduling option for your machine.
+@samp{7100}, @samp{7100LC}, @samp{7200}, @samp{7300} and @samp{8000}.  Refer
+to @file{/usr/lib/sched.models} on an HP-UX system to determine the
+proper scheduling option for your machine.  The default scheduling is
+@samp{8000}.
 
 @item -mlinker-opt
 @opindex mlinker-opt

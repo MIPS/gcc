@@ -1,3 +1,985 @@
+2002-04-30  Janis Johnson  <janis187@us.ibm.com>
+
+	* install.texi (Final install): Add to the list of info to include
+	in a report of a successful bootstrap, and add link to 3.1 list.
+
+Tue Apr 30 19:15:36 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (type): Add new SSE/MMX subtypes, remove usused fop1.
+	(mode): Add vector modes
+	(i387): Kill attribute.
+	(unit): New attribute.
+	(length_immediate): Grok new types.
+	(prefix_data16, prefix_rep, prefix_0f): Fix for SSE/MMX.
+	(modrm): Use "unit".
+	(memory): Handle MMX/SSE properly.
+	(scheduling descriptions): Kill uses of fop1.
+	(sse, mmx, fp patterns): Set type and mode properly.
+
+Tue Apr 30 09:31:59 2002  Jeffrey A Law  (law@cygnus.com)
+
+	* pa.c (override_options): Default to PA8000 scheduling.
+	* doc/invoke.texi (HP-PA options): Mention newly added 7300
+	scheduling parameter.
+
+	* pa.md (7100lc, 7200, 7300 scheduling): Slightly refine
+	handling of double precision multiplies.
+
+	* pa.md (7100lc, 7200, 7300 scheduling): Refine handling of
+	fpdiv and fpsqrt instructions.
+	(7200 & 7300 scheduling): Fix typo in handling of
+	store-load and store-store penalties.
+
+2002-04-30  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/contrib.texi (Contributors): Use MIPS instead of Mips and
+	mips.  Add two missing commas.
+
+2002-04-30  Paolo Carlini  <pcarlini@unitus.it>
+
+	* doc/contrib.texi (Contributors): Update Paolo Carlini's
+	and Benjamin Kosnik's entries.
+
+2002-04-29  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/sparc.h (BRANCH_COST, PREFETCH_BLOCK,
+	SIMULTANEOUS_PREFETCHES): Tune for UltraSPARC-III.
+	* config/sparc/sparc.md (call + jmp 32-bit peepholes): Likewise.
+	* config/sparc/sparc.c (sparc_initialize_trampoline): Likewise.
+
+2002-04-29  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* combine.c (find_split_point): Use gen_int_mode.
+
+2002-04-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Merging code from dfa-branch:
+	
+	2002-04-24  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (output_reserv_sets): Fix typo.
+
+	2002-04-23  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (output_reserv_sets): Remove
+	next_cycle_output_flag.
+
+	Thu Apr 18 08:57:06 2002  Jeffrey A Law  (law@redhat.com)
+
+        * sched-rgn.c (init_ready_list): Make the DFA code handle
+        USE/CLOBBER insns in the same way as the traditional
+        scheduler.
+        (new_ready): Similarly..
+
+	2002-04-17  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* haifa-sched.c (schedule_block): Change the DFA state only after
+	issuing insn.
+
+	Wed Apr 17 15:38:36 2002  Jeffrey A Law  (law@redhat.com)
+
+	* pa.c (hppa_use_dfa_pipeline_interface): New function.
+	(TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE): Define.
+	(override_options): Add PA7300 scheduling support.
+	(pa_adjust_cost): Update various comments.  Properly
+	handle anti and output dependencies when using the
+	DFA scheduler.
+	(pa_issue_rate): Add PA7300 scheduling support.
+	(pa_can_combine_p): Call extract_insn before calling
+	constrain_operands (taken from mainline tree).
+	* pa.h (enum processor_type): Add PROCESSOR_PA7300.
+	* pa.md (cpu attr): Add 7300.  Rewrite pipeline
+	descriptions using DFA descriptions.  Add PA7300
+	scheduling support.
+
+	2002-03-30  David S. Miller  <davem@redhat.com>
+
+	Add UltraSPARC-III DFA scheduling support.
+	* config/sparc/sparc.md (define_attr type): Add fpcrmove.
+	Update FP conditional move on register insn patterns to use it, as
+	appropriate.
+	(define_attr cpu): Add ultrasparc3.
+	(define_attr us3load_type): New, update integer load patterns to
+	set it, as appropriate.
+	(define_automaton): Add ultrasparc3_0 and ultrasparc3_1.
+	(rest): Add UltraSPARC3 scheduling description.
+	* config/sparc/sparc.h (TARGET_CPU_ultrasparc3): New.
+	(PROCESSOR_ULTRASPARC3): New.
+	({ASM,CPP}_CPU64_DEFAULT_SPEC): Handle ultrasparc3.
+	({ASM,CPP}_CPU_SPEC): Likewise.
+	(REGISTER_MOVE_COST): Likewise.
+	(RTX_COSTS): Likewise.
+	* config/sparc/sparc.c (sparc_override_options,
+	sparc_initialize_trampoline, sparc64_initialize_trampoline,
+	sparc_use_dfa_pipeline_interface, sparc_use_sched_lookahead,
+	sparc_issue_rate): Likewise.
+	* config/sparc/sol2.h: Likewise.
+	* config/sparc/sol2-sld-64.h: Likewise.
+	* config/sparc/linux64.h: Likewise.
+	
+	2002-03-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* doc/md.texi: Add comments about usage the latency time for the
+	different dependencies and about case when two or more conditions
+	in different define_insn_reservations returns TRUE for an insn.
+
+	* doc/md.texi: Add reference for automaton based pipeline
+	description.
+	
+	2002-03-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* doc/passes.texi: Add missed information about genattrtab.
+
+	2002-03-01  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (output_automata_list_transition_code): Check
+	automata_list on NULL.
+
+	2002-02-28  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (output_insn_code_cases,
+	output_automata_list_min_issue_delay_code,
+	output_automata_list_transition_code,
+	output_automata_list_state_alts_code): Comment the functions.
+
+	2002-02-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (automata_list_el_t): New typedef.
+	(get_free_automata_list_el,free_automata_list_el,
+	free_automata_list, automata_list_hash, automata_list_eq_p,
+	initiate_automata_lists, automata_list_start, automata_list_add,
+	automata_list_finish, finish_automata_lists,
+	output_insn_code_cases, output_automata_list_min_issue_delay_code,
+	output_automata_list_transition_code,
+	output_automata_list_state_alts_code, add_automaton_state,
+	form_important_insn_automata_lists): New functions and prototypes.
+	(insn_reserv_decl): Add members important_automata_list and
+	processed_p.
+	(ainsn): Add members important_p.
+	(automata_list_el): New structure.
+	(first_free_automata_list_el, current_automata_list,
+	automata_list_table): New global variables.
+	(create_ainsns): Initiate member important_p.
+	(output_internal_min_issue_delay_func): Generate the switch and
+	call output_insn_code_cases.
+	(output_internal_trans_func, output_internal_state_alts_func):
+	Ditto.
+	(generate): Call initiate_automata_lists.
+	(automaton_states): New global variable.
+	(expand_automata): Call form_important_insn_automata_lists.
+	(write_automata): Call finish_automata_lists.
+	
+	2002-02-21  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (add_excls, add_presence_absence): Check that
+        cpu units in the sets belong the same automaton.
+
+	* rtl.def (EXCLUSION_SET, PRESENCE_SET, ABSENCE_SET): Add comment
+	about that cpu units in the sets belong the same automaton.
+
+	* doc/md.texi: Ditto.
+	
+	2001-12-20  Naveen Sharma  <naveens@noida.hcltech.com>
+		    Nitin Gupta  <niting@noida.hcltech.com>
+	
+	* config/sh/sh.c (sh_use_dfa_interface): New function.
+
+	(sh_issue_rate): New Function.
+	TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE: define.
+	TARGET_SCHED_ISSUE_RATE: define.
+
+	* config/sh/sh.md: Add DFA based pipeline description for SH4.
+
+	(define_attr insn_class): New attribute used for DFA 
+         scheduling.
+	(define_insn cmpgtsi_t): Set attribute insn_class mt_group.
+	(cmpgesi_t,cmpgtusi_t,cmpgeusi_t,cmpeqsi_t,
+	 cmpeqdi_t): Likewise.
+
+	(add,addc1,addsi3,subc,subc1,*subsi3_internal,
+	 negc,negsi2,ashldi3_k,lshrdi3_k,ashrdi3_k): Set insn_class 
+	 ex_group.
+	(iorsi3,rotlsi3_1,rotlsi3_31,rotlsi3_16): Likewise.
+	   
+	2001-10-03  Vladimir Makarov  <vmakarov@toke.toronto.redhat.com>
+
+	* haifa-sched.c (queue_to_ready): Remove unnecessary condition for
+	break.
+
+	2001-10-03  Vladimir Makarov  <vmakarov@toke.toronto.redhat.com>
+
+	* genautomata.c (DFA_INSN_CODES_LENGTH_VARIABLE_NAME): New macro.
+	(output_dfa_insn_code_func): Expand dfa_insn_codes if it is
+	necessary.
+	(output_dfa_start_func): Initiate new variable insn_codes_length,
+	(write_automata): Output definition of the new variable.
+	
+	2001-10-02  David S. Miller  <davem@redhat.com>
+
+	* haifa-sched.c (advance_one_cycle): New function.
+	(schedule_block): Use it.
+	(queue_to_ready): Use it, and also make sure to advance the DFA
+	state on all stall cycles, not just those where insn_queue links
+	are found.
+
+	2001-10-02  Richard Sandiford  <rsandifo@redhat.com>
+
+	* haifa-sched.c (max_issue): Remove last_p argument.  Only return
+	non-zero if the highest-priority instruction could be scheduled.
+	(choose_ready): Remove last argument from max_issue call.
+
+	2001-09-28  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/sparc.c (sparc_use_sched_lookahead): Use 4 for
+	ultrasparc and 3 for other multi-issue sparcs.
+
+	2001-09-27  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/sparc.md (cycle_display): New pattern.
+	* config/sparc/sparc.c (sparc_cycle_display): New.
+	(TARGET_SCHED_CYCLE_DISPLAY): Set it.
+
+	2001-09-25  David S. Miller  <davem@redhat.com>
+
+	Convert all of Sparc scheduling to DFA
+	* config/sparc/sparc.md: Kill all define_function_unit
+	directives and replace with DFA equivalent.
+	* config/sparc/sparc.c (ultrasparc_adjust_cost,
+	mark_ultrasparc_pipeline_state, ultra_cmove_results_ready_p,
+	ultra_fpmode_conflict_exists, ultra_find_type,
+	ultra_build_types_avail, ultra_flush_pipeline,
+	ultra_rescan_pipeline_state, ultrasparc_sched_reorder,
+	ultrasparc_variable_issue, ultrasparc_sched_init,
+	sparc_variable_issue, sparc_sched_reorder, ultra_code_from_mask,
+	ultra_schedule_insn, ultra_code_names, ultra_pipe_hist,
+	ultra_cur_hist, ultra_cycles_elapsed): Kill.
+	(sparc_use_dfa_pipeline_interface, sparc_use_sched_lookahead,
+	ultrasparc_store_bypass_p): New.
+	* config/sparc/sparc-protos.h (ultrasparc_store_bypass_p):
+	Declare.
+
+	2001-09-24  David S. Miller  <davem@redhat.com>
+
+	* haifa-sched.c (ready_remove): Fix thinko, we want to copy around
+	ready->vec[foo] not ready[foo].
+
+	2001-09-07  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* doc/md.texi: Correct examples for define_insn_reservations
+	`mult' and `div'.
+
+	2001-09-07  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (create_automata): Print message about creation of
+	each automaton.
+	(generate): Remove printing meease about creation of
+	automata.
+
+	2001-09-05  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/linux.h: Set CPLUSPLUS_CPP_SPEC.
+	* config/sparc/linux64.h: Likewise.
+
+	2001-08-31  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* haifa-sched.c (insn_cost, schedule_insn, queue_to_ready,
+	schedule_block, sched_init, sched_finish): Add missed calls of
+	use_dfa_pipeline_interface.
+
+	* sched-rgn.c (init_ready_list, new_ready, debug_dependencies):
+	Ditto.
+
+	* sched-vis.c (get_visual_tbl_length): Ditto.
+	
+	2001-08-27  Richard Henderson  <rth@redhat.com>
+
+	* genattr.c (main): Emit state_t even when not doing scheduling.
+
+	2001-08-27  Richard Henderson  <rth@redhat.com>
+
+	* genautomata.c (expand_automata): Always create a description.
+
+	2001-08-27  Vladimir Makarov  <vmakarov@touchme.toronto.redhat.com>
+
+        * rtl.def (DEFINE_CPU_UNIT, DEFINE_QUERY_CPU_UNIT, EXCLUSION_SET,
+	PRESENCE_SET, ABSENCE_SET, DEFINE_BYPASS, DEFINE_AUTOMATON,
+	AUTOMATA_OPTION, DEFINE_RESERVATION, DEFINE_INSN_RESERVATION): New
+	RTL constructions.
+
+	* genattr.c (main): New variable num_insn_reservations.  Increase
+	it if there is DEFINE_INSN_RESERVATION.  Output automaton based
+	pipeline hazard recognizer interface.
+
+	* genattrtab.h: New file.
+
+	* genattrtab.c: Include genattrtab.h.
+	(attr_printf, check_attr_test, make_internal_attr,
+	make_numeric_value): Move protypes into genattrtab.h.  Define them
+	as external.
+	(num_dfa_decls): New global variable.
+	(main): Process DEFINE_CPU_UNIT, DEFINE_QUERY_CPU_UNIT,
+	DEFINE_BYPASS, EXCLUSION_SET, PRESENCE_SET, ABSENCE_SET,
+	DEFINE_AUTOMATON, AUTOMATA_OPTION, DEFINE_RESERVATION,
+	DEFINE_INSN_RESERVATION.  Call expand_automata and write_automata.
+
+	* genautomata.c: New file.
+
+	* rtl.h (LINK_COST_ZERO, LINK_COST_FREE): Remove them.
+
+        * sched-int.h: (curr_state): Add the external definition for
+	automaton pipeline interface.
+	(haifa_insn_data): Add comments for members blockage and units.
+
+	* target-def.h (TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE,
+	TARGET_SCHED_INIT_DFA_PRE_CYCLE_INSN,
+	TARGET_SCHED_DFA_PRE_CYCLE_INSN,
+	TARGET_SCHED_INIT_DFA_POST_CYCLE_INSN,
+	TARGET_SCHED_DFA_POST_CYCLE_INSN,
+	TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD,
+	TARGET_SCHED_INIT_DFA_BUBBLES, TARGET_SCHED_DFA_BUBBLE): New
+	macros.
+	(TARGET_SCHED): Use the new macros.
+
+	* target.h (use_dfa_pipeline_interface, init_dfa_pre_cycle_insn,
+	dfa_pre_cycle_insn, init_dfa_post_cycle_insn, dfa_post_cycle_insn,
+	first_cycle_multipass_dfa_lookahead, init_dfa_bubbles,
+	dfa_bubble): New members in gcc_target.sched.
+
+        * haifa-sched.c (insert_schedule_bubbles_p): New variable.
+	(MAX_INSN_QUEUE_INDEX): New macro for automaton interface.
+	(insn_queue): Redefine it as pointer to array.
+	(NEXT_Q, NEXT_Q_AFTER): Use MAX_INSN_QUEUE_INDEX instead of
+	INSN_QUEUE_SIZE.
+	(max_insn_queue_index_macro_value): New variable.
+	(curr_state, dfa_state_size, ready_try): New varaibles for
+	automaton interface.
+	(ready_element, ready_remove, max_issue): New function prototypes
+	for automaton interface.
+	(choose_ready): New function prototype.
+	(insn_unit, blockage_range): Add comments.
+	(unit_last_insn, unit_tick, unit_n_insns): Define them for case
+	FUNCTION_UNITS_SIZE == 0.
+	(insn_issue_delay, actual_hazard_this_instance, schedule_unit,
+	actual_hazard, potential_hazard): Add comments.
+	(insn_cost): Use cost -1 as undefined value.  Remove
+	LINK_COST_ZERO and LINK_COST_FREE.  Add new code for automaton
+	pipeline interface.
+	(ready_element, ready_remove): New functions for automaton
+	interface.
+	(schedule_insn): Add new code for automaton pipeline interface.
+	(queue_to_ready): Add new code for automaton pipeline interface.
+	Use MAX_INSN_QUEUE_INDEX instead of INSN_QUEUE_SIZE.
+	(debug_ready_list): Print newline when the queue is empty.
+	(max_issue): New function for automaton pipeline interface.
+	(choose_ready): New function.
+	(schedule_block): Add new code for automaton pipeline interface.
+	Print ready list before scheduling each insn.
+	(sched_init): Add new code for automaton pipeline interface.
+	Initiate insn cost by -1.
+	(sched_finish): Free the current automaton state and finalize
+	automaton pipeline interface.
+
+	* sched-rgn.c: Include target.h.
+	(init_ready_list, new_ready, debug_dependencies): Add new code for
+	automaton pipeline interface.
+
+	* sched-vis.c: Include target.h.
+	(get_visual_tbl_length): Add code for automaton interface.
+	(target_units, print_block_visualization):  Add comments.
+
+        * Makefile.in (GETRUNTIME, HASHTAB, HOST_GETRUNTIME, HOST_HASHTAB,
+	USE_HOST_GETRUNTIME, USE_HOST_HASHTAB, HOST_VARRAY): New variables.
+	(sched-rgn.o, sched-vis.o): Add new dependency file target.h.
+	(getruntime.o, genautomata.o): New entries.
+	(genattrtab.o): Add new dependency file genattrtab.h.
+	(genattrtab): Add new dependencies.  Link it with `libm.a'.
+	(getruntime.o, hashtab.o): New entries for canadian cross.
+
+	* doc/md.texi: Description of automaton based model.
+
+	* doc/tm.texi (TARGET_SCHED_ISSUE_RATE, TARGET_SCHED_ADJUST_COST):
+	Add comments.
+	(TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE,
+	TARGET_SCHED_DFA_PRE_CYCLE_INSN,
+	TARGET_SCHED_INIT_DFA_PRE_CYCLE_INSN,
+	TARGET_SCHED_DFA_POST_CYCLE_INSN,
+	TARGET_SCHED_INIT_DFA_POST_CYCLE_INSN,
+	TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD,
+	TARGET_SCHED_INIT_DFA_BUBBLES, TARGET_SCHED_DFA_BUBBLE): The new
+	hook descriptions.
+	(TRADITIONAL_PIPELINE_INTERFACE, DFA_PIPELINE_INTERFACE,
+	MAX_DFA_ISSUE_RATE): New macro descriptions.
+
+	* doc/contrib.texi: Add dfa based scheduler contribution.
+
+	* doc/gcc.texi: Add more information about genattrtab.
+
+Mon Apr 29 17:19:10 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* reload1.c (eliminate_regs, case SUBREG): Fix typo in
+	adjust_address_nv call.
+
+2002-04-29  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/install.texi (Testing): Provide additional information, and
+	a stronger encouragement, for running the testsuites.
+
+2002-04-29  DJ Delorie  <dj@redhat.com>
+
+	* config/mips/mips.c (mips_parse_cpu): Warn if the CPU name is
+	given in upper case.
+
+2002-04-29  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* fixinc/inclhack.def (solaris_widec): Include <wchar.h> in
+	Solaris 2 <widec.h> if missing.
+	* fixinc/fixincl.x: Regenerate.
+	* fixinc/tests/base/widec.h: New file.
+
+2002-04-29  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	* toplev.c (f_options): Add "profile" switch so that
+	-fno-profile can be used to disable -p.
+
+2002-04-29  Bernd Schmidt  <bernds@redhat.com>
+
+	* c-common.c (type_for_mode): Add support for V2DFmode, V2DImode,
+	UV2DImode.
+	* tree.c (build_common_tree_nodes_2): Likewise.
+	* tree.h (enum tree_index): Likewise.
+	(V2DF_type_node, V2DI_type_node, unsigned_V2DI_type_node): Define.
+
+	* config/i386/i386.c (bdesc_comi, bdesc_2arg, bdesc_1arg): Add SSE2
+	entries.
+	(init_mmx_sse_builtins): Initialize SSE2 builtins.
+	(ix86_expand_builtin): Add support for SSE2 builtins.
+	* config/i386/i386.h (VALID_SSE2_REG_MODE): New macro.
+	(VALID_SSE_REG_MODE): Use it.
+	(VECTOR_MODE_SUPPORTED_P): Allow SSE2 modes here as well.
+	(enum ix86_builtins): Add SSE2 builtins.
+	* config/i386/i386.md (movv2df_internal, movv2df, movv8hi_internal,
+	movv8hi, movv16qi_internal, movv16qi, pushv2df, pushv8hi, pushv16qi,
+	addv2df3, vmaddv2df3, subv2df3, vmsubv2df3, mulv2df3, vmmulv2df3,
+	divv2df3, vmdivv2df3, smaxv2df3, vmsmaxv2df3, sminv2df3, vmsminv2df3,
+	sse2_anddf3, sse2_nanddf3, sse2_iordf3, sse2_xordf3, sqrtv2df2,
+	vmsqrtv2df2, maskcmpv2df3, maskncmpv2df3, vmmaskcmpv2df3,
+	vmmaskncmpv2df3, sse2_comi, sse2_ucomi, sse2_movmskpd, sse2_pmovmskb,
+	sse2_maskmovdqu, sse2_movntv2df, sse2_movntti, sse2_movntsi, cvtdq2ps,
+	cvtps2dq, cvttps2dq, cvtdq2pd, cvtpd2dq, cvttpd2dq, cvtpd2pi,
+	cvttpd2pi, cvtpi2pd, cvtsd2si, cvttsd2si, cvtsi2sd, cvtsd2ss,
+	cvtss2sd, cvtpd2ps, cvtps2pd, addv16qi3, addv8hi3, addv4si3, addv2di3,
+	ssaddv16qi3, ssaddv8hi3, usaddv16qi3, usaddv8hi3, subv16qi3, subv8hi3,
+	subv4si3, subv2di3, sssubv16qi3, sssubv8hi3, ussubv16qi3, ussubv8hi3,
+	mulv8hi3, smulv8hi3_highpart, umulv8hi3_highpart, sse2_umulsidi3,
+	sse2_umulv2siv2di3, sse2_pmaddwd, sse2_clrti, sse2_uavgv16qi3,
+	sse2_uavgv8hi3, sse2_psadbw, sse2_pinsrw, sse2_pextrw, sse2_pshufd,
+	sse2_pshuflw, sse2_pshufhw, eqv16qi3, eqv8hi3, eqv4si3, gtv16qi3,
+	gtv8hi3, gtv4si3, umaxv16qi3, smaxv8hi3, uminv16qi3, sminv8hi3,
+	ashrv8hi3, ashrv4si3, lshrv8hi3, lshrv4si3, sse2_lshrv2di3,
+	ashlv8hi3, ashlv4si3, sse2_ashlv2di3, sse2_ashlti3, sse2_lshrti3,
+	sse2_unpckhpd, sse2_unpcklpd, sse2_packsswb, sse2_packssdw,
+	sse2_packuswb, sse2_punpckhbw, sse2_punpckhwd, sse2_punpckhdq,
+	sse2_punpcklbw, sse2_punpcklwd, sse2_punpckldq, sse2_movapd,
+	sse2_movupd, sse2_movdqa, sse2_movdqu, sse2_movdq2q, sse2_movq2dq,
+	sse2_movhpd, sse2_movlpd, sse2_loadsd, sse2_movsd, sse2_storesd,
+	sse2_shufpd, sse2_clflush, sse2_mfence, mfence_insn, sse2_lfence,
+	lfence_insn): New patterns.
+	(sse2_andti3, sse2_nandti3, sse2_iorti3, sse2_xorti3): Renamed from
+	sse_andti3_sse2, sse_nandti3_sse2, sse_iorti3_sse2, sse_xorti3_sse2.
+
+Mon Apr 29 17:03:24 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (sse_mov?fcc*): Revert patch of Mar 14th.
+
+2002-04-29  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/contrib.texi (Contributors): Add Paolo Carlini and
+	Janis Johnson.
+	Update Richard Henderson, Jakub Jelinek, and Mark Mitchell.
+	Refer to Objective-C instead of	ObjC, SPARC instead of sparc,
+	and CPU instead of cpu.
+
+Mon Apr 29 13:36:41 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* toplev.c (flag_if_conversion, flag_if_conversion2): New static
+	variables.
+	(lang_independent_options): Add -fif-conversion, -fif-conversion2
+	(rest_of_compilation): Do if conversion only when asked for.
+	(parse_options_and_default_flags): Set new variables to 1 for -O1
+	* invoke.texi (-fif-conversion, -fif-conversion2): Document.
+
+Mon Apr 29 13:02:50 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (dbx64_register_map): Fix typo.
+
+Mon Apr 29 12:18:35 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (real_zero, real_one, real_almost_one, real_br_prob_base,
+	real_one_half, real_bb_freq_max): New static variables.
+	(debug_profile_bbauxs): Kill.
+	(process_note_predictions): Kill unused variable.
+	(block_info_def, edge_info_def): Use REAL_VALUE_TYPE instead of
+	volatile double.
+	(propagate_freq): Use REAL_ARITHMETICS.
+	(estimate_bb_frequencies): Likevise; init new static variables.
+	* Makefile.in (predict.o): Add dependency on real.h
+
+2002-04-28  David S. Miller  <davem@redhat.com>
+
+	PR target/6500
+	* config/sparc/sparc.md (prefetch): Emit properly for 32-bit vs.
+	64-bit TARGET_V9.  Do not use prefetch page, use prefetch for
+	several {reads,writes} instead.
+	* config/sparc/sparc.h (PREFETCH_BLOCK, SIMULTANEOUS_PREFETCHES):
+	Define.
+
+2002-04-27  David S. Miller  <davem@redhat.com>
+
+	PR target/6494
+	* config/sparc/linux64.h (MD_FALLBACK_FRAME_STATE_FOR): Be mindful
+	of the stack bias.
+
+	* config/sparc/linux.h, config/sparc/linux64.h: Don't bother
+	including signal.h and sys/ucontext.h, not needed.
+
+2002-04-29  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* varasm.c (output_constant_def): Correct test for not calling
+	ENCODE_SECTION_INFO for INTEGER_CST.
+
+2002-04-29  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cppexp.c (lex): Move some code to _cpp_parse_expr, but
+	keep most cases as function eval_token.
+	(eval_token): New function.
+	(_cpp_parse_expr): Read token here for improved diagnostics.
+	Don't use op_as_text.  Detect bad ':' here.
+	(reduce): Don't detect bad ':' here.
+	(op_as_text): Remove.
+	* cpphash.h (_cpp_test_assertion): Change prototype.
+	* cpplib.c (_cpp_test_assertion): Change prototype.
+
+2002-04-28  Richard Henderson  <rth@redhat.com>
+
+	PR c/5154
+	* ggc-common.c (ggc_mark_rtx_children_1): Rename from... 
+	(ggc_mark_rtx_children): New.
+
+2002-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/6496
+	* config/sparc/sparc.md (call + jump 32-bit peepholes): Disable jump
+	after call peepholes for UltraSPARC.
+	(call + jump 64-bit peepholes): Remove.
+
+2002-04-28  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	PR c/6497
+	* config/rs6000/rs6000.md (sCC patterns): Remove clobber and use
+	result as temporary value.
+
+2002-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/6396
+	* toplev.c (rest_of_compilation): Only run regrename and copy
+	propagation if optimizing.
+
+2002-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR optimization/6475
+	* reload1.c (alter_reg): Only call set_mem_expr if I is home pseudo
+	register of REGNO_DECL (i).
+	* Makefile.in (reload1.o): Add $(TREE_H).
+
+2002-04-28  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cppexp.c (lex): Update to use state.skip_eval.
+	(struct op): Remove prio and flags members.
+	(FLAG_BITS, FLAG_MASK, PRIO_SHIFT, EXTRACT_PRIO, EXTRACT_FLAGS,
+	SHORT_CIRCUIT, RIGHT_ASSOC, ..._PRIO, op_to_prio): Remove.
+	(LEFT_ASSOC): New macro.
+	(optab): New table of operator priorities and flags.
+	(SHIFT): Update.
+	(_cpp_parse_expr): Clean up logic.  Return bool.  Use a
+	malloc-ed parser stack.
+	(reduce): New; reduce the operator stack.
+	(_cpp_expand_op_stack): Expand the operator stack as necessary.
+	* cpphash.h (struct op): Predeclare.
+	(struct cpp_reader): New members op_stack, op_limit.
+	(struct lexer_state): New member skip_eval.
+	(_cpp_parse_expr): Update.
+	(_cpp_expand_op_stack): New.
+	* cpplib.c (do_if): Update.
+	* cppinit.c (cpp_create_reader): Create op stack.
+	(cpp_destroy): And destroy it.
+	* cpplib.h (CPP_LAST_CPP_OP): Correct.
+	(TTYPE_TABLE): Correct.
+
+2002-04-28  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	PR c/6343
+	* c-decl.c (duplicate_decls): Call merge_weak.
+	* c-pragma.c (apply_pragma_weak): Warn about misuse.
+	* output.h (merge_weak): Prototype merge_weak.
+	* varasm.c (merge_weak): New function.
+	(declare_weak): Make sure we don't give an error on VAR_DECLs.
+	Mark RTL with SYMBOL_REF_WEAK.
+
+2002-04-27  Kurt Garloff <garloff@suse.de>
+
+	* tree-inline.c (inlinable_function_p): Improve heuristics
+	by using a smoother function to cut down allowable inlinable size.
+	* param.def: Add parameters max-inline-insns-single,
+	max-inline-slope, min-inline-insns that determine the exact
+	shape of the above function.
+	* param.h: Likewise.
+
+2002-04-26  Richard Henderson  <rth@redhat.com>
+
+	* c-parse.in (malloced_yyss, malloced_yyvs): New.
+	(yyoverflow): Re-add.  Set them.
+	(free_parser_stacks): New.
+	* c-common.h: Declare it.
+	* c-lex.c (c_common_parse_file): Call it.
+
+2002-04-26  Richard Henderson  <rth@redhat.com>
+
+	* cfgrtl.c (tidy_fallthru_edge): Don't use next_real_insn
+	for fallthru search.
+
+2002-04-26  Eric Christopher  <echristo@redhat.com>
+
+	PR optimization/3700
+	* config/mips/mips.c (mips_issue_rate): Define.  New function.
+	(TARGET_SCHED_ISSUE_RATE): Use.
+
+2002-04-25  David S. Miller  <davem@redhat.com>
+
+	PR target/6422
+	* reorg.c (optimize_skip): Do not allow exception causing
+	instructions to be considered for delay slots.
+	(fill_simply_delay_slots, fill_slots_from_thread): Likewise.
+	(relax_delay_slots): Do not try to consider exception causing
+	instructions as redundant.
+
+2002-04-26  Richard Henderson  <rth@redhat.com>
+
+	PR c/5225
+	* c-typeck.c (build_unary_op) [CONVERT_EXPR]: Invoke non_lvalue.
+
+2002-04-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR bootstrap/6445
+	* config/i386/i386.md (untyped_call): Return the value in a float
+	register if TARGET_FLOAT_RETURNS_IN_80387, not just if
+	TARGET_80387.
+
+2002-04-26  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree.c (tree_int_cst_lt): Compare constants whose types differ
+	in unsigned-ness correctly.
+
+2002-04-26  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa.h (FUNCTION_OK_FOR_SIBCALL): Don't do sibcalls when using the
+	portable runtime model.
+
+2002-04-26  Richard Henderson  <rth@redhat.com>
+
+	* c-parse.in (yyoverflow): Revert.
+
+2002-04-26  David Edelsohn  <edelsohn@gnu.org>
+	    Richard Henderson  <rth@redhat.com>
+
+	* config/rs6000/rs6000.md (sCC pattern): Remove clobber and use
+	result as temporary value.
+
+2002-04-26  Richard Henderson  <rth@redhat.com>
+
+	PR c/3581
+	* c-common.c (fix_string_type): Split out of ...
+	(combine_strings): ... here.  Take a varray, not a tree list.
+	(c_expand_builtin_printf): Use fix_string_type.
+	* c-common.h: Update decls.
+	* c-parse.in (string): Remove.  Update all uses to use STRING
+	instead, and not call combine_strings.
+	(yylexstring): New.
+	(_yylex): Use it.
+	* c-typeck.c (simple_asm_stmt): Don't call combine_strings.
+	(build_asm_stmt): Likewise.
+	* objc/objc-act.c (my_build_string): Use fix_string_type.
+	(build_objc_string_object): Build varray for combine_strings.
+
+2002-04-26  Bo Thorsen  <bo@suse.co.uk>
+
+	* config/i386/linux64.h (MD_FALLBACK_FRAME_STATE_FOR): Define for
+	x86-64.
+
+2002-04-26  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cppexp.c (CPP_UMINUS, CPP_UPLUS): New.
+	(HAVE_NO_R_OPERAND): Remove.
+	(HAVE_VALUE): Remove.
+	(op_to_prio): Update.
+	(UNARY): Don't alter flags.
+	(_cpp_parse_expr): want_value used to indicate whether
+	a number or unary operator is expected next.  Distinguish
+	unary and binary +/-.
+	(op_as_text): Update for unary operators.
+
+2002-04-25  Richard Henderson  <rth@redhat.com>
+
+	PR c/2161
+	* c-parse.in (yyoverflow): New.
+
+2002-04-25  Richard Henderson  <rth@redhat.com>
+
+	PR c/2098
+	* c-common.c (shorten_compare): Simplfy conditions leading to
+	the generation of a warning.
+
+2002-04-25  Richard Henderson  <rth@redhat.com>
+
+	PR c/2035
+	* expmed.c (extract_bit_field): Fall through to generic code rather
+	than aborting on subreg special case.
+
+2002-04-25  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/sparc.h (FUNCTION_OK_FOR_SIBCALL): Add back check
+	for DECL being NULL.
+
+2002-04-25  Steve Christiansen  <smc@us.ibm.com>
+
+	* doc/md.texi (Machine Constraints): Add IA-64 constraints.
+
+2002-04-25  Eric Botcazou  <ebotcazou@multimania.com>
+
+	* c-decl.c (grokdeclarator): Remove outdated ??? note
+	on invalid declaration of flexible array members.
+
+2002-04-25  Richard Henderson  <rth@redhat.com>
+
+	* doc/invoke.texi: Document -gdwarf{,-2} vs debug level.
+
+2002-04-25  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_emit_epilogue): Always restore registers
+	needed by the compiler, even if they are used as global regs.
+
+2002-04-25  Matt Hiller  <hiller@redhat.com>
+
+	* mips.c (mips_class_max_nregs, mips_register_move_cost): New
+	functions.
+	* mips.h (CLASS_MAX_NREGS, REGISTER_MOVE_COST): Redefine as calls
+	of the corresponding functions.
+	* mips-protos.h (mips_class_max_nregs, mips_register_move_cost):
+	New prototypes.
+
+2002-04-25  Matt Hiller  <hiller@redhat.com>
+
+	* config/mips/mips.h (mips_sw_reg_names): Declare as extern.
+
+	(ALL_COP_ADDITIONAL_REGISTER_NAMES): New macro.
+	(FIRST_PSEUDO_REGISTER): Redefine considering coprocessor
+	registers, adjust comment accordingly.
+	(FIXED_REGISTERS, CALL_USED_REGISTERS, CALL_REALLY_USED_REGISTERS,
+	reg_class, REG_CLASS_NAMES, REG_CLASS_CONTENTS, REGISTER_NAMES,
+	DEBUG_REGISTER_NAMES, REG_ALLOC_ORDER): Adjust to include entries
+	for coprocessor registers.
+	(ADDITIONAL_REGISTER_NAMES): Include
+	ALL_COP_ADDITIONAL_REGISTER_NAMES.
+
+	(COP0_REG_FIRST, COP0_REG_LAST, COP0_REG_NUM,
+	COP2_REG_FIRST, COP2_REG_LAST, COP2_REG_NUM,
+	COP3_REG_FIRST, COP3_REG_LAST, COP3_REG_NUM,
+	COP0_REG_P, COP2_REG_P, COP3_REG_P, ALL_COP_REG_P,
+	COPNUM_AS_CHAR_FROM_REGNUM, COP_REG_CLASS_P): New macros.
+
+	(mips_char_to_class): Adjust comment to include coprocessor
+	constraint letters.
+
+	* config/mips/mips.c (coprocessor_operand, coprocessor2_operand):
+	New functions.
+	(mips_reg_names, mips_regno_to_class): Include coprocessor
+	information.
+	(mips_sw_reg_names): Ditto, make non-static.
+	(mips_move_1word): Handle moves to and from coprocessor registers.
+	(mips_move_2words): Handle moves to and from coprocessor
+	registers.
+	(mips_class_max_nregs, mips_register_move_cost): Handle
+	coprocessor register classes.
+	(override_options): Initialize mips_char_to_class and
+	mips_hard_regno_mode_ok properly for coprocessor registers.
+
+	* config/mips/mips.md (movdi_internal, movdi_internal2,
+	movsi_internal1, movsi_internal2): Add constraint-sets for
+	coprocessor registers.
+	* testsuite/gcc.c-torture/mipscop-1.c: New testcase.
+	* testsuite/gcc.c-torture/mipscop-1.x: Disable above if target
+	isn't mips.
+	* testsuite/gcc.c-torture/mipscop-2.c: New testcase.
+	* testsuite/gcc.c-torture/mipscop-2.x: Disable above if target
+	isn't mips.
+	* testsuite/gcc.c-torture/mipscop-3.c: New testcase.
+	* testsuite/gcc.c-torture/mipscop-3.x: Disable above if target
+	isn't mips.
+	* testsuite/gcc.c-torture/mipscop-4.c: New testcase.
+	* testsuite/gcc.c-torture/mipscop-4.x: Disable above if target
+	isn't mips.
+
+	* doc/tm.texi: Document feature.
+
+2002-04-25  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* integrate.c (function_attribute_inlinable_p): Simplify.
+	Check the table pointer is not NULL.
+
+2002-04-25  Steven Bosscher  <S.Bosscher@student.tudelft.nl>
+
+	* doc/c-tree.texi: Fix typo in introduction.
+
+2002-04-25  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* c-common.h (c_common_parse_file): Update.
+	* c-lang.c (LANG_HOOKS_SET_YYDEBUG): Remove.
+	* c-lex.c (YYDEBUG): Get from c-lex.h.
+	(c_common_parse_file): Update.
+	* c-lex.h (YYDEBUG, yydebug): New.
+	* c-parse.in (YYDEBUG): Get from c-lex.h.
+	(c_set_yydebug): Remove.
+	* c-tree.h (c_set_yydebug): Remove.
+	* langhooks-def.h (lhd_do_nothing_i): New.
+	(lhd_set_yydebug, LANG_HOOKS_SET_YYDEBUG): Remove.
+	(LANG_HOOKS_PARSE_FILE, LANG_HOOKS_INITIALIZER): Update.
+	* langhooks.c  (lhd_do_nothing_i): New.
+	(lhd_set_yydebug): Remove.
+	* langhooks.h (struct lang_hooks): Update.
+	* toplev.c (set_yydebug): New.
+	(compile_file): Update call to parse_file hook.
+	(decode_d_option): Update.
+objc:
+	* objc-lang.c (LANG_HOOKS_SET_YYDEBUG): Remove.
+
+Wed Apr 24 23:45:37 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* loop.c (load_mems): Don't change the interface of called functions.
+
+	* calls.c (expand_call): Take current_function_pretend_args_size
+	into account when setting argblock for sibcalls.
+
+2002-04-24  Matt Hiller  <hiller@redhat.com>
+
+	* cpplex.c: Remove conditional #undef of MULTIBYTE_CHARS.
+	* c-lex.c: Ditto.
+
+	* cpplex.c (skip_line_comment): Process comment one multibyte
+	character at a time rather than one char at a time, if
+	appropriate.
+	(parse_string): Process string one multibyte character at a time
+	rather than one char at a time, if appropriate.
+	* c-lex.c (lex_string): Lex and copy multibyte strings
+	appropriately.
+	* cpplib.h (cppchar_t): Change to unsigned.
+
+2002-04-24  Richard Henderson  <rth@redhat.com>
+
+	PR c/3467
+	* c-decl.c (grokdeclarator): Don't pedwarn variable sized arrays
+	for c99.
+
+Wed Apr 24 21:51:54 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.c (sh_va_arg): If argument was passed by reference,
+	dereference the pointer.
+
+	* sh.h (PIC_OFFSET_TABLE_REGNUM): Conditionalize on flag_pic.
+
+	* sh.md (divsi3_i4_media): Use match_operand for input values
+	rather than hard registers.
+	(divsi3 - TARGET_SHMEDIA_FPU case): Don't ferry values
+	unnecessarily through hard registers.  Keep copies of pseudo
+	registers outside of the libcall sequence.
+
+	* sh.md (casesi_shift_media): Add modes.
+
+	* sh.h (RETURN_IN_MEMORY): Return variable size BLKmode
+	values in memory.
+
+2002-04-24  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* attribs.c (c_common_attribute_table): Move table and handlers
+	to c-common.c.
+	(format_attribute_table, lang_attribute_table,
+	lang_attribute_common): Remove.
+	(init_attributes): Replace NULL pointers with pointers to the
+	empty table.
+	(handle_packed_attribute, handle_nocommon_attribute,
+	handle_common_attribute, handle_noreturn_attribute,
+	handle_noinline_attribute, handle_always_inline_attribute,
+	handle_used_attribute, handle_unused_attribute,
+	handle_const_attribute, handle_transparent_union_attribute,
+	handle_constructor_attribute, handle_destructor_attribute,
+	handle_mode_attribute, handle_section_attribute,
+	handle_aligned_attribute, handle_weak_attribute,
+	handle_alias_attribute, handle_visibility_attribute,
+	handle_no_instrument_function_attribute, handle_malloc_attribute,
+	handle_no_limit_stack_attribute, handle_pure_attribute,
+	handle_deprecated_attribute, handle_vector_size_attribute,
+	vector_size_helper): Move to c-common.c.
+	* c-common.c (c_common_attribute_table,
+	handle_packed_attribute, handle_nocommon_attribute,
+	handle_common_attribute, handle_noreturn_attribute,
+	handle_noinline_attribute, handle_always_inline_attribute,
+	handle_used_attribute, handle_unused_attribute,
+	handle_const_attribute, handle_transparent_union_attribute,
+	handle_constructor_attribute, handle_destructor_attribute,
+	handle_mode_attribute, handle_section_attribute,
+	handle_aligned_attribute, handle_weak_attribute,
+	handle_alias_attribute, handle_visibility_attribute,
+	handle_no_instrument_function_attribute, handle_malloc_attribute,
+	handle_no_limit_stack_attribute, handle_pure_attribute,
+	handle_deprecated_attribute, handle_vector_size_attribute,
+	vector_size_helper): Move from attribs.c.
+	* c-common.h (c_common_attribute_table,
+	c_common_format_attribute_table): New.
+	* c-lang.c (LANG_HOOKS_COMMON_ATTRIBUTE_TABLE,
+	LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE): Redefine.
+	* langhooks-def.h (LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE,
+	LANG_HOOKS_COMMON_ATTRIBUTE_TABLE, LANG_HOOKS_ATTRIBUTE_TABLE): New.
+	(LANG_HOOKS_INITIALIZER): Update.
+	* langhooks.h (struct lang_hooks): 3 new attribute hooks.
+	* target-def.h (TARGET_ATTRIBUTE_TABLE): Default to NULL.
+	* target.h: Update comment.
+	* tree.c (default_target_attribute_table): Remove.
+	* tree.h (default_target_attribute_table, format_attribute_table,
+	lang_attribute_table, lang_attribute_common): Remove.
+objc:
+	* objc-lang.c (LANG_HOOKS_COMMON_ATTRIBUTE_TABLE,
+	LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE): Redefine.
+
+2002-04-24  Jason Merrill  <jason@redhat.com>
+
+	* dwarf2.h (enum dwarf_attribute): Add DW_AT_GNU_vector.
+	* dwarf2out.c (dwarf_attr_name): Support it.
+	(gen_array_type_die): Emit it.
+	(lookup_type_die): No special handling for VECTOR_TYPE.
+	(gen_type_die): Hand VECTOR_TYPE off to gen_array_type_die.
+
+2002-04-24  Richard Henderson  <rth@redhat.com>
+
+	* config/mips/mips.md (movdi_usd): Renumber.
+
+2002-04-24  David S. Miller  <davem@redhat.com>
+
+	PR target/6420
+	* config/sparc/sparc.h (FUNCTION_OK_FOR_SIBCALL): Return false if
+	32-bit Sparc and current_function_returns_struct is true.
+
+Wed Apr 24 13:48:25 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (canonicalize_condition): Use gen_int_mode.
+
 2002-04-24  Aldy Hernandez  <aldyh@redhat.com>
 
 	* config/rs6000/altivec.h: Cleanup file.  Add non individual

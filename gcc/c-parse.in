@@ -43,7 +43,7 @@ end ifc
 #include "cpplib.h"
 #include "intl.h"
 #include "timevar.h"
-#include "c-lex.h"
+#include "c-lex.h"		/* Gets YYDEBUG macro.  */
 #include "c-tree.h"
 #include "c-pragma.h"
 #include "flags.h"
@@ -62,8 +62,48 @@ end ifobjc
 /* Like YYERROR but do call yyerror.  */
 #define YYERROR1 { yyerror ("syntax error"); YYERROR; }
 
-/* Cause the "yydebug" variable to be defined.  */
-#define YYDEBUG 1
+/* Like the default stack expander, except (1) use realloc when possible,
+   (2) impose no hard maxiumum on stack size, (3) REALLY do not use alloca.
+
+   Irritatingly, YYSTYPE is defined after this %{ %} block, so we cannot
+   give malloced_yyvs its proper type.  This is ok since all we need from
+   it is to be able to free it.  */
+
+static short *malloced_yyss;
+static void *malloced_yyvs;
+
+#define yyoverflow(MSG, SS, SSSIZE, VS, VSSIZE, YYSSZ)			\
+do {									\
+  size_t newsize;							\
+  short *newss;								\
+  YYSTYPE *newvs;							\
+  newsize = *(YYSSZ) *= 2;						\
+  if (malloced_yyss)							\
+    {									\
+      newss = (short *)							\
+	really_call_realloc (*(SS), newsize * sizeof (short));		\
+      newvs = (YYSTYPE *)						\
+	really_call_realloc (*(VS), newsize * sizeof (YYSTYPE));	\
+    }									\
+  else									\
+    {									\
+      newss = (short *) really_call_malloc (newsize * sizeof (short));	\
+      newvs = (YYSTYPE *) really_call_malloc (newsize * sizeof (YYSTYPE)); \
+      if (newss)							\
+        memcpy (newss, *(SS), (SSSIZE));				\
+      if (newvs)							\
+        memcpy (newvs, *(VS), (VSSIZE));				\
+    }									\
+  if (!newss || !newvs)							\
+    {									\
+      yyerror (MSG);							\
+      return 2;								\
+    }									\
+  *(SS) = newss;							\
+  *(VS) = newvs;							\
+  malloced_yyss = newss;						\
+  malloced_yyvs = (void *) newvs;					\
+} while (0)
 %}
 
 %start program
@@ -149,7 +189,7 @@ end ifobjc
 %type <ttype> BREAK CONTINUE RETURN GOTO ASM_KEYWORD SIZEOF TYPEOF ALIGNOF
 
 %type <ttype> identifier IDENTIFIER TYPENAME CONSTANT expr nonnull_exprlist exprlist
-%type <ttype> expr_no_commas cast_expr unary_expr primary string STRING
+%type <ttype> expr_no_commas cast_expr unary_expr primary STRING
 %type <ttype> declspecs_nosc_nots_nosa_noea declspecs_nosc_nots_nosa_ea
 %type <ttype> declspecs_nosc_nots_sa_noea declspecs_nosc_nots_sa_ea
 %type <ttype> declspecs_nosc_ts_nosa_noea declspecs_nosc_ts_nosa_ea
@@ -297,6 +337,7 @@ end ifc
 static void yyprint	  PARAMS ((FILE *, int, YYSTYPE));
 static void yyerror	  PARAMS ((const char *));
 static int yylexname	  PARAMS ((void));
+static int yylexstring	  PARAMS ((void));
 static inline int _yylex  PARAMS ((void));
 static int  yylex	  PARAMS ((void));
 static void init_reswords PARAMS ((void));
@@ -626,8 +667,8 @@ primary:
 		  $$ = build_external_ref ($1, yychar == '(');
 		}
 	| CONSTANT
-	| string
-		{ $$ = combine_strings ($1); }
+	| STRING
+		{ $$ = fix_string_type ($$); }
 	| VAR_FUNC_NAME
 		{ $$ = fname_decl (C_RID_CODE ($$), $$); }
 	| '(' typename ')' '{' 
@@ -736,29 +777,6 @@ ifobjc
 	| objc_string
 		{ $$ = build_objc_string_object ($1); }
 end ifobjc
-	;
-
-/* Produces a STRING_CST with perhaps more STRING_CSTs chained onto it.  */
-string:
-	  STRING
-	| string STRING
-		{
-ifc
-                  static int last_lineno = 0;
-                  static const char *last_input_filename = 0;
-end ifc
-                  $$ = chainon ($1, $2);
-ifc
-		  if (warn_traditional && !in_system_header
-		      && (lineno != last_lineno || !last_input_filename ||
-			  strcmp (last_input_filename, input_filename)))
-		    {
-		      warning ("traditional C rejects string concatenation");
-		      last_lineno = lineno;
-		      last_input_filename = input_filename;
-		    }
-end ifc
-		}
 	;
 
 ifobjc
@@ -1401,10 +1419,8 @@ notype_initdecls:
 maybeasm:
 	  /* empty */
 		{ $$ = NULL_TREE; }
-	| ASM_KEYWORD '(' string ')'
-		{ if (TREE_CHAIN ($3)) $3 = combine_strings ($3);
-		  $$ = $3;
-		}
+	| ASM_KEYWORD '(' STRING ')'
+		{ $$ = $3; }
 	;
 
 initdcl:
@@ -2476,10 +2492,10 @@ asm_operand:
 	;
 
 asm_clobbers:
-	  string
-		{ $$ = tree_cons (NULL_TREE, combine_strings ($1), NULL_TREE); }
-	| asm_clobbers ',' string
-		{ $$ = tree_cons (NULL_TREE, combine_strings ($3), $1); }
+	  STRING
+		{ $$ = tree_cons (NULL_TREE, $1, NULL_TREE); }
+	| asm_clobbers ',' STRING
+		{ $$ = tree_cons (NULL_TREE, $3, $1); }
 	;
 
 /* This is what appears inside the parens in a function declarator.
@@ -3671,6 +3687,59 @@ end ifobjc
   return IDENTIFIER;
 }
 
+/* Concatenate strings before returning them to the parser.  This isn't quite
+   as good as having it done in the lexer, but it's better than nothing.  */
+
+static int
+yylexstring ()
+{
+  enum cpp_ttype next_type;
+  tree orig = yylval.ttype;
+
+  next_type = c_lex (&yylval.ttype);
+  if (next_type == CPP_STRING
+      || next_type == CPP_WSTRING
+      || (next_type == CPP_NAME && yylexname () == STRING))
+    {
+      varray_type strings;
+
+ifc
+      static int last_lineno = 0;
+      static const char *last_input_filename = 0;
+      if (warn_traditional && !in_system_header
+	  && (lineno != last_lineno || !last_input_filename ||
+	      strcmp (last_input_filename, input_filename)))
+	{
+	  warning ("traditional C rejects string concatenation");
+	  last_lineno = lineno;
+	  last_input_filename = input_filename;
+	}
+end ifc
+
+      VARRAY_TREE_INIT (strings, 32, "strings");
+      VARRAY_PUSH_TREE (strings, orig);
+
+      do
+	{
+	  VARRAY_PUSH_TREE (strings, yylval.ttype);
+	  next_type = c_lex (&yylval.ttype);
+	}
+      while (next_type == CPP_STRING
+	     || next_type == CPP_WSTRING
+	     || (next_type == CPP_NAME && yylexname () == STRING));
+
+      yylval.ttype = combine_strings (strings);
+
+      VARRAY_FREE (strings);
+    }
+  else
+    yylval.ttype = orig;
+
+  /* We will have always read one token too many.  */
+  _cpp_backup_tokens (parse_in, 1);
+
+  return STRING;
+}
 
 static inline int
 _yylex ()
@@ -3737,7 +3806,13 @@ _yylex ()
       return 0;
 
     case CPP_NAME:
-      return yylexname ();
+      {
+	int ret = yylexname ();
+	if (ret == STRING)
+	  return yylexstring ();
+	else
+	  return ret;
+      }
 
     case CPP_NUMBER:
     case CPP_CHAR:
@@ -3746,7 +3821,7 @@ _yylex ()
 
     case CPP_STRING:
     case CPP_WSTRING:
-      return STRING;
+      return yylexstring ();
       
       /* This token is Objective-C specific.  It gives the next token
 	 special significance.  */
@@ -3800,21 +3875,6 @@ yylex()
   r = _yylex();
   timevar_pop (TV_LEX);
   return r;
-}
-
-/* Sets the value of the 'yydebug' variable to VALUE.
-   This is a function so we don't have to have YYDEBUG defined
-   in order to build the compiler.  */
-
-void
-c_set_yydebug (value)
-     int value;
-{
-#if YYDEBUG != 0
-  yydebug = value;
-#else
-  warning ("YYDEBUG not defined");
-#endif
 }
 
 /* Function used when yydebug is set, to print a token in more detail.  */
@@ -3890,4 +3950,16 @@ make_pointer_declarator (type_quals_attrs, target)
   if (attrs != NULL_TREE)
     itarget = tree_cons (attrs, target, NULL_TREE);
   return build1 (INDIRECT_REF, quals, itarget);
+}
+
+/* Free malloced parser stacks if necessary.  */
+
+void
+free_parser_stacks ()
+{
+  if (malloced_yyss)
+    {
+      free (malloced_yyss);
+      free (malloced_yyvs);
+    }
 }

@@ -463,7 +463,12 @@ build_cplus_array_type_1 (elt_type, index_type)
   if (elt_type == error_mark_node || index_type == error_mark_node)
     return error_mark_node;
 
-  if (processing_template_decl 
+  /* Don't do the minimal thing just because processing_template_decl is
+     set; we want to give string constants the right type immediately, so
+     we don't have to fix them up at instantiation time.  */
+  if ((processing_template_decl
+       && index_type && TYPE_MAX_VALUE (index_type)
+       && TREE_CODE (TYPE_MAX_VALUE (index_type)) != INTEGER_CST)
       || uses_template_parms (elt_type) 
       || uses_template_parms (index_type))
     {
@@ -1895,7 +1900,7 @@ pod_type_p (t)
 }
 
 /* Table of valid C++ attributes.  */
-const struct attribute_spec cp_attribute_table[] =
+const struct attribute_spec cxx_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
   { "java_interface", 0, 0, false, false, false, handle_java_interface_attribute },

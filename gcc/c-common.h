@@ -328,6 +328,8 @@ extern tree gettags				PARAMS ((void));
 extern int (*lang_missing_noreturn_ok_p)	PARAMS ((tree));
 
 extern int yyparse				PARAMS ((void));
+extern void free_parser_stacks			PARAMS ((void));
+
 extern stmt_tree current_stmt_tree              PARAMS ((void));
 extern tree *current_scope_stmt_stack           PARAMS ((void));
 extern void begin_stmt_tree                     PARAMS ((tree *));
@@ -484,6 +486,10 @@ extern int warn_long_long;
    what operator was specified for it.  */
 #define C_EXP_ORIGINAL_CODE(exp) ((enum tree_code) TREE_COMPLEXITY (exp))
 
+/* Attribute table common to the C front ends.  */
+extern const struct attribute_spec c_common_attribute_table[];
+extern const struct attribute_spec c_common_format_attribute_table[];
+
 /* Pointer to function to lazily generate the VAR_DECL for __FUNCTION__ etc.
    ID is the identifier to use, NAME is the string.
    TYPE_DEP indicates whether it depends on type of the function or not
@@ -526,12 +532,13 @@ extern tree c_expand_expr_stmt			PARAMS ((tree));
 extern void c_expand_start_cond			PARAMS ((tree, int, tree));
 extern void c_finish_then                       PARAMS ((void));
 extern void c_expand_start_else			PARAMS ((void));
-extern void c_finish_else                   PARAMS ((void));
+extern void c_finish_else			PARAMS ((void));
 extern void c_expand_end_cond			PARAMS ((void));
 /* Validate the expression after `case' and apply default promotions.  */
 extern tree check_case_value			PARAMS ((tree));
-/* Concatenate a list of STRING_CST nodes into one STRING_CST.  */
-extern tree combine_strings			PARAMS ((tree));
+extern tree fix_string_type			PARAMS ((tree));
+struct varray_head_tag;
+extern tree combine_strings		PARAMS ((struct varray_head_tag *));
 extern void constant_expression_warning		PARAMS ((tree));
 extern tree convert_and_check			PARAMS ((tree, tree));
 extern void overflow_warning			PARAMS ((tree));
@@ -564,7 +571,7 @@ extern void c_common_init_options		PARAMS ((enum c_language_kind));
 extern void c_common_post_options		PARAMS ((void));
 extern const char *c_common_init		PARAMS ((const char *));
 extern void c_common_finish			PARAMS ((void));
-extern void c_common_parse_file			PARAMS ((void));
+extern void c_common_parse_file			PARAMS ((int));
 extern HOST_WIDE_INT c_common_get_alias_set	PARAMS ((tree));
 extern bool c_promoting_integer_type_p		PARAMS ((tree));
 extern int self_promoting_args_p		PARAMS ((tree));

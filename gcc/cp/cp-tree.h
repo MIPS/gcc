@@ -3615,7 +3615,6 @@ extern void cxx_print_type			PARAMS ((FILE *, tree, int));
 extern void cxx_print_identifier		PARAMS ((FILE *, tree, int));
 extern void cxx_print_error_function	PARAMS ((struct diagnostic_context *,
 						 const char *));
-extern void cxx_set_yydebug			PARAMS ((int));
 extern void build_self_reference		PARAMS ((void));
 extern int same_signature_p			PARAMS ((tree, tree));
 extern void warn_hidden				PARAMS ((tree));
@@ -4099,6 +4098,7 @@ extern tree lookup_conversions			PARAMS ((tree));
 extern tree binfo_for_vtable			PARAMS ((tree));
 extern tree binfo_from_vbase			PARAMS ((tree));
 extern tree look_for_overrides_here		PARAMS ((tree, tree));
+extern int check_final_overrider		PARAMS ((tree, tree));
 extern tree dfs_walk                            PARAMS ((tree,
 						       tree (*) (tree, void *),
 						       tree (*) (tree, void *),
@@ -4287,7 +4287,7 @@ extern void debug_binfo				PARAMS ((tree));
 extern tree build_dummy_object			PARAMS ((tree));
 extern tree maybe_dummy_object			PARAMS ((tree, tree *));
 extern int is_dummy_object			PARAMS ((tree));
-extern const struct attribute_spec cp_attribute_table[];
+extern const struct attribute_spec cxx_attribute_table[];
 extern tree make_ptrmem_cst                     PARAMS ((tree, tree));
 extern tree cp_build_qualified_type_real        PARAMS ((tree, int, tsubst_flags_t));
 #define cp_build_qualified_type(TYPE, QUALS) \

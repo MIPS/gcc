@@ -3346,7 +3346,9 @@ output_constant_def (exp, defer)
      encoded in it.  */
   if (! found)
     {
-      if (TREE_CODE (exp) == INTEGER_CST)
+      /* Take care not to invoke ENCODE_SECTION_INFO for constants
+	 which don't have a TREE_CST_RTL.  */
+      if (TREE_CODE (exp) != INTEGER_CST)
 	ENCODE_SECTION_INFO (exp, true);
 
       desc->rtl = rtl;
@@ -5051,6 +5053,31 @@ output_constructor (exp, size, align)
    to be emitted.  */
 static tree weak_decls;
 
+/* Merge weak status between NEWDECL and OLDDECL.  */
+
+void
+merge_weak (newdecl, olddecl)
+     tree newdecl;
+     tree olddecl;
+{
+  tree decl;
+
+  if (DECL_WEAK (newdecl) == DECL_WEAK (olddecl))
+    return;
+
+  decl = DECL_WEAK (olddecl) ? newdecl : olddecl;
+
+  if (SUPPORTS_WEAK
+      && DECL_EXTERNAL (newdecl) && DECL_EXTERNAL (olddecl)
+      && (TREE_CODE (decl) != VAR_DECL
+	  || ! TREE_STATIC (decl))
+      && TREE_USED (decl)
+      && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+    warning_with_decl (decl, "weak declaration of `%s' after first use results in unspecified behavior");
+
+  declare_weak (decl);
+}
+
 /* Declare DECL to be a weak symbol.  */
 
 void
@@ -5059,7 +5086,7 @@ declare_weak (decl)
 {
   if (! TREE_PUBLIC (decl))
     error_with_decl (decl, "weak declaration of `%s' must be public");
-  else if (TREE_ASM_WRITTEN (decl))
+  else if (TREE_CODE (decl) == FUNCTION_DECL && TREE_ASM_WRITTEN (decl))
     error_with_decl (decl, "weak declaration of `%s' must precede definition");
   else if (SUPPORTS_WEAK)
     {
@@ -5070,6 +5097,12 @@ declare_weak (decl)
     warning_with_decl (decl, "weak declaration of `%s' not supported");
 
   DECL_WEAK (decl) = 1;
+
+  if (DECL_RTL_SET_P (decl)
+      && GET_CODE (DECL_RTL (decl)) == MEM
+      && XEXP (DECL_RTL (decl), 0)
+      && GET_CODE (XEXP (DECL_RTL (decl), 0)) == SYMBOL_REF)
+    SYMBOL_REF_WEAK (XEXP (DECL_RTL (decl), 0)) = 1;
 }
 
 /* Emit any pending weak declarations.  */

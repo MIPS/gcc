@@ -898,7 +898,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 
 /* Register to hold the addressing base for position independent
    code access to data items.  */
-#define PIC_OFFSET_TABLE_REGNUM	PIC_REG
+#define PIC_OFFSET_TABLE_REGNUM	(flag_pic ? PIC_REG : INVALID_REGNUM)
 
 #define GOT_SYMBOL_NAME "*_GLOBAL_OFFSET_TABLE_"
 
@@ -973,7 +973,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 #define RETURN_IN_MEMORY(TYPE) \
   (TARGET_SH5 \
    ? ((TYPE_MODE (TYPE) == BLKmode \
-       ? int_size_in_bytes (TYPE) \
+       ? (unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) \
        : GET_MODE_SIZE (TYPE_MODE (TYPE))) > 8) \
    : (TYPE_MODE (TYPE) == BLKmode \
       || TARGET_HITACHI && TREE_CODE (TYPE) == RECORD_TYPE))

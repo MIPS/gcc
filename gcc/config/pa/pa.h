@@ -41,6 +41,7 @@ enum processor_type
   PROCESSOR_7100,
   PROCESSOR_7100LC,
   PROCESSOR_7200,
+  PROCESSOR_7300,
   PROCESSOR_8000
 };
 
@@ -1981,6 +1982,7 @@ while (0)
    will never return.  */
 #define FUNCTION_OK_FOR_SIBCALL(DECL) \
   (DECL \
+   && ! TARGET_PORTABLE_RUNTIME \
    && ! TARGET_64BIT \
    && ! TREE_PUBLIC (DECL))
 

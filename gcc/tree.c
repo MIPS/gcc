@@ -2570,12 +2570,6 @@ default_insert_attributes (decl, attr_ptr)
 {
 }
 
-/* Default value of targetm.attribute_table that is empty.  */
-const struct attribute_spec default_target_attribute_table[] =
-{
-  { NULL, 0, 0, false, false, false, NULL }
-};
-
 /* Default value of targetm.function_attribute_inlinable_p that always
    returns false.  */
 bool
@@ -3236,7 +3230,20 @@ tree_int_cst_lt (t1, t2)
   if (t1 == t2)
     return 0;
 
-  if (! TREE_UNSIGNED (TREE_TYPE (t1)))
+  if (TREE_UNSIGNED (TREE_TYPE (t1)) != TREE_UNSIGNED (TREE_TYPE (t2)))
+    {
+      int t1_sgn = tree_int_cst_sgn (t1);
+      int t2_sgn = tree_int_cst_sgn (t2);
+
+      if (t1_sgn < t2_sgn)
+	return 1;
+      else if (t1_sgn > t2_sgn)
+	return 0;
+      /* Otherwise, both are non-negative, so we compare them as
+	 unsigned just in case one of them would overflow a signed
+	 type.  */
+    }
+  else if (! TREE_UNSIGNED (TREE_TYPE (t1)))
     return INT_CST_LT (t1, t2);
 
   return INT_CST_LT_UNSIGNED (t1, t2);
@@ -4757,6 +4764,8 @@ build_common_tree_nodes_2 (short_double)
     = make_vector (V4SImode, unsigned_intSI_type_node, 1);
   unsigned_V2SI_type_node
     = make_vector (V2SImode, unsigned_intSI_type_node, 1);
+  unsigned_V2DI_type_node
+    = make_vector (V2DImode, unsigned_intDI_type_node, 1);
   unsigned_V4HI_type_node
     = make_vector (V4HImode, unsigned_intHI_type_node, 1);
   unsigned_V8QI_type_node
@@ -4770,10 +4779,12 @@ build_common_tree_nodes_2 (short_double)
   V4SF_type_node = make_vector (V4SFmode, float_type_node, 0);
   V4SI_type_node = make_vector (V4SImode, intSI_type_node, 0);
   V2SI_type_node = make_vector (V2SImode, intSI_type_node, 0);
+  V2DI_type_node = make_vector (V2DImode, intDI_type_node, 0);
   V4HI_type_node = make_vector (V4HImode, intHI_type_node, 0);
   V8QI_type_node = make_vector (V8QImode, intQI_type_node, 0);
   V8HI_type_node = make_vector (V8HImode, intHI_type_node, 0);
   V2SF_type_node = make_vector (V2SFmode, float_type_node, 0);
+  V2DF_type_node = make_vector (V2DFmode, double_type_node, 0);
   V16QI_type_node = make_vector (V16QImode, intQI_type_node, 0);
 }
 
