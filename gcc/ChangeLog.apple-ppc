@@ -1,5 +1,15 @@
 2004-06-22  Andrew Pinski  <apinski@apple.com>
 
+	Radar #: 3661615, 3623788
+	* c-decl.c (perform_loop_transpose): Do not
+	change TREE_CHAIN (right_before_inner_loop)
+	until after we know we are going to do the
+	transformation.
+
+	* c-decl.c (perform_loop_transpose): Fix formatting and cleanup.
+
+2004-06-22  Andrew Pinski  <apinski@apple.com>
+
 	Radar #: 3701874
 	* c-decl.c (push_file_scope): Return early if we already
 	have a file scope.
