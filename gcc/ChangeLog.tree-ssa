@@ -5,6 +5,9 @@
 
 2004-02-19  Steven Bosscher  <stevenb@suse.de>
 
+	* tree-cfg.c (cleanup_dead_labels): New function to remove
+	redundant labels.
+
 	Remove the RTL inliner.
 	* calls.c (try_to_integrate): Remove.
 	(expand_call): Do not try to expand calls inline.

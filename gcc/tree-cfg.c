@@ -110,6 +110,7 @@ static void bsi_commit_edge_inserts_1 (edge e);
 static void tree_merge_blocks (basic_block, basic_block);
 static bool tree_can_merge_blocks_p (basic_block, basic_block);
 static void remove_bb (basic_block);
+static void cleanup_dead_labels (void);
 static bool cleanup_control_flow (void);
 static bool cleanup_control_expr_graph (basic_block, block_stmt_iterator);
 static edge find_taken_edge_cond_expr (basic_block, tree);
@@ -466,6 +467,9 @@ make_edges (void)
      builder inserted for completeness.  */
   remove_fake_edges ();
 
+  /* To speed up statement iterator walks, we first purge dead labels.  */
+  cleanup_dead_labels ();
+
   /* Clean up the graph and warn for unreachable code.  */
   cleanup_tree_cfg ();
 }
@@ -738,6 +742,127 @@ cleanup_tree_cfg (void)
   verify_flow_info ();
 #endif
   timevar_pop (TV_TREE_CLEANUP_CFG);
+}
+
+/* Cleanup useless labels from the flow graph.  */
+static void
+cleanup_dead_labels (void)
+{
+  basic_block bb;
+  tree *label_for_bb = xcalloc (last_basic_block, sizeof (tree));
+
+  /* Find a suitable label for each block.  We use the first user-defined
+     label is there is one, or otherwise just the first label we see.  */
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator i;
+
+      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
+	{
+	  tree label, stmt = bsi_stmt (i);
+
+	  if (TREE_CODE (stmt) != LABEL_EXPR)
+	    break;
+
+	  label = LABEL_EXPR_LABEL (stmt);
+
+	  /* If we have not yet seen a label for the current block,
+	     remember this one and see if there are more labels.  */
+	  if (! label_for_bb[bb->index])
+	    {
+	      label_for_bb[bb->index] = label;
+	      continue;
+	    }
+
+	  /* If we did see a label for the current block already, but it
+	     is an artificially created label, replace it if the current
+	     label is a user defined label.  */
+	  if (! DECL_ARTIFICIAL (label)
+	      && DECL_ARTIFICIAL (label_for_bb[bb->index]))
+	    {
+	      label_for_bb[bb->index] = label;
+	      break;
+	    }
+	}
+    }
+
+  /* Now redirect all jumps/branches to the selected label for each block.  */
+  FOR_EACH_BB (bb)
+    {
+      tree stmt = last_stmt (bb);
+      if (!stmt)
+	continue;
+
+      switch (TREE_CODE (stmt))
+	{
+	case COND_EXPR:
+	  {
+	    tree true_branch, false_branch;
+	    basic_block true_bb, false_bb;
+
+	    true_branch = COND_EXPR_THEN (stmt);
+	    false_branch = COND_EXPR_ELSE (stmt);
+	    true_bb = label_to_block (GOTO_DESTINATION (true_branch));
+	    false_bb = label_to_block (GOTO_DESTINATION (false_branch));
+
+	    GOTO_DESTINATION (true_branch) = label_for_bb[true_bb->index];
+	    GOTO_DESTINATION (false_branch) = label_for_bb[false_bb->index];
+
+	    break;
+	  }
+  
+	case SWITCH_EXPR:
+	  {
+	    size_t i;
+	    tree vec = SWITCH_LABELS (stmt);
+	    size_t n = TREE_VEC_LENGTH (vec);
+  
+	    /* Replace all destination labels.  */
+	    for (i = 0; i < n; ++i)
+	      {
+		tree label = CASE_LABEL (TREE_VEC_ELT (vec, i));
+
+		CASE_LABEL (TREE_VEC_ELT (vec, i)) =
+		  label_for_bb[label_to_block (label)->index];
+	      }
+  
+	    break;
+	  }
+
+	default:
+	  break;
+      }
+    }
+
+  /* Finally, purge dead labels.  All user-defined labels and labels that
+     can be the target of non-local gotos are preserved.  */
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator i;
+      tree label_for_this_bb = label_for_bb[bb->index];
+
+      if (! label_for_this_bb)
+	continue;
+
+      for (i = bsi_start (bb); !bsi_end_p (i); )
+	{
+	  tree label, stmt = bsi_stmt (i);
+
+	  if (TREE_CODE (stmt) != LABEL_EXPR)
+	    break;
+
+	  label = LABEL_EXPR_LABEL (stmt);
+
+	  if (label == label_for_this_bb
+	      || ! DECL_ARTIFICIAL (label)
+	      || DECL_NONLOCAL (label))
+	    bsi_next (&i);
+	  else
+	    bsi_remove (&i);
+	}
+    }
+
+  free (label_for_bb);
 }
 
 /* Checks whether we can merge block B into block A.  */
