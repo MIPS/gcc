@@ -217,6 +217,10 @@ extern int flag_branch_probabilities;
 
 extern int flag_reorder_blocks;
 
+/* Nonzero if blocks should be reordered using tsp.  */
+
+extern int flag_tsp_ordering;
+
 /* Nonzero if functions should be reordered.  */
 
 extern int flag_reorder_functions;

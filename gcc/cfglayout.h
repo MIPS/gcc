@@ -35,6 +35,15 @@ typedef struct reorder_block_def
 
 #define RBI(BB)	((reorder_block_def) (BB)->aux)
 
+/* A type for vertices in tsp solver.  */
+struct vertex
+{
+  int n_spec;			/* Number of special edges.  */
+  int spec_tgt[2];		/* Special edge targets.  */
+  int spec_cost[2];		/* Special edge costs.  */
+  int def_cost;			/* Cost of remaining edges.  */
+};
+
 extern void cfg_layout_initialize	PARAMS ((struct loops *));
 extern void cfg_layout_finalize		PARAMS ((void));
 extern bool cfg_layout_can_duplicate_bb_p PARAMS ((basic_block));
@@ -47,3 +56,9 @@ extern bool can_copy_bbs_p		PARAMS ((basic_block *, unsigned));
 extern void copy_bbs	PARAMS ((basic_block *, unsigned, basic_block *,
 				 edge *, unsigned, edge *, struct loop *,
 				 struct loops *));
+
+/* Maximum number of vertices of tsp instance solved (in fact 2 less, as source
+   and target are not included).  */
+#define MAX_TSP_SIZE 200
+
+extern void solve_tsp (int, int *, struct vertex *, int);

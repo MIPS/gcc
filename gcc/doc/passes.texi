@@ -567,8 +567,11 @@ Basic block reordering.  This pass implements profile guided code
 positioning.  If profile information is not available, various types of
 static analysis are performed to make the predictions normally coming
 from the profile feedback (IE execution frequency, branch probability,
-etc).  It is implemented in the file @file{bb-reorder.c}, and the
-various prediction routines are in @file{predict.c}.
+etc).  To determine the ordering, an algorithm of Software Trace Cache
+is used.  In addition, it is also possible to use the method based on
+reduction to the Travelling Salesman Problem.  The core of the pass is
+implemented in the file @file{bb-reorder.c}, various prediction routines
+are in @file{predict.c} and the TSP solver is in @file{tsp.c}.
 
 @opindex dB
 The option @option{-dB} causes a debugging dump of the RTL code after

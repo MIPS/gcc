@@ -270,6 +270,30 @@ DEFPARAM(PARAM_MAX_CROSSJUMP_EDGES,
 	 "The maximum number of incoming edges to consider for crossjumping",
 	 100)
 
+/* The cost of correctly predicted branch that is taken, relatively to
+   unconditional jump cost (100).  */
+   
+DEFPARAM(PARAM_HIT_TAKEN_COST,
+	 "hit-taken-cost",
+	 "The cost of correctly predicted branch that is taken",
+	 3)
+
+/* The cost of incorrectly predicted branch that is taken, relatively to
+   unconditional jump cost (100).  */
+   
+DEFPARAM(PARAM_MISS_TAKEN_COST,
+	 "miss-taken-cost",
+	 "The cost of incorrectly predicted branch that is taken",
+	 3)
+
+/* The cost of incorrectly predicted branch that is not taken, relatively to
+   unconditional jump cost (100).  */
+   
+DEFPARAM(PARAM_MISS_FALLTHRU_COST,
+	 "miss-fallthru-cost",
+	 "The cost of incorrectly predicted branch that is not taken",
+	 0)
+
 #ifdef ENABLE_GC_ALWAYS_COLLECT
 # define GGC_MIN_EXPAND_DEFAULT 0
 # define GGC_MIN_HEAPSIZE_DEFAULT 0

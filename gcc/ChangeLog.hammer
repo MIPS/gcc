@@ -1,3 +1,26 @@
+2003-10-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tsp.c: New file.
+	* Makefile.in (tsp.o): Add.
+	(bb-reorder.o): Add PARAMS_H dependency.
+	* bb-reorder.c: Include params.h.
+	(JUMP_COST, HIT_TAKEN_COST, MISS_TAKEN_COST, MISS_FALLTHRU_COST): New
+	macros.
+	(reorder_using_tsp, cost_of_uncond_jump, cost_of_cond_jump,
+	cost_of_cond_branch, cost_b_after_a, record_edges): New functions.
+	(reorder_basic_blocks): Call reorder_using_tsp.
+	* cfglayout.h (struct vertex): New.
+	(MAX_TSP_SIZE): New macro.
+	(solve_tsp): Declare.
+	* flags.h (flag_tsp_ordering): Declare.
+	* params.def (PARAM_HIT_TAKEN_COST, PARAM_MISS_TAKEN_COST,
+	PARAM_MISS_FALLTHRU_COST): New.
+	* toplev.c (dump_file): Fix order of bbro and vartrack dumps.
+	(flag_tsp_ordering): New.
+	(f_options): Add -ftsp-ordering.
+	* doc/invoke.texi (-ftsp-ordering): Document.
+	* doc/passes.texi (tsp.c): Document.
+
 2003-10-20  Andreas Jaeger  <aj@suse.de>
 
 	* mklibgcc.in (libgcc2_eh_objs): Remove extra @.

@@ -77,6 +77,7 @@
 #include "fibheap.h"
 #include "target.h"
 #include "profile.h"
+#include "params.h"
 
 /* The number of rounds.  */
 #define N_ROUNDS 4
@@ -90,6 +91,18 @@ static int exec_threshold[N_ROUNDS] = {0, 0, 0, 0};
 /* If edge frequency is lower than DUPLICATION_THRESHOLD per mille of entry
    block the edge destination is not duplicated while connecting traces.  */
 #define DUPLICATION_THRESHOLD 100
+
+/* Cost of an unconditional jump.  */
+#define JUMP_COST 100
+
+/* The cost of correctly predicted branch that is taken.  */
+#define HIT_TAKEN_COST (PARAM_VALUE (PARAM_HIT_TAKEN_COST))
+
+/* The cost of incorrectly predicted branch that is taken.  */
+#define MISS_TAKEN_COST (PARAM_VALUE (PARAM_MISS_TAKEN_COST))
+
+/* The cost of incorrectly predicted branch that is not taken.  */
+#define MISS_FALLTHRU_COST (PARAM_VALUE (PARAM_MISS_FALLTHRU_COST))
 
 /* Length of unconditional jump instruction.  */
 static int uncond_jump_length;
@@ -145,6 +158,12 @@ static bool better_edge_p		PARAMS ((basic_block, edge, int, int,
 static void connect_traces		PARAMS ((int, struct trace *));
 static bool copy_bb_p			PARAMS ((basic_block, int));
 static int get_uncond_jump_length	PARAMS ((void));
+static void reorder_using_tsp (void);
+static int cost_of_uncond_jump (edge);
+static int cost_of_cond_jump (edge);
+static int cost_of_cond_branch (basic_block);
+static int cost_b_after_a (basic_block, basic_block);
+static void record_edges (basic_block, struct vertex *, int last);
 
 /* Find the traces for Software Trace Cache.  Chain each trace through
    RBI()->next.  Store the number of traces to N_TRACES and description of
@@ -1070,6 +1089,251 @@ get_uncond_jump_length ()
   return length;
 }
 
+/* Returns a cost of unconditional jump corresponding to edge E.  */
+
+static int
+cost_of_uncond_jump (edge e)
+{
+  if (e->dest == EXIT_BLOCK_PTR)
+    return 0;
+
+  if (optimize_size)
+    return 1;
+
+  /* If the area is cold, do flat optimization for size, with low
+     priority.  */
+  if (probably_cold_bb_p (e->src))
+    return JUMP_COST;
+
+  return JUMP_COST * e->src->frequency;
+}
+
+/* Returns a cost of conditional jump corresponding to edge E.  */
+
+static int
+cost_of_cond_jump (edge e)
+{
+  int cost = 0;
+
+  if (optimize_size
+      || probably_cold_bb_p (e->src))
+    return 0;
+
+  /* We assume the more probable branch is predicted.  */
+  if (2 * e->probability > REG_BR_PROB_BASE)
+    {
+      /* E is predicted to be taken.  */
+      cost += EDGE_FREQUENCY (e) * HIT_TAKEN_COST;
+      cost += (e->src->frequency - EDGE_FREQUENCY (e)) * MISS_FALLTHRU_COST;
+    }
+  else
+    {
+      /* E is predicted not to be taken.  */
+      cost += EDGE_FREQUENCY (e) * MISS_TAKEN_COST;
+
+      /* HIT_FALLTHRU has no cost.  */
+    }
+
+  return cost;
+}
+
+/* Return a cost of jumps from basic block BB to two locations not adjacent
+   to it.  */
+static int
+cost_of_cond_branch (basic_block bb)
+{
+  int more_freq, less_freq, tmp, cost = 0;
+
+  if (optimize_size)
+    return 1;
+
+  /* If the area is cold, do flat optimization for size, with low
+     priority.  */
+  if (probably_cold_bb_p (bb))
+    return JUMP_COST;
+
+  /* It is assumed to be transformed into
+
+     bb  -- helper
+      \           \
+       \           \
+        more        less  */
+
+  more_freq = EDGE_FREQUENCY (bb->succ);
+  less_freq = EDGE_FREQUENCY (bb->succ->succ_next);
+
+  if (less_freq > more_freq)
+    {
+      tmp = less_freq;
+      less_freq = more_freq;
+      more_freq = tmp;
+    }
+
+  cost += more_freq * HIT_TAKEN_COST;
+  cost += less_freq * (MISS_FALLTHRU_COST + JUMP_COST);
+
+  return cost;
+}
+
+/* Returns cost for placing B immediately after A.  */
+static int
+cost_b_after_a (basic_block a, basic_block b)
+{
+  if (!a->succ)
+    return 0;
+
+  if (!a->succ->succ_next)
+    return a->succ->dest == b ? 0 : cost_of_uncond_jump (a->succ);
+
+  if (!any_condjump_p (a->end))
+    return 0;
+
+  if (a->succ->succ_next->succ_next)
+    abort ();
+
+  if (a->succ->dest == b)
+    return cost_of_cond_jump (a->succ->succ_next);
+  
+  if (a->succ->succ_next->dest == b)
+    return cost_of_cond_jump (a->succ);
+
+  return cost_of_cond_branch (a);
+}
+
+/* Record costs for edges coming out of FROM to VERTEX; LAST is true
+   if it is the tail of the considered segment.  */
+static void
+record_edges (basic_block from, struct vertex *vertex, int last)
+{
+  edge e;
+  basic_block tgt;
+
+  vertex->n_spec = 0;
+
+  if (last
+      || !from->succ
+      || (from->succ->succ_next
+	  && !any_condjump_p (from->end)))
+    {
+      vertex->def_cost = 0;
+      return;
+    }
+
+  for (e = from->succ; e; e = e->succ_next)
+    {
+      tgt = e->dest;
+      if (tgt == EXIT_BLOCK_PTR)
+	{
+	  if (vertex->n_spec != 0)
+	    abort ();
+	  vertex->def_cost = 0;
+	  return;
+	}
+
+      /* We indeed want <= here, as edges to the head of the current segment
+	 are irrelevant.  */
+      if (RBI (tgt)->visited <= 0)
+	continue;
+
+      if (tgt == from)
+	continue;
+
+      vertex->spec_tgt[vertex->n_spec] = RBI (tgt)->visited;
+      vertex->spec_cost[vertex->n_spec] = cost_b_after_a (from, tgt);
+      vertex->n_spec++;
+    }
+  if (vertex->n_spec > 2)
+    abort ();
+
+  vertex->def_cost = (from->succ->succ_next
+		      ? cost_of_cond_branch (from)
+		      : cost_of_uncond_jump (from->succ));
+}
+
+/* Reorder blocks using tsp solver.  */
+
+static void
+reorder_using_tsp ()
+{
+  basic_block block[MAX_TSP_SIZE + 2];
+  struct vertex graph[MAX_TSP_SIZE + 2];
+  int tour[MAX_TSP_SIZE + 2];
+  basic_block start, old_start;
+  int n, i, a;
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    {
+      RBI (bb)->visited = -1;
+    }
+  if (n_basic_blocks <= 1)
+    return;
+
+#define NEXT_BLOCK(BB)			\
+  ((BB) == EXIT_BLOCK_PTR		\
+   ? NULL				\
+   : (RBI (BB)->next == NULL		\
+      ? EXIT_BLOCK_PTR			\
+      : RBI (BB)->next))
+  start = ENTRY_BLOCK_PTR->next_bb;
+  while (1)
+    {
+      old_start = start;
+
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, "Old order:");
+      for (n = 0;
+	   start && n < MAX_TSP_SIZE + 2;
+	   n++, start = NEXT_BLOCK (start))
+	{
+	  block[n] = start;
+	  RBI (start)->visited = n;
+	  if (rtl_dump_file)
+	    fprintf (rtl_dump_file, " %d", start->index);
+	}
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, "\n");
+
+      for (i = 0; i < n; i++)
+	{
+	  record_edges (block[i], graph + i, i == n - 1);
+	  tour[i] = i + 1;
+	}
+      solve_tsp (n, tour, graph, optimize >= 3);
+      
+      if (block[n - 1] == EXIT_BLOCK_PTR)
+	block[n - 1] = NULL;
+
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, "New order:");
+      for (i = 0, a = 0; i < n - 1; i++, a = tour[a])
+	{
+	  RBI (block[a])->visited = -1;
+	  RBI (block[a])->next = block[tour[a]];
+
+	  if (rtl_dump_file)
+	    fprintf (rtl_dump_file, " %d", block[a]->index);
+	}
+      if (block[a])
+	{
+	  RBI (block[a])->visited = -1;
+	  if (rtl_dump_file)
+	    fprintf (rtl_dump_file, " %d\n", block[a]->index);
+	}
+      else if (rtl_dump_file)
+	fprintf (rtl_dump_file, " EXIT\n");
+
+      if (!start)
+	break;
+
+      /* Ensure some overlap between the instances.  */
+      start = old_start;
+      for (; n > 0; n -= 2)
+	start = NEXT_BLOCK (start);
+    }
+#undef NEXT_BLOCK
+}
+
 /* Reorder basic blocks.  The main entry point to this file.  */
 
 void
@@ -1098,6 +1362,9 @@ reorder_basic_blocks ()
 
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
+
+  if (flag_tsp_ordering)
+    reorder_using_tsp ();
 
   cfg_layout_finalize ();
 }

@@ -280,7 +280,7 @@ in the following sections.
 -fsched-spec-load-dangerous  -fsignaling-nans @gol
 -fsingle-precision-constant  -fssa  -fssa-ccp  -fssa-dce -fvrp @gol
 -fstrength-reduce  -fstrict-aliasing  -ftracer  -fthread-jumps @gol
--funroll-all-loops  -funroll-loops  @gol
+-ftsp-ordering -funroll-all-loops  -funroll-loops  @gol
 --param @var{name}=@var{value} @gol
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -3963,6 +3963,13 @@ Reorder basic blocks in the compiled function in order to reduce number of
 taken branches and improve code locality.
 
 Enabled at levels @option{-O2}, @option{-O3}.
+
+@item -ftsp-ordering
+@opindex ftsp-ordering
+In addition to heuristic used at @option{-freorder-blocks}, use also a more
+powerful method based on the reduction to the Travelling Salesman Problem
+to determine the good order of basic blocks in the function.  This generally
+produces smaller and faster programs, at the expense of longer compile times.
 
 @item -freorder-functions
 @opindex freorder-functions

@@ -310,8 +310,8 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "ce3",	'E', 1, 0, 0 },
   { "sched2",	'R', 1, 0, 0 },
   { "stack",	'k', 1, 0, 0 },
-  { "vartrack",	'V', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
+  { "vartrack",	'V', 1, 0, 0 },
   { "mach",	'M', 1, 0, 0 },
   { "dbr",	'd', 0, 0, 0 },
 };
@@ -413,6 +413,10 @@ int flag_speculative_prefetching = 0;
 /* Nonzero if basic blocks should be reordered.  */
 
 int flag_reorder_blocks = 0;
+
+/* Nonzero if basic blocks should be reordered using tsp.  */
+
+int flag_tsp_ordering = 0;
 
 /* Nonzero if functions should be reordered.  */
 
@@ -1178,6 +1182,8 @@ static const lang_independent_options f_options[] =
    N_("Enable basic program profiling code") },
   {"reorder-blocks", &flag_reorder_blocks, 1,
    N_("Reorder basic blocks to improve code placement") },
+  {"tsp-ordering", &flag_tsp_ordering, 1,
+   N_("Reorder basic blocks using tsp") },
   {"reorder-functions", &flag_reorder_functions, 1,
    N_("Reorder functions to improve code placement") },
   {"rename-registers", &flag_rename_registers, 1,
@@ -3128,6 +3134,7 @@ rest_of_compilation (decl)
 	estimate_probability (&loops);
 
       flow_loops_free (&loops);
+
       close_dump_file (DFI_bp, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_BRANCH_PROB);
     }

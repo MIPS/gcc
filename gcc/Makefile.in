@@ -747,7 +747,7 @@ C_OBJS = c-parse.o c-lang.o c-pretty-print.o $(C_AND_OBJC_OBJS)
 # Language-independent object files.
 
 OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
- cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
+ cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o tsp.o cfgloop.o	   \
  cfgrtl.o combine.o conflict.o convert.o cse.o cselib.o dbxout.o	   \
  cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
  debug.o df.o diagnostic.o doloop.o dominance.o		                   \
@@ -1678,7 +1678,7 @@ predict.o: predict.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
 lists.o: lists.c $(CONFIG_H) $(SYSTEM_H) toplev.h $(RTL_H) $(GGC_H)
 bb-reorder.o : bb-reorder.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
    flags.h $(BASIC_BLOCK_H) hard-reg-set.h output.h cfglayout.h $(TARGET_H) \
-   profile.h $(FIBHEAP_H)
+   profile.h $(FIBHEAP_H) $(PARAMS_H)
 var-tracking.o : var-tracking.c $(CONFIG_H) $(SYSTEM_H) flags.h \
    $(RTL_H) $(TREE_H) hard-reg-set.h insn-config.h reload.h $(BASIC_BLOCK_H) \
    output.h sbitmap.h alloc-pool.h $(FIBHEAP_H) $(HASHTAB_H)
@@ -1691,6 +1691,8 @@ tracer.o : tracer.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
 cfglayout.o : cfglayout.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
    insn-config.h $(BASIC_BLOCK_H) hard-reg-set.h output.h function.h \
    cfglayout.h cfgloop.h $(TARGET_H)
+tsp.o: tsp.c $(CONFIG_H) $(SYSTEM_H) cfglayout.h $(RTL_H) $(BASIC_BLOCK_H) \
+   output.h
 timevar.o : timevar.c $(CONFIG_H) $(SYSTEM_H) $(TIMEVAR_H) flags.h intl.h
 regrename.o : regrename.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) insn-config.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h $(RECOG_H) function.h \
