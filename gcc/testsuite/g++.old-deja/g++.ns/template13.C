@@ -5,7 +5,7 @@ namespace bar
 {
   template<class T>
   void foo(); // trick it to provide some prior declaration
-  template<class T>class X;
+  template<class T>class X; // ERROR - previous declaration
 }
 
 template <typename T>

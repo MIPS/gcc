@@ -1563,6 +1563,8 @@ static tree cp_parser_binary_expression
 	   cp_parser_expression_fn));
 static tree cp_parser_global_scope_opt
   PARAMS ((cp_parser *, bool));
+static bool cp_parser_constructor_declarator_p
+  PARAMS ((cp_parser *));
 static tree cp_parser_function_definition_from_specifiers_and_declarator
   PARAMS ((cp_parser *, tree, tree, tree, tree));
 static tree cp_parser_function_definition_after_declarator
@@ -3312,38 +3314,36 @@ cp_parser_postfix_expression (parser)
 
 	    /* Consume the `.' or `->' operator.  */
 	    cp_lexer_consume_token (parser->lexer);
-	    /* Try the id-expression production first.  */
-	    cp_parser_parse_tentatively (parser);
-	    /* Look for the optional `template' keyword.  */
-	    if (cp_lexer_next_token_is_keyword (parser->lexer,
-						RID_TEMPLATE))
+	    /* If the SCOPE is not a scalar type, we are looking at an
+	       ordinary class member access expression, rather than a
+	       pseudo-destructor-name.  */
+	    if (!scope || !SCALAR_TYPE_P (scope))
 	      {
-		/* Remember that we saw the keyword.  */
-		template_p = true;
-		/* Consume the `template' token.  */
-		cp_lexer_consume_token (parser->lexer);
-	      }
-	    else
-	      template_p = false;
-	    /* Parse the id-expression.  */
-	    name
-	      = cp_parser_id_expression (parser,
-					 /*assume_typename_p=*/false,
-					 template_p);
-	    id_expression = name;
-	    /* Resolve the name, if we know the type of the
-	       postfix-expression.  */
-	    if (!dependent_p)
-	      id_expression 
-		= cp_parser_lookup_name (parser,
-					 id_expression,
-					 /*check_access=*/true,
-					 /*is_type=*/false);
-
-	    /* If that worked, we don't have to try the
-	       pseudo-destructor-name production.  */
-	    if (cp_parser_parse_definitely (parser))
-	      {
+		/* Look for the optional `template' keyword.  */
+		if (cp_lexer_next_token_is_keyword (parser->lexer,
+						    RID_TEMPLATE))
+		  {
+		    /* Remember that we saw the keyword.  */
+		    template_p = true;
+		    /* Consume the `template' token.  */
+		    cp_lexer_consume_token (parser->lexer);
+		  }
+		else
+		  template_p = false;
+		/* Parse the id-expression.  */
+		name
+		  = cp_parser_id_expression (parser,
+					     /*assume_typename_p=*/false,
+					     template_p);
+		id_expression = name;
+		/* Resolve the name, if we know the type of the
+		   postfix-expression.  */
+		if (!dependent_p)
+		  id_expression 
+		    = cp_parser_lookup_name (parser,
+					     id_expression,
+					     /*check_access=*/true,
+					     /*is_type=*/false);
 		/* If the SCOPE was erroneous, we are certainly not
 		   going to be able to find the member.  */
 		if (scope == error_mark_node)
@@ -3367,8 +3367,7 @@ cp_parser_postfix_expression (parser)
 					     id_expression,
 					     /*basetype_path=*/NULL_TREE);
 	      }
-	    /* But, if something went wrong, try the
-	       pseudo-destructor-name production.  */
+	    /* Otherwise, try the pseudo-destructor-name production.  */
 	    else
 	      {
 		tree s;
@@ -5888,83 +5887,9 @@ cp_parser_decl_specifier_seq (parser, flags, attributes,
 	}
 
       /* Constructors are a special case.  The `S' in `S()' is not a
-	 decl-specifier; it is the beginning of the declarator.
-	 Assume that we are not looking at a constructor.  */
-      constructor_p = false;
-      /* But, if we haven't already found a decl-specifier, and we are
-	 in the process of defining a class, then we might be looking
-	 at a constructor.  */
-      if (!decl_spec 
-	  && at_class_scope_p ()
-	  && TYPE_BEING_DEFINED (current_class_type))
-	{
-	  tree class_name;
-
-	  /* If the next thing is a class-name naming the class, then
-	     it's a constructor.  */
-	  cp_parser_parse_tentatively (parser);
-	  /* When we look up the class type, there is no
-	     qualification.  */
-	  parser->scope = NULL_TREE;
-	  /* Look for the class-name.  */
-	  class_name = cp_parser_class_name (parser,
-					     /*typename_keyword_p=*/false,
-					     /*template_keyword_p=*/false,
-					     /*type_p=*/false,
-					     /*check_access_p=*/true);
-	  /* Look for a `('.  If there isn't one, then this is just 
-	     something like `S f()' -- it isn't a constructor.  */
-	  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
-	  /* If that worked, see if it's the right type.  */
-	  if (!cp_parser_error_occurred (parser)
-	      && TREE_TYPE (class_name) == current_class_type)
-	    constructor_p = true;
-	  /* We did not really want to consume any tokens.  */
-	  cp_parser_abort_tentative_parse (parser);
-	}
-      /* Outside a class-scope we are looking at a constructor
-	 declarator, and not a decl-specifier, if we see a
-	 nested-name-specifier followed by the class-name again.  */
-      /* FIXME: Document that prefix-attributes cannot easily be used
-	 with constructors?  */
-      else if (!decl_spec)
-	{
-	  tree scope;
-	  tree class_name;
-
-	  /* We have no way of knowing whether we will really be
-	     looking at a constructor declarator or not.  */
-	  cp_parser_parse_tentatively (parser);
-	  /* Look for the optional `::' operator.  */
-	  cp_parser_global_scope_opt (parser,
-				      /*current_scope_valid_p=*/false);
-	  /* Look for the nested-name-specifier.  */
-	  scope 
-	    = cp_parser_nested_name_specifier (parser,
-					       /*typename_keyword_p=*/true,
-					       /*type_p=*/true);
-	  /* If there was no nested-name-specifier, this is not a
-	     constructor.  */
-	  if (!cp_parser_error_occurred (parser))
-	    {
-	      /* Look for the class-name again.  */
-	      class_name = cp_parser_class_name (parser,
-						 /*typename_keyword_p=*/true,
-						 /*template_keyword_p=*/false,
-						 /*type_p=*/false,
-						 /*check_access_p=*/true);
-	      /* Look for a `('.  If there isn't one, then this is just 
-		 something like `S::S f()' -- it isn't a constructor.  */
-	      cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
-	      /* If that worked, see if it's the right type.  */
-	      if (!cp_parser_error_occurred (parser)
-		  && constructor_name_p (DECL_NAME (class_name),
-					 scope))
-		constructor_p = true;
-	    }
-	  /* We did not really want to consume any tokens.  */
-	  cp_parser_abort_tentative_parse (parser);
-	}
+	 decl-specifier; it is the beginning of the declarator.  */
+      constructor_p = (!decl_spec 
+		       && cp_parser_constructor_declarator_p (parser));
 
       /* If we don't have a DECL_SPEC yet, then we must be looking at
 	 a type-specifier.  */
@@ -6176,7 +6101,9 @@ cp_parser_conversion_function_id (parser)
   type = cp_parser_conversion_type_id (parser);
   /* Restore the saved scope.  */
   parser->scope = saved_scope;
-
+  /* If the TYPE is invalid, indicate failure.  */
+  if (type == error_mark_node)
+    return error_mark_node;
   return mangle_conv_op_name_for_type (type);
 }
 
@@ -10233,12 +10160,26 @@ cp_parser_class_name (parser,
 					type_p);
 	}
     }
+  
+  /* If the DECL is a TEMPLATE_DECL for a class type, and we are in
+     the scope of the class, then treat the TEMPLATE_DECL as a
+     class-name.  For example, in:
+
+       template <class T> struct S {
+         S s;
+       };
+
+     is OK.  */
+  if (DECL_CLASS_TEMPLATE_P (decl)
+      && current_class_type
+      && same_type_p (TREE_TYPE (DECL_TEMPLATE_RESULT (decl)),
+		      current_class_type))
+    return DECL_TEMPLATE_RESULT (decl);
 
   /* If this is a typename, create a TYPENAME_TYPE.  */
   if (typename_p && decl != error_mark_node)
     decl = TYPE_NAME (make_typename_type (scope, decl,
 					  /*complain=*/1));
-
 
   /* Check to see that it is really the name of a class.  */
   /* FIXME: This accepts typedefs for a class.  Is that OK?  */
@@ -11091,6 +11032,11 @@ cp_parser_base_clause (parser)
       /* Consume the `,'.  */
       cp_lexer_consume_token (parser->lexer);
     }
+
+  /* PARSER->SCOPE may still be non-NULL at this point, if the last
+     base class had a qualified name.  However, the next name that
+     appears is certainly not qualified.  */
+  parser->scope = NULL_TREE;
 
   return nreverse (bases);
 }
@@ -12265,6 +12211,90 @@ cp_parser_global_scope_opt (parser, current_scope_valid_p)
     parser->scope = NULL_TREE;
   
   return NULL_TREE;
+}
+
+/* Returns TRUE if the upcoming token sequence is the start of a
+   constructor declarator.  */
+
+static bool
+cp_parser_constructor_declarator_p (parser)
+     cp_parser *parser;
+{
+  bool constructor_p;
+
+  /* Parse tentatively; we are going to roll back all of the tokens
+     consumed here.  */
+  cp_parser_parse_tentatively (parser);
+  /* Assume that we are looking at a constructor declarator.  */
+  constructor_p = true;
+  /* Outside of a class-specifier, there must be a
+     nested-name-specifier.  */
+  if (!at_class_scope_p () || !TYPE_BEING_DEFINED (current_class_type))
+    {
+      /* Look for the optional `::' operator.  */
+      cp_parser_global_scope_opt (parser,
+				  /*current_scope_valid_p=*/false);
+      /* Look for the nested-name-specifier.  */
+      cp_parser_nested_name_specifier (parser,
+				       /*typename_keyword_p=*/false,
+				       /*type_p=*/false);
+      /* If there was no nested-name-specifier, this is definitely not
+	 a constructor.  */
+      constructor_p = !cp_parser_error_occurred (parser);
+    }
+  /* If we still think that this might be a constructor-declarator,
+     look for a class-name.  */
+  if (constructor_p)
+    {
+      /* If we have:
+
+	   template <typename T> struct S { S(); }
+	   template <typename T> S<T>::S ();
+
+	 we must recognize that the nested `S' names a class.
+	 Similarly, for:
+
+	   template <typename T> S<T>::S<T> ();
+
+	 we must recognize that the nested `S' names a template.  */
+      cp_parser_class_name (parser,
+			    /*typename_keyword_p=*/true,
+			    /*template_keyword_p=*/false,
+			    /*type_p=*/false,
+			    /*check_access_p=*/false);
+      /* If there was no class-name, then this is not a constructor.  */
+      constructor_p = !cp_parser_error_occurred (parser);
+    }
+  /* If we're still considering a constructor, we have to see a `(',
+     to begin the parameter-declaration-clause, followed by either a
+     `)', an `...', or a decl-specifier.  We need to check for a
+     type-specifier to avoid being fooled into thinking that:
+
+       S::S (f) (int);
+
+     is a constructor.  */
+  if (constructor_p 
+      && cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
+    {
+      if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN)
+	  && cp_lexer_next_token_is_not (parser->lexer, CPP_ELLIPSIS)
+	  && !cp_parser_storage_class_specifier_opt (parser))
+	{
+	  cp_parser_type_specifier (parser,
+				    CP_PARSER_FLAGS_NONE,
+				    /*is_friend=*/false,
+				    /*is_declarator=*/true,
+				    /*declares_class_or_enum=*/NULL,
+				    /*is_cv_qualifier=*/NULL);
+	  constructor_p = !cp_parser_error_occurred (parser);
+	}
+    }
+  else
+    constructor_p = false;
+  /* We did not really want to consume any tokens.  */
+  cp_parser_abort_tentative_parse (parser);
+
+  return constructor_p;
 }
 
 /* Parse the definition of the function given by the DECL_SPECIFIERS,

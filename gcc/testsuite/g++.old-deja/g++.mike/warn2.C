@@ -9,7 +9,7 @@ enum Boolean {
 enum OpResult {
   Succeeded = 0,
   TempFail = 1,
-  PermFail = 2,
+  PermFail = 2
 };
 
 OpResult fn1() {

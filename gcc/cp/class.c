@@ -6167,11 +6167,8 @@ instantiate_type (lhstype, rhs, flags)
 						/*template_only=*/0,
 						/*explicit_targs=*/NULL_TREE);
 
-    case TREE_LIST:
-      /* Now we should have a baselink. */
-      my_friendly_assert (BASELINK_P (rhs), 990412);
-
-      return instantiate_type (lhstype, TREE_VALUE (rhs), flags);
+    case BASELINK:
+      return instantiate_type (lhstype, BASELINK_FUNCTIONS (rhs), flags);
 
     case CALL_EXPR:
       /* This is too hard for now.  */

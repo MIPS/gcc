@@ -9758,7 +9758,10 @@ grokdeclarator (declarator, declspecs, decl_context,
      a function declarator.  */
 
   if (funcdef_flag && innermost_code != CALL_EXPR)
-    return 0;
+    {
+      cp_error ("invalid function definition");
+      return error_mark_node;
+    }
 
   if (((dname && IDENTIFIER_OPNAME_P (dname)) || flags == TYPENAME_FLAG)
       && innermost_code != CALL_EXPR
