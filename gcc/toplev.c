@@ -4965,6 +4965,7 @@ parse_options_and_default_flags (argc, argv)
     {
       flag_inline_functions = 1;
       flag_rename_registers = 1;
+      flag_tracer = 1;
     }
 
   if (optimize < 2 || optimize_size)
