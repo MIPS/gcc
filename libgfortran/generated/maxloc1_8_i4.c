@@ -52,8 +52,6 @@ __maxloc1_8_i4 (gfc_array_i8 * retarray, gfc_array_i4 *array, index_type *pdim)
     retarray->dim[0].stride = 1;
 
   len = array->dim[dim].ubound + 1 - array->dim[dim].lbound;
-  if (len <= 0)
-    return;
   delta = array->dim[dim].stride;
 
   for (n = 0; n < dim; n++)
@@ -73,7 +71,7 @@ __maxloc1_8_i4 (gfc_array_i8 * retarray, gfc_array_i4 *array, index_type *pdim)
       count[n] = 0;
       dstride[n] = retarray->dim[n].stride;
       if (extent[n] <= 0)
-        return;
+        len = 0;
     }
 
   base = array->data;
@@ -88,9 +86,13 @@ __maxloc1_8_i4 (gfc_array_i8 * retarray, gfc_array_i4 *array, index_type *pdim)
 
   GFC_INTEGER_4 maxval;
   maxval = -GFC_INTEGER_4_HUGE;
-  result = 0;
-       for (n = 0; n < len; n++, src += delta)
-          {
+  result = 1;
+        if (len <= 0)
+	  *dest = 0;
+	else
+	  {
+	    for (n = 0; n < len; n++, src += delta)
+	      {
 
   if (*src > maxval)
     {
@@ -98,7 +100,8 @@ __maxloc1_8_i4 (gfc_array_i8 * retarray, gfc_array_i4 *array, index_type *pdim)
       result = (GFC_INTEGER_8)n + 1;
     }
           }
-        *dest = result;
+	    *dest = result;
+	  }
       }
       /* Advance to the next element.  */
       count[0]++;
@@ -210,17 +213,22 @@ __mmaxloc1_8_i4 (gfc_array_i8 * retarray, gfc_array_i4 * array, index_type *pdim
 
   GFC_INTEGER_4 maxval;
   maxval = -GFC_INTEGER_4_HUGE;
-  result = 0;
-        for (n = 0; n < len; n++, src += delta, msrc += mdelta)
-          {
+  result = 1;
+        if (len <= 0)
+	  *dest = 0;
+	else
+	  {
+	    for (n = 0; n < len; n++, src += delta, msrc += mdelta)
+	      {
 
   if (*msrc && *src > maxval)
     {
       maxval = *src;
       result = (GFC_INTEGER_8)n + 1;
     }
-          }
-        *dest = result;
+              }
+	    *dest = result;
+	  }
       }
       /* Advance to the next element.  */
       count[0]++;

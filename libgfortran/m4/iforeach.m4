@@ -25,17 +25,26 @@ define(START_FOREACH_FUNCTION,
     retarray->dim[0].stride = 1;
 
   dstride = retarray->dim[0].stride;
+  dest = retarray->data;
   for (n = 0; n < rank; n++)
     {
       sstride[n] = array->dim[n].stride;
       extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
       count[n] = 0;
       if (extent[n] <= 0)
-        return;
+	{
+	  /* Set the return value.  */
+	  for (n = 0; n < rank; n++)
+	    dest[n * dstride] = 0;
+	  return;
+	}
     }
 
   base = array->data;
-  dest = retarray->data;
+
+  /* Initialize the return value.  */
+  for (n = 0; n < rank; n++)
+    dest[n * dstride] = 1;
   {
 ')dnl
 define(START_FOREACH_BLOCK,
@@ -104,6 +113,7 @@ define(START_MASKED_FOREACH_FUNCTION,
     retarray->dim[0].stride = 1;
 
   dstride = retarray->dim[0].stride;
+  dest = retarray->data;
   for (n = 0; n < rank; n++)
     {
       sstride[n] = array->dim[n].stride;
@@ -111,10 +121,14 @@ define(START_MASKED_FOREACH_FUNCTION,
       extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
       count[n] = 0;
       if (extent[n] <= 0)
-        return;
+	{
+	  /* Set the return value.  */
+	  for (n = 0; n < rank; n++)
+	    dest[n * dstride] = 0;
+	  return;
+	}
     }
 
-  dest = retarray->data;
   base = array->data;
   mbase = mask->data;
 
@@ -127,6 +141,10 @@ define(START_MASKED_FOREACH_FUNCTION,
       mbase = (GFOR_POINTER_L8_TO_L4 (mbase));
     }
 
+
+  /* Initialize the return value.  */
+  for (n = 0; n < rank; n++)
+    dest[n * dstride] = 1;
   {
 ')dnl
 define(START_MASKED_FOREACH_BLOCK, `START_FOREACH_BLOCK')dnl

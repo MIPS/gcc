@@ -50,8 +50,6 @@ __all_l8 (gfc_array_l8 * retarray, gfc_array_l8 *array, index_type *pdim)
     retarray->dim[0].stride = 1;
 
   len = array->dim[dim].ubound + 1 - array->dim[dim].lbound;
-  if (len <= 0)
-    return;
   delta = array->dim[dim].stride;
 
   for (n = 0; n < dim; n++)
@@ -71,7 +69,7 @@ __all_l8 (gfc_array_l8 * retarray, gfc_array_l8 *array, index_type *pdim)
       count[n] = 0;
       dstride[n] = retarray->dim[n].stride;
       if (extent[n] <= 0)
-        return;
+        len = 0;
     }
 
   base = array->data;
@@ -86,8 +84,12 @@ __all_l8 (gfc_array_l8 * retarray, gfc_array_l8 *array, index_type *pdim)
 
   /* Return true only if all the elements are set.  */
   result = 1;
-       for (n = 0; n < len; n++, src += delta)
-          {
+        if (len <= 0)
+	  *dest = 1;
+	else
+	  {
+	    for (n = 0; n < len; n++, src += delta)
+	      {
 
   if (! *src)
     {
@@ -95,7 +97,8 @@ __all_l8 (gfc_array_l8 * retarray, gfc_array_l8 *array, index_type *pdim)
       break;
     }
           }
-        *dest = result;
+	    *dest = result;
+	  }
       }
       /* Advance to the next element.  */
       count[0]++;

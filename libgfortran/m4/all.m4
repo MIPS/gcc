@@ -26,7 +26,7 @@ Boston, MA 02111-1307, USA.  */
 
 include(iparm.m4)dnl
 include(ifunction.m4)dnl
-ARRAY_FUNCTION(
+ARRAY_FUNCTION(1,
 `  /* Return true only if all the elements are set.  */
   result = 1;',
 `  if (! *src)

@@ -26,11 +26,11 @@ Boston, MA 02111-1307, USA.  */
 
 include(iparm.m4)dnl
 include(ifunction.m4)dnl
-ARRAY_FUNCTION(
+ARRAY_FUNCTION(1,
 `  result = 1;',
 `  result *= *src;')
 
-MASKED_ARRAY_FUNCTION(
+MASKED_ARRAY_FUNCTION(1,
 `  result = 1;',
 `  if (*msrc)
     result *= *src;')

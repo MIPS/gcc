@@ -43,8 +43,6 @@ define(START_ARRAY_FUNCTION,
     retarray->dim[0].stride = 1;
 
   len = array->dim[dim].ubound + 1 - array->dim[dim].lbound;
-  if (len <= 0)
-    return;
   delta = array->dim[dim].stride;
 
   for (n = 0; n < dim; n++)
@@ -64,7 +62,7 @@ define(START_ARRAY_FUNCTION,
       count[n] = 0;
       dstride[n] = retarray->dim[n].stride;
       if (extent[n] <= 0)
-        return;
+        len = 0;
     }
 
   base = array->data;
@@ -78,12 +76,17 @@ define(START_ARRAY_FUNCTION,
       {
 ')dnl
 define(START_ARRAY_BLOCK,
-`       for (n = 0; n < len; n++, src += delta)
-          {
+`        if (len <= 0)
+	  *dest = '$1`;
+	else
+	  {
+	    for (n = 0; n < len; n++, src += delta)
+	      {
 ')dnl
 define(FINISH_ARRAY_FUNCTION,
-`          }
-        *dest = result;
+    `          }
+	    *dest = result;
+	  }
       }
       /* Advance to the next element.  */
       count[0]++;
@@ -194,12 +197,17 @@ define(START_MASKED_ARRAY_FUNCTION,
       {
 ')dnl
 define(START_MASKED_ARRAY_BLOCK,
-`        for (n = 0; n < len; n++, src += delta, msrc += mdelta)
-          {
+`        if (len <= 0)
+	  *dest = '$1`;
+	else
+	  {
+	    for (n = 0; n < len; n++, src += delta, msrc += mdelta)
+	      {
 ')dnl
 define(FINISH_MASKED_ARRAY_FUNCTION,
-`          }
-        *dest = result;
+`              }
+	    *dest = result;
+	  }
       }
       /* Advance to the next element.  */
       count[0]++;
@@ -236,13 +244,13 @@ define(FINISH_MASKED_ARRAY_FUNCTION,
 }')dnl
 define(ARRAY_FUNCTION,
 `START_ARRAY_FUNCTION
-$1
-START_ARRAY_BLOCK
 $2
+START_ARRAY_BLOCK($1)
+$3
 FINISH_ARRAY_FUNCTION')dnl
 define(MASKED_ARRAY_FUNCTION,
 `START_MASKED_ARRAY_FUNCTION
-$1
-START_MASKED_ARRAY_BLOCK
 $2
+START_MASKED_ARRAY_BLOCK($1)
+$3
 FINISH_MASKED_ARRAY_FUNCTION')dnl

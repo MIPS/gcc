@@ -32,9 +32,6 @@ include(iforeach.m4)dnl
 FOREACH_FUNCTION(
 `  type_name maxval;
 
-  /* Initialize the return value.  */
-  for (n = 0; n < rank; n++)
-    dest[n * dstride] = 0;
   maxval = type_min;'
 ,
 `  if (*base > maxval)
@@ -47,9 +44,6 @@ FOREACH_FUNCTION(
 MASKED_FOREACH_FUNCTION(
 `  type_name maxval;
 
-  /* Initialize the return value.  */
-  for (n = 0; n < rank; n++)
-    dest[n * dstride] = 0;
   maxval = type_min;'
 ,
 `  if (*mbase && *base > maxval)

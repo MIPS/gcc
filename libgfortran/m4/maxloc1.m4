@@ -28,20 +28,20 @@ Boston, MA 02111-1307, USA.  */
 
 include(iparm.m4)dnl
 include(ifunction.m4)dnl
-ARRAY_FUNCTION(
+ARRAY_FUNCTION(0,
 `  type_name maxval;
   maxval = type_min;
-  result = 0;',
+  result = 1;',
 `  if (*src > maxval)
     {
       maxval = *src;
       result = (rtype_name)n + 1;
     }')
 
-MASKED_ARRAY_FUNCTION(
+MASKED_ARRAY_FUNCTION(0,
 `  type_name maxval;
   maxval = type_min;
-  result = 0;',
+  result = 1;',
 `  if (*msrc && *src > maxval)
     {
       maxval = *src;

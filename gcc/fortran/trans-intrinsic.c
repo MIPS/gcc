@@ -1298,6 +1298,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
   tree type;
   tree tmp;
   tree ifbody;
+  tree cond;
   gfc_loopinfo loop;
   gfc_actual_arglist *actual;
   gfc_ss *arrayss;
@@ -1370,9 +1371,17 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
 
   assert (loop.dimen == 1);
 
-  /* Initialize the position to the first element.  This is neccessary
-     when all the values are equal to the limit.  */
-  gfc_add_modify_expr (&loop.pre, pos, loop.from[0]);
+  /* Initialize the position to the first element.  If the array has zero
+     size we need to return zero.  Otherwise use the first element of the
+     array, in case all elements are equal to the limit.
+     ie. pos = (ubound >= lbound) ? lbound, lbound - 1;  */
+  tmp = fold (build (MINUS_EXPR, gfc_array_index_type,
+	             loop.from[0], integer_one_node));
+  cond = fold (build (GE_EXPR, boolean_type_node,
+		      loop.to[0], loop.from[0]));
+  tmp = fold (build (COND_EXPR, gfc_array_index_type, cond,
+		     loop.from[0], tmp));
+  gfc_add_modify_expr (&loop.pre, pos, tmp);
       
   gfc_mark_ss_chain_used (arrayss, 1);
   if (maskss)

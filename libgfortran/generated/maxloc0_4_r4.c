@@ -50,24 +50,30 @@ __maxloc0_4_r4 (gfc_array_i4 * retarray, gfc_array_r4 *array)
     retarray->dim[0].stride = 1;
 
   dstride = retarray->dim[0].stride;
+  dest = retarray->data;
   for (n = 0; n < rank; n++)
     {
       sstride[n] = array->dim[n].stride;
       extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
       count[n] = 0;
       if (extent[n] <= 0)
-        return;
+	{
+	  /* Set the return value.  */
+	  for (n = 0; n < rank; n++)
+	    dest[n * dstride] = 0;
+	  return;
+	}
     }
 
   base = array->data;
-  dest = retarray->data;
+
+  /* Initialize the return value.  */
+  for (n = 0; n < rank; n++)
+    dest[n * dstride] = 1;
   {
 
   GFC_REAL_4 maxval;
 
-  /* Initialize the return value.  */
-  for (n = 0; n < rank; n++)
-    dest[n * dstride] = 0;
   maxval = -GFC_REAL_4_HUGE;
 
   while (base)
@@ -140,6 +146,7 @@ __mmaxloc0_4_r4 (gfc_array_i4 * retarray, gfc_array_r4 *array, gfc_array_l4 * ma
     retarray->dim[0].stride = 1;
 
   dstride = retarray->dim[0].stride;
+  dest = retarray->data;
   for (n = 0; n < rank; n++)
     {
       sstride[n] = array->dim[n].stride;
@@ -147,10 +154,14 @@ __mmaxloc0_4_r4 (gfc_array_i4 * retarray, gfc_array_r4 *array, gfc_array_l4 * ma
       extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
       count[n] = 0;
       if (extent[n] <= 0)
-        return;
+	{
+	  /* Set the return value.  */
+	  for (n = 0; n < rank; n++)
+	    dest[n * dstride] = 0;
+	  return;
+	}
     }
 
-  dest = retarray->data;
   base = array->data;
   mbase = mask->data;
 
@@ -163,13 +174,14 @@ __mmaxloc0_4_r4 (gfc_array_i4 * retarray, gfc_array_r4 *array, gfc_array_l4 * ma
       mbase = (GFOR_POINTER_L8_TO_L4 (mbase));
     }
 
+
+  /* Initialize the return value.  */
+  for (n = 0; n < rank; n++)
+    dest[n * dstride] = 1;
   {
 
   GFC_REAL_4 maxval;
 
-  /* Initialize the return value.  */
-  for (n = 0; n < rank; n++)
-    dest[n * dstride] = 0;
   maxval = -GFC_REAL_4_HUGE;
 
   while (base)

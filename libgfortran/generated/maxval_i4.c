@@ -51,8 +51,6 @@ __maxval_i4 (gfc_array_i4 * retarray, gfc_array_i4 *array, index_type *pdim)
     retarray->dim[0].stride = 1;
 
   len = array->dim[dim].ubound + 1 - array->dim[dim].lbound;
-  if (len <= 0)
-    return;
   delta = array->dim[dim].stride;
 
   for (n = 0; n < dim; n++)
@@ -72,7 +70,7 @@ __maxval_i4 (gfc_array_i4 * retarray, gfc_array_i4 *array, index_type *pdim)
       count[n] = 0;
       dstride[n] = retarray->dim[n].stride;
       if (extent[n] <= 0)
-        return;
+        len = 0;
     }
 
   base = array->data;
@@ -86,13 +84,18 @@ __maxval_i4 (gfc_array_i4 * retarray, gfc_array_i4 *array, index_type *pdim)
       {
 
   result = -GFC_INTEGER_4_HUGE;
-       for (n = 0; n < len; n++, src += delta)
-          {
+        if (len <= 0)
+	  *dest = -GFC_INTEGER_4_HUGE;
+	else
+	  {
+	    for (n = 0; n < len; n++, src += delta)
+	      {
 
   if (*src > result)
     result = *src;
           }
-        *dest = result;
+	    *dest = result;
+	  }
       }
       /* Advance to the next element.  */
       count[0]++;
@@ -203,13 +206,18 @@ __mmaxval_i4 (gfc_array_i4 * retarray, gfc_array_i4 * array, index_type *pdim, g
       {
 
   result = -GFC_INTEGER_4_HUGE;
-        for (n = 0; n < len; n++, src += delta, msrc += mdelta)
-          {
+        if (len <= 0)
+	  *dest = -GFC_INTEGER_4_HUGE;
+	else
+	  {
+	    for (n = 0; n < len; n++, src += delta, msrc += mdelta)
+	      {
 
   if (*msrc && *src > result)
     result = *src;
-          }
-        *dest = result;
+              }
+	    *dest = result;
+	  }
       }
       /* Advance to the next element.  */
       count[0]++;

@@ -1,3 +1,16 @@
+2003-11-08  Paul Brook  <paul@nowt.org>
+
+	PR fortran/12704
+	* m4/maxloc0.m4: Use default value of 1. Handle zero sized arrays.
+	* m4/maxloc1.m4: Ditto.
+	* m4/minloc0.m4: Ditto.
+	* m4/minloc1.m4: Ditto.
+	* m4/ifunction.m4: Set return value for zero sized arrays.
+	* m4/iforeach.m4: Ditto.
+	* m4/all.m4, m4/any.m4, m4/count.m4, m4/maxloc1.m4, m4/minloc1.m4, 
+	m4/mxaval.m4, m4/minval.m4, m4/product.m4, m4/sum.m4: Ditto.
+	* generated/*: Update.
+
 2003-10-30  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	PR fortran/12702
