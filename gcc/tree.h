@@ -426,6 +426,8 @@ extern void tree_operand_check_failed (int, enum tree_code,
 
 #endif
 
+#define TREE_BLOCK(NODE)		((NODE)->exp.block)
+
 #include "tree-check.h"
 
 #define TYPE_CHECK(T)		TREE_CLASS_CHECK (T, 't')
@@ -982,6 +984,7 @@ struct tree_exp GTY(())
   struct tree_common common;
   location_t *locus;
   int complexity;
+  tree block;
   tree GTY ((special ("tree_exp"),
 	     desc ("TREE_CODE ((tree) &%0)")))
     operands[1];

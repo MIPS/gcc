@@ -748,7 +748,8 @@ optimize_sibling_and_tail_recursive_calls (void)
   /* There may have been NOTE_INSN_BLOCK_{BEGIN,END} notes in the
      CALL_PLACEHOLDER alternatives that we didn't emit.  Rebuild the
      lexical block tree to correspond to the notes that still exist.  */
-  if (replaced_call_placeholder)
+  if (replaced_call_placeholder
+      && !cfun->dont_emit_block_notes)
     reorder_blocks ();
 
   /* This information will be invalid after inline expansion.  Kill it now.  */

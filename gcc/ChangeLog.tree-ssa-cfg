@@ -1,3 +1,30 @@
+2003-10-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gimple-low.c: New.
+	* Makefile.in (gimple-low.o): Add.
+	* cfglayout.c (insn_locators_initialize): Use new scoping info.
+	* expr.c (expand_expr): Record scope changes.
+	* function.c (blocks_nreverse): Export.
+	(uninitialized_vars_warning): Use DECL_RTL_SET_P instead of DECL_RTL.
+	(reset_block_changes, record_block_change, record_block_change,
+	check_block_change, free_block_changes): New.
+	* function.h (struct function): New fields dont_emit_block_notes
+	and ib_boundaries_block.
+	(blocks_nreverse, reset_block_changes, record_block_change,
+	finalize_block_changes, check_block_change, free_block_changes):
+	Declare.
+	* sibcall.c (optimize_sibling_and_tail_recursive_call): Don't call
+	reorder_blocks if cfun->dont_emit_block_notes.
+	* stmt.c (expand_start_bindings_and_block, expand_end_bindings): Don't
+	emit block notes if cfun->dont_emit_block_notes.
+	* toplev.c (rest_of_compilation): Don't call reorder_blocks if
+	cfun->dont_emit_block_notes.
+	* tree-flow.h (lower_function_body): Declare.
+	* tree-optimize.c (optimize_function_tree): Call lower_function_body.
+	* tree.c (build1): Initialize TREE_BLOCK.
+	* tree.h (TREE_BLOCK): New macro.
+	(struct tree_exp): Add block field.
+
 2003-10-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa.c (degrees): Removed.

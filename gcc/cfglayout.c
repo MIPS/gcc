@@ -310,10 +310,14 @@ insn_locators_initialize (void)
 	  switch (NOTE_LINE_NUMBER (insn))
 	    {
 	    case NOTE_INSN_BLOCK_BEG:
+	      if (cfun->dont_emit_block_notes)
+		abort ();
 	      block = NOTE_BLOCK (insn);
 	      delete_insn (insn);
 	      break;
 	    case NOTE_INSN_BLOCK_END:
+	      if (cfun->dont_emit_block_notes)
+		abort ();
 	      block = BLOCK_SUPERCONTEXT (block);
 	      if (block && TREE_CODE (block) == FUNCTION_DECL)
 		block = 0;
@@ -328,11 +332,17 @@ insn_locators_initialize (void)
 	      break;
 	    }
 	}
+
+      if (cfun->dont_emit_block_notes)
+	check_block_change (insn, &block);
     }
 
   /* Tag the blocks with a depth number so that change_scope can find
      the common parent easily.  */
   set_block_levels (DECL_INITIAL (cfun->decl), 0);
+
+  if (cfun->dont_emit_block_notes)
+    free_block_changes ();
 }
 
 /* For each lexical block, set BLOCK_NUMBER to the depth at which it is

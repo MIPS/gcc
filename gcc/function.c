@@ -265,7 +265,6 @@ static tree *identify_blocks_1 (rtx, tree *, tree *, tree *);
 static void reorder_blocks_0 (tree);
 static void reorder_blocks_1 (rtx, tree, varray_type *);
 static void reorder_fix_fragments (tree);
-static tree blocks_nreverse (tree);
 static int all_blocks (tree, tree *);
 static tree *get_block_vector (tree, int *);
 extern tree debug_find_var_in_block_tree (tree, tree);
@@ -5598,7 +5597,7 @@ uninitialized_vars_warning (tree block)
 	     flow.c that the entire aggregate was initialized.
 	     Unions are troublesome because members may be shorter.  */
 	  && ! AGGREGATE_TYPE_P (TREE_TYPE (decl))
-	  && DECL_RTL (decl) != 0
+	  && DECL_RTL_SET_P (decl)
 	  && GET_CODE (DECL_RTL (decl)) == REG
 	  /* Global optimizations can make it difficult to determine if a
 	     particular variable has been initialized.  However, a VAR_DECL
@@ -5613,7 +5612,7 @@ uninitialized_vars_warning (tree block)
 		 decl, decl);
       if (extra_warnings
 	  && TREE_CODE (decl) == VAR_DECL
-	  && DECL_RTL (decl) != 0
+	  && DECL_RTL_SET_P (decl)
 	  && GET_CODE (DECL_RTL (decl)) == REG
 	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
 	warning ("%Jvariable '%D' might be clobbered by `longjmp' or `vfork'",
@@ -6177,7 +6176,7 @@ reorder_fix_fragments (tree block)
 /* Reverse the order of elements in the chain T of blocks,
    and return the new head of the chain (old last element).  */
 
-static tree
+tree
 blocks_nreverse (tree t)
 {
   tree prev = 0, decl, next;
@@ -7939,4 +7938,56 @@ init_function_once (void)
   VARRAY_INT_INIT (sibcall_epilogue, 0, "sibcall_epilogue");
 }
 
+/* Resets insn_block_boundaries array.  */
+
+void
+reset_block_changes ()
+{
+  VARRAY_TREE_INIT (cfun->ib_boundaries_block, 100, "ib_boundaries_block");
+  VARRAY_PUSH_TREE (cfun->ib_boundaries_block, NULL_TREE);
+}
+
+/* Record the boundary for BLOCK.  */
+void
+record_block_change (tree block)
+{
+  int i, n;
+  tree last_block;
+
+  if (!block)
+    return;
+
+  last_block = VARRAY_TOP_TREE (cfun->ib_boundaries_block);
+  VARRAY_POP (cfun->ib_boundaries_block);
+  n = get_max_uid ();
+  for (i = VARRAY_ACTIVE_SIZE (cfun->ib_boundaries_block); i < n; i++)
+    VARRAY_PUSH_TREE (cfun->ib_boundaries_block, last_block);
+
+  VARRAY_PUSH_TREE (cfun->ib_boundaries_block, block);
+}
+
+/* Finishes record of boundaries.  */
+void finalize_block_changes ()
+{
+  record_block_change (DECL_INITIAL (current_function_decl));
+}
+
+/* For INSN return the BLOCK it belongs to.  */ 
+void
+check_block_change (rtx insn, tree *block)
+{
+  unsigned uid = INSN_UID (insn);
+
+  if (uid >= VARRAY_ACTIVE_SIZE (cfun->ib_boundaries_block))
+    return;
+
+  *block = VARRAY_TREE (cfun->ib_boundaries_block, uid);
+}
+
+/* Releases the ib_boundaries_block records.  */
+void
+free_block_changes ()
+{
+  cfun->ib_boundaries_block = NULL;
+}
 #include "gt-function.h"

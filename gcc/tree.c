@@ -2431,6 +2431,7 @@ build1 (enum tree_code code, tree type, tree node)
   TREE_TYPE (t) = type;
   /* FIXME maybe give expr a locus here?  */
   SET_EXPR_LOCUS (t, NULL);
+  TREE_BLOCK (t) = NULL;
   TREE_COMPLEXITY (t) = 0;
   TREE_OPERAND (t, 0) = node;
   if (node && first_rtl_op (code) != 0)

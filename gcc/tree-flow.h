@@ -513,6 +513,8 @@ extern void add_referenced_tmp_var (tree var);
 #define TDFA_USE_OPS		1 << 0
 #define TDFA_USE_VOPS		1 << 1
 
+/* In gimple-low.c  */
+void lower_function_body (tree *);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);

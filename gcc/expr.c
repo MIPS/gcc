@@ -6762,6 +6762,10 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
 	input_line = EXPR_LINENO (exp);
 	emit_line_note (input_location);
 
+	/* Record where the insns produced belong.  */
+	if (cfun->dont_emit_block_notes)
+	  record_block_change (TREE_BLOCK (exp));
+
 	/* This is a gross hack.  Temporarily remove the locus information
 	   and re-call expand_expr.
 
@@ -8818,7 +8822,11 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
 	    {
 	      expand_start_else ();
 	      if (EXPR_LOCUS (exp))
-		emit_line_note (*(EXPR_LOCUS (exp)));
+		{
+		  emit_line_note (*(EXPR_LOCUS (exp)));
+		  if (cfun->dont_emit_block_notes)
+		    record_block_change (TREE_BLOCK (exp));
+		}
 	      expand_elseif (TREE_OPERAND (exp, 0));
 	      expand_expr (TREE_OPERAND (exp, 1), const0_rtx, VOIDmode, 0);
 	    }

@@ -61,7 +61,12 @@ optimize_function_tree (tree fndecl)
   if (errorcount || sorrycount)
     return;
 
+  lower_function_body (&DECL_SAVED_TREE (fndecl));
   fnbody = DECL_SAVED_TREE (fndecl);
+
+  /* Avoid producing notes for blocks.  */
+  cfun->dont_emit_block_notes = 1;
+  reset_block_changes ();
 
   /* Flatten the trees.  */
   head.prev = head.next = NULL;
