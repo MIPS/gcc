@@ -74,7 +74,7 @@ static void gen_split			PROTO((rtx));
 static void output_add_clobbers		PROTO((void));
 static void output_init_mov_optab	PROTO((void));
 static void gen_rtx_scratch		PROTO((rtx, enum rtx_code));
-static void output_peephole2_scratch	PROTO((rtx));
+static void output_peephole2_scratches	PROTO((rtx));
 
 
 static void
@@ -576,8 +576,9 @@ gen_split (split)
     {
       printf ("extern rtx gen_%s_%d PROTO ((rtx, rtx *));\n",
 	      name, insn_code_number);
-      printf ("rtx\ngen_%s_%d (curr_insn, operands)\n     rtx curr_insn;\n\
-    rtx *operands;\n", 
+      printf ("rtx\ngen_%s_%d (curr_insn, operands)\n\
+     rtx curr_insn ATTRIBUTE_UNUSED;\n\
+     rtx *operands;\n", 
 	      name, insn_code_number);
     }
   else
@@ -594,15 +595,7 @@ gen_split (split)
   printf ("  rtx _val = 0;\n");
 
   if (GET_CODE (split) == DEFINE_PEEPHOLE2)
-    {
-      printf ("  HARD_REG_SET _regs_allocated;\n");
-      printf ("  CLEAR_HARD_REG_SET (_regs_allocated);\n");
-
-      for (i = 0; i < XVECLEN (split, 2); i++)
-	{
-	  output_peephole2_scratch (XVECEXP (split, 2, i));
-	}
-    }
+    output_peephole2_scratches (split);
 
   printf ("  start_sequence ();\n");
 
@@ -703,39 +696,52 @@ output_add_clobbers ()
 }
 
 /* Generate code to invoke find_free_register () as needed for the
-   scratch registers used by the peephole2 pattern in INSN. */
+   scratch registers used by the peephole2 pattern in SPLIT. */
 
 static void
-output_peephole2_scratch (insn)
-     rtx insn;
+output_peephole2_scratches (split)
+     rtx split;
 {
-  RTX_CODE code = GET_CODE (insn);
+  int i;
+  int insn_nr = 0;
 
-  if (code == MATCH_SCRATCH)
-    {
-      printf ("  if ((operands[%d] = find_free_register (curr_insn, \"%s\", %smode, &_regs_allocated)) == NULL_RTX)\n\
-    return NULL;\n", 
-	      XINT (insn, 0),
-	      XSTR (insn, 1),
-	      GET_MODE_NAME (GET_MODE (insn)));
-    }
-  else
-    {
-      int i;
-      char *fmt = GET_RTX_FORMAT (code);
-      int len = GET_RTX_LENGTH (code);
+  printf ("  rtx first_insn ATTRIBUTE_UNUSED;\n");
+  printf ("  rtx last_insn ATTRIBUTE_UNUSED;\n");
+  printf ("  HARD_REG_SET _regs_allocated;\n");
 
-      for (i = 0; i < len; i++)
+  printf ("  CLEAR_HARD_REG_SET (_regs_allocated);\n");
+
+  for (i = 0; i < XVECLEN (split, 0); i++)
+    {
+      rtx elt = XVECEXP (split, 0, i);
+      if (GET_CODE (elt) == MATCH_SCRATCH)
 	{
-	  if (fmt[i] == 'e' || fmt[i] == 'u')
-	    output_peephole2_scratch (XEXP (insn, i));
-	  else if (fmt[i] == 'E')
-	    {
-	      int j;
-	      for (j = 0; j < XVECLEN (insn, i); j++)
-		output_peephole2_scratch (XVECEXP (insn, i, j));
-	    }
+	  int last_insn_nr = insn_nr;
+	  int cur_insn_nr = insn_nr;
+	  int j;
+	  for (j = i + 1; j < XVECLEN (split, 0); j++)
+	    if (GET_CODE (XVECEXP (split, 0, j)) == MATCH_DUP)
+	      {
+		if (XINT (XVECEXP (split, 0, j), 0) == XINT (elt, 0))
+		  last_insn_nr = cur_insn_nr;
+	      }
+	    else if (GET_CODE (XVECEXP (split, 0, j)) != MATCH_SCRATCH)
+	      cur_insn_nr++;
+	  printf ("  first_insn = recog_next_insn (curr_insn, %d);\n", insn_nr);
+	  if (last_insn_nr > insn_nr)
+	    printf ("  last_insn = recog_next_insn (curr_insn, %d);\n",
+		    last_insn_nr - 1);
+	  else
+	    printf ("  last_insn = 0;\n");
+	  printf ("  if ((operands[%d] = find_free_register (first_insn, last_insn, \"%s\", %smode, &_regs_allocated)) == NULL_RTX)\n\
+    return NULL;\n", 
+		  XINT (elt, 0),
+		  XSTR (elt, 1),
+		  GET_MODE_NAME (GET_MODE (elt)));
+
 	}
+      else if (GET_CODE (elt) != MATCH_DUP)
+	insn_nr++;
     }
 }
 

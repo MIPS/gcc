@@ -251,9 +251,29 @@ make_insn_sequence (insn, type)
     insn_name_ptr[next_insn_code] = name;
   }  
 
-  /* peephole2 always gets an outer parallel even if it's only one
-     entry. */
-  if (type != PEEPHOLE2 && XVECLEN (insn, type == RECOG) == 1)
+  if (type == PEEPHOLE2)
+    {
+      int i, j;
+
+      /* peephole2 gets special treatment:
+	 - X always gets an outer parallel even if it's only one entry
+	 - we remove all traces of outer-level match_scratch and match_dup
+           expressions here.  */
+      x = rtx_alloc (PARALLEL);
+      PUT_MODE (x, VOIDmode);
+      XVEC (x, 0) = rtvec_alloc (XVECLEN (insn, 0));
+      for (i = j = 0; i < XVECLEN (insn, 0); i++)
+	{
+	  rtx tmp = XVECEXP (insn, 0, i);
+	  if (GET_CODE (tmp) != MATCH_SCRATCH && GET_CODE (tmp) != MATCH_DUP)
+	    {
+	      XVECEXP (x, 0, j) = tmp;
+	      j++;
+	    }
+	}
+      XVECLEN (x, 0) = j;
+    }
+  else if (XVECLEN (insn, type == RECOG) == 1)
     x = XVECEXP (insn, type == RECOG, 0);
   else
     {

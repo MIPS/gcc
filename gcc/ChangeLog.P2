@@ -1,5 +1,18 @@
 1999-08-27  Bernd Schmidt  <bernds@cygnus.co.uk>
 
+	* genemit.c (output_peephole2_scratch): Deleted.
+	(output_peephole2_scratches): New function.
+	(gen_split): Add ATTRIBUTE_UNUSED to curr_insn arg.
+	For DEFINE_PEEPHOLE2, call output_peephole2_scratches.
+	* genrecog.c (make_insn_sequence): Strip MATCH_SCRATCH and MATCH_DUP
+	elements off our vector for DEFINE_PEEPHOLE@ patterns.
+	* recog.c (recog_next_insn): Move some checks into the loop.
+	* resource.c (find_free_register): New arg LAST_INSN.  If it is
+	nonzero, make sure insns in the range CURRENT_INSN ... LAST_INSN
+	do not clobber the register.
+	* resource.h (find_free_register): Fix prototype to match definition.
+	* i386.md (peephole2 patterns): Fix to match changes above.
+
 	* genemit.c (output_peephole2_scratch): Use old-style function
 	definition.
 

@@ -2703,13 +2703,15 @@ recog_next_insn (insn, n)
   while (insn != NULL_RTX && n > 0)
     {
       insn = next_nonnote_insn (insn);
+
+      if (insn == NULL_RTX)
+	return insn;
+
+      if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+	return NULL_RTX;
+
       n--;
     }
-  if (insn == NULL_RTX)
-    return insn;
-
-  if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
-    return NULL_RTX;
 
   return insn;
 }
