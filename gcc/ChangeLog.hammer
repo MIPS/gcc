@@ -1,3 +1,10 @@
+2004-01-18  Jan Hubicka  <jh@suse.cz>
+
+	* c-common.c (c_estimate_num_insns_1): Merge with mainline
+	* params.def (max-inline-insns-single, max-inline-insns-auto,
+	large-function-insns): Likewise
+	* invoke.texi: Update
+
 2004-01-17  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c: Update overall comment.

@@ -4394,7 +4394,7 @@ This number sets the maximum number of instructions (counted in gcc's
 internal representation) in a single function that the tree inliner 
 will consider for inlining.  This only affects functions declared
 inline and methods implemented in a class declaration (C++).
-The default value is 300.
+The default value is 120.
 
 @item max-inline-insns-auto
 When you use @option{-finline-functions} (included in @option{-O3}),
@@ -4402,7 +4402,7 @@ a lot of functions that would otherwise not be considered for inlining
 by the compiler will be investigated.  To those functions, a different
 (more restrictive) limit compared to functions declared inline can
 be applied.
-The default value is 300.
+The default value is 500.
 
 @item max-inline-insns
 The tree inliner does decrease the allowable size for single functions 
@@ -8248,7 +8248,8 @@ code model.
 @opindex mcmodel=kernel
 Generate code for the kernel code model.  The kernel runs in the
 negative 2 GB of the address space.
-This model has to be used for Linux kernel code.
+This model has to be used for Linux kernel code. 
+In order to match ABI used in Linux kernel, @option{-mno-red-zone} is implied.
 
 @item -mcmodel=medium
 @opindex mcmodel=medium
