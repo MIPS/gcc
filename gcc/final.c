@@ -2260,7 +2260,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 		{
 		  int log_align;
 
-		  readonly_data_section ();
+		  function_readonly_data_section (current_function_decl);
 
 #ifdef ADDR_VEC_ALIGN
 		  log_align = ADDR_VEC_ALIGN (NEXT_INSN (insn));

@@ -1,3 +1,9 @@
+2004-08-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/16276
+	* g++.old-deja/g++.other/comdat4.C: New test.
+	* g++.old-deja/g++.other/comdat4-aux.cc: New.
+
 2004-07-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.mist-tests/i386-prefetch.exp (PREFETCH_SSE): Change all

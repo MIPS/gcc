@@ -218,6 +218,10 @@ extern void named_section		PARAMS ((tree, const char *, int));
 /* Tell assembler to switch to the section for function DECL.  */
 extern void function_section		PARAMS ((tree));
 
+/* Tell assembler to switch to the readonly data section associated
+   with function DECL.  */
+extern void function_readonly_data_section (tree);
+
 /* Tell assembler to switch to the section for string merging.  */
 extern void mergeable_string_section	PARAMS ((tree, unsigned HOST_WIDE_INT,
 						 unsigned int));

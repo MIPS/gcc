@@ -1,3 +1,11 @@
+2004-08-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/16276
+	* output.h (function_readonly_data_section): New prototype.
+	* varasm.c (function_readonly_data_section): New function.
+	* final.c (final_scan_insn): Call it instead of
+	readonly_data_section.
+
 2004-08-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* fold-const.c (fold): If flag_syntax_only, don't depend on
