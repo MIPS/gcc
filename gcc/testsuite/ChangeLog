@@ -1,3 +1,89 @@
+2005-03-08  Ira Rosen  <irar@il.ibm.com>
+
+        * gcc.dg/vect/pr20122.c: New test.
+
+2005-03-07  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* g++.dg/warn/weak1.C: Skip test on hppa*-*-hpux*.
+	* g++.dg/init/dso_handle1.C, gcc.dg/torture/builtin-noret-1.c,
+	gcc.dg/torture/builtin-noret-2.c: Require weak support.
+
+2005-03-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/warn/Wnvdtor.C: New test.
+
+2005-03-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/torture/pr19683-1.c: New test.
+
+2005-03-06  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.dg/g77/19990313-1.f: Replace tabs with spaces.
+	* gfortran.dg/g77/19990313-2.f: ditto
+	* gfortran.dg/g77/19990313-3.f: ditto
+	* gfortran.dg/g77/19990525-0.f: ditto
+	* gfortran.dg/g77/19990826-0.f: ditto
+	* gfortran.dg/g77/19990826-2.f: ditto
+	* gfortran.dg/g77/19990826-3.f: ditto
+	* gfortran.dg/g77/20000511-1.f: ditto
+	* gfortran.dg/g77/20000511-2.f: ditto
+	* gfortran.dg/g77/970625-2.f: ditto
+	* gfortran.dg/g77/980310-2.f: ditto
+	* gfortran.dg/g77/980310-3.f: ditto
+	* gfortran.dg/g77/980310-8.f: ditto
+	* gfortran.dg/g77/980519-2.f: ditto
+	* gfortran.dg/g77/alpha1.f: ditto
+	* gfortran.dg/g77/claus.f: ditto
+	* gfortran.dg/g77/erfc.f: ditto
+	* gfortran.dg/g77/short.f: ditto
+	* gfortran.fortran-torture/execute/data.f90: ditto
+	* gfortran.fortran-torture/execute/integer_select.f90: ditto
+	* gfortran.fortran-torture/execute/integer_select_1.f90: ditto
+
+2005-03-06  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* lib/file-format.exp (gcc_target_object_format): Add check for som
+        format and hardcode object formats on hppa*-*-hpux*.
+	* lib/target-supports.exp (check_weak_available): Add check for som
+	object format.  Always return 0 on hppa*-*-hpux10*.
+
+	* gcc.dg/titype-1.c, gcc.dg/uninit-C.c: Don't use TImode if __hppa__
+	is defined.
+
+	* objc.dg/stabs-1.m: hppa*64*-*-* doesn't have stabs.
+
+2005-03-06  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/19311
+	* g++.dg/template/non-dependent11.C: New test.
+
+2005-03-05  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.dg/pr19936_1.f90: New test.
+	* gfortran.dg/pr19936_1.f90: ditto.
+	* gfortran.dg/pr19936_1.f90: ditto.
+
+2005-03-05  Paul Thomas  <prthomas@drfccad.cea.fr>
+            Steven G. Kargl  <kargls@comcast.net> 
+
+	* gfortran.dg/PR19754_1.f90: New test.
+	* gfortran.dg/PR19754_2.f90: ditto.
+
+2005-03-05  John David Anglin  <dave.danglin@nrc-cnrc.gc.ca>
+	    Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c++/19797
+	* g++.dg/abi/vague1.C: Remove xfail hppa*-*-hpux*.
+
+2005-03-04  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/19673
+	* gfortran.dg/func_result_1.f90: New test.
+
+2005-03-04  David Billinghurst  <David.Billinghurst@riotinto.com>
+
+	* gcc.dg/cpp/assert4.c:  Fix for cygwin.
+
 2005-03-02  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/19916

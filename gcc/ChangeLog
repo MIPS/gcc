@@ -1,3 +1,133 @@
+2005-03-08  Ira Rosen  <irar@il.ibm.com>
+
+        PR tree-optimization/20122
+        * tree-vect-analyze.c (vect_object_analysis): Analyze initial
+        condition of access function instead of base.
+
+2005-03-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000-protos.h: Rename output_e500_flip_eq_bit to
+	output_e500_flip_gt_bit.
+
+	* config/rs6000/rs6000.c (print_operand): case D: Print out bit 31
+	as bit 31.
+	(rs6000_generate_compare): Fix logic to look at the correct bits.
+	(output_e500_flip_eq_bit): Rename to output_e500_flip_gt_bit.
+	Look at GT bit.
+	(rs6000_emit_sCOND): Rename gen_e500_flip_eq_bit to
+	gen_e500_flip_gt_bit.  Rename gen_move_from_CR_eq_bit to
+	gen_move_from_CR_gt_bit.
+
+	* config/rs6000/rs6000.md ("move_from_CR_eq_bit"): Change bit
+	("move_from_CR_eq_bit"): Rename to move_from_CR_gt_bit.
+	(UNSPEC_MV_CR_EQ): Rename to UNSPEC_MV_CR_GT.
+
+	* config/rs6000/spe.md ("e500_cr_ior_compare"): New.
+	(E500_CR_IOR_COMPARE): New constant.
+
+2005-03-08  Earl Chew <earl_chew@agilent.com>
+	    David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* config/i386/host-cygwin.c: New file to support precompiled
+	headers on cygwin
+	* config/i386/x-cygwin: Use host-cygwin.c on cygwin host
+	* config.host: Use above files for cygwin host.
+
+2005-03-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR rtl-optimization/19683
+	* reload1.c (choose_reload_regs): Pass the number of bits, not the
+	number of bytes, to smallest_int_for_mode.  Fix arguments to
+	REG_CANNOT_CHANGE_MODE_P.
+
+2005-03-07  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* config/i386/cygwin1.c(mingw_scan): Use xstrdup in calls to putenv.
+
+2005-03-07  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* config/ia64/hpux.h (LINK_SPEC): Add -z.
+	* config/ia64/ia64.c (ia64_function_value): Return a REG not a
+	PARALLEL for an empty structure.
+
+2005-03-05  James A. Morrison  <phython@gcc.gnu.org>
+
+	* doc/c-tree.texi: Wrap comments in @r{}.
+	* doc/cpp.texi: Likewise.
+	* doc/cppinternals.texi: Likewise.
+	* doc/extend.texi: Likewise.
+	* doc/md.texi: Likewise.
+	* doc/objc.texi: Likewise.
+	* doc/sourcebuild.texi: Likewise.
+	* doc/tm.texi: Likewise.
+	* doc/tree-ssa.texi
+
+2005-03-04  Devang Patel  <dpatel@apple.com>
+	
+	PR tree-optimization/18815
+	* tree-if-conv.c (combine_blocks): Adjust loop header edges for
+	loops with zero exit edges.
+	
+2005-03-05  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* config.gcc (hppa*64*-*-hpux11*): Use pa/pa-hpux1111.h for
+	*-*-hpux11.[1-9]*, not just for *-*-hpux11.11.
+
+2005-03-05  John David Anglin  <dave.danglin@nrc-cnrc.gc.ca>
+	    Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c++/19797
+	* pa/elf.h, pa64-hpux.h, som.h (ASM_OUTPUT_EXTERNAL_REAL): Define.
+	(ASM_OUTPUT_EXTERNAL): Call pa_hpux_asm_output_external.
+	* pa-protos.h (pa_hpux_asm_output_external): Add prototype.
+	* pa.c (get_plabel): Change argument to symbol_ref.  Call
+	maybe_get_identifier instead of get_identifier.
+	(pa_hpux_asm_output_external, pa_hpux_file_end): New functions.
+	(struct deferred_plabel): Replace name field with symbol field.
+	(TARGET_ASM_FILE_END): Define as pa_hpux_file_end if
+	ASM_OUTPUT_EXTERNAL_REAL is defined.
+	(output_global_address): Use output_addr_const for output of all
+	symbol_refs.
+	(output_deferred_plabels): Use symbol_ref instead of name for address
+	output.
+	* pa.h (SYMBOL_FLAG_REFERENCED, SYMBOL_REF_REFERENCED_P,
+	ASM_OUTPUT_SYMBOL_REF): New macros.
+	* som.h (ASM_OUTPUT_EXTERNAL_LIBCALL): Use assemble_name_raw.  Update
+	comment.
+	(ASM_WEAKEN_LABEL): Use targetm.asm_out.globalize_label to globalize
+	label.
+
+2005-03-04  Andrew Haley  <aph@redhat.com>
+
+	* unwind-dw2-fde-glibc.c (struct
+	unw_eh_callback_data.check_cache): 
+	(frame_hdr_cache): New.
+	(_Unwind_IteratePhdrCallback): Add ext_dl_phdr_info.
+	Cache frame header info.
+	
+2005-03-04  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	2005-03-02  Daniel Jacobowitz  <dan@codesourcery.com>
+	* config/arm/linux-elf.h (ARM_FUNCTION_PROFILER): Do not use (PLT)
+	for Thumb.
+	* config/arm/netbsd-elf.h (ARM_FUNCTION_PROFILER): Likewise.
+
+2005-03-04  Daniel Berlin <dberlin@dbrelin.org>
+
+	Fix PR debug/20253
+	
+	* c-opts.c (c_common_parse_file): Call start_source_file
+	and end_source_file at the approriate times.
+
+	* dwarf2out.c (dwarf2out_finish): Don't auto-end
+	the main file, it will be done for us now.
+
+2005-03-03  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/20277
+	* config/rs6000/rs6000.c (rs6000_override_options): Don't allow
+	-mcpu to override any other explicitly given flags.
+
 2005-03-02  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/19916

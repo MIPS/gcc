@@ -17156,6 +17156,8 @@ mostlyclean-compile:
 	-rm -f gnu/java/nio/ChannelInputStream.lo
 	-rm -f gnu/java/nio/ChannelOutputStream.$(OBJEXT)
 	-rm -f gnu/java/nio/ChannelOutputStream.lo
+	-rm -f gnu/java/nio/ChannelReader.$(OBJEXT)
+	-rm -f gnu/java/nio/ChannelReader.lo
 	-rm -f gnu/java/nio/DatagramChannelImpl.$(OBJEXT)
 	-rm -f gnu/java/nio/DatagramChannelImpl.lo
 	-rm -f gnu/java/nio/DatagramChannelSelectionKey.$(OBJEXT)

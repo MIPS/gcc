@@ -1,3 +1,59 @@
+2005-03-07  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/gcj/tools/gcj_dbtool/Main.java (main): Recognize '-f'.
+	(usage): Document '-f'.
+
+2005-02-13  Anthony Green  <green@redhat.com>
+
+	* jni/gtk-peer/gtk_jawt.c (classpath_jawt_get_drawable,
+	classpath_jawt_lock, classpath_jawt_unlock): New functions.
+	* jawt.c (_Jv_AWTLock, _Jv_AWTUnlock): New functions.
+	(_Jv_GetDrawingSurface): Set visualID.
+	(_Jv_FreeDrawingSurfaceInfo): Clear visualID.
+	(JAWT_GetAWT): Set Lock and Unlock.
+	* include/jawt_md.h (struct _JAWT_X11DrawingSurfaceInfo): Add visualID.
+	* include/jawt.h (JAWT_VERSION_1_4, JAWT_LOCK_ERROR,
+	JAWT_LOCK_CLIP_CHANGED, JAWT_LOCK_BOUNDS_CHANGED,
+	JAWT_LOCK_SURFACE_CHANGED): New macros.
+	(struct _JAWT): Add Lock and Unlock.
+
+2005-03-07  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/VMCompiler.java (md5Digest): New field.
+	(compileClass): Clone md5Digest instead of looking up a new one.
+
+2005-03-06  Tom Tromey  <tromey@redhat.com>
+
+	PR java/20215:
+	* include/jvm.h (_Jv_Linker::find_field_helper): Updated.
+	* link.cc (find_field_helper): Added 'type' argument.
+	(find_field): Updated.
+
+2005-03-06  Roger Sayle  <roger@eyesopen.com>
+
+	PR libgcj/20155
+	* Makefile.am (libgcj0_convenience.la): Revert last change.
+	* Makefile.in: Regenerate.
+
+2005-03-05  Roger Sayle  <roger@eyesopen.com>
+	    Alexandre Oliva  <aoliva@redhat.com>
+	    Kelley Cook  <kcook@gcc.gnu.org>
+
+	PR libgcj/20155
+	* Makefile.am (libgcj0_convenience.la): New rule to create a file
+	of the object files to link to avoid exceeding the command line
+	length limits on some platforms.
+	(clean-local): Clean up objectlist files.
+	* Makefile.in: Regenerate.
+
+2005-03-02  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/20292
+	* testsuite/libjava.jni/jni.exp
+	(gcj_jni_invocation_compile_c_to_binary): Add -I. -I.. to compile
+	flags.
+	(gcj_jni_invocation_test_one): Add -L../.libs to cxx flags.
+
 2004-10-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* Makefile.am (libgcj-@gcc_version@.jar): Set timestamp of all files

@@ -121,7 +121,18 @@ namespace __gnu_test
   { operator int() const; };
 
   class AbstractClass
-  { virtual void rotate(int) = 0; };
+  { 
+    virtual void rotate(int) = 0;
+    virtual ~AbstractClass();
+  };
+
+  class PolymorphicClass
+  { 
+    virtual void rotate(int);
+    virtual ~PolymorphicClass();
+  };
+
+  class DerivedPolymorphic : public PolymorphicClass { }; 
 
   union UnionType { };
 
