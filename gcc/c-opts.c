@@ -107,7 +107,7 @@ static void sanitize_cpp_opts (void);
 static void add_prefixed_path (const char *, size_t);
 static void push_command_line_include (void);
 static void cb_file_change (cpp_reader *, const struct line_map *);
-static void finish_options (const char *);
+static void finish_options (void);
 
 #ifndef STDC_0_IN_SYSTEM_HEADERS
 #define STDC_0_IN_SYSTEM_HEADERS 0
@@ -1088,10 +1088,12 @@ c_common_post_options (const char **pfilename)
   /* kludge - should be moved */
   cpp_post_options (parse_in);
 
-  finish_options (*pfilename);
+  cpp_find_main_file (parse_in, *pfilename);
 
   if (flag_preprocess_only)
     {
+      finish_options ();
+
       preprocess_file (parse_in);
       return true;
     }
@@ -1215,6 +1217,8 @@ init_c_common_once ()
 bool
 init_c_common_eachsrc (void)
 {
+  finish_options ();
+
   input_line = saved_lineno;
 
   return ! flag_preprocess_only;
@@ -1395,14 +1399,10 @@ add_prefixed_path (const char *suffix, size_t chain)
   add_path (path, chain, 0);
 }
 
-/* Handle -D, -U, -A, -imacros, and the first -include.  
-   TIF is the input file to which we will return after processing all
-   the includes.  */
+/* Handle -D, -U, -A, -imacros, and the first -include.  */
 static void
-finish_options (const char *tif)
+finish_options (void)
 {
-  cpp_find_main_file (parse_in, tif);
-
   if (!cpp_opts->preprocessed)
     {
       size_t i;

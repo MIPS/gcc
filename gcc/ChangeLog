@@ -1,3 +1,19 @@
+2003-11-30  Per Bothner  <pbothner@apple.com>
+
+	* c-objc-common.c (init_c_objc_common_once):  Move INIT_STATEMENT_CODES
+	to here from init_c_objc_common_eachsrc.
+
+	* c-objc-common.c (init_c_objc_common_eachsrc):  Move call to
+	c_decl_processing_eachsrc before cpp_do_macro_callbacks, since
+	before does reset_cpp_hashnodes and so would undo latter.
+	
+	* c-opts.c (finish_options):  Move cpp_find_main_file call out to
+	c_common_post_options.
+	(c_common_post_options):  Call finish_options only if preprocess-only.
+	(init_c_common_eachsrc):  Call finish_options here instead.
+	This is because we want to process the command-line after
+	reset_cpp_hashnodes, not before.
+
 2003-11-23  Per Bothner  <pbothner@apple.com>
 
 	Note whether fragment was empty so we can update mi_valid.

@@ -241,6 +241,12 @@ c_warn_unused_global_decl (tree decl)
 void
 init_c_objc_common_once ()
 {
+  static const enum tree_code stmt_codes[] = {
+    c_common_stmt_codes
+  };
+
+  INIT_STATEMENT_CODES (stmt_codes);
+
   if ((server_mode >= 0 && server_mode != 1)
       /* In this case we must write #define and #undef debug information
 	 into the assembler file.  But that hasn't been opened yet.  When
@@ -268,15 +274,9 @@ init_c_objc_common_once ()
 bool
 init_c_objc_common_eachsrc (void)
 {
-  static const enum tree_code stmt_codes[] = {
-    c_common_stmt_codes
-  };
+  init_c_decl_processing_eachsrc ();
 
   cpp_do_macro_callbacks (parse_in, builtins_fragment);
-
-  INIT_STATEMENT_CODES (stmt_codes);
-
-  init_c_decl_processing_eachsrc ();
 
   if (init_c_common_eachsrc () == false)
     return false;
