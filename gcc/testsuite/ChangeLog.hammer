@@ -1,3 +1,7 @@
+2004-02-16  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.dg/cpp/inc/foo.h: Add missing file to hammer branch.
+
 2004-02-15  Alan Modra  <amodra@bigpond.net.au>
 
 	* gcc.dg/debug/20020327-1.c: Disable for powerpc64.
