@@ -1,3 +1,9 @@
+2002-09-26  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* varasm.c (force_data_section): Remove.
+	(assemble_constant_align): Likewise.
+	* output.h: Remove corresponding prototypes.
+
 2002-09-26  Roger Sayle  <roger@eyesopen.com>
 
 	* stmt.c (expand_exit_loop_if_false): Expand a simple conditional
