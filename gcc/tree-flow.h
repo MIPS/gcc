@@ -359,33 +359,19 @@ extern int tree_warn_uninitialized;
 /* Array of all variables referenced in the function.  */
 extern GTY(()) varray_type referenced_vars;
 
+#define num_referenced_vars VARRAY_ACTIVE_SIZE (referenced_vars)
+#define referenced_var(i) VARRAY_TREE (referenced_vars, i)
+
 /* Artificial variable used to model the effects of function calls.  */
 extern GTY(()) tree global_var;
-
-/* Accessors for the referenced_vars array.  */
-extern size_t num_referenced_vars;
-
-static inline tree referenced_var PARAMS ((size_t));
-static inline tree
-referenced_var (i)
-     size_t i;
-{
-  return VARRAY_TREE (referenced_vars, i);
-}
 
 /* Array of all variables that are call clobbered in the function.  */
 extern GTY(()) varray_type call_clobbered_vars;
 
-/* The total number of unique call clobbered variables in the function.  */
-extern size_t num_call_clobbered_vars;
+#define num_call_clobbered_vars	VARRAY_ACTIVE_SIZE (call_clobbered_vars)
+#define add_call_clobbered_var(v) VARRAY_PUSH_TREE (call_clobbered_vars, v)
+#define call_clobbered_var(i) VARRAY_TREE (call_clobbered_vars, i)
 
-static inline tree call_clobbered_var PARAMS ((size_t));
-static inline tree
-call_clobbered_var (i)
-     size_t i;
-{
-  return VARRAY_TREE (call_clobbered_vars, i);
-}
 
 /* Macros for showing usage statistics.  */
 #define SCALE(x) ((unsigned long) ((x) < 1024*10	\
@@ -444,6 +430,8 @@ extern void debug_referenced_vars (void);
 extern void dump_referenced_vars (FILE *);
 extern void dump_variable (FILE *, tree);
 extern void debug_variable (tree);
+extern void dump_may_aliases_for (FILE *, tree);
+extern void debug_may_aliases_for (tree);
 extern void dump_immediate_uses (FILE *);
 extern void debug_immediate_uses (void);
 extern void dump_immediate_uses_for (FILE *, tree);

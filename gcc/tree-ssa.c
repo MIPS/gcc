@@ -205,6 +205,7 @@ static inline void set_if_valid (var_map, sbitmap, tree);
 static inline void add_conflicts_if_valid (root_var_p, conflict_graph,
 					   var_map, sbitmap, tree);
 static void replace_variable (var_map, tree *);
+static void rewrite_vdefs (block_stmt_iterator *, varray_type, var_map);
 
 /* Main entry point to the SSA builder.  FNDECL is the gimplified function
    to convert.
@@ -1626,6 +1627,10 @@ rewrite_out_of_ssa (tree fndecl)
 
 	  get_stmt_operands (stmt);
 
+	  ops = vdef_ops (stmt);
+	  if (ops)
+	    rewrite_vdefs (&si, ops, map);
+
 	  if (TREE_CODE (stmt) == MODIFY_EXPR 
 	      && (TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME))
 	    is_copy = 1;
@@ -1645,7 +1650,11 @@ rewrite_out_of_ssa (tree fndecl)
 	      *def_p = var_to_partition_to_var (map, *def_p);
 	      replace_variable (map, def_p);
 
-	      if (is_copy && num_ops == 1 && use_p && def_p && (*def_p == *use_p))
+	      if (is_copy
+		  && num_ops == 1
+		  && use_p
+		  && def_p
+		  && (*def_p == *use_p))
 		remove = 1;
 	    }
 
@@ -1667,7 +1676,6 @@ rewrite_out_of_ssa (tree fndecl)
 	      remove_phi_node (phi, NULL_TREE, bb);
 	    }
 	}
-
     }
 
   delete_elim_graph (g);
@@ -1694,6 +1702,44 @@ rewrite_out_of_ssa (tree fndecl)
 
   if (tree_ssa_dump_file)
     dump_end (TDI_optimized, tree_ssa_dump_file);
+}
+
+
+/* Rewrite virtual definitions in VDEFS from the statement pointed by
+   iterator SI_P, potentially converting them into real copy operations.  A
+   virtual definition is converted into a copy operation when the LHS of
+   the VDEF has been used as a real operand in some statement.
+   
+   This happens when variables are aliased and are referenced directly or
+   via their aliased pointers.  Converting the VDEF into a real copy
+   operation is necessary for correctly coalescing the different names when
+   two or more are live simultaneously.  */
+
+static void
+rewrite_vdefs (block_stmt_iterator *si_p, varray_type vdefs, var_map map)
+{
+  size_t i;
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (vdefs); i++)
+    {
+      tree lhs, rhs, vdef = VARRAY_TREE (vdefs, i);
+
+      if (!var_ann (SSA_NAME_VAR (VDEF_RESULT (vdef)))->has_real_refs)
+	continue;
+
+      lhs = var_to_partition_to_var (map, VDEF_RESULT (vdef));
+      rhs = var_to_partition_to_var (map, VDEF_OP (vdef));
+
+      if (lhs
+	  && rhs
+	  && TREE_CODE (lhs) != SSA_NAME
+	  && TREE_CODE (rhs) != SSA_NAME
+	  && lhs != rhs)
+	{
+	  tree t = build (MODIFY_EXPR, TREE_TYPE (lhs), lhs, rhs);
+	  bsi_insert_before (si_p, t, BSI_SAME_STMT);
+	}
+    }
 }
 
 
@@ -2297,9 +2343,7 @@ static void
 init_tree_ssa (void)
 {
   next_ssa_version = 1;
-  num_referenced_vars = 0;
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
-  num_call_clobbered_vars = 0;
   VARRAY_TREE_INIT (call_clobbered_vars, 20, "call_clobbered_vars");
   memset ((void *) &ssa_stats, 0, sizeof (ssa_stats));
   global_var = NULL_TREE;
@@ -2334,10 +2378,8 @@ delete_tree_ssa (tree fndecl)
   for (i = 0; i < num_referenced_vars; i++)
     referenced_var (i)->common.ann = NULL;
 
-  num_referenced_vars = 0;
   referenced_vars = NULL;
   global_var = NULL_TREE;
-  num_call_clobbered_vars = 0;
   call_clobbered_vars = NULL;
 }
 

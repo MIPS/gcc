@@ -1,3 +1,45 @@
+2003-06-23  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-alias-common.c (ptr_may_alias_var): Don't handle memory
+	tags.
+	* tree-dfa.c (struct alias_set_d): Remove.  Update all users.
+	(alias_sets): Remove.  Update all users.
+	(struct walk_state): Remove field aliased_objects_found.
+	(struct alias_map_d): New.
+	(addressable_vars): New local variable.
+	(pointers): New local variable.
+	(add_stmt_operand): Do not force aliased variables to be in virtual
+	operands.
+	(register_alias_set): Remove.  Update all users.
+	(find_alias_for): Remove.  Update all users.
+	(get_memory_tag_for): New local function.
+	(num_referenced_vars): Remove.
+	(num_aliased_objects): Remove.  Update all users.
+	(aliased_objects): Remove.  Update all users.
+	(aliased_objects_alias_set): Remove.  Update all users.
+	(num_call_clobbered_vars): Remove.  Update all users.
+	(dump_variable): Move code to dump aliases ...
+	(dump_may_aliases_for): ... here.
+	(debug_may_aliases_for): New function.
+	(compute_may_aliases): Initialize 'addressable_vars' and 'pointers'
+	arrays.
+	(compute_alias_sets): Re-implement matching pointers with
+	addressable variables.  Limit the size of may-alias sets.
+	(may_alias_p): Re-implement to compare pointers against variables,
+	instead of memory tags.
+	(dump_alias_info): Re-implement to display pointers and addresable
+	variables arrays.
+	(add_referenced_var): Collect addressable variables and pointers.
+	Share memory tags among pointers that may alias each other.
+	* tree-flow.h (num_referenced_vars): Change to macro.
+	(referenced_var): Likewise.
+	(num_call_clobbered_vars): Likewise.
+	(call_clobbered_var): Likewise.
+	(dump_may_aliases_for): Declare.
+	(debug_may_aliases_for): Declare.
+	* tree-ssa.c (rewrite_vdefs): New local function.
+	(rewrite_out_of_ssa): Call it.
+
 2003-06-23  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (remove_useless_stmts_and_vars): More aggressively

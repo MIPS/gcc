@@ -68,28 +68,27 @@ struct clobber_data_d
   voperands_t prev_vops;
 };
 
-/* Alias sets.  Each entry in the array ALIAS_SETS represents a unique tag
-   that represents a group of variables with conflicting alias types.  */
-struct alias_set_d
+/* Tuple to map a variable to its alias set.  Used to cache the results of
+   calls to get_alias_set().  */
+struct alias_map_d
 {
-  /* Variable or memory tag representing all the variables in this set.  */
-  tree tag;
-
-  /* Alias set of the memory pointed-to by TAG.  */
-  HOST_WIDE_INT tag_set;
-
-  /* Number of elements in this set.  */
-  size_t num_elements;
+  tree var;
+  HOST_WIDE_INT set;
 };
 
-static varray_type alias_sets;
+
+/* ADDRESSABLE_VARS contains all the global variables and locals that have
+   had their address taken.  POINTERS contains all the pointers that have been
+   referenced in the program.  Alias analysis will determine, for every two
+   elements from each array whether they may alias each other or not.  */
+static GTY(()) varray_type addressable_vars;
+static GTY(()) varray_type pointers;
 
 /* State information for find_vars_r.  */
 struct walk_state
 {
-  /* Hash tables used to avoid adding the same variable more than once.  */
+  /* Hash table used to avoid adding the same variable more than once.  */
   htab_t vars_found;
-  htab_t aliased_objects_found;
 
   /* Nonzero if the variables found under the current tree are written to.  */
   int is_store;
@@ -123,8 +122,6 @@ static void collect_dfa_stats (struct dfa_stats_d *);
 static tree collect_dfa_stats_r (tree *, int *, void *);
 static tree clobber_vars_r (tree *, int *, void *);
 static void compute_alias_sets (void);
-static void register_alias_set (tree);
-static void find_alias_for (tree, HOST_WIDE_INT);
 static bool may_alias_p (tree, HOST_WIDE_INT, tree, HOST_WIDE_INT);
 static bool may_access_global_mem_p (tree);
 static void set_def (tree *, tree);
@@ -134,6 +131,7 @@ static void add_stmt_operand (tree *, tree, int, voperands_t);
 static void add_immediate_use (tree, tree);
 static tree find_vars_r (tree *, int *, void *);
 static void add_referenced_var (tree, struct walk_state *);
+static tree get_memory_tag_for (tree);
 static void compute_immediate_uses_for (tree, int);
 static void add_may_alias (tree, tree);
 static bool call_may_clobber (tree);
@@ -143,34 +141,8 @@ static tree find_hidden_use_vars_r (tree *, int *, void *);
 
 /* Global declarations.  */
 
-/* The total number of referenced variables in the function.  */
-size_t num_referenced_vars;
-
 /* Array of all variables referenced in the function.  */
 varray_type referenced_vars;
-
-/* The total number of unique aliased objects in the function.  */
-static size_t num_aliased_objects;
-
-/* Arrays for all the potentially aliased memory objects in the 
-   function.
-
-   A potentially aliased memory object can come from the following
-   sources:
-
-     * Memory tags associated with dereferenced pointers
-     * Addressable variable which is used or assigned
-     * global scoped variable which is used or assigned
-     * ASM_OUTPUTs, ASM_CLOBBERS and ASM_INPUTs
-     * CALL_EXPRs which load and store GLOBAL_VAR
-
-   ALIASED_OBJECTS contains the object 
-   ALIASED_OBJECTS_ALIAS_SET contains the alias set for those objects.  */
-static GTY(()) varray_type aliased_objects;
-static GTY(()) varray_type aliased_objects_alias_set;
-
-/* The total number of unique call clobbered variables in the function.  */
-size_t num_call_clobbered_vars;
 
 /* Arrays for all the call clobbered variables in the function.  */
 varray_type call_clobbered_vars;
@@ -591,9 +563,6 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 		(execute/20020107-1.c).  Do we really need to be this
 		drastic?  Or should each optimization take care when
 		dealing with ASM_EXPRs?  */
-      if (v_ann->is_alias_tag)
-	flags |= opf_force_vop;
-
       if (flags & opf_is_def)
 	{
 	  if (is_scalar
@@ -1147,7 +1116,6 @@ void
 dump_variable (FILE *file, tree var)
 {
   var_ann_t ann;
-  varray_type aliases;
 
   if (var == NULL_TREE)
     {
@@ -1163,19 +1131,6 @@ dump_variable (FILE *file, tree var)
     {
       fprintf (file, ", memory tag: ");
       print_generic_expr (file, ann->mem_tag, 0);
-    }
-
-  aliases = ann->may_aliases;
-  if (aliases)
-    {
-      size_t i, num_aliases = VARRAY_ACTIVE_SIZE (aliases);
-      fprintf (file, ", may aliases: { ");
-      for (i = 0; i < num_aliases; i++)
-	{
-	  print_generic_expr (file, VARRAY_TREE (aliases, i), 0);
-	  fprintf (file, " ");
-	}
-      fprintf (file, "}");
     }
 
   if (ann->is_alias_tag)
@@ -1199,6 +1154,12 @@ dump_variable (FILE *file, tree var)
   if (ann->is_stored)
     fprintf (file, ", is stored");
 
+  if (ann->may_aliases)
+    {
+      fprintf (file, ", may aliases: ");
+      dump_may_aliases_for (file, var);
+    }
+
   fprintf (file, "\n");
 }
 
@@ -1209,6 +1170,39 @@ void
 debug_variable (tree var)
 {
   dump_variable (stderr, var);
+}
+
+
+/* Dump to FILE the list of variables that may be aliasing VAR.  */
+
+void
+dump_may_aliases_for (FILE *file, tree var)
+{
+  varray_type aliases = var_ann (var)->may_aliases;
+
+  if (aliases)
+    {
+      size_t i, num_aliases = VARRAY_ACTIVE_SIZE (aliases);
+
+      fprintf (file, "{ ");
+      for (i = 0; i < num_aliases; i++)
+	{
+	  print_generic_expr (file, VARRAY_TREE (aliases, i), 0);
+	  fprintf (file, " ");
+	}
+      fprintf (file, "}");
+    }
+
+  fprintf (file, "\n");
+}
+
+
+/* Dump to stderr the list of variables that may be aliasing VAR.  */
+
+void
+debug_may_aliases_for (tree var)
+{
+  dump_may_aliases_for (stderr, var);
 }
 
 
@@ -1310,11 +1304,6 @@ dump_dfa_stats (FILE *file)
   size = num_referenced_vars * sizeof (tree);
   total += size;
   fprintf (file, fmt_str_1, "Referenced variables", num_referenced_vars, 
-	   SCALE (size), LABEL (size));
-
-  size = num_aliased_objects * sizeof (tree);
-  total += size;
-  fprintf (file, fmt_str_1, "Aliased variables", num_aliased_objects, 
 	   SCALE (size), LABEL (size));
 
   size = num_call_clobbered_vars * sizeof (tree);
@@ -1505,7 +1494,6 @@ void
 compute_may_aliases (tree fndecl)
 {
   static htab_t vars_found;
-  static htab_t aliased_objects_found;
   basic_block bb;
   block_stmt_iterator si;
   struct walk_state walk_state;
@@ -1527,17 +1515,11 @@ compute_may_aliases (tree fndecl)
       block = BLOCK_CHAIN (block);
     }
 
-  num_aliased_objects = 0;
-  VARRAY_TREE_INIT (aliased_objects, 20, "aliased_objects");
-  VARRAY_WIDE_INT_INIT (aliased_objects_alias_set, 20,
-			"aliased_objects_alias_set");
+  VARRAY_GENERIC_PTR_INIT (addressable_vars, 20, "addressable_vars");
+  VARRAY_GENERIC_PTR_INIT (pointers, 20, "pointers");
 
   /* Hash table of all the objects the SSA builder needs to be aware of.  */
   vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
-
-  /* Hash table of all the unique aliased objects found.  */
-  aliased_objects_found = htab_create (50, htab_hash_pointer, htab_eq_pointer,
-				       NULL);
 
   if (flag_tree_points_to != PTA_NONE)
     {
@@ -1547,7 +1529,6 @@ compute_may_aliases (tree fndecl)
     }
 
   walk_state.vars_found = vars_found;
-  walk_state.aliased_objects_found = aliased_objects_found;
   walk_state.is_store = 0;
   walk_state.is_indirect_ref = 0;
 
@@ -1557,8 +1538,6 @@ compute_may_aliases (tree fndecl)
       walk_tree (bsi_stmt_ptr (si), find_vars_r, &walk_state, NULL);
 
   htab_delete (vars_found);
-  htab_delete (aliased_objects_found);
-
 
   compute_alias_sets ();
   
@@ -1569,57 +1548,132 @@ compute_may_aliases (tree fndecl)
       timevar_pop (TV_TREE_PTA);
     }
 
-  num_aliased_objects = 0;
-  aliased_objects = NULL;
-  aliased_objects_alias_set = NULL;
+  /* Deallocate memory used by aliasing data structures.  */
+  addressable_vars = NULL;
+  pointers = NULL;
 
   timevar_pop (TV_TREE_MAY_ALIAS);
 }
 
 
-/* Compute type-based alias sets.  This can be used in conjunction with
-   points-to analysis.
- 
-   First we compute alias sets for objects which are stored into.  Stores
-   create the only may alias relationships we care about.  If there are
-   no aliased stores, then there's really nothing to do. 
-  
-   Once we have alias sets for the aliased stores, we can check for
-   conflicts with all the aliased objects in the function.
-   
-   Each entry I in ALIAS_SETS represents a set of all the variables that
-   are aliased by ALIAS_SETS[I].  The ALIAS_SETS array tends to have few
-   entries, and each entry will likely alias many program variables.
-   
-   This will negatively impact optimizations because variable uses will be
-   reached by many definitions that can't really reach them.  See the
-   documentation in tree-ssa.c.  */
+/* Compute alias sets.  Aliasing information is computed in two stages:
+
+   1- Artificial variables called "memory tags" are created for each
+      pointer used in the program.  Each memory tag (MT) represents the
+      memory location pointed by its associated pointer.  Since pointers
+      may point to each other, two or more pointers that may point to each
+      other will be assigned the same memory tag.  These unique memory tags
+      are computed by get_memory_tag_for and their associated pointers are
+      added to the POINTERS array.
+
+   2- All the addressable variables in ADDRESABLE_VARS are compared against
+      the pointers collected in step 1.  If a pointer P may point to
+      variable V, then V is added to the list of may-aliases for P.
+
+   For instance, consider the following function:
+
+	    foo (int i)
+	    {
+	      int *p, a, b;
+	    
+	      if (i > 10)
+	        p = &a;
+	      else
+	        p = &b;
+	    
+	      *p = 3;
+	      a = b + 2;
+	      return *p;
+	    }
+
+   After aliasing analysis has finished, the memory tag for pointer 'p'
+   will have two aliases, namely variables 'a' and 'b'.  Every time pointer
+   'p' is dereferenced, we want to mark the operation as a potential
+   reference to 'a' and 'b'.  This is marked with virtual operands.
+   Resulting in the following renamed program:
+
+	    foo (int i)
+	    {
+	      int *p, a, b;
+
+	      if (i_2 > 10)
+		p_4 = &a;
+	      else
+		p_6 = &b;
+	      # p_1 = PHI <p_4(1), p_6(2)>;
+
+	      # a_7 = VDEF <a_3>;
+	      # b_8 = VDEF <b_5>;
+	      *p_1 = 3;
+	      a_9 = b_8 + 2;
+
+	      # VUSE <a_9>;
+	      # VUSE <b_8>;
+	      return *p_1;
+	    }
+
+   This method allows the compiler to optimize aliased variables when
+   they're use directly and prevent optimizations when they are being
+   accessed via aliased pointers.
+
+   In certain cases, the list of may aliases for a pointer may grow too
+   large.  This may cause an explosion in the number of virtual operands
+   inserted in the code.  Resulting in increased memory consumption and
+   compilation time.
+
+   When the set of may aliases for a pointer grows beyond 5 elements
+   (FIXME, this is currently an arbitrary limit), instead of adding new
+   variables to the may-alias set, the new variables are made to share the
+   same alias set as the original pointer.  For instance, suppose that
+   pointer 'p' may point to variables 'a', 'b', 'c', 'd', 'e', 'f' and 'g'.
+   After alias analysis, the alias sets will be as follows:
+
+	may-alias(p) = { a, b, c, d, e }
+	may-alias(f) = { a, b, c, d, e }
+	may-alias(g) = { a, b, c, d, e }
+
+   Notice that this grouping causes variables 'f' and 'g' to be aliased to
+   variables they can't possibly alias to.  */
 
 static void
 compute_alias_sets (void)
 {
   size_t i;
 
-  VARRAY_GENERIC_PTR_INIT (alias_sets, 20, "alias_sets");
-
-  /* For each object that is stored in the program, compute its alias set
-     and register it in ALIAS_SETS.  If P's alias set does not conflict
-     with any entry in ALIAS_SETS, or if it conflicts with more than one
-     entry, create a new entry for P.  */
-  for (i = 0; i < num_aliased_objects; i++)
+  /* For every pointer P, determine which addressable variables may alias
+     with P.  */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (pointers); i++)
     {
-      tree var = VARRAY_TREE (aliased_objects, i);
-      if (var_ann (var)->is_stored)
-	register_alias_set (var);
-    }
+      size_t j;
+      struct alias_map_d *ptr = VARRAY_GENERIC_PTR (pointers, i);
+      tree mem = var_ann (ptr->var)->mem_tag;
+      var_ann_t mem_ann = var_ann (mem);
 
-  /* Now for every potentially aliased object, see if the object's alias
-     set conflicts with any of the alias sets for objects which were
-     stored.  */
-  for (i = 0; i < num_aliased_objects; i++)
-    {
-      tree var = VARRAY_TREE (aliased_objects, i);
-      find_alias_for (var, VARRAY_WIDE_INT (aliased_objects_alias_set, i));
+      for (j = 0; j < VARRAY_ACTIVE_SIZE (addressable_vars); j++)
+	{
+	  struct alias_map_d *var = VARRAY_GENERIC_PTR (addressable_vars, j);
+	  var_ann_t v_ann = var_ann (var->var);
+
+	  /* Skip memory tags and variables that have never been written to.  */
+	  if (!mem_ann->is_stored && !v_ann->is_stored)
+	    continue;
+	     
+	  if (may_alias_p (ptr->var, ptr->set, var->var, var->set))
+	    {
+	      /* If MEM has less than 5 aliases in its alias set, add
+		 VAR->VAR to the list of aliases for MEM.  Otherwise,
+		 set the may-alias set for VAR->VAR to be the same alias
+		 set as MEM.  This is to avoid the problem of having
+		 large may-alias sets.  Large may-alias sets translate into
+		 lots of virtual operands which can slow down the SSA pass
+		 tremendously.  */
+	      if (mem_ann->may_aliases
+		  && VARRAY_ACTIVE_SIZE (mem_ann->may_aliases) >= 5)
+		v_ann->may_aliases = mem_ann->may_aliases;
+	      else
+		add_may_alias (mem, var->var);
+	    }
+	}
     }
 
   /* If the function has calls to clobbering functions, make GLOBAL_VAR
@@ -1637,219 +1691,84 @@ compute_alias_sets (void)
       dump_alias_info (tree_ssa_dump_file);
       dump_referenced_vars (tree_ssa_dump_file);
     }
-
-  /* Deallocate memory used by ALIAS_SETS.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_sets); i++)
-    {
-      struct alias_set_d *as;
-      as = (struct alias_set_d *) VARRAY_GENERIC_PTR (alias_sets, i);
-      free (as);
-    }
-
-  alias_sets = NULL;
 }
 
 
-/* Potentially add VAR as a new alias tag in ALIAS_SETS.  VAR is assumed to
-   be an addressable local, a global or the memory tag of a dereferenced
-   pointer.  Furthermore, this function assumes that VAR is stored at least
-   once (for aliasing, we are only interested in stores, if two variables
-   alias each other but are never stored, the fact that they alias is
-   irrelevant for the optimizer).
-
-   Addressable and global variables are distinguished from memory tags by
-   checking the IS_MEM_TAG annotation.  If VAR has IS_MEM_TAG set, then VAR
-   is a memory tag representing dereferences of the pointer in
-   var_ann(VAR)->mem_tag.
-
-   Note that aliasing can only occur between regular variables and memory
-   tags representing pointer dereferences.  Therefore, when deciding if two
-   objects may alias each other, we only need to compare regular variables
-   against memory tags.
+/* Return TRUE if pointer PTR may point to variable VAR.
    
-   To decide whether VAR should start a new alias set, VAR is compared
-   against all the existing entries in ALIAS_SETS.  If VAR does not
-   conflict with any entry, then a new entry is added for it.
-
-   The following are the rules used to determine if a new entry should be
-   added for VAR:
-
-   1- If VAR is a regular variable, an entry in ALIAS_SETS will be added
-      only if VAR's alias set is not already represented, or if all the
-      entries that have the same alias set as VAR are also regular
-      variables (because two regular variables cannot possibly alias each
-      other).
-
-   2- If VAR is a memory tag, an entry in ALIAS_SETS will be added only if
-      VAR's alias set is not already represented.  */
-
-static void
-register_alias_set (tree var)
-{
-  size_t i;
-  struct alias_set_d *curr;
-  HOST_WIDE_INT var_set;
-  bool found;
-  var_ann_t ann;
-
-  var_set = get_alias_set (var);
-  ann = var_ann (var);
-
-  /* Search the ALIAS_SETS list for entries which match VAR_SET.  FIXME:
-     ALIAS_SETS will usually be small (<< 10 entries).  If it becomes a
-     performance problem, try with a splay tree.  */
-  found = false;
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_sets); i++)
-    {
-      var_ann_t tag_ann;
-
-      curr = (struct alias_set_d *) VARRAY_GENERIC_PTR (alias_sets, i);
-      tag_ann = var_ann (curr->tag);
-
-      /* See if we have any entries with the same alias set.  */
-      if (curr->tag_set == var_set)
-        {
-	  /* If VAR is a regular variable and the current entry is another
-	     regular variable, keep looking (rule #1 above).  */
-	  if (!tag_ann->is_mem_tag && !ann->is_mem_tag)
-	    continue;
-
-	  /* Otherwise, we have found a matching entry.  Since the current
-	     tag and/or VAR are a memory tag, we don't need to keep
-	     looking (rules #1 and #2 above).  */
-	  found = true;
-	  break;
-	}
-    }
-
-  /* If we did not find an entry in ALIAS_SETS with a matching
-     alias set, create a new entry.  */
-  if (!found)
-    {
-      curr = xmalloc (sizeof (*curr));
-      curr->tag = var;
-      curr->tag_set = var_set;
-      curr->num_elements = 0;
-      VARRAY_PUSH_GENERIC_PTR (alias_sets, (void *) curr);
-    }
-}
-
-
-/* Set an alias between VAR and any entry in ALIAS_SETS that has a
-   conflicting alias set with VAR.  */
-
-static void
-find_alias_for (tree var, HOST_WIDE_INT var_set)
-{
-  size_t i;
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_sets); i++)
-    {
-      struct alias_set_d *as;
-
-      as = (struct alias_set_d *) VARRAY_GENERIC_PTR (alias_sets, i);
-
-      /* If AS->TAG aliases VAR, add it to the set of may-aliases for VAR.  */
-      if (may_alias_p (as->tag, as->tag_set, var, var_set))
-	{
-	  /* Add AS->TAG to the list of aliases for VAR.  */
-	  add_may_alias (var, as->tag);
-	  as->num_elements++;
-	}
-    }
-}
-
-
-/* Return TRUE if variables V1 and V2 may alias.  V1_ALIAS_SET is the alias
-   set for V1.  V2_ALIAS_SET is the alias set for V2.  */
+   MEM_ALIAS_SET is the alias set for the memory location pointed-to by PTR
+	This is needed because when checking for type conflicts we are
+	interested in the alias set of the memory location pointed-to by
+	PTR.  The alias set of PTR itself is irrelevant.
+   
+   VAR_ALIAS_SET is the alias set for VAR.  */
 
 static bool
-may_alias_p (tree v1, HOST_WIDE_INT v1_alias_set,
-	     tree v2, HOST_WIDE_INT v2_alias_set)
+may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
+	     tree var, HOST_WIDE_INT var_alias_set)
 {
-  tree var;
-  HOST_WIDE_INT var_alias_set;
-  tree tag;
-  HOST_WIDE_INT tag_alias_set;
-  var_ann_t v_ann, t_ann, v1_ann, v2_ann;
-  tree tag_ptr;
+  tree mem;
+  var_ann_t v_ann, m_ann;
 
-  /* A variable cannot alias itself.  */
-  if (v1 == v2)
+  mem = var_ann (ptr)->mem_tag;
+
+  /* By convention, a variable cannot alias itself.  */
+  if (mem == var)
     return false;
 
-  v1_ann = var_ann (v1);
-  v2_ann = var_ann (v2);
+  v_ann = var_ann (var);
+  m_ann = var_ann (mem);
 
-  /* One of the two variables must be a memory tag.  Otherwise V1 and V2
-     cannot alias each other.  */
-  if (v1_ann->is_mem_tag)
-    {
-      var = v2;
-      var_alias_set = v2_alias_set;
-      v_ann = v2_ann;
-      tag = v1;
-      tag_alias_set = v1_alias_set;
-      t_ann = v1_ann;
-    }
-  else if (v2_ann->is_mem_tag)
-    {
-      var = v1;
-      var_alias_set = v1_alias_set;
-      v_ann = v1_ann;
-      tag = v2;
-      tag_alias_set = v2_alias_set;
-      t_ann = v2_ann;
-    }
-  else
-    return false;
+#if defined ENABLE_CHECKING
+  if (!m_ann->is_mem_tag)
+    abort ();
+#endif
 
-  tag_ptr = t_ann->mem_tag;
-
-  /* If the alias sets don't conflict then TAG cannot alias VAR.  */
-  if (!alias_sets_conflict_p (tag_alias_set, var_alias_set))
+  /* If the alias sets don't conflict then MEM cannot alias VAR.  */
+  if (!alias_sets_conflict_p (mem_alias_set, var_alias_set))
     {
-      /* Handle aliases to structure fields.  If either VAR or TAG are
+      /* Handle aliases to structure fields.  If either VAR or MEM are
 	 aggregate types, they may not have conflicting types, but one of
 	 the structures could contain a pointer to the other one.
 
 	 For instance, given
 
-		TAG -> struct P *p;
+		MEM -> struct P *p;
 		VAR -> struct Q *q;
 
 	 It may happen that '*p' and '*q' can't alias because 'struct P'
 	 and 'struct Q' have non-conflicting alias sets.  However, it could
-	 happen that one of the fields in 'struct P' is a 'struct Q *' and
+	 happen that one of the fields in 'struct P' is a 'struct Q *' or
 	 vice-versa.
 
 	 Therefore, we also need to check if 'struct P' aliases 'struct Q *'
 	 or 'struct Q' aliases 'struct P *'.  Notice, that since GIMPLE
 	 does not have more than one-level pointers, we don't need to
 	 recurse into the structures.  */
-      if (AGGREGATE_TYPE_P (TREE_TYPE (tag))
+      if (AGGREGATE_TYPE_P (TREE_TYPE (mem))
 	  || AGGREGATE_TYPE_P (TREE_TYPE (var)))
 	{
 	  tree ptr_to_var = TYPE_POINTER_TO (TREE_TYPE (var));
 
-	  /* If no pointer-to VAR exists, then TAG can't alias VAR.  */
+	  /* If no pointer-to VAR exists, then MEM can't alias VAR.  */
 	  if (ptr_to_var == NULL_TREE)
 	    return false;
 
-	  /* Otherwise, return true if TAG aliases a pointer to VAR or VAR
-	     aliases TAG's pointer.  */
-	  return 
-	    alias_sets_conflict_p (tag_alias_set, get_alias_set (ptr_to_var))
-	    || alias_sets_conflict_p (var_alias_set, get_alias_set (tag_ptr));
+	  /* If MEM doesn't alias a pointer to VAR and VAR doesn't alias
+	     PTR, then PTR can't alias VAR.  */
+	  if (!alias_sets_conflict_p (mem_alias_set, get_alias_set (ptr_to_var))
+	      && !alias_sets_conflict_p (var_alias_set, get_alias_set (ptr)))
+	    return false;
 	}
       else
 	return false;
     }
 
-  /* If -ftree-points-to is given, check if TAG may point to VAR.  */
-  if (flag_tree_points_to)
-    if (!ptr_may_alias_var (tag_ptr, var))
-      return false;
+  /* If -ftree-points-to is given, check if PTR may point to VAR.  */
+  if (flag_tree_points_to != PTA_NONE
+      && !ptr_may_alias_var (ptr, var))
+    return false;
+
 
   return true;
 }
@@ -1895,40 +1814,47 @@ add_may_alias (tree var, tree alias)
 void
 dump_alias_info (FILE *file)
 {
-  size_t i, j, k;
+  size_t i;
   const char *funcname
     = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
 
-  if (alias_sets == NULL)
+  if (addressable_vars == NULL)
     return;
 
-  fprintf (file, "\nAlias information for %s: %ld sets\n\n",
-	   funcname, (long) VARRAY_ACTIVE_SIZE (alias_sets));
+  fprintf (file, "\nAlias information for %s\n\n", funcname);
+  fprintf (file, "%u addressable variables\n",
+           (unsigned) VARRAY_ACTIVE_SIZE (addressable_vars));
+  fprintf (file, "%u memory tags\n\n",
+           (unsigned) VARRAY_ACTIVE_SIZE (pointers));
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_sets); i++)
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (pointers); i++)
     {
-      struct alias_set_d *as;
-
-      as = (struct alias_set_d *) VARRAY_GENERIC_PTR (alias_sets, i);
-
-      fprintf (file, "Alias set #%u:\n", (unsigned) i);
-      fprintf (file, "  Tag: ");
-      dump_variable (file, as->tag);
-      fprintf (file, "  Aliases objects: { ");
-
-      for (j = 0; j < num_aliased_objects; j++)
+      struct alias_map_d *map = VARRAY_GENERIC_PTR (pointers, i);
+      tree mem = var_ann (map->var)->mem_tag;
+      varray_type aliases = may_aliases (mem);
+      if (aliases)
 	{
-	  tree var = VARRAY_TREE (aliased_objects, j);
-	  varray_type aliases = may_aliases (var);
-	  for (k = 0; aliases && k < VARRAY_ACTIVE_SIZE (aliases); k++)
-	    if (VARRAY_TREE (aliases, k) == as->tag)
-	      {
-		print_generic_expr (file, var, 0);
-		fprintf (file, " ");
-	      }
+	  fprintf (file, "Memory tag ");
+	  print_generic_expr (file, mem, 0);
+	  fprintf (file, " aliases ");
+	  dump_may_aliases_for (file, mem);
 	}
-      fprintf (file, "}\n\n");
     }
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (addressable_vars); i++)
+    {
+      struct alias_map_d *map = VARRAY_GENERIC_PTR (addressable_vars, i);
+      varray_type aliases = may_aliases (map->var);
+      if (aliases)
+	{
+	  fprintf (file, "Addressable var ");
+	  print_generic_expr (file, map->var, 0);
+	  fprintf (file, " aliases ");
+	  dump_may_aliases_for (file, map->var);
+	}
+    }
+
+  fprintf (file, "\n");
 }
 
 
@@ -2149,10 +2075,11 @@ find_vars_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 
 
 /* Add VAR to the list of dereferenced variables.  If VAR is a candidate
-   for aliasing, add it to the ALIASED_OBJECTS set of varrays that are
-   needed for alias analysis.
+   for aliasing, add it to the ADDRESSABLE_VAR array.  If VAR is a memory
+   tag, add it to the POINTERS array.  These two arrays are used for
+   alias analysis (See compute_alias_sets).
 
-   WALK_STATE is an array with two hash tables used to avoid adding the
+   WALK_STATE is an array with a hash table used to avoid adding the
    same variable more than once to its corresponding set as well as flags
    indicating if we're processing a load or store.  Note that this function
    assumes that VAR is a valid SSA variable.  */
@@ -2162,86 +2089,147 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 {
   void **slot;
   htab_t vars_found = walk_state->vars_found;
-  htab_t aliased_objects_found = walk_state->aliased_objects_found;
-  var_ann_t ann = get_var_ann (var);
+  var_ann_t v_ann;
 
-  /* Remember if the variable has been written to.  This is important for
-     alias analysis.  If a variable is never modified, it is not
-     interesting as an entry in ALIAS_SETS (see compute_may_aliases).  */
-  if (walk_state->is_store)
-    ann->is_stored = 1;
-
-  /* Handle aliasing information.  Memory tags, global and addressable
-     local variables are all potentially aliased and call clobbered.  */
-  if (ann->is_mem_tag
-      || TREE_ADDRESSABLE (var)
-      || decl_function_context (var) == NULL)
-    {
-      slot = htab_find_slot (aliased_objects_found, (void *) var, INSERT);
-      if (*slot == NULL)
-	{
-	  *slot = (void *) var;
-	  VARRAY_PUSH_TREE (aliased_objects, var);
-	  VARRAY_PUSH_WIDE_INT (aliased_objects_alias_set, get_alias_set (var));
-	  num_aliased_objects++;
-
-	  /* If the variable is not read-only, it may also be clobbered by
-	     function calls.  */
-	  if (!TREE_READONLY (var))
-	    {
-	      VARRAY_PUSH_TREE (call_clobbered_vars, var);
-	      num_call_clobbered_vars++;
- 	      ann->is_call_clobbered = 1;
-	    }
-	}
-    }
+  v_ann = get_var_ann (var);
 
   slot = htab_find_slot (vars_found, (void *) var, INSERT);
   if (*slot == NULL)
     {
+      bool is_addressable;
+
       /* This is the first time we find this variable, add it to the
-         REFERENCED_VARS array, also annotate it with its unique id.  */
+         REFERENCED_VARS array and annotate it with attributes that are
+	 intrinsic to the variable.  */
       *slot = (void *) var;
+      v_ann->uid = num_referenced_vars;
       VARRAY_PUSH_TREE (referenced_vars, var);
-      ann->uid = num_referenced_vars++;
 
       /* Arguments or global variable pointers may point to memory outside
 	 the current function.  */
       if (POINTER_TYPE_P (TREE_TYPE (var))
 	  && (TREE_CODE (var) == PARM_DECL
 	      || decl_function_context (var) == NULL_TREE))
-	ann->may_point_to_global_mem = 1;
+	v_ann->may_point_to_global_mem = 1;
 
       /* By default, assume that the variable has no real references.  If
 	 the variable is used as a real operand to a statement (i.e.,
 	 add_use and set_def), this field will be set to 1.  */
-      ann->has_real_refs = 0;
-    }
+      v_ann->has_real_refs = 0;
 
-  /* If VAR is a pointer referenced in an INDIRECT_REF node, create a
-     memory tag to represent the location pointed-to by VAR.  */
-  if (walk_state->is_indirect_ref)
-    {
-      tree tag;
-      var_ann_t tag_ann;
+      is_addressable = TREE_ADDRESSABLE (var)
+		       || decl_function_context (var) == NULL;
 
-      /* If pointer VAR still doesn't have a memory tag associated with it,
-	 create it now.  */
-      tag = ann->mem_tag;
-      if (tag == NULL_TREE)
+      /* Global variables and addressable locals may be aliased.  Create an
+	 entry in ADDRESSABLE_VARS for VAR.  */
+      if (is_addressable)
 	{
-	  tag = create_tmp_alias_var (TREE_TYPE (TREE_TYPE (var)), "MT");
-	  tag_ann = get_var_ann (tag);
-	  tag_ann->mem_tag = var;
-	  tag_ann->is_mem_tag = 1;
-	  if (ann->may_point_to_global_mem)
-	    tag_ann->may_alias_global_mem = 1;
-	  ann->mem_tag = tag;
+	  /* Create a new alias set entry for VAR.  */
+	  struct alias_map_d *alias_map;
+	  alias_map = ggc_alloc (sizeof (*alias_map));
+	  alias_map->var = var;
+	  alias_map->set = get_alias_set (var);
+	  VARRAY_PUSH_GENERIC_PTR (addressable_vars, (void *) alias_map);
 	}
 
+      /* If the variable is a writeable memory tag, a global or an
+	 addressable local, it may be clobbered by function calls.  */
+      if (!TREE_READONLY (var)
+	  && (is_addressable || v_ann->is_mem_tag))
+	{
+	  add_call_clobbered_var (var);
+	  v_ann->is_call_clobbered = 1;
+	}
+    }
+
+  /* Now, set attributes that depend on WALK_STATE.  */
+
+  /* Remember if the variable has been written to.  This is important for
+     alias analysis.  If a variable and its aliases are never modified, it
+     is not interesting for the optimizers because there are no aliased
+     stores to keep track of.  */
+  if (walk_state->is_store)
+    v_ann->is_stored = 1;
+
+  /* If VAR is a pointer referenced in an INDIRECT_REF node, create (or
+     re-use) a memory tag to represent the location pointed-to by VAR.  */
+  if (walk_state->is_indirect_ref)
+    {
+      /* If pointer VAR still doesn't have a memory tag associated with it,
+	 create it now or re-use an existing one.  A memory tag for some
+	 other pointer P will be reused if P and VAR may point to each
+	 other.  */
+      tree tag = v_ann->mem_tag;
+      if (tag == NULL_TREE)
+	tag = get_memory_tag_for (var);
+
+      /* Associate the tag with pointer VAR.  */
+      v_ann->mem_tag = tag;
+
+      /* Add the memory tag to the list of referenced variables.  Note that
+	 this needs to be done every time because there are attributes for
+	 the memory tag that depend on WALK_STATE (e.g., whether this
+	 variable is being stored-to).  */
       walk_state->is_indirect_ref = 0;
       add_referenced_var (tag, walk_state);
+
+      /* If pointer VAR may point to global mem, then TAG may alias
+	 global memory.  */
+      if (v_ann->may_point_to_global_mem)
+	var_ann (tag)->may_alias_global_mem = 1;
     }
+}
+
+
+/* Return the memory tag associated to pointer P.  */
+
+static tree
+get_memory_tag_for (tree ptr)
+{
+  size_t i;
+  tree tag;
+  tree tag_type = TREE_TYPE (TREE_TYPE (ptr));
+  HOST_WIDE_INT tag_set = get_alias_set (tag_type);
+
+  /* See if PTR may alias any of the existing pointers.  Note that we can't
+     use may_alias_p here because we have not created a memory tag for PTR
+     yet.  */
+  for (i = 0, tag = NULL_TREE; i < VARRAY_ACTIVE_SIZE (pointers); i++)
+    {
+      struct alias_map_d *curr = VARRAY_GENERIC_PTR (pointers, i);
+      if (alias_sets_conflict_p (curr->set, tag_set)
+	  && (flag_tree_points_to == PTA_NONE
+	      || ptr_may_alias_var (ptr, curr->var)))
+	{
+	  tag = var_ann (curr->var)->mem_tag;
+	  break;
+	}
+    }
+
+  /* If VAR cannot alias with any of the existing memory tags, create a new
+     tag for PTR and add it to the POINTERS array.  */
+  if (tag == NULL_TREE)
+    {
+      struct alias_map_d *alias_map;
+      var_ann_t tag_ann;
+
+      /* Create a new MT.* artificial variable representing the memory
+	 location pointed-to by PTR.  */
+      tag = create_tmp_alias_var (tag_type, "MT");
+      tag_ann = get_var_ann (tag);
+      tag_ann->is_mem_tag = 1;
+      tag_ann->mem_tag = NULL_TREE;
+
+      /* Add PTR to the POINTERS array.  Note that we are not interested in
+	 PTR's alias set.  Instead, we cache the alias set for the memory that
+	 PTR points to.  */
+      alias_map = ggc_alloc (sizeof (*alias_map));
+      alias_map->var = ptr;
+      alias_map->set = tag_set;
+      VARRAY_PUSH_GENERIC_PTR (pointers, (void *) alias_map);
+    }
+
+  return tag;
 }
 
 

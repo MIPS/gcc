@@ -1059,16 +1059,9 @@ ptr_may_alias_var (ptr, var)
 {
   struct alias_annot_entry entry, *result;
   alias_typevar ptrtv, vartv;
-  var_ann_t tempann;
   tree ptrcontext;
   tree varcontext;
   
-  tempann = get_var_ann (var);
-  if (tempann && tempann->is_mem_tag && tempann->mem_tag)
-    var = tempann->mem_tag;
-  tempann = get_var_ann (ptr);
-  if (tempann && tempann->is_mem_tag && tempann->mem_tag)
-    ptr = tempann->mem_tag;
 #if !FIELD_BASED
 #else
   if (TREE_CODE (ptr) == COMPONENT_REF)
