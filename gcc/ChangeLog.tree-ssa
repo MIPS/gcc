@@ -1,5 +1,17 @@
 2003-04-21  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c: Include except.h.
+	(eh_stack): New file-scoped varray.
+	(build_tree_cfg): Initialize eh_stack.
+	(make_catch_expr_blocks): New function.
+	(make_try_expr_blocks, make_eh_filter_expr_blocks): Likewise.
+	(make_blocks): Call new functions as needed.  When ending a block
+	due to a statement that may throw, compute the reachable exception
+	handlers and store it in the statement's annotation.
+	(is_ctrl_stmt): Handle EH nodes.
+	(stmt_ends_bb_p): Likewise.
+	* tree-flow.h (stmt_ann_d): Add new field reachable_exception_handlers.
+
 	* except.c (check_handled): No longer static.
 	* except.h (check_handled): Prototype.
 

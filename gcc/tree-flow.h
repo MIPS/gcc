@@ -212,6 +212,10 @@ struct stmt_ann_d GTY(())
   /* Control flow parent.  This is the entry statement to the control
      structure to which this statement belongs to.  */
   tree parent_stmt;
+
+  /* For nodes which can throw REACHABLE_EXCEPTION_HANDLERS contains a 
+     tree list of all the directly reachable exception handlers.  */
+  tree reachable_exception_handlers;
 };
 
 

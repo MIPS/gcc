@@ -40,6 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 #include "tree-dump.h"
 #include "toplev.h"
+#include "except.h"
    
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
@@ -57,6 +58,11 @@ static int dump_flags;		/* CFG dump flags.  */
    building of the CFG in code with lots of gotos.  */
 static varray_type label_to_block_map;
 
+/* Stack of active exception handlers.  When we encounter statements
+   that may throw, we walk this stack to determine which exception
+   handlers are directly reachable by the statement.  */
+static varray_type eh_stack;
+
 /* CFG statistics.  */
 struct cfg_stats_d
 {
@@ -71,6 +77,9 @@ static struct cfg_stats_d cfg_stats;
 static basic_block make_blocks		PARAMS ((tree *, tree, tree,
 						 basic_block));
 static void make_cond_expr_blocks	PARAMS ((tree *, tree, basic_block));
+static void make_catch_expr_blocks	PARAMS ((tree *, tree, basic_block));
+static void make_eh_filter_expr_blocks	PARAMS ((tree *, tree, basic_block));
+static void make_try_expr_blocks	PARAMS ((tree *, tree, basic_block));
 static void make_loop_expr_blocks	PARAMS ((tree *, tree, basic_block));
 static void make_switch_expr_blocks	PARAMS ((tree *, tree, basic_block));
 static basic_block make_bind_expr_blocks PARAMS ((tree *, tree, basic_block,
@@ -191,6 +200,8 @@ build_tree_cfg (fnbody)
 
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
+
+  VARRAY_TREE_INIT (eh_stack, 10, "Exception Handlers");
 
   /* Find the basic blocks for the flowgraph.  First skip any
      non-executable statements at the start of the function.  Otherwise
@@ -320,6 +331,12 @@ make_blocks (first_p, next_block_link, parent_stmt, bb)
 	make_cond_expr_blocks (stmt_p, next_block_link, bb);
       else if (code == SWITCH_EXPR)
 	make_switch_expr_blocks (stmt_p, next_block_link, bb);
+      else if (code == CATCH_EXPR)
+	make_catch_expr_blocks (stmt_p, next_block_link, bb);
+      else if (code == EH_FILTER_EXPR)
+	make_eh_filter_expr_blocks (stmt_p, next_block_link, bb);
+      else if (code == TRY_CATCH_EXPR || code == TRY_FINALLY_EXPR)
+	make_try_expr_blocks (stmt_p, next_block_link, bb);
       else if (code == BIND_EXPR)
 	{
 	  int num_blocks_before;
@@ -370,20 +387,124 @@ make_blocks (first_p, next_block_link, parent_stmt, bb)
 
 	      /* If we are starting the new block just to work around
 		 iterator limitations, keep track of it.  */
-	      if (stmt && !stmt_ends_bb_p (stmt))
+	      if (!stmt || !stmt_ends_bb_p (stmt))
 		cfg_stats.num_failed_bind_expr_merges++;
 	    }
 	}
-      else if (code == TRY_FINALLY_EXPR || code == TRY_CATCH_EXPR)
-	{
-	  /* FIXME: Need to handle these nodes for C++ and mudflap.  */
-	  abort ();
-	}
 
       /* If STMT is a basic block terminator, set START_NEW_BLOCK for the
-	 next iteration.  */
+	 next iteration.  Also compute any reachable exception handlers
+	 for STMT.  */
       if (stmt && stmt_ends_bb_p (stmt))
-	start_new_block = true;
+        {
+	  start_new_block = true;
+
+	  /* Right now we only model exceptions which occur via calls.
+	     This will need to be generalized in the future.  */
+	  if (TREE_CODE (stmt) == CALL_EXPR
+	      || (TREE_CODE (stmt) == MODIFY_EXPR
+		  && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR))
+	    {
+	      int i;
+	      tree reachable_handlers = NULL_TREE;
+	      tree types_caught = NULL_TREE;
+	      int skip_cleanups = 0;
+
+	      /* EH_STACK contains all the exception handlers which enclose
+	         this statement.
+		 
+		 We want to examine the handlers innermost to outermost
+		 and determine which ones are actually reachable from this
+		 statement.  Those which are reachable are chained together
+		 on a list and added to the statement's annotation.  */
+	      for (i = VARRAY_ACTIVE_SIZE (eh_stack) - 1; i >= 0; i--)
+	        {
+		  tree handler = VARRAY_TREE (eh_stack, i);
+		  tree tp_node;
+
+		  if (TREE_CODE (handler) == CATCH_EXPR)
+		    {
+		      tree types = CATCH_TYPES (handler);
+
+		      /* This is a try/catch construct.  If it has no
+		         CATCH_TYPES, then it catches all types and we
+			 can stop our search early.  */
+		      if (types == NULL_TREE)
+			{
+			  reachable_handlers = tree_cons (void_type_node,
+						VARRAY_TREE (eh_stack, i),
+						reachable_handlers);
+			  break;
+			}
+
+		      /* If TYPES is not a list, make it a list to
+		         simplify handling below.  */
+		      if (TREE_CODE (types) != TREE_LIST)
+			types = tree_cons (NULL_TREE, types, NULL_TREE);
+
+		      /* See if the CATCH_TYPES specifies any types that have
+		         not already been handled.  If so, add those types to
+			 the types we handle and add this handler to the list
+			 of reachable handlers.  */
+		      for (tp_node = types;
+			   tp_node;
+			   tp_node = TREE_CHAIN (tp_node))
+		        {
+			  tree type = TREE_VALUE (tp_node);
+
+			  if (! check_handled (types_caught, type))
+			    {
+			      types_caught = tree_cons (NULL,
+					      		type,
+							types_caught);
+			      reachable_handlers
+				= tree_cons (void_type_node,
+					     VARRAY_TREE (eh_stack, i),
+					     reachable_handlers);
+			    }
+		        }
+
+		      skip_cleanups = 0;
+		    }
+		  else if (TREE_CODE (handler) == EH_FILTER_EXPR)
+		    {
+		      /* This is an exception specification.  If it has
+		         no types, then it ends our search.  */
+		      if (EH_FILTER_TYPES (handler) == NULL_TREE)
+			{
+			  reachable_handlers = tree_cons (void_type_node,
+						VARRAY_TREE (eh_stack, i),
+						reachable_handlers);
+			  break;
+			}
+
+		      /* This can throw a new exception, so it does not
+		         stop our search.  We should probably track the
+			 types it can throw.  */
+		      reachable_handlers = tree_cons (void_type_node,
+					    VARRAY_TREE (eh_stack, i),
+					    reachable_handlers);
+
+		      skip_cleanups = 0;
+		    }
+		  else if (!skip_cleanups)
+		    {
+		      /* This is a cleanup and is reachable.  It does not
+		         stop our search; however, we can skip other
+			 cleanups until we run into something else.  */
+		      reachable_handlers = tree_cons (void_type_node,
+					    VARRAY_TREE (eh_stack, i),
+					    reachable_handlers);
+		      skip_cleanups = 1;
+		    }
+	        }
+
+	      /* REACHABLE_HANDLERS now contains a list of all the reachable
+	         handlers.  */
+	      stmt_ann (stmt)->reachable_exception_handlers
+		= reachable_handlers;
+	    }
+	}
 
       last = stmt;
     }
@@ -483,6 +604,101 @@ make_cond_expr_blocks (cond_p, next_block_link, entry)
   STRIP_CONTAINERS (cond);
   make_blocks (&COND_EXPR_THEN (cond), next_block_link, cond, NULL);
   make_blocks (&COND_EXPR_ELSE (cond), next_block_link, cond, NULL);
+}
+
+/* Create the blocks for the TRY_CATCH_EXPR or TRY_FINALLY_EXPR node
+   pointed by expr_p.  */
+
+static void
+make_try_expr_blocks (expr_p, next_block_link, entry)
+     tree *expr_p;
+     tree next_block_link;
+     basic_block entry;
+{
+  tree_stmt_iterator si;
+  tree expr = *expr_p;
+  entry->flags |= BB_CONTROL_EXPR;
+
+  /* Determine NEXT_BLOCK_LINK for statements inside the body.  */
+  si = tsi_start (expr_p);
+  tsi_next (&si);
+
+  /* Ignore any empty statements at the tail of this tree.  */
+  while (!tsi_end_p (si) && tsi_stmt (si) == NULL)
+    tsi_next (&si);
+
+  if (!tsi_end_p (si) && tsi_stmt (si) != NULL_TREE)
+    next_block_link = *(tsi_container (si));
+
+  STRIP_CONTAINERS (expr);
+
+  /* We need to keep a stack of the handler expressions of TRY_CATCH_EXPR
+     and TRY_FINALLY nodes so that we know when throwing statements should
+     end a basic block.  */
+  VARRAY_PUSH_TREE (eh_stack, TREE_OPERAND (expr, 1));
+
+  /* Make blocks for the TRY block.  */
+  make_blocks (&TREE_OPERAND (expr, 0), next_block_link, expr, NULL);
+
+  /* And pop the stack of exception handlers.  */
+  VARRAY_POP (eh_stack);
+
+  /* Make blocks for the handler itself.  */
+  make_blocks (&TREE_OPERAND (expr, 1), next_block_link, expr, NULL);
+}
+
+/* Create the blocks for the CATCH_EXPR node pointed to by expr_p.  */
+
+static void
+make_catch_expr_blocks (expr_p, next_block_link, entry)
+     tree *expr_p;
+     tree next_block_link;
+     basic_block entry;
+{
+  tree_stmt_iterator si;
+  tree expr = *expr_p;
+  entry->flags |= BB_CONTROL_EXPR;
+
+  /* Determine NEXT_BLOCK_LINK for statements inside the body.  */
+  si = tsi_start (expr_p);
+  tsi_next (&si);
+
+  /* Ignore any empty statements at the tail of this tree.  */
+  while (!tsi_end_p (si) && tsi_stmt (si) == NULL)
+    tsi_next (&si);
+
+  if (!tsi_end_p (si) && tsi_stmt (si) != NULL_TREE)
+    next_block_link = *(tsi_container (si));
+
+  STRIP_CONTAINERS (expr);
+  make_blocks (&CATCH_BODY (expr), next_block_link, expr, NULL);
+}
+
+/* Create the blocks for the EH_FILTER_EXPR node pointed to by expr_p.  */
+
+static void
+make_eh_filter_expr_blocks (expr_p, next_block_link, entry)
+     tree *expr_p;
+     tree next_block_link;
+     basic_block entry;
+{
+  tree_stmt_iterator si;
+  tree expr = *expr_p;
+  entry->flags |= BB_CONTROL_EXPR;
+
+  /* Determine NEXT_BLOCK_LINK for statements inside the body.  */
+  si = tsi_start (expr_p);
+  tsi_next (&si);
+
+  /* Ignore any empty statements at the tail of this tree.  */
+  while (!tsi_end_p (si) && tsi_stmt (si) == NULL)
+    tsi_next (&si);
+
+  if (!tsi_end_p (si) && tsi_stmt (si) != NULL_TREE)
+    next_block_link = *(tsi_container (si));
+
+  STRIP_CONTAINERS (expr);
+  make_blocks (&EH_FILTER_FAILURE (expr), next_block_link, expr, NULL);
 }
 
 
@@ -2095,6 +2311,10 @@ is_ctrl_stmt (t)
 
   return (TREE_CODE (t) == COND_EXPR
 	  || TREE_CODE (t) == LOOP_EXPR
+	  || TREE_CODE (t) == CATCH_EXPR
+	  || TREE_CODE (t) == EH_FILTER_EXPR
+	  || TREE_CODE (t) == TRY_CATCH_EXPR
+	  || TREE_CODE (t) == TRY_FINALLY_EXPR
 	  || TREE_CODE (t) == SWITCH_EXPR);
 }
 
@@ -2234,8 +2454,10 @@ stmt_ends_bb_p (t)
   return (code == COND_EXPR
 	  || code == SWITCH_EXPR
 	  || code == LOOP_EXPR
-	  || code == TRY_FINALLY_EXPR
+	  || code == EH_FILTER_EXPR
 	  || code == TRY_CATCH_EXPR
+	  || code == TRY_FINALLY_EXPR
+	  || code == CATCH_EXPR
 	  || is_ctrl_altering_stmt (t));
 }
 
