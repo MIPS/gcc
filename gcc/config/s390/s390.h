@@ -521,6 +521,12 @@ enum reg_class
   { 0xffffffff, 0x00000007 },	/* ALL_REGS */		\
 }
 
+/* Select a format to encode pointers in exception handling data.  */
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL)			    \
+  (flag_pic								    \
+    ? ((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4 \
+   : DW_EH_PE_absptr)
+
 
 /* The same information, inverted:
    Return the class number of the smallest class containing
