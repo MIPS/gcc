@@ -1,3 +1,21 @@
+2004-09-23  Sven de Marothy  <sven@physto.se>
+
+	* java/awt/geom/Arc2D.java: Reformatted.
+	(setArc): Correct documentation to say 'upper left corner'.
+	(setArcByTangent,contains,intersects): Implemented.
+	(containsAngle): Corrected to handle negative extents.
+	(ArcIterator): Set to private.
+	(ArcIterator): Corrected for CHORD-type arcs, negative extents.
+	(intersects): Fix: Now checks the arc segment.
+	(contains): Cleaned up.
+	* java/awt/geom/CubicCurve2a.javaD: Fix insideness-test. Reindent.
+	(contains): Implemented.
+	(intersects): Implemented.
+	* java/awt/geom/QuadCurve2D.java: Fix insideness-test. Reindent.
+	* java/awt/geom/GeneralPath: Fix insideness-test. Reindent and
+	document.  Fully (re)implemented using separate xpoints and ypoints
+	float[] coords.
+
 2004-09-23  Andreas Tobler  <a.tobler@schweiz.ch>
 
 	* configure.ac: Introduce AC_C_BIGENDIAN_CROSS for WORDS_BIGENDIAN.
