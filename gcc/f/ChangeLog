@@ -1,3 +1,7 @@
+2002-11-19  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Make-lang.in: Correct BUILD/HOST confusion.
+
 2002-11-02  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	* g77.texi: Correct documentation on generating C++ prototypes

@@ -1,8 +1,69 @@
+2002-11-22  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Fix deeply stupid bug.
+
+	* configure.in: Introduce RAW_CXX_FOR_TARGET and simplify embedded
+	shell code in CXX_FOR_TARGET
+	* Makefile.def: Introduce raw_cxx.
+	* Makefile.tpl: Use raw_cxx to select between CXX_FOR_TARGET and
+	RAW_CXX_FOR_TARGET.
+	* Makefile.in: Regenerate.
+
+2002-11-21  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Remove unnecessary ifs.
+	* Makefile.in: Regenerate.
+
+	* Makefile.tpl: Implement soft dependency machinery.  Maybe-ize 
+	dependencies.  Maybe-ize build-libiberty.  Create dummy install
+	targets for 'no_install' modules.
+	* configure: Move GDB_TK substitution to configure.in.  Move 
+	build_modules stuff to configure.in.
+	* configure.in: Implement soft dependency machinery.  Maybe-ize 
+	GDB_TK, rearrange slightly.  Move build_modules stuff from configure.
+	* Makefile.in: Regenerate.
+
+2002-11-19  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Make all-target, install-target behave similarly
+	to all, install (only hitting configured targets).  Eliminate
+	unused macro defintions.
+
+	* Makefile.tpl: Add all-gcc: all-build-libiberty dependency when
+	build != host.
+
+	* Makefile.tpl: Add all-gcc: all-libiberty dependency.
+
+	* ltcf-c.sh, ltcf-gcj.sh, Makefile.tpl: Correct BUILD/HOST confusion.
+
+	* configure.in: Produce lists of subdir targets we're actually 
+	configuring.  Remove references to "dosrel".
+	* Makefile.tpl: Let configure set which subdir targets are hit.
+	Remove install-cross; clean up install; remove ALL.  Remove 
+	references to "dosrel".  Remove "EXTRA_TARGET_HOST" hackery.
+	Autogenerate host module targets.  Remove empty dependency lines 
+	and redundant dependency; rearrange slightly.
+	* Makefile.def: Add host-side libtermcap, utils.
+
+	* Makefile.in: Regenerate.
+
+2002-11-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2002-11-13  Bruce Korb  <bkorb@gnu.org>
+
+	* Makefile.tpl: syntactic cleanup
+
+2002-11-13 Stuart Hastings <stuart@apple.com>
+
+	* MAINTAINERS: Add myself to write-after-approval list.
+
 2002-11-12  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.def: Add list of recursive targets to autogenerate.
 	Add build_modules.
-	* Makefile.tpl: Autogenerate do-* targets.  Autogenerate *-target-* 
+	* Makefile.tpl: Autogenerate do-* targets.  Autogenerate *-target-*
 	targets.  Autogenerate *-build-* targets.
 	* Makefile.in: Regenerate.
 
@@ -20,19 +81,23 @@
 	autoconf-friendly way.
 	* Makefile.in: Regenerate.
 
+2002-11-11  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
 2002-11-10  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* configure.in (v810*): Remove special setting of tools.
 
 	* configure: Add support for extra required flags for ar or nm.
-	* configure.in (aix4.3+): Use above support for target-specific 
+	* configure.in (aix4.3+): Use above support for target-specific
 	issues, rather than using config/mt-aix43.
 
 2002-11-09  Nathanael Nerode  <neroden@gcc.gnu.org>
 
-	* configure: Remove 'removing', which doesn't work.  Replace $subdir 
-	with . everywhere.  Replace $subdirs with ''.  Replace $makesrcdir 
-	with $srcdir.  Reformat indentation.  Substitute some variables 
+	* configure: Remove 'removing', which doesn't work.  Replace $subdir
+	with . everywhere.  Replace $subdirs with ''.  Replace $makesrcdir
+	with $srcdir.  Reformat indentation.  Substitute some variables
 	formerly hard-coded in the Makefile for build=host.
 	* Makefile.tpl: Autogenerate more; make more autoconf-friendly.
 	* Makefile.def: Autogenerate more.

@@ -723,8 +723,8 @@ h8300-*-*)
 	;;
 hppa*64*-*-linux* | parisc*64*-*-linux*)
 	target_cpu_default="(MASK_PA_11 | MASK_PA_20)"
-	tm_file="pa/pa64-start.h ${tm_file} dbxelf.h elfos.h svr4.h linux.h pa/pa-linux.h \
-		 pa/pa64-regs.h pa/pa-64.h pa/pa64-linux.h"
+	tm_file="pa/pa64-start.h ${tm_file} dbxelf.h elfos.h svr4.h linux.h \
+		 pa/pa-linux.h pa/pa64-regs.h pa/pa-64.h pa/pa64-linux.h"
 	tmake_file=pa/t-linux64
 	gas=yes gnu_ld=yes
 	;;
@@ -857,7 +857,16 @@ hppa1.0-*-hpux10*)
 	;;
 hppa*64*-*-hpux11*)
 	xm_defines=POSIX
-	tm_file="pa/pa64-start.h ${tm_file} pa/pa64-regs.h pa/long_double.h pa/elf.h pa/pa-hpux.h pa/pa-hpux11.h pa/pa-64.h pa/pa64-hpux.h"
+	if test x$gas = xyes
+	then
+		tm_file="pa/pa64-start.h ${tm_file} dbxelf.h elfos.h  \
+			 pa/pa64-regs.h pa/long_double.h pa/pa-hpux.h \
+			 pa/pa-hpux11.h pa/pa-64.h pa/pa64-hpux.h"
+	else
+		tm_file="pa/pa64-start.h ${tm_file} dbxelf.h pa/elf.h \
+			 pa/pa64-regs.h pa/long_double.h pa/pa-hpux.h \
+			 pa/pa-hpux11.h pa/pa-64.h pa/pa64-hpux.h"
+	fi
 	tmake_file="pa/t-pa64 pa/t-pa-hpux"
 	xmake_file="pa/x-ada"
 	target_cpu_default="(MASK_PA_11|MASK_PA_20|MASK_GAS)"
@@ -975,12 +984,12 @@ i370-*-linux*)
 i[34567]86-*-darwin*)
 	tm_file="${tm_file} darwin.h i386/darwin.h"
 	tm_p_file="${tm_p_file} darwin-protos.h"
-	tmake_file=i386/t-darwin
+	tmake_file="t-darwin"
 	extra_objs="darwin.o"
 	target_gtfiles="\$(srcdir)/config/darwin.c"
 	c_target_objs="darwin-c.o"
 	cxx_target_objs="darwin-c.o"
-	extra_parts="crtbegin.o crtend.o"
+	extra_parts="crt2.o"
 	# Darwin linker does collect2 functionality
 	use_collect2=no
 	;;
@@ -1908,12 +1917,12 @@ powerpc-*-beos*)
 powerpc-*-darwin*)
 	tm_file="${tm_file} darwin.h rs6000/darwin.h"
 	tm_p_file="${tm_p_file} darwin-protos.h"
-	tmake_file=rs6000/t-darwin
+	tmake_file="rs6000/t-rs6000 t-darwin rs6000/t-darwin"
 	extra_objs="darwin.o"
 	target_gtfiles="\$(srcdir)/config/darwin.c"
 	c_target_objs="darwin-c.o"
 	cxx_target_objs="darwin-c.o"
-	extra_parts="crtbegin.o crtend.o"
+	extra_parts="crt2.o"
 	# Darwin linker does collect2 functionality
 	use_collect2=no
 	extra_headers=altivec.h
@@ -2171,7 +2180,7 @@ sh-*-rtems*)
 	fi
 	;;
 sh-*-linux* | sh[2346lbe]*-*-linux*)
-	tmake_file="sh/t-sh sh/t-elf sh/t-linux"
+	tmake_file="sh/t-sh sh/t-elf t-slibgcc-elf-ver t-linux sh/t-linux"
 	case $machine in
 	sh*be-*-* | sh*eb-*-*) ;;
 	*)
@@ -2180,7 +2189,6 @@ sh-*-linux* | sh[2346lbe]*-*-linux*)
 		;;
 	esac
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/elf.h sh/linux.h"
-	gas=yes gnu_ld=yes
 	case $machine in
 	sh64*)
 		tmake_file="${tmake_file} sh/t-sh64"
@@ -2650,6 +2658,9 @@ i586-*-*)
 	;;
 i686-*-* | i786-*-*)
 	case $target_alias in
+		k8-*)
+			target_cpu_default2=TARGET_CPU_DEFAULT_k8
+			;;
 		athlon_xp-*|athlon_mp-*|athlon_4-*)
 			target_cpu_default2=TARGET_CPU_DEFAULT_athlon_sse
 			;;
@@ -2674,7 +2685,7 @@ x86_64-*-*)
 	# We should have hammer chip here, but it does not exist yet and
 	# thus it is not supported.  Athlon_SSE is probably equivalent feature
 	# wise to hammer from our point of view except for 64bit mode.
-	target_cpu_default2=TARGET_CPU_DEFAULT_athlon_sse
+	target_cpu_default2=TARGET_CPU_DEFAULT_k8
 	;;
 alpha*-*-*)
 	case $machine in

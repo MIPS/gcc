@@ -6242,8 +6242,21 @@ output_millicode_call (insn, call_dest)
 	     loaded objects.  Using a pc-relative sequence also avoids
 	     problems related to the implicit use of the gp register.  */
 	  output_asm_insn ("b,l .+8,%%r1", xoperands);
-	  output_asm_insn ("addil L'%0-$PIC_pcrel$0+4,%%r1", xoperands);
-	  output_asm_insn ("ldo R'%0-$PIC_pcrel$0+8(%%r1),%%r1", xoperands);
+
+	  if (TARGET_GAS)
+	    {
+	      output_asm_insn ("addil L'%0-$PIC_pcrel$0+4,%%r1", xoperands);
+	      output_asm_insn ("ldo R'%0-$PIC_pcrel$0+8(%%r1),%%r1", xoperands);
+	    }
+	  else
+	    {
+	      xoperands[1] = gen_label_rtx ();
+	      output_asm_insn ("addil L'%0-%l1,%%r1", xoperands);
+	      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+					 CODE_LABEL_NUMBER (xoperands[1]));
+	      output_asm_insn ("ldo R'%0-%l1(%%r1),%%r1", xoperands);
+	    }
+
 	  output_asm_insn ("bve,l (%%r1),%%r2", xoperands);
 	}
       else if (TARGET_PORTABLE_RUNTIME)
@@ -6273,6 +6286,9 @@ output_millicode_call (insn, call_dest)
 	}
       else
 	{
+	  output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
+	  output_asm_insn ("addi 16,%%r1,%%r31", xoperands);
+
 	  if (TARGET_SOM || !TARGET_GAS)
 	    {
 	      /* The HP assembler can generate relocations for the
@@ -6280,8 +6296,6 @@ output_millicode_call (insn, call_dest)
 		 millicode symbol but not an arbitrary external
 		 symbol when generating SOM output.  */
 	      xoperands[1] = gen_label_rtx ();
-	      output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
-	      output_asm_insn ("addi 16,%%r1,%%r31", xoperands);
 	      (*targetm.asm_out.internal_label) (asm_out_file, "L",
 					 CODE_LABEL_NUMBER (xoperands[1]));
 	      output_asm_insn ("addil L'%0-%l1,%%r1", xoperands);
@@ -6289,8 +6303,6 @@ output_millicode_call (insn, call_dest)
 	    }
 	  else
 	    {
-	      output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
-	      output_asm_insn ("addi 16,%%r1,%%r31", xoperands);
 	      output_asm_insn ("addil L'%0-$PIC_pcrel$0+8,%%r1", xoperands);
 	      output_asm_insn ("ldo R'%0-$PIC_pcrel$0+12(%%r1),%%r1",
 			       xoperands);
