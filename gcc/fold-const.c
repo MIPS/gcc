@@ -7256,7 +7256,8 @@ fold (tree expr)
 	 changed.  */
       if (t1)
 	return t1;
-      else
+      else if (code != TREE_CODE (t)
+	       || TREE_OPERAND (t, 0) != arg0 || TREE_OPERAND (t, 1) != arg1)
 	t = build (code, type, arg0, arg1);
 
       /* If this is an EQ or NE comparison of a constant with a PLUS_EXPR or
