@@ -1,5 +1,38 @@
 2002-02-28  Sebastian Pop  <s.pop@laposte.net>
 
+	* c-simplify.c (simplify_if_stmt): Deleted.
+	(new_simplified_if): New function.
+	(make_type_writable): New function.
+	(insert_before_continue_end): New function.
+	(insert_before_continue): New function.
+	(copy_stmt_chain): New function.
+	(insert_stmt_chain): New function.
+	(update_line_number): New function.
+	(simplified_p): New function.
+	(simplified_rec_p) New function.
+	(simplify_stmt): Modify the way to call simplification 
+	of COMPOUND_STMT, FOR_STMT, WHILE_STMT, DO_STMT, IF_STMT, 
+	and SCOPE_STMT in order to avoid to execute the code after 
+	the switch.  Add FILE_STMT, LABEL_STMT, GOTO_STMT, ASM_STMT cases.
+	Simplified a little the code after the switch.
+	(simplify_for_stmt): Change functions parameters.
+	Add code to simplify the FOR_INIT_STMT, FOR_COND, FOR_EXPR. 
+	(simplify_while_stmt): Change functions parameters.
+	Add code to simplify the WHILE_COND.
+	(simplify_do_stmt): Change functions parameters.
+	Add code to simplify the DO_COND.
+	(simplify_switch_stmt): Change functions parameters.
+	(simplify_expr): Remove scope parameter.
+	Avoid to introduce a new temporary variable for an expression 
+	that is already simplified.
+	([ARRAY|COMPONENT]_REF, COND_EXPR): Handle them apart.
+	(TRUTH_ANDIF_EXPR, TRUTH_ORIF_EXPR): Avoid to evaluate the second 
+	operand if the value can be deduced from the first one.
+	(keep_stmt_p): Add some other cases in which we don't need to keep 
+	a statement after its simplification.
+
+2002-02-28  Sebastian Pop  <s.pop@laposte.net>
+
 	* Makefile.in: Add c-call-graph.o dependence.
 	* c-call-graph.c: New file.
 	* c-decl.c (c_expand_body): Add an entry point for call-graph.

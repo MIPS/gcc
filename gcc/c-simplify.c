@@ -202,18 +202,26 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* {{{ Local declarations.  */
 
-static void simplify_for_stmt PARAMS ((tree, tree, tree *, tree *, tree *));
-static void simplify_while_stmt PARAMS ((tree, tree, tree *, tree *, tree *));
-static void simplify_do_stmt PARAMS ((tree, tree, tree *, tree *, tree *));
-static void simplify_if_stmt PARAMS ((tree, tree, tree *, tree *, tree *));
-static void simplify_switch_stmt PARAMS ((tree, tree, tree *, tree *, tree *));
+static tree simplify_for_stmt PARAMS ((tree, tree, tree, tree));
+static tree simplify_while_stmt PARAMS ((tree, tree, tree, tree));
+static tree simplify_do_stmt PARAMS ((tree, tree, tree, tree));
+static tree new_simplified_if PARAMS ((tree, tree, tree, tree));
+static void simplify_switch_stmt PARAMS ((tree, tree *, tree *, tree *));
 static tree simplify_decl_stmt PARAMS ((tree, tree *));
-static tree simplify_expr PARAMS ((tree, tree, tree *, tree *, tree *));
+static tree simplify_expr PARAMS ((tree, tree *, tree *, tree *));
 static tree create_tmp_var PARAMS ((tree, tree *));
+static void make_type_writable PARAMS ((tree));
 static void tree_build_scope PARAMS ((tree *));
 static tree declare_tmp_vars PARAMS ((tree, tree));
 static void add_tree PARAMS ((tree, tree *));
 static int keep_stmt_p PARAMS ((tree));
+static void insert_before_continue_end PARAMS ((tree, tree, int));
+static tree insert_before_continue PARAMS ((tree, tree));
+static void copy_stmt_chain PARAMS ((tree *, tree));
+static void insert_stmt_chain PARAMS ((tree *, tree));
+static tree update_line_number PARAMS ((tree, int));
+static int simplified_p PARAMS ((tree));
+static int simplified_rec_p PARAMS ((tree, int));
 
 /* }}} */
 
@@ -230,7 +238,7 @@ simplify_stmt (stmt, scope)
      tree scope;
 {
   tree next, prev, before, after, new_vars;
-
+  
   /* Don't bother doing anything if the program has errors.  */
   if (errorcount || sorrycount)
     return;
@@ -256,61 +264,124 @@ simplify_stmt (stmt, scope)
       before = NULL;
       after = NULL;
       new_vars = NULL;
-
+      
       switch (TREE_CODE (stmt))
 	{
 	case COMPOUND_STMT:
 	  simplify_stmt (COMPOUND_BODY (stmt), scope);
-	  break;
-
+	  
+	  /* Prepare for the next iteration.  */
+	  next = TREE_CHAIN (stmt);
+	  prev = stmt;
+	  stmt = next;
+	  continue;
+	  
 	case FOR_STMT:
-	  simplify_for_stmt (stmt, scope, &before, &after, &new_vars);
-	  break;
-
+	  prev = simplify_for_stmt (prev, stmt, TREE_CHAIN (stmt), scope);
+	  stmt = TREE_CHAIN (prev);
+#if 0
+	  next = simplify_for_stmt (prev, stmt, TREE_CHAIN (stmt), scope);
+	  prev = stmt;
+	  stmt = next;
+#endif
+	  continue;
+	  
 	case WHILE_STMT:
-	  simplify_while_stmt (stmt, scope, &before, &after, &new_vars);
-	  break;
+	  prev = simplify_while_stmt (prev, stmt, TREE_CHAIN (stmt), scope);
+	  stmt = TREE_CHAIN (prev);
+	  continue;
 
 	case DO_STMT:
-	  simplify_do_stmt (stmt, scope, &before, &after, &new_vars);
-	  break;
+	  prev = simplify_do_stmt (prev, stmt, TREE_CHAIN (stmt), scope);
+	  stmt = TREE_CHAIN (prev);
+	  continue;
 
 	case IF_STMT:
-	  simplify_if_stmt (stmt, scope, &before, &after, &new_vars);
-	  break;
+	  next = TREE_CHAIN (stmt);
+	  /* Construct a simplified version of this IF_STMT.  */
+	  stmt = new_simplified_if (IF_COND (stmt), THEN_CLAUSE (stmt), ELSE_CLAUSE (stmt), scope);
+	  TREE_CHAIN (prev) = stmt;
+	
+	  /* Insert the simplified IF_STMT in the tree.  */
+	  { 
+	    /* Place an iterator on the last node in the simplified IF_STMT.  */
+	    tree it;
+	    it = tree_last (stmt);
 
+	    /* Add the rest of the tree after the generated STMT.  */
+	    TREE_CHAIN (it) = next;
+
+	    /* Next iteration.  */
+	    prev = it; 
+	    stmt = TREE_CHAIN (it);
+	  }
+	  continue;
+	
 	case SWITCH_STMT:
-	  simplify_switch_stmt (stmt, scope, &before, &after, &new_vars);
+	  simplify_switch_stmt (stmt, &before, &after, &new_vars);
 	  break;
 
 	case EXPR_STMT:
 	  TREE_OPERAND (stmt, 0) = simplify_expr (TREE_OPERAND (stmt, 0), 
-	                                          scope, &before, &after,
+						  &before, &after,
 						  &new_vars);
 	  break;
 
 	case DECL_STMT:
 	  /* Simplify all the declarations at once.  */
-	  prev = simplify_decl_stmt (stmt, &after);
-	  stmt = prev;
-	  break;
+	  stmt = simplify_decl_stmt (stmt, &after);
+	  
+	  if (after)
+	    /* Insert AFTER in the tree.  */
+	    {
+	      /* Save a pointer to the next stmt.  */
+	      next = TREE_CHAIN (stmt);
+	      
+	      /* Include the nodes from AFTER list.  */
+	      TREE_CHAIN (stmt) = after;
+	      
+	      /* Update the line number and make PREV points to the last stmt in 
+		 AFTER list.  */
+	      prev = update_line_number (after, STMT_LINENO (stmt));
+	      
+	      /* Chain the end of the AFTER block to the next stmt.  */
+	      stmt = next;
+	      TREE_CHAIN (prev) = stmt;
+	    }
+	  else
+	    /* Declaration block has no initial values, so nothing to 
+	       be simplified : we can go to the next stmt.  */
+	    {
+	      prev = stmt;
+	      stmt = TREE_CHAIN (stmt);
+	    }
+          continue;
 
 	case RETURN_STMT:
-	  if (RETURN_EXPR (stmt))
+	  if (TREE_CODE (TREE_TYPE (TREE_TYPE (current_function_decl))) != VOID_TYPE
+	      && RETURN_EXPR (stmt))
 	    {
 	      tree e = RETURN_EXPR (stmt);
-	      
 	      TREE_OPERAND (e, 1) = simplify_expr (TREE_OPERAND (e, 1),
-						   scope, &before, &after,
+						   &before, &after,
 						   &new_vars);
 	    }
 	  break;
-
+	  
 	case SCOPE_STMT:
 	  if (SCOPE_BEGIN_P (stmt))
-	    scope = stmt;
-	  break;
+	    /* Save a pointer to the scope.  */
+	    scope = stmt; 
+	    	  
+	  /* Next iteration.  */
+	  prev = stmt;
+	  stmt = TREE_CHAIN (stmt);
+	  continue;
 
+	case FILE_STMT:
+	case LABEL_STMT:
+	case GOTO_STMT:
+	case ASM_STMT:
 	case CASE_LABEL:
 	case CONTINUE_STMT:
 	case BREAK_STMT:
@@ -355,151 +426,525 @@ simplify_stmt (stmt, scope)
 
       next = TREE_CHAIN (stmt);
 
-      /* Include the nodes in the BEFORE list.  Update line number
-	 information on each node and re-compute PREV.  */
       if (before)
 	{
+	  /* Include the nodes from the BEFORE list.  */
 	  TREE_CHAIN (prev) = before;
 
-	  for (; TREE_CHAIN (before); before = TREE_CHAIN (before))
-	    STMT_LINENO (before) = STMT_LINENO (stmt);
-	  STMT_LINENO (before) = STMT_LINENO (stmt);
-
-	  prev = before;
-
-	  /* Include STMT, if it's worth keeping (i.e., it has not been
-	     nullified by the simplification process) and re-compute PREV.  */
-	  if (keep_stmt_p (stmt))
-	    {
-	      TREE_CHAIN (prev) = stmt;
-	      prev = stmt;
-	    }
+	  /* Update the line number and make PREV points to the last stmt in 
+	     BEFORE list  */
+	  prev = update_line_number (before, STMT_LINENO (stmt));
 	}
-      else
-	prev = stmt;
-
-      /* Include the nodes in the AFTER list.  Update line number
-	 information on each node and re-compute PREV.  */
+      
+      if (keep_stmt_p (stmt))
+	{
+	  /* Include STMT, if it's worth keeping (i.e., it has not been
+	     nullified by the simplification process).  */
+	  TREE_CHAIN (prev) = stmt;
+	  
+	  /* Re-compute PREV.  */
+	  prev = stmt;
+	}
+	
       if (after)
 	{
+	  /* Include the nodes from the AFTER list.  */
 	  TREE_CHAIN (prev) = after;
 
-	  for (; TREE_CHAIN (after); after = TREE_CHAIN (after))
-	    STMT_LINENO (after) = STMT_LINENO (stmt);
-	  STMT_LINENO (after) = STMT_LINENO (stmt);
-
-	  prev = after;
+	  /* Update the line number and make PREV points to the last stmt in 
+	     AFTER list.  */
+	  prev = update_line_number (after, STMT_LINENO (stmt));
 	}
 
       /* Make sure that PREV is chained to NEXT (just in case it was
 	 re-computed above)  */
       TREE_CHAIN (prev) = next;
 
+      /* Next step of the iteration.  */
       stmt = next;
     }
 }
 
 /* }}} */
 
-/** {{{ simplify_for_stmt()
+/** {{{  simplify_for_stmt()
 
-   Simplify a FOR_STMT node.  FIXME.  */
+    Simplifies the given FOR_STMT.
+    Return a pointer to the last statment of the simplified region.  
+    This becomes the PREV pointer. The next statement to be simplified
+    is the next stmt in the chain.  */
 
-static void
-simplify_for_stmt (t, scope, before_p, after_p, new_vars_p)
-     tree t;
-     tree scope;
-     tree *before_p;
-     tree *after_p;
-     tree *new_vars_p;
+static tree
+simplify_for_stmt (prev, stmt, next, scope)
+     tree prev, stmt, next, scope;
 {
-  /* It's unsafe to decompose the FOR_COND, and the FOR_EXPR 
-     (reevaluation of the condition).  Thus for simplifying these nodes 
-     apply before this pass the loop decomposition.  */
+  tree cond, body, loop, last;
+  tree new_scope;
+  tree init_before = NULL_TREE, init_after = NULL_TREE;
+  tree expr_before = NULL_TREE, expr_after = NULL_TREE;
 
   /* Make sure that the loop body has a scope.  */
-  tree_build_scope (&FOR_BODY (t));
+  tree_build_scope (&FOR_BODY (stmt));
+  cond = FOR_COND (stmt);
+  body = FOR_BODY (stmt);
+  new_scope = COMPOUND_BODY (body);
+  TREE_CHAIN (prev) = NULL_TREE;
 
-  /* Decompose the loop body.  */
-  simplify_stmt (FOR_BODY (t), scope);
+  /* Simplify FOR_INIT_STMT.  */
+  if (TREE_OPERAND (FOR_INIT_STMT (stmt), 0))
+    {
+      tree new_vars = NULL;
+      simplify_expr (TREE_OPERAND (FOR_INIT_STMT (stmt), 0), &init_before, 
+		     &init_after, &new_vars);
+      /* FOR_INIT_STMT (t) = build1 (EXPR_STMT, NULL_TREE, NULL_TREE); */
+
+      /* Insert the simplification chains before the beginning of the loop.  */
+      chainon (prev, init_before);
+      if (TREE_CODE (TREE_OPERAND (FOR_INIT_STMT (stmt), 0)) == COMPOUND_EXPR)
+	chainon (prev, FOR_INIT_STMT (stmt));
+      chainon (prev, init_after);
+      
+      /* If we created new temporary variables, create declarations for
+	 them in the current scope.  */
+      if (new_vars)
+	declare_tmp_vars (new_vars, scope);
+      
+    }
+  
+  /* Simplify FOR_EXPR.  */
+  if (FOR_EXPR (stmt))
+    {
+      tree new_scope_vars = NULL;
+      simplify_expr (FOR_EXPR (stmt), &expr_before, &expr_after, &new_scope_vars);
+      /* FOR_EXPR (t) = NULL_TREE;  */
+      
+      /* If we created new temporary variables, create declarations for
+	 them in the current scope.  */
+      if (new_scope_vars)
+	declare_tmp_vars (new_scope_vars, new_scope);
+    }
+    
+  if (simplified_p (cond))
+    /* The FOR_COND is already simplified, simplify just the FOR_BODY.  */
+    {
+      tree reeval;
+
+      /* step 1 : Insert a simplified version of 'reeval;' in the loop body.  */
+      reeval = chainon (expr_before, expr_after);
+      if (reeval)
+	insert_before_continue_end (reeval, FOR_BODY (stmt), STMT_LINENO (stmt));
+      
+      /* Step 2 : Construct a 'while (cond) {body}' statement.  */
+      loop = build_stmt (WHILE_STMT, 
+			 /* WHILE_COND */ FOR_COND (stmt),
+			 /* WHILE_BODY */ NULL_TREE);
+      
+      /* Step 4 : Initialize the loop body.  */
+      simplify_stmt (body, scope);
+      WHILE_BODY (loop) = body;
+      
+      /* Step 5 : Next statement to be processed.  */
+      last = chainon (prev, loop);
+      last = tree_last (last);
+      chainon (loop, next);
+      return last;
+    }
+
+  /* step 1 : Insert a simplified version of 'reeval; if (!cond) break;' 
+     in the loop body.  */
+  {
+    tree new_cond, if_stmt, reeval;
+    
+    /* Build 'if (!cond) break;'.  */
+    if (TREE_CODE (cond) == EQ_EXPR)
+      new_cond = build (NE_EXPR, TREE_TYPE (cond), 
+			copy_node (TREE_OPERAND (cond, 0)), 
+			copy_node (TREE_OPERAND (cond, 1)));
+    else if (TREE_CODE (cond) == NE_EXPR)
+      new_cond = build (EQ_EXPR, TREE_TYPE (cond), 
+			copy_node (TREE_OPERAND (cond, 0)), 
+			copy_node (TREE_OPERAND (cond, 1)));
+    else
+      new_cond = build (EQ_EXPR, TREE_TYPE (cond), 
+			copy_node (cond), 
+			integer_zero_node);
+
+    if_stmt = new_simplified_if (new_cond, build_stmt (BREAK_STMT), 
+				 NULL_TREE, COMPOUND_BODY (FOR_BODY (stmt)));
+    
+    /* Insert the 'reeval; if (!cond) break;' before CONTINUE_STMT and at the 
+       end of the loop block.  */
+    reeval = chainon (expr_before, chainon (expr_after, if_stmt));
+    if (reeval)
+      insert_before_continue_end (reeval, FOR_BODY (stmt), STMT_LINENO (stmt));
+  }
+  
+  /* Step 2 : Construct a 'while (1!=0) {}' statement.  For the moment don't 
+     initialize the loop body in order to avoid to simplify it twice.  */
+  loop = build_stmt (WHILE_STMT, 
+		     /* WHILE_COND */ build (NE_EXPR, TREE_TYPE (integer_one_node), 
+					     integer_one_node, integer_zero_node),
+		     /* WHILE_BODY */ NULL_TREE);
+  
+  /* Step 3 : Include the loop in an IF_STMT : 'if (cond) while (1){}'  */
+  stmt = new_simplified_if (copy_node (cond), loop, NULL_TREE, scope);
+
+  /* Step 4 : Initialize the loop body.  */
+  simplify_stmt (body, scope);
+  WHILE_BODY (loop) = body;
+
+  /* Step 5 : Next statement to be processed.  */
+  last = chainon (prev, stmt);
+  last = tree_last (last);
+  chainon (stmt, next);
+  return last;
 }
 
 /* }}} */
 
-/** {{{ simplify_while_stmt()
+/** {{{  simplify_while_stmt()
 
-   Simplify a WHILE_STMT node.  FIXME.  */
+    Simplifies the given WHILE_STMT : 
+    while (cond) {X; continue; Y;} 
+    into a simplified version :
+    if (cond) while (1) {X; if (!cond) break; continue; Y; if (!cond) break;}  
+    Return a pointer to the last statement of the simplified region.  */
 
-static void
-simplify_while_stmt (t, scope, before_p, after_p, new_vars_p)
-     tree t;
-     tree scope;
-     tree *before_p;
-     tree *after_p;
-     tree *new_vars_p;
+static tree
+simplify_while_stmt (prev, stmt, next, scope)
+     tree prev, stmt, next, scope;
 {
-  /* Make sure that the loop body has a scope.  */
-  tree_build_scope (&WHILE_BODY (t));
+  tree cond, body, loop, last;
 
-  /* Decompose the loop body.  */
-  simplify_stmt (WHILE_BODY (t), scope);
+  /* Make sure that the loop body has a scope.  */
+  tree_build_scope (&WHILE_BODY (stmt));
+  cond = WHILE_COND (stmt);
+  body = WHILE_BODY (stmt);
+
+  if (simplified_p (cond))
+    /* The WHILE_COND is already simplified, simplify just the WHILE_BODY.  */
+    {
+      simplify_stmt (WHILE_BODY (stmt), COMPOUND_BODY (WHILE_BODY (stmt)));
+      /* The last statement in the simplified region is the current one.  */
+      last = stmt;
+      return last;
+    }
+
+  /* step 1 : Insert a simplified version of 'if (!cond) break;' in the loop body.  */
+  {
+    tree new_cond, if_stmt;
+    
+    /* Build 'if (!cond) break;'.  */
+    if (TREE_CODE (cond) == EQ_EXPR)
+      new_cond = build (NE_EXPR, TREE_TYPE (cond), 
+			copy_node (TREE_OPERAND (cond, 0)), 
+			copy_node (TREE_OPERAND (cond, 1)));
+    else if (TREE_CODE (cond) == NE_EXPR)
+      new_cond = build (EQ_EXPR, TREE_TYPE (cond), 
+			copy_node (TREE_OPERAND (cond, 0)), 
+			copy_node (TREE_OPERAND (cond, 1)));
+    else
+      new_cond = build (EQ_EXPR, TREE_TYPE (cond), 
+			copy_node (cond), 
+			integer_zero_node);
+
+    if_stmt = new_simplified_if (new_cond, build_stmt (BREAK_STMT), 
+				 NULL_TREE, COMPOUND_BODY (WHILE_BODY (stmt)));
+    
+    /* Insert the 'if (!cond) break;' before CONTINUE_STMT and at the end 
+       of the loop block.  */
+    insert_before_continue_end (if_stmt, WHILE_BODY (stmt), STMT_LINENO (stmt));
+  }
+  
+  /* Step 2 : Construct a 'while (1!=0) {}' statement.  For the moment don't 
+     initialize the loop body in order to avoid to simplify it twice.  */
+  loop = build_stmt (WHILE_STMT, 
+		     /* WHILE_COND */ build (NE_EXPR, TREE_TYPE (integer_one_node), 
+					     integer_one_node, integer_zero_node),
+		     /* WHILE_BODY */ NULL_TREE);
+    
+  /* Step 3 : Include the loop in an IF_STMT : 'if (cond) while (1){}'  */
+  stmt = new_simplified_if (copy_node (cond), loop, NULL_TREE, scope);
+
+  /* Step 4 : Initialize the loop body.  */
+  simplify_stmt (body, scope);
+  WHILE_BODY (loop) = body;
+
+  /* Step 5 : Next statement to be processed.  */
+  TREE_CHAIN (prev) = NULL_TREE;
+  last = chainon (prev, stmt);
+  last = tree_last (last);
+  chainon (stmt, next);
+  return last;
 }
 
 /* }}} */
 
 /** {{{ simplify_do_stmt()
 
-   Simplify a DO_STMT node.  FIXME.  */
+   Simplify a DO_STMT node.
+   Return a pointer to the last statement of the simplified region.  */
 
-static void
-simplify_do_stmt (t, scope, before_p, after_p, new_vars_p)
-     tree t;
-     tree scope;
-     tree *before_p;
-     tree *after_p;
-     tree *new_vars_p;
+
+static tree
+simplify_do_stmt (prev, stmt, next, scope)
+     tree prev, stmt, next, scope;
 {
-  /* Make sure that the loop body has a scope.  */
-  tree_build_scope (&DO_BODY (t));
+  tree cond, body, loop, last;
 
-  /* Decompose the loop body.  */
-  simplify_stmt (DO_BODY (t), scope);
+  /* Make sure that the loop body has a scope.  */
+  tree_build_scope (&DO_BODY (stmt));
+  cond = DO_COND (stmt);
+  body = DO_BODY (stmt);
+
+  if (simplified_p (cond))
+    /* The DO_COND is already simplified, simplify just the DO_BODY.  */
+    {
+      simplify_stmt (DO_BODY (stmt), COMPOUND_BODY (DO_BODY (stmt)));
+      /* The last statement in the simplified region is the current one.  */
+      last = stmt;
+      return last;
+    }
+
+  /* step 1 : Insert a simplified version of 'if (!cond) break;' in the loop body.  */
+  {
+    tree new_cond, if_stmt;
+    
+    /* Build 'if (!cond) break;'.  */
+    if (TREE_CODE (cond) == EQ_EXPR)
+      new_cond = build (NE_EXPR, TREE_TYPE (cond), 
+			copy_node (TREE_OPERAND (cond, 0)), 
+			copy_node (TREE_OPERAND (cond, 1)));
+    else if (TREE_CODE (cond) == NE_EXPR)
+      new_cond = build (EQ_EXPR, TREE_TYPE (cond), 
+			copy_node (TREE_OPERAND (cond, 0)), 
+			copy_node (TREE_OPERAND (cond, 1)));
+    else
+      new_cond = build (EQ_EXPR, TREE_TYPE (cond), 
+			copy_node (cond), 
+			integer_zero_node);
+
+    if_stmt = new_simplified_if (new_cond, build_stmt (BREAK_STMT), 
+				 NULL_TREE, COMPOUND_BODY (DO_BODY (stmt)));
+    
+    /* Insert the 'if (!cond) break;' before CONTINUE_STMT and at the end 
+       of the loop block.  */
+    insert_before_continue_end (if_stmt, DO_BODY (stmt), STMT_LINENO (stmt));
+  }
+  
+  /* Step 2 : Construct a 'while (1!=0) {}' statement.  For the moment don't 
+     initialize the loop body in order to avoid to simplify it twice.  */
+  loop = build_stmt (WHILE_STMT, 
+		     /* WHILE_COND */ build (NE_EXPR, TREE_TYPE (integer_one_node), 
+					     integer_one_node, integer_zero_node),
+		     /* WHILE_BODY */ NULL_TREE);
+    
+  /* Step 4 : Initialize the loop body.  */
+  simplify_stmt (body, scope);
+  WHILE_BODY (loop) = body;
+
+  /* Step 5 : Next statement to be processed.  */
+  TREE_CHAIN (prev) = NULL_TREE;
+  last = chainon (prev, loop);
+  last = tree_last (last);
+  chainon (loop, next);
+  return last;
 }
+
 
 /* }}} */
 
-/** {{{ simplify_if_stmt()
+/** {{{ new_simplified_if()
 
-    Simplifies an IF_STMT node.  FIXME.  */
+    Constructs a new IF_STMT under its simplified form. 
+    FIXME : When the caller provides a scope, then avoid to create a new one.  */
 
-static void
-simplify_if_stmt (t, scope, before_p, after_p, new_vars_p)
-     tree t;
+static tree 
+new_simplified_if (cond, then_clause, else_clause, scope)
+     tree cond;
+     tree then_clause;
+     tree else_clause;
      tree scope;
-     tree *before_p;
-     tree *after_p;
-     tree *new_vars_p;
 {
-  /* FIXME.  BEFORE_P and AFTER_P should be expanded here.  */
-  IF_COND (t) = simplify_expr (IF_COND (t), scope, before_p, after_p,
-      new_vars_p);
+  tree res, begin_scope, end_scope, before, new_vars;
+  before = NULL;
+  new_vars = NULL;
+  
 
-  if (THEN_CLAUSE (t))
+  /* Build 'if (cond) then_clause; else else_clause;'.  */
+  res = build_stmt (IF_STMT, cond, then_clause, else_clause);
+
+  /* if (scope == NULL_TREE) */
+    /* Create a scope around res.  */
     {
-      /* Make sure that the branch has a scope.  */
-      tree_build_scope (&THEN_CLAUSE (t));
+      tree_build_scope (&res);
+      //      scope = res;
+      begin_scope = TREE_OPERAND (res, 0);
+      end_scope = TREE_CHAIN (TREE_CHAIN (begin_scope));
 
-      /* Decompose the THEN branch.  */
-      simplify_stmt (THEN_CLAUSE (t), scope);
-    }
 
-  if (ELSE_CLAUSE (t))
-    {
-      /* Make sure that the branch has a scope.  */
-      tree_build_scope (&ELSE_CLAUSE (t));
+      /* Simplify IF_COND, THEN_CLAUSE, ELSE_CLAUSE.  */
+      {
+	tree if_orig = TREE_CHAIN (begin_scope);
+	tree if0, if1;
+	tree op0, op1;
+	tree op0_before = NULL, op0_after = NULL, op0_new_vars = NULL;
+	tree op1_before = NULL, op1_after = NULL, op1_new_vars = NULL;
 
-      /* Decompose the ELSE branch.  */
-      simplify_stmt (ELSE_CLAUSE (t), scope);
+	/* Check : be sure that we work on an IF_STMT.  */
+	if (TREE_CODE (if_orig) != IF_STMT)
+	  abort ();
+	
+	/* Simplify THEN_CLAUSE.  */
+	{
+	  /* Make sure that the branch has a scope.  */
+	  tree_build_scope (&THEN_CLAUSE (if_orig));
+	  
+	  /* Decompose the THEN branch.  */
+	  simplify_stmt (/* stmt */ THEN_CLAUSE (if_orig), 
+			 /* scope */ COMPOUND_BODY (THEN_CLAUSE (if_orig)));
+	}
+	
+	if (ELSE_CLAUSE (if_orig))
+	  /* Simplify ELSE_CLAUSE.  */
+	  {
+	    /* Make sure that the branch has a scope.  */
+	    tree_build_scope (&ELSE_CLAUSE (if_orig));
+	    
+	    /* Decompose the ELSE branch.  */
+	    simplify_stmt (/* stmt */ ELSE_CLAUSE (if_orig), 
+			   /* scope */ COMPOUND_BODY (ELSE_CLAUSE (if_orig)));
+	  }
+	  		
+	switch (TREE_CODE (IF_COND (if_orig)))
+	  /* Simplify IF_COND.  */
+	  {
+	  case TRUTH_ANDIF_EXPR:
+	  case TRUTH_ORIF_EXPR:
+	    op0 = TREE_OPERAND (IF_COND (if_orig), 0);
+	    op1 = TREE_OPERAND (IF_COND (if_orig), 1);
+	    
+	    /* Simplify op0 and op1.  */
+	    {
+	      op0 = simplify_expr (op0, &op0_before, &op0_after, &op0_new_vars);
+	      op1 = simplify_expr (op1, &op1_before, &op1_after, &op1_new_vars);
+	      
+	      if (simplified_rec_p (op0, 1))
+		/* The simplification introduced a new temporary variable.  */
+		op0 = build (NE_EXPR, TREE_TYPE (integer_zero_node), op0, integer_zero_node);
+	      
+	      if (simplified_rec_p (op1, 1))
+		/* The simplification introduced a new temporary variable.  */
+		op1 = build (NE_EXPR, TREE_TYPE (integer_zero_node), op1, integer_zero_node);
+	    }
+	    
+	    if (TREE_CODE (IF_COND (if_orig)) == TRUTH_ANDIF_EXPR)
+	      /* if_orig (op0 && op1) {then_clause;} else {else_clause;}
+		 to be transformed in 
+		 if0 (op0) { if1 (op1) {then_clause;} else {else_clause}} else {else_clause;}  */
+	      {
+		if (ELSE_CLAUSE (if_orig))
+		  {
+		    if1 = build_stmt (IF_STMT, op1, THEN_CLAUSE (if_orig), copy_node (ELSE_CLAUSE (if_orig)));
+		  }
+		else 
+		  {
+		    if1 = build_stmt (IF_STMT, op1, THEN_CLAUSE (if_orig), NULL_TREE);
+		  }
+	      }
+	    else
+	      /* if_orig (op0 || op1) {THEN_CLAUSE;} else {ELSE_CLAUSE;}
+		 to be transformed in 
+		 if0 (op0) {THEN_CLAUSE;} else if1 (op1) {THEN_CLAUSE;} else {ELSE_CLAUSE;}  */
+	      {
+		if1 = build_stmt (IF_STMT, op1, copy_node (THEN_CLAUSE (if_orig)), ELSE_CLAUSE (if_orig));
+	      }
+	    
+	    if (op1_before || op1_after)
+	      /* Insert the result of the simplification of op1.  */
+	      {
+		tree s_beg, s_if, s_end;
+		
+		/* Construct a scope around if1.  */
+		tree_build_scope (&if1);
+		
+		/* Save some pointers.  */
+		s_beg = COMPOUND_BODY (if1);
+		s_if = TREE_CHAIN (s_beg);
+		s_end = TREE_CHAIN (TREE_CHAIN (s_beg));
+		
+		/* Insert op1_before and op1_after before the IF_STMT.  */
+		TREE_CHAIN (s_beg) = NULL_TREE;
+		insert_stmt_chain (&s_beg, op1_before);
+		insert_stmt_chain (&s_beg, op1_after);
+		insert_stmt_chain (&s_beg, s_if);
+		
+		/* Declare the variables in the current scope.  */
+		declare_tmp_vars (op1_new_vars, s_beg);
+	      }
+	    
+	    if (TREE_CODE (IF_COND (if_orig)) == TRUTH_ANDIF_EXPR)
+	      if0 = build_stmt (IF_STMT, op0, if1, ELSE_CLAUSE (if_orig));
+	    else
+	      if0 = build_stmt (IF_STMT, op0, THEN_CLAUSE (if_orig), if1);
+	    
+	    /* The evaluation of the operand 0 precedes the 
+	       evaluation of the operand 1.  */
+	    if (op0_new_vars)
+	      /* If we created new temporary variables, create declarations for these
+		 variables in the new scope.  */
+	      {
+		tree last_decl;
+		last_decl = declare_tmp_vars (op0_new_vars, begin_scope);
+		
+		/* Insert the simplified code between LAST_DECL and FIRST_STMT.  */
+		TREE_CHAIN (last_decl) = op0_before;
+		chainon (last_decl, op0_after);
+		chainon (last_decl, if0);
+		chainon (last_decl, end_scope);
+	      }
+	    else
+	      {
+		TREE_CHAIN (begin_scope) = if0;
+		chainon (begin_scope, end_scope);
+	      }
+	    break;
+	    
+	  default:
+	    /* Simplify the IF_STMT.  */
+	    {
+	      	      
+	      /* Simplify if condition.  */
+	      {
+		tree cond_before = NULL, cond_after = NULL;
+		tree repl;
+		repl = simplify_expr (IF_COND (if_orig), &cond_before, &cond_after, &new_vars);
+		
+		if (simplified_rec_p (repl, 1))
+		  /* The simplification introduced a new temporary variable.  */
+		  IF_COND (if_orig) = build (NE_EXPR, TREE_TYPE (integer_zero_node), repl, integer_zero_node);
+		
+		/* Expand IF_COND before the beginning of the IF_STMT.  */
+		insert_stmt_chain (&before, cond_before);
+		insert_stmt_chain (&before, cond_after);
+	      }
+	    }
+	    
+	    if (new_vars)
+	      /* If we created new temporary variables, create declarations for these
+		 variables in the new scope.  */
+	      {
+		tree last_decl; 
+		last_decl = declare_tmp_vars (new_vars, begin_scope);
+		
+		/* Insert the simplified code between LAST_DECL and FIRST_STMT.  */
+		TREE_CHAIN (last_decl) = before;
+		chainon (last_decl, if_orig);
+	      }
+	    break;
+	  }
+      }
+      return res;
     }
 }
 
@@ -510,16 +955,19 @@ simplify_if_stmt (t, scope, before_p, after_p, new_vars_p)
     Simplifies a SWITCH_STMT node.  FIXME.  */
 
 static void
-simplify_switch_stmt (t, scope, before_p, after_p, new_vars_p)
+simplify_switch_stmt (t, before_p, after_p, new_vars_p)
      tree t;
-     tree scope;
      tree *before_p;
      tree *after_p;
      tree *new_vars_p;
 {
-  SWITCH_COND (t) = simplify_expr (SWITCH_COND (t), scope, before_p,
-      after_p, new_vars_p);
-  simplify_stmt (SWITCH_BODY (t), scope);
+  SWITCH_COND (t) = simplify_expr (SWITCH_COND (t), before_p,
+				   after_p, new_vars_p);
+
+  /* Make sure that the loop body has a scope.  */
+  tree_build_scope (&SWITCH_BODY (t));
+  simplify_stmt (/* stmt */ SWITCH_BODY (t), 
+		 /* scope */ TREE_OPERAND (SWITCH_BODY (t), 0));
 }
 
 /* }}} */
@@ -551,13 +999,20 @@ simplify_decl_stmt (t, after_p)
     {
       tree decl = DECL_STMT_DECL (t);
 
-      /* If there is an initializer for the variable, queue it up to be
-	 processed after all the declarations.  */
-      if (DECL_INITIAL (decl))
+      /* If there is an initializer for the variable,  */
+      if (DECL_INITIAL (decl)
+	  /* and if the declaration is not declared as a const,  */	  
+	  && !TREE_READONLY (decl)
+#if 0
+	  /* and if the declaration is not declared as register,  */
+	  && !DECL_REGISTER (decl)
+#endif
+	  )
+	/* queue it up to be processed after all the declarations.  */
 	{
 	  tree assign = build_modify_expr (decl, NOP_EXPR, DECL_INITIAL (decl));
 	  add_tree (build_stmt (EXPR_STMT, assign), after_p);
-	  DECL_INITIAL (decl) = NULL;
+	  DECL_INITIAL (decl) = NULL_TREE;
 	}
 
       prev = t;
@@ -585,9 +1040,8 @@ simplify_decl_stmt (t, after_p)
 	model T's side effects should be stored.  */
 
 static tree
-simplify_expr (expr, scope, before_p, after_p, new_vars_p)
+simplify_expr (expr, before_p, after_p, new_vars_p)
      tree expr;
-     tree scope;
      tree *before_p;
      tree *after_p;
      tree *new_vars_p;
@@ -600,7 +1054,7 @@ simplify_expr (expr, scope, before_p, after_p, new_vars_p)
 
   code = TREE_CODE (expr);
 
-  switch (TREE_CODE (expr))
+  switch (code)
     {
       /* Unary expressions that do not compute a new value.  Nothing to do.  */
     case VAR_DECL:
@@ -615,7 +1069,7 @@ simplify_expr (expr, scope, before_p, after_p, new_vars_p)
     case STRING_CST:
     case ADDR_EXPR:
       return expr;
-
+      
 
       /* Unary expressions that compute a new value.  Re-write the operand
 	 and return the modified expression.  */
@@ -639,7 +1093,7 @@ simplify_expr (expr, scope, before_p, after_p, new_vars_p)
     case TRUTH_NOT_EXPR:
     case VA_ARG_EXPR:
       TREE_OPERAND (expr, 0) = simplify_expr (TREE_OPERAND (expr, 0), 
-	                                      scope, before_p, after_p,
+	                                      before_p, after_p,
 					      new_vars_p);
       return expr;
 
@@ -648,10 +1102,8 @@ simplify_expr (expr, scope, before_p, after_p, new_vars_p)
 	 the AFTER list.  */
     case POSTINCREMENT_EXPR:
     case POSTDECREMENT_EXPR:
-      lhs = simplify_expr (TREE_OPERAND (expr, 0), scope, before_p,
-	  after_p, new_vars_p);
-      rhs = simplify_expr (TREE_OPERAND (expr, 1), scope, before_p,
-	  after_p, new_vars_p);
+      lhs = simplify_expr (TREE_OPERAND (expr, 0), before_p, after_p, new_vars_p);
+      rhs = simplify_expr (TREE_OPERAND (expr, 1), before_p, after_p, new_vars_p);
       t1 = build ((code == POSTINCREMENT_EXPR) ? PLUS_EXPR : MINUS_EXPR,
 	          TREE_TYPE (expr), lhs, rhs);
       t2 = build_modify_expr (lhs, NOP_EXPR, t1);
@@ -663,10 +1115,8 @@ simplify_expr (expr, scope, before_p, after_p, new_vars_p)
 	 the BEFORE list.  */
     case PREDECREMENT_EXPR:
     case PREINCREMENT_EXPR:
-      lhs = simplify_expr (TREE_OPERAND (expr, 0), scope, before_p,
-	  after_p, new_vars_p);
-      rhs = simplify_expr (TREE_OPERAND (expr, 1), scope, before_p,
-	  after_p, new_vars_p);
+      lhs = simplify_expr (TREE_OPERAND (expr, 0), before_p, after_p, new_vars_p);
+      rhs = simplify_expr (TREE_OPERAND (expr, 1), before_p, after_p, new_vars_p);
       t1 = build ((code == PREINCREMENT_EXPR) ? PLUS_EXPR : MINUS_EXPR,
 	          TREE_TYPE (expr), lhs, rhs);
       t2 = build_modify_expr (lhs, NOP_EXPR, t1);
@@ -676,8 +1126,6 @@ simplify_expr (expr, scope, before_p, after_p, new_vars_p)
 
       /* Binary arithmetic expressions.  Simplify each operand, assign the
 	 result of the operation to a new temporary T and return T.  */
-    case COMPONENT_REF:
-    case ARRAY_REF:
     case BIT_AND_EXPR:
     case BIT_ANDTC_EXPR:
     case BIT_IOR_EXPR:
@@ -700,14 +1148,11 @@ simplify_expr (expr, scope, before_p, after_p, new_vars_p)
     case TRUNC_DIV_EXPR:
     case TRUNC_MOD_EXPR:
     case TRUTH_AND_EXPR:
-    case TRUTH_ANDIF_EXPR:
     case TRUTH_OR_EXPR:
-    case TRUTH_ORIF_EXPR:
     case TRUTH_XOR_EXPR:
     case COMPLEX_EXPR:
     case COMPOUND_EXPR:
     case CONSTRUCTOR:
-    case COND_EXPR:
     case EQ_EXPR:
     case GE_EXPR:
     case GT_EXPR:
@@ -723,26 +1168,158 @@ simplify_expr (expr, scope, before_p, after_p, new_vars_p)
     case UNLE_EXPR:
     case UNLT_EXPR:
     case UNORDERED_EXPR:
-      lhs = simplify_expr (TREE_OPERAND (expr, 0), scope, before_p,
-	  after_p, new_vars_p);
-      rhs = simplify_expr (TREE_OPERAND (expr, 1), scope, before_p,
-	  after_p, new_vars_p);
-      TREE_OPERAND (expr, 0) = lhs;
-      TREE_OPERAND (expr, 1) = rhs;
-      t1 = create_tmp_var (TREE_TYPE (expr), new_vars_p);
-      t2 = build_modify_expr (t1, NOP_EXPR, expr);
-      add_tree (build_stmt (EXPR_STMT, t2), before_p);
-      return t1;
+      {
+	int s0, s1;
+	s0 = simplified_p (TREE_OPERAND (expr, 0));
+	s1 = simplified_p (TREE_OPERAND (expr, 1));
+	
+	if (s0 && s1)
+	  /* Don't simplify an expression that is already simple enough.  */
+	  return expr;
+	
+	if (!s0 && !s1)
+	  /* Simplify both sides of the expression.  */
+	  {
+	    lhs = simplify_expr (TREE_OPERAND (expr, 0), before_p,
+				 after_p, new_vars_p);
+	    rhs = simplify_expr (TREE_OPERAND (expr, 1), before_p,
+				 after_p, new_vars_p);
+	    
+	    TREE_OPERAND (expr, 0) = lhs;
+	    TREE_OPERAND (expr, 1) = rhs;
+	    
+	    t1 = create_tmp_var (TREE_TYPE (expr), new_vars_p);
+	    t2 = build_modify_expr (t1, NOP_EXPR, expr);
+	    add_tree (build_stmt (EXPR_STMT, t2), before_p);
+	    return t1;
+	  }
+	
+	if (s0)
+	  /* Simplify just the rhs, and don't construct any temporary variable.  */
+	  {
+	    rhs = simplify_expr (TREE_OPERAND (expr, 1), before_p,
+				 after_p, new_vars_p);
+	    TREE_OPERAND (expr, 1) = rhs;
+	    return expr;
+	  }
 
+	/* if (s1)  */
+	/* Simplify just the lhs, and don't construct any temporary variable.  */
+	lhs = simplify_expr (TREE_OPERAND (expr, 0), before_p,
+			     after_p, new_vars_p);
+	TREE_OPERAND (expr, 0) = lhs;
+	return expr;
+      }
+
+    case ARRAY_REF:
+      {
+	lhs = simplify_expr (TREE_OPERAND (expr, 0), before_p,
+			     after_p, new_vars_p);
+	rhs = simplify_expr (TREE_OPERAND (expr, 1), before_p,
+			     after_p, new_vars_p);
+	TREE_OPERAND (expr, 0) = lhs;
+	TREE_OPERAND (expr, 1) = rhs;
+      	
+	return expr;
+      }
+
+    case COMPONENT_REF:
+      /* Simplification of x = a.b.c.d[7] into 
+	 int *T1;  T1 = &a.b.c.d;  x = *T1[7];  */
+      {
+	tree type;
+	type = TREE_TYPE (expr);
+	if (TREE_CODE (type) == ARRAY_TYPE)
+	  {
+	    tree type_p; 
+	    type_p = build_pointer_type (TREE_TYPE (type));
+
+	    t1 = create_tmp_var (type_p, new_vars_p);
+	    t2 = build_modify_expr (t1, NOP_EXPR, build1 (ADDR_EXPR, type_p, expr));
+	    
+	    add_tree (build_stmt (EXPR_STMT, t2), before_p);
+	    // FIXME : work, but incorrect ?  
+	    return build1 (INDIRECT_REF, TREE_TYPE (expr), t1); 
+	  }
+	else
+	  return expr;
+      }
+
+    case COND_EXPR:
+      {
+	/* The expression hides an if.
+	   (cond) ? then_clause : else_clause;
+	   Transform it in an IF_STMT, 
+	   if (cond) tmp = then_clause; else tmp = else_clause;
+	   and simplify it correctly.  
+	   FIXME : case when else is a block...
+	*/
+	tree if_new;
+	tree tmp;
+	
+	fprintf (stderr, "Got a cond_expr : \n");
+	debug_c_node (expr);
+	fprintf (stderr, "\n");
+	
+	/* FIXME: What happens if the type is a pointer ? function pointer ? ... */
+	tmp = create_tmp_var (TREE_TYPE (expr), new_vars_p);
+	
+	/* Build the THEN_CLAUSE.  */
+	t1 = build_modify_expr (tmp, NOP_EXPR, TREE_OPERAND (expr, 1));
+	t1 = build_stmt (EXPR_STMT, t1);
+
+	/* Build the ELSE_CLAUSE.  */
+	t2 = build_modify_expr (tmp, NOP_EXPR, TREE_OPERAND (expr, 2));
+	t2 = build_stmt (EXPR_STMT, t2);
+	
+	if_new = new_simplified_if (TREE_OPERAND (expr, 0), t1, t2, NULL_TREE);
+	insert_stmt_chain (before_p, if_new);
+	return tmp;
+      }
+
+    case TRUTH_ANDIF_EXPR:
+    case TRUTH_ORIF_EXPR:
+      /* Transform this expression into T, 
+	 insert in before_p its definition : the simplified version of 
+	 'if (cond) T = 1; else T = 0;'  */
+      {
+	tree tmp, if_new;
+	
+	/* Create a temporary variable.  */
+	tmp = create_tmp_var (TREE_TYPE (expr), new_vars_p);
+
+	/* Build the THEN_CLAUSE.  */
+	t1 = build_modify_expr (tmp, NOP_EXPR, integer_one_node);
+	t1 = build_stmt (EXPR_STMT, t1);
+
+	/* Build the ELSE_CLAUSE.  */
+	t2 = build_modify_expr (tmp, NOP_EXPR, integer_zero_node);
+	t2 = build_stmt (EXPR_STMT, t2);
+	
+	/* Construct the simplified IF_STMT.  */
+	if_new = new_simplified_if (expr, t1, t2, NULL_TREE);
+	insert_stmt_chain (before_p, if_new);
+
+	return tmp;
+      }
 
       /* Assignment and initialization.  Simplify both sides, queue up the
 	 simplified expression and return the LHS.  */
     case INIT_EXPR:
+      lhs = simplify_expr (TREE_OPERAND (expr, 0), before_p,
+			   after_p, new_vars_p);
+      rhs = simplify_expr (TREE_OPERAND (expr, 1), before_p,
+			   after_p, new_vars_p);
+      TREE_OPERAND (expr, 0) = lhs;
+      TREE_OPERAND (expr, 1) = rhs;
+      add_tree (build_stmt (EXPR_STMT, expr), before_p);
+      return lhs;
+
     case MODIFY_EXPR:
-      lhs = simplify_expr (TREE_OPERAND (expr, 0), scope, before_p,
-	  after_p, new_vars_p);
-      rhs = simplify_expr (TREE_OPERAND (expr, 1), scope, before_p,
-	  after_p, new_vars_p);
+      lhs = simplify_expr (TREE_OPERAND (expr, 0), before_p,
+			   after_p, new_vars_p);
+      rhs = simplify_expr (TREE_OPERAND (expr, 1), before_p,
+			   after_p, new_vars_p);
       TREE_OPERAND (expr, 0) = lhs;
       TREE_OPERAND (expr, 1) = rhs;
       add_tree (build_stmt (EXPR_STMT, expr), before_p);
@@ -759,11 +1336,11 @@ simplify_expr (expr, scope, before_p, after_p, new_vars_p)
 	 reference and re-write the call.  */
     case CALL_EXPR:
       TREE_OPERAND (expr, 0) = simplify_expr (TREE_OPERAND (expr, 0), 
-					      scope, before_p, after_p,
+					      before_p, after_p,
 					      new_vars_p);
       if (TREE_OPERAND (expr, 1))
 	TREE_OPERAND (expr, 1) = simplify_expr (TREE_OPERAND (expr, 1),
-						scope, before_p, after_p,
+						before_p, after_p,
 						new_vars_p);
 
       return expr;
@@ -773,7 +1350,7 @@ simplify_expr (expr, scope, before_p, after_p, new_vars_p)
 	tree op;
 
 	for (op = expr; op; op = TREE_CHAIN (op))
-	  TREE_VALUE (op) = simplify_expr (TREE_VALUE (op), scope,
+	  TREE_VALUE (op) = simplify_expr (TREE_VALUE (op),
 	                                   before_p, after_p, new_vars_p);
 
 	return expr;
@@ -829,11 +1406,7 @@ create_tmp_var (type, new_vars_p)
   TREE_READONLY (tmp_var) = 0;
 
   /* Make the type of the variable writable.  */
-  if (TYPE_READONLY (TREE_TYPE (tmp_var)))
-    {
-      TREE_TYPE (tmp_var) = copy_node (TREE_TYPE (tmp_var));
-      TYPE_READONLY (TREE_TYPE (tmp_var)) = 0;
-    }
+  make_type_writable (tmp_var);
 
   /* Set the declaration context.  */
   DECL_CONTEXT (tmp_var) = current_function_decl;
@@ -845,6 +1418,53 @@ create_tmp_var (type, new_vars_p)
   add_tree (tmp_var, new_vars_p);
 
   return tmp_var;
+}
+
+/* }}} */
+
+/** {{{ make_type_writable()
+
+    Change the flags for the type of the node T to make it writtable.  */
+
+static void 
+make_type_writable (t)
+     tree t;
+{
+  if (t == NULL_TREE)
+    abort();
+
+  if (TYPE_READONLY (TREE_TYPE (t))
+      || ((TREE_CODE (TREE_TYPE (t)) == RECORD_TYPE
+	   || TREE_CODE (TREE_TYPE (t)) == UNION_TYPE)
+	  && C_TYPE_FIELDS_READONLY (TREE_TYPE (t))))
+    {
+      /* Make a copy of the type declaration.  */
+      TREE_TYPE (t) = build_type_copy (TREE_TYPE (t));
+      TYPE_READONLY (TREE_TYPE (t)) = 0;
+      
+      /* If the type is a structure that contains a field readonly.  */
+      if ((TREE_CODE (TREE_TYPE (t)) == RECORD_TYPE
+	   || TREE_CODE (TREE_TYPE (t)) == UNION_TYPE)
+	  && C_TYPE_FIELDS_READONLY (TREE_TYPE (t)))
+	{
+	  C_TYPE_FIELDS_READONLY (TREE_TYPE (t)) = 0;
+
+	  /* Make the fields of the structure writable.  */
+	  {
+	    tree it;
+	    it = TYPE_FIELDS (TREE_TYPE (t));
+	    while (it)
+	      {
+		/* Make the field writable.  */
+		TREE_READONLY (it) = 0;
+		
+		/* Make the type of the field writable.  */
+		make_type_writable (it);
+		it = TREE_CHAIN (it);
+	      }
+	  }
+	}
+    }
 }
 
 /* }}} */
@@ -894,14 +1514,28 @@ declare_tmp_vars (vars, scope)
 
 /** {{{ tree_build_scope()
    
-   Replaces T by a scope containing T.  */
+   Replaces T; by a COMPOUND_STMT containing {T;}.  */
 
 static void
 tree_build_scope (t)
      tree *t;
 {
   if (*t == NULL_TREE)
-    return;
+    {
+      /* Construct a compound statement and a scope.  */
+      tree body, start_scope, end_scope;
+      body = make_node (COMPOUND_STMT);
+      start_scope = make_node (SCOPE_STMT);
+      end_scope = make_node (SCOPE_STMT);
+      TREE_LANG_FLAG_0 (start_scope) = 1;
+      TREE_LANG_FLAG_0 (end_scope) = 0;
+      TREE_OPERAND (body, 0) = start_scope;
+      /* Construct an empty body.  */
+      TREE_CHAIN (start_scope) = end_scope;
+      /* Replace the node by the constructed body.  */
+      *t = body;
+      return;
+    }
 
   if (TREE_CODE (*t) == COMPOUND_STMT)
     {
@@ -974,7 +1608,11 @@ keep_stmt_p (t)
      declaration (e.g., 'a;') should be discarded.  */
   if (TREE_CODE (t) == EXPR_STMT
       && TREE_OPERAND (t, 0)
-      && TREE_CODE (TREE_OPERAND (t, 0)) == VAR_DECL
+      && (TREE_CODE (TREE_OPERAND (t, 0)) == VAR_DECL ||
+	  TREE_CODE (TREE_OPERAND (t, 0)) == PARM_DECL ||
+	  TREE_CODE (TREE_OPERAND (t, 0)) == INDIRECT_REF ||
+	  TREE_CODE (TREE_OPERAND (t, 0)) == ARRAY_REF ||
+	  TREE_CODE (TREE_OPERAND (t, 0)) == COMPONENT_REF)
       && !TYPE_VOLATILE (TREE_TYPE (TREE_OPERAND (t, 0))))
     return 0;
 
@@ -982,3 +1620,266 @@ keep_stmt_p (t)
 }
 
 /* }}} */
+
+/** {{{ insert_before_continue_end()
+    
+    Insert the REEVAL list before CONTINUE_STMTs and at the end of the loop body BODY.  
+    Set the line number of the REEVAL list to LINE.  */
+
+static void
+insert_before_continue_end (reeval, body, line)
+     tree reeval;
+     tree body;
+     int line;
+{
+  tree last, forelast;
+
+  /* Update the line number information.  */
+  {
+    tree it;
+    for (it = reeval; TREE_CHAIN (it); it = TREE_CHAIN (it))
+      update_line_number (it, line);
+  }
+
+  /* Make sure that the loop body has a scope.  */
+  tree_build_scope (&body);
+
+  /* Insert the reevaluation list before every CONTINUE_STMT.  */
+  /*  TREE_CHAIN (reeval) = NULL_TREE; */
+  forelast = insert_before_continue (body, reeval);
+  last = TREE_CHAIN (forelast);
+  
+  /* If the last statement of the WHILE_BODY is not a CONTINUE_STMT, 
+     then insert reeval at the end of the loop block.  */
+  if (TREE_CODE (forelast) != CONTINUE_STMT)
+    {
+      TREE_CHAIN (forelast) = NULL_TREE;
+      copy_stmt_chain (&forelast, reeval);
+      forelast = tree_last (forelast);
+      TREE_CHAIN (forelast) = last;
+    }
+}
+
+/* }}} */
+
+/** {{{ insert_before_continue()
+    
+    Insert the list REEVAL of statements before each CONTINUE_STMT in the block 
+    pointed to by NODE.  At the end returns a pointer to the forelast node in 
+    the block NODE.  The caller can insert then the last loop reevaluation at 
+    the end of the loop block.  */
+
+static tree
+insert_before_continue (node, reeval)
+     tree node, reeval;
+{
+  tree next;
+
+  if (reeval == NULL_TREE || node == NULL_TREE)
+    return NULL_TREE;
+  
+  if (TREE_CODE (node) == COMPOUND_STMT)
+    node = COMPOUND_BODY (node);
+  
+  next = TREE_CHAIN (node);
+  if (next == NULL_TREE)
+    return NULL_TREE;
+
+  /* Walk through each statement in the given block up to the last one, 
+     searching for CONTINUE_STMTs.  */
+  for ( ;TREE_CHAIN (next) != NULL_TREE; 
+	node = TREE_CHAIN (node), next = TREE_CHAIN (next))
+    {
+      switch (TREE_CODE (next))
+	{
+
+	case CONTINUE_STMT:
+	  /* Insert the reeval of statements before continue.  */
+	  TREE_CHAIN (node) = NULL_TREE;
+	  copy_stmt_chain (&node, reeval);
+	  node = tree_last (node);
+	  TREE_CHAIN (node) = next;
+	  break;
+	  
+	case IF_STMT:
+	  /* Be sure that the THEN_CLAUSE has a scope.  */
+	  tree_build_scope (&THEN_CLAUSE (next));
+
+	  /* Insert the code REEVAL in the block of the THEN_CLAUSE.  */
+	  insert_before_continue (COMPOUND_BODY (THEN_CLAUSE (next)), reeval);
+	  
+	  /* Same thing for the ELSE_CLAUSE.  */
+	  if (ELSE_CLAUSE (TREE_CHAIN (node)))
+	    {
+	      tree_build_scope (&ELSE_CLAUSE (next));
+	      insert_before_continue (COMPOUND_BODY (ELSE_CLAUSE (next)), reeval);
+	    }
+	  break;
+
+	  //§ FIXME ... to be tested ...
+	case SWITCH_STMT:
+	  /* Be sure that the SWITCH_BODY has a scope.  */
+	  tree_build_scope (&SWITCH_BODY (next));
+
+	  /* Insert the code REEVAL in the SWITCH_BODY.  */
+	  insert_before_continue (COMPOUND_BODY (SWITCH_BODY (next)), reeval);
+	  break;
+
+	case COMPOUND_STMT:
+	  /* Insert in the inner block.  */
+	  insert_before_continue (COMPOUND_BODY (next), reeval);
+	  break;
+
+	default:
+	  /* Don't enter in sub loops...  The continue statement has an effect 
+	     only at a depth 1.  */
+	  break;
+	}
+    }
+  return node;
+}
+
+/* }}} */
+
+
+/** {{{ copy_stmt_chain()
+    
+    Copy the contents of the list op2 at the end of the list op1 by creating new
+    statements.  */
+
+static void
+copy_stmt_chain (op1, op2)
+     tree *op1, op2;
+{
+  tree t1, t2;
+  if (op1 == NULL)
+    abort ();
+  
+  if (op2 == NULL_TREE)
+    /* Nothing to copy.  */
+    return;
+  
+  if (*op1)
+    {
+      /* Place t1 at the end of op1.  */
+      for (t1 = *op1; TREE_CHAIN (t1); t1 = TREE_CHAIN (t1))
+	;
+      t2 = op2;
+    }
+  else
+    {
+      /* Construct a first statement in the op1 list.  */
+      *op1 = build_stmt (EXPR_STMT, copy_node (EXPR_STMT_EXPR (op2)));
+      t1 = *op1;
+      t2 = TREE_CHAIN (op2);
+    }
+  /* Copy every statement form t2.  */
+  for (; t2; t2 = TREE_CHAIN (t2), t1 = TREE_CHAIN (t1))
+    TREE_CHAIN (t1) = copy_node (t2);
+}
+
+/* }}} */
+
+/** {{{ insert_stmt_chain()
+
+    Insert the chain op2 at the end of the chain *op1.  */
+
+static void 
+insert_stmt_chain (op1, op2)
+     tree *op1, op2;
+{
+  tree last;
+  if (op1 == NULL)
+    abort ();
+
+  if (*op1 == NULL_TREE)
+    *op1 = op2;
+  else
+    {
+      last = tree_last (*op1);
+      TREE_CHAIN (last) = op2;
+    }
+}
+
+/* }}} */
+
+/** {{{ update_line_number()
+
+    Updates the STMT_LINENO of each stmt in the tree t to the line number LINE. 
+    Returns the last stmt in the tree chain.  */
+
+static tree
+update_line_number (t, line)
+     tree t;
+     int line;
+{
+  if (t == NULL_TREE)
+    return NULL_TREE;
+
+  for (; TREE_CHAIN (t); t = TREE_CHAIN (t))
+    STMT_LINENO (t) = line;
+  STMT_LINENO (t) = line;
+  return t;
+}
+
+/* }}} */
+
+/** {{{ simplified_p()
+
+    Return one if T is an expression that is under its simplified form.  */
+
+static int
+simplified_p (t)
+     tree t;
+{
+  return simplified_rec_p (t, 0);
+}
+
+/* }}} */
+
+/** {{{ simplified_p()
+    
+    Return one if T is an expression that is under its simplified form.
+    DEPTH is the nest level of recursion, call this function with DEPTH=0.  */
+
+static int
+simplified_rec_p (t, depth)
+     tree t;
+     int depth;
+{
+  switch (TREE_CODE (t))
+    {
+    case INTEGER_CST:
+    case REAL_CST:
+    case COMPLEX_CST:
+    case STRING_CST:
+    case CONST_DECL:
+    case VAR_DECL:
+    case PARM_DECL:
+    case FIELD_DECL:
+      return 1;
+
+    case MODIFY_EXPR:
+    case LT_EXPR:
+    case LE_EXPR:
+    case GT_EXPR:
+    case GE_EXPR:
+    case EQ_EXPR:
+    case NE_EXPR:
+    case UNLT_EXPR:
+    case UNLE_EXPR:
+    case UNGT_EXPR:
+    case UNGE_EXPR:
+    case UNEQ_EXPR:
+      /* Binary expressions : both sides must be simplified.  */
+      if (depth == 0 &&
+	  simplified_rec_p (TREE_OPERAND (t, 0), 1) &&
+	  simplified_rec_p (TREE_OPERAND (t, 1), 1))
+	return 1;
+      else 
+	return 0;
+
+    default:
+      return 0;
+    }
+}
