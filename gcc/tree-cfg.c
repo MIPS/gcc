@@ -1457,6 +1457,24 @@ remove_useless_stmts_and_vars (first_p)
 	{
 	  repeat |= remove_useless_stmts_and_vars (&TREE_OPERAND (*stmt_p, 0));
 	  repeat |= remove_useless_stmts_and_vars (&TREE_OPERAND (*stmt_p, 1));
+
+	  /* If the body of a TRY_FINALLY is empty, then we can just
+	     emit the handler without the enclosing TRY_FINALLY.
+                                                                                
+	     If the body of a TRY_CATCH is empty and the handler is
+	     empty (it had no reachable code either), then we can
+	     emit an empty statement without the enclosing TRY_CATCH.  */
+	  if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 0)))
+	    {
+	      if (code == TRY_FINALLY_EXPR
+		  || IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 1)))
+		*stmt_p = TREE_OPERAND (*stmt_p, 1);
+
+	      /* If we replaced this statement with an empty statement,
+		 then we'll need to repeat this optimization.  */
+	      if (IS_EMPTY_STMT (*stmt_p))
+		repeat = 1;
+	    }
 	}
       else if (code == BIND_EXPR)
 	{

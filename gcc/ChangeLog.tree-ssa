@@ -1,3 +1,11 @@
+2003-05-09  Jeff Law  <law@redhat.com>
+
+	* c-simplify.c (simplify_cleanup): Remove code which optimizes
+	TRY_FINALLY and TRY_CATCH.  It doesn't trigger.
+ 
+	* tree-cfg.c (remove_useless_stmts_and_vars): Optimize away
+	TRY_CATCH and TRY_FINALLY blocks when possible.
+
 2003-05-09  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-pretty-print.c (dump_generic_node): CONSTRUCTOR

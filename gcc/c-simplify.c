@@ -437,22 +437,7 @@ simplify_cleanup (stmt_p, next_p)
 
   c_simplify_stmt (&body);
 
-  if (IS_EMPTY_STMT (body))
-    {
-      /* If the body of a TRY_FINALLY is empty, then we can just
-	 emit the handler without the enclosing TRY_FINALLY. 
-
-	 If the body of a TRY_CATCH is empty and the handler has
-	 no reachable code, then we can emit an empty statement
-	 without the enclosing TRY_CATCH.  */
-      if (code == TRY_FINALLY_EXPR)
-	*stmt_p = cleanup;
-      else if (! find_reachable_label (cleanup))
-	*stmt_p = build_empty_stmt ();
-    }
-  else
-    *stmt_p = build (code, void_type_node, body, cleanup);
-
+  *stmt_p = build (code, void_type_node, body, cleanup);
   *next_p = NULL_TREE;
 }
 
