@@ -705,6 +705,71 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGraphics2D_drawPixels
 
 }
 
+JNIEXPORT jintArray JNICALL Java_gnu_java_awt_peer_gtk_GdkGraphics2D_getImagePixels 
+   (JNIEnv *env, jobject obj)
+{
+  struct graphics2d *gr = NULL;
+  jintArray java_pixels;
+  jint* native_pixels;
+  GdkPixbuf *buf = NULL;
+  gint width, height;
+  gint bits_per_sample = 8;
+  gboolean has_alpha = TRUE;
+  gint total_channels = 4;
+  jint i, px;
+
+  gr = (struct graphics2d *) NSA_GET_G2D_PTR (env, obj);
+  g_assert (gr != NULL);
+  
+  if (gr->debug) printf ("getImagePixels\n");
+  
+  gdk_drawable_get_size (gr->drawable, &width, &height);
+    
+  buf = gdk_pixbuf_new (GDK_COLORSPACE_RGB, has_alpha, 
+                        bits_per_sample,
+                        width, height);
+  g_assert (buf != NULL);
+  g_assert (gdk_pixbuf_get_bits_per_sample (buf) == bits_per_sample);
+  g_assert (gdk_pixbuf_get_n_channels (buf) == total_channels);
+  
+      
+  /* copy pixels from drawable to pixbuf */
+  
+  gdk_pixbuf_get_from_drawable (buf, gr->drawable,
+                                NULL, 
+                                0, 0, 0, 0,
+                                width, height);
+ 								      				      
+  native_pixels= gdk_pixbuf_get_pixels (buf);
+  
+     
+  /* NOTE: The pixels we got in the pixbuf are stored 
+     in reversed order. i.e 0xBBGGRRAA. 
+     We need to convert them to  0xAARRGGBB. */
+   
+  for (i=0; i<width * height; i++) 
+    {	     
+  	      
+        /* convert pixels from 0xBBGGRRAA to 0xAARRGGBB */
+        
+        px = native_pixels[i];
+        px = ((px >> 24) & 0xff) | ((px << 8) & 0xffffff00); 
+        px = ((px >>  8) & 0x00ff00ff) | ((px <<  8) & 0xff00ff00); 
+        px = ((px >> 16) & 0x0000ffff) | ((px << 16) & 0xffff0000); 
+        native_pixels[i] = px;
+      
+    }
+
+   java_pixels = (*env) -> NewIntArray (env, width * height);   
+   
+   (*env)->SetIntArrayRegion(env, java_pixels, 
+                            (jsize)0, (jsize) width*height, 
+                            (jint*) native_pixels);
+   
+   return java_pixels;
+  
+}
+
 /* passthrough methods to cairo */
 
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGraphics2D_cairoSave 

@@ -92,6 +92,7 @@ public class GdkGraphics2D extends Graphics2D
   native private void initState (int width, int height);
   native private void copyState (GdkGraphics2D g);
   native public void dispose ();
+  native private int[] getImagePixels();
   native private void cairoSurfaceSetFilter(int filter);
 
   public void finalize ()
@@ -382,6 +383,52 @@ public class GdkGraphics2D extends Graphics2D
     return defaultHints;
     
   }
+
+  
+  private boolean isBufferedImageGraphics ()
+  {
+
+    if (bimage != null)
+      return true;
+    else
+      return false;
+  }
+    
+  private void updateImagePixels (int[] pixels)
+  {
+
+    // This function can only be used if 
+    // this graphics object is used to draw into 
+    // buffered image 
+	
+    if (! isBufferedImageGraphics ()) 
+      return;
+
+    WritableRaster raster = bimage.getRaster();		      
+    DataBuffer db = raster.getDataBuffer ();
+
+    // update pixels in the bufferedImage
+
+    if (raster.getSampleModel ().getDataType () == DataBuffer.TYPE_INT 
+        && db instanceof DataBufferInt 
+        && db.getNumBanks () == 1)
+      {
+
+        // single bank, ARGB-ints buffer in sRGB space
+        DataBufferInt dbi = (DataBufferInt) raster.getDataBuffer ();
+
+        for (int i=0; i < pixels.length; i++) 
+          dbi.setElem(i, pixels[i]);
+	 			
+      }
+    else 
+      {        
+        bimage.getRaster().setPixels (0, 0, raster.getWidth (),
+                                      raster.getHeight (), pixels);
+      }
+  }
+
+
 
   //////////////////////////////////////////////////
   ////// Implementation of Graphics2D Methods //////

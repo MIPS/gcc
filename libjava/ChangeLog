@@ -1,3 +1,16 @@
+2004-02-26  Olga Rodimina <rodimina@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java
+	(isBufferedImageGraphics): New Helper function. 
+	Returns true if this graphics2d can be used to draw 
+	into buffered image and false otherwise.
+	(updateImagePixels): New Helper function. 
+	Updates pixels in the BufferedImage.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
+	(getImagePixels): New function. Returns pixels
+	of the buffered image associated with 
+	this Graphics2D.
+
 2004-02-26  David Jee  <djee@redhat.com>
 
 	* java/awt/BorderLayout.java
