@@ -105,6 +105,7 @@ static tree expand_call_inline PARAMS ((tree *, int *, void *));
 static void expand_calls_inline PARAMS ((tree *, inline_data *));
 static int inlinable_function_p PARAMS ((tree, inline_data *));
 static tree remap_decl PARAMS ((tree, inline_data *));
+static tree remap_decls PARAMS ((tree, inline_data *));
 static tree initialize_inlined_parameters PARAMS ((inline_data *, tree, tree, tree));
 static tree add_stmt_to_compound PARAMS ((tree, tree, tree));
 static void remap_block PARAMS ((tree *, inline_data *));

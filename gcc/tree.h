@@ -2691,6 +2691,10 @@ extern int fields_length		PARAMS ((tree));
 
 extern bool initializer_zerop		PARAMS ((tree));
 
+/* add_var_to_bind_expr (bind_expr, var) binds var to bind_expr.  */
+
+extern void add_var_to_bind_expr	PARAMS ((tree, tree));
+
 /* integer_zerop (tree x) is nonzero if X is an integer constant of value 0 */
 
 extern int integer_zerop		PARAMS ((tree));
@@ -3154,6 +3158,7 @@ extern bool parse_output_constraint     PARAMS ((const char **,
 						 bool *, bool *, bool *));
 extern void expand_asm_operands		PARAMS ((tree, tree, tree, tree, int,
 						 const char *, int));
+extern void expand_asm_expr		PARAMS ((tree));
 extern int any_pending_cleanups		PARAMS ((int));
 extern void init_stmt_for_function	PARAMS ((void));
 extern void expand_start_target_temps	PARAMS ((void));

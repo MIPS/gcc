@@ -1,3 +1,13 @@
+2002-11-29  Andreas Jaeger  <aj@suse.de>
+
+	* tree-alias-ander.c: Declare print_out_result.
+
+	* tree-ssa-pre.c: Declare is_on_lhs and call_modifies_slot.
+
+	* tree.h: Declare expand_asm_expr and add_var_to_bind_expr.
+
+	* tree-inline.c: Declare remap_decls.
+
 2002-11-28  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-alias-common.h: Start adding doxygen docs.

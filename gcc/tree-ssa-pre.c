@@ -104,6 +104,7 @@ static int add_call_to_ei PARAMS ((struct expr_info *, void *));
 static void reset_down_safe PARAMS ((tree_ref));
 static void down_safety PARAMS ((struct expr_info *));
 static void will_be_avail PARAMS ((struct expr_info *));
+static bool call_modifies_slot PARAMS ((tree_ref, tree));
 static void compute_can_be_avail PARAMS ((struct expr_info *));
 static void reset_can_be_avail PARAMS ((struct expr_info *, tree_ref));
 static void compute_later PARAMS ((struct expr_info *));
@@ -147,6 +148,7 @@ static void update_ssa_for_new_use PARAMS ((tree, tree, tree_ref, basic_block));
 static int find_reaching_def_of_var PARAMS ((tree_ref, basic_block, tree_ref));
 static void temp_fix_refs PARAMS ((tree, tree, tree *));
 static void update_old_new PARAMS ((struct expr_info *, tree *, tree *));
+static bool is_on_lhs PARAMS ((tree *, tree *));
 static bool names_match_p PARAMS ((tree, tree));
 static tree_ref get_injured_use PARAMS ((struct expr_info *, tree_ref, tree));
 static inline bool is_a_call PARAMS ((tree));
@@ -2917,6 +2919,7 @@ will_be_avail (ei)
   compute_can_be_avail (ei);
   compute_later (ei);
 }
+
 static bool
 call_modifies_slot (call, expr)
      tree_ref call;

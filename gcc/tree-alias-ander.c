@@ -81,6 +81,7 @@ static void andersen_function_call PARAMS ((struct tree_alias_ops *,
 					    alias_typevar, alias_typevar,
 					    varray_type));
 static void andersen_init PARAMS ((struct tree_alias_ops *));
+static int print_out_result PARAMS ((splay_tree_node, void *));
 static void andersen_cleanup PARAMS ((struct tree_alias_ops *));
 static bool andersen_may_alias PARAMS ((struct tree_alias_ops *,
 					alias_typevar, alias_typevar));
