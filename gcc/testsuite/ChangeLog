@@ -1,3 +1,7 @@
+2005-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/parse/jumptocaselab1.C: New test.
+
 2003-07-14  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/7053
