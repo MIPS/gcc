@@ -1,5 +1,11 @@
 2004-11-01  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/image/ConvolveOp.java: New class.
+	* Makefile.am: Add ConvolveOp.
+	* Makefile.in: Regenerate.
+
+2004-11-01  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/image/RescaleOp.java (BandCombineOp, ColorConvertOp,
 	LookupOp, RescaleOp): Fix loop bounds.
 

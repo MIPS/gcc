@@ -816,6 +816,7 @@ java/awt/image/ColorConvertOp.java \
 java/awt/image/ColorModel.java \
 java/awt/image/ComponentColorModel.java \
 java/awt/image/ComponentSampleModel.java \
+java/awt/image/ConvolveOp.java \
 java/awt/image/DataBuffer.java \
 java/awt/image/DataBufferByte.java \
 java/awt/image/DataBufferDouble.java \
@@ -3055,7 +3056,8 @@ java/awt/image/BandedSampleModel.lo java/awt/image/BufferedImage.lo \
 java/awt/image/BufferedImageFilter.lo java/awt/image/ByteLookupTable.lo \
 java/awt/image/ColorConvertOp.lo \
 java/awt/image/ColorModel.lo java/awt/image/ComponentColorModel.lo \
-java/awt/image/ComponentSampleModel.lo java/awt/image/DataBuffer.lo \
+java/awt/image/ComponentSampleModel.lo java/awt/image/ConvolveOp.lo \
+java/awt/image/DataBuffer.lo \
 java/awt/image/DataBufferByte.lo java/awt/image/DataBufferDouble.lo \
 java/awt/image/DataBufferFloat.lo java/awt/image/DataBufferInt.lo \
 java/awt/image/DataBufferShort.lo java/awt/image/DataBufferUShort.lo \
@@ -4368,6 +4370,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/awt/image/ColorModel.P \
 .deps/java/awt/image/ComponentColorModel.P \
 .deps/java/awt/image/ComponentSampleModel.P \
+.deps/java/awt/image/ConvolveOp.P \
 .deps/java/awt/image/CropImageFilter.P \
 .deps/java/awt/image/DataBuffer.P .deps/java/awt/image/DataBufferByte.P \
 .deps/java/awt/image/DataBufferDouble.P \

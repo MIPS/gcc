@@ -1139,6 +1139,7 @@ java/awt/image/ColorConvertOp.java \
 java/awt/image/ColorModel.java \
 java/awt/image/ComponentColorModel.java \
 java/awt/image/ComponentSampleModel.java \
+java/awt/image/ConvolveOp.java \
 java/awt/image/DataBuffer.java \
 java/awt/image/DataBufferByte.java \
 java/awt/image/DataBufferDouble.java \
