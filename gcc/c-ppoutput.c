@@ -368,6 +368,7 @@ pp_file_change (const struct line_map *map)
 	  print_line (map, map->from_line, flags);
 	}
     }
+
   print.map = map;
 }
 
