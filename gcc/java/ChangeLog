@@ -1,3 +1,10 @@
+2002-10-06  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/6627
+	* java/lang.c (java_init): If storing the vbit in function
+	pointers, ensure that force_align_functions_log is atleast
+	one to aid compatability with g++ vtables.
+
 2002-03-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* lang.c (java_tree_code_type, java_tree_code_length,

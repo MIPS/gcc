@@ -1,3 +1,7 @@
+2002-10-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (all): Fix multilib parallel build.
+
 2002-05-13  Andreas Schwab  <schwab@suse.de>
 
 	* config.table: Use mh-x86pic also for x86-64.
