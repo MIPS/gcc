@@ -1,3 +1,9 @@
+2004-02-11  Josef Zlomek  <zlomekj@suse.cz>
+
+	Ulrich Weigand  <uweigand@de.ibm.com>
+	* tree.h (frame_base_decl): Add GTY marker.
+	* var-tracking.c (frame_base_decl): Likewise.
+
 2004-02-11  Alan Modra  <amodra@bigpond.net.au>
 
 	* config/rs6000/linux64.h (MD_FALLBACK_FRAME_STATE_FOR): Don't

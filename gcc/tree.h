@@ -2189,7 +2189,7 @@ enum ptrmemfunc_vbit_where_t
    statistical reports, not code generation.  */
 extern double approx_sqrt		PARAMS ((double));
 
-extern tree frame_base_decl;
+extern GTY(()) tree frame_base_decl;
 extern tree decl_assembler_name		PARAMS ((tree));
 
 /* Compute the number of bytes occupied by 'node'.  This routine only
