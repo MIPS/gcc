@@ -1,3 +1,8 @@
+2004-12-04  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.in: Correct rule for rebuilding Makefile.  Remove obsolete,
+	unused, inaccurate, redundant material.
+
 2004-12-02  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* configure.ac: Fix dumb bug in TRACE clause.

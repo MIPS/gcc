@@ -19,62 +19,28 @@
 #Boston, MA 02111-1307, USA.
 
 # The makefile built from this file lives in the language subdirectory.
-# Its purpose is to provide support for:
-#
-# 1) recursion where necessary, and only then (building .o's), and
-# 2) building and debugging cc1 from the language subdirectory, and
-# 3) nothing else.
-#
-# The parent makefile handles all other chores, with help from the
-# language makefile fragment, of course.
-#
-# The targets for external use are:
-# all, TAGS, ???mostlyclean, ???clean.
+# Its purpose is to provide support for gnatlib and gnattools builds.
+# It is not to be used for building gnat1.
 
-# This makefile will only work with Gnu make.
-# The rules are written assuming a minimum subset of tools are available:
-#
-# Required:
-#      MAKE:    Only Gnu make will work.
-#      MV:      Must accept (at least) one, maybe wildcard, source argument,
-#               a file or directory destination, and support creation/
-#               modification date preservation.  Gnu mv -f works.
-#      RM:      Must accept an arbitrary number of space separated file
-#               arguments, or one wildcard argument. Gnu rm works.
-#      RMDIR:   Must delete a directory and all its contents. Gnu rm -rf works.
-#      ECHO:    Must support command line redirection. Any Unix-like
-#               shell will typically provide this, otherwise a custom version
-#               is trivial to write.
-#      AR:      Gnu ar works.
-#      MKDIR:   Gnu mkdir works.
-#      CHMOD:   Gnu chmod works.
-#      true:    Does nothing and returns a normal successful return code.
-#      pwd:     Prints the current directory on stdout.
-#      cd:      Change directory.
-#
-# Optional:
-#      BISON:   Gnu bison works.
-#      FLEX:    Gnu flex works.
-#      Other miscellaneous tools for obscure targets.
+# This will fail; this needs to be invoked from libada or gnattools.
+all: all.indirect
 
 # Tell GNU make 3.79 not to run this directory in parallel.
 # Not all of the required dependencies are present.
 .NOTPARALLEL:
+# This tells GNU Make version 3 not to put all variables in the environment.
+.NOEXPORT:
 
-# Suppress smart makes who think they know how to automake Yacc files
-.y.c:
-
-# Variables that exist for you to override.
+# Variables that exist for you (or autoconf) to override.
 # See below for how to change them for certain systems.
+SHELL = @SHELL@
+PWD_COMMAND = $${PWDCMD-pwd}
 
 # Various ways of specifying flags for compilations:  
 # CFLAGS is for the user to override to, e.g., do a bootstrap with -O2.
-# BOOT_CFLAGS is the value of CFLAGS to pass
-# to the stage2 and stage3 compilations
 # XCFLAGS is used for most compilations but not when using the GCC just built.
 XCFLAGS =
 CFLAGS = -g
-BOOT_CFLAGS = -O $(CFLAGS)
 # These exists to be overridden by the x-* and t-* files, respectively.
 X_CFLAGS =
 T_CFLAGS =
@@ -89,11 +55,7 @@ X_ADAFLAGS =
 T_ADAFLAGS =
 
 CC = cc
-BISON = bison
-BISONFLAGS =
 ECHO = echo
-LEX = flex
-LEXFLAGS =
 CHMOD = chmod
 LN = ln
 LN_S = ln -s
@@ -104,16 +66,11 @@ RMDIR = rm -rf
 MKDIR = mkdir -p
 AR = @AR@
 AR_FLAGS = rc
-LS = ls
 RANLIB = @RANLIB@
 RANLIB_FLAGS = @ranlib_flags@
 
-SHELL = @SHELL@
-PWD_COMMAND = $${PWDCMD-pwd}
 # How to copy preserving the date
 INSTALL_DATA_DATE = cp -p
-MAKEINFO = makeinfo
-TEXI2DVI = texi2dvi
 GNATBIND = $(STAGE_PREFIX)gnatbind
 GNATBIND_FLAGS = -static -x
 ADA_CFLAGS =
@@ -149,21 +106,6 @@ hyphen = @hyphen@
 # to compile all the gen* files first by hand to avoid erroneous results.
 P =
 
-# This is used instead of ALL_CFLAGS when compiling with GCC_FOR_TARGET.
-# It omits XCFLAGS, and specifies -B./.
-# It also specifies -B$(tooldir)/ to find as and ld for a cross compiler.
-GCC_CFLAGS = $(INTERNAL_CFLAGS) $(X_CFLAGS) $(T_CFLAGS) $(CFLAGS)
-
-# Tools to use when building a cross-compiler.
-# These are used because `configure' appends `cross-make'
-# to the makefile when making a cross-compiler.
-
-# We don't use cross-make.  Instead we use the tools from the build tree,
-# if they are available.
-# program_transform_name and objdir are set by configure.in.
-program_transform_name =
-objdir = .
-
 host_canonical=@host@
 target=@target@
 # Include the libada 'information passing' script
@@ -183,17 +125,11 @@ fsrcpfx := $(shell cd $(srcdir);${PWD_COMMAND})/
 fcurdir := $(shell ${PWD_COMMAND})
 fcurpfx := $(shell ${PWD_COMMAND})/
 
-# Top build directory, relative to here.
-top_builddir = ../..
-
 # Any system libraries needed just for GNAT.
 SYSLIBS = @GNAT_LIBEXC@
 
 # List of extra object files linked in with various programs.
 EXTRA_GNATTOOLS_OBJS = ../../prefix.o ../../version.o
-
-# List of target dependent sources, overridden below as necessary
-TARGET_ADA_SRCS =
 
 # Type of tools build we are doing; default is not compiling tools.
 TOOLSCASE =
@@ -214,11 +150,6 @@ EXTRA_LIBGNAT_SRCS = @EXTRA_LIBGNAT_SRCS@
 EXTRA_LIBGNAT_OBJS = @EXTRA_LIBGNAT_OBJS@
 EXTRA_GNATMAKE_OBJS = @EXTRA_GNATMAKE_OBJS@
 
-all: all.indirect
-
-# This tells GNU Make version 3 not to put all variables in the environment.
-.NOEXPORT:
-
 # gcc_tmake_file and gcc_xmake_file expand to lists with entries of the form
 # $(srcdir)/config/...  but here $(srcdir) is the ada subdirectory so we
 # need to adjust the paths.  There can't be spaces in the subst arguments
@@ -235,8 +166,6 @@ include $(subst /config,/../config,$(gcc_xmake_file))
 endif
 
 # Now figure out from those variables how to compile and link.
-
-all.indirect: Makefile ../gnat1$(exeext)
 
 # IN_GCC distinguishes between code compiled into GCC itself and other
 # programs built during a bootstrap.
@@ -303,15 +232,9 @@ ifeq ($(vms_host),yes)
 endif
 
 # how to regenerate this file
-Makefile: ../config.status $(srcdir)/Makefile.in $(srcdir)/../version.c
-	cd ..; \
-	LANGUAGES="$(CONFIG_LANGUAGES)" \
-	CONFIG_HEADERS= \
-	CONFIG_FILES=ada/Makefile $(SHELL) config.status
+Makefile: config.status $(srcdir)/Makefile.in $(srcdir)/../version.c
+	$(SHELL) config.status
 
-# This tells GNU make version 3 not to export all the variables
-# defined in this file into the environment.
-.NOEXPORT:
 
 # Lists of files for various purposes.
 
@@ -824,10 +747,6 @@ gnatlib-zcx: ../stamp-gnatlib1
 	     THREAD_KIND="$(THREAD_KIND)" \
 	     TARGET_LIBGCC2_CFLAGS="$(TARGET_LIBGCC2_CFLAGS)" gnatlib
 
-# .s files for cross-building
-gnat-cross: force
-	make $(GNAT1_ADA_OBJS) CC="gcc -B../stage1/" CFLAGS="-S -gnatp"
-
 # Compiling object files from source files.
 
 # Note that dependencies on obstack.h are not written
@@ -920,9 +839,8 @@ tracebak.o  : tracebak.c tb-alvms.c tb-alvxw.c
 	$(CC) -c $(ALL_CFLAGS) $(ADA_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	      -fno-omit-frame-pointer $< $(OUTPUT_OPTION)
 
-# In GNU Make, ignore whether `stage*' exists.
-.PHONY: stage1 stage2 stage3 stage4 clean realclean TAGS bootstrap
-.PHONY: risky-stage1 risky-stage2 risky-stage3 risky-stage4
+# In GNU Make, ignore whether 'clean' exists
+.PHONY: clean realclean TAGS
 
 force:
 
