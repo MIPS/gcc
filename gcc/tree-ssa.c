@@ -2600,10 +2600,7 @@ avail_expr_hash (p)
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     {
       tree op = *((tree *) VARRAY_GENERIC_PTR (ops, i));
-      if (TREE_CODE (op) == SSA_NAME)
-	val = iterative_hash_object (SSA_NAME_VERSION (op), val);
-      else
-	val = iterative_hash_expr (op, val);
+      val = iterative_hash_expr (op, val);
     }
 
   /* Add the SSA version numbers of every vuse operand.  This is important
@@ -2612,7 +2609,7 @@ avail_expr_hash (p)
      representing all the elements of the array.  */
   ops = vuse_ops (stmt);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    val = iterative_hash_object (SSA_NAME_VERSION (VARRAY_TREE (ops, i)), val);
+    val = iterative_hash_expr (VARRAY_TREE (ops, i), val);
 
   return val;
 }

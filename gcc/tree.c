@@ -3608,6 +3608,11 @@ iterative_hash_expr (tree t, hashval_t val)
       for (; t; t = TREE_CHAIN (t))
 	val = iterative_hash_expr (TREE_VALUE (t), val);
     }
+  else if (code == SSA_NAME)
+    {
+      val = iterative_hash_object (SSA_NAME_VERSION (t), val);
+      val = iterative_hash_expr (SSA_NAME_VAR (t), val);
+    }
   else
     abort ();
 
