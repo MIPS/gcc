@@ -223,6 +223,6 @@ case "${target}" in
 esac
 
 # Output: create a Makefile.
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile Make-tools])
 
 AC_OUTPUT

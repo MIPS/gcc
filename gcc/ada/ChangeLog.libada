@@ -1,5 +1,11 @@
 2004-12-19  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* Make-tools.in: Move to gnattools subdir.
+	* configure.ac: Don't build Make-tools.
+	* configure: Regenerate.
+
+2004-12-19  Nathanael Nerode  <neroden@gcc.gnu.org>
+
 	* Makefile.in: Remove tools-specific and unused stuff.
 	* Make-tools.in: Remove autoconf substitutions now handled by
 	gnattools subdir.

@@ -1248,7 +1248,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
-                    ac_config_files="$ac_config_files Makefile Make-tools"
+          ac_config_files="$ac_config_files Makefile"
 
 
 ac_aux_dir=
@@ -1362,7 +1362,7 @@ test -n "$target_alias" &&
 # Converted from hideous Make-isms by Nathanael Nerode.
 
 # TRACE and THREAD_KIND; we expect these to be passed down from above,
-# for now (
+# for now
 case "${TRACE}" in
   "")
     TRACE=no
@@ -4184,7 +4184,6 @@ do
   case "$ac_config_target" in
   # Handling of arguments.
   "Makefile" ) CONFIG_FILES="$CONFIG_FILES Makefile" ;;
-  "Make-tools" ) CONFIG_FILES="$CONFIG_FILES Make-tools" ;;
   *) { { echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
 echo "$as_me: error: invalid argument: $ac_config_target" >&2;}
    { (exit 1); exit 1; }; };;

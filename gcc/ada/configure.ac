@@ -1,5 +1,4 @@
-# Configure script for gcc/ada/Makefile.in, which builds libada,
-# and gcc/ada/Make-tools.in, which builds gnattools.
+# Configure script for gcc/ada/Makefile.in, which builds libada
 
 #Copyright 1994-2004 Free Software Foundation, Inc.
 
@@ -26,7 +25,7 @@
 AC_PREREQ(2.59)
 AC_INIT
 AC_CONFIG_SRCDIR(calendar.ads)
-AC_CONFIG_FILES(Makefile Make-tools)
+AC_CONFIG_FILES(Makefile)
 
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
