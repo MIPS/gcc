@@ -1,3 +1,20 @@
+2004-06-22  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
+	(GtkComponentPeer): Remove temporary try/catch block.
+	(setVisible): Call show and hide.
+	(show): Make native.
+	(hide): Likewise.
+	(getArgs): Don't add "visible" argument.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
+	(property_notify_predicate): Return Bool instead of int.
+	(find_layout): New function.
+	(connectJObject): Call find_layout.
+	(connectSignals): Likewise.
+	(moveLayout): Likewise.
+	(gtkLayoutSetVisible): Likewise.
+
 2004-06-22  Olga Rodimina  <rodimina@redhat.com>
 
 	* javax/swing/AbstractButton.java:

@@ -115,27 +115,25 @@ public class GtkComponentPeer extends GtkGenericPeer
     this.awtComponent = awtComponent;
     insets = new Insets (0, 0, 0, 0);
 
-    /* temporary try/catch block until all peers use this creation method */
-    try {
-      create ();
+    create ();
       
-      GtkArgList args = new GtkArgList ();
-      getArgs (awtComponent, args);
-      args.setArgs (this);
+    GtkArgList args = new GtkArgList ();
+    getArgs (awtComponent, args);
+    args.setArgs (this);
 
-      connectJObject ();
-      connectSignals ();
+    connectJObject ();
+    connectSignals ();
 
-      if (awtComponent.getForeground () != null)
-	setForeground (awtComponent.getForeground ());
-      if (awtComponent.getBackground () != null)
-	setBackground (awtComponent.getBackground ());
-      if (awtComponent.getFont() != null)
-	setFont(awtComponent.getFont());
+    if (awtComponent.getForeground () != null)
+      setForeground (awtComponent.getForeground ());
+    if (awtComponent.getBackground () != null)
+      setBackground (awtComponent.getBackground ());
+    if (awtComponent.getFont() != null)
+      setFont(awtComponent.getFont());
 
-      setCursor (awtComponent.getCursor ());
-      if (this instanceof GtkFileDialogPeer && awtComponent.getHeight() == 0
-          && awtComponent.getWidth() == 0)
+    setCursor (awtComponent.getCursor ());
+    if (this instanceof GtkFileDialogPeer && awtComponent.getHeight() == 0
+        && awtComponent.getWidth() == 0)
       {
         int[] dims = new int[2];
         gtkWidgetGetDimensions(dims);
@@ -145,9 +143,8 @@ public class GtkComponentPeer extends GtkGenericPeer
                                                      dims[0], dims[1]);
       }
 
-      Rectangle bounds = awtComponent.getBounds ();
-      setBounds (bounds.x, bounds.y, bounds.width, bounds.height);
-    } catch (RuntimeException ex) { ; }
+    Rectangle bounds = awtComponent.getBounds ();
+    setBounds (bounds.x, bounds.y, bounds.width, bounds.height);
   }
 
   public int checkImage (Image image, int width, int height, 
@@ -157,7 +154,7 @@ public class GtkComponentPeer extends GtkGenericPeer
     return i.checkImage ();
   }
 
-  public Image createImage (ImageProducer producer) 
+  public Image createImage (ImageProducer producer)
   {
     return new GtkImage (producer, null);
   }
@@ -449,18 +446,14 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public void setVisible (boolean b)
   {
-    set ("visible", b);
-  }
-  
-  public void hide () 
-  {
-    setVisible (false);
+    if (b)
+      show ();
+    else
+      hide ();
   }
 
-  public void show () 
-  {
-    setVisible (true);
-  }
+  public native void hide ();
+  public native void show ();
 
   protected void postMouseEvent(int id, long when, int mods, int x, int y, 
 				int clickCount, boolean popupTrigger) 
@@ -514,7 +507,6 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public void getArgs (Component component, GtkArgList args)
   {
-    args.add ("visible", component.isVisible ());
     args.add ("sensitive", component.isEnabled ());
 
     ComponentPeer p;
