@@ -1132,6 +1132,7 @@ init_c_common_once ()
       cpp_get_callbacks (parse_in)->enter_fragment = cb_enter_fragment;
       cpp_get_callbacks (parse_in)->exit_fragment = cb_exit_fragment;
       cpp_get_callbacks (parse_in)->uses_fragment = cb_uses_fragment;
+      cpp_get_callbacks (parse_in)->avoid_new_fragment = cb_avoid_new_fragment;
     }
 
   init_pragma ();

@@ -4715,6 +4715,15 @@ cb_exit_fragment (reader, fragment)
 #endif
 }
 
+/* True if this is a bad place to create a new fragment.
+   Specifially, true if we're nested inside a toplevel declaration. */
+
+bool
+cb_avoid_new_fragment (cpp_reader* reader ATTRIBUTE_UNUSED)
+{
+  return currently_nested > 0;
+}
+
 /* A cpp-callable wrapper around register_fragment_dependency. */
 
 void

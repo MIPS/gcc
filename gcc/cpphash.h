@@ -272,6 +272,9 @@ struct cpp_fragment
   const unsigned char *end_next_line;
   struct cpp_macro_note *macro_notes;
   int macro_notes_count;
+  /* If end==NULL, the length of the if_stack at the start of this
+   * fragment.  Otherwise, the length at the end of the fragment. */
+  int cond_nesting;
 
   /* True if this fragment contains no non-space not-comment tokene.
    * If end==NULL, this is a cache for mi_valid. */

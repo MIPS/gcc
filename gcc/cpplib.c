@@ -102,6 +102,7 @@ static void run_directive (cpp_reader *, int, const char *, size_t);
 static char *glue_header_name (cpp_reader *);
 static const char *parse_include (cpp_reader *, int *);
 static void push_conditional (cpp_reader *, int, int, const cpp_hashnode *);
+static int if_stack_length (cpp_reader *);
 static unsigned int read_flag (cpp_reader *, unsigned int);
 static int strtoul_for_line (const uchar *, unsigned int, unsigned long *);
 static void do_diagnostic (cpp_reader *, int, int);
@@ -297,10 +298,17 @@ _cpp_start_fragment (pfile)
 	      fragment = next_fragment;
 	    }
 	  fragment->start = cur;
-	  fragment->end = 0;
 	}
       pfile->current_fragment = fragment;
       _cpp_enter_fragment (pfile, fragment);
+      if (fragment->end == NULL)
+	fragment->cond_nesting = if_stack_length (pfile);
+      else
+	{
+	  int conds = fragment->cond_nesting - if_stack_length (pfile);
+	  while (--conds >= 0)
+	    push_conditional (pfile, 0, 0, NULL);
+	}
     }
 }
 
@@ -405,7 +413,39 @@ _cpp_handle_directive (cpp_reader *pfile, int indented)
 		   "style of line directive is a GCC extension");
     }
 
-  fragment_boundary = (dir != &dtable[T_DEFINE] && dir != &dtable[T_UNDEF]);
+  if (pfile->state.skipping || dir == NULL)
+    fragment_boundary = 0;
+  else if ((dir->flags & (COND|IF_COND)) == COND) /* else, elif, endif */
+    {
+      /* If the current fragment is nested inside the current conditional,
+	 then we want to end the fragment before the #else/#else/#endif.
+	 If the conditional is nested inside the fragment, we don't want to
+	 end fragment at least until we get to the matching #endif. */
+      fragment_boundary = pfile->current_fragment == NULL
+	|| if_stack_length (pfile) == pfile->current_fragment->cond_nesting; 
+    }
+  else if (dir->flags & COND) /* ifdef, ifndef, if */
+    {
+      /* We have a choice: Start a new fragment here, or continue the current
+	 fragment so it encompasses the conditional.  Smaller fragments may
+	 reduce the amount that has to be invalidated.  However, we don't want
+	 a fragment that is syntactially invalid.  So ask the front-end. */
+      fragment_boundary
+	= (pfile->cb.avoid_new_fragment == NULL ? 1
+	   : ! pfile->cb.avoid_new_fragment (pfile));
+    }
+  else if (dir == &dtable[T_DEFINE] || dir == &dtable[T_UNDEF])
+    {
+      /* #define and #undef are part of fragments. */
+      fragment_boundary = 0;
+    }
+  else
+    {
+      /* Other directives (specifically #include) do delimit fragments.
+	 (We could possibly have #assert and #pragma be contained in rather
+	 than delimiting a fragment, but it doesn't seem worth it.) */
+      fragment_boundary = 1;
+    }
   if (fragment_boundary)
     {
       const unsigned char *cur = pfile->buffer->line_base;
@@ -415,6 +455,7 @@ _cpp_handle_directive (cpp_reader *pfile, int indented)
 	{
 	  fragment->end = cur;
 	  _cpp_exit_fragment (pfile, fragment);
+	  fragment->cond_nesting = if_stack_length (pfile);
 	}
     }
 
@@ -479,6 +520,15 @@ _cpp_handle_directive (cpp_reader *pfile, int indented)
     _cpp_backup_tokens (pfile, 1);
 
   end_directive (pfile, skip);
+  if (pfile->state.skipping || dir == NULL)
+    fragment_boundary = 0;
+  else if ((dir->flags & (COND|IF_COND)) == COND) /* else, elif, endif */
+    {
+      fragment_boundary
+	= (pfile->current_fragment == NULL
+	   || (pfile->current_fragment->end != NULL
+	       && pfile->current_fragment->end <= pfile->buffer->next_line));
+    }
   if (fragment_boundary)
     _cpp_start_fragment (pfile);
   if (was_parsing_args)
@@ -1680,6 +1730,18 @@ push_conditional (cpp_reader *pfile, int skip, int type,
   buffer->if_stack = ifs;
 }
 
+/* The depth of nesting of cpp conditionals. */
+
+static int
+if_stack_length (cpp_reader *pfile)
+{
+  int count = 0;
+  struct if_stack *ifs;
+  for (ifs = pfile->buffer->if_stack; ifs; ifs = ifs->next)
+    count++;
+  return count;
+}
+
 /* Read the tokens of the answer into the macro pool, in a directive
    of type TYPE.  Only commit the memory if we intend it as permanent
    storage, i.e. the #assert case.  Returns 0 on success, and sets
@@ -2082,6 +2144,7 @@ _cpp_pop_buffer (cpp_reader *pfile)
       cpp_fragment *fragment = pfile->current_fragment;
       fragment->end = buffer->cur;
       _cpp_exit_fragment (pfile, fragment);
+      fragment->cond_nesting = 0;
     }
   /* _cpp_do_file_change expects pfile->buffer to be the new one.  */
   pfile->current_fragment = buffer->saved_current_fragment;

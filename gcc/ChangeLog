@@ -6,6 +6,18 @@
 	(_cpp_enter_fragment):  Clear mi_valid if reused fragment is non-empty
 	Otherwise, set empty from mi_valid.
 	(_cpp_exit_fragment):  Update empty and mi_valid fields.
+	
+	More flexible fragment "chunking".
+	* cpplib.c (if_stack_length):  New function.
+	(_cpp_start_fragment):  Set or handle fragments cond_nesting field.
+	(_cpp_handle_directive):  Smarter fragment handling.  Don't create new
+	fragment if currently_skipping, nor for #ifdef etc if callback
+	avoid_new_fragment returns true.
+	* cpphash.h (struct cpp_fragment):  New field cond_nesting.
+	* cpplib.h (struct cpp_callbacks):  New avoid_new_fragment field.
+	* c-common.h (cb_avoid_new_fragment):  New declaration.
+	* c-common.c (cb_avoid_new_fragment):  New callback function.
+	* c-opts.c (init_c_common_once):  Set avoid_new_fragment callback.
 
 2003-11-23  Per Bothner  <pbothner@apple.com>
 
