@@ -45,9 +45,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* The current line map.  */
 static const struct line_map *map;
 
-/* The line used to refresh the lineno global variable after each token.  */
-static unsigned int src_lineno;
-
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;
 static splay_tree file_info_tree;
@@ -208,9 +205,7 @@ cb_line_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const cpp_token *token,
 {
   if (token->type == CPP_EOF || parsing_args)
     return;
-
-  if (map)
-    src_lineno = SOURCE_LINE (map, token->line);
+  input_line = SOURCE_LINE (map, token->line);
 }
 
 static void
@@ -233,9 +228,7 @@ fe_file_change (const struct line_map *new_map)
     {
       /* Don't stack the main buffer on the input stack;
 	 we already did in compile_file.  */
-      if (map == NULL)
-	main_input_filename = new_map->to_file;
-      else
+      if (map != NULL)
 	{
           int included_at = SOURCE_LINE (new_map - 1, new_map->from_line - 1);
 
@@ -330,11 +323,6 @@ get_nonpadding_token (void)
     tok = cpp_get_token (parse_in);
   while (tok->type == CPP_PADDING);
   timevar_pop (TV_CPP);
-
-  /* The C++ front end does horrible things with the current line
-     number.  To ensure an accurate line number, we must reset it
-     every time we advance a token.  */
-  input_line = src_lineno;
 
   return tok;
 }  
