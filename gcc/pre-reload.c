@@ -48,6 +48,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* Disable this because i386 port has a strange abort inside it.  */
 #undef SECONDARY_MEMORY_NEEDED
+#define obstack_chunk_alloc xmalloc
+#define obstack_chunk_free free
 
 
 #define NEW_REG_P(X) (REGNO (X) >= max_regno)
@@ -98,6 +100,8 @@ static int pseudo_fits_class_p    PARAMS ((rtx, enum reg_class,
 struct df2ra build_df2ra          PARAMS ((struct df *, struct ra_info *));
 static void ra_info_remove_refs   PARAMS ((struct ra_info *,
 					   struct ra_refs *));
+static int df_link2ra_link        PARAMS ((struct df2ra, rtx, struct df_link *,
+					   struct ra_link *));
 
 
 static const char *const reg_class_names[] = REG_CLASS_NAMES;
@@ -2014,7 +2018,7 @@ scan_addr_create_ref (ra_info, loc, scan_state, ref_type)
      struct scan_addr_state *scan_state;
      enum ra_ref_type ref_type;
 {
-  ra_ref *ref = (ra_ref *)obstack_alloc (&ra_info->obstack, sizeof (*ref));
+  ra_ref *ref = (ra_ref *)obstack_alloc (&ra_info->obstack, sizeof (ra_ref));
   ref->type = ref_type;
   ref->reg = *loc;
   ref->loc = loc;
@@ -3256,12 +3260,14 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
       /* If we're replacing an operand with a LABEL_REF, we need
 	 to make sure that there's a REG_LABEL note attached to
 	 this instruction.  */
+      /*
       if (GET_CODE (insn) != JUMP_INSN
 	  && GET_CODE (substitution) == LABEL_REF
 	  && !find_reg_note (insn, REG_LABEL, XEXP (substitution, 0)))
 	REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_LABEL,
 					      XEXP (substitution, 0),
 					      REG_NOTES (insn));
+      */
     }
 
   /* If this insn pattern contains any MATCH_DUP's, make sure that
@@ -3331,7 +3337,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	    int matches = goal_alternative_matches[i];
 	  
 	    ra_ref *ref = (ra_ref *) obstack_alloc (&ra_info->obstack,
-						    sizeof (*ref));
+						    sizeof (ra_ref));
 	    opno2ref[i] = ref;
 	    ref->reg = goal_alternative_reg[i];
 	    ref->loc = goal_alternative_reg_loc[i];
@@ -3398,13 +3404,13 @@ ra_insn_table_realloc (ra_info, size)
   if (! size)
     size = ra_info->insn_size / 4;
 
-  size += ra_info->insn_size;
+  size += ra_info->insn_size + 1;
   
   ra_info->insns = (struct ra_refs **)
-    xrealloc (ra_info->insns, size * sizeof (struct ra_refs));
+    xrealloc (ra_info->insns, size * sizeof (struct ra_refs*));
   
   memset (ra_info->insns + ra_info->insn_size, 0, 
-	  (size - ra_info->insn_size) * sizeof (struct ra_refs));
+	  (size - ra_info->insn_size) * sizeof (struct ra_refs*));
 
   ra_info->insn_size = size;
 }
@@ -3420,14 +3426,14 @@ ra_reg_table_realloc (ra_info, size)
   if (! size)
     size = ra_info->reg_size / 4;
 
-  size += ra_info->reg_size;
+  size += ra_info->reg_size + 1;
 
   ra_info->regs = (struct ra_refs **)
-    xrealloc (ra_info->regs, size * sizeof (struct ra_ref));
+    xrealloc (ra_info->regs, size * sizeof (struct ra_refs *));
 
   /* Zero the new entries.  */
   memset (ra_info->regs + ra_info->reg_size, 0, 
-	  (size - ra_info->reg_size) * sizeof (struct ra_ref));
+	  (size - ra_info->reg_size) * sizeof (struct ra_refs *));
 
   ra_info->reg_size = size;
 }
@@ -3461,12 +3467,9 @@ ra_info_init (n_regs)
   ra_info->uses = xmalloc (ra_info->use_size * sizeof (*ra_info->uses));
 
   ra_info->n_regs = n_regs;
-
-  /* Allocate temporary working array used during local dataflow analysis.  */
-  ra_info->reg_def_last = xmalloc (ra_info->n_regs * sizeof (struct ref *));
-
+  ra_info->insns = NULL;
   ra_insn_table_realloc (ra_info, n_insns);
-
+  ra_info->regs = NULL;
   ra_reg_table_realloc (ra_info, ra_info->n_regs);
   return ra_info;
 }
@@ -3478,27 +3481,18 @@ ra_info_free (ra_info)
 {
   if (ra_info->insns)
     free (ra_info->insns);
-  ra_info->insns = 0;
-  ra_info->insn_size = 0;
 
   if (ra_info->defs)
     free (ra_info->defs);
-  ra_info->defs = 0;
-  ra_info->def_size = 0;
-  ra_info->def_id = 0;
 
   if (ra_info->uses)
     free (ra_info->uses);
-  ra_info->uses = 0;
-  ra_info->use_size = 0;
-  ra_info->use_id = 0;
 
   if (ra_info->regs)
     free (ra_info->regs);
-  ra_info->regs = 0;
-  ra_info->reg_size = 0;
 
   obstack_free (&ra_info->obstack, NULL);
+  free (ra_info);
 }
 
 /* Print all defs/uses for INSN from RA_INFO.  */
@@ -3562,7 +3556,7 @@ debug_ra_insn_refs (ra_info, insn)
 
 /* Print all defs/uses for REGNO from RA_INFO.  */
 
-static void
+static void ATTRIBUTE_UNUSED
 debug_ra_reg_refs (ra_info, regno)
      struct ra_info *ra_info;
      int regno;
@@ -3622,7 +3616,8 @@ debug_ra_reg_refs (ra_info, regno)
 /* Put pointer REFS (pointer to defs/uses for INSN) to ra_info->insns array.
    ra_info->insns array can be reallocated.  */
 
-static void ra_info_add_insn_refs (ra_info, insn, refs)
+static void
+ra_info_add_insn_refs (ra_info, insn, refs)
      struct ra_info *ra_info;
      rtx insn;
      struct ra_refs *refs;
@@ -3639,7 +3634,8 @@ static void ra_info_add_insn_refs (ra_info, insn, refs)
 
 /* Add reference to ra_info->regs array for each register of INSN.
    ra_info->regs array can be reallocated.  */
-static void ra_info_add_reg_refs (ra_info, insn, refs)
+static void
+ra_info_add_reg_refs (ra_info, insn, refs)
      struct ra_info *ra_info;
      rtx insn ATTRIBUTE_UNUSED;
      struct ra_refs *refs;
@@ -3753,9 +3749,6 @@ df_link2ra_link (df2ra, insn, dlink, rlink)
 {
   unsigned int regno;
   int bad = 0;
-  
-  if (!link)
-    return 0;
   
   for (; dlink; dlink = dlink->next)
     /* This condition shows which df ref's can't be reached by
@@ -3913,9 +3906,6 @@ pre_reload_collect (ra_info, modified)
 		    * MAX_RECOG_OPERANDS * MAX_REGS_PER_ADDRESS + 1)];
   ra_ref *use_refs[(sizeof (ra_ref *)
 		    * MAX_RECOG_OPERANDS * MAX_REGS_PER_ADDRESS + 1)];
-
-  cnt = get_max_uid ();
-  cnt += cnt / 5;
 
   for (i = 0; i < n_basic_blocks; i++)
     {
@@ -4164,5 +4154,4 @@ compare_ra_info (ra1)
     }
 
   ra_info_free (ra2);
-  free (ra2);	    
 }

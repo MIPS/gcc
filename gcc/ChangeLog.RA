@@ -1,3 +1,23 @@
+Wed Apr 24 00:37:50 2002  Denis Chertykov  <denisc@overta.ru>
+
+	* pre-reload.h (df2ra): Variable declaration removed.
+	* pre-reload.c (obstack_chunk_alloc): Defined.
+	(obstack_chunk_free): Defined.
+	(scan_addr_create_ref): More accurate sizeof.
+	(collect_insn_info): We don't work with REG_NOTES. Commented.
+	More accurate sizeof.
+	(ra_insn_table_realloc): Argument of sizeof was totally wrong.
+	Fixed.
+	(ra_reg_table_realloc): Likewise.
+	(ra_info_init): ra_info->reg_def_last not used anymore.
+	Initialize ra_info->insns and ra_info->regs before reallocation.
+	(ra_info_free): Initialization of all fields of ra_info removed.
+	Free ra_info.
+	(df_link2ra_link): Wrong code removed.
+	(pre_reload_collect): Unnecessary code removed.
+	(compare_ra_info): Free of ra2 removed. ra_info_free already done
+	this.
+
 Thu Apr 18 22:36:48 2002  Denis Chertykov  <denisc@overta.ru>
 
 	* pre-reload.h (DF2RA): Remaining parameter added.

@@ -218,7 +218,7 @@ struct df2ra
   ra_ref **def2def;
   ra_ref **use2use;
 };
-extern struct df2ra df2ra;
+
 #define DF2RA(DF2RA, DF_REF) (*(DF_REF_REG_DEF_P (DF_REF)		\
 		         ? &(DF2RA).def2def[DF_REF_ID (DF_REF)]	\
 		         : &(DF2RA).use2use[DF_REF_ID (DF_REF)]))
