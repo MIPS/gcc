@@ -1,3 +1,8 @@
+Sat Nov 30 17:16:46 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (movdf_integer):  Always enable in 64bit.
+	(movdf_nointeger): Always disable in 64bit.
+
 Fri Nov 29 20:10:56 2002  J"orn Rennecke <joern.rennecke@superh.com>
 
 	* expmed.c (store_bit_field): Use int_mode_for_mode to find
