@@ -1,3 +1,12 @@
+2003-12-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+            Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (opf_no_vops): New.
+	(add_stmt_operand): Don't create virtual operands when opf_no_vops
+	is passed in flags.
+	(get_expr_operands): Set opf_no_vops flag before diving into the
+	operand of an ADDR_EXPR node.
+
 2003-12-03  Richard Henderson  <rth@redhat.com>
 
 	* tree-simple.c (is_gimple_min_invariant): Disallow offset of

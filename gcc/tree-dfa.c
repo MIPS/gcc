@@ -112,6 +112,14 @@ static const int opf_none	= 0;
 /* Operand is the target of an assignment expression.  */
 static const int opf_is_def 	= 1 << 0;
 
+/* No virtual operands should be created in the expression.  This is used
+   when traversing ADDR_EXPR nodes which have different semantics than
+   other expressions.  Inside an ADDR_EXPR node, the only operands that we
+   need to consider are indices into arrays.  For instance, &a.b[i] should
+   generate a USE of 'i' but it should not generate a VUSE for 'a' nor a
+   VUSE for 'b'.  */
+static const int opf_no_vops 	= 1 << 1;
+
 /* Debugging dumps.  */
 static FILE *dump_file;
 static int dump_flags;
@@ -350,17 +358,16 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	 of interest to some passes (e.g. must-alias resolution).  */
       add_stmt_operand (expr_p, stmt, 0, NULL);
 
-      /* Only a few specific types of ADDR_EXPR expressions are
-       	 of interest.  */
-      if (subcode != COMPONENT_REF
-	  && subcode != INDIRECT_REF
-	  && subcode != ARRAY_REF)
-	return;
-
       /* If the address is invariant, there may be no interesting variable
 	 references inside.  */
       if (is_gimple_min_invariant (expr))
 	return;
+
+      /* There should be no VUSEs created, since the referenced objects are
+	 not really accessed.  The only operands that we should find here
+	 are ARRAY_REF indices which will always be real operands (GIMPLE
+	 does not allow non-registers as array indices).  */
+      flags |= opf_no_vops;
 
       /* Avoid recursion.  */
       code = subcode;
@@ -603,6 +610,9 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
     {
       /* The variable is not a GIMPLE register.  Add it (or its aliases) to
 	 virtual operands.  */
+      if (flags & opf_no_vops)
+	return;
+
       aliases = v_ann->may_aliases;
       if (aliases == NULL)
 	{
@@ -622,7 +632,8 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 	}
       else
 	{
-	  /* The variable is aliased.  Add its aliases to the virtual operands.  */
+	  /* The variable is aliased.  Add its aliases to the virtual
+	     operands.  */
 	  if (VARRAY_ACTIVE_SIZE (aliases) == 0)
 	    abort ();
 
