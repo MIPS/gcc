@@ -1,3 +1,7 @@
+2004-04-30  Paul Brook  <paul@codesourcery.com>
+
+	* arm.c (arm_needs_doubleword_align): Use mode alignment.
+
 2004-04-29  Paul Brook  <paul@codesourcery.com>
 
 	* config.gcc: Pull list of cores from arm-cores.def.
