@@ -1,3 +1,7 @@
+2004-09-08  Stan Shebs  <shebs@apple.com>
+
+	* config/rs6000/darwin-worldsave.asm: Remove, no longer used.
+
 2004-09-07  Caroline Tice  <ctice@apple.com>
 
         * cfgrtl.c (rtl_verify_flow_info_1):  Add new edge flag,
@@ -58,6 +62,11 @@
 	ARRAY_REF also to get to the STRING_CST.
 
 2004-08-24  Stan Shebs  <shebs@apple.com>
+
+	* Makefile.in (libgcc.mk): Add ppc64 and ppc64_static libraries.
+	(libgcc.a): Move libraries so they will be found in testing.
+	* config/darwin.h (REAL_LIBGCC_SPEC): Add -m64 cases.
+	* config/darwin7.h (LIB_SPEC): Add -m64 -static case.
 
 	* calls.c (emit_call_1): Use Pmode instead of SImode in Apple local
 	indirect call code.
