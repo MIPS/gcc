@@ -120,35 +120,8 @@ tree_flatten_statement (tree stmt, tree_cell *after, tree enclosing_switch)
     case LABEL_EXPR:
     case VA_ARG_EXPR:
     case RESX_EXPR:
-      append (after, stmt, TCN_STATEMENT);
-      break;
-
     case COND_EXPR:
-      {
-	tree label_then = build_new_label ();
-	tree label_else = build_new_label ();
-	tree label_after = build_new_label ();
-
-	append (after, stmt, TCN_STATEMENT);
-
-	append (after, build1 (LABEL_EXPR, void_type_node, label_then),
-		TCN_STATEMENT);
-	tree_flatten_statement (COND_EXPR_THEN (stmt), after, enclosing_switch);
-	append (after, build1 (GOTO_EXPR, void_type_node, label_after),
-		TCN_STATEMENT);
-	
-	append (after, build1 (LABEL_EXPR, void_type_node, label_else),
-		TCN_STATEMENT);
-	tree_flatten_statement (COND_EXPR_ELSE (stmt), after, enclosing_switch);
-
-	append (after, build1 (LABEL_EXPR, void_type_node, label_after),
-		TCN_STATEMENT);
-
-	COND_EXPR_THEN (stmt) =
-		build1 (GOTO_EXPR, void_type_node, label_then);
-	COND_EXPR_ELSE (stmt) =
-		build1 (GOTO_EXPR, void_type_node, label_else);
-      }
+      append (after, stmt, TCN_STATEMENT);
       break;
 
     case SWITCH_EXPR:

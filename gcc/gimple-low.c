@@ -50,6 +50,7 @@ static void lower_stmt (tree_stmt_iterator *, struct lower_data *);
 static void lower_bind_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_cond_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_switch_expr (tree_stmt_iterator *, struct lower_data *);
+static bool simple_goto_p (tree);
 
 /* Lowers the BODY.  */
 void
@@ -162,15 +163,79 @@ lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
     }
 }
 
+/* Checks whether EXPR is a simple local goto.  */
+
+static bool
+simple_goto_p (tree expr)
+{
+  return  (TREE_CODE (expr) == GOTO_EXPR
+	   && TREE_CODE (GOTO_DESTINATION (expr)) == LABEL_DECL
+	   && ! NONLOCAL_LABEL (GOTO_DESTINATION (expr))
+	   && (decl_function_context (GOTO_DESTINATION (expr))
+	       == current_function_decl));
+}
+
 /* Lowers a cond_expr TSI.  DATA is passed through the recursion.  */
 
 static void
 lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 {
   tree stmt = tsi_stmt (*tsi);
-
+  bool then_is_goto, else_is_goto;
+  tree then_branch, else_branch, then_label, else_label, end_label;
+  
   lower_stmt_body (&COND_EXPR_THEN (stmt), data);
   lower_stmt_body (&COND_EXPR_ELSE (stmt), data);
+
+  /* Find out whether the branches are ordinary local gotos.  */
+  then_branch = COND_EXPR_THEN (stmt);
+  else_branch = COND_EXPR_ELSE (stmt);
+
+  then_is_goto = simple_goto_p (then_branch);
+  else_is_goto = simple_goto_p (else_branch);
+
+  if (then_is_goto && else_is_goto)
+    return;
+ 
+  /* Replace the cond_expr with explicit gotos.  */
+  if (!then_is_goto)
+    {
+      then_label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+      COND_EXPR_THEN (stmt) = build_and_jump (&LABEL_EXPR_LABEL (then_label));
+    }
+  else
+    then_label = NULL_TREE;
+
+  if (!else_is_goto)
+    {
+      else_label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+      COND_EXPR_ELSE (stmt) = build_and_jump (&LABEL_EXPR_LABEL (else_label));
+    }
+  else
+    else_label = NULL_TREE;
+
+  end_label = NULL_TREE;
+  if (then_label)
+    {
+      tsi_link_after (tsi, then_label, TSI_CONTINUE_LINKING);
+      tsi_link_chain_after (tsi, then_branch, TSI_CONTINUE_LINKING);
+  
+      if (else_label)
+	{
+	  end_label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+	  tsi_link_after (tsi, build_and_jump (&LABEL_EXPR_LABEL (end_label)),
+			  TSI_CONTINUE_LINKING);
+	}
+    }
+  
+  if (else_label)
+    {
+      tsi_link_after (tsi, else_label, TSI_CONTINUE_LINKING);
+      tsi_link_chain_after (tsi, else_branch, TSI_CONTINUE_LINKING);
+    }
+
+  if (end_label)
+    tsi_link_after (tsi, end_label, TSI_CONTINUE_LINKING);
 }
 
 /* Lowers a switch_expr TSI.  DATA is passed through the recursion.  */

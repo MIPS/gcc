@@ -1859,7 +1859,8 @@ stmt_starts_bb_p (tree t, tree prev_t)
 static inline bool
 stmt_ends_bb_p (tree t)
 {
-  return (is_ctrl_stmt (t));
+  return (is_ctrl_stmt (t)
+	  || is_ctrl_altering_stmt (t));
 }
 
 
@@ -2902,6 +2903,12 @@ redo:
 	      e_false = e;
 	    }
 	}
+
+      /* During cfg generation it may happen that both branches of COND_EXPR
+	 lead to the same target.  */
+      if (e_true == e_false)
+	e_false = NULL;
+
       if ((!e_true && !e_false)
 	  || (e_true && e_false))
 	break;

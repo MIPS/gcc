@@ -1,5 +1,16 @@
 2003-10-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* gimple-low.c (simple_goto_p): New.
+	(lower_cond_expr): Lower COND_EXPR form.
+	* tree-cfg.c (tree_cleanup_block_edges): Cleanup edges that are both
+	true and false.
+	* tree-flatten.c (tree_flatten_statement): Assume COND_EXPRs are
+	lowered.
+
+	* tree-cfg.c (stmt_starts_bb_p): Include is_ctrl_altering_stmt.
+
+2003-10-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* gimple-low.c: New.
 	* Makefile.in (gimple-low.o): Add.
 	* cfglayout.c (insn_locators_initialize): Use new scoping info.
