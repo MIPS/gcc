@@ -1,3 +1,248 @@
+2003-03-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/10091
+	* expr.c (expand_expr) [ADDR_EXPR]: Disallow taking the address of
+	an unaligned member of TREE_ADDRESSABLE type.
+
+2003-03-17  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* dwarf2asm.h: Delete obsolete comment.
+	(dw2_asm_output_data, dw2_asm_output_delta, dw2_asm_output_offset,
+	dw2_asm_output_pcrel, dw2_asm_output_addr,
+	dw2_asm_output_addr_rtx, dw2_asm_output_encoded_addr_rtx,
+	dw2_asm_output_nstring, dw2_asm_output_data_uleb128,
+	dw2_asm_output_data_sleb128, dw2_asm_output_delta_uleb128,
+	dw2_asm_output_delta_sleb128): Add ATTRIBUTE_NULL_PRINTF.
+
+2003-03-17  Steve Ellcey  <sje@cup.hp.com>
+
+	* stmt.c (tail_recursion_args): Call promote_mode to set
+	unsignedp flag correctly before calling convert_move.
+
+2003-03-17  Dave Love  <fx@gnu.org>
+	    Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/alpha/osf.h (TARGET_OS_CPP_BUILTINS): Define __digital__,
+	__arch64__ to match Compaq cc.
+
+2003-03-17  Michael Hayes  <m.hayes@elec.canterbury.ac.nz>
+
+	* function.c (thread_prologue_and_epilogue_insns): Set delete_unused
+	argument to 0 for redirect_jump.
+
+2003-03-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8805
+	* except.c (eh_region_u_cleanup): Add prev_try.
+	(expand_eh_region_end_cleanup): Set it.
+	(reachable_handlers): Use it to skip over cleanup blocks.
+
+2003-03-16  Richard Henderson  <rth@redhat.com>
+
+	PR opt/6798
+        * cfgcleanup.c: Include params.h.
+        (try_crossjump_bb): Use PARAM_MAX_CROSSJUMP_EDGES.  Fix test for
+        too many outgoing edges from a block.
+        * Makefile.in (cfgcleanup.o): Depend on PARAMS_H.
+        * params.def (max-crossjump-edges): New.
+        * doc/invoke.texi: Document it.
+
+2003-03-16  Richard Henderson  <rth@redhat.com>
+
+        * config/i386/i386.md (movstrictqi, movstrictqi_1): Check
+        optimize_size as well.
+
+2003-03-16  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.c (print_operand): Handle 'b' modifier
+	for D register to specify the low part of it, aka B.
+	(m68hc11_gen_movhi): Use REG_WAS_0 note and increment or decrement
+	the register if we are loading 1 or -1 to it; avoid using temp
+	register when moving X/Y to Y/X.
+	(m68hc11_gen_movqi): Likewise.
+	(m68hc11_check_z_replacement): Fix last insn setting for compare case.
+
+2003-03-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR optimization/9016
+	* config/i386/i386.c (ix86_expand_move): Force more CONST_DOUBLEs
+	into the constant pool.
+
+2003-03-16  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
+
+        PR target/9164
+        * tree.c (get_narrower): For extensions with unchanged bit number,
+        return the unsignedness of the outer mode.
+
+2003-03-16  Roger Sayle  <roger@eyesopen.com>
+
+	* c-typeck.c (build_component_ref):  Turn "for" into "do .. while"
+	to avoid "may be used uninitialized" warning on ia64-hpux.
+	* config/ia64/ia64-c.c: Include "tm_p.h" for function prototypes.
+
+2003-03-16  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cppinit.c: Remove support of -A-.
+	* doc/cppopts.texi: Remove documentation of -A-.
+
+2003-03-15  Richard Henderson  <rth@redhat.com>
+
+	2003-01-14  Richard Henderson  <rth@redhat.com>
+        * config/alpha/alpha.c (alpha_expand_mov): Use correct mode
+        for force_const_mem.
+
+2003-03-15  Richard Henderson  <rth@redhat.com>
+
+	PR target/9700
+	* config/alpha/alpha.c (alpha_va_start): Account for 
+	current_function_pretend_args_size in the AP offset.
+
+2003-03-15  Jason Merrill  <jason@redhat.com>
+
+	PR debug/6387
+	* dwarf2out.c (dwarf2out_decl): If we're at -g1, just stick nested
+	function DIEs at toplevel.
+	(decls_for_scope): At -g1, don't descend into subblocks.
+
+2003-03-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* varasm.c (struct rtx_const): Change type of un.addr member
+	to struct holding an additional 'symbol' member.
+	(decode_rtx_const): Re-enable optimization to count SYMBOL_REFs
+	with equal string addresses as equal.
+	(simplify_subtraction): Adapt to struct rtx_const change.
+
+2003-03-15  Glen Nakamura  <glen@imodulo.com>
+
+	* reload1.c (choose_reload_regs): Use && instead of ||
+	with REG_CANNOT_CHANGE_MODE_P condition.
+
+2003-03-15  Michael Hayes  <m.hayes@elec.canterbury.ac.nz>
+
+	PR optimization/9387
+	* function.c (thread_prologue_and_epilogue_insns): Use redirect jump
+	for conditional returns.
+
+2003-03-14  Jason Merrill  <jason@redhat.com>
+
+	PR optimization/6871
+	* varasm.c (assemble_variable): Leave constant zeroes in .rodata.
+
+2003-03-12  Andrew Lewycky  <andrew@mxc.ca>
+
+	PR c++/7050
+	* expr.c (store_expr): Don't attempt to store void-typed trees,
+	just evaluate them for side effects.
+
+2003-03-14  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/8396
+	* tree-inline.c (initialize_inlined_parameters): Make sure the value
+	of read-only constant arguments is passed with the right type.
+
+2003-03-14  Andreas Jaeger  <aj@suse.de>
+            Gwenole Beauchesne  <gbeauchesne@mandrakesoft.com>
+
+	* linux64.h (TARGET_OS_CPP_BUILTINS): Define _LP64 and __LP64__ in
+	64-bit mode.
+
+2003-03-13  Mike Stump  <mrs@apple.com>
+
+	* ggc-page.c (struct page_entry): Remove varray.h header.
+	Add index_by_depth field.
+	Remove save_in_use_p field.
+	(struct globals): Add depth_in_use, depth_max, by_depth_in_use,
+	by_depth_max, by_depth, and save_in_use fields.
+	(INITIAL_PTE_COUNT): Add.
+	(save_in_use_p_i): Add.
+	(save_in_use_p): Add.
+	(adjust_depth): Add.
+	(push_depth): Add.
+	(push_by_depth): Add.
+	(prefetch): Add.
+	(free_page): Add support for and use faster data structures.
+	(ggc_alloc): Likewise.
+	(init_ggc): Likewise.
+	(ggc_recalculate_in_use_p): Likewise.
+	(ggc_pop_context): Likewise.
+	(clear_marks): Likewise.
+	* Makefile.in (ggc-page.o): Remove varray.h.
+
+2003-03-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (pa_init_builtins): Fix warning.
+
+2003-03-12  Richard Henderson  <rth@redhat.com>
+
+	PR opt/8178
+	* config/i386/i386.md (ffssi2): Tighten op1 predicate to
+	the requirements of the output insns.
+
+2003-03-12  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/ia64.h (ASM_OUTPUT_XDATA_CHAR): Remove.
+	(ASM_OUTPUT_XDATA_SHORT): Remove.
+	(ASM_OUTPUT_XDATA_INT): Remove.
+	(ASM_OUTPUT_XDATA_DOUBLE_INT): Remove.
+	(ASM_OUTPUT_ADDR_DIFF_ELT): Handled 32 bit address diffs.
+	(ASM_PREFERRED_EH_DATA_FORMAT): Handle 32 bit EH pointers.
+	(CASE_VECTOR_MODE): Handle 32 bit pointers in case statement.
+
+2003-03-12  Andrew Lewycky  <andrew@mxc.ca>
+
+	PR c++/7050
+	* expr.c (store_expr): Don't attempt to store void-typed trees,
+	just evaluate them for side effects.
+
+2003-03-12  Bob Wilson  <bob.wilson@acm.org>
+
+	Backport from mainline:
+	2003-03-12  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.md (adddi3): Don't clobber source operand used
+	to detect carry.
+	(subdi3): Reorder emitted instructions.
+
+Wed Mar 12 19:14:34 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_setup_incoming_varargs): Set stack_alignment_needed to 128.
+
+2003-03-12  Daniel Jacobowitz  <drow@mvista.com>
+
+        Fix PR target/9797 and PR c/9853.
+        * stmt.c (expand_decl_init): Call push_temp_slots () and
+        pop_temp_slots ().
+
+2003-03-12  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* configure.in (rlim_t): Define to long if no valid definition
+	found in sys/resource.h.
+	* config.in, configure: Regenerate.
+
+2003-03-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/9928
+	* c-decl.c (duplicate_decls): Discard the initializer of the new decl
+	only if it is a VAR_DECL.
+
+2003-03-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/9888
+	* config/i386/i386.md (jcc_1): Fix range.
+	(jcc_2): Likewise.
+	(jump): LIkewise.
+	(doloop_end_internal): Likewise.
+
+2003-03-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/9888
+	* config/i386/i386.md (movsi_1): Remove special alternatives
+	for %eax register.
+	(movhi_1): Likewise.
+	* config/i386/i386.c (memory_address_length): Do not use
+	short displacement when there is no base.
+	(ix86_attr_length_address_default): Handle LEA instructions.
+
 2003-03-11  Loren James Rittle  <ljrittle@acm.org>
 
 	(per-port preprocessor fix, concurrent to Neil's cppinit.c fix)
@@ -76,7 +321,7 @@
 	(DEFAULT_WORD_SWITCH_TAKES_ARG): Add.
 	* cppspec.c (DEFAULT_SWTICH_TAKES_ARG): Remove.
 	(DEFAULT_WORD_SWITCH_TAKES_ARG): Remove.
-	
+
 2003-03-10  Stephane Carrez  <stcarrez@nerim.fr>
 
 	* config/m68hc11/m68hc11.h (HARD_REGNO_RENAME_OK): Define.
@@ -157,7 +402,7 @@ Thu Mar  6 16:35:27 CET 2003  Jan Hubicka  <jh@suse.cz>
 	a separate limit for the RTL inliner.
 	* params.h: Likewise.
 	* integrate.c (function_cannot_inline_p): Use it.
-	* toplev.c (decode_f_option): Set multiple parameters 
+	* toplev.c (decode_f_option): Set multiple parameters
 	controlling inlining with -finline-limit.
 	* params.def: Fix orthographic and typographic errors.
 	* doc/invoke.texi: Document parameters controlling inlining
@@ -317,7 +562,7 @@ Fri Feb 28 11:13:57 CET 2003  Jan Hubicka  <jh@suse.cz>
 	* config/m68hc11/m68hc11.c (m68hc11_shift_operator): New function.
 	* config/m68hc11/m68hc11-protos.h (m68hc11_shift_operator): Declare.
 	* config/m68hc11/m68hc11.h (PREDICATE_CODES): Register.
-	* config/m68hc11/m68hc11.md ("rotrhi3", "rotlhi3"): New patterns for 
+	* config/m68hc11/m68hc11.md ("rotrhi3", "rotlhi3"): New patterns for
 	rotatert and rotate.
 	("rotrhi3_const", "rotlhi3_const"): Rename of old 'rotrhi3' insns.
 	("*rotrhi3", "*rotlhi3"): New insn pattern for non-const rotatert.
@@ -342,7 +587,7 @@ Fri Feb 28 11:13:57 CET 2003  Jan Hubicka  <jh@suse.cz>
 2003-03-01  Jason Thorpe  <thorpej@wasabisystems.com>
 
 	* config.gcc (*-*-netbsd[2-9]*, *-*-netbsdelf[2-9]*): Enable
-	POSIX thread support by default.  
+	POSIX thread support by default.
 
 2003-03-01  Roger Sayle  <roger@eyesopen.com>
 
@@ -365,7 +610,7 @@ Fri Feb 28 11:13:57 CET 2003  Jan Hubicka  <jh@suse.cz>
 2003-02-27  Joel Sherrill <joel@OARcorp.com>
 
 	PR 9638/other
-	* config/i386/i386.c (DEFAULT_PCC_STRUCT_RETURN): Ensure the 
+	* config/i386/i386.c (DEFAULT_PCC_STRUCT_RETURN): Ensure the
 	this constant defaults to 1.
 
 2003-02-28  Richard Sandiford  <rsandifo@redhat.com>
@@ -433,7 +678,7 @@ Wed Feb 26 20:17:56 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-02-25  Richard Henderson  <rth@redhat.com>
 
-	* real.c (real_to_integer2): Force overflow result only for 
+	* real.c (real_to_integer2): Force overflow result only for
 	unsigned overflow.
 
 Tue Feb 25 12:39:33 CET 2003  Jan Hubicka  <jh@suse.cz>
@@ -471,12 +716,12 @@ Tue Feb 25 12:39:33 CET 2003  Jan Hubicka  <jh@suse.cz>
 	* doc/extend.texi (Tru64 Pragmas): Reflect this.
 
 	* fixinc/inclhack.def (alpha___extern_prefix): Indicate #pragma
-	extern_prefix support for Tru64 UNIX V5 <sys/stat.h>. 
+	extern_prefix support for Tru64 UNIX V5 <sys/stat.h>.
 	* fixinc/fixincl.x: Regenerate.
 	* fixinc/tests/base/sys/stat.h [ALPHA___EXTERN_PREFIX_CHECK]: New
 	testcase.
 	Fixes PR c/5059, c/6126, other/9671.
-	
+
 2003-02-24  Alan Modra  <amodra@bigpond.net.au>
 
 	PR 9297, PR 9722
@@ -14188,4 +14433,3 @@ Mon Jul  1 19:55:17 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	* mips.h (FUNCTION_ARG_REGNO_P): Fix parentheses.
 
 See ChangeLog.7 for earlier changes.
-

@@ -2682,6 +2682,8 @@ ix86_setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
   /* Indicate to allocate space on the stack for varargs save area.  */
   ix86_save_varrargs_registers = 1;
 
+  cfun->stack_alignment_needed = 128;
+
   fntype = TREE_TYPE (current_function_decl);
   stdarg_p = (TYPE_ARG_TYPES (fntype) != 0
 	      && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
@@ -8095,9 +8097,17 @@ ix86_expand_move (mode, operands)
 
 	  if (strict)
 	    ;
-	  else if (GET_CODE (op1) == CONST_DOUBLE
-		   && register_operand (op0, mode))
-	    op1 = validize_mem (force_const_mem (mode, op1));
+	  else if (GET_CODE (op1) == CONST_DOUBLE)
+	    {
+	      op1 = validize_mem (force_const_mem (mode, op1));
+	      if (!register_operand (op0, mode))
+		{
+		  rtx temp = gen_reg_rtx (mode);
+		  emit_insn (gen_rtx_SET (VOIDmode, temp, op1));
+		  emit_move_insn (op0, temp);
+		  return;
+		}
+	    }
 	}
     }
 
@@ -11558,7 +11568,8 @@ memory_address_length (addr)
       if (disp)
 	{
 	  if (GET_CODE (disp) == CONST_INT
-	      && CONST_OK_FOR_LETTER_P (INTVAL (disp), 'K'))
+	      && CONST_OK_FOR_LETTER_P (INTVAL (disp), 'K')
+	      && base)
 	    len = 1;
 	  else
 	    len = 4;
@@ -11621,6 +11632,26 @@ ix86_attr_length_address_default (insn)
      rtx insn;
 {
   int i;
+
+  if (get_attr_type (insn) == TYPE_LEA)
+    {
+      rtx set = PATTERN (insn);
+      if (GET_CODE (set) == SET)
+	;
+      else if (GET_CODE (set) == PARALLEL
+	       && GET_CODE (XVECEXP (set, 0, 0)) == SET)
+	set = XVECEXP (set, 0, 0);
+      else
+	{
+#ifdef ENABLE_CHECKING
+	  abort ();
+#endif
+	  return 0;
+	}
+
+      return memory_address_length (SET_SRC (set));
+    }
+
   extract_insn_cached (insn);
   for (i = recog_data.n_operands - 1; i >= 0; --i)
     if (GET_CODE (recog_data.operand[i]) == MEM)

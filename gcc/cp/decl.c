@@ -3166,6 +3166,10 @@ duplicate_decls (newdecl, olddecl)
 	  /* Replace the old RTL to avoid problems with inlining.  */
 	  SET_DECL_RTL (olddecl, DECL_RTL (newdecl));
 	}
+      /* Even if the types match, prefer the new declarations type
+	 for anitipated built-ins, for exception lists, etc...  */
+      else if (DECL_ANTICIPATED (olddecl))
+	TREE_TYPE (olddecl) = TREE_TYPE (newdecl);
 
       if (DECL_THIS_STATIC (newdecl) && !DECL_THIS_STATIC (olddecl))
 	{
@@ -4537,14 +4541,15 @@ push_using_directive (used)
   if (purpose_member (used, ud) != NULL_TREE)
     POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, NULL_TREE);
 
-  /* Recursively add all namespaces used.  */
-  for (iter = DECL_NAMESPACE_USING (used); iter; iter = TREE_CHAIN (iter))
-    push_using_directive (TREE_PURPOSE (iter));
-
   ancestor = namespace_ancestor (current_decl_namespace (), used);
   ud = current_binding_level->using_directives;
   ud = tree_cons (used, ancestor, ud);
   current_binding_level->using_directives = ud;
+
+  /* Recursively add all namespaces used.  */
+  for (iter = DECL_NAMESPACE_USING (used); iter; iter = TREE_CHAIN (iter))
+    push_using_directive (TREE_PURPOSE (iter));
+
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, ud);
 }
 
@@ -9647,48 +9652,10 @@ build_ptrmemfunc_type (tree type)
 {
   tree fields[4];
   tree t;
-  tree method_type;
-  tree arg_type;
   tree unqualified_variant = NULL_TREE;
 
   if (type == error_mark_node)
     return type;
-
-  /* If the METHOD_TYPE has any default parameters, make a copy that
-     does not have the default parameters.  The pointer-to-member type
-     never has default parameters.  */
-  method_type = TREE_TYPE (type);
-  for (arg_type = TYPE_ARG_TYPES (method_type);
-       arg_type;
-       arg_type = TREE_CHAIN (arg_type))
-    if (TREE_PURPOSE (arg_type))
-      {
-	/* At least one parameter has a default argument.  */
-	tree arg_types = NULL_TREE;
-	tree *arg_type_p = &arg_types;
-
-	/* Copy the parameter types.  The "this" parameter will be
-	   added by build_cplus_method_type.  */
-	for (arg_type = TREE_CHAIN (TYPE_ARG_TYPES (method_type));
-	     arg_type;
-	     arg_type = TREE_CHAIN (arg_type))
-	  {
-	    if (arg_type == void_list_node)
-	      *arg_type_p = void_list_node;
-	    else
-	      *arg_type_p = build_tree_list (NULL_TREE,
-					     TREE_VALUE (arg_type));
-	    arg_type_p = &TREE_CHAIN (*arg_type_p);
-	  }
-	/* Build the new METHOD_TYPE.  */
-	method_type = build_cplus_method_type (TYPE_METHOD_BASETYPE (method_type), 
-					       TREE_TYPE (method_type), 
-					       arg_types);
-	/* Build the new POINTER_TYPE.  */
-	type = cp_build_qualified_type (build_pointer_type (method_type),
-					cp_type_quals (type));
-	break;
-      }
 
   /* If a canonical type already exists for this type, use it.  We use
      this method instead of type_hash_canon, because it only does a
@@ -14642,11 +14609,20 @@ finish_function (flags)
   if (current_function_return_value)
     {
       tree r = current_function_return_value;
-      /* This is only worth doing for fns that return in memory--and
-	 simpler, since we don't have to worry about promoted modes.  */
+      tree outer;
+
       if (r != error_mark_node
-	  && aggregate_value_p (TREE_TYPE (TREE_TYPE (fndecl))))
+	  /* This is only worth doing for fns that return in memory--and
+	     simpler, since we don't have to worry about promoted modes.  */
+	  && aggregate_value_p (TREE_TYPE (TREE_TYPE (fndecl)))
+	  /* Only allow this for variables declared in the outer scope of
+	     the function so we know that their lifetime always ends with a
+	     return; see g++.dg/opt/nrv6.C.  We could be more flexible if
+	     we were to do this optimization in tree-ssa.  */
+	  && (outer = BLOCK_SUBBLOCKS (DECL_INITIAL (fndecl)),
+	      chain_member (r, BLOCK_VARS (outer))))
 	{
+	  
 	  DECL_ALIGN (r) = DECL_ALIGN (DECL_RESULT (fndecl));
 	  walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
 					nullify_returns_r, r);

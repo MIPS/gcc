@@ -1,3 +1,64 @@
+2003-03-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9629
+	* g++.dg/init/ctor2.C: New test.
+
+2003-03-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8805
+	* g++.dg/eh/cleanup1.C: New test.
+
+2003-03-16  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
+
+        * gcc.c-torture/execute/20030316-1.c: New test case.
+
+2003-03-15  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* g++.old-deja/g++.mike/eh33.C: Remove xfail for hppa*-*-*.
+	* g++.old-deja/g++.mike/eh50.C: Likewise.
+
+2003-03-15  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/6440
+	* g++.dg/template/spec7.C: New test.
+	* g++.dg/template/spec8.C: Likewise.
+
+2003-03-14  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20030314-1.c: New test.
+
+2003-03-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/parse/namespace9.C: New test.
+
+2003-03-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/ref5.C: New test.
+	* g++.dg/parse/ptrmem1.C: Likewise.
+
+2003-03-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/special/ecos.exp (gcsec-1.c): Find linker used by gcc.
+	* gcc.dg/old-style-asm-1.c (dg-final): Add hpux label alternative to
+	regular expression.
+	* gcc.dg/inline-1.c (dg-final): Check for "xyzzy?,%r" on hppa*-*-*.
+
+2003-03-12  Steven Bosscher  <s.bosscher@student.tudelft.nl>
+
+	* gcc.dg/return-type-3.c: New test.
+
+2003-03-12  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gcc.c-torture/execute/20030224-2.c: New test.
+
+2003-03-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/decl-3.c: New test.
+
+2003-03-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-loop-2.c: New test.
+
 2003-03-11  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/9474

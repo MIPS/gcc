@@ -3334,15 +3334,15 @@ tail_recursion_args (actuals, formals)
       else
 	{
 	  rtx tmp = argvec[i];
-
+	  int unsignedp = TREE_UNSIGNED (TREE_TYPE (TREE_VALUE (a)));
+	  promote_mode(TREE_TYPE (TREE_VALUE (a)), GET_MODE (tmp),
+		       &unsignedp, 0);
 	  if (DECL_MODE (f) != GET_MODE (DECL_RTL (f)))
 	    {
 	      tmp = gen_reg_rtx (DECL_MODE (f));
-	      convert_move (tmp, argvec[i],
-			    TREE_UNSIGNED (TREE_TYPE (TREE_VALUE (a))));
+	      convert_move (tmp, argvec[i], unsignedp);
 	    }
-	  convert_move (DECL_RTL (f), tmp,
-			TREE_UNSIGNED (TREE_TYPE (TREE_VALUE (a))));
+	  convert_move (DECL_RTL (f), tmp, unsignedp);
 	}
     }
 
@@ -4036,6 +4036,8 @@ expand_decl_init (decl)
 
   /* Compute and store the initial value now.  */
 
+  push_temp_slots ();
+
   if (DECL_INITIAL (decl) == error_mark_node)
     {
       enum tree_code code = TREE_CODE (TREE_TYPE (decl));
@@ -4059,6 +4061,7 @@ expand_decl_init (decl)
   /* Free any temporaries we made while initializing the decl.  */
   preserve_temp_slots (NULL_RTX);
   free_temp_slots ();
+  pop_temp_slots ();
 }
 
 /* CLEANUP is an expression to be executed at exit from this binding contour;

@@ -4292,6 +4292,16 @@ store_expr (exp, target, want_value)
   int dont_return_target = 0;
   int dont_store_target = 0;
 
+  if (VOID_TYPE_P (TREE_TYPE (exp)))
+    {
+      /* C++ can generate ?: expressions with a throw expression in one
+	 branch and an rvalue in the other. Here, we resolve attempts to
+	 store the throw expression's nonexistant result. */
+      if (want_value)
+	abort ();
+      expand_expr (exp, const0_rtx, VOIDmode, 0);
+      return NULL_RTX;
+    }
   if (TREE_CODE (exp) == COMPOUND_EXPR)
     {
       /* Perform first part of compound expression, then assign from second
@@ -9152,21 +9162,30 @@ expand_expr (exp, target, tmode, modifier)
 	      && MEM_ALIGN (op0) < BIGGEST_ALIGNMENT)
 	    {
 	      tree inner_type = TREE_TYPE (TREE_OPERAND (exp, 0));
-	      rtx new
-		= assign_stack_temp_for_type
-		  (TYPE_MODE (inner_type),
-		   MEM_SIZE (op0) ? INTVAL (MEM_SIZE (op0))
-		   : int_size_in_bytes (inner_type),
-		   1, build_qualified_type (inner_type,
-					    (TYPE_QUALS (inner_type)
-					     | TYPE_QUAL_CONST)));
+	      rtx new;
 
 	      if (TYPE_ALIGN_OK (inner_type))
 		abort ();
 
+	      if (TREE_ADDRESSABLE (inner_type))
+		{
+		  /* We can't make a bitwise copy of this object, so fail.  */
+		  error ("cannot take the address of an unaligned member");
+		  return const0_rtx;
+		}
+
+	      new = assign_stack_temp_for_type
+		(TYPE_MODE (inner_type),
+		 MEM_SIZE (op0) ? INTVAL (MEM_SIZE (op0))
+		 : int_size_in_bytes (inner_type),
+		 1, build_qualified_type (inner_type,
+					  (TYPE_QUALS (inner_type)
+					   | TYPE_QUAL_CONST)));
+
 	      emit_block_move (new, op0, expr_size (TREE_OPERAND (exp, 0)),
 			       (modifier == EXPAND_STACK_PARM
 				? BLOCK_OP_CALL_PARM : BLOCK_OP_NORMAL));
+
 	      op0 = new;
 	    }
 

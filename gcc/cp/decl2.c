@@ -4421,6 +4421,9 @@ lookup_arg_dependent (name, fns, args)
   struct arg_lookup k;
   tree fn = NULL_TREE;
 
+  if (fns == error_mark_node)
+    fns = NULL_TREE;
+
   timevar_push (TV_NAME_LOOKUP);
   k.name = name;
   k.functions = fns;
@@ -4544,6 +4547,13 @@ do_nonmember_using_decl (scope, name, oldval, oldtype, newval, newtype)
   if (decls.value && is_overloaded_fn (decls.value))
     {
       tree tmp, tmp1;
+
+      if (oldval && !is_overloaded_fn (oldval))
+	{
+	  if (!DECL_IMPLICIT_TYPEDEF_P (oldval))
+	    error ("`%D' is already declared in this scope", name);
+	  oldval = NULL_TREE;
+	}
 
       *newval = oldval;
       for (tmp = decls.value; tmp; tmp = OVL_NEXT (tmp))

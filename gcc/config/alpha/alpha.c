@@ -3015,7 +3015,7 @@ alpha_expand_mov (mode, operands)
     }
 
   /* Otherwise we've nothing left but to drop the thing to memory.  */
-  operands[1] = force_const_mem (DImode, operands[1]);
+  operands[1] = force_const_mem (mode, operands[1]);
   if (reload_in_progress)
     {
       emit_move_insn (operands[0], XEXP (operands[1], 0));
@@ -6245,12 +6245,15 @@ alpha_va_start (valist, nextarg)
 
      If no integer registers need be stored, then we must subtract 48
      in order to account for the integer arg registers which are counted
-     in argsize above, but which are not actually stored on the stack.  */
+     in argsize above, but which are not actually stored on the stack.
+     Must further be careful here about structures straddling the last
+     integer argument register; that futzes with pretend_args_size, 
+     which changes the meaning of AP.  */
 
   if (NUM_ARGS <= 6)
     offset = TARGET_ABI_OPEN_VMS ? UNITS_PER_WORD : 6 * UNITS_PER_WORD;
   else
-    offset = -6 * UNITS_PER_WORD;
+    offset = -6 * UNITS_PER_WORD + current_function_pretend_args_size;
 
   if (TARGET_ABI_OPEN_VMS)
     {
