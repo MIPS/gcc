@@ -1,3 +1,8 @@
+2004-11-04  Tom Tromey  <tromey@redhat.com>
+
+	* class.c (build_static_field_ref): Don't emit direct references
+	when using indirect dispatch.
+
 2004-11-03  Tom Tromey  <tromey@redhat.com>
 
 	* expr.c (expand_java_arrayload): Set lhs_type_node.
