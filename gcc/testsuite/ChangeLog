@@ -1,3 +1,26 @@
+2005-03-04  David Billinghurst  <David.Billinghurst@riotinto.com>
+
+	* gcc.dg/cpp/assert4.c:  Fix for cygwin
+
+2005-03-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/overload/using2.C: New.
+
+2005-03-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19916
+	* g++.dg/init/ptrmem2.C: New test.
+
+2005-03-02  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/8927
+	* gcc.dg/pr8927-1.c: New test.
+
+2005-03-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20232
+	* g++.dg/inherit/covariant12.C: New.
+
 2005-02-28  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	PR fortran/19479

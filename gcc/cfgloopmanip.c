@@ -1,5 +1,5 @@
 /* Loop manipulation code for GNU compiler.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1296,7 +1296,7 @@ create_loop_notes (void)
 		NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_BEG);
 #endif
 
-  flow_loops_find (&loops, LOOP_TREE);
+  flow_loops_find (&loops);
   free_dominance_info (CDI_DOMINATORS);
   if (loops.num > 1)
     {

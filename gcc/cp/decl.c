@@ -1920,7 +1920,8 @@ redeclaration_error_message (tree newdecl, tree olddecl)
       /* If both functions come from different namespaces, this is not
 	 a redeclaration - this is a conflict with a used function.  */
       if (DECL_NAMESPACE_SCOPE_P (olddecl)
-	  && DECL_CONTEXT (olddecl) != DECL_CONTEXT (newdecl))
+	  && DECL_CONTEXT (olddecl) != DECL_CONTEXT (newdecl)
+	  && ! decls_match (olddecl, newdecl))
 	return "%qD conflicts with used function";
 
       /* We'll complain about linkage mismatches in
@@ -10593,7 +10594,11 @@ finish_function (int flags)
 	  /* Hack.  We don't want the middle-end to warn that this
 	     return is unreachable, so put the statement on the
 	     special line 0.  */
+#ifdef USE_MAPPED_LOCATION
+	  SET_EXPR_LOCATION (stmt, UNKNOWN_LOCATION);
+#else
 	  annotate_with_file_line (stmt, input_filename, 0);
+#endif
 	}
 
       /* Finish dealing with exception specifiers.  */

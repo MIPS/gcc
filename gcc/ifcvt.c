@@ -110,38 +110,7 @@ static int dead_or_predicable (basic_block, basic_block, basic_block,
 			       basic_block, int);
 static void noce_emit_move_insn (rtx, rtx);
 static rtx block_has_only_trap (basic_block);
-static void mark_loop_exit_edges (void);
 
-/* Sets EDGE_LOOP_EXIT flag for all loop exits.  */
-static void
-mark_loop_exit_edges (void)
-{
-  struct loops loops;
-  basic_block bb;
-  edge e;
-  
-  flow_loops_find (&loops, LOOP_TREE);
-  free_dominance_info (CDI_DOMINATORS);
-  
-  if (loops.num > 1)
-    {
-      FOR_EACH_BB (bb)
-	{
-	  edge_iterator ei;
-	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    {
-	      if (find_common_loop (bb->loop_father, e->dest->loop_father)
-		  != bb->loop_father)
-		e->flags |= EDGE_LOOP_EXIT;
-	      else
-		e->flags &= ~EDGE_LOOP_EXIT;
-	    }
-	}
-    }
-
-  flow_loops_free (&loops);
-}
-
 /* Count the number of non-jump active insns in BB.  */
 
 static int
@@ -3289,13 +3258,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 
   if (other_bb != new_dest)
     {
-      if (old_dest)
-	LABEL_NUSES (old_dest) -= 1;
-      if (new_label)
-	LABEL_NUSES (new_label) += 1;
-      JUMP_LABEL (jump) = new_label;
-      if (reversep)
-	invert_br_probabilities (jump);
+      redirect_jump_2 (jump, old_dest, new_label, -1, reversep);
 
       redirect_edge_succ (BRANCH_EDGE (test_bb), new_dest);
       if (reversep)
@@ -3356,7 +3319,14 @@ if_convert (int x_life_data_ok)
   if ((! targetm.cannot_modify_jumps_p ())
       && (!flag_reorder_blocks_and_partition || !no_new_pseudos
 	  || !targetm.have_named_sections))
-    mark_loop_exit_edges ();
+    {
+      struct loops loops;
+
+      flow_loops_find (&loops);
+      mark_loop_exit_edges (&loops);
+      flow_loops_free (&loops);
+      free_dominance_info (CDI_DOMINATORS);
+    }
 
   /* Compute postdominators if we think we'll use them.  */
   if (HAVE_conditional_execution || life_data_ok)

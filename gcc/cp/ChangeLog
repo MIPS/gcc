@@ -1,3 +1,24 @@
+2005-03-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* name-lookup.c (push_overloaded_decl): Don't error if the new
+	decl matches the old one.
+	* decl.c (redeclaration_error_message): Likewise.
+
+2005-03-01  Per Bothner  <per@bothner.com>
+
+	* decl.c (finish_function): Use SET_EXPR_LOCATION instead of
+	unavailable annotate_with_file_line, if USE_MAPPED_LOCATION.
+
+2005-03-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20232
+	* class.c (update_vtable_entry_for_fn): Don't crash on invalid
+	covariancy. 
+
+	* cp-tree.g (THUNK_TARGET): Expand comment.
+	* method.c (use_thunk): Make sure we also use the target, if that
+	is a thunk.
+
 2005-02-27  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/20206

@@ -434,7 +434,7 @@ tree_ssa_dominator_optimize (void)
       free_all_edge_infos ();
 
       /* Thread jumps, creating duplicate blocks as needed.  */
-      cfg_altered = thread_through_all_blocks ();
+      cfg_altered |= thread_through_all_blocks ();
 
       /* Removal of statements may make some EH edges dead.  Purge
 	 such edges from the CFG as needed.  */
@@ -444,8 +444,9 @@ tree_ssa_dominator_optimize (void)
 	  bitmap_zero (need_eh_cleanup);
 	}
 
-      free_dominance_info (CDI_DOMINATORS);
-      cfg_altered = cleanup_tree_cfg ();
+      if (cfg_altered)
+	free_dominance_info (CDI_DOMINATORS);
+      cfg_altered |= cleanup_tree_cfg ();
       calculate_dominance_info (CDI_DOMINATORS);
 
       rewrite_ssa_into_ssa ();

@@ -384,6 +384,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
+  NEXT_PASS (pass_sink_code);
   NEXT_PASS (pass_loop);
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_redundant_phi);
@@ -655,8 +656,7 @@ tree_rest_of_compilation (tree fndecl)
 
   /* We are not going to maintain the cgraph edges up to date.
      Kill it so it won't confuse us.  */
-  while (node->callees)
-    cgraph_remove_edge (node->callees);
+  cgraph_node_remove_callees (node);
 
 
   /* Initialize the default bitmap obstack.  */
@@ -687,8 +687,7 @@ tree_rest_of_compilation (tree fndecl)
 	{
 	  struct cgraph_edge *e;
 
-	  while (node->callees)
-	    cgraph_remove_edge (node->callees);
+	  cgraph_node_remove_callees (node);
 	  node->callees = saved_node->callees;
 	  saved_node->callees = NULL;
 	  update_inlined_to_pointers (node, node);

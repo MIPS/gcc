@@ -1,3 +1,332 @@
+2005-03-03  Jan Hubicka  <jh@suse.cz>
+
+	* tree-dfa.c (add_referenced_var): Don't walk initializer of external
+	and non-constant public variables.
+
+2005-03-03  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* tree-cfg.c (stmt_starts_bb_p): Clean up by replacing code
+	with LABEL_EXPR.
+
+	* cfgexpand.c (construct_exit_block): Use EDGE_PRED instead of
+	EDGE_I.
+
+	* tree-phinodes.c (remove_phi_node): Clean up by factoring out
+	calls to release_ssa_name and release_phi_node.
+
+	* fold-const.c (fold): Remove handling of unary expressions.
+
+	* fold-const.c (fold_unary): Avoid directly using the original
+	expression t as much as possible.
+
+2005-03-03  Roger Sayle  <roger@eyesopen.com>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* jump.c (redirect_exp_1): If nlabel is a NULL pointer create a
+	RETURN rtx, and not a LABEL_REF containing a NULL pointer.
+
+2005-03-03  Hans-Peter Nilsson  <hp@axis.com>
+
+	Describe special registers SRP and MOF as allocatable registers.
+	* config/cris/cris.c (cris_md_asm_clobbers): New function.
+	(TARGET_MD_ASM_CLOBBERS): Define to cris_md_asm_clobbers.
+	(cris_conditional_register_usage): Enable CRIS_MOF_REGNUM if
+	TARGET_HAS_MUL_INSNS.
+	(cris_print_operand) <case 'd'>: New case.
+	<case REG>: Allow CRIS_MOF_REGNUM and CRIS_SRP_REGNUM.
+	* config/cris/cris.h (CRIS_PC_REGNUM, CRIS_SRP_REGNUM): Don't
+	define.
+	(FIRST_PSEUDO_REGISTER, FIXED_REGISTERS, CALL_USED_REGISTERS)
+	(REG_ALLOC_ORDER): Update for MOF.
+	(enum reg_class): New members MOF_REGS, GENERAL_REGS and
+	SPECIAL_REGS.
+	(GENERAL_REGS): No longer a define of ALL_REGS.
+	(REGNO_REG_CLASS, REG_CLASS_CONTENTS, REG_CLASS_NAMES)
+	(PREFERRED_RELOAD_CLASS, REGISTER_NAMES, DBX_REGISTER_NUMBER):
+	Adjust accordingly.
+	(CRIS_SPECIAL_REGS_CONTENTS): New macro.
+	(REG_CLASS_FROM_LETTER): Allocate 'h' and 'x'.
+	(SECONDARY_RELOAD_CLASS): Define.
+	(STACK_POINTER_REGNUM): Define as CRIS_SP_REGNUM.
+	(FRAME_POINTER_REGNUM): Define as CRIS_FP_REGNUM.
+	(ARG_POINTER_REGNUM): Define as CRIS_AP_REGNUM.
+	(STATIC_CHAIN_REGNUM): Define as CRIS_STATIC_CHAIN_REGNUM.
+	(REGISTER_MOVE_COST): Define.
+	(PIC_OFFSET_TABLE_REGNUM): Define in terms of CRIS_GOT_REGNUM.
+	* config/cris/cris.md (CRIS_GOT_REGNUM, CRIS_STATIC_CHAIN_REGNUM)
+	(CRIS_FP_REGNUM, CRIS_SP_REGNUM, CRIS_SRP_REGNUM, CRIS_AP_REGNUM)
+	(CRIS_MOF_REGNUM): New define_constants.
+	("*movsi_internal", "movhi", "movqi", "movsf"): Add alternatives for
+	special registers.
+	("reload_inhi", "reload_outhi", "reload_inqi", "reload_outqi"):
+	New patterns.
+	("umulhisi3", "umulqihi3", "mulsi3", "mulqihi3", "mulhisi3")
+	("mulsidi3", "umulsidi3", "smulsi3_highpart", "umulsi3_highpart"):
+	Adjust for MOF being properly described as a register.
+	(indir_to_reg_split): Name this split.  Conditionalize on the
+	destination register being a general register.
+	(movei): Conditionalize on on operands 0 and 1 having the same
+	register class.
+
+2005-03-03  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/20277
+	* config/rs6000/rs6000.c (rs6000_override_options): Don't allow
+	-mcpu to override any other explicitly given flags.
+
+2005-03-02  J"orn Rennecke <joern.rennecke@st.com>
+
+	* recog.c (verify_changes, confirm_change_group): New functions,
+	broken out of apply_change_group.
+	(apply_change_group): Use them.
+	* recog.h (verify_change, confirm_change_group): Declare.
+	* rtl.h (redirect_jump_2): Declare.
+	* jump.c (redirect_exp, invert_exp): Delete.
+	(invert_exp_1): Take second parameter.  Return value.  Changed caller.
+	(redirect_jump_2): New function, broken out of redirect_jump.
+	(redirect_jump): Use redirect_jump_1 and redirect_jump_2.
+	(invert_jump): Use invert_jump_1 and redirect_jump_2.
+	* ifcvt.c (dead_or_predicable): Use redirect_jump_2.
+
+2005-03-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* varasm.c (named_section): Use xstrdup rather than doing it by
+	hand.
+
+	* config/darwin8.h (LIB_SPEC): Switch -lmx and -lSystem.
+
+2005-03-02  Devang Patel  <dpatel@apple.com>
+	
+	Undo PR tree-optimization/18815 fix.
+	
+2005-03-02  Devang Patel  <dpatel@apple.com>
+
+	PR tree-optimization/18815
+	* tree-if-conv.c (combine_blocks): Adjust loop header edges for
+	loops with zero exit edges.
+	
+2005-03-02  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cfg.c (connect_src, connect_dest, disconnect_src,
+	disconnct_dest): New.
+	(unchecked_make_edge, remove_edge, redirect_edge_succ,
+	redirect_edge_pred): Use the new functions.
+
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Call
+	free_dominance_info only when needed.
+
+2005-03-02  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/20276
+	* config/rs6000/predicates.md (reg_or_cint64_operand): Fix typo.
+	(reg_or_sub_cint64_operand): Same.
+
+2005-03-02  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Fix setting of
+	CFG_ALTERED in the main DOM iteration loop.
+
+2005-03-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19916
+	* varasm.c (initializer_constant_valid_p): Allow conversions
+	between OFFSET_TYPEs.  Tidy.
+
+2005-03-02  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/cris.md ("return"): Remove epilogue delay list
+	sanity check.
+
+2005-03-02  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/linux-elf.h (ARM_FUNCTION_PROFILER): Do not use (PLT)
+	for Thumb.
+	* config/arm/netbsd-elf.h (ARM_FUNCTION_PROFILER): Likewise.
+
+2005-03-02  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cfgloop.h, cfgloopanal.c, cfgloopmanip.c, conflict.c,
+	loop-init.c, loop-unroll.c, print-tree.c, reg-notes.def,
+	config/m68k/m68k.c, config/mips/mips.h,
+	config/rs6000/rs6000-protos.h, doc/contrib.texi,
+	doc/include/gcc-common.texi: Update copyright.
+
+	PR middle-end/18029 and PR middle-end/18030
+	* expr.c (optimize_bitfield_assignment_op): Add a special case
+	to handle BIT_IOR_EXPR and BIT_XOR_EXPR.
+
+	* fold-const.c (fold_unary): New.
+	(fold): Call fold_unary on unary expressions.
+
+2005-03-02  Richard Guenther  <rguenth@gcc.gnu.org>
+
+	* cgraph.h (struct cgraph_edge): Add prev_caller and
+	prev_callee fields.
+	(cgraph_node_remove_callees): Export.
+	* cgraph.c (cgraph_create_edge): Initialize prev_caller
+	and prev_callee.
+	(cgraph_edge_remove_callee): New function.
+	(cgraph_edge_remove_caller): Likewise.
+	(cgraph_remove_edge): Use.
+	(cgraph_redirect_edge_callee): Likewise.
+	(cgraph_node_remove_callees): New function.
+	(cgraph_node_remove_callers): Likewise.
+	(cgraph_remove_node): Use.
+	* tree-optimize.c (tree_rest_of_compilation): Use
+	cgraph_node_remove_callees instead of manual loop.
+	* cgraphunit.c (cgraph_finalize_function): Likewise.
+	(cgraph_expand_function): Likewise.
+	(cgraph_remove_unreachable_nodes): Likewise.
+
+2005-03-02  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/8927
+	* c-tree.h (undeclared_variable, build_external_ref): Add extra
+	argument.
+	* c-decl.c (undeclared_variable): Take location as argument.
+	* c-typeck.c (build_external_ref): Likewise.
+	* c-parser.c (c_parser_postfix_expression): Pass location of
+	identifier to build_external_ref.
+
+2005-03-01  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.md (cceq splitter): Use operand mode, not
+	CCEQ mode for branch_positive_comparison_operator test.
+	* config/rs6000/predicates (branch_comparison_operator): Revert to
+	define_predicate.
+	(scc_comparison_operator): Same.
+	(branch_positive_comparison_operator): Same.
+
+2005-03-01  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/cris.c (cris_eligible_for_epilogue_delay)
+	(cris_delay_slots_for_epilogue): Remove.
+	(save_last): Move into cris_target_asm_function_epilogue.
+	(cris_target_asm_function_epilogue): Remove tests for file being
+	NULL.
+	* config/cris/cris-protos.h (cris_eligible_for_epilogue_delay)
+	(cris_delay_slots_for_epilogue): Remove prototypes.
+	* config/cris/cris.h (DELAY_SLOTS_FOR_EPILOGUE)
+	(ELIGIBLE_FOR_EPILOGUE_DELAY): Do not define.
+
+2005-03-01  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/predicates.md (branch_comparison_operator): Change
+	to define_special_predicate.
+	(scc_comparison_operator): Same.
+	(branch_positive_comparison_operator): Same.
+
+2005-03-01  Daniel Berlin <dberlin@dberlin.org>
+
+	* Makefile.in (tree-ssa-sink.o): New.
+	(OBJS-common): Add tree-ssa-sink.o.
+	* common.opt: Add -ftree-sink
+	* opts.c (decode_options): flag_tree_sink is set at O1 or higher.
+	* timevar.def (TV_TREE_SINK): new timevar.
+	* tree-flow.h (is_hidden_global_store): Prototype.
+	* tree-optimize.c (init_tree_optimization_passes): Add
+	pass_sink_code.
+	* tree-pass.h (pass_sink_code): New.
+	* tree-ssa-dce.c (mark_stmt_if_obviously_necessary): Move checking
+	for non-obvious global store store to is_hidden_global_store, and
+	call that new function.
+	* tree-ssa-sink.c: New file.
+	* doc/invoke.texi: Document -fdump-tree-sink and -ftree-sink.
+	* doc/passes.texi: Document forward store motion.
+	* testsuite/gcc.dg/tree-ssa/ssa-sink-1.c: New test
+	* testsuite/gcc.dg/tree-ssa/ssa-sink-2.c: New test
+	* testsuite/gcc.dg/tree-ssa/ssa-sink-3.c: New test
+	* testsuite/gcc.dg/tree-ssa/ssa-sink-4.c: New test
+
+2005-03-01  Per Bothner  <per@bothner.com>
+
+	* diagnostic.c (diagnostic_build_prefix): If USE_MAPPED_LOCATION
+	and we have a non-zero column-number, add it to the message.
+	Also factor out the diagnostic_kind_text.
+
+2005-03-01  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* cfgloop.c (flow_loop_entry_edges_find, flow_loop_exit_edges_find,
+	flow_loop_pre_header_scan, flow_loop_pre_header_find,
+	flow_loop_scan): Removed.
+	(flow_loop_dump): Do not dump removed fields.
+	(flow_loop_free): Do not free removed fields.
+	(flow_loops_find): Flags argument removed.  Do not call flow_loop_scan.
+	(loop_exit_edge_p): New function.
+	* cfgloop.h (struct loop): Removed fields pre_header, pre_header_edges,
+	num_pre_header_edges, entry_edges, num_entries, exit_edges,
+	num_exits, exits_doms.
+	(LOOP_TREE, LOOP_PRE_HEADER, LOOP_ENTRY_EDGES, LOOP_EXIT_EDGES,
+	LOOP_EDGES, LOOP_ALL): Removed.
+	(flow_loop_scan): Declaration removed.
+	(loop_exit_edge_p, mark_loop_exit_edges): Declare.
+	* cfgloopmanip.c (create_loop_notes): Do not pass flags to
+	flow_loops_find.
+	* ifcvt.c (mark_loop_exit_edges): Moved to cfgloopanal.c.
+	(if_convert): Call flow_loops_find and flow_loops_free
+	when calling mark_loop_exit_edges.
+	* cfgloopanal.c (mark_loop_exit_edges): Moved from
+	ifcvt.c.  Removed the flow_loops_find, flow_loops_free and
+	free_dominance_info calls.
+	* loop-init.c (flow_loops_find): Ditto.
+	* passes.c (rest_of_handle_branch_prob): Ditto.
+	* lambda-code.c (perfect_nestify): Do not call flow_loops_find.
+	* loop-unroll.c (analyze_insns_in_loop): Do not use
+	EDGE_LOOP_EXIT.
+	* predict.c (predict_loops): Do not call flow_loop_scan.
+	Use get_loop_exit_edges.
+	(tree_estimate_probability): Do not pass flags to flow_loops_find.
+	* tree-if-conv.c (bb_with_exit_edge_p): Take loop as argument.
+	Do not use EDGE_LOOP_EXIT.
+	(tree_if_convert_cond_expr, if_convertible_modify_expr_p): Pass loop
+	to bb_with_exit_edge_p.
+	(if_convertible_loop_p): Do not call flow_loop_scan.  Use
+	loop->single_exit.  Do not use EDGE_LOOP_EXIT.  Pass loop
+	to bb_with_exit_edge_p.
+	(combine_blocks): Pass loop to bb_with_exit_edge_p.  Do not use
+	EDGE_LOOP_EXIT.
+	* tree-loop-linear.c (linear_transform_loops): Do not call
+	flow_loop_scan.  Use loop->single_exit.
+	* tree-vect-analyze.c (vect_analyze_operations): Use loop->single_exit.
+	(vect_analyze_loop_form): Do not call flow_loop_scan.
+	* tree-vect-transform.c (vect_update_ivs_after_vectorizer): Use
+	loop->single_exit.
+	(vect_do_peeling_for_loop_bound): Use loop_preheader_edge and
+	loop->single_exit.
+	* tree-vectorizer.c (slpeel_update_phis_for_duplicate_loop,
+	slpeel_make_loop_iterate_ntimes, slpeel_can_duplicate_loop_p,
+	slpeel_tree_duplicate_loop_to_edge_cfg,
+	slpeel_verify_cfg_after_peeling, slpeel_tree_peel_loop_to_edge):
+	Use loop_preheader_edge and loop->single_exit.  Do not call
+	flow_loop_scan.
+
+2005-03-01  Nick Clifton  <nickc@redhat.com>
+
+	* config/arm/arm.c (thumb_find_work_register): Check all of the
+	argument registers to see if they are free, and a couple of
+	special cases where the last argument register but can be proved
+	to be available during the function's prologue.
+	(print_multi_reg, arm_compute_save_reg0_reg12_mask,
+	output_return_instruction, emit_multi_reg_push, thumb_pushpop,
+	thumb_unexpanded_epilogue): Use unsigned long as the type for the
+	register bit-mask.
+	(thumb_compute_save_reg_mask): Likewise.  Also use
+	thumb_find_work_register() to ensure that there is agreement about
+	which work register is going to be used in the prologue.
+	(thumb_output_function_prologue): Use unsigned long as the type
+	for the register bit-mask.  Also delay pushing the link register if
+	other high registers are going to be pushed.
+	(thumb_compute_save_reg_mask, emit_multi_reg_push,
+	print_multi-reg, number_of_first_bit_set, thumb_pushpop): Remove
+	redundant prototypes.
+
+2005-02-28  John David Anglin  <dave.anglin#nrc-cnrc.gc.ca>
+
+	PR target/19819
+	* pa.h (GO_IF_LEGITIMATE_ADDRESS): Allow allow hard registers during
+	and after reload in REG+REG indexed addresses without REG_POINTER
+	set in the base and not set in the index.
+
 2005-02-28  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* config/sh/linux.h (MD_EXEC_PREFIX, MD_STARTFILE_PREFIX):
@@ -210,7 +539,7 @@
 	("*andqi_lowpart", "iorsi3", "iorhi3", "iorqi3", "uminsi3"):
 	Insert spaces in constraints to align alternatives vertically for
 	readability.
-	("cmphi"): Ditto.  Add separate alternative for operand 0 "Q>",
+	("cmphi"): Ditto.  Add separate alternative for operand 0 "r",
 	operand 1: "M".
 
 2005-02-27  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
