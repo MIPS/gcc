@@ -1833,7 +1833,7 @@ maybe_warn_about_overly_private_class (t)
 	      return;
 		
 	    has_nonprivate_method = 1;
-	    break;
+	    /* Keep searching for a static member function.  */
 	  }
 	else if (!DECL_CONSTRUCTOR_P (fn) && !DECL_DESTRUCTOR_P (fn))
 	  has_member_fn = 1;

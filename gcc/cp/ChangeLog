@@ -31,9 +31,21 @@
 
 2003-03-19  Jason Merrill  <jason@redhat.com>
 
+	RH Issue Tracker #7487
+	* decl.c (finish_function): Also complain about no return in
+	templates.
+	* semantics.c (finish_return_stmt): Also call check_return_expr in
+	templates.
+	* typeck.c (check_return_expr): In a template, just remember that we
+	saw a return.
+
 	RH Issue Tracker #14363
 	* decl2.c (cxx_decode_option): Set cpp_opts->warn_deprecated
 	based on -Wdeprecated.
+
+	RH Issue Tracker #13215
+	* class.c (maybe_warn_about_overly_private_class): Don't stop
+	searching when we find a nonprivate method.
 
 2003-03-13  Jason Merrill  <jason@redhat.com>
 
