@@ -270,9 +270,9 @@ mark_operand_necessary (tree op)
 /* Return true if a store to a variable needs to be preserved.  */
 
 static inline bool
-need_to_preserve_store (tree var)
+need_to_preserve_store (tree ssa_name)
 {
-  return (needs_to_live_in_memory (get_base_decl (var)));
+  return (needs_to_live_in_memory (SSA_NAME_VAR (ssa_name)));
 }
 
 

@@ -3442,7 +3442,29 @@ rewrite_stmt (struct dom_walk_data *walk_data,
 void
 set_is_used (tree t)
 {
-  t = get_base_decl (t);
+  while (1)
+    {
+      if (SSA_VAR_P (t))
+	break;
+
+      switch (TREE_CODE (t))
+	{
+	case ARRAY_REF:
+	case COMPONENT_REF:
+	case REALPART_EXPR:
+	case IMAGPART_EXPR:
+	case INDIRECT_REF:
+	  t = TREE_OPERAND (t, 0);
+	  break;
+
+	default:
+	  return;
+	}
+    }
+
+  if (TREE_CODE (t) == SSA_NAME)
+    t = SSA_NAME_VAR (t);
+
   var_ann (t)->used = 1;
 }
 

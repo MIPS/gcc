@@ -449,10 +449,20 @@ ptr_is_dereferenced_by (tree ptr, tree stmt)
       lhs = TREE_OPERAND (e, 0);
       rhs = TREE_OPERAND (e, 1);
 
-      return ((TREE_CODE_CLASS (TREE_CODE (lhs)) == 'r'
-	       && get_base_var (lhs) == ptr)
-	      || (TREE_CODE_CLASS (TREE_CODE (rhs)) == 'r'
-	   	  && get_base_var (rhs) == ptr));
+      if (TREE_CODE_CLASS (TREE_CODE (lhs)) == 'r')
+	{
+	  lhs = get_base_address (lhs);
+	  if (lhs && TREE_CODE (lhs) == INDIRECT_REF
+	      && TREE_OPERAND (lhs, 0) == ptr)
+	    return true;
+	}
+      if (TREE_CODE_CLASS (TREE_CODE (rhs)) == 'r')
+	{
+	  rhs = get_base_address (rhs);
+	  if (rhs && TREE_CODE (rhs) == INDIRECT_REF
+	      && TREE_OPERAND (rhs, 0) == ptr)
+	    return true;
+	}
     }
 
   return false;
@@ -1405,7 +1415,7 @@ add_pointed_to_var (struct alias_info *ai, tree ptr, tree value)
 
       pt_var = TREE_OPERAND (value, 0);
       if (TREE_CODE_CLASS (TREE_CODE (pt_var)) == 'r')
-	pt_var = get_base_decl (pt_var);
+	pt_var = get_base_address (pt_var);
 
       if (pt_var && SSA_VAR_P (pt_var))
 	{
@@ -1550,7 +1560,7 @@ is_escape_site (tree stmt, size_t *num_calls_p)
 
       /* Get to the base of _REF nodes.  */
       if (TREE_CODE (lhs) != SSA_NAME)
-	lhs = get_base_var (lhs);
+	lhs = get_base_address (lhs);
 
       /* If we couldn't recognize the LHS of the assignment, assume that it
 	 is a non-local store.  */
@@ -1561,9 +1571,6 @@ is_escape_site (tree stmt, size_t *num_calls_p)
 	 memory store.  */
       if (TREE_CODE (lhs) == SSA_NAME)
 	return false;
-
-      if (!DECL_P (lhs))
-	abort ();
 
       /* FIXME: LHS is not an SSA_NAME.  Even if it's an assignment to a
 	 local variables we cannot be sure if it will escape, because we

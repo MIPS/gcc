@@ -1156,7 +1156,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
   if (var == NULL_TREE || !SSA_VAR_P (var))
     return;
 
-  sym = get_base_decl (var);
+  sym = (TREE_CODE (var) == SSA_NAME ? SSA_NAME_VAR (var) : var);
   v_ann = var_ann (sym);
 
   /* FIXME: We currently refuse to optimize variables that have hidden uses
@@ -1268,7 +1268,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 static void
 note_addressable (tree var, stmt_ann_t s_ann)
 {
-  var = get_base_decl (var);
+  var = get_base_address (var);
   if (var && SSA_VAR_P (var))
     {
       if (s_ann->addresses_taken == NULL)

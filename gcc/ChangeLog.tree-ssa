@@ -1,5 +1,18 @@
 2004-03-10  Richard Henderson  <rth@redhat.com>
 
+	* tree-simple.c (get_base_var, get_base_decl): Remove.
+	* tree-simple.h: Likewise.
+	* tree-dfa.c (discover_nonconstant_array_refs_r): Use get_base_address.
+	* tree-ssa-alias.c (ptr_is_dereferenced_by): Likewise.
+	(add_pointed_to_var, is_escape_site): Likewise.
+	* tree-ssa-ccp.c (get_default_value): Expect only SSA_NAME and DECLs.
+	* tree-ssa-operands.c (add_stmt_operand): Likewise.
+	(note_addressable): Use get_base_address.
+	* tree-ssa-dce.c (need_to_preserve_store): Expect only SSA_NAME.
+	* tree-ssa.c (set_is_used): Inline get_base_decl.
+
+2004-03-10  Richard Henderson  <rth@redhat.com>
+
 	* tree-nested.c (convert_nonlocal_reference): Clear TREE_INVARIANT
 	on modified ADDR_EXPRs.
 

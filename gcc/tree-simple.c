@@ -587,52 +587,6 @@ rationalize_compound_expr (tree top)
   return top;
 }
 
-/* Given a GIMPLE variable or memory reference T (e.g., ID, an ARRAY_REF, an
-   INDIRECT_REF), return the base variable of T (either a _DECL or an
-   SSA_NAME).  If T is not a variable or a memory reference, NULL_TREE is
-   returned.  */
-
-tree
-get_base_var (tree t)
-{
-  do
-    {
-      if (SSA_VAR_P (t))
-	return t;
-
-      switch (TREE_CODE (t))
-	{
-	case ARRAY_REF:
-	case COMPONENT_REF:
-	case REALPART_EXPR:
-	case IMAGPART_EXPR:
-	case INDIRECT_REF:
-	  t = TREE_OPERAND (t, 0);
-	  break;
-
-	default:
-	  return NULL_TREE;
-	}
-    }
-  while (t);
-
-  return t;
-}
-
-/* Given a GIMPLE variable or memory reference T, return the base _DECL
-   symbol.  If T is not a variable or memory reference, NULL_TREE is
-   returned.  */
-
-tree
-get_base_decl (tree t)
-{
-  t = get_base_var (t);
-  if (t && TREE_CODE (t) == SSA_NAME)
-    return SSA_NAME_VAR (t);
-
-  return t;
-}
-
 /* Given a memory reference expression, return the base address.  Note that,
    in contrast with get_base_var, this will not recurse inside INDIRECT_REF
    expressions.  Therefore, given the reference PTR->FIELD, this function
