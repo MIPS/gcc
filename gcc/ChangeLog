@@ -1,3 +1,7 @@
+2002-08-03  Geoffrey Keating  <geoffk@redhat.com>
+
+	* gengenrtl.c: Delete unnecessary rtl_obstack declaration.
+
 2002-07-25  Geoffrey Keating  <geoffk@redhat.com>
 
 	* dwarf2out.c (dw_cfi_oprnd2_desc): Fix ISO-only function definition.
