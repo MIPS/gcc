@@ -5,6 +5,8 @@
 
 #define TARGET_VERSION fprintf (stderr, " (IA-64) Linux");
 
+#define TARGET_ASM_FILE_END file_end_indicate_exec_stack
+
 /* This is for -profile to use -lc_p instead of -lc.  */
 #undef CC1_SPEC
 #define CC1_SPEC "%{profile:-p} %{G*}"
