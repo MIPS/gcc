@@ -655,7 +655,7 @@ simplify_do_stmt (stmt, vars_p)
   simplify_stmt (DO_BODY (stmt), NULL_TREE);
 
   /* Check wether the loop condition is already simplified.  */
-  if (is_simple_expr (DO_COND (stmt)))
+  if (is_simple_condexpr (DO_COND (stmt)))
     return stmt;
 
   /* Simplify the loop conditional.  Note that we simplify the conditional
@@ -744,7 +744,7 @@ simplify_if_stmt (stmt, pre_p, vars_p)
     }
       		
   /* Nothing to do if the condition is simple already.  */
-  if (is_simple_expr (IF_COND (stmt)))
+  if (is_simple_condexpr (IF_COND (stmt)))
     return stmt;
 
   /* Simplify the conditional.  Force simplification to produce a SIMPLE

@@ -1,5 +1,11 @@
 2002-04-17  Diego Novillo  <dnovillo@redhat.com>
 
+	* c-simplify.c (simplify_do_stmt): Call is_simple_condexpr to test
+	if the conditional is in SIMPLE form.
+	(simplify_if_stmt): Ditto.
+
+2002-04-17  Diego Novillo  <dnovillo@redhat.com>
+
 	* c-pretty-print.c (dump_c_node): Handle escape sequences in strings.
 	(op_symbol): Handle TRUTH_NOT_EXPR.
 	* c-simplify.c: Rename 'after' with 'post' and 'before' with 'pre'
