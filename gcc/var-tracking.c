@@ -38,8 +38,32 @@
    The IN and OUT sets for basic blocks consist of a link list for each
    physical register and a hash table of link lists for memory references.
    The link lists should be pretty short so it is a good data structure here.
+   The IN set for basic block BB is computed as a union of OUT sets of BB's
+   predecessors, the OUT set for BB is computed from the IN set for BB and
+   the location references in BB (from array of locations created in the first
+   step).
    REG_EXPR and MEM_EXPR are used to find out which variable is associated
    with a given register/memory.
+   For a register, the link list contains the list of triplets
+   (loc, decl, offset) called "attributes" (loc is the register RTX,
+   decl and offset are from REG_ATTRS (loc)) describing variable parts which are
+   currently in a given register.  There may be more than one such a variable
+   part in a register, for example in the following example, register allocator
+   may assign same register to variables A and B, and both of them are stored in
+   the same register in CODE:
+
+     if (cond)
+       set A;
+     else
+       set B;
+     CODE;
+     if (cond)
+       use A;
+     else
+       use B;
+
+   For a memory, the link list are similar, one link list contains attributes
+   for the same decl (they may have different offsets).
 
    Finally, the NOTE_INSN_VAR_LOCATION notes describing the variable locations
    are emitted to appropriate positions in RTL code.  Each such a note describes
