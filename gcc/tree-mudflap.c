@@ -645,8 +645,6 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize,
        (COMPONENT_REF (INDIRECT_REF (tree), field))
        ... except the size value for the check is offsetof(field)+sizeof(field)-1
 
-   XXX: COMPONENT_REF (ARRAY_REF ....) is also possible
-
    (4) (BIT_FIELD_REF (INDIRECT_REF (tree), bitsize, bitpos))
        ==> (as if)
        (BIT_FIELD_REF (INDIRECT_REF (tree), bitsize, bitpos))
@@ -726,29 +724,59 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	   and a tree representing the complete desired offset in
 	   offset_expr. */
 
-	base_obj_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND(*t,0)));
+	base_obj_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND (*t,0)));
 	base_ptr_type = build_pointer_type (base_obj_type);
 
-        check_ptr = mx_flag (build1 (ADDR_EXPR, 
-				     base_ptr_type, 
-				     mx_flag (build (ARRAY_REF, 
-						     base_obj_type, 
-						     base_array,
-						     integer_zero_node))));
 	TREE_ADDRESSABLE (base_array) = 1;
+
+
+	/* Maybe we have an expression like ptr->array[4].  In this
+	   case, we don't want to check (*ptr), since ptr+sizeof(*ptr)
+	   might be well beyond &(ptr->array[4]).  */
+	if ((TREE_CODE (base_array) == COMPONENT_REF) &&
+	    (TREE_CODE (TREE_OPERAND (base_array, 0)) == INDIRECT_REF))
+	  {
+	    /* This is similar to the COMPONENT_REF(INDIRECT_REF(...))
+	       code below. */
+
+	    tree field = TREE_OPERAND (base_array, 1);
+	    tree field_offset = byte_position (field);
+
+	    check_ptr = TREE_OPERAND (TREE_OPERAND (base_array, 0), 0); /* ptr */
+	    check_size = fold (build (PLUS_EXPR, size_type_node,
+				      field_offset,
+				      fold (build (MULT_EXPR, 
+						   integer_type_node,
+						   TYPE_SIZE_UNIT (base_obj_type),
+						   fold (build (PLUS_EXPR, size_type_node,
+								integer_one_node,
+								offset_expr))))));
+
+	    mx_flag (TREE_OPERAND (base_array, 0));
+	    mx_flag (base_array);
+	  }
+	else /* default: possibly a VAR_DECL */
+	  {
+	    check_ptr = mx_flag (build1 (ADDR_EXPR, 
+					 base_ptr_type, 
+					 mx_flag (build (ARRAY_REF, 
+							 base_obj_type, 
+							 base_array,
+							 integer_zero_node))));
+
+	    check_size = fold (build (MULT_EXPR, 
+				      integer_type_node,
+				      TYPE_SIZE_UNIT (base_obj_type),
+				      fold (build (PLUS_EXPR, size_type_node,
+						   integer_one_node,
+						   offset_expr))));
+	  }
 
 	value_ptr = mx_flag (build1 (ADDR_EXPR,
 				     base_ptr_type,
 				     mx_flag (*t)));
 	walk_tree (& value_ptr, mf_mostly_copy_tree_r, NULL, NULL);
 	TREE_ADDRESSABLE (*t) = 1;
-
-	check_size = fold (build (MULT_EXPR, 
-				  integer_type_node,
-				  TYPE_SIZE_UNIT (base_obj_type),
-				  fold (build (PLUS_EXPR, size_type_node,
-					       integer_one_node,
-					       offset_expr))));
 
 	/* As an optimization, omit checking if the base object is
 	   known to be large enough.  Only certain kinds of
@@ -830,7 +858,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
 
 	  *pointer = 
 	    mf_build_check_statement_for (*pointer,
-					  *pointer, /* XXX: should be struct base addr instead */
+					  *pointer,
 					  check_size,
 					  NULL_TREE,
 					  last_filename, last_lineno);
@@ -840,7 +868,6 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	  mx_flag (*t);
 	}
       break;
-
 
     case BIT_FIELD_REF:
       if (TREE_CODE (TREE_OPERAND (*t, 0)) == INDIRECT_REF)
