@@ -13,6 +13,9 @@
 
 2003-05-20  Jeff Law  <law@redhat.com>
 
+	* expr.c (expand_expr, case COND_EXPR): Avoid useless RTL generation
+	when the THEN or ELSE arm is empty.
+                                                                                
 	* tree-cfg.c (make_loop_expr_blocks): Do not accept next_block_link
 	as an argument, make it a local variable.  Callers changed.
  

@@ -9051,37 +9051,84 @@ expand_expr (exp, target, tmode, modifier)
 	  }
 	else
 	  {
-	    op1 = gen_label_rtx ();
-	    jumpifnot (TREE_OPERAND (exp, 0), op0);
+	    /* This used heavily by gimplified code, so it's worth
+	       trying to be semi-intelligent about the code we generate.   */
 
-	    start_cleanup_deferral ();
+	    /* Expand the condition and jump around THEN clause if the
+	       condition does not hold.
 
-	    /* One branch of the cond can be void, if it never returns. For
-	       example A ? throw : E  */
-	    if (temp != 0
-		&& TREE_TYPE (TREE_OPERAND (exp, 1)) != void_type_node)
-	      store_expr (TREE_OPERAND (exp, 1), temp,
-			  modifier == EXPAND_STACK_PARM ? 2 : 0);
+	       However, if the THEN clause is empty, then jump around
+	       the ELSE clause if the condition does hold.
+
+	       If both the THEN and the ELSE are empty, then just emit
+	       the condition (in case it had embedded side effects).  */
+	    if (! IS_EMPTY_STMT (TREE_OPERAND (exp, 1)))
+	      jumpifnot (TREE_OPERAND (exp, 0), op0);
+	    else if (! IS_EMPTY_STMT (TREE_OPERAND (exp, 2)))
+	      {
+	        op1 = gen_label_rtx ();
+	        jumpif (TREE_OPERAND (exp, 0), op1);
+	      }
 	    else
-	      expand_expr (TREE_OPERAND (exp, 1),
+	      expand_expr (TREE_OPERAND (exp, 0), 
 			   ignore ? const0_rtx : NULL_RTX, VOIDmode, 0);
-	    end_cleanup_deferral ();
-	    emit_queue ();
-	    emit_jump_insn (gen_jump (op1));
-	    emit_barrier ();
-	    emit_label (op0);
-	    start_cleanup_deferral ();
-	    if (temp != 0
-		&& TREE_TYPE (TREE_OPERAND (exp, 2)) != void_type_node)
-	      store_expr (TREE_OPERAND (exp, 2), temp,
-			  modifier == EXPAND_STACK_PARM ? 2 : 0);
-	    else
-	      expand_expr (TREE_OPERAND (exp, 2),
-			   ignore ? const0_rtx : NULL_RTX, VOIDmode, 0);
+	      
+	    /* Generate RTL for the THEN clause if it is not empty.  */
+	    if (! IS_EMPTY_STMT (TREE_OPERAND (exp, 1)))
+	      {
+		start_cleanup_deferral ();
+
+		/* One branch of the cond can be void, if it never returns. For
+		   example A ? throw : E  */
+		if (temp != 0
+		    && TREE_TYPE (TREE_OPERAND (exp, 1)) != void_type_node)
+		  store_expr (TREE_OPERAND (exp, 1), temp,
+			      modifier == EXPAND_STACK_PARM ? 2 : 0);
+		else
+		  expand_expr (TREE_OPERAND (exp, 1),
+			       ignore ? const0_rtx : NULL_RTX, VOIDmode, 0);
+		end_cleanup_deferral ();
+		emit_queue ();
+
+		/* If the ELSE clause was not empty, then we need to
+		   jump around it.  */
+		if (! IS_EMPTY_STMT (TREE_OPERAND (exp, 2)))
+		  {
+		    op1 = gen_label_rtx ();
+		    emit_jump_insn (gen_jump (op1));
+		    emit_barrier ();
+		  }
+
+		/* This is the target of the jump around the THEN block.  */
+		emit_label (op0);
+	      }
+
+	    /* Generate RTL for the ELSE clause if it is not empty.  */
+	    if (! IS_EMPTY_STMT (TREE_OPERAND (exp, 2)))
+	      {
+		start_cleanup_deferral ();
+
+		if (temp != 0
+		    && TREE_TYPE (TREE_OPERAND (exp, 2)) != void_type_node)
+		  store_expr (TREE_OPERAND (exp, 2), temp,
+			      modifier == EXPAND_STACK_PARM ? 2 : 0);
+		else
+		  expand_expr (TREE_OPERAND (exp, 2),
+			       ignore ? const0_rtx : NULL_RTX, VOIDmode, 0);
+
+		end_cleanup_deferral ();
+ 
+	        emit_queue ();
+		emit_label (op1);
+	      }
+	    OK_DEFER_POP;
+	    return temp;
 	  }
 
+	/* We fall into this path from earlier in the COND_EXPR case, so this
+	   can not be pulled up into the trailing else clause.  */
 	end_cleanup_deferral ();
-
+ 
 	emit_queue ();
 	emit_label (op1);
 	OK_DEFER_POP;
