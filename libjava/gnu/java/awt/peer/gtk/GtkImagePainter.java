@@ -188,8 +188,8 @@ public class GtkImagePainter implements Runnable, ImageConsumer
   setPixels (int x, int y, int width, int height, ColorModel model, 
 	     byte[] pixels, int offset, int scansize)
   {
-    setPixels (x, y, width, height, model, convertPixels (pixels, model),
-	       offset, scansize);
+    setPixels (x, y, width, height, ColorModel.getRGBdefault(),
+	       convertPixels (pixels, model), offset, scansize);
   }
 
   public void 
