@@ -149,13 +149,10 @@ enum c_tree_index
     CTI_CONST_STRING_TYPE,
 
     /* Type for boolean expressions (bool in C++, int in C).  */
-    CTI_BOOLEAN_TYPE,
-    CTI_BOOLEAN_TRUE,
-    CTI_BOOLEAN_FALSE,
-    /* C99's _Bool type.  */
-    CTI_C_BOOL_TYPE,
-    CTI_C_BOOL_TRUE,
-    CTI_C_BOOL_FALSE,
+    CTI_TRUTHVALUE_TYPE,
+    CTI_TRUTHVALUE_TRUE,
+    CTI_TRUTHVALUE_FALSE,
+
     CTI_DEFAULT_FUNCTION_TYPE,
 
     CTI_G77_INTEGER_TYPE,
@@ -195,13 +192,9 @@ struct c_common_identifier GTY(())
 #define widest_integer_literal_type_node c_global_trees[CTI_WIDEST_INT_LIT_TYPE]
 #define widest_unsigned_literal_type_node c_global_trees[CTI_WIDEST_UINT_LIT_TYPE]
 
-#define boolean_type_node		c_global_trees[CTI_BOOLEAN_TYPE]
-#define boolean_true_node		c_global_trees[CTI_BOOLEAN_TRUE]
-#define boolean_false_node		c_global_trees[CTI_BOOLEAN_FALSE]
-
-#define c_bool_type_node		c_global_trees[CTI_C_BOOL_TYPE]
-#define c_bool_true_node		c_global_trees[CTI_C_BOOL_TRUE]
-#define c_bool_false_node		c_global_trees[CTI_C_BOOL_FALSE]
+#define truthvalue_type_node		c_global_trees[CTI_TRUTHVALUE_TYPE]
+#define truthvalue_true_node		c_global_trees[CTI_TRUTHVALUE_TRUE]
+#define truthvalue_false_node		c_global_trees[CTI_TRUTHVALUE_FALSE]
 
 #define char_array_type_node		c_global_trees[CTI_CHAR_ARRAY_TYPE]
 #define wchar_array_type_node		c_global_trees[CTI_WCHAR_ARRAY_TYPE]
@@ -328,7 +321,6 @@ struct c_language_function GTY(()) {
 extern void (*lang_expand_stmt) (tree);
 extern void (*lang_expand_decl_stmt) (tree);
 extern void (*lang_expand_function_end) (void);
-extern tree gettags (void);
 
 /* Callback that determines if it's ok for a function to have no
    noreturn attribute.  */
@@ -357,26 +349,6 @@ extern void shadow_warning (enum sw_kind, const char *, tree);
 extern int field_decl_cmp (const void *, const void *);
 extern void resort_sorted_fields (void *, void *, gt_pointer_operator, 
                                   void *);
-
-/* Extra information associated with a DECL.  Other C dialects extend
-   this structure in various ways.  The C front-end only uses this
-   structure for FUNCTION_DECLs; all other DECLs have a NULL
-   DECL_LANG_SPECIFIC field.  */
-
-struct c_lang_decl GTY(()) {
-  unsigned declared_inline : 1;
-};
-
-/* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
-     the approximate number of statements in this function.  There is
-     no need for this number to be exact; it is only used in various
-     heuristics regarding optimization.  */
-#define DECL_ESTIMATED_INSNS(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
-
-/* Nonzero if we can read a PCH file now.  */
-
-extern int allow_pch;
 
 /* Switches common to the C front ends.  */
 
@@ -583,11 +555,6 @@ extern int flag_isoc99;
 
 extern int flag_hosted;
 
-/* Nonzero means add default format_arg attributes for functions not
-   in ISO C.  */
-
-extern int flag_noniso_default_format_attributes;
-
 /* Nonzero means warn when casting a function call to a type that does
    not match the return type (e.g. (float)sqrt() or (anything*)malloc()
    when there is no previous declaration of sqrt or malloc.  */
@@ -597,6 +564,10 @@ extern int warn_bad_function_cast;
 /* Warn about traditional constructs whose meanings changed in ANSI C.  */
 
 extern int warn_traditional;
+
+/* Nonzero means warn for a declaration found after a statement.  */
+
+extern int warn_declaration_after_statement;
 
 /* Nonzero means warn for non-prototype function decls
    or non-prototyped defs without previous prototype.  */
@@ -767,14 +738,17 @@ extern int flag_new_for_scope;
 
 extern int flag_weak;
 
+/* 0 means we want the preprocessor to not emit line directives for
+   the current working directory.  1 means we want it to do it.  -1
+   means we should decide depending on whether debugging information
+   is being emitted or not.  */
+
+extern int flag_working_directory;
+
 /* Nonzero to use __cxa_atexit, rather than atexit, to register
    destructors for local statics and global objects.  */
 
 extern int flag_use_cxa_atexit;
-
-/* Nonzero means output .vtable_{entry,inherit} for use in doing vtable gc.  */
-
-extern int flag_vtable_gc;
 
 /* Nonzero means make the default pedwarns warnings instead of errors.
    The value of this flag is ignored if -pedantic is specified.  */
@@ -878,11 +852,6 @@ extern int max_tinst_depth;
 
 extern int skip_evaluation;
 
-/* The count of input filenames.  Only really valid for comparisons
-   against 1.  */
-
-extern unsigned num_in_fnames;
-
 /* C types are partitioned into three subsets: object, function, and
    incomplete types.  */
 #define C_TYPE_OBJECT_P(type) \
@@ -932,9 +901,7 @@ extern void check_function_format (int *, tree, tree);
 extern void set_Wformat (int);
 extern tree handle_format_attribute (tree *, tree, tree, int, bool *);
 extern tree handle_format_arg_attribute (tree *, tree, tree, int, bool *);
-extern void c_common_insert_default_attributes (tree);
 extern int c_common_handle_option (size_t code, const char *arg, int value);
-extern void c_common_handle_filename (const char *filename);
 extern bool c_common_missing_argument (const char *opt, size_t code);
 extern tree c_common_type_for_mode (enum machine_mode, int);
 extern tree c_common_type_for_size (unsigned int, int);
@@ -1339,6 +1306,7 @@ extern int c_common_valid_pch (cpp_reader *pfile, const char *name, int fd);
 extern void c_common_read_pch (cpp_reader *pfile, const char *name, int fd,
 			       const char *orig);
 extern void c_common_write_pch (void);
+extern void c_common_no_more_pch (void);
 extern void builtin_define_with_value (const char *, const char *, int);
 extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);

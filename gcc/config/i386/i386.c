@@ -3410,7 +3410,12 @@ pic_symbolic_operand (register rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
   op = XEXP (op, 0);
   if (TARGET_64BIT)
     {
-      if (GET_CODE (XEXP (op, 0)) == UNSPEC)
+      if (GET_CODE (op) == UNSPEC
+	  && XINT (op, 1) == UNSPEC_GOTPCREL)
+	return 1;
+      if (GET_CODE (op) == PLUS
+	  && GET_CODE (XEXP (op, 0)) == UNSPEC
+	  && XINT (XEXP (op, 0), 1) == UNSPEC_GOTPCREL)
 	return 1;
     }
   else
@@ -5656,15 +5661,23 @@ legitimate_pic_address_disp_p (register rtx disp)
       if (GET_CODE (disp) == LABEL_REF)
 	return 1;
       if (GET_CODE (disp) == CONST
-	  && GET_CODE (XEXP (disp, 0)) == PLUS
-	  && ((GET_CODE (XEXP (XEXP (disp, 0), 0)) == SYMBOL_REF
-	       && ix86_cmodel == CM_SMALL_PIC
-	       && SYMBOL_REF_LOCAL_P (XEXP (XEXP (disp, 0), 0)))
-	      || GET_CODE (XEXP (XEXP (disp, 0), 0)) == LABEL_REF)
-	  && GET_CODE (XEXP (XEXP (disp, 0), 1)) == CONST_INT
-	  && INTVAL (XEXP (XEXP (disp, 0), 1)) < 16*1024*1024
-	  && INTVAL (XEXP (XEXP (disp, 0), 1)) >= -16*1024*1024)
-	return 1;
+	  && GET_CODE (XEXP (disp, 0)) == PLUS)
+	{
+	  rtx op0 = XEXP (XEXP (disp, 0), 0);
+	  rtx op1 = XEXP (XEXP (disp, 0), 1);
+
+	  /* TLS references should always be enclosed in UNSPEC.  */
+	  if (tls_symbolic_operand (op0, GET_MODE (op0)))
+	    return 0;
+	  if (((GET_CODE (op0) == SYMBOL_REF
+		&& ix86_cmodel == CM_SMALL_PIC
+		&& SYMBOL_REF_LOCAL_P (op0))
+	       || GET_CODE (op0) == LABEL_REF)
+	      && GET_CODE (op1) == CONST_INT
+	      && INTVAL (op1) < 16*1024*1024
+	      && INTVAL (op1) >= -16*1024*1024)
+	    return 1;
+	}
     }
   if (GET_CODE (disp) != CONST)
     return 0;

@@ -52,23 +52,7 @@ Java_gnu_java_awt_peer_gtk_GtkTextFieldPeer_create
   NSA_SET_PTR (env, obj, widget);
 }
 
-JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GtkTextFieldPeer_connectHooks
-  (JNIEnv *env, jobject obj)
-{
-  void *ptr;
-
-  ptr = NSA_GET_PTR (env, obj);
-
-  gdk_threads_enter ();
-  gtk_widget_realize (GTK_WIDGET (ptr));
-  connect_awt_hook (env, obj, 2, 
-		    GTK_WIDGET (ptr)->window, 
-		    GTK_ENTRY (ptr)->text_area);
-  gdk_threads_leave ();
-}
-
-JNIEXPORT void JNICALL 
+JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkTextFieldPeer_gtkEntryGetSize
   (JNIEnv *env, jobject obj, jint cols, jintArray jdims)
 {
@@ -116,7 +100,7 @@ Java_gnu_java_awt_peer_gtk_GtkTextFieldPeer_setEchoChar
   gdk_threads_leave ();
 }
 
-JNIEXPORT void JNICALL 
+JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkTextFieldPeer_gtkSetFont
   (JNIEnv *env, jobject obj, jstring jname, jint size)
 {
@@ -126,15 +110,17 @@ Java_gnu_java_awt_peer_gtk_GtkTextFieldPeer_gtkSetFont
   PangoFontDescription *font_desc;
 
   ptr = NSA_GET_PTR (env, obj);
-  
+
   entry = GTK_WIDGET (ptr);
   font_name = (*env)->GetStringUTFChars (env, jname, NULL);
 
   gdk_threads_enter();
 
   font_desc = pango_font_description_from_string (font_name);
-  pango_font_description_set_size (font_desc, size);
+  pango_font_description_set_size (font_desc, size * PANGO_SCALE);
+
   gtk_widget_modify_font (GTK_WIDGET(entry), font_desc);
+
   pango_font_description_free (font_desc);
 
   gdk_threads_leave();

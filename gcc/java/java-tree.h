@@ -109,8 +109,7 @@ struct JCF;
       LABEL_IS_SUBR_START (in LABEL_DECL)
       CLASS_ABSTRACT (in TYPE_DECL)
       FIELD_TRANSIENT (in FIELD_DECL)
-   6: METHOD_TRANSIENT (in FUNCTION_DECL)
-      LABEL_CHANGED (in LABEL_DECL)
+   6: LABEL_CHANGED (in LABEL_DECL)
       CLASS_SUPER (in TYPE_DECL, ACC_SUPER flag)
       FIELD_LOCAL_ALIAS (in FIELD_DECL)
    7: DECL_CONSTRUCTOR_P (in FUNCTION_DECL).
@@ -287,8 +286,6 @@ enum java_tree_index
   JTI_DECIMAL_INT_MAX_NODE,
   JTI_DECIMAL_LONG_MAX_NODE,
 
-  JTI_BOOLEAN_TYPE_NODE,
-
   JTI_OBJECT_TYPE_NODE,
   JTI_UNQUALIFIED_OBJECT_ID_NODE,
   JTI_OBJECT_PTR_TYPE_NODE,
@@ -337,9 +334,6 @@ enum java_tree_index
   JTI_ONE_ELT_ARRAY_DOMAIN_TYPE,
 
   JTI_RETURN_ADDRESS_TYPE_NODE,
-
-  JTI_BOOLEAN_TRUE_NODE, 
-  JTI_BOOLEAN_FALSE_NODE,
 
   JTI_LONG_ZERO_NODE,
   JTI_FLOAT_ZERO_NODE,
@@ -457,9 +451,6 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
 #define decimal_long_max \
   java_global_trees[JTI_DECIMAL_LONG_MAX_NODE]
 
-#define boolean_type_node \
-  java_global_trees[JTI_BOOLEAN_TYPE_NODE]
-
 #define object_type_node \
   java_global_trees[JTI_OBJECT_TYPE_NODE]
 #define unqualified_object_id_node \
@@ -555,12 +546,6 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
 /* The type of the return address of a subroutine. */
 #define return_address_type_node \
   java_global_trees[JTI_RETURN_ADDRESS_TYPE_NODE]
-
-/* Nodes for boolean constants TRUE and FALSE. */
-#define boolean_true_node \
-  java_global_trees[JTI_BOOLEAN_TRUE_NODE]
-#define boolean_false_node \
-  java_global_trees[JTI_BOOLEAN_FALSE_NODE]
 
 /* Integer constants not declared in tree.h. */
 #define long_zero_node \
@@ -921,12 +906,6 @@ union lang_tree_node
 /* The original WFL of a final variable. */
 #define DECL_FIELD_FINAL_WFL(NODE) \
   (DECL_LANG_SPECIFIC(NODE)->u.v.wfl)
-/* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
-     the approximate number of instructions in this function.  There is
-     no need for this number to be exact; it is only used in various
-     heuristics regarding optimization.  */
-#define DECL_ESTIMATED_INSNS(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
 /* True if NODE is a local variable final. */
 #define LOCAL_FINAL_P(NODE) (DECL_LANG_SPECIFIC (NODE) && DECL_FINAL (NODE))
 /* True if NODE is a final field. */
@@ -1322,7 +1301,6 @@ extern void init_resource_processing (void);
 #define METHOD_SYNCHRONIZED(DECL) DECL_LANG_FLAG_4 (DECL)
 #define METHOD_NATIVE(DECL) (DECL_LANG_SPECIFIC(DECL)->u.f.native)
 #define METHOD_ABSTRACT(DECL) DECL_LANG_FLAG_5 (DECL)
-#define METHOD_TRANSIENT(DECL) DECL_LANG_FLAG_6 (DECL)
 #define METHOD_STRICTFP(DECL) (DECL_LANG_SPECIFIC (DECL)->u.f.strictfp)
 
 #define JAVA_FILE_P(NODE) TREE_LANG_FLAG_2 (NODE)

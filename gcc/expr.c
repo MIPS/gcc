@@ -151,7 +151,6 @@ static tree clear_storage_libcall_fn (int);
 static rtx compress_float_constant (rtx, rtx);
 static rtx get_subtarget (rtx);
 static int is_zeros_p (tree);
-static int mostly_zeros_p (tree);
 static void store_constructor_field (rtx, unsigned HOST_WIDE_INT,
 				     HOST_WIDE_INT, enum machine_mode,
 				     tree, tree, int, int);
@@ -4766,7 +4765,7 @@ store_expr (tree exp, rtx target, int want_value)
     return target;
 }
 
-/* Return 1 if EXP just contains zeros.  */
+/* Return 1 if EXP just contains zeros.  FIXME merge with initializer_zerop.  */
 
 static int
 is_zeros_p (tree exp)
@@ -4815,7 +4814,7 @@ is_zeros_p (tree exp)
 
 /* Return 1 if EXP contains mostly (3/4)  zeros.  */
 
-static int
+int
 mostly_zeros_p (tree exp)
 {
   if (TREE_CODE (exp) == CONSTRUCTOR)
@@ -6734,7 +6733,8 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
     case PARM_DECL:
       if (!DECL_RTL_SET_P (exp))
 	{
-	  error_with_decl (exp, "prior parameter's size depends on `%s'");
+	  error ("%Hprior parameter's size depends on '%D'",
+                 &DECL_SOURCE_LOCATION (exp), exp);
 	  return CONST0_RTX (mode);
 	}
 

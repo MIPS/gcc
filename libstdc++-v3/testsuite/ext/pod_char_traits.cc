@@ -34,13 +34,12 @@
 
 int main()
 {
-  using namespace std;
   using namespace __gnu_cxx;
 
   typedef unsigned short			value_type;
   typedef unsigned int				int_type;
   typedef character<value_type, int_type>	char_type;
-  typedef char_traits<char_type> 		traits_type;
+  typedef std::char_traits<char_type> 		traits_type;
 
   bool test = true;
 
@@ -55,7 +54,7 @@ int main()
   test = traits_type::eq(c1, c2);
   
   // 3 basic_string<char_type>
-  typedef basic_string<char_type>	string_type;
+  typedef std::basic_string<char_type>	string_type;
   string_type str;
   char_type c3 = { value_type('b') };
   char_type c4 = { value_type('o') };

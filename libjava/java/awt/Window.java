@@ -38,7 +38,6 @@ exception statement from your version. */
 
 package java.awt;
 
-import gnu.java.awt.EmbeddedWindowSupport;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowFocusListener;
 import java.awt.event.WindowListener;
@@ -84,7 +83,6 @@ public class Window extends Container implements Accessible
    */
   Window()
   {
-    setVisible(false);
     setLayout(new BorderLayout());
   }
 
@@ -94,19 +92,6 @@ public class Window extends Container implements Accessible
     graphicsConfiguration = gc;
   }
 
-  Window(int window_id, int width, int height)
-  {
-    this();
-
-    Toolkit tk = getToolkit();
-    if (!(tk instanceof EmbeddedWindowSupport))
-      throw new UnsupportedOperationException
-	("Embedded windows not supported by the current peers: " + tk.getClass());
-    
-    peer = ((EmbeddedWindowSupport) getToolkit())
-	    .createEmbeddedWindow (window_id, width, height);
-  }
-    
   /**
    * Initializes a new instance of <code>Window</code> with the specified
    * parent.  The window will initially be invisible.
@@ -159,9 +144,10 @@ public class Window extends Container implements Accessible
     // FIXME: add to owner's "owned window" list
     //owner.owned.add(this); // this should be a weak reference
     
-    /*  FIXME: Security check
-    SecurityManager.checkTopLevelWindow(...)
-    */
+    // FIXME: make this text visible in the window.
+    SecurityManager s = System.getSecurityManager();
+    if (s != null && ! s.checkTopLevelWindow(this))
+      warningString = System.getProperty("awt.appletWarning");
 
     if (gc != null
         && gc.getDevice().getType() != GraphicsDevice.TYPE_RASTER_SCREEN)
@@ -315,20 +301,7 @@ public class Window extends Container implements Accessible
    */
   public final String getWarningString()
   {
-    boolean secure = true;
-    /* boolean secure = SecurityManager.checkTopLevelWindow(...) */
-
-    if (!secure)
-      {
-        if (warningString != null)
-          return warningString;
-        else
-          {
-            String warning = System.getProperty("awt.appletWarning");
-            return warning;
-          }
-      }
-    return null;
+    return warningString;
   }
 
   /**

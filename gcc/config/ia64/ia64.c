@@ -262,13 +262,17 @@ static void ia64_hpux_add_extern_decl PARAMS ((const char *name))
 static void ia64_hpux_file_end PARAMS ((void))
      ATTRIBUTE_UNUSED;
 
+static tree ia64_handle_model_attribute (tree *, tree, tree, int, bool *);
+static void ia64_encode_section_info (tree, rtx, int);
+
 
 /* Table of valid machine attributes.  */
 static const struct attribute_spec ia64_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
   { "syscall_linkage", 0, 0, false, true,  true,  NULL },
-  { NULL,              0, 0, false, false, false, NULL }
+  { "model",	       1, 1, true, false, false, ia64_handle_model_attribute },
+  { NULL,	       0, 0, false, false, false, NULL }
 };
 
 /* Initialize the GCC target structure.  */
@@ -368,6 +372,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG ia64_reorg
 
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO ia64_encode_section_info
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Return 1 if OP is a valid operand for the MEM of a CALL insn.  */
@@ -413,6 +420,12 @@ sdata_symbolic_operand (op, mode)
   return 0;
 }
 
+int
+small_addr_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return SYMBOL_REF_SMALL_ADDR_P (op);
+}
+
 /* Return 1 if OP refers to a symbol, and is appropriate for a GOT load.  */
 
 int
@@ -449,6 +462,8 @@ got_symbolic_operand (op, mode)
       return (INTVAL (op) & 0x3fff) == 0;
 
     case SYMBOL_REF:
+      if (SYMBOL_REF_SMALL_ADDR_P (op))
+	return 0;
     case LABEL_REF:
       return 1;
 
@@ -1040,6 +1055,129 @@ basereg_operand (op, mode)
 	  REG_POINTER ((GET_CODE (op) == SUBREG) ? SUBREG_REG (op) : op));
 }
 
+typedef enum
+  {
+    ADDR_AREA_NORMAL,	/* normal address area */
+    ADDR_AREA_SMALL	/* addressable by "addl" (-2MB < addr < 2MB) */
+  }
+ia64_addr_area;
+
+static GTY(()) tree small_ident1;
+static GTY(()) tree small_ident2;
+
+static void
+init_idents (void)
+{
+  if (small_ident1 == 0)
+    {
+      small_ident1 = get_identifier ("small");
+      small_ident2 = get_identifier ("__small__");
+    }
+}
+
+/* Retrieve the address area that has been chosen for the given decl.  */
+
+static ia64_addr_area
+ia64_get_addr_area (tree decl)
+{
+  tree model_attr;
+
+  model_attr = lookup_attribute ("model", DECL_ATTRIBUTES (decl));
+  if (model_attr)
+    {
+      tree id;
+
+      init_idents ();
+      id = TREE_VALUE (TREE_VALUE (model_attr));
+      if (id == small_ident1 || id == small_ident2)
+	return ADDR_AREA_SMALL;
+    }
+  return ADDR_AREA_NORMAL;
+}
+
+static tree
+ia64_handle_model_attribute (tree *node, tree name,
+			     tree args,
+			     int flags ATTRIBUTE_UNUSED,
+			     bool *no_add_attrs)
+{
+  ia64_addr_area addr_area = ADDR_AREA_NORMAL;
+  ia64_addr_area area;
+  tree arg, decl = *node;
+
+  init_idents ();
+  arg = TREE_VALUE (args);
+  if (arg == small_ident1 || arg == small_ident2)
+    {
+      addr_area = ADDR_AREA_SMALL;
+    }
+  else
+    {
+      warning ("invalid argument of `%s' attribute",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  switch (TREE_CODE (decl))
+    {
+    case VAR_DECL:
+      if ((DECL_CONTEXT (decl) && TREE_CODE (DECL_CONTEXT (decl))
+	   == FUNCTION_DECL)
+	  && !TREE_STATIC (decl))
+	{
+	  error ("%Ha an address area attribute cannot be specified for "
+		 "local variables", &DECL_SOURCE_LOCATION (decl), decl);
+	  *no_add_attrs = true;
+	}
+      area = ia64_get_addr_area (decl);
+      if (area != ADDR_AREA_NORMAL && addr_area != area)
+	{
+	  error ("%Ha address area of '%s' conflicts with previous "
+		 "declaration", &DECL_SOURCE_LOCATION (decl), decl);
+	  *no_add_attrs = true;
+	}
+      break;
+
+    case FUNCTION_DECL:
+      error ("%Ha address area attribute cannot be specified for functions",
+	     &DECL_SOURCE_LOCATION (decl), decl);
+      *no_add_attrs = true;
+      break;
+
+    default:
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+      break;
+    }
+
+  return NULL_TREE;
+}
+
+static void
+ia64_encode_addr_area (tree decl, rtx symbol)
+{
+  int flags;
+
+  flags = SYMBOL_REF_FLAGS (symbol);
+  switch (ia64_get_addr_area (decl))
+    {
+    case ADDR_AREA_NORMAL: break;
+    case ADDR_AREA_SMALL: flags |= SYMBOL_FLAG_SMALL_ADDR; break;
+    default: abort ();
+    }
+  SYMBOL_REF_FLAGS (symbol) = flags;
+}
+
+static void
+ia64_encode_section_info (tree decl, rtx rtl, int first)
+{
+  default_encode_section_info (decl, rtl, first);
+
+  if (TREE_CODE (decl) == VAR_DECL
+      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+    ia64_encode_addr_area (decl, XEXP (rtl, 0));
+}
+
 /* Return 1 if the operands of a move are ok.  */
 
 int
@@ -1114,7 +1252,12 @@ ia64_expand_load_address (dest, src)
   if (GET_MODE (dest) != Pmode)
     dest = gen_rtx_REG (Pmode, REGNO (dest));
 
-  if (TARGET_AUTO_PIC)
+  if (GET_CODE (src) == SYMBOL_REF && SYMBOL_REF_SMALL_ADDR_P (src))
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, dest, src));
+      return;
+    }
+  else if (TARGET_AUTO_PIC)
     {
       emit_insn (gen_load_gprel64 (dest, src));
       return;
@@ -2054,10 +2197,6 @@ ia64_initial_elimination_offset (from, to)
 	abort ();
       break;
 
-    case RETURN_ADDRESS_POINTER_REGNUM:
-      offset = 0;
-      break;
-
     default:
       abort ();
     }
@@ -2407,17 +2546,6 @@ ia64_expand_prologue ()
 	= reg_names[current_frame_info.reg_fp];
       reg_names[current_frame_info.reg_fp] = tmp;
     }
-
-  /* Fix up the return address placeholder.  */
-  /* ??? We can fail if __builtin_return_address is used, and we didn't
-     allocate a register in which to save b0.  I can't think of a way to
-     eliminate RETURN_ADDRESS_POINTER_REGNUM to a local register and
-     then be sure that I got the right one.  Further, reload doesn't seem
-     to care if an eliminable register isn't used, and "eliminates" it
-     anyway.  */
-  if (regs_ever_live[RETURN_ADDRESS_POINTER_REGNUM]
-      && current_frame_info.reg_save_b0 != 0)
-    XINT (return_address_pointer_rtx, 0) = current_frame_info.reg_save_b0;
 
   /* We don't need an alloc instruction if we've used no outputs or locals.  */
   if (current_frame_info.n_local_regs == 0
@@ -2975,6 +3103,72 @@ ia64_direct_return ()
   return 0;
 }
 
+/* Return the magic cookie that we use to hold the return address
+   during early compilation.  */
+
+rtx
+ia64_return_addr_rtx (count, frame)
+     HOST_WIDE_INT count;
+     rtx frame ATTRIBUTE_UNUSED;
+{
+  if (count != 0)
+    return NULL;
+  return gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx), UNSPEC_RET_ADDR);
+}
+
+/* Split this value after reload, now that we know where the return
+   address is saved.  */
+
+void
+ia64_split_return_addr_rtx (dest)
+     rtx dest;
+{
+  rtx src;
+
+  if (TEST_HARD_REG_BIT (current_frame_info.mask, BR_REG (0)))
+    {
+      if (current_frame_info.reg_save_b0 != 0)
+	src = gen_rtx_REG (DImode, current_frame_info.reg_save_b0);
+      else
+	{
+	  HOST_WIDE_INT off;
+	  unsigned int regno;
+
+	  /* Compute offset from CFA for BR0.  */
+	  /* ??? Must be kept in sync with ia64_expand_prologue.  */
+	  off = (current_frame_info.spill_cfa_off
+		 + current_frame_info.spill_size);
+	  for (regno = GR_REG (1); regno <= GR_REG (31); ++regno)
+	    if (TEST_HARD_REG_BIT (current_frame_info.mask, regno))
+	      off -= 8;
+
+	  /* Convert CFA offset to a register based offset.  */
+	  if (frame_pointer_needed)
+	    src = hard_frame_pointer_rtx;
+	  else
+	    {
+	      src = stack_pointer_rtx;
+	      off += current_frame_info.total_size;
+	    }
+
+	  /* Load address into scratch register.  */
+	  if (CONST_OK_FOR_I (off))
+	    emit_insn (gen_adddi3 (dest, src, GEN_INT (off)));
+	  else
+	    {
+	      emit_move_insn (dest, GEN_INT (off));
+	      emit_insn (gen_adddi3 (dest, src, dest));
+	    }
+
+	  src = gen_rtx_MEM (Pmode, dest);
+	}
+    }
+  else
+    src = gen_rtx_REG (DImode, BR_REG (0));
+
+  emit_move_insn (dest, src);
+}
+
 int
 ia64_hard_regno_rename_ok (from, to)
      int from;
@@ -3123,9 +3317,6 @@ ia64_output_function_epilogue (file, size)
      HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   int i;
-
-  /* Reset from the function's potential modifications.  */
-  XINT (return_address_pointer_rtx, 0) = RETURN_ADDRESS_POINTER_REGNUM;
 
   if (current_frame_info.reg_fp)
     {

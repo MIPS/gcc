@@ -980,7 +980,8 @@ objc_check_decl (decl)
 
   if (TREE_CODE (type) != RECORD_TYPE)
     return;
-  if (TYPE_NAME (type) && (type = is_class_name (TYPE_NAME (type))))
+  if (TYPE_NAME (type) && (type = is_class_name (TYPE_NAME (type)))
+      && type != constant_string_type)
     error ("statically allocated instance of Objective-C class `%s'",
 	     IDENTIFIER_POINTER (type));
 }
@@ -2594,7 +2595,8 @@ objc_declare_class (ident_list)
 	    {
 	      error ("`%s' redeclared as different kind of symbol",
 		     IDENTIFIER_POINTER (ident));
-	      error_with_decl (record, "previous declaration of `%s'");
+	      error ("%Hprevious declaration of '%D'",
+		     &DECL_SOURCE_LOCATION (record), record);
 	    }
 
 	  record = xref_tag (RECORD_TYPE, ident);
@@ -2996,7 +2998,7 @@ objc_build_try_prologue ()
 
   try_catch_block = objc_enter_block ();
   val_stack_push (&exc_binding_stack, 
-		  (long)get_current_binding_level ());
+		  (long)get_current_scope ());
   objc_build_try_enter_fragment (); 
   
   return try_catch_block;
@@ -3708,7 +3710,8 @@ encode_method_prototype (method_decl)
       /* If a type size is not known, bail out.  */
       if (sz < 0)
 	{
-	  error_with_decl (type, "type `%s' does not have a known size");
+	  error ("%Htype '%D' does not have a known size",
+		 &DECL_SOURCE_LOCATION (type), type);
 	  /* Pretend that the encoding succeeded; the compilation will
 	     fail nevertheless.  */
 	  goto finish_encoding;
@@ -7006,7 +7009,8 @@ start_class (code, class_name, super_name, protocol_list)
     {
       error ("`%s' redeclared as different kind of symbol",
 	     IDENTIFIER_POINTER (class_name));
-      error_with_decl (decl, "previous declaration of `%s'");
+      error ("%Hprevious declaration of '%D'",
+             &DECL_SOURCE_LOCATION (decl), decl);
     }
 
   if (code == CLASS_IMPLEMENTATION_TYPE)
@@ -8081,7 +8085,7 @@ continue_method_def ()
   store_parm_decls ();
 }
 
-static void *UOBJC_SUPER_binding_level = 0;
+static void *UOBJC_SUPER_scope = 0;
 
 /* _n_Method (id self, SEL sel, ...)
      {
@@ -8109,7 +8113,7 @@ get_super_receiver ()
 	TREE_USED (UOBJC_SUPER_decl) = 1;
 	DECL_ARTIFICIAL (UOBJC_SUPER_decl) = 1;
 
-	UOBJC_SUPER_binding_level = get_current_binding_level ();
+	UOBJC_SUPER_scope = get_current_scope ();
       }
 
       /* Set receiver to self.  */
@@ -8195,14 +8199,16 @@ get_super_receiver ()
     }
 }
 
+/* When exiting a scope, sever links to a 'super' declaration (if any)
+   therein contained.  */
 
 void
 objc_clear_super_receiver ()
 {
   if (objc_method_context 
-      && UOBJC_SUPER_binding_level == get_current_binding_level ()) {
+      && UOBJC_SUPER_scope == get_current_scope ()) {
     UOBJC_SUPER_decl = 0;
-    UOBJC_SUPER_binding_level = 0;
+    UOBJC_SUPER_scope = 0;
   }  
 }
 

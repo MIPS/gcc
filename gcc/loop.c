@@ -2254,7 +2254,7 @@ move_movables (struct loop *loop, struct loop_movables *movables,
 			 and prevent further processing of it.  */
 		      m1->done = 1;
 
-		      /* if library call, delete all insns.  */
+		      /* If library call, delete all insns.  */
 		      if ((temp = find_reg_note (m1->insn, REG_RETVAL,
 						 NULL_RTX)))
 			delete_insn_chain (XEXP (temp, 0), m1->insn);
@@ -8070,7 +8070,8 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	  before_comparison = get_condition_for_loop (loop, p);
 	  if (before_comparison
 	      && XEXP (before_comparison, 0) == bl->biv->dest_reg
-	      && GET_CODE (before_comparison) == LT
+	      && (GET_CODE (before_comparison) == LT
+		  || GET_CODE (before_comparison) == LTU)
 	      && XEXP (before_comparison, 1) == const0_rtx
 	      && ! reg_set_between_p (bl->biv->dest_reg, p, loop_start)
 	      && INTVAL (bl->biv->add_val) == -1)
@@ -8241,7 +8242,8 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	      /* for constants, LE gets turned into LT */
 	      && (GET_CODE (comparison) == LT
 		  || (GET_CODE (comparison) == LE
-		      && no_use_except_counting)))
+		      && no_use_except_counting) 
+		  || GET_CODE (comparison) == LTU))
 	    {
 	      HOST_WIDE_INT add_val, add_adjust, comparison_val = 0;
 	      rtx initial_value, comparison_value;

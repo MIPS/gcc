@@ -217,7 +217,8 @@ java::lang::Runtime::_load (jstring path, jboolean do_search)
   if (h == NULL)
     {
       const char *msg = lt_dlerror ();
-      jstring str = path->concat (JvNewStringLatin1 (": "));
+      jstring str = JvNewStringLatin1 (lib_name);
+      str = str->concat (JvNewStringLatin1 (": "));
       str = str->concat (JvNewStringLatin1 (msg));
       throw new UnsatisfiedLinkError (str);
     }
@@ -563,7 +564,7 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
 
   if (_Jv_Jar_Class_Path)
     newprops->put(JvNewStringLatin1 ("java.class.path"),
-		  JvNewStringLatin1 (_Jv_Jar_Class_Path));
+ 		  JvNewStringLatin1 (_Jv_Jar_Class_Path));
   else
     {
       // FIXME: find libgcj.zip and append its path?
@@ -584,6 +585,9 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
       newprops->put(JvNewStringLatin1 ("java.class.path"),
 		      sb->toString ());
     }
+
+  // The path to libgcj's boot classes
+  SET ("sun.boot.class.path", BOOT_CLASS_PATH);
 
   // The name used to invoke this process (argv[0] in C).
   SET ("gnu.gcj.progname", _Jv_GetSafeArg (0));

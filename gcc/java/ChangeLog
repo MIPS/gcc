@@ -1,3 +1,47 @@
+2003-08-05  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR java/11600:
+	* parse.y (java_complete_lhs): See whether we're calling a method
+	on an array.
+	(check_thrown_exceptions): Added `is_array_call' argument;
+	fixed `clone' checking; updated all callers.
+
+2003-08-05  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* java-tree.h (DECL_ESTIMATED_INSNS): Remove (moved to tree.h).
+
+2003-08-03  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h (METHOD_TRANSIENT): Removed.
+	* decl.c (pushdecl): Removed some dead code.
+	* class.c (get_access_flags_from_decl): Can't have transient
+	method.
+	(add_method_1): Can't have a transient method.
+
+2003-07-28  Andreas Jaeger  <aj@suse.de>
+
+	* jvspec.c: Convert to ISO C90 prototypes.
+
+2003-07-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (force_poplevels): Fix warning call.
+
+2003-07-25  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* expr.c (expand_java_field_op): Don't use xxx_with_decl
+	(expand_java_field_op): Likewise.
+	* class.c (layout_class_method): Likewise
+	(emit_register_classes): Likewise.
+	* decl.c (pushdecl): Likewise.
+	(poplevel): Likewise.
+	(force_poplevels): Likewise.
+	(give_name_to_locals): Likewise.
+	* check-init.c (check_for_initialization): Likewise.
+
+2003-07-24  Jason Merrill  <jason@redhat.com>
+
+	* java-tree.h: Move boolean_type_node et al to the back end.
+
 2003-07-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* class.c java-tree.h jcf-write.c jvspec.c: Remove unnecessary

@@ -88,7 +88,7 @@ tooldir = @tooldir@
 build_tooldir = @build_tooldir@
 
 # Directory in which the compiler finds executables, libraries, etc.
-libsubdir = $(libdir)/gcc-lib/$(target_alias)/$(gcc_version)
+libsubdir = $(libdir)/gcc/$(target_alias)/$(gcc_version)
 GDB_NLM_DEPS = 
 
 # This is the name of the environment variable used for the path to
@@ -665,8 +665,7 @@ clean-target-libgcc:
 # Check target.
 
 .PHONY: check do-check
-check:
-	$(MAKE) do-check
+check: do-check
 
 # Only include modules actually being configured and built.
 do-check: maybe-check-gcc [+
@@ -779,8 +778,7 @@ TAGS: do-TAGS
 maybe-configure-build-[+module+]:
 configure-build-[+module+]:
 	@test ! -f $(BUILD_SUBDIR)/[+module+]/Makefile || exit 0; \
-	[ -d $(BUILD_SUBDIR)/[+module+] ] || \
-	  mkdir $(BUILD_SUBDIR)/[+module+];\
+	$(SHELL) $(srcdir)/mkinstalldirs $(BUILD_SUBDIR)/[+module+] ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	AR="$(AR_FOR_BUILD)"; export AR; \
@@ -950,15 +948,13 @@ maybe-configure-target-[+module+]:
 
 # There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
 $(TARGET_SUBDIR)/[+module+]/multilib.out: multilib.out
-	@[ -d $(TARGET_SUBDIR)/[+module+] ] || \
-	  mkdir $(TARGET_SUBDIR)/[+module+]; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/[+module+] ; \
 	rm -f $(TARGET_SUBDIR)/[+module+]/Makefile || : ; \
 	cp multilib.out $(TARGET_SUBDIR)/[+module+]/multilib.out
 
 configure-target-[+module+]: $(TARGET_SUBDIR)/[+module+]/multilib.out
 	@test ! -f $(TARGET_SUBDIR)/[+module+]/Makefile || exit 0; \
-	[ -d $(TARGET_SUBDIR)/[+module+] ] || \
-	  mkdir $(TARGET_SUBDIR)/[+module+];\
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/[+module+] ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
@@ -1232,8 +1228,7 @@ check-gcc-c++:
 	fi
 
 .PHONY: check-c++
-check-c++:
-	$(MAKE) check-target-libstdc++-v3 check-gcc-c++
+check-c++: check-target-libstdc++-v3 check-gcc-c++
 
 .PHONY: install-gcc maybe-install-gcc
 maybe-install-gcc:
@@ -1342,7 +1337,7 @@ all-flex: maybe-all-libiberty maybe-all-bison maybe-all-byacc
 all-gzip: maybe-all-libiberty
 all-hello: maybe-all-libiberty
 all-m4: maybe-all-libiberty maybe-all-texinfo
-all-make: maybe-all-libiberty
+all-make: maybe-all-libiberty maybe-all-intl
 all-patch: maybe-all-libiberty
 all-prms: maybe-all-libiberty
 all-recode: maybe-all-libiberty

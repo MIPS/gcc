@@ -38,14 +38,15 @@ exception statement from your version. */
 
 package gnu.java.awt;
 
-import java.awt.peer.WindowPeer;
+import gnu.java.awt.peer.EmbeddedWindowPeer;
 
 /**
- * This interface defines a method for creating embedded windows.
+ * Declares a method for creating native embedded window peers.
  *
- * All classes inherited from java.awt.Toolkit that implement this interface
- * are assumed to support embedded windows. To embed the real embedded window
- * you need to use gnu.java.awt.EmbeddedWindow.
+ * All classes inherited from java.awt.Toolkit that implement this
+ * interface are assumed to support the creation of embedded window
+ * peers. To create an embedded window, use
+ * gnu.java.awt.EmbeddedWindow.
  *
  * @see gnu.java.awt.EmbeddedWindow
  * @see java.awt.Toolkit
@@ -55,13 +56,10 @@ import java.awt.peer.WindowPeer;
 public interface EmbeddedWindowSupport
 {
   /**
-   * This method creates an embedded window in an application.
+   * Creates an embedded window peer, and associates it with an
+   * EmbeddedWindow object.
    *
-   * @param window_id The native handle of a screen area to display an
-   * AWT window in it.
-   * @param width The width of the screen area.
-   * @param height The height of the screen area.
+   * @param w The embedded window with which to associate a peer.
    */
-  public WindowPeer createEmbeddedWindow (int window_id,
-					  int width, int height);
+  public EmbeddedWindowPeer createEmbeddedWindow (EmbeddedWindow w);
 }

@@ -58,7 +58,6 @@ union lang_tree_node
 
 struct lang_decl GTY(())
 {
-  struct c_lang_decl base;
   /* The return types and parameter types may have variable size.
      This is a list of any SAVE_EXPRs that need to be evaluated to
      compute those sizes.  */
@@ -99,12 +98,6 @@ struct lang_decl GTY(())
    keyword.  C_RID_CODE (node) is then the RID_* value of the keyword,
    and C_RID_YYCODE is the token number wanted by Yacc.  */
 #define C_IS_RESERVED_WORD(ID) TREE_LANG_FLAG_0 (ID)
-
-/* This function was declared inline.  This flag controls the linkage
-   semantics of 'inline'; whether or not the function is inlined is
-   controlled by DECL_INLINE.  */
-#define DECL_DECLARED_INLINE_P(NODE) \
-  (DECL_LANG_SPECIFIC (NODE)->base.declared_inline)
 
 /* In a RECORD_TYPE, a sorted array of the fields of the type.  */
 struct lang_type GTY(())
@@ -186,14 +179,13 @@ extern void insert_block (tree);
 extern void set_block (tree);
 extern tree pushdecl (tree);
 
-extern void c_insert_default_attributes (tree);
 extern void c_init_decl_processing (void);
 extern void c_dup_lang_specific_decl (tree);
 extern void c_print_identifier (FILE *, tree, int);
 extern tree build_array_declarator (tree, tree, int, int);
 extern tree build_enumerator (tree, tree);
 extern void check_for_loop_decls (void);
-extern void clear_parm_order (void);
+extern void mark_forward_parm_decls (void);
 extern int  complete_array_type (tree, tree, int);
 extern void declare_parm_level (void);
 extern void undeclared_variable (tree);
@@ -211,7 +203,6 @@ extern tree implicitly_declare (tree);
 extern int  in_parm_level_p (void);
 extern void keep_next_level (void);
 extern tree lookup_name (tree);
-extern void parmlist_tags_warning (void);
 extern void pending_xref_error (void);
 extern void c_push_function_context (struct function *);
 extern void c_pop_function_context (struct function *);
@@ -288,6 +279,7 @@ extern void set_init_index (tree, tree);
 extern void set_init_label (tree);
 extern void process_init_element (tree);
 extern tree build_compound_literal (tree, tree);
+extern void pedwarn_c90 (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern void pedwarn_c99 (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern tree c_start_case (tree);
 extern void c_finish_case (void);
@@ -316,7 +308,7 @@ extern int system_header_p;
 
 /* In c-decl.c */
 extern void c_finish_incomplete_decl (tree);
-extern struct binding_level *get_current_binding_level (void);
+extern void *get_current_scope (void);
 extern void objc_mark_locals_volatile (void *);
 extern void c_write_global_declarations (void);
 

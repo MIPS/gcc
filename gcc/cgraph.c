@@ -162,7 +162,7 @@ create_edge (struct cgraph_node *caller, struct cgraph_node *callee)
      as we probably ought to, so we must preserve inline_call flags to
      be the same in all copies of the same edge.  */
   if (cgraph_global_info_ready)
-    for (edge2 = caller->callees; edge2; edge2 = edge2->next_caller)
+    for (edge2 = caller->callees; edge2; edge2 = edge2->next_callee)
       if (edge2->callee == callee)
 	{
 	  edge->inline_call = edge2->inline_call;
@@ -353,7 +353,7 @@ dump_cgraph (FILE *f)
       if (DECL_SAVED_TREE (node->decl))
 	fprintf (f, " tree");
 
-      if (node->local.disgread_inline_limits)
+      if (node->local.disregard_inline_limits)
 	fprintf (f, " always_inline");
       else if (node->local.inlinable)
 	fprintf (f, " inlinable");

@@ -2036,9 +2036,9 @@ output_reg_number (rtx rtl)
 
   if (regno >= DWARF_FRAME_REGISTERS)
     {
-      warning_with_decl (dwarf_last_decl,
-			 "internal regno botch: `%s' has regno = %d\n",
-			 regno);
+      warning ("%Hinternal regno botch: '%D' has regno = %d\n",
+               &DECL_SOURCE_LOCATION (dwarf_last_decl), dwarf_last_decl,
+               regno);
       regno = 0;
     }
   dw2_assemble_integer (4, GEN_INT (DBX_REGISTER_NUMBER (regno)));
@@ -4043,7 +4043,7 @@ output_compile_unit_die (void *arg)
     stmt_list_attribute (LINE_BEGIN_LABEL);
 
   {
-    const char *wd = getpwd ();
+    const char *wd = get_src_pwd ();
     if (wd)
       comp_dir_attribute (wd);
   }
@@ -6114,7 +6114,7 @@ dwarfout_init (const char *main_input_filename)
 	  ASM_OUTPUT_PUSH_SECTION (asm_out_file, DEBUG_SFNAMES_SECTION);
 	  ASM_OUTPUT_LABEL (asm_out_file, SFNAMES_BEGIN_LABEL);
 	  {
-	    const char *pwd = getpwd ();
+	    const char *pwd = get_src_pwd ();
 	    char *dirname;
 
 	    if (!pwd)

@@ -221,7 +221,7 @@ int target_flags_explicit;
 
 /* Debug hooks - dependent upon command line options.  */
 
-const struct gcc_debug_hooks *debug_hooks = &do_nothing_debug_hooks;
+const struct gcc_debug_hooks *debug_hooks;
 
 /* Describes a dump file.  */
 
@@ -354,21 +354,6 @@ enum graph_dump_types graph_dump_format;
 /* Name for output file of assembly code, specified with -o.  */
 
 const char *asm_file_name;
-
-/* Type(s) of debugging information we are producing (if any).
-   See flags.h for the definitions of the different possible
-   types of debugging information.  */
-enum debug_info_type write_symbols = NO_DEBUG;
-
-/* Level of debugging information we are producing.  See flags.h
-   for the definitions of the different possible levels.  */
-enum debug_info_level debug_info_level = DINFO_LEVEL_NONE;
-
-/* Nonzero means use GNU-only extensions in the generated symbolic
-   debugging information.  */
-/* Currently, this only has an effect when write_symbols is set to
-   DBX_DEBUG, XCOFF_DEBUG, or DWARF_DEBUG.  */
-int use_gnu_debug_info_extensions = 0;
 
 /* Nonzero means do optimizations.  -O.
    Particular numeric values stand for particular amounts of optimization;
@@ -984,46 +969,6 @@ int align_functions_log;
    minimum function alignment.  Zero means no alignment is forced.  */
 int force_align_functions_log;
 
-/* Table of supported debugging formats.  */
-static const struct
-{
-  const char *const arg;
-  /* Since PREFERRED_DEBUGGING_TYPE isn't necessarily a
-     constant expression, we use NO_DEBUG in its place.  */
-  const enum debug_info_type debug_type;
-  const int use_extensions_p;
-  const char *const description;
-} *da,
-debug_args[] =
-{
-  { "",       NO_DEBUG, DEFAULT_GDB_EXTENSIONS,
-    N_("Generate debugging info in default format") },
-  { "gdb",    NO_DEBUG, 1, N_("Generate debugging info in default extended format") },
-#ifdef DBX_DEBUGGING_INFO
-  { "stabs",  DBX_DEBUG, 0, N_("Generate STABS format debug info") },
-  { "stabs+", DBX_DEBUG, 1, N_("Generate extended STABS format debug info") },
-#endif
-#ifdef DWARF_DEBUGGING_INFO
-  { "dwarf",  DWARF_DEBUG, 0, N_("Generate DWARF-1 format debug info") },
-  { "dwarf+", DWARF_DEBUG, 1,
-    N_("Generate extended DWARF-1 format debug info") },
-#endif
-#ifdef DWARF2_DEBUGGING_INFO
-  { "dwarf-2", DWARF2_DEBUG, 0, N_("Generate DWARF-2 debug info") },
-#endif
-#ifdef XCOFF_DEBUGGING_INFO
-  { "xcoff",  XCOFF_DEBUG, 0, N_("Generate XCOFF format debug info") },
-  { "xcoff+", XCOFF_DEBUG, 1, N_("Generate extended XCOFF format debug info") },
-#endif
-#ifdef SDB_DEBUGGING_INFO
-  { "coff", SDB_DEBUG, 0, N_("Generate COFF format debug info") },
-#endif
-#ifdef VMS_DEBUGGING_INFO
-  { "vms", VMS_DEBUG, 0, N_("Generate VMS format debug info") },
-#endif
-  { 0, 0, 0, 0 }
-};
-
 typedef struct
 {
   const char *const string;
@@ -1218,6 +1163,41 @@ FILE *asm_out_file;
 FILE *aux_info_file;
 FILE *rtl_dump_file = NULL;
 FILE *cgraph_dump_file = NULL;
+
+/* The current working directory of a translation.  It's generally the
+   directory from which compilation was initiated, but a preprocessed
+   file may specify the original directory in which it was
+   created.  */
+
+static const char *src_pwd;
+
+/* Initialize src_pwd with the given string, and return true.  If it
+   was already initialized, return false.  As a special case, it may
+   be called with a NULL argument to test whether src_pwd has NOT been
+   initialized yet.  */
+
+bool
+set_src_pwd (const char *pwd)
+{
+  if (src_pwd)
+    return false;
+
+  src_pwd = xstrdup (pwd);
+  return true;
+}
+
+/* Return the directory from which the translation unit was initiated,
+   in case set_src_pwd() was not called before to assign it a
+   different value.  */
+
+const char *
+get_src_pwd (void)
+{
+  if (! src_pwd)
+    src_pwd = getpwd ();
+
+   return src_pwd;
+}
 
 /* Set up a default flag_random_seed and local_tick, unless the user
    already specified one.  */
@@ -1659,11 +1639,11 @@ check_global_declarations (tree *vec, int len)
 	  && ! TREE_PUBLIC (decl))
 	{
 	  if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-	    pedwarn_with_decl (decl,
-			       "`%s' used but never defined");
+	    pedwarn ("%H'%F' used but never defined",
+                     &DECL_SOURCE_LOCATION (decl), decl);
 	  else
-	    warning_with_decl (decl,
-			       "`%s' declared `static' but never defined");
+	    warning ("%H'%F' declared `static' but never defined",
+                     &DECL_SOURCE_LOCATION (decl), decl);
 	  /* This symbol is effectively an "extern" declaration now.  */
 	  TREE_PUBLIC (decl) = 1;
 	  assemble_external (decl);
@@ -1684,7 +1664,8 @@ check_global_declarations (tree *vec, int len)
 	  && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
 	  /* Otherwise, ask the language.  */
 	  && (*lang_hooks.decls.warn_unused_global) (decl))
-	warning_with_decl (decl, "`%s' defined but not used");
+	warning ("%H'%D' defined but not used",
+                 &DECL_SOURCE_LOCATION (decl), decl);
 
       /* Avoid confusing the debug information machinery when there are
 	 errors.  */
@@ -2512,8 +2493,15 @@ rest_of_handle_inlining (tree decl)
       timevar_pop (TV_INTEGRATION);
       if (lose || ! optimize)
 	{
-	  if (warn_inline && DECL_INLINE (decl))
-	    warning_with_decl (decl, lose);
+	  if (warn_inline && lose && DECL_INLINE (decl))
+            {
+              char *msg = xmalloc (2 + strlen (lose) + 1);
+              msg[0] = '%';
+              msg[1] = 'H';
+              strcpy(msg + 2, lose);
+              warning (msg, &DECL_SOURCE_LOCATION (decl));
+              free (msg);
+            }
 	  DECL_ABSTRACT_ORIGIN (decl) = 0;
 	  /* Don't really compile an extern inline function.
 	     If we can't make it inline, pretend
@@ -2524,16 +2512,8 @@ rest_of_handle_inlining (tree decl)
 	      return true;
 	    }
 	}
-      else {
-	/* ??? Note that we used to just make it look like if
-	   the "inline" keyword was specified when we decide
-	   to inline it (because of -finline-functions).
-	   garloff@suse.de, 2002-04-24: Add another flag to
-	   actually record this piece of information.  */
-	if (!DECL_INLINE (decl))
-	  DID_INLINE_FUNC (decl) = 1;
+      else
 	inlinable = DECL_INLINE (decl) = 1;
-      }
     }
 
   insns = get_insns ();
@@ -3585,22 +3565,6 @@ rest_of_compilation (tree decl)
   timevar_pop (TV_REST_OF_COMPILATION);
 }
 
-/* Display help for generic options.  */
-void
-display_help (void)
-{
-  unsigned long i;
-
-  for (i = ARRAY_SIZE (debug_args); i--;)
-    {
-      if (debug_args[i].description != NULL)
-	printf ("  -g%-21s %s\n",
-		debug_args[i].arg, _(debug_args[i].description));
-    }
-
-  display_target_options ();
-}
-
 /* Display help for target options.  */
 void 
 display_target_options (void)
@@ -3733,124 +3697,6 @@ const char *const debug_type_names[] =
 {
   "none", "stabs", "coff", "dwarf-1", "dwarf-2", "xcoff", "vms"
 };
-
-/* Parse a -g... command line switch.  ARG is the value after the -g.
-   It is safe to access 'ARG - 2' to generate the full switch name.
-   Return the number of strings consumed.  */
-
-void
-decode_g_option (const char *arg)
-{
-  static unsigned level = 0;
-  /* A lot of code assumes write_symbols == NO_DEBUG if the
-     debugging level is 0 (thus -gstabs1 -gstabs0 would lose track
-     of what debugging type has been selected).  This records the
-     selected type.  It is an error to specify more than one
-     debugging type.  */
-  static enum debug_info_type selected_debug_type = NO_DEBUG;
-  /* Nonzero if debugging format has been explicitly set.
-     -g and -ggdb don't explicitly set the debugging format so
-     -gdwarf -g3 is equivalent to -gdwarf3.  */
-  static int type_explicitly_set_p = 0;
-
-  /* The maximum admissible debug level value.  */
-  static const unsigned max_debug_level = 3;
-
-  /* Look up ARG in the table.  */
-  for (da = debug_args; da->arg; da++)
-    {
-      const int da_len = strlen (da->arg);
-
-      if (da_len == 0 || ! strncmp (arg, da->arg, da_len))
-	{
-	  enum debug_info_type type = da->debug_type;
-	  const char *p = arg + da_len;
-
-	  if (*p && ! ISDIGIT (*p))
-	    continue;
-
-	  /* A debug flag without a level defaults to level 2.
-	     Note we do not want to call read_integral_parameter
-	     for that case since it will call atoi which
-	     will return zero.
-
-	     ??? We may want to generalize the interface to
-	     read_integral_parameter to better handle this case
-	     if this case shows up often.  */
-	  if (*p)
-	    level = read_integral_parameter (p, 0, max_debug_level + 1);
-	  else
-	    level = (level == 0) ? 2 : level;
-
-	  if (da_len > 1 && *p && !strncmp (arg, "dwarf", da_len))
-	    {
-	      error ("use -gdwarf -g%d for DWARF v1, level %d",
-		     level, level);
-	      if (level == 2)
-		error ("use -gdwarf-2   for DWARF v2");
-	    }
-
-	  if (level > max_debug_level)
-	    {
-	      warning ("\
-ignoring option `%s' due to invalid debug level specification",
-		       arg - 2);
-	      level = debug_info_level;
-	    }
-
-	  if (type == NO_DEBUG)
-	    {
-	      type = PREFERRED_DEBUGGING_TYPE;
-
-	      if (da_len > 1 && strncmp (arg, "gdb", da_len) == 0)
-		{
-#ifdef DWARF2_DEBUGGING_INFO
-		  type = DWARF2_DEBUG;
-#else
-#ifdef DBX_DEBUGGING_INFO
-		  type = DBX_DEBUG;
-#endif
-#endif
-		}
-	    }
-
-	  if (type == NO_DEBUG)
-	    warning ("`%s': unknown or unsupported -g option", arg - 2);
-
-	  /* Does it conflict with an already selected type?  */
-	  if (type_explicitly_set_p
-	      /* -g/-ggdb don't conflict with anything.  */
-	      && da->debug_type != NO_DEBUG
-	      && type != selected_debug_type)
-	    warning ("`%s' ignored, conflicts with `-g%s'",
-		     arg - 2, debug_type_names[(int) selected_debug_type]);
-	  else
-	    {
-	      /* If the format has already been set, -g/-ggdb
-		 only change the debug level.  */
-	      if (type_explicitly_set_p && da->debug_type == NO_DEBUG)
-		/* Don't change debugging type.  */
-		;
-	      else
-		{
-		  selected_debug_type = type;
-		  type_explicitly_set_p = da->debug_type != NO_DEBUG;
-		}
-
-	      write_symbols = (level == 0
-			       ? NO_DEBUG
-			       : selected_debug_type);
-	      use_gnu_debug_info_extensions = da->use_extensions_p;
-	      debug_info_level = (enum debug_info_level) level;
-	    }
-
-	  break;
-	}
-    }
-
-  if (! da->arg)
-    warning ("`-g%s': unknown or unsupported -g option", arg);
-}
 
 /* Decode -m switches.  */
 /* Decode the switch -mNAME.  */
@@ -4091,6 +3937,29 @@ init_asm_output (const char *name)
     }
 }
 
+/* Default tree printer.   Handles declarations only.  */
+static bool
+default_tree_printer (pretty_printer * pp, text_info *text)
+{
+  switch (*text->format_spec)
+    {
+    case 'D':
+    case 'F':
+    case 'T':
+      {
+        tree t = va_arg (*text->args_ptr, tree);
+        const char *n = DECL_NAME (t)
+          ? (*lang_hooks.decl_printable_name) (t, 2)
+          : "<anonymous>";
+        pp_string (pp, n);
+      }
+      return true;
+
+    default:
+      return false;
+    }
+}
+
 /* Initialization of the front end environment, before command line
    options are parsed.  Signal handlers, internationalization etc.
    ARGV0 is main's argv[0].  */
@@ -4109,6 +3978,13 @@ general_init (const char *argv0)
   hex_init ();
 
   gcc_init_libintl ();
+
+  /* Initialize the diagnostics reporting machinery, so option parsing
+     can give warnings and errors.  */
+  diagnostic_initialize (global_dc);
+  /* Set a default printer.  Language specific initializations will
+     override it later.  */
+  pp_format_decoder (global_dc->printer) = &default_tree_printer;
 
   /* Trap fatal signals, e.g. SIGSEGV, and convert them to ICE messages.  */
 #ifdef SIGSEGV
@@ -4132,10 +4008,6 @@ general_init (const char *argv0)
 
   /* Other host-specific signal setup.  */
   (*host_hooks.extra_signals)();
-
-  /* Initialize the diagnostics reporting machinery, so option parsing
-     can give warnings and errors.  */
-  diagnostic_initialize (global_dc);
 
   /* Initialize the garbage-collector, string pools and tree type hash
      table.  */
@@ -4275,32 +4147,42 @@ process_options (void)
       profile_flag = 0;
     }
 
+  /* A lot of code assumes write_symbols == NO_DEBUG if the debugging
+     level is 0.  */
+  if (debug_info_level == DINFO_LEVEL_NONE)
+    write_symbols = NO_DEBUG;
+
   /* Now we know write_symbols, set up the debug hooks based on it.
      By default we do nothing for debug output.  */
+  if (write_symbols == NO_DEBUG)
+    debug_hooks = &do_nothing_debug_hooks;
 #if defined(DBX_DEBUGGING_INFO)
-  if (write_symbols == DBX_DEBUG)
+  else if (write_symbols == DBX_DEBUG)
     debug_hooks = &dbx_debug_hooks;
 #endif
 #if defined(XCOFF_DEBUGGING_INFO)
-  if (write_symbols == XCOFF_DEBUG)
+  else if (write_symbols == XCOFF_DEBUG)
     debug_hooks = &xcoff_debug_hooks;
 #endif
 #ifdef SDB_DEBUGGING_INFO
-  if (write_symbols == SDB_DEBUG)
+  else if (write_symbols == SDB_DEBUG)
     debug_hooks = &sdb_debug_hooks;
 #endif
 #ifdef DWARF_DEBUGGING_INFO
-  if (write_symbols == DWARF_DEBUG)
+  else if (write_symbols == DWARF_DEBUG)
     debug_hooks = &dwarf_debug_hooks;
 #endif
 #ifdef DWARF2_DEBUGGING_INFO
-  if (write_symbols == DWARF2_DEBUG)
+  else if (write_symbols == DWARF2_DEBUG)
     debug_hooks = &dwarf2_debug_hooks;
 #endif
 #ifdef VMS_DEBUGGING_INFO
-  if (write_symbols == VMS_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
+  else if (write_symbols == VMS_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
     debug_hooks = &vmsdbg_debug_hooks;
 #endif
+  else
+    error ("target system does not support the \"%s\" debug format",
+	   debug_type_names[write_symbols]);
 
   /* If auxiliary info generation is desired, open the output file.
      This goes in the same directory as the source file--unlike
@@ -4542,7 +4424,6 @@ do_compile (void)
 }
 
 /* Entry point of cc1, cc1plus, jc1, f771, etc.
-   Decode command args, then call compile_file.
    Exit code is FATAL_EXIT_CODE if can't open files or if there were
    any errors, or SUCCESS_EXIT_CODE if compilation succeeded.
 

@@ -684,6 +684,11 @@ enum reg_note
      return.  */
   REG_BR_PROB,
 
+  /* REG_VALUE_PROFILE is attached when the profile is read in to an insn
+     before that the code to profile the value is inserted.  It contains
+     the results of profiling.  */
+  REG_VALUE_PROFILE,
+
   /* Attached to a call insn; indicates that the call is malloc-like and
      that the pointer returned cannot alias anything else.  */
   REG_NOALIAS,
@@ -1906,6 +1911,7 @@ extern rtx gen_lowpart_SUBREG (enum machine_mode, rtx);
 #define INVALID_REGNUM			(~(unsigned int) 0)
 
 extern rtx output_constant_def (tree, int);
+extern rtx lookup_constant_def (tree);
 
 /* Called from integrate.c when a deferred constant is inlined.  */
 extern void notice_rtl_inlining_of_deferred_constant (void);

@@ -202,6 +202,10 @@ struct lang_hooks
      the language mask to filter the switch array with.  */
   unsigned int (*init_options) (unsigned int argc, const char **argv);
 
+  /* Callback used to perform language-specific initialization for the
+     global diagnostic context structure.  */
+  void (*initialize_diagnostics) (struct diagnostic_context *);
+
   /* Handle the switch CODE, which has real type enum opt_code from
      options.h.  If the switch takes an argument, it is passed in ARG
      which points to permanent storage.  The handler is responsible for
@@ -212,9 +216,6 @@ struct lang_hooks
      Return 1 if the switch is valid, 0 if invalid, and -1 if it's
      valid and should not be treated as language-independent too.  */
   int (*handle_option) (size_t code, const char *arg, int value);
-
-  /* Handle a filename on the command line.  */
-  void (*handle_filename) (const char *filename);
 
   /* Return false to use the default complaint about a missing
      argument, otherwise output a complaint and return true.  */
@@ -270,10 +271,6 @@ struct lang_hooks
      The result should be an expression of boolean type (if not an
      error_mark_node).  */
   tree (*truthvalue_conversion) (tree);
-
-  /* Possibly apply default attributes to a function (represented by
-     a FUNCTION_DECL).  */
-  void (*insert_default_attributes) (tree);
 
   /* Hook called by safe_from_p for language-specific tree codes.  It is
      up to the language front-end to install a hook if it has any such
