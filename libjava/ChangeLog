@@ -1,5 +1,29 @@
 2004-02-17  Kim Ho  <kho@redhat.com>
 
+	* javax/swing/JSlider.java: Fix comments and
+	make property strings constants.
+	(createStandardLabels): Use the labels
+	preferred size as bounds.
+	* javax/swing/plaf/basic/BasicSliderUI.java
+	Fix comments.
+	(ScrollHandler::actionPerformed): Don't
+	calculate the timer stop value. Let the
+	MouseListeners find the stop location.
+	(getPreferredHorizontalSize): Re-implement.
+	(getPreferredVerticalSize): ditto.
+	(getMinimumHorizontalSize): ditto.
+	(getMinimumVerticalSize): ditto.
+	(getPreferredSize): ditto.
+	(getMinimumSize): ditto.
+	(getMaximumSize): ditto.
+	(paintTicks): Use doubles to find the
+	tick location.
+	(paintHorizontalLabel):  Use preferredSize
+	as initial width and height.
+	(paintVerticalLabel): ditto.
+
+2004-02-17  Kim Ho  <kho@redhat.com>
+
 	* javax/swing/JLabel.java: Changed 
 	property strings to constants.
 	(DISPLAYED_MNEMONIC_INDEX_CHANGED_PROPERTY):

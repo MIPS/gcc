@@ -39,6 +39,7 @@ package javax.swing;
 
 import java.awt.ComponentOrientation;
 import java.awt.MenuContainer;
+import java.awt.Dimension;
 import java.awt.image.ImageObserver;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -120,9 +121,6 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
 
   /**
    * DOCUMENT ME!
-   *
-   * @author $author$
-   * @version $Revision$
    */
   protected class AccessibleJSlider extends JComponent.AccessibleJComponent
     implements AccessibleValue
@@ -211,35 +209,35 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
   }
 
   /** Fired in a PropertyChangeEvent when the "inverted" property changes. */
-  public static String INVERTED_CHANGED_PROPERTY = "inverted";
+  public final static String INVERTED_CHANGED_PROPERTY = "inverted";
 
   /** Fired in a PropertyChangeEvent when the "labelTable" property changes. */
-  public static String LABEL_TABLE_CHANGED_PROPERTY = "labelTable";
+  public final static String LABEL_TABLE_CHANGED_PROPERTY = "labelTable";
 
   /**
    * Fired in a PropertyChangeEvent when the "majorTickSpacing" property
    * changes.
    */
-  public static String MAJOR_TICK_SPACING_CHANGED_PROPERTY = "majorTickSpacing";
+  public final static String MAJOR_TICK_SPACING_CHANGED_PROPERTY = "majorTickSpacing";
 
   /**
    * Fired in a PropertyChangeEvent when the "minorTickSpacing" property
    * changes.
    */
-  public static String MINOR_TICK_SPACING_CHANGED_PROPERTY = "minorTickSpacing";
+  public final static String MINOR_TICK_SPACING_CHANGED_PROPERTY = "minorTickSpacing";
 
   /** Fired in a PropertyChangeEvent when the "model" property changes. */
-  public static String MODEL_CHANGED_PROPERTY = "model";
+  public final static String MODEL_CHANGED_PROPERTY = "model";
 
   /** Fired in a PropertyChangeEvent when the "orientation" property changes. */
-  public static String ORIENTATION_CHANGED_PROPERTY = "orientation";
+  public final static String ORIENTATION_CHANGED_PROPERTY = "orientation";
 
   /** Fired in a PropertyChangeEvent when the "paintLabels" property changes. */
-  public static String PAINT_LABELS_CHANGED_PROPERTY = "paintLabels";
+  public final static String PAINT_LABELS_CHANGED_PROPERTY = "paintLabels";
 
   /** Fired in a PropertyChangeEvent when the "paintTicks" property changes. */
-  public static String PAINT_TICKS_CHANGED_PROPERTY = "paintTicks";
-
+  public final static String PAINT_TICKS_CHANGED_PROPERTY = "paintTicks";
+  
   /** Whether or not this slider paints its ticks. */
   private transient boolean paintTicks = false;
 
@@ -438,8 +436,9 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
       {
 	public void stateChanged(ChangeEvent ce)
 	{
-	  //No need to trigger a repaint since the UI listens to the model as well
-	  //All we need to do is pass on the stateChanged event to our listeners.
+	  // No need to trigger a repaint since the UI listens to the model
+	  // as well. All we need to do is pass on the stateChanged event 
+	  // to our listeners.
 	  fireStateChanged();
 	}
       };
@@ -513,9 +512,9 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
    */
   public void setModel(BoundedRangeModel model)
   {
-    //I didn't do the null pointer check on purpose.
-    //If you try it with Sun's, it'll go ahead and set it to null
-    //and bork the next time it tries to access the model.
+    // I didn't do the null pointer check on purpose.
+    // If you try it with Sun's, it'll go ahead and set it to null
+    // and bork the next time it tries to access the model.
     if (model != sliderModel)
       {
 	BoundedRangeModel oldModel = sliderModel;
@@ -706,6 +705,7 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
   {
     Hashtable table = new Hashtable();
     JLabel label;
+    Dimension dim;
 
     int max = sliderModel.getMaximum();
 
@@ -714,7 +714,13 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
 	label = new JLabel(String.valueOf(i));
 	label.setVerticalAlignment(CENTER);
 	label.setHorizontalAlignment(CENTER);
-	label.setBounds(0, 0, 20, 15);
+	
+	// Make sure these labels have the width and height
+	// they want.
+	dim = label.getPreferredSize();
+	label.setBounds(label.getX(), label.getY(),
+	                (int) dim.getWidth(),
+			(int) dim.getHeight()); 
 	table.put(new Integer(i), label);
       }
     return table;
