@@ -1,5 +1,10 @@
 2004-07-01  Devang Patel  <dpatel@apple.com>
 
+	* tree-if-conv.c (mark_vdefs_vuses_for_rename): New function.
+	(make_ifcvt_temp_variable): Mark vdefs and vuses for renaming.
+
+2004-07-01  Devang Patel  <dpatel@apple.com>
+
 	Radar 3236762
 	* config/darwin-driver.c (do_lipo): Do not supply -arch <arch_name>
 	to lipo.

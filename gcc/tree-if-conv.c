@@ -59,7 +59,7 @@ static tree make_ifcvt_temp_variable (tree, tree, tree, block_stmt_iterator *, b
 static bool bb_with_exit_edge (basic_block);
 static void collapse_blocks (struct loop *, basic_block *);
 static void make_cond_modify_expr (tree, block_stmt_iterator *);
-
+static void mark_vdefs_vuses_for_rename (tree);
 /* Make new temp variable of type TYPE. Add MODIFY_EXPR to assign EXPR 
    to the variable.  */
 
@@ -109,6 +109,7 @@ make_ifcvt_temp_variable (tree type, tree exp, tree orig_stmt, block_stmt_iterat
       finalize_ssa_stmt_operands (stmt);
     }
 
+  mark_vdefs_vuses_for_rename (stmt);
   return new_name;
 }
 
@@ -850,3 +851,44 @@ tree_if_conversion (struct loop *loop, bool for_vectorizer)
   return true;
 }
 
+static void
+mark_vdefs_vuses_for_rename (tree stmt)
+{
+  vuse_optype vuses;
+  vdef_optype vdefs;
+  stmt_ann_t ann;
+  unsigned int i, nvuses, nvdefs;
+  
+  get_stmt_operands (stmt);
+  ann = stmt_ann (stmt);
+  vuses = VUSE_OPS (ann);
+  vdefs = VDEF_OPS (ann);
+  nvuses = 0;
+  nvdefs = 0;
+
+  /* Calculate number of uses and vdefs.  */
+  if (vuses)
+    nvuses = NUM_VUSES (vuses);
+  if (vdefs)
+    nvdefs = NUM_VDEFS (vdefs);
+
+  /* Mark vuses  as rename candidates.  */
+  for (i = 0; i < nvuses; i++)
+    {
+      tree use = VUSE_OP (vuses, i);
+      if (TREE_CODE (use) == SSA_NAME)
+        bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (use))->uid);
+      else
+	bitmap_set_bit (vars_to_rename, var_ann (use)->uid);
+    }
+
+  /* Mark vdefs  as rename candidates.  */
+  for (i = 0; i < nvdefs; i++)
+    {
+      tree def = VDEF_RESULT (vdefs, i);
+      if (TREE_CODE (def) == SSA_NAME)
+	 bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
+      else
+	bitmap_set_bit (vars_to_rename, var_ann (def)->uid);
+    }
+}
