@@ -66,6 +66,12 @@ static const char program_id[] = "fixincl version 1.0";
 #endif
 #define NAME_TABLE_SIZE (MINIMUM_MAXIMUM_LINES * MAXPATHLEN)
 
+#ifndef SIGCHLD
+# ifdef SIGCLD
+#  define SIGCHLD	SIGCLD
+# endif
+#endif
+
 char *file_name_buf;
 
 #define tSCC static const char
@@ -595,10 +601,11 @@ create_file (pz_file_name)
   FILE *pf;
   char fname[MAXPATHLEN];
 
+  #define S_IRALL S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
   sprintf (fname, "%s/%s", pz_dest_dir, pz_file_name);
   unlink (fname);
 
-  fd = open (fname, O_WRONLY | O_CREAT);
+  fd = open (fname, O_WRONLY | O_CREAT, S_IRALL );
 
   /*  We may need to create the directories needed... */
   if ((fd < 0) && (errno == ENOENT))
@@ -620,7 +627,7 @@ create_file (pz_file_name)
         }
 
       /*  Now, lets try the open again... */
-      fd = open (fname, O_WRONLY | O_CREAT);
+      fd = open (fname, O_WRONLY | O_CREAT, S_IRALL );
     }
   if (fd < 0)
     {
@@ -1025,10 +1032,9 @@ process (pz_data, pz_file_name)
       {
         regmatch_t match;
 
-        /*  Make sure everyone can read it, close it and
-            see if we have to worry about `#include "file.h"' constructs
-            */
-        fchmod (fileno (out_fp), S_IRUSR | S_IRGRP | S_IROTH);
+        /* Make sure everyone can read it, close it and
+           see if we have to worry about `#include "file.h"' constructs.  */
+        chmod (pz_file_name, S_IRUSR | S_IRGRP | S_IROTH);
         fclose (out_fp);
         if (regexec (&incl_quote_re, pz_data, 1, &match, 0) == 0)
           extract_quoted_files (pz_data, pz_file_name, &match);

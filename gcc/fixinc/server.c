@@ -47,6 +47,7 @@
  */
 #include "config.h"
 
+#include <sys/types.h>
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
@@ -64,6 +65,13 @@
    to be large enough.  */
 #ifndef MAXPATHLEN
 # define MAXPATHLEN     4096
+#endif
+
+#ifndef STDIN_FILENO
+# define STDIN_FILENO	0
+#endif
+#ifndef STDOUT_FILENO
+# define STDOUT_FILENO	1
 #endif
 
 #ifdef DEBUG

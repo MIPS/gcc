@@ -1,5 +1,5 @@
-# Makefile for GNU C++ compiler.
-#   Copyright (C) 1987, 88, 90-5, 1998 Free Software Foundation, Inc.
+# Makefile for GNU compilers.
+#   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
 
 #This file is part of GNU CC.
 
@@ -40,7 +40,7 @@ default : gen
 
 # Specify the directories to be searched for header files.
 # Both . and srcdir are used, in that order.
-INCLUDES = -I. -I.. -I$(srcdir) -I$(srcdir)/.. -I$(srcdir)/../config
+INCLUDES = -I. -I.. -I$(srcdir) -I$(srcdir)/.. -I$(srcdir)/../config -I$(srcdir)/../../include
 
 # Always use -I$(srcdir)/config when compiling.
 .c.o:
