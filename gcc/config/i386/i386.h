@@ -1105,6 +1105,8 @@ do {									\
    : reload_completed ? REGNO (pic_offset_table_rtx)	\
    : REAL_PIC_OFFSET_TABLE_REGNUM)
 
+#define GOT_SYMBOL_NAME "_GLOBAL_OFFSET_TABLE_"
+
 /* Register in which address to store a structure value
    arrives in the function.  On the 386, the prologue
    copies this from the stack to register %eax.  */
@@ -3011,6 +3013,13 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
 #define ASM_SIMPLIFY_DWARF_ADDR(X) \
   i386_simplify_dwarf_addr (X)
 
+/* Emit a dtp-relative reference to a TLS variable.  */
+
+#ifdef HAVE_AS_TLS
+#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
+  i386_output_dwarf_dtprel (FILE, SIZE, X)
+#endif
+
 /* Switch to init or fini section via SECTION_OP, emit a call to FUNC,
    and switch back.  For x86 we do this only to save a few bytes that
    would otherwise be unused in the text section.  */
@@ -3156,6 +3165,7 @@ do {						\
   {"general_no_elim_operand", {CONST_INT, CONST_DOUBLE, CONST,		\
 			SYMBOL_REF, LABEL_REF, SUBREG, REG, MEM}},	\
   {"nonmemory_no_elim_operand", {CONST_INT, REG, SUBREG}},		\
+  {"index_register_operand", {SUBREG, REG}},				\
   {"q_regs_operand", {SUBREG, REG}},					\
   {"non_q_regs_operand", {SUBREG, REG}},				\
   {"fcmov_comparison_operator", {EQ, NE, LTU, GTU, LEU, GEU, UNORDERED, \
@@ -3185,7 +3195,11 @@ do {						\
   {"global_dynamic_symbolic_operand", {SYMBOL_REF}},			\
   {"local_dynamic_symbolic_operand", {SYMBOL_REF}},			\
   {"initial_exec_symbolic_operand", {SYMBOL_REF}},			\
-  {"local_exec_symbolic_operand", {SYMBOL_REF}},
+  {"local_exec_symbolic_operand", {SYMBOL_REF}},			\
+  {"any_fp_register_operand", {REG}},					\
+  {"register_and_not_any_fp_reg_operand", {REG}},			\
+  {"fp_register_operand", {REG}},					\
+  {"register_and_not_fp_reg_operand", {REG}},				\
 
 /* A list of predicates that do special things with modes, and so
    should not elicit warnings for VOIDmode match_operand.  */

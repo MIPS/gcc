@@ -675,7 +675,7 @@ enum reg_class {
    machines allow copying all registers to and from memory, but
    require a scratch register for stores to some memory locations
    (e.g., those with symbolic address on the RT, and those with
-   certain symbolic address on the Sparc when compiling PIC).  In
+   certain symbolic address on the SPARC when compiling PIC).  In
    some cases, both an intermediate and a scratch register are
    required.
 
@@ -2482,6 +2482,12 @@ extern int avr_case_values_threshold;
    give to GNU CC into options for GNU CC to pass to the `cc1'.
 
    Do not define this macro if it does not need to do anything.  */
+
+#define CC1PLUS_SPEC "%{!frtti:-fno-rtti} \
+    %{!fenforce-eh-specs:-fno-enforce-eh-specs} \
+    %{!fexceptions:-fno-exceptions}"
+/* A C string constant that tells the GNU CC drvier program options to
+   pass to `cc1plus'.  */
 
 #define ASM_SPEC "%{mmcu=*:-mmcu=%*}"
 /* A C string constant that tells the GNU CC driver program options to

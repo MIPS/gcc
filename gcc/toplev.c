@@ -66,6 +66,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "reload.h"
 #include "dwarf2asm.h"
 #include "integrate.h"
+#include "real.h"
 #include "debug.h"
 #include "target.h"
 #include "langhooks.h"
@@ -976,11 +977,6 @@ static const param_info lang_independent_params[] = {
   { NULL, 0, NULL }
 };
 
-/* A default for same.  */
-#ifndef USER_LABEL_PREFIX
-#define USER_LABEL_PREFIX ""
-#endif
-
 /* Table of language-independent -f options.
    STRING is the option name.  VARIABLE is the address of the variable.
    ON_VALUE is the value to store in VARIABLE
@@ -1640,7 +1636,7 @@ read_integral_parameter (p, pname, defval)
   return atoi (p);
 }
 
-/* This calls abort and is used to avoid problems when abort if a macro.
+/* This calls abort and is used to avoid problems when abort is a macro.
    It is used when we need to pass the address of abort.  */
 
 void
@@ -4008,7 +4004,7 @@ decode_f_option (arg)
   else if (!strcmp (arg, "no-stack-limit"))
     stack_limit_rtx = NULL_RTX;
   else if (!strcmp (arg, "preprocessed"))
-    /* Recognise this switch but do nothing.  This prevents warnings
+    /* Recognize this switch but do nothing.  This prevents warnings
        about an unrecognized switch if cpplib has not been linked in.  */
     ;
   else
@@ -5155,6 +5151,9 @@ backend_init ()
   /* init_emit_once uses reg_raw_mode and therefore must be called
      after init_regs which initialized reg_raw_mode.  */
   init_regs ();
+  /* Similarly, init_emit_once uses floating point numbers, and
+     thus must follow init_real_once.  */
+  init_real_once ();
   init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
 		  || debug_info_level == DINFO_LEVEL_VERBOSE
 #ifdef VMS_DEBUGGING_INFO

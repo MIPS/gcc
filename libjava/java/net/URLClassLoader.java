@@ -119,7 +119,7 @@ public class URLClassLoader extends SecureClassLoader
 
     for (int i = 0; i < urls.length; i++)
       {
-	// Convert a Jar File URL into a Jar URL is possible. 
+	// Convert a Jar File URL into a Jar URL if possible.
 	URL u = jarFileize(urls[i]);
 
 	path.addElement (u);
@@ -165,7 +165,8 @@ public class URLClassLoader extends SecureClassLoader
 	  if (conn != null)
 	    {
 	      if (conn.getJarFile().getJarEntry (name) != null)
-		results.addElement (new URL(u, name, getHandler0 (u.getProtocol())));
+		results.addElement (new URL(u, name,
+					getHandler0 (u.getProtocol())));
 	    }
 	  else
 	    {
@@ -265,7 +266,7 @@ public class URLClassLoader extends SecureClassLoader
 	    int i = u.indexOf ('!');
 	    if (i >= 0)
 	      u = u.substring (0, i);
-	    url = new URL("jar", "", u);
+	    url = new URL(u);
 
 	    source = new CodeSource(url, certificates);
 	  }

@@ -364,6 +364,11 @@ case $machine in
 	xm_defines=POSIX
 	gas=yes
 	gnu_ld=yes
+	case x${enable_threads} in
+	xyes | xposix)
+		thread_file='posix'
+		;;
+	esac
 	;;
 *-*-freebsd[12] | *-*-freebsd[12].* | *-*-freebsd*aout*)
 	# This is the place-holder for the generic a.out configuration
@@ -980,6 +985,7 @@ i[34567]86-*-darwin*)
 	target_gtfiles="\$(srcdir)/config/darwin.c"
 	c_target_objs="darwin-c.o"
 	cxx_target_objs="darwin-c.o"
+	extra_parts="crtbegin.o crtend.o"
 	# Darwin linker does collect2 functionality
 	use_collect2=no
 	;;
@@ -1363,6 +1369,7 @@ ia64*-*-aix*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h ia64/sysv4.h ia64/aix.h"
 	tmake_file="ia64/t-ia64 ia64/t-aix"
 	target_cpu_default="MASK_GNU_AS|MASK_GNU_LD"
+	extra_parts="crti.o crtn.o crtbegin.o crtend.o crtbeginS.o crtendS.o"
 	;;
 ia64*-*-elf*)
 	tm_file="${tm_file} dbxelf.h elfos.h ia64/sysv4.h ia64/elf.h"
@@ -1376,16 +1383,19 @@ ia64*-*-elf*)
 	then
 		target_cpu_default="${target_cpu_default}|MASK_GNU_LD"
 	fi
+	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtfastmath.o"
 	;;
 ia64*-*-freebsd*)
 	tm_file="${tm_file} dbxelf.h elfos.h ${fbsd_tm_file} ia64/sysv4.h ia64/freebsd.h"
 	target_cpu_default="MASK_GNU_AS|MASK_GNU_LD"
 	tmake_file="${tmake_file} ia64/t-ia64"
+	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtfastmath.o"
 	;;
 ia64*-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h linux.h ia64/sysv4.h ia64/linux.h"
 	tmake_file="t-slibgcc-elf-ver t-linux ia64/t-ia64 ia64/t-glibc"
 	target_cpu_default="MASK_GNU_AS|MASK_GNU_LD"
+	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtfastmath.o"
 	;;
 ia64*-*-hpux*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h ia64/sysv4.h ia64/hpux.h ia64/hpux_longdouble.h"
@@ -1946,6 +1956,7 @@ powerpc-*-darwin*)
 	target_gtfiles="\$(srcdir)/config/darwin.c"
 	c_target_objs="darwin-c.o"
 	cxx_target_objs="darwin-c.o"
+	extra_parts="crtbegin.o crtend.o"
 	# Darwin linker does collect2 functionality
 	use_collect2=no
 	extra_headers=altivec.h
@@ -2319,17 +2330,17 @@ sparc-*-elf*)
 	tmake_file="sparc/t-elf sparc/t-crtfm"
 	extra_parts="crti.o crtn.o crtbegin.o crtend.o"
 	;;
-sparc-*-linux*aout*)		# Sparc's running GNU/Linux, a.out
+sparc-*-linux*aout*)		# SPARC's running GNU/Linux, a.out
 	tm_file="aoutos.h sparc/sparc.h sparc/aout.h sparc/linux-aout.h"
 	gnu_ld=yes
 	;;
-sparc-*-linux*libc1*)	# Sparc's running GNU/Linux, libc5
+sparc-*-linux*libc1*)	# SPARC's running GNU/Linux, libc5
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/linux.h"
 	tmake_file="t-slibgcc-elf-ver t-linux t-linux-gnulibc1 sparc/t-crtfm"
 	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 	gnu_ld=yes
 	;;
-sparc-*-linux*)		# Sparc's running GNU/Linux, libc6
+sparc-*-linux*)		# SPARC's running GNU/Linux, libc6
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/linux.h"
 	tmake_file="t-slibgcc-elf-ver t-linux sparc/t-crtfm"
 	;;
@@ -2513,7 +2524,7 @@ sparc64-*-freebsd*|ultrasparc-*-freebsd*)
 		*) echo "$with_cpu not supported for freebsd target"; exit 1 ;;
 	esac
 	;;
-sparc64-*-linux*)		# 64-bit Sparc's running GNU/Linux
+sparc64-*-linux*)		# 64-bit SPARC's running GNU/Linux
 	tmake_file="t-slibgcc-elf-ver t-linux sparc/t-linux64 sparc/t-crtfm"
 	tm_file="sparc/biarch64.h ${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/linux64.h"
 	;;
@@ -2683,7 +2694,7 @@ i586-*-*)
 		k6-*)
 			target_cpu_default2=TARGET_CPU_DEFAULT_k6
 			;;
-		pentium_mmx-*)
+		pentium_mmx-*|winchip_c6-*|winchip2-*|c3-*)
 			target_cpu_default2=TARGET_CPU_DEFAULT_pentium_mmx
 			;;
 		*)

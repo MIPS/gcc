@@ -1180,9 +1180,9 @@ reload (first, global)
 
   /* Make a pass over all the insns and delete all USEs which we inserted
      only to tag a REG_EQUAL note on them.  Remove all REG_DEAD and REG_UNUSED
-     notes.  Delete all CLOBBER insns that don't refer to the return value
-     or to memory (mem:BLK CLOBBERs must be retained to prevent the scheduler
-     from misarranging variable-array code) and simplify (subreg (reg))
+     notes.  Delete all CLOBBER insns, except those that refer to the return
+     value and the special mem:BLK CLOBBERs added to prevent the scheduler
+     from misarranging variable-array code, and simplify (subreg (reg))
      operands.  Also remove all REG_RETVAL and REG_LIBCALL notes since they
      are no longer useful or accurate.  Strip and regenerate REG_INC notes
      that may have been moved around.  */
@@ -1203,7 +1203,10 @@ reload (first, global)
 		 || find_reg_note (insn, REG_EQUAL, NULL_RTX)))
 	    || (GET_CODE (PATTERN (insn)) == CLOBBER
 		&& (GET_CODE (XEXP (PATTERN (insn), 0)) != MEM
-		    || GET_MODE (XEXP (PATTERN (insn), 0)) != BLKmode)
+		    || GET_MODE (XEXP (PATTERN (insn), 0)) != BLKmode
+		    || (GET_CODE (XEXP (XEXP (PATTERN (insn), 0), 0)) != SCRATCH
+			&& XEXP (XEXP (PATTERN (insn), 0), 0) 
+				!= stack_pointer_rtx))
 		&& (GET_CODE (XEXP (PATTERN (insn), 0)) != REG
 		    || ! REG_FUNCTION_VALUE_P (XEXP (PATTERN (insn), 0)))))
 	  {
@@ -3407,7 +3410,7 @@ set_offsets_for_label (insn)
 }
 
 /* See if anything that happened changes which eliminations are valid.
-   For example, on the Sparc, whether or not the frame pointer can
+   For example, on the SPARC, whether or not the frame pointer can
    be eliminated can depend on what registers have been used.  We need
    not check some conditions again (such as flag_omit_frame_pointer)
    since they can't have changed.  */

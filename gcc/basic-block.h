@@ -148,7 +148,7 @@ typedef struct edge_def {
 #define EDGE_FAKE		16	/* Not a real edge (profile.c) */
 #define EDGE_DFS_BACK		32	/* A backwards edge */
 #define EDGE_CAN_FALLTHRU	64	/* Candidate for straight line
-					   flow. */
+					   flow.  */
 
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 
@@ -454,9 +454,6 @@ struct loop
   /* Non-zero if the loop has a NOTE_INSN_LOOP_CONT.
      A continue statement will generate a branch to NEXT_INSN (cont).  */
   rtx cont;
-
-  /* The dominator of cont.  */
-  rtx cont_dominator;
 
   /* The NOTE_INSN_LOOP_BEG.  */
   rtx start;

@@ -1,3 +1,304 @@
+2002-09-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+        * include/c_shadow: Remove.
+        * include/bits/generic_shadow.h: Remove.
+        * include/Makefile.am: Remove generic_shadow.h.
+        * acinclude.m4: Remove c_shadow references.
+        * aclocal.m4: Regenerate.
+        * configure: Regenerate.
+        * mkcshadow: Remove.
+        * mkinclosure: Remove.
+
+2002-09-16  Loren J. Rittle  <ljrittle@acm.org>
+
+	libstdc++/7922
+	* include/ext/stl_rope.h (rope<>): Qualify dependent names
+	with `typename'.
+
+2002-09-16  Richard Henderson  <rth@redhat.com>
+
+	* include/std/std_limits.h (__glibcpp_f32_QNaN_bytes,
+	__glibcpp_f32_has_QNaN, __glibcpp_f32_SNaN_bytes,
+	__glibcpp_f32_has_SNaN, __glibcpp_f64_QNaN_bytes,
+	__glibcpp_f64_has_QNaN, __glibcpp_f64_SNaN_bytes,
+	__glibcpp_f64_has_SNaN, __glibcpp_f80_QNaN_bytes,
+	__glibcpp_f80_has_QNaN, __glibcpp_f80_SNaN_bytes,
+	__glibcpp_f80_has_SNaN, __glibcpp_f96_QNaN_bytes,
+	__glibcpp_f96_has_QNaN, __glibcpp_f96_SNaN_bytes,
+	__glibcpp_f96_has_SNaN, __glibcpp_f128_QNaN_bytes,
+	__glibcpp_f128_has_QNaN, __glibcpp_f128_SNaN_bytes,
+	__glibcpp_f128_has_SNaN, __glibcpp_float_QNaN_bytes,
+	__glibcpp_float_has_QNaN, __glibcpp_float_SNaN_bytes,
+	__glibcpp_float_has_SNaN, __glibcpp_double_QNaN_bytes,
+	__glibcpp_double_has_QNaN, __glibcpp_double_SNaN_bytes,
+	__glibcpp_double_has_SNaN, __glibcpp_long_double_QNaN_bytes,
+	__glibcpp_long_double_has_QNaN, __glibcpp_long_double_SNaN_bytes,
+	__glibcpp_long_double_has_SNaN): Remove.
+	(__glibcpp_f128_is_iec559): True if IEEE.
+	(__glibcpp_float_QNaN, __glibcpp_float_SNaN): Remove.
+	(__glibcpp_double_QNaN, __glibcpp_double_SNaN): Remove.
+	(__glibcpp_long_double_QNaN, __glibcpp_long_double_SNaN): Remove.
+	(std::numeric_limits<float>::has_quiet_NaN): Use __builtin_nanf.
+	(std::numeric_limits<float>::has_signaling_NaN): Mirror has_quiet_NaN.
+	(std::numeric_limits<float>::quiet_NaN): Use __builtin_nanf.
+	(std::numeric_limits<float>::signaling_NaN): Use __builtin_nansf.
+	(std::numeric_limits<double>): Similarly.
+	(std::numeric_limits<long double>): Similarly.
+	* src/limits.cc (__glibcpp_float_QNaN, __glibcpp_float_SNaN): Remove.
+	(__glibcpp_double_QNaN, __glibcpp_double_SNaN): Remove.
+	(__glibcpp_long_double_QNaN, __glibcpp_long_double_SNaN): Remove.
+
+	* testsuite/18_support/numeric_limits.cc (test_infinity): New.
+	(test_denorm_min, test_qnan, test_is_iec559): New.
+
+2002-09-16  Phil Edwards  <pme@gcc.gnu.org>
+
+	* testsuite/abi_check.cc:  Pull shell fragments out into...
+	* config/abi/extract_symvers:  ...here.  New file.
+	* Makefile.am (check_abi):  Change to match.
+	(new-abi-baseline):  New target.
+	* Makefile.in:  Regenerated.
+
+2002-09-16  Richard Henderson  <rth@redhat.com>
+
+	* include/std/std_limits.h (__glibcpp_f32_denorm_min_bytes,
+	__glibcpp_f32_has_denorm, __glibcpp_f64_denorm_min_bytes,
+	__glibcpp_f64_has_denorm, __glibcpp_f80_denorm_min_bytes,
+	__glibcpp_f80_has_denorm, __glibcpp_f96_denorm_min_bytes,
+	__glibcpp_f96_has_denorm, __glibcpp_f128_denorm_min_bytes,
+	__glibcpp_f128_has_denorm, __glibcpp_float_denorm_min_bytes,
+	__glibcpp_float_has_denorm, __glibcpp_double_denorm_min_bytes,
+	__glibcpp_double_has_denorm, __glibcpp_long_double_denorm_min_bytes,
+	__glibcpp_long_double_has_denorm): Remove.
+	(__glibcpp_float_denorm_min, __glibcpp_double_denorm_min,
+	__glibcpp_long_double_denorm_min): Remove.
+	(std::numeric_limits<float>::has_denorm): Use __FLT_DENORM_MIN__.
+	(std::numeric_limits<float>::denorm_min): Likewise.
+	(std::numeric_limits<double>): Similarly.
+	(std::numeric_limits<long double>): Similarly.
+	* src/limits.cc (__glibcpp_float_denorm_min,
+	__glibcpp_double_denorm_min, __glibcpp_long_double_denorm_min): Remove.
+
+2002-09-13  Andy Felt  <afelt@uwsp.edu>
+
+	* docs/html/17_intro/howto.html:  Update link.
+
+2002-09-13  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/run_doxygen:  Massage man page for Iterator_types.3.
+	* docs/html/faq/index.html:  Whitespace fixes.
+
+2002-09-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* libmath/Makefile.am (LIBTOOL): Use --tag CC always for this
+	directory.
+	* libmath/Makefile.in: Regenerate.
+	* src/Makefile.am: Tweak comment.
+	* src/Makefile.in: Regenerate.
+	
+	* config/locale/gnu/c_locale.h: Remove warnings.
+	Inject __uselocale into __gnu_cxx.
+	* config/locale/generic/c_locale.h: Match.
+	
+2002-09-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_facets.tcc (__convert_from_v): Remove.
+	* config/locale/gnu/c_locale.h (__convert_from_v): Add.
+	* config/locale/generic/c_locale.h (__convert_from_v): Add.	
+
+2002-09-11  Paolo Carlini  <pcarlini@unitus.it>
+
+        * include/bits/locale_facets.tcc (__convert_from_v):
+        Use __uselocale instead of setlocale for glibc 2.3+.
+
+2002-09-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/Makefile.am (sources): Edit.
+	(target_sources): New.
+	(target_sources_extra): New.
+	* src/Makefile.in: Regenerate.
+	* acinclude.m4: Set CCODECVT_CC. 
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* src/locale.cc: Move ctype definitions...
+	* src/ctype.cc: ...here. New file. 
+	* src/locale.cc: Move codecvt definitions...
+	* src/codecvt.cc: ...here. 	
+	* config/generic/codecvt_members.cc: ...and here. 	
+	* config/gnu/codecvt_members.cc: ...and here. 		
+	* include/bits/codecvt.h: Tweak.
+	* include/bits/locale_facets: Tweak.
+
+	* src/bitset.cc: Correct license text.
+	* src/concept-inst.cc: Same.
+	* src/strstream.cc: Same.
+	* src/vterminate.cc: Same.	
+
+2002-09-10  Gabriel Dos Reis  <gdr@soliton.integrable-solutions.net>
+
+	* include/bits/stl_vector.h (vector<>): Don't use a name with
+	different meanings before and after re-evaluation in the completed
+	scope. 
+	* include/bits/basic_string.h (basic_string<>): Likewise.
+	* include/bits/stl_bvector.h (vector<bool>): Likewise.
+	* include/bits/stl_deque.h (std): Likewise.
+	* include/bits/stl_list.h (list<>): Likewise.
+	* include/bits/stl_tree.h (_Rb_tree<>): Likewise.
+
+2002-09-10  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/codecvt.h (class __codecvt_abstract_base):
+	Add __c_locale type _M_c_locale_codecvt member.
+	(class codecvt<char, char, mbstate_t>,
+	class codecvt<wchar_t, char, mbstate_t>): Add new
+	codecvt(__c_locale, size_t) constructor.
+	(codecvt_byname::codecvt_byname): Update.
+	* src/codecvt.cc (class codecvt<char, char, mbstate_t>,
+	class codecvt<wchar_t, char, mbstate_t>): Update codecvt(size_t)
+	constructor and ~codecvt() destructor; define
+	codecvt(__c_locale, size_t) constructor.
+	(codecvt::do_out): Switch to _M_c_locale_codecvt around wcsrtombs call.
+	(codecvt::do_in): Ditto for mbsrtowcs call.
+	* src/localename.cc (locale::_Impl::_Impl(const char*, size_t)):
+	Tweak construction of codecvt facets.
+
+2002-09-10  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* include/bits/locale_facets.tcc (__convert_from_v):
+	Replace strdup with ISO malloc and strcpy.
+
+2002-09-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/configopts.html: Change grouping. Note ABI impacts.
+	Update information for locale model defaults.
+	* docs/html/install.html: Update include directory
+	information. 
+	Update testing information. 
+	Update linux issues for named locales.
+	* docs/html/abi.txt: Fix typos.
+	Add more info.
+
+	* src/misc-inst.cc: Add missing instantiations.
+	
+	* testsuite/abi_check.cc: Make output results more verbose.
+	
+	* config/os/gnu-linux/ctype_base.h: Remove shadow headers injections.
+
+2002-09-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/locale/generic/messages_members.cc: Add specialization for
+	messages<wchar_t>.
+	* config/locale/ieee_1003.1-20021/messages_members.cc: Likewise.
+
+2002-09-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/localefwd.h: Tweak formatting.
+	* docs/html/abi.txt: Add.
+
+2002-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.target: Use cpu_include_dir="config/cpu/sparc" for all
+	sparc targets.
+	* config/cpu/sparc/atomicity.h: New file.
+	* config/cpu/sparc/sparc32/atomicity.h: Removed.
+	* config/cpu/sparc/sparc64/atomicity.h: Removed.
+
+2002-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/os/gnu-linux/ctype_noninline.h
+	[_GLIBCPP_USE_SHADOW_HEADERS]: Remove using _C_legacy::__ctype_*.
+	(ctype<char>::classic_table): If _GLIBCPP_C_LOCALE_GNU, return
+	_S_c_locale->__ctype_b, otherwise temporarily switch to "C" locale
+	and return __ctype_b.
+	(ctype<char>::ctype(__c_locale, const mask*, bool, size_t)): If not
+	_GLIBCPP_C_LOCALE_GNU, temporarily switch to "C" locale and
+	initialize using __ctype_{b,tolower,toupper}.
+	(ctype<char>::ctype(const mask*, bool, size_t)): If
+	_GLIBCPP_C_LOCALE_GNU, initialize using
+	_S_c_locale->__ctype_{b,tolower,toupper}, otherwise temporarily
+	switch to "C" locale and initialize using __ctype_{b,tolower,toupper}.
+
+2002-09-05  Paolo Carlini  <pcarlini@unitus.it>
+            Roland McGrath  <roland@redhat.com>
+
+	PR libstdc++/7811
+	* src/locale.cc (locale::locale(__s)): Use getenv instead
+	of setenv for the environment locale.
+	* testsuite/22_locale/ctor_copy_dtor.cc (test03): New.
+
+2002-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/abi/ia64-unknown-linux-gnu: Add.
+	* config/abi/ia64-unknown-linux-gnu/baseline_symbols.txt: New file.
+	* config/abi/alphaev67-unknown-linux-gnu: Add.
+	* config/abi/alphaev67-unknown-linux-gnu/baseline_symbols.txt: New file.
+
+2002-09-05  Jonathan Wakely  <jw@kayari.org>
+
+	* docs/html/Makefile:  Use more portable shell wildcard.
+	* docs/html/makedoc.awk:  Nest elements correctly for XHTML conversion.
+	* docs/html/configopts.html, docs/html/documentation.html,
+	docs/html/explanations.html, docs/html/install.html,
+	docs/html/17_intro/contribute.html, docs/html/17_intro/howto.html,
+	docs/html/17_intro/license.html, docs/html/18_support/howto.html,
+	docs/html/19_diagnostics/howto.html, docs/html/20_util/howto.html,
+	docs/html/21_strings/howto.html, docs/html/22_locale/codecvt.html,
+	docs/html/22_locale/ctype.html, docs/html/22_locale/howto.html,
+	docs/html/22_locale/locale.html, docs/html/22_locale/messages.html,
+	docs/html/23_containers/howto.html, docs/html/24_iterators/howto.html,
+	docs/html/25_algorithms/howto.html, docs/html/26_numerics/howto.html,
+	docs/html/27_io/howto.html, docs/html/ext/howto.html,
+	docs/html/ext/sgiexts.html, docs/html/faq/index.html:  Convert
+	to XHTML.
+	* docs/html/faq/index.txt:  Regenerate.
+
+2002-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/locale/gnu/ctype_members.cc (ctype<wchar_t>::do_widen(char)):
+	Switch to _M_c_locale_ctype around btowc call.
+	(ctype<wchar_t>::do_widen(const char*, const char *, wchar_t*)):
+	Switch to _M_c_locale_ctype around mbsrtowcs call.
+	(ctype<wchar_t>::do_narrow(char)): Switch to _M_c_locale_ctype around
+	wctob call.
+	(ctype<wchar_t>::do_narrow(const char*, const char *, wchar_t*)):
+	Switch to _M_c_locale_ctype around wcsrtombs call.
+
+2002-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/locale/gnu/monetary_members.cc
+	(moneypunct<wchar_t, true>::_M_initialize_moneypunct,
+	moneypunct<wchar_t, false>::_M_initialize_moneypunct): Use
+	__uselocale instead of setlocale for glibc 2.3.
+
+2002-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/locale/generic/c++locale_internal.h: New header.
+	* config/locale/gnu/c++locale_internal.h: New header.
+	* config/locale/gnu/c_locale.cc: Include it.
+	* config/locale/gnu/collate_members.cc: Include it.
+	* config/locale/gnu/ctype_members.cc: Include it.
+	* config/locale/gnu/messages_members.cc: Include it.
+	* config/locale/gnu/monetary_members.cc: Include it.
+	* config/locale/gnu/numeric_members.cc: Include it.
+	* config/locale/gnu/time_members.cc: Include it.
+	(_M_put): Reorder __strftime_l and __wcsftime_l arguments to match
+	glibc.
+	(_M_initialize_timepunct): Initialize _M_c_locale_timepunct for
+	C locale.
+	* acinclude.m4: Include string.h when testing strcoll_l.
+	For glibc 2.3 provide __-prefixed prototypes.
+	(CLOCALE_INTERNAL_H): Set, add AC_LINK_FILES line.
+	* aclocal.m4, configure: Rebuilt.
+
+2002-09-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_facets.h: Add declaration of specialization
+	here.
+	* config/locale/gnu/messages_members.cc: Add specialization for
+	messages<wchar_t>.
+	* config/locale/gnu/messages_members.h: Remove generic definition
+	of do_get.
+
 2002-09-04  Richard Henderson  <rth@redhat.com>
 
 	* include/std/std_limits.h (__glibcpp_f32_infinity_bytes,

@@ -1,3 +1,36 @@
+2002-09-16  Geoffrey Keating  <geoffk@apple.com>
+
+	* com.c (union lang_tree_node): Add chain_next option.
+
+2002-09-16  Richard Henderson  <rth@redhat.com>
+
+	* target.c (ffetarget_real1): Don't pass FFETARGET_ATOF_
+	directly to ffetarget_make_real1.
+	(ffetarget_real2): Similarly.
+	* target.h (ffetarget_cvt_r1_to_rv_, ffetarget_cvt_rv_to_r2_,
+	ffetarget_cvt_r2_to_rv_): Use new real.h interface and simplify.
+
+2002-09-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* intdoc.texi: Regenerate.
+
+2002-09-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* ChangeLog: Follow spelling conventions.
+	* intdoc.in: Likewise.
+
+2002-09-09  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	Fix PR web/7596:
+	* ffe.texi (Front End): Fix broken links.
+	* bugs.texi (Known Bugs): Refer to gcc.gnu.org instead of
+	www.gnu.org for onlinedocs.
+	* news.texi (News): Ditto.
+	
+2002-09-07  Jan Hubicka  <jh@suse.cz>
+
+	* com.c (ffe_type_for_mode): Handle long double.
+
 2002-09-04  Richard Henderson  <rth@redhat.com>
 
 	* target.h (ffetarget_print_real1, ffetarget_print_real2): Update
@@ -1735,7 +1768,7 @@ Fri Sep 24 10:48:10 1999  Bernd Schmidt  <bernds@cygnus.co.uk>
 
 Tue Sep 21 09:08:30 1999  Toon Moene  <toon@moene.indiv.nluug.nl>
 
-	* g77spec.c (lang_specific_driver): Initialise return value.
+	* g77spec.c (lang_specific_driver): Initialize return value.
 
 Thu Sep 16 18:07:11 1999  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 

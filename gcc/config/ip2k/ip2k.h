@@ -801,7 +801,7 @@ enum reg_class {
    machines allow copying all registers to and from memory, but
    require a scratch register for stores to some memory locations
    (e.g., those with symbolic address on the RT, and those with
-   certain symbolic address on the Sparc when compiling PIC).  In
+   certain symbolic address on the SPARC when compiling PIC).  In
    some cases, both an intermediate and a scratch register are
    required.
 
@@ -1226,7 +1226,7 @@ enum reg_class {
    argument popping will always be the responsibility of the calling
    function.
 
-   On the Vax, all functions always pop their arguments, so the
+   On the VAX, all functions always pop their arguments, so the
    definition of this macro is STACK-SIZE.  On the 68000, using the
    standard calling convention, no functions pop their arguments, so
    the value of the macro is always 0 in this case.  But an
@@ -1251,7 +1251,7 @@ enum reg_class {
    hard register in which to pass the argument, or zero to pass the
    argument on the stack.
 
-   For machines like the Vax and 68000, where normally all arguments
+   For machines like the VAX and 68000, where normally all arguments
    are pushed, zero suffices as a definition.
 
    The value of the expression can also be a `parallel' RTX.  This is

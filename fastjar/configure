@@ -483,11 +483,11 @@ srcdir=`echo "${srcdir}" | sed 's%\([^/]\)/*$%\1%'`
 
 # Prefer explicitly selected file to automatically selected ones.
 if test -z "$CONFIG_SITE"; then
-  if test "x$prefix" != xNONE; then
-    CONFIG_SITE="$prefix/share/config.site $prefix/etc/config.site"
-  else
-    CONFIG_SITE="$ac_default_prefix/share/config.site $ac_default_prefix/etc/config.site"
-  fi
+    if test "x$prefix" != xNONE; then
+      CONFIG_SITE="$prefix/share/config.site $prefix/etc/config.site"
+    else
+      CONFIG_SITE="$ac_default_prefix/share/config.site $ac_default_prefix/etc/config.site"
+    fi
 fi
 for ac_site_file in $CONFIG_SITE; do
   if test -r "$ac_site_file"; then
@@ -1290,7 +1290,7 @@ else
   if { (eval echo configure:1291: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; }; then
     for file in conftest.*; do
       case $file in
-      *.c | *.o | *.obj) ;;
+      *.$ac_ext | *.c | *.o | *.obj) ;;
       *) ac_cv_exeext=`echo $file | sed -e s/conftest//` ;;
       esac
     done
@@ -2126,6 +2126,16 @@ fi
 
 
 
+# Get the version trigger filename from the toplevel
+if test "${with_gcc_version_trigger+set}" = set; then
+   gcc_version_trigger=$with_gcc_version_trigger
+else
+   gcc_version_trigger=${srcdir}/version.c
+fi
+gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*"\([^"]*\)".*/\1/'`
+gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
+
+
 trap '' 1 2 15
 cat > confcache <<\EOF
 # This file is a shell script that caches the results of configure
@@ -2284,6 +2294,7 @@ s%@CPP@%$CPP%g
 s%@ZLIBS@%$ZLIBS%g
 s%@ZDEPS@%$ZDEPS%g
 s%@ZINCS@%$ZINCS%g
+s%@gcc_version@%$gcc_version%g
 
 CEOF
 EOF

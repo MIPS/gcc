@@ -474,11 +474,8 @@ build_real (type, d)
   REAL_VALUE_TYPE *dp;
   int overflow = 0;
 
-  /* Check for valid float value for this type on this target machine;
-     if not, can print error message and store a valid value in D.  */
-#ifdef CHECK_FLOAT_VALUE
-  CHECK_FLOAT_VALUE (TYPE_MODE (type), d, overflow);
-#endif
+  /* ??? Used to check for overflow here via CHECK_FLOAT_TYPE.
+     Consider doing it via real_convert now.  */
 
   v = make_node (REAL_CST);
   dp = ggc_alloc (sizeof (REAL_VALUE_TYPE));
@@ -4670,6 +4667,8 @@ build_common_tree_nodes_2 (short_double)
     = make_vector (V8HImode, unsigned_intHI_type_node, 1);
   unsigned_V16QI_type_node
     = make_vector (V16QImode, unsigned_intQI_type_node, 1);
+  unsigned_V1DI_type_node
+    = make_vector (V1DImode, unsigned_intDI_type_node, 1);
 
   V16SF_type_node = make_vector (V16SFmode, float_type_node, 0);
   V4SF_type_node = make_vector (V4SFmode, float_type_node, 0);
@@ -4682,6 +4681,7 @@ build_common_tree_nodes_2 (short_double)
   V2SF_type_node = make_vector (V2SFmode, float_type_node, 0);
   V2DF_type_node = make_vector (V2DFmode, double_type_node, 0);
   V16QI_type_node = make_vector (V16QImode, intQI_type_node, 0);
+  V1DI_type_node = make_vector (V1DImode, intDI_type_node, 0);
 }
 
 /* Returns a vector tree node given a vector mode, the inner type, and

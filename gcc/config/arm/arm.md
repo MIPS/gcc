@@ -69,6 +69,7 @@
    			; instructions setting registers for EH handling
    			; and stack frame generation.  Operand 0 is the
    			; register to "use".
+   (UNSPEC_CHECK_ARCH 7); Set CCs to indicate 26-bit or 32-bit mode.
   ]
 )
 
@@ -179,7 +180,7 @@
 	(const_string "normal"))
 
 ; Load scheduling, set from the arm_ld_sched variable
-; initialised by arm_override_options() 
+; initialized by arm_override_options() 
 (define_attr "ldsched" "no,yes" (const (symbol_ref "arm_ld_sched")))
 
 ; condition codes: this one is used by final_prescan_insn to speed up
@@ -1866,7 +1867,7 @@
   [(set (zero_extract:SI (match_operand:SI 0 "s_register_operand" "")
                          (match_operand:SI 1 "general_operand" "")
                          (match_operand:SI 2 "general_operand" ""))
-        (match_operand:SI 3 "nonmemory_operand" ""))]
+        (match_operand:SI 3 "reg_or_int_operand" ""))]
   "TARGET_ARM"
   "
   {
@@ -3912,7 +3913,7 @@
 ;;  DONE;
 ;;}")
 
-;; Recognise garbage generated above.
+;; Recognize garbage generated above.
 
 ;;(define_insn ""
 ;;  [(set (match_operand:TI 0 "general_operand" "=r,r,r,<,>,m")
@@ -4681,7 +4682,7 @@
   "
 )
 
-;; Pattern to recognise insn generated default case above
+;; Pattern to recognize insn generated default case above
 (define_insn "*movhi_insn_arch4"
   [(set (match_operand:HI 0 "nonimmediate_operand" "=r,r,m,r")    
 	(match_operand:HI 1 "general_operand"      "rI,K,r,m"))]
@@ -6795,6 +6796,33 @@
   }"
   [(set_attr "conds" "use")
    (set_attr "type" "load")]
+)
+
+;; Generate a sequence of instructions to determine if the processor is
+;; in 26-bit or 32-bit mode, and return the appropriate return address
+;; mask.
+
+(define_expand "return_addr_mask"
+  [(set (match_dup 1)
+      (compare:CC_NOOV (unspec [(const_int 0)] UNSPEC_CHECK_ARCH)
+		       (const_int 0)))
+   (set (match_operand:SI 0 "s_register_operand" "")
+      (if_then_else:SI (eq (match_dup 1) (const_int 0))
+		       (const_int -1)
+		       (const_int 67108860)))] ; 0x03fffffc
+  "TARGET_ARM"
+  "
+  operands[1] = gen_rtx_REG (CC_NOOVmode, 24);
+  ")
+
+(define_insn "*check_arch2"
+  [(set (match_operand:CC_NOOV 0 "cc_register" "")
+      (compare:CC_NOOV (unspec [(const_int 0)] UNSPEC_CHECK_ARCH)
+		       (const_int 0)))]
+  "TARGET_ARM"
+  "teq\\t%|r0, %|r0\;teq\\t%|pc, %|pc"
+  [(set_attr "length" "8")
+   (set_attr "conds" "set")]
 )
 
 ;; Call subroutine returning any type.

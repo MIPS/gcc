@@ -577,7 +577,7 @@ create_file_names (file_name)
       strcat (name, cptr ? cptr + 1 : file_name);
     }
   
-  /* Remove the extension. */
+  /* Remove the extension.  */
   cptr = strrchr (name, '.');
   if (cptr)
     *cptr = 0;
@@ -1306,7 +1306,7 @@ function_summary (coverage, title)
    to each output name (except when the current source file is the
    input file, so you don't get a double concatenation). The two
    components are separated by '##'. Also '.' filename components are
-   removed and '..' replaced with '^'. */
+   removed and '..'  components are renamed to '^'.  */
 
 static char *
 make_gcov_file_name (input_name, src_name)
@@ -1325,7 +1325,7 @@ make_gcov_file_name (input_name, src_name)
       strcat (name, "##");
     }
    
-  /* Generate the source filename part. */
+  /* Generate the source filename part.  */
   cptr = flag_preserve_paths ? NULL : strrchr (src_name, '/');
   strcat (name, cptr ? cptr + 1 : src_name);
   
@@ -1474,10 +1474,10 @@ output_lines (gcov_file, src)
      const source_t *src;
 {
   FILE *source_file;
-  unsigned line_num;       	/* current line number */
-  const line_t *line;           /* current line info ptr. */
-  char string[STRING_SIZE];     /* line buffer. */
-  char const *retval = "";	/* status of source file reading. */
+  unsigned line_num;       	/* current line number.  */
+  const line_t *line;           /* current line info ptr.  */
+  char string[STRING_SIZE];     /* line buffer.  */
+  char const *retval = "";	/* status of source file reading.  */
 
   fprintf (gcov_file, "%9s:%5d:Source:%s\n", "-", 0, src->name);
   fprintf (gcov_file, "%9s:%5d:Graph:%s\n", "-", 0, bbg_file_name);

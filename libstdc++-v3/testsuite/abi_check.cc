@@ -28,6 +28,8 @@
 // the GNU General Public License.
 
 // Benjamin Kosnik  <bkoz@redhat.com>
+// Blame subsequent hacks on Loren J. Rittle <ljrittle@acm.org>, Phil
+// Edwards <pme@gcc.gnu.org>, and a cast of dozens at libstdc++@gcc.gnu.org.
 
 #include <string>
 #include <ext/hash_map>
@@ -56,23 +58,53 @@ struct symbol_info
 };
 
 bool 
-operator==(const symbol_info& lhs, const symbol_info& rhs)
+check_compatible(const symbol_info& lhs, const symbol_info& rhs, 
+		 bool verbose = false)
 {
+  using namespace std;
   bool ret = true;
+  const char tab = '\t';
 
   // Check to see if symbol_infos are compatible.
-  ret &= lhs.type == rhs.type;
-  ret &= lhs.name == rhs.name;
-  ret &= lhs.size == rhs.size;
+  if (lhs.type != rhs.type)
+    {
+      ret = false;
+      if (verbose)
+	{
+	  cout << tab << "incompatible types" << endl;
+	}
+    }
+  
+  if (lhs.name != rhs.name)
+    {
+      ret = false;
+      if (verbose)
+	{
+	  cout << tab << "incompatible names" << endl;
+	}
+    }
+
+  if (lhs.size != rhs.size)
+    {
+      ret = false;
+      if (verbose)
+	{
+	  cout << tab << "incompatible sizes" << endl;
+	}
+    }
 
   // Expect something more sophisticated eventually.
-  ret &= lhs.version == rhs.version;
+  if (lhs.version != rhs.version)
+    {
+      ret = false;
+      if (verbose)
+	{
+	  cout << tab << "incompatible versions" << endl;
+	}
+    }
+
   return ret;
 }
-
-bool 
-operator!=(const symbol_info& lhs, const symbol_info& rhs)
-{ return !(lhs == rhs); }
 
 template<typename _CharT, typename _Traits>
   std::basic_ostream<_CharT, _Traits>&
@@ -188,8 +220,8 @@ typedef std::deque<std::string>				symbol_names;
 typedef __gnu_cxx::hash_map<const char*, symbol_info> 	symbol_infos;
 
 void
-collect_symbol_data(const char* file, symbol_infos& symbols, 
-		    symbol_names& names)
+create_symbol_data(const char* file, symbol_infos& symbols, 
+		   symbol_names& names)
 {
   // Parse list of symbols in file into vectors of symbol_info.
   // For 3.2.0 on x86/linux, this usually is
@@ -213,72 +245,65 @@ collect_symbol_data(const char* file, symbol_infos& symbols,
     }
 }
 
+void
+report_symbol_info(const symbol_info& symbol, std::size_t n)
+{
+  using namespace std;
+  const char tab = '\t';
+  cout << tab << n << endl;
+  cout << tab << "symbol"<< endl;
+  cout << tab << symbol.name << endl;
 
-int main(int argc, char** argv)
+  // Add any other information to display here.
+  cout << tab << "demangled symbol"<< endl;
+  cout << tab << symbol.name_demangled << endl;
+
+  cout << endl;
+}
+
+
+int
+main(int argc, char** argv)
 {
   using namespace std;
 
-  // Get arguments.
-  if (argc != 2)
+  // Get arguments.  (Heading towards getopt_long, I can feel it.)
+  string argv1;
+  if (argc < 4 || (string("--help") == (argv1 = argv[1])))
     {
-      cerr << "Usage:  abi_check baseline_file" << endl;
+      cerr << "Usage:  abi_check --check    cur baseline\n"
+              "                  --help\n\n"
+              "Where CUR is a file containing the current results from\n"
+              "extract_symvers, and BASELINE is one from config/abi.\n"
+	   << endl;
       exit(1);
     }
-  const char* baseline_file = argv[1];
-  const char* test_file = "current_symbols.txt";
-  const char* test_lib = "../src/.libs/libstdc++.so";
+
+  const char* test_file = argv[2];
+  const char* baseline_file = argv[3];
 
   // Quick sanity/setup check
+  if (access(test_file, R_OK) != 0)
+    {
+      cerr << "Cannot read symbols file " << test_file
+           << ", did you forget to build first?" << endl;
+      exit(1);
+    }
   if (access(baseline_file, R_OK) != 0)
     {
       cerr << "Cannot read baseline file " << baseline_file << endl;
       exit(1);
     }
-  if (access(test_lib, R_OK) != 0)
-    {
-      cerr << "Cannot read library " << test_lib
-           << ", did you forget to build first?" << endl;
-      exit(1);
-    }
 
-  // Get list of symbols.
-  // Assume external symbol list computed "as if" by
-  /*
-   readelf -s -W libstdc++.so | sed '/\.dynsym/,/^$/p;d' | egrep -v
-   ' (LOCAL|UND) ' | awk '{ if ($4 == "FUNC" || $4 == "NOTYPE") printf
-   "%s:%s\n", $4, $8; else if ($4 == "OBJECT") printf "%s:%s:%s\n", $4,
-   $3, $8;}' | sort >& current_symbols.txt
-   */
-
-  // GNU binutils, somewhere after version 2.11.2, requires -W/--wide
-  // to avoid default line truncation.  -W is not supported and
-  // truncation did not occur by default before that point.
-  bool readelf_need_wide =
-    (system("readelf --help | grep -- --wide >/dev/null") == 0);
-
-  ostringstream cmd;
-  cmd << "readelf -s " << (readelf_need_wide ? "-W " : "") << test_lib
-      << " | sed '/\\.dynsym/,/^$/p;d' | egrep -v ' (LOCAL|UND) ' | "
-         "awk '{ if ($4 == \"FUNC\" || $4 == \"NOTYPE\") "
-                   "printf \"%s:%s\\n\", $4, $8; "
-                 "else if ($4 == \"OBJECT\") "
-                   "printf \"%s:%s:%s\\n\", $4, $3, $8;}' | sort > "
-      << test_file << " 2>&1";
-  if (system(cmd.str().c_str()) != 0)
-    {
-      cerr << "Unable to generate the list of exported symbols." << endl;
-      exit(2);
-    }
-
-  // Input both list of symbols into container.
+  // Input both lists of symbols into container.
   symbol_infos  baseline_symbols;
   symbol_names  baseline_names;
   symbol_infos  test_symbols;
   symbol_names  test_names;
-  collect_symbol_data(baseline_file, baseline_symbols, baseline_names);
-  collect_symbol_data(test_file, test_symbols, test_names);
+  create_symbol_data(baseline_file, baseline_symbols, baseline_names);
+  create_symbol_data(test_file, test_symbols, test_names);
 
-  // Basic sanity check. (Was: error checking, what's that?)
+  // More sanity checking.
   const symbol_names::size_type baseline_size = baseline_names.size();
   const symbol_names::size_type test_size = test_names.size();
   if (!baseline_size || !test_size)
@@ -323,28 +348,31 @@ int main(int argc, char** argv)
   vector<symbol_pair> incompatible;
   for (size_t i = 0; i < shared_size; ++i)
     {
-      symbol_info binfo = baseline_symbols[shared_names[i].first.c_str()];
-      symbol_info tinfo = test_symbols[shared_names[i].second.c_str()];
-      if (binfo != tinfo)
-	incompatible.push_back(symbol_pair(binfo, tinfo));
+      symbol_info base = baseline_symbols[shared_names[i].first.c_str()];
+      symbol_info test = test_symbols[shared_names[i].second.c_str()];
+      if (!check_compatible(base, test))
+	incompatible.push_back(symbol_pair(base, test));
     }
 
-  // Output data.
+  // Report results.
   cout << test_names.size() << " added symbols " << endl;
   for (size_t j = 0; j < test_names.size() ; ++j)
-    cout << '\t' << test_names[j] << endl;
+    report_symbol_info(test_symbols[test_names[j].c_str()], j + 1);
 
   cout << missing_names.size() << " missing symbols " << endl;
   for (size_t j = 0; j < missing_names.size() ; ++j)
-    cout << '\t' << missing_names[j] << endl;
+    report_symbol_info(baseline_symbols[missing_names[j].c_str()], j + 1);
 
   cout << incompatible.size() << " incompatible symbols " << endl;
   for (size_t j = 0; j < incompatible.size() ; ++j)
     {
-      cout << "baseline symbol_info:" << endl;
-      cout << incompatible[j].first << endl;
-      cout << "test symbol_info:" << endl;
-      cout << incompatible[j].second << endl;
+      // First, report name.
+      const symbol_info& base = incompatible[j].first;
+      const symbol_info& test = incompatible[j].second;
+      report_symbol_info(test, j + 1);
+
+      // Second, report reason or reasons incompatible.
+      check_compatible(base, test, true);
     }
 
   return 0;

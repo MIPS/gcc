@@ -153,7 +153,7 @@ struct diagnostic_context;
      the virtual function this one overrides, and whose TREE_CHAIN is
      the old DECL_VINDEX.  */
 
-/* Language-specific tree checkers. */
+/* Language-specific tree checkers.  */
 
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 
@@ -340,18 +340,18 @@ struct tree_binding GTY(())
   tree value;
 };
 
-/* The overloaded FUNCTION_DECL. */
+/* The overloaded FUNCTION_DECL.  */
 #define OVL_FUNCTION(NODE) \
   (((struct tree_overload*)OVERLOAD_CHECK (NODE))->function)
 #define OVL_CHAIN(NODE)      TREE_CHAIN (NODE)
-/* Polymorphic access to FUNCTION and CHAIN. */
+/* Polymorphic access to FUNCTION and CHAIN.  */
 #define OVL_CURRENT(NODE)     \
   ((TREE_CODE (NODE) == OVERLOAD) ? OVL_FUNCTION (NODE) : (NODE))
 #define OVL_NEXT(NODE)        \
   ((TREE_CODE (NODE) == OVERLOAD) ? TREE_CHAIN (NODE) : NULL_TREE)
 /* If set, this was imported in a using declaration.
    This is not to confuse with being used somewhere, which
-   is not important for this node. */
+   is not important for this node.  */
 #define OVL_USED(NODE)        TREE_USED (NODE)
 
 struct tree_overload GTY(())
@@ -435,7 +435,7 @@ struct tree_srcloc GTY(())
 /* TREE_TYPE only indicates on local and class scope the current
    type. For namespace scope, the presence of a type in any namespace
    is indicated with global_type_node, and the real type behind must
-   be found through lookup. */
+   be found through lookup.  */
 #define IDENTIFIER_TYPE_VALUE(NODE) identifier_type_value (NODE)
 #define REAL_IDENTIFIER_TYPE_VALUE(NODE) TREE_TYPE (NODE)
 #define SET_IDENTIFIER_TYPE_VALUE(NODE,TYPE) (TREE_TYPE (NODE) = (TYPE))
@@ -505,7 +505,8 @@ enum cp_tree_node_structure_enum {
 };
 
 /* The resulting tree type.  */
-union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)")))
+union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)"),
+       chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
 {
   struct tree_common GTY ((tag ("TS_CP_COMMON"))) common;
   union tree_node GTY ((tag ("TS_CP_GENERIC"),
@@ -708,7 +709,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 /* The node for `__null'.  */
 #define null_node                       cp_global_trees[CPTI_NULL]
 
-/* If non-NULL, a POINTER_TYPE equivalent to (java::lang::Class*). */
+/* If non-NULL, a POINTER_TYPE equivalent to (java::lang::Class*).  */
 #define jclass_node                     cp_global_trees[CPTI_JCLASS]
 
 /* The declaration for `std::terminate'.  */
@@ -770,7 +771,7 @@ struct saved_scope GTY(())
 
 #define current_namespace scope_chain->old_namespace
 
-/* The stack for namespaces of current declarations. */
+/* The stack for namespaces of current declarations.  */
 
 #define decl_namespace_list scope_chain->decl_ns_list
 
@@ -996,7 +997,7 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 /* In a *_TYPE, nonzero means a built-in type.  */
 #define TYPE_BUILT_IN(NODE) TYPE_LANG_FLAG_6 (NODE)
 
-/* True if this a "Java" type, defined in 'extern "Java"'. */
+/* True if this a "Java" type, defined in 'extern "Java"'.  */
 #define TYPE_FOR_JAVA(NODE) TYPE_LANG_FLAG_3 (NODE)
 
 /* Nonzero if this type is const-qualified.  */
@@ -1401,7 +1402,7 @@ struct lang_type GTY(())
   (CLASSTYPE_ALIGN (NODE) / BITS_PER_UNIT)
 
 /* True if this a Java interface type, declared with 
-   '__attribute__ ((java_interface))'. */
+   '__attribute__ ((java_interface))'.  */
 #define TYPE_JAVA_INTERFACE(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->java_interface)
 
 /* A cons list of virtual functions which cannot be inherited by
@@ -1614,11 +1615,11 @@ struct lang_type GTY(())
    non-NULL).  */
 #define VF_BASETYPE_VALUE(NODE) TREE_VALUE (NODE)
 
-/* Accessor macros for the BINFO_VIRTUALS list. */
+/* Accessor macros for the BINFO_VIRTUALS list.  */
 
 /* The number of bytes by which to adjust the `this' pointer when
    calling this virtual function.  Subtract this value from the this
-   pointer. Always non-NULL, might be constant zero though. */
+   pointer. Always non-NULL, might be constant zero though.  */
 #define BV_DELTA(NODE) (TREE_PURPOSE (NODE))
 
 /* If non-NULL, the vtable index at which to find the vcall offset
@@ -2043,7 +2044,7 @@ struct lang_decl GTY(())
   (TREE_LANG_FLAG_0 (NODE))
 
 /* The _TYPE context in which this _DECL appears.  This field holds the
-   class where a virtual function instance is actually defined. */
+   class where a virtual function instance is actually defined.  */
 #define DECL_CLASS_CONTEXT(NODE) \
   (DECL_CLASS_SCOPE_P (NODE) ? DECL_CONTEXT (NODE) : NULL_TREE)
 
@@ -2062,7 +2063,7 @@ struct lang_decl GTY(())
 #define SET_DECL_FRIEND_CONTEXT(NODE, CONTEXT) \
   (DECL_LANG_SPECIFIC (NODE)->u.f.context = (CONTEXT))
 
-/* NULL_TREE in DECL_CONTEXT represents the global namespace. */
+/* NULL_TREE in DECL_CONTEXT represents the global namespace.  */
 #define CP_DECL_CONTEXT(NODE) \
   (DECL_CONTEXT (NODE) ? DECL_CONTEXT (NODE) : global_namespace)
 #define FROB_CONTEXT(NODE)   ((NODE) == global_namespace ? NULL_TREE : (NODE))
@@ -2092,11 +2093,11 @@ struct lang_decl GTY(())
 
 /* For a NAMESPACE_DECL: the list of using namespace directives
    The PURPOSE is the used namespace, the value is the namespace
-   that is the common ancestor. */
+   that is the common ancestor.  */
 #define DECL_NAMESPACE_USING(NODE) DECL_VINDEX (NAMESPACE_DECL_CHECK (NODE))
 
 /* In a NAMESPACE_DECL, the DECL_INITIAL is used to record all users
-   of a namespace, to record the transitive closure of using namespace. */
+   of a namespace, to record the transitive closure of using namespace.  */
 #define DECL_NAMESPACE_USERS(NODE) DECL_INITIAL (NAMESPACE_DECL_CHECK (NODE))
 
 /* In a NAMESPACE_DECL, points to the original namespace if this is
@@ -2137,7 +2138,7 @@ struct lang_decl GTY(())
   (DECL_LANG_SPECIFIC (NODE)->u.f.u.pending_inline_info)
 
 /* For a TYPE_DECL: if this function has many fields, we'll sort them
-   and put them into a TREE_VEC. */
+   and put them into a TREE_VEC.  */
 #define DECL_SORTED_FIELDS(NODE) \
   (DECL_LANG_SPECIFIC (TYPE_DECL_CHECK (NODE))->u.f.u.sorted_fields)
 
@@ -3053,19 +3054,19 @@ typedef enum tsubst_flags_t {
 				(make_typename_type use) */
 } tsubst_flags_t;
 
-/* The kind of checking we can do looking in a class hierarchy. */
+/* The kind of checking we can do looking in a class hierarchy.  */
 typedef enum base_access {
   ba_any = 0,      /* Do not check access, allow an ambiguous base,
 		      prefer a non-virtual base */
   ba_ignore = 1,   /* Do not check access */
   ba_check = 2,    /* Check access */
   ba_not_special = 3, /* Do not consider special privilege
-		         current_class_type might give. */
+		         current_class_type might give.  */
   ba_quiet = 4,    /* Do not issue error messages (bit mask).  */
 } base_access;
 
 /* The kind of base we can find, looking in a class hierarchy.
-   Values <0 indicate we failed. */
+   Values <0 indicate we failed.  */
 typedef enum base_kind {
   bk_inaccessible = -3,   /* The base is inaccessible */
   bk_ambig = -2,          /* The base is ambiguous */
@@ -3074,7 +3075,7 @@ typedef enum base_kind {
   bk_proper_base = 1,     /* It is a proper base */
   bk_via_virtual = 2      /* It is a proper base, but via a virtual
 			     path. This might not be the canonical
-			     binfo. */
+			     binfo.  */
 } base_kind;
 
 /* Set by add_implicitly_declared_members() to keep those members from
@@ -4182,6 +4183,7 @@ extern tree canonical_type_variant              PARAMS ((tree));
 extern void unshare_base_binfos			PARAMS ((tree));
 extern int member_p				PARAMS ((tree));
 extern cp_lvalue_kind real_lvalue_p		PARAMS ((tree));
+extern int non_cast_lvalue_p			PARAMS ((tree));
 extern int non_cast_lvalue_or_else		PARAMS ((tree, const char *));
 extern tree build_min				PARAMS ((enum tree_code, tree,
 							 ...));
@@ -4320,6 +4322,7 @@ extern tree check_return_expr                   PARAMS ((tree));
 extern tree build_ptrmemfunc_access_expr       (tree, tree);
 
 /* in typeck2.c */
+extern void require_complete_eh_spec_types	PARAMS ((tree, tree));
 extern void cxx_incomplete_type_diagnostic	PARAMS ((tree, tree, int));
 #undef cxx_incomplete_type_error
 extern void cxx_incomplete_type_error		PARAMS ((tree, tree));

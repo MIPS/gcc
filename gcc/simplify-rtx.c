@@ -22,8 +22,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
-
 #include "rtl.h"
+#include "tree.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -599,12 +599,22 @@ simplify_unary_operation (code, mode, op, op_mode)
 	  /* We don't attempt to optimize this.  */
 	  return 0;
 
-	case ABS:	      d = REAL_VALUE_ABS (d);			break;
-	case NEG:	      d = REAL_VALUE_NEGATE (d);		break;
-	case FLOAT_TRUNCATE:  d = real_value_truncate (mode, d);	break;
-	case FLOAT_EXTEND:    /* All this does is change the mode.  */  break;
-	case FIX:	      d = REAL_VALUE_RNDZINT (d);		break;
-	case UNSIGNED_FIX:    d = REAL_VALUE_UNSIGNED_RNDZINT (d);	break;
+	case ABS:
+	  d = REAL_VALUE_ABS (d);
+	  break;
+	case NEG:
+	  d = REAL_VALUE_NEGATE (d);
+	  break;
+	case FLOAT_TRUNCATE:
+	  d = real_value_truncate (mode, d);
+	  break;
+	case FLOAT_EXTEND:
+	  /* All this does is change the mode.  */
+	  break;
+	case FIX:
+	  real_arithmetic (&d, FIX_TRUNC_EXPR, &d, NULL);
+	  break;
+
 	default:
 	  abort ();
 	}
@@ -2582,7 +2592,7 @@ simplify_subreg (outermode, op, innermode, byte)
 
       /* ??? We do allow it if the current REG is not valid for
 	 its mode.  This is a kludge to work around how float/complex
-	 arguments are passed on 32-bit Sparc and should be fixed.  */
+	 arguments are passed on 32-bit SPARC and should be fixed.  */
       if (HARD_REGNO_MODE_OK (final_regno, outermode)
 	  || ! HARD_REGNO_MODE_OK (REGNO (op), innermode))
 	{

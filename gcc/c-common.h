@@ -465,7 +465,7 @@ extern int warn_write_strings;
 
 extern int warn_redundant_decls;
 
-/* Warn about testing equality of floating point numbers. */
+/* Warn about testing equality of floating point numbers.  */
 
 extern int warn_float_equal;
 
@@ -477,7 +477,7 @@ extern int warn_char_subscripts;
 
 extern int warn_conversion;
 
-/* Warn about #pragma directives that are not recognised.  */      
+/* Warn about #pragma directives that are not recognized.  */      
 
 extern int warn_unknown_pragmas; /* Tri state variable.  */  
 

@@ -1249,7 +1249,7 @@ __eprintf (const char *string, const char *expression,
 #include <errno.h>
 #endif
 
-/* Chain of per-object gcov structures. */
+/* Chain of per-object gcov structures.  */
 static struct gcov_info *gcov_list;
 
 /* A program checksum allows us to distinguish program data for an
@@ -1298,7 +1298,7 @@ gcov_exit (void)
   s_flock.l_type = F_WRLCK;
   s_flock.l_whence = SEEK_SET;
   s_flock.l_start = 0;
-  s_flock.l_len = 0; /* Until EOF. */
+  s_flock.l_len = 0; /* Until EOF.  */
   s_flock.l_pid = getpid ();
 #endif
 
@@ -1486,7 +1486,7 @@ gcov_exit (void)
 	object.arc_max_one = object_max_one;
       object.arc_sum_max += object_max_one;
       
-      /* Write out the data. */
+      /* Write out the data.  */
       if (/* magic */
 	  gcov_write_unsigned (da_file, GCOV_DATA_MAGIC)
 	  /* version number */

@@ -66,7 +66,7 @@
 /* No pic register.  */
 #elif #cpu(ns32k)
 /* No pic register.  */
-#elif defined(__parisc__)
+#elif defined(__hppa__)
 /* PIC register is %r27 or %r19, but is used even without -fpic.  */
 #elif defined(__pdp11__)
 /* No pic register.  */
@@ -96,6 +96,8 @@
 /* No pic register.  */
 #elif defined(__sh__)
 # define PIC_REG  "r12"
+#elif defined(__x86_64__)
+/* No pic register.  */
 #else
 # error "Modify the test for your target."
 #endif

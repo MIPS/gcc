@@ -135,8 +135,6 @@ toc_section ()						\
 
 #define READONLY_DATA_SECTION read_only_data_section
 
-#define TARGET_ASM_SELECT_SECTION  rs6000_xcoff_select_section
-
 /* Return non-zero if this entry is to be written into the constant
    pool in a special way.  We do so if this is a SYMBOL_REF, LABEL_REF
    or a CONST containing one of them.  If -mfp-in-toc (the default),
@@ -161,9 +159,14 @@ toc_section ()						\
 	       || (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT		\
 		   && ! TARGET_NO_FP_IN_TOC)))))
 
+#define TARGET_ASM_GLOBALIZE_LABEL  rs6000_xcoff_asm_globalize_label
+#define TARGET_ASM_NAMED_SECTION  rs6000_xcoff_asm_named_section
+#define TARGET_ASM_SELECT_SECTION  rs6000_xcoff_select_section
 #define TARGET_ASM_SELECT_RTX_SECTION  rs6000_xcoff_select_rtx_section
-#define TARGET_ENCODE_SECTION_INFO rs6000_xcoff_encode_section_info
-#define TARGET_STRIP_NAME_ENCODING rs6000_xcoff_strip_name_encoding
+#define TARGET_ASM_UNIQUE_SECTION  rs6000_xcoff_unique_section
+#define TARGET_ENCODE_SECTION_INFO  rs6000_xcoff_encode_section_info
+#define TARGET_STRIP_NAME_ENCODING  rs6000_xcoff_strip_name_encoding
+#define TARGET_SECTION_TYPE_FLAGS  rs6000_xcoff_section_type_flags
 
 /* FP save and restore routines.  */
 #define	SAVE_FP_PREFIX "._savef"
@@ -263,7 +266,7 @@ toc_section ()						\
 
 #define ASM_DECLARE_FUNCTION_NAME(FILE,NAME,DECL)		\
 { rtx sym_ref = XEXP (DECL_RTL (DECL), 0);			\
-  if (!DECL_WEAK (DECL))					\
+  if ((*targetm.binds_local_p) (DECL))				\
     SYMBOL_REF_FLAG (sym_ref) = 1;				\
   if (TREE_PUBLIC (DECL))					\
     {								\
@@ -400,21 +403,10 @@ toc_section ()						\
 
 /* Output before instructions.  */
 #define TEXT_SECTION_ASM_OP "\t.csect .text[PR]"
-#define HOT_TEXT_SECTION_NAME ".text[PR]"
-#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME ".text[PR]"
 
 /* Output before writable data.
    Align entire section to BIGGEST_ALIGNMENT.  */
 #define DATA_SECTION_ASM_OP "\t.csect .data[RW],3"
-
-/* Define unique section name -- functions only.  */
-#define TARGET_ASM_UNIQUE_SECTION  rs6000_xcoff_unique_section
-
-/* Switch into a generic section.  */
-#define TARGET_ASM_NAMED_SECTION  rs6000_xcoff_asm_named_section
-
-/* Globalize a label.  */
-#define TARGET_ASM_GLOBALIZE_LABEL  rs6000_xcoff_asm_globalize_label
 
 /* Define the name of the section to use for the EH language specific
    data areas (.gcc_except_table on most other systems).  */

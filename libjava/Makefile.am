@@ -1885,6 +1885,7 @@ java/net/ContentHandlerFactory.java \
 java/net/DatagramPacket.java \
 java/net/DatagramSocket.java \
 java/net/DatagramSocketImpl.java \
+java/net/DatagramSocketImplFactory.java \
 java/net/FileNameMap.java \
 java/net/HttpURLConnection.java	\
 java/net/InetAddress.java \
@@ -1893,6 +1894,7 @@ java/net/JarURLConnection.java \
 java/net/MalformedURLException.java \
 java/net/MulticastSocket.java \
 java/net/NetPermission.java \
+java/net/NetworkInterface.java \
 java/net/NoRouteToHostException.java \
 java/net/PasswordAuthentication.java \
 java/net/PlainDatagramSocketImpl.java \
@@ -1918,6 +1920,9 @@ java/net/URLStreamHandler.java \
 java/net/URLStreamHandlerFactory.java \
 java/net/UnknownHostException.java \
 java/net/UnknownServiceException.java \
+java/nio/channels/DatagramChannel.java \
+java/nio/channels/ServerSocketChannel.java \
+java/nio/channels/SocketChannel.java \
 java/security/AccessControlContext.java \
 java/security/AccessControlException.java \
 java/security/AccessController.java \
@@ -2232,6 +2237,7 @@ java/lang/reflect/natArray.cc \
 java/lang/reflect/natConstructor.cc \
 java/lang/reflect/natField.cc \
 java/lang/reflect/natMethod.cc \
+java/net/natNetworkInterface.cc \
 java/net/natInetAddress.cc \
 java/net/natPlainDatagramSocketImpl.cc \
 java/net/natPlainSocketImpl.cc \

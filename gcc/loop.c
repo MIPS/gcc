@@ -820,7 +820,7 @@ scan_loop (loop, flags)
 			  the loop starts, or the value before the set is
 			  needed before the set occurs...
 
-			  ??? Note we have quadratic behaviour here, mitigated
+			  ??? Note we have quadratic behavior here, mitigated
 			  by the fact that the previous test will often fail for
 			  large loops.  Rather than re-scanning the entire loop
 			  each time for register usage, we should build tables
@@ -3573,7 +3573,7 @@ struct prefetch_info
   HOST_WIDE_INT index;
   HOST_WIDE_INT stride;		/* Prefetch stride in bytes in each
 				   iteration.  */
-  unsigned int bytes_accessed;	/* Sum of sizes of all acceses to this
+  unsigned int bytes_accessed;	/* Sum of sizes of all accesses to this
 				   prefetch area in one iteration.  */
   unsigned int total_bytes;	/* Total bytes loop will access in this block.
 				   This is set only for loops with known
@@ -4269,7 +4269,7 @@ for_each_insn_in_loop (loop, fncall)
   if (prev_nonnote_insn (loop->scan_start) != prev_nonnote_insn (loop->start))
     maybe_multiple = back_branch_in_range_p (loop, loop->scan_start);
 
-  /* Scan through loop and update NOT_EVERY_ITERATION and MAYBE_MULTIPLE. */
+  /* Scan through loop and update NOT_EVERY_ITERATION and MAYBE_MULTIPLE.  */
   for (p = next_insn_in_loop (loop, loop->scan_start);
        p != NULL_RTX;
        p = next_insn_in_loop (loop, p))
@@ -4440,7 +4440,7 @@ loop_bivs_find (loop)
 }
 
 
-/* Determine how BIVS are initialised by looking through pre-header
+/* Determine how BIVS are initialized by looking through pre-header
    extended basic block.  */
 static void
 loop_bivs_init_find (loop)
@@ -4744,7 +4744,7 @@ loop_givs_reduce (loop, bl)
 	      rtx insert_before;
 
 	      if (! auto_inc_opt)
-		insert_before = tv->insn;
+		insert_before = NEXT_INSN (tv->insn);
 	      else if (auto_inc_opt == 1)
 		insert_before = NEXT_INSN (v->insn);
 	      else
@@ -5079,7 +5079,7 @@ strength_reduce (loop, flags)
       return;
     }
 
-  /* Determine how BIVS are initialised by looking through pre-header
+  /* Determine how BIVS are initialized by looking through pre-header
      extended basic block.  */
   loop_bivs_init_find (loop);
 
@@ -5338,7 +5338,7 @@ strength_reduce (loop, flags)
       unsigned HOST_WIDE_INT n
 	= loop_info->n_iterations / loop_info->unroll_number;
       if (n > 1)
-	predict_insn (PREV_INSN (loop->end), PRED_LOOP_ITERATIONS,
+	predict_insn (prev_nonnote_insn (loop->end), PRED_LOOP_ITERATIONS,
 		      REG_BR_PROB_BASE - REG_BR_PROB_BASE / n);
     }
 
@@ -9278,6 +9278,9 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
       if (set)
 	{
 	  enum machine_mode inner_mode = GET_MODE (SET_DEST (set));
+#ifdef FLOAT_STORE_FLAG_VALUE
+	  REAL_VALUE_TYPE fsfv;
+#endif
 
 	  /* ??? We may not combine comparisons done in a CCmode with
 	     comparisons not done in a CCmode.  This is to aid targets
@@ -9305,8 +9308,8 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
 #ifdef FLOAT_STORE_FLAG_VALUE
 		     || (code == LT
 			 && GET_MODE_CLASS (inner_mode) == MODE_FLOAT
-			 && (REAL_VALUE_NEGATIVE
-			     (FLOAT_STORE_FLAG_VALUE (inner_mode))))
+			 && (fsfv = FLOAT_STORE_FLAG_VALUE (inner_mode),
+			     REAL_VALUE_NEGATIVE (fsfv)))
 #endif
 		     ))
 		   && GET_RTX_CLASS (GET_CODE (SET_SRC (set))) == '<'))
@@ -9325,8 +9328,8 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
 #ifdef FLOAT_STORE_FLAG_VALUE
 		     || (code == GE
 			 && GET_MODE_CLASS (inner_mode) == MODE_FLOAT
-			 && (REAL_VALUE_NEGATIVE
-			     (FLOAT_STORE_FLAG_VALUE (inner_mode))))
+			 && (fsfv = FLOAT_STORE_FLAG_VALUE (inner_mode),
+			     REAL_VALUE_NEGATIVE (fsfv)))
 #endif
 		     ))
 		   && GET_RTX_CLASS (GET_CODE (SET_SRC (set))) == '<'
