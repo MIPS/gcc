@@ -1,3 +1,39 @@
+2003-12-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/13323
+	* class.c (same_signature_p): Handle conversion operators
+	correctly.
+	(check_for_override): Likewise.
+
+2003-11-14  Bernardo Innocenti  <bernie@develer.com>
+
+	Backport from 3.4-branch.
+
+	2003-06-25  Giovanni Bajo  <giovannibajo@libero.it>
+
+        PR c++/2094
+        * pt.c (unify): Add support for PTRMEM_CST and
+        FIELD_DECL unification.
+
+2003-11-08  Bernardo Innocenti  <bernie@develer.com>
+
+	Backport from 3.4-branch.
+
+	2003-10-08  Giovanni Bajo  <giovannibajo@libero.it>
+
+	* cp_tree.h: Added TFF_NO_FUNCTION_ARGUMENTS.
+	* error.c (dump_function_decl): Use it to skip the dump of the
+	arguments.
+	(dump_expr): When dumping a declaration found within an
+	expression, always set TFF_NO_FUNCTION_ARGUMENTS
+	in the flags.
+
+2003-10-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/12726
+	* tree.c (build_target_expr_with_type): Don't call force_rvalue
+	for CONSTRUCTORs.
+
 2003-10-16  Release Manager
 
 	* GCC 3.3.2 Released.

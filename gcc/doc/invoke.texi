@@ -2041,7 +2041,7 @@ Enable @option{-Wformat} plus format checks not included in
 
 @item -Wnonnull
 @opindex Wnonnull
-Enable warning about passing a null pointer for arguments marked as
+Warn about passing a null pointer for arguments marked as
 requiring a non-null value by the @code{nonnull} function attribute.
 
 @option{-Wnonnull} is included in @option{-Wall} and @option{-Wformat}.  It
@@ -5115,7 +5115,10 @@ predefined macro, except for macros that start with @samp{__} or with
 C@.
 
 @item %I
-Substitute a @option{-iprefix} option made from @env{GCC_EXEC_PREFIX}.
+Substitute any of @option{-iprefix} (made from @env{GCC_EXEC_PREFIX}),
+@option{-isysroot} (made from @env{TARGET_SYSTEM_ROOT}), and
+@option{-isystem} (made from @env{COMPILER_PATH} and @option{-B} options)
+as necessary.
 
 @item %s
 Current argument is the name of a library or startup file of some sort.
@@ -8892,7 +8895,7 @@ These @samp{-m} options are defined for the H8/300 implementations:
 @opindex mrelax
 Shorten some address references at link time, when possible; uses the
 linker option @option{-relax}.  @xref{H8/300,, @code{ld} and the H8/300,
-ld.info, Using ld}, for a fuller description.
+ld, Using ld}, for a fuller description.
 
 @item -mh
 @opindex mh

@@ -396,3 +396,4 @@ while (0)
 			   SECTION_DEBUG				\
 			   | (trampolines_created ? SECTION_CODE : 0));	\
   } while (0)
+

@@ -1,3 +1,7 @@
+2003-12-18  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from 3.3-branch (hammer-3_3-merge-20031216 tag)
+
 2003-12-16  Josef Zlomek  <zlomekj@suse.cz>
 
 	* flags.h: Really make flags_crossjumping extern.

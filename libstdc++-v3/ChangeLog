@@ -1,3 +1,94 @@
+2003-12-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/6243
+	* testsuite/lib/libstdc++.exp (v3-init): Add
+	original_ld_library_path, calculate ld_library path, set
+	LD_LIBRARY_PATH to both. Based on libjava.exp.
+
+2003-12-10  Benjamin Kosnik  <bkoz@redhat.com>
+            Alexandre Oliva  <aoliva@redhat.com>
+	
+	PR libstdc++/11612
+	* testsuite/Makefile.am (GLIBCXX_DIR): New.
+	(GLIBGCC_DIR): New.
+	(CXXLINK): Use both with -R so libtool links the correct libs.
+
+2003-12-08  David S. Miller  <davem@redhat.com>
+
+	PR libstdc++/12496
+	* config/cpu/sparc/atomicity.h (__exchange_and_add, __atomic_add):
+	Extend increment to _Atomic_word before giving to assembler.
+
+2003-12-04  Christopher Saunders  <ctsa@u.washington.edu>
+
+	PR libstdc++/13290
+	* include/bits/stl_algo.h (generate_n): Fix typo.
+
+2003-12-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/basic_ios.h (basic_ios::setstate): Revert.
+	* include/bits/istream.tcc: Only call setstate if __err != goodbit.
+	* include/bits/ostream.tcc: Same.
+	* testsuite/27_io/basic_ios/exceptions/char/2.cc: New.
+
+2003-12-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/9371
+	PR libstdc++/9546
+	PR libstdc++/10093
+	PR libstdc++/10095
+	* include/bits/basic_ios.h (basic_ios::setstate): Elide if goodbit.
+	(basic_ios::_M_setstate): Consolidate common error handling code.
+	* include/bits/basic_ios.tcc: Tweak.
+	* include/bits/fstream.tcc: Tweak.
+	* include/bits/istream.tcc: Use _M_setstate for common exception
+	handling. Move setstate calls after catch. 
+	(basic_istream::tellg): Check for exceptions thrown by streambuf
+	virtual functions.
+	(basic_istream::seekg): Same.
+	* include/bits/ostream.tcc: Same, but for ostream.
+	(basic_ostream::flush): Check for exceptions thrown by streambuf
+	virtual functions.
+	(basic_istream::tellp): Same.	
+	(basic_istream::seekp): Same.
+	* include/bits/locale_facets.tcc: Tweak.
+	* include/bits/streambuf.tcc: Tweak.
+	(__copy_streambufs): Propagate exceptions.
+
+2003-11-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/12297
+	* include/bits/istream.tcc
+	(basic_istream::sentry::sentry): Set failbit and eofbit when eof.
+
+2003-11-26  Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/12594
+	* include/bits/ostream.tcc
+	(basic_ostream::operator<<(basic_ostream& (*)(basic_ostream&)),
+	basic_ostream::operator<<(basic_ios& (*)(basic_ios&)),
+	basic_ostream::operator<<(ios_base& (*)(ios_base&))):
+	Implement the resolution of DR 60 (TC): These are not formatted
+	output functions so don't construct sentry objects and don't
+	catch exceptions.
+	(basic_ostream::put, basic_ostream::write): Implement the
+	resolution of DR 63 (TC) by catching exceptions and setting
+	badbit.
+	(basic_ostream::flush): Implement the resolution of DR 60 (TC):
+	This is not an unformatted output function so don't construct
+	a sentry object.
+
+2003-10-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get::do_get(...,
+	long double&): Properly size the temporary buffer.
+
+2003-10-20  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/10081
+	* include/bits/basic_ios.h (basic_ios::basic_ios): Initialize
+	_M_fctype, _M_fnumput, _M_fnumget.
+
 2003-10-16  Release Manager
 
 	* GCC 3.3.2 Released.

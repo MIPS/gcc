@@ -1,4 +1,10 @@
-// PR c++/12827
+// { dg-do compile }
+// Properly print CALL_EXPRs while dumping expressions
 
-void f(int x
-       int y); // { dg-error "," }
+double g;
+int func(double);
+
+template <int>
+struct Foo {};
+
+Foo<func(g)> f; // { dg-error "" "func(g)" }
