@@ -120,6 +120,7 @@ machopic_classify_ident (tree ident)
   else if (name[1] == 'T')
     return MACHOPIC_DEFINED_FUNCTION;
 
+#if 0 /* This doesn't work if using a compile server. */
   /* It is possible that someone is holding a "stale" name, which has
      since been defined.  See if there is a "defined" name (i.e,
      different from NAME only in having a '!D_' or a '!T_' instead of
@@ -135,6 +136,7 @@ machopic_classify_ident (tree ident)
 	return  (name[1] == 'd') ? MACHOPIC_DEFINED_DATA
 				 : MACHOPIC_DEFINED_FUNCTION;
     }
+#endif
 
   for (temp = machopic_defined_list; temp != NULL_TREE; temp = TREE_CHAIN (temp))
     {
@@ -958,6 +960,7 @@ machopic_finish (FILE *asm_out_file)
     }
   machopic_stubs = NULL_TREE;
   machopic_non_lazy_pointers = NULL_TREE;
+  machopic_defined_list = NULL_TREE;
 }
 
 int

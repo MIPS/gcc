@@ -1,3 +1,14 @@
+2003-12-17  Per Bothner  <pbothner@apple.com>
+
+	* c-decl.c (lang_clear_identifier):  Clear the DECL_RTL of the id's
+	IDENTIFIER_SYMBOL_VALUE.  This is needed at least for Darwin, which
+	encodes in the rtx name whether the decl is defined.
+	(duplicate_decls):  Don't copy the rtl; we can't safely use it.
+	* config/darwin.c (machopic_classify_ident):  Using
+	maybe_get_identifier doesn't since it may get a name from previous
+	output file when using the compile server.
+	(machopic_finish):  Reset machopic_defined_list.
+
 2003-12-15  Per Bothner  <pbothner@apple.com>
 
 	* c-decl.c (lang_clear_identifier):  Clear TREE_SYMBOL_REFERENCED too.

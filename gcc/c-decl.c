@@ -488,7 +488,12 @@ lang_clear_identifier (cpp_reader *pfile ATTRIBUTE_UNUSED,
   tree t;
   if (TREE_CODE (tnode) != IDENTIFIER_NODE)
      abort();
-  IDENTIFIER_SYMBOL_VALUE (tnode) = NULL_TREE;
+  t = IDENTIFIER_SYMBOL_VALUE (tnode);
+  if (t != NULL)
+    {
+      SET_DECL_RTL (t, NULL);
+      IDENTIFIER_SYMBOL_VALUE (tnode) = NULL_TREE;
+    }
   t = IDENTIFIER_TAG_VALUE (tnode);
   if (t != NULL)
     {
@@ -1465,9 +1470,6 @@ duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
 		DECL_USER_ALIGN (newdecl) |= DECL_ALIGN (olddecl);
 	      }
 	}
-
-      /* Keep the old rtl since we can safely use it.  */
-      COPY_DECL_RTL (olddecl, newdecl);
 
       /* Merge the type qualifiers.  */
       if (TREE_READONLY (newdecl))
