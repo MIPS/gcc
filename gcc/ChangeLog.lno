@@ -1,3 +1,7 @@
+2004-06-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* ra-build.c (livethrough_conflicts_bb): Check also contains_call.
+
 2004-06-09  Olga Golovanevsky  <olga@il.ibm.com>
             Dorit Naishlos <dorit@il.ibm.com> 
 
