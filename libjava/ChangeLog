@@ -1,3 +1,7 @@
+2004-06-20  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/ToolTipManager.java: Reformatted.
+
 2004-06-18  Rodimina Olga  <rodimina@redhat.com>
 
 	* javax/swing/AbstractButton.java

@@ -43,351 +43,309 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
 
+
 /**
  * ToolTipManager
- * @author	Andrew Selkirk
- * @version	1.0
+ * 
+ * @author Andrew Selkirk
  */
-public class ToolTipManager extends MouseAdapter implements MouseMotionListener {
-
-	//-------------------------------------------------------------
-	// Classes ----------------------------------------------------
-	//-------------------------------------------------------------
-
-	/**
-	 * stillInsideTimerAction
-	 */
-	protected class stillInsideTimerAction implements ActionListener {
-
-		//-------------------------------------------------------------
-		// Variables --------------------------------------------------
-		//-------------------------------------------------------------
-
-
-		//-------------------------------------------------------------
-		// Initialization ---------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * Constructor stillInsideTimerAction
-		 * @param manager TODO
-		 */
-		protected stillInsideTimerAction() {
-			// TODO
-		} // stillInsideTimerAction()
-
-
-		//-------------------------------------------------------------
-		// Methods ----------------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * actionPerformed
-		 * @param event TODO
-		 */
-		public void actionPerformed(ActionEvent event) {
-			// TODO
-		} // actionPerformed()
-
-
-	} // stillInsideTimerAction
-
-	/**
-	 * outsideTimerAction
-	 */
-	protected class outsideTimerAction implements ActionListener {
-
-		//-------------------------------------------------------------
-		// Variables --------------------------------------------------
-		//-------------------------------------------------------------
-
-
-		//-------------------------------------------------------------
-		// Initialization ---------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * Constructor outsideTimerAction
-		 * @param manager TODO
-		 */
-		protected outsideTimerAction() {
-			// TODO
-		} // outsideTimerAction()
-
-
-		//-------------------------------------------------------------
-		// Methods ----------------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * actionPerformed
-		 * @param value0 TODO
-		 */
-		public void actionPerformed(ActionEvent event) {
-			// TODO
-		} // actionPerformed()
-
-
-	} // outsideTimerAction
-
-	/**
-	 * insideTimerAction
-	 */
-	protected class insideTimerAction implements ActionListener {
-
-		//-------------------------------------------------------------
-		// Variables --------------------------------------------------
-		//-------------------------------------------------------------
-
-
-		//-------------------------------------------------------------
-		// Initialization ---------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * Constructor insideTimerAction
-		 * @param manager TODO
-		 */
-		protected insideTimerAction() {
-			// TODO
-		} // insideTimerAction()
-
-
-		//-------------------------------------------------------------
-		// Methods ----------------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * actionPerformed
-		 * @param event TODO
-		 */
-		public void actionPerformed(ActionEvent event) {
-			// TODO
-		} // actionPerformed()
-
-
-	} // insideTimerAction
-
-
-	//-------------------------------------------------------------
-	// Variables --------------------------------------------------
-	//-------------------------------------------------------------
-
-	/**
-	 * enterTimer
-	 */
-	Timer enterTimer;
-
-	/**
-	 * exitTimer
-	 */
-	Timer exitTimer;
-
-	/**
-	 * insideTimer
-	 */
-	Timer insideTimer;
-
-	/**
-	 * toolTipText
-	 */
-	String toolTipText;
-
-	/**
-	 * mouseEvent
-	 */
-	MouseEvent mouseEvent;
-
-	/**
-	 * showImmediately
-	 */
-	boolean showImmediately;
-
-	/**
-	 * tip
-	 */
-	JToolTip tip;
-
-	/**
-	 * enabled
-	 */
-	boolean enabled;
-
-	/**
-	 * timerEnter
-	 */
-	private long timerEnter;
-
-	/**
-	 * lightWeightPopupEnabled
-	 */
-	protected boolean lightWeightPopupEnabled;
-
-	/**
-	 * heavyWeightPopupEnabled
-	 */
-	protected boolean heavyWeightPopupEnabled;
-
-
-	//-------------------------------------------------------------
-	// Initialization ---------------------------------------------
-	//-------------------------------------------------------------
-
-	/**
-	 * Constructor ToolTipManager
-	 */
-	ToolTipManager() {
-		// TODO
-	} // ToolTipManager()
-
-
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
-
-	/**
-	 * sharedInstance
-	 * @returns ToolTipManager
-	 */
-	public static ToolTipManager sharedInstance() {
-		return null; // TODO
-	} // sharedInstance()
-
-	/**
-	 * setEnabled
-	 * @param enabled TODO
-	 */
-	public void setEnabled(boolean enabled) {
-		// TODO
-	} // setEnabled()
-
-	/**
-	 * isEnabled
-	 * @returns boolean
-	 */
-	public boolean isEnabled() {
-		return false; // TODO
-	} // isEnabled()
-
-	/**
-	 * isLightWeightPopupEnabled
-	 * @returns boolean
-	 */
-	public boolean isLightWeightPopupEnabled() {
-		return false; // TODO
-	} // isLightWeightPopupEnabled()
-
-	/**
-	 * setLightWeightPopupEnabled
-	 * @param enabled TODO
-	 */
-	public void setLightWeightPopupEnabled(boolean enabled) {
-		// TODO
-	} // setLightWeightPopupEnabled()
-
-	/**
-	 * getInitialDelay
-	 * @returns int
-	 */
-	public int getInitialDelay() {
-		return 0; // TODO
-	} // getInitialDelay()
-
-	/**
-	 * setInitialDelay
-	 * @param delay TODO
-	 */
-	public void setInitialDelay(int delay) {
-		// TODO
-	} // setInitialDelay()
-
-	/**
-	 * getDismissDelay
-	 * @returns int
-	 */
-	public int getDismissDelay() {
-		return 0; // TODO
-	} // getDismissDelay()
-
-	/**
-	 * setDismissDelay
-	 * @param delay TODO
-	 */
-	public void setDismissDelay(int delay) {
-		// TODO
-	} // setDismissDelay()
-
-	/**
-	 * getReshowDelay
-	 * @returns int
-	 */
-	public int getReshowDelay() {
-		return 0; // TODO
-	} // getReshowDelay()
-
-	/**
-	 * setReshowDelay
-	 * @param delay TODO
-	 */
-	public void setReshowDelay(int delay) {
-		// TODO
-	} // setReshowDelay()
-
-	/**
-	 * registerComponent
-	 * @param component TODO
-	 */
-	public void registerComponent(JComponent component) {
-		// TODO
-	} // registerComponent()
-
-	/**
-	 * unregisterComponent
-	 * @param component TODO
-	 */
-	public void unregisterComponent(JComponent component) {
-		// TODO
-	} // unregisterComponent()
-
-	/**
-	 * mouseEntered
-	 * @param event TODO
-	 */
-	public void mouseEntered(MouseEvent event) {
-		// TODO
-	} // mouseEntered()
-
-	/**
-	 * mouseExited
-	 * @param event TODO
-	 */
-	public void mouseExited(MouseEvent event) {
-		// TODO
-	} // mouseExited()
-
-	/**
-	 * mousePressed
-	 * @param event TODO
-	 */
-	public void mousePressed(MouseEvent event) {
-		// TODO
-	} // mousePressed()
-
-	/**
-	 * mouseDragged
-	 * @param event TODO
-	 */
-	public void mouseDragged(MouseEvent event) {
-		// TODO
-	} // mouseDragged()
-
-	/**
-	 * mouseMoved
-	 * @param event TODO
-	 */
-	public void mouseMoved(MouseEvent event) {
-		// TODO
-	} // mouseMoved()
-
-
-} // ToolTipManager
+public class ToolTipManager extends MouseAdapter
+  implements MouseMotionListener
+{
+  /**
+   * stillInsideTimerAction
+   */
+  protected class stillInsideTimerAction
+    implements ActionListener
+  {
+    /**
+     * Constructor stillInsideTimerAction
+     */
+    protected stillInsideTimerAction()
+    {
+      // TODO
+    }
+
+    /**
+     * actionPerformed
+     * @param event TODO
+     */
+    public void actionPerformed(ActionEvent event)
+    {
+      // TODO
+    }
+  }
+
+  /**
+   * outsideTimerAction
+   */
+  protected class outsideTimerAction
+    implements ActionListener
+  {
+    /**
+     * Constructor outsideTimerAction
+     */
+    protected outsideTimerAction()
+    {
+      // TODO
+    }
+
+    /**
+     * actionPerformed
+     * @param value0 TODO
+     */
+    public void actionPerformed(ActionEvent event)
+    {
+      // TODO
+    }
+  }
+
+  /**
+   * insideTimerAction
+   */
+  protected class insideTimerAction
+    implements ActionListener
+  {
+    /**
+     * Constructor insideTimerAction
+     */
+    protected insideTimerAction()
+    {
+      // TODO
+    }
+
+    /**
+     * actionPerformed
+     * @param event TODO
+     */
+    public void actionPerformed(ActionEvent event)
+    {
+      // TODO
+    }
+  }
+
+  /**
+   * enterTimer
+   */
+  Timer enterTimer;
+
+  /**
+   * exitTimer
+   */
+  Timer exitTimer;
+
+  /**
+   * insideTimer
+   */
+  Timer insideTimer;
+
+  /**
+   * toolTipText
+   */
+  String toolTipText;
+
+  /**
+   * mouseEvent
+   */
+  MouseEvent mouseEvent;
+
+  /**
+   * showImmediately
+   */
+  boolean showImmediately;
+
+  /**
+   * tip
+   */
+  JToolTip tip;
+
+  /**
+   * enabled
+   */
+  boolean enabled;
+
+  /**
+   * timerEnter
+   */
+  private long timerEnter;
+
+  /**
+   * lightWeightPopupEnabled
+   */
+  protected boolean lightWeightPopupEnabled;
+
+  /**
+   * heavyWeightPopupEnabled
+   */
+  protected boolean heavyWeightPopupEnabled;
+
+  /**
+   * Constructor ToolTipManager
+   */
+  ToolTipManager()
+  {
+    // TODO
+  }
+
+  /**
+   * sharedInstance
+   * @return ToolTipManager
+   */
+  public static ToolTipManager sharedInstance()
+  {
+    return null; // TODO
+  }
+
+  /**
+   * setEnabled
+   * @param enabled TODO
+   */
+  public void setEnabled(boolean enabled)
+  {
+    // TODO
+  }
+
+  /**
+   * isEnabled
+   * @return boolean
+   */
+  public boolean isEnabled()
+  {
+    return false; // TODO
+  }
+
+  /**
+   * isLightWeightPopupEnabled
+   * @return boolean
+   */
+  public boolean isLightWeightPopupEnabled()
+  {
+    return false; // TODO
+  }
+
+  /**
+   * setLightWeightPopupEnabled
+   * @param enabled TODO
+   */
+  public void setLightWeightPopupEnabled(boolean enabled)
+  {
+    // TODO
+  }
+
+  /**
+   * getInitialDelay
+   * @return int
+   */
+  public int getInitialDelay()
+  {
+    return 0; // TODO
+  }
+
+  /**
+   * setInitialDelay
+   * @param delay TODO
+   */
+  public void setInitialDelay(int delay)
+  {
+    // TODO
+  }
+
+  /**
+   * getDismissDelay
+   * @return int
+   */
+  public int getDismissDelay()
+  {
+    return 0; // TODO
+  }
+
+  /**
+   * setDismissDelay
+   * @param delay TODO
+   */
+  public void setDismissDelay(int delay)
+  {
+    // TODO
+  }
+
+  /**
+   * getReshowDelay
+   * @return int
+   */
+  public int getReshowDelay()
+  {
+    return 0; // TODO
+  }
+
+  /**
+   * setReshowDelay
+   * @param delay TODO
+   */
+  public void setReshowDelay(int delay)
+  {
+    // TODO
+  }
+
+  /**
+   * registerComponent
+   * @param component TODO
+   */
+  public void registerComponent(JComponent component)
+  {
+    // TODO
+  }
+
+  /**
+   * unregisterComponent
+   * @param component TODO
+   */
+  public void unregisterComponent(JComponent component)
+  {
+    // TODO
+  }
+
+  /**
+   * mouseEntered
+   * @param event TODO
+   */
+  public void mouseEntered(MouseEvent event)
+  {
+    // TODO
+  }
+
+  /**
+   * mouseExited
+   * @param event TODO
+   */
+  public void mouseExited(MouseEvent event)
+  {
+    // TODO
+  }
+
+  /**
+   * mousePressed
+   * @param event TODO
+   */
+  public void mousePressed(MouseEvent event)
+  {
+    // TODO
+  }
+
+  /**
+   * mouseDragged
+   * @param event TODO
+   */
+  public void mouseDragged(MouseEvent event)
+  {
+    // TODO
+  }
+
+  /**
+   * mouseMoved
+   * @param event TODO
+   */
+  public void mouseMoved(MouseEvent event)
+  {
+    // TODO
+  }
+}
