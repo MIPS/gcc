@@ -110,7 +110,6 @@ static void bsi_commit_edge_inserts_1 (edge e);
 static void tree_merge_blocks (basic_block, basic_block);
 static bool tree_can_merge_blocks_p (basic_block, basic_block);
 static void remove_bb (basic_block);
-static bool cleanup_control_flow (void);
 static bool cleanup_control_expr_graph (basic_block, block_stmt_iterator);
 static edge find_taken_edge_cond_expr (basic_block, tree);
 static edge find_taken_edge_switch_expr (basic_block, tree);
@@ -1610,7 +1609,7 @@ tree_block_forwards_to (basic_block bb)
 
 /* Try to remove superfluous control structures.  */
 
-static bool
+bool
 cleanup_control_flow (void)
 {
   basic_block bb;
@@ -2351,17 +2350,26 @@ disband_implicit_edges (void)
   factored_computed_goto_label = NULL;
 }
 
+/* Remove block annotations and other datastructures.  */
+
+void
+delete_tree_cfg_annotations (void)
+{
+  if (n_basic_blocks > 0)
+    free_blocks_annotations ();
+  free_dominance_info (CDI_DOMINATORS);
+
+  label_to_block_map = NULL;
+}
+
 /* Remove all the blocks and edges that make up the flowgraph.  */
 
 void
 delete_tree_cfg (void)
 {
-  if (n_basic_blocks > 0)
-    free_blocks_annotations ();
-
+  delete_tree_cfg_annotations ();
   free_basic_block_vars (0);
   basic_block_info = NULL;
-  label_to_block_map = NULL;
 }
 
 /* Return the first statement in basic block BB, stripped of any NOP
@@ -3610,7 +3618,6 @@ tree_redirect_edge_and_branch_force (edge e, basic_block dest)
 
   return NULL;
 }
-
 /* Splits basic block BB after statement STMT (but at least after the
    labels).  If STMT is NULL, the BB is split just after the labels.  */
 

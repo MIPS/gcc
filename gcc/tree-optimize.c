@@ -143,7 +143,6 @@ static struct tree_opt_pass pass_all_optimizations =
 static void
 execute_del_cfg (void)
 {
-  basic_block bb;
   tree *chain;
 
   /* ??? This isn't the right place for this.  Worse, it got computed
@@ -160,13 +159,9 @@ execute_del_cfg (void)
   /* Re-chain the statements from the blocks.  */
   chain = &DECL_SAVED_TREE (current_function_decl);
   *chain = alloc_stmt_list ();
-  FOR_EACH_BB (bb)
-    {
-      append_to_statement_list_force (bb->stmt_list, chain);
-    }
 
-  /* And get rid of the cfg.  */
-  delete_tree_cfg ();
+  /* And get rid of annotations we no longer need.  */
+  delete_tree_cfg_annotations ();
 }
 
 static struct tree_opt_pass pass_del_cfg =
@@ -547,27 +542,32 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
     expand_main_function ();
 
   /* Generate the RTL for this function.  */
-  (*lang_hooks.rtl_expand.stmt) (DECL_SAVED_TREE (fndecl));
+  if (n_basic_blocks > 0)
+    tree_expand_cfg ();
+  else
+    {
+      (*lang_hooks.rtl_expand.stmt) (DECL_SAVED_TREE (fndecl));
 
-  /* We hard-wired immediate_size_expand to zero above.
-     expand_function_end will decrement this variable.  So, we set the
-     variable to one here, so that after the decrement it will remain
-     zero.  */
-  immediate_size_expand = 1;
+      /* We hard-wired immediate_size_expand to zero above.
+	 expand_function_end will decrement this variable.  So, we set the
+	 variable to one here, so that after the decrement it will remain
+	 zero.  */
+      immediate_size_expand = 1;
 
-  /* Make sure the locus is set to the end of the function, so that 
-     epilogue line numbers and warnings are set properly.  */
-  if (cfun->function_end_locus.file)
-    input_location = cfun->function_end_locus;
+      /* Make sure the locus is set to the end of the function, so that 
+	 epilogue line numbers and warnings are set properly.  */
+      if (cfun->function_end_locus.file)
+	input_location = cfun->function_end_locus;
 
-  /* The following insns belong to the top scope.  */
-  record_block_change (DECL_INITIAL (current_function_decl));
-  
-  /* Allow language dialects to perform special processing.  */
-  (*lang_hooks.rtl_expand.end) ();
+      /* The following insns belong to the top scope.  */
+      record_block_change (DECL_INITIAL (current_function_decl));
+      
+      /* Allow language dialects to perform special processing.  */
+      (*lang_hooks.rtl_expand.end) ();
 
-  /* Generate rtl for function exit.  */
-  expand_function_end ();
+      /* Generate rtl for function exit.  */
+      expand_function_end ();
+    }
 
   /* If this is a nested function, protect the local variables in the stack
      above us from being collected while we're compiling this function.  */

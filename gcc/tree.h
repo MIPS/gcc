@@ -3577,6 +3577,7 @@ enum tree_dump_index
   TDI_nested,			/* dump each function after unnesting it */
   TDI_inlined,			/* dump each function after inlining
 				   within it.  */
+  TDI_expand,			/* dump RTL expansion of each function */
   TDI_dot,			/* create a dot graph file for each 
 				   function's flowgraph.  */
   TDI_xml,                      /* dump function call graph.   */

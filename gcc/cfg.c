@@ -517,11 +517,17 @@ dump_flow_info (FILE *file)
       for (e = bb->succ; e; e = e->succ_next)
 	dump_edge_info (file, e, 1);
 
-      fprintf (file, "\nRegisters live at start:");
-      dump_regset (bb->global_live_at_start, file);
+      if (bb->global_live_at_start)
+	{
+	  fprintf (file, "\nRegisters live at start:");
+	  dump_regset (bb->global_live_at_start, file);
+	}
 
-      fprintf (file, "\nRegisters live at end:");
-      dump_regset (bb->global_live_at_end, file);
+      if (bb->global_live_at_end)
+	{
+	  fprintf (file, "\nRegisters live at end:");
+	  dump_regset (bb->global_live_at_end, file);
+	}
 
       putc ('\n', file);
 

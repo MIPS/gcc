@@ -1,3 +1,21 @@
+2004-02-21  Jan Hubicka  <jh@suse.cz>
+
+	* Makefile.in (builtins.o): Include basic-blocks.h.
+	(cfgexpand.o): New file.
+	* builtins.c: Inlucde basic-blocks.h
+	(entry_of_function): New static function.
+	(expand_builtin_saveregs, expand_builtin_apply_args): Use it.
+	* cfgexpand.c: New file.
+	* tree-cfg.c (cleanup_control_flow): Make global.
+	(delete_tree_annotations): Break out from...
+	(delete_tree_cfg): ... this one.
+	* tree-dump.c (dump_files): Add expanded.
+	* tree-flow.h (delete_tree_cfg_annotations): Declare.
+	(tree_expand_cfg, cleanup_control_flow): Declare.
+	* tree-optimize.c (execute_del_cfg): Do not delete the basic block
+	datastructure.
+	(tree_rest_of_compilation): Use tree_expand_cfg if needed.
+
 2004-02-20  Jan Hubicka  <jh@suse.cz>
 
 	* cfgcleanup.c (try_optimize_cfg): Do not merge blocks separated by

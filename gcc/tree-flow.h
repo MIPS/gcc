@@ -446,6 +446,7 @@ extern void bsi_replace (const block_stmt_iterator *, tree, bool);
 #define PENDING_STMT(e)	((e)->insns.t)
 
 extern void build_tree_cfg (tree *);
+extern void delete_tree_cfg_annotations (void);
 extern void delete_tree_cfg (void);
 extern void disband_implicit_edges (void);
 extern bool stmt_ends_bb_p (tree);
@@ -484,6 +485,8 @@ extern bool verify_stmt (tree);
 extern void verify_stmts (void);
 extern basic_block tree_duplicate_bb (basic_block, edge);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
+extern void tree_expand_cfg (void);
+extern bool cleanup_control_flow (void);
 
 
 /* In tree-pretty-print.c.  */
