@@ -1,3 +1,7 @@
+2005-01-20  Robert Bowdidge <bowdidge@apple.com>
+	Radar 3962986
+	* g++.dg/kext8.C: new check for no coalesced sections in .o's.
+
 2005-01-19  Matt Austern  <austern@apple.com>
 
             Radar 3960754

@@ -1,3 +1,11 @@
+2005-01-19 Robert Bowdidge <bowdidge@apple.com>
+        * config/darwin.h (SUBSUBTARGET_OVERRIDE_OPTIONS) Turn off
+          -fweak whenever we're building kexts.
+        * Makefile.in: Add -fno-non-call-exceptions to flags passed when
+          building files for libcc_kext.a
+        * mklibgcc: Move -fexception and -fnon-call-exceptions to start of
+          command line so multilib machinery can override
+
 2005-01-20  Dale Johannesen  <dalej@apple.com>
 	
 	Radar 3966230

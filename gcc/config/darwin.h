@@ -218,6 +218,8 @@ extern const char *darwin_fix_and_continue_switch;
 
 #define SUBSUBTARGET_OVERRIDE_OPTIONS					\
 do {									\
+ /* APPLE LOCAL kext */                                                 \
+ extern int flag_weak;                                                  \
   if (darwin_constant_cfstrings_switch)					\
     {									\
       const char *base = darwin_constant_cfstrings_switch;		\
@@ -247,6 +249,11 @@ do {									\
     }									\
   /* The c_dialect...() macros are not available to us here.  */	\
   darwin_running_cxx = (strstr (lang_hooks.name, "C++") != 0);		\
+  /* APPLE LOCAL begin kexts --bowdidge */                              \
+  /* kexts should always be built without the coalesced sections */     \
+  /*  because the kernel loader doesn't grok such sections. */          \
+  if (flag_apple_kext) flag_weak = 0;                                   \
+  /* APPLE LOCAL end kext */                                            \
 } while(0)
 
 #define SUBTARGET_INIT_BUILTINS		\
