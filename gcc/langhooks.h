@@ -38,14 +38,11 @@ struct lang_hooks_for_tree_inlining
 			 void *, void *);
   int (*cannot_inline_tree_fn) (tree *);
   int (*disregard_inline_limits) (tree);
-  tree (*add_pending_fn_decls) (void *, tree);
   int (*auto_var_in_fn_p) (tree, tree);
   tree (*copy_res_decl_for_inlining) (tree, tree, tree,
 				      void *, int *, tree);
   int (*anon_aggr_type_p) (tree);
   bool (*var_mod_type_p) (tree, tree);
-  int (*start_inlining) (tree);
-  void (*end_inlining) (tree);
   tree (*convert_parm_for_inlining) (tree, tree, tree, int);
 };
 
@@ -399,10 +396,6 @@ struct lang_hooks
   /* Perform language-specific gimplification on the argument.  Returns an
      enum gimplify_status, though we can't see that type here.  */
   int (*gimplify_expr) (tree *, tree *, tree *);
-
-  /* True if the front end has gimplified the function before running the
-     inliner, false if the fron end generates GENERIC directly.  */
-  bool gimple_before_inlining;
 
   /* Return a definition for a builtin function named NAME and whose data type
      is TYPE.  TYPE should be a function type with argument types.
