@@ -1,5 +1,11 @@
 2005-03-23  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_switch_block): Annotate case exprs.  Link label
+	into statement stream.
+	(visit_switch): Create label for end of 'switch'.
+
+2005-03-23  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_field_initializer): Don't build a COMPONENT_REF.
 
 2005-03-23  Tom Tromey  <tromey@redhat.com>

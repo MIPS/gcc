@@ -704,6 +704,10 @@ tree_generator::visit_switch (model_switch *swstmt,
   expr->visit (this);
   tree expr_tree = current;
 
+  tree done = build0 (LABEL_DECL, NULL_TREE);
+  DECL_CONTEXT (done) = current_block;
+  target_map[swstmt] = std::make_pair (NULL_TREE, done);
+
   tree body_tree = alloc_stmt_list ();
   tree_stmt_iterator out = tsi_start (body_tree);
 
@@ -722,6 +726,13 @@ tree_generator::visit_switch (model_switch *swstmt,
 
   current = build3 (SWITCH_EXPR, NULL_TREE, expr_tree, body_tree, NULL_TREE);
   annotate (current, swstmt);
+
+  body_tree = alloc_stmt_list ();
+  out = tsi_start (body_tree);
+  tsi_link_after (&out, current, TSI_CONTINUE_LINKING);
+  tsi_link_after (&out, build1 (LABEL_EXPR, void_type_node, done),
+		  TSI_CONTINUE_LINKING);
+  current = body_tree;
 }
 
 void
@@ -736,6 +747,7 @@ tree_generator::visit_switch_block (model_switch_block *swblock,
   tree body_tree = alloc_stmt_list ();
   tree_stmt_iterator out = tsi_start (body_tree);
 
+  // Multiple switch labels point at the same label in the code.
   tree label = build0 (LABEL_DECL, NULL_TREE);
   DECL_CONTEXT (label) = current_block;
 
@@ -748,9 +760,12 @@ tree_generator::visit_switch_block (model_switch_block *swblock,
       tree new_label = build3 (CASE_LABEL_EXPR,
 			       void_type_node,
 			       build_int (value), NULL_TREE, label);
+      annotate (new_label, swblock);
       tsi_link_after (&out, new_label, TSI_CONTINUE_LINKING);
     }
 
+  tsi_link_after (&out, build1 (LABEL_EXPR, void_type_node, label),
+		  TSI_CONTINUE_LINKING);
   tree stmt_tree = transform_list (statements);
   tsi_link_after (&out, stmt_tree, TSI_CONTINUE_LINKING);
 
