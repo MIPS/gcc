@@ -1079,7 +1079,8 @@ outgoing_edges_match (mode, bb1, bb2)
 	  if (b1->dest == b2->dest)
 	    prob2 = b2->probability;
 	  else
-	    prob2 = f2->probability;
+	    /* Do not use f2 probability as f2 may be forwarded.  */
+	    prob2 = REG_BR_PROB_BASE - b2->probability;
 
 	  /* Fail if the difference in probabilities is
 	     greater than 5%.  */
