@@ -1,3 +1,12 @@
+2003-01-25  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (DEBUG_REG_LOC): Deleted.
+	(DEBUG_MEM_LOC): Deleted.
+	(DEBUG_LENGTH): Deleted.
+	(attrs_list_copy): Deleted debug message.
+	(attrs_htab_copy_1): Deleted debug message.
+	(compute_bb_dataflow): Deleted debug messages.
+
 2003-01-24  Josef Zlomek  <zlomekj@suse.cz>
 
 	Daniel Berlin <dberlin@dberlin.org>

@@ -30,10 +30,6 @@
 #include "fibheap.h"
 #include "hashtab.h"
 
-#define DEBUG_REG_LOC 0
-#define DEBUG_MEM_LOC 0
-/*#define DEBUG_LENGTH 10*/
-
 /* The purpose that the location (REG or MEM) has in RTL.  */
 enum location_type
 {
@@ -387,10 +383,9 @@ attrs_list_copy (dstp, src)
      attrs_list src;
 {
   attrs_list n;
-  int i;
 
   attrs_list_clear (dstp);
-  for (i = 0; src; src = src->next, i++)
+  for (; src; src = src->next)
     {
       n = xmalloc (sizeof (*n));
       n->loc = src->loc;
@@ -399,10 +394,6 @@ attrs_list_copy (dstp, src)
       n->next = *dstp;
       *dstp = n;
     }
-#ifdef DEBUG_LENGTH
-  if (i >= DEBUG_LENGTH)
-    printf ("l=%d\n", i);
-#endif
 }
 
 /* Add all nodes from SRC which are not in *DSTP to *DSTP.  */
@@ -574,13 +565,12 @@ attrs_htab_copy_1 (slot, data)
 {
   htab_t dst = (htab_t) data;
   attrs_list src, *dstp, list;
-  int i;
 
   src = *(attrs_list *) slot;
   dstp = (attrs_list *) htab_find_slot_with_hash (dst, src->loc,
 						  MEM_HASH_VAL (src->loc),
 						  INSERT);
-  for (i = 0; src; src = src->next, i++)
+  for (; src; src = src->next)
     {
       list = xmalloc (sizeof (*list));
       list->loc = src->loc;
@@ -589,10 +579,6 @@ attrs_htab_copy_1 (slot, data)
       list->next = *dstp;
       *dstp = list;
     }
-#ifdef DEBUG_LENGTH
-  if (i >= DEBUG_LENGTH)
-    printf ("L=%d\n", i);
-#endif
   return 1;
 }
 
@@ -856,16 +842,6 @@ compute_bb_dataflow (bb)
 		{
 		  attrs_list_insert (&out[REGNO (loc)], REG_EXPR (loc),
 				     REG_OFFSET (loc), loc);
-#if DEBUG_REG_LOC
-		  if (rtl_dump_file)
-		    {
-		      HOST_WIDE_INT offset = REG_OFFSET (loc);
-
-		      print_mem_expr (rtl_dump_file, REG_EXPR (loc));
-		      fprintf (rtl_dump_file, " O%ld ", offset);
-		      print_rtl_single (rtl_dump_file, loc);
-		    }
-#endif
 		}
 	    }
 	}
@@ -877,14 +853,6 @@ compute_bb_dataflow (bb)
 	  tree decl = MEM_EXPR (loc);
 	  HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
 
-#if DEBUG_MEM_LOC
-	  if (rtl_dump_file)
-	    {
-	      print_mem_expr (rtl_dump_file, decl);
-	      fprintf (rtl_dump_file, " A%ld O%ld ", MEM_ALIAS_SET (loc), offset);
-	      print_rtl_single (rtl_dump_file, loc);
-	    }
-#endif
 	  attrs_htab_delete (VTI (bb)->mem_out, loc);
 	  if (VTI (bb)->locs[i].type == LT_PARAM
 	      || VTI (bb)->locs[i].type == LT_SET_DEST)
