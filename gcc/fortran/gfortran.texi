@@ -280,7 +280,7 @@ and routines for interaction with files and the operating system.
 
 @item
 The Fortran compiler itself, (@command{f951}).
-This is the gfotran parser and code generator,
+This is the gfortan parser and code generator,
 linked to and interfaced with the GCC backend library.
 @command{f951} ``translates'' the source code to
 assembler code.  You would typically not use this
