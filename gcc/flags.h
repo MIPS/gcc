@@ -896,6 +896,10 @@ extern int flag_pch_preprocess;
 extern int flag_loop_transpose;
 /* APPLE LOCAL end loop transpose */
 
+/* APPLE LOCAL begin predictive compilation */
+extern int predictive_compilation;
+/* APPLE LOCAL end predictive compilation */
+
 extern int disable_typechecking_for_spec_flag;
 
 #endif /* ! GCC_FLAGS_H */

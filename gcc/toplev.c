@@ -899,6 +899,10 @@ int flag_unit_at_a_time = 0;
 int flag_pch_preprocess = 0;
 /* APPLE LOCAL END pch distcc mrs */
 
+/* APPLE LOCAL begin predictive compilation */
+int predictive_compilation = -1;
+/* APPLE LOCAL end predictive compilation */
+
 /* Nonzero if we should track variables.  When
    flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING it will be set according
    to optimize, debug_info_level and debug_hooks in process_options ().  */

@@ -1484,6 +1484,26 @@ common_handle_option (size_t scode, const char *arg,
       align_loops = value;
       break;
 
+    /* APPLE LOCAL begin predictive compilation */
+    case OPT_fpredictive_compilation:
+      predictive_compilation = 0;
+      break;
+
+    case OPT_fpredictive_compilation_:
+      {
+	const char* buf = xmalloc (strlen(arg) + 1);
+	sprintf (buf, "%d", value);
+	if (strcmp(buf, arg))
+	  {
+	    error ("argument to \"-fpredictive-compilation=\" should be a valid non-negative integer instead of \"%s\"", arg);
+	    value = 0;
+	  }
+	free(buf);
+        predictive_compilation = value;
+        break;
+      }
+    /* APPLE LOCAL end predictive compilation */
+
     case OPT_fargument_alias:
       flag_argument_noalias = !value;
       break;

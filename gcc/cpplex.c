@@ -760,6 +760,12 @@ _cpp_get_fresh_line (cpp_reader *pfile)
       if (!buffer->need_line)
 	return true;
 
+      /* APPLE LOCAL begin predictive compilation */
+      if (CPP_OPTION (pfile, predictive_compilation)
+          && buffer->next_line >= buffer->rlimit) 
+        read_from_stdin (pfile);
+      /* APPLE LOCAL end predictive compilation */
+
       if (buffer->next_line < buffer->rlimit)
 	{
 	  _cpp_clean_line (pfile);

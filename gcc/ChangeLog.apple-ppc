@@ -1,3 +1,27 @@
+2004-05-20  Fariborz Jahanian <fjahanian.apple.com>
+
+	* c-opts.c (c_common_post_options): Remove old declaration and
+	use of stdin_filename. Add new call to set_stdin_option.
+	* common.opt: Add fpredictive-compilation=n option.
+	* cppfiles.c (STAT_SIZE_RELIABLE macro): Change definition.
+	(pch_open_file): No pch stuff with stdin file.
+	(find_file_in_dir): When opening the main file, revert
+	to opening stdin instead, in predictive compilation mode.
+	(read_file_guts): Support for reading from stdin for predictive
+	compilation sizes are added. (read_file): Don't close stdin.
+	(read_from_stdin): New routine.
+	* cpphash.h: New field declaration 'is_main_file' added.
+	* cppinit.c (cpp_read_main_file): Set is_main_file to true,
+	and then to false in predictive compilation mode.
+	* cpplex.c (_cpp_get_fresh_line): Read more from stdin when
+	in predictive compilation mode.
+	* cpplib.c (set_stdin_option): New definition.
+	* cpplib.h: Declaration updates.
+	* flags.h: Declaration of predictive_compilation.
+	* opts.c (common_handle_option): Processing -fprdictive-compilation=n
+	options.
+	* toplev.c: Definition of predictive_compilation added.
+
 2004-05-14  Dale Johannesen  <dalej@apple.com>
 
 	* Makefile.in:  Remove local -Wno-error dependencies.

@@ -222,10 +222,10 @@ struct cpp_options
   struct search_path *hmap_path;
   /* APPLE LOCAL end -header-mapfile */
 
-  /* APPLE LOCAL begin read-from-stdin */
-  /* function name that should be used in issung diagnostics when input is read from stdin */
-  const char *stdin_diag_filename;
-  /* APPLE LOCAL end read-from-stdin */
+  /* APPLE LOCAL begin predictive compilation */
+  bool predictive_compilation;
+  int predictive_compilation_size;
+  /* APPLE LOCAL end predictive compilation */
 
   /* The language we're preprocessing.  */
   enum c_lang lang;
@@ -866,10 +866,10 @@ extern cpp_buffer *cpp_get_buffer (cpp_reader *);
 extern struct _cpp_file *cpp_get_file (cpp_buffer *);
 extern cpp_buffer *cpp_get_prev (cpp_buffer *);
 
-/* APPLE LOCAL begin read-from-stdin */
+/* APPLE LOCAL begin predictive compilation */
 extern bool read_from_stdin PARAMS ((cpp_reader *));
-extern void set_stdin_option PARAMS ((cpp_reader *, const char*));
-/* APPLE LOCAL end read-from-stdin */
+extern void set_stdin_option PARAMS ((cpp_reader *, int));
+/* APPLE LOCAL end predictive compilation */
 
 /* In cpppch.c */
 struct save_macro_data;

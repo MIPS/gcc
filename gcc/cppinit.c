@@ -484,8 +484,14 @@ cpp_read_main_file (cpp_reader *pfile, const char *fname)
       deps_add_default_target (pfile->deps, fname);
     }
 
+  /* APPLE LOCAL begin predictive compilation */
+  pfile->is_main_file = CPP_OPTION (pfile, predictive_compilation);
+  /* APPLE LOCAL end predictive compilation */
   pfile->main_file
     = _cpp_find_file (pfile, fname, &pfile->no_search_path, false);
+  /* APPLE LOCAL begin predictive compilation */
+  pfile->is_main_file = false;
+  /* APPLE LOCAL end predictive compilation */
   if (_cpp_find_failed (pfile->main_file))
     return false;
 

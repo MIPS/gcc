@@ -216,6 +216,15 @@ Align the start of loops
 falign-loops=
 Common RejectNegative Joined UInteger
 
+; APPLE LOCAL begin predictive compilation
+fpredictive-compilation
+Common
+Predictive Compilation
+
+fpredictive-compilation=
+Common RejectNegative Joined UInteger
+; APPLE LOCAL end predictive compilation
+
 fall-data-deps
 Common
 Analyze all the data dependences 

@@ -37,7 +37,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 # define FAB_C_VAR 2 /* variable length records (see Starlet fabdef.h) */
 # define STAT_SIZE_RELIABLE(ST) ((ST).st_fab_rfm != FAB_C_VAR)
 #else
-# define STAT_SIZE_RELIABLE(ST) true
+/* APPLE LOCAL begin predictive compilation */
+# define STAT_SIZE_RELIABLE(ST) (!CPP_OPTION (pfile, predictive_compilation))
+/* APPLE LOCAL end predictive compilation */
 #endif
 
 #ifdef __DJGPP__
@@ -253,9 +255,11 @@ pch_open_file (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
   struct stat st;
   bool valid = false;
 
-  /* No PCH on <stdin> or if not requested.  */
-  if (file->name[0] == '\0' || !pfile->cb.valid_pch)
+  /* APPLE LOCAL begin predictive compilation */
+  /* No PCH on <stdin> or if predictive compilation or if not requested.  */
+  if (pfile->is_main_file || file->name[0] == '\0' || !pfile->cb.valid_pch)
     return false;
+  /* APPLE LOCAL end predictive compilation */
 
   flen = strlen (path);
   len = flen + sizeof (extension);
@@ -326,11 +330,21 @@ find_file_in_dir (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
 
   if (path)
     {
+      bool res_open_file;
       file->path = path;
+
       if (pch_open_file (pfile, file, invalid_pch))
 	return true;
 
-      if (open_file (file))
+      /* APPLE LOCAL begin predictive compilation */
+      /* Temporary path change to force opening stdin */
+      if (pfile->is_main_file)
+        file->path = "";
+      res_open_file = open_file (file);
+      file->path = path;
+      /* APPLE LOCAL end predictive compilation */
+
+      if (res_open_file)
 	return true;
 
       if (file->err_no != ENOENT)
@@ -517,11 +531,22 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
 
       size = file->st.st_size;
     }
+  /* APPLE LOCAL begin predictive compilation */
   else
-    /* 8 kilobytes is a sensible starting size.  It ought to be bigger
-       than the kernel pipe buffer, and it's definitely bigger than
-       the majority of C source files.  */
-    size = 8 * 1024;
+    if (CPP_OPTION (pfile, predictive_compilation))
+      {
+	size = CPP_OPTION (pfile, predictive_compilation_size);
+	regular = size >= 0;
+	if (size < 0)
+	  size = 8 * 1024;
+        CPP_OPTION(pfile, predictive_compilation_size) = -1;
+      }
+  /* APPLE LOCAL end predictive compilation */
+    else
+      /* 8 kilobytes is a sensible starting size.  It ought to be bigger
+         than the kernel pipe buffer, and it's definitely bigger than
+         the majority of C source files.  */
+      size = 8 * 1024;
 
   buf = xmalloc (size + 1);
   total = 0;
@@ -576,8 +601,13 @@ read_file (cpp_reader *pfile, _cpp_file *file)
     }
 
   file->dont_read = !read_file_guts (pfile, file);
-  close (file->fd);
-  file->fd = -1;
+  /* APPLE LOCAL begin predictive compilation */
+  if (file->fd != 0)  /* Don't close stdin */
+    {
+      close (file->fd);
+      file->fd = -1;
+    }
+  /* APPLE LOCAL end predictive compilation */
 
   return !file->dont_read;
 }
@@ -908,6 +938,17 @@ new_file_hash_entry (cpp_reader *pfile)
 
   return &pfile->file_hash_entries[pfile->file_hash_entries_used++];
 }
+
+/* APPLE LOCAL begin predictive compilation */
+bool read_from_stdin (cpp_reader *pfile)
+{
+  _cpp_file *file = pfile->main_file;
+  file->dont_read = !read_file_guts (pfile, file);
+  pfile->buffer->next_line = file->buffer;
+  pfile->buffer->rlimit = file->buffer + file->st.st_size;
+  return !file->dont_read;
+}
+/* APPLE LOCAL end predictive compilation */
 
 /* Returns TRUE if a file FNAME has ever been successfully opened.
    This routine is not intended to correctly handle filenames aliased

@@ -1939,13 +1939,19 @@ cpp_get_options (cpp_reader *pfile)
   return &pfile->opts;
 }
 
-/* APPLE LOCAL begin read-from-stdin */
+/* APPLE LOCAL begin predictive compilation */
 void
-set_stdin_option (cpp_reader *pfile, const char *arg)
+set_stdin_option (cpp_reader *pfile, int predict_comp_size)
 {
-  CPP_OPTION (pfile, stdin_diag_filename) = arg;
+  if (! CPP_OPTION (pfile, preprocessed))
+  {
+    /* -fpreprocessed -fpredictive-compilation=n: compiler is reading from
+       the processed file in this case. */
+    CPP_OPTION (pfile, predictive_compilation) = true;
+    CPP_OPTION (pfile, predictive_compilation_size) =  predict_comp_size;
+  }
 }
-/* APPLE LOCAL end read-from-stdin */
+/* APPLE LOCAL end predictive compilation */
 
 /* The callbacks structure.  */
 cpp_callbacks *

@@ -386,6 +386,9 @@ struct cpp_reader
   struct _cpp_file *all_files;
 
   struct _cpp_file *main_file;
+  /* APPLE LOCAL begin predictive compilation */
+  bool   is_main_file;
+  /* APPLE LOCAL end predictive compilation */
 
   /* File and directory hash table.  */
   struct htab *file_hash;

@@ -58,10 +58,6 @@ static cpp_options *cpp_opts;
 /* Input filename.  */
 static const char *this_input_filename;
 
-/* APPLE LOCAL begin read-from-stdin */
-static const char *stdin_filename;
-/* APPLE LOCAL end read-from-stdin */
-
 /* Filename and stream for preprocessed output.  */
 static const char *out_fname;
 static FILE *out_stream;
@@ -1203,11 +1199,13 @@ c_common_post_options (const char **pfilename)
     {
       in_fnames = xmalloc (sizeof (in_fnames[0]));
       in_fnames[0] = "";
-      /* APPLE LOCAL begin read-from-stdin */
-      if (stdin_filename != NULL)
-      set_stdin_option(parse_in, stdin_filename);
-      /* APPLE LOCAL end read-from-stdin */
     }
+  /* APPLE LOCAL begin predictive compilation */
+  else if (predictive_compilation >= 0)
+      {
+	set_stdin_option(parse_in, predictive_compilation);
+      }
+  /* APPLE LOCAL end predictive compilation */
   else if (strcmp (in_fnames[0], "-") == 0)
     in_fnames[0] = "";
 
