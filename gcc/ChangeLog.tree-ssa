@@ -1,3 +1,21 @@
+2003-05-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-common.h (STATEMENT_CODE_P): Use size_t cast instead
+	of int.
+	(INIT_STATEMENT_CODES): Change type of local variable i to
+	size_t.
+
+2003-05-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-pretty-print.c (dump_c_node): Call CONSTRUCTOR_ELTS
+	to access the operand of a CONSTRUCTOR node.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+
+2003-05-11  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-simplify.c (simplify_if_stmt): Replace calls to
+	warning_with_file_and_line with warning.
+
 2003-05-12  Frank Ch. Eigler  <fche@redhat.com>
 
 	* toplev.c (lang_independent_options): Add "-fmudflapth".

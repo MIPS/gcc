@@ -37,7 +37,7 @@ gcov_open (const char *name, int mode)
 {
   int result = 1;
   size_t alloc = 1024;
-#if defined (TARGET_HAS_F_SETLKW) && IN_LIBGCOV
+#if GCOV_LOCKED
   struct flock s_flock;
 
   s_flock.l_type = F_WRLCK;
@@ -61,7 +61,7 @@ gcov_open (const char *name, int mode)
   if (!gcov_var.file)
     return 0;
 
-#if defined (TARGET_HAS_F_SETLKW) && IN_LIBGCOV
+#if GCOV_LOCKED
   while (fcntl (fileno (gcov_var.file), F_SETLKW, &s_flock)
 	 && errno == EINTR)
     continue;
@@ -181,7 +181,7 @@ gcov_write_bytes (unsigned bytes)
    appropriately.  */
 
 GCOV_LINKAGE void
-gcov_write_unsigned (unsigned value)
+gcov_write_unsigned (gcov_unsigned_t value)
 {
   unsigned char *buffer = gcov_write_bytes (4);
   unsigned ix;
@@ -257,13 +257,14 @@ gcov_write_string (const char *string)
 }
 #endif
 
+#if !IN_LIBGCOV
 /* Write a tag TAG and reserve space for the record length. Return a
    value to be used for gcov_write_length.  */
 
-GCOV_LINKAGE unsigned long
-gcov_write_tag (unsigned tag)
+GCOV_LINKAGE gcov_position_t
+gcov_write_tag (gcov_unsigned_t tag)
 {
-  unsigned long result = gcov_var.position;
+  gcov_position_t result = gcov_var.position;
   unsigned char *buffer = gcov_write_bytes (8);
   unsigned ix;
 
@@ -284,11 +285,11 @@ gcov_write_tag (unsigned tag)
    overflow.  */
 
 GCOV_LINKAGE void
-gcov_write_length (unsigned long position)
+gcov_write_length (gcov_position_t position)
 {
   if (position)
     {
-      unsigned length = gcov_var.position - position - 8;
+      gcov_unsigned_t length = gcov_var.position - position - 8;
       unsigned char *buffer = &gcov_var.buffer[position + 4];
       unsigned ix;
       
@@ -300,20 +301,43 @@ gcov_write_length (unsigned long position)
     }
 }
 
-#if IN_LIBGCOV
+#else /* IN_LIBGCOV */
+
+/* Write a tag TAG and length LENGTH.  */
+
+GCOV_LINKAGE void
+gcov_write_tag_length (gcov_unsigned_t tag, gcov_unsigned_t length)
+{
+  unsigned char *buffer = gcov_write_bytes (8);
+  unsigned ix;
+
+  if (!buffer)
+    return;
+  for (ix = 4; ix--; )
+    {
+      buffer[ix] = tag;
+      tag >>= 8;
+    }
+  for (ix = 4; ix--; )
+    {
+      buffer[ix + 4] = length;
+      length >>= 8;
+    }
+  return;
+}
+
 /* Write a summary structure to the gcov file.  Return non-zero on
    overflow.  */
 
 GCOV_LINKAGE void
-gcov_write_summary (unsigned tag, const struct gcov_summary *summary)
+gcov_write_summary (gcov_unsigned_t tag, const struct gcov_summary *summary)
 {
   unsigned ix;
   const struct gcov_ctr_summary *csum;
-  unsigned long base;
 
-  base = gcov_write_tag (tag);
+  gcov_write_tag_length (tag, GCOV_TAG_SUMMARY_LENGTH);
   gcov_write_unsigned (summary->checksum);
-  for (csum = summary->ctrs, ix = GCOV_COUNTERS; ix--; csum++)
+  for (csum = summary->ctrs, ix = GCOV_COUNTERS_SUMMABLE; ix--; csum++)
     {
       gcov_write_unsigned (csum->num);
       gcov_write_unsigned (csum->runs);
@@ -321,7 +345,6 @@ gcov_write_summary (unsigned tag, const struct gcov_summary *summary)
       gcov_write_counter (csum->run_max);
       gcov_write_counter (csum->sum_max);
     }
-  gcov_write_length (base);
 }
 #endif /* IN_LIBGCOV */
 
@@ -349,10 +372,10 @@ gcov_read_bytes (unsigned bytes)
 /* Read unsigned value from a coverage file. Sets error flag on file
    error, overflow flag on overflow */
 
-GCOV_LINKAGE unsigned
+GCOV_LINKAGE gcov_unsigned_t
 gcov_read_unsigned ()
 {
-  unsigned value = 0;
+  gcov_unsigned_t value = 0;
   unsigned ix;
   const unsigned char *buffer = gcov_read_bytes (4);
 
@@ -419,7 +442,7 @@ gcov_read_summary (struct gcov_summary *summary)
   struct gcov_ctr_summary *csum;
   
   summary->checksum = gcov_read_unsigned ();
-  for (csum = summary->ctrs, ix = GCOV_COUNTERS; ix--; csum++)
+  for (csum = summary->ctrs, ix = GCOV_COUNTERS_SUMMABLE; ix--; csum++)
     {
       csum->num = gcov_read_unsigned ();
       csum->runs = gcov_read_unsigned ();

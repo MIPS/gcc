@@ -1,3 +1,131 @@
+2003-05-10  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9252
+	* g++.dg/template/access8.C: New test.
+	* g++.dg/template/access9.C: New test.
+
+2003-05-10  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9554
+	* g++.dg/parse/access1.C: New test.
+
+2003-05-09  DJ Delorie  <dj@redhat.com>
+
+	* g++.dg/other/stdarg1.C: Make sure arg "3" is passed as a
+	long, and not an int.
+
+2003-05-09  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10555, c++/10576
+	* g++.dg/template/memclass1.C: New test.
+
+2003-05-08  DJ Delorie  <dj@redhat.com>
+
+	* gcc.c-torture/execute/20020404-1.x: New, skip for 16-bit
+	targets.
+	* gcc.c-torture/execute/20021024-1.x: Likewise.
+	* gcc.c-torture/execute/shiftdi.x: Likewise.
+	* g++.old-deja/g++.mike/p700.C: Handle 16-bit targets.
+	* g++.old-deja/g++.other/exprstmt1.C: Likewise.
+	* gcc.dg/20021018-1.c: Likewise.
+
+2003-05-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.dg/other/packed1.C: Mark xfail for sparc*- not sparc-.
+
+	gcc.c-torture/execute/string-opt-19.c: Add general rodata tests.
+	(bcopy): Call memmove.
+
+2003-05-08  Roger Sayle  <roger@eyesopen.com>
+
+	* g77.f-torture/compile/8485.f: New test case.
+
+2003-05-07  Richard Henderson  <rth@redhat.com>
+
+        PR c++/10570
+        * g++.dg/eh/forced1.C: Expect catch-all handlers to run.
+        Verify exception_cleanup not called for rethrows.
+        * g++.dg/eh/forced2.C: Test that exception_cleanup is called
+        when exiting catch block without rethrowing.
+        * g++.dg/eh/forced3.C: New.
+        * g++.dg/eh/forced4.C: New.
+
+2003-05-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/20030505.c: Fix triplet.
+
+2003-05-06  DJ Delorie  <dj@redhat.com>
+
+	* gcc.dg/20021014-1.c: XFAIL for xstormy16 also.
+	* gcc.dg/nest.c: Likewise.
+
+2003-05-05  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-14.c: New test case.
+
+2003-05-05  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/compat.exp (compat-execute): New argument.
+	* g++.dg/compat/compat.exp: Pass new argument to compat-execute.
+	* gcc.dg/compat: New test directory.
+	* gcc.dg/compat/compat.exp: New expect script.
+	* gcc.dg/compat/scalar-by-value-1_main.c: New test file.
+	* gcc.dg/compat/scalar-by-value-1_x.c: New test file.
+	* gcc.dg/compat/scalar-by-value-1_y.c: New test file.
+	* gcc.dg/compat/scalar-by-value-2_main.c: New test file.
+	* gcc.dg/compat/scalar-by-value-2_x.c: New test file.
+	* gcc.dg/compat/scalar-by-value-2_y.c: New test file.
+
+	* gcc.dg/compat/struct-by-value-1_main.c: New test file.
+	* gcc.dg/compat/struct-by-value-1_x.c: New test file.
+	* gcc.dg/compat/struct-by-value-1_y.c: New test file.
+	* gcc.dg/compat/struct-by-value-2_main.c: New test file.
+	* gcc.dg/compat/struct-by-value-2_x.c: New test file.
+	* gcc.dg/compat/struct-by-value-2_y.c: New test file.
+	* gcc.dg/compat/struct-by-value-3_main.c: New test file.
+	* gcc.dg/compat/struct-by-value-3_x.c: New test file.
+	* gcc.dg/compat/struct-by-value-3_y.c: New test file.
+	* gcc.dg/compat/struct-by-value-4_main.c: New test file.
+	* gcc.dg/compat/struct-by-value-4_x.c: New test file.
+	* gcc.dg/compat/struct-by-value-4_y.c: New test file.
+	* gcc.dg/compat/struct-by-value-5_main.c: New test file.
+	* gcc.dg/compat/struct-by-value-5_x.c: New test file.
+	* gcc.dg/compat/struct-by-value-5_y.c: New test file.
+
+2003-05-05  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/const-elim-1.c, gcc.dg/const-elim-2.c: New testcases.
+
+2003-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/string-opt-18.c (main): Add 3 new tests.
+
+2003-05-05  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.c-torture/execute/ieee/fp-cmp-8.c: New test.
+	* gcc.dg/ppc-fsel-2.c: New test.
+
+	* gcc.dg/unused-5.c: New test.
+
+2003-05-05  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10496
+	* g++.dg/warn/pmf1.C: New test.
+
+2003-05-05  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/4494
+	* g++.dg/warn/main.C: New test.
+
+2003-05-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/nonnull-3.c: New test.
+
+2003-05-04  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/Wtrigraphs.c: Update.
+	* gcc.dg/cpp/Wtrigraphs-2.c: New tests.
+
 2003-05-03  Geoffrey Keating  <geoffk@apple.com>
 
 	* gcc.dg/ppc-fsel-1.c: New test.

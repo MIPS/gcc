@@ -4251,6 +4251,15 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
 	      tree a = coerce_template_parms (TREE_VALUE (t),
 					      arglist, template,
 	                                      complain, /*require_all_args=*/1);
+
+	      /* Don't process further if one of the levels fails.  */
+	      if (a == error_mark_node)
+		{
+		  /* Restore the ARGLIST to its full size.  */
+		  TREE_VEC_LENGTH (arglist) = saved_depth;
+		  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
+		}
+	      
 	      SET_TMPL_ARGS_LEVEL (bound_args, i, a);
 
 	      /* We temporarily reduce the length of the ARGLIST so
@@ -5252,6 +5261,10 @@ instantiate_class_template (type)
      the process of being defined.  */
   TYPE_BEING_DEFINED (type) = 1;
 
+  /* We may be in the middle of deferred access check.  Disable
+     it now.  */
+  push_deferring_access_checks (dk_no_deferred);
+
   maybe_push_to_top_level (uses_template_parms (type));
 
   if (t)
@@ -5561,6 +5574,7 @@ instantiate_class_template (type)
 
   popclass ();
   pop_from_top_level ();
+  pop_deferring_access_checks ();
   pop_tinst_level ();
 
   if (TYPE_CONTAINS_VPTR_P (type))
@@ -10797,6 +10811,10 @@ instantiate_decl (d, defer_ok)
 
   timevar_push (TV_PARSE);
 
+  /* We may be in the middle of deferred access check.  Disable
+     it now.  */
+  push_deferring_access_checks (dk_no_deferred);
+
   /* Set TD to the template whose DECL_TEMPLATE_RESULT is the pattern
      for the instantiation.  */
   td = template_for_substitution (d);
@@ -11037,6 +11055,7 @@ instantiate_decl (d, defer_ok)
 
 out:
   input_location = saved_loc;
+  pop_deferring_access_checks ();
   pop_tinst_level ();
 
   timevar_pop (TV_PARSE);

@@ -147,11 +147,10 @@ const char *rs6000_debug_name;
 int rs6000_debug_stack;		/* debug stack applications */
 int rs6000_debug_arg;		/* debug argument handling */
 
-/* A copy of V2SI_type_node to be used as an opaque type.  */
+/* Opaque types.  */
 static GTY(()) tree opaque_V2SI_type_node;
-
-/* Same, but for V2SF.  */
 static GTY(()) tree opaque_V2SF_type_node;
+static GTY(()) tree opaque_p_V2SI_type_node;
 
 const char *rs6000_traceback_name;
 static enum {
@@ -1510,6 +1509,9 @@ easy_vector_constant (op, mode)
   if (GET_MODE_CLASS (mode) != MODE_VECTOR_INT)
     return 0;
 
+  if (TARGET_SPE && mode == V1DImode)
+    return 0;
+
   cst  = INTVAL (CONST_VECTOR_ELT (op, 0));
   cst2 = INTVAL (CONST_VECTOR_ELT (op, 1));
 
@@ -1524,7 +1526,7 @@ easy_vector_constant (op, mode)
      have the e500 timing specs.  */
   if (TARGET_SPE && mode == V2SImode
       && cst  >= -0x7fff && cst <= 0x7fff
-      && cst2 >= -0x7fff && cst <= 0x7fff)
+      && cst2 >= -0x7fff && cst2 <= 0x7fff)
     return 1;
 
   if (TARGET_ALTIVEC && EASY_VECTOR_15 (cst, op, mode))
@@ -3803,10 +3805,8 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
       set_mem_alias_set (mem, set);
       set_mem_align (mem, BITS_PER_WORD);
 
-      move_block_from_reg
-	(GP_ARG_MIN_REG + first_reg_offset, mem,
-	 GP_ARG_NUM_REG - first_reg_offset,
-	 (GP_ARG_NUM_REG - first_reg_offset) * UNITS_PER_WORD);
+      move_block_from_reg (GP_ARG_MIN_REG + first_reg_offset, mem,
+			   GP_ARG_NUM_REG - first_reg_offset);
     }
 
   /* Save FP registers if needed.  */
@@ -4721,6 +4721,7 @@ rs6000_expand_binop_builtin (icode, arglist, target)
       || icode == CODE_FOR_spe_evrlwi
       || icode == CODE_FOR_spe_evslwi
       || icode == CODE_FOR_spe_evsrwis
+      || icode == CODE_FOR_spe_evsubifw
       || icode == CODE_FOR_spe_evsrwiu)
     {
       /* Only allow 5-bit unsigned literals.  */
@@ -5641,6 +5642,7 @@ rs6000_init_builtins ()
 {
   opaque_V2SI_type_node = copy_node (V2SI_type_node);
   opaque_V2SF_type_node = copy_node (V2SF_type_node);
+  opaque_p_V2SI_type_node = build_pointer_type (opaque_V2SI_type_node);
 
   if (TARGET_SPE)
     spe_init_builtins ();
@@ -5685,7 +5687,6 @@ spe_init_builtins ()
   tree endlink = void_list_node;
   tree puint_type_node = build_pointer_type (unsigned_type_node);
   tree pushort_type_node = build_pointer_type (short_unsigned_type_node);
-  tree pv2si_type_node = build_pointer_type (opaque_V2SI_type_node);
   struct builtin_description *d;
   size_t i;
 
@@ -5742,7 +5743,7 @@ spe_init_builtins ()
   tree void_ftype_v2si_pv2si_int
     = build_function_type (void_type_node,
 			   tree_cons (NULL_TREE, opaque_V2SI_type_node,
-				      tree_cons (NULL_TREE, pv2si_type_node,
+				      tree_cons (NULL_TREE, opaque_p_V2SI_type_node,
 						 tree_cons (NULL_TREE,
 							    integer_type_node,
 							    endlink))));
@@ -5750,7 +5751,7 @@ spe_init_builtins ()
   tree void_ftype_v2si_pv2si_char
     = build_function_type (void_type_node,
 			   tree_cons (NULL_TREE, opaque_V2SI_type_node,
-				      tree_cons (NULL_TREE, pv2si_type_node,
+				      tree_cons (NULL_TREE, opaque_p_V2SI_type_node,
 						 tree_cons (NULL_TREE,
 							    char_type_node,
 							    endlink))));
@@ -5760,12 +5761,11 @@ spe_init_builtins ()
 			   tree_cons (NULL_TREE, integer_type_node, endlink));
 
   tree int_ftype_void
-    = build_function_type (integer_type_node,
-			   tree_cons (NULL_TREE, void_type_node, endlink));
+    = build_function_type (integer_type_node, endlink);
 
   tree v2si_ftype_pv2si_int
     = build_function_type (opaque_V2SI_type_node,
-			   tree_cons (NULL_TREE, pv2si_type_node,
+			   tree_cons (NULL_TREE, opaque_p_V2SI_type_node,
 				      tree_cons (NULL_TREE, integer_type_node,
 						 endlink)));
 
@@ -7188,9 +7188,8 @@ validate_condition_mode (code, mode)
     abort ();
   
   /* These should never be generated except for 
-     flag_unsafe_math_optimizations and flag_finite_math_only.  */
+     flag_finite_math_only.  */
   if (mode == CCFPmode
-      && ! flag_unsafe_math_optimizations
       && ! flag_finite_math_only
       && (code == LE || code == GE
 	  || code == UNEQ || code == LTGT
@@ -8634,7 +8633,10 @@ rs6000_reverse_condition (mode, code)
 {
   /* Reversal of FP compares takes care -- an ordered compare
      becomes an unordered compare and vice versa.  */
-  if (mode == CCFPmode && !flag_unsafe_math_optimizations)
+  if (mode == CCFPmode 
+      && (!flag_finite_math_only
+	  || code == UNLT || code == UNLE || code == UNGT || code == UNGE
+	  || code == UNEQ || code == LTGT))
     return reverse_condition_maybe_unordered (code);
   else
     return reverse_condition (code);
@@ -8673,7 +8675,7 @@ rs6000_generate_compare (code)
 	case UNEQ:
 	case NE:
 	case LTGT:
-	  cmp = flag_unsafe_math_optimizations
+	  cmp = flag_finite_math_only
 	    ? gen_tstsfeq_gpr (compare_result, rs6000_compare_op0,
 			       rs6000_compare_op1)
 	    : gen_cmpsfeq_gpr (compare_result, rs6000_compare_op0,
@@ -8685,7 +8687,7 @@ rs6000_generate_compare (code)
 	case UNGE:
 	case GE:
 	case GEU:
-	  cmp = flag_unsafe_math_optimizations
+	  cmp = flag_finite_math_only
 	    ? gen_tstsfgt_gpr (compare_result, rs6000_compare_op0,
 			       rs6000_compare_op1)
 	    : gen_cmpsfgt_gpr (compare_result, rs6000_compare_op0,
@@ -8697,7 +8699,7 @@ rs6000_generate_compare (code)
 	case UNLE:
 	case LE:
 	case LEU:
-	  cmp = flag_unsafe_math_optimizations
+	  cmp = flag_finite_math_only
 	    ? gen_tstsflt_gpr (compare_result, rs6000_compare_op0,
 			       rs6000_compare_op1)
 	    : gen_cmpsflt_gpr (compare_result, rs6000_compare_op0,
@@ -8729,7 +8731,7 @@ rs6000_generate_compare (code)
 	  compare_result2 = gen_reg_rtx (CCFPmode);
 
 	  /* Do the EQ.  */
-	  cmp = flag_unsafe_math_optimizations
+	  cmp = flag_finite_math_only
 	    ? gen_tstsfeq_gpr (compare_result2, rs6000_compare_op0,
 			       rs6000_compare_op1)
 	    : gen_cmpsfeq_gpr (compare_result2, rs6000_compare_op0,
@@ -8785,9 +8787,9 @@ rs6000_generate_compare (code)
 					     rs6000_compare_op1)));
   
   /* Some kinds of FP comparisons need an OR operation;
-     except for flag_unsafe_math_optimizations we don't bother.  */
+     under flag_finite_math_only we don't bother.  */
   if (rs6000_compare_fp_p
-      && ! flag_unsafe_math_optimizations
+      && ! flag_finite_math_only
       && ! (TARGET_HARD_FLOAT && TARGET_E500 && !TARGET_FPRS)
       && (code == LE || code == GE
 	  || code == UNEQ || code == LTGT
@@ -9066,7 +9068,7 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
   /* Eliminate half of the comparisons by switching operands, this
      makes the remaining code simpler.  */
   if (code == UNLT || code == UNGT || code == UNORDERED || code == NE
-      || code == LTGT || code == LT)
+      || code == LTGT || code == LT || code == UNLE)
     {
       code = reverse_condition_maybe_unordered (code);
       temp = true_cond;
@@ -9076,7 +9078,7 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
 
   /* UNEQ and LTGT take four instructions for a comparison with zero,
      it'll probably be faster to use a branch here too.  */
-  if (code == UNEQ)
+  if (code == UNEQ && HONOR_NANS (compare_mode))
     return 0;
   
   if (GET_CODE (op1) == CONST_DOUBLE)
@@ -9087,7 +9089,7 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
      Inf - Inf is NaN which is not zero, and so if we don't
      know that the operand is finite and the comparison
      would treat EQ different to UNORDERED, we can't do it.  */
-  if (! flag_unsafe_math_optimizations
+  if (HONOR_INFINITIES (compare_mode)
       && code != GT && code != UNGE
       && (GET_CODE (op1) != CONST_DOUBLE || real_isinf (&c1))
       /* Constructs of the form (a OP b ? a : b) are safe.  */
@@ -9106,7 +9108,7 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
 
   /* If we don't care about NaNs we can reduce some of the comparisons
      down to faster ones.  */
-  if (flag_unsafe_math_optimizations)
+  if (! HONOR_NANS (compare_mode))
     switch (code)
       {
       case GT:
@@ -9152,14 +9154,15 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
       break;
 
     case UNGE:
+      /* a UNGE 0 <-> (a GE 0 || -a UNLT 0) */
       temp = gen_reg_rtx (result_mode);
       emit_insn (gen_rtx_SET (VOIDmode, temp,
 			      gen_rtx_IF_THEN_ELSE (result_mode,
 						    gen_rtx_GE (VOIDmode,
 								op0, op1),
 						    true_cond, false_cond)));
-      false_cond = temp;
-      true_cond = false_cond;
+      false_cond = true_cond;
+      true_cond = temp;
 
       temp = gen_reg_rtx (compare_mode);
       emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (compare_mode, op0)));
@@ -9167,14 +9170,15 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
       break;
 
     case GT:
+      /* a GT 0 <-> (a GE 0 && -a UNLT 0) */
       temp = gen_reg_rtx (result_mode);
       emit_insn (gen_rtx_SET (VOIDmode, temp,
 			      gen_rtx_IF_THEN_ELSE (result_mode, 
 						    gen_rtx_GE (VOIDmode,
 								op0, op1),
 						    true_cond, false_cond)));
-      true_cond = temp;
-      false_cond = true_cond;
+      true_cond = false_cond;
+      false_cond = temp;
 
       temp = gen_reg_rtx (compare_mode);
       emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (compare_mode, op0)));
@@ -14040,6 +14044,7 @@ is_ev64_opaque_type (type)
   return (TARGET_SPE
 	  && (type == opaque_V2SI_type_node
 	      || type == opaque_V2SF_type_node
+	      || type == opaque_p_V2SI_type_node
 	      || (TREE_CODE (type) == VECTOR_TYPE
 		  && TYPE_NAME (type)
 		  && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL

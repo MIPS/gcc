@@ -1348,7 +1348,7 @@ extern int mips_abi;
    SFmode register saves.  */
 #define DWARF_CIE_DATA_ALIGNMENT 4
 
-#define ASM_SIMPLIFY_DWARF_ADDR mips_simplify_dwarf_addr
+#define FIND_BASE_TERM(X) mips_delegitimize_address (X)
 
 /* Overrides for the COFF debug format.  */
 #define PUT_SDB_SCL(a)					\
@@ -1934,6 +1934,8 @@ do {							\
   ((unsigned int) ((int) (REGNO) - COP3_REG_FIRST) < COP3_REG_NUM)
 #define ALL_COP_REG_P(REGNO) \
   ((unsigned int) ((int) (REGNO) - COP0_REG_FIRST) < ALL_COP_REG_NUM)
+
+#define FP_REG_RTX_P(X) (GET_CODE (X) == REG && FP_REG_P (REGNO (X)))
 
 /* Return coprocessor number from register number.  */
 

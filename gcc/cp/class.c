@@ -1086,7 +1086,7 @@ alter_access (tree t, tree fdecl, tree access)
     }
   else
     {
-      enforce_access (t, fdecl);
+      perform_or_defer_access_check (t, fdecl);
       DECL_ACCESS (fdecl) = tree_cons (t, access, DECL_ACCESS (fdecl));
       return 1;
     }
@@ -6675,7 +6675,7 @@ dump_array (FILE * stream, tree decl)
 			   TFF_PLAIN_IDENTIFIER));
   fprintf (stream, "\n");
 
-  for (ix = 0, inits = TREE_OPERAND (DECL_INITIAL (decl), 1);
+  for (ix = 0, inits = CONSTRUCTOR_ELTS (DECL_INITIAL (decl));
        inits; ix++, inits = TREE_CHAIN (inits))
     fprintf (stream, "%-4ld  %s\n", (long)(ix * elt),
 	     expr_as_string (TREE_VALUE (inits), TFF_PLAIN_IDENTIFIER));

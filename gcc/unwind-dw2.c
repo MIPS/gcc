@@ -178,7 +178,7 @@ _Unwind_GetGR (struct _Unwind_Context *context, int index)
 _Unwind_Word
 _Unwind_GetCFA (struct _Unwind_Context *context)
 {
-  return (_Unwind_Word)context->cfa;
+  return (_Unwind_Ptr) context->cfa;
 }
 
 /* Overwrite the saved value for register REG in CONTEXT with VAL.  */
@@ -1076,10 +1076,10 @@ static void
 uw_update_context_1 (struct _Unwind_Context *context, _Unwind_FrameState *fs)
 {
   struct _Unwind_Context orig_context = *context;
-  _Unwind_Word tmp_sp;
   void *cfa;
   long i;
 
+#ifdef EH_RETURN_STACKADJ_RTX
   /* Special handling here: Many machines do not use a frame pointer,
      and track the CFA only through offsets from the stack pointer from
      one frame to the next.  In this case, the stack pointer is never
@@ -1089,11 +1089,21 @@ uw_update_context_1 (struct _Unwind_Context *context, _Unwind_FrameState *fs)
      In very special situations (such as unwind info for signal return),
      there may be location expressions that use the stack pointer as well.
 
-     Given that other unwind mechanisms generally won't work if you try
-     to represent stack pointer saves and restores directly, we don't
-     bother conditionalizing this at all.  */
-  tmp_sp = (_Unwind_Ptr) context->cfa;
-  _Unwind_SetGRPtr (&orig_context, __builtin_dwarf_sp_column (), &tmp_sp);
+     Do this conditionally for one frame.  This allows the unwind info
+     for one frame to save a copy of the stack pointer from the previous
+     frame, and be able to use much easier CFA mechanisms to do it.
+     Always zap the saved stack pointer value for the next frame; carrying
+     the value over from one frame to another doesn't make sense.  */
+
+  _Unwind_Word tmp_sp;
+
+  if (!_Unwind_GetGRPtr (&orig_context, __builtin_dwarf_sp_column ()))
+    {
+      tmp_sp = (_Unwind_Ptr) context->cfa;
+      _Unwind_SetGRPtr (&orig_context, __builtin_dwarf_sp_column (), &tmp_sp);
+    }
+  _Unwind_SetGRPtr (context, __builtin_dwarf_sp_column (), NULL);
+#endif
 
   /* Compute this frame's CFA.  */
   switch (fs->cfa_how)
@@ -1196,7 +1206,7 @@ uw_init_context_1 (struct _Unwind_Context *context,
     abort ();
 
   /* Force the frame state to use the known cfa value.  */
-  context->cfa = outer_cfa;
+  _Unwind_SetGRPtr (context, __builtin_dwarf_sp_column (), &outer_cfa);
   fs.cfa_how = CFA_REG_OFFSET;
   fs.cfa_reg = __builtin_dwarf_sp_column ();
   fs.cfa_offset = 0;
@@ -1256,11 +1266,26 @@ uw_install_context_1 (struct _Unwind_Context *current,
 	memcpy (c, t, dwarf_reg_size_table[i]);
     }
 
-  /* We adjust SP by the difference between CURRENT and TARGET's CFA.  */
-  if (STACK_GROWS_DOWNWARD)
-    return target->cfa - current->cfa + target->args_size;
-  else
-    return current->cfa - target->cfa - target->args_size;
+#ifdef EH_RETURN_STACKADJ_RTX
+  {
+    void *target_cfa;
+
+    /* If the last frame records a saved stack pointer, use it.  */
+    if (_Unwind_GetGRPtr (target, __builtin_dwarf_sp_column ()))
+      target_cfa = (void *)(_Unwind_Ptr)
+        _Unwind_GetGR (target, __builtin_dwarf_sp_column ());
+    else
+      target_cfa = target->cfa;
+
+    /* We adjust SP by the difference between CURRENT and TARGET's CFA.  */
+    if (STACK_GROWS_DOWNWARD)
+      return target_cfa - current->cfa + target->args_size;
+    else
+      return current->cfa - target_cfa - target->args_size;
+  }
+#else
+  return 0;
+#endif
 }
 
 static inline _Unwind_Ptr

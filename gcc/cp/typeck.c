@@ -4430,7 +4430,11 @@ build_unary_op (code, xarg, noconvert)
 	     We could defer this in non-MS mode, but it's easier to give
 	     a useful error here.  */
 
-	  tree base = TREE_TYPE (TREE_OPERAND (arg, 0));
+	  /* Inside constant member functions, the `this' pointer
+	     contains an extra const qualifier.  TYPE_MAIN_VARIANT
+	     is used here to remove this const from the diagnostics
+	     and the created OFFSET_REF.  */
+	  tree base = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (arg, 0)));
 	  tree name = DECL_NAME (get_first_fn (TREE_OPERAND (arg, 1)));
 
 	  if (! flag_ms_extensions)
@@ -4438,9 +4442,15 @@ build_unary_op (code, xarg, noconvert)
 	      if (current_class_type
 		  && TREE_OPERAND (arg, 0) == current_class_ref)
 		/* An expression like &memfn.  */
-		pedwarn ("ISO C++ forbids taking the address of an unqualified or parenthesized non-static member function to form a pointer to member function.  Say `&%T::%D'", base, name);
+		pedwarn ("ISO C++ forbids taking the address of an unqualified"
+			 " or parenthesized non-static member function to form"
+			 " a pointer to member function.  Say `&%T::%D'",
+			 base, name);
 	      else
-		pedwarn ("ISO C++ forbids taking the address of a bound member function to form a pointer to member function.  Say `&%T::%D'", base, name);
+		pedwarn ("ISO C++ forbids taking the address of a bound member"
+			 " function to form a pointer to member function."
+			 "  Say `&%T::%D'",
+			 base, name);
 	    }
 	  arg = build_offset_ref (base, name);
         }

@@ -1,3 +1,212 @@
+2003-05-10  Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/9027
+	PR libstdc++/9520
+	PR libstdc++/10096
+	* include/bits/fstream.tcc (basic_file::_M_underflow):  Add generic
+	implementation, based on old wchar_t specialization, add support
+	for codecvt::in() return value of codecvt_base::noconv, remove
+	_M_file.sys_ungetc() call.
+	* include/std/std_fstream.h (basic_file::underflow,
+	basic_file::uflow, basic_file::_M_underflow):  Remove
+	specialization declarations, call _M_underflow from generic versions
+	of underflow and uflow.
+	* src/fstream.cc (basic_file::underflow, basic_file::uflow,
+	basic_file::_M_underflow):  Remove specializations.
+	* src/Makefile.am (sources):  Remove fstream.cc.
+	* src/Makefile.in:  Regenerated.
+	* testsuite/27_io/basic_filebuf/underflow/10096.cc:  New test.
+	* testsuite/27_io/basic_filebuf/underflow/char/1.cc:  New test.
+	* testsuite/27_io/basic_filebuf/underflow/char/9027.cc:  New test.
+	* testsuite/27_io/basic_filebuf/underflow/wchar_t/9520.cc:  New test.
+
+2003-05-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/stdio_filebuf.h (__stdio_filebuf): Remove stack
+	buffer.
+	* config/io/basic_file_stdio.h (__basic_file::xsgetn): Remove
+	unbuffered bits.
+	(__basic_file::xsputn): Same.
+	(__basic_file::seekoff): Same.
+	(__basic_file::seekpos): Same.
+	(__basic_file::showmanyc): Same.
+	* config/io/basic_file_stdio.cc: Same.
+	* include/std/std_fstream.h: Same.
+	* include/bits/fstream.tcc: Same.
+	* src/fstream.cc: Same.
+	* testsuite/27_io/basic_filebuf/sgetn/char/1.cc (test05): Tidy.
+	
+2003-05-10  Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/9520
+	PR libstdc++/9661
+	PR libstdc++/9662
+	* include/ext/stdio_sync_filebuf.h:  New file.
+	(basic_stdiobuf):  New.
+	* include/Makefile.am (ext_headers): Add ext/stdio_sync_filebuf.h
+	* include/Makefile.in: Regenerate.
+	* include/bits/ios_base.h (Init::_S_create_buffers,
+	Init::_S_destroy_buffers):  Remove declarations.
+	* src/globals.cc (buf_cout_sync, buf_cin_sync, buf_cerr_sync, 
+	buf_wcout_sync, buf_wcin_sync, buf_wcerr_sync):  Define.
+	* src/ios.cc (Init::_S_create_buffers,
+	Init::_S_destroy_buffers):  Remove.
+	(Init::Init):  Create and use syncronized buffers.
+	(ios_base::sync_with_stdio):  Destroy syncronized buffers,
+	create and install unsyncronized buffers.
+	* testsuite/27_io/objects/char/10.cc:  New test.
+	* testsuite/27_io/objects/char/9.cc:  New test.
+	* testsuite/27_io/objects/char/9661-1.cc:  New test.
+	* testsuite/27_io/objects/char/9661-2_xin.cc:  New test.
+	* testsuite/27_io/objects/char/9661-2_xin.in:  New.
+	* testsuite/27_io/objects/wchar_t/1.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/10.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/2.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/2523-1_xin.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/2523-1_xin.in:  New.
+	* testsuite/27_io/objects/wchar_t/2523-2_xin.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/2523-2_xin.in:  New.
+	* testsuite/27_io/objects/wchar_t/3045.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/3647.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/3_xin.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/3_xin.in:  New.
+	* testsuite/27_io/objects/wchar_t/4_xin.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/4_xin.in:  New.
+	* testsuite/27_io/objects/wchar_t/5.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/5268.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/5280_xin.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/5280_xin.in:  New.
+	* testsuite/27_io/objects/wchar_t/6.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/6548_xin.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/6548_xin.in:  New.
+	* testsuite/27_io/objects/wchar_t/6648-1_xin.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/6648-1_xin.in:  New.
+	* testsuite/27_io/objects/wchar_t/6648-2_xin.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/6648-2_xin.in:  New.
+	* testsuite/27_io/objects/wchar_t/7.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/7744_xin.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/7744_xin.in:  New.
+	* testsuite/27_io/objects/wchar_t/8.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/9_xin.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/9_xin.in:  New.
+	* testsuite/27_io/objects/wchar_t/9520.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/9661-1.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/9661-2_xin.cc:  New test.
+	* testsuite/27_io/objects/wchar_t/9661-2_xin.in:  New.
+	* testsuite/27_io/objects/wchar_t/9662.cc:  New test.
+	* testsuite/ext/stdiobuf_char.cc:  New test.
+	* testsuite/ext/stdiobuf_wchar_t.cc:  New test.
+
+2003-05-10  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/27_io/basic_filebuf/close/char/3.cc: Remove
+	unnecessary includes and unused string literals.
+	* testsuite/27_io/basic_filebuf/in_avail/char/1.cc: Likewise.
+
+2003-05-08  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/std/std_streambuf.h (setg, setp): Don't touch _M_mode.
+
+2003-05-07  Richard Henderson  <rth@redhat.com>
+
+        PR c++/10570
+        * libsupc++/eh_catch.cc (__cxa_begin_catch): Handle foreign exceptions.
+        (__cxa_end_catch): Likewise.
+        * libsupc++/eh_throw.cc (__cxa_rethrow): Likewise.  Use
+        _Unwind_Resume_or_Rethrow.
+        * libsupc++/eh_personality.cc (empty_exception_spec): New.
+        (PERSONALITY_FUNCTION): Don't ignore terminate or catch-all
+        for _UA_FORCE_UNWIND.  Honor empty filter spec for foreign
+        exceptions.  Don't push terminate/unexpected to cxa functions.
+        (__cxa_call_unexpected): Remove foreign exception fixmes.
+
+2003-05-07  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* testsuite/27_io/ios_base/cons: New.
+	* testsuite/27_io/ios_base/cons/assign_neg.cc: New.
+	* testsuite/27_io/ios_base/cons/copy_neg.cc: New.	
+
+2003-05-07  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/std/std_fstream.h (_M_is_indeterminate): Remove.
+	* src/fstream.cc
+	(basic_filebuf<char/wchar_t>::_M_underflow): Simplify: either
+	there is no buffer or __testget == !__testinit.
+
+	* src/fstream.cc
+	(basic_filebuf<char/wchar_t>::_M_underflow): _M_set_determinate()
+	automatically sets, if appropriate, _M_out_cur == _M_in_cur.
+
+	* include/std/std_fstream.h (_M_destroy_pback): Don't set
+	unnecessarily _M_pback_cur_save and _M_pback_end_save.
+
+	* include/std/std_fstream.h (_M_set_determinate): Minor tweak.
+
+	* include/std/std_sstream.h (_M_sync): Minor tweak.
+
+	* include/bits/fstream.tcc (close): No need to call
+	_M_destroy_pback, setting _M_pback_init to false suffices
+	to clean up.
+
+2003-05-06  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* include/bits/stl_algo.h: Enums as _S_.
+	* include/bits/stl_tree.h: Same.
+	* include/bits/stl_bvector.h: Same.
+	* include/bits/ios_base.h: Same.
+	* include/bits/stl_alloc.h: Same.
+	* include/ext/stl_hashtable.h: Same.
+	* src/ios.cc: And here.
+	
+	* include/std/std_sstream.h: Replace _M_really_sync to _M_sync. 
+	* include/bits/sstream.tcc: Same.
+
+        * include/bits/basic_ios.h: Correct spacing for '< ctype'.
+ 
+	* include/bits/locale_facets.tcc: Replace __temp to __tmp.
+
+	* include/bits/locale_facets.h (__num_base): Remove protected.
+	Use _S_[io]* names for enumerations.
+	(_S_format_int): Remove.
+	* include/bits/locale_facets.tcc: Same.
+	* src/locale.cc: Same.
+	
+	* include/std/std_sstream.h (stringbuf::str): Tweak formatting.
+	
+2003-05-06  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/faq/index.html (3.10):  Add note about mips atomicity.h.
+	* docs/html/faq/index.txt:  Regenerated.
+
+2003-05-06  Michael Ritzert <Ritzert@t-online.de>
+	    Matt Kraai <kraai@alumni.cmu.edu>
+
+	* include/ext/stl_rope.h (_Rope_RopeRep<>::_M_c_string_lock): Tweak.
+	And retweak.
+
+2003-05-06  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.target (mips*): Use the generic atomicity.h by default.
+
+2003-05-05  Loren J. Rittle  <ljrittle@acm.org>
+	    (Inspired by an alternate patch from Danny Smith.)
+
+	* include/bits/stl_threads.h (_Atomic_swap): Kill it...
+	(_Swap_lock_struct<>): ...and the horse it rode in on.
+	* src/globals.cc (_Swap_lock_struct<>): Likewise.
+	* include/ext/stl_rope.h (_Rope_RopeRep<>::_M_c_string_lock): New
+	member to support...
+	* include/ext/ropeimpl.h (rope<>::c_str): Follow *all* memory
+	visibility rules related to POSIX threads.
+	* testsuite/thread/pthread7-rope.cc: New test.
+
+2003-05-04  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/21_strings/basic_string/find/char/3.cc: New
+	file, testing basic_string<char>::find_first_not_of.
+	* testsuite/21_strings/basic_string/find/wchar_t/3.cc:
+	Likewise for basic_string<wchar_t>.
+
 2003-05-03  Loren J. Rittle  <ljrittle@acm.org>
 
 	* testsuite/thread/pthread1.cc: Remove special case for FreeBSD.

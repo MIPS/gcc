@@ -1545,7 +1545,7 @@ static bool cp_parser_ctor_initializer_opt_and_function_body
 /* Classes [gram.class] */
 
 static tree cp_parser_class_name
-  (cp_parser *, bool, bool, bool, bool, bool, bool);
+  (cp_parser *, bool, bool, bool, bool, bool);
 static tree cp_parser_class_specifier
   (cp_parser *);
 static tree cp_parser_class_head
@@ -1654,7 +1654,7 @@ static void cp_parser_label_declaration
 /* Utility Routines */
 
 static tree cp_parser_lookup_name
-  (cp_parser *, tree, bool, bool, bool, bool);
+  (cp_parser *, tree, bool, bool, bool);
 static tree cp_parser_lookup_name_simple
   (cp_parser *, tree);
 static tree cp_parser_maybe_treat_template_as_class
@@ -1914,7 +1914,7 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser)
     {
       tree name;
 
-      /* If parsing tenatively, we should commit; we really are
+      /* If parsing tentatively, we should commit; we really are
 	 looking at a declaration.  */
       /* Consume the first identifier.  */
       name = cp_lexer_consume_token (parser->lexer)->value;
@@ -3081,7 +3081,6 @@ cp_parser_unqualified_id (cp_parser* parser,
 					      /*typename_keyword_p=*/false,
 					      /*template_keyword_p=*/false,
 					      /*type_p=*/false,
-					      /*check_access_p=*/true,
 					      /*check_dependency=*/false,
 					      /*class_head_p=*/false);
 	    if (cp_parser_parse_definitely (parser))
@@ -3099,7 +3098,6 @@ cp_parser_unqualified_id (cp_parser* parser,
 				      /*typename_keyword_p=*/false,
 				      /*template_keyword_p=*/false,
 				      /*type_p=*/false,
-				      /*check_access_p=*/true,
 				      /*check_dependency=*/false,
 				      /*class_head_p=*/false);
 	    if (cp_parser_parse_definitely (parser))
@@ -3117,7 +3115,6 @@ cp_parser_unqualified_id (cp_parser* parser,
 				      /*typename_keyword_p=*/false,
 				      /*template_keyword_p=*/false,
 				      /*type_p=*/false,
-				      /*check_access_p=*/true,
 				      /*check_dependency=*/false,
 				      /*class_head_p=*/false);
 	    if (cp_parser_parse_definitely (parser))
@@ -3132,7 +3129,6 @@ cp_parser_unqualified_id (cp_parser* parser,
 				  /*typename_keyword_p=*/false,
 				  /*template_keyword_p=*/false,
 				  /*type_p=*/false,
-				  /*check_access_p=*/true,
 				  /*check_dependency=*/false,
 				  /*class_head_p=*/false);
 	/* If an error occurred, assume that the name of the
@@ -3232,7 +3228,7 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
   else
     start = -1;
 
-  push_deferring_access_checks (true);
+  push_deferring_access_checks (dk_deferred);
 
   while (true)
     {
@@ -3485,7 +3481,6 @@ cp_parser_class_or_namespace_name (cp_parser *parser,
 				typename_keyword_p,
 				template_keyword_p,
 				type_p,
-				/*check_access_p=*/true,
 				check_dependency_p,
 				/*class_head_p=*/false);
   /* If that didn't work, try for a namespace-name.  */
@@ -6535,7 +6530,7 @@ cp_parser_simple_declaration (cp_parser* parser,
   /* Defer access checks until we know what is being declared; the
      checks for names appearing in the decl-specifier-seq should be
      done as if we were in the scope of the thing being declared.  */
-  push_deferring_access_checks (true);
+  push_deferring_access_checks (dk_deferred);
 
   /* Parse the decl-specifier-seq.  We have to keep track of whether
      or not the decl-specifier-seq declares a named class or
@@ -6564,7 +6559,7 @@ cp_parser_simple_declaration (cp_parser* parser,
      where "T" should name a type -- but does not.  */
   if (cp_parser_diagnose_invalid_type_name (parser))
     {
-      /* If parsing tenatively, we should commit; we really are
+      /* If parsing tentatively, we should commit; we really are
 	 looking at a declaration.  */
       cp_parser_commit_to_tentative_parse (parser);
       /* Give up.  */
@@ -7312,7 +7307,6 @@ cp_parser_mem_initializer_id (cp_parser* parser)
 				 /*typename_keyword_p=*/true,
 				 /*template_keyword_p=*/false,
 				 /*type_p=*/false,
-				 /*check_access_p=*/true,
 				 /*check_dependency_p=*/true,
 				 /*class_head_p=*/false);
   /* Otherwise, we could also be looking for an ordinary identifier.  */
@@ -7322,7 +7316,6 @@ cp_parser_mem_initializer_id (cp_parser* parser)
 			     /*typename_keyword_p=*/true,
 			     /*template_keyword_p=*/false,
 			     /*type_p=*/false,
-			     /*check_access_p=*/true,
 			     /*check_dependency_p=*/true,
 			     /*class_head_p=*/false);
   /* If we found one, we're done.  */
@@ -7942,7 +7935,7 @@ cp_parser_template_id (cp_parser *parser,
   else
     start_of_id = -1;
 
-  push_deferring_access_checks (true);
+  push_deferring_access_checks (dk_deferred);
 
   /* Parse the template-name.  */
   template = cp_parser_template_name (parser, template_keyword_p,
@@ -8116,7 +8109,6 @@ cp_parser_template_name (cp_parser* parser,
 
   /* Look up the name.  */
   decl = cp_parser_lookup_name (parser, identifier,
-				/*check_access=*/true,
 				/*is_type=*/false,
 				/*is_namespace=*/false,
 				check_dependency_p);
@@ -8252,7 +8244,7 @@ cp_parser_template_argument (cp_parser* parser)
       if (template_p)
 	argument = make_unbound_class_template (TREE_OPERAND (argument, 0),
 						TREE_OPERAND (argument, 1),
-						tf_error | tf_parsing);
+						tf_error);
       else if (TREE_CODE (argument) != TEMPLATE_DECL)
 	cp_parser_error (parser, "expected template-name");
     }
@@ -8309,7 +8301,7 @@ cp_parser_explicit_instantiation (cp_parser* parser)
   begin_explicit_instantiation ();
   /* [temp.explicit] says that we are supposed to ignore access
      control while processing explicit instantiation directives.  */
-  scope_chain->check_access = 0;
+  push_deferring_access_checks (dk_no_check);
   /* Parse a decl-specifier-seq.  */
   decl_specifiers 
     = cp_parser_decl_specifier_seq (parser,
@@ -8343,8 +8335,8 @@ cp_parser_explicit_instantiation (cp_parser* parser)
     }
   /* We're done with the instantiation.  */
   end_explicit_instantiation ();
-  /* Trun access control back on.  */
-  scope_chain->check_access = flag_access_control;
+  /* Turn access control back on.  */
+  pop_deferring_access_checks ();
 
   cp_parser_consume_semicolon_at_end_of_statement (parser);
 }
@@ -8687,7 +8679,6 @@ cp_parser_type_name (cp_parser* parser)
 				    /*typename_keyword_p=*/false,
 				    /*template_keyword_p=*/false,
 				    /*type_p=*/false,
-				    /*check_access_p=*/true,
 				    /*check_dependency_p=*/true,
 				    /*class_head_p=*/false);
   /* If it's not a class-name, keep looking.  */
@@ -8846,7 +8837,6 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 	     types, so we set IS_TYPE to TRUE when calling
 	     cp_parser_lookup_name.  */
 	  decl = cp_parser_lookup_name (parser, identifier, 
-					/*check_access=*/true,
 					/*is_type=*/true,
 					/*is_namespace=*/false,
 					/*check_dependency=*/true);
@@ -9114,7 +9104,6 @@ cp_parser_namespace_name (cp_parser* parser)
      function if the token after the name is the scope resolution
      operator.)  */
   namespace_decl = cp_parser_lookup_name (parser, identifier,
-					  /*check_access=*/true,
 					  /*is_type=*/false,
 					  /*is_namespace=*/true,
 					  /*check_dependency=*/true);
@@ -10955,7 +10944,7 @@ cp_parser_function_definition (cp_parser* parser, bool* friend_p)
      function is being defined.  There is no need to do this for the
      definition of member functions; we cannot be defining a member
      from another class.  */
-  push_deferring_access_checks (!member_p);
+  push_deferring_access_checks (member_p ? dk_no_check: dk_deferred);
 
   /* Parse the decl-specifier-seq.  */
   decl_specifiers 
@@ -11299,10 +11288,9 @@ cp_parser_initializer_list (cp_parser* parser)
    keyword has been used to indicate that the name that appears next
    is a template.  TYPE_P is true iff the next name should be treated
    as class-name, even if it is declared to be some other kind of name
-   as well.  The accessibility of the class-name is checked iff
-   CHECK_ACCESS_P is true.  If CHECK_DEPENDENCY_P is FALSE, names are
-   looked up in dependent scopes.  If CLASS_HEAD_P is TRUE, this class
-   is the class being defined in a class-head.
+   as well.  If CHECK_DEPENDENCY_P is FALSE, names are looked up in
+   dependent scopes.  If CLASS_HEAD_P is TRUE, this class is the class
+   being defined in a class-head.
 
    Returns the TYPE_DECL representing the class.  */
 
@@ -11311,7 +11299,6 @@ cp_parser_class_name (cp_parser *parser,
 		      bool typename_keyword_p, 
 		      bool template_keyword_p, 
 		      bool type_p,
-		      bool check_access_p,
 		      bool check_dependency_p,
 		      bool class_head_p)
 {
@@ -11366,7 +11353,6 @@ cp_parser_class_name (cp_parser *parser,
 	    type_p = true;
 	  /* Look up the name.  */
 	  decl = cp_parser_lookup_name (parser, identifier, 
-					check_access_p,
 					type_p,
 					/*is_namespace=*/false,
 					check_dependency_p);
@@ -11402,8 +11388,7 @@ cp_parser_class_name (cp_parser *parser,
        standard does not seem to be definitive, but there is no other
        valid interpretation of the following `::'.  Therefore, those
        names are considered class-names.  */
-    decl = TYPE_NAME (make_typename_type (scope, decl, 
-					  tf_error | tf_parsing));
+    decl = TYPE_NAME (make_typename_type (scope, decl, tf_error));
   else if (decl == error_mark_node
 	   || TREE_CODE (decl) != TYPE_DECL
 	   || !IS_AGGR_TYPE (TREE_TYPE (decl)))
@@ -11432,7 +11417,7 @@ cp_parser_class_specifier (cp_parser* parser)
   bool nested_name_specifier_p;
   unsigned saved_num_template_parameter_lists;
 
-  push_deferring_access_checks (false);  
+  push_deferring_access_checks (dk_no_deferred);
 
   /* Parse the class-head.  */
   type = cp_parser_class_head (parser,
@@ -11462,6 +11447,7 @@ cp_parser_class_specifier (cp_parser* parser)
   saved_num_template_parameter_lists 
     = parser->num_template_parameter_lists; 
   parser->num_template_parameter_lists = 0;
+
   /* Start the class.  */
   type = begin_class_definition (type);
   if (type == error_mark_node)
@@ -11633,6 +11619,8 @@ cp_parser_class_head (cp_parser* parser,
   if (cp_parser_global_scope_opt (parser, /*current_scope_valid_p=*/false))
     qualified_p = true;
 
+  push_deferring_access_checks (dk_no_check);
+
   /* Determine the name of the class.  Begin by looking for an
      optional nested-name-specifier.  */
   nested_name_specifier 
@@ -11657,8 +11645,6 @@ cp_parser_class_head (cp_parser* parser,
            class A { class B; };
            class A::B {};
 	 
-	 So, we ask cp_parser_class_name not to check accessibility.  
-
          We do not know if we will see a class-name, or a
 	 template-name.  We look for a class-name first, in case the
 	 class-name is a template-id; if we looked for the
@@ -11668,7 +11654,6 @@ cp_parser_class_head (cp_parser* parser,
 				   /*typename_keyword_p=*/false,
 				   /*template_keyword_p=*/false,
 				   /*type_p=*/true,
-				   /*check_access_p=*/false,
 				   /*check_dependency_p=*/false,
 				   /*class_head_p=*/true);
       /* If that didn't work, ignore the nested-name-specifier.  */
@@ -11726,6 +11711,8 @@ cp_parser_class_head (cp_parser* parser,
 	  ++num_templates;
 	}
     }
+
+  pop_deferring_access_checks ();
 
   /* If it's not a `:' or a `{' then we can't really be looking at a
      class-head, since a class-head only appears as part of a
@@ -12526,7 +12513,6 @@ cp_parser_base_specifier (cp_parser* parser)
 			       class_scope_p,
 			       template_p,
 			       /*type_p=*/true,
-			       /*check_access=*/true,
 			       /*check_dependency_p=*/true,
 			       /*class_head_p=*/false);
 
@@ -13170,10 +13156,6 @@ cp_parser_label_declaration (cp_parser* parser)
    If there was no entity with the indicated NAME, the ERROR_MARK_NODE
    is returned.
 
-   If CHECK_ACCESS is TRUE, then access control is performed on the
-   declaration to which the name resolves, and an error message is
-   issued if the declaration is inaccessible.
-
    If IS_TYPE is TRUE, bindings that do not refer to types are
    ignored.
 
@@ -13184,7 +13166,7 @@ cp_parser_label_declaration (cp_parser* parser)
    types.  */
 
 static tree
-cp_parser_lookup_name (cp_parser *parser, tree name, bool check_access, 
+cp_parser_lookup_name (cp_parser *parser, tree name, 
 		       bool is_type, bool is_namespace, bool check_dependency)
 {
   tree decl;
@@ -13352,7 +13334,7 @@ cp_parser_lookup_name (cp_parser *parser, tree name, bool check_access,
 
      During an explicit instantiation, access is not checked at all,
      as per [temp.explicit].  */
-  if (check_access && scope_chain->check_access && DECL_P (decl))
+  if (DECL_P (decl))
     {
       tree qualifying_type;
       
@@ -13377,7 +13359,6 @@ static tree
 cp_parser_lookup_name_simple (cp_parser* parser, tree name)
 {
   return cp_parser_lookup_name (parser, name, 
-				/*check_access=*/true,
 				/*is_type=*/false,
 				/*is_namespace=*/false,
 				/*check_dependency=*/true);
@@ -13662,6 +13643,7 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
   cp_parser_parse_tentatively (parser);
   /* Assume that we are looking at a constructor declarator.  */
   constructor_p = true;
+
   /* Look for the optional `::' operator.  */
   cp_parser_global_scope_opt (parser,
 			      /*current_scope_valid_p=*/false);
@@ -13697,12 +13679,12 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 					/*typename_keyword_p=*/false,
 					/*template_keyword_p=*/false,
 					/*type_p=*/false,
-					/*check_access_p=*/false,
 					/*check_dependency_p=*/false,
 					/*class_head_p=*/false);
       /* If there was no class-name, then this is not a constructor.  */
       constructor_p = !cp_parser_error_occurred (parser);
     }
+
   /* If we're still considering a constructor, we have to see a `(',
      to begin the parameter-declaration-clause, followed by either a
      `)', an `...', or a decl-specifier.  We need to check for a
@@ -13966,7 +13948,7 @@ cp_parser_single_declaration (cp_parser* parser,
      whether it will be a function-definition.  */
   cp_parser_parse_tentatively (parser);
   /* Defer access checks until we know what is being declared.  */
-  push_deferring_access_checks (true);
+  push_deferring_access_checks (dk_deferred);
 
   /* Try the `decl-specifier-seq [opt] init-declarator [opt]'
      alternative.  */
@@ -14556,7 +14538,7 @@ cp_parser_parse_tentatively (cp_parser* parser)
   /* In order to avoid repetitive access control error messages,
      access checks are queued up until we are no longer parsing
      tentatively.  */
-  push_deferring_access_checks (true);
+  push_deferring_access_checks (dk_deferred);
 }
 
 /* Commit to the currently active tentative parse.  */
@@ -14676,7 +14658,8 @@ yyparse (void)
   bool error_occurred;
 
   the_parser = cp_parser_new ();
-  push_deferring_access_checks (false);
+  push_deferring_access_checks (flag_access_control
+				? dk_no_deferred : dk_no_check);
   error_occurred = cp_parser_translation_unit (the_parser);
   the_parser = NULL;
   

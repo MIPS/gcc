@@ -9166,7 +9166,14 @@ reload_cse_move2add (first)
 		     value flag.  jump2 already knows how to get rid of
 		     no-op moves.  */
 		  if (new_src == const0_rtx)
-		    validate_change (insn, &SET_SRC (pat), reg, 0);
+		    {
+		      /* If the constants are different, this is a
+			 truncation, that, if turned into (set (reg)
+			 (reg)), would be discarded.  Maybe we should
+			 try a truncMN pattern?  */
+		      if (INTVAL (src) == reg_offset [regno])
+			validate_change (insn, &SET_SRC (pat), reg, 0);
+		    }
 		  else if (rtx_cost (new_src, PLUS) < rtx_cost (src, SET)
 			   && have_add2_insn (reg, new_src))
 		    {

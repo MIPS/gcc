@@ -1393,7 +1393,7 @@ poplevel (int keep, int reverse, int functionbody)
 		 there only for backward compatibility.  */
 	      DECL_DEAD_FOR_LOCAL (link) = 1;
 
-	      /* Keep track of what should of have happenned when we
+	      /* Keep track of what should have happened when we
 		 popped the binding.  */
 	      if (outer_binding && BINDING_VALUE (outer_binding))
 		DECL_SHADOWED_FOR_VAR (link)
@@ -2243,7 +2243,6 @@ maybe_push_to_top_level (int pseudo)
   s->need_pop_function_context = need_pop;
   s->function_decl = current_function_decl;
   s->last_parms = last_function_parms;
-  s->check_access = flag_access_control;
 
   scope_chain = s;
   current_function_decl = NULL_TREE;
@@ -2951,7 +2950,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	  SET_DECL_RTL (olddecl, DECL_RTL (newdecl));
 	}
       /* Even if the types match, prefer the new declarations type
-	 for anitipated built-ins, for exception lists, etc...  */
+	 for anticipated built-ins, for exception lists, etc...  */
       else if (DECL_ANTICIPATED (olddecl))
 	TREE_TYPE (olddecl) = TREE_TYPE (newdecl);
 
@@ -3243,7 +3242,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	  && TYPE_LANG_SPECIFIC (newtype) && TYPE_LANG_SPECIFIC (oldtype))
 	CLASSTYPE_FRIEND_CLASSES (newtype)
 	  = CLASSTYPE_FRIEND_CLASSES (oldtype);
-\
+
       DECL_ORIGINAL_TYPE (newdecl) = DECL_ORIGINAL_TYPE (olddecl);
     }
 
@@ -5483,12 +5482,7 @@ make_typename_type (tree context, tree name, tsubst_flags_t complain)
 	    }
 
 	  if (complain & tf_error)
-	    {
-	      if (complain & tf_parsing)
-		perform_or_defer_access_check (context, tmpl);
-	      else
-		enforce_access (context, tmpl);
-	    }
+	    perform_or_defer_access_check (context, tmpl);
 
 	  return lookup_template_class (tmpl,
 					TREE_OPERAND (fullname, 1),
@@ -5518,12 +5512,7 @@ make_typename_type (tree context, tree name, tsubst_flags_t complain)
 		}
 
 	      if (complain & tf_error)
-		{
-	      	  if (complain & tf_parsing)
-		    perform_or_defer_access_check (context, t);
-		  else
-		    enforce_access (context, t);
-		}
+		perform_or_defer_access_check (context, t);
 
 	      if (DECL_ARTIFICIAL (t) || !(complain & tf_keep_type_decl))
 		t = TREE_TYPE (t);
@@ -5580,12 +5569,7 @@ make_unbound_class_template (tree context, tree name, tsubst_flags_t complain)
 	}
       
       if (complain & tf_error)
-	{
-	  if (complain & tf_parsing)
-	    perform_or_defer_access_check (context, tmpl);
-	  else
-	    enforce_access (context, tmpl);
-	}
+	perform_or_defer_access_check (context, tmpl);
 
       return tmpl;
     }
@@ -8449,7 +8433,6 @@ register_dtor_fn (tree decl)
   tree compound_stmt;
   tree args;
   tree fcall;
-  int saved_flag_access_control;
 
   if (TYPE_HAS_TRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
     return;
@@ -8466,10 +8449,10 @@ register_dtor_fn (tree decl)
      to the original function, rather than the anonymous one.  That
      will make the back-end think that nested functions are in use,
      which causes confusion.  */
-  saved_flag_access_control = flag_access_control;
-  scope_chain->check_access = flag_access_control = 0;
+  
+  push_deferring_access_checks (dk_no_check);
   fcall = build_cleanup (decl);
-  scope_chain->check_access = flag_access_control = saved_flag_access_control;
+  pop_deferring_access_checks ();
 
   /* Create the body of the anonymous function.  */
   compound_stmt = begin_compound_stmt (/*has_no_scope=*/0);
@@ -8862,7 +8845,7 @@ grokfndecl (tree ctype,
 	 or enumeration declared in a local scope) shall not be used to
 	 declare an entity with linkage.
 
-	 Only check this for public decls for now.  */
+	 Only check this for public decls for now.  See core 319, 389.  */
       t = no_linkage_check (TREE_TYPE (decl));
       if (t)
 	{
@@ -13387,8 +13370,9 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
 	ctype = TYPE_METHOD_BASETYPE (fntype);
       else if (DECL_MAIN_P (decl1))
 	{
-	  /* If this doesn't return integer_type, complain.  */
-	  if (TREE_TYPE (TREE_TYPE (decl1)) != integer_type_node)
+	  /* If this doesn't return integer_type, or a typedef to
+	     integer_type, complain.  */
+	  if (!same_type_p (TREE_TYPE (TREE_TYPE (decl1)), integer_type_node))
 	    {
 	      if (pedantic || warn_return_type)
 		pedwarn ("return type for `main' changed to `int'");

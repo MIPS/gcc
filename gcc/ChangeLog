@@ -1,3 +1,639 @@
+2003-05-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* reload1.c (reload_cse_move2add): Revert part of my 2003-05-09's
+	patch.
+
+2003-05-10  Zack Weinberg  <zack@codesourcery.com>
+
+	* diagnostic.c: Reorder functions for clarity, putting all the
+	functions in the "error" family next to each other, and
+	likewise all the functions in the "error_with_decl" family.
+	Some other routines were moved too.  Add comments.
+	(vbuild_message_string): Fold into sole caller.
+
+
+2003-05-11  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* except.c (EH_RETURN_STACKADJ_RTX): Do not define.
+	(EH_RETURN_HANDLER_RTX): Likewise.
+	(expand_builtin_eh_return): Do not copy stack adjustment
+	if EH_RETURN_STACKADJ_RTX is not defined.
+	(expand_eh_return): Likewise.  Also, do not pass stack
+	adjustment as argument to the eh_return pattern.
+	* except.h (MUST_USE_SJLJ_EXCEPTIONS): Do not define just
+	because EH_RETURN_STACKADJ_RTX is not defined.
+	* unwind-dw.c (uw_update_context_1): If EH_RETURN_STACKADJ_RTX
+	is not defined, treat stack pointer like a regular register.
+	(uw_init_context_1): Set up fake initial stack pointer register.
+	(uw_install_context_1): Do not compute stack adjustment if
+	EH_RETURN_STACKADJ_RTX is not defined.
+
+	* config/i386/i386.md ("eh_return"): Remove first argument.
+	* config/mips/mips.md ("eh_return"): Likewise.
+	* config/rs6000/rs6000.md ("eh_return"): Likewise.
+	* config/sh/sh.md ("eh_return"): Likewise.
+
+	* config/s390/s390.h (EH_RETURN_STACKADJ_RTX): Remove.
+
+2003-05-10  Alexander Aganichev  <aaganichev@yandex.ru>
+
+	* config/i386/i386.h (MODES_TIEABLE_P): Fix typo.
+
+2003-05-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* defaults.h (GCOV_TYPE_SIZE): Remove.
+	* gcov-io.h (gcov_type): Set to specific mode int on target.
+	(gcov_unsigned_t, gcov_position_t): New.
+	(GCOV_TYPE_NODE): New.
+	(GCOV_TAG_SUMMARY_LENGTH): Adjust.
+	(GCOV_COUNTERS_SUMMABLE): New.
+	(gcov_ctr_summary, gcov_sumary, gcov_fn_info, gcov_merge_fn,
+	gcov_ctr_info, gcov_info): Adjust types.
+	(gcov_var): Adjust types.
+	(gcov_write_unsigned, gcov_write_tag,
+	gcov_write_length, gcov_write_tag_length, gcov_write_summary,
+	gcov_read_unsigned, gcov_read_summary): Adjust gcov types.
+	(gcov_position, gcov_sync, gcov_seek): Adjust gcov types.
+	* gcov-io.c (gcov_write_unsigned, gcov_write_tag,
+	gcov_write_length, gcov_write_tag_length, gcov_write_summary,
+	gcov_read_unsigned, gcov_read_summary): Adjust gcov types.
+	* libgcov.c (gcov_crc32, gcov_version_mismatch, gcov_exit,
+	__gcov_init, __gcov_merge_add): Adjust gcov types.
+	* coverage.c (ctr_merge_functions): Constify.
+	(ctr_names): New.
+	(read_counts_file): Adjust gcov types. Only summarize & merge
+	summable counters.
+	(coverage_counter_ref): Use GCOV_TYPE_NODE.
+	(build_fn_info_type, build_fn_info_value, build_ctr_info_type,
+	build_ctr_info_value, build_gcov_info): Adjust types.
+	* profile.c (branch_prob): Adjust gcov types.
+	* gcov_dump (dump_file): Adjust gcov types.
+
+2003-05-10  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.md (DOM_CC_X_AND_Y, DOM_CC_NX_OR_Y, DOM_CC_X_OR_Y): New
+	constants.
+	(ior_scc_scc, and_scc_scc): New insn_and_split patterns.
+	* arm.c (arm_select_dominance_cc_mode): Renamed from
+	select_dominance_cc_mode, no-longer static.  Use DOM_CC... constants.
+	Callers updated.
+	* arm-protos.h (arm_select_dominance_cc_mode): Add prototype.
+
+2003-05-09  Roger Sayle  <roger@eyesopen.com>
+
+	* config/alpha/alpha.c (alpha_start_function): Declare frame_size
+	as unsigned to avoid signed/unsigned comparison warnings.
+
+2003-05-09  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.c (xtensa_emit_loop_end): Only use "nop.n"
+	instruction if the Xtensa density option is enabled.
+
+2003-05-09  Matt Kraai <kraai@alumni.cmu.edu>
+
+       * mklibgcc.in: Remove extra quotes.
+
+2003-05-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/rs6000/rs6000.c (spe_init_builtins): Fix typo in creation
+	of int_ftype_void.
+
+2003-05-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* reload1.c (reload_cse_move2add): Don't turn an implicit
+	truncation into a self-set in the narrow mode.
+
+2003-05-09  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.md (clzsi2): The CLZ instruction is predicable.
+
+2003-05-09  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.c: Formatting.
+
+2003-05-09  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dump.c (dequeue_and_dump): Use CONSTRUCTOR_ELTS,
+	instead of TREE_OPERAND to access the operand of a
+	CONSTRUCTOR node.
+
+2003-05-09  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dump.c (dequeue_and_dump): CONSTRUCTOR nodes contain only
+	one operand.
+
+2003-05-09  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	* toplev.h (warning_with_file_and_line): Don't declare.
+	(error_with_file_and_line): Likewise.
+	* diagnostic.c (error_with_file_and_line): Remove.
+	(warning_with_file_and_line): Likewise.
+
+2003-05-09  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	* c-parse.in (if_stmt_locus): New object.
+	(if_prefix rule): Use it.  Don't use warning_with_file_and_line.
+	(select_or_iter_stmt rule): Likewise.
+	(if_stmt_file): Remove.
+	(if_stmt_line): Likewise.
+	* jump.c: include "diagnostic.h"
+	(never_reached_warning): Don't use warning_with_file_and_line.
+	* Makefile.in (jump.o): Add dependce on diagnostic.h
+
+2003-05-09  Alan Modra  <amodra@bigpond.net.au>
+
+	* expr.c (move_block_from_reg): Remove "size" parm.  Localize vars.
+	Move code handling pieces not larger than a word to..
+	* function.c (assign_parms): ..here, but use change_address instead
+	of adjust_address and operand_subword, and expand_binop instead of
+	expand_shift.  Adjust calls to move_block_from_reg.
+	* expr.h (move_block_from_reg): Update declaration.
+	(copy_blkmode_from_reg): Formatting.
+	* Makefile.in (function.o): Add $(OPTABS_H) to deps.
+	* config/alpha/alpha.c (alpha_setup_incoming_varargs): Adjust
+	move_block_from_reg calls.
+	* config/arc/arc.c (arc_setup_incoming_varargs): Likewise.
+	* config/i960/i960.c (i960_setup_incoming_varargs): Likewise.
+	* config/m32r/m32r.c (m32r_setup_incoming_varargs): Likewise.
+	* config/m88k/m88k.c (m88k_builtin_saveregsk): Likewise.
+	* config/mips/mips.c (mips_setup_incoming_varargs): Likewise.
+	* config/pa/pa.c (hppa_builtin_saveregs): Likewise.
+	* config/romp/romp.h (SETUP_INCOMING_VARARGS): Likewise.
+	* config/rs6000/rs6000.c (setup_incoming_varargs): Likewise.
+	* config/sh/sh.c (sh_builtin_saveregs): Likewise.
+
+2003-05-08  DJ Delorie  <dj@redhat.com>
+
+	* config/stormy16/stormy16.c (xstormy16_expand_builtin_va_arg): Fix
+	to handle arguments for which MUST_PASS_IN_STACK is true (e.g.,
+	variable-sized types).
+	(xstormy16_function_arg): New.  Pass them that way too.
+	* config/stormy16/stormy16-protos.h (xstormy16_function_arg): New.
+	* config/stormy16/stormy16.h (FUNCTION_ARG): Call it.
+
+2003-05-08  Aldy Hernandez  <aldyh@redhat.com>
+
+	* mklibgcc.in: Use mkinstalldirs when installing multilib
+	directories.
+
+2003-05-08  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.c (gen_block_redirect, split_branches): Use CODE_FOR_jump_compact
+	instead of CODE_FOR_jump
+
+2003-05-08  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	* objc/objc-act.c (error_with_ivar): Don't use
+	error_with_file_and_line.
+	(warn_with_method): Don't use warning_with_file_and_line.
+
+2003-05-08  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* stmt.c (emit_locus): New macro.
+	(emit_filename): Remove.
+	(emit_lineno): Likewise.
+	(struct stmt_status): Replace members x_emit_filename and
+	x_emit_lineno with x_emit_locus.
+	(set_file_and_line_for_stmt): Adjust.
+	(expand_expr_stmt_value): Don't use warning_with_file_and_line.
+	(warn_if_unused_value): Likewise.
+	(check_seenlabel): Likewise.
+
+2003-05-08  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* c-decl.c (define_label): Tidy.  Don't use any of
+	error_with_file_and_line or warning_with_file_and_file.
+	(pending_xref_error): Likewise.
+	(store_parm_decls): Likewise.
+	(current_function_prototype_locus): New object.  Package from
+	current_function_prototype_file and current_function_prototype_line.
+	(start_function): Use it.
+	(current_function_prototype_file): Remove.
+	(current_function_prototype_line): Remove;
+
+2003-05-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (readonly_data_expr): New function.
+	(expand_builtin_memmove): Optimize any rodata source, not just
+	strings.
+
+2003-05-07  David Mosberger <davidm@hpl.hp.com>
+
+	* unwind-libunwind.c (_Unwind_FindEnclosingFunction): New.
+
+2003-05-07  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_split_long_move): Fix base register
+	mode for XFmode splits for TARGET_64BIT.
+
+2003-05-07  Richard Henderson  <rth@redhat.com>
+
+	* sched-ebb.c (schedule_ebb): Supply the correct starting
+	block number to save_line_notes.
+
+2003-05-07  Richard Henderson  <rth@redhat.com>
+
+	* toplev.c (enum dump_file_index): Swap DFI_ce3, DFI_bbro.
+	(dump_file): Likewise.
+
+2003-05-07  David Mosberger <davidm@hpl.hp.com>
+
+	* config/ia64/crtbegin.asm (__do_jv_register_classes): Don't
+	forget to preserve gp.
+	* config/ia64/crtend.asm (__do_global_ctors_au): Ditto.
+
+	* config/ia64/crtbegin.asm (__do_jv_register_classes): Add missing
+	.prologue directive.
+	Use .skip instead of data8 for .bss section to make Intel
+	Assembler (ias) happy.  Minor whitespace fixups.  Make "nop 0"
+	explicit in the .mib bundles and remove the unnecessary stop
+	bits.  Replace local labels with normal labels, to make ias
+	happy.  Don't register __do_global_ctors_aux here, do it in
+	crtend.asm instead.
+
+	* config/ia64/crtend.asm [HAVE_INIT_FINI_ARRAY]: Register
+	__do_global_ctors_aux in .init_array section instead of
+	declaring it as a hidden global.  Replace local labels with
+	ordinary labels to make ias happy.
+
+2003-05-07  Richard Henderson  <rth@redhat.com>
+
+	PR c++/10570
+	* except.c: Revert 04-01 and 04-02 forced-unwind changes.
+	* flags.h, toplev.c, doc/invoke.texi: Likewise.
+
+	* unwind-dw2.c (_Unwind_GetCFA): Fix ptr->int conversion warning.
+	* unwind.inc (_Unwind_DeleteException): Check for null
+	exception_cleanup.
+
+	* unwind-sjlj.c (_Unwind_SjLj_Resume_or_Rethrow): New.
+	* unwind.inc (_Unwind_Resume_or_Rethrow): New.
+	* unwind.h: Declare them.
+	* libgcc-std.ver (GCC_3.3): Export them.
+
+2003-05-07  Richard Henderson  <rth@redhat.com>
+
+	* unwind-dw2.c (_Unwind_GetCFA): Cast pointer to _Unwind_Ptr,
+	not _Unwind_Word.
+
+2003-05-07  Zack Weinberg  <zack@codesourcery.com>
+
+	* stmt.c (force_label_rtx): New function, based on logic
+	formerly found in expand_expr.
+	* expr.h: Prototype it.
+	* expr.c (expand_expr <LABEL_DECL>): Use force_label_rtx if
+	appropriate.
+	* varasm.c (decode_addr_const <LABEL_DECL>): Use force_label_rtx.
+
+	* print-tree.c (debug_tree): Free the table after we're done
+	with it.  Use putc.
+
+2003-05-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/spe.h: Reverse arguments for __ev_subfw.
+	Unreverse arguments for __ev_subw.
+
+	* config/rs6000/spe.md (evsubfw): Reverse arguments of assembly.
+
+2003-05-07  Nick Clifton  <nickc@redhat.com>
+
+	* config/stormy16/stormy-abi: Update to include
+	R_XSTORMY16_FPTR16, R_XSTORMY16_LO16, R_XSTORMY16_HI16 and
+	R_XSTORMY16_12 relocs.
+
+2003-05-07  Alan Modra  <amodra@bigpond.net.au>
+
+	* function.c (assign_parms): Correct reversed reg_parm_stack_space
+	test.  Add partial in-regs size to stack_args_size.
+
+2003-05-07  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/invoke.texi (Warning Options): Mark -Wmissing-declarations
+	as a C only option.
+
+2003-05-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcov-io.h (GCOV_LOCKED): New #define.
+	(GCOV_LINKAGE): Make sure it is #defined.
+	(gcov_write_string, gcov_write_tag, gcov_write_length,
+	gcov_read_string, gcov_time): Poison in libgcov.
+	(gcov_seek_end): Remove.
+	(gcov_write_tag_length, gcov_sync, gcov_rewrite): New.
+	(GCOV_TAG_FUNCTION_LENGTH, GCOV_TAG_BLOCKS_LENGTH,
+	GCOV_TAG_ARCS_LENGTH, GCOV_TAG_COUNTER_LENGTH,
+	GCOV_TAG_SUMMARY_LENGTH): New #defines.
+	(gcov_write_tag, gcov_write_length): Not in libgcov.
+	* gcov-io.c (gcov_open): Use GCOV_LOCKED.
+	(gcov_write_tag, gcov_write_length): Not in libgcov.
+	(gcov_write_tag_length): New.
+	(gcov_write_summary): Use gcov_write_tag_length.
+	* libgcov.c: Always #include gcov-io.h.
+	(IN_LIBGCOV): -1 for inhibit_libc, +1 otherwise.
+	(GCOV_LINKAGE): Define to nothing for L_gcov.
+	(gcov_exit): Replace gcov_write_tag, gcov_write_length with
+	gcov_write_tag_length. Use gcov_rewrite & gcov_seek.
+	* gcov.c (read_graph_file): Replace gcov_seek by gcov_sync.
+	(read_count_file): Likewise.
+	* gcov-dump.c (dump_file): Likewise.
+	* coverag.c (read_counts_file): Likewise.
+
+2003-05-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR other/10658
+	* gcc.c (process_command): Update copyright date.
+
+2003-05-06  Phil Edwards  <pme@gcc.gnu.org>
+
+	* doc/install.texi (mips-*-*):  Add note about libstdc++.
+
+2003-05-06  DJ Delorie  <dj@redhat.com>
+
+	* config/stormy16/stormy16.c (xstormy16_function_profiler): New.
+	* config/stormy16/stormy16.h (FUNCTION_PROFILER): Call it.
+	* config/stormy16/stormy16-protos.h (xstormy16_function_profiler): New.
+
+2003-05-06    <neil@cat.daikokuya.co.uk>
+
+	* c-opts.c (COMMAND_LINE_OPTIONS): Reject -Wmissing-prototypes
+	and -Wstrict-prototypes if C++.
+
+2003-05-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/linuxspe.h: New file.
+
+	* config.gcc: Add powerpc-*-linux-gnuspe* target.
+
+2003-05-06  Richard Henderson  <rth@redhat.com>
+
+	* unwind-dw2.c (uw_update_context_1): Only set cfa as sp if
+	previous frame didn't save sp.  Clear sp for next frame.
+	(uw_install_context_1): Honor saved sp from frame.
+
+2003-05-06  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips-protos.h (mips_subword, mips_output_move): Declare.
+	(mips_move_1word, mips_move_2words): Remove declaration.
+	(mips_split_64bit_move_p, mips_split_64bit_move): Declare.
+	(mips_restore_gp): Remove insn argument.
+	* config/mips/mips.h (FP_REG_RTX_P): New macro.
+	* config/mips/mips.c (volatile_buffer): Remove.
+	(mips_subword, mips_split_64bit_move_p, mips_split_64bit_move): New.
+	(mips_move_1word, mips_move_2words): Remove, replacing with...
+	(mips_output_move): ...this new function.
+	(mips_restore_gp): Remove insn argument.  Adjust for above changes.
+	(print_operand): Make '%h' print %hi(op) for HIGH operands.  Remove
+	handling of floating-point constants.  Handle zero CONST_DOUBLE
+	arguments.
+	(mips_annotate_frame_insn): Replace with...
+	(mips_set_frame_expr): ...this, which just takes one argument.
+	(mips_frame_set): Change the register argument to an rtx.
+	(mips_emit_frame_related_store): Use mips_split_64bit_move_p to
+	check whether moves should be split.  Use mips_split_64bit_move
+	to split them.  Use mips_subword to generate the high and low
+	parts of a paired FPR.  Adjust calls to frame_set and
+	mips_set_frame_expr.
+	(mips_expand_prologue): Simplify due to above changes.
+	* config/mips/mips.md:	Add splitters for 64-bit moves on 32-bit
+	targets, replacing xisting register-only versions.
+	(UNSPEC_STORE_DF_HIGH): New unspec.
+	(UNSPEC_LOAD_DF_LOW, UNSPEC_LOAD_DF_HIGH): New unspecs.
+	(mulsi3_r4000, muldi3_internal2): Avoid use of mips_move_1word.
+	(*paradoxical_extendhidi2): Remove.
+	(movdi_internal, movdi_internal2): Use mips_output_move.
+	(*movdi_internal2_mips16, movsi_internal, movcc): Likewise.
+	(movsf_internal1, movsf_internal2): Likewise.
+	(movdf_internal1a): Likewise.  Fix length and type of f <- G case.
+	(movdf_internal1b): Use mips_output_move.  Fix type of f <- G case.
+	(movdf_internal2): Use mips_output_move.  Fix lengths of FPR moves.
+	Add m <- G alternative.
+	(load_df_low, load_df_high, store_df_low): New patterns.
+	(movhi_internal): Use @ template instead of calling a function.
+	Remove unnecessary 'z' alternatives.
+	(movqi_internal): Likewise.
+	(exception_receiver): Update call to mips_restore_gp.
+
+2003-05-06  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips-protos.h (mips_simplify_dwarf_addr): Remove.
+	(mips_delegitimize_address): Declare.
+	* config/mips/mips.h (ASM_SIMPLIFY_DWARF_ADDR): Undefine.
+	(FIND_BASE_TERM): Define.
+	* config/mips/mips.c (TARGET_DELEGITIMIZE_ADDRESS): Define.
+	(mips_delegitimize_address): Renamed from mips_simplify_dwarf_addr.
+	Handle small-data addresses.
+
+2003-05-05  Roger Sayle  <roger@eyesopen.com>
+
+	* real.c (real_powi): New function to calculate the value of
+	a real raised to an integer power, i.e. pow(x,n) for int n.
+	(real_sqrt): Convert to using the faster do_add, do_multiply
+	and do_divide API for consistency with the rest of real.c.
+	* real.h (real_powi): Prototype here.
+	* builtins.c (fold_builtin):  Avoid local variable mode when
+	evaluating sqrt at compile time.  Attempt to evaluate pow at
+	compile-time, by checking for an integral exponent.
+
+2003-05-05  Richard Henderson  <rth@redhat.com>
+
+	* doc/extend.texi (Variable Attributes): Re-sort table and tidy.
+
+2003-05-05  David O'Brien  <obrien@FreeBSD.org>
+
+	* config/rs6000/sysv4.h (CPP_OS_FREEBSD_SPEC): Add __ELF__ to mirror
+	other FreeBSD ports.
+	(LINK_OS_FREEBSD_SPEC): Mirror conventions on other FreeBSD ports.
+	(_LITTLE_ENDIAN): Use __LITTLE_ENDIAN__ instead.
+
+2003-05-05  Janis Johnson  <janis187@us.ibm.com>
+
+	* Makefile.in: (site.exp): Add ALT_CC_UNDER_TEST, add quotes around
+	expanded variables.
+	* doc/sourcebuild.texi (C tests): Describe gcc.dg/compat tests.
+
+2003-05-05  Zack Weinberg  <zack@codesourcery.com>
+
+	* rtl.h (STRING_POOL_ADDRESS_P): Rename to DEFERRED_CONSTANT_P.
+	* varasm.c (struct varasm_status): Add deferred_constants field.
+	(n_deferred_strings): Delete variable.
+	(n_deferred_constants): New #define.
+	(struct constant_descriptor_tree): Kill next and label fields.
+	(const_hash_table, MAX_HASH_TABLE): Delete.
+	(const_desc_htab): New static variable.
+	(const_hash): Rename const_desc_hash, and make it fit the
+	hashtab.h interface.
+	(const_desc_eq): New.
+	(const_hash_1, compare_constant): Const-ify arguments.
+	(build_constant_desc): Set DEFERRED_CONSTANT_P on all new
+	SYMBOL_REFs.  Clarify comments.  Don't set desc->label.
+	(output_constant_def): Do the lookup/insert using the
+	hashtab.h interface.  Don't muck with n_deferred_constants or
+	DEFERRED_CONSTANT_P here.
+	Always call maybe_output_constant_def_contents.
+	(maybe_output_constant_def_contents): Take a pointer to the
+	descriptor, not the EXP and RTL separately.  Return
+	immediately if this constant is not deferred.  Defer output of
+	everything, except writable string constants.  Update
+	n_deferred_constants here.
+	(output_constant_def_contents): Now takes just one argument,
+	an rtx.  Clear DEFERRED_CONSTANT_P here.
+	(mark_constant_pool): Update for rename of n_deferred_strings.
+	(mark_constant): Don't clear DEFERRED_CONSTANT_P here.
+
+	(init_varasm_status): Clear p->deferred_constants.
+	(init_varasm_once): Call htab_create_ggc for const_desc_htab.
+
+2003-05-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (expand_builtin_stpcpy): Only expand when the length
+	of the source string can be evaluated at compile-time.
+
+2003-05-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* testsuite/gcc.c-torture/compile/simd-6.c: New.
+
+	* c-typeck.c (digest_init): Handle arrays of vector constants.
+
+2003-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.c (expand_builtin_mempcpy): New function.
+	(expand_builtin_stpcpy): Optimize stpcpy whose return value is
+	ignored into strcpy no matter what arguments it has.
+	(expand_builtin) <case BUILT_IN_MEMPCPY>: Call
+	expand_builtin_mempcpy.
+
+2003-05-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* testsuite/gcc.dg/20030505.c: New.
+
+	* c-typeck.c (convert_for_assignment): Opaque pointers can
+	interconvert.
+
+	* config/rs6000/rs6000.c: New global opaque_p_V2SI_type_node.
+	(rs6000_init_builtins): Initialize opaque_p_V2SI_type_node.
+	(spe_init_builtins): Rename all pv2si_type_node to
+	opaque_p_V2SI_type_node.
+	Remove declaration of pv2si_type_node.
+	(is_ev64_opaque_type): Accept opaque pointers.
+
+2003-05-05  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/rs6000/rs6000.c (validate_condition_mode): Use
+	flag_finite_math_only.
+	(rs6000_reverse_condition): Never return UNKNOWN; use
+	flag_finite_math_only.
+	(rs6000_generate_compare): Use flag_finite_math_only.
+	(rs6000_emit_cmove): Handle UNLE.  Support UNEQ under -ffast-math.
+	Use HONOR_* rather than flag_unsafe_math_optimizations.  Correct
+	UNGE and GT cases.  Handle UNEQ and LTGT when ! HONOR_NANS.
+
+	* toplev.c (check_global_declarations): Suppress not-used warning
+	for volatile variables.
+
+2003-05-05  Olivier Hainque  <hainque@act-europe.fr>
+
+	* expr.c (expand_expr, case BIT_FIELD_REF): Refine the test forcing
+	usage of bitfield instructions for mode1 != BLKmode, only ignoring
+	SLOW_UNALIGNED_ACCESS if the field is not byte aligned.
+	(store_field): Likewise.
+
+2003-05-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_binop_builtin): Add
+	evsubifw to builtins accepting 5-bit unsigned constants.
+	(easy_vector_constant): Return if V1DImode.  Fix typo.
+
+2003-05-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/spe.h: Revert licensing change from last patch.
+
+2003-05-05  DJ Delorie  <dj@redhat.com>
+
+	* config/stormy16/stormy16.md (negsi2): Allocate the pseudos
+	before reload, but defer the split until after.
+	* config/stormy16/stormy16.c (xstormy16_expand_arith): Modify
+	to match.
+
+2003-05-05  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.h (ASM_CPU_SPEC): Add 440 support.
+	* config/rs6000/vxworks.h (CC1_SPEC): Use -mcpu=440 for t440.
+
+2003-05-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* libgcov.c (__gcov_merge_add): Do not use gcov_type when inhibit_libc
+	is defined.
+
+2003-05-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtin-attrs.def (ATTR_NOTHROW_NONNULL_1,
+	ATTR_NOTHROW_NONNULL_2, ATTR_NOTHROW_NONNULL_3): Renamed from
+	ATTR_NONNULL_1, ATTR_NONNULL_2 and ATTR_NONNULL_3.
+
+	(ATTR_NOTHROW_NONNULL_1_2, ATTR_NOTHROW_NONNULL_1_4,
+	ATTR_CONST_NOTHROW_NONNULL_1, ATTR_PURE_NOTHROW_NONNULL_1,
+	ATTR_PURE_NOTHROW_NONNULL_1_2, ATTR_MALLOC_NOTHROW_NONNULL_1):
+	New.
+
+	* builtins.def (DEF_EXT_FALLBACK_BUILTIN): Accept ATTRS argument.
+	(BUILT_IN_BZERO, BUILT_IN_BCOPY, BUILT_IN_BCMP): Update comment
+
+	(BUILT_IN_INDEX, BUILT_IN_RINDEX, BUILT_IN_MEMCPY,
+	BUILT_IN_MEMMOVE, BUILT_IN_MEMCMP, BUILT_IN_MEMSET,
+	BUILT_IN_MEMPCPY, BUILT_IN_STRCAT, BUILT_IN_STRNCAT,
+	BUILT_IN_STPCPY, BUILT_IN_STRCPY, BUILT_IN_STRNCPY,
+	BUILT_IN_STRCMP, BUILT_IN_STRNCMP, BUILT_IN_STRLEN,
+	BUILT_IN_STRSTR, BUILT_IN_STRPBRK, BUILT_IN_STRSPN,
+	BUILT_IN_STRCSPN, BUILT_IN_STRCHR, BUILT_IN_STRRCHR, BUILT_IN_NAN,
+	BUILT_IN_NANF, BUILT_IN_NANL, BUILT_IN_NANS, BUILT_IN_NANSF,
+	BUILT_IN_NANSL, BUILT_IN_PUTS, BUILT_IN_FPUTC, BUILT_IN_FPUTS,
+	BUILT_IN_FWRITE, BUILT_IN_PUTS_UNLOCKED, BUILT_IN_FPUTC_UNLOCKED,
+	BUILT_IN_FPUTS_UNLOCKED, BUILT_IN_FWRITE_UNLOCKED,
+	BUILT_IN_STRDUP): Add "nonnull" attribute.
+
+2003-05-04  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* expr.c (store_field): Don't clobber TEMP in shift: it might be
+	a variable.
+	(get_inner_reference): Don't go through a VIEW_CONVERT_EXPR
+	whose purpose is to step up the alignment.
+	(expand_expr, case ADDR_EXPR): Force LO_SUM into memory, just like REG.
+
+	* stor-layout.c (compute_record_mode): Relax restriction
+	on fields crossing word boundaries forcing BLKmode.
+
+2003-05-04  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cppinit.c (cpp_create_reader, post_options): Warn about
+	trigraphs unless explicity set or -trigraphs.
+	* cpplex.c (warn_in_comment): New.
+	(_cpp_process_line_notes): Better handling of -Wtrigraphs.
+	(_cpp_skip_block_comment): Add call to _cpp_process_line_notes.
+	* doc/cppopts.texi, doc/cpp.texi: Update.
+
+2003-05-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (LIBGCOV): Add _gcov_merge_add.
+	* gcov-io.h: Make GCOV_LINKAGE extern in libgcov and prevent resulting
+	namespace clash.
+	(GCOV_MERGE_FUNCTIONS): New.
+	(gcov_merge_fn): Declare.
+	(struct gcov_ctr_info): New field "merge".
+	(__gcov_merge_add): Declare.
+	* coverage.c (ctr_merge_functions): New.
+	(build_ctr_info_type, build_ctr_info_value): Initialize merge field
+	of gcov_ctr_info type.
+	* libgcov.c (__gcov_merge_add): New.
+	(gcov_exit): Call a hook to merge values of counters.
+
+2003-05-04  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	* toplev.h (pedwarn_with_file_and_line): Don't declare.
+	* diagnostic.c (pedwarn_with_file_and_line): Remove.
+
+2003-05-04  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* varasm.c (assemble_variable): Don't use error_with_file_and_line.
+
 2003-05-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* builtins.c (expand_builtin_constant_p, expand_builtin_strlen,

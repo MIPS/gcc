@@ -1125,11 +1125,11 @@ enum c_tree_code {
    langhook should take care of initialization of this array.  */
 extern bool statement_code_p[MAX_TREE_CODES];
 
-#define STATEMENT_CODE_P(CODE) statement_code_p[(int) (CODE)]
+#define STATEMENT_CODE_P(CODE) statement_code_p[(size_t) (CODE)]
 
 #define INIT_STATEMENT_CODES(STMT_CODES)			\
   do {								\
-    unsigned int i;						\
+    size_t i;						\
     memset (&statement_code_p, 0, sizeof (statement_code_p));	\
     for (i = 0; i < ARRAY_SIZE (STMT_CODES); i++)		\
       statement_code_p[STMT_CODES[i]] = true;			\

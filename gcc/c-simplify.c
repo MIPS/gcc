@@ -705,13 +705,14 @@ simplify_if_stmt (stmt_p)
         {
 	  if (warn_notreached)
 	    {
-	      int line = (TREE_CODE (then_) == COMPOUND_STMT)
-			 ? STMT_LINENO (COMPOUND_BODY (else_))
-			 : STMT_LINENO (else_);
-	      warning_with_file_and_line (input_filename,
-					  line, 
-					  "will never be executed");
+	      location_t loc;
+	      loc.file = input_filename;
+	      loc.line = STMT_LINENO (TREE_CODE (else_) == COMPOUND_STMT
+				      ? COMPOUND_BODY (else_)
+				      : else_);
+	      warning ("%Hwill never be executed", &loc);
 	    }
+
 	  c_simplify_stmt (&then_);
 	  *stmt_p = then_;
 	  return;
@@ -725,12 +726,12 @@ simplify_if_stmt (stmt_p)
         {
 	  if (warn_notreached)
 	    {
-	      int line = (TREE_CODE (then_) == COMPOUND_STMT)
-			 ? STMT_LINENO (COMPOUND_BODY (then_))
-			 : STMT_LINENO (then_);
-	      warning_with_file_and_line (input_filename,
-					  line, 
-					  "will never be executed");
+	      location_t loc;
+	      loc.file = input_filename;
+	      loc.line = STMT_LINENO (TREE_CODE (then_) == COMPOUND_STMT
+				      ? COMPOUND_BODY (then_)
+				      : then_);
+	      warning ("%Hwill never be executed", &loc);
 	    }
 	  c_simplify_stmt (&else_);
 	  *stmt_p = else_;

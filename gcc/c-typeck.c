@@ -4210,12 +4210,20 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
     {
       tree ttl = TREE_TYPE (type);
       tree ttr = TREE_TYPE (rhstype);
+      bool is_opaque_pointer;
+
+      /* Opaque pointers are treated like void pointers.  */
+      is_opaque_pointer = ((*targetm.vector_opaque_p) (type)
+                           || (*targetm.vector_opaque_p) (rhstype))
+        && TREE_CODE (ttl) == VECTOR_TYPE
+        && TREE_CODE (ttr) == VECTOR_TYPE;
 
       /* Any non-function converts to a [const][volatile] void *
 	 and vice versa; otherwise, targets must be the same.
 	 Meanwhile, the lhs target must have all the qualifiers of the rhs.  */
       if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
 	  || comp_target_types (type, rhstype, 0)
+	  || is_opaque_pointer
 	  || (c_common_unsigned_type (TYPE_MAIN_VARIANT (ttl))
 	      == c_common_unsigned_type (TYPE_MAIN_VARIANT (ttr))))
 	{
@@ -4780,10 +4788,17 @@ digest_init (type, init, require_constant)
   /* Build a VECTOR_CST from a *constant* vector constructor.  If the
      vector constructor is not constant (e.g. {1,2,3,foo()}) then punt
      below and handle as a constructor.  */
-  if (code == VECTOR_TYPE
-      && comptypes (TREE_TYPE (inside_init), type)
-      && TREE_CONSTANT (inside_init))
-    return build_vector (type, CONSTRUCTOR_ELTS (inside_init));
+    if (code == VECTOR_TYPE
+        && comptypes (TREE_TYPE (inside_init), type)
+        && TREE_CONSTANT (inside_init))
+      {
+	if (TREE_CODE (inside_init) == VECTOR_CST
+	    && comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (inside_init)),
+			  TYPE_MAIN_VARIANT (type)))
+	  return inside_init;
+	else
+	  return build_vector (type, CONSTRUCTOR_ELTS (inside_init));
+      }
 
   /* Any type can be initialized
      from an expression of the same type, optionally with braces.  */

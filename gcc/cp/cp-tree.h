@@ -696,7 +696,6 @@ struct saved_scope GTY(())
   int x_processing_specialization;
   bool x_processing_explicit_instantiation;
   int need_pop_function_context;
-  int check_access;
 
   struct stmt_tree_s x_stmt_tree;
 
@@ -3013,10 +3012,8 @@ typedef enum tsubst_flags_t {
   tf_ignore_bad_quals = 1 << 3, /* ignore bad cvr qualifiers */
   tf_keep_type_decl = 1 << 4,	/* retain typedef type decls
 				   (make_typename_type use) */
-  tf_ptrmem_ok = 1 << 5,     /* pointers to member ok (internal
+  tf_ptrmem_ok = 1 << 5      /* pointers to member ok (internal
 				instantiate_type use) */
-  tf_parsing = 1 << 6	     /* called from parser
-				(make_typename_type use) */
 } tsubst_flags_t;
 
 /* The kind of checking we can do looking in a class hierarchy.  */
@@ -3029,6 +3026,13 @@ typedef enum base_access {
 		         current_class_type might give.  */
   ba_quiet = 4     /* Do not issue error messages (bit mask).  */
 } base_access;
+
+/* The various kinds of access check during parsing.  */
+typedef enum deferring_kind {
+  dk_no_deferred = 0, /* Check access immediately */
+  dk_deferred = 1,    /* Deferred check */
+  dk_no_check = 2     /* No access check */
+} deferring_kind;
 
 /* The kind of base we can find, looking in a class hierarchy.
    Values <0 indicate we failed.  */
@@ -3088,8 +3092,8 @@ typedef struct deferred_access GTY(())
      name being looked up; the TREE_VALUE is the DECL to which the
      name was resolved.  */
   tree deferred_access_checks;
-  /* TRUE iff we are deferring access checks.  */
-  bool deferring_access_checks_p;
+  /* The current mode of access checks.  */
+  enum deferring_kind deferring_access_checks_kind;
   /* The next deferred access data in stack or linked-list.  */
   struct deferred_access *next;
 } deferred_access;
@@ -4041,7 +4045,7 @@ extern tree copied_binfo			(tree, tree);
 extern tree original_binfo			(tree, tree);
 
 /* in semantics.c */
-extern void push_deferring_access_checks	(bool defer_p);
+extern void push_deferring_access_checks	(deferring_kind);
 extern void resume_deferring_access_checks	(void);
 extern void stop_deferring_access_checks	(void);
 extern void pop_deferring_access_checks		(void);

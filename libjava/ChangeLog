@@ -1,3 +1,264 @@
+2003-05-10  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/plaf/ButtonUI.java,
+	javax/swing/plaf/ColorUIResource.java,
+	javax/swing/plaf/ComponentUI.java,
+	javax/swing/plaf/DimensionUIResource.java,
+	javax/swing/plaf/FontUIResource.java,
+	javax/swing/plaf/IconUIResource.java,
+	javax/swing/plaf/InsetsUIResource.java,
+	javax/swing/plaf/LabelUI.java,
+	javax/swing/plaf/ListUI.java,
+	javax/swing/plaf/OptionPaneUI.java,
+	javax/swing/plaf/PanelUI.java,
+	javax/swing/plaf/TabbedPaneUI.java,
+	javax/swing/plaf/TextUI.java,
+	javax/swing/plaf/TreeUI.java,
+	javax/swing/plaf/ViewportUI.java,
+	javax/swing/plaf/basic/BasicBorders.java,
+	javax/swing/plaf/basic/BasicButtonUI.java,
+	javax/swing/plaf/basic/BasicCheckBoxUI.java,
+	javax/swing/plaf/basic/BasicDefaults.java,
+	javax/swing/plaf/basic/BasicGraphicsUtils.java,
+	javax/swing/plaf/basic/BasicIconFactory.java,
+	javax/swing/plaf/basic/BasicLabelUI.java,
+	javax/swing/plaf/basic/BasicListUI.java,
+	javax/swing/plaf/basic/BasicOptionPaneUI.java,
+	javax/swing/plaf/basic/BasicPanelUI.java,
+	javax/swing/plaf/basic/BasicRadioButtonUI.java,
+	javax/swing/plaf/basic/BasicScrollPaneUI.java,
+	javax/swing/plaf/basic/BasicTabbedPaneUI.java,
+	javax/swing/plaf/basic/BasicTextUI.java,
+	javax/swing/plaf/basic/BasicToggleButtonUI.java,
+	javax/swing/plaf/basic/BasicTreeUI.java,
+	javax/swing/plaf/basic/BasicViewportUI.java,
+	javax/swing/plaf/metal/MetalLookAndFeel.java:
+	New versions from classpath. This adds copyrights to all files and
+	some serialVersionUIDs.
+
+2003-05-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/CharBuffer.java
+	(offset): Make it package-private.
+	(backing_buffer): Likewise.
+	* java/nio/DoubleBuffer.java
+	(offset): Make it package-private.
+	(backing_buffer): Likewise.
+	(put): Reformatted.
+	* java/nio/FloatBuffer.java
+	(offset): Make it package-private.
+	(backing_buffer): Likewise.
+	* java/nio/IntBuffer.java
+	(offset): Make it package-private.
+	(backing_buffer): Likewise.
+	* java/nio/LongBuffer.java
+	(offset): Make it package-private.
+	(backing_buffer): Likewise.
+	* java/nio/ShortBuffer.java
+	(offset): Make it package-private.
+	(backing_buffer): Likewise.
+
+2003-05-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/CharBuffer.java
+	(put): Fixed precondtion check.
+	(toString): Make it work without backing array.
+	(put): Skip one level of method calling.
+
+2003-05-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/security/Identity.java,
+	java/security/IdentityScope.java,
+	java/security/Key.java,
+	java/security/KeyPair.java,
+	java/security/PrivateKey.java,
+	java/security/Provider.java,
+	java/security/PublicKey.java,
+	java/security/SecureRandom.java,
+	java/security/SecureRandomSpi.java,
+	java/security/SignedObject.java,
+	java/security/Signer.java,
+	java/security/cert/Certificate.java,
+	java/security/cert/PKIXCertPathBuilderResult.java,
+	java/security/cert/X509Certificate.java:
+	New versions from classpath.
+
+2003-05-09  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (nat_source_files): Removed old files.
+	* gnu/java/nio/natDoubleBufferImpl.cc: Removed.
+	* gnu/java/nio/natFloatBufferImpl.cc: Removed.
+	* gnu/java/nio/natIntBufferImpl.cc: Removed.
+	* gnu/java/nio/natLongBufferImpl.cc: Removed.
+	* gnu/java/nio/natShortBufferImpl.cc: Removed.
+
+2003-05-09  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/ByteBufferImpl.java
+	(nio_cast): Removed.
+	(ByteBufferImpl): Removed.
+	(nio_get_Byte): Removed.
+	(nio_put_Byte): Removed.
+	(asByteBuffer): Removed.
+	(asCharBuffer): Removed implementation and throw exception.
+	(asShortBuffer): Likewise.
+	(asIntBuffer): Likewise.
+	(asLongBuffer): Likewise.
+	(asFloatBuffer): Likewise.
+	(asDoubleBuffer): Likewise.
+	* gnu/java/nio/CharBufferImpl.java
+	(CharBufferImpl): Removed.
+	(nio_get_Byte): Removed.
+	(nio_put_Byte): Removed.
+	(asByteBuffer): Removed.
+	* gnu/java/nio/DoubleBufferImpl.java
+	(DoubleBufferImpl): Removed.
+	(nio_get_Byte): Removed.
+	(nio_put_Byte): Removed.
+	(asByteBuffer): Removed.
+	* gnu/java/nio/FloatBufferImpl.java
+	(FloatBufferImpl): Removed.
+	(nio_get_Byte): Removed.
+	(nio_put_Byte): Removed.
+	(asByteBuffer): Removed.
+	* gnu/java/nio/IntBufferImpl.java
+	(IntBufferImpl): Removed.
+	(nio_get_Byte): Removed.
+	(nio_put_Byte): Removed.
+	(asByteBuffer): Removed.
+	* gnu/java/nio/LongBufferImpl.java
+	(LongBufferImpl): Removed.
+	(nio_get_Byte): Removed.
+	(nio_put_Byte): Removed.
+	(asByteBuffer): Removed.
+	* gnu/java/nio/ShortBufferImpl.java
+	(ShortBufferImpl): Removed.
+	(nio_get_Byte): Removed.
+	(nio_put_Byte): Removed.
+	(asByteBuffer): Removed.
+	* gnu/java/nio/natByteBufferImpl.cc
+	(nio_cast): Removed.
+	(nio_get_Byte): Removed.
+	(nio_put_Byte): Removed.
+	* gnu/java/nio/natCharBufferImpl.cc
+	(nio_get_Byte): Removed.
+	(nio_put_Byte): Removed.
+
+2003-05-09  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/JarURLConnection.java
+	(getJarEntry): Merged documentation from classpath.
+	(getJarFile): Likewise.
+	(getMainAttributes): Likewise.
+	(getAttributes): Likewise.
+	(getManifest): Likewise.
+	(getCertificates): Reformatted.
+	* java/net/URLConnection.java:
+	Little classpath merge.
+
+2003-05-09  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/DataOutputStream.java
+	(writeShort): Made it synchronized.
+	(writeChar): Likewise.
+	(writeInt): Likewise.
+	(writeLong): Liekwise.
+	(writeUTF): Made it synchronized, renamed argument to match classpath.
+	* java/io/InputStreamReader.java
+	(converter): Added documentation.
+	(read): Merged documentation from classpath.
+	* java/io/OutputStreamWriter.java
+	(OutputStreamWriter): Merged documentation from classpath.
+	(close): Reformatted.
+	(getEncoding): Likewise.
+	(flush): Likewise.
+	(write): Merged documentation from classpath, reformatted.
+
+2003-05-08  Tom Tromey  <tromey@redhat.com>
+
+	* configure.host <powerpc64*-*>: Set with_libffi_default and
+	libgcj_interpreter to "yes".
+
+2003-05-08  Scott Gilbertson  <scottg@mantatest.com>
+
+	* gnu/gcj/xlib/natGC.cc (drawString): Removed obsolete code.
+	
+2003-05-06  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc: Reverted previous patch.
+
+2003-05-06  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/DataOutputStream.java
+	(write): Renamed argument to "value", merged documentation from
+	classpath.
+	(writeBoolean): Likewise.
+	(writeByte): Likewise.
+	(writeShort): Likewise.
+	(writeChar): Likewise.
+	(writeInt): Likewise.
+	(writeLong): Likewise.
+	(writeFloat): Likewise.
+	(writeDouble): Likewise.
+	(writeBytes): Likewise.
+	(writeChars): Likewise.
+	(writeUTF): Likewise.
+	* java/io/File.java
+	(performDelete): Added documentation.
+	(performList): Likewise.
+	(performMkdir): Likewise.
+	(performSetReadOnly): Likewise.
+	(performRenameTo): Likewise.
+	(performSetLastModified): Likewise.
+	(delete): Made it sychronized.
+	(renameTo): Made it sychronized.
+	(equals): Reformatted.
+	(isHidden): Likewise.
+	(listFiles): Likewise.
+	(setReadOnly): Likewise.
+	(listRoots): Likewise.
+	(setLastModified): Likewise.
+	(checkRead): Likewise.
+	(checkWrite): Likewise.
+	* java/io/FileInputStream.java
+	(skip): Made it sychronized, merged from classpath.
+	* java/io/FileOutputStream.java
+	(write): Merged from classpath.
+	* java/io/InputStreamReader.java:
+	(InputStreamReader): Merged documentation from classpath.
+
+2003-05-05  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/NetworkInterface.java
+	(networkInterfaces): Removed.
+	(getByName): Use getRealNetworkInterfaces() instead of
+	networkInterfaces.
+	(getByInetAddress): Likewise.
+	(getNetworkInterfaces): Likewise.
+	(toString): Fix output of addresses of an interface.
+
+2003-05-05  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/DataInputStream.java:
+	Merged new documentation from classpath.
+
+2003-05-03  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* gnu/awt/gtk/GtkButtonPeer.java: Fix misspelling of
+	"version".
+	* gnu/awt/gtk/GtkComponentPeer.java: Likewise.
+	* gnu/awt/gtk/GtkContainerPeer.java: Likewise.
+	* gnu/awt/gtk/GtkFramePeer.java: Likewise.
+	* gnu/awt/gtk/GtkLabelPeer.java: Likewise.
+	* gnu/awt/gtk/GtkMainThread.java: Likewise.
+	* gnu/awt/gtk/GtkToolkit.java: Likewise.
+	* gnu/awt/gtk/GtkWindowPeer.java: Likewise.
+	* java/security/Key.java: Likewise.
+	* java/security/PrivateKey.java: Likewise.
+	* java/security/Provider.java: Likewise.
+	* java/security/PublicKey.java: Likewise.
+
 2003-05-02  Michael Koch  <konqueror@gmx.de>
 
 	* java/net/URI.java

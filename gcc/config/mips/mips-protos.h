@@ -100,10 +100,12 @@ extern HOST_WIDE_INT	mips_debugger_offset PARAMS ((rtx, HOST_WIDE_INT));
 extern const char      *mips_fill_delay_slot PARAMS ((const char *,
 						      enum delay_type, rtx *,
 						      rtx));
-extern const char      *mips_move_1word PARAMS ((rtx *, rtx, int));
-extern const char      *mips_move_2words PARAMS ((rtx *, rtx));
+extern rtx		mips_subword PARAMS ((rtx, int));
+extern bool		mips_split_64bit_move_p PARAMS ((rtx, rtx));
+extern void		mips_split_64bit_move PARAMS ((rtx, rtx));
+extern const char      *mips_output_move PARAMS ((rtx, rtx));
 extern const char      *mips_emit_prefetch PARAMS ((rtx *));
-extern const char      *mips_restore_gp PARAMS ((rtx *, rtx));
+extern const char      *mips_restore_gp PARAMS ((rtx *));
 extern const char      *output_block_move PARAMS ((rtx, rtx *, int,
 						   enum block_move_type));
 extern void		override_options PARAMS ((void));
@@ -141,7 +143,7 @@ extern bool		mips_legitimize_address PARAMS ((rtx *,
 							 enum machine_mode));
 extern bool		mips_legitimize_move PARAMS ((enum machine_mode,
 						      rtx, rtx));
-extern rtx		mips_simplify_dwarf_addr PARAMS ((rtx));
+extern rtx		mips_delegitimize_address PARAMS ((rtx));
 extern void		mips_expand_call PARAMS ((rtx, rtx, rtx, rtx, int));
 extern int              mips_reg_mode_ok_for_base_p PARAMS ((rtx,
 							     enum machine_mode,

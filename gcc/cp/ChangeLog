@@ -1,12 +1,109 @@
+2003-05-10  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* pt.c (instantiate_decl): Call push/pop_deferring_access_checks.
+
+2003-05-10  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9252
+	* cp-tree.h (saved_scope): Remove check_access field.
+	(tsubst_flags_t): Remove tf_parsing.
+	* decl.c (maybe_push_to_top_level): Don't initialize
+	scope_chain->check_access.
+	(make_typename_type, make_unbound_class_template): Don't use
+	tf_parsing.
+	(register_dtor_fn): Use push/pop_deferring_access_checks
+	instead of scope_chain->check_access.
+	* method.c (use_thunk): Likewise.
+	* parser.c (cp_parser_explicit_instantiation
+	(cp_parser_constructor_declarator_p): Don't call
+	push/pop_deferring_access_checks here.
+	(cp_parser_template_argument, cp_parser_class_name): Don't use
+	tf_parsing.
+	(yyparse): Check flag_access_control.
+	* pt.c (instantiate_class_template): Call
+	push/pop_deferring_access_checks.
+	* semantics.c (push_deferring_access_checks): Propagate
+	dk_no_check.
+	(perform_or_defer_access_check): Make sure basetype_path is
+	a type before comparison.
+	* call.c (build_op_delete_call, build_over_call): Use
+	perform_or_defer_access_check.
+	* class.c (alter_access): Likewise.
+	* init.c (build_offset_ref): Likewise.
+	* lex.c (do_identifier): Likewise.
+	* method.c (hack_identifier): Likewise.
+	* search.c (lookup_member): Likewise.
+	* semantics.c (finish_non_static_data_member): Likewise.
+	(simplify_aggr_init_exprs_r): Use push/pop_deferring_access_checks
+	instead of flag_access_control.
+
+2003-05-10  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9554
+	* parser.c (cp_parser_class_name): Remove check_access parameter.
+	All caller adjusted.  Update declaration.
+	(cp_parser_lookup_name): Likewise.
+	* semantics.c (push_deferring_access_checks): Change parameter type
+	to enum deferring_kind.  All caller adjusted.
+	(resume_deferring_access_checks): Adjust to use new enum.
+	(stop_deferring_access_checks): Likewise.
+	(perform_or_defer_access_check): Likewise.
+	* cp-tree.h (deferring_kind): New enum.
+	(deferred_access): Adjust field type.
+	(push_deferring_access_checks): Update declaration.
+
+2003-05-09  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10555, c++/10576
+	* pt.c (lookup_template_class): Handle class template with
+	multiple levels of parameters when one of the levels contain
+	errors.
+
 2003-05-08  Jason Merrill  <jason@redhat.com>
 
 	* init.c (build_new_1): Don't reuse a TARGET_EXPR in an
 	expression.  Undo some of the recent reorg.
 
+2003-05-07  Richard Henderson  <rth@redhat.com>
+
+        PR c++/10570
+        * cfns.gperf: Comment out POSIX thread cancellation points,
+        plus abort and raise.
+        * cfns.h: Regenerate.
+
 2003-05-07  Jason Merrill  <jason@redhat.com>
 
 	* call.c (build_conditional_expr): Don't assume that the folded
 	expression has result_type.
+
+2003-05-06  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* typeck.c (build_unary_op): Deal with const qualifier in
+	invalid pointer-to-member earlier.
+
+2003-05-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/9537
+	* call.c (conditional_conversion): Build an RVALUE_CONV if
+	we're just changing the cv-quals.
+	(build_conditional_expr): Don't call convert to change
+	cv-quals.
+
+2003-05-05  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10496
+	* typeck.c (build_unary_op): Don't output const qualifier when
+	output invalid pointer-to-member diagnostics.
+
+2003-05-05  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* decl.c: Fix typos.
+
+2003-05-05  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/4494
+	* decl.c (start_function): Use same_type_p to check return type
+	of main.
 
 2003-05-03  Zack Weinberg  <zack@codesourcery.com>
 

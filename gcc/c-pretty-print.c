@@ -675,7 +675,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 	bool is_struct_init = FALSE;
 	output_add_character (buffer, '{');     
 	/*	dump_c_node (buffer, TREE_OPERAND (node, 1), spc);  */
-	lnode = TREE_OPERAND (node, 1);
+	lnode = CONSTRUCTOR_ELTS (node);
 	if (TREE_CODE (TREE_TYPE (node)) == RECORD_TYPE
 	    || TREE_CODE (TREE_TYPE (node)) == UNION_TYPE)
 	  is_struct_init = TRUE;

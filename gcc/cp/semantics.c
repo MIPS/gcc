@@ -80,6 +80,57 @@ static tree clear_decl_rtl PARAMS ((tree *, int *, void *));
       (SUBSTMT) = (COND);				\
   } while (0)
 
+/* Deferred Access Checking Overview
+   ---------------------------------
+
+   Most C++ expressions and declarations require access checking
+   to be performed during parsing.  However, in several cases,
+   this has to be treated differently.
+
+   For member declarations, access checking has to be deferred
+   until more information about the declaration is known.  For
+   example:
+
+     class A {
+         typedef int X;
+       public:
+         X f();
+     };
+
+     A::X A::f();
+     A::X g();
+
+   When we are parsing the function return type `A::X', we don't
+   really know if this is allowed until we parse the function name.
+
+   Furthermore, some contexts require that access checking is
+   never performed at all.  These include class heads, and template
+   instantiations.
+
+   Typical use of access checking functions is described here:
+   
+   1. When we enter a context that requires certain access checking
+      mode, the function `push_deferring_access_checks' is called with
+      DEFERRING argument specifying the desired mode.  Access checking
+      may be performed immediately (dk_no_deferred), deferred
+      (dk_deferred), or not performed (dk_no_check).
+
+   2. When a declaration such as a type, or a variable, is encountered,
+      the function `perform_or_defer_access_check' is called.  It
+      maintains a TREE_LIST of all deferred checks.
+
+   3. The global `current_class_type' or `current_function_decl' is then
+      setup by the parser.  `enforce_access' relies on these information
+      to check access.
+
+   4. Upon exiting the context mentioned in step 1,
+      `perform_deferred_access_checks' is called to check all declaration
+      stored in the TREE_LIST.   `pop_deferring_access_checks' is then
+      called to restore the previous access checking mode.
+
+      In case of parsing error, we simply call `pop_deferring_access_checks'
+      without `perform_deferred_access_checks'.  */
+
 /* Data for deferred access checking.  */
 static GTY(()) deferred_access *deferred_access_stack;
 static GTY(()) deferred_access *deferred_access_free_list;
@@ -87,9 +138,15 @@ static GTY(()) deferred_access *deferred_access_free_list;
 /* Save the current deferred access states and start deferred
    access checking iff DEFER_P is true.  */
 
-void push_deferring_access_checks (bool deferring_p)
+void push_deferring_access_checks (deferring_kind deferring)
 {
   deferred_access *d;
+
+  /* For context like template instantiation, access checking
+     disabling applies to all nested context.  */
+  if (deferred_access_stack
+      && deferred_access_stack->deferring_access_checks_kind == dk_no_check)
+    deferring = dk_no_check;
 
   /* Recycle previously used free store if available.  */
   if (deferred_access_free_list)
@@ -102,7 +159,7 @@ void push_deferring_access_checks (bool deferring_p)
 
   d->next = deferred_access_stack;
   d->deferred_access_checks = NULL_TREE;
-  d->deferring_access_checks_p = deferring_p;
+  d->deferring_access_checks_kind = deferring;
   deferred_access_stack = d;
 }
 
@@ -111,14 +168,16 @@ void push_deferring_access_checks (bool deferring_p)
 
 void resume_deferring_access_checks (void)
 {
-  deferred_access_stack->deferring_access_checks_p = true;
+  if (deferred_access_stack->deferring_access_checks_kind == dk_no_deferred)
+    deferred_access_stack->deferring_access_checks_kind = dk_deferred;
 }
 
 /* Stop deferring access checks.  */
 
 void stop_deferring_access_checks (void)
 {
-  deferred_access_stack->deferring_access_checks_p = false;
+  if (deferred_access_stack->deferring_access_checks_kind == dk_deferred)
+    deferred_access_stack->deferring_access_checks_kind = dk_no_deferred;
 }
 
 /* Discard the current deferred access checks and restore the
@@ -200,17 +259,21 @@ void perform_or_defer_access_check (tree class_type, tree decl)
   tree check;
 
   /* If we are not supposed to defer access checks, just check now.  */
-  if (!deferred_access_stack->deferring_access_checks_p)
+  if (deferred_access_stack->deferring_access_checks_kind == dk_no_deferred)
     {
       enforce_access (class_type, decl);
       return;
     }
+  /* Exit if we are in a context that no access checking is performed.  */
+  else if (deferred_access_stack->deferring_access_checks_kind == dk_no_check)
+    return;
 
   /* See if we are already going to perform this check.  */
   for (check = deferred_access_stack->deferred_access_checks;
        check;
        check = TREE_CHAIN (check))
     if (TREE_VALUE (check) == decl
+	&& TYPE_P (TREE_PURPOSE (check))
 	&& same_type_p (TREE_PURPOSE (check), class_type))
       return;
   /* If not, record the check.  */
@@ -1214,7 +1277,7 @@ finish_non_static_data_member (tree decl, tree qualifying_scope)
 	    access_type = DECL_CONTEXT (access_type);
 	}
 
-      enforce_access (access_type, decl);
+      perform_or_defer_access_check (access_type, decl);
 
       /* If the data member was named `C::M', convert `*this' to `C'
 	 first.  */
@@ -2168,21 +2231,91 @@ simplify_aggr_init_exprs_r (tp, walk_subtrees, data)
      int *walk_subtrees ATTRIBUTE_UNUSED;
      void *data ATTRIBUTE_UNUSED;
 {
+  tree aggr_init_expr;
+  tree call_expr;
+  tree fn;
+  tree args;
+  tree slot;
+  tree type;
+  enum style_t { ctor, arg, pcc } style;
+
+  aggr_init_expr = *tp;
   /* We don't need to walk into types; there's nothing in a type that
      needs simplification.  (And, furthermore, there are places we
      actively don't want to go.  For example, we don't want to wander
      into the default arguments for a FUNCTION_DECL that appears in a
      CALL_EXPR.)  */
-  if (TYPE_P (*tp))
+  if (TYPE_P (aggr_init_expr))
     {
       *walk_subtrees = 0;
       return NULL_TREE;
     }
   /* Only AGGR_INIT_EXPRs are interesting.  */
-  else if (TREE_CODE (*tp) != AGGR_INIT_EXPR)
+  else if (TREE_CODE (aggr_init_expr) != AGGR_INIT_EXPR)
     return NULL_TREE;
 
-  simplify_aggr_init_expr (tp);
+  /* Form an appropriate CALL_EXPR.  */
+  fn = TREE_OPERAND (aggr_init_expr, 0);
+  args = TREE_OPERAND (aggr_init_expr, 1);
+  slot = TREE_OPERAND (aggr_init_expr, 2);
+  type = TREE_TYPE (aggr_init_expr);
+
+  if (AGGR_INIT_VIA_CTOR_P (aggr_init_expr))
+    style = ctor;
+#ifdef PCC_STATIC_STRUCT_RETURN
+  else if (1)
+    style = pcc;
+#endif
+  else if (TREE_ADDRESSABLE (type))
+    style = arg;
+  else
+    /* We shouldn't build an AGGR_INIT_EXPR if we don't need any special
+       handling.  See build_cplus_new.  */
+    abort ();
+
+  if (style == ctor || style == arg)
+    {
+      /* Pass the address of the slot.  If this is a constructor, we
+	 replace the first argument; otherwise, we tack on a new one.  */
+      if (style == ctor)
+	args = TREE_CHAIN (args);
+
+      cxx_mark_addressable (slot);
+      args = tree_cons (NULL_TREE, 
+			build1 (ADDR_EXPR, 
+				build_pointer_type (TREE_TYPE (slot)),
+				slot),
+			args);
+    }
+
+  call_expr = build (CALL_EXPR, 
+		     TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
+		     fn, args, NULL_TREE);
+  TREE_SIDE_EFFECTS (call_expr) = 1;
+
+  if (style == arg)
+    /* Tell the backend that we've added our return slot to the argument
+       list.  */
+    CALL_EXPR_HAS_RETURN_SLOT_ADDR (call_expr) = 1;
+  else if (style == pcc)
+    {
+      /* If we're using the non-reentrant PCC calling convention, then we
+	 need to copy the returned value out of the static buffer into the
+	 SLOT.  */
+      push_deferring_access_checks (dk_no_check);
+      call_expr = build_aggr_init (slot, call_expr,
+				   DIRECT_BIND | LOOKUP_ONLYCONVERTING);
+      pop_deferring_access_checks ();
+    }
+
+  /* We want to use the value of the initialized location as the
+     result.  */
+  call_expr = build (COMPOUND_EXPR, type,
+		     call_expr, slot);
+
+  /* Replace the AGGR_INIT_EXPR with the CALL_EXPR.  */
+  TREE_CHAIN (call_expr) = TREE_CHAIN (aggr_init_expr);
+  *tp = call_expr;
 
   /* Keep iterating.  */
   return NULL_TREE;

@@ -1,4 +1,4 @@
-// 2000-08-02 bkoz
+// 2003-05-01 Petur Runolfsson  <peturr02@ru.is>
 
 // Copyright (C) 2000, 2003 Free Software Foundation, Inc.
 //

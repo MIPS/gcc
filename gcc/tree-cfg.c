@@ -1638,9 +1638,10 @@ remove_bb (bb, remove_stmts)
         {
 	  if (! already_warned && warn_notreached)
 	    {
-	      warning_with_file_and_line (get_filename (stmt),
-			      		  get_lineno (stmt), 
-			  	          "will never be executed");
+	      location_t loc;
+	      loc.file = get_filename (stmt);
+	      loc.line = get_lineno (stmt);
+	      warning ("%Hwill never be executed", &loc);
 	      already_warned = 1;
 	    }
 	  bsi_remove (&i);

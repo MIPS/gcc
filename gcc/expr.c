@@ -2162,61 +2162,26 @@ move_block_to_reg (regno, x, nregs, mode)
 }
 
 /* Copy all or part of a BLKmode value X out of registers starting at REGNO.
-   The number of registers to be filled is NREGS.  SIZE indicates the number
-   of bytes in the object X.  */
+   The number of registers to be filled is NREGS.  */
 
 void
-move_block_from_reg (regno, x, nregs, size)
+move_block_from_reg (regno, x, nregs)
      int regno;
      rtx x;
      int nregs;
-     int size;
 {
   int i;
-#ifdef HAVE_store_multiple
-  rtx pat;
-  rtx last;
-#endif
-  enum machine_mode mode;
 
   if (nregs == 0)
     return;
-
-  /* If SIZE is that of a mode no bigger than a word, just use that
-     mode's store operation.  */
-  if (size <= UNITS_PER_WORD
-      && (mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0)) != BLKmode)
-    {
-      emit_move_insn (adjust_address (x, mode, 0), gen_rtx_REG (mode, regno));
-      return;
-    }
-
-  /* Blocks smaller than a word on a BYTES_BIG_ENDIAN machine must be aligned
-     to the left before storing to memory.  Note that the previous test
-     doesn't handle all cases (e.g. SIZE == 3).  */
-  if (size < UNITS_PER_WORD && BYTES_BIG_ENDIAN)
-    {
-      rtx tem = operand_subword (x, 0, 1, BLKmode);
-      rtx shift;
-
-      if (tem == 0)
-	abort ();
-
-      shift = expand_shift (LSHIFT_EXPR, word_mode,
-			    gen_rtx_REG (word_mode, regno),
-			    build_int_2 ((UNITS_PER_WORD - size)
-					 * BITS_PER_UNIT, 0), NULL_RTX, 0);
-      emit_move_insn (tem, shift);
-      return;
-    }
 
   /* See if the machine can do this with a store multiple insn.  */
 #ifdef HAVE_store_multiple
   if (HAVE_store_multiple)
     {
-      last = get_last_insn ();
-      pat = gen_store_multiple (x, gen_rtx_REG (word_mode, regno),
-				GEN_INT (nregs));
+      rtx last = get_last_insn ();
+      rtx pat = gen_store_multiple (x, gen_rtx_REG (word_mode, regno),
+				    GEN_INT (nregs));
       if (pat)
 	{
 	  emit_insn (pat);
@@ -5626,9 +5591,10 @@ store_field (target, bitsize, bitpos, mode, exp, value_mode, unsignedp, type,
       /* If the field isn't aligned enough to store as an ordinary memref,
 	 store it as a bit field.  */
       || (mode != BLKmode
-	  && ((SLOW_UNALIGNED_ACCESS (mode, MEM_ALIGN (target))
-	       && (MEM_ALIGN (target) < GET_MODE_ALIGNMENT (mode)))
-	      || bitpos % GET_MODE_ALIGNMENT (mode)))
+	  && ((((MEM_ALIGN (target) < GET_MODE_ALIGNMENT (mode))
+		|| bitpos % GET_MODE_ALIGNMENT (mode))
+	       && SLOW_UNALIGNED_ACCESS (mode, MEM_ALIGN (target)))
+	      || (bitpos % BITS_PER_UNIT != 0)))	      
       /* If the RHS and field are a constant size and the size of the
 	 RHS isn't the same size as the bitfield, we must use bitfield
 	 operations.  */
@@ -5648,7 +5614,7 @@ store_field (target, bitsize, bitpos, mode, exp, value_mode, unsignedp, type,
 	temp = expand_shift (RSHIFT_EXPR, GET_MODE (temp), temp,
 			     size_int (GET_MODE_BITSIZE (GET_MODE (temp))
 				       - bitsize),
-			     temp, 1);
+			     NULL_RTX, 1);
 
       /* Unless MODE is VOIDmode or BLKmode, convert TEMP to
 	 MODE.  */
@@ -5888,8 +5854,20 @@ get_inner_reference (exp, pbitsize, pbitpos, poffset, pmode,
 
 	  continue;
 	}
+
+      /* We can go inside most conversions: all NON_VALUE_EXPRs, all normal
+	 conversions that don't change the mode, and all view conversions
+	 except those that need to "step up" the alignment.  */
       else if (TREE_CODE (exp) != NON_LVALUE_EXPR
-	       && TREE_CODE (exp) != VIEW_CONVERT_EXPR
+	       && ! (TREE_CODE (exp) == VIEW_CONVERT_EXPR
+		     && ! ((TYPE_ALIGN (TREE_TYPE (exp))
+			    > TYPE_ALIGN (TREE_TYPE (TREE_OPERAND (exp, 0))))
+			   && STRICT_ALIGNMENT
+			   && (TYPE_ALIGN (TREE_TYPE (TREE_OPERAND (exp, 0)))
+			       < BIGGEST_ALIGNMENT)
+			   && (TYPE_ALIGN_OK (TREE_TYPE (exp))
+			       || TYPE_ALIGN_OK (TREE_TYPE
+						 (TREE_OPERAND (exp, 0))))))
 	       && ! ((TREE_CODE (exp) == NOP_EXPR
 		      || TREE_CODE (exp) == CONVERT_EXPR)
 		     && (TYPE_MODE (TREE_TYPE (exp))
@@ -6783,25 +6761,17 @@ expand_expr (exp, target, tmode, modifier)
     case LABEL_DECL:
       {
 	tree function = decl_function_context (exp);
-	/* Handle using a label in a containing function.  */
-	if (function != current_function_decl
-	    && function != inline_function_decl && function != 0)
-	  {
-	    struct function *p = find_function_data (function);
-	    p->expr->x_forced_labels
-	      = gen_rtx_EXPR_LIST (VOIDmode, label_rtx (exp),
-				   p->expr->x_forced_labels);
-	  }
+	/* Labels in containing functions, or labels used from initializers,
+	   must be forced.  */
+	if (modifier == EXPAND_INITIALIZER
+	    || (function != current_function_decl
+		&& function != inline_function_decl
+		&& function != 0))
+	  temp = force_label_rtx (exp);
 	else
-	  {
-	    if (modifier == EXPAND_INITIALIZER)
-	      forced_labels = gen_rtx_EXPR_LIST (VOIDmode,
-						 label_rtx (exp),
-						 forced_labels);
-	  }
+	  temp = label_rtx (exp);
 
-	temp = gen_rtx_MEM (FUNCTION_MODE,
-			    gen_rtx_LABEL_REF (Pmode, label_rtx (exp)));
+	temp = gen_rtx_MEM (FUNCTION_MODE, gen_rtx_LABEL_REF (Pmode, temp));
 	if (function != current_function_decl
 	    && function != inline_function_decl && function != 0)
 	  LABEL_REF_NONLOCAL_P (XEXP (temp, 0)) = 1;
@@ -7649,9 +7619,10 @@ expand_expr (exp, target, tmode, modifier)
 	    /* If the field isn't aligned enough to fetch as a memref,
 	       fetch it as a bit field.  */
 	    || (mode1 != BLKmode
-		&& ((TYPE_ALIGN (TREE_TYPE (tem)) < GET_MODE_ALIGNMENT (mode)
+		&& (((TYPE_ALIGN (TREE_TYPE (tem)) < GET_MODE_ALIGNMENT (mode)
+		      || (bitpos % GET_MODE_ALIGNMENT (mode) != 0))
 		     && SLOW_UNALIGNED_ACCESS (mode1, MEM_ALIGN (op0)))
-		    || (bitpos % GET_MODE_ALIGNMENT (mode) != 0)))
+		    || (bitpos % BITS_PER_UNIT != 0)))
 	    /* If the type and the field are a constant size and the
 	       size of the type isn't the same size as the bitfield,
 	       we must use bitfield operations.  */
@@ -9344,7 +9315,7 @@ expand_expr (exp, target, tmode, modifier)
 				   op0);
 	  else if (GET_CODE (op0) == REG || GET_CODE (op0) == SUBREG
 		   || GET_CODE (op0) == CONCAT || GET_CODE (op0) == ADDRESSOF
-		   || GET_CODE (op0) == PARALLEL)
+		   || GET_CODE (op0) == PARALLEL || GET_CODE (op0) == LO_SUM)
 	    {
 	      /* If the operand is a SAVE_EXPR, we can deal with this by
 		 forcing the SAVE_EXPR into memory.  */

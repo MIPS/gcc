@@ -1,3 +1,54 @@
+2003-05-09  Tim Josling  <tej@melbpc.org.au>
+
+	* Make-lang.in (TREE_BE_LIBS): Add C_TARGET_OBJS to object files
+	to link (needed by some front ends such as PPC).
+
+	* treetree.c (tree_code_create_function_initial): Fix long line.
+	Initialize tree_code_int_size and tree_code_char_size to
+	meaningful values.
+	(tree_code_get_numeric_type): Add check that size1 parameter is
+	valid.
+
+	* parse.y: Fix extra long lines in prototypes.
+
+	* treelang.h: Fix extra long lines in macro definitions.
+
+2003-05-07  Zack Weinberg  <zack@codesourcery.com>
+
+	* Make-lang.in: Set -Wno-error for treelang/lex.o.
+
+2003-05-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* Make-lang.in (treelang/tree1.o): Depends on input.h
+	(treelang/treetree.o, treelang/parse.o, treelang/lex.o): Likewise.
+	* treelang.h: #include input.h.
+	(in_fname): Remove.
+	(struct token_part): Remove lineno, add location.
+	* lex.l (next_tree_lineno): Remove.
+	(update_lineno_charno): Adjust.
+	(dump_lex_value): Adjust.
+	* parse.y (variable_def, function_prototype, function, statement,
+	if_statement, return, function_invocation, variable_ref): Adjust.
+	(print_token, yyerror, ensure_not_void): Adjust.
+	tree1.c (in_fname): Remove.
+	(treelang_init): Setup input_location.
+	(lookup_tree_name): Adjust.
+	(insert_tree_name): Adjust.
+	* treetree.c (tree_code_if_start): Replace filename and lineno
+	parms with loc. Adjust.
+	(tree_code_if_else, tree_code_if_end,
+	tree_code_create_function_prototype,
+	tree_code_create_function_initial,
+	tree_code_create_function_wrapup, tree_code_create_variable,
+	tree_code_output_expression_statement): Likewise.
+	* treetree.h (tree_code_if_start): Replace filename and lineno
+	parms with loc.
+	(tree_code_if_else, tree_code_if_end,
+	tree_code_create_function_prototype,
+	tree_code_create_function_initial,
+	tree_code_create_function_wrapup, tree_code_create_variable,
+	tree_code_output_expression_statement): Likewise.
+
 2003-05-01  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* tree1.c (treelang_init): Rename lineno to input_line.
@@ -59,7 +110,7 @@
 
 2003-03-01  Tim Josling  <tej@melbpc.org.au>
 
-        Name clashes with rtl.h fixed.
+	Name clashes with rtl.h fixed.
 
 	* lex.l: Tokens PLUS, MINUS, RETURN changed to tl_PLUS tl_MINUS
 	tl_RETURN.
@@ -76,7 +127,7 @@
 
 2003-02-23  Tim Josling  <tej@melbpc.org.au>
 
-        Fix garbage collection, add more error checking, force GC always.
+	Fix garbage collection, add more error checking, force GC always.
 
 	* Make-lang.in (treelang/tree1.o): Depend on treelang/treetree.h
 	(treelang/treetree.o): Depend on  treelang/parse.h

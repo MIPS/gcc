@@ -619,7 +619,7 @@ dump_generic_node (buffer, node, spc, flags)
 	tree lnode;
 	bool is_struct_init = FALSE;
 	output_add_character (buffer, '{');     
-	lnode = TREE_OPERAND (node, 0);
+	lnode = CONSTRUCTOR_ELTS (node);
 	if (TREE_CODE (TREE_TYPE (node)) == RECORD_TYPE
 	    || TREE_CODE (TREE_TYPE (node)) == UNION_TYPE)
 	  is_struct_init = TRUE;

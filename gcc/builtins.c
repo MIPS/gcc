@@ -117,6 +117,8 @@ static rtx expand_builtin_memcpy	PARAMS ((tree, rtx,
 static rtx expand_builtin_memmove	PARAMS ((tree, rtx,
 						 enum machine_mode));
 static rtx expand_builtin_bcopy		PARAMS ((tree));
+static rtx expand_builtin_strcpy	PARAMS ((tree, rtx,
+						 enum machine_mode));
 static rtx expand_builtin_stpcpy	PARAMS ((tree, rtx,
 						 enum machine_mode));
 static rtx builtin_strncpy_read_str	PARAMS ((PTR, HOST_WIDE_INT,
@@ -143,6 +145,7 @@ static tree fold_builtin_inf		PARAMS ((tree, int));
 static tree fold_builtin_nan		PARAMS ((tree, tree, int));
 static int validate_arglist		PARAMS ((tree, ...));
 static tree fold_trunc_transparent_mathfn PARAMS ((tree));
+static bool readonly_data_expr		PARAMS ((tree));
 static tree simplify_builtin_memcmp	PARAMS ((tree));
 static tree simplify_builtin_strcmp	PARAMS ((tree));
 static tree simplify_builtin_strpbrk	PARAMS ((tree));
@@ -2157,10 +2160,16 @@ expand_builtin_memmove (arglist, target, mode)
       if (src_align == 0)
 	return 0;
 
-      /* If src is a string constant and strings are not writable,
-	 we can use normal memcpy.  */
-      if (!flag_writable_strings && c_getstr (src))
-	return expand_builtin_memcpy (arglist, target, mode, 0);
+      /* If src is categorized for a readonly section we can use
+	 normal memcpy.  */
+      if (readonly_data_expr (src))
+        {
+	  tree const fn = implicit_built_in_decls[BUILT_IN_MEMCPY];
+	  if (!fn)
+	    return 0;
+	  return expand_expr (build_function_call_expr (fn, arglist),
+			      target, mode, EXPAND_NORMAL);
+	}
 
       /* Otherwise, call the normal function.  */
       return 0;
@@ -2196,6 +2205,36 @@ expand_builtin_bcopy (arglist)
   return expand_builtin_memmove (newarglist, const0_rtx, VOIDmode);
 }
 
+/* Expand expression EXP, which is a call to the strcpy builtin.  Return 0
+   if we failed the caller should emit a normal call, otherwise try to get
+   the result in TARGET, if convenient (and in mode MODE if that's
+   convenient).  */
+
+static rtx
+expand_builtin_strcpy (arglist, target, mode)
+     tree arglist;
+     rtx target;
+     enum machine_mode mode;
+{
+  tree fn, len;
+
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+    return 0;
+
+  fn = implicit_built_in_decls[BUILT_IN_MEMCPY];
+  if (!fn)
+    return 0;
+
+  len = c_strlen (TREE_VALUE (TREE_CHAIN (arglist)));
+  if (len == 0)
+    return 0;
+
+  len = size_binop (PLUS_EXPR, len, ssize_int (1));
+  chainon (arglist, build_tree_list (NULL_TREE, len));
+  return expand_expr (build_function_call_expr (fn, arglist),
+		      target, mode, EXPAND_NORMAL);
+}
+
 /* Expand a call to the stpcpy builtin, with arguments in ARGLIST.
    Return 0 if we failed the caller should emit a normal call,
    otherwise try to get the result in TARGET, if convenient (and in
@@ -2212,8 +2251,31 @@ expand_builtin_stpcpy (arglist, target, mode)
   else
     {
       tree newarglist;
-      tree len = c_strlen (TREE_VALUE (TREE_CHAIN (arglist)));
-      if (len == 0)
+      tree src, len;
+
+      /* If return value is ignored, transform stpcpy into strcpy.  */
+      if (target == const0_rtx)
+	{
+	  tree fn;
+	  rtx ret = expand_builtin_strcpy (arglist, target, mode);
+
+	  if (ret)
+	    return ret;
+
+	  fn = implicit_built_in_decls[BUILT_IN_STRCPY];
+	  if (!fn)
+	    return 0;
+
+	  return expand_expr (build_function_call_expr (fn, arglist),
+			      target, mode, EXPAND_NORMAL);
+	}
+
+      /* Ensure we get an actual string who length can be evaluated at
+         compile-time, not an expression containing a string.  This is
+         because the latter will potentially produce pessimized code
+         when used to produce the return value.  */
+      src = TREE_VALUE (TREE_CHAIN (arglist));
+      if (! c_getstr (src) || ! (len = c_strlen (src)))
 	return 0;
 
       len = fold (size_binop (PLUS_EXPR, len, ssize_int (1)));
@@ -4124,12 +4186,10 @@ fold_builtin (exp)
 	  if (TREE_CODE (arg) == REAL_CST
 	      && ! TREE_CONSTANT_OVERFLOW (arg))
 	    {
-	      enum machine_mode mode;
 	      REAL_VALUE_TYPE r, x;
 
 	      x = TREE_REAL_CST (arg);
-	      mode = TYPE_MODE (type);
-	      if (real_sqrt (&r, mode, &x)
+	      if (real_sqrt (&r, TYPE_MODE (type), &x)
 		  || (!flag_trapping_math && !flag_errno_math))
 		return build_real (type, r);
 	    }
@@ -4342,6 +4402,28 @@ fold_builtin (exp)
 		      return build_function_call_expr (sqrtfn, arglist);
 		    }
 		}
+
+              /* Attempt to evaluate pow at compile-time.  */
+              if (TREE_CODE (arg0) == REAL_CST
+                  && ! TREE_CONSTANT_OVERFLOW (arg0))
+                {
+                  REAL_VALUE_TYPE cint;
+                  HOST_WIDE_INT n;
+
+                  n = real_to_integer(&c);
+                  real_from_integer (&cint, VOIDmode, n,
+                                     n < 0 ? -1 : 0, 0);
+                  if (real_identical (&c, &cint))
+                    {
+                      REAL_VALUE_TYPE x;
+                      bool inexact;
+
+                      x = TREE_REAL_CST (arg0);
+                      inexact = real_powi (&x, TYPE_MODE (type), &x, n);
+                      if (flag_unsafe_math_optimizations || !inexact)
+                        return build_real (type, x);
+                    }
+                }
 	    }
 
 	  /* Optimize pow(exp(x),y) = exp(x*y).  */
@@ -4540,6 +4622,20 @@ purge_builtin_constant_p ()
 	if ((note = find_reg_note (insn, REG_EQUAL, NULL_RTX)) != 0)
 	  remove_note (insn, note);
       }
+}
+
+/* Returns true is EXP represents data that would potentially reside
+   in a readonly section.  */
+
+static bool
+readonly_data_expr (tree exp)
+{
+  STRIP_NOPS (exp);
+
+  if (TREE_CODE (exp) == ADDR_EXPR)
+    return decl_readonly_section (TREE_OPERAND (exp, 0), 0);
+  else
+    return false;
 }
 
 /* Front-end to the simplify_builtin_XXX routines.

@@ -32,6 +32,7 @@
 #include <ostream>
 #include <locale>
 #include <ext/stdio_filebuf.h>
+#include <ext/stdio_sync_filebuf.h>
 
 // On AIX, and perhaps other systems, library initialization order is
 // not guaranteed.  For example, the static initializers for the main
@@ -78,9 +79,14 @@ namespace __gnu_cxx
 {
   using namespace std;
 
-  // Because <iostream> declares the standard streams to be [io]stream
-  // types instead of say [io]fstream types, it is also necessary to
-  // allocate the actual file buffers in this file.
+  // We use different stream buffer types depending on whether
+  // ios_base::sync_with_stdio(false) has been called.
+  typedef char fake_stdiobuf[sizeof(stdio_sync_filebuf<char>)]
+  __attribute__ ((aligned(__alignof__(stdio_sync_filebuf<char>))));
+  fake_stdiobuf buf_cout_sync;
+  fake_stdiobuf buf_cin_sync;
+  fake_stdiobuf buf_cerr_sync;
+
   typedef char fake_filebuf[sizeof(stdio_filebuf<char>)]
   __attribute__ ((aligned(__alignof__(stdio_filebuf<char>))));
   fake_filebuf buf_cout;
@@ -88,6 +94,12 @@ namespace __gnu_cxx
   fake_filebuf buf_cerr;
 
 #ifdef _GLIBCPP_USE_WCHAR_T
+  typedef char fake_wstdiobuf[sizeof(stdio_sync_filebuf<wchar_t>)]
+  __attribute__ ((aligned(__alignof__(stdio_sync_filebuf<wchar_t>))));
+  fake_wstdiobuf buf_wcout_sync;
+  fake_wstdiobuf buf_wcin_sync;
+  fake_wstdiobuf buf_wcerr_sync;
+
   typedef char fake_wfilebuf[sizeof(stdio_filebuf<wchar_t>)]
   __attribute__ ((aligned(__alignof__(stdio_filebuf<wchar_t>))));
   fake_wfilebuf buf_wcout;
@@ -227,9 +239,6 @@ namespace __gnu_cxx
   // allows static initialization of these objects on systems that need a
   // function call to initialize a mutex.  For example, see stl_threads.h.
 #ifdef __GTHREAD_MUTEX_INIT
-  // Need to provide explicit instantiations of static data for
-  // systems with broken weak linkage support.
-  template __gthread_mutex_t _Swap_lock_struct<0>::_S_swap_lock;
 #elif defined(__GTHREAD_MUTEX_INIT_FUNCTION)
   __gthread_once_t _GLIBCPP_once = __GTHREAD_ONCE_INIT;
   __gthread_mutex_t _GLIBCPP_mutex;

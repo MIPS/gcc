@@ -6418,14 +6418,14 @@ alpha_setup_incoming_varargs(cum, mode, type, pretend_size, no_rtl)
 		         plus_constant (virtual_incoming_args_rtx,
 				        (cum + 6) * UNITS_PER_WORD));
       set_mem_alias_set (tmp, set);
-      move_block_from_reg (16 + cum, tmp, 6 - cum, (6 - cum) * UNITS_PER_WORD);
+      move_block_from_reg (16 + cum, tmp, 6 - cum);
 
       tmp = gen_rtx_MEM (BLKmode,
 		         plus_constant (virtual_incoming_args_rtx,
 				        cum * UNITS_PER_WORD));
       set_mem_alias_set (tmp, set);
       move_block_from_reg (16 + (TARGET_FPREGS ? 32 : 0) + cum, tmp,
-			   6 - cum, (6 - cum) * UNITS_PER_WORD);
+			   6 - cum);
      }
   *pretend_size = 12 * UNITS_PER_WORD;
 }
@@ -7571,7 +7571,7 @@ alpha_start_function (file, fnname, decl)
   /* Stack space needed for pushing registers clobbered by us.  */
   HOST_WIDE_INT sa_size;
   /* Complete stack size needed.  */
-  HOST_WIDE_INT frame_size;
+  unsigned HOST_WIDE_INT frame_size;
   /* Offset from base reg to register save area.  */
   HOST_WIDE_INT reg_offset;
   char *entry_label = (char *) alloca (strlen (fnname) + 6);

@@ -1,6 +1,6 @@
 /* Output routines for GCC for Hitachi / SuperH SH.
-   Copyright (C) 1993, 1994, 1995, 1997, 1997, 1998, 1999, 2000, 2001, 2002, 2003
-   Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 1995, 1997, 1997, 1998, 1999, 2000, 2001, 2002,
+   2003 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com). 
 
@@ -3432,7 +3432,7 @@ gen_block_redirect (jump, addr, need_block)
       rtx next = next_active_insn (next_active_insn (dest));
       if (next && GET_CODE (next) == JUMP_INSN
 	  && GET_CODE (PATTERN (next)) == SET
-	  && recog_memoized (next) == CODE_FOR_jump)
+	  && recog_memoized (next) == CODE_FOR_jump_compact)
 	{
 	  dest = JUMP_LABEL (next);
 	  if (dest
@@ -4322,7 +4322,7 @@ split_branches (first)
 			|| ((beyond = next_active_insn (beyond))
 			    && GET_CODE (beyond) == JUMP_INSN))
 		    && GET_CODE (PATTERN (beyond)) == SET
-		    && recog_memoized (beyond) == CODE_FOR_jump
+		    && recog_memoized (beyond) == CODE_FOR_jump_compact
 		    && ((INSN_ADDRESSES
 			 (INSN_UID (XEXP (SET_SRC (PATTERN (beyond)), 0)))
 			 - INSN_ADDRESSES (INSN_UID (insn)) + (unsigned) 252)
@@ -4336,7 +4336,7 @@ split_branches (first)
 	    if ((GET_CODE (next) == JUMP_INSN
 		 || GET_CODE (next = next_active_insn (next)) == JUMP_INSN)
 		&& GET_CODE (PATTERN (next)) == SET
-		&& recog_memoized (next) == CODE_FOR_jump
+		&& recog_memoized (next) == CODE_FOR_jump_compact
 		&& ((INSN_ADDRESSES
 		     (INSN_UID (XEXP (SET_SRC (PATTERN (next)), 0)))
 		     - INSN_ADDRESSES (INSN_UID (insn)) + (unsigned) 252)
@@ -5606,7 +5606,7 @@ sh_builtin_saveregs ()
     move_block_from_reg (BASE_ARG_REG (SImode) + first_intreg,
 			 adjust_address (regbuf, BLKmode,
 					 n_floatregs * UNITS_PER_WORD),
-			 n_intregs, n_intregs * UNITS_PER_WORD);
+			 n_intregs);
 
   if (TARGET_SHMEDIA)
     /* Return the address of the regbuf.  */

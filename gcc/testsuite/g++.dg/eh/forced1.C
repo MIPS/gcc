@@ -1,7 +1,7 @@
 // { dg-do run }
-// { dg-options "-fforced-unwind-exceptions" }
 
-// Test that forced unwinding runs all cleanups, and only cleanups.
+// Test that forced unwinding runs all cleanups.  Also tests that
+// rethrowing doesn't call the exception object destructor.
 
 #include <unwind.h>
 #include <stdlib.h>
@@ -17,7 +17,7 @@ force_unwind_stop (int version, _Unwind_Action actions,
 {
   if (actions & _UA_END_OF_STACK)
     {
-      if (test != 5)
+      if (test != 15)
         abort ();
       exit (0);
     }
@@ -25,18 +25,24 @@ force_unwind_stop (int version, _Unwind_Action actions,
   return _URC_NO_REASON;
 }
 
+static void
+force_unwind_cleanup (_Unwind_Reason_Code, struct _Unwind_Exception *)
+{
+  abort ();
+}
+
 static void force_unwind ()
 {
   _Unwind_Exception *exc = new _Unwind_Exception;
   exc->exception_class = 0;
-  exc->exception_cleanup = 0;
-                   
+  exc->exception_cleanup = force_unwind_cleanup;
+
 #ifndef __USING_SJLJ_EXCEPTIONS__
   _Unwind_ForcedUnwind (exc, force_unwind_stop, 0);
 #else
   _Unwind_SjLj_ForcedUnwind (exc, force_unwind_stop, 0);
 #endif
-                   
+
   abort ();
 }
 
@@ -58,18 +64,17 @@ static void doit ()
   
     } catch(...) { 
       test |= 2;
+      throw;
     }
 
   } catch(...) {
     test |= 8;
+    throw;
   }
 }
 
 int main()
 { 
-  try {
-    doit ();
-  } catch (...) {
-  }
+  doit ();
   abort ();
 }

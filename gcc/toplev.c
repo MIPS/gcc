@@ -254,8 +254,8 @@ enum dump_file_index
   DFI_flow2,
   DFI_peephole2,
   DFI_rnreg,
-  DFI_ce3,
   DFI_bbro,
+  DFI_ce3,
   DFI_sched2,
   DFI_stack,
   DFI_mach,
@@ -305,8 +305,8 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "flow2",	'w', 1, 0, 0 },
   { "peephole2", 'z', 1, 0, 0 },
   { "rnreg",	'n', 1, 0, 0 },
-  { "ce3",	'E', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
+  { "ce3",	'E', 1, 0, 0 },
   { "sched2",	'R', 1, 0, 0 },
   { "stack",	'k', 1, 0, 0 },
   { "mach",	'M', 1, 0, 0 },
@@ -741,10 +741,6 @@ int flag_unwind_tables = 0;
 
 int flag_asynchronous_unwind_tables = 0;
 
-/* Nonzero means allow for forced unwinding.  */
-
-int flag_forced_unwind_exceptions;
-
 /* Nonzero means don't place uninitialized global data in common storage
    by default.  */
 
@@ -1155,8 +1151,6 @@ static const lang_independent_options f_options[] =
    N_("Generate unwind tables exact at each instruction boundary") },
   {"non-call-exceptions", &flag_non_call_exceptions, 1,
    N_("Support synchronous non-call exceptions") },
-  {"forced-unwind-exceptions", &flag_forced_unwind_exceptions, 1,
-   N_("Support forced unwinding, e.g. for thread cancellation") },
   {"profile-arcs", &profile_arc_flag, 1,
    N_("Insert arc based program profiling code") },
   {"test-coverage", &flag_test_coverage, 1,
@@ -2175,6 +2169,8 @@ check_global_declarations (vec, len)
 	  && ! TREE_USED (DECL_NAME (decl))
 	  && ! DECL_EXTERNAL (decl)
 	  && ! TREE_PUBLIC (decl)
+	  /* A volatile variable might be used in some non-obvious way.  */
+	  && ! TREE_THIS_VOLATILE (decl)
 	  /* Global register variables must be declared to reserve them.  */
 	  && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
 	  /* Otherwise, ask the language.  */
