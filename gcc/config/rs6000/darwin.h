@@ -44,12 +44,6 @@
 /* Handle #pragma weak and #pragma pack.  */
 #define HANDLE_SYSV_PRAGMA 1
 
-/* The Darwin ABI always includes AltiVec, can't be (validly) turned
-   off.  */
-
-#define SUBTARGET_OVERRIDE_OPTIONS  \
-  rs6000_altivec_abi = 1;
-
 #define TARGET_OS_CPP_BUILTINS()                \
   do                                            \
     {                                           \

@@ -1,5 +1,10 @@
 2004-03-08  Alan Modra  <amodra@bigpond.net.au>
 
+	* config/rs6000/rs6000.c (rs6000_move_block_from_reg): Copy from 3.4.
+	(setup_incoming_varargs): Use it.
+	* config/rs6000/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Delete
+	first definition.
+
 	* config/rs6000/rs6000.md (extenddftf2): Use -0.0 in low double.
 	* real.c (encode_ibm_extended): Use -0.0 in low double of Inf,
 	NaN, and zero.  Update comment.

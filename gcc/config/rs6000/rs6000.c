@@ -394,6 +394,7 @@ static rtx rs6000_spe_function_arg PARAMS ((CUMULATIVE_ARGS *,
 					    enum machine_mode, tree));
 static rtx rs6000_mixed_function_arg PARAMS ((CUMULATIVE_ARGS *,
 					      enum machine_mode, tree, int));
+static void rs6000_move_block_from_reg PARAMS ((int, rtx, int));
 static rtx rs6000_complex_function_value PARAMS ((enum machine_mode));
 static bool is_ev64_opaque_type PARAMS ((tree));
 static rtx rs6000_dwarf_register_span PARAMS ((rtx));
@@ -2608,7 +2609,7 @@ legitimate_offset_address_p (mode, x, strict)
     }
 
   offset += 0x8000;
-  return offset < 0x10000 && offset + extra < 0x10000;
+  return (offset < 0x10000) && (offset + extra < 0x10000);
 }
 
 static bool
@@ -4687,6 +4688,39 @@ function_arg_pass_by_reference (cum, mode, type, named)
     }
   return type && int_size_in_bytes (type) < 0;
 }
+
+static void
+rs6000_move_block_from_reg (regno, x, nregs)
+     int regno;
+     rtx x;
+     int nregs;
+{
+  int i;
+  enum machine_mode reg_mode = TARGET_32BIT ? SImode : DImode;
+
+  if (nregs == 0)
+    return;
+
+  for (i = 0; i < nregs; i++)
+    {
+      rtx tem = adjust_address_nv (x, reg_mode, i * GET_MODE_SIZE (reg_mode));
+      if (reload_completed)
+	{
+	  if (! strict_memory_address_p (reg_mode, XEXP (tem, 0)))
+	    tem = NULL_RTX;
+	  else
+	    tem = simplify_gen_subreg (reg_mode, x, BLKmode, 
+				       i * GET_MODE_SIZE (reg_mode));
+	}
+      else
+	tem = replace_equiv_address (tem, XEXP (tem, 0));
+
+      if (tem == NULL_RTX)
+	abort ();
+
+      emit_move_insn (tem, gen_rtx_REG (reg_mode, regno + i));
+    }
+}
 
 /* Perform any needed actions needed for a function that is receiving a
    variable number of arguments.
@@ -4755,8 +4789,8 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
       set_mem_alias_set (mem, set);
       set_mem_align (mem, BITS_PER_WORD);
 
-      move_block_from_reg (GP_ARG_MIN_REG + first_reg_offset, mem,
-			   GP_ARG_NUM_REG - first_reg_offset);
+      rs6000_move_block_from_reg (GP_ARG_MIN_REG + first_reg_offset, mem,
+				  GP_ARG_NUM_REG - first_reg_offset);
     }
 
   /* Save FP registers if needed.  */
