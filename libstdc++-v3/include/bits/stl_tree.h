@@ -302,7 +302,7 @@ namespace std
     __x->_M_parent = __y;
   }
 
-  void 
+  inline void
   _Rb_tree_rebalance(_Rb_tree_node_base* __x, _Rb_tree_node_base*& __root)
   {
     __x->_M_color = _M_red;
@@ -357,7 +357,7 @@ namespace std
     __root->_M_color = _M_black;
   }
 
-  _Rb_tree_node_base*
+  inline _Rb_tree_node_base*
   _Rb_tree_rebalance_for_erase(_Rb_tree_node_base* __z, 
 			       _Rb_tree_node_base*& __root,
 			       _Rb_tree_node_base*& __leftmost,

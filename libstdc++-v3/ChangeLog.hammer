@@ -1,3 +1,9 @@
+2005-01-24  Michael Matz  <matz@suse.de>
+
+	Revert 2004-12-05.
+	* include/bits/stl_tree.h (_Rb_tree_rebalance,
+	_Rb_tree_rebalance_for_erase): Put back 'inline'.
+
 2005-01-12  Paolo Carlini  <pcarlini@suse.de>
 
         * include/bits/stl_algobase.h (lexicographical_compare):
