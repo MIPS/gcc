@@ -179,23 +179,17 @@ static bool vect_is_simple_use (tree , struct loop *, tree *);
    New function, vect_is_simple_cond.  */
 static bool vect_is_simple_cond (tree, struct loop *);
 static bool exist_non_indexing_operands_for_use_p (tree, tree);
-static bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *, bool);
 static void vect_mark_relevant (varray_type, tree);
 static bool vect_stmt_relevant_p (tree, loop_vec_info);
-static tree vect_get_loop_niters (struct loop *, tree *);
 static bool vect_compute_data_ref_alignment 
   (struct data_reference *, loop_vec_info);
 static bool vect_analyze_data_ref_access (struct data_reference *);
 static bool vect_get_first_index (tree, tree *);
 static bool vect_can_force_dr_alignment_p (tree, unsigned int);
-static struct data_reference * vect_analyze_pointer_ref_access 
-  (tree, tree, bool);
 static bool vect_analyze_loop_with_symbolic_num_of_iters (tree niters, 
  							  struct loop *loop);
 static tree vect_get_base_and_bit_offset
   (struct data_reference *, tree, tree, loop_vec_info, tree *, bool*);
-static struct data_reference * vect_analyze_pointer_ref_access
-  (tree, tree, bool);
 static tree vect_compute_array_base_alignment (tree, tree, tree *, tree *);
 static tree vect_compute_array_ref_alignment
   (struct data_reference *, loop_vec_info, tree, tree *);
@@ -3773,7 +3767,9 @@ exist_non_indexing_operands_for_use_p (tree use, tree stmt)
    FORNOW: A simple evolution of an induction variables in the loop is
    considered a polynomial evolution with constant step.  */
 
-static bool
+/* APPLE LOCAL begin loops-to-memset */
+bool
+/* APPLE LOCAL end loops-to-memset */
 vect_is_simple_iv_evolution (unsigned loop_nb, tree access_fn, tree * init, 
 				tree * step, bool strict)
 {
@@ -4811,7 +4807,9 @@ vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo)
    If the data-ref access is vectorizable, return a data_reference structure
    that represents it (DR). Otherwise - return NULL.  */
 
-static struct data_reference *
+/* APPLE LOCAL begin loops-to-memset  */
+struct data_reference *
+/* APPLE LOCAL end loops-to-memset  */
 vect_analyze_pointer_ref_access (tree memref, tree stmt, bool is_read)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
@@ -5554,7 +5552,9 @@ vect_analyze_loop_with_symbolic_num_of_iters (tree niters,
 
    Determine how many iterations the loop is executed.  */
 
-static tree
+/* APPLE LOCAL begin loops-to-memset  */
+tree
+/* APPLE LOCAL end loops-to-memset  */
 vect_get_loop_niters (struct loop *loop, tree *number_of_iterations)
 {
   tree niters;

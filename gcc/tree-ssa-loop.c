@@ -315,6 +315,42 @@ struct tree_opt_pass pass_elim_checks =
 };
 /* APPLE LOCAL end lno */
 
+/* APPLE LOCAL begin loops-to-memset  */
+/* Loops to memset pass.  */
+
+static void
+tree_ssa_loop_memset (void)
+{
+  if (!current_loops)
+    return;
+  
+  tree_ssa_memset (current_loops);
+}
+
+static bool
+gate_tree_ssa_loop_memset (void)
+{
+  return flag_tree_loop_memset != 0;
+}
+
+struct tree_opt_pass pass_memset =
+{
+  "memset",                            /* name */
+  gate_tree_ssa_loop_memset,           /* gate */
+  tree_ssa_loop_memset,                        /* execute */
+  NULL,                                        /* sub */
+  NULL,                                        /* next */
+  0,                                   /* static_pass_number */
+  TV_LIM,                              /* tv_id */
+  PROP_cfg,                            /* properties_required */
+  0,                                   /* properties_provided */
+  0,                                   /* properties_destroyed */
+  0,                                   /* todo_flags_start */
+  TODO_dump_func,                      /* todo_flags_finish */
+  0                                    /* letter */
+};
+/* APPLE LOCAL end loops-to-memset */
+
 /* Loop autovectorization.  */
 
 static void

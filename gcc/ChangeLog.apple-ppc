@@ -1,3 +1,29 @@
+2004-12-03  Caroline Tice  <ctice@apple.com>
+            Andrew Pinski  <pinskia@physics.uc.edu>
+
+	Radar 3469752 (Adding loops-to-memset optimization)
+	* Makefile.in (OBJS-common): Add tree-ssa-loo-memset.o to list
+	(tree-ssa-loop-memset.o): Add rule for making this.
+	* bitmap.h (bitmap_empty_p):  New macro.
+	* common.opt (ftree-loop-memset):  Add new flag for optimization.
+	* tree-flow.h (tree_ssa_memset):  Add function declaration.
+	* tree-optimize.c (init_tree_optimization_passes):  Add loops-to-memset 
+	pass.
+	* tree-pass.h (pass_memset):  Add extern declaration for loops-to-memset
+	pass.
+	* tree-ssa-loop.c  (tree_ssa_loop_memset, gate_tree_ssa_loop_memset): New
+	functions.
+	(pass_memset):  Define new pass.
+	* tree-ssa-loop-memset.c: New file.
+	* tree-vectorizer.c (vect_is_simple_iv_evolution): Remove static
+	forward declaration; make the function globally visible.
+	(vect_get_loop_niters): Likewise.
+	(vect_analyze_pointer_ref_access): Likewise.
+	* tree-vectorizer.h (vect_is_simple_iv_evolution):  Add external function
+	declaration.
+	(vect_get_loop_niters): Likewise.
+	(vect_analyze_pointer_ref_access): Likewise.
+
 2004-12-02  Devang Patel  <dpatel@apple.com>
 
 	Radar 3855723 and 3886718

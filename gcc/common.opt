@@ -921,6 +921,12 @@ ftree-loop-ivcanon
 Common Report Var(flag_tree_loop_ivcanon) Init(1)
 Create canonical induction variables in loops
 
+; APPLE LOCAL begin loops-to-memset
+ftree-loop-memset
+Common Report Var(flag_tree_loop_memset) Init(0)
+Transform appropriate loops to memset calls
+; APPLE LOCAL end loops-to-memset
+
 ftree-loop-optimize
 Common Report Var(flag_tree_loop_optimize) Init(1)
 Enable loop optimizations on tree level

@@ -583,4 +583,9 @@ bmp_iter_and_next (bitmap_iterator *bi)
        !bmp_iter_end_p (ITER);						\
        (BITNUM) = bmp_iter_and_next (&(ITER)))
 
+/* APPLE LOCAL begin loops-to-memset  */
+/* True if MAP is an empty bitmap.  */
+#define bitmap_empty_p(MAP) (!(MAP)->first)
+/* APPLE LOCAL end loops-to-memset  */
+
 #endif /* GCC_BITMAP_H */

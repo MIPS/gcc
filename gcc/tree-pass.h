@@ -130,6 +130,9 @@ extern struct tree_opt_pass pass_loop_init;
 /* APPLE LOCAL lno */
 extern struct tree_opt_pass pass_loop_test;
 extern struct tree_opt_pass pass_lim;
+/* APPLE LOCAL begin loops-to-memset */
+extern struct tree_opt_pass pass_memset;
+/* APPLE LOCAL end loops-to-memset */
 extern struct tree_opt_pass pass_unswitch;
 /* APPLE LOCAL begin lno */
 extern struct tree_opt_pass pass_mark_maybe_inf_loops;

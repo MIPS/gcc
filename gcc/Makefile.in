@@ -911,7 +911,7 @@ C_OBJS = c-parse.o c-lang.o stub-objc.o $(C_AND_OBJC_OBJS)
   # c-idebug.o c-dmp-tree.o
 
 # Language-independent object files.
-# APPLE LOCAL begin lno
+# APPLE LOCAL begin lno, loops-to-memset
 OBJS-common = \
  tree-chrec.o tree-scalar-evolution.o tree-data-ref.o                      \
  tree-loop-linear.o lambda-trans.o lambda-code.o                           \
@@ -930,7 +930,7 @@ OBJS-common = \
  cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
  cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
  cfgrtl.o combine.o conflict.o convert.o coverage.o cse.o cselib.o 	   \
- tree-ssa-loop-prefetch.o \
+ tree-ssa-loop-prefetch.o  tree-ssa-loop-memset.o \
  dbxout.o ddg.o tree-ssa-loop-ch.o loop-invariant.o tree-ssa-loop-im.o	   \
  debug.o df.o diagnostic.o dojump.o dominance.o loop-doloop.o		   \
  dwarf2asm.o dwarf2out.o emit-rtl.o except.o explow.o loop-iv.o		   \
@@ -955,7 +955,7 @@ OBJS-common = \
  et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o passes.o	   \
  rtl-profile.o tree-profile.o rtlhooks.o cfgexpand.o lambda-mat.o          \
  lambda-trans.o	lambda-code.o tree-loop-linear.o
-# APPLE LOCAL end lno
+# APPLE LOCAL end lno, loops-to-memset
 
 OBJS-md = $(out_object_file)
 OBJS-archive = $(EXTRA_OBJS) $(host_hook_obj) tree-inline.o		   \
@@ -1753,6 +1753,12 @@ tree-ssa-loop-ivcanon.o : tree-ssa-loop-ivcanon.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) $(PARAMS_H) tree-inline.h \
    output.h diagnostic.h $(TM_H) coretypes.h $(TREE_DUMP_H) $(FLAGS_H) \
    tree-pass.h $(SCEV_H)
+# APPLE LOCAL begin loops-to-memset
+tree-ssa-loop-memset.o : tree-ssa-loop-memset.c $(TREE_FLOW_H) $(CONFIG_H) \
+   $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) cfgloop.h $(PARAMS_H) tree-inline.h \
+   output.h diagnostic.h $(TM_H) coretypes.h $(TREE_DUMP_H) flags.h \
+   tree-pass.h $(SCEV_H)
+# APPLE LOCAL end loops-to-memset
 tree-ssa-loop-ch.o : tree-ssa-loop-ch.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) tree-inline.h \
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \

@@ -206,6 +206,11 @@ extern void vectorize_loops (struct loops *);
 /* creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
 extern void destroy_loop_vec_info (loop_vec_info);
-extern stmt_vec_info new_stmt_vec_info (tree stmt, struct loop *loop);
+extern stmt_vec_info new_stmt_vec_info (tree, struct loop *loop);
+/* APPLE LOCAL begin loops-to-memset  */
+extern bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *, bool);
+extern struct data_reference * vect_analyze_pointer_ref_access (tree, tree, bool);
+extern tree vect_get_loop_niters (struct loop *, tree *);
+/* APPLE LOCAL end loops-to-memset  */
 
 #endif  /* GCC_TREE_VECTORIZER_H  */

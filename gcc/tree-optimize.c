@@ -395,6 +395,9 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_record_bounds);
   NEXT_PASS (pass_linear_transform);
   NEXT_PASS (pass_iv_canon);
+  /* APPLE LOCAL begin loops-to-memset */
+  NEXT_PASS (pass_memset);
+  /* APPLE LOCAL end loops-to-memset */
   /* APPLE LOCAL begin lno */
   NEXT_PASS (pass_loop_test);
   NEXT_PASS (pass_elim_checks);
