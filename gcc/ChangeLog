@@ -1,3 +1,8 @@
+Mon Dec 13 09:34:31 1999  Clinton Popetz  <cpopetz@cygnus.com>
+
+	* config/arm/arm.md (mulsidi3adddi, umulsidi3adddi): New patterns
+	for long long multiply-accumlate.
+
 1999-12-08  Bernd Schmidt  <bernds@cygnus.co.uk>
 
 	* config/arm/elf.h (MULTILIB_DEFAULTS): Add "marm".
