@@ -1656,6 +1656,17 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
       stmt = bsi_stmt (bsi);
       ann = stmt_ann (stmt);
 
+      /* APPLE LOCAL begin do not move insns after an asm volatile. */
+      if (TREE_CODE (stmt) == ASM_EXPR && ASM_VOLATILE_P (stmt))
+	{
+	  /* Volatile ASM_EXPRs kill all current expressions.  */
+	  EXECUTE_IF_SET_IN_BITMAP ((tab->partition_in_use), 0, partition,
+	    {
+	      kill_expr (tab, partition, false);
+	    }); 
+	  continue;
+	}
+      /* APPLE LOCAL end do not move insns after an asm volatile. */
       /* Determine if this stmt finishes an existing expression.  */
       FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_USE)
 	{
