@@ -32,6 +32,7 @@ static int op_prio              PARAMS ((tree));
 static const char *op_symbol    PARAMS ((tree));
 static void pretty_print_string PARAMS ((output_buffer *, const char*));
 static void print_call_name     PARAMS ((output_buffer *, tree));
+static inline void maybe_init_pretty_print PARAMS ((void));
 
 #define INDENT(SPACE) do { \
   int i; for (i = 0; i<SPACE; i++) output_add_space (buffer); } while (0)
@@ -46,6 +47,8 @@ static void print_call_name     PARAMS ((output_buffer *, tree));
    IDENTIFIER_POINTER (DECL_NAME (NODE)))
 
 
+static output_buffer buffer;
+static int initialized = 0;
 
 /* Print the tree T in full, on file FILE.  */
  
@@ -54,13 +57,10 @@ print_c_tree (file, t)
      FILE *file;
      tree t;
 {
-  output_buffer buffer_rec;
-  output_buffer *buffer = &buffer_rec;
-  
-  init_output_buffer (buffer, /* prefix */NULL, /* line-width */0);
-  output_clear_message_text (buffer);
-  dump_c_tree (buffer, t, 0);
-  fprintf (file, "%s", output_finalize_message (buffer));
+  maybe_init_pretty_print ();
+  dump_c_tree (&buffer, t, 0);
+  fprintf (file, "%s", output_finalize_message (&buffer));
+  output_clear_message_text (&buffer);
 }
 
 /* Print the node T on file FILE.  */
@@ -70,13 +70,10 @@ print_c_node (file, t)
      FILE *file;
      tree t;
 {
-  output_buffer buffer_rec;
-  output_buffer *buffer = &buffer_rec;
-
-  init_output_buffer (buffer, /* prefix */NULL, /* line-width */0);
-  output_clear_message_text (buffer);
-  dump_c_node (buffer, t, 0, 0);
-  fprintf (file, "%s", output_finalize_message (buffer));
+  maybe_init_pretty_print ();
+  dump_c_node (&buffer, t, 0, 0);
+  fprintf (file, "%s", output_finalize_message (&buffer));
+  output_clear_message_text (&buffer);
 }
 
 /* Print the first line of node T on file FILE.  For control statement
@@ -87,13 +84,10 @@ print_c_node_brief (file, t)
      FILE *file;
      tree t;
 {
-  output_buffer buffer_rec;
-  output_buffer *buffer = &buffer_rec;
-
-  init_output_buffer (buffer, /* prefix */NULL, /* line-width */0);
-  output_clear_message_text (buffer);
-  dump_c_node (buffer, t, 0, 1);
-  fprintf (file, "%s", output_finalize_message (buffer));
+  maybe_init_pretty_print ();
+  dump_c_node (&buffer, t, 0, 1);
+  fprintf (file, "%s", output_finalize_message (&buffer));
+  output_clear_message_text (&buffer);
 }
 
 /* Print the tree T in full, on stderr.  */
@@ -1858,5 +1852,15 @@ pretty_print_string (buffer, str)
 	  break;
 	}
       str++;
+    }
+}
+
+static inline void
+maybe_init_pretty_print ()
+{
+  if (!initialized)
+    {
+      init_output_buffer (&buffer, /* prefix */NULL, /* line-width */0);
+      initialized = 1;
     }
 }

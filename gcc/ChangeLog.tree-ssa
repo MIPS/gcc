@@ -1,3 +1,15 @@
+2002-08-22  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-pretty-print.c (buffer): New file local variable.
+	(initialized): New file local variable.
+	(print_c_tree): Don't call init_output_buffer.  Call
+	maybe_init_pretty_print.
+	(print_c_node): Ditto.
+	(print_c_node_brief): Ditto.
+	(maybe_init_pretty_print): New function.
+	* tree-mudflap.c (mf_varname_tree): Only call init_output_buffer
+	once.  Call output_clear_message_text before returning.
+
 2002-08-21  Frank Ch. Eigler  <fche@redhat.com>
 
 	Support source-file/line coordinates in check/violation messages.

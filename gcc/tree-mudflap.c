@@ -332,12 +332,17 @@ mf_varname_tree (decl)
   output_buffer buf_rec;
   output_buffer *buf = & buf_rec;
   const char *buf_contents;
+  static int initialized = 0;
   tree result;
 
   if (decl == NULL_TREE)
     abort ();
 
-  init_output_buffer (buf, /* prefix */ NULL, /* line-width */ 0);
+  if (!initialized)
+    {
+      init_output_buffer (buf, /* prefix */ NULL, /* line-width */ 0);
+      initialized = 1;
+    }
 
   /* Add FILENAME[:LINENUMBER]. */
   {
@@ -384,6 +389,7 @@ mf_varname_tree (decl)
   /* Return the lot as a new STRING_CST.  */
   buf_contents = output_finalize_message (buf);
   result = fix_string_type (build_string (strlen (buf_contents) + 1, buf_contents));
+  output_clear_message_text (buf);
 
   return mx_flag (result);
 }
