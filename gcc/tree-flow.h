@@ -506,6 +506,7 @@ extern bool block_may_fallthru (tree block);
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
 extern void rewrite_into_ssa (tree, bitmap, enum tree_dump_index);
+extern void rewrite_vars_out_of_ssa (bitmap);
 extern void rewrite_out_of_ssa (tree, enum tree_dump_index);
 extern void dump_reaching_defs (FILE *);
 extern void debug_reaching_defs (void);

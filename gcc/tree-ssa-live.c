@@ -1711,3 +1711,93 @@ dump_live_info (FILE *f, tree_live_info_p live, int flag)
     }
 }
 
+/* Register partitions so that we can take VARS out of SSA form. 
+
+   This requires a walk over all the PHI nodes and all the statements.  */
+
+void
+register_ssa_partitions_for_vars (bitmap vars, var_map map)
+{
+  basic_block bb;
+
+  if (bitmap_first_set_bit (vars) >= 0)
+    {
+
+      /* Find every instance (SSA_NAME) of variables in VARs and
+	 register a new partition for them.  This requires examining
+	 every statement and every PHI node once.  */
+      FOR_EACH_BB (bb)
+	{
+	  block_stmt_iterator bsi;
+	  tree next;
+	  tree phi;
+
+	  /* Register partitions for SSA_NAMEs appearing in the PHI
+	     nodes in this basic block.
+
+	     Note we delete PHI nodes in this loop if they are 
+	     associated with virtual vars which are going to be
+	     renamed.   */
+	  for (phi = phi_nodes (bb); phi; phi = next)
+	    {
+	      tree result = SSA_NAME_VAR (PHI_RESULT (phi));
+
+	      next = TREE_CHAIN (phi);
+	      if (bitmap_bit_p (vars, var_ann (result)->uid))
+		{
+		  if (! is_gimple_reg (result))
+		    remove_phi_node (phi, NULL_TREE, bb);
+		  else
+		    {
+		      int i;
+
+		      /* Register a partition for the result.  */
+		      register_ssa_partition (map, PHI_RESULT (phi), 0);
+
+		      /* Register a partition for each argument as needed.  */
+		      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+			{
+			  tree arg = PHI_ARG_DEF (phi, i);
+
+			  if (TREE_CODE (arg) != SSA_NAME
+			      || !bitmap_bit_p (vars, var_ann (SSA_NAME_VAR (arg))->uid))
+			    continue;
+
+			  register_ssa_partition (map, arg, 1);
+		        }
+		    }
+		}
+	    }
+
+	  /* Now register partitions for SSA_NAMEs appearing in each
+	     statement in this block.  */
+	  for (bsi = bsi_start (bb); ! bsi_end_p (bsi); bsi_next (&bsi))
+	    {
+	      stmt_ann_t ann = stmt_ann (bsi_stmt (bsi));
+	      varray_type uses = use_ops (ann);
+	      varray_type defs = def_ops (ann);
+	      unsigned int i;
+
+	      for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
+		{
+		  tree op = *VARRAY_TREE_PTR (uses, i);
+
+		  if (TREE_CODE (op) == SSA_NAME
+		      && bitmap_bit_p (vars, var_ann (SSA_NAME_VAR (op))->uid))
+		    register_ssa_partition (map, op, 1);
+		}
+		    
+	      for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
+		{
+		  tree op = *VARRAY_TREE_PTR (defs, i);
+
+		  if (TREE_CODE (op) == SSA_NAME
+			  && bitmap_bit_p (vars,
+			     var_ann (SSA_NAME_VAR (op))->uid))
+		    register_ssa_partition (map, op, 0);
+		}
+	    }
+	}
+    }
+}
+

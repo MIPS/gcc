@@ -987,9 +987,15 @@ create_temp (tree t)
   tmp = create_tmp_var (type, name);
   create_var_ann (tmp);
   set_is_used (tmp);
+
+  /* We have just created a new variable.  Make sure it has a UID and
+     an appropriate memory tag, then put it in REFERENCED_VARS.  */
+  var_ann (tmp)->uid = num_referenced_vars;
+  var_ann (tmp)->mem_tag = var_ann (t)->mem_tag;
+  VARRAY_PUSH_TREE (referenced_vars, tmp);
+
   return tmp;
 }
-
 
 /* This helper function fill insert a copy from a constant or a variable to 
    a variable on the specified edge.  */
@@ -1194,7 +1200,13 @@ eliminate_build (elim_graph g, basic_block B, int i)
 	    abort();
 	  Ti = PHI_ARG_DEF (phi, pi);
 	}
-      if (!phi_ssa_name_p (Ti))
+
+      /* If this argument is a constant, or a SSA_NAME which is being
+	 left in SSA form, just queue a copy to be emitted on this
+	 edge.  */
+      if (!phi_ssa_name_p (Ti)
+	  || (TREE_CODE (Ti) == SSA_NAME
+	      && var_to_partition (g->map, Ti) == NO_PARTITION))
         {
 	  /* Save constant copies until all other copies have been emitted
 	     on this edge.  */
@@ -2580,6 +2592,113 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
     }
 
   dump_file = save;
+}
+
+/* Take a subset of the variables (VARS) in the current function out of SSA
+   form.  */
+
+void
+rewrite_vars_out_of_ssa (bitmap vars)
+{
+  if (bitmap_first_set_bit (vars) >= 0)
+    {
+      var_map map;
+      basic_block bb;
+      tree phi;
+      int i;
+
+      /* Search for PHIs in which one of the PHI arguments is marked for
+	 translation out of SSA form, but for which the PHI result is not
+	 marked for translation out of SSA form.
+
+	 Our per-variable out of SSA translation can not handle that case;
+	 however we can easily handle it here by creating a new instance
+	 of the PHI result's underlying variable and initializing it to
+	 the offending PHI argument on the edge associated with the
+	 PHI argument.  We then change the PHI argument to use our new
+	 instead of the PHI's underlying variable.
+
+	 You might think we could register partitions for the out-of-ssa
+	 translation here and avoid a second walk of the PHI nodes.  No
+	 such luck since the size of the var map will change if we have
+	 to manually take variables out of SSA form here.  */
+      FOR_EACH_BB (bb)
+	{
+	  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	    {
+	      tree result = SSA_NAME_VAR (PHI_RESULT (phi));
+
+	      /* If the definition is marked for renaming, then we need
+		 to do nothing more for this PHI node.  */
+	      if (bitmap_bit_p (vars, var_ann (result)->uid))
+		continue;
+
+	      /* Look at all the arguments and see if any of them are
+		 marked for renaming.  If so, we need to handle them
+		 specially.  */
+	      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+		{
+		  tree arg = PHI_ARG_DEF (phi, i);
+
+		  /* If the argument is not an SSA_NAME, then we can ignore
+		     this argument.  */
+		  if (TREE_CODE (arg) != SSA_NAME)
+		    continue;
+
+		  /* If this argument is marked for renaming, then we need
+		     to undo the copy propagation so that we can take
+		     the argument out of SSA form without taking the
+		     result out of SSA form.  */
+		  arg = SSA_NAME_VAR (arg);
+		  if (bitmap_bit_p (vars, var_ann (arg)->uid))
+		    {
+		      tree new_name, copy;
+
+		      /* Get a new SSA_NAME for the copy, it is based on
+			 the result, not the argument!   We use the PHI
+			 as the definition since we haven't created the
+			 definition statement yet.  */
+		      new_name = make_ssa_name (result, phi);
+
+		      /* Now create the copy statemenet.  */
+		      copy = build (MODIFY_EXPR, TREE_TYPE (arg),
+				    new_name, PHI_ARG_DEF (phi, i));
+
+		      /* Now update SSA_NAME_DEF_STMT to point to the
+			 newly created statement.  */
+		      SSA_NAME_DEF_STMT (new_name) = copy;
+
+		      /* Now make the argument reference our new SSA_NAME.  */
+		      PHI_ARG_DEF (phi, i) = new_name;
+
+		      /* Queue the statement for insertion.  */
+		      bsi_insert_on_edge (PHI_ARG_EDGE (phi, i), copy);
+		      modify_stmt (copy);
+		    }
+		}
+	    }
+	}
+
+      /* If any copies were inserted on edges, actually insert them now.  */
+      bsi_commit_edge_inserts (0, NULL);
+                                                                                
+      /* Now register partitions for all instances of the variables we
+	 are taking out of SSA form.  */
+      map = init_var_map (highest_ssa_version + 1);
+      register_ssa_partitions_for_vars (vars, map);
+
+      /* Now that we have all the partitions registered, translate the
+	 appropriate variables out of SSA form.  */
+      remove_ssa_form (dump_file, map, 0);
+
+      /* And finally, reset the out_of_ssa flag for each of the vars
+	 we just took out of SSA form.  */
+      EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i,
+	{
+	  var_ann (referenced_var (i))->out_of_ssa_tag = 0;
+	});
+
+    }
 }
 
 /* Take function FNDECL out of SSA form.

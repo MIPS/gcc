@@ -1,3 +1,16 @@
+2003-12-12  Jeff Law  <law@redhat.com>
+
+	* tree-ssa.c (create_temp): When we create a new temporary, make
+	sure to put it into referenced_vars, give it an ID number and
+	a suitable mem_tag.
+	(eliminate_build): If we encounter a PHI argument which is an
+	SSA_VAR we are not rewriting out of SSA form, then just treat
+	it like a constant.
+	(rewrite_vars_out_of_ssa): New function.
+	* tree-flow.h (rewrite_vars_out_of_ssa): Prototype.
+	* tree-ssa-live.c (register_ssa_partitions_for_vars): New function.
+	* tree-ssa-live.h (register_ssa_partitions_for_vars): Prototype.
+
 2003-12-12  Jan Hubicka  <jh@suse.cz>
 
 	* tree-inline.c (remap_decl): Avoid invalid sharing.
