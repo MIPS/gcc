@@ -1,5 +1,7 @@
 2004-06-08  J"orn Rennecke <joern.rennecke@superh.com>
 
+	* version.c (version_string): Adjust.
+
 	* basic-block.h (could_fall_through): Declare.
 	* cfganal.c (can_fallthru): Suceed if the target is EXIT_BLOCK_PTR.
 	Fail if the source already has a fallthrough edge to the exit
