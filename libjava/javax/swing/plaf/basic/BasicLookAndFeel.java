@@ -434,6 +434,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "Label.disabledForeground", new ColorUIResource(Color.white),
       "Label.disabledShadow", new ColorUIResource(Color.gray),
       "Label.font", new FontUIResource("Dialog", Font.PLAIN, 12),
+      "Label.foreground", new ColorUIResource(Color.black),
       "List.focusInputMap", new UIDefaults.LazyInputMap(new Object[] {
         "PAGE_UP", "scrollUp",
         "ctrl \\", "clearSelection",
