@@ -1,3 +1,12 @@
+2003-10-10  Michael Matz  <matz@suse.de>
+
+	Merge from HEAD at ra-merge-20031009.
+
+	* ra.c (reg_alloc): Comment call to remove_suspicious_death_notes().
+
+	* ra-rewrite.c (init_split_costs): Set impossible=1 for webs
+	referenced in the last insn of a bb which has an unsplittable edge.
+
 2003-08-01  Denis Chertykov  <denisc@overta.ru>
 
 	* ra-rewrite.c (split_insert_load): Fix a syntax error. 
