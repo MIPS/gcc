@@ -405,7 +405,7 @@ host_exeext=
 
 # Each system that is known to be uncapable of running the fixincl program
 # properly should initialize fixinc_defs='-DFIXINC_BROKEN' in the case
-# block below; see m68k-motorola-sysv as an example.
+# block below.
 fixinc_defs=
 
 # Decode the host machine, then the target machine.
@@ -1691,7 +1691,6 @@ changequote([,])dnl
 		extra_parts="crt0.o mcrt0.o"
 		extra_headers=math-68881.h
 		float_format=m68k
-		fixinc_defs='-DFIXINC_BROKEN'
 		;;
 	m68k-ncr-sysv*)			# NCR Tower 32 SVR3
 		tm_file=m68k/tower-as.h
@@ -2038,7 +2037,6 @@ changequote([,])dnl
 		then
 			tmake_file=m88k/t-m88k-gas
 		fi
-		fixinc_defs='-DFIXINC_BROKEN'
 		;;
 	m88k-*-sysv4*)
 		tm_file=m88k/sysv4.h
