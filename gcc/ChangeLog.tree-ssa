@@ -1,3 +1,21 @@
+2003-10-17  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* ChangeLog.tree-ssa: Fix typos.
+	* tree-alias-common.c: Fix comment typos.
+	* tree-cfg.c: Likewise.
+	* tree-dfa.c: Likewise.
+	* tree-eh.c: Likewise.
+	* tree-flow.h: Likewise.
+	* tree-iterator.h: Likewise.
+	* tree-mudflap.c: Likewise.
+	* tree-ssa-ccp.c: Likewise.
+	* tree-ssa-dce.c: Likewise.
+	* tree-ssa-dom.c: Likewise.
+	* tree-ssa-live.c: Likewise.
+	* tree-ssa-live.h: Likewise.
+	* tree-ssa-pre.c: Likewise.
+	* tree-ssa.c: Likewise.
+
 2003-10-17  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-dce.c (processed): New Global vector.
@@ -7394,7 +7412,7 @@
 2002-11-24  Daniel Berlin  <dberlin@dberlin.org>
 
 	* configure.in: Add --with-libbanshee, passed to us by toplevel if
-	libbanshee was configured. Substitute approriate definitions for
+	libbanshee was configured. Substitute appropriate definitions for
 	Makefile (IE disabling tree-alias-ander building) if it wasn't.
 	* config.in: Regenerated.
 	* config.gcc: Rebuild libbanshee with stage1 on darwin to work
@@ -7777,7 +7795,7 @@
 	(decode_f_option): Allow selecting of points-to algorithm.
 	* tree-alias-common.c (varmap): Removed.
 	(alias_annot): Changed to a hash table.  Update all functions
-	approriately.
+	appropriately.
 	(FIELD_BASED): New macro, switches between field-based analysis,
 	and field-independent analysis (field-based isn't quite done yet).
 	(alias_annot_entry): New, used in hash table.

@@ -137,7 +137,7 @@ var_union (var_map map, tree var1, tree var2)
   tree root_var = NULL_TREE;
   tree other_var = NULL_TREE;
 
-  /* This is independant of partition_to_compact. If partition_to_compact is 
+  /* This is independent of partition_to_compact. If partition_to_compact is 
      on, then whichever one of these partitions is absorbed will never have a
      dereference into the partition_to_compact array any more.  */
 
@@ -191,7 +191,7 @@ var_union (var_map map, tree var1, tree var2)
 
 
 /* Compress the partition numbers such that they fall in the range 
-   0..(num_partitions-1) instead of whereever they turned out during
+   0..(num_partitions-1) instead of wherever they turned out during
    the partitioning exercise. This removes any references to unused
    partitions, thereby allowing bitmaps and other vectors to be much
    denser.
@@ -203,7 +203,7 @@ var_union (var_map map, tree var1, tree var2)
    still be members of the same partition group. This allows work on reduced
    sets, and no lose of information when a larger set is desired.
 
-   In partiticular, coalescing can work on partitions which have 2 or more
+   In particular, coalescing can work on partitions which have 2 or more
    definitions, and then 'recompact' later to include all the single
    definitions for assignment to program variables.  */
 

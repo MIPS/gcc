@@ -137,7 +137,7 @@ static int dump_flags;
    the declaration for the function to optimize.
    
    On exit, VARS_TO_RENAME will contain the symbols that have been exposed by
-   the propagation of ADDR_EXPR expressions into pointer derferences and need
+   the propagation of ADDR_EXPR expressions into pointer dereferences and need
    to be renamed into SSA.
 
    PHASE indicates which dump file from the DUMP_FILES array to use when
@@ -570,7 +570,7 @@ visit_stmt (tree stmt)
 
   /* If this statement is already in the worklist then "cancel" it.  The
      reevaluation implied by the worklist entry will produce the same
-     value we generate here and thus reevaluting it again from the
+     value we generate here and thus reevaluating it again from the
      worklist is pointless.  */
   if (ann->in_ccp_worklist)
     ann->in_ccp_worklist = 0;
@@ -1243,7 +1243,7 @@ cfg_blocks_get ()
   return bb;
 }
 
-/* We have just definited a new value for VAR.  Add all immediate uses
+/* We have just defined a new value for VAR.  Add all immediate uses
    of VAR to the ssa_edges worklist.  */
 static void
 add_var_to_ssa_edges_worklist (tree var)

@@ -329,7 +329,7 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
   /* Allocate memory for the GLOBALS bitmap which will indicate which
      variables are live across basic block boundaries.  Note that this
      bitmap is indexed by variable UID, so it must always be large enough
-     to accomodate all the variables referenced in the program, not just
+     to accommodate all the variables referenced in the program, not just
      the ones we are renaming.  */
   globals = sbitmap_alloc (num_referenced_vars);
   sbitmap_zero (globals);
@@ -498,7 +498,7 @@ mark_def_sites (sbitmap globals)
   sbitmap kills;
 
   /* Notice that this bitmap is indexed using variable UIDs, so it must be
-     large enough to accomodate all the variables referenced in the
+     large enough to accommodate all the variables referenced in the
      function, not just the ones we are renaming.  */
   kills = sbitmap_alloc (num_referenced_vars);
 
@@ -1002,7 +1002,7 @@ eliminate_name (elim_graph g, tree T)
     }
 }
 
-/* Build the auxillary graph.  */
+/* Build the auxiliary graph.  */
 
 static int
 eliminate_build (elim_graph g, basic_block B, int i)
@@ -1396,7 +1396,7 @@ coalesce_ssa_name (var_map map)
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_var_map (dump_file, map);
 
-  /* Coalesce partitions of a root variable whereever possible.  */
+  /* Coalesce partitions of a root variable wherever possible.  */
   coalesce_tpa_members (rv, graph, map, NULL, 
 			((dump_flags & TDF_DETAILS) ? dump_file : NULL));
 

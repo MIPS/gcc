@@ -332,7 +332,7 @@ static inline bitmap dom_children (basic_block);
 
 typedef struct {
   tree *tp;
-  tree context;		/* Stack for decending into BIND_EXPR's.  */
+  tree context;		/* Stack for descending into BIND_EXPR's.  */
 } block_stmt_iterator;
 
 extern block_stmt_iterator bsi_start (basic_block);

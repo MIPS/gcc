@@ -136,7 +136,7 @@ static struct opt_stats_d opt_stats;
 static varray_type edges_to_redirect;
 static varray_type redirection_targets;
 
-/* A virtual array holding value range records for the variable indentified
+/* A virtual array holding value range records for the variable identified
    by the index, SSA_VERSION.  */
 static varray_type vrp_data;
 
@@ -148,7 +148,7 @@ struct dom_walk_block_data
 {
   /* Array of all the expressions entered into the global expression
      hash table by this block.  During finalization we use this array to
-     know what expressions to remove from the global expressio hash
+     know what expressions to remove from the global expression hash
      table.  */
   varray_type avail_exprs;
 
@@ -482,7 +482,7 @@ thread_through_successor (basic_block bb, varray_type *block_avail_exprs)
 }
 
 /* Initialize local stacks for this optimizer and record equivalences
-   upon entry to BB.  Equivlances can come from the edge traversed to
+   upon entry to BB.  Equivalences can come from the edge traversed to
    reach BB or they may come from PHI nodes at the start of BB.  */
 
 static void
@@ -1291,7 +1291,7 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 		     The low value for the merged range is the maximum of
 		     the previous low value and the low value of this record.
 
-		     Simlarly the high value for the merged range is the
+		     Similarly the high value for the merged range is the
 		     minimum of the previous high value and the high value of
 		     this record.  */
 		  low = fold (build (MAX_EXPR, TREE_TYPE (low),
@@ -2112,7 +2112,7 @@ static void
 record_range (tree cond, basic_block bb, varray_type *vrp_variables_p)
 {
   /* We explicitly ignore NE_EXPRs.  They rarely allow for meaningful
-     range optimizations and significantly compliciate the implementation.  */
+     range optimizations and significantly complicate the implementation.  */
   if (TREE_CODE_CLASS (TREE_CODE (cond)) == '<'
       && TREE_CODE (cond) != NE_EXPR
       && TREE_CODE (TREE_TYPE (TREE_OPERAND (cond, 1))) == INTEGER_TYPE)

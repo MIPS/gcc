@@ -291,7 +291,7 @@ tpa_num_trees (tpa_p tpa)
   return tpa->num_trees;
 }
 
-/* Retreive the tree node for a specified index.  */
+/* Retrieve the tree node for a specified index.  */
 static inline tree
 tpa_tree (tpa_p tpa, int i)
 {
@@ -529,7 +529,7 @@ type_var_decompact (type_var_p tv)
 }
 
 /* This set of routines implements a coalesce_list. This is an object which
-   is used to track pairs of partitions which are desireable to coalesce
+   is used to track pairs of partitions which are desirable to coalesce
    together at some point.  Costs are associated with each pair, and when 
    all desired information has been collected, the object can be used to 
    order the pairs for processing.  */
@@ -552,7 +552,7 @@ typedef struct partition_pair_d
    to be added in this mode.
    When add_mode is false, the lists have all been merged into list[0]. The
    rest of the lists are not used. list[0] is ordered from most desirable
-   coalesce to least desirable. pop_best_coalesce() retreives the pairs
+   coalesce to least desirable. pop_best_coalesce() retrieves the pairs
    one at a time.  */
 
 typedef struct coalesce_list_d 

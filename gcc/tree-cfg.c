@@ -83,7 +83,7 @@ static bool found_computed_goto;
 static tree factored_computed_goto_label;
 
 /* The factored computed goto.  We cache this so we can easily recover
-   the destation of computed gotos when unfactoring them.  */
+   the destination of computed gotos when unfactoring them.  */
 static tree factored_computed_goto;
 
 /* Basic blocks and flowgraphs.  */
@@ -2456,7 +2456,7 @@ linearize_control_structures (void)
 }
 
 /* If all the phi nodes in PHI have alternatives for BB1 and BB2 and
-   those alterantives are equal in each of the PHI nodes, then return
+   those alternatives are equal in each of the PHI nodes, then return
    nonzero, else return zero.  */
 
 static int
@@ -2469,7 +2469,7 @@ phi_alternatives_equal (tree phi, basic_block bb1, basic_block bb2)
       tree val1 = NULL;
       tree val2 = NULL;
 
-      /* Find the alterantive associated with BB1 and BB2.  Quit when we
+      /* Find the alternative associated with BB1 and BB2.  Quit when we
 	 have found both or we exhaust the alternatives.  */
       for (i = 0; i < PHI_NUM_ARGS (phi); i++)
 	{
@@ -2482,7 +2482,7 @@ phi_alternatives_equal (tree phi, basic_block bb1, basic_block bb2)
 	    break;
 	}
 
-      /* If we exhaused the alternatives or the alternatives found are
+      /* If we exhausted the alternatives or the alternatives found are
 	 not equal, then return false.  */
       if (i == PHI_NUM_ARGS (phi)
 	  || ! operand_equal_p (val1, val2, 0))
@@ -3418,7 +3418,7 @@ bsi_prev (block_stmt_iterator *i)
    iterator. If this cannot be done, a NULL iterator is returned.  */
 
 /* Note this routine is a bit ugly. Since BIND_EXPRs dont cause new block,
-   the block iterator keeps a stack of BIND_EXPRs which have been decended
+   the block iterator keeps a stack of BIND_EXPRs which have been descended
    into.  In order to create this stack properly, this routine traverses
    through the block until it finds the specified tsi stmt.  */
 
@@ -3929,7 +3929,7 @@ restart_loop:
 	     So this is ugly. The edge may no longer be in the edge list we
 	     have been traversing, so we have to start over.  First attach any
 	     pending insertions to the new edge.  This is why we need to check 
-	     for exisiting GOTO's to our label above.  */
+	     for existing GOTO's to our label above.  */
 	  if (new_bb)
 	    {
 #ifdef ENABLE_CHECKING
@@ -3947,7 +3947,7 @@ restart_loop:
 	}
     }
 
-  /* Find the last case label.  That will be where the code seperation
+  /* Find the last case label.  That will be where the code separation
      between bb_c and bb_a will be formed.  Upon exit of the loop, bsi will
      point to the first stmt in BB_a.  */
 
@@ -4044,7 +4044,7 @@ find_insert_location (basic_block src, basic_block dest, basic_block new_block,
       switch (TREE_CODE (stmt))
 	{
 	  case COND_EXPR:
-	    /* If the ELSE block is non-existant, and this is an edge from the
+	    /* If the ELSE block is non-existent, and this is an edge from the
 	       COND_EXPR to a block other than the THEN block, then we create
 	       a new ELSE clause.  */
 	    if (bb_for_stmt (COND_EXPR_ELSE (stmt)) == NULL)

@@ -20,7 +20,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-/* This file is dependant upon the implementation of tree's. It provides an
+/* This file is dependent upon the implementation of tree's. It provides an
    abstract interface to the tree objects such that if all tree creation and
    manipulations are done through this interface, we can easily change the
    implementation of tree's, and not impact other code.

@@ -262,7 +262,7 @@ static dominance_info pre_idom;
 /* PRE dominance frontiers.  */
 static bitmap *pre_dfs;
 
-/* Number of redunancy classes.  */
+/* Number of redundancy classes.  */
 static int class_count;
 static int preorder_count;
 
@@ -3029,7 +3029,7 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
 	  build_dominator_tree (pre_idom);
 	  currbbs = n_basic_blocks;
 
-	  /* Reompute dominance frontiers.  */
+	  /* Recompute dominance frontiers.  */
 	  pre_dfs = (bitmap *) xmalloc (sizeof (bitmap) * currbbs);
 	  for (i = 0; i < currbbs; i++)
 	    pre_dfs[i] = BITMAP_XMALLOC ();

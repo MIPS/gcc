@@ -394,7 +394,7 @@ process_worklist (void)
 }
 
 
-/* Eliminate unnecessary instructions. Any instuction not marked as necessary
+/* Eliminate unnecessary instructions. Any instruction not marked as necessary
    contributes nothing to the program, and can be deleted.  */
 
 static void

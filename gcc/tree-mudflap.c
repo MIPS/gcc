@@ -973,7 +973,7 @@ mx_xfn_indirect_ref (tree *t, int *continue_p, void *data)
 				      tree_role, NULL_TREE,
 				      last_filename, last_lineno);
 	/* Prevent this transform's reapplication to this tree node.
-	   Note that we do not prevent recusion in walk_tree toward
+	   Note that we do not prevent recursion in walk_tree toward
 	   subtrees of this node, in case of nested pointer expressions.  */
       mf_mark (*t);
       break;

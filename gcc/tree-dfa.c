@@ -111,7 +111,7 @@ static const int opf_none	= 0;
 /* Operand is the target of an assignment expression.  */
 static const int opf_is_def 	= 1 << 0;
 
-/* Consider the operand virtual, regardlessof aliasing information.  */
+/* Consider the operand virtual, regardless of aliasing information.  */
 static const int opf_force_vop	= 1 << 1;
 
 /* Debugging dumps.  */
@@ -398,7 +398,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	}
 
       /* This single case might not have been folded to an array reference
-	 if the immediate doesn't exactly divide the referencd type.  This
+	 if the immediate doesn't exactly divide the referenced type.  This
 	 case is likely to be undefined in C, but perhaps not others.  */
       else if (TREE_CODE (ptr) == PLUS_EXPR)
 	{
@@ -1159,7 +1159,7 @@ remove_all_phi_nodes_for (sbitmap vars)
 			Dataflow analysis (DFA) routines
 ---------------------------------------------------------------------------*/
 /* Compute immediate uses.  The parameter calc_for is an option function 
-   pointer whichi indicates whether immediate uses information should be
+   pointer which indicates whether immediate uses information should be
    calculated for a given SSA variable. If NULL, then information is computed
    for all variables.  */
 
@@ -2010,7 +2010,7 @@ find_referenced_vars (tree fndecl)
       are computed by get_memory_tag_for and their associated pointers are
       added to the POINTERS array.
 
-   2- All the addressable variables in ADDRESABLE_VARS are compared against
+   2- All the addressable variables in ADDRESSABLE_VARS are compared against
       the pointers collected in step 1.  If a pointer P may point to
       variable V, then V is added to the list of may-aliases for P.
 

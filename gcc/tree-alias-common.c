@@ -58,7 +58,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
     1. Keeps track of the PTA data for each variable (IE the data each
     specific PTA implementation wants to keep associated with a
     variable).
-    2. Walks the function trees, calling the approriate functions that
+    2. Walks the function trees, calling the appropriate functions that
     each PTA implementation has implemented.
     
     In order to speed up PTA queries, the PTA specific data is stored
@@ -170,7 +170,7 @@ get_alias_var_decl (tree decl)
     {
       newvar = create_alias_var (decl);
       /* Assign globals to global var for purposes of intraprocedural
-	 analyses. */
+	 analysis. */
       if ((DECL_CONTEXT (decl) == NULL || TREE_PUBLIC (decl)
 	   || decl_function_context (decl) == NULL) && decl != global_var)
 	current_alias_ops->addr_assign (current_alias_ops, 
@@ -265,7 +265,7 @@ get_alias_var (tree expr)
     case FIX_ROUND_EXPR:
     case ADDR_EXPR:
     case INDIRECT_REF:
-      /* If it's a ref or cast or conversion of sometmhing, get the
+      /* If it's a ref or cast or conversion of something, get the
          alias var of the something. */
       return get_alias_var (TREE_OPERAND (expr, 0));
       break;
@@ -390,7 +390,7 @@ get_values_from_constructor (tree constructor, varray_type *vals)
     Returns NULL_TREE when we should stop.
     
     This function is the main part of the aliasing infrastructure. It
-    walks the trees, calling the approriate alias analyzer functions to process
+    walks the trees, calling the appropriate alias analyzer functions to process
     various statements.  */
 
 static tree

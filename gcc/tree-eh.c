@@ -1,4 +1,4 @@
-/* Exception handling semantics and decompostition for trees.
+/* Exception handling semantics and decomposition for trees.
    Copyright (C) 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1061,7 +1061,7 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   last_case = NULL;
   last_case_index = 0;
 
-  /* Begin insertting code for getting to the finally block.  Things
+  /* Begin inserting code for getting to the finally block.  Things
      are done in this order to correspond to the sequence the code is
      layed out.  */
 
