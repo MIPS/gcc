@@ -5639,6 +5639,16 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   if (newrhs == error_mark_node)
     return error_mark_node;
 
+  /* APPLE LOCAL begin ObjC GC */
+  if (c_dialect_objc () && flag_objc_gc)
+    {
+      result = objc_generate_write_barrier (lhs, modifycode, newrhs);
+
+      if (result)
+	return result;
+    }
+  /* APPLE LOCAL end ObjC GC */
+
   result = build2 (modifycode == NOP_EXPR ? MODIFY_EXPR : INIT_EXPR,
 		   lhstype, lhs, newrhs);
 

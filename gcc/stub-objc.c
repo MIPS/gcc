@@ -294,7 +294,6 @@ objc_build_finally_clause (location_t ARG_UNUSED (location),
 {
 }
 
-
 tree
 objc_build_synchronized (location_t ARG_UNUSED (location), 
 			 tree ARG_UNUSED (lock), tree ARG_UNUSED (stmt))
@@ -302,3 +301,13 @@ objc_build_synchronized (location_t ARG_UNUSED (location),
   return 0;
 }
 /* APPLE LOCAL end Objective-C++ */
+
+/* APPLE LOCAL begin ObjC GC */
+tree
+objc_generate_write_barrier (tree ARG_UNUSED (lhs),
+			     enum tree_code ARG_UNUSED (modifycode),
+			     tree ARG_UNUSED (rhs))
+{
+  return 0;
+}  
+/* APPLE LOCAL end ObjC GC */

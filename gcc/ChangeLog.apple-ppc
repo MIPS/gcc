@@ -1,3 +1,29 @@
+2005-02-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3635843, 3922342
+	* c-common.h (objc_generate_write_barrier): New prototype.
+	* c-typeck.c (lvalue_or_else): Do not emit warning if
+	'-Wno-non-lvalue-assign' has been specified.
+	(build_modify_expr): Call objc_generate_write_barrier() if
+	'-fobjc-gc' has been specified.
+	* c.opt (-Wassign-intercept, -Wnon-lvalue-assign,
+	-fobjc-direct-dispatch, -fobjc-gc): New options.
+	* calls.c (emit_call_1): For functions with 'hard_coded_address'
+	attribute, annotate the RTL call instruction with the address
+	to use.
+	* reg-notes.def (ABSCALL): New RTL annotation.
+	* stub-objc.c (objc_generate_write_barrier): New stub.
+	* config/darwin-protos.h (darwin_handle_objc_gc_attribute):
+	New prototype.
+	* config/darwin.c (darwin_handle_objc_gc_attribute): New function.
+	* config/darwin.h (TARGET_OPTION_TRANSLATE_TABLE): Add
+	'-Wno-non-lvalue-assign' whenever '-fobjc-gc' is seen.
+	(SUBTARGET_OS_CPP_BUILTINS): Define '__strong' and '__OBJC_GC__'
+	macros as needed.
+	(SUBTARGET_ATTRIBUTE_TABLE): Add 'objc_gc' attribute.
+	* config/rs6000/rs6000.md (call_value_nonlocal_sysv,
+	sibcall_value_symbolic): Add handling of ABSCALL annotations.
+
 2005-02-16  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4006687

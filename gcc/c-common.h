@@ -1028,6 +1028,8 @@ extern void objc_build_finally_clause (location_t, tree);
 extern tree objc_build_synchronized (location_t, tree, tree);
 extern int objc_static_init_needed_p (void);
 extern tree objc_generate_static_init_call (tree);
+/* APPLE LOCAL ObjC GC */
+extern tree objc_generate_write_barrier (tree, enum tree_code, tree);
 
 /* The following are provided by the C and C++ front-ends, and called by
    ObjC/ObjC++.  */

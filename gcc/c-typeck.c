@@ -2893,11 +2893,12 @@ lvalue_or_else (tree *ref, enum lvalue_use use)
 
 	 allow_as_lvalue:
 	  win = 1;
-	  warning ("%s not really an lvalue; "
-		   "this will be a hard error in the future",
-		   (use == lv_addressof
-		    ? "argument to '&'"
-		    : "target of assignment"));
+	  if (warn_non_lvalue_assign)
+	    warning ("%s not really an lvalue; "
+		     "this will be a hard error in the future",
+		     (use == lv_addressof
+		      ? "argument to '&'"
+		      : "target of assignment"));
 	}
     } 
   /* APPLE LOCAL end non lvalue assign */
@@ -3577,6 +3578,16 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   if (TREE_CODE (newrhs) == ERROR_MARK)
     return error_mark_node;
 
+  /* APPLE LOCAL begin ObjC GC */
+  /* Emit ObjC write barrier, if necessary.  */
+  if (c_dialect_objc () && flag_objc_gc)
+    {
+      result = objc_generate_write_barrier (lhs, modifycode, newrhs);
+      if (result)
+	return result;
+    }
+  /* APPLE LOCAL end ObjC GC */
+  
   /* Scan operands.  */
 
   result = build2 (MODIFY_EXPR, lhstype, lhs, newrhs);

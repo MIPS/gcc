@@ -1359,6 +1359,18 @@ darwin_handle_odd_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 }
 /* APPLE LOCAL end KEXT double destructor  */
 
+/* APPLE LOCAL begin ObjC GC */
+tree
+darwin_handle_objc_gc_attribute (tree *node ATTRIBUTE_UNUSED,
+				 tree name ATTRIBUTE_UNUSED,
+				 tree args ATTRIBUTE_UNUSED,
+				 int flags ATTRIBUTE_UNUSED,
+				 bool *no_add_attrs ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+/* APPLE LOCAL end ObjC GC */
+
 /* APPLE LOCAL begin darwin_set_section_for_var_p  20020226 --turly  */
 
 /* This is specifically for any initialised static class constants

@@ -151,6 +151,8 @@ Boston, MA 02111-1307, USA.  */
   { "-static", "-static -Wa,-static" },  \
   { "-single_module", "-Zsingle_module" },  \
   { "-unexported_symbols_list", "-Zunexported_symbols_list" }, \
+  /* APPLE LOCAL ObjC GC */ \
+  { "-fobjc-gc", "-fobjc-gc -Wno-non-lvalue-assign" }, \
   /* APPLE LOCAL begin constant cfstrings */	\
   { "-fconstant-cfstrings", "-mconstant-cfstrings" }, \
   { "-fno-constant-cfstrings", "-mno-constant-cfstrings" }, \
@@ -212,6 +214,15 @@ extern const char *darwin_fix_and_continue_switch;
 	  builtin_define ("__PASCAL_STRINGS__");	\
 	}						\
       /* APPLE LOCAL end pascal strings */		\
+      /* APPLE LOCAL begin ObjC GC */			\
+      if (flag_objc_gc)					\
+	{						\
+	  builtin_define ("__strong=__attribute__((objc_gc(strong)))"); \
+	  builtin_define ("__OBJC_GC__");		\
+	}						\
+      else						\
+	builtin_define ("__strong=");			\
+      /* APPLE LOCAL end ObjC GC */			\
     }							\
   while (0)
 
@@ -1052,6 +1063,8 @@ objc_section_init (void)			\
   /* APPLE LOCAL KEXT double destructor */				     \
   { "apple_kext_compatibility", 0, 0, false, true, false,		     \
     darwin_handle_odd_attribute },					     \
+  /* APPLE LOCAL ObjC GC */						     \
+  { "objc_gc", 1, 1, 0, 0, 0, darwin_handle_objc_gc_attribute },	     \
   { "weak_import", 0, 0, true, false, false,				     \
     darwin_handle_weak_import_attribute }
 

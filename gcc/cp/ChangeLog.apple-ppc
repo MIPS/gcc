@@ -1,3 +1,11 @@
+2005-02-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3635843, 3922342
+	* tree.c (lvalue_or_else): Do not emit warning if
+	'-Wno-non-lvalue-assign' has been specified.
+	* typeck.c (build_modify_expr): Call
+	objc_generate_write_barrier() if '-fobjc-gc' has been specified.
+
 2005-02-16  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 3970655

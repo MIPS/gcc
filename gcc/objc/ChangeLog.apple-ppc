@@ -1,3 +1,35 @@
+2005-02-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3635843, 3922342
+	* objc-act.c (OBJC_VERSION): Bump to '6' for the NeXT.
+	(objc_is_gcable_type, objc_substitute_decl, 
+	objc_build_ivar_assignment, objc_build_global_assignment,
+	objc_build_strong_cast_assignment, objc_is_gcable_p,
+	objc_is_ivar_reference_p, objc_is_global_reference_p,
+	objc_generate_write_barrier): New functions.
+	(TAG_ASSIGNIVAR, TAG_ASSIGNGLOBAL, TAG_ASSIGNSTRONGCAST,
+	TAG_MSGSEND_FAST, TAG_ASSIGNIVAR_FAST, OFFS_MSGSEND_FAST,
+	OFFS_ASSIGNIVAR_FAST): New macros.
+	(synth_module_prologue): Synthesize 'objc_msgSend_Fast'
+	function prototype.
+	(build_next_objc_exception_stuff): Synthesize
+	'objc_assign_ivar', 'objc_assign_ivar_Fast',
+	'objc_assign_global' and 'objc_assign_strongCast'
+	function prototypes.
+	(build_objc_method_call): Call 'objc_msgSend_Fast'
+	instead of 'objc_msgSend' if '-fobjc-direct-dispatch'
+	has been specified.
+	(finish_objc): Generate image info if '-fobjc-gc'
+	has been specified.
+	(generate_objc_image_info): Set a bit indicating if
+	'-fobjc-gc' has been specified.
+	* objc-act.h (OCTI_UMSG_FAST_DECL, OCTI_ASSIGN_IVAR_DECL,
+	OCTI_ASSIGN_IVAR_FAST_DECL, OCTI_ASSIGN_GLOBAL_DECL,
+	OCTI_ASSIGN_STRONGCAST_DECL): New enum slots.
+	(umsg_fast_decl, objc_assign_ivar_decl, 
+	objc_assign_ivar_fast_decl, objc_assign_global_decl,
+	objc_assign_strong_cast_decl): New slot accessors.
+
 2005-02-11  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3962013 (Part 2)

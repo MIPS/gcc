@@ -96,6 +96,8 @@ extern int darwin_set_section_for_var_p (tree, int, int);
 
 /* APPLE LOCAL  double destructor  */
 extern tree darwin_handle_odd_attribute (tree *, tree, tree, int, bool *);
+/* APPLE LOCAL ObjC GC */
+extern tree darwin_handle_objc_gc_attribute (tree *, tree, tree, int, bool *);
 
 extern void darwin_file_end (void);
 

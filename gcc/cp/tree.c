@@ -305,11 +305,12 @@ lvalue_or_else (tree *ref, const char* string)
 		   0);
 
 	     allow_as_lvalue:
-	      warning ("%s not really an lvalue; "
-		       "this will be a hard error in the future",
-		       (string[0] == 'u'
-			? "argument to '&'"
-			: "target of assignment"));
+	      if (warn_non_lvalue_assign)
+		warning ("%s not really an lvalue; "
+			 "this will be a hard error in the future",
+			 (string[0] == 'u'
+			  ? "argument to '&'"
+			  : "target of assignment"));
 	      return 1;
 	    }
 	}
