@@ -1900,8 +1900,6 @@
    (clobber (match_scratch:SI 6 "=a,a,a"))
    (clobber (match_scratch:SI 7 "=X,X,d"))]
   "(TARGET_MIPS3900
-   || TARGET_MIPS5400
-   || TARGET_MIPS5500
    || ISA_HAS_MADD_MSUB)
    && !TARGET_MIPS16"
   "*
@@ -1911,18 +1909,6 @@
     return \"#\";
   if (ISA_HAS_MADD_MSUB && which_alternative != 0)
     return \"#\";
-
-  if (TARGET_MIPS5400)
-    return macc[which_alternative];
-
-  if (TARGET_MIPS5500)
-    {
-      if (which_alternative == 0)
-        return madd[0];
-      else
-        return macc[which_alternative];
-    }
-
   return madd[which_alternative];
 }"
   [(set_attr "type"	"imadd,imadd,multi")
@@ -2248,11 +2234,6 @@
   DONE;
 }")
 
-;; Don't accept both operands using register_operand, because if
-;; both operands are sign extended we would prefer to use mult in the
-;; mulsidi3 pattern.  Commutativity should permit either operand to be
-;; sign extended.
-
 (define_insn "muldi3_internal"
   [(set (match_operand:DI 0 "register_operand" "=l")
 	(mult:DI (match_operand:DI 1 "register_operand" "d")
@@ -2369,12 +2350,9 @@
   [(set_attr "type"	"imul")
    (set_attr "mode"	"SI")])
 
-;; widening multiply with accumulator and/or negation
-;; These don't match yet for zero-extending; too complex for combine?
-;; Possible additions we should have:
-;;  "=x" variants for when !TARGET_64BIT ?
-;;  all-d alternatives with splits like pure SImode versions
-(define_insn "*smuls_di"
+;; Widening multiply with negation.  It isn't worth using this pattern
+;; for 64-bit code since the reload sequence for HILO_REGNUM is so long.
+(define_insn "*muls_di"
   [(set (match_operand:DI 0 "register_operand" "=x")
         (neg:DI
 	 (mult:DI
@@ -2382,8 +2360,7 @@
 	  (sign_extend:DI (match_operand:SI 2 "register_operand" "d")))))
    (clobber (match_scratch:SI 3 "=h"))
    (clobber (match_scratch:SI 4 "=l"))]
-  "TARGET_64BIT
-   && ISA_HAS_MULS"
+  "!TARGET_64BIT && ISA_HAS_MULS"
   "muls\\t$0,%1,%2"
   [(set_attr "type"     "imul")
    (set_attr "length"   "4")
@@ -2397,13 +2374,13 @@
 	  (zero_extend:DI (match_operand:SI 2 "register_operand" "d")))))
    (clobber (match_scratch:SI 3 "=h"))
    (clobber (match_scratch:SI 4 "=l"))]
-  "TARGET_64BIT
-   && ISA_HAS_MULS"
+  "!TARGET_64BIT && ISA_HAS_MULS"
   "mulsu\\t$0,%1,%2"
   [(set_attr "type"     "imul")
    (set_attr "length"   "4")
    (set_attr "mode"     "SI")])
 
+;; Not used for 64-bit code: see comment for *muls_di.
 (define_insn "*smsac_di"
   [(set (match_operand:DI 0 "register_operand" "=x")
         (minus:DI (match_operand:DI 3 "register_operand" "0")
@@ -2412,13 +2389,12 @@
 		   (sign_extend:DI (match_operand:SI 2 "register_operand" "d")))))
    (clobber (match_scratch:SI 4 "=h"))
    (clobber (match_scratch:SI 5 "=l"))]
-  "TARGET_64BIT
-   && ISA_HAS_MSAC"
+  "!TARGET_64BIT && ISA_HAS_MSAC"
   "*
 {
-       if (TARGET_MIPS5500)
-         return \"msub\\t%1,%2\";
-       else
+  if (TARGET_MIPS5500)
+    return \"msub\\t%1,%2\";
+  else
     return \"msac\\t$0,%1,%2\";
 }"
   [(set_attr "type"     "imadd")
@@ -2433,13 +2409,12 @@
 		   (zero_extend:DI (match_operand:SI 2 "register_operand" "d")))))
    (clobber (match_scratch:SI 4 "=h"))
    (clobber (match_scratch:SI 5 "=l"))]
-  "TARGET_64BIT
-   && ISA_HAS_MSAC"
+  "!TARGET_64BIT && ISA_HAS_MSAC"
   "*
-     {
-       if (TARGET_MIPS5500)
-         return \"msubu\\t%1,%2\";
-       else
+{
+  if (TARGET_MIPS5500)
+    return \"msubu\\t%1,%2\";
+  else
     return \"msacu\\t$0,%1,%2\";
 }"
   [(set_attr "type"     "imadd")
@@ -2453,16 +2428,16 @@
 	 (lshiftrt:DI
 	  (mult:DI (zero_extend:DI (match_operand:SI 1 "register_operand" "d"))
 		   (zero_extend:DI (match_operand:SI 2 "register_operand" "d")))
-		      (const_int 32))))]
+	  (const_int 32))))]
   ""
   "
 {
   if (ISA_HAS_MULHI)
     emit_insn (gen_umulsi3_highpart_mulhi_internal (operands[0], operands[1],
-							    operands[2]));
+						    operands[2]));
   else
     emit_insn (gen_umulsi3_highpart_internal (operands[0], operands[1],
-						      operands[2]));
+					      operands[2]));
   DONE;
 }")
 
@@ -2471,12 +2446,11 @@
 	(truncate:SI
 	 (lshiftrt:DI
 	  (mult:DI (zero_extend:DI (match_operand:SI 1 "register_operand" "d"))
-			       (zero_extend:DI (match_operand:SI 2 "register_operand" "d")))
+		   (zero_extend:DI (match_operand:SI 2 "register_operand" "d")))
 	  (const_int 32))))
    (clobber (match_scratch:SI 3 "=l"))
-   (clobber (match_scratch:SI 4 "=a"))
-   (clobber (match_scratch:SI 5 "=X"))]
-  ""
+   (clobber (match_scratch:SI 4 "=a"))]
+  "!ISA_HAS_MULHI"
   "multu\\t%1,%2"
   [(set_attr "type"   "imul")
    (set_attr "mode"   "SI")
@@ -2492,8 +2466,7 @@
    (clobber (match_scratch:SI 3 "=l,l"))
    (clobber (match_scratch:SI 4 "=a,a"))
    (clobber (match_scratch:SI 5 "=X,h"))]
-  "ISA_HAS_MULHI
-   && TARGET_64BIT"
+  "ISA_HAS_MULHI"
   "@
    multu\\t%1,%2
    mulhiu\\t%0,%1,%2"
@@ -2512,9 +2485,10 @@
    (clobber (match_scratch:SI 3 "=l,l"))
    (clobber (match_scratch:SI 4 "=a,a"))
    (clobber (match_scratch:SI 5 "=X,h"))]
-  "ISA_HAS_MULHI
-   && TARGET_64BIT"
-  "mulshiu\\t%0,%1,%2"
+  "ISA_HAS_MULHI"
+  "@
+   mulshiu\\t%.,%1,%2
+   mulshiu\\t%0,%1,%2"
   [(set_attr "type"   "imul")
    (set_attr "mode"   "SI")
    (set_attr "length" "4")])
@@ -2525,16 +2499,16 @@
 	 (lshiftrt:DI
 	  (mult:DI (sign_extend:DI (match_operand:SI 1 "register_operand" "d"))
 		   (sign_extend:DI (match_operand:SI 2 "register_operand" "d")))
-		      (const_int 32))))]
+         (const_int 32))))]
   ""
   "
 {
   if (ISA_HAS_MULHI)
     emit_insn (gen_smulsi3_highpart_mulhi_internal (operands[0], operands[1],
-							    operands[2]));
+						    operands[2]));
   else
     emit_insn (gen_smulsi3_highpart_internal (operands[0], operands[1],
-						      operands[2]));
+					      operands[2]));
   DONE;
 }")
 
@@ -2546,9 +2520,8 @@
 		   (sign_extend:DI (match_operand:SI 2 "register_operand" "d")))
 	  (const_int 32))))
    (clobber (match_scratch:SI 3 "=l"))
-   (clobber (match_scratch:SI 4 "=a"))
-   (clobber (match_scratch:SI 5 "=X"))]
-  ""
+   (clobber (match_scratch:SI 4 "=a"))]
+  "!ISA_HAS_MULHI"
   "mult\\t%1,%2"
   [(set_attr "type"	"imul")
    (set_attr "mode"	"SI")
@@ -2564,8 +2537,7 @@
    (clobber (match_scratch:SI 3 "=l,l"))
    (clobber (match_scratch:SI 4 "=a,a"))
    (clobber (match_scratch:SI 5 "=X,h"))]
-  "ISA_HAS_MULHI
-   && TARGET_64BIT"
+  "ISA_HAS_MULHI"
   "@
    mult\\t%1,%2
    mulhi\\t%0,%1,%2"
@@ -2584,10 +2556,11 @@
    (clobber (match_scratch:SI 3 "=l,l"))
    (clobber (match_scratch:SI 4 "=a,a"))
    (clobber (match_scratch:SI 5 "=X,h"))]
-  "ISA_HAS_MULHI
-   && TARGET_64BIT"
-  "mulshi\\t%0,%1,%2"
-  [(set_attr "type"     "imul")
+  "ISA_HAS_MULHI"
+  "@
+   mulshi\\t%.,%1,%2
+   mulshi\\t%0,%1,%2"
+  [(set_attr "type"   "imul")
    (set_attr "mode"   "SI")])
 
 (define_insn "smuldi3_highpart"
@@ -2597,7 +2570,7 @@
 	  (mult:TI
 	   (sign_extend:TI (match_operand:DI 1 "register_operand" "d"))
 	   (sign_extend:TI (match_operand:DI 2 "register_operand" "d")))
-		      (const_int 64))))
+         (const_int 64))))
    (clobber (match_scratch:DI 3 "=l"))
    (clobber (match_scratch:DI 4 "=a"))]
   "TARGET_64BIT"
@@ -2612,7 +2585,7 @@
 	  (mult:TI
 	   (zero_extend:TI (match_operand:DI 1 "register_operand" "d"))
 	   (zero_extend:TI (match_operand:DI 2 "register_operand" "d")))
-		      (const_int 64))))
+	  (const_int 64))))
    (clobber (match_scratch:DI 3 "=l"))
    (clobber (match_scratch:DI 4 "=a"))]
   "TARGET_64BIT"
@@ -2636,65 +2609,46 @@
   [(set_attr "type"	"imadd")
    (set_attr "mode"	"SI")])
 
-(define_insn "*smul_acc_di"
-  [(set (match_operand:DI 0 "register_operand" "+x")
-	(plus:DI
-	 (mult:DI (sign_extend:DI (match_operand:SI 1 "register_operand" "d"))
-		  (sign_extend:DI (match_operand:SI 2 "register_operand" "d")))
-		 (match_dup 0)))
-   (clobber (match_scratch:SI 3 "=a"))]
-  "TARGET_MAD
-   && !TARGET_64BIT"
-  "mad\\t%1,%2"
-  [(set_attr "type"	"imadd")
-   (set_attr "mode"	"SI")])
-
-
+;; Only use this pattern in 32-bit code: see *muls_di.
 (define_insn "*umul_acc_di"
-  [(set (match_operand:DI 0 "register_operand" "+x")
+  [(set (match_operand:DI 0 "register_operand" "=x")
 	(plus:DI
 	 (mult:DI (zero_extend:DI (match_operand:SI 1 "register_operand" "d"))
 		  (zero_extend:DI (match_operand:SI 2 "register_operand" "d")))
-	 (match_dup 0)))
-   (clobber (match_scratch:SI 3 "=a"))]
+	 (match_operand:DI 3 "register_operand" "0")))
+   (clobber (match_scratch:SI 4 "=a"))]
   "(TARGET_MAD || ISA_HAS_MACC)
    && !TARGET_64BIT"
   "*
 {
- if (TARGET_MAD)
+  if (TARGET_MAD)
     return \"madu\\t%1,%2\";
- else
-   {
-     if (TARGET_MIPS5500)
-	return \"maddu\\t%1,%2\";
-     else
-        return \"maccu\\t%0,%1,%2\";
-    }
+  else if (TARGET_MIPS5500)
+    return \"maddu\\t%1,%2\";
+  else
+    return \"maccu\\t%.,%1,%2\";
 }"
   [(set_attr "type"   "imadd")
    (set_attr "mode"   "SI")])
 
 
 (define_insn "*smul_acc_di"
-  [(set (match_operand:DI 0 "register_operand" "+x")
+  [(set (match_operand:DI 0 "register_operand" "=x")
 	(plus:DI
 	 (mult:DI (sign_extend:DI (match_operand:SI 1 "register_operand" "d"))
 		  (sign_extend:DI (match_operand:SI 2 "register_operand" "d")))
-	 (match_dup 0)))
-   (clobber (match_scratch:SI 3 "=a"))]
+	 (match_operand:DI 3 "register_operand" "0")))
+   (clobber (match_scratch:SI 4 "=a"))]
   "(TARGET_MAD || ISA_HAS_MACC)
    && !TARGET_64BIT"
   "*
 {
- if (TARGET_MAD)
+  if (TARGET_MAD)
     return \"mad\\t%1,%2\";
- else
-   {
-     if (TARGET_MIPS5500)
-	return \"madd\\t%1,%2\";
-     else
-        return \"macc\\t%0,%1,%2\";
-    }
+  else if (TARGET_MIPS5500)
+    return \"madd\\t%1,%2\";
+  else
+    return \"macc\\t%.,%1,%2\";
 }"
   [(set_attr "type"   "imadd")
    (set_attr "mode"   "SI")])
@@ -3780,11 +3734,7 @@ move\\t%0,%z4\\n\\
   "TARGET_64BIT && TARGET_MIPS16"
   "and\\t%0,%2"
   [(set_attr "type"	"darith")
-   (set_attr "mode"	"DI")
-   (set (attr "length")
-	(if_then_else (ge (symbol_ref "mips_isa") (const_int 3))
-		       (const_int 4)
-		       (const_int 8)))])
+   (set_attr "mode"	"DI")])
 
 (define_expand "iorsi3"
   [(set (match_operand:SI 0 "register_operand" "=d,d")
@@ -4156,20 +4106,6 @@ move\\t%0,%z4\\n\\
    (set_attr "mode"	"DI")
    (set_attr "length"	"4,8")])
 
-;(define_insn_and_split "zero_extendsidi2_internal2"
-;  [(set (match_operand:DI 0 "register_operand" "=d")
-;        (zero_extend:DI (match_operand:SI 1 "register_operand" "d")))]
-;  "TARGET_64BIT && !TARGET_MIPS16"
-;  "#"
-;  ""
-;  [(set (match_dup 0)
-;        (ashift:DI (match_dup 1) (const_int 32)))
-;   (set (match_dup 0)
-;        (lshiftrt:DI (match_dup 0) (const_int 32)))]
-;  "operands[1] = gen_lowpart (DImode, operands[1]);"
-; [(set_attr "type" "arith")
-;  (set_attr "mode" "DI")])
-
 (define_expand "zero_extendhisi2"
   [(set (match_operand:SI 0 "register_operand" "")
 	(zero_extend:SI (match_operand:HI 1 "nonimmediate_operand" "")))]
@@ -4411,7 +4347,7 @@ move\\t%0,%z4\\n\\
   "TARGET_64BIT"
   "")
 
-;;; These patterns originally accepted general_operands, however, slightly
+;; These patterns originally accepted general_operands, however, slightly
 ;; better code is generated by only accepting register_operands, and then
 ;; letting combine generate the lh and lb insns.
 
@@ -5388,7 +5324,6 @@ move\\t%0,%z4\\n\\
 ;; This pattern is essentially a trimmed-down version of movdi_internal2.
 ;; The main difference is that dJ -> f and f -> d are the only constraints
 ;; involving float registers.  See mips_secondary_reload_class for details.
-;; Removed !TARGET_MIPS16
 (define_insn "*movdi_internal2_extend"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,d,d,d,R,m,*d,*f,*x,*d,*x,*a,*B*C*D,*B*C*D,*B*C*D,*d,*m,*R")
 	(sign_extend:DI (match_operand:SI 1 "move_operand" "d,IKL,Mnis,R,m,dJ,dJ,*f,*d*J,*J,*x,*d,*J,*d,*m,*R,*B*C*D,*B*C*D,*B*C*D")))]
@@ -5402,7 +5337,6 @@ move\\t%0,%z4\\n\\
    (set_attr "mode"	"DI")
    (set_attr "length"	"4,4,8,4,8,4,8,4,4,4,4,4,8,8,8,8,8,8,8")])
 
-;; Removed (sign_extend:DI (match_operand:SI
 (define_insn "*movdi_internal2_mips16"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=d,y,d,d,d,d,d,d,R,m,*d")
 	(match_operand:DI 1 "move_operand" "d,d,y,K,N,s,R,m,d,d,*x"))]

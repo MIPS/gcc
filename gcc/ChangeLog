@@ -1,3 +1,25 @@
+2002-11-05  Richard Sandiford  <rsandifo@redhat.com>
+
+	Fix merge fallout.
+	* config/mips/mips.md (mul_acc_si): Reapply 2002-10-16 change.
+	(muldi3_internal): Remove outdated comment.
+	(*muls_di, *umuls_di): Fix comment and 64-bitness.
+	(*smsac_di, *umsac_di): Likewise.  Reformat.
+	(umulsi3_highpart): Minor formatting tweaks.
+	(umulsi3_highpart_internal): Use only if !ISA_HAS_MULHI.  Remove
+	redundant scratch operand.  Minor formatting tweak.
+	(umulsi3_highpart_mulhi_internal): Use for !TARGET_64BIT as well.
+	(umulsi3_highpart_neg_mulhi_internal): Likewise.  Fix asm template.
+	(smulsi3_highpart): As for the unsigned version.
+	(smulsi3_highpart_internal): Likewise.
+	(smulsi3_highpart_mulhi_internal): Likewise.
+	(smulsi3_highpart_neg_mulhi_internal): Likewise.
+	(smuldi3_highpart, umuldi3_highpart): Minor formatting tweaks.
+	(*smul_acc_di): Remove duplicated pattern.
+	(*umul_acc_di, *smul_acc_di): Reapply 2002-10-16 change.
+	(anddi3) [unnamed mips16 pattern]: Remove reintroduced length.
+	(zero_extendsidi2_internal2): Remove new, but commented-out pattern.
+
 2002-10-22  Eric Christopher  <echristo@redhat.com>
 
         * config/mips/mips-protos.h (mips_return_addr): New.
