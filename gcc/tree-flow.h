@@ -1,5 +1,5 @@
 /* Data and Control Flow Analysis for Trees.
-   Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -284,7 +284,18 @@ static inline bool has_hidden_use (tree);
 static inline void set_has_hidden_use (tree);
 static inline void set_default_def (tree, tree);
 static inline tree default_def (tree);
+static inline bool may_be_aliased (tree);
 
+/*---------------------------------------------------------------------------
+                  Structure representing predictions in tree level.
+---------------------------------------------------------------------------*/
+struct edge_prediction GTY((chain_next ("%h.next")))
+{
+  struct edge_prediction *next;
+  edge edge;
+  enum br_predictor predictor;
+  int probability;
+};
 
 /*---------------------------------------------------------------------------
 		  Block annotations stored in basic_block.tree_annotations
@@ -304,6 +315,8 @@ struct bb_ann_d GTY(())
   /* Nonzero if this block is forwardable during cfg cleanups.  This is also
      used to detect loops during cfg cleanups.  */
   unsigned forwardable: 1;
+
+  struct edge_prediction *predictions;
 };
 
 typedef struct bb_ann_d *bb_ann_t;
@@ -330,6 +343,9 @@ extern GTY(()) varray_type call_clobbered_vars;
 
 #define num_call_clobbered_vars	VARRAY_ACTIVE_SIZE (call_clobbered_vars)
 #define call_clobbered_var(i) VARRAY_TREE (call_clobbered_vars, i)
+
+/* 'true' after aliases have been computed (see compute_may_aliases).  */
+extern bool aliases_computed_p;
 
 /* Macros for showing usage statistics.  */
 #define SCALE(x) ((unsigned long) ((x) < 1024*10	\
@@ -387,6 +403,10 @@ extern void bsi_replace (const block_stmt_iterator *, tree, bool);
 			      Function prototypes
 ---------------------------------------------------------------------------*/
 /* In tree-cfg.c  */
+
+/* Location to track pending stmt for edge insertion.  */
+#define PENDING_STMT(e)	((e)->insns.t)
+
 extern void build_tree_cfg (tree *);
 extern void delete_tree_cfg (void);
 extern void disband_implicit_edges (void);
@@ -406,18 +426,13 @@ extern void debug_cfg_stats (void);
 extern void tree_cfg2dot (FILE *);
 extern void debug_loop_ir (void);
 extern void print_loop_ir (FILE *);
-extern void insert_bb_before (basic_block, basic_block);
 extern void cleanup_tree_cfg (void);
-extern bool remove_unreachable_blocks (void);
-extern void remove_phi_nodes_and_edges_for_unreachable_block (basic_block);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
 extern tree *last_stmt_ptr (basic_block);
 extern tree last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
-extern void remove_useless_stmts (tree *);
 extern void cfg_remove_useless_stmts (void);
-extern basic_block tree_split_edge (edge);
 extern edge thread_edge (edge, basic_block);
 extern basic_block label_to_block (tree);
 extern bool cleanup_control_expr_graph (basic_block, block_stmt_iterator);
@@ -437,7 +452,6 @@ extern basic_block tree_duplicate_bb (basic_block, edge);
 extern void dump_generic_bb (FILE *, basic_block, int, int);
 
 /* In tree-dfa.c  */
-void find_referenced_vars (tree);
 extern var_ann_t create_var_ann (tree);
 extern stmt_ann_t create_stmt_ann (tree);
 extern tree create_phi_node (tree, basic_block);
@@ -460,9 +474,9 @@ extern void dump_immediate_uses_for (FILE *, tree);
 extern void debug_immediate_uses_for (tree);
 extern void remove_decl (tree, tree);
 extern tree *find_decl_location (tree, tree);
-extern void compute_may_aliases (tree);
 extern void compute_reached_uses (int);
 extern void compute_immediate_uses (int, bool (*)(tree));
+extern void free_df (void);
 extern void compute_reaching_defs (int);
 extern void dump_alias_info (FILE *);
 extern void debug_alias_info (void);
@@ -470,6 +484,7 @@ extern tree get_virtual_var (tree);
 extern void create_global_var (void);
 extern void add_referenced_tmp_var (tree var);
 extern void mark_new_vars_to_rename (tree, bitmap);
+extern void discover_nonconstant_array_refs (void);
 
 /* Flags used when computing reaching definitions and reached uses.  */
 #define TDFA_USE_OPS		1 << 0
@@ -478,7 +493,6 @@ extern void mark_new_vars_to_rename (tree, bitmap);
 /* In gimple-low.c  */
 struct lower_data;
 extern void lower_stmt_body (tree, struct lower_data *);
-extern void lower_function_body (tree *);
 extern void expand_used_vars (void);
 extern void remove_useless_vars (void);
 extern void record_vars (tree);
@@ -486,9 +500,8 @@ extern bool block_may_fallthru (tree block);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void rewrite_into_ssa (tree, bitmap, enum tree_dump_index);
+extern void rewrite_into_ssa (void);
 extern void rewrite_vars_out_of_ssa (bitmap);
-extern void rewrite_out_of_ssa (tree, enum tree_dump_index);
 extern void dump_reaching_defs (FILE *);
 extern void debug_reaching_defs (void);
 extern void dump_tree_ssa (FILE *);
@@ -503,28 +516,24 @@ extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
+extern void register_new_def (tree, tree, varray_type *, varray_type);
+
 extern unsigned int highest_ssa_version;
+extern void kill_redundant_phi_nodes (void);
 
 /* In tree-ssa-pre.c  */
 extern void tree_perform_ssapre (tree, enum tree_dump_index);
 
 /* In tree-ssa-ccp.c  */
-void tree_ssa_ccp (tree, bitmap, enum tree_dump_index);
 bool fold_stmt (tree *);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-ssa-dom.c  */
-extern void tree_ssa_dominator_optimize (tree, bitmap, enum tree_dump_index);
 extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
 extern void propagate_copy (tree *, tree);
 
-/* In tree-ssa-dce.c  */
-void tree_ssa_dce (tree, enum tree_dump_index);
-
 /* In tree-ssa-loop*.c  */
-void tree_ssa_loop_opt (tree, enum tree_dump_index);
-void copy_loop_headers (tree, enum tree_dump_index);
 void tree_ssa_lim (struct loops *loops);
 
 /* In tree-flow-inline.h  */
@@ -532,20 +541,13 @@ static inline int phi_arg_from_edge (tree, edge);
 static inline struct phi_arg_d *phi_element_for_edge (tree, edge);
 static inline bool may_propagate_copy (tree, tree);
 
-/* In tree-must-alias.c  */
-void tree_compute_must_alias (tree, bitmap, enum tree_dump_index);
-
 /* In tree-eh.c  */
-extern void lower_eh_constructs (tree *);
 extern void make_eh_edges (tree);
 extern bool tree_could_trap_p (tree);
 extern bool tree_could_throw_p (tree);
 extern bool tree_can_throw_internal (tree);
 extern bool tree_can_throw_external (tree);
 extern void add_stmt_to_eh_region (tree, int);
-
-/* In tree-sra.c  */
-void tree_sra (tree, bitmap, enum tree_dump_index);
 
 #include "tree-flow-inline.h"
 

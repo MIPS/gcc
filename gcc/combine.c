@@ -608,8 +608,8 @@ combine_instructions (rtx f, unsigned int nregs)
 
   FOR_EACH_BB (this_basic_block)
     {
-      for (insn = this_basic_block->head;
-           insn != NEXT_INSN (this_basic_block->end);
+      for (insn = BB_HEAD (this_basic_block);
+           insn != NEXT_INSN (BB_END (this_basic_block));
 	   insn = next ? next : NEXT_INSN (insn))
 	{
 	  next = 0;
@@ -2337,7 +2337,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 
 	  for (insn = NEXT_INSN (i3);
 	       insn && (this_basic_block->next_bb == EXIT_BLOCK_PTR
-			|| insn != this_basic_block->next_bb->head);
+			|| insn != BB_HEAD (this_basic_block->next_bb));
 	       insn = NEXT_INSN (insn))
 	    {
 	      if (INSN_P (insn) && reg_referenced_p (ni2dest, PATTERN (insn)))
@@ -2546,7 +2546,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 				  SET_DEST (XVECEXP (PATTERN (i2), 0, i))))
 	    for (temp = NEXT_INSN (i2);
 		 temp && (this_basic_block->next_bb == EXIT_BLOCK_PTR
-			  || this_basic_block->head != temp);
+			  || BB_HEAD (this_basic_block) != temp);
 		 temp = NEXT_INSN (temp))
 	      if (temp != i3 && INSN_P (temp))
 		for (link = LOG_LINKS (temp); link; link = XEXP (link, 1))
@@ -6043,10 +6043,11 @@ make_extraction (enum machine_mode mode, rtx inner, HOST_WIDE_INT pos,
 	{
 	  if (tmode != inner_mode)
 	    {
-	      if (in_dest)
+	      /* We can't call gen_lowpart_for_combine in a DEST since we
+		 always want a SUBREG (see below) and it would sometimes
+		 return a new hard register.  */
+	      if (pos || in_dest)
 		{
-		  /* We can't call gen_lowpart_for_combine here since we always want
-		     a SUBREG and it would sometimes return a new hard register.  */
 		  HOST_WIDE_INT final_word = pos / BITS_PER_WORD;
 
 		  if (WORDS_BIG_ENDIAN
@@ -11976,7 +11977,7 @@ reg_dead_at_p (rtx reg, rtx insn)
   else
     {
       FOR_EACH_BB (block)
-	if (insn == block->head)
+	if (insn == BB_HEAD (block))
 	  break;
 
       if (block == EXIT_BLOCK_PTR)
@@ -12615,7 +12616,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 		{
 		  if (! INSN_P (tem))
 		    {
-		      if (tem == bb->head)
+		      if (tem == BB_HEAD (bb))
 			break;
 		      continue;
 		    }
@@ -12742,7 +12743,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 		      break;
 		    }
 
-		  if (tem == bb->head)
+		  if (tem == BB_HEAD (bb))
 		    break;
 		}
 
@@ -12839,7 +12840,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 			      {
 				if (! INSN_P (tem))
 				  {
-				    if (tem == bb->head)
+				    if (tem == BB_HEAD (bb))
 				      {
 					SET_BIT (refresh_blocks,
 						 this_basic_block->index);
@@ -12946,7 +12947,7 @@ distribute_links (rtx links)
 
       for (insn = NEXT_INSN (XEXP (link, 0));
 	   (insn && (this_basic_block->next_bb == EXIT_BLOCK_PTR
-		     || this_basic_block->next_bb->head != insn));
+		     || BB_HEAD (this_basic_block->next_bb) != insn));
 	   insn = NEXT_INSN (insn))
 	if (INSN_P (insn) && reg_overlap_mentioned_p (reg, PATTERN (insn)))
 	  {

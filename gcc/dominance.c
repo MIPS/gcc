@@ -118,6 +118,9 @@ static void link_roots (struct dom_info *, TBB, TBB);
 static void calc_idoms (struct dom_info *, enum cdi_direction);
 void debug_dominance_info (enum cdi_direction);
 
+/* Keeps track of the*/
+static unsigned n_bbs_in_dom_tree[2];
+
 /* Helper macro for allocating and initializing an array,
    for aesthetic reasons.  */
 #define init_ar(var, type, num, content)			\
@@ -578,10 +581,14 @@ calculate_dominance_info (enum cdi_direction dir)
       if (dom_computed[dir] != DOM_NONE)
 	free_dominance_info (dir);
 
+      if (n_bbs_in_dom_tree[dir])
+	abort ();
+
       FOR_ALL_BB (b)
 	{
 	  b->dom[dir] = et_new_tree (b);
 	}
+      n_bbs_in_dom_tree[dir] = n_basic_blocks + 2;
 
       init_dom_info (&di);
       calc_dfs_tree (&di, dir);
@@ -615,7 +622,11 @@ free_dominance_info (enum cdi_direction dir)
     {
       delete_from_dominance_info (dir, bb);
     }
-  
+
+  /* If there are any nodes left, something is wrong.  */
+  if (n_bbs_in_dom_tree[dir])
+    abort ();
+
   dom_computed[dir] = DOM_NONE;
 }
 
@@ -823,6 +834,8 @@ add_to_dominance_info (enum cdi_direction dir, basic_block bb)
 
   if (bb->dom[dir])
     abort ();
+
+  n_bbs_in_dom_tree[dir]++;
   
   bb->dom[dir] = et_new_tree (bb);
 
@@ -838,6 +851,7 @@ delete_from_dominance_info (enum cdi_direction dir, basic_block bb)
 
   et_free_tree (bb->dom[dir]);
   bb->dom[dir] = NULL;
+  n_bbs_in_dom_tree[dir]--;
 
   if (dom_computed[dir] == DOM_OK)
     dom_computed[dir] = DOM_NO_FAST_QUERY;
@@ -857,7 +871,7 @@ first_dom_son (enum cdi_direction dir, basic_block bb)
 /* Returns the next dominance son after BB in the dominator or postdominator
    tree as determined by DIR, or NULL if it was the last one.  */
 
-extern basic_block
+basic_block
 next_dom_son (enum cdi_direction dir, basic_block bb)
 {
   struct et_node *next = bb->dom[dir]->right;

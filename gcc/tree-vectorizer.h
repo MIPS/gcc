@@ -139,8 +139,7 @@ typedef struct _loop_vec_info {
 /*-----------------------------------------------------------------*/
 
 /* Main driver.  */
-extern void vectorize_loops (tree, bitmap, struct loops *, varray_type,
-			     enum tree_dump_index);
+extern void vectorize_loops (struct loops *, varray_type);
 
 /* creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);

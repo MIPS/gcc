@@ -485,7 +485,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
    PREFERRED_DEBUGGING_TYPE to choose a format in a system-dependent way.
 
    This is one long line cause VAXC can't handle a \-newline.  */
-#if 1 < (defined (DBX_DEBUGGING_INFO) + defined (SDB_DEBUGGING_INFO) + defined (DWARF_DEBUGGING_INFO) + defined (DWARF2_DEBUGGING_INFO) + defined (XCOFF_DEBUGGING_INFO) + defined (VMS_DEBUGGING_INFO))
+#if 1 < (defined (DBX_DEBUGGING_INFO) + defined (SDB_DEBUGGING_INFO) + defined (DWARF2_DEBUGGING_INFO) + defined (XCOFF_DEBUGGING_INFO) + defined (VMS_DEBUGGING_INFO))
 #ifndef PREFERRED_DEBUGGING_TYPE
 You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #endif /* no PREFERRED_DEBUGGING_TYPE */
@@ -683,10 +683,15 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define STACK_POINTER_OFFSET    0
 #endif
 
-/* How to print out a register name.  */
-#ifndef PRINT_REG
-#define PRINT_REG(RTX, CODE, FILE) \
-  fprintf ((FILE), "%s", reg_names[REGNO (RTX)])
+#ifndef LOCAL_REGNO
+#define LOCAL_REGNO(REGNO)  0
+#endif
+
+/* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
+   the stack pointer does not matter.  The value is tested only in
+   functions that have frame pointers.  */
+#ifndef EXIT_IGNORE_STACK
+#define EXIT_IGNORE_STACK 0
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

@@ -657,8 +657,7 @@ chrec_fold_multiply_poly_poly (tree poly0,
    functions.  */
 
 static inline tree 
-chrec_fold_multiply_poly_expo (tree expo, 
-			   tree poly)
+chrec_fold_multiply_poly_expo (tree poly, tree expo)
 {
 #if defined ENABLE_CHECKING
   if (expo == NULL_TREE

@@ -249,10 +249,10 @@ struct rtx_def GTY((chain_next ("RTX_NEXT (&%h)"),
 /* Define macros to access the `code' field of the rtx.  */
 
 #define GET_CODE(RTX)	    ((enum rtx_code) (RTX)->code)
-#define PUT_CODE(RTX, CODE) ((RTX)->code = (ENUM_BITFIELD(rtx_code)) (CODE))
+#define PUT_CODE(RTX, CODE) ((RTX)->code = (CODE))
 
 #define GET_MODE(RTX)	    ((enum machine_mode) (RTX)->mode)
-#define PUT_MODE(RTX, MODE) ((RTX)->mode = (ENUM_BITFIELD(machine_mode)) (MODE))
+#define PUT_MODE(RTX, MODE) ((RTX)->mode = (MODE))
 
 /* RTL vector.  These appear inside RTX's when there is a need
    for a variable number of things.  The principle use is inside
@@ -1457,6 +1457,7 @@ extern void set_reg_attrs_for_parm (rtx, rtx);
 extern rtx rtx_alloc (RTX_CODE);
 extern rtvec rtvec_alloc (int);
 extern rtx copy_rtx (rtx);
+extern void dump_rtx_statistics (void);
 
 /* In emit-rtl.c */
 extern rtx copy_rtx_if_shared (rtx);
@@ -2047,7 +2048,6 @@ extern void pop_topmost_sequence (void);
 extern int subreg_realpart_p (rtx);
 extern void reverse_comparison (rtx);
 extern void set_new_first_and_last_insn (rtx, rtx);
-extern void set_new_first_and_last_label_num (int, int);
 extern void set_new_last_label_num (int);
 extern void unshare_all_rtl_again (rtx);
 extern void unshare_all_rtl_in_chain (rtx);
@@ -2085,7 +2085,7 @@ extern void dump_combine_stats (FILE *);
 extern void dump_combine_total_stats (FILE *);
 #endif
 /* In web.c */
-extern void web_main			PARAMS ((void));
+extern void web_main (void);
 
 /* In sched.c.  */
 #ifdef BUFSIZ
@@ -2131,6 +2131,7 @@ extern void purge_hard_subreg_sets (rtx);
 /* In stmt.c */
 extern void set_file_and_line_for_stmt (location_t);
 extern void expand_null_return (void);
+extern void expand_naked_return (void);
 extern void emit_jump (rtx);
 extern int preserve_subexpressions_p (void);
 

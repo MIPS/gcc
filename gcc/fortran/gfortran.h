@@ -59,7 +59,7 @@ char *alloca ();
 /* Major control parameters.  */
 
 #define GFC_VERSION "0.23"
-#define GFC_MAX_SYMBOL_LEN 31
+#define GFC_MAX_SYMBOL_LEN 63
 #define GFC_REAL_BITS 100	/* Number of bits in g95's floating point numbers.  */
 #define GFC_MAX_LINE 132	/* Characters beyond this are not seen.  */
 #define GFC_MAX_DIMENSIONS 7	/* Maximum dimensions in an array.  */
@@ -95,6 +95,14 @@ typedef struct
 }
 mstring;
 
+
+/* Flags to specify which standardi/extension contains a feature.  */
+#define GFC_STD_GNU		(1<<5)	/* GNU Fortran extension.  */
+#define GFC_STD_F2003		(1<<4)	/* New in F2003.  */
+#define GFC_STD_F2003_DEL	(1<<3)	/* Deleted in F2003.  */
+#define GFC_STD_F2003_OBS	(1<<2)	/* Obsoleted in F2003.  */
+#define GFC_STD_F95_DEL		(1<<1)	/* Deleted in F95.  */
+#define GFC_STD_F95_OBS		(1<<0)	/* Obsoleted in F95.  */
 
 /*************************** Enums *****************************/
 
@@ -198,7 +206,7 @@ typedef enum
   ST_SUBROUTINE,
   ST_TYPE, ST_USE, ST_WHERE_BLOCK, ST_WHERE, ST_WRITE, ST_ASSIGNMENT,
   ST_POINTER_ASSIGNMENT, ST_SELECT_CASE, ST_SEQUENCE, ST_SIMPLE_IF,
-  ST_STATEMENT_FUNCTION, ST_DERIVED_DECL, ST_NONE
+  ST_STATEMENT_FUNCTION, ST_DERIVED_DECL, ST_LABEL_ASSIGNMENT, ST_NONE
 }
 gfc_statement;
 
@@ -373,7 +381,7 @@ typedef struct
   /* Variable attributes.  */
   unsigned allocatable:1, dimension:1, external:1, intrinsic:1,
     optional:1, pointer:1, save:1, target:1,
-    dummy:1, common:1, result:1, entry:1;
+    dummy:1, common:1, result:1, entry:1, assign:1;
 
   unsigned data:1,		/* Symbol is named in a DATA statement.  */
     use_assoc:1;		/* Symbol has been use-associated.  */
@@ -598,7 +606,6 @@ typedef struct
   gfc_access access;
 }
 gfc_user_op;
-
 
 /* Symbol nodes.  These are important things.  They are what the
    standard refers to as "entities".  The possibly multiple names that
@@ -1113,8 +1120,8 @@ gfc_forall_iterator;
 /* Executable statements that fill gfc_code structures.  */
 typedef enum
 {
-  EXEC_NOP = 1, EXEC_ASSIGN, EXEC_POINTER_ASSIGN, EXEC_GOTO, EXEC_CALL,
-  EXEC_RETURN, EXEC_PAUSE, EXEC_STOP, EXEC_CONTINUE,
+  EXEC_NOP = 1, EXEC_ASSIGN, EXEC_LABEL_ASSIGN, EXEC_POINTER_ASSIGN,
+  EXEC_GOTO, EXEC_CALL, EXEC_RETURN, EXEC_PAUSE, EXEC_STOP, EXEC_CONTINUE,
   EXEC_IF, EXEC_ARITHMETIC_IF, EXEC_DO, EXEC_DO_WHILE, EXEC_SELECT,
   EXEC_FORALL, EXEC_WHERE, EXEC_CYCLE, EXEC_EXIT,
   EXEC_ALLOCATE, EXEC_DEALLOCATE,
@@ -1205,6 +1212,7 @@ typedef struct
   char *module_dir;
   gfc_source_form source_form;
   int fixed_line_length;
+  int max_identifier_length;
   int verbose;
 
   int warn_aliasing;
@@ -1229,6 +1237,8 @@ typedef struct
   int r8;
   int i8;
   int d8;
+  int warn_std;
+  int allow_std;
 }
 gfc_option_t;
 
@@ -1269,8 +1279,8 @@ extern iterator_stack *iter_stack;
 /* data.c  */
 void gfc_formalize_init_value (gfc_symbol *);
 void gfc_get_section_index (gfc_array_ref *, mpz_t *, mpz_t *);
-void gfc_assign_data_value (gfc_expr *, gfc_expr *, int, mpz_t);
-void gfc_modify_index_and_calculate_offset (mpz_t *, gfc_array_ref *, mpz_t *);
+void gfc_assign_data_value (gfc_expr *, gfc_expr *, mpz_t);
+void gfc_advance_section (mpz_t *, gfc_array_ref *, mpz_t *);
 
 /* scanner.c */
 void gfc_scanner_done_1 (void);
@@ -1354,6 +1364,8 @@ void gfc_fatal_error (const char *, ...) ATTRIBUTE_NORETURN;
 void gfc_internal_error (const char *, ...) ATTRIBUTE_NORETURN;
 void gfc_clear_error (void);
 int gfc_error_check (void);
+
+try gfc_notify_std (int, const char *, ...);
 
 /* A general purpose syntax error.  */
 #define gfc_syntax_error(ST)	\
@@ -1582,7 +1594,7 @@ try gfc_array_size (gfc_expr *, mpz_t *);
 try gfc_array_dimen_size (gfc_expr *, int, mpz_t *);
 try gfc_array_ref_shape (gfc_array_ref *, mpz_t *);
 gfc_array_ref *gfc_find_array_ref (gfc_expr *);
-void gfc_insert_constructor (gfc_expr *, gfc_expr *);
+void gfc_insert_constructor (gfc_expr *, gfc_constructor *);
 gfc_constructor *gfc_get_constructor (void);
 tree gfc_conv_array_initializer (tree type, gfc_expr * expr);
 try spec_size (gfc_array_spec *, mpz_t *);

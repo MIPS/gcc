@@ -57,10 +57,6 @@
 static tree maybe_convert_cond (tree);
 static tree simplify_aggr_init_exprs_r (tree *, int *, void *);
 static void emit_associated_thunks (tree);
-static void genrtl_try_block (tree);
-static void genrtl_eh_spec_block (tree);
-static void genrtl_handler (tree);
-static void cp_expand_stmt (tree);
 static tree finalize_nrv_r (tree *, int *, void *);
 
 
@@ -776,56 +772,6 @@ finish_switch_stmt (tree switch_stmt)
   do_poplevel ();
 }
 
-/* Generate the RTL for T, which is a TRY_BLOCK.  */
-
-static void 
-genrtl_try_block (tree t)
-{
-  if (CLEANUP_P (t))
-    {
-      expand_eh_region_start ();
-      expand_stmt (TRY_STMTS (t));
-      expand_eh_region_end_cleanup (TRY_HANDLERS (t));
-    }
-  else
-    {
-      if (!FN_TRY_BLOCK_P (t)) 
-	emit_line_note (input_location);
-
-      expand_eh_region_start ();
-      expand_stmt (TRY_STMTS (t));
-
-      if (FN_TRY_BLOCK_P (t))
-	{
-	  expand_start_all_catch ();
-	  in_function_try_handler = 1;
-	  expand_stmt (TRY_HANDLERS (t));
-	  in_function_try_handler = 0;
-	  expand_end_all_catch ();
-	}
-      else 
-	{
-	  expand_start_all_catch ();  
-	  expand_stmt (TRY_HANDLERS (t));
-	  expand_end_all_catch ();
-	}
-    }
-}
-
-/* Generate the RTL for T, which is an EH_SPEC_BLOCK.  */
-
-static void 
-genrtl_eh_spec_block (tree t)
-{
-  expand_eh_region_start ();
-  expand_stmt (EH_SPEC_STMTS (t));
-  expand_eh_region_end_allowed (EH_SPEC_RAISES (t),
-				build_call (call_unexpected_node,
-					    tree_cons (NULL_TREE,
-						       build_exc_ptr (),
-						       NULL_TREE)));
-}
-
 /* Begin a try-block.  Returns a newly-created TRY_BLOCK if
    appropriate.  */
 
@@ -913,19 +859,6 @@ finish_function_handler_sequence (tree try_block)
   check_handlers (TRY_HANDLERS (try_block));
 }
 
-/* Generate the RTL for T, which is a HANDLER.  */
-
-static void
-genrtl_handler (tree t)
-{
-  genrtl_do_pushlevel ();
-  if (!processing_template_decl)
-    expand_start_catch (HANDLER_TYPE (t));
-  expand_stmt (HANDLER_BODY (t));
-  if (!processing_template_decl)
-    expand_end_catch ();
-}
-
 /* Begin a handler.  Returns a HANDLER if appropriate.  */
 
 tree
@@ -963,7 +896,7 @@ finish_handler_parms (tree decl, tree handler)
     type = expand_start_catch_block (decl);
 
   HANDLER_TYPE (handler) = type;
-  if (type)
+  if (!processing_template_decl && type)
     mark_used (eh_type_info (type));
 }
 
@@ -1225,7 +1158,7 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 	type = TREE_TYPE (type);
       else
 	{
-	  /* Set the cv qualifiers */
+	  /* Set the cv qualifiers.  */
 	  int quals = cp_type_quals (TREE_TYPE (current_class_ref));
 	  
 	  if (DECL_MUTABLE_P (decl))
@@ -1256,7 +1189,7 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 	    }
 	}
 
-      /* If PROCESSING_TEMPLATE_DECL is non-zero here, then
+      /* If PROCESSING_TEMPLATE_DECL is nonzero here, then
 	 QUALIFYING_SCOPE is also non-null.  Wrap this in a SCOPE_REF
 	 for now.  */
       if (processing_template_decl)
@@ -2317,9 +2250,9 @@ finish_id_expression (tree id_expression,
 		      tree scope,
 		      cp_id_kind *idk,
 		      tree *qualifying_class,
-		      bool constant_expression_p,
-		      bool allow_non_constant_expression_p,
-		      bool *non_constant_expression_p,
+		      bool integral_constant_expression_p,
+		      bool allow_non_integral_constant_expression_p,
+		      bool *non_integral_constant_expression_p,
 		      const char **error_msg)
 {
   /* Initialize the output parameters.  */
@@ -2385,12 +2318,31 @@ finish_id_expression (tree id_expression,
     }
 
   /* If the name resolved to a template parameter, there is no
-     need to look it up again later.  Similarly, we resolve
-     enumeration constants to their underlying values.  */
-  if (TREE_CODE (decl) == CONST_DECL)
+     need to look it up again later.  */
+  if ((TREE_CODE (decl) == CONST_DECL && DECL_TEMPLATE_PARM_P (decl))
+      || TREE_CODE (decl) == TEMPLATE_PARM_INDEX)
     {
       *idk = CP_ID_KIND_NONE;
-      if (DECL_TEMPLATE_PARM_P (decl) || !processing_template_decl)
+      if (TREE_CODE (decl) == TEMPLATE_PARM_INDEX)
+	decl = TEMPLATE_PARM_DECL (decl);
+      if (integral_constant_expression_p 
+	  && !dependent_type_p (TREE_TYPE (decl))
+	  && !INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl))) 
+	{
+	  if (!allow_non_integral_constant_expression_p)
+	    error ("template parameter `%D' of type `%T' is not allowed in "
+		   "an integral constant expression because it is not of "
+		   "integral or enumeration type", decl, TREE_TYPE (decl));
+	  *non_integral_constant_expression_p = true;
+	}
+      return DECL_INITIAL (decl);
+    }
+  /* Similarly, we resolve enumeration constants to their 
+     underlying values.  */
+  else if (TREE_CODE (decl) == CONST_DECL)
+    {
+      *idk = CP_ID_KIND_NONE;
+      if (!processing_template_decl)
 	return DECL_INITIAL (decl);
       return decl;
     }
@@ -2485,8 +2437,8 @@ finish_id_expression (tree id_expression,
 	      /* Since this name was dependent, the expression isn't
 		 constant -- yet.  No error is issued because it might
 		 be constant when things are instantiated.  */
-	      if (constant_expression_p)
-		*non_constant_expression_p = true;
+	      if (integral_constant_expression_p)
+		*non_integral_constant_expression_p = true;
 	      if (TYPE_P (scope) && dependent_type_p (scope))
 		return build_nt (SCOPE_REF, scope, id_expression);
 	      else if (TYPE_P (scope) && DECL_P (decl))
@@ -2502,37 +2454,33 @@ finish_id_expression (tree id_expression,
 	  /* Since this name was dependent, the expression isn't
 	     constant -- yet.  No error is issued because it might be
 	     constant when things are instantiated.  */
-	  if (constant_expression_p)
-	    *non_constant_expression_p = true;
+	  if (integral_constant_expression_p)
+	    *non_integral_constant_expression_p = true;
 	  *idk = CP_ID_KIND_UNQUALIFIED_DEPENDENT;
 	  return id_expression;
 	}
 
       /* Only certain kinds of names are allowed in constant
-	 expression.  Enumerators have already been handled above.  */
-      if (constant_expression_p)
+       expression.  Enumerators and template parameters 
+       have already been handled above.  */
+      if (integral_constant_expression_p)
 	{
-	  /* Non-type template parameters of integral or enumeration
-	     type are OK.  */
-	  if (TREE_CODE (decl) == TEMPLATE_PARM_INDEX
-	      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl)))
-	  ;
-	  /* Const variables or static data members of integral or
-	     enumeration types initialized with constant expressions
-	     are OK.  */
-	  else if (TREE_CODE (decl) == VAR_DECL
-		   && CP_TYPE_CONST_P (TREE_TYPE (decl))
-		   && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl))
-		   && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))
+	    /* Const variables or static data members of integral or
+	      enumeration types initialized with constant expressions
+	      are OK.  */
+	  if (TREE_CODE (decl) == VAR_DECL
+	      && CP_TYPE_CONST_P (TREE_TYPE (decl))
+	      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl))
+	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))
 	    ;
 	  else
 	    {
-	      if (!allow_non_constant_expression_p)
+	      if (!allow_non_integral_constant_expression_p)
 		{
 		  error ("`%D' cannot appear in a constant-expression", decl);
 		  return error_mark_node;
 		}
-	      *non_constant_expression_p = true;
+	      *non_integral_constant_expression_p = true;
 	    }
 	}
       
@@ -2670,35 +2618,6 @@ finish_typeof (tree expr)
   return type;
 }
 
-/* Generate RTL for the statement T, and its substatements, and any
-   other statements at its nesting level.  */
-
-static void
-cp_expand_stmt (tree t)
-{
-  switch (TREE_CODE (t))
-    {
-    case TRY_BLOCK:
-      genrtl_try_block (t);
-      break;
-
-    case EH_SPEC_BLOCK:
-      genrtl_eh_spec_block (t);
-      break;
-
-    case HANDLER:
-      genrtl_handler (t);
-      break;
-
-    case USING_STMT:
-      break;
-    
-    default:
-      abort ();
-      break;
-    }
-}
-
 /* Called from expand_body via walk_tree.  Replace all AGGR_INIT_EXPRs
    with equivalent CALL_EXPRs.  */
 
@@ -2829,7 +2748,7 @@ emit_associated_thunks (tree fn)
       
       for (thunk = DECL_THUNKS (fn); thunk; thunk = TREE_CHAIN (thunk))
 	{
-	  if (!THUNK_ALIAS_P (thunk))
+	  if (!THUNK_ALIAS (thunk))
 	    {
 	      use_thunk (thunk, /*emit_p=*/1);
 	      if (DECL_RESULT_THUNK_P (thunk))
@@ -3069,7 +2988,6 @@ cxx_expand_function_start (void)
 void
 init_cp_semantics (void)
 {
-  lang_expand_stmt = cp_expand_stmt;
 }
 
 #include "gt-cp-semantics.h"

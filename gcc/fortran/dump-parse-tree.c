@@ -788,6 +788,11 @@ gfc_show_code_node (int level, gfc_code * c)
       gfc_status_char (' ');
       gfc_show_expr (c->expr2);
       break;
+    case EXEC_LABEL_ASSIGN:
+      gfc_status ("LABEL ASSIGN ");
+      gfc_show_expr (c->expr);
+      gfc_status (" %d", c->label->value);
+      break;
 
     case EXEC_POINTER_ASSIGN:
       gfc_status ("POINTER ASSIGN ");
@@ -797,7 +802,26 @@ gfc_show_code_node (int level, gfc_code * c)
       break;
 
     case EXEC_GOTO:
-      gfc_status ("GOTO %d", c->label->value);
+      gfc_status ("GOTO ");
+      if (c->label)
+        gfc_status ("%d", c->label->value);
+      else
+        {
+          gfc_show_expr (c->expr);
+          d = c->block;
+          if (d != NULL)
+            {
+              gfc_status (", (");
+              for (; d; d = d ->block)
+                {
+                  code_indent (level, d->label);
+                  if (d->block != NULL)
+                    gfc_status_char (',');
+                  else
+                    gfc_status_char (')');
+                }
+            }
+        }
       break;
 
     case EXEC_CALL:

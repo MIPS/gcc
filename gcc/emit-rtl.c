@@ -77,7 +77,7 @@ static GTY(()) int label_num = 1;
 
 static int last_label_num;
 
-/* Value label_num had when set_new_first_and_last_label_number was called.
+/* Value label_num had when set_new_last_label_num was called.
    If label_num has not changed since then, last_label_num is valid.  */
 
 static int base_label_num;
@@ -198,6 +198,7 @@ static reg_attrs *get_reg_attrs (tree, int);
 static tree component_ref_for_mem_expr (tree);
 static rtx gen_const_vector_0 (enum machine_mode);
 static rtx gen_complex_constant_part (enum machine_mode, rtx, int);
+static void copy_rtx_if_shared_1 (rtx *orig);
 
 /* Probability of the conditional branch currently proceeded by try_split.
    Set to -1 otherwise.  */
@@ -970,7 +971,7 @@ mark_reg_pointer (rtx reg, int align)
 	REGNO_POINTER_ALIGN (REGNO (reg)) = align;
     }
   else if (align && align < REGNO_POINTER_ALIGN (REGNO (reg)))
-    /* We can no-longer be sure just how aligned this pointer is */
+    /* We can no-longer be sure just how aligned this pointer is.  */
     REGNO_POINTER_ALIGN (REGNO (reg)) = align;
 }
 
@@ -1322,7 +1323,7 @@ subreg_realpart_p (rtx x)
     abort ();
 
   return ((unsigned int) SUBREG_BYTE (x)
-	  < GET_MODE_UNIT_SIZE (GET_MODE (SUBREG_REG (x))));
+	  < (unsigned int) GET_MODE_UNIT_SIZE (GET_MODE (SUBREG_REG (x))));
 }
 
 /* Assuming that X is an rtx (e.g., MEM, REG or SUBREG) for a value,
@@ -1390,7 +1391,7 @@ gen_highpart (enum machine_mode mode, rtx x)
   /* This case loses if X is a subreg.  To catch bugs early,
      complain if an invalid MODE is used even in other cases.  */
   if (msize > UNITS_PER_WORD
-      && msize != GET_MODE_UNIT_SIZE (GET_MODE (x)))
+      && msize != (unsigned int) GET_MODE_UNIT_SIZE (GET_MODE (x)))
     abort ();
 
   result = simplify_gen_subreg (mode, x, GET_MODE (x),
@@ -1826,6 +1827,8 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
     return;
 
   type = TYPE_P (t) ? t : TREE_TYPE (t);
+  if (type == error_mark_node)
+    return;
 
   /* If we have already set DECL_RTL = ref, get_alias_set will get the
      wrong answer, as it assumes that DECL_RTL already has the right alias
@@ -2403,17 +2406,6 @@ set_new_first_and_last_insn (rtx first, rtx last)
   cur_insn_uid++;
 }
 
-/* Set the range of label numbers found in the current function.
-   This is used when belatedly compiling an inline function.  */
-
-void
-set_new_first_and_last_label_num (int first, int last)
-{
-  base_label_num = label_num;
-  first_label_num = first;
-  last_label_num = last;
-}
-
 /* Set the last label number found in the current function.
    This is used when belatedly compiling an inline function.  */
 
@@ -2559,7 +2551,7 @@ verify_rtx_sharing (rtx orig, rtx insn)
     }
   RTX_FLAG (x, used) = 1;
 
-  /* Now scan the subexpressions recursively. */
+  /* Now scan the subexpressions recursively.  */
 
   format_ptr = GET_RTX_FORMAT (code);
 
@@ -2593,7 +2585,7 @@ verify_rtx_sharing (rtx orig, rtx insn)
   return;
 }
 
-/* Go through all the RTL insn bodies and chec that there is no inexpected
+/* Go through all the RTL insn bodies and check that there is no unexpected
    sharing in between the subexpressions.  */
 
 void
@@ -2768,19 +2760,36 @@ copy_most_rtx (rtx orig, rtx may_share)
 }
 
 /* Mark ORIG as in use, and return a copy of it if it was already in use.
-   Recursively does the same for subexpressions.  */
+   Recursively does the same for subexpressions.  Uses
+   copy_rtx_if_shared_1 to reduce stack space.  */
 
 rtx
 copy_rtx_if_shared (rtx orig)
 {
-  rtx x = orig;
+  copy_rtx_if_shared_1 (&orig);
+  return orig;
+}
+
+/* Mark *ORIG1 as in use, and set it to a copy of it if it was already in
+   use.  Recursively does the same for subexpressions.  */
+
+static void
+copy_rtx_if_shared_1 (rtx *orig1)
+{
+  rtx x;
   int i;
   enum rtx_code code;
+  rtx *last_ptr;
   const char *format_ptr;
   int copied = 0;
+  int length;
+
+  /* Repeat is used to turn tail-recursion into iteration.  */
+repeat:
+  x = *orig1;
 
   if (x == 0)
-    return 0;
+    return;
 
   code = GET_CODE (x);
 
@@ -2800,7 +2809,7 @@ copy_rtx_if_shared (rtx orig)
     case CC0:
     case SCRATCH:
       /* SCRATCH must be shared because they represent distinct values.  */
-      return x;
+      return;
 
     case CONST:
       /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
@@ -2808,7 +2817,7 @@ copy_rtx_if_shared (rtx orig)
       if (GET_CODE (XEXP (x, 0)) == PLUS
 	  && GET_CODE (XEXP (XEXP (x, 0), 0)) == SYMBOL_REF
 	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
-	return x;
+	return;
       break;
 
     case INSN:
@@ -2817,7 +2826,7 @@ copy_rtx_if_shared (rtx orig)
     case NOTE:
     case BARRIER:
       /* The chain of insns is not being copied.  */
-      return x;
+      return;
 
     default:
       break;
@@ -2843,13 +2852,17 @@ copy_rtx_if_shared (rtx orig)
      must be copied if X was copied.  */
 
   format_ptr = GET_RTX_FORMAT (code);
-
-  for (i = 0; i < GET_RTX_LENGTH (code); i++)
+  length = GET_RTX_LENGTH (code);
+  last_ptr = NULL;
+  
+  for (i = 0; i < length; i++)
     {
       switch (*format_ptr++)
 	{
 	case 'e':
-	  XEXP (x, i) = copy_rtx_if_shared (XEXP (x, i));
+          if (last_ptr)
+            copy_rtx_if_shared_1 (last_ptr);
+	  last_ptr = &XEXP (x, i);
 	  break;
 
 	case 'E':
@@ -2857,16 +2870,30 @@ copy_rtx_if_shared (rtx orig)
 	    {
 	      int j;
 	      int len = XVECLEN (x, i);
-
+              
+              /* Copy the vector iff I copied the rtx and the length
+		 is nonzero.  */
 	      if (copied && len > 0)
 		XVEC (x, i) = gen_rtvec_v (len, XVEC (x, i)->elem);
+              
+              /* Call recsusively on all inside the vector.  */
 	      for (j = 0; j < len; j++)
-		XVECEXP (x, i, j) = copy_rtx_if_shared (XVECEXP (x, i, j));
+                {
+		  if (last_ptr)
+		    copy_rtx_if_shared_1 (last_ptr);
+                  last_ptr = &XVECEXP (x, i, j);
+                }
 	    }
 	  break;
 	}
     }
-  return x;
+  *orig1 = x;
+  if (last_ptr)
+    {
+      orig1 = last_ptr;
+      goto repeat;
+    }
+  return;
 }
 
 /* Clear all the USED bits in X to allow copy_rtx_if_shared to be used
@@ -2878,7 +2905,10 @@ reset_used_flags (rtx x)
   int i, j;
   enum rtx_code code;
   const char *format_ptr;
+  int length;
 
+  /* Repeat is used to turn tail-recursion into iteration.  */
+repeat:
   if (x == 0)
     return;
 
@@ -2916,11 +2946,18 @@ reset_used_flags (rtx x)
   RTX_FLAG (x, used) = 0;
 
   format_ptr = GET_RTX_FORMAT (code);
-  for (i = 0; i < GET_RTX_LENGTH (code); i++)
+  length = GET_RTX_LENGTH (code);
+  
+  for (i = 0; i < length; i++)
     {
       switch (*format_ptr++)
 	{
 	case 'e':
+          if (i == length-1)
+            {
+              x = XEXP (x, i);
+	      goto repeat;
+            }
 	  reset_used_flags (XEXP (x, i));
 	  break;
 
@@ -3760,12 +3797,12 @@ add_insn_after (rtx insn, rtx after)
 	bb->flags |= BB_DIRTY;
       /* Should not happen as first in the BB is always
 	 either NOTE or LABEL.  */
-      if (bb->end == after
+      if (BB_END (bb) == after
 	  /* Avoid clobbering of structure when creating new BB.  */
 	  && GET_CODE (insn) != BARRIER
 	  && (GET_CODE (insn) != NOTE
 	      || NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK))
-	bb->end = insn;
+	BB_END (bb) = insn;
     }
 
   NEXT_INSN (after) = insn;
@@ -3828,7 +3865,7 @@ add_insn_before (rtx insn, rtx before)
 	bb->flags |= BB_DIRTY;
       /* Should not happen as first in the BB is always
 	 either NOTE or LABEl.  */
-      if (bb->head == insn
+      if (BB_HEAD (bb) == insn
 	  /* Avoid clobbering of structure when creating new BB.  */
 	  && GET_CODE (insn) != BARRIER
 	  && (GET_CODE (insn) != NOTE
@@ -3903,16 +3940,16 @@ remove_insn (rtx insn)
     {
       if (INSN_P (insn))
 	bb->flags |= BB_DIRTY;
-      if (bb->head == insn)
+      if (BB_HEAD (bb) == insn)
 	{
 	  /* Never ever delete the basic block note without deleting whole
 	     basic block.  */
 	  if (GET_CODE (insn) == NOTE)
 	    abort ();
-	  bb->head = next;
+	  BB_HEAD (bb) = next;
 	}
-      if (bb->end == insn)
-	bb->end = prev;
+      if (BB_END (bb) == insn)
+	BB_END (bb) = prev;
     }
 }
 
@@ -4005,13 +4042,13 @@ reorder_insns (rtx from, rtx to, rtx after)
       if (GET_CODE (from) != BARRIER
 	  && (bb2 = BLOCK_FOR_INSN (from)))
 	{
-	  if (bb2->end == to)
-	    bb2->end = prev;
+	  if (BB_END (bb2) == to)
+	    BB_END (bb2) = prev;
 	  bb2->flags |= BB_DIRTY;
 	}
 
-      if (bb->end == after)
-	bb->end = to;
+      if (BB_END (bb) == after)
+	BB_END (bb) = to;
 
       for (x = from; x != NEXT_INSN (to); x = NEXT_INSN (x))
 	set_block_for_insn (x, bb);
@@ -4400,8 +4437,8 @@ emit_insn_after_1 (rtx first, rtx after)
 	  set_block_for_insn (last, bb);
       if (GET_CODE (last) != BARRIER)
 	set_block_for_insn (last, bb);
-      if (bb->end == after)
-	bb->end = last;
+      if (BB_END (bb) == after)
+	BB_END (bb) = last;
     }
   else
     for (last = first; NEXT_INSN (last); last = NEXT_INSN (last))

@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package java.net;
 
+import gnu.java.net.URLParseError;
 import java.io.InputStream;
 import java.io.IOException;
 import java.io.Serializable;
@@ -395,6 +396,8 @@ public final class URL implements Serializable
 	    host = context.host;
 	    port = context.port;
 	    file = context.file;
+	    if (file == null || file.length() == 0)
+	      file = "/";
 	    authority = context.authority;
 	  }
       }
@@ -407,6 +410,8 @@ public final class URL implements Serializable
 	host = context.host;
 	port = context.port;
 	file = context.file;
+	if (file == null || file.length() == 0)
+	  file = "/";
         authority = context.authority;
       }
     else	// Protocol NOT specified in spec. and no context available.
@@ -432,8 +437,17 @@ public final class URL implements Serializable
     // is to be excluded by passing the 'limit' as the indexOf the '#'
     // if one exists, otherwise pass the end of the string.
     int hashAt = spec.indexOf('#', colon + 1);
-    this.ph.parseURL(this, spec, colon + 1,
-		     hashAt < 0 ? spec.length() : hashAt);
+
+    try
+      {
+	this.ph.parseURL(this, spec, colon + 1,
+			 hashAt < 0 ? spec.length() : hashAt);
+      }
+    catch (URLParseError e)
+      {
+	throw new MalformedURLException(e.getMessage());
+      }
+    
     if (hashAt >= 0)
       ref = spec.substring(hashAt + 1);
 

@@ -1,7 +1,7 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting:
    C++ front-end interface.
 
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
    and Graydon Hoare <graydon@redhat.com>
 
@@ -56,55 +56,6 @@ mflang_lookup_decl (const char* name)
 }
 
 
-
-/* Build and return an EXPR for calling __mf_register on the object
-   given by the parameters.  One odd thing: the object's address is
-   given by the given assembler label string (since that's all we may
-   know about a string literal, or the static data thingie may be out
-   of the future scope).  To turn that into a validish C tree, we
-   create a weird synthetic VAR_DECL node.  */
-
-tree
-mflang_register_call (const char* label, tree regsize, tree regtype,
-		      tree regname)
-{
-  tree decltype, decl, params, call, t;
-
-  /* XXX: would be nicer not to duplicate these. */
-  tree mf_register_fndecl = mflang_lookup_decl ("__mf_register");
-
-  /* See gcc-checker's c-bounds.c (declare_private_statics)  */
-  decltype = build_array_type (char_type_node, 0);
-  decl = mf_mark (build_decl (VAR_DECL, get_identifier (label), decltype));
-
-  TREE_STATIC (decl) = 1;
-  TREE_READONLY (decl) = 1;
-  TREE_ASM_WRITTEN (decl) = 1;
-  DECL_IGNORED_P (decl) = 1;
-  DECL_INITIAL (decl) = NULL_TREE;
-  layout_decl (decl, 0);
-  TREE_USED (decl) = 1;
-  SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
-  DECL_DEFER_OUTPUT (decl) = 1;
-
-  params = tree_cons (NULL_TREE, regname, NULL_TREE);
-  params = tree_cons (NULL_TREE, regtype, params);
-
-  t = convert (size_type_node, regsize);
-  params = tree_cons (NULL_TREE, t, params);
-
-  t = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (decl)), decl);
-  t = mf_mark (t);
-  t = convert (ptr_type_node, t);
-  params = tree_cons (NULL_TREE, t, params);
-
-  call = build_function_call (mf_register_fndecl, params);
-
-  return call;
-}
-
-
-
 /* Emit a synthetic CTOR function for the current file.  Populate it from
    the enqueued __mf_register calls.  Register it with the constructors.  */
 
@@ -127,6 +78,7 @@ mflang_flush_calls (tree enqueued_call_stmt_chain)
 
   TREE_PUBLIC (current_function_decl) = 0;
   DECL_ARTIFICIAL (current_function_decl) = 1;
+  mf_mark (current_function_decl);
 
   /* Generate the body, one statement at a time.  */
   body = begin_compound_stmt (/*has_no_scope=*/false);

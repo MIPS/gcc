@@ -83,7 +83,6 @@ remove_bbs (basic_block *bbs, int nbbs)
   for (i = 0; i < nbbs; i++)
     {
       remove_bb_from_loops (bbs[i]);
-      delete_from_dominance_info (CDI_DOMINATORS, bbs[i]);
       delete_basic_block (bbs[i]);
     }
 }
@@ -764,7 +763,7 @@ loop_delete_branch_edge (edge e, int really_delete)
       if (src->succ->succ_next->succ_next)
 	return false;
       /* And it must be just a simple branch.  */
-      if (!any_condjump_p (src->end))
+      if (!any_condjump_p (BB_END (src)))
 	return false;
 
       snd = e == src->succ ? src->succ->succ_next : src->succ;
@@ -1086,10 +1085,7 @@ mfb_update_loops (basic_block jump)
   struct loop *loop = jump->succ->dest->loop_father;
 
   if (dom_computed[CDI_DOMINATORS])
-    {
-      add_to_dominance_info (CDI_DOMINATORS, jump);
-      set_immediate_dominator (CDI_DOMINATORS, jump, jump->pred->src);
-    }
+    set_immediate_dominator (CDI_DOMINATORS, jump, jump->pred->src);
   add_bb_to_loop (jump, loop);
   loop->latch = jump;
 }
@@ -1141,13 +1137,10 @@ create_preheader (struct loop *loop, int flags)
 
   /* Reorganize blocks so that the preheader is not stuck in the middle of the
      loop.  */
-  if (cfg_hooks->move_block_after)
-    {
-      for (e = dummy->pred; e; e = e->pred_next)
-	if (e->src != loop->latch)
-      	  break;
-      move_block_after (dummy, e->src);
-    }
+  for (e = dummy->pred; e; e = e->pred_next)
+    if (e->src != loop->latch)
+      break;
+  move_block_after (dummy, e->src);
 
   loop->header->loop_father = loop;
   add_bb_to_loop (dummy, cloop);
@@ -1157,7 +1150,6 @@ create_preheader (struct loop *loop, int flags)
       dummy->flags |= BB_IRREDUCIBLE_LOOP;
       dummy->succ->flags |= EDGE_IRREDUCIBLE_LOOP;
     }
-
   if (rtl_dump_file)
     fprintf (rtl_dump_file, "Created preheader block for loop %i\n",
 	     loop->num);
@@ -1230,7 +1222,7 @@ loop_split_edge_with (edge e, rtx insns)
     }
 
   if (insns)
-    emit_insn_after (insns, new_bb->end);
+    emit_insn_after (insns, BB_END (new_bb));
 
   if (dest->loop_father->latch == src)
     dest->loop_father->latch = new_bb;
@@ -1290,7 +1282,7 @@ create_loop_notes (void)
 
 		  /* If loop starts with jump into it, place the note in
 		     front of the jump.  */
-		  insn = PREV_INSN (first[loop->num]->head);
+		  insn = PREV_INSN (BB_HEAD (first[loop->num]));
 		  if (insn
 		      && GET_CODE (insn) == BARRIER)
 		    insn = PREV_INSN (insn);
@@ -1305,24 +1297,24 @@ create_loop_notes (void)
 			abort ();
 
 		      if (!flow_bb_inside_loop_p (loop, pbb->succ->dest))
-			insn = first[loop->num]->head;
+			insn = BB_HEAD (first[loop->num]);
 		    }
 		  else
-		    insn = first[loop->num]->head;
+		    insn = BB_HEAD (first[loop->num]);
 		    
-		  head = first[loop->num]->head;
+		  head = BB_HEAD (first[loop->num]);
 		  emit_note_before (NOTE_INSN_LOOP_BEG, insn);
-		  first[loop->num]->head = head;
+		  BB_HEAD (first[loop->num]) = head;
 
 		  /* Position the note correctly wrto barrier.  */
-		  insn = last[loop->num]->end;
+		  insn = BB_END (last[loop->num]);
 		  if (NEXT_INSN (insn)
 		      && GET_CODE (NEXT_INSN (insn)) == BARRIER)
 		    insn = NEXT_INSN (insn);
 		  
-		  end = last[loop->num]->end;
+		  end = BB_END (last[loop->num]);
 		  emit_note_after (NOTE_INSN_LOOP_END, insn);
-		  last[loop->num]->end = end;
+		  BB_END (last[loop->num]) = end;
 		}
 	    }
 	}

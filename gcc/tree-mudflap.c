@@ -1,5 +1,5 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
    and Graydon Hoare <graydon@redhat.com>
 
@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-flow.h"
 #include "tree-mudflap.h"
 #include "tree-dump.h"
+#include "tree-pass.h"
 #include "hashtab.h"
 #include "diagnostic.h"
 #include <demangle.h>
@@ -90,7 +91,7 @@ static tree
 mf_build_string (const char *string)
 {
   size_t len = strlen (string);
-  tree result = build_string (len + 1, string);
+  tree result = mf_mark (build_string (len + 1, string));
 
   TREE_TYPE (result)
       = build_array_type (char_type_node,
@@ -102,45 +103,87 @@ mf_build_string (const char *string)
 
   result = build1 (ADDR_EXPR, build_pointer_type (char_type_node), result);
 
-  return result;
+  return mf_mark (result);
 }
 
 /* Perform the declaration-related mudflap tree transforms on the
    given function.  Update its DECL_SAVED_TREE.  */
 
-void
-mudflap_c_function_decls (tree t)
+static void
+mudflap_function_decls (void)
 {
+  if (mf_marked_p (current_function_decl))
+    return;
+
   push_gimplify_context ();
 
   mf_init_extern_trees ();
-  mf_xform_decls (DECL_SAVED_TREE (t), DECL_ARGUMENTS (t));
+  mf_xform_decls (DECL_SAVED_TREE (current_function_decl),
+		  DECL_ARGUMENTS (current_function_decl));
 
   pop_gimplify_context (NULL);
-
-  dump_function (TDI_mudflap1, t);
 }
+
+static bool
+gate_mudflap (void)
+{
+  return flag_mudflap != 0;
+}
+
+struct tree_opt_pass pass_mudflap_1 = 
+{
+  "mudflap1",				/* name */
+  gate_mudflap,				/* gate */
+  mudflap_function_decls,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_gimple_any,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func			/* todo_flags_finish */
+};
+
 
 /* Same as above, for the indirection-related transforms.  */
 
-void
-mudflap_c_function_ops (tree t)
+static void
+mudflap_function_ops (void)
 {
+  if (mf_marked_p (current_function_decl))
+    return;
+
   push_gimplify_context ();
 
   /* In multithreaded mode, don't cache the lookup cache parameters.  */
   if (! (flag_mudflap > 1))
-    mf_decl_cache_locals (&DECL_SAVED_TREE (t));
+    mf_decl_cache_locals (&DECL_SAVED_TREE (current_function_decl));
 
-  mf_xform_derefs (DECL_SAVED_TREE (t));
+  mf_xform_derefs (DECL_SAVED_TREE (current_function_decl));
 
   if (! (flag_mudflap > 1))
     mf_decl_clear_locals ();
 
   pop_gimplify_context (NULL);
-
-  dump_function (TDI_mudflap2, t);
 }
+
+struct tree_opt_pass pass_mudflap_2 = 
+{
+  "mudflap2",				/* name */
+  gate_mudflap,				/* gate */
+  mudflap_function_ops,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_gimple_leh,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func			/* todo_flags_finish */
+};
 
 /* global tree nodes */
 
@@ -148,22 +191,40 @@ mudflap_c_function_ops (tree t)
    mudflap runtime library.  mf_init_extern_trees must be called
    before using these.  */
 
-static GTY (()) tree mf_uintptr_type;      /* uintptr_t (usually "unsigned long") */
-static GTY (()) tree mf_cache_struct_type; /* struct __mf_cache { uintptr_t low; uintptr_t high; }; */
-static GTY (()) tree mf_cache_structptr_type; /* struct __mf_cache * const */
+/* uintptr_t (usually "unsigned long") */
+static GTY (()) tree mf_uintptr_type;
 
-static GTY (()) tree mf_cache_array_decl;  /* extern struct __mf_cache __mf_lookup_cache []; */
-static GTY (()) tree mf_cache_shift_decl;  /* extern const unsigned char __mf_lc_shift; */
-static GTY (()) tree mf_cache_mask_decl;   /* extern const uintptr_t __mf_lc_mask; */
+/* struct __mf_cache { uintptr_t low; uintptr_t high; }; */
+static GTY (()) tree mf_cache_struct_type;
+
+/* struct __mf_cache * const */
+static GTY (()) tree mf_cache_structptr_type;
+
+/* extern struct __mf_cache __mf_lookup_cache []; */
+static GTY (()) tree mf_cache_array_decl;
+
+/* extern const unsigned char __mf_lc_shift; */
+static GTY (()) tree mf_cache_shift_decl;
+
+/* extern const uintptr_t __mf_lc_mask; */
+static GTY (()) tree mf_cache_mask_decl;
 
 /* Their function-scope local shadows, used in single-threaded mode only. */
-static GTY (()) tree mf_cache_shift_decl_l; /* auto const unsigned char __mf_lc_shift_l; */
-static GTY (()) tree mf_cache_mask_decl_l;  /* auto const uintptr_t __mf_lc_mask_l; */
 
-static GTY (()) tree mf_check_fndecl;      /* extern void __mf_check (void *ptr, size_t sz, int type, const char *); */
-static GTY (()) tree mf_register_fndecl;   /* extern void __mf_register (void *ptr, size_t sz, int type, const char *); */
-static GTY (()) tree mf_unregister_fndecl; /* extern void __mf_unregister (void *ptr, size_t sz); */
+/* auto const unsigned char __mf_lc_shift_l; */
+static GTY (()) tree mf_cache_shift_decl_l;
 
+/* auto const uintptr_t __mf_lc_mask_l; */
+static GTY (()) tree mf_cache_mask_decl_l;
+
+/* extern void __mf_check (void *ptr, size_t sz, int type, const char *); */
+static GTY (()) tree mf_check_fndecl;
+
+/* extern void __mf_register (void *ptr, size_t sz, int type, const char *); */
+static GTY (()) tree mf_register_fndecl;
+
+/* extern void __mf_unregister (void *ptr, size_t sz); */
+static GTY (()) tree mf_unregister_fndecl;
 
 
 /* Initialize the global tree nodes that correspond to mf-runtime.h
@@ -171,9 +232,11 @@ static GTY (()) tree mf_unregister_fndecl; /* extern void __mf_unregister (void 
 static void
 mf_init_extern_trees (void)
 {
-  static int done = 0;
+  static bool done = false;
 
-  if (done) return;
+  if (done)
+    return;
+  done = true;
 
   mf_uintptr_type = TREE_TYPE (mflang_lookup_decl ("uintptr_t"));
   mf_cache_array_decl = mf_mark (mflang_lookup_decl ("__mf_lookup_cache"));
@@ -184,8 +247,6 @@ mf_init_extern_trees (void)
   mf_check_fndecl = mflang_lookup_decl ("__mf_check");
   mf_register_fndecl = mflang_lookup_decl ("__mf_register");
   mf_unregister_fndecl = mflang_lookup_decl ("__mf_unregister");
-
-  done = 1;
 }
 
 
@@ -213,13 +274,13 @@ mf_decl_cache_locals (tree* body)
              mf_cache_shift_decl_l, mf_cache_shift_decl);
   annotate_with_locus (t, DECL_SOURCE_LOCATION (current_function_decl));
   gimplify_stmt (&t);
-  tsi_link_before (&i, t, TSI_SAME_STMT);
+  tsi_link_before (&i, t, TSI_NEW_STMT);
 
   t = build (MODIFY_EXPR, TREE_TYPE (mf_cache_mask_decl_l),
              mf_cache_mask_decl_l, mf_cache_mask_decl);
   annotate_with_locus (t, DECL_SOURCE_LOCATION (current_function_decl));
   gimplify_stmt (&t);
-  tsi_link_before (&i, t, TSI_SAME_STMT);
+  tsi_link_before (&i, t, TSI_NEW_STMT);
 }
 
 
@@ -321,7 +382,7 @@ mf_varname_tree (tree decl)
   result = mf_build_string (buf_contents);
   pp_clear_output_area (buf);
 
-  return mf_mark (result);
+  return result;
 }
 
 
@@ -330,20 +391,21 @@ mf_varname_tree (tree decl)
 static tree
 mf_file_function_line_tree (location_t *locus)
 {
-  const char *file, *colon, *line, *op, *name, *cp;
+  const char *file = NULL, *colon, *line, *op, *name, *cp;
   char linebuf[18];
   char *string;
   tree result;
 
   /* Add FILENAME.  */
-  file = locus->file;
+  if (locus != NULL)
+    file = locus->file;
   if (file == NULL && current_function_decl != NULL_TREE)
     file = DECL_SOURCE_FILE (current_function_decl);
   if (file == NULL)
     file = "<unknown file>";
 
   /* Add :LINENUMBER.  */
-  if (locus->line > 0)
+  if (locus != NULL && locus->line > 0)
     {
       sprintf (linebuf, "%d", locus->line);
       colon = ":";
@@ -353,10 +415,10 @@ mf_file_function_line_tree (location_t *locus)
     colon = line = "";
 
   /* Add (FUNCTION).  */
-  if (cfun->name)
+  name = (*lang_hooks.decl_printable_name) (current_function_decl, 1);
+  if (name)
     {
       op = " (";
-      name = cfun->name;
       cp = ")";
     }
   else
@@ -387,14 +449,16 @@ mf_build_check_statement_for (tree addr, tree size, tree_stmt_iterator *iter,
 
   /* Build: __mf_value = <address expression>.  */
   stmt = build (MODIFY_EXPR, void_type_node, mf_value, addr);
-  annotate_with_locus (stmt, *locus);
+  if (locus != NULL) 
+    annotate_with_locus (stmt, *locus);
   gimplify_stmt (&stmt);
   tsi_link_before (iter, stmt, TSI_SAME_STMT);
 
   /* Build: __mf_base = (uintptr_t)__mf_value.  */
   stmt = build (MODIFY_EXPR, void_type_node, mf_base,
 		build1 (NOP_EXPR, mf_uintptr_type, mf_value));
-  annotate_with_locus (stmt, *locus);
+  if (locus != NULL) 
+    annotate_with_locus (stmt, *locus);
   gimplify_stmt (&stmt);
   tsi_link_before (iter, stmt, TSI_SAME_STMT);
 
@@ -409,7 +473,8 @@ mf_build_check_statement_for (tree addr, tree size, tree_stmt_iterator *iter,
 	     mf_cache_array_decl, t);
   t = build1 (ADDR_EXPR, mf_cache_structptr_type, t);
   stmt = build (MODIFY_EXPR, void_type_node, mf_elem, t);
-  annotate_with_locus (stmt, *locus);
+  if (locus != NULL) 
+    annotate_with_locus (stmt, *locus);
   gimplify_stmt (&stmt);
   tsi_link_before (iter, stmt, TSI_SAME_STMT);
 
@@ -473,7 +538,8 @@ mf_build_check_statement_for (tree addr, tree size, tree_stmt_iterator *iter,
     }
 
   stmt = build (COND_EXPR, void_type_node, cond, stmt, build_empty_stmt ());
-  annotate_with_locus (stmt, *locus);
+  if (locus != NULL) 
+    annotate_with_locus (stmt, *locus);
   gimplify_to_stmt_list (&stmt);
   lower_stmt_body (stmt, NULL);
   tsi_link_before (iter, stmt, TSI_SAME_STMT);
@@ -604,14 +670,31 @@ mf_xform_derefs (tree fnbody)
     {
       tree s = tsi_stmt (i);
 
-      /* Gimplified, nothing but MODIFY statements can reference memory.  */
-      if (TREE_CODE (s) != MODIFY_EXPR)
-	continue;
+      /* Only a few GIMPLE statements can reference memory.  */
+      switch (TREE_CODE (s))
+        {
+        case MODIFY_EXPR:  /*  This includes INIT_EXPR after gimplification.  */
+          mf_xform_derefs_1 (&i, &TREE_OPERAND (s, 0), EXPR_LOCUS (s),
+                             integer_one_node);
+          mf_xform_derefs_1 (&i, &TREE_OPERAND (s, 1), EXPR_LOCUS (s),
+                             integer_zero_node);
+          break;
 
-      mf_xform_derefs_1 (&i, &TREE_OPERAND (s, 0), EXPR_LOCUS (s),
-			 integer_one_node);
-      mf_xform_derefs_1 (&i, &TREE_OPERAND (s, 1), EXPR_LOCUS (s),
-			 integer_zero_node);
+        case RETURN_EXPR:
+          if (TREE_OPERAND (s, 0) != NULL_TREE)
+            {
+              if (TREE_CODE (TREE_OPERAND (s, 0)) == MODIFY_EXPR)
+                mf_xform_derefs_1 (&i, &TREE_OPERAND (TREE_OPERAND (s, 0), 1), EXPR_LOCUS (s),
+                                   integer_zero_node);
+              else
+                mf_xform_derefs_1 (&i, &TREE_OPERAND (s, 0), EXPR_LOCUS (s),
+                                   integer_zero_node);
+            }
+          break;
+
+        default:
+          ;
+        }
     }
 }
 
@@ -781,18 +864,35 @@ mf_xform_decls (tree fnbody, tree fnparams)
    then, warnings are emitted.  */
 
 static GTY (()) varray_type deferred_static_decls;
-static GTY (()) varray_type deferred_static_decl_labels;
-static int deferred_static_decls_init;
 
-/* What I really want is a std::map<union tree_node,std::string> .. :-(  */
-
-/* A chain of EXPR_STMTs for calling __mf_register() at initialization
-   time.  */
+/* A list of statements for calling __mf_register() at startup time.  */
 static GTY (()) tree enqueued_call_stmt_chain;
 
+static void
+mudflap_register_call (tree obj, tree object_size, tree varname)
+{
+  tree arg, args, call_stmt;
+
+  args = tree_cons (NULL_TREE, varname, NULL_TREE);
+
+  arg = build_int_2 (4, 0); /* __MF_TYPE_STATIC */
+  args = tree_cons (NULL_TREE, arg, args);
+
+  arg = convert (size_type_node, object_size);
+  args = tree_cons (NULL_TREE, arg, args);
+
+  arg = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (obj)), obj);
+  arg = convert (ptr_type_node, arg);
+  args = tree_cons (NULL_TREE, arg, args);
+
+  mf_init_extern_trees ();
+  call_stmt = build_function_call_expr (mf_register_fndecl, args);
+
+  append_to_statement_list (call_stmt, &enqueued_call_stmt_chain);
+}
 
 void
-mudflap_enqueue_decl (tree obj, const char *label)
+mudflap_enqueue_decl (tree obj)
 {
   if (mf_marked_p (obj))
     return;
@@ -801,120 +901,82 @@ mudflap_enqueue_decl (tree obj, const char *label)
      generated extern.  If we did, we'd end up with warnings for them
      during mudflap_finish_file ().  That would confuse the user,
      since the text would refer to variables that don't show up in the
-     user's source code.
-  */
+     user's source code.  */
   if (DECL_P (obj) && DECL_EXTERNAL (obj) && DECL_ARTIFICIAL (obj))
-    {
-      return;
-    }
+    return;
 
   if (COMPLETE_TYPE_P (TREE_TYPE (obj)))
     {
-      FILE *dump_file;
-      int dump_flags;
       tree object_size;
-      tree call_stmt;
 
       mf_mark (obj);
 
       object_size = size_in_bytes (TREE_TYPE (obj));
 
-      dump_file = dump_begin (TDI_mudflap1, &dump_flags);
-      if (dump_file)
+      if (tree_dump_file)
         {
-          fprintf (dump_file, "enqueue_decl obj=`");
-          print_generic_expr (dump_file, obj, 0);
-          fprintf (dump_file, "' label=`%s' size=", label);
-          print_generic_expr (dump_file, object_size, 0);
-          fprintf (dump_file, "\n");
-          dump_end (TDI_mudflap1, dump_file);
+          fprintf (tree_dump_file, "enqueue_decl obj=`");
+          print_generic_expr (tree_dump_file, obj, 0);
+          fprintf (tree_dump_file, "' size=");
+          print_generic_expr (tree_dump_file, object_size, 0);
+          fprintf (tree_dump_file, "\n");
         }
 
       /* NB: the above condition doesn't require TREE_USED or
          TREE_ADDRESSABLE.  That's because this object may be a global
          only used from other compilation units.  XXX: Maybe static
          objects could require those attributes being set.  */
-      call_stmt =
-        mflang_register_call (label,
-                              object_size,
-                              build_int_2 (4, 0), /* __MF_TYPE_STATIC */
-                              mf_varname_tree (obj));
 
-      /* Link this call into the chain. */
-      TREE_CHAIN (call_stmt) = enqueued_call_stmt_chain;
-      enqueued_call_stmt_chain = call_stmt;
+      mudflap_register_call (obj, object_size, mf_varname_tree (obj));
     }
   else
     {
-      unsigned i;
-      int found_p;
+      size_t i;
 
-      if (! deferred_static_decls_init)
-        {
-          deferred_static_decls_init = 1;
-          VARRAY_TREE_INIT (deferred_static_decls, 10, "deferred static list");
-          VARRAY_CHAR_PTR_INIT (deferred_static_decl_labels, 10, "label list");
-        }
+      if (! deferred_static_decls)
+        VARRAY_TREE_INIT (deferred_static_decls, 10, "deferred static list");
 
       /* Ugh, linear search... */
-      found_p = 0;
-      for (i=0; i < VARRAY_ACTIVE_SIZE (deferred_static_decls); i++)
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_static_decls); i++)
         if (VARRAY_TREE (deferred_static_decls, i) == obj)
-          found_p = 1;
+	  {
+	    warning ("mudflap cannot track lifetime of `%s'",
+		     IDENTIFIER_POINTER (DECL_NAME (obj)));
+	    return;
+	  }
 
-      if (found_p)
-        warning ("mudflap cannot track lifetime of `%s'",
-                 IDENTIFIER_POINTER (DECL_NAME (obj)));
-      else
-        {
-          VARRAY_PUSH_TREE (deferred_static_decls, obj);
-          VARRAY_PUSH_CHAR_PTR (deferred_static_decl_labels, (char *) label);
-        }
+      VARRAY_PUSH_TREE (deferred_static_decls, obj);
     }
 }
 
-
 void
-mudflap_enqueue_constant (tree obj, const char *label)
+mudflap_enqueue_constant (tree obj)
 {
-  tree call_stmt;
-  tree object_size;
+  tree object_size, varname;
 
   if (mf_marked_p (obj))
     return;
 
-  object_size = (TREE_CODE (obj) == STRING_CST)
-    ? build_int_2 (TREE_STRING_LENGTH (obj), 0)
-    : size_in_bytes (TREE_TYPE (obj));
+  if (TREE_CODE (obj) == STRING_CST)
+    object_size = build_int_2 (TREE_STRING_LENGTH (obj), 0);
+  else
+    object_size = size_in_bytes (TREE_TYPE (obj));
 
-  {
-    FILE *dump_file;
-    int dump_flags;
+  if (tree_dump_file)
+    {
+      fprintf (tree_dump_file, "enqueue_constant obj=`");
+      print_generic_expr (tree_dump_file, obj, 0);
+      fprintf (tree_dump_file, "' size=");
+      print_generic_expr (tree_dump_file, object_size, 0);
+      fprintf (tree_dump_file, "\n");
+    }
 
-    dump_file = dump_begin (TDI_mudflap1, &dump_flags);
-    if (dump_file)
-      {
-        fprintf (dump_file, "enqueue_constant obj=`");
-        print_generic_expr (dump_file, obj, 0);
-        fprintf (dump_file, "' label=`%s' size=", label);
-        print_generic_expr (dump_file, object_size, 0);
-        fprintf (dump_file, "\n");
-        dump_end (TDI_mudflap1, dump_file);
-      }
-  }
+  if (TREE_CODE (obj) == STRING_CST)
+    varname = mf_build_string ("string literal");
+  else
+    varname = mf_build_string ("constant");
 
-  call_stmt =
-    (TREE_CODE (obj) == STRING_CST)
-    ? mflang_register_call (label, object_size,
-                            build_int_2 (4, 0), /* __MF_TYPE_STATIC */
-                            mf_build_string ("string literal"))
-    : mflang_register_call (label, object_size,
-                            build_int_2 (4, 0), /* __MF_TYPE_STATIC */
-                            mf_build_string ("constant"));
-
-  /* Link this call into the chain. */
-  TREE_CHAIN (call_stmt) = enqueued_call_stmt_chain;
-  enqueued_call_stmt_chain = call_stmt;
+  mudflap_register_call (obj, object_size, varname);
 }
 
 
@@ -924,23 +986,21 @@ void
 mudflap_finish_file (void)
 {
   /* Try to give the deferred objects one final try.  */
-  if (deferred_static_decls_init)
+  if (deferred_static_decls)
     {
-      unsigned i;
+      size_t i;
 
       for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_static_decls); i++)
         {
           tree obj = VARRAY_TREE (deferred_static_decls, i);
-          const char *label = VARRAY_CHAR_PTR (deferred_static_decl_labels, i);
 
           /* Call enqueue_decl again on the same object it has previously
              put into the table.  (It won't modify the table this time, so
              infinite iteration is not a problem.)  */
-          mudflap_enqueue_decl (obj, label);
+          mudflap_enqueue_decl (obj);
         }
 
       VARRAY_CLEAR (deferred_static_decls);
-      VARRAY_CLEAR (deferred_static_decl_labels);
     }
 
   mflang_flush_calls (enqueued_call_stmt_chain);

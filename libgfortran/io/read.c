@@ -120,8 +120,8 @@ convert_real (void *dest, const char *buffer, int length)
   return 0;
 }
 
-int
-convert_precsion_real (void *dest, int sign,
+static int
+convert_precision_real (void *dest, int sign,
                        char *buffer, int length, int exponent)
 {
   int w, new_dp_pos, i, slen, k, dp;
@@ -766,7 +766,7 @@ done:
    * The only thing that can go wrong at this point is overflow or
    * underflow. */
 
-  convert_precsion_real (dest, val_sign, buffer, length, exponent);
+  convert_precision_real (dest, val_sign, buffer, length, exponent);
 
   if (buffer != scratch)
      free_mem (buffer);

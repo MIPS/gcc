@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-tail2-details" } */
+/* { dg-options "-O2 -fdump-tree-tailc-details" } */
 int q(int a);
 int *v;
 int
@@ -15,4 +15,4 @@ t(int a)
 		v=alloca(r);
 	return r;
 }
-/* { dg-final { scan-tree-dump-times "Found tail call" 1 "tail2"} } */
+/* { dg-final { scan-tree-dump-times "Found tail call" 1 "tailc"} } */

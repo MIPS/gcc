@@ -1,3 +1,159 @@
+2004-01-17  Paul Brook  <paul@codesourcery.com>
+
+	* lang-specs.h: Remove %<fixed-form.
+
+2004-01-15  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* lang-specs.h: Enable preprocessing of source files
+	ending in .F, .fpp, .FPP, .F90 and .F95.
+
+2004-01-13  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/12912
+	* lang-specs.h: Enable compilation of files ending
+	in .f, .for and .FOR.
+
+2004-01-11  Paul Brook  <paul@codesourcery.com>
+
+	* trans-stmt.c (gfc_trans_if_1): New function.
+	(gfc_trans_if): Use it.
+
+2004-01-11  Erik Schnetter  <schnetter@uni-tuebingen.de>
+
+	* gfortran.h (GFC_MAX_SYMBOL_LEN): Increase.
+	(gfc_option_t): Add max_identifier_length.
+	* lang.opt: Add fmax-identifier-length.
+	* match.c (parse_name): Use limit.
+	* options.c (gfc_init_options): Set max_identifier_length.
+	(gfc_handle_option): Ditto.
+
+2004-01-11  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* intrinsic.c (add_functions): Add resolve function to dcmplx.
+	* intrinsic.h (gfc_resolve_dcmplx): Add prototype.
+	* iresolve.c (gfc_resolve_dcmplx): New function.
+
+2004-01-10  Paul Brook  <paul@codesourcery.com>
+
+	* trans-decl.c (gfc_get_symbol_decl): Don't set subroutine attr.
+	* trans-types.c (gfc_sym_type): Handle external dummy procedures.
+	(gfc_return_by_reference): Correct condition.
+	(gfc_get_function_type): Ditto.
+
+2004-01-10  Paul Brook  <paul@codesourcery.com>
+
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmax): Convert mismatched
+	types.
+
+2004-01-10  Huang Chun  <chunhuang73@hotmail.com>
+
+	* iresolve.c: Use correct kind.
+
+2004-01-10  Huang Chun  <chunhuang73@hotmail.com>
+
+	PR fortran/13467
+	* trans-decl.c (gfc_create_module_variable):  Output array valued
+	parameters.
+
+2004-01-10  Paul Brook  <paul@codesourcery.com>
+
+	* resolve.c (resolve_branch): Get error message right way round.
+
+2004-01-10  Canqun Yang <canqun@nudt.edu.cn>
+
+	* trans-array (gfc_conv_loop_setup): Adjust comment to track
+	reality.
+	(gfc_array_allocate): Don't count size of element twice.
+
+2004-01-04  Paul Brook  <paul@codesourcery.com>
+
+	* lang.opt (i8, r8, std=*): Remove RejectNegative.
+
+2004-01-04  Paul Brook  <paul@codesourcery.com>
+
+	* error.c (gfc_notify_std): New function.
+	* gfortran.h (gfc_notify_std): Declare.
+	(GFC_STD_*): Define.
+	(gfc_option_t): Add warn_std and allow_std.
+	* intrinsic.c (gfc_init_expr_extensions): Fix logic.
+	(gfc_intrinsic_func_interface): Use gfc_notify_std.
+	* check.c (check_rest): Use gfc_notify_std.
+	* match.c (gfc_match_pause): Ditto.
+	(gfc_match_assign): Ditto.
+	(gfc_match_goto): Ditto.
+	* resolve.c (resolve_branch): Ditto.
+	* lang.opt: Add std=<foo> and w.
+	* options.c (gfc_init_options): Set allow_std and warn_std.
+	(gfc_handle_option): Handle OPT_std_* and OPT_w.
+
+2004-01-01  Paul Brook  <paul@codesourcery.com>
+
+	* array.c (gfc_append_constructor): Take constructor, not expression.
+	* data.c (struct gfc_expr_stack): Remove.
+	(expr_stack): Remove.
+	(find_con_by_offset): Rename from find_expr_in_con.
+	(find_con_by_component): Rename from find_component_in_con.
+	(gfc_get_expr_stack): Remove.
+	(gfc_assign_data_value): Rewrite.
+	(gfc_expr_push): Remove.
+	(gfc_expr_pop): Remove.
+	(gfc_advance_section): Rename from
+	gfc_modify_index_and_calculate_offset.  Handle unbounded sections.
+	(gfc_get_section_index): Handle unbounded sections.
+	* gfortran.h: Update prototypes.
+	* resolve.c (check_data_variable): Array section maight not be the
+	last ref.
+
+2004-01-01  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/13432
+	* resolve.c (resolve_symbol): Allow assumed length function results.
+
+2004-01-01  Steve Kargl  <sgk@troutmask.apl.washington.edu>
+
+	* match.c (gfc_match_pause): Fix spelling.
+
+2004-01-01  Steven Bosscher  <stevenb@suse.de>
+
+	PR fortran/13251
+	* trans-expr.c (gfc_conv_variable): Take the type kind of a substring
+	reference from the expression.
+
+2003-12-26  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* dump-parse-tree.c (gfc_show_code_node): Add ASSIGN and ASSIGNED GOTO
+	dumping.
+	* gfortran.h (gfc_statement): New ST_LABEL_ASSIGNMENT.
+	(gfc_exec_op): New EXEC_LABEL_ASSIGN.
+	(symbol_attribute):New variable attribute: assign.
+	* io.c (resolve_tag):Integer variable is allowed.
+	(match_dt_format): Add ASSIGN statement. Set assign flag.
+	* match.c (gfc_match_if): Change ST_NONE to ST_LABEL_ASSIGNMENT.
+	(gfc_match_assign): Add ASSIGN statement. Set assign flag.
+	(gfc_match_goto): Add ASSIGNED GOTO statement. Set assign flag.
+	* parse.c (decode_statement): Add ST_LABEL_ASSIGNMENT.
+	(next_statement): Add ST_LABEL_ASSIGNMENT.
+	(gfc_ascii_statement): Add ST_LABEL_ASSIGNMENT.
+	* resolve.c (resolve_code): Resolve ASSIGN and ASSIGNED GOTO statement.
+	(resolve_blocks): Resolve ASSIGNED GOTO statement label list.
+	* st.c (gfc_free_statement): Add EXEC_LABEL_ASSIGN.
+	* trans-decl.c (gfc_get_symbol_decl): Create the shadow variable for
+	assign.  Put them into the stuct lang_decl.
+	* trans-io.c (set_string): Add the assign statement.
+	* trans-stmt.c (gfc_trans_label_assign): New function.
+	(gfc_trans_goto): Translate ASSIGNED GOTO statement.
+	* trans-stmt.h (gfc_trans_label_assign): Added function prototype.
+	* trans.c (gfc_trans_code): Add EXEC_LABEL_ASSIGN.
+	* trans.h (lang_decl):Add shadow variable decl tree needed by assign.
+	(GFC_DECL_ASSIGN_ADDR(node)): New macro to access this.
+	(GFC_DECL_ASSIGN(node)): New macro to access flag.
+
+2003-12-31  Huang Chun <chunhuang73@hotmail.com>
+
+	PR fortran/13434
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmaxval): Fixed bug in 
+	minval/maxval.
+
 2003-12-22  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	* options.c (gfc_init_options): Set flag_argument_noalias to 2, to indicate

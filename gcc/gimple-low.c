@@ -40,6 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "function.h"
 #include "expr.h"
 #include "toplev.h"
+#include "tree-pass.h"
 
 struct lower_data
 {
@@ -52,11 +53,13 @@ static void lower_bind_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_cond_expr (tree_stmt_iterator *, struct lower_data *);
 static bool expand_var_p (tree);
 
-/* Lowers the BODY.  */
-void
-lower_function_body (tree *body_p)
+/* Lowers the body of current_function_decl.  */
+
+static void
+lower_function_body (void)
 {
   struct lower_data data;
+  tree *body_p = &DECL_SAVED_TREE (current_function_decl);
   tree bind = *body_p;
   tree_stmt_iterator i;
 
@@ -79,7 +82,28 @@ lower_function_body (tree *body_p)
     = blocks_nreverse (BLOCK_SUBBLOCKS (data.block));
 
   clear_block_marks (data.block);
+
+  /* Avoid producing notes for blocks.  */
+  cfun->dont_emit_block_notes = 1;
+  reset_block_changes ();
 }
+
+struct tree_opt_pass pass_lower_cf = 
+{
+  "lower",				/* name */
+  NULL,					/* gate */
+  lower_function_body,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_gimple_any,			/* properties_required */
+  PROP_gimple_lcf,			/* properties_provided */
+  PROP_gimple_any,			/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func			/* todo_flags_finish */
+};
+
 
 /* Lowers the EXPR.  Unlike gimplification the statements are not relowered
    when they are changed -- if this has to be done, the lowering routine must

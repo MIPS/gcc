@@ -32,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dump.h"
 #include "tree-inline.h"
 #include "tree-iterator.h"
+#include "tree-pass.h"
 #include "timevar.h"
 #include "langhooks.h"
 #include "ggc.h"
@@ -849,7 +850,7 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
 
 /* A subroutine of lower_try_finally.  We have determined that there is
    no fallthru edge out of the finally block.  This means that there is
-   no outgoing edge corresponding to any incomming edge.  Restructure the
+   no outgoing edge corresponding to any incoming edge.  Restructure the
    try_finally node for this special case.  */
 
 static void
@@ -1157,7 +1158,7 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 
   append_to_statement_list (finally, tf->top_p);
 
-  /* Redirect each incomming goto edge.  */
+  /* Redirect each incoming goto edge.  */
   q = tf->goto_queue;
   qe = q + tf->goto_queue_active;
   j = last_case_index + tf->may_return;
@@ -1214,7 +1215,7 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
    First, if this is Java, then the finally block contains code
    written by the user.  It has line numbers associated with it,
    so duplicating the block means it's difficult to set a breakpoint.
-   Since controling code generation via -g is verboten, we simply
+   Since controlling code generation via -g is verboten, we simply
    never duplicate code without optimization.
 
    Second, we'd like to prevent egregious code growth.  One way to
@@ -1588,12 +1589,11 @@ lower_eh_constructs_1 (struct leh_state *state, tree *tp)
     }
 }
 
-void
-lower_eh_constructs (tree *tp)
+static void
+lower_eh_constructs (void)
 {
   struct leh_state null_state;
-
-  timevar_push (TV_TREE_EH);
+  tree *tp = &DECL_SAVED_TREE (current_function_decl);
 
   finally_tree = htab_create (31, struct_ptr_hash, struct_ptr_eq, free);
   throw_stmt_table = htab_create_ggc (31, struct_ptr_hash, struct_ptr_eq, free);
@@ -1606,19 +1606,23 @@ lower_eh_constructs (tree *tp)
   htab_delete (finally_tree);
 
   collect_eh_region_array ();
-
-  {
-    int flags;
-    FILE *file = dump_begin (TDI_eh, &flags);
-    if (file)
-      {
-	dump_function_to_file (current_function_decl, file, flags|TDF_BLOCKS);
-        dump_end (TDI_eh, file);
-      }
-  }
-
-  timevar_pop (TV_TREE_EH);
 }
+
+struct tree_opt_pass pass_lower_eh = 
+{
+  "eh",					/* name */
+  NULL,					/* gate */
+  lower_eh_constructs,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_EH,				/* tv_id */
+  PROP_gimple_lcf,			/* properties_required */
+  PROP_gimple_leh,			/* properties_provided */
+  PROP_gimple_lcf,			/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func			/* todo_flags_finish */
+};
 
 
 /* Construct EH edges for STMT.  */
@@ -1739,4 +1743,5 @@ tree_can_throw_external (tree stmt)
     return false;
   return can_throw_external_1 (region_nr);
 }
+
 #include "gt-tree-eh.h"

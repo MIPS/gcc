@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom2 -ftree-loop-optimize" } */
+/* { dg-options "-O1 -fdump-tree-dom3 -ftree-loop-optimize" } */
  
 
 union tree_node;
@@ -40,14 +40,14 @@ record_component_aliases (type)
 }
 
 /* The call to blah can not be eliminated.
-/* { dg-final { scan-tree-dump-times "blah \\(\\)" 1 "dom2" } } */
+/* { dg-final { scan-tree-dump-times "blah \\(\\)" 1 "dom3" } } */
    
 /* There should be four IF conditionals.  */
-/* { dg-final { scan-tree-dump-times "if " 4 "dom2"} } */
+/* { dg-final { scan-tree-dump-times "if " 4 "dom3"} } */
                                                                                 
 /* There should be two loads of type.binfo.  */
-/* { dg-final { scan-tree-dump-times "type\\.binfo" 2 "dom2"} } */
+/* { dg-final { scan-tree-dump-times "type\\.binfo" 2 "dom3"} } */
  
 /* There should be four loads of vec.length.  */
-/* { dg-final { scan-tree-dump-times "vec.length" 4 "dom2"} } */
+/* { dg-final { scan-tree-dump-times "vec.length" 4 "dom3"} } */
 

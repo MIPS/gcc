@@ -104,7 +104,6 @@ a register with any other reload.  */
 #include "output.h"
 #include "function.h"
 #include "toplev.h"
-#include "target.h"
 
 #ifndef REGNO_MODE_OK_FOR_BASE_P
 #define REGNO_MODE_OK_FOR_BASE_P(REGNO, MODE) REGNO_OK_FOR_BASE_P (REGNO)
@@ -3370,11 +3369,6 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		  const_to_mem = 1;
 		  if (this_alternative[i] != (int) NO_REGS)
 		    losers++;
-
-		  /* If constant pool symbols are not valid addresses,
-		     count an extra reload for the address.  */
-		  if (!targetm.direct_pool_load_p (operand_mode[i]))
-		    losers++;
 		}
 
 	      /* If we can't reload this value at all, reject this
@@ -3399,21 +3393,6 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	      else if (modified[i] != RELOAD_WRITE && no_input_reloads
 		       && ! const_to_mem)
 		bad = 1;
-
-#ifdef SECONDARY_MEMORY_NEEDED
-	      /* If this alternative would use memory to move a value
-		 between registers, it would need two reloads, one for
-		 the load and one for the store.  Account for the extra
-		 reload here.  */
-	      if (GET_CODE (operand) == REG
-		  && REGNO (operand) < FIRST_PSEUDO_REGISTER
-		  && (enum reg_class) this_alternative[i] != NO_REGS
-		  && (SECONDARY_MEMORY_NEEDED
-		      ((enum reg_class) this_alternative[i],
-		       REGNO_REG_CLASS (REGNO (operand)),
-		       GET_MODE (operand))))
-		losers++;
-#endif
 
 	      /* We prefer to reload pseudos over reloading other things,
 		 since such reloads may be able to be eliminated later.
@@ -4905,6 +4884,15 @@ find_reloads_address (enum machine_mode mode, rtx *memrefloc, rtx ad,
 	   && GET_CODE (XEXP (ad, 0)) == PLUS
 	   && GET_CODE (XEXP (XEXP (ad, 0), 0)) == REG
 	   && REGNO (XEXP (XEXP (ad, 0), 0)) < FIRST_PSEUDO_REGISTER
+	   && (REG_MODE_OK_FOR_BASE_P (XEXP (XEXP (ad, 0), 0), mode)
+	       || XEXP (XEXP (ad, 0), 0) == frame_pointer_rtx
+#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+	       || XEXP (XEXP (ad, 0), 0) == hard_frame_pointer_rtx
+#endif
+#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+	       || XEXP (XEXP (ad, 0), 0) == arg_pointer_rtx
+#endif
+	       || XEXP (XEXP (ad, 0), 0) == stack_pointer_rtx)
 	   && ! maybe_memory_address_p (mode, ad, &XEXP (XEXP (ad, 0), 1)))
     {
       *loc = ad = gen_rtx_PLUS (GET_MODE (ad),
@@ -4924,6 +4912,15 @@ find_reloads_address (enum machine_mode mode, rtx *memrefloc, rtx ad,
 	   && GET_CODE (XEXP (ad, 0)) == PLUS
 	   && GET_CODE (XEXP (XEXP (ad, 0), 1)) == REG
 	   && REGNO (XEXP (XEXP (ad, 0), 1)) < FIRST_PSEUDO_REGISTER
+	   && (REG_MODE_OK_FOR_BASE_P (XEXP (XEXP (ad, 0), 1), mode)
+	       || XEXP (XEXP (ad, 0), 1) == frame_pointer_rtx
+#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+	       || XEXP (XEXP (ad, 0), 1) == hard_frame_pointer_rtx
+#endif
+#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+	       || XEXP (XEXP (ad, 0), 1) == arg_pointer_rtx
+#endif
+	       || XEXP (XEXP (ad, 0), 1) == stack_pointer_rtx)
 	   && ! maybe_memory_address_p (mode, ad, &XEXP (XEXP (ad, 0), 0)))
     {
       *loc = ad = gen_rtx_PLUS (GET_MODE (ad),
@@ -6293,8 +6290,22 @@ reg_overlap_mentioned_for_reload_p (rtx x, rtx in)
 	   || GET_CODE (x) == CC0)
     return reg_mentioned_p (x, in);
   else if (GET_CODE (x) == PLUS)
-    return (reg_overlap_mentioned_for_reload_p (XEXP (x, 0), in)
-	    || reg_overlap_mentioned_for_reload_p (XEXP (x, 1), in));
+    {
+      /* We actually want to know if X is mentioned somewhere inside IN.
+	 We must not say that (plus (sp) (const_int 124)) is in
+	 (plus (sp) (const_int 64)), since that can lead to incorrect reload
+	 allocation when spuriously changing a RELOAD_FOR_OUTPUT_ADDRESS
+	 into a RELOAD_OTHER on behalf of another RELOAD_OTHER.  */
+      while (GET_CODE (in) == MEM)
+	in = XEXP (in, 0);
+      if (GET_CODE (in) == REG)
+	return 0;
+      else if (GET_CODE (in) == PLUS)
+	return (reg_overlap_mentioned_for_reload_p (x, XEXP (in, 0))
+		|| reg_overlap_mentioned_for_reload_p (x, XEXP (in, 1)));
+      else return (reg_overlap_mentioned_for_reload_p (XEXP (x, 0), in)
+		   || reg_overlap_mentioned_for_reload_p (XEXP (x, 1), in));
+    }
   else
     abort ();
 

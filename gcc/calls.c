@@ -290,7 +290,7 @@ prepare_call_address (rtx funexp, tree fndecl, rtx *call_fusage,
     /* Get possible static chain value for nested function in C.  */
     static_chain_value = lookup_static_chain (fndecl);
 
-  /* Make a valid memory address and copy constants thru pseudo-regs,
+  /* Make a valid memory address and copy constants through pseudo-regs,
      but not for a constant address if -fno-function-cse.  */
   if (GET_CODE (funexp) != SYMBOL_REF)
     /* If we are using registers for parameters, force the
@@ -1612,11 +1612,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 {
   int i, j;
 
-#ifdef LOAD_ARGS_REVERSED
-  for (i = num_actuals - 1; i >= 0; i--)
-#else
   for (i = 0; i < num_actuals; i++)
-#endif
     {
       rtx reg = ((flags & ECF_SIBCALL)
 		 ? args[i].tail_call_reg : args[i].reg);
@@ -2464,15 +2460,16 @@ expand_call (tree exp, rtx target, int ignore)
      (If no anonymous args follow, the result of list_length is actually
      one too large.  This is harmless.)
 
-     If PRETEND_OUTGOING_VARARGS_NAMED is set and STRICT_ARGUMENT_NAMING is
-     zero, this machine will be able to place unnamed args that were
-     passed in registers into the stack.  So treat all args as named.
-     This allows the insns emitting for a specific argument list to be
-     independent of the function declaration.
+     If targetm.calls.pretend_outgoing_varargs_named() returns
+     nonzero, and STRICT_ARGUMENT_NAMING is zero, this machine will be
+     able to place unnamed args that were passed in registers into the
+     stack.  So treat all args as named.  This allows the insns
+     emitting for a specific argument list to be independent of the
+     function declaration.
 
-     If PRETEND_OUTGOING_VARARGS_NAMED is not set, we do not have any
-     reliable way to pass unnamed args in registers, so we must force
-     them into memory.  */
+     If targetm.calls.pretend_outgoing_varargs_named() returns zero,
+     we do not have any reliable way to pass unnamed args in
+     registers, so we must force them into memory.  */
 
   if ((targetm.calls.strict_argument_naming (&args_so_far)
        || ! targetm.calls.pretend_outgoing_varargs_named (&args_so_far))
@@ -2536,11 +2533,15 @@ expand_call (tree exp, rtx target, int ignore)
      finished with regular parsing.  Which means that some of the
      machinery we use to generate tail-calls is no longer in place.
      This is most often true of sjlj-exceptions, which we couldn't
-     tail-call to anyway.  */
+     tail-call to anyway.
 
+     If current_nesting_level () == 0, we're being called after
+     the function body has been expanded.  This can happen when
+     setting up trampolines in expand_function_end.  */
   if (currently_expanding_call++ != 0
       || !flag_optimize_sibling_calls
       || !rtx_equal_function_value_matters
+      || current_nesting_level () == 0
       || any_pending_cleanups ()
       || args_size.var
       || lookup_stmt_eh_region (exp) >= 0)
@@ -3149,22 +3150,33 @@ expand_call (tree exp, rtx target, int ignore)
 		mark_reg_pointer (temp,
 				  TYPE_ALIGN (TREE_TYPE (TREE_TYPE (exp))));
 
-	      /* Construct an "equal form" for the value which mentions all the
-		 arguments in order as well as the function name.  */
-	      for (i = 0; i < num_actuals; i++)
-		note = gen_rtx_EXPR_LIST (VOIDmode,
-					  args[i].initial_value, note);
-	      note = gen_rtx_EXPR_LIST (VOIDmode, funexp, note);
-
 	      end_sequence ();
-
-	      if (flags & ECF_PURE)
-		note = gen_rtx_EXPR_LIST (VOIDmode,
+	      if (flag_unsafe_math_optimizations
+		  && fndecl
+		  && DECL_BUILT_IN (fndecl)
+		  && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRT
+		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRTF
+		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRTL))
+		note = gen_rtx_fmt_e (SQRT, 
+				      GET_MODE (temp), 
+				      args[0].initial_value);
+	      else
+		{
+		  /* Construct an "equal form" for the value which
+		     mentions all the arguments in order as well as
+		     the function name.  */
+		  for (i = 0; i < num_actuals; i++)
+		    note = gen_rtx_EXPR_LIST (VOIDmode,
+					      args[i].initial_value, note);
+		  note = gen_rtx_EXPR_LIST (VOIDmode, funexp, note);
+		  
+		  if (flags & ECF_PURE)
+		    note = gen_rtx_EXPR_LIST (VOIDmode,
 			gen_rtx_USE (VOIDmode,
 				     gen_rtx_MEM (BLKmode,
 						  gen_rtx_SCRATCH (VOIDmode))),
 			note);
-
+		}
 	      emit_libcall_block (insns, temp, valreg, note);
 
 	      valreg = temp;

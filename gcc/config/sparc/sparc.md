@@ -7686,7 +7686,7 @@
   emit_insn (gen_rtx_USE (VOIDmode, valreg2));
 
   /* Construct the return.  */
-  expand_null_return ();
+  expand_naked_return ();
 
   DONE;
 })
@@ -8641,7 +8641,7 @@
   "TARGET_TLS && TARGET_ARCH64"
   "xor\\t%1, %%tle_lox10(%a2), %0")
 
-;; Now patterns combinding tldo_add{32,64} with some integer loads or stores
+;; Now patterns combining tldo_add{32,64} with some integer loads or stores
 (define_insn "*tldo_ldub_sp32"
   [(set (match_operand:QI 0 "register_operand" "=r")
 	(mem:QI (plus:SI (unspec:SI [(match_operand:SI 2 "register_operand" "r")

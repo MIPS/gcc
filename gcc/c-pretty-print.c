@@ -1010,13 +1010,7 @@ static void
 pp_c_initializer (c_pretty_printer *pp, tree e)
 {
   if (TREE_CODE (e) == CONSTRUCTOR)
-    {
-      enum tree_code code = TREE_CODE (TREE_TYPE (e));
-      if (code == RECORD_TYPE || code == UNION_TYPE || code == ARRAY_TYPE)
-        pp_c_brace_enclosed_initializer_list (pp, e);
-      else
-	pp_unsupported_tree (pp, TREE_OPERAND (e, 1));
-    }
+    pp_c_brace_enclosed_initializer_list (pp, e);
   else
     pp_expression (pp, e);
 }
@@ -1102,28 +1096,39 @@ pp_c_initializer_list (c_pretty_printer *pp, tree e)
               pp_separate_with (pp, ',');
           }
       }
-      break;
+      return;
 
     case VECTOR_TYPE:
-      pp_c_expression_list (pp, TREE_VECTOR_CST_ELTS (e));
-      break;
+      if (TREE_CODE (e) == VECTOR_CST)
+        pp_c_expression_list (pp, TREE_VECTOR_CST_ELTS (e));
+      else if (TREE_CODE (e) == CONSTRUCTOR)
+        pp_c_expression_list (pp, CONSTRUCTOR_ELTS (e));
+      else
+        break;
+      return;
 
     case COMPLEX_TYPE:
-      {
-        const bool cst = TREE_CODE (e) == COMPLEX_CST;
-        pp_expression (pp, cst ? TREE_REALPART (e) : TREE_OPERAND (e, 0));
-        pp_separate_with (pp, ',');
-        pp_expression (pp, cst ? TREE_IMAGPART (e) : TREE_OPERAND (e, 1));
-      }
-      break;
+      if (TREE_CODE (e) == CONSTRUCTOR)
+	pp_c_expression_list (pp, CONSTRUCTOR_ELTS (e));
+      else if (TREE_CODE (e) == COMPLEX_CST || TREE_CODE (e) == COMPLEX_EXPR)
+	{
+	  const bool cst = TREE_CODE (e) == COMPLEX_CST;
+	  pp_expression (pp, cst ? TREE_REALPART (e) : TREE_OPERAND (e, 0));
+	  pp_separate_with (pp, ',');
+	  pp_expression (pp, cst ? TREE_IMAGPART (e) : TREE_OPERAND (e, 1));
+	}
+      else
+	break;
+      return;
 
     default:
-      pp_unsupported_tree (pp, type);
       break;
     }
+
+  pp_unsupported_tree (pp, type);
 }
 
-/* Pretty-print a brace-enclosed initializer-list.   */
+/* Pretty-print a brace-enclosed initializer-list.  */
 
 static void
 pp_c_brace_enclosed_initializer_list (c_pretty_printer *pp, tree l)
@@ -1265,7 +1270,7 @@ pp_c_postfix_expression (c_pretty_printer *pp, tree e)
     }
 }
 
-/* Print out an expression-list; E is expected to be a TREE_LIST  */
+/* Print out an expression-list; E is expected to be a TREE_LIST.  */
 
 void
 pp_c_expression_list (c_pretty_printer *pp, tree e)
@@ -1278,7 +1283,7 @@ pp_c_expression_list (c_pretty_printer *pp, tree e)
     }
 }
 
-/* Print out an expression-list in parens, as in a function call.   */
+/* Print out an expression-list in parens, as in a function call.  */
 
 void
 pp_c_call_argument_list (c_pretty_printer *pp, tree t)

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom2 -ftree-loop-optimize" } */
+/* { dg-options "-O1 -fdump-tree-dom3 -ftree-loop-optimize" } */
    
 
 union tree_node;
@@ -34,6 +34,6 @@ get_alias_set (t)
 
 /* There should be exactly four IF conditionals if we thread jumps
    properly.  */
-/* { dg-final { scan-tree-dump-times "if " 4 "dom2"} } */
+/* { dg-final { scan-tree-dump-times "if " 4 "dom3"} } */
  
 

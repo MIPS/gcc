@@ -43,7 +43,9 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "tree-alias-common.h"
+#include "tree-pass.h"
 #include "convert.h"
+#include "params.h"
 
 /* Build and maintain data flow information for trees.  */
 
@@ -107,10 +109,6 @@ struct walk_state
 };
 
 
-/* Debugging dumps.  */
-static FILE *dump_file;
-static int dump_flags;
-
 /* Data and functions shared with tree-ssa.c.  */
 struct dfa_stats_d dfa_stats;
 
@@ -121,7 +119,7 @@ static void collect_dfa_stats (struct dfa_stats_d *);
 static tree collect_dfa_stats_r (tree *, int *, void *);
 static void compute_alias_sets (void);
 static void dump_alias_stats (FILE *);
-static void create_memory_tags (void);
+static void create_memory_tags (bitmap);
 static bool may_alias_p (tree, HOST_WIDE_INT, tree, HOST_WIDE_INT);
 static bool may_access_global_mem_p (tree);
 static void add_immediate_use (tree, tree);
@@ -133,6 +131,8 @@ static void compute_immediate_uses_for_stmt (tree, int, bool (*)(tree));
 static void add_may_alias (tree, tree);
 static void find_hidden_use_vars (tree);
 static tree find_hidden_use_vars_r (tree *, int *, void *);
+static void promote_call_clobbered_vars (bitmap);
+static void find_addressable_vars (bitmap);
 
 /* Global declarations.  */
 
@@ -150,11 +150,17 @@ varray_type call_clobbered_vars;
    with this variable.  */
 tree global_var;
 
+/* 'true' after aliases have been computed (see compute_may_aliases).  This
+   is used by get_stmt_operands and its helpers to determine what to do
+   when scanning an operand for a variable that may be aliased.  If
+   may-alias information is still not available, the statement is marked as
+   having volatile operands.  */
+bool aliases_computed_p;
 
 /*---------------------------------------------------------------------------
 			Dataflow analysis (DFA) routines
 ---------------------------------------------------------------------------*/
-/* Find all the variables referenced in function FNDECL.  This function
+/* Find all the variables referenced in the function.  This function
    builds the global arrays REFERENCED_VARS and CALL_CLOBBERED_VARS.
 
    Note that this function does not look for statement operands, it simply
@@ -162,14 +168,16 @@ tree global_var;
    various attributes for each variable used by alias analysis and the
    optimizer.  */
 
-void
-find_referenced_vars (tree fndecl)
+static void
+find_referenced_vars (void)
 {
   static htab_t vars_found;
   basic_block bb;
   block_stmt_iterator si;
   struct walk_state walk_state;
   tree block;
+
+  init_tree_ssa ();
 
   /* Walk the lexical blocks in the function looking for variables that may
      have been used to declare VLAs and for nested functions.  Both
@@ -178,7 +186,7 @@ find_referenced_vars (tree fndecl)
      Note that at this point we may have multiple blocks hung off
      DECL_INITIAL chained through the BLOCK_CHAIN field due to
      how inlining works.  Egad.  */
-  block = DECL_INITIAL (fndecl);
+  block = DECL_INITIAL (current_function_decl);
   while (block)
     {
       find_hidden_use_vars (block);
@@ -238,7 +246,8 @@ find_referenced_vars (tree fndecl)
 
      To decide whether or not to use .GLOBAL_VAR we multiply the number of
      function calls found by the number of call-clobbered variables.  If
-     that product is beyond a certain threshold, we use .GLOBAL_VAR.
+     that product is beyond a certain threshold, as determined by the
+     parameterized values shown below, we use .GLOBAL_VAR.
 
      FIXME: This heuristic should be improved.  One idea is to use several
      .GLOBAL_VARs of different types instead of a single one.  The
@@ -246,10 +255,8 @@ find_referenced_vars (tree fndecl)
      all target libraries.  Compile times were found to take 1% more
      compared to using .GLOBAL_VAR.  */
   {
-    const int n_calls = 2500;
-    const size_t n_clobbers = 200;
-
-    if (walk_state.num_calls * num_call_clobbered_vars < n_calls * n_clobbers)
+    if (walk_state.num_calls * num_call_clobbered_vars 
+	 < MAX_CALLS_FOR_GLOBAL_VAR * (size_t)MAX_CLOBBERED_VARS_FOR_GLOBAL_VAR)
       global_var = NULL_TREE;
     else if (global_var)
       add_referenced_var (global_var, &walk_state);
@@ -257,6 +264,22 @@ find_referenced_vars (tree fndecl)
 
   htab_delete (vars_found);
 }
+
+struct tree_opt_pass pass_referenced_vars =
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  find_referenced_vars,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_gimple_leh | PROP_cfg,		/* properties_required */
+  PROP_referenced_vars,			/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,					/* todo_flags_finish */
+};
 
 
 /* Compute immediate uses.  The parameter calc_for is an option function 
@@ -282,6 +305,40 @@ compute_immediate_uses (int flags, bool (*calc_for)(tree))
 	  tree stmt = bsi_stmt (si);
 	  get_stmt_operands (stmt);
 	  compute_immediate_uses_for_stmt (stmt, flags, calc_for);
+	}
+    }
+}
+
+/* Invalidates dataflow information for a statement STMT.  */
+
+static void
+free_df_for_stmt (tree stmt)
+{
+  stmt_ann_t ann = stmt_ann (stmt);
+
+  if (ann)
+    ann->df = NULL;
+}
+
+/* Invalidates dataflow information.  */
+
+void
+free_df (void)
+{
+  basic_block bb;
+  block_stmt_iterator si;
+
+  FOR_EACH_BB (bb)
+    {
+      tree phi;
+
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	free_df_for_stmt (phi);
+
+      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+        {
+	  tree stmt = bsi_stmt (si);
+	  free_df_for_stmt (stmt);
 	}
     }
 }
@@ -326,6 +383,7 @@ compute_immediate_uses_for_stmt (tree stmt, int flags, bool (*calc_for)(tree))
   size_t i;
   use_optype uses;
   vuse_optype vuses;
+  vdef_optype vdefs;
   stmt_ann_t ann;
 
   /* PHI nodes are handled elsewhere.  */
@@ -354,6 +412,15 @@ compute_immediate_uses_for_stmt (tree stmt, int flags, bool (*calc_for)(tree))
       for (i = 0; i < NUM_VUSES (vuses); i++)
 	{
 	  tree vuse = VUSE_OP (vuses, i);
+	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (vuse);
+	  if (!IS_EMPTY_STMT (imm_rdef_stmt) && (!calc_for || calc_for (vuse)))
+	    add_immediate_use (imm_rdef_stmt, stmt);
+	}
+
+      vdefs = VDEF_OPS (ann);
+      for (i = 0; i < NUM_VDEFS (vdefs); i++)
+	{
+	  tree vuse = VDEF_OP (vdefs, i);
 	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (vuse);
 	  if (!IS_EMPTY_STMT (imm_rdef_stmt) && (!calc_for || calc_for (vuse)))
 	    add_immediate_use (imm_rdef_stmt, stmt);
@@ -521,6 +588,8 @@ dump_variable (FILE *file, tree var)
 
   ann = var_ann (var);
 
+  fprintf (file, ", UID %u", (unsigned) ann->uid);
+
   if (ann->mem_tag)
     {
       fprintf (file, ", memory tag: ");
@@ -543,7 +612,13 @@ dump_variable (FILE *file, tree var)
     fprintf (file, ", call clobbered");
 
   if (ann->is_stored)
-    fprintf (file, ", is stored");
+    fprintf (file, ", is written to");
+
+  if (ann->is_dereferenced_store)
+    fprintf (file, ", is dereferenced to store");
+
+  if (ann->is_dereferenced_load)
+    fprintf (file, ", is dereferenced to load");
 
   if (ann->default_def)
     {
@@ -870,56 +945,75 @@ static GTY(()) varray_type pointers;
    FNDECL.  Note that in the absence of points-to analysis
    (-ftree-points-to), this may compute a much bigger set than necessary.  */
 
-void
-compute_may_aliases (tree fndecl)
+static void
+compute_may_aliases (void)
 {
-  timevar_push (TV_TREE_MAY_ALIAS);
-
   VARRAY_GENERIC_PTR_INIT (addressable_vars, 20, "addressable_vars");
   VARRAY_GENERIC_PTR_INIT (pointers, 20, "pointers");
-  
-  /* If a points-to algorithm has been selected, call it now.  */
-  if (flag_tree_points_to == PTA_ANDERSEN)
-    {
-      timevar_push (TV_TREE_PTA);
-      create_alias_vars (fndecl);
-      timevar_pop (TV_TREE_PTA);
-    }
+  memset (&alias_stats, 0, sizeof (alias_stats));
+
+  /* Remove the ADDRESSABLE flag from every call-clobbered variable whose
+     address is not needed anymore.  This is caused by the propagation of
+     ADDR_EXPR constants into INDIRECT_REF expressions and the removal of
+     dead pointer assignments done by the early scalar cleanup passes.  */
+  promote_call_clobbered_vars (vars_to_rename);
 
   /* Create memory tags for all the dereferenced pointers and build the
      ADDRESSABLE_VARS and POINTERS arrays used for building the may-alias
      sets.  */
-  create_memory_tags ();
+  create_memory_tags (vars_to_rename);
 
   /* Compute alias sets.  */
   compute_alias_sets ();
   
-  if (flag_tree_points_to == PTA_ANDERSEN)
+  /* Debugging dumps.  */
+  if (tree_dump_file)
     {
-      timevar_push (TV_TREE_PTA);
-      delete_alias_vars ();
-      timevar_pop (TV_TREE_PTA);
+      if (tree_dump_flags & TDF_STATS)
+	dump_alias_stats (tree_dump_file);
+      dump_alias_info (tree_dump_file);
+      dump_referenced_vars (tree_dump_file);
     }
 
   /* Deallocate memory used by aliasing data structures.  */
   addressable_vars = NULL;
   pointers = NULL;
 
-  timevar_pop (TV_TREE_MAY_ALIAS);
+  /* Indicate that may-alias information is now available.  */
+  aliases_computed_p = true;
 }
+
+struct tree_opt_pass pass_may_alias = 
+{
+  "alias",				/* name */
+  NULL,					/* gate */
+  compute_may_aliases,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_MAY_ALIAS,			/* tv_id */
+  PROP_cfg | PROP_ssa | PROP_pta,	/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_rename_vars
+    | TODO_ggc_collect | TODO_verify_ssa  /* todo_flags_finish */
+};
 
 
 /* Create memory tags for every dereferenced pointer in the program.
    Pointers and the alias set of their pointed-to type are added to the
    POINTERS array.  Addressable variable and globals are added, together
-   with their alias set, to the ADDRESSABLE_VARS array.  */
+   with their alias set, to the ADDRESSABLE_VARS array.
+   
+   Addressable variables and newly created memory tags are marked in
+   VARS_TO_RENAME to be converted into SSA form afterwards.  */
 
 static void
-create_memory_tags (void)
+create_memory_tags (bitmap vars_to_rename)
 {
   size_t i;
 
-  memset (&alias_stats, 0, sizeof (alias_stats));
   for (i = 0; i < num_referenced_vars; i++)
     {
       tree var = referenced_var (i);
@@ -927,8 +1021,7 @@ create_memory_tags (void)
 
       /* Global variables and addressable locals may be aliased.  Create an
 	 entry in ADDRESSABLE_VARS for VAR.  */
-      if (TREE_ADDRESSABLE (var)
-	  || decl_function_context (var) != current_function_decl)
+      if (may_be_aliased (var))
 	{
 	  /* Create a new alias set entry for VAR.  */
 	  struct alias_map_d *alias_map;
@@ -940,6 +1033,7 @@ create_memory_tags (void)
 	  else
 	    alias_map->set = get_alias_set (var);
 	  VARRAY_PUSH_GENERIC_PTR (addressable_vars, alias_map);
+	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 	}
 
       /* Add pointer variables that have been dereferenced to the POINTERS
@@ -956,12 +1050,12 @@ create_memory_tags (void)
 	  if (tag == NULL_TREE)
 	    tag = get_memory_tag_for (var);
 
+	  /* Mark the memory tag for renaming.  */
+	  t_ann = var_ann (tag);
+	  bitmap_set_bit (vars_to_rename, t_ann->uid);
+
 	  /* Associate the tag with pointer VAR.  */
 	  v_ann->mem_tag = tag;
-
-	  /* Add the memory tag to the list of referenced variables.  */
-	  add_referenced_tmp_var (tag);
-	  t_ann = var_ann (tag);
 
 	  /* If pointer VAR may point to global mem, then TAG may alias
 	     global memory.  */
@@ -1116,19 +1210,6 @@ compute_alias_sets (void)
 	if (var != global_var)
 	  add_may_alias (var, global_var);
       }
-
-  /* Debugging dumps.  */
-  dump_file = dump_begin (TDI_alias, &dump_flags);
-  if (dump_file)
-    {
-      if (dump_flags & TDF_STATS)
-	dump_alias_stats (dump_file);
-
-      dump_alias_info (dump_file);
-      dump_referenced_vars (dump_file);
-      dump_function_to_file (current_function_decl, dump_file, dump_flags);
-      dump_end (TDI_alias, dump_file);
-    }
 }
 
 
@@ -1283,6 +1364,155 @@ add_may_alias (tree var, tree alias)
 
   VARRAY_PUSH_TREE (v_ann->may_aliases, alias);
   a_ann->is_alias_tag = 1;
+}
+
+
+/* Find variable VAR in ARRAY.  Return -1 if VAR doesn't exist.  */
+
+static inline int
+find_variable_in (varray_type array, tree var)
+{
+  size_t i;
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (array); i++)
+    if (var == VARRAY_TREE (array, i))
+      return (int) i;
+
+  return -1;
+}
+
+
+/* Remove element I from ARRAY by swapping element I with the last element
+   of ARRAY.  */
+
+static inline void
+remove_element_from (varray_type array, size_t i)
+{
+  size_t len;
+
+  len = VARRAY_ACTIVE_SIZE (array);
+  if (i < len - 1)
+    VARRAY_TREE (array, i) = VARRAY_TREE (array, len - 1);
+  VARRAY_POP (array);
+}
+
+
+/* Find call-clobbered variables whose address is not needed anymore.  */
+
+static void
+promote_call_clobbered_vars (bitmap vars_to_rename)
+{
+  size_t i;
+  bitmap addresses_needed;
+  
+  addresses_needed = BITMAP_XMALLOC ();
+  bitmap_clear (addresses_needed);
+
+  /* Find variables that still need to have their address taken.  */
+  find_addressable_vars (addresses_needed);
+
+  /* Promote call-clobbered variables whose addresses are not needed
+     anymore.  */
+  for (i = 0; i < num_call_clobbered_vars; i++)
+    {
+      tree var = call_clobbered_var (i);
+      var_ann_t ann = var_ann (var);
+
+      if (TREE_ADDRESSABLE (var)
+	  && !bitmap_bit_p (addresses_needed, ann->uid)
+	  && !ann->has_hidden_use
+	  && !needs_to_live_in_memory (var))
+	{
+	  ann->is_call_clobbered = 0;
+	  ann->may_alias_global_mem = 0;
+	  TREE_ADDRESSABLE (var) = 0;
+
+	  /* Add VAR to the list of variables to rename.  */
+	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+
+	  /* Debugging dumps.  */
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (tree_dump_file, "Removing ADDRESSABLE flag from variable ");
+	      print_generic_expr (tree_dump_file, var, 0);
+	    }
+	}
+    }
+
+  /* Remove promoted variables from CALL_CLOBBERED_VARS.  */
+  for (i = 0; i < num_call_clobbered_vars; i++)
+    if (!is_gimple_call_clobbered (call_clobbered_var (i)))
+      {
+	remove_element_from (call_clobbered_vars, i);
+	i--;	/* Re-set the iterator to account for the removed element.  */
+      }
+
+  /* Free allocated memory.  */
+  BITMAP_FREE (addresses_needed);
+}
+
+
+/* Find all the variables that need to remain marked addressable and
+   variables that need to be renamed in a second SSA pass because of the
+   propagation of ADDR_EXPR values into INDIRECT_REF expressions.
+
+   Variables that need to remain addressable are marked in the
+   ADDRESSES_NEEDED bitmap.  */
+
+static void
+find_addressable_vars (bitmap addresses_needed)
+{
+  basic_block bb;
+
+  /* Since ADDR_EXPRs have been propagated into INDIRECT_REF expressions
+     and folded from '*&VAR' into 'VAR', some statements will have operands
+     that are not in SSA form.  Those variables are added to a list of
+     variables to be renamed in a second SSA pass.  */
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator si;
+      tree phi;
+
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	{
+	  int i;
+	  for (i = 0; i < PHI_NUM_ARGS (phi); ++i)
+	    {
+	      tree t = PHI_ARG_DEF (phi, i);
+
+	      if (TREE_CODE (t) != ADDR_EXPR)
+		continue;
+
+	      t = get_base_symbol (TREE_OPERAND (t, 0));
+	      if (t && (TREE_CODE (t) == VAR_DECL
+		        || TREE_CODE (t) == PARM_DECL))
+		bitmap_set_bit (addresses_needed, var_ann (t)->uid);
+	    }
+	}
+
+      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	{
+	  varray_type ops;
+	  size_t i;
+	  tree stmt = bsi_stmt (si);
+
+	  get_stmt_operands (stmt);
+
+	  ops = addresses_taken (stmt);
+	  if (ops)
+	    {
+	      for (i = 0; i < VARRAY_ACTIVE_SIZE (ops); i++)
+		{
+		  tree var = VARRAY_TREE (ops, i);
+		  bitmap_set_bit (addresses_needed, var_ann (var)->uid);
+		}
+	    }
+
+	  /* FIXME: We should only modify statements that have pointer
+	     de-references or addressable variables in them.  */
+	  modify_stmt (stmt);
+	}
+    }
 }
 
 
@@ -1736,9 +1966,14 @@ get_memory_tag_for (tree ptr)
       /* Create a new MT.* artificial variable representing the memory
 	 location pointed-to by PTR.  */
       tag = create_tmp_var_raw (tag_type, "MT");
+
+      /* If the pointed-to type is volatile, so is the tag.  */
+      TREE_THIS_VOLATILE (tag) = TREE_THIS_VOLATILE (tag_type);
+
       tag_ann = get_var_ann (tag);
       tag_ann->is_mem_tag = 1;
       tag_ann->mem_tag = NULL_TREE;
+      add_referenced_tmp_var (tag);
 
       /* Memory tags are by definition addressable.  This also avoids
 	 is_gimple_ref for confusing memory tags with optimizable
@@ -2005,6 +2240,54 @@ mark_new_vars_to_rename (tree stmt, bitmap vars_to_rename)
     bitmap_a_or_b (vars_to_rename, vars_to_rename, vars_in_vops_to_rename);
 
   BITMAP_XFREE (vars_in_vops_to_rename);
+}
+
+/* Helper function for discover_nonconstant_array_refs. 
+   Look for variables inside ARRAY_REF with non-constant operand
+   and mark them as addressable.  */
+static tree
+discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
+				   void *data ATTRIBUTE_UNUSED)
+{
+  tree t = *tp;
+  if (TYPE_P (t) || DECL_P (t))
+    *walk_subtrees = 0;
+  else if (TREE_CODE (t) == ARRAY_REF)
+    {
+      while ((TREE_CODE (t) == ARRAY_REF
+	      && is_gimple_min_invariant (TREE_OPERAND (t, 1)))
+	     || (TREE_CODE (t) == COMPONENT_REF
+		 || TREE_CODE (t) == REALPART_EXPR
+		 || TREE_CODE (t) == IMAGPART_EXPR))
+	t = TREE_OPERAND (t, 0);
+      if (TREE_CODE (t) == ARRAY_REF)
+	{
+	  t = get_base_symbol (t);
+	  if (t && DECL_P (t))
+	    TREE_ADDRESSABLE (t) = 1;
+	}
+      *walk_subtrees = 0;
+    }
+  return NULL_TREE;
+}
+
+/* RTL expansion code is not able to compile array references with variable
+   offsets for arrays stored in single register.
+   Discover such expressions and mark variables as addressable to avoid
+   this scenario.  */
+
+void
+discover_nonconstant_array_refs (void)
+{
+  basic_block bb;
+  block_stmt_iterator bsi;
+
+  FOR_EACH_BB (bb)
+    {
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	walk_tree (bsi_stmt_ptr (bsi), discover_nonconstant_array_refs_r,
+		   NULL , NULL);
+    }
 }
 
 #include "gt-tree-dfa.h"

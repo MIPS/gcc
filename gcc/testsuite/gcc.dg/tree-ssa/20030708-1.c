@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom2" } */
+/* { dg-options "-O1 -fdump-tree-dom3" } */
 struct rtx_def;
 typedef struct rtx_def *rtx;
 enum rtx_code
@@ -33,9 +33,9 @@ nonlocal_mentioned_p (x)
 
 /* There should be no casts to a short unsigned int since the entire
    set of conditionals should optimize away.  */
-/* { dg-final { scan-tree-dump-times "\\(short unsigned int\\)" 0 "dom2"} } */
+/* { dg-final { scan-tree-dump-times "\\(short unsigned int\\)" 0 "dom3"} } */
                                                                                 
 /* There should be no IF conditionals.  */
-/* { dg-final { scan-tree-dump-times "if " 0 "dom2"} } */
+/* { dg-final { scan-tree-dump-times "if " 0 "dom3"} } */
                                                                                 
 

@@ -437,7 +437,8 @@ dyn-string.o: config.h $(INCDIR)/ansidecl.h $(INCDIR)/dyn-string.h \
 fdmatch.o: $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h
 fibheap.o: config.h $(INCDIR)/ansidecl.h $(INCDIR)/fibheap.h \
 	$(INCDIR)/libiberty.h
-floatformat.o: $(INCDIR)/ansidecl.h $(INCDIR)/floatformat.h
+floatformat.o: config.h $(INCDIR)/ansidecl.h $(INCDIR)/floatformat.h \
+	$(INCDIR)/libiberty.h
 fnmatch.o: config.h $(INCDIR)/fnmatch.h $(INCDIR)/safe-ctype.h
 getcwd.o: config.h
 getopt.o: config.h $(INCDIR)/getopt.h
@@ -450,7 +451,7 @@ hashtab.o: config.h $(INCDIR)/ansidecl.h $(INCDIR)/hashtab.h \
 hex.o: $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h \
 	$(INCDIR)/safe-ctype.h
 lbasename.o: $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h \
-	$(INCDIR)/safe-ctype.h
+	$(INCDIR)/safe-ctype.h $(INCDIR)/filenames.h
 lrealpath.o: config.h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h
 make-relative-prefix.o: config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h

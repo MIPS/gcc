@@ -330,8 +330,8 @@ extern bool remove_path (struct loops *, edge);
 extern edge split_loop_bb (basic_block, rtx);
 
 /* Loop optimizer initialization.  */
-extern struct loops *rtl_loop_optimizer_init (FILE *);
-extern void rtl_loop_optimizer_finalize (struct loops *, FILE *);
+extern struct loops *loop_optimizer_init (FILE *);
+extern void loop_optimizer_finalize (struct loops *, FILE *);
 
 /* Optimization passes.  */
 extern void unswitch_loops (struct loops *);
@@ -443,9 +443,4 @@ loop_exit_edge (struct loop *loop, unsigned n)
 {
   return loop->exit_edges[n];
 }
-
-
-/* Loop optimizer dump file.  */
-extern FILE *loop_dump_file;
-extern int loop_dump_flags;
 

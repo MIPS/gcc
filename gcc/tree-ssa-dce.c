@@ -1,8 +1,8 @@
 /* Dead code elimination pass for the GNU compiler.
-   Copyright (C) 2002 Free Software Foundation, Inc.
-   Contributed by Ben Elliston <bje@redhat.com> and Andrew MacLeod 
-   <amacleod@redhat.com>
-   
+   Copyright (C) 2002, 2004, 2004 Free Software Foundation, Inc.
+   Contributed by Ben Elliston <bje@redhat.com>
+   and Andrew MacLeod <amacleod@redhat.com>
+ 
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
@@ -61,12 +61,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-flow.h"
 #include "tree-simple.h"
 #include "tree-dump.h"
+#include "tree-pass.h"
 #include "timevar.h"
+#include "flags.h"
 
-
-/* Debugging dumps.  */
-static FILE *dump_file;
-static int dump_flags;
 
 static varray_type worklist;
 
@@ -93,7 +91,7 @@ static void remove_dead_phis (basic_block);
 
 #define NECESSARY(stmt)	   stmt->common.asm_written_flag
 
-/* vector indicating an SSA name has already been processed and marked 
+/* vector indicating an SSA name has already been processed and marked
    as necessary.  */
 static sbitmap processed;
 
@@ -118,10 +116,10 @@ mark_necessary (tree def, tree stmt)
 {
   int ver;
 #ifdef ENABLE_CHECKING
-  if ((def == NULL && stmt == NULL) || stmt == error_mark_node 
+  if ((def == NULL && stmt == NULL) || stmt == error_mark_node
       || (stmt && DECL_P (stmt)))
     abort ();
-#endif 
+#endif
 
   if (def)
     {
@@ -132,15 +130,15 @@ mark_necessary (tree def, tree stmt)
       if (!stmt)
 	stmt = SSA_NAME_DEF_STMT (def);
     }
-  
+
   if (necessary_p (stmt))
     return;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Marking useful stmt: ");
-      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
+      fprintf (tree_dump_file, "Marking useful stmt: ");
+      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+      fprintf (tree_dump_file, "\n");
     }
 
   NECESSARY (stmt) = 1;
@@ -148,27 +146,26 @@ mark_necessary (tree def, tree stmt)
 }
 
 
-
 /* Print out removed statement statistics.  */
 
 static void
 print_stats (void)
 {
-  if (dump_file && (dump_flags & (TDF_STATS|TDF_DETAILS)))
+  if (tree_dump_file && (tree_dump_flags & (TDF_STATS|TDF_DETAILS)))
     {
       float percg;
 
       percg = ((float) stats.removed / (float) stats.total) * 100;
-      fprintf (dump_file, "Removed %d of %d statements (%d%%)\n",
-			  stats.removed, stats.total, (int) percg);
+      fprintf (tree_dump_file, "Removed %d of %d statements (%d%%)\n",
+	       stats.removed, stats.total, (int) percg);
 
       if (stats.total_phis == 0)
 	percg = 0;
       else
 	percg = ((float) stats.removed_phis / (float) stats.total_phis) * 100;
 
-      fprintf (dump_file, "Removed %d of %d PHI nodes (%d%%)\n",
-			  stats.removed_phis, stats.total_phis, (int) percg);
+      fprintf (tree_dump_file, "Removed %d of %d PHI nodes (%d%%)\n",
+	       stats.removed_phis, stats.total_phis, (int) percg);
     }
 }
 
@@ -190,7 +187,7 @@ need_to_preserve_store (tree var)
   /* Store to global variables must be preserved.  */
   if (decl_function_context (base_symbol) != current_function_decl)
     return true;
-  
+
   /* Static locals must be preserved as well.  */
   if (TREE_STATIC (base_symbol))
     return true;
@@ -218,9 +215,17 @@ find_useful_stmts (void)
 
       /* Check any PHI nodes in the block.  */
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-        {
+	{
 	  clear_necessary (phi);
-	  if (need_to_preserve_store (PHI_RESULT (phi)))
+
+	  /* PHIs for virtual variables do not directly affect code
+	     generation and need not be considered inherently necessary
+	     regardless of the bits set in their decl.
+
+	     Thus, we only need to mark PHIs for real variables which
+	     need their result preserved as being inherently necessary.  */
+	  if (is_gimple_reg (PHI_RESULT (phi))
+	      && need_to_preserve_store (PHI_RESULT (phi)))
 	    mark_necessary (PHI_RESULT (phi), phi);
 	}
 
@@ -235,6 +240,7 @@ find_useful_stmts (void)
 	}
     }
 }
+
 
 /* Return true if STMT is necessary.  */
 
@@ -327,11 +333,11 @@ process_worklist (void)
       i = VARRAY_TOP_TREE (worklist);
       VARRAY_POP (worklist);
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "processing: ");
-	  print_generic_stmt (dump_file, i, TDF_SLIM);
-	  fprintf (dump_file, "\n");
+	  fprintf (tree_dump_file, "processing: ");
+	  print_generic_stmt (tree_dump_file, i, TDF_SLIM);
+	  fprintf (tree_dump_file, "\n");
 	}
 
       if (TREE_CODE (i) == PHI_NODE)
@@ -446,11 +452,11 @@ remove_dead_phis (basic_block bb)
 	{
 	  tree next = TREE_CHAIN (phi);
 
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Deleting : ");
-	      print_generic_stmt (dump_file, phi, TDF_SLIM);
-	      fprintf (dump_file, "\n");
+	      fprintf (tree_dump_file, "Deleting : ");
+	      print_generic_stmt (tree_dump_file, phi, TDF_SLIM);
+	      fprintf (tree_dump_file, "\n");
 	    }
 
 	  remove_phi_node (phi, prev, bb);
@@ -471,11 +477,11 @@ remove_dead_phis (basic_block bb)
 static bool
 should_remove_dead_stmt (tree t)
 {
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Deleting : ");
-      print_generic_stmt (dump_file, t, TDF_SLIM);
-      fprintf (dump_file, "\n");
+      fprintf (tree_dump_file, "Deleting : ");
+      print_generic_stmt (tree_dump_file, t, TDF_SLIM);
+      fprintf (tree_dump_file, "\n");
     }
 
   stats.removed++;
@@ -487,11 +493,11 @@ should_remove_dead_stmt (tree t)
       COND_EXPR_COND (t) = integer_zero_node;
       modify_stmt (t);
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "   by replacing the condition with 0:\n");
-	  print_generic_stmt (dump_file, t, TDF_SLIM);
-	  fprintf (dump_file, "\n");
+	  fprintf (tree_dump_file, "   by replacing the condition with 0:\n");
+	  print_generic_stmt (tree_dump_file, t, TDF_SLIM);
+	  fprintf (tree_dump_file, "\n");
 	}
 
       return false;
@@ -505,41 +511,27 @@ should_remove_dead_stmt (tree t)
   return true;
 }
 
-/* Main routine to eliminate dead code.
+/* Main routine to eliminate dead code.  */
 
-   PHASE indicates which dump file from the DUMP_FILES array to use when
-   dumping debugging information.  */
-
-void
-tree_ssa_dce (tree fndecl, enum tree_dump_index phase)
+static void
+tree_ssa_dce (void)
 {
-  tree fnbody;
-
-  timevar_push (TV_TREE_DCE);
-
   memset ((void *) &stats, 0, sizeof (stats));
-
-  fnbody = DECL_SAVED_TREE (fndecl);
-  if (fnbody == NULL_TREE)
-    abort ();
 
   VARRAY_TREE_INIT (worklist, 64, "work list");
 
   processed = sbitmap_alloc (highest_ssa_version + 1);
   sbitmap_zero (processed);
 
-  /* Initialize dump_file for debugging dumps.  */
-  dump_file = dump_begin (phase, &dump_flags);
-
   find_useful_stmts ();
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\nProcessing worklist:\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\nProcessing worklist:\n");
 
   process_worklist ();
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\nEliminating unnecessary instructions:\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\nEliminating unnecessary instructions:\n");
 
   sbitmap_free (processed);
 
@@ -547,12 +539,32 @@ tree_ssa_dce (tree fndecl, enum tree_dump_index phase)
   cleanup_tree_cfg ();
 
   /* Debugging dumps.  */
-  if (dump_file)
+  if (tree_dump_file)
     {
-      dump_function_to_file (fndecl, dump_file, dump_flags);
+      dump_function_to_file (current_function_decl,
+			     tree_dump_file, tree_dump_flags);
       print_stats ();
-      dump_end (phase, dump_file);
     }
-
-  timevar_pop (TV_TREE_DCE);
 }
+
+static bool
+gate_dce (void)
+{
+  return flag_tree_dce != 0;
+}
+
+struct tree_opt_pass pass_dce = 
+{
+  "dce",				/* name */
+  gate_dce,				/* gate */
+  tree_ssa_dce,				/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_DCE,				/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_ggc_collect | TODO_verify_ssa	/* todo_flags_finish */
+};

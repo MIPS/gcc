@@ -66,7 +66,7 @@ public final class SocketChannelImpl extends SocketChannel
   private PlainSocketImpl impl;
   private NIOSocket socket;
   private boolean blocking = true;
-  private boolean connectionPending = false;
+  private boolean connectionPending;
 
   SocketChannelImpl (SelectorProvider provider)
     throws IOException
@@ -301,8 +301,6 @@ public final class SocketChannelImpl extends SocketChannel
         data = src.array();
       }
 
-    System.out.println ("INTERNAL: writing to socket outputstream");
-    
     OutputStream output = socket.getOutputStream();
     output.write (data, offset, len);
 

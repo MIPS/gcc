@@ -35,7 +35,6 @@ Boston, MA 02111-1307, USA.  */
 enum c_language_kind c_language = clk_cxx;
 
 static HOST_WIDE_INT cxx_get_alias_set (tree);
-static bool ok_to_generate_alias_set_for_type (tree);
 static bool cxx_warn_unused_global_decl (tree);
 static tree cp_expr_size (tree);
 static size_t cp_tree_size (enum tree_code);
@@ -157,10 +156,6 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P anon_aggr_type_p
 #undef LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P cp_var_mod_type_p
-#undef LANG_HOOKS_TREE_INLINING_START_INLINING
-#define LANG_HOOKS_TREE_INLINING_START_INLINING cp_start_inlining
-#undef LANG_HOOKS_TREE_INLINING_END_INLINING
-#define LANG_HOOKS_TREE_INLINING_END_INLINING cp_end_inlining
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN cp_dump_tree
 #undef LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN
@@ -238,73 +233,20 @@ const char *const tree_code_name[] = {
 };
 #undef DEFTREECODE
 
-/* Check if a C++ type is safe for aliasing.
-   Return TRUE if T safe for aliasing FALSE otherwise.  */
-
-static bool
-ok_to_generate_alias_set_for_type (tree t)
-{
-  if (TYPE_PTRMEMFUNC_P (t))
-    return true;
-  if (AGGREGATE_TYPE_P (t))
-    {
-      if ((TREE_CODE (t) == RECORD_TYPE) || (TREE_CODE (t) == UNION_TYPE))
-	{
-	  tree fields;
-	  /* Backend-created structs are safe.  */
-	  if (! CLASS_TYPE_P (t))
-	    return true;
-	  /* PODs are safe.  */
-	  if (! CLASSTYPE_NON_POD_P(t))
-	    return true;
-	  /* Classes with virtual baseclasses are not.  */
-	  if (TYPE_USES_VIRTUAL_BASECLASSES (t))
-	    return false;
-	  /* Recursively check the base classes.  */
-	  if (TYPE_BINFO (t) != NULL && TYPE_BINFO_BASETYPES (t) != NULL)
-	    {
-	      int i;
-	      for (i = 0; i < TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (t)); i++)
-		{
-		  tree binfo = TREE_VEC_ELT (TYPE_BINFO_BASETYPES (t), i);
-		  if (!ok_to_generate_alias_set_for_type (BINFO_TYPE (binfo)))
-		    return false;
-		}
-	    }
-	  /* Check all the fields.  */
-	  for (fields = TYPE_FIELDS (t); fields; fields = TREE_CHAIN (fields))
-	    {
-	      if (TREE_CODE (fields) != FIELD_DECL)
-		continue;
-	      if (! ok_to_generate_alias_set_for_type (TREE_TYPE (fields)))
-		return false;
-	    }
-	  return true;
-	}
-      else if (TREE_CODE (t) == ARRAY_TYPE)
-	return ok_to_generate_alias_set_for_type (TREE_TYPE (t));
-      else
-	/* This should never happen, we dealt with all the aggregate
-	   types that can appear in C++ above.  */
-	abort ();
-    }
-  else
-    return true;
-}
-
 /* Special routine to get the alias set for C++.  */
 
 static HOST_WIDE_INT
 cxx_get_alias_set (tree t)
 {
+  if (TREE_CODE (t) == RECORD_TYPE
+      && TYPE_CONTEXT (t) && CLASS_TYPE_P (TYPE_CONTEXT (t))
+      && CLASSTYPE_AS_BASE (TYPE_CONTEXT (t)) == t)
+    /* The base variant of a type must be in the same alias set as the
+       complete type.  */
+    return get_alias_set (TYPE_CONTEXT (t));
   
-  if (/* It's not yet safe to use alias sets for some classes in C++.  */
-      !ok_to_generate_alias_set_for_type (t)
-      /* Nor is it safe to use alias sets for pointers-to-member
-	 functions, due to the fact that there may be more than one
-	 RECORD_TYPE type corresponding to the same pointer-to-member
-	 type.  */
-      || TYPE_PTRMEMFUNC_P (t))
+  /* Punt on PMFs until we canonicalize functions properly.  */
+  if (TYPE_PTRMEMFUNC_P (t))
     return 0;
 
   return c_common_get_alias_set (t);
@@ -346,7 +288,9 @@ cp_expr_size (tree exp)
 	abort ();
       /* This would be wrong for a type with virtual bases, but they are
 	 caught by the abort above.  */
-      return CLASSTYPE_SIZE_UNIT (TREE_TYPE (exp));
+      return (is_empty_class (TREE_TYPE (exp))
+	      ? size_zero_node 
+	      : CLASSTYPE_SIZE_UNIT (TREE_TYPE (exp)));
     }
   else
     /* Use the default code.  */

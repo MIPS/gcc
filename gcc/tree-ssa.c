@@ -1,5 +1,5 @@
 /* SSA for trees.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -46,6 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
+#include "tree-pass.h"
 #include "cfgloop.h"
 #include "domwalk.h"
 
@@ -56,10 +57,6 @@ Boston, MA 02111-1307, USA.  */
    Graph. ACM Transactions on Programming Languages and Systems,
    13(4):451-490, October 1991.  */
 
-
-/* Dump file and flags.  */
-static FILE *dump_file;
-static int dump_flags;
 
 /* Workstack for computing PHI node insertion points.  */
 static GTY (()) varray_type work_stack = NULL;
@@ -162,9 +159,6 @@ struct rewrite_block_data
 
 static struct ssa_stats_d ssa_stats;
 
-/* Bitmap representing variables that need to be renamed into SSA form.  */
-static bitmap vars_to_rename;
-
 /* Local functions.  */
 static void rewrite_finalize_block (struct dom_walk_data *, basic_block, tree);
 static void rewrite_initialize_block_local_data (struct dom_walk_data *,
@@ -184,7 +178,6 @@ static bool prepare_operand_for_rename (tree *op_p, size_t *uid_p);
 static void insert_phi_nodes (bitmap *);
 static void rewrite_stmt (block_stmt_iterator, varray_type *);
 static inline void rewrite_operand (tree *);
-static void register_new_def (tree, tree, varray_type *);
 static void insert_phi_nodes_for (tree, bitmap *);
 static tree get_reaching_def (tree);
 static tree get_value_for (tree, varray_type);
@@ -331,7 +324,7 @@ set_value_for (tree var, tree value, varray_type table)
    increased compilation time.  */
 
 void
-rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
+rewrite_into_ssa (void)
 {
   bitmap *dfs;
   basic_block bb;
@@ -340,12 +333,8 @@ rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
   
   timevar_push (TV_TREE_SSA_OTHER);
 
-  /* Debugging dumps.  */
-  dump_file = dump_begin (phase, &dump_flags);
-
   /* Initialize the array of variables to rename.  */
-  vars_to_rename = vars;
-  if (vars != NULL)
+  if (vars_to_rename != NULL)
     remove_all_phi_nodes_for (vars_to_rename);
 
   /* Allocate memory for the DEF_BLOCKS hash table.  */
@@ -438,17 +427,10 @@ rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
   timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 
   /* Debugging dumps.  */
-  if (dump_file)
+  if (tree_dump_file && (tree_dump_flags & TDF_STATS))
     {
-      if (dump_flags & TDF_STATS)
-	{
-	  dump_dfa_stats (dump_file);
-	  dump_tree_ssa_stats (dump_file);
-	}
-
-      dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (phase, dump_file);
-      dump_file = NULL;
+      dump_dfa_stats (tree_dump_file);
+      dump_tree_ssa_stats (tree_dump_file);
     }
 
   /* Free allocated memory.  */
@@ -461,6 +443,23 @@ rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
 
   timevar_pop (TV_TREE_SSA_OTHER);
 }
+
+struct tree_opt_pass pass_build_ssa = 
+{
+  "ssa",				/* name */
+  NULL,					/* gate */
+  rewrite_into_ssa,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg | PROP_referenced_vars,	/* properties_required */
+  PROP_ssa,				/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+};
+
 
 /* Compute global livein information given the set of blockx where
    an object is locally live at the start of the block (LIVEIN)
@@ -829,8 +828,8 @@ rewrite_initialize_block (struct dom_walk_data *walk_data,
   struct rewrite_block_data *bd
     = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
@@ -839,7 +838,8 @@ rewrite_initialize_block (struct dom_walk_data *walk_data,
     {
       tree result = PHI_RESULT (phi);
 
-      register_new_def (SSA_NAME_VAR (result), result, &bd->block_defs);
+      register_new_def (SSA_NAME_VAR (result), result,
+			&bd->block_defs, currdefs);
     }
 }
 
@@ -951,14 +951,19 @@ create_temp (tree t)
   if (name == NULL)
     name = "temp";
   tmp = create_tmp_var (type, name);
-  create_var_ann (tmp);
+  add_referenced_tmp_var (tmp);
+
+  /* Mark the new variable as used.  */
   set_is_used (tmp);
 
-  /* We have just created a new variable.  Make sure it has a UID and
-     an appropriate memory tag, then put it in REFERENCED_VARS.  */
-  var_ann (tmp)->uid = num_referenced_vars;
+  /* add_referenced_tmp_var will create the annotation and set up some
+     of the flags in the annotation.  However, some flags we need to
+     inherit from our original variable.  */
   var_ann (tmp)->mem_tag = var_ann (t)->mem_tag;
-  VARRAY_PUSH_TREE (referenced_vars, tmp);
+  var_ann (tmp)->is_dereferenced_load = var_ann (t)->is_dereferenced_load;
+  var_ann (tmp)->is_dereferenced_store = var_ann (t)->is_dereferenced_store;
+  var_ann (tmp)->is_call_clobbered = var_ann (t)->is_call_clobbered;
+  var_ann (tmp)->is_stored = var_ann (t)->is_stored;
 
   return tmp;
 }
@@ -979,14 +984,14 @@ insert_copy_on_edge (edge e, tree dest, tree src)
   if (TREE_CODE (src) == VAR_DECL || TREE_CODE (src) == PARM_DECL)
     set_is_used (src);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file,
+      fprintf (tree_dump_file,
 	       "Inserting a copy on edge BB%d->BB%d :",
 	       e->src->index,
 	       e->dest->index);
-      print_generic_expr (dump_file, copy, dump_flags);
-      fprintf (dump_file, "\n");
+      print_generic_expr (tree_dump_file, copy, tree_dump_flags);
+      fprintf (tree_dump_file, "\n");
     }
 
   bsi_insert_on_edge (e, copy);
@@ -1424,10 +1429,10 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 		    /* Now map the partitions back to their real variables.  */
 		    var = partition_to_var (map, x);
 		    tmp = partition_to_var (map, y);
-		    if (dump_file 
-			&& (dump_flags & TDF_DETAILS))
+		    if (tree_dump_file 
+			&& (tree_dump_flags & TDF_DETAILS))
 		      {
-			print_exprs_edge (dump_file, e, "ABNORMAL: Coalescing ",
+			print_exprs_edge (tree_dump_file, e, "ABNORMAL: Coalescing ",
 					  var, " and ", tmp);
 		      }
 		    if (var_union (map, var, tmp) == NO_PARTITION)
@@ -1523,9 +1528,9 @@ coalesce_ssa_name (var_map map)
 	      abort ();
 	    }
 
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      print_exprs (dump_file, "Must coalesce ", 
+	      print_exprs (tree_dump_file, "Must coalesce ", 
 			   partition_to_var (map, x),
 			   " with the root variable ", var, ".\n");
 	    }
@@ -1539,12 +1544,12 @@ coalesce_ssa_name (var_map map)
   /* Coalesce partitions live across abnormal edges.  */
   coalesce_abnormal_edges (map, graph, rv);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_var_map (dump_file, map);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    dump_var_map (tree_dump_file, map);
 
   /* Coalesce partitions of a root variable wherever possible.  */
   coalesce_tpa_members (rv, graph, map, NULL, 
-			((dump_flags & TDF_DETAILS) ? dump_file : NULL));
+			((tree_dump_flags & TDF_DETAILS) ? tree_dump_file : NULL));
 
   root_var_delete (rv);
   conflict_graph_delete (graph);
@@ -1580,11 +1585,11 @@ assign_vars (var_map map)
 	     the variable as assigned.  */
 	  ann = var_ann (var);
 	  ann->out_of_ssa_tag = 1;
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "partition %d has variable ", x);
-	      print_generic_expr (dump_file, var, TDF_SLIM);
-	      fprintf (dump_file, " assigned to it.\n");
+	      fprintf (tree_dump_file, "partition %d has variable ", x);
+	      print_generic_expr (tree_dump_file, var, TDF_SLIM);
+	      fprintf (tree_dump_file, " assigned to it.\n");
 	    }
 
 	}
@@ -1612,19 +1617,19 @@ assign_vars (var_map map)
 	      continue;
 	    }
 
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    print_exprs (dump_file, "Overlap :  '", t, "'  conflicts with  '",
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    print_exprs (tree_dump_file, "Overlap :  '", t, "'  conflicts with  '",
 			 var, "");
 
 	  var = create_temp (t);
 	  change_partition_var (map, var, rep);
 	  ann = var_ann (var);
 
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "'     New temp:  '");
-	      print_generic_expr (dump_file, var, TDF_SLIM);
-	      fprintf (dump_file, "'\n");
+	      fprintf (tree_dump_file, "'     New temp:  '");
+	      print_generic_expr (tree_dump_file, var, TDF_SLIM);
+	      fprintf (tree_dump_file, "'\n");
 	    }
 	}
     }
@@ -1769,44 +1774,44 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
   /* Re-calculate live on exit info.  */
   calculate_live_on_exit (liveinfo);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Live range info for variable memory coalescing.\n");
-      dump_live_info (dump_file, liveinfo, LIVEDUMP_ALL);
+      fprintf (tree_dump_file, "Live range info for variable memory coalescing.\n");
+      dump_live_info (tree_dump_file, liveinfo, LIVEDUMP_ALL);
 
-      fprintf (dump_file, "Coalesce list from phi nodes:\n");
-      dump_coalesce_list (dump_file, cl);
+      fprintf (tree_dump_file, "Coalesce list from phi nodes:\n");
+      dump_coalesce_list (tree_dump_file, cl);
     }
 
 
   tv = type_var_init (map);
-  if (dump_file)
-    type_var_dump (dump_file, tv);
+  if (tree_dump_file)
+    type_var_dump (tree_dump_file, tv);
   type_var_compact (tv);
-  if (dump_file)
-    type_var_dump (dump_file, tv);
+  if (tree_dump_file)
+    type_var_dump (tree_dump_file, tv);
 
   graph = build_tree_conflict_graph (liveinfo, tv, cl);
 
   type_var_decompact (tv);
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "type var list now looks like:n");
-      type_var_dump (dump_file, tv);
+      fprintf (tree_dump_file, "type var list now looks like:n");
+      type_var_dump (tree_dump_file, tv);
 
-      fprintf (dump_file, "Coalesce list after conflict graph build:\n");
-      dump_coalesce_list (dump_file, cl);
+      fprintf (tree_dump_file, "Coalesce list after conflict graph build:\n");
+      dump_coalesce_list (tree_dump_file, cl);
     }
 
   sort_coalesce_list (cl);
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Coalesce list after sorting:\n");
-      dump_coalesce_list (dump_file, cl);
+      fprintf (tree_dump_file, "Coalesce list after sorting:\n");
+      dump_coalesce_list (tree_dump_file, cl);
     }
 
   coalesce_tpa_members (tv, graph, map, cl, 
-			((dump_flags & TDF_DETAILS) ? dump_file : NULL));
+			((tree_dump_flags & TDF_DETAILS) ? tree_dump_file : NULL));
 
   type_var_delete (tv);
   delete_coalesce_list (cl);
@@ -2489,8 +2494,8 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
   FILE *save;
   tree *values = NULL;
 
-  save = dump_file;
-  dump_file = dump;
+  save = tree_dump_file;
+  tree_dump_file = dump;
 
   /* If we are not combining temps, dont calculate live ranges fo variables
      with only one SSA version.  */
@@ -2499,15 +2504,15 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
   else
     compact_var_map (map, VARMAP_NORMAL);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_var_map (dump_file, map);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    dump_var_map (tree_dump_file, map);
 
   liveinfo = coalesce_ssa_name (map);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "After Coalescing:\n");
-      dump_var_map (dump_file, map);
+      fprintf (tree_dump_file, "After Coalescing:\n");
+      dump_var_map (tree_dump_file, map);
     }
 
   /* Make sure even single occurrence variables are in the list now.  */
@@ -2517,26 +2522,26 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
   /* Assign real variables to the partitions now.  */
   assign_vars (map);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "After Root variable replacement:\n");
-      dump_var_map (dump_file, map);
+      fprintf (tree_dump_file, "After Root variable replacement:\n");
+      dump_var_map (tree_dump_file, map);
     }
 
   if (flags & SSANORM_PERFORM_TER)
     {
       values = find_replaceable_exprs (map);
-      if (values && dump_file && (dump_flags & TDF_DETAILS))
-	dump_replaceable_exprs (dump_file, values);
+      if (values && tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	dump_replaceable_exprs (tree_dump_file, values);
     }
    
   if ((flags & SSANORM_COMBINE_TEMPS) && liveinfo)
     {
       coalesce_vars (map, liveinfo);
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "After variable memory coalescing:\n");
-	  dump_var_map (dump_file, map);
+	  fprintf (tree_dump_file, "After variable memory coalescing:\n");
+	  dump_var_map (tree_dump_file, map);
 	}
     }
   
@@ -2560,7 +2565,7 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
 	}
     }
 
-  dump_file = save;
+  tree_dump_file = save;
 }
 
 /* Take a subset of the variables (VARS) in the current function out of SSA
@@ -2629,7 +2634,7 @@ rewrite_vars_out_of_ssa (bitmap vars)
 			 definition statement yet.  */
 		      new_name = make_ssa_name (result, phi);
 
-		      /* Now create the copy statemenet.  */
+		      /* Now create the copy statement.  */
 		      copy = build (MODIFY_EXPR, TREE_TYPE (arg),
 				    new_name, PHI_ARG_DEF (phi, i));
 
@@ -2658,7 +2663,7 @@ rewrite_vars_out_of_ssa (bitmap vars)
 
       /* Now that we have all the partitions registered, translate the
 	 appropriate variables out of SSA form.  */
-      remove_ssa_form (dump_file, map, 0);
+      remove_ssa_form (tree_dump_file, map, 0);
 
       /* And finally, reset the out_of_ssa flag for each of the vars
 	 we just took out of SSA form.  */
@@ -2672,59 +2677,70 @@ rewrite_vars_out_of_ssa (bitmap vars)
 
 /* Take function FNDECL out of SSA form.
 
-   PHASE indicates which dump file from the DUMP_FILES array to use when
+   PHASE indicates which dump file from the TREE_DUMP_FILES array to use when
    dumping debugging information.  */
 
-void
-rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
+static void
+rewrite_out_of_ssa (void)
 {
   var_map map;
   int var_flags = 0;
   int ssa_flags = SSANORM_REMOVE_ALL_PHIS;
 
-  timevar_push (TV_TREE_SSA_TO_NORMAL);
-
-  dump_file = dump_begin (phase, &dump_flags);
-
   eliminate_virtual_phis ();
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    dump_tree_cfg (tree_dump_file, tree_dump_flags & ~TDF_DETAILS);
 
-  if (flag_tree_ter)
+  /* We cannot allow unssa to un-gimplify trees before we instrument them.  */
+  if (flag_tree_ter && !flag_mudflap)
     var_flags = SSA_VAR_MAP_REF_COUNT;
 
   map = create_ssa_var_map (var_flags);
 
   if (flag_tree_combine_temps)
     ssa_flags |= SSANORM_COMBINE_TEMPS;
-  if (flag_tree_ter)
+  if (flag_tree_ter && !flag_mudflap)
     ssa_flags |= SSANORM_PERFORM_TER;
 
-  remove_ssa_form (dump_file, map, ssa_flags);
+  remove_ssa_form (tree_dump_file, map, ssa_flags);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    dump_tree_cfg (tree_dump_file, tree_dump_flags & ~TDF_DETAILS);
 
   /* Do some cleanups which reduce the amount of data the
      tree->rtl expanders deal with.  */
   cfg_remove_useless_stmts ();
 
-  /* Remove unnecesary variables.  */
+  /* Remove unnecessary variables.  */
   remove_useless_vars ();
-
-  /* Debugging dumps.  */
-  if (dump_file)
-    {
-      dump_function_to_file (fndecl, dump_file, dump_flags & ~TDF_VOPS);
-      dump_end (phase, dump_file);
-      dump_file = NULL;
-    }
 
   /* Flush out flow graph and SSA data.  */
   delete_var_map (map);
-  timevar_pop (TV_TREE_SSA_TO_NORMAL);
+
+  /* Mark arrays indexed with non-constant indices with TREE_ADDRESSABLE.
+     FIXME: Is this really needed long-term?  This is done for the benefit
+     of the RTL expanders.  */
+  discover_nonconstant_array_refs ();
 }
+
+struct tree_opt_pass pass_del_ssa = 
+{
+  "optimized",				/* name */
+  NULL,					/* gate */
+  rewrite_out_of_ssa,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_SSA_TO_NORMAL,		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  /* ??? If TER is enabled, we also kill gimple.  */
+  PROP_ssa,				/* properties_destroyed */
+  TODO_verify_ssa | TODO_verify_flow
+    | TODO_verify_stmts,		/* todo_flags_start */
+  TODO_dump_func | TODO_ggc_collect	/* todo_flags_finish */
+};
 
 /* Remove edge E and remove the corresponding arguments from the PHI nodes
    in E's destination block.  */
@@ -2743,18 +2759,36 @@ ssa_remove_edge (edge e)
 
 /* Remove remove the corresponding arguments from the PHI nodes
    in E's destination block and redirect it to DEST.  Return redirected edge.
-   It is up to caller to update phi nodes on the destination.  */
+   The list of removed arguments is stored in PENDING_STMT (e).  */
 
 edge
 ssa_redirect_edge (edge e, basic_block dest)
 {
   tree phi;
+  tree list = NULL, *last = &list;
+  tree src, dst, node;
+  int i;
 
   /* Remove the appropriate PHI arguments in E's destination block.  */
   for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-    remove_phi_arg (phi, e->src);
+    {
+      i = phi_arg_from_edge (phi, e);
+      if (i < 0)
+	continue;
 
-  return redirect_edge_succ_nodup (e, dest);
+      src = PHI_ARG_DEF (phi, i);
+      dst = PHI_RESULT (phi);
+      node = build_tree_list (dst, src);
+      *last = node;
+      last = &TREE_CHAIN (node);
+
+      remove_phi_arg_num (phi, i);
+    }
+
+  e = redirect_edge_succ_nodup (e, dest);
+  PENDING_STMT (e) = list;
+
+  return e;
 }
 
 /*---------------------------------------------------------------------------
@@ -3159,8 +3193,6 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
 {
   struct def_blocks_d *def_map;
   bitmap phi_insertion_points;
-  unsigned phi_vector_lengths = 0;
-  int use_fully_pruned_ssa = 0;
   int bb_index;
 
   def_map = get_def_blocks_for (var);
@@ -3180,14 +3212,12 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
      which are added to the worklist are potential sites for
      PHI nodes. 
 
-     The iteration step could be done during PHI insertion.  But
-     finding all the PHI insertion blocks first allows us to use
-     that list of blocks in our heuristics to determine if we should
-     use semi-pruned for fully-pruned SSA forms. 
+     The iteration step could be done during PHI insertion just as
+     easily.  We do it here for historical reasons -- we used to have
+     a heuristic which used the potential PHI insertion points to
+     determine if fully pruned or semi pruned SSA form was appropriate.
 
-     While we're iterating we also compute the total length of all the
-     PHI node vectors for this variable.  We use this in our 
-     heuristic.  */
+     We now always use fully pruned SSA form.  */
   while (VARRAY_ACTIVE_SIZE (work_stack) > 0)
     {
       basic_block bb = VARRAY_TOP_BB (work_stack);
@@ -3202,39 +3232,20 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
 	{
 	  basic_block bb = BASIC_BLOCK (dfs_index);
 
-	  phi_vector_lengths += bb_ann (bb)->num_preds;
 	  VARRAY_PUSH_BB (work_stack, bb);
 	  bitmap_set_bit (phi_insertion_points, dfs_index);
 	});
     }
 
-  /* Now that we know the number of elements in all the potential
-     PHI nodes for this variable, we can determine if it is 
-     worth computing the fully pruned SSA form.  The larger the
-     total number of elements, the more important it is to use
-     the fully pruned form.
- 
-     Experimentation showed that once we get more than 8 phi vector
-     entries that moving to a fully-pruned implementation is comparable
-     to semi-pruned.  32 showed up as the threshhold which maximized
-     overall compile-time performance. 
+  /* Now compute global livein for this variable.  Note this modifies
+     def_map->livein_blocks.  */
+  compute_global_livein (def_map->livein_blocks, def_map->def_blocks);
 
-     Note that as this number gets larger, the potential for the
-     compiler to run wild and eat all available memory increases. 
-     So if you decide to change it, do so with care.  Consider
-     compile/20001226-1 with all memory references disambiguated
-     as the testcase for the compiler running wild eating memory.  */
-  if (phi_vector_lengths > 64)
+  /* And insert the PHI nodes.  */
+  EXECUTE_IF_AND_IN_BITMAP (phi_insertion_points, def_map->livein_blocks,
+			    0, bb_index,
     {
-      use_fully_pruned_ssa = 1;
-      compute_global_livein (def_map->livein_blocks, def_map->def_blocks);
-    }
-
-  EXECUTE_IF_SET_IN_BITMAP (phi_insertion_points, 0, bb_index,
-    {
-      if (! use_fully_pruned_ssa
-	  || bitmap_bit_p (def_map->livein_blocks, bb_index))
-	create_phi_node (var, BASIC_BLOCK (bb_index));
+      create_phi_node (var, BASIC_BLOCK (bb_index));
     });
 
   phi_insertion_points = NULL;
@@ -3262,11 +3273,11 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
   ann = stmt_ann (stmt);
   ssa_stats.num_stmts++;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Renaming statement ");
-      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
+      fprintf (tree_dump_file, "Renaming statement ");
+      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+      fprintf (tree_dump_file, "\n");
     }
 
 #if defined ENABLE_CHECKING
@@ -3299,7 +3310,8 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p);
+      register_new_def (SSA_NAME_VAR (*def_p), *def_p,
+			block_defs_p, currdefs);
     }
 
   /* Register new virtual definitions made by the statement.  */
@@ -3313,7 +3325,7 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
       register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdefs, i)), 
-			VDEF_RESULT (vdefs, i), block_defs_p);
+			VDEF_RESULT (vdefs, i), block_defs_p, currdefs);
     }
 }
 
@@ -3343,10 +3355,11 @@ rewrite_operand (tree *op_p)
    current reaching definition into the stack pointed by BLOCK_DEFS_P.
    IS_REAL_OPERAND is true when DEF is a real definition.  */
 
-static void
-register_new_def (tree var, tree def, varray_type *block_defs_p)
+void
+register_new_def (tree var, tree def,
+		  varray_type *block_defs_p, varray_type table)
 {
-  tree currdef = get_value_for (var, currdefs);
+  tree currdef = get_value_for (var, table);
 
   if (! *block_defs_p)
     VARRAY_TREE_INIT (*block_defs_p, 20, "block_defs");
@@ -3364,7 +3377,7 @@ register_new_def (tree var, tree def, varray_type *block_defs_p)
   VARRAY_PUSH_TREE (*block_defs_p, currdef);
 
   /* Set the current reaching definition for VAR to be DEF.  */
-  set_value_for (var, def, currdefs);
+  set_value_for (var, def, table);
 }
 
 
@@ -3380,6 +3393,7 @@ init_tree_ssa (void)
   init_phinodes ();
   memset (&ssa_stats, 0, sizeof (ssa_stats));
   global_var = NULL_TREE;
+  aliases_computed_p = false;
 }
 
 
@@ -3411,6 +3425,7 @@ delete_tree_ssa (void)
 
   global_var = NULL_TREE;
   call_clobbered_vars = NULL;
+  aliases_computed_p = false;
 }
 
 /* Return the current definition for variable VAR.  If none is found,
@@ -3574,6 +3589,232 @@ tree_ssa_useless_type_conversion (tree expr)
 
 
   return false;
+}
+
+/* Replaces immediate uses of VAR by REPL.  */
+
+static void
+replace_immediate_uses (tree var, tree repl)
+{
+  use_optype uses;
+  vuse_optype vuses;
+  vdef_optype vdefs;
+  int i, j, n;
+  dataflow_t df;
+  tree stmt;
+
+  df = get_immediate_uses (SSA_NAME_DEF_STMT (var));
+  n = num_immediate_uses (df);
+
+  for (i = 0; i < n; i++)
+    {
+      stmt = immediate_use (df, i);
+
+      if (TREE_CODE (stmt) == PHI_NODE)
+	{
+	  for (j = 0; j < PHI_NUM_ARGS (stmt); j++)
+	    if (PHI_ARG_DEF (stmt, j) == var)
+	      {
+		PHI_ARG_DEF (stmt, j) = repl;
+		if (TREE_CODE (repl) == SSA_NAME
+		    && PHI_ARG_EDGE (stmt, j)->flags & EDGE_ABNORMAL)
+		  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (repl) = 1;
+	      }
+
+	  continue;
+	}
+
+      get_stmt_operands (stmt);
+      if (is_gimple_reg (SSA_NAME_VAR (var)))
+	{
+	  uses = STMT_USE_OPS (stmt);
+	  for (j = 0; j < (int) NUM_USES (uses); j++)
+	    if (USE_OP (uses, j) == var)
+	      *USE_OP_PTR (uses, j) = repl;
+	}
+      else
+	{
+	  vuses = STMT_VUSE_OPS (stmt);
+	  for (j = 0; j < (int) NUM_VUSES (vuses); j++)
+	    if (VUSE_OP (vuses, j) == var)
+	      *VUSE_OP_PTR (vuses, j) = repl;
+
+	  vdefs = STMT_VDEF_OPS (stmt);
+	  for (j = 0; j < (int) NUM_VDEFS (vdefs); j++)
+	    if (VDEF_OP (vdefs, j) == var)
+	      *VDEF_OP_PTR (vdefs, j) = repl;
+	}
+      modify_stmt (stmt);
+    }
+}
+
+/* Raises value of phi node PHI by joining it with VAL.  Processes immediate
+   uses of the phi recursively.  */
+
+static void
+raise_value (tree phi, tree val, tree *eq_to)
+{
+  int i, n;
+  tree var = PHI_RESULT (phi), stmt;
+  int ver = SSA_NAME_VERSION (var);
+  dataflow_t df;
+
+  if (eq_to[ver] == var)
+    return;
+
+  switch (TREE_CODE (val))
+    {
+    case SSA_NAME:
+    case REAL_CST:
+    case COMPLEX_CST:
+      break;
+    case INTEGER_CST:
+      if (TREE_CODE (TREE_TYPE (var)) != POINTER_TYPE)
+	break;
+
+    default:
+      /* Do not propagate pointer constants.  This might require folding
+	 things like *&foo and rewriting the ssa, which is not worth the
+	 trouble.  */
+      val = var;
+    }
+
+  if (eq_to[ver])
+    {
+      if (operand_equal_p (eq_to[ver], val, 0))
+	return;
+
+      eq_to[ver] = var;
+    }
+  else
+    eq_to[ver] = val;
+
+  df = get_immediate_uses (SSA_NAME_DEF_STMT (var));
+  n = num_immediate_uses (df);
+
+  for (i = 0; i < n; i++)
+    {
+      stmt = immediate_use (df, i);
+
+      if (TREE_CODE (stmt) != PHI_NODE)
+	continue;
+
+      raise_value (stmt, eq_to[ver], eq_to);
+    }
+}
+
+/* Removes redundant phi nodes.
+
+   A redundant PHI node is a PHI node where all of its PHI arguments
+   are the same value, excluding any PHI arguments which are the same
+   as the PHI result.
+
+   A redundant PHI node is effectively a copy, so we forward copy propagate
+   which removes all uses of the destination of the PHI node then
+   finally we delete the redundant PHI node.
+
+   Note that if we can not copy propagate the PHI node, then the PHI
+   will not be removed.  Thus we do not have to worry about dependencies
+   between PHIs and the problems serializing PHIs into copies creates. 
+   
+   The most important effect of this pass is to remove degenerate PHI
+   nodes created by removing unreachable code.  */
+
+void
+kill_redundant_phi_nodes (void)
+{
+  tree *eq_to, *ssa_names;
+  unsigned i, ver, aver;
+  basic_block bb;
+  tree phi, t, stmt, var;
+
+  /* The EQ_TO array holds the current value of the ssa name in the
+     lattice:
+
+          top
+         / | \
+     const   variables
+         \ | /
+        bottom
+
+     Bottom is represented by NULL and top by the variable itself.
+
+     Once the dataflow stabilizes, we know that the phi nodes we need to keep
+     are exactly those with top as their result. 
+
+     The remaining phi nodes have their uses replaced with their value
+     in the lattice and the phi node itself is removed.  */
+  eq_to = xcalloc (highest_ssa_version, sizeof (tree));
+
+  /* The SSA_NAMES array holds each SSA_NAME node we encounter
+     in a PHI node (indexed by ssa version number).
+
+     One could argue that the SSA_NAME manager ought to provide a
+     generic interface to get at the SSA_NAME node for a given
+     ssa version number.  */
+  ssa_names = xcalloc (highest_ssa_version, sizeof (tree));
+
+  /* We have had cases where computing immediate uses takes a
+     significant amount of compile time.  If we run into such
+     problems here, we may want to only compute immediate uses for
+     a subset of all the SSA_NAMEs instead of computing it for
+     all of the SSA_NAMEs.  */
+  compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, NULL);
+
+  FOR_EACH_BB (bb)
+    {
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	{
+	  var = PHI_RESULT (phi);
+	  ver = SSA_NAME_VERSION (var);
+	  ssa_names[ver] = var;
+
+	  for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
+	    {
+	      t = PHI_ARG_DEF (phi, i);
+
+	      if (TREE_CODE (t) != SSA_NAME)
+		{
+		  raise_value (phi, t, eq_to);
+		  continue;
+		}
+
+	      stmt = SSA_NAME_DEF_STMT (t);
+	      aver = SSA_NAME_VERSION (t);
+	      ssa_names[aver] = t;
+
+	      /* If the defining statement for this argument is not a
+		 phi node or the argument is associated with an abnormal
+		 edge, then we need to recursively start the forward
+		 dataflow starting with PHI.  */
+	      if (TREE_CODE (stmt) != PHI_NODE
+		  || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (t))
+		{
+		  eq_to[aver] = t;
+		  raise_value (phi, t, eq_to);
+		}
+	    }
+	}
+    }
+
+  /* Now propagate the values.  */
+  for (i = 0; i < highest_ssa_version; i++)
+    if (eq_to[i]
+	&& eq_to[i] != ssa_names[i])
+      replace_immediate_uses (ssa_names[i], eq_to[i]);
+
+  /* And remove the dead phis.  */
+  for (i = 0; i < highest_ssa_version; i++)
+    if (eq_to[i]
+	&& eq_to[i] != ssa_names[i])
+      {
+	stmt = SSA_NAME_DEF_STMT (ssa_names[i]);
+	remove_phi_node (stmt, 0, bb_for_stmt (stmt));
+      }
+
+  free_df ();
+  free (eq_to);
+  free (ssa_names);
 }
 
 #include "gt-tree-ssa.h"

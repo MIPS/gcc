@@ -394,7 +394,7 @@ gfc_match_name (char *buffer)
     {
       buffer[i++] = c;
 
-      if (i > GFC_MAX_SYMBOL_LEN)
+      if (i > gfc_option.max_identifier_length)
 	{
 	  gfc_error ("Name at %C is too long");
 	  return MATCH_ERROR;
@@ -1036,7 +1036,7 @@ gfc_match_if (gfc_statement * if_type)
     match ("deallocate", gfc_match_deallocate, ST_DEALLOCATE)
     match ("end file", gfc_match_endfile, ST_END_FILE)
     match ("exit", gfc_match_exit, ST_EXIT)
-    match ("assign", gfc_match_assign, ST_NONE)
+    match ("assign", gfc_match_assign, ST_LABEL_ASSIGNMENT)
     match ("go to", gfc_match_goto, ST_GOTO)
     match ("inquire", gfc_match_inquire, ST_INQUIRE)
     match ("nullify", gfc_match_nullify, ST_NULLIFY)
@@ -1426,13 +1426,10 @@ gfc_match_pause (void)
   m = gfc_match_stopcode (ST_PAUSE);
   if (m == MATCH_YES)
     {
-      if (pedantic)
-	{
-	  gfc_error ("The PAUSE statement at %C is not allowed in Fortran 95");
-	  return MATCH_ERROR;
-	}
-      else
-	gfc_warning ("Use of the PAUSE statement at %C is depreciated");
+      if (gfc_notify_std (GFC_STD_F95_DEL,
+	    "Obsolete: PAUSE statement at %C")
+	  == FAILURE)
+	m = MATCH_ERROR;
     }
   return m;
 }
@@ -1472,13 +1469,25 @@ gfc_match_assign (void)
   gfc_expr *expr;
   gfc_st_label *label;
 
-  if (gfc_match (" %l to %v%t", &label, &expr) == MATCH_YES)
+  if (gfc_match (" %l", &label) == MATCH_YES)
     {
-      gfc_free_expr (expr);
-      gfc_error ("The ASSIGN statement at %C is not allowed in Fortran 95");
-      return MATCH_ERROR;
-    }
+      if (gfc_reference_st_label (label, ST_LABEL_UNKNOWN) == FAILURE)
+        return MATCH_ERROR;
+      if (gfc_match (" to %v%t", &expr) == MATCH_YES)
+        {
+	  if (gfc_notify_std (GFC_STD_F95_DEL,
+		"Obsolete: ASSIGN statement at %C")
+	      == FAILURE)
+	    return MATCH_ERROR;
 
+          expr->symtree->n.sym->attr.assign = 1;
+
+          new_st.op = EXEC_LABEL_ASSIGN;
+          new_st.label = label;
+          new_st.expr = expr;
+          return MATCH_YES;
+        }
+    }
   return MATCH_NO;
 }
 
@@ -1508,14 +1517,65 @@ gfc_match_goto (void)
       return MATCH_YES;
     }
 
-  /* The assigned GO TO statement is not allowed in Fortran 95, but a
-     compiler is required to flag it.  */
+  /* The assigned GO TO statement.  */ 
+
   if (gfc_match_variable (&expr, 0) == MATCH_YES)
     {
-      gfc_free_expr (expr);
-      gfc_error ("The assigned GO TO statement at %C is not allowed in "
-		 "Fortran 95");
-      return MATCH_ERROR;
+      if (gfc_notify_std (GFC_STD_F95_DEL,
+			  "Obsolete: Assigned GOTO statement at %C")
+	  == FAILURE)
+	return MATCH_ERROR;
+
+      expr->symtree->n.sym->attr.assign = 1;
+      new_st.op = EXEC_GOTO;
+      new_st.expr = expr;
+
+      if (gfc_match_eos () == MATCH_YES)
+	return MATCH_YES;
+
+      /* Match label list.  */
+      gfc_match_char (',');
+      if (gfc_match_char ('(') != MATCH_YES)
+	{
+	  gfc_syntax_error (ST_GOTO);
+	  return MATCH_ERROR;
+	}
+      head = tail = NULL;
+
+      do
+	{
+	  m = gfc_match_st_label (&label, 0);
+	  if (m != MATCH_YES)
+	    goto syntax;
+
+	  if (gfc_reference_st_label (label, ST_LABEL_TARGET) == FAILURE)
+	    goto cleanup;
+
+	  if (head == NULL)
+	    head = tail = gfc_get_code ();
+	  else
+	    {
+	      tail->block = gfc_get_code ();
+	      tail = tail->block;
+	    }
+
+	  tail->label = label;
+	  tail->op = EXEC_GOTO;
+	}
+      while (gfc_match_char (',') == MATCH_YES);
+
+      if (gfc_match (")%t") != MATCH_YES)
+	goto syntax;
+
+      if (head == NULL)
+	{
+	   gfc_error (
+	       "Statement label list in GOTO at %C cannot be empty");
+	   goto syntax;
+	}
+      new_st.block = head;
+
+      return MATCH_YES;
     }
 
   /* Last chance is a computed GO TO statement.  */

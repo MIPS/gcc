@@ -579,8 +579,8 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
 tree
 merge_types (tree t1, tree t2)
 {
-  register enum tree_code code1;
-  register enum tree_code code2;
+  enum tree_code code1;
+  enum tree_code code2;
   tree attributes;
 
   /* Save time if the two types are the same.  */
@@ -857,6 +857,7 @@ comp_array_types (tree t1, tree t2, bool allow_redeclaration)
 {
   tree d1;
   tree d2;
+  tree max1, max2;
 
   if (t1 == t2)
     return true;
@@ -887,8 +888,27 @@ comp_array_types (tree t1, tree t2, bool allow_redeclaration)
     return allow_redeclaration;
 
   /* Check that the dimensions are the same.  */
-  return (cp_tree_equal (TYPE_MIN_VALUE (d1), TYPE_MIN_VALUE (d2))
-	  && cp_tree_equal (TYPE_MAX_VALUE (d1), TYPE_MAX_VALUE (d2)));
+
+  if (!cp_tree_equal (TYPE_MIN_VALUE (d1), TYPE_MIN_VALUE (d2)))
+    return false;
+  max1 = TYPE_MAX_VALUE (d1);
+  max2 = TYPE_MAX_VALUE (d2);
+  if (processing_template_decl && !abi_version_at_least (2)
+      && !value_dependent_expression_p (max1)
+      && !value_dependent_expression_p (max2))
+    {
+      /* With abi-1 we do not fold non-dependent array bounds, (and
+         consequently mangle them incorrectly).  We must therefore
+         fold them here, to verify the domains have the same
+         value.  */
+      max1 = fold (max1);
+      max2 = fold (max2);
+    }
+
+  if (!cp_tree_equal (max1, max2))
+    return false;
+
+  return true;
 }
 
 /* Return true if T1 and T2 are related as allowed by STRICT.  STRICT
@@ -900,7 +920,7 @@ comptypes (tree t1, tree t2, int strict)
   if (t1 == t2)
     return true;
 
-  /* Suppress errors caused by previously reported errors */
+  /* Suppress errors caused by previously reported errors.  */
   if (t1 == error_mark_node || t2 == error_mark_node)
     return false;
   
@@ -974,7 +994,7 @@ comptypes (tree t1, tree t2, int strict)
 	return true;
       /* Don't check inheritance.  */
       strict = COMPARE_STRICT;
-      /* fall through */
+      /* Fall through.  */
 
     case RECORD_TYPE:
     case UNION_TYPE:
@@ -995,7 +1015,7 @@ comptypes (tree t1, tree t2, int strict)
       if (!comptypes (TYPE_OFFSET_BASETYPE (t1), TYPE_OFFSET_BASETYPE (t2),
 		      strict & ~COMPARE_REDECLARATION))
 	return false;
-      /* FALLTHROUGH*/
+      /* Fall through. */
 
     case POINTER_TYPE:
     case REFERENCE_TYPE:
@@ -1233,6 +1253,7 @@ cxx_sizeof_or_alignof_expr (tree e, enum tree_code op)
     }
   
   if (TREE_CODE (e) == COMPONENT_REF
+      && TREE_CODE (TREE_OPERAND (e, 1)) == FIELD_DECL
       && DECL_C_BIT_FIELD (TREE_OPERAND (e, 1)))
     {
       error ("invalid application of `%s' to a bit-field", op_name);
@@ -1264,8 +1285,8 @@ cxx_sizeof_or_alignof_expr (tree e, enum tree_code op)
 tree
 decay_conversion (tree exp)
 {
-  register tree type;
-  register enum tree_code code;
+  tree type;
+  enum tree_code code;
 
   type = TREE_TYPE (exp);
   code = TREE_CODE (type);
@@ -1316,7 +1337,7 @@ decay_conversion (tree exp)
     return build_unary_op (ADDR_EXPR, exp, 0);
   if (code == ARRAY_TYPE)
     {
-      register tree adr;
+      tree adr;
       tree ptrtype;
 
       if (TREE_CODE (exp) == INDIRECT_REF)
@@ -1807,6 +1828,9 @@ finish_class_member_access_expr (tree object, tree name)
     {
       if (/* If OBJECT_TYPE is dependent, so is OBJECT.NAME.  */
 	  dependent_type_p (object_type)
+	  /* If NAME is just an IDENTIFIER_NODE, then the expression
+	     is dependent.  */
+	  || TREE_CODE (object) == IDENTIFIER_NODE
 	  /* If NAME is "f<args>", where either 'f' or 'args' is
 	     dependent, then the expression is dependent.  */
 	  || (TREE_CODE (name) == TEMPLATE_ID_EXPR
@@ -2008,7 +2032,7 @@ build_x_indirect_ref (tree expr, const char *errorstring)
 tree
 build_indirect_ref (tree ptr, const char *errorstring)
 {
-  register tree pointer, type;
+  tree pointer, type;
 
   if (ptr == error_mark_node)
     return error_mark_node;
@@ -2346,8 +2370,8 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 tree
 build_function_call (tree function, tree params)
 {
-  register tree fntype, fndecl;
-  register tree coerced_params;
+  tree fntype, fndecl;
+  tree coerced_params;
   tree result;
   tree name = NULL_TREE, assembler_name = NULL_TREE;
   int is_method;
@@ -2464,8 +2488,8 @@ build_function_call (tree function, tree params)
 tree
 convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 {
-  register tree typetail, valtail;
-  register tree result = NULL_TREE;
+  tree typetail, valtail;
+  tree result = NULL_TREE;
   const char *called_thing = 0;
   int i = 0;
 
@@ -2490,8 +2514,8 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
        valtail;
        valtail = TREE_CHAIN (valtail), i++)
     {
-      register tree type = typetail ? TREE_VALUE (typetail) : 0;
-      register tree val = TREE_VALUE (valtail);
+      tree type = typetail ? TREE_VALUE (typetail) : 0;
+      tree val = TREE_VALUE (valtail);
 
       if (val == error_mark_node)
 	return error_mark_node;
@@ -2581,7 +2605,7 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 
   if (typetail != 0 && typetail != void_list_node)
     {
-      /* See if there are default arguments that can be used */
+      /* See if there are default arguments that can be used.  */
       if (TREE_PURPOSE (typetail) 
 	  && TREE_CODE (TREE_PURPOSE (typetail)) != DEFAULT_ARG)
 	{
@@ -2675,17 +2699,17 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		 int convert_p ATTRIBUTE_UNUSED)
 {
   tree op0, op1;
-  register enum tree_code code0, code1;
+  enum tree_code code0, code1;
   tree type0, type1;
 
   /* Expression code to give to the expression when it is built.
      Normally this is CODE, which is what the caller asked for,
      but in some special cases we change it.  */
-  register enum tree_code resultcode = code;
+  enum tree_code resultcode = code;
 
   /* Data type in which the computation is to be performed.
      In the simplest cases this is the common type of the arguments.  */
-  register tree result_type = NULL;
+  tree result_type = NULL;
 
   /* Nonzero means operands have already been type-converted
      in whatever way is necessary.
@@ -3405,8 +3429,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
    of pointer PTROP and integer INTOP.  */
 
 static tree
-cp_pointer_int_sum (enum tree_code resultcode, register tree ptrop,
-		    register tree intop)
+cp_pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 {
   tree res_type = TREE_TYPE (ptrop);
 
@@ -3424,9 +3447,9 @@ cp_pointer_int_sum (enum tree_code resultcode, register tree ptrop,
    The resulting tree has type int.  */
 
 static tree
-pointer_diff (register tree op0, register tree op1, register tree ptrtype)
+pointer_diff (tree op0, tree op1, tree ptrtype)
 {
-  register tree result;
+  tree result;
   tree restype = ptrdiff_type_node;
   tree target_type = TREE_TYPE (ptrtype);
 
@@ -3491,7 +3514,7 @@ build_x_unary_op (enum tree_code code, tree xarg)
       && ((IS_AGGR_TYPE_CODE (TREE_CODE (TREE_TYPE (xarg)))
 	   && !COMPLETE_TYPE_P (TREE_TYPE (xarg)))
 	  || (TREE_CODE (xarg) == OFFSET_REF)))
-    /* don't look for a function */;
+    /* Don't look for a function.  */;
   else
     exp = build_new_op (code, LOOKUP_NORMAL, xarg, NULL_TREE, NULL_TREE);
   if (!exp && code == ADDR_EXPR)
@@ -3610,8 +3633,8 @@ tree
 build_unary_op (enum tree_code code, tree xarg, int noconvert)
 {
   /* No default_conversion here.  It causes trouble for ADDR_EXPR.  */
-  register tree arg = xarg;
-  register tree argtype = 0;
+  tree arg = xarg;
+  tree argtype = 0;
   const char *errstring = NULL;
   tree val;
 
@@ -3748,7 +3771,7 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 			0);
 
       {
-	register tree inc;
+	tree inc;
 	tree result_type = TREE_TYPE (arg);
 
 	arg = get_unwidened (arg, 0);
@@ -3883,7 +3906,7 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  return arg;
 	}
 
-      /* For &x[y], return x+y */
+      /* For &x[y], return x+y.  */
       if (TREE_CODE (arg) == ARRAY_REF)
 	{
 	  if (!cxx_mark_addressable (TREE_OPERAND (arg, 0)))
@@ -4189,7 +4212,7 @@ unary_complex_lvalue (enum tree_code code, tree arg)
 bool
 cxx_mark_addressable (tree exp)
 {
-  register tree x = exp;
+  tree x = exp;
 
   while (1)
     switch (TREE_CODE (x))
@@ -4206,10 +4229,10 @@ cxx_mark_addressable (tree exp)
 	if (x == current_class_ptr)
 	  {
             error ("cannot take the address of `this', which is an rvalue expression");
-	    TREE_ADDRESSABLE (x) = 1; /* so compiler doesn't die later */
+	    TREE_ADDRESSABLE (x) = 1; /* so compiler doesn't die later.  */
 	    return true;
 	  }
-	/* FALLTHRU */
+	/* Fall through.  */
 
       case VAR_DECL:
 	/* Caller should not be trying to mark initialized
@@ -4218,7 +4241,7 @@ cxx_mark_addressable (tree exp)
 			    || DECL_IN_AGGR_P (x) == 0
 			    || TREE_STATIC (x)
 			    || DECL_EXTERNAL (x), 314);
-	/* FALLTHRU */
+	/* Fall through.  */
 
       case CONST_DECL:
       case RESULT_DECL:
@@ -4725,7 +4748,7 @@ build_const_cast (tree type, tree expr)
 tree
 build_c_cast (tree type, tree expr)
 {
-  register tree value = expr;
+  tree value = expr;
   tree otype;
 
   if (type == error_mark_node || expr == error_mark_node)
@@ -4890,11 +4913,11 @@ build_c_cast (tree type, tree expr)
 tree
 build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 {
-  register tree result;
+  tree result;
   tree newrhs = rhs;
   tree lhstype = TREE_TYPE (lhs);
   tree olhstype = lhstype;
-  tree olhs = lhs;
+  tree olhs = NULL_TREE;
 
   /* Avoid duplicate error messages from operands that had errors.  */
   if (lhs == error_mark_node || rhs == error_mark_node)
@@ -4903,7 +4926,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   /* Handle control structure constructs used as "lvalues".  */
   switch (TREE_CODE (lhs))
     {
-      /* Handle --foo = 5; as these are valid constructs in C++ */
+      /* Handle --foo = 5; as these are valid constructs in C++.  */
     case PREDECREMENT_EXPR:
     case PREINCREMENT_EXPR:
       if (TREE_SIDE_EFFECTS (TREE_OPERAND (lhs, 0)))
@@ -4984,7 +5007,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 	  return result;
 	}
       else if (! IS_AGGR_TYPE (lhstype))
-	/* Do the default thing */;
+	/* Do the default thing.  */;
       else
 	{
 	  result = build_special_member_call (lhs, complete_ctor_identifier,
@@ -5011,7 +5034,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 	{
 	  /* `operator=' is not an inheritable operator.  */
 	  if (! IS_AGGR_TYPE (lhstype))
-	    /* Do the default thing */;
+	    /* Do the default thing.  */;
 	  else
 	    {
 	      result = build_new_op (MODIFY_EXPR, LOOKUP_NORMAL,
@@ -5126,6 +5149,15 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 
       if (lhstype != TREE_TYPE (lhs))
 	{
+	  /* Avoid warnings converting integral types back into enums for
+	     enum bit fields.  */
+	  if (TREE_CODE (lhstype) == INTEGER_TYPE
+	      && TREE_CODE (olhstype) == ENUMERAL_TYPE)
+	    {
+	      if (TREE_SIDE_EFFECTS (lhs))
+		lhs = stabilize_reference (lhs);
+	      olhs = lhs;
+	    }
 	  lhs = copy_node (lhs);
 	  TREE_TYPE (lhs) = lhstype;
 	}
@@ -5198,10 +5230,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 
   if (olhstype == TREE_TYPE (result))
     return result;
-  /* Avoid warnings converting integral types back into enums
-     for enum bit fields.  */
-  if (TREE_CODE (TREE_TYPE (result)) == INTEGER_TYPE
-      && TREE_CODE (olhstype) == ENUMERAL_TYPE)
+  if (olhs)
     {
       result = build (COMPOUND_EXPR, olhstype, result, olhs);
       TREE_NO_UNUSED_WARNING (result) = 1;
@@ -5561,8 +5590,8 @@ static tree
 convert_for_assignment (tree type, tree rhs,
 			const char *errtype, tree fndecl, int parmnum)
 {
-  register tree rhstype;
-  register enum tree_code coder;
+  tree rhstype;
+  enum tree_code coder;
 
   /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
   if (TREE_CODE (rhs) == NON_LVALUE_EXPR)
@@ -5660,9 +5689,9 @@ tree
 convert_for_initialization (tree exp, tree type, tree rhs, int flags,
 			    const char *errtype, tree fndecl, int parmnum)
 {
-  register enum tree_code codel = TREE_CODE (type);
-  register tree rhstype;
-  register enum tree_code coder;
+  enum tree_code codel = TREE_CODE (type);
+  tree rhstype;
+  enum tree_code coder;
 
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
      Strip such NOP_EXPRs, since RHS is used in non-lvalue context.  */
@@ -5745,10 +5774,10 @@ c_expand_asm_operands (tree string, tree outputs, tree inputs, tree clobbers,
 		       int vol, location_t locus)
 {
   int noutputs = list_length (outputs);
-  register int i;
+  int i;
   /* o[I] is the place that output number I should be written.  */
-  register tree *o = alloca (noutputs * sizeof (tree));
-  register tree tail;
+  tree *o = alloca (noutputs * sizeof (tree));
+  tree tail;
 
   /* Record the contents of OUTPUTS before it is modified.  */
   for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
@@ -6157,7 +6186,7 @@ cp_type_quals (tree type)
   return TYPE_QUALS (type);
 }
 
-/* Returns nonzero if the TYPE contains a mutable member */
+/* Returns nonzero if the TYPE contains a mutable member.  */
 
 bool
 cp_has_mutable_p (tree type)

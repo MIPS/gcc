@@ -378,10 +378,6 @@ fgcse-las
 Common
 Perform redundant load after store elimination in global common subexpression elimination
 
-fgnu-linker
-Common
-Output GNU ld formatted global initializers
-
 fguess-branch-probability
 Common
 Enable guessing of branch probabilities
@@ -532,6 +528,14 @@ Enable basic program profiling code
 fprofile-arcs
 Common
 Insert arc-based program profiling code
+
+fprofile-generate
+Common
+Enable common options for generating profile info for profile feedback directed optimizations
+
+fprofile-use
+Common
+Enable common options for performing profile feedback directed optimizations
 
 fprofile-values
 Common
@@ -707,13 +711,13 @@ ftree-ccp
 Common
 Enable SSA-CCP optimization on trees
 
-ftree-dce
-Common
-Enable SSA dead code elimination optimization on trees
-
 ftree-combine-temps
 Common
 Coalesce memory temporaries in the SSA->normal pass
+
+ftree-dce
+Common
+Enable SSA dead code elimination optimization on trees
 
 ftree-dominator-opts
 Common
@@ -722,10 +726,6 @@ Enable dominator optimizations
 ftree-loop-optimize
 Common
 Enable loop optimizations on trees
-
-ftree-must-alias
-Common
-Detect must-alias relations to remove pointer de-references
 
 ftree-points-to=
 Common Joined RejectNegative
@@ -745,6 +745,14 @@ Replace temporary expressions in the SSA->normal pass
 ftree-vectorize
 Common
 Enable loop vectorization on trees
+
+ftree-sra
+Common
+Perform scalar replacement of aggregates
+
+ftree-ter
+Common
+Replace temporary expressions in the SSA->normal pass
 
 funit-at-a-time
 Common
@@ -801,14 +809,6 @@ Generate debug information in default format
 gcoff
 Common JoinedOrMissing
 Generate debug information in COFF format
-
-gdwarf
-Common JoinedOrMissing
-Generate debug information in DWARF v1 format
-
-gdwarf+
-Common JoinedOrMissing
-Generate debug information in extended DWARF v1 format
 
 gdwarf-2
 Common JoinedOrMissing

@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -34,7 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cgraph.h"
 #include "varray.h"
 #include "output.h"
-
+#include "intl.h"
 
 /* Hash table used to convert declarations into nodes.  */
 static GTY((param_is (struct cgraph_node))) htab_t cgraph_hash;
@@ -196,7 +196,13 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
   if (TREE_CODE (call_expr) != CALL_EXPR)
     abort ();
 
-  edge->inline_call = false;
+  if (!DECL_SAVED_TREE (callee->decl))
+    edge->inline_failed = N_("function body not available");
+  else if (callee->local.inlinable)
+    edge->inline_failed = N_("function not considered for inlining");
+  else
+    edge->inline_failed = N_("function not inlinable");
+
   edge->aux = NULL;
 
   edge->caller = caller;
@@ -455,7 +461,7 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     {
       fprintf (f, "%s/%i ", cgraph_node_name (edge->caller),
 	       edge->caller->uid);
-      if (edge->inline_call)
+      if (!edge->inline_failed)
 	fprintf(f, "(inlined) ");
     }
 
@@ -464,7 +470,7 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     {
       fprintf (f, "%s/%i ", cgraph_node_name (edge->callee),
 	       edge->callee->uid);
-      if (edge->inline_call)
+      if (!edge->inline_failed)
 	fprintf(f, "(inlined) ");
     }
   fprintf (f, "\n");
@@ -712,7 +718,7 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n, tree call_expr)
 {
   struct cgraph_edge *new = cgraph_create_edge (n, e->callee, call_expr);
 
-  new->inline_call = e->inline_call;
+  new->inline_failed = e->inline_failed;
   return new;
 }
 

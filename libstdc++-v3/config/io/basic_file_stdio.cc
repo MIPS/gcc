@@ -134,14 +134,14 @@ namespace std
       {
  	_M_cfile = __file;
  	_M_cfile_created = false;
+	this->sync();
   	__ret = this;
       }
     return __ret;
   }
   
   __basic_file<char>*
-  __basic_file<char>::sys_open(int __fd, ios_base::openmode __mode, 
-			       bool __del) 
+  __basic_file<char>::sys_open(int __fd, ios_base::openmode __mode)
   {
     __basic_file* __ret = NULL;
     int __p_mode = 0;
@@ -151,12 +151,9 @@ namespace std
     _M_open_mode(__mode, __p_mode, __rw_mode, __c_mode);
     if (!this->is_open() && (_M_cfile = fdopen(__fd, __c_mode)))
       {
-	// Iff __del is true, then close will fclose the fd.
-	_M_cfile_created = __del;
-
+	_M_cfile_created = true;
 	if (__fd == 0)
 	  setvbuf(_M_cfile, reinterpret_cast<char*>(NULL), _IONBF, 0);
-
 	__ret = this;
       }
     return __ret;
@@ -199,17 +196,17 @@ namespace std
   __basic_file<char>* 
   __basic_file<char>::close()
   { 
-    __basic_file* __retval = static_cast<__basic_file*>(NULL);
+    __basic_file* __ret = static_cast<__basic_file*>(NULL);
     if (this->is_open())
       {
 	if (_M_cfile_created)
 	  fclose(_M_cfile);
 	else
-	  fflush(_M_cfile);
+	  this->sync();
 	_M_cfile = 0;
-	__retval = this;
+	__ret = this;
       }
-    return __retval;
+    return __ret;
   }
  
   streamsize 

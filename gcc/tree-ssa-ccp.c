@@ -46,13 +46,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+
 #include "diagnostic.h"
 #include "tree-inline.h"
 #include "tree-flow.h"
 #include "tree-simple.h"
 #include "tree-dump.h"
+#include "tree-pass.h"
 #include "timevar.h"
 #include "expr.h"
+#include "flags.h"
+
 
 /* Possible lattice values.  */
 typedef enum
@@ -112,7 +116,7 @@ static void def_to_varying (tree);
 static void set_lattice_value (tree, value);
 static void simulate_block (basic_block);
 static void simulate_stmt (tree);
-static void substitute_and_fold (bitmap);
+static void substitute_and_fold (void);
 static value evaluate_stmt (tree);
 static void dump_lattice_value (FILE *, const char *, value);
 static bool replace_uses_in (tree, bool *);
@@ -128,11 +132,6 @@ static void cfg_blocks_add (basic_block);
 static basic_block cfg_blocks_get (void);
 static bool need_imm_uses_for (tree var);
 
-/* Debugging dumps.  */
-static FILE *dump_file;
-static int dump_flags;
-
-
 /* Main entry point for SSA Conditional Constant Propagation.  FNDECL is
    the declaration for the function to optimize.
    
@@ -143,14 +142,9 @@ static int dump_flags;
    PHASE indicates which dump file from the DUMP_FILES array to use when
    dumping debugging information.  */
 
-void
-tree_ssa_ccp (tree fndecl, bitmap vars_to_rename, enum tree_dump_index phase)
+static void
+tree_ssa_ccp (void)
 {
-  timevar_push (TV_TREE_CCP);
-
-  /* Initialize debugging dumps.  */
-  dump_file = dump_begin (phase, &dump_flags);
-
   initialize ();
 
   /* Iterate until the worklists are empty.  */
@@ -183,7 +177,7 @@ tree_ssa_ccp (tree fndecl, bitmap vars_to_rename, enum tree_dump_index phase)
     }
 
   /* Now perform substitutions based on the known constant values.  */
-  substitute_and_fold (vars_to_rename);
+  substitute_and_fold ();
 
   /* Now cleanup any unreachable code.  */
   cleanup_tree_cfg ();
@@ -192,21 +186,35 @@ tree_ssa_ccp (tree fndecl, bitmap vars_to_rename, enum tree_dump_index phase)
   finalize ();
 
   /* Debugging dumps.  */
-  if (dump_file)
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      if (dump_flags & TDF_DETAILS)
-	{
-	  dump_referenced_vars (dump_file);
-	  fprintf (dump_file, "\n\n");
-	  fprintf (dump_file, "\n");
-	}
-
-      dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (phase, dump_file);
+      dump_referenced_vars (tree_dump_file);
+      fprintf (tree_dump_file, "\n\n");
     }
-
-  timevar_pop (TV_TREE_CCP);
 }
+
+static bool
+gate_ccp (void)
+{
+  return flag_tree_ccp != 0;
+}
+
+struct tree_opt_pass pass_ccp = 
+{
+  "ccp",				/* name */
+  gate_ccp,				/* gate */
+  tree_ssa_ccp,				/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_CCP,				/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_rename_vars | TODO_redundant_phi
+    | TODO_ggc_collect | TODO_verify_ssa /* todo_flags_finish */
+};
 
 
 /* Get the constant value associated with variable VAR.  */
@@ -240,8 +248,8 @@ simulate_block (basic_block block)
   if (block == EXIT_BLOCK_PTR)
     return;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\nSimulating block %d\n", block->index);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\nSimulating block %d\n", block->index);
 
   /* Always simulate PHI nodes, even if we have simulated this block
      before.  */
@@ -298,10 +306,10 @@ simulate_stmt (tree use_stmt)
 {
   basic_block use_bb = bb_for_stmt (use_stmt);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "\nSimulating statement (from ssa_edges): ");
-      print_generic_stmt (dump_file, use_stmt, 0);
+      fprintf (tree_dump_file, "\nSimulating statement (from ssa_edges): ");
+      print_generic_stmt (tree_dump_file, use_stmt, 0);
     }
 
   if (TREE_CODE (use_stmt) == PHI_NODE)
@@ -323,12 +331,13 @@ simulate_stmt (tree use_stmt)
    should still be in SSA form.  */
 
 static void
-substitute_and_fold (bitmap vars_to_rename)
+substitute_and_fold (void)
 {
   basic_block bb;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\nSubstituing constants and folding statements\n\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file,
+	     "\nSubstituing constants and folding statements\n\n");
 
   /* Substitute constants in every statement of every basic block.  */
   FOR_EACH_BB (bb)
@@ -367,10 +376,10 @@ substitute_and_fold (bitmap vars_to_rename)
 
 	  /* Replace the statement with its folded version and mark it
 	     folded.  */
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Line %d: replaced ", get_lineno (stmt));
-	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+	      fprintf (tree_dump_file, "Line %d: replaced ", get_lineno (stmt));
+	      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
 	    }
 
 	  if (replace_uses_in (stmt, &replaced_address))
@@ -381,11 +390,11 @@ substitute_and_fold (bitmap vars_to_rename)
 		mark_new_vars_to_rename (stmt, vars_to_rename);
 	    }
 
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, " with ");
-	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-	      fprintf (dump_file, "\n");
+	      fprintf (tree_dump_file, " with ");
+	      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+	      fprintf (tree_dump_file, "\n");
 	    }
 	}
     }
@@ -408,17 +417,17 @@ visit_phi_node (tree phi)
   if (DONT_SIMULATE_AGAIN (phi))
     return;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "\nVisiting PHI node: ");
-      print_generic_expr (dump_file, phi, 0);
+      fprintf (tree_dump_file, "\nVisiting PHI node: ");
+      print_generic_expr (tree_dump_file, phi, 0);
     }
 
   curr_val = get_value (PHI_RESULT (phi));
   if (curr_val->lattice_val == VARYING)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "\n   Shortcircuit. Default of VARYING.");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "\n   Shortcircuit. Default of VARYING.");
       short_circuit = 1;
     }
   else
@@ -443,9 +452,9 @@ visit_phi_node (tree phi)
 	/* Compute the meet operator over all the PHI arguments. */
 	edge e = PHI_ARG_EDGE (phi, i);
 
-	if (dump_file && (dump_flags & TDF_DETAILS))
+	if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	  {
-	    fprintf (dump_file, "\n    Argument #%d (%d -> %d %sexecutable)\n",
+	    fprintf (tree_dump_file, "\n    Argument #%d (%d -> %d %sexecutable)\n",
 		    i, e->src->index, e->dest->index,
 		    (e->flags & EDGE_EXECUTABLE) ? "" : "not ");
 	  }
@@ -468,12 +477,12 @@ visit_phi_node (tree phi)
 
 	    phi_val = cp_lattice_meet (phi_val, *rdef_val);
 
-	    if (dump_file && (dump_flags & TDF_DETAILS))
+	    if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	      {
-		fprintf (dump_file, "\t");
-		print_generic_expr (dump_file, rdef, 0);
-		dump_lattice_value (dump_file, "\tValue: ", *rdef_val);
-		fprintf (dump_file, "\n");
+		fprintf (tree_dump_file, "\t");
+		print_generic_expr (tree_dump_file, rdef, 0);
+		dump_lattice_value (tree_dump_file, "\tValue: ", *rdef_val);
+		fprintf (tree_dump_file, "\n");
 	      }
 
 	    if (phi_val.lattice_val == VARYING)
@@ -481,10 +490,10 @@ visit_phi_node (tree phi)
 	  }
       }
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      dump_lattice_value (dump_file, "\n    PHI node value: ", phi_val);
-      fprintf (dump_file, "\n\n");
+      dump_lattice_value (tree_dump_file, "\n    PHI node value: ", phi_val);
+      fprintf (tree_dump_file, "\n\n");
     }
 
   set_lattice_value (PHI_RESULT (phi), phi_val);
@@ -560,11 +569,11 @@ visit_stmt (tree stmt)
   if (DONT_SIMULATE_AGAIN (stmt))
     return;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "\nVisiting statement: ");
-      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
+      fprintf (tree_dump_file, "\nVisiting statement: ");
+      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+      fprintf (tree_dump_file, "\n");
     }
 
   ann = stmt_ann (stmt);
@@ -738,8 +747,8 @@ add_control_edge (edge e)
 
   cfg_blocks_add (bb);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Adding Destination of edge (%d -> %d) to worklist\n\n",
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "Adding Destination of edge (%d -> %d) to worklist\n\n",
 	     e->src->index, e->dest->index);
 }
 
@@ -936,22 +945,22 @@ evaluate_stmt (tree stmt)
     }
 
   /* Debugging dumps.  */
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Statement evaluates to ");
-      print_generic_stmt (dump_file, simplified, TDF_SLIM);
-      fprintf (dump_file, " which is ");
+      fprintf (tree_dump_file, "Statement evaluates to ");
+      print_generic_stmt (tree_dump_file, simplified, TDF_SLIM);
+      fprintf (tree_dump_file, " which is ");
       if (val.lattice_val == CONSTANT)
 	{
-	  fprintf (dump_file, "constant ");
-	  print_generic_expr (dump_file, simplified, 0);
+	  fprintf (tree_dump_file, "constant ");
+	  print_generic_expr (tree_dump_file, simplified, 0);
 	}
       else if (val.lattice_val == VARYING)
-	fprintf (dump_file, "not a constant");
+	fprintf (tree_dump_file, "not a constant");
       else if (val.lattice_val == UNDEFINED)
-	fprintf (dump_file, "undefined");
+	fprintf (tree_dump_file, "undefined");
 
-      fprintf (dump_file, "\n");
+      fprintf (tree_dump_file, "\n");
     }
 
   return val;
@@ -1145,8 +1154,8 @@ initialize (void)
   /* Compute immediate uses for variables we care about.  */
   compute_immediate_uses (TDFA_USE_OPS, need_imm_uses_for);
 
-  if (dump_file && dump_flags & TDF_DETAILS)
-    dump_immediate_uses (dump_file);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    dump_immediate_uses (tree_dump_file);
 
   VARRAY_BB_INIT (cfg_blocks, 20, "cfg_blocks");
 
@@ -1171,6 +1180,7 @@ finalize (void)
   free (value_vector);
   sbitmap_free (bb_in_list);
   sbitmap_free (executable_blocks);
+  free_df ();
 }
 
 /* Is the block worklist empty.  */
@@ -1283,8 +1293,8 @@ def_to_undefined (tree var)
 
   if (value->lattice_val != UNDEFINED)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
 
       add_var_to_ssa_edges_worklist (var);
       value->lattice_val = UNDEFINED;
@@ -1302,8 +1312,8 @@ def_to_varying (tree var)
 
   if (value->lattice_val != VARYING)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
 
       add_var_to_ssa_edges_worklist (var);
       value->lattice_val = VARYING;
@@ -1330,11 +1340,11 @@ set_lattice_value (tree var, value val)
       if (old_val->lattice_val != CONSTANT
 	  || !(simple_cst_equal (old_val->const_val, val.const_val)) == 1)
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Lattice value changed to ");
-	      print_generic_expr (dump_file, val.const_val, 0);
-	      fprintf (dump_file, ".  Adding definition to SSA edges.\n");
+	      fprintf (tree_dump_file, "Lattice value changed to ");
+	      print_generic_expr (tree_dump_file, val.const_val, 0);
+	      fprintf (tree_dump_file, ".  Adding definition to SSA edges.\n");
 	    }
 
           add_var_to_ssa_edges_worklist (var);
@@ -2081,10 +2091,11 @@ get_default_value (tree var)
 static tree
 ccp_fold_builtin (tree stmt, tree fn)
 {
-  tree result;
-  tree arglist = TREE_OPERAND (fn, 1);
+  tree result, strlen_val[2];
+  tree arglist = TREE_OPERAND (fn, 1), a;
   tree callee = get_callee_fndecl (fn);
   bitmap visited;
+  int strlen_arg, i;
 
   /* Ignore MD builtins.  */
   if (DECL_BUILT_IN_CLASS (callee) == BUILT_IN_MD)
@@ -2096,31 +2107,73 @@ ccp_fold_builtin (tree stmt, tree fn)
   if (result)
     return result;
 
-  /* Otherwise, try to use the dataflow information gathered by the CCP
-     process.  */
+  /* If the builtin could not be folded, and it has no argument list,
+     we're done.  */
+  if (!arglist)
+    return NULL_TREE;
+
+  /* Limit the work only for builtins we know how to simplify.  */
+  switch (DECL_FUNCTION_CODE (callee))
+    {
+    case BUILT_IN_STRLEN:
+    case BUILT_IN_FPUTS:
+    case BUILT_IN_FPUTS_UNLOCKED:
+      strlen_arg = 1;
+      break;
+    case BUILT_IN_STRCPY:
+    case BUILT_IN_STRNCPY:
+      strlen_arg = 2;
+      break;
+    case BUILT_IN_STRCMP:
+    case BUILT_IN_STRNCMP:
+      strlen_arg = 3;
+    default:
+      return NULL_TREE;
+    }
+
+  /* Try to use the dataflow information gathered by the CCP process.  */
   visited = BITMAP_XMALLOC ();
-  if (!get_strlen (TREE_VALUE (arglist), &result, visited))
-    result = NULL_TREE;
+
+  memset (strlen_val, 0, sizeof (strlen_val));
+  for (i = 0, a = arglist;
+       strlen_arg;
+       i++, strlen_arg >>= 1, a = TREE_CHAIN (a))
+    if (strlen_arg & 1)
+      {
+	bitmap_clear (visited);
+	if (!get_strlen (TREE_VALUE (a), &strlen_val[i], visited))
+	  strlen_val[i] = NULL_TREE;
+      }
+
   BITMAP_XFREE (visited);
 
   switch (DECL_FUNCTION_CODE (callee))
     {
-      case BUILT_IN_STRLEN:
-	return result;
+    case BUILT_IN_STRLEN:
+      /* Convert from the internal "sizetype" type to "size_t".  */
+      if (strlen_val[0] && size_type_node)
+	return convert (size_type_node, strlen_val[0]);
+      return strlen_val[0];
+    case BUILT_IN_STRCPY:
+      return simplify_builtin_strcpy (arglist, strlen_val[1]);
+    case BUILT_IN_STRNCPY:
+      return simplify_builtin_strncpy (arglist, strlen_val[1]);
+    case BUILT_IN_STRCMP:
+      return simplify_builtin_strcmp (arglist, strlen_val[0], strlen_val[1]);
+    case BUILT_IN_STRNCMP:
+      return simplify_builtin_strncmp (arglist, strlen_val[0], strlen_val[1]);
+    case BUILT_IN_FPUTS:
+      return simplify_builtin_fputs (arglist,
+				     TREE_CODE (stmt) != MODIFY_EXPR, 0,
+				     strlen_val[0]);
+    case BUILT_IN_FPUTS_UNLOCKED:
+      return simplify_builtin_fputs (arglist,
+				     TREE_CODE (stmt) != MODIFY_EXPR, 1,
+				     strlen_val[0]);
 
-      case BUILT_IN_FPUTS:
-	return simplify_builtin_fputs (arglist,
-				       TREE_CODE (stmt) != MODIFY_EXPR, 0,
-				       result);
-      case BUILT_IN_FPUTS_UNLOCKED:
-	return simplify_builtin_fputs (arglist,
-				       TREE_CODE (stmt) != MODIFY_EXPR, 1,
-				       result);
-
-      default:
-	break;
+    default:
+      abort ();
     }
-
 
   return NULL_TREE;
 }
@@ -2142,11 +2195,7 @@ get_strlen (tree arg, tree *length, bitmap visited)
       if (!val)
 	return false;
 
-      /* Convert from the internal "sizetype" type to "size_t".  */
-      if (size_type_node)
-	val = convert (size_type_node, val);
-      if (*length
-	  && simple_cst_equal (val, *length) != 1)
+      if (*length && simple_cst_equal (val, *length) != 1)
 	return false;
 
       *length = val;
@@ -2179,11 +2228,7 @@ get_strlen (tree arg, tree *length, bitmap visited)
 	  len = c_strlen (rhs, 1);
 	  if (len)
 	    {
-	      /* Convert from the internal "sizetype" type to "size_t".  */
-	      if (size_type_node)
-		len = convert (size_type_node, len);
-	      if (*length
-		  && simple_cst_equal (len, *length) != 1)
+	      if (*length && simple_cst_equal (len, *length) != 1)
 		return false;
 
 	      *length = len;
@@ -2226,5 +2271,68 @@ get_strlen (tree arg, tree *length, bitmap visited)
 
   return false;
 }
+
+
+/* A simple pass that attempts to fold all builtin functions.  This pass
+   is run after we've propagated as many constants as we can.  */
+
+static void
+execute_fold_all_builtins (void)
+{
+  basic_block bb;
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator i;
+      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
+	{
+	  tree *stmtp = bsi_stmt_ptr (i);
+	  tree call = get_rhs (*stmtp);
+	  tree callee, result;
+
+	  if (!call || TREE_CODE (call) != CALL_EXPR)
+	    continue;
+	  callee = get_callee_fndecl (call);
+	  if (!callee || !DECL_BUILT_IN (callee))
+	    continue;
+
+	  result = ccp_fold_builtin (*stmtp, call);
+	  if (!result)
+	    continue;
+
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (tree_dump_file, "Simplified\n  ");
+	      print_generic_stmt (tree_dump_file, *stmtp, 0);
+	    }
+
+	  set_rhs (stmtp, result);
+	  modify_stmt (*stmtp);
+
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (tree_dump_file, "to\n  ");
+	      print_generic_stmt (tree_dump_file, *stmtp, 0);
+	      fprintf (tree_dump_file, "\n");
+	    }
+	}
+    }
+}
+
+struct tree_opt_pass pass_fold_builtins = 
+{
+  "fab",				/* name */
+  NULL,					/* gate */
+  execute_fold_all_builtins,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+};
+
 
 #include "gt-tree-ssa-ccp.h"

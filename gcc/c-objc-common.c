@@ -1,5 +1,5 @@
 /* Some code common to C and ObjC front ends.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -62,7 +62,8 @@ c_disregard_inline_limits (tree fn)
   if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) != NULL)
     return 1;
 
-  return DECL_DECLARED_INLINE_P (fn) && DECL_EXTERNAL (fn);
+  return (!flag_really_no_inline && DECL_DECLARED_INLINE_P (fn)
+	  && DECL_EXTERNAL (fn));
 }
 
 int
@@ -250,8 +251,9 @@ c_objc_common_finish_file (void)
       tree body = start_cdtor ('I');
 
       for (; static_ctors; static_ctors = TREE_CHAIN (static_ctors))
-	c_expand_expr_stmt (build_function_call (TREE_VALUE (static_ctors),
-						 NULL_TREE));
+	expand_expr (build_function_call (TREE_VALUE (static_ctors),
+					  NULL_TREE),
+		     const0_rtx, VOIDmode, EXPAND_NORMAL);
 
       finish_cdtor (body);
     }
@@ -261,8 +263,9 @@ c_objc_common_finish_file (void)
       tree body = start_cdtor ('D');
 
       for (; static_dtors; static_dtors = TREE_CHAIN (static_dtors))
-	c_expand_expr_stmt (build_function_call (TREE_VALUE (static_dtors),
-						 NULL_TREE));
+	expand_expr (build_function_call (TREE_VALUE (static_dtors),
+					  NULL_TREE),
+		     const0_rtx, VOIDmode, EXPAND_NORMAL);
 
       finish_cdtor (body);
     }

@@ -379,19 +379,37 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
 {
   gfc_se se;
   tree tmp;
+  tree msg;
+  tree io;
+  tree len;
 
   gfc_init_se (&se, NULL);
   gfc_conv_expr (&se, e);
-  gfc_conv_string_parameter (&se);
+
+  io = build (COMPONENT_REF, TREE_TYPE (var), ioparm_var, var);
+  len = build (COMPONENT_REF, TREE_TYPE (var_len), ioparm_var, var_len);
+
+  /*  Integer variable assigned a format label.  */
+  if (e->ts.type == BT_INTEGER && e->symtree->n.sym->attr.assign == 1)
+    {
+      msg =
+        gfc_build_string_const (37, "Assigned label is not a format label");
+      tmp = GFC_DECL_STRING_LENGTH (se.expr);
+      tmp = build (LE_EXPR, boolean_type_node, tmp, integer_minus_one_node);
+      gfc_trans_runtime_check (tmp, msg, &se.pre);
+      gfc_add_modify_expr (&se.pre, io, GFC_DECL_ASSIGN_ADDR (se.expr));
+      gfc_add_modify_expr (&se.pre, len, GFC_DECL_STRING_LENGTH (se.expr));
+    }
+  else
+    {
+      gfc_conv_string_parameter (&se);
+      gfc_add_modify_expr (&se.pre, io, se.expr);
+      gfc_add_modify_expr (&se.pre, len, se.string_length);
+    }
 
   gfc_add_block_to_block (block, &se.pre);
   gfc_add_block_to_block (postblock, &se.post);
 
-  tmp = build (COMPONENT_REF, TREE_TYPE (var), ioparm_var, var);
-  gfc_add_modify_expr (block, tmp, se.expr);
-
-  tmp = build (COMPONENT_REF, TREE_TYPE (var_len), ioparm_var, var_len);
-  gfc_add_modify_expr (block, tmp, se.string_length);
 }
 
 

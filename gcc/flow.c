@@ -141,14 +141,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "obstack.h"
 #include "splay-tree.h"
 
-/* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
-   the stack pointer does not matter.  The value is tested only in
-   functions that have frame pointers.
-   No definition is equivalent to always zero.  */
-#ifndef EXIT_IGNORE_STACK
-#define EXIT_IGNORE_STACK 0
-#endif
-
 #ifndef HAVE_epilogue
 #define HAVE_epilogue 0
 #endif
@@ -159,9 +151,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define HAVE_sibcall_epilogue 0
 #endif
 
-#ifndef LOCAL_REGNO
-#define LOCAL_REGNO(REGNO)  0
-#endif
 #ifndef EPILOGUE_USES
 #define EPILOGUE_USES(REGNO)  0
 #endif
@@ -379,7 +368,7 @@ first_insn_after_basic_block_note (basic_block block)
   rtx insn;
 
   /* Get the first instruction in the block.  */
-  insn = block->head;
+  insn = BB_HEAD (block);
 
   if (insn == NULL_RTX)
     return NULL_RTX;
@@ -464,7 +453,10 @@ life_analysis (rtx f, FILE *file, int flags)
      is not immediately handy.  */
 
   if (flags & PROP_REG_INFO)
-    memset (regs_ever_live, 0, sizeof (regs_ever_live));
+    {
+      memset (regs_ever_live, 0, sizeof (regs_ever_live));
+      memset (regs_asm_clobbered, 0, sizeof (regs_asm_clobbered));
+    }
   update_life_info (NULL, UPDATE_LIFE_GLOBAL, flags);
 
   /* Clean up.  */
@@ -505,7 +497,7 @@ verify_wide_reg_1 (rtx *px, void *pregno)
 static void
 verify_wide_reg (int regno, basic_block bb)
 {
-  rtx head = bb->head, end = bb->end;
+  rtx head = BB_HEAD (bb), end = BB_END (bb);
 
   while (1)
     {
@@ -822,7 +814,7 @@ delete_noop_moves (rtx f ATTRIBUTE_UNUSED)
 
   FOR_EACH_BB (bb)
     {
-      for (insn = bb->head; insn != NEXT_INSN (bb->end); insn = next)
+      for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb)); insn = next)
 	{
 	  next = NEXT_INSN (insn);
 	  if (INSN_P (insn) && noop_move_p (insn))
@@ -1844,8 +1836,8 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
   /* If this block ends in a conditional branch, for each register
      live from one side of the branch and not the other, record the
      register as conditionally dead.  */
-  if (GET_CODE (bb->end) == JUMP_INSN
-      && any_condjump_p (bb->end))
+  if (GET_CODE (BB_END (bb)) == JUMP_INSN
+      && any_condjump_p (BB_END (bb)))
     {
       regset_head diff_head;
       regset diff = INITIALIZE_REG_SET (diff_head);
@@ -1870,7 +1862,7 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
       else
 	{
 	  /* This can happen with a conditional jump to the next insn.  */
-	  if (JUMP_LABEL (bb->end) != bb_true->head)
+	  if (JUMP_LABEL (BB_END (bb)) != BB_HEAD (bb_true))
 	    abort ();
 
 	  /* Simplest way to do nothing.  */
@@ -1882,7 +1874,7 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 			    bb_false->global_live_at_start, BITMAP_XOR))
 	{
 	  /* Extract the condition from the branch.  */
-	  rtx set_src = SET_SRC (pc_set (bb->end));
+	  rtx set_src = SET_SRC (pc_set (BB_END (bb)));
 	  rtx cond_true = XEXP (set_src, 0);
 	  rtx reg = XEXP (cond_true, 0);
 
@@ -1951,7 +1943,7 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 	      && ! current_function_calls_eh_return)))
     {
       rtx insn, set;
-      for (insn = bb->end; insn != bb->head; insn = PREV_INSN (insn))
+      for (insn = BB_END (bb); insn != BB_HEAD (bb); insn = PREV_INSN (insn))
 	if (GET_CODE (insn) == INSN
 	    && (set = single_set (insn))
 	    && GET_CODE (SET_DEST (set)) == MEM)
@@ -2031,7 +2023,7 @@ propagate_block (basic_block bb, regset live, regset local_set,
   /* Scan the block an insn at a time from end to beginning.  */
 
   changed = 0;
-  for (insn = bb->end;; insn = prev)
+  for (insn = BB_END (bb); ; insn = prev)
     {
       /* If this is a call to `setjmp' et al, warn if any
 	 non-volatile datum is live.  */
@@ -2046,7 +2038,7 @@ propagate_block (basic_block bb, regset live, regset local_set,
       else
         changed |= NEXT_INSN (prev) != insn;
 
-      if (insn == bb->head)
+      if (insn == BB_HEAD (bb))
 	break;
     }
 
@@ -2445,6 +2437,7 @@ mark_set_regs (struct propagate_block_info *pbi, rtx x, rtx insn)
   rtx cond = NULL_RTX;
   rtx link;
   enum rtx_code code;
+  int flags = pbi->flags;
 
   if (insn)
     for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
@@ -2453,14 +2446,17 @@ mark_set_regs (struct propagate_block_info *pbi, rtx x, rtx insn)
 	  mark_set_1 (pbi, SET, XEXP (link, 0),
 		      (GET_CODE (x) == COND_EXEC
 		       ? COND_EXEC_TEST (x) : NULL_RTX),
-		      insn, pbi->flags);
+		      insn, flags);
       }
  retry:
   switch (code = GET_CODE (x))
     {
     case SET:
+      if (GET_CODE (XEXP (x, 1)) == ASM_OPERANDS)
+	flags |= PROP_ASM_SCAN;
+      /* Fall through */
     case CLOBBER:
-      mark_set_1 (pbi, code, SET_DEST (x), cond, insn, pbi->flags);
+      mark_set_1 (pbi, code, SET_DEST (x), cond, insn, flags);
       return;
 
     case COND_EXEC:
@@ -2472,7 +2468,9 @@ mark_set_regs (struct propagate_block_info *pbi, rtx x, rtx insn)
       {
 	int i;
 
-	for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
+	/* We must scan forwards.  If we have an asm, we need to set
+	   the PROP_ASM_SCAN flag before scanning the clobbers.  */
+	for (i = 0; i < XVECLEN (x, 0); i++)
 	  {
 	    rtx sub = XVECEXP (x, 0, i);
 	    switch (code = GET_CODE (sub))
@@ -2483,13 +2481,24 @@ mark_set_regs (struct propagate_block_info *pbi, rtx x, rtx insn)
 
 		cond = COND_EXEC_TEST (sub);
 		sub = COND_EXEC_CODE (sub);
-		if (GET_CODE (sub) != SET && GET_CODE (sub) != CLOBBER)
-		  break;
-		/* Fall through.  */
+		if (GET_CODE (sub) == SET)
+		  goto mark_set;
+		if (GET_CODE (sub) == CLOBBER)
+		  goto mark_clob;
+		break;
 
 	      case SET:
+	      mark_set:
+		if (GET_CODE (XEXP (sub, 1)) == ASM_OPERANDS)
+		  flags |= PROP_ASM_SCAN;
+		/* Fall through */
 	      case CLOBBER:
-		mark_set_1 (pbi, code, SET_DEST (sub), cond, insn, pbi->flags);
+	      mark_clob:
+		mark_set_1 (pbi, code, SET_DEST (sub), cond, insn, flags);
+		break;
+
+	      case ASM_OPERANDS:
+		flags |= PROP_ASM_SCAN;
 		break;
 
 	      default:
@@ -2713,6 +2722,9 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
 		{
 		  for (i = regno_first; i <= regno_last; i++)
 		    regs_ever_live[i] = 1;
+		  if (flags & PROP_ASM_SCAN)
+		    for (i = regno_first; i <= regno_last; i++)
+		      regs_asm_clobbered[i] = 1;
 		}
 	      else
 		{
@@ -2798,6 +2810,14 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
     {
       if (flags & (PROP_LOG_LINKS | PROP_AUTOINC))
 	pbi->reg_next_use[regno_first] = 0;
+
+      if ((flags & PROP_REG_INFO) != 0
+	  && (flags & PROP_ASM_SCAN) != 0
+	  &&  regno_first < FIRST_PSEUDO_REGISTER)
+	{
+	  for (i = regno_first; i <= regno_last; i++)
+	    regs_asm_clobbered[i] = 1;
+	}
     }
 
   /* If this is the last pass and this is a SCRATCH, show it will be dying
@@ -3291,8 +3311,8 @@ attempt_auto_inc (struct propagate_block_info *pbi, rtx inc, rtx insn,
 	 new insn(s) and do the updates.  */
       emit_insn_before (insns, insn);
 
-      if (pbi->bb->head == insn)
-	pbi->bb->head = insns;
+      if (BB_HEAD (pbi->bb) == insn)
+	BB_HEAD (pbi->bb) = insns;
 
       /* INCR will become a NOTE and INSN won't contain a
 	 use of INCR_REG.  If a use of INCR_REG was just placed in
@@ -4172,7 +4192,6 @@ count_or_remove_death_notes (sbitmap blocks, int kill)
   int i;
   basic_block bb;
 
-  
   /* This used to be a loop over all the blocks with a membership test
      inside the loop.  That can be amazingly expensive on a large CFG
      when only a small number of bits are set in BLOCKs (for example,
@@ -4207,7 +4226,7 @@ count_or_remove_death_notes_bb (basic_block bb, int kill)
   int count = 0;
   rtx insn;
 
-  for (insn = bb->head;; insn = NEXT_INSN (insn))
+  for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
 	{
@@ -4251,7 +4270,7 @@ count_or_remove_death_notes_bb (basic_block bb, int kill)
 	    }
 	}
 
-      if (insn == bb->end)
+      if (insn == BB_END (bb))
 	break;
     }
 
@@ -4278,7 +4297,7 @@ clear_log_links (sbitmap blocks)
       {
 	basic_block bb = BASIC_BLOCK (i);
 
-	for (insn = bb->head; insn != NEXT_INSN (bb->end);
+	for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb));
 	     insn = NEXT_INSN (insn))
 	  if (INSN_P (insn))
 	    free_INSN_LIST_list (&LOG_LINKS (insn));

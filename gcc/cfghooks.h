@@ -24,14 +24,16 @@ Boston, MA 02111-1307, USA.  */
 
 struct cfg_hooks
 {
-  /* Debugging.  Do not use macros to hook these so they can be called from
-     debugger!  */
-  int (*cfgh_verify_flow_info) (void);
+  /* Name of the corresponding ir.  */
+  const char *name;
+
+  /* Debugging.  */
+  int (*verify_flow_info) (void);
   void (*dump_bb) (basic_block, FILE *, int);
 
   /* Basic CFG manipulation.  */
 
-  /* Return new basic block */
+  /* Return new basic block.  */
   basic_block (*create_basic_block) (void *head, void *end, basic_block after);
 
   /* Redirect edge E to the given basic block B and update underlying program
@@ -45,17 +47,15 @@ struct cfg_hooks
      on abnormal edge.  */
   basic_block (*redirect_edge_and_branch_force) (edge, basic_block);
 
-  /* Remove given basic block and all edges possibly pointing into it.  */
+  /* Remove statements corresponding to a given basic block.  */
   void (*delete_basic_block) (basic_block);
 
-  /* Split basic block B after specified instruction I.  */
-  edge (*split_block) (basic_block b, void * i);
+  /* Creates a new basic block just after basic block B by splitting
+     everything after specified instruction I.  */
+  basic_block (*split_block) (basic_block b, void * i);
 
-  /* Split basic block B immediatelly after labels.  */
-  edge (*split_block_after_labels) (basic_block b);
-
-  /* Move block B immediatelly after block A.  */
-  void (*move_block_after) (basic_block b, basic_block a);
+  /* Move block B immediately after block A.  */
+  bool (*move_block_after) (basic_block b, basic_block a);
 
   /* Return true when blocks A and B can be merged into single basic block.  */
   bool (*can_merge_blocks_p) (basic_block a, basic_block b);
@@ -63,37 +63,49 @@ struct cfg_hooks
   /* Merge blocks A and B.  */
   void (*merge_blocks) (basic_block a, basic_block b);
 
+  /* Predict edge E using PREDICTOR to given PROBABILITY.  */
+  void (*predict_edge) (edge e, enum br_predictor predictor, int probability);
+
+  /* Return true if the one of outgoing edges is already predicted by
+     PREDICTOR.  */
+  bool (*predicted_by_p) (basic_block bb, enum br_predictor predictor);
+
   /* Higher level functions representable by primitive operations above if
      we didn't have some oddities in RTL and Tree representations.  */
-  basic_block (*cfgh_split_edge) (edge);
-  edge (*cfgh_make_forwarder_block) (basic_block, bool (*)(edge),
-				     void (*) (basic_block));
-  struct loops *(*cfgh_loop_optimizer_init) (FILE *);
-  void (*cfgh_loop_optimizer_finalize) (struct loops *, FILE *);
+  basic_block (*split_edge) (edge);
+  void (*make_forwarder_block) (edge);
+
+  /* Tries to make the edge fallthru.  */
+  void (*tidy_fallthru_edge) (edge);
 };
 
-#define redirect_edge_and_branch(e,b)        cfg_hooks->redirect_edge_and_branch (e,b)
-#define redirect_edge_and_branch_force(e,b)  cfg_hooks->redirect_edge_and_branch_force (e,b)
-#define split_block(b,i)                     cfg_hooks->split_block (b,i)
-#define split_block_after_labels(b)          cfg_hooks->split_block_after_labels (b)
-#define move_block_after(b, a)               cfg_hooks->move_block_after (b, a)
-#define delete_basic_block(b)                cfg_hooks->delete_basic_block (b)
-#define split_edge(e)                        cfg_hooks->cfgh_split_edge (e)
-#define create_basic_block(h,e,a)            cfg_hooks->create_basic_block (h,e,a)
-#define can_merge_blocks_p(a,b)		     cfg_hooks->can_merge_blocks_p (a,b)
-#define merge_blocks(a,b)		     cfg_hooks->merge_blocks (a,b)
-#define make_forwarder_block(a, b, c)        cfg_hooks->cfgh_make_forwarder_block (a, b, c)
-#define loop_optimizer_init(a)               cfg_hooks->cfgh_loop_optimizer_init (a)
-#define loop_optimizer_finalize(a, b)        cfg_hooks->cfgh_loop_optimizer_finalize (a, b)
+extern void verify_flow_info (void);
+extern void dump_bb (basic_block, FILE *, int);
+extern edge redirect_edge_and_branch (edge, basic_block);
+extern basic_block redirect_edge_and_branch_force (edge, basic_block);
+extern edge split_block (basic_block, void *);
+extern edge split_block_after_labels (basic_block);
+extern bool move_block_after (basic_block, basic_block);
+extern void delete_basic_block (basic_block);
+extern basic_block split_edge (edge);
+extern basic_block create_basic_block (void *, void *, basic_block);
+extern basic_block create_empty_bb (basic_block);
+extern bool can_merge_blocks_p (basic_block, basic_block);
+extern void merge_blocks (basic_block, basic_block);
+extern edge make_forwarder_block (basic_block, bool (*)(edge),
+				  void (*) (basic_block));
+extern void tidy_fallthru_edge (edge);
+extern void tidy_fallthru_edges (void);
+extern void predict_edge (edge e, enum br_predictor predictor, int probability);
+extern bool predicted_by_p (basic_block bb, enum br_predictor predictor);
 
 /* Hooks containers.  */
 extern struct cfg_hooks tree_cfg_hooks;
 extern struct cfg_hooks rtl_cfg_hooks;
-
-/* A pointer to one of the hooks containers.  */
-extern struct cfg_hooks *cfg_hooks;
+extern struct cfg_hooks cfg_layout_rtl_cfg_hooks;
 
 /* Declarations.  */
+extern int ir_type (void);
 extern void rtl_register_cfg_hooks (void);
 extern void cfg_layout_rtl_register_cfg_hooks (void);
 extern void tree_register_cfg_hooks (void);

@@ -484,19 +484,27 @@ struct lang_type		GTY(())
   tree dataptr_type;
 };
 
-/* String nodes only.  */
 struct lang_decl		GTY(())
 {
+  /* String nodes.  */
   tree stringlength;
   tree saved_descriptor;
+  /* Assigned integer nodes.  Stringlength is the IO format string's length.
+     Addr is the address of the string or the target label. Stringlength is
+     initialized to -2 and assiged to -1 when addr is assigned to the
+     address of target label.  */
+  tree addr;
 };
 
+
+#define GFC_DECL_ASSIGN_ADDR(node) DECL_LANG_SPECIFIC(node)->addr
 #define GFC_DECL_STRING_LENGTH(node) (DECL_LANG_SPECIFIC(node)->stringlength)
 #define GFC_DECL_SAVED_DESCRIPTOR(node) \
   (DECL_LANG_SPECIFIC(node)->saved_descriptor)
 #define GFC_DECL_STRING(node) DECL_LANG_FLAG_0(node)
 #define GFC_DECL_PACKED_ARRAY(node) DECL_LANG_FLAG_1(node)
 #define GFC_DECL_PARTIAL_PACKED_ARRAY(node) DECL_LANG_FLAG_2(node)
+#define GFC_DECL_ASSIGN(node) DECL_LANG_FLAG_3(node)
 
 #define GFC_KNOWN_SIZE_STRING_TYPE(node) TYPE_LANG_FLAG_0(node)
 /* An array descriptor.  */

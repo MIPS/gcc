@@ -1348,6 +1348,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator bsi;
+      tree phi;
 
       /* Start with live on exit temporaries.  */
       bitmap_copy (live, live_on_exit (liveinfo, bb));
@@ -1425,6 +1426,20 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 		  set_if_valid (map, live, *var_p);
 		}
 	    }
+	}
+
+      /* If result of a PHI is unused, then the loops over the statements
+	 will not record any conflicts.  However, since the PHI node is 
+	 going to be translated out of SSA form we must record a conflict
+	 between the result of the PHI and any variables with are live. 
+	 Otherwise the out-of-ssa translation may create incorrect code.  */
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	{
+	  tree result = PHI_RESULT (phi);
+	  int p = var_to_partition (map, result);
+
+	  if (p != NO_PARTITION && ! bitmap_bit_p (live, p))
+	    add_conflicts_if_valid (tpa, graph, map, live, result);
 	}
 
       /* Anything which is still live at this point interferes.  

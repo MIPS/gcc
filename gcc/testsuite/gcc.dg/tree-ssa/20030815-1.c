@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom2" } */
+/* { dg-options "-O1 -fdump-tree-dom3" } */
 
 typedef unsigned int size_t;
 struct rtx_def;
@@ -36,6 +36,6 @@ blah (unsigned int regno)
 
 /* If we have a cast to a struct rtx_def * *, then we failed to
    eliminate some useless typecasting.  */
-/* { dg-final { scan-tree-dump-times "\\(struct rtx_def \\* \\*\\)" 0 "dom2"} } */
+/* { dg-final { scan-tree-dump-times "\\(struct rtx_def \\* \\*\\)" 0 "dom3"} } */
                                                                                 
 

@@ -335,7 +335,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	  break;
 
 	case REF_SUBSTRING:
-	  gfc_conv_substring (se, ref, sym->ts.kind);
+	  gfc_conv_substring (se, ref, expr->ts.kind);
 	  break;
 
 	default:

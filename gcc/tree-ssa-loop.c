@@ -31,27 +31,22 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "tree-flow.h"
 #include "tree-dump.h"
+#include "tree-pass.h"
 #include "timevar.h"
 #include "cfgloop.h"
 #include "tree-inline.h"
-
-FILE *loop_dump_file;
-int loop_dump_flags;
+#include "flags.h"
 
 /* The main entry into loop optimization pass.  PHASE indicates which dump file
    from the DUMP_FILES array to use when dumping debugging information.
    FNDECL is the current function decl.  */
 
-void
-tree_ssa_loop_opt (tree fndecl ATTRIBUTE_UNUSED,
-		   enum tree_dump_index phase ATTRIBUTE_UNUSED)
+static void
+tree_ssa_loop_opt (void)
 {
   struct loops *loops;
 
-  loop_dump_file = dump_begin (phase, &loop_dump_flags);
-
-  timevar_push (TV_TREE_LOOP);
-  loops = loop_optimizer_init (loop_dump_file);
+  loops = loop_optimizer_init (tree_dump_file);
 
   if (loops)
     {
@@ -62,17 +57,10 @@ tree_ssa_loop_opt (tree fndecl ATTRIBUTE_UNUSED,
       tree_ssa_lim (loops);
 
       loop_optimizer_finalize (loops,
-			       ((loop_dump_flags & TDF_DETAILS)
-				? loop_dump_file 
-				: NULL));
-      cleanup_tree_cfg ();
-    }
-  timevar_pop (TV_TREE_LOOP);
+			       (tree_dump_flags & TDF_DETAILS
+				? tree_dump_file : NULL));
 
-  if (loop_dump_file)
-    {
-      dump_function_to_file (fndecl, loop_dump_file, loop_dump_flags);
-      dump_end (phase, loop_dump_file);
+      cleanup_tree_cfg ();
     }
 }
 
@@ -133,12 +121,10 @@ should_duplicate_loop_header_p (struct loop *loop, int *limit)
 }
 
 /* For all loops, copy the condition at the end of the loop body in front
-   of the loop.  PHASE indicates which dump file from the DUMP_FILES array
-   to use when dumping debugging information.  FNDECL is the current function
-   decl.  */
+   of the loop.  */
 
-void
-copy_loop_headers (tree fndecl, enum tree_dump_index phase)
+static void
+copy_loop_headers (void)
 {
   struct loops *loops;
   unsigned i;
@@ -146,18 +132,9 @@ copy_loop_headers (tree fndecl, enum tree_dump_index phase)
   basic_block header_copy, preheader, new_header;
   edge preheader_edge, succ_in_loop;
 
-  timevar_push (TV_TREE_LOOP);
-
-  loop_dump_file = dump_begin (phase, &loop_dump_flags);
-
-  loops = loop_optimizer_init (loop_dump_file);
+  loops = loop_optimizer_init (tree_dump_file);
   if (!loops)
-    {
-      if (loop_dump_file)
-	dump_end (phase, loop_dump_file);
-      timevar_pop (TV_TREE_LOOP);
-      return;
-    }
+    return;
   
   /* We are not going to need or update dominators.  */
   free_dominance_info (CDI_DOMINATORS);
@@ -217,20 +194,49 @@ copy_loop_headers (tree fndecl, enum tree_dump_index phase)
 #endif
 
   loop_optimizer_finalize (loops,
-			   ((loop_dump_flags & TDF_DETAILS)
-			    ? loop_dump_file 
-			    : NULL));
-
-  timevar_pop (TV_TREE_LOOP);
+			   (tree_dump_flags & TDF_DETAILS
+			    ? tree_dump_file : NULL));
 
   /* Run cleanup_tree_cfg here regardless of whether we have done anything, so
      that we cleanup the blocks created in order to get the loops into a
      canonical shape.  */
   cleanup_tree_cfg ();
-
-  if (loop_dump_file)
-    {
-      dump_function_to_file (fndecl, loop_dump_file, loop_dump_flags);
-      dump_end (phase, loop_dump_file);
-    }
 }
+
+static bool
+gate_loop (void)
+{
+  return flag_tree_loop != 0;
+}
+
+struct tree_opt_pass pass_loop = 
+{
+  "loop",				/* name */
+  gate_loop,				/* gate */
+  tree_ssa_loop_opt,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_LOOP,				/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+};
+
+struct tree_opt_pass pass_ch = 
+{
+  "ch",					/* name */
+  gate_loop,				/* gate */
+  copy_loop_headers,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_LOOP,				/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+};

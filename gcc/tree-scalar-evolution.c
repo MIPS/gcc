@@ -131,6 +131,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-chrec.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
+#include "tree-pass.h"
+#include "tree-vectorizer.h"
+#include "flags.h"
 
 
 /* Analyzers on the SSA representation.  */
@@ -235,10 +238,6 @@ tree chrec_symbolic_parameter;
 
 static struct loops *scev_loops;
 static varray_type scev_info;
-
-/* Debugging dumps.  */
-static FILE *dump_file;
-static int dump_flags;
 
 
 
@@ -3731,9 +3730,6 @@ initialize_scalar_evolutions_analyzer (struct loops *loops,
   scev_loops = loops;
   scev_info = ev_info;
   
-  /* Initialize debugging dumps.  */
-  dump_file = dump_begin (TDI_scev, &dump_flags);
-    
 #if 0
   DBG_S (fprintf (stderr, "Loop and SSA IRs:\n");
 	 debug_loop_ir ());
@@ -3756,12 +3752,8 @@ initialize_scalar_evolutions_analyzer (struct loops *loops,
 void 
 finalize_scalar_evolutions_analyzer (void)
 {
-  if (dump_file)
-    {
-      fprintf (dump_file, "\n\n");
-      dump_end (TDI_scev, dump_file);
-      dump_file = NULL;
-    }
+  if (tree_dump_file)
+    fprintf (tree_dump_file, "\n\n");
 }
 
 /* Helper function.  */
@@ -3780,8 +3772,8 @@ analyze_scalar_evolution_1 (unsigned loop_nb,
   construct_schedule (loop_nb, version, analysis_schedule);
   analyze_scalars_from_schedule (analysis_schedule);
   
-  if (dump_file)
-    dump_evolution_functions (dump_file, analysis_schedule);
+  if (tree_dump_file)
+    dump_evolution_functions (tree_dump_file, analysis_schedule);
   
   varray_clear (analysis_schedule);
 
@@ -4104,8 +4096,6 @@ number_of_iterations_for_all_loops (varray_type exit_conditions)
 {
   unsigned int i;
   
-  timevar_push (TV_SCALAR_EVOLUTIONS);
-  
   for (i = 0; i < VARRAY_ACTIVE_SIZE (exit_conditions); i++)
     {
       tree exit_condition, nb_iter;
@@ -4113,6 +4103,178 @@ number_of_iterations_for_all_loops (varray_type exit_conditions)
       exit_condition = VARRAY_TREE (exit_conditions, i);
       nb_iter = number_of_iterations_in_loop (loop_of_stmt (exit_condition));
     }
-  
-  timevar_pop (TV_SCALAR_EVOLUTIONS);
 }
+
+static struct loops *current_loops;
+static varray_type ev_info;
+
+/* Runs the analysis of scalar evolutions.  */
+
+static void
+scev_init (void)
+{
+  current_loops = loop_optimizer_init (NULL);
+	  
+  if (!current_loops)
+    return;
+
+  VARRAY_GENERIC_PTR_INIT (ev_info, 37, "ev_info");
+  initialize_scalar_evolutions_analyzer (current_loops, ev_info);
+}
+
+static void
+scev_anal (void)
+{
+  varray_type exit_conditions;
+
+  VARRAY_GENERIC_PTR_INIT (exit_conditions, 37, "exit_conditions");
+  select_loops_exit_conditions (current_loops, exit_conditions);
+  number_of_iterations_for_all_loops (exit_conditions);
+  varray_clear (exit_conditions);
+}
+
+static void
+scev_depend (void)
+{
+  analyze_all_data_dependences ();
+}
+
+static void
+scev_vectorize (void)
+{
+  bitmap_clear (vars_to_rename);
+
+  vectorize_loops (current_loops, ev_info);
+}
+
+static void
+scev_done (void)
+{
+  if (current_loops)
+    {
+      varray_clear (ev_info);
+      finalize_scalar_evolutions_analyzer ();
+      loop_optimizer_finalize (current_loops, NULL);
+      current_loops = NULL;
+    }
+}
+
+static bool
+gate_scev (void)
+{
+  return flag_scalar_evolutions || flag_tree_vectorize;
+}
+
+struct tree_opt_pass pass_scev = 
+{
+  "scev",				/* name */
+  gate_scev,				/* gate */
+  NULL,					/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func			/* todo_flags_finish */
+};
+
+struct tree_opt_pass pass_scev_init = 
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  scev_init,				/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
+
+static bool
+gate_scev_anal (void)
+{
+  return current_loops && flag_scalar_evolutions != 0;
+}
+
+struct tree_opt_pass pass_scev_anal = 
+{
+  "scev-anal",				/* name */
+  gate_scev_anal,			/* gate */
+  scev_anal,				/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_SCALAR_EVOLUTIONS,			/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
+
+static bool
+gate_scev_depend (void)
+{
+  return current_loops && flag_all_data_deps != 0;
+}
+
+struct tree_opt_pass pass_scev_depend = 
+{
+  "alldd",				/* name */
+  gate_scev_depend,			/* gate */
+  scev_depend,				/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_ALL_DATA_DEPS,			/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
+
+static bool
+gate_scev_vectorize (void)
+{
+  return current_loops && flag_tree_vectorize != 0;
+}
+
+struct tree_opt_pass pass_scev_vectorize = 
+{
+  "vect",				/* name */
+  gate_scev_vectorize,			/* gate */
+  scev_vectorize,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_VECTORIZATION,		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_rename_vars	/* todo_flags_finish */
+};
+
+struct tree_opt_pass pass_scev_done = 
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  scev_done,				/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};

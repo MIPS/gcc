@@ -1,6 +1,6 @@
 /* Front-end tree definitions for GNU compiler.
    Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -243,8 +243,6 @@ struct tree_common GTY(())
            all expressions
        TYPE_READONLY in
            ..._TYPE
-       FUNCTION_RECEIVES_NONLOCAL_GOTO
-	   FUNCTION_DECL
        NONLOCAL_LABEL in
 	   LABEL_DECL
 
@@ -298,8 +296,7 @@ struct tree_common GTY(())
 /* The tree-code says what kind of node it is.
    Codes are defined in tree.def.  */
 #define TREE_CODE(NODE) ((enum tree_code) (NODE)->common.code)
-#define TREE_SET_CODE(NODE, VALUE) \
-((NODE)->common.code = (ENUM_BITFIELD (tree_code)) (VALUE))
+#define TREE_SET_CODE(NODE, VALUE) ((NODE)->common.code = (VALUE))
 
 /* When checking is enabled, errors will be generated if a tree node
    is accessed incorrectly. The macros abort with a fatal error.  */
@@ -665,8 +662,6 @@ extern void tree_operand_check_failed (int, enum tree_code,
    (but the macro TYPE_READONLY should be used instead of this macro
    when the node is a type).  */
 #define TREE_READONLY(NODE) ((NODE)->common.readonly_flag)
-
-#define FUNCTION_RECEIVES_NONLOCAL_GOTO(NODE) ((NODE)->common.readonly_flag)
 
 /* In a LABEL_DECL, nonzero means this label is a jump target for
    a nonlocal goto.  */
@@ -2041,9 +2036,9 @@ struct tree_type GTY(())
 #define DECL_POINTER_ALIAS_SET(NODE) \
   (DECL_CHECK (NODE)->decl.pointer_alias_set)
 
-/* Used to store the alias_typevar for a DECL node. */
-#define DECL_PTA_TYPEVAR(NODE) \
-  (DECL_CHECK (NODE)->decl.typevar)
+/* Used to store the alias_var for a DECL node. */
+#define DECL_PTA_ALIASVAR(NODE) \
+  (DECL_CHECK (NODE)->decl.alias_var)
 
 /* A numeric unique identifier for a LABEL_DECL.  The UID allocation is
    dense, unique within any one function, and may be used to index arrays.
@@ -2078,7 +2073,7 @@ enum symbol_visibility
 };
 
 struct function;
-union alias_typevar_def;
+union alias_var_def;
 struct tree_decl GTY(())
 {
   struct tree_common common;
@@ -2179,7 +2174,7 @@ struct tree_decl GTY(())
 
   tree vindex;
   HOST_WIDE_INT pointer_alias_set;
-  union alias_typevar_def *GTY ((skip(""))) typevar;
+  union alias_var_def *GTY ((skip(""))) alias_var;
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_decl *lang_specific;
 };
@@ -3567,7 +3562,7 @@ tree walk_tree_without_duplicates (tree*, walk_tree_fn, void*);
 /* In tree-dump.c */
 
 /* Different tree dump places.  When you add new tree dump places,
-   extend the DUMP_FILES array in tree-dump.c */
+   extend the DUMP_FILES array in tree-dump.c.  */
 enum tree_dump_index
 {
   TDI_none,			/* No dump */
@@ -3577,46 +3572,10 @@ enum tree_dump_index
   TDI_generic,			/* dump each function after genericizing it */
   TDI_inlined,			/* dump each function after inlining
 				   within it.  */
-  TDI_gimple,			/* dump each function after gimplifying it.  */
-  TDI_useless,			/* dump after cleaning useless bits.  */
-  TDI_mudflap1,
-  TDI_lower,			/* dump after lowering containers.  */
-  TDI_eh,			/* dump after lowering eh.  */
-  TDI_cfg,			/* dump the flowgraph for each function.  */
   TDI_dot,			/* create a dot graph file for each 
 				   function's flowgraph.  */
-  TDI_pta,                      /* dump points-to information for each
-				   function.  */
-  TDI_alias,			/* dump aliasing information.  */
-
-  /* Optimization passes.  The ordering and numbering of these phases must
-     be the same as the one in optimize_function_tree.  */
-  TDI_copy_headers,
-  TDI_ssa_1,
-  TDI_dom_1,
-  TDI_ssa_2,
-  TDI_dce_1,
-  TDI_mustalias,
-  TDI_ssa_3,
-  TDI_tail1,			/* dump after tail recursion elimination  */
-  TDI_sra,
-  TDI_ssa_4,
-  TDI_loop,
-  TDI_ccp,
-  TDI_ssa_5,
-  TDI_pre,
-  TDI_dom_2,
-  TDI_ssa_6,
-  TDI_dce_2,
-  TDI_scev,                     /* dump scalar evolutions.  */
-  TDI_alldd,                    /* dump all data dependences.  */
-  TDI_vect,                     /* dump each function after vectorization.  */
-  TDI_tail2,			/* dump after tail recursion/tail call */
-  TDI_optimized,
-  TDI_mudflap2,
-
   TDI_xml,                      /* dump function call graph.   */
-  TDI_all,			/* enable all the dumps above.  */
+  TDI_all,			/* enable all the dumps.  */
   TDI_end
 };
 
@@ -3625,7 +3584,7 @@ enum tree_dump_index
    values, extend the DUMP_OPTIONS array in tree-dump.c */
 #define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
 #define TDF_SLIM	(1 << 1)	/* don't go wild following links */
-#define TDF_RAW  	(1 << 2)	/* unparse the function */
+#define TDF_RAW  	(1 << 2)	/* don't unparse the function */
 #define TDF_DETAILS	(1 << 3)	/* show more detailed info about
 					   each pass */
 #define TDF_STATS	(1 << 4)	/* dump various statistics about

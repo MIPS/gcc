@@ -408,7 +408,7 @@ save_call_clobbered_regs (void)
 		  regno += insert_restore (chain, 1, regno, MOVE_MAX_WORDS, save_mode);
 	    }
 
-	  if (code == CALL_INSN)
+	  if (code == CALL_INSN && ! find_reg_note (insn, REG_NORETURN, NULL))
 	    {
 	      int regno;
 	      HARD_REG_SET hard_regs_to_save;
@@ -568,8 +568,10 @@ mark_referenced_regs (rtx x)
     {
       x = SET_DEST (x);
       code = GET_CODE (x);
-      if (code == REG || code == PC || code == CC0
+      if ((code == REG && REGNO (x) < FIRST_PSEUDO_REGISTER)
+	  || code == PC || code == CC0
 	  || (code == SUBREG && GET_CODE (SUBREG_REG (x)) == REG
+	      && REGNO (SUBREG_REG (x)) < FIRST_PSEUDO_REGISTER
 	      /* If we're setting only part of a multi-word register,
 		 we shall mark it as referenced, because the words
 		 that are not being set should be restored.  */
@@ -697,7 +699,7 @@ insert_restore (struct insn_chain *chain, int before_p, int regno,
       n_regs_saved--;
     }
 
-  /* Tell our callers how many extra registers we saved/restored */
+  /* Tell our callers how many extra registers we saved/restored.  */
   return numregs - 1;
 }
 
@@ -769,7 +771,7 @@ insert_save (struct insn_chain *chain, int before_p, int regno,
       n_regs_saved++;
     }
 
-  /* Tell our callers how many extra registers we saved/restored */
+  /* Tell our callers how many extra registers we saved/restored.  */
   return numregs - 1;
 }
 
@@ -832,8 +834,8 @@ insert_one_insn (struct insn_chain *chain, int before_p, int code, rtx pat)
 	    }
 	}
       CLEAR_REG_SET (&new->dead_or_set);
-      if (chain->insn == BLOCK_HEAD (chain->block))
-	BLOCK_HEAD (chain->block) = new->insn;
+      if (chain->insn == BB_HEAD (BASIC_BLOCK (chain->block)))
+	BB_HEAD (BASIC_BLOCK (chain->block)) = new->insn;
     }
   else
     {
@@ -852,8 +854,8 @@ insert_one_insn (struct insn_chain *chain, int before_p, int code, rtx pat)
       note_stores (PATTERN (chain->insn), add_stored_regs,
 		   &new->live_throughout);
       CLEAR_REG_SET (&new->dead_or_set);
-      if (chain->insn == BLOCK_END (chain->block))
-	BLOCK_END (chain->block) = new->insn;
+      if (chain->insn == BB_END (BASIC_BLOCK (chain->block)))
+	BB_END (BASIC_BLOCK (chain->block)) = new->insn;
     }
   new->block = chain->block;
   new->is_caller_save_insn = 1;

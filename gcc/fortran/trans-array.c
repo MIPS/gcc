@@ -2407,7 +2407,7 @@ gfc_conv_loop_setup (gfc_loopinfo * loop)
 
 /* Fills in an array descriptor, and returns the size of the array.  The size
    will be a simple_val, ie a variable or a constant.  Also calculates the
-   offset of the base.  Returns the number of elements in the arrary.
+   offset of the base.  Returns the size of the arrary.
    {
     stride = 1;
     offset = 0;
@@ -2581,11 +2581,6 @@ gfc_array_allocate (gfc_se * se, gfc_ref * ref, tree pstat)
   len = se->string_length;
   size = gfc_array_init_size (se->expr, ref->u.ar.as->rank, &offset,
 			      lower, upper, &se->pre, &len);
-
-  /* The size is the number of elements in the array, so multiply by the
-     size of an element to get the total size.  */
-  tmp = TYPE_SIZE_UNIT (gfc_get_element_type (TREE_TYPE (se->expr)));
-  size = fold (build (MULT_EXPR, gfc_array_index_type, size, tmp));
 
   /* Allocate memory to store the data.  */
   tmp = gfc_conv_descriptor_data (se->expr);

@@ -169,7 +169,7 @@ static inline bool is_gimple_id (tree);
 
 /* Validation of GIMPLE expressions.  */
 
-/*  Return nonzero if T is a GIMPLE RHS:
+/* Return nonzero if T is a GIMPLE RHS:
 
       rhs     : varname | CONST
 	      | '*' ID
@@ -177,7 +177,11 @@ static inline bool is_gimple_id (tree);
 	      | call_expr
 	      | unop val
 	      | val binop val
-	      | '(' cast ')' val  */
+	      | '(' cast ')' val
+	      | <CONSTRUCTOR <gimple_val ...>>
+
+   The last option is only valid GIMPLE for vector and complex types;
+   aggregate types should have their constructors decomposed.  */
 
 bool
 is_gimple_rhs (tree t)
@@ -204,6 +208,7 @@ is_gimple_rhs (tree t)
     case ADDR_EXPR:
     case CALL_EXPR:
     case CONSTRUCTOR:
+    case COMPLEX_EXPR:
       /* FIXME lower VA_ARG_EXPR.  */
     case VA_ARG_EXPR:
     case INTEGER_CST:
@@ -411,38 +416,7 @@ is_gimple_reg_type (tree type)
 }
 
 
-/* Used to avoid calling struct_needs_to_live_in_memory repeatedly for the
-   same type.  */
 
-static GTY(()) bitmap types_checked = NULL;
-static GTY(()) bitmap types_in_memory = NULL;
-
-
-/* Return true if at least one of the fields in T is (or contains) an
-   ARRAY_TYPE.  */
-
-static bool
-struct_needs_to_live_in_memory (tree t)
-{
-  tree f;
-
-  for (f = TYPE_FIELDS (t); f; f = TREE_CHAIN (f))
-    {
-      if (TREE_CODE (f) != FIELD_DECL)
-	continue;
-
-      /* If a field is an array, the structure must go in memory.  */
-      if (TREE_CODE (TREE_TYPE (f)) == ARRAY_TYPE)
-	return true;
-
-      /* Check nested structures.  */
-      if (AGGREGATE_TYPE_P (TREE_TYPE (f))
-	  && struct_needs_to_live_in_memory (TREE_TYPE (f)))
-	return true;
-    }
-
-  return false;
-}
 
 /* Return true if T (assumed to be a DECL) must be assigned a memory
    location.  */
@@ -454,36 +428,10 @@ needs_to_live_in_memory (tree t)
   if (TREE_STATIC (t)
       || DECL_EXTERNAL (t)
       || DECL_NONLOCAL (t)
-      || TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE
       || (TREE_CODE (t) == RESULT_DECL
 	  && aggregate_value_p (t, current_function_decl))
       || decl_function_context (t) != current_function_decl)
     return true;
-
-  /* Now, check for structures.  A structure will need to live in memory if
-     if at least one of its fields is of array type.  */
-  if (AGGREGATE_TYPE_P (TREE_TYPE (t)))
-    {
-      tree type = TREE_TYPE (t);
-      unsigned int uid = TYPE_UID (type);
-
-      if (types_checked == NULL)
-	{
-	  types_checked = BITMAP_GGC_ALLOC ();
-	  types_in_memory = BITMAP_GGC_ALLOC ();
-	}
-
-      /* If we have not examined this type already, do so and
-	 cache the result.  */
-      if (!bitmap_bit_p (types_checked, uid))
-	{
-	  bitmap_set_bit (types_checked, uid);
-	  if (struct_needs_to_live_in_memory (type))
-	    bitmap_set_bit (types_in_memory, uid);
-	}
-
-      return bitmap_bit_p (types_in_memory, uid);
-    }
 
   return false;
 }
@@ -727,5 +675,3 @@ recalculate_side_effects (tree t)
       break;
    }
 }
-
-#include "gt-tree-simple.h"

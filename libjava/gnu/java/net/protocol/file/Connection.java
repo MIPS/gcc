@@ -38,38 +38,71 @@
 */
 package gnu.java.net.protocol.file;
 
-import java.net.URL;
-import java.net.URLConnection;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FilePermission;
 import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.ProtocolException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.security.Permission;
 import java.util.Map;
 import java.util.Vector;
 import java.util.Hashtable;
 import java.util.Enumeration;
 
 /**
+ * This subclass of java.net.URLConnection models a URLConnection via
+ * the "file" protocol.
+ *
+ * @author Aaron M. Renn <arenn@urbanophile.com>
+ * @author Nic Ferrier <nferrier@tapsellferrier.co.uk>
  * @author Warren Levy <warrenl@cygnus.com>
- * @date April 13, 1999.
  */
 public class Connection extends URLConnection
 {
+  /**
+   * Default permission for a file
+   */
+  private static final String DEFAULT_PERMISSION = "read";
+
+  /**
+   * This is a File object for this connection
+   */
+  private File file;
+
+  /**
+   * InputStream if we are reading from the file
+   */
+  private InputStream inputStream;
+
+  /**
+   * OutputStream if we are writing to the file
+   */
+  private OutputStream outputStream;
+  
   private Hashtable hdrHash = new Hashtable();
   private Vector hdrVec = new Vector();
   private boolean gotHeaders = false;
-  private File fileIn;
-  private InputStream inputStream;
-  private OutputStream outputStream;
 
+  /**
+   * FilePermission to read the file
+   */
+  private FilePermission permission;
+
+  /**
+   * Calls superclass constructor to initialize.
+   */
   public Connection(URL url)
   {
     super (url);
+
+    permission = new FilePermission(getURL().getFile(), DEFAULT_PERMISSION);
   }
   
   /**
@@ -82,12 +115,12 @@ public class Connection extends URLConnection
       return;
     
     // If not connected, then file needs to be openned.
-    String fname = url.getFile();
-    fileIn = new File(fname);
+    file = new File (getURL().getFile());
     if (doInput)
-      inputStream = new BufferedInputStream(new FileInputStream(fileIn));
+      inputStream = new BufferedInputStream(new FileInputStream(file));
+    
     if (doOutput)
-      outputStream = new BufferedOutputStream(new FileOutputStream(fileIn));
+      outputStream = new BufferedOutputStream(new FileOutputStream(file));
     
     connected = true;
   }
@@ -102,8 +135,9 @@ public class Connection extends URLConnection
   public InputStream getInputStream()
     throws IOException
   {
-    if (! doInput)
+    if (!doInput)
       throw new ProtocolException("Can't open InputStream if doInput is false");
+    
     if (!connected)
       connect();
     
@@ -120,7 +154,7 @@ public class Connection extends URLConnection
   public OutputStream getOutputStream()
     throws IOException
   {
-    if (! doOutput)
+    if (!doOutput)
       throw new
 	ProtocolException("Can't open OutputStream if doOutput is false");
 
@@ -130,7 +164,59 @@ public class Connection extends URLConnection
     return outputStream;
   }
 
-  // Override default method in URLConnection.
+  /**
+   * Get the last modified time of the resource.
+   *
+   * @return the time since epoch that the resource was modified.
+   */
+  public long getLastModified()
+  {
+    try
+      {
+	if (!connected)
+	  connect();
+
+	return file.lastModified();
+      }
+    catch (IOException e)
+      {
+	return -1;
+      }
+  }
+
+  /**
+   * Get the length of content.
+   *
+   * @return the length of the content.
+   */
+  public int getContentLength()
+  {
+    try
+      {
+	if (!connected)
+	  connect();
+        
+	return (int) file.length();
+      }
+    catch (IOException e)
+      {
+	return -1;
+      }
+  }
+  
+  /**
+   * This method returns a <code>Permission</code> object representing the
+   * permissions required to access this URL.  This method returns a
+   * <code>java.io.FilePermission</code> for the file's path with a read
+   * permission.
+   *
+   * @return A Permission object
+   */
+  public Permission getPermission() throws IOException
+  {
+    return permission;
+  }
+
   public String getHeaderField(String name)
   {
     try
@@ -144,7 +230,6 @@ public class Connection extends URLConnection
     return (String) hdrHash.get(name.toLowerCase());
   }
 
-  // Override default method in URLConnection.
   public Map getHeaderFields()
   {
     try
@@ -158,7 +243,6 @@ public class Connection extends URLConnection
     return hdrHash;
   }
 
-  // Override default method in URLConnection.
   public String getHeaderField(int n)
   {
     try
@@ -175,7 +259,6 @@ public class Connection extends URLConnection
     return null;
   }
 
-  // Override default method in URLConnection.
   public String getHeaderFieldKey(int n)
   {
     try
@@ -227,7 +310,7 @@ public class Connection extends URLConnection
     // to add others later and for consistency, we'll implement it this way.
 
     // Add the only header we know about right now:  Content-length.
-    long len = fileIn.length();
+    long len = file.length();
     String line = "Content-length: " + len;
     hdrVec.addElement(line);
 
@@ -237,5 +320,5 @@ public class Connection extends URLConnection
     String key = getKey(line);
     hdrHash.put(key.toLowerCase(), Long.toString(len));
   }
-  
+
 } // class FileURLConnection

@@ -79,15 +79,11 @@ gcc/fixinc/fixincl.x: gcc/fixinc/fixincl.tpl gcc/fixinc/inclhack.def
 gcc/f/intdoc.texi: gcc/f/intdoc.in gcc/f/intdoc.c gcc/f/intrin.h gcc/f/intrin.def
 gcc/cp/cfns.h: gcc/cp/cfns.gperf
 gcc/java/keyword.h: gcc/java/keyword.gperf
-gcc/ada/treeprs.ads: gcc/ada/treeprs.adt gcc/ada/sinfo.ads gcc/ada/xtreeprs.adb
-gcc/ada/einfo.h: gcc/ada/einfo.ads gcc/ada/einfo.adb gcc/ada/xeinfo.adb
-gcc/ada/sinfo.h: gcc/ada/sinfo.ads gcc/ada/xsinfo.adb
-gcc/ada/nmake.adb: gcc/ada/sinfo.ads gcc/ada/nmake.adt gcc/ada/xnmake.adb
-gcc/ada/nmake.ads: gcc/ada/sinfo.ads gcc/ada/nmake.adt gcc/ada/xnmake.adb
-gcc/ada/gnat_ug_unx.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
-gcc/ada/gnat_ug_vms.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
-gcc/ada/gnat_ug_vxw.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
-gcc/ada/gnat_ug_w32.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
+gcc/ada/stamp-xgnatug: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
+gcc/ada/gnat_ug_unx.texi: gcc/ada/stamp-xgnatug
+gcc/ada/gnat_ug_vms.texi: gcc/ada/stamp-xgnatug
+gcc/ada/gnat_ug_vxw.texi: gcc/ada/stamp-xgnatug
+gcc/ada/gnat_ug_wnt.texi: gcc/ada/stamp-xgnatug
 # testsuite
 # Without this, _Pragma3.c can have a false negative.
 gcc/testsuite/gcc.dg/cpp/_Pragma3.c: gcc/testsuite/gcc.dg/cpp/mi1c.h
@@ -111,10 +107,10 @@ boehm-gc/configure: boehm-gc/configure.in boehm-gc/aclocal.m4
 libjava/aclocal.m4: libjava/configure.in libjava/acinclude.m4
 libjava/Makefile.in: libjava/Makefile.am libjava/configure.in libjava/aclocal.m4
 libjava/configure: libjava/configure.in libjava/aclocal.m4
-libjava/libltdl/aclocal.m4: libjava/libltdl/configure.in libjava/libltdl/acinclude.m4
-libjava/libltdl/Makefile.in: libjava/libltdl/Makefile.am libjava/libltdl/configure.in libjava/libltdl/aclocal.m4
-libjava/libltdl/configure: libjava/libltdl/configure.in libjava/libltdl/aclocal.m4
-libjava/libltdl/stamp-h.in: libjava/libltdl/configure.in libjava/libltdl/aclocal.m4 libjava/libltdl/acconfig.h
+libjava/libltdl/aclocal.m4: libjava/libltdl/configure.ac libjava/libltdl/acinclude.m4
+libjava/libltdl/Makefile.in: libjava/libltdl/Makefile.am libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
+libjava/libltdl/configure: libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
+libjava/libltdl/config-h.in: libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
 # Top level
 Makefile.in: Makefile.tpl Makefile.def
 configure: configure.in config/acx.m4

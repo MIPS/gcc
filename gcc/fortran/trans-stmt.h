@@ -32,6 +32,7 @@ tree gfc_trans_pointer_assign (gfc_code *);
 /* trans-stmt.c */
 tree gfc_trans_cycle (gfc_code *);
 tree gfc_trans_exit (gfc_code *);
+tree gfc_trans_label_assign (gfc_code *);
 tree gfc_trans_label_here (gfc_code *);
 tree gfc_trans_goto (gfc_code *);
 tree gfc_trans_pause (gfc_code *);

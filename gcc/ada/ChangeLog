@@ -1,3 +1,510 @@
+2003-12-23  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* gnat_ug.texi: Force a CVS commit by updating copyright.
+	* gnat_ug_vxw.texi: Regenerate.
+	* gnat_ug_wnt.texi: Regenerate.
+	* gnat_ug_vms.texi: Regenerate.
+	* gnat_ug_unx.texi: Regenerate.
+
+2003-12-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* trans.c: Remove uses of "register" specifier in
+	declarations of local variables.
+
+2003-12-18  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* stamp-xgnatug: New stamp file.
+	* Make-lang.in (stamp-xgnatug):  New stamp file and comment.
+	(ada/doctools/xgnatug): Add $(build_exeext).
+	(ada/gnat_ug_unx.texi, ada/gnat_ug_vwx.texi, ada/gnat_ug_vms.texi
+	ada/gnat_ug_wnt.texi): Update to depend on stamp-xgnatug.
+
+2003-12-17  Ed Falis  <falis@gnat.com>
+
+	* a-elchha.adb (Tailored_Exception_Information): made Info constant to
+	eliminate warning.
+
+	* a-exextr.adb: Add context clause for
+	Ada.Exceptions.Last_Chance_Handler.
+
+2003-12-17  Sergey Rybin  <rybin@act-europe.fr>
+
+	* cstand.adb (Create_Standard): Change the way how the declaration of
+	the Duration type is created (making it the same way as it is for all
+	the other standard types).
+
+2003-12-17  Robert Dewar  <dewar@gnat.com>
+
+	* s-crtl.ads: Fix header format
+	Change Pure to Preelaborate
+
+2003-12-17  Ed Schonberg  <schonberg@gnat.com>
+
+	* checks.adb (Selected_Length_Checks): Generate an Itype reference for
+	the expression type only if it is declared in the current unit.
+
+	* sem_ch3.adb (Constrain_Index): Handle properly a range whose bounds
+	are universal and already analyzed, as can occur in constrained
+	subcomponents that depend on discriminants, when one constraint is a
+	subtype mark.
+
+	* sem_res.adb (Resolve_Type_Conversion): Any arithmetic expression of
+	type Any_Fixed is legal as the argument of a conversion, if only one
+	fixed-point type is in context.
+
+2003-12-17  GNAT Script  <nobody@gnat.com>
+
+	* Make-lang.in: Makefile automatically updated
+
+2003-12-15  Robert Dewar  <dewar@gnat.com>
+
+	* exp_ch6.adb (Expand_Thread_Body): Fix error in picking up default
+	sec stack size.
+
+2003-12-15  Vincent Celier  <celier@gnat.com>
+
+	* gnatchop.adb: (Error_Msg): Do not exit on error for a warning
+	(Gnatchop): Do not set failure status when reporting the number of
+	warnings.
+
+2003-12-15  Doug Rupp  <rupp@gnat.com>
+
+	* s-ctrl.ads: New file.
+
+	* Makefile.rtl (GNAT_RTL_NONTASKING_OBJS): Add s-crtl$(objext).
+
+	* Make-lang.in: (GNAT_ADA_OBJS): Add ada/s-crtl.o.
+	(GNATBIND_OBJS): Add ada/s-crtl.o.
+
+	* Makefile.in [VMS]: Clean up ifeq rules.
+
+	* gnatlink.adb, 6vcstrea.adb, a-direio.adb, a-sequio.adb,
+	a-ststio.adb, a-textio.adb, g-os_lib.adb, a-witeio.adb,
+	g-os_lib.ads, i-cstrea.adb, i-cstrea.ads, s-direio.adb,
+	s-fileio.adb, s-memcop.ads, s-memory.adb, s-stache.adb,
+	s-tasdeb.adb: Update copyright.
+	Import System.CRTL.
+	Make minor modifications to use System.CRTL declared functions instead
+	of importing locally.
+
+2003-12-15  GNAT Script  <nobody@gnat.com>
+
+	* Make-lang.in: Makefile automatically updated
+
+2003-12-11  Ed Falis  <falis@gnat.com>
+
+	* 5zinit.adb: Clean up.
+
+	* 5zintman.adb (Notify_Exception): replaced case statement with a call
+	to __gnat_map_signal, imported from init.c to support
+	signal -> exception mappings that depend on the vxWorks version.
+
+	* init.c: 
+	Created and exported __gnat_map_signal to support signal -> exception
+	mapping that is dependent on the VxWorks version.
+	Change mapping of SIGBUS from Program_Error to Storage_Error on VxWorks
+
+2003-12-11  Vasiliy Fofanv  <fofanov@act-europe.fr>
+
+	* 5wosinte.ads: Link with -mthreads switch.
+
+2003-12-11  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* init.c (__gnat_install_handler [NetBSD]): Set
+	__gnat_handler_installed, as done on all other platforms.
+	Remove duplicated code.
+
+2003-12-11  Jerome Guitton  <guitton@act-europe.fr>
+
+	* Makefile.in (rts-zfp, rts-ravenscar): Create libgnat.a.
+
+2003-12-11  Thomas Quinot  <quinot@act-europe.fr>
+
+	* sinfo.ads: Fix inconsistent example code in comment.
+
+2003-12-11  Robert Dewar  <dewar@gnat.com>
+
+	* a-tiinau.adb: Add a couple of comments
+
+	* sem_ch3.adb: Minor reformatting
+
+	* sem_prag.adb: 
+	Fix bad prototype of Same_Base_Type in body (code reading cleanup)
+	Minor reformatting throughout
+
+2003-12-11  Ed Schonberg  <schonberg@gnat.com>
+
+	* exp_ch7.adb (Establish_Transient_Scope): If the call is within the
+	bounds of a loop, create a separate block in order to generate proper
+	cleanup actions to prevent memory leaks.
+
+	* sem_res.adb (Resolve_Call): After a call to
+	Establish_Transient_Scope, the call may be rewritten and relocated, in
+	which case no further processing is needed.
+
+	* sem_util.adb: (Wrong_Type): Refine previous fix.
+	 Fixes ACATS regressions.
+
+	PR ada/13353
+
+	* sem_prag.adb (Back_End_Cannot_Inline): A renaming_as_body can always
+	be inlined.
+
+2003-12-08  Jerome Guitton  <guitton@act-europe.fr>
+
+	* 5ytiitho.adb, 5zthrini.adb, 5ztiitho.adb, i-vthrea.adb,
+	i-vthrea.ads, s-tpae65.adb, s-tpae65.ads: Cleanup: Remove a bunch of
+	obsolete files.
+
+	* Makefile.in: (rts-ravenscar): Generate an empty libgnat.a.
+	(rts-zfp): Ditto.
+
+2003-12-08  Robert Dewar  <dewar@gnat.com>
+
+	* 7sintman.adb: Minor reformatting
+
+	* bindgen.adb: Configurable_Run_Time mode no longer suppresses the
+	standard linker options to get standard libraries linked. We now plan
+	to provide dummy versions of these libraries to match the appropriate
+	configurable run-time (e.g. if a library is not needed at all, provide
+	a dummy empty library).
+
+	* targparm.ads: Configurable_Run_Time mode no longer affects linker
+	options (-L parameters and standard libraries). What we plan to do is
+	to provide dummy libraries where the libraries are not required.
+
+	* gnatbind.adb: Minor comment improvement
+
+2003-12-08  Javier Miranda  <miranda@gnat.com>
+
+	* exp_aggr.adb (Build_Record_Aggr_Code): Do not remove the expanded
+	aggregate in the parent. Otherwise constants with limited aggregates
+	are not supported. Add new formal to pass the component type (Ctype).
+	It is required to call the corresponding IP subprogram in case of
+	default initialized components.
+	(Gen_Assign): In case of default-initialized component, generate a
+	call to the IP subprogram associated with the component.
+	(Build_Record_Aggr_Code): Remove the aggregate from the parent in case
+	of aggregate with default initialized components.
+	(Has_Default_Init_Comps): Improve implementation to recursively check
+	all the present expressions.
+
+	* exp_ch3.ads, exp_ch3.adb (Build_Initialization_Call): Add new formal
+	to indicate that the initialization call corresponds to a
+	default-initialized component of an aggregate.
+	In case of default initialized aggregate with tasks this parameter is
+	used to generate a null string (this is just a workaround that must be
+	improved later). In case of discriminants, this parameter is used to
+	generate a selected component node that gives access to the discriminant
+	value.
+
+	* exp_ch9.ads, exp_ch9.adb (Build_Task_Allocate_Block_With_Stmts): New
+	subprogram, based on Build_Task_Allocate_Block, but adapted to expand
+	allocated aggregates with default-initialized components.
+
+	* par-ch4.adb (P_Aggregate_Or_Paren_Expr): Improve error message if
+	the box notation is used in positional aggregates.
+
+2003-12-08  Samuel Tardieu  <tardieu@act-europe.fr>
+
+	* lib.ads: Fix typo in comment
+
+2003-12-08  Vincent Celier  <celier@gnat.com>
+
+	* prj.adb (Project_Empty): New component Unkept_Comments
+	(Scan): Remove procedure; moved to Prj.Err.
+
+	* prj.ads (Project_Data): New Boolean component Unkept_Comments
+	(Scan): Remove procedure; moved to Prj.Err.
+
+	* prj-dect.adb: Manage comments for the different declarations.
+
+	* prj-part.adb (With_Record): New component Node
+	(Parse): New Boolean parameter Store_Comments, defaulted to False.
+	Set the scanner to return ends of line and comments as tokens, if
+	Store_Comments is True.
+	(Pre_Parse_Context_Clause): Create the N_With_Clause nodes so that
+	comments are associated with these nodes. Store the node IDs in the
+	With_Records.
+	(Post_Parse_Context_Clause): Use the N_With_Clause nodes stored in the
+	With_Records.
+	(Parse_Single_Project): Call Pre_Parse_Context_Clause before creating
+	the N_Project node. Call Tree.Save and Tree.Reset before scanning the
+	current project. Call Tree.Restore afterwards. Set the various nodes
+	for comment storage (Next_End, End_Of_Line, Previous_Line,
+	Previous_End).
+
+	* prj-part.ads (Parse): New Boolean parameter Store_Comments,
+	defaulted to False.
+
+	* prj-pp.adb (Write_String): New Boolean parameter Truncated, defaulted
+	to False. When Truncated is True, truncate the string, never go to the
+	next line.
+	(Write_End_Of_Line_Comment): New procedure
+	(Print): Process comments for nodes N_With_Clause,
+	N_Package_Declaration, N_String_Type_Declaration,
+	N_Attribute_Declaration, N_Typed_Variable_Declaration,
+	N_Variable_Declaration, N_Case_Construction, N_Case_Item.
+	Process nodes N_Comment.
+
+	* prj-tree.ads, prj-tree.adb (Default_Project_Node): If it is a node
+	without comments and there are some comments, set the flag
+	Unkept_Comments to True.
+	(Scan): If there are comments, set the flag Unkept_Comments to True and
+	clear the comments.
+	(Project_Node_Kind): Add enum values N_Comment_Zones, N_Comment
+	(Next_End_Nodes: New table
+	(Comment_Zones_Of): New function
+	(Scan): New procedure; moved from Prj. Accumulate comments in the
+	Comments table and set end of line comments, comments after, after end
+	and before end.
+	(Add_Comments): New procedure
+	(Save, Restore, Seset_State): New procedures
+	(There_Are_Unkept_Comments): New function
+	(Set_Previous_Line_Node, Set_Previous_End_Node): New procedures
+	(Set_End_Of_Line, Set_Next_End_Node, Remove_Next_End_Node): New
+	procedures.
+	(First_Comment_After, First_Comment_After_End): New functions
+	(First_Comment_Before, First_Comment_Before_End): New functions
+	(Next_Comment): New function
+	(End_Of_Line_Comment, Follows_Empty_Line,
+	Is_Followed_By_Empty_Line): New functions
+	(Set_First_Comment_After, Set_First_Comment_After_End): New procedures
+	(Set_First_Comment_Before, Set_First_Comment_Before_End): New procedures
+	(Set_Next_Comment): New procedure
+	(Default_Project_Node): Associate comment before if the node can store
+	comments.
+
+	* scans.ads (Token_Type): New enumeration value Tok_Comment
+	(Comment_Id): New global variable
+
+	* scng.ads, scng.adb (Comment_Is_Token): New Boolean global variable,
+	defaulted to False.
+	(Scan): Store position of start of comment. If comments are tokens, set
+	Comment_Id and set Token to Tok_Comment when scanning a comment.
+	(Set_Comment_As_Token): New procedure
+
+	* sinput-p.adb: Update Copyright notice
+	(Source_File_Is_Subunit): Call Prj.Err.Scanner.Scan instead of Prj.Scan
+	that no longer exists.
+
+2003-12-08  Javier Miranda  <miranda@gnat.com>
+
+	* sem_aggr.adb: Add dependence on Exp_Tss package
+	Correct typo in comment
+	(Resolve_Aggregate): In case of array aggregates set the estimated
+	type of the aggregate before calling resolve. This is needed to know
+	the name of the corresponding IP in case of limited array aggregates.
+	(Resolve_Array_Aggregate): Delay the resolution to the expansion phase
+	in case of default initialized array components.
+
+	* sem_ch12.adb (Analyze_Formal_Object_Declaration): Allow limited
+	types. Required to give support to limited aggregates in generic
+	formals.
+
+2003-12-08  Ed Schonberg  <schonberg@gnat.com>
+
+	* sem_ch3.adb (Check_Initialization): For legality purposes, an
+	inlined body functions like an instantiation.
+	(Decimal_Fixed_Point_Declaration): Do not set kind of first subtype
+	until bounds are analyzed, to diagnose premature use of type.
+
+	* sem_util.adb (Wrong_Type): Improve error message when the type of
+	the expression is used prematurely.
+
+2003-12-08  GNAT Script  <nobody@gnat.com>
+
+	* Make-lang.in: Makefile automatically updated
+
+2003-12-08  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* sinfo.h, einfo.h, nmake.ads, nmake.adb, treeprs.ads: Removed, since
+	they are automatically generated by Make-lang.in and cause nothing but
+	maintenance troubles.
+
+2003-12-05  Thomas Quinot  <quinot@act-europe.fr>
+
+	* 3ssoliop.ads: Fix comment (this is the Solaris, not the UnixWare,
+	version of this unit).
+
+2003-12-05  Olivier Hainque  <hainque@act-europe.fr>
+
+	* 53osinte.ads, 54osinte.ads, 55osinte.ads, 56osinte.ads, 5bosinte.ads,
+	5cosinte.ads, 5hosinte.ads, 5iosinte.ads, 5losinte.ads,
+	5tosinte.ads: Define the SA_SIGINFO constant, to allow references from
+	the body of System.Interrupt_Management common to several targets.
+	Update copyright notice when appropriate.
+
+	* 52osinte.ads, 5posinte.ads: Define a dummy value for the SA_SIGINFO
+	constant.
+
+	* 7sintman.adb (elaboration): Set SA_SIGINFO in the sigaction flags,
+	to ensure that the kernel fills in the interrupted context structure
+	before calling a signal handler, which is necessary to be able to
+	unwind past it. Update the copyright notice.
+
+2003-12-05  Jerome Guitton  <guitton@act-europe.fr>
+
+	* a-elchha.ads: New file.
+
+	* a-elchha.adb: New default last chance handler. Contents taken from
+	Ada.Exceptions.Exception_Traces.Unhandled_Exception_Terminate.
+
+	* a-exextr.adb (Unhandled_Exception_Terminate): Most of this routine
+	is moved to a-elchha.adb to provide a target-independent default last
+	chance handler.
+
+	* Makefile.rtl: Add a-elchha.o
+
+	* Make-lang.in (GNAT_ADA_OBJS, GNATBIND_OBJS): Add a-elchha.o.
+
+2003-12-05  Ed Schonberg  <schonberg@gnat.com>
+
+	* exp_ch6.adb (Expand_Call): If the subprogram is inlined and is
+	declared in an instance, do not inline the call if the instance is not
+	frozen yet, to prevent order of elaboration problems.
+
+	* sem_prag.adb: Add comments for previous fix.
+
+2003-12-05  Samuel Tardieu  <tardieu@act-europe.fr>
+
+	* g-table.adb: Use the right variable in Set_Item.
+	Update copyright notice.
+
+2003-12-05  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* Makefile.in: Remove unused rules.
+
+2003-12-05  Vincent Celier  <celier@gnat.com>
+
+	* switch-c.adb (Scan_Front_End_Switches): Remove processing of
+	-nostdlib. Not needed here after all.
+
+2003-12-03  Thomas Quinot  <quinot@act-europe.fr>
+
+	PR ada/11724
+
+	* adaint.h, adaint.c, g-os_lib.ads: 
+	Do not assume that the offset argument to lseek(2) is a 32 bit integer,
+	on some platforms (including FreeBSD), it is a 64 bit value.
+	Introduce a __gnat_lseek wrapper in adaint.c to allow for portability.
+
+2003-12-03  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* gnatvsn.ads (Library_Version): Now contain only the relevant
+	version info.
+	(Verbose_Library_Version): New constant.
+
+	* g-spipat.adb, g-awk.adb, g-debpoo.adb,
+	g-memdum.adb, g-thread.adb, s-geveop.adb, s-interr.adb,
+	s-taskin.adb, s-tassta.adb: Make code compile with -gnatwa.
+
+	* gnatlbr.adb: Clean up: replace Library_Version by
+	Verbose_Library_Version.
+
+	* make.adb, lib-writ.adb, exp_attr.adb: 
+	Clean up: replace Library_Version by Verbose_Library_Version.
+
+	* 5lintman.adb: Removed.
+
+	* Makefile.in: 
+	Update and simplify computation of LIBRARY_VERSION.
+	Fix computation of GSMATCH_VERSION.
+	5lintman.adb is no longer used: replaced by 7sintman.adb.
+
+2003-12-03  Robert Dewar  <dewar@gnat.com>
+
+	* exp_ch5.adb: 
+	(Possible_Bit_Aligned_Component): Maybe_Bit_Aligned_Large_Component new
+	name. Modified to consider small non-bit-packed arrays as troublesome
+	and in need of component-by-component assigment expansion.
+
+2003-12-03  Vincent Celier  <celier@gnat.com>
+
+	* lang-specs.h: Process nostdlib as nostdinc
+
+	* back_end.adb: Update Copyright notice
+	(Scan_Compiler_Arguments): Process -nostdlib directly.
+
+2003-12-03  Jose Ruiz  <ruiz@act-europe.fr>
+
+	* Makefile.in: 
+	When defining LIBGNAT_TARGET_PAIRS for bare board targets, remove the
+	redundant inclusion of EXTRA_HIE_NONE_TARGET_PAIRS, which is always
+	included in HIE_NONE_TARGET_PAIRS.
+
+2003-12-03  Ed Schonberg  <schonberg@gnat.com>
+
+	* sem_attr.adb: 
+	(Legal_Formal_Attribute): Attribute is legal in an inlined body, as it
+	is legal in an instance, because legality is cheched in the template.
+
+	* sem_prag.adb: 
+	(Analyze_Pragma, case Warnings): In an inlined body, the pragma may be
+	appplied to an unchecked conversion of a formal parameter.
+
+	* sem_warn.adb: 
+	(Output_Unreferenced_Messages): Suppress "not read" warnings on imported
+	variables.
+
+2003-12-03  Olivier Hainque  <hainque@act-europe.fr>
+
+	* tb-alvms.c (unwind_regular_code, unwind_kernel_handler): New
+	routines. The second one is new functionality to deal with backtracing
+	through signal handlers.
+	(unwind): Split into the two separate subroutines above.
+	Update the documentation, and deal properly with sizeof (REG) different
+	from sizeof (void*).
+
+2003-12-01  Nicolas Setton  <setton@act-europe.fr>
+
+	* a-except.adb (Raise_Current_Excep): Add a pragma Inspection_Point,
+	so that the debugger can reliably access the value of the parameter,
+	and therefore is able to display the exception name when an exception
+	breakpoint is reached.
+
+2003-12-01  Thomas Quinot  <quinot@act-europe.fr>
+
+	* fmap.adb: Fix typo in warning message.
+
+	* g-socket.ads, g-socket.adb: Make Free a visible instance of
+	Ada.Unchecked_Deallocation (no need to wrap it in a subprogram).
+
+2003-12-01  Vincent Celier  <celier@gnat.com>
+
+	* mlib-prj.adb (Build_Library.Process): Do not check a withed unit if
+	ther is no Afile.
+	(Build_Library): Get the switches only if Default_Switches is declared
+	in package Binder.
+
+2003-12-01  Ed Schonberg  <schonberg@gnat.com>
+
+	* exp_ch6.adb (Expand_Actuals): When applying validity checks to
+	actuals that are indexed components, reanalyze actual to ensure that
+	packed array references are properly expanded.
+
+	* sem_ch5.adb (Diagnose_Non_Variable_Lhs): Add special case for
+	attempted assignment to a discriminant.
+
+2003-12-01  Robert Dewar  <dewar@gnat.com>
+
+	* rtsfind.adb, exp_ch4.adb, s-exnint.ads, s-exnint.adb: Minor
+	reformatting.
+
+	* switch-c.adb: Minor reformatting of comments
+
+2003-12-01  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* Makefile.in: Clean ups.
+
+2003-12-01  GNAT Script  <nobody@gnat.com>
+
+	* Make-lang.in: Makefile automatically updated
+
+2003-12-01  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* 5wsystem.ads: Disable zero cost exception, not ready yet.
+
 2003-11-29  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* Make-lang.in (nmake.ads): Add dependency on ada/nmake.adb

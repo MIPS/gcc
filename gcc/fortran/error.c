@@ -467,6 +467,58 @@ gfc_warning (const char *format, ...)
 }
 
 
+/* Possibly issue a warning/error about use of a nonstandard (or deleted)
+   feature.  An error/warning will be issued if the currently selected
+   standard does not contain the requested bits.  Return FAILURE if
+   and error is generated.  */
+
+try
+gfc_notify_std (int std, const char *format, ...)
+{
+  va_list argp;
+  bool warning;
+
+  warning = ((gfc_option.warn_std & std) != 0)
+	    && !inhibit_warnings;
+  if ((gfc_option.allow_std & std) != 0
+      && !warning)
+    return SUCCESS;
+
+  if (gfc_suppress_error)
+    return warning ? SUCCESS : FAILURE;
+  
+  if (warning)
+    {
+      warning_buffer.flag = 1;
+      warning_ptr = warning_buffer.message;
+      use_warning_buffer = 1;
+    }
+  else
+    {
+      error_buffer.flag = 1;
+      error_ptr = error_buffer.message;
+      use_warning_buffer = 0;
+    }
+
+  if (buffer_flag == 0)
+    {
+      if (warning)
+	warnings++;
+      else
+	errors++;
+    }
+  va_start (argp, format);
+  if (warning)
+    error_print ("Warning:", format, argp);
+  else
+    error_print ("Error:", format, argp);
+  va_end (argp);
+
+  error_char ('\0');
+  return warning ? SUCCESS : FAILURE;
+}
+
+
 /* Immediate warning (i.e. do not buffer the warning).  */
 
 void

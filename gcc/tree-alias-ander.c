@@ -42,11 +42,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "tree-inline.h"
 #include "varray.h"
 #include "tree-simple.h"
-#include "hashtab.h"
 #include "splay-tree.h"
 #include "engine/util.h"
 #include "libcompat/regions.h"
 #include "andersen_terms.h"
+#include "cgraph.h"
+#include "tree-pass.h"
+
 
 /*  Andersen's interprocedural points-to analysis.
     This is a flow-insensitive, context insensitive algorithm.
@@ -80,7 +82,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
     beyond the scope of this documentation.  See the libbanshee
     documentation, and references therein for more enlightenment.
     
-    That said, our constraints inclusion constraints of  set
+    That said, our constraints inclusion constraints of set
     expressions.  Given the helper functions, the various inference
     functions we implement should *look* relatively straightforward.  
 
@@ -94,36 +96,36 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
     "current_alias_ops".  */
 				
 static unsigned int id_num = 1;
-static FILE *dump_file;
-static int dump_flags;
 static region andersen_rgn;
 static void andersen_simple_assign (struct tree_alias_ops *,
-				    alias_typevar, alias_typevar);
+				    alias_var, alias_var);
 static void andersen_addr_assign (struct tree_alias_ops *,
-				  alias_typevar, alias_typevar);
+				  alias_var, alias_var);
 static void andersen_ptr_assign (struct tree_alias_ops *,
-				 alias_typevar, alias_typevar);
+				 alias_var, alias_var);
 static void andersen_op_assign (struct tree_alias_ops *,
-				alias_typevar, varray_type, tree);
-static void andersen_heap_assign (struct tree_alias_ops *, alias_typevar);
+				alias_var, varray_type, tree, bitmap);
+static void andersen_heap_assign (struct tree_alias_ops *, alias_var);
 static void andersen_assign_ptr (struct tree_alias_ops *,
-				 alias_typevar, alias_typevar);
-static void andersen_function_def (struct tree_alias_ops *, alias_typevar,
-				   varray_type, alias_typevar);
-static int andersen_function_call (struct tree_alias_ops *, alias_typevar,
-				   alias_typevar, varray_type, bitmap);
+				 alias_var, alias_var);
+static void andersen_function_def (struct tree_alias_ops *, alias_var,
+				   varray_type, alias_var);
+static int andersen_function_call (struct tree_alias_ops *, alias_var,
+				   alias_var, varray_type, bitmap);
 static void andersen_init (struct tree_alias_ops *);
 static int print_out_result (splay_tree_node, void *);
 static void andersen_cleanup (struct tree_alias_ops *);
-static bool andersen_may_alias (struct tree_alias_ops *, alias_typevar,
-				alias_typevar);
-static bool andersen_same_points_to_set (struct tree_alias_ops *, alias_typevar,
-				alias_typevar);
-static alias_typevar andersen_add_var (struct tree_alias_ops *, tree);
-static alias_typevar andersen_add_var_same (struct tree_alias_ops *,
-					    tree, alias_typevar);
+static bool andersen_may_alias (struct tree_alias_ops *, alias_var,
+				alias_var);
+static bool andersen_same_points_to_set (struct tree_alias_ops *, 
+					 alias_var, alias_var);
+static bool andersen_empty_points_to_set (struct tree_alias_ops *,
+					  alias_var);
+static alias_var andersen_add_var (struct tree_alias_ops *, tree);
+static alias_var andersen_add_var_same (struct tree_alias_ops *,
+					    tree, alias_var);
 static bool pointer_destroying_op (tree);
-
+static aterm_list get_ptset (alias_var);
 static splay_tree ptamap;
 
 
@@ -142,6 +144,7 @@ static struct tree_alias_ops andersen_ops = {
   andersen_function_call,
   andersen_may_alias,
   andersen_same_points_to_set,
+  andersen_empty_points_to_set,
   0, /* data */
   0, /* Currently non-interprocedural */
   1  /* Can do IP on all statics without help. */
@@ -168,9 +171,6 @@ typedef aterm contents_type;
 static contents_type pta_get_contents (aterm);
 static void pr_ptset_aterm_elem (aterm);
 static void pta_pr_ptset (contents_type);
-#if 0
-static int pta_get_ptsize (contents_type);
-#endif
 
 /* Hook for debugging.  This function is called instead of
    aterm_inclusion, and lets us print the actual constraints as they
@@ -179,13 +179,13 @@ static int pta_get_ptsize (contents_type);
 static void
 term_inclusion (aterm t1, aterm t2)
 {
-  if (dump_file)
+  if (tree_dump_file)
     {
-      fprintf (dump_file, "Constraint: ");
-      aterm_print (dump_file, t1);
-      fprintf (dump_file, " <= ");
-      aterm_print (dump_file, t2);
-      fprintf (dump_file,  "\n");
+      fprintf (tree_dump_file, "Constraint: ");
+      aterm_print (tree_dump_file, t1);
+      fprintf (tree_dump_file, " <= ");
+      aterm_print (tree_dump_file, t2);
+      fprintf (tree_dump_file,  "\n");
     }
 
   aterm_inclusion (t1, t2);
@@ -386,15 +386,11 @@ pr_ptset_aterm_elem (aterm t)
   ref = ref_decon (t);
   lam = lam_decon (t);
 
-  fprintf (dump_file, ",");
+  fprintf (tree_dump_file, ",");
   if (ref.f0)
-    label_term_print (dump_file, ref.f0);
+    label_term_print (tree_dump_file, ref.f0);
   else if (lam.f0)
-    label_term_print (dump_file, lam.f0);
-  /*
-     fprintf(stderr, ",");
-     aterm_pr(stdout,(aterm)t);
-   */
+    label_term_print (tree_dump_file, lam.f0);
 }
 
 
@@ -411,7 +407,7 @@ pta_pr_ptset (contents_type t)
 
   size = aterm_list_length (ptset);
 
-  fprintf (dump_file, "{");
+  fprintf (tree_dump_file, "{");
   if (!aterm_list_empty (ptset))
     {
       struct ref_decon ref;
@@ -419,26 +415,17 @@ pta_pr_ptset (contents_type t)
       ref = ref_decon (aterm_list_head (ptset));
       lam = lam_decon (aterm_list_head (ptset));
       if (ref.f0)
-	label_term_print (dump_file, ref.f0);
+	label_term_print (tree_dump_file, ref.f0);
       else if (lam.f0)
-	label_term_print (dump_file, lam.f0);
+	label_term_print (tree_dump_file, lam.f0);
 
       /*      aterm_pr(stdout,aterm_hd(ptset)); */
       ptset = aterm_list_tail (ptset);
     }
   aterm_list_app (ptset, pr_ptset_aterm_elem);
-  fprintf (dump_file, "}(%d)\n", size);
+  fprintf (tree_dump_file, "}(%d)\n", size);
   deleteregion (scratch_rgn);
 }
-
-#if 0
-static int
-pta_get_ptsize (contents_type t)
-{
-  aterm_list ptset = aterm_tlb (t);
-  return aterm_list_length (ptset);
-}
-#endif
 
 /* Initialize Andersen alias analysis. */
 static int initted = 0;
@@ -446,26 +433,27 @@ static int initted = 0;
 static void
 andersen_init (struct tree_alias_ops *ops ATTRIBUTE_UNUSED)
 {
-  if (!initted || !flag_unit_at_a_time )
+  if (!initted || !flag_unit_at_a_time)
     {
       pta_init ();
       andersen_rgn = newregion ();
       initted = 1;
     }
 
-  dump_file = dump_begin (TDI_pta, &dump_flags);
   ptamap = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
-  /* Don't claim we can do ip partial unless the user requests it. */
-  if (!flag_unit_at_a_time) 
-    andersen_ops.ip_partial = 0;
 
+#if 0
+  /* Don't claim we can do ip partial unless we have unit_at_a_time on. */
+  if (!flag_unit_at_a_time)   
+#endif
+    andersen_ops.ip_partial = 0;
 }
 
 static int
 print_out_result (splay_tree_node node, void *data ATTRIBUTE_UNUSED)
 {
-  fprintf (dump_file, "%s :=",
-	   alias_get_name (ALIAS_TVAR_DECL (((alias_typevar) node->value))));
+  fprintf (tree_dump_file, "%s :=",
+	   alias_get_name (ALIAS_VAR_DECL (((alias_var) node->value))));
   pta_pr_ptset (pta_get_contents ((aterm) node->key));
   return 0;
 }
@@ -475,89 +463,87 @@ print_out_result (splay_tree_node node, void *data ATTRIBUTE_UNUSED)
 static void
 andersen_cleanup (struct tree_alias_ops *ops ATTRIBUTE_UNUSED)
 {
-  if (dump_file)
+  if (tree_dump_file)
     {
-      if (dump_flags & TDF_STATS)
+      if (tree_dump_flags & TDF_STATS)
 	{
-	  fprintf (dump_file, "\nPoints-to stats:\n");
-	  andersen_terms_stats (dump_file);
+	  fprintf (tree_dump_file, "\nPoints-to stats:\n");
+	  andersen_terms_stats (tree_dump_file);
 	}
 
-      fprintf (dump_file, "\nPoints-to sets:\n");
+      fprintf (tree_dump_file, "\nPoints-to sets:\n");
       splay_tree_foreach (ptamap, print_out_result, NULL);
-      dump_end (TDI_pta, dump_file);
     }
+
+  splay_tree_delete (ptamap);
 
   if (!flag_unit_at_a_time) 
     {
       pta_reset ();
-      splay_tree_delete (ptamap);
       deleteregion (andersen_rgn);
       andersen_rgn = NULL;
     }
-
-
 }
 
-/* Add decl to the analyzer, and return a typevar for it.  For
-   Andersen, we create a new alias typevar for the declaration, and
+/* Add decl to the analyzer, and return a var for it.  For
+   Andersen, we create a new alias var for the declaration, and
    return that.  */
 
-static alias_typevar
+static alias_var
 andersen_add_var (struct tree_alias_ops *ops ATTRIBUTE_UNUSED, tree decl)
 {
-  alias_typevar ret;
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Adding variable %s\n",
+  alias_var ret;
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "Adding variable %s\n",
 	     alias_get_name (decl));
 
   if (alias_get_name (decl) != NULL)
     {
-      ret = alias_tvar_new_with_aterm (decl,
+      ret = alias_var_new_with_aterm (decl,
 				       pta_make_ref (alias_get_name (decl)));
     }
   else
     {
       char *tmp_name;
       ASM_FORMAT_PRIVATE_NAME (tmp_name, "unnamed var", id_num++);
-      ret = alias_tvar_new_with_aterm (decl, pta_make_ref (tmp_name));
+      ret = alias_var_new_with_aterm (decl, pta_make_ref (tmp_name));
     }
-  splay_tree_insert (ptamap, (splay_tree_key) ALIAS_TVAR_ATERM (ret),
+  splay_tree_insert (ptamap, (splay_tree_key) ALIAS_VAR_ATERM (ret),
 		     (splay_tree_value) ret);
-  ALIAS_TVAR_PTSET (ret) = NULL;
+  ALIAS_VAR_PTSET (ret) = NULL;
 
   return ret;
 }
 
 /* Add a variable to the analyzer that is equivalent (as far as
-   aliases go) to some existing typevar.
+   aliases go) to some existing alias variable.
    For Andersen, we just call a function that does this for us.  */
 
-static alias_typevar
+static alias_var
 andersen_add_var_same (struct tree_alias_ops *ops ATTRIBUTE_UNUSED, tree decl,
-		       alias_typevar tv)
+		       alias_var tv)
 {
-  alias_typevar ret;
+  alias_var ret;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Adding variable %s same as %s\n",
-	     alias_get_name (decl), alias_get_name (ALIAS_TVAR_DECL (tv)));
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "Adding variable %s same as %s\n",
+	     alias_get_name (decl), alias_get_name (ALIAS_VAR_DECL (tv)));
 
   if (alias_get_name (decl) != NULL)
-    ret = alias_tvar_new_with_aterm (decl,
+    ret = alias_var_new_with_aterm (decl,
 				     pta_make_ref (alias_get_name (decl)));
   else
     {
       char *tmp_name;
       ASM_FORMAT_PRIVATE_NAME (tmp_name, "unnamed var", id_num++);
-      ret = alias_tvar_new_with_aterm (decl, pta_make_ref (tmp_name));
+      ret = alias_var_new_with_aterm (decl, pta_make_ref (tmp_name));
     }
 
-  pta_join (ALIAS_TVAR_ATERM (tv), ALIAS_TVAR_ATERM (ret));
-  splay_tree_insert (ptamap, (splay_tree_key) ALIAS_TVAR_ATERM (ret),
+  pta_join (ALIAS_VAR_ATERM (tv), ALIAS_VAR_ATERM (ret));
+  splay_tree_insert (ptamap, (splay_tree_key) ALIAS_VAR_ATERM (ret),
 		     (splay_tree_value) ret);
-  ALIAS_TVAR_PTSET (tv) = NULL;
-  ALIAS_TVAR_PTSET (ret) = NULL;
+  ALIAS_VAR_PTSET (tv) = NULL;
+  ALIAS_VAR_PTSET (ret) = NULL;
 
   return ret;
 }
@@ -566,38 +552,38 @@ andersen_add_var_same (struct tree_alias_ops *ops ATTRIBUTE_UNUSED, tree decl,
 
 static void
 andersen_simple_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
-			alias_typevar lhs, alias_typevar rhs)
+			alias_var lhs, alias_var rhs)
 {
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Simple assignment %s = %s\n",
-	     alias_get_name (ALIAS_TVAR_DECL (lhs)),
-	     alias_get_name (ALIAS_TVAR_DECL (rhs)));
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "Simple assignment %s = %s\n",
+	     alias_get_name (ALIAS_VAR_DECL (lhs)),
+	     alias_get_name (ALIAS_VAR_DECL (rhs)));
   if (lhs == rhs)
     return;
   
   /* The rvalue is just the term itself, and we generate a constraint
      for assigning it to the lhs.  */
-  pta_assignment (ALIAS_TVAR_ATERM (lhs),
-		  pta_rvalue (ALIAS_TVAR_ATERM (rhs)));
+  pta_assignment (ALIAS_VAR_ATERM (lhs),
+		  pta_rvalue (ALIAS_VAR_ATERM (rhs)));
 }
 
 /* Inference for address assignment (lhs = &addr) */
 
 static void
 andersen_addr_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
-		      alias_typevar lhs, alias_typevar addr)
+		      alias_var lhs, alias_var addr)
 {
   if (addr == NULL)
     return;
- if (dump_file && (dump_flags & TDF_DETAILS))
-   fprintf (dump_file, "Address assignment %s = &%s\n",
-	    alias_get_name (ALIAS_TVAR_DECL (lhs)),
-	    alias_get_name (ALIAS_TVAR_DECL (addr)));
+ if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+   fprintf (tree_dump_file, "Address assignment %s = &%s\n",
+	    alias_get_name (ALIAS_VAR_DECL (lhs)),
+	    alias_get_name (ALIAS_VAR_DECL (addr)));
 
  /* The rvalue here is the address of a term, and we generate a
     constraint to assign this address to the lhs.  */
-  pta_assignment (ALIAS_TVAR_ATERM (lhs),
-		  pta_rvalue (pta_address (ALIAS_TVAR_ATERM (addr))));
+  pta_assignment (ALIAS_VAR_ATERM (lhs),
+		  pta_rvalue (pta_address (ALIAS_VAR_ATERM (addr))));
 }
 
 
@@ -605,18 +591,18 @@ andersen_addr_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 
 static void
 andersen_ptr_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
-		     alias_typevar lhs, alias_typevar ptr)
+		     alias_var lhs, alias_var ptr)
 {
 
   if (ptr == NULL)
     return;
- if (dump_file && (dump_flags & TDF_DETAILS))
-   fprintf (dump_file, "Pointer assignment %s = *%s\n",
-	    alias_get_name (ALIAS_TVAR_DECL (lhs)),
-	    alias_get_name (ALIAS_TVAR_DECL (ptr)));
+ if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+   fprintf (tree_dump_file, "Pointer assignment %s = *%s\n",
+	    alias_get_name (ALIAS_VAR_DECL (lhs)),
+	    alias_get_name (ALIAS_VAR_DECL (ptr)));
 
-  pta_assignment (ALIAS_TVAR_ATERM (lhs),
-		  pta_rvalue (pta_deref (ALIAS_TVAR_ATERM (ptr))));
+  pta_assignment (ALIAS_VAR_ATERM (lhs),
+		  pta_rvalue (pta_deref (ALIAS_VAR_ATERM (ptr))));
 
 }
 
@@ -654,19 +640,20 @@ pointer_destroying_op (tree op)
 
 static void
 andersen_op_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
-		    alias_typevar lhs, varray_type operands, tree operation)
+		    alias_var lhs, varray_type operands, tree operation,
+		    bitmap addrargs)
 {
   aterm newvar = NULL;
   
   if (VARRAY_ACTIVE_SIZE (operands) == 0)
     return;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Op assignment %s = ",
-	       alias_get_name (ALIAS_TVAR_DECL (lhs)));
-      print_generic_stmt (dump_file, operation, 0);
-      fprintf (dump_file, "\n");
+      fprintf (tree_dump_file, "Op assignment %s = ",
+	       alias_get_name (ALIAS_VAR_DECL (lhs)));
+      print_generic_stmt (tree_dump_file, operation, 0);
+      fprintf (tree_dump_file, "\n");
     }
   
       
@@ -674,7 +661,7 @@ andersen_op_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
      back, and thus, are assignment to pta_bottom. */
   if (pointer_destroying_op (operation))
     {
-      pta_assignment (ALIAS_TVAR_ATERM (lhs), pta_rvalue (pta_bottom ()));
+      pta_assignment (ALIAS_VAR_ATERM (lhs), pta_rvalue (pta_bottom ()));
       return;
     }
   
@@ -686,42 +673,55 @@ andersen_op_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
   if (VARRAY_ACTIVE_SIZE (operands) > 2)
     {
       size_t i;
-      alias_typevar tv1 = VARRAY_GENERIC_PTR (operands, 0);
-      newvar = ALIAS_TVAR_ATERM (tv1);
+      alias_var tv1 = VARRAY_GENERIC_PTR (operands, 0);
+      newvar = ALIAS_VAR_ATERM (tv1);
       for (i = 1; i < VARRAY_ACTIVE_SIZE (operands); i++)
 	{
-	  alias_typevar tempvar = VARRAY_GENERIC_PTR (operands, i);
-	  aterm t2 = ALIAS_TVAR_ATERM (tempvar);
-	  newvar = pta_join (newvar, t2);
+	  alias_var tempvar = VARRAY_GENERIC_PTR (operands, i);
+	  aterm t2 = ALIAS_VAR_ATERM (tempvar);
+	  if (bitmap_bit_p (addrargs, i))
+	    newvar = pta_join (newvar, pta_address (t2));
+	  else
+	    newvar = pta_join (newvar, t2);
 	}
     }
   else if (VARRAY_ACTIVE_SIZE (operands) == 2)
     {
-      alias_typevar tv1 = VARRAY_GENERIC_PTR (operands, 0);
-      alias_typevar tv2 = VARRAY_GENERIC_PTR (operands, 1);
-      aterm t1 = ALIAS_TVAR_ATERM (tv1);
-      aterm t2 = ALIAS_TVAR_ATERM (tv2);
-      newvar = pta_join (t1, t2);
+      alias_var tv1 = VARRAY_GENERIC_PTR (operands, 0);
+      alias_var tv2 = VARRAY_GENERIC_PTR (operands, 1);
+      aterm t1 = ALIAS_VAR_ATERM (tv1);
+      aterm t2 = ALIAS_VAR_ATERM (tv2);
+      if (bitmap_bit_p (addrargs, 0) && bitmap_bit_p (addrargs, 1))
+	newvar = pta_join (pta_address (t1), pta_address (t2));
+      else if (bitmap_bit_p (addrargs, 0))
+	newvar = pta_join (pta_address (t1), t2);
+      else if (bitmap_bit_p (addrargs, 1))
+	newvar = pta_join (t1, pta_address (t2));
+      else
+	newvar = pta_join (t1, t2);
     }
   else if (VARRAY_ACTIVE_SIZE (operands) == 1)
     {
-      alias_typevar tv1 = VARRAY_GENERIC_PTR (operands, 0);
-      aterm t1 = ALIAS_TVAR_ATERM (tv1);
-      newvar = t1;
+      alias_var tv1 = VARRAY_GENERIC_PTR (operands, 0);
+      aterm t1 = ALIAS_VAR_ATERM (tv1);
+      if (bitmap_bit_p (addrargs, 0))
+	newvar = pta_address (t1);
+      else
+	newvar = t1;
     }
-  pta_assignment (ALIAS_TVAR_ATERM (lhs), pta_rvalue (newvar));
+  pta_assignment (ALIAS_VAR_ATERM (lhs), pta_rvalue (newvar));
 }
 
 /* Inference for heap assignment (lhs = alloc).  */
 
 static void
 andersen_heap_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
-		      alias_typevar lhs ATTRIBUTE_UNUSED)
+		      alias_var lhs ATTRIBUTE_UNUSED)
 {
 #if 0
   alias_type type1;
   ECR tau;
-  type1 = ECR_get_type (alias_tvar_get_ECR (lhs));
+  type1 = ECR_get_type (alias_var_get_ECR (lhs));
   tau = alias_ltype_loc (type1);
 
   if (ECR_get_type (tau) == alias_bottom)
@@ -733,27 +733,27 @@ andersen_heap_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 
 static void
 andersen_assign_ptr (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
-		     alias_typevar ptr, alias_typevar rhs)
+		     alias_var ptr, alias_var rhs)
 {
 
   if (rhs == NULL)
     return;
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Assignment to pointer  *%s = %s\n",
-	     alias_get_name (ALIAS_TVAR_DECL (ptr)),
-	     alias_get_name (ALIAS_TVAR_DECL (rhs)));
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "Assignment to pointer  *%s = %s\n",
+	     alias_get_name (ALIAS_VAR_DECL (ptr)),
+	     alias_get_name (ALIAS_VAR_DECL (rhs)));
   /* The RHS is a standard rvalue, and the LHS is a pointer
      dereference.  */
-  pta_assignment (pta_deref (ALIAS_TVAR_ATERM (ptr)),
-		  pta_rvalue (ALIAS_TVAR_ATERM (rhs)));
+  pta_assignment (pta_deref (ALIAS_VAR_ATERM (ptr)),
+		  pta_rvalue (ALIAS_VAR_ATERM (rhs)));
 }
 
 /* Inference for a function definition.  */
 
 static void
 andersen_function_def (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
-		       alias_typevar func, varray_type params,
-		       alias_typevar retval)
+		       alias_var func, varray_type params,
+		       alias_var retval)
 {
   aterm_list args = new_aterm_list (andersen_rgn);
   aterm fun_type;
@@ -764,38 +764,38 @@ andersen_function_def (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
   /* Set up the arguments for the new function type. */
   for (i = 0; i < l; i++)
     {
-      alias_typevar tv = VARRAY_GENERIC_PTR (params, i);
-      aterm_list_cons (ALIAS_TVAR_ATERM (tv), args);
+      alias_var tv = VARRAY_GENERIC_PTR (params, i);
+      aterm_list_cons (ALIAS_VAR_ATERM (tv), args);
     }
   /* Create the function type.  */
-  fun_type = pta_make_fun (alias_get_name (ALIAS_TVAR_DECL (func)),
-			   ALIAS_TVAR_ATERM (retval), args);
+  fun_type = pta_make_fun (alias_get_name (ALIAS_VAR_DECL (func)),
+			   ALIAS_VAR_ATERM (retval), args);
 
   /* Assign the function type itself to the function.  */
-  pta_assignment (ALIAS_TVAR_ATERM (func), fun_type);
+  pta_assignment (ALIAS_VAR_ATERM (func), fun_type);
 }
 
 /* Inference for a function call assignment.  */
 
 static int
-andersen_function_call (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
-			alias_typevar lhs, alias_typevar func,
+andersen_function_call (struct tree_alias_ops *ops,
+			alias_var lhs, alias_var func,
 			varray_type args, bitmap addrargs)
 {
   aterm_list actuals = new_aterm_list (andersen_rgn);
-  aterm ftype = ALIAS_TVAR_ATERM (func);
+  aterm ftype = ALIAS_VAR_ATERM (func);
   aterm ret = NULL;
   aterm res;
-  tree decl = ALIAS_TVAR_DECL (func);
+  tree decl = ALIAS_VAR_DECL (func);
 
   size_t i;
 
   if (lhs)
-    ret = ALIAS_TVAR_ATERM (lhs);
+    ret = ALIAS_VAR_ATERM (lhs);
   for (i = 0; i < VARRAY_ACTIVE_SIZE (args); i++)
     {
-      alias_typevar argtv = VARRAY_GENERIC_PTR (args, i);
-      aterm arg = ALIAS_TVAR_ATERM (argtv);
+      alias_var argtv = VARRAY_GENERIC_PTR (args, i);
+      aterm arg = ALIAS_VAR_ATERM (argtv);
       if (bitmap_bit_p (addrargs, i))
 	aterm_list_cons (pta_rvalue (pta_address (arg)), actuals);
       else
@@ -816,9 +816,9 @@ andersen_function_call (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
      just have incoming parameters assigned to global_var if
      necessary. */
   if (TREE_CODE (decl) == FUNCTION_DECL
-      && DECL_PTA_TYPEVAR (decl)
-      && flag_unit_at_a_time 
-      && (!TREE_PUBLIC (decl) && TREE_STATIC (decl)))
+      && DECL_PTA_ALIASVAR (decl)
+      && ops->ip_partial
+      && (cgraph_local_info (decl)->local))
     {
       return 0;
     }
@@ -835,34 +835,34 @@ simple_cmp (const aterm a, const aterm b)
 }
 
 
-/* Determine if two aterm's have the same points-to set.
-   When we didn't create global_var, we can just get the two points-to
-   sets and compare the lengths, then the names.
-   When we did create global_var, we have to filter it out.  */
+/* Get the points-to set for TV, caching if it we had to compute it. */
+   
+static aterm_list 
+get_ptset (alias_var tv)
+{
+  aterm_list ptset;
+  ptset = ALIAS_VAR_PTSET (tv);
+  if (ptset != NULL)
+    return ptset;
+  ptset = aterm_tlb (pta_get_contents (ALIAS_VAR_ATERM (tv)));
+  ALIAS_VAR_PTSET (tv) = ptset;
+  return ptset;
+}
+  
+  
+/* Determine if two aterm's have the same points-to set. */
 
 static bool
 andersen_same_points_to_set (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
-			     alias_typevar ptrtv, alias_typevar vartv)
+			     alias_var ptrtv, alias_var vartv)
 {
   aterm_list ptset1, ptset2;
   aterm_list_scanner scan1, scan2;
   aterm data1, data2;
   region scratch_rgn = newregion ();
 
-  ptset1 = ALIAS_TVAR_PTSET (ptrtv);
-  ptset2 = ALIAS_TVAR_PTSET (vartv);
-  /* Solve the points-to constraints and get the resulting sets if
-     they weren't cached previously.  */
-  if (!ptset1)
-    {
-      ptset1 = aterm_tlb (pta_get_contents (ALIAS_TVAR_ATERM (ptrtv)));
-      ALIAS_TVAR_PTSET (ptrtv) = ptset1;
-    }
-  if (!ptset2)
-    {
-      ptset2 = aterm_tlb (pta_get_contents (ALIAS_TVAR_ATERM (vartv)));
-      ALIAS_TVAR_PTSET (vartv) = ptset2;
-    }
+  ptset1 = get_ptset (ptrtv);
+  ptset2 = get_ptset (vartv);
   
   if (aterm_list_length (ptset1) != aterm_list_length (ptset2))
     {
@@ -909,21 +909,25 @@ andersen_same_points_to_set (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 
 static bool
 andersen_may_alias (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
-		    alias_typevar ptrtv, alias_typevar vartv)
+		    alias_var ptrtv, alias_var vartv)
 {
   aterm_list ptset;
-  ptset = ALIAS_TVAR_PTSET (ptrtv);
-
-  /* Solve the points-to constraints and get the resulting set if we
-     haven't cached it.  */
-  if (!ptset)
-    {
-      ptset = aterm_tlb (pta_get_contents (ALIAS_TVAR_ATERM (ptrtv)));
-      ALIAS_TVAR_PTSET (ptrtv) = ptset;
-    }
+  ptset = get_ptset (ptrtv);
 
   if (aterm_list_empty (ptset))
     return false;
 
-  return aterm_list_member (ptset, ALIAS_TVAR_ATERM (vartv));
+  return aterm_list_member (ptset, ALIAS_VAR_ATERM (vartv));
+}
+
+/* Determine whether PTRTV has an empty points-to set. IE it may not
+   point to anything.  */
+
+static bool 
+andersen_empty_points_to_set (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
+			      alias_var ptrtv)
+{
+  aterm_list ptset;
+  ptset = get_ptset (ptrtv);
+  return aterm_list_empty (ptset);  
 }

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom2" } */
+/* { dg-options "-O1 -fdump-tree-dom3" } */
      
 
 extern const unsigned char mode_size[];
@@ -18,8 +18,8 @@ subreg_highpart_offset (outermode, innermode)
 }
 
 /* There should be one mask with the value 3.  */
-/* { dg-final { scan-tree-dump-times " \& 3" 1 "dom2"} } */
+/* { dg-final { scan-tree-dump-times " \& 3" 1 "dom3"} } */
   
 /* There should be one right shift by 2 places.  */
-/* { dg-final { scan-tree-dump-times " >> 2" 1 "dom2"} } */
+/* { dg-final { scan-tree-dump-times " >> 2" 1 "dom3"} } */
 

@@ -1353,7 +1353,7 @@ finish_list_read (void)
   while (c != '\n');
 }
 
-namelist_info *
+static namelist_info *
 find_nml_node (char * var_name)
 {
    namelist_info * t = ionml;
@@ -1369,7 +1369,7 @@ find_nml_node (char * var_name)
   return NULL;
 }
 
-void
+static void
 match_namelist_name (char *name, int len)
 {
   int name_len;

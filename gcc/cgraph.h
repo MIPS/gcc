@@ -68,7 +68,7 @@ struct cgraph_rtl_info GTY(())
 };
 
 
-/* The cgraph data strutcture.
+/* The cgraph data structure.
    Each function decl has assigned cgraph_node listing callees and callers.  */
 
 struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
@@ -115,11 +115,13 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller")))
   struct cgraph_edge *next_caller;
   struct cgraph_edge *next_callee;
   tree call_expr;
-  bool inline_call;
+  /* When NULL, inline this call.  When non-NULL, points to the explanation
+     why function was not inlined.  */
+  const char *inline_failed;
   PTR GTY ((skip (""))) aux;
 };
 
-/* The cgraph_varpool data strutcture.
+/* The cgraph_varpool data structure.
    Each static variable decl has assigned cgraph_varpool_node.  */
 
 struct cgraph_varpool_node GTY(())
@@ -185,10 +187,11 @@ void cgraph_create_edges (struct cgraph_node *, tree);
 void cgraph_optimize (void);
 void cgraph_mark_needed_node (struct cgraph_node *);
 void cgraph_mark_reachable_node (struct cgraph_node *);
-bool cgraph_inline_p (struct cgraph_edge *);
+bool cgraph_inline_p (struct cgraph_edge *, const char **reason);
 bool cgraph_preserve_function_body_p (tree);
 void verify_cgraph (void);
 void verify_cgraph_node (struct cgraph_node *);
 void cgraph_mark_inline_edge (struct cgraph_edge *e);
+void cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate);
 
 #endif  /* GCC_CGRAPH_H  */

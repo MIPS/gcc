@@ -1,7 +1,7 @@
 /* Scalar Replacement of Aggregates (SRA) converts some structure
    references into scalar references, exposing them to the scalar
    optimizers.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -40,7 +40,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-flow.h"
 #include "tree-simple.h"
 #include "tree-dump.h"
+#include "tree-pass.h"
 #include "timevar.h"
+#include "flags.h"
+#include "bitmap.h"
+
 
 /* Maximum number of fields that a structure should have to be scalarized.
    FIXME  This limit has been arbitrarily set to 5.  Experiment to find a
@@ -52,108 +56,192 @@ enum sra_copy_mode { SCALAR_SCALAR, FIELD_SCALAR, SCALAR_FIELD };
 
 /* Local functions.  */
 static inline bool can_be_scalarized_p (tree);
-static inline tree get_scalar_for (tree, tree);
-static inline tree lookup_scalar (int var_ix, int field_ix, tree);
 static inline void insert_edge_copies (tree stmt, basic_block bb);
 static tree create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode);
 static inline void scalarize_component_ref (tree, tree *tp);
-static void find_candidates_for_sra (void);
 static void scalarize_structures (void);
 static void scalarize_stmt (block_stmt_iterator *);
 static void scalarize_modify_expr (block_stmt_iterator *);
 static void scalarize_call_expr (block_stmt_iterator *);
 static void scalarize_asm_expr (block_stmt_iterator *);
 static void scalarize_return_expr (block_stmt_iterator *);
-static void scalarize_tree_list (tree, block_stmt_iterator *);
-
-/* Local variables.  */
-static FILE *dump_file;
-static int dump_flags;
 
 /* The set of aggregate variables that are candidates for scalarization.  */
-static sbitmap sra_candidates;
-
-/* Set of variables to be renamed.  This bitmap does not include the new
-   scalar replacements created during this pass.  At the end of the pass,
-   a new set is created with all the variables in this set and all the new
-   scalar replacements.  */
-static bitmap vars_to_rename;
+static bitmap sra_candidates;
 
 /* Set of scalarizable PARM_DECLs that need copy-in operations at the
    beginning of the function.  */
-static sbitmap needs_copy_in;
+static bitmap needs_copy_in;
 
-/* A matrix of NUM_REFERENCED_VARIABLES x MAX_NFIELDS_FOR_SRA to map the
-   temporary variables to the aggregate reference that they represent.
-   For example, suppose that variable 'A' is a scalarizable aggregate with
-   fields 'a', 'b' and 'c'.  If the UID of 'A' is 6, then SRA_MAP[6][1]
-   will contain the temporary variable representing 'A.b'.  */
-static tree **sra_map;
+/* This structure holds the mapping between and element of an aggregate
+   and the scalar replacement variable.  */
+struct sra_elt
+{
+  enum tree_code kind;
+  tree base;
+  tree field;
+  tree replace;
+};
+    
+static htab_t sra_map;
+
+static hashval_t
+sra_elt_hash (const void *x)
+{
+  const struct sra_elt *e = x;
+  hashval_t h = (size_t) e->base * e->kind;
+  if (e->kind == COMPONENT_REF)
+    h ^= (size_t) e->field;
+  return h;
+}
+
+static int
+sra_elt_eq (const void *x, const void *y)
+{
+  const struct sra_elt *a = x;
+  const struct sra_elt *b = y;
+
+  if (a->kind != b->kind)
+    return false;
+  if (a->base != b->base)
+    return false;
+  if (a->kind == COMPONENT_REF)
+    if (a->field != b->field)
+      return false;
+
+  return true;
+}
+
+/* Build a temporary.  Make sure and register it to be renamed.  */
+
+static tree
+make_temp (tree type, const char *prefix)
+{
+  tree t = create_tmp_var (type, prefix);
+  add_referenced_tmp_var (t);
+  bitmap_set_bit (vars_to_rename, var_ann (t)->uid);
+  return t;
+}
+
+/* Mark all the variables in VDEF operands for STMT for renaming.
+   This becomes necessary when we modify all of a non-scalar.  */
+
+static void
+mark_all_vdefs (tree stmt)
+{
+  vdef_optype vdefs;
+  size_t i, n;
+
+  get_stmt_operands (stmt);
+  vdefs = VDEF_OPS (stmt_ann (stmt));
+  n = NUM_VDEFS (vdefs);
+
+  for (i = 0; i < n; i++)
+    {
+      tree sym = VDEF_RESULT (vdefs, i);
+      bitmap_set_bit (vars_to_rename, var_ann (sym)->uid);
+    }
+}
+
+/* Return true if DECL is an SRA candidate.  */
+
+static bool
+is_sra_candidate_decl (tree decl)
+{
+  return DECL_P (decl) && bitmap_bit_p (sra_candidates, var_ann (decl)->uid);
+}
+
+/* Return true if EXP is of the form <ref decl>, where REF is one of the
+   field access references we handle and DECL is an SRA candidate. 
+
+   Set ALLOW_BIT_FIELD_REF to accept BIT_FIELD_REF as well.  This is
+   normally false, except when we're trying to work around it.  */
+
+static bool
+is_sra_candidate_ref (tree exp, bool allow_bit_field_ref)
+{
+  switch (TREE_CODE (exp))
+    {
+    case BIT_FIELD_REF:
+      if (!allow_bit_field_ref)
+	break;
+      /* FALLTHRU */
+
+    case COMPONENT_REF:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      return is_sra_candidate_decl (TREE_OPERAND (exp, 0));
+
+    default:
+      break;
+    }
+
+  return false;
+}
+
+/* Return the scalar in SRA_MAP[VAR_IX][FIELD_IX].  If none exists, create
+   a new scalar with type TYPE.  */
+
+static tree
+lookup_scalar (struct sra_elt *key, tree type)
+{
+  struct sra_elt **slot, *res;
+
+  slot = (struct sra_elt **) htab_find_slot (sra_map, key, INSERT);
+  res = *slot;
+  if (!res)
+    {
+      res = xmalloc (sizeof (*res));
+      *slot = res;
+      *res = *key;
+      res->replace = make_temp (type, "SR");
+    }
+
+  return res->replace;
+}
 
 
 /* Given a structure reference VAR.FIELD, return a scalar representing it.
    If no scalar is found, a new one is created and added to the SRA_MAP
    matrix.  */
 
-static inline tree
-get_scalar_for (tree var, tree field)
+static tree
+get_scalar_for_field (tree var, tree field)
 {
-  int var_ix, f_ix;
-  tree f, type;
+  struct sra_elt key;
 
-  var_ix = var_ann (var)->uid;
-
-  /* Find the index number for FIELD.  */
-  type = TREE_TYPE (var);
-  f_ix = 0;
-  for (f = TYPE_FIELDS (type); f; f = TREE_CHAIN (f))
-    {
-      if (TREE_CODE (f) != FIELD_DECL)
-	continue;
-
-      if (field == f)
-	break;
-
-      f_ix++;
-    }
-
-  /* We should have found FIELD.  */
-  if (f == NULL_TREE)
+#ifdef ENABLE_CHECKING
+  /* Validate that FIELD actually exists in VAR's type.  */
+  {
+    tree f;
+    for (f = TYPE_FIELDS (TREE_TYPE (var)); f ; f = TREE_CHAIN (f))
+      if (f == field)
+	goto found;
     abort ();
-
-  return lookup_scalar (var_ix, f_ix, TREE_TYPE (field));
-}
-
-
-/* Return the scalar in SRA_MAP[VAR_IX][FIELD_IX].  If none exists, create
-   a new scalar with type TYPE.  */
-
-static inline tree
-lookup_scalar (int var_ix, int field_ix, tree type)
-{
-#if defined ENABLE_CHECKING
-  if (var_ix < 0 || var_ix >= (int)num_referenced_vars)
-    abort ();
-
-  if (field_ix < 0 || field_ix >= MAX_NFIELDS_FOR_SRA)
-    abort ();
+   found:;
+  }
 #endif
 
-  /* Create a new row for VAR in SRA_MAP, if necessary.  */
-  if (sra_map[var_ix] == NULL)
-    sra_map[var_ix] = xcalloc (MAX_NFIELDS_FOR_SRA, sizeof (tree));
+  key.kind = COMPONENT_REF;
+  key.base = var;
+  key.field = field;
 
-  /* If we still have not created a new scalar for FIELD, create one and
-     add it to the list of referenced variables.  */
-  if (sra_map[var_ix][field_ix] == NULL_TREE)
-    {
-      sra_map[var_ix][field_ix] = create_tmp_var (type, "SR");
-      add_referenced_tmp_var (sra_map[var_ix][field_ix]);
-    }
-
-  return sra_map[var_ix][field_ix];
+  return lookup_scalar (&key, TREE_TYPE (field));
 }
 
+
+/* Similarly for the parts of a complex type.  */
+
+static tree
+get_scalar_for_complex_part (tree var, enum tree_code part)
+{
+  struct sra_elt key;
+
+  key.kind = part;
+  key.base = var;
+
+  return lookup_scalar (&key, TREE_TYPE (TREE_TYPE (var)));
+}
 
 /* Return true if the fields of VAR can be replaced by scalar temporaries.
    This only happens if VAR is not call-clobbered and it contains less
@@ -167,25 +255,29 @@ can_be_scalarized_p (tree var)
 
   if (!is_gimple_non_addressable (var))
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "Cannot scalarize variable ");
-	  print_generic_expr (dump_file, var, 0);	 
-	  fprintf (dump_file, " because it must live in memory\n");
+	  fprintf (tree_dump_file, "Cannot scalarize variable ");
+	  print_generic_expr (tree_dump_file, var, 0);	 
+	  fprintf (tree_dump_file, " because it must live in memory\n");
 	}
       return false;
     }
 
   if (TREE_THIS_VOLATILE (var))
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "Cannot scalarize variable ");
-	  print_generic_expr (dump_file, var, 0);	 
-	  fprintf (dump_file, " because it is declared volatile\n");
+	  fprintf (tree_dump_file, "Cannot scalarize variable ");
+	  print_generic_expr (tree_dump_file, var, 0);	 
+	  fprintf (tree_dump_file, " because it is declared volatile\n");
 	}
       return false;
     }
+
+  /* Any COMPLEX_TYPE that has reached this point can be scalarized.  */
+  if (TREE_CODE (TREE_TYPE (var)) == COMPLEX_TYPE)
+    return true;
 
   type = TREE_TYPE (var);
   nfields = 0;
@@ -194,16 +286,36 @@ can_be_scalarized_p (tree var)
       if (TREE_CODE (field) != FIELD_DECL)
 	continue;
 
+      /* FIXME: We really should recurse down the type hierarchy and
+	 scalarize the fields at the leaves.  */
       if (AGGREGATE_TYPE_P (TREE_TYPE (field)))
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Cannot scalarize variable ");
-	      print_generic_expr (dump_file, var, 0);	 
-	      fprintf (dump_file,
+	      fprintf (tree_dump_file, "Cannot scalarize variable ");
+	      print_generic_expr (tree_dump_file, var, 0);	 
+	      fprintf (tree_dump_file,
 		       " because it contains an aggregate type field, ");
-	      print_generic_expr (dump_file, field, 0);
-	      fprintf (dump_file, "\n");
+	      print_generic_expr (tree_dump_file, field, 0);
+	      fprintf (tree_dump_file, "\n");
+	    }
+	  return false;
+	}
+
+      /* FIXME: Similarly.  Indeed, considering that we treat complex
+	 as an aggregate, this is exactly the same problem.
+	 Structures with __complex__ fields are tested in the libstdc++
+	 testsuite: 26_numerics/complex_inserters_extractors.cc.  */
+      if (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE)
+	{
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (tree_dump_file, "Cannot scalarize variable ");
+	      print_generic_expr (tree_dump_file, var, 0);
+	      fprintf (tree_dump_file,
+		       " because it contains a __complex__ field, ");
+	      print_generic_expr (tree_dump_file, field, 0);
+	      fprintf (tree_dump_file, "\n");
 	    }
 	  return false;
 	}
@@ -214,30 +326,14 @@ can_be_scalarized_p (tree var)
 	 to mask them properly.  */
       if (DECL_BIT_FIELD (field))
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Cannot scalarize variable ");
-	      print_generic_expr (dump_file, var, 0);	 
-	      fprintf (dump_file,
+	      fprintf (tree_dump_file, "Cannot scalarize variable ");
+	      print_generic_expr (tree_dump_file, var, 0);	 
+	      fprintf (tree_dump_file,
 		       " because it contains a bit-field, ");
-	      print_generic_expr (dump_file, field, 0);
-	      fprintf (dump_file, "\n");
-	    }
-	  return false;
-	}
-
-      /* FIXME: We should handle COMPLEX_TYPEs.  Structures with
-	 __complex__ fields are tested in the libstdc++ testsuite:
-	 26_numerics/complex_inserters_extractors.cc.  */
-      if (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE)
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "Cannot scalarize variable ");
-	      print_generic_expr (dump_file, var, 0);
-	      fprintf (dump_file, " because it contains a __complex__ field, ");
-	      print_generic_expr (dump_file, field, 0);
-	      fprintf (dump_file, "\n");
+	      print_generic_expr (tree_dump_file, field, 0);
+	      fprintf (tree_dump_file, "\n");
 	    }
 	  return false;
 	}
@@ -245,11 +341,11 @@ can_be_scalarized_p (tree var)
       nfields++;
       if (nfields > MAX_NFIELDS_FOR_SRA)
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Cannot scalarize variable ");
-	      print_generic_expr (dump_file, var, 0);	 
-	      fprintf (dump_file,
+	      fprintf (tree_dump_file, "Cannot scalarize variable ");
+	      print_generic_expr (tree_dump_file, var, 0);	 
+	      fprintf (tree_dump_file,
 		       " because it contains more than %d fields\n", 
 		       MAX_NFIELDS_FOR_SRA);
 	    }
@@ -263,20 +359,35 @@ can_be_scalarized_p (tree var)
 }
 
 
-/* Replace the COMPONENT_REF pointed-to by TP inside STMT with the
-   corresponding scalar replacement from SRA_MAP.  */
+/* Replace the COMPONENT_REF, REALPART_EXPR or IMAGPART_EXPR pointed-to by
+   TP inside STMT with the corresponding scalar replacement from SRA_MAP.  */
 
 static inline void
 scalarize_component_ref (tree stmt, tree *tp)
 {
+  tree t = *tp, obj = TREE_OPERAND (t, 0);
+
   /* When scalarizing a function argument, we will need to insert copy-in
      operations from the original PARM_DECLs. Note that these copy-in
      operations may end up being dead, but we won't know until we rename
      the new variables into SSA.  */
-  if (TREE_CODE (TREE_OPERAND (*tp, 0)) == PARM_DECL)
-    SET_BIT (needs_copy_in, var_ann (TREE_OPERAND (*tp, 0))->uid);
+  if (TREE_CODE (obj) == PARM_DECL)
+    bitmap_set_bit (needs_copy_in, var_ann (obj)->uid);
 
-  *tp = get_scalar_for (TREE_OPERAND (*tp, 0), TREE_OPERAND (*tp, 1));
+  switch (TREE_CODE (t))
+    {
+    case COMPONENT_REF:
+      t = get_scalar_for_field (obj, TREE_OPERAND (t, 1));
+      break;
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      t = get_scalar_for_complex_part (obj, TREE_CODE (t));
+      break;
+    default:
+      abort ();
+    }
+
+  *tp = t;
   modify_stmt (stmt);
 }
 
@@ -288,6 +399,7 @@ scalarize_structure_assignment (block_stmt_iterator *si_p)
 {
   var_ann_t lhs_ann, rhs_ann;
   tree lhs, rhs, list, orig_stmt;
+  bool lhs_can, rhs_can;
 
   orig_stmt = bsi_stmt (*si_p);
   lhs = TREE_OPERAND (orig_stmt, 0);
@@ -314,27 +426,28 @@ scalarize_structure_assignment (block_stmt_iterator *si_p)
     abort ();
 #endif
 
+  lhs_can = lhs_ann && bitmap_bit_p (sra_candidates, lhs_ann->uid);
+  rhs_can = rhs_ann && bitmap_bit_p (sra_candidates, rhs_ann->uid);
+
   /* Both LHS and RHS are scalarizable.  */
-  if (lhs_ann
-      && TEST_BIT (sra_candidates, lhs_ann->uid)
-      && rhs_ann
-      && TEST_BIT (sra_candidates, rhs_ann->uid))
+  if (lhs_can && rhs_can)
     list = create_scalar_copies (lhs, rhs, SCALAR_SCALAR);
 
   /* Only RHS is scalarizable.  */
-  else if (rhs_ann
-      && TEST_BIT (sra_candidates, rhs_ann->uid))
+  else if (rhs_can)
     list = create_scalar_copies (lhs, rhs, FIELD_SCALAR);
 
   /* Only LHS is scalarizable.  */
-  else if (lhs_ann
-      && TEST_BIT (sra_candidates, lhs_ann->uid))
+  else if (lhs_can)
     list = create_scalar_copies (lhs, rhs, SCALAR_FIELD);
 
-
   /* If neither side is scalarizable, do nothing else.  */
-  if (list == NULL_TREE)
+  else
     return;
+
+  /* Set line number information for our replacements.  */
+  if (EXPR_LOCUS (orig_stmt))
+    annotate_all_with_locus (&list, *EXPR_LOCUS (orig_stmt));
 
   /* Replace the existing statement with the newly created list of
      scalarized copies.  When replacing the original statement, the first
@@ -356,19 +469,26 @@ scalarize_structure_assignment (block_stmt_iterator *si_p)
 /* Traverse all the referenced variables in the program looking for
    structures that could be replaced with scalars.  */
 
-static void
+static bool
 find_candidates_for_sra (void)
 {
   size_t i;
+  bool any_set = false;
 
   for (i = 0; i < num_referenced_vars; i++)
     {
       tree var = referenced_var (i);
 
-      if (TREE_CODE (TREE_TYPE (var)) == RECORD_TYPE
+      if ((TREE_CODE (TREE_TYPE (var)) == RECORD_TYPE
+	   || TREE_CODE (TREE_TYPE (var)) == COMPLEX_TYPE)
 	  && can_be_scalarized_p (var))
-	SET_BIT (sra_candidates, var_ann (var)->uid);
+	{
+	  bitmap_set_bit (sra_candidates, var_ann (var)->uid);
+	  any_set = true;
+	}
     }
+
+  return any_set;
 }
 
 
@@ -402,9 +522,87 @@ insert_edge_copies (tree stmt, basic_block bb)
 }
 
 
+/* Append a new assignment statement to TSI.  */
+
+static tree
+csc_assign (tree_stmt_iterator *tsi, tree lhs, tree rhs)
+{
+  tree stmt = build (MODIFY_EXPR, TREE_TYPE (lhs), lhs, rhs);
+  modify_stmt (stmt);
+  tsi_link_after (tsi, stmt, TSI_NEW_STMT);
+  return stmt;
+}
+
+/* A subroutine of create_scalar_copies.  Construct a COMPONENT_REF
+   expression for BASE referencing FIELD.  INDEX is the field index.  */
+
+static tree
+csc_build_component_ref (tree base, tree field)
+{
+  switch (TREE_CODE (base))
+    {
+    case CONSTRUCTOR:
+      /* Only appears on RHS.  The only remaining CONSTRUCTORS for
+	 record types that should remain are empty, and imply that
+	 the entire structure should be zeroed.  */
+      if (CONSTRUCTOR_ELTS (base))
+	abort ();
+      return convert (TREE_TYPE (field), integer_zero_node);
+
+    default:
+      /* Avoid sharing BASE when building the different COMPONENT_REFs.
+	 We let the first field have the original version.  */
+      if (field != TYPE_FIELDS (TREE_TYPE (base)))
+	base = unshare_expr (base);
+      break;
+
+    case VAR_DECL:
+    case PARM_DECL:
+      /* Special case for the above -- decls are always shared.  */
+      break;
+    }
+
+  return build (COMPONENT_REF, TREE_TYPE (field), base, field);
+}
+
+/* Similarly for REALPART_EXPR and IMAGPART_EXPR for complex types.  */
+
+static tree
+csc_build_complex_part (tree base, enum tree_code part)
+{
+  switch (TREE_CODE (base))
+    {
+    case COMPLEX_CST:
+      if (part == REALPART_EXPR)
+	return TREE_REALPART (base);
+      else
+	return TREE_IMAGPART (base);
+
+    case COMPLEX_EXPR:
+      if (part == REALPART_EXPR)
+        return TREE_OPERAND (base, 0);
+      else
+        return TREE_OPERAND (base, 1);
+
+    default:
+      /* Avoid sharing BASE when building the different references.
+	 We let the real part have the original version.  */
+      if (part != REALPART_EXPR)
+	base = unshare_expr (base);
+      break;
+
+    case VAR_DECL:
+    case PARM_DECL:
+      /* Special case for the above -- decls are always shared.  */
+      break;
+    }
+
+  return build1 (part, TREE_TYPE (TREE_TYPE (base)), base);
+}
+
 /* Create and return a list of assignments to perform a scalarized
    structure assignment 'LHS = RHS'.  Both LHS and RHS are assumed to be
-   of an aggregate type.  Three types of copies may be specified:
+   of an aggregate or complex type.  Three types of copies may be specified:
 
    SCALAR_SCALAR will emit assignments for all the scalar temporaries
       corresponding to the fields of LHS and RHS.
@@ -418,151 +616,123 @@ insert_edge_copies (tree stmt, basic_block bb)
 static tree
 create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode)
 {
-  tree type, f, last_stmt, list;
-  int f_ix, lhs_ix, rhs_ix;
+  tree type, list;
+  tree_stmt_iterator tsi;
 
 #if defined ENABLE_CHECKING
   /* Sanity checking.  Check that we are not trying to scalarize a
      non-decl.  */
-  if (!DECL_P (lhs)
-      && (mode == SCALAR_FIELD
-	  || mode == SCALAR_SCALAR))
+  if (!DECL_P (lhs) && (mode == SCALAR_FIELD || mode == SCALAR_SCALAR))
     abort ();
-
-  if (!DECL_P (rhs)
-      && (mode == FIELD_SCALAR
-	  || mode == SCALAR_SCALAR))
+  if (!DECL_P (rhs) && (mode == FIELD_SCALAR || mode == SCALAR_SCALAR))
     abort ();
 #endif
 
-  lhs_ix = DECL_P (lhs) ? (int) var_ann (lhs)->uid : -1;
-  rhs_ix = DECL_P (rhs) ? (int) var_ann (rhs)->uid : -1;
   type = TREE_TYPE (lhs);
-
   list = alloc_stmt_list ();
+  tsi = tsi_start (list);
 
   /* VA_ARG_EXPRs have side effects, so we need to copy it first to a
      temporary before scalarizing.  FIXME: This should disappear once
      VA_ARG_EXPRs are properly lowered.  */
   if (TREE_CODE (rhs) == VA_ARG_EXPR)
     {
-      size_t i;
-      vdef_optype vdefs;
       tree stmt, tmp;
 
       /* Add TMP = VA_ARG_EXPR <>  */
-      tmp = create_tmp_var (TREE_TYPE (rhs), "T");
-      add_referenced_tmp_var (tmp);
-      stmt = build (MODIFY_EXPR, TREE_TYPE (rhs), tmp, rhs);
-      modify_stmt (stmt);
-      append_to_statement_list (stmt, &list);
+      tmp = make_temp (TREE_TYPE (rhs), NULL);
+      stmt = csc_assign (&tsi, tmp, rhs);
 
-      /* Mark all the variables in VDEF operands for renaming, because the
-	 VA_ARG_EXPR will now be in a different statement.  */
-      get_stmt_operands (stmt);
-      vdefs = VDEF_OPS (stmt_ann (stmt));
-      for (i = 0; i < NUM_VDEFS (vdefs); i++)
-	{
-	  tree sym = VDEF_RESULT (vdefs, i);
-	  bitmap_set_bit (vars_to_rename, var_ann (sym)->uid);
-	}
+      /* Mark all the variables in VDEF operands for renaming, because
+	 the VA_ARG_EXPR will now be in a different statement.  */
+      mark_all_vdefs (stmt);
 
       /* Set RHS to be the new temporary TMP.  */
       rhs = tmp;
     }
 
+  /* When making *_SCALAR copies from PARM_DECLs, we will need to insert
+     copy-in operations from the original PARM_DECLs.  Note that these
+     copy-in operations may end up being dead, but we won't know until
+     we rename the new variables into SSA.  */
+  if ((mode == SCALAR_SCALAR || mode == FIELD_SCALAR)
+      && TREE_CODE (rhs) == PARM_DECL)
+    bitmap_set_bit (needs_copy_in, var_ann (rhs)->uid);
+
   /* Now create scalar copies for each individual field according to MODE.  */
-  last_stmt = NULL_TREE;
-  for (f_ix = 0, f = TYPE_FIELDS (type); f; f = TREE_CHAIN (f))
+  if (TREE_CODE (type) == COMPLEX_TYPE)
     {
-      tree lhs_var, rhs_var, stmt;
+      /* Create scalar copies of both the real and imaginary parts.  */
+      tree real_lhs, real_rhs, imag_lhs, imag_rhs;
 
-      /* Only copy FIELD_DECLs.  */
-      if (TREE_CODE (f) != FIELD_DECL)
-	continue;
-
-      /* Set up the LHS and the RHS of the new copy operation
-	 based on MODE.  */
-      if (mode == SCALAR_SCALAR)
+      if (mode == SCALAR_FIELD)
 	{
-	  lhs_var = lookup_scalar (lhs_ix, f_ix, TREE_TYPE (f));
-	  rhs_var = lookup_scalar (rhs_ix, f_ix, TREE_TYPE (f));
-	}
-      else if (mode == FIELD_SCALAR)
-	{
-	  if (DECL_P (lhs))
-	    lhs_var = build (COMPONENT_REF, TREE_TYPE (f), lhs, f);
-	  else
-	    {
-	      /* Avoid sharing the LHS when building the different
-		 COMPONENT_REFs.  */
-	      if (f_ix == 0)
-		lhs_var = build (COMPONENT_REF, TREE_TYPE (f), lhs, f);
-	      else
-		lhs_var = build (COMPONENT_REF, TREE_TYPE (f),
-				 unshare_expr (lhs), f);
-	    }
-
-	  rhs_var = lookup_scalar (rhs_ix, f_ix, TREE_TYPE (f));
-	}
-      else if (mode == SCALAR_FIELD)
-	{
-	  lhs_var = lookup_scalar (lhs_ix, f_ix, TREE_TYPE (f));
-
-	  /* Handle the different types of expressions that we could find
-	     on the RHS.  */
-	  if (DECL_P (rhs))
-	    {
-	      /* Common case.  The RHS is a non-scalarizable DECL.  */
-	      rhs_var = build (COMPONENT_REF, TREE_TYPE (f), rhs, f);
-	    }
-	  else if (TREE_CODE (rhs) == CONSTRUCTOR)
-	    {
-	      /* CONSTRUCTOR nodes mean that every field should be assigned a
-		 zero value.  */
-	      rhs_var = convert (TREE_TYPE (f), integer_zero_node);
-	    }
-	  else
-	    {
-	      /* Any other kind of expression.  Make sure that it doesn't
-		 have side effects and make copies to avoid sharing.  */
-	      if (TREE_SIDE_EFFECTS (rhs))
-		abort ();
-
-	      if (f_ix == 0)
-		rhs_var = build (COMPONENT_REF, TREE_TYPE (f), rhs, f);
-	      else
-		rhs_var = build (COMPONENT_REF, TREE_TYPE (f),
-				 unshare_expr (rhs), f);
-	    }
+	  real_rhs = csc_build_complex_part (rhs, REALPART_EXPR);
+	  imag_rhs = csc_build_complex_part (rhs, IMAGPART_EXPR);
 	}
       else
-	abort ();
+	{
+	  real_rhs = get_scalar_for_complex_part (rhs, REALPART_EXPR);
+	  imag_rhs = get_scalar_for_complex_part (rhs, IMAGPART_EXPR);
+	}
 
-      /* When making *_SCALAR copies from PARM_DECLs, we will need to
-	 insert copy-in operations from the original PARM_DECLs.  Note that
-	 these copy-in operations may end up being dead, but we won't know
-	 until we rename the new variables into SSA.  */
-      if ((mode == SCALAR_SCALAR
-	   || mode == FIELD_SCALAR)
-	  && rhs_ix >= 0
-	  && TREE_CODE (rhs) == PARM_DECL)
-	SET_BIT (needs_copy_in, rhs_ix);
+      if (mode == FIELD_SCALAR)
+	{
+	  /* In this case we do not need to create but one statement,
+	     since we can create a new complex value whole.  */
 
-      stmt = build (MODIFY_EXPR, TREE_TYPE (lhs_var), lhs_var, rhs_var);
-      modify_stmt (stmt);
-      last_stmt = stmt;
-      append_to_statement_list (stmt, &list);
+	  if (TREE_CONSTANT (real_rhs) && TREE_CONSTANT (imag_rhs))
+	    rhs = build_complex (type, real_rhs, imag_rhs);
+	  else
+	    rhs = build (COMPLEX_EXPR, type, real_rhs, imag_rhs);
+	  csc_assign (&tsi, lhs, rhs);
+	}
+      else
+	{
+	  real_lhs = get_scalar_for_complex_part (lhs, REALPART_EXPR);
+	  imag_lhs = get_scalar_for_complex_part (lhs, IMAGPART_EXPR);
 
-      /* Note that we cannot increase the field index in the loop header
-	 because we skip non-decl fields.  */
-      f_ix++;
+	  csc_assign (&tsi, real_lhs, real_rhs);
+	  csc_assign (&tsi, imag_lhs, imag_rhs);
+	}
+    }
+  else
+    {
+      tree lf, rf;
+
+      /* ??? C++ generates copies between different pointer-to-member
+	 structures of different types.  To combat this, we must track
+	 the field of both the left and right structures, so that we
+	 index the variables with fields of their own type.  */
+
+      for (lf = TYPE_FIELDS (type), rf = TYPE_FIELDS (TREE_TYPE (rhs));
+	   lf;
+	   lf = TREE_CHAIN (lf), rf = TREE_CHAIN (rf))
+	{
+	  tree lhs_var, rhs_var;
+
+	  /* Only copy FIELD_DECLs.  */
+	  if (TREE_CODE (lf) != FIELD_DECL)
+	    continue;
+
+	  if (mode == FIELD_SCALAR)
+	    lhs_var = csc_build_component_ref (lhs, lf);
+	  else
+	    lhs_var = get_scalar_for_field (lhs, lf);
+
+	  if (mode == SCALAR_FIELD)
+	    rhs_var = csc_build_component_ref (rhs, rf);
+	  else
+	    rhs_var = get_scalar_for_field (rhs, rf);
+
+	  csc_assign (&tsi, lhs_var, rhs_var);
+	}
     }
 
   /* All the scalar copies just created will either create new definitions
      or remove existing definitions of LHS, so we need to mark it for
      renaming.  */
-  if (last_stmt)
+  if (TREE_SIDE_EFFECTS (list))
     {
       if (mode == SCALAR_FIELD || mode == SCALAR_SCALAR)
 	{
@@ -574,17 +744,7 @@ create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode)
 	  /* Otherwise, mark all the symbols in the VDEFs for the last
 	     scalarized statement just created.  Since all the statements
 	     introduce the same VDEFs, we only need to check the last one.  */
-	  size_t i;
-	  vdef_optype vdefs;
-
-	  get_stmt_operands (last_stmt);
-
-	  vdefs = STMT_VDEF_OPS (last_stmt);
-	  for (i = 0; vdefs && i < NUM_VDEFS (vdefs); i++)
-	    {
-	      tree sym = VDEF_RESULT (vdefs, i);
-	      bitmap_set_bit (vars_to_rename, var_ann (sym)->uid);
-	    }
+	  mark_all_vdefs (tsi_stmt (tsi));
 	}
       else
 	abort ();
@@ -593,6 +753,21 @@ create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode)
   return list;
 }
 
+/* A helper function that creates the copies, updates line info,
+   and emits the code either before or after BSI.  */
+
+static void
+emit_scalar_copies (block_stmt_iterator *bsi, tree lhs, tree rhs,
+		    enum sra_copy_mode mode)
+{
+  tree list = create_scalar_copies (lhs, rhs, mode);
+  tree stmt = bsi_stmt (*bsi);
+
+  if (EXPR_LOCUS (stmt))
+    annotate_all_with_locus (&list, *EXPR_LOCUS (stmt));
+
+  bsi_insert_before (bsi, list, BSI_SAME_STMT);
+}
 
 /* Traverse all the statements in the function replacing references to
    scalarizable structures with their corresponding scalar temporaries.  */
@@ -631,15 +806,11 @@ scalarize_structures (void)
 
   /* Initialize the scalar replacements for every structure that is a
      function argument.  */
-  EXECUTE_IF_SET_IN_SBITMAP (sra_candidates, 0, i,
+  EXECUTE_IF_SET_IN_BITMAP (needs_copy_in, 0, i,
     {
       tree var = referenced_var (i);
-      if (TREE_CODE (var) == PARM_DECL
-	  && TEST_BIT (needs_copy_in, var_ann (var)->uid))
-	{
-	  tree list = create_scalar_copies (var, var, SCALAR_FIELD);
-	  bsi_insert_on_edge (ENTRY_BLOCK_PTR->succ, list);
-	}
+      tree list = create_scalar_copies (var, var, SCALAR_FIELD);
+      bsi_insert_on_edge (ENTRY_BLOCK_PTR->succ, list);
     });
 
   /* Commit edge insertions.  */
@@ -680,15 +851,12 @@ scalarize_stmt (block_stmt_iterator *si_p)
 static void
 scalarize_modify_expr (block_stmt_iterator *si_p)
 {
-  tree var;
   tree stmt = bsi_stmt (*si_p);
   tree lhs = TREE_OPERAND (stmt, 0);
   tree rhs = TREE_OPERAND (stmt, 1);
 
   /* Found AGGREGATE.FIELD = ...  */
-  if (TREE_CODE (lhs) == COMPONENT_REF
-      && DECL_P (var = TREE_OPERAND (lhs, 0))
-      && TEST_BIT (sra_candidates, var_ann (var)->uid))
+  if (is_sra_candidate_ref (lhs, false))
     {
       tree sym;
       vdef_optype vdefs;
@@ -706,9 +874,7 @@ scalarize_modify_expr (block_stmt_iterator *si_p)
     }
 
   /* Found ... = AGGREGATE.FIELD  */
-  else if (TREE_CODE (rhs) == COMPONENT_REF
-	   && DECL_P (var = TREE_OPERAND (rhs, 0))
-	   && TEST_BIT (sra_candidates, var_ann (var)->uid))
+  else if (is_sra_candidate_ref (rhs, false))
     scalarize_component_ref (stmt, &TREE_OPERAND (stmt, 1));
 
   /* Found ... = BIT_FIELD_REF <>.  This is similar to a CALL_EXPR, if the
@@ -723,12 +889,10 @@ scalarize_modify_expr (block_stmt_iterator *si_p)
      generates a BIT_FIELD_REF operation for one of the comparisons,
      preventing the optimizers from removing all the redundant
      operations.  */
-  else if (TREE_CODE (rhs) == BIT_FIELD_REF
-           && DECL_P (var = TREE_OPERAND (rhs, 0))
-	   && TEST_BIT (sra_candidates, var_ann (var)->uid))
+  else if (is_sra_candidate_ref (rhs, true))
     {
-      tree list = create_scalar_copies (var, var, FIELD_SCALAR);
-      bsi_insert_before (si_p, list, BSI_SAME_STMT);
+      tree var = TREE_OPERAND (rhs, 0);
+      emit_scalar_copies (si_p, var, var, FIELD_SCALAR);
     }
 
   /* Found AGGREGATE = ... or ... = AGGREGATE  */
@@ -737,26 +901,27 @@ scalarize_modify_expr (block_stmt_iterator *si_p)
 }
 
 
-/* Scalarize structure references in LIST.  */
+/* Scalarize structure references in LIST.  Use DONE to avoid duplicates.  */
 
 static inline void
-scalarize_tree_list (tree list, block_stmt_iterator *si_p)
+scalarize_tree_list (tree list, block_stmt_iterator *si_p, bitmap done)
 {
   tree op;
 
   for (op = list; op; op = TREE_CHAIN (op))
     {
-      tree var, arg = TREE_VALUE (op);
+      tree arg = TREE_VALUE (op);
 
-      if (DECL_P (arg)
-	  && TEST_BIT (sra_candidates, var_ann (arg)->uid))
+      if (is_sra_candidate_decl (arg))
 	{
-	  tree list = create_scalar_copies (arg, arg, FIELD_SCALAR);
-	  bsi_insert_before (si_p, list, BSI_SAME_STMT);
+	  int index = var_ann (arg)->uid;
+	  if (!bitmap_bit_p (done, index))
+	    {
+	      emit_scalar_copies (si_p, arg, arg, FIELD_SCALAR);
+	      bitmap_set_bit (done, index);
+	    }
 	}
-      else if (TREE_CODE (arg) == COMPONENT_REF
-	       && DECL_P (var = TREE_OPERAND (arg, 0))
-	       && TEST_BIT (sra_candidates, var_ann (var)->uid))
+      else if (is_sra_candidate_ref (arg, false))
 	{
 	  tree stmt = bsi_stmt (*si_p);
 	  scalarize_component_ref (stmt, &TREE_VALUE (op));
@@ -772,23 +937,27 @@ scalarize_call_expr (block_stmt_iterator *si_p)
 {
   tree stmt = bsi_stmt (*si_p);
   tree call = (TREE_CODE (stmt) == MODIFY_EXPR) ? TREE_OPERAND (stmt, 1) : stmt;
+  struct bitmap_head_def done_head;
 
   /* First scalarize the arguments.  Order is important, because the copy
      operations for the arguments need to go before the call.
      Scalarization of the return value needs to go after the call.  */
-  scalarize_tree_list (TREE_OPERAND (call, 1), si_p);
+  bitmap_initialize (&done_head, 1);
+  scalarize_tree_list (TREE_OPERAND (call, 1), si_p, &done_head);
+  bitmap_clear (&done_head);
 
   /* Scalarize the return value, if any.  */
   if (TREE_CODE (stmt) == MODIFY_EXPR)
     {
-      tree var;
+      tree var = TREE_OPERAND (stmt, 0);
 
       /* If the LHS of the assignment is a scalarizable structure, insert
 	 copies into the scalar replacements after the call.  */
-      if (DECL_P (var = TREE_OPERAND (stmt, 0))
-	  && TEST_BIT (sra_candidates, var_ann (var)->uid))
+      if (is_sra_candidate_decl (var))
 	{
 	  tree list = create_scalar_copies (var, var, SCALAR_FIELD);
+	  if (EXPR_LOCUS (stmt))
+	    annotate_all_with_locus (&list, *EXPR_LOCUS (stmt));
 	  if (stmt_ends_bb_p (stmt))
 	    insert_edge_copies (list, bb_for_stmt (stmt));
 	  else
@@ -804,9 +973,14 @@ static void
 scalarize_asm_expr (block_stmt_iterator *si_p)
 {
   tree stmt = bsi_stmt (*si_p);
+  struct bitmap_head_def done_head;
 
-  scalarize_tree_list (ASM_INPUTS (stmt), si_p);
-  scalarize_tree_list (ASM_OUTPUTS (stmt), si_p);
+  bitmap_initialize (&done_head, 1);
+  scalarize_tree_list (ASM_INPUTS (stmt), si_p, &done_head);
+  scalarize_tree_list (ASM_OUTPUTS (stmt), si_p, &done_head);
+  bitmap_clear (&done_head);
+
+  /* ??? Process outputs after the asm.  */
 }
 
 
@@ -821,37 +995,73 @@ scalarize_return_expr (block_stmt_iterator *si_p)
   if (op == NULL_TREE)
     return;
 
-  if (TREE_CODE (op) == RESULT_DECL
-      && TEST_BIT (sra_candidates, var_ann (op)->uid))
-    {
-      tree list = create_scalar_copies (op, op, FIELD_SCALAR);
-      bsi_insert_before (si_p, list, BSI_SAME_STMT);
-    }
+  /* Handle a bare RESULT_DECL.  This will handle for types needed
+     constructors, or possibly after NRV type optimizations.  */
+  if (is_sra_candidate_decl (op))
+    emit_scalar_copies (si_p, op, op, FIELD_SCALAR);
   else if (TREE_CODE (op) == MODIFY_EXPR)
     {
-      tree var;
       tree *rhs_p = &TREE_OPERAND (op, 1);
+      tree rhs = *rhs_p;
 
       /* Handle 'return STRUCTURE;'  */
-      if (DECL_P (*rhs_p)
-	  && TEST_BIT (sra_candidates, var_ann (*rhs_p)->uid))
-	{
-	  tree list = create_scalar_copies (*rhs_p, *rhs_p, FIELD_SCALAR);
-	  bsi_insert_before (si_p, list, BSI_SAME_STMT);
-	}
+      if (is_sra_candidate_decl (rhs))
+	emit_scalar_copies (si_p, rhs, rhs, FIELD_SCALAR);
 
       /* Handle 'return STRUCTURE.FIELD;'  */
-      else if (TREE_CODE (*rhs_p) == COMPONENT_REF
-	       && DECL_P (var = TREE_OPERAND (*rhs_p, 0))
-	       && TEST_BIT (sra_candidates, var_ann (var)->uid))
+      else if (is_sra_candidate_ref (rhs, false))
 	scalarize_component_ref (stmt, rhs_p);
 
       /* Handle 'return CALL_EXPR;'  */
-      else if (TREE_CODE (*rhs_p) == CALL_EXPR)
-	scalarize_tree_list (TREE_OPERAND (*rhs_p, 1), si_p);
+      else if (TREE_CODE (rhs) == CALL_EXPR)
+	{
+	  struct bitmap_head_def done_head;
+	  bitmap_initialize (&done_head, 1);
+	  scalarize_tree_list (TREE_OPERAND (rhs, 1), si_p, &done_head);
+	  bitmap_clear (&done_head);
+	}
     }
 }
 
+
+/* Debugging dump for the scalar replacement map.  */
+
+static int
+dump_sra_map_trav (void **slot, void *data)
+{
+  struct sra_elt *e = *slot;
+  FILE *f = data;
+
+  switch (e->kind)
+    {
+    case REALPART_EXPR:
+      fputs ("__real__ ", f);
+      print_generic_expr (tree_dump_file, e->base, 0);
+      fprintf (f, " -> %s\n", get_name (e->replace));
+      break;
+    case IMAGPART_EXPR:
+      fputs ("__imag__ ", f);
+      print_generic_expr (tree_dump_file, e->base, 0);
+      fprintf (f, " -> %s\n", get_name (e->replace));
+      break;
+    case COMPONENT_REF:
+      print_generic_expr (tree_dump_file, e->base, 0);
+      fprintf (f, ".%s -> %s\n", get_name (e->field), get_name (e->replace));
+      break;
+    default:
+      abort ();
+    }
+
+  return 1;
+}
+
+static void
+dump_sra_map (FILE *f)
+{
+  fputs ("Scalar replacements:\n", f);
+  htab_traverse_noresize (sra_map, dump_sra_map_trav, f);
+  fputs ("\n\n", f);
+}
 
 /* Main entry point to Scalar Replacement of Aggregates (SRA).  This pass
    re-writes non-aliased structure references into scalar temporaries.  The
@@ -876,101 +1086,57 @@ scalarize_return_expr (block_stmt_iterator *si_p)
    3- Timings to determine when scalarization is not profitable.
    4- Determine what's a good value for MAX_NFIELDS_FOR_SRA.  */
 
-void
-tree_sra (tree fndecl, bitmap vars, enum tree_dump_index phase)
+static void
+tree_sra (void)
 {
-  size_t old_num_referenced_vars;
-
-  timevar_push (TV_TREE_SRA);
-
-  dump_file = dump_begin (phase, &dump_flags);
-
   /* Initialize local variables.  */
-  sra_candidates = sbitmap_alloc (num_referenced_vars);
-  sbitmap_zero (sra_candidates);
+  sra_candidates = BITMAP_XMALLOC ();
   sra_map = NULL;
   needs_copy_in = NULL;
-  old_num_referenced_vars = num_referenced_vars;
-
-  vars_to_rename = vars;
 
   /* Find structures to be scalarized.  */
-  find_candidates_for_sra ();
+  if (!find_candidates_for_sra ())
+    {
+      BITMAP_XFREE (sra_candidates);
+      return;
+    }
 
   /* If we found any, re-write structure references with their
      corresponding scalar replacement.  */
-  if (sbitmap_first_set_bit (sra_candidates) >= 0)
-    {
-      sra_map = xcalloc (num_referenced_vars, sizeof (tree *));
+  sra_map = htab_create (101, sra_elt_hash, sra_elt_eq, free);
+  needs_copy_in = BITMAP_XMALLOC ();
 
-      needs_copy_in = sbitmap_alloc (num_referenced_vars);
-      sbitmap_zero (needs_copy_in);
+  scalarize_structures ();
 
-      scalarize_structures ();
-
-      /* Mark the new scalar variables to be renamed into SSA.  */
-      if (num_referenced_vars > old_num_referenced_vars)
-	{
-	  size_t i;
-
-	  /* Mark the new scalar replacements.  */
-	  for (i = old_num_referenced_vars; i < num_referenced_vars; i++)
-	    bitmap_set_bit (vars_to_rename, i);
-	}
-    }
-
-  /* Debugging dumps.  */
-  if (dump_file)
-    {
-      if (sra_map && 1/*(dump_flags & TDF_DETAILS)*/)
-	{
-	  size_t i, j;
-	  tree f;
-	  const char *fname =
-	    (*lang_hooks.decl_printable_name) (current_function_decl, 2);
-
-	  fprintf (dump_file, "Scalar replacements for %s:\n\n", fname);
-	  for (i = 0; i < old_num_referenced_vars; i++)
-	    {
-	      if (sra_map[i])
-		{
-		  for (j = 0, f = TYPE_FIELDS (TREE_TYPE (referenced_var (i)));
-		       f;
-		       f = TREE_CHAIN (f))
-		    {
-		      if (TREE_CODE (f) != FIELD_DECL)
-			continue;
-
-		      if (sra_map[i][j])
-			{
-			  print_generic_expr (dump_file, referenced_var (i), 0);
-			  fprintf (dump_file, ".%s -> %s\n",
-				   get_name (f),
-				   get_name (sra_map[i][j]));
-			}
-
-		      j++;
-		    }
-
-		  fprintf (dump_file, "\n");
-		}
-	    }
-	}
-
-      dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (phase, dump_file);
-    }
+  if (tree_dump_file)
+    dump_sra_map (tree_dump_file);
 
   /* Free allocated memory.  */
-  if (sra_map)
-    {
-      size_t i;
-      for (i = 0; i < old_num_referenced_vars; i++)
-	free (sra_map[i]);
-      free (sra_map);
-    }
-
-  sbitmap_free (sra_candidates);
-
-  timevar_pop (TV_TREE_SRA);
+  htab_delete (sra_map);
+  sra_map = NULL;
+  BITMAP_XFREE (needs_copy_in);
+  BITMAP_XFREE (sra_candidates);
 }
+
+static bool
+gate_sra (void)
+{
+  return flag_tree_sra != 0;
+}
+
+struct tree_opt_pass pass_sra = 
+{
+  "sra",				/* name */
+  gate_sra,				/* gate */
+  tree_sra,				/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_SRA,				/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_rename_vars
+    | TODO_ggc_collect | TODO_verify_ssa  /* todo_flags_finish */
+};

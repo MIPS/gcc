@@ -27,6 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "varray.h"
 #include "partition.h"
 #include "hard-reg-set.h"
+#include "predict.h"
 
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
@@ -136,7 +137,7 @@ struct edge_def GTY((chain_next ("%h.pred_next")))
   union edge_def_insns {
     rtx GTY ((tag ("0"))) r;
     tree GTY ((tag ("1"))) t;
-  } GTY ((desc ("cfg_hooks == &tree_cfg_hooks ? 1 : 0"))) insns;
+  } GTY ((desc ("ir_type ()"))) insns;
 
   /* Auxiliary info specific to a pass.  */
   PTR GTY ((skip (""))) aux;
@@ -212,8 +213,8 @@ struct bb_ann_d;
 struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")))
 {
   /* The first and last insns of the block.  */
-  rtx head;
-  rtx end;
+  rtx head_;
+  rtx end_;
 
   /* Pointers to the first and last trees of the block.  */
   tree stmt_list;
@@ -345,8 +346,8 @@ extern struct obstack flow_obstack;
 
 /* Stuff for recording basic block info.  */
 
-#define BLOCK_HEAD(B)      (BASIC_BLOCK (B)->head)
-#define BLOCK_END(B)       (BASIC_BLOCK (B)->end)
+#define BB_HEAD(B)      (B)->head_
+#define BB_END(B)       (B)->end_
 
 /* Special block numbers [markers] for entry and exit.  */
 #define ENTRY_BLOCK (-1)
@@ -388,8 +389,6 @@ extern edge redirect_edge_succ_nodup (edge, basic_block);
 extern void redirect_edge_pred (edge, basic_block);
 extern basic_block create_basic_block_structure (rtx, rtx, rtx, basic_block);
 extern void clear_bb_flags (void);
-extern void tidy_fallthru_edge (edge, basic_block, basic_block);
-extern void tidy_fallthru_edges (void);
 extern void flow_reverse_top_sort_order_compute (int *);
 extern int flow_depth_first_order_compute (int *, int *);
 extern void flow_preorder_transversal_compute (int *);
@@ -500,6 +499,8 @@ enum update_life_extent
 #define PROP_AUTOINC		64	/* Create autoinc mem references.  */
 #define PROP_EQUAL_NOTES	128	/* Take into account REG_EQUAL notes.  */
 #define PROP_SCAN_DEAD_STORES	256	/* Scan for dead code.  */
+#define PROP_ASM_SCAN		512	/* Internal flag used within flow.c
+					   to flag analysis of asms.  */
 #define PROP_FINAL		(PROP_DEATH_NOTES | PROP_LOG_LINKS  \
 				 | PROP_REG_INFO | PROP_KILL_DEAD_CODE  \
 				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
@@ -554,10 +555,14 @@ extern void expected_value_to_br_prob (void);
 extern bool maybe_hot_bb_p (basic_block);
 extern bool probably_cold_bb_p (basic_block);
 extern bool probably_never_executed_bb_p (basic_block);
+extern bool tree_predicted_by_p (basic_block, enum br_predictor);
+extern bool rtl_predicted_by_p (basic_block, enum br_predictor);
+extern void tree_predict_edge (edge, enum br_predictor, int);
+extern void rtl_predict_edge (edge, enum br_predictor, int);
+extern void predict_edge_def (edge, enum br_predictor, enum prediction);
 
 /* In flow.c */
 extern void init_flow (void);
-extern void dump_bb (basic_block, FILE *, int);
 extern void debug_bb (basic_block);
 extern basic_block debug_bb_n (int);
 extern void dump_regset (regset, FILE *);
@@ -589,11 +594,10 @@ extern void alloc_aux_for_edge (edge, int);
 extern void alloc_aux_for_edges (int);
 extern void clear_aux_for_edges (void);
 extern void free_aux_for_edges (void);
-
-/* This function is always defined so it can be called from the
-   debugger, and it is declared extern so we don't get warnings about
-   it being unused.  */
-extern void verify_flow_info (void);
+extern void find_basic_blocks (rtx, int, FILE *);
+extern bool cleanup_cfg (int);
+extern bool delete_unreachable_blocks (void);
+extern bool merge_seq_blocks (void);
 
 typedef struct conflict_graph_def *conflict_graph;
 
@@ -636,20 +640,14 @@ enum cdi_direction
   CDI_POST_DOMINATORS
 };
 
-/* The possible states of the dominators, sorted from the worst (i.e. no
-   dominance information available) to the best.  */
-
 enum dom_state
 {
   DOM_NONE,		/* Not computed at all.  */
-  DOM_CONS_OK,		/* The data is conservatively OK, i.e. if it says
-			   you that A dominates B, it indeed does.  */
-  DOM_NO_FAST_QUERY,	/* The data is OK, but the fast query data are not
-			   usable.  */
+  DOM_CONS_OK,		/* The data is conservatively OK, i.e. if it says you that A dominates B,
+			   it indeed does.  */
+  DOM_NO_FAST_QUERY,	/* The data is OK, but the fast query data are not usable.  */
   DOM_OK		/* Everything is ok.  */
 };
-
-/* Current state of the dominators and postdominators.  */
 
 extern enum dom_state dom_computed[2];
 

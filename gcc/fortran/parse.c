@@ -172,7 +172,7 @@ decode_statement (void)
     case 'a':
       match ("allocate", gfc_match_allocate, ST_ALLOCATE);
       match ("allocatable", gfc_match_allocatable, ST_ATTR_DECL);
-      match ("assign", gfc_match_assign, ST_NONE);
+      match ("assign", gfc_match_assign, ST_LABEL_ASSIGNMENT);
       break;
 
     case 'b':
@@ -520,7 +520,7 @@ next_statement (void)
   case ST_READ: case ST_RETURN: case ST_REWIND: case ST_SIMPLE_IF: \
   case ST_PAUSE: case ST_STOP: case ST_WRITE: case ST_ASSIGNMENT: \
   case ST_POINTER_ASSIGNMENT: case ST_EXIT: case ST_CYCLE: \
-  case ST_ARITHMETIC_IF: case ST_WHERE: case ST_FORALL
+  case ST_ARITHMETIC_IF: case ST_WHERE: case ST_FORALL: case ST_LABEL_ASSIGNMENT
 
 /* Statements that mark other executable statements.  */
 
@@ -932,6 +932,9 @@ gfc_ascii_statement (gfc_statement st)
       break;
     case ST_STATEMENT_FUNCTION:
       p = "STATEMENT FUNCTION";
+      break;
+    case ST_LABEL_ASSIGNMENT:
+      p = "LABEL ASSIGNMENT";
       break;
     default:
       gfc_internal_error ("gfc_ascii_statement(): Bad statement code");

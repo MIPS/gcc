@@ -32,10 +32,9 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dump.h"
 #include "diagnostic.h"
 #include "except.h"
+#include "tree-pass.h"
+#include "flags.h"
 
-/* Dump files and flags.  */
-static FILE *dump_file;		/* CFG dump file. */
-static int dump_flags;		/* CFG dump flags.  */
 
 /* A structure that describes the tailcall.  */
 
@@ -212,7 +211,7 @@ find_tail_calls (basic_block bb, struct tailcall *act, struct tailcall **ret)
       break;
     }
 
-  /* Unless we found soumething that stops the search, recurse to the
+  /* Unless we found something that stops the search, recurse to the
      predecessors.  */
   if (!found)
     {
@@ -265,11 +264,12 @@ eliminate_tail_call (struct tailcall *t)
   ann = stmt_ann (stmt);
   bb = t->call_block;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Eliminated tail recursion in bb %d : ", bb->index);
-      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
+      fprintf (tree_dump_file, "Eliminated tail recursion in bb %d : ",
+	       bb->index);
+      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+      fprintf (tree_dump_file, "\n");
     }
 
   if (TREE_CODE (stmt) == MODIFY_EXPR)
@@ -287,17 +287,26 @@ eliminate_tail_call (struct tailcall *t)
   e = redirect_edge_and_branch (t->call_block->succ, first);
   if (!e)
     abort ();
+  PENDING_STMT (e) = NULL_TREE;
 
-  /* Add phi node entries for arguments.  */
+  /* Add phi node entries for arguments.  Not every PHI node corresponds to
+     a function argument (there may be PHI nodes for virtual definitions of the
+     eliminated calls), so we search for a PHI corresponding to each argument
+     rather than searching for which argument a PHI node corresponds to.  */
+  
   for (param = DECL_ARGUMENTS (current_function_decl),
        args = TREE_OPERAND (stmt, 1);
        param;
        param = TREE_CHAIN (param),
        args = TREE_CHAIN (args))
     {
+      
       for (phi = phi_nodes (first); phi; phi = TREE_CHAIN (phi))
 	if (param == SSA_NAME_VAR (PHI_RESULT (phi)))
 	  break;
+
+      /* The phi node indeed does not have to be there, in case the operand is
+	 invariant in the function.  */
       if (!phi)
 	continue;
 
@@ -323,7 +332,9 @@ eliminate_tail_call (struct tailcall *t)
 	  SSA_NAME_DEF_STMT (name) = phi;
 	  add_phi_arg (&phi, new_name, ENTRY_BLOCK_PTR->succ);
 
-	  /* For all calls the same set of variables should be clobbered.  */
+	  /* For all calls the same set of variables should be clobbered.  This
+	     means that there always should be the appropriate phi node except
+	     for the first time we eliminate the call.  */
 	  if (first->pred->pred_next->pred_next)
 	    abort ();
 	}
@@ -384,11 +395,11 @@ optimize_tail_call (struct tailcall *t, bool *phis_constructed,
       if (TREE_CODE (stmt) != CALL_EXPR)
 	abort ();
       CALL_EXPR_TAILCALL (stmt) = 1;
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
         {
-	  fprintf (dump_file, "Found tail call ");
-	  print_generic_expr (dump_file, stmt, 0);
-	  fprintf (dump_file, " in bb %i", t->call_block->index);
+	  fprintf (tree_dump_file, "Found tail call ");
+	  print_generic_expr (tree_dump_file, stmt, 0);
+	  fprintf (tree_dump_file, " in bb %i", t->call_block->index);
 	}
     }
   return false;
@@ -397,8 +408,8 @@ optimize_tail_call (struct tailcall *t, bool *phis_constructed,
 /* Optimizes tail calls in the function, turning the tail recursion
    into iteration.  */
 
-void
-tree_optimize_tail_calls (bool opt_tailcalls, enum tree_dump_index pass)
+static void
+tree_optimize_tail_calls_1 (bool opt_tailcalls)
 {
   edge e;
   bool phis_constructed = false;
@@ -409,7 +420,6 @@ tree_optimize_tail_calls (bool opt_tailcalls, enum tree_dump_index pass)
     return;
   if (opt_tailcalls)
     opt_tailcalls = suitable_for_tail_call_opt_p ();
-  dump_file = dump_begin (pass, &dump_flags);
 
   common.return_block = NULL;
   common.ret_variable = NULL_TREE;
@@ -435,10 +445,54 @@ tree_optimize_tail_calls (bool opt_tailcalls, enum tree_dump_index pass)
       free_dominance_info (CDI_DOMINATORS);
       cleanup_tree_cfg ();
     }
-
-  if (dump_file)
-    {
-      dump_function_to_file (current_function_decl, dump_file, dump_flags);
-      dump_end (pass, dump_file);
-    }
 }
+
+static void
+execute_tail_recursion (void)
+{
+  tree_optimize_tail_calls_1 (false);
+}
+
+static bool
+gate_tail_calls (void)
+{
+  return flag_optimize_sibling_calls != 0;
+}
+
+static void
+execute_tail_calls (void)
+{
+  tree_optimize_tail_calls_1 (true);
+}
+
+struct tree_opt_pass pass_tail_recursion = 
+{
+  "tailr",				/* name */
+  NULL,					/* gate */
+  execute_tail_recursion,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+};
+
+struct tree_opt_pass pass_tail_calls = 
+{
+  "tailc",				/* name */
+  gate_tail_calls,			/* gate */
+  execute_tail_calls,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+};

@@ -1,6 +1,6 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -146,8 +146,8 @@ static void rest_of_handle_regmove (tree, rtx);
 static void rest_of_handle_sched (tree, rtx);
 static void rest_of_handle_sched2 (tree, rtx);
 #endif
-static bool rest_of_handle_new_regalloc (tree, rtx, int *);
-static bool rest_of_handle_old_regalloc (tree, rtx, int *);
+static bool rest_of_handle_new_regalloc (tree, rtx);
+static bool rest_of_handle_old_regalloc (tree, rtx);
 static void rest_of_handle_regrename (tree, rtx);
 static void rest_of_handle_reorder_blocks (tree, rtx);
 #ifdef STACK_REGS
@@ -277,8 +277,8 @@ enum dump_file_index
   DFI_flow2,
   DFI_peephole2,
   DFI_rnreg,
-  DFI_bbro,
   DFI_ce3,
+  DFI_bbro,
   DFI_branch_target_load,
   DFI_sched2,
   DFI_stack,
@@ -328,8 +328,8 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "flow2",	'w', 1, 0, 0 },
   { "peephole2", 'z', 1, 0, 0 },
   { "rnreg",	'n', 1, 0, 0 },
-  { "bbro",	'B', 1, 0, 0 },
   { "ce3",	'E', 1, 0, 0 },
+  { "bbro",	'B', 1, 0, 0 },
   { "btl",	'd', 1, 0, 0 }, /* Yes, duplicate enable switch.  */
   { "sched2",	'R', 1, 0, 0 },
   { "stack",	'k', 1, 0, 0 },
@@ -471,11 +471,7 @@ int flag_short_enums;
    be saved across function calls, if that produces overall better code.
    Optional now, so people can test it.  */
 
-#ifdef DEFAULT_CALLER_SAVES
-int flag_caller_saves = 1;
-#else
 int flag_caller_saves = 0;
-#endif
 
 /* Nonzero if structures and unions should be returned in memory.
 
@@ -882,15 +878,6 @@ int flag_debug_asm = 0;
 
 int flag_dump_rtl_in_asm = 0;
 
-/* -fgnu-linker specifies use of the GNU linker for initializations.
-   (Or, more generally, a linker that handles initializations.)
-   -fno-gnu-linker says that collect2 will be used.  */
-#ifdef USE_COLLECT2
-int flag_gnu_linker = 0;
-#else
-int flag_gnu_linker = 1;
-#endif
-
 /* Nonzero means put zero initialized data in the bss section.  */
 int flag_zero_initialized_in_bss = 1;
 
@@ -964,6 +951,9 @@ int flag_new_regalloc = 0;
 /* Disable SSA on trees optimizations.  */
 int flag_disable_tree_ssa = 0;
 
+/* Enable SSA-GVN on trees.  */
+int flag_tree_gvn = 0;
+
 /* Enable the SSA-PRE tree optimization.  */
 int flag_tree_pre = 0;
 
@@ -984,9 +974,6 @@ int flag_all_data_deps = 0;
 
 /* Enable loop vectorization on trees */
 int flag_tree_vectorize = 0;
-
-/* Enable promotion of virtual to real operands in must-alias situations.  */
-int flag_tree_must_alias = 0;
 
 /* Enable loop optimization on tree-ssa.  */
 int flag_tree_loop = 0;
@@ -1156,7 +1143,6 @@ static const lang_independent_options f_options[] =
   {"function-sections", &flag_function_sections, 1 },
   {"data-sections", &flag_data_sections, 1 },
   {"verbose-asm", &flag_verbose_asm, 1 },
-  {"gnu-linker", &flag_gnu_linker, 1 },
   {"regmove", &flag_regmove, 1 },
   {"optimize-register-move", &flag_regmove, 1 },
   {"pack-struct", &flag_pack_struct, 1 },
@@ -1194,6 +1180,7 @@ static const lang_independent_options f_options[] =
   { "mudflap", &flag_mudflap, 1 },
   { "mudflapth", &flag_mudflap, 2 },
   { "disable-tree-ssa", &flag_disable_tree_ssa, 1 },
+  { "tree-gvn", &flag_tree_gvn, 1 },
   { "tree-pre", &flag_tree_pre, 1 },
   { "tree-ccp", &flag_tree_ccp, 1 },
   { "tree-dce", &flag_tree_dce, 1 },
@@ -1202,7 +1189,6 @@ static const lang_independent_options f_options[] =
   { "tree-dominator-opts", &flag_tree_dom, 1 },
   { "tree-combine-temps", &flag_tree_combine_temps, 1 },
   { "tree-ter", &flag_tree_ter, 1 },
-  { "tree-must-alias", &flag_tree_must_alias, 1 },
   { "tree-loop-optimize", &flag_tree_loop, 1 },
   { "tree-vectorize", &flag_tree_vectorize, 1}
 };
@@ -1988,8 +1974,15 @@ rest_of_decl_compilation (tree decl,
 	make_decl_rtl (decl, asmspec);
 
       /* Don't output anything when a tentative file-scope definition
-	 is seen.  But at end of compilation, do output code for them.  */
-      if ((at_end || !DECL_DEFER_OUTPUT (decl)) && !DECL_EXTERNAL (decl))
+	 is seen.  But at end of compilation, do output code for them.
+
+	 We do output all variables when unit-at-a-time is active and rely on
+	 callgraph code to defer them except for forward declarations
+	 (see gcc.c-torture/compile/920624-1.c) */
+      if ((at_end
+	   || !DECL_DEFER_OUTPUT (decl)
+	   || (flag_unit_at_a_time && DECL_INITIAL (decl)))
+	  && !DECL_EXTERNAL (decl))
 	{
 	  if (flag_unit_at_a_time && !cgraph_global_info_ready
 	      && TREE_CODE (decl) != FUNCTION_DECL && top_level)
@@ -2232,7 +2225,7 @@ rest_of_handle_machine_reorg (tree decl, rtx insns)
 /* Run new register allocator.  Return TRUE if we must exit
    rest_of_compilation upon return.  */
 static bool
-rest_of_handle_new_regalloc (tree decl, rtx insns, int *rebuild_notes)
+rest_of_handle_new_regalloc (tree decl, rtx insns)
 {
   int failure;
 
@@ -2271,7 +2264,6 @@ rest_of_handle_new_regalloc (tree decl, rtx insns, int *rebuild_notes)
     return true;
 
   reload_completed = 1;
-  *rebuild_notes = 0;
 
   return false;
 }
@@ -2279,9 +2271,10 @@ rest_of_handle_new_regalloc (tree decl, rtx insns, int *rebuild_notes)
 /* Run old register allocator.  Return TRUE if we must exit
    rest_of_compilation upon return.  */
 static bool
-rest_of_handle_old_regalloc (tree decl, rtx insns, int *rebuild_notes)
+rest_of_handle_old_regalloc (tree decl, rtx insns)
 {
   int failure;
+  int rebuild_notes;
 
   /* Allocate the reg_renumber array.  */
   allocate_reg_info (max_regno, FALSE, TRUE);
@@ -2292,9 +2285,22 @@ rest_of_handle_old_regalloc (tree decl, rtx insns, int *rebuild_notes)
   allocate_initial_values (reg_equiv_memory_loc);
 
   regclass (insns, max_reg_num (), rtl_dump_file);
-  *rebuild_notes = local_alloc ();
+  rebuild_notes = local_alloc ();
 
   timevar_pop (TV_LOCAL_ALLOC);
+
+  /* Local allocation may have turned an indirect jump into a direct
+     jump.  If so, we must rebuild the JUMP_LABEL fields of jumping
+     instructions.  */
+  if (rebuild_notes)
+    {
+      timevar_push (TV_JUMP);
+
+      rebuild_jump_labels (insns);
+      purge_all_dead_edges (0);
+
+      timevar_pop (TV_JUMP);
+    }
 
   if (dump_file[DFI_lreg].enabled)
     {
@@ -2358,7 +2364,6 @@ rest_of_handle_regrename (tree decl, rtx insns)
 static void
 rest_of_handle_reorder_blocks (tree decl, rtx insns)
 {
-  timevar_push (TV_REORDER_BLOCKS);
   open_dump_file (DFI_bbro, decl);
 
   /* Last attempt to optimize CFG, as scheduling, peepholing and insn
@@ -2375,7 +2380,6 @@ rest_of_handle_reorder_blocks (tree decl, rtx insns)
     cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
 
   close_dump_file (DFI_bbro, print_rtl_with_bb, insns);
-  timevar_pop (TV_REORDER_BLOCKS);
 }
 
 #ifdef INSN_SCHEDULING
@@ -2454,7 +2458,6 @@ rest_of_handle_regmove (tree decl, rtx insns)
 static void
 rest_of_handle_tracer (tree decl, rtx insns)
 {
-  timevar_push (TV_TRACER);
   open_dump_file (DFI_tracer, decl);
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
@@ -2462,7 +2465,6 @@ rest_of_handle_tracer (tree decl, rtx insns)
   cleanup_cfg (CLEANUP_EXPENSIVE);
   reg_scan (insns, max_reg_num (), 0);
   close_dump_file (DFI_tracer, print_rtl_with_bb, get_insns ());
-  timevar_pop (TV_TRACER);
 }
 
 /* If-conversion and CFG cleanup.  */
@@ -2607,6 +2609,7 @@ rest_of_handle_jump_bypass (tree decl, rtx insns)
   open_dump_file (DFI_bypass, decl);
 
   cleanup_cfg (CLEANUP_EXPENSIVE);
+  reg_scan (insns, max_reg_num (), 1);
 
   if (bypass_jumps (rtl_dump_file))
     {
@@ -3011,7 +3014,7 @@ rest_of_handle_loop_optimize (tree decl, rtx insns)
   free_bb_for_insn ();
 
   if (flag_unroll_loops)
-    do_unroll = 0;		/* Having two unrollers is useless.  */
+    do_unroll = LOOP_AUTO_UNROLL;	/* Having two unrollers is useless.  */
   else
     do_unroll = flag_old_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
   do_prefetch = flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0;
@@ -3053,10 +3056,15 @@ static void
 rest_of_handle_loop2 (tree decl, rtx insns)
 {
   struct loops *loops;
+  basic_block bb;
+
   timevar_push (TV_LOOP);
   open_dump_file (DFI_loop2, decl);
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
+
+  /* Initialize structures for layout changes.  */
+  cfg_layout_initialize ();
 
   loops = loop_optimizer_init (rtl_dump_file);
 
@@ -3074,6 +3082,14 @@ rest_of_handle_loop2 (tree decl, rtx insns)
 
       loop_optimizer_finalize (loops, rtl_dump_file);
     }
+
+  /* Finalize layout changes.  */
+  FOR_EACH_BB (bb)
+    if (bb->next_bb != EXIT_BLOCK_PTR)
+      bb->rbi->next = bb->next_bb;
+
+  /* Finalize changes.  */
+  cfg_layout_finalize ();
 
   cleanup_cfg (CLEANUP_EXPENSIVE);
   delete_trivially_dead_insns (insns, max_reg_num ());
@@ -3095,7 +3111,6 @@ void
 rest_of_compilation (tree decl)
 {
   rtx insns;
-  int rebuild_label_notes_after_reload;
 
   timevar_push (TV_REST_OF_COMPILATION);
 
@@ -3187,10 +3202,6 @@ rest_of_compilation (tree decl)
 
   delete_unreachable_blocks ();
 
-  /* We have to issue these warnings now already, because CFG cleanups
-     further down may destroy the required information.  */
-  check_function_return_warnings ();
-
   /* Turn NOTE_INSN_PREDICTIONs into branch predictions.  */
   if (flag_guess_branch_prob)
     {
@@ -3203,6 +3214,14 @@ rest_of_compilation (tree decl)
 
   if (cfun->tail_call_emit)
     fixup_tail_calls ();
+
+  /* We have to issue these warnings now already, because CFG cleanups
+     further down may destroy the required information.  However, this
+     must be done after the sibcall optimization pass because the barrier
+     emitted for noreturn calls that are candidate for the optimization
+     is folded into the CALL_PLACEHOLDER until after this pass, so the
+     CFG is inaccurate.  */
+  check_function_return_warnings ();
 
   insn_locators_initialize ();
   /* Complete generation of exception handling code.  */
@@ -3401,14 +3420,12 @@ rest_of_compilation (tree decl)
 
   if (flag_new_regalloc)
     {
-      if (rest_of_handle_new_regalloc (decl, insns,
-				       &rebuild_label_notes_after_reload))
+      if (rest_of_handle_new_regalloc (decl, insns))
 	goto exit_rest_of_compilation;
     }
   else
     {
-      if (rest_of_handle_old_regalloc (decl, insns,
-				       &rebuild_label_notes_after_reload))
+      if (rest_of_handle_old_regalloc (decl, insns))
 	goto exit_rest_of_compilation;
     }
 
@@ -3422,19 +3439,6 @@ rest_of_compilation (tree decl)
       timevar_push (TV_RELOAD_CSE_REGS);
       reload_cse_regs (insns);
       timevar_pop (TV_RELOAD_CSE_REGS);
-    }
-
-  /* Register allocation and reloading may have turned an indirect jump into
-     a direct jump.  If so, we must rebuild the JUMP_LABEL fields of
-     jumping instructions.  */
-  if (rebuild_label_notes_after_reload)
-    {
-      timevar_push (TV_JUMP);
-
-      rebuild_jump_labels (insns);
-      purge_all_dead_edges (0);
-
-      timevar_pop (TV_JUMP);
     }
 
   close_dump_file (DFI_postreload, print_rtl_with_bb, insns);
@@ -3510,14 +3514,6 @@ rest_of_compilation (tree decl)
     }
 #endif
 
-  if (optimize > 0)
-    {
-      if (flag_rename_registers || flag_cprop_registers)
-	rest_of_handle_regrename (decl, insns);
-
-      rest_of_handle_reorder_blocks (decl, insns);
-    }
-
   if (flag_if_conversion2)
     {
       timevar_push (TV_IFCVT2);
@@ -3529,23 +3525,31 @@ rest_of_compilation (tree decl)
       timevar_pop (TV_IFCVT2);
     }
 
-    if (flag_branch_target_load_optimize2)
-      {
-	/* Leave this a warning for now so that it is possible to experiment
-	   with running this pass twice.  In 3.6, we should either make this
-	   an error, or use separate dump files.  */
-	if (flag_branch_target_load_optimize)
-	  warning ("branch target register load optimization is not intended "
-		   "to be run twice");
+  if (optimize > 0)
+    {
+      if (flag_rename_registers || flag_cprop_registers)
+	rest_of_handle_regrename (decl, insns);
 
-	open_dump_file (DFI_branch_target_load, decl);
+      rest_of_handle_reorder_blocks (decl, insns);
+    }
 
-	branch_target_load_optimize (insns, true);
+  if (flag_branch_target_load_optimize2)
+    {
+      /* Leave this a warning for now so that it is possible to experiment
+	 with running this pass twice.  In 3.6, we should either make this
+	 an error, or use separate dump files.  */
+      if (flag_branch_target_load_optimize)
+	warning ("branch target register load optimization is not intended "
+		 "to be run twice");
 
-	close_dump_file (DFI_branch_target_load, print_rtl_with_bb, insns);
+      open_dump_file (DFI_branch_target_load, decl);
 
-	ggc_collect ();
-      }
+      branch_target_load_optimize (insns, true);
+
+      close_dump_file (DFI_branch_target_load, print_rtl_with_bb, insns);
+
+      ggc_collect ();
+    }
 
 #ifdef INSN_SCHEDULING
   if (optimize > 0 && flag_schedule_insns_after_reload)
@@ -4246,6 +4250,7 @@ general_init (const char *argv0)
 
   /* This must be done after add_params but before argument processing.  */
   init_ggc_heuristics();
+  init_tree_optimization_passes ();
 }
 
 /* Process the options that have been parsed.  */
@@ -4393,10 +4398,6 @@ process_options (void)
 #ifdef SDB_DEBUGGING_INFO
   else if (write_symbols == SDB_DEBUG)
     debug_hooks = &sdb_debug_hooks;
-#endif
-#ifdef DWARF_DEBUGGING_INFO
-  else if (write_symbols == DWARF_DEBUG)
-    debug_hooks = &dwarf_debug_hooks;
 #endif
 #ifdef DWARF2_DEBUGGING_INFO
   else if (write_symbols == DWARF2_DEBUG)
@@ -4594,6 +4595,7 @@ finalize (void)
       ggc_print_statistics ();
       stringpool_statistics ();
       dump_tree_statistics ();
+      dump_rtx_statistics ();
     }
 
   /* Free up memory for the benefit of leak detectors.  */

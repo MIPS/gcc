@@ -56,8 +56,9 @@ fi
 #  foreign:  we don't follow the normal rules for GNU packages (no COPYING
 #            file in the top srcdir, etc, etc), so stop complaining.
 #  no-dependencies:  turns off auto dependency generation (just for now)
-#  -Wall:  turns on all automake warnings
-AM_INIT_AUTOMAKE([1.7.6 no-define foreign no-dependencies -Wall])
+#  -Wall:  turns on all automake warnings...
+#  -Wno-portability:  ...except this one, since GNU make is now required.
+AM_INIT_AUTOMAKE([1.7.6 no-define foreign no-dependencies -Wall -Wno-portability])
 
 # Runs configure.host, finds CC, CXX, and assorted other critical bits.  Sets
 # up critical shell variables.
@@ -77,7 +78,6 @@ GLIBCXX_ENABLE_HOSTED
 
 # Check for support bits and g++ features that don't require linking.
 GLIBCXX_ENABLE_SJLJ_EXCEPTIONS
-GLIBCXX_ENABLE_LIBUNWIND_EXCEPTIONS
 GLIBCXX_ENABLE_PCH($is_hosted)
 
 # Enable all the variable C++ runtime options.  
@@ -220,6 +220,9 @@ else
     AC_DEFINE(HAVE_SQRTF)
     AC_DEFINE(HAVE_TANF)
     AC_DEFINE(HAVE_TANHF)
+
+    AC_DEFINE(HAVE_S_ISREG)
+    AC_DEFINE(HAVE_S_IFREG)
   else
     m4_include([crossconfig.m4])
   fi

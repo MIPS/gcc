@@ -69,7 +69,7 @@ gfc_type_letter (bt type)
       c = 'l';
       break;
     case BT_CHARACTER:
-      c = 'c';
+      c = 's';
       break;
     case BT_INTEGER:
       c = 'i';
@@ -78,7 +78,7 @@ gfc_type_letter (bt type)
       c = 'r';
       break;
     case BT_COMPLEX:
-      c = 'z';
+      c = 'c';
       break;
 
     default:
@@ -853,7 +853,9 @@ add_functions (void)
   /* Making dcmplx a specific of cmplx causes cmplx to return a double
      complex instead of the default complex.  */
 
-  add_sym_2 ("dcmplx", 1, 1, BT_COMPLEX, dd, gfc_check_dcmplx, gfc_simplify_dcmplx, NULL, x, BT_REAL, dd, 0, y, BT_REAL, dd, 1);	/* Extension */
+  add_sym_2 ("dcmplx", 1, 1, BT_COMPLEX, dd,
+	     gfc_check_dcmplx, gfc_simplify_dcmplx, gfc_resolve_dcmplx,
+	     x, BT_REAL, dd, 0, y, BT_REAL, dd, 1);	/* Extension */
 
   make_generic ("dcmplx", GFC_ISYM_CMPLX);
 
@@ -2276,9 +2278,9 @@ gfc_init_expr_extensions (gfc_intrinsic_sym *isym)
 
   for (i = 0; init_expr_extensions[i]; i++)
     if (strcmp (init_expr_extensions[i], isym->name) == 0)
-      return 1;
+      return 0;
 
-  return 0;
+  return 1;
 }
 
 
@@ -2376,15 +2378,21 @@ got_specific:
       return MATCH_ERROR;
     }
 
+  /* TODO: We should probably only allow elemental functions here.  */
   flag |= (expr->ts.type != BT_INTEGER && expr->ts.type != BT_CHARACTER);
 
+  gfc_suppress_error = 0;
   if (pedantic && gfc_init_expr
       && flag && gfc_init_expr_extensions (specific))
-    gfc_warning
-      ("Evaluation of initialization expression at %L is nonstandard",
-       &expr->where);
+    {
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Evaluation of "
+	    "nonstandard initialization expression at %L", &expr->where)
+	  == FAILURE)
+	{
+	  return MATCH_ERROR;
+	}
+    }
 
-  gfc_suppress_error = 0;
   return MATCH_YES;
 }
 

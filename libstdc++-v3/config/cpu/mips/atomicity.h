@@ -34,7 +34,7 @@ typedef int _Atomic_word;
 
 static inline int
 __attribute__ ((__unused__))
-__exchange_and_add (volatile _Atomic_word *__mem, int __val)
+__exchange_and_add(volatile _Atomic_word* __mem, int __val)
 {
   int __result, __tmp;
 
@@ -52,15 +52,14 @@ __exchange_and_add (volatile _Atomic_word *__mem, int __val)
      "beqz	%1,1b\n\t"
      "/* End exchange & add */"
      : "=&r"(__result), "=&r"(__tmp), "=m"(*__mem)
-     : "m" (*__mem), "r"(__val)
-     : "memory");
+     : "m" (*__mem), "r"(__val));
 
   return __result;
 }
 
 static inline void
 __attribute__ ((__unused__))
-__atomic_add (volatile _Atomic_word *__mem, int __val)
+__atomic_add(volatile _Atomic_word* __mem, int __val)
 {
   int __result;
 
@@ -78,8 +77,7 @@ __atomic_add (volatile _Atomic_word *__mem, int __val)
      "beqz	%0,1b\n\t"
      "/* End atomic add */"
      : "=&r"(__result), "=m"(*__mem)
-     : "m" (*__mem), "r"(__val)
-     : "memory");
+     : "m" (*__mem), "r"(__val));
 }
 
 #endif /* atomicity.h */

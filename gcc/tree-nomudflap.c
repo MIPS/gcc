@@ -36,6 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "varray.h"
 #include "langhooks.h"
 #include "tree-mudflap.h"
+#include "tree-pass.h"
 #include "ggc.h"
 
 
@@ -44,52 +45,29 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    language processors that cannot handle tree-mudflap.c directly.
    (e.g. Fortran).  */
 
-
 static void
 nogo (void)
 {
   internal_error ("mudflap: this language is not supported");
 }
 
-
 void
-mudflap_c_function_decls (tree t ATTRIBUTE_UNUSED)
+mudflap_enqueue_decl (tree obj ATTRIBUTE_UNUSED)
 {
   nogo ();
 }
 
-
 void
-mudflap_c_function_ops (tree t ATTRIBUTE_UNUSED)
+mudflap_enqueue_constant (tree obj ATTRIBUTE_UNUSED)
 {
   nogo ();
 }
-
-
-void
-mudflap_enqueue_decl (tree obj ATTRIBUTE_UNUSED,
-		      const char *label ATTRIBUTE_UNUSED)
-{
-  nogo ();
-}
-
-
-void
-mudflap_enqueue_constant (tree obj ATTRIBUTE_UNUSED,
-			  const char *label ATTRIBUTE_UNUSED)
-{
-  nogo ();
-}
-
-
-/* Emit file-wide instrumentation.  */
 
 void
 mudflap_finish_file (void)
 {
   nogo ();
 }
-
 
 int
 mf_marked_p (tree t ATTRIBUTE_UNUSED)
@@ -98,7 +76,6 @@ mf_marked_p (tree t ATTRIBUTE_UNUSED)
   return 0;
 }
 
-
 tree
 mf_mark (tree t ATTRIBUTE_UNUSED)
 {
@@ -106,6 +83,39 @@ mf_mark (tree t ATTRIBUTE_UNUSED)
   return NULL;
 }
 
+/* The pass structures must exist, but need not do anything.  */
+
+struct tree_opt_pass pass_mudflap_1 = 
+{
+  "mudflap1",				/* name */
+  NULL,					/* gate */
+  NULL,					/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
+
+struct tree_opt_pass pass_mudflap_2 = 
+{
+  "mudflap2",				/* name */
+  NULL,					/* gate */
+  NULL,					/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
 
 /* Instead of:
 #include "gt-tree-mudflap.h"

@@ -105,6 +105,7 @@ gfc_free_statement (gfc_code * p)
     case EXEC_DO_WHILE:
     case EXEC_CONTINUE:
     case EXEC_TRANSFER:
+    case EXEC_LABEL_ASSIGN:
 
     case EXEC_ARITHMETIC_IF:
       break;

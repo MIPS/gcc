@@ -1216,17 +1216,6 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case STATEMENT_LIST:
     case ERROR_MARK:
     case NON_LVALUE_EXPR:
-      break;
-    /* We don't account constants for now.  Assume that the cost is amortized
-       by operations that do use them.  We may re-consider this decision once
-       we are able to optimize the tree before estimating it's size and break
-       out static initializers.  */
-    case IDENTIFIER_NODE:
-    case INTEGER_CST:
-    case REAL_CST:
-    case COMPLEX_CST:
-    case VECTOR_CST:
-    case STRING_CST:
     case ENTRY_VALUE_EXPR:
     case FDESC_EXPR:
     case VA_ARG_EXPR:
@@ -1242,9 +1231,20 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case EPHI_NODE:
     case EEXIT_NODE:
     case PHI_NODE:
+      break;
+    /* We don't account constants for now.  Assume that the cost is amortized
+       by operations that do use them.  We may re-consider this decision once
+       we are able to optimize the tree before estimating it's size and break
+       out static initializers.  */
+    case IDENTIFIER_NODE:
+    case INTEGER_CST:
+    case REAL_CST:
+    case COMPLEX_CST:
+    case VECTOR_CST:
+    case STRING_CST:
       *walk_subtrees = 0;
       return NULL;
-    /* Reconginze assignments of large structures and constructors of
+    /* Recognize assignments of large structures and constructors of
        big arrays.  */
     case INIT_EXPR:
     case TARGET_EXPR:
@@ -1381,6 +1381,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   tree return_slot_addr;
   location_t saved_location;
   struct cgraph_edge *edge;
+  const char *reason;
 
   /* See what we've got.  */
   id = (inline_data *) data;
@@ -1466,18 +1467,20 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
       /* FN must have address taken so it can be passed as argument.  */
       if (!dest->needed)
 	abort ();
-      cgraph_create_edge (id->node, dest, t);
+      cgraph_create_edge (id->node, dest, t)->inline_failed
+	= N_("originally indirect function call not considered for inlining");
       goto egress;
     }
 
   /* Don't try to inline functions that are not well-suited to
      inlining.  */
-  if (!DECL_SAVED_TREE (fn) || !cgraph_inline_p (edge))
+  if (!cgraph_inline_p (edge, &reason))
     {
-      if (warn_inline && DECL_INLINE (fn) && DECL_DECLARED_INLINE_P (fn)
-	  && !DECL_IN_SYSTEM_HEADER (fn))
+      if (warn_inline && DECL_DECLARED_INLINE_P (fn)
+	  && !DECL_IN_SYSTEM_HEADER (fn)
+	  && strlen (reason))
 	{
-	  warning ("%Jinlining failed in call to '%F'", fn, fn);
+	  warning ("%Jinlining failed in call to '%F': %s", fn, fn, reason);
 	  warning ("called from here");
 	}
       goto egress;
@@ -1838,7 +1841,7 @@ optimize_inline_calls (tree fn)
 
       /* Double check that we inlined everything we are supposed to inline.  */
       for (e = id.node->callees; e; e = e->next_callee)
-	if (e->inline_call)
+	if (!e->inline_failed)
 	  abort ();
     }
 #endif

@@ -18,6 +18,12 @@ program testcmplx
    z = c
    if (z .ne. (3.0, 4.0)) call abort
 
+   ! dcmplx intrinsic
+   x = 3
+   y = 4
+   z = dcmplx (x, y)
+   if (z .ne. (3.0, 4.0)) call abort
+
    ! conjucates and aimag
    c = (1.0, 2.0)
    c = conjg (c)

@@ -94,6 +94,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-chrec.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
+#include "tree-pass.h"
 
 static tree analyze_array_indexes (unsigned, varray_type, tree);
 static bool access_functions_are_affine_or_constant_p (struct data_reference *);
@@ -107,10 +108,6 @@ static void subscript_dependence_tester (struct data_dependence_relation *);
 static void subscript_coupling_tester (struct data_dependence_relation *);
 
 static unsigned int data_ref_id = 0;
-
-/* Debugging dumps.  */
-static FILE *dump_file;
-static int dump_flags;
 
 
 
@@ -814,8 +811,6 @@ analyze_all_data_dependences (void)
   varray_type datarefs;
   varray_type dependence_relations;
   
-  timevar_push (TV_ALL_DATA_DEPS);
-  dump_file = dump_begin (TDI_alldd, &dump_flags);
   VARRAY_GENERIC_PTR_INIT (datarefs, 10, "datarefs");
   VARRAY_GENERIC_PTR_INIT (dependence_relations, 10*10,
 			   "dependence_relations");
@@ -823,16 +818,14 @@ analyze_all_data_dependences (void)
   find_data_references (datarefs);
   compute_all_dependences (datarefs, dependence_relations);
   
-  if (dump_file)
+  if (tree_dump_file)
     {
-      dump_data_references (dump_file, datarefs);
-      dump_data_dependence_relations (dump_file, dependence_relations);
-      fprintf (dump_file, "\n\n");
-      dump_end (TDI_alldd, dump_file);
+      dump_data_references (tree_dump_file, datarefs);
+      dump_data_dependence_relations (tree_dump_file, dependence_relations);
+      fprintf (tree_dump_file, "\n\n");
     }
   
   varray_clear (dependence_relations);
   varray_clear (datarefs);
-  timevar_pop (TV_ALL_DATA_DEPS);
 }
 

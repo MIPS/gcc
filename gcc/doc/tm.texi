@@ -2419,10 +2419,17 @@ for a @samp{moveq} instruction, the value of this macro is always
 @code{DATA_REGS} as long as @var{class} includes the data registers.
 Requiring a data register guarantees that a @samp{moveq} will be used.
 
-If @var{x} is a @code{const_double}, by returning @code{NO_REGS}
-you can force @var{x} into a memory constant.  This is useful on
-certain machines where immediate floating values cannot be loaded into
-certain kinds of registers.
+One case where @code{PREFERRED_RELOAD_CLASS} must not return
+@var{class} is if @var{x} is a legitimate constant which cannot be
+loaded into some register class.  By returning @code{NO_REGS} you can
+force @var{x} into a memory location.  For example, rs6000 can load
+immediate values into general-purpose registers, but does not have an
+instruction for loading an immediate value into a floating-point
+register, so @code{PREFERRED_RELOAD_CLASS} returns @code{NO_REGS} when
+@var{x} is a floating-point constant.  If the constant can't be loaded
+into any kind of register, code generation will be better if
+@code{LEGITIMATE_CONSTANT_P} makes the constant illegitimate instead
+of using @code{PREFERRED_RELOAD_CLASS}.
 @end defmac
 
 @defmac PREFERRED_OUTPUT_RELOAD_CLASS (@var{x}, @var{class})
@@ -3050,6 +3057,19 @@ nothing.
 
 For proper signal handling in Java this macro is accompanied by
 @code{MAKE_THROW_FRAME}, defined in @file{libjava/include/*-signal.h} headers.
+@end defmac
+
+@defmac MD_HANDLE_UNWABI (@var{context}, @var{fs})
+This macro allows the target to add operating system specific code to the
+call-frame unwinder to handle the IA-64 @code{.unwabi} unwinding directive,
+usually used for signal or interrupt frames.
+
+This macro is called from @code{uw_update_context} in @file{unwind-ia64.c}.
+@var{context} is an @code{_Unwind_Context};
+@var{fs} is an @code{_Unwind_FrameState}.  Examine @code{fs->unwabi}
+for the abi and context in the @code{.unwabi} directive.  If the
+@code{.unwabi} directive can be handled, the register save addresses should
+be updated in @var{fs}.
 @end defmac
 
 @node Stack Checking
@@ -3798,13 +3818,6 @@ be passed in a pair of floating point registers, even though a complex
 float would fit in one 64-bit floating point register.
 @end defmac
 
-@defmac LOAD_ARGS_REVERSED
-If defined, the order in which arguments are loaded into their
-respective argument registers is reversed so that the last
-argument is loaded first.  This macro only affects arguments
-passed in registers.
-@end defmac
-
 @node Scalar Return
 @subsection How Scalar Function Values Are Returned
 @cindex return values in registers
@@ -3997,14 +4010,6 @@ If you enable it, GCC can save registers around function calls.  This
 makes it possible to use call-clobbered registers to hold variables that
 must live across calls.
 
-@defmac DEFAULT_CALLER_SAVES
-Define this macro if function calls on the target machine do not preserve
-any registers; in other words, if @code{CALL_USED_REGISTERS} has 1
-for all registers.  When defined, this macro enables @option{-fcaller-saves}
-by default for all optimization levels.  It has no effect for optimization
-levels 2 and higher, where @option{-fcaller-saves} is the default.
-@end defmac
-
 @defmac CALLER_SAVE_PROFITABLE (@var{refs}, @var{calls})
 A C expression to determine whether it is worthwhile to consider placing
 a pseudo-register in a call-clobbered hard register and saving and
@@ -4183,7 +4188,8 @@ function.
 Define this macro as a C expression that is nonzero if the return
 instruction or the function epilogue ignores the value of the stack
 pointer; in other words, if it is safe to delete an instruction to
-adjust the stack pointer before a return from the function.
+adjust the stack pointer before a return from the function.  The
+default is 0.
 
 Note that this macro's value is relevant only for functions for which
 frame pointers are maintained.  It is never safe to delete a final
@@ -5412,19 +5418,6 @@ be live over a region of code where only one would have been if
 should be considered in the definition of this macro.  Equivalent costs
 should probably only be given to addresses with different numbers of
 registers on machines with lots of registers.
-@end deftypefn
-
-@deftypefn {Target Hook} bool TARGET_DIRECT_POOL_LOAD_P (enum machine_mode @var{m})
-This hook should return true if values of mode @var{m} can usually be loaded
-directly from the constant pool, without using an intermediate register
-to hold the address.
-
-The hook is only a heuristic, it has no bearing on correctness.
-If it returns false, reload will be less likely to force constants
-into memory.
-
-The default definition returns true if an ordinary local symbol is
-a valid address.
 @end deftypefn
 
 @node Scheduling
@@ -7225,12 +7218,6 @@ writing conditional output routines in those patterns.
 If this macro is not defined, it is equivalent to a null statement.
 @end defmac
 
-@defmac FINAL_PRESCAN_LABEL
-If defined, @code{FINAL_PRESCAN_INSN} will be called on each
-@code{CODE_LABEL}.  In that case, @var{opvec} will be a null pointer and
-@var{noperands} will be zero.
-@end defmac
-
 @defmac PRINT_OPERAND (@var{stream}, @var{x}, @var{code})
 A C compound statement to output to stdio stream @var{stream} the
 assembler syntax for an instruction operand @var{x}.  @var{x} is an
@@ -7713,8 +7700,7 @@ defined, GCC uses @code{DBX_DEBUG}.
 
 The value of this macro only affects the default debugging output; the
 user can always get a specific type of output by using @option{-gstabs},
-@option{-gcoff}, @option{-gdwarf-1}, @option{-gdwarf-2}, @option{-gxcoff},
-or @option{-gvms}.
+@option{-gcoff}, @option{-gdwarf-2}, @option{-gxcoff}, or @option{-gvms}.
 @end defmac
 
 @node DBX Options
@@ -7988,11 +7974,6 @@ Here are macros for SDB and DWARF output.
 @defmac SDB_DEBUGGING_INFO
 Define this macro if GCC should produce COFF-style debugging output
 for SDB in response to the @option{-g} option.
-@end defmac
-
-@defmac DWARF_DEBUGGING_INFO
-Define this macro if GCC should produce dwarf format debugging output
-in response to the @option{-g} option.
 @end defmac
 
 @defmac DWARF2_DEBUGGING_INFO
@@ -8958,15 +8939,6 @@ symbols must be explicitly imported from shared libraries (DLLs).
 @defmac MD_ASM_CLOBBERS (@var{clobbers})
 A C statement that adds to @var{clobbers} @code{STRING_CST} trees for
 any hard regs the port wishes to automatically clobber for all asms.
-@end defmac
-
-@defmac MAX_INTEGER_COMPUTATION_MODE
-Define this to the largest integer machine mode which can be used for
-operations other than load, store and copy operations.
-
-You need only define this macro if the target holds values larger than
-@code{word_mode} in general purpose registers.  Most targets should not define
-this macro.
 @end defmac
 
 @defmac MATH_LIBRARY

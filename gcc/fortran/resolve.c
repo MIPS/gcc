@@ -2939,8 +2939,9 @@ resolve_branch (gfc_st_label * label, gfc_code * code)
 	  break;
 
       if (stack == NULL)
-	gfc_error ("GOTO at %L cannot jump to END of construct at %L",
-		   &found->loc, &code->loc);
+	gfc_notify_std (GFC_STD_F95_DEL,
+			"Obsolete: GOTO at %L jumps to END of construct at %L",
+			&code->loc, &found->loc);
     }
 }
 
@@ -3364,8 +3365,8 @@ gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
 }
 
 
-/* Resolve lists of blocks found in IF, SELECT CASE, WHERE, FORALL and DO code
-   nodes.  */
+/* Resolve lists of blocks found in IF, SELECT CASE, WHERE, FORALL ,GOTO and
+   DO code nodes.  */
 
 static void resolve_code (gfc_code *, gfc_namespace *);
 
@@ -3399,6 +3400,10 @@ resolve_blocks (gfc_code * b, gfc_namespace * ns)
 	      ("WHERE/ELSEWHERE clause at %L requires a LOGICAL array",
 	       &b->expr->where);
 	  break;
+
+        case EXEC_GOTO:
+          resolve_branch (b->label, b);
+          break;
 
 	case EXEC_SELECT:
 	case EXEC_FORALL:
@@ -3468,7 +3473,11 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	  break;
 
 	case EXEC_GOTO:
-	  resolve_branch (code->label, code);
+          if (code->expr != NULL && code->expr->ts.type != BT_INTEGER)
+            gfc_error ("ASSIGNED GOTO statement at %L requires an INTEGER "
+                       "variable", &code->expr->where);
+          else
+            resolve_branch (code->label, code);
 	  break;
 
 	case EXEC_RETURN:
@@ -3506,6 +3515,15 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	    }
 
 	  gfc_check_assign (code->expr, code->expr2, 1);
+	  break;
+
+	case EXEC_LABEL_ASSIGN:
+          if (code->label->defined == ST_LABEL_UNKNOWN)
+            gfc_error ("Label %d referenced at %L is never defined",
+                       code->label->value, &code->label->where);
+          if (t == SUCCESS && code->expr->ts.type != BT_INTEGER)
+	    gfc_error ("ASSIGN statement at %L requires an INTEGER "
+		       "variable", &code->expr->where);
 	  break;
 
 	case EXEC_POINTER_ASSIGN:
@@ -3724,7 +3742,8 @@ resolve_symbol (gfc_symbol * sym)
   /* Make sure that character string variables with assumed length are
      dummy argument.  */
 
-  if (sym->attr.flavor == FL_VARIABLE && sym->ts.type == BT_CHARACTER
+  if (sym->attr.flavor == FL_VARIABLE && !sym->attr.result
+      && sym->ts.type == BT_CHARACTER
       && sym->ts.cl->length == NULL && sym->attr.dummy == 0)
     {
       gfc_error ("Entity with assumed character length at %L must be a "
@@ -3900,22 +3919,34 @@ check_data_variable (gfc_data_variable * var, locus * where)
     {
       ref = e->ref;
 
-      /* Find the inner most reference.  */
-      while (ref->next)
-        ref = ref->next;
+      /* Find the array section reference.  */
+      for (ref = e->ref; ref; ref = ref->next)
+	{
+	  if (ref->type != REF_ARRAY)
+	    continue;
+	  if (ref->u.ar.type == AR_ELEMENT)
+	    continue;
+	  break;
+	}
+      assert (ref);
 
       /* Set marks asscording to the reference pattern.  */
-      if (ref->u.ar.type == AR_FULL)
-        mark = 1;
-      else if (ref->u.ar.type == AR_SECTION)
-        {
+      switch (ref->u.ar.type)
+	{
+	case AR_FULL:
+	  mark = 1;
+	  break;
+
+	case AR_SECTION:
           ar = &ref->u.ar;
           /* Get the start position of array section.  */
           gfc_get_section_index (ar, section_index, &offset);
           mark = 2;
-        }
-      else
-        mark = 3;
+	  break;
+
+	default:
+	  abort();
+	}
 
       if (gfc_array_size (e, &size) == FAILURE)
 	{
@@ -3943,7 +3974,7 @@ check_data_variable (gfc_data_variable * var, locus * where)
 	break;
 
       /* Assign initial value to symbol.  */
-      gfc_assign_data_value (var->expr, values.vnode->expr, mark, offset);
+      gfc_assign_data_value (var->expr, values.vnode->expr, offset);
 
       if (mark == 1)
         mpz_add_ui (offset, offset, 1);
@@ -3951,7 +3982,7 @@ check_data_variable (gfc_data_variable * var, locus * where)
       /* Modify the array section indexes and recalculate the offset for
          next element.  */
       else if (mark == 2)
-        gfc_modify_index_and_calculate_offset (section_index, ar, &offset);
+        gfc_advance_section (section_index, ar, &offset);
 
       mpz_sub_ui (size, size, 1);
     }

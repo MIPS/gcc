@@ -168,8 +168,20 @@ libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLDFLAGS) $(THREADLIBS) \
 	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
 libgcj_la_LINK = $(LIBLINK)
 
+# Gtk/Cairo JNI sources.
+if GTK_CAIRO
+gtk_cairo_c_source_files = \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
+else
+gtk_cairo_c_source_files = 
+endif
+
 ## Gtk JNI sources.
 gtk_c_source_files = \
+$(gtk_cairo_c_source_files) \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c \
@@ -207,8 +219,12 @@ jni/classpath/primlib.c
 
 ## Java sources for Gtk peers.
 gtk_awt_peer_sources = \
+gnu/java/awt/peer/gtk/GdkClasspathFontPeer.java \
+gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.java \
 gnu/java/awt/peer/gtk/GdkFontMetrics.java \
+gnu/java/awt/peer/gtk/GdkGlyphVector.java \
 gnu/java/awt/peer/gtk/GdkGraphics.java \
+gnu/java/awt/peer/gtk/GdkGraphics2D.java \
 gnu/java/awt/peer/gtk/GdkPixbufDecoder.java \
 gnu/java/awt/peer/gtk/GtkArg.java \
 gnu/java/awt/peer/gtk/GtkArgList.java \
@@ -264,7 +280,7 @@ jni/classpath/jnilink.h	\
 jni/classpath/native_state.h \
 jni/classpath/primlib.h
 
-lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS)
+lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
 
 lib_org_w3c_dom_la_SOURCES = org/w3c/dom/Attr.java \
 org/w3c/dom/CDATASection.java \
@@ -430,7 +446,8 @@ $(c_files): java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h
 
 ## FIXME: see above
 $(gtk_c_files): %.lo: %.c
-	$(LTCOMPILE) -c -Ijniinclude -I$(srcdir)/jni/classpath -I$(srcdir)/jni/gtk-peer $(GTK_CFLAGS) $(LIBART_CFLAGS) -o $@ $<
+	$(LTCOMPILE) -c -Ijniinclude -I$(srcdir)/jni/classpath -I$(srcdir)/jni/gtk-peer \
+	$(GTK_CFLAGS) $(LIBART_CFLAGS) $(CAIRO_LIBS) $(PANGOFT2_LIBS) -o $@ $<
 
 $(gtk_c_files): $(gtk_c_headers)
 
@@ -477,6 +494,7 @@ inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	gnu/java/net/PlainSocketImpl$$SocketOutputStream.h
 
 nat_headers = $(ordinary_nat_headers) $(inner_nat_headers)
+nat_headers_install = $(ordinary_nat_headers)
 
 x_nat_headers = $(x_java_source_files:.java=.h)
 
@@ -580,7 +598,7 @@ install-data-local:
 ## We use a GNU make trick here so that we don't go over the command
 ## length limit of some shells.
 	@echo Creating list of headers to install...
-	@: $(call write_entries_to_file,$(nat_headers) $(extra_headers),tmp-ilist)
+	@: $(call write_entries_to_file,$(nat_headers_install) $(extra_headers),tmp-ilist)
 	@cat tmp-ilist | while read f; do \
 	  d="`echo $$f | sed -e 's,/[^/]*$$,,'`"; \
 	  $(mkinstalldirs) $(DESTDIR)$(includedir)/$$d; \
@@ -596,6 +614,13 @@ install-data-local:
 	  echo " $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f"; \
 	  $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f; \
 	done
+## Install inner class headers.
+	$(INSTALL_DATA) 'java/io/ObjectOutputStream$$PutField.h' $(DESTDIR)$(includedir)/java/io/
+	$(INSTALL_DATA) 'java/io/ObjectInputStream$$GetField.h' $(DESTDIR)$(includedir)/java/io/
+	$(INSTALL_DATA) 'java/lang/reflect/Proxy$$ProxyData.h' $(DESTDIR)$(includedir)/java/lang/reflect/
+	$(INSTALL_DATA) 'java/lang/reflect/Proxy$$ProxyType.h' $(DESTDIR)$(includedir)/java/lang/reflect/
+	$(INSTALL_DATA) 'gnu/java/net/PlainSocketImpl$$SocketInputStream.h' $(DESTDIR)$(includedir)/gnu/java/net/
+	$(INSTALL_DATA) 'gnu/java/net/PlainSocketImpl$$SocketOutputStream.h' $(DESTDIR)$(includedir)/gnu/java/net/
 	$(INSTALL_DATA) $(srcdir)/java/util/logging/logging.properties $(DESTDIR)$(propdir)/logging.properties
 
 ## ################################################################
@@ -824,6 +849,7 @@ gnu/awt/j2d/MappedRaster.java \
 gnu/java/awt/BitMaskExtent.java \
 gnu/java/awt/Buffers.java \
 gnu/java/awt/ComponentDataBlitOp.java \
+gnu/java/awt/ClasspathToolkit.java \
 gnu/java/awt/EmbeddedWindow.java \
 gnu/java/awt/EmbeddedWindowSupport.java \
 gnu/java/awt/EventModifier.java \
@@ -831,6 +857,7 @@ gnu/java/awt/image/ImageDecoder.java \
 gnu/java/awt/image/XBMDecoder.java \
 gnu/java/awt/peer/EmbeddedWindowPeer.java \
 gnu/java/awt/peer/GLightweightPeer.java \
+gnu/java/awt/peer/ClasspathFontPeer.java \
 gnu/java/beans/editors/ColorEditor.java	\
 gnu/java/beans/editors/FontEditor.java \
 gnu/java/beans/editors/NativeBooleanEditor.java	\
@@ -1612,6 +1639,7 @@ gnu/java/rmi/server/RMIDefaultSocketFactory.java \
 gnu/java/rmi/server/RMIHashes.java \
 gnu/java/rmi/server/RMIObjectInputStream.java \
 gnu/java/rmi/server/RMIObjectOutputStream.java \
+gnu/java/rmi/server/RMIVoidValue.java \
 gnu/java/rmi/server/UnicastConnection.java \
 gnu/java/rmi/server/UnicastConnectionManager.java \
 gnu/java/rmi/server/UnicastRef.java \
@@ -1734,7 +1762,40 @@ javax/naming/ldap/UnsolicitedNotificationListener.java \
 javax/naming/OperationNotSupportedException.java \
 javax/print/attribute/Attribute.java \
 javax/print/attribute/AttributeSet.java \
+javax/print/attribute/AttributeSetUtilities.java \
+javax/print/attribute/DateTimeSyntax.java \
+javax/print/attribute/DocAttribute.java \
+javax/print/attribute/DocAttributeSet.java \
+javax/print/attribute/EnumSyntax.java \
+javax/print/attribute/HashAttributeSet.java \
+javax/print/attribute/HashDocAttributeSet.java \
+javax/print/attribute/HashPrintJobAttributeSet.java \
+javax/print/attribute/HashPrintRequestAttributeSet.java \
+javax/print/attribute/HashPrintServiceAttributeSet.java \
+javax/print/attribute/IntegerSyntax.java \
+javax/print/attribute/PrintJobAttribute.java \
+javax/print/attribute/PrintJobAttributeSet.java \
+javax/print/attribute/PrintRequestAttribute.java \
 javax/print/attribute/PrintRequestAttributeSet.java \
+javax/print/attribute/PrintServiceAttribute.java \
+javax/print/attribute/PrintServiceAttributeSet.java \
+javax/print/attribute/ResolutionSyntax.java \
+javax/print/attribute/SetOfIntegerSyntax.java \
+javax/print/attribute/Size2DSyntax.java \
+javax/print/attribute/SupportedValuesAttribute.java \
+javax/print/attribute/TextSyntax.java \
+javax/print/attribute/UnmodifiableSetException.java \
+javax/print/attribute/URISyntax.java \
+javax/print/attribute/standard/Copies.java \
+javax/print/attribute/standard/JobImpressions.java \
+javax/print/attribute/standard/JobMediaSheets.java \
+javax/print/attribute/standard/JobPriority.java \
+javax/print/attribute/standard/NumberOfDocuments.java \
+javax/print/attribute/standard/NumberOfInterveningJobs.java \
+javax/print/attribute/standard/NumberUp.java \
+javax/print/attribute/standard/PagesPerMinute.java \
+javax/print/attribute/standard/PagesPerMinuteColor.java \
+javax/print/attribute/standard/QueuedJobCount.java \
 javax/security/auth/x500/X500Principal.java \
 javax/sql/ConnectionEvent.java \
 javax/sql/ConnectionEventListener.java \
@@ -2195,8 +2256,10 @@ gnu/java/locale/LocaleInformation_zh_HK.java \
 gnu/java/locale/LocaleInformation_zh_SG.java \
 gnu/java/locale/LocaleInformation_zh_TW.java \
 gnu/java/math/MPN.java \
+gnu/java/net/HeaderFieldHelper.java \
 gnu/java/net/PlainDatagramSocketImpl.java \
 gnu/java/net/PlainSocketImpl.java \
+gnu/java/net/URLParseError.java \
 gnu/java/net/protocol/core/Connection.java \
 gnu/java/net/protocol/core/Handler.java \
 gnu/java/net/protocol/core/CoreInputStream.java \
@@ -2215,6 +2278,10 @@ gnu/java/nio/NIOConstants.java \
 gnu/java/nio/NIODatagramSocket.java \
 gnu/java/nio/NIOServerSocket.java \
 gnu/java/nio/NIOSocket.java \
+gnu/java/nio/ChannelInputStream.java \
+gnu/java/nio/ChannelOutputStream.java \
+gnu/java/nio/InputStreamChannel.java \
+gnu/java/nio/OutputStreamChannel.java \
 gnu/java/nio/PipeImpl.java \
 gnu/java/nio/SelectionKeyImpl.java \
 gnu/java/nio/SelectorImpl.java \

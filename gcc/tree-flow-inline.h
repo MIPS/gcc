@@ -571,4 +571,11 @@ loop_of_stmt (tree stmt)
   return bb_for_stmt (stmt)->loop_father;
 }
 
+static inline bool
+may_be_aliased (tree var)
+{
+  return (TREE_ADDRESSABLE (var)
+          || decl_function_context (var) != current_function_decl);
+}
+
 #endif /* _TREE_FLOW_INLINE_H  */

@@ -227,6 +227,7 @@ void gfc_resolve_btest (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ceiling (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_char (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_cmplx (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_dcmplx (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_conjg (gfc_expr *, gfc_expr *);
 void gfc_resolve_cos (gfc_expr *, gfc_expr *);
 void gfc_resolve_cosh (gfc_expr *, gfc_expr *);

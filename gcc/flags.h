@@ -549,10 +549,6 @@ extern int flag_dump_rtl_in_asm;
    in generated assembly code.  */
 extern int flag_leading_underscore;
 
-/* -fgnu-linker specifies use of the GNU linker for initializations.
-   -fno-gnu-linker says that collect will be used.  */
-extern int flag_gnu_linker;
-
 /* Tag all structures with __attribute__(packed) */
 extern int flag_pack_struct;
 
@@ -742,9 +738,6 @@ extern int flag_tree_ter;
 
 /* Enable dominator optimizations while re-writing into SSA form.  */
 extern int flag_tree_dom;
-
-/* Enable promotion of virtual to real operands in must-alias situations.  */
-extern int flag_tree_must_alias;
 
 /* Enable loop optimization on tree-ssa.  */
 extern int flag_tree_loop;

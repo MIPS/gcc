@@ -257,9 +257,6 @@ do {									\
 static int stmt_count;
 static int compstmt_count;
 
-extern int c_in_iteration_stmt;
-extern int c_in_case_stmt;
-
 /* Input location of the end of the body of last simple_if;
    used by the stmt-rule immediately after simple_if returns.  */
 static location_t if_stmt_locus;
@@ -3488,6 +3485,7 @@ static const short rid_to_yy[RID_MAX] =
   /* RID_FALSE */	0,
   /* RID_NAMESPACE */	0,
   /* RID_NEW */		0,
+  /* RID_OFFSETOF */    0,
   /* RID_OPERATOR */	0,
   /* RID_THIS */	0,
   /* RID_THROW */	0,
@@ -3555,28 +3553,7 @@ init_reswords (void)
 static void
 yyerror (const char *msgid)
 {
-  const char *string = _(msgid);
-
-  if (last_token == CPP_EOF)
-    error ("%s at end of input", string);
-  else if (last_token == CPP_CHAR || last_token == CPP_WCHAR)
-    {
-      unsigned int val = TREE_INT_CST_LOW (yylval.ttype);
-      const char *const ell = (last_token == CPP_CHAR) ? "" : "L";
-      if (val <= UCHAR_MAX && ISGRAPH (val))
-	error ("%s before %s'%c'", string, ell, val);
-      else
-	error ("%s before %s'\\x%x'", string, ell, val);
-    }
-  else if (last_token == CPP_STRING
-	   || last_token == CPP_WSTRING)
-    error ("%s before string constant", string);
-  else if (last_token == CPP_NUMBER)
-    error ("%s before numeric constant", string);
-  else if (last_token == CPP_NAME)
-    error ("%s before \"%s\"", string, IDENTIFIER_POINTER (yylval.ttype));
-  else
-    error ("%s before '%s' token", string, NAME(last_token));
+  c_parse_error (msgid, last_token, yylval.ttype);
 }
 
 static int

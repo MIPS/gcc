@@ -148,14 +148,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 #include "tree-vectorizer.h"
+#include "tree-pass.h"
 
 /* CHECKME: check for unnecessary include files.  */
-
-static bitmap vars_to_rename;
-
-/* Debugging dumps.  */
-static FILE *dump_file;
-static int dump_flags;
 
 /* Main analysis functions.  */
 static loop_vec_info vect_analyze_loop (struct loop *);
@@ -199,10 +194,6 @@ static tree vect_get_new_vect_var (tree , enum vect_var_kind, tree);
 
 /* General untility functions (CHECKME: where do they belong).  */
 static tree get_array_base (tree);
-
-/* Main driver.  */
-void vectorize_loops (tree fndecl, bitmap vars, struct loops *loops,
-		      varray_type ev_info, enum tree_dump_index phase);
 
 /* Utilities for creation and deletion of vec_info structs.  */
 loop_vec_info new_loop_vec_info (struct loop *loop);
@@ -481,8 +472,8 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
 	 aligned, so the index in the vectorized access is simply
 	 init_val/vectorization_factor.  */
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
-        fprintf (dump_file, "creating update chain:\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+        fprintf (tree_dump_file, "creating update chain:\n");
 
       vec_stmt = build (MODIFY_EXPR, unsigned_intSI_type_node, new_indx,
 			build_int_2 (init_val/vectorization_factor, 0));
@@ -622,8 +613,8 @@ vect_align_data_ref (tree ref, tree stmt)
     {
       /* CHECKME: is this the way to force the alignment of an array base?  */
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
-        fprintf (dump_file,
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+        fprintf (tree_dump_file,
 			  "force alignment. before: scalar/vec type_align = %d/%d\n",
 			  TYPE_ALIGN (TREE_TYPE (array_base)),
 			  TYPE_ALIGN (vectype));
@@ -673,10 +664,10 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
   tree array_ptr;
   tree array_base;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "create array_ref of type:\n");
-      print_generic_expr (dump_file, vectype, TDF_SLIM);
+      fprintf (tree_dump_file, "create array_ref of type:\n");
+      print_generic_expr (tree_dump_file, vectype, TDF_SLIM);
     }
 
   vect_align_data_ref (ref, stmt);
@@ -734,8 +725,8 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
 
 #endif /* POINTER_ARITHMETIC */
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    print_generic_expr (dump_file, data_ref, TDF_SLIM);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    print_generic_expr (tree_dump_file, data_ref, TDF_SLIM);
 
   return data_ref;
 }
@@ -800,8 +791,8 @@ vect_transform_binop (tree stmt, block_stmt_iterator *bsi ATTRIBUTE_UNUSED)
   if (!op1 || TREE_CODE (op1) != SSA_NAME)
     abort ();
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "transform binop\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "transform binop\n");
 
   /** Handle def. **/
 
@@ -837,10 +828,10 @@ vect_transform_binop (tree stmt, block_stmt_iterator *bsi ATTRIBUTE_UNUSED)
   new_temp = make_ssa_name (vec_dest, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = new_temp;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "add new stmt\n");
-      print_generic_stmt (dump_file, vec_stmt, TDF_SLIM);
+      fprintf (tree_dump_file, "add new stmt\n");
+      print_generic_stmt (tree_dump_file, vec_stmt, TDF_SLIM);
     }
   bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
 
@@ -876,8 +867,8 @@ vect_transform_store (tree stmt, block_stmt_iterator *bsi)
   if (TREE_CODE (op) != SSA_NAME)
     abort ();
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "transform store\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "transform store\n");
 
   /** Handle def.  **/
   data_ref = vect_create_data_ref (scalar_dest, stmt, bsi);
@@ -904,10 +895,10 @@ vect_transform_store (tree stmt, block_stmt_iterator *bsi)
   /** arguments are ready. create the new vector stmt.  **/
   vec_stmt = build (MODIFY_EXPR, vectype, data_ref, vec_oprnd1);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "add new stmt\n");
-      print_generic_stmt (dump_file, vec_stmt, TDF_SLIM);
+      fprintf (tree_dump_file, "add new stmt\n");
+      print_generic_stmt (tree_dump_file, vec_stmt, TDF_SLIM);
     }
   bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
 
@@ -925,10 +916,10 @@ vect_transform_store (tree stmt, block_stmt_iterator *bsi)
 	 The iterator bsi should be bumped to point to stmt at location (i+3)
 	 because this is what the driver vect_transform_loop expects.  */
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
         {
-          fprintf (dump_file, "update chain:\n");
-          print_generic_stmt (dump_file, bsi_stmt (*bsi), TDF_SLIM);
+          fprintf (tree_dump_file, "update chain:\n");
+          print_generic_stmt (tree_dump_file, bsi_stmt (*bsi), TDF_SLIM);
         }
       bsi_next (bsi);
     }
@@ -977,18 +968,18 @@ vect_transform_load (tree stmt, block_stmt_iterator *bsi)
   if (!data_ref)
     abort ();
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "transform load\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "transform load\n");
 
   /** arguments are ready. create the new vector stmt.  **/
   vec_stmt = build (MODIFY_EXPR, vectype, vec_dest, data_ref);
   new_temp = make_ssa_name (vec_dest, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = new_temp;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "add new stmt\n");
-      print_generic_stmt (dump_file, vec_stmt, TDF_SLIM);
+      fprintf (tree_dump_file, "add new stmt\n");
+      print_generic_stmt (tree_dump_file, vec_stmt, TDF_SLIM);
     }
   bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
 
@@ -1006,10 +997,10 @@ vect_transform_load (tree stmt, block_stmt_iterator *bsi)
          The iterator bsi should be bumped to point to stmt at location (i+3)
          because this is what the driver vect_transform_loop expects.  */
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
         {
-          fprintf (dump_file, "update chain:\n");
-          print_generic_stmt (dump_file, bsi_stmt (*bsi), TDF_SLIM);
+          fprintf (tree_dump_file, "update chain:\n");
+          print_generic_stmt (tree_dump_file, bsi_stmt (*bsi), TDF_SLIM);
         }
       bsi_next (bsi);
     }
@@ -1048,8 +1039,8 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
       break;
 
     default:
-      if (dump_file && (dump_flags & TDF_DETAILS))
-        fprintf (dump_file, "stmt not supported\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+        fprintf (tree_dump_file, "stmt not supported\n");
       abort ();
     }
 
@@ -1124,8 +1115,8 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo)
   /* remove old loop exit test:  */
   bsi_remove (&loop_exit_bsi);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    print_generic_expr (dump_file, cond_stmt, TDF_SLIM);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    print_generic_expr (tree_dump_file, cond_stmt, TDF_SLIM);
 }
 
 
@@ -1141,8 +1132,8 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   block_stmt_iterator si;
   int i;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\n<<vec_transform_loop>>\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\n<<vec_transform_loop>>\n");
 
   /* CHECKME: FORNOW the vectorizer supports only loops which body consist
      of one basic block + header. When the vectorizer will support more
@@ -1160,10 +1151,10 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 	  tree vectype;
 	  bool is_store;
 
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "\n-----\nvectorizing statement:\n");
-	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+	      fprintf (tree_dump_file, "\n-----\nvectorizing statement:\n");
+	      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
 	    }	
 
 	  stmt_info = vinfo_for_stmt (stmt);
@@ -1183,8 +1174,8 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 	    abort ();
 
 	  /* -------- vectorize statement ------------ */
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "transform statement.\n");
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    fprintf (tree_dump_file, "transform statement.\n");
 
 	  is_store = vect_transform_stmt (stmt, &si);
 
@@ -1206,8 +1197,8 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 
 
   vect_transform_loop_bound (loop_vinfo);
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\n<<Success! loop vectorized.>>\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\n<<Success! loop vectorized.>>\n");
 }
 
 
@@ -1286,8 +1277,8 @@ vect_is_supportable_binop (tree stmt)
 
   if (!vect_is_simple_use (op0, loop) || !vect_is_simple_use (op1, loop))
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-        fprintf (dump_file, 
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+        fprintf (tree_dump_file, 
 		"use not simple (not SSA_NAME or defined out of loop).\n");
       return false;
     }	
@@ -1301,8 +1292,8 @@ vect_is_supportable_binop (tree stmt)
 
   if (binoptab->handlers[(int) vec_mode].insn_code == CODE_FOR_nothing)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "op not supported by target\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "op not supported by target\n");
       return false;
     }
 
@@ -1341,8 +1332,8 @@ vect_is_supportable_store (tree stmt)
 
   if (!vect_is_simple_use (op, loop))
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-        fprintf (dump_file,
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+        fprintf (tree_dump_file,
 		"use not simple (not SSA_NAME or defined out of loop).\n");
       return false;
     }
@@ -1416,8 +1407,8 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
   int i;
   bool ok;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\n<<vect_analyze_operations>>\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\n<<vect_analyze_operations>>\n");
 
   for (i = 0; i < nbbs; i++)
     {
@@ -1432,10 +1423,10 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	  dataflow_t df;
 	  int j, num_uses;
 
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "\n-------\nexamining statement:\n");
-	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+	      fprintf (tree_dump_file, "\n-------\nexamining statement:\n");
+	      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
 	    }
 
 	  if (!stmt_info)
@@ -1450,27 +1441,27 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 
 	  if (!STMT_VINFO_RELEVANT_P (stmt_info))
 	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-	        fprintf (dump_file, "irrelevant.\n");
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	        fprintf (tree_dump_file, "irrelevant.\n");
 	      continue;
 	    }
 
 	  if (TREE_CODE (stmt) != MODIFY_EXPR)
 	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		{
-		  fprintf (dump_file, "not a MODIFY_EXPR\n");
-		  print_generic_stmt (dump_file, stmt, TDF_SLIM);
+		  fprintf (tree_dump_file, "not a MODIFY_EXPR\n");
+		  print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
 		}
 	      return false;
 	    }
 
 	  if (VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (stmt))))
 	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		{
-		  fprintf (dump_file, "vector stmt in loop!\n");
-		  print_generic_stmt (dump_file, stmt, TDF_SLIM);
+		  fprintf (tree_dump_file, "vector stmt in loop!\n");
+		  print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
 		}
 	      return false;
 	    }
@@ -1478,10 +1469,10 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	  vectype = get_vectype_for_scalar_type (TREE_TYPE (stmt));
 	  if (!vectype)
 	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		{
-		  fprintf (dump_file, "no vectype for stmt.\n");
-		  print_generic_stmt (dump_file, stmt, TDF_SLIM);
+		  fprintf (tree_dump_file, "no vectype for stmt.\n");
+		  print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
 		}
 	      return false;
 	    }
@@ -1494,10 +1485,10 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 
 	  if (!ok)
 	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		{
-		  fprintf (dump_file, "stmt not supported.\n");
-		  print_generic_stmt (dump_file, stmt, TDF_SLIM);
+		  fprintf (tree_dump_file, "stmt not supported.\n");
+		  print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
 		}
 	      return false;
 	    }
@@ -1513,18 +1504,18 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	      basic_block bb = bb_for_stmt (use);
      	      if (!flow_bb_inside_loop_p (loop, bb))
         	{
-		  if (dump_file && (dump_flags & TDF_DETAILS))
+		  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		    {
-		      fprintf (dump_file, "def used out of loop:\n");
-		      print_generic_stmt (dump_file, use, TDF_SLIM);
+		      fprintf (tree_dump_file, "def used out of loop:\n");
+		      print_generic_stmt (tree_dump_file, use, TDF_SLIM);
 		    }
 		  return false;
 		}
 	    }
 
 	  nunits = GET_MODE_NUNITS (TYPE_MODE (vectype));
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "nunits = %d\n", nunits);
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    fprintf (tree_dump_file, "nunits = %d\n", nunits);
 
 	  if (vectorization_factor)
 	    {
@@ -1532,10 +1523,10 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	         This restriction will be relaxed in the future.  */
 	      if (nunits != vectorization_factor)
 		{
-		  if (dump_file && (dump_flags & TDF_DETAILS))
+		  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		    {
-		      fprintf (dump_file, "mixed types unsupported.\n");
-		      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+		      fprintf (tree_dump_file, "mixed types unsupported.\n");
+		      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
 		    }
 		  return false;
 		}
@@ -1552,16 +1543,16 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
   /* FORNOW: handle only cases where the loop bound divides by the
      vectorization factor.  */
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "vectorization_factor = %d, niters = %d\n",
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "vectorization_factor = %d, niters = %d\n",
 	vectorization_factor, LOOP_VINFO_NITERS (loop_vinfo));
 
   if (vectorization_factor == 0
       || !LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
       || LOOP_VINFO_NITERS (loop_vinfo) % vectorization_factor != 0)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "loop bound unknown or doesn't divide by %d\n",
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "loop bound unknown or doesn't divide by %d\n",
 		 vectorization_factor);
       return false;
     }
@@ -1643,12 +1634,12 @@ vect_is_simple_iv_evolution (unsigned loop_nb, tree access_fn, tree * init,
   step_expr = evolution_part;
   init_expr = initial_condition (access_fn);
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "\nstep:\n");
-      print_generic_expr (dump_file, step_expr, TDF_SLIM);
-      fprintf (dump_file, "\ninit:\n");
-      print_generic_expr (dump_file, init_expr, TDF_SLIM);
+      fprintf (tree_dump_file, "\nstep:\n");
+      print_generic_expr (tree_dump_file, step_expr, TDF_SLIM);
+      fprintf (tree_dump_file, "\ninit:\n");
+      print_generic_expr (tree_dump_file, init_expr, TDF_SLIM);
     }
 
   *init = init_expr;
@@ -1711,18 +1702,18 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
   int num_uses;
   tree dummy;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\n<<vect_analyze_scalar_evolutions>>\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\n<<vect_analyze_scalar_evolutions>>\n");
 
   for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
     {
       int i;
       tree access_fn = NULL;
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-          fprintf (dump_file, "Analyze phi\n");
-          print_generic_expr (dump_file, phi, TDF_SLIM);
+          fprintf (tree_dump_file, "Analyze phi\n");
+          print_generic_expr (tree_dump_file, phi, TDF_SLIM);
 	}
 
       /* Skip virtual phi's. The data dependences that are associated with
@@ -1732,8 +1723,8 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 
       if (!is_gimple_reg (SSA_NAME_VAR (PHI_RESULT (phi))))
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "virtual phi. skip.\n");
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    fprintf (tree_dump_file, "virtual phi. skip.\n");
 	  continue;
 	}
 
@@ -1748,8 +1739,8 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 
       /* 1. Verify that it is an IV with a simple enough access pattern.  */
 
-      if (dump_file && (dump_flags & TDF_DETAILS)) 
-        fprintf (dump_file, "analyze cycles: call monev analyzer!\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS)) 
+        fprintf (tree_dump_file, "analyze cycles: call monev analyzer!\n");
 
       access_fn = instantiate_parameters
 	(loop_num (loop),
@@ -1758,22 +1749,22 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 
       if (!access_fn)
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "No Access function.");
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    fprintf (tree_dump_file, "No Access function.");
 	  return false;
 	}
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
         {
-           fprintf (dump_file, "Access function of PHI: ");
-           print_generic_expr (dump_file, access_fn, TDF_SLIM);
+           fprintf (tree_dump_file, "Access function of PHI: ");
+           print_generic_expr (tree_dump_file, access_fn, TDF_SLIM);
         }
 
       if (!vect_is_simple_iv_evolution (loop_num (loop), access_fn, &dummy, 
 					&dummy, false))
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "unsupported cross iter cycle.\n");
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    fprintf (tree_dump_file, "unsupported cross iter cycle.\n");
 	  return false;
 	}
 
@@ -1789,10 +1780,10 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 
 	  if (!stmt_info)
 	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		{
-		  fprintf (dump_file, "\nused out side the loop??\n");
-		  print_generic_expr (dump_file, use, TDF_SLIM);
+		  fprintf (tree_dump_file, "\nused out side the loop??\n");
+		  print_generic_expr (tree_dump_file, use, TDF_SLIM);
 		}
 	      return false;
 	    }
@@ -1800,11 +1791,11 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 	  if (STMT_VINFO_RELEVANT_P (stmt_info)
 	      && exist_non_indexing_operands_for_use_p (PHI_RESULT (phi), use))
 	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		{
-		  fprintf (dump_file,
+		  fprintf (tree_dump_file,
 			   "\ninduction var needs to be vectorized. Unsupported.\n");
-		  print_generic_expr (dump_file, use, TDF_SLIM);
+		  print_generic_expr (tree_dump_file, use, TDF_SLIM);
 		}
 	      return false;
 	    }
@@ -1846,8 +1837,8 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
 
   if (!array_base_name_differ_p (dra, drb))
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "vect_analyze_data_ref_dependence: same base\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "vect_analyze_data_ref_dependence: same base\n");
       return false;
     }
 
@@ -1877,8 +1868,8 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo)
 
   /* examine store-store (output) dependences */
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "compare all store-store pairs\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "compare all store-store pairs\n");
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_write_refs); i++)
     {
@@ -1896,8 +1887,8 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo)
 
   /* examine load-store (true/anti) dependences */
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "compare all load-store pairs\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "compare all load-store pairs\n");
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_read_refs); i++)
     {
@@ -1932,8 +1923,8 @@ vect_analyze_data_ref_access (struct data_reference *dr)
      This restriction will be relaxed in the future.  */
   if (VARRAY_ACTIVE_SIZE (access_fns) != 1)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "multi dimensional array reference.\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "multi dimensional array reference.\n");
       return false;
     }
   access_fn = DR_ACCESS_FN (dr, 0);
@@ -1941,10 +1932,10 @@ vect_analyze_data_ref_access (struct data_reference *dr)
   if (!vect_is_simple_iv_evolution (loop_num (loop_of_stmt (DR_STMT (dr))), 
 			 		 		     access_fn, &init, &step, true))
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "too complicated access function\n");
-	  print_generic_expr (dump_file, access_fn, TDF_SLIM);
+	  fprintf (tree_dump_file, "too complicated access function\n");
+	  print_generic_expr (tree_dump_file, access_fn, TDF_SLIM);
 	}
       return false;
     }
@@ -1956,16 +1947,16 @@ vect_analyze_data_ref_access (struct data_reference *dr)
      is aligned. This restriction will be relaxed in the future.  */
   if (TREE_CODE (init) != INTEGER_CST)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "init not INTEGER_CST\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "init not INTEGER_CST\n");
       return false;
     }
 
   /* CHECKME */
   if (TREE_INT_CST_HIGH (init) != 0)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "init CST_HIGH != 0\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "init CST_HIGH != 0\n");
       return false;
     }
 
@@ -1974,18 +1965,18 @@ vect_analyze_data_ref_access (struct data_reference *dr)
   vectype = get_vectype_for_scalar_type (TREE_TYPE (stmt));
   if (!vectype)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "no vectype for stmt.\n");
-	  print_generic_expr (dump_file, stmt, TDF_SLIM);
+	  fprintf (tree_dump_file, "no vectype for stmt.\n");
+	  print_generic_expr (tree_dump_file, stmt, TDF_SLIM);
 	}
       return false;
     }
 
   if (init_val % GET_MODE_NUNITS (TYPE_MODE (vectype)))
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "first access not aligned.\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "first access not aligned.\n");
       return false;
     }
 
@@ -2009,8 +2000,8 @@ vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo)
   varray_type loop_write_datarefs = LOOP_VINFO_DATAREF_WRITES (loop_vinfo);
   varray_type loop_read_datarefs = LOOP_VINFO_DATAREF_READS (loop_vinfo);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\n<<vect_analyze_data_ref_accesses>>\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\n<<vect_analyze_data_ref_accesses>>\n");
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_write_datarefs); i++)
     {
@@ -2049,8 +2040,8 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
   int j;
   struct data_reference *dr;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\n<<vect_analyze_data_refs>>\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\n<<vect_analyze_data_refs>>\n");
 
   for (j = 0; j < nbbs; j++)
     {
@@ -2086,10 +2077,10 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	         meaningless as they are too conservative. We therefore
 	         ignore them.  */
 
-	      if (dump_file && (dump_flags & TDF_DETAILS))
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		{
-	          fprintf (dump_file, "Warning: multiple vops!\n");
-	          print_generic_stmt (dump_file, stmt, TDF_SLIM);
+	          fprintf (tree_dump_file, "Warning: multiple vops!\n");
+	          print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
 		}
 	    }
 
@@ -2098,10 +2089,10 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	      /* CHECKME: a vdef/vuse in a GIMPLE stmt is assumed to
 	         appear only in a MODIFY_EXPR.  */
 
-	      if (dump_file && (dump_flags & TDF_DETAILS))
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		{
-		  fprintf (dump_file, "unexpected vops in stmt\n");
-		  print_generic_stmt (dump_file, stmt, TDF_SLIM);
+		  fprintf (tree_dump_file, "unexpected vops in stmt\n");
+		  print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
 		}
 	      return false;
 	    }
@@ -2128,10 +2119,10 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	    {
 	      /* A different type of data reference (pointer?, struct?)
 	         FORNOW: Do not attempt to handle.  */
-	      if (dump_file && (dump_flags & TDF_DETAILS))
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		{
-		  fprintf (dump_file, "unhandled non-array data ref\n");
-		  print_generic_stmt (dump_file, stmt, TDF_SLIM);
+		  fprintf (tree_dump_file, "unhandled non-array data ref\n");
+		  print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
 		}
 	      return false;
 	    }
@@ -2142,10 +2133,10 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	     This restriction will be relaxed in the future.  */
 	  if (TREE_CODE (TREE_OPERAND (ref, 0)) == ARRAY_REF)
 	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		{
-		  fprintf (dump_file, "unhandled 2D-array data ref\n");
-		  print_generic_stmt (dump_file, stmt, TDF_SLIM);
+		  fprintf (tree_dump_file, "unhandled 2D-array data ref\n");
+		  print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
 		}
 	      return false;
 	    }
@@ -2157,10 +2148,10 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	     CHECKME: correct check?  */
 	  if (TREE_CODE (TREE_TYPE (TREE_OPERAND (ref, 0))) != ARRAY_TYPE)
 	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		{
-		  fprintf (dump_file, "unhandled ptr-based array ref\n");
-		  print_generic_stmt (dump_file, stmt, TDF_SLIM);
+		  fprintf (tree_dump_file, "unhandled ptr-based array ref\n");
+		  print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
 		}
 	      return false;
 	    }
@@ -2190,8 +2181,8 @@ vect_mark_relevant (varray_type worklist, tree stmt)
 {
   stmt_vec_info stmt_info;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "mark relevant.\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "mark relevant.\n");
 
   if (TREE_CODE (stmt) == PHI_NODE)
     {
@@ -2203,18 +2194,18 @@ vect_mark_relevant (varray_type worklist, tree stmt)
 
   if (!stmt_info)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "mark relevant: no stmt info!!\n");
-	  print_generic_expr (dump_file, stmt, TDF_SLIM);
+	  fprintf (tree_dump_file, "mark relevant: no stmt info!!\n");
+	  print_generic_expr (tree_dump_file, stmt, TDF_SLIM);
 	}
       return;
     }
 
   if (STMT_VINFO_RELEVANT_P (stmt_info))
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-        fprintf (dump_file, "already marked relevant.\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+        fprintf (tree_dump_file, "already marked relevant.\n");
       return;
     }
 
@@ -2253,8 +2244,8 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo)
   vdefs = STMT_VDEF_OPS (stmt);
   if (vdefs)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-        fprintf (dump_file, "vec_stmt_relevant_p: stmt has vdefs:\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+        fprintf (tree_dump_file, "vec_stmt_relevant_p: stmt has vdefs:\n");
       return true;
     }
 
@@ -2267,8 +2258,8 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo)
       basic_block bb = bb_for_stmt (use);
       if (!flow_bb_inside_loop_p (loop, bb))
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "vec_stmt_relevant_p: used out of loop:\n");
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    fprintf (tree_dump_file, "vec_stmt_relevant_p: used out of loop:\n");
 	  return true;
 	}
     }
@@ -2308,8 +2299,8 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
   use_optype use_ops;
   stmt_vec_info stmt_info;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\n<<vect_mark_stmts_to_be_vectorized>>\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\n<<vect_mark_stmts_to_be_vectorized>>\n");
 
   VARRAY_TREE_INIT (worklist, 64, "work list");
 
@@ -2322,10 +2313,10 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	{
 	  stmt = bsi_stmt (si);
 
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "init: stmt relevant?\n");
-	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+	      fprintf (tree_dump_file, "init: stmt relevant?\n");
+	      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
 	    } 
 
 	  stmt_info = vinfo_for_stmt (stmt);
@@ -2344,10 +2335,10 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
       stmt = VARRAY_TOP_TREE (worklist);
       VARRAY_POP (worklist);
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-          fprintf (dump_file, "worklist: examine stmt:\n");
-          print_generic_stmt (dump_file, stmt, TDF_SLIM);
+          fprintf (tree_dump_file, "worklist: examine stmt:\n");
+          print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
 	}
 
       /* Examine the USES in this statement. Mark all the statements which
@@ -2370,16 +2361,16 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 
 		  if (def_stmt == NULL_TREE || TREE_CODE (def_stmt) == NOP_EXPR)
 		    {
-		      if (dump_file && (dump_flags & TDF_DETAILS))
-		        fprintf (dump_file, "\nworklist: no def_stmt!\n");
+		      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+		        fprintf (tree_dump_file, "\nworklist: no def_stmt!\n");
 		      varray_clear (worklist);
 		      return false;
 		    }
 
-		  if (dump_file && (dump_flags & TDF_DETAILS))
+		  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		    {
-		      fprintf (dump_file, "\nworklist: def_stmt:\n");
-		      print_generic_expr (dump_file, def_stmt, TDF_SLIM);
+		      fprintf (tree_dump_file, "\nworklist: def_stmt:\n");
+		      print_generic_expr (tree_dump_file, def_stmt, TDF_SLIM);
 		    }
 
 		  bb = bb_for_stmt (def_stmt);
@@ -2398,10 +2389,10 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
       for (i = 0; i < NUM_USES (use_ops); i++)
 	{
 	  tree use = USE_OP (use_ops, i);
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "\nworklist: examine use %d:\n", i);
-	      print_generic_expr (dump_file, use, TDF_SLIM);
+	      fprintf (tree_dump_file, "\nworklist: examine use %d:\n", i);
+	      print_generic_expr (tree_dump_file, use, TDF_SLIM);
 	    }
 
 	  if (exist_non_indexing_operands_for_use_p (use, stmt))
@@ -2414,16 +2405,16 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 
 	      if (def_stmt == NULL_TREE || TREE_CODE (def_stmt) == NOP_EXPR)
 		{
-		  if (dump_file && (dump_flags & TDF_DETAILS))
-		    fprintf (dump_file, "\nworklist: no def_stmt!\n");
+		  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+		    fprintf (tree_dump_file, "\nworklist: no def_stmt!\n");
 		  varray_clear (worklist);
 		  return false;
 		}
 
-	      if (dump_file && (dump_flags & TDF_DETAILS))	
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))	
 		{
-	          fprintf (dump_file, "\nworklist: def_stmt:\n");
-	          print_generic_expr (dump_file, def_stmt, TDF_SLIM);
+	          fprintf (tree_dump_file, "\nworklist: def_stmt:\n");
+	          print_generic_expr (tree_dump_file, def_stmt, TDF_SLIM);
 		}
 
 	      bb = bb_for_stmt (def_stmt);
@@ -2451,8 +2442,8 @@ vect_get_loop_niters (struct loop *loop, int *number_of_iterations)
 {
   tree niters;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\n<<get_loop_niters>>\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\n<<get_loop_niters>>\n");
 
   niters = loop->nb_iterations;
 
@@ -2461,8 +2452,8 @@ vect_get_loop_niters (struct loop *loop, int *number_of_iterations)
     {
       *number_of_iterations = TREE_INT_CST_LOW (niters);
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
-        fprintf (dump_file, "get_loop_niters: %d.\n",*number_of_iterations);
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+        fprintf (tree_dump_file, "get_loop_niters: %d.\n",*number_of_iterations);
     }
 
   return get_loop_exit_condition (loop);
@@ -2486,18 +2477,18 @@ vect_analyze_loop_form (struct loop *loop)
   tree loop_cond;
   int number_of_iterations = -1;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\n<<vect_analyze_loop_form>>\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\n<<vect_analyze_loop_form>>\n");
 
   if (loop->level > 1		/* FORNOW: inner-most loop (CHECKME)  */
       || loop->num_exits > 1 || loop->num_entries > 1 || loop->num_nodes != 2	/* FORNOW */
       || !loop->pre_header || !loop->header || !loop->latch)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file,
+	  fprintf (tree_dump_file,
 		   "loop_analyzer: bad loop form (entry/exit, nbbs, level...)\n");
-	  flow_loop_dump (loop, dump_file, NULL, 1);
+	  flow_loop_dump (loop, tree_dump_file, NULL, 1);
 	}
 
       return NULL;
@@ -2506,15 +2497,15 @@ vect_analyze_loop_form (struct loop *loop)
   loop_cond = vect_get_loop_niters (loop, &number_of_iterations);
   if (!loop_cond)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "Complicated exit condition.\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "Complicated exit condition.\n");
       return NULL;
     }
 
   if (number_of_iterations < 0)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "Can't determine num iters\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "Can't determine num iters\n");
       return NULL;
     }
 
@@ -2539,16 +2530,16 @@ vect_analyze_loop (struct loop *loop)
   bool ok;
   loop_vec_info loop_vinfo;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\n\n\n<<<<<<< analyze_loop_nest >>>>>>>\n");
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\n\n\n<<<<<<< analyze_loop_nest >>>>>>>\n");
 
   /* Check the CFG characteristics of the loop (nesting, entry/exit, etc.  */
 
   loop_vinfo = vect_analyze_loop_form (loop);
   if (!loop_vinfo)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "loop_analyzer: bad loop form.\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "loop_analyzer: bad loop form.\n");
       return NULL;
     }
 
@@ -2562,8 +2553,8 @@ vect_analyze_loop (struct loop *loop)
   ok = vect_analyze_data_refs (loop_vinfo);
   if (!ok)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "loop_analyzer: bad data references.\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "loop_analyzer: bad data references.\n");
       destroy_loop_vec_info (loop_vinfo);
       return NULL;
     }
@@ -2574,8 +2565,8 @@ vect_analyze_loop (struct loop *loop)
   ok = vect_mark_stmts_to_be_vectorized (loop_vinfo);
   if (!ok)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "loop_analyzer: unexpected pattern.\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "loop_analyzer: unexpected pattern.\n");
       destroy_loop_vec_info (loop_vinfo);
       return NULL;
     }
@@ -2587,8 +2578,8 @@ vect_analyze_loop (struct loop *loop)
   ok = vect_analyze_scalar_cycles (loop_vinfo);
   if (!ok)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "loop_analyzer: bad scalar cycle.\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "loop_analyzer: bad scalar cycle.\n");
       destroy_loop_vec_info (loop_vinfo);
       return NULL;
     }
@@ -2609,8 +2600,8 @@ vect_analyze_loop (struct loop *loop)
 
   if (!ok)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "loop_analyzer: bad data dependence.\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "loop_analyzer: bad data dependence.\n");
       destroy_loop_vec_info (loop_vinfo);
       return NULL;
     }
@@ -2622,8 +2613,8 @@ vect_analyze_loop (struct loop *loop)
   ok = vect_analyze_data_ref_accesses (loop_vinfo);
   if (!ok)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "loop_analyzer: bad data access.\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "loop_analyzer: bad data access.\n");
       destroy_loop_vec_info (loop_vinfo);
       return NULL;
     }
@@ -2635,8 +2626,8 @@ vect_analyze_loop (struct loop *loop)
   ok = vect_analyze_operations (loop_vinfo);
   if (!ok)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "loop_analyzer: bad operations.\n");
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "loop_analyzer: bad operations.\n");
       destroy_loop_vec_info (loop_vinfo);
       return NULL;
     }
@@ -2656,11 +2647,8 @@ vect_analyze_loop (struct loop *loop)
    Entry Point to loop vectorization phase.  */
 
 void
-vectorize_loops (tree fndecl,
-		 bitmap vars,
-		 struct loops *loops,
-		 varray_type ev_info ATTRIBUTE_UNUSED,
-		 enum tree_dump_index phase)
+vectorize_loops (struct loops *loops,
+		 varray_type ev_info ATTRIBUTE_UNUSED)
 {
   unsigned int i;
   unsigned int num_vectorized_loops = 0;
@@ -2669,21 +2657,16 @@ vectorize_loops (tree fndecl,
   /* FORNOW: until more sophisticated machine modelling is in place.  */
   if (!UNITS_PER_SIMD_WORD)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file,
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file,
 		 "vectorizer: target vector size is not defined.\n");
       return;
     }
 
-  timevar_push (TV_TREE_VECTORIZATION);
-
   /* Initialize debugging dumps.  */
-  dump_file = dump_begin (phase, &dump_flags);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "loop vectorization phase\n");
-
-  vars_to_rename = vars;
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "loop vectorization phase\n");
 
   /*  ----------- Analyze loops. -----------  */
   /* CHECKME */
@@ -2720,8 +2703,8 @@ vectorize_loops (tree fndecl,
     }
 #endif
 
-  if (dump_file && (dump_flags & TDF_STATS))
-    fprintf (dump_file, "vectorized %u loops in function.\n",
+  if (tree_dump_file && (tree_dump_flags & TDF_STATS))
+    fprintf (tree_dump_file, "vectorized %u loops in function.\n",
 	     num_vectorized_loops);
 
   /*  ----------- Finialize. -----------  */
@@ -2732,14 +2715,4 @@ vectorize_loops (tree fndecl,
       loop_vec_info loop_vinfo = loop->aux;
       destroy_loop_vec_info (loop_vinfo);
     }
-
-  timevar_pop (TV_TREE_VECTORIZATION);
-
-  /* Debugging dumps.  */
-  if (dump_file)
-    {
-      dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (phase, dump_file);
-    }
-
 }

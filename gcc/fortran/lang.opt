@@ -105,6 +105,10 @@ ffixed-line-length-132
 F95 RejectNegative
 Use 132 character line width in fixed mode
 
+fmax-identifier-length=
+F95 RejectNegative Joined UInteger
+-fmax-identifier-length=<n>	Maximum identifier length.
+
 fmax-stack-var-size=
 F95 RejectNegative Joined UInteger
 -fmax-stack-var-size=<n>	Size in bytes of the largest array that will be put on the stack
@@ -126,7 +130,7 @@ F95
 Copy array sections into a contiguous block on procedure entry
 
 i8
-F95 RejectNegative
+F95
 Set the default integer kind to double precision
 
 qkind=
@@ -134,7 +138,19 @@ F95 RejectNegative Joined UInteger
 -qkind=<n>	Set the kind for a real with the 'q' exponent to 'n'
 
 r8
-F95 RejectNegative
+F95
 Set the default real kind to double precision
+
+std=f95
+F95
+Conform to the ISO Fortran 95 standard.
+
+std=f2003
+F95
+Conform to the ISO Fortran 2003 standard.
+
+std=gnu
+F95
+Conform nothing in particular.
 
 ; This comment is to ensure we retain the blank line above.

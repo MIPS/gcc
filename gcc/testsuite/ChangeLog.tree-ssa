@@ -1,3 +1,111 @@
+2004-01-17  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/string-opt-18.x: Remove.
+	* gcc.dg/uninit-2.c, gcc.dg/uninit-4.c: Don't XFAIL.
+	* gcc.dg/uninit-5.c, gcc.dg/uninit-8.c: Likewise.
+
+2004-01-16  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc.dg/tree-ssa/20030709-2.c, gcc.dg/tree-ssa/20030808-1.c:
+	Update for extra DCE pass.
+
+2004-01-15  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030807-1.c: Update due to improvements in
+	jump threading.
+ 
+2004-01-12  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tree-ssa/20030808-1.c: Fix dump option.
+	* gcc.dg/tree-ssa/20031015-1.c: Update dump name.
+	* gcc.dg/tree-ssa/tailcall-1.c, gcc.dg/tree-ssa/tailrecursion-1.c,
+	gcc.dg/tree-ssa/tailrecursion-2.c, gcc.dg/tree-ssa/tailrecursion-3.c,
+	gcc.dg/tree-ssa/tailrecursion-4.c: Likewise.
+
+2004-01-11  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/execute/emptyif.f90: New test.
+
+2004-01-11  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* gfortran.fortran-torture/execute/cmplx.f90: Add dcmplx test.
+
+2004-01-10  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/execute/mystery_proc.f90: New test.
+	* gfortran.fortran-torture/compile/mystery_proc.f90: Remove.
+
+2004-01-10  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/execute/intrinsic_minmax.f90: Test
+	specific names.
+
+2004-01-10  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/execute/intrinsic_transpose.f90: Test
+	complex variables.
+
+2004-01-09  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc.dg/tree-ssa/useless-1.c: New test.
+
+2004-01-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20030530-2.c: Adjust dump file patterns.
+	* gcc.dg/tree-ssa/20030611-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030703-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030703-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030708-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030709-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030709-3.c: Likewise.
+	* gcc.dg/tree-ssa/20030710-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030711-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030711-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030711-3.c: Likewise.
+	* gcc.dg/tree-ssa/20030714-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030714-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030729-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030730-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030730-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030731-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-10.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-11.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-3.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-4.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-5.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-6.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-7.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-8.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-9.c: Likewise.
+	* gcc.dg/tree-ssa/20030808-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-3.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-4.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-5.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-6.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-7.c: Likewise.
+	* gcc.dg/tree-ssa/20030815-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030922-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-1.c: Likewise.
+	Fix test to avoid dereferencing a NULL pointer.
+
+2004-01-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+	    Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030709-2.c: Update test and expected
+	output to accomodate improvements in the optimizers.
+
+2004-01-02  Dan Nicolaescu  <dann@ics.uci.edu>
+
+	* gcc.dg/tree-ssa/sra-3.c: Replace test, old version was a
+	copy of sra-2.c
+
+2004-01-01  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/execute/data_2.f90: New test.
+
 2003-12-16  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.dg/tree-ssa/20031216-2.c: Remove duplicate test.

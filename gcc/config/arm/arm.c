@@ -849,12 +849,12 @@ arm_override_options (void)
     {
       /* There's some dispute as to whether this should be 1 or 2.  However,
 	 experiments seem to show that in pathological cases a setting of
-	 1 degrades less severly than a setting of 2.  This could change if
+	 1 degrades less severely than a setting of 2.  This could change if
 	 other parts of the compiler change their behavior.  */
       arm_constant_limit = 1;
 
       /* If optimizing for size, bump the number of instructions that we
-         are prepared to conditionally execute (even on a StrongARM). */
+         are prepared to conditionally execute (even on a StrongARM).  */
       max_insns_skipped = 6;
     }
   else
@@ -867,7 +867,7 @@ arm_override_options (void)
 
       /* On XScale the longer latency of a load makes it more difficult
          to achieve a good schedule, so it's faster to synthesize
-	 constants that can be done in two insns. */
+	 constants that can be done in two insns.  */
       if (arm_tune_xscale)
         arm_constant_limit = 2;
 
@@ -1051,7 +1051,7 @@ use_return_insn (int iscond, rtx sibling)
 
      triggers a bug on most SA-110 based devices, such that the stack
      pointer won't be correctly restored if the instruction takes a
-     page fault.  We work around this problem by poping r3 along with
+     page fault.  We work around this problem by popping r3 along with
      the other registers, since that is never slower than executing
      another instruction.  
 
@@ -1061,13 +1061,13 @@ use_return_insn (int iscond, rtx sibling)
   if (stack_adjust == 4 && !arm_arch5)
     {
       /* Validate that r3 is a call-clobbered register (always true in
-	 the default abi) ... */
+	 the default abi) ...  */
       if (!call_used_regs[3])
 	return 0;
 
       /* ... that it isn't being used for a return value (always true
 	 until we implement return-in-regs), or for a tail-call
-	 argument ... */
+	 argument ...  */
       if (sibling)
 	{
 	  if (GET_CODE (sibling) != CALL_INSN)
@@ -2008,7 +2008,7 @@ arm_return_in_memory (tree type)
   return 1;
 }
 
-/* Indicate whether or not words of a double are in big-endian order. */
+/* Indicate whether or not words of a double are in big-endian order.  */
 
 int
 arm_float_words_big_endian (void)
@@ -2868,7 +2868,7 @@ arm_legitimate_index_p (enum machine_mode mode, rtx index, int strict_p)
 	  && INTVAL (index) > -range);
 }
 
-/* Return nonzero if X is valid as an ARM state addressing register.  */
+/* Return nonzero if X is valid as a Thumb state base register.  */
 static int
 thumb_base_register_rtx_p (rtx x, enum machine_mode mode, int strict_p)
 {
@@ -2883,10 +2883,11 @@ thumb_base_register_rtx_p (rtx x, enum machine_mode mode, int strict_p)
     return THUMB_REGNO_MODE_OK_FOR_BASE_P (regno, mode);
 
   return (regno <= LAST_LO_REGNUM
-	  || regno >= FIRST_PSEUDO_REGISTER
+	  || regno > LAST_VIRTUAL_REGISTER
 	  || regno == FRAME_POINTER_REGNUM
 	  || (GET_MODE_SIZE (mode) >= 4
 	      && (regno == STACK_POINTER_REGNUM
+		  || regno >= FIRST_PSEUDO_REGISTER
 		  || x == hard_frame_pointer_rtx
 		  || x == arg_pointer_rtx)));
 }
@@ -2963,8 +2964,6 @@ thumb_legitimate_address_p (enum machine_mode mode, rtx x, int strict_p)
       if (GET_MODE_SIZE (mode) <= 4
 	  && XEXP (x, 0) != frame_pointer_rtx
 	  && XEXP (x, 1) != frame_pointer_rtx
-	  && XEXP (x, 0) != virtual_stack_vars_rtx
-	  && XEXP (x, 1) != virtual_stack_vars_rtx
 	  && thumb_index_register_rtx_p (XEXP (x, 0), strict_p)
 	  && thumb_index_register_rtx_p (XEXP (x, 1), strict_p))
 	return 1;
@@ -3201,7 +3200,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
 	case AND:
 	case XOR:
 	case IOR: 
-	  /* XXX guess. */
+	  /* XXX guess.  */
 	  return 8;
 
 	case ADDRESSOF:
@@ -3214,7 +3213,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
 		     ? 4 : 0));
 
 	case IF_THEN_ELSE:
-	  /* XXX a guess. */
+	  /* XXX a guess.  */
 	  if (GET_CODE (XEXP (x, 1)) == PC || GET_CODE (XEXP (x, 2)) == PC)
 	    return 14;
 	  return 2;
@@ -3389,19 +3388,41 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
 	{
 	  unsigned HOST_WIDE_INT i = (INTVAL (XEXP (x, 1))
 				      & (unsigned HOST_WIDE_INT) 0xffffffff);
-	  int add_cost = const_ok_for_arm (i) ? 4 : 8;
-	  int j;
+	  int cost, const_ok = const_ok_for_arm (i);
+	  int j, booth_unit_size;
+
+	  if (arm_tune_xscale)
+	    {
+	      unsigned HOST_WIDE_INT masked_const;
+
+	      /* The cost will be related to two insns.
+		 First a load of the constant (MOV or LDR), then a multiply.  */
+	      cost = 2;
+	      if (! const_ok)
+		cost += 1;      /* LDR is probably more expensive because
+				   of longer result latency.  */
+	      masked_const = i & 0xffff8000;
+	      if (masked_const != 0 && masked_const != 0xffff8000)
+		{
+		  masked_const = i & 0xf8000000;
+		  if (masked_const == 0 || masked_const == 0xf8000000)
+		    cost += 1;
+		  else
+		    cost += 2;
+		}
+	      return cost;
+	    }
 	  
 	  /* Tune as appropriate.  */ 
-	  int booth_unit_size = ((tune_flags & FL_FAST_MULT) ? 8 : 2);
-	  
+	  cost = const_ok ? 4 : 8;
+	  booth_unit_size = ((tune_flags & FL_FAST_MULT) ? 8 : 2);
 	  for (j = 0; i && j < 32; j += booth_unit_size)
 	    {
 	      i >>= booth_unit_size;
-	      add_cost += 2;
+	      cost += 2;
 	    }
 
-	  return add_cost;
+	  return cost;
 	}
 
       return (((tune_flags & FL_FAST_MULT) ? 8 : 30)
@@ -3512,33 +3533,53 @@ arm_rtx_costs (rtx x, int code, int outer_code, int *total)
 /* All address computations that can be done are free, but rtx cost returns
    the same for practically all of them.  So we weight the different types
    of address here in the order (most pref first):
-   PRE/POST_INC/DEC, SHIFT or NON-INT sum, INT sum, REG, MEM or LABEL. */
+   PRE/POST_INC/DEC, SHIFT or NON-INT sum, INT sum, REG, MEM or LABEL.  */
+static inline int
+arm_arm_address_cost (rtx x)
+{
+  enum rtx_code c  = GET_CODE (x);
+
+  if (c == PRE_INC || c == PRE_DEC || c == POST_INC || c == POST_DEC)
+    return 0;
+  if (c == MEM || c == LABEL_REF || c == SYMBOL_REF)
+    return 10;
+
+  if (c == PLUS || c == MINUS)
+    {
+      char cl0 = GET_RTX_CLASS (GET_CODE (XEXP (x, 0)));
+      char cl1 = GET_RTX_CLASS (GET_CODE (XEXP (x, 1)));
+
+      if (GET_CODE (XEXP (x, 0)) == CONST_INT)
+	return 2;
+
+      if (cl0 == '2' || cl0 == 'c' || cl1 == '2' || cl1 == 'c')
+	return 3;
+
+      return 4;
+    }
+
+  return 6;
+}
+
+static inline int
+arm_thumb_address_cost (rtx x)
+{
+  enum rtx_code c  = GET_CODE (x);
+
+  if (c == REG)
+    return 1;
+  if (c == PLUS
+      && GET_CODE (XEXP (x, 0)) == REG
+      && GET_CODE (XEXP (x, 1)) == CONST_INT)
+    return 1;
+
+  return 2;
+}
+
 static int
 arm_address_cost (rtx x)
 {
-#define ARM_ADDRESS_COST(X)						     \
-  (10 - ((GET_CODE (X) == MEM || GET_CODE (X) == LABEL_REF		     \
-	  || GET_CODE (X) == SYMBOL_REF)				     \
-	 ? 0								     \
-	 : ((GET_CODE (X) == PRE_INC || GET_CODE (X) == PRE_DEC		     \
-	     || GET_CODE (X) == POST_INC || GET_CODE (X) == POST_DEC)	     \
-	    ? 10							     \
-	    : (((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS)		     \
-		? 6 + (GET_CODE (XEXP (X, 1)) == CONST_INT ? 2 		     \
-		       : ((GET_RTX_CLASS (GET_CODE (XEXP (X, 0))) == '2'     \
-			   || GET_RTX_CLASS (GET_CODE (XEXP (X, 0))) == 'c'  \
-			   || GET_RTX_CLASS (GET_CODE (XEXP (X, 1))) == '2'  \
-			   || GET_RTX_CLASS (GET_CODE (XEXP (X, 1))) == 'c') \
-			  ? 1 : 0))					     \
-		: 4)))))
-	 
-#define THUMB_ADDRESS_COST(X) 					\
-  ((GET_CODE (X) == REG 					\
-    || (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 0)) == REG	\
-	&& GET_CODE (XEXP (X, 1)) == CONST_INT))		\
-   ? 1 : 2)
-     
-  return (TARGET_ARM ? ARM_ADDRESS_COST (x) : THUMB_ADDRESS_COST (x));
+  return TARGET_ARM ? arm_arm_address_cost (x) : arm_thumb_address_cost (x);
 }
 
 static int
@@ -7986,7 +8027,7 @@ output_ascii_pseudo_op (FILE *stream, const unsigned char *p, int len)
 	case '\\':
 	  putc ('\\', stream);
 	  len_so_far++;
-	  /* drop through.  */
+	  /* Drop through.  */
 
 	default:
 	  if (c >= ' ' && c <= '~')
@@ -9807,7 +9848,7 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
       output_addr_const (asm_out_file, x);
 
       /* Mark symbols as position independent.  We only do this in the
-	 .text segment, not in the .data segment. */
+	 .text segment, not in the .data segment.  */
       if (NEED_GOT_RELOC && flag_pic && making_const_table &&
 	  (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF))
 	{
@@ -10318,7 +10359,7 @@ arm_final_prescan_insn (rtx insn)
 	        }
 	      if (!this_insn)
 	        {
-		  /* Oh, dear! we ran off the end.. give up */
+		  /* Oh, dear! we ran off the end.. give up.  */
 		  recog (PATTERN (insn), insn, NULL);
 		  arm_ccfsm_state = 0;
 		  arm_target_insn = NULL;
@@ -10495,7 +10536,7 @@ arm_debugger_arg_offset (int value, rtx addr)
      which is the frame pointer
      a constant integer
 
-     then... */
+     then...  */
   
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
@@ -11823,7 +11864,7 @@ is_called_in_ARM_mode (tree func)
 #endif
 }
 
-/* The bits which aren't usefully expanded as rtl. */
+/* The bits which aren't usefully expanded as rtl.  */
 const char *
 thumb_unexpanded_epilogue (void)
 {
@@ -11908,7 +11949,7 @@ thumb_unexpanded_epilogue (void)
 
 	  mask &= (2 << regno) - 1;	/* A noop if regno == 8 */
 
-	  /* Pop the values into the low register(s). */
+	  /* Pop the values into the low register(s).  */
 	  thumb_pushpop (asm_out_file, mask, 0);
 
 	  /* Move the value(s) into the high registers.  */
@@ -11936,7 +11977,7 @@ thumb_unexpanded_epilogue (void)
     {
       /* The stack backtrace structure creation code had to
 	 push R7 in order to get a work register, so we pop
-	 it now.   */
+	 it now.  */
       live_regs_mask |= (1 << LAST_LO_REGNUM);
     }
   
@@ -12291,7 +12332,7 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 	 the assembler to bypass the ARM code when this function
 	 is called from a Thumb encoded function elsewhere in the
 	 same file.  Hence the definition of STUB_NAME here must
-	 agree with the definition in gas/config/tc-arm.c  */
+	 agree with the definition in gas/config/tc-arm.c.  */
       
 #define STUB_NAME ".real_start_of"
       
@@ -12366,7 +12407,7 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 
 	  if (regs_ever_live [LAST_ARG_REGNUM] == 0)
 	    work_register = LAST_ARG_REGNUM;
-	  else	  /* We must push a register of our own */
+	  else	  /* We must push a register of our own.  */
 	    live_regs_mask |= (1 << LAST_LO_REGNUM);
 	}
 
@@ -12967,7 +13008,7 @@ aof_globalize_label (FILE *stream, const char *name)
 }
 
 static void
-aof_file_start ()
+aof_file_start (void)
 {
   fputs ("__r0\tRN\t0\n", asm_out_file);
   fputs ("__a1\tRN\t0\n", asm_out_file);
