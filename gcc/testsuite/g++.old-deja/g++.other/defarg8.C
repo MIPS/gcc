@@ -6,7 +6,7 @@
 
 struct AA
 {
-  static int Foo (int = Baz ());
+  static int Foo (int = Baz ());	// ERROR - circularity
   static int Baz (int = Foo ());
 };
 

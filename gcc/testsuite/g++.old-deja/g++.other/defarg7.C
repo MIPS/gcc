@@ -5,7 +5,7 @@
 
 struct A
 {
-  static int Foo (int = Baz ());
+  static int Foo (int = Baz ());	// ERROR - circularity
   static int Baz (int = Foo ());
 };
 
@@ -18,7 +18,7 @@ struct Test
 struct B
 {
   static int Bar (int = Foo (1));
-  static int Foo (int = Baz ());
+  static int Foo (int = Baz ());	// ERROR - circularity
   static int Baz (int = Foo (1));
 };
 
