@@ -877,7 +877,7 @@ add_phi_arg (tree *phi, tree def, edge e)
   if (i >= PHI_ARG_CAPACITY (*phi))
     {
       /* Resize the phi.  Unfortunately, this also relocates it...  */
-      bb_ann_t ann = bb_ann (bb_for_stmt (*phi));
+      bb_ann_t ann = bb_ann (e->dest);
       tree old_phi = *phi;
 
       resize_phi_node (phi, i + 4);
