@@ -51,9 +51,6 @@ static int saved_lineno;
 /* CPP's options.  */
 static cpp_options *cpp_opts;
 
-/* Input filename.  */
-static const char *this_input_filename;
-
 /* Filename and stream for preprocessed output.  */
 static const char *out_fname;
 static FILE *out_stream;
@@ -108,7 +105,7 @@ static void sanitize_cpp_opts (void);
 static void add_prefixed_path (const char *, size_t);
 static void push_command_line_include (void);
 static void cb_file_change (cpp_reader *, const struct line_map *);
-static void finish_options (const char *);
+static void finish_options (void);
 
 #ifndef STDC_0_IN_SYSTEM_HEADERS
 #define STDC_0_IN_SYSTEM_HEADERS 0
@@ -1038,17 +1035,85 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 bool
 c_common_post_options (const char **pfilename)
 {
-  /* Canonicalize the input and output filenames.  */
-  if (in_fnames == NULL)
-    {
-      in_fnames = xmalloc (sizeof (in_fnames[0]));
-      in_fnames[0] = "";
-    }
-  else if (strcmp (in_fnames[0], "-") == 0)
-    in_fnames[0] = "";
-
+  /* Canonicalize the output filename.  */
   if (out_fname == NULL || !strcmp (out_fname, "-"))
     out_fname = "";
+
+  /* NULL is passed up to toplev.c and we exit quickly.  */
+  if (flag_preprocess_only)
+    {
+      /* Open the output now.  We must do so even if flag_no_output is
+	 on, because there may be other output than from the actual
+	 preprocessing (e.g. from -dM).  */
+      if (out_fname[0] == '\0')
+	out_stream = stdout;
+      else
+	out_stream = fopen (out_fname, "w");
+
+      if (out_stream == NULL)
+	{
+	  fatal_error ("opening output file %s: %m", out_fname);
+	  return false;
+	}
+
+      init_pp_output (out_stream);
+    }
+  else
+    {
+      init_c_lex ();
+
+      /* Yuk.  WTF is this?  I do know ObjC relies on it somewhere.  */
+      input_line = 0;
+    }
+
+  cpp_get_callbacks (parse_in)->file_change = cb_file_change;
+  /* kludge - should be moved */
+  cpp_post_options (parse_in);
+
+  *pfilename = cpp_read_main_file (parse_in, *pfilename);
+
+  if (flag_preprocess_only)
+    {
+      finish_options ();
+      preprocess_file (parse_in);
+      return true;
+    }
+
+  saved_lineno = input_line;
+
+  /* If an error has occurred in cpplib, note it so we fail
+     immediately.  */
+  errorcount += cpp_errors (parse_in);
+
+  return false;
+}
+
+/* Front end initialization common to C, ObjC and C++.  */
+void
+init_c_common_once ()
+{
+  /* Set up preprocessor arithmetic.  Must be done after call to
+     c_common_nodes_and_builtins for type nodes to be good.  */
+  cpp_opts->precision = TYPE_PRECISION (intmax_type_node);
+  cpp_opts->char_precision = TYPE_PRECISION (char_type_node);
+  cpp_opts->int_precision = TYPE_PRECISION (integer_type_node);
+  cpp_opts->wchar_precision = TYPE_PRECISION (wchar_type_node);
+  cpp_opts->unsigned_wchar = TREE_UNSIGNED (wchar_type_node);
+
+  cpp_opts->bytes_big_endian = BYTES_BIG_ENDIAN;
+  /* This can't happen until after wchar_precision and bytes_big_endian
+     are known.  */
+  cpp_init_iconv (parse_in);
+
+  register_cpp_callbacks ();
+  if (server_mode > 1
+      || server_mode == 0 /* ??? */)
+    {
+      cpp_get_callbacks (parse_in)->enter_fragment = cb_enter_fragment;
+      cpp_get_callbacks (parse_in)->exit_fragment = cb_exit_fragment;
+    }
+
+  init_pragma ();
 
   if (cpp_opts->deps.style == DEPS_NONE)
     check_deps_environment_vars ();
@@ -1095,83 +1160,24 @@ c_common_post_options (const char **pfilename)
   if (warn_missing_format_attribute && !warn_format)
     warning ("-Wmissing-format-attribute ignored without -Wformat");
 
-  if (flag_preprocess_only)
-    {
-      /* Open the output now.  We must do so even if flag_no_output is
-	 on, because there may be other output than from the actual
-	 preprocessing (e.g. from -dM).  */
-      if (out_fname[0] == '\0')
-	out_stream = stdout;
-      else
-	out_stream = fopen (out_fname, "w");
+  if (server_mode >= 0)
+    finish_options ();
+#if 0
+  if (flag_preprocess_onl
+      && num_in_fnames > 1)
+    error ("too many filenames given.  Type %s --help for usage",
+	   progname);
+#endif
 
-      if (out_stream == NULL)
-	{
-	  fatal_error ("opening output file %s: %m", out_fname);
-	  return false;
-	}
-
-      if (num_in_fnames > 1)
-	error ("too many filenames given.  Type %s --help for usage",
-	       progname);
-
-      init_pp_output (out_stream);
-    }
-  else
-    {
-      register_cpp_callbacks ();
-      init_c_lex ();
-
-      /* Yuk.  WTF is this?  I do know ObjC relies on it somewhere.  */
-      input_line = 0;
-    }
-
-  cpp_get_callbacks (parse_in)->file_change = cb_file_change;
-  cpp_post_options (parse_in);
-
-  /* NOTE: we use in_fname here, not the one supplied.  */
-  *pfilename = cpp_read_main_file (parse_in, in_fnames[0]);
-
-  saved_lineno = input_line;
-  input_line = 0;
-
-  /* If an error has occurred in cpplib, note it so we fail
-     immediately.  */
-  errorcount += cpp_errors (parse_in);
-
-  return flag_preprocess_only;
+  pch_init();
 }
 
-/* Front end initialization common to C, ObjC and C++.  */
 bool
-c_common_init (void)
+init_c_common_eachsrc (void)
 {
   input_line = saved_lineno;
 
-  /* Set up preprocessor arithmetic.  Must be done after call to
-     c_common_nodes_and_builtins for type nodes to be good.  */
-  cpp_opts->precision = TYPE_PRECISION (intmax_type_node);
-  cpp_opts->char_precision = TYPE_PRECISION (char_type_node);
-  cpp_opts->int_precision = TYPE_PRECISION (integer_type_node);
-  cpp_opts->wchar_precision = TYPE_PRECISION (wchar_type_node);
-  cpp_opts->unsigned_wchar = TREE_UNSIGNED (wchar_type_node);
-  cpp_opts->bytes_big_endian = BYTES_BIG_ENDIAN;
-
-  /* This can't happen until after wchar_precision and bytes_big_endian
-     are known.  */
-  cpp_init_iconv (parse_in);
-
-  if (flag_preprocess_only)
-    {
-      finish_options (in_fnames[0]);
-      preprocess_file (parse_in);
-      return false;
-    }
-
-  /* Has to wait until now so that cpplib has its hash table.  */
-  init_pragma ();
-
-  return true;
+  return ! flag_preprocess_only;
 }
 
 /* Initialize the integrated preprocessor after debug output has been
@@ -1179,38 +1185,24 @@ c_common_init (void)
 void
 c_common_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 {
-  unsigned file_index;
-  
 #if YYDEBUG != 0
   yydebug = set_yydebug;
 #else
   warning ("YYDEBUG not defined");
 #endif
 
-  file_index = 0;
-  
-  do
-    {
-      if (file_index > 0)
-	{
-	  /* Reset the state of the parser.  */
-	  c_reset_state();
+  (*debug_hooks->start_source_file) (input_line, input_filename);
+  /* Kludge - finish_options emits debug stuff, so needs assembler. */
+  if (server_mode < 0)
+    finish_options ();
 
-	  /* Reset cpplib's macros and start a new file.  */
-	  cpp_undef_all (parse_in);
-	  cpp_read_main_file (parse_in, in_fnames[file_index]);
-	}
-
-      finish_options(in_fnames[file_index]);
-      if (file_index == 0)
-	pch_init();
-      c_parse_file ();
-
-      file_index++;
-    } while (file_index < num_in_fnames);
-  
+  c_parse_file ();
   free_parser_stacks ();
-  finish_file ();
+
+  /*
+  fe_file_change (NULL);
+  cpp_change_file (parse_in, LC_LEAVE, NULL);
+  */
 }
 
 /* Common finish hook for the C, ObjC and C++ front ends.  */
@@ -1366,17 +1358,15 @@ add_prefixed_path (const char *suffix, size_t chain)
   add_path (path, chain, 0);
 }
 
-/* Handle -D, -U, -A, -imacros, and the first -include.  
-   TIF is the input file to which we will return after processing all
-   the includes.  */
+/* Handle -D, -U, -A, -imacros, and the first -include.  */
 static void
-finish_options (const char *tif)
+finish_options ()
 {
   if (!cpp_opts->preprocessed)
     {
       size_t i;
 
-      cpp_change_file (parse_in, LC_RENAME, _("<built-in>"));
+      cpp_change_file (parse_in, LC_ENTER, _("<built-in>"));
       cpp_init_builtins (parse_in, flag_hosted);
       c_cpp_builtins (parse_in);
 
@@ -1418,11 +1408,14 @@ finish_options (const char *tif)
 	      && cpp_push_include (parse_in, opt->arg))
 	    cpp_scan_nooutput (parse_in);
 	}
+      cpp_change_file (parse_in, LC_LEAVE, NULL);
     }
 
   include_cursor = 0;
-  this_input_filename = tif;
+#if 0
+  main_input_filename = tif;
   push_command_line_include ();
+#endif
 }
 
 /* Give CPP the next file given by -include, if any.  */
@@ -1443,7 +1436,7 @@ push_command_line_include (void)
   if (include_cursor == deferred_count)
     {
       /* Restore the line map from <command line>.  */
-      cpp_change_file (parse_in, LC_RENAME, this_input_filename);
+      cpp_change_file (parse_in, LC_RENAME, main_input_filename);
       /* -Wunused-macros should only warn about macros defined hereafter.  */
       cpp_opts->warn_unused_macros = warn_unused_macros;
       include_cursor++;

@@ -35,14 +35,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 static void c_initialize_diagnostics (diagnostic_context *);
 
+static void c_write_globals (void);
 enum c_language_kind c_language = clk_c;
 
 /* ### When changing hooks, consider if ObjC needs changing too!! ### */
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C"
+#undef LANG_HOOKS_INIT_ONCE
+#define LANG_HOOKS_INIT_ONCE init_c_objc_common_once
 #undef LANG_HOOKS_INIT
-#define LANG_HOOKS_INIT c_objc_common_init
+#define LANG_HOOKS_INIT init_c_objc_common_eachsrc
 #undef LANG_HOOKS_FINISH
 #define LANG_HOOKS_FINISH c_common_finish
 #undef LANG_HOOKS_INIT_OPTIONS
@@ -130,7 +133,7 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_TYPE_PROMOTES_TO c_type_promotes_to
 
 #undef LANG_HOOKS_WRITE_GLOBALS
-#define LANG_HOOKS_WRITE_GLOBALS c_write_global_declarations
+#define LANG_HOOKS_WRITE_GLOBALS c_write_globals
 
 /* ### When changing hooks, consider if ObjC needs changing too!! ### */
 
@@ -218,12 +221,12 @@ lookup_objc_ivar (tree id ATTRIBUTE_UNUSED)
   return 0;
 }
 
-void
-finish_file (void)
+static void
+c_write_globals ()
 {
   c_objc_common_finish_file ();
+  c_write_global_declarations ();
 }
-
 static void
 c_initialize_diagnostics (diagnostic_context *context)
 {

@@ -179,7 +179,8 @@ extern void insert_block (tree);
 extern void set_block (tree);
 extern tree pushdecl (tree);
 
-extern void c_init_decl_processing (void);
+extern void init_c_decl_processing_once (void);
+extern void init_c_decl_processing_eachsrc (void);
 extern void c_dup_lang_specific_decl (tree);
 extern void c_print_identifier (FILE *, tree, int);
 extern tree build_array_declarator (tree, tree, int, int);
@@ -228,7 +229,8 @@ extern void merge_translation_unit_decls (void);
 /* in c-objc-common.c */
 extern int c_disregard_inline_limits (tree);
 extern int c_cannot_inline_tree_fn (tree *);
-extern bool c_objc_common_init (void);
+extern void init_c_objc_common_once (void);
+extern bool init_c_objc_common_eachsrc (void);
 extern int c_missing_noreturn_ok_p (tree);
 extern void c_objc_common_finish_file (void);
 extern int defer_fn (tree);

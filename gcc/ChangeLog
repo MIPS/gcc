@@ -1,4 +1,24 @@
-2003-08-14  Per Bothner  <per@bothner.com>
+2003-08-15  Per Bothner  <pbothner@apple.com>
+
+	* c-lang.c (finish_file):  Remove.  Combine with ...
+	(c_write_globals):  New function.
+	(LANG_HOOKS_WRITE_GLOBALS):  New macro, defined as c_write_globals.
+	(LANG_HOOKS_INIT_ONCE):  New definition, as init_c_objc_common_once.
+	(LANG_HOOKS_INIT):  Update to renamed init_c_objc_common_eachsrc.
+	* c-tree.h:  Add new or rename function declarations.
+	* c-opts.c (this_input_filename): Remove variable.
+	(c_common_post_options):  Don't canonicalie input filename here.
+	Move some stuff to init_c_common_once.
+	If only preprocessing, do it now (kludge).
+	(init_c_common_once):  New function.
+	(c_common_init):  Renamed to init_c_common_eachsrc.
+	(c_common_parse_file):  Now parses just a single module,
+	rather than loop over modules.
+	(finish_options):   Takes no parameters.  Move calls.
+	Now called before cpp_read_main_file, so first cpp_child_file is
+	LC_ENTER rather than LC_RENAME.  Also do an LC_LEAVE.
+	
+2003-08-14  Per Bothner  <pbothner@apple.com>
 
 	* c-common.c (current_fragment_deps_stack, current_fragment_deps_end,
 	current_c_fragment, builtins_fragment, builtins_c_fragment,
@@ -14,7 +34,7 @@
 	* c-common.h (struct c_include_fragment):  New type.
 	(DECL_FRAGMENT, SET_DECL_FRAGMENT, C_FRAGMENT): New macros.
 
-2003-08-14  Per Bothner  <per@bothner.com>
+2003-08-14  Per Bothner  <pbothner@apple.com>
 
 	* cpphash.h (struct cpp_fragment):  New type.
 	(struct cpp_buffer) <saved_current_fragment>:  New field.
