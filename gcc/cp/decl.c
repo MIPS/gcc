@@ -51,6 +51,7 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "debug.h"
 #include "timevar.h"
+#include "tree-flow.h"
 
 static tree grokparms (tree);
 static const char *redeclaration_error_message (tree, tree);
@@ -14008,6 +14009,8 @@ finish_function (int flags)
 	      chain_member (r, BLOCK_VARS (outer))))
 	{
 	  
+	  if (!flag_disable_simple)
+	    set_has_hidden_use (r);
 	  DECL_ALIGN (r) = DECL_ALIGN (DECL_RESULT (fndecl));
 	  walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
 					nullify_returns_r, r);

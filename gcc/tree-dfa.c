@@ -1311,8 +1311,8 @@ dump_variable (file, var)
   if (may_alias_global_mem_p (var))
     fprintf (file, ", may alias global memory");
 
-  if (is_vla_decl (var))
-    fprintf (file, ", is used to declare a VLA");
+  if (has_hidden_use (var))
+    fprintf (file, ", has a hidden use");
 
   if (may_point_to_global_mem_p (var))
     fprintf (file, ", may point to global memory");
@@ -2552,7 +2552,7 @@ find_vla_decls (block)
 /* Callback for walk_tree used by find_vla_decls to analyze each array in a
    lexical block.  For each array type, it walks its TYPE_SIZE and
    TYPE_SIZE_UNIT trees looking for VAR_DECLs.  Those VAR_DECLs will be
-   marked as needed for VLA.  */
+   marked as having a hidden use.  */
 
 static tree
 find_vla_decls_r (tp, walk_subtrees, data)
@@ -2569,7 +2569,7 @@ find_vla_decls_r (tp, walk_subtrees, data)
       walk_tree (&TYPE_SIZE_UNIT (*tp), find_vla_decls_r, inside_vla, NULL);
     }
   else if (*inside_vla && SSA_DECL_P (*tp))
-    set_vla_decl (*tp);
+    set_has_hidden_use (*tp);
 
   return NULL_TREE;
 }

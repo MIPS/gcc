@@ -1,3 +1,18 @@
+2003-04-15  Jeff Law  <law@redhat.com>
+
+	* tree-flow.h (struct var_ann_d): Renamed is_vla_decl field to
+	has_hidden_use.
+	(has_hidden_use, set_has_hidden_use): Renamed from is_vla_decl
+	and set_vla_decl.
+	* tree-flow-inline.h (has_hidden_use): Renamed from is_vla_decl.
+	Updated to use "has_hidden_use" instead of "is_vla_decl" field.
+	(set_has_hidden_use): Renamed from set_vla_decl.
+	Updated to use "has_hidden_use" instead of "is_vla_decl" field.
+	* tree-dfa.c (dump_variable): Corresponding changes.
+	(find_vla_decls_r): Likewise.
+	* c-simplify.c (simplify_decl_stmt): Likewise.
+	* tree-ssa-dce.c: Likewise.
+
 2003-04-09  Jeff Law  <law@redhat.com>
 
 	* tree-dfa.c (struct alias_set_d, field tag_sym_set): Remove

@@ -60,9 +60,16 @@ struct var_ann_d GTY(())
   /* Nonzero if this pointer may point to global memory.  */
   unsigned may_point_to_global_mem : 1;
 
-  /* Nonzero if this variable is used to declare a VLA (see
-     find_vla_decl_r).  */
-  unsigned is_vla_decl : 1;
+  /* Nonzero if this variable has uses which may not appear
+     in the IL.  This can happen in the following cases:
+
+       1. If the variable is used in a variable length
+          array declaration.
+
+	2. If the variable is the return value in a C++
+	   function where the named return value optimization
+	   has been performed.  */
+  unsigned has_hidden_use : 1;
 
   /* Nonzero if this variable was stored/written in the function.
      
@@ -246,8 +253,8 @@ static inline varray_type use_ops		PARAMS ((tree));
 static inline tree *def_op			PARAMS ((tree));
 static inline varray_type immediate_uses	PARAMS ((tree));
 static inline varray_type reaching_defs		PARAMS ((tree));
-static inline bool is_vla_decl			PARAMS ((tree));
-static inline void set_vla_decl			PARAMS ((tree));
+static inline bool has_hidden_use		PARAMS ((tree));
+static inline void set_has_hidden_use		PARAMS ((tree));
 static inline tree parent_stmt			PARAMS ((tree));
 
 

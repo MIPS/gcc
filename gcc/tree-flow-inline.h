@@ -145,21 +145,21 @@ indirect_ref (var)
 }
 
 static inline bool
-is_vla_decl (var)
+has_hidden_use (var)
      tree var;
 {
   var_ann_t ann = var_ann (var);
-  return ann ? ann->is_vla_decl : false;
+  return ann ? ann->has_hidden_use : false;
 }
 
 static inline void
-set_vla_decl (var)
+set_has_hidden_use (var)
      tree var;
 {
   var_ann_t ann = var_ann (var);
   if (ann == NULL)
     ann = create_var_ann (var);
-  ann->is_vla_decl = 1;
+  ann->has_hidden_use = 1;
 }
 
 static inline int

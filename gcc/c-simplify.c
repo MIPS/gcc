@@ -773,7 +773,7 @@ simplify_decl_stmt (stmt_p, next_p)
 
 	  /* Mark the unit size as being used in the VLA's declaration so
 	     it will not be deleted by DCE.  */
-	  set_vla_decl (usize);
+	  set_has_hidden_use (usize);
 
 	  DECL_SIZE_UNIT (decl) = TYPE_SIZE_UNIT (TREE_TYPE (decl)) = usize;
 

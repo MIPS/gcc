@@ -219,8 +219,11 @@ need_to_preserve_store (var)
   if (may_alias_global_mem_p (sym))
     return true;
 
-  /* If SYM is used to declare VLAs, we need to preserve it.  */
-  if (is_vla_decl (sym))
+  /* If SYM is used in some way we can not readily see in the IL, then
+     we need to preserve it.
+
+     Long term this needs to go away.  */
+  if (has_hidden_use (sym))
     return true;
 
   return false;
