@@ -1,3 +1,13 @@
+1999-07-01  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c: Prototype all static functions.
+	(ix86_decompose_address): New function.
+	(memory_displacement_operand): Use it.
+	(legitimate_address_p): Likewise.
+	(print_operand_address): Likewise.
+	(memory_address_length): Likewise.
+	* i386.h (MASK_DEBUG_ADDR): Adjust so that it isn't negative.
+
 1999-07-01  Jan Hubicka  <hubicka@freesoft.cz>
 
 	* i386.md (fixtruncxfdf_2): New pattern.

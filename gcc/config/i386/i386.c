@@ -205,10 +205,30 @@ int ix86_align_loops;
 /* Power of two alignment for non-loop jumps. */
 int ix86_align_jumps;
 
-static rtx gen_push PROTO ((rtx));
+static int ix86_aligned_reg_p PROTO ((int));
+static void output_pic_addr_const PROTO ((FILE *, rtx, int));
 static void put_condition_code PROTO ((enum rtx_code, enum machine_mode,
 				       int, int, FILE *));
+static enum rtx_code unsigned_comparison PROTO ((enum rtx_code code));
+static rtx ix86_expand_int_compare PROTO ((enum rtx_code, rtx, rtx));
+static rtx ix86_expand_fp_compare PROTO ((enum rtx_code, rtx, rtx, int));
+static rtx ix86_expand_compare PROTO ((enum rtx_code, int));
+static rtx gen_push PROTO ((rtx));
 static int memory_address_length PROTO ((rtx addr));
+static int ix86_flags_dependant PROTO ((rtx, rtx, enum attr_type));
+static int ix86_agi_dependant PROTO ((rtx, rtx, enum attr_type));
+static enum attr_pent_pair ix86_safe_pent_pair PROTO ((rtx));
+static enum attr_ppro_uops ix86_safe_ppro_uops PROTO ((rtx));
+static void ix86_dump_ppro_packet PROTO ((FILE *));
+static void ix86_reorder_insn PROTO ((rtx *, rtx *));
+
+struct ix86_address
+{
+  rtx base, index, disp;
+  HOST_WIDE_INT scale;
+};
+
+static int ix86_decompose_address PARAMS ((rtx, struct ix86_address *));
 
 /* Sometimes certain combinations of command options do not make
    sense on a particular target machine.  You can define a macro
@@ -1146,9 +1166,15 @@ memory_displacement_operand (op, mode)
      register rtx op;
      enum machine_mode mode;
 {
-  return (memory_operand (op, mode)
-	  /* ??? Not right for indexed.  Fix in a minute.  */
-	  && memory_address_length (XEXP (op, 0)) > 0);
+  struct ix86_address parts;
+
+  if (! memory_operand (op, mode))
+    return 0;
+
+  if (! ix86_decompose_address (XEXP (op, 0), &parts))
+    abort ();
+
+  return parts.disp != NULL_RTX;
 }
 
 /* Return true if the constant is something that can be loaded with
@@ -1579,40 +1605,131 @@ ix86_expand_epilogue ()
     emit_jump_insn (gen_return_internal ());
 }
 
-/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
-   that is a valid memory address for an instruction.
-   The MODE argument is the machine mode for the MEM expression
-   that wants to use this address.
+/* Extract the parts of an RTL expression that is a valid memory address
+   for an instruction.  Return false if the structure of the address is
+   grossly off.  */
 
-   On x86, legitimate addresses are:
-	base				movl (base),reg
-	displacement			movl disp,reg
-	base + displacement		movl disp(base),reg
-	index + base			movl (base,index),reg
-	(index + base) + displacement	movl disp(base,index),reg
-	index*scale			movl (,index,scale),reg
-	index*scale + disp		movl disp(,index,scale),reg
-	index*scale + base 		movl (base,index,scale),reg
-	(index*scale + base) + disp	movl disp(base,index,scale),reg
+static int
+ix86_decompose_address (addr, out)
+     register rtx addr;
+     struct ix86_address *out;
+{
+  rtx base = NULL_RTX;
+  rtx index = NULL_RTX;
+  rtx disp = NULL_RTX;
+  HOST_WIDE_INT scale = 1;
+  rtx scale_rtx = NULL_RTX;
 
-	In each case, scale can be 1, 2, 4, 8.  */
+  if (GET_CODE (addr) == REG || GET_CODE (addr) == SUBREG)
+    base = addr;
+  else if (GET_CODE (addr) == PLUS)
+    {
+      rtx op0 = XEXP (addr, 0);
+      rtx op1 = XEXP (addr, 1);
+      enum rtx_code code0 = GET_CODE (op0);
+      enum rtx_code code1 = GET_CODE (op1);
 
-/* This is exactly the same as print_operand_addr, except that
-   it recognizes addresses instead of printing them.
+      if (code0 == REG || code0 == SUBREG)
+	{
+	  if (code1 == REG || code1 == SUBREG)
+	    index = op0, base = op1;	/* index + base */
+	  else
+	    base = op0, disp = op1;	/* base + displacement */
+	}
+      else if (code0 == MULT)
+	{
+	  index = XEXP (op0, 0);
+	  scale_rtx = XEXP (op0, 1);
+	  if (code1 == REG || code1 == SUBREG)
+	    base = op1;			/* index*scale + base */
+	  else
+	    disp = op1;			/* index*scale + disp */
+	}
+      else if (code0 == PLUS && GET_CODE (XEXP (op0, 0)) == MULT)
+	{
+	  index = XEXP (XEXP (op0, 0), 0);	/* index*scale + base + disp */
+	  scale_rtx = XEXP (XEXP (op0, 0), 1);
+	  base = XEXP (op0, 1);
+	  disp = op1;
+	}
+      else if (code0 == PLUS)
+	{
+	  index = XEXP (op0, 0);	/* index + base + disp */
+	  base = XEXP (op0, 1);
+	  disp = op1;
+	}
+      else
+	return FALSE;
+    }
+  else if (GET_CODE (addr) == MULT)
+    {
+      index = XEXP (addr, 0);		/* index*scale */
+      scale_rtx = XEXP (addr, 1);
+    }
+  else if (GET_CODE (addr) == ASHIFT)
+    {
+      rtx tmp;
 
-   It only recognizes address in canonical form.  LEGITIMIZE_ADDRESS should
-   convert common non-canonical forms to canonical form so that they will
-   be recognized.  */
+      /* We're called for lea too, which implements ashift on occasion.  */
+      index = XEXP (addr, 0);
+      tmp = XEXP (addr, 1);
+      if (GET_CODE (tmp) != CONST_INT)
+	return FALSE;
+      scale = INTVAL (tmp);
+      if ((unsigned HOST_WIDE_INT) scale > 3)
+	return FALSE;
+      scale = 1 << scale;
+    }
+  else
+    disp = addr;			/* displacement */
 
-#define ADDR_INVALID(msg,insn)						\
-do {									\
-  if (TARGET_DEBUG_ADDR)						\
-    {									\
-      fprintf (stderr, msg);						\
-      debug_rtx (insn);							\
-    }									\
-} while (0)
+  /* Extract the integral value of scale.  */
+  if (scale_rtx)
+    {
+      if (GET_CODE (scale_rtx) != CONST_INT)
+	return FALSE;
+      scale = INTVAL (scale_rtx);
+    }
 
+  /* Allow arg pointer and stack pointer as index if there is not scaling */
+  if (base && index && scale == 1
+      && (index == arg_pointer_rtx || index == stack_pointer_rtx))
+    {
+      rtx tmp = base;
+      base = index;
+      index = tmp;
+    }
+
+  /* Special case: %ebp cannot be encoded as a base without a displacement.  */
+  if (base == frame_pointer_rtx && !disp)
+    disp = const0_rtx;
+
+  /* Special case: on K6, [%esi] makes the instruction vector decoded.
+     Avoid this by transforming to [%esi+0].  */
+  if (ix86_cpu == PROCESSOR_K6 && !optimize_size
+      && base && !index && !disp
+      && REGNO_REG_CLASS (REGNO (base)) == SIREG)
+    disp = const0_rtx;
+
+  /* Special case: encode reg+reg instead of reg*2.  */
+  if (!base && index && scale && scale == 2)
+    base = index, scale = 1;
+  
+  /* Special case: scaling cannot be encoded without base or displacement.  */
+  if (!base && !disp && index && scale != 1)
+    disp = const0_rtx;
+
+  out->base = base;
+  out->index = index;
+  out->disp = disp;
+  out->scale = scale;
+
+  return TRUE;
+}
+
+/* Determine if a given CONST RTX is a valid memory displacement
+   in PIC mode.  */
+   
 int
 legitimate_pic_address_disp_p (disp)
      register rtx disp;
@@ -1644,104 +1761,46 @@ legitimate_pic_address_disp_p (disp)
   return 1;
 }
 
+/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression that is a valid
+   memory address for an instruction.  The MODE argument is the machine mode
+   for the MEM expression that wants to use this address.
+
+   It only recognizes address in canonical form.  LEGITIMIZE_ADDRESS should
+   convert common non-canonical forms to canonical form so that they will
+   be recognized.  */
+
 int
 legitimate_address_p (mode, addr, strict)
      enum machine_mode mode;
      register rtx addr;
      int strict;
 {
-  rtx base  = NULL_RTX;
-  rtx indx  = NULL_RTX;
-  rtx scale = NULL_RTX;
-  rtx disp  = NULL_RTX;
+  struct ix86_address parts;
+  rtx base, index, disp;
+  HOST_WIDE_INT scale;
+  const char *reason = NULL;
+  rtx reason_rtx = NULL_RTX;
 
   if (TARGET_DEBUG_ADDR)
     {
       fprintf (stderr,
 	       "\n======\nGO_IF_LEGITIMATE_ADDRESS, mode = %s, strict = %d\n",
 	       GET_MODE_NAME (mode), strict);
-
       debug_rtx (addr);
     }
 
-  if (GET_CODE (addr) == REG || GET_CODE (addr) == SUBREG)
-    base = addr;
-
-  else if (GET_CODE (addr) == PLUS)
+  if (! ix86_decompose_address (addr, &parts))
     {
-      rtx op0 = XEXP (addr, 0);
-      rtx op1 = XEXP (addr, 1);
-      enum rtx_code code0 = GET_CODE (op0);
-      enum rtx_code code1 = GET_CODE (op1);
-
-      if (code0 == REG || code0 == SUBREG)
-	{
-	  if (code1 == REG || code1 == SUBREG)
-	    {
-	      indx = op0;	/* index + base */
-	      base = op1;
-	    }
-
-	  else
-	    {
-	      base = op0;	/* base + displacement */
-	      disp = op1;
-	    }
-	}
-
-      else if (code0 == MULT)
-	{
-	  indx  = XEXP (op0, 0);
-	  scale = XEXP (op0, 1);
-
-	  if (code1 == REG || code1 == SUBREG)
-	    base = op1;		/* index*scale + base */
-
-	  else
-	    disp = op1;		/* index*scale + disp */
-	}
-
-      else if (code0 == PLUS && GET_CODE (XEXP (op0, 0)) == MULT)
-	{
-	  indx  = XEXP (XEXP (op0, 0), 0);	/* index*scale + base + disp */
-	  scale = XEXP (XEXP (op0, 0), 1);
-	  base  = XEXP (op0, 1);
-	  disp  = op1;
-	}
-
-      else if (code0 == PLUS)
-	{
-	  indx = XEXP (op0, 0);	/* index + base + disp */
-	  base = XEXP (op0, 1);
-	  disp = op1;
-	}
-
-      else
-	{
-	  ADDR_INVALID ("PLUS subcode is not valid.\n", op0);
-	  return FALSE;
-	}
+      reason = "decomposition failed";
+      goto error;
     }
 
-  else if (GET_CODE (addr) == MULT)
-    {
-      indx  = XEXP (addr, 0);	/* index*scale */
-      scale = XEXP (addr, 1);
-    }
+  base = parts.base;
+  index = parts.index;
+  disp = parts.disp;
+  scale = parts.scale;
 
-  else
-    disp = addr;		/* displacement */
-
-  /* Allow arg pointer and stack pointer as index if there is not scaling */
-  if (base && indx && !scale
-      && (indx == arg_pointer_rtx || indx == stack_pointer_rtx))
-    {
-      rtx tmp = base;
-      base = indx;
-      indx = tmp;
-    }
-
-  /* Validate base register:
+  /* Validate base register.
 
      Don't allow SUBREG's here, it can lead to spill failures when the base
      is one word out of a two word structure, which is represented internally
@@ -1749,123 +1808,132 @@ legitimate_address_p (mode, addr, strict)
 
   if (base)
     {
+      reason_rtx = base;
+
       if (GET_CODE (base) != REG)
 	{
-	  ADDR_INVALID ("Base is not a register.\n", base);
-	  return FALSE;
+	  reason = "base is not a register";
+	  goto error;
 	}
 
       if (GET_MODE (base) != Pmode)
 	{
-	  ADDR_INVALID ("Base is not in Pmode.\n", base);
-	  return FALSE;
+	  reason = "base is not in Pmode";
+	  goto error;
 	}
 
       if ((strict && ! REG_OK_FOR_BASE_STRICT_P (base))
 	  || (! strict && ! REG_OK_FOR_BASE_NONSTRICT_P (base)))
 	{
-	  ADDR_INVALID ("Base is not valid.\n", base);
-	  return FALSE;
+	  reason = "base is not valid";
+	  goto error;
 	}
     }
 
-  /* Validate index register:
+  /* Validate index register.
 
      Don't allow SUBREG's here, it can lead to spill failures when the index
      is one word out of a two word structure, which is represented internally
      as a DImode int.  */
-  if (indx)
+
+  if (index)
     {
-      if (GET_CODE (indx) != REG)
+      reason_rtx = index;
+
+      if (GET_CODE (index) != REG)
 	{
-	  ADDR_INVALID ("Index is not a register.\n", indx);
-	  return FALSE;
+	  reason = "index is not a register";
+	  goto error;
 	}
 
-      if (GET_MODE (indx) != Pmode)
+      if (GET_MODE (index) != Pmode)
 	{
-	  ADDR_INVALID ("Index is not in Pmode.\n", indx);
-	  return FALSE;
+	  reason = "index is not in Pmode";
+	  goto error;
 	}
 
-      if ((strict && ! REG_OK_FOR_INDEX_STRICT_P (indx))
-	  || (! strict && ! REG_OK_FOR_INDEX_NONSTRICT_P (indx)))
+      if ((strict && ! REG_OK_FOR_INDEX_STRICT_P (index))
+	  || (! strict && ! REG_OK_FOR_INDEX_NONSTRICT_P (index)))
 	{
-	  ADDR_INVALID ("Index is not valid.\n", indx);
-	  return FALSE;
+	  reason = "index is not valid";
+	  goto error;
 	}
     }
-  else if (scale)
-    abort ();			/* scale w/o index invalid */
 
-  /* Validate scale factor: */
-  if (scale)
+  /* Validate scale factor.  */
+  if (scale != 1)
     {
-      HOST_WIDE_INT value;
-
-      if (GET_CODE (scale) != CONST_INT)
+      reason_rtx = GEN_INT (scale);
+      if (!index)
 	{
-	  ADDR_INVALID ("Scale is not valid.\n", scale);
-	  return FALSE;
+	  reason = "scale without index";
+	  goto error;
 	}
 
-      value = INTVAL (scale);
-      if (value != 1 && value != 2 && value != 4 && value != 8)
+      if (scale != 2 && scale != 4 && scale != 8)
 	{
-	  ADDR_INVALID ("Scale is not a good multiplier.\n", scale);
-	  return FALSE;
+	  reason = "scale is not a valid multiplier";
+	  goto error;
 	}
     }
 
   /* Validate displacement.  */
   if (disp)
     {
+      reason_rtx = disp;
+
       if (!CONSTANT_ADDRESS_P (disp))
 	{
-	  ADDR_INVALID ("Displacement is not valid.\n", disp);
-	  return FALSE;
+	  reason = "displacement is not constant";
+	  goto error;
 	}
 
-      else if (GET_CODE (disp) == CONST_DOUBLE)
+      if (GET_CODE (disp) == CONST_DOUBLE)
 	{
-	  ADDR_INVALID ("Displacement is a const_double.\n", disp);
-	  return FALSE;
+	  reason = "displacement is a const_double";
+	  goto error;
 	}
 
       if (flag_pic && SYMBOLIC_CONST (disp))
 	{
 	  if (! legitimate_pic_address_disp_p (disp))
 	    {
-	      ADDR_INVALID ("Displacement is an invalid PIC construct.\n",
-			    disp);
-	      return FALSE;
+	      reason = "displacement is an invalid pic construct";
+	      goto error;
 	    }
 
+	  /* Verify that a symbolic pic displacement includes 
+	     the pic_offset_table_rtx register.  */
 	  if (base != pic_offset_table_rtx
-	      && (indx != pic_offset_table_rtx || scale != NULL_RTX))
+	      && (index != pic_offset_table_rtx || scale != 1))
 	    {
-	      ADDR_INVALID ("PIC displacement against invalid base.\n", disp);
-	      return FALSE;
+	      reason = "pic displacement against invalid base";
+	      goto error;
 	    }
 	}
-
       else if (HALF_PIC_P ())
 	{
 	  if (! HALF_PIC_ADDRESS_P (disp)
-	      || (base != NULL_RTX || indx != NULL_RTX))
+	      || (base != NULL_RTX || index != NULL_RTX))
 	    {
-	      ADDR_INVALID ("Displacement is an invalid half-pic reference.\n",
-			    disp);
-	      return FALSE;
+	      reason = "displacement is an invalid half-pic reference";
+	      goto error;
 	    }
 	}
     }
 
+  /* Everything looks valid.  */
   if (TARGET_DEBUG_ADDR)
-    fprintf (stderr, "Address is valid.\n");
-
-  /* Everything looks valid, return true */
+    fprintf (stderr, "Success.\n");
   return TRUE;
+
+error:
+  if (TARGET_DEBUG_ADDR)
+    {
+      fprintf (stderr, "Error: %s\n", reason);
+      debug_rtx (reason_rtx);
+    }
+  return FALSE;
 }
 
 /* Return a legitimate reference for ORIG (an address) using the
@@ -2662,241 +2730,110 @@ print_operand_address (file, addr)
      FILE *file;
      register rtx addr;
 {
-  register rtx reg1, reg2, breg, ireg;
-  rtx offset;
+  struct ix86_address parts;
+  rtx base, index, disp;
+  int scale;
 
-  switch (GET_CODE (addr))
+  if (! ix86_decompose_address (addr, &parts))
+    abort ();
+
+  base = parts.base;
+  index = parts.index;
+  disp = parts.disp;
+  scale = parts.scale;
+
+  if (!base && !index)
     {
-    case REG:
-      putc (ASSEMBLER_DIALECT ? '[' : '(', file);
-      PRINT_REG (addr, 0, file);
-      putc (ASSEMBLER_DIALECT ? ']' : ')', file);
-      break;
+      /* Displacement only requires special attention.  */
 
-    case PLUS:
-      reg1 = 0;
-      reg2 = 0;
-      ireg = 0;
-      breg = 0;
-      offset = 0;
-      if (CONSTANT_ADDRESS_P (XEXP (addr, 0)))
+      if (GET_CODE (disp) == CONST_INT)
 	{
-	  offset = XEXP (addr, 0);
-	  addr = XEXP (addr, 1);
+	  if (ASSEMBLER_DIALECT == 1)
+	    fputs ("ds:", file);
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (addr));
 	}
-      else if (CONSTANT_ADDRESS_P (XEXP (addr, 1)))
-	{
-	  offset = XEXP (addr, 1);
-	  addr = XEXP (addr, 0);
-	}
-
-      if (GET_CODE (addr) != PLUS)
-	;
-      else if (GET_CODE (XEXP (addr, 0)) == MULT)
-	reg1 = XEXP (addr, 0), addr = XEXP (addr, 1);
-      else if (GET_CODE (XEXP (addr, 1)) == MULT)
-	reg1 = XEXP (addr, 1), addr = XEXP (addr, 0);
-      else if (GET_CODE (XEXP (addr, 0)) == REG)
-	reg1 = XEXP (addr, 0), addr = XEXP (addr, 1);
-      else if (GET_CODE (XEXP (addr, 1)) == REG)
-	reg1 = XEXP (addr, 1), addr = XEXP (addr, 0);
-
-      if (GET_CODE (addr) == REG || GET_CODE (addr) == MULT)
-	{
-	  if (reg1 == 0)
-	    reg1 = addr;
-	  else
-	    reg2 = addr;
-	  addr = 0;
-	}
-
-      if (offset != 0)
-	{
-	  if (addr != 0)
-	    abort ();
-	  addr = offset;
-	}
-
-      if ((reg1 && GET_CODE (reg1) == MULT)
-	  || (reg2 != 0 && REGNO_OK_FOR_BASE_P (REGNO (reg2))))
-	{
-	  breg = reg2;
-	  ireg = reg1;
-	}
-      else if (reg1 != 0 && REGNO_OK_FOR_BASE_P (REGNO (reg1)))
-	{
-	  breg = reg1;
-	  ireg = reg2;
-	}
-
-      if (ireg != 0 || breg != 0)
-	{
-	  int scale = 1;
-
-  	  if (ireg)
-	    {
-	      if (GET_CODE (ireg) == MULT)
-		{
-		  scale = INTVAL (XEXP (ireg, 1));
-		  ireg = XEXP (ireg, 0);
-		}
-	      if (GET_CODE (ireg) != REG)
-		abort ();
-
-	      /* The stack pointer can only appear as a base register, never
-		 an index register, so exchange the regs if it is wrong. */
-
-	      if (REGNO (ireg) == STACK_POINTER_REGNUM)
-		{
-		  if (scale == 1)
-		    {
-		      rtx tmp;
-		      tmp = breg;
-		      breg = ireg;
-		      ireg = tmp;
-		    }
-		  else
-		    abort ();
-		}
-	    }
-
-	  /* output offset+breg+ireg*scale */
-	  if (ASSEMBLER_DIALECT == 0)
-	    {
-	      if (addr != 0)
-		{
-		  if (flag_pic)
-		    output_pic_addr_const (file, addr, 0);
-		  else if (GET_CODE (addr) == LABEL_REF)
-		    output_asm_label (addr);
-		  else
-		    output_addr_const (file, addr);
-		}
-
-	      putc ('(', file);
-	      if (breg)
-		PRINT_REG (breg, 0, file);
-	      if (ireg)
-		{
-		  putc (',', file);
-		  PRINT_REG (ireg, 0, file);
-		  if (scale != 1)
-		    fprintf (file, ",%d", scale);
-		}
-	      putc (')', file);
-	    }
-	  else
-	    {
-	      offset = NULL_RTX;
-
-	      /* Pull out the offset of a symbol; print any symbol itself.  */
-	      if (addr != 0)
-		{
-		  if (flag_pic)
-		    {
-		      if (GET_CODE (addr) == CONST
-			  && GET_CODE (XEXP (addr, 0)) == PLUS
-			  && GET_CODE (XEXP (XEXP (addr, 0), 1)) == CONST_INT)
-			{
-			  offset = XEXP (XEXP (addr, 0), 1);
-			  addr = gen_rtx_CONST (VOIDmode,
-						XEXP (XEXP (addr, 0), 0));
-			}
-		      output_pic_addr_const (file, addr, 0);
-		    }
-		  else if (GET_CODE (addr) == LABEL_REF)
-		    output_asm_label (addr);
-		  else if (GET_CODE (addr) == CONST_INT)
-		    offset = addr;
-		  else
-		    {
-		      if (GET_CODE (addr) == CONST
-			  && GET_CODE (XEXP (addr, 0)) == PLUS
-			  && GET_CODE (XEXP (XEXP (addr, 0), 1)) == CONST_INT)
-			{
-			  offset = XEXP (XEXP (addr, 0), 1);
-			  addr = gen_rtx_CONST (VOIDmode,
-						XEXP (XEXP (addr, 0), 0));
-			}
-		      output_addr_const (file, addr);
-		    }
-		}
-
-	      putc ('[', file);
-	      if (breg)
-		{
-		  PRINT_REG (breg, 0, file);
-		  if (offset)
-		    {
-		      if (INTVAL (offset) >= 0)
-			putc ('+', file);
-		      fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (offset));
-		    }
-		}
-	      else if (offset)
-		fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (offset));
-	      else
-		putc ('0', file);
-
-	      if (ireg)
-		{
-		  putc ('+', file);
-		  PRINT_REG (ireg, 0, file);
-		  if (scale != 1)
-		    fprintf (file, "*%d", scale);
-		}
-	      putc (']', file);
-	    }
-	  break;
-	}
-
-    case MULT:
-      {
-	int scale;
-
-	if (GET_CODE (XEXP (addr, 0)) == CONST_INT)
-	  {
-	    scale = INTVAL (XEXP (addr, 0));
-	    ireg = XEXP (addr, 1);
-	  }
-	else
-	  {
-	    scale = INTVAL (XEXP (addr, 1));
-	    ireg = XEXP (addr, 0);
-	  }
-
-	if (ASSEMBLER_DIALECT == 0)
-	  {
-	    putc ('(', file);
-	    putc (',', file);
-	    PRINT_REG (ireg, 0, file);
-	    if (scale != 1)
-	      fprintf (file, ",%d", scale);
-	    putc (')', file);
-	  }
-	else
-	  {
-	    putc ('[', file);
-	    PRINT_REG (ireg, 0, file);
-	    if (scale != 1)
-	      fprintf (file, "*%d", scale);
-	    putc (']', file);
-	  }
-      }
-      break;
-
-    case CONST_INT:
-      if (ASSEMBLER_DIALECT == 1)
-	fputs ("ds:", file);
-      fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (addr));
-      break;
-
-    default:
-      if (flag_pic)
+      else if (flag_pic)
 	output_pic_addr_const (file, addr, 0);
       else
 	output_addr_const (file, addr);
-      break;
+    }
+  else
+    {
+      if (ASSEMBLER_DIALECT == 0)
+	{
+	  if (disp)
+	    {
+	      if (flag_pic)
+		output_pic_addr_const (file, disp, 0);
+	      else if (GET_CODE (disp) == LABEL_REF)
+		output_asm_label (disp);
+	      else
+		output_addr_const (file, disp);
+	    }
+
+	  putc ('(', file);
+	  if (base)
+	    PRINT_REG (base, 0, file);
+	  if (index)
+	    {
+	      putc (',', file);
+	      PRINT_REG (index, 0, file);
+	      if (scale != 1)
+		fprintf (file, ",%d", scale);
+	    }
+	  putc (')', file);
+	}
+      else
+	{
+	  rtx offset = NULL_RTX;
+
+	  if (disp)
+	    {
+	      /* Pull out the offset of a symbol; print any symbol itself.  */
+	      if (GET_CODE (disp) == CONST
+		  && GET_CODE (XEXP (disp, 0)) == PLUS
+		  && GET_CODE (XEXP (XEXP (disp, 0), 1)) == CONST_INT)
+		{
+		  offset = XEXP (XEXP (disp, 0), 1);
+		  disp = gen_rtx_CONST (VOIDmode,
+					XEXP (XEXP (disp, 0), 0));
+		}
+
+	      if (flag_pic)
+		output_pic_addr_const (file, disp, 0);
+	      else if (GET_CODE (disp) == LABEL_REF)
+		output_asm_label (disp);
+	      else if (GET_CODE (disp) == CONST_INT)
+		offset = disp;
+	      else
+		output_addr_const (file, disp);
+	    }
+
+	  putc ('[', file);
+	  if (base)
+	    {
+	      PRINT_REG (base, 0, file);
+	      if (offset)
+		{
+		  if (INTVAL (offset) >= 0)
+		    putc ('+', file);
+		  fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (offset));
+		}
+	    }
+	  else if (offset)
+	    fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (offset));
+	  else
+	    putc ('0', file);
+
+	  if (index)
+	    {
+	      putc ('+', file);
+	      PRINT_REG (index, 0, file);
+	      if (scale != 1)
+		fprintf (file, "*%d", scale);
+	    }
+	  putc (']', file);
+	}
     }
 }
 
@@ -4983,7 +4920,6 @@ assign_386_stack_local (mode, n)
   return ix86_stack_locals[(int) mode][n];
 }
 
-
 /* Calculate the length of the memory address in the instruction
    encoding.  Does not include the one-byte modrm, opcode, or prefix.  */
 
@@ -4991,107 +4927,52 @@ static int
 memory_address_length (addr)
      rtx addr;
 {
-  rtx base, index, disp, scale;
-  rtx op0, op1;
+  struct ix86_address parts;
+  rtx base, index, disp;
   int len;
 
   if (GET_CODE (addr) == PRE_DEC
       || GET_CODE (addr) == POST_INC)
     return 0;
 
+  if (! ix86_decompose_address (addr, &parts))
+    abort ();
+
+  base = parts.base;
+  index = parts.index;
+  disp = parts.disp;
+  len = 0;
+
   /* Register Indirect.  */
-  if (register_operand (addr, Pmode))
+  if (base && !index && !disp)
     {
       /* Special cases: ebp and esp need the two-byte modrm form.  */
       if (addr == stack_pointer_rtx
 	  || addr == arg_pointer_rtx
 	  || addr == frame_pointer_rtx)
-	return 1;
-      else
-	return 0;
+	len = 1;
     }
 
   /* Direct Addressing.  */
-  if (CONSTANT_P (addr))
-    return 4;
+  else if (disp && !base && !index)
+    len = 4;
 
-  index = base = disp = scale = NULL_RTX;
-  op0 = XEXP (addr, 0);
-  op1 = XEXP (addr, 1);
-
-  if (GET_CODE (addr) == PLUS)
-    {
-      if (register_operand (op0, Pmode))
-	{
-	  if (register_operand (op1, Pmode))
-	    index = op0, base = op1;
-	  else
-	    base = op0, disp = op1;
-	}
-      else if (GET_CODE (op0) == MULT)
-	{
-	  index = XEXP (op0, 0);
-	  scale = XEXP (op0, 1);
-	  if (register_operand (op1, Pmode))
-	    base = op1;
-	  else
-	    disp = op1;
-	}
-      else if (GET_CODE (op0) == PLUS && GET_CODE (XEXP (op0, 0)) == MULT)
-	{
-	  index = XEXP (XEXP (op0, 0), 0);
-	  scale = XEXP (XEXP (op0, 0), 1);
-	  base = XEXP (op0, 1);
-	  disp = op1;
-	}
-      else if (GET_CODE (op0) == PLUS)
-	{
-	  index = XEXP (op0, 0);
-	  base = XEXP (op0, 1);
-	  disp = op1;
-	}
-      else
-	abort ();
-    }
-  else if (GET_CODE (addr) == MULT
-	   /* We're called for lea too, which implements ashift on occasion.  */
-	   || GET_CODE (addr) == ASHIFT)
-    {
-      index = XEXP (addr, 0);
-      scale = XEXP (addr, 1);
-    }
   else
-    abort ();
-      
-  /* Allow arg pointer and stack pointer as index if there is not scaling */
-  if (base && index && !scale
-      && (index == stack_pointer_rtx
-	  || index == arg_pointer_rtx
-	  || index == frame_pointer_rtx))
     {
-      rtx tmp = base;
-      base = index;
-      index = tmp;
+      /* Find the length of the displacement constant.  */
+      if (disp)
+	{
+	  if (GET_CODE (disp) == CONST_INT
+	      && CONST_OK_FOR_LETTER_P (INTVAL (disp), 'K'))
+	    len = 1;
+	  else
+	    len = 4;
+	}
+
+      /* An index requires the two-byte modrm form.  */
+      if (index)
+	len += 1;
     }
-
-  /* Special case: ebp cannot be encoded as a base without a displacement.  */
-  if (base == frame_pointer_rtx && !disp)
-    disp = const0_rtx;
-
-  /* Find the length of the displacement constant.  */
-  len = 0;
-  if (disp)
-    {
-      if (GET_CODE (disp) == CONST_INT
-	  && CONST_OK_FOR_LETTER_P (INTVAL (disp), 'K'))
-	len = 1;
-      else
-	len = 4;
-    }
-
-  /* An index requires the two-byte modrm form.  */
-  if (index)
-    len += 1;
 
   return len;
 }
