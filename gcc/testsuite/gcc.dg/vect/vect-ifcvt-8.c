@@ -12,12 +12,16 @@ extern void abort(void);
 
 int main ()
 {  
-  int A[N] = {36,39,42,45,43,32,21,12,23,34,45,56,67,78,89,11};
-  int B[N] = {0,0,42,42,42,0,0,0,0,0,42,42,42,42,42,0};
-  int i, j;
+  unsigned short A[N] = {36,39,42,45,43,32,21,12,23,34,45,56,67,78,89,11};
+  unsigned short B[N] = {0,0,0,3,1,0,0,0,0,0,3,14,25,36,47,0};
+  unsigned int i, j;
+  unsigned m;
 
   for (i = 0; i < 16; i++)
-    A[i] = ( A[i] >= MAX ? MAX : 0); 
+    {
+      m = A[i];
+      A[i] =  (unsigned short) ( m >= MAX ? m-MAX : 0); 
+    }
 
   /* check results:  */
   for (i = 0; i < N; i++)
