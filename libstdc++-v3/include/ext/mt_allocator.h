@@ -437,7 +437,6 @@ namespace __gnu_cxx
       _Block_record* __block = reinterpret_cast<_Block_record*>(__c);
       
 #ifdef __GTHREADS
-      const size_t thread_id = _S_get_thread_id();
       if (__gthread_active_p())
 	{
 	  // Calculate the number of records to remove from our freelist.
