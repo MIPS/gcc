@@ -1,12 +1,15 @@
 2004-05-21  Steven Bosscher  <stevenb@suse.de>
 
+	* tree-mudflap.c (mf_decl_cache_locals): Skip labels before
+	inserting the cache variables.
+
 	* tree-mudflap.c: Include headers to make basic_block available.
 	Move functions around such that related functions are near each
 	other.  Add prototypes for all static functions.  Add comments
 	briefly explaining what IR the mudflap1 and mudflap2 work on and
 	what they do.
 	(mudflap_function_decls): Rename to execute_mudflap_function_decls.
-	(mudflap_function_derefs): Rename to execute_mudflap_function_derefs.
+	(mudflap_function_ops): Rename to execute_mudflap_function_ops.
 	(pass_mudflap_1, pass_mudflap_2): Update.
 	(mf_decl_cache_locals): Make it work on the CFG instead of the saved
 	function tree.

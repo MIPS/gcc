@@ -365,6 +365,9 @@ mf_decl_cache_locals (void)
       tree_stmt_iterator tsi;
       block_stmt_iterator bsi = bsi_start (e->dest);
 
+      while (TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR)
+	bsi_next (&bsi);
+
       for (tsi = tsi_start (shift_init_stmts);
 	   ! tsi_end_p (tsi);
 	   tsi_next (&tsi))
