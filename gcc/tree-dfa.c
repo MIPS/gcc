@@ -32,13 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "expr.h"
 #include "ggc.h"
 #include "flags.h"
-
-/* This should be eventually be generalized to other languages, but
-   this would require a shared function-as-trees infrastructure.  */
-#include "c-common.h"
-#include "c-tree.h"
-
-#include "tree-optimize.h"
+#include "diagnostic.h"
 #include "tree-simple.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
@@ -145,7 +139,9 @@ tree_find_refs ()
   /* Traverse every block in the function looking for variable references.  */
   FOR_EACH_BB (bb)
     {
-      tree t = bb->head_tree;
+      /* for_each_stmt_in_bb (bb)  */
+#if 0
+      tree t = first_stmt (bb);
 
       if (bb_empty_p (bb))
 	continue;
@@ -158,12 +154,13 @@ tree_find_refs ()
 	  if (statement_code_p (TREE_CODE (t)))
 	    {
 	      find_refs_in_stmt (t, bb);
-	      if (t == bb->end_tree || is_ctrl_stmt (t))
+	      if (t == last_stmt (bb) || is_ctrl_stmt (t))
 		break;
 	    }
 
 	  t = TREE_CHAIN (t);
 	}
+#endif
     }
 
   compute_may_aliases ();
@@ -178,6 +175,7 @@ find_refs_in_stmt (t, bb)
      tree t;
      basic_block bb;
 {
+#if 0
   enum tree_code code;
 
   if (t == NULL || t == error_mark_node)
@@ -293,6 +291,7 @@ find_refs_in_stmt (t, bb)
 	abort ();
       }
     }
+#endif
 }
 
 
@@ -552,8 +551,7 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt, parent_expr)
     }
 
   /* If we get here, something has gone wrong.  */
-  prep_stmt (parent_stmt);
-  error ("unhandled expression in find_refs_in_expr():");
+  fprintf (stderr, "unhandled expression in find_refs_in_expr():\n");
   debug_tree (expr);
   fputs ("\n", stderr);
   abort ();
@@ -956,7 +954,14 @@ tree_ann
 create_tree_ann (t)
      tree t;
 {
-  tree_ann ann = (tree_ann) ggc_alloc (sizeof (*ann));
+  tree_ann ann;
+
+#if defined ENABLE_CHECKING
+  if (t == empty_stmt_node)
+    abort ();
+#endif
+
+  ann = (tree_ann) ggc_alloc (sizeof (*ann));
   memset ((void *) ann, 0, sizeof (*ann));
   ann->refs = create_ref_list ();
   t->common.aux = (void *) ann;
@@ -978,7 +983,6 @@ remove_tree_ann (t)
   ann->bb = NULL;
   delete_ref_list (ann->refs);
   ann->currdef = NULL;
-  ann->compound_parent = NULL;
   ann->output_ref = NULL;
   t->common.aux = NULL;
 }
@@ -1013,43 +1017,6 @@ function_may_recurse_p ()
 }
 
 
-/* Return the basic block containing the statement that declares DECL.  A
-   NULL return value means that DECL is a global variable.  */
-
-basic_block
-find_declaration (decl)
-     tree decl;
-{
-  basic_block bb;
-  tree t;
-  tree_ref first_ref;
-
-  /* Start with the first reference of DECL and walk the flowgraph
-     backwards looking for a node with the scope block declaring the
-     original variable.  */
-  if (!tree_refs (decl) || !tree_refs (decl)->first)
-    return NULL;
-
-  first_ref = tree_refs (decl)->first->ref;
-  t = ref_stmt (first_ref);
-  FOR_BB_BETWEEN (bb, bb_for_stmt (t), ENTRY_BLOCK_PTR, prev_bb)
-    {
-      if (TREE_CODE (bb->head_tree) == SCOPE_STMT
-	  && SCOPE_STMT_BLOCK (bb->head_tree))
-	{
-	  tree block = SCOPE_STMT_BLOCK (bb->head_tree);
-	  tree var;
-
-	  for (var = BLOCK_VARS (block); var; var = TREE_CHAIN (var))
-	    if (var == decl)
-	      return bb;
-	}
-    }
-
-  return NULL;
-}
-
-
 
 /* Debugging functions.  */
 
@@ -1076,7 +1043,7 @@ dump_ref (outf, prefix, ref, indent, details)
   memset ((void *) s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
-  lineno = (ref_stmt (ref)) ? STMT_LINENO (ref_stmt (ref)) : -1;
+  lineno = get_lineno (ref_stmt (ref));
 
   bbix = (ref_bb (ref)) ? ref_bb (ref)->index : -1;
 
@@ -1836,52 +1803,9 @@ is_visible_to (sym1, sym2)
      tree sym1;
      tree sym2;
 {
-  basic_block bb, low_bb, high_bb;
-  basic_block bb1 = find_declaration (sym1);
-  basic_block bb2 = find_declaration (sym2);
-
-  /* If either variable is global, find_declaration() will return NULL.  In
-     which case, the variables are visible to each other.  */
-  if (bb1 == NULL || bb2 == NULL)
-    return true;
-
-  /* If BB1 and BB2 are the same, then both variables can see each other.  */
-  if (bb1 == bb2)
-    return true;
-
-  /* Now walk up and down the scope binding chains trying to reach BB1 from
-     BB2 and vice-versa.  Note that we can't use dominator information to
-     determine this.  It may happen that BB1 dominates BB2 and yet the two
-     symbols are not visible to each other.  E.g.,
-
-     		{
-		  int p;
-		  ...
-		}
-		{
-		  int q;
-		  ...
-		}
-
-     The only trick we can use is to start looking up from the basic block
-     with a higher index value in the hopes that if they do contain each
-     other, starting up from the higher numbered block will reach the other
-     one.  */
-  low_bb = (bb1->index > bb2->index) ? bb1 : bb2;
-  high_bb = (bb1->index > bb2->index) ? bb2 : bb1;
-
-  for (bb = high_bb; binding_scope (bb) != bb; bb = binding_scope (bb))
-    if (bb == low_bb)
-      return true;
-
-  /* Rats.  The lower numbered basic block is deeper in the graph.  Do the
-     opposite search now.  */
-  for (bb = low_bb; binding_scope (bb) != bb; bb = binding_scope (bb))
-    if (bb == high_bb)
-      return true;
-
-  /* These variables can possibly see each other.  */
-  return false;
+  /* FIXME  This should be implemented by traversing the SUPERCONTEXT and
+     SUBBLOCKS links for the each symbol's BIND_EXPR node.  */
+  return true;
 }
 
 

@@ -54,9 +54,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "basic-block.h"
 
+#include "diagnostic.h"
 #include "tree-flow.h"
 #include "tree-simple.h"
-#include "tree-optimize.h"
 
 /* This should be eventually be generalized to other languages, but
    this would require a shared function-as-trees infrastructure.  */
@@ -89,7 +89,7 @@ mark_necessary (t)
 
   /* Mark all statements in control parent blocks as necessary.  */
   if (bb_for_stmt (t))
-    mark_control_parent_necessary (bb_parent (bb_for_stmt (t)));
+    mark_control_parent_necessary (parent_block (bb_for_stmt (t)));
 }
 
 static void
@@ -108,7 +108,7 @@ mark_control_parent_necessary (bb)
 	    break;
 	  t = TREE_CHAIN (t);
 	}
-      mark_control_parent_necessary (bb_parent (bb));
+      mark_control_parent_necessary (parent_block (bb));
     }
 }
 

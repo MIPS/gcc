@@ -1,3 +1,169 @@
+2002-10-08  Richard Henderson  <rth@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+	    Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-simple.h (gimple_stmt_iterator): New type.
+	(gsi_start): New function.
+	(gsi_after_end): New function.
+	(gsi_step): New function.
+	(gsi_stmt): New function.
+
+2002-10-08  Diego Novillo  <dnovillo@redhat.com>
+
+	* calls.c (flags_from_decl_or_type): Make extern.
+	(ECF_*): Move ...
+	* rtl.h (ECF_*): ... here.
+	(flags_from_decl_or_type): Declare.
+
+	* tree.h (COND_EXPR_COND): Define.
+	(COND_EXPR_THEN): Define.
+	(COND_EXPR_ELSE): Define.
+	(LABEL_EXPR_LABEL): Define.
+	(optimize_function_tree): Declare.
+
+2002-10-08  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (TREE_FLOW_H): Define.
+	(c-decl.o): Remove dependency on tree-optimize.h.
+	(tree-alias-steen.o, tree-alias-common.o, tree-ssa.o, tree-ssa-pre.o,
+	 tree-cfg.o, tree-dfa.o, tree-optimize.o, c-simplify.o, c-call-graph.o,
+	 tree-ssa-dce.o, tree-ssa-ccp.o): Depend on $(TREE_FLOW_H).
+	(tree-cfg.o): Remove dependencies on c-tree.h and c-common.h.
+	* c-call-graph.c (construct_call_graph): Disable calls to removed
+	functions.
+	* c-decl.c: Don't include tree-optimize.h.
+	(c_expand_body): Enable calls to optimize_function_tree.
+
+	* c-pretty-print.c (dump_c_node): Fix printf warnings.
+	Only dump the first node of a COMPOUND_EXPR when brief_dump is set.
+	Use COND_EXPR_COND, COND_EXPR_THEN and COND_EXPR_ELSE accessors.
+	Only dump the opening brace of a BIND_EXPR when brief_dump is set.
+
+	* tree-cfg.c: Don't include tree-optimize.h, c-common.h and c-tree.h.
+	(binding_stack, make_for_stmt_blocks, make_if_stmt_blocks,
+	 make_while_stmt_blocks, make_switch_stmt_blocks,
+	 make_do_stmt_blocks, create_maximal_bb, make_for_stmt_edges,
+	 make_while_stmt_edges, make_do_stmt_edges, make_if_stmt_edges,
+	 make_break_stmt_edges, make_continue_stmt_edges, create_loop_hdr,
+	 insert_before_ctrl_stmt, insert_before_normal_stmt,
+	 insert_after_ctrl_stmt, insert_after_normal_stmt,
+	 insert_after_loop_body, tree_split_bb, stmt_ends_bb_p): Remove.
+	Update all users.
+	(STRIP_CONTAINERS): Define.
+	(make_bind_expr_blocks): New local function.
+	(make_cond_expr_blocks): New local function.
+	(make_loop_expr_blocks): New local function.
+	(make_switch_expr_blocks): New local function.
+	(make_loop_expr_edges): New local function.
+	(make_cond_expr_edges): New local function.
+	(make_case_label_edges): New local function.
+	(first_exec_block): New local function.
+	(make_goto_expr_edges): Rename from make_goto_stmt_edges.
+	(make_blocks): Remove arguments COMPOUND_STMT and PREV_CHAIN_P.
+	Use gimple_stmt_iterator to iterate over the statements in the
+	function.  Create maximal basic blocks during traversal.
+	(create_bb): Remove arguments end, prev_chain_p and binding_scope.
+	Rename control_parent to parent_block.
+	(set_bb_for_stmt): Move from tree-flow.h.
+	(make_edges): Don't assume that basic block 0 contains executable
+	statements.
+	Handle BIND_EXPR nodes.
+	(make_ctrl_stmt_edges): Handle LOOP_EXPR, COND_EXPR and
+	SWITCH_EXPR.
+	(make_exit_edges): Handle GOTO_EXPR, CALL_EXPR and RETURN_EXPR.
+	(tree_delete_bb): Call first_stmt and last_stmt.
+	(block_invalidates_loop): Call last_stmt.
+	(replace_expr_in_tree): Don't dump line number information.
+	(find_expr_in_tree_helper): Don't call statement_code_p.
+	(tree_dump_bb): Call get_lineno.
+	(tree_cfg2dot): Ditto.
+	(successor_block): Use a gimple_stmt_iterator to find the first
+	executable block after the current one.
+	(is_ctrl_stmt): Handle COND_EXPR, LOOP_EXPR and SWITCH_EXPR.
+	(is_ctrl_altering_stmt): Call flags_from_decl_or_type to discover
+	non-return functions.
+	(is_loop_stmt): Handle LOOP_EXPR.
+	(is_computed_goto): Handle GOTO_EXPR.
+	(stmt_starts_bb_p): Handle CASE_LABEL_EXPR, LABEL_EXPR, RETURN_EXPR
+	and BIND_EXPR.
+	(first_exec_stmt): Use a gimple_stmt_iterator to traverse the
+	statements.
+	(first_stmt): New function.
+	(last_stmt): New function.
+
+	* tree-dfa.c: Don't include c-common.h, c-tree.h and
+	tree-optimize.h.  Include diagnostic.h.
+	(tree_find_refs): Disable.
+	(find_refs_in_stmt): Disable.
+	(find_refs_in_expr): Don't call prep_stmt.
+	(tree_ann): Don't annotate empty_stmt_node.
+	(find_declaration): Remove.  Update all users.
+	(dump_ref): Call get_lineno.
+	(is_visible_to): Always return true.
+
+	* tree-flow.h: Include tree-flow-inline.h, basic-block.h and
+	tree-simple.h.
+	(tree_ann_d): Remove compound_parent field.
+	(set_bb_for_stmt): Declare extern.
+	(compound_parent, set_compound_parent, struct for_header_blocks,
+	union header_blocks, prev_chain_p, set_prev_chain_p, binding_scope,
+	set_binding_scope, loop_hdr, for_init_bb, set_for_init_bb,
+	for_cond_bb, set_for_cond_bb, for_expr_bb, set_for_expr_bb,
+	end_while_bb, set_end_while_bb, do_cond_bb, set_cond_bb,
+	stmt_ends_bb_p, loop_parent, latch_block, switch_parent,
+	first_exec_stmt, last_exec_stmt, is_exec_stmt,
+	is_statement_expression, first_non_decl_stmt, first_decl_stmt,
+	first_non_label_in_bb, tree_split_bb, find_declaration): Remove.
+	Update all users.
+	(get_lineno): New function.
+	(struct bb_ann_def): Rename field parent to parent_block.  Update
+	all users.
+	Remove fields prev_chain_p, loop_hdr and binding_scope.  Update all
+	users.
+	(parent_block): Rename from bb_parent.
+	(set_parent_block): Rename from set_bb_parent.
+	(prev_chain_p): Remove
+	(bb_empty_p): Return true if block only contains empty_stmt_node.
+	(gsi_step_bb): New function.
+	(gsi_start_bb): New function.
+	(gsi_insert_before, gsi_insert_after, gsi_delete, gsi_replace):
+	Declare.
+	(insert_stmt_before): Rename from insert_stmt_tree_before.
+	(insert_stmt_after): Rename from insert_stmt_tree_after.
+	(first_stmt): Declare.
+	(last_stmt): Declare.
+	(tree_perform_ssapre, tree_ssa_ccp,
+	tree_ssa_eliminate_dead_code): Move declaration from tree-optimize.h.
+	* tree-flow-inline.h: New file for all the inline functions
+	declared in tree-flow.h
+
+	* tree-optimize.c: Don't include tree-optimize.h, c-common.h and
+	c-tree.h.
+	(optimize_function_tree): Disable call to double_chain_stmts.
+	Call init_flow.
+	Call tree_find_basic_blocks.
+	Disable calls to tree_build_ssa and optimizers.
+	(build_tree_ssa): Remove.  Update all users.
+	* tree-optimize.h: Remove.
+	* tree-ssa-ccp.c: Don't include tree-optimize.h
+	* tree-ssa-dce.c: Don't include tree-optimize.h.
+	Include diagnostic.h
+	* tree-ssa-pre.c: Don't include tree-optimize.h.
+	(requires_edge_placement): Disable unused function.
+	(set_need_repair): Disable unused function.
+	(finalize_1): Disable calls to insert_stmt_tree_before and
+	insert_stmt_tree_after.
+	(repair_injury): Ditto.
+	(code_motion): Ditto.
+	* tree-ssa.c: Don't include tree-optimize.h.
+	(insert_phi_nodes_for): Remove unused variable.
+	(add_phi_node): Don't call statement_code_p.
+	* cp/optimize.c: Don't include tree-optimize.h
+	* tree-alias-common.c: Don't include tree-optimize.h.
+	(find_func_decls): Disable.
+	(display_points_to_set): Disable.
+	* tree-alias-steen.c: Don't include tree-optimize.h.
+
 2002-10-04  Jason Merrill  <jason@redhat.com>
 
 	* gimplify.c (declare_tmp_vars): Don't add temps to block vars.

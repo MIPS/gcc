@@ -582,6 +582,7 @@ C_TREE_H = c-tree.h $(C_COMMON_H)
 SYSTEM_H = system.h hwint.h $(srcdir)/../include/libiberty.h
 PREDICT_H = predict.h predict.def
 CPPLIB_H = cpplib.h line-map.h
+TREE_FLOW_H = tree-flow.h tree-flow-inline.h
 
 # sed inserts variable overrides after the following line.
 ####target overrides
@@ -1185,7 +1186,7 @@ $(srcdir)/c-parse.y: c-parse.in
 c-decl.o : c-decl.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) $(C_TREE_H) \
     $(GGC_H) $(TARGET_H) flags.h function.h output.h $(EXPR_H) \
     debug.h toplev.h intl.h $(TM_P_H) tree-inline.h $(TIMEVAR_H) c-pragma.h \
-    gt-c-decl.h tree-optimize.h langhooks.h
+    gt-c-decl.h langhooks.h
 c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
     $(TARGET_H) flags.h intl.h output.h $(EXPR_H) $(RTL_H) toplev.h $(TM_P_H)
 c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
@@ -1380,31 +1381,31 @@ disjoint-set.o: disjoint-set.c disjoint-set.h $(SYSTEM_H) $(CONFIG_H) $(GGC_H)
 tree-alias-ecr.o: tree-alias-ecr.c tree-alias-ecr.h disjoint-set.h tree-alias-type.h  $(SYSTEM_H) $(CONFIG_H) $(GGC_H)
 tree-alias-type.o: tree-alias-type.c tree-alias-type.h $(SYSTEM_H) $(CONFIG_H) $(GGC_H) gt-tree-alias-type.h
 tree-alias-steen.o: tree-alias-steen.c tree-alias-steen.h $(SYSTEM_H) \
-	$(CONFIG_H) $(GGC_H) $(TREE_H) tree-flow.h  $(C_COMMON_H)
+	$(CONFIG_H) $(GGC_H) $(TREE_H) $(TREE_FLOW_H)  $(C_COMMON_H)
 tree-alias-common.o: tree-alias-common.c tree-alias-common.h $(SYSTEM_H) \
-	$(CONFIG_H) $(GGC_H) $(TREE_H) gt-tree-alias-common.h tree-flow.h \
+	$(CONFIG_H) $(GGC_H) $(TREE_H) gt-tree-alias-common.h $(TREE_FLOW_H) \
 	$(C_COMMON_H)
-tree-ssa.o : tree-ssa.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
+tree-ssa.o : tree-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) $(C_COMMON_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h ggc.h tree-simple.h \
    $(C_TREE_H)
-tree-ssa-pre.o : tree-ssa-pre.c tree-optimize.h tree-flow.h $(CONFIG_H) \
+tree-ssa-pre.o : tree-ssa-pre.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) \
    $(C_COMMON_H) $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h
-tree-cfg.o : tree-cfg.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
+tree-cfg.o : tree-cfg.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) \
-   $(GGC_H) flags.h output.h diagnostic.h errors.h $(C_TREE_H)
-tree-dfa.o : tree-dfa.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
+   $(GGC_H) flags.h output.h diagnostic.h errors.h
+tree-dfa.o : tree-dfa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h errors.h $(C_TREE_H) tree-simple.h \
    tree-inline.h $(HASHTAB_H) flags.h
-tree-optimize.o : tree-optimize.c tree-optimize.h tree-flow.h $(CONFIG_H) \
+tree-optimize.o : tree-optimize.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h flags.h tree-alias-common.h \
    tree-dchain.h $(C_COMMON_H) $(C_TREE_H)
 c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-simple.h varray.h flags.h \
-   langhooks.h toplev.h rtl.h tree-flow.h $(BASIC_BLOCK_H) langhooks-def.h
+   langhooks.h toplev.h rtl.h $(TREE_FLOW_H) $(BASIC_BLOCK_H) langhooks-def.h
 gimplify.o : gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    diagnostic.h tree-simple.h tree-inline.h varray.h langhooks.h langhooks-def.h
 simple-break-elim.o : simple-break-elim.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
@@ -1414,7 +1415,7 @@ simple-goto-elim.o : simple-goto-elim.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
 tree-dchain.o : tree-dchain.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    $(C_TREE_H) $(C_COMMON_H) tree-dchain.h
 c-call-graph.o : c-call-graph.c $(CONFIG_H) $(SYSTEM_H) $(C_TREE_H) \
-   $(C_COMMON_H) diagnostic.h hard-reg-set.h $(BASIC_BLOCK_H) tree-flow.h
+   $(C_COMMON_H) diagnostic.h hard-reg-set.h $(BASIC_BLOCK_H) $(TREE_FLOW_H)
 tree-simple.o : tree-simple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(EXPR_H) \
 	$(RTL_H) tree-simple.h
 tree-mudflap.o : $(CONFIG_H) errors.h $(SYSTEM_H) $(TREE_H) tree-inline.h \
@@ -1557,13 +1558,14 @@ ssa-dce.o : ssa-dce.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) hard-reg-set.h \
    $(BASIC_BLOCK_H) ssa.h insn-config.h $(RECOG_H) output.h
 tree-ssa-dce.o : tree-ssa-dce.c $(CONFIG_H) system.h errors.h $(TREE_H) \
     $(RTL_H) $(TM_P_H) hard-reg-set.h $(BASIC_BLOCK_H) \
-    tree-flow.h tree-optimize.h $(C_COMMON_H) $(C_TREE_H)
+    $(TREE_FLOW_H) $(C_COMMON_H) $(C_TREE_H) diagnostic.h
 ssa-ccp.o : ssa-ccp.c $(CONFIG_H) system.h $(RTL_H) hard-reg-set.h \
     $(BASIC_BLOCK_H) ssa.h insn-config.h $(RECOG_H) output.h \
     errors.h $(GGC_H) df.h function.h
 tree-ssa-ccp.o : tree-ssa-ccp.c $(CONFIG_H) system.h errors.h $(TREE_H) \
     $(RTL_H) $(TM_P_H) hard-reg-set.h $(BASIC_BLOCK_H) \
-    tree-flow.h tree-optimize.h $(C_COMMON_H) $(C_TREE_H) tree-simple.h
+    $(TREE_FLOW_H) $(C_COMMON_H) $(C_TREE_H) tree-simple.h \
+    diagnostic.h
 df.o : df.c $(CONFIG_H) system.h $(RTL_H) insn-config.h $(RECOG_H) \
    function.h $(REGS_H) $(OBSTACK_H) hard-reg-set.h $(BASIC_BLOCK_H) df.h \
    $(FIBHEAP_H)

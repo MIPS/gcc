@@ -936,6 +936,15 @@ struct tree_vec GTY(())
 #define ASM_INPUT_P(NODE) (TREE_STATIC (NODE))
 #define ASM_VOLATILE_P(NODE) (TREE_PUBLIC (NODE))
 
+/* COND_EXPR accessors.  */
+#define COND_EXPR_COND(NODE)	(TREE_OPERAND (COND_EXPR_CHECK (NODE), 0))
+#define COND_EXPR_THEN(NODE)	(TREE_OPERAND (COND_EXPR_CHECK (NODE), 1))
+#define COND_EXPR_ELSE(NODE)	(TREE_OPERAND (COND_EXPR_CHECK (NODE), 2))
+
+/* LABEL_EXPR accessor. This gives access to the label associated with
+   the given label expression.  */
+#define LABEL_EXPR_LABEL(NODE)  TREE_OPERAND (LABEL_EXPR_CHECK (NODE), 0)
+
 struct tree_exp GTY(())
 {
   struct tree_common common;
@@ -3089,6 +3098,9 @@ extern void expand_start_case_dummy	PARAMS ((void));
 extern HOST_WIDE_INT all_cases_count	PARAMS ((tree, int *));
 extern void check_for_full_enumeration_handling PARAMS ((tree));
 extern void declare_nonlocal_label	PARAMS ((tree));
+
+/* In tree-optimize.c.  */
+void optimize_function_tree		PARAMS ((tree));
 
 /* If KIND=='I', return a suitable global initializer (constructor) name.
    If KIND=='D', return a suitable global clean-up (destructor) name.  */

@@ -57,6 +57,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "diagnostic.h"
 
 /* This should be eventually be generalized to other languages, but
    this would require a shared function-as-trees infrastructure.  */
@@ -64,9 +65,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-tree.h"
 
 #include "tree-flow.h"
-#include "tree-optimize.h"
 #include "tree-simple.h"
-
+
+
 /* Possible lattice values.  */
 typedef enum
 {

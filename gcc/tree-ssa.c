@@ -39,7 +39,6 @@ Boston, MA 02111-1307, USA.  */
 #include "c-tree.h"
 #include "bitmap.h"
 
-#include "tree-optimize.h"
 #include "tree-flow.h"
 #include "tree-simple.h"
 #include "tree-inline.h"
@@ -798,7 +797,6 @@ insert_phi_nodes_for (var, dfs)
 {
   tree_ref ref;
   struct ref_list_node *tmp;
-  size_t i;
 
 #if defined ENABLE_CHECKING
   /* Variables in referenced_vars must have at least 1 reference.  */
@@ -847,18 +845,8 @@ add_phi_node (bb, var)
   if (VARRAY_TREE (added, bb->index) != var)
     {
       tree_ref phi;
-      basic_block stmt_bb;
 
-      /* Determine the parent statement for the new PHI node.  If BB is a
-	 block for an expression, look in its control parent. This is
-	 needed so that we can associate the PHI node to a source line
-	 number (FIXME  this hackery may not be needed with the new tree
-	 IR).  */
-      stmt_bb = bb;
-      while (stmt_bb && !statement_code_p (TREE_CODE (stmt_bb->head_tree)))
-	stmt_bb = bb_parent (stmt_bb);
-
-      phi = create_ref (var, V_PHI, bb, stmt_bb->head_tree, NULL, NULL, false);
+      phi = create_ref (var, V_PHI, bb, first_stmt (bb), NULL, NULL, false);
       add_ref_to_list_begin (bb_refs (bb), phi);
 
       VARRAY_TREE (added, bb->index) = var;
@@ -983,10 +971,7 @@ create_default_def (var)
   tree_ref def;
   size_t i;
 
-  /* Find the basic block that declares the variable.  */
-  decl_bb = find_declaration (get_base_symbol (var));
-  if (decl_bb == NULL)
-    decl_bb = ENTRY_BLOCK_PTR->succ->dest;
+  decl_bb = ENTRY_BLOCK_PTR->succ->dest;
 
   /* Create a default definition and set it to be CURRDEF(var).  */
   def = create_ref (var, V_DEF | M_DEFAULT, decl_bb, NULL, NULL, NULL, false);

@@ -43,7 +43,6 @@ Boston, MA 02111-1307, USA.  */
 #include "c-tree.h"
 #include "bitmap.h"
 #include "splay-tree.h"
-#include "tree-optimize.h"
 #include "tree-simple.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
@@ -120,12 +119,16 @@ static void finalize_1 PARAMS ((struct expr_info *, tree));
 static tree_ref phi_for_operand PARAMS ((struct expr_info *, tree_ref));
 static void set_save PARAMS ((struct expr_info *, tree_ref));
 static void set_replacement PARAMS ((struct expr_info *, tree_ref, tree_ref));
+#if 0
 static bool requires_edge_placement PARAMS ((tree_ref));
+#endif
 static bool is_injuring_def PARAMS ((struct expr_info *, tree));
 static bool is_strred_cand PARAMS ((tree));
 static tree calculate_increment PARAMS ((struct expr_info *, tree));
 static void repair_injury PARAMS ((struct expr_info *, tree_ref, tree, tree_ref));
+#if 0
 static void set_need_repair PARAMS ((struct expr_info *, tree_ref));
+#endif
 static void calculate_preorder PARAMS ((void));
 static void update_phis_in_list PARAMS ((ref_list, tree_ref, tree_ref));
 static void update_ssa_for_new_use PARAMS ((tree, tree, tree_ref, basic_block));
@@ -1515,10 +1518,12 @@ finalize_1 (ei, temp)
 				     (splay_tree_key) expr,
 				     (splay_tree_value)  stmt);
 		  
+#if 0
 		  if (is_ctrl_altering_stmt (endtree))
 		    insert_stmt_tree_before (stmt, endtree, bb);
 		  else
 		    insert_stmt_tree_after (stmt, endtree, bb);
+#endif
 		  
 		  set_expruse_def (X,create_ref (expr, E_USE, 
 						 ref_bb (X), stmt, expr,
@@ -1662,6 +1667,7 @@ down_safety (ei)
     }      
 } 
 
+#if 0
 static bool
 requires_edge_placement (phi)
      tree_ref phi;
@@ -1678,6 +1684,8 @@ requires_edge_placement (phi)
     }
   return false;
 }
+#endif
+
 /* Compute can_be_avail.  */
 static void
 compute_can_be_avail (ei)
@@ -1850,6 +1858,7 @@ can_insert (op)
   return false;
 }
 
+#if 0
 static void
 set_need_repair (ei, q)
      struct expr_info *ei;
@@ -1878,6 +1887,7 @@ set_need_repair (ei, q)
 	}
     }
 }
+#endif
 
 /* Calculate the increment necessary due to EXPR for the temporary. */
 static tree
@@ -1964,7 +1974,9 @@ repair_injury (ei, use, temp, orig_euse)
 		  TREE_TYPE (stmt) = TREE_TYPE (expr);
 		  bb = ref_bb (use);
 	    
+#if 0
 		  insert_stmt_tree_after (stmt, ref_stmt (v), bb);
+#endif
 		  *(htab_find_slot (ei->repaired, ref_expr (v), INSERT)) = ref_expr (v);
 		  
 		  /* Update SSA for the repair.  
@@ -2036,9 +2048,11 @@ repair_injury (ei, use, temp, orig_euse)
 		  stmt = build_stmt (EXPR_STMT, expr);
 		  TREE_TYPE (stmt) = TREE_TYPE (expr);
 		  bb = ref_bb (use);
+#if 0
 		  insert_stmt_tree_after (stmt, 
 					  ref_stmt (imm_reaching_def (v)),
 					  bb);
+#endif
 		  *(htab_find_slot (ei->repaired,
 				    ref_expr (imm_reaching_def (v)), INSERT)) = imm_reaching_def (v);
 		   /* Update SSA for the repair.  
@@ -2393,7 +2407,9 @@ code_motion (ei, temp)
 		set_imm_reaching_def (tempref, olddef);
 	      }
 	      
+#if 0
 	      insert_stmt_tree_before (newstmt, use_stmt, use_bb);
+#endif
 	      splay_tree_insert (new_stmt_map, 
 				 (splay_tree_key) ref_expr (use), 
 				 (splay_tree_value) newstmt);

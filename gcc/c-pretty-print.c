@@ -196,7 +196,6 @@ dump_c_node (buffer, node, spc, brief_dump)
   if (node == NULL_TREE)
     return spc;
 
-  /* Keep the following switch ordered as in 'tree.def' and 'c-common.def'.  */
   switch (TREE_CODE (node))
     {
     case ERROR_MARK:
@@ -488,7 +487,7 @@ dump_c_node (buffer, node, spc, brief_dump)
       if (DECL_NAME (node))
 	output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-        output_printf (buffer, "<unnamed label %p>", node);
+        output_printf (buffer, "<unnamed label %p>", (void *) node);
       break;
 
     case CONST_DECL:
@@ -532,7 +531,7 @@ dump_c_node (buffer, node, spc, brief_dump)
       if (DECL_NAME (node))
 	output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-        output_printf (buffer, "<unnamed var %p>", node);
+        output_printf (buffer, "<unnamed var %p>", (void *) node);
       break;
 
     case RESULT_DECL:
@@ -648,16 +647,13 @@ dump_c_node (buffer, node, spc, brief_dump)
     case COMPOUND_EXPR:
       if (TREE_TYPE (node) == void_type_node)
 	{
-	  for (; TREE_CODE (node) == COMPOUND_EXPR;
-	       node = TREE_OPERAND (node, 1))
+	  dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+	  if (!brief_dump)
 	    {
-	      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
 	      output_add_character (buffer, ';');
-	      if (!brief_dump)
-		newline_and_indent (buffer, spc);
+	      newline_and_indent (buffer, spc);
+	      dump_c_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
 	    }
-	  dump_c_node (buffer, node, spc, brief_dump);
-	  output_add_character (buffer, ';');
 	}
       else
 	{
@@ -688,11 +684,11 @@ dump_c_node (buffer, node, spc, brief_dump)
       if (TREE_TYPE (node) == void_type_node)
 	{
 	  output_add_string (buffer, "if (");
-	  dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+	  dump_c_node (buffer, COND_EXPR_COND (node), spc, brief_dump);
 	  output_add_character (buffer, ')');
 	  if (!brief_dump)
 	    {
-	      if (TREE_OPERAND (node, 1) == empty_stmt_node)
+	      if (COND_EXPR_THEN (node) == empty_stmt_node)
 		{
 		  output_add_character (buffer, ';');
 		}
@@ -705,7 +701,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 		  newline_and_indent (buffer, spc+2);
 		  output_add_character (buffer, '}');
 		}
-	      if (TREE_OPERAND (node, 2) != empty_stmt_node)
+	      if (COND_EXPR_ELSE (node) != empty_stmt_node)
 		{
 		  newline_and_indent (buffer, spc);
 		  output_add_string (buffer, "else");
@@ -736,15 +732,17 @@ dump_c_node (buffer, node, spc, brief_dump)
     case BIND_EXPR:
       output_add_character (buffer, '{');
       if (!brief_dump)
-	output_add_newline (buffer);
+	{
+	  output_add_newline (buffer);
 
-      for (op0 = BIND_EXPR_VARS (node); op0; op0 = TREE_CHAIN (op0))
-	print_declaration (buffer, op0, spc+2, brief_dump);
+	  for (op0 = BIND_EXPR_VARS (node); op0; op0 = TREE_CHAIN (op0))
+	    print_declaration (buffer, op0, spc+2, brief_dump);
 
-      newline_and_indent (buffer, spc+2);
-      dump_c_node (buffer, BIND_EXPR_BODY (node), spc+2, brief_dump);
-      newline_and_indent (buffer, spc);
-      output_add_character (buffer, '}');
+	  newline_and_indent (buffer, spc+2);
+	  dump_c_node (buffer, BIND_EXPR_BODY (node), spc+2, brief_dump);
+	  newline_and_indent (buffer, spc);
+	  output_add_character (buffer, '}');
+	}
       break;
 
     case CALL_EXPR:

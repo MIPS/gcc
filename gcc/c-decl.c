@@ -43,7 +43,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cpplib.h"
 #include "target.h"
 #include "debug.h"
-#include "tree-optimize.h"
 #include "timevar.h"
 #include "c-common.h"
 #include "c-pragma.h"
@@ -6565,11 +6564,11 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 	     them?  */
 	  simplify_function_tree (fndecl);
 	}
+#endif
 
       /* Invoke the SSA tree optimizer.  */
       if (optimize >= 1)
 	optimize_function_tree (fndecl);
-#endif
     }
 
   /* Set up parameters and prepare for return, for the function.  */

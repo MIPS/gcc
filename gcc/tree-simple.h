@@ -74,6 +74,7 @@ void foreach_stmt PARAMS ((tree *, foreach_stmt_fn *));
 
 /* FIXME this needs a better name.  */
 tree add_tree			       PARAMS ((tree, tree *));
+
 /* FIXME we should deduce this from the predicate.  */
 typedef enum fallback_t {
   fb_none = 0,
@@ -87,14 +88,70 @@ int simplify_expr		       PARAMS ((tree *, tree *, tree *,
 int simplify_stmt		       PARAMS ((tree *));
 
 /* Miscellaneous helpers.  */
-tree get_base_symbol                   PARAMS ((tree));
-
+tree get_base_symbol			PARAMS ((tree));
 void gimple_add_tmp_var			PARAMS ((tree));
 tree gimple_current_bind_expr	        PARAMS ((void));
 void gimple_push_bind_expr	        PARAMS ((tree));
 void gimple_pop_bind_expr	        PARAMS ((void));
 void mark_not_simple			PARAMS ((tree *));
-void unshare_all_trees        PARAMS ((tree));
+void unshare_all_trees			PARAMS ((tree));
 
 
-#endif /* _TREE_SIMPLE_H */
+/* Iterator object for GIMPLE statements.  */
+typedef struct {
+  tree ptr;
+} gimple_stmt_iterator;
+
+static inline gimple_stmt_iterator gsi_start PARAMS ((tree));
+static inline bool gsi_after_end	PARAMS ((gimple_stmt_iterator));
+static inline void gsi_step		PARAMS ((gimple_stmt_iterator *));
+static inline tree gsi_stmt		PARAMS ((gimple_stmt_iterator));
+
+static inline gimple_stmt_iterator
+gsi_start (t)
+     tree t;
+{
+  gimple_stmt_iterator i;
+  i.ptr = t;
+  return i;
+}
+
+static inline bool
+gsi_after_end (i)
+     gimple_stmt_iterator i;
+{
+  return (i.ptr == NULL_TREE || i.ptr == error_mark_node);
+}
+
+static inline void
+gsi_step (i)
+     gimple_stmt_iterator *i;
+{
+  tree t = i->ptr;
+  STRIP_WFL (t);
+  if (TREE_CODE (t) == COMPOUND_EXPR)
+    i->ptr = TREE_OPERAND (t, 1);
+  else
+    i->ptr = NULL_TREE;
+}
+
+static inline tree
+gsi_stmt (i)
+     gimple_stmt_iterator i;
+{
+  tree t = i.ptr;
+
+  if (t)
+    {
+      STRIP_WFL (t);
+      if (TREE_CODE (t) == COMPOUND_EXPR)
+	t = TREE_OPERAND (t, 0);
+      else
+	/* Return the original i.ptr.  We don't want to lose WFL wrappers.  */
+	t = i.ptr;
+    }
+
+  return t;
+}
+
+#endif /* _TREE_SIMPLE_H  */

@@ -87,8 +87,10 @@ construct_call_graph (buffer, t, spc)
   while (node && node != error_mark_node)
     {
       enum tree_code code = TREE_CODE (node);
+#if 0
       if (is_ctrl_stmt (node)) decision_points++;
       if (is_exec_stmt (node)) nb_statements++;
+#endif
 
       switch (code)
 	{

@@ -29,15 +29,8 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "expr.h"
 #include "diagnostic.h"
-
-/* This should be eventually be generalized to other languages, but
-   this would require a shared function-as-trees infrastructure.  */
-#include "c-common.h"
-#include "c-tree.h"
-
 #include "basic-block.h"
 #include "flags.h"
-#include "tree-optimize.h"
 #include "tree-flow.h"
 #include "tree-alias-common.h"
 #include "tree-dchain.h"
@@ -62,9 +55,11 @@ optimize_function_tree (fndecl)
   if (fnbody == NULL)
     abort ();
 
+#if 0
   /* Build the doubly-linked lists so that we can delete nodes
      efficiently.  */
   double_chain_stmts (fnbody);
+#endif
 
 #if 0
   /* Transform BREAK_STMTs, CONTINUE_STMTs, SWITCH_STMTs and GOTO_STMTs.  */
@@ -72,12 +67,20 @@ optimize_function_tree (fndecl)
   goto_elimination (fndecl);
 #endif
 
-  /* Build the SSA representation for the function.  */
-  build_tree_ssa (fndecl); 
+  /* Initialize flow data.  */
+  init_flow ();
 
-  /* Begin optimization passes.  */
+  tree_find_basic_blocks (DECL_SAVED_TREE (fndecl));
+
+  /* Begin analysis optimization passes.  */
   if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
     {
+#if 0
+      tree_build_ssa ();
+
+      if (flag_tree_points_to)
+	create_alias_vars ();
+
       if (flag_tree_pre)
 	tree_perform_ssapre ();
 
@@ -86,6 +89,7 @@ optimize_function_tree (fndecl)
 
       if (flag_tree_dce)
 	tree_ssa_eliminate_dead_code (fndecl);
+#endif
     }
 
   /* Wipe out the back-pointes in the statement chain.  */
@@ -99,12 +103,9 @@ optimize_function_tree (fndecl)
   dump_file = dump_begin (TDI_optimized, &dump_flags);
   if (dump_file)
     {
-      tree fnbody;
-
       /* We never get here if the function body is empty,
 	 see simplify_function_tree().  */ 
-      fnbody = COMPOUND_BODY (DECL_SAVED_TREE (fndecl)); 
-      fprintf (dump_file, "%s()\n", IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+      fprintf (dump_file, "%s()\n", get_name (fndecl));
 
       if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
@@ -114,23 +115,4 @@ optimize_function_tree (fndecl)
 
       dump_end (TDI_optimized, dump_file);
     }
-}
-
-
-/* Main entry point to the tree SSA analysis routines.  */
-
-void
-build_tree_ssa (fndecl)
-     tree fndecl;
-{
-  /* Initialize flow data.  */
-  init_flow ();
-
-  tree_find_basic_blocks (DECL_SAVED_TREE (fndecl));
-
-  if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
-    tree_build_ssa ();
-
-  if (flag_tree_points_to)
-    create_alias_vars ();
 }

@@ -34,7 +34,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "debug.h"
 #include "tree-inline.h"
-#include "tree-optimize.h"
 #include "flags.h"
 #include "langhooks.h"
 

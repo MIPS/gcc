@@ -37,7 +37,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "expr.h"
 #include "diagnostic.h"
 #include "tree.h"  
-#include "tree-optimize.h"
 #include "c-common.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
@@ -55,7 +54,9 @@ static varray_type local_alias_varnums;
 static alias_typevar get_alias_var_decl PARAMS ((tree));
 static alias_typevar get_alias_var PARAMS ((tree));
 static tree find_func_aliases PARAMS ((tree *, int *, void *));
+#if 0
 static tree find_func_decls PARAMS ((tree *, int *, void *));
+#endif
 static alias_typevar create_fun_alias_var_ptf PARAMS ((tree, tree));
 static alias_typevar create_fun_alias_var PARAMS ((tree, int));
 static alias_typevar create_alias_var PARAMS ((tree));
@@ -439,6 +440,7 @@ find_func_aliases (tp, walk_subtrees, data)
   return NULL_TREE;
 }
 
+#if 0
 static tree
 find_func_decls (tp, walk_subtrees, data)
      tree *tp;
@@ -458,6 +460,7 @@ find_func_decls (tp, walk_subtrees, data)
     }
   return NULL_TREE;
 }
+#endif
 
 /* 
    Create the alias variables for a function definition.
@@ -635,7 +638,9 @@ create_alias_var (decl)
 
 static unsigned int splaycount = 0;
 static int splay_tree_count PARAMS ((splay_tree_node, void *));
+#if 0
 static int display_points_to_set PARAMS ((splay_tree_node, void *));
+#endif
 static void display_points_to_set_helper PARAMS ((alias_typevar));
 unsigned int splay_tree_size PARAMS ((splay_tree));
 static void
@@ -658,6 +663,7 @@ display_points_to_set_helper (tvar)
   fprintf (stderr, " }\n");
 }
 
+#if 0
 static int
 display_points_to_set (node, data)
      splay_tree_node node;
@@ -668,6 +674,7 @@ display_points_to_set (node, data)
   display_points_to_set_helper ((alias_typevar)node->value); 
   return 0;
 }
+#endif
 
 static int 
 splay_tree_count (node, data)
