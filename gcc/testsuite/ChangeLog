@@ -1,3 +1,7 @@
+2003-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20030204-1.c: New test.
+
 2003-01-31  Loren J. Rittle <ljrittle@acm.org>
 
 	* gcc.dg/struct-ret-libc.c: New test.
