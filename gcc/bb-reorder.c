@@ -37,6 +37,7 @@
 #include "cfglayout.h"
 #include "fibheap.h"
 #include "target.h"
+#include "profile.h"
 
 /* The number of rounds.  */
 #define N_ROUNDS 4
@@ -320,45 +321,6 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 
 	  if (best_edge) /* Found suitable successor.  */
 	    {
-	      /* Check for a situation
-
-		  A
-		 /|
-		B |
-		 \|
-		  C
-
-	      where
-	      EDGE_FREQUENCY (AB) + EDGE_FREQUENCY (BC) >= EDGE_FREQUENCY (AC).
-	      (i.e. 2 * B->frequency >= EDGE_FREQUENCY (AC) )
-	      Best ordering is then A B C. 
-
-	      This situation is created for example by:
-
-	      if (A) B;
-	      C;
-
-	      */
-
-	      for (e = bb->succ; e; e = e->succ_next)
-		if (e != best_edge && (e->flags & EDGE_CAN_FALLTHRU)
-		    && !(e->flags & EDGE_COMPLEX)
-		    && !RBI (e->dest)->visited
-		    && !e->dest->pred->pred_next
-		    && e->dest->succ
-		    && (e->dest->succ->flags & EDGE_CAN_FALLTHRU)
-		    && !(e->dest->succ->flags & EDGE_COMPLEX)
-		    && !e->dest->succ->succ_next
-		    && e->dest->succ->dest == best_edge->dest
-		    && 2 * e->dest->frequency >= EDGE_FREQUENCY (best_edge))
-		  {
-		    best_edge = e;
-		    if (rtl_dump_file)
-		      fprintf (rtl_dump_file, "Selecting BB %d\n",
-			  best_edge->dest->index);
-		    break;
-		  }
-
 	      if (RBI (best_edge->dest)->visited == *n_traces)
 		{
 		  if (bb != best_edge->dest)
@@ -439,6 +401,47 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		}
 	      else
 		{
+		  /* Check for a situation
+
+		    A
+		   /|
+		  B |
+		   \|
+		    C
+
+		  where
+		  EDGE_FREQUENCY (AB) + EDGE_FREQUENCY (BC) 
+		    >= EDGE_FREQUENCY (AC).
+		  (i.e. 2 * B->frequency >= EDGE_FREQUENCY (AC) )
+		  Best ordering is then A B C. 
+
+		  This situation is created for example by:
+
+		  if (A) B;
+		  C;
+
+		  */
+
+		  for (e = bb->succ; e; e = e->succ_next)
+		    if (e != best_edge 
+			&& (e->flags & EDGE_CAN_FALLTHRU)
+			&& !(e->flags & EDGE_COMPLEX)
+			&& !RBI (e->dest)->visited
+			&& !e->dest->pred->pred_next
+			&& e->dest->succ
+			&& (e->dest->succ->flags & EDGE_CAN_FALLTHRU)
+			&& !(e->dest->succ->flags & EDGE_COMPLEX)
+			&& !e->dest->succ->succ_next
+			&& e->dest->succ->dest == best_edge->dest
+			&& 2 * e->dest->frequency >= EDGE_FREQUENCY (best_edge))
+		      {
+			best_edge = e;
+			if (rtl_dump_file)
+			  fprintf (rtl_dump_file, "Selecting BB %d\n",
+				   best_edge->dest->index);
+			break;
+		      }
+
 		  RBI (bb)->next = best_edge->dest;
 		  bb = best_edge->dest;
 		}
@@ -541,6 +544,7 @@ copy_bb_p (bb, trace, size_can_grow)
      bool size_can_grow;
 {
   int size = 0;
+  int max_size;
   rtx insn;
   static unsigned int id;
 
@@ -555,12 +559,22 @@ copy_bb_p (bb, trace, size_can_grow)
     }
   else
     id++;
-    
   
   if (!bb->frequency)
     return false;
   if (!bb->pred || !bb->pred->pred_next)
     return false;
+
+  max_size = 8 * uncond_jump_length;
+  if (profile_info.count_profiles_merged
+      && flag_branch_probabilities)
+    {
+      if (maybe_hot_bb_p (bb))
+	max_size = 16 * uncond_jump_length;
+      else if (probably_never_executed_bb_p (bb))
+	size_can_grow = false;
+    }
+  
   while (1)
     {
       edge e, best_edge;
@@ -579,7 +593,7 @@ copy_bb_p (bb, trace, size_can_grow)
 	  if (INSN_P (insn))
 	    size += get_attr_length (insn);
 	}
-      if (size > 8 * uncond_jump_length)
+      if (size > max_size)
 	return false;
 
       /* Select the successor.  */
