@@ -393,7 +393,7 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
 	}
 
       /* Finally, any variables in PHI nodes at our final destination
-         must also be taken our of SSA form.  */
+         must also be taken out of SSA form.  */
       for (phi = phi_nodes (tgt); phi; phi = TREE_CHAIN (phi))
 	{
 	  tree result = SSA_NAME_VAR (PHI_RESULT (phi));
@@ -940,9 +940,61 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	    {
 	      int saved_forwardable = bb_ann (e->src)->forwardable;
 	      edge tmp_edge;
+	      int edge_frequency = EDGE_FREQUENCY (e);
+	      edge c;
+	      int prob;
+
+	      e->dest->count -= e->count;
+	      if (e->dest->count < 0)
+		e->dest->count = 0;
+
+	      /* Compute the probability of TAKEN_EDGE being reached via E.
+		 Watch for overflows.  */
+	      if (e->dest->frequency)
+		prob = edge_frequency * REG_BR_PROB_BASE / e->dest->frequency;
+	      else
+		prob = 0;
+	      if (prob > taken_edge->probability)
+		prob = taken_edge->probability;
+
+	      /* Now rescale the probabilities.  */
+	      taken_edge->probability -= prob;
+	      prob = REG_BR_PROB_BASE - prob;
+	      if (prob <= 0)
+		{
+		  e->dest->succ->probability = REG_BR_PROB_BASE;
+		  for (c = e->dest->succ->succ_next; c; c = c->succ_next)
+		    c->probability = 0;
+		}
+	      else
+		for (c = e->dest->succ; c; c = c->succ_next)
+		  c->probability = ((c->probability * REG_BR_PROB_BASE)
+				    / (double) prob);
+	      e->dest->frequency -= edge_frequency;
+	      if (e->dest->frequency < 0)
+		e->dest->frequency = 0;
 
 	      bb_ann (e->src)->forwardable = 0;
 	      tmp_edge = tree_block_forwards_to (dest);
+	      if (tmp_edge)
+		for (;taken_edge != tmp_edge; taken_edge = taken_edge->dest->succ)
+		  {
+		    taken_edge->count -= e->count;
+		    if (taken_edge->count < 0)
+		      taken_edge->count = 0;
+		    taken_edge->dest->count -= e->count;
+		    if (taken_edge->dest->count < 0)
+		      taken_edge->dest->count = 0;
+		    taken_edge->dest->frequency -= edge_frequency;
+		    if (taken_edge->dest->frequency < 0)
+		      taken_edge->dest->frequency = 0;
+		  }
+	      else
+		{
+		  taken_edge->count -= e->count;
+		  if (taken_edge->count < 0)
+		    taken_edge->count = 0;
+		}
 	      taken_edge = (tmp_edge ? tmp_edge : taken_edge);
 	      bb_ann (e->src)->forwardable = saved_forwardable;
 	      VARRAY_PUSH_EDGE (redirection_edges, e);
