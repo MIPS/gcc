@@ -4565,14 +4565,6 @@ end_bb_insertion_point (bb)
 #ifdef HAVE_cc0
       rtx note;
 #endif
-      /* It should always be the case that we can put these instructions
-	 anywhere in the basic block with performing PRE optimizations.
-	 Check this.  */
-      if (GET_CODE (insn) == INSN && pre
-	  && !TEST_BIT (antloc[bb->index], expr->bitmap_index)
-          && !TEST_BIT (transp[bb->index], expr->bitmap_index))
-	abort ();
-
       /* If this is a jump table, then we can't insert stuff here.  Since
          we know the previous real insn must be the tablejump, we insert
          the new instruction just before the tablejump.  */
@@ -4607,11 +4599,7 @@ end_bb_insertion_point (bb)
       /* Keeping in mind SMALL_REGISTER_CLASSES and parameters in registers,
          we search backward and place the instructions before the first
          parameter is loaded.  Do this for everyone for consistency and a
-         presumtion that we'll get better code elsewhere as well.  
-
-         It should always be the case that we can put these instructions
-         anywhere in the basic block with performing PRE optimizations.
-         Check this.  */
+         presumtion that we'll get better code elsewhere as well.  */
 
       /* Since different machines initialize their parameter registers
          in different orders, assume nothing.  Collect the set of all
