@@ -28,8 +28,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
 
-// extern char * xmalloc ();
-
 /* The default number of entries to use when creating a hash table.  */
 #define DEFAULT_SIZE (1009)
 
@@ -41,8 +39,8 @@ hash_table_init_n (table, newfunc, hash, comp, size)
      struct hash_entry *(*newfunc) PARAMS ((struct hash_entry *,
 					    struct hash_table *,
 					    hash_table_key));
-     unsigned long (*hash) (hash_table_key);
-     boolean (*comp) (hash_table_key, hash_table_key);
+     unsigned long (*hash) PARAMS ((hash_table_key));
+     boolean (*comp) PARAMS ((hash_table_key, hash_table_key));
      unsigned int size;
 {
   unsigned int alloc;
