@@ -3574,6 +3574,7 @@ enum tree_dump_index
 				   within it.  */
   TDI_gimple,			/* dump each function after gimplifying it.  */
   TDI_useless,			/* dump after cleaning useless bits.  */
+  TDI_mudflap1,
   TDI_lower,			/* dump after lowering containers.  */
   TDI_eh,			/* dump after lowering eh.  */
   TDI_cfg,			/* dump the flowgraph for each function.  */
@@ -3603,8 +3604,8 @@ enum tree_dump_index
   TDI_ssa_6,
   TDI_dce_2,
   TDI_optimized,
+  TDI_mudflap2,
 
-  TDI_mudflap,			/* dump each function after mudflap.  */
   TDI_xml,                      /* dump function call graph.   */
   TDI_all,			/* enable all the dumps above.  */
   TDI_end

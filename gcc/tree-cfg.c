@@ -2369,6 +2369,7 @@ delete_tree_cfg (void)
   free_basic_block_vars (0);
   tree_bb_root = NULL;
   tree_phi_root = NULL;
+  label_to_block_map = NULL;
 }
 
 /* Return the first statement in basic block BB, stripped of any NOP
@@ -2452,14 +2453,15 @@ set_bb_for_stmt (tree t, basic_block bb)
 	 so that we can speed up edge creation for GOTO_EXPRs.  */
       if (TREE_CODE (t) == LABEL_EXPR)
 	{
-	  long uid;
+	  int uid;
 
 	  t = LABEL_EXPR_LABEL (t);
 	  uid = LABEL_DECL_UID (t);
 	  if (uid == -1)
 	    {
-	      LABEL_DECL_UID (t) = VARRAY_ACTIVE_SIZE (label_to_block_map);
-	      VARRAY_PUSH_BB (label_to_block_map, bb);
+	      LABEL_DECL_UID (t) = uid = cfun->last_label_uid++;
+	      if (VARRAY_SIZE (label_to_block_map) <= (unsigned) uid)
+		VARRAY_GROW (label_to_block_map, 3 * uid / 2);
 	    }
 	  else
 	    {
@@ -2469,8 +2471,8 @@ set_bb_for_stmt (tree t, basic_block bb)
 	      if (bb && VARRAY_BB (label_to_block_map, uid))
 		abort ();
 #endif
-	      VARRAY_BB (label_to_block_map, uid) = bb;
 	    }
+	  VARRAY_BB (label_to_block_map, uid) = bb;
 	}
     }
 }

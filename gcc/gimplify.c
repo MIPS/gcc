@@ -56,6 +56,10 @@ static struct gimplify_ctx
   htab_t temp_htab;
 } *gimplify_ctxp;
 
+
+static void declare_tmp_vars (tree vars, tree scope);
+
+
 /* Formal (expression) temporary table handling: Multiple occurrences of
    the same scalar expression are evaluated into the same temporary.  */
 
@@ -98,7 +102,9 @@ gimple_tree_eq (const void *p1, const void *p2)
   return 1;
 }
 
-static void
+/* Set up a context for the gimplifier.  */
+
+void
 push_gimplify_context (void)
 {
   if (gimplify_ctxp)
@@ -109,16 +115,27 @@ push_gimplify_context (void)
     = htab_create (1000, gimple_tree_hash, gimple_tree_eq, free);
 }
 
-static void
-pop_gimplify_context (void)
+/* Tear down a context for the gimplifier.  If BODY is non-null, then
+   put the temporaries into the outer BIND_EXPR.  Otherwise, put them
+   in the unexpanded_var_list.  */
+
+void
+pop_gimplify_context (tree body)
 {
   if (!gimplify_ctxp || gimplify_ctxp->current_bind_expr)
     abort ();
+
+  if (body)
+    declare_tmp_vars (gimplify_ctxp->temps, body);
+  else
+    record_vars (gimplify_ctxp->temps);
+
 #if 0
   if (!quiet_flag)
     fprintf (stderr, " collisions: %f ",
 	     htab_collisions (gimplify_ctxp->temp_htab));
 #endif
+
   htab_delete (gimplify_ctxp->temp_htab);
   free (gimplify_ctxp);
   gimplify_ctxp = NULL;
@@ -456,10 +473,10 @@ is_gimple_tmp_var (tree t)
 	  && !TREE_STATIC (t) && !DECL_EXTERNAL (t));
 }
 
-/*  Declares all the variables in VARS in SCOPE.  Returns the last
-    DECL_STMT emitted.  */
+/* Declares all the variables in VARS in SCOPE.  Returns the last
+   DECL_STMT emitted.  */
 
-void
+static void
 declare_tmp_vars (tree vars, tree scope)
 {
   tree last = vars;
@@ -3452,10 +3469,7 @@ gimplify_body (tree *body_p, tree fndecl)
     }
   *body_p = body;
 
-  /* Declare the new temporary variables.  */
-  declare_tmp_vars (gimplify_ctxp->temps, body);
-
-  pop_gimplify_context ();
+  pop_gimplify_context (body);
 
 #ifdef ENABLE_CHECKING
   walk_tree (body_p, check_pointer_types_r, NULL, NULL);

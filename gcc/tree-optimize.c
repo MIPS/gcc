@@ -308,7 +308,6 @@ void
 tree_rest_of_compilation (tree fndecl, bool nested_p)
 {
   location_t saved_loc;
-  tree chain;
 
   timevar_push (TV_EXPAND);
 
@@ -337,10 +336,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   if (cgraph_preserve_function_body_p (fndecl))
     cfun->saved_tree = save_body (fndecl, &cfun->saved_args);
 
-  /* Mudflap-instrument any relevant declarations.  */
-  if (flag_mudflap)
-    mudflap_c_function_decls (fndecl);
-
   /* If the function has not already been gimplified, do so now.  */
   if (!lang_hooks.gimple_before_inlining)
     gimplify_function_tree (fndecl);
@@ -352,6 +347,10 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
      statements before we build the CFG.  */
   remove_useless_stmts (&DECL_SAVED_TREE (fndecl));
   dump_function (TDI_useless, fndecl);
+
+  /* Mudflap-instrument any relevant declarations.  */
+  if (flag_mudflap)
+    mudflap_c_function_decls (fndecl);
 
   /* Lower the structured statements.  */
   lower_function_body (&DECL_SAVED_TREE (fndecl));
@@ -366,17 +365,36 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
      well, less magic though not completely mundane constructs.  */
   lower_eh_constructs (&DECL_SAVED_TREE (fndecl));
 
-  /* Invoke the SSA tree optimizer.  */
-  chain = DECL_SAVED_TREE (fndecl);
-  if (optimize >= 1 && !flag_disable_tree_ssa)
-    optimize_function_tree (fndecl, &chain);
-
-  DECL_SAVED_TREE (fndecl) = build (BIND_EXPR, void_type_node,
-				    NULL_TREE, chain, NULL_TREE);
-
   /* Mudflap-instrument any relevant operations.  */
   if (flag_mudflap)
-    mudflap_c_function_ops (fndecl);
+    {
+      /* Invoke the SSA tree optimizer.  */
+      if (optimize >= 1 && !flag_disable_tree_ssa)
+	{
+	  /* We cannot allow unssa to un-gimplify trees before we
+	     instrument them.  */
+	  int save_ter = flag_tree_ter;
+	  flag_tree_ter = 0;
+          optimize_function_tree (fndecl, &DECL_SAVED_TREE (fndecl));
+	  flag_tree_ter = save_ter;
+	}
+
+      mudflap_c_function_ops (fndecl);
+
+      /* WIP: set -O4 to re-do optimizations on the mudflapified code.
+	 Should work, but perhaps needs more thought.  */
+      if (optimize >= 4 && !flag_disable_tree_ssa)
+	optimize_function_tree (fndecl, &DECL_SAVED_TREE (fndecl));
+    }
+  else
+    {
+      /* Invoke the SSA tree optimizer.  */
+      if (optimize >= 1 && !flag_disable_tree_ssa)
+	optimize_function_tree (fndecl, &DECL_SAVED_TREE (fndecl));
+    }
+
+  DECL_SAVED_TREE (fndecl) = build (BIND_EXPR, void_type_node, NULL_TREE,
+				    DECL_SAVED_TREE (fndecl), NULL_TREE);
 
   /* If the function has a variably modified type, there may be
      SAVE_EXPRs in the parameter types.  Their context must be set to

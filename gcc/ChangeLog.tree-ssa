@@ -1,3 +1,36 @@
+2003-12-07  Richard Henderson  <rth@redhat.com>
+
+	* function.h (struct function): Add last_label_uid.
+	* tree-cfg.c (set_bb_for_stmt): Use it.
+	(delete_tree_cfg): Clear label_to_block_map.
+
+	* gimple-low.c (lower_stmt_body): Export.
+	(lower_stmt): Allow data to be null.
+	* gimplify.c (declare_tmp_vars): Make static.
+	(push_gimplify_context): Export.
+	(pop_gimplify_context): Export.  Put the temps somewhere.
+	(gimplify_body): Don't declare_tmp_vars here.
+	* tree-flow.h, tree-simple.h: Update for new decls.
+
+	* tree-mudflap.c (mf_build_string): New.
+	(mudflap_c_function_decls): Push and pop gimplify context, don't
+	gimplify here.  Dump pass 1.
+	(mudflap_c_function_ops): Similarly.
+	(mf_decl_cache_locals): Gimplify eveything as we go along.
+	(mf_build_check_statement_for): Likewise.
+	(mf_mostly_copy_tree_r): Remove.
+	(mf_varname_tree): Use mf_build_string.
+	(mf_file_function_line_tree): Rewrite.
+	(mf_offset_expr_of_array_ref): Remove.
+	(mx_xfn_indirect_ref): Remove.
+	(mf_xform_derefs_1): New.
+	(mf_xform_derefs): Rewrite to expect gimple.
+	(mx_register_decls): Use build_function_call_expr.
+	(mudflap_enqueue_constant): Use mf_build_string.
+	* tree-optimize.c (tree_rest_of_compilation): Reorder mudflap bits.
+	* tree-dump.c (dump_files): Split mudflap to parts 1 and 2.
+	* tree.h (enum tree_dump_index): Likewise.
+
 2003-12-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop.c: New.

@@ -492,10 +492,13 @@ extern void mark_new_vars_to_rename (tree, bitmap);
 #define TDFA_USE_VOPS		1 << 1
 
 /* In gimple-low.c  */
-void lower_function_body (tree *);
-void expand_used_vars (void);
-void remove_useless_vars (void);
-void record_vars (tree);
+struct lower_data;
+extern void lower_stmt_body (tree, struct lower_data *);
+extern void lower_function_body (tree *);
+extern void expand_used_vars (void);
+extern void remove_useless_vars (void);
+extern void record_vars (tree);
+extern bool block_may_fallthru (tree block);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
@@ -554,10 +557,6 @@ extern bool tree_could_throw_p (tree);
 extern bool tree_can_throw_internal (tree);
 extern bool tree_can_throw_external (tree);
 extern void add_stmt_to_eh_region (tree, int);
-
-/* In gimple-low.c  */
-void lower_function_body (tree *);
-extern bool block_may_fallthru (tree block);
 
 /* In tree-sra.c  */
 void tree_sra (tree, bitmap, enum tree_dump_index);

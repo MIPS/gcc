@@ -653,6 +653,7 @@ static struct dump_file_info dump_files[TDI_end] =
   {".inlined", "tree-inlined", 0, 0},
   {".gimple", "tree-gimple", 0, 0},
   {".useless", "tree-useless", 0, 0},
+  {".mudflap1", "tree-mudflap1", 0, 0},
   {".lower", "tree-lower", 0, 0},
   {".eh", "tree-eh", 0, 0},
   {".cfg", "tree-cfg", 0, 0},
@@ -677,7 +678,7 @@ static struct dump_file_info dump_files[TDI_end] =
   {".ssa6", "tree-ssa6", 0, 0},
   {".dce2", "tree-dce2", 0, 0},
   {".optimized", "tree-optimized", 0, 0},
-  {".mudflap", "tree-mudflap", 0, 0},
+  {".mudflap2", "tree-mudflap2", 0, 0},
   {".xml", "call-graph", 0, 0},
   {NULL, "tree-all", 0, 0},
 };

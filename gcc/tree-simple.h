@@ -30,7 +30,6 @@ extern tree create_tmp_var (tree, const char *);
 extern bool is_gimple_tmp_var (tree);
 extern tree get_initialized_tmp_var (tree, tree *, tree *);
 extern tree get_formal_tmp_var (tree, tree *);
-extern void declare_tmp_vars (tree, tree);
 
 extern tree rationalize_compound_expr (tree);
 extern tree right_assocify_expr (tree);
@@ -104,6 +103,8 @@ enum gimplify_status gimplify_expr (tree *, tree *, tree *,
 void gimplify_stmt (tree *);
 void gimplify_to_stmt_list (tree *);
 void gimplify_body (tree *, tree);
+void push_gimplify_context (void);
+void pop_gimplify_context (tree);
 
 /* Miscellaneous helpers.  */
 tree get_base_symbol (tree);

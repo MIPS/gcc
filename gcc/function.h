@@ -420,6 +420,9 @@ struct function GTY(())
      final flowgraph size.  */
   int max_jumptable_ents;
 
+  /* UIDs for LABEL_DECLs.  */
+  int last_label_uid;
+
   /* Line number of the end of the function.  */
   location_t function_end_locus;
 

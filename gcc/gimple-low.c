@@ -47,7 +47,6 @@ struct lower_data
   tree block;
 };
 
-static void lower_stmt_body (tree, struct lower_data *);
 static void lower_stmt (tree_stmt_iterator *, struct lower_data *);
 static void lower_bind_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_cond_expr (tree_stmt_iterator *, struct lower_data *);
@@ -86,7 +85,7 @@ lower_function_body (tree *body_p)
    when they are changed -- if this has to be done, the lowering routine must
    do it explicitly.  DATA is passed through the recursion.  */
 
-static void
+void
 lower_stmt_body (tree expr, struct lower_data *data)
 {
   tree_stmt_iterator tsi;
@@ -102,7 +101,7 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
 {
   tree stmt = tsi_stmt (*tsi);
 
-  if (EXPR_LOCUS (stmt))
+  if (EXPR_LOCUS (stmt) && data)
     TREE_BLOCK (stmt) = data->block;
 
   switch (TREE_CODE (stmt))
