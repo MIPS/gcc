@@ -1,3 +1,8 @@
+2004-02-17  Devang Patel  <dpatel@apple.com>
+
+	* tree-vectorize.c (vect_create_data_ref): Set TREE_ADDRESSABLE bit.
+	(vectorize_loops): Reset loop->aux.
+
 2004-02-16  Devang Patel  <dpatel@apple.com>
 
         * Makefile.in (TREE_FLOW_H): Add tree-dg.h

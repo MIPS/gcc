@@ -728,6 +728,7 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
   vec_stmt = build (MODIFY_EXPR, ptr_type, array_ptr,
 		    build1 (NOP_EXPR, ptr_type,
 			    build1 (ADDR_EXPR, ptr_type, base)));
+  TREE_ADDRESSABLE (base) = 1;
   new_temp = make_ssa_name (array_ptr, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = new_temp;
   bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
@@ -2962,5 +2963,6 @@ vectorize_loops (struct loops *loops,
       struct loop *loop = loops->parray[i];
       loop_vec_info loop_vinfo = loop->aux;
       destroy_loop_vec_info (loop_vinfo);
+      loop->aux = NULL;
     }
 }
