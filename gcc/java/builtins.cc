@@ -554,9 +554,19 @@ tree_builtins::lay_out_class (model_class *klass)
 
   tree klass_record = TREE_TYPE (klass_tree);
 
+  // Lay out superclasses and interfaces.
   tree super_record = NULL_TREE;
   if (klass->get_superclass () != NULL)
     super_record = TREE_TYPE (lay_out_class (klass->get_superclass ()));
+
+  std::list<ref_forwarding_type> &ifaces (klass->get_interfaces ());
+  for (std::list<ref_forwarding_type>::const_iterator i = ifaces.begin ();
+       i != ifaces.end ();
+       ++i)
+    {
+      model_class *ik = assert_cast<model_class *> ((*i)->type ());
+      lay_out_class (ik);
+    }
 
   // Ensure all non-static methods have been added.
   std::list<ref_method> methods = klass->get_methods ();
