@@ -1,5 +1,10 @@
 2002-09-20  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-dfa.c (find_refs_in_stmt): Fix botched call to
+	clobber_vars_r with CLEANUP_STMT nodes.
+
+2002-09-20  Diego Novillo  <dnovillo@redhat.com>
+
 	* toplev.c (flag_tree_ssa): Remove.  Update all users.
 
 2002-09-20  Frank Ch. Eigler  <fche@redhat.com>

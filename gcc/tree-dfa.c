@@ -236,9 +236,18 @@ find_refs_in_stmt (t, bb)
 
     /* FIXME  CLEANUP_STMTs are not simplified.  Clobber everything.  */
     case CLEANUP_STMT:
-      walk_tree (&CLEANUP_DECL (t), clobber_vars_r, NULL, NULL);
-      walk_tree (&CLEANUP_EXPR (t), clobber_vars_r, NULL, NULL);
-      break;
+      {
+	struct clobber_data_d clobber_data;
+
+	clobber_data.bb = bb;
+	clobber_data.parent_stmt = t;
+	clobber_data.parent_expr = CLEANUP_DECL (t);
+	walk_tree (&CLEANUP_DECL (t), clobber_vars_r, &clobber_data, NULL);
+
+	clobber_data.parent_expr = CLEANUP_EXPR (t);
+	walk_tree (&CLEANUP_EXPR (t), clobber_vars_r, &clobber_data, NULL);
+	break;
+      }
 
     case LABEL_STMT:
       find_refs_in_expr (&LABEL_STMT_LABEL (t), V_USE, bb, t,
