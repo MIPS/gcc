@@ -1,5 +1,10 @@
 2005-02-02  Diego Novillo  <dnovillo@redhat.com>
 
+	* basic-block.h (nearest_common_dominator): Declare.
+	* dominance.c (nearest_common_dominator): New.
+
+2005-02-02  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree.h (ASSERT_EXPR_VAR): Define.
 	(ASSERT_EXPR_COND): Define.
 	* tree-cfg.c (verify_expr): Use
