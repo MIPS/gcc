@@ -1,3 +1,8 @@
+2004-12-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-flow-inline.h (clear_call_clobbered): New function.
+	* tree-ssa-alias.c (init_alias_info): Call it.
+
 2004-12-09  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-into-ssa.c (REWRITE_THIS_STMT): Define.
