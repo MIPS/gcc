@@ -1,3 +1,9 @@
+2004-08-22  Andrew Pinski  <apinski@apple.com>
+        
+	PR tree-opt/17138
+	* tree-ssa-loop-ivopts.c (peel_address): Handle REALPART_EXPR
+	and IMAGPART_EXPR.
+
 2004-08-20  Stan Shebs  <shebs@apple.com>
 
 	* config/rs6000/darwin.h (DARWIN_ARCH_LD_SPEC): Pass -arch ppc64

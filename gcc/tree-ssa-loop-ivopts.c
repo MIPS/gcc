@@ -2809,6 +2809,8 @@ peel_address (tree addr, unsigned HOST_WIDE_INT *diff)
     {
     case SSA_NAME:
     case INDIRECT_REF:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
     case BIT_FIELD_REF:
     case VAR_DECL:
     case PARM_DECL:
