@@ -1,4 +1,4 @@
-/* JTree.java -- 
+/* JTree.java --
    Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -35,81 +35,74 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-
 package javax.swing;
 
 import java.awt.Dimension;
 import java.awt.Rectangle;
-
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.swing.plaf.TreeUI;
 
-public class JTree extends JComponent implements Scrollable, Accessible
+
+public class JTree extends JComponent
+  implements Scrollable, Accessible
 {
   private static final long serialVersionUID = 7559816092864483649L;
-  
-    JTree()
-    {
-	updateUI();
-    }
-    
-    public TreeUI getUI()
-    {
-        return (TreeUI) ui;
-    }
 
-    public void setUI(TreeUI ui)
-    {
-        super.setUI(ui);
-    }
+  JTree()
+  {
+    updateUI();
+  }
 
-    public void updateUI()
-    {
-        setUI((TreeUI)UIManager.getUI(this));
-    }
+  public TreeUI getUI()
+  {
+    return (TreeUI) ui;
+  }
 
-    
-    public String getUIClassID()
-    {
-	return "TreeUI";
-    }
+  public void setUI(TreeUI ui)
+  {
+    super.setUI(ui);
+  }
 
+  public void updateUI()
+  {
+    setUI((TreeUI) UIManager.getUI(this));
+  }
 
-    public AccessibleContext getAccessibleContext()
-    {
-      return null;
-    }
+  public String getUIClassID()
+  {
+    return "TreeUI";
+  }
 
-    public Dimension getPreferredScrollableViewportSize()
-    {
-	return null;
-    }
+  public AccessibleContext getAccessibleContext()
+  {
+    return null;
+  }
 
-    public int getScrollableUnitIncrement(Rectangle visibleRect,
-					  int orientation,
-					  int direction)
-    {
-	return 1;
-    }
+  public Dimension getPreferredScrollableViewportSize()
+  {
+    return null;
+  }
 
-    public int getScrollableBlockIncrement(Rectangle visibleRect,
-					   int orientation,
-					   int direction)
-    {
-	return 1;
-    }
+  public int getScrollableUnitIncrement(Rectangle visibleRect,
+                                        int orientation, int direction)
+  {
+    return 1;
+  }
 
-    public boolean getScrollableTracksViewportWidth()
-    {
-	return false;
-    }
+  public int getScrollableBlockIncrement(Rectangle visibleRect,
+                                         int orientation, int direction)
+  {
+    return 1;
+  }
 
-    public boolean getScrollableTracksViewportHeight()
-    {
-	return false;
-    }
+  public boolean getScrollableTracksViewportWidth()
+  {
+    return false;
+  }
+
+  public boolean getScrollableTracksViewportHeight()
+  {
+    return false;
+  }
 }
-
-
-

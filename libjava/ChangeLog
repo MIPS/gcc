@@ -1,5 +1,9 @@
 2004-06-16  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JTree.java: Reformatted.
+
+2004-06-16  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JTextArea.java: New file.
 	* javax/swing/JTextField.java
 	(actions): Removed.
