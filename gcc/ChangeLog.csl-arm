@@ -1,3 +1,8 @@
+2005-01-25  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_compute_func_type): Don't use
+	current_function_nothrow.
+
 2005-01-22  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.md: Use "Uy" constraint for wcgr load/stores.
