@@ -1174,9 +1174,6 @@ copy_bb_p (basic_block bb, int code_may_grow)
   int size = 0;
   int max_size = uncond_jump_length;
   rtx insn;
-  int n_succ;
-  edge e;
-  unsigned ix;
 
   if (!bb->frequency)
     return false;
@@ -1186,13 +1183,8 @@ copy_bb_p (basic_block bb, int code_may_grow)
     return false;
 
   /* Avoid duplicating blocks which have many successors (PR/13430).  */
-  n_succ = 0;
-  FOR_EACH_EDGE (e, bb->succ, ix)
-    {
-      n_succ++;
-      if (n_succ > 8)
-	return false;
-    }
+  if (EDGE_COUNT (bb->succ) > 8)
+    return false;
 
   if (code_may_grow && maybe_hot_bb_p (bb))
     max_size *= 8;

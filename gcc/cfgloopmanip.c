@@ -282,13 +282,10 @@ fix_irreducible_loops (basic_block from)
 	edges = get_loop_exit_edges (bb->loop_father, &n_edges);
       else
 	{
-	  n_edges = 0;
-	  FOR_EACH_EDGE (e, bb->succ, ix)
-	    n_edges++;
+	  n_edges = EDGE_COUNT (bb->succ);
 	  edges = xmalloc (n_edges * sizeof (edge));
-	  n_edges = 0;
 	  FOR_EACH_EDGE (e, bb->succ, ix)
-	    edges[n_edges++] = e;
+	    edges[ix] = e;
 	}
 
       for (i = 0; i < n_edges; i++)

@@ -85,7 +85,10 @@ expand_block (basic_block bb, FILE * dump_file)
          It is safe to remove them here as find_sub_basic_blocks will
          rediscover them.  In the future we should get this fixed properly.  */
       if (e->flags & EDGE_ABNORMAL)
-	remove_edge (e);
+	{
+	  remove_edge (e);
+	  ix--;
+	}
     }
 
   for (; !bsi_end_p (bsi); bsi_next (&bsi))
@@ -203,6 +206,7 @@ expand_block (basic_block bb, FILE * dump_file)
 			  count += e->count;
 			  probability += e->probability;
 			  remove_edge (e);
+			  ix--;
 			}
 		    }
 

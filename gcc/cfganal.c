@@ -134,9 +134,8 @@ could_fall_through (basic_block src, basic_block target)
   if (target == EXIT_BLOCK_PTR)
     return true;
   FOR_EACH_EDGE (e, src->succ, ix)
-    if (e->dest == EXIT_BLOCK_PTR
-	&& e->flags & EDGE_FALLTHRU)
-    return 0;
+    if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
+      return 0;
   return true;
 }
 
@@ -550,7 +549,10 @@ remove_fake_predecessors (basic_block bb)
   FOR_EACH_EDGE (e, bb->pred, ix)
     {
       if ((e->flags & EDGE_FAKE) == EDGE_FAKE)
-	remove_edge (e);
+	{
+	  remove_edge (e);
+	  ix--;
+	}
     }
 }
 

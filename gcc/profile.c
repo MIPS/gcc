@@ -587,8 +587,7 @@ compute_branch_probabilities (void)
 	    }
 	  else
 	    {
-	      FOR_EACH_EDGE (e, bb->succ, ix)
-		total ++;
+	      total += EDGE_COUNT (bb->succ);
 	      FOR_EACH_EDGE (e, bb->succ, ix)
 		e->probability = REG_BR_PROB_BASE / total;
 	    }

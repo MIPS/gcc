@@ -2215,6 +2215,7 @@ finish_eh_generation (void)
 	  if (e->flags & EDGE_EH)
 	    {
 	      remove_edge (e);
+	      ix--;
 	      eh = true;
 	    }
 	}

@@ -2236,7 +2236,7 @@ merge_if_block (struct ce_if_block * ce_info)
 
       /* The outgoing edge for the current COMBO block should already
 	 be correct.  Verify this.  */
-      if (EDGE_0 (combo_bb->succ) == NULL_EDGE)
+      if (EDGE_COUNT (combo_bb->succ) == 0)
 	{
 	  if (find_reg_note (last, REG_NORETURN, NULL))
 	    ;
@@ -2286,7 +2286,7 @@ merge_if_block (struct ce_if_block * ce_info)
 
       /* The outgoing edge for the current COMBO block should already
 	 be correct.  Verify this.  */
-      if (EDGE_1 (combo_bb->succ) != NULL_EDGE
+      if (EDGE_COUNT (combo_bb->succ) > 1
 	  || EDGE_0 (combo_bb->succ)->dest != join_bb)
 	abort ();
 

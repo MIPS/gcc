@@ -367,9 +367,15 @@ delete_basic_block (basic_block bb)
   /* Remove the edges into and out of this block.  Note that there may
      indeed be edges in, if we are removing an unreachable loop.  */
   FOR_EACH_EDGE (e, bb->pred, ix)
-    remove_edge (EDGE_I (bb->pred, ix));
+    {
+      remove_edge (e);
+      ix--;
+    }
   FOR_EACH_EDGE (e, bb->succ, ix)
-    remove_edge (EDGE_I (bb->succ, ix));
+    {
+      remove_edge (e);
+      ix--;
+    }
 
   if (EDGE_COUNT (bb->pred) > 0)
     VEC_truncate (edge, bb->pred, 0);
@@ -522,7 +528,10 @@ merge_blocks (basic_block a, basic_block b)
      whole lot of them and hope the caller knows what they're doing.  */
 
   FOR_EACH_EDGE (e, a->succ, ix)
-    remove_edge (EDGE_I (a->succ, ix));
+    {
+      remove_edge (e);
+      ix--;
+    }
 
   /* Adjust the edges out of B for the new owner.  */
   FOR_EACH_EDGE (e, b->succ, ix)

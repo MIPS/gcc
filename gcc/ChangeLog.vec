@@ -1,5 +1,19 @@
 2004-07-21  Ben Elliston  <bje@au.ibm.com>
 
+	* cfganal.c (remove_fake_predecessors): Decrement the iterator if
+	an edge is removed so that we re-examine the current vector slot.
+	* except.c (finish_eh_generation): Likewise.
+	* cfgexpand.c (expand_block): Likewise.
+	* cfghooks.c (delete_basic_block): Likewise.
+	(merge_blocks): Likewise.
+	* profile.c (compute_branch_probabilities): Use EDGE_COUNT, not
+	a FOR_EACH_EDGE loop with an increment in the loop body.
+	* cfgloopmanip.c (fix_irreducible_loops): Use EDGE_COUNT.
+	* bb-reorder.c (copy_bb_p): Directly test if edge count exceeds 8.
+	* ifcvt.c (merge_if_block): Use EDGE_COUNT for clarity.
+
+2004-07-21  Ben Elliston  <bje@au.ibm.com>
+
 	* cfg.c (clear_edges): Truncate the bb->succ, bb->pred vectors.
 	Likewise for EXIT_BLOCK_PTR->succ and EXIT_BLOCK_PTR->pred.
 
