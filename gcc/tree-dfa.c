@@ -734,35 +734,43 @@ add_vdef (tree var, tree stmt, voperands_t prev_vops)
   size_t i;
   bool found;
 
+  ann = stmt_ann (stmt);
+
+  /* Don't allow duplicate entries.  */
+  if (ann->vops && ann->vops->vdef_ops)
+    for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->vops->vdef_ops); i++)
+      {
+	tree vdef_var = VDEF_RESULT (VARRAY_TREE (ann->vops->vdef_ops, i));
+	if (var == vdef_var
+	    || (TREE_CODE (vdef_var) == SSA_NAME
+		&& var == SSA_NAME_VAR (vdef_var)))
+	  return;
+      }
+
   /* If the statement already had virtual definitions, see if any of the
      existing VDEFs matches VAR.  If so, re-use it, otherwise add a new
      VDEF for VAR.  */
   found = false;
   vdef = NULL_TREE;
   if (prev_vops && prev_vops->vdef_ops)
-    {
-      size_t i;
-
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (prev_vops->vdef_ops); i++)
-	{
-	  tree t;
-	  vdef = VARRAY_TREE (prev_vops->vdef_ops, i);
-	  t = VDEF_RESULT (vdef);
-	  if (t == var
-	      || (TREE_CODE (t) == SSA_NAME
-		  && SSA_NAME_VAR (t) == var))
-	    {
-	      found = true;
-	      break;
-	    }
-	}
-    }
+    for (i = 0; i < VARRAY_ACTIVE_SIZE (prev_vops->vdef_ops); i++)
+      {
+	tree t;
+	vdef = VARRAY_TREE (prev_vops->vdef_ops, i);
+	t = VDEF_RESULT (vdef);
+	if (t == var
+	    || (TREE_CODE (t) == SSA_NAME
+		&& SSA_NAME_VAR (t) == var))
+	  {
+	    found = true;
+	    break;
+	  }
+      }
 
   /* If no previous VDEF operand was found for VAR, create one now.  */
   if (!found)
     vdef = build_vdef_expr (var);
 
-  ann = stmt_ann (stmt);
   if (ann->vops == NULL)
     {
       ann->vops = ggc_alloc (sizeof (struct voperands_d));
@@ -771,11 +779,6 @@ add_vdef (tree var, tree stmt, voperands_t prev_vops)
 
   if (ann->vops->vdef_ops == NULL)
     VARRAY_TREE_INIT (ann->vops->vdef_ops, 5, "vdef_ops");
-
-  /* Don't allow duplicate entries.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->vops->vdef_ops); i++)
-    if (var == VDEF_RESULT (VARRAY_TREE (ann->vops->vdef_ops, i)))
-      return;
 
   VARRAY_PUSH_TREE (ann->vops->vdef_ops, vdef);
 }
@@ -794,33 +797,41 @@ add_vuse (tree var, tree stmt, voperands_t prev_vops)
   bool found;
   tree vuse;
 
+  ann = stmt_ann (stmt);
+
+  /* Don't allow duplicate entries.  */
+  if (ann->vops && ann->vops->vuse_ops)
+    for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->vops->vuse_ops); i++)
+      {
+	tree vuse_var = VARRAY_TREE (ann->vops->vuse_ops, i);
+	if (var == vuse_var
+	    || (TREE_CODE (vuse_var) == SSA_NAME
+		&& var == SSA_NAME_VAR (vuse_var)))
+	  return;
+      }
+
   /* If the statement already had virtual uses, see if any of the
      existing VUSEs matches VAR.  If so, re-use it, otherwise add a new
      VUSE for VAR.  */
   found = false;
   vuse = NULL_TREE;
   if (prev_vops && prev_vops->vuse_ops)
-    {
-      size_t i;
-
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (prev_vops->vuse_ops); i++)
-	{
-	  vuse = VARRAY_TREE (prev_vops->vuse_ops, i);
-	  if (vuse == var
-	      || (TREE_CODE (vuse) == SSA_NAME
-		  && SSA_NAME_VAR (vuse) == var))
-	    {
-	      found = true;
-	      break;
-	    }
-	}
-    }
+    for (i = 0; i < VARRAY_ACTIVE_SIZE (prev_vops->vuse_ops); i++)
+      {
+	vuse = VARRAY_TREE (prev_vops->vuse_ops, i);
+	if (vuse == var
+	    || (TREE_CODE (vuse) == SSA_NAME
+		&& SSA_NAME_VAR (vuse) == var))
+	  {
+	    found = true;
+	    break;
+	  }
+      }
 
   /* If VAR existed already in PREV_VOPS, re-use it.  */
   if (found)
     var = vuse;
 
-  ann = stmt_ann (stmt);
   if (ann->vops == NULL)
     {
       ann->vops = ggc_alloc (sizeof (struct voperands_d));
@@ -829,11 +840,6 @@ add_vuse (tree var, tree stmt, voperands_t prev_vops)
 
   if (ann->vops->vuse_ops == NULL)
     VARRAY_TREE_INIT (ann->vops->vuse_ops, 5, "vuse_ops");
-
-  /* Don't allow duplicate entries.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->vops->vuse_ops); i++)
-    if (var == VARRAY_TREE (ann->vops->vuse_ops, i))
-      return;
 
   VARRAY_PUSH_TREE (ann->vops->vuse_ops, var);
 }
