@@ -1,3 +1,7 @@
+2004-08-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* bpabi.h (FPUTYPE_DEFAULT): Set it to FPUTYPE_VFP.
+
 2004-08-16  Mark Mitchell  <mark@codesourcery.com>
 
 	Backport:
