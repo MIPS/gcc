@@ -44,6 +44,17 @@ class_writer::~class_writer ()
 }
 
 void
+class_writer::check_type (model_element *request, model_type *type)
+{
+  int n_dims = 0;
+  for (; type->array_p (); type = type->element_type ())
+    ++n_dims;
+  if (n_dims > 255)
+    throw request->error ("class file format only allows arrays with "
+			  "a maximum of 255 dimensions");
+}
+
+void
 class_writer::classify_annotations (const std::list<ref_annotation> &annos,
 				    std::list<model_annotation *> &class_annos,
 				    std::list<model_annotation *> &runtime_annos)
@@ -238,9 +249,14 @@ class_writer::write (directory_cache &dircache)
       for (std::list<ref_variable_decl>::const_iterator j = params.begin ();
 	   j != params.end ();
 	   ++j)
-	len += wide_p ((*j)->type ()) ? 2 : 1;
+	{
+	  check_type ((*i).get (), (*j)->type ());
+	  len += wide_p ((*j)->type ()) ? 2 : 1;
+	}
       if (len > 255)
 	throw (*i)->error ("method requires more than 255 words of arguments");
+
+      check_type ((*i).get (), (*i)->get_return_type ());
 
       pool->add_utf ((*i)->get_name ());
       pool->add_utf ((*i)->get_descriptor ());
@@ -276,6 +292,8 @@ class_writer::write (directory_cache &dircache)
        i != fields.end ();
        ++i)
     {
+      check_type ((*i).get (), (*i)->type ());
+
       // We don't bother saving the indices here, we just recompute
       // them later.  This is ok since the constant pool caches the
       // values.

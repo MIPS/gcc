@@ -1,6 +1,6 @@
 // Write a class file.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -58,6 +58,9 @@ public:
   ~class_writer ();
 
   void write (directory_cache &);
+
+  // Convenience method for checking number of dimensions of an array.
+  static void check_type (model_element *, model_type *);
 };
 
 #endif // GCJX_BYTECODE_CLASSWRITER_HH

@@ -1,5 +1,17 @@
 2005-01-25  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/classwriter.cc (check_type): New method.
+	(write): Use it.
+	* bytecode/classwriter.hh (class_writer::check_type): Declare.
+	* bytecode/generate.cc (visit_for_enhanced): Use check_type.
+	(visit_cast): Likewise.
+	(visit_class_ref): Likewise.
+	(visit_instanceof): Likewise.
+	(visit_new_array): Likewise.
+	(visit_array_initializer): Likewise.
+
+2005-01-25  Tom Tromey  <tromey@redhat.com>
+
 	* defassign.cc (variable_state::check_loop): New method.
 	(definite_assignment_visitor::visit_for_enhanced): Use it.
 	(definite_assignment_visitor::visit_for): Likewise.

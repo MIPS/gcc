@@ -26,6 +26,7 @@
 #include "bytecode/attribute.hh"
 #include "bytecode/generate.hh"
 #include "bytecode/byteutil.hh"
+#include "bytecode/classwriter.hh"
 
 /// Returns how many stack slots the given type takes.
 static inline size_t
@@ -651,6 +652,8 @@ bytecode_generator::visit_for_enhanced (model_for_enhanced *fstmt,
     }
     if (container->type ()->array_p ())
       {
+	class_writer::check_type (fstmt, container->type ());
+
 	bytecode_block *update (new_bytecode_block ());
 	temporary_local array_var (vars, NULL);
 	temporary_local arraylen_var (vars, NULL);
@@ -1283,6 +1286,7 @@ bytecode_generator::visit_variable_stmt (model_variable_stmt *stmt,
        ++i)
     {
       int n = vars.request ((*i).get ());
+      class_writer::check_type ((*i).get (), (*i)->type ());
       ref_expression init = (*i)->get_initializer ();
       if (init)
 	{
@@ -1371,7 +1375,7 @@ bytecode_generator::adjust_for_type_full (model_type *t) const
 
 
 void
-bytecode_generator::visit_array_initializer (model_array_initializer *,
+bytecode_generator::visit_array_initializer (model_array_initializer *initx,
 					     const ref_forwarding_type &elt_type,
 					     const std::list<ref_expression> &exprs)
 {
@@ -1379,6 +1383,7 @@ bytecode_generator::visit_array_initializer (model_array_initializer *,
 
   model_type *element_type = elt_type->type ();
   model_type *array_type = element_type->array ();
+  class_writer::check_type (initx, array_type);
 
   visit_simple_literal (NULL, jint (exprs.size ()));
   emit_new_array (element_type);
@@ -2247,6 +2252,7 @@ bytecode_generator::visit_cast (model_cast *cast_expr,
     }
   else
     {
+      class_writer::check_type (cast_expr, dest_type);
       emit_cast (dest_type, expr->type ());
       if (expr_target == IGNORE)
 	{
@@ -2266,6 +2272,7 @@ bytecode_generator::visit_class_ref (model_class_ref *ref,
 	  || expr_target == IGNORE);
 
   model_type *type = req->type ();
+  class_writer::check_type (ref, type);
   if (type->primitive_p () || type == primitive_void_type)
     {
       model_class *wrapper = box_primitive_type (type);
@@ -2762,7 +2769,7 @@ bytecode_generator::visit_field_initializer (model_field_initializer *,
 }
 
 void
-bytecode_generator::visit_instanceof (model_instanceof *,
+bytecode_generator::visit_instanceof (model_instanceof *inst,
 				      const ref_expression &expr,
 				      const ref_forwarding_type &klass)
 {
@@ -2773,6 +2780,7 @@ bytecode_generator::visit_instanceof (model_instanceof *,
     expr->visit (this);
   }
   emit (op_instanceof);
+  class_writer::check_type (inst, klass->type ());
   int index = cpool->add (klass->type ());
   emit2 (index);
 
@@ -3270,7 +3278,7 @@ bytecode_generator::visit_new (model_new *new_expr,
 }
 
 void
-bytecode_generator::visit_new_array (model_new_array *,
+bytecode_generator::visit_new_array (model_new_array *newarray,
 				     const ref_forwarding_type &elt_type,
 				     const std::list<ref_expression> &indices,
 				     const ref_expression &init)
@@ -3292,6 +3300,7 @@ bytecode_generator::visit_new_array (model_new_array *,
   }
   if (len > 1)
     {
+      class_writer::check_type (newarray, atype);
       emit (op_multianewarray);
       int kindex = cpool->add (atype);
       emit2 (kindex);
