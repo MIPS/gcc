@@ -1,3 +1,26 @@
+2004-03-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/12308
+	Backport from mainline
+
+	2004-01-21  Caroline Tice  <ctice@apple.com>
+	* config/i386/i386.md (fix_truncxfdi2): Add clause to clobber 
+	flags register.
+	(fix_truncdfdi2): Likewise.
+	(fix_truncsfdi2): Likewise.
+	(*fix_truncdi_1): Likewise.
+	(fix_truncxfsi2): Likewise.
+	(fix_truncdfsi2): Likewise.
+	(fix_truncsfsi2): Likewise.
+	(*fix_truncsi_1): Likewise.
+	(fix_truncxfhi2): Likewise.
+	(fix_truncdfhi2): Likewise.
+	(fix_truncsfhi2): Likewise.
+	(*fix_trunchi_1): Likewise.
+
+	* config/i386/i386.md (fix_trunctfdi2, fix_trunctfsi2,
+	fix_trunctfhi2): Likewise.
+
 2004-02-25  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.c (override_options): Error if -m64 and selected
