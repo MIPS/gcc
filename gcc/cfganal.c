@@ -110,7 +110,7 @@ can_fallthru (basic_block src, basic_block target)
     return true;
   if (src->next_bb != target)
     return 0;
-  FOR_EACH_SUCC_EDGE (e, src, ix)
+  FOR_EACH_EDGE (e, src->succs, ix)
     if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
       return 0;
 
@@ -133,7 +133,7 @@ could_fall_through (basic_block src, basic_block target)
 
   if (target == EXIT_BLOCK_PTR)
     return true;
-  FOR_EACH_SUCC_EDGE (e, src, ix)
+  FOR_EACH_EDGE (e, src->succs, ix)
     if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
       return 0;
   return true;
@@ -247,7 +247,7 @@ set_edge_can_fallthru_flag (void)
       edge e;
       unsigned ix;
 
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	{
 	  e->flags &= ~EDGE_CAN_FALLTHRU;
 
@@ -292,7 +292,7 @@ find_unreachable_blocks (void)
      be only one.  It isn't inconceivable that we might one day directly
      support Fortran alternate entry points.  */
 
-  FOR_EACH_SUCC_EDGE (e, ENTRY_BLOCK_PTR, ix)
+  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs, ix)
     {
       *tos++ = e->dest;
 
@@ -306,7 +306,7 @@ find_unreachable_blocks (void)
     {
       basic_block b = *--tos;
 
-      FOR_EACH_SUCC_EDGE (e, b, ix)
+      FOR_EACH_EDGE (e, b->succs, ix)
 	if (!(e->dest->flags & BB_REACHABLE))
 	  {
 	    *tos++ = e->dest;
@@ -360,7 +360,7 @@ create_edge_list (void)
 
   /* Follow successors of blocks, and register these edges.  */
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
-    FOR_EACH_SUCC_EDGE (e, bb, ix)
+    FOR_EACH_EDGE (e, bb->succs, ix)
       elist->index_to_edge[num_edges++] = e;
 
   return elist;
@@ -417,7 +417,7 @@ verify_edge_list (FILE *f, struct edge_list *elist)
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	{
 	  pred = e->src->index;
 	  succ = e->dest->index;
@@ -445,14 +445,14 @@ verify_edge_list (FILE *f, struct edge_list *elist)
       {
 	int found_edge = 0;
 
-	FOR_EACH_SUCC_EDGE (e, p, ix)
+	FOR_EACH_EDGE (e, p->succs, ix)
 	  if (e->dest == s)
 	    {
 	      found_edge = 1;
 	      break;
 	    }
 
-	FOR_EACH_PRED_EDGE (e, s, ix)
+	FOR_EACH_EDGE (e, s->preds, ix)
 	  if (e->src == p)
 	    {
 	      found_edge = 1;
@@ -479,7 +479,7 @@ find_edge (basic_block pred, basic_block succ)
   edge e;
   unsigned ix;
 
-  FOR_EACH_SUCC_EDGE (e, pred, ix)
+  FOR_EACH_EDGE (e, pred->succs, ix)
     if (e->dest == succ)
       return e;
 
@@ -546,7 +546,7 @@ remove_fake_predecessors (basic_block bb)
   edge e;
   unsigned ix;
 
-  FOR_EACH_PRED_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->preds, ix)
     {
       if ((e->flags & EDGE_FAKE) == EDGE_FAKE)
 	{
@@ -995,7 +995,7 @@ flow_dfs_compute_reverse_execute (depth_first_search_ds data)
       bb = data->stack[--data->sp];
 
       /* Perform depth-first search on adjacent vertices.  */
-      FOR_EACH_PRED_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->preds, ix)
 	if (!TEST_BIT (data->visited_blocks,
 		       e->src->index - (INVALID_BLOCK + 1)))
 	  flow_dfs_compute_reverse_add_bb (data, e->src);
@@ -1040,7 +1040,7 @@ dfs_enumerate_from (basic_block bb, int reverse,
       lbb = st[--sp];
       if (reverse)
         {
-	  FOR_EACH_PRED_EDGE (e, lbb, ix)
+	  FOR_EACH_EDGE (e, lbb->preds, ix)
 	    if (!(e->src->flags & BB_VISITED) && predicate (e->src, data))
 	      {
 	        if (tv == rslt_max)
@@ -1051,7 +1051,7 @@ dfs_enumerate_from (basic_block bb, int reverse,
         }
       else
         {
-	  FOR_EACH_SUCC_EDGE (e, lbb, ix)
+	  FOR_EACH_EDGE (e, lbb->succs, ix)
 	    if (!(e->dest->flags & BB_VISITED) && predicate (e->dest, data))
 	      {
 	        if (tv == rslt_max)

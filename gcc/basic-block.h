@@ -520,17 +520,10 @@ struct edge_list
 #define FOR_EACH_EDGE(e, vec, iter) \
   for ((iter) = 0; VEC_iterate (edge, (vec), (iter), (e)); (iter)++)
 
-#define FOR_EACH_PRED_EDGE(e, vec, iter) \
-  for ((iter) = 0; VEC_iterate (edge, (vec)->preds, (iter), (e)); (iter)++)
-
-#define FOR_EACH_SUCC_EDGE(e, vec, iter) \
-  for ((iter) = 0; VEC_iterate (edge, (vec)->succs, (iter), (e)); (iter)++)
-
 #define EDGE_COUNT(ev)			VEC_length (edge, (ev))
-
-#define EDGE_I(ev,i)			(VEC_index(edge, (ev), (i)))
-#define EDGE_PRED(bb,i)			(VEC_index(edge, (bb)->preds, (i)))
-#define EDGE_SUCC(bb,i)			(VEC_index(edge, (bb)->succs, (i)))
+#define EDGE_I(ev,i)			VEC_index(edge, (ev), (i))
+#define EDGE_PRED(bb,i)			VEC_index(edge, (bb)->preds, (i))
+#define EDGE_SUCC(bb,i)			VEC_index(edge, (bb)->succs, (i))
 
 struct edge_list * create_edge_list (void);
 void free_edge_list (struct edge_list *);

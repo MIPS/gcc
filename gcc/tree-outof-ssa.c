@@ -588,7 +588,7 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
      that edge.  */
 
   FOR_EACH_BB (bb)
-    FOR_EACH_SUCC_EDGE (e, bb, ix)
+    FOR_EACH_EDGE (e, bb->succs, ix)
       if (e->dest != EXIT_BLOCK_PTR && e->flags & EDGE_ABNORMAL)
 	for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	  {
@@ -1943,7 +1943,7 @@ rewrite_trees (var_map map, tree *values)
       if (phi)
         {
 	  unsigned ix;
-	  FOR_EACH_PRED_EDGE (e, bb, ix)
+	  FOR_EACH_EDGE (e, bb->preds, ix)
 	    eliminate_phi (e, phi_arg_from_edge (phi, e), g);
 	}
     }

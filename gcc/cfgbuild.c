@@ -251,7 +251,7 @@ make_edges (basic_block min, basic_block max, int update_p)
 	    edge e;
 	    unsigned ix;
 
-	    FOR_EACH_SUCC_EDGE (e, bb, ix)
+	    FOR_EACH_EDGE (e, bb->succs, ix)
 	      if (e->dest != EXIT_BLOCK_PTR)
 		SET_BIT (edge_cache[bb->index], e->dest->index);
 	  }
@@ -389,7 +389,7 @@ make_edges (basic_block min, basic_block max, int update_p)
 
       /* Find out if we can drop through to the next block.  */
       insn = NEXT_INSN (insn);
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
 	  {
 	    insn = 0;
@@ -709,7 +709,7 @@ find_many_sub_basic_blocks (sbitmap blocks)
 	{
 	  bb->count = 0;
 	  bb->frequency = 0;
-	  FOR_EACH_PRED_EDGE (e, bb, ix)
+	  FOR_EACH_EDGE (e, bb->preds, ix)
 	    {
 	      bb->count += e->count;
 	      bb->frequency += EDGE_FREQUENCY (e);
@@ -750,7 +750,7 @@ find_sub_basic_blocks (basic_block bb)
 	{
 	  b->count = 0;
 	  b->frequency = 0;
-	  FOR_EACH_PRED_EDGE (e, b, ix)
+	  FOR_EACH_EDGE (e, b->preds, ix)
 	    {
 	      b->count += e->count;
 	      b->frequency += EDGE_FREQUENCY (e);

@@ -1,5 +1,10 @@
 2004-08-12  Ben Elliston  <bje@au.ibm.com>
 
+	* basic-block.h (FOR_EACH_PRED_EDGE, FOR_EACH_SUCC_EDGE): Remove.
+	* Update all callers to use FOR_EACH_EDGE instead.
+
+2004-08-12  Ben Elliston  <bje@au.ibm.com>
+
 	* basic-block.h (EDGE_PRED_COUNT, EDGE_SUCC_COUNT): Remove.
 	* Update all callers to use EDGE_COUNT instead.
 

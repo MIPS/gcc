@@ -3924,7 +3924,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 
   may_be_loop_header = false;
 
-  FOR_EACH_PRED_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->preds, ix)
     if (e->flags & EDGE_DFS_BACK)
       {
 	may_be_loop_header = true;
@@ -3932,7 +3932,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
       }
 
   change = 0;
-  FOR_EACH_PRED_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->preds, ix)
     {
       if (e->flags & EDGE_COMPLEX)
 	continue;
@@ -3993,7 +3993,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	      unsigned ix;
 	      dest = BLOCK_FOR_INSN (XEXP (new, 0));
 	      /* Don't bypass edges containing instructions.  */
-	      FOR_EACH_SUCC_EDGE (edest, bb, ix)
+	      FOR_EACH_EDGE (edest, bb->succs, ix)
 		if (edest->dest == dest && edest->insns.r)
 		  {
 		    dest = NULL;
@@ -4011,7 +4011,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	    {
 	      edge e2;
 	      unsigned ix;
-	      FOR_EACH_SUCC_EDGE (e2, e->src, ix)
+	      FOR_EACH_EDGE (e2, e->src->succs, ix)
 		if (e2->dest == dest)
 		  {
 		    dest = NULL;
@@ -4232,7 +4232,7 @@ compute_pre_data (void)
 	 kill all trapping expressions because we won't be able to properly
 	 place the instruction on the edge.  So make them neither
 	 anticipatable nor transparent.  This is fairly conservative.  */
-      FOR_EACH_PRED_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->preds, ix)
 	if (e->flags & EDGE_ABNORMAL)
 	  {
 	    sbitmap_difference (antloc[bb->index], antloc[bb->index], trapping_expr);
@@ -4274,7 +4274,7 @@ pre_expr_reaches_here_p_work (basic_block occr_bb, struct expr *expr, basic_bloc
   edge pred;
   unsigned ix;
   
-  FOR_EACH_PRED_EDGE (pred, bb, ix)
+  FOR_EACH_EDGE (pred, bb->preds, ix)
     {
       basic_block pred_bb = pred->src;
 
@@ -5154,7 +5154,7 @@ hoist_expr_reaches_here_p (basic_block expr_bb, int expr_index, basic_block bb, 
       visited = xcalloc (last_basic_block, 1);
     }
 
-  FOR_EACH_PRED_EDGE (pred, bb, ix)
+  FOR_EACH_EDGE (pred, bb->preds, ix)
     {
       basic_block pred_bb = pred->src;
 
@@ -6545,7 +6545,7 @@ insert_store (struct ls_expr * expr, edge e)
      insert it at the start of the BB, and reset the insert bits on the other
      edges so we don't try to insert it on the other edges.  */
   bb = e->dest;
-  FOR_EACH_PRED_EDGE (tmp, e->dest, ix)
+  FOR_EACH_EDGE (tmp, e->dest->preds, ix)
     if (!(tmp->flags & EDGE_FAKE))
       {
 	int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
@@ -6559,7 +6559,7 @@ insert_store (struct ls_expr * expr, edge e)
      insertion vector for these edges, and insert at the start of the BB.  */
   if (!tmp && bb != EXIT_BLOCK_PTR)
     {
-      FOR_EACH_PRED_EDGE (tmp, e->dest, ix)
+      FOR_EACH_EDGE (tmp, e->dest->preds, ix)
 	{
 	  int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
 	  RESET_BIT (pre_insert_map[index], expr->index);
@@ -7091,7 +7091,7 @@ bb_has_well_behaved_predecessors (basic_block bb)
 
   if (EDGE_COUNT (bb->preds) == 0)
     return false;
-  FOR_EACH_PRED_EDGE (pred, bb, ix)
+  FOR_EACH_EDGE (pred, bb->preds, ix)
     if (((pred->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (pred))
 	|| is_jump_table_basic_block (pred->src))
       return false;
@@ -7170,7 +7170,7 @@ eliminate_partially_redundant_loads (basic_block bb, rtx insn,
     return;
 
   /* Check potential for replacing load with copy for predecessors.  */
-  FOR_EACH_PRED_EDGE (pred, bb, ix)
+  FOR_EACH_EDGE (pred, bb->preds, ix)
     {
       rtx next_pred_bb_end;
 

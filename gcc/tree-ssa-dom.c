@@ -854,7 +854,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	 edges forward to the same destination block.  */
       if (!e->flags & EDGE_DFS_BACK)
 	{
-	  FOR_EACH_PRED_EDGE (e1, e->dest, ix)
+	  FOR_EACH_EDGE (e1, e->dest->preds, ix)
 	    if (e1->flags & EDGE_DFS_BACK)
 	      break;
 	  if (e1)
@@ -1419,7 +1419,7 @@ single_incoming_edge_ignoring_loop_edges (basic_block bb)
   edge e;
   unsigned ix;
 
-  FOR_EACH_PRED_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->preds, ix)
     {
       /* A loop back edge can be identified by the destination of
 	 the edge dominating the source of the edge.  */
@@ -2549,7 +2549,7 @@ cprop_into_successor_phis (basic_block bb,
   /* This can get rather expensive if the implementation is naive in
      how it finds the phi alternative associated with a particular edge.  */
 
-  FOR_EACH_SUCC_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->succs, ix)
     {
       tree phi;
       int phi_num_args;

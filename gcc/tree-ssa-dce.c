@@ -469,7 +469,7 @@ find_obviously_necessary_stmts (struct edge_list *el)
       FOR_EACH_BB (bb)
 	{
 	  unsigned ix;
-	  FOR_EACH_SUCC_EDGE (e, bb, ix)
+	  FOR_EACH_EDGE (e, bb->succs, ix)
 	    if (e->flags & EDGE_DFS_BACK)
 	      mark_control_dependent_edges_necessary (e->dest, el);
 	}

@@ -1203,7 +1203,7 @@ fill_always_executed_in (struct loop *loop, sbitmap contains_call)
 	  if (TEST_BIT (contains_call, bb->index))
 	    break;
 
-	  FOR_EACH_SUCC_EDGE (e, bb, ix)
+	  FOR_EACH_EDGE (e, bb->succs, ix)
 	    if (!flow_bb_inside_loop_p (loop, e->dest))
 	      break;
 	  if (e)

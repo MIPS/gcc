@@ -1735,7 +1735,7 @@ vt_find_locations (void)
 
 	      /* Calculate the IN set as union of predecessor OUT sets.  */
 	      dataflow_set_clear (&VTI (bb)->in);
-	      FOR_EACH_PRED_EDGE (e, bb, ix)
+	      FOR_EACH_EDGE (e, bb->preds, ix)
 		{
 		  dataflow_set_union (&VTI (bb)->in, &VTI (e->src)->out);
 		}
@@ -1743,7 +1743,7 @@ vt_find_locations (void)
 	      changed = compute_bb_dataflow (bb);
 	      if (changed)
 		{
-		  FOR_EACH_SUCC_EDGE (e, bb, ix)
+		  FOR_EACH_EDGE (e, bb->succs, ix)
 		    {
 		      if (e->dest == EXIT_BLOCK_PTR)
 			continue;

@@ -15763,7 +15763,7 @@ ix86_pad_returns (void)
   edge e;
   unsigned ix;
 
-  FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds, ix)
   {
     basic_block bb = e->src;
     rtx ret = BB_END (bb);
@@ -15781,7 +15781,7 @@ ix86_pad_returns (void)
 	edge e;
 	unsigned ix;
 
-	FOR_EACH_PRED_EDGE (e, bb, ix)
+	FOR_EACH_EDGE (e, bb->preds, ix)
 	  if (EDGE_FREQUENCY (e) && e->src->index >= 0
 	      && !(e->flags & EDGE_FALLTHRU))
 	    replace = true;

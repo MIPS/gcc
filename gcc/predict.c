@@ -292,7 +292,7 @@ dump_prediction (FILE *file, enum br_predictor predictor, int probability,
   if (!file)
     return;
 
-  FOR_EACH_SUCC_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->succs, ix)
     if (! (e->flags & EDGE_FALLTHRU))
       break;
 
@@ -431,7 +431,7 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
   edge e, first = NULL, second = NULL;
   unsigned ix;
 
-  FOR_EACH_SUCC_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->succs, ix)
     if (!(e->flags & (EDGE_EH | EDGE_FAKE)))
       {
         nedges ++;
@@ -449,7 +449,7 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
      this later.  */
   if (nedges != 2)
     {
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	if (!(e->flags & (EDGE_EH | EDGE_FAKE)))
 	  e->probability = (REG_BR_PROB_BASE + nedges / 2) / nedges;
 	else
@@ -593,7 +593,7 @@ predict_loops (struct loops *loops_info, bool simpleloops)
 
 	  /* Loop branch heuristics - predict an edge back to a
 	     loop's head as taken.  */
-	  FOR_EACH_SUCC_EDGE (e, bb, ix)
+	  FOR_EACH_EDGE (e, bb->succs, ix)
 	    if (e->dest == loop->header
 		&& e->src == loop->latch)
 	      {
@@ -604,7 +604,7 @@ predict_loops (struct loops *loops_info, bool simpleloops)
 	  /* Loop exit heuristics - predict an edge exiting the loop if the
 	     conditional has no loop header successors as not taken.  */
 	  if (!header_found)
-	    FOR_EACH_SUCC_EDGE (e, bb, ix)
+	    FOR_EACH_EDGE (e, bb->succs, ix)
 	      if (e->dest->index < 0
 		  || !flow_bb_inside_loop_p (loop, e->dest))
 		predict_edge
@@ -647,7 +647,7 @@ estimate_probability (struct loops *loops_info)
       if (! can_predict_insn_p (last_insn))
 	continue;
 
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	{
 	  /* Predict early returns to be probable, as we've already taken
 	     care for error returns and other are often used for fast paths
@@ -798,14 +798,14 @@ estimate_probability (struct loops *loops_info)
 	  edge e;
 	  unsigned ix;
 
-	  FOR_EACH_SUCC_EDGE (e, bb, ix)
+	  FOR_EACH_EDGE (e, bb->succs, ix)
 	    {
 	      nedges++;
 	      if (e->probability != 0)
 		break;
 	    }
 	  if (!e)
-	    FOR_EACH_SUCC_EDGE (e, bb, ix)
+	    FOR_EACH_EDGE (e, bb->succs, ix)
 	      e->probability = (REG_BR_PROB_BASE + nedges / 2) / nedges;
 	}
     }
@@ -827,7 +827,7 @@ tree_predict_by_opcode (basic_block bb)
 
   if (!stmt || TREE_CODE (stmt) != COND_EXPR)
     return;
-  FOR_EACH_SUCC_EDGE (then_edge, bb, ix)
+  FOR_EACH_EDGE (then_edge, bb->succs, ix)
     if (then_edge->flags & EDGE_TRUE_VALUE)
        break;
   cond = TREE_OPERAND (stmt, 0);
@@ -942,7 +942,7 @@ tree_estimate_probability (void)
       edge e;
       unsigned ix;
 
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	{
 	  /* Predict early returns to be probable, as we've already taken
 	     care for error returns and other are often used for fast paths
@@ -1139,7 +1139,7 @@ propagate_freq (struct loop *loop)
 	{
 	  int count = 0;
 
-	  FOR_EACH_PRED_EDGE (e, bb, ix)
+	  FOR_EACH_EDGE (e, bb->preds, ix)
 	    if (BLOCK_INFO (e->src)->tovisit && !(e->flags & EDGE_DFS_BACK))
 	      count++;
 	    else if (BLOCK_INFO (e->src)->tovisit
@@ -1167,12 +1167,12 @@ propagate_freq (struct loop *loop)
       if (bb != head)
 	{
 #ifdef ENABLE_CHECKING
-	  FOR_EACH_PRED_EDGE (e, bb, ix)
+	  FOR_EACH_EDGE (e, bb->preds, ix)
 	    if (BLOCK_INFO (e->src)->tovisit && !(e->flags & EDGE_DFS_BACK))
 	      abort ();
 #endif
 
-	  FOR_EACH_PRED_EDGE (e, bb, ix)
+	  FOR_EACH_EDGE (e, bb->preds, ix)
 	    if (EDGE_INFO (e)->back_edge)
 	      {
 		sreal_add (&cyclic_probability, &cyclic_probability,
@@ -1217,7 +1217,7 @@ propagate_freq (struct loop *loop)
       BLOCK_INFO (bb)->tovisit = 0;
 
       /* Compute back edge frequencies.  */
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	if (e->dest == head)
 	  {
 	    sreal tmp;
@@ -1233,7 +1233,7 @@ propagate_freq (struct loop *loop)
 	  }
 
       /* Propagate to successor blocks.  */
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	if (!(e->flags & EDGE_DFS_BACK)
 	    && BLOCK_INFO (e->dest)->npredecessors)
 	  {
@@ -1379,7 +1379,7 @@ estimate_bb_frequencies (struct loops *loops)
 	  unsigned ix;
 
 	  BLOCK_INFO (bb)->tovisit = 0;
-	  FOR_EACH_SUCC_EDGE (e, bb, ix)
+	  FOR_EACH_EDGE (e, bb->succs, ix)
 	    {
 	      sreal_init (&EDGE_INFO (e)->back_edge_prob, e->probability, 0);
 	      sreal_mul (&EDGE_INFO (e)->back_edge_prob,

@@ -271,7 +271,7 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
   int i, phi_num_args = PHI_NUM_ARGS (phi);
 
   /* Mark all the incoming edges.  */
-  FOR_EACH_PRED_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->preds, ix)
     e->aux = (void *) 1;
 
   for (i = 0; i < phi_num_args; i++)
@@ -316,7 +316,7 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
       e->aux = (void *) 2;
     }
 
-  FOR_EACH_PRED_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->preds, ix)
     {
       if (e->aux != (void *) 2)
 	{
@@ -595,7 +595,7 @@ verify_ssa (void)
       block_stmt_iterator bsi;
 
       /* Make sure that all edges have a clear 'aux' field.  */
-      FOR_EACH_PRED_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->preds, ix)
 	{
 	  if (e->aux)
 	    {

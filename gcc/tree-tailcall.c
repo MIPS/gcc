@@ -231,7 +231,7 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
 	  break;
 	}
 
-      FOR_EACH_PRED_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->preds, ix)
 	if (e->src->aux)
 	  break;
       if (!e)
@@ -408,7 +408,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
   if (bsi_end_p (bsi))
     {
       /* Recurse to the predecessors.  */
-      FOR_EACH_PRED_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->preds, ix)
 	find_tail_calls (e->src, ret);
 
       return;
@@ -813,7 +813,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   if (opt_tailcalls)
     opt_tailcalls = suitable_for_tail_call_opt_p ();
 
-  FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds, ix)
     {
       /* Only traverse the normal exits, i.e. those that end with return
 	 statement.  */
@@ -896,7 +896,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   if (a_acc || m_acc)
     {
       /* Modify the remaining return statements.  */
-      FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
+      FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds, ix)
 	{
 	  stmt = last_stmt (e->src);
 

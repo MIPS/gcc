@@ -685,7 +685,7 @@ compute_alignments (void)
       max_log = LABEL_ALIGN (label);
       max_skip = LABEL_ALIGN_MAX_SKIP;
 
-      FOR_EACH_PRED_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->preds, ix)
 	{
 	  if (e->flags & EDGE_FALLTHRU)
 	    has_fallthru = 1, fallthru_frequency += EDGE_FREQUENCY (e);

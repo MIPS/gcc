@@ -4987,7 +4987,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 
   /* If the exit block has no non-fake predecessors, we don't need
      an epilogue.  */
-  FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds, ix)
     if ((e->flags & EDGE_FAKE) == 0)
       break;
   if (e == NULL)
@@ -5005,7 +5005,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
       basic_block last;
       rtx label;
 
-      FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
+      FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds, ix)
 	if (e->flags & EDGE_FALLTHRU)
 	  break;
       if (e == NULL)
@@ -5036,7 +5036,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 		break;
 	      }
 
-	  FOR_EACH_PRED_EDGE (e, last, ix)
+	  FOR_EACH_EDGE (e, last->preds, ix)
 	    {
 	      basic_block bb = e->src;
 	      rtx jump;
@@ -5092,7 +5092,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
      There really shouldn't be a mixture -- either all should have
      been converted or none, however...  */
 
-  FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds, ix)
     if (e->flags & EDGE_FALLTHRU)
       break;
   if (e == NULL)
@@ -5154,7 +5154,7 @@ epilogue_done:
 #ifdef HAVE_sibcall_epilogue
   /* Emit sibling epilogues before any sibling call sites.  */
 
-  FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds, ix)
     {
       basic_block bb = e->src;
       rtx insn = BB_END (bb);

@@ -517,7 +517,7 @@ sbitmap_intersection_of_succs (sbitmap dst, sbitmap *src, int bb)
   edge e;
   unsigned ix;
 
-  FOR_EACH_SUCC_EDGE (e, b, ix)
+  FOR_EACH_EDGE (e, b->succs, ix)
     {
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
@@ -555,7 +555,7 @@ sbitmap_intersection_of_preds (sbitmap dst, sbitmap *src, int bb)
   edge e;
   unsigned ix;
 
-  FOR_EACH_PRED_EDGE (e, b, ix)
+  FOR_EACH_EDGE (e, b->preds, ix)
     {
       if (e->src == ENTRY_BLOCK_PTR)
 	continue;
@@ -593,7 +593,7 @@ sbitmap_union_of_succs (sbitmap dst, sbitmap *src, int bb)
   edge e;
   unsigned ix;
 
-  FOR_EACH_SUCC_EDGE (e, b, ix)
+  FOR_EACH_EDGE (e, b->succs, ix)
     {
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
@@ -631,7 +631,7 @@ sbitmap_union_of_preds (sbitmap dst, sbitmap *src, int bb)
   edge e;
   unsigned ix;
 
-  FOR_EACH_PRED_EDGE (e, b, ix)
+  FOR_EACH_EDGE (e, b->preds, ix)
     {
       if (e->src== ENTRY_BLOCK_PTR)
 	continue;

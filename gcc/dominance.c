@@ -856,7 +856,7 @@ recount_dominator (enum cdi_direction dir, basic_block bb)
 
   if (dir == CDI_DOMINATORS)
     {
-      FOR_EACH_PRED_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->preds, ix)
 	{
 	  /* Ignore the predecessors that either are not reachable from
 	     the entry block, or whose dominator was not determined yet.  */
@@ -869,7 +869,7 @@ recount_dominator (enum cdi_direction dir, basic_block bb)
     }
   else
     {
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	{
 	  if (!dominated_by_p (dir, e->dest, bb))
 	    dom_bb = nearest_common_dominator (dir, dom_bb, e->dest);

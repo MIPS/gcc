@@ -1107,7 +1107,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
       CLEAR_REG_SET (new_live_at_end);
 
       if (EDGE_COUNT (bb->succs) > 0)
-	FOR_EACH_SUCC_EDGE (e, bb, ix)
+	FOR_EACH_EDGE (e, bb->succs, ix)
 	  {
 	    basic_block sb = e->dest;
 
@@ -1263,7 +1263,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 
       /* Queue all predecessors of BB so that we may re-examine
 	 their live_at_end.  */
-      FOR_EACH_PRED_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->preds, ix)
 	{
 	  basic_block pb = e->src;
 	  if (pb->aux == NULL)
@@ -1370,7 +1370,7 @@ initialize_uninitialized_subregs (void)
   int reg, did_something = 0;
   find_regno_partial_param param;
 
-  FOR_EACH_SUCC_EDGE (e, ENTRY_BLOCK_PTR, ix)
+  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs, ix)
     {
       basic_block bb = e->dest;
       regset map = bb->global_live_at_start;

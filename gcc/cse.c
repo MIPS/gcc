@@ -7642,7 +7642,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
   found_equiv = false;
   mode = GET_MODE (cc_src);
   insn_count = 0;
-  FOR_EACH_SUCC_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->succs, ix)
     {
       rtx insn;
       rtx end;

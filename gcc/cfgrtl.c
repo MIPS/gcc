@@ -494,7 +494,7 @@ rtl_split_block (basic_block bb, void *insnp)
   /* Redirect the outgoing edges.  */
   new_bb->succs = bb->succs;
   bb->succs = NULL;
-  FOR_EACH_SUCC_EDGE (e, new_bb, ix)
+  FOR_EACH_EDGE (e, new_bb->succs, ix)
     e->src = new_bb;
 
   if (bb->global_live_at_start)
@@ -688,7 +688,7 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
     return NULL;
 
   /* Verify that all targets will be TARGET.  */
-  FOR_EACH_SUCC_EDGE (tmp, src, ix)
+  FOR_EACH_EDGE (tmp, src->succs, ix)
     if (tmp->dest != target && tmp != e)
       break;
 
@@ -1054,7 +1054,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
       /* Change the existing edge's source to be the new block, and add
 	 a new edge from the entry block to the new block.  */
       e->src = bb;
-      FOR_EACH_SUCC_EDGE (tmp, ENTRY_BLOCK_PTR, ix)
+      FOR_EACH_EDGE (tmp, ENTRY_BLOCK_PTR->succs, ix)
         if (tmp == e)
           {
             VEC_unordered_remove (edge, ENTRY_BLOCK_PTR->succs, ix);
@@ -1204,7 +1204,7 @@ rtl_tidy_fallthru_edge (edge e)
   edge e2;
   unsigned ix;
 
-  FOR_EACH_SUCC_EDGE (e2, b, ix)
+  FOR_EACH_EDGE (e2, b->succs, ix)
     if (e == e2)
       break;
 
@@ -1321,7 +1321,7 @@ rtl_split_edge (edge edge_in)
       edge e;
       unsigned ix;
 
-      FOR_EACH_PRED_EDGE (e, edge_in->dest, ix)
+      FOR_EACH_EDGE (e, edge_in->dest->preds, ix)
 	if (e->flags & EDGE_FALLTHRU)
 	  break;
 
@@ -1697,7 +1697,7 @@ commit_edge_insertions (void)
       edge e;
       unsigned ix;
 
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	{
 	  if (e->insns.r)
 	    {
@@ -1745,7 +1745,7 @@ commit_edge_insertions_watch_calls (void)
       edge e;
       unsigned ix;
 
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	{
 	  if (e->insns.r)
 	    {
@@ -1996,7 +1996,7 @@ rtl_verify_flow_info_1 (void)
 	      err = 1;
 	    }
 	}
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	{
 	  if (e->flags & EDGE_FALLTHRU)
 	    {
@@ -2160,7 +2160,7 @@ rtl_verify_flow_info (void)
   FOR_EACH_BB_REVERSE (bb)
     {
       edge e;
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	if (e->flags & EDGE_FALLTHRU)
 	  break;
       if (!e)
@@ -2293,7 +2293,7 @@ purge_dead_edges (basic_block bb)
     }
 
   /* Cleanup abnormal edges caused by exceptions or non-local gotos.  */
-  FOR_EACH_SUCC_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->succs, ix)
     {
       if (e->flags & EDGE_EH)
 	{
@@ -2338,7 +2338,7 @@ purge_dead_edges (basic_block bb)
 	    remove_note (insn, note);
 	}
 
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	{
 	  /* Avoid abnormal flags to leak from computed jumps turned
 	     into simplejumps.  */
@@ -2426,7 +2426,7 @@ purge_dead_edges (basic_block bb)
      edge we know that there used to be a jump here and can then safely
      remove all non-fallthru edges.  */
   found = false;
-  FOR_EACH_SUCC_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->succs, ix)
     {
       if (! (e->flags & (EDGE_COMPLEX | EDGE_FALLTHRU)))
 	{
@@ -2437,7 +2437,7 @@ purge_dead_edges (basic_block bb)
   if (!found)
     return purged;
 
-  FOR_EACH_SUCC_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->succs, ix)
     {
       if (!(e->flags & EDGE_FALLTHRU))
 	{
@@ -2572,7 +2572,7 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	  unsigned ix;
 	  edge tmp, s;
 
-	  FOR_EACH_SUCC_EDGE (tmp, src, ix)
+	  FOR_EACH_EDGE (tmp, src->succs, ix)
 	    if (e == tmp)
 	      {
 		found = true;
@@ -2939,7 +2939,7 @@ rtl_flow_call_edges_add (sbitmap blocks)
 	  edge e;
 	  unsigned ix;
 
-	  FOR_EACH_SUCC_EDGE (e, bb, ix)
+	  FOR_EACH_EDGE (e, bb->succs, ix)
 	    if (e->dest == EXIT_BLOCK_PTR)
 	      {
 		insert_insn_on_edge (gen_rtx_USE (VOIDmode, const0_rtx), e);
@@ -2988,7 +2988,7 @@ rtl_flow_call_edges_add (sbitmap blocks)
 
 #ifdef ENABLE_CHECKING
 	      if (split_at_insn == BB_END (bb))
-		FOR_EACH_SUCC_EDGE (e, bb, ix)
+		FOR_EACH_EDGE (e, bb->succs, ix)
 		  if (e->dest == EXIT_BLOCK_PTR)
 		    abort ();
 #endif

@@ -120,7 +120,7 @@ verify_flow_info (void)
 	         bb->index, bb->frequency);
 	  err = 1;
 	}
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	{
 	  if (last_visited [e->dest->index + 2] == bb)
 	    {
@@ -166,7 +166,7 @@ verify_flow_info (void)
 	  err = 1;
 	}
 
-      FOR_EACH_PRED_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->preds, ix)
 	{
 	  if (e->dest != bb)
 	    {
@@ -187,10 +187,10 @@ verify_flow_info (void)
     edge e;
     unsigned ix;
 
-    FOR_EACH_SUCC_EDGE (e, ENTRY_BLOCK_PTR, ix)
+    FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs, ix)
       edge_checksum[e->dest->index + 2] += (size_t) e;
 
-    FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
+    FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds, ix)
       edge_checksum[e->dest->index + 2] -= (size_t) e;
   }
 
@@ -248,12 +248,12 @@ dump_bb (basic_block bb, FILE *outf, int indent)
   putc ('\n', outf);
 
   fprintf (outf, ";;%s pred:      ", s_indent);
-  FOR_EACH_PRED_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->preds, ix)
     dump_edge_info (outf, e, 0);
   putc ('\n', outf);
 
   fprintf (outf, ";;%s succ:      ", s_indent);
-  FOR_EACH_SUCC_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->succs, ix)
     dump_edge_info (outf, e, 1);
   putc ('\n', outf);
 
@@ -417,7 +417,7 @@ split_edge (edge e)
       if (get_immediate_dominator (CDI_DOMINATORS, EDGE_SUCC (ret, 0)->dest)
 	  == EDGE_PRED (ret, 0)->src)
 	{
-	  FOR_EACH_PRED_EDGE (f, EDGE_SUCC (ret, 0)->dest, ix)
+	  FOR_EACH_EDGE (f, EDGE_SUCC (ret, 0)->dest->preds, ix)
 	    {
 	      if (f == EDGE_SUCC (ret, 0))
 		continue;
@@ -520,7 +520,7 @@ merge_blocks (basic_block a, basic_block b)
    remove_edge (EDGE_SUCC (a, 0));
 
   /* Adjust the edges out of B for the new owner.  */
-  FOR_EACH_SUCC_EDGE (e, b, ix)
+  FOR_EACH_EDGE (e, b->succs, ix)
     e->src = a;
   a->succs = b->succs;
   a->flags |= b->flags;
@@ -561,7 +561,7 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
   bb = fallthru->dest;
 
   /* Redirect back edges we want to keep.  */
-  FOR_EACH_PRED_EDGE (e, dummy, ix)
+  FOR_EACH_EDGE (e, dummy->preds, ix)
     {
       if (redirect_edge_p (e))
 	continue;
@@ -664,7 +664,7 @@ can_duplicate_block_p (basic_block bb)
 
   /* Duplicating fallthru block to exit would require adding a jump
      and splitting the real last BB.  */
-  FOR_EACH_SUCC_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->succs, ix)
     if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
        return false;
 
@@ -699,7 +699,7 @@ duplicate_block (basic_block bb, edge e)
 
   new_bb->loop_depth = bb->loop_depth;
   new_bb->flags = bb->flags;
-  FOR_EACH_SUCC_EDGE (s, bb, ix)
+  FOR_EACH_EDGE (s, bb->succs, ix)
     {
       /* Since we are creating edges from a new block to successors
 	 of another block (which therefore are known to be disjoint), there

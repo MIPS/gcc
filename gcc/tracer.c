@@ -120,7 +120,7 @@ find_best_successor (basic_block bb)
   edge best = NULL;
   unsigned ix;
 
-  FOR_EACH_SUCC_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->succs, ix)
     if (!best || better_p (e, best))
       best = e;
   if (!best || ignore_bb_p (best->dest))
@@ -139,7 +139,7 @@ find_best_predecessor (basic_block bb)
   edge best = NULL;
   unsigned ix;
 
-  FOR_EACH_PRED_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->preds, ix)
     if (!best || better_p (e, best))
       best = e;
   if (!best || ignore_bb_p (best->src))
@@ -279,7 +279,7 @@ tail_duplicate (void)
 	      unsigned ix;
 	      basic_block old = bb2;
 
-	      FOR_EACH_PRED_EDGE (e, bb2, ix)
+	      FOR_EACH_EDGE (e, bb2->preds, ix)
 		if (e->src == bb)
 		  break;
 
@@ -335,7 +335,7 @@ layout_superblocks (void)
       while (end->rbi->next)
 	end = end->rbi->next;
 
-      FOR_EACH_SUCC_EDGE (e, end, ix)
+      FOR_EACH_EDGE (e, end->succs, ix)
 	if (e->dest != EXIT_BLOCK_PTR
 	    && e->dest != EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest
 	    && !e->dest->rbi->visited

@@ -1354,7 +1354,7 @@ rewrite_program2 (bitmap new_deaths)
 	  HARD_REG_SET cum_colors, colors;
 	  CLEAR_HARD_REG_SET (cum_colors);
 
-	  FOR_EACH_PRED_EDGE (e, bb, ix)
+	  FOR_EACH_EDGE (e, bb->preds, ix)
 	    {
 	      int j;
 

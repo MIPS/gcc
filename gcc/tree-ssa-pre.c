@@ -1135,7 +1135,7 @@ compute_antic_aux (basic_block block)
   if (! (block->flags & BB_VISITED))
     {
       unsigned ix;
-      FOR_EACH_PRED_EDGE (e, block, ix)
+      FOR_EACH_EDGE (e, block->preds, ix)
  	if (e->flags & EDGE_ABNORMAL)
  	  {
  	    block->flags |= BB_VISITED;
@@ -1175,7 +1175,7 @@ compute_antic_aux (basic_block block)
       basic_block bprime, first;
 
       VARRAY_BB_INIT (worklist, 1, "succ");
-      FOR_EACH_SUCC_EDGE (e, block, ix)
+      FOR_EACH_EDGE (e, block->succs, ix)
 	VARRAY_PUSH_BB (worklist, e->dest);
 
       first = VARRAY_BB (worklist, 0);
@@ -1456,7 +1456,7 @@ insert_aux (basic_block block)
 		    		    
 		      avail = xcalloc (last_basic_block, sizeof (tree));
 
-		      FOR_EACH_PRED_EDGE (pred, block,  ix)
+		      FOR_EACH_EDGE (pred, block->preds,  ix)
 			{
 			  tree vprime;
 			  tree edoubleprime;
@@ -1528,7 +1528,7 @@ insert_aux (basic_block block)
 			    }
 
 			  /* Make the necessary insertions. */
-			  FOR_EACH_PRED_EDGE (pred, block, ix)
+			  FOR_EACH_EDGE (pred, block->preds, ix)
 			    {
 			      tree stmts = alloc_stmt_list ();
 			      tree builtexpr;
@@ -1560,7 +1560,7 @@ insert_aux (basic_block block)
 			    bitmap_value_replace_in_set (AVAIL_OUT (block), 
 							 PHI_RESULT (temp));
 
-			  FOR_EACH_PRED_EDGE (pred, block, ix)
+			  FOR_EACH_EDGE (pred, block->preds, ix)
 			    {
 			      add_phi_arg (&temp, avail[pred->src->index],
 					   pred);

@@ -163,7 +163,7 @@ expand_gimple_tailcall (basic_block bb, tree stmt)
   probability = 0;
   count = 0;
 
-  FOR_EACH_SUCC_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->succs, ix)
     {
       if (!(e->flags & (EDGE_ABNORMAL | EDGE_EH)))
 	{
@@ -256,7 +256,7 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
 
   NOTE_BASIC_BLOCK (note) = bb;
 
-  FOR_EACH_SUCC_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->succs, ix)
     {
       /* Clear EDGE_EXECUTABLE.  This flag is never used in the backend.  */
       e->flags &= ~EDGE_EXECUTABLE;
@@ -324,7 +324,7 @@ construct_init_block (void)
   edge e;
   unsigned ix;
 
-  FOR_EACH_SUCC_EDGE (e, ENTRY_BLOCK_PTR, ix)
+  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs, ix)
     if (e->dest == ENTRY_BLOCK_PTR->next_bb)
       break;
 
@@ -385,7 +385,7 @@ construct_exit_block (void)
   exit_block->frequency = EXIT_BLOCK_PTR->frequency;
   exit_block->count = EXIT_BLOCK_PTR->count;
 
-  FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds, ix)
     {
       if (!(e->flags & EDGE_ABNORMAL))
 	{
@@ -397,7 +397,7 @@ construct_exit_block (void)
   e->probability = REG_BR_PROB_BASE;
   e->count = EXIT_BLOCK_PTR->count;
 
-  FOR_EACH_PRED_EDGE (e2, EXIT_BLOCK_PTR, ix)
+  FOR_EACH_EDGE (e2, EXIT_BLOCK_PTR->preds, ix)
     if (e2 != e)
       {
         e->count -= e2->count;

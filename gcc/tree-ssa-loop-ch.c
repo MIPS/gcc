@@ -193,11 +193,11 @@ duplicate_blocks (varray_type bbs_to_duplicate)
       PENDING_STMT (preheader_edge) = NULL;
 
       /* Add the phi arguments to the outgoing edges.  */
-      FOR_EACH_SUCC_EDGE (e, header, ix)
+      FOR_EACH_EDGE (e, header->succs, ix)
 	{
 	  edge e1;
 	  unsigned ix1;
-	  FOR_EACH_SUCC_EDGE (e1, new_header, ix1)
+	  FOR_EACH_EDGE (e1, new_header->succs, ix1)
 	    if (e1->dest == e->dest)
 	      break;
 	  if (e1 == NULL || ix1 > EDGE_COUNT (new_header->succs))

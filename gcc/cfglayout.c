@@ -644,7 +644,7 @@ fixup_reorder_chain (void)
 	 a taken jump.  */
       e_taken = e_fall = NULL;
 
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	if (e->flags & EDGE_FALLTHRU)
 	  e_fall = e;
 	else if (! (e->flags & EDGE_EH))
@@ -862,7 +862,7 @@ fixup_reorder_chain (void)
       edge e;
       unsigned ix;
 
-      FOR_EACH_SUCC_EDGE (e, bb, ix)
+      FOR_EACH_EDGE (e, bb->succs, ix)
 	if (e->flags & EDGE_FALLTHRU)
 	  break;
 
@@ -932,7 +932,7 @@ fixup_fallthru_exit_predecessor (void)
   if (! reload_completed)
     abort ();
 
-  FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds, ix)
     if (e->flags & EDGE_FALLTHRU)
       bb = e->src;
 
@@ -1244,7 +1244,7 @@ can_copy_bbs_p (basic_block *bbs, unsigned n)
     {
       /* In case we should redirect abnormal edge during duplication, fail.  */
 
-      FOR_EACH_SUCC_EDGE (e, bbs[i], ix)
+      FOR_EACH_EDGE (e, bbs[i]->succs, ix)
 	if ((e->flags & EDGE_ABNORMAL)
 	    && e->dest->rbi->duplicated)
 	  {
@@ -1330,7 +1330,7 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
       new_bb = new_bbs[i];
       bb = bbs[i];
 
-      FOR_EACH_SUCC_EDGE (e, new_bb, ix)
+      FOR_EACH_EDGE (e, new_bb->succs, ix)
 	{
 	  for (j = 0; j < n_edges; j++)
 	    if (edges[j] && edges[j]->src == bb && edges[j]->dest == e->dest)

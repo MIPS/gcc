@@ -3827,7 +3827,7 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
     {									\
       /*  Calculate <conf_op> of predecessor_outs.  */			\
       bitmap_zero (IN_SET[i]);						\
-      FOR_EACH_##E_ANTI##_EDGE (e, bb, ix)				\
+      FOR_EACH_EDGE (e, bb->E_ANTI, ix)					\
 	{								\
 	  if (e->E_ANTI_BB == E_ANTI_START_BB)				\
 	    continue;							\
@@ -3847,7 +3847,7 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
       if (!changed)							\
 	break;								\
 									\
-      FOR_EACH_##E##_EDGE (e, bb, ix)					\
+      FOR_EACH_EDGE (e, bb->E, ix)					\
 	{								\
 	  if (e->E_BB == E_START_BB || e->E_BB->index == i)		\
 	    continue;							\
@@ -3858,7 +3858,7 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
 	  SET_BIT (pending, e->E_BB->index);				\
       	}								\
 									\
-      FOR_EACH_##E##_EDGE (e, bb, ix)					\
+      FOR_EACH_EDGE (e, bb->E, ix)					\
 	{								\
 	  if (e->E_BB == E_START_BB || e->E_BB->index == i)		\
 	    continue;							\
@@ -3872,11 +3872,11 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
     } while (0)
 
   if (dataflow->dir == DF_FORWARD)
-    HS (PRED, src, ENTRY_BLOCK_PTR, dataflow->in,
-	SUCC, dest, EXIT_BLOCK_PTR, dataflow->out);
+    HS (preds, src, ENTRY_BLOCK_PTR, dataflow->in,
+	succs, dest, EXIT_BLOCK_PTR, dataflow->out);
   else
-    HS (SUCC, dest, EXIT_BLOCK_PTR, dataflow->out,
-	PRED, src, ENTRY_BLOCK_PTR, dataflow->in);
+    HS (succs, dest, EXIT_BLOCK_PTR, dataflow->out,
+	preds, src, ENTRY_BLOCK_PTR, dataflow->in);
 }
 
 /* This function will perform iterative bitvector dataflow described by

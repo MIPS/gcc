@@ -424,7 +424,7 @@ try_forward_edges (int mode, basic_block b)
       && find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX))
     return false;
 
-  FOR_EACH_SUCC_EDGE (e, b, ix)
+  FOR_EACH_EDGE (e, b->succs, ix)
     {
       basic_block target, first;
       int counter;
@@ -616,7 +616,7 @@ try_forward_edges (int mode, basic_block b)
 		  else
 		    {
 		      unsigned ix;
-		      FOR_EACH_SUCC_EDGE (e, first, ix)
+		      FOR_EACH_EDGE (e, first->succs, ix)
 		        e->probability = ((e->probability * REG_BR_PROB_BASE)
 		  			  / (double) prob);
 		    }
@@ -823,13 +823,13 @@ merge_blocks_move (edge e, basic_block b, basic_block c, int mode)
 	 and loop notes.  This is done by squeezing out all the notes
 	 and leaving them there to lie.  Not ideal, but functional.  */
 
-      FOR_EACH_SUCC_EDGE (tmp_edge, c, ix)
+      FOR_EACH_EDGE (tmp_edge, c->succs, ix)
 	if (tmp_edge->flags & EDGE_FALLTHRU)
 	  break;
 
       c_has_outgoing_fallthru = (tmp_edge != NULL);
 
-      FOR_EACH_PRED_EDGE (tmp_edge, b, ix)
+      FOR_EACH_EDGE (tmp_edge, b->preds, ix)
 	if (tmp_edge->flags & EDGE_FALLTHRU)
 	  break;
 
@@ -1398,7 +1398,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
   if (EDGE_COUNT (bb1->succs) != EDGE_COUNT (bb2->succs))
     return false;
 
-  FOR_EACH_SUCC_EDGE (e1, bb1, ix)
+  FOR_EACH_EDGE (e1, bb1->succs, ix)
     {
       e2 = EDGE_SUCC (bb2, ix);
 
@@ -1566,7 +1566,7 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
   redirect_to->flags |= BB_DIRTY;
 
   /* Recompute the frequencies and counts of outgoing edges.  */
-  FOR_EACH_SUCC_EDGE (s, redirect_to, ix)
+  FOR_EACH_EDGE (s, redirect_to->succs, ix)
     {
       edge s2;
       unsigned ix2;
@@ -1575,7 +1575,7 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
       if (FORWARDER_BLOCK_P (d))
 	d = EDGE_SUCC (d, 0)->dest;
 
-      FOR_EACH_SUCC_EDGE (s2, src1, ix2)
+      FOR_EACH_EDGE (s2, src1->succs, ix2)
 	{
 	  basic_block d2 = s2->dest;
 	  if (FORWARDER_BLOCK_P (d2))
@@ -1674,7 +1674,7 @@ try_crossjump_bb (int mode, basic_block bb)
   if (EDGE_COUNT (bb->preds) > max)
     return false;
 
-  FOR_EACH_PRED_EDGE (e, bb, n)
+  FOR_EACH_EDGE (e, bb->preds, n)
     {
       if (e->flags & EDGE_FALLTHRU)
 	fallthru = e;

@@ -127,7 +127,7 @@ mark_loop_exit_edges (void)
       FOR_EACH_BB (bb)
 	{
 	  unsigned int ix;
-	  FOR_EACH_SUCC_EDGE (e, bb, ix)
+	  FOR_EACH_EDGE (e, bb->succs, ix)
 	    {
 	      if (find_common_loop (bb->loop_father, e->dest->loop_father)
 		  != bb->loop_father)
@@ -252,7 +252,7 @@ block_fallthru (basic_block bb)
   edge e;
   unsigned ix;
 
-  FOR_EACH_SUCC_EDGE (e, bb, ix)
+  FOR_EACH_EDGE (e, bb->succs, ix)
     if (! (e->flags & EDGE_FALLTHRU))
       break;
 
@@ -2367,7 +2367,7 @@ block_jumps_and_fallthru_p (basic_block cur_bb, basic_block target_bb)
   if (EDGE_COUNT (cur_bb->succs) == 0)
     return FALSE;
 
-  FOR_EACH_SUCC_EDGE (cur_edge, cur_bb, ix)
+  FOR_EACH_EDGE (cur_edge, cur_bb->succs, ix)
     {
       if (cur_edge->flags & EDGE_COMPLEX)
 	/* Anything complex isn't what we want.  */
@@ -2492,7 +2492,7 @@ find_if_block (struct ce_if_block * ce_info)
 
   /* Count the number of edges the THEN and ELSE blocks have.  */
   then_predecessors = 0;
-  FOR_EACH_PRED_EDGE (cur_edge, then_bb, ix)
+  FOR_EACH_EDGE (cur_edge, then_bb->preds, ix)
     {
       then_predecessors++;
       if (cur_edge->flags & EDGE_COMPLEX)
@@ -2500,7 +2500,7 @@ find_if_block (struct ce_if_block * ce_info)
     }
 
   else_predecessors = 0;
-  FOR_EACH_PRED_EDGE (cur_edge, else_bb, ix)
+  FOR_EACH_EDGE (cur_edge, else_bb->preds, ix)
     {
       else_predecessors++;
       if (cur_edge->flags & EDGE_COMPLEX)

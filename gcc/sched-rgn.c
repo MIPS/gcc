@@ -845,7 +845,7 @@ find_rgns (struct edge_list *edge_list)
 	      /* Decrease degree of all I's successors for topological
 		 ordering.  */
 
-	      FOR_EACH_SUCC_EDGE (e, bb, ix)
+	      FOR_EACH_EDGE (e, bb->succs, ix)
 		if (e->dest != EXIT_BLOCK_PTR)
 		  --degree[e->dest->index];
 
@@ -881,7 +881,7 @@ find_rgns (struct edge_list *edge_list)
 		  edge e;
 		  unsigned ix;
 
-		  FOR_EACH_PRED_EDGE (e, bb, ix)
+		  FOR_EACH_EDGE (e, bb->preds, ix)
 		    {
 		      if (e->src == ENTRY_BLOCK_PTR)
 			continue;
@@ -939,7 +939,7 @@ find_rgns (struct edge_list *edge_list)
 		  unsigned ix;
 		  child = queue[++head];
 
-		  FOR_EACH_PRED_EDGE (e, BASIC_BLOCK (child), ix)
+		  FOR_EACH_EDGE (e, BASIC_BLOCK (child)->preds, ix)
 		    {
 		      node = e->src->index;
 
@@ -994,7 +994,7 @@ find_rgns (struct edge_list *edge_list)
 			  CONTAINING_RGN (child) = nr_regions;
 			  queue[head] = queue[tail--];
 
-			  FOR_EACH_SUCC_EDGE (e, BASIC_BLOCK (child), ix)
+			  FOR_EACH_EDGE (e, BASIC_BLOCK (child)->succs, ix)
 			    if (e->dest != EXIT_BLOCK_PTR)
 			      --degree[e->dest->index];
 			}
