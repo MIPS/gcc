@@ -1889,14 +1889,11 @@ do {									 \
    PREFIX is the class of label and NUM is the number within the class.
    For V.4, labels use `.' rather than `@'.  */
 
-#undef ASM_OUTPUT_INTERNAL_LABEL
 #ifdef AS_BUG_DOT_LABELS /* The assembler requires a declaration of local.  */
+#undef ASM_OUTPUT_INTERNAL_LABEL
 #define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)			\
   fprintf (FILE, TARGET_SVR4 ? ".%s%d:\n%s.%s%d\n" : "@%s%d:\n", \
 	   PREFIX, NUM, INTERNAL_ASM_OP, PREFIX, NUM)
-#else
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)			\
-  fprintf (FILE, TARGET_SVR4 ? ".%s%d:\n" : "@%s%d:\n", PREFIX, NUM)
 #endif /* AS_BUG_DOT_LABELS */
 
 /* This is how to store into the string LABEL

@@ -354,10 +354,6 @@ do {									\
 #define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN)				\
   if (TARGET_ELF) (*targetm.asm_out.globalize_label) (FILE, XSTR (FUN, 0))
 
-#undef ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)			\
-  fprintf (FILE, ".%s%d:\n", PREFIX, NUM)
-
 /* The prefix to add to user-visible assembler symbols.  */
 
 #undef USER_LABEL_PREFIX

@@ -148,6 +148,19 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
   do { assemble_name ((FILE), (NAME)); fputs (":\n", (FILE)); } while (0)
 #endif
 
+/* This is how to output an internal numbered label where PREFIX is
+   the class of label and NUM is the number within the class.  */
+
+#ifndef ASM_OUTPUT_INTERNAL_LABEL
+#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,LABELNO)		\
+  do {								\
+    const char *const prefix_ = (PREFIX);			\
+    char *const buf_ = alloca (40 + strlen (prefix_));		\
+    ASM_GENERATE_INTERNAL_LABEL (buf_, prefix_, (LABELNO));	\
+    ASM_OUTPUT_LABEL (FILE, buf_);				\
+  } while (0)
+#endif
+
 /* This is how to output a reference to a user-level label named NAME.  */
 
 #ifndef ASM_OUTPUT_LABELREF

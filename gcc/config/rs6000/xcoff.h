@@ -318,12 +318,6 @@ toc_section ()						\
     }									\
 }
 
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  fprintf (FILE, "%s..%u:\n", (PREFIX), (unsigned) (NUM))
-
 /* This is how to output an internal label prefix.  rs6000.c uses this
    when generating traceback tables.  */
 

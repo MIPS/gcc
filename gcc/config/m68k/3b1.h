@@ -105,7 +105,6 @@ output_file_directive ((FILE), main_input_filename)
 #undef FUNCTION_PROFILER
 #undef ASM_OUTPUT_ADDR_VEC_ELT
 #undef ASM_OUTPUT_ADDR_DIFF_ELT
-#undef ASM_OUTPUT_INTERNAL_LABEL
 #undef ASM_OUTPUT_OPCODE
 #undef ASM_OUTPUT_LOCAL
 #undef USER_LABEL_PREFIX
@@ -322,9 +321,6 @@ do {					\
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)	\
   sprintf ((LABEL), "%s%%%ld", (PREFIX), (long)(NUM))
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-    fprintf (FILE, "%s%%%d:\n", PREFIX, NUM)
 
 /* Must put address in  %a0 , not  %d0 . -- LGM, 7/15/88 */
 #define FUNCTION_PROFILER(FILE, LABEL_NO)	\

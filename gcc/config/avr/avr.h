@@ -2103,25 +2103,6 @@ do {									 \
    setting the `DECL_ONE_ONLY' flag is enough to mark a declaration to
    be emitted as one-only.  */
 
-#define ASM_OUTPUT_INTERNAL_LABEL(STREAM, PREFIX, NUM)	\
-fprintf(STREAM, ".%s%d:\n", PREFIX, NUM)
-/* A C statement to output to the stdio stream STREAM a label whose
-   name is made from the string PREFIX and the number NUM.
-
-   It is absolutely essential that these labels be distinct from the
-   labels used for user-level functions and variables.  Otherwise,
-   certain programs will have name conflicts with internal labels.
-
-   It is desirable to exclude internal labels from the symbol table
-   of the object file.  Most assemblers have a naming convention for
-   labels that should be excluded; on many systems, the letter `L' at
-   the beginning of a label has this effect.  You should find out what
-   convention your system uses, and follow it.
-
-   The usual definition of this macro is as follows:
-
-   fprintf (STREAM, "L%s%d:\n", PREFIX, NUM)  */
-
 #define ASM_GENERATE_INTERNAL_LABEL(STRING, PREFIX, NUM)	\
 sprintf (STRING, "*.%s%d", PREFIX, NUM)
 /* A C statement to store into the string STRING a label whose name

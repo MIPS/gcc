@@ -1584,14 +1584,6 @@ call_ ## FUNC (void)						\
    handle (to #undef or ignore it) in a.out.  */
 #define HAVE_GAS_HIDDEN 1
 
-#undef  ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM)	\
-  do							\
-    {							\
-      asm_fprintf (FILE, "%L%s%d:\n", PREFIX, NUM);	\
-    }							\
-  while (0)
-
 /* Remove any previous definition (elfos.h).  */
 #undef ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)	\

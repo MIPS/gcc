@@ -393,13 +393,6 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)	\
   sprintf ((LABEL), "%s%s%ld", LOCAL_LABEL_PREFIX, (PREFIX), (long)(NUM))
 
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#undef ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-    asm_fprintf (FILE, "%L%s%d:\n", PREFIX, NUM)
-
 /* The prefix to add to user-visible assembler symbols.  */
 
 #undef USER_LABEL_PREFIX

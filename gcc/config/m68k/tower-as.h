@@ -229,10 +229,6 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)	\
   sprintf ((LABEL), "%s%%%ld", (PREFIX), (long)(NUM))
 
-#undef ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  fprintf ((FILE), "%s%%%d:\n", (PREFIX), (NUM))
-
 #undef ASM_OUTPUT_CASE_LABEL
 #define ASM_OUTPUT_CASE_LABEL(FILE,PREFIX,NUM,TABLE)			\
   fprintf (FILE, "\tswbeg &%d\n%s%%%d:\n",				\

@@ -1560,17 +1560,6 @@ mmix_asm_output_labelref (stream, name)
 	       name);
 }
 
-/* ASM_OUTPUT_INTERNAL_LABEL.  */
-
-void
-mmix_asm_output_internal_label (stream, name, num)
-     FILE * stream;
-     const char * name;
-     int num;
-{
-  fprintf (stream, "%s:%d\tIS @\n", name, num);
-}
-
 /* ASM_OUTPUT_DEF.  */
 
 void

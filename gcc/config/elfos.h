@@ -112,20 +112,6 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_SKIP(FILE, SIZE) \
   fprintf (FILE, "%s%u\n", SKIP_ASM_OP, (SIZE))
 
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.
-
-   For most svr4 systems, the convention is that any symbol which begins
-   with a period is not put into the linker symbol table by the assembler.  */
-
-#undef  ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM)		\
-  do								\
-    {								\
-      fprintf (FILE, ".%s%u:\n", PREFIX, (unsigned) (NUM));	\
-    }								\
-  while (0)
-
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.

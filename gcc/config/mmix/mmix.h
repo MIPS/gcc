@@ -991,9 +991,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #define ASM_OUTPUT_LABELREF(STREAM, NAME) \
  mmix_asm_output_labelref (STREAM, NAME)
 
-#define ASM_OUTPUT_INTERNAL_LABEL(STREAM, PREFIX, NUM) \
- mmix_asm_output_internal_label (STREAM, PREFIX, NUM)
-
 /* We insert a ":" to disambiguate against user symbols like L5.  */
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM) \
  sprintf (LABEL, "*%s:%ld", PREFIX, (long)(NUM))

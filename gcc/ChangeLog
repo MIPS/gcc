@@ -1,3 +1,54 @@
+2002-08-31  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* alpha.h (ASM_OUTPUT_INTERNAL_LABEL): Delete.
+	* avr.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* c4x.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* cris.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* d30v.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* darwin.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* dsp16xx.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* elfos.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* h8300.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* i386/att.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* i386/bsd.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* i386/i386-coff.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* i386/lynx-ng.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* i386/lynx.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* i386/sco5.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* i960/i960.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* m68k/3b1.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* m68k/amix.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* m68k/atari.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* m68k.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* m68k/mot3300.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* m68k/tower-as.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* m88k.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* mcore.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* mips.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* mmix-protos.h (mmix_asm_output_internal_label): Likewise.
+	* mmix.c (mmix_asm_output_internal_label): Likewise.
+	* mmix.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* ns32k.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* pa.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* pdp11.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* romp.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* rs6000/xcoff.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* sh/coff.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* sh/elf.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* sparc/freebsd.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* sparc/linux.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* sparc/linux64.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* sparc/netbsd-elf.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* sparc/pbd.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* sparc/sol2.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* sparc.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* sparc/vxsim.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* stormy16.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* svr3.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	* vax.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+
+	* defaults.h (ASM_OUTPUT_INTERNAL_LABEL): Define.
+
 2002-08-29  Zack Weinberg  <zack@codesourcery.com>
 
 	* config/rs6000/rs6000.c (processor_target_table): Add 405f.
