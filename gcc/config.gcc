@@ -308,7 +308,7 @@ case $machine in
 	;;
 esac
 
-# Common parts for GNU/Linux, GNU/Hurd, OpenBSD, NetBSD, and FreeBSD systems.
+# Common parts for widely ported systems.
 case $machine in
 *-*-linux*)
 	xm_defines=POSIX
@@ -422,6 +422,13 @@ case $machine in
 	*) echo 'Unknown thread configuration for FreeBSD'; exit 1;;
 	esac
 	fbsd_tm_file="${fbsd_tm_file} freebsd-spec.h freebsd.h"
+	;;
+*-*-vxworks*)
+	tmake_file=t-vxworks
+	tm_file="${tm_file} elfos.h svr4.h vxworks.h"
+	thread_file='vxworks'
+	use_collect2=yes
+	xm_defines=POSIX
 	;;
 esac
 
@@ -2011,6 +2018,14 @@ powerpc-*-gnu*)
 	if test x$enable_threads = xyes; then
 		thread_file='posix'
 	fi
+	;;
+powerpc-wrs-vxworks*)
+	# We want vxworks.h after rs6000/sysv4.h, which unfortunately
+	# means we have to redo the tm_file list from scratch.
+	tm_file="rs6000/rs6000.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h"
+	tm_file="${tm_file} vxworks.h rs6000/vxworks.h"
+	tmake_file="${tmake_file} rs6000/t-ppccomm rs6000/t-vxworks"
+	extra_headers=ppc-asm.h
 	;;
 powerpc-wrs-windiss*)
         xm_defines=POSIX

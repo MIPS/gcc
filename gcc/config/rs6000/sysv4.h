@@ -147,7 +147,6 @@ extern int g_switch_set;		/* Whether -G xx was passed.  */
     N_("Link with libmvme.a, libc.a and crt0.o") },			\
   { "emb",		 0,						\
     N_("Set the PPC_EMB bit in the ELF flags header") },		\
-  { "vxworks",		 0, N_("no description yet") },			\
   { "windiss",           0, N_("Use the WindISS simulator") },          \
   { "shlib",		 0, N_("no description yet") },			\
   EXTRA_SUBTARGET_SWITCHES						\
@@ -1012,7 +1011,6 @@ do {						\
   mcall-linux  : crtsavres.o%s        %(endfile_linux)       ; \
   mcall-gnu    : crtsavres.o%s        %(endfile_gnu)         ; \
   mcall-netbsd : crtsavres.o%s        %(endfile_netbsd)      ; \
-  mvxworks     : crtsavres.o%s        %(endfile_vxworks)     ; \
                : %(crtsavres_default) %(endfile_default)     }"
 
 #define CRTSAVRES_DEFAULT_SPEC "crtsavres.o%s"
@@ -1185,48 +1183,6 @@ ncrtn.o%s"
 #define CPP_OS_NETBSD_SPEC "\
 -D__powerpc__ -D__NetBSD__ -D__ELF__ -D__KPRINTF_ATTRIBUTE__"
 
-/* VxWorks support.  */
-/* VxWorks does all the library stuff itself.  */
-#define LIB_VXWORKS_SPEC ""
-
-/* VxWorks provides the functionality of crt0.o and friends itself.  */
-
-#define	STARTFILE_VXWORKS_SPEC ""
-
-#define	ENDFILE_VXWORKS_SPEC ""
-
-/* Because it uses ld -r, vxworks has no start/end files, nor starting
-   address.  */
-
-#define LINK_START_VXWORKS_SPEC ""
-
-#define LINK_OS_VXWORKS_SPEC "-r"
-
-#define CPP_OS_VXWORKS_SPEC "\
--DCPU_FAMILY=PPC \
-%{!mcpu*: \
-  %{mpowerpc*: -DCPU=PPC603} \
-  %{!mno-powerpc: -DCPU=PPC603}} \
-%{mcpu=powerpc: -DCPU=PPC603} \
-%{mcpu=401: -DCPU=PPC403} \
-%{mcpu=403: -DCPU=PPC403} \
-%{mcpu=405: -DCPU=PPC405} \
-%{mcpu=601: -DCPU=PPC601} \
-%{mcpu=602: -DCPU=PPC603} \
-%{mcpu=603: -DCPU=PPC603} \
-%{mcpu=603e: -DCPU=PPC603} \
-%{mcpu=ec603e: -DCPU=PPC603} \
-%{mcpu=604: -DCPU=PPC604} \
-%{mcpu=604e: -DCPU=PPC604} \
-%{mcpu=620: -DCPU=PPC604} \
-%{mcpu=740: -DCPU=PPC603} \
-%{mcpu=7450: -DCPU=PPC603} \
-%{mcpu=750: -DCPU=PPC603} \
-%{mcpu=801: -DCPU=PPC603} \
-%{mcpu=821: -DCPU=PPC603} \
-%{mcpu=823: -DCPU=PPC603} \
-%{mcpu=860: -DCPU=PPC603}"
-
 /* WindISS support.  */
 
 #define LIB_WINDISS_SPEC "--start-group -li -lcfp -lwindiss -lram -limpl -limpfp --end-group"
@@ -1260,7 +1216,6 @@ ncrtn.o%s"
   { "lib_gnu",			LIB_GNU_SPEC },				\
   { "lib_linux",		LIB_LINUX_SPEC },			\
   { "lib_netbsd",		LIB_NETBSD_SPEC },			\
-  { "lib_vxworks",		LIB_VXWORKS_SPEC },			\
   { "lib_windiss",              LIB_WINDISS_SPEC },                     \
   { "lib_default",		LIB_DEFAULT_SPEC },			\
   { "startfile_ads",		STARTFILE_ADS_SPEC },			\
@@ -1271,7 +1226,6 @@ ncrtn.o%s"
   { "startfile_gnu",		STARTFILE_GNU_SPEC },			\
   { "startfile_linux",		STARTFILE_LINUX_SPEC },			\
   { "startfile_netbsd",		STARTFILE_NETBSD_SPEC },		\
-  { "startfile_vxworks",	STARTFILE_VXWORKS_SPEC },		\
   { "startfile_windiss",        STARTFILE_WINDISS_SPEC },               \
   { "startfile_default",	STARTFILE_DEFAULT_SPEC },		\
   { "endfile_ads",		ENDFILE_ADS_SPEC },			\
@@ -1282,7 +1236,6 @@ ncrtn.o%s"
   { "endfile_gnu",		ENDFILE_GNU_SPEC },			\
   { "endfile_linux",		ENDFILE_LINUX_SPEC },			\
   { "endfile_netbsd",		ENDFILE_NETBSD_SPEC },			\
-  { "endfile_vxworks",		ENDFILE_VXWORKS_SPEC },			\
   { "endfile_windiss",          ENDFILE_WINDISS_SPEC },                 \
   { "endfile_default",		ENDFILE_DEFAULT_SPEC },			\
   { "link_path",		LINK_PATH_SPEC },			\
@@ -1297,7 +1250,6 @@ ncrtn.o%s"
   { "link_start_gnu",		LINK_START_GNU_SPEC },			\
   { "link_start_linux",		LINK_START_LINUX_SPEC },		\
   { "link_start_netbsd",	LINK_START_NETBSD_SPEC },		\
-  { "link_start_vxworks",	LINK_START_VXWORKS_SPEC },		\
   { "link_start_windiss",	LINK_START_WINDISS_SPEC },		\
   { "link_start_default",	LINK_START_DEFAULT_SPEC },		\
   { "link_os",			LINK_OS_SPEC },				\
@@ -1309,7 +1261,6 @@ ncrtn.o%s"
   { "link_os_linux",		LINK_OS_LINUX_SPEC },			\
   { "link_os_gnu",		LINK_OS_GNU_SPEC },			\
   { "link_os_netbsd",		LINK_OS_NETBSD_SPEC },			\
-  { "link_os_vxworks",		LINK_OS_VXWORKS_SPEC },			\
   { "link_os_windiss",		LINK_OS_WINDISS_SPEC },			\
   { "link_os_default",		LINK_OS_DEFAULT_SPEC },			\
   { "cc1_endian_big",		CC1_ENDIAN_BIG_SPEC },			\
@@ -1323,7 +1274,6 @@ ncrtn.o%s"
   { "cpp_os_gnu",		CPP_OS_GNU_SPEC },			\
   { "cpp_os_linux",		CPP_OS_LINUX_SPEC },			\
   { "cpp_os_netbsd",		CPP_OS_NETBSD_SPEC },			\
-  { "cpp_os_vxworks",		CPP_OS_VXWORKS_SPEC },			\
   { "cpp_os_windiss",           CPP_OS_WINDISS_SPEC },                  \
   { "cpp_os_default",		CPP_OS_DEFAULT_SPEC },
 

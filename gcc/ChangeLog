@@ -1,5 +1,10 @@
 2002-10-28  Zack Weinberg  <zack@codesourcery.com>
 
+	* config.gcc (*-*-vxworks, powerpc-wrs-vxworks*): New stanzas.
+	* config/t-vxworks, config/vxworks.h, config/rs6000/t-vxworks,
+	config/rs6000/vxworks.h: New files.
+	* config/rs6000/sysv4.h: Rip out -mvxworks and all related code.
+
 	* config.gcc (alpha*-*-vxworks*, arm-*-vxworks*,
 	i?86-wrs-vxworks*, i960-wrs-vxworks* [all],
 	m68k-wrs-vxworks*, mips-wrs-vxworks, powerpc-wrs-vxworks*,
