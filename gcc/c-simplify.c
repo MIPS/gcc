@@ -722,49 +722,6 @@ gimplify_if_stmt (tree *stmt_p)
   tree else_ = ELSE_CLAUSE (stmt);
   tree cond = IF_COND (stmt);
 
-  /* Avoid generating silly code.  */
-  if (integer_nonzerop (cond))
-    {
-      /* If there are no reachable statements in the ELSE arm, then
-         we can just emit the THEN arm (skipping the conditional).  */
-      if (! find_reachable_label (else_))
-        {
-	  if (warn_notreached)
-	    {
-	      location_t loc;
-	      loc.file = input_filename;
-	      loc.line = STMT_LINENO (TREE_CODE (else_) == COMPOUND_STMT
-				      ? COMPOUND_BODY (else_)
-				      : else_);
-	      warning ("%Hwill never be executed", &loc);
-	    }
-
-	  c_gimplify_stmt (&then_);
-	  *stmt_p = then_;
-	  return;
-        }
-    }
-  else if (integer_zerop (cond))
-    {
-      /* If there are no reachable statements in the THEN arm, then
-         we can just emit the ELSE arm (skipping the conditional).  */
-      if (! find_reachable_label (then_))
-        {
-	  if (warn_notreached)
-	    {
-	      location_t loc;
-	      loc.file = input_filename;
-	      loc.line = STMT_LINENO (TREE_CODE (then_) == COMPOUND_STMT
-				      ? COMPOUND_BODY (then_)
-				      : then_);
-	      warning ("%Hwill never be executed", &loc);
-	    }
-	  c_gimplify_stmt (&else_);
-	  *stmt_p = else_;
-	  return;
-        }
-    }
-
   gimplify_condition (&cond);
   c_gimplify_stmt (&then_);
   c_gimplify_stmt (&else_);

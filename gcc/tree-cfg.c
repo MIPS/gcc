@@ -862,34 +862,99 @@ struct rus_data
   bool repeat;
   bool may_throw;
   bool may_branch;
+  bool has_label;
 };
 
 static void remove_useless_stmts_1 (tree *, struct rus_data *);
+
+static bool
+remove_useless_stmts_warn_notreached (tree stmt)
+{
+  if (EXPR_LOCUS (stmt))
+    {
+      warning ("%Hwill never be executed", EXPR_LOCUS (stmt));
+      return true;
+    }
+
+  switch (TREE_CODE (stmt))
+    {
+    case COMPOUND_EXPR:
+      {
+	tree_stmt_iterator i;
+	for (i = tsi_start (&stmt); !tsi_end_p (i); tsi_next (&i))
+	  if (remove_useless_stmts_warn_notreached (tsi_stmt (i)))
+	    return true;
+      }
+      break;
+
+    case COND_EXPR:
+      if (remove_useless_stmts_warn_notreached (COND_EXPR_COND (stmt)))
+	return true;
+      if (remove_useless_stmts_warn_notreached (COND_EXPR_THEN (stmt)))
+	return true;
+      if (remove_useless_stmts_warn_notreached (COND_EXPR_ELSE (stmt)))
+	return true;
+      break;
+
+    case TRY_FINALLY_EXPR:
+    case TRY_CATCH_EXPR:
+      if (remove_useless_stmts_warn_notreached (TREE_OPERAND (stmt, 0)))
+	return true;
+      if (remove_useless_stmts_warn_notreached (TREE_OPERAND (stmt, 1)))
+	return true;
+      break;
+
+    case CATCH_EXPR:
+      return remove_useless_stmts_warn_notreached (CATCH_BODY (stmt));
+    case EH_FILTER_EXPR:
+      return remove_useless_stmts_warn_notreached (EH_FILTER_FAILURE (stmt));
+    case BIND_EXPR:
+      return remove_useless_stmts_warn_notreached (BIND_EXPR_BLOCK (stmt));
+
+    default:
+      /* Not a live container.  */
+      break;
+    }
+
+  return false;
+}
 
 static void
 remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
 {
   tree then_clause, else_clause, cond;
+  bool save_has_label, then_has_label, else_has_label;
+
+  save_has_label = data->has_label;
+  data->has_label = false;
 
   remove_useless_stmts_1 (&COND_EXPR_THEN (*stmt_p), data);
+
+  then_has_label = data->has_label;
+  data->has_label = false;
+
   remove_useless_stmts_1 (&COND_EXPR_ELSE (*stmt_p), data);
+
+  else_has_label = data->has_label;
+  data->has_label = save_has_label | then_has_label | else_has_label;
 
   then_clause = COND_EXPR_THEN (*stmt_p);
   else_clause = COND_EXPR_ELSE (*stmt_p);
   cond = COND_EXPR_COND (*stmt_p);
 
-  /* We may not have been able to completely optimize away the condition
-     previously due to the existence of a label in one arm.  If the label
-     has since become unreachable then we may be able to zap the entire
-     conditional here.  If so, replace the COND_EXPR and set up to repeat
-     this optimization pass.  */
-  if (integer_nonzerop (cond) && IS_EMPTY_STMT (else_clause))
+  /* If there are no reachable statements in an arm, then we can
+     zap the entire conditional.  */
+  if (integer_nonzerop (cond) && !else_has_label)
     {
+      if (warn_notreached)
+	remove_useless_stmts_warn_notreached (else_clause);
       *stmt_p = then_clause;
-       data->repeat = true;
+      data->repeat = true;
     }
-  else if (integer_zerop (cond) && IS_EMPTY_STMT (then_clause))
+  else if (integer_zerop (cond) && !then_has_label)
     {
+      if (warn_notreached)
+	remove_useless_stmts_warn_notreached (then_clause);
       *stmt_p = else_clause;
       data->repeat = true;
     }
@@ -995,6 +1060,8 @@ remove_useless_stmts_tc (tree *stmt_p, struct rus_data *data)
   /* If the body cannot throw, then we can drop the entire TRY_CATCH_EXPR.  */
   if (!this_may_throw)
     {
+      if (warn_notreached)
+	remove_useless_stmts_warn_notreached (TREE_OPERAND (*stmt_p, 1));
       *stmt_p = TREE_OPERAND (*stmt_p, 0);
       data->repeat = true;
       return;
@@ -1169,6 +1236,9 @@ remove_useless_stmts_1 (tree *first_p, struct rus_data *data)
 	  break;
 	case GOTO_EXPR:
 	  remove_useless_stmts_goto (i, stmt_p, data);
+	  break;
+	case LABEL_EXPR:
+	  data->has_label = true;
 	  break;
 	case RETURN_EXPR:
 	  data->may_branch = true;
