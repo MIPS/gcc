@@ -84,6 +84,8 @@ static type_p structures;
 static type_p param_structs;
 static pair_p variables;
 
+static type_p adjust_field_tree_exp PARAMS ((type_p t, options_p opt));
+
 /* Define S as a typedef to T at POS.  */
 
 void
@@ -275,13 +277,129 @@ create_array (t, len)
   return v;
 }
 
+/* Add a variable named S of type T with options O defined at POS,
+   to `variables'.  */
+
+void
+note_variable (s, t, o, pos)
+     const char *s;
+     type_p t;
+     options_p o;
+     struct fileloc *pos;
+{
+  pair_p n;
+  n = xmalloc (sizeof (*n));
+  n->name = s;
+  n->type = t;
+  n->line = *pos;
+  n->opt = o;
+  n->next = variables;
+  variables = n;
+}
+
+/* Handle `special("tree_exp")'.  This is a special case for
+   field `operands' of struct tree_exp, which although it claims to contain
+   pointers to trees, actually sometimes contains pointers to RTL too.  
+   Passed T, the old type of the field, and OPT its options.  Returns
+   a new type for the field.  */
+static type_p
+adjust_field_tree_exp (t, opt)
+     type_p t;
+     options_p opt ATTRIBUTE_UNUSED;
+{
+  pair_p flds;
+  options_p nodot;
+  size_t i;
+  static const struct {
+    const char *name;
+    int first_rtl;
+    int num_rtl;
+  } data[] = {
+    { "SAVE_EXPR", 2, 1 },
+    { "GOTO_SUBROUTINE_EXPR", 0, 2 },
+    { "RTL_EXPR", 0, 2 },
+    { "WITH_CLEANUP_EXPR", 2, 1 },
+    { "METHOD_CALL_EXPR", 3, 1 }
+  };
+  
+  if (t->kind != TYPE_ARRAY)
+    {
+      error_at_line (&lexer_line, 
+		     "special `tree_exp' must be applied to an array");
+      return &string_type;
+    }
+  
+  nodot = xmalloc (sizeof (*nodot));
+  nodot->next = NULL;
+  nodot->name = "dot";
+  nodot->info = "";
+
+  flds = xmalloc (sizeof (*flds));
+  flds->next = NULL;
+  flds->name = "";
+  flds->type = t;
+  flds->line.file = __FILE__;
+  flds->line.line = __LINE__;
+  flds->opt = xmalloc (sizeof (*flds->opt));
+  flds->opt->next = nodot;
+  flds->opt->name = "length";
+  flds->opt->info = "TREE_CODE_LENGTH (TREE_CODE ((tree) &%0))";
+  {
+    options_p oldopt = flds->opt;
+    flds->opt = xmalloc (sizeof (*flds->opt));
+    flds->opt->next = oldopt;
+    flds->opt->name = "default";
+    flds->opt->info = "";
+  }
+  
+  for (i = 0; i < ARRAY_SIZE (data); i++)
+    {
+      pair_p old_flds = flds;
+      pair_p subfields = NULL;
+      int rindex;
+      const char *sname;
+      
+      for (rindex = 0; rindex < data[i].first_rtl + data[i].num_rtl; rindex++)
+	{
+	  pair_p old_subf = subfields;
+	  subfields = xmalloc (sizeof (*subfields));
+	  subfields->next = old_subf;
+	  subfields->name = xasprintf ("[%d]", rindex);
+	  if (rindex < data[i].first_rtl)
+	    subfields->type = t->u.a.p;
+	  else
+	    subfields->type = create_pointer (find_structure ("rtx_def", 0));
+	  subfields->line.file = __FILE__;
+	  subfields->line.line = __LINE__;
+	  subfields->opt = nodot;
+	}
+
+      flds = xmalloc (sizeof (*flds));
+      flds->next = old_flds;
+      flds->name = "";
+      sname = xasprintf ("tree_exp_%s", data[i].name);
+      new_structure (sname, 0, &lexer_line, subfields, NULL);
+      flds->type = find_structure (sname, 0);
+      flds->line.file = __FILE__;
+      flds->line.line = __LINE__;
+      flds->opt = xmalloc (sizeof (*flds->opt));
+      flds->opt->next = nodot;
+      flds->opt->name = "tag";
+      flds->opt->info = data[i].name;
+    }
+
+  new_structure ("tree_exp_subunion", 1, &lexer_line, flds, nodot);
+  return find_structure ("tree_exp_subunion", 1);
+}
+
 /* Perform any special processing on a type T, about to become the type
    of a field.  Return the appropriate type for the field.
    At present:
    - Converts pointer-to-char, with no length parameter, to TYPE_STRING;
    - Similarly for arrays of pointer-to-char;
    - Converts structures for which a parameter is provided to
-   TYPE_PARAM_STRUCT.
+     TYPE_PARAM_STRUCT;
+   - Handles "special" options.
 */   
 
 type_p
@@ -312,7 +430,15 @@ adjust_field_type (t, opt)
 	param_structs = realt;
 	realt->u.param_struct.stru = t;
 	realt->u.param_struct.param = (type_p) opt->info;
-	return pointer_p ? create_pointer (realt) : realt;
+	t = pointer_p ? create_pointer (realt) : realt;
+      }
+    else if (strcmp (opt->name, "special") == 0)
+      {
+	const char *special_name = (const char *)opt->info;
+	if (strcmp (special_name, "tree_exp") == 0)
+	  t = adjust_field_tree_exp (t, opt);
+	else
+	  error_at_line (&lexer_line, "unknown special `%s'", special_name);
       }
   
   if (! length_p
@@ -328,26 +454,6 @@ adjust_field_type (t, opt)
     return create_array (&string_type, t->u.a.len);
 
   return t;
-}
-
-/* Add a variable named S of type T with options O defined at POS,
-   to `variables'.  */
-
-void
-note_variable (s, t, o, pos)
-     const char *s;
-     type_p t;
-     options_p o;
-     struct fileloc *pos;
-{
-  pair_p n;
-  n = xmalloc (sizeof (*n));
-  n->name = s;
-  n->type = t;
-  n->line = *pos;
-  n->opt = o;
-  n->next = variables;
-  variables = n;
 }
 
 /* Create a union for YYSTYPE, as yacc would do it, given a fieldlist FIELDS
@@ -953,13 +1059,13 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
     {
       const char *tagid = NULL;
       const char *length = NULL;
-      const char *special = NULL;
       int skip_p = 0;
       int default_p = 0;
       int maybe_undef_p = 0;
       int use_param_p = 0;
       options_p oo;
       type_p t = f->type;
+      const char *dot = ".";
       
       if (t->kind == TYPE_SCALAR
 	  || (t->kind == TYPE_ARRAY 
@@ -974,7 +1080,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	else if (strcmp (oo->name, "tag") == 0)
 	  tagid = (const char *)oo->info;
 	else if (strcmp (oo->name, "special") == 0)
-	  special = (const char *)oo->info;
+	  ;
 	else if (strcmp (oo->name, "skip") == 0)
 	  skip_p = 1;
 	else if (strcmp (oo->name, "default") == 0)
@@ -987,6 +1093,8 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	  ;
 	else if (strcmp (oo->name, "use_param") == 0)
 	  use_param_p = 1;
+	else if (strcmp (oo->name, "dot") == 0)
+	  dot = (const char *)oo->info;
 	else
 	  error_at_line (&f->line, "unknown field option `%s'\n", oo->name);
 
@@ -1066,7 +1174,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	  {
 	    char *newval;
 
-	    newval = xasprintf ("%s.%s", val, f->name);
+	    newval = xasprintf ("%s%s%s", val, dot, f->name);
 	    write_gc_structure_fields (of, t, newval, val, f->opt, indent, 
 				       &f->line, bitmap, param);
 	    free (newval);
@@ -1078,17 +1186,17 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	    {
 	      if (maybe_undef_p
 		  && t->u.p->u.s.line.file == NULL)
-		oprintf (of, "%*sif (%s.%s) abort();\n", indent, "",
-			 val, f->name);
+		oprintf (of, "%*sif (%s%s%s) abort();\n", indent, "",
+			 val, dot, f->name);
 	      else if (UNION_OR_STRUCT_P (t->u.p))
-		oprintf (of, "%*sgt_ggc_m_%s (%s.%s);\n", indent, "", 
-			 t->u.p->u.s.tag, val, f->name);
+		oprintf (of, "%*sgt_ggc_m_%s (%s%s%s);\n", indent, "", 
+			 t->u.p->u.s.tag, val, dot, f->name);
 	      else if (t->u.p->kind == TYPE_PARAM_STRUCT)
-		oprintf (of, "%*sgt_ggc_mm_%d%s_%s (%s.%s);\n", indent, "",
+		oprintf (of, "%*sgt_ggc_mm_%d%s_%s (%s%s%s);\n", indent, "",
 			 (int) strlen (t->u.p->u.param_struct.param->u.s.tag),
 			 t->u.p->u.param_struct.param->u.s.tag,
 			 t->u.p->u.param_struct.stru->u.s.tag,
-			 val, f->name);
+			 val, dot, f->name);
 	      else
 		error_at_line (&f->line, "field `%s' is pointer to scalar",
 			       f->name);
@@ -1096,18 +1204,18 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	    }
 	  else if (t->u.p->kind == TYPE_SCALAR
 		   || t->u.p->kind == TYPE_STRING)
-	    oprintf (of, "%*sggc_mark (%s.%s);\n", indent, "", 
-		     val, f->name);
+	    oprintf (of, "%*sggc_mark (%s%s%s);\n", indent, "", 
+		     val, dot, f->name);
 	  else
 	    {
 	      int loopcounter = ++gc_counter;
 	      
-	      oprintf (of, "%*sif (%s.%s != NULL) {\n", indent, "",
-		       val, f->name);
+	      oprintf (of, "%*sif (%s%s%s != NULL) {\n", indent, "",
+		       val, dot, f->name);
 	      indent += 2;
 	      oprintf (of, "%*ssize_t i%d;\n", indent, "", loopcounter);
-	      oprintf (of, "%*sggc_set_mark (%s.%s);\n", indent, "", 
-		       val, f->name);
+	      oprintf (of, "%*sggc_set_mark (%s%s%s);\n", indent, "", 
+		       val, dot, f->name);
 	      oprintf (of, "%*sfor (i%d = 0; i%d < (", indent, "", 
 		       loopcounter, loopcounter);
 	      output_escaped_param (of, length, val, prev_val, "length", line);
@@ -1120,7 +1228,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 		  {
 		    char *newval;
 		    
-		    newval = xasprintf ("%s.%s[i%d]", val, f->name, 
+		    newval = xasprintf ("%s%s%s[i%d]", val, dot, f->name, 
 					loopcounter);
 		    write_gc_structure_fields (of, t->u.p, newval, val,
 					       f->opt, indent, &f->line,
@@ -1130,8 +1238,8 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 		  }
 		case TYPE_POINTER:
 		  if (UNION_OR_STRUCT_P (t->u.p->u.p))
-		    oprintf (of, "%*sgt_ggc_m_%s (%s.%s[i%d]);\n", indent, "", 
-			     t->u.p->u.p->u.s.tag, val, f->name,
+		    oprintf (of, "%*sgt_ggc_m_%s (%s%s%s[i%d]);\n", indent, "", 
+			     t->u.p->u.p->u.s.tag, val, dot, f->name,
 			     loopcounter);
 		  else
 		    error_at_line (&f->line, 
@@ -1174,17 +1282,6 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	    oprintf (of, "%*s{\n", indent, "");
 	    indent += 2;
 
-	    if (special != NULL && strcmp (special, "tree_exp") == 0)
-	      {
-		oprintf (of, "%*sconst size_t tree_exp_size = (",
-                         indent, "");
-		output_escaped_param (of, length, val, prev_val,
-				      "length", line);
-		oprintf (of, ");\n");
-
-		length = "first_rtl_op (TREE_CODE ((tree)&%h))";
-	      }
-
 	    for (ta = t, i = 0; ta->kind == TYPE_ARRAY; ta = ta->u.a.p, i++)
 	      {
 		oprintf (of, "%*ssize_t i%d_%d;\n", 
@@ -1212,8 +1309,8 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 		&& (ta->u.p->kind == TYPE_STRUCT
 		    || ta->u.p->kind == TYPE_UNION))
 	      {
-		oprintf (of, "%*sgt_ggc_m_%s (%s.%s", 
-			 indent, "", ta->u.p->u.s.tag, val, f->name);
+		oprintf (of, "%*sgt_ggc_m_%s (%s%s%s", 
+			 indent, "", ta->u.p->u.s.tag, val, dot, f->name);
 		for (ta = t, i = 0; 
 		     ta->kind == TYPE_ARRAY; 
 		     ta = ta->u.a.p, i++)
@@ -1230,7 +1327,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 		  len += sizeof ("[i_]") + 2*6;
 		
 		newval = xmalloc (len);
-		sprintf (newval, "%s.%s", val, f->name);
+		sprintf (newval, "%s%s%s", val, dot, f->name);
 		for (ta = t, i = 0; 
 		     ta->kind == TYPE_ARRAY; 
 		     ta = ta->u.a.p, i++)
@@ -1254,16 +1351,6 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 		oprintf (of, "%*s}\n", indent, "");
 	      }
 
-	    if (special != NULL && strcmp (special, "tree_exp") == 0)
-	      {
-		oprintf (of, 
-		 "%*sfor (; i%d_0 < tree_exp_size; i%d_0++)\n",
-			 indent, "", loopcounter, loopcounter);
-		oprintf (of, "%*s  gt_ggc_m_rtx_def (%s.%s[i%d_0]);\n",
-			 indent, "", val, f->name, loopcounter);
-		special = NULL;
-	      }
-
 	    indent -= 2;
 	    oprintf (of, "%*s}\n", indent, "");
 	    break;
@@ -1281,8 +1368,6 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	  oprintf (of, "%*sbreak;\n", indent, "");
 	  indent -= 2;
 	}
-      if (special)
-	error_at_line (&f->line, "unhandled special `%s'", special);
     }
   if (s->kind == TYPE_UNION)
     {
