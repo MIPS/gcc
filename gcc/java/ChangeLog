@@ -1,3 +1,11 @@
+2004-10-29  Andrew Haley  <aph@redhat.com>
+
+	* jcf-parse.c (set_source_filename): Add code to build new sfname.
+
+2004-10-20  Andrew Haley  <aph@redhat.com>
+
+	* decl.c (end_java_method): Don't expand if flag_syntax_only.
+
 2004-10-26  Tom Tromey  <tromey@redhat.com>
 
 	* verify.h (vfy_notify_verified): Removed.
