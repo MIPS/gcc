@@ -514,6 +514,9 @@ const int x86_use_ffreep = m_ATHLON_K8;
 const int x86_rep_movl_optimal = m_386 | m_PENT | m_PPRO | m_K6;
 const int x86_inter_unit_moves = ~(m_ATHLON_K8);
 const int x86_ext_80387_constants = m_K6 | m_ATHLON | m_PENT4 | m_PPRO;
+/* Some CPU cores are not able to predict more than 4 branch instructions in
+   the 16 byte window.  */
+const int x86_four_jump_limit = m_PPRO | m_ATHLON_K8 | m_PENT4;
 
 /* In case the average insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -881,7 +884,6 @@ static int ix86_value_regno PARAMS ((enum machine_mode));
 static int extended_reg_mentioned_1 PARAMS ((rtx *, void *));
 static bool contains_128bit_aligned_vector_p PARAMS ((tree));
 static int min_insn_size PARAMS ((rtx));
-static void k8_avoid_jump_misspredicts PARAMS ((rtx));
 
 #if defined (DO_GLOBAL_CTORS_BODY) && defined (HAS_INIT_SECTION)
 static void ix86_svr3_asm_out_constructor PARAMS ((rtx, int));
@@ -15481,7 +15483,7 @@ min_insn_size (insn)
    window.  */
 
 static void
-k8_avoid_jump_misspredicts (first)
+ix86_avoid_jump_misspredicts (first)
      rtx first;
 {
   rtx insn, start = first;
@@ -15542,19 +15544,15 @@ k8_avoid_jump_misspredicts (first)
     }
 }
 
-/* Implement machine specific optimizations.  
-   At the moment we implement single transformation: AMD Athlon works faster
+/* AMD Athlon works faster
    when RET is not destination of conditional jump or directly preceded
    by other jump instruction.  We avoid the penalty by inserting NOP just
    before the RET instructions in such cases.  */
-void
-x86_machine_dependent_reorg (first)
-     rtx first ATTRIBUTE_UNUSED;
+static void
+ix86_pad_returns (void)
 {
   edge e;
 
-  if (!TARGET_ATHLON_K8 || !optimize || optimize_size)
-    return;
   for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
   {
     basic_block bb = e->src;
@@ -15594,7 +15592,21 @@ x86_machine_dependent_reorg (first)
 	delete_insn (ret);
       }
   }
-  k8_avoid_jump_misspredicts (first);
+}
+
+/* Implement machine specific optimizations.  
+   At the moment we implement single transformation: AMD Athlon works faster
+   when RET is not destination of conditional jump or directly preceded
+   by other jump instruction.  We avoid the penalty by inserting NOP just
+   before the RET instructions in such cases.  */
+void
+x86_machine_dependent_reorg (first)
+     rtx first ATTRIBUTE_UNUSED;
+{
+  if (TARGET_ATHLON_K8 && optimize && !optimize_size)
+    ix86_pad_returns ();
+  if (TARGET_FOUR_JUMP_LIMIT && optimize && !optimize_size)
+    ix86_avoid_jump_misspredicts ();
 }
 
 /* Return nonzero when QImode register that must be represented via REX prefix

@@ -1,5 +1,15 @@
 2004-02-14  Jan Hubicka  <jh@suse.cz>
 
+	* i386.c (x86_four_jump_limit): New variable.
+	(k8_avoid_jump_misspredicts): Rename to ...
+	(ix86_avoid_jump_misspredicts): .. this one.
+	(ix86_pad_returns): Break out from ...
+	(ix86_reorg): ... this one; do ix86_avoid_jump_misspredicts when asked
+	to.
+	* i386.h (TARGET_FOUR_JUMP_LIMIT): New macro.
+
+2004-02-14  Jan Hubicka  <jh@suse.cz>
+
 	* Merge from 3.3 branch (hammer-3_3-merge-20040114)
 
 2004-01-22  Hartmut Penner  <hpenner@de.ibm.com>
