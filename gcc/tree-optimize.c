@@ -332,8 +332,6 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_lower_cf);
   NEXT_PASS (pass_lower_eh);
   NEXT_PASS (pass_build_cfg);
-  /* APPLE LOCAL 3837835  */
-  NEXT_PASS (pass_identify_vector_use);
   NEXT_PASS (pass_pre_expand);
   NEXT_PASS (pass_tree_profile);
   NEXT_PASS (pass_init_datastructures);

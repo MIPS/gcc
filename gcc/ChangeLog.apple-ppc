@@ -1,3 +1,11 @@
+2004-11-16  Devang Patel  <dpatel@apple.com>
+
+	Related to Radar 3837835.
+	* tree-cfg.c (ivu_gate, fndecl_uses_vector_p, identify_vector_use,
+	pass_identify_vector_use): Remove.
+	* tree-optimzie.c (init_tree_optimization_passes): Remove pass_identify_vector_use.
+	* tree-pass.h (pass_identify_vector_use): Remove extern decl.
+	
 2004-11-16  Caroline Tice  <ctice@apple.com>
 
         * varasm.c (assemble_start_function):  Don't print out section label
