@@ -2743,10 +2743,11 @@ extern int making_const_table;
       int shift = 0;								\
       int this_regno = (aggregate_value_p (TREE_TYPE (TREE_TYPE (FUNCTION)))	\
 		        ? 1 : 0);						\
-      if (mi_delta < 0) mi_delta = -mi_delta;					\
+      if (mi_delta < 0)								\
+        mi_delta = - mi_delta;							\
       while (mi_delta != 0)							\
         {									\
-          if (mi_delta & (3 << shift) == 0)					\
+          if ((mi_delta & (3 << shift)) == 0)					\
 	    shift += 2;								\
           else									\
 	    {									\
