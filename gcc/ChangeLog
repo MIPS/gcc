@@ -1,3 +1,7 @@
+2003-11-09  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.in (rtlanal.o): Depend on BASIC_BLOCK_H.
+
 2003-10-30  Richard Henderson  <rth@redhat.com>
 
         * c-objc-common.c (c_tree_printer): Handle types correctly.
