@@ -66,21 +66,22 @@ extern arm_cc arm_current_cc;
 
 extern int arm_target_label;
 extern int arm_ccfsm_state;
-extern struct rtx_def * arm_target_insn;
+extern GTY(()) rtx arm_target_insn;
 /* Run-time compilation parameters selecting different hardware subsets.  */
 extern int target_flags;
 /* The floating point instruction architecture, can be 2 or 3 */
 extern const char * target_fp_name;
 /* Define the information needed to generate branch insns.  This is
-   stored from the compare operation.  Note that we can't use "rtx" here
-   since it hasn't been defined!  */
-extern struct rtx_def * arm_compare_op0;
-extern struct rtx_def * arm_compare_op1;
+   stored from the compare operation.  */
+extern GTY(()) rtx arm_compare_op0;
+extern GTY(()) rtx arm_compare_op1;
 /* The label of the current constant pool.  */
-extern struct rtx_def * pool_vector_label;
+extern rtx pool_vector_label;
 /* Set to 1 when a return insn is output, this means that the epilogue
    is not needed. */
 extern int return_used_this_function;
+/* Used to produce AOF syntax assembler.  */
+extern GTY(()) rtx aof_pic_label;
 
 /* Just in case configure has failed to define anything. */
 #ifndef TARGET_CPU_DEFAULT

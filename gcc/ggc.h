@@ -43,16 +43,12 @@ extern varray_type ggc_pending_trees;
 /* Manipulate global roots that are needed between calls to gc.  */
 extern void ggc_add_root		PARAMS ((void *base, int nelt,
 						 int size, void (*)(void *)));
-extern void ggc_add_rtx_root		PARAMS ((struct rtx_def **, int nelt));
-extern void ggc_add_tree_root		PARAMS ((union tree_node **,
-						 int nelt));
 extern void ggc_add_rtx_varray_root	PARAMS ((struct varray_head_tag **,
 						 int nelt));
 extern void ggc_add_tree_varray_root	PARAMS ((struct varray_head_tag **,
 						 int nelt));
 extern void ggc_add_tree_hash_table_root PARAMS ((struct hash_table **,
 						  int nelt));
-extern void ggc_del_root		PARAMS ((void *base));
 
 /* Structures for the easy way to mark roots.  
    In an array, terminated by having base == NULL.*/

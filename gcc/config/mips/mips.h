@@ -137,7 +137,7 @@ extern int set_noat;			/* # of nested .set noat's  */
 extern int set_volatile;		/* # of nested .set volatile's  */
 extern int mips_branch_likely;		/* emit 'l' after br (branch likely) */
 extern int mips_dbx_regno[];		/* Map register # to debug register # */
-extern struct rtx_def *branch_cmp[2];	/* operands for compare */
+extern GTY(()) rtx branch_cmp[2];	/* operands for compare */
 extern enum cmp_type branch_type;	/* what type of branch to use */
 extern enum processor_type mips_arch;   /* which cpu to codegen for */
 extern enum processor_type mips_tune;   /* which cpu to schedule for */
@@ -162,13 +162,13 @@ extern int dslots_jump_total;		/* total # jump related delay slots */
 extern int dslots_jump_filled;		/* # filled jump delay slots */
 extern int dslots_number_nops;		/* # of nops needed by previous insn */
 extern int num_refs[3];			/* # 1/2/3 word references */
-extern struct rtx_def *mips_load_reg;	/* register to check for load delay */
-extern struct rtx_def *mips_load_reg2;	/* 2nd reg to check for load delay */
-extern struct rtx_def *mips_load_reg3;	/* 3rd reg to check for load delay */
-extern struct rtx_def *mips_load_reg4;	/* 4th reg to check for load delay */
-extern struct rtx_def *embedded_pic_fnaddr_rtx;	/* function address */
+extern GTY(()) rtx mips_load_reg;	/* register to check for load delay */
+extern GTY(()) rtx mips_load_reg2;	/* 2nd reg to check for load delay */
+extern GTY(()) rtx mips_load_reg3;	/* 3rd reg to check for load delay */
+extern GTY(()) rtx mips_load_reg4;	/* 4th reg to check for load delay */
+extern GTY(()) rtx embedded_pic_fnaddr_rtx;	/* function address */
 extern int mips_string_length;		/* length of strings for mips16 */
-extern struct rtx_def *mips16_gp_pseudo_rtx; /* psuedo reg holding $gp */
+extern GTY(()) rtx mips16_gp_pseudo_rtx; /* psuedo reg holding $gp */
 
 /* Functions to change what output section we are using.  */
 extern void		rdata_section PARAMS ((void));
@@ -2780,7 +2780,7 @@ typedef struct mips_args {
 				   bug in the code that sets the adjustments
 				   in function_arg.  */
   int prototype;                /* True if the function has a prototype.  */
-  struct rtx_def *adjust[MAX_ARGS_IN_REGISTERS*2];
+  rtx adjust[MAX_ARGS_IN_REGISTERS*2];
 } CUMULATIVE_ARGS;
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS

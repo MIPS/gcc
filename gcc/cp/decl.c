@@ -129,7 +129,6 @@ static void pop_cp_function_context PARAMS ((struct function *));
 static void mark_binding_level PARAMS ((void *));
 static void mark_named_label_lists PARAMS ((void *, void *));
 static void mark_cp_function_context PARAMS ((void *));
-static void mark_saved_scope PARAMS ((void *));
 static void mark_lang_function PARAMS ((struct cp_language_function *));
 static void save_function_data PARAMS ((tree));
 static void check_function_type PARAMS ((tree, tree));
@@ -209,7 +208,7 @@ tree cp_global_trees[CPTI_MAX];
 /* Indicates that there is a type value in some namespace, although
    that is not necessarily in scope at the moment.  */
 
-static tree global_type_node;
+static GTY(()) tree global_type_node;
 
 /* Expect only namespace names now. */
 static int only_namespace_names;
@@ -288,10 +287,6 @@ int flag_noniso_default_format_attributes = 1;
 extern int flag_conserve_space;
 
 /* C and C++ flags are in decl2.c.  */
-
-/* A expression of value 0 with the same precision as a sizetype
-   node, but signed.  */
-tree signed_size_zero_node;
 
 /* The name of the anonymous namespace, throughout this translation
    unit.  */
@@ -473,7 +468,7 @@ static GTY((deletable (""))) struct cp_binding_level *free_binding_level;
    This is created when the compiler is started and exists
    through the entire run.  */
 
-static struct cp_binding_level *global_binding_level;
+static GTY(()) struct cp_binding_level *global_binding_level;
 
 /* Nonzero means unconditionally make a BLOCK for the next level pushed.  */
 
@@ -923,7 +918,7 @@ note_level_for_catch ()
 /* A free list of CPLUS_BINDING nodes, connected by their
    TREE_CHAINs.  */
 
-static tree free_bindings;
+static GTY((deletable (""))) tree free_bindings;
 
 /* Make DECL the innermost binding for ID.  The LEVEL is the binding
    level at which this declaration is being bound.  */
@@ -2353,39 +2348,6 @@ pop_nested_namespace (ns)
    scope isn't enough, because more binding levels may be pushed.  */
 struct saved_scope *scope_chain;
 
-/* Mark ARG (which is really a struct saved_scope **) for GC.  */
-
-static void
-mark_saved_scope (arg)
-     void *arg;
-{
-  struct saved_scope *t = *(struct saved_scope **)arg;
-  while (t)
-    {
-      mark_binding_level (&t->class_bindings);
-      ggc_mark_tree (t->old_bindings);
-      ggc_mark_tree (t->old_namespace);
-      ggc_mark_tree (t->decl_ns_list);
-      ggc_mark_tree (t->class_name);
-      ggc_mark_tree (t->class_type);
-      ggc_mark_tree (t->access_specifier);
-      ggc_mark_tree (t->function_decl);
-      if (t->lang_base)
-	ggc_mark_tree_varray (t->lang_base);
-      ggc_mark_tree (t->lang_name);
-      ggc_mark_tree (t->template_parms);
-      ggc_mark_tree (t->x_previous_class_type);
-      ggc_mark_tree (t->x_previous_class_values);
-      ggc_mark_tree (t->x_saved_tree);
-      ggc_mark_tree (t->incomplete);
-      ggc_mark_tree (t->lookups);
-
-      mark_stmt_tree (&t->x_stmt_tree);
-      mark_binding_level (&t->bindings);
-      t = t->prev;
-    }
-}
-
 static tree
 store_bindings (names, old_bindings)
      tree names, old_bindings;
@@ -2438,7 +2400,7 @@ maybe_push_to_top_level (pseudo)
   tree old_bindings;
   int need_pop;
 
-  s = (struct saved_scope *) xcalloc (1, sizeof (struct saved_scope));
+  s = (struct saved_scope *) ggc_alloc_cleared (sizeof (struct saved_scope));
 
   b = scope_chain ? current_binding_level : 0;
 
@@ -2524,8 +2486,6 @@ pop_from_top_level ()
   if (s->need_pop_function_context)
     pop_function_context_from (NULL_TREE);
   current_function_decl = s->function_decl;
-
-  free (s);
 }
 
 /* Push a definition of struct, union or enum tag "name".
@@ -6388,9 +6348,7 @@ cxx_init_decl_processing ()
   mark_lang_status = &mark_cp_function_context;
   lang_missing_noreturn_ok_p = &cp_missing_noreturn_ok_p;
 
-  cp_parse_init ();
   init_decl2 ();
-  init_pt ();
 
   /* Create the global variables.  */
   push_to_top_level ();
@@ -6473,9 +6431,6 @@ cxx_init_decl_processing ()
   TREE_TYPE (boolean_false_node) = boolean_type_node;
   boolean_true_node = build_int_2 (1, 0);
   TREE_TYPE (boolean_true_node) = boolean_type_node;
-
-  signed_size_zero_node = build_int_2 (0, 0);
-  TREE_TYPE (signed_size_zero_node) = make_signed_type (TYPE_PRECISION (sizetype));
 
   empty_except_spec = build_tree_list (NULL_TREE, NULL_TREE);
 
@@ -6588,35 +6543,6 @@ cxx_init_decl_processing ()
      say -fwritable-strings?  */
   if (flag_writable_strings)
     flag_const_strings = 0;
-
-  /* Add GC roots for all of our global variables.  */
-  ggc_add_tree_root (c_global_trees, ARRAY_SIZE (c_global_trees));
-  ggc_add_tree_root (cp_global_trees, ARRAY_SIZE (cp_global_trees));
-  ggc_add_tree_root (&integer_three_node, 1);
-  ggc_add_tree_root (&integer_two_node, 1);
-  ggc_add_tree_root (&signed_size_zero_node, 1);
-  ggc_add_tree_root (&size_one_node, 1);
-  ggc_add_tree_root (&size_zero_node, 1);
-  ggc_add_root (&global_binding_level, 1, sizeof global_binding_level,
-		mark_binding_level);
-  ggc_add_root (&scope_chain, 1, sizeof scope_chain, &mark_saved_scope);
-  ggc_add_tree_root (&static_ctors, 1);
-  ggc_add_tree_root (&static_dtors, 1);
-  ggc_add_tree_root (&lastiddecl, 1);
-
-  ggc_add_tree_root (&last_function_parms, 1);
-  ggc_add_tree_root (&error_mark_list, 1);
-
-  ggc_add_tree_root (&global_namespace, 1);
-  ggc_add_tree_root (&global_type_node, 1);
-  ggc_add_tree_root (&anonymous_namespace_name, 1);
-
-  ggc_add_tree_root (&got_object, 1);
-  ggc_add_tree_root (&got_scope, 1);
-
-  ggc_add_tree_root (&current_lang_name, 1);
-  ggc_add_tree_root (&static_aggregates, 1);
-  ggc_add_tree_root (&free_bindings, 1);
 }
 
 /* Generate an initializer for a function naming variable from

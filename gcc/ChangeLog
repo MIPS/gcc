@@ -1,3 +1,87 @@
+2002-04-09  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Makefile.in (cselib.o): Include gt-<filename>.h.
+	(gcse.o): Likewise.
+	(profile.o): Likewise.
+	(alias.o): Likewise.
+	(GTFILES): Add alias.c, cselib.c, gcse.c, profile.c, and
+	alphabetize backend files.
+	(gt-alias.h, gt-cselib.h, gt-gcse.h, gt-profile.h): New rules.
+	* alias.c: Use gengtype for roots.
+	* c-common.h (struct stmt_tree_s): Use gengtype.
+	* c-decl.c: Use gengtype for roots.
+	* cselib.c: Use gengtype for roots.
+	* expr.c: Use gengtype for roots.
+	* fold-const.c: Use gengtype for roots.
+	* gcse.c: Use gengtype for roots.
+	* gengtype-lex.l: Handle typedefs of function types.
+	Allow for empty array bounds.
+	Allow processing to stop on initialisers.
+	* gengtype-yacc.y (externstatic): Stop processing on initialisers.
+	(semiequal): New rule.
+	* gengtype.c (create_file): Tidy output files.
+	(get_output_file_with_visibility): Fix paren warning.  Fix bug
+	involving multiple input files mapping to one output file.
+	(write_gc_structure_fields): Skip arrays of scalars.
+	(write_gc_types): Tidy output files.
+	(write_gc_root): New function.
+	(write_gc_roots): Fix bugs, add support for roots that are
+	structures.
+	* ggc-common.c (ggc_mark_rtx_ptr): Delete.
+	(ggc_mark_tree_ptr): Delete.
+	(ggc_add_rtx_root): Delete.
+	(ggc_add_tree_root): Delete.
+	(ggc_del_root): Delete.
+	* integrate.c (get_func_hard_reg_initial_val): Use ggc_alloc to
+	allocate struct initial_value_struct.
+	* profile.c: Use gengtype for roots.
+	* sdbout.c: Use gengtype for roots.
+	* varasm.c (mark_weak_decls): Delete unused prototype.
+	(mark_const_hash_entry): Delete unused function.
+	* config/darwin-protos.h: Use gengtype for roots.
+	(machopic_add_gc_roots): Delete.
+	* config/arm/arm.c: Use gengtype for roots.
+	* config/arm/arm.h: Use gengtype for roots.
+	* config/c4x/c4x-protos.h: Use gengtype for roots.
+	* config/c4x/c4x.c (c4x_add_gc_roots): Delete.
+	* config/d30v/d30v-protos.h: Use gengtype for roots.
+	* config/d30v/d30v.c (d30v_add_gc_roots): Delete.
+	* config/dsp16xx/dsp16xx.c (override_options): Use gengtype for roots.
+	* config/dsp16xx/dsp16xx.h: Use gengtype for roots.
+	* config/ia64/ia64-protos.h: Use gengtype for roots.
+	* config/ia64/ia64.c (ia64_add_gc_roots): Delete.
+	* config/m68hc11/m68hc11-protos.h: Use gengtype for roots.
+	* config/m68hc11/m68hc11.c (z_reg): Make global.
+	(z_reg_qi): Make global.
+	(m68hc11_add_gc_roots): Delete.
+	* config/mcore/mcore-protos.h: Use gengtype for roots.
+	* config/mcore/mcore.c (mcore_add_gc_roots): Delete.
+	* config/mips/mips.c (mips_add_gc_roots): Delete.
+	* config/mips/mips.h: Use gengtype for roots.
+	* config/mmix/mmix.c (override_options): Use gengtype for roots.
+	* config/mmix/mmix.h: Use gengtype for roots.
+	* config/mn10200/mn10200.c (asm_file_start): Use gengtype for roots.
+	* config/mn10200/mn10200.h: Use gengtype for roots.
+	* config/pa/pa.c: Use gengtype for roots, marking.
+	(struct deferred_plabel): Use GGC, gengtype.
+	(pa_add_gc_roots): Delete.
+	(mark_deferred_plabels): Delete.
+	* config/pj/pj-protos.h: Use gengtype for roots.
+	* config/pj/pj.h (OVERRIDE_OPTIONS): Don't define.
+	* config/rs6000/rs6000.c: Use gengtype for roots.  Don't call
+	machopic_add_gc_roots.
+	* config/rs6000/rs6000.h: Use gengtype for roots.
+	* config/rs6000/t-darwin (darwin.o): Add dependency on gt-darwin.h.
+	(gt-darwin.h): Add rule.
+	* config/sh/sh.c: Use gengtype for roots.
+	* config/sh/t-sh ($(out_object_file)): Add dependency on gt-sh.h.
+	(gt-sh.h): Add rule.
+	* config/sparc/sparc.c: Use gengtype for roots.
+	(sparc_add_gc_roots): Delete.
+	(struct ultrasparc_pipeline_state): Use GGC, gengtype.
+	(mark_ultrasparc_pipeline_state): Delete.
+	* config/sparc/sparc.h: Use gengtype for roots.
+
 2002-04-04  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Makefile.in (c-parse.o): Update dependencies.

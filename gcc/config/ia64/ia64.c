@@ -119,7 +119,6 @@ static rtx gen_fr_restore_x PARAMS ((rtx, rtx, rtx));
 
 static enum machine_mode hfa_element_mode PARAMS ((tree, int));
 static void fix_range PARAMS ((const char *));
-static void ia64_add_gc_roots PARAMS ((void));
 static struct machine_function * ia64_init_machine_status PARAMS ((void));
 static void emit_insn_group_barriers PARAMS ((FILE *, rtx));
 static void emit_all_insn_group_barriers PARAMS ((FILE *, rtx));
@@ -3880,16 +3879,6 @@ fix_range (const_str)
     }
 }
 
-/* Called to register all of our global variables with the garbage
-   collector.  */
-
-static void
-ia64_add_gc_roots ()
-{
-  ggc_add_rtx_root (&ia64_compare_op0, 1);
-  ggc_add_rtx_root (&ia64_compare_op1, 1);
-}
-
 static struct machine_function *
 ia64_init_machine_status ()
 {
@@ -3920,8 +3909,6 @@ ia64_override_options ()
 
   init_machine_status = ia64_init_machine_status;
   mark_machine_status = gt_ggc_m_machine_function;
-
-  ia64_add_gc_roots ();
 }
 
 static enum attr_itanium_requires_unit0 ia64_safe_itanium_requires_unit0 PARAMS((rtx));

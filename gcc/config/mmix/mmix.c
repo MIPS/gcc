@@ -138,11 +138,6 @@ mmix_override_options ()
       warning ("-f%s not supported: ignored", (flag_pic > 1) ? "PIC" : "pic");
       flag_pic = 0;
     }
-
-  /* All other targets add GC roots from their override_options function,
-     so play along.  */
-  ggc_add_rtx_root (&mmix_compare_op0, 1);
-  ggc_add_rtx_root (&mmix_compare_op1, 1);
 }
 
 /* INIT_EXPANDERS.  */

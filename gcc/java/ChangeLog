@@ -1,3 +1,12 @@
+2002-04-09  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Make-lang.in (gt-java-builtins.h): New rule.
+	(java/builtins.o): Add dependency on gt-<filename>.h.
+	* builtins.c: Use gengtype for roots.
+	(union string_or_tree): Use gengtype.
+	(struct builtin_record): Use gengtype.
+	* config-lang.in (gtfiles): Add builtins.c.
+
 2002-04-04  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Make-lang.in (gt-java-class.h, gt-java-constants.h,

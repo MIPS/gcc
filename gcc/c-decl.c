@@ -103,7 +103,7 @@ static int current_function_prototype_line;
 
 /* The current statement tree.  */
 
-static struct stmt_tree_s c_stmt_tree;
+static GTY(()) struct stmt_tree_s c_stmt_tree;
 
 /* The current scope statement stack.  */
 
@@ -2954,10 +2954,6 @@ c_init_decl_processing ()
   start_fname_decls ();
 
   incomplete_decl_finalize_hook = finish_incomplete_decl;
-
-  /* Record our roots.  */
-
-  ggc_add_root (&c_stmt_tree, 1, sizeof c_stmt_tree, mark_stmt_tree);
 }
 
 /* Create the VAR_DECL for __FUNCTION__ etc. ID is the name to give the

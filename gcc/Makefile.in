@@ -1456,13 +1456,13 @@ simplify-rtx.o : simplify-rtx.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) \
    output.h function.h $(GGC_H) $(OBSTACK_H) $(TM_P_H)
 cselib.o : cselib.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
-   output.h function.h cselib.h $(GGC_H) $(OBSTACK_H) $(TM_P_H)
+   output.h function.h cselib.h $(GGC_H) $(OBSTACK_H) $(TM_P_H) gt-cselib.h
 cse.o : cse.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) hard-reg-set.h flags.h \
    real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h output.h function.h \
    $(BASIC_BLOCK_H) $(GGC_H) $(TM_P_H) $(TIMEVAR_H)
 gcse.o : gcse.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) hard-reg-set.h \
    flags.h real.h insn-config.h ggc.h $(RECOG_H) $(EXPR_H) $(BASIC_BLOCK_H) \
-   function.h output.h toplev.h $(TM_P_H) $(PARAMS_H)
+   function.h output.h toplev.h $(TM_P_H) $(PARAMS_H) gt-gcse.h
 sibcall.o : sibcall.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) function.h \
    hard-reg-set.h flags.h insn-config.h $(RECOG_H) $(BASIC_BLOCK_H)
 resource.o : resource.c $(CONFIG_H) $(RTL_H) hard-reg-set.h $(SYSTEM_H) \
@@ -1486,7 +1486,8 @@ conflict.o : conflict.c $(CONFIG_H) $(SYSTEM_H) $(OBSTACK_H) $(HASHTAB_H) \
    $(RTL_H) hard-reg-set.h $(BASIC_BLOCK_H)
 profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    insn-config.h output.h $(REGS_H) $(EXPR_H) function.h \
-   gcov-io.h toplev.h $(GGC_H) hard-reg-set.h $(BASIC_BLOCK_H) $(TARGET_H)
+   gcov-io.h toplev.h $(GGC_H) hard-reg-set.h $(BASIC_BLOCK_H) $(TARGET_H) \
+   gt-profile.h
 loop.o : loop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    insn-config.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) \
    real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h \
@@ -1549,7 +1550,7 @@ reorg.o : reorg.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) conditions.h hard-reg-set.h \
    $(RECOG_H) function.h flags.h output.h $(EXPR_H) toplev.h $(PARAMS_H) $(TM_P_H)
 alias.o : alias.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h hard-reg-set.h \
    $(BASIC_BLOCK_H) $(REGS_H) toplev.h output.h $(EXPR_H) \
-   $(GGC_H) function.h cselib.h $(TREE_H) $(TM_P_H) langhooks.h
+   $(GGC_H) function.h cselib.h $(TREE_H) $(TM_P_H) langhooks.h gt-alias.h
 regmove.o : regmove.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) insn-config.h \
    $(RECOG_H) output.h $(REGS_H) hard-reg-set.h flags.h function.h \
    $(EXPR_H) $(BASIC_BLOCK_H) toplev.h $(TM_P_H) except.h reload.h
@@ -1781,10 +1782,13 @@ GTFILES = $(GCONFIG_H) \
   $(srcdir)/function.h  $(srcdir)/rtl.h $(srcdir)/optabs.h \
   $(srcdir)/tree.h $(srcdir)/libfuncs.h \
   $(srcdir)/c-common.h $(srcdir)/c-tree.h \
-  $(srcdir)/except.c $(srcdir)/function.c $(srcdir)/integrate.c \
-  $(srcdir)/stmt.c $(srcdir)/tree.c $(srcdir)/varasm.c \
-  $(srcdir)/emit-rtl.c $(srcdir)/explow.c $(srcdir)/stor-layout.c \
-  $(srcdir)/regclass.c $(srcdir)/lists.c \
+  $(srcdir)/alias.c $(srcdir)/cselib.c $(srcdir)/emit-rtl.c \
+  $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
+  $(srcdir)/fold-const.c $(srcdir)/function.c \
+  $(srcdir)/gcse.c $(srcdir)/integrate.c $(srcdir)/lists.c \
+  $(srcdir)/profile.c $(srcdir)/regclass.c $(srcdir)/sdbout.c \
+  $(srcdir)/stmt.c $(srcdir)/stor-layout.c $(srcdir)/tree.c \
+  $(srcdir)/varasm.c \
   $(srcdir)/c-common.c $(srcdir)/c-parse.in \
   $(out_file) \
   $(srcdir)/c-decl.c $(srcdir)/c-pragma.c \
@@ -1793,6 +1797,8 @@ GTFILES = $(GCONFIG_H) \
 gtype-desc.h gtype-desc.c gt-except.h gt-function.h : s-gtype; @true
 gt-integrate.h gt-stmt.h gt-tree.h gt-varasm.h gt-emit-rtl.h : s-gtype; @true
 gt-explow.h gt-stor-layout.h gt-regclass.h gt-lists.h : s-gtype; @true
+gt-alias.h gt-cselib.h gt-fold-const.h gt-gcse.h gt-profile.h : s-gtype; @true
+gt-expr.h gt-sdbout.h : s-gtype ; @true
 gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h : s-gtype; @true
 gtype-c.h : s-gtype ; @true
 

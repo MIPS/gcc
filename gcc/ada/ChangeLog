@@ -1,3 +1,14 @@
+2002-04-09  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Makefile.in (decl.o): Include gt-ada-<filename>.h.
+	(misc.o): Likewise.
+	(utils.o): Include gt-ada-<filename>.h and gtype-ada.h.
+	* config-lang.in (gtfiles): New.
+	* decl.c: Use gengtype for roots.
+	* gigi.h: Use gengtype for roots.
+	* trans.c: Use gengtype for roots.
+	* utils.c: Use gengtype for roots, marking.  Include gtype-ada.h.
+
 2002-03-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* misc.c (gnat_tree_code_type, gnat_tree_code_length,

@@ -42,11 +42,14 @@ AT&T C compiler.  From the example below I would conclude the following:
 */
 
 #include "config.h"
+#include "system.h"
+#include "tree.h"
+#include "ggc.h"
+
+static GTY(()) tree anonymous_types;
 
 #ifdef SDB_DEBUGGING_INFO
 
-#include "system.h"
-#include "tree.h"
 #include "rtl.h"
 #include "regs.h"
 #include "flags.h"
@@ -54,7 +57,6 @@ AT&T C compiler.  From the example below I would conclude the following:
 #include "reload.h"
 #include "output.h"
 #include "toplev.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "gsyms.h"
 #include "debug.h"
@@ -988,8 +990,6 @@ sdbout_toplevel_data (decl)
 
 /* Machinery to record and output anonymous types.  */
 
-static tree anonymous_types;
-
 static void
 sdbout_queue_anonymous_type (type)
      tree type;
@@ -1759,10 +1759,8 @@ sdbout_init (input_file_name)
 	&& !strcmp (IDENTIFIER_POINTER (DECL_NAME (t)), "__vtbl_ptr_type"))
       sdbout_symbol (t, 0);
 #endif  
-
-#ifdef SDB_ALLOW_FORWARD_REFERENCES
-  ggc_add_tree_root (&anonymous_types, 1);
-#endif
 }
 
 #endif /* SDB_DEBUGGING_INFO */
+
+#include "gt-sdbout.h"

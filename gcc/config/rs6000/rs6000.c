@@ -11034,16 +11034,9 @@ rs6000_fatal_bad_address (op)
 static void
 rs6000_add_gc_roots ()
 {
-  ggc_add_rtx_root (&rs6000_compare_op0, 1);
-  ggc_add_rtx_root (&rs6000_compare_op1, 1);
-
   toc_hash_table = htab_create (1021, toc_hash_function, toc_hash_eq, NULL);
   ggc_add_root (&toc_hash_table, 1, sizeof (toc_hash_table), 
 		toc_hash_mark_table);
-
-#if TARGET_MACHO
-  machopic_add_gc_roots ();
-#endif
 }
 
 #if TARGET_MACHO

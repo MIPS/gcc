@@ -46,7 +46,6 @@
 static void d30v_print_operand_memory_reference PARAMS ((FILE *, rtx));
 static void d30v_build_long_insn PARAMS ((HOST_WIDE_INT, HOST_WIDE_INT,
 					  rtx, rtx));
-static void d30v_add_gc_roots PARAMS ((void));
 static struct machine_function * d30v_init_machine_status PARAMS ((void));
 static void d30v_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void d30v_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
@@ -295,8 +294,6 @@ override_options ()
   reg_class_from_letter['x'] = F0_REGS;
   reg_class_from_letter['y'] = F1_REGS;
   reg_class_from_letter['z'] = OTHER_FLAG_REGS;
-
-  d30v_add_gc_roots ();
 }
 
 
@@ -3568,14 +3565,4 @@ rtx
 d30v_return_addr ()
 {
   return get_hard_reg_initial_val (Pmode, GPR_LINK);
-}
-
-/* Called to register all of our global variables with the garbage
-   collector.  */
-
-static void
-d30v_add_gc_roots ()
-{
-  ggc_add_rtx_root (&d30v_compare_op0, 1);
-  ggc_add_rtx_root (&d30v_compare_op1, 1);
 }

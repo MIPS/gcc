@@ -251,7 +251,7 @@ c_language_kind;
 
 /* Information about a statement tree.  */
 
-struct stmt_tree_s {
+struct stmt_tree_s GTY(()) {
   /* The last statement added to the tree.  */
   tree x_last_stmt;
   /* The type of the last expression statement.  (This information is

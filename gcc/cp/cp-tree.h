@@ -587,7 +587,7 @@ enum cp_tree_index
     CPTI_MAX
 };
 
-extern tree cp_global_trees[CPTI_MAX];
+extern GTY(()) tree cp_global_trees[CPTI_MAX];
 
 #define java_byte_type_node		cp_global_trees[CPTI_JAVA_BYTE_TYPE]
 #define java_short_type_node		cp_global_trees[CPTI_JAVA_SHORT_TYPE]
@@ -716,7 +716,7 @@ extern tree cp_global_trees[CPTI_MAX];
 
 /* Global state.  */
 
-struct saved_scope
+struct saved_scope GTY(())
 {
   tree old_bindings;
   tree old_namespace;
@@ -725,7 +725,7 @@ struct saved_scope
   tree class_type;
   tree access_specifier;
   tree function_decl;
-  varray_type lang_base;
+  varray_type GTY ((varray_type (tree))) lang_base;
   tree lang_name;
   tree template_parms;
   tree x_previous_class_type;
@@ -803,7 +803,7 @@ struct saved_scope
 
 #define type_lookups scope_chain->lookups
 
-extern struct saved_scope *scope_chain;
+extern GTY(()) struct saved_scope *scope_chain;
 
 struct unparsed_text;
 
@@ -913,7 +913,7 @@ struct cp_language_function
 #define current_function_return_value \
   (cp_function_chain->x_return_value)
 
-extern tree global_namespace;
+extern GTY(()) tree global_namespace;
 
 #define ansi_opname(CODE) \
   (operator_name_info[(int) (CODE)].identifier)
@@ -3128,7 +3128,7 @@ extern int warn_nontemplate_friend;
 
 /* in decl{2}.c */
 /* A node that is a list (length 1) of error_mark_nodes.  */
-extern tree error_mark_list;
+extern GTY(()) tree error_mark_list;
 
 /* Node for "pointer to (virtual) function".
    This may be distinct from ptr_type_node so gdb can distinguish them.  */
@@ -3136,9 +3136,10 @@ extern tree error_mark_list;
 
 
 /* For building calls to `delete'.  */
-extern tree integer_two_node, integer_three_node;
+extern GTY(()) tree integer_two_node;
+extern GTY(()) tree integer_three_node;
 
-extern tree anonymous_namespace_name;
+extern GTY(()) tree anonymous_namespace_name;
 
 /* The number of function bodies which we are currently processing.
    (Zero if we are at namespace scope, one inside the body of a
@@ -3335,8 +3336,8 @@ extern int at_eof;
 
 /* Functions called along with real static constructors and destructors.  */
 
-extern tree static_ctors;
-extern tree static_dtors;
+extern GTY(()) tree static_ctors;
+extern GTY(()) tree static_dtors;
 
 enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 
@@ -3847,9 +3848,6 @@ extern tree get_guard                           PARAMS ((tree));
 extern tree get_guard_cond                      PARAMS ((tree));
 extern tree set_guard                           PARAMS ((tree));
 
-/* in parse.y */
-extern void cp_parse_init			PARAMS ((void));
-
 extern void cp_error_at		PARAMS ((const char *msgid, ...));
 extern void cp_warning_at	PARAMS ((const char *msgid, ...));
 extern void cp_pedwarn_at	PARAMS ((const char *msgid, ...));
@@ -3980,7 +3978,6 @@ extern int calls_setjmp_p                       PARAMS ((tree));
 extern int maybe_clone_body                     PARAMS ((tree));
 
 /* in pt.c */
-extern void init_pt                             PARAMS ((void));
 extern void check_template_shadow		PARAMS ((tree));
 extern tree get_innermost_template_args         PARAMS ((tree, int));
 extern tree tsubst				PARAMS ((tree, tree, tsubst_flags_t, tree));

@@ -117,7 +117,6 @@ static rtx mips_find_symbol			PARAMS ((rtx));
 static void abort_with_insn			PARAMS ((rtx, const char *))
   ATTRIBUTE_NORETURN;
 static int symbolic_expression_p                PARAMS ((rtx));
-static void mips_add_gc_roots                   PARAMS ((void));
 static bool mips_assemble_integer	  PARAMS ((rtx, unsigned int, int));
 static void mips_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void mips_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
@@ -5278,9 +5277,6 @@ override_options ()
       if (align_functions == 0)
 	align_functions = 8;
     }
-
-  /* Register global variables with the garbage collector.  */
-  mips_add_gc_roots ();
 }
 
 /* On the mips16, we want to allocate $24 (T_REG) before other
@@ -9842,21 +9838,6 @@ mips_output_conditional_branch (insn,
 
   /* NOTREACHED */
   return 0;
-}
-
-/* Called to register all of our global variables with the garbage
-   collector.  */
-
-static void
-mips_add_gc_roots ()
-{
-  ggc_add_rtx_root (&mips_load_reg, 1);
-  ggc_add_rtx_root (&mips_load_reg2, 1);
-  ggc_add_rtx_root (&mips_load_reg3, 1);
-  ggc_add_rtx_root (&mips_load_reg4, 1);
-  ggc_add_rtx_root (branch_cmp, ARRAY_SIZE (branch_cmp));
-  ggc_add_rtx_root (&embedded_pic_fnaddr_rtx, 1);
-  ggc_add_rtx_root (&mips16_gp_pseudo_rtx, 1);
 }
 
 static enum processor_type

@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                            $Revision: 1.10 $
+ *                            $Revision: 1.9.8.1 $
  *                                                                          *
  *          Copyright (C) 1992-2002, Free Software Foundation, Inc.         *
  *                                                                          *
@@ -4041,7 +4041,7 @@ substitution_list (gnat_subtype, gnat_type, gnu_list, definition)
 /* For the following two functions: for each GNAT entity, the GCC
    tree node used as a dummy for that entity, if any.  */
 
-static tree *dummy_node_table;
+static GTY((length ("max_gnat_nodes"))) tree * dummy_node_table;
 
 /* Initialize the above table.  */
 
@@ -4050,8 +4050,7 @@ init_dummy_type ()
 {
   Node_Id gnat_node;
 
-  dummy_node_table = (tree *) xmalloc (max_gnat_nodes * sizeof (tree));
-  ggc_add_tree_root (dummy_node_table, max_gnat_nodes);
+  dummy_node_table = (tree *) ggc_alloc (max_gnat_nodes * sizeof (tree));
 
   for (gnat_node = 0; gnat_node < max_gnat_nodes; gnat_node++)
     dummy_node_table[gnat_node] = NULL_TREE;
@@ -6210,3 +6209,5 @@ concat_id_with_name (gnu_id, suffix)
   strcpy (Name_Buffer + len, suffix);
   return get_identifier (Name_Buffer);
 }
+
+#include "gt-ada-decl.h"

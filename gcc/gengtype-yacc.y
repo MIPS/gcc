@@ -81,16 +81,16 @@ typedef_struct: ENT_TYPEDEF_STRUCT options
 		   }
 		 ';'
 
-externstatic: ENT_EXTERNSTATIC options lasttype ID ';'
+externstatic: ENT_EXTERNSTATIC options lasttype ID semiequal
 	         {
 	           note_variable ($4, $3, $2, &lexer_line);
 	         }
-	      | ENT_EXTERNSTATIC options lasttype ID ARRAY ';'
+	      | ENT_EXTERNSTATIC options lasttype ID ARRAY semiequal
 	         {
 	           note_variable ($4, create_array ($3, $5),
 	      		    $2, &lexer_line);
 	         }
-	      | ENT_EXTERNSTATIC options lasttype ID ARRAY ARRAY ';'
+	      | ENT_EXTERNSTATIC options lasttype ID ARRAY ARRAY semiequal
 	         {
 	           note_variable ($4, create_array (create_array ($3, $6),
 	      				      $5),
@@ -102,6 +102,9 @@ lasttype: type
 	      lexer_toplevel_done = 1;
 	      $$ = $1;
 	    }
+
+semiequal: ';'
+	   | '='
 
 struct_fields: { $$ = NULL; }
 	       | type optionsopt ID bitfieldopt ';' struct_fields

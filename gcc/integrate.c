@@ -3055,20 +3055,20 @@ get_func_hard_reg_initial_val (fun, reg)
 
   if (ivs == 0)
     {
-      fun->hard_reg_initial_vals = (void *) xmalloc (sizeof (initial_value_struct));
+      fun->hard_reg_initial_vals = (void *) ggc_alloc (sizeof (initial_value_struct));
       ivs = fun->hard_reg_initial_vals;
       ivs->num_entries = 0;
       ivs->max_entries = 5;
-      ivs->entries = (initial_value_pair *) xmalloc (5 * sizeof (initial_value_pair));
+      ivs->entries = (initial_value_pair *) ggc_alloc (5 * sizeof (initial_value_pair));
     }
 
   if (ivs->num_entries >= ivs->max_entries)
     {
       ivs->max_entries += 5;
       ivs->entries = 
-	(initial_value_pair *) xrealloc (ivs->entries,
-					 ivs->max_entries
-					 * sizeof (initial_value_pair));
+	(initial_value_pair *) ggc_realloc (ivs->entries,
+					    ivs->max_entries
+					    * sizeof (initial_value_pair));
     }
 
   ivs->entries[ivs->num_entries].hard_reg = reg;

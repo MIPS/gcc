@@ -95,11 +95,7 @@ extern int target_flags;
    We take this chance to register the global variables with the garbage
    collector. */
 
-#define OVERRIDE_OPTIONS                                                \
- do {                                                                   \
-   ggc_add_rtx_root (&pj_cmp_op0, 1);                                   \
-   ggc_add_rtx_root (&pj_cmp_op1, 1);                                   \
- } while (0)
+/* #define OVERRIDE_OPTIONS */
 
 /* Define this to change the optimizations performed by default.  */
 #define OPTIMIZATION_OPTIONS(LEVEL,SIZE)                                \

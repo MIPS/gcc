@@ -6175,16 +6175,14 @@ reg_unused_after (reg, insn)
 
 #include "ggc.h"
 
+static GTY(()) rtx fpscr_rtx;
 rtx
 get_fpscr_rtx ()
 {
-  static rtx fpscr_rtx;
-
   if (! fpscr_rtx)
     {
       fpscr_rtx = gen_rtx (REG, PSImode, FPSCR_REG);
       REG_USERVAR_P (fpscr_rtx) = 1;
-      ggc_add_rtx_root (&fpscr_rtx, 1);
       mark_user_reg (fpscr_rtx);
     }
   if (! reload_completed || mdep_reorg_phase != SH_AFTER_MDEP_REORG)
@@ -6714,3 +6712,5 @@ sh_ms_bitfield_layout_p (record_type)
 {
   return TARGET_SH5;
 }
+
+#include "gt-sh.h"

@@ -153,6 +153,9 @@ gnatlib_and_tools: gnatlib gnattools
 # use cross-gcc
 gnat-cross: force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) gnat-cross
+
+gt-ada-decl.h gt-ada-trans.h gt-ada-utils.h gtype-ada.h : s-gtype ; @true
+
 
 # Build hooks:
 

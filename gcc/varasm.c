@@ -162,7 +162,6 @@ static unsigned HOST_WIDE_INT array_size_for_constructor PARAMS ((tree));
 static unsigned min_align		PARAMS ((unsigned, unsigned));
 static void output_constructor		PARAMS ((tree, HOST_WIDE_INT,
 						 unsigned int));
-static void mark_weak_decls		PARAMS ((void *));
 #if defined (ASM_WEAKEN_LABEL) || defined (ASM_WEAKEN_DECL)
 static void remove_from_pending_weak_list	PARAMS ((const char *));
 #endif
@@ -179,7 +178,6 @@ static void asm_output_aligned_bss	PARAMS ((FILE *, tree, const char *,
 						 int, int));
 #endif
 #endif /* BSS_SECTION_ASM_OP */
-static void mark_const_hash_entry	PARAMS ((void *));
 static int mark_const_str_htab_1	PARAMS ((void **, void *));
 static void mark_const_str_htab		PARAMS ((void *));
 static hashval_t const_str_htab_hash	PARAMS ((const void *x));
@@ -2423,18 +2421,6 @@ struct deferred_string GTY(())
 };
 
 static htab_t const_str_htab;
-
-/* Mark a const_hash_table descriptor for GC.  */
-
-static void
-mark_const_hash_entry (ptr)
-     void *ptr;
-{
-  struct constant_descriptor_tree *desc;
-  desc = * (struct constant_descriptor_tree **) ptr;
-
-  gt_ggc_m_constant_descriptor_tree (desc);
-}
 
 /* Mark the hash-table element X (which is really a pointer to an
    struct deferred_string *).  */

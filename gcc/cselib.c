@@ -110,7 +110,7 @@ static varray_type used_regs;
 
 /* We pass this to cselib_invalidate_mem to invalidate all of
    memory for a non-const call instruction.  */
-static rtx callmem;
+static GTY(()) rtx callmem;
 
 /* Memory for our structures is allocated from this obstack.  */
 static struct obstack cselib_obstack;
@@ -1373,7 +1373,6 @@ cselib_init ()
       cselib_startobj = obstack_alloc (&cselib_obstack, 0);
 
       callmem = gen_rtx_MEM (BLKmode, const0_rtx);
-      ggc_add_rtx_root (&callmem, 1);
     }
 
   cselib_nregs = max_reg_num ();
@@ -1393,3 +1392,5 @@ cselib_finish ()
   VARRAY_FREE (used_regs);
   htab_delete (hash_table);
 }
+
+#include "gt-cselib.h"

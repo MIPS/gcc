@@ -167,10 +167,14 @@ char *inline_text_firstobj;
    the TREE_TYPE is the current_class_type, TREE_VALUE is the FUNCTION_DECL,
    and TREE_PURPOSE is the list unprocessed dependent functions.  */
 
-static tree defarg_fns;     /* list of functions with unprocessed defargs */
-static tree defarg_parm;    /* current default parameter */
-static tree defarg_depfns;  /* list of unprocessed fns met during current fn. */
-static tree defarg_fnsdone; /* list of fns with circular defargs */
+/* list of functions with unprocessed defargs */
+static GTY(()) tree defarg_fns;
+/* current default parameter */
+static GTY(()) tree defarg_parm;
+/* list of unprocessed fns met during current fn. */
+static GTY(()) tree defarg_depfns;
+/* list of fns with circular defargs */
+static GTY(()) tree defarg_fnsdone;
 
 /* Initialize obstacks. Called once, from cxx_init.  */
 
@@ -181,10 +185,6 @@ init_spew ()
   inline_text_firstobj = (char *) obstack_alloc (&inline_text_obstack, 0);
   gcc_obstack_init (&token_obstack);
   gcc_obstack_init (&feed_obstack);
-  ggc_add_tree_root (&defarg_fns, 1);
-  ggc_add_tree_root (&defarg_parm, 1);
-  ggc_add_tree_root (&defarg_depfns, 1);
-  ggc_add_tree_root (&defarg_fnsdone, 1);
 
   ggc_add_root (&pending_inlines, 1, sizeof (struct unparsed_text *),
 		mark_pending_inlines);
@@ -1501,3 +1501,5 @@ yyerror (msgid)
   else
     error ("%s before `%s' token", string, NAME (last_token));
 }
+
+#include "gt-cp-spew.h"

@@ -62,21 +62,21 @@ int have_extern_spec;
 int used_extern_spec;
 
 /* List of types and structure classes of the current declaration.  */
-static tree current_declspecs;
+static GTY(()) tree current_declspecs;
 
 /* List of prefix attributes in effect.
    Prefix attributes are parsed by the reserved_declspecs and declmods
    rules.  They create a list that contains *both* declspecs and attrs.  */
 /* ??? It is not clear yet that all cases where an attribute can now appear in
    a declspec list have been updated.  */
-static tree prefix_attributes;
+static GTY(()) tree prefix_attributes;
 
 /* When defining an enumeration, this is the type of the enumeration.  */
-static tree current_enum_type;
+static GTY(()) tree current_enum_type;
 
 /* When parsing a conversion operator name, this is the scope of the
    operator itself.  */
-static tree saved_scopes;
+static GTY(()) tree saved_scopes;
 
 static tree empty_parms PARAMS ((void));
 static tree parse_decl0 PARAMS ((tree, tree, tree, tree, int));
@@ -218,15 +218,6 @@ check_class_key (key, aggr)
     pedwarn ("`%s' tag used in naming `%#T'",
 	     key == union_type_node ? "union"
 	     : key == record_type_node ? "struct" : "class", aggr);
-}
-
-void
-cp_parse_init ()
-{
-  ggc_add_tree_root (&current_declspecs, 1);
-  ggc_add_tree_root (&prefix_attributes, 1);
-  ggc_add_tree_root (&current_enum_type, 1);
-  ggc_add_tree_root (&saved_scopes, 1);
 }
 
 /* Rename the "yyparse" function so that we can override it elsewhere.  */
@@ -3971,3 +3962,5 @@ debug_yytranslate (value)
 }
 
 #endif
+
+#include "gt-cp-parse.h"

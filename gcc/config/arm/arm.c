@@ -757,10 +757,6 @@ arm_override_options ()
 static void
 arm_add_gc_roots ()
 {
-  ggc_add_rtx_root (&arm_compare_op0, 1);
-  ggc_add_rtx_root (&arm_compare_op1, 1);
-  ggc_add_rtx_root (&arm_target_insn, 1); /* Not sure this is really a root.  */
-
   gcc_obstack_init(&minipool_obstack);
   minipool_startobj = (char *) obstack_alloc (&minipool_obstack, 0);
 }
@@ -10787,10 +10783,11 @@ arm_strip_name_encoding (const char * name)
   return name;
 }
 
+rtx aof_pic_label;
+
 #ifdef AOF_ASSEMBLER
 /* Special functions only needed when producing AOF syntax assembler.  */
 
-rtx aof_pic_label = NULL_RTX;
 struct pic_chain
 {
   struct pic_chain * next;
@@ -10808,10 +10805,6 @@ aof_pic_entry (x)
 
   if (aof_pic_label == NULL_RTX)
     {
-      /* We mark this here and not in arm_add_gc_roots() to avoid
-	 polluting even more code with ifdefs, and because it never
-	 contains anything useful until we assign to it here.  */
-      ggc_add_rtx_root (&aof_pic_label, 1);
       aof_pic_label = gen_rtx_SYMBOL_REF (Pmode, "x$adcons");
     }
 

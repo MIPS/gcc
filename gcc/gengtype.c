@@ -256,8 +256,7 @@ create_file (name)
     "Software Foundation, 59 Temple Place - Suite 330, Boston, MA\n",
     "02111-1307, USA.  */\n",
     "\n",
-    "/* This file is machine generated.  Do not edit.  */\n",
-    "\n"
+    "/* This file is machine generated.  Do not edit.  */\n"
   };
   FILE *f;
   size_t i;
@@ -381,9 +380,9 @@ get_output_file_with_visibility (input_file)
   basename = get_file_basename (input_file);
 
   len = strlen (basename);
-  if (len > 2 && memcmp (basename+len-2, ".c", 2) == 0
-      || len > 2 && memcmp (basename+len-2, ".y", 2) == 0
-      || len > 3 && memcmp (basename+len-3, ".in", 3) == 0)
+  if ((len > 2 && memcmp (basename+len-2, ".c", 2) == 0)
+      || (len > 2 && memcmp (basename+len-2, ".y", 2) == 0)
+      || (len > 3 && memcmp (basename+len-3, ".in", 3) == 0))
     {
       char *s;
       
@@ -393,9 +392,6 @@ get_output_file_with_visibility (input_file)
 	if (! isalnum (*s) && *s != '-')
 	  *s = '-';
       memcpy (s, ".h", sizeof (".h"));
-
-      fm->output = create_file (basename);
-      return fm->output;
     }
   else if (strcmp (basename, "c-common.h") == 0)
     fm->output_name = "gt-c-common.h";
@@ -430,18 +426,21 @@ get_output_file_with_visibility (input_file)
   /* If not, create it.  */
   if (fmo == NULL)
     {
-      fm->output = create_file ("GCC");
-      fputs ("#include \"config.h\"\n", fm->output);
-      fputs ("#include \"system.h\"\n", fm->output);
-      fputs ("#include \"varray.h\"\n", fm->output);
-      fputs ("#include \"tree.h\"\n", fm->output);
-      fputs ("#include \"rtl.h\"\n", fm->output);
-      fputs ("#include \"function.h\"\n", fm->output);
-      fputs ("#include \"insn-config.h\"\n", fm->output);
-      fputs ("#include \"expr.h\"\n", fm->output);
-      fputs ("#include \"optabs.h\"\n", fm->output);
-      fputs ("#include \"libfuncs.h\"\n", fm->output);
-      fputs ("#include \"ggc.h\"\n", fm->output);
+      fm->output = create_file (fm->output_name);
+      if (strcmp (fm->output_name, "gtype-desc.c") == 0)
+	{
+	  fputs ("#include \"config.h\"\n", fm->output);
+	  fputs ("#include \"system.h\"\n", fm->output);
+	  fputs ("#include \"varray.h\"\n", fm->output);
+	  fputs ("#include \"tree.h\"\n", fm->output);
+	  fputs ("#include \"rtl.h\"\n", fm->output);
+	  fputs ("#include \"function.h\"\n", fm->output);
+	  fputs ("#include \"insn-config.h\"\n", fm->output);
+	  fputs ("#include \"expr.h\"\n", fm->output);
+	  fputs ("#include \"optabs.h\"\n", fm->output);
+	  fputs ("#include \"libfuncs.h\"\n", fm->output);
+	  fputs ("#include \"ggc.h\"\n", fm->output);
+	}
     }
 
   return fm->output;
@@ -532,6 +531,8 @@ static void write_gc_structure_fields
 	   int, struct fileloc *));
 static void write_gc_types PARAMS ((type_p structures));
 static void put_mangled_filename PARAMS ((FILE *, const char *));
+static void write_gc_root PARAMS ((FILE *, pair_p, type_p, const char *, int,
+				   struct fileloc *));
 static void write_gc_roots PARAMS ((pair_p));
 
 static int counter = 0;
@@ -763,6 +764,12 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 			     "field `%s' is array of size %s",
 			     f->name, f->type->u.a.len);
 	    
+	    /* Arrays of scalars can be ignored.  */
+	    for (t = f->type; t->kind == TYPE_ARRAY; t = t->u.a.p)
+	      ;
+	    if (t->kind == TYPE_SCALAR)
+	      break;
+
 	    fprintf (of, "%*s{\n", indent, "");
 	    indent += 2;
 	    for (t = f->type, i=0; t->kind == TYPE_ARRAY; t = t->u.a.p, i++)
@@ -859,7 +866,7 @@ write_gc_types PARAMS ((type_p structures))
 {
   type_p s;
   
-  fputs ("/* GC marker procedures.  */\n", header_file);
+  fputs ("\n/* GC marker procedures.  */\n", header_file);
   for (s = structures; s; s = s->next)
     if (s->u.s.line.file
 	&& (s->kind == TYPE_STRUCT || s->u.s.opt))
@@ -980,6 +987,151 @@ finish_root_table (struct flist *flp, const char *pfx, const char *name)
 }
 
 static void
+write_gc_root (f, v, type, name, has_length, line)
+     FILE *f;
+     pair_p v;
+     type_p type;
+     const char *name;
+     int has_length;
+     struct fileloc *line;
+{
+  switch (type->kind)
+    {
+    case TYPE_STRUCT:
+      {
+	pair_p fld;
+	for (fld = type->u.s.fields; fld; fld = fld->next)
+	  {
+	    int skip_p = 0;
+	    const char *desc = NULL;
+	    options_p o;
+	    
+	    for (o = fld->opt; o; o = o->next)
+	      if (strcmp (o->name, "skip") == 0)
+		skip_p = 1;
+	      else if (strcmp (o->name, "desc") == 0)
+		desc = (const char *)o->info;
+	      else
+		error_at_line (line,
+		       "field `%s' of global `%s' has unknown option `%s'",
+			       fld->name, name, o->name);
+	    
+	    if (skip_p)
+	      continue;
+	    else if (desc && fld->type->kind == TYPE_UNION)
+	      {
+		pair_p validf = NULL;
+		pair_p ufld;
+		
+		for (ufld = fld->type->u.s.fields; ufld; ufld = ufld->next)
+		  {
+		    const char *tag = NULL;
+		    options_p oo;
+		    
+		    for (oo = ufld->opt; oo; oo = oo->next)
+		      if (strcmp (oo->name, "tag") == 0)
+			tag = (const char *)oo->info;
+		    if (tag == NULL || strcmp (tag, desc) != 0)
+		      continue;
+		    if (validf != NULL)
+		      error_at_line (line, 
+			   "both `%s.%s.%s' and `%s.%s.%s' have tag `%s'",
+				     name, fld->name, validf->name,
+				     name, fld->name, ufld->name,
+				     tag);
+		    validf = ufld;
+		  }
+		if (validf != NULL)
+		  {
+		    char *newname;
+		    newname = xmalloc (strlen (name) + 3 + strlen (fld->name)
+				       + strlen (validf->name));
+		    sprintf (newname, "%s.%s.%s", 
+			     name, fld->name, validf->name);
+		    write_gc_root (f, v, validf->type, newname, 0, line);
+		    free (newname);
+		  }
+	      }
+	    else if (desc)
+	      error_at_line (line, 
+		     "global `%s.%s' has `desc' option but is not union",
+			     name, fld->name);
+	    else
+	      {
+		char *newname;
+		newname = xmalloc (strlen (name) + 2 + strlen (fld->name));
+		sprintf (newname, "%s.%s", name, fld->name);
+		write_gc_root (f, v, fld->type, newname, 0, line);
+		free (newname);
+	      }
+	  }
+      }
+      break;
+
+    case TYPE_ARRAY:
+      {
+	char *newname;
+	newname = xmalloc (strlen (name) + 4);
+	sprintf (newname, "%s[0]", name);
+	write_gc_root (f, v, type->u.a.p, newname, has_length, line);
+	free (newname);
+      }
+      break;
+      
+    case TYPE_POINTER:
+      {
+	type_p ap, tp;
+	
+	fputs ("  {\n", f);
+	fprintf (f, "    &%s,\n", name);
+	fputs ("    1", f);
+	
+	for (ap = v->type; ap->kind == TYPE_ARRAY; ap = ap->u.a.p)
+	  if (ap->u.a.len[0])
+	    fprintf (f, " * (%s)", ap->u.a.len);
+	  else if (ap == v->type)
+	    fprintf (f, " * (sizeof (%s) / sizeof (%s[0]))",
+		     v->name, v->name);
+	fputs (",\n", f);
+	fprintf (f, "    sizeof (%s", v->name);
+	for (ap = v->type; ap->kind == TYPE_ARRAY; ap = ap->u.a.p)
+	  fputs ("[0]", f);
+	fputs ("),\n", f);
+	
+	tp = type->u.p;
+	
+	if (! has_length
+	    && (tp->kind == TYPE_UNION || tp->kind == TYPE_STRUCT))
+	  {
+	    fprintf (f, "    &gt_ggc_m_%s\n", tp->u.s.tag);
+	  }
+	else if (has_length
+		 && tp->kind == TYPE_POINTER)
+	  {
+	    fprintf (f, "    &gt_ggc_ma_%s\n", name);
+	  }
+	else
+	  {
+	    error_at_line (line, 
+			   "global `%s' is pointer to unimplemented type",
+			   name);
+	  }
+	fputs ("  },\n", f);
+      }
+      break;
+
+    case TYPE_SCALAR:
+    case TYPE_STRING:
+      break;
+      
+    default:
+      error_at_line (line, 
+		     "global `%s' is unimplemented type",
+		     name);
+    }
+}
+
+static void
 write_gc_roots (variables)
      pair_p variables;
 {
@@ -1022,29 +1174,50 @@ write_gc_roots (variables)
       if (! deletable_p
 	  && length
 	  && v->type->kind == TYPE_POINTER
-	  && v->type->u.p->kind == TYPE_POINTER)
+	  && (v->type->u.p->kind == TYPE_POINTER
+	      || v->type->u.p->kind == TYPE_STRUCT))
 	{
-	  type_p s = v->type->u.p->u.p;
-	  
-	  fprintf (f, "static void gt_ggc_ma_%s PARAMS((void *));\n",
+	  fprintf (f, "static void gt_ggc_ma_%s PARAMS ((void *));\n",
 		   v->name);
-	  fprintf (f, "static void\ngt_ggc_ma_%s (x_p);\n      void *x_p;\n",
+	  fprintf (f, "static void\ngt_ggc_ma_%s (x_p)\n      void *x_p;\n",
 		   v->name);
 	  fputs ("{\n", f);
-	  if (s->kind != TYPE_STRUCT && s->kind != TYPE_UNION)
+	  fputs ("  size_t i;\n", f);
+
+	  if (v->type->u.p->kind == TYPE_POINTER)
 	    {
-	      error_at_line (&v->line, 
-			     "global `%s' has unsupported ** type",
-			     v->name);
-	      continue;
+	      type_p s = v->type->u.p->u.p;
+
+	      fprintf (f, "  %s %s ** const x = (%s %s **)x_p;\n",
+		       s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag,
+		       s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag);
+	      fputs ("  if (ggc_test_and_set_mark (x))\n", f);
+	      fprintf (f, "    for (i = 0; i < (%s); i++)\n", length);
+	      if (s->kind != TYPE_STRUCT && s->kind != TYPE_UNION)
+		{
+		  error_at_line (&v->line, 
+				 "global `%s' has unsupported ** type",
+				 v->name);
+		  continue;
+		}
+
+	      fprintf (f, "      gt_ggc_m_%s (x[i]);\n", s->u.s.tag);
+	    }
+	  else
+	    {
+	      type_p s = v->type->u.p;
+
+	      fprintf (f, "  %s %s * const x = (%s %s *)x_p;\n",
+		       s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag,
+		       s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag);
+	      fputs ("  if (ggc_test_and_set_mark (x))\n", f);
+	      fprintf (f, "    for (i = 0; i < (%s); i++)\n", length);
+	      fputs ("      {\n", f);
+	      write_gc_structure_fields (f, s, "x[i]", "x[i]",
+					 v->opt, 8, &v->line);
+	      fputs ("      }\n", f);
 	    }
 
-	  fprintf (f, "  %s %s * const x = (%s %s *)x_p;\n",
-		   s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag,
-		   s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag);
-	  fputs ("  size_t i;\n", f);
-	  fprintf (f, "  for (i = 0; i < (%s); i++)\n", length);
-	  fprintf (f, "    gt_ggc_m_%s (x[i])", s->u.s.tag);
 	  fputs ("}\n\n", f);
 	}
     }
@@ -1056,8 +1229,6 @@ write_gc_roots (variables)
       const char *length = NULL;
       int deletable_p = 0;
       options_p o;
-      type_p tp;
-      type_p ap;
       
       for (o = v->opt; o; o = o->next)
 	if (strcmp (o->name, "length") == 0)
@@ -1084,48 +1255,8 @@ write_gc_roots (variables)
 	  fputs ("[] = {\n", f);
 	}
 
-
-      fputs ("  {\n", f);
-      fprintf (f, "    &%s,\n", v->name);
-      fputs ("    1", f);
-
-      for (ap = v->type; ap->kind == TYPE_ARRAY; ap = ap->u.a.p)
-	fprintf (f, " * (%s)", ap->u.a.len);
-      fputs (",\n", f);
-
-      if (ap->kind != TYPE_POINTER)
-	error_at_line (&v->line, 
-		       "global `%s' is unimplemented type",
-		       v->name);
-
-      tp = ap->u.p;
-      
-      
-      if (! length
-	  && (tp->kind == TYPE_UNION || tp->kind == TYPE_STRUCT))
-	{
-	  fprintf (f, "    sizeof (%s %s *),\n    &gt_ggc_m_%s",
-		   tp->kind == TYPE_UNION ? "union" : "struct", 
-		   tp->u.s.tag, tp->u.s.tag);
-	}
-      else if (tp->kind == TYPE_POINTER
-	       && length
-	       && (tp->u.p->kind == TYPE_UNION
-		   || tp->u.p->kind == TYPE_STRUCT))
-	{
-	  fprintf (f, "    sizeof (%s %s **),\n    &gt_ggc_mp_%s",
-		   tp->kind == TYPE_UNION ? "union" : "struct", 
-		   tp->u.s.tag, v->name);
-	}
-      else
-	{
-	  error_at_line (&v->line, 
-			 "global `%s' is pointer to unimplemented type",
-			 v->name);
-	}
-      fputs ("\n  },\n", f);
+      write_gc_root (f, v, v->type, v->name, length != NULL, &v->line);
     }
-
 
   finish_root_table (flp, "r", "gt_ggc_rtab");
 
@@ -1133,19 +1264,12 @@ write_gc_roots (variables)
     {
       FILE *f = get_output_file_with_visibility (v->line.file);
       struct flist *fli;
-      const char *length = NULL;
       int deletable_p = 0;
       options_p o;
 
       for (o = v->opt; o; o = o->next)
-	if (strcmp (o->name, "length") == 0)
-	  length = (const char *)o->info;
-	else if (strcmp (o->name, "deletable") == 0)
+	if (strcmp (o->name, "deletable") == 0)
 	  deletable_p = 1;
-	else
-	  error_at_line (&v->line, 
-			 "global `%s' has unknown option `%s'",
-			 v->name, o->name);
 
       if (! deletable_p)
 	continue;

@@ -115,6 +115,22 @@ ITYPE	{IWORD}({WS}{IWORD})*
   update_lineno (yytext, yyleng);
 }
 
+[^[:alnum:]_]typedef{WS}{ID}{WS}{ID}{WS}PARAMS {
+  char *namestart;
+  size_t namelen;
+  struct type *t;
+
+  for (namestart = yytext + yyleng - 7; isspace (*namestart); namestart--)
+    ;
+  for (namelen = 1; !isspace (namestart[-namelen]); namelen++)
+    ;
+  namestart -= namelen - 1;
+
+  t = create_scalar_type ("function type", sizeof ("function type")-1);
+  do_typedef (xmemdup (namestart, namelen, namelen+1), t, &lexer_line);
+  update_lineno (yytext, yyleng);
+}
+
 [^[:alnum:]_](typedef{WS})?(struct|union){WS}{ID}{WS}/"GTY" {
   char *tagstart;
   size_t taglen;
@@ -184,14 +200,14 @@ ITYPE	{IWORD}({WS}{IWORD})*
   yylval.s = xmemdup (yytext+1, yyleng-2, yyleng-1);
   return STRING;
 }
-"["[^\[\]]+"]"			{
+"["[^\[\]]*"]"			{
   yylval.s = xmemdup (yytext+1, yyleng-2, yyleng-1);
   return ARRAY;
 }
 
-[(){},*:=]			{ return yytext[0]; }
+[(){},*:]			{ return yytext[0]; }
 
-";"				{
+[;=]				{
   if (lexer_toplevel_done)
     {
       BEGIN(INITIAL);

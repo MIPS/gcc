@@ -1,3 +1,35 @@
+2002-04-09  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Make-lang.in (gt-cp-call.h gt-cp-decl2.h gt-cp-parse.h
+	gt-cp-pt.h gt-cp-repo.h gt-cp-spew.h): New rules.
+	(cp/spew.o): Add dependency on gt-<filename>.h.
+	(cp/decl2.o): Add dependency on gt-<filename>.h.
+	(cp/call.o): Add dependency on gt-<filename>.h.
+	(cp/pt.o): Add dependency on gt-<filename>.h.
+	(cp/repo.o): Add dependency on gt-<filename>.h.
+	(cp/parse.o): Add dependency on gt-<filename>.h.
+	* call.c: Use gengtype for roots.
+	* config-lang.in (gtfiles): Add cp-tree.h decl.h lex.h call.c
+	decl2.c parse.y pt.c repo.c spew.c.
+	* cp-tree.h: Use gengtype for roots.
+	(struct saved_scope): Use GGC, gengtype.
+	(cp_parse_init): Delete prototype.
+	(init_pt): Delete prototype.
+	* decl.c: Use gengtype for roots.
+	(mark_saved_scope): Delete.
+	(cxx_init_decl_processing): Don't call deleted initilisation
+	routines.
+	(signed_size_zero_node): Delete, unused.
+	* decl.h: Use gengtype for roots.
+	* decl2.c: Use gengtype for roots.
+	* lex.h: Use gengtype for roots.
+	* parse.y: Use gengtype for roots.
+	(cp_parse_init): Delete.
+	* pt.c: Use gengtype for roots.
+	(init_pt): Delete.
+	* repo.c: Use gengtype for roots.
+	* spew.c: Use gengtype for roots.
+
 2002-04-04  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Make-lang.in: Allow for filename changes.  Add gtype-cp.h.

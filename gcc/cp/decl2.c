@@ -2777,13 +2777,13 @@ finish_objects (method_type, initp, body)
 #define SSDF_IDENTIFIER "__static_initialization_and_destruction"
 
 /* The declaration for the __INITIALIZE_P argument.  */
-static tree initialize_p_decl;
+static GTY(()) tree initialize_p_decl;
 
 /* The declaration for the __PRIORITY argument.  */
-static tree priority_decl;
+static GTY(()) tree priority_decl;
 
 /* The declaration for the static storage duration function.  */
-static tree ssdf_decl;
+static GTY(()) tree ssdf_decl;
 
 /* All the static storage duration functions created in this
    translation unit.  */
@@ -5274,7 +5274,6 @@ init_decl2 ()
   ggc_add_tree_varray_root (&deferred_fns, 1);
   ggc_add_tree_varray_root (&pending_statics, 1);
   ggc_add_tree_varray_root (&ssdf_decls, 1);
-  ggc_add_tree_root (&ssdf_decl, 1);
-  ggc_add_tree_root (&priority_decl, 1);
-  ggc_add_tree_root (&initialize_p_decl, 1);
 }
+
+#include "gt-cp-decl2.h"

@@ -79,7 +79,7 @@ rtx sparc_compare_op0, sparc_compare_op1;
 
 /* We may need an epilogue if we spill too many registers.
    If this is non-zero, then we branch here for the epilogue.  */
-static rtx leaf_label;
+static GTY(()) rtx leaf_label;
 
 #ifdef LEAF_REGISTERS
 
@@ -146,8 +146,6 @@ static int ultrasparc_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static void sparc_output_addr_vec PARAMS ((rtx));
 static void sparc_output_addr_diff_vec PARAMS ((rtx));
 static void sparc_output_deferred_case_vectors PARAMS ((void));
-static void sparc_add_gc_roots    PARAMS ((void));
-static void mark_ultrasparc_pipeline_state PARAMS ((void *));
 static int check_return_regs PARAMS ((rtx));
 static int epilogue_renumber PARAMS ((rtx *, int));
 static bool sparc_assemble_integer PARAMS ((rtx, unsigned int, int));
@@ -437,9 +435,6 @@ sparc_override_options ()
     {
       error ("profiling does not support code models other than medlow");
     }
-
-  /* Register global variables with the garbage collector.  */
-  sparc_add_gc_roots ();
 }
 
 /* Miscellaneous utilities.  */
@@ -2735,10 +2730,10 @@ reg_unused_after (reg, insn)
 }
 
 /* The table we use to reference PIC data.  */
-static rtx global_offset_table;
+static GTY(()) rtx global_offset_table;
 
 /* The function we use to get at it.  */
-static rtx get_pc_symbol;
+static GTY(()) rtx get_pc_symbol;
 static char get_pc_symbol_name[256];
 
 /* Ensure that we are not using patterns that are not OK with PIC.  */
@@ -7382,7 +7377,7 @@ static const char *const ultra_code_names[NUM_ULTRA_CODES] = {
   "NONE", "IEU0", "IEU1", "IEUN", "LSU", "CTI",
   "FPM", "FPA", "SINGLE" };
 
-struct ultrasparc_pipeline_state {
+struct ultrasparc_pipeline_state GTY(()) {
   /* The insns in this group.  */
   rtx group[4];
 
@@ -7407,7 +7402,8 @@ struct ultrasparc_pipeline_state {
 };
 
 #define ULTRA_NUM_HIST	8
-static struct ultrasparc_pipeline_state ultra_pipe_hist[ULTRA_NUM_HIST];
+static GTY(()) struct ultrasparc_pipeline_state 
+  ultra_pipe_hist[ULTRA_NUM_HIST];
 static int ultra_cur_hist;
 static int ultra_cycles_elapsed;
 
@@ -8204,8 +8200,8 @@ set_extends (insn)
 }
 
 /* We _ought_ to have only one kind per function, but...  */
-static rtx sparc_addr_diff_list;
-static rtx sparc_addr_list;
+static GTY(()) rtx sparc_addr_diff_list;
+static GTY(()) rtx sparc_addr_list;
 
 void
 sparc_defer_case_vector (lab, vec, diff)
@@ -8451,38 +8447,6 @@ sparc_function_profiler (file, labelno)
 }
 
 
-/* Mark ARG, which is really a struct ultrasparc_pipline_state *, for
-   GC.  */
-
-static void
-mark_ultrasparc_pipeline_state (arg)
-     void *arg;
-{
-  struct ultrasparc_pipeline_state *ups;
-  size_t i;
-
-  ups = (struct ultrasparc_pipeline_state *) arg;
-  for (i = 0; i < ARRAY_SIZE (ups->group); ++i)
-    ggc_mark_rtx (ups->group[i]);
-}
-
-/* Called to register all of our global variables with the garbage
-   collector.  */
-
-static void
-sparc_add_gc_roots ()
-{
-  ggc_add_rtx_root (&sparc_compare_op0, 1);
-  ggc_add_rtx_root (&sparc_compare_op1, 1);
-  ggc_add_rtx_root (&leaf_label, 1);
-  ggc_add_rtx_root (&global_offset_table, 1);
-  ggc_add_rtx_root (&get_pc_symbol, 1);
-  ggc_add_rtx_root (&sparc_addr_diff_list, 1);
-  ggc_add_rtx_root (&sparc_addr_list, 1);
-  ggc_add_root (ultra_pipe_hist, ARRAY_SIZE (ultra_pipe_hist),
-		sizeof (ultra_pipe_hist[0]), &mark_ultrasparc_pipeline_state);
-}
-
 #ifdef OBJECT_FORMAT_ELF
 static void
 sparc_elf_asm_named_section (name, flags)
@@ -8511,3 +8475,5 @@ sparc_elf_asm_named_section (name, flags)
   fputc ('\n', asm_out_file);
 }
 #endif /* OBJECT_FORMAT_ELF */
+
+#include "gt-sparc.h"

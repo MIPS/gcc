@@ -23,8 +23,8 @@ void pj_expand_epilogue PARAMS ((void));
 void pj_asm_output_opcode PARAMS ((FILE *, const char *));
 
 #ifdef RTX_CODE
-extern rtx pj_cmp_op0;
-extern rtx pj_cmp_op1;
+extern GTY(()) rtx pj_cmp_op0;
+extern GTY(()) rtx pj_cmp_op1;
 extern enum machine_mode pj_cmp_mode;
 extern int pj_stuff_on_line;
 extern const char *pj_standard_float_constant PARAMS ((rtx));

@@ -43,8 +43,6 @@ void (*lang_mark_false_label_stack) PARAMS ((struct label_node *));
 /* Trees that have been marked, but whose children still need marking.  */
 varray_type ggc_pending_trees;
 
-static void ggc_mark_rtx_ptr PARAMS ((void *));
-static void ggc_mark_tree_ptr PARAMS ((void *));
 static void ggc_mark_rtx_varray_ptr PARAMS ((void *));
 static void ggc_mark_tree_varray_ptr PARAMS ((void *));
 static void ggc_mark_tree_hash_table_ptr PARAMS ((void *));
@@ -91,26 +89,6 @@ ggc_add_root (base, nelt, size, cb)
   roots = x;
 }
 
-/* Register an array of rtx as a GC root.  */
-
-void
-ggc_add_rtx_root (base, nelt)
-     rtx *base;
-     int nelt;
-{
-  ggc_add_root (base, nelt, sizeof (rtx), ggc_mark_rtx_ptr);
-}
-
-/* Register an array of trees as a GC root.  */
-
-void
-ggc_add_tree_root (base, nelt)
-     tree *base;
-     int nelt;
-{
-  ggc_add_root (base, nelt, sizeof (tree), ggc_mark_tree_ptr);
-}
-
 /* Register a varray of rtxs as a GC root.  */
 
 void
@@ -142,30 +120,6 @@ ggc_add_tree_hash_table_root (base, nelt)
 {
   ggc_add_root (base, nelt, sizeof (struct hash_table *), 
 		ggc_mark_tree_hash_table_ptr);
-}
-
-/* Remove the previously registered GC root at BASE.  */
-
-void
-ggc_del_root (base)
-     void *base;
-{
-  struct ggc_root *x, **p;
-
-  p = &roots, x = roots;
-  while (x)
-    {
-      if (x->base == base)
-	{
-	  *p = x->next;
-	  free (x);
-	  return;
-	}
-      p = &x->next;
-      x = x->next;
-    }
-
-  abort ();
 }
 
 /* Add a hash table to be scanned when all roots have been processed.  We
@@ -580,26 +534,6 @@ ggc_mark_tree_hash_table (ht)
      struct hash_table *ht;
 {
   hash_traverse (ht, ggc_mark_tree_hash_table_entry, /*info=*/0);
-}
-
-/* Type-correct function to pass to ggc_add_root.  It just forwards
-   *ELT (which is an rtx) to ggc_mark_rtx.  */
-
-static void
-ggc_mark_rtx_ptr (elt)
-     void *elt;
-{
-  ggc_mark_rtx (*(rtx *) elt);
-}
-
-/* Type-correct function to pass to ggc_add_root.  It just forwards
-   *ELT (which is a tree) to ggc_mark_tree.  */
-
-static void
-ggc_mark_tree_ptr (elt)
-     void *elt;
-{
-  ggc_mark_tree (*(tree *) elt);
 }
 
 /* Type-correct function to pass to ggc_add_root.  It just forwards

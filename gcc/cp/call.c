@@ -4363,7 +4363,7 @@ build_over_call (cand, args, flags)
   return convert_from_reference (fn);
 }
 
-static tree java_iface_lookup_fn;
+static GTY(()) tree java_iface_lookup_fn;
 
 /* Make an expression which yields the address of the Java interface
    method FN.  This is achieved by generating a call to libjava's
@@ -4388,7 +4388,6 @@ build_java_interface_fn_ref (fn, instance)
 	= builtin_function ("_Jv_LookupInterfaceMethodIdx",
 			    build_function_type (ptr_type_node, t),
 			    0, NOT_BUILT_IN, NULL);
-      ggc_add_tree_root (&java_iface_lookup_fn, 1);
     }
 
   /* Look up the pointer to the runtime java.lang.Class object for `instance'. 
@@ -5593,3 +5592,5 @@ initialize_reference (type, expr)
 
   return convert_like (conv, expr);
 }
+
+#include "gt-cp-call.h"

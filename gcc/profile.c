@@ -1063,7 +1063,7 @@ end_branch_prob ()
 
 /* The label used by the edge profiling code.  */
 
-static rtx profiler_label;
+static GTY(()) rtx profiler_label;
 
 /* Initialize the profiler_label.  */
 
@@ -1074,7 +1074,6 @@ init_edge_profiler ()
   char buf[20];
   ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 2);
   profiler_label = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
-  ggc_add_rtx_root (&profiler_label, 1);
 }
 
 /* Output instructions as RTL to increment the edge execution count.  */
@@ -1201,3 +1200,5 @@ output_func_start_profiler ()
     (* targetm.asm_out.constructor) (XEXP (DECL_RTL (fndecl), 0),
 				     DEFAULT_INIT_PRIORITY);
 }
+
+#include "gt-profile.h"
