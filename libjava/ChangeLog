@@ -1,3 +1,111 @@
+2004-09-14  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/reflect/natField.cc (getType): Use resolve_field.
+	* java/lang/natVMClassLoader.cc (resolveClass): New native
+	implementation.
+	(linkClass0): Removed.
+	(markClassErrorState0): Likewise.
+	* java/lang/natClassLoader.cc: Include execution.h.  Moved class
+	preparation code to resolve.cc.
+	(_Jv_RegisterClassHookDefault): Set class's execution engine if
+	not already set.
+	(_Jv_FindClass): Use wait_for_state.
+	(_Jv_NewArrayClass): Likewise.  Simplified permissions setting.
+	* java/lang/natClass.cc (_Jv_IsInstanceOf): Include execution.h.
+	Moved interface table and class preparation code to resolve.cc.
+	(finalize): Rewrote.
+	(initializeClass): Simplified locking and class preparation.
+	* java/lang/VMClassLoader.java (linkClass0): Removed.
+	(markClassErrorState0): Likewise.
+	(resolveClass): Now native.
+	(transformException): New method.
+	* java/lang/Class.h (getSuperclass): Don't try to resolve super
+	reference.
+	(getInterface): Likewise.
+	(size): Likewise.
+	(set_state): New method.
+	(Class): Updated friend declarations.
+	(verify): Field now private.
+	(engine): New field.
+	* include/jvm.h (class _Jv_Resolver): New class declaration.
+	(_Jv_ResolveField): Removed declaration.
+	(_Jv_CheckAccessNoInit): Likewise.
+	(_Jv_isBinaryCompatible): Removed.
+	* include/java-interp.h (class _Jv_MethodBase): Updated friend
+	declarations.
+	(class _Jv_InterpMethod): Likewise.
+	(class _Jv_InterpClass): Likewise.
+	(class _Jv_JNIMethod): Likewise.
+	* include/execution.h: New file.
+	* gnu/gcj/runtime/natSharedLibLoader.cc: Include execution.h.
+	(_Jv_sharedlib_register_hook): Set `engine' on loaded class.
+	Register class after setting fields.
+	* resolve.cc: Include execution.h, VerifyError.h.  Moved
+	interpreter-specific code to interpret.cc.
+	(uaddr): New location.
+	(struct aligner): Likewise.
+	(ALIGNOF): Likewise.
+	(INITIAL_IOFFSETS_LEN): Interface dispatch code moved here.
+	(INITIAL_IFACES_LEN): Likewise.
+	(null_idt): Likewise.
+	(_Jv_GetMethodString): Likewise.
+	(_Jv_ThrowNoSuchMethodError): Likewise.
+	(_Jv_abstractMethodError): Likewise.
+	(_Jv_Resolver::get_alignment_from_class): Renamed.
+	(_Jv_Resolver::resolve_field): Likewise.
+	(_Jv_Resolver::resolve_pool_entry): Likewise.
+	(_Jv_Resolver::resolve_class_ref): Likewise.
+	(_Jv_Resolver::prepare_constant_time_tables): Likewise.
+	(_Jv_Resolver::indexof): Likewise.
+	(_Jv_Resolver::get_interfaces): Likewise.
+	(_Jv_Resolver::generate_itable): Likewise.
+	(_Jv_Resolver::append_partial_itable): Likewise.
+	(_Jv_Resolver::find_iindex): Likewise.
+	(_Jv_Resolver::link_symbol_table): Likewise.
+	(_Jv_Resolver::link_exception_table): Likewise.
+	(_Jv_Resolver::layout_interface_methods): Likewise.
+	(_Jv_Resolver::layout_vtable_methods): Likewise.
+	(_Jv_Resolver::set_vtable_entries): Likewise.
+	(_Jv_Resolver::make_vtable): Likewise.
+	(_Jv_Resolver::ensure_fields_laid_out): Likewise.
+	(_Jv_Resolver::ensure_class_linked): Likewise.
+	(_Jv_Resolver::ensure_supers_installed): Likewise.
+	(_Jv_Resolver::add_miranda_methods): Likewise.
+	(_Jv_Resolver::ensure_method_table_complete): Likewise.
+	(_Jv_Resolver::verify_class): Likewise.
+	(_Jv_Resolver::wait_for_state): Likewise.
+	* prims.cc (_Jv_soleCompiledEngine): New global.
+	(_Jv_CheckAccess): Use _Jv_IsAssignableFromSlow.
+	(_Jv_CheckAccessNoInit): Removed.
+	* jni.cc (_Jv_JNI_GetAnyFieldID): Use resolve_field.
+	* interpret.cc: Include platform.h, ClassFormatError.h,
+	Modifier.h, execution.h.
+	(_Jv_soleInterpreterEngine): New global.
+	(compile): Use resolve_pool_entry.
+	(run): Likewise.
+	(_Jv_InitField): New location.
+	(skip_one_type): Likewise.
+	(get_ffi_type_from_signature): Likewise.
+	(_Jv_count_arguments): Likewise.
+	(init_cif): Likewise.
+	(ncode_closure): Likewise.
+	(ffi_closure_fun): Likewise.
+	(ncode): Likewise.
+	(throw_class_format_error): Likewise.
+	(throw_class_format_error): Likewise.
+	(_Jv_InterpreterEngine::do_verify): New method.
+	(_Jv_InterpreterEngine::do_create_ncode): Likewise.
+	(_Jv_InterpreterEngine::do_allocate_static_fields): Likewise.
+	(_Jv_InterpreterEngine::do_resolve_method): Likewise.
+	* defineclass.cc: Include execution.h.
+	(_Jv_ClassReader): Initialize size_in_bytes, vtable_method_count,
+	engine.
+	(checkExtends): Ensure superclass has supers installed.
+	(_Jv_ClassNameSamePackage): Clarify usage constraints.
+	* boehm.cc (GC_enable, GC_disable): Declare at top of file.
+	(_Jv_MarkObj): Unconditionally mark vtable.  Mark interface
+	dispatch tables.
+
 2004-09-13  Tom Tromey  <tromey@redhat.com>
 
 	* mauve-libgcj: List some classes we don't have.

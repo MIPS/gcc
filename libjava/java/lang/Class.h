@@ -40,13 +40,13 @@ enum
   JV_STATE_PRELOADING = 1,	// Can do _Jv_FindClass.
   JV_STATE_LOADING = 3,		// Has super installed.
   JV_STATE_LOADED = 5,		// Is complete.
-    
+
   JV_STATE_COMPILED = 6,	// This was a compiled class.
 
   JV_STATE_PREPARED = 7,	// Layout & static init done.
   JV_STATE_LINKED = 9,		// Strings interned.
 
-  JV_STATE_IN_PROGRESS = 10,	// <Clinit> running.
+  JV_STATE_IN_PROGRESS = 10,	// <clinit> running.
 
   JV_STATE_ERROR = 12,
 
@@ -57,6 +57,9 @@ struct _Jv_Field;
 struct _Jv_VTable;
 union _Jv_word;
 struct _Jv_ArrayVTable;
+class _Jv_ExecutionEngine;
+class _Jv_CompiledEngine;
+class _Jv_InterpreterEngine;
 
 struct _Jv_Constants
 {
@@ -208,15 +211,11 @@ public:
 
   inline jclass getSuperclass (void)
   {
-    if (state < JV_STATE_LINKED)
-      _Jv_ResolveClassRef (this, &superclass);
     return superclass;
   }
 
   inline jclass getInterface (jint n)
   {
-    if (state < JV_STATE_LINKED)
-      _Jv_ResolveClassRef (this, &interfaces[n]);
     return interfaces[n];
   }
 
@@ -251,14 +250,9 @@ public:
 
   // FIXME: this probably shouldn't be public.
   jint size (void)
-    {
-      // FIXME: ugly implementation.
-      // FIXME: can't use _Jv_isBinaryCompatible here.
-      if (size_in_bytes == -1)
-	_Jv_LayoutClass(this);
-
-      return size_in_bytes;
-    }
+  {
+    return size_in_bytes;
+  }
 
   // The index of the first method we declare ourself (as opposed to
   // inheriting).
@@ -284,6 +278,20 @@ private:
 
   static jstring getPackagePortion (jstring);
 
+  inline friend void 
+  _Jv_InitClass (jclass klass)
+  {
+    if (__builtin_expect (klass->state == JV_STATE_DONE, true))
+      return;
+    klass->initializeClass ();  
+  }
+
+  void set_state (jint nstate)
+  {
+    state = nstate;
+    notifyAll ();
+  }
+
   // Friend functions implemented in natClass.cc.
   friend _Jv_Method *_Jv_GetMethodLocal (jclass klass, _Jv_Utf8Const *name,
 					 _Jv_Utf8Const *signature);
@@ -292,18 +300,6 @@ private:
   friend void *_Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface, 
 					     int method_idx);
   friend jboolean _Jv_IsAssignableFromSlow(jclass, jclass);
-
-  friend void _Jv_ResolveClassRef (jclass, jclass *);
-
-  inline friend void 
-  _Jv_InitClass (jclass klass)
-  {
-    if (__builtin_expect (klass->state == JV_STATE_DONE, true))
-      return;
-    klass->initializeClass ();  
-  }
-  
-  friend int _Jv_LayoutClass(jclass);
 
   friend _Jv_Method* _Jv_LookupDeclaredMethod (jclass, _Jv_Utf8Const *, 
 					       _Jv_Utf8Const*,
@@ -337,7 +333,6 @@ private:
   friend class java::io::ObjectInputStream;
   friend class java::io::ObjectStreamClass;
 
-  friend void _Jv_WaitForState (jclass, int);
   friend void _Jv_RegisterClasses (jclass *classes);
   friend void _Jv_RegisterClassHookDefault (jclass klass);
   friend void _Jv_RegisterInitiatingLoader (jclass,java::lang::ClassLoader*);
@@ -359,7 +354,6 @@ private:
   friend void _Jv_InitPrimClass (jclass, char *, char, int, _Jv_ArrayVTable *);
 
   friend void _Jv_PrepareCompiledClass (jclass);
-  friend void _Jv_PrepareConstantTimeTables (jclass);
   friend jshort _Jv_GetInterfaces (jclass, _Jv_ifaces *);
   friend void _Jv_GenerateITable (jclass, _Jv_ifaces *, jshort *);
   friend jstring _Jv_GetMethodString(jclass, _Jv_Utf8Const *);
@@ -367,19 +361,16 @@ private:
   friend jshort _Jv_FindIIndex (jclass *, jshort *, jshort);
   friend void _Jv_LinkSymbolTable (jclass);
   friend void _Jv_LayoutInterfaceMethods (jclass);
-  friend void _Jv_LayoutVTableMethods (jclass klass);
   friend void _Jv_SetVTableEntries (jclass, _Jv_VTable *, jboolean *);
   friend void _Jv_MakeVTable (jclass);
   friend void _Jv_linkExceptionClassTable (jclass);
 
   friend jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
 				   jint flags);
-  friend jboolean _Jv_CheckAccessNoInit (jclass self_klass, jclass other_klass,
-					 jint flags);
   
-  friend bool _Jv_isBinaryCompatible (jclass);
   friend bool _Jv_getInterfaceMethod(jclass, jclass&, int&, 
-				     const _Jv_Utf8Const*, const _Jv_Utf8Const*);
+				     const _Jv_Utf8Const*,
+				     const _Jv_Utf8Const*);
 
   // Return array class corresponding to element type KLASS, creating it if
   // necessary.
@@ -396,14 +387,11 @@ private:
 
 #ifdef INTERPRETER
   friend jboolean _Jv_IsInterpretedClass (jclass);
-  friend void _Jv_InitField (jobject, jclass, _Jv_Field*);
   friend void _Jv_InitField (jobject, jclass, int);
-  friend _Jv_word _Jv_ResolvePoolEntry (jclass, int);
   friend _Jv_Method *_Jv_SearchMethodInClass (jclass cls, jclass klass, 
                         		      _Jv_Utf8Const *method_name, 
 					      _Jv_Utf8Const *method_signature);
 
-  friend void _Jv_PrepareClass (jclass);
   friend void _Jv_PrepareMissingMethods (jclass base, jclass iface_class);
 
   friend void _Jv_Defer_Resolution (void *cl, _Jv_Method *meth, void **);
@@ -420,6 +408,11 @@ private:
   friend class _Jv_BytecodeVerifier;
   friend class gnu::gcj::runtime::StackTrace;
   friend class java::io::VMObjectStreamClass;
+
+  friend class _Jv_Resolver;
+  friend class _Jv_ExecutionEngine;
+  friend class _Jv_CompiledEngine;
+  friend class _Jv_InterpreterEngine;
 
   friend void _Jv_sharedlib_register_hook (jclass klass);
 
@@ -483,10 +476,8 @@ private:
   jclass arrayclass;
   // Security Domain to which this class belongs (or null).
   java::security::ProtectionDomain *protectionDomain;
-public:
   // Pointer to verify method for this class.
   void (*verify)(java::lang::ClassLoader *loader);
-private:
   // Signers of this class (or null).
   JArray<jobject> *hack_signers;
   // Used by Jv_PopClass and _Jv_PushClass to communicate with StackTrace.
@@ -494,6 +485,8 @@ private:
   // Additional data, specific to the generator (JIT, native,
   // interpreter) of this class.
   void *aux_info;
+  // Execution engine.
+  _Jv_ExecutionEngine *engine;
 };
 
 #endif /* __JAVA_LANG_CLASS_H__ */

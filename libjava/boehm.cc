@@ -1,6 +1,6 @@
 // boehm.cc - interface between libjava and Boehm GC.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -38,6 +38,10 @@ extern "C"
   // These aren't declared in any Boehm GC header.
   void GC_finalize_all (void);
   ptr_t GC_debug_generic_malloc (size_t size, int k, GC_EXTRA_PARAMS);
+
+  // From boehm's misc.c 
+  void GC_enable();
+  void GC_disable();
 };
 
 #define MAYBE_MARK(Obj, Top, Limit, Source, Exit)  \
@@ -123,10 +127,12 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c5alabel);
 	  p = (ptr_t) c->constants.data;
 	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c5blabel);
-	  p = (ptr_t) c->vtable;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c5clabel);
 	}
 #endif
+
+      // The vtable might be allocated even for compiled code.
+      p = (ptr_t) c->vtable;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c5clabel);
 
       // If the class is an array, then the methods field holds a
       // pointer to the element class.  If the class is primitive,
@@ -202,6 +208,29 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 	}
       p = (ptr_t) c->loader;
       MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cBlabel);
+
+      // The dispatch tables can be allocated at runtime.
+      p = (ptr_t) c->ancestors;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cancestorlabel);
+      if (c->idt)
+	{
+	  p = (ptr_t) c->idt;
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cIDTlabel);
+
+	  if (c->isInterface())
+	    {
+	      p = (ptr_t) c->idt->iface.ioffsets;
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, ciofflabel);
+	    }
+	  else if (! c->isPrimitive())
+	    {
+	      // This field is only valid for ordinary classes.
+	      p = (ptr_t) c->idt->cls.itable;
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c,
+			  ictablelabel);
+	    }
+	}
+
       p = (ptr_t) c->arrayclass;
       MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cDlabel);
       p = (ptr_t) c->protectionDomain;
@@ -489,10 +518,6 @@ _Jv_GCSetMaximumHeapSize (size_t size)
 {
   GC_set_max_heap_size ((GC_word) size);
 }
-
-// From boehm's misc.c 
-extern "C" void GC_enable();
-extern "C" void GC_disable();
 
 void
 _Jv_DisableGC (void)

@@ -61,10 +61,14 @@ details.  */
 #include <gnu/gcj/runtime/VMClassLoader.h>
 #include <gnu/gcj/runtime/FinalizerThread.h>
 #include <gnu/gcj/runtime/FirstThread.h>
+#include <execution.h>
 
 #ifdef USE_LTDL
 #include <ltdl.h>
 #endif
+
+// Execution engine for compiled code.
+_Jv_CompiledEngine _Jv_soleCompiledEngine;
 
 // We allocate a single OutOfMemoryError exception which we keep
 // around for use if we run out of memory.
@@ -1223,20 +1227,6 @@ _Jv_remJ (jlong dividend, jlong divisor)
 // FLAGS.
 jboolean
 _Jv_CheckAccess (jclass self_klass, jclass other_klass, jint flags)
-{
-  using namespace java::lang::reflect;
-  return ((self_klass == other_klass)
-	  || ((flags & Modifier::PUBLIC) != 0)
-	  || (((flags & Modifier::PROTECTED) != 0)
-	      && other_klass->isAssignableFrom (self_klass))
-	  || (((flags & Modifier::PRIVATE) == 0)
-	      && _Jv_ClassNameSamePackage (self_klass->name,
-					   other_klass->name)));
-}
-
-// Like _Jv_CheckAccess, but won't cause classes to be initialized.
-jboolean
-_Jv_CheckAccessNoInit (jclass self_klass, jclass other_klass, jint flags)
 {
   using namespace java::lang::reflect;
   return ((self_klass == other_klass)

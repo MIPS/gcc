@@ -1,6 +1,6 @@
 // defineclass.cc - defining a class from .class format.
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -25,6 +25,7 @@ details.  */
 #include <stdlib.h>
 #include <java-cpool.h>
 #include <gcj/cni.h>
+#include <execution.h>
 
 #include <java/lang/Class.h>
 #include <java/lang/Float.h>
@@ -225,6 +226,9 @@ struct _Jv_ClassReader {
     len    = length;
     pos    = 0;
     def    = klass;
+    def->size_in_bytes = -1;
+    def->vtable_method_count = -1;
+    def->engine = &_Jv_soleInterpreterEngine;
     def_interp = (_Jv_InterpClass *) def->aux_info;
   }
 
@@ -334,7 +338,7 @@ _Jv_ClassReader::parse ()
   if (pos != len)
     throw_class_format_error ("unused data before end of file");
 
-  // tell everyone we're done.
+  // Tell everyone we're done.
   def->state = JV_STATE_LOADED;
   def->notifyAll ();
 
@@ -947,23 +951,25 @@ _Jv_ClassReader::handleClassBegin
   def->notifyAll ();
 }
 
-///// implements the checks described in sect. 5.3.5.3
+///// Implements the checks described in sect. 5.3.5.3
 void
 _Jv_ClassReader::checkExtends (jclass sub, jclass super)
 {
   using namespace java::lang::reflect;
 
-  // having an interface or a final class as a superclass is no good
+  _Jv_Resolver::wait_for_state (super, JV_STATE_LOADING);
+
+  // Having an interface or a final class as a superclass is no good.
   if ((super->accflags & (Modifier::INTERFACE | Modifier::FINAL)) != 0)
     {
       throw_incompatible_class_change_error (sub->getName ());
     }
 
-  // if the super class is not public, we need to check some more
+  // If the super class is not public, we need to check some more.
   if ((super->accflags & Modifier::PUBLIC) == 0)
     {
-      // With package scope, the classes must have the same
-      // class loader.
+      // With package scope, the classes must have the same class
+      // loader.
       if (   sub->loader != super->loader
 	  || !_Jv_ClassNameSamePackage (sub->name, super->name))
 	{
@@ -1625,7 +1631,7 @@ _Jv_VerifyClassName (_Jv_Utf8Const *name)
 }
 
 /* Returns true, if NAME1 and NAME2 represent classes in the same
-   package.  */
+   package.  Neither NAME2 nor NAME2 may name an array type.  */
 bool
 _Jv_ClassNameSamePackage (_Jv_Utf8Const *name1, _Jv_Utf8Const *name2)
 {

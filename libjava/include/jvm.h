@@ -240,6 +240,38 @@ namespace gcj
   extern bool runtimeInitialized;
 }
 
+// This class handles all aspects of class preparation and linking.
+class _Jv_Resolver
+{
+private:
+  static void prepare_constant_time_tables(jclass);
+  static jshort get_interfaces(jclass, _Jv_ifaces *);
+  static void link_symbol_table(jclass);
+  static void link_exception_table(jclass);
+  static void layout_interface_methods(jclass);
+  static void layout_vtable_methods(jclass);
+  static void set_vtable_entries(jclass, _Jv_VTable *, jboolean *);
+  static void make_vtable(jclass);
+  static void ensure_fields_laid_out(jclass);
+  static void ensure_class_linked(jclass);
+  static void ensure_supers_installed(jclass);
+  static void add_miranda_methods(jclass, jclass);
+  static void ensure_method_table_complete(jclass);
+  static void verify_class(jclass);
+  static jshort find_iindex(jclass *, jshort *, jshort);
+  static jshort indexof(void *, void **, jshort);
+  static int get_alignment_from_class(jclass);
+  static void generate_itable(jclass, _Jv_ifaces *, jshort *);
+  static jshort append_partial_itable(jclass, jclass, void **, jshort);
+
+public:
+
+  static void resolve_class_ref (jclass, jclass *);
+  static void wait_for_state(jclass, int);
+  static _Jv_word resolve_pool_entry (jclass, int);
+  static void resolve_field (_Jv_Field *, java::lang::ClassLoader *);
+};
+
 /* Type of pointer used as finalizer.  */
 typedef void _Jv_FinalizerFunc (jobject);
 
@@ -407,7 +439,6 @@ extern "C" void _Jv_RegisterClass (jclass klass);
 extern "C" void _Jv_RegisterClasses (jclass *classes);
 extern "C" void _Jv_RegisterResource (void *vptr);
 extern void _Jv_UnregisterClass (_Jv_Utf8Const*, java::lang::ClassLoader*);
-extern void _Jv_ResolveField (_Jv_Field *, java::lang::ClassLoader*);
 
 extern jclass _Jv_FindClass (_Jv_Utf8Const *name,
 			     java::lang::ClassLoader *loader);
@@ -420,8 +451,6 @@ extern void _Jv_GetTypesFromSignature (jmethodID method,
 
 extern jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
 				 jint flags);
-extern jboolean _Jv_CheckAccessNoInit (jclass self_klass, jclass other_klass,
-				       jint flags);
 
 extern jobject _Jv_CallAnyMethodA (jobject obj, jclass return_type,
 				   jmethodID meth, jboolean is_constructor,
@@ -514,15 +543,5 @@ extern void (*_Jv_JVMPI_Notify_OBJECT_ALLOC) (JVMPI_Event *event);
 extern void (*_Jv_JVMPI_Notify_THREAD_START) (JVMPI_Event *event);
 extern void (*_Jv_JVMPI_Notify_THREAD_END) (JVMPI_Event *event);
 #endif
-
-
-// This returns true if and only if the class in question was compiled
-// using the binary compatibility flag.
-inline bool
-_Jv_isBinaryCompatible (jclass k)
-{
-  // FIXME: ugly implementation.
-  return k->size_in_bytes == -1;
-}
 
 #endif /* __JAVA_JVM_H__ */

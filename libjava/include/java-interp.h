@@ -1,6 +1,6 @@
 // java-interp.h - Header file for the bytecode interpreter.  -*- c++ -*-
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -91,7 +91,7 @@ protected:
   void *deferred;
 
   friend void _Jv_Defer_Resolution (void *cl, _Jv_Method *meth, void **);
-  friend void _Jv_PrepareClass(jclass);
+  friend class _Jv_InterpreterEngine;
 
 public:
   _Jv_Method *get_method ()
@@ -149,9 +149,8 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   friend class _Jv_BytecodeVerifier;
   friend class gnu::gcj::runtime::NameFinder;
   friend class gnu::gcj::runtime::StackTrace;
+  friend class _Jv_InterpreterEngine;
   
-
-  friend void _Jv_PrepareClass(jclass);
 
 #ifdef JV_MARKOBJ_DECL
   friend JV_MARKOBJ_DECL;
@@ -165,7 +164,7 @@ class _Jv_InterpClass
 
   friend class _Jv_ClassReader;
   friend class _Jv_InterpMethod;
-  friend void  _Jv_PrepareClass(jclass);
+  friend class _Jv_InterpreterEngine;
   friend void  _Jv_PrepareMissingMethods (jclass base2, jclass iface_class);
   friend void  _Jv_InitField (jobject, jclass, int);
 #ifdef JV_MARKOBJ_DECL
@@ -239,7 +238,7 @@ class _Jv_JNIMethod : public _Jv_MethodBase
   void *ncode ();
 
   friend class _Jv_ClassReader;
-  friend void _Jv_PrepareClass(jclass);
+  friend class _Jv_InterpreterEngine;
 
 public:
   // FIXME: this is ugly.

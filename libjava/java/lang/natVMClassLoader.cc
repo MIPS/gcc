@@ -30,6 +30,21 @@ details.  */
 #include <java/security/ProtectionDomain.h>
 #include <java/lang/ClassFormatError.h>
 
+void
+java::lang::VMClassLoader::resolveClass (jclass klass)
+{
+  JvSynchronize sync (klass);
+  try
+    {
+      _Jv_Resolver::wait_for_state (klass, JV_STATE_LINKED);
+    }
+  catch (java::lang::Throwable *x)
+    {
+      klass->set_state(JV_STATE_ERROR);
+      transformException(klass, x);
+    }
+}
+
 java::lang::Class *
 java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
 					jstring name,
@@ -96,20 +111,6 @@ java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
 #endif // INTERPRETER
 
   return klass;
-}
-
-// Finish linking a class.  Only called from ClassLoader::resolveClass.
-void
-java::lang::VMClassLoader::linkClass0 (java::lang::Class *klass)
-{
-  _Jv_WaitForState (klass, JV_STATE_LINKED);
-}
-
-void
-java::lang::VMClassLoader::markClassErrorState0 (java::lang::Class *klass)
-{
-  klass->state = JV_STATE_ERROR;
-  klass->notifyAll ();
 }
 
 java::lang::ClassLoader *
