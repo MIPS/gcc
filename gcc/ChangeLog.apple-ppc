@@ -1,3 +1,9 @@
+2004-09-24  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3811274
+	PR 17625
+	* loop-doloop.c (doloop-modify): roll in fix from FSF.
+
 2004-09-23  Stan Shebs  <shebs@apple.com>
 
 	* Makefile.in: Use --print-multi-lib to collect
