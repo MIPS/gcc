@@ -6084,46 +6084,6 @@ integer_valued_real_p (tree t)
 	}
       break;
 
-    case BUILT_IN_OBJECT_SIZE:
-      return fold_builtin_object_size (exp);
-    case BUILT_IN_MEMCPY_CHK:
-    case BUILT_IN_MEMPCPY_CHK:
-    case BUILT_IN_MEMMOVE_CHK:
-    case BUILT_IN_MEMSET_CHK:
-      return fold_builtin_memory_chk (exp, NULL_TREE, ignore,
-				    DECL_FUNCTION_CODE (fndecl));
-    case BUILT_IN_STRCPY_CHK:
-    case BUILT_IN_STPCPY_CHK:
-      return fold_builtin_stxcpy_chk (exp, NULL_TREE, ignore,
-				    DECL_FUNCTION_CODE (fndecl));
-    case BUILT_IN_STRNCPY_CHK:
-      return fold_builtin_strncpy_chk (exp, NULL_TREE);
-    case BUILT_IN_STRCAT_CHK:
-      return fold_builtin_strcat_chk (exp);
-    case BUILT_IN_STRNCAT_CHK:
-      return fold_builtin_strncat_chk (exp);
-    case BUILT_IN_SPRINTF_CHK:
-    case BUILT_IN_VSPRINTF_CHK:
-      return fold_builtin_sprintf_chk (arglist, DECL_FUNCTION_CODE (fndecl));
-    case BUILT_IN_SNPRINTF_CHK:
-    case BUILT_IN_VSNPRINTF_CHK:
-      return fold_builtin_snprintf_chk (arglist, NULL_TREE,
-				      DECL_FUNCTION_CODE (fndecl));
-
-    case BUILT_IN_PRINTF:
-    case BUILT_IN_PRINTF_UNLOCKED:
-    case BUILT_IN_VPRINTF:
-    case BUILT_IN_PRINTF_CHK:
-    case BUILT_IN_VPRINTF_CHK:
-      return fold_builtin_printf (exp, ignore, DECL_FUNCTION_CODE (fndecl));
-
-    case BUILT_IN_FPRINTF:
-    case BUILT_IN_FPRINTF_UNLOCKED:
-    case BUILT_IN_VFPRINTF:
-    case BUILT_IN_FPRINTF_CHK:
-    case BUILT_IN_VFPRINTF_CHK:
-      return fold_builtin_fprintf (exp, ignore, DECL_FUNCTION_CODE (fndecl));
-
     default:
       break;
     }
@@ -8304,6 +8264,46 @@ fold_builtin_1 (tree exp, bool ignore)
       /* We do the folding for va_start in the expander.  */
     case BUILT_IN_VA_START:
       break;
+
+    case BUILT_IN_OBJECT_SIZE:
+      return fold_builtin_object_size (exp);
+    case BUILT_IN_MEMCPY_CHK:
+    case BUILT_IN_MEMPCPY_CHK:
+    case BUILT_IN_MEMMOVE_CHK:
+    case BUILT_IN_MEMSET_CHK:
+      return fold_builtin_memory_chk (exp, NULL_TREE, ignore,
+				    DECL_FUNCTION_CODE (fndecl));
+    case BUILT_IN_STRCPY_CHK:
+    case BUILT_IN_STPCPY_CHK:
+      return fold_builtin_stxcpy_chk (exp, NULL_TREE, ignore,
+				    DECL_FUNCTION_CODE (fndecl));
+    case BUILT_IN_STRNCPY_CHK:
+      return fold_builtin_strncpy_chk (exp, NULL_TREE);
+    case BUILT_IN_STRCAT_CHK:
+      return fold_builtin_strcat_chk (exp);
+    case BUILT_IN_STRNCAT_CHK:
+      return fold_builtin_strncat_chk (exp);
+    case BUILT_IN_SPRINTF_CHK:
+    case BUILT_IN_VSPRINTF_CHK:
+      return fold_builtin_sprintf_chk (arglist, DECL_FUNCTION_CODE (fndecl));
+    case BUILT_IN_SNPRINTF_CHK:
+    case BUILT_IN_VSNPRINTF_CHK:
+      return fold_builtin_snprintf_chk (arglist, NULL_TREE,
+				      DECL_FUNCTION_CODE (fndecl));
+
+    case BUILT_IN_PRINTF:
+    case BUILT_IN_PRINTF_UNLOCKED:
+    case BUILT_IN_VPRINTF:
+    case BUILT_IN_PRINTF_CHK:
+    case BUILT_IN_VPRINTF_CHK:
+      return fold_builtin_printf (exp, ignore, DECL_FUNCTION_CODE (fndecl));
+
+    case BUILT_IN_FPRINTF:
+    case BUILT_IN_FPRINTF_UNLOCKED:
+    case BUILT_IN_VFPRINTF:
+    case BUILT_IN_FPRINTF_CHK:
+    case BUILT_IN_VFPRINTF_CHK:
+      return fold_builtin_fprintf (exp, ignore, DECL_FUNCTION_CODE (fndecl));
 
     default:
       if (fcode >= BUILT_IN_COMPLEX_MUL_MIN
