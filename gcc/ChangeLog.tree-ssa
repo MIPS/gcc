@@ -1,3 +1,12 @@
+2003-06-24  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (struct dfa_stats_d): Remove obsolete fields
+	num_tree_refs and size_tree_refs.  Update all users.
+	(dump_dfa_stats): Also dump information about VUSE and VDEF
+	operands.
+	* tree-ssa.c (rewrite_vdefs): Dump information about VDEF operators
+	promoted to real copies if -fdump-tree-optimized-details is given.
+
 2003-06-23  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (remove_useless_stmts_and_vars): If the body of a

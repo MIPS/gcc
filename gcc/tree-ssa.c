@@ -1738,6 +1738,14 @@ rewrite_vdefs (block_stmt_iterator *si_p, varray_type vdefs, var_map map)
 	{
 	  tree t = build (MODIFY_EXPR, TREE_TYPE (lhs), lhs, rhs);
 	  bsi_insert_before (si_p, t, BSI_SAME_STMT);
+	  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (tree_ssa_dump_file, "Promoting VDEF ");
+	      print_generic_stmt (tree_ssa_dump_file, vdef, 0);
+	      fprintf (tree_ssa_dump_file, "into the real assignment ");
+	      print_generic_stmt (tree_ssa_dump_file, t, 0);
+	      fprintf (tree_ssa_dump_file, "\n");
+	    }
 	}
     }
 }

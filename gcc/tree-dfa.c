@@ -49,8 +49,6 @@ Boston, MA 02111-1307, USA.  */
 /* Counters used to display DFA and SSA statistics.  */
 struct dfa_stats_d
 {
-  long num_tree_refs;
-  long size_tree_refs;
   long num_stmt_anns;
   long num_var_anns;
   long num_defs;
@@ -1331,6 +1329,16 @@ dump_dfa_stats (FILE *file)
   fprintf (file, fmt_str_1, "DEF operands", dfa_stats.num_defs,
 	   SCALE (size), LABEL (size));
 
+  size = dfa_stats.num_vuses * sizeof (tree *);
+  total += size;
+  fprintf (file, fmt_str_1, "VUSE operands", dfa_stats.num_vuses,
+	   SCALE (size), LABEL (size));
+
+  size = dfa_stats.num_vdefs * sizeof (tree *);
+  total += size;
+  fprintf (file, fmt_str_1, "VDEF operands", dfa_stats.num_vdefs,
+	   SCALE (size), LABEL (size));
+
   size = dfa_stats.num_phis * sizeof (struct tree_phi_node);
   total += size;
   fprintf (file, fmt_str_1, "PHI nodes", dfa_stats.num_phis,
@@ -1340,11 +1348,6 @@ dump_dfa_stats (FILE *file)
   total += size;
   fprintf (file, fmt_str_1, "PHI arguments", dfa_stats.num_phi_args,
  	   SCALE (size), LABEL (size));
-
-  size = dfa_stats.size_tree_refs;
-  total += size;
-  fprintf (file, fmt_str_1, "Virtual references", dfa_stats.num_tree_refs,
-	   SCALE (size), LABEL (size));
 
   fprintf (file, "---------------------------------------------------------\n");
   fprintf (file, fmt_str_3, "Total memory used by DFA/SSA data", SCALE (total),
