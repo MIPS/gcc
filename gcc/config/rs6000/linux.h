@@ -186,3 +186,5 @@ enum { SIGNAL_FRAMESIZE = 64 };
     (FS)->retaddr_column = CR0_REGNO;					\
     goto SUCCESS;							\
   } while (0)
+
+#define OS_MISSING_POWERPC64 1
