@@ -3741,7 +3741,7 @@ int
 only_leaf_regs_used ()
 {
   int i;
-  char *permitted_reg_in_leaf_functions = LEAF_REGISTERS;
+  const char *const permitted_reg_in_leaf_functions = LEAF_REGISTERS;
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if ((regs_ever_live[i] || global_regs[i])

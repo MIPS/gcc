@@ -2978,7 +2978,7 @@ while (0)
 #define ASM_OUTPUT_LABELREF(FILE, NAME)			\
   do							\
     {							\
-      char * lname;					\
+      const char * lname;				\
 							\
       STRIP_DATALABEL_ENCODING (lname, (NAME));		\
       if (lname[0] == '*')				\

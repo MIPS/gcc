@@ -1,3 +1,20 @@
+2002-09-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* c-lex.c (cb_ident): Mark variable with ATTRIBUTE_UNUSED.
+	* collect2.c (ignore_library, aix_std_libs): Move into the context
+	where it is used.
+	* m68hc11.c (m68hc11_autoinc_compatible_p): Delete prototype.
+	(autoinc_mode, m68hc11_make_autoinc_notes): Add prototypes.
+	* m88k.c (output_call): Wrap variables with macro controlling use. 
+	* rs6000.md: Likewise.  Const-ify variable.
+	* sh.h (ASM_OUTPUT_LABELREF): Likewise.
+	* final.c (only_leaf_regs_used): Likewise.
+	* regrename.c (maybe_mode_change): Mark parameter with
+	ATTRIBUTE_UNUSED.
+	* reload.c (find_valid_class): Likewise.  Likewise for variable.
+	(find_reloads_address_1): Likewise.
+	* varasm.c (weak_finish): Wrap variable with macro controlling use.
+
 2002-09-13  Roger Sayle  <roger@eyesopen.com>
 
 	* stmt.c (struct nexting): Remove unused alt_end_label field.
