@@ -1,3 +1,7 @@
+2005-03-10  Aldy Hernandez  <aldyh@redhat.com>
+
+        * doc/invoke.texi: Add 8540 to list of cpus in rs6000 cpu section.
+
 2005-03-07  Aldy Hernandez  <aldyh@redhat.com>
 
 	* config/rs6000/rs6000-protos.h: Rename output_e500_flip_eq_bit to
