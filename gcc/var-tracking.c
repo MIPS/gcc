@@ -216,6 +216,9 @@ typedef struct variable_part_def
   /* Chain of locations of the part.  */
   location_chain loc_chain;
 
+  /* Location which was last emitted to location list.  */
+  rtx cur_loc;
+
   /* The offset in the variable.  */
   HOST_WIDE_INT offset;
 } variable_part;
@@ -800,6 +803,13 @@ vars_copy_1 (slot, data)
 	    var->var_part[i].loc_chain = new_lc;
 	  last = new_lc;
 	}
+
+      /* We are at the basic block boundary when copying variable description
+	 so set the CUR_LOC to be the first element of the chain.  */
+      if (var->var_part[i].loc_chain)
+	var->var_part[i].cur_loc = var->var_part[i].loc_chain->loc;
+      else
+	var->var_part[i].cur_loc = NULL;
     }
 
   /* Continue traversing the hash table.  */
@@ -1177,6 +1187,13 @@ variable_union (slot, data)
 	  dst->var_part[k].offset = src->var_part[i].offset;
 	  i--;
 	}
+
+      /* We are at the basic block boundary when computing union
+	 so set the CUR_LOC to be the first element of the chain.  */
+      if (dst->var_part[k].loc_chain)
+	dst->var_part[k].cur_loc = dst->var_part[k].loc_chain->loc;
+      else
+	dst->var_part[k].cur_loc = NULL;
     }
 
   /* Continue traversing the hash table.  */
@@ -1914,7 +1931,6 @@ set_variable_part (set, loc, decl, offset)
 {
   int pos, low, high;
   location_chain node, prev, next;
-  bool changed;
   variable var;
   void **slot;
   
@@ -1928,6 +1944,7 @@ set_variable_part (set, loc, decl, offset)
       var->n_var_parts = 1;
       var->var_part[0].offset = offset;
       var->var_part[0].loc_chain = NULL;
+      var->var_part[0].cur_loc = NULL;
       *slot = var;
       pos = 0;
     }
@@ -1967,10 +1984,10 @@ set_variable_part (set, loc, decl, offset)
 	  var->n_var_parts++;
 	  var->var_part[pos].offset = offset;
 	  var->var_part[pos].loc_chain = NULL;
+	  var->var_part[pos].cur_loc = NULL;
 	}
     }
 
-  changed = true;
   /* Delete the location from list.  */
   prev = NULL;
   for (node = var->var_part[pos].loc_chain; node; node = next)
@@ -1983,10 +2000,7 @@ set_variable_part (set, loc, decl, offset)
 	  if (prev)
 	    prev->next = next;
 	  else
-	    {
-	      var->var_part[pos].loc_chain = next;
-	      changed = false;
-	    }
+	    var->var_part[pos].loc_chain = next;
 	  pool_free (loc_chain_pool, node);
 	  break;
 	}
@@ -1994,14 +2008,18 @@ set_variable_part (set, loc, decl, offset)
 	prev = node;
     }
 
-  if (changed)
-    variable_was_changed (var, set->vars);
-
   /* Add the location to the beginning.  */
   node = pool_alloc (loc_chain_pool);
   node->loc = loc;
   node->next = var->var_part[pos].loc_chain;
   var->var_part[pos].loc_chain = node;
+
+  /* If no location was emitted do so.  */
+  if (var->var_part[pos].cur_loc == NULL)
+    {
+      var->var_part[pos].cur_loc = loc;
+      variable_was_changed (var, set->vars);
+    }
 }
 
 /* Delete the part of variable's location from dataflow set SET.  The variable
@@ -2043,7 +2061,6 @@ delete_variable_part (set, loc, decl, offset)
 	  bool changed;
 
 	  /* Delete the location part.  */
-	  changed = false;
 	  prev = NULL;
 	  for (node = var->var_part[pos].loc_chain; node; node = next)
 	    {
@@ -2055,26 +2072,40 @@ delete_variable_part (set, loc, decl, offset)
 		  if (prev)
 		    prev->next = next;
 		  else
-		    {
-		      var->var_part[pos].loc_chain = next;
-		      changed = true;
-		    }
+		    var->var_part[pos].loc_chain = next;
 		  pool_free (loc_chain_pool, node);
 		  break;
 		}
 	      else
 		prev = node;
 	    }
-	    if (var->var_part[pos].loc_chain == NULL)
-	      {
-		var->n_var_parts--;
-		while (pos < var->n_var_parts)
-		  {
-		    var->var_part[pos] = var->var_part[pos + 1];
-		    pos++;
-		  }
-	      }
-	    if (changed)
+
+	  /* If we have deleted the location which was last emitted
+	     we have to emit new location so add the variable to set
+	     of changed variables.  */
+	  if (var->var_part[pos].cur_loc
+	      && ((GET_CODE (loc) == REG
+		   && GET_CODE (var->var_part[pos].cur_loc) == REG
+		   && REGNO (loc) == REGNO (var->var_part[pos].cur_loc))
+		  || rtx_equal_p (loc, var->var_part[pos].cur_loc)))
+	    {
+	      changed = true;
+	      if (var->var_part[pos].loc_chain)
+		var->var_part[pos].cur_loc = var->var_part[pos].loc_chain->loc;
+	    }
+	  else
+	    changed = false;
+
+	  if (var->var_part[pos].loc_chain == NULL)
+	    {
+	      var->n_var_parts--;
+	      while (pos < var->n_var_parts)
+		{
+		  var->var_part[pos] = var->var_part[pos + 1];
+		  pos++;
+		}
+	    }
+	  if (changed)
 	      variable_was_changed (var, set->vars);
 	}
     }

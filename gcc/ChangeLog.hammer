@@ -1,5 +1,13 @@
 2004-01-08  Josef Zlomek  <zlomekj@suse.cz>
 
+	* var-tracking.c (struct variable_part_def): Added element cur_loc;
+	(vars_copy_1): Set cur_loc to the first element of loc_chain.
+	(variable_union): Likewise.
+	(set_variable_part): Init cur_loc and emit note only if necessary.
+	(delete_variable_part): Update cur_loc and emit note only if necessary.
+
+2004-01-08  Josef Zlomek  <zlomekj@suse.cz>
+
 	* var-tracking.c (enum micro_operation_type): Added MO_USE_NO_VAR.
 	(add_uses): Set type to MO_USE_NO_VAR instead of MO_CLOBBER.
 	(compute_bb_dataflow): Process MO_USE_NO_VAR; cleanup.
