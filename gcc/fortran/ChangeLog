@@ -1,3 +1,7 @@
+2004-02-08  Steve Kargl  <sgk@troutmask.apl.washington.edu>
+
+	* gfortran.texi: Fix typos.
+
 2004-02-07  Bud Davis  <bdavis9659@comcast.net>
  
 	PR gfortran/13909
