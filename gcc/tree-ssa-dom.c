@@ -201,7 +201,7 @@ static void record_equivalences_from_incoming_edge (basic_block, tree,
 static bool eliminate_redundant_computations (tree, varray_type *, stmt_ann_t);
 static void record_equivalences_from_stmt (tree, varray_type *,
 					   int, stmt_ann_t);
-static void thread_through_successor (basic_block, varray_type *);
+static void thread_across_edge (edge, varray_type *);
 static void dom_opt_finalize_block (struct dom_walk_data *, basic_block, tree);
 static void dom_opt_initialize_block (struct dom_walk_data *,
 				      basic_block, tree);
@@ -485,16 +485,15 @@ tree_ssa_dominator_optimize_1 (tree fndecl,
    jump which has a known value when reached via BB.  */
 
 static void
-thread_through_successor (basic_block bb, varray_type *block_avail_exprs)
+thread_across_edge (edge e, varray_type *block_avail_exprs)
 {
   /* If we have a single successor, then we may be able to thread
      the edge out of our block to a destination of our successor.
 
      Only thread through a successor with PHI nodes if explicitly asked to.  */
-  if (bb->succ && bb->succ->succ_next == NULL
-      && (thread_through_phis || ! phi_nodes (bb->succ->dest)))
+  if (thread_through_phis || ! phi_nodes (e->dest))
     {
-      block_stmt_iterator bsi = bsi_start (bb->succ->dest);
+      block_stmt_iterator bsi = bsi_start (e->dest);
       tree stmt = NULL;
 
       /* Walk past any empty statements and labels.  */
@@ -531,7 +530,7 @@ thread_through_successor (basic_block bb, varray_type *block_avail_exprs)
 		     BB's successor.  If it is, then we can not thread
 		     this jump.  */
 		  if (TREE_CODE (def_stmt) == PHI_NODE
-		      && bb_for_stmt (def_stmt) == bb->succ->dest)
+		      && bb_for_stmt (def_stmt) == e->dest)
 		    return;
 		}
 	    }
@@ -539,8 +538,11 @@ thread_through_successor (basic_block bb, varray_type *block_avail_exprs)
 	  cached_lhs = lookup_avail_expr (stmt, block_avail_exprs, false);
 	  if (cached_lhs)
 	    {
-	      edge taken_edge = find_taken_edge (bb->succ->dest, cached_lhs);
+	      edge taken_edge = find_taken_edge (e->dest, cached_lhs);
 	      basic_block dest = (taken_edge ? taken_edge->dest : NULL);
+
+	      if (dest == e->src)
+		return;
 
 	      /* If we have a known destination for the conditional, then
 		 we can perform this optimization, which saves at least one
@@ -549,15 +551,15 @@ thread_through_successor (basic_block bb, varray_type *block_avail_exprs)
 	      if (dest && ! phi_nodes (dest))
 		{
 		  basic_block forwards_to;
-		  int saved_forwardable = bb_ann (bb)->forwardable;
+		  int saved_forwardable = bb_ann (e->src)->forwardable;
 
-		  bb_ann (bb)->forwardable = 0;
+		  bb_ann (e->src)->forwardable = 0;
 
 		  forwards_to = tree_block_forwards_to (dest);
 
-		  bb_ann (bb)->forwardable = saved_forwardable;
+		  bb_ann (e->src)->forwardable = saved_forwardable;
 		  dest = (forwards_to ? forwards_to : dest);
-		  VARRAY_PUSH_EDGE (edges_to_redirect, bb->succ);
+		  VARRAY_PUSH_EDGE (edges_to_redirect, e);
 		  VARRAY_PUSH_BB (redirection_targets, dest);
 		}
 	    }
@@ -627,9 +629,18 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
   varray_type vrp_variables = bd->vrp_variables;
   varray_type stmts_to_rescan = bd->stmts_to_rescan;
 
-  /* See if we can thread the edge from BB through its successor.
+  /* If we are at a leaf node in the dominator graph, see if we can thread
+     the edge from BB through its successor.
+
      Do this before we remove entries from our equivalence tables.  */
-  thread_through_successor (bb, NULL);
+  if (bb->succ
+      && ! bb->succ->succ_next
+      && (bb->succ->flags & EDGE_ABNORMAL) == 0
+      && (! dom_children (bb)
+	  || ! bitmap_bit_p (dom_children (bb), bb->succ->dest->index)))
+    {
+      thread_across_edge (bb->succ, NULL);
+    }
 
   /* Remove all the expressions made available in this block.  */
   while (VARRAY_ACTIVE_SIZE (block_avail_exprs) > 0)

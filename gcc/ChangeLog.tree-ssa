@@ -10,6 +10,12 @@
 
 2003-10-30  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (thread_across_edge): Renamed from
+	thread_through_successor.  Revamp to thread the destination of an edge
+	rather than the successors of a block.
+	(dom_opt_finalize_block): Corresponding changes.  Do not bother calling
+	thread_across_edge unless we are at a leaf in the dominator tree.
+
 	* tree-cfg.c (thread_jumps): Now returns a bool.  Move some tests into
 	tree_forwarder_block_p.  Improve comments.
 	(cleanup_control_flow): Now returns a bool indicating if anything was
