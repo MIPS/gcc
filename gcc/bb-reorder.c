@@ -906,7 +906,7 @@ connect_traces (n_traces, traces)
 	    {
 	      /* Try to connect the traces by duplication of 1 block.  */
 	      edge e2;
-	      basic_block next_bb;
+	      basic_block next_bb = NULL;
 
 	      for (e = traces[t].last->succ; e; e = e->succ_next)
 		if (e->dest != EXIT_BLOCK_PTR
@@ -947,7 +947,7 @@ connect_traces (n_traces, traces)
 			  }
 		      }
 		  }
-	      if (best && copy_bb_p (best->dest))
+	      if (best && next_bb && copy_bb_p (best->dest))
 		{
 		  basic_block new_bb;
 
