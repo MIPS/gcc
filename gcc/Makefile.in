@@ -1932,7 +1932,8 @@ ipa-static-vars-anal.o : ipa-static-vars-anal.c $(CONFIG_H) $(SYSTEM_H) \
    $(CGRAPH_H) output.h $(FLAGS_H) tree-pass.h  
 ipa.o : ipa.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(CGRAPH_H) 
 ipa-inline.o : ipa-inline.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
-   langhooks.h tree-inline.h $(FLAGS_H) $(CGRAPH_H) intl.h $(TREE_FLOW_H)
+   langhooks.h tree-inline.h $(FLAGS_H) $(CGRAPH_H) intl.h $(TREE_FLOW_H) \
+   $(COVERAGE_H)
 cgraphunit.o : cgraphunit.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    langhooks.h tree-inline.h toplev.h $(FLAGS_H) $(GGC_H)  $(TARGET_H) $(CGRAPH_H) intl.h \
    pointer-set.h function.h $(TREE_GIMPLE_H) $(TREE_FLOW_H) ipa_prop.h \
