@@ -122,7 +122,7 @@ fi
 
 #  OK.  We gotta make the thing.
 #
-echo $MAKE install
+echo $MAKE SHELL=\"$SHELL\" install
 
 #  Where is our inclhack script?  That is the backup
 #  in case we are unable to make a working binary.
@@ -136,4 +136,4 @@ fi
 
 #  make and install either the binary or the default script
 #
-$MAKE install || cp ${INCLHACK} ${target}
+$MAKE SHELL="$SHELL" install || cp ${INCLHACK} ${target}
