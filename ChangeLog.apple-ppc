@@ -1,4 +1,8 @@
-2004-10-7  Robert Bowdidge <bowdidge@apple.com>
+2004-10-07  Robert Bowdidge <bowdidge@apple.com>
+        * build_gcc: remove directories /usr/libexec/gcc/darwin/arch/4.0  and
+        /usr/lib/gcc/darwin/arch/4.0 that are no longer needed.
+
+2004-10-07  Robert Bowdidge <bowdidge@apple.com>
 	* build_gcc: Remove earlier patch for copying cpp into 
 	/usr/libexec/blah.  /usr/bin/cpp will now use gcc -E to do preprocessing
         rather than each compiler's cpp.
