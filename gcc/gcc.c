@@ -210,7 +210,7 @@ static int access_check		PARAMS ((const char *, int));
 static char *find_a_file	PARAMS ((struct path_prefix *, const char *, int));
 static void add_prefix		PARAMS ((struct path_prefix *, const char *,
 					 const char *, int, int, int *));
-static void translate_options	PARAMS ((int *, const char ***));
+static void translate_options	PARAMS ((int *, const char *const **));
 static char *skip_whitespace	PARAMS ((char *));
 static void record_temp_file	PARAMS ((const char *, int, int));
 static void delete_if_ordinary	PARAMS ((const char *));
@@ -242,7 +242,7 @@ static void display_help 	PARAMS ((void));
 static void add_preprocessor_option	PARAMS ((const char *, int));
 static void add_assembler_option	PARAMS ((const char *, int));
 static void add_linker_option		PARAMS ((const char *, int));
-static void process_command		PARAMS ((int, const char **));
+static void process_command		PARAMS ((int, const char *const *));
 static int execute			PARAMS ((void));
 static void unused_prefix_warnings	PARAMS ((struct path_prefix *));
 static void clear_args			PARAMS ((void));
@@ -550,7 +550,7 @@ static const char *link_libgcc_spec = LINK_LIBGCC_SPEC;
    appropriate -B options.  */
 
 static const char *trad_capable_cpp =
-"%{traditional|ftraditional|traditional-cpp:trad}cpp";
+"%{traditional|ftraditional|traditional-cpp:trad}cpp0";
 
 static const char *cpp_options =
 "%{C:%{!E:%eGNU C does not support -C without using -E}}\
@@ -692,7 +692,7 @@ static struct compiler default_compilers[] =
   {".c", "@c"},
   {"@c",
 #if USE_CPPLIB
-     "%{E|M|MM:cpp -lang-c %{ansi:-std=c89} %(cpp_options)}\
+     "%{E|M|MM:cpp0 -lang-c %{ansi:-std=c89} %(cpp_options)}\
       %{!E:%{!M:%{!MM:cc1 -lang-c %{ansi:-std=c89} %(cpp_options)\
 			  %(cc1_options) %{!S:-o %{|!pipe:%g.s} |\n\
       as %(asm_options) %{!pipe:%g.s} %A }}}}"
@@ -713,7 +713,7 @@ static struct compiler default_compilers[] =
   {".i", "@cpp-output"},
   {"@cpp-output",
    "%{!M:%{!MM:%{!E:\
-    cc1 %i %(cc1_options) %{!S:|\n\
+    cc1 %i %(cc1_options) %{!S:-o %{|!pipe:%g.s} |\n\
     as %(asm_options) %{!pipe:%g.s} %A }}}}"},
   {".s", "@assembler"},
   {"@assembler",
@@ -858,11 +858,11 @@ struct option_map option_map[] =
 static void
 translate_options (argcp, argvp)
      int *argcp;
-     const char ***argvp;
+     const char *const **argvp;
 {
   int i;
   int argc = *argcp;
-  const char **argv = *argvp;
+  const char *const *argv = *argvp;
   const char **newv =
     (const char **) xmalloc ((argc + 2) * 2 * sizeof (const char *));
   int newindex = 0;
@@ -2496,7 +2496,7 @@ execute ()
       /* Print each piped command as a separate line.  */
       for (i = 0; i < n_commands ; i++)
 	{
-	  const char **j;
+	  const char *const *j;
 
 	  for (j = commands[i].argv; *j; j++)
 	    fprintf (stderr, " %s", *j);
@@ -2527,7 +2527,9 @@ execute ()
       char *errmsg_fmt, *errmsg_arg;
       const char *string = commands[i].argv[0];
 
-      commands[i].pid = pexecute (string, commands[i].argv,
+      /* For some bizarre reason, the second argument of execvp() is
+	 char *const *, not const char *const *.  */
+      commands[i].pid = pexecute (string, (char *const *) commands[i].argv,
 				  programname, temp_filename,
 				  &errmsg_fmt, &errmsg_arg,
 				  ((i == 0 ? PEXECUTE_FIRST : 0)
@@ -2864,7 +2866,7 @@ add_linker_option (option, len)
 static void
 process_command (argc, argv)
      int argc;
-     const char **argv;
+     const char *const *argv;
 {
   register int i;
   const char *temp;
@@ -5092,12 +5094,12 @@ fatal_error (signum)
   kill (getpid (), signum);
 }
 
-extern int main PARAMS ((int, char **));
+extern int main PARAMS ((int, const char *const *));
 
 int
 main (argc, argv)
      int argc;
-     char **argv;
+     const char *const *argv;
 {
   size_t i;
   int value;
@@ -5111,6 +5113,11 @@ main (argc, argv)
   while (p != argv[0] && !IS_DIR_SEPARATOR (p[-1]))
     --p;
   programname = p;
+
+#ifdef GCC_DRIVER_HOST_INITIALIZATION
+  /* Perform host dependant initialization when needed.  */
+  GCC_DRIVER_HOST_INITIALIZATION;
+#endif
 
 #ifdef HAVE_LC_MESSAGES
   setlocale (LC_MESSAGES, "");
@@ -5217,7 +5224,7 @@ main (argc, argv)
     first_time = TRUE;
     for (i = 0; (int)i < n_switches; i++)
       {
-	const char **args;
+	const char *const *args;
 	const char *p, *q;
 	if (!first_time)
 	  obstack_grow (&collect_obstack, " ", 1);

@@ -51,7 +51,7 @@ fi
 if [ "${enable_libstdcxx_v3}" = "yes" ] && test -d $srcdir/libstdc++-v3; then
         libstdcxx_version="target-libstdc++-v3"
 	# Don't use libstdc++-v3's flags to configure/build itself.
-	libstdcxx_flags='`test "x$$dir" != xlibstdc++-v3 && test -f $$r/$(TARGET_SUBDIR)/libstdc++-v3/mkcheck && $(SHELL) $$r/$(TARGET_SUBDIR)/libstdc++-v3/mkcheck 2 $$r/$(TARGET_SUBDIR)/libstdc++-v3 $$s/libstdc++-v3 | sed -e "s/-I/-isystem /g"` -L$$r/$(TARGET_SUBDIR)/libstd++-v3/src -L$$r/$(TARGET_SUBDIR)/libstd++-v3/src/.libs'
+	libstdcxx_flags='`case $$dir in libstdc++-v3) ;; *) test -f $$r/$(TARGET_SUBDIR)/libstdc++-v3/mkcheck && $(SHELL) $$r/$(TARGET_SUBDIR)/libstdc++-v3/mkcheck 2 $$r/$(TARGET_SUBDIR)/libstdc++-v3 $$s/libstdc++-v3 | sed -e '"'s/-I/-isystem /g'"' ;; esac` -L$$r/$(TARGET_SUBDIR)/libstd++-v3/src -L$$r/$(TARGET_SUBDIR)/libstd++-v3/src/.libs'
 else
         libstdcxx_version="target-libio target-libstdc++"
         libstdcxx_flags='-isystem $$s/libstdc++ -isystem $$s/libstdc++/std -isystem $$s/libstdc++/stl -isystem $$s/libio/ -isystem $$s/libio/stdio -L$$r/$(TARGET_SUBDIR)/libstdc++'
@@ -68,7 +68,9 @@ host_tools="texinfo byacc flex bison binutils ld gas gcc sim gdb make patch prms
 target_libs="target-libiberty \
 		target-libgloss \
 		target-newlib \
+		target-librx \
 		${libstdcxx_version} \
+		target-libg++ \
 		target-libf2c \
 		target-libchill \
 		target-libffi \
@@ -571,7 +573,7 @@ esac
 
 case "${target}" in
   *-*-netware)
-    noconfigdirs="$noconfigdirs ${libstdcxx_version} target-newlib target-libiberty target-libgloss target-libffi"
+    noconfigdirs="$noconfigdirs target-libg++ ${libstdcxx_version} target-librx target-newlib target-libiberty target-libgloss target-libffi"
     ;;
   *-*-rtems*)
     noconfigdirs="$noconfigdirs target-libgloss target-libffi"
@@ -587,6 +589,12 @@ case "${target}" in
     ;;
   alpha*-*-*vms*)
     noconfigdirs="$noconfigdirs gdb ld target-newlib target-libgloss target-libffi"
+    ;;
+  alpha*-*-linux*)
+    # newlib is not 64 bit ready
+    noconfigdirs="$noconfigdirs target-newlib target-libgloss"
+    # linux has rx in libc
+    skipdirs="$skipdirs target-librx"
     ;;
   alpha*-*-*)
     # newlib is not 64 bit ready
@@ -629,7 +637,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs target-libgloss target-libffi"
     ;;
   c4x-*-*)
-    noconfigdirs="$noconfigdirs ${libstdcxx_version} target-libgloss target-libffi"
+    noconfigdirs="$noconfigdirs target-libg++ ${libstdcxx_version} target-librx target-libgloss target-libffi"
     ;;
   c54x*-*-* | tic54x-*-*)
     noconfigdirs="$noconfigdirs ${libstdcxx_version} target-libgloss target-libffi gcc gdb newlib"
@@ -662,7 +670,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs ld target-libgloss target-libffi"
     ;;
   d10v-*-*)
-    noconfigdirs="$noconfigdirs ${libstdcxx_version} target-libgloss target-libffi"
+    noconfigdirs="$noconfigdirs target-librx target-libg++ ${libstdcxx_version} target-libgloss target-libffi"
     ;;
   d30v-*-*)
     ;;
@@ -673,7 +681,7 @@ case "${target}" in
     ;;
   h8300*-*-* | \
   h8500-*-*)
-    noconfigdirs="$noconfigdirs ${libstdcxx_version} target-libgloss target-libffi"
+    noconfigdirs="$noconfigdirs target-libg++ ${libstdcxx_version} target-librx target-libgloss target-libffi"
     ;;
   hppa*-*-*elf* | \
   hppa*-*-linux-gnu* | \
@@ -702,7 +710,11 @@ case "${target}" in
     ;;
   i[3456]86-*-go32* | i[3456]-*-msdosdjgpp*)
     # but don't build gdb
-    noconfigdirs="$noconfigdirs gdb ${libstdcxx_version} target-libffi"
+    noconfigdirs="$noconfigdirs gdb target-libg++ ${libstdcxx_version} target-librx target-libffi"
+    ;;
+  *-*-linux*)
+    # linux has rx in libc
+    skipdirs="$skipdirs target-librx"
     ;;
   i[3456]86-*-mingw32*)
     target_configdirs="$target_configdirs target-mingw"
@@ -729,7 +741,7 @@ case "${target}" in
     esac
     ;;    
   i[3456]86-*-pe)
-    noconfigdirs="$noconfigdirs ${libstdcxx_version} target-libgloss target-libffi"
+    noconfigdirs="$noconfigdirs target-libg++ ${libstdcxx_version} target-librx target-libgloss target-libffi"
     ;;
   i[3456]86-*-sco3.2v5*)
     # The linker does not yet know about weak symbols in COFF,
@@ -881,7 +893,7 @@ case "${target}" in
     fi
     ;;
   v810-*-*)
-    noconfigdirs="$noconfigdirs bfd binutils gas gcc gdb ld ${libstdcxx_version} opcodes target-libgloss target-libffi"
+    noconfigdirs="$noconfigdirs bfd binutils gas gcc gdb ld target-libg++ ${libstdcxx_version} opcodes target-libgloss target-libffi"
     ;;
   v850-*-*)
     noconfigdirs="$noconfigdirs target-libgloss target-libffi"
@@ -1192,7 +1204,7 @@ fi
 
 # provide a proper gxx_include_dir.
 # Note, if you change the default, make sure to fix both here and in
-# the gcc, libio, and libstdc++ subdirectories.
+# the gcc, libio, libstdc++ and libg++ subdirectories.
 # Check whether --with-gxx-include-dir or --without-gxx-include-dir was given.
 gxx_include_dir=
 if test -n "${with_gxx_include_dir}"; then
@@ -1240,7 +1252,7 @@ case " $skipdirs " in
    # If we're using a pre-built compiler (which is the case for
    # Canadian crosses or when gcc isn't being built), don't discard
    # standard headers.
-   if test "${build}" = "${host}" && test ! -d ${topsrcdir}/gcc; then
+   if test "${build}" = "${host}" && test -d ${topsrcdir}/gcc; then
      FLAGS_FOR_TARGET=$FLAGS_FOR_TARGET' -nostdinc'
    fi
 
@@ -1286,8 +1298,8 @@ esac
 if test "x${CHILL_FOR_TARGET+set}" = xset; then
   :
 elif test -d ${topsrcdir}/gcc &&
-   echo ",${enable_languages-${LANGUAGES-CHILL}}," |
-   grep ,CHILL, > /dev/null ; then
+   echo ",${enable_languages-`echo ${LANGUAGES-CHILL} | tr ' ' ','`}," |
+   grep ',CHILL,' > /dev/null ; then
   CHILL_FOR_TARGET='$$r/gcc/xgcc -L$$r/gcc/ch/runtime/'
 elif test "$host" = "$target"; then
   CHILL_FOR_TARGET='$(CC)'
@@ -1302,7 +1314,7 @@ esac
 if test "x${CXX_FOR_TARGET+set}" = xset; then
   :
 elif test -d ${topsrcdir}/gcc &&
-   echo ",${enable_languages-${LANGUAGES-c++}}," |
+   echo ",${enable_languages-`echo ${LANGUAGES-c++} | tr ' ' ','`}," |
    grep ',c[+][+],' > /dev/null ; then
   CXX_FOR_TARGET='$$r/gcc/g++ -nostdinc++ '$libstdcxx_flags
 elif test "$host" = "$target"; then
@@ -1314,6 +1326,7 @@ case $CXX_FOR_TARGET in
 *' $(FLAGS_FOR_TARGET)') ;;
 *) CXX_FOR_TARGET=$CXX_FOR_TARGET' $(FLAGS_FOR_TARGET)' ;;
 esac
+qCXX_FOR_TARGET=`echo "$CXX_FOR_TARGET" | sed 's,&,\\\&,g'`
 
 targargs="--cache-file=../config.cache --host=${target_alias} --build=${build_alias} ${targargs}"
 sed -e "s:^TARGET_CONFIGDIRS[ 	]*=.*$:TARGET_CONFIGDIRS = ${target_configdirs}:" \
@@ -1321,7 +1334,7 @@ sed -e "s:^TARGET_CONFIGDIRS[ 	]*=.*$:TARGET_CONFIGDIRS = ${target_configdirs}:"
     -e "s%^FLAGS_FOR_TARGET[ 	]*=.*$%FLAGS_FOR_TARGET = ${FLAGS_FOR_TARGET}%" \
     -e "s%^CC_FOR_TARGET[ 	]*=.*$%CC_FOR_TARGET = ${CC_FOR_TARGET}%" \
     -e "s%^CHILL_FOR_TARGET[ 	]*=.*$%CHILL_FOR_TARGET = ${CHILL_FOR_TARGET}%" \
-    -e "s%^CXX_FOR_TARGET[ 	]*=.*$%CXX_FOR_TARGET = ${CXX_FOR_TARGET}%" \
+    -e "s%^CXX_FOR_TARGET[ 	]*=.*$%CXX_FOR_TARGET = ${qCXX_FOR_TARGET}%" \
     -e "s%^TARGET_SUBDIR[ 	]*=.*$%TARGET_SUBDIR = ${target_subdir}%" \
     -e "s%^gxx_include_dir[ 	]*=.*$%gxx_include_dir=${gxx_include_dir}%" \
        Makefile > Makefile.tem

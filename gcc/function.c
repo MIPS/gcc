@@ -253,6 +253,9 @@ static void put_reg_into_stack	PARAMS ((struct function *, rtx, tree,
 					 enum machine_mode, enum machine_mode,
 					 int, unsigned int, int,
 					 struct hash_table *));
+static void schedule_fixup_var_refs PARAMS ((struct function *, rtx, tree,
+					     enum machine_mode,
+					     struct hash_table *));
 static void fixup_var_refs	PARAMS ((rtx, enum machine_mode, int, 
 					 struct hash_table *));
 static struct fixup_replacement
@@ -551,9 +554,10 @@ assign_stack_local_1 (mode, size, align, function)
     {
       tree type;
 
-      alignment = GET_MODE_ALIGNMENT (mode);
       if (mode == BLKmode)
 	alignment = BIGGEST_ALIGNMENT;
+      else
+        alignment = GET_MODE_ALIGNMENT (mode);
 
       /* Allow the target to (possibly) increase the alignment of this
 	 stack slot.  */
@@ -676,9 +680,10 @@ assign_stack_temp_for_type (mode, size, keep, type)
   else 
     alias_set = 0;
 
-  align = GET_MODE_ALIGNMENT (mode);
   if (mode == BLKmode)
     align = BIGGEST_ALIGNMENT;
+  else
+    align = GET_MODE_ALIGNMENT (mode);
 
   if (! type)
     type = type_for_mode (mode, 0);
@@ -1403,20 +1408,25 @@ put_var_into_stack (decl)
   else if (GET_CODE (reg) == CONCAT)
     {
       /* A CONCAT contains two pseudos; put them both in the stack.
-	 We do it so they end up consecutive.  */
+	 We do it so they end up consecutive.
+	 We fixup references to the parts only after we fixup references
+	 to the whole CONCAT, lest we do double fixups for the latter
+	 references.  */
       enum machine_mode part_mode = GET_MODE (XEXP (reg, 0));
       tree part_type = type_for_mode (part_mode, 0);
+      rtx lopart = XEXP (reg, 0);
+      rtx hipart = XEXP (reg, 1);
 #ifdef FRAME_GROWS_DOWNWARD
       /* Since part 0 should have a lower address, do it second.  */
-      put_reg_into_stack (function, XEXP (reg, 1), part_type, part_mode,
-			  part_mode, volatilep, 0, usedp, 0);
-      put_reg_into_stack (function, XEXP (reg, 0), part_type, part_mode,
-			  part_mode, volatilep, 0, usedp, 0);
+      put_reg_into_stack (function, hipart, part_type, part_mode,
+			  part_mode, volatilep, 0, 0, 0);
+      put_reg_into_stack (function, lopart, part_type, part_mode,
+			  part_mode, volatilep, 0, 0, 0);
 #else
-      put_reg_into_stack (function, XEXP (reg, 0), part_type, part_mode,
-			  part_mode, volatilep, 0, usedp, 0);
-      put_reg_into_stack (function, XEXP (reg, 1), part_type, part_mode,
-			  part_mode, volatilep, 0, usedp, 0);
+      put_reg_into_stack (function, lopart, part_type, part_mode,
+			  part_mode, volatilep, 0, 0, 0);
+      put_reg_into_stack (function, hipart, part_type, part_mode,
+			  part_mode, volatilep, 0, 0, 0);
 #endif
 
       /* Change the CONCAT into a combined MEM for both parts.  */
@@ -1429,6 +1439,13 @@ put_var_into_stack (decl)
       /* Prevent sharing of rtl that might lose.  */
       if (GET_CODE (XEXP (reg, 0)) == PLUS)
 	XEXP (reg, 0) = copy_rtx (XEXP (reg, 0));
+      if (usedp)
+	{
+	  schedule_fixup_var_refs (function, reg, TREE_TYPE (decl),
+				   promoted_mode, 0);
+	  schedule_fixup_var_refs (function, lopart, part_type, part_mode, 0);
+	  schedule_fixup_var_refs (function, hipart, part_type, part_mode, 0);
+	}
     }
   else
     return;
@@ -1464,6 +1481,7 @@ put_reg_into_stack (function, reg, type, promoted_mode, decl_mode, volatile_p,
   struct function *func = function ? function : cfun;
   rtx new = 0;
   unsigned int regno = original_regno;
+  int unsigned_p;
 
   if (regno == 0)
     regno = REGNO (reg);
@@ -1485,14 +1503,30 @@ put_reg_into_stack (function, reg, type, promoted_mode, decl_mode, volatile_p,
      previously generated stack slot, then we need to copy the bit in
      case it was set for other reasons.  For instance, it is set for
      __builtin_va_alist.  */
-  MEM_SET_IN_STRUCT_P (reg,
-		       AGGREGATE_TYPE_P (type) || MEM_IN_STRUCT_P (new));
-  MEM_ALIAS_SET (reg) = get_alias_set (type);
+  if (type)
+    {
+      MEM_SET_IN_STRUCT_P (reg,
+			   AGGREGATE_TYPE_P (type) || MEM_IN_STRUCT_P (new));
+      MEM_ALIAS_SET (reg) = get_alias_set (type);
+    }
+  if (used_p)
+    schedule_fixup_var_refs (function, reg, type, promoted_mode, ht);
+}
 
-  /* Now make sure that all refs to the variable, previously made
-     when it was a register, are fixed up to be valid again.  */
+/* Make sure that all refs to the variable, previously made
+   when it was a register, are fixed up to be valid again.
+   See function above for meaning of arguments.  */
+static void
+schedule_fixup_var_refs (function, reg, type, promoted_mode, ht)
+     struct function *function;
+     rtx reg;
+     tree type;
+     enum machine_mode promoted_mode;
+     struct hash_table *ht;
+{
+  int unsigned_p = type ? TREE_UNSIGNED (type) : 0;
 
-  if (used_p && function != 0)
+  if (function != 0)
     {
       struct var_refs_queue *temp;
 
@@ -1500,13 +1534,13 @@ put_reg_into_stack (function, reg, type, promoted_mode, decl_mode, volatile_p,
 	= (struct var_refs_queue *) xmalloc (sizeof (struct var_refs_queue));
       temp->modified = reg;
       temp->promoted_mode = promoted_mode;
-      temp->unsignedp = TREE_UNSIGNED (type);
+      temp->unsignedp = unsigned_p;
       temp->next = function->fixup_var_refs_queue;
       function->fixup_var_refs_queue = temp;
     }
-  else if (used_p)
+  else
     /* Variable is local; fix it up now.  */
-    fixup_var_refs (reg, promoted_mode, TREE_UNSIGNED (type), ht);
+    fixup_var_refs (reg, promoted_mode, unsigned_p, ht);
 }
 
 static void
@@ -1645,7 +1679,7 @@ fixup_var_refs_insns (var, promoted_mode, unsignedp, insn, toplevel, ht)
       rtx set, prev, prev_set;
       rtx note;
 
-      if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
+      if (INSN_P (insn))
 	{
 	  /* Remember the notes in case we delete the insn.  */
 	  note = REG_NOTES (insn);
@@ -2779,7 +2813,6 @@ gen_mem_addressof (reg, decl)
      rtx reg;
      tree decl;
 {
-  tree type = TREE_TYPE (decl);
   rtx r = gen_rtx_ADDRESSOF (Pmode, gen_reg_rtx (GET_MODE (reg)),
 			     REGNO (reg), decl);
 
@@ -2789,14 +2822,21 @@ gen_mem_addressof (reg, decl)
   RTX_UNCHANGING_P (XEXP (r, 0)) = RTX_UNCHANGING_P (reg);
 
   PUT_CODE (reg, MEM);
-  PUT_MODE (reg, DECL_MODE (decl));
   XEXP (reg, 0) = r;
-  MEM_VOLATILE_P (reg) = TREE_SIDE_EFFECTS (decl);
-  MEM_SET_IN_STRUCT_P (reg, AGGREGATE_TYPE_P (type));
-  MEM_ALIAS_SET (reg) = get_alias_set (decl);
+  if (decl)
+    {
+      tree type = TREE_TYPE (decl);
 
-  if (TREE_USED (decl) || DECL_INITIAL (decl) != 0)
-    fixup_var_refs (reg, GET_MODE (reg), TREE_UNSIGNED (type), 0);
+      PUT_MODE (reg, DECL_MODE (decl));
+      MEM_VOLATILE_P (reg) = TREE_SIDE_EFFECTS (decl);
+      MEM_SET_IN_STRUCT_P (reg, AGGREGATE_TYPE_P (type));
+      MEM_ALIAS_SET (reg) = get_alias_set (decl);
+
+      if (TREE_USED (decl) || DECL_INITIAL (decl) != 0)
+	fixup_var_refs (reg, GET_MODE (reg), TREE_UNSIGNED (type), 0);
+    }
+  else
+    fixup_var_refs (reg, GET_MODE (reg), 0, 0);
 
   return reg;
 }
@@ -2822,21 +2862,33 @@ put_addressof_into_stack (r, ht)
      rtx r;
      struct hash_table *ht;
 {
-  tree decl = ADDRESSOF_DECL (r);
+  tree decl, type;
+  int volatile_p, used_p;
+
   rtx reg = XEXP (r, 0);
 
   if (GET_CODE (reg) != REG)
     abort ();
 
-  put_reg_into_stack (0, reg, TREE_TYPE (decl), GET_MODE (reg),
-		      GET_MODE (reg),
-		      (TREE_CODE (decl) != SAVE_EXPR
-		       && TREE_THIS_VOLATILE (decl)),
-		      ADDRESSOF_REGNO (r),
-		      (TREE_USED (decl)
-		       || (TREE_CODE (decl) != SAVE_EXPR
-			   && DECL_INITIAL (decl) != 0)),
-		      ht);
+  decl = ADDRESSOF_DECL (r);
+  if (decl)
+    {
+      type = TREE_TYPE (decl);
+      volatile_p = (TREE_CODE (decl) != SAVE_EXPR
+		    && TREE_THIS_VOLATILE (decl));
+      used_p = (TREE_USED (decl)
+		|| (TREE_CODE (decl) != SAVE_EXPR
+		    && DECL_INITIAL (decl) != 0));
+    }
+  else
+    {
+      type = NULL_TREE;
+      volatile_p = 0;
+      used_p = 1;
+    }
+
+  put_reg_into_stack (0, reg, type, GET_MODE (reg), GET_MODE (reg),
+		      volatile_p, ADDRESSOF_REGNO (r), used_p, ht);
 }
 
 /* List of replacements made below in purge_addressof_1 when creating
@@ -3246,7 +3298,7 @@ compute_insns_for_mem (insns, last_insn, ht)
 
   for (ifmwi.pass = 0; ifmwi.pass < 2; ++ifmwi.pass)
     for (insn = insns; insn != last_insn; insn = NEXT_INSN (insn))
-      if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
+      if (INSN_P (insn))
 	{
 	  ifmwi.insn = insn;
 	  for_each_rtx (&insn, insns_for_mem_walk, &ifmwi);

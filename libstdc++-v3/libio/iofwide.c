@@ -35,8 +35,8 @@
 # include <langinfo.h>
 # include <locale/localeinfo.h>
 # include <wcsmbs/wcsmbsload.h>
+# include <iconv/gconv_int.h>
 #endif
-
 
 /* Prototypes of libio's codecvt functions.  */
 static enum __codecvt_result do_out (struct _IO_codecvt *codecvt,
@@ -76,6 +76,14 @@ struct _IO_codecvt __libio_codecvt =
 };
 
 
+/* static struct __gconv_trans_data libio_translit =*/
+#ifdef _LIBC
+struct __gconv_trans_data libio_translit =
+{
+  .__trans_fct = __gconv_transliterate
+};
+#endif
+
 /* Return orientation of stream.  If mode is nonzero try to change
    the orientation first.  */
 #undef _IO_fwide
@@ -92,9 +100,6 @@ _IO_fwide (fp, mode)
        or the orientation already has been determined.  */
     return fp->_mode;
 
-  _IO_cleanup_region_start ((void (*) __P ((void *))) _IO_funlockfile, fp);
-  _IO_flockfile (fp);
-
   /* Set the orientation appropriately.  */
   if (mode > 0)
     {
@@ -103,12 +108,12 @@ _IO_fwide (fp, mode)
       fp->_wide_data->_IO_read_ptr = fp->_wide_data->_IO_read_end;
       fp->_wide_data->_IO_write_ptr = fp->_wide_data->_IO_write_base;
 
+#ifdef _LIBC
       /* The functions are always the same.  */
       *cc = __libio_codecvt;
 
       /* Get the character conversion functions based on the currently
 	 selected locale for LC_CTYPE.  */
-#ifdef _LIBC
       {
 	struct gconv_fcts fcts;
 
@@ -138,7 +143,11 @@ _IO_fwide (fp, mode)
 	cc->__cd_out.__cd.__data[0].__statep = &fp->_wide_data->_IO_state;
 
 	/* XXX For now no transliteration.  */
+#ifdef _LIBC
+	cc->__cd_out.__cd.__data[0].__trans = &libio_translit;
+#else
 	cc->__cd_out.__cd.__data[0].__trans = NULL;
+#endif
       }
 #else
 # ifdef _GLIBCPP_USE_WCHAR_T
@@ -163,7 +172,7 @@ _IO_fwide (fp, mode)
 	if (cc->__cd_in != (iconv_t) -1)
 	  cc->__cd_out = iconv_open (external_ccs, internal_ccs);
 
-	if (cc->__cd_in != (iconv_t) -1 || cc->__cd_out != (iconv_t) -1)
+	if (cc->__cd_in == (iconv_t) -1 || cc->__cd_out == (iconv_t) -1)
 	  /* XXX */
 	  abort ();
       }
@@ -179,16 +188,12 @@ _IO_fwide (fp, mode)
   /* Set the mode now.  */
   fp->_mode = mode;
 
-  _IO_funlockfile (fp);
-  _IO_cleanup_region_end (0);
-
   return mode;
 }
 
 #ifdef weak_alias
 weak_alias (_IO_fwide, fwide)
 #endif
-
 
 static enum __codecvt_result
 do_out (struct _IO_codecvt *codecvt, __mbstate_t *statep,
@@ -234,21 +239,22 @@ do_out (struct _IO_codecvt *codecvt, __mbstate_t *statep,
     }
 #else
 # ifdef _GLIBCPP_USE_WCHAR_T
+
   size_t res;
   const char *from_start_copy = (const char *) from_start;
   size_t from_len = from_end - from_start;
-  char *to_start_copy = (char *) from_start;
+  char *to_start_copy = to_start;
   size_t to_len = to_end - to_start;
-
   res = iconv (codecvt->__cd_out, &from_start_copy, &from_len,
 	       &to_start_copy, &to_len);
-  
+
   if (res == 0 || from_len == 0)
     result = __codecvt_ok;
   else if (to_len < codecvt->__codecvt_do_max_length (codecvt))
     result = __codecvt_partial;
   else
     result = __codecvt_error;
+
 # else
   /* Decide what to do.  */
   result = __codecvt_error;
@@ -470,3 +476,10 @@ do_max_length (struct _IO_codecvt *codecvt)
   return MB_CUR_MAX;
 #endif
 }
+
+
+
+
+
+
+

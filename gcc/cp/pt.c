@@ -5261,6 +5261,9 @@ tsubst_template_arg_vector (t, args, complain)
 	  (tsubst_expr (TREE_VEC_ELT (t, i), args, complain,
 			NULL_TREE));
       
+      if (elts[i] == error_mark_node)
+	return error_mark_node;
+
       if (elts[i] != TREE_VEC_ELT (t, i))
 	need_new = 1;
     }
@@ -5380,6 +5383,8 @@ tsubst_aggr_type (t, args, complain, in_decl, entering_scope)
 	     S we only want {double}.  */
 	  argvec = tsubst_template_arg_vector (TYPE_TI_ARGS (t), args,
 					       complain);
+	  if (argvec == error_mark_node)
+	    return error_mark_node;
 
   	  r = lookup_template_class (t, argvec, in_decl, context,
 				     entering_scope);
@@ -9267,9 +9272,15 @@ mark_class_instantiated (t, extern_p)
     }
 }     
 
+/* Perform an explicit instantiation of template class T.  STORAGE, if
+   non-null, is the RID for extern, inline or static.  COMPLAIN is
+   non-zero if this is called from the parser, zero if called recursively,
+   since the standard is unclear (as detailed below).  */
+ 
 void
-do_type_instantiation (t, storage)
+do_type_instantiation (t, storage, complain)
      tree t, storage;
+     int complain;
 {
   int extern_p = 0;
   int nomem_p = 0;
@@ -9293,8 +9304,9 @@ do_type_instantiation (t, storage)
 
   if (!COMPLETE_TYPE_P (t))
     {
-      cp_error ("explicit instantiation of `%#T' before definition of template",
-		t);
+      if (complain)
+	cp_error ("explicit instantiation of `%#T' before definition of template",
+		  t);
       return;
     }
 
@@ -9324,8 +9336,11 @@ do_type_instantiation (t, storage)
 
 	 No program shall both explicitly instantiate and explicitly
 	 specialize a template.  */
-      cp_error ("explicit instantiation of `%#T' after", t);
-      cp_error_at ("explicit specialization here", t);
+      if (complain)
+	{
+	  cp_error ("explicit instantiation of `%#T' after", t);
+	  cp_error_at ("explicit specialization here", t);
+	}
       return;
     }
   else if (CLASSTYPE_EXPLICIT_INSTANTIATION (t))
@@ -9339,7 +9354,8 @@ do_type_instantiation (t, storage)
 	 was `extern'.  If EXTERN_P then the second is.  If -frepo, chances
 	 are we already got marked as an explicit instantion because of the
 	 repo file.  All these cases are OK.  */
-      if (!CLASSTYPE_INTERFACE_ONLY (t) && !extern_p && !flag_use_repository)
+      if (!CLASSTYPE_INTERFACE_ONLY (t) && !extern_p && !flag_use_repository
+	  && complain)
 	cp_pedwarn ("duplicate explicit instantiation of `%#T'", t);
       
       /* If we've already instantiated the template, just return now.  */
@@ -9398,7 +9414,7 @@ do_type_instantiation (t, storage)
     for (tmp = CLASSTYPE_TAGS (t); tmp; tmp = TREE_CHAIN (tmp))
       if (IS_AGGR_TYPE (TREE_VALUE (tmp))
 	  && !uses_template_parms (CLASSTYPE_TI_ARGS (TREE_VALUE (tmp))))
-	do_type_instantiation (TYPE_MAIN_DECL (TREE_VALUE (tmp)), storage);
+	do_type_instantiation (TYPE_MAIN_DECL (TREE_VALUE (tmp)), storage, 0);
   }
 }
 

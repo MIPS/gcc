@@ -46,8 +46,9 @@ extern int code_for_indirect_jump_scratch;
 %{m3e:-D__SH3E__} \
 %{m4-single-only:-D__SH4_SINGLE_ONLY__} \
 %{m4-single:-D__SH4_SINGLE__} \
+%{m4-nofpu:-D__sh3__} \
 %{m4:-D__SH4__} \
-%{!m1:%{!m2:%{!m3:%{!m3e:%{!m4:%{!m4-single:%{!m4-single-only:-D__sh1__}}}}}}} \
+%{!m1:%{!m2:%{!m3:%{!m3e:%{!m4:%{!m4-single:%{!m4-single-only:%{!m4-nofpu:-D__sh1__}}}}}}}} \
 %{mnomacsave:-D__NOMACSAVE__} \
 %{mhitachi:-D__HITACHI__}"
 
@@ -182,8 +183,9 @@ extern int target_flags;
   {"2",	        SH2_BIT},			\
   {"3",	        SH3_BIT|SH2_BIT},		\
   {"3e",	SH3E_BIT|SH3_BIT|SH2_BIT|FPU_SINGLE_BIT},	\
-  {"4-single-only",	SH3E_BIT|SH3_BIT|SH2_BIT|SH3E_BIT|HARD_SH4_BIT|FPU_SINGLE_BIT},	\
+  {"4-single-only",	SH3E_BIT|SH3_BIT|SH2_BIT|HARD_SH4_BIT|FPU_SINGLE_BIT},	\
   {"4-single",	SH4_BIT|SH3E_BIT|SH3_BIT|SH2_BIT|HARD_SH4_BIT|FPU_SINGLE_BIT},\
+  {"4-nofpu",	SH3_BIT|SH2_BIT|HARD_SH4_BIT},\
   {"4",	        SH4_BIT|SH3E_BIT|SH3_BIT|SH2_BIT|HARD_SH4_BIT},	\
   {"b",		-LITTLE_ENDIAN_BIT},  		\
   {"bigtable", 	BIGTABLE_BIT},			\
@@ -1284,12 +1286,12 @@ extern int current_function_anonymous_args;
 
 /* The 'Q' constraint is a pc relative load operand.  */
 #define EXTRA_CONSTRAINT_Q(OP)                          		\
-  (GET_CODE (OP) == MEM && 						\
-   ((GET_CODE (XEXP ((OP), 0)) == LABEL_REF)				\
-    || (GET_CODE (XEXP ((OP), 0)) == CONST                		\
-	&& GET_CODE (XEXP (XEXP ((OP), 0), 0)) == PLUS 			\
-	&& GET_CODE (XEXP (XEXP (XEXP ((OP), 0), 0), 0)) == LABEL_REF	\
-	&& GET_CODE (XEXP (XEXP (XEXP ((OP), 0), 0), 1)) == CONST_INT)))
+  (GET_CODE (OP) == MEM 						\
+   && ((GET_CODE (XEXP ((OP), 0)) == LABEL_REF)				\
+       || (GET_CODE (XEXP ((OP), 0)) == CONST                		\
+	   && GET_CODE (XEXP (XEXP ((OP), 0), 0)) == PLUS		\
+	   && GET_CODE (XEXP (XEXP (XEXP ((OP), 0), 0), 0)) == LABEL_REF \
+	   && GET_CODE (XEXP (XEXP (XEXP ((OP), 0), 0), 1)) == CONST_INT)))
 
 #define EXTRA_CONSTRAINT(OP, C)		\
   ((C) == 'Q' ? EXTRA_CONSTRAINT_Q (OP)	\
@@ -1868,7 +1870,7 @@ dtors_section()							\
 }
 
 #define ASM_OUTPUT_REG_PUSH(file, v) \
-  fprintf ((file), "\tmov.l\tr%d,-@r15\n", (v));
+  fprintf ((file), "\tmov.l\tr%d,@-r15\n", (v));
 
 #define ASM_OUTPUT_REG_POP(file, v) \
   fprintf ((file), "\tmov.l\t@r15+,r%d\n", (v));

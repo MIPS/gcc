@@ -999,6 +999,11 @@ enum reg_class
 #define CC_REG_P(X) (REG_P (X) && CC_REGNO_P (REGNO (X)))
 #define CC_REGNO_P(X) ((X) == FLAGS_REG || (X) == FPSR_REG)
 
+/* Indicate whether hard register numbered REG_NO should be converted
+   to SSA form.  */
+#define CONVERT_HARD_REGISTER_TO_SSA_P(REG_NO) \
+  (REG_NO == FLAGS_REG || REG_NO == ARG_POINTER_REGNUM)
+
 /* The class value for index registers, and the one for base regs.  */
 
 #define INDEX_REG_CLASS INDEX_REGS
@@ -1314,10 +1319,16 @@ typedef struct ix86_args {
 
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
-/* If PIC, we cannot optimize sibling calls to global functions
-   because the PLT requires %ebx live.  */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) \
-  (DECL && (! flag_pic || ! TREE_PUBLIC (DECL)))
+/* If PIC, we cannot make sibling calls to global functions
+   because the PLT requires %ebx live.
+   If we are returning floats on the register stack, we cannot make
+   sibling calls to functions that return floats.  (The stack adjust
+   instruction will wind up after the sibcall jump, and not be executed.) */
+#define FUNCTION_OK_FOR_SIBCALL(DECL) (DECL \
+   && (! flag_pic || ! TREE_PUBLIC (DECL)) \
+   && (! TARGET_FLOAT_RETURNS_IN_80387 \
+       || ! FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (TREE_TYPE (DECL)))) \
+       || FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (TREE_TYPE (cfun->decl))))))
 
 /* This macro is invoked just before the start of a function.
    It is used here to output code for -fpic that will load the

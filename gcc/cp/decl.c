@@ -337,6 +337,10 @@ struct named_label_list
 
 tree current_function_return_value;
 
+/* Nonzero means use the ISO C94 dialect of C.  */
+
+int flag_isoc94;
+
 /* Nonzero means use the ISO C99 dialect of C.  */
 
 int flag_isoc99;
@@ -1237,7 +1241,7 @@ pop_label (label, old_value)
   SET_IDENTIFIER_LABEL_VALUE (DECL_NAME (label), old_value);
 }
 
-/* At the end of a function, all labels declared within the fucntion
+/* At the end of a function, all labels declared within the function
    go out of scope.  BLOCK is the top-level block for the
    function.  */
 
@@ -6964,7 +6968,8 @@ check_tag_decl (declspecs)
 	{
 	  ++found_type;
 
-	  if (IS_AGGR_TYPE (value) || TREE_CODE (value) == ENUMERAL_TYPE)
+	  if ((TREE_CODE (value) != TYPENAME_TYPE && IS_AGGR_TYPE (value))
+	      || TREE_CODE (value) == ENUMERAL_TYPE)
 	    {
 	      my_friendly_assert (TYPE_MAIN_DECL (value) != NULL_TREE, 261);
 	      t = value;
@@ -15045,6 +15050,7 @@ lang_mark_tree (t)
 		  && TREE_CODE (TREE_TYPE (t)) == METHOD_TYPE))
 	{
 	  ggc_mark (lt);
+	  ggc_mark_tree (lt->primary_base);
 	  ggc_mark_tree (lt->vfields);
 	  ggc_mark_tree (lt->vbases);
 	  ggc_mark_tree (lt->tags);

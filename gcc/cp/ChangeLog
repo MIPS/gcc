@@ -1,3 +1,203 @@
+2000-08-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (resolve_scope_to_name): Remove unused prototype.
+	(lookup_nested_tag): Likewise.
+	
+	* decl2.c (grokfield): Fix comment to reflect many types of _DECLs
+	can be produced.
+
+2000-08-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* parse.y (named_complex_class_head_sans_basetype): Remove
+	always true if.
+
+2000-08-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl2.c (build_expr_from_tree, case METHOD_CALL_EXPR): Build
+	explicit TEMPLATE_ID_EXPR args.
+	(build_expr_from_tree, case CALL_EXPR): Likewise.
+
+2000-08-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (check_tag_decl): Diagnose typename's which don't
+	declare anything.
+
+2000-08-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* init.c (build_aggr_init): Reject bogus array initializers
+	early.
+
+2000-08-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* rtti.c (build_dynamic_cast_1): Set "C" linkage for new abi
+	runtime.
+	* cp/tinfo.cc (__dynamic_cast): Likewise.
+	* cp/inc/cxxabi.h (__dynamic_cast): Likewise.	
+
+2000-08-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cvt.c (convert_to_pointer_force): Fix error message when
+	attempting to cast from ambiguous base.	
+
+2000-08-08  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (tsubst_aggr_type): Bail if creating the argvec fails.
+	(tsubst_template_arg_vector): Likewise.
+
+	* decl2.c (build_anon_union_vars): Choose the largest field; don't
+	assume that one will be as large as the union.
+
+2000-08-07  Kazu Hirata  <kazu@hxi.com>
+
+	* cp-tree.h (CLASSTYPE_HAS_PRIMARY_BASE_P): Fix a comment typo.
+	* decl.c (pop_labels): Likewise.
+
+2000-08-04  Jeffrey Oldham  <oldham@codesourcery.com>
+
+	* inc/cxxabi.h (__pbase_type_info): Changed member names to match
+	specifications.
+	(__pointer_to_member_type_info): Likewise.
+	(__base_class_info): Likewise.
+	(__class_type_info): Likewise.
+	(__si_class_type_info): Likewise.
+	(__vmi_class_type_info): Likewise.
+	* tinfo.cc (__si_class_type_info::__do_find_public_src):
+	Changed member names to match specifications.
+	(__vmi_class_type_info::__do_find_public_src): Likewise.
+	(__si_class_type_info::__do_dyncast): Likewise.
+	(__vmi_class_type_info::__do_dyncast): Likewise.
+	(__si_class_type_info::__do_upcast): Likewise.
+	(__vmi_class_type_info::__do_upcast): Likewise.
+	* tinfo2.cc (__pbase_type_info::__do_catch): Likewise.
+	(__pbase_type_info::__pointer_catch): Likewise.
+	(__pointer_type_info::__pointer_catch): Likewise.
+	(__pointer_to_member_type_info::__pointer_catch): Likewise.
+
+
+2000-08-04  Zack Weinberg  <zack@wolery.cumb.org>
+
+        * Make-lang.in (cc1plus): Depend on $(BACKEND), not stamp-objlist.
+        * Makefile.in: Add C_OBJS, BACKEND; delete OBJS, OBJDEPS.
+        (cc1plus): Link with $(BACKEND) and $(C_OBJS).
+
+2000-08-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (add_method): Change prototype.
+	* class.c (add_method): Remove FIELDS parameter.  Add ERROR_P.
+	Don't double the size of the method vector in the error case.
+	(handle_using_decl): Adjust call to add_method.
+	(add_implicitly_declared_members): Likewise.
+	(clone_function_decl): Likewise.
+	* decl2.c (check_classfn): Likewise.
+	* semantics.c (finish_member_declaration): Likewise.
+	
+2000-08-04  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* decl.c (flag_isoc94): New variable.
+
+2000-08-02  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (do_type_instantiation): Add complain parm; don't complain
+	if called recursively.
+	* cp-tree.h, parse.y: Adjust.
+
+2000-08-02  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* decl2.c: Silently ignore -Wstrict-prototypes; warn about
+	-Wno-strict-prototypes.
+
+	* g++spec.c: Adjust type of second argument to
+	lang_specific_driver, and update code as necessary.
+
+	* cp-tree.h: Don't prototype min_precision here.
+	(my_friendly_assert): Cast expression to void.
+	* semantics.c (do_poplevel): Initialize scope_stmts.
+
+2000-08-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (DECL_NEEDED_P): Tweak.
+
+2000-07-28  Jason Merrill  <jason@redhat.com>
+
+	* lang-specs.h: Use %i in rule for .ii files.
+
+2000-07-31  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* lang-specs.h: Rename cpp to cpp0 and/or tradcpp to tradcpp0.
+
+2000-07-30  Mark Mitchell  <mark@codesourcery.com>
+
+	Allow indirect primary bases.
+	* cp-tree.h (struct lang_type): Remove vfield_parent.  Add
+	primary_base.
+	(CLASSTYPE_VFIELD_PARENT): Remove.
+	(CLASSTYPE_PRIMARY_BINFO): Reimplement.
+	(BINFO_PRIMARY_BINFO): Remove.
+	(CLASSTYPE_HAS_PRIMARY_BASE_P): Reimplement.
+	(BINFO_VBASE_PRIMARY_P): Likewise.
+	(BINFO_PRIMARY_BASE_OF): New macro.
+	(BINFO_INDIRECT_PRIMARY_P): Likewise.
+	(get_primary_binfo): New function.
+	* decl.c (lang_mark_tree): Make lang_type::primary_base.
+	* class.c (vcall_offset_data_s): Rename to ...
+	(vtbl_init_data_s): ... this.  Rename primary_p to primary_vtbl_p,
+	and add ctor_vtbl_p.
+	(get_derived_offset): Use get_primary_binfo.
+	(dfs_mark_primary_bases): Adjust handling of virtual primary
+	bases.
+	(mark_primary_bases): Likewise.
+	(set_primary_base): Take a binfo, not an integer, as a
+	representation of the primary base.
+	(indirect_primary_base_p): Remove.
+	(determine_primary_base): Adjust for indirect primary bases.
+	(dfs_find_final_overrider): Fix typo in coment.
+	(update_vtable_entry_for_fn): Use get_primary_binfo.
+	(layout_nonempty_base_or_field): Tweak.
+	(build_base_fields): Adjust for new primary base semantics.
+	(dfs_propagate_binfo_offsets): Remove.
+	(propagate_binfo_offsets): Rewrite.
+	(dfs_set_offset_for_shared_vbases): Remove.
+	(layout_virtual_bases): Don't use it.
+	(layout_class_type): Set CLASSTYPE_SIZE correctly under the new
+	ABI.
+	(finish_struct_1): Set CLASSTYPE_PRIMARY_BINFO, not
+	CLASSTYPE_VFIELD_PARENT.
+	(dfs_get_primary_binfo): New function.
+	(get_primary_binfo): Likewise.
+	(dump_class_hierarchy_r): Tweak printing of primary bases.
+	(build_vtbl_initializer): Fix typo in comments.  Use
+	vtbl_init_data.
+	(build_vcall_and_vbase_vtbl_entries): Likewise.
+	(build_vbaes_offset_vtbl_entries): Likewise.
+	(dfs_build_vcall_offset_vtbl_entries): Adjust setting of
+	BV_VCALL_INDEX to handle indirect primary bases.
+	(build_vcall_offset_vtbl_entries): Use vtbl_init_data.
+	(build_rtti_vtbl_entries): Likewise.
+	* search.c (get_shared_vbase_if_not_primary): Tweak.
+	(find_vbase_instance): Likewise.
+	(binfo_for_vtable): Simplify.
+	* tree.c (unshare_base_binfos): Clear BINFO_PRIMARY_BASE_OF.
+	(make_binfo): Make it have 11 entries.
+	
+2000-07-30  Alex Samuel  <samuel@codesourcery.com>
+
+	* mangle.c (DECL_TEMPLATE_ID_P): Remove.
+	(CLASSTYEP_TEMPLATE_ID_P): Check template info, and context when
+	ascertaining primaryness.
+	(G): Remove template_args.
+	(decl_is_template_id): New function.
+	(write_encoding): Use decl_is_template_id.
+	(write_name): Likewise.  Handle type_decls.  Get main variant of
+	type decls.
+	(write_nested_name): Likewise.
+	(write_prefix): Likewise.
+	(write_template_prefix): Likewise.
+	(write_special_name_constructor): Remove defunct production from
+	comment.
+	(write_bare_function_type): Remove comment about absent parameter.
+	(write_template_template_arg): Add missing grammar production to
+	comment.
+
 2000-07-27  Jason Merrill  <jason@redhat.com>
 
 	* decl.c (duplicate_decls): If common_type produces a non-typedef

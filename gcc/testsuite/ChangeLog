@@ -1,3 +1,155 @@
+2000-08-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/explicit81.C: New test.
+
+2000-08-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/typename26.C: New test.
+
+2000-08-10  Geoff Keating  <geoffk@cygnus.com>
+
+	* gcc.dg/920413-1.c: Allow for 'traditional C rejects 'U' suffix'
+	warning.
+
+2000-08-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.other/array3.C: New test.
+
+2000-08-09  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-array-lval-1.c, gcc.dg/c90-scope-1.c,
+	gcc.dg/c99-array-lval-1.c, gcc.dg/c99-const-expr-1.c,
+	gcc.dg/c99-func-1.c, gcc.dg/c99-func-2.c, gcc.dg/c99-scope-1.c:
+	New tests.
+
+2000-08-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.abi/ptrflags.C: Adjust rtti member names.
+	* g++.old-deja/g++.abi/vmihint.C: Likewise.
+
+2000-08-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.c-torture/execute/20000808-1.c: New test.
+
+2000-08-09  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-const-expr-1.c: New test.
+
+2000-08-08  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.dg/noncompile/920923-1.c: Declare calloc.
+
+2000-08-08  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/noncompile/const-ll-1.c: New test.
+
+2000-08-07  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-printf-2.c, gcc.dg/c99-printf-2.c: New tests.
+
+Sun Aug  6 11:41:51 2000  Ovidiu Predescu  <ovidiu@cup.hp.com>
+
+	* lib/objc.exp (objc_target_compile): Set the ld_library_path so
+	that running programs linked against the shared version of libobjc
+	run correctly.
+
+2000-08-06  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c99-printf-1.c: New test.
+
+2000-08-06  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.c-torture/execute/20000801-4.x: Only xfail on x86.
+
+2000-08-05  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.c-torture/execute/20000731-1.x: Delete.  
+
+2000-08-04  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* lib/gcc-dg.exp: Set up TORTURE_OPTIONS, torture_with_loops,
+	and torture_without_loops as is done by c-torture.exp.
+	(search_for): Copy from c-torture.exp.
+	(gcc-dg-runtest): New function, drives a directory of tests
+	iterating over the TORTURE_OPTIONS.
+	(scan-assembler, scan-assembler-not): Move here from
+	individual directory drivers.
+
+	* gcc.dg/dg.exp: scan-assembler, scan-assembler-not now
+	defined by lib/gcc-dg.exp.
+	* gcc.dg/cpp/cpp.exp: Likewise.
+	* gcc.dg/noncompile/noncompile.exp: Likewise.  Use
+	gcc-dg-runtest, so we cycle over optimization options.
+
+	* gcc.dg/cpp/20000625-2.c: Expect warning on line 8, not 9.
+	* gcc.dg/compare2.c: No longer expected to fail.
+
+Fri Aug  4 23:00:50 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* gcc.c-torture/execute/20000804-1.c: New test.
+
+2000-08-04  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-printf-1.c, gcc.dg/c94-printf-1.c: New tests.
+
+2000-08-03  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/cpp/20000625-2.c: Don't expect a warning on line 4.
+
+Thu Aug  3 01:46:33 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/compile/20000803-1.c: New test.
+
+2000-08-03  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.c-torture/execute/20000801-3.c,
+	gcc.c-torture/execute/20000801-4.c: New tests.
+	* gcc.c-torture/execute/20000801-3.x,
+	gcc.c-torture/execute/20000801-4.x: Xfail.
+
+2000-08-02  Geoff Keating  <geoffk@cygnus.com>
+
+	* lib/objc.exp (objc_target_compile): Look for libobjc.a in
+	libobjc/.libs to allow for libtool.
+
+2000-08-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20000802-1.c: New test.
+
+2000-08-02  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/cpp/macsyntx.c: Fix error regexp.
+
+Mon Jul 31 21:14:49 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc-c-torture/execute/20000731-2.c: New test.
+
+	* gcc.c-torture/execute/20000731-1.c: New test.
+	* gcc.c-torture/execute/20000731-1.x: Expected to fail for i?86-*-*.
+
+2000-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/gcc.dg/cpp/paste7.c: New test.
+	* gcc.dg/cpp/20000725-1.c: New test.
+
+2000-07-31  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/c90-digraph-1.c: Restore { dg-do run } marker.
+	* gcc.dg/noncompile/990416-1.c: Do not expect an implicit-
+	declaration warning for __builtin_dwarf_reg_size.
+
+	* gcc.dg/c99-impl-decl-1.c: No longer XFAIL.
+
+2000-07-31  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/noncompile/voidparam-1.c: New test.
+
+2000-07-30  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.dg/c90-digraph-1.c: Don't xfail.
+	* gcc.dg/compare2.c (case 10): Xfail.
+	* gcc.dg/noncompile/redecl-1.c: Fix expected error message.
+
 2000-07-27  Joseph S. Myers  <jsm28@cam.ac.uk>
 
 	* gcc.dg/c99-main-1.c: New test.
@@ -126,15 +278,15 @@ Mon Jul 17 03:13:12 2000  Jeffrey A Law  (law@cygnus.com)
 
 	* gcc.dg/formatz-1.c: New test.
 
-	* gcc.dg/c90-digraph-1.c, gcc.dg/c94-digraph.c,
-	* gcc.dg/c99-digraph.c: New tests.
+	* gcc.dg/c90-digraph-1.c, gcc.dg/c94-digraph-1.c,
+	* gcc.dg/c99-digraph-1.c: New tests.
 
 	* gcc.dg/c90-hexfloat-1.c, gcc.dg/c90-hexfloat-2.c,
 	* gcc.dg/c99-hexfloat-1.c, gcc.dg/c99-hexfloat-2.c: New tests.
 
 	* gcc.dg/c90-enum-comma-1.c, gcc.dg/c90-idem-qual-1.c,
 	* gcc.dg/c90-impl-decl-1.c, gcc.dg/c90-impl-int-1.c,
-	* gcc.dg/c90-longlong.c, gcc.dg/c90-restrict-1.c,
+	* gcc.dg/c90-longlong-1.c, gcc.dg/c90-restrict-1.c,
 	* gcc.dg/c90-return-1.c, gcc.dg/c99-enum-comma-1.c,
 	* gcc.dg/c99-idem-qual-1.c, gcc.dg/c99-impl-decl-1.c,
 	* gcc.dg/c99-impl-int-1.c, gcc.dg/c99-longlong-1.c,

@@ -356,16 +356,15 @@ expand_block_move (operands)
       else if (bytes == 12)
 	{
 	  tree entry_name;
+	  rtx sym;
 	  rtx func_addr_rtx;
 	  rtx r4 = gen_rtx (REG, SImode, 4);
 	  rtx r5 = gen_rtx (REG, SImode, 5);
 
 	  entry_name = get_identifier ("__movstrSI12_i4");
 
-	  func_addr_rtx
-	    = copy_to_mode_reg (Pmode,
-				gen_rtx_SYMBOL_REF (Pmode,
-						    IDENTIFIER_POINTER (entry_name)));
+	  sym = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (entry_name));
+	  func_addr_rtx = copy_to_mode_reg (Pmode, sym);
 	  force_into (XEXP (operands[0], 0), r4);
 	  force_into (XEXP (operands[1], 0), r5);
 	  emit_insn (gen_block_move_real_i4 (func_addr_rtx));
@@ -374,6 +373,7 @@ expand_block_move (operands)
       else if (! TARGET_SMALLCODE)
 	{
 	  tree entry_name;
+	  rtx sym;
 	  rtx func_addr_rtx;
 	  int dwords;
 	  rtx r4 = gen_rtx (REG, SImode, 4);
@@ -383,10 +383,8 @@ expand_block_move (operands)
 	  entry_name = get_identifier (bytes & 4
 				       ? "__movstr_i4_odd"
 				       : "__movstr_i4_even");
-	  func_addr_rtx
-	    = copy_to_mode_reg (Pmode,
-				gen_rtx_SYMBOL_REF (Pmode,
-						    IDENTIFIER_POINTER (entry_name)));
+	  sym = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (entry_name));
+	  func_addr_rtx = copy_to_mode_reg (Pmode, sym);
 	  force_into (XEXP (operands[0], 0), r4);
 	  force_into (XEXP (operands[1], 0), r5);
 
@@ -402,17 +400,15 @@ expand_block_move (operands)
     {
       char entry[30];
       tree entry_name;
+      rtx sym;
       rtx func_addr_rtx;
       rtx r4 = gen_rtx_REG (SImode, 4);
       rtx r5 = gen_rtx_REG (SImode, 5);
 
       sprintf (entry, "__movstrSI%d", bytes);
       entry_name = get_identifier (entry);
-
-      func_addr_rtx
-	= copy_to_mode_reg (Pmode,
-			    gen_rtx_SYMBOL_REF
-			    (Pmode, IDENTIFIER_POINTER (entry_name)));
+      sym = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (entry_name));
+      func_addr_rtx = copy_to_mode_reg (Pmode, sym);
       force_into (XEXP (operands[0], 0), r4);
       force_into (XEXP (operands[1], 0), r5);
       emit_insn (gen_block_move_real (func_addr_rtx));
@@ -424,6 +420,7 @@ expand_block_move (operands)
   if (! TARGET_SMALLCODE)
     {
       tree entry_name;
+      rtx sym;
       rtx func_addr_rtx;
       int final_switch, while_loop;
       rtx r4 = gen_rtx_REG (SImode, 4);
@@ -431,10 +428,8 @@ expand_block_move (operands)
       rtx r6 = gen_rtx_REG (SImode, 6);
 
       entry_name = get_identifier ("__movstr");
-      func_addr_rtx
-	= copy_to_mode_reg (Pmode,
-			    gen_rtx_SYMBOL_REF
-			    (Pmode, IDENTIFIER_POINTER (entry_name)));
+      sym = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (entry_name));
+      func_addr_rtx = copy_to_mode_reg (Pmode, sym);
       force_into (XEXP (operands[0], 0), r4);
       force_into (XEXP (operands[1], 0), r5);
 
@@ -1039,7 +1034,7 @@ gen_ashift (type, n, reg)
 	emit_insn (gen_lshrsi3_k (reg, reg, GEN_INT (n)));
       break;
     case ASHIFT:
-      emit_insn (gen_ashlsi3_k (reg, reg, GEN_INT (n)));
+      emit_insn (gen_ashlsi3_std (reg, reg, GEN_INT (n)));
       break;
     }
 }
@@ -1178,6 +1173,7 @@ int
 expand_ashiftrt (operands)
      rtx *operands;
 {
+  rtx sym;
   rtx wrk;
   char func[18];
   tree func_name;
@@ -1238,8 +1234,8 @@ expand_ashiftrt (operands)
   emit_move_insn (gen_rtx_REG (SImode, 4), operands[1]);
   sprintf (func, "__ashiftrt_r4_%d", value);
   func_name = get_identifier (func);
-  emit_move_insn (wrk, gen_rtx_SYMBOL_REF (Pmode,
-					   IDENTIFIER_POINTER (func_name)));
+  sym = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (func_name));
+  emit_move_insn (wrk, sym);
   emit_insn (gen_ashrsi3_n (GEN_INT (value), wrk));
   emit_move_insn (operands[0], gen_rtx_REG (SImode, 4));
   return 1;
@@ -2825,7 +2821,7 @@ sh_loop_align (label)
   while (next && GET_CODE (next) == CODE_LABEL);
 
   if (! next
-      || GET_RTX_CLASS (GET_CODE (next)) != 'i'
+      || ! INSN_P (next)
       || GET_CODE (PATTERN (next)) == ADDR_DIFF_VEC
       || recog_memoized (next) == CODE_FOR_consttable_2)
     return 0;
@@ -2863,7 +2859,7 @@ machine_dependent_reorg (first)
 	 dependent REG_NOTE, or some other approach entirely.  */
       for (insn = first; insn; insn = NEXT_INSN (insn))
 	{
-	  if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
+	  if (INSN_P (insn))
 	    {
 	      rtx note;
 
@@ -2928,7 +2924,7 @@ machine_dependent_reorg (first)
 		   scan && GET_CODE (scan) != CODE_LABEL;
 		   scan = PREV_INSN (scan))
 		{
-		  if (GET_RTX_CLASS (GET_CODE (scan)) != 'i')
+		  if (! INSN_P (scan))
 		    continue;
 
 		  if (! reg_mentioned_p (reg, scan))
@@ -2981,7 +2977,7 @@ machine_dependent_reorg (first)
 	      if (GET_CODE (scan) == CODE_LABEL && ! foundinsn)
 		break;
 
-	      if (GET_RTX_CLASS (GET_CODE (scan)) != 'i')
+	      if (! INSN_P (scan))
 		continue;
 
 	      /* Don't try to trace forward past a JUMP.  To optimize
@@ -3309,7 +3305,7 @@ split_branches (first)
   bzero ((char *) uid_branch, max_uid * sizeof *uid_branch);
 
   for (insn = first; insn; insn = NEXT_INSN (insn))
-    if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+    if (! INSN_P (insn))
       continue;
     else if (INSN_DELETED_P (insn))
       {
@@ -5111,10 +5107,11 @@ fpscr_set_from_mem (mode, regs_live)
 {
   enum attr_fp_mode fp_mode = mode;
   rtx i;
+  rtx sym;
   rtx addr_reg = get_free_reg (regs_live);
 
-  i = gen_rtx_SET (VOIDmode, addr_reg,
-		   gen_rtx_SYMBOL_REF (SImode, "__fpscr_values"));
+  sym = gen_rtx_SYMBOL_REF (SImode, "__fpscr_values");
+  i = gen_rtx_SET (VOIDmode, addr_reg, sym);
   emit_insn (i);
   if (fp_mode == (TARGET_FPU_SINGLE ? FP_MODE_SINGLE : FP_MODE_DOUBLE))
     {

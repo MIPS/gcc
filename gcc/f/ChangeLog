@@ -1,3 +1,32 @@
+2000-08-11  G. Helffrich  <george@gly.bris.ac.uk>
+            Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* com.c (ffecom_transform_equiv_): Make EQUIVALENCEs addressable
+	so that debug info can be attached to their storage.
+	Unconditionally list the storage set aside for them.
+
+2000-08-07  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* g77spec.c (lang_specific_driver): Clearer g77 version message.
+
+2000-08-04  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* Make-lang.in (f771): Depend on $(BACKEND), not stamp-objlist.
+	* Makefile.in: Add BACKEND; delete OBJS, OBJDEPS.
+	(f771): Link with $(BACKEND).
+
+2000-08-02  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* g77spec.c: Adjust type of second argument to
+	lang_specific_driver, and update code as necessary.
+
+	* expr.c (ffeexpr_finished_): Cast signed side of ?:
+	expression to bool.
+
+2000-07-31  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* lang-specs.h: Rename cpp to cpp0 and/or tradcpp to tradcpp0.
+
 Thu Jul 27 11:50:08 2000  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* fini.c (main): Avoid automatic aggregate initialization.

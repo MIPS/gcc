@@ -409,8 +409,11 @@ validate_replace_rtx_1 (loc, from, to, object)
   register int i, j;
   register const char *fmt;
   register rtx x = *loc;
-  enum rtx_code code = GET_CODE (x);
+  enum rtx_code code;
 
+  if (!x)
+    return;
+  code = GET_CODE (x);
   /* X matches FROM if it is the same rtx or they are both referring to the
      same register in the same mode.  Avoid calling rtx_equal_p unless the
      operands look similar.  */
@@ -601,6 +604,18 @@ validate_replace_rtx_1 (loc, from, to, object)
               validate_replace_rtx_1 (&XVECEXP (x, i, j), from, to, object);
         }
     }
+}
+
+/* Try replacing every occurrence of FROM in subexpression LOC of INSN
+   with TO.  After all changes have been made, validate by seeing
+   if INSN is still valid.  */
+
+int
+validate_replace_rtx_subexp (from, to, insn, loc)
+     rtx from, to, insn, *loc;
+{
+  validate_replace_rtx_1 (loc, from, to, insn);
+  return apply_change_group ();
 }
 
 /* Try replacing every occurrence of FROM in INSN with TO.  After all
@@ -841,7 +856,7 @@ find_single_use (dest, insn, ploc)
   for (next = next_nonnote_insn (insn);
        next != 0 && GET_CODE (next) != CODE_LABEL;
        next = next_nonnote_insn (next))
-    if (GET_RTX_CLASS (GET_CODE (next)) == 'i' && dead_or_set_p (next, dest))
+    if (INSN_P (next) && dead_or_set_p (next, dest))
       {
 	for (link = LOG_LINKS (next); link; link = XEXP (link, 1))
 	  if (XEXP (link, 0) == insn)
@@ -895,7 +910,8 @@ general_operand (op, mode)
     return 0;
 
   if (CONSTANT_P (op))
-    return ((GET_MODE (op) == VOIDmode || GET_MODE (op) == mode)
+    return ((GET_MODE (op) == VOIDmode || GET_MODE (op) == mode
+	     || mode == VOIDmode)
 #ifdef LEGITIMATE_PIC_OPERAND_P
 	    && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
 #endif
@@ -1147,7 +1163,8 @@ nonmemory_operand (op, mode)
 	  && GET_MODE_CLASS (mode) != MODE_PARTIAL_INT)
 	return 0;
 
-      return ((GET_MODE (op) == VOIDmode || GET_MODE (op) == mode)
+      return ((GET_MODE (op) == VOIDmode || GET_MODE (op) == mode
+	      || mode == VOIDmode)
 #ifdef LEGITIMATE_PIC_OPERAND_P
 	      && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
 #endif
@@ -2059,6 +2076,9 @@ extract_insn (insn)
 	{
 	  recog_data.constraints[i] = insn_data[icode].operand[i].constraint;
 	  recog_data.operand_mode[i] = insn_data[icode].operand[i].mode;
+	  /* VOIDmode match_operands gets mode from their real operand.  */
+	  if (recog_data.operand_mode[i] == VOIDmode)
+	    recog_data.operand_mode[i] = GET_MODE (recog_data.operand[i]);
 	}
     }
   for (i = 0; i < noperands; i++)
@@ -2612,7 +2632,7 @@ split_all_insns (upd_life)
 	  /* Can't use `next_real_insn' because that might go across
 	     CODE_LABELS and short-out basic blocks.  */
 	  next = NEXT_INSN (insn);
-	  if (GET_CODE (insn) != INSN)
+	  if (! INSN_P (insn))
 	    ;
 
 	  /* Don't split no-op move insns.  These should silently

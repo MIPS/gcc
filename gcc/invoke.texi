@@ -168,7 +168,7 @@ in the following sections.
 -falign-functions=@var{n}  -falign-labels=@var{n}  -falign-loops=@var{n} 
 -falign-jumps=@var{n}  -fbranch-probabilities  
 -fcaller-saves  -fcse-follow-jumps  -fcse-skip-blocks
--fdelayed-branch  -fdelete-null-pointer-checks -fexpensive-optimizations
+-fdce -fdelayed-branch  -fdelete-null-pointer-checks -fexpensive-optimizations
 -ffast-math  -ffloat-store  -fforce-addr  -fforce-mem -fno-math-errno
 -fdata-sections  -ffunction-sections  -fgcse 
 -finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions
@@ -1831,6 +1831,22 @@ Initialization of automatic aggregates.
 @item
 Identifier conflicts with labels.  Traditional C lacks a separate
 namespace for labels.
+
+@item
+Initialization of unions.  If the initializer is zero, the warning is
+omitted.  This is done under the assumption that the zero initializer in
+user code appears conditioned on e.g. @code{__STDC__} to avoid missing
+initializer warnings and relies on default initialization to zero in the
+traditional C case.
+
+@item
+The `U' integer constant suffix, or the `F' or `L' floating point
+constant suffixes.  (Traditonal C does support the `L' suffix on integer
+constants.)  Note, these suffixes appear in macros defined in the system
+headers of most modern systems, e.g. the _MIN/_MAX macros in limits.h.
+Use of these macros can lead to spurious warnings as they do not
+necessarily reflect whether the code in question is any less portable to
+traditional C given that suitable backup definitions are provided.
 @end itemize
 
 @item -Wundef
@@ -2267,62 +2283,68 @@ Annotate the assembler output with miscellaneous debugging information.
 @item b
 Dump after computing branch probabilities, to @file{@var{file}.11.bp}.
 @item B
-Dump after block reordering, to @file{@var{file}.24.bbro}.
+Dump after block reordering, to @file{@var{file}.25.bbro}.
 @item c
-Dump after instruction combination, to the file @file{@var{file}.13.combine}.
+Dump after instruction combination, to the file @file{@var{file}.14.combine}.
+@item C
+Dump after the first if conversion, to the file @file{@var{file}.15.ce}.
 @item d
-Dump after delayed branch scheduling, to @file{@var{file}.27.dbr}.
+Dump after delayed branch scheduling, to @file{@var{file}.28.dbr}.
 @item D
 Dump all macro definitions, at the end of preprocessing, in addition to
 normal output.
 @item e
 Dump after SSA optimizations, to @file{@var{file}.05.ssa} and
 @file{@var{file}.06.ussa}.
+@item E
+Dump after the second if conversion, to @file{@var{file}.21.ce2}.
 @item f
-Dump after life analysis, to @file{@var{file}.12.life}.
+Dump after life analysis, to @file{@var{file}.13.life}.
 @item F
 Dump after purging @code{ADDRESSOF} codes, to @file{@var{file}.04.addressof}.
 @item g
-Dump after global register allocation, to @file{@var{file}.18.greg}.
+Dump after global register allocation, to @file{@var{file}.19.greg}.
 @item G      
-Dump after GCSE, to @file{@var{file}.07.gcse}.
+Dump after GCSE, to @file{@var{file}.08.gcse}.
 @item i
 Dump after sibling call optimizations, to @file{@var{file}.01.sibling}.
 @item j
-Dump after first jump optimization, to @file{@var{file}.02.jump}.
+Dump after the first jump optimization, to @file{@var{file}.02.jump}.
 @item J
-Dump after last jump optimization, to @file{@var{file}.25.jump2}.
+Dump after the last jump optimization, to @file{@var{file}.26.jump2}.
 @item k
-Dump after conversion from registers to stack, to @file{@var{file}.28.stack}.
+Dump after conversion from registers to stack, to @file{@var{file}.29.stack}.
 @item l
-Dump after local register allocation, to @file{@var{file}.17.lreg}.
+Dump after local register allocation, to @file{@var{file}.18.lreg}.
 @item L
-Dump after loop optimization, to @file{@var{file}.08.loop}.
+Dump after loop optimization, to @file{@var{file}.09.loop}.
 @item M
 Dump after performing the machine dependent reorganisation pass, to
-@file{@var{file}.26.mach}. 
+@file{@var{file}.27.mach}. 
 @item n
-Dump after register renumbering, to @file{@var{file}.22.rnreg}.
+Dump after register renumbering, to @file{@var{file}.23.rnreg}.
 @item N
-Dump after the register move pass, to @file{@var{file}.15.regmove}.
+Dump after the register move pass, to @file{@var{file}.16.regmove}.
 @item r
 Dump after RTL generation, to @file{@var{file}.00.rtl}.
 @item R
 Dump after the second instruction scheduling pass, to
-@file{@var{file}.239.sched2}.
+@file{@var{file}.24.sched2}.
 @item s
 Dump after CSE (including the jump optimization that sometimes follows
 CSE), to @file{@var{file}.03.cse}. 
 @item S
 Dump after the first instruction scheduling pass, to
-@file{@var{file}.16.sched}.
+@file{@var{file}.17.sched}.
 @item t
 Dump after the second CSE pass (including the jump optimization that
-sometimes follows CSE), to @file{@var{file}.09.cse2}.
+sometimes follows CSE), to @file{@var{file}.10.cse2}.
 @item w
-Dump after the second flow pass, to @file{@var{file}.19.flow2}.
+Dump after the second flow pass, to @file{@var{file}.20.flow2}.
+@item X
+Dump after dead code elimination, to @file{@var{file}.06.dce}.
 @item z
-Dump after the peephole pass, to @file{@var{file}.21.peephole2}.
+Dump after the peephole pass, to @file{@var{file}.22.peephole2}.
 @item a
 Produce all the dumps listed above.
 @item m
@@ -2336,15 +2358,11 @@ also printed.
 For each of the other indicated dump files (except for
 @file{@var{file}.00.rtl}), dump a representation of the control flow graph
 suitable for viewing with VCG to @file{@var{file}.@var{pass}.vcg}.
-@item w
-Dump after the second flow pass to @file{@var{file}.19.flow2}. 
 @item x
 Just generate RTL for a function instead of compiling it.  Usually used
 with @samp{r}.
 @item y
 Dump debugging information during parsing, to standard error.
-@item z
-Dump after the peephole2 pass to @file{@var{file}.21.peephole2}.
 @end table
 
 @item -fdump-unnumbered
@@ -2900,9 +2918,12 @@ If @var{n} is not specified, use a machine-dependent default.
 @item -fssa
 Perform optimizations in static single assignment form.  Each function's
 flow graph is translated into SSA form, optimizations are performed, and
-the flow graph is translated back from SSA form.  (Currently, no
-SSA-based optimizations are implemented, but converting into and out of
-SSA form is not an invariant operation, and generated code may differ.)
+the flow graph is translated back from SSA form.  User's should not
+specify this option, since it is not yet ready for production use.
+
+@item -fdce
+Perform dead-code elimination in SSA form.  Requires @samp{-fssa}.  Like
+@samp{-fssa}, this is an experimental feature.
 
 @item -fsingle-precision-constant
 Treat floating point constant as single precision constant instead of

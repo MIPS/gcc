@@ -631,10 +631,6 @@ override_options ()
   if (flag_fast_math)
     target_flags &= ~MASK_IEEE_FP;
 
-  /* If we're planning on using `loop', use it.  */
-  if (TARGET_USE_LOOP && optimize)
-    flag_branch_on_count_reg = 1;
-
   /* It makes no sense to ask for just SSE builtins, so MMX is also turned
      on by -msse.  */
   if (TARGET_SSE)
@@ -2153,7 +2149,7 @@ ix86_expand_epilogue (emit_return)
 
 	  emit_insn (gen_popsi1 (ecx));
 	  emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx, popc));
-	  emit_indirect_jump (ecx);
+	  emit_jump_insn (gen_return_indirect_internal (ecx));
 	}
       else
 	emit_jump_insn (gen_return_pop_internal (popc));
@@ -2411,7 +2407,7 @@ legitimate_address_p (mode, addr, strict)
   if (! ix86_decompose_address (addr, &parts))
     {
       reason = "decomposition failed";
-      goto error;
+      goto report_error;
     }
 
   base = parts.base;
@@ -2432,20 +2428,20 @@ legitimate_address_p (mode, addr, strict)
       if (GET_CODE (base) != REG)
 	{
 	  reason = "base is not a register";
-	  goto error;
+	  goto report_error;
 	}
 
       if (GET_MODE (base) != Pmode)
 	{
 	  reason = "base is not in Pmode";
-	  goto error;
+	  goto report_error;
 	}
 
       if ((strict && ! REG_OK_FOR_BASE_STRICT_P (base))
 	  || (! strict && ! REG_OK_FOR_BASE_NONSTRICT_P (base)))
 	{
 	  reason = "base is not valid";
-	  goto error;
+	  goto report_error;
 	}
     }
 
@@ -2462,20 +2458,20 @@ legitimate_address_p (mode, addr, strict)
       if (GET_CODE (index) != REG)
 	{
 	  reason = "index is not a register";
-	  goto error;
+	  goto report_error;
 	}
 
       if (GET_MODE (index) != Pmode)
 	{
 	  reason = "index is not in Pmode";
-	  goto error;
+	  goto report_error;
 	}
 
       if ((strict && ! REG_OK_FOR_INDEX_STRICT_P (index))
 	  || (! strict && ! REG_OK_FOR_INDEX_NONSTRICT_P (index)))
 	{
 	  reason = "index is not valid";
-	  goto error;
+	  goto report_error;
 	}
     }
 
@@ -2486,13 +2482,13 @@ legitimate_address_p (mode, addr, strict)
       if (!index)
 	{
 	  reason = "scale without index";
-	  goto error;
+	  goto report_error;
 	}
 
       if (scale != 2 && scale != 4 && scale != 8)
 	{
 	  reason = "scale is not a valid multiplier";
-	  goto error;
+	  goto report_error;
 	}
     }
 
@@ -2504,13 +2500,13 @@ legitimate_address_p (mode, addr, strict)
       if (!CONSTANT_ADDRESS_P (disp))
 	{
 	  reason = "displacement is not constant";
-	  goto error;
+	  goto report_error;
 	}
 
       if (GET_CODE (disp) == CONST_DOUBLE)
 	{
 	  reason = "displacement is a const_double";
-	  goto error;
+	  goto report_error;
 	}
 
       if (flag_pic && SYMBOLIC_CONST (disp))
@@ -2518,17 +2514,30 @@ legitimate_address_p (mode, addr, strict)
 	  if (! legitimate_pic_address_disp_p (disp))
 	    {
 	      reason = "displacement is an invalid pic construct";
-	      goto error;
+	      goto report_error;
 	    }
 
-	  /* Verify that a symbolic pic displacement includes 
-	     the pic_offset_table_rtx register.  */
-	  if (base != pic_offset_table_rtx
-	      && (index != pic_offset_table_rtx || scale != 1))
-	    {
-	      reason = "pic displacement against invalid base";
-	      goto error;
-	    }
+          /* This code used to verify that a symbolic pic displacement
+	     includes the pic_offset_table_rtx register. 
+	    
+	     While this is good idea, unfortunately these constructs may
+	     be created by "adds using lea" optimization for incorrect
+	     code like:
+
+	     int a;
+	     int foo(int i)
+	       {
+	         return *(&a+i);
+	       }
+
+	     This code is nonsensical, but results in addressing
+	     GOT table with pic_offset_table_rtx base.  We can't
+	     just refuse it easilly, since it gets matched by
+	     "addsi3" pattern, that later gets split to lea in the
+	     case output register differs from input.  While this
+	     can be handled by separate addsi pattern for this case
+	     that never results in lea, this seems to be easier and
+	     correct fix for crash to disable this test.  */
 	}
       else if (HALF_PIC_P ())
 	{
@@ -2536,7 +2545,7 @@ legitimate_address_p (mode, addr, strict)
 	      || (base != NULL_RTX || index != NULL_RTX))
 	    {
 	      reason = "displacement is an invalid half-pic reference";
-	      goto error;
+	      goto report_error;
 	    }
 	}
     }
@@ -2546,7 +2555,7 @@ legitimate_address_p (mode, addr, strict)
     fprintf (stderr, "Success.\n");
   return TRUE;
 
-error:
+report_error:
   if (TARGET_DEBUG_ADDR)
     {
       fprintf (stderr, "Error: %s\n", reason);
@@ -4899,7 +4908,7 @@ ix86_expand_branch (code, label)
 	code = ix86_prepare_fp_compare_args (code, &ix86_compare_op0,
 					     &ix86_compare_op1);
 
-	tmp = gen_rtx_fmt_ee (code, ix86_fp_compare_mode (code),
+	tmp = gen_rtx_fmt_ee (code, VOIDmode,
 			      ix86_compare_op0, ix86_compare_op1);
 	tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp,
 				    gen_rtx_LABEL_REF (VOIDmode, label),

@@ -347,32 +347,26 @@ regrename_optimize ()
 			if (consider_available (reg_use, avail_reg,
 						&avail_regs, rc, &du,
 						def_idx[def]))
-			  break;
+			  goto found_avail_reg;
 		      }
 
-		    if (ar_idx == FIRST_PSEUDO_REGISTER)
+		    if (rtl_dump_file)
 		      {
-			if (rtl_dump_file)
-			  {
-			    fprintf (rtl_dump_file,
-				     "Register %s in class %s",
-				     reg_names[r], reg_class_names[rc]);
-			    fprintf (rtl_dump_file,
-				     " in insn %d",
-				     INSN_UID (VARRAY_RTX (uid_ruid,
-							   def_idx[def])));
+			fprintf (rtl_dump_file, "Register %s in class %s",
+				 reg_names[r], reg_class_names[rc]);
+			fprintf (rtl_dump_file, " in insn %d",
+				 INSN_UID (VARRAY_RTX (uid_ruid,
+						       def_idx[def])));
 
-			    if (TEST_BIT (du.require_call_save_reg,
-					  def_idx[def]))
-			      fprintf (rtl_dump_file, " crosses a call");
+			if (TEST_BIT (du.require_call_save_reg,
+				      def_idx[def]))
+			  fprintf (rtl_dump_file, " crosses a call");
 
-			    fprintf (rtl_dump_file,
-				     ". No available registers\n");
-			  }
-
-			goto try_next_def;
+			fprintf (rtl_dump_file, ". No available registers\n");
 		      }
+		    goto try_next_def;
 
+		  found_avail_reg:
 		    SET_HARD_REG_BIT (renamed_regs, avail_reg);
 		    CLEAR_HARD_REG_BIT (avail_regs, avail_reg);
 
@@ -471,7 +465,7 @@ build_def_use (b, ebb, regs_used, du, defs_live_exit)
 	  struct resources insn_res;
 	  struct resources insn_sets;
 
-	  if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+	  if (! INSN_P (insn))
 	    continue;
 
 	  CLEAR_RESOURCE (&insn_sets);
@@ -530,7 +524,7 @@ replace_reg_in_block (du, uid_ruid, def, reg_def, avail_reg)
   unsigned int r = REGNO (reg_def);
   rtx death_note;
   rtx reg_notes;
-  rtx reg_use;
+  rtx reg_use = 0;
   rtx new_reg = gen_rtx_REG (GET_MODE (reg_def), avail_reg);
 
   rr_replace_reg (PATTERN (VARRAY_RTX (*uid_ruid, def)), reg_def, new_reg,
@@ -565,7 +559,7 @@ replace_reg_in_block (du, uid_ruid, def, reg_def, avail_reg)
   /* Now replace in the uses. */
   for (du_idx = def + 1; du_idx < du->high_bound; du_idx++)
     {
-      if (GET_RTX_CLASS (GET_CODE (VARRAY_RTX (*uid_ruid, du_idx))) != 'i')
+      if (! INSN_P (VARRAY_RTX (*uid_ruid, du_idx)))
 	continue;
 
       reg_use = regno_use_in (r, PATTERN (VARRAY_RTX (*uid_ruid, du_idx)));
@@ -808,7 +802,7 @@ consider_use (insn, regno, def_block, use_block)
   edge e;
   basic_block ub = BASIC_BLOCK (use_block);
 
-  if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+  if (! INSN_P (insn))
     return 0;
 
   /* If a use's basic block is different than the def's basic block, 

@@ -27,6 +27,7 @@ Boston, MA 02111-1307, USA.  */
 #undef ENDFILE_SPEC
 #undef LINK_SPEC
 #undef STARTFILE_SPEC
+#define STARTFILE_SPEC "%{!mno-crt0:%{!shared:%{pg:gcrt0%O%s}%{!pg:%{p:mcrt0%O%s}%{!p:crt0%O%s}}}}"
 
 /* Names to predefine in the preprocessor for this target machine.  */
 
@@ -55,9 +56,10 @@ extern int target_flags;
 #define TARGET_SWITCHES  \
   {{ "mult-bug",	0x1,  N_("Work around hardware multiply bug")},	\
    { "no-mult-bug", 	-0x1, N_("Do not work around hardware multiply bug")},\
-   { "am33", 		0x2,  0},	\
-   { "am33", 		-(0x1), 0},\
-   { "no-am33", 	-0x2, 0},	\
+   { "am33", 		0x2,  N_("Target the AM33 processor")},	\
+   { "am33", 		-(0x1), ""},\
+   { "no-am33", 	-0x2, ""},	\
+   { "no-crt0",		0,    N_("No default crt0.o") }, \
    { "", TARGET_DEFAULT, NULL}}
 
 #ifndef TARGET_DEFAULT
@@ -379,9 +381,12 @@ enum reg_class {
    In general this is just CLASS; but on some machines
    in some cases it is preferable to use a more restrictive class.  */
 
-#define PREFERRED_RELOAD_CLASS(X,CLASS) \
-  (X == stack_pointer_rtx && CLASS != SP_REGS \
-   ? ADDRESS_OR_EXTENDED_REGS : CLASS)
+#define PREFERRED_RELOAD_CLASS(X,CLASS)			\
+  ((X) == stack_pointer_rtx && (CLASS) != SP_REGS	\
+   ? ADDRESS_OR_EXTENDED_REGS				\
+   : (GET_CODE (X) == MEM				\
+      ? LIMIT_RELOAD_CLASS (GET_MODE (X), CLASS)	\
+      : (CLASS)))
 
 #define PREFERRED_OUTPUT_RELOAD_CLASS(X,CLASS) \
   (X == stack_pointer_rtx && CLASS != SP_REGS \

@@ -1,4 +1,4 @@
-# Copyright (C) 1992, 1993, 1994, 1996, 1997 Free Software Foundation, Inc.
+# Copyright (C) 1992, 1993, 1994, 1996, 1997, 2000 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -117,8 +117,11 @@ proc objc_target_compile { source dest type options } {
     global gluefile wrap_flags;
     global OBJC_UNDER_TEST
     global TOOL_OPTIONS
+    global ld_library_path
 
+    set ld_library_path "."
     lappend options "libs=-lobjc"
+
     if { [target_info needs_status_wrapper]!="" && [info exists gluefile] } {
 	lappend options "libs=${gluefile}"
 	lappend options "ldflags=$wrap_flags"
@@ -140,10 +143,12 @@ proc objc_target_compile { source dest type options } {
 	lappend options "additional_flags=-DNO_VARARGS"
     }
     set objcpath "[get_multilibs]"
-    set libobjc_dir [lookfor_file ${objcpath} libobjc/libobjc.a]
+    set libobjc_dir [lookfor_file ${objcpath} libobjc/.libs/libobjc.a]
     if { $libobjc_dir != "" } {
-	set objc_link_flags "-L[file dirname ${libobjc_dir}]"
+	set libobjc_dir [file dirname ${libobjc_dir}]
+	set objc_link_flags "-L${libobjc_dir}"
 	lappend options "additional_flags=${objc_link_flags}"
+	append ld_library_path ":${libobjc_dir}"
     }
     lappend options "compiler=$OBJC_UNDER_TEST"
     return [target_compile $source $dest $type $options]

@@ -69,9 +69,8 @@ Boston, MA 02111-1307, USA.  */
           or FIELD_DECL).
       NEED_TEMPORARY_P (in REF_BIND, BASE_CONV)
       IDENTIFIER_TYPENAME_P (in IDENTIFIER_NODE)
-   5: BINFO_PRIMARY_MARKED_P (in BINFO)
-   6: BINFO_VBASE_PRIMARY_P (in BINFO)
-      BINFO_ACCESS (in BINFO)
+   5: Unused.
+   6: BINFO_ACCESS (in BINFO)
 
    Usage of TYPE_LANG_FLAG_?:
    0: C_TYPE_FIELDS_READONLY (in RECORD_TYPE or UNION_TYPE).
@@ -100,7 +99,10 @@ Boston, MA 02111-1307, USA.  */
       DECL_THUNK_P (in a member FUNCTION_DECL)
 
    Usage of language-independent fields in a language-dependent manner:
-   
+
+   TREE_USED
+     This field is BINFO_INDIRECT_PRIMARY_P in a BINFO.
+
    TYPE_ALIAS_SET
      This field is used by TYPENAME_TYPEs, TEMPLATE_TYPE_PARMs, and so
      forth as a substitute for the mark bits provided in `lang_type'.
@@ -372,11 +374,6 @@ typedef struct ptrmem_cst
    (DECL_EXTERN_C_FUNCTION_P (NODE)                     \
     && DECL_NAME (NODE) != NULL_TREE			\
     && MAIN_NAME_P (DECL_NAME (NODE)))
-
-/* Returns non-zero iff ID_NODE is an IDENTIFIER_NODE whose name is
-   `main'.  */
-#define MAIN_NAME_P(ID_NODE) \
-   (strcmp (IDENTIFIER_POINTER (ID_NODE), "main") == 0)
 
 
 struct tree_binding
@@ -1395,8 +1392,8 @@ struct lang_type
   unsigned dummy : 8;
       
   int vsize;
-  int vfield_parent;
 
+  tree primary_base;
   tree vfields;
   tree vbases;
   tree tags;
@@ -1566,34 +1563,16 @@ struct lang_type
    nested member class templates.  */
 #define CLASSTYPE_TAGS(NODE)		(TYPE_LANG_SPECIFIC(NODE)->tags)
 
-/* If this value is non-negative, it is the index (in the
-   TYPE_BINFO_BASETYPES) for the base-class whose vtable pointer we
-   are reusing.  For example, in D : B1, B2, PARENT would be 0, if D's
-   vtable came from B1, 1, if D's vtable came from B2.  */
-#define CLASSTYPE_VFIELD_PARENT(NODE)	(TYPE_LANG_SPECIFIC(NODE)->vfield_parent)
-
 /* Nonzero if NODE has a primary base class, i.e., a base class with
-   which it shares the virtual fucntion table pointer.  */
+   which it shares the virtual function table pointer.  */
 #define CLASSTYPE_HAS_PRIMARY_BASE_P(NODE) \
-  (CLASSTYPE_VFIELD_PARENT (NODE) != -1)
+  (CLASSTYPE_PRIMARY_BINFO (NODE) != NULL_TREE)
 
 /* If non-NULL, this is the binfo for the primary base class, i.e.,
    the base class which contains the virtual function table pointer
    for this class.  */
 #define CLASSTYPE_PRIMARY_BINFO(NODE) \
-  (BINFO_PRIMARY_BINFO (TYPE_BINFO (NODE)))
-
-/* If non-NULL, this is the binfo for the primary base of BINFO.  Note
-   that in a complex hierarchy the resulting BINFO may not actually
-   *be* primary.  In particular if the resulting BINFO is a virtual
-   base, and it occurs elsewhere in the hierarchy, then this
-   occurrence may not actually be a primary base in the complete
-   object.  Check BINFO_PRIMARY_MARKED_P to be sure.  */
-#define BINFO_PRIMARY_BINFO(NODE)					\
-  (CLASSTYPE_HAS_PRIMARY_BASE_P (BINFO_TYPE (NODE))			\
-   ? BINFO_BASETYPE (NODE, 						\
-		     CLASSTYPE_VFIELD_PARENT (BINFO_TYPE (NODE)))	\
-   : NULL_TREE)
+  (TYPE_LANG_SPECIFIC (NODE)->primary_base)
 
 /* The number of virtual functions present in this class' virtual
    function table.  */
@@ -1756,11 +1735,8 @@ struct lang_type
    class of a non-primary virtual base.  This flag is only valid for
    paths (given by BINFO_INHERITANCE_CHAIN) that really exist in the
    final object.  */
-#define BINFO_PRIMARY_MARKED_P(NODE) TREE_LANG_FLAG_5 (NODE)
-
-/* Nonzero if the virtual baseclass with the type given by this BINFO
-   is primary *somewhere* in the hierarchy.  */
-#define BINFO_VBASE_PRIMARY_P(NODE) TREE_LANG_FLAG_6 (NODE)
+#define BINFO_PRIMARY_MARKED_P(NODE) \
+  (BINFO_PRIMARY_BASE_OF (NODE) != NULL_TREE)
 
 /* The index in the VTT where this subobject's sub-VTT can be found.
    NULL_TREE if there is no sub-VTT.  */
@@ -1770,9 +1746,20 @@ struct lang_type
    found.  NULL_TREE if there is no secondary vptr in the VTT.  */
 #define BINFO_VPTR_INDEX(NODE) TREE_VEC_ELT ((NODE), 9)
 
+/* The binfo of which NODE is a primary base.  (This is different from
+   BINFO_INHERITANCE_CHAIN for virtual base because a virtual base is
+   sometimes a primary base for a class for which it is not an
+   immediate base.)  */
+#define BINFO_PRIMARY_BASE_OF(NODE) TREE_VEC_ELT ((NODE), 10)
+
 /* Nonzero if this binfo declares a virtual function which is
    overridden along a virtual path.  */
 #define BINFO_OVERRIDE_ALONG_VIRTUAL_PATH_P(NODE) TREE_LANG_FLAG_2 (NODE)
+
+/* Nonzero if this binfo is an indirect primary base, i.e. a virtual
+   base that is a primary base of some of other class in the
+   hierarchy.  */
+#define BINFO_INDIRECT_PRIMARY_P(NODE) TREE_USED (NODE)
 
 /* Used by various search routines.  */
 #define IDENTIFIER_MARKED(NODE) TREE_LANG_FLAG_0 (NODE)
@@ -1948,7 +1935,7 @@ struct lang_decl
    anything that isn't comdat, but we don't know for sure whether or
    not something is comdat until end-of-file.  */
 #define DECL_NEEDED_P(DECL)					\
-  ((at_eof && !DECL_COMDAT (DECL))				\
+  ((at_eof && TREE_PUBLIC (DECL) && !DECL_COMDAT (DECL))	\
    || (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME ((DECL))))	\
    || (flag_syntax_only && TREE_USED ((DECL))))
 
@@ -3258,7 +3245,6 @@ extern tree convert_and_check			PARAMS ((tree, tree));
 extern void overflow_warning			PARAMS ((tree));
 extern void unsigned_conversion_warning		PARAMS ((tree, tree));
 extern void c_apply_type_quals_to_decl          PARAMS ((int, tree));
-extern unsigned int min_precision		PARAMS ((tree, int));
 
 /* Read the rest of the current #-directive line.  */
 #if USE_CPPLIB
@@ -3785,7 +3771,6 @@ extern int check_dtor_name			PARAMS ((tree, tree));
 extern int get_arglist_len_in_bytes		PARAMS ((tree));
 
 extern tree build_vfield_ref			PARAMS ((tree, tree));
-extern tree resolve_scope_to_name		PARAMS ((tree, tree));
 extern tree build_scoped_method_call		PARAMS ((tree, tree, tree, tree));
 extern tree build_addr_func			PARAMS ((tree));
 extern tree build_call				PARAMS ((tree, tree));
@@ -3813,7 +3798,7 @@ extern tree build_vbase_path			PARAMS ((enum tree_code, tree, tree, tree, int));
 extern tree build_vtbl_ref			PARAMS ((tree, tree));
 extern tree build_vfn_ref			PARAMS ((tree *, tree, tree));
 extern tree get_vtable_decl                     PARAMS ((tree, int));
-extern void add_method				PARAMS ((tree, tree *, tree));
+extern void add_method				PARAMS ((tree, tree, int));
 extern int currently_open_class			PARAMS ((tree));
 extern tree currently_open_derived_class	PARAMS ((tree));
 extern tree get_vfield_offset			PARAMS ((tree));
@@ -3843,6 +3828,7 @@ extern void note_name_declared_in_class         PARAMS ((tree, tree));
 extern tree get_vtbl_decl_for_binfo             PARAMS ((tree));
 extern tree in_charge_arg_for_name              PARAMS ((tree));
 extern tree get_vtt_name                        PARAMS ((tree));
+extern tree get_primary_binfo                   PARAMS ((tree));
 
 /* in cvt.c */
 extern tree convert_to_reference		PARAMS ((tree, tree, int, int, tree));
@@ -4267,7 +4253,7 @@ extern void mark_decl_instantiated		PARAMS ((tree, int));
 extern int more_specialized			PARAMS ((tree, tree, tree));
 extern void mark_class_instantiated		PARAMS ((tree, int));
 extern void do_decl_instantiation		PARAMS ((tree, tree, tree));
-extern void do_type_instantiation		PARAMS ((tree, tree));
+extern void do_type_instantiation		PARAMS ((tree, tree, int));
 extern tree instantiate_decl			PARAMS ((tree, int));
 extern tree get_bindings			PARAMS ((tree, tree, tree));
 extern void add_tree				PARAMS ((tree));
@@ -4320,7 +4306,6 @@ extern tree lookup_field			PARAMS ((tree, tree, int, int));
 extern int lookup_fnfields_1                    PARAMS ((tree, tree));
 extern tree lookup_fnfields			PARAMS ((tree, tree, int));
 extern tree lookup_member			PARAMS ((tree, tree, int, int));
-extern tree lookup_nested_tag			PARAMS ((tree, tree));
 extern tree get_matching_virtual		PARAMS ((tree, tree, int));
 extern void get_pure_virtuals		        PARAMS ((tree));
 extern tree init_vbase_pointers			PARAMS ((tree, tree));
@@ -4634,7 +4619,7 @@ extern void friendly_abort			PARAMS ((int, const char *,
 
 #define my_friendly_abort(N) \
   friendly_abort (N, __FILE__, __LINE__, __FUNCTION__)
-#define my_friendly_assert(EXP, N) \
+#define my_friendly_assert(EXP, N) (void) \
  (((EXP) == 0) ? (friendly_abort (N, __FILE__, __LINE__, __FUNCTION__), 0) : 0)
 
 extern tree store_init_value			PARAMS ((tree, tree));

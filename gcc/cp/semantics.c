@@ -140,7 +140,7 @@ do_poplevel ()
 
   if (stmts_are_full_exprs_p ())
     {
-      tree scope_stmts;
+      tree scope_stmts = NULL_TREE;
 
       if (!processing_template_decl)
 	scope_stmts = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
@@ -1969,7 +1969,7 @@ finish_member_declaration (decl)
     {
       /* We also need to add this function to the
 	 CLASSTYPE_METHOD_VEC.  */
-      add_method (current_class_type, 0, decl);
+      add_method (current_class_type, decl, /*error_p=*/0);
 
       TREE_CHAIN (decl) = TYPE_METHODS (current_class_type);
       TYPE_METHODS (current_class_type) = decl;

@@ -40,7 +40,7 @@ struct macro_info
   unsigned char flags;
 };
 
-static void dump_funlike_macro	PARAMS ((cpp_reader *, cpp_hashnode *));
+static void dump_macro_args PARAMS ((FILE *, const cpp_toklist *));
 static void count_params PARAMS ((cpp_reader *, struct macro_info *));
 static int is__va_args__ PARAMS ((cpp_reader *, const cpp_token *));
 
@@ -55,12 +55,14 @@ static cpp_toklist * alloc_macro PARAMS ((cpp_reader *, struct macro_info *));
 
 /* These are all the tokens that can have something pasted after them.
    Comma is included in the list only to support the GNU varargs extension
-   (where you write a ## b and a disappears if b is an empty rest argument).  */
+   (where you write a ## b and a disappears if b is an empty rest argument).
+   CPP_OTHER is included because of Objective C's use of '@'.  */
 #define CAN_PASTE_AFTER(type) \
 ((type) <= CPP_LAST_EQ || (type) == CPP_COLON || (type) == CPP_HASH \
  || (type) == CPP_DEREF || (type) == CPP_DOT || (type) == CPP_NAME \
  || (type) == CPP_INT || (type) == CPP_FLOAT || (type) == CPP_NUMBER \
- || (type) == CPP_MACRO_ARG || (type) == CPP_PLACEMARKER || (type) == CPP_COMMA)
+ || (type) == CPP_MACRO_ARG || (type) == CPP_PLACEMARKER \
+ || (type) == CPP_COMMA || (type) == CPP_OTHER)
 
 /* Scans for a given token, returning the parameter number if found,
    or 0 if not found.  Scans from FIRST to TOKEN - 1 or the first
@@ -72,7 +74,7 @@ find_param (first, token)
   unsigned int param = 0;
 
   for (; first < token && first->type != CPP_CLOSE_PAREN; first++)
-    if (first->type == CPP_NAME)
+    if (first->type == CPP_NAME || first->type == CPP_DEFINED)
       {
 	param++;
 	if (first->val.node == token->val.node)
@@ -127,7 +129,7 @@ count_params (pfile, info)
 	{
 	default:
 	  cpp_error_with_line (pfile, token->line, token->col,
-			       "illegal token in macro parameter list");
+			       "token may not appear in macro parameter list");
 	  return;
 
 	case CPP_EOF:
@@ -139,6 +141,8 @@ count_params (pfile, info)
 	case CPP_COMMENT:
 	  continue;		/* Ignore -C comments.  */
 
+	case CPP_DEFINED:	/* 'defined' may be used as a macro
+				   parameter name.  */
 	case CPP_NAME:
 	  if (prev_ident)
 	    {
@@ -429,7 +433,7 @@ save_expansion (pfile, info)
      dumping macro definitions.  They must go first.  */
   if (list->params_len)
     for (token = info->first_param; token < info->first; token++)
-      if (token->type == CPP_NAME)
+      if (token->type == CPP_NAME || token->type == CPP_DEFINED)
 	{
 	  /* Copy null too.  */
 	  memcpy (buf, token->val.node->name, token->val.node->length + 1);
@@ -443,6 +447,7 @@ save_expansion (pfile, info)
 
       switch (token->type)
 	{
+	case CPP_DEFINED:
 	case CPP_NAME:
 	  if (list->paramc == -1)
 	    break;
@@ -459,7 +464,7 @@ save_expansion (pfile, info)
 	  else
 	    dest->flags = token->flags;  /* Particularly PREV_WHITE.  */
 	  /* Turn off PREV_WHITE if we immediately follow a paste.
-	     That way, even if the paste turns out to be illegal, there
+	     That way, even if the paste turns out to be invalid, there
 	     will be no space between the two tokens in the output.  */
 	  if (token[-1].type == CPP_PASTE)
 	    dest->flags &= ~PREV_WHITE;
@@ -551,66 +556,53 @@ _cpp_create_definition (pfile, hp)
   return 1;
 }
 
-/* Dump the definition of macro MACRO on stdout.  The format is suitable
-   to be read back in again. */
+/* Dump the definition of macro MACRO on FP.  The format is suitable
+   to be read back in again.  Caller is expected to generate the
+   "#define NAME" bit.  */
 
 void
-_cpp_dump_definition (pfile, hp)
+cpp_dump_definition (pfile, fp, hp)
      cpp_reader *pfile;
-     cpp_hashnode *hp;
+     FILE *fp;
+     const cpp_hashnode *hp;
 {
-  CPP_RESERVE (pfile, hp->length + sizeof "#define ");
-  CPP_PUTS_Q (pfile, "#define ", sizeof "#define " - 1);
-  CPP_PUTS_Q (pfile, hp->name, hp->length);
+  const cpp_toklist *list = hp->value.expansion;
 
-  if (hp->type == T_MACRO)
+  if (hp->type != T_MACRO)
     {
-      if (hp->value.expansion->paramc >= 0)
-	dump_funlike_macro (pfile, hp);
-      else
-	{
-	  const cpp_toklist *list = hp->value.expansion;
-	  list->tokens[0].flags &= ~BOL;
-	  list->tokens[0].flags |= PREV_WHITE;
-	  _cpp_dump_list (pfile, list, list->tokens, 1);
-	}
+      cpp_ice (pfile, "invalid hash type %d in dump_definition", hp->type);
+      return;
     }
-  else
-    cpp_ice (pfile, "invalid hash type %d in dump_definition", hp->type);
 
-  if (CPP_BUFFER (pfile) == 0 || ! pfile->done_initializing)
-    CPP_PUTC (pfile, '\n');
+  if (list->paramc >= 0)
+    dump_macro_args (fp, list);
+
+  putc (' ', fp);
+  cpp_output_list (pfile, fp, list, list->tokens);
 }
 
 static void
-dump_funlike_macro (pfile, node)
-     cpp_reader *pfile;
-     cpp_hashnode *node;
+dump_macro_args (fp, list)
+     FILE *fp;
+     const cpp_toklist *list;
 {
-  int i = 0;
-  const cpp_toklist * list = node->value.expansion;
-  const U_CHAR *param;
+  int i;
+  const U_CHAR *param = list->namebuf;
 
-  param = list->namebuf;
-  CPP_PUTC_Q (pfile, '(');
+  putc ('(', fp);
   for (i = 0; i++ < list->paramc;)
     {
       unsigned int len;
 
       len = ustrlen (param);
-      CPP_PUTS (pfile, param, len);
+      if (!(list->flags & VAR_ARGS) || ustrcmp (param, U"__VA_ARGS__"))
+	ufputs (param, fp);
       if (i < list->paramc)
-	CPP_PUTS(pfile, ", ", 2);
+	fputs (", ", fp);
       else if (list->flags & VAR_ARGS)
-	{
-	  if (!ustrcmp (param, U"__VA_ARGS__"))
-	    pfile->limit -= sizeof (U"__VA_ARGS__") - 1;
-	  CPP_PUTS_Q (pfile, "...", 3);
-	}
+	fputs ("...", fp);
+
       param += len + 1;
     }
-  CPP_PUTC (pfile, ')');
-  list->tokens[0].flags &= ~BOL;
-  list->tokens[0].flags |= PREV_WHITE;
-  _cpp_dump_list (pfile, list, list->tokens, 1);
+  putc (')', fp);
 }

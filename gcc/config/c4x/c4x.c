@@ -295,10 +295,6 @@ c4x_optimization_options (level, size)
      instructions.  The benefit we gain we get by scheduling before
      register allocation is probably marginal anyhow.  */
   flag_schedule_insns = 0;
-
-  /* When optimizing, enable use of RPTB instruction.  */
-  if (level >= 1)
-    flag_branch_on_count_reg = 1;
 }
 
 
@@ -1169,8 +1165,8 @@ c4x_expand_epilogue()
       
       if (jump)
 	{
-	  insn = emit_insn (gen_indirect_jump (
-					       gen_rtx_REG (QImode, R2_REGNO)));
+	  insn = emit_jump_insn (gen_return_indirect_internal
+				 (gen_rtx_REG (QImode, R2_REGNO)));
           RTX_FRAME_RELATED_P (insn) = 1;
 	}
       else
@@ -2357,7 +2353,7 @@ c4x_process_after_reload (first)
   for (insn = first; insn; insn = NEXT_INSN (insn))
     {
       /* Look for insn.  */
-      if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
+      if (INSN_P (insn))
 	{
 	  int insn_code_number;
 	  rtx old;
@@ -4700,13 +4696,13 @@ c4x_rptb_rpts_p (insn, op)
   insn = next_nonnote_insn (insn);
 
   /* This should be our first insn in the loop.  */
-  if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+  if (! INSN_P (insn))
     return 0;
 
   /* Skip any notes.  */
   insn = next_nonnote_insn (insn);
 
-  if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+  if (! INSN_P (insn))
     return 0;
 
   if (recog_memoized (insn) != CODE_FOR_rptb_end)

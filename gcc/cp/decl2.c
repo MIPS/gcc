@@ -737,6 +737,11 @@ lang_decode_option (argc, argv)
 	warn_pointer_arith = setting;
       else if (!strcmp (p, "missing-prototypes"))
 	warn_missing_prototypes = setting;
+      else if (!strcmp (p, "strict-prototypes"))
+	{
+	  if (setting == 0)
+	    warning ("-Wno-strict-prototypes is not supported in C++");
+	}
       else if (!strcmp (p, "redundant-decls"))
 	warn_redundant_decls = setting;
       else if (!strcmp (p, "missing-braces"))
@@ -1544,7 +1549,7 @@ check_classfn (ctype, function)
      case we'll only confuse ourselves when the function is declared
      properly within the class.  */
   if (COMPLETE_TYPE_P (ctype))
-    add_method (ctype, methods, function);
+    add_method (ctype, function, /*error_p=*/1);
   return NULL_TREE;
 }
 
@@ -1610,15 +1615,13 @@ finish_static_data_member_decl (decl, init, asmspec_tree, flags)
 }
 
 /* Process the specs, declarator (NULL if omitted) and width (NULL if omitted)
-   of a structure component, returning a FIELD_DECL node.
+   of a structure component, returning a _DECL node.
    QUALS is a list of type qualifiers for this decl (such as for declaring
    const member functions).
 
    This is done during the parsing of the struct declaration.
-   The FIELD_DECL nodes are chained together and the lot of them
+   The _DECL nodes are chained together and the lot of them
    are ultimately passed to `build_struct' to make the RECORD_TYPE node.
-
-   C++:
 
    If class A defines that certain functions in class B are friends, then
    the way I have set things up, it is B who is interested in permission
@@ -2185,12 +2188,17 @@ build_anon_union_vars (anon_decl, elems, static_p, external_p)
 	  DECL_INITIAL (decl) = NULL_TREE;
 	}
 
-      /* Only write out one anon union element--choose the one that
-	 can hold them all.  */
+      /* Only write out one anon union element--choose the largest
+	 one.  We used to try to find one the same size as the union,
+	 but that fails if the ABI forces us to align the union more
+	 strictly.  */
       if (main_decl == NULL_TREE
-	  && simple_cst_equal (DECL_SIZE (decl),
-			       DECL_SIZE (anon_decl)) == 1)
-	main_decl = decl;
+	  || tree_int_cst_lt (DECL_SIZE (main_decl), DECL_SIZE (decl)))
+	{
+	  if (main_decl)
+	    TREE_ASM_WRITTEN (main_decl) = 1;
+	  main_decl = decl;
+	}
       else 
 	/* ??? This causes there to be no debug info written out
 	   about this decl.  */
@@ -4106,10 +4114,17 @@ build_expr_from_tree (t)
       if (TREE_CODE (TREE_OPERAND (t, 0)) == SCOPE_REF)
 	{
 	  tree ref = TREE_OPERAND (t, 0);
+	  tree name = TREE_OPERAND (ref, 1);
+	  
+	  if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
+	    name = build_nt (TEMPLATE_ID_EXPR,
+	                     TREE_OPERAND (name, 0),
+	                     build_expr_from_tree (TREE_OPERAND (name, 1)));
+	    
 	  return build_scoped_method_call
 	    (build_expr_from_tree (TREE_OPERAND (t, 1)),
 	     build_expr_from_tree (TREE_OPERAND (ref, 0)),
-	     TREE_OPERAND (ref, 1),
+	     name,
 	     build_expr_from_tree (TREE_OPERAND (t, 2)));
 	}
       else 
@@ -4141,9 +4156,16 @@ build_expr_from_tree (t)
       if (TREE_CODE (TREE_OPERAND (t, 0)) == SCOPE_REF)
 	{
 	  tree ref = TREE_OPERAND (t, 0);
+	  tree name = TREE_OPERAND (ref, 1);
+	  
+	  if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
+	    name = build_nt (TEMPLATE_ID_EXPR,
+	                     TREE_OPERAND (name, 0),
+	                     build_expr_from_tree (TREE_OPERAND (name, 1)));
+	    
 	  return build_member_call
 	    (build_expr_from_tree (TREE_OPERAND (ref, 0)),
-	     TREE_OPERAND (ref, 1),
+	     name,
 	     build_expr_from_tree (TREE_OPERAND (t, 1)));
 	}
       else

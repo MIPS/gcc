@@ -91,6 +91,9 @@ enum c_tree_index
     CTI_WCHAR_TYPE,
     CTI_SIGNED_WCHAR_TYPE,
     CTI_UNSIGNED_WCHAR_TYPE,
+    CTI_WINT_TYPE,
+    CTI_SIGNED_SIZE_TYPE, /* For format checking only.  */
+    CTI_UNSIGNED_PTRDIFF_TYPE, /* For format checking only.  */
     CTI_WIDEST_INT_LIT_TYPE,
     CTI_WIDEST_UINT_LIT_TYPE,
 
@@ -122,6 +125,9 @@ enum c_tree_index
 #define wchar_type_node			c_global_trees[CTI_WCHAR_TYPE]
 #define signed_wchar_type_node		c_global_trees[CTI_SIGNED_WCHAR_TYPE]
 #define unsigned_wchar_type_node	c_global_trees[CTI_UNSIGNED_WCHAR_TYPE]
+#define wint_type_node			c_global_trees[CTI_WINT_TYPE]
+#define signed_size_type_node		c_global_trees[CTI_SIGNED_SIZE_TYPE]
+#define unsigned_ptrdiff_type_node	c_global_trees[CTI_UNSIGNED_PTRDIFF_TYPE]
 #define widest_integer_literal_type_node c_global_trees[CTI_WIDEST_INT_LIT_TYPE]
 #define widest_unsigned_literal_type_node c_global_trees[CTI_WIDEST_UINT_LIT_TYPE]
 
@@ -176,6 +182,10 @@ extern int warn_format;
 /* Nonzero means do some things the same way PCC does.  */
 
 extern int flag_traditional;
+
+/* Nonzero means enable C89 Amendment 1 features, other than digraphs.  */
+
+extern int flag_isoc94;
 
 /* Nonzero means use the ISO C99 dialect of C.  */
 
@@ -259,6 +269,11 @@ extern tree shorten_compare			PARAMS ((tree *, tree *, tree *, enum tree_code *)
 extern tree truthvalue_conversion		PARAMS ((tree));
 extern tree type_for_mode			PARAMS ((enum machine_mode, int));
 extern tree type_for_size			PARAMS ((unsigned, int));
+
+extern unsigned int min_precision		PARAMS ((tree, int));
+
+/* Add qualifiers to a type, in the fashion for C.  */
+extern tree c_build_qualified_type              PARAMS ((tree, int));
 
 /* Build tree nodes and builtin functions common to both C and C++ language
    frontends.  */

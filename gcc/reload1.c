@@ -19,7 +19,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-
 #include "config.h"
 #include "system.h"
 
@@ -81,9 +80,12 @@ Boston, MA 02111-1307, USA.  */
    fixing up each insn, and generating the new insns to copy values
    into the reload registers.  */
 
-
 #ifndef REGISTER_MOVE_COST
 #define REGISTER_MOVE_COST(x, y) 2
+#endif
+
+#ifndef LOCAL_REGNO
+#define LOCAL_REGNO(REGNO)  0
 #endif
 
 /* During reload_as_needed, element N contains a REG rtx for the hard reg
@@ -321,10 +323,10 @@ struct elim_table
   rtx to_rtx;			/* REG rtx for the replacement.  */
 };
 
-static struct elim_table * reg_eliminate = 0;
+static struct elim_table *reg_eliminate = 0;
 
 /* This is an intermediate structure to initialize the table.  It has
-   exactly the members provided by ELIMINABLE_REGS. */
+   exactly the members provided by ELIMINABLE_REGS.  */
 static struct elim_table_1
 {
   int from;
@@ -654,10 +656,8 @@ reload (first, global, dumpfile)
      registers.  */
   if (current_function_has_nonlocal_label)
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-      {
-	if (! call_used_regs[i] && ! fixed_regs[i])
-	  regs_ever_live[i] = 1;
-      }
+      if (! call_used_regs[i] && ! fixed_regs[i] && ! LOCAL_REGNO (i))
+	regs_ever_live[i] = 1;
 
   /* Find all the pseudo registers that didn't get hard regs
      but do have known equivalent constants or memory slots.
@@ -773,7 +773,7 @@ reload (first, global, dumpfile)
 	  = gen_rtx_INSN_LIST (VOIDmode, insn,
 			       reg_equiv_init[REGNO (SET_SRC (set))]);
 
-      if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
+      if (INSN_P (insn))
 	scan_paradoxical_subregs (PATTERN (insn));
     }
 
@@ -1113,7 +1113,7 @@ reload (first, global, dumpfile)
      and regenerate REG_INC notes that may have been moved around.  */
 
   for (insn = first; insn; insn = NEXT_INSN (insn))
-    if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
+    if (INSN_P (insn))
       {
 	rtx *pnote;
 
@@ -1225,7 +1225,7 @@ maybe_fix_stack_asms ()
       HARD_REG_SET clobbered, allowed;
       rtx pat;
 
-      if (GET_RTX_CLASS (GET_CODE (chain->insn)) != 'i'
+      if (! INSN_P (chain->insn)
 	  || (noperands = asm_noperands (PATTERN (chain->insn))) < 0)
 	continue;
       pat = PATTERN (chain->insn);
@@ -1360,11 +1360,10 @@ calculate_needs_all_insns (global)
 	 known offsets at labels.  */
 
       if (GET_CODE (insn) == CODE_LABEL || GET_CODE (insn) == JUMP_INSN
-	  || (GET_RTX_CLASS (GET_CODE (insn)) == 'i'
-	      && REG_NOTES (insn) != 0))
+	  || (INSN_P (insn) && REG_NOTES (insn) != 0))
 	set_label_offsets (insn, insn, 0);
 
-      if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
+      if (INSN_P (insn))
 	{
 	  rtx old_body = PATTERN (insn);
 	  int old_code = INSN_CODE (insn);
@@ -1448,7 +1447,7 @@ reload_reg_class_lower (r1p, r2p)
      const PTR r1p;
      const PTR r2p;
 {
-  register int r1 = *(const short *)r1p, r2 = *(const short *)r2p;
+  register int r1 = *(const short *) r1p, r2 = *(const short *) r2p;
   register int t;
 
   /* Consider required reloads before optional ones.  */
@@ -1503,7 +1502,7 @@ count_pseudo (reg)
 
   if (r < 0)
     abort ();
-  
+
   spill_add_cost[r] += n_refs;
 
   nregs = HARD_REGNO_NREGS (r, PSEUDO_REGNO_MODE (reg));
@@ -2781,7 +2780,7 @@ check_eliminable_occurrences (x)
 
   if (x == 0)
     return;
-  
+
   code = GET_CODE (x);
 
   if (code == REG && REGNO (x) < FIRST_PSEUDO_REGISTER)
@@ -2793,7 +2792,7 @@ check_eliminable_occurrences (x)
 	  ep->can_eliminate = 0;
       return;
     }
-  
+
   fmt = GET_RTX_FORMAT (code);
   for (i = 0; i < GET_RTX_LENGTH (code); i++, fmt++)
     {
@@ -2932,7 +2931,7 @@ eliminate_regs_in_insn (insn, replace)
 	       process it since it won't be used unless something changes.  */
 	    if (replace)
 	      {
-	        delete_dead_insn (insn);
+		delete_dead_insn (insn);
 		return 1;
 	      }
 	    val = 1;
@@ -3041,7 +3040,7 @@ eliminate_regs_in_insn (insn, replace)
 
   for (i = 0; i < recog_data.n_dups; i++)
     *recog_data.dup_loc[i]
-      = *recog_data.operand_loc[(int)recog_data.dup_num[i]];
+      = *recog_data.operand_loc[(int) recog_data.dup_num[i]];
 
   /* If any eliminable remain, they aren't eliminable anymore.  */
   check_eliminable_occurrences (old_body);
@@ -3051,7 +3050,7 @@ eliminate_regs_in_insn (insn, replace)
   for (i = 0; i < recog_data.n_operands; i++)
     *recog_data.operand_loc[i] = substed_operand[i];
   for (i = 0; i < recog_data.n_dups; i++)
-    *recog_data.dup_loc[i] = substed_operand[(int)recog_data.dup_num[i]];
+    *recog_data.dup_loc[i] = substed_operand[(int) recog_data.dup_num[i]];
 
   /* If we are replacing a body that was a (set X (plus Y Z)), try to
      re-recognize the insn.  We do this in case we had a simple addition
@@ -3060,7 +3059,7 @@ eliminate_regs_in_insn (insn, replace)
      If re-recognition fails, the old insn code number will still be used,
      and some register operands may have changed into PLUS expressions.
      These will be handled by find_reloads by loading them into a register
-     again.*/
+     again.  */
 
   if (val)
     {
@@ -3115,7 +3114,7 @@ eliminate_regs_in_insn (insn, replace)
       for (i = 0; i < recog_data.n_operands; i++)
 	*recog_data.operand_loc[i] = orig_operand[i];
       for (i = 0; i < recog_data.n_dups; i++)
-	*recog_data.dup_loc[i] = orig_operand[(int)recog_data.dup_num[i]];
+	*recog_data.dup_loc[i] = orig_operand[(int) recog_data.dup_num[i]];
     }
 
   /* Update all elimination pairs to reflect the status after the current
@@ -3403,7 +3402,7 @@ init_elim_table ()
 
   if (!reg_eliminate)
     reg_eliminate = (struct elim_table *)
-      xcalloc(sizeof(struct elim_table), NUM_ELIMINABLE_REGS);
+      xcalloc (sizeof (struct elim_table), NUM_ELIMINABLE_REGS);
 
   /* Does this function require a frame pointer?  */
 
@@ -3702,7 +3701,7 @@ scan_paradoxical_subregs (x)
       else if (fmt[i] == 'E')
 	{
 	  register int j;
-	  for (j = XVECLEN (x, i) - 1; j >=0; j--)
+	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    scan_paradoxical_subregs (XVECEXP (x, i, j));
 	}
     }
@@ -3746,7 +3745,7 @@ reload_as_needed (live_known)
       if (GET_CODE (insn) == CODE_LABEL)
 	set_offsets_for_label (insn);
 
-      else if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
+      else if (INSN_P (insn))
 	{
 	  rtx oldpat = PATTERN (insn);
 
@@ -3834,7 +3833,7 @@ reload_as_needed (live_known)
 
 	      if (asm_noperands (PATTERN (insn)) >= 0)
 		for (p = NEXT_INSN (prev); p != next; p = NEXT_INSN (p))
-		  if (p != insn && GET_RTX_CLASS (GET_CODE (p)) == 'i'
+		  if (p != insn && INSN_P (p)
 		      && (recog_memoized (p) < 0
 			  || (extract_insn (p), ! constrain_operands (1))))
 		    {
@@ -3939,7 +3938,7 @@ reload_as_needed (live_known)
 			  reg_has_output_reload[REGNO (XEXP (in_reg, 0))] = 1;
 			}
 		      else
-			forget_old_reloads_1 (XEXP (in_reg, 0), NULL_RTX, 
+			forget_old_reloads_1 (XEXP (in_reg, 0), NULL_RTX,
 					      NULL);
 		    }
 		  else if ((code == PRE_INC || code == PRE_DEC)
@@ -4846,7 +4845,7 @@ reload_reg_free_for_value_p (regno, opnum, type, value, out, reloadnum,
 		      /* Earlyclobbered outputs must conflict with inputs.  */
 		      if (earlyclobber_operand_p (rld[i].out))
 			time2 = MAX_RECOG_OPERANDS * 4 + 3;
-			  
+
 		      break;
 		    }
 		  time2 = 1;
@@ -5069,7 +5068,7 @@ allocate_reload_reg (chain, r, last_reload)
       if (count < n_spills)
 	break;
     }
-    
+
   /* We should have found a spill register by now.  */
   if (count >= n_spills)
     return 0;
@@ -5175,7 +5174,7 @@ choose_reload_regs (chain)
 	{
 	  max_group_size = MAX (rld[j].nregs, max_group_size);
 	  group_class
-	    = reg_class_superunion[(int)rld[j].class][(int)group_class];
+	    = reg_class_superunion[(int) rld[j].class][(int)group_class];
 	}
 
       save_reload_reg_rtx[j] = rld[j].reg_rtx;
@@ -5328,7 +5327,7 @@ choose_reload_regs (chain)
 #ifdef CLASS_CANNOT_CHANGE_MODE
 		      (TEST_HARD_REG_BIT
 		       (reg_class_contents[(int) CLASS_CANNOT_CHANGE_MODE], i)
-		       ? ! CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (last_reg), 
+		       ? ! CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (last_reg),
 						       need_mode)
 		       : (GET_MODE_SIZE (GET_MODE (last_reg))
 			  >= GET_MODE_SIZE (need_mode)))
@@ -5367,8 +5366,7 @@ choose_reload_regs (chain)
 		    {
 		      /* If a group is needed, verify that all the subsequent
 			 registers still have their values intact.  */
-		      int nr
-			= HARD_REGNO_NREGS (i, rld[r].mode);
+		      int nr = HARD_REGNO_NREGS (i, rld[r].mode);
 		      int k;
 
 		      for (k = 1; k < nr; k++)
@@ -5405,7 +5403,8 @@ choose_reload_regs (chain)
 				  && rld[r].out
 				  && ! TEST_HARD_REG_BIT (reg_reloaded_dead, i))
 			      /* Don't clobber the frame pointer.  */
-			      || (i == HARD_FRAME_POINTER_REGNUM && rld[r].out)
+			      || (i == HARD_FRAME_POINTER_REGNUM
+				  && rld[r].out)
 			      /* Don't really use the inherited spill reg
 				 if we need it wider than we've got it.  */
 			      || (GET_MODE_SIZE (rld[r].mode)
@@ -5544,7 +5543,7 @@ choose_reload_regs (chain)
 		    case RELOAD_FOR_INPUT:
 		    case RELOAD_FOR_OPERAND_ADDRESS:
 		      reload_override_in[r] = equiv;
-		      /* Fall through. */
+		      /* Fall through.  */
 		    default:
 		      equiv = 0;
 		      break;
@@ -5588,8 +5587,9 @@ choose_reload_regs (chain)
 	  if (rld[r].reg_rtx != 0 || rld[r].optional != 0)
 	    continue;
 
-#if 0 /* No longer needed for correct operation.  Might or might not
-	 give better code on the average.  Want to experiment?  */
+#if 0
+	  /* No longer needed for correct operation.  Might or might
+	     not give better code on the average.  Want to experiment?  */
 
 	  /* See if there is a later reload that has a class different from our
 	     class that intersects our class or that requires less register
@@ -5919,7 +5919,6 @@ merge_assigned_reloads (insn)
 	}
     }
 }
-
 
 /* These arrays are filled by emit_reload_insns and its subroutines.  */
 static rtx input_reload_insns[MAX_RECOG_OPERANDS];
@@ -6547,7 +6546,7 @@ emit_output_reload_insns (chain, rl, j)
       rtx set;
 
       /* Don't output the last reload if OLD is not the dest of
-	 INSN and is in the src and is clobbered by INSN. */
+	 INSN and is in the src and is clobbered by INSN.  */
       if (! flag_expensive_optimizations
 	  || GET_CODE (old) != REG
 	  || !(set = single_set (insn))
@@ -6560,7 +6559,7 @@ emit_output_reload_insns (chain, rl, j)
 
   /* Look at all insns we emitted, just to be safe.  */
   for (p = get_insns (); p; p = NEXT_INSN (p))
-    if (GET_RTX_CLASS (GET_CODE (p)) == 'i')
+    if (INSN_P (p))
       {
 	rtx pat = PATTERN (p);
 
@@ -6592,9 +6591,10 @@ emit_output_reload_insns (chain, rl, j)
 		   register, the secondary reload does the actual
 		   store.  */
 		if (s >= 0 && set == NULL_RTX)
-		  ; /* We can't tell what function the secondary reload
-		       has and where the actual store to the pseudo is
-		       made; leave new_spill_reg_store alone.  */
+		  /* We can't tell what function the secondary reload
+		     has and where the actual store to the pseudo is
+		     made; leave new_spill_reg_store alone.  */
+		  ;
 		else if (s >= 0
 			 && SET_SRC (set) == rl->reg_rtx
 			 && SET_DEST (set) == rld[s].reg_rtx)
@@ -6630,7 +6630,7 @@ emit_output_reload_insns (chain, rl, j)
   else
     output_reload_insns[rl->opnum] = get_insns ();
 
-  end_sequence (); 
+  end_sequence ();
 }
 
 /* Do input reloading for reload RL, which is for the insn described by CHAIN
@@ -6665,8 +6665,7 @@ do_input_reload (chain, rl, j)
     {
       expect_occurrences
 	= count_occurrences (PATTERN (insn), rl->in, 0) == 1 ? 0 : -1;
-      rl->in
-	= regno_reg_rtx[reg_reloaded_contents[reload_spill_index[j]]];
+      rl->in = regno_reg_rtx[reg_reloaded_contents[reload_spill_index[j]]];
     }
 
   /* If we are reloading a register that was recently stored in with an
@@ -6908,8 +6907,7 @@ emit_reload_insns (chain)
 
       if (i >= 0 && rld[r].reg_rtx != 0)
 	{
-	  int nr
-	    = HARD_REGNO_NREGS (i, GET_MODE (rld[r].reg_rtx));
+	  int nr = HARD_REGNO_NREGS (i, GET_MODE (rld[r].reg_rtx));
 	  int k;
 	  int part_reaches_end = 0;
 	  int all_reaches_end = 1;
@@ -7135,7 +7133,7 @@ emit_reload_insns (chain)
 	    }
 	  else
 	    {
-	      int num_regs = HARD_REGNO_NREGS (nregno,GET_MODE (rld[r].out));
+	      int num_regs = HARD_REGNO_NREGS (nregno, GET_MODE (rld[r].out));
 
 	      while (num_regs-- > 0)
 		reg_last_reload_reg[nregno + num_regs] = 0;
@@ -7568,7 +7566,7 @@ delete_address_reloads (dead_insn, current_insn)
       || ! rtx_equal_p (dst, XEXP (SET_SRC (set), 0))
       || ! rtx_equal_p (dst, XEXP (SET_SRC (set2), 0))
       || (INTVAL (XEXP (SET_SRC (set), 1))
-	  != - INTVAL (XEXP (SET_SRC (set2), 1))))
+	  != -INTVAL (XEXP (SET_SRC (set2), 1))))
     return;
   delete_insn (prev);
   delete_insn (next);
@@ -7585,14 +7583,14 @@ delete_address_reloads_1 (dead_insn, x, current_insn)
 
   if (code != REG)
     {
-      const char *fmt= GET_RTX_FORMAT (code);
+      const char *fmt = GET_RTX_FORMAT (code);
       for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
 	{
 	  if (fmt[i] == 'e')
 	    delete_address_reloads_1 (dead_insn, XEXP (x, i), current_insn);
 	  else if (fmt[i] == 'E')
 	    {
-	      for (j = XVECLEN (x, i) - 1; j >=0; j--)
+	      for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 		delete_address_reloads_1 (dead_insn, XVECEXP (x, i, j),
 					  current_insn);
 	    }
@@ -7635,7 +7633,7 @@ delete_address_reloads_1 (dead_insn, x, current_insn)
 	{
 	  if (GET_CODE (i2) == CODE_LABEL)
 	    break;
-	  if (GET_RTX_CLASS (GET_CODE (i2)) != 'i')
+	  if (! INSN_P (i2))
 	    continue;
 	  if (reg_referenced_p (dst, PATTERN (i2)))
 	    {
@@ -7722,7 +7720,7 @@ inc_for_reload (reloadreg, in, value, inc_amount)
     reg_last_reload_reg[REGNO (incloc)] = 0;
 
   if (GET_CODE (value) == PRE_DEC || GET_CODE (value) == POST_DEC)
-    inc_amount = - inc_amount;
+    inc_amount = -inc_amount;
 
   inc = GEN_INT (inc_amount);
 
@@ -7964,12 +7962,12 @@ reload_cse_regs_1 (first)
 {
   rtx insn;
 
-  cselib_init ();  
+  cselib_init ();
   init_alias_analysis ();
 
   for (insn = first; insn; insn = NEXT_INSN (insn))
     {
-      if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
+      if (INSN_P (insn))
 	reload_cse_simplify (insn);
 
       cselib_process_insn (insn);
@@ -8052,7 +8050,7 @@ reload_cse_simplify_set (set, insn)
 	   || (this_cost == old_cost
 	       && GET_CODE (l->loc) == REG
 	       && GET_CODE (SET_SRC (set)) != REG))
-      	  && validate_change (insn, &SET_SRC (set), copy_rtx (l->loc), 1))
+	  && validate_change (insn, &SET_SRC (set), copy_rtx (l->loc), 1))
 	old_cost = this_cost, did_change = 1;
     }
 
@@ -8074,7 +8072,7 @@ static int
 reload_cse_simplify_operands (insn)
      rtx insn;
 {
-  int i,j;
+  int i, j;
 
   /* For each operand, all registers that are equivalent to it.  */
   HARD_REG_SET equiv_regs[MAX_RECOG_OPERANDS];
@@ -8102,7 +8100,7 @@ reload_cse_simplify_operands (insn)
   /* Figure out which alternative currently matches.  */
   if (! constrain_operands (1))
     fatal_insn_not_found (insn);
-  
+
   alternative_reject = (int *) alloca (recog_data.n_alternatives * sizeof (int));
   alternative_nregs = (int *) alloca (recog_data.n_alternatives * sizeof (int));
   alternative_order = (int *) alloca (recog_data.n_alternatives * sizeof (int));
@@ -8217,7 +8215,7 @@ reload_cse_simplify_operands (insn)
 		  /* See if REGNO fits this alternative, and set it up as the
 		     replacement register if we don't have one for this
 		     alternative yet and the operand being replaced is not
-		     a cheap CONST_INT. */
+		     a cheap CONST_INT.  */
 		  if (op_alt_regno[i][j] == -1
 		      && reg_fits_class_p (reg, class, 0, mode)
 		      && (GET_CODE (recog_data.operand[i]) != CONST_INT
@@ -8424,7 +8422,7 @@ reload_combine ()
 	  if (! fixed_regs[r])
 	      reg_state[r].use_index = RELOAD_COMBINE_MAX_USES;
 
-      if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+      if (! INSN_P (insn))
 	continue;
 
       reload_combine_ruid++;
@@ -8541,7 +8539,7 @@ reload_combine ()
 		  if (reg_state[regno].offset != const0_rtx)
 		    /* Previous REG_EQUIV / REG_EQUAL notes for PREV
 		       are now invalid.  */
-		    for (np = &REG_NOTES (prev); *np; )
+		    for (np = &REG_NOTES (prev); *np;)
 		      {
 			if (REG_NOTE_KIND (*np) == REG_EQUAL
 			    || REG_NOTE_KIND (*np) == REG_EQUIV)
@@ -8558,7 +8556,7 @@ reload_combine ()
 	    }
 	}
 
-  note_stores (PATTERN (insn), reload_combine_note_store, NULL);
+      note_stores (PATTERN (insn), reload_combine_note_store, NULL);
 
       if (GET_CODE (insn) == CALL_INSN)
 	{
@@ -8715,7 +8713,8 @@ reload_combine_note_use (xp, insn)
 
     case PLUS:
       /* We are interested in (plus (reg) (const_int)) .  */
-      if (GET_CODE (XEXP (x, 0)) != REG || GET_CODE (XEXP (x, 1)) != CONST_INT)
+      if (GET_CODE (XEXP (x, 0)) != REG
+	  || GET_CODE (XEXP (x, 1)) != CONST_INT)
 	break;
       offset = XEXP (x, 1);
       x = XEXP (x, 0);
@@ -8844,7 +8843,7 @@ reload_cse_move2add (first)
   rtx insn;
   int last_label_luid;
 
-  for (i = FIRST_PSEUDO_REGISTER-1; i >= 0; i--)
+  for (i = FIRST_PSEUDO_REGISTER - 1; i >= 0; i--)
     reg_set_luid[i] = 0;
 
   last_label_luid = 0;
@@ -8855,7 +8854,7 @@ reload_cse_move2add (first)
 
       if (GET_CODE (insn) == CODE_LABEL)
 	last_label_luid = move2add_luid;
-      if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+      if (! INSN_P (insn))
 	continue;
       pat = PATTERN (insn);
       /* For simplicity, we only perform this optimization on
@@ -8993,7 +8992,7 @@ reload_cse_move2add (first)
 	 unknown values.  */
       if (GET_CODE (insn) == CALL_INSN)
 	{
-	  for (i = FIRST_PSEUDO_REGISTER-1; i >= 0; i--)
+	  for (i = FIRST_PSEUDO_REGISTER - 1; i >= 0; i--)
 	    {
 	      if (call_used_regs[i])
 		{

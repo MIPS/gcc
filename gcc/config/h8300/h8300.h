@@ -308,7 +308,13 @@ do {				\
    when one has mode MODE1 and one has mode MODE2.
    If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
    for any hard reg, then this must be 0 for correct output.  */
-#define MODES_TIEABLE_P(MODE1, MODE2)  ((MODE1) == (MODE2))
+#define MODES_TIEABLE_P(MODE1, MODE2)					\
+  ((MODE1) == (MODE2)							\
+   || ((MODE1) == HImode && (MODE2) == QImode)				\
+   || ((MODE1) == QImode && (MODE2) == HImode)				\
+   || ((TARGET_H8300H || TARGET_H8300S)					\
+       && (((MODE1) == SImode && (MODE2) == HImode)			\
+	   || ((MODE1) == HImode && (MODE2) == SImode))))
 
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */
@@ -404,27 +410,27 @@ enum reg_class {
 #define CONST_OK_FOR_I(VALUE) ((VALUE) == 0)
 #define CONST_OK_FOR_J(VALUE) ((unsigned HOST_WIDE_INT) (VALUE) < 256)
 #define CONST_OK_FOR_K(VALUE) ((VALUE) == 1 || (VALUE) == 2)
-#define CONST_OK_FOR_L(VALUE) \
-  (TARGET_H8300H || TARGET_H8300S \
-   ? (VALUE) == 1 || (VALUE) == 2 || (VALUE) == 4 \
+#define CONST_OK_FOR_L(VALUE)				\
+  (TARGET_H8300H || TARGET_H8300S			\
+   ? (VALUE) == 1 || (VALUE) == 2 || (VALUE) == 4	\
    : (VALUE) == 1 || (VALUE) == 2)
 #define CONST_OK_FOR_M(VALUE) ((VALUE) == 3 || (VALUE) == 4)
-#define CONST_OK_FOR_N(VALUE) \
-  (TARGET_H8300H || TARGET_H8300S \
-   ? (VALUE) == -1 || (VALUE) == -2 || (VALUE) == -4 \
+#define CONST_OK_FOR_N(VALUE)				\
+  (TARGET_H8300H || TARGET_H8300S			\
+   ? (VALUE) == -1 || (VALUE) == -2 || (VALUE) == -4	\
    : (VALUE) == -1 || (VALUE) == -2)
 #define CONST_OK_FOR_O(VALUE) (ok_for_bclr (VALUE))
 #define CONST_OK_FOR_P(VALUE) (small_power_of_two (VALUE))
 
-#define CONST_OK_FOR_LETTER_P(VALUE, C) \
-  ((C) == 'I' ? CONST_OK_FOR_I (VALUE) : \
-   (C) == 'J' ? CONST_OK_FOR_J (VALUE) : \
-   (C) == 'K' ? CONST_OK_FOR_K (VALUE) : \
-   (C) == 'L' ? CONST_OK_FOR_L (VALUE) : \
-   (C) == 'M' ? CONST_OK_FOR_M (VALUE) : \
-   (C) == 'N' ? CONST_OK_FOR_N (VALUE) : \
-   (C) == 'O' ? CONST_OK_FOR_O (VALUE) : \
-   (C) == 'P' ? CONST_OK_FOR_P (VALUE) : \
+#define CONST_OK_FOR_LETTER_P(VALUE, C)		\
+  ((C) == 'I' ? CONST_OK_FOR_I (VALUE) :	\
+   (C) == 'J' ? CONST_OK_FOR_J (VALUE) :	\
+   (C) == 'K' ? CONST_OK_FOR_K (VALUE) :	\
+   (C) == 'L' ? CONST_OK_FOR_L (VALUE) :	\
+   (C) == 'M' ? CONST_OK_FOR_M (VALUE) :	\
+   (C) == 'N' ? CONST_OK_FOR_N (VALUE) :	\
+   (C) == 'O' ? CONST_OK_FOR_O (VALUE) :	\
+   (C) == 'P' ? CONST_OK_FOR_P (VALUE) :	\
    0)
 
 /* Similar, but for floating constants, and defining letters G and H.
@@ -432,7 +438,7 @@ enum reg_class {
      
   `G' is a floating-point zero.  */
 
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C) \
+#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)	\
   ((C) == 'G' ? (VALUE) == CONST0_RTX (DFmode)	\
    : 0)
 
@@ -623,8 +629,8 @@ struct cum_arg
    of mode MODE and data type TYPE.
    (TYPE is null for libcalls where that information may not be available.)  */
 
-#define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
- ((CUM).nbytes += ((MODE) != BLKmode			\
+#define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)			\
+ ((CUM).nbytes += ((MODE) != BLKmode					\
   ? (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) & -UNITS_PER_WORD	\
   : (int_size_in_bytes (TYPE) + UNITS_PER_WORD - 1) & -UNITS_PER_WORD))
 
@@ -728,7 +734,7 @@ struct cum_arg
     else						\
       {							\
 	fprintf (FILE, "\tmov.l	#0x12345678,er3\n");	\
-	fprintf (FILE, "\tjmp	@0x123456\n");	\
+	fprintf (FILE, "\tjmp	@0x123456\n");		\
       }							\
   } while (0)
 
@@ -777,7 +783,7 @@ struct cum_arg
 
 /* 1 if X is an rtx for a constant that is a valid address.  */
 
-#define CONSTANT_ADDRESS_P(X)   \
+#define CONSTANT_ADDRESS_P(X)					\
   (GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF	\
    || (GET_CODE (X) == CONST_INT				\
        /* We handle signed and unsigned offsets here.  */	\
@@ -848,21 +854,21 @@ struct cum_arg
    (a SYMBOL_REF with an SYMBOL_REF_FLAG set).
 
    On the H8/S 'U' can also be a 16bit or 32bit absolute.  */
-#define OK_FOR_U(OP) \
-  ((GET_CODE (OP) == REG && REG_OK_FOR_BASE_P (OP)) \
-   || (GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == REG \
-       && REG_OK_FOR_BASE_P (XEXP (OP, 0)))  \
-   || (GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == SYMBOL_REF \
-       && (TARGET_H8300S || SYMBOL_REF_FLAG (XEXP (OP, 0)))) \
-   || ((GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == CONST \
-        && GET_CODE (XEXP (XEXP (OP, 0), 0)) == PLUS \
-        && GET_CODE (XEXP (XEXP (XEXP (OP, 0), 0), 0)) == SYMBOL_REF \
-        && GET_CODE (XEXP (XEXP (XEXP (OP, 0), 0), 1)) == CONST_INT) \
-        && (TARGET_H8300S || SYMBOL_REF_FLAG (XEXP (XEXP (OP, 0), 0)))) \
+#define OK_FOR_U(OP)							\
+  ((GET_CODE (OP) == REG && REG_OK_FOR_BASE_P (OP))			\
+   || (GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == REG		\
+       && REG_OK_FOR_BASE_P (XEXP (OP, 0)))				\
+   || (GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == SYMBOL_REF	\
+       && (TARGET_H8300S || SYMBOL_REF_FLAG (XEXP (OP, 0))))		\
+   || ((GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == CONST	\
+        && GET_CODE (XEXP (XEXP (OP, 0), 0)) == PLUS			\
+        && GET_CODE (XEXP (XEXP (XEXP (OP, 0), 0), 0)) == SYMBOL_REF	\
+        && GET_CODE (XEXP (XEXP (XEXP (OP, 0), 0), 1)) == CONST_INT)	\
+        && (TARGET_H8300S || SYMBOL_REF_FLAG (XEXP (XEXP (OP, 0), 0))))	\
    || (GET_CODE (OP) == MEM						\
-       && EIGHTBIT_CONSTANT_ADDRESS_P (XEXP (OP, 0))))
-
-
+       && EIGHTBIT_CONSTANT_ADDRESS_P (XEXP (OP, 0)))			\
+   || (GET_CODE (OP) == MEM && TARGET_H8300S				\
+       && GET_CODE (XEXP (OP, 0)) == CONST_INT))
 
 #define EXTRA_CONSTRAINT(OP, C)			\
   ((C) == 'T' ? OK_FOR_T (OP) :			\
@@ -1015,18 +1021,18 @@ h8300_valid_machine_decl_attribute (DECL, ATTRIBUTES, IDENTIFIER, ARGS)
    switch on CODE.  */
 /* ??? Shifts need to have a *much* higher cost than this.  */
 
-#define RTX_COSTS(RTX,CODE,OUTER_CODE) \
-  case MOD:		\
-  case DIV:		\
-    return 60;		\
-  case MULT:		\
-    return 20;		\
-  case ASHIFT:		\
-  case ASHIFTRT:	\
-  case LSHIFTRT:	\
-  case ROTATE:		\
-  case ROTATERT:	\
-    if (GET_MODE (RTX) == HImode) return 2; \
+#define RTX_COSTS(RTX,CODE,OUTER_CODE)		\
+  case MOD:					\
+  case DIV:					\
+    return 60;					\
+  case MULT:					\
+    return 20;					\
+  case ASHIFT:					\
+  case ASHIFTRT:				\
+  case LSHIFTRT:				\
+  case ROTATE:					\
+  case ROTATERT:				\
+    if (GET_MODE (RTX) == HImode) return 2;	\
     return 8;
 
 /* Tell final.c how to eliminate redundant test instructions.  */
@@ -1330,14 +1336,14 @@ do { char dstr[30];					\
    that says to advance the location counter
    to a multiple of 2**LOG bytes.  */
 
-#define ASM_OUTPUT_ALIGN(FILE,LOG)	\
-  if ((LOG) != 0)			\
+#define ASM_OUTPUT_ALIGN(FILE,LOG)		\
+  if ((LOG) != 0)				\
     fprintf (FILE, "\t.align %d\n", (LOG))
 
 /* This is how to output an assembler line
    that says to advance the location counter by SIZE bytes.  */
 
-#define ASM_OUTPUT_IDENT(FILE, NAME) \
+#define ASM_OUTPUT_IDENT(FILE, NAME)			\
   fprintf(FILE, "%s\t \"%s\"\n", IDENT_ASM_OP, NAME)
 
 #define ASM_OUTPUT_SKIP(FILE, SIZE) \
@@ -1346,16 +1352,16 @@ do { char dstr[30];					\
 /* This says how to output an assembler line
    to define a global common symbol.  */
 
-#define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED) \
-( fputs ("\t.comm ", (FILE)),			\
-  assemble_name ((FILE), (NAME)),		\
+#define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)	\
+( fputs ("\t.comm ", (FILE)),				\
+  assemble_name ((FILE), (NAME)),			\
   fprintf ((FILE), ",%d\n", (SIZE)))
 
 /* This says how to output the assembler to define a global
    uninitialized but not common symbol.
    Try to use asm_output_bss to implement this macro.  */
 
-#define ASM_OUTPUT_BSS(FILE, DECL, NAME, SIZE, ROUNDED) \
+#define ASM_OUTPUT_BSS(FILE, DECL, NAME, SIZE, ROUNDED)		\
   asm_output_bss ((FILE), (DECL), (NAME), (SIZE), (ROUNDED))
 
 /* This says how to output an assembler line
@@ -1431,18 +1437,18 @@ do { char dstr[30];					\
 
 /* Perform target dependent optabs initialization.  */
 
-#define INIT_TARGET_OPTABS \
-  do { \
-    smul_optab->handlers[(int) HImode].libfunc		\
-      = init_one_libfunc (MULHI3_LIBCALL);		\
-    sdiv_optab->handlers[(int) HImode].libfunc		\
-      = init_one_libfunc (DIVHI3_LIBCALL);		\
-    udiv_optab->handlers[(int) HImode].libfunc		\
-      = init_one_libfunc (UDIVHI3_LIBCALL);		\
-    smod_optab->handlers[(int) HImode].libfunc		\
-      = init_one_libfunc (MODHI3_LIBCALL);		\
-    umod_optab->handlers[(int) HImode].libfunc		\
-      = init_one_libfunc (UMODHI3_LIBCALL);		\
+#define INIT_TARGET_OPTABS			\
+  do {						\
+    smul_optab->handlers[(int) HImode].libfunc	\
+      = init_one_libfunc (MULHI3_LIBCALL);	\
+    sdiv_optab->handlers[(int) HImode].libfunc	\
+      = init_one_libfunc (DIVHI3_LIBCALL);	\
+    udiv_optab->handlers[(int) HImode].libfunc	\
+      = init_one_libfunc (UDIVHI3_LIBCALL);	\
+    smod_optab->handlers[(int) HImode].libfunc	\
+      = init_one_libfunc (MODHI3_LIBCALL);	\
+    umod_optab->handlers[(int) HImode].libfunc	\
+      = init_one_libfunc (UMODHI3_LIBCALL);	\
   } while (0)
 
 #define MOVE_RATIO 3

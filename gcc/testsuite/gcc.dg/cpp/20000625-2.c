@@ -2,12 +2,11 @@
 /* { dg-do run } */
 
 #define symbol_version(name, version) name##@##version
-/* { dg-warning "nothing can be pasted" "" { target *-*-* } 4 } */
 #define str(x) xstr(x)
 #define xstr(x) #x
 
 const char a[] = str(symbol_version(getrlimit, GLIBC_2.0));
-/* { dg-warning "valid preprocessing token" "" { target *-*-* } 9 } */
+/* { dg-warning "valid preprocessing token" "" { target *-*-* } 8 } */
 const char b[] = str(getrlimit@GLIBC_2.0);
 const char c[] = "getrlimit@GLIBC_2.0";
 

@@ -374,6 +374,8 @@ static void ggc_mark_hash_table			PARAMS ((void *));
 #define STRING_OBJECT_CLASS_NAME "NXConstantString"
 #define PROTOCOL_OBJECT_CLASS_NAME "Protocol"
 
+static const char *constant_string_class_name = NULL;
+
 static const char *TAG_GETCLASS;
 static const char *TAG_GETMETACLASS;
 static const char *TAG_MSGSEND;
@@ -797,6 +799,7 @@ lang_decode_option (argc, argv)
      char **argv;
 {
   const char *p = argv[0];
+
   if (!strcmp (p, "-lang-objc"))
     c_language = clk_objective_c;
   else if (!strcmp (p, "-gen-decls"))
@@ -819,6 +822,13 @@ lang_decode_option (argc, argv)
     flag_next_runtime = 1;
   else if (!strcmp (p, "-print-objc-runtime-info"))
     print_struct_values = 1;
+#define CSTSTRCLASS "-fconstant-string-class="
+  else if (!strncmp (p, CSTSTRCLASS, sizeof(CSTSTRCLASS) - 2)) {
+    if (strlen (argv[0]) <= strlen (CSTSTRCLASS))
+      error ("no class name specified as argument to -fconstant-string-class");
+    constant_string_class_name = xstrdup(argv[0] + sizeof(CSTSTRCLASS) - 1);
+  }
+#undef CSTSTRCLASS
   else
     return c_decode_option (argc, argv);
 
@@ -1382,7 +1392,10 @@ synth_module_prologue ()
   generate_forward_declaration_to_string_table ();
 
   /* Forward declare constant_string_id and constant_string_type.  */
-  constant_string_id = get_identifier (STRING_OBJECT_CLASS_NAME);
+  if (!constant_string_class_name)
+    constant_string_class_name = STRING_OBJECT_CLASS_NAME;
+  
+  constant_string_id = get_identifier (constant_string_class_name);
   constant_string_type = xref_tag (RECORD_TYPE, constant_string_id);
 }
 
@@ -1410,22 +1423,7 @@ my_build_string (len, str)
   return a_string;
 }
 
-/* Return a newly constructed OBJC_STRING_CST node whose value is
-   the LEN characters at STR.
-   The TREE_TYPE is not initialized.  */
-
-tree
-build_objc_string (len, str)
-     int len;
-     const char *str;
-{
-  tree s = build_string (len, str);
-
-  TREE_SET_CODE (s, OBJC_STRING_CST);
-  return s;
-}
-
-/* Given a chain of OBJC_STRING_CST's, build a static instance of
+/* Given a chain of STRING_CST's, build a static instance of
    NXConstanString which points at the concatenation of those strings.
    We place the string object in the __string_objects section of the
    __OBJC segment.  The Objective-C runtime will initialize the isa
@@ -1451,7 +1449,6 @@ build_objc_string_object (strings)
 
   add_class_reference (constant_string_id);
 
-  /* Combine_strings will work for OBJC_STRING_CST's too.  */
   string = combine_strings (strings);
   TREE_SET_CODE (string, STRING_CST);
   length = TREE_STRING_LENGTH (string) - 1;

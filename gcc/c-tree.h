@@ -152,7 +152,6 @@ extern int maybe_objc_comptypes                 PARAMS ((tree, tree, int));
 extern tree maybe_building_objc_message_expr    PARAMS ((void));
 extern tree maybe_objc_method_name		PARAMS ((tree));
 extern int recognize_objc_keyword		PARAMS ((void));
-extern tree build_objc_string			PARAMS ((int, const char *));
 extern tree lookup_objc_ivar			PARAMS ((tree));
 
 /* in c-parse.in */
@@ -161,16 +160,12 @@ extern void c_parse_init			PARAMS ((void));
 /* in c-aux-info.c */
 extern void gen_aux_info_record                 PARAMS ((tree, int, int, int));
 
-/* In c-common.c */
-extern unsigned int min_precision		PARAMS ((tree, int));
-
 /* in c-convert.c */
 extern tree convert                             PARAMS ((tree, tree));
 
 /* in c-decl.c */
 extern tree build_enumerator                    PARAMS ((tree, tree));
-/* Add qualifiers to a type, in the fashion for C.  */
-extern tree c_build_qualified_type              PARAMS ((tree, int));
+
 #define c_build_type_variant(TYPE, CONST_P, VOLATILE_P)		  \
   c_build_qualified_type (TYPE, 				  \
 			  ((CONST_P) ? TYPE_QUAL_CONST : 0) |	  \
@@ -198,6 +193,7 @@ extern tree grokfield                           PARAMS ((const char *, int, tree
 extern tree groktypename                        PARAMS ((tree));
 extern tree groktypename_in_parm_context        PARAMS ((tree));
 extern tree implicitly_declare                  PARAMS ((tree));
+extern void implicit_decl_warning               PARAMS ((tree));
 extern int  in_parm_level_p                     PARAMS ((void));
 extern void init_decl_processing                PARAMS ((void));
 extern void insert_block                        PARAMS ((tree));
@@ -401,6 +397,9 @@ extern int warn_long_long;
 /* Nonzero means we are reading code that came from a system header file.  */
 
 extern int system_header_p;
+
+/* Warn about implicit declarations.  1 = warning, 2 = error.  */
+extern int mesg_implicit_function_declaration;
 
 /* Nonzero enables objc features.  */
 

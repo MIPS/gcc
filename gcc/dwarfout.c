@@ -37,15 +37,6 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "tm_p.h"
 
-/* We cannot use <assert.h> in GCC source, since that would include
-   GCC's assert.h, which may not be compatible with the host compiler.  */
-#undef assert
-#ifdef NDEBUG
-# define assert(e)
-#else
-# define assert(e) do { if (! (e)) abort (); } while (0)
-#endif
-
 /* IMPORTANT NOTE: Please see the file README.DWARF for important details
    regarding the GNU implementation of Dwarf.  */
 
@@ -3712,6 +3703,8 @@ output_compile_unit_die (arg)
     language_attribute (LANG_FORTRAN77);
   else if (strcmp (language_string, "GNU Pascal") == 0)
     language_attribute (LANG_PASCAL83);
+  else if (strcmp (language_string, "GNU Java") == 0)
+    language_attribute (LANG_JAVA);
   else if (flag_traditional)
     language_attribute (LANG_C);
   else

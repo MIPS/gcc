@@ -692,7 +692,7 @@ mips16_simple_memory_operand (reg, offset, mode)
     off = 0x100;
   else
     off = 0x20;
-  if (INTVAL (offset) >= 0 && INTVAL (offset) < off * size)
+  if (INTVAL (offset) >= 0 && INTVAL (offset) < (HOST_WIDE_INT)(off * size))
     return 1;
   return 0;
 }
@@ -715,7 +715,7 @@ simple_memory_operand (op, mode)
   /* ??? This isn't strictly correct.  It is OK to accept multiword modes
      here, since the length attributes are being set correctly, but only
      if the address is offsettable.  LO_SUM is not offsettable.  */
-  if (GET_MODE_SIZE (GET_MODE (op)) > UNITS_PER_WORD)
+  if (GET_MODE_SIZE (GET_MODE (op)) > (unsigned) UNITS_PER_WORD)
     return 0;
 
   /* Decode the address now.  */
@@ -868,7 +868,7 @@ double_memory_operand (op, mode)
 	     address will get reloaded anyhow.  */
 	  if (GET_CODE (addr) == PLUS
 	      && GET_CODE (XEXP (addr, 0)) == REG
-	      && (REGNO (XEXP (addr, 0)) == HARD_FRAME_POINTER_REGNUM
+	      && (REGNO (XEXP (addr, 0)) == (unsigned) HARD_FRAME_POINTER_REGNUM
 		  || REGNO (XEXP (addr, 0)) == STACK_POINTER_REGNUM)
 	      && ((GET_CODE (XEXP (addr, 1)) == CONST_INT
 		   && ! SMALL_INT (XEXP (addr, 1)))
@@ -885,7 +885,7 @@ double_memory_operand (op, mode)
 	      maddr = XEXP (addr, 0);
 	      if (GET_CODE (maddr) == PLUS
 		  && GET_CODE (XEXP (maddr, 0)) == REG
-		  && (REGNO (XEXP (maddr, 0)) == HARD_FRAME_POINTER_REGNUM
+		  && (REGNO (XEXP (maddr, 0)) == (unsigned) HARD_FRAME_POINTER_REGNUM
 		      || REGNO (XEXP (maddr, 0)) == STACK_POINTER_REGNUM)
 		  && ((GET_CODE (XEXP (maddr, 1)) == CONST_INT
 		       && ! SMALL_INT (XEXP (maddr, 1)))
@@ -905,7 +905,7 @@ double_memory_operand (op, mode)
 	      addr = XEXP (XEXP (addr, 0), 0);
 	      if (GET_CODE (addr) == PLUS
 		  && GET_CODE (XEXP (addr, 0)) == REG
-		  && (REGNO (XEXP (addr, 0)) == HARD_FRAME_POINTER_REGNUM
+		  && (REGNO (XEXP (addr, 0)) == (unsigned) HARD_FRAME_POINTER_REGNUM
 		      || REGNO (XEXP (addr, 0)) == STACK_POINTER_REGNUM)
 		  && ((GET_CODE (XEXP (addr, 1)) == CONST_INT
 		       && ! SMALL_INT (XEXP (addr, 1)))
@@ -1199,7 +1199,7 @@ mips_check_split (address, mode)
 {     
   /* ??? This is the same check used in simple_memory_operand.
      We use it here because LO_SUM is not offsettable.  */
-  if (GET_MODE_SIZE (mode) > UNITS_PER_WORD)
+  if (GET_MODE_SIZE (mode) > (unsigned) UNITS_PER_WORD)
     return 0;
 
   if ((GET_CODE (address) == SYMBOL_REF && ! SYMBOL_REF_FLAG (address))
@@ -1246,7 +1246,7 @@ mips_legitimate_address_p (mode, xinsn, strict)
   /* Check for constant before stripping off SUBREG, so that we don't	
      accept (subreg (const_int)) which will fail to reload. */   	
   if (CONSTANT_ADDRESS_P (xinsn)					
-      && ! (mips_split_addresses && mips_check_split (xinsn, mode))	
+      && ! (mips_split_addresses && mips_check_split (xinsn, mode))
       && (! TARGET_MIPS16 || mips16_constant (xinsn, mode, 1, 0)))	
     return 1;								
 									
@@ -1329,6 +1329,10 @@ mips_legitimate_address_p (mode, xinsn, strict)
 	      && (!TARGET_EMBEDDED_PIC					
 		  || code1 != CONST					
 		  || GET_CODE (XEXP (xplus1, 0)) != MINUS)		
+	      /* When assembling for machines with 64 bit registers, 
+	         the assembler will not sign-extend the constant "foo"
+		 in "la x, foo(x)" */
+	      && (!TARGET_64BIT || (INTVAL (xplus1) > 0))
 	      && !TARGET_MIPS16)					
 	    return 1;							
 	}								
@@ -1615,7 +1619,7 @@ mips_fill_delay_slot (ret, type, operands, cur_insn)
   dslots_number_nops = num_nops;
   mips_load_reg = set_reg;
   if (GET_MODE_SIZE (mode)
-      > (FP_REG_P (REGNO (set_reg)) ? UNITS_PER_FPREG : UNITS_PER_WORD))
+      > (unsigned) (FP_REG_P (REGNO (set_reg)) ? UNITS_PER_FPREG : UNITS_PER_WORD))
     mips_load_reg2 = gen_rtx_REG (SImode, REGNO (set_reg) + 1);
   else
     mips_load_reg2 = 0;
@@ -3197,7 +3201,7 @@ block_move_loop (dest_reg, src_reg, bytes, align, orig_dest, orig_src)
   rtx bytes_rtx;
   int leftover;
 
-  if (bytes < 2 * MAX_MOVE_BYTES)
+  if (bytes < 2U * MAX_MOVE_BYTES)
     abort ();
 
   leftover = bytes % MAX_MOVE_BYTES;
@@ -3264,7 +3268,7 @@ block_move_call (dest_reg, src_reg, bytes_rtx)
   /* We want to pass the size as Pmode, which will normally be SImode
      but will be DImode if we are using 64 bit longs and pointers.  */
   if (GET_MODE (bytes_rtx) != VOIDmode
-      && GET_MODE (bytes_rtx) != Pmode)
+      && GET_MODE (bytes_rtx) != (unsigned) Pmode)
     bytes_rtx = convert_to_mode (Pmode, bytes_rtx, 1);
 
 #ifdef TARGET_MEM_FUNCTIONS
@@ -3306,7 +3310,7 @@ expand_block_move (operands)
   if (constp && bytes == 0)
     return;
 
-  if (align > UNITS_PER_WORD)
+  if (align > (unsigned) UNITS_PER_WORD)
     align = UNITS_PER_WORD;
 
   /* Move the address into scratch registers.  */
@@ -3316,18 +3320,18 @@ expand_block_move (operands)
   if (TARGET_MEMCPY)
     block_move_call (dest_reg, src_reg, bytes_rtx);
 
-  else if (constp && bytes <= 2 * MAX_MOVE_BYTES
-	   && align == UNITS_PER_WORD)
+  else if (constp && bytes <= 2U * MAX_MOVE_BYTES
+	   && align == (unsigned) UNITS_PER_WORD)
     move_by_pieces (orig_dest, orig_src, bytes, align * BITS_PER_WORD);
 	
-  else if (constp && bytes <= 2 * MAX_MOVE_BYTES)
+  else if (constp && bytes <= 2U * MAX_MOVE_BYTES)
     emit_insn (gen_movstrsi_internal (change_address (orig_dest, BLKmode,
 						      dest_reg),
 				      change_address (orig_src, BLKmode,
 						      src_reg),
 				      bytes_rtx, align_rtx));
 
-  else if (constp && align >= UNITS_PER_WORD && optimize)
+  else if (constp && align >= (unsigned) UNITS_PER_WORD && optimize)
     block_move_loop (dest_reg, src_reg, bytes, align, orig_dest, orig_src);
 
   else if (constp && optimize)
@@ -3871,7 +3875,7 @@ function_arg (cum, mode, type, named)
   rtx ret;
   int regbase = -1;
   int bias = 0;
-  int *arg_words = &cum->arg_words;
+  unsigned int *arg_words = &cum->arg_words;
   int struct_p = (type != 0
 		  && (TREE_CODE (type) == RECORD_TYPE
 		      || TREE_CODE (type) == UNION_TYPE
@@ -3952,7 +3956,7 @@ function_arg (cum, mode, type, named)
 
       /* Drops through.  */
     case BLKmode:
-      if (type != NULL_TREE && TYPE_ALIGN (type) > BITS_PER_WORD
+      if (type != NULL_TREE && TYPE_ALIGN (type) > (unsigned) BITS_PER_WORD
 	  && ! TARGET_64BIT && mips_abi != ABI_EABI)
 	cum->arg_words += (cum->arg_words & 1);
       regbase = GP_ARG_FIRST;
@@ -3971,7 +3975,7 @@ function_arg (cum, mode, type, named)
       regbase = GP_ARG_FIRST;
     }
 
-  if (*arg_words >= MAX_ARGS_IN_REGISTERS)
+  if (*arg_words >= (unsigned) MAX_ARGS_IN_REGISTERS)
     {
       if (TARGET_DEBUG_E_MODE)
 	fprintf (stderr, "<stack>%s\n", struct_p ? ", [struct]" : "");
@@ -4021,7 +4025,7 @@ function_arg (cum, mode, type, named)
 
 	      chunks
 		= tree_low_cst (TYPE_SIZE_UNIT (type), 1) / UNITS_PER_WORD;
-	      if (chunks + *arg_words + bias > MAX_ARGS_IN_REGISTERS)
+	      if (chunks + *arg_words + bias > (unsigned) MAX_ARGS_IN_REGISTERS)
 		chunks = MAX_ARGS_IN_REGISTERS - *arg_words - bias;
 
 	      /* assign_parms checks the mode of ENTRY_PARM, so we must
@@ -4124,7 +4128,7 @@ function_arg_partial_nregs (cum, mode, type, named)
   if ((mode == BLKmode
        || GET_MODE_CLASS (mode) != MODE_COMPLEX_INT
        || GET_MODE_CLASS (mode) != MODE_COMPLEX_FLOAT)
-      && cum->arg_words < MAX_ARGS_IN_REGISTERS
+      && cum->arg_words < (unsigned) MAX_ARGS_IN_REGISTERS
       && mips_abi != ABI_EABI)
     {
       int words;
@@ -4134,7 +4138,7 @@ function_arg_partial_nregs (cum, mode, type, named)
       else
 	words = (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
-      if (words + cum->arg_words <= MAX_ARGS_IN_REGISTERS)
+      if (words + cum->arg_words <= (unsigned) MAX_ARGS_IN_REGISTERS)
 	return 0;		/* structure fits in registers */
 
       if (TARGET_DEBUG_E_MODE)
@@ -4144,7 +4148,7 @@ function_arg_partial_nregs (cum, mode, type, named)
       return MAX_ARGS_IN_REGISTERS - cum->arg_words;
     }
 
-  else if (mode == DImode && cum->arg_words == MAX_ARGS_IN_REGISTERS-1
+  else if (mode == DImode && cum->arg_words == MAX_ARGS_IN_REGISTERS - 1U
 	   && ! TARGET_64BIT && mips_abi != ABI_EABI)
     {
       if (TARGET_DEBUG_E_MODE)
@@ -4652,7 +4656,7 @@ override_options ()
      user. */
 #ifdef TARGET_DEFAULT
   if (TARGET_SINGLE_FLOAT && TARGET_SOFT_FLOAT)
-    target_flags &= ~(TARGET_DEFAULT&(MASK_SOFT_FLOAT|MASK_SINGLE_FLOAT));
+    target_flags &= ~((TARGET_DEFAULT) & (MASK_SOFT_FLOAT | MASK_SINGLE_FLOAT));
 #endif
 
   /* Get the architectural level.  */
@@ -4769,10 +4773,10 @@ override_options ()
     mips_cpu_string = MIPS_CPU_STRING_DEFAULT;
 #endif
 
-  /* Identify the processor type */
+  /* Identify the processor type.  */
   if (mips_cpu_string == 0
-      || !strcmp (mips_cpu_string, "default")
-      || !strcmp (mips_cpu_string, "DEFAULT"))
+      || ! strcmp (mips_cpu_string, "default")
+      || ! strcmp (mips_cpu_string, "DEFAULT"))
     {
       switch (mips_isa)
 	{
@@ -4794,7 +4798,6 @@ override_options ()
 	  break;
 	}
     }
-
   else
     {
       const char *p = mips_cpu_string;
@@ -4809,7 +4812,7 @@ override_options ()
 	p++;
 
       /* Since there is no difference between a R2000 and R3000 in
-	 terms of the scheduler, we collapse them into just an R3000. */
+	 terms of the scheduler, we collapse them into just an R3000.  */
 
       mips_cpu = PROCESSOR_DEFAULT;
       switch (*p)
@@ -6433,7 +6436,7 @@ save_restore_insns (store_p, large_reg, large_offset, file)
 		  && GET_MODE (base_reg_rtx) == SImode)
 		{
 		  insn = emit_move_insn (base_reg_rtx,
-					 GEN_INT (gp_offset & 0xffff0000));
+					 GEN_INT (gp_offset & 0xffff0000U));
 		  if (store_p)
 		    RTX_FRAME_RELATED_P (insn) = 1;
 		  insn
@@ -6651,7 +6654,7 @@ save_restore_insns (store_p, large_reg, large_offset, file)
 		  && GET_MODE (base_reg_rtx) == SImode)
 		{
 		  insn = emit_move_insn (base_reg_rtx,
-					 GEN_INT (fp_offset & 0xffff0000));
+					 GEN_INT (fp_offset & 0xffff0000U));
 		  if (store_p)
 		    RTX_FRAME_RELATED_P (insn) = 1;
 		  insn = emit_insn (gen_iorsi3 (base_reg_rtx, base_reg_rtx,
@@ -6853,9 +6856,9 @@ function_prologue (file, size)
 	  dest = SET_DEST (set);
 	  if (GET_CODE (dest) != MEM)
 	    continue;
-	  if (GET_MODE_SIZE (GET_MODE (dest)) == UNITS_PER_WORD)
+	  if (GET_MODE_SIZE (GET_MODE (dest)) == (unsigned) UNITS_PER_WORD)
 	    ;
-	  else if (GET_MODE_SIZE (GET_MODE (dest)) == 2 * UNITS_PER_WORD
+	  else if (GET_MODE_SIZE (GET_MODE (dest)) == 2U * UNITS_PER_WORD
 		   && REGNO (src) < GP_REG_FIRST + 7)
 	    ;
 	  else
@@ -6865,11 +6868,12 @@ function_prologue (file, size)
 	  if (GET_CODE (base) != REG
 	      || GET_CODE (offset) != CONST_INT)
 	    continue;
-	  if (REGNO (base) == STACK_POINTER_REGNUM
-	      && INTVAL (offset) == tsize + (REGNO (src) - 4) * UNITS_PER_WORD)
+	  if (REGNO (base) == (unsigned) STACK_POINTER_REGNUM
+	      && (unsigned HOST_WIDE_INT) INTVAL (offset)
+	      == tsize + (REGNO (src) - 4) * UNITS_PER_WORD)
 	    ;
-	  else if (REGNO (base) == HARD_FRAME_POINTER_REGNUM
-		   && (INTVAL (offset)
+	  else if (REGNO (base) == (unsigned) HARD_FRAME_POINTER_REGNUM
+		   && ((unsigned HOST_WIDE_INT) INTVAL (offset)
 		       == (tsize
 			   + (REGNO (src) - 4) * UNITS_PER_WORD
 			   - current_function_outgoing_args_size)))
@@ -6980,7 +6984,7 @@ mips_expand_prologue ()
      of the first argument in the variable part of the argument list,
      otherwise GP_ARG_LAST+1.  Note also if the last argument is 
      the varargs special argument, and treat it as part of the
-     variable arguments. 
+     variable arguments.
      
      This is only needed if store_args_on_stack is true. */
 
@@ -7193,7 +7197,7 @@ mips_expand_prologue ()
 		  && GET_MODE (tmp_rtx) == SImode)
 		{
 		  insn = emit_move_insn (tmp_rtx,
-					 GEN_INT (tsize & 0xffff0000));
+					 GEN_INT (tsize & 0xffff0000U));
 		  RTX_FRAME_RELATED_P (insn) = 1;
 		  insn = emit_insn (gen_iorsi3 (tmp_rtx, tmp_rtx,
 						GEN_INT (tsize & 0x0000ffff)));
@@ -7312,7 +7316,7 @@ mips_expand_prologue ()
 /* Do any necessary cleanup after a function to restore stack, frame,
    and regs. */
 
-#define RA_MASK ((long) 0x80000000)	/* 1 << 31 */
+#define RA_MASK ((unsigned long) 0x80000000U)	/* 1 << 31 */
 #define PIC_OFFSET_TABLE_MASK (1 << (PIC_OFFSET_TABLE_REGNUM - GP_REG_FIRST))
 
 void
@@ -7594,7 +7598,7 @@ mips_select_rtx_section (mode, x)
       /* For hosted applications, always put constants in small data if
 	 possible, as this gives the best performance.  */
      
-      if (GET_MODE_SIZE (mode) <= mips_section_threshold
+      if (GET_MODE_SIZE (mode) <= (unsigned) mips_section_threshold
 	  && mips_section_threshold > 0)
 	SMALL_DATA_SECTION ();
       else if (flag_pic && symbolic_expression_p (x))
@@ -7805,15 +7809,14 @@ function_arg_pass_by_reference (cum, mode, type, named)
      here hopefully is not relevant to mips_va_arg.  */
   if (cum && MUST_PASS_IN_STACK (mode, type))
      {
-        /* Don't pass the actual CUM to FUNCTION_ARG, because we would 
-           get double copies of any offsets generated for small structs 
-           passed in registers. */
-        CUMULATIVE_ARGS temp;
-        temp = *cum;
-        if (FUNCTION_ARG (temp, mode, type, named) != 0)
-           return 1;
+       /* Don't pass the actual CUM to FUNCTION_ARG, because we would 
+	  get double copies of any offsets generated for small structs 
+	  passed in registers. */
+       CUMULATIVE_ARGS temp;
+       temp = *cum;
+       if (FUNCTION_ARG (temp, mode, type, named) != 0)
+	 return 1;
      }
-
 
   /* Otherwise, we only do this if EABI is selected.  */
   if (mips_abi != ABI_EABI)
@@ -8159,7 +8162,10 @@ mips16_constant (x, mode, addr, addend)
          knows how to handle this.  We can always accept a string
          constant, which is the other case in which SYMBOL_REF_FLAG
          will be set.  */
-      if (! addr && ! addend && SYMBOL_REF_FLAG (x) && mode == Pmode)
+      if (! addr
+	  && ! addend
+	  && SYMBOL_REF_FLAG (x)
+	  && mode == (enum machine_mode) Pmode)
 	return 1;
 
       /* We can accept a string constant, which will have
@@ -8713,7 +8719,7 @@ mips16_optimize_gp (first)
     {
       rtx set;
 
-      if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+      if (! INSN_P (insn))
 	continue;
 
       set = PATTERN (insn);
@@ -8730,14 +8736,14 @@ mips16_optimize_gp (first)
 	  && GET_CODE (XEXP (SET_SRC (set), 0)) == REG
 	  && REGNO (XEXP (SET_SRC (set), 0)) == GP_REG_FIRST + 28
 	  && GET_CODE (SET_DEST (set)) == REG
-	  && GET_MODE (SET_DEST (set)) == Pmode)
+	  && GET_MODE (SET_DEST (set)) == (unsigned) Pmode)
 	gpcopy = SET_DEST (set);
       else if (slot == NULL_RTX
 	       && gpcopy != NULL_RTX
 	       && GET_CODE (SET_DEST (set)) == MEM
 	       && GET_CODE (SET_SRC (set)) == REG
 	       && REGNO (SET_SRC (set)) == REGNO (gpcopy)
-	       && GET_MODE (SET_DEST (set)) == Pmode)
+	       && GET_MODE (SET_DEST (set)) == (unsigned) Pmode)
 	{
 	  rtx base, offset;
 
@@ -8754,7 +8760,7 @@ mips16_optimize_gp (first)
 	       && reg_overlap_mentioned_p (SET_DEST (set), gpcopy)
 	       && (GET_CODE (SET_DEST (set)) != REG
 		   || REGNO (SET_DEST (set)) != REGNO (gpcopy)
-		   || GET_MODE (SET_DEST (set)) != Pmode
+		   || GET_MODE (SET_DEST (set)) != (unsigned) Pmode
 		   || ((GET_CODE (SET_SRC (set)) != CONST
 			|| GET_CODE (XEXP (SET_SRC (set), 0)) != REG
 			|| (REGNO (XEXP (SET_SRC (set), 0))
@@ -8812,10 +8818,10 @@ mips16_optimize_gp (first)
 	  if (next == NULL_RTX)
 	    break;
 
-	  if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+	  if (! INSN_P (insn))
 	    continue;
 
-	  if (GET_RTX_CLASS (GET_CODE (next)) != 'i')
+	  if (! INSN_P (next))
 	    continue;
 
 	  set1 = PATTERN (insn);
@@ -8868,12 +8874,12 @@ mips16_optimize_gp (first)
     {
       rtx set;
 
-      if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+      if (! INSN_P (insn))
 	continue;
 
       set = PATTERN (insn);
       if (GET_CODE (set) != SET
-	  || GET_MODE (SET_DEST (set)) != Pmode)
+	  || GET_MODE (SET_DEST (set)) != (unsigned) Pmode)
 	continue;
 
       if (GET_CODE (SET_DEST (set)) == MEM

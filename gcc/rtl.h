@@ -148,7 +148,9 @@ typedef struct rtx_def
      together with the preceding insn.  Valid only within sched.
      1 in an INSN, JUMP_INSN, or CALL_INSN if insn is in a delay slot and
      from the target of a branch.  Valid from reorg until end of compilation;
-     cleared before used.  */
+     cleared before used.
+     1 in an INSN if this insn is dead code.  Valid only during
+     dead-code elimination phase; cleared before use. */
   unsigned int in_struct : 1;
   /* 1 if this rtx is used.  This is used for copying shared structure.
      See `unshare_all_rtl'.
@@ -202,9 +204,25 @@ typedef struct rtvec_def{
 #define GET_NUM_ELEM(RTVEC)		((RTVEC)->num_elem)
 #define PUT_NUM_ELEM(RTVEC, NUM)	((RTVEC)->num_elem = (NUM))
 
-/* 1 if X is a REG.  */
-
+/* Predicate yielding nonzero iff X is an rtl for a register.  */
 #define REG_P(X) (GET_CODE (X) == REG)
+
+/* Predicate yielding nonzero iff X is a label insn.  */
+#define LABEL_P(X) (GET_CODE (X) == CODE_LABEL)
+
+/* Predicate yielding nonzero iff X is a jump insn.  */
+#define JUMP_P(X) (GET_CODE (X) == JUMP_INSN)
+
+/* Predicate yielding nonzero iff X is a note insn.  */
+#define NOTE_P(X) (GET_CODE (X) == NOTE)
+
+/* Predicate yielding nonzero iff X is a barrier insn.  */
+#define BARRIER_P(X) (GET_CODE (X) == BARRIER)
+
+/* Predicate yielding nonzero iff X is a data for a jump table.  */
+#define JUMP_TABLE_DATA_P(INSN) \
+  (JUMP_P (INSN) && (GET_CODE (PATTERN (INSN)) == ADDR_VEC || \
+		     GET_CODE (PATTERN (INSN)) == ADDR_DIFF_VEC))
 
 /* 1 if X is a constant value that is an integer.  */
 
@@ -374,6 +392,9 @@ extern void rtvec_check_failed_bounds PARAMS ((rtvec, int,
    delay slots, i.e., it is an annulled branch.   */
 #define INSN_ANNULLED_BRANCH_P(INSN) ((INSN)->unchanging)
 
+/* 1 if insn is a dead code.  Valid only for dead-code elimination phase. */
+#define INSN_DEAD_CODE_P(INSN) ((INSN)->in_struct)
+
 /* 1 if insn is in a delay slot and is from the target of the branch.  If
    the branch insn has INSN_ANNULLED_BRANCH_P set, this insn should only be
    executed if the branch is taken.  For annulled branches with this bit
@@ -515,7 +536,13 @@ enum reg_note
   REG_EH_RETHROW,
 
   /* Used by haifa-sched to save NOTE_INSN notes across scheduling.  */
-  REG_SAVE_NOTE
+  REG_SAVE_NOTE,
+
+  /* Indicates that this insn (which is part of the prologue) computes
+     a value which might not be used later, and if so it's OK to delete
+     the insn.  Normally, deleting any insn in the prologue is an error. 
+     At present the parameter is unused and set to (const_int 0).  */
+  REG_MAYBE_DEAD
 };
 
 /* The base value for branch probability notes.  */
@@ -716,9 +743,32 @@ extern const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS];
 /* 1 in a REG rtx if it corresponds to a variable declared by the user.  */
 #define REG_USERVAR_P(RTX) ((RTX)->volatil)
 
+/* 1 if the given register REG corresponds to a hard register.  */
+#define HARD_REGISTER_P(REG) (HARD_REGISTER_NUM_P (REGNO (REG)))
+
+/* 1 if the given register number REG_NO corresponds to a hard register.  */
+#define HARD_REGISTER_NUM_P(REG_NO) (REG_NO < FIRST_PSEUDO_REGISTER)
+
 /* For a CONST_INT rtx, INTVAL extracts the integer.  */
 
 #define INTVAL(RTX) XCWINT(RTX, 0, CONST_INT)
+
+/* For a CONST_DOUBLE:
+   The usual two ints that hold the value.
+   For a DImode, that is all there are;
+    and CONST_DOUBLE_LOW is the low-order word and ..._HIGH the high-order.
+   For a float, the number of ints varies,
+    and CONST_DOUBLE_LOW is the one that should come first *in memory*.
+    So use &CONST_DOUBLE_LOW(r) as the address of an array of ints.  */
+#define CONST_DOUBLE_LOW(r) XCWINT (r, 2, CONST_DOUBLE)
+#define CONST_DOUBLE_HIGH(r) XCWINT (r, 3, CONST_DOUBLE)
+
+/* Link for chain of all CONST_DOUBLEs in use in current function.  */
+#define CONST_DOUBLE_CHAIN(r) XCEXP (r, 1, CONST_DOUBLE)
+/* The MEM which represents this CONST_DOUBLE's value in memory,
+   or const0_rtx if no MEM has been made for it yet,
+   or cc0_rtx if it is not on the chain.  */
+#define CONST_DOUBLE_MEM(r) XCEXP (r, 0, CONST_DOUBLE)
 
 /* For a SUBREG rtx, SUBREG_REG extracts the value we want a subreg of.
    SUBREG_WORD extracts the word-number.  */

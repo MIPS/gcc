@@ -1109,12 +1109,16 @@ parse_float (data)
 	case 'f': case 'F':
 	  if (fflag)
 	    error ("more than one `f' in numeric constant");
+	  else if (warn_traditional && !in_system_header)
+	    warning ("traditional C rejects the `%c' suffix", args->c);
 	  fflag = 1;
 	  break;
 
 	case 'l': case 'L':
 	  if (lflag)
 	    error ("more than one `l' in numeric constant");
+	  else if (warn_traditional && !in_system_header)
+	    warning ("traditional C rejects the `%c' suffix", args->c);
 	  lflag = 1;
 	  break;
 
@@ -1122,7 +1126,7 @@ parse_float (data)
 	  if (args->imag)
 	    error ("more than one `i' or `j' in numeric constant");
 	  else if (pedantic)
-	    pedwarn ("ANSI C forbids imaginary numeric constants");
+	    pedwarn ("ISO C forbids imaginary numeric constants");
 	  args->imag = 1;
 	  break;
 
@@ -1762,6 +1766,7 @@ yylex ()
 	    int spec_unsigned = 0;
 	    int spec_long = 0;
 	    int spec_long_long = 0;
+	    int suffix_lu = 0;
 	    int spec_imag = 0;
 	    int warn = 0, i;
 
@@ -1772,7 +1777,11 @@ yylex ()
 		  {
 		    if (spec_unsigned)
 		      error ("two `u's in integer constant");
+ 		    else if (warn_traditional && !in_system_header)
+ 		      warning ("traditional C rejects the `%c' suffix", c);
 		    spec_unsigned = 1;
+		    if (spec_long)
+		      suffix_lu = 1;
 		  }
 		else if (c == 'l' || c == 'L')
 		  {
@@ -1780,19 +1789,23 @@ yylex ()
 		      {
 			if (spec_long_long)
 			  error ("three `l's in integer constant");
+			else if (suffix_lu)
+			  error ("`LUL' is not a valid integer suffix");
+			else if (c != spec_long)
+			  error ("`Ll' and `lL' are not valid integer suffixes");
 			else if (pedantic && ! flag_isoc99
 				 && ! in_system_header && warn_long_long)
-			  pedwarn ("ANSI C forbids long long integer constants");
+			  pedwarn ("ISO C89 forbids long long integer constants");
 			spec_long_long = 1;
 		      }
-		    spec_long = 1;
+		    spec_long = c;
 		  }
 		else if (c == 'i' || c == 'j' || c == 'I' || c == 'J')
 		  {
 		    if (spec_imag)
 		      error ("more than one `i' or `j' in numeric constant");
 		    else if (pedantic)
-		      pedwarn ("ANSI C forbids imaginary numeric constants");
+		      pedwarn ("ISO C forbids imaginary numeric constants");
 		    spec_imag = 1;
 		  }
 		else
@@ -1907,7 +1920,7 @@ yylex ()
 		  warning ("width of integer constant changes with -traditional");
 		else if (TREE_UNSIGNED (traditional_type)
 			 != TREE_UNSIGNED (ansi_type))
-		  warning ("integer constant is unsigned in ANSI C, signed with -traditional");
+		  warning ("integer constant is unsigned in ISO C, signed with -traditional");
 		else
 		  warning ("width of integer constant may change on other systems with -traditional");
 	      }
@@ -2011,7 +2024,7 @@ yylex ()
 	    else if (c == '\n')
 	      {
 		if (pedantic)
-		  pedwarn ("ANSI C forbids newline in character constant");
+		  pedwarn ("ISO C forbids newline in character constant");
 		lineno++;
 	      }
 	    else
@@ -2168,7 +2181,7 @@ yylex ()
 	    else if (c == '\n')
 	      {
 		if (pedantic)
-		  pedwarn ("ANSI C forbids newline in string constant");
+		  pedwarn ("ISO C forbids newline in string constant");
 		lineno++;
 	      }
 	    else
@@ -2268,25 +2281,19 @@ yylex ()
 	/* We have read the entire constant.
 	   Construct a STRING_CST for the result.  */
 
+	yylval.ttype = build_string (p - (token_buffer + 1), token_buffer + 1);
 	if (wide_flag)
 	  {
-	    yylval.ttype = build_string (p - (token_buffer + 1),
-					 token_buffer + 1);
 	    TREE_TYPE (yylval.ttype) = wchar_array_type_node;
 	    value = STRING;
 	  }
 	else if (objc_flag)
 	  {
-	    /* Return an Objective-C @"..." constant string object.  */
-	    yylval.ttype = build_objc_string (p - (token_buffer + 1),
-					      token_buffer + 1);
 	    TREE_TYPE (yylval.ttype) = char_array_type_node;
 	    value = OBJC_STRING;
 	  }
 	else
 	  {
-	    yylval.ttype = build_string (p - (token_buffer + 1),
-					 token_buffer + 1);
 	    TREE_TYPE (yylval.ttype) = char_array_type_node;
 	    value = STRING;
 	  }
