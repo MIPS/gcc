@@ -1,5 +1,12 @@
 2004-06-25  David Jee  <djee@redhat.com>
 
+	* java/awt/Component.java
+	(move): Delegate to setBounds().
+	(resize): Likewise.
+	(reshape): Fix so it repaints parent and self only when necessary.
+
+2004-06-25  David Jee  <djee@redhat.com>
+
 	* gnu/java/awt/peer/gtk/GtkComponentPeer.java,
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
 	(GtkComponentPeer): Revert previous patch from 2004-06-22.

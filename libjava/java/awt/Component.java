@@ -1175,30 +1175,7 @@ public abstract class Component
    */
   public void move(int x, int y)
   {
-    int oldx = this.x;
-    int oldy = this.y;
-
-    if (this.x == x && this.y == y)
-      return;
-    invalidate ();
-    this.x = x;
-    this.y = y;
-    if (peer != null)
-      peer.setBounds (x, y, width, height);
-
-    // Erase old bounds and repaint new bounds for lightweights.
-    if (isLightweight() && width != 0 && height !=0)
-      {
-        parent.repaint(oldx, oldy, width, height);
-        repaint();
-      }
-
-    if (oldx != x || oldy != y)
-      {
-        ComponentEvent ce = new ComponentEvent(this,
-                                               ComponentEvent.COMPONENT_MOVED);
-        getToolkit().getSystemEventQueue().postEvent(ce);
-      }
+    setBounds(x, y, this.width, this.height);
   }
 
   /**
@@ -1262,32 +1239,7 @@ public abstract class Component
    */
   public void resize(int width, int height)
   {
-    int oldwidth = this.width;
-    int oldheight = this.height;
-
-    if (this.width == width && this.height == height)
-      return;
-    invalidate ();
-    this.width = width;
-    this.height = height;
-    if (peer != null)
-      peer.setBounds (x, y, width, height);
-
-    // Erase old bounds and repaint new bounds for lightweights.
-    if (isLightweight())
-      {
-        if (oldwidth != 0 && oldheight != 0 && parent != null)
-          parent.repaint(x, y, oldwidth, oldheight);
-        if (width != 0 && height != 0)
-          repaint();
-      }
-
-    if (oldwidth != width || oldheight != height)
-      {
-        ComponentEvent ce =
-          new ComponentEvent(this, ComponentEvent.COMPONENT_RESIZED);
-        getToolkit().getSystemEventQueue().postEvent(ce);
-      }
+    setBounds(this.x, this.y, width, height);
   }
 
   /**
@@ -1395,9 +1347,25 @@ public abstract class Component
     // Erase old bounds and repaint new bounds for lightweights.
     if (isLightweight())
       {
-        if (oldwidth != 0 && oldheight != 0 && parent != null)
+        boolean shouldRepaintParent = false;
+        boolean shouldRepaintSelf = false;
+
+        if (parent != null)
+          {
+            Rectangle parentBounds = parent.getBounds();
+            Rectangle oldBounds = new Rectangle(parent.getX() + oldx,
+                                                parent.getY() + oldy,
+                                                oldwidth, oldheight);
+            Rectangle newBounds = new Rectangle(parent.getX() + x,
+                                                parent.getY() + y,
+                                                width, height);
+            shouldRepaintParent = parentBounds.intersects(oldBounds);
+            shouldRepaintSelf = parentBounds.intersects(newBounds);
+          }
+
+        if (shouldRepaintParent)
           parent.repaint(oldx, oldy, oldwidth, oldheight);
-        if (width != 0 && height != 0)
+        if (shouldRepaintSelf)
           repaint();
       }
 
