@@ -161,7 +161,11 @@ extern void dump_data_dependence_relations (FILE *, varray_type);
 extern void dump_data_dependence_direction (FILE *, 
 					    enum data_dependence_direction);
 extern bool array_base_name_differ_p (struct data_reference *, 
-				      struct data_reference *, bool *p);
+				      struct data_reference *, bool *);
+extern void free_dependence_relation (struct data_dependence_relation *);
+extern void free_dependence_relations (varray_type);
+extern void free_data_refs (varray_type);
+
 
 
 

@@ -1,3 +1,21 @@
+2004-07-29  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* lambda-mat.c (lambda_matrix_new): Size of a matrix row is sizeof 
+	lambda_vector.
+	(lambda_matrix_hermite, lambda_matrix_first_nz_vec): Clarify comments.
+	(lambda_matrix_right_hermite, lambda_matrix_left_hermite): New.
+	* lambda.h (lambda_matrix_right_hermite, lambda_matrix_left_hermite): 
+	Declared here.
+	* tree-data-ref.c (free_dependence_relation, free_dependence_relations, 
+	free_data_refs): New.
+	(analyze_all_data_dependences): Free datarefs and dependence_relations.
+	* tree-data-ref.h (free_dependence_relation, free_dependence_relations, 
+	free_data_refs): Declared here.
+	* tree-loop-linear.c (linear_transform_loops): Free datarefs and 
+	dependence_relations.
+	* tree-vectorizer.c (destroy_loop_vec_info): Use free_data_refs.
+	(vect_analyze_data_ref_dependence): Free the reference after its use.
+
 2004-07-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	PR tree-optimization/16690

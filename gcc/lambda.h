@@ -131,6 +131,8 @@ void lambda_matrix_col_negate (lambda_matrix, int, int);
 void lambda_matrix_col_mc (lambda_matrix, int, int, int);
 int lambda_matrix_inverse (lambda_matrix, lambda_matrix, int);
 void lambda_matrix_hermite (lambda_matrix, int, lambda_matrix, lambda_matrix);
+void lambda_matrix_left_hermite (lambda_matrix, int, int, lambda_matrix, lambda_matrix);
+void lambda_matrix_right_hermite (lambda_matrix, int, int, lambda_matrix, lambda_matrix);
 int lambda_matrix_first_nz_vec (lambda_matrix, int, int, int);
 void lambda_matrix_project_to_null (lambda_matrix, int, int, int, 
 				    lambda_vector);

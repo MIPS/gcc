@@ -37,7 +37,7 @@ lambda_matrix_new (int m, int n)
   lambda_matrix mat;
   int i;
 
-  mat = ggc_alloc_cleared (m * sizeof (int));
+  mat = ggc_alloc_cleared (m * sizeof (lambda_vector));
   
   for (i = 0; i < m; i++)
     mat[i] = lambda_vector_new (n);
@@ -412,8 +412,9 @@ lambda_matrix_inverse_hard (lambda_matrix mat, lambda_matrix inv, int n)
   return determinant;
 }
 
-/* Decompose MAT to a product of a lower triangular H and a unimodular
-   U matrix such that MAT = H.U.  N is the size of the rows of MAT.  */
+/* Decompose a N x N matrix MAT to a product of a lower triangular H
+   and a unimodular U matrix such that MAT = H.U.  N is the size of
+   the rows of MAT.  */
 
 void
 lambda_matrix_hermite (lambda_matrix mat, int n,
@@ -456,14 +457,103 @@ lambda_matrix_hermite (lambda_matrix mat, int n,
     }
 }
 
-/* Find the first non-zero vector in mat, if found.
-   return rowsize if not found.  */
+/* Given an M x N integer matrix A, this function determines an M x
+   M unimodular matrix U, and an M x N echelon matrix S such that
+   "U.MAT = S".  This decomposition is also known as "right Hermite".
+   
+   Ref: Algorithm 2.1 page 33 in "Loop Transformations for
+   Restructuring Compilers" Utpal Banerjee. */
+
+void
+lambda_matrix_right_hermite (lambda_matrix A, int m, int n,
+			     lambda_matrix S, lambda_matrix U)
+{
+  int i, j, i0 = 0;
+
+  lambda_matrix_copy (A, S, m, n);
+  lambda_matrix_id (U, m);
+
+  for (j = 0; j < m; j++)
+    {
+      if (lambda_vector_first_nz (S[j], m, i0) < m)
+	{
+	  ++i0;
+	  for (i = m - 1; i >= i0; i--)
+	    {
+	      while (S[i][j] != 0)
+		{
+		  int sigma, factor, a, b;
+
+		  a = S[i-1][j];
+		  b = S[i][j];
+		  sigma = (a * b < 0) ? -1: 1;
+		  a = (a < 0) ? -1 * a : a;
+		  b = (b < 0) ? -1 * b : b;
+		  factor = sigma * (a / b);
+
+		  lambda_matrix_row_add (S, n, i, i-1, -factor);
+		  lambda_matrix_row_exchange (S, i, i-1);
+		      
+		  lambda_matrix_row_add (U, m, i, i-1, -factor);
+		  lambda_matrix_row_exchange (U, i, i-1);
+		}
+	    }
+	}
+    }
+}
+
+/* Given an M x N integer matrix A, this function determines an M x M
+   unimodular matrix V, and an M x N echelon matrix S such that "A =
+   V.S".  This decomposition is also known as "left Hermite".
+   
+   Ref: Algorithm 2.2 page 36 in "Loop Transformations for
+   Restructuring Compilers" Utpal Banerjee. */
+
+void
+lambda_matrix_left_hermite (lambda_matrix A, int m, int n,
+			     lambda_matrix S, lambda_matrix V)
+{
+  int i, j, i0 = 0;
+
+  lambda_matrix_copy (A, S, m, n);
+  lambda_matrix_id (V, m);
+
+  for (j = 0; j < m; j++)
+    {
+      if (lambda_vector_first_nz (S[j], m, i0) < m)
+	{
+	  ++i0;
+	  for (i = m - 1; i >= i0; i--)
+	    {
+	      while (S[i][j] != 0)
+		{
+		  int sigma, factor, a, b;
+
+		  a = S[i-1][j];
+		  b = S[i][j];
+		  sigma = (a * b < 0) ? -1: 1;
+		  a = (a < 0) ? -1 * a : a;
+		  b = (b < 0) ? -1 * b : b;
+		  factor = sigma * (a / b);
+
+		  lambda_matrix_row_add (S, n, i, i-1, -factor);
+		  lambda_matrix_row_exchange (S, i, i-1);
+
+		  lambda_matrix_col_add (V, m, i-1, i, factor);
+		  lambda_matrix_col_exchange (V, m, i, i-1);
+		}
+	    }
+	}
+    }
+}
+
+/* When it exists, return the first non-zero row in MAT after row
+   STARTROW.  Otherwise return rowsize.  */
 
 int
 lambda_matrix_first_nz_vec (lambda_matrix mat, int rowsize, int colsize,
 			    int startrow)
 {
-
   int j;
   bool found = false;
 

@@ -277,9 +277,9 @@ linear_transform_loops (struct loops *loops)
 	}
       lambda_loopnest_to_gcc_loopnest (loop_nest, oldivs, invariants,
 				       after, trans);
-      varray_clear (datarefs);
-      varray_clear (dependence_relations);
       varray_clear (oldivs);
       varray_clear (invariants);
+      free_dependence_relations (dependence_relations);
+      free_data_refs (datarefs);
     }
 }

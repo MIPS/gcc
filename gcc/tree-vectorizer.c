@@ -331,8 +331,8 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo)
     }
 
   free (LOOP_VINFO_BBS (loop_vinfo));
-  varray_clear (LOOP_VINFO_DATAREF_WRITES (loop_vinfo));
-  varray_clear (LOOP_VINFO_DATAREF_READS (loop_vinfo));
+  free_data_refs (LOOP_VINFO_DATAREF_WRITES (loop_vinfo));
+  free_data_refs (LOOP_VINFO_DATAREF_READS (loop_vinfo));
 
   free (loop_vinfo);
 }
@@ -2697,7 +2697,8 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
 
   if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
     return false;
-  
+  free_dependence_relation (ddr);
+
   if (vect_debug_stats (loop) || vect_debug_details (loop))
     {
       fprintf (dump_file,

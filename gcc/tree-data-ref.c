@@ -1946,9 +1946,55 @@ analyze_all_data_dependences (struct loops *loops)
       
       gather_stats_on_scev_database ();
     }
-  
-  varray_clear (dependence_relations);
-  varray_clear (datarefs);
+
+  free_dependence_relations (dependence_relations);
+  free_data_refs (datarefs);
 }
 
+/* Free the memory used by a data dependence relation DDR.  */
 
+void
+free_dependence_relation (struct data_dependence_relation *ddr)
+{
+  if (ddr == NULL)
+    return;
+
+  if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE && DDR_SUBSCRIPTS (ddr))
+    varray_clear (DDR_SUBSCRIPTS (ddr));
+  free (ddr);
+}
+
+/* Free the memory used by the data dependence relations from
+   DEPENDENCE_RELATIONS.  */
+
+void 
+free_dependence_relations (varray_type dependence_relations)
+{
+  unsigned int i;
+  if (dependence_relations == NULL)
+    return;
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (dependence_relations); i++)
+    free_dependence_relation (VARRAY_GENERIC_PTR (dependence_relations, i));
+  varray_clear (dependence_relations);
+}
+
+/* Free the memory used by the data references from DATAREFS.  */
+
+void
+free_data_refs (varray_type datarefs)
+{
+  unsigned int i;
+  
+  if (datarefs == NULL)
+    return;
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
+    {
+      struct data_reference *dr = (struct data_reference *) 
+	VARRAY_GENERIC_PTR (datarefs, i);
+      if (dr && DR_ACCESS_FNS (dr))
+	varray_clear (DR_ACCESS_FNS (dr));
+    }
+  varray_clear (datarefs);
+}
