@@ -499,7 +499,7 @@ real_value_from_int_cst (tree type, tree i)
 
   real_from_integer (&d, type ? TYPE_MODE (type) : VOIDmode,
 		     TREE_INT_CST_LOW (i), TREE_INT_CST_HIGH (i),
-		     TREE_UNSIGNED (TREE_TYPE (i)));
+		     TYPE_UNSIGNED (TREE_TYPE (i)));
   return d;
 }
 
@@ -630,7 +630,7 @@ integer_all_onesp (tree expr)
 	   || TREE_CONSTANT_OVERFLOW (expr))
     return 0;
 
-  uns = TREE_UNSIGNED (TREE_TYPE (expr));
+  uns = TYPE_UNSIGNED (TREE_TYPE (expr));
   if (!uns)
     return (TREE_INT_CST_LOW (expr) == ~(unsigned HOST_WIDE_INT) 0
 	    && TREE_INT_CST_HIGH (expr) == -1);
@@ -2402,7 +2402,7 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
   TREE_TYPE (t) = type;
   TREE_COMPLEXITY (t) = 0;
   TREE_OPERAND (t, 0) = node;
-  if (node && first_rtl_op (code) != 0)
+  if (node && !TYPE_P (node) && first_rtl_op (code) != 0)
     {
       TREE_SIDE_EFFECTS (t) = TREE_SIDE_EFFECTS (node);
       TREE_READONLY (t) = TREE_READONLY (node);
@@ -2456,7 +2456,8 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
       break;
 
     default:
-      if (TREE_CODE_CLASS (code) == '1' && node && TREE_CONSTANT (node))
+      if (TREE_CODE_CLASS (code) == '1' && node && !TYPE_P (node)
+	  && TREE_CONSTANT (node))
 	TREE_CONSTANT (t) = 1;
       break;
     }
@@ -2467,7 +2468,7 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
 #define PROCESS_ARG(N)			\
   do {					\
     TREE_OPERAND (t, N) = arg##N;	\
-    if (arg##N && fro > N)		\
+    if (arg##N &&!TYPE_P (arg##N) && fro > N) \
       {					\
         if (TREE_SIDE_EFFECTS (arg##N))	\
 	  side_effects = 1;		\
@@ -2742,7 +2743,8 @@ build_expr_wfl (tree node, const char *file, int line, int col)
     }
 
   EXPR_WFL_FILENAME_NODE (wfl) = last_filenode;
-  if (node)
+
+  if (node && !TYPE_P (node))
     {
       TREE_SIDE_EFFECTS (wfl) = TREE_SIDE_EFFECTS (node);
       TREE_TYPE (wfl) = TREE_TYPE (node);
@@ -3473,7 +3475,7 @@ tree_int_cst_lt (tree t1, tree t2)
   if (t1 == t2)
     return 0;
 
-  if (TREE_UNSIGNED (TREE_TYPE (t1)) != TREE_UNSIGNED (TREE_TYPE (t2)))
+  if (TYPE_UNSIGNED (TREE_TYPE (t1)) != TYPE_UNSIGNED (TREE_TYPE (t2)))
     {
       int t1_sgn = tree_int_cst_sgn (t1);
       int t2_sgn = tree_int_cst_sgn (t2);
@@ -3486,7 +3488,7 @@ tree_int_cst_lt (tree t1, tree t2)
 	 unsigned just in case one of them would overflow a signed
 	 type.  */
     }
-  else if (! TREE_UNSIGNED (TREE_TYPE (t1)))
+  else if (!TYPE_UNSIGNED (TREE_TYPE (t1)))
     return INT_CST_LT (t1, t2);
 
   return INT_CST_LT_UNSIGNED (t1, t2);
@@ -3519,7 +3521,7 @@ host_integerp (tree t, int pos)
 	       && (HOST_WIDE_INT) TREE_INT_CST_LOW (t) >= 0)
 	      || (! pos && TREE_INT_CST_HIGH (t) == -1
 		  && (HOST_WIDE_INT) TREE_INT_CST_LOW (t) < 0
-		  && ! TREE_UNSIGNED (TREE_TYPE (t)))
+		  && !TYPE_UNSIGNED (TREE_TYPE (t)))
 	      || (pos && TREE_INT_CST_HIGH (t) == 0)));
 }
 
@@ -3562,7 +3564,7 @@ tree_int_cst_sgn (tree t)
 {
   if (TREE_INT_CST_LOW (t) == 0 && TREE_INT_CST_HIGH (t) == 0)
     return 0;
-  else if (TREE_UNSIGNED (TREE_TYPE (t)))
+  else if (TYPE_UNSIGNED (TREE_TYPE (t)))
     return 1;
   else if (TREE_INT_CST_HIGH (t) < 0)
     return -1;
@@ -4364,7 +4366,7 @@ get_unwidened (tree op, tree for_type)
   int uns
     = (for_type != 0 && for_type != type
        && final_prec > TYPE_PRECISION (type)
-       && TREE_UNSIGNED (type));
+       && TYPE_UNSIGNED (type));
   tree win = op;
 
   while (TREE_CODE (op) == NOP_EXPR)
@@ -4394,11 +4396,11 @@ get_unwidened (tree op, tree for_type)
 	{
 	  if (! uns || final_prec <= TYPE_PRECISION (TREE_TYPE (op)))
 	    win = op;
-	  /* TREE_UNSIGNED says whether this is a zero-extension.
+	  /* TYPE_UNSIGNED says whether this is a zero-extension.
 	     Let's avoid computing it if it does not affect WIN
 	     and if UNS will not be needed again.  */
 	  if ((uns || TREE_CODE (op) == NOP_EXPR)
-	      && TREE_UNSIGNED (TREE_TYPE (op)))
+	      && TYPE_UNSIGNED (TREE_TYPE (op)))
 	    {
 	      uns = 1;
 	      win = op;
@@ -4415,8 +4417,8 @@ get_unwidened (tree op, tree for_type)
     {
       unsigned int innerprec
 	= tree_low_cst (DECL_SIZE (TREE_OPERAND (op, 1)), 1);
-      int unsignedp = (TREE_UNSIGNED (TREE_OPERAND (op, 1))
-		       || TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (op, 1))));
+      int unsignedp = (DECL_UNSIGNED (TREE_OPERAND (op, 1))
+		       || TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (op, 1))));
       type = lang_hooks.types.type_for_size (innerprec, unsignedp);
 
       /* We can get this structure field in the narrowest type it fits in.
@@ -4471,11 +4473,11 @@ get_narrower (tree op, int *unsignedp_ptr)
 	  /* An extension: the outermost one can be stripped,
 	     but remember whether it is zero or sign extension.  */
 	  if (first)
-	    uns = TREE_UNSIGNED (TREE_TYPE (op));
+	    uns = TYPE_UNSIGNED (TREE_TYPE (op));
 	  /* Otherwise, if a sign extension has been stripped,
 	     only sign extensions can now be stripped;
 	     if a zero extension has been stripped, only zero-extensions.  */
-	  else if (uns != TREE_UNSIGNED (TREE_TYPE (op)))
+	  else if (uns != TYPE_UNSIGNED (TREE_TYPE (op)))
 	    break;
 	  first = 0;
 	}
@@ -4484,7 +4486,7 @@ get_narrower (tree op, int *unsignedp_ptr)
 	  /* A change in nominal type can always be stripped, but we must
 	     preserve the unsignedness.  */
 	  if (first)
-	    uns = TREE_UNSIGNED (TREE_TYPE (op));
+	    uns = TYPE_UNSIGNED (TREE_TYPE (op));
 	  first = 0;
 	  op = TREE_OPERAND (op, 0);
 	}
@@ -4500,8 +4502,8 @@ get_narrower (tree op, int *unsignedp_ptr)
     {
       unsigned HOST_WIDE_INT innerprec
 	= tree_low_cst (DECL_SIZE (TREE_OPERAND (op, 1)), 1);
-      int unsignedp = (TREE_UNSIGNED (TREE_OPERAND (op, 1))
-		       || TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (op, 1))));
+      int unsignedp = (DECL_UNSIGNED (TREE_OPERAND (op, 1))
+		       || TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (op, 1))));
       tree type = lang_hooks.types.type_for_size (innerprec, unsignedp);
 
       /* We can get this structure field in a narrower type that fits it,
@@ -4514,11 +4516,11 @@ get_narrower (tree op, int *unsignedp_ptr)
 
       if (innerprec < TYPE_PRECISION (TREE_TYPE (op))
 	  && ! DECL_BIT_FIELD (TREE_OPERAND (op, 1))
-	  && (first || uns == TREE_UNSIGNED (TREE_OPERAND (op, 1)))
+	  && (first || uns == DECL_UNSIGNED (TREE_OPERAND (op, 1)))
 	  && type != 0)
 	{
 	  if (first)
-	    uns = TREE_UNSIGNED (TREE_OPERAND (op, 1));
+	    uns = DECL_UNSIGNED (TREE_OPERAND (op, 1));
 	  win = build (COMPONENT_REF, type, TREE_OPERAND (op, 0),
 		       TREE_OPERAND (op, 1));
 	  TREE_SIDE_EFFECTS (win) = TREE_SIDE_EFFECTS (op);
@@ -4542,10 +4544,10 @@ int_fits_type_p (tree c, tree type)
   /* Perform some generic filtering first, which may allow making a decision
      even if the bounds are not constant.  First, negative integers never fit
      in unsigned types, */
-  if ((TREE_UNSIGNED (type) && tree_int_cst_sgn (c) < 0)
+  if ((TYPE_UNSIGNED (type) && tree_int_cst_sgn (c) < 0)
       /* Also, unsigned integers with top bit set never fit signed types.  */
-      || (! TREE_UNSIGNED (type)
-	  && TREE_UNSIGNED (TREE_TYPE (c)) && tree_int_cst_msb (c)))
+      || (! TYPE_UNSIGNED (type)
+	  && TYPE_UNSIGNED (TREE_TYPE (c)) && tree_int_cst_msb (c)))
     return 0;
 
   /* If at least one bound of the type is a constant integer, we can check
@@ -4627,38 +4629,62 @@ variably_modified_type_p (tree type)
     case POINTER_TYPE:
     case REFERENCE_TYPE:
     case ARRAY_TYPE:
-      /* If TYPE is a pointer or reference, it is variably modified if
-	 the type pointed to is variably modified.  Similarly for arrays;
-	 note that VLAs are handled by the TYPE_SIZE check above.  */
-      return variably_modified_type_p (TREE_TYPE (type));
+    case SET_TYPE:
+    case VECTOR_TYPE:
+      if (variably_modified_type_p (TREE_TYPE (type)))
+	return true;
+      break;
 
     case FUNCTION_TYPE:
     case METHOD_TYPE:
       /* If TYPE is a function type, it is variably modified if any of the
          parameters or the return type are variably modified.  */
-      {
-	tree parm;
-
-	if (variably_modified_type_p (TREE_TYPE (type)))
+      if (variably_modified_type_p (TREE_TYPE (type)))
 	  return true;
-	for (parm = TYPE_ARG_TYPES (type);
-	     parm && parm != void_list_node;
-	     parm = TREE_CHAIN (parm))
-	  if (variably_modified_type_p (TREE_VALUE (parm)))
-	    return true;
-      }
+
+      for (t = TYPE_ARG_TYPES (type);
+	   t && t != void_list_node;
+	   t = TREE_CHAIN (t))
+	if (variably_modified_type_p (TREE_VALUE (t)))
+	  return true;
       break;
 
     case INTEGER_TYPE:
+    case REAL_TYPE:
+    case ENUMERAL_TYPE:
+    case BOOLEAN_TYPE:
+    case CHAR_TYPE:
       /* Scalar types are variably modified if their end points
 	 aren't constant.  */
       t = TYPE_MIN_VALUE (type);
       if (t && t != error_mark_node && TREE_CODE (t) != INTEGER_CST)
 	return true;
+
       t = TYPE_MAX_VALUE (type);
       if (t && t != error_mark_node && TREE_CODE (t) != INTEGER_CST)
 	return true;
-      return false;
+      break;
+
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+      /* We can't see if any of the field are variably-modified by the
+	 definition we normally use, since that would produce infinite
+	 recursion via pointers.  */
+      /* This is variably modified if some field's type is.  */
+      for (t = TYPE_FIELDS (type); t; t = TREE_CHAIN (t))
+	if (TREE_CODE (t) == FIELD_DECL)
+	  {
+	    tree t1 = DECL_FIELD_OFFSET (t);
+
+	    if (t1 && t1 != error_mark_node && TREE_CODE (t1) != INTEGER_CST)
+	      return true;
+
+	    t1 = DECL_SIZE (t);
+	    if (t1 && t1 != error_mark_node && TREE_CODE (t1) != INTEGER_CST)
+	      return true;
+	  }
+	break;
 
     default:
       break;
@@ -5342,8 +5368,8 @@ reconstruct_complex_type (tree type, tree bottom)
   else
     return bottom;
 
-  TREE_READONLY (outer) = TREE_READONLY (type);
-  TREE_THIS_VOLATILE (outer) = TREE_THIS_VOLATILE (type);
+  TYPE_READONLY (outer) = TYPE_READONLY (type);
+  TYPE_VOLATILE (outer) = TYPE_VOLATILE (type);
 
   return outer;
 }
@@ -5356,7 +5382,6 @@ build_vector_type_for_mode (tree innertype, enum machine_mode mode)
   t = make_node (VECTOR_TYPE);
   TREE_TYPE (t) = innertype;
   TYPE_MODE (t) = mode;
-  TREE_UNSIGNED (t) = TREE_UNSIGNED (innertype);
   finish_vector_type (t);
   return t;
 }

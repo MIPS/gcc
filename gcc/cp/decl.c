@@ -3816,8 +3816,6 @@ start_decl_1 (tree decl)
   if (type == error_mark_node)
     return;
 
-  maybe_push_cleanup_level (type);
-
   if (initialized)
     /* Is it valid for this decl to have an initializer at all?
        If not, set INITIALIZED to zero, which will indirectly
@@ -3873,6 +3871,14 @@ start_decl_1 (tree decl)
 
   if (! initialized)
     DECL_INITIAL (decl) = NULL_TREE;
+
+  /* Create a new scope to hold this declaration if necessary.
+     Whether or not a new scope is necessary cannot be determined
+     until after the type has been completed; if the type is a
+     specialization of a class template it is not until after
+     instantiation has occurred that TYPE_HAS_NONTRIVIAL_DESTRUCTOR
+     will be set correctly.  */
+  maybe_push_cleanup_level (type);
 }
 
 /* Handle initialization of references.  DECL, TYPE, and INIT have the
@@ -4775,16 +4781,17 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
   if (TREE_CODE (decl) != FUNCTION_DECL)
     ttype = target_type (type);
 
-  if (! DECL_EXTERNAL (decl) && TREE_READONLY (decl)
-      && (TYPE_NEEDS_CONSTRUCTING (type) 
-	  || TREE_CODE (type) == REFERENCE_TYPE))
+  
+  /* Currently, GNU C++ puts constants in text space, making them
+     impossible to initialize.  In the future, one would hope for
+     an operating system which understood the difference between
+     initialization and the running of a program.  */
+  if (! DECL_EXTERNAL (decl) && TREE_READONLY (decl))
     {
-      /* Currently, GNU C++ puts constants in text space, making them
-	 impossible to initialize.  In the future, one would hope for
-	 an operating system which understood the difference between
-	 initialization and the running of a program.  */
       was_readonly = 1;
-      TREE_READONLY (decl) = 0;
+      if (TYPE_NEEDS_CONSTRUCTING (type) 
+	  || TREE_CODE (type) == REFERENCE_TYPE)
+	TREE_READONLY (decl) = 0;
     }
 
   if (TREE_CODE (decl) == VAR_DECL)
@@ -9781,7 +9788,7 @@ finish_enum (tree enumtype)
     {
       underlying_type = integer_types[itk];
       if (TYPE_PRECISION (underlying_type) >= precision
-	  && TREE_UNSIGNED (underlying_type) == unsignedp)
+	  && TYPE_UNSIGNED (underlying_type) == unsignedp)
 	break;
     }
   if (itk == itk_none)
@@ -9818,7 +9825,7 @@ finish_enum (tree enumtype)
   TYPE_MODE (enumtype) = TYPE_MODE (underlying_type);
   TYPE_ALIGN (enumtype) = TYPE_ALIGN (underlying_type);
   TYPE_USER_ALIGN (enumtype) = TYPE_USER_ALIGN (underlying_type);
-  TREE_UNSIGNED (enumtype) = TREE_UNSIGNED (underlying_type);
+  TYPE_UNSIGNED (enumtype) = TYPE_UNSIGNED (underlying_type);
 
   /* Convert each of the enumerators to the type of the underlying
      type of the enumeration.  */
@@ -9844,7 +9851,7 @@ finish_enum (tree enumtype)
       TYPE_PRECISION (t) = TYPE_PRECISION (enumtype);
       TYPE_ALIGN (t) = TYPE_ALIGN (enumtype);
       TYPE_USER_ALIGN (t) = TYPE_USER_ALIGN (enumtype);
-      TREE_UNSIGNED (t) = TREE_UNSIGNED (enumtype);
+      TYPE_UNSIGNED (t) = TYPE_UNSIGNED (enumtype);
     }
 
   /* Finish debugging output for this type.  */

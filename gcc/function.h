@@ -181,6 +181,13 @@ struct function GTY(())
   struct emit_status *emit;
   struct varasm_status *varasm;
 
+  /* For tree-optimize.c.  */
+
+  /* Saved tree and arguments during tree optimization.  Used later for
+     inlining */
+  tree saved_tree;
+  tree saved_args;
+
   /* For function.c.  */
 
   /* Points to the FUNCTION_DECL of this function.  */
@@ -377,7 +384,7 @@ struct function GTY(())
   /* For md files.  */
 
   /* tm.h can use this to store whatever it likes.  */
-  struct machine_function * GTY ((maybe_undef (""))) machine;
+  struct machine_function * GTY ((maybe_undef)) machine;
   /* The largest alignment of slot allocated on the stack.  */
   int stack_alignment_needed;
   /* Preferred alignment of the end of stack frame.  */

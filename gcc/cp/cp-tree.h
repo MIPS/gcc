@@ -3843,7 +3843,6 @@ extern tree implicitly_declare_fn (special_function_kind, tree, bool);
 extern tree skip_artificial_parms_for (tree, tree);
 
 /* In optimize.c */
-extern void optimize_function (tree);
 extern bool calls_setjmp_p (tree);
 extern bool maybe_clone_body (tree);
 
@@ -4163,6 +4162,7 @@ extern int cp_is_overload_p (tree);
 extern int cp_auto_var_in_fn_p (tree,tree);
 extern tree cp_copy_res_decl_for_inlining (tree, tree, tree, void*,
 						   int*, tree);
+extern void cp_update_decl_after_saving (tree, void *);
 
 /* in typeck.c */
 extern int string_conv_p			(tree, tree, int);

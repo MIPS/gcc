@@ -117,13 +117,11 @@ extern enum processor_type mips_tune;   /* which cpu to schedule for */
 extern int mips_isa;			/* architectural level */
 extern int mips_abi;			/* which ABI to use */
 extern int mips16_hard_float;		/* mips16 without -msoft-float */
-extern int mips_entry;			/* generate entry/exit for mips16 */
 extern const char *mips_arch_string;    /* for -march=<xxx> */
 extern const char *mips_tune_string;    /* for -mtune=<xxx> */
 extern const char *mips_isa_string;	/* for -mips{1,2,3,4} */
 extern const char *mips_abi_string;	/* for -mabi={32,n32,64} */
 extern const char *mips_cache_flush_func;/* for -mflush-func= and -mno-flush-func */
-extern int mips_string_length;		/* length of strings for mips16 */
 extern const struct mips_cpu_info mips_cpu_info_table[];
 extern const struct mips_cpu_info *mips_arch_info;
 extern const struct mips_cpu_info *mips_tune_info;
@@ -173,7 +171,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define MASK_FIX_R4000	   0x01000000	/* Work around R4000 errata.  */
 #define MASK_FIX_R4400	   0x02000000	/* Work around R4400 errata.  */
 #define MASK_FIX_SB1	   0x04000000	/* Work around SB-1 errata.  */
-#define MASK_FIX_VR4122	   0x08000000   /* Work-around VR4122 errata.  */
+#define MASK_FIX_VR4120	   0x08000000   /* Work around VR4120 errata.  */
 
 					/* Debug switches, not documented */
 #define MASK_DEBUG	0		/* unused */
@@ -257,7 +255,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 
 					/* Work around R4400 errata.  */
 #define TARGET_FIX_R4400	(target_flags & MASK_FIX_R4400)
-#define TARGET_FIX_VR4122	(target_flags & MASK_FIX_VR4122)
+#define TARGET_FIX_VR4120	(target_flags & MASK_FIX_VR4120)
 
 /* True if we should use NewABI-style relocation operators for
    symbolic addresses.  This is never true for mips16 code,
@@ -608,10 +606,10 @@ extern const struct mips_cpu_info *mips_tune_info;
      N_("Work around R4400 errata")},					\
   {"no-fix-r4400",	 -MASK_FIX_R4400,				\
      N_("Don't work around R4400 errata")},				\
-  {"fix-vr4122-bugs",     MASK_FIX_VR4122,				\
-     N_("Work around certain VR4122 errata")},				\
-  {"no-fix-vr4122-bugs", -MASK_FIX_VR4122,				\
-     N_("Don't work around certain VR4122 errata")},			\
+  {"fix-vr4120",	  MASK_FIX_VR4120,				\
+     N_("Work around certain VR4120 errata")},				\
+  {"no-fix-vr4120",	 -MASK_FIX_VR4120,				\
+     N_("Don't work around certain VR4120 errata")},			\
   {"check-zero-division",-MASK_NO_CHECK_ZERO_DIV,			\
      N_("Trap on integer divide by zero")},				\
   {"no-check-zero-division", MASK_NO_CHECK_ZERO_DIV,			\
@@ -1115,7 +1113,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 %{G*} %(endian_spec) %{mips1} %{mips2} %{mips3} %{mips4} \
 %{mips32} %{mips32r2} %{mips64} \
 %{mips16:%{!mno-mips16:-mips16}} %{mno-mips16:-no-mips16} \
-%{mfix-vr4122-bugs} \
+%{mfix-vr4120} \
 %(subtarget_asm_optimizing_spec) \
 %(subtarget_asm_debugging_spec) \
 %{membedded-pic} \
@@ -1213,6 +1211,8 @@ extern const struct mips_cpu_info *mips_tune_info;
 #ifndef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 #endif
+
+#define DWARF2_ADDR_SIZE (ABI_HAS_64BIT_SYMBOLS ? 8 : 4)
 
 /* By default, turn on GDB extensions.  */
 #define DEFAULT_GDB_EXTENSIONS 1
@@ -2574,14 +2574,6 @@ typedef struct mips_args {
 		 XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));	\
   else									\
     asm_fprintf ((FILE), "%U%s", (NAME))
-
-/* The mips16 wants the constant pool to be after the function,
-   because the PC relative load instructions use unsigned offsets.  */
-
-#define CONSTANT_POOL_BEFORE_FUNCTION (! TARGET_MIPS16)
-
-#define ASM_OUTPUT_POOL_EPILOGUE(FILE, FNNAME, FNDECL, SIZE)	\
-  mips_string_length = 0;
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.
@@ -2742,6 +2734,7 @@ typedef struct mips_args {
 				  CONST_DOUBLE, CONST }},		\
   {"fcc_register_operand",	{ REG, SUBREG }},			\
   {"hilo_operand",		{ REG }},				\
+  {"macc_msac_operand",		{ PLUS, MINUS }},			\
   {"extend_operator",		{ ZERO_EXTEND, SIGN_EXTEND }},
 
 /* A list of predicates that do special things with modes, and so

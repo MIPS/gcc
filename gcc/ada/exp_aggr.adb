@@ -1165,7 +1165,7 @@ package body Exp_Aggr is
 
       Aggr_Low  : constant Node_Id := Duplicate_Subexpr_No_Checks (Aggr_L);
       Aggr_High : constant Node_Id := Duplicate_Subexpr_No_Checks (Aggr_H);
-      --  After Duplicate_Subexpr these are side-effect free.
+      --  After Duplicate_Subexpr these are side-effect free
 
       Low        : Node_Id;
       High       : Node_Id;
@@ -4872,9 +4872,13 @@ package body Exp_Aggr is
 
             Analyze_And_Resolve (N, Ctyp);
 
-            --  Must have a compile time value
+            --  Must have a compile time value. String literals have to
+            --  be converted into temporaries as well, because they cannot
+            --  easily be converted into their bit representation.
 
-            if not Compile_Time_Known_Value (N) then
+            if not Compile_Time_Known_Value (N)
+              or else Nkind (N) = N_String_Literal
+            then
                raise Not_Handled;
             end if;
 

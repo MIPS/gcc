@@ -147,6 +147,8 @@ struct vstring
 #if defined (_WIN32)
 #include <dir.h>
 #include <windows.h>
+#undef DIR_SEPARATOR
+#define DIR_SEPARATOR '\\'
 #endif
 
 #include "adaint.h"
@@ -714,6 +716,21 @@ __gnat_file_length (int fd)
   struct stat statbuf;
 
   ret = fstat (fd, &statbuf);
+  if (ret || !S_ISREG (statbuf.st_mode))
+    return 0;
+
+  return (statbuf.st_size);
+}
+
+/* Return the number of bytes in the specified named file.  */
+
+long
+__gnat_named_file_length (char *name)
+{
+  int ret;
+  struct stat statbuf;
+
+  ret = __gnat_stat (name, &statbuf);
   if (ret || !S_ISREG (statbuf.st_mode))
     return 0;
 
@@ -1449,6 +1466,20 @@ __gnat_set_writable (char *name)
   if (stat (name, &statbuf) == 0)
   {
     statbuf.st_mode = statbuf.st_mode | S_IWUSR;
+    chmod (name, statbuf.st_mode);
+  }
+#endif
+}
+
+void
+__gnat_set_executable (char *name)
+{
+#ifndef __vxworks
+  struct stat statbuf;
+
+  if (stat (name, &statbuf) == 0)
+  {
+    statbuf.st_mode = statbuf.st_mode | S_IXUSR;
     chmod (name, statbuf.st_mode);
   }
 #endif
@@ -2510,4 +2541,3 @@ get_gcc_version (void)
 {
   return 3;
 }
-

@@ -157,20 +157,25 @@ EOF
   fi
 
   # Tag the sources.
+  EXPORTDATE=""
   if [ -n "${TAG}" ]; then
     inform "Tagging sources as ${TAG}"
-    ${CVS} rtag -r ${CVSBRANCH} -F ${TAG} gcc || \
+    # The -F option to CVS is intentionally not used below.  If you
+    # need to retry a release, you will have to manually remove any
+    # existing tag.
+    ${CVS} rtag -r ${CVSBRANCH} ${TAG} gcc || \
       error "Could not tag sources"
     EXPORTTAG="-r${TAG}"
-    EXPORTDATE=""
   else
     if [ ${CVSBRANCH} != "HEAD" ]; then
       EXPORTTAG="-r${CVSBRANCH}"
+      # It does not work to use both "-r" and "-D" with
+      # "cvs export" so EXPORTDATE is not set here.
     else
       # HEAD is the default branch, no need to specify it.
       EXPORTTAG=""
+      EXPORTDATE="-D`date -u +"%Y-%m-%d %H:%M"` UTC"
     fi
-    EXPORTDATE="-D`date -u +"%Y-%m-%d %H:%M"` UTC"
   fi
 
   # Export the current sources.
@@ -540,7 +545,7 @@ while getopts "d:fr:u:t:p:s:l" ARG; do
 	  SCP=cp
 	  PATH=~:/usr/local/bin:$PATH;;
     p)    OLD_TARS="${OLD_TARS} ${OPTARG}"
-          if [ -d ${OPTARG} ]; then
+          if [ ! -f ${OPTARG} ]; then
 	    error "-p argument must name a tarball"
 	  fi;;
     \?)   usage;;
@@ -615,9 +620,10 @@ else
     TAG=gcc-ss-`echo ${RELEASE} | tr '.' '_'`
   fi
 
-  # Building locally on gcc.gnu.org, we know what the last snapshot date
-  # was.
-  if [ $MODE_DIFFS -ne 0 ] && [ $LOCAL -ne 0 ]; then
+  # If diffs are requested when building locally on gcc.gnu.org, we (usually)
+  # know what the last snapshot date was and take the corresponding tarballs,
+  # unless the user specified tarballs explictly.
+  if [ $MODE_DIFFS -ne 0 ] && [ $LOCAL -ne 0 ] && [ -z "${OLD_TARS}" ]; then
     LAST_DATE=`cat ~/.snapshot_date-${BRANCH}`
     OLD_TARS=${SNAPSHOTS_DIR}/${BRANCH}-${LAST_DATE}/gcc-${BRANCH}-${LAST_DATE}.tar.bz2
   fi

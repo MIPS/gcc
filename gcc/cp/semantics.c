@@ -766,8 +766,8 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	     because if we did, int_fits_type_p would do the wrong thing
 	     when checking case values for being in range,
 	     and it's too hard to do the right thing.  */
-	  if (TREE_UNSIGNED (TREE_TYPE (cond))
-	      == TREE_UNSIGNED (TREE_TYPE (index)))
+	  if (TYPE_UNSIGNED (TREE_TYPE (cond))
+	      == TYPE_UNSIGNED (TREE_TYPE (index)))
 	    cond = index;
 	}
     }
@@ -1838,7 +1838,7 @@ finish_unary_op_expr (enum tree_code code, tree expr)
      setting TREE_NEGATED_INT.  */
   if (code == NEGATE_EXPR && TREE_CODE (expr) == INTEGER_CST
       && TREE_CODE (result) == INTEGER_CST
-      && !TREE_UNSIGNED (TREE_TYPE (result))
+      && !TYPE_UNSIGNED (TREE_TYPE (result))
       && INT_CST_LT (result, integer_zero_node))
     TREE_NEGATED_INT (result) = 1;
   overflow_warning (result);
@@ -2924,10 +2924,6 @@ expand_body (tree fn)
 
   /* Emit any thunks that should be emitted at the same time as FN.  */
   emit_associated_thunks (fn);
-
-  timevar_push (TV_INTEGRATION);
-  optimize_function (fn);
-  timevar_pop (TV_INTEGRATION);
 
   tree_rest_of_compilation (fn, function_depth > 1);
 

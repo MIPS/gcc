@@ -1060,10 +1060,11 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		|| Address_Taken (gnat_entity)
 		|| Is_Aliased (gnat_entity)
 		|| Is_Aliased (Etype (gnat_entity))))
-	  SET_DECL_CONST_CORRESPONDING_VAR (gnu_decl,
-	      create_var_decl (gnu_entity_id, gnu_ext_name, gnu_type,
-			       gnu_expr, 0, Is_Public (gnat_entity), 0,
-			       static_p, 0));
+	  SET_DECL_CONST_CORRESPONDING_VAR
+	    (gnu_decl,
+	     create_var_decl (gnu_entity_id, gnu_ext_name, gnu_type,
+			      gnu_expr, 0, Is_Public (gnat_entity), 0,
+			      static_p, 0));
 
 	/* If this is declared in a block that contains an block with an
 	   exception handler, we must force this variable in memory to
@@ -1221,7 +1222,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      = TYPE_MODULAR_P (gnu_type)
 		? gnu_high : TYPE_MAX_VALUE (gnu_type);
 	    TYPE_PRECISION (gnu_subtype) = esize;
-	    TREE_UNSIGNED (gnu_subtype) = 1;
+	    TYPE_UNSIGNED (gnu_subtype) = 1;
 	    TYPE_EXTRA_SUBTYPE_P (gnu_subtype) = 1;
 	    TYPE_PACKED_ARRAY_TYPE_P (gnu_subtype)
 	      = Is_Packed_Array_Type (gnat_entity);
@@ -1299,8 +1300,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
      /* This should be an unsigned type if the lower bound is constant
 	 and non-negative or if the base type is unsigned; a signed type
 	 otherwise.    */
-      TREE_UNSIGNED (gnu_type)
-	= (TREE_UNSIGNED (TREE_TYPE (gnu_type))
+      TYPE_UNSIGNED (gnu_type)
+	= (TYPE_UNSIGNED (TREE_TYPE (gnu_type))
 	   || (TREE_CODE (TYPE_MIN_VALUE (gnu_type)) == INTEGER_CST
 	       && TREE_INT_CST_HIGH (TYPE_MIN_VALUE (gnu_type)) >= 0)
 	   || TYPE_BIASED_REPRESENTATION_P (gnu_type)
@@ -1443,7 +1444,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  = create_concat_name (gnat_entity, "XUB");
 	TYPE_NAME (gnu_fat_type) = create_concat_name (gnat_entity, "XUP");
 	TYPE_IS_FAT_POINTER_P (gnu_fat_type) = 1;
-	TREE_READONLY (gnu_template_type) = 1;
+	TYPE_READONLY (gnu_template_type) = 1;
 
 	/* Make a node for the array.  If we are not defining the array
 	   suppress expanding incomplete types and save the node as the type
@@ -1553,7 +1554,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 	/* Install all the fields into the template.  */
 	finish_record_type (gnu_template_type, gnu_template_fields, 0, 0);
-	TREE_READONLY (gnu_template_type) = 1;
+	TYPE_READONLY (gnu_template_type) = 1;
 
 	/* Now make the array of arrays and update the pointer to the array
 	   in the fat pointer.  Note that it is the first field.  */
@@ -1806,7 +1807,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      else if (TREE_CODE (gnu_high) == INTEGER_CST
 		       && TREE_OVERFLOW (gnu_high))
 		gnu_high = gnu_max;
-	      else if (TREE_UNSIGNED (gnu_base_subtype)
+	      else if (TYPE_UNSIGNED (gnu_base_subtype)
 		       || TREE_CODE (gnu_high) == INTEGER_CST)
 		gnu_high = size_binop (MAX_EXPR, gnu_max, gnu_high);
 	      else
@@ -2081,8 +2082,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 			= TYPE_MAX_VALUE (gnu_inner_type);
 		      TYPE_PRECISION (gnu_subtype)
 			= TYPE_PRECISION (gnu_inner_type);
-		      TREE_UNSIGNED (gnu_subtype)
-			= TREE_UNSIGNED (gnu_inner_type);
+		      TYPE_UNSIGNED (gnu_subtype)
+			= TYPE_UNSIGNED (gnu_inner_type);
 		      TYPE_EXTRA_SUBTYPE_P (gnu_subtype) = 1;
 		      layout_type (gnu_subtype);
 
@@ -4407,8 +4408,15 @@ maybe_variable (tree gnu_operand, Node_Id gnat_node)
   set_lineno (gnat_node, 1);
 
   if (TREE_CODE (gnu_operand) == UNCONSTRAINED_ARRAY_REF)
-    return build1 (UNCONSTRAINED_ARRAY_REF, TREE_TYPE (gnu_operand),
-		   variable_size (TREE_OPERAND (gnu_operand, 0)));
+    {
+      tree gnu_result = build1 (UNCONSTRAINED_ARRAY_REF,
+				TREE_TYPE (gnu_operand),
+				variable_size (TREE_OPERAND (gnu_operand, 0)));
+
+      TREE_READONLY (gnu_result) = TREE_STATIC (gnu_result)
+	= TYPE_READONLY (TREE_TYPE (TREE_TYPE (gnu_operand)));
+      return gnu_result;
+    }
   else
     return variable_size (gnu_operand);
 }
@@ -4600,8 +4608,10 @@ make_packable_type (tree type)
   TYPE_LEFT_JUSTIFIED_MODULAR_P (new_type)
     = TYPE_LEFT_JUSTIFIED_MODULAR_P (type);
   TYPE_CONTAINS_TEMPLATE_P (new_type) = TYPE_CONTAINS_TEMPLATE_P (type);
-  TYPE_IS_PADDING_P (new_type) = TYPE_IS_PADDING_P (type);
-  if (TREE_CODE (type) == QUAL_UNION_TYPE)
+
+  if (TREE_CODE (type) == RECORD_TYPE)
+    TYPE_IS_PADDING_P (new_type) = TYPE_IS_PADDING_P (type);
+  else if (TREE_CODE (type) == QUAL_UNION_TYPE)
     {
       TYPE_SIZE (new_type) = TYPE_SIZE (type);
       TYPE_SIZE_UNIT (new_type) = TYPE_SIZE_UNIT (type);
@@ -6010,8 +6020,8 @@ make_type_from_size (tree type, tree size_tree, int biased_p)
 	= ((TREE_CODE (type) == INTEGER_TYPE
 	    && TYPE_BIASED_REPRESENTATION_P (type))
 	   || biased_p);
-      TREE_UNSIGNED (new_type)
-	= TREE_UNSIGNED (type) | TYPE_BIASED_REPRESENTATION_P (new_type);
+      TYPE_UNSIGNED (new_type)
+	= TYPE_UNSIGNED (type) | TYPE_BIASED_REPRESENTATION_P (new_type);
       TYPE_RM_SIZE_INT (new_type) = bitsize_int (size);
       return new_type;
 

@@ -522,7 +522,7 @@ rest_of_handle_stack_regs (tree decl, rtx insns)
     {
       if (cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
 		       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0))
-	  && flag_reorder_blocks)
+	  && (flag_reorder_blocks || flag_reorder_blocks_and_partition))
 	{
 	  reorder_basic_blocks ();
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
@@ -718,9 +718,9 @@ rest_of_handle_reorder_blocks (tree decl, rtx insns)
 
   if (flag_sched2_use_traces && flag_schedule_insns_after_reload)
     tracer ();
-  if (flag_reorder_blocks)
+  if (flag_reorder_blocks || flag_reorder_blocks_and_partition)
     reorder_basic_blocks ();
-  if (flag_reorder_blocks
+  if (flag_reorder_blocks || flag_reorder_blocks_and_partition
       || (flag_sched2_use_traces && flag_schedule_insns_after_reload))
     changed |= cleanup_cfg (CLEANUP_EXPENSIVE
 			    | (!HAVE_conditional_execution
@@ -1806,6 +1806,20 @@ rest_of_compilation (tree decl)
   if (flag_if_conversion)
     rest_of_handle_if_after_combine (decl, insns);
 
+  /* The optimization to partition hot/cold basic blocks into separate
+     sections of the .o file does not work well with exception handling.
+     Don't call it if there are exceptions. */
+
+  if (flag_reorder_blocks_and_partition && !flag_exceptions)
+    {
+      no_new_pseudos = 0;
+      partition_hot_cold_basic_blocks ();
+      allocate_reg_life_data ();
+      update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES, 
+			PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES);
+      no_new_pseudos = 1;
+    }
+
   if (optimize > 0 && (flag_regmove || flag_expensive_optimizations))
     rest_of_handle_regmove (decl, insns);
 
@@ -2109,12 +2123,6 @@ rest_of_compilation (tree decl)
 
   /* We're done with this function.  Free up memory if we can.  */
   free_after_parsing (cfun);
-  if (! DECL_DEFER_OUTPUT (decl))
-    {
-      free_after_compilation (cfun);
-      DECL_STRUCT_FUNCTION (decl) = 0;
-    }
-  cfun = 0;
 
   ggc_collect ();
 
@@ -2124,12 +2132,9 @@ rest_of_compilation (tree decl)
 void
 init_optimization_passes (void)
 {
-  if (flag_unit_at_a_time)
-    {
-      open_dump_file (DFI_cgraph, NULL);
-      cgraph_dump_file = dump_file;
-      dump_file = NULL;
-    }
+  open_dump_file (DFI_cgraph, NULL);
+  cgraph_dump_file = dump_file;
+  dump_file = NULL;
 }
 
 void
@@ -2154,12 +2159,9 @@ finish_optimization_passes (void)
       timevar_pop (TV_DUMP);
     }
 
-  if (flag_unit_at_a_time)
-    {
-      dump_file = cgraph_dump_file;
-      cgraph_dump_file = NULL;
-      close_dump_file (DFI_cgraph, NULL, NULL_RTX);
-    }
+  dump_file = cgraph_dump_file;
+  cgraph_dump_file = NULL;
+  close_dump_file (DFI_cgraph, NULL, NULL_RTX);
 
   /* Do whatever is necessary to finish printing the graphs.  */
   if (graph_dump_format != no_graph)

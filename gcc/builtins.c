@@ -94,6 +94,7 @@ static rtx expand_builtin_classify_type (tree);
 static void expand_errno_check (tree, rtx);
 static rtx expand_builtin_mathfn (tree, rtx, rtx);
 static rtx expand_builtin_mathfn_2 (tree, rtx, rtx);
+static rtx expand_builtin_mathfn_3 (tree, rtx, rtx);
 static rtx expand_builtin_constant_p (tree, enum machine_mode);
 static rtx expand_builtin_args_info (tree);
 static rtx expand_builtin_next_arg (tree);
@@ -145,7 +146,7 @@ static bool readonly_data_expr (tree);
 static rtx expand_builtin_fabs (tree, rtx, rtx);
 static rtx expand_builtin_cabs (tree, rtx);
 static rtx expand_builtin_signbit (tree, rtx);
-static tree fold_builtin_cabs (tree, tree, tree);
+static tree fold_builtin_cabs (tree, tree);
 static tree fold_builtin_trunc (tree);
 static tree fold_builtin_floor (tree);
 static tree fold_builtin_ceil (tree);
@@ -1388,7 +1389,6 @@ expand_builtin_constant_p (tree arglist, enum machine_mode target_mode)
 tree
 mathfn_built_in (tree type, enum built_in_function fn)
 {
-  const enum machine_mode type_mode = TYPE_MODE (type);
   enum built_in_function fcode, fcodef, fcodel;
 
   switch (fn)
@@ -1471,11 +1471,11 @@ mathfn_built_in (tree type, enum built_in_function fn)
 	return 0;
       }
 
-  if (type_mode == TYPE_MODE (double_type_node))
+  if (TYPE_MAIN_VARIANT (type) == double_type_node)
     return implicit_built_in_decls[fcode];
-  else if (type_mode == TYPE_MODE (float_type_node))
+  else if (TYPE_MAIN_VARIANT (type) == float_type_node)
     return implicit_built_in_decls[fcodef];
-  else if (type_mode == TYPE_MODE (long_double_type_node))
+  else if (TYPE_MAIN_VARIANT (type) == long_double_type_node)
     return implicit_built_in_decls[fcodel];
   else
     return 0;
@@ -1520,7 +1520,7 @@ expand_errno_check (tree exp, rtx target)
 }
 
 
-/* Expand a call to one of the builtin math functions (sin, cos, or sqrt).
+/* Expand a call to one of the builtin math functions (sqrt, exp, or log).
    Return 0 if a normal call should be emitted rather than expanding the
    function in-line.  EXP is the expression that is a call to the builtin
    function; if convenient, the result should be placed in TARGET.
@@ -1544,14 +1544,6 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
 
   switch (DECL_FUNCTION_CODE (fndecl))
     {
-    case BUILT_IN_SIN:
-    case BUILT_IN_SINF:
-    case BUILT_IN_SINL:
-      builtin_optab = sin_optab; break;
-    case BUILT_IN_COS:
-    case BUILT_IN_COSF:
-    case BUILT_IN_COSL:
-      builtin_optab = cos_optab; break;
     case BUILT_IN_SQRT:
     case BUILT_IN_SQRTF:
     case BUILT_IN_SQRTL:
@@ -1573,6 +1565,14 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
     case BUILT_IN_EXP2F:
     case BUILT_IN_EXP2L:
       errno_set = true; builtin_optab = exp2_optab; break;
+    case BUILT_IN_LOGB:
+    case BUILT_IN_LOGBF:
+    case BUILT_IN_LOGBL:
+      errno_set = true; builtin_optab = logb_optab; break;
+    case BUILT_IN_ILOGB:
+    case BUILT_IN_ILOGBF:
+    case BUILT_IN_ILOGBL:
+      errno_set = true; builtin_optab = ilogb_optab; break;
     case BUILT_IN_LOG:
     case BUILT_IN_LOGF:
     case BUILT_IN_LOGL:
@@ -1811,6 +1811,138 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
   insns = get_insns ();
   end_sequence ();
   emit_insn (insns);
+
+  return target;
+}
+
+/* Expand a call to the builtin sin and cos math functions.
+   Return 0 if a normal call should be emitted rather than expanding the
+   function in-line.  EXP is the expression that is a call to the builtin
+   function; if convenient, the result should be placed in TARGET.
+   SUBTARGET may be used as the target for computing one of EXP's
+   operands.  */
+
+static rtx
+expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
+{
+  optab builtin_optab;
+  rtx op0, insns, before_call;
+  tree fndecl = get_callee_fndecl (exp);
+  tree arglist = TREE_OPERAND (exp, 1);
+  enum machine_mode mode;
+  bool errno_set = false;
+  tree arg, narg;
+
+  if (!validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
+    return 0;
+
+  arg = TREE_VALUE (arglist);
+
+  switch (DECL_FUNCTION_CODE (fndecl))
+    {
+    case BUILT_IN_SIN:
+    case BUILT_IN_SINF:
+    case BUILT_IN_SINL:
+    case BUILT_IN_COS:
+    case BUILT_IN_COSF:
+    case BUILT_IN_COSL:
+      builtin_optab = sincos_optab; break;
+    default:
+      abort ();
+    }
+
+  /* Make a suitable register to place result in.  */
+  mode = TYPE_MODE (TREE_TYPE (exp));
+
+  if (! flag_errno_math || ! HONOR_NANS (mode))
+    errno_set = false;
+
+  /* Check if sincos insn is available, otherwise fallback
+     to sin or cos insn. */
+  if (builtin_optab->handlers[(int) mode].insn_code == CODE_FOR_nothing) {
+    switch (DECL_FUNCTION_CODE (fndecl))
+      {
+      case BUILT_IN_SIN:
+      case BUILT_IN_SINF:
+      case BUILT_IN_SINL:
+	builtin_optab = sin_optab; break;
+      case BUILT_IN_COS:
+      case BUILT_IN_COSF:
+      case BUILT_IN_COSL:
+	builtin_optab = cos_optab; break;
+      default:
+	abort();
+      }
+  }
+
+  /* Before working hard, check whether the instruction is available.  */
+  if (builtin_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
+    {
+      target = gen_reg_rtx (mode);
+
+      /* Wrap the computation of the argument in a SAVE_EXPR, as we may
+	 need to expand the argument again.  This way, we will not perform
+	 side-effects more the once.  */
+      narg = save_expr (arg);
+      if (narg != arg)
+	{
+	  arglist = build_tree_list (NULL_TREE, arg);
+	  exp = build_function_call_expr (fndecl, arglist);
+	}
+
+      op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+
+      emit_queue ();
+      start_sequence ();
+
+      /* Compute into TARGET.
+	 Set TARGET to wherever the result comes back.  */
+      if (builtin_optab == sincos_optab)
+	{
+	  switch (DECL_FUNCTION_CODE (fndecl))
+	    {
+	    case BUILT_IN_SIN:
+	    case BUILT_IN_SINF:
+	    case BUILT_IN_SINL:
+	      if (!expand_twoval_unop (builtin_optab, op0, 0, target, 0))    
+		abort();
+	      break;
+	    case BUILT_IN_COS:
+	    case BUILT_IN_COSF:
+	    case BUILT_IN_COSL:
+	      if (!expand_twoval_unop (builtin_optab, op0, target, 0, 0))
+		abort();
+	      break;
+	    default:
+	      abort();
+	    }
+	}
+      else
+	{
+	  target = expand_unop (mode, builtin_optab, op0, target, 0);
+	}
+
+      if (target != 0)
+	{
+	  if (errno_set)
+	    expand_errno_check (exp, target);
+
+	  /* Output the entire sequence.  */
+	  insns = get_insns ();
+	  end_sequence ();
+	  emit_insn (insns);
+	  return target;
+	}
+
+      /* If we were unable to expand via the builtin, stop the sequence
+	 (without outputting the insns) and call to the library function
+	 with the stabilized argument list.  */
+      end_sequence ();
+    }
+
+  before_call = get_last_insn ();
+
+  target = expand_call (exp, target, target == const0_rtx);
 
   return target;
 }
@@ -3166,7 +3298,7 @@ expand_builtin_memcmp (tree exp ATTRIBUTE_UNUSED, tree arglist, rtx target,
 			       XEXP (arg1_rtx, 0), Pmode,
 			       XEXP (arg2_rtx, 0), Pmode,
 			       convert_to_mode (TYPE_MODE (sizetype), arg3_rtx,
-						TREE_UNSIGNED (sizetype)),
+						TYPE_UNSIGNED (sizetype)),
 			       TYPE_MODE (sizetype));
 
     /* Return the value in the proper mode for this function.  */
@@ -4912,7 +5044,7 @@ expand_builtin_signbit (tree exp, rtx target)
 
   if (GET_MODE_BITSIZE (imode) > GET_MODE_BITSIZE (rmode))
     {
-      if (BITS_BIG_ENDIAN)
+      if (BYTES_BIG_ENDIAN)
 	bitpos = GET_MODE_BITSIZE (imode) - 1 - bitpos;
       temp = copy_to_mode_reg (imode, temp);
       temp = extract_bit_field (temp, 1, bitpos, 1,
@@ -5042,12 +5174,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	 and IMAGPART_EXPR.  */
       abort ();
 
-    case BUILT_IN_SIN:
-    case BUILT_IN_SINF:
-    case BUILT_IN_SINL:
-    case BUILT_IN_COS:
-    case BUILT_IN_COSF:
-    case BUILT_IN_COSL:
     case BUILT_IN_EXP:
     case BUILT_IN_EXPF:
     case BUILT_IN_EXPL:
@@ -5060,6 +5186,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_EXP2:
     case BUILT_IN_EXP2F:
     case BUILT_IN_EXP2L:
+    case BUILT_IN_LOGB:
+    case BUILT_IN_LOGBF:
+    case BUILT_IN_LOGBL:
+    case BUILT_IN_ILOGB:
+    case BUILT_IN_ILOGBF:
+    case BUILT_IN_ILOGBL:
     case BUILT_IN_LOG:
     case BUILT_IN_LOGF:
     case BUILT_IN_LOGL:
@@ -5116,6 +5248,19 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       if (! flag_unsafe_math_optimizations)
 	break;
       target = expand_builtin_mathfn_2 (exp, target, subtarget);
+      if (target)
+	return target;
+      break;
+
+    case BUILT_IN_SIN:
+    case BUILT_IN_SINF:
+    case BUILT_IN_SINL:
+    case BUILT_IN_COS:
+    case BUILT_IN_COSF:
+    case BUILT_IN_COSL:
+      if (! flag_unsafe_math_optimizations)
+	break;
+      target = expand_builtin_mathfn_3 (exp, target, subtarget);
       if (target)
 	return target;
       break;
@@ -5794,12 +5939,12 @@ fold_trunc_transparent_mathfn (tree exp)
   return 0;
 }
 
-/* Fold function call to builtin cabs, cabsf or cabsl.  FNDECL is the
-   function's DECL, ARGLIST is the argument list and TYPE is the return
-   type.  Return NULL_TREE if no simplification can be made.  */
+/* Fold function call to builtin cabs, cabsf or cabsl.  ARGLIST
+   is the argument list and TYPE is the return type.  Return
+   NULL_TREE if no if no simplification can be made.  */
 
 static tree
-fold_builtin_cabs (tree fndecl, tree arglist, tree type)
+fold_builtin_cabs (tree arglist, tree type)
 {
   tree arg;
 
@@ -5842,18 +5987,7 @@ fold_builtin_cabs (tree fndecl, tree arglist, tree type)
 
   if (flag_unsafe_math_optimizations)
     {
-      enum built_in_function fcode;
-      tree sqrtfn;
-
-      fcode = DECL_FUNCTION_CODE (fndecl);
-      if (fcode == BUILT_IN_CABS)
-	sqrtfn = implicit_built_in_decls[BUILT_IN_SQRT];
-      else if (fcode == BUILT_IN_CABSF)
-	sqrtfn = implicit_built_in_decls[BUILT_IN_SQRTF];
-      else if (fcode == BUILT_IN_CABSL)
-	sqrtfn = implicit_built_in_decls[BUILT_IN_SQRTL];
-      else
-	sqrtfn = NULL_TREE;
+      tree sqrtfn = mathfn_built_in (type, BUILT_IN_SQRT);
 
       if (sqrtfn != NULL_TREE)
 	{
@@ -6610,6 +6744,65 @@ fold_builtin_signbit (tree exp)
   return NULL_TREE;
 }
 
+/* Fold a call to builtin isascii.  */
+
+static tree
+fold_builtin_isascii (tree arglist)
+{
+  if (! validate_arglist (arglist, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+  else
+    {
+      /* Transform isascii(c) -> ((c & ~0x7f) == 0).  */
+      tree arg = TREE_VALUE (arglist);
+      
+      return fold (build (EQ_EXPR, integer_type_node,
+			  build (BIT_AND_EXPR, integer_type_node, arg,
+				 build_int_2 (~ (unsigned HOST_WIDE_INT) 0x7f,
+					      ~ (HOST_WIDE_INT) 0)),
+			  integer_zero_node));
+    }
+}
+
+/* Fold a call to builtin toascii.  */
+
+static tree
+fold_builtin_toascii (tree arglist)
+{
+  if (! validate_arglist (arglist, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+  else
+    {
+      /* Transform toascii(c) -> (c & 0x7f).  */
+      tree arg = TREE_VALUE (arglist);
+      
+      return fold (build (BIT_AND_EXPR, integer_type_node, arg,
+			  build_int_2 (0x7f, 0)));
+    }
+}
+
+/* Fold a call to builtin isdigit.  */
+
+static tree
+fold_builtin_isdigit (tree arglist)
+{
+  if (! validate_arglist (arglist, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+  else
+    {
+      /* Transform isdigit(c) -> (unsigned)(c) - '0' <= 9.  */
+      /* According to the C standard, isdigit is unaffected by locale.  */
+      tree arg = TREE_VALUE (arglist);
+      arg = build1 (NOP_EXPR, unsigned_type_node, arg);
+      arg = build (MINUS_EXPR, unsigned_type_node, arg,
+		   fold (build1 (NOP_EXPR, unsigned_type_node,
+				 build_int_2 (TARGET_DIGIT0, 0))));
+      arg = build (LE_EXPR, integer_type_node, arg,
+		   fold (build1 (NOP_EXPR, unsigned_type_node,
+				 build_int_2 (9, 0))));
+      return fold (arg);
+    }
+}
 
 /* Used by constant folding to eliminate some builtin calls early.  EXP is
    the CALL_EXPR of a call to a builtin function.  */
@@ -6656,7 +6849,7 @@ fold_builtin (tree exp)
     case BUILT_IN_CABS:
     case BUILT_IN_CABSF:
     case BUILT_IN_CABSL:
-      return fold_builtin_cabs (fndecl, arglist, type);
+      return fold_builtin_cabs (arglist, type);
 
     case BUILT_IN_SQRT:
     case BUILT_IN_SQRTF:
@@ -6929,17 +7122,7 @@ fold_builtin (tree exp)
 	      if (flag_unsafe_math_optimizations
 		  && REAL_VALUES_EQUAL (c, dconsthalf))
 		{
-		  tree sqrtfn;
-
-		  fcode = DECL_FUNCTION_CODE (fndecl);
-		  if (fcode == BUILT_IN_POW)
-		    sqrtfn = implicit_built_in_decls[BUILT_IN_SQRT];
-		  else if (fcode == BUILT_IN_POWF)
-		    sqrtfn = implicit_built_in_decls[BUILT_IN_SQRTF];
-		  else if (fcode == BUILT_IN_POWL)
-		    sqrtfn = implicit_built_in_decls[BUILT_IN_SQRTL];
-		  else
-		    sqrtfn = NULL_TREE;
+		  tree sqrtfn = mathfn_built_in (type, BUILT_IN_SQRT);
 
 		  if (sqrtfn != NULL_TREE)
 		    {
@@ -7103,6 +7286,15 @@ fold_builtin (tree exp)
     case BUILT_IN_SIGNBITF:
     case BUILT_IN_SIGNBITL:
       return fold_builtin_signbit (exp);
+
+    case BUILT_IN_ISASCII:
+      return fold_builtin_isascii (arglist);
+
+    case BUILT_IN_TOASCII:
+      return fold_builtin_toascii (arglist);
+
+    case BUILT_IN_ISDIGIT:
+      return fold_builtin_isdigit (arglist);
 
     default:
       break;

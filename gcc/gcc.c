@@ -218,6 +218,10 @@ static const char *target_sysroot_hdrs_suffix = 0;
 
 static int save_temps_flag;
 
+/* Nonzero means pass multiple source files to the compiler at one time.  */
+
+static int combine_flag = 0;
+
 /* Nonzero means use pipes to communicate between subprocesses.
    Overridden by either of the above two flags.  */
 
@@ -861,6 +865,10 @@ struct compiler
   const char *cpp_spec;         /* If non-NULL, substitute this spec
 				   for `%C', rather than the usual
 				   cpp_spec.  */
+  const int combinable;          /* If non-zero, compiler can deal with
+				    multiple source files at once (IMA).  */
+  const int needs_preprocessing; /* If non-zero, source files need to
+				    be run through a preprocessor.  */
 };
 
 /* Pointer to a vector of `struct compiler' that gives the spec for
@@ -886,21 +894,23 @@ static const struct compiler default_compilers[] =
      were not present when we built the driver, we will hit these copies
      and be given a more meaningful error than "file not used since
      linking is not done".  */
-  {".m",  "#Objective-C", 0}, {".mi",  "#Objective-C", 0},
-  {".mm", "#Objective-C++", 0}, {".M", "#Objective-C++", 0},
-  {".mii", "#Objective-C++", 0},
-  {".cc", "#C++", 0}, {".cxx", "#C++", 0}, {".cpp", "#C++", 0},
-  {".cp", "#C++", 0}, {".c++", "#C++", 0}, {".C", "#C++", 0},
-  {".CPP", "#C++", 0}, {".ii", "#C++", 0},
-  {".ads", "#Ada", 0}, {".adb", "#Ada", 0},
-  {".f", "#Fortran", 0}, {".for", "#Fortran", 0}, {".fpp", "#Fortran", 0},
-  {".F", "#Fortran", 0}, {".FOR", "#Fortran", 0}, {".FPP", "#Fortran", 0},
-  {".r", "#Ratfor", 0},
-  {".p", "#Pascal", 0}, {".pas", "#Pascal", 0},
-  {".java", "#Java", 0}, {".class", "#Java", 0},
-  {".zip", "#Java", 0}, {".jar", "#Java", 0},
+  {".m",  "#Objective-C", 0, 0, 0}, {".mi",  "#Objective-C", 0, 0, 0},
+  {".mm", "#Objective-C++", 0, 0, 0}, {".M", "#Objective-C++", 0, 0, 0},
+  {".mii", "#Objective-C++", 0, 0, 0},
+  {".cc", "#C++", 0, 0, 0}, {".cxx", "#C++", 0, 0, 0}, 
+  {".cpp", "#C++", 0, 0, 0}, {".cp", "#C++", 0, 0, 0}, 
+  {".c++", "#C++", 0, 0, 0}, {".C", "#C++", 0, 0, 0},
+  {".CPP", "#C++", 0, 0, 0}, {".ii", "#C++", 0, 0, 0},
+  {".ads", "#Ada", 0, 0, 0}, {".adb", "#Ada", 0, 0, 0},
+  {".f", "#Fortran", 0, 0, 0}, {".for", "#Fortran", 0, 0, 0}, 
+  {".fpp", "#Fortran", 0, 0, 0}, {".F", "#Fortran", 0, 0, 0}, 
+  {".FOR", "#Fortran", 0, 0, 0}, {".FPP", "#Fortran", 0, 0, 0},
+  {".r", "#Ratfor", 0, 0, 0},
+  {".p", "#Pascal", 0, 0, 0}, {".pas", "#Pascal", 0, 0, 0},
+  {".java", "#Java", 0, 0, 0}, {".class", "#Java", 0, 0, 0},
+  {".zip", "#Java", 0, 0, 0}, {".jar", "#Java", 0, 0, 0},
   /* Next come the entries for C.  */
-  {".c", "@c", 0},
+  {".c", "@c", 0, 1, 1},
   {"@c",
    /* cc1 has an integrated ISO C preprocessor.  We should invoke the
       external preprocessor if -save-temps is given.  */
@@ -908,17 +918,24 @@ static const struct compiler default_compilers[] =
       %{!E:%{!M:%{!MM:\
           %{traditional|ftraditional:\
 %eGNU C no longer supports -traditional without -E}\
+       %{!combine:\
 	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
 		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i} \n\
 		    cc1 -fpreprocessed %{save-temps:%b.i} %{!save-temps:%g.i} \
 			%(cc1_options)}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
 		cc1 %(cpp_unique_options) %(cc1_options)}}}\
-        %{!fsyntax-only:%(invoke_as)}}}}", 0},
+          %{!fsyntax-only:%(invoke_as)}} \
+      %{combine:\
+	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
+		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i}}\
+	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
+		cc1 %(cpp_unique_options) %(cc1_options)}}\
+                %{!fsyntax-only:%(invoke_as)}}}}}}", 0, 1, 1},
   {"-",
    "%{!E:%e-E required when input is from standard input}\
-    %(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)", 0},
-  {".h", "@c-header", 0},
+    %(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)", 0, 0, 0},
+  {".h", "@c-header", 0, 0, 0},
   {"@c-header",
    /* cc1 has an integrated ISO C preprocessor.  We should invoke the
       external preprocessor if -save-temps is given.  */
@@ -933,14 +950,14 @@ static const struct compiler default_compilers[] =
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
 		cc1 %(cpp_unique_options) %(cc1_options)\
                     -o %g.s %{!o*:--output-pch=%i.gch}\
-                    %W{o*:--output-pch=%*}%V}}}}}}", 0},
-  {".i", "@c-cpp-output", 0},
+                    %W{o*:--output-pch=%*}%V}}}}}}", 0, 0, 0},
+  {".i", "@c-cpp-output", 0, 1, 0},
   {"@c-cpp-output",
-   "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) %{!fsyntax-only:%(invoke_as)}}}}", 0},
-  {".s", "@assembler", 0},
+   "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) %{!fsyntax-only:%(invoke_as)}}}}", 0, 1, 0},
+  {".s", "@assembler", 0, 1, 0},
   {"@assembler",
-   "%{!M:%{!MM:%{!E:%{!S:as %(asm_debug) %(asm_options) %i %A }}}}", 0},
-  {".S", "@assembler-with-cpp", 0},
+   "%{!M:%{!MM:%{!E:%{!S:as %(asm_debug) %(asm_options) %i %A }}}}", 0, 1, 0},
+  {".S", "@assembler-with-cpp", 0, 1, 0},
   {"@assembler-with-cpp",
 #ifdef AS_NEEDS_DASH_FOR_PIPED_INPUT
    "%(trad_capable_cpp) -lang-asm %(cpp_options)\
@@ -953,11 +970,11 @@ static const struct compiler default_compilers[] =
       %{!M:%{!MM:%{!E:%{!S:-o %|.s |\n\
        as %(asm_debug) %(asm_options) %m.s %A }}}}"
 #endif
-   , 0},
+   , 0, 1, 0},
 
 #include "specs.h"
   /* Mark end of table.  */
-  {0, 0, 0}
+  {0, 0, 0, 0, 0}
 };
 
 /* Number of elements in default_compilers, not counting the terminator.  */
@@ -1011,6 +1028,7 @@ static const struct option_map option_map[] =
    {"--classpath", "-fclasspath=", "aj"},
    {"--bootclasspath", "-fbootclasspath=", "aj"},
    {"--CLASSPATH", "-fclasspath=", "aj"},
+   {"--combine", "-combine", 0},
    {"--comments", "-C", 0},
    {"--comments-in-macros", "-CC", 0},
    {"--compile", "-c", 0},
@@ -1535,6 +1553,12 @@ init_gcc_specs (struct obstack *obstack, const char *shared_name,
 
   buf = concat ("%{static|static-libgcc:", static_name, " ", eh_name,
 		"}%{!static:%{!static-libgcc:",
+#ifdef HAVE_LD_AS_NEEDED
+		"%{!shared-libgcc:", static_name,
+		" --as-needed ", shared_name, " --no-as-needed}"
+		"%{shared-libgcc:", shared_name, "%{!shared: ", static_name,
+		"}",
+#else
 		"%{!shared:%{!shared-libgcc:", static_name, " ",
 		eh_name, "}%{shared-libgcc:", shared_name, " ",
 		static_name, "}}%{shared:",
@@ -1543,6 +1567,7 @@ init_gcc_specs (struct obstack *obstack, const char *shared_name,
 		"}%{!shared-libgcc:", static_name, "}",
 #else
 		shared_name,
+#endif
 #endif
 		"}}}", NULL);
 
@@ -1773,6 +1798,11 @@ static int argbuf_length;
 
 static int argbuf_index;
 
+/* Position in the argbuf array containing the name of the output file
+   (the value associated with the "-o" flag).  */
+
+static int have_o_argbuf_index = 0;
+
 /* This is the list of suffixes and codes (%g/%u/%U/%j) and the associated
    temp file.  If the HOST_BIT_BUCKET is used for %j, no entry is made for
    it here.  */
@@ -1831,6 +1861,8 @@ store_arg (const char *arg, int delete_always, int delete_failure)
   argbuf[argbuf_index++] = arg;
   argbuf[argbuf_index] = 0;
 
+  if (strcmp (arg, "-o") == 0)
+    have_o_argbuf_index = argbuf_index;
   if (delete_always || delete_failure)
     record_temp_file (arg, delete_always, delete_failure);
 }
@@ -2886,6 +2918,9 @@ struct infile
 {
   const char *name;
   const char *language;
+  struct compiler *incompiler;
+  bool compiled;
+  bool preprocessed;
 };
 
 /* Also a vector of input files specified.  */
@@ -3000,6 +3035,7 @@ display_help (void)
   fputs (_("  -Xassembler <arg>        Pass <arg> on to the assembler\n"), stdout);
   fputs (_("  -Xpreprocessor <arg>     Pass <arg> on to the preprocessor\n"), stdout);
   fputs (_("  -Xlinker <arg>           Pass <arg> on to the linker\n"), stdout);
+  fputs (_("  -combine                 Pass multiple source files to compiler at once\n"), stdout);
   fputs (_("  -save-temps              Do not delete intermediate files\n"), stdout);
   fputs (_("  -pipe                    Use pipes rather than intermediate files\n"), stdout);
   fputs (_("  -time                    Time the execution of each subprocess\n"), stdout);
@@ -3086,7 +3122,6 @@ process_command (int argc, const char **argv)
   const char *spec_lang = 0;
   int last_language_n_infiles;
   int have_c = 0;
-  int have_o = 0;
   int lang_n_infiles = 0;
 #ifdef MODIFY_TARGET_NAME
   int is_modify_target_name;
@@ -3488,6 +3523,11 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  save_temps_flag = 1;
 	  n_switches++;
 	}
+      else if (strcmp (argv[i], "-combine") == 0)
+	{
+	  combine_flag = 1;
+	  n_switches++;
+	}
       else if (strcmp (argv[i], "-specs") == 0)
 	{
 	  struct user_specs *user = xmalloc (sizeof (struct user_specs));
@@ -3630,7 +3670,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	      goto normal_switch;
 
 	    case 'o':
-	      have_o = 1;
 #if defined(HAVE_TARGET_EXECUTABLE_SUFFIX)
 	      if (! have_c)
 		{
@@ -3722,8 +3761,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  lang_n_infiles++;
 	}
     }
-
-  combine_inputs = (have_c && have_o && lang_n_infiles > 1);
 
   if ((save_temps_flag || report_times) && use_pipes)
     {
@@ -4772,7 +4809,12 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    if (combine_inputs)
 	      {
 		for (i = 0; (int) i < n_infiles; i++)
-		  store_arg (infiles[i].name, 0, 0);
+		  if ((!infiles[i].language) || (infiles[i].language[0] != '*'))
+		    if (infiles[i].incompiler == input_file_compiler)
+		      {
+			store_arg (infiles[i].name, 0, 0);
+			infiles[i].compiled = true;
+		      }
 	      }
 	    else
 	      {
@@ -5914,6 +5956,7 @@ main (int argc, const char **argv)
   size_t i;
   int value;
   int linker_was_run = 0;
+  int lang_n_infiles = 0;
   int num_linker_inputs = 0;
   char *explicit_link_files;
   char *specs_file;
@@ -6309,28 +6352,97 @@ main (int argc, const char **argv)
 
   explicit_link_files = xcalloc (1, n_infiles);
 
-  if (combine_inputs)
+  if (combine_flag)
+    combine_inputs = true;
+  else
+    combine_inputs = false;
+
+  for (i = 0; (int) i < n_infiles; i++)
     {
-       int lang_n_infiles = 0;
-       for (i = 0; (int) i < n_infiles; i++)
-	 {
-	   const char *name = infiles[i].name;
-	   struct compiler *compiler
-	     = lookup_compiler (name, strlen (name), infiles[i].language);
-	   if (compiler == NULL)
-	     error ("%s: linker input file unused because linking not done",
-		    name);
-	   else if (lang_n_infiles > 0 && compiler != input_file_compiler)
-	     fatal ("cannot specify -o with -c or -S and multiple languages");
-	   else
-	     {
-	       lang_n_infiles++;
-	       input_file_compiler = compiler;
-	     }
-	 }
+      const char *name = infiles[i].name;
+      struct compiler *compiler = lookup_compiler (name, 
+						   strlen (name), 
+						   infiles[i].language);
+      
+      if (compiler && !(compiler->combinable))
+	combine_inputs = false;
+      
+      if (lang_n_infiles > 0 && compiler != input_file_compiler
+	  && infiles[i].language && infiles[i].language[0] != '*')
+	infiles[i].incompiler = compiler;
+      else if (compiler)
+	{
+	  lang_n_infiles++;
+	  input_file_compiler = compiler;
+	  infiles[i].incompiler = compiler;
+	}
+      else
+	{
+	  /* Since there is no compiler for this input file, assume it is a
+	     linker file. */
+	  explicit_link_files[i] = 1;
+	  infiles[i].incompiler = NULL;
+	}
+      infiles[i].compiled = false;
+      infiles[i].preprocessed = false;
     }
   
-  for (i = 0; (int) i < (combine_inputs ? 1 : n_infiles); i++)
+  if (combine_flag && save_temps_flag)
+    {
+      bool save_combine_inputs = combine_inputs;
+      /* Must do a separate pre-processing pass for C & Objective-C files, to
+	 obtain individual .i files.  */
+
+      combine_inputs = false;
+      for (i = 0; (int) i < n_infiles; i++)
+	{
+	  int this_file_error = 0;
+	  
+	  input_file_number = i;
+	  set_input (infiles[i].name);
+	  if (infiles[i].incompiler
+	      && (infiles[i].incompiler)->needs_preprocessing)
+	    input_file_compiler = infiles[i].incompiler;
+	  else
+	    continue;
+
+	  if (input_file_compiler)
+	    {
+	      if (input_file_compiler->spec[0] == '#')
+		{
+		  error ("%s: %s compiler not installed on this system",
+			 input_filename, &input_file_compiler->spec[1]);
+		  this_file_error = 1;
+		}
+	      else
+		{
+		  value = do_spec (input_file_compiler->spec);
+		  infiles[i].preprocessed = true;
+		  if (have_o_argbuf_index)
+		    infiles[i].name = argbuf[have_o_argbuf_index];
+		  else
+		    abort ();
+		  infiles[i].incompiler = lookup_compiler (infiles[i].name,
+						       strlen (infiles[i].name),
+						       infiles[i].language);
+
+		  if (value < 0)
+		    this_file_error = 1;
+		}
+	    }
+
+	  if (this_file_error)
+	    {
+	      delete_failure_queue ();
+	      error_count++;
+	      break;
+	    }
+	  clear_failure_queue ();
+	}
+      combine_inputs = save_combine_inputs;
+    }
+
+  for (i = 0; (int) i < n_infiles; i++)
     {
       int this_file_error = 0;
 
@@ -6338,6 +6450,9 @@ main (int argc, const char **argv)
 
       input_file_number = i;
       set_input (infiles[i].name);
+
+      if (infiles[i].compiled)
+	continue;
 
       /* Use the same thing in %o, unless cp->spec says otherwise.  */
 
@@ -6349,6 +6464,8 @@ main (int argc, const char **argv)
 	input_file_compiler
 	  = lookup_compiler (infiles[i].name, input_filename_length,
 			     infiles[i].language);
+      else
+	input_file_compiler = infiles[i].incompiler;
 
       if (input_file_compiler)
 	{
@@ -6363,6 +6480,7 @@ main (int argc, const char **argv)
 	  else
 	    {
 	      value = do_spec (input_file_compiler->spec);
+	      infiles[i].compiled = true;
 	      if (value < 0)
 		this_file_error = 1;
 	    }
@@ -6381,6 +6499,7 @@ main (int argc, const char **argv)
 	{
 	  delete_failure_queue ();
 	  error_count++;
+	  break;
 	}
       /* If this compilation succeeded, don't delete those files later.  */
       clear_failure_queue ();
@@ -6792,20 +6911,21 @@ used_arg (const char *p, int len)
 	= xmalloc (sizeof (struct mswitchstr)
 		   * (n_mdswitches + (n_switches ? n_switches : 1)));
       for (i = 0; i < n_switches; i++)
-	{
-	  int xlen = strlen (switches[i].part1);
-	  for (j = 0; j < cnt; j++)
-	    if (xlen == matches[j].len
-		&& ! strncmp (switches[i].part1, matches[j].str, xlen))
-	      {
-		mswitches[n_mswitches].str = matches[j].replace;
-		mswitches[n_mswitches].len = matches[j].rep_len;
-		mswitches[n_mswitches].replace = (char *) 0;
-		mswitches[n_mswitches].rep_len = 0;
-		n_mswitches++;
-		break;
-	      }
-	}
+	if (switches[i].live_cond != SWITCH_IGNORE)
+	  {
+	    int xlen = strlen (switches[i].part1);
+	    for (j = 0; j < cnt; j++)
+	      if (xlen == matches[j].len
+		  && ! strncmp (switches[i].part1, matches[j].str, xlen))
+		{
+		  mswitches[n_mswitches].str = matches[j].replace;
+		  mswitches[n_mswitches].len = matches[j].rep_len;
+		  mswitches[n_mswitches].replace = (char *) 0;
+		  mswitches[n_mswitches].rep_len = 0;
+		  n_mswitches++;
+		  break;
+		}
+	  }
 
       /* Add MULTILIB_DEFAULTS switches too, as long as they were not present
 	 on the command line nor any options mutually incompatible with

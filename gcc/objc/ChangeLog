@@ -1,3 +1,7 @@
+2004-04-20  Ziemowit Laski  <zlaski@apple.com>
+
+	Sync up with HEAD:2004-04-20T0000+0000.
+
 2004-04-01  Ziemowit Laski  <zlaski@apple.com>
 
 	* objc-act.c (synth_module_prologue): Mark UOBJC_SYMBOLS_decl

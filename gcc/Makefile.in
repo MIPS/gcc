@@ -539,9 +539,10 @@ EXTRA_GCC_OBJS =@extra_gcc_objs@
 # List of additional header files to install.
 EXTRA_HEADERS =@extra_headers_list@
 
-# It is convenient for configure to add the assignment at the beginning,
-# so don't override it here.
-USE_COLLECT2 = collect2$(exeext)
+# The configure script will set this to collect2$(exeext), except on a
+# (non-Unix) host which can not build collect2, for which it will be
+# set to empty.
+COLLECT2 = @collect2@
 
 # List of extra C and assembler files to add to static and shared libgcc2.
 # Assembler files should have names ending in `.asm'.
@@ -580,7 +581,7 @@ GCC_PASSES=xgcc$(exeext) cc1$(exeext) specs $(EXTRA_PASSES)
 
 # List of things which should already be built whenever we try to use xgcc
 # to link anything.
-GCC_PARTS=$(GCC_PASSES) $(LIBGCC) $(EXTRA_PROGRAMS) $(USE_COLLECT2) $(EXTRA_PARTS)
+GCC_PARTS=$(GCC_PASSES) $(LIBGCC) $(EXTRA_PROGRAMS) $(COLLECT2) $(EXTRA_PARTS)
 
 # Directory to link to, when using the target `maketest'.
 DIR = ../gcc
@@ -905,7 +906,7 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  xgcc$(exeext) cpp$(exeext) cc1$(exeext) $(EXTRA_PASSES) \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) \
  protoize$(exeext) unprotoize$(exeext) \
- $(SPECS) collect2$(exeext) $(USE_COLLECT2) \
+ $(SPECS) collect2$(exeext) \
  gcov-iov$(build_exeext) gcov$(exeext) gcov-dump$(exeext) \
  *.[0-9][0-9].* *.[si] libcpp.a libbackend.a libgcc.mk \
  $(LANG_STAGESTUFF)
@@ -1082,7 +1083,7 @@ rest.encap: $(STMP_FIXPROTO) $(LIBGCC) $(EXTRA_PARTS) lang.rest.encap
 # This is what is made with the host's compiler
 # whether making a cross compiler or not.
 native: config.status auto-host.h build-@POSUB@ $(LANGUAGES) \
-	$(EXTRA_PASSES) $(EXTRA_PROGRAMS) $(USE_COLLECT2)
+	$(EXTRA_PASSES) $(EXTRA_PROGRAMS) $(COLLECT2)
 
 # Define the names for selecting languages in LANGUAGES.
 C c: cc1$(exeext)
@@ -1521,7 +1522,7 @@ tree-dump.o: tree-dump.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 tree-inline.o : tree-inline.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(RTL_H) $(EXPR_H) flags.h $(PARAMS_H) input.h insn-config.h \
    $(INTEGRATE_H) $(VARRAY_H) $(HASHTAB_H) $(SPLAY_TREE_H) toplev.h \
-   langhooks.h $(C_COMMON_H) tree-inline.h cgraph.h intl.h
+   langhooks.h $(C_COMMON_H) tree-inline.h cgraph.h intl.h function.h
 tree-optimize.o : tree-optimize.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) toplev.h langhooks.h cgraph.h $(TIMEVAR_H) function.h $(GGC_H)
 
@@ -2545,7 +2546,7 @@ fixinc.sh: $(FIXINCSRCDIR)/mkfixinc.sh $(FIXINCSRCDIR)/fixincl.c \
 	$(FIXINCSRCDIR)/server.h $(FIXINCSRCDIR)/inclhack.def specs.ready
 	(MAKE="$(MAKE)"; srcdir=`cd $(srcdir)/fixinc && ${PWD_COMMAND}` ; \
 	CC="$(CC_FOR_BUILD)"; CFLAGS="$(BUILD_CFLAGS)"; LDFLAGS="$(BUILD_LDFLAGS)"; \
-	WARN_CFLAGS="$(WARN_CFLAGS)"; LIBERTY=`${PWD_COMMAND}`/"$(BUILD_LIBIBERTY)"; \
+	WARN_CFLAGS=""; LIBERTY=`${PWD_COMMAND}`/"$(BUILD_LIBIBERTY)"; \
 	export MAKE srcdir CC CFLAGS LDFLAGS WARN_CFLAGS LIBERTY; \
 	cd ./fixinc && \
 	$(SHELL) $${srcdir}/mkfixinc.sh $(build) $(target))
@@ -2915,7 +2916,7 @@ install-common: native $(EXTRA_PARTS) lang.install-common installdirs
 	  else true; \
 	  fi; \
 	done
-	for file in $(EXTRA_PASSES) $(EXTRA_PROGRAMS) $(USE_COLLECT2) ..; do \
+	for file in $(EXTRA_PASSES) $(EXTRA_PROGRAMS) $(COLLECT2) ..; do \
 	  if [ x"$$file" != x.. ]; then \
 	    rm -f $(DESTDIR)$(libexecsubdir)/$$file; \
 	    $(INSTALL_PROGRAM) $$file $(DESTDIR)$(libexecsubdir)/$$file; \
@@ -3650,6 +3651,7 @@ stage1-start:
 	-if [ -f ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stage1/libgcc.a stage1/libgcc_eh.a stage1/libgcov.a
+	-rm -f stage1/libgcc_s*$(SHLIB_EXT)
 	-cp libgcc.a stage1
 	-$(RANLIB_FOR_TARGET) stage1/libgcc.a
 	-cp libgcov.a stage1
@@ -3657,6 +3659,7 @@ stage1-start:
 	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage1; \
 	   $(RANLIB_FOR_TARGET) stage1/libgcc_eh.a; \
 	fi
+	-cp libgcc_s*$(SHLIB_EXT) stage1
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage1/$${f} . ; \
 	else true; \
@@ -3683,6 +3686,7 @@ stage2-start:
 	-if [ -f ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stage2/libgcc.a stage2/libgcov.a stage2/libgcc_eh.a
+	-rm -f stage2/libgcc_s*$(SHLIB_EXT)
 	-cp libgcc.a stage2
 	-$(RANLIB_FOR_TARGET) stage2/libgcc.a
 	-cp libgcov.a stage2
@@ -3690,6 +3694,7 @@ stage2-start:
 	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage2; \
 	   $(RANLIB_FOR_TARGET) stage2/libgcc_eh.a; \
 	fi
+	-cp libgcc_s*$(SHLIB_EXT) stage2
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage2/$${f} . ; \
 	else true; \
@@ -3712,6 +3717,7 @@ stage3-start:
 	-if [ -f ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stage3/libgcc.a stage3/libgcov.a stage3/libgcc_eh.a
+	-rm -f stage3/libgcc_s*$(SHLIB_EXT)
 	-cp libgcc.a stage3
 	-$(RANLIB_FOR_TARGET) stage3/libgcc.a
 	-cp libgcov.a stage3
@@ -3719,6 +3725,7 @@ stage3-start:
 	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage3; \
 	   $(RANLIB_FOR_TARGET) stage3/libgcc_eh.a; \
 	fi
+	-cp libgcc_s*$(SHLIB_EXT) stage3
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage3/$${f} . ; \
 	else true; \
@@ -3741,6 +3748,7 @@ stage4-start:
 	-if [ -f ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stage4/libgcc.a stage4/libgcov.a stage4/libgcc_eh.a
+	-rm -f stage4/libgcc_s*$(SHLIB_EXT)
 	-cp libgcc.a stage4
 	-$(RANLIB_FOR_TARGET) stage4/libgcc.a
 	-cp libgcov.a stage4
@@ -3748,6 +3756,7 @@ stage4-start:
 	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage4; \
 	   $(RANLIB_FOR_TARGET) stage4/libgcc_eh.a; \
 	fi
+	-cp libgcc_s*$(SHLIB_EXT) stage4
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage4/$${f} . ; \
 	else true; \
@@ -3768,6 +3777,7 @@ stageprofile-start:
 	-if [ -f ld$(exeext) ] ; then (cd stageprofile && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stageprofile && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stageprofile/libgcc.a stageprofile/libgcov.a stageprofile/libgcc_eh.a
+	-rm -f stageprofile/libgcc_s*$(SHLIB_EXT)
 	-cp libgcc.a stageprofile
 	-$(RANLIB_FOR_TARGET) stageprofile/libgcc.a
 	-cp libgcov.a stageprofile
@@ -3775,6 +3785,7 @@ stageprofile-start:
 	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stageprofile; \
 	   $(RANLIB_FOR_TARGET) stageprofile/libgcc_eh.a; \
 	fi
+	-cp libgcc_s*$(SHLIB_EXT) stageprofile
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stageprofile/$${f} . ; \
 	else true; \
@@ -3795,6 +3806,7 @@ stagefeedback-start:
 	-if [ -f ld$(exeext) ] ; then (cd stagefeedback && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stagefeedback && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stagefeedback/libgcc.a stagefeedback/libgcov.a stagefeedback/libgcc_eh.a
+	-rm -f stagefeedback/libgcc_s*$(SHLIB_EXT)
 	-rm -f *.da
 	-for dir in fixinc po testsuite $(SUBDIRS); \
 	 do \
@@ -3807,6 +3819,7 @@ stagefeedback-start:
 	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stagefeedback; \
 	   $(RANLIB_FOR_TARGET) stagefeedback/libgcc_eh.a; \
 	fi
+	-cp libgcc_s*$(SHLIB_EXT) stagefeedback
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stagefeedback/$${f} . ; \
 	else true; \

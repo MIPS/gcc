@@ -136,6 +136,7 @@ typedef struct { unsigned :16, :16, :16; } vms_ino_t;
 #include "target.h"
 #include "top.h"
 #include "type.h"
+#include "function.h"
 
 /* Externals defined here.  */
 
@@ -558,7 +559,7 @@ static GTY(()) struct f_binding_level *current_binding_level;
 
 /* A chain of binding_level structures awaiting reuse.  */
 
-static GTY((deletable (""))) struct f_binding_level *free_binding_level;
+static GTY((deletable)) struct f_binding_level *free_binding_level;
 
 /* The outermost binding level, for names of file scope.
    This is created when the compiler is started and exists
@@ -912,7 +913,7 @@ ffecom_arrayref_ (tree item, ffebld expr, int want_ptr)
 	  if (tree_type
 	      && GET_MODE_CLASS (TYPE_MODE (tree_type)) == MODE_INT
 	      && TYPE_PRECISION (tree_type) < TYPE_PRECISION (sizetype))
-	    tree_type_x = (TREE_UNSIGNED (tree_type) ? usizetype : ssizetype);
+	    tree_type_x = (TYPE_UNSIGNED (tree_type) ? usizetype : ssizetype);
 
 	  if (TREE_TYPE (min) != tree_type_x)
 	    min = convert (tree_type_x, min);
@@ -958,7 +959,7 @@ ffecom_arrayref_ (tree item, ffebld expr, int want_ptr)
 	  if (tree_type
 	      && GET_MODE_CLASS (TYPE_MODE (tree_type)) == MODE_INT
 	      && TYPE_PRECISION (tree_type) < TYPE_PRECISION (sizetype))
-	    tree_type_x = (TREE_UNSIGNED (tree_type) ? usizetype : ssizetype);
+	    tree_type_x = (TYPE_UNSIGNED (tree_type) ? usizetype : ssizetype);
 
 	  element = convert (tree_type_x, element);
 
@@ -2955,7 +2956,7 @@ ffecom_expr_ (ffebld expr, tree dest_tree, ffebld dest, bool *dest_used,
   if (widenp && tree_type
       && GET_MODE_CLASS (TYPE_MODE (tree_type)) == MODE_INT
       && TYPE_PRECISION (tree_type) < TYPE_PRECISION (sizetype))
-    tree_type_x = (TREE_UNSIGNED (tree_type) ? usizetype : ssizetype);
+    tree_type_x = (TYPE_UNSIGNED (tree_type) ? usizetype : ssizetype);
 
   switch (ffebld_op (expr))
     {
@@ -13591,6 +13592,12 @@ finish_function (int nested)
 
       /* Run the optimizers and output the assembler code for this function.  */
       rest_of_compilation (fndecl);
+      if (! DECL_DEFER_OUTPUT (fndecl))
+	{
+	  free_after_compilation (cfun);
+	  DECL_STRUCT_FUNCTION (fndecl) = 0;
+	}
+      cfun = 0;
 
       /* Undo the GC context switch.  */
       if (nested)
@@ -14754,8 +14761,8 @@ ffe_truthvalue_conversion (tree expr)
 #if 0
     case COMPONENT_REF:
       /* A one-bit unsigned bit-field is already acceptable.  */
-      if (1 == TREE_INT_CST_LOW (DECL_SIZE (TREE_OPERAND (expr, 1)))
-	  && TREE_UNSIGNED (TREE_OPERAND (expr, 1)))
+      if (integer_onep (DECL_SIZE (TREE_OPERAND (expr, 1)))
+	  && DECL_UNSIGNED (TREE_OPERAND (expr, 1)))
 	return expr;
       break;
 #endif

@@ -8902,7 +8902,7 @@ __ch (__bin_args_eq (vector unsigned int, (a1), vector unsigned int, (a2)), \
       ((vector unsigned int) __builtin_altivec_vmrghw ((vector signed int) (a1), (vector signed int) (a2))), \
 __ch (__bin_args_eq (vector bool int, (a1), vector bool int, (a2)), \
       ((vector bool int) __builtin_altivec_vmrghw ((vector signed int) (a1), (vector signed int) (a2))), \
-    __builtin_altivec_compiletime_error ("vec_mergeh")))))))))))
+    __builtin_altivec_compiletime_error ("vec_mergeh"))))))))))))
 
 #define vec_vmrghw(a1, a2) \
 __ch (__bin_args_eq (vector float, (a1), vector float, (a2)), \
@@ -8950,7 +8950,7 @@ __ch (__bin_args_eq (vector unsigned int, (a1), vector unsigned int, (a2)), \
       ((vector unsigned int) __builtin_altivec_vmrglw ((vector signed int) (a1), (vector signed int) (a2))), \
 __ch (__bin_args_eq (vector bool int, (a1), vector bool int, (a2)), \
       ((vector bool int) __builtin_altivec_vmrglw ((vector signed int) (a1), (vector signed int) (a2))), \
-    __builtin_altivec_compiletime_error ("vec_mergel"))))))))
+    __builtin_altivec_compiletime_error ("vec_mergel"))))))))))))
 
 #define vec_vmrglw(a1, a2) \
 __ch (__bin_args_eq (vector float, (a1), vector float, (a2)), \
@@ -10977,7 +10977,7 @@ __ch (__bin_args_eq (vector float, (a1), vector float, (a2)), \
     __builtin_altivec_compiletime_error ("vec_any_nlt"))
 
 #define vec_any_numeric(a1) \
-__ch (__unn_args_eq (vector float, (a1)), \
+__ch (__un_args_eq (vector float, (a1)), \
       __builtin_altivec_vcmpeqfp_p (__CR6_EQ_REV, (a1), (a1)), \
     __builtin_altivec_compiletime_error ("vec_any_numeric"))
 

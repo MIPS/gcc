@@ -126,7 +126,7 @@ int always_initialize_class_p;
 static GTY(()) tree quick_stack;
 
 /* A free-list of unused permanent TREE_LIST nodes.  */
-static GTY((deletable (""))) tree tree_list_free_list;
+static GTY((deletable)) tree tree_list_free_list;
 
 /* The stack pointer of the Java virtual machine.
    This does include the size of the quick_stack. */
@@ -1150,9 +1150,7 @@ expand_java_NEW (tree type)
   safe_layout_class (type);
   push_value (build (CALL_EXPR, promote_type (type),
 		     build_address_of (alloc_node),
-		     tree_cons (NULL_TREE, build_class_ref (type),
-				build_tree_list (NULL_TREE,
-						 size_in_bytes (type))),
+		     build_tree_list (NULL_TREE, build_class_ref (type)),
 		     NULL_TREE));
 }
 
@@ -1942,9 +1940,7 @@ build_invokeinterface (tree dtable, tree method)
   tree lookup_arg;
   tree interface;
   tree idx;
-  tree meth;
   tree otable_index;
-  int i;
 
   /* We expand invokeinterface here.  _Jv_LookupInterfaceMethod() will
      ensure that the selected method exists, is public and not
@@ -1974,17 +1970,7 @@ build_invokeinterface (tree dtable, tree method)
     }
   else
     {
-      i = 1;
-      for (meth = TYPE_METHODS (interface); ; meth = TREE_CHAIN (meth), i++)
-	{
-	  if (meth == method)
-            {
-	      idx = build_int_2 (i, 0);
-	      break;
-	    }
-	  if (meth == NULL_TREE)
-	    abort ();
-	}
+      idx = build_int_2 (get_interface_method_index (method, interface), 0);
     }
 
   lookup_arg = tree_cons (NULL_TREE, dtable,

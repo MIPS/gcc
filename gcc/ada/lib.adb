@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -132,6 +132,11 @@ package body Lib is
    begin
       return Units.Table (U).Main_Priority;
    end Main_Priority;
+
+   function Munit_Index (U : Unit_Number_Type) return Nat is
+   begin
+      return Units.Table (U).Munit_Index;
+   end Munit_Index;
 
    function Source_Index (U : Unit_Number_Type) return Source_File_Index is
    begin
@@ -596,7 +601,7 @@ package body Lib is
       end if;
 
       --  If S was No_Location, or was not in the table, we must be in the
-      --  main source unit (and the value is not got put into the table yet)
+      --  main source unit (and the value has not got put into the table yet)
 
       return Main_Unit;
    end Get_Source_Unit;
@@ -798,7 +803,6 @@ package body Lib is
 
    function Increment_Serial_Number return Nat is
       TSN : Int renames Units.Table (Current_Sem_Unit).Serial_Number;
-
    begin
       TSN := TSN + 1;
       return TSN;
@@ -940,6 +944,16 @@ package body Lib is
       Linker_Option_Lines.Table (Linker_Option_Lines.Last) :=
         (Option => S, Unit => Current_Sem_Unit);
    end Store_Linker_Option_String;
+
+   -------------------------------
+   -- Synchronize_Serial_Number --
+   -------------------------------
+
+   procedure Synchronize_Serial_Number is
+      TSN : Int renames Units.Table (Current_Sem_Unit).Serial_Number;
+   begin
+      TSN := TSN + 1;
+   end Synchronize_Serial_Number;
 
    ---------------
    -- Tree_Read --

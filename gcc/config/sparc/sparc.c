@@ -274,20 +274,15 @@ enum processor_type sparc_cpu;
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST hook_int_rtx_0
 
-/* Return TRUE if the promotion described by PROMOTE_MODE should also be done
-   for outgoing function arguments.
-   This is only needed for TARGET_ARCH64, but since PROMOTE_MODE is a no-op
-   for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime test
-   for this value.  */
+/* This is only needed for TARGET_ARCH64, but since PROMOTE_FUNCTION_MODE is a
+   no-op for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime
+   test for this value.  */
 #undef TARGET_PROMOTE_FUNCTION_ARGS
 #define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
 
-/* Return TRUE if the promotion described by PROMOTE_MODE should also be done
-   for the return value of functions.  If this macro is defined, FUNCTION_VALUE
-   must perform the same promotions done by PROMOTE_MODE.
-   This is only needed for TARGET_ARCH64, but since PROMOTE_MODE is a no-op
-   for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime test
-   for this value.  */
+/* This is only needed for TARGET_ARCH64, but since PROMOTE_FUNCTION_MODE is a
+   no-op for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime
+   test for this value.  */
 #undef TARGET_PROMOTE_FUNCTION_RETURN
 #define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
 
@@ -7323,7 +7318,7 @@ sparc_type_code (register tree type)
 
 	  /* Carefully distinguish all the standard types of C,
 	     without messing up if the language is not C.  We do this by
-	     testing TYPE_PRECISION and TREE_UNSIGNED.  The old code used to
+	     testing TYPE_PRECISION and TYPE_UNSIGNED.  The old code used to
 	     look at both the names and the above fields, but that's redundant.
 	     Any type whose size is between two C types will be considered
 	     to be the wider of the two types.  Also, we do not have a
@@ -7333,16 +7328,16 @@ sparc_type_code (register tree type)
 	     size, but that's fine, since neither can the assembler.  */
 
 	  if (TYPE_PRECISION (type) <= CHAR_TYPE_SIZE)
-	    return (qualifiers | (TREE_UNSIGNED (type) ? 12 : 2));
+	    return (qualifiers | (TYPE_UNSIGNED (type) ? 12 : 2));
   
 	  else if (TYPE_PRECISION (type) <= SHORT_TYPE_SIZE)
-	    return (qualifiers | (TREE_UNSIGNED (type) ? 13 : 3));
+	    return (qualifiers | (TYPE_UNSIGNED (type) ? 13 : 3));
   
 	  else if (TYPE_PRECISION (type) <= INT_TYPE_SIZE)
-	    return (qualifiers | (TREE_UNSIGNED (type) ? 14 : 4));
+	    return (qualifiers | (TYPE_UNSIGNED (type) ? 14 : 4));
   
 	  else
-	    return (qualifiers | (TREE_UNSIGNED (type) ? 15 : 5));
+	    return (qualifiers | (TYPE_UNSIGNED (type) ? 15 : 5));
   
 	case REAL_TYPE:
 	  /* If this is a range type, consider it to be the underlying
@@ -8081,6 +8076,13 @@ sparc_init_libfuncs (void)
       set_conv_libfunc (sfix_optab,   SImode, TFmode, "_Q_qtoi");
       set_conv_libfunc (ufix_optab,   SImode, TFmode, "_Q_qtou");
       set_conv_libfunc (sfloat_optab, TFmode, SImode, "_Q_itoq");
+
+      if (DITF_CONVERSION_LIBFUNCS)
+	{
+	  set_conv_libfunc (sfix_optab,   DImode, TFmode, "_Q_qtoll");
+	  set_conv_libfunc (ufix_optab,   DImode, TFmode, "_Q_qtoull");
+	  set_conv_libfunc (sfloat_optab, TFmode, DImode, "_Q_lltoq");
+	}
 
       if (SUN_CONVERSION_LIBFUNCS)
 	{

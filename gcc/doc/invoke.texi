@@ -155,7 +155,7 @@ in the following sections.
 @table @emph
 @item Overall Options
 @xref{Overall Options,,Options Controlling the Kind of Output}.
-@gccoptlist{-c  -S  -E  -o @var{file}  -pipe  -pass-exit-codes  @gol
+@gccoptlist{-c  -S  -E  -o @var{file}  -combine -pipe  -pass-exit-codes  @gol
 -x @var{language}  -v  -###  --help  --target-help  --version}
 
 @item C Language Options
@@ -284,7 +284,7 @@ in the following sections.
 -foptimize-sibling-calls  -fprefetch-loop-arrays @gol
 -fprofile-generate -fprofile-use @gol
 -freduce-all-givs  -fregmove  -frename-registers @gol
--freorder-blocks  -freorder-functions @gol
+-freorder-blocks  -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop  -frerun-loop-opt @gol
 -frounding-math -fschedule-insns  -fschedule-insns2 @gol
 -fno-sched-interblock  -fno-sched-spec  -fsched-spec-load @gol
@@ -480,7 +480,7 @@ in the following sections.
 -mmemcpy  -mno-memcpy  -mlong-calls  -mno-long-calls @gol
 -mmad  -mno-mad  -mfused-madd  -mno-fused-madd  -nocpp @gol
 -mfix-r4000  -mno-fix-r4000  -mfix-r4400  -mno-fix-r4400 @gol
--mfix-vr4122-bugs  -mno-fix-vr4122-bugs  -mfix-sb1  -mno-fix-sb1 @gol
+-mfix-vr4120  -mno-fix-vr4120  -mfix-sb1  -mno-fix-sb1 @gol
 -mflush-func=@var{func}  -mno-flush-func @gol
 -mbranch-likely  -mno-branch-likely}
 
@@ -869,10 +869,6 @@ Place output in file @var{file}.  This applies regardless to whatever
 sort of output is being produced, whether it be an executable file,
 an object file, an assembler file or preprocessed C code.
 
-If you specify @option{-o} when compiling more than one input file, or
-you are producing an executable file as output, all the source files
-on the command line will be compiled at once.
-
 If @option{-o} is not specified, the default is to put an executable file
 in @file{a.out}, the object file for @file{@var{source}.@var{suffix}} in
 @file{@var{source}.o}, its assembler file in @file{@var{source}.s}, and
@@ -896,6 +892,21 @@ Use pipes rather than temporary files for communication between the
 various stages of compilation.  This fails to work on some systems where
 the assembler is unable to read from a pipe; but the GNU assembler has
 no trouble.
+
+@item -combine
+@opindex combine
+If you are compiling multiple source files, this option tells the driver
+to pass all the source files to the compiler at once (for those 
+languages for which the compiler can handle this).  This will allow
+intermodule analysis (IMA) to be performed by the compiler.  Currently the only
+language for which this is supported is C.  If you pass source files for
+multiple languages to the driver, using this option, the driver will invoke
+the compiler(s) that support IMA once each, passing each compiler all the
+source files appropriate for it.  For those languages that do not support
+IMA this option will be ignored, and the compiler will be invoked once for
+each source file in that language.  If you use this option in conjunction
+with -save-temps, the compiler will generate multiple pre-processed files
+(one for each source file), but only one (combined) .o or .s file. 
 
 @item --help
 @opindex help
@@ -3670,7 +3681,7 @@ optimizations designed to reduce code size.
 
 @option{-Os} disables the following optimization flags:
 @gccoptlist{-falign-functions  -falign-jumps  -falign-loops @gol
--falign-labels  -freorder-blocks  -fprefetch-loop-arrays}
+-falign-labels  -freorder-blocks  -freorder-blocks-and-partition -fprefetch-loop-arrays}
 
 If you use multiple @option{-O} options, with or without level numbers,
 the last such option is the one that is effective.
@@ -4196,12 +4207,19 @@ taken branches and improve code locality.
 
 Enabled at levels @option{-O2}, @option{-O3}.
 
+@item -freorder-blocks-and-partition
+@opindex freorder-blocks-and-partition
+In addition to reordering basic blocks in the compiled function, in order
+to reduce number of taken branches, partitions hot and cold basic blocks
+into separate sections of the assembly and .o files, to improve
+paging and cache locality performance.
+
 @item -freorder-functions
 @opindex freorder-functions
 Reorder basic blocks in the compiled function in order to reduce number of
 taken branches and improve code locality. This is implemented by using special
-subsections @code{text.hot} for most frequently executed functions and
-@code{text.unlikely} for unlikely executed functions.  Reordering is done by
+subsections @code{.text.hot} for most frequently executed functions and
+@code{.text.unlikely} for unlikely executed functions.  Reordering is done by
 the linker so object file format must support named sections and linker must
 place them in a reasonable way.
 
@@ -4329,11 +4347,14 @@ Enabled at levels @option{-O2}, @option{-O3}.
 @opindex frename-registers
 Attempt to avoid false dependencies in scheduled code by making use
 of registers left over after register allocation.  This optimization
-will most benefit processors with lots of registers.  It can, however,
+will most benefit processors with lots of registers.  Depending on the
+debug information format adopted by the target, however, it can
 make debugging impossible, since variables will no longer stay in
 a ``home register''.
 
-Enabled at levels @option{-O3}.
+Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os},
+on targets where the default format for debugging information supports
+variable tracking.
 
 @item -fweb
 @opindex fweb
@@ -4344,7 +4365,9 @@ passes, such as CSE, loop optimizer and trivial dead code remover.  It can,
 however, make debugging impossible, since variables will no longer stay in a
 ``home register''.
 
-Enabled at levels @option{-O3}.
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os},
+on targets where the default format for debugging information supports
+variable tracking.
 
 @item -fno-cprop-registers
 @opindex fno-cprop-registers
@@ -4356,10 +4379,13 @@ Disabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fprofile-generate
 @opindex fprofile-generate
-Enable options usually used for instrumenting application to produce profile usefull
-for later recompilation profile feedback based optimization.
 
-The following options are enabled: @code{-fprofile-arcs}, @code{-fprofile-values}, @code{-fvpt}
+Enable options usually used for instrumenting application to produce
+profile useful for later recompilation with profile feedback based
+optimization.  You must use @code{-fprofile-generate} both when
+compiling and when linking your program.
+
+The following options are enabled: @code{-fprofile-arcs}, @code{-fprofile-values}, @code{-fvpt}.
 
 @item -fprofile-use
 @opindex fprofile-use
@@ -7861,6 +7887,9 @@ Note that the EABI has a 32-bit and a 64-bit variant.  GCC normally
 generates 64-bit code when you select a 64-bit architecture, but you
 can use @option{-mgp32} to get 32-bit code instead.
 
+For information about the O64 ABI, see
+@w{@uref{http://gcc.gnu.org/projects/mipso64-abi.html}}.
+
 @item -mabicalls
 @itemx -mno-abicalls
 @opindex mabicalls
@@ -8105,10 +8134,10 @@ A double-word or a variable shift may give an incorrect result if executed
 immediately after starting an integer division.
 @end itemize
 
-@item -mfix-vr4122-bugs
-@itemx -mno-fix-vr4122-bugs
-@opindex mfix-vr4122-bugs
-Work around certain VR4122 errata:
+@item -mfix-vr4120
+@itemx -mno-fix-vr4120
+@opindex mfix-vr4120
+Work around certain VR4120 errata:
 @itemize @minus
 @item
 @code{dmultu} does not always produce the correct result.
@@ -8120,7 +8149,7 @@ The workarounds for the division errata rely on special functions in
 @file{libgcc.a}.  At present, these functions are only provided by
 the @code{mips64vr*-elf} configurations.
 
-Other VR4122 errata require a nop to be inserted between certain pairs of
+Other VR4120 errata require a nop to be inserted between certain pairs of
 instructions.  These errata are handled by the assembler, not by GCC itself.
 
 @item -mfix-sb1
@@ -11323,6 +11352,13 @@ build the project.  To make builds faster, GCC allows users to
 `precompile' a header file; then, if builds can use the precompiled
 header file they will be much faster.
 
+@strong{Caution:} There are a few known situations where GCC will
+crash when trying to use a precompiled header.  If you have trouble
+with a precompiled header, you should remove the precompiled header
+and compile without it.  In addition, please use GCC's on-line
+defect-tracking system to report any problems you encounter with
+precompiled headers.  @xref{Bugs}.
+
 To create a precompiled header file, simply compile it as you would any
 other file, if necessary using the @option{-x} option to make the driver
 treat it as a C or C++ header file.  You will probably want to use a
@@ -11360,11 +11396,11 @@ they've already been included (in the precompiled header).
 If you need to precompile the same header file for different
 languages, targets, or compiler options, you can instead make a
 @emph{directory} named like @file{all.h.gch}, and put each precompiled
-header in the directory.  (It doesn't matter what you call the files
-in the directory, every precompiled header in the directory will be
-considered.)  The first precompiled header encountered in the
-directory that is valid for this compilation will be used; they're
-searched in no particular order.
+header in the directory, perhaps using @option{-o}.  It doesn't matter
+what you call the files in the directory, every precompiled header in
+the directory will be considered.  The first precompiled header
+encountered in the directory that is valid for this compilation will
+be used; they're searched in no particular order.
 
 There are many other possibilities, limited only by your imagination,
 good sense, and the constraints of your build system.
@@ -11374,40 +11410,68 @@ A precompiled header file can be used only when these conditions apply:
 @itemize
 @item
 Only one precompiled header can be used in a particular compilation.
+
 @item
 A precompiled header can't be used once the first C token is seen.  You
 can have preprocessor directives before a precompiled header; you can
 even include a precompiled header from inside another header, so long as
 there are no C tokens before the @code{#include}.
+
 @item
 The precompiled header file must be produced for the same language as
 the current compilation.  You can't use a C precompiled header for a C++
 compilation.
+
 @item
 The precompiled header file must be produced by the same compiler
 version and configuration as the current compilation is using.
 The easiest way to guarantee this is to use the same compiler binary
 for creating and using precompiled headers.
+
 @item
-Any macros defined before the precompiled header (including with
-@option{-D}) must either be defined in the same way as when the
-precompiled header was generated, or must not affect the precompiled
-header, which usually means that the they don't appear in the
-precompiled header at all.
+Any macros defined before the precompiled header is included must
+either be defined in the same way as when the precompiled header was
+generated, or must not affect the precompiled header, which usually
+means that the they don't appear in the precompiled header at all.
+
+The @option{-D} option is one way to define a macro before a
+precompiled header is included; using a @code{#define} can also do it.
+There are also some options that define macros implicitly, like
+@option{-O} and @option{-Wdeprecated}; the same rule applies to macros
+defined this way.
+
+@item If debugging information is output when using the precompiled
+header, using @option{-g} or similar, the same kind of debugging information
+must have been output when building the precompiled header.  However,
+a precompiled header built using @option{-g} can be used in a compilation
+when no debugging information is being output.
+
+@item The same @option{-m} options must generally be used when building
+and using the precompiled header.  @xref{Submodel Options},
+for any cases where this rule is relaxed.
+
+@item Each of the following options must be the same when building and using
+the precompiled header:
+
+@gccoptlist{-fexceptions -funit-at-a-time}
+
 @item
-Certain command-line options must be defined in the same way as when the
-precompiled header was generated.  At present, it's not clear which
-options are safe to change and which are not; the safest choice is to
-use exactly the same options when generating and using the precompiled
-header.
+Some other command-line options starting with @option{-f},
+@option{-p}, or @option{-O} must be defined in the same way as when
+the precompiled header was generated.  At present, it's not clear
+which options are safe to change and which are not; the safest choice
+is to use exactly the same options when generating and using the
+precompiled header.  The following are known to be safe:
+
+@gccoptlist{-pedantic-errors}
+
 @end itemize
 
-For all of these but the last, the compiler will automatically ignore
-the precompiled header if the conditions aren't met.  For the last item,
-some option changes will cause the precompiled header to be rejected,
-but not all incompatible option combinations have yet been found.  If
-you find a new incompatible combination, please consider filing a bug
-report, see @ref{Bugs}.
+For all of these except the last, the compiler will automatically
+ignore the precompiled header if the conditions aren't met.  If you
+find an option combination that doesn't work and doesn't cause the
+precompiled header to be ignored, please consider filing a bug report,
+see @ref{Bugs}.
 
 @node Running Protoize
 @section Running Protoize

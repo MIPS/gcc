@@ -504,9 +504,6 @@ package body MLib.Prj is
          Text     : Text_Buffer_Ptr;
          Id       : ALI.ALI_Id;
 
-         pragma Warnings (Off, Id);
-         --  Comment needed ???
-
       begin
          if not Libgnarl_Needed or
            (Hostparm.OpenVMS and then (not Libdecgnat_Needed))

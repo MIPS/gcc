@@ -798,6 +798,11 @@ extern int arm_is_6_or_7;
       (MODE) = SImode;				\
     }
 
+#define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE)	\
+  if (GET_MODE_CLASS (MODE) == MODE_INT		\
+      && GET_MODE_SIZE (MODE) < 4)      	\
+    (MODE) = SImode;				\
+
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
 #define BITS_BIG_ENDIAN  0
@@ -1373,6 +1378,13 @@ enum reg_class
      || reg_classes_intersect_p (VFP_REGS, (CLASS))	\
    : 0)
 
+/* We need to define this for LO_REGS on thumb.  Otherwise we can end up
+   using r0-r4 for function arguments, r7 for the stack frame and don't
+   have enough left over to do doubleword arithmetic.  */
+#define CLASS_LIKELY_SPILLED_P(CLASS)	\
+    ((TARGET_THUMB && (CLASS) == LO_REGS)	\
+     || (CLASS) == CC_REG)
+				      
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS  (TARGET_THUMB ? LO_REGS : GENERAL_REGS)
 #define BASE_REG_CLASS   (TARGET_THUMB ? LO_REGS : GENERAL_REGS)
@@ -1726,7 +1738,7 @@ enum reg_class
    If the precise function being called is known, FUNC is its FUNCTION_DECL;
    otherwise, FUNC is 0.  */
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
-  LIBCALL_VALUE (TYPE_MODE (VALTYPE))
+  arm_function_value (VALTYPE, FUNC);
 
 /* 1 if N is a possible register number for a function value.
    On the ARM, only r0 and f0 can return results.  */

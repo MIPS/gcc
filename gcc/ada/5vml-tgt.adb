@@ -28,9 +28,9 @@
 --  This is the VMS version of the body
 
 with Ada.Characters.Handling; use Ada.Characters.Handling;
-with Ada.Text_IO;             use Ada.Text_IO;
 
 with GNAT.Directory_Operations;  use GNAT.Directory_Operations;
+with GNAT.OS_Lib;                use GNAT.OS_Lib;
 
 with MLib.Fil;
 with MLib.Utl;
@@ -50,15 +50,10 @@ package body MLib.Tgt is
    --  Used to add the generated auto-init object files for auto-initializing
    --  stand-alone libraries.
 
-   Macro_Name   : constant String := "macro";
+   Macro_Name   : constant String := "mcr gnu:[bin]gcc -c -x assembler";
    --  The name of the command to invoke the macro-assembler
 
-   --  Options to use when invoking gcc to build the dynamic library
-
-   No_Start_Files : aliased String := "-nostartfiles";
-
-   VMS_Options : Argument_List :=
-     (No_Start_Files'Access, null);
+   VMS_Options : Argument_List := (1 .. 1 => null);
 
    Gnatsym_Name : constant String := "gnatsym";
 
@@ -272,7 +267,7 @@ package body MLib.Tgt is
            new String'("--for-linker=" & Opt_File_Name & "/OPTIONS");
       end if;
 
-      VMS_Options (VMS_Options'First + 1) := For_Linker_Opt;
+      VMS_Options (VMS_Options'First) := For_Linker_Opt;
 
       for J in Inter'Range loop
          To_Lower (Inter (J).all);
@@ -293,15 +288,17 @@ package body MLib.Tgt is
 
       if Auto_Init then
          declare
-            Macro_File_Name : constant String := Lib_Filename & "$init.mar";
-            Macro_File      : Ada.Text_IO.File_Type;
+            Macro_File_Name : constant String := Lib_Filename & "$init.asm";
+            Macro_File      : File_Descriptor;
             Init_Proc       : String := Lib_Filename & "INIT";
             Popen_Result    : System.Address;
             Pclose_Result   : Integer;
+            Len             : Natural;
+            OK              : Boolean := True;
 
             Command  : constant String :=
                          Macro_Name & " " & Macro_File_Name & ASCII.NUL;
-            --  The command to invoke the macro-assembler on the generated
+            --  The command to invoke the assembler on the generated auto-init
             --  assembly file.
 
             Mode : constant String := "r" & ASCII.NUL;
@@ -316,23 +313,42 @@ package body MLib.Tgt is
                Write_Line ("""");
             end if;
 
+            --  Create and write the auto-init assembly file
+
+            declare
+               First_Line : constant String :=
+                              ASCII.HT & ".section LIB$INITIALIZE,GBL,NOWRT" &
+               ASCII.LF;
+               Second_Line : constant String :=
+                               ASCII.HT & ".long " & Init_Proc & ASCII.LF;
+               --  First and second lines of the auto-init assembly file
+
             begin
-               Create (Macro_File, Out_File, Macro_File_Name);
+               Macro_File := Create_File (Macro_File_Name, Text);
+               OK := Macro_File /= Invalid_FD;
 
-               Put_Line (Macro_File, ASCII.HT & ".EXTRN LIB$INITIALIZE");
-               Put_Line (Macro_File, ASCII.HT & ".EXTRN " & Init_Proc);
-               Put_Line
-                 (Macro_File,
-                  ASCII.HT & ".PSECT LIB$INITIALIZE USR,GBL,NOEXE,NOWRT,LONG");
-               Put_Line (Macro_File, ASCII.HT & ".ADDRESS " & Init_Proc);
-               Put_Line (Macro_File, ASCII.HT & ".END");
+               if OK then
+                  Len := Write
+                    (Macro_File, First_Line (First_Line'First)'Address,
+                     First_Line'Length);
+                  OK := Len = First_Line'Length;
+               end if;
 
-               Close (Macro_File);
+               if OK then
+                  Len := Write
+                    (Macro_File, Second_Line (Second_Line'First)'Address,
+                     Second_Line'Length);
+                  OK := Len = Second_Line'Length;
+               end if;
 
-            exception
-               when others =>
+               if OK then
+                  Close (Macro_File, OK);
+               end if;
+
+               if not OK then
                   Fail ("creation of auto-init assembly file """,
                         Macro_File_Name, """ failed");
+               end if;
             end;
 
             --  Invoke the macro-assembler
@@ -647,15 +663,6 @@ package body MLib.Tgt is
          end;
       end if;
    end Library_File_Name_For;
-
-   --------------------------------
-   -- Linker_Library_Path_Option --
-   --------------------------------
-
-   function Linker_Library_Path_Option return String_Access is
-   begin
-      return null;
-   end Linker_Library_Path_Option;
 
    ----------------
    -- Object_Ext --

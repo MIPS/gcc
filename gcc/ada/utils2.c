@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2003, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2004, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -512,7 +512,7 @@ nonbinary_modular_operation (enum tree_code op_code,
   /* If our type is the wrong signedness or isn't wide enough, make a new
      type and convert both our operands to it.  */
   if (TYPE_PRECISION (op_type) < precision
-      || TREE_UNSIGNED (op_type) != unsignedp)
+      || TYPE_UNSIGNED (op_type) != unsignedp)
     {
       /* Copy the node so we ensure it can be modified to make it modular.  */
       op_type = copy_node (gnat_type_for_size (precision, unsignedp));
@@ -1225,16 +1225,19 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	}
 
       if (TYPE_FAT_POINTER_P (type))
-	result = build1 (UNCONSTRAINED_ARRAY_REF,
-			 TYPE_UNCONSTRAINED_ARRAY (type), operand);
-
+	{
+	  result = build1 (UNCONSTRAINED_ARRAY_REF,
+			   TYPE_UNCONSTRAINED_ARRAY (type), operand);
+	  TREE_READONLY (result) = TREE_STATIC (result)
+	    = TYPE_READONLY (TYPE_UNCONSTRAINED_ARRAY (type));
+	}
       else if (TREE_CODE (operand) == ADDR_EXPR)
 	result = TREE_OPERAND (operand, 0);
 
       else
 	{
 	  result = fold (build1 (op_code, TREE_TYPE (type), operand));
-	  TREE_READONLY (result) = TREE_READONLY (TREE_TYPE (type));
+	  TREE_READONLY (result) = TYPE_READONLY (TREE_TYPE (type));
 	}
 
       side_effects
@@ -1521,7 +1524,7 @@ gnat_build_constructor (tree type, tree list)
   TREE_CONSTANT (result) = allconstant;
   TREE_STATIC (result) = allconstant;
   TREE_SIDE_EFFECTS (result) = side_effects;
-  TREE_READONLY (result) = TREE_READONLY (type);
+  TREE_READONLY (result) = TYPE_READONLY (type);
 
   return result;
 }
