@@ -3303,17 +3303,12 @@ convert_template_argument (parm, arg, args, complain, i, in_decl)
 		     && TREE_CODE (DECL_TEMPLATE_RESULT (arg)) == TYPE_DECL)
 		    || TREE_CODE (arg) == TEMPLATE_TEMPLATE_PARM
 		    || TREE_CODE (arg) == UNBOUND_CLASS_TEMPLATE);
-  else if (CLASSTYPE_TEMPLATE_INFO (arg) && !CLASSTYPE_USE_TEMPLATE (arg)
-	   && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (arg)))
-    {
-      if (is_base_of_enclosing_class (arg, current_class_type))
-	/* This is a template name used within the scope of the
-	   template. It could be the template, or it could be the
-	   instantiation. Choose whichever makes sense.  */
-	is_tmpl_type = requires_tmpl_type;
-      else
-	is_tmpl_type = 1;
-    }
+  else if (CLASSTYPE_IS_TEMPLATE (arg)
+	   && is_base_of_enclosing_class (arg, current_class_type))
+    /* This is a template name used within the scope of the
+       template. It could be the template, or it could be the
+       instantiation. Choose whichever makes sense.  */
+    is_tmpl_type = requires_tmpl_type;
   else
     /* It is a non-template class, or a specialization of a template
        class, or a non-template member of a template class.  */
@@ -8563,9 +8558,7 @@ check_cv_quals_for_unify (strict, arg, parm)
     {
       /* If the cvr quals of parm will not unify with ARG, they'll be
 	 ignored in instantiation, so we have to do the same here.  */
-      if (TREE_CODE (arg) == REFERENCE_TYPE
-	  || TREE_CODE (arg) == FUNCTION_TYPE
-	  || TREE_CODE (arg) == METHOD_TYPE)
+      if (TREE_CODE (arg) == REFERENCE_TYPE)
 	parm_quals &= ~(TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
       if (!POINTER_TYPE_P (arg) &&
 	  TREE_CODE (arg) != TEMPLATE_TYPE_PARM)

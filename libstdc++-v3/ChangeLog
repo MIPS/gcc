@@ -1,3 +1,102 @@
+2003-01-10  Benjamin Kosnik  <bkoz@redhat.com>
+	    Sysoltsev Slawa  <Vyatcheslav.Sysoltsev@intel.com>
+
+	PR libstdc++/9269
+	* include/std/std_fstream.h (basic_filebuf::uflow): Declare.
+	(basic_filebuf::underflow): Declare.
+	Move definitions.
+
+2003-01-07  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/8707
+	* Makefile.am (distclean-multi): Fix.
+	* Makefile.in: Regenerate.
+
+2003-01-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_facets.h (messages): Move ctor, dtor
+	definitions to..
+	(__timepunct): Same.
+	* config/locale/gnu/messages_members.h (messages): Add dtor, ctor
+	definitions. Conditionalize for GNU systems.
+	* config/locale/generic/messages_members.h (messages): Add dtor, ctor
+	definitions.
+	* config/locale/gnu/time_members.h (messages): New. Add dtor, ctor
+	definitions. Conditionalize for GNU systems.
+	* config/locale/generic/time_members.h (messages): New. Add dtor, ctor
+	definitions.
+	* include/bits/localefwd.h (locale::facet::_S_c_name): Add.
+	* src/locale.cc: Define.
+	* src/localename.cc (locale::_Impl::_Impl(facet**, size_t, bool):
+	Use it.
+	* config/locale/gnu/time_members.h: Use it.
+	* config/locale/gnu/messages_members.h: Use it.
+	* config/linker-map.gnu: Add locale::facets details.	
+	* include/Makefile.am (target_headers_extra): Add time_members.h.
+	* include/Makefile.in: Regenerate.
+	* acinclude.m4: Export CTIME_H.
+	* aclocal.m4: Regenerate.
+	* configure: Regnerate.
+
+2003-01-06  Paolo Carlini  <pcarlini@unitus.it>
+
+	* src/codecvt.cc
+        (codecvt<char, char, mbstate_t>::do_in, do_out):
+        Tweak parameters to avoid unused parameter warnings.
+
+2003-01-06  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9151
+	* include/bits/locale_facets.cc (num_put::_M_convert_float):
+	Limit __prec to digits10 + 2, not digits10 + 1, taking into
+	account the possibility of %{g,G} conversion specifiers
+	inside _S_format_float.
+	* testsuite/27_io/ostream_inserter_arith.cc (test06): Add.
+
+2003-01-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* testsuite/lib/libstdc++-v3-dg.exp (libstdc++-v3-init):
+	Additionally handle files one level deeper in glob patterns.
+	* testsuite/libstdc++-v3.dg/dg.exp: Likewise.
+	
+	* testsuite/27_io/istream_extractor_arith.cc: Delete, split...
+	* testsuite/27_io/istream_extractor_arith/01.cc,
+	testsuite/27_io/istream_extractor_arith/02.cc,
+	testsuite/27_io/istream_extractor_arith/03.cc,
+	testsuite/27_io/istream_extractor_arith/06.cc,
+	testsuite/27_io/istream_extractor_arith/07.cc,
+	testsuite/27_io/istream_extractor_arith/08.cc,
+	testsuite/27_io/istream_extractor_arith/09.cc,
+	testsuite/27_io/istream_extractor_arith/10.cc,
+	testsuite/27_io/istream_extractor_arith/11.cc,
+	testsuite/27_io/istream_extractor_arith/12.cc,
+	testsuite/27_io/istream_extractor_arith/13.cc: ... to new files.
+	* testsuite/27_io/istream_extractor_arith/12.cc: Add XFAIL for
+	sparc*-*-solaris2*.
+
+2003-01-05  Paolo Carlini <pcarlini@unitus.it>
+
+	PR libstdc++/9168
+	* src/codecvt.cc
+	(codecvt<char, char, mbstate_t>::do_in, do_out):
+	Implement the resolution of DR19 (TC).
+	* testsuite/22_locale/codecvt_members_char_char.cc
+	(test01): Tweak.
+
+2002-12-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* testsuite/23_containers/vector_capacity.cc (test03): Move ...
+	* testsuite/23_containers/vector_resize.cc: ...here as a new file.
+	Pass in -lmalloc for irix6.
+	* testsuite/27_io/ios_base_storage.cc: Pass in -lmalloc for irix6.
+
+2002-12-11  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/8887
+	* config/locale/generic/time_members.cc
+	(__timepunct<char>::_M_initialize_timepunct): Fix typos
+	in _M_date_format and _M_date_era_format string literals.
+
 2002-12-07  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	* include/bits/slice_array.h (slice_array<>::operator=): Fix typo.

@@ -1,3 +1,111 @@
+2003-01-15  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.md ("return"): Use emit_jump_insn to emit
+	the return code.
+
+2003-01-12  Alan Modra  <amodra@bigpond.net.au>
+
+	* expr.c (expand_expr <RDIV_EXPR>): Correct recursive call args.
+
+2003-01-10  Josef Zlomek  <zlomekj@suse.cz>
+
+	* jump.c (next_nonnote_insn_in_loop): New function.
+	(copy_loop_headers): Use next_nonnote_insn_in_loop instead of
+	next_nonnote_insn.
+	(duplicate_loop_exit_test). Likewise.
+
+2003-01-10  Josef Zlomek <zlomj9am@artax.karlin.mff.cuni.cz>
+
+	* Makefile.in (optabs.o): Add dependencies on basic-block.h and
+	hard-reg-set.h.
+	* basic-block.h (control_flow_insn_p): Fuction was exported.
+	* cfgbuild.c (control_flow_insn_p): Fuction was made non-static.
+	* optabs.c (emit_libcall_block): Emit REG_LIBCALL and REG_RETVAL
+	notes only when the region is contained in a single basic block.
+
+2003-01-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR inline-asm/8832
+	* tree.h (expand_asm): New prototype.
+	* stmt.c (expand_asm): Set the MEM_VOLATILE_P flag if instructed
+	to do so.
+	* c-semantics (genrtl_asm_stmt): Pass the RID_VOLATILE qualifier
+	down to expand_asm.
+	* c-typeck.c (simple_asm_stmt): Set the RID_VOLATILE qualifier.
+	* rtlanal.c (volatile_insn_p) [ASM_INPUT]: Test the MEM_VOLATILE_P flag.
+	(volatile_refs_p) [ASM_INPUT]: Likewise.
+	(side_effects_p) [ASM_INPUT]: Likewise.
+
+2003-01-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/8032
+	* c-typeck.c (process_init_element) [RECORD_TYPE]: For
+	an empty element, do not advance the pointer to unfilled
+	fields if there are pending initializers.
+
+2003-01-07  Janis Johnson  <janis187@us.ibm.com>
+
+	PR other/8947
+	* doc/invoke.texi (-malign-double): Explain that the option breaks
+	binary compatibility.
+
+2003-01-07  Benjamin Kosnik  <bkoz@redhat.com>
+            Sunil Davasam  <sunil.k.davasam@intel.com>
+
+        PR libstdc++/9076 
+        * unwind-dw2.c (execute_cfa_program): DW_CFA_undefined,
+        DW_CFA_same_value, read next and ignore.
+
+2003-01-07  Richard Henderson  <rth@redhat.com>
+
+	* cfganal.c (flow_call_edges_add): Don't crash on noreturn call.
+
+2003-01-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	PR preprocessor/8880
+	* gcc.c (cpp_unique_options): Handle -fshort-wchar later so it
+	overrides any target CPU specs.
+
+2002-12-28  John David Anglin  <dave.anglin@nrc.ca>
+
+	* pa.h (TARGET_SOM): Define if not defined.
+	* som.h (OBJ_SOM): Rename to TARGET_SOM.
+	* pa.c (pa_output_function_prologue): Don't accumulate the total code
+	bytes in the translation unit when using gas, som and not the portable
+	runtime, or when using function sections.
+
+2002-12-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/8599
+	* doloop.c (doloop_modify_runtime): Fix loop count computation
+	for preconditioned unrolled loops.
+
+2002-12-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/8599
+	* doloop.c (doloop_modify_runtime): Revert 2002-11-22 change.
+	* loop.c (loop_invariant_p): Likewise.
+
+2002-12-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/8988
+	* loop.c (maybe_eliminate_biv): Kill REG_EQUAL notes mentioning
+	the biv when eliminating.
+
+2002-12-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR opt/8794
+	* combine.c (force_to_mode) [MINUS]: Only replace with (not Y) if all
+	bits in fuller_mask (not just mask) are set in C.
+
+2002-12-12  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa.h (BIGGEST_ALIGNMENT): Change 32-bit value to 64 bits.
+	(MAX_PARM_BOUNDARY, STACK_BOUNDARY): Express in terms of
+	BIGGEST_ALIGNMENT.
+	(PREFERRED_STACK_BOUNDARY): Express in terms of STACK_BOUNDARY.
+	(FUNCTION_BOUNDARY): Express in terms of BITS_PER_WORD.
+
 2002-12-09  Richard Henderson  <rth@redhat.com>
 
 	* target.h (gcc_target): Add cannot_force_const_mem.
@@ -451,6 +559,7 @@ Thu Oct 31 18:31:22 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 2002-10-29  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
+	PR optimization/8334
 	* expr.c (expand_expr) [PLUS]: Don't use simplify_binary_operation;
 	check for zero operands explicitly.
 
