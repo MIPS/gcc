@@ -3343,7 +3343,6 @@ VOL_FILES=`echo $(BACKEND) $(OBJS) $(C_OBJS) $(LIBCPP_OBJS) *.c *.h gen*`
 POSTSTAGE1_FLAGS_TO_PASS = \
 	ADAC="\$$(CC)" \
 	CFLAGS="$(BOOT_CFLAGS)" \
-	LDFLAGS="$(BOOT_LDFLAGS)" \
 	WARN_CFLAGS="\$$(GCC_WARN_CFLAGS)" \
 	STRICT_WARN="$(STRICT2_WARN)" \
 	libdir=$(libdir) \
@@ -3352,9 +3351,11 @@ POSTSTAGE1_FLAGS_TO_PASS = \
 	OUTPUT_OPTION="-o \$$@"
 
 STAGE2_FLAGS_TO_PASS = \
+	LDFLAGS="$(BOOT_LDFLAGS)" \
 	CFLAGS="$(BOOT_CFLAGS)" 
 
 STAGEPROFILE_FLAGS_TO_PASS = \
+	LDFLAGS="$(BOOT_LDFLAGS) --static" \
 	CFLAGS="$(BOOT_CFLAGS) -fprofile-arcs" 
 
 # Files never linked into the final executable produces warnings about missing
