@@ -91,7 +91,6 @@ const HOST_WIDE_INT E_FCALL	= 1 << 3;
 const HOST_WIDE_INT E_PHI	= 1 << 4;
 const HOST_WIDE_INT E_USE	= 1 << 5;
 const HOST_WIDE_INT E_KILL	= 1 << 6;
-const HOST_WIDE_INT E_INJ	= 1 << 7;
 
 /* Reference type modifiers.  */
 const HOST_WIDE_INT M_DEFAULT	= 1 << 8;
@@ -502,7 +501,6 @@ create_ref_list ()
   return list;
 }
 
-
 /* Free the nodes in LIST, but keep the empty list around.  
    (i.e., empty the list).  */
 
@@ -746,13 +744,15 @@ create_ref (var, ref_type, bb, parent_stmt, parent_expr, operand_p, add_to_bb)
     ref->vuse.rdefs = create_ref_list ();
   else if (ref_type & E_PHI)
     {
-      VARRAY_GENERIC_PTR_INIT (EXPRPHI_PHI_ARGS (ref), 
+      varray_type temp;
+      VARRAY_GENERIC_PTR_INIT (temp, 
 			       last_basic_block, "ephi_chain");
-      EXPRPHI_PROCESSED (ref) = BITMAP_XMALLOC ();
-      EXPRPHI_DOWNSAFE (ref) = 1;
-      EXPRPHI_CANBEAVAIL (ref) = 1;
-      EXPRPHI_LATER (ref) = 1;
-      EXPRPHI_EXTRANEOUS (ref) = 1;
+      set_exprphi_phi_args (ref, temp);
+      set_exprphi_processed (ref, BITMAP_XMALLOC ());
+      set_exprphi_downsafe (ref, true);
+      set_exprphi_canbeavail (ref, true);
+      set_exprphi_later (ref, true);
+      set_exprphi_extraneous (ref, true);
     }
 
   if (var)
@@ -1092,14 +1092,14 @@ dump_ref (outf, prefix, ref, indent, details)
 	    }
 	}
 
-      if ((ref_type (ref) & E_PHI) && EXPRPHI_PHI_ARGS (ref))
+      if ((ref_type (ref) & E_PHI) && exprphi_phi_args (ref))
 	{
 	  if (details)
 	    fprintf (outf, " class:%d downsafe:%d can_be_avail:%d later:%d\n", 
-		     EXPRREF_CLASS (ref), EXPRPHI_DOWNSAFE (ref), 
-		     EXPRPHI_CANBEAVAIL (ref), EXPRPHI_LATER (ref));
+		     exprref_class (ref), exprphi_downsafe (ref), 
+		     exprphi_canbeavail (ref), exprphi_later (ref));
 	  fputs (" expr-phi-args:\n", outf);
-	  dump_ref_array (outf, prefix, EXPRPHI_PHI_ARGS (ref), indent + 4, 1);
+	  dump_ref_array (outf, prefix, exprphi_phi_args (ref), indent + 4, 1);
 	}	
 
       if ((ref_type (ref) & V_DEF) && imm_uses (ref))
@@ -1108,24 +1108,24 @@ dump_ref (outf, prefix, ref, indent, details)
 	  dump_ref_list (outf, prefix, imm_uses (ref), indent + 4, 0);
 	}
 
-      if (imm_reaching_def (ref))
+      if (ref_type (ref) & V_USE && imm_reaching_def (ref))
 	{
 	  fputs (" immediate reaching def:\n", outf);
 	  dump_ref (outf, prefix, imm_reaching_def (ref), indent + 4, 0);
 	}	  
 
-      if ((ref_type (ref) & E_USE) && EXPRUSE_PHIOP (ref) == 1)
+      if ((ref_type (ref) & E_USE) && expruse_phiop (ref) == true)
 	{
 	  char *temp_indent;
 	  fprintf (outf, " class:%d has_real_use:%d  operand defined by:\n", 
-		   EXPRREF_CLASS (ref), EXPRUSE_HAS_REAL_USE (ref));	  
+		   exprref_class (ref), expruse_has_real_use (ref));	  
 	  temp_indent = (char *) alloca ((size_t) indent + 4 + 1);
 	  memset ((void *) temp_indent, ' ', (size_t) indent + 4);
 	  temp_indent[indent + 4] = '\0';
-	  if (EXPRUSE_DEF (ref) == NULL)
+	  if (expruse_def (ref) == NULL)
 	    fprintf (outf, "%snothing\n", temp_indent);
 	  else
-	    dump_ref (outf, prefix, EXPRUSE_DEF (ref), indent + 4, 0);
+	    dump_ref (outf, prefix, expruse_def (ref), indent + 4, 0);
 	}
     }
 
@@ -1301,7 +1301,6 @@ ref_type_name (type)
 	        : type & E_PHI ? "E_PHI"
 	        : type & E_USE ? "E_USE"
 	        : type & E_KILL ? "E_KILL"
-	        : type & E_INJ ? "E_INJ"
 	        : "???",
 	   max);
 
@@ -1371,10 +1370,6 @@ validate_ref_type (type)
   else if (type & E_KILL)
     {
       return type == E_KILL;
-    }
-  else if (type & E_INJ)
-    {
-      return type == E_INJ;
     }
 
   return false;

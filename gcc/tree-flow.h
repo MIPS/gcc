@@ -71,9 +71,6 @@ extern const HOST_WIDE_INT E_PHI;
 extern const HOST_WIDE_INT E_USE;
 extern const HOST_WIDE_INT E_KILL;
 
-/* FIXME: This is not used anywhere.  Needed?  */
-extern const HOST_WIDE_INT E_INJ;
-
 
 /*---------------------------------------------------------------------------
 			 Reference type modifiers
@@ -318,11 +315,6 @@ struct expr_ref_common
 };
 
 
-/* FIXME: Get rid of these lvalue macros.  */
-#define EXPRREF_CLASS(r) (r)->ecommon.class
-#define EXPRREF_INSERTED(r) (r)->ecommon.inserted
-#define EXPRREF_SAVE(r) (r)->ecommon.save
-#define EXPRREF_RELOAD(r) (r)->ecommon.reload
 
 /* Expression PHIs.  */
 struct expr_phi
@@ -351,13 +343,6 @@ struct expr_phi
   bitmap processed;
 };
 
-#define EXPRPHI_PHI_ARGS(r) (r)->ephi.phi_args
-#define EXPRPHI_DOWNSAFE(r) (r)->ephi.downsafe
-#define EXPRPHI_CANBEAVAIL(r) (r)->ephi.can_be_avail
-#define EXPRPHI_LATER(r) (r)->ephi.later
-#define EXPRPHI_EXTRANEOUS(r) (r)->ephi.extraneous
-#define EXPRPHI_PROCESSED(r) (r)->ephi.processed
-#define EXPRPHI_WILLBEAVAIL(r) (EXPRPHI_CANBEAVAIL ((r)) && !EXPRPHI_LATER ((r)))
 
 
 /* Expressions uses.  */
@@ -430,6 +415,39 @@ static inline void set_phi_arg_edge		PARAMS ((phi_node_arg, edge));
 static inline tree_ref phi_arg_def		PARAMS ((phi_node_arg));
 static inline void set_phi_arg_def		PARAMS ((phi_node_arg,
       							 tree_ref));
+
+/* For exprref. */
+static inline void set_exprref_class PARAMS ((tree_ref, unsigned int));
+static inline unsigned int exprref_class PARAMS ((tree_ref));
+static inline void set_exprref_inserted PARAMS ((tree_ref, unsigned int));
+static inline bool exprref_inserted PARAMS ((tree_ref));
+static inline void set_exprref_save PARAMS ((tree_ref, unsigned int));
+static inline bool exprref_save PARAMS ((tree_ref));
+static inline void set_exprref_reload PARAMS ((tree_ref, unsigned int));
+static inline bool exprref_reload PARAMS ((tree_ref));
+
+/* For expruse. */
+static inline void set_expruse_def PARAMS ((tree_ref, tree_ref));
+static inline tree_ref expruse_def PARAMS ((tree_ref));
+static inline void set_expruse_phiop PARAMS ((tree_ref, unsigned int));
+static inline bool expruse_phiop PARAMS ((tree_ref));
+static inline void set_expruse_has_real_use PARAMS ((tree_ref, unsigned int));
+static inline bool expruse_has_real_use PARAMS ((tree_ref));
+
+/* For exprphi. */
+static inline void set_exprphi_phi_args PARAMS ((tree_ref, varray_type));
+static inline varray_type exprphi_phi_args PARAMS ((tree_ref));
+static inline void set_exprphi_downsafe PARAMS ((tree_ref, unsigned int));
+static inline bool exprphi_downsafe PARAMS ((tree_ref));
+static inline void set_exprphi_canbeavail PARAMS ((tree_ref, unsigned int));
+static inline bool exprphi_canbeavail PARAMS ((tree_ref));
+static inline void set_exprphi_later PARAMS ((tree_ref, unsigned int));
+static inline bool exprphi_later PARAMS ((tree_ref));
+static inline void set_exprphi_extraneous PARAMS ((tree_ref, unsigned int));
+static inline bool exprphi_extraneous PARAMS ((tree_ref));
+static inline void set_exprphi_processed PARAMS ((tree_ref, bitmap));
+static inline bitmap exprphi_processed PARAMS ((tree_ref));
+static inline bool exprphi_willbeavail PARAMS ((tree_ref));
 
 
 /*---------------------------------------------------------------------------
@@ -1287,4 +1305,205 @@ set_do_cond_bb (do_bb, do_cond_bb)
   hdr->do_cond_bb = do_cond_bb;
 }
 
+static inline void 
+set_exprref_class (ref, class)
+     tree_ref ref;
+     unsigned int class;
+{
+  ref->ecommon.class = class;
+}
+
+static inline unsigned int 
+exprref_class (ref)
+     tree_ref ref;
+{
+  return ref->ecommon.class;
+}
+
+static inline void 
+set_exprref_inserted (ref, flag)
+     tree_ref ref;
+     unsigned int flag;
+{
+  ref->ecommon.inserted = flag;
+}
+
+static inline bool
+exprref_inserted (ref)
+     tree_ref ref;
+{
+  return ref->ecommon.inserted;
+}
+
+static inline void 
+set_exprref_save (ref, flag)
+     tree_ref ref;
+     unsigned int flag;
+{
+  ref->ecommon.save = flag;
+}
+
+static inline bool
+exprref_save (ref)
+     tree_ref ref;
+{
+  return ref->ecommon.save;
+}
+
+static inline void 
+set_exprref_reload (ref, flag)
+     tree_ref ref;
+     unsigned int flag;
+{
+  ref->ecommon.reload = flag;
+}
+
+static inline bool
+exprref_reload (ref)
+     tree_ref ref;
+{
+  return ref->ecommon.reload;
+}
+
+static inline void
+set_expruse_def (ref, def)
+     tree_ref ref;
+     tree_ref def;
+{
+  ref->euse.def = def;
+}
+
+static inline tree_ref
+expruse_def (ref)
+     tree_ref ref;
+{
+  return ref->euse.def;
+}
+
+static inline void 
+set_expruse_phiop (ref, flag)
+     tree_ref ref;
+     unsigned int flag;
+{
+  ref->euse.op_occurrence = flag;
+}
+
+static inline bool
+expruse_phiop (ref)
+     tree_ref ref;
+{
+  return ref->euse.op_occurrence;
+}
+
+static inline void 
+set_expruse_has_real_use (ref, flag)
+     tree_ref ref;
+     unsigned int flag;
+{
+  ref->euse.has_real_use = flag;
+}
+
+static inline bool
+expruse_has_real_use (ref)
+     tree_ref ref;
+{
+  return ref->euse.has_real_use;
+}
+
+static inline void
+set_exprphi_phi_args (ref, args)
+     tree_ref ref;
+     varray_type args;
+{
+  ref->ephi.phi_args = args;
+}
+
+static inline varray_type
+exprphi_phi_args (ref)
+     tree_ref ref;
+{
+  return ref->ephi.phi_args;
+}
+
+static inline void
+set_exprphi_downsafe (ref, flag)
+     tree_ref ref;
+     unsigned int flag;
+{
+  ref->ephi.downsafe = flag;
+}
+
+static inline bool
+exprphi_downsafe (ref)
+     tree_ref ref;
+{
+  return ref->ephi.downsafe;
+}
+
+static inline void
+set_exprphi_canbeavail (ref, flag)
+     tree_ref ref;
+     unsigned int flag;
+{
+  ref->ephi.can_be_avail = flag;
+}
+
+static inline bool
+exprphi_canbeavail (ref)
+     tree_ref ref;
+{
+  return ref->ephi.can_be_avail;
+}
+
+static inline void
+set_exprphi_later (ref, flag)
+     tree_ref ref;
+     unsigned int flag;
+{
+  ref->ephi.later = flag;
+}
+
+static inline bool
+exprphi_later (ref)
+     tree_ref ref;
+{
+  return ref->ephi.later;
+}
+
+static inline void
+set_exprphi_extraneous (ref, flag)
+     tree_ref ref;
+     unsigned int flag;
+{
+  ref->ephi.extraneous = flag;
+}
+
+static inline bool
+exprphi_extraneous (ref)
+     tree_ref ref;
+{
+  return ref->ephi.extraneous;
+}
+
+static inline void
+set_exprphi_processed (ref, map)
+     tree_ref ref;
+     bitmap map;
+{
+  ref->ephi.processed = map;
+}
+
+static inline bitmap
+exprphi_processed (ref)
+     tree_ref ref;
+{
+  return ref->ephi.processed;
+}
+
+static inline bool
+exprphi_willbeavail (ref)
+     tree_ref ref;
+{
+  return exprphi_canbeavail (ref) && !exprphi_later (ref);
+}
 #endif /* _TREE_FLOW_H  */

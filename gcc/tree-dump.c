@@ -665,8 +665,8 @@ static struct dump_file_info dump_files[TDI_end] =
   {".dot", "dump-tree-dot", 0, 0},
   {".ssa", "dump-tree-ssa", 0, 0},
   {".ccp", "dump-tree-ccp", 0, 0},
-  {".dce", "dump-tree-dce", 0, 0},
   {".ssapre", "dump-tree-ssapre", 0, 0},
+  {".dce", "dump-tree-dce", 0, 0},
   {".optimized", "dump-tree-optimized", 0, 0},
   {".xml", "dump-call-graph", 0, 0},
 };

@@ -1,3 +1,52 @@
+2002-09-18  Daniel Berlin <dberlin@dberlin.org>
+	
+	* tree-dump.c: Fix order of dump files
+
+2002-09-17  Daniel Berlin <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c: Remove a lot of finding refs in statements junk.
+	Start on strength reduction.
+	Only generate simple statements.
+	Remove EXPR* macros in favor of inline functions.
+	Update comparisons and sets to 1 and 0 to true and false where
+	approriate. 
+	(toplevel): Add DEBUGGING_STRRED define (temporary, for
+	implementation debugging, *not* useful as a dump option).
+	Add TODO notes.
+	Add global avdefs, orig_expr_map, need_repair_map,
+	strred_candidate.
+	(set_var_phis): Add struct expr_info * argument.
+	Update to handle injuring definitions.
+	(defs_y_dom_x): Ditto.
+	(phi_opnd_from_res): Ditto.
+	(phi_for_operand): Remove extra \.	
+	(find_tree_ref_for_var): Renamed to find_use_for_var. Update all
+	callers. 
+	Use orig_expr_map to lookup original expression, remove statement
+	searching gunk.
+	(find_rhs_use_for_var): New function.
+	(is_strred_cand): New function.
+	(is_injuring_def): New function.
+	(calculate_increment): New function.
+	(repair_injury): New function.
+	(set_need_repair): New function.
+	(struct expr_info): Add strred_cand member.
+	(rename_2): Update to handle injuring definitions.
+	(expr_phi_insertion): Ditto.
+	(code_motion): Update to repair injuries.
+	Only insert SIMPLE statements.
+	Free avdefs here now.
+	(finalize_1): Don't free avdefs anymore here.
+	(tree_perform_ssapre): Record original expresion for
+	find_use_for_var's benefit.
+	Determine strength reduction candidates.
+	
+	* tree-flow.h: Remove EXPR* macros in favor of inline functions.
+	Remove E_INJ.
+	
+	* tree-dfa.c: Change EXPR* macros to the new functions.
+	Remove E_INJ.
+
 2002-09-18  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (M_ADDRESSOF): Define.
