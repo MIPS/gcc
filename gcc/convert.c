@@ -28,6 +28,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+/* APPLE LOCAL AltiVec */
+#include "c-tree.h"
 #include "flags.h"
 #include "convert.h"
 #include "toplev.h"
@@ -757,6 +759,15 @@ convert_to_vector (tree type, tree expr)
 	  error ("can't convert between vector values of different size");
 	  return error_mark_node;
 	}
+      /* APPLE LOCAL begin AltiVec */
+      if (TREE_CODE (type) == VECTOR_TYPE  
+	  && TREE_CODE (TREE_TYPE (expr)) == VECTOR_TYPE
+	  && TREE_CODE (expr) == CONSTRUCTOR && TREE_CONSTANT (expr) 
+	  && ! vector_types_convertible_p (TREE_TYPE (expr), type))
+	  /* converting a constant vector to new vector type with Motorola Syntax. */
+	  return build_constructor (type, CONSTRUCTOR_ELTS (expr));
+      /* APPLE LOCAL end AltiVec */
+
       return build1 (NOP_EXPR, type, expr);
 
     default:
