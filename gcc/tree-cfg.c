@@ -743,7 +743,7 @@ make_for_stmt_edges (bb)
   basic_block init_bb, cond_bb, expr_bb, body_bb;
   int infinite_loop, zero_iter_loop;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (TREE_CODE (entry) != FOR_STMT)
     abort ();
 #endif
@@ -821,7 +821,7 @@ make_while_stmt_edges (bb)
   basic_block end_bb, body_bb;
   int infinite_loop, zero_iter_loop;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (TREE_CODE (entry) != WHILE_STMT)
     abort ();
 #endif
@@ -879,7 +879,7 @@ make_do_stmt_edges (bb)
   basic_block cond_bb, body_bb;
   int infinite_loop, one_iter_loop;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (TREE_CODE (entry) != DO_STMT)
     abort ();
 #endif
@@ -937,7 +937,7 @@ make_if_stmt_edges (bb)
   tree then_t, else_t;
   int always_true, always_false;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (TREE_CODE (entry) != IF_STMT)
     abort ();
 #endif
@@ -995,7 +995,7 @@ make_goto_stmt_edges (bb)
 
   goto_t = bb->end_tree;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (goto_t == NULL || TREE_CODE (goto_t) != GOTO_STMT)
     abort ();
 #endif
@@ -1039,7 +1039,7 @@ make_break_stmt_edges (bb)
 
   break_t = bb->end_tree;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (break_t == NULL || TREE_CODE (break_t) != BREAK_STMT)
     abort ();
 #endif
@@ -1072,7 +1072,7 @@ make_continue_stmt_edges (bb)
 
   continue_t = bb->end_tree;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (continue_t == NULL || TREE_CODE (continue_t) != CONTINUE_STMT)
     abort ();
 #endif
@@ -1243,7 +1243,7 @@ successor_block (bb)
   basic_block parent_bb;
   tree succ_stmt;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (bb == NULL)
     abort ();
 #endif
@@ -1290,7 +1290,7 @@ int
 is_ctrl_stmt (t)
      tree t;
 {
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (t == NULL)
     abort ();
 #endif
@@ -1310,7 +1310,7 @@ int
 is_ctrl_altering_stmt (t)
      tree t;
 {
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (t == NULL)
     abort ();
 #endif
@@ -1343,7 +1343,7 @@ int
 is_loop_stmt (t)
      tree t;
 {
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (t == NULL)
     abort ();
 #endif
@@ -1411,7 +1411,7 @@ int
 stmt_starts_bb_p (t)
      tree t;
 {
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (t == NULL)
     abort ();
 #endif
@@ -1432,7 +1432,7 @@ int
 stmt_ends_bb_p (t)
      tree t;
 {
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (t == NULL)
     abort ();
 #endif
@@ -1675,7 +1675,7 @@ insert_stmt_tree_before (stmt, where, bb)
      tree where;
      basic_block bb;
 {
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   /* Make sure STMT is a statement with no existing chain.  */
   if (! statement_code_p (TREE_CODE (stmt)) || TREE_CHAIN (stmt))
     abort ();
@@ -1839,7 +1839,7 @@ insert_before_normal_stmt (stmt, where, bb)
 	  last = TREE_CHAIN (last);
 	}
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
       if (prev == NULL)
 	abort ();
 #endif
@@ -1916,7 +1916,7 @@ insert_stmt_tree_after (stmt, where, bb)
      tree where;
      basic_block bb;
 {
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   /* Only accept statement trees.  */
   if (! statement_code_p (TREE_CODE (stmt)))
     abort ();

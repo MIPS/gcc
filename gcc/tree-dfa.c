@@ -588,7 +588,7 @@ create_ref (sym, ref_type, bb, parent_stmt, parent_expr)
 {
   varref ref;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (bb == NULL)
     abort ();
 #endif
@@ -767,7 +767,7 @@ get_fcalls (fcalls_p, which)
 {
   basic_block bb;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (fcalls_p == NULL || *fcalls_p == NULL)
     abort ();
 #endif

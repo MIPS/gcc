@@ -161,7 +161,7 @@ insert_phi_terms (dfs)
       struct ref_list_node *tmp;
       varref ref;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
       /* Symbols in referenced_symbols must have at least 1 reference.  */
       if (TREE_REFS (sym)->first == NULL)
 	abort ();
@@ -358,7 +358,7 @@ search_fud_chains (bb, idom)
 	  /* Restore the current definition for the variable.  */
 	  ann = TREE_ANN (sym);
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
 	  if (ann == NULL)
 	    abort ();
 #endif
@@ -540,7 +540,7 @@ follow_chain (d, u)
   if (d == NULL)
     return;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   /* Consistency check.  D should be a definition or a PHI term.  */
   if (VARREF_TYPE (d) != VARDEF && VARREF_TYPE (d) != VARPHI)
     abort ();

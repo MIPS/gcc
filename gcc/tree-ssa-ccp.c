@@ -150,7 +150,7 @@ tree_ssa_ccp (fndecl)
 
   fnbody = COMPOUND_BODY (DECL_SAVED_TREE (fndecl));
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (fnbody == NULL_TREE)
     abort ();
 #endif
@@ -383,7 +383,7 @@ visit_expression (ref)
 {
   tree expr;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   /* PHI references should be dealt with by visit_phi_node.  */
   if (VARREF_TYPE (ref) == VARPHI)
     abort ();
@@ -686,7 +686,7 @@ ssa_ccp_substitute_constants ()
 
 	  if (values[id].lattice_val == CONSTANT)
 	    {
-#if defined CHECKING
+#if defined ENABLE_CHECKING
 	      if (values[id].const_value == NULL_TREE)
 		abort ();
 #endif
@@ -810,7 +810,7 @@ evaluate_expr_for (ref)
 	}
       else if (values[id].lattice_val == CONSTANT)
 	{
-#if defined CHECKING
+#if defined ENABLE_CHECKING
 	  if (values[id].const_value == NULL_TREE)
 	    abort ();
 #endif

@@ -1,5 +1,13 @@
 2002-08-11  Diego Novillo  <dnovillo@redhat.com>
 
+	* c-simplify.c: Fix typo.  Substitute CHECKING with ENABLE_CHECKING.
+	* tree-cfg.c: Ditto.
+	* tree-dfa.c: Ditto.
+	* tree-ssa-ccp.c: Ditto.
+	* tree-ssa.c: Ditto.
+
+2002-08-11  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-dfa.c (find_refs_in_expr): Use the given ref_type for some unary
 	expressions.
 	(create_ref): Insert ghost definitions at the beginning of the

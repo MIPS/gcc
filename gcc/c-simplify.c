@@ -834,7 +834,7 @@ simplify_return_stmt (stmt, pre_p)
 	}
       else
 	{
-#if defined CHECKING
+#if defined ENABLE_CHECKING
 	  /* A return expression is represented by a MODIFY_EXPR node that
 	     assigns the return value into a RESULT_DECL.  */
 	  if (TREE_CODE (ret_expr) != MODIFY_EXPR
@@ -881,7 +881,7 @@ simplify_decl_stmt (t, pre_p, mid_p, post_p)
 {
   tree decl, init, mid, post;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (TREE_CODE (t) != DECL_STMT)
     abort ();
 #endif
@@ -1008,7 +1008,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
       return (*lang_hooks.simplify_expr) (expr_p, pre_p, post_p);
     }
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (simple_test_f == NULL)
     abort ();
 #endif
@@ -1207,7 +1207,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
     }
   else if ((fallback & fb_rvalue) && is_simple_rhs (*expr_p))
     {
-#if defined CHECKING
+#if defined ENABLE_CHECKING
       if (VOID_TYPE_P (TREE_TYPE (*expr_p)))
 	abort ();
 #endif
@@ -1224,7 +1224,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
       abort ();
     }
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   /* Make sure the temporary matches our predicate.  */
   if (!(*simple_test_f) (*expr_p))
     abort ();
@@ -1313,7 +1313,7 @@ simplify_array_ref (expr_p, pre_p, post_p)
   tree *p;
   varray_type dim_stack;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != ARRAY_REF)
     abort ();
 #endif
@@ -1360,7 +1360,7 @@ simplify_compound_lval (expr_p, pre_p, post_p)
   enum tree_code code;
   varray_type dim_stack;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != ARRAY_REF && TREE_CODE (*expr_p) != COMPONENT_REF)
     abort ();
 #endif
@@ -1414,7 +1414,7 @@ simplify_self_mod_expr (expr_p, pre_p, post_p)
 
   code = TREE_CODE (*expr_p);
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (code != POSTINCREMENT_EXPR
       && code != POSTDECREMENT_EXPR
       && code != PREINCREMENT_EXPR
@@ -1443,7 +1443,7 @@ simplify_self_mod_expr (expr_p, pre_p, post_p)
   else
     t1 = build (MINUS_EXPR, TREE_TYPE (*expr_p), lhs, rhs);
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (!is_simple_binary_expr (t1))
     abort ();
 #endif
@@ -1481,7 +1481,7 @@ simplify_component_ref (expr_p, pre_p, post_p)
 #else
   tree *p;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != COMPONENT_REF)
     abort ();
 #endif
@@ -1511,7 +1511,7 @@ simplify_call_expr (expr_p, pre_p, post_p)
      tree *pre_p;
      tree *post_p;
 {
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != CALL_EXPR)
     abort ();
 #endif
@@ -1550,7 +1550,7 @@ simplify_tree_list (expr_p, pre_p, post_p)
 {
   tree op;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != TREE_LIST)
     abort ();
 #endif
@@ -1585,7 +1585,7 @@ simplify_cond_expr (expr_p, pre_p)
 {
   tree t_then, t_else, tmp, pred, tval, fval, new_if, expr_type;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != COND_EXPR)
     abort ();
 #endif
@@ -1639,7 +1639,7 @@ simplify_modify_expr (expr_p, pre_p, post_p)
      tree *pre_p;
      tree *post_p;
 {
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != MODIFY_EXPR
       && TREE_CODE (*expr_p) != INIT_EXPR)
     abort ();
@@ -1688,7 +1688,7 @@ simplify_boolean_expr (expr_p, pre_p)
 
   code = TREE_CODE (*expr_p);
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (code != TRUTH_ANDIF_EXPR && code != TRUTH_ORIF_EXPR)
     abort ();
 #endif
@@ -1758,7 +1758,7 @@ simplify_compound_expr (expr_p, pre_p, post_p)
   tree t, ret;
   int i, num;
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != COMPOUND_EXPR)
     abort ();
 #endif
@@ -1860,7 +1860,7 @@ simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f)
   tree post = NULL_TREE;
   int saw_other;
   
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != EXPR_WITH_FILE_LOCATION)
     abort ();
 #endif
@@ -1925,7 +1925,7 @@ simplify_save_expr (expr_p, pre_p)
      tree *expr_p;
      tree *pre_p;
 {
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != SAVE_EXPR)
     abort ();
 #endif
@@ -1971,7 +1971,7 @@ simplify_stmt_expr (expr_p, pre_p)
 	    last_expr_stmt = substmt;
 	}
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
       if (!last_expr_stmt)
 	abort ();
 #endif
@@ -1986,7 +1986,7 @@ simplify_stmt_expr (expr_p, pre_p)
 	}
       else
 	{
-#if defined CHECKING
+#if defined ENABLE_CHECKING
 	  if (!is_last_stmt_of_scope (last_expr_stmt))
 	    abort ();
 #endif
@@ -2249,7 +2249,7 @@ create_tmp_var (type, prefix)
   
   ASM_FORMAT_PRIVATE_NAME (tmp_name, (prefix ? prefix : "T"), id_num++);
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   /* If the type is an array, something is wrong.  */
   if (TREE_CODE (type) == ARRAY_TYPE)
     abort ();
@@ -2297,7 +2297,7 @@ create_tmp_alias_var (type, prefix)
   
   ASM_FORMAT_PRIVATE_NAME (tmp_name, (prefix ? prefix : "T"), id_num++);
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   /* If the type is an array, something is wrong.  */
   if (TREE_CODE (type) == ARRAY_TYPE)
     abort ();
@@ -2385,7 +2385,7 @@ static void
 make_type_writable (t)
      tree t;
 {
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   if (t == NULL_TREE)
     abort ();
 #endif
@@ -2469,7 +2469,7 @@ tree_last_decl (scope)
   while (TREE_CODE (scope) == FILE_STMT)
     scope = TREE_CHAIN (scope);
 
-#if defined CHECKING
+#if defined ENABLE_CHECKING
   /* In C99 mode, we can find DECL_STMT nodes before the body of the
      function.  In that case, we declare all the temporaries there.  */
   if (TREE_CODE (scope) != DECL_STMT
