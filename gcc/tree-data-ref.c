@@ -405,27 +405,8 @@ analyze_array (struct loop *loop_nest,
   VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 5, "access_fns");
   DR_BASE_NAME (res) = analyze_array_indexes (loop_nest, DR_ACCESS_FNS (res), ref);
   
-  VARRAY_PUSH_GENERIC_PTR (datarefs, res);
-}
-
-/* DN */
-struct data_reference *
-vec_analyze_array (struct loop *loop_nest,
-                   tree expr,
-                   tree ref)
-{
-  struct data_reference *res;
-  res = ggc_alloc (sizeof (struct data_reference));
-
-  res->id = data_ref_id++;
-  res->expr = expr;
-  res->ref = ref;
-  VARRAY_TREE_INIT (res->access_fns, 3, "access_fns");
-  res->base_name = analyze_array_indexes (loop_nest, res->access_fns, ref);
-
   return res;
 }
-/* DN */
 
 
 
@@ -561,43 +542,6 @@ compute_all_dependences (varray_type datarefs,
 
 
 /* This section contains the affine functions dependences detector.  */
-
-/* This is the simplest data dependence test: determines whether the
-   data references A and B access the same array.  */
-
-static inline bool
-array_base_name_differ_p (struct data_reference *a, 
-			  struct data_reference *b)
-{
-  if (DR_BASE_NAME (a) == DR_BASE_NAME (b))
-    return false;
-  
-  if (TREE_CODE (DR_BASE_NAME (a)) == INDIRECT_REF
-      && TREE_CODE (DR_BASE_NAME (b)) == INDIRECT_REF
-      && TREE_OPERAND (DR_BASE_NAME (a), 0) 
-      == TREE_OPERAND (DR_BASE_NAME (b), 0))
-    return false;
-  
-  return true;
-}
-
-/* DN */
-bool
-vec_array_base_name_differ_p (struct data_reference *a,
-                              struct data_reference *b)
-{
-  if (DR_BASE_NAME (a) == DR_BASE_NAME (b))
-    return false;
-
-  if (TREE_CODE (DR_BASE_NAME (a)) == INDIRECT_REF
-      && TREE_CODE (DR_BASE_NAME (b)) == INDIRECT_REF
-      && TREE_OPERAND (DR_BASE_NAME (a), 0)
-      == TREE_OPERAND (DR_BASE_NAME (b), 0))
-    return false;
-
-  return true;
-}
-/* DN */
 
 /* This is the subscript dependence tester (SubDT).  */
 

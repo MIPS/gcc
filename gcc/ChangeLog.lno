@@ -1,3 +1,8 @@
+2004-01-02  Sebastian Pop  <s.pop@laposte.net>
+
+	* tree-data-ref.c (vec_analyze_array, vec_array_base_name_differ_p, 
+	array_base_name_differ_p): Removed for fixing the previous patch.
+
 2004-01-02  Richard Henderson  <rth@redhat.com>
 
 	* tree.c (build_vector_type_with_mode): Rename from make_vector,
