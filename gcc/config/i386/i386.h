@@ -603,7 +603,7 @@ extern int ix86_arch;
 %{mcpu=athlon-4|mcpu=athlon-xp|mcpu=athlon-mp:\
 -D__tune_athlon_sse__ }\
 %{mcpu=pentium4:-D__tune_pentium4__ }\
-%{march=march=athlon-tbird|march=athlon-xp|march=athlon-mp|march=pentium3|march=pentium4:\
+%{march=athlon-tbird|march=athlon-xp|march=athlon-mp|march=pentium3|march=pentium4:\
 -D__SSE__ }\
 %{march=pentium-mmx|march=k6|march=k6-2|march=k6-3\
 march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
@@ -613,7 +613,7 @@ march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
 |march=athlon-mp: -D__3dNOW__ }\
 %{march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
 |march=athlon-mp: -D__3dNOW_A__ }\
-%{march=mcpu=pentium4: -D__SSE2__ }\
+%{march=pentium4: -D__SSE2__ }\
 %{!march*:%{!mcpu*:%{!m386:%{!m486:%{!mpentium*:%(cpp_cpu_default)}}}}}"
 
 #ifndef CPP_CPU_SPEC
@@ -2089,8 +2089,6 @@ enum ix86_builtins
   IX86_BUILTIN_CVTSS2SI,
   IX86_BUILTIN_CVTTPS2PI,
   IX86_BUILTIN_CVTTSS2SI,
-  IX86_BUILTIN_M_FROM_INT,
-  IX86_BUILTIN_M_TO_INT,
 
   IX86_BUILTIN_MAXPS,
   IX86_BUILTIN_MAXSS,
@@ -2215,7 +2213,6 @@ enum ix86_builtins
   IX86_BUILTIN_LDMXCSR,
   IX86_BUILTIN_STMXCSR,
   IX86_BUILTIN_SFENCE,
-  IX86_BUILTIN_PREFETCH,
 
   /* 3DNow! Original */
   IX86_BUILTIN_FEMMS,
@@ -2238,8 +2235,6 @@ enum ix86_builtins
   IX86_BUILTIN_PFSUBR,
   IX86_BUILTIN_PI2FD,
   IX86_BUILTIN_PMULHRW,
-  IX86_BUILTIN_PREFETCH_3DNOW, /* PREFETCH already used */
-  IX86_BUILTIN_PREFETCHW,
 
   /* 3DNow! Athlon Extensions */
   IX86_BUILTIN_PF2IW,
@@ -2249,16 +2244,7 @@ enum ix86_builtins
   IX86_BUILTIN_PSWAPDSI,
   IX86_BUILTIN_PSWAPDSF,
 
-  /* Composite builtins, expand to more than one insn.  */
-  IX86_BUILTIN_SETPS1,
-  IX86_BUILTIN_SETPS,
-  IX86_BUILTIN_CLRPS,
-  IX86_BUILTIN_SETRPS,
-  IX86_BUILTIN_LOADPS1,
-  IX86_BUILTIN_LOADRPS,
-  IX86_BUILTIN_STOREPS1,
-  IX86_BUILTIN_STORERPS,
-
+  IX86_BUILTIN_SSE_ZERO,
   IX86_BUILTIN_MMX_ZERO,
 
   IX86_BUILTIN_MAX

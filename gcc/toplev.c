@@ -115,10 +115,6 @@ vms_fopen (fname, type)
 #define fopen vms_fopen
 #endif	/* VMS  */
 
-#if defined (HAVE_DECL_ENVIRON) && !HAVE_DECL_ENVIRON
-extern char **environ;
-#endif
-
 /* Carry information from ASM_DECLARE_OBJECT_NAME
    to ASM_FINISH_DECLARE_OBJECT.  */
 
@@ -1488,6 +1484,11 @@ int warn_disabled_optimization;
 
 int warn_missing_noreturn;
 
+/* Nonzero means warn about uses of __attribute__((deprecated)) 
+   declarations.  */
+
+int warn_deprecated_decl = 1;
+
 /* Likewise for -W.  */
 
 static const lang_independent_options W_options[] =
@@ -1526,6 +1527,8 @@ static const lang_independent_options W_options[] =
    N_("Warn when padding is required to align struct members") },
   {"disabled-optimization", &warn_disabled_optimization, 1,
    N_("Warn when an optimization pass is disabled") },
+  {"deprecated-declarations", &warn_deprecated_decl, 1,
+   N_("Warn about uses of __attribute__((deprecated)) declarations") },
   {"missing-noreturn", &warn_missing_noreturn, 1,
    N_("Warn about functions which might be candidates for attribute noreturn") }
 };
@@ -1718,8 +1721,8 @@ set_float_handler (handler)
 
 int
 do_float_handler (fn, data)
-  void (*fn) PARAMS ((PTR));
-  PTR data;
+     void (*fn) PARAMS ((PTR));
+     PTR data;
 {
   jmp_buf buf;
 
@@ -2878,6 +2881,7 @@ rest_of_compilation (decl)
       find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       tem = gcse_main (insns, rtl_dump_file);
+      rebuild_jump_labels (insns);
 
       save_csb = flag_cse_skip_blocks;
       save_cfj = flag_cse_follow_jumps;
@@ -3145,7 +3149,7 @@ rest_of_compilation (decl)
       if (initialize_uninitialized_subregs ())
 	{
 	  /* Insns were inserted, so things might look a bit different.  */
-	  insns = get_insns();
+	  insns = get_insns ();
 	  life_analysis (insns, rtl_dump_file, 
 			 (PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES));
 	}
@@ -3820,7 +3824,7 @@ display_help ()
 static void
 display_target_options ()
 {
-  int undoc,i;
+  int undoc, i;
   static bool displayed = false;
 
   /* Avoid double printing for --help --target-help.  */
@@ -3969,9 +3973,9 @@ decode_f_option (arg)
     }
 
   if (!strcmp (arg, "fast-math"))
-    set_fast_math_flags();
+    set_fast_math_flags ();
   else if (!strcmp (arg, "no-fast-math"))
-    set_no_fast_math_flags();
+    set_no_fast_math_flags ();
   else if ((option_value = skip_leading_substring (arg, "inline-limit-"))
 	   || (option_value = skip_leading_substring (arg, "inline-limit=")))
     {

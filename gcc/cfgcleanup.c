@@ -1177,10 +1177,10 @@ outgoing_edges_match (mode, bb1, bb2)
 	  /* Fail if the difference in probabilities is
 	     greater than 5%.  */
 	  if (abs (b1->probability - prob2) > REG_BR_PROB_BASE / 20
-	      && (b1->probability < REG_BR_PROB_BASE * 0.1
-		  || b1->probability > REG_BR_PROB_BASE * 0.9)
-	      && (prob2 < REG_BR_PROB_BASE * 0.1
-		  || prob2 > REG_BR_PROB_BASE * 0.9))
+	      && (b1->probability < REG_BR_PROB_BASE * 0.2
+		  || b1->probability > REG_BR_PROB_BASE * 0.8)
+	      && (prob2 < REG_BR_PROB_BASE * 0.2
+		  || prob2 > REG_BR_PROB_BASE * 0.8))
 	    {
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file,

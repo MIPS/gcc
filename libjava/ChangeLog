@@ -1,4 +1,56 @@
+2002-01-13  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/DatagramSocket.java (getReceiveBufferSize): new 1.2 method.
+	* java/net/DatagramSocket.java (getSendBufferSize): Likewise.
+	* java/net/DatagramSocket.java (setReceiveBufferSize): Likewise.
+	* java/net/DatagramSocket.java (setSendBufferSize): Likewise.
+
+2002-01-11  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/InetAddress.java (ANY_IF): moved from ServerSocket.
+	* java/net/DatagramSocket.java (DatagramSocket): use ANY_IF from
+	InetAddress.
+	* java/net/MulticastSocket.java (MulticastSocket): Likewise.
+	* java/net/Socket.java: Merge with Classpath.
+	* java/net/ServerSocket.java: Likewise.
+
+2002-01-11  Chris Sears  <cbsears_sf@yahoo.com>
+
+	* interpret.cc (NULLARRAYCHECK): New macro.
+	(SAVE_PC): Just store `pc'.
+	(find_exception): Subtract one from `pc' here.
+	(continue1) [insn_iaload, insn_laload, insn_faload, insn_daload,
+	insn_aaload, insn_baload, insn_caload, insn_saload, insn_iastore,
+	insn_lastore, insn_fastore, insn_dastore, insn_aastore,
+	insn_bastore, insn_castore, insn_sastore]: Use NULLARRAYCHECK, and
+	don't call SAVE_PC.
+	(continue1) [insn_fdiv, insn_ddiv, insn_frem, insn_drem]: Don't
+	call SAVE_PC.
+
+2002-01-11  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natSystem.cc (init_properties): Only look for default
+	locale if LC_MESSAGES is defined.
+	* aclocal.m4, configure, include/config.h.in: Rebuilt.
+	* configure.in: Call AM_LC_MESSAGES.
+	* acinclude.m4 (AM_LC_MESSAGES): New macro.
+
+2002-01-10  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/5303:
+	* gnu/java/rmi/rmic/RMIC.java (parseOptions): Handle --help and
+	--version.  Recognize GNU-style long options.  Print GNU-style
+	error messages.
+	(usage): Print GNU-style help.  Exit with status 0.
+	(error): New method.
+	(run): Print error message if no class names found.
+	(main): Don't print usage on error.
+
 2002-01-09  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/gcj/convert/Convert.java (version): Use java.vm.name
+	property.
+	(help, version): Use println(), not println("").
 
 	For PR libgcj/5303:
 	* gnu/gcj/convert/Convert.java (error): Program is called

@@ -1,3 +1,431 @@
+2002-01-13  Christopher Faylor  <cgf@redhat.com>
+
+	* cppfiles.c (TEST_THRESHOLD): New macro.
+	(SHOULD_MMAP): Ditto.
+	(read_include_file): Use SHOULD_MMAP macro to decide when mmap should
+	be used.
+
+Mon Jan 14 20:23:34 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* unroll.c (final_reg_note_copy): Properly handle
+	REG_LABEL
+	(unroll_loops): Fix LOOP_CONDITION heuristics.
+
+2002-01-14  Geoffrey Keating  <geoffk@redhat.com>
+
+	* doc/invoke.texi (Xstormy16 Options): Add xstormy16 option.
+	* doc/md.texi (Machine Constraints): Use @minus{} where appropriate.
+
+Mon Jan 14 20:18:19 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* cfgcleanup.c (try_forward_edges): Avoid infinite loop at infinite
+	threaded loop.
+
+2002-01-14  Tom Rix  <trix@redhat.com>
+
+	* config/rs6000/rs6000.md: Fix typo with sradi.
+
+2002-01-14  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.md (movstrdix_64, movstrsix_31, movstrdi_64,
+	movstrsi_31, clrstrsi_64, clrstrsi_31): Improve RTL templates.
+	(clrstrdi, clrstrsi): Adapt callers.
+
+	(extendsidi2, zero_extendsidi2): Remove no-conflict blocks.
+
+	(movti splitter): Never use register 0 as base register.	
+
+2002-01-14  Hartmut Penner  <hpenner@de.ibm.com>
+
+	* combine.c (simplify_shift_const): Always generate new rtx 
+	for shift expression instead of reusing given expression. 
+
+Mon Jan 14 07:08:55 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* config/alpha/alpha.c (alpha_expand_mov): Don't call
+	alpha_legitimize_address unless mode is Pmode.
+
+2002-01-13  Geoffrey Keating  <geoffk@redhat.com>
+
+	* doc/md.texi (Modifiers): Document the '*' constraint for the
+	user.
+
+	* doc/md.texi (Machine Constraints): Add constraints for xstormy16.
+	* doc/extend.texi (Function Attributes): 'interrupt' is valid
+	for xstormy16 too.
+
+2002-01-13  Richard Henderson  <rth@redhat.com>
+
+	* reload.c (find_reloads): Use a hard reg destination as reload reg
+	for an input reload of the source.
+
+2002-01-13  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/install.texi (Binaries): Make link to ftp.writtenword.com
+	more generic.
+
+Sun Jan 13 07:23:01 2002  Douglas B Rupp  <rupp@gnat.com>
+
+	* Makefile.in (LIB2FUNCS): Split into LIB2FUNCS_1 and LIB2FUNCS_2.
+	* mklibgcc.in (LIB2FUNCS): Split into LIB2FUNCS_1 and LIB2FUNCS_2.
+
+	* config/alpha/x-vms (USE_COLLECT2): Set to empty.
+
+Sun Jan 13 06:55:31 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* dwarf2out.c (mem_loc_descriptor, case ADDRESSOF): New case.
+
+2002-01-12  Tom Rix  <trix@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_set_long_const): Use ior for 
+	TARGET_POWERPC64.
+
+2002-01-12  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (bdesc_2arg): Mark psadbw MASK_3DNOW_A.
+
+	* doc/invoke.texi: Update Alpha options.
+
+	* doc/invoke.texi: Update i386 built-in function lists.
+
+Sat Jan 12 17:38:11 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* unroll.c (final_reg_note_copy): Avoid crash on REG_LABEL note
+	referencing outside.
+
+Sat Jan 12 08:54:51 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* diagnostic.c (warn_deprecated_use): Rework to lower indentation.
+	* expr.c (emit_move_insn_1): Remove warning, use HOST_WIDE_INT for
+	offsets, and change line folding.
+	* optabs.c (expand_binop): Remove warnings.
+	* sdbout.c (sdbout_record_type_name): Constify NAME to avoid warning.
+	
+2002-01-12  Graham Stott <grahams@redhat.com>
+
+	* attribs.c (handle_deprecated_attribute): constify WHAT.
+	* diagnostic.c (warn_deprecated_use): Add braces, fixes
+	dangling else warning and constify WHAT.
+	* except.h (struct function, struct inline_remap): Move
+	struct tag forward defs before all prototypes.
+	(duplicate_eh_regions): Whitespace.
+
+2002-01-12  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	* config/arm/arm.h (ARM_LEGITIMIZE_RELOAD_ADDRESS): Use
+	MODE_BASE_REG_CLASS.
+	(THUMB_LEGITIMIZE_RELOAD_ADDRESS): Use MODE_BASE_REG_CLASS.
+
+2002-01-12  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (override_options): If SSE, enable sse prefetch.
+	(ix86_expand_vector_move): New.
+	(bdesc_2arg): Remove andps, andnps, orps, xorps.
+	(ix86_init_mmx_sse_builtins): Make static.  Remove composite builtins.
+	Remove old prefetch builtins.  Special case the logicals removed above.
+	(ix86_expand_builtin): Likewise.
+	(safe_vector_operand): Use V4SFmode, not TImode.
+	(ix86_expand_store_builtin): Remove shuffle arg.  Update callers.
+	(ix86_expand_timode_binop_builtin): New.
+	* config/i386/i386-protos.h: Update.
+	* config/i386/i386.h (enum ix86_builtins): Update.
+	* config/i386/i386.md: Correct predicates on MMX/SSE patterns.
+	Use ix86_expand_vector_move in vector move expanders.
+	(movti_internal, movti_rex64): Add xorps alternative.
+	(sse_clrv4sf): Rename and adjust from sse_clrti.
+	(prefetch): Don't work so hard.
+	(prefetch_sse, prefetch_3dnow): Use PREFETCH rtx, not UNSPEC.
+	* config/i386/xmmintrin.h (__m128): Use V4SFmode.
+	(_mm_getcsr, _mm_setcsr): Fix typo in builtin name.
+
+2002-01-11  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/mmintrin.h: New file.
+	* config/i386/xmmintrin.h: New file.
+	* config.gcc (i?86-*-*): Add extra_headers.
+	* simplify-rtx.c (simplify_unary_operation): Handle saturating
+	truncation codes.
+	(simplify_binary_operation): Handle saturating arithmetic codes.
+	* config/i386/i386.c (ix86_expand_sse_comi): Return the full result,
+	not the lowpart subreg.
+	(ix86_expand_builtin): Return a TImode dummy register instead of 0
+	on error.
+	* config/i386/i386.md (mmx_clrdi): Override memory attribute.
+
+2002-01-12  Michael Hayes  <m.hayes@elec.canterbury.ac.nz>
+
+	* conflict.c (conflict_graph_compute): Free regsets when finished.
+	* ssa.c (compute_coalesced_reg_partition): Likewise.
+	
+2002-01-12  Herman A.J. ten Brugge <Haj.Ten.Brugge@net.HCC.nl>
+
+	* global.c (find_reg): Check for HARD_REGNO_CALL_PART_CLOBBERED
+	every where we allocate a register.
+
+2002-01-12  Michael Hayes  <m.hayes@elec.canterbury.ac.nz>
+
+	* gcse.c (compute_pre_data, pre_gcse): Use sbitmap_free.
+	* lcm.c (compute_earliest, compute_farthest): Likewise.
+
+2002-01-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* expr.c (expand_assignment): Fix misuse of MEM_KEEP_ALIAS_SET.
+
+2002-01-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/rtl.texi (Insns): Fix 2 typos.
+
+2002-01-11  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* doc/invoke.texi: Avoid overfull hboxes.  Add summary of D30V
+	options.  Use @table @gcctabopt for MMIX options.  Add index
+	entries for MMIX options.  Start new paragraph with first
+	heading of the machine-dependent options.
+
+2002-01-11  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	PR other/5299
+	* config/ns32k/ns32k.md: Fix spelling mistake of "than" in comments.
+	* combine.c (force_to_mode): Same.
+	* reload1.c (clear_reload_reg_in_use): Same.
+
+2002-01-11  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	* config/arm/arm.c (arm_gen_constant): Correct test of 'remainder'
+	and 'subtargets'.
+
+2002-01-11  Andreas Jaeger  <aj@suse.de>,
+	    Brad Lucier <lucier@math.purdue.edu>
+
+	* config/i386/i386.h (CPP_CPUCOMMON_SPEC): Remove wrong
+	mcpu.
+
+Fri Jan 11 07:35:12 2002  Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/vms.h: (MD_FALLBACK_FRAME_STATE_FOR): Fix errors.
+	Protect with IN_LIBGCC.
+	(LINK_EH_SPEC): Add required trailing space.
+
+Fri Jan 11 09:25:05 2002  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* c-tree.h: Move function declarations so that they are listed
+	under the filename which contains them.
+	(check_identifier, finish_decl_top_level,
+	lookup_name_current_level_global, shadow_record_fields): Remove.
+
+2002-01-11  Andreas Jaeger  <aj@suse.de>
+
+	* config/i386/i386.h (CPP_CPUCOMMON_SPEC): Remove duplicated
+	march.
+
+2002-01-10  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (print_operand): Add 'J'.
+	* config/alpha/alpha.md (call_osf_1_er, call_value_osf_1_er): Take a
+	new operand with the sequence number for the lituse.  When splitting
+	the insns, use gen_movdi_er_high_g and generate a sequence number.
+	(gen_movdi_er_high_g): Print the sequence number if non-zero.
+
+2002-01-10  Aldy Hernandez  <aldyh@redhat.com>
+
+        * config/rs6000/rs6000.c (altivec_init_builtins): Add support for
+        lvebx, lvehx, lvewx, lvxl, lvx, stvx, stvebx, stvehx, stvewx,
+        stvxl.
+        (altivec_expand_builtin): Same.
+        (altivec_expand_stv_builtin): New.
+
+        * config/rs6000/rs6000.h (rs6000_builtins): Same.
+
+        * config/rs6000/rs6000.md ("altivec_lvebx"): New.
+        ("altivec_lvehx"): New.
+        ("altivec_lvewx"): New.
+        ("altivec_lvxl"): New.
+        ("altivec_lvx"): New.
+        ("altivec_stvx"): New.
+        ("altivec_stvebx"): New.
+        ("altivec_stvehx"): New.
+        ("altivec_stvewx"): New.
+        ("altivec_stvxl"): New.
+
+2002-01-10  Richard Henderson  <rth@redhat.com>
+
+	* cfgrtl.c (delete_insn): Assert insn hasn't been deleted yet.
+	* reload1.c (delete_output_reload): Zap spill_reg_store.  Take
+	care not to delete instructions twice.
+
+2002-01-10  Zack Weinberg  <zack@codesourcery.com>
+
+	* toplev.c: Don't declare environ (it's not used anywhere).
+	* configure.in: Don't check for declaration of environ.
+	* config/i386/xm-mingw32.h: Don't #define environ.
+	* config.in, configure: Regenerate.
+
+2002-01-10  Zack Weinberg  <zack@codesourcery.com>
+
+	* configure.in: Set stage1_cflags for powerpc-*-darwin*.
+	* configure: Regenerate.
+
+	* config/interix.h: Set DO_GLOBAL_CTORS_BODY and
+	DO_GLOBAL_DTORS_BODY here, not in xm-interix.h.
+	* config/alpha/vms.h: Set INCLUDE_DEFAULTS here, not in
+	alpha/xm-vms.h.
+	* config/m68k/t-next: Set OTHER_FIXINCLUDES_DIRS and
+	LIMITS_H_TEST here, not in m68k/x-next.
+	* config/rs6000/beos.h: Set STANDARD_INCLUDE_DIR and
+	SYSTEM_INCLUDE_DIR here, not in rs6000/xm-beos.h.
+
+	* config/x-interix: Don't set RANLIB, RANLIB_TEST, SHELL,
+	LIBGCC2_INCLUDES, or SYSTEM_HEADER_DIR.
+	* config/alpha/x-vms: Don't set USE_COLLECT2.  Add comments.
+
+	* config/i386/x-djgpp: Renamed i386/t-djgpp.
+	* config/m88k/x-dolph: Renamed m88k/t-dolph.
+	* config/m88k/x-texXD88: Renamed m88k/t-texXD88.
+	* config/pa/x-pa-mpeix: Renamed pa/t-mpeix.  Update for
+	replacement of quadlib.asm with quadlib.c.
+
+	* config/x-interix3, config/xm-interix.h, config/i386/x-beos,
+	config/i386/xm-osf1elf.h, config/rs6000/x-darwin,
+	config/rs6000/xm-beos.h: Delete file.
+
+	* config.gcc: Update to match above changes.
+
+2002-01-10  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.h: Fix comment typos.
+	* config/h8300/h8300.md: Likewise.
+	* config/h8300/lib1funcs.asm: Likewise.
+
+2002-01-10  Dale Johannesen  <dalej@apple.com>
+
+	PR optimization/5269
+	* unroll.c (precondition_loop_p): Make *increment be the correct
+	sign when n_iterations known, to avoid confusing caller.
+
+2002-01-10  Kazu Hirata  <kazu@hxi.com>
+
+	* doc/extend.texi (deprecated): Fix a typo.
+
+Thu Jan 10 22:35:54 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* basic-block.h (update_br_prob_note): Declare.
+	* cfgcleanup.c (try_simplify_condjump): Call update_br_prob_note.
+	(try_forward_edges): Care negative frequencies and update note.
+	(outgoing_edges_match): Tweek conditional merging heuristics.
+	(try_crossjump_to_edge): use update_br_prob_note.
+	* cfglayout.c (fixup_reorder_chain): Likewise.
+	* cfrtl.c (update_br_prob_note): New.
+	* ifcvt.c (dead_or_predicable): Call update_br_prob_note.
+
+	* i386.c (ix86_decompose_address): Return -1 if address contains
+	shift.
+	(legitimate_address_p): Require ix86_decompose_address to return 1.
+
+	* gcse.c (hash_scan_set): Use CONSTANT_INSN_P.
+	(cprop_insn): Likewise.
+
+2002-01-10  Kazu Hirata  <kazu@hxi.com>
+
+	* toplev.c: Fix formatting.
+	* tree.c: Likewise.
+	* tree-dump.c: Likewise.
+	* unroll.c: Likewise.
+	* unwind-dw2.c: Likewise.
+	* unwind-dw2-fde.c: Likewise.
+	* unwind-dw2-fde-glibc.c: Likewise.
+	* unwind-sjlj.c: Likewise.
+
+2002-01-10  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* doc/invoke.texi: Document PDP-11 options.
+
+2002-01-10  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.h: Fix formatting.
+
+2001-01-10  Ira Ruben	<ira@apple.com>
+
+	Add __attribute__ ((deprecated)).
+	* extend.texi: Document __attribute__ ((deprecated)).
+	* invoke.texi: Document -Wno-deprecated-declarations.
+	* testsuite/g++.dg/other/deprecated.C: New C++ test.
+	* testsuite/gcc.dg/deprecated.c: New C test.
+	* attribs.c (enum attrs): Declare handle_deprecated_attribute().
+	(c_common_attribute_table): Add "deprecated" entry.
+	(handle_deprecated_attribute): New function.
+	* c-decl.c (deprecated_states): New enum.
+	deprecated_state: State of "deprecated" handling.
+	(start_decl): Set deprecated_state based on attributes.
+	(grokdeclarator): Test for deprecated uses, propagate attribute.
+	* c-typeck.c (build_component_ref): Test for deprecated fields.
+	(build_external_ref): Test for deprecated primaries.
+	* diagnostic.c (warn_deprecated_use) New function to issue
+	warnings about __attribute__ ((depricated)) references.
+	* flags.h (warn_deprecated_decl): Extern declared for
+	-W[no-]deprecated-declarations option.
+	* print-tree.c (print_node): Show deprecated flag status.
+	* toplev.c (warn_deprecated_decl): Defined.
+	(W_options): Added "deprecated-declaration".
+	* toplev.h (warn_deprecated_use): Extern declared.
+	* tree.h (struct tree_common): Define deprecated_flag.
+	(TREE_DEPRECATED): New macro to access flag.
+	* cp/call.c (build_call): Test for deprecated calls.
+	* cp/class.c (add_implicitly_declared_members): Set global
+	flag to tell grokdeclarator to not issue deprecated warnings.
+	* cp/cp-tree.h: Add extern for adding_implicit_members.
+	* cp/decl.c (deprecated_states): New enum.
+	(start_decl): Set deprecated_state based on attributes.
+	(grokdeclarator): Test for deprecated uses, propagate attribute.
+	* cp/lex.c (do_identifier): Test for deprecated primaries.
+	* cp/typeck.c (build_component_ref): Test for deprecated fields.
+
+2001-01-10  Ira Ruben	<ira@apple.com>
+
+	Fix to assign attributes to inline member functions.
+	* cp/decl.c (start_method): Handle attrlist.
+
+2002-01-10  Kazu Hirata  <kazu@hxi.com>
+
+	* combine.c (expand_field_assignment): Use subreg_lsb().
+
+2002-01-10  David Edelsohn  <edelsohn@gnu.org>
+
+	* alias.c (find_base_value): Add cases for HIGH, PRE_INC, PRE_DEC,
+	POST_INC, POST_DEC, PRE_MODIFY, and POST_MODIFY.
+	(find_base_term): Add cases for TRUNCATE, PRE_MODIFY, and POST_MODIFY.
+	Recurse for any operand of AND as long as constant is non-zero.
+
+2002-01-10  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.md: Remove constraints from expanders.
+
+2002-01-10  Kazu Hirata  <kazu@hxi.com>
+
+	* varasm.c: Fix formatting.
+	* varray.c: Likewise.
+	* vmsdbgout.c: Likewise.
+	* xcoffout.c: Likewise.
+
+Thu Jan 10 17:19:12 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* cfgcleanup.c (try_forward_edges): Properly initialize nthreaded_edges;
+	update edge probabilities to match.
+
+2002-01-10  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* Makefile.in ($(docdir)/gccint.info, gccint.dvi): Add additional
+	dependencies.
+	* doc/languages.texi, doc/sourcebuild.texi: New files.
+	* doc/configfiles.texi: Make a subsubsection.  Update.
+	* doc/configterms.texi: Add @node.  Remove warning that this isn't
+	instructions for building GCC.
+	* doc/makefile.texi: Make a subsection.
+	* doc/gccint.texi: Update.
+
+Thu Jan 10 16:39:58 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (sse_mov?fcc_const0_?): Fix constraints.
+
 Thu Jan 10 12:45:50 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 
 	* doc/cpp.texi: Document the __OBJC__ preprocessor macro.
@@ -14,7 +442,7 @@ Thu Jan 10 11:19:18 CET 2002  Jan Hubicka  <jh@suse.cz>
 2002-01-20  Graham Stott  <grahams@redhat.com>
 
 	* dwarf2out.c (indirect_string_alloc, output_indirect_string):
-        Move prototype into DWARF2_DEBUGGING_INFO conditional block. 
+	Move prototype into DWARF2_DEBUGGING_INFO conditional block.
 
 2002-01-10  Richard Henderson  <rth@redhat.com>
 
@@ -114,8 +542,8 @@ Thu Jan 10 11:19:18 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 2002-01-09  Herman A.J. ten Brugge  <Haj.Ten.Brugge@net.HCC.nl>
 
-        * real.c (c4xtoe, toc4x): Do some special conversion on long doubles
-        for the c4x target. Also improve layout.
+	* real.c (c4xtoe, toc4x): Do some special conversion on long doubles
+	for the c4x target. Also improve layout.
 
 2002-01-09  Richard Henderson  <rth@redhat.com>
 

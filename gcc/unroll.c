@@ -1,5 +1,5 @@
 /* Try to unroll loops, and split induction variables.
-   Copyright (C) 1992, 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1992, 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by James E. Wilson, Cygnus Support/UC Berkeley.
 
@@ -1392,9 +1392,18 @@ precondition_loop_p (loop, initial_value, final_value, increment, mode)
 
   if (loop_info->n_iterations > 0)
     {
-      *initial_value = const0_rtx;
-      *increment = const1_rtx;
-      *final_value = GEN_INT (loop_info->n_iterations);
+      if (INTVAL (loop_info->increment) > 0)
+	{
+	  *initial_value = const0_rtx;
+	  *increment = const1_rtx;
+	  *final_value = GEN_INT (loop_info->n_iterations);
+	}
+      else
+	{
+	  *initial_value = GEN_INT (loop_info->n_iterations);
+	  *increment = constm1_rtx;
+	  *final_value = const0_rtx;
+	}
       *mode = word_mode;
 
       if (loop_dump_stream)
@@ -4053,7 +4062,7 @@ loop_iterations (loop)
      not HOST_WIDE_INT, disregard higher bits that might have come
      into the picture due to sign extension of initial and final
      values.  */
-  abs_diff &= ((unsigned HOST_WIDE_INT)1
+  abs_diff &= ((unsigned HOST_WIDE_INT) 1
 	       << (GET_MODE_BITSIZE (GET_MODE (iteration_var)) - 1)
 	       << 1) - 1;
 

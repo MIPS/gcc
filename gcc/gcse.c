@@ -4449,7 +4449,7 @@ compute_pre_data ()
   antloc = NULL;
   sbitmap_vector_free (ae_kill);
   ae_kill = NULL; 
-  free (trapping_expr);
+  sbitmap_free (trapping_expr);
 }
 
 /* PRE utilities */
@@ -5002,7 +5002,7 @@ pre_gcse ()
     }
 
   free (index_map);
-  free (pre_redundant_insns);
+  sbitmap_free (pre_redundant_insns);
   return changed;
 }
 

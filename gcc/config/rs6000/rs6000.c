@@ -164,6 +164,7 @@ static rtx altivec_expand_builtin PARAMS ((tree, rtx));
 static rtx altivec_expand_unop_builtin PARAMS ((enum insn_code, tree, rtx));
 static rtx altivec_expand_binop_builtin PARAMS ((enum insn_code, tree, rtx));
 static rtx altivec_expand_ternop_builtin PARAMS ((enum insn_code, tree, rtx));
+static rtx altivec_expand_stv_builtin PARAMS ((enum insn_code, tree));
 static void rs6000_parse_abi_options PARAMS ((void));
 static int first_altivec_reg_to_save PARAMS ((void));
 static unsigned int compute_vrsave_mask PARAMS ((void));
@@ -2002,86 +2003,70 @@ rs6000_emit_set_long_const (dest, c1, c2)
     }
   else
     {
-      HOST_WIDE_INT d1, d2, d2_s, d3, d4;
+      HOST_WIDE_INT ud1, ud2, ud3, ud4;
 
-      /* This function is called by rs6000_emit_allocate_stack after reload 
-	 with a dest of r0.  r0 is an invalid register for addsi.  Use an addi 
-	 and a shift instead.  */
-      int regnum = REGNO (dest);
-
-  /* Decompose the entire word */
+      ud1 = c1 & 0xffff;
+      ud2 = (c1 & 0xffff0000) >> 16;
 #if HOST_BITS_PER_WIDE_INT >= 64
-      if (c2 != -(c1 < 0))
-	abort ();
-      d1 = ((c1 & 0xffff) ^ 0x8000) - 0x8000;
-      c1 -= d1;
-      d2 = ((c1 & 0xffffffff) ^ 0x80000000) - 0x80000000;
-      d2_s = d2 >> 16;
-      c1 = (c1 - d2) >> 32;
-      d3 = ((c1 & 0xffff) ^ 0x8000) - 0x8000;
-      c1 -= d3;
-      d4 = ((c1 & 0xffffffff) ^ 0x80000000) - 0x80000000;
-      if (c1 != d4)
-	abort ();
-#else
-      d1 = ((c1 & 0xffff) ^ 0x8000) - 0x8000;
-      c1 -= d1;
-      d2 = ((c1 & 0xffffffff) ^ 0x80000000) - 0x80000000;
-      d2_s = d2 >> 16;
-      if (c1 != d2)
-	abort ();
-      c2 += (d2 < 0);
-      d3 = ((c2 & 0xffff) ^ 0x8000) - 0x8000;
-      c2 -= d3;
-      d4 = ((c2 & 0xffffffff) ^ 0x80000000) - 0x80000000;
-      if (c2 != d4)
-	abort ();
+      c2 = c1 >> 32;
 #endif
+      ud3 = c2 & 0xffff;
+      ud4 = (c2 & 0xffff0000) >> 16;
 
-      /* Construct the high word */
-      if (d4 != 0)
+      if ((ud4 == 0xffff && ud3 == 0xffff && ud2 == 0xffff && (ud1 & 0x8000)) 
+	  || (ud4 == 0 && ud3 == 0 && ud2 == 0 && ! (ud1 & 0x8000)))
 	{
-	  emit_move_insn (dest, GEN_INT (d4));
-	  if (d3 != 0)
-	    emit_move_insn (dest,
-			    gen_rtx_PLUS (DImode, dest, GEN_INT (d3)));
-	}
-      else if (d3 != 0)
-	emit_move_insn (dest, GEN_INT (d3));
-
-      /* Shift it into place */
-      if (d3 != 0 || d4 != 0)
- 	if (regnum == 0 && d2 != 0) 
- 	  emit_move_insn (dest, gen_rtx_ASHIFT (DImode, dest, GEN_INT (16)));
- 	else 
-	  emit_move_insn (dest, gen_rtx_ASHIFT (DImode, dest, GEN_INT (32)));
-
-      /* Add in the low bits.  */
-      if (d2 != 0)
-	{
-	  if (d3 != 0 || d4 != 0)
-	    {
-	      if (regnum == 0)
-		{
-		  emit_move_insn (dest, gen_rtx_PLUS (DImode, dest, 
-						      GEN_INT (d2_s)));
-		  emit_move_insn (dest, gen_rtx_ASHIFT (DImode, dest,  
-							GEN_INT (16)));
-		}
-	      else
-		emit_move_insn (dest, gen_rtx_PLUS (DImode, dest, 
-						    GEN_INT (d2)));
-	    }
+	  if (ud1 & 0x8000)
+	    emit_move_insn (dest, GEN_INT (((ud1  ^ 0x8000) -  0x8000)));
 	  else
-	    emit_move_insn (dest, GEN_INT (d2));
+	    emit_move_insn (dest, GEN_INT (ud1));
 	}
-      if (d1 != 0)
-	if (d2 != 0 || d3 != 0 || d4 != 0)
-	  emit_move_insn (dest, gen_rtx_PLUS (DImode, dest, GEN_INT (d1)));
-	else
-	  emit_move_insn (dest, GEN_INT (d1));
-    }
 
+      else if ((ud4 == 0xffff && ud3 == 0xffff && (ud2 & 0x8000)) 
+	       || (ud4 == 0 && ud3 == 0 && ! (ud2 & 0x8000)))
+	{
+	  if (ud2 & 0x8000)
+	    emit_move_insn (dest, GEN_INT (((ud2 << 16) ^ 0x80000000) 
+					   - 0x80000000));
+	  else
+	    emit_move_insn (dest, GEN_INT (ud2 << 16));
+	  if (ud1 != 0)
+	    emit_move_insn (dest, gen_rtx_IOR (DImode, dest, GEN_INT (ud1)));
+	}
+      else if ((ud4 == 0xffff && (ud3 & 0x8000)) 
+	       || (ud4 == 0 && ! (ud3 & 0x8000)))
+	{
+	  if (ud3 & 0x8000)
+	    emit_move_insn (dest, GEN_INT (((ud3 << 16) ^ 0x80000000) 
+					   - 0x80000000));
+	  else
+	    emit_move_insn (dest, GEN_INT (ud3 << 16));
+
+	  if (ud2 != 0)
+	    emit_move_insn (dest, gen_rtx_IOR (DImode, dest, GEN_INT (ud2)));
+	  emit_move_insn (dest, gen_rtx_ASHIFT (DImode, dest, GEN_INT (16)));
+	  if (ud1 != 0)
+	    emit_move_insn (dest, gen_rtx_IOR (DImode, dest, GEN_INT (ud1)));
+	}
+      else 
+	{
+	  if (ud4 & 0x8000)
+	    emit_move_insn (dest, GEN_INT (((ud4 << 16) ^ 0x80000000) 
+					   - 0x80000000));
+	  else
+	    emit_move_insn (dest, GEN_INT (ud4 << 16));
+
+	  if (ud3 != 0)
+	    emit_move_insn (dest, gen_rtx_IOR (DImode, dest, GEN_INT (ud3)));
+
+	  emit_move_insn (dest, gen_rtx_ASHIFT (DImode, dest, GEN_INT (32)));
+	  if (ud2 != 0)
+	    emit_move_insn (dest, gen_rtx_IOR (DImode, dest, 
+					       GEN_INT (ud2 << 16)));	
+	  if (ud1 != 0)
+	    emit_move_insn (dest, gen_rtx_IOR (DImode, dest, GEN_INT (ud1)));
+	}
+    }
   return dest;
 }
 
@@ -3473,6 +3458,42 @@ altivec_expand_binop_builtin (icode, arglist, target)
 
   return target;
 }
+
+static rtx
+altivec_expand_stv_builtin (icode, arglist)
+     enum insn_code icode;
+     tree arglist;
+{
+  tree arg0 = TREE_VALUE (arglist);
+  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  tree arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  rtx op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+  rtx pat;
+  enum machine_mode mode0 = insn_data[icode].operand[0].mode;
+  enum machine_mode mode1 = insn_data[icode].operand[1].mode;
+  enum machine_mode mode2 = insn_data[icode].operand[2].mode;
+
+  /* Invalid arguments.  Bail before doing anything stoopid!  */
+  if (arg0 == error_mark_node
+      || arg1 == error_mark_node
+      || arg2 == error_mark_node)
+    return NULL_RTX;
+
+  if (! (*insn_data[icode].operand[2].predicate) (op0, mode2))
+    op0 = copy_to_mode_reg (mode2, op0);
+  if (! (*insn_data[icode].operand[0].predicate) (op1, mode0))
+    op1 = copy_to_mode_reg (mode0, op1);
+  if (! (*insn_data[icode].operand[1].predicate) (op2, mode1))
+    op2 = copy_to_mode_reg (mode1, op2);
+
+  pat = GEN_FCN (icode) (op1, op2, op0);
+  if (pat)
+    emit_insn (pat);
+  return NULL_RTX;
+}
+
 static rtx
 altivec_expand_ternop_builtin (icode, arglist, target)
      enum insn_code icode;
@@ -3693,6 +3714,17 @@ altivec_expand_builtin (exp, target)
 	emit_insn (pat);
       return NULL_RTX;
 
+    case ALTIVEC_BUILTIN_STVX:
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx, arglist);
+    case ALTIVEC_BUILTIN_STVEBX:
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvebx, arglist);
+    case ALTIVEC_BUILTIN_STVEHX:
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvehx, arglist);
+    case ALTIVEC_BUILTIN_STVEWX:
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvewx, arglist);
+    case ALTIVEC_BUILTIN_STVXL:
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvxl, arglist);
+  
     case ALTIVEC_BUILTIN_MFVSCR:
       icode = CODE_FOR_altivec_mfvscr;
       tmode = insn_data[icode].operand[0].mode;
@@ -3798,13 +3830,34 @@ altivec_expand_builtin (exp, target)
     if (d->code == fcode)
       return altivec_expand_binop_builtin (d->icode, arglist, target);
 
-  /* LVS* are funky.  We initialized them differently.  */
-  if (fcode == ALTIVEC_BUILTIN_LVSL)
-    return altivec_expand_binop_builtin (CODE_FOR_altivec_lvsl,
-					 arglist, target);
-  if (fcode == ALTIVEC_BUILTIN_LVSR)
-    return altivec_expand_binop_builtin (CODE_FOR_altivec_lvsr,
-					 arglist, target);
+  /* LV* are funky.  We initialized them differently.  */
+  switch (fcode)
+    {
+    case ALTIVEC_BUILTIN_LVSL:
+      return altivec_expand_binop_builtin (CODE_FOR_altivec_lvsl,
+					   arglist, target);
+    case ALTIVEC_BUILTIN_LVSR:
+      return altivec_expand_binop_builtin (CODE_FOR_altivec_lvsr,
+					   arglist, target);
+    case ALTIVEC_BUILTIN_LVEBX:
+      return altivec_expand_binop_builtin (CODE_FOR_altivec_lvebx,
+					   arglist, target);
+    case ALTIVEC_BUILTIN_LVEHX:
+      return altivec_expand_binop_builtin (CODE_FOR_altivec_lvehx,
+					   arglist, target);
+    case ALTIVEC_BUILTIN_LVEWX:
+      return altivec_expand_binop_builtin (CODE_FOR_altivec_lvewx,
+					   arglist, target);
+    case ALTIVEC_BUILTIN_LVXL:
+      return altivec_expand_binop_builtin (CODE_FOR_altivec_lvxl,
+					   arglist, target);
+    case ALTIVEC_BUILTIN_LVX:
+      return altivec_expand_binop_builtin (CODE_FOR_altivec_lvx,
+					   arglist, target);
+    default:
+      break;
+      /* Fall through.  */
+    }
 
   /* Handle simple ternary operations.  */
   d = (struct builtin_description *) bdesc_3arg;
@@ -3966,6 +4019,33 @@ altivec_init_builtins (void)
     = build_function_type (void_type_node,
 			   tree_cons (NULL_TREE, V4SI_type_node,
 				      endlink));
+
+  /* void foo (vint, int, void *).  */
+  tree void_ftype_v4si_int_pvoid
+    = build_function_type (void_type_node,
+			   tree_cons (NULL_TREE, V4SI_type_node,
+				      tree_cons (NULL_TREE, integer_type_node,
+						 tree_cons (NULL_TREE,
+							    pvoid_type_node,
+							    endlink))));
+
+  /* void foo (vchar, int, void *).  */
+  tree void_ftype_v16qi_int_pvoid
+    = build_function_type (void_type_node,
+			   tree_cons (NULL_TREE, V16QI_type_node,
+				      tree_cons (NULL_TREE, integer_type_node,
+						 tree_cons (NULL_TREE,
+							    pvoid_type_node,
+							    endlink))));
+
+  /* void foo (vshort, int, void *).  */
+  tree void_ftype_v8hi_int_pvoid
+    = build_function_type (void_type_node,
+			   tree_cons (NULL_TREE, V8HI_type_node,
+				      tree_cons (NULL_TREE, integer_type_node,
+						 tree_cons (NULL_TREE,
+							    pvoid_type_node,
+							    endlink))));
 
   /* void foo (char).  */
   tree void_ftype_qi
@@ -4191,6 +4271,18 @@ altivec_init_builtins (void)
 				      tree_cons (NULL_TREE, pvoid_type_node,
 						 endlink)));
 
+  tree v4si_ftype_int_pvoid
+    = build_function_type (V4SI_type_node,
+			   tree_cons (NULL_TREE, integer_type_node,
+				      tree_cons (NULL_TREE, pvoid_type_node,
+						 endlink)));
+
+  tree v8hi_ftype_int_pvoid
+    = build_function_type (V8HI_type_node,
+			   tree_cons (NULL_TREE, integer_type_node,
+				      tree_cons (NULL_TREE, pvoid_type_node,
+						 endlink)));
+
   tree int_ftype_v8hi_v8hi
     = build_function_type (integer_type_node,
 			   tree_cons (NULL_TREE, V8HI_type_node,
@@ -4211,7 +4303,17 @@ altivec_init_builtins (void)
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_dss", void_ftype_qi, ALTIVEC_BUILTIN_DSS);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvsl", v16qi_ftype_int_pvoid, ALTIVEC_BUILTIN_LVSL);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvsr", v16qi_ftype_int_pvoid, ALTIVEC_BUILTIN_LVSR);
-
+  def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvebx", v16qi_ftype_int_pvoid, ALTIVEC_BUILTIN_LVEBX);
+  def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvehx", v8hi_ftype_int_pvoid, ALTIVEC_BUILTIN_LVEHX);
+  def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvewx", v4si_ftype_int_pvoid, ALTIVEC_BUILTIN_LVEWX);
+  def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvxl", v4si_ftype_int_pvoid, ALTIVEC_BUILTIN_LVXL);
+  def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvx", v4si_ftype_int_pvoid, ALTIVEC_BUILTIN_LVX);
+  def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvx", void_ftype_v4si_int_pvoid, ALTIVEC_BUILTIN_STVX);
+  def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvebx", void_ftype_v16qi_int_pvoid, ALTIVEC_BUILTIN_STVEBX);
+  def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvehx", void_ftype_v8hi_int_pvoid, ALTIVEC_BUILTIN_STVEHX);
+  def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvewx", void_ftype_v4si_int_pvoid, ALTIVEC_BUILTIN_STVEWX);
+  def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvxl", void_ftype_v4si_int_pvoid, ALTIVEC_BUILTIN_STVXL);
+  
   /* Add the simple ternary operators.  */
   d = (struct builtin_description *) bdesc_3arg;
   for (i = 0; i < sizeof (bdesc_3arg) / sizeof *d; i++, d++)
