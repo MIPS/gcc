@@ -877,7 +877,6 @@ right_assocify_expr (top)
     {
       tree cur = *p;
       tree lhs = TREE_OPERAND (cur, 0);
-      tree rhs = TREE_OPERAND (cur, 1);
       if (TREE_CODE (lhs) == code)
 	{
 	  /* There's a left-recursion.  If we have ((a, (b, c)), d), we
