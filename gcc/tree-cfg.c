@@ -51,9 +51,6 @@ static const int initial_cfg_capacity = 20;
 static FILE *dump_file;		/* CFG dump file. */
 static int dump_flags;		/* CFG dump flags.  */
 
-/* Array with control flow parents.  */
-static varray_type parent_array;
-
 /* Mapping of labels to their associated blocks.  This can greatly speed up
    building of the CFG in code with lots of gotos.  */
 static varray_type label_to_block_map;
@@ -63,17 +60,21 @@ struct cfg_stats_d
 {
   long num_merged_cases;
   long num_merged_labels;
+  long num_failed_bind_expr_merges;
 };
 
 static struct cfg_stats_d cfg_stats;
 
 /* Basic blocks and flowgraphs.  */
-static void make_blocks			PARAMS ((tree *, basic_block));
-static void make_bind_expr_blocks	PARAMS ((tree *, basic_block));
-static void make_cond_expr_blocks	PARAMS ((tree *, basic_block));
-static void make_loop_expr_blocks	PARAMS ((tree *, basic_block));
-static void make_switch_expr_blocks	PARAMS ((tree *, basic_block));
-static basic_block create_bb		PARAMS ((tree *, basic_block));
+static basic_block make_blocks		PARAMS ((tree *, tree, tree,
+						 basic_block));
+static void make_cond_expr_blocks	PARAMS ((tree *, tree, basic_block));
+static void make_loop_expr_blocks	PARAMS ((tree *, tree, basic_block));
+static void make_switch_expr_blocks	PARAMS ((tree *, tree, basic_block));
+static basic_block make_bind_expr_blocks PARAMS ((tree *, tree, basic_block,
+						  tree));
+static inline void add_stmt_to_bb	PARAMS ((tree *, basic_block, tree));
+static basic_block create_bb		PARAMS ((void));
 
 /* Edges.  */
 static void make_edges			PARAMS ((void));
@@ -89,8 +90,7 @@ static basic_block successor_block	PARAMS ((basic_block));
 static basic_block first_exec_block	PARAMS ((tree *));
 static tree *first_exec_stmt		PARAMS ((tree *));
 static basic_block switch_parent	PARAMS ((basic_block));
-static void create_block_annotations	PARAMS ((void));
-static inline bool stmt_starts_bb_p	PARAMS ((tree));
+static inline bool stmt_starts_bb_p	PARAMS ((tree, tree));
 static inline bool stmt_ends_bb_p	PARAMS ((tree));
 
 /* Flowgraph optimization and cleanup.  */
@@ -123,6 +123,27 @@ static block_stmt_iterator bsi_init 	PARAMS ((tree *, basic_block));
   } while (0)
 
 
+/* NEXT_BLOCK_LINK is used to store the successor statement of the entry
+   statement to a lexical or control block.  This allows successor_block to
+   find the block that should come after the last statement of the last
+   block inside a lexical scope.  For instance,
+
+	    1	if (...)
+	    2	  {
+	    3	    s1;
+	    4	    {
+	    5	      s2;
+	    6	      s3;
+	    7	    }
+	    8	  }
+	    9	s4;
+
+  When make_blocks starts processing the if() at line 1, it sets
+  NEXT_BLOCK_LINK to be 's4'.  This way, when it finishes the basic block
+  at line 6, it sets NEXT_BLOCK_LINK (s3) to 's4'.  */
+#define NEXT_BLOCK_LINK(STMT)	TREE_CHAIN (STMT)
+
+
 /*---------------------------------------------------------------------------
 			      Create basic blocks
 ---------------------------------------------------------------------------*/
@@ -142,7 +163,6 @@ build_tree_cfg (fnbody)
   n_basic_blocks = 0;
   last_basic_block = 0;
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
-  VARRAY_BB_INIT (parent_array, initial_cfg_capacity, "parent_array");
   memset ((void *) &cfg_stats, 0, sizeof (cfg_stats));
 
   /* Build a mapping of labels to their associated blocks.  */
@@ -165,7 +185,7 @@ build_tree_cfg (fnbody)
   first_p = first_exec_stmt (&BIND_EXPR_BODY (fnbody));
   if (first_p)
     {
-      make_blocks (first_p, NULL);
+      make_blocks (first_p, NULL_TREE, NULL, NULL);
 
       if (n_basic_blocks > 0)
 	{
@@ -173,7 +193,7 @@ build_tree_cfg (fnbody)
 	  VARRAY_GROW (basic_block_info, n_basic_blocks);
 
 	  /* Create block annotations.  */
-	  create_block_annotations ();
+	  alloc_aux_for_blocks (sizeof (struct bb_ann_d));
 
 	  /* Create the edges of the flowgraph.  */
 	  make_edges ();
@@ -205,199 +225,343 @@ build_tree_cfg (fnbody)
 
 
 /* Build a flowgraph for the statements starting at the statement pointed
-   by FIRST_P.  PARENT_BLOCK is the header block for the control structure
-   immediately enclosing the new sub-graph.  */
+   by FIRST_P.
+   
+   PARENT_STMT is the entry statement for the control structure immediately
+      enclosing the new sub-graph.
 
-static void
-make_blocks (first_p, parent_block)
+   BB is the block where the statements should be added to.  If BB is NULL,
+      a new basic block will be created for the statements.
+
+   Return the last basic block added to the graph.  This is used to know if
+   a recursive invocation built a sub-graph whose last block can accept
+   more statements or not.  */
+
+static basic_block
+make_blocks (first_p, next_block_link, parent_stmt, bb)
      tree *first_p;
-     basic_block parent_block;
+     tree next_block_link;
+     tree parent_stmt;
+     basic_block bb;
 {
-  basic_block bb;
-  bool start_new_block;
   tree_stmt_iterator i;
-  tree stmt;
+  tree stmt, last;
+  bool start_new_block;
 
   if (first_p == NULL
       || *first_p == empty_stmt_node
       || *first_p == error_mark_node)
-    return;
+    return NULL;
 
-  bb = NULL;
-  start_new_block = true;
-  stmt = NULL_TREE;
+  start_new_block = (bb == NULL);
+  stmt = last = NULL;
   for (i = tsi_start (first_p); !tsi_end_p (i); tsi_next (&i))
     {
-      tree prev_stmt;
       enum tree_code code;
-      tree *container = tsi_container (i);
+      tree prev_stmt;
+      tree *stmt_p = tsi_container (i);
 
       prev_stmt = stmt;
       stmt = tsi_stmt (i);
 
       /* Set the block for the container of non-executable statements.  */
       if (stmt == NULL_TREE)
-        {
-	  if (bb && *container != empty_stmt_node)
-	    set_bb_for_stmt (*container, bb);
+	{
+	  if (bb && *stmt_p != empty_stmt_node)
+	    add_stmt_to_bb (stmt_p, bb, parent_stmt);
 	  continue;
 	}
 
       STRIP_NOPS (stmt);
-
+      NEXT_BLOCK_LINK (stmt) = NULL_TREE;
       code = TREE_CODE (stmt);
 
-      /* Note that we check whether we need to start a new block before
-	 processing control statements.  This is because after creating the
-	 sub-graph for a control statement, we will always need to start a
-	 new block, and by then it will be too late to figure it out.  */
-      if (stmt_starts_bb_p (stmt))
+      /* If the statement starts a new basic block or if we have determined
+	 in a previous pass that we need to create a new block for STMT, do
+	 so now.  */
+      if (start_new_block || stmt_starts_bb_p (stmt, prev_stmt))
 	{
-	  /* LABEL_EXPRs and CASE_LABEL_EXPRs start a new basic block only
-	     if the previous statement we processed wasn't a label of the
-	     same type.  This prevents the creation of consecutive blocks
-	     that have nothing but a single label.  */
-	  if ((code == LABEL_EXPR || code == CASE_LABEL_EXPR)
-	      && prev_stmt
-	      && code == TREE_CODE (prev_stmt))
-	    {
-	      if (code == LABEL_EXPR)
-		cfg_stats.num_merged_labels++;
-	      else
-		cfg_stats.num_merged_cases++;
-	      start_new_block = false;
-	    }
-	  else
-	    start_new_block = true;
+	  bb = create_bb ();
+	  start_new_block = false;
 	}
 
-      if (code == BIND_EXPR)
-	make_bind_expr_blocks (container, parent_block);
-      else if (code == LOOP_EXPR)
-	make_loop_expr_blocks (container, parent_block);
+      /* Now add STMT to BB and create the subgraphs for special statement
+	 codes.  */
+      add_stmt_to_bb (stmt_p, bb, parent_stmt);
+
+      if (code == LOOP_EXPR)
+	make_loop_expr_blocks (stmt_p, next_block_link, bb);
+      else if (code == COND_EXPR)
+	make_cond_expr_blocks (stmt_p, next_block_link, bb);
+      else if (code == SWITCH_EXPR)
+	make_switch_expr_blocks (stmt_p, next_block_link, bb);
+      else if (code == BIND_EXPR)
+	{
+	  int num_blocks_before;
+	  basic_block last_bb;
+
+	  /* BIND_EXPR nodes are a special case.  We neither force a new
+	     block for their bodies, nor force a new block after creating
+	     the subgraph.  On return from make_bind_expr_blocks, LAST_BB
+	     will be the last basic block of the BIND_EXPR's subgraph.  We
+	     point STMT to LAST_BB's last statement to determine if we
+	     should start a new block or not.  */
+	  num_blocks_before = n_basic_blocks;
+	  last_bb = make_bind_expr_blocks (stmt_p, next_block_link, bb,
+	                                   parent_stmt);
+	  if (last_bb)
+	    {
+	      bb = last_bb;
+	      stmt = last_stmt (bb);
+	    }
+
+	  /* FIXME.  Obscene hack to work around iterator limitations.  If
+	     during processing of the BIND_EXPR body we were forced to
+	     create new blocks (i.e., the BIND_EXPR body contains control
+	     flow structures), then force the creation of a new basic block
+	     for the next iteration.  This avoids the following problem
+	     (assume that all the Si statements are regular GIMPLE
+	     statements):
+
+		    1	s1;		<-- BLOCK #0
+		    2	{
+		    3	  s2;
+		    4	  s3;
+		    5	  if ()
+		    6	    s4;		<-- BLOCK #1
+		    7	  s5;		<-- BLOCK #2
+		    8	}
+		    9	s6;
+
+	     Since s5 and s6 are two regular statements, they could both be
+	     in block #2.  However, if we started an iterator on block #2,
+	     the iterator would have no way of knowing how to go from
+	     statement s5 to statement s6 because the iterator was started
+	     in the middle of its BIND_EXPR's body, so bsi_step_in_bb() has
+	     not enough context to determine how to get to s6.  */
+	  if (n_basic_blocks > num_blocks_before)
+	    {
+	      start_new_block = true;
+
+	      /* If we are starting the new block just to work around
+		 iterator limitations, keep track of it.  */
+	      if (!stmt_ends_bb_p (stmt))
+		cfg_stats.num_failed_bind_expr_merges++;
+	    }
+	}
       else if (code == TRY_FINALLY_EXPR || code == TRY_CATCH_EXPR)
-	/* FIXME: Need to handle try/catch and try/finally.  */
-	abort ();
-      else
 	{
-	  /* For regular statements, add them the current block and move on
-	     to the next statement.  */
-	  if (start_new_block)
-	    {
-	      /* Create a new basic block.  */
-	      bb = create_bb (container, parent_block);
-	      start_new_block = false;
-	    }
-	  else
-	    {
-	      /* Add the statement to the existing basic block.  */
-	      set_bb_for_stmt (*container, bb);
-	      bb->end_tree_p = container;
-	    }
-
-	  /* Create the subgraph for COND_EXPR and SWITCH_EXPR nodes.  */
-	  if (code == COND_EXPR)
-	    make_cond_expr_blocks (container, bb);
-	  else if (code == SWITCH_EXPR)
-	    make_switch_expr_blocks (container, bb);
-
-	  /* If STMT must be the last in its block, we need to start a new
-	     block on the next iteration.  */
-	  if (stmt_ends_bb_p (stmt))
-	    start_new_block = true;
+	  /* FIXME: Need to handle these nodes for C++ and mudflap.  */
+	  abort ();
 	}
+
+      /* If STMT is a basic block terminator, set START_NEW_BLOCK for the
+	 next iteration.  */
+      if (stmt_ends_bb_p (stmt))
+	start_new_block = true;
+
+      last = stmt;
     }
-}
 
+  /* If LAST_STMT is set, link it to NEXT_BLOCK_LINK.  This allows making
+     edges from the last block inside a lexical scope (see
+     successor_block).  */
+  if (last)
+    {
+      NEXT_BLOCK_LINK (last) = next_block_link;
+      return bb_for_stmt (last);
+    }
 
-/* Create the blocks for the BIND_EXPR node pointed by BIND_P.
-   PARENT_BLOCK is as in make_blocks.  */
-
-static void
-make_bind_expr_blocks (bind_p, parent_block)
-     tree *bind_p;
-     basic_block parent_block;
-{
-  basic_block entry;
-  tree bind = *bind_p;
-
-  entry = create_bb (bind_p, parent_block);
-  entry->flags |= BB_COMPOUND_ENTRY;
-
-  STRIP_CONTAINERS (bind);
-  make_blocks (&BIND_EXPR_BODY (bind), entry);
+  return NULL;
 }
 
 
 /* Create the blocks for the LOOP_EXPR node pointed by LOOP_P.
-   PARENT_BLOCK is as in make_blocks.  */
+
+   NEXT_BLOCK_LINK is the first statement of the successor basic block for
+      the block holding *LOOP_P.  If *LOOP_P is the last statement inside a
+      lexical scope, this will be the statement that comes after LOOP_P's
+      container (see the documentation for NEXT_BLOCK_LINK).
+
+   ENTRY is the block whose last statement is *LOOP_P.  */
 
 static void
-make_loop_expr_blocks (loop_p, parent_block)
+make_loop_expr_blocks (loop_p, next_block_link, entry)
      tree *loop_p;
-     basic_block parent_block;
+     tree next_block_link;
+     basic_block entry;
 {
-  basic_block entry, latch;
+  tree_stmt_iterator si;
   tree loop = *loop_p;
   
-  entry = create_bb (loop_p, parent_block);
   entry->flags |= BB_COMPOUND_ENTRY | BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
 
-  /* Create an empty block to serve as latch to prevent flow_loops_find
-     from finding multiple natural loops in the presence of multiple back
-     edges.
-     
-     ??? Note that latch_block assumes that the latch block is the
-	 successor of the entry block in the linked list of blocks.  */
-  latch = create_bb (&empty_stmt_node, entry);
-  latch->flags |= BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
-  
+  /* Determine NEXT_BLOCK_LINK for statements inside the LOOP_EXPR body.
+     Note that in the case of a loop, NEXT_BLOCK_LINK should be the
+     first statement of the LOOP_EXPR body.  This is because LOOP_EXPR
+     statements are actually infinite loops, so they can only be left with a
+     'goto' statement.  Any other statement that reaches the end of the
+     LOOP_EXPR body, will naturally loop back.  */
   STRIP_CONTAINERS (loop);
-  make_blocks (&LOOP_EXPR_BODY (loop), entry);
+  si = tsi_start (&LOOP_EXPR_BODY (loop));
+  next_block_link = tsi_stmt (si);
+
+  /* If the loop body is empty, point NEXT_BLOCK_LINK to the statement
+     following the LOOP_EXPR node, as we do with the other control
+     structures.  */
+  if (next_block_link == NULL_TREE)
+    {
+      si = tsi_start (loop_p);
+      tsi_next (&si);
+      if (!tsi_end_p (si))
+	next_block_link = tsi_stmt (si);
+    }
+
+  make_blocks (&LOOP_EXPR_BODY (loop), next_block_link, loop, NULL);
 }
 
 
 /* Create the blocks for the COND_EXPR node pointed by COND_P.
+
+   NEXT_BLOCK_LINK is the first statement of the successor basic block for
+      the block holding *COND_P.  If *COND_P is the last statement inside a
+      lexical scope, this will be the statement that comes after COND_P's
+      container (see the documentation for NEXT_BLOCK_LINK).
+
    ENTRY is the block whose last statement is *COND_P.  */
 
 static void
-make_cond_expr_blocks (cond_p, entry)
+make_cond_expr_blocks (cond_p, next_block_link, entry)
      tree *cond_p;
+     tree next_block_link;
      basic_block entry;
 {
+  tree_stmt_iterator si;
   tree cond = *cond_p;
   entry->flags |= BB_COMPOUND_ENTRY | BB_CONTROL_EXPR;
 
+  /* Determine NEXT_BLOCK_LINK for statements inside the COND_EXPR body.  */
+  si = tsi_start (cond_p);
+  tsi_next (&si);
+  if (!tsi_end_p (si))
+    next_block_link = tsi_stmt (si);
+
   STRIP_CONTAINERS (cond);
-  make_blocks (&COND_EXPR_THEN (cond), entry);
-  make_blocks (&COND_EXPR_ELSE (cond), entry);
+  make_blocks (&COND_EXPR_THEN (cond), next_block_link, cond, NULL);
+  make_blocks (&COND_EXPR_ELSE (cond), next_block_link, cond, NULL);
 }
 
 
 /* Create the blocks for the SWITCH_EXPR node pointed by SWITCH_E_P.
+
+   NEXT_BLOCK_LINK is the first statement of the successor basic block for
+      the block holding *SWITCH_E_P.  If *SWITCH_E_P is the last statement
+      inside a lexical scope, this will be the statement that comes after
+      *SWITCH_E_P's container (see the documentation for NEXT_BLOCK_LINK).
+
    ENTRY is the block whose last statement is *SWITCH_E_P.  */
 
 static void
-make_switch_expr_blocks (switch_e_p, entry)
+make_switch_expr_blocks (switch_e_p, next_block_link, entry)
      tree *switch_e_p;
+     tree next_block_link;
      basic_block entry;
 {
+  tree_stmt_iterator si;
   tree switch_e = *switch_e_p;
   entry->flags |= BB_COMPOUND_ENTRY | BB_CONTROL_EXPR;
 
+  /* Determine NEXT_BLOCK_LINK for statements inside the COND_EXPR body.  */
+  si = tsi_start (switch_e_p);
+  tsi_next (&si);
+  if (!tsi_end_p (si))
+    next_block_link = tsi_stmt (si);
+
   STRIP_CONTAINERS (switch_e);
-  make_blocks (&SWITCH_BODY (switch_e), entry);
+  make_blocks (&SWITCH_BODY (switch_e), next_block_link, switch_e, NULL);
 }
 
 
-/* Create and return a new basic block.  HEAD_P is a pointer to the first
-   statement in the block.  PARENT_BLOCK is the entry block for the control
-   structure containing the new block.  */
+/* Create the blocks for the BIND_EXPR node pointed by BIND_P.  In contrast
+   with the other make_*_blocks functions, this function will not start a
+   new basic block for the statements in the BIND_EXPR body.  Rather, the
+   statements in the BIND_EXPR body are added to the block ENTRY and use
+   the same PARENT_STMT.
+
+   NEXT_BLOCK_LINK is the first statement of the successor basic block for
+      the block holding *BIND_P.  If *BIND_P is the last statement inside a
+      lexical scope, this will be the statement that comes after *BIND_P's
+      container (see the documentation for NEXT_BLOCK_LINK).
+
+   ENTRY is the block whose last statement is *SWITCH_E_P.
+   
+   Return the last basic block added to the BIND_EXPR's subgraph.  This
+   allows the caller to determine whether a new block should be started or
+   not.  */
 
 static basic_block
-create_bb (head_p, parent_block)
-     tree *head_p;
-     basic_block parent_block;
+make_bind_expr_blocks (bind_p, next_block_link, entry, parent_stmt)
+     tree *bind_p;
+     tree next_block_link;
+     basic_block entry;
+     tree parent_stmt;
+{
+  tree_stmt_iterator si;
+  tree bind = *bind_p;
+
+  /* Determine NEXT_BLOCK_LINK for statements inside the BIND_EXPR
+     body.  */
+  si = tsi_start (bind_p);
+  tsi_next (&si);
+  if (!tsi_end_p (si))
+    next_block_link = tsi_stmt (si);
+
+  /* By passing the current block ENTRY to make_blocks, we will keep adding
+     statements to ENTRY until we find a block terminating statement inside
+     the body of the BIND_EXPR.  On return from make_blocks, our caller
+     will start a new basic block only if the body of the BIND_EXPR node
+     ends with a block terminating statement.  */
+  STRIP_CONTAINERS (bind);
+  return make_blocks (&BIND_EXPR_BODY (bind), next_block_link, parent_stmt,
+		      entry);
+}
+
+
+/* Add statement pointed by STMT_P to basic block BB.  PARENT_STMT is the
+   entry statement to the control structure holding *STMT_P.  */
+
+static inline void
+add_stmt_to_bb (stmt_p, bb, parent_stmt)
+     tree *stmt_p;
+     basic_block bb;
+     tree parent_stmt;
+{
+  tree t;
+
+  set_bb_for_stmt (*stmt_p, bb);
+
+  /* Link *STMT_P (and the trees it contains) to its control parent.  */
+  t = *stmt_p;
+  do
+    {
+      stmt_ann_t ann = stmt_ann (t);
+      ann->parent_stmt = parent_stmt;
+      t = (TREE_CODE (t) == COMPOUND_EXPR) ? TREE_OPERAND (t, 0) : NULL_TREE;
+    }
+  while (t && t != empty_stmt_node);
+
+  /* Update the head and tail of the block.  */
+  if (bb->head_tree_p == NULL)
+    bb->head_tree_p = stmt_p;
+
+  bb->end_tree_p = stmt_p;
+}
+
+
+/* Create and return a new basic block.  */
+
+static basic_block
+create_bb ()
 {
   basic_block bb;
 
@@ -405,7 +569,6 @@ create_bb (head_p, parent_block)
   bb = alloc_block ();
   memset (bb, 0, sizeof (*bb));
 
-  bb->head_tree_p = bb->end_tree_p = head_p;
   bb->index = last_basic_block;
   bb->flags = BB_NEW;
 
@@ -417,43 +580,14 @@ create_bb (head_p, parent_block)
 
   /* Grow the basic block array if needed.  */
   if ((size_t) n_basic_blocks == VARRAY_SIZE (basic_block_info))
-    {
-      VARRAY_GROW (basic_block_info, n_basic_blocks + (n_basic_blocks + 3) / 4);
-      VARRAY_GROW (parent_array, n_basic_blocks + (n_basic_blocks + 3) / 4);
-    }
+    VARRAY_GROW (basic_block_info, n_basic_blocks + (n_basic_blocks + 3) / 4);
 
   /* Add the newly created block to the array.  */
   BASIC_BLOCK (n_basic_blocks) = bb;
-  VARRAY_BB (parent_array, n_basic_blocks) = parent_block;
   n_basic_blocks++;
   last_basic_block++;
 
-  /* Associate the newly created block to the head tree.  */
-  set_bb_for_stmt (*head_p, bb);
-
   return bb;
-}
-
-
-
-/* Create annotations for all the blocks in the flowgraph.  */
-
-static void
-create_block_annotations ()
-{
-  basic_block bb;
-  int i;
-
-  alloc_aux_for_blocks (sizeof (struct bb_ann_d));
-
-  /* Set parent block information for each block.  */
-  i = 0;
-  FOR_EACH_BB (bb)
-    {
-      bb_ann_t ann = (bb_ann_t)bb->aux;
-      ann->parent_block = VARRAY_BB (parent_array, i);
-      i++;
-    }
 }
 
 
@@ -489,24 +623,14 @@ make_edges ()
 	  if (is_ctrl_altering_stmt (last))
 	    make_exit_edges (bb);
 
-	  /* Incoming edges for label blocks in switch statements.  It's easier
-	     to deal with these bottom-up than top-down.  */
+	  /* Incoming edges for label blocks in switch statements.  It's
+	     easier to deal with these bottom-up than top-down.  */
 	  if (TREE_CODE (first) == CASE_LABEL_EXPR)
 	    make_case_label_edges (bb);
-
-	  /* BIND_EXPR blocks get an edge to the first basic block in the
-	     BIND_EXPR_BODY.  */
-	  if (TREE_CODE (first) == BIND_EXPR)
-	    {
-	      basic_block body_bb = first_exec_block (&BIND_EXPR_BODY (first));
-	      if (body_bb)
-		make_edge (bb, body_bb, EDGE_FALLTHRU);
-	    }
 	}
 
       /* Finally, if no edges were created above, this is a regular
 	 basic block that only needs a fallthru edge.  */
-
       if (bb->succ == NULL)
 	make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
     }
@@ -540,21 +664,6 @@ make_ctrl_stmt_edges (bb)
       break;
 
     case SWITCH_EXPR:
-      /* FIXME  We should not need to make an edge to the body of the switch.
-		Each label block inside the switch statement will create
-		its own edge from the switch block.  However, if we remove
-		the code that might exist between the switch() and the
-		first case statement, the RTL expander gets all confused
-		and enters an infinite loop.  */
-      {
-	tree body = SWITCH_BODY (last);
-	STRIP_NOPS (body);
-	if (TREE_CODE (body) == BIND_EXPR)
-	  {
-	    make_edge (bb, bb_for_stmt (body), 0);
-	    make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
-	  }
-      }
       break;
 
     default:
@@ -638,45 +747,30 @@ make_exit_edges (bb)
 
 
 /* Create the edges for the LOOP_EXPR structure starting at block BB.
+   Only create the edge that join the LOOP_EXPR header block to the loop
+   body.  The edge out of the loop and back into the LOOP_EXPR header will
+   be naturally created by the main loop in create_edges().
 
-    Create the following edges.  The other edges will be naturally
-    created by the main loop in create_edges().
-
-         +---> LOOP_EXPR -----+
-	 |         |          |
-         |         v          |
-         |   LOOP_EXPR_BODY   |
-	 |                    |
-	 |                    |
-	 +---- END_WHILE      |
-	                      |
-		              |
-	     Next block <-----+
-
-     If the body doesn't exist, we use the header instead.  */
+               LOOP_EXPR
+	           |
+                   v
+             LOOP_EXPR_BODY  */
 
 static void
 make_loop_expr_edges (bb)
      basic_block bb;
 {
   tree entry = last_stmt (bb);
-  basic_block end_bb, body_bb;
+  basic_block body_bb;
 
 #if defined ENABLE_CHECKING
   if (entry == NULL_TREE || TREE_CODE (entry) != LOOP_EXPR)
     abort ();
 #endif
 
-  /* Basic blocks for each component.  */
-  end_bb = latch_block (bb);
   body_bb = first_exec_block (&LOOP_EXPR_BODY (entry));
-
-  /* Empty loop body?  Use the latch block.  */
-  if (body_bb == NULL)
-    body_bb = end_bb;
-
-  make_edge (bb, body_bb, 0);
-  make_edge (end_bb, bb, 0);
+  if (body_bb)
+    make_edge (bb, body_bb, 0);
 }
 
 
@@ -859,14 +953,27 @@ remove_unreachable_block (bb)
      basic_block bb;
 {
   varray_type subblocks;
-  size_t i;
 
   if (bb->flags & BB_COMPOUND_ENTRY)
     {
       /* Before removing an entry block for a compound structure,
          make sure that all its subblocks are unreachable as well.
 	 FIXME: This is lame.  We should linearize this control
-		structure.  */
+	 structure.  The problem is that we do need to remove the entry
+	 block.  Otherwise, we will fail when computing dominance
+	 information.  This is usually caused by unstructured control flow.
+	 E.g. (from real.c),
+
+		    1	goto start;
+		    2	do
+		    3	  {
+		    4	    s1;
+		    5	  start:
+		    6	    s2;
+		    7	    s3;
+		    8	  } while (...);
+
+	 The entry block (line 2) is unreachable but its body isn't.  */
       subblocks = find_subblocks (bb);
       if (blocks_unreachable_p (subblocks))
 	{
@@ -874,14 +981,7 @@ remove_unreachable_block (bb)
 	  remove_bb (bb, 1);
 	}
       else
-	{
-	  remove_bb (bb, 0);
-
-	  /* If we are not removing BB's subblocks, make sure that
-	     they don't think BB is still their parent block.  */
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (subblocks); i++)
-	    set_parent_block (VARRAY_BB (subblocks, i), NULL);
-	}
+	remove_bb (bb, 0);
     }
   else
     remove_bb (bb, 1);
@@ -923,6 +1023,9 @@ remove_bb (bb, remove_stmts)
       if (remove_stmts)
 	bsi_remove (i);
     }
+
+  set_bb_for_stmt (*bb->head_tree_p, NULL);
+  set_bb_for_stmt (*bb->end_tree_p, NULL);
 
   /* Remove the edges into and out of this block.  */
   while (bb->pred != NULL)
@@ -1027,9 +1130,9 @@ find_subblocks (bb)
 
 /* Return true if BB is a control parent for CHILD_BB.
 
-    Notice that this property is not the same as dominance.  This
-    is a test for containment.  Given two blocks A and B, A DOM B
-    does not imply A is-parent-of B.  For instance,
+   Notice that this property is not the same as dominance.  This
+   is a test for containment.  Given two blocks A and B, A DOM B
+   does not imply A is-parent-of B.  For instance,
 
 	    1	{
 	    2	  s1;
@@ -1278,23 +1381,13 @@ disconnect_unreachable_case_labels (bb)
   if (taken_edge)
     {
       edge e, next;
-      tree switch_body = SWITCH_BODY (t);
 
       /* Remove all the edges that go to case labels that will never
 	 be taken.  */
       for (e = bb->succ; e; e = next)
 	{
-	  tree label_stmt = first_stmt (e->dest);
 	  next = e->succ_next;
-	  if (e != taken_edge
-	      /* FIXME  we need to keep the edge to the BIND_EXPR that
-			starts the BIND_EXPR because otherwise we lose the
-			containment relationship between the case labels
-			and the switch entry block.  All this nonsense is
-			ultimately caused by the same reason that forced us
-			to create this silly edge to begin with (see FIXME
-			note in make_ctrl_stmt_edges).  */
-	      && label_stmt != switch_body)
+	  if (e != taken_edge)
 	    {
 	      tree phi;
 
@@ -1490,10 +1583,11 @@ dump_tree_bb (outf, prefix, bb, indent)
      int indent;
 {
   edge e;
-  tree head = *(bb->head_tree_p);
-  tree end = *(bb->end_tree_p);
   char *s_indent;
   int lineno;
+  basic_block loop_bb;
+  tree head = (bb->head_tree_p) ? *(bb->head_tree_p) : NULL_TREE;
+  tree end = (bb->end_tree_p) ? *(bb->end_tree_p) : NULL_TREE;
 
   s_indent = (char *) alloca ((size_t) indent + 1);
   memset ((void *) s_indent, ' ', (size_t) indent);
@@ -1501,8 +1595,9 @@ dump_tree_bb (outf, prefix, bb, indent)
 
   fprintf (outf, "%s%sBasic block %d", s_indent, prefix, bb->index);
 
-  if (is_latch_block (bb))
-    fprintf (outf, " (latch for #%d)\n", bb->index - 1);
+  loop_bb = is_latch_block_for (bb);
+  if (loop_bb)
+    fprintf (outf, " (latch for #%d)\n", loop_bb->index);
   else
     fprintf (outf, "\n");
 
@@ -1677,6 +1772,10 @@ dump_cfg_stats (file)
   fprintf (file, "Coalesced case label blocks: %ld (Max so far: %ld)\n",
 	   cfg_stats.num_merged_cases, max_num_merged_cases);
 
+  fprintf (file, "Number of unnecessary blocks created due to lexical scopes: %ld (%.0f%%)\n",
+	   cfg_stats.num_failed_bind_expr_merges,
+	   PERCENT (cfg_stats.num_failed_bind_expr_merges, n_basic_blocks));
+
   fprintf (file, "\n");
 }
 
@@ -1780,8 +1879,9 @@ static basic_block
 successor_block (bb)
      basic_block bb;
 {
-  basic_block succ_bb, parent_bb;
+  basic_block succ_bb;
   tree_stmt_iterator i;
+  tree last_stmt;
 
 #if defined ENABLE_CHECKING
   if (bb == NULL)
@@ -1791,41 +1891,31 @@ successor_block (bb)
   /* By default, the successor block will be the block for the statement
      following BB's last statement.  */
   i = tsi_start (bb->end_tree_p);
-  tsi_next (&i);
+  last_stmt = tsi_stmt (i);
+
+  /* Special case.  If the block ends in a BIND_EXPR node, the successor
+     block will be inside the BIND_EXPR's body.  */
+  if (last_stmt && TREE_CODE (last_stmt) == BIND_EXPR)
+    {
+      STRIP_NOPS (last_stmt);
+      i = tsi_start (&BIND_EXPR_BODY (last_stmt));
+    }
+  else
+    tsi_next (&i);
+
   succ_bb = first_exec_block (tsi_container (i));
   if (succ_bb)
     return succ_bb;
 
-  /* We couldn't find a successor for BB.  Walk up the control structure to
-     see if our parent has a successor.  Iterate until we find one or we
-     reach nesting level 0.  */
-  parent_bb = parent_block (bb);
-  while (parent_bb)
-    {
-      tree last = last_stmt (parent_bb);
-
-      /* If BB is the last block inside a loop body, return the condition
-         block for the loop structure.  */
-      if (last && is_loop_stmt (last))
-	return latch_block (parent_bb);
-
-      /* Otherwise, If BB's control parent has a successor, return its
-         block.  */
-      i = tsi_start (parent_bb->end_tree_p);
-      tsi_next (&i);
-      succ_bb = first_exec_block (tsi_container (i));
-      if (succ_bb)
-	return succ_bb;
-
-      /* None of the above.  Keeping going up the control parent chain.  */
-      parent_bb = parent_block (parent_bb);
-    }
-
-  /* We reached nesting level 0.  No block in the nesting chain had a
-     successor, this means that there is nothing after the control
-     structure that holds BB.  Therefore, we have reached the end of the
-     flowgraph.  */
-  return EXIT_BLOCK_PTR;
+  /* We couldn't find a successor for BB.  This means that BB is the last
+     block inside a control structure or lexical scope.  Use the
+     NEXT_BLOCK_LINK for BB's last statement.  If NEXT_BLOCK_LINK is still
+     NULL, then BB is the last basic block in the function.  In which case
+     we have reached the end of the flowgraph and return EXIT_BLOCK_PTR.  */
+  if (last_stmt && NEXT_BLOCK_LINK (last_stmt))
+    return bb_for_stmt (NEXT_BLOCK_LINK (last_stmt));
+  else
+    return EXIT_BLOCK_PTR;
 }
 
 
@@ -1846,10 +1936,8 @@ is_ctrl_stmt (t)
 }
 
 
-/* Return true if T alters the flow of control.
-
-    e.g., Return true if T is GOTO, RETURN or a call to
-    a non-returning function.  */
+/* Return true if T alters the flow of control (i.e., return true if T is
+   GOTO, RETURN or a call to a non-returning function.  */
 
 bool
 is_ctrl_altering_stmt (t)
@@ -1932,16 +2020,39 @@ is_computed_goto (t)
 }
 
 
-/* Return true if T should start a new basic block.  */
+/* Return true if T should start a new basic block.  PREV_T is the
+   statement preceding T.  It is used when T is a label or a case label.
+   Labels should only start a new basic block if their previous statement
+   wasn't a label.  Otherwise, sequence of labels would generate
+   unnecessary basic blocks that only contain a single label.  */
 
 static inline bool
-stmt_starts_bb_p (t)
+stmt_starts_bb_p (t, prev_t)
      tree t;
+     tree prev_t;
 {
-  return (TREE_CODE (t) == CASE_LABEL_EXPR
-	  || TREE_CODE (t) == LABEL_EXPR
-	  || TREE_CODE (t) == BIND_EXPR
-	  || TREE_CODE (t) == LOOP_EXPR);
+  enum tree_code code = TREE_CODE (t);
+
+  /* LABEL_EXPRs and CASE_LABEL_EXPRs start a new basic block only if the
+     preceding statement wasn't a label of the same type.  This prevents
+     the creation of consecutive blocks that have nothing but a single
+     label.  */
+  if (code == LABEL_EXPR || code == CASE_LABEL_EXPR)
+    {
+      if (prev_t && TREE_CODE (prev_t) == code)
+	{
+	  if (code == LABEL_EXPR)
+	    cfg_stats.num_merged_labels++;
+	  else
+	    cfg_stats.num_merged_cases++;
+
+	  return false;
+	}
+      else
+	return true;
+    }
+
+  return false;
 }
 
 
@@ -1951,8 +2062,13 @@ static inline bool
 stmt_ends_bb_p (t)
      tree t;
 {
-  return (TREE_CODE (t) == COND_EXPR
-	  || TREE_CODE (t) == SWITCH_EXPR
+  enum tree_code code = TREE_CODE (t);
+
+  return (code == COND_EXPR
+	  || code == SWITCH_EXPR
+	  || code == LOOP_EXPR
+	  || code == TRY_FINALLY_EXPR
+	  || code == TRY_CATCH_EXPR
 	  || is_ctrl_altering_stmt (t));
 }
 
@@ -1966,53 +2082,27 @@ delete_tree_cfg ()
     free_aux_for_blocks ();
 
   free_basic_block_vars (0);
-
-  if (parent_array)
-    VARRAY_FREE (parent_array);
 }
 
 
-/* Returns the block marking the end of the loop body.  This is the block
-   that contains the back edge to the start of the loop.  */
+/* If BB is a latch block, return the header block controlling the loop.
+   FIXME: the name of this function stinks, but I can't think of a better
+   one at the moment.  */
 
 basic_block
-latch_block (loop_bb)
-     basic_block loop_bb;
-{
-  int entry_ix, latch_ix;
-  basic_block latch_bb;
-  tree loop = last_stmt (loop_bb);
-
-  if (loop == NULL_TREE || TREE_CODE (loop) != LOOP_EXPR)
-    return NULL;
-
-  if (loop_bb->index == INVALID_BLOCK)
-    return NULL;
-
-  entry_ix = loop_bb->index;
-  latch_ix = entry_ix + 1;
-  latch_bb = BASIC_BLOCK (latch_ix);
-
-  /* The latch block for a LOOP_EXPR is guaranteed to be the next block in
-     the linked list (see make_loop_expr_blocks).  */
-  return latch_bb;
-}
-
-
-/* Return true if BB is a latch block.  */
-
-bool
-is_latch_block (bb)
+is_latch_block_for (bb)
      basic_block bb;
 {
-  if (bb->index > 0 && last_stmt (bb) == NULL_TREE)
-    {
-      basic_block loop_bb = BASIC_BLOCK (bb->index - 1);
-      tree loop_t = last_stmt (loop_bb);
-      return (loop_t && TREE_CODE (loop_t) == LOOP_EXPR);
-    }
+  edge e;
 
-  return false;
+  /* BB is a latch if one of its successors is a loop entry block and BB is
+     a block in that loop's body.  */
+  for (e = bb->succ; e; e = e->succ_next)
+    if (e->dest->flags & BB_LOOP_CONTROL_EXPR
+	&& is_parent (e->dest, bb))
+      return e->dest;
+
+  return NULL;
 }
 
 
@@ -2068,16 +2158,12 @@ static basic_block
 switch_parent (bb)
      basic_block bb;
 {
-  tree last;
+  tree parent = parent_stmt (last_stmt (bb));
 
-  do
-    {
-      bb = parent_block (bb);
-      last = last_stmt (bb);
-    }
-  while (bb && last && TREE_CODE (last) != SWITCH_EXPR);
+  while (parent && TREE_CODE (parent) != SWITCH_EXPR)
+    parent = parent_stmt (parent);
 
-  return bb;
+  return (parent) ? bb_for_stmt (parent) : NULL;
 }
 
 
@@ -2095,6 +2181,7 @@ first_stmt (bb)
     return NULL_TREE;
 
   i = bsi_start (bb);
+
   /* Check for blocks with no remaining statements.  */
   if (bsi_end_p (i))
     return NULL_TREE;
@@ -2135,6 +2222,7 @@ last_stmt (bb)
     {
       STRIP_NOPS (t);
     }
+
   return t;
 }
 
@@ -2155,19 +2243,23 @@ last_stmt_ptr (bb)
      
   for (last = i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
     last = i;
+
   return bsi_stmt_ptr (last);
 }
 
 
 /* Initialize a block stmt iterator with a container that contains stmt's
    in a specified basic block. If the first real stmt is not in the
-   specified basic block, then return an empty iterator.  */
+   specified basic block, then return an empty iterator.  If the first
+   real stmt is contained in a BIND_EXPR, descend into the BIND_EXPR and
+   set up the context chains properly. */
+
 static block_stmt_iterator
 bsi_init (tp, bb)
      tree *tp;
      basic_block bb;
 {
-  block_stmt_iterator i;
+  block_stmt_iterator i, bind;
   tree stmt;
 
   i.tp = tp;
@@ -2178,6 +2270,37 @@ bsi_init (tp, bb)
       stmt = bsi_stmt (i);
       if (stmt == NULL_TREE)
 	bsi_next_in_bb (&i, bb);
+      else
+        if (TREE_CODE (stmt) == BIND_EXPR)
+	  {
+	    bind = bsi_init (&BIND_EXPR_BODY (stmt), bb);
+
+	    /* If the basic block of the child is the same as this block,
+	       then add this context to the end, and use that iterator.  */
+	    if (bind.tp != NULL)
+	      {
+		tree tmp, end;
+
+	        tmp = build_tree_list  (NULL_TREE, (tree) i.tp);
+	        if (bind.context)
+		  {
+		    for (end = bind.context; 
+			 TREE_PURPOSE (end) != NULL;
+			 end = TREE_PURPOSE (end))
+		      ;
+		    TREE_PURPOSE (end) = tmp;
+		  }
+		else
+		  bind.context = tmp;
+		    
+		return bind;
+
+	      }
+	    else
+	      /* If the children of the BIND_EXPR are no good, try the next
+	         statement.  */
+	      bsi_next_in_bb (&i, bb);
+	  }
     }
 
   /* Now check that its the right basic block.  */
@@ -2191,7 +2314,7 @@ bsi_init (tp, bb)
   return i;
 }
 
-/* Similar to tsi_next() but stops at basic block boundaries and ignores
+/* Similar to tsi_step() but stops at basic block boundaries and ignores
    empty_stmt_nodes inside a basic block.  */
 
 void
@@ -2199,7 +2322,9 @@ bsi_next_in_bb (i, bb)
      block_stmt_iterator *i;
      basic_block bb;
 {
-  tree t;
+  tree t, stmt = NULL_TREE;
+  block_stmt_iterator bind;
+
   do
     {
       t = *(i->tp);
@@ -2209,10 +2334,53 @@ bsi_next_in_bb (i, bb)
       else
 	i->tp = NULL;
     }
-  while (i->tp && bsi_stmt (*i) == NULL_TREE);
+  while (i->tp && (stmt = bsi_stmt (*i)) == NULL_TREE);
 
   if (i->tp && bb_for_stmt (*(i->tp)) != bb) 
     i->tp = NULL;
+
+  if (i->tp && TREE_CODE (stmt) == BIND_EXPR)
+    {
+      bind = bsi_init (&BIND_EXPR_BODY (stmt), bb);
+
+      /* If the basic block of the child is the same as this block, then push 
+	 this context, and add it to the end of the new iterator.  */
+      if (bind.tp != NULL)
+	{
+	  tree tmp, end;
+	  tmp = build_tree_list (i->context, (tree) i->tp);
+	  if (bind.context)
+	    {
+	      for (end = bind.context; 
+		   TREE_PURPOSE (end) != NULL;
+		   end = TREE_PURPOSE (end))
+		;
+	      TREE_PURPOSE (end) = tmp;
+	    }
+	  else
+	    bind.context = tmp;
+	  *i = bind;
+	}
+	
+    }
+
+  if (i->tp == NULL && i->context != NULL_TREE)
+    {
+      /* If we haven't got a statement, and we have context, pop the state and
+         traverse to the next statement.  */
+      i->tp = (tree *)TREE_VALUE (i->context);
+      i->context = TREE_PURPOSE (i->context);
+
+      /* FIXME.  Hack to recover BB for cases when we are stepping out of a
+	 removed statement.  If bsi_remove() has been called on the
+	 last statement of a BIND_EXPR body, the next call to
+	 bsi_next() will retrieve a NULL basic block from the just deleted
+	 statement, so that BB will be NULL.  We restore BB using the
+	 BIND_EXPR node itself.  */
+      bb = bb_for_stmt (*(i->tp));
+
+      bsi_next_in_bb (i, bb);
+    }
 }
 
 /* Similar to tsi_start() but initializes the iterator at the first
@@ -2256,7 +2424,6 @@ set_bb_for_stmt (t, bb)
 {
   stmt_ann_t ann;
 
-
   if (t == empty_stmt_node)
     return;
 
@@ -2273,10 +2440,7 @@ set_bb_for_stmt (t, bb)
 
       ann = stmt_ann (t) ? stmt_ann (t) : create_stmt_ann (t);
       ann->bb = bb;
-      if (TREE_CODE (t) == COMPOUND_EXPR)
-	t = TREE_OPERAND (t, 0);
-      else
-	t = NULL;
+      t = (TREE_CODE (t) == COMPOUND_EXPR) ? TREE_OPERAND (t, 0) : NULL_TREE;
     }
   while (t && t != empty_stmt_node);
 }

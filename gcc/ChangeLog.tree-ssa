@@ -1,3 +1,83 @@
+2003-02-25  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-cfg.c (bsi_init): Handle BIND_EXPR nodes inside a basic block.
+	(bsi_next_in_bb): Likewise.
+
+2003-02-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (parent_array): Remove.  Update all users.
+	(struct cfg_stats_d): Add field 'num_failed_bind_expr_merges'.
+	(NEXT_BLOCK_LINK): Define.
+	(build_tree_cfg): Call alloc_aux_for_blocks instead of
+	create_block_annotations.
+	(make_blocks): Rewrite to support basic blocks that can span whole
+	BIND_EXPR bodies and put control statements at the end of blocks.
+	Add arguments 'next_block_link' and 'bb'.  Replace 'parent_block'
+	with 'parent_stmt'.  Update all users.
+	(make_loop_expr_blocks): Replace argument 'parent_block' with 'entry'.
+	Add argument 'next_block_link'.  Update all users.
+	Don't create an empty latch block.
+	(make_cond_expr_blocks): Add argument 'next_block_link'.  Update
+	all users.
+	(make_switch_expr_blocks): Likewise.
+	(make_bind_expr_blocks): Replace 'parent_block' with 'parent_stmt'.
+	Add argument 'next_block_link' and 'entry'.
+	Don't create a new block for the BIND_EXPR node.  Extend the
+	existing block.
+	(add_stmt_to_bb): New function.
+	(create_bb): Remove argument 'parent_block'.  Update all users.
+	(create_block_annotations): Remove.  Update all users.
+	(make_edges): Don't handle BIND_EXPR nodes.
+	(make_ctrl_stmt_edges): Don't create an extra edge to the body of
+	the switch.
+	(make_loop_expr_edges): Only create an edge to the body of the
+	loop.
+	(remove_unreachable_block): Add more documentation for the special
+	case where a control statement entry is unreachable but its body
+	isn't.
+	Remove the basic block annotation from the head and end containers
+	in the block.
+	(disconnect_unreachable_case_labels): Don't keep the edge that goes
+	to the BIND_EXPR at the start of the switch body.
+	(dump_tree_bb): Call is_latch_block_for.
+	(dump_cfg_stats): Show stats about basic blocks that could not span
+	beyond the end of a BIND_EXPR body.
+	(successor_block): Use NEXT_BLOCK_LINK if the block is the last
+	inside a control structure.
+	(is_ctrl_stmt): Update documentation.
+	(stmt_starts_bb_p): Add new argument 'prev_t'.  Update all users.
+	Only labels may start a new basic block.
+	(stmt_ends_bb_p): Add LOOP_EXPR, TRY_FINALLY_EXPR and
+	TRY_CATCH_EXPR to the list.
+	(latch_block): Remove.
+	(is_latch_block_for): New function.
+	(set_bb_for_stmt): Reformat some code.
+
+	* tree-flow-inline.h (set_parent_block): Remove.  Update all users.
+	(parent_stmt): New function.
+	(parent_block): Call it.
+
+	* tree-flow.h (struct stmt_ann_d): Add field 'parent_stmt'.
+	(struct bb_ann_d): Remove block parent_block.
+
+	* tree-pretty-print.c (dump_generic_node): Don't handle empty latch
+	nodes.
+
+	* tree-ssa-ccp.c (def_to_undefined): Temporarily disable check for
+	VARYING->UNDEFINED transitions.
+	(set_lattice_value): Likewise for VARYING->CONSTANT transitions.
+
+	* tree-ssa-dce.c (mark_necessary): Use parent_stmt() to traverse
+	all the control statements that contain the current
+	statement.
+	(makr_control_parent_necessary): Remove.  Update all users.
+	(stmt_useful_p): Add BIND_EXPR to the list of useful
+	statements.
+	(process_worklist): Check that the statement is
+	associated to a basic block.
+	(remove_dead_stmt): Don't assume that the block has a
+	postdominator.
+
 2002-02-20  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-alias-ander.c: Store cached ptsets in the typevar, not

@@ -177,6 +177,10 @@ struct stmt_ann_d GTY(())
 
   /* Dataflow information.  */
   dataflow_t df;
+
+  /* Control flow parent.  This is the entry statement to the control
+     structure to which this statement belongs to.  */
+  tree parent_stmt;
 };
 
 
@@ -219,6 +223,7 @@ static inline varray_type immediate_uses	PARAMS ((tree));
 static inline varray_type reaching_defs		PARAMS ((tree));
 static inline bool is_vla_decl			PARAMS ((tree));
 static inline void set_vla_decl			PARAMS ((tree));
+static inline tree parent_stmt			PARAMS ((tree));
 
 
 /*---------------------------------------------------------------------------
@@ -226,10 +231,6 @@ static inline void set_vla_decl			PARAMS ((tree));
 ---------------------------------------------------------------------------*/
 struct bb_ann_d
 {
-  /* Control flow parent.  This is the entry block to the control structure
-     to which this block belongs to.  */
-  basic_block parent_block;
-
   /* Chain of PHI nodes created in this block.  */
   tree phi_nodes;
   
@@ -244,7 +245,6 @@ typedef struct bb_ann_d *bb_ann_t;
 /* Accessors for basic block annotations.  */
 static inline bb_ann_t bb_ann		PARAMS ((basic_block));
 static inline basic_block parent_block	PARAMS ((basic_block));
-static inline void set_parent_block	PARAMS ((basic_block, basic_block));
 static inline tree phi_nodes		PARAMS ((basic_block));
 static inline void add_dom_child	PARAMS ((basic_block, basic_block));
 static inline bitmap dom_children	PARAMS ((basic_block));
@@ -347,8 +347,7 @@ extern void cleanup_tree_cfg		PARAMS ((void));
 extern tree first_stmt			PARAMS ((basic_block));
 extern tree last_stmt			PARAMS ((basic_block));
 extern tree *last_stmt_ptr		PARAMS ((basic_block));
-extern basic_block latch_block		PARAMS ((basic_block));
-extern bool is_latch_block		PARAMS ((basic_block));
+extern basic_block is_latch_block_for	PARAMS ((basic_block));
 extern edge find_taken_edge		PARAMS ((basic_block, tree));
 extern int call_expr_flags		PARAMS ((tree));
 

@@ -297,15 +297,16 @@ static inline basic_block
 parent_block (bb)
      basic_block bb;
 {
-  return bb_ann (bb)->parent_block;
+  tree parent = parent_stmt (*bb->head_tree_p);
+  return parent ? bb_for_stmt (parent) : NULL;
 }
 
-static inline void
-set_parent_block (bb, parent)
-     basic_block bb;
-     basic_block parent;
+static inline tree
+parent_stmt (stmt)
+     tree stmt;
 {
-  bb_ann (bb)->parent_block = parent;
+  stmt_ann_t ann = stmt_ann (stmt);
+  return (ann) ? ann->parent_stmt : NULL_TREE;
 }
 
 static inline tree

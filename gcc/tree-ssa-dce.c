@@ -86,7 +86,6 @@ static bool necessary_p				PARAMS ((tree));
 static int mark_tree_necessary			PARAMS ((tree));
 static void mark_necessary			PARAMS ((tree));
 static void print_stats 			PARAMS ((void));
-static void mark_control_parent_necessary	PARAMS ((basic_block));
 static bool need_to_preserve_store		PARAMS ((tree));
 static void find_useful_stmts			PARAMS ((void));
 static bool stmt_useful_p			PARAMS ((tree));
@@ -144,44 +143,13 @@ mark_necessary (t)
 {
   if (mark_tree_necessary (t))
     {
-      /* Mark control statements in control parent blocks as necessary.  */
-      if (bb_for_stmt (t))
-	mark_control_parent_necessary (parent_block (bb_for_stmt (t)));
-    }
-}
-
-
-/* Mark control statements in the control parent blocks as necessary.
- 
-   Right now this also includes BIND_EXPRs, but one day that should not
-   be necessary.  */
-   
-static void
-mark_control_parent_necessary (bb)
-     basic_block bb;
-{
-  tree t;
-
-  /* Iterate through each of the control parents.  */
-  while (bb != NULL && bb->index != INVALID_BLOCK)
-    {
-      /* The first statement may be interesting (it could be a LOOP_EXPR
-         or BIND_EXPR.  */
-      t = *(bb->head_tree_p);
-      if (TREE_CODE (t) == COMPOUND_EXPR)
-	t = TREE_OPERAND (t, 0);
-      if (is_ctrl_stmt (t) || TREE_CODE (t) == BIND_EXPR)
-	mark_tree_necessary (t);
-
-      /* The last statement in the block may also be interesting such
-         as a COND_EXPR or SWITCH_EXPR.  */
-      t = *(bb->end_tree_p);
-      if (TREE_CODE (t) == COMPOUND_EXPR)
-	t = TREE_OPERAND (t, 0);
-      if (is_ctrl_stmt (t) || TREE_CODE (t) == BIND_EXPR)
-	mark_tree_necessary (t);
-
-      bb = parent_block (bb);
+      /* Mark control parent statements as necessary.  */
+      tree parent = parent_stmt (t);
+      while (parent)
+	{
+	  mark_tree_necessary (parent);
+	  parent = parent_stmt (parent);
+	}
     }
 }
 
@@ -298,14 +266,15 @@ stmt_useful_p (stmt)
   size_t i;
 
   /* Instructions that are implicitly live.  Function calls, asm and return
-     statements are required.  Labels are kept because they are control
-     flow, and we have no way of knowing whether they can be removed.   DCE
-     can eliminate all the other statements in a block, and CFG can then
-     remove the block and labels.  */
+     statements are required.  Labels and BIND_EXPR nodes are kept because
+     they are control flow, and we have no way of knowing whether they can
+     be removed.   DCE can eliminate all the other statements in a block,
+     and CFG can then remove the block and labels.  */
   if ((TREE_CODE (stmt) == ASM_EXPR)
       || (TREE_CODE (stmt) == RETURN_EXPR)
       || (TREE_CODE (stmt) == CASE_LABEL_EXPR)
       || (TREE_CODE (stmt) == LABEL_EXPR)
+      || (TREE_CODE (stmt) == BIND_EXPR)
       || (TREE_CODE (stmt) == CALL_EXPR)
       || ((TREE_CODE (stmt) == MODIFY_EXPR)
 	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)))
@@ -318,9 +287,12 @@ stmt_useful_p (stmt)
   if (TREE_CODE (stmt) == GOTO_EXPR)
     {
       edge e;
-      for (e = bb_for_stmt (stmt)->succ; e; e = e->succ_next)
-	if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_ABNORMAL)
-	  return true;
+      basic_block bb = bb_for_stmt (stmt);
+
+      if (bb)
+	for (e = bb->succ; e; e = e->succ_next)
+	  if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_ABNORMAL)
+	    return true;
     }
 
   /* Examine all the stores in this statement.  */
@@ -362,19 +334,19 @@ process_worklist ()
 	  fprintf (dump_file, "\n");
 	}
 
-      bb = bb_for_stmt (i);
-
       /* Find any predecessor which 'goto's this block, and mark the goto
 	 as necessary since it is control flow.  */
-      for (e = bb->pred; e != NULL; e = e->pred_next)
-	{
-	  basic_block p = e->src;
-	  if (p == ENTRY_BLOCK_PTR)
-	    continue;
-	  j = last_stmt (p);
-	  if (j && TREE_CODE (j) == GOTO_EXPR)
-	    mark_necessary (j);
-	}
+      bb = bb_for_stmt (i);
+      if (bb)
+	for (e = bb->pred; e != NULL; e = e->pred_next)
+	  {
+	    basic_block p = e->src;
+	    if (p == ENTRY_BLOCK_PTR)
+	      continue;
+	    j = last_stmt (p);
+	    if (j && TREE_CODE (j) == GOTO_EXPR)
+	      mark_necessary (j);
+	  }
       
       if (TREE_CODE (i) == PHI_NODE)
 	{
@@ -523,7 +495,7 @@ remove_dead_stmt (i, bb)
 
       /* Calculate the dominance info, if it hasn't been computed yet.  */
       if (dom_info == NULL)
-	dom_info = calculate_dominance_info (1);
+	dom_info = calculate_dominance_info (CDI_POST_DOMINATORS);
       nb = get_immediate_dominator (dom_info, bb);
 
       /* Remove all outgoing edges, and add an edge to the
@@ -534,7 +506,9 @@ remove_dead_stmt (i, bb)
 	  e = e->succ_next;
 	  remove_edge (tmp);
 	}
-      make_edge (bb, nb, EDGE_FALLTHRU);
+
+      if (nb)
+	make_edge (bb, nb, EDGE_FALLTHRU);
     }
 
   bsi_remove (i);

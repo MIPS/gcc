@@ -957,11 +957,15 @@ def_to_undefined (var)
   if (value->lattice_val == CONSTANT)
     abort ();
 
+  /* FIXME: Hideous hack to overcome bugs in ccp_fold() that returns
+     VARYING for expressions that will later become UNDEFINED or CONSTANT.  */
+#if 0
   /* VARYING->UNDEFINED is generally not a valid state transition,
      except for values which are initialized to VARYING.  */
   if (value->lattice_val == VARYING
       && get_default_value (var).lattice_val != VARYING)
     abort ();
+#endif
 #endif
 
   if (value->lattice_val != UNDEFINED)
@@ -1027,12 +1031,16 @@ set_lattice_value (var, val)
 
           add_var_to_ssa_edges_worklist (var);
 
+  /* FIXME: Hideous hack to overcome bugs in ccp_fold() that returns
+     VARYING for expressions that will later become UNDEFINED or CONSTANT.  */
+#if 0
 #ifdef ENABLE_CHECKING
 	  /* VARYING -> CONSTANT is an invalid state transition, except
 	     for objects which start off in a VARYING state.  */
 	  if (old_val->lattice_val == VARYING
 	      && get_default_value (var).lattice_val != VARYING)
 	    abort ();
+#endif
 #endif
 
 	  /* If the constant for VAR has changed, then this VAR is

@@ -1137,17 +1137,6 @@ dump_generic_node (buffer, node, spc, flags)
 	  dump_generic_node (buffer, LOOP_EXPR_BODY (node), spc+4, flags);
 	  newline_and_indent (buffer, spc+2);
 	  output_add_character (buffer, '}');
-
-	  /* FIXME.  Hack.  Latch blocks are empty blocks not associated
-	     with any statement in the program.  If we are dumping
-	     flowgraph information, we should show them to avoid confusing
-	     the user.  This perhaps should be fixed by actually inserting
-	     an empty statement at the end of LOOP_EXPRs.  */
-	  if ((flags & TDF_BLOCKS) && basic_block_info && bb_for_stmt (node))
-	    {
-	      newline_and_indent (buffer, spc);
-	      dump_block_info (buffer, latch_block (bb_for_stmt (node)), spc);
-	    }
 	}
       break;
 
