@@ -313,10 +313,6 @@ mark_def_sites (idom)
 
 	  get_stmt_operands (stmt);
 
-	  dest = def_op (stmt);
-	  if (dest)
-	    set_def_block (*dest, bb);
-
 	  /* If a variable is used before being set, then the variable
 	     is live across a block boundary, so add it to NONLOCAL_VARS.  */
 	  ops = use_ops (stmt);
@@ -325,7 +321,7 @@ mark_def_sites (idom)
 	      tree *use = VARRAY_GENERIC_PTR (ops, i);
 	      int uid = var_ann (*use)->uid;
 
-	      if (! TEST_BIT (killed_vars, uid))
+	      if (!TEST_BIT (killed_vars, uid))
 	        SET_BIT (nonlocal_vars, uid);
 	    }
 	  
@@ -336,24 +332,38 @@ mark_def_sites (idom)
 	      tree use = VARRAY_GENERIC_PTR (ops, i);
 	      int uid = var_ann (use)->uid;
 
-	      if (! TEST_BIT (killed_vars, uid))
+	      if (!TEST_BIT (killed_vars, uid))
 	        SET_BIT (nonlocal_vars, uid);
 	    }
 
-	  /* Now process the single destination of this statement. 
-
-	     Note that virtual definitions are irrelavent for
-	     computing NONLOCAL_VARs and KILLED_VARS, so they are
-	     ignored here.  */
+	  /* Now process the definition made by this statement.  */
+	  dest = def_op (stmt);
 	  if (dest)
-	    SET_BIT (killed_vars, var_ann (*dest)->uid);
+	    {
+	      set_def_block (*dest, bb);
+	      SET_BIT (killed_vars, var_ann (*dest)->uid);
+	    }
 
+	  /* Note that virtual definitions are irrelevant for computing
+	     KILLED_VARS because a VDEF does not constitute a killing
+	     definition of the variable.  However, the operand of a virtual
+	     definitions is a use of the variable, so it may affect
+	     NONLOCAL_VARS.  */
 	  ops = vdef_ops (stmt);
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-	    set_def_block (VDEF_RESULT (VARRAY_TREE (ops, i)), bb);
+	    {
+	      tree vdef = VARRAY_TREE (ops, i);
+	      int uid = var_ann (VDEF_OP (vdef))->uid;
+
+	      set_def_block (VDEF_RESULT (vdef), bb);
+	      if (!TEST_BIT (killed_vars, uid))
+		SET_BIT (nonlocal_vars, uid);
+	    }
 	}
     }
+
   free (killed_vars);
+
   return nonlocal_vars;
 }
 

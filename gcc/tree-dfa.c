@@ -2148,12 +2148,12 @@ find_vars_r (tp, walk_subtrees, data)
       var = *tp;
       sym = get_base_symbol (var);
 
-      /* If VAR is an INDIRECT_REF node for a VAR_DECL pointer, rewrite *TP
-	 with the first INDIRECT_REF we found (if any).  We need to share
-	 INDIRECT_REF nodes because we treat them as regular variables and
-	 several passes rely on pointer equality for testing if two variables
-	 are the same.  */
-      if (TREE_CODE (var) == INDIRECT_REF && DECL_P (TREE_OPERAND (var, 0)))
+      /* If VAR is an INDIRECT_REF node rewrite *TP with the first
+	 INDIRECT_REF we found (if any).  We need to share INDIRECT_REF
+	 nodes because we treat them as regular variables and several
+	 passes rely on pointer equality for testing if two variables are
+	 the same.  */
+      if (TREE_CODE (var) == INDIRECT_REF)
 	{
 	  deref = indirect_ref (sym);
 	  if (deref)
@@ -2327,7 +2327,9 @@ get_virtual_var (var)
   while (code == ARRAY_REF
          || code == COMPONENT_REF
 	 || code == REALPART_EXPR
-	 || code == IMAGPART_EXPR)
+	 || code == IMAGPART_EXPR
+	 || (code == INDIRECT_REF
+	     && !DECL_P (TREE_OPERAND (var, 0))))
     {
       var = TREE_OPERAND (var, 0);
       code = TREE_CODE (var);

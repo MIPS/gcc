@@ -1,5 +1,24 @@
 2003-02-09  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-dfa.c (find_vars_r): Assume that the RHS of an INDIRECT_REF,
+	that is also an SSA variable, is a VAR_DECL.
+	(get_virtual_var): Handle INDIRECT_REF nodes that are not valid SSA
+	variables.
+
+	* tree-ssa-dce.c (stmt_useful_p): Revert kludge in previous commit.
+	VA_ARG_EXPR nodes are not inherently live.
+
+	* tree-ssa.c (mark_def_sites): Don't process the LHS of assignments
+	twice.
+	The operand of a virtual definition constitutes a use of the
+	variable which should be considered a non-local if it had not been
+	killed inside the block.
+
+	* tree.h (SSA_VAR_P): Only return true for INDIRECT_REFs if their
+	operand is a _DECL node.
+
+2003-02-09  Diego Novillo  <dnovillo@redhat.com>
+
 	* config/rs6000/t-rs6000 (simplify-rtx.o): Compile with -Wno-error.
 
 2003-02-08  Diego Novillo  <dnovillo@redhat.com>
