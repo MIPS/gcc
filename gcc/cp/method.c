@@ -759,7 +759,15 @@ synthesize_method (fndecl)
       need_body = 0;
     }
   else if (DECL_DESTRUCTOR_P (fndecl))
-    setup_vtbl_ptr (NULL_TREE, NULL_TREE);
+    {
+      /* We should never actually create the body of a trivial
+	 destructor.  */
+      my_friendly_assert (!TYPE_HAS_TRIVIAL_DESTRUCTOR 
+			  (DECL_CONTEXT (fndecl)),
+			  20010714);
+
+      setup_vtbl_ptr (NULL_TREE, NULL_TREE);
+    }
   else
     {
       tree arg_chain = FUNCTION_FIRST_USER_PARMTYPE (fndecl);
@@ -844,13 +852,9 @@ locate_dtor (type, client)
      tree type;
      void *client ATTRIBUTE_UNUSED;
 {
-  tree fns;
-  
-  if (!TYPE_HAS_DESTRUCTOR (type))
+  if (TYPE_HAS_TRIVIAL_DESTRUCTOR (type))
     return NULL_TREE;
-  fns = TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (type),
-                      CLASSTYPE_DESTRUCTOR_SLOT);
-  return fns;
+  return CLASSTYPE_DESTRUCTOR (type);
 }
 
 /* Locate the default ctor of TYPE.  */
@@ -865,9 +869,7 @@ locate_ctor (type, client)
   if (!TYPE_HAS_DEFAULT_CONSTRUCTOR (type))
     return NULL_TREE;
   
-  fns = TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (type),
-                      CLASSTYPE_CONSTRUCTOR_SLOT);
-  for (; fns; fns = OVL_NEXT (fns))
+  for (fns = CLASSTYPE_CONSTRUCTORS (type); fns; fns = OVL_NEXT (fns))
     {
       tree fn = OVL_CURRENT (fns);
       tree parms = TYPE_ARG_TYPES (TREE_TYPE (fn));
@@ -960,19 +962,20 @@ implicitly_declare_fn (kind, type, const_p)
   tree raises = empty_except_spec;
   int retref = 0;
   int has_parm = 0;
-  tree name = constructor_name (TYPE_IDENTIFIER (type));
+  tree name = NULL_TREE;
 
   switch (kind)
     {
     case sfk_destructor:
       /* Destructor.  */
-      name = build_nt (BIT_NOT_EXPR, name);
+      name = build_nt (BIT_NOT_EXPR, constructor_name (type));
       args = void_list_node;
       raises = synthesize_exception_spec (type, &locate_dtor, 0);
       break;
 
     case sfk_constructor:
       /* Default constructor.  */
+      name = constructor_name (type);
       args = void_list_node;
       raises = synthesize_exception_spec (type, &locate_ctor, 0);
       break;
@@ -994,6 +997,8 @@ implicitly_declare_fn (kind, type, const_p)
           name = ansi_assopname (NOP_EXPR);
           data.name = name;
         }
+      else
+	name = constructor_name (type);
       if (const_p)
         {
           data.quals = TYPE_QUAL_CONST;

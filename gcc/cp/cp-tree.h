@@ -1434,13 +1434,17 @@ struct lang_type
 
 /* A FUNCTION_DECL or OVERLOAD for the constructors for NODE.  These
    are the constructors that take an in-charge parameter.  */
-#define CLASSTYPE_CONSTRUCTORS(NODE) \
-  (TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (NODE), CLASSTYPE_CONSTRUCTOR_SLOT))
+#define CLASSTYPE_CONSTRUCTORS(NODE)					    \
+  (CLASSTYPE_METHOD_VEC (NODE)						    \
+   ? TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (NODE), CLASSTYPE_CONSTRUCTOR_SLOT) \
+   : NULL_TREE)
 
 /* A FUNCTION_DECL for the destructor for NODE.  These are the
    destructors that take an in-charge parameter.  */
-#define CLASSTYPE_DESTRUCTORS(NODE) \
-  (TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (NODE), CLASSTYPE_DESTRUCTOR_SLOT))
+#define CLASSTYPE_DESTRUCTOR(NODE)					   \
+  (CLASSTYPE_METHOD_VEC (NODE) 						   \
+   ? TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (NODE), CLASSTYPE_DESTRUCTOR_SLOT) \
+   : NULL_TREE)
 
 /* Mark bits for depth-first and breath-first searches.  */
 
@@ -4270,7 +4274,7 @@ extern tree finish_increment_expr               PARAMS ((tree, enum tree_code));
 extern tree finish_this_expr                    PARAMS ((void));
 extern tree finish_object_call_expr             PARAMS ((tree, tree, tree));
 extern tree finish_qualified_object_call_expr   PARAMS ((tree, tree, tree));
-extern tree finish_pseudo_destructor_call_expr  PARAMS ((tree, tree, tree));
+extern tree finish_pseudo_destructor_expr       PARAMS ((tree, tree, tree));
 extern tree finish_qualified_call_expr          PARAMS ((tree, tree));
 extern tree finish_unary_op_expr                PARAMS ((enum tree_code, tree));
 extern tree finish_id_expr                      PARAMS ((tree));
@@ -4281,6 +4285,7 @@ extern tree finish_declarator                   PARAMS ((tree, tree, tree, tree,
 extern void finish_translation_unit             PARAMS ((void));
 extern tree finish_template_type_parm           PARAMS ((cp_tag_kind, tree));
 extern tree finish_template_template_parm       PARAMS ((cp_tag_kind, tree));
+extern tree check_template_template_default_arg PARAMS ((tree));
 extern tree finish_parmlist                     PARAMS ((tree, int));
 extern tree begin_class_definition              PARAMS ((tree));
 extern tree finish_class_definition             PARAMS ((tree, tree, int, int));

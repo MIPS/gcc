@@ -1329,7 +1329,8 @@ finish_call_expr (fn, args, koenig)
     {
       if (TREE_CODE (fn) == BIT_NOT_EXPR)
 	fn = build_x_unary_op (BIT_NOT_EXPR, TREE_OPERAND (fn, 0));
-      else if (TREE_CODE (fn) != TEMPLATE_ID_EXPR)
+      else if (TREE_CODE (fn) != TEMPLATE_ID_EXPR
+	       && TREE_CODE (fn) != PSEUDO_DTOR_EXPR)
 	fn = do_identifier (fn, 2, args);
     }
   
@@ -1452,24 +1453,26 @@ finish_qualified_object_call_expr (fn, object, args)
    the call.  */
 
 tree 
-finish_pseudo_destructor_call_expr (object, scope, destructor)
+finish_pseudo_destructor_expr (object, scope, destructor)
      tree object;
      tree scope;
      tree destructor;
 {
-  if (processing_template_decl)
-    return build_min_nt (PSEUDO_DTOR_EXPR, object, scope, destructor);
+  if (!processing_template_decl)
+    {
+      if (scope && TYPE_NAME (scope) != destructor)
+	cp_error ("destructor specifier `%T::~%T()' must have matching names", 
+		  scope, destructor);
+      
+      if (!same_type_p (TREE_TYPE (object),
+			TREE_TYPE (destructor)))
+	cp_error ("`%E' is not of type `%T'", object, destructor);
+    }
 
-  if (scope && scope != destructor)
-    cp_error ("destructor specifier `%T::~%T()' must have matching names", 
-	      scope, destructor);
-
-  if ((scope == NULL_TREE || IDENTIFIER_GLOBAL_VALUE (destructor))
-      && (TREE_CODE (TREE_TYPE (object)) !=
-	  TREE_CODE (TREE_TYPE (IDENTIFIER_GLOBAL_VALUE (destructor)))))
-    cp_error ("`%E' is not of type `%T'", object, destructor);
-
-  return cp_convert (void_type_node, object);
+  return build_nt (PSEUDO_DTOR_EXPR, 
+		   object,
+		   scope, 
+		   destructor);
 }
 
 /* Finish a call to a globally qualified member function FN using
@@ -1689,6 +1692,23 @@ finish_template_template_parm (aggr, identifier)
   my_friendly_assert (DECL_TEMPLATE_PARMS (tmpl), 20010110);
 
   return finish_template_type_parm (aggr, tmpl);
+}
+
+/* ARGUMENT is the default-argument value for a template template
+   parameter.  If ARGUMENT is invalid, issue error messages and return
+   the ERROR_MARK_NODE.  Otherwise, ARGUMENT itself is returned.  */
+
+tree
+check_template_template_default_arg (argument)
+     tree argument;
+{
+  if (TREE_CODE (argument) != TEMPLATE_DECL)
+    {
+      cp_error ("invalid default template argument");
+      return error_mark_node;
+    }
+
+  return argument;
 }
 
 /* Finish a parameter list, indicated by PARMS.  If ELLIPSIS is

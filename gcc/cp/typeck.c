@@ -2075,7 +2075,7 @@ build_component_ref (datum, component, basetype_path, protect)
       basetype = TYPE_MAIN_VARIANT (TREE_TYPE (datum));
       code = TREE_CODE (basetype);
     }
-
+  
   if (! IS_AGGR_TYPE_CODE (code))
     {
       if (code != ERROR_MARK)
@@ -2100,7 +2100,12 @@ build_component_ref (datum, component, basetype_path, protect)
 	  cp_error ("type `%T' has no destructor", basetype);
 	  return error_mark_node;
 	}
-      return TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (basetype), 1);
+      component = CLASSTYPE_DESTRUCTOR (basetype);
+
+      return build (COMPONENT_REF,
+		    unknown_type_node,
+		    datum,
+		    ovl_cons (component, NULL_TREE));
     }
 
   /* Look up component name in the structure type definition.  */
@@ -2584,6 +2589,17 @@ build_x_function_call (function, params, decl)
   if (processing_template_decl)
     return build_min_nt (CALL_EXPR, function, params, NULL_TREE);
 
+  /* A call to a pseudo-destructor must be handled specially; there is
+     not really a function to call.  */
+  if (TREE_CODE (function) == PSEUDO_DTOR_EXPR)
+    {
+      /* There should not be arguments to the call.  */
+      if (params)
+	cp_error ("arguments supplied for destructor");
+      return cp_convert (void_type_node, 
+			 TREE_OPERAND (function, 0));
+    }
+
   /* Save explicit template arguments if found */
   if (TREE_CODE (function) == TEMPLATE_ID_EXPR)
     {
@@ -2716,8 +2732,11 @@ build_x_function_call (function, params, decl)
     {
       /* Undo what we did in build_component_ref.  */
       decl = TREE_OPERAND (function, 0);
-      function = TREE_OPERAND (function, 1);
-      function = DECL_NAME (OVL_CURRENT (function));
+      function = OVL_CURRENT (TREE_OPERAND (function, 1));
+      if (DECL_DESTRUCTOR_P (function))
+	function = build1 (BIT_NOT_EXPR, NULL_TREE, DECL_NAME (function));
+      else
+	function = DECL_NAME (function);
 
       if (template_id)
 	{

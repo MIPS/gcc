@@ -317,7 +317,7 @@ build_scoped_method_call (exp, basetype, name, parms)
       /* Call to a destructor.  */
       if (TREE_CODE (name) == BIT_NOT_EXPR)
 	{
-	  if (! TYPE_HAS_DESTRUCTOR (TREE_TYPE (decl)))
+	  if (TYPE_HAS_TRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
 	    return cp_convert (void_type_node, exp);
 	  
 	  return build_delete (TREE_TYPE (decl), decl, 
@@ -476,6 +476,10 @@ build_call (function, parms)
 extern int n_build_method_call;
 #endif
 
+/* FIXME: This is remarkably hokey.  We should not be doing name
+   lookup here!  We should have the DECL or OVERLOAD for the
+   functionwe want to call as input.  */
+
 tree
 build_method_call (instance, name, parms, basetype_path, flags)
      tree instance, name, parms, basetype_path;
@@ -526,7 +530,7 @@ build_method_call (instance, name, parms, basetype_path, flags)
 	  ("destructor name `~%T' does not match type `%T' of expression",
 	   TREE_OPERAND (name, 0), basetype);
 
-      if (! TYPE_HAS_DESTRUCTOR (complete_type (basetype)))
+      if (TYPE_HAS_TRIVIAL_DESTRUCTOR (complete_type (basetype)))
 	return cp_convert (void_type_node, instance);
       instance = default_conversion (instance);
       instance_ptr = build_unary_op (ADDR_EXPR, instance, 0);

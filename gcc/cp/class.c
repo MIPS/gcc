@@ -1636,8 +1636,7 @@ check_bases (t, cant_have_default_ctor_p, cant_have_const_ctor_p,
       /* Effective C++ rule 14.  We only need to check TYPE_POLYMORPHIC_P
 	 here because the case of virtual functions but non-virtual
 	 dtor is handled in finish_struct_1.  */
-      if (warn_ecpp && ! TYPE_POLYMORPHIC_P (basetype)
-	  && TYPE_HAS_DESTRUCTOR (basetype))
+      if (warn_ecpp && !TYPE_POLYMORPHIC_P (basetype))
 	cp_warning ("base class `%#T' has a non-virtual destructor",
 		    basetype);
 
@@ -2199,9 +2198,9 @@ maybe_warn_about_overly_private_class (t)
   /* Even if some of the member functions are non-private, the class
      won't be useful for much if all the constructors or destructors
      are private: such an object can never be created or destroyed.  */
-  if (TYPE_HAS_DESTRUCTOR (t))
+  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t))
     {
-      tree dtor = TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (t), 1);
+      tree dtor = CLASSTYPE_DESTRUCTOR (t);
 
       if (TREE_PRIVATE (dtor))
 	{
@@ -2228,7 +2227,7 @@ maybe_warn_about_overly_private_class (t)
       if (!TYPE_HAS_INIT_REF (t))
 	nonprivate_ctor = 1;
       else 
-	for (fn = TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (t), 0);
+	for (fn = CLASSTYPE_CONSTRUCTORS (t);
 	     fn;
 	     fn = OVL_NEXT (fn)) 
 	  {
@@ -2335,7 +2334,7 @@ finish_struct_methods (t)
     /* Clear out this flag.  */
     DECL_IN_AGGR_P (fn_fields) = 0;
 
-  if (TYPE_HAS_DESTRUCTOR (t) && !CLASSTYPE_DESTRUCTORS (t))
+  if (TYPE_HAS_DESTRUCTOR (t) && !CLASSTYPE_DESTRUCTOR (t))
     /* We thought there was a destructor, but there wasn't.  Some
        parse errors cause this anomalous situation.  */
     TYPE_HAS_DESTRUCTOR (t) = 0;
@@ -3166,15 +3165,18 @@ add_implicitly_declared_members (t, cant_have_default_ctor,
   tree virtual_dtor = NULL_TREE;
   tree *f;
 
-  /* Destructor.  */
-  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) && !TYPE_HAS_DESTRUCTOR (t))
+  /* If a destructor was explicitly declared, it is non-trivial.  */
+  if (CLASSTYPE_DESTRUCTOR (t))
+    TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = 1;
+  /* Otherwise, declare one now.  */
+  else
     {
       default_fn = implicitly_declare_fn (sfk_destructor, t, /*const_p=*/0);
       check_for_override (default_fn, t);
 
       /* If we couldn't make it work, then pretend we didn't need it.  */
       if (default_fn == void_type_node)
-	TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = 0;
+	;
       else
 	{
 	  TREE_CHAIN (default_fn) = implicit_fns;
@@ -3184,9 +3186,6 @@ add_implicitly_declared_members (t, cant_have_default_ctor,
 	    virtual_dtor = default_fn;
 	}
     }
-  else
-    /* Any non-implicit destructor is non-trivial.  */
-    TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) |= TYPE_HAS_DESTRUCTOR (t);
 
   /* Default constructor.  */
   if (! TYPE_HAS_CONSTRUCTOR (t) && ! cant_have_default_ctor)
@@ -4511,8 +4510,7 @@ clone_constructors_and_destructors (t)
 
   for (fns = CLASSTYPE_CONSTRUCTORS (t); fns; fns = OVL_NEXT (fns))
     clone_function_decl (OVL_CURRENT (fns), /*update_method_vec_p=*/1);
-  for (fns = CLASSTYPE_DESTRUCTORS (t); fns; fns = OVL_NEXT (fns))
-    clone_function_decl (OVL_CURRENT (fns), /*update_method_vec_p=*/1);
+  clone_function_decl (CLASSTYPE_DESTRUCTOR (t), /*update_method_vec_p=*/1);
 }
 
 /* Remove all zero-width bit-fields from T.  */
@@ -5451,7 +5449,7 @@ finish_struct_1 (t)
 		     TYPE_VFIELD (t), TYPE_NONCOPIED_PARTS (t));
 
       if (warn_nonvdtor && TYPE_HAS_DESTRUCTOR (t)
-	  && DECL_VINDEX (TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (t), 1)) == NULL_TREE)
+	  && DECL_VINDEX (CLASSTYPE_DESTRUCTOR (t)) == NULL_TREE)
 	cp_warning ("`%#T' has virtual functions but non-virtual destructor",
 		    t);
     }

@@ -1847,33 +1847,18 @@ cplus_decl_attributes (decl, attributes, prefix_attributes)
     SET_IDENTIFIER_TYPE_VALUE (DECL_NAME (decl), TREE_TYPE (decl));
 }
 
-/* CONSTRUCTOR_NAME:
-   Return the name for the constructor (or destructor) for the
-   specified class.  Argument can be RECORD_TYPE, TYPE_DECL, or
-   IDENTIFIER_NODE.  When given a template, this routine doesn't
-   lose the specialization.  */
+/* Return the name for the constructor (or destructor) for the
+   specified TYPE.  */
 
 tree
-constructor_name_full (thing)
-     tree thing;
+constructor_name_full (type)
+     tree type;
 {
-  if (TREE_CODE (thing) == TEMPLATE_TYPE_PARM
-      || TREE_CODE (thing) == BOUND_TEMPLATE_TEMPLATE_PARM
-      || TREE_CODE (thing) == TYPENAME_TYPE)
-    thing = TYPE_NAME (thing);
-  else if (IS_AGGR_TYPE_CODE (TREE_CODE (thing)))
-    {
-      if (TYPE_WAS_ANONYMOUS (thing) && TYPE_HAS_CONSTRUCTOR (thing))
-	thing = DECL_NAME (OVL_CURRENT (TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (thing), 0)));
-      else
-	thing = TYPE_NAME (thing);
-    }
-  if (TREE_CODE (thing) == TYPE_DECL
-      || (TREE_CODE (thing) == TEMPLATE_DECL
-	  && TREE_CODE (DECL_TEMPLATE_RESULT (thing)) == TYPE_DECL))
-    thing = DECL_NAME (thing);
-  my_friendly_assert (TREE_CODE (thing) == IDENTIFIER_NODE, 197);
-  return thing;
+  /* Typedefs do not matter.  The name of the constructor is always
+     the name of the underlying type.  */
+  type = TYPE_MAIN_VARIANT (type);
+
+  return TYPE_IDENTIFIER (type);
 }
 
 /* CONSTRUCTOR_NAME:
@@ -4008,7 +3993,7 @@ build_expr_from_tree (t)
 	 build_expr_from_tree (TREE_OPERAND (t, 2)));
 
     case PSEUDO_DTOR_EXPR:
-      return (finish_pseudo_destructor_call_expr 
+      return (finish_pseudo_destructor_expr 
 	      (build_expr_from_tree (TREE_OPERAND (t, 0)),
 	       build_expr_from_tree (TREE_OPERAND (t, 1)),
 	       build_expr_from_tree (TREE_OPERAND (t, 2))));
@@ -4044,6 +4029,12 @@ build_expr_from_tree (t)
 	  return build_object_ref (object, 
 				   TREE_OPERAND (field, 0),
 				   TREE_OPERAND (field, 1));
+	else if (TREE_CODE (field) == BIT_NOT_EXPR
+		 && !CLASS_TYPE_P (TREE_TYPE (object)))
+	  return 
+	    finish_pseudo_destructor_expr (object,
+					   NULL_TREE,
+					   TREE_OPERAND (field, 0));
 	else
 	  return build_x_component_ref (object, field, NULL_TREE);
       }
@@ -4074,6 +4065,7 @@ build_expr_from_tree (t)
       return build_typeid (build_expr_from_tree (TREE_OPERAND (t, 0)));
 
     case VAR_DECL:
+    case PARM_DECL:
       return convert_from_reference (t);
 
     case VA_ARG_EXPR:

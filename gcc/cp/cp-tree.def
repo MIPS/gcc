@@ -213,6 +213,12 @@ DEFTREECODE (STATIC_CAST_EXPR, "static_cast_expr", '1', 1)
 DEFTREECODE (DYNAMIC_CAST_EXPR, "dynamic_cast_expr", '1', 1)
 DEFTREECODE (DOTSTAR_EXPR, "dotstar_expr", 'e', 2)
 DEFTREECODE (TYPEID_EXPR, "typeid_expr", 'e', 1)
+/* A PSEUDO_DTOR_EXPR represents a pseudo-destructor.  In an
+   expression like `i->T::~T()' the first argument will be the
+   object (in this case `*i') to which the pseudo-destructor is
+   applied.  The second argument will be the TYPE (if any) given by
+   the qualifying name.  Finally, the third argument will be the
+   TYPE_DECL for the type destroyed by the destructor.  */
 DEFTREECODE (PSEUDO_DTOR_EXPR, "pseudo_dtor_expr", 'e', 3)
 
 /* A SUBOBJECT statement marks the point at which a sub-object is

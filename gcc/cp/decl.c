@@ -8599,7 +8599,10 @@ grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
     }
 
   if (ctype)
-    DECL_CONTEXT (decl) = ctype;
+    {
+      ctype = TYPE_MAIN_VARIANT (ctype);
+      DECL_CONTEXT (decl) = ctype;
+    }
 
   if (ctype == NULL_TREE && DECL_MAIN_P (decl))
     {
@@ -9432,7 +9435,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      flags = DTOR_FLAG;
 	      sfk = sfk_destructor;
 	      if (TREE_CODE (name) == TYPE_DECL)
-		TREE_OPERAND (decl, 0) = name = constructor_name (name);
+		TREE_OPERAND (decl, 0) = name 
+		  = constructor_name (TREE_TYPE (name));
 	      my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE, 153);
 	      if (ctype == NULL_TREE)
 		{
@@ -9443,7 +9447,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		    }
 		  else
 		    {
-		      tree t = constructor_name (current_class_name);
+		      tree t = constructor_name (current_class_type);
 		      if (t != name)
 			rename = t;
 		    }
@@ -10607,7 +10611,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		/* This is the `standard' use of the scoping operator:
 		   basetype :: member .  */
 
-		if (ctype == current_class_type)
+		if (current_class_type
+		    && same_type_p (ctype, current_class_type))
 		  {
 		    /* class A {
 		         void A::f ();
@@ -14029,15 +14034,8 @@ maybe_build_cleanup (decl)
 	  || flag_expensive_optimizations)
 	flags |= LOOKUP_NONVIRTUAL;
 
-      rval = build_delete (TREE_TYPE (rval), rval,
+      return build_delete (TREE_TYPE (rval), rval,
 			   sfk_complete_destructor, flags, 0);
-
-      if (TYPE_USES_VIRTUAL_BASECLASSES (type)
-	  && ! TYPE_HAS_DESTRUCTOR (type))
-	rval = build_compound_expr (tree_cons (NULL_TREE, rval,
-					       build_tree_list (NULL_TREE, build_vbase_delete (type, decl))));
-
-      return rval;
     }
   return 0;
 }

@@ -3219,7 +3219,7 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
       /* If the destructor is non-virtual, there is no deleting
 	 variant.  Instead, we must explicitly call the appropriate
 	 `operator delete' here.  */
-      else if (!DECL_VIRTUAL_P (CLASSTYPE_DESTRUCTORS (type))
+      else if (!DECL_VIRTUAL_P (CLASSTYPE_DESTRUCTOR (type))
 	       && auto_delete == sfk_deleting_destructor)
 	{
 	  /* We will use ADDR multiple times so we must save it.  */

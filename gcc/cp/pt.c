@@ -1395,8 +1395,10 @@ check_explicit_specialization (declarator, decl, flags)
 	    {
 	      int is_constructor = DECL_CONSTRUCTOR_P (decl);
 	      
-	      if (is_constructor ? !TYPE_HAS_CONSTRUCTOR (ctype)
-		  : !TYPE_HAS_DESTRUCTOR (ctype))
+	      if (is_constructor 
+		  ? !TYPE_HAS_CONSTRUCTOR (ctype)
+		  : (TYPE_HAS_TRIVIAL_DESTRUCTOR (ctype)
+		     || DECL_ARTIFICIAL (CLASSTYPE_DESTRUCTOR (ctype))))
 		{
 		  /* From [temp.expl.spec]:
 		       
@@ -3628,10 +3630,7 @@ lookup_template_function (fns, arglist)
   if (TREE_CODE (fns) == OVERLOAD || !type)
     type = unknown_type_node;
 
-  if (processing_template_decl)
-    return build_min (TEMPLATE_ID_EXPR, type, fns, arglist);  
-  else
-    return build (TEMPLATE_ID_EXPR, type, fns, arglist);
+  return build (TEMPLATE_ID_EXPR, type, fns, arglist);
 }
 
 /* Within the scope of a template class S<T>, the name S gets bound
@@ -6667,7 +6666,14 @@ tsubst_copy (t, args, complain, in_decl)
   switch (code)
     {
     case PARM_DECL:
-      return do_identifier (DECL_NAME (t), 0, NULL_TREE);
+      /* Find the corresponding parameter.  */
+      for (r = DECL_ARGUMENTS (current_function_decl);
+	   r;
+	   r = TREE_CHAIN (r))
+	if (DECL_NAME (r) == DECL_NAME (t))
+	  return r;
+      my_friendly_abort (20010713);
+      break;
 
     case CONST_DECL:
       {
@@ -6884,33 +6890,27 @@ tsubst_copy (t, args, complain, in_decl)
     case COND_EXPR:
     case MODOP_EXPR:
     case PSEUDO_DTOR_EXPR:
-      {
-	r = build_nt
-	  (code, tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl),
-	   tsubst_copy (TREE_OPERAND (t, 1), args, complain, in_decl),
-	   tsubst_copy (TREE_OPERAND (t, 2), args, complain, in_decl));
-	return r;
-      }
-
-    case NEW_EXPR:
-      {
-	r = build_nt
+      r = build_nt
 	(code, tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl),
 	 tsubst_copy (TREE_OPERAND (t, 1), args, complain, in_decl),
 	 tsubst_copy (TREE_OPERAND (t, 2), args, complain, in_decl));
-	NEW_EXPR_USE_GLOBAL (r) = NEW_EXPR_USE_GLOBAL (t);
-	return r;
-      }
+      return r;
+
+    case NEW_EXPR:
+      r = build_nt
+	(code, tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl),
+	 tsubst_copy (TREE_OPERAND (t, 1), args, complain, in_decl),
+	 tsubst_copy (TREE_OPERAND (t, 2), args, complain, in_decl));
+      NEW_EXPR_USE_GLOBAL (r) = NEW_EXPR_USE_GLOBAL (t);
+      return r;
 
     case DELETE_EXPR:
-      {
-	r = build_nt
+      r = build_nt
 	(code, tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl),
 	 tsubst_copy (TREE_OPERAND (t, 1), args, complain, in_decl));
-	DELETE_EXPR_USE_GLOBAL (r) = DELETE_EXPR_USE_GLOBAL (t);
-	DELETE_EXPR_USE_VEC (r) = DELETE_EXPR_USE_VEC (t);
-	return r;
-      }
+      DELETE_EXPR_USE_GLOBAL (r) = DELETE_EXPR_USE_GLOBAL (t);
+      DELETE_EXPR_USE_VEC (r) = DELETE_EXPR_USE_VEC (t);
+      return r;
 
     case TEMPLATE_ID_EXPR:
       {
@@ -9509,7 +9509,7 @@ regenerate_decl_from_template (decl, tmpl)
     /* Make sure that we can see identifiers, and compute access
        correctly, for the class members used in the declaration of
        this static variable.  */
-    pushclass (DECL_CONTEXT (decl), 2);
+    push_nested_class (DECL_CONTEXT (decl), 2);
 
   /* Do the substitution to get the new declaration.  */
   new_decl = tsubst (code_pattern, args, /*complain=*/1, NULL_TREE);
@@ -9521,7 +9521,7 @@ regenerate_decl_from_template (decl, tmpl)
 	tsubst_expr (DECL_INITIAL (code_pattern), args, 
 		     /*complain=*/1, DECL_TI_TEMPLATE (decl));
       /* Pop the class context we pushed above.  */
-      popclass ();
+      pop_nested_class ();
     }
   else if (TREE_CODE (decl) == FUNCTION_DECL)
     {

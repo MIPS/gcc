@@ -182,7 +182,7 @@ dtor_nothrow (type)
   if (type == NULL_TREE)
     return 0;
 
-  if (! TYPE_HAS_DESTRUCTOR (type))
+  if (TYPE_HAS_TRIVIAL_DESTRUCTOR (type))
     return 1;
 
   fn = lookup_member (type, dtor_identifier, 0, 0);
@@ -669,7 +669,7 @@ build_throw (exp)
 
       throw_type = build_eh_type_type (prepare_eh_type (TREE_TYPE (object)));
 
-      if (TYPE_HAS_DESTRUCTOR (TREE_TYPE (object)))
+      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (object)))
 	{
 	  cleanup = lookup_fnfields (TYPE_BINFO (TREE_TYPE (object)),
 				     complete_dtor_identifier, 0);
