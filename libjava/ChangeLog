@@ -1,3 +1,9 @@
+2004-11-21  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/Button.java
+	(AccessibleAWTButton.getAccessibleActionDescription): Return
+	'click'.
+
 2004-11-21  Michael Koch  <konqueror@gmx.de>
 
 	* java/awt/CardLayout.java:

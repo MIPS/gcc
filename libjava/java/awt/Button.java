@@ -1,5 +1,5 @@
 /* Button.java -- AWT button widget
-   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -113,9 +113,10 @@ private transient ActionListener action_listeners;
      */
     public String getAccessibleActionDescription(int i)
     {
-      if (i != 0)
-        return null;
-      return actionCommand;
+      // JDK 1.4.2 returns this.
+      if (i == 0)
+        return "click";
+      return null;
     }
 
     /* (non-Javadoc)
