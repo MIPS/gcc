@@ -161,14 +161,11 @@ simple_condition_p (loop, body, condition, desc)
       case LT:
       case GE:
       case GT:
-	break;
-      /* We are excluding these cases for now, to keep the rest simpler.  */
       case GEU:
       case GTU:
       case LEU:
       case LTU:
-      default:
-	return false;
+	break;
     }
 
   /* Of integers or pointers.  */
@@ -424,7 +421,7 @@ count_loop_iterations (desc, niter, rniter)
   if (desc->grow)
     {
       /* Bypass nonsential tests.  */
-      if (cond == GE || cond == GT)
+      if (cond == GE || cond == GT || cond == GEU || cond == GTU)
 	return false;
       if (rniter)
 	{
@@ -440,7 +437,7 @@ count_loop_iterations (desc, niter, rniter)
   else
     {
       /* Bypass nonsential tests.  */
-      if (cond == LE || cond == LT)
+      if (cond == LE || cond == LT || cond == LEU || cond == LTU)
 	return false;
       if (rniter)
 	*rniter = expand_simple_binop (GET_MODE (desc->var), MINUS,
@@ -508,6 +505,26 @@ count_loop_iterations (desc, niter, rniter)
 	  abs_diff = 0;
       case GT:
 	if (desc->init_n - !desc->postincr < desc->lim_n)
+	  abs_diff = -1;
+	break;
+      case LTU:
+	if ((unsigned HOST_WIDE_INT)(desc->init_n + !desc->postincr)
+	    >= (unsigned HOST_WIDE_INT)desc->lim_n)
+	  abs_diff = 0;
+	break;
+      case LEU:
+	if ((unsigned HOST_WIDE_INT)(desc->init_n + !desc->postincr)
+	    > desc->lim_n)
+	  abs_diff = -1;
+	delta++;
+	break;
+      case GEU:
+	if ((unsigned HOST_WIDE_INT)(desc->init_n - !desc->postincr)
+	    <= (unsigned HOST_WIDE_INT)desc->lim_n)
+	  abs_diff = 0;
+      case GTU:
+	if ((unsigned HOST_WIDE_INT)(desc->init_n - !desc->postincr)
+	    < (unsigned HOST_WIDE_INT)desc->lim_n)
 	  abs_diff = -1;
 	break;
       case EQ:
