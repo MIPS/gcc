@@ -302,12 +302,12 @@ struct elim_table
 {
   int from;			/* Register number to be eliminated.  */
   int to;			/* Register number used as replacement.  */
-  int initial_offset;		/* Initial difference between values.  */
+  HOST_WIDE_INT initial_offset;	/* Initial difference between values.  */
   int can_eliminate;		/* Non-zero if this elimination can be done.  */
   int can_eliminate_previous;	/* Value of CAN_ELIMINATE in previous scan over
 				   insns made by reload.  */
-  int offset;			/* Current offset between the two regs.  */
-  int previous_offset;		/* Offset at end of previous insn.  */
+  HOST_WIDE_INT offset;		/* Current offset between the two regs.  */
+  HOST_WIDE_INT previous_offset;/* Offset at end of previous insn.  */
   int ref_outside_mem;		/* "to" has been referenced outside a MEM.  */
   rtx from_rtx;			/* REG rtx for the register to be eliminated.
 				   We cannot simply compare the number since
@@ -361,7 +361,7 @@ static int num_eliminable_invariants;
 
 static int first_label_num;
 static char *offsets_known_at;
-static int (*offsets_at)[NUM_ELIMINABLE_REGS];
+static HOST_WIDE_INT (*offsets_at)[NUM_ELIMINABLE_REGS];
 
 /* Number of labels in the current function.  */
 
@@ -864,7 +864,7 @@ reload (first, global)
   offsets_known_at = xmalloc (num_labels);
   offsets_at
     = (int (*)[NUM_ELIMINABLE_REGS])
-    xmalloc (num_labels * NUM_ELIMINABLE_REGS * sizeof (int));
+    xmalloc (num_labels * NUM_ELIMINABLE_REGS * sizeof (HOST_WIDE_INT));
 
   /* Alter each pseudo-reg rtx to contain its hard reg number.
      Assign stack slots to the pseudos that lack hard regs or equivalents.
@@ -2963,7 +2963,7 @@ eliminate_regs_in_insn (insn, replace)
 	      {
 		rtx base = SET_SRC (old_set);
 		rtx base_insn = insn;
-		int offset = 0;
+		HOST_WIDE_INT offset = 0;
 
 		while (base != ep->to_rtx)
 		  {
@@ -3046,7 +3046,7 @@ eliminate_regs_in_insn (insn, replace)
       && REGNO (XEXP (SET_SRC (old_set), 0)) < FIRST_PSEUDO_REGISTER)
     {
       rtx reg = XEXP (SET_SRC (old_set), 0);
-      int offset = INTVAL (XEXP (SET_SRC (old_set), 1));
+      HOST_WIDE_INT offset = INTVAL (XEXP (SET_SRC (old_set), 1));
 
       for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
 	if (ep->from_rtx == reg && ep->can_eliminate)
@@ -3333,7 +3333,7 @@ mark_not_eliminable (dest, x, data)
 static void
 verify_initial_elim_offsets ()
 {
-  int t;
+  HOST_WIDE_INT t;
 
 #ifdef ELIMINABLE_REGS
   struct elim_table *ep;

@@ -2,6 +2,21 @@
 
 	Merge:
 	2003-07-11  Jakub Jelinek  <jakub@redhat.com>
+		* reload1.c (struct elim_table): Change offset, initial_offset and
+		previous_offset fields to HOST_WIDE_INT.
+		(offsets_at): Change from int to HOST_WIDE_INT.
+		(reload): Adjust offsets_at initialization.
+		(eliminate_regs_in_insn): Change type of offset to HOST_WIDE_INT.
+		(verify_initial_elim_offsets): Change type of t to HOST_WIDE_INT.
+		* config/i386/i386.c (ix86_compute_frame_layout): Change offset type
+		to HOST_WIDE_INT.  Don't save regs using mov for huge frame sizes
+		if TARGET_64BIT.
+		(pro_epilogue_adjust_stack): New function.
+		(ix86_expand_prologue, ix86_expand_epilogue): Use it.
+		* config/i386/i386.md (pro_epilogue_adjust_stack): Remove.
+		(pro_epilogue_adjust_stack_1): Remove * in front of name.
+		(pro_epilogue_adjust_stack_rex64): Handle -2147483648 properly.
+		(pro_epilogue_adjust_stack_rex64_2): New insn.
 
 		* optabs.c (prepare_cmp_insn): Try cmpmemM first if it exists,
 		then fall back to cmpstrM.
