@@ -180,7 +180,7 @@ loop_optimizer_init (dumpfile)
     }
 
   /* Create pre-headers.  */
-  create_preheaders ();
+  create_preheaders (loops);
 #ifdef ENABLE_CHECKING
   verify_dominators ();
 #endif
