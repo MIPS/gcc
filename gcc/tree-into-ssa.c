@@ -93,7 +93,7 @@ struct mark_def_sites_global_data
   sbitmap kills;
 
   /* Bitmap of names to rename.  */
-  bitmap names_to_rename;
+  sbitmap names_to_rename;
 
   /* Array of ssa names.  */
   tree *ssa_names;
@@ -108,7 +108,6 @@ struct rewrite_block_data
 {
   varray_type block_defs;
 };
-
 
 /* Local functions.  */
 static void rewrite_finalize_block (struct dom_walk_data *, basic_block);
@@ -127,7 +126,7 @@ static void insert_phi_nodes (bitmap *, bitmap, tree *);
 static void rewrite_stmt (struct dom_walk_data *, basic_block,
 			  block_stmt_iterator);
 static inline void rewrite_operand (tree *);
-static void insert_phi_nodes_for (tree, bitmap *);
+static void insert_phi_nodes_for (tree, bitmap *, varray_type *);
 static tree get_reaching_def (tree);
 static tree get_value_for (tree, varray_type);
 static void set_value_for (tree, tree, varray_type);
@@ -267,7 +266,7 @@ ssa_mark_def_sites_initialize_block (struct dom_walk_data *walk_data,
       def = PHI_RESULT (phi);
       def_uid = SSA_NAME_VERSION (def);
 
-      if (!bitmap_bit_p (gd->names_to_rename, def_uid))
+      if (!TEST_BIT (gd->names_to_rename, def_uid))
 	continue;
 
       gd->ssa_names[def_uid] = def;
@@ -301,7 +300,7 @@ ssa_mark_phi_uses (struct dom_walk_data *walk_data, basic_block bb)
 
 	  uid = SSA_NAME_VERSION (use);
 
-	  if (bitmap_bit_p (gd->names_to_rename, uid)
+	  if (TEST_BIT (gd->names_to_rename, uid)
 	      && !TEST_BIT (kills, uid))
 	    set_livein_block (use, bb);
 	}
@@ -434,7 +433,7 @@ ssa_mark_def_sites (struct dom_walk_data *walk_data,
       use = USE_OP (uses, i);
       uid = SSA_NAME_VERSION (use);
 
-      if (bitmap_bit_p (gd->names_to_rename, uid)
+      if (TEST_BIT (gd->names_to_rename, uid)
 	  && !TEST_BIT (kills, uid))
 	set_livein_block (use, bb);
     }
@@ -446,7 +445,7 @@ ssa_mark_def_sites (struct dom_walk_data *walk_data,
       use = VUSE_OP (vuses, i);
       uid = SSA_NAME_VERSION (use);
 
-      if (bitmap_bit_p (gd->names_to_rename, uid)
+      if (TEST_BIT (gd->names_to_rename, uid)
 	  && !TEST_BIT (kills, uid))
 	set_livein_block (use, bb);
     }
@@ -460,11 +459,11 @@ ssa_mark_def_sites (struct dom_walk_data *walk_data,
       use = VDEF_OP (vdefs, i);
       uid = SSA_NAME_VERSION (use);
 
-      if (bitmap_bit_p (gd->names_to_rename, uid)
+      if (TEST_BIT (gd->names_to_rename, uid)
 	  && !TEST_BIT (kills, uid))
 	set_livein_block (use, bb);
 
-      if (bitmap_bit_p (gd->names_to_rename, def_uid))
+      if (TEST_BIT (gd->names_to_rename, def_uid))
 	{
 	  gd->ssa_names[def_uid] = def;
 	  set_def_block (def, bb, false);
@@ -480,7 +479,7 @@ ssa_mark_def_sites (struct dom_walk_data *walk_data,
       def = DEF_OP (defs, i);
       def_uid = SSA_NAME_VERSION (def);
 
-      if (bitmap_bit_p (gd->names_to_rename, def_uid))
+      if (TEST_BIT (gd->names_to_rename, def_uid))
 	{
 	  gd->ssa_names[def_uid] = def;
 	  set_def_block (def, bb, false);
@@ -586,13 +585,15 @@ prepare_operand_for_rename (tree *op_p, size_t *uid_p)
 
 
 /* Helper for insert_phi_nodes.  If VAR needs PHI nodes, insert them
-   at the dominance frontier (DFS) of blocks defining VAR.  */
+   at the dominance frontier (DFS) of blocks defining VAR.
+   WORK_STACK is the varray used to implement the worklist of basic
+   blocks.  */
 
 static inline
-void insert_phi_nodes_1 (tree var, bitmap *dfs)
+void insert_phi_nodes_1 (tree var, bitmap *dfs, varray_type *work_stack)
 {
   if (get_phi_state (var) != NEED_PHI_STATE_NO)
-    insert_phi_nodes_for (var, dfs);
+    insert_phi_nodes_for (var, dfs, work_stack);
 }
 
 /* Insert PHI nodes at the dominance frontier of blocks with variable
@@ -607,8 +608,13 @@ static void
 insert_phi_nodes (bitmap *dfs, bitmap names_to_rename, tree *ssa_names)
 {
   size_t i;
+  varray_type work_stack;
 
   timevar_push (TV_TREE_INSERT_PHI_NODES);
+
+  /* Array WORK_STACK is a stack of CFG blocks.  Each block that contains
+     an assignment or PHI node will be pushed to this stack.  */
+  VARRAY_GENERIC_PTR_NOGC_INIT (work_stack, last_basic_block, "work_stack");
 
   /* Iterate over all variables in VARS_TO_RENAME.  For each variable, add
      to the work list all the blocks that have a definition for the
@@ -619,15 +625,17 @@ insert_phi_nodes (bitmap *dfs, bitmap names_to_rename, tree *ssa_names)
       EXECUTE_IF_SET_IN_BITMAP (names_to_rename, 0, i,
 	{
 	  if (ssa_names[i])
-	    insert_phi_nodes_1 (ssa_names[i], dfs);
+	    insert_phi_nodes_1 (ssa_names[i], dfs, &work_stack);
 	});
     }
   else if (vars_to_rename)
     EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i,
-	insert_phi_nodes_1 (referenced_var (i), dfs));
+	insert_phi_nodes_1 (referenced_var (i), dfs, &work_stack));
   else
     for (i = 0; i < num_referenced_vars; i++)
-      insert_phi_nodes_1 (referenced_var (i), dfs);
+      insert_phi_nodes_1 (referenced_var (i), dfs, &work_stack);
+
+  VARRAY_FREE (work_stack);
 
   timevar_pop (TV_TREE_INSERT_PHI_NODES);
 }
@@ -734,7 +742,7 @@ ssa_rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
   tree phi, new_name;
   struct rewrite_block_data *bd
     = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
-  bitmap names_to_rename = walk_data->global_data;
+  sbitmap names_to_rename = walk_data->global_data;
   edge e;
   bool abnormal_phi;
 
@@ -753,7 +761,7 @@ ssa_rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
     {
       tree result = PHI_RESULT (phi);
 
-      if (bitmap_bit_p (names_to_rename, SSA_NAME_VERSION (result)))
+      if (TEST_BIT (names_to_rename, SSA_NAME_VERSION (result)))
 	{
 	  new_name = duplicate_ssa_name (result, phi);
 	  PHI_RESULT (phi) = new_name;
@@ -805,7 +813,7 @@ static void
 ssa_rewrite_phi_arguments (struct dom_walk_data *walk_data, basic_block bb)
 {
   edge e;
-  bitmap names_to_rename = walk_data->global_data;
+  sbitmap names_to_rename = walk_data->global_data;
   tree *op;
 
   for (e = bb->succ; e; e = e->succ_next)
@@ -821,7 +829,7 @@ ssa_rewrite_phi_arguments (struct dom_walk_data *walk_data, basic_block bb)
 	  if (TREE_CODE (*op) != SSA_NAME)
 	    continue;
 
-	  if (!bitmap_bit_p (names_to_rename, SSA_NAME_VERSION (*op)))
+	  if (!TEST_BIT (names_to_rename, SSA_NAME_VERSION (*op)))
 	    continue;
 
 	  *op = get_reaching_def (*op);
@@ -953,15 +961,15 @@ htab_statistics (FILE *file, htab_t htab)
 
 
 /* Insert PHI nodes for variable VAR using the dominance frontier
-   information given in DFS.  */
+   information given in DFS.  WORK_STACK is the varray used to
+   implement the worklist of basic blocks.  */
 
 static void
-insert_phi_nodes_for (tree var, bitmap *dfs)
+insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
 {
   struct def_blocks_d *def_map;
   bitmap phi_insertion_points;
   int bb_index;
-  varray_type work_stack;
   edge e;
   tree phi;
   basic_block bb;
@@ -970,15 +978,11 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
   if (def_map == NULL)
     return;
 
-  /* Array WORK_STACK is a stack of CFG blocks.  Each block that contains
-     an assignment or PHI node will be pushed to this stack.  */
-  VARRAY_BB_INIT (work_stack, last_basic_block, "work_stack");
-
   phi_insertion_points = BITMAP_XMALLOC ();
 
   EXECUTE_IF_SET_IN_BITMAP (def_map->def_blocks, 0, bb_index,
     {
-      VARRAY_PUSH_BB (work_stack, BASIC_BLOCK (bb_index));
+      VARRAY_PUSH_GENERIC_PTR_NOGC (*work_stack, BASIC_BLOCK (bb_index));
     });
 
   /* Pop a block off the worklist, add every block that appears in
@@ -993,14 +997,14 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
      determine if fully pruned or semi pruned SSA form was appropriate.
 
      We now always use fully pruned SSA form.  */
-  while (VARRAY_ACTIVE_SIZE (work_stack) > 0)
+  while (VARRAY_ACTIVE_SIZE (*work_stack) > 0)
     {
       int dfs_index;
 
-      bb = VARRAY_TOP_BB (work_stack);
+      bb = VARRAY_TOP_GENERIC_PTR_NOGC (*work_stack);
       bb_index = bb->index;
 
-      VARRAY_POP (work_stack);
+      VARRAY_POP (*work_stack);
       
       EXECUTE_IF_AND_COMPL_IN_BITMAP (dfs[bb_index],
 				      phi_insertion_points,
@@ -1008,7 +1012,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
 	{
 	  basic_block bb = BASIC_BLOCK (dfs_index);
 
-	  VARRAY_PUSH_BB (work_stack, bb);
+	  VARRAY_PUSH_GENERIC_PTR_NOGC (*work_stack, bb);
 	  bitmap_set_bit (phi_insertion_points, dfs_index);
 	});
     }
@@ -1137,7 +1141,7 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
   def_optype defs;
   use_optype uses;
   struct rewrite_block_data *bd;
-  bitmap names_to_rename = walk_data->global_data;
+  sbitmap names_to_rename = walk_data->global_data;
 
   bd = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
 
@@ -1167,7 +1171,7 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
   for (i = 0; i < NUM_USES (uses); i++)
     {
       use_p = USE_OP_PTR (uses, i);
-      if (bitmap_bit_p (names_to_rename, SSA_NAME_VERSION (*use_p)))
+      if (TEST_BIT (names_to_rename, SSA_NAME_VERSION (*use_p)))
 	*use_p = get_reaching_def (*use_p);
     }
 
@@ -1175,7 +1179,7 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
   for (i = 0; i < NUM_VUSES (vuses); i++)
     {
       use_p = VUSE_OP_PTR (vuses, i);
-      if (bitmap_bit_p (names_to_rename, SSA_NAME_VERSION (*use_p)))
+      if (TEST_BIT (names_to_rename, SSA_NAME_VERSION (*use_p)))
 	*use_p = get_reaching_def (*use_p);
     }
 
@@ -1185,7 +1189,7 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
       tree *def_p = DEF_OP_PTR (defs, i);
       var = *def_p;
 
-      if (!bitmap_bit_p (names_to_rename, SSA_NAME_VERSION (*def_p)))
+      if (!TEST_BIT (names_to_rename, SSA_NAME_VERSION (*def_p)))
 	continue;
 
       *def_p = duplicate_ssa_name (var, stmt);
@@ -1199,10 +1203,10 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
       var = *def_p;
 
       use_p = VDEF_OP_PTR (vdefs, i);
-      if (bitmap_bit_p (names_to_rename, SSA_NAME_VERSION (*use_p)))
+      if (TEST_BIT (names_to_rename, SSA_NAME_VERSION (*use_p)))
 	*use_p = get_reaching_def (*use_p);
 
-      if (!bitmap_bit_p (names_to_rename, SSA_NAME_VERSION (*def_p)))
+      if (!TEST_BIT (names_to_rename, SSA_NAME_VERSION (*def_p)))
 	continue;
 
       *def_p = duplicate_ssa_name (var, stmt);
@@ -1594,6 +1598,8 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
   struct dom_walk_data walk_data;
   struct mark_def_sites_global_data mark_def_sites_global_data;
   tree *ssa_names;
+  unsigned i;
+  sbitmap snames_to_rename;
   
   if (bitmap_first_set_bit (names_to_rename) < 0)
     return;
@@ -1643,8 +1649,13 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
   walk_data.after_dom_children_walk_stmts =  NULL;
   walk_data.after_dom_children_after_stmts =  NULL;
 
+  snames_to_rename = sbitmap_alloc (highest_ssa_version);
+  sbitmap_zero (snames_to_rename);
+  EXECUTE_IF_SET_IN_BITMAP (names_to_rename, 0, i,
+			    SET_BIT (snames_to_rename, i));
+
   mark_def_sites_global_data.kills = sbitmap_alloc (highest_ssa_version);
-  mark_def_sites_global_data.names_to_rename = names_to_rename;
+  mark_def_sites_global_data.names_to_rename = snames_to_rename;
   mark_def_sites_global_data.ssa_names = ssa_names;
   walk_data.global_data = &mark_def_sites_global_data;
 
@@ -1680,7 +1691,7 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
   walk_data.after_dom_children_before_stmts = NULL;
   walk_data.after_dom_children_walk_stmts =  NULL;
   walk_data.after_dom_children_after_stmts =  ssa_rewrite_finalize_block;
-  walk_data.global_data = names_to_rename;
+  walk_data.global_data = snames_to_rename;
   walk_data.block_local_data_size = sizeof (struct rewrite_block_data);
 
   /* Initialize the dominator walker.  */
@@ -1692,6 +1703,8 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
 
   /* Finalize the dominator walker.  */
   fini_walk_dominator_tree (&walk_data);
+
+  sbitmap_free (snames_to_rename);
 
   timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 

@@ -1,3 +1,14 @@
+2004-04-15  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-into-ssa.c (struct mark_def_sites_global_data): Change type of
+	names_to_rename to sbitmap.
+	(insert_phi_nodes_for, insert_phi_nodes_1, insert_phi_nodes):
+	Allocate worklist globally.
+	(ssa_mark_def_sites_initialize_block, ssa_mark_phi_uses,
+	ssa_mark_def_sites, ssa_rewrite_initialize_block,
+	ssa_rewrite_phi_arguments, ssa_rewrite_stmt, rewrite_ssa_into_ssa):
+	Use sbitmaps instead of bitmaps.
+
 2004-04-15  Sebastian Pop  <sebastian.pop@ensmp.fr>
 
 	* tree-scalar-evolution.c (instantiate_parameters): Don't keep
