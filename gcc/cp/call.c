@@ -3824,10 +3824,6 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 
       /* Find the allocation function that is being called.  */
       call_expr = placement;
-      /* Sometimes we have a COMPOUND_EXPR, rather than a simple
-	 CALL_EXPR.  */
-      while (TREE_CODE (call_expr) == COMPOUND_EXPR)
-	call_expr = TREE_OPERAND (call_expr, 1);
       /* Extract the function.  */
       alloc_fn = get_callee_fndecl (call_expr);
       my_friendly_assert (alloc_fn != NULL_TREE, 20020327);
@@ -3910,7 +3906,15 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	args = tree_cons (NULL_TREE, addr, 
 			  build_tree_list (NULL_TREE, size));
 
-      return build_function_call (fn, args);
+      if (placement)
+	{
+	  /* The placement args might not be suitable for overload
+	     resolution at this point, so build the call directly.  */
+	  mark_used (fn);
+	  return build_cxx_call (fn, args, args);
+	}
+      else
+	return build_function_call (fn, args);
     }
 
   /* If we are doing placement delete we do nothing if we don't find a
@@ -4577,16 +4581,11 @@ build_over_call (struct z_candidate *cand, int flags)
       else if (TREE_CODE (arg) == TARGET_EXPR
 	       || TYPE_HAS_TRIVIAL_INIT_REF (DECL_CONTEXT (fn)))
 	{
-	  tree address;
 	  tree to = stabilize_reference
 	    (build_indirect_ref (TREE_VALUE (args), 0));
 
 	  val = build (INIT_EXPR, DECL_CONTEXT (fn), to, arg);
-	  address = build_unary_op (ADDR_EXPR, val, 0);
-	  /* Avoid a warning about this expression, if the address is
-	     never used.  */
-	  TREE_USED (address) = 1;
-	  return address;
+	  return val;
 	}
     }
   else if (DECL_OVERLOADED_OPERATOR_P (fn) == NOP_EXPR

@@ -1146,9 +1146,13 @@ build_init (tree decl, tree init, int flags)
 {
   tree expr;
 
-  if (IS_AGGR_TYPE (TREE_TYPE (decl))
-      || TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
+  if (TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
     expr = build_aggr_init (decl, init, flags);
+  else if (CLASS_TYPE_P (TREE_TYPE (decl)))
+    expr = build_special_member_call (decl, complete_ctor_identifier,
+				      build_tree_list (NULL_TREE, init),
+				      TYPE_BINFO (TREE_TYPE (decl)),
+				      LOOKUP_NORMAL|flags);
   else
     expr = build (INIT_EXPR, TREE_TYPE (decl), decl, init);
 
@@ -1902,7 +1906,7 @@ static tree
 build_new_1 (tree exp)
 {
   tree placement, init;
-  tree true_type, size, rval, t;
+  tree true_type, size, rval;
   /* The type of the new-expression.  (This type is always a pointer
      type.)  */
   tree pointer_type;
@@ -1943,6 +1947,7 @@ build_new_1 (tree exp)
      address of the first array element.  This node is a VAR_DECL, and
      is therefore reusable.  */
   tree data_addr;
+  tree init_preeval_expr = NULL_TREE;
 
   placement = TREE_OPERAND (exp, 0);
   type = TREE_OPERAND (exp, 1);
@@ -2060,13 +2065,22 @@ build_new_1 (tree exp)
   if (alloc_call == error_mark_node)
     return error_mark_node;
 
-  /* The ALLOC_CALL should be a CALL_EXPR -- or a COMPOUND_EXPR whose
-     right-hand-side is ultimately a CALL_EXPR -- and the first
-     operand should be the address of a known FUNCTION_DECL.  */
-  t = alloc_call;
-  while (TREE_CODE (t) == COMPOUND_EXPR) 
-    t = TREE_OPERAND (t, 1);
-  alloc_fn = get_callee_fndecl (t);
+  /* In the simple case, we can stop now.  */
+  pointer_type = build_pointer_type (type);
+  if (!cookie_size && !is_initialized)
+    return build_nop (pointer_type, alloc_call);
+
+  /* While we're working, use a pointer to the type we've actually
+     allocated. Store the result of the call in a variable so that we
+     can use it more than once.  */
+  full_pointer_type = build_pointer_type (full_type);
+  alloc_expr = get_target_expr (build_nop (full_pointer_type, alloc_call));
+  alloc_node = TARGET_EXPR_SLOT (alloc_expr);
+
+  /* Strip any COMPOUND_EXPRs from ALLOC_CALL.  */
+  while (TREE_CODE (alloc_call) == COMPOUND_EXPR) 
+    alloc_call = TREE_OPERAND (alloc_call, 1);
+  alloc_fn = get_callee_fndecl (alloc_call);
   my_friendly_assert (alloc_fn != NULL_TREE, 20020325);
 
   /* Now, check to see if this function is actually a placement
@@ -2083,6 +2097,17 @@ build_new_1 (tree exp)
     = (type_num_arguments (TREE_TYPE (alloc_fn)) > 1 
        || varargs_function_p (alloc_fn));
 
+  /* Preevaluate the placement args so that we don't reevaluate them for a
+     placement delete.  */
+  if (placement_allocation_fn_p)
+    {
+      tree inits;
+      stabilize_call (alloc_call, &inits);
+      if (inits)
+	alloc_expr = build (COMPOUND_EXPR, TREE_TYPE (alloc_expr), inits,
+			    alloc_expr);
+    }
+
   /*        unless an allocation function is declared with an empty  excep-
      tion-specification  (_except.spec_),  throw(), it indicates failure to
      allocate storage by throwing a bad_alloc exception  (clause  _except_,
@@ -2095,18 +2120,6 @@ build_new_1 (tree exp)
 
   nothrow = TYPE_NOTHROW_P (TREE_TYPE (alloc_fn));
   check_new = (flag_check_new || nothrow) && ! use_java_new;
-
-  /* In the simple case, we can stop now.  */
-  pointer_type = build_pointer_type (type);
-  if (!cookie_size && !is_initialized)
-    return build_nop (pointer_type, alloc_call);
-
-  /* While we're working, use a pointer to the type we've actually
-     allocated. Store the result of the call in a variable so that we
-     can use it more than once.  */
-  full_pointer_type = build_pointer_type (full_type);
-  alloc_expr = get_target_expr (build_nop (full_pointer_type, alloc_call));
-  alloc_node = TARGET_EXPR_SLOT (alloc_expr);
 
   if (cookie_size)
     {
@@ -2132,14 +2145,18 @@ build_new_1 (tree exp)
       data_addr = alloc_node;
     }
 
-  /* Now initialize the allocated object.  */
+  /* Now initialize the allocated object.  Note that we preevaluate the
+     initialization expression, apart from the actual constructor call or
+     assignment--we do this because we want to delay the allocation as long
+     as possible in order to minimize the size of the exception region for
+     placement delete.  */
   if (is_initialized)
     {
       init_expr = build_indirect_ref (data_addr, NULL);
 
       if (init == void_zero_node)
 	init = build_default_init (full_type, nelts);
-      else if (init && pedantic && has_array)
+      else if (init && has_array)
 	pedwarn ("ISO C++ forbids initialization in array new");
 
       if (has_array)
@@ -2149,10 +2166,13 @@ build_new_1 (tree exp)
 						integer_one_node),
 			    init, /*from_array=*/0);
       else if (TYPE_NEEDS_CONSTRUCTING (type))
-	init_expr = build_special_member_call (init_expr, 
-					       complete_ctor_identifier,
-					       init, TYPE_BINFO (true_type),
-					       LOOKUP_NORMAL);
+	{
+	  init_expr = build_special_member_call (init_expr, 
+						 complete_ctor_identifier,
+						 init, TYPE_BINFO (true_type),
+						 LOOKUP_NORMAL);
+	  stabilize_init (init_expr, &init_preeval_expr);
+	}
       else
 	{
 	  /* We are processing something like `new int (10)', which
@@ -2160,15 +2180,13 @@ build_new_1 (tree exp)
 
 	  if (TREE_CODE (init) == TREE_LIST)
 	    init = build_x_compound_expr_from_list (init, "new initializer");
-	  
+
 	  else if (TREE_CODE (init) == CONSTRUCTOR
 		   && TREE_TYPE (init) == NULL_TREE)
-	    {
-	      pedwarn ("ISO C++ forbids aggregate initializer to new");
-	      init = digest_init (type, init, 0);
-	    }
+	    abort ();
 
 	  init_expr = build_modify_expr (init_expr, INIT_EXPR, init);
+	  stabilize_init (init_expr, &init_preeval_expr);
 	}
 
       if (init_expr == error_mark_node)
@@ -2198,51 +2216,11 @@ build_new_1 (tree exp)
 					  (placement_allocation_fn_p 
 					   ? alloc_call : NULL_TREE));
 
-	  /* Ack!  First we allocate the memory.  Then we set our sentry
-	     variable to true, and expand a cleanup that deletes the memory
-	     if sentry is true.  Then we run the constructor, and finally
-	     clear the sentry.
-
-	     It would be nice to be able to handle this without the sentry
-	     variable, perhaps with a TRY_CATCH_EXPR, but this doesn't
-	     work.  We allocate the space first, so if there are any
-	     temporaries with cleanups in the constructor args we need this
-	     EH region to extend until end of full-expression to preserve
-	     nesting.
-
-	     If the backend had some mechanism so that we could force the
-	     allocation to be expanded after all the other args to the
-	     constructor, that would fix the nesting problem and we could
-	     do away with this complexity.  But that would complicate other
-	     things; in particular, it would make it difficult to bail out
-	     if the allocation function returns null.  Er, no, it wouldn't;
-	     we just don't run the constructor.  The standard says it's
-	     unspecified whether or not the args are evaluated.
-
-	     FIXME FIXME FIXME inline invisible refs as refs.  That way we
-	     can preevaluate value parameters.  */
-
+	  /* This is much simpler now that we've preevaluated all of the
+	     arguments to the constructor call.  */
 	  if (cleanup)
-	    {
-	      tree end, sentry, begin;
-
-	      begin = get_target_expr (boolean_true_node);
-	      CLEANUP_EH_ONLY (begin) = 1;
-
-	      sentry = TARGET_EXPR_SLOT (begin);
-
-	      TARGET_EXPR_CLEANUP (begin)
-		= build (COND_EXPR, void_type_node, sentry,
-			 cleanup, void_zero_node);
-
-	      end = build (MODIFY_EXPR, TREE_TYPE (sentry),
-			   sentry, boolean_false_node);
-
-	      init_expr
-		= build (COMPOUND_EXPR, void_type_node, begin,
-			 build (COMPOUND_EXPR, void_type_node, init_expr,
-				end));
-	    }
+	    init_expr = build (TRY_CATCH_EXPR, void_type_node,
+			       init_expr, cleanup);
 	}
     }
   else
@@ -2274,6 +2252,9 @@ build_new_1 (tree exp)
 	 has been initialized before we start using it.  */
       rval = build (COMPOUND_EXPR, TREE_TYPE (rval), alloc_expr, rval);
     }
+
+  if (init_preeval_expr)
+    rval = build (COMPOUND_EXPR, TREE_TYPE (rval), init_preeval_expr, rval);
 
   /* Convert to the final type.  */
   rval = build_nop (pointer_type, rval);
