@@ -1,3 +1,9 @@
+2004-01-29  Richard Henderson  <rth@redhat.com>
+
+        PR java/12906
+        * decl.c (maybe_pushlevels): Careful with TREE_CHAIN when
+        registering decls with push_jvm_slot.
+
 2003-12-10  Diego Novillo  <dnovillo@redhat.com>
 
 	* parse.y (resolve_field_access): Remove superfluous

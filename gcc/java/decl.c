@@ -1554,7 +1554,7 @@ maybe_pushlevels (int pc)
 	 DECL_LOCAL_START_PC (pending_local_decls) <= pc)
     {
       tree *ptr = &pending_local_decls;
-      tree decl = *ptr;
+      tree decl = *ptr, next;
       int end_pc = DECL_LOCAL_END_PC (decl);
 
       while (*ptr != NULL_TREE
@@ -1574,9 +1574,10 @@ maybe_pushlevels (int pc)
 
       current_binding_level->end_pc = end_pc;
       current_binding_level->start_pc = pc;      
-      current_binding_level->names = decl;
-      for ( ; decl != NULL_TREE;  decl = TREE_CHAIN (decl))
+      current_binding_level->names = NULL;
+      for ( ; decl != NULL_TREE; decl = next)
 	{
+	  next = TREE_CHAIN (decl);
 	  push_jvm_slot (DECL_LOCAL_SLOT_NUMBER (decl), decl);
 	}
     }      
