@@ -211,7 +211,7 @@ typedef struct state_ainsn_table *state_ainsn_table_t;
    function `main'.  */
 
 static void *create_node            PARAMS ((size_t));
-static void *copy_node              PARAMS ((const void *, size_t));
+static void *copy_node              PARAMS ((void *, size_t));
 static char *check_name             PARAMS ((char *, pos_t));
 static char *next_sep_el            PARAMS ((char **, int, int));
 static int n_sep_els                PARAMS ((char *, int, int));
@@ -530,7 +530,7 @@ static struct obstack irp;
 #define VLA_PTR_CREATE(vla, allocated_length, name)                   	\
   do									\
     {                                                                	\
-      vla_ptr_t *const vla_ptr = &(vla);                                \
+      vla_ptr_t *vla_ptr = &(vla);                                      \
                                                                       	\
       VARRAY_GENERIC_PTR_INIT (vla_ptr->varray, allocated_length, name);\
       vla_ptr->length = 0;                                              \
@@ -557,8 +557,8 @@ static struct obstack irp;
    undefined.  */
 #define VLA_PTR_EXPAND(vla, n)                                        \
   do {                                                                \
-    vla_ptr_t *const expand_vla_ptr = &(vla);                         \
-    const size_t new_length = (n) + expand_vla_ptr->length;           \
+    vla_ptr_t *expand_vla_ptr = &(vla);                               \
+    size_t new_length = (n) + expand_vla_ptr->length;                 \
                                                                       \
     if (VARRAY_SIZE (expand_vla_ptr->varray) < new_length)            \
       VARRAY_GROW (expand_vla_ptr->varray,                            \
@@ -570,7 +570,7 @@ static struct obstack irp;
 /* Add element to the end of the vla.  */
 #define VLA_PTR_ADD(vla, ptr)                                         \
   do {                                                                \
-    vla_ptr_t *const vla_ptr = &(vla);                                \
+    vla_ptr_t *vla_ptr = &(vla);                                      \
                                                                       \
     VLA_PTR_EXPAND (*vla_ptr, 1);                                     \
     VARRAY_GENERIC_PTR (vla_ptr->varray, vla_ptr->length - 1) = (ptr);\
@@ -588,7 +588,7 @@ static struct obstack irp;
 
 #define VLA_HWINT_CREATE(vla, allocated_length, name)                 \
   do {                                                                \
-    vla_hwint_t *const vla_ptr = &(vla);                              \
+    vla_hwint_t *vla_ptr = &(vla);                                    \
                                                                       \
     VARRAY_WIDE_INT_INIT (vla_ptr->varray, allocated_length, name);   \
     vla_ptr->length = 0;                                              \
@@ -608,8 +608,8 @@ static struct obstack irp;
 
 #define VLA_HWINT_EXPAND(vla, n)                                      \
   do {                                                                \
-    vla_hwint_t *const expand_vla_ptr = &(vla);                       \
-    const size_t new_length = (n) + expand_vla_ptr->length;           \
+    vla_hwint_t *expand_vla_ptr = &(vla);                             \
+    size_t new_length = (n) + expand_vla_ptr->length;                 \
                                                                       \
     if (VARRAY_SIZE (expand_vla_ptr->varray) < new_length)            \
       VARRAY_GROW (expand_vla_ptr->varray,                            \
@@ -620,7 +620,7 @@ static struct obstack irp;
 
 #define VLA_HWINT_ADD(vla, ptr)                                       \
   do {                                                                \
-    vla_hwint_t *const vla_ptr = &(vla);                              \
+    vla_hwint_t *vla_ptr = &(vla);                                    \
                                                                       \
     VLA_HWINT_EXPAND (*vla_ptr, 1);                                   \
     VARRAY_WIDE_INT (vla_ptr->varray, vla_ptr->length - 1) = (ptr);   \
@@ -1238,228 +1238,6 @@ struct state_ainsn_table
   int min_base_vect_el_value, max_base_vect_el_value;
 };
 
-/* Macros to access members of unions.  Use only them for access to
-   union members of declarations and regexps.  */
-
-#if defined ENABLE_CHECKING && (GCC_VERSION >= 2007)
-
-#define DECL_UNIT(d) __extension__					\
-(({ struct decl *const _decl = (d);					\
-     if (_decl->mode != dm_unit)					\
-       decl_mode_check_failed (_decl->mode, "dm_unit",			\
-			       __FILE__, __LINE__, __FUNCTION__);	\
-     &(_decl)->decl.unit; }))
-
-#define DECL_BYPASS(d) __extension__					\
-(({ struct decl *const _decl = (d);					\
-     if (_decl->mode != dm_bypass)					\
-       decl_mode_check_failed (_decl->mode, "dm_bypass",		\
-			       __FILE__, __LINE__, __FUNCTION__);	\
-     &(_decl)->decl.bypass; }))
-
-#define DECL_AUTOMATON(d) __extension__					\
-(({ struct decl *const _decl = (d);				       	\
-     if (_decl->mode != dm_automaton)					\
-       decl_mode_check_failed (_decl->mode, "dm_automaton",		\
-			       __FILE__, __LINE__, __FUNCTION__);	\
-     &(_decl)->decl.automaton; }))
-
-#define DECL_EXCL(d) __extension__					\
-(({ struct decl *const _decl = (d);				       	\
-     if (_decl->mode != dm_excl)					\
-       decl_mode_check_failed (_decl->mode, "dm_excl",			\
-			       __FILE__, __LINE__, __FUNCTION__);	\
-     &(_decl)->decl.excl; }))
-
-#define DECL_PRESENCE(d) __extension__					\
-(({ struct decl *const _decl = (d);					\
-     if (_decl->mode != dm_presence)					\
-       decl_mode_check_failed (_decl->mode, "dm_presence",		\
-			       __FILE__, __LINE__, __FUNCTION__);	\
-     &(_decl)->decl.presence; }))
-
-#define DECL_ABSENCE(d) __extension__					\
-(({ struct decl *const _decl = (d);				       	\
-     if (_decl->mode != dm_absence)					\
-       decl_mode_check_failed (_decl->mode, "dm_absence",		\
-			       __FILE__, __LINE__, __FUNCTION__);	\
-     &(_decl)->decl.absence; }))
-
-#define DECL_RESERV(d) __extension__					\
-(({ struct decl *const _decl = (d);					\
-     if (_decl->mode != dm_reserv)					\
-       decl_mode_check_failed (_decl->mode, "dm_reserv",		\
-			       __FILE__, __LINE__, __FUNCTION__);	\
-     &(_decl)->decl.reserv; }))
-
-#define DECL_INSN_RESERV(d) __extension__				\
-(({ struct decl *const _decl = (d);				       	\
-     if (_decl->mode != dm_insn_reserv)					\
-       decl_mode_check_failed (_decl->mode, "dm_insn_reserv",		\
-			       __FILE__, __LINE__, __FUNCTION__);	\
-     &(_decl)->decl.insn_reserv; }))
-
-static const char *decl_name PARAMS ((enum decl_mode));
-static void decl_mode_check_failed PARAMS ((enum decl_mode, const char *,
-					    const char *, int, const char *));
-
-/* Return string representation of declaration mode MODE.  */
-static const char *
-decl_name (mode)
-     enum decl_mode mode;
-{
-  static char str [100];
-
-  if (mode == dm_unit)
-    return "dm_unit";
-  else if (mode == dm_bypass)
-    return "dm_bypass";
-  else if (mode == dm_automaton)
-    return "dm_automaton";
-  else if (mode == dm_excl)
-    return "dm_excl";
-  else if (mode == dm_presence)
-    return "dm_presence";
-  else if (mode == dm_absence)
-    return "dm_absence";
-  else if (mode == dm_reserv)
-    return "dm_reserv";
-  else if (mode == dm_insn_reserv)
-    return "dm_insn_reserv";
-  else
-    sprintf (str, "unknown (%d)", (int) mode);
-  return str;
-}
-
-/* The function prints message about unexpected declaration and finish
-   the program.  */
-static void
-decl_mode_check_failed (mode, expected_mode_str, file, line, func)
-     enum decl_mode mode;
-     const char *expected_mode_str;
-     const char *file;
-     int line;
-     const char *func;
-{
-  fprintf
-    (stderr,
-     "\n%s: %d: error in %s: DECL check: expected decl %s, have %s\n",
-     file, line, func, expected_mode_str, decl_name (mode));
-  exit (1);
-}
-
-
-#define REGEXP_UNIT(r) __extension__					\
-(({ struct regexp *const _regexp = (r);					\
-     if (_regexp->mode != rm_unit)					\
-       regexp_mode_check_failed (_regexp->mode, "rm_unit",		\
-			       __FILE__, __LINE__, __FUNCTION__);	\
-     &(_regexp)->regexp.unit; }))
-
-#define REGEXP_RESERV(r) __extension__					\
-(({ struct regexp *const _regexp = (r);					\
-     if (_regexp->mode != rm_reserv)					\
-       regexp_mode_check_failed (_regexp->mode, "rm_reserv",		\
-			       __FILE__, __LINE__, __FUNCTION__);	\
-     &(_regexp)->regexp.reserv; }))
-
-#define REGEXP_SEQUENCE(r) __extension__				\
-(({ struct regexp *const _regexp = (r);					\
-     if (_regexp->mode != rm_sequence)					\
-       regexp_mode_check_failed (_regexp->mode, "rm_sequence",		\
-			       __FILE__, __LINE__, __FUNCTION__);	\
-     &(_regexp)->regexp.sequence; }))
-
-#define REGEXP_REPEAT(r) __extension__					\
-(({ struct regexp *const _regexp = (r);					\
-     if (_regexp->mode != rm_repeat)					\
-       regexp_mode_check_failed (_regexp->mode, "rm_repeat",		\
-			       __FILE__, __LINE__, __FUNCTION__);	\
-     &(_regexp)->regexp.repeat; }))
-
-#define REGEXP_ALLOF(r) __extension__					\
-(({ struct regexp *const _regexp = (r);					\
-     if (_regexp->mode != rm_allof)					\
-       regexp_mode_check_failed (_regexp->mode, "rm_allof",		\
-			       __FILE__, __LINE__, __FUNCTION__);	\
-     &(_regexp)->regexp.allof; }))
-
-#define REGEXP_ONEOF(r) __extension__					\
-(({ struct regexp *const _regexp = (r);					\
-     if (_regexp->mode != rm_oneof)					\
-       regexp_mode_check_failed (_regexp->mode, "rm_oneof",		\
-			       __FILE__, __LINE__, __FUNCTION__);	\
-     &(_regexp)->regexp.oneof; }))
-
-static const char *regexp_name PARAMS ((enum regexp_mode));
-static void regexp_mode_check_failed PARAMS ((enum regexp_mode, const char *,
-					      const char *, int,
-					      const char *));
-
-
-/* Return string representation of regexp mode MODE.  */
-static const char *
-regexp_name (mode)
-     enum regexp_mode mode;
-{
-  static char str [100];
-
-  if (mode == rm_unit)
-    return "rm_unit";
-  else if (mode == rm_reserv)
-    return "rm_reserv";
-  else if (mode == rm_nothing)
-    return "rm_nothing";
-  else if (mode == rm_sequence)
-    return "rm_sequence";
-  else if (mode == rm_repeat)
-    return "rm_repeat";
-  else if (mode == rm_allof)
-    return "rm_allof";
-  else if (mode == rm_oneof)
-    return "rm_oneof";
-  else
-    sprintf (str, "unknown (%d)", (int) mode);
-  return str;
-}
-
-/* The function prints message about unexpected regexp and finish the
-   program.  */
-static void
-regexp_mode_check_failed (mode, expected_mode_str, file, line, func)
-     enum regexp_mode mode;
-     const char *expected_mode_str;
-     const char *file;
-     int line;
-     const char *func;
-{
-  fprintf
-    (stderr,
-     "\n%s: %d: error in %s: REGEXP check: expected decl %s, have %s\n",
-     file, line, func, expected_mode_str, regexp_name (mode));
-  exit (1);
-}
-
-#else /* #if defined ENABLE_RTL_CHECKING && (GCC_VERSION >= 2007) */
-
-#define DECL_UNIT(d) (&(d)->decl.unit)
-#define DECL_BYPASS(d) (&(d)->decl.bypass)
-#define DECL_AUTOMATON(d) (&(d)->decl.automaton)
-#define DECL_EXCL(d) (&(d)->decl.excl)
-#define DECL_PRESENCE(d) (&(d)->decl.presence)
-#define DECL_ABSENCE(d) (&(d)->decl.absence)
-#define DECL_RESERV(d) (&(d)->decl.reserv)
-#define DECL_INSN_RESERV(d) (&(d)->decl.insn_reserv)
-
-#define REGEXP_UNIT(r) (&(r)->regexp.unit)
-#define REGEXP_RESERV(r) (&(r)->regexp.reserv)
-#define REGEXP_SEQUENCE(r) (&(r)->regexp.sequence)
-#define REGEXP_REPEAT(r) (&(r)->regexp.repeat)
-#define REGEXP_ALLOF(r) (&(r)->regexp.allof)
-#define REGEXP_ONEOF(r) (&(r)->regexp.oneof)
-
-#endif /* #if defined ENABLE_RTL_CHECKING && (GCC_VERSION >= 2007) */
-
 /* Create IR structure (node).  */
 static void *
 create_node (size)
@@ -1478,10 +1256,11 @@ create_node (size)
 /* Copy IR structure (node).  */
 static void *
 copy_node (from, size)
-     const void *from;
+     void *from;
      size_t size;
 {
-  void *const result = create_node (size);
+  void *result;
+  result = create_node (size);
   memcpy (result, from, size);
   return result;
 }
@@ -1492,7 +1271,7 @@ check_name (name, pos)
      char * name;
      pos_t pos ATTRIBUTE_UNUSED;
 {
-  const char *str;
+  char *str;
 
   for (str = name; *str != '\0'; str++)
     if (*str == '\"')
@@ -1633,9 +1412,9 @@ gen_cpu_unit (def)
       decl = create_node (sizeof (struct decl));
       decl->mode = dm_unit;
       decl->pos = 0;
-      DECL_UNIT (decl)->name = check_name (str_cpu_units [i], decl->pos);
-      DECL_UNIT (decl)->automaton_name = (char *) XSTR (def, 1);
-      DECL_UNIT (decl)->query_p = 0;
+      decl->decl.unit.name = check_name (str_cpu_units [i], decl->pos);
+      decl->decl.unit.automaton_name = (char *) XSTR (def, 1);
+      decl->decl.unit.query_p = 0;
       VLA_PTR_ADD (decls, decl);
       num_dfa_decls++;
     }
@@ -1662,9 +1441,9 @@ gen_query_cpu_unit (def)
       decl = create_node (sizeof (struct decl));
       decl->mode = dm_unit;
       decl->pos = 0;
-      DECL_UNIT (decl)->name = check_name (str_cpu_units [i], decl->pos);
-      DECL_UNIT (decl)->automaton_name = (char *) XSTR (def, 1);
-      DECL_UNIT (decl)->query_p = 1;
+      decl->decl.unit.name = check_name (str_cpu_units [i], decl->pos);
+      decl->decl.unit.automaton_name = (char *) XSTR (def, 1);
+      decl->decl.unit.query_p = 1;
       VLA_PTR_ADD (decls, decl);
       num_dfa_decls++;
     }
@@ -1698,10 +1477,10 @@ gen_bypass (def)
 	decl = create_node (sizeof (struct decl));
 	decl->mode = dm_bypass;
 	decl->pos = 0;
-	DECL_BYPASS (decl)->latency = XINT (def, 0);
-	DECL_BYPASS (decl)->out_insn_name = out_insns [i];
-	DECL_BYPASS (decl)->in_insn_name = in_insns [j];
-	DECL_BYPASS (decl)->bypass_guard_name = (char *) XSTR (def, 3);
+	decl->decl.bypass.latency = XINT (def, 0);
+	decl->decl.bypass.out_insn_name = out_insns [i];
+	decl->decl.bypass.in_insn_name = in_insns [j];
+	decl->decl.bypass.bypass_guard_name = (char *) XSTR (def, 3);
 	VLA_PTR_ADD (decls, decl);
 	num_dfa_decls++;
       }
@@ -1735,14 +1514,13 @@ gen_excl_set (def)
   decl = create_node (sizeof (struct decl) + (length - 1) * sizeof (char *));
   decl->mode = dm_excl;
   decl->pos = 0;
-  DECL_EXCL (decl)->names_num = length;
-  DECL_EXCL (decl)->first_list_length = first_vect_length;
+  decl->decl.excl.names_num = length;
+  decl->decl.excl.first_list_length = first_vect_length;
   for (i = 0; i < length; i++)
     if (i < first_vect_length)
-      DECL_EXCL (decl)->names [i] = first_str_cpu_units [i];
+      decl->decl.excl.names [i] = first_str_cpu_units [i];
     else
-      DECL_EXCL (decl)->names [i]
-	= second_str_cpu_units [i - first_vect_length];
+      decl->decl.excl.names [i] = second_str_cpu_units [i - first_vect_length];
   VLA_PTR_ADD (decls, decl);
   num_dfa_decls++;
 }
@@ -1775,13 +1553,13 @@ gen_presence_set (def)
   decl = create_node (sizeof (struct decl) + (length - 1) * sizeof (char *));
   decl->mode = dm_presence;
   decl->pos = 0;
-  DECL_PRESENCE (decl)->names_num = length;
-  DECL_PRESENCE (decl)->first_list_length = first_vect_length;
+  decl->decl.presence.names_num = length;
+  decl->decl.presence.first_list_length = first_vect_length;
   for (i = 0; i < length; i++)
     if (i < first_vect_length)
-      DECL_PRESENCE (decl)->names [i] = first_str_cpu_units [i];
+      decl->decl.presence.names [i] = first_str_cpu_units [i];
     else
-      DECL_PRESENCE (decl)->names [i]
+      decl->decl.presence.names [i]
 	= second_str_cpu_units [i - first_vect_length];
   VLA_PTR_ADD (decls, decl);
   num_dfa_decls++;
@@ -1815,13 +1593,13 @@ gen_absence_set (def)
   decl = create_node (sizeof (struct decl) + (length - 1) * sizeof (char *));
   decl->mode = dm_absence;
   decl->pos = 0;
-  DECL_ABSENCE (decl)->names_num = length;
-  DECL_ABSENCE (decl)->first_list_length = first_vect_length;
+  decl->decl.absence.names_num = length;
+  decl->decl.absence.first_list_length = first_vect_length;
   for (i = 0; i < length; i++)
     if (i < first_vect_length)
-      DECL_ABSENCE (decl)->names [i] = first_str_cpu_units [i];
+      decl->decl.absence.names [i] = first_str_cpu_units [i];
     else
-      DECL_ABSENCE (decl)->names [i]
+      decl->decl.absence.names [i]
 	= second_str_cpu_units [i - first_vect_length];
   VLA_PTR_ADD (decls, decl);
   num_dfa_decls++;
@@ -1849,7 +1627,7 @@ gen_automaton (def)
       decl = create_node (sizeof (struct decl));
       decl->mode = dm_automaton;
       decl->pos = 0;
-      DECL_AUTOMATON (decl)->name = check_name (str_automata [i], decl->pos);
+      decl->decl.automaton.name = check_name (str_automata [i], decl->pos);
       VLA_PTR_ADD (decls, decl);
       num_dfa_decls++;
     }
@@ -1909,7 +1687,7 @@ gen_regexp_el (str)
     {
       regexp = create_node (sizeof (struct decl));
       regexp->mode = rm_unit;
-      REGEXP_UNIT (regexp)->name = str;
+      regexp->regexp.unit.name = str;
     }
   return regexp;
 }
@@ -1935,9 +1713,9 @@ gen_regexp_repeat (str)
 	{
 	  repeat = create_node (sizeof (struct regexp));
 	  repeat->mode = rm_repeat;
-	  REGEXP_REPEAT (repeat)->regexp = regexp;
-	  REGEXP_REPEAT (repeat)->repeat_num = atoi (repeat_vect [i]);
-          if (REGEXP_REPEAT (repeat)->repeat_num <= 1)
+	  repeat->regexp.repeat.regexp = regexp;
+	  repeat->regexp.repeat.repeat_num = atoi (repeat_vect [i]);
+          if (repeat->regexp.repeat.repeat_num <= 1)
             fatal ("repetition `%s' <= 1 in reservation `%s'",
                    str, reserv_str);
           regexp = repeat;
@@ -1966,9 +1744,9 @@ gen_regexp_allof (str)
       allof = create_node (sizeof (struct regexp)
 			   + sizeof (regexp_t) * (els_num - 1));
       allof->mode = rm_allof;
-      REGEXP_ALLOF (allof)->regexps_num = els_num;
+      allof->regexp.allof.regexps_num = els_num;
       for (i = 0; i < els_num; i++)
-	REGEXP_ALLOF (allof)->regexps [i] = gen_regexp_repeat (allof_vect [i]);
+	allof->regexp.allof.regexps [i] = gen_regexp_repeat (allof_vect [i]);
       return allof;
     }
   else
@@ -1993,9 +1771,9 @@ gen_regexp_oneof (str)
       oneof = create_node (sizeof (struct regexp)
 			   + sizeof (regexp_t) * (els_num - 1));
       oneof->mode = rm_oneof;
-      REGEXP_ONEOF (oneof)->regexps_num = els_num;
+      oneof->regexp.oneof.regexps_num = els_num;
       for (i = 0; i < els_num; i++)
-	REGEXP_ONEOF (oneof)->regexps [i] = gen_regexp_allof (oneof_vect [i]);
+	oneof->regexp.oneof.regexps [i] = gen_regexp_allof (oneof_vect [i]);
       return oneof;
     }
   else
@@ -2018,9 +1796,9 @@ gen_regexp_sequence (str)
       sequence = create_node (sizeof (struct regexp)
 			      + sizeof (regexp_t) * (els_num - 1));
       sequence->mode = rm_sequence;
-      REGEXP_SEQUENCE (sequence)->regexps_num = els_num;
+      sequence->regexp.sequence.regexps_num = els_num;
       for (i = 0; i < els_num; i++)
-	REGEXP_SEQUENCE (sequence)->regexps [i]
+	sequence->regexp.sequence.regexps [i]
           = gen_regexp_oneof (sequence_vect [i]);
       return sequence;
     }
@@ -2051,8 +1829,8 @@ gen_reserv (def)
   decl = create_node (sizeof (struct decl));
   decl->mode = dm_reserv;
   decl->pos = 0;
-  DECL_RESERV (decl)->name = check_name ((char *) XSTR (def, 0), decl->pos);
-  DECL_RESERV (decl)->regexp = gen_regexp ((char *) XSTR (def, 1));
+  decl->decl.reserv.name = check_name ((char *) XSTR (def, 0), decl->pos);
+  decl->decl.reserv.regexp = gen_regexp ((char *) XSTR (def, 1));
   VLA_PTR_ADD (decls, decl);
   num_dfa_decls++;
 }
@@ -2071,11 +1849,10 @@ gen_insn_reserv (def)
   decl = create_node (sizeof (struct decl));
   decl->mode = dm_insn_reserv;
   decl->pos = 0;
-  DECL_INSN_RESERV (decl)->name
-    = check_name ((char *) XSTR (def, 0), decl->pos);
-  DECL_INSN_RESERV (decl)->default_latency = XINT (def, 1);
-  DECL_INSN_RESERV (decl)->condexp = XEXP (def, 2);
-  DECL_INSN_RESERV (decl)->regexp = gen_regexp ((char *) XSTR (def, 3));
+  decl->decl.insn_reserv.name = check_name ((char *) XSTR (def, 0), decl->pos);
+  decl->decl.insn_reserv.default_latency = XINT (def, 1);
+  decl->decl.insn_reserv.condexp = XEXP (def, 2);
+  decl->decl.insn_reserv.regexp = gen_regexp ((char *) XSTR (def, 3));
   VLA_PTR_ADD (decls, decl);
   num_dfa_decls++;
 }
@@ -2110,9 +1887,9 @@ automaton_decl_hash (automaton_decl)
 {
   const decl_t decl = (decl_t) automaton_decl;
 
-  if (decl->mode == dm_automaton && DECL_AUTOMATON (decl)->name == NULL)
+  if (decl->mode == dm_automaton && decl->decl.automaton.name == NULL)
     abort ();
-  return string_hash (DECL_AUTOMATON (decl)->name);
+  return string_hash (decl->decl.automaton.name);
 }
 
 /* The function tests automaton declarations on equality of their
@@ -2127,11 +1904,10 @@ automaton_decl_eq_p (automaton_decl_1, automaton_decl_2)
   const decl_t decl1 = (decl_t) automaton_decl_1;
   const decl_t decl2 = (decl_t) automaton_decl_2;
 
-  if (decl1->mode != dm_automaton || DECL_AUTOMATON (decl1)->name == NULL
-      || decl2->mode != dm_automaton || DECL_AUTOMATON (decl2)->name == NULL)
+  if (decl1->mode != dm_automaton || decl1->decl.automaton.name == NULL
+      || decl2->mode != dm_automaton || decl2->decl.automaton.name == NULL)
     abort ();
-  return strcmp (DECL_AUTOMATON (decl1)->name,
-		 DECL_AUTOMATON (decl2)->name) == 0;
+  return strcmp (decl1->decl.automaton.name, decl2->decl.automaton.name) == 0;
 }
 
 /* The automaton declaration table itself is represented by the
@@ -2170,8 +1946,7 @@ find_automaton_decl (name)
 {
   void *entry;
 
-  work_automaton_decl.mode = dm_automaton;
-  DECL_AUTOMATON (&work_automaton_decl)->name = name;
+  work_automaton_decl.decl.automaton.name = name;
   entry = htab_find (automaton_decl_table, &work_automaton_decl);
   return (decl_t) entry;
 }
@@ -2214,9 +1989,9 @@ insn_decl_hash (insn_decl)
 {
   const decl_t decl = (decl_t) insn_decl;
 
-  if (decl->mode != dm_insn_reserv || DECL_INSN_RESERV (decl)->name == NULL)
+  if (decl->mode != dm_insn_reserv || decl->decl.insn_reserv.name == NULL)
     abort ();
-  return string_hash (DECL_INSN_RESERV (decl)->name);
+  return string_hash (decl->decl.insn_reserv.name);
 }
 
 /* The function tests insn declarations on equality of their keys.
@@ -2230,12 +2005,11 @@ insn_decl_eq_p (insn_decl_1, insn_decl_2)
   const decl_t decl1 = (decl_t) insn_decl_1;
   const decl_t decl2 = (decl_t) insn_decl_2;
 
-  if (decl1->mode != dm_insn_reserv || DECL_INSN_RESERV (decl1)->name == NULL
-      || decl2->mode != dm_insn_reserv
-      || DECL_INSN_RESERV (decl2)->name == NULL)
+  if (decl1->mode != dm_insn_reserv || decl1->decl.insn_reserv.name == NULL
+      || decl2->mode != dm_insn_reserv || decl2->decl.insn_reserv.name == NULL)
     abort ();
-  return strcmp (DECL_INSN_RESERV (decl1)->name,
-                 DECL_INSN_RESERV (decl2)->name) == 0;
+  return strcmp (decl1->decl.insn_reserv.name,
+                 decl2->decl.insn_reserv.name) == 0;
 }
 
 /* The insn declaration table itself is represented by the following
@@ -2274,8 +2048,7 @@ find_insn_decl (name)
 {
   void *entry;
 
-  work_insn_decl.mode = dm_insn_reserv;
-  DECL_INSN_RESERV (&work_insn_decl)->name = name;
+  work_insn_decl.decl.insn_reserv.name = name;
   entry = htab_find (insn_decl_table, &work_insn_decl);
   return (decl_t) entry;
 }
@@ -2317,11 +2090,11 @@ decl_hash (decl)
 {
   const decl_t d = (const decl_t) decl;
 
-  if ((d->mode != dm_unit || DECL_UNIT (d)->name == NULL)
-      && (d->mode != dm_reserv || DECL_RESERV (d)->name == NULL))
+  if ((d->mode != dm_unit || d->decl.unit.name == NULL)
+      && (d->mode != dm_reserv || d->decl.reserv.name == NULL))
     abort ();
   return string_hash (d->mode == dm_unit
-		      ? DECL_UNIT (d)->name : DECL_RESERV (d)->name);
+		      ? d->decl.unit.name : d->decl.reserv.name);
 }
 
 /* The function tests declarations on equality of their keys.  The
@@ -2335,15 +2108,15 @@ decl_eq_p (decl_1, decl_2)
   const decl_t d1 = (const decl_t) decl_1;
   const decl_t d2 = (const decl_t) decl_2;
 
-  if (((d1->mode != dm_unit || DECL_UNIT (d1)->name == NULL)
-       && (d1->mode != dm_reserv || DECL_RESERV (d1)->name == NULL))
-      || ((d2->mode != dm_unit || DECL_UNIT (d2)->name == NULL)
-	  && (d2->mode != dm_reserv || DECL_RESERV (d2)->name == NULL)))
+  if (((d1->mode != dm_unit || d1->decl.unit.name == NULL)
+       && (d1->mode != dm_reserv || d1->decl.reserv.name == NULL))
+      || ((d2->mode != dm_unit || d2->decl.unit.name == NULL)
+	  && (d2->mode != dm_reserv || d2->decl.reserv.name == NULL)))
     abort ();
   return strcmp ((d1->mode == dm_unit
-                  ? DECL_UNIT (d1)->name : DECL_RESERV (d1)->name),
+                  ? d1->decl.unit.name : d1->decl.reserv.name),
                  (d2->mode == dm_unit
-                  ? DECL_UNIT (d2)->name : DECL_RESERV (d2)->name)) == 0;
+                  ? d2->decl.unit.name : d2->decl.reserv.name)) == 0;
 }
 
 /* The declaration table itself is represented by the following
@@ -2381,8 +2154,7 @@ find_decl (name)
 {
   void *entry;
 
-  work_decl.mode = dm_unit;
-  DECL_UNIT (&work_decl)->name = name;
+  work_decl.decl.unit.name = name;
   entry = htab_find (decl_table, &work_decl);
   return (decl_t) entry;
 }
@@ -2437,7 +2209,7 @@ process_excls (names, num, excl_pos)
       else
 	{
 	  new_el = create_node (sizeof (struct unit_set_el));
-	  new_el->unit_decl = DECL_UNIT (decl_in_table);
+	  new_el->unit_decl = &decl_in_table->decl.unit;
 	  new_el->next_unit_set_el = NULL;
 	  if (last_el == NULL)
 	    el_list = last_el = new_el;
@@ -2533,7 +2305,7 @@ process_presence_absence (names, num, req_pos, presence_p)
       else
 	{
 	  new_el = create_node (sizeof (struct unit_set_el));
-	  new_el->unit_decl = DECL_UNIT (decl_in_table);
+	  new_el->unit_decl = &decl_in_table->decl.unit;
 	  new_el->next_unit_set_el = NULL;
 	  if (last_el == NULL)
 	    el_list = last_el = new_el;
@@ -2699,10 +2471,10 @@ process_decls ()
 	    {
 	      if (!w_flag)
 		error ("repeated declaration of automaton `%s'",
-		       DECL_AUTOMATON (decl)->name);
+		       decl->decl.automaton.name);
 	      else
 		warning ("repeated declaration of automaton `%s'",
-			 DECL_AUTOMATON (decl)->name);
+			 decl->decl.automaton.name);
 	    }
 	}
     }
@@ -2714,64 +2486,64 @@ process_decls ()
       decl = description->decls [i];
       if (decl->mode == dm_insn_reserv)
 	{
-          DECL_INSN_RESERV (decl)->condexp
-	    = check_attr_test (DECL_INSN_RESERV (decl)->condexp, 0, 0);
-	  if (DECL_INSN_RESERV (decl)->default_latency < 0)
+          decl->decl.insn_reserv.condexp
+	    = check_attr_test (decl->decl.insn_reserv.condexp, 0, 0);
+	  if (decl->decl.insn_reserv.default_latency < 0)
 	    error ("define_insn_reservation `%s' has negative latency time",
-		   DECL_INSN_RESERV (decl)->name);
-	  DECL_INSN_RESERV (decl)->insn_num = description->insns_num;
+		   decl->decl.insn_reserv.name);
+	  decl->decl.insn_reserv.insn_num = description->insns_num;
 	  description->insns_num++;
 	  decl_in_table = insert_insn_decl (decl);
 	  if (decl_in_table != decl)
 	    error ("`%s' is already used as insn reservation name",
-		   DECL_INSN_RESERV (decl)->name);
+		   decl->decl.insn_reserv.name);
 	}
       else if (decl->mode == dm_bypass)
 	{
-	  if (DECL_BYPASS (decl)->latency < 0)
+	  if (decl->decl.bypass.latency < 0)
 	    error ("define_bypass `%s - %s' has negative latency time",
-		   DECL_BYPASS (decl)->out_insn_name,
-		   DECL_BYPASS (decl)->in_insn_name);
+		   decl->decl.bypass.out_insn_name,
+		   decl->decl.bypass.in_insn_name);
 	}
       else if (decl->mode == dm_unit || decl->mode == dm_reserv)
 	{
 	  if (decl->mode == dm_unit)
 	    {
-	      DECL_UNIT (decl)->automaton_decl = NULL;
-	      if (DECL_UNIT (decl)->automaton_name != NULL)
+	      decl->decl.unit.automaton_decl = NULL;
+	      if (decl->decl.unit.automaton_name != NULL)
 		{
 		  automaton_decl
-                    = find_automaton_decl (DECL_UNIT (decl)->automaton_name);
+                    = find_automaton_decl (decl->decl.unit.automaton_name);
 		  if (automaton_decl == NULL)
 		    error ("automaton `%s' is not declared",
-			   DECL_UNIT (decl)->automaton_name);
+			   decl->decl.unit.automaton_name);
 		  else
 		    {
-		      DECL_AUTOMATON (automaton_decl)->automaton_is_used = 1;
-		      DECL_UNIT (decl)->automaton_decl
-			= DECL_AUTOMATON (automaton_decl);
+		      automaton_decl->decl.automaton.automaton_is_used = 1;
+		      decl->decl.unit.automaton_decl
+			= &automaton_decl->decl.automaton;
 		    }
 		}
 	      else if (automaton_presence)
 		error ("define_unit `%s' without automaton when one defined",
-		       DECL_UNIT (decl)->name);
-	      DECL_UNIT (decl)->unit_num = description->units_num;
+		       decl->decl.unit.name);
+	      decl->decl.unit.unit_num = description->units_num;
 	      description->units_num++;
-	      if (strcmp (DECL_UNIT (decl)->name, NOTHING_NAME) == 0)
+	      if (strcmp (decl->decl.unit.name, NOTHING_NAME) == 0)
 		{
 		  error ("`%s' is declared as cpu unit", NOTHING_NAME);
 		  continue;
 		}
-	      decl_in_table = find_decl (DECL_UNIT (decl)->name);
+	      decl_in_table = find_decl (decl->decl.unit.name);
 	    }
 	  else
 	    {
-	      if (strcmp (DECL_RESERV (decl)->name, NOTHING_NAME) == 0)
+	      if (strcmp (decl->decl.reserv.name, NOTHING_NAME) == 0)
 		{
 		  error ("`%s' is declared as cpu reservation", NOTHING_NAME);
 		  continue;
 		}
-	      decl_in_table = find_decl (DECL_RESERV (decl)->name);
+	      decl_in_table = find_decl (decl->decl.reserv.name);
 	    }
 	  if (decl_in_table == NULL)
 	    decl_in_table = insert_decl (decl);
@@ -2779,10 +2551,10 @@ process_decls ()
 	    {
 	      if (decl->mode == dm_unit)
 		error ("repeated declaration of unit `%s'",
-		       DECL_UNIT (decl)->name);
+		       decl->decl.unit.name);
 	      else
 		error ("repeated declaration of reservation `%s'",
-		       DECL_RESERV (decl)->name);
+		       decl->decl.reserv.name);
 	    }
 	}
     }
@@ -2793,49 +2565,49 @@ process_decls ()
       decl = description->decls [i];
       if (decl->mode == dm_bypass)
 	{
-	  out_insn_reserv = find_insn_decl (DECL_BYPASS (decl)->out_insn_name);
-	  in_insn_reserv = find_insn_decl (DECL_BYPASS (decl)->in_insn_name);
+	  out_insn_reserv = find_insn_decl (decl->decl.bypass.out_insn_name);
+	  in_insn_reserv = find_insn_decl (decl->decl.bypass.in_insn_name);
 	  if (out_insn_reserv == NULL)
 	    error ("there is no insn reservation `%s'",
-		   DECL_BYPASS (decl)->out_insn_name);
+		   decl->decl.bypass.out_insn_name);
 	  else if (in_insn_reserv == NULL)
 	    error ("there is no insn reservation `%s'",
-		   DECL_BYPASS (decl)->in_insn_name);
+		   decl->decl.bypass.in_insn_name);
 	  else
 	    {
-	      DECL_BYPASS (decl)->out_insn_reserv
-		= DECL_INSN_RESERV (out_insn_reserv);
-	      DECL_BYPASS (decl)->in_insn_reserv
-		= DECL_INSN_RESERV (in_insn_reserv);
+	      decl->decl.bypass.out_insn_reserv
+		= &out_insn_reserv->decl.insn_reserv;
+	      decl->decl.bypass.in_insn_reserv
+		= &in_insn_reserv->decl.insn_reserv;
 	      bypass
-		= find_bypass (DECL_INSN_RESERV (out_insn_reserv)->bypass_list,
-			       DECL_BYPASS (decl)->in_insn_reserv);
+		= find_bypass (out_insn_reserv->decl.insn_reserv.bypass_list,
+			       decl->decl.bypass.in_insn_reserv);
 	      if (bypass != NULL)
 		{
-		  if (DECL_BYPASS (decl)->latency == bypass->latency)
+		  if (decl->decl.bypass.latency == bypass->latency)
 		    {
 		      if (!w_flag)
 			error
 			  ("the same bypass `%s - %s' is already defined",
-			   DECL_BYPASS (decl)->out_insn_name,
-			   DECL_BYPASS (decl)->in_insn_name);
+			   decl->decl.bypass.out_insn_name,
+			   decl->decl.bypass.in_insn_name);
 		      else
 			warning
 			  ("the same bypass `%s - %s' is already defined",
-			   DECL_BYPASS (decl)->out_insn_name,
-			   DECL_BYPASS (decl)->in_insn_name);
+			   decl->decl.bypass.out_insn_name,
+			   decl->decl.bypass.in_insn_name);
 		    }
 		  else
 		    error ("bypass `%s - %s' is already defined",
-			   DECL_BYPASS (decl)->out_insn_name,
-			   DECL_BYPASS (decl)->in_insn_name);
+			   decl->decl.bypass.out_insn_name,
+			   decl->decl.bypass.in_insn_name);
 		}
 	      else
 		{
-		  DECL_BYPASS (decl)->next
-		    = DECL_INSN_RESERV (out_insn_reserv)->bypass_list;
-		  DECL_INSN_RESERV (out_insn_reserv)->bypass_list
-		    = DECL_BYPASS (decl);
+		  decl->decl.bypass.next
+		    = out_insn_reserv->decl.insn_reserv.bypass_list;
+		  out_insn_reserv->decl.insn_reserv.bypass_list
+		    = &decl->decl.bypass;
 		}
 	    }
 	}
@@ -2851,13 +2623,13 @@ process_decls ()
 	  unit_set_el_t unit_set_el_list_2;
 	  
 	  unit_set_el_list
-            = process_excls (DECL_EXCL (decl)->names,
-			     DECL_EXCL (decl)->first_list_length, decl->pos);
+            = process_excls (decl->decl.excl.names,
+			     decl->decl.excl.first_list_length, decl->pos);
 	  unit_set_el_list_2
-	    = process_excls (&DECL_EXCL (decl)->names
-			     [DECL_EXCL (decl)->first_list_length],
-                             DECL_EXCL (decl)->names_num
-                             - DECL_EXCL (decl)->first_list_length,
+	    = process_excls (&decl->decl.excl.names
+			     [decl->decl.excl.first_list_length],
+                             decl->decl.excl.names_num
+                             - decl->decl.excl.first_list_length,
                              decl->pos);
 	  add_excls (unit_set_el_list, unit_set_el_list_2, decl->pos);
 	  add_excls (unit_set_el_list_2, unit_set_el_list, decl->pos);
@@ -2875,14 +2647,14 @@ process_decls ()
 	  
 	  unit_set_el_list
             = process_presence_absence
-	      (DECL_PRESENCE (decl)->names,
-	       DECL_PRESENCE (decl)->first_list_length, decl->pos, 1);
+	      (decl->decl.presence.names,
+	       decl->decl.presence.first_list_length, decl->pos, 1);
 	  unit_set_el_list_2
 	    = process_presence_absence
-	      (&DECL_PRESENCE (decl)->names
-	       [DECL_PRESENCE (decl)->first_list_length],
-	       DECL_PRESENCE (decl)->names_num
-	       - DECL_PRESENCE (decl)->first_list_length,
+	      (&decl->decl.presence.names
+	       [decl->decl.presence.first_list_length],
+	       decl->decl.presence.names_num
+	       - decl->decl.presence.first_list_length,
 	       decl->pos, 1);
 	  add_presence_absence (unit_set_el_list, unit_set_el_list_2,
 				decl->pos, 1);
@@ -2900,14 +2672,14 @@ process_decls ()
 	  
 	  unit_set_el_list
             = process_presence_absence
-	      (DECL_ABSENCE (decl)->names,
-	       DECL_ABSENCE (decl)->first_list_length, decl->pos, 0);
+	      (decl->decl.presence.names,
+	       decl->decl.presence.first_list_length, decl->pos, 0);
 	  unit_set_el_list_2
 	    = process_presence_absence
-	      (&DECL_ABSENCE (decl)->names
-	       [DECL_ABSENCE (decl)->first_list_length],
-	       DECL_ABSENCE (decl)->names_num
-	       - DECL_ABSENCE (decl)->first_list_length,
+	      (&decl->decl.presence.names
+	       [decl->decl.presence.first_list_length],
+	       decl->decl.presence.names_num
+	       - decl->decl.presence.first_list_length,
 	       decl->pos, 0);
 	  add_presence_absence (unit_set_el_list, unit_set_el_list_2,
 				decl->pos, 0);
@@ -2928,13 +2700,12 @@ check_automaton_usage ()
     {
       decl = description->decls [i];
       if (decl->mode == dm_automaton
-	  && !DECL_AUTOMATON (decl)->automaton_is_used)
+	  && !decl->decl.automaton.automaton_is_used)
 	{
 	  if (!w_flag)
-	    error ("automaton `%s' is not used", DECL_AUTOMATON (decl)->name);
+	    error ("automaton `%s' is not used", decl->decl.automaton.name);
 	  else
-	    warning ("automaton `%s' is not used",
-		     DECL_AUTOMATON (decl)->name);
+	    warning ("automaton `%s' is not used", decl->decl.automaton.name);
 	}
     }
 }
@@ -2954,44 +2725,43 @@ process_regexp (regexp)
     
   if (regexp->mode == rm_unit)
     {
-      decl_in_table = find_decl (REGEXP_UNIT (regexp)->name);
+      decl_in_table = find_decl (regexp->regexp.unit.name);
       if (decl_in_table == NULL)
         error ("undeclared unit or reservation `%s'",
-	       REGEXP_UNIT (regexp)->name);
+	       regexp->regexp.unit.name);
       else if (decl_in_table->mode == dm_unit)
 	{
-	  DECL_UNIT (decl_in_table)->unit_is_used = 1;
-	  REGEXP_UNIT (regexp)->unit_decl = DECL_UNIT (decl_in_table);
+	  decl_in_table->decl.unit.unit_is_used = 1;
+	  regexp->regexp.unit.unit_decl = &decl_in_table->decl.unit;
 	}
       else if (decl_in_table->mode == dm_reserv)
 	{
-	  DECL_RESERV (decl_in_table)->reserv_is_used = 1;
+	  decl_in_table->decl.reserv.reserv_is_used = 1;
 	  new_regexp = create_node (sizeof (struct regexp));
 	  new_regexp->mode = rm_reserv;
 	  new_regexp->pos = regexp->pos;
-	  REGEXP_RESERV (new_regexp)->name = REGEXP_UNIT (regexp)->name;
-	  REGEXP_RESERV (new_regexp)->reserv_decl
-	    = DECL_RESERV (decl_in_table);
+	  new_regexp->regexp.reserv.name = regexp->regexp.unit.name;
+	  new_regexp->regexp.reserv.reserv_decl = &decl_in_table->decl.reserv;
 	  regexp = new_regexp;
 	}
       else
 	abort ();
     }
   else if (regexp->mode == rm_sequence)
-    for (i = 0; i <REGEXP_SEQUENCE (regexp)->regexps_num; i++)
-     REGEXP_SEQUENCE (regexp)->regexps [i]
-	= process_regexp (REGEXP_SEQUENCE (regexp)->regexps [i]);
+    for (i = 0; i < regexp->regexp.sequence.regexps_num; i++)
+      regexp->regexp.sequence.regexps [i]
+	= process_regexp (regexp->regexp.sequence.regexps [i]);
   else if (regexp->mode == rm_allof)
-    for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
-      REGEXP_ALLOF (regexp)->regexps [i]
-        = process_regexp (REGEXP_ALLOF (regexp)->regexps [i]);
+    for (i = 0; i < regexp->regexp.allof.regexps_num; i++)
+      regexp->regexp.allof.regexps [i]
+        = process_regexp (regexp->regexp.allof.regexps [i]);
   else if (regexp->mode == rm_oneof)
-    for (i = 0; i < REGEXP_ONEOF (regexp)->regexps_num; i++)
-      REGEXP_ONEOF (regexp)->regexps [i]
-	= process_regexp (REGEXP_ONEOF (regexp)->regexps [i]);
+    for (i = 0; i < regexp->regexp.oneof.regexps_num; i++)
+      regexp->regexp.oneof.regexps [i]
+	= process_regexp (regexp->regexp.oneof.regexps [i]);
   else if (regexp->mode == rm_repeat)
-    REGEXP_REPEAT (regexp)->regexp
-      = process_regexp (REGEXP_REPEAT (regexp)->regexp);
+    regexp->regexp.repeat.regexp
+      = process_regexp (regexp->regexp.repeat.regexp);
   else if (regexp->mode != rm_nothing)
     abort ();
   return regexp;
@@ -3010,11 +2780,10 @@ process_regexp_decls ()
     {
       decl = description->decls [i];
       if (decl->mode == dm_reserv)
-	DECL_RESERV (decl)->regexp
-	  = process_regexp (DECL_RESERV (decl)->regexp);
+	decl->decl.reserv.regexp = process_regexp (decl->decl.reserv.regexp);
       else if (decl->mode == dm_insn_reserv)
-	DECL_INSN_RESERV (decl)->regexp
-	  = process_regexp (DECL_INSN_RESERV (decl)->regexp);
+	decl->decl.insn_reserv.regexp
+	  = process_regexp (decl->decl.insn_reserv.regexp);
     }
 }
 
@@ -3031,19 +2800,19 @@ check_usage ()
   for (i = 0; i < description->decls_num; i++)
     {
       decl = description->decls [i];
-      if (decl->mode == dm_unit && !DECL_UNIT (decl)->unit_is_used)
+      if (decl->mode == dm_unit && !decl->decl.unit.unit_is_used)
 	{
 	  if (!w_flag)
-	    error ("unit `%s' is not used", DECL_UNIT (decl)->name);
+	    error ("unit `%s' is not used", decl->decl.unit.name);
 	  else
-	    warning ("unit `%s' is not used", DECL_UNIT (decl)->name);
+	    warning ("unit `%s' is not used", decl->decl.unit.name);
 	}
-      else if (decl->mode == dm_reserv && !DECL_RESERV (decl)->reserv_is_used)
+      else if (decl->mode == dm_reserv && !decl->decl.reserv.reserv_is_used)
 	{
 	  if (!w_flag)
-	    error ("reservation `%s' is not used", DECL_RESERV (decl)->name);
+	    error ("reservation `%s' is not used", decl->decl.reserv.name);
 	  else
-	    warning ("reservation `%s' is not used", DECL_RESERV (decl)->name);
+	    warning ("reservation `%s' is not used", decl->decl.reserv.name);
 	}
     }
 }
@@ -3069,43 +2838,43 @@ loop_in_regexp (regexp, start_decl)
   else if (regexp->mode == rm_reserv)
     {
       if (start_decl->mode == dm_reserv
-          && REGEXP_RESERV (regexp)->reserv_decl == DECL_RESERV (start_decl))
+          && regexp->regexp.reserv.reserv_decl == &start_decl->decl.reserv)
         return 1;
-      else if (REGEXP_RESERV (regexp)->reserv_decl->loop_pass_num
+      else if (regexp->regexp.reserv.reserv_decl->loop_pass_num
 	       == curr_loop_pass_num)
         /* declaration has been processed.  */
         return 0;
       else
         {
-	  REGEXP_RESERV (regexp)->reserv_decl->loop_pass_num
+	  regexp->regexp.reserv.reserv_decl->loop_pass_num
             = curr_loop_pass_num;
-          return loop_in_regexp (REGEXP_RESERV (regexp)->reserv_decl->regexp,
+          return loop_in_regexp (regexp->regexp.reserv.reserv_decl->regexp,
                                  start_decl);
         }
     }
   else if (regexp->mode == rm_sequence)
     {
-      for (i = 0; i <REGEXP_SEQUENCE (regexp)->regexps_num; i++)
-	if (loop_in_regexp (REGEXP_SEQUENCE (regexp)->regexps [i], start_decl))
+      for (i = 0; i < regexp->regexp.sequence.regexps_num; i++)
+	if (loop_in_regexp (regexp->regexp.sequence.regexps [i], start_decl))
 	  return 1;
       return 0;
     }
   else if (regexp->mode == rm_allof)
     {
-      for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
-	if (loop_in_regexp (REGEXP_ALLOF (regexp)->regexps [i], start_decl))
+      for (i = 0; i < regexp->regexp.allof.regexps_num; i++)
+	if (loop_in_regexp (regexp->regexp.allof.regexps [i], start_decl))
 	  return 1;
       return 0;
     }
   else if (regexp->mode == rm_oneof)
     {
-      for (i = 0; i < REGEXP_ONEOF (regexp)->regexps_num; i++)
-	if (loop_in_regexp (REGEXP_ONEOF (regexp)->regexps [i], start_decl))
+      for (i = 0; i < regexp->regexp.oneof.regexps_num; i++)
+	if (loop_in_regexp (regexp->regexp.oneof.regexps [i], start_decl))
 	  return 1;
       return 0;
     }
   else if (regexp->mode == rm_repeat)
-    return loop_in_regexp (REGEXP_REPEAT (regexp)->regexp, start_decl);
+    return loop_in_regexp (regexp->regexp.repeat.regexp, start_decl);
   else
     {
       if (regexp->mode != rm_nothing)
@@ -3126,7 +2895,7 @@ check_loops_in_regexps ()
     {
       decl = description->decls [i];
       if (decl->mode == dm_reserv)
-	DECL_RESERV (decl)->loop_pass_num = 0;
+	decl->decl.reserv.loop_pass_num = 0;
     }
   for (i = 0; i < description->decls_num; i++)
     {
@@ -3135,13 +2904,13 @@ check_loops_in_regexps ()
       
       if (decl->mode == dm_reserv)
 	  {
-	    DECL_RESERV (decl)->loop_pass_num = curr_loop_pass_num;
-	    if (loop_in_regexp (DECL_RESERV (decl)->regexp, decl))
+	    decl->decl.reserv.loop_pass_num = curr_loop_pass_num;
+	    if (loop_in_regexp (decl->decl.reserv.regexp, decl))
 	      {
-		if (DECL_RESERV (decl)->regexp == NULL)
+		if (decl->decl.reserv.regexp == NULL)
 		  abort ();
 		error ("cycle in definition of reservation `%s'",
-		       DECL_RESERV (decl)->name);
+		       decl->decl.reserv.name);
 	      }
 	  }
     }
@@ -3159,25 +2928,25 @@ process_regexp_cycles (regexp, start_cycle)
 
   if (regexp->mode == rm_unit)
     {
-      if (REGEXP_UNIT (regexp)->unit_decl->max_occ_cycle_num < start_cycle)
-	REGEXP_UNIT (regexp)->unit_decl->max_occ_cycle_num = start_cycle;
+      if (regexp->regexp.unit.unit_decl->max_occ_cycle_num < start_cycle)
+	regexp->regexp.unit.unit_decl->max_occ_cycle_num = start_cycle;
       return start_cycle;
     }
   else if (regexp->mode == rm_reserv)
-    return process_regexp_cycles (REGEXP_RESERV (regexp)->reserv_decl->regexp,
+    return process_regexp_cycles (regexp->regexp.reserv.reserv_decl->regexp,
                                   start_cycle);
   else if (regexp->mode == rm_repeat)
     {
-      for (i = 0; i < REGEXP_REPEAT (regexp)->repeat_num; i++)
-        start_cycle = process_regexp_cycles (REGEXP_REPEAT (regexp)->regexp,
+      for (i = 0; i < regexp->regexp.repeat.repeat_num; i++)
+        start_cycle = process_regexp_cycles (regexp->regexp.repeat.regexp,
 					     start_cycle) + 1;
       return start_cycle;
     }
   else if (regexp->mode == rm_sequence)
     {
-      for (i = 0; i <REGEXP_SEQUENCE (regexp)->regexps_num; i++)
+      for (i = 0; i < regexp->regexp.sequence.regexps_num; i++)
 	start_cycle
-          = process_regexp_cycles (REGEXP_SEQUENCE (regexp)->regexps [i],
+          = process_regexp_cycles (regexp->regexp.sequence.regexps [i],
 				   start_cycle) + 1;
       return start_cycle;
     }
@@ -3186,9 +2955,9 @@ process_regexp_cycles (regexp, start_cycle)
       int finish_cycle = 0;
       int cycle;
 
-      for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
+      for (i = 0; i < regexp->regexp.allof.regexps_num; i++)
 	{
-	  cycle = process_regexp_cycles (REGEXP_ALLOF (regexp)->regexps [i],
+	  cycle = process_regexp_cycles (regexp->regexp.allof.regexps [i],
 					 start_cycle);
 	  if (finish_cycle < cycle)
 	    finish_cycle = cycle;
@@ -3200,9 +2969,9 @@ process_regexp_cycles (regexp, start_cycle)
       int finish_cycle = 0;
       int cycle;
 
-      for (i = 0; i < REGEXP_ONEOF (regexp)->regexps_num; i++)
+      for (i = 0; i < regexp->regexp.oneof.regexps_num; i++)
 	{
-	  cycle = process_regexp_cycles (REGEXP_ONEOF (regexp)->regexps [i],
+	  cycle = process_regexp_cycles (regexp->regexp.oneof.regexps [i],
 					 start_cycle);
 	  if (finish_cycle < cycle)
 	    finish_cycle = cycle;
@@ -3233,7 +3002,7 @@ evaluate_max_reserv_cycles ()
       if (decl->mode == dm_insn_reserv)
       {
         max_insn_cycles_num
-          = process_regexp_cycles (DECL_INSN_RESERV (decl)->regexp, 0);
+          = process_regexp_cycles (decl->decl.insn_reserv.regexp, 0);
         if (description->max_insn_reserv_cycles < max_insn_cycles_num)
 	  description->max_insn_reserv_cycles = max_insn_cycles_num;
       }
@@ -3379,10 +3148,9 @@ add_advance_cycle_insn_decl ()
   advance_cycle_insn_decl = create_node (sizeof (struct decl));
   advance_cycle_insn_decl->mode = dm_insn_reserv;
   advance_cycle_insn_decl->pos = no_pos;
-  DECL_INSN_RESERV (advance_cycle_insn_decl)->regexp = NULL;
-  DECL_INSN_RESERV (advance_cycle_insn_decl)->name = (char *) "$advance_cycle";
-  DECL_INSN_RESERV (advance_cycle_insn_decl)->insn_num
-    = description->insns_num;
+  advance_cycle_insn_decl->decl.insn_reserv.regexp = NULL;
+  advance_cycle_insn_decl->decl.insn_reserv.name = (char *) "$advance_cycle";
+  advance_cycle_insn_decl->decl.insn_reserv.insn_num = description->insns_num;
   description->decls [description->decls_num] = advance_cycle_insn_decl;
   description->decls_num++;
   description->insns_num++;
@@ -4145,7 +3913,7 @@ initiate_states ()
     {
       decl = description->decls [i];
       if (decl->mode == dm_unit)
-	units_array [DECL_UNIT (decl)->unit_num] = DECL_UNIT (decl);
+	units_array [decl->decl.unit.unit_num] = &decl->decl.unit;
     }
   max_cycles_num = description->max_insn_reserv_cycles;
   els_in_cycle_reserv
@@ -4495,11 +4263,11 @@ initiate_excl_sets ()
 	  unit_excl_set = (reserv_sets_t) obstack_base (&irp);
 	  obstack_finish (&irp);
 	  memset (unit_excl_set, 0, els_in_cycle_reserv * sizeof (set_el_t));
-	  for (el = DECL_UNIT (decl)->excl_list;
+	  for (el = decl->decl.unit.excl_list;
 	       el != NULL;
 	       el = el->next_unit_set_el)
             SET_BIT (unit_excl_set, el->unit_decl->unit_num);
-          unit_excl_set_table [DECL_UNIT (decl)->unit_num] = unit_excl_set;
+          unit_excl_set_table [decl->decl.unit.unit_num] = unit_excl_set;
         }
     }
 }
@@ -4581,21 +4349,21 @@ initiate_presence_absence_sets ()
 	  unit_set = (reserv_sets_t) obstack_base (&irp);
 	  obstack_finish (&irp);
 	  memset (unit_set, 0, els_in_cycle_reserv * sizeof (set_el_t));
-	  for (el = DECL_UNIT (decl)->presence_list;
+	  for (el = decl->decl.unit.presence_list;
 	       el != NULL;
 	       el = el->next_unit_set_el)
             SET_BIT (unit_set, el->unit_decl->unit_num);
-          unit_presence_set_table [DECL_UNIT (decl)->unit_num] = unit_set;
+          unit_presence_set_table [decl->decl.unit.unit_num] = unit_set;
 
 	  obstack_blank (&irp, els_in_cycle_reserv * sizeof (set_el_t));
 	  unit_set = (reserv_sets_t) obstack_base (&irp);
 	  obstack_finish (&irp);
 	  memset (unit_set, 0, els_in_cycle_reserv * sizeof (set_el_t));
-	  for (el = DECL_UNIT (decl)->absence_list;
+	  for (el = decl->decl.unit.absence_list;
 	       el != NULL;
 	       el = el->next_unit_set_el)
             SET_BIT (unit_set, el->unit_decl->unit_num);
-          unit_absence_set_table [DECL_UNIT (decl)->unit_num] = unit_set;
+          unit_absence_set_table [decl->decl.unit.unit_num] = unit_set;
         }
     }
 }
@@ -4658,41 +4426,41 @@ copy_insn_regexp (regexp)
   int i;
 
   if (regexp->mode == rm_reserv)
-    result = copy_insn_regexp (REGEXP_RESERV (regexp)->reserv_decl->regexp);
+    result = copy_insn_regexp (regexp->regexp.reserv.reserv_decl->regexp);
   else if (regexp->mode == rm_unit)
     result = copy_node (regexp, sizeof (struct regexp));
   else if (regexp->mode == rm_repeat)
     {
       result = copy_node (regexp, sizeof (struct regexp));
-      REGEXP_REPEAT (result)->regexp
-        = copy_insn_regexp (REGEXP_REPEAT (regexp)->regexp);
+      result->regexp.repeat.regexp
+        = copy_insn_regexp (regexp->regexp.repeat.regexp);
     }
   else if (regexp->mode == rm_sequence)
     {
       result = copy_node (regexp,
                           sizeof (struct regexp) + sizeof (regexp_t)
-			  * (REGEXP_SEQUENCE (regexp)->regexps_num - 1));
-      for (i = 0; i <REGEXP_SEQUENCE (regexp)->regexps_num; i++)
-	REGEXP_SEQUENCE (result)->regexps [i]
-	  = copy_insn_regexp (REGEXP_SEQUENCE (regexp)->regexps [i]);
+			  * (regexp->regexp.sequence.regexps_num - 1));
+      for (i = 0; i < regexp->regexp.sequence.regexps_num; i++)
+	result->regexp.sequence.regexps [i]
+	  = copy_insn_regexp (regexp->regexp.sequence.regexps [i]);
     }
   else if (regexp->mode == rm_allof)
     {
       result = copy_node (regexp,
                           sizeof (struct regexp) + sizeof (regexp_t)
-			  * (REGEXP_ALLOF (regexp)->regexps_num - 1));
-      for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
-	REGEXP_ALLOF (result)->regexps [i]
-	  = copy_insn_regexp (REGEXP_ALLOF (regexp)->regexps [i]);
+			  * (regexp->regexp.allof.regexps_num - 1));
+      for (i = 0; i < regexp->regexp.allof.regexps_num; i++)
+	result->regexp.allof.regexps [i]
+	  = copy_insn_regexp (regexp->regexp.allof.regexps [i]);
     }
   else if (regexp->mode == rm_oneof)
     {
       result = copy_node (regexp,
                           sizeof (struct regexp) + sizeof (regexp_t)
-			  * (REGEXP_ONEOF (regexp)->regexps_num - 1));
-      for (i = 0; i < REGEXP_ONEOF (regexp)->regexps_num; i++)
-	REGEXP_ONEOF (result)->regexps [i]
-	  = copy_insn_regexp (REGEXP_ONEOF (regexp)->regexps [i]);
+			  * (regexp->regexp.oneof.regexps_num - 1));
+      for (i = 0; i < regexp->regexp.oneof.regexps_num; i++)
+	result->regexp.oneof.regexps [i]
+	  = copy_insn_regexp (regexp->regexp.oneof.regexps [i]);
     }
   else
     {
@@ -4720,18 +4488,18 @@ transform_1 (regexp)
 
   if (regexp->mode == rm_repeat)
     {
-      repeat_num = REGEXP_REPEAT (regexp)->repeat_num;
+      repeat_num = regexp->regexp.repeat.repeat_num;
       if (repeat_num <= 1)
 	abort ();
-      operand = REGEXP_REPEAT (regexp)->regexp;
+      operand = regexp->regexp.repeat.regexp;
       pos = regexp->mode;
       regexp = create_node (sizeof (struct regexp) + sizeof (regexp_t)
 			    * (repeat_num - 1));
       regexp->mode = rm_sequence;
       regexp->pos = pos;
-      REGEXP_SEQUENCE (regexp)->regexps_num = repeat_num;
+      regexp->regexp.sequence.regexps_num = repeat_num;
       for (i = 0; i < repeat_num; i++)
-	REGEXP_SEQUENCE (regexp)->regexps [i] = copy_insn_regexp (operand);
+	regexp->regexp.sequence.regexps [i] = copy_insn_regexp (operand);
       regexp_transformed_p = 1;
     }
   return regexp;
@@ -4752,40 +4520,40 @@ transform_2 (regexp)
       int sequence_index = 0;
       int i, j;
 
-      for (i = 0; i < REGEXP_SEQUENCE (regexp)->regexps_num; i++)
-	if (REGEXP_SEQUENCE (regexp)->regexps [i]->mode == rm_sequence)
+      for (i = 0; i < regexp->regexp.sequence.regexps_num; i++)
+	if (regexp->regexp.sequence.regexps [i]->mode == rm_sequence)
 	  {
 	    sequence_index = i;
-	    sequence = REGEXP_SEQUENCE (regexp)->regexps [i];
+	    sequence = regexp->regexp.sequence.regexps [i];
 	    break;
 	  }
-      if (i < REGEXP_SEQUENCE (regexp)->regexps_num)
+      if (i < regexp->regexp.sequence.regexps_num)
 	{
-	  if ( REGEXP_SEQUENCE (sequence)->regexps_num <= 1
-	      || REGEXP_SEQUENCE (regexp)->regexps_num <= 1)
+	  if (sequence->regexp.sequence.regexps_num <= 1
+	      || regexp->regexp.sequence.regexps_num <= 1)
 	    abort ();
 	  result = create_node (sizeof (struct regexp)
                                 + sizeof (regexp_t)
-				* (REGEXP_SEQUENCE (regexp)->regexps_num
-                                   + REGEXP_SEQUENCE (sequence)->regexps_num
+				* (regexp->regexp.sequence.regexps_num
+                                   + sequence->regexp.sequence.regexps_num
                                    - 2));
 	  result->mode = rm_sequence;
 	  result->pos = regexp->pos;
-	  REGEXP_SEQUENCE (result)->regexps_num
-            = (REGEXP_SEQUENCE (regexp)->regexps_num
-               + REGEXP_SEQUENCE (sequence)->regexps_num - 1);
-	  for (i = 0; i < REGEXP_SEQUENCE (regexp)->regexps_num; i++)
+	  result->regexp.sequence.regexps_num
+            = (regexp->regexp.sequence.regexps_num
+               + sequence->regexp.sequence.regexps_num - 1);
+	  for (i = 0; i < regexp->regexp.sequence.regexps_num; i++)
             if (i < sequence_index)
-              REGEXP_SEQUENCE (result)->regexps [i]
-                = copy_insn_regexp (REGEXP_SEQUENCE (regexp)->regexps [i]);
+              result->regexp.sequence.regexps [i]
+                = copy_insn_regexp (regexp->regexp.sequence.regexps [i]);
             else if (i > sequence_index)
-              REGEXP_SEQUENCE (result)->regexps
-                [i + REGEXP_SEQUENCE (sequence)->regexps_num - 1]
-                = copy_insn_regexp (REGEXP_SEQUENCE (regexp)->regexps [i]);
+              result->regexp.sequence.regexps
+                [i + sequence->regexp.sequence.regexps_num - 1]
+                = copy_insn_regexp (regexp->regexp.sequence.regexps [i]);
             else
-              for (j = 0; j < REGEXP_SEQUENCE (sequence)->regexps_num; j++)
-                REGEXP_SEQUENCE (result)->regexps [i + j]
-                  = copy_insn_regexp (REGEXP_SEQUENCE (sequence)->regexps [j]);
+              for (j = 0; j < sequence->regexp.sequence.regexps_num; j++)
+                result->regexp.sequence.regexps [i + j]
+                  = copy_insn_regexp (sequence->regexp.sequence.regexps [j]);
 	  regexp_transformed_p = 1;
 	  regexp = result;
 	}
@@ -4797,39 +4565,39 @@ transform_2 (regexp)
       int allof_index = 0;
       int i, j;
 
-      for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
-	if (REGEXP_ALLOF (regexp)->regexps [i]->mode == rm_allof)
+      for (i = 0; i < regexp->regexp.allof.regexps_num; i++)
+	if (regexp->regexp.allof.regexps [i]->mode == rm_allof)
 	  {
 	    allof_index = i;
-	    allof = REGEXP_ALLOF (regexp)->regexps [i];
+	    allof = regexp->regexp.allof.regexps [i];
 	    break;
 	  }
-      if (i < REGEXP_ALLOF (regexp)->regexps_num)
+      if (i < regexp->regexp.allof.regexps_num)
 	{
-	  if (REGEXP_ALLOF (allof)->regexps_num <= 1
-	      || REGEXP_ALLOF (regexp)->regexps_num <= 1)
+	  if (allof->regexp.allof.regexps_num <= 1
+	      || regexp->regexp.allof.regexps_num <= 1)
 	    abort ();
 	  result = create_node (sizeof (struct regexp)
                                 + sizeof (regexp_t)
-				* (REGEXP_ALLOF (regexp)->regexps_num
-                                   + REGEXP_ALLOF (allof)->regexps_num - 2));
+				* (regexp->regexp.allof.regexps_num
+                                   + allof->regexp.allof.regexps_num - 2));
 	  result->mode = rm_allof;
 	  result->pos = regexp->pos;
-	  REGEXP_ALLOF (result)->regexps_num
-            = (REGEXP_ALLOF (regexp)->regexps_num
-               + REGEXP_ALLOF (allof)->regexps_num - 1);
-	  for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
+	  result->regexp.allof.regexps_num
+            = (regexp->regexp.allof.regexps_num
+               + allof->regexp.allof.regexps_num - 1);
+	  for (i = 0; i < regexp->regexp.allof.regexps_num; i++)
             if (i < allof_index)
-              REGEXP_ALLOF (result)->regexps [i]
-                = copy_insn_regexp (REGEXP_ALLOF (regexp)->regexps [i]);
+              result->regexp.allof.regexps [i]
+                = copy_insn_regexp (regexp->regexp.allof.regexps [i]);
             else if (i > allof_index)
-              REGEXP_ALLOF (result)->regexps
-                [i + REGEXP_ALLOF (allof)->regexps_num - 1]
-                = copy_insn_regexp (REGEXP_ALLOF (regexp)->regexps [i]);
+              result->regexp.allof.regexps
+                [i + allof->regexp.allof.regexps_num - 1]
+                = copy_insn_regexp (regexp->regexp.allof.regexps [i]);
             else
-              for (j = 0; j < REGEXP_ALLOF (allof)->regexps_num; j++)
-                REGEXP_ALLOF (result)->regexps [i + j]
-                  = copy_insn_regexp (REGEXP_ALLOF (allof)->regexps [j]);
+              for (j = 0; j < allof->regexp.allof.regexps_num; j++)
+                result->regexp.allof.regexps [i + j]
+                  = copy_insn_regexp (allof->regexp.allof.regexps [j]);
 	  regexp_transformed_p = 1;
 	  regexp = result;
 	}
@@ -4841,39 +4609,39 @@ transform_2 (regexp)
       int oneof_index = 0;
       int i, j;
 
-      for (i = 0; i < REGEXP_ONEOF (regexp)->regexps_num; i++)
-	if (REGEXP_ONEOF (regexp)->regexps [i]->mode == rm_oneof)
+      for (i = 0; i < regexp->regexp.oneof.regexps_num; i++)
+	if (regexp->regexp.oneof.regexps [i]->mode == rm_oneof)
 	  {
 	    oneof_index = i;
-	    oneof = REGEXP_ONEOF (regexp)->regexps [i];
+	    oneof = regexp->regexp.oneof.regexps [i];
 	    break;
 	  }
-      if (i < REGEXP_ONEOF (regexp)->regexps_num)
+      if (i < regexp->regexp.oneof.regexps_num)
 	{
-	  if (REGEXP_ONEOF (oneof)->regexps_num <= 1
-	      || REGEXP_ONEOF (regexp)->regexps_num <= 1)
+	  if (oneof->regexp.oneof.regexps_num <= 1
+	      || regexp->regexp.oneof.regexps_num <= 1)
 	    abort ();
 	  result = create_node (sizeof (struct regexp)
 				+ sizeof (regexp_t)
-				* (REGEXP_ONEOF (regexp)->regexps_num
-                                   + REGEXP_ONEOF (oneof)->regexps_num - 2));
+				* (regexp->regexp.oneof.regexps_num
+                                   + oneof->regexp.oneof.regexps_num - 2));
 	  result->mode = rm_oneof;
 	  result->pos = regexp->pos;
-	  REGEXP_ONEOF (result)->regexps_num
-	    = (REGEXP_ONEOF (regexp)->regexps_num
-               + REGEXP_ONEOF (oneof)->regexps_num - 1);
-	  for (i = 0; i < REGEXP_ONEOF (regexp)->regexps_num; i++)
+	  result->regexp.oneof.regexps_num
+	    = (regexp->regexp.oneof.regexps_num
+               + oneof->regexp.oneof.regexps_num - 1);
+	  for (i = 0; i < regexp->regexp.oneof.regexps_num; i++)
             if (i < oneof_index)
-              REGEXP_ONEOF (result)->regexps [i]
-                = copy_insn_regexp (REGEXP_ONEOF (regexp)->regexps [i]);
+              result->regexp.oneof.regexps [i]
+                = copy_insn_regexp (regexp->regexp.oneof.regexps [i]);
             else if (i > oneof_index)
-              REGEXP_ONEOF (result)->regexps
-                [i + REGEXP_ONEOF (oneof)->regexps_num - 1]
-                = copy_insn_regexp (REGEXP_ONEOF (regexp)->regexps [i]);
+              result->regexp.oneof.regexps
+                [i + oneof->regexp.oneof.regexps_num - 1]
+                = copy_insn_regexp (regexp->regexp.oneof.regexps [i]);
             else
-              for (j = 0; j < REGEXP_ONEOF (oneof)->regexps_num; j++)
-                REGEXP_ONEOF (result)->regexps [i + j]
-                  = copy_insn_regexp (REGEXP_ONEOF (oneof)->regexps [j]);
+              for (j = 0; j < oneof->regexp.oneof.regexps_num; j++)
+                result->regexp.oneof.regexps [i + j]
+                  = copy_insn_regexp (oneof->regexp.oneof.regexps [j]);
 	  regexp_transformed_p = 1;
 	  regexp = result;
 	}
@@ -4898,43 +4666,42 @@ transform_3 (regexp)
       regexp_t sequence;
       int i, j;
 
-      for (i = 0; i <REGEXP_SEQUENCE (regexp)->regexps_num; i++)
-	if (REGEXP_SEQUENCE (regexp)->regexps [i]->mode == rm_oneof)
+      for (i = 0; i < regexp->regexp.sequence.regexps_num; i++)
+	if (regexp->regexp.sequence.regexps [i]->mode == rm_oneof)
 	  {
 	    oneof_index = i;
-	    oneof = REGEXP_SEQUENCE (regexp)->regexps [i];
+	    oneof = regexp->regexp.sequence.regexps [i];
 	    break;
 	  }
-      if (i < REGEXP_SEQUENCE (regexp)->regexps_num)
+      if (i < regexp->regexp.sequence.regexps_num)
 	{
-	  if (REGEXP_ONEOF (oneof)->regexps_num <= 1
-	      || REGEXP_SEQUENCE (regexp)->regexps_num <= 1)
+	  if (oneof->regexp.oneof.regexps_num <= 1
+	      || regexp->regexp.sequence.regexps_num <= 1)
 	    abort ();
 	  result = create_node (sizeof (struct regexp)
 				+ sizeof (regexp_t)
-				* (REGEXP_ONEOF (oneof)->regexps_num - 1));
+				* (oneof->regexp.oneof.regexps_num - 1));
 	  result->mode = rm_oneof;
 	  result->pos = regexp->pos;
-	  REGEXP_ONEOF (result)->regexps_num
-	    = REGEXP_ONEOF (oneof)->regexps_num;
-	  for (i = 0; i < REGEXP_ONEOF (result)->regexps_num; i++)
+	  result->regexp.oneof.regexps_num = oneof->regexp.oneof.regexps_num;
+	  for (i = 0; i < result->regexp.oneof.regexps_num; i++)
 	    {
 	      sequence
                 = create_node (sizeof (struct regexp)
                                + sizeof (regexp_t)
-                               * (REGEXP_SEQUENCE (regexp)->regexps_num - 1));
+                               * (regexp->regexp.sequence.regexps_num - 1));
 	      sequence->mode = rm_sequence;
 	      sequence->pos = regexp->pos;
-	      REGEXP_SEQUENCE (sequence)->regexps_num
-                = REGEXP_SEQUENCE (regexp)->regexps_num;
-              REGEXP_ONEOF (result)->regexps [i] = sequence;
-	      for (j = 0; j < REGEXP_SEQUENCE (sequence)->regexps_num; j++)
+	      sequence->regexp.sequence.regexps_num
+                = regexp->regexp.sequence.regexps_num;
+              result->regexp.oneof.regexps [i] = sequence;
+	      for (j = 0; j < sequence->regexp.sequence.regexps_num; j++)
 		if (j != oneof_index)
-		  REGEXP_SEQUENCE (sequence)->regexps [j]
-		    = copy_insn_regexp (REGEXP_SEQUENCE (regexp)->regexps [j]);
+		  sequence->regexp.sequence.regexps [j]
+		    = copy_insn_regexp (regexp->regexp.sequence.regexps [j]);
 		else
-		  REGEXP_SEQUENCE (sequence)->regexps [j]
-		    = copy_insn_regexp (REGEXP_ONEOF (oneof)->regexps [i]);
+		  sequence->regexp.sequence.regexps [j]
+		    = copy_insn_regexp (oneof->regexp.oneof.regexps [i]);
 	    }
 	  regexp_transformed_p = 1;
 	  regexp = result;
@@ -4945,95 +4712,91 @@ transform_3 (regexp)
       regexp_t oneof = NULL, seq;
       int oneof_index = 0, max_seq_length, allof_length;
       regexp_t result;
-      regexp_t allof = NULL, allof_op = NULL;
+      regexp_t allof = NULL, allof_op;
       int i, j;
 
-      for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
-	if (REGEXP_ALLOF (regexp)->regexps [i]->mode == rm_oneof)
+      for (i = 0; i < regexp->regexp.allof.regexps_num; i++)
+	if (regexp->regexp.allof.regexps [i]->mode == rm_oneof)
 	  {
 	    oneof_index = i;
-	    oneof = REGEXP_ALLOF (regexp)->regexps [i];
+	    oneof = regexp->regexp.allof.regexps [i];
 	    break;
 	  }
-      if (i < REGEXP_ALLOF (regexp)->regexps_num)
+      if (i < regexp->regexp.allof.regexps_num)
 	{
-	  if (REGEXP_ONEOF (oneof)->regexps_num <= 1
-	      || REGEXP_ALLOF (regexp)->regexps_num <= 1)
+	  if (oneof->regexp.oneof.regexps_num <= 1
+	      || regexp->regexp.allof.regexps_num <= 1)
 	    abort ();
 	  result = create_node (sizeof (struct regexp)
 				+ sizeof (regexp_t)
-				* (REGEXP_ONEOF (oneof)->regexps_num - 1));
+				* (oneof->regexp.oneof.regexps_num - 1));
 	  result->mode = rm_oneof;
 	  result->pos = regexp->pos;
-	  REGEXP_ONEOF (result)->regexps_num
-	    = REGEXP_ONEOF (oneof)->regexps_num;
-	  for (i = 0; i < REGEXP_ONEOF (result)->regexps_num; i++)
+	  result->regexp.oneof.regexps_num = oneof->regexp.oneof.regexps_num;
+	  for (i = 0; i < result->regexp.oneof.regexps_num; i++)
 	    {
 	      allof
 		= create_node (sizeof (struct regexp)
                                + sizeof (regexp_t)
-			       * (REGEXP_ALLOF (regexp)->regexps_num - 1));
+			       * (regexp->regexp.allof.regexps_num - 1));
 	      allof->mode = rm_allof;
 	      allof->pos = regexp->pos;
-	      REGEXP_ALLOF (allof)->regexps_num
-                = REGEXP_ALLOF (regexp)->regexps_num;
-              REGEXP_ONEOF (result)->regexps [i] = allof;
-	      for (j = 0; j < REGEXP_ALLOF (allof)->regexps_num; j++)
+	      allof->regexp.allof.regexps_num
+                = regexp->regexp.allof.regexps_num;
+              result->regexp.oneof.regexps [i] = allof;
+	      for (j = 0; j < allof->regexp.allof.regexps_num; j++)
 		if (j != oneof_index)
-		  REGEXP_ALLOF (allof)->regexps [j]
-		    = copy_insn_regexp (REGEXP_ALLOF (regexp)->regexps [j]);
+		  allof->regexp.allof.regexps [j]
+		    = copy_insn_regexp (regexp->regexp.allof.regexps [j]);
 		else
-		  REGEXP_ALLOF (allof)->regexps [j]
-		    = copy_insn_regexp (REGEXP_ONEOF (oneof)->regexps [i]);
+		  allof->regexp.allof.regexps [j]
+		    = copy_insn_regexp (oneof->regexp.oneof.regexps [i]);
 	    }
 	  regexp_transformed_p = 1;
 	  regexp = result;
 	}
       max_seq_length = 0;
-      if (regexp->mode == rm_allof)
-	for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
-	  if (REGEXP_ALLOF (regexp)->regexps [i]->mode == rm_sequence)
-	    {
-	      seq = REGEXP_ALLOF (regexp)->regexps [i];
-	      if (max_seq_length < REGEXP_SEQUENCE (seq)->regexps_num)
-	      max_seq_length = REGEXP_SEQUENCE (seq)->regexps_num;
-	    }
-	  else if (REGEXP_ALLOF (regexp)->regexps [i]->mode != rm_unit)
-	    {
-	      max_seq_length = 0;
-	      break;
-	    }
+      for (i = 0; i < regexp->regexp.allof.regexps_num; i++)
+	if (regexp->regexp.allof.regexps [i]->mode == rm_sequence)
+	  {
+	    seq = regexp->regexp.allof.regexps [i];
+	    if (max_seq_length < seq->regexp.sequence.regexps_num)
+	      max_seq_length = seq->regexp.sequence.regexps_num;
+	  }
+	else if (regexp->regexp.allof.regexps [i]->mode != rm_unit)
+	  {
+	    max_seq_length = 0;
+	    break;
+	  }
       if (max_seq_length != 0)
 	{
-	  if (max_seq_length == 1 || REGEXP_ALLOF (regexp)->regexps_num <= 1)
+	  if (max_seq_length == 1 || regexp->regexp.allof.regexps_num <= 1)
 	    abort ();
 	  result = create_node (sizeof (struct regexp)
 				+ sizeof (regexp_t) * (max_seq_length - 1));
 	  result->mode = rm_sequence;
 	  result->pos = regexp->pos;
-	  REGEXP_SEQUENCE (result)->regexps_num = max_seq_length;
+	  result->regexp.sequence.regexps_num = max_seq_length;
 	  for (i = 0; i < max_seq_length; i++)
 	    {
 	      allof_length = 0;
-	      for (j = 0; j < REGEXP_ALLOF (regexp)->regexps_num; j++)
-		if (REGEXP_ALLOF (regexp)->regexps [j]->mode == rm_sequence
-		    && (i < (REGEXP_SEQUENCE (REGEXP_ALLOF (regexp)
-					      ->regexps [j])->regexps_num)))
+	      for (j = 0; j < regexp->regexp.allof.regexps_num; j++)
+		if (regexp->regexp.allof.regexps [j]->mode == rm_sequence
+		    && (i < (regexp->regexp.allof.regexps [j]
+			     ->regexp.sequence.regexps_num)))
 		  {
-		    allof_op
-		      = (REGEXP_SEQUENCE (REGEXP_ALLOF (regexp)->regexps [j])
-			 ->regexps [i]);
+		    allof_op = (regexp->regexp.allof.regexps [j]
+				->regexp.sequence.regexps [i]);
 		    allof_length++;
 		  }
 		else if (i == 0
-			 && (REGEXP_ALLOF (regexp)->regexps [j]->mode
-			     == rm_unit))
+			 && regexp->regexp.allof.regexps [j]->mode == rm_unit)
 		  {
-		    allof_op = REGEXP_ALLOF (regexp)->regexps [j];
+		    allof_op = regexp->regexp.allof.regexps [j];
 		    allof_length++;
 		  }
 	      if (allof_length == 1)
-		REGEXP_SEQUENCE (result)->regexps [i] = allof_op;
+		result->regexp.sequence.regexps [i] = allof_op;
 	      else
 		{
 		  allof = create_node (sizeof (struct regexp)
@@ -5041,29 +4804,26 @@ transform_3 (regexp)
 				       * (allof_length - 1));
 		  allof->mode = rm_allof;
 		  allof->pos = regexp->pos;
-		  REGEXP_ALLOF (allof)->regexps_num = allof_length;
-		  REGEXP_SEQUENCE (result)->regexps [i] = allof;
+		  allof->regexp.allof.regexps_num = allof_length;
+		  result->regexp.sequence.regexps [i] = allof;
 		  allof_length = 0;
-		  for (j = 0; j < REGEXP_ALLOF (regexp)->regexps_num; j++)
-		    if (REGEXP_ALLOF (regexp)->regexps [j]->mode == rm_sequence
-			&& (i <
-			    (REGEXP_SEQUENCE (REGEXP_ALLOF (regexp)
-					      ->regexps [j])->regexps_num)))
+		  for (j = 0; j < regexp->regexp.allof.regexps_num; j++)
+		    if (regexp->regexp.allof.regexps [j]->mode == rm_sequence
+			&& (i < (regexp->regexp.allof.regexps [j]
+				 ->regexp.sequence.regexps_num)))
 		      {
-			allof_op = (REGEXP_SEQUENCE (REGEXP_ALLOF (regexp)
-						     ->regexps [j])
-				    ->regexps [i]);
-			REGEXP_ALLOF (allof)->regexps [allof_length]
-			  = allof_op;
+			allof_op = (regexp->regexp.allof.regexps [j]
+				    ->regexp.sequence.regexps [i]);
+			allof->regexp.allof.regexps [allof_length] = allof_op;
+			
 			allof_length++;
 		      }
 		    else if (i == 0
-			     && (REGEXP_ALLOF (regexp)->regexps [j]->mode
+			     && (regexp->regexp.allof.regexps [j]->mode
 				 == rm_unit))
 		      {
-			allof_op = REGEXP_ALLOF (regexp)->regexps [j];
-			REGEXP_ALLOF (allof)->regexps [allof_length]
-			  = allof_op;
+			allof_op = regexp->regexp.allof.regexps [j];
+			allof->regexp.allof.regexps [allof_length] = allof_op;
 			allof_length++;
 		      }
 		}
@@ -5085,20 +4845,20 @@ regexp_transform_func (regexp, func)
   int i;
 
   if (regexp->mode == rm_sequence)
-    for (i = 0; i < REGEXP_SEQUENCE (regexp)->regexps_num; i++)
-      REGEXP_SEQUENCE (regexp)->regexps [i]
-	= regexp_transform_func (REGEXP_SEQUENCE (regexp)->regexps [i], func);
+    for (i = 0; i < regexp->regexp.sequence.regexps_num; i++)
+      regexp->regexp.sequence.regexps [i]
+	= regexp_transform_func (regexp->regexp.sequence.regexps [i], func);
   else if (regexp->mode == rm_allof)
-    for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
-      REGEXP_ALLOF (regexp)->regexps [i]
-	= regexp_transform_func (REGEXP_ALLOF (regexp)->regexps [i], func);
+    for (i = 0; i < regexp->regexp.allof.regexps_num; i++)
+      regexp->regexp.allof.regexps [i]
+	= regexp_transform_func (regexp->regexp.allof.regexps [i], func);
   else if (regexp->mode == rm_oneof)
-    for (i = 0; i < REGEXP_ONEOF (regexp)->regexps_num; i++)
-      REGEXP_ONEOF (regexp)->regexps [i]
-	= regexp_transform_func (REGEXP_ONEOF (regexp)->regexps [i], func);
+    for (i = 0; i < regexp->regexp.oneof.regexps_num; i++)
+      regexp->regexp.oneof.regexps [i]
+	= regexp_transform_func (regexp->regexp.oneof.regexps [i], func);
   else if (regexp->mode == rm_repeat)
-    REGEXP_REPEAT (regexp)->regexp
-      = regexp_transform_func (REGEXP_REPEAT (regexp)->regexp, func);
+    regexp->regexp.repeat.regexp
+      = regexp_transform_func (regexp->regexp.repeat.regexp, func);
   else if (regexp->mode != rm_nothing && regexp->mode != rm_unit)
     abort ();
   return (*func) (regexp);
@@ -5137,9 +4897,9 @@ transform_insn_regexps ()
     {
       decl = description->decls [i];
       if (decl->mode == dm_insn_reserv && decl != advance_cycle_insn_decl)
-	DECL_INSN_RESERV (decl)->transformed_regexp
+	decl->decl.insn_reserv.transformed_regexp
 	  = transform_regexp (copy_insn_regexp
-			      (DECL_INSN_RESERV (decl)->regexp));
+			      (decl->decl.insn_reserv.regexp));
     }
   fprintf (stderr, "done\n");
   ticker_off (&transform_time);
@@ -5169,43 +4929,42 @@ process_unit_to_form_the_same_automaton_unit_lists (unit, regexp, cycle)
 
   if (regexp == NULL || regexp->mode != rm_oneof)
     abort ();
-  unit_decl = REGEXP_UNIT (unit)->unit_decl;
-  for (i = REGEXP_ONEOF (regexp)->regexps_num - 1; i >= 0; i--)
+  unit_decl = unit->regexp.unit.unit_decl;
+  for (i = regexp->regexp.oneof.regexps_num - 1; i >= 0; i--)
     {
-      seq = REGEXP_ONEOF (regexp)->regexps [i];
+      seq = regexp->regexp.oneof.regexps [i];
       if (seq->mode == rm_sequence)
 	{
-	  if (cycle >= REGEXP_SEQUENCE (seq)->regexps_num)
+	  if (cycle >= seq->regexp.sequence.regexps_num)
 	    break;
-	  allof = REGEXP_SEQUENCE (seq)->regexps [cycle];
+	  allof = seq->regexp.sequence.regexps [cycle];
 	  if (allof->mode == rm_allof)
 	    {
-	      for (k = 0; k < REGEXP_ALLOF (allof)->regexps_num; k++)
-		if (REGEXP_ALLOF (allof)->regexps [k]->mode == rm_unit
-		    && (REGEXP_UNIT (REGEXP_ALLOF (allof)->regexps [k])
-			->unit_decl == unit_decl))
+	      for (k = 0; k < allof->regexp.allof.regexps_num; k++)
+		if (allof->regexp.allof.regexps [k]->mode == rm_unit
+		    && (allof->regexp.allof.regexps [k]->regexp.unit.unit_decl
+			== unit_decl))
 		  break;
-	      if (k >= REGEXP_ALLOF (allof)->regexps_num)
+	      if (k >= allof->regexp.allof.regexps_num)
 		break;
 	    }
 	  else if (allof->mode == rm_unit
-		   && REGEXP_UNIT (allof)->unit_decl != unit_decl)
+		   && allof->regexp.unit.unit_decl != unit_decl)
 	    break;
 	}
       else if (cycle != 0)
 	break;
       else if (seq->mode == rm_allof)
 	{
-	  for (k = 0; k < REGEXP_ALLOF (seq)->regexps_num; k++)
-	    if (REGEXP_ALLOF (seq)->regexps [k]->mode == rm_unit
-		&& (REGEXP_UNIT (REGEXP_ALLOF (seq)->regexps [k])->unit_decl
+	  for (k = 0; k < seq->regexp.allof.regexps_num; k++)
+	    if (seq->regexp.allof.regexps [k]->mode == rm_unit
+		&& (seq->regexp.allof.regexps [k]->regexp.unit.unit_decl
 		    == unit_decl))
 	      break;
-	  if (k >= REGEXP_ALLOF (seq)->regexps_num)
+	  if (k >= seq->regexp.allof.regexps_num)
 	    break;
 	}
-      else if (seq->mode == rm_unit
-	       && REGEXP_UNIT (seq)->unit_decl != unit_decl)
+      else if (seq->mode == rm_unit && seq->regexp.unit.unit_decl != unit_decl)
 	break;
     }
   if (i >= 0)
@@ -5243,17 +5002,17 @@ form_the_same_automaton_unit_lists_from_regexp (regexp)
     return;
   for (i = 0; i < description->max_insn_reserv_cycles; i++)
     the_same_automaton_lists [i] = NULL;
-  for (i = REGEXP_ONEOF (regexp)->regexps_num - 1; i >= 0; i--)
+  for (i = regexp->regexp.oneof.regexps_num - 1; i >= 0; i--)
     {
-      seq = REGEXP_ONEOF (regexp)->regexps [i];
+      seq = regexp->regexp.oneof.regexps [i];
       if (seq->mode == rm_sequence)
-	for (j = 0; j < REGEXP_SEQUENCE (seq)->regexps_num; j++)
+	for (j = 0; j < seq->regexp.sequence.regexps_num; j++)
 	  {
-	    allof = REGEXP_SEQUENCE (seq)->regexps [j];
+	    allof = seq->regexp.sequence.regexps [j];
 	    if (allof->mode == rm_allof)
-	      for (k = 0; k < REGEXP_ALLOF (allof)->regexps_num; k++)
+	      for (k = 0; k < allof->regexp.allof.regexps_num; k++)
 		{
-		  unit = REGEXP_ALLOF (allof)->regexps [k];
+		  unit = allof->regexp.allof.regexps [k];
 		  if (unit->mode == rm_unit)
 		    process_unit_to_form_the_same_automaton_unit_lists
 		      (unit, regexp, j);
@@ -5267,9 +5026,9 @@ form_the_same_automaton_unit_lists_from_regexp (regexp)
 	      abort ();
 	  }
       else if (seq->mode == rm_allof)
-	for (k = 0; k < REGEXP_ALLOF (seq)->regexps_num; k++)
+	for (k = 0; k < seq->regexp.allof.regexps_num; k++)
 	  {
-	    unit = REGEXP_ALLOF (seq)->regexps [k];
+	    unit = seq->regexp.allof.regexps [k];
 	    if (unit->mode == rm_unit)
 	      process_unit_to_form_the_same_automaton_unit_lists
 		(unit, regexp, 0);
@@ -5301,8 +5060,8 @@ form_the_same_automaton_unit_lists ()
       decl = description->decls [i];
       if (decl->mode == dm_unit)
 	{
-	  DECL_UNIT (decl)->the_same_automaton_message_reported_p = FALSE;
-	  DECL_UNIT (decl)->the_same_automaton_unit = DECL_UNIT (decl);
+	  decl->decl.unit.the_same_automaton_message_reported_p = FALSE;
+	  decl->decl.unit.the_same_automaton_unit = &decl->decl.unit;
 	}
     }
   for (i = 0; i < description->decls_num; i++)
@@ -5310,7 +5069,7 @@ form_the_same_automaton_unit_lists ()
       decl = description->decls [i];
       if (decl->mode == dm_insn_reserv)
 	form_the_same_automaton_unit_lists_from_regexp
-	  (DECL_INSN_RESERV (decl)->transformed_regexp);
+	  (decl->decl.insn_reserv.transformed_regexp);
     }
   free (the_same_automaton_lists);
 }
@@ -5330,7 +5089,7 @@ check_unit_distributions_to_automata ()
       decl = description->decls [i];
       if (decl->mode == dm_unit)
 	{
-	  start_unit_decl = DECL_UNIT (decl);
+	  start_unit_decl = &decl->decl.unit;
 	  if (!start_unit_decl->the_same_automaton_message_reported_p)
 	    for (unit_decl = start_unit_decl->the_same_automaton_unit;
 		 unit_decl != start_unit_decl;
@@ -5372,18 +5131,18 @@ process_seq_for_forming_states (regexp, automaton, curr_cycle)
     return curr_cycle;
   else if (regexp->mode == rm_unit)
     {
-      if (REGEXP_UNIT (regexp)->unit_decl->corresponding_automaton_num
+      if (regexp->regexp.unit.unit_decl->corresponding_automaton_num
           == automaton->automaton_order_num)
         set_state_reserv (state_being_formed, curr_cycle,
-                          REGEXP_UNIT (regexp)->unit_decl->unit_num);
+                          regexp->regexp.unit.unit_decl->unit_num);
       return curr_cycle;
     }
   else if (regexp->mode == rm_sequence)
     {
-      for (i = 0; i < REGEXP_SEQUENCE (regexp)->regexps_num; i++)
+      for (i = 0; i < regexp->regexp.sequence.regexps_num; i++)
 	curr_cycle
 	  = process_seq_for_forming_states
-	    (REGEXP_SEQUENCE (regexp)->regexps [i], automaton, curr_cycle) + 1;
+	    (regexp->regexp.sequence.regexps [i], automaton, curr_cycle) + 1;
       return curr_cycle;
     }
   else if (regexp->mode == rm_allof)
@@ -5391,11 +5150,11 @@ process_seq_for_forming_states (regexp, automaton, curr_cycle)
       int finish_cycle = 0;
       int cycle;
 
-      for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
+      for (i = 0; i < regexp->regexp.allof.regexps_num; i++)
 	{
-	  cycle = process_seq_for_forming_states (REGEXP_ALLOF (regexp)
-						  ->regexps [i],
-						  automaton, curr_cycle);
+	  cycle
+            = process_seq_for_forming_states (regexp->regexp.allof.regexps [i],
+                                              automaton, curr_cycle);
 	  if (finish_cycle < cycle)
 	    finish_cycle = cycle;
 	}
@@ -5463,8 +5222,8 @@ process_alts_for_forming_states (regexp, automaton, inside_oneof_p)
       /* We processes it in reverse order to get list with the same
 	 order as in the description.  See also the previous
 	 commentary.  */
-      for (i = REGEXP_ONEOF (regexp)->regexps_num - 1; i >= 0; i--)
-	process_alts_for_forming_states (REGEXP_ONEOF (regexp)->regexps [i],
+      for (i = regexp->regexp.oneof.regexps_num - 1; i >= 0; i--)
+	process_alts_for_forming_states (regexp->regexp.oneof.regexps [i],
 					 automaton, 1);
     }
 }
@@ -5481,7 +5240,7 @@ create_alt_states (automaton)
        curr_ainsn = curr_ainsn->next_ainsn)
     {
       reserv_decl = curr_ainsn->insn_reserv_decl;
-      if (reserv_decl != DECL_INSN_RESERV (advance_cycle_insn_decl))
+      if (reserv_decl != &advance_cycle_insn_decl->decl.insn_reserv)
         {
           curr_ainsn->alt_states = NULL;
           process_alts_for_forming_states (reserv_decl->transformed_regexp,
@@ -5514,7 +5273,7 @@ form_ainsn_with_same_reservs (automaton)
        curr_ainsn != NULL;
        curr_ainsn = curr_ainsn->next_ainsn)
     if (curr_ainsn->insn_reserv_decl
-	== DECL_INSN_RESERV (advance_cycle_insn_decl))
+	== &advance_cycle_insn_decl->decl.insn_reserv)
       {
         curr_ainsn->next_same_reservs_insn = NULL;
         curr_ainsn->first_insn_with_same_reservs = 1;
@@ -5578,7 +5337,7 @@ make_automaton (automaton)
         if (ainsn->first_insn_with_same_reservs)
           {
             insn_reserv_decl = ainsn->insn_reserv_decl;
-            if (insn_reserv_decl != DECL_INSN_RESERV (advance_cycle_insn_decl))
+            if (insn_reserv_decl != &advance_cycle_insn_decl->decl.insn_reserv)
               {
 		/* We process alt_states in the same order as they are
                    present in the description.  */
@@ -5645,7 +5404,7 @@ form_arcs_marked_by_insn (state)
     {
       decl = description->decls [i];
       if (decl->mode == dm_insn_reserv)
-	DECL_INSN_RESERV (decl)->arcs_marked_by_insn = NULL;
+	decl->decl.insn_reserv.arcs_marked_by_insn = NULL;
     }
   for (arc = first_out_arc (state); arc != NULL; arc = next_out_arc (arc))
     {
@@ -5777,7 +5536,7 @@ NDFA_to_DFA (automaton)
 	  decl = description->decls [i];
 	  if (decl->mode == dm_insn_reserv)
 	    create_composed_state
-              (state, DECL_INSN_RESERV (decl)->arcs_marked_by_insn,
+              (state, decl->decl.insn_reserv.arcs_marked_by_insn,
 	       &state_stack);
 	}
     }
@@ -6158,7 +5917,7 @@ set_new_cycle_flags (state)
 
   for (arc = first_out_arc (state); arc != NULL; arc = next_out_arc (arc))
     if (arc->insn->insn_reserv_decl
-	== DECL_INSN_RESERV (advance_cycle_insn_decl))
+	== &advance_cycle_insn_decl->decl.insn_reserv)
       arc->to_state->new_cycle_p = 1;
 }
 
@@ -6448,7 +6207,7 @@ estimate_one_automaton_bound ()
       decl = description->decls [i];
       if (decl->mode == dm_unit)
 	{
-	  root_value = exp (log (DECL_UNIT (decl)->max_occ_cycle_num + 1.0)
+	  root_value = exp (log (decl->decl.unit.max_occ_cycle_num + 1.0)
                             / automata_num);
 	  if (MAX_FLOATING_POINT_VALUE_FOR_AUTOMATON_BOUND / root_value
 	      > one_automaton_estimation_bound)
@@ -6465,11 +6224,11 @@ compare_max_occ_cycle_nums (unit_decl_1, unit_decl_2)
      const void *unit_decl_1;
      const void *unit_decl_2;
 {
-  if ((DECL_UNIT (*(decl_t *) unit_decl_1)->max_occ_cycle_num)
-      < (DECL_UNIT (*(decl_t *) unit_decl_2)->max_occ_cycle_num))
+  if (((*(decl_t *) unit_decl_1)->decl.unit.max_occ_cycle_num)
+      < ((*(decl_t *) unit_decl_2)->decl.unit.max_occ_cycle_num))
     return 1;
-  else if ((DECL_UNIT (*(decl_t *) unit_decl_1)->max_occ_cycle_num)
-	   == (DECL_UNIT (*(decl_t *) unit_decl_2)->max_occ_cycle_num))
+  else if (((*(decl_t *) unit_decl_1)->decl.unit.max_occ_cycle_num)
+	   == ((*(decl_t *) unit_decl_2)->decl.unit.max_occ_cycle_num))
     return 0;
   else
     return -1;
@@ -6503,8 +6262,8 @@ units_to_automata_heuristic_distr ()
          sizeof (decl_t), compare_max_occ_cycle_nums);
   automaton_num = 0;
   unit_decl_ptr = VLA_PTR_BEGIN (unit_decls);
-  bound_value = DECL_UNIT (*unit_decl_ptr)->max_occ_cycle_num;
-  DECL_UNIT (*unit_decl_ptr)->corresponding_automaton_num = automaton_num;
+  bound_value = (*unit_decl_ptr)->decl.unit.max_occ_cycle_num;
+  (*unit_decl_ptr)->decl.unit.corresponding_automaton_num = automaton_num;
   for (unit_decl_ptr++;
        unit_decl_ptr <= (decl_t *) VLA_PTR_LAST (unit_decls);
        unit_decl_ptr++)
@@ -6517,14 +6276,14 @@ units_to_automata_heuristic_distr ()
           && ((automata_num - automaton_num - 1 == rest_units_num)
               || (bound_value
                   > (estimation_bound
-		     / (DECL_UNIT (*unit_decl_ptr)->max_occ_cycle_num)))))
+		     / ((*unit_decl_ptr)->decl.unit.max_occ_cycle_num)))))
         {
-          bound_value = DECL_UNIT (*unit_decl_ptr)->max_occ_cycle_num;
+          bound_value = (*unit_decl_ptr)->decl.unit.max_occ_cycle_num;
           automaton_num++;
         }
       else
-        bound_value *= DECL_UNIT (*unit_decl_ptr)->max_occ_cycle_num;
-      DECL_UNIT (*unit_decl_ptr)->corresponding_automaton_num = automaton_num;
+        bound_value *= (*unit_decl_ptr)->decl.unit.max_occ_cycle_num;
+      (*unit_decl_ptr)->decl.unit.corresponding_automaton_num = automaton_num;
     }
   if (automaton_num != automata_num - 1)
     abort ();
@@ -6551,7 +6310,7 @@ create_ainsns ()
       if (decl->mode == dm_insn_reserv)
 	{
 	  curr_ainsn = create_node (sizeof (struct ainsn));
-	  curr_ainsn->insn_reserv_decl = DECL_INSN_RESERV (decl);
+	  curr_ainsn->insn_reserv_decl = &decl->decl.insn_reserv;
 	  curr_ainsn->important_p = FALSE;
 	  curr_ainsn->next_ainsn = NULL;
 	  if (prev_ainsn == NULL)
@@ -6577,14 +6336,14 @@ units_to_automata_distr ()
       decl = description->decls [i];
       if (decl->mode == dm_unit)
 	{
-	  if (DECL_UNIT (decl)->automaton_decl == NULL
-	      || (DECL_UNIT (decl)->automaton_decl->corresponding_automaton
+	  if (decl->decl.unit.automaton_decl == NULL
+	      || (decl->decl.unit.automaton_decl->corresponding_automaton
 		  == NULL))
 	    /* Distribute to the first automaton.  */
-	    DECL_UNIT (decl)->corresponding_automaton_num = 0;
+	    decl->decl.unit.corresponding_automaton_num = 0;
 	  else
-	    DECL_UNIT (decl)->corresponding_automaton_num
-	      = (DECL_UNIT (decl)->automaton_decl
+	    decl->decl.unit.corresponding_automaton_num
+	      = (decl->decl.unit.automaton_decl
                  ->corresponding_automaton->automaton_order_num);
 	}
     }
@@ -6627,14 +6386,14 @@ create_automata ()
 	{
 	  decl = description->decls [i];
 	  if (decl->mode == dm_automaton
-	      && DECL_AUTOMATON (decl)->automaton_is_used)
+	      && decl->decl.automaton.automaton_is_used)
 	    {
 	      curr_automaton = create_node (sizeof (struct automaton));
 	      curr_automaton->ainsn_list = create_ainsns ();
 	      curr_automaton->corresponding_automaton_decl
-		= DECL_AUTOMATON (decl);
+		= &decl->decl.automaton;
 	      curr_automaton->next_automaton = NULL;
-	      DECL_AUTOMATON (decl)->corresponding_automaton = curr_automaton;
+	      decl->decl.automaton.corresponding_automaton = curr_automaton;
 	      curr_automaton->automaton_order_num = curr_automaton_num;
 	      if (prev_automaton == NULL)
 		description->first_automaton = curr_automaton;
@@ -6700,60 +6459,60 @@ form_regexp (regexp)
   if (regexp->mode == rm_unit || regexp->mode == rm_reserv)
     {
       const char *name = (regexp->mode == rm_unit
-                          ? REGEXP_UNIT (regexp)->name
-			  : REGEXP_RESERV (regexp)->name);
+                          ? regexp->regexp.unit.name
+			  : regexp->regexp.reserv.name);
 
       obstack_grow (&irp, name, strlen (name));
     }
   else if (regexp->mode == rm_sequence)
-    for (i = 0; i < REGEXP_SEQUENCE (regexp)->regexps_num; i++)
+    for (i = 0; i < regexp->regexp.sequence.regexps_num; i++)
       {
 	if (i != 0)
           obstack_1grow (&irp, ',');
-	form_regexp (REGEXP_SEQUENCE (regexp)->regexps [i]);
+	form_regexp (regexp->regexp.sequence.regexps [i]);
       }
   else if (regexp->mode == rm_allof)
     {
       obstack_1grow (&irp, '(');
-      for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
+      for (i = 0; i < regexp->regexp.allof.regexps_num; i++)
 	{
 	  if (i != 0)
             obstack_1grow (&irp, '+');
-	  if (REGEXP_ALLOF (regexp)->regexps[i]->mode == rm_sequence
-              || REGEXP_ALLOF (regexp)->regexps[i]->mode == rm_oneof)
+	  if (regexp->regexp.allof.regexps[i]->mode == rm_sequence
+              || regexp->regexp.oneof.regexps[i]->mode == rm_oneof)
             obstack_1grow (&irp, '(');
-	  form_regexp (REGEXP_ALLOF (regexp)->regexps [i]);
-	  if (REGEXP_ALLOF (regexp)->regexps[i]->mode == rm_sequence
-              || REGEXP_ALLOF (regexp)->regexps[i]->mode == rm_oneof)
+	  form_regexp (regexp->regexp.allof.regexps [i]);
+	  if (regexp->regexp.allof.regexps[i]->mode == rm_sequence
+              || regexp->regexp.oneof.regexps[i]->mode == rm_oneof)
             obstack_1grow (&irp, ')');
         }
       obstack_1grow (&irp, ')');
     }
   else if (regexp->mode == rm_oneof)
-    for (i = 0; i < REGEXP_ONEOF (regexp)->regexps_num; i++)
+    for (i = 0; i < regexp->regexp.oneof.regexps_num; i++)
       {
 	if (i != 0)
           obstack_1grow (&irp, '|');
-	if (REGEXP_ONEOF (regexp)->regexps[i]->mode == rm_sequence)
+	if (regexp->regexp.oneof.regexps[i]->mode == rm_sequence)
           obstack_1grow (&irp, '(');
-        form_regexp (REGEXP_ONEOF (regexp)->regexps [i]);
-	if (REGEXP_ONEOF (regexp)->regexps[i]->mode == rm_sequence)
+        form_regexp (regexp->regexp.oneof.regexps [i]);
+	if (regexp->regexp.oneof.regexps[i]->mode == rm_sequence)
           obstack_1grow (&irp, ')');
       }
   else if (regexp->mode == rm_repeat)
     {
       char digits [30];
 
-      if (REGEXP_REPEAT (regexp)->regexp->mode == rm_sequence
-	  || REGEXP_REPEAT (regexp)->regexp->mode == rm_allof
-	  || REGEXP_REPEAT (regexp)->regexp->mode == rm_oneof)
+      if (regexp->regexp.repeat.regexp->mode == rm_sequence
+	  || regexp->regexp.repeat.regexp->mode == rm_allof
+	  || regexp->regexp.repeat.regexp->mode == rm_oneof)
         obstack_1grow (&irp, '(');
-      form_regexp (REGEXP_REPEAT (regexp)->regexp);
-      if (REGEXP_REPEAT (regexp)->regexp->mode == rm_sequence
-	  || REGEXP_REPEAT (regexp)->regexp->mode == rm_allof
-	  || REGEXP_REPEAT (regexp)->regexp->mode == rm_oneof)
+      form_regexp (regexp->regexp.repeat.regexp);
+      if (regexp->regexp.repeat.regexp->mode == rm_sequence
+	  || regexp->regexp.repeat.regexp->mode == rm_allof
+	  || regexp->regexp.repeat.regexp->mode == rm_oneof)
         obstack_1grow (&irp, ')');
-      sprintf (digits, "*%d", REGEXP_REPEAT (regexp)->repeat_num);
+      sprintf (digits, "*%d", regexp->regexp.repeat.repeat_num);
       obstack_grow (&irp, digits, strlen (digits));
     }
   else if (regexp->mode == rm_nothing)
@@ -6843,7 +6602,7 @@ longest_path_length (state)
     /* Ignore cycles containing one state and `cycle advance' arcs.  */
     if (arc->to_state != state
 	&& (arc->insn->insn_reserv_decl
-	    != DECL_INSN_RESERV (advance_cycle_insn_decl)))
+	    != &advance_cycle_insn_decl->decl.insn_reserv))
     {
       length = longest_path_length (arc->to_state);
       if (length > result)
@@ -7698,7 +7457,7 @@ min_issue_delay_pass_states (state, ainsn)
 	if (insn_issue_delay != -1)
 	  {
 	    if (arc->insn->insn_reserv_decl
-		== DECL_INSN_RESERV (advance_cycle_insn_decl))
+		== &advance_cycle_insn_decl->decl.insn_reserv)
 	      insn_issue_delay++;
 	    if (min_insn_issue_delay == -1
 		|| min_insn_issue_delay > insn_issue_delay)
@@ -7855,7 +7614,7 @@ output_dead_lock_vect (automaton)
       VLA_HWINT (dead_lock_vect, (*state_ptr)->order_state_num)
         = (next_out_arc (arc) == NULL
            && (arc->insn->insn_reserv_decl
-               == DECL_INSN_RESERV (advance_cycle_insn_decl)) ? 1 : 0);
+               == &advance_cycle_insn_decl->decl.insn_reserv) ? 1 : 0);
 #ifndef NDEBUG
       if (VLA_HWINT (dead_lock_vect, (*state_ptr)->order_state_num))
         locked_states_num++;
@@ -7956,7 +7715,7 @@ output_tables ()
 	}
     }
   fprintf (output_file, "\n#define %s %d\n\n", ADVANCE_CYCLE_VALUE_NAME,
-           DECL_INSN_RESERV (advance_cycle_insn_decl)->insn_num);
+           advance_cycle_insn_decl->decl.insn_reserv.insn_num);
 }
 
 /* The function outputs definition and value of PHR interface variable
@@ -7980,36 +7739,35 @@ static void
 output_insn_code_cases (output_automata_list_code)
      void (*output_automata_list_code) (automata_list_el_t);
 {
-  decl_t decl, decl2;
+  decl_t decl, decl_2;
   int i, j;
 
   for (i = 0; i < description->decls_num; i++)
     {
       decl = description->decls [i];
       if (decl->mode == dm_insn_reserv)
-	DECL_INSN_RESERV (decl)->processed_p = FALSE;
+	decl->decl.insn_reserv.processed_p = FALSE;
     }
   for (i = 0; i < description->decls_num; i++)
     {
       decl = description->decls [i];
-      if (decl->mode == dm_insn_reserv
-	  && !DECL_INSN_RESERV (decl)->processed_p)
+      if (decl->mode == dm_insn_reserv && !decl->decl.insn_reserv.processed_p)
 	{
 	  for (j = i; j < description->decls_num; j++)
 	    {
-	      decl2 = description->decls [j];
-	      if (decl2->mode == dm_insn_reserv
-		  && (DECL_INSN_RESERV (decl2)->important_automata_list
-		      == DECL_INSN_RESERV (decl)->important_automata_list))
+	      decl_2 = description->decls [j];
+	      if (decl_2->mode == dm_insn_reserv
+		  && (decl_2->decl.insn_reserv.important_automata_list
+		      == decl->decl.insn_reserv.important_automata_list))
 		{
-		  DECL_INSN_RESERV (decl2)->processed_p = TRUE;
+		  decl_2->decl.insn_reserv.processed_p = TRUE;
 		  fprintf (output_file, "    case %d: /* %s */\n",
-			   DECL_INSN_RESERV (decl2)->insn_num,
-			   DECL_INSN_RESERV (decl2)->name);
+			   decl_2->decl.insn_reserv.insn_num,
+			   decl_2->decl.insn_reserv.name);
 		}
 	    }
 	  (*output_automata_list_code)
-	    (DECL_INSN_RESERV (decl)->important_automata_list);
+	    (decl->decl.insn_reserv.important_automata_list);
 	}
     }
 }
@@ -8520,16 +8278,16 @@ output_internal_insn_latency_func ()
       if (decl->mode == dm_insn_reserv)
 	{
 	  fprintf (output_file, "    case %d:\n",
-		   DECL_INSN_RESERV (decl)->insn_num);
-	  if (DECL_INSN_RESERV (decl)->bypass_list == NULL)
+		   decl->decl.insn_reserv.insn_num);
+	  if (decl->decl.insn_reserv.bypass_list == NULL)
 	    fprintf (output_file, "      return (%s != %s ? %d : 0);\n",
 		     INTERNAL_INSN2_CODE_NAME, ADVANCE_CYCLE_VALUE_NAME,
-		     DECL_INSN_RESERV (decl)->default_latency);
+		     decl->decl.insn_reserv.default_latency);
 	  else
 	    {
 	      fprintf (output_file, "      switch (%s)\n        {\n",
 		       INTERNAL_INSN2_CODE_NAME);
-	      for (bypass = DECL_INSN_RESERV (decl)->bypass_list;
+	      for (bypass = decl->decl.insn_reserv.bypass_list;
 		   bypass != NULL;
 		   bypass = bypass->next)
 		{
@@ -8543,13 +8301,13 @@ output_internal_insn_latency_func ()
 			     "          return (%s (%s, %s) ? %d : %d);\n",
 			     bypass->bypass_guard_name, INSN_PARAMETER_NAME,
 			     INSN2_PARAMETER_NAME, bypass->latency,
-			     DECL_INSN_RESERV (decl)->default_latency);
+			     decl->decl.insn_reserv.default_latency);
 		}
 	      fprintf (output_file, "        default:\n");
 	      fprintf (output_file,
 		       "          return (%s != %s ? %d : 0);\n        }\n",
 		       INTERNAL_INSN2_CODE_NAME, ADVANCE_CYCLE_VALUE_NAME,
-		       DECL_INSN_RESERV (decl)->default_latency);
+		       decl->decl.insn_reserv.default_latency);
 	      
 	    }
 	}
@@ -8608,11 +8366,11 @@ output_print_reservation_func ()
       if (decl->mode == dm_insn_reserv && decl != advance_cycle_insn_decl)
 	{
           fprintf (output_file,
-                   "    case %d:\n", DECL_INSN_RESERV (decl)->insn_num);
+                   "    case %d:\n", decl->decl.insn_reserv.insn_num);
           fprintf (output_file,
                    "      fprintf (%s, \"%s\");\n      break;\n",
                    FILE_PARAMETER_NAME,
-                   regexp_representation (DECL_INSN_RESERV (decl)->regexp));
+                   regexp_representation (decl->decl.insn_reserv.regexp));
           finish_regexp_representation ();
         }
     }
@@ -8799,25 +8557,25 @@ output_description ()
       decl = description->decls [i];
       if (decl->mode == dm_unit)
 	{
-	  if (DECL_UNIT (decl)->excl_list != NULL)
+	  if (decl->decl.unit.excl_list != NULL)
 	    {
 	      fprintf (output_description_file, "unit %s exlusion_set: ",
-		       DECL_UNIT (decl)->name);
-	      output_unit_set_el_list (DECL_UNIT (decl)->excl_list);
+		       decl->decl.unit.name);
+	      output_unit_set_el_list (decl->decl.unit.excl_list);
 	      fprintf (output_description_file, "\n");
 	    }
-	  if (DECL_UNIT (decl)->presence_list != NULL)
+	  if (decl->decl.unit.presence_list != NULL)
 	    {
 	      fprintf (output_description_file, "unit %s presence_set: ",
-		       DECL_UNIT (decl)->name);
-	      output_unit_set_el_list (DECL_UNIT (decl)->presence_list);
+		       decl->decl.unit.name);
+	      output_unit_set_el_list (decl->decl.unit.presence_list);
 	      fprintf (output_description_file, "\n");
 	    }
-	  if (DECL_UNIT (decl)->absence_list != NULL)
+	  if (decl->decl.unit.absence_list != NULL)
 	    {
 	      fprintf (output_description_file, "unit %s absence_set: ",
-		       DECL_UNIT (decl)->name);
-	      output_unit_set_el_list (DECL_UNIT (decl)->absence_list);
+		       decl->decl.unit.name);
+	      output_unit_set_el_list (decl->decl.unit.absence_list);
 	      fprintf (output_description_file, "\n");
 	    }
 	}
@@ -8829,26 +8587,24 @@ output_description ()
       if (decl->mode == dm_reserv)
 	{
           fprintf (output_description_file, "reservation ");
-          fprintf (output_description_file, DECL_RESERV (decl)->name);
+          fprintf (output_description_file, decl->decl.reserv.name);
           fprintf (output_description_file, ": ");
-          output_regexp (DECL_RESERV (decl)->regexp);
+          output_regexp (decl->decl.reserv.regexp);
           fprintf (output_description_file, "\n");
         }
       else if (decl->mode == dm_insn_reserv && decl != advance_cycle_insn_decl)
         {
           fprintf (output_description_file, "insn reservation %s ",
-		   DECL_INSN_RESERV (decl)->name);
-          print_rtl (output_description_file,
-		     DECL_INSN_RESERV (decl)->condexp);
+		   decl->decl.insn_reserv.name);
+          print_rtl (output_description_file, decl->decl.insn_reserv.condexp);
           fprintf (output_description_file, ": ");
-          output_regexp (DECL_INSN_RESERV (decl)->regexp);
+          output_regexp (decl->decl.insn_reserv.regexp);
           fprintf (output_description_file, "\n");
         }
       else if (decl->mode == dm_bypass)
 	fprintf (output_description_file, "bypass %d %s %s\n",
-		 DECL_BYPASS (decl)->latency,
-		 DECL_BYPASS (decl)->out_insn_name,
-		 DECL_BYPASS (decl)->in_insn_name);
+		 decl->decl.bypass.latency, decl->decl.bypass.out_insn_name,
+		 decl->decl.bypass.in_insn_name);
     }
   fprintf (output_description_file, "\n\f\n");
 }
@@ -8888,11 +8644,11 @@ output_automaton_units (automaton)
     {
       decl = description->decls [i];
       if (decl->mode == dm_unit
-          && (DECL_UNIT (decl)->corresponding_automaton_num
+          && (decl->decl.unit.corresponding_automaton_num
 	      == automaton->automaton_order_num))
 	{
 	  there_is_an_automaton_unit = 1;
-	  name = DECL_UNIT (decl)->name;
+	  name = decl->decl.unit.name;
 	  if (curr_line_length + strlen (name) + 1 > MAX_LINE_LENGTH )
 	    {
 	      curr_line_length = strlen (name) + 4;
@@ -9197,8 +8953,8 @@ generate ()
 
 
 
-/* The following function creates insn attribute whose values are
-   number alternatives in insn reservations.  */
+/* The following function creates attribute which order number of insn
+   in pipeline hazard description translator.  */
 static void
 make_insn_alts_attr ()
 {
@@ -9214,13 +8970,10 @@ make_insn_alts_attr ()
       decl = description->decls [i];
       if (decl->mode == dm_insn_reserv && decl != advance_cycle_insn_decl)
 	{
-          XVECEXP (condexp, 0, 2 * insn_num)
-	    = DECL_INSN_RESERV (decl)->condexp;
+          XVECEXP (condexp, 0, 2 * insn_num) = decl->decl.insn_reserv.condexp;
           XVECEXP (condexp, 0, 2 * insn_num + 1)
-            = make_numeric_value
-	      (DECL_INSN_RESERV (decl)->transformed_regexp->mode != rm_oneof
-	       ? 1 : REGEXP_ONEOF (DECL_INSN_RESERV (decl)
-				   ->transformed_regexp)->regexps_num);
+            = make_numeric_value (decl->decl.insn_reserv.transformed_regexp
+				  ->regexp.oneof.regexps_num);
           insn_num++;
         }
     }
@@ -9245,18 +8998,16 @@ make_internal_dfa_insn_code_attr ()
 
   condexp = rtx_alloc (COND);
   XVEC (condexp, 0) = rtvec_alloc ((description->insns_num - 1) * 2);
-  XEXP (condexp, 1)
-    = make_numeric_value (DECL_INSN_RESERV (advance_cycle_insn_decl)
-			  ->insn_num + 1);
+  XEXP (condexp, 1) = make_numeric_value (advance_cycle_insn_decl
+					  ->decl.insn_reserv.insn_num + 1);
   for (i = insn_num = 0; i < description->decls_num; i++)
     {
       decl = description->decls [i];
       if (decl->mode == dm_insn_reserv && decl != advance_cycle_insn_decl)
 	{
-          XVECEXP (condexp, 0, 2 * insn_num)
-	    = DECL_INSN_RESERV (decl)->condexp;
+          XVECEXP (condexp, 0, 2 * insn_num) = decl->decl.insn_reserv.condexp;
           XVECEXP (condexp, 0, 2 * insn_num + 1)
-            = make_numeric_value (DECL_INSN_RESERV (decl)->insn_num);
+            = make_numeric_value (decl->decl.insn_reserv.insn_num);
           insn_num++;
         }
     }
@@ -9288,10 +9039,9 @@ make_default_insn_latency_attr ()
       decl = description->decls [i];
       if (decl->mode == dm_insn_reserv && decl != advance_cycle_insn_decl)
 	{
-          XVECEXP (condexp, 0, 2 * insn_num)
-	    = DECL_INSN_RESERV (decl)->condexp;
+          XVECEXP (condexp, 0, 2 * insn_num) = decl->decl.insn_reserv.condexp;
           XVECEXP (condexp, 0, 2 * insn_num + 1)
-            = make_numeric_value (DECL_INSN_RESERV (decl)->default_latency);
+            = make_numeric_value (decl->decl.insn_reserv.default_latency);
           insn_num++;
         }
     }
@@ -9319,8 +9069,8 @@ make_bypass_attr ()
     {
       decl = description->decls [i];
       if (decl->mode == dm_insn_reserv
-	  && DECL_INSN_RESERV (decl)->condexp != NULL
-	  && DECL_INSN_RESERV (decl)->bypass_list != NULL)
+	  && decl->decl.insn_reserv.condexp != NULL
+	  && decl->decl.insn_reserv.bypass_list != NULL)
 	bypass_insns_num++;
     }
   if (bypass_insns_num == 0)
@@ -9335,11 +9085,11 @@ make_bypass_attr ()
         {
           decl = description->decls [i];
           if (decl->mode == dm_insn_reserv
-	      && DECL_INSN_RESERV (decl)->condexp != NULL
-	      && DECL_INSN_RESERV (decl)->bypass_list != NULL)
+	      && decl->decl.insn_reserv.condexp != NULL
+	      && decl->decl.insn_reserv.bypass_list != NULL)
 	    {
               XVECEXP (result_rtx, 0, 2 * bypass_insn)
-		= DECL_INSN_RESERV (decl)->condexp;
+		= decl->decl.insn_reserv.condexp;
               XVECEXP (result_rtx, 0, 2 * bypass_insn + 1)
 	        = make_numeric_value (1);
               bypass_insn++;
@@ -9560,12 +9310,12 @@ form_important_insn_automata_lists ()
 		 ainsn != NULL;
 		 ainsn = ainsn->next_ainsn)
 	      if (ainsn->important_p
-		  && ainsn->insn_reserv_decl == DECL_INSN_RESERV (decl))
+		  && ainsn->insn_reserv_decl == &decl->decl.insn_reserv)
 		{
 		  automata_list_add (automaton);
 		  break;
 		}
-	  DECL_INSN_RESERV (decl)->important_automata_list
+	  decl->decl.insn_reserv.important_automata_list
 	    = automata_list_finish ();
 	}
     }
@@ -9588,8 +9338,8 @@ expand_automata ()
     {
       description->decls [i] = VLA_PTR (decls, i);
       if (description->decls [i]->mode == dm_unit
-	  && DECL_UNIT (description->decls [i])->query_p)
-        DECL_UNIT (description->decls [i])->query_num
+	  && description->decls [i]->decl.unit.query_p)
+        description->decls [i]->decl.unit.query_num
 	  = description->query_units_num++;
     }
   all_time = create_ticker ();

@@ -4,22 +4,22 @@
    Contributed by hartzell@boulder.colorado.edu,
    Rewritten by meissner@osf.org.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -247,7 +247,7 @@ extern int   opterr;
 /* Create a table of debugging stab-codes and corresponding names.  */
 
 #define __define_stab(NAME, CODE, STRING) {(int)CODE, STRING},
-struct {short code; char string[10];} stab_names[]  = {
+const struct {const short code; const char string[10];} stab_names[]  = {
 #include "stab.def"
 #undef __define_stab
 };
@@ -1011,9 +1011,10 @@ print_symbol (sym_ptr, number, strbase, aux_base, ifd, fdp)
 
   if (MIPS_IS_STAB(sym_ptr))
     {
-      register int i = ARRAY_SIZE (stab_names);
+      int i = ARRAY_SIZE (stab_names);
       const char *stab_name = "stab";
       short code = MIPS_UNMARK_STAB(sym_ptr->index);
+
       while (--i >= 0)
 	if (stab_names[i].code == code)
 	  {

@@ -2,22 +2,22 @@
    Copyright (C) 2001 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
 */
 
@@ -37,14 +37,14 @@ static size_t num_compiler_params;
 
 /* Add the N PARAMS to the current list of compiler parameters.  */
 
-void 
+void
 add_params (params, n)
      const param_info params[];
      size_t n;
 {
   /* Allocate enough space for the new parameters.  */
-  compiler_params = 
-    ((param_info *) 
+  compiler_params =
+    ((param_info *)
      xrealloc (compiler_params,
 	       (num_compiler_params + n) * sizeof (param_info)));
   /* Copy them into the table.  */
@@ -79,6 +79,3 @@ set_param_value (name, value)
   /* If we didn't find this parameter, issue an error message.  */
   error ("invalid parameter `%s'", name);
 }
-
-     
-  

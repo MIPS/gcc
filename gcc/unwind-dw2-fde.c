@@ -2,12 +2,12 @@
 /* Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@cygnus.com>.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
 In addition to the permissions in the GNU General Public License, the
 Free Software Foundation gives you unlimited permission to link the
@@ -18,16 +18,17 @@ do apply in other respects; for example, they cover modification of
 the file, and distribution when not linked into a combine
 executable.)
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
+#ifndef _Unwind_Find_FDE
 #include "tconfig.h"
 #include "tsystem.h"
 #include "dwarf2.h"
@@ -36,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "unwind-pe.h"
 #include "unwind-dw2-fde.h"
 #include "gthr.h"
+#endif
 
 /* The unseen_objects list contains objects that have been registered
    but not yet categorized in any way.  The seen_objects list has had
@@ -51,7 +53,7 @@ static __gthread_mutex_t object_mutex;
 #endif
 
 #ifdef __GTHREAD_MUTEX_INIT_FUNCTION
-static void 
+static void
 init_object_mutex (void)
 {
   __GTHREAD_MUTEX_INIT_FUNCTION (&object_mutex);
@@ -73,6 +75,10 @@ void
 __register_frame_info_bases (void *begin, struct object *ob,
 			     void *tbase, void *dbase)
 {
+  /* If .eh_frame is empty, don't register at all.  */
+  if (*(uword *) begin == 0)
+    return;
+
   ob->pc_begin = (void *)-1;
   ob->tbase = tbase;
   ob->dbase = dbase;
@@ -98,8 +104,14 @@ __register_frame_info (void *begin, struct object *ob)
 void
 __register_frame (void *begin)
 {
-  struct object *ob = (struct object *) malloc (sizeof (struct object));
-  __register_frame_info (begin, ob);                       
+  struct object *ob;
+
+  /* If .eh_frame is empty, don't register at all.  */
+  if (*(uword *) begin == 0)
+    return;
+
+  ob = (struct object *) malloc (sizeof (struct object));
+  __register_frame_info (begin, ob);
 }
 
 /* Similar, but BEGIN is actually a pointer to a table of unwind entries
@@ -149,7 +161,7 @@ __register_frame_table (void *begin)
    Since the registration did not happen there, we'll abort.
 
    Therefore, declare a new deregistration entry point that does the
-   exact same thing, but will resolve to the same library as 
+   exact same thing, but will resolve to the same library as
    implements __register_frame_info_bases.  */
 
 void *
@@ -157,6 +169,10 @@ __deregister_frame_info_bases (void *begin)
 {
   struct object **p;
   struct object *ob = 0;
+
+  /* If .eh_frame is empty, we haven't registered.  */
+  if (*(uword *) begin == 0)
+    return ob;
 
   init_object_mutex_once ();
   __gthread_mutex_lock (&object_mutex);
@@ -207,7 +223,9 @@ __deregister_frame_info (void *begin)
 void
 __deregister_frame (void *begin)
 {
-  free (__deregister_frame_info (begin));
+  /* If .eh_frame is empty, we haven't registered.  */
+  if (*(uword *) begin != 0)
+    free (__deregister_frame_info (begin));
 }
 
 
@@ -243,18 +261,20 @@ get_cie_encoding (struct dwarf_cie *cie)
 {
   const unsigned char *aug, *p;
   _Unwind_Ptr dummy;
+  _Unwind_Word utmp;
+  _Unwind_Sword stmp;
 
   aug = cie->augmentation;
   if (aug[0] != 'z')
     return DW_EH_PE_absptr;
 
   p = aug + strlen (aug) + 1;		/* Skip the augmentation string.  */
-  p = read_uleb128 (p, &dummy);		/* Skip code alignment.  */
-  p = read_sleb128 (p, &dummy);		/* Skip data alignment.  */
+  p = read_uleb128 (p, &utmp);		/* Skip code alignment.  */
+  p = read_sleb128 (p, &stmp);		/* Skip data alignment.  */
   p++;					/* Skip return address column.  */
 
   aug++;				/* Skip 'z' */
-  p = read_uleb128 (p, &dummy);		/* Skip augmentation length.  */
+  p = read_uleb128 (p, &utmp);		/* Skip augmentation length.  */
   while (1)
     {
       /* This is what we're looking for.  */
@@ -291,14 +311,21 @@ get_fde_encoding (struct dwarf_fde *f)
 
 /* Comparison routines.  Three variants of increasing complexity.  */
 
-static saddr
+static int
 fde_unencoded_compare (struct object *ob __attribute__((unused)),
 		       fde *x, fde *y)
 {
-  return *(saddr *)x->pc_begin - *(saddr *)y->pc_begin;
+  _Unwind_Ptr x_ptr = *(_Unwind_Ptr *) x->pc_begin;
+  _Unwind_Ptr y_ptr = *(_Unwind_Ptr *) y->pc_begin;
+
+  if (x_ptr > y_ptr)
+    return 1;
+  if (x_ptr < y_ptr)
+    return -1;
+  return 0;
 }
 
-static saddr
+static int
 fde_single_encoding_compare (struct object *ob, fde *x, fde *y)
 {
   _Unwind_Ptr base, x_ptr, y_ptr;
@@ -307,10 +334,14 @@ fde_single_encoding_compare (struct object *ob, fde *x, fde *y)
   read_encoded_value_with_base (ob->s.b.encoding, base, x->pc_begin, &x_ptr);
   read_encoded_value_with_base (ob->s.b.encoding, base, y->pc_begin, &y_ptr);
 
-  return x_ptr - y_ptr;
+  if (x_ptr > y_ptr)
+    return 1;
+  if (x_ptr < y_ptr)
+    return -1;
+  return 0;
 }
 
-static saddr
+static int
 fde_mixed_encoding_compare (struct object *ob, fde *x, fde *y)
 {
   int x_encoding, y_encoding;
@@ -324,10 +355,14 @@ fde_mixed_encoding_compare (struct object *ob, fde *x, fde *y)
   read_encoded_value_with_base (y_encoding, base_from_object (y_encoding, ob),
 				y->pc_begin, &y_ptr);
 
-  return x_ptr - y_ptr;
+  if (x_ptr > y_ptr)
+    return 1;
+  if (x_ptr < y_ptr)
+    return -1;
+  return 0;
 }
 
-typedef saddr (*fde_compare_t) (struct object *, fde *, fde *);
+typedef int (*fde_compare_t) (struct object *, fde *, fde *);
 
 
 /* This is a special mix of insertion sort and heap sort, optimized for
@@ -363,7 +398,7 @@ start_fde_sort (struct fde_accumulator *accu, size_t count)
       return 1;
     }
   else
-    return 0;  
+    return 0;
 }
 
 static inline void
@@ -376,7 +411,7 @@ fde_insert (struct fde_accumulator *accu, fde *this_fde)
 /* Split LINEAR into a linear sequence with low values and an erratic
    sequence with high values, put the linear one (of longest possible
    length) into LINEAR and the erratic one into ERRATIC. This is O(N).
-   
+
    Because the longest linear sequence we are trying to locate within the
    incoming LINEAR array can be interspersed with (high valued) erratic
    entries.  We construct a chain indicating the sequenced entries.
@@ -399,19 +434,19 @@ fde_split (struct object *ob, fde_compare_t fde_compare,
      them and the overlaying onto ERRATIC will not work.  */
   if (sizeof (fde *) != sizeof (fde **))
     abort ();
-  
+
   for (i = 0; i < count; i++)
     {
       fde **probe;
-      
+
       for (probe = chain_end;
-           probe != &marker && fde_compare (ob, linear->array[i], *probe) < 0;
-           probe = chain_end)
-        {
-          chain_end = (fde **)erratic->array[probe - linear->array];
-          erratic->array[probe - linear->array] = NULL;
-        }
-      erratic->array[i] = (fde *)chain_end;
+	   probe != &marker && fde_compare (ob, linear->array[i], *probe) < 0;
+	   probe = chain_end)
+	{
+	  chain_end = (fde **) erratic->array[probe - linear->array];
+	  erratic->array[probe - linear->array] = NULL;
+	}
+      erratic->array[i] = (fde *) chain_end;
       chain_end = &linear->array[i];
     }
 
@@ -436,11 +471,11 @@ frame_heapsort (struct object *ob, fde_compare_t fde_compare,
 {
   /* For a description of this algorithm, see:
      Samuel P. Harbison, Guy L. Steele Jr.: C, a reference manual, 2nd ed.,
-     p. 60-61. */
+     p. 60-61.  */
   fde ** a = erratic->array;
   /* A portion of the array is called a "heap" if for all i>=0:
      If i and 2i+1 are valid indices, then a[i] >= a[2i+1].
-     If i and 2i+2 are valid indices, then a[i] >= a[2i+2]. */
+     If i and 2i+2 are valid indices, then a[i] >= a[2i+2].  */
 #define SWAP(x,y) do { fde * tmp = x; x = y; y = tmp; } while (0)
   size_t n = erratic->count;
   size_t m = n;
@@ -448,53 +483,53 @@ frame_heapsort (struct object *ob, fde_compare_t fde_compare,
 
   while (m > 0)
     {
-      /* Invariant: a[m..n-1] is a heap. */
+      /* Invariant: a[m..n-1] is a heap.  */
       m--;
       for (i = m; 2*i+1 < n; )
-        {
-          if (2*i+2 < n
-              && fde_compare (ob, a[2*i+2], a[2*i+1]) > 0
-              && fde_compare (ob, a[2*i+2], a[i]) > 0)
-            {
-              SWAP (a[i], a[2*i+2]);
-              i = 2*i+2;
-            }
-          else if (fde_compare (ob, a[2*i+1], a[i]) > 0)
-            {
-              SWAP (a[i], a[2*i+1]);
-              i = 2*i+1;
-            }
-          else
-            break;
-        }
+	{
+	  if (2*i+2 < n
+	      && fde_compare (ob, a[2*i+2], a[2*i+1]) > 0
+	      && fde_compare (ob, a[2*i+2], a[i]) > 0)
+	    {
+	      SWAP (a[i], a[2*i+2]);
+	      i = 2*i+2;
+	    }
+	  else if (fde_compare (ob, a[2*i+1], a[i]) > 0)
+	    {
+	      SWAP (a[i], a[2*i+1]);
+	      i = 2*i+1;
+	    }
+	  else
+	    break;
+	}
     }
   while (n > 1)
     {
-      /* Invariant: a[0..n-1] is a heap. */
+      /* Invariant: a[0..n-1] is a heap.  */
       n--;
       SWAP (a[0], a[n]);
       for (i = 0; 2*i+1 < n; )
-        {
-          if (2*i+2 < n
-              && fde_compare (ob, a[2*i+2], a[2*i+1]) > 0
-              && fde_compare (ob, a[2*i+2], a[i]) > 0)
-            {
-              SWAP (a[i], a[2*i+2]);
-              i = 2*i+2;
-            }
-          else if (fde_compare (ob, a[2*i+1], a[i]) > 0)
-            {
-              SWAP (a[i], a[2*i+1]);
-              i = 2*i+1;
-            }
-          else
-            break;
-        }
+	{
+	  if (2*i+2 < n
+	      && fde_compare (ob, a[2*i+2], a[2*i+1]) > 0
+	      && fde_compare (ob, a[2*i+2], a[i]) > 0)
+	    {
+	      SWAP (a[i], a[2*i+2]);
+	      i = 2*i+2;
+	    }
+	  else if (fde_compare (ob, a[2*i+1], a[i]) > 0)
+	    {
+	      SWAP (a[i], a[2*i+1]);
+	      i = 2*i+1;
+	    }
+	  else
+	    break;
+	}
     }
 #undef SWAP
 }
 
-/* Merge V1 and V2, both sorted, and put the result into V1. */
+/* Merge V1 and V2, both sorted, and put the result into V1.  */
 static inline void
 fde_merge (struct object *ob, fde_compare_t fde_compare,
 	   struct fde_vector *v1, struct fde_vector *v2)
@@ -506,16 +541,18 @@ fde_merge (struct object *ob, fde_compare_t fde_compare,
   if (i2 > 0)
     {
       i1 = v1->count;
-      do {
-        i2--;
-        fde2 = v2->array[i2];
-        while (i1 > 0 && fde_compare (ob, v1->array[i1-1], fde2) > 0)
-          {
-            v1->array[i1+i2] = v1->array[i1-1];
-            i1--;
-          }
-        v1->array[i1+i2] = fde2;
-      } while (i2 > 0);
+      do
+	{
+	  i2--;
+	  fde2 = v2->array[i2];
+	  while (i1 > 0 && fde_compare (ob, v1->array[i1-1], fde2) > 0)
+	    {
+	      v1->array[i1+i2] = v1->array[i1-1];
+	      i1--;
+	    }
+	  v1->array[i1+i2] = fde2;
+	}
+      while (i2 > 0);
       v1->count += v2->count;
     }
 }
@@ -553,7 +590,7 @@ end_fde_sort (struct object *ob, struct fde_accumulator *accu, size_t count)
 }
 
 
-/* Update encoding, mixed_encoding, and pc_begin for OB for the 
+/* Update encoding, mixed_encoding, and pc_begin for OB for the
    fde array beginning at THIS_FDE.  Return the number of fdes
    encountered along the way.  */
 
@@ -605,8 +642,8 @@ classify_object_over_fdes (struct object *ob, fde *this_fde)
 	continue;
 
       count += 1;
-      if ((void *)pc_begin < ob->pc_begin)
-	ob->pc_begin = (void *)pc_begin;
+      if ((void *) pc_begin < ob->pc_begin)
+	ob->pc_begin = (void *) pc_begin;
     }
 
   return count;
@@ -642,7 +679,7 @@ add_fdes (struct object *ob, struct fde_accumulator *accu, fde *this_fde)
 
       if (encoding == DW_EH_PE_absptr)
 	{
-	  if (*(_Unwind_Ptr *)this_fde->pc_begin == 0)
+	  if (*(_Unwind_Ptr *) this_fde->pc_begin == 0)
 	    continue;
 	}
       else
@@ -710,7 +747,7 @@ init_object (struct object* ob)
     {
       fde **p;
       for (p = ob->u.array; *p; ++p)
-        add_fdes (ob, &accu, *p);
+	add_fdes (ob, &accu, *p);
     }
   else
     add_fdes (ob, &accu, ob->u.single);
@@ -760,8 +797,8 @@ linear_search_fdes (struct object *ob, fde *this_fde, void *pc)
 
       if (encoding == DW_EH_PE_absptr)
 	{
-	  pc_begin = ((_Unwind_Ptr *)this_fde->pc_begin)[0];
-	  pc_range = ((_Unwind_Ptr *)this_fde->pc_begin)[1];
+	  pc_begin = ((_Unwind_Ptr *) this_fde->pc_begin)[0];
+	  pc_range = ((_Unwind_Ptr *) this_fde->pc_begin)[1];
 	  if (pc_begin == 0)
 	    continue;
 	}
@@ -788,8 +825,8 @@ linear_search_fdes (struct object *ob, fde *this_fde, void *pc)
 	    continue;
 	}
 
-      if ((_Unwind_Ptr)pc - pc_begin < pc_range)
-        return this_fde;
+      if ((_Unwind_Ptr) pc - pc_begin < pc_range)
+	return this_fde;
     }
 
   return NULL;
@@ -803,7 +840,7 @@ binary_search_unencoded_fdes (struct object *ob, void *pc)
 {
   struct fde_vector *vec = ob->u.sort;
   size_t lo, hi;
-      
+
   for (lo = 0, hi = vec->count; lo < hi; )
     {
       size_t i = (lo + hi) / 2;
@@ -811,8 +848,8 @@ binary_search_unencoded_fdes (struct object *ob, void *pc)
       void *pc_begin;
       uaddr pc_range;
 
-      pc_begin = ((void **)f->pc_begin)[0];
-      pc_range = ((uaddr *)f->pc_begin)[1];
+      pc_begin = ((void **) f->pc_begin)[0];
+      pc_range = ((uaddr *) f->pc_begin)[1];
 
       if (pc < pc_begin)
 	hi = i;
@@ -832,7 +869,7 @@ binary_search_single_encoding_fdes (struct object *ob, void *pc)
   int encoding = ob->s.b.encoding;
   _Unwind_Ptr base = base_from_object (encoding, ob);
   size_t lo, hi;
-      
+
   for (lo = 0, hi = vec->count; lo < hi; )
     {
       size_t i = (lo + hi) / 2;
@@ -844,9 +881,9 @@ binary_search_single_encoding_fdes (struct object *ob, void *pc)
 					&pc_begin);
       read_encoded_value_with_base (encoding & 0x0F, 0, p, &pc_range);
 
-      if ((_Unwind_Ptr)pc < pc_begin)
+      if ((_Unwind_Ptr) pc < pc_begin)
 	hi = i;
-      else if ((_Unwind_Ptr)pc >= pc_begin + pc_range)
+      else if ((_Unwind_Ptr) pc >= pc_begin + pc_range)
 	lo = i + 1;
       else
 	return f;
@@ -860,7 +897,7 @@ binary_search_mixed_encoding_fdes (struct object *ob, void *pc)
 {
   struct fde_vector *vec = ob->u.sort;
   size_t lo, hi;
-      
+
   for (lo = 0, hi = vec->count; lo < hi; )
     {
       size_t i = (lo + hi) / 2;
@@ -875,9 +912,9 @@ binary_search_mixed_encoding_fdes (struct object *ob, void *pc)
 					f->pc_begin, &pc_begin);
       read_encoded_value_with_base (encoding & 0x0F, 0, p, &pc_range);
 
-      if ((_Unwind_Ptr)pc < pc_begin)
+      if ((_Unwind_Ptr) pc < pc_begin)
 	hi = i;
-      else if ((_Unwind_Ptr)pc >= pc_begin + pc_range)
+      else if ((_Unwind_Ptr) pc >= pc_begin + pc_range)
 	lo = i + 1;
       else
 	return f;
@@ -915,14 +952,14 @@ search_object (struct object* ob, void *pc)
     {
       /* Long slow labourious linear search, cos we've no memory.  */
       if (ob->s.b.from_array)
-        {
-          fde **p;
+	{
+	  fde **p;
 	  for (p = ob->u.array; *p ; p++)
 	    {
 	      fde *f = linear_search_fdes (ob, *p, pc);
-              if (f)
+	      if (f)
 		return f;
-            }
+	    }
 	  return NULL;
 	}
       else
@@ -940,7 +977,7 @@ _Unwind_Find_FDE (void *pc, struct dwarf_eh_bases *bases)
   __gthread_mutex_lock (&object_mutex);
 
   /* Linear search through the classified objects, to find the one
-     containing the pc.  Note that pc_begin is sorted decending, and
+     containing the pc.  Note that pc_begin is sorted descending, and
      we expect objects to be non-overlapping.  */
   for (ob = seen_objects; ob; ob = ob->next)
     if (pc >= ob->pc_begin)

@@ -2,22 +2,22 @@
    Copyright (C) 2001 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.
 
 */
 
@@ -45,11 +45,11 @@ typedef struct param_info
 {
   /* The name used with the `--param <name>=<value>' switch to set this
      value.  */
-  const char *option;
+  const char *const option;
   /* The associated value.  */
   int value;
   /* A short description of the option.  */
-   const char *help;
+  const char *const help;
 } param_info;
 
 /* An array containing the compiler parameters and their current
@@ -59,7 +59,7 @@ extern param_info *compiler_params;
 
 /* Add the N PARAMS to the current list of compiler parameters.  */
 
-extern void add_params 
+extern void add_params
   PARAMS ((const param_info params[], size_t n));
 
 /* Set the VALUE associated with the parameter given by NAME.  */
@@ -72,20 +72,26 @@ extern void set_param_value
 
 typedef enum compiler_param
 {
-#define DEFPARAM(ENUM, OPTION, HELP, DEFAULT) \
-  ENUM,
+#define DEFPARAM(enumerator, option, msgid, default) \
+  enumerator,
 #include "params.def"
-#undef DEFPARAM  
+#undef DEFPARAM
   LAST_PARAM
 } compiler_param;
 
 /* The value of the parameter given by ENUM.  */
 #define PARAM_VALUE(ENUM) \
   (compiler_params[(int) ENUM].value)
-  
+
 /* Macros for the various parameters.  */
+#define MAX_INLINE_INSNS_SINGLE \
+  PARAM_VALUE (PARAM_MAX_INLINE_INSNS_SINGLE)
 #define MAX_INLINE_INSNS \
   PARAM_VALUE (PARAM_MAX_INLINE_INSNS)
+#define MAX_INLINE_SLOPE \
+  PARAM_VALUE (PARAM_MAX_INLINE_SLOPE)
+#define MIN_INLINE_INSNS \
+  PARAM_VALUE (PARAM_MIN_INLINE_INSNS)
 #define MAX_DELAY_SLOT_INSN_SEARCH \
   PARAM_VALUE (PARAM_MAX_DELAY_SLOT_INSN_SEARCH)
 #define MAX_DELAY_SLOT_LIVE_SEARCH \
@@ -96,4 +102,6 @@ typedef enum compiler_param
   ((size_t) PARAM_VALUE (PARAM_MAX_GCSE_MEMORY))
 #define MAX_GCSE_PASSES \
   PARAM_VALUE (PARAM_MAX_GCSE_PASSES)
+#define MAX_UNROLLED_INSNS \
+  PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS)
 #endif /* ! GCC_PARAMS_H */

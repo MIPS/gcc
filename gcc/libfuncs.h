@@ -1,20 +1,20 @@
 /* Definitions for code generation pass of GNU compiler.
    Copyright (C) 2001 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -36,6 +36,7 @@ enum libfunc_index
   LTI_truncxfdf2,
   LTI_trunctfdf2,
 
+  LTI_abort,
   LTI_memcpy,
   LTI_memmove,
   LTI_bcopy,
@@ -139,12 +140,6 @@ enum libfunc_index
   LTI_fixunstfdi,
   LTI_fixunstfti,
 
-  LTI_chkr_check_addr,
-  LTI_chkr_set_right,
-  LTI_chkr_copy_bitmap,
-  LTI_chkr_check_exec,
-  LTI_chkr_check_str,
-
   LTI_profile_function_entry,
   LTI_profile_function_exit,
 
@@ -153,7 +148,7 @@ enum libfunc_index
 
 /* SYMBOL_REF rtx's for the library functions that are called
    implicitly and not via optabs.  */
-extern rtx libfunc_table[LTI_MAX];
+extern GTY(()) rtx libfunc_table[LTI_MAX];
 
 /* Accessor macros for libfunc_table.  */
 #define extendsfdf2_libfunc	(libfunc_table[LTI_extendsfdf2])
@@ -168,6 +163,7 @@ extern rtx libfunc_table[LTI_MAX];
 #define truncxfdf2_libfunc	(libfunc_table[LTI_truncxfdf2])
 #define trunctfdf2_libfunc	(libfunc_table[LTI_trunctfdf2])
 
+#define abort_libfunc	(libfunc_table[LTI_abort])
 #define memcpy_libfunc	(libfunc_table[LTI_memcpy])
 #define memmove_libfunc	(libfunc_table[LTI_memmove])
 #define bcopy_libfunc	(libfunc_table[LTI_bcopy])
@@ -271,12 +267,6 @@ extern rtx libfunc_table[LTI_MAX];
 #define fixunstfsi_libfunc	(libfunc_table[LTI_fixunstfsi])
 #define fixunstfdi_libfunc	(libfunc_table[LTI_fixunstfdi])
 #define fixunstfti_libfunc	(libfunc_table[LTI_fixunstfti])
-
-#define chkr_check_addr_libfunc	(libfunc_table[LTI_chkr_check_addr])
-#define chkr_set_right_libfunc	(libfunc_table[LTI_chkr_set_right])
-#define chkr_copy_bitmap_libfunc	(libfunc_table[LTI_chkr_copy_bitmap])
-#define chkr_check_exec_libfunc	(libfunc_table[LTI_chkr_check_exec])
-#define chkr_check_str_libfunc	(libfunc_table[LTI_chkr_check_str])
 
 #define profile_function_entry_libfunc	(libfunc_table[LTI_profile_function_entry])
 #define profile_function_exit_libfunc	(libfunc_table[LTI_profile_function_exit])

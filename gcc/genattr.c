@@ -2,22 +2,22 @@
    Copyright (C) 1991, 1994, 1996, 1998, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "hconfig.h"
@@ -86,34 +86,31 @@ static void
 gen_attr (attr)
      rtx attr;
 {
-  const char *p;
+  const char *p, *tag;
   int is_const = GET_CODE (XEXP (attr, 2)) == CONST;  
 
   printf ("#define HAVE_ATTR_%s\n", XSTR (attr, 0));
 
   /* If numeric attribute, don't need to write an enum.  */
-  if (*XSTR (attr, 1) == '\0')
+  p = XSTR (attr, 1);
+  if (*p == '\0')
     printf ("extern int get_attr_%s PARAMS ((%s));\n", XSTR (attr, 0),
 	    (is_const ? "void" : "rtx"));
   else
     {
       printf ("enum attr_%s {", XSTR (attr, 0));
-      write_upcase (XSTR (attr, 0));
-      printf ("_");
 
-      for (p = XSTR (attr, 1); *p != '\0'; p++)
+      while ((tag = scan_comma_elt (&p)) != 0)
 	{
+	  write_upcase (XSTR (attr, 0));
+	  putchar ('_');
+	  while (tag != p)
+	    putchar (TOUPPER (*tag++));
 	  if (*p == ',')
-	    {
-	      printf (", ");
-	      write_upcase (XSTR (attr, 0));
-	      printf ("_");
-	    }
-	  else
-	    putchar (TOUPPER(*p));
+	    fputs (", ", stdout);
 	}
 
-      printf ("};\n");
+      fputs ("};\n", stdout);
       printf ("extern enum attr_%s get_attr_%s PARAMS ((%s));\n\n",
 	      XSTR (attr, 0), XSTR (attr, 0), (is_const ? "void" : "rtx"));
     }
@@ -122,11 +119,12 @@ gen_attr (attr)
      variables used by `insn_current_length'.  */
   if (! strcmp (XSTR (attr, 0), "length"))
     {
-      printf ("extern void shorten_branches PARAMS ((rtx));\n");
-      printf ("extern int insn_default_length PARAMS ((rtx));\n");
-      printf ("extern int insn_variable_length_p PARAMS ((rtx));\n");
-      printf ("extern int insn_current_length PARAMS ((rtx));\n\n");
-      printf ("#include \"insn-addr.h\"\n\n");
+      puts ("\
+extern void shorten_branches PARAMS ((rtx));\n\
+extern int insn_default_length PARAMS ((rtx));\n\
+extern int insn_variable_length_p PARAMS ((rtx));\n\
+extern int insn_current_length PARAMS ((rtx));\n\n\
+#include \"insn-addr.h\"\n");
     }
 }
 
@@ -145,19 +143,19 @@ write_units (num_units, multiplicity, simultaneity,
   printf ("#define INSN_SCHEDULING\n\n");
   printf ("extern int result_ready_cost PARAMS ((rtx));\n");
   printf ("extern int function_units_used PARAMS ((rtx));\n\n");
-  printf ("extern struct function_unit_desc\n");
+  printf ("extern const struct function_unit_desc\n");
   printf ("{\n");
-  printf ("  const char *name;\n");
-  printf ("  int bitmask;\n");
-  printf ("  int multiplicity;\n");
-  printf ("  int simultaneity;\n");
-  printf ("  int default_cost;\n");
-  printf ("  int max_issue_delay;\n");
-  printf ("  int (*ready_cost_function) PARAMS ((rtx));\n");
-  printf ("  int (*conflict_cost_function) PARAMS ((rtx, rtx));\n");
-  printf ("  int max_blockage;\n");
-  printf ("  unsigned int (*blockage_range_function) PARAMS ((rtx));\n");
-  printf ("  int (*blockage_function) PARAMS ((rtx, rtx));\n");
+  printf ("  const char *const name;\n");
+  printf ("  const int bitmask;\n");
+  printf ("  const int multiplicity;\n");
+  printf ("  const int simultaneity;\n");
+  printf ("  const int default_cost;\n");
+  printf ("  const int max_issue_delay;\n");
+  printf ("  int (*const ready_cost_function) PARAMS ((rtx));\n");
+  printf ("  int (*const conflict_cost_function) PARAMS ((rtx, rtx));\n");
+  printf ("  const int max_blockage;\n");
+  printf ("  unsigned int (*const blockage_range_function) PARAMS ((rtx));\n");
+  printf ("  int (*const blockage_function) PARAMS ((rtx, rtx));\n");
   printf ("} function_units[];\n\n");
   printf ("#define FUNCTION_UNITS_SIZE %d\n", num_units);
   printf ("#define MIN_MULTIPLICITY %d\n", multiplicity->min);
@@ -193,6 +191,7 @@ main (argc, argv)
   int have_delay = 0;
   int have_annul_true = 0;
   int have_annul_false = 0;
+  int num_insn_reservations = 0;
   int num_units = 0;
   struct range all_simultaneity, all_multiplicity;
   struct range all_ready_cost, all_issue_delay, all_blockage;
@@ -208,9 +207,9 @@ main (argc, argv)
   progname = "genattr";
 
   if (argc <= 1)
-    fatal ("No input file name.");
+    fatal ("no input file name");
 
-  if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
+  if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
 
   puts ("/* Generated automatically by the program `genattr'");
@@ -297,7 +296,7 @@ main (argc, argv)
 	    }
 	  else if (unit->multiplicity != multiplicity
 		   || unit->simultaneity != simultaneity)
-	    fatal ("Differing specifications given for `%s' function unit.",
+	    fatal ("Differing specifications given for `%s' function unit",
 		   unit->name);
 
 	  extend_range (&unit->ready_cost, ready_cost, ready_cost);
@@ -308,10 +307,18 @@ main (argc, argv)
 	  extend_range (&all_issue_delay,
 			unit->issue_delay.min, unit->issue_delay.max);
 	}
+      else if (GET_CODE (desc) == DEFINE_INSN_RESERVATION)
+	num_insn_reservations++;
     }
 
-  if (num_units > 0)
+  if (num_units > 0 || num_insn_reservations > 0)
     {
+      if (num_units > 0)
+	printf ("#define TRADITIONAL_PIPELINE_INTERFACE 1\n");
+
+      if (num_insn_reservations > 0)
+	printf ("#define DFA_PIPELINE_INTERFACE 1\n");
+
       /* Compute the range of blockage cost values.  See genattrtab.c
 	 for the derivation.  BLOCKAGE (E,C) when SIMULTANEITY is zero is
 
@@ -348,6 +355,102 @@ main (argc, argv)
 
       write_units (num_units, &all_multiplicity, &all_simultaneity,
 		   &all_ready_cost, &all_issue_delay, &all_blockage);
+
+      /* Output interface for pipeline hazards recognition based on
+	 DFA (deterministic finite state automata.  */
+      printf ("\n/* DFA based pipeline interface.  */");
+      printf ("\n#ifndef AUTOMATON_STATE_ALTS\n");
+      printf ("#define AUTOMATON_STATE_ALTS 0\n");
+      printf ("#endif\n\n");
+      printf ("#ifndef CPU_UNITS_QUERY\n");
+      printf ("#define CPU_UNITS_QUERY 0\n");
+      printf ("#endif\n\n");
+      /* Interface itself: */
+      printf ("extern int max_dfa_issue_rate;\n\n");
+      printf ("/* The following macro value is calculated from the\n");
+      printf ("   automaton based pipeline description and is equal to\n");
+      printf ("   maximal number of all insns described in constructions\n");
+      printf ("   `define_insn_reservation' which can be issued on the\n");
+      printf ("   same processor cycle. */\n");
+      printf ("#define MAX_DFA_ISSUE_RATE max_dfa_issue_rate\n\n");
+      printf ("/* Insn latency time defined in define_insn_reservation. */\n");
+      printf ("extern int insn_default_latency PARAMS ((rtx));\n\n");
+      printf ("/* Return nonzero if there is a bypass for given insn\n");
+      printf ("   which is a data producer.  */\n");
+      printf ("extern int bypass_p PARAMS ((rtx));\n\n");
+      printf ("/* Insn latency time on data consumed by the 2nd insn.\n");
+      printf ("   Use the function if bypass_p returns nonzero for\n");
+      printf ("   the 1st insn. */\n");
+      printf ("extern int insn_latency PARAMS ((rtx, rtx));\n\n");
+      printf ("/* The following function returns number of alternative\n");
+      printf ("   reservations of given insn.  It may be used for better\n");
+      printf ("   insns scheduling heuristics. */\n");
+      printf ("extern int insn_alts PARAMS ((rtx));\n\n");
+      printf ("/* Maximal possible number of insns waiting results being\n");
+      printf ("   produced by insns whose execution is not finished. */\n");
+      printf ("extern int max_insn_queue_index;\n\n");
+      printf ("/* Pointer to data describing current state of DFA.  */\n");
+      printf ("typedef void *state_t;\n\n");
+      printf ("/* Size of the data in bytes.  */\n");
+      printf ("extern int state_size PARAMS ((void));\n\n");
+      printf ("/* Initiate given DFA state, i.e. Set up the state\n");
+      printf ("   as all functional units were not reserved.  */\n");
+      printf ("extern void state_reset PARAMS ((state_t));\n");
+      printf ("/* The following function returns negative value if given\n");
+      printf ("   insn can be issued in processor state described by given\n");
+      printf ("   DFA state.  In this case, the DFA state is changed to\n");
+      printf ("   reflect the current and future reservations by given\n");
+      printf ("   insn.  Otherwise the function returns minimal time\n");
+      printf ("   delay to issue the insn.  This delay may be zero\n");
+      printf ("   for superscalar or VLIW processors.  If the second\n");
+      printf ("   parameter is NULL the function changes given DFA state\n");
+      printf ("   as new processor cycle started.  */\n");
+      printf ("extern int state_transition PARAMS ((state_t, rtx));\n");
+      printf ("\n#if AUTOMATON_STATE_ALTS\n");
+      printf ("/* The following function returns number of possible\n");
+      printf ("   alternative reservations of given insn in given\n");
+      printf ("   DFA state.  It may be used for better insns scheduling\n");
+      printf ("   heuristics.  By default the function is defined if\n");
+      printf ("   macro AUTOMATON_STATE_ALTS is defined because its\n");
+      printf ("   implementation may require much memory.  */\n");
+      printf ("extern int state_alts PARAMS ((state_t, rtx));\n");
+      printf ("#endif\n\n");
+      printf ("extern int min_issue_delay PARAMS ((state_t, rtx));\n");
+      printf ("/* The following function returns nonzero if no one insn\n");
+      printf ("   can be issued in current DFA state. */\n");
+      printf ("extern int state_dead_lock_p PARAMS ((state_t));\n");
+      printf ("/* The function returns minimal delay of issue of the 2nd\n");
+      printf ("   insn after issuing the 1st insn in given DFA state.\n");
+      printf ("   The 1st insn should be issued in given state (i.e.\n");
+      printf ("    state_transition should return negative value for\n");
+      printf ("    the insn and the state).  Data dependencies between\n");
+      printf ("    the insns are ignored by the function.  */\n");
+      printf
+	("extern int min_insn_conflict_delay PARAMS ((state_t, rtx, rtx));\n");
+      printf ("/* The following function outputs reservations for given\n");
+      printf ("   insn as they are described in the corresponding\n");
+      printf ("   define_insn_reservation.  */\n");
+      printf ("extern void print_reservation PARAMS ((FILE *, rtx));\n");
+      printf ("\n#if CPU_UNITS_QUERY\n");
+      printf ("/* The following function returns code of functional unit\n");
+      printf ("   with given name (see define_cpu_unit). */\n");
+      printf ("extern int get_cpu_unit_code PARAMS ((const char *));\n");
+      printf ("/* The following function returns nonzero if functional\n");
+      printf ("   unit with given code is currently reserved in given\n");
+      printf ("   DFA state.  */\n");
+      printf ("extern int cpu_unit_reservation_p PARAMS ((state_t, int));\n");
+      printf ("#endif\n\n");
+      printf ("/* Initiate and finish work with DFA.  They should be\n");
+      printf ("   called as the first and the last interface\n");
+      printf ("   functions.  */\n");
+      printf ("extern void dfa_start PARAMS ((void));\n");
+      printf ("extern void dfa_finish PARAMS ((void));\n");
+    }
+  else
+    {
+      /* Otherwise we do no scheduling, but we need these typedefs
+	 in order to avoid uglifying other code with more ifdefs.  */
+      printf ("typedef void *state_t;\n\n");
     }
 
   /* Output flag masks for use by reorg.  

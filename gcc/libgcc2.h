@@ -2,22 +2,22 @@
 /* Copyright (C) 2000, 2001
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #ifndef GCC_LIBGCC2_H
 #define GCC_LIBGCC2_H
@@ -31,9 +31,14 @@ struct bb;
 extern void __bb_exit_func (void);
 extern void __bb_init_func (struct bb *);
 extern void __bb_fork_func (void);
-extern void __bb_trace_func (void);
-extern void __bb_trace_ret (void);
-extern void __bb_init_trace_func (struct bb *, unsigned long);
+
+#if LONG_TYPE_SIZE == GCOV_TYPE_SIZE
+typedef long gcov_type;
+#else
+typedef long long gcov_type;
+#endif
+
+extern gcov_type *__bb_find_arc_counters (void);
 
 struct exception_descriptor;
 extern short int __get_eh_table_language (struct exception_descriptor *);

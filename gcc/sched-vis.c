@@ -1,24 +1,24 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to the Free
-the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 #include "config.h"
@@ -30,7 +30,9 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "insn-attr.h"
+#include "real.h"
 #include "sched-int.h"
+#include "target.h"
 
 #ifdef INSN_SCHEDULING
 /* target_units bitmask has 1 for each unit in the cpu.  It should be
@@ -38,7 +40,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    But currently it is computed by examining the insn list.  Since
    this is only needed for visualization, it seems an acceptable
    solution.  (For understanding the mapping of bits to units, see
-   definition of function_units[] in "insn-attrtab.c".)  */
+   definition of function_units[] in "insn-attrtab.c".)  The scheduler
+   using only DFA description should never use the following variable.  */
 
 static int target_units = 0;
 
@@ -47,7 +50,6 @@ static int get_visual_tbl_length PARAMS ((void));
 static void print_exp PARAMS ((char *, rtx, int));
 static void print_value PARAMS ((char *, rtx, int));
 static void print_pattern PARAMS ((char *, rtx, int));
-static void print_insn PARAMS ((char *, rtx, int));
 
 /* Print names of units on which insn can/should execute, for debugging.  */
 
@@ -90,7 +92,7 @@ int n_vis_no_unit;
 #define MAX_VISUAL_NO_UNIT 20
 rtx vis_no_unit[MAX_VISUAL_NO_UNIT];
 
-/* Finds units that are in use in this fuction.  Required only
+/* Finds units that are in use in this function.  Required only
    for visualization.  */
 
 void
@@ -121,6 +123,14 @@ get_visual_tbl_length ()
   int unit, i;
   int n, n1;
   char *s;
+
+  if (targetm.sched.use_dfa_pipeline_interface
+      && (*targetm.sched.use_dfa_pipeline_interface) ())
+    {
+      visual_tbl_line_length = 1;
+      return 1; /* Can't return 0 because that will cause problems
+                   with alloca.  */
+    }
 
   /* Compute length of one field in line.  */
   s = (char *) alloca (INSN_LEN + 6);
@@ -474,6 +484,12 @@ print_exp (buf, x, verbose)
       fun = "trap_if";
       op[0] = TRAP_CONDITION (x);
       break;
+    case PREFETCH:
+      fun = "prefetch";
+      op[0] = XEXP (x, 0);
+      op[1] = XEXP (x, 1);
+      op[2] = XEXP (x, 2);
+      break;
     case UNSPEC:
     case UNSPEC_VOLATILE:
       {
@@ -545,7 +561,15 @@ print_value (buf, x, verbose)
       cur = safe_concat (buf, cur, t);
       break;
     case CONST_DOUBLE:
-      sprintf (t, "<0x%lx,0x%lx>", (long) XWINT (x, 2), (long) XWINT (x, 3));
+      if (FLOAT_MODE_P (GET_MODE (x)))
+	{
+	  REAL_VALUE_TYPE r;
+
+	  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+	  REAL_VALUE_TO_DECIMAL(r, "%.6e", t);
+	}
+      else
+	sprintf (t, "<0x%lx,0x%lx>", (long) XWINT (x, 2), (long) XWINT (x, 3));
       cur = safe_concat (buf, cur, t);
       break;
     case CONST_STRING:
@@ -578,7 +602,7 @@ print_value (buf, x, verbose)
       if (REGNO (x) < FIRST_PSEUDO_REGISTER)
 	{
 	  int c = reg_names[REGNO (x)][0];
-	  if (c >= '0' && c <= '9')
+	  if (ISDIGIT (c))
 	    cur = safe_concat (buf, cur, "%");
 
 	  cur = safe_concat (buf, cur, reg_names[REGNO (x)]);
@@ -653,13 +677,13 @@ print_pattern (buf, x, verbose)
 	  && XEXP (COND_EXEC_TEST (x), 1) == const0_rtx)
 	print_value (t1, XEXP (COND_EXEC_TEST (x), 0), verbose);
       else if (GET_CODE (COND_EXEC_TEST (x)) == EQ
-               && XEXP (COND_EXEC_TEST (x), 1) == const0_rtx)
-        {
+	       && XEXP (COND_EXEC_TEST (x), 1) == const0_rtx)
+	{
 	  t1[0] = '!';
 	  print_value (t1 + 1, XEXP (COND_EXEC_TEST (x), 0), verbose);
 	}
       else
-        print_value (t1, COND_EXEC_TEST (x), verbose);
+	print_value (t1, COND_EXEC_TEST (x), verbose);
       print_pattern (t2, COND_EXEC_CODE (x), verbose);
       sprintf (buf, "(%s) %s", t1, t2);
       break;
@@ -678,18 +702,8 @@ print_pattern (buf, x, verbose)
       }
       break;
     case SEQUENCE:
-      {
-	int i;
-
-	sprintf (t1, "%%{");
-	for (i = 0; i < XVECLEN (x, 0); i++)
-	  {
-	    print_insn (t2, XVECEXP (x, 0, i), verbose);
-	    sprintf (t3, "%s%s;", t1, t2);
-	    strcpy (t1, t3);
-	  }
-	sprintf (buf, "%s%%}", t1);
-      }
+      /* Should never see SEQUENCE codes until after reorg.  */
+      abort ();
       break;
     case ASM_INPUT:
       sprintf (buf, "asm {%s}", XSTR (x, 0));
@@ -743,7 +757,7 @@ print_pattern (buf, x, verbose)
    (Probably the last "option" should be extended somehow, since it
    depends now on sched.c inner variables ...)  */
 
-static void
+void
 print_insn (buf, x, verbose)
      char *buf;
      rtx x;
@@ -809,7 +823,8 @@ print_insn (buf, x, verbose)
     }
 }				/* print_insn */
 
-/* Print visualization debugging info.  */
+/* Print visualization debugging info.  The scheduler using only DFA
+   description should never use the following function.  */
 
 void
 print_block_visualization (s)
@@ -905,7 +920,7 @@ void
 visualize_stall_cycles (stalls)
      int stalls;
 {
-  const char *prefix = ";;       ";
+  static const char *const prefix = ";;       ";
   const char *suffix = "\n";
   char *p;
 
@@ -922,7 +937,7 @@ visualize_stall_cycles (stalls)
   strcpy (p, prefix);
   p += strlen (prefix);
 
-  if ((unsigned)stalls >
+  if ((unsigned) stalls >
       visual_tbl_line_length - strlen (prefix) - strlen (suffix))
     {
       suffix = "[...]\n";

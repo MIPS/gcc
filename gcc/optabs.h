@@ -1,20 +1,20 @@
 /* Definitions for code generation pass of GNU compiler.
    Copyright (C) 2001 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -38,14 +38,15 @@ Boston, MA 02111-1307, USA.  */
    A few optabs, such as move_optab and cmp_optab, are used
    by special code.  */
 
-typedef struct optab
+struct optab GTY(())
 {
   enum rtx_code code;
-  struct {
+  struct optab_handlers {
     enum insn_code insn_code;
     rtx libfunc;
   } handlers [NUM_MACHINE_MODES];
-} * optab;
+};
+typedef struct optab * optab;
 
 /* Given an enum insn_code, access the function to construct
    the body of that kind of insn.  */
@@ -79,8 +80,6 @@ enum optab_index
   /* Signed remainder */
   OTI_smod,
   OTI_umod,
-  /* Optab for floating divide. */
-  OTI_flodiv,
   /* Convert float to integer in float fmt */
   OTI_ftrunc,
 
@@ -154,7 +153,7 @@ enum optab_index
   OTI_MAX
 };
 
-extern optab optab_table[OTI_MAX];
+extern GTY(()) optab optab_table[OTI_MAX];
 
 #define add_optab (optab_table[OTI_add])
 #define sub_optab (optab_table[OTI_sub])
@@ -173,7 +172,6 @@ extern optab optab_table[OTI_MAX];
 #define udivmod_optab (optab_table[OTI_udivmod])
 #define smod_optab (optab_table[OTI_smod])
 #define umod_optab (optab_table[OTI_umod])
-#define flodiv_optab (optab_table[OTI_flodiv])
 #define ftrunc_optab (optab_table[OTI_ftrunc])
 #define and_optab (optab_table[OTI_and])
 #define ior_optab (optab_table[OTI_ior])
@@ -215,7 +213,7 @@ extern optab optab_table[OTI_MAX];
 /* Tables of patterns for extending one integer mode to another.  */
 extern enum insn_code extendtab[MAX_MACHINE_MODE][MAX_MACHINE_MODE][2];
 
-/* Tables of patterns for converting between fixed and floating point. */
+/* Tables of patterns for converting between fixed and floating point.  */
 extern enum insn_code fixtab[NUM_MACHINE_MODES][NUM_MACHINE_MODES][2];
 extern enum insn_code fixtrunctab[NUM_MACHINE_MODES][NUM_MACHINE_MODES][2];
 extern enum insn_code floattab[NUM_MACHINE_MODES][NUM_MACHINE_MODES][2];
@@ -228,21 +226,6 @@ extern enum insn_code reload_out_optab[NUM_MACHINE_MODES];
 
 /* Contains the optab used for each rtx code.  */
 extern optab code_to_optab[NUM_RTX_CODE + 1];
-
-/* Passed to expand_binop and expand_unop to say which options to try to use
-   if the requested operation can't be open-coded on the requisite mode.
-   Either OPTAB_LIB or OPTAB_LIB_WIDEN says try using a library call.
-   Either OPTAB_WIDEN or OPTAB_LIB_WIDEN says try using a wider mode.
-   OPTAB_MUST_WIDEN says try widening and don't try anything else.  */
-
-enum optab_methods
-{
-  OPTAB_DIRECT,
-  OPTAB_LIB,
-  OPTAB_WIDEN,
-  OPTAB_LIB_WIDEN,
-  OPTAB_MUST_WIDEN
-};
 
 
 typedef rtx (*rtxfun) PARAMS ((rtx));
@@ -309,7 +292,7 @@ extern void emit_0_to_1_insn PARAMS ((rtx));
 
 /* Emit one rtl insn to compare two rtx's.  */
 extern void emit_cmp_insn PARAMS ((rtx, rtx, enum rtx_code, rtx,
-				   enum machine_mode, int, unsigned int));
+				   enum machine_mode, int));
 
 /* The various uses that a comparison can have; used by can_compare_p:
    jumps, conditional moves, store flag operations.  */
@@ -324,10 +307,6 @@ enum can_compare_purpose
    (without splitting it into pieces).  */
 extern int can_compare_p PARAMS ((enum rtx_code, enum machine_mode,
 				  enum can_compare_purpose));
-
-extern void prepare_cmp_insn PARAMS ((rtx *, rtx *, enum rtx_code *, rtx,
-				      enum machine_mode *, int *, int,
-				      enum can_compare_purpose));
 
 extern rtx prepare_operand PARAMS ((int, rtx, int, enum machine_mode,
 				    enum machine_mode, int));

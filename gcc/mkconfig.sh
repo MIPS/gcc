@@ -2,51 +2,78 @@
 
 # Generate gcc's config.h, which is not your normal autoconf-generated
 # config.h (that's auto-(host|build).h).  $1 is the file to generate.
-# HEADERS, DEFINES, and possibly TARGET_CPU_DEFAULT are expected to be
-# set in the environment.
+# TM_DEFINES, HEADERS, XM_DEFINES, and possibly TARGET_CPU_DEFAULT are
+# expected to be set in the environment.
 
 if [ -z "$1" ]; then
-    echo "Usage: HEADERS='list' DEFINES='list' mkconfig.sh FILE" >&2
+    echo "Usage: TM_DEFINES='list' HEADERS='list' XM_DEFINES='list' mkconfig.sh FILE" >&2
     exit 1
 fi
 
 output=$1
-rm -f $output.T
-
-# We used to exec > $output.T but apparently this has bugs.
-# Use a redirected subshell instead.
-(
+rm -f ${output}T
 
 # Define TARGET_CPU_DEFAULT if the system wants one.
 # This substitutes for lots of *.h files.
 if [ "$TARGET_CPU_DEFAULT" != "" ]; then
-    echo "#define TARGET_CPU_DEFAULT ($TARGET_CPU_DEFAULT)"
+    echo "#define TARGET_CPU_DEFAULT ($TARGET_CPU_DEFAULT)" >> ${output}T
 fi
+
+# Provide defines for other target machine macros to be used everywhere.
+for def in $TM_DEFINES; do
+    echo "#ifndef $def" | sed 's/=.*//' >> ${output}T
+    echo "# define $def" | sed 's/=/ /' >> ${output}T
+    echo "#endif" >> ${output}T
+done
 
 # The first entry in HEADERS may be auto-host.h or auto-build.h;
 # it wants to be included even when not -DIN_GCC.
 if [ -n "$HEADERS" ]; then
     set $HEADERS; first=$1
     case $first in auto-* )
-	echo "#include \"$first\""
+	echo "#include \"$first\"" >> ${output}T
 	shift
 	HEADERS=$*
 	;;
     esac
 fi
 
+# Provide three core typedefs used by everything, if we are compiling
+# GCC.  These used to be found in rtl.h and tree.h, but this is no
+# longer practical. Providing these in config.h/tconfig.h/hconfig.h
+# rather than system.h allows the typedefs to be used anywhere in GCC.
+case $output in 
+    *config.h | *hconfig.h | *tconfig.h)
+        cat >> ${output}T <<EOF
+#ifdef IN_GCC
+/* Provide three core typedefs used by everything, if we are compiling
+   GCC.  These used to be found in rtl.h and tree.h, but this is no
+   longer practical.  Providing these here rather that system.h allows
+   the typedefs to be used everywhere within GCC. */
+struct rtx_def;
+typedef struct rtx_def *rtx;
+struct rtvec_def;
+typedef struct rtvec_def *rtvec;
+union tree_node;
+typedef union tree_node *tree;
+#endif
+#define GTY(x)
+EOF
+        ;;
+esac
+
 if [ -n "$HEADERS" ]; then
-    echo '#ifdef IN_GCC'
+    echo '#ifdef IN_GCC' >> ${output}T
     for file in $HEADERS; do
-	echo "# include \"$file\""
+	echo "# include \"$file\"" >> ${output}T
     done
-    echo '#endif'
+    echo '#endif' >> ${output}T
 fi
 
-for def in $DEFINES; do
-    echo "#ifndef $def" | sed 's/=.*//'
-    echo "# define $def" | sed 's/=/ /'
-    echo "#endif"
+for def in $XM_DEFINES; do
+    echo "#ifndef $def" | sed 's/=.*//' >> ${output}T
+    echo "# define $def" | sed 's/=/ /' >> ${output}T
+    echo "#endif" >> ${output}T
 done
 
 # If this is tm_p.h, include tm-preds.h unconditionally.
@@ -55,26 +82,26 @@ done
 # but only if GENERATOR_FILE is not defined.
 case $output in
     *tm_p.h)
-	echo "#include \"tm-preds.h\""
+	echo "#include \"tm-preds.h\"" >> ${output}T
     ;;
     *tconfig.h | *hconfig.h)
     ;;
     *)
-	echo "#ifndef GENERATOR_FILE"
-	echo "# include \"insn-constants.h\""
-	echo "# include \"insn-flags.h\""
-	echo "#endif"
+        cat >> ${output}T <<EOF
+#ifndef GENERATOR_FILE
+# include "insn-constants.h"
+# include "insn-flags.h"
+#endif
+EOF
     ;;
 esac
 
-) > $output.T
-
 # Avoid changing the actual file if possible.
-if [ -f $output ] && cmp $output.T $output >/dev/null 2>&1; then
+if [ -f $output ] && cmp ${output}T $output >/dev/null 2>&1; then
     echo $output is unchanged >&2
-    rm -f $output.T
+    rm -f ${output}T
 else
-    mv -f $output.T $output
+    mv -f ${output}T $output
 fi
 
 # Touch a stamp file for Make's benefit.

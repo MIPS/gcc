@@ -1,7 +1,7 @@
 /* Gcov.c: prepend line execution counts and branch probabilities to a
    source file.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by James E. Wilson of Cygnus Support.
    Mangled by Bob Manson of Cygnus Support.
 
@@ -46,7 +46,10 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "intl.h"
+#include "version.h"
 #undef abort
+
+#include <getopt.h>
 
 typedef HOST_WIDEST_INT gcov_type;
 #include "gcov-io.h"
@@ -78,8 +81,6 @@ typedef HOST_WIDEST_INT gcov_type;
 
 /* The functions in this file for creating and solution program flow graphs
    are very similar to functions in the gcc source file profile.c.  */
-
-char gcov_version_string[] = "GNU gcov version 1.5\n";
 
 /* This is the size of the buffer used to read in source file lines.  */
 
@@ -227,9 +228,11 @@ static void open_files PARAMS ((void));
 static void read_files PARAMS ((void));
 static void scan_for_source_files PARAMS ((void));
 static void output_data PARAMS ((void));
-static void print_usage PARAMS ((void)) ATTRIBUTE_NORETURN;
+static void print_usage PARAMS ((int)) ATTRIBUTE_NORETURN;
+static void print_version PARAMS ((void)) ATTRIBUTE_NORETURN;
 static void init_arc PARAMS ((struct adj_list *, int, int, struct bb_info *));
 static struct adj_list *reverse_arcs PARAMS ((struct adj_list *));
+static gcov_type *read_profile PARAMS ((char *, long, int));
 static void create_program_flow_graph PARAMS ((struct bb_info_list *));
 static void solve_program_flow_graph PARAMS ((struct bb_info_list *));
 static void calculate_branch_probs PARAMS ((struct bb_info_list *, int,
@@ -243,18 +246,7 @@ main (argc, argv)
      int argc;
      char **argv;
 {
-/* LC_CTYPE determines the character set used by the terminal so it has be set
-   to output messages correctly.  */
-
-#ifdef HAVE_LC_MESSAGES
-  setlocale (LC_CTYPE, "");
-  setlocale (LC_MESSAGES, "");
-#else
-  setlocale (LC_ALL, "");
-#endif
-
-  (void) bindtextdomain (PACKAGE, localedir);
-  (void) textdomain (PACKAGE);
+  gcc_init_libintl ();
 
   process_args (argc, argv);
 
@@ -273,21 +265,12 @@ static void fnotice PARAMS ((FILE *, const char *, ...)) ATTRIBUTE_PRINTF_2;
 static void
 fnotice VPARAMS ((FILE *file, const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  FILE *file;
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  file = va_arg (ap, FILE *);
-  msgid = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, FILE *, file);
+  VA_FIXEDARG (ap, const char *, msgid);
 
   vfprintf (file, _(msgid), ap);
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
 /* More 'friendly' abort that prints the line and file.
@@ -301,14 +284,56 @@ fancy_abort ()
   exit (FATAL_EXIT_CODE);
 }
 
-/* Print a usage message and exit.  */
+/* Print a usage message and exit.  If ERROR_P is nonzero, this is an error,
+   otherwise the output of --help.  */
 
 static void
-print_usage ()
+print_usage (error_p)
+     int error_p;
 {
-  fnotice (stderr, "gcov [-b] [-v] [-n] [-l] [-f] [-o OBJDIR] file\n");
-  exit (FATAL_EXIT_CODE);
+  FILE *file = error_p ? stderr : stdout;
+  int status = error_p ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE;
+  fnotice (file, "Usage: gcov [OPTION]... SOURCEFILE\n\n");
+  fnotice (file, "Print code coverage information.\n\n");
+  fnotice (file, "  -h, --help                      Print this help, then exit\n");
+  fnotice (file, "  -v, --version                   Print version number, then exit\n");
+  fnotice (file, "  -b, --branch-probabilities      Include branch probabilities in output\n");
+  fnotice (file, "  -c, --branch-counts             Given counts of branches taken\n\
+                                    rather than percentages\n");
+  fnotice (file, "  -n, --no-output                 Do not create an output file\n");
+  fnotice (file, "  -l, --long-file-names           Use long output file names for included\n\
+                                    source files\n");
+  fnotice (file, "  -f, --function-summaries        Output summaries for each function\n");
+  fnotice (file, "  -o, --object-directory OBJDIR   Search for object files in OBJDIR\n");
+  fnotice (file, "\nFor bug reporting instructions, please see:\n%s.\n",
+	   GCCBUGURL);
+  exit (status);
 }
+
+/* Print version information and exit.  */
+
+static void
+print_version ()
+{
+  fnotice (stdout, "gcov (GCC) %s\n", version_string);
+  fnotice (stdout, "Copyright (C) 2001 Free Software Foundation, Inc.\n");
+  fnotice (stdout,
+	   "This is free software; see the source for copying conditions.  There is NO\n\
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n");
+  exit (SUCCESS_EXIT_CODE);
+}
+
+static const struct option options[] =
+{
+  { "help",                 no_argument,       NULL, 'h' },
+  { "version",              no_argument,       NULL, 'v' },
+  { "branch-probabilities", no_argument,       NULL, 'b' },
+  { "branch-counts",        no_argument,       NULL, 'c' },
+  { "no-output",            no_argument,       NULL, 'n' },
+  { "long-file-names",      no_argument,       NULL, 'l' },
+  { "function-summaries",   no_argument,       NULL, 'f' },
+  { "object-directory",     required_argument, NULL, 'o' }
+};
 
 /* Parse the command line.  */
 
@@ -317,37 +342,46 @@ process_args (argc, argv)
      int argc;
      char **argv;
 {
-  int i;
+  int opt;
 
-  for (i = 1; i < argc; i++)
+  while ((opt = getopt_long (argc, argv, "hvbclnfo:", options, NULL)) != -1)
     {
-      if (argv[i][0] == '-')
+      switch (opt)
 	{
-	  if (argv[i][1] == 'b')
-	    output_branch_probs = 1;
-	  else if (argv[i][1] == 'c')
-	    output_branch_counts = 1;
-	  else if (argv[i][1] == 'v')
-	    fputs (gcov_version_string, stderr);
-	  else if (argv[i][1] == 'n')
-	    output_gcov_file = 0;
-	  else if (argv[i][1] == 'l')
-	    output_long_names = 1;
-	  else if (argv[i][1] == 'f')
-	    output_function_summary = 1;
-	  else if (argv[i][1] == 'o' && argv[i][2] == '\0')
-	    object_directory = argv[++i];
-	  else
-	    print_usage ();
+	case 'h':
+	  print_usage (false);
+	  /* print_usage will exit.  */
+	case 'v':
+	  print_version ();
+	  /* print_version will exit.  */
+	case 'b':
+	  output_branch_probs = 1;
+	  break;
+	case 'c':
+	  output_branch_counts = 1;
+	  break;
+	case 'n':
+	  output_gcov_file = 0;
+	  break;
+	case 'l':
+	  output_long_names = 1;
+	  break;
+	case 'f':
+	  output_function_summary = 1;
+	  break;
+	case 'o':
+	  object_directory = optarg;
+	  break;
+	default:
+	  print_usage (true);
+	  /* print_usage will exit.  */
 	}
-      else if (! input_file_name)
-	input_file_name = argv[i];
-      else
-	print_usage ();
     }
 
-  if (! input_file_name)
-    print_usage ();
+  if (optind != argc - 1)
+    print_usage (true);
+
+  input_file_name = argv[optind];
 }
 
 
@@ -486,7 +520,7 @@ init_arc (arcptr, source, target, bb_graph)
 }
 
 
-/* Reverse the arcs on a arc list.  */
+/* Reverse the arcs on an arc list.  */
 
 static struct adj_list *
 reverse_arcs (arcptr)
@@ -505,6 +539,130 @@ reverse_arcs (arcptr)
   return prev;
 }
 
+/* Reads profiles from the .da file and compute a hybrid profile.  */
+
+static gcov_type *
+read_profile (function_name, cfg_checksum, instr_arcs)
+     char *function_name;
+     long cfg_checksum;
+     int instr_arcs;
+{
+  int i;
+  int okay = 1;
+  gcov_type *profile;
+  char *function_name_buffer;
+  int function_name_buffer_len;
+
+  profile = xmalloc (sizeof (gcov_type) * instr_arcs);
+  rewind (da_file);
+  function_name_buffer_len = strlen (function_name) + 1;
+  function_name_buffer = xmalloc (function_name_buffer_len + 1);
+
+  for (i = 0; i < instr_arcs; i++)
+    profile[i] = 0;
+
+  if (!da_file)
+    return profile;
+
+  while (1)
+    {
+      long magic, extra_bytes;
+      long func_count;
+      int i;
+
+      if (__read_long (&magic, da_file, 4) != 0)
+	break;
+
+      if (magic != -123)
+	{
+	  okay = 0;
+	  break;
+	}
+
+      if (__read_long (&func_count, da_file, 4) != 0)
+	{
+	  okay = 0;
+	  break;
+	}
+
+      if (__read_long (&extra_bytes, da_file, 4) != 0)
+	{
+	  okay = 0;
+	  break;
+	}
+
+      /* skip extra data emited by __bb_exit_func.  */
+      fseek (da_file, extra_bytes, SEEK_CUR);
+
+      for (i = 0; i < func_count; i++)
+	{
+	  long arc_count;
+	  long chksum;
+	  int j;
+
+	  if (__read_gcov_string
+	      (function_name_buffer, function_name_buffer_len, da_file,
+	       -1) != 0)
+	    {
+	      okay = 0;
+	      break;
+	    }
+
+	  if (__read_long (&chksum, da_file, 4) != 0)
+	    {
+	      okay = 0;
+	      break;
+	    }
+
+	  if (__read_long (&arc_count, da_file, 4) != 0)
+	    {
+	      okay = 0;
+	      break;
+	    }
+
+	  if (strcmp (function_name_buffer, function_name) != 0
+	      || arc_count != instr_arcs || chksum != cfg_checksum)
+	    {
+	      /* skip */
+	      if (fseek (da_file, arc_count * 8, SEEK_CUR) < 0)
+		{
+		  okay = 0;
+		  break;
+		}
+	    }
+	  else
+	    {
+	      gcov_type tmp;
+
+	      for (j = 0; j < arc_count; j++)
+		if (__read_gcov_type (&tmp, da_file, 8) != 0)
+		  {
+		    okay = 0;
+		    break;
+		  }
+		else
+		  {
+		    profile[j] += tmp;
+		  }
+	    }
+	}
+
+      if (!okay)
+	break;
+
+    }
+
+  free (function_name_buffer);
+
+  if (!okay)
+    {
+      fprintf (stderr, ".da file corrupted!\n");
+      free (profile);
+      abort ();
+    }
+
+  return profile;
+}
 
 /* Construct the program flow graph from the .bbg file, and read in the data
    in the .da file.  */
@@ -517,6 +675,29 @@ create_program_flow_graph (bptr)
   int i;
   struct adj_list *arcptr;
   struct bb_info *bb_graph;
+  long cfg_checksum;
+  long instr_arcs = 0;
+  gcov_type *profile;
+  int profile_pos = 0;
+  char *function_name;
+  long function_name_len, tmp;
+
+  /* Read function name.  */
+  __read_long (&tmp, bbg_file, 4);   /* ignore -1.  */
+  __read_long (&function_name_len, bbg_file, 4);
+  function_name = xmalloc (function_name_len + 1);
+  fread (function_name, 1, function_name_len + 1, bbg_file);
+
+  /* Skip padding.  */
+  tmp = (function_name_len + 1) % 4;
+
+  if (tmp)
+    fseek (bbg_file, 4 - tmp, SEEK_CUR);
+
+  __read_long (&tmp, bbg_file, 4);   /* ignore -1.  */
+
+  /* Read the cfg checksum.  */
+  __read_long (&cfg_checksum, bbg_file, 4);
 
   /* Read the number of blocks.  */
   __read_long (&num_blocks, bbg_file, 4);
@@ -546,7 +727,10 @@ create_program_flow_graph (bptr)
 	  init_arc (arcptr, src, dest, bb_graph);
 
 	  __read_long (&flag_bits, bbg_file, 4);
-	  arcptr->on_tree = flag_bits & 0x1;
+	  if (flag_bits & 0x1)
+	    arcptr->on_tree++;
+	  else
+	    instr_arcs++;
 	  arcptr->fake = !! (flag_bits & 0x2);
 	  arcptr->fall_through = !! (flag_bits & 0x4);
 	}
@@ -568,6 +752,10 @@ create_program_flow_graph (bptr)
     if (bb_graph[i].succ)
       bb_graph[i].succ = reverse_arcs (bb_graph[i].succ);
 
+  /* Read profile from the .da file.  */
+
+  profile = read_profile (function_name, cfg_checksum, instr_arcs);
+
   /* For each arc not on the spanning tree, set its execution count from
      the .da file.  */
 
@@ -580,15 +768,13 @@ create_program_flow_graph (bptr)
     for (arcptr = bb_graph[i].succ; arcptr; arcptr = arcptr->succ_next)
       if (! arcptr->on_tree)
 	{
-	  gcov_type tmp_count = 0;
-	  if (da_file && __read_gcov_type (&tmp_count, da_file, 8))
-	    abort();
-
-	  arcptr->arc_count = tmp_count;
+	  arcptr->arc_count = profile[profile_pos++];
 	  arcptr->count_valid = 1;
 	  bb_graph[i].succ_count--;
 	  bb_graph[arcptr->target].pred_count--;
 	}
+  free (profile);
+  free (function_name);
 }
 
 static void
@@ -722,12 +908,6 @@ read_files ()
   struct stat buf;
   struct bb_info_list *list_end = 0;
   struct bb_info_list *b_ptr;
-  long total;
-
-  /* Read and ignore the first word of the .da file, which is the count of
-     how many numbers follow.  */
-  if (da_file && __read_long (&total, da_file, 8))
-    abort();
 
   while (! feof (bbg_file))
     {
@@ -746,17 +926,6 @@ read_files ()
 
       /* Set the EOF condition if at the end of file.  */
       ungetc (getc (bbg_file), bbg_file);
-    }
-
-  /* Check to make sure the .da file data is valid.  */
-
-  if (da_file)
-    {
-      if (feof (da_file))
-	fnotice (stderr, ".da file contents exhausted too early\n");
-      /* Should be at end of file now.  */
-      if (__read_long (&total, da_file, 8) == 0)
-	fnotice (stderr, ".da file contents not exhausted\n");
     }
 
   /* Calculate all of the basic block execution counts and branch
@@ -852,7 +1021,7 @@ scan_for_source_files ()
       else if (line_num < 0)
 	{
 	  /* Don't know what this is, but it's garbage.  */
-	  abort();
+	  abort ();
 	}
     }
 }
@@ -894,9 +1063,9 @@ calculate_branch_probs (current_graph, block_num, branch_probs, last_line_num)
       a_ptr = (struct arcdata *) xmalloc (sizeof (struct arcdata));
       a_ptr->total = total;
       if (total == 0)
-          a_ptr->hits = 0;
+	a_ptr->hits = 0;
       else
-          a_ptr->hits = arcptr->arc_count;
+	a_ptr->hits = arcptr->arc_count;
       a_ptr->call_insn = arcptr->fake;
 
       if (output_function_summary)
@@ -1018,12 +1187,7 @@ output_data ()
     {
       /* If this is a relative file name, and an object directory has been
 	 specified, then make it relative to the object directory name.  */
-      if (! (*s_ptr->name == '/' || *s_ptr->name == DIR_SEPARATOR
-	     /* Check for disk name on MS-DOS-based systems.  */
-	     || (DIR_SEPARATOR == '\\'
-		 && s_ptr->name[1] == ':'
-		 && (s_ptr->name[2] == DIR_SEPARATOR
-		     || s_ptr->name[2] == '/')))
+      if (! IS_ABSOLUTE_PATHNAME (s_ptr->name)
 	  && object_directory != 0
 	  && *object_directory != '\0')
 	{
@@ -1401,8 +1565,8 @@ output_data ()
 					   ((a_ptr->hits * 100)
 					    + (a_ptr->total >> 1))
 					   / a_ptr->total);
-                                fnotice (gcov_file,
-                                         "branch %d taken = %s%%\n", i, c);
+				  fnotice (gcov_file,
+					   "branch %d taken = %s%%\n", i, c);
 				}
 			    }
 			}

@@ -1,6 +1,6 @@
 /* fix-header.c - Make C header file suitable for C++.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2001 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -104,7 +104,7 @@ int missing_extern_C_count = 0;
    directory.  (It might be more efficient to do directory pruning
    earlier in fixproto, but this is simpler and easier to customize.) */
 
-static char *files_to_ignore[] = {
+static const char *const files_to_ignore[] = {
   "X11/",
   FIXPROTO_IGNORE_LIST
   0
@@ -215,9 +215,9 @@ add_symbols (flags, names)
 }
 
 struct std_include_entry {
-  const char *name;
-  symbol_flags flags;
-  namelist names;
+  const char *const name;
+  const symbol_flags flags;
+  const namelist names;
 };
 
 const char NONE[] = "";  /* The empty namelist.  */
@@ -225,9 +225,9 @@ const char NONE[] = "";  /* The empty namelist.  */
 /* Special name to indicate a continuation line in std_include_table.  */
 const char CONTINUED[] = "";
 
-struct std_include_entry *include_entry;
+const struct std_include_entry *include_entry;
 
-struct std_include_entry std_include_table [] = {
+const struct std_include_entry std_include_table [] = {
   { "ctype.h", ANSI_SYMBOL,
       "isalnum\0isalpha\0iscntrl\0isdigit\0isgraph\0islower\0\
 isprint\0ispunct\0isspace\0isupper\0isxdigit\0tolower\0toupper\0" },
@@ -411,10 +411,10 @@ int lbrac_line, rbrac_line;
 int required_unseen_count = 0;
 int required_other = 0;
 
-static void 
+static void
 write_lbrac ()
 {
-  
+
 #if ADD_MISSING_EXTERN_C
   if (missing_extern_C_count + required_unseen_count > 0)
     fprintf (outf, "#ifdef __cplusplus\nextern \"C\" {\n#endif\n");
@@ -546,7 +546,7 @@ recognized_function (fname, line, kind, have_arg_list)
   /* If we have a full prototype, we're done.  */
   if (have_arg_list)
     return;
-      
+
   if (kind == 'I')  /* don't edit inline function */
     return;
 
@@ -612,16 +612,16 @@ read_scan_file (in_fname, argc, argv)
      int argc;
      char **argv;
 {
-  cpp_reader* scan_in;
+  cpp_reader *scan_in;
   cpp_callbacks *cb;
   cpp_options *options;
   struct fn_decl *fn;
   int i;
-  register struct symbol_list *cur_symbols;
+  struct symbol_list *cur_symbols;
 
-  obstack_init (&scan_file_obstack); 
+  obstack_init (&scan_file_obstack);
 
-  scan_in = cpp_create_reader (NULL, CLK_GNUC89);
+  scan_in = cpp_create_reader (CLK_GNUC89);
   cb = cpp_get_callbacks (scan_in);
   cb->file_change = cb_file_change;
 
@@ -632,14 +632,16 @@ read_scan_file (in_fname, argc, argv)
   options->inhibit_errors = 1;
 
   i = cpp_handle_options (scan_in, argc, argv);
-  if (i < argc && ! CPP_FATAL_ERRORS (scan_in))
-    cpp_fatal (scan_in, "Invalid option `%s'", argv[i]);
+  if (i < argc)
+    cpp_error (scan_in, DL_ERROR, "invalid option `%s'", argv[i]);
   cpp_post_options (scan_in);
-  if (CPP_FATAL_ERRORS (scan_in))
+  if (cpp_errors (scan_in))
     exit (FATAL_EXIT_CODE);
 
-  if (! cpp_start_read (scan_in, in_fname))
+  if (! cpp_read_main_file (scan_in, in_fname, NULL))
     exit (FATAL_EXIT_CODE);
+
+  cpp_finish_options (scan_in);
 
   /* We are scanning a system header, so mark it as such.  */
   cpp_make_system_header (scan_in, 1, 0);
@@ -658,15 +660,14 @@ read_scan_file (in_fname, argc, argv)
 
       /* Scan the macro expansion of "getchar();".  */
       cpp_push_buffer (scan_in, getchar_call, sizeof(getchar_call) - 1,
-		       BUF_BUILTIN, in_fname, 1);
+		       /* from_stage3 */ true, 1);
       for (;;)
 	{
-	  cpp_token t;
+	  const cpp_token *t = cpp_get_token (scan_in);
 
-	  cpp_get_token (scan_in, &t);
-	  if (t.type == CPP_EOF)
+	  if (t->type == CPP_EOF)
 	    break;
-	  else if (cpp_ideq (&t, "_filbuf"))
+	  else if (cpp_ideq (t, "_filbuf"))
 	    seen_filbuf++;
 	}
 
@@ -700,7 +701,7 @@ read_scan_file (in_fname, argc, argv)
   if (required_unseen_count + partial_count + required_other
 #if ADD_MISSING_EXTERN_C
       + missing_extern_C_count
-#endif      
+#endif
       == 0)
     {
       if (verbose)
@@ -731,7 +732,7 @@ write_rbrac ()
 {
   struct fn_decl *fn;
   const char *cptr;
-  register struct symbol_list *cur_symbols;
+  struct symbol_list *cur_symbols;
 
   if (required_unseen_count)
     {
@@ -930,17 +931,17 @@ inf_read_upto (str, delim)
 
 static int
 inf_scan_ident (s, c)
-     register sstring *s;
+     sstring *s;
      int c;
 {
   s->ptr = s->base;
-  if (ISALPHA (c) || c == '_')
+  if (ISIDST (c))
     {
       for (;;)
 	{
 	  SSTRING_PUT (s, c);
 	  c = INF_GET ();
-	  if (c == EOF || !(ISALNUM (c) || c == '_'))
+	  if (c == EOF || !(ISIDNUM (c)))
 	    break;
 	}
     }
@@ -1075,16 +1076,16 @@ main (argc, argv)
   int endif_line;
   long to_read;
   long int inf_size;
-  register struct symbol_list *cur_symbols;
+  struct symbol_list *cur_symbols;
 
   if (argv[0] && argv[0][0])
     {
-      register char *p;
+      char *p;
 
       progname = 0;
       for (p = argv[0]; *p; p++)
-        if (*p == '/')
-          progname = p;
+	if (*p == '/')
+	  progname = p;
       progname = progname ? progname+1 : argv[0];
     }
 
@@ -1101,7 +1102,7 @@ main (argc, argv)
 #ifdef FIXPROTO_IGNORE_LIST
   for (i = 0; files_to_ignore[i] != NULL; i++)
     {
-      char *ignore_name = files_to_ignore[i];
+      const char *const ignore_name = files_to_ignore[i];
       int ignore_len = strlen (ignore_name);
       if (strncmp (inc_filename, ignore_name, ignore_len) == 0)
 	{
@@ -1113,7 +1114,7 @@ main (argc, argv)
 	      exit (SUCCESS_EXIT_CODE);
 	    }
 	}
-	  
+
     }
 #endif
 
@@ -1133,7 +1134,7 @@ main (argc, argv)
 
   if (include_entry->name != NULL)
     {
-      struct std_include_entry *entry;
+      const struct std_include_entry *entry;
       cur_symbol_table_size = 0;
       for (entry = include_entry; ;)
 	{
@@ -1147,7 +1148,7 @@ main (argc, argv)
   else
     symbol_table[0].names = NULL;
 
-  /* Count and mark the prototypes required for this include file.  */ 
+  /* Count and mark the prototypes required for this include file.  */
   for (cur_symbols = &symbol_table[0]; cur_symbols->names; cur_symbols++)
     {
       int name_len;
@@ -1183,9 +1184,6 @@ main (argc, argv)
     }
   inf_size = sbuf.st_size;
   inf_buffer = (char *) xmalloc (inf_size + 2);
-  inf_buffer[inf_size] = '\n';
-  inf_buffer[inf_size + 1] = '\0';
-  inf_limit = inf_buffer + inf_size;
   inf_ptr = inf_buffer;
 
   to_read = inf_size;
@@ -1207,6 +1205,11 @@ main (argc, argv)
     }
 
   close (inf_fd);
+
+  /* Inf_size may have changed if read was short (as on VMS) */
+  inf_buffer[inf_size] = '\n';
+  inf_buffer[inf_size + 1] = '\0';
+  inf_limit = inf_buffer + inf_size;
 
   /* If file doesn't end with '\n', add one.  */
   if (inf_limit > inf_buffer && inf_limit[-1] != '\n')
@@ -1251,7 +1254,7 @@ main (argc, argv)
 	  c = INF_GET ();
 	  if (c == EOF)
 	    break;
-	  if (ISALPHA (c) || c == '_')
+	  if (ISIDST (c))
 	    {
 	      c = inf_scan_ident (&buf, c);
 	      (void) INF_UNGET (c);
@@ -1310,24 +1313,16 @@ v_fatal (str, ap)
   fprintf (stderr, "%s: %s: ", progname, inc_filename);
   vfprintf (stderr, str, ap);
   fprintf (stderr, "\n");
-  
+
   exit (FATAL_EXIT_CODE);
 }
 
 static void
 fatal VPARAMS ((const char *str, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *str;
-#endif
-  va_list ap;
-  
-  VA_START (ap, str);
-
-#ifndef ANSI_PROTOTYPES
-  str = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, str);
+  VA_FIXEDARG (ap, const char *, str);
 
   v_fatal (str, ap);
-  va_end (ap);
+  VA_CLOSE (ap);
 }

@@ -1,5 +1,5 @@
 /* Debug hooks for GCC.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -17,9 +17,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #ifndef GCC_DEBUG_H
 #define GCC_DEBUG_H
-
-union tree_node;
-struct rtx_def;
 
 /* This structure contains hooks for the debug information output
    functions, accessed through the global instance debug_hooks set in
@@ -59,7 +56,7 @@ struct gcc_debug_hooks
      instructions.  This may not be the case for blocks containing
      nested functions, since we may actually call such a function even
      though the BLOCK information is messed up.  Defaults to true.  */
-  bool (* ignore_block) PARAMS ((union tree_node *));
+  bool (* ignore_block) PARAMS ((tree));
 
   /* Record a source file location at (FILE, LINE).  */
   void (* source_line) PARAMS ((unsigned int line, const char *file));
@@ -77,7 +74,7 @@ struct gcc_debug_hooks
   void (* end_epilogue) PARAMS ((void));
 
   /* Called at start of function DECL, before it is declared.  */
-  void (* begin_function) PARAMS ((union tree_node *decl));
+  void (* begin_function) PARAMS ((tree decl));
 
   /* Record end of function.  LINE is highest line number in function.  */
   void (* end_function) PARAMS ((unsigned int line));
@@ -86,27 +83,27 @@ struct gcc_debug_hooks
      function name (a symbol), its parameters, and the block that
      makes up the function's body, and the local variables of the
      function.  */
-  void (* function_decl) PARAMS ((union tree_node *decl));
+  void (* function_decl) PARAMS ((tree decl));
 
   /* Debug information for a global DECL.  Called from toplev.c after
      compilation proper has finished.  */
-  void (* global_decl) PARAMS ((union tree_node *decl));
+  void (* global_decl) PARAMS ((tree decl));
 
   /* DECL is an inline function, whose body is present, but which is
      not being output at this point.  */
-  void (* deferred_inline_function) PARAMS ((union tree_node *decl));
+  void (* deferred_inline_function) PARAMS ((tree decl));
 
   /* DECL is an inline function which is about to be emitted out of
      line.  The hook is useful to, e.g., emit abstract debug info for
      the inline before it gets mangled by optimization.  */
-  void (* outlining_inline_function) PARAMS ((union tree_node *decl));
+  void (* outlining_inline_function) PARAMS ((tree decl));
 
   /* Called from final_scan_insn for any CODE_LABEL insn whose
      LABEL_NAME is non-null.  */
-  void (* label) PARAMS ((struct rtx_def *insn));
+  void (* label) PARAMS ((rtx));
 };
 
-extern struct gcc_debug_hooks *debug_hooks;
+extern const struct gcc_debug_hooks *debug_hooks;
 
 /* The do-nothing hooks.  */
 extern void debug_nothing_void
@@ -120,35 +117,35 @@ extern void debug_nothing_int
 extern void debug_nothing_int_int
   PARAMS ((unsigned int, unsigned int));
 extern void debug_nothing_tree
-  PARAMS ((union tree_node *));
+  PARAMS ((tree));
 extern bool debug_true_tree
-  PARAMS ((union tree_node *));
+  PARAMS ((tree));
 extern void debug_nothing_rtx
-  PARAMS ((struct rtx_def *));
+  PARAMS ((rtx));
 
 /* Hooks for various debug formats.  */
-extern struct gcc_debug_hooks do_nothing_debug_hooks;
-extern struct gcc_debug_hooks dbx_debug_hooks;
-extern struct gcc_debug_hooks sdb_debug_hooks;
-extern struct gcc_debug_hooks xcoff_debug_hooks;
-extern struct gcc_debug_hooks dwarf_debug_hooks;
-extern struct gcc_debug_hooks dwarf2_debug_hooks;
+extern const struct gcc_debug_hooks do_nothing_debug_hooks;
+extern const struct gcc_debug_hooks dbx_debug_hooks;
+extern const struct gcc_debug_hooks sdb_debug_hooks;
+extern const struct gcc_debug_hooks xcoff_debug_hooks;
+extern const struct gcc_debug_hooks dwarf_debug_hooks;
+extern const struct gcc_debug_hooks dwarf2_debug_hooks;
+extern const struct gcc_debug_hooks vmsdbg_debug_hooks;
 
 /* Dwarf2 frame information.  */
 
-/* FILE is NULL iff being called for frame information for non-dwarf
-   debug output.  */
-extern void dwarf2out_begin_prologue
-  PARAMS ((unsigned int, const char * file));
-extern void dwarf2out_end_epilogue
-  PARAMS ((void));
-extern void dwarf2out_frame_init
-  PARAMS ((void));
-extern void dwarf2out_frame_finish
-  PARAMS ((void));
+extern void dwarf2out_begin_prologue	PARAMS ((unsigned int, const char *));
+extern void dwarf2out_end_epilogue	PARAMS ((void));
+extern void dwarf2out_frame_init	PARAMS ((void));
+extern void dwarf2out_frame_finish	PARAMS ((void));
 /* Decide whether we want to emit frame unwind information for the current
    translation unit.  */
-extern int dwarf2out_do_frame
-  PARAMS ((void));
+extern int dwarf2out_do_frame		PARAMS ((void));
+
+/* When writing VMS debug info, output label after the prologue of the
+   function.  */
+extern void vmsdbgout_after_prologue	PARAMS ((void));
+
+
 
 #endif /* !GCC_DEBUG_H  */

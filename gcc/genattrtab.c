@@ -1,24 +1,24 @@
 /* Generate code from machine description to compute values of attributes.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2002 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* This program handles insn attributes and the DEFINE_DELAY and
    DEFINE_FUNCTION_UNIT definitions.
@@ -86,14 +86,19 @@ Boston, MA 02111-1307, USA.  */
    definitions (each would be accessed through a pointer).
 
    We use the flags in an RTX as follows:
-   `unchanging' (RTX_UNCHANGING_P): This rtx is fully simplified
+   `unchanging' (ATTR_IND_SIMPLIFIED_P): This rtx is fully simplified
       independent of the insn code.
-   `in_struct' (MEM_IN_STRUCT_P): This rtx is fully simplified
+   `in_struct' (ATTR_CURR_SIMPLIFIED_P): This rtx is fully simplified
       for the insn code currently being processed (see optimize_attrs).
-   `integrated' (RTX_INTEGRATED_P): This rtx is permanent and unique
+   `integrated' (ATTR_PERMANENT_P): This rtx is permanent and unique
       (see attr_rtx).
-   `volatil' (MEM_VOLATILE_P): During simplify_by_exploding the value of an
+   `volatil' (ATTR_EQ_ATTR_P): During simplify_by_exploding the value of an
       EQ_ATTR rtx is true if !volatil and false if volatil.  */
+
+#define ATTR_IND_SIMPLIFIED_P(RTX) (RTX_FLAG((RTX), unchanging))
+#define ATTR_CURR_SIMPLIFIED_P(RTX) (RTX_FLAG((RTX), in_struct))
+#define ATTR_PERMANENT_P(RTX) (RTX_FLAG((RTX), integrated))
+#define ATTR_EQ_ATTR_P(RTX) (RTX_FLAG((RTX), volatil))
 
 #include "hconfig.h"
 #include "system.h"
@@ -109,6 +114,8 @@ Boston, MA 02111-1307, USA.  */
    /usr/include/sys/stdtypes.h on Sun OS 4.x.  */
 #include "obstack.h"
 #include "errors.h"
+
+#include "genattrtab.h"
 
 static struct obstack obstack1, obstack2;
 struct obstack *hash_obstack = &obstack1;
@@ -231,7 +238,7 @@ struct function_unit
   struct function_unit_op *ops;	/* Pointer to first operation type.  */
   int needs_conflict_function;	/* Nonzero if a conflict function required.  */
   int needs_blockage_function;	/* Nonzero if a blockage function required.  */
-  int needs_range_function;	/* Nonzero if blockage range function needed.*/
+  int needs_range_function;	/* Nonzero if blockage range function needed.  */
   rtx default_cost;		/* Conflict cost, if constant.  */
   struct range issue_delay;	/* Range of issue delay values.  */
   int max_blockage;		/* Maximum time an insn blocks the unit.  */
@@ -262,7 +269,7 @@ static struct function_unit *units;
 
    The algorithm relies on sharing EQ_ATTR nodes: if two nodes in an
    expression are the same, the will also have the same address.  We find
-   all the EQ_ATTR nodes by marking them MEM_VOLATILE_P.  This bit later
+   all the EQ_ATTR nodes by marking them ATTR_EQ_ATTR_P.  This bit later
    represents the value of an EQ_ATTR node, so once all nodes are marked,
    they are also given an initial value of FALSE.
 
@@ -304,6 +311,8 @@ static int have_annul_true, have_annul_false;
 static int num_units, num_unit_opclasses;
 static int num_insn_ents;
 
+int num_dfa_decls;
+
 /* Used as operand to `operate_exp':  */
 
 enum operator {PLUS_OP, MINUS_OP, POS_MINUS_OP, EQ_OP, OR_OP, ORX_OP, MAX_OP, MIN_OP, RANGE_OP};
@@ -344,7 +353,7 @@ int optimize = 0;
 /* Simplify an expression.  Only call the routine if there is something to
    simplify.  */
 #define SIMPLIFY_TEST_EXP(EXP,INSN_CODE,INSN_INDEX)	\
-  (RTX_UNCHANGING_P (EXP) || MEM_IN_STRUCT_P (EXP) ? (EXP)	\
+  (ATTR_IND_SIMPLIFIED_P (EXP) || ATTR_CURR_SIMPLIFIED_P (EXP) ? (EXP)	\
    : simplify_test_exp (EXP, INSN_CODE, INSN_INDEX))
 
 /* Simplify (eq_attr ("alternative") ...)
@@ -365,10 +374,8 @@ rtx pic_offset_table_rtx;
 static void attr_hash_add_rtx	PARAMS ((int, rtx));
 static void attr_hash_add_string PARAMS ((int, char *));
 static rtx attr_rtx		PARAMS ((enum rtx_code, ...));
-static char *attr_printf	PARAMS ((int, const char *, ...))
-  ATTRIBUTE_PRINTF_2;
+static rtx attr_rtx_1		PARAMS ((enum rtx_code, va_list));
 static char *attr_string        PARAMS ((const char *, int));
-static rtx check_attr_test	PARAMS ((rtx, int, int));
 static rtx check_attr_value	PARAMS ((rtx, struct attr_desc *));
 static rtx convert_set_attr_alternative PARAMS ((rtx, struct insn_def *));
 static rtx convert_set_attr	PARAMS ((rtx, struct insn_def *));
@@ -417,6 +424,7 @@ static rtx evaluate_eq_attr	PARAMS ((rtx, rtx, int, int));
 static rtx simplify_and_tree	PARAMS ((rtx, rtx *, int, int));
 static rtx simplify_or_tree	PARAMS ((rtx, rtx *, int, int));
 static rtx simplify_test_exp	PARAMS ((rtx, int, int));
+static rtx simplify_test_exp_in_temp PARAMS ((rtx, int, int));
 static void optimize_attrs	PARAMS ((void));
 static void gen_attr		PARAMS ((rtx, int));
 static int count_alternatives	PARAMS ((rtx));
@@ -448,13 +456,10 @@ static void write_complex_function PARAMS ((struct function_unit *, const char *
 static int write_expr_attr_cache PARAMS ((rtx, struct attr_desc *));
 static void write_toplevel_expr	PARAMS ((rtx));
 static void write_const_num_delay_slots PARAMS ((void));
-static int n_comma_elts		PARAMS ((const char *));
 static char *next_comma_elt	PARAMS ((const char **));
 static struct attr_desc *find_attr PARAMS ((const char *, int));
-static void make_internal_attr	PARAMS ((const char *, rtx, int));
 static struct attr_value *find_most_used  PARAMS ((struct attr_desc *));
 static rtx find_single_value	PARAMS ((struct attr_desc *));
-static rtx make_numeric_value	PARAMS ((int));
 static void extend_range	PARAMS ((struct range *, int, int));
 static rtx attr_eq		PARAMS ((const char *, const char *));
 static const char *attr_numeral	PARAMS ((int));
@@ -502,7 +507,7 @@ attr_hash_add_rtx (hashcode, rtl)
      int hashcode;
      rtx rtl;
 {
-  register struct attr_hash *h;
+  struct attr_hash *h;
 
   h = (struct attr_hash *) obstack_alloc (hash_obstack,
 					  sizeof (struct attr_hash));
@@ -519,7 +524,7 @@ attr_hash_add_string (hashcode, str)
      int hashcode;
      char *str;
 {
-  register struct attr_hash *h;
+  struct attr_hash *h;
 
   h = (struct attr_hash *) obstack_alloc (hash_obstack,
 					  sizeof (struct attr_hash));
@@ -530,34 +535,24 @@ attr_hash_add_string (hashcode, str)
 }
 
 /* Generate an RTL expression, but avoid duplicates.
-   Set the RTX_INTEGRATED_P flag for these permanent objects.
+   Set the ATTR_PERMANENT_P flag for these permanent objects.
 
    In some cases we cannot uniquify; then we return an ordinary
-   impermanent rtx with RTX_INTEGRATED_P clear.
+   impermanent rtx with ATTR_PERMANENT_P clear.
 
    Args are like gen_rtx, but without the mode:
 
    rtx attr_rtx (code, [element1, ..., elementn])  */
 
 static rtx
-attr_rtx VPARAMS ((enum rtx_code code, ...))
+attr_rtx_1 (code, p)
+     enum rtx_code code;
+     va_list p;
 {
-#ifndef ANSI_PROTOTYPES
-  enum rtx_code code;
-#endif
-  va_list p;
-  register int i;		/* Array indices...			*/
-  register const char *fmt;	/* Current rtx's format...		*/
-  register rtx rt_val = NULL_RTX;/* RTX to return to caller...		*/
+  rtx rt_val = NULL_RTX;/* RTX to return to caller...		*/
   int hashcode;
-  register struct attr_hash *h;
+  struct attr_hash *h;
   struct obstack *old_obstack = rtl_obstack;
-
-  VA_START (p, code);
-
-#ifndef ANSI_PROTOTYPES
-  code = va_arg (p, enum rtx_code);
-#endif
 
   /* For each of several cases, search the hash table for an existing entry.
      Use that entry if one is found; otherwise create a new RTL and add it
@@ -568,11 +563,10 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
       rtx arg0 = va_arg (p, rtx);
 
       /* A permanent object cannot point to impermanent ones.  */
-      if (! RTX_INTEGRATED_P (arg0))
+      if (! ATTR_PERMANENT_P (arg0))
 	{
 	  rt_val = rtx_alloc (code);
 	  XEXP (rt_val, 0) = arg0;
-	  va_end (p);
 	  return rt_val;
 	}
 
@@ -581,7 +575,7 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
 	if (h->hashcode == hashcode
 	    && GET_CODE (h->u.rtl) == code
 	    && XEXP (h->u.rtl, 0) == arg0)
-	  goto found;
+	  return h->u.rtl;
 
       if (h == 0)
 	{
@@ -598,12 +592,11 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
       rtx arg1 = va_arg (p, rtx);
 
       /* A permanent object cannot point to impermanent ones.  */
-      if (! RTX_INTEGRATED_P (arg0) || ! RTX_INTEGRATED_P (arg1))
+      if (! ATTR_PERMANENT_P (arg0) || ! ATTR_PERMANENT_P (arg1))
 	{
 	  rt_val = rtx_alloc (code);
 	  XEXP (rt_val, 0) = arg0;
 	  XEXP (rt_val, 1) = arg1;
-	  va_end (p);
 	  return rt_val;
 	}
 
@@ -613,7 +606,7 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
 	    && GET_CODE (h->u.rtl) == code
 	    && XEXP (h->u.rtl, 0) == arg0
 	    && XEXP (h->u.rtl, 1) == arg1)
-	  goto found;
+	  return h->u.rtl;
 
       if (h == 0)
 	{
@@ -636,7 +629,7 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
 	if (h->hashcode == hashcode
 	    && GET_CODE (h->u.rtl) == code
 	    && XSTR (h->u.rtl, 0) == arg0)
-	  goto found;
+	  return h->u.rtl;
 
       if (h == 0)
 	{
@@ -658,7 +651,7 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
 	    && GET_CODE (h->u.rtl) == code
 	    && XSTR (h->u.rtl, 0) == arg0
 	    && XSTR (h->u.rtl, 1) == arg1)
-	  goto found;
+	  return h->u.rtl;
 
       if (h == 0)
 	{
@@ -672,19 +665,16 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
     {
       HOST_WIDE_INT arg0 = va_arg (p, HOST_WIDE_INT);
       if (arg0 == 0)
-	{
-	  va_end (p);
-	  return false_rtx;
-	}
-      if (arg0 == 1)
-	{
-	  va_end (p);
-	  return true_rtx;
-	}
-      goto nohash;
+	return false_rtx;
+      else if (arg0 == 1)
+	return true_rtx;
+      else
+	goto nohash;
     }
   else
     {
+      int i;		/* Array indices...			*/
+      const char *fmt;	/* Current rtx's format...		*/
     nohash:
       rt_val = rtx_alloc (code);	/* Allocate the storage space.  */
 
@@ -721,19 +711,25 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
 	      abort ();
 	    }
 	}
-      va_end (p);
       return rt_val;
     }
 
   rtl_obstack = old_obstack;
-  va_end (p);
   attr_hash_add_rtx (hashcode, rt_val);
-  RTX_INTEGRATED_P (rt_val) = 1;
+  ATTR_PERMANENT_P (rt_val) = 1;
   return rt_val;
+}
 
- found:
-  va_end (p);
-  return h->u.rtl;
+static rtx
+attr_rtx VPARAMS ((enum rtx_code code, ...))
+{
+  rtx result;
+  
+  VA_OPEN (p, code);
+  VA_FIXEDARG (p, enum rtx_code, code);
+  result = attr_rtx_1 (code, p);
+  VA_CLOSE (p);
+  return result;
 }
 
 /* Create a new string printed with the printf line arguments into a space
@@ -741,28 +737,20 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
 
    rtx attr_printf (len, format, [arg1, ..., argn])  */
 
-static char *
-attr_printf VPARAMS ((register int len, const char *fmt, ...))
+char *
+attr_printf VPARAMS ((unsigned int len, const char *fmt, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  register int len;
-  const char *fmt;
-#endif
-  va_list p;
   char str[256];
 
-  VA_START (p, fmt);
-
-#ifndef ANSI_PROTOTYPES
-  len = va_arg (p, int);
-  fmt = va_arg (p, const char *);
-#endif
-
-  if (len > 255) /* leave room for \0 */
+  VA_OPEN (p, fmt);
+  VA_FIXEDARG (p, unsigned int, len);
+  VA_FIXEDARG (p, const char *, fmt);
+  
+  if (len > sizeof str - 1) /* Leave room for \0.  */
     abort ();
 
   vsprintf (str, fmt, p);
-  va_end (p);
+  VA_CLOSE (p);
 
   return attr_string (str, strlen (str));
 }
@@ -790,10 +778,10 @@ attr_string (str, len)
      const char *str;
      int len;
 {
-  register struct attr_hash *h;
+  struct attr_hash *h;
   int hashcode;
   int i;
-  register char *new_str;
+  char *new_str;
 
   /* Compute the hash code.  */
   hashcode = (len + 1) * 613 + (unsigned) str[0];
@@ -825,7 +813,7 @@ static int
 attr_equal_p (x, y)
      rtx x, y;
 {
-  return (x == y || (! (RTX_INTEGRATED_P (x) && RTX_INTEGRATED_P (y))
+  return (x == y || (! (ATTR_PERMANENT_P (x) && ATTR_PERMANENT_P (y))
 		     && rtx_equal_p (x, y)));
 }
 
@@ -835,15 +823,15 @@ attr_equal_p (x, y)
 
 static rtx
 attr_copy_rtx (orig)
-     register rtx orig;
+     rtx orig;
 {
-  register rtx copy;
-  register int i, j;
-  register RTX_CODE code;
-  register const char *format_ptr;
+  rtx copy;
+  int i, j;
+  RTX_CODE code;
+  const char *format_ptr;
 
   /* No need to copy a permanent object.  */
-  if (RTX_INTEGRATED_P (orig))
+  if (ATTR_PERMANENT_P (orig))
     return orig;
 
   code = GET_CODE (orig);
@@ -854,6 +842,7 @@ attr_copy_rtx (orig)
     case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
     case PC:
@@ -866,10 +855,10 @@ attr_copy_rtx (orig)
 
   copy = rtx_alloc (code);
   PUT_MODE (copy, GET_MODE (orig));
-  copy->in_struct = orig->in_struct;
-  copy->volatil = orig->volatil;
-  copy->unchanging = orig->unchanging;
-  copy->integrated = orig->integrated;
+  ATTR_IND_SIMPLIFIED_P (copy) = ATTR_IND_SIMPLIFIED_P (orig);
+  ATTR_CURR_SIMPLIFIED_P (copy) = ATTR_CURR_SIMPLIFIED_P (orig);
+  ATTR_PERMANENT_P (copy) = ATTR_PERMANENT_P (orig);
+  ATTR_EQ_ATTR_P (copy) = ATTR_EQ_ATTR_P (orig);
 
   format_ptr = GET_RTX_FORMAT (GET_CODE (copy));
 
@@ -927,9 +916,9 @@ attr_copy_rtx (orig)
    in the attribute (or `alternative_name') to speed up subsequent
    `find_attr' calls and eliminate most `strcmp' calls.
 
-   Return the new expression, if any.   */
+   Return the new expression, if any.  */
 
-static rtx
+rtx
 check_attr_test (exp, is_const, lineno)
      rtx exp;
      int is_const;
@@ -959,15 +948,15 @@ check_attr_test (exp, is_const, lineno)
 		{
 		  XSTR (exp, 0) = alternative_name;
 		  /* This can't be simplified any further.  */
-		  RTX_UNCHANGING_P (exp) = 1;
+		  ATTR_IND_SIMPLIFIED_P (exp) = 1;
 		  return exp;
 		}
 	      else
-		fatal ("Unknown attribute `%s' in EQ_ATTR", XSTR (exp, 0));
+		fatal ("unknown attribute `%s' in EQ_ATTR", XSTR (exp, 0));
 	    }
 
 	  if (is_const && ! attr->is_const)
-	    fatal ("Constant expression uses insn attribute `%s' in EQ_ATTR",
+	    fatal ("constant expression uses insn attribute `%s' in EQ_ATTR",
 		   XSTR (exp, 0));
 
 	  /* Copy this just to make it permanent,
@@ -978,13 +967,13 @@ check_attr_test (exp, is_const, lineno)
 	     constant attribute, so don't expand this until it's time to
 	     write the test expression.  */
 	  if (attr->is_const)
-	    RTX_UNCHANGING_P (exp) = 1;
+	    ATTR_IND_SIMPLIFIED_P (exp) = 1;
 
 	  if (attr->is_numeric)
 	    {
 	      for (p = XSTR (exp, 1); *p; p++)
-		if (*p < '0' || *p > '9')
-		  fatal ("Attribute `%s' takes only numeric values",
+		if (! ISDIGIT (*p))
+		  fatal ("attribute `%s' takes only numeric values",
 			 XSTR (exp, 0));
 	    }
 	  else
@@ -995,7 +984,7 @@ check_attr_test (exp, is_const, lineno)
 		  break;
 
 	      if (av == NULL)
-		fatal ("Unknown value `%s' for `%s' attribute",
+		fatal ("unknown value `%s' for `%s' attribute",
 		       XSTR (exp, 1), XSTR (exp, 0));
 	    }
 	}
@@ -1040,7 +1029,7 @@ check_attr_test (exp, is_const, lineno)
 	fatal ("RTL operator \"%s\" not valid in constant attribute test",
 	       GET_RTX_NAME (GET_CODE (exp)));
       /* These cases can't be simplified.  */
-      RTX_UNCHANGING_P (exp) = 1;
+      ATTR_IND_SIMPLIFIED_P (exp) = 1;
       break;
 
     case LE:  case LT:  case GT:  case GE:
@@ -1052,7 +1041,7 @@ check_attr_test (exp, is_const, lineno)
 			attr_rtx (SYMBOL_REF, XSTR (XEXP (exp, 0), 0)),
 			attr_rtx (SYMBOL_REF, XSTR (XEXP (exp, 1), 0)));
       /* These cases can't be simplified.  */
-      RTX_UNCHANGING_P (exp) = 1;
+      ATTR_IND_SIMPLIFIED_P (exp) = 1;
       break;
 
     case SYMBOL_REF:
@@ -1061,7 +1050,7 @@ check_attr_test (exp, is_const, lineno)
 	  /* These cases are valid for constant attributes, but can't be
 	     simplified.  */
 	  exp = attr_rtx (SYMBOL_REF, XSTR (exp, 0));
-	  RTX_UNCHANGING_P (exp) = 1;
+	  ATTR_IND_SIMPLIFIED_P (exp) = 1;
 	  break;
 	}
     default:
@@ -1119,7 +1108,7 @@ check_attr_value (exp, attr)
 	  if (attr && attr->negative_ok && *p == '-')
 	    p++;
 	  for (; *p; p++)
-	    if (*p > '9' || *p < '0')
+	    if (! ISDIGIT (*p))
 	      {
 		message_with_line (attr ? attr->lineno : 0,
 				   "non-numeric value for numeric attribute %s",
@@ -1419,7 +1408,7 @@ convert_const_symbol_ref (exp, attr)
 	*p = TOUPPER (*p);
 
       value = attr_rtx (SYMBOL_REF, string);
-      RTX_UNCHANGING_P (value) = 1;
+      ATTR_IND_SIMPLIFIED_P (value) = 1;
 
       XVECEXP (condexp, 0, 2 * i) = attr_rtx (EQ, exp, value);
 
@@ -1453,25 +1442,25 @@ make_canonical (attr, exp)
       if (! strcmp (XSTR (exp, 0), "*"))
 	{
 	  if (attr == 0 || attr->default_val == 0)
-	    fatal ("(attr_value \"*\") used in invalid context.");
+	    fatal ("(attr_value \"*\") used in invalid context");
 	  exp = attr->default_val->value;
 	}
 
       break;
 
     case SYMBOL_REF:
-      if (!attr->is_const || RTX_UNCHANGING_P (exp))
+      if (!attr->is_const || ATTR_IND_SIMPLIFIED_P (exp))
 	break;
       /* The SYMBOL_REF is constant for a given run, so mark it as unchanging.
 	 This makes the COND something that won't be considered an arbitrary
 	 expression by walk_attr_value.  */
-      RTX_UNCHANGING_P (exp) = 1;
+      ATTR_IND_SIMPLIFIED_P (exp) = 1;
 #if 0
       /* ??? Why do we do this?  With attribute values { A B C D E }, this
          tends to generate (!(x==A) && !(x==B) && !(x==C) && !(x==D)) rather
 	 than (x==E).  */
       exp = convert_const_symbol_ref (exp, attr);
-      RTX_UNCHANGING_P (exp) = 1;
+      ATTR_IND_SIMPLIFIED_P (exp) = 1;
       exp = check_attr_value (exp, attr);
       /* Goto COND case since this is now a COND.  Note that while the
          new expression is rescanned, all symbol_ref notes are marked as
@@ -1644,9 +1633,8 @@ expand_delays ()
 	  newexp = attr_rtx (IF_THEN_ELSE, condexp,
 			     make_numeric_value (1), make_numeric_value (0));
 
-	  p = attr_printf (sizeof ("*delay__") + MAX_DIGITS * 2,
-			   "*delay_%d_%d",
-			   delay->num, i / 3);
+	  p = attr_printf (sizeof "*delay__" + MAX_DIGITS * 2,
+			   "*delay_%d_%d", delay->num, i / 3);
 	  make_internal_attr (p, newexp, 1);
 
 	  if (have_annul_true)
@@ -1656,7 +1644,7 @@ expand_delays ()
 	      newexp = attr_rtx (IF_THEN_ELSE, condexp,
 				 make_numeric_value (1),
 				 make_numeric_value (0));
-	      p = attr_printf (sizeof ("*annul_true__") + MAX_DIGITS * 2,
+	      p = attr_printf (sizeof "*annul_true__" + MAX_DIGITS * 2,
 			       "*annul_true_%d_%d", delay->num, i / 3);
 	      make_internal_attr (p, newexp, 1);
 	    }
@@ -1668,7 +1656,7 @@ expand_delays ()
 	      newexp = attr_rtx (IF_THEN_ELSE, condexp,
 				 make_numeric_value (1),
 				 make_numeric_value (0));
-	      p = attr_printf (sizeof ("*annul_false__") + MAX_DIGITS * 2,
+	      p = attr_printf (sizeof "*annul_false__" + MAX_DIGITS * 2,
 			       "*annul_false_%d_%d", delay->num, i / 3);
 	      make_internal_attr (p, newexp, 1);
 	    }
@@ -1791,7 +1779,7 @@ operate_exp (op, left, right)
 	  return newexp;
 	}
       else
-	fatal ("Badly formed attribute value");
+	fatal ("badly formed attribute value");
     }
 
   /* A hack to prevent expand_units from completely blowing up: ORX_OP does
@@ -1843,7 +1831,7 @@ operate_exp (op, left, right)
     }
 
   else
-    fatal ("Badly formed attribute value.");
+    fatal ("badly formed attribute value");
   /* NOTREACHED */
   return NULL;
 }
@@ -1921,7 +1909,8 @@ expand_units ()
 					   != unit->issue_delay.max);
 	  if (unit->needs_conflict_function)
 	    {
-	      str = attr_printf (strlen (unit->name) + sizeof ("*_cost_") + MAX_DIGITS,
+	      str = attr_printf ((strlen (unit->name) + sizeof "*_cost_"
+				  + MAX_DIGITS),
 				 "*%s_cost_%d", unit->name, op->num);
 	      make_internal_attr (str, issue_exp, 1);
 	    }
@@ -2150,7 +2139,8 @@ expand_units ()
 		}
 
 	      /* Make an attribute for use in the blockage function.  */
-	      str = attr_printf (strlen (unit->name) + sizeof ("*_block_") + MAX_DIGITS,
+	      str = attr_printf ((strlen (unit->name) + sizeof "*_block_"
+				  + MAX_DIGITS),
 				 "*%s_block_%d", unit->name, op->num);
 	      make_internal_attr (str, blockage, 1);
 	    }
@@ -2183,12 +2173,13 @@ expand_units ()
 	      newexp = operate_exp (RANGE_OP, min_blockage, max_blockage);
 	      newexp = simplify_knowing (newexp, unit->condexp);
 
-	      str = attr_printf (strlen (unit->name) + sizeof ("*_unit_blockage_range"),
+	      str = attr_printf ((strlen (unit->name)
+				  + sizeof "*_unit_blockage_range"),
 				 "*%s_unit_blockage_range", unit->name);
 	      make_internal_attr (str, newexp, 20);
 	    }
 
-	  str = attr_printf (strlen (unit->name) + sizeof ("*_unit_ready_cost"),
+	  str = attr_printf (strlen (unit->name) + sizeof "*_unit_ready_cost",
 			     "*%s_unit_ready_cost", unit->name);
 	}
       else
@@ -2230,7 +2221,7 @@ expand_units ()
 	}
 
       /* Simplifying caseexp with simplify_by_exploding doesn't win.  */
-      str = attr_printf (strlen (unit->name) + sizeof ("*_cases"),
+      str = attr_printf (strlen (unit->name) + sizeof "*_cases",
 			 "*%s_cases", unit->name);
       make_internal_attr (str, caseexp, 1);
     }
@@ -2265,10 +2256,10 @@ static rtx
 encode_units_mask (x)
      rtx x;
 {
-  register int i;
-  register int j;
-  register enum rtx_code code;
-  register const char *fmt;
+  int i;
+  int j;
+  enum rtx_code code;
+  const char *fmt;
 
   code = GET_CODE (x);
 
@@ -2291,6 +2282,7 @@ encode_units_mask (x)
     case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
     case PC:
@@ -2450,11 +2442,11 @@ substitute_address (exp, no_address_fn, address_fn)
 static void
 make_length_attrs ()
 {
-  static const char *new_names[] = {"*insn_default_length",
+  static const char *const new_names[] = {"*insn_default_length",
 				      "*insn_variable_length_p",
 				      "*insn_current_length"};
-  static rtx (*no_address_fn[]) PARAMS ((rtx)) = {identity_fn, zero_fn, zero_fn};
-  static rtx (*address_fn[]) PARAMS ((rtx)) = {max_fn, one_fn, identity_fn};
+  static rtx (*const no_address_fn[]) PARAMS ((rtx)) = {identity_fn, zero_fn, zero_fn};
+  static rtx (*const address_fn[]) PARAMS ((rtx)) = {max_fn, one_fn, identity_fn};
   size_t i;
   struct attr_desc *length_attr, *new_attr;
   struct attr_value *av, *new_av;
@@ -2467,7 +2459,7 @@ make_length_attrs ()
     return;
 
   if (! length_attr->is_numeric)
-    fatal ("length attribute must be numeric.");
+    fatal ("length attribute must be numeric");
 
   length_attr->is_const = 0;
   length_attr->is_special = 1;
@@ -2593,7 +2585,7 @@ simplify_cond (exp, insn_code, insn_index)
       rtx newtest, newval;
 
       /* Simplify this test.  */
-      newtest = SIMPLIFY_TEST_EXP (tests[i], insn_code, insn_index);
+      newtest = simplify_test_exp_in_temp (tests[i], insn_code, insn_index);
       tests[i] = newtest;
 
       newval = tests[i + 1];
@@ -2782,7 +2774,7 @@ insert_right_side (code, exp, term, insn_code, insn_index)
       newexp = attr_rtx (code, exp, term);
     }
 
-  return SIMPLIFY_TEST_EXP (newexp, insn_code, insn_index);
+  return simplify_test_exp_in_temp (newexp, insn_code, insn_index);
 }
 
 /* If we have an expression which AND's a bunch of
@@ -2835,7 +2827,7 @@ make_alternative_compare (mask)
     ;
 
   newexp = attr_rtx (EQ_ATTR, alternative_name, attr_numeral (i));
-  RTX_UNCHANGING_P (newexp) = 1;
+  ATTR_IND_SIMPLIFIED_P (newexp) = 1;
 
   return newexp;
 }
@@ -2910,8 +2902,8 @@ evaluate_eq_attr (exp, value, insn_code, insn_index)
 
       for (i = 0; i < XVECLEN (value, 0); i += 2)
 	{
-	  rtx this = SIMPLIFY_TEST_EXP (XVECEXP (value, 0, i),
-					insn_code, insn_index);
+	  rtx this = simplify_test_exp_in_temp (XVECEXP (value, 0, i),
+						insn_code, insn_index);
 
 	  SIMPLIFY_ALTERNATIVE (this);
 
@@ -2943,7 +2935,7 @@ evaluate_eq_attr (exp, value, insn_code, insn_index)
     abort ();
 
   /* If uses an address, must return original expression.  But set the
-     RTX_UNCHANGING_P bit so we don't try to simplify it again.  */
+     ATTR_IND_SIMPLIFIED_P bit so we don't try to simplify it again.  */
 
   address_used = 0;
   walk_attr_value (newexp);
@@ -2951,7 +2943,7 @@ evaluate_eq_attr (exp, value, insn_code, insn_index)
   if (address_used)
     {
       /* This had `&& current_alternative_string', which seems to be wrong.  */
-      if (! RTX_UNCHANGING_P (exp))
+      if (! ATTR_IND_SIMPLIFIED_P (exp))
 	return copy_rtx_unchanging (exp);
       return exp;
     }
@@ -2992,7 +2984,7 @@ simplify_and_tree (exp, pterm, insn_code, insn_index)
 	{
 	  newexp = attr_rtx (GET_CODE (exp), left, right);
 
-	  exp = SIMPLIFY_TEST_EXP (newexp, insn_code, insn_index);
+	  exp = simplify_test_exp_in_temp (newexp, insn_code, insn_index);
 	}
     }
 
@@ -3015,7 +3007,7 @@ simplify_and_tree (exp, pterm, insn_code, insn_index)
 	{
 	  newexp = attr_rtx (GET_CODE (exp), left, right);
 
-	  exp = SIMPLIFY_TEST_EXP (newexp, insn_code, insn_index);
+	  exp = simplify_test_exp_in_temp (newexp, insn_code, insn_index);
 	}
     }
 
@@ -3111,7 +3103,7 @@ simplify_or_tree (exp, pterm, insn_code, insn_index)
 	{
 	  newexp = attr_rtx (GET_CODE (exp), left, right);
 
-	  exp = SIMPLIFY_TEST_EXP (newexp, insn_code, insn_index);
+	  exp = simplify_test_exp_in_temp (newexp, insn_code, insn_index);
 	}
     }
 
@@ -3134,7 +3126,7 @@ simplify_or_tree (exp, pterm, insn_code, insn_index)
 	{
 	  newexp = attr_rtx (GET_CODE (exp), left, right);
 
-	  exp = SIMPLIFY_TEST_EXP (newexp, insn_code, insn_index);
+	  exp = simplify_test_exp_in_temp (newexp, insn_code, insn_index);
 	}
     }
 
@@ -3160,7 +3152,7 @@ simplify_or_tree (exp, pterm, insn_code, insn_index)
   return exp;
 }
 /* Compute approximate cost of the expression.  Used to decide whether
-   expression is cheap enought for inline.  */
+   expression is cheap enough for inline.  */
 static int
 attr_rtx_cost (x)
      rtx x;
@@ -3207,6 +3199,29 @@ attr_rtx_cost (x)
   return cost;
 }
 
+
+/* Simplify test expression and use temporary obstack in order to avoid
+   memory bloat.  Use ATTR_IND_SIMPLIFIED to avoid unnecesary simplifications
+   and avoid unnecesary copying if possible.  */
+
+static rtx
+simplify_test_exp_in_temp (exp, insn_code, insn_index)
+  rtx exp;
+  int insn_code, insn_index;
+{
+  rtx x;
+  struct obstack *old;
+  if (ATTR_IND_SIMPLIFIED_P (exp))
+    return exp;
+  old = rtl_obstack;
+  rtl_obstack = temp_obstack;
+  x = simplify_test_exp (exp, insn_code, insn_index);
+  rtl_obstack = old;
+  if (x == exp || rtl_obstack == temp_obstack)
+    return x;
+  return attr_copy_rtx (x);
+}
+
 /* Given an expression, see if it can be simplified for a particular insn
    code based on the values of other attributes being tested.  This can
    eliminate nested get_attr_... calls.
@@ -3229,7 +3244,7 @@ simplify_test_exp (exp, insn_code, insn_index)
   rtx newexp = exp;
 
   /* Don't re-simplify something we already simplified.  */
-  if (RTX_UNCHANGING_P (exp) || MEM_IN_STRUCT_P (exp))
+  if (ATTR_IND_SIMPLIFIED_P (exp) || ATTR_CURR_SIMPLIFIED_P (exp))
     return exp;
 
   switch (GET_CODE (exp))
@@ -3295,7 +3310,7 @@ simplify_test_exp (exp, insn_code, insn_index)
 	{
 	  i = compute_alternative_mask (exp, AND);
 	  if (i & ~insn_alternatives[insn_code])
-	    fatal ("Invalid alternative specified for pattern number %d",
+	    fatal ("invalid alternative specified for pattern number %d",
 		   insn_index);
 
 	  /* If all alternatives are excluded, this is false.  */
@@ -3379,7 +3394,7 @@ simplify_test_exp (exp, insn_code, insn_index)
 	{
 	  i = compute_alternative_mask (exp, IOR);
 	  if (i & ~insn_alternatives[insn_code])
-	    fatal ("Invalid alternative specified for pattern number %d",
+	    fatal ("invalid alternative specified for pattern number %d",
 		   insn_index);
 
 	  /* If all alternatives are included, this is true.  */
@@ -3456,7 +3471,7 @@ simplify_test_exp (exp, insn_code, insn_index)
 
       /* Look at the value for this insn code in the specified attribute.
 	 We normally can replace this comparison with the condition that
-	 would give this insn the values being tested for.   */
+	 would give this insn the values being tested for.  */
       if (XSTR (exp, 0) != alternative_name
 	  && (attr = find_attr (XSTR (exp, 0), 0)) != NULL)
 	for (av = attr->first_value; av; av = av->next)
@@ -3464,13 +3479,10 @@ simplify_test_exp (exp, insn_code, insn_index)
 	    if (ie->insn_code == insn_code)
 	      {
 		rtx x;
-		struct obstack *old = rtl_obstack;
-		rtl_obstack = temp_obstack;
 		x = evaluate_eq_attr (exp, av->value, insn_code, insn_index);
 		x = SIMPLIFY_TEST_EXP (x, insn_code, insn_index);
-		rtl_obstack = old;
 		if (attr_rtx_cost(x) < 20)
-		  return attr_copy_rtx (x);
+		  return x;
 	      }
       break;
 
@@ -3482,7 +3494,7 @@ simplify_test_exp (exp, insn_code, insn_index)
      won't buy anything unless we weren't given a valid insn code
      to process (i.e., we are canonicalizing something.).  */
   if (insn_code != -2 /* Seems wrong: && current_alternative_string.  */
-      && ! RTX_UNCHANGING_P (newexp))
+      && ! ATTR_IND_SIMPLIFIED_P (newexp))
     return copy_rtx_unchanging (newexp);
 
   return newexp;
@@ -3499,7 +3511,6 @@ optimize_attrs ()
   struct attr_value *av;
   struct insn_ent *ie;
   rtx newexp;
-  int something_changed = 1;
   int i;
   struct attr_value_list
   {
@@ -3551,47 +3562,47 @@ optimize_attrs ()
   /* Process one insn code at a time.  */
   for (i = -2; i < insn_code_number; i++)
     {
-      /* Clear the MEM_IN_STRUCT_P flag everywhere relevant.
+      /* Clear the ATTR_CURR_SIMPLIFIED_P flag everywhere relevant.
 	 We use it to mean "already simplified for this insn".  */
       for (iv = insn_code_values[i]; iv; iv = iv->next)
 	clear_struct_flag (iv->av->value);
 
-      /* Loop until nothing changes for one iteration.  */
-      something_changed = 1;
-      while (something_changed)
+      for (iv = insn_code_values[i]; iv; iv = iv->next)
 	{
-	  something_changed = 0;
-	  for (iv = insn_code_values[i]; iv; iv = iv->next)
-	    {
-	      struct obstack *old = rtl_obstack;
+	  struct obstack *old = rtl_obstack;
 
-	      attr = iv->attr;
-	      av = iv->av;
-	      ie = iv->ie;
-	      if (GET_CODE (av->value) != COND)
-		continue;
+	  attr = iv->attr;
+	  av = iv->av;
+	  ie = iv->ie;
+	  if (GET_CODE (av->value) != COND)
+	    continue;
 
-	      rtl_obstack = temp_obstack;
+	  rtl_obstack = temp_obstack;
 #if 0 /* This was intended as a speed up, but it was slower.  */
-	      if (insn_n_alternatives[ie->insn_code] > 6
-		  && count_sub_rtxs (av->value, 200) >= 200)
-		newexp = simplify_by_alternatives (av->value, ie->insn_code,
-						   ie->insn_index);
-	      else
+	  if (insn_n_alternatives[ie->insn_code] > 6
+	      && count_sub_rtxs (av->value, 200) >= 200)
+	    newexp = simplify_by_alternatives (av->value, ie->insn_code,
+					       ie->insn_index);
+	  else
 #endif
-		newexp = simplify_cond (av->value, ie->insn_code,
-					ie->insn_index);
+	  newexp = av->value;
+	  while (GET_CODE (newexp) == COND)
+	    {
+	      rtx newexp2 = simplify_cond (newexp, ie->insn_code,
+					   ie->insn_index);
+	      if (newexp2 == newexp)
+		break;
+	      newexp = newexp2;
+	    }
 
-	      rtl_obstack = old;
-	      if (newexp != av->value)
-		{
-		  newexp = attr_copy_rtx (newexp);
-		  remove_insn_ent (av, ie);
-		  av = get_attr_value (newexp, attr, ie->insn_code);
-		  iv->av = av;
-		  insert_insn_ent (av, ie);
-		  something_changed = 1;
-		}
+	  rtl_obstack = old;
+	  if (newexp != av->value)
+	    {
+	      newexp = attr_copy_rtx (newexp);
+	      remove_insn_ent (av, ie);
+	      av = get_attr_value (newexp, attr, ie->insn_code);
+	      iv->av = av;
+	      insert_insn_ent (av, ie);
 	    }
 	}
     }
@@ -3739,13 +3750,13 @@ simplify_by_exploding (exp)
   most_tests = -1;
   for (i = num_marks = 0; i < total; i++)
     if (GET_CODE (condval[i]) == CONST_STRING
-	&& ! MEM_VOLATILE_P (condval[i]))
+	&& ! ATTR_EQ_ATTR_P (condval[i]))
       {
 	/* Mark the unmarked constant value and count how many are marked.  */
-	MEM_VOLATILE_P (condval[i]) = 1;
+	ATTR_EQ_ATTR_P (condval[i]) = 1;
 	for (j = new_marks = 0; j < total; j++)
 	  if (GET_CODE (condval[j]) == CONST_STRING
-	      && MEM_VOLATILE_P (condval[j]))
+	      && ATTR_EQ_ATTR_P (condval[j]))
 	    new_marks++;
 	if (new_marks - num_marks > most_tests)
 	  {
@@ -3756,7 +3767,7 @@ simplify_by_exploding (exp)
       }
   /* Clear all the marks.  */
   for (i = 0; i < total; i++)
-    MEM_VOLATILE_P (condval[i]) = 0;
+    ATTR_EQ_ATTR_P (condval[i]) = 0;
 
   /* Give up if nothing is constant.  */
   if (num_marks == 0)
@@ -3788,7 +3799,7 @@ simplify_by_exploding (exp)
   return ret;
 }
 
-/* Set the MEM_VOLATILE_P flag for all EQ_ATTR expressions in EXP and
+/* Set the ATTR_EQ_ATTR_P flag for all EQ_ATTR expressions in EXP and
    verify that EXP can be simplified to a constant term if all the EQ_ATTR
    tests have known value.  */
 
@@ -3802,14 +3813,14 @@ find_and_mark_used_attributes (exp, terms, nterms)
   switch (GET_CODE (exp))
     {
     case EQ_ATTR:
-      if (! MEM_VOLATILE_P (exp))
+      if (! ATTR_EQ_ATTR_P (exp))
 	{
 	  rtx link = rtx_alloc (EXPR_LIST);
 	  XEXP (link, 0) = exp;
 	  XEXP (link, 1) = *terms;
 	  *terms = link;
 	  *nterms += 1;
-	  MEM_VOLATILE_P (exp) = 1;
+	  ATTR_EQ_ATTR_P (exp) = 1;
 	}
       return 1;
 
@@ -3842,7 +3853,7 @@ find_and_mark_used_attributes (exp, terms, nterms)
     }
 }
 
-/* Clear the MEM_VOLATILE_P flag in all EQ_ATTR expressions on LIST and
+/* Clear the ATTR_EQ_ATTR_P flag in all EQ_ATTR expressions on LIST and
    in the values of the NDIM-dimensional attribute space SPACE.  */
 
 static void
@@ -3861,7 +3872,7 @@ unmark_used_attributes (list, space, ndim)
     {
       exp = XEXP (link, 0);
       if (GET_CODE (exp) == EQ_ATTR)
-	MEM_VOLATILE_P (exp) = 0;
+	ATTR_EQ_ATTR_P (exp) = 0;
     }
 }
 
@@ -3897,7 +3908,7 @@ add_values_to_cover (dim)
 	if (GET_CODE (av->value) == CONST_STRING)
 	  {
 	    exp = attr_eq (dim->attr->name, XSTR (av->value, 0));
-	    if (MEM_VOLATILE_P (exp))
+	    if (ATTR_EQ_ATTR_P (exp))
 	      continue;
 
 	    link = rtx_alloc (EXPR_LIST);
@@ -3987,7 +3998,7 @@ simplify_with_current_value (exp, space, ndim)
     {
       x = XEXP (space[i].current_value, 0);
       if (GET_CODE (x) == EQ_ATTR)
-	MEM_VOLATILE_P (x) = 0;
+	ATTR_EQ_ATTR_P (x) = 0;
     }
 
   exp = simplify_with_current_value_aux (exp);
@@ -3997,26 +4008,26 @@ simplify_with_current_value (exp, space, ndim)
     {
       x = XEXP (space[i].current_value, 0);
       if (GET_CODE (x) == EQ_ATTR)
-	MEM_VOLATILE_P (x) = 1;
+	ATTR_EQ_ATTR_P (x) = 1;
     }
 
   return exp;
 }
 
-/* Reduce the expression EXP based on the MEM_VOLATILE_P settings of
+/* Reduce the expression EXP based on the ATTR_EQ_ATTR_P settings of
    all EQ_ATTR expressions.  */
 
 static rtx
 simplify_with_current_value_aux (exp)
      rtx exp;
 {
-  register int i;
+  int i;
   rtx cond;
 
   switch (GET_CODE (exp))
     {
     case EQ_ATTR:
-      if (MEM_VOLATILE_P (exp))
+      if (ATTR_EQ_ATTR_P (exp))
 	return false_rtx;
       else
 	return true_rtx;
@@ -4083,19 +4094,19 @@ simplify_with_current_value_aux (exp)
     }
 }
 
-/* Clear the MEM_IN_STRUCT_P flag in EXP and its subexpressions.  */
+/* Clear the ATTR_CURR_SIMPLIFIED_P flag in EXP and its subexpressions.  */
 
 static void
 clear_struct_flag (x)
      rtx x;
 {
-  register int i;
-  register int j;
-  register enum rtx_code code;
-  register const char *fmt;
+  int i;
+  int j;
+  enum rtx_code code;
+  const char *fmt;
 
-  MEM_IN_STRUCT_P (x) = 0;
-  if (RTX_UNCHANGING_P (x))
+  ATTR_CURR_SIMPLIFIED_P (x) = 0;
+  if (ATTR_IND_SIMPLIFIED_P (x))
     return;
 
   code = GET_CODE (x);
@@ -4106,6 +4117,7 @@ clear_struct_flag (x)
     case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
     case PC:
@@ -4147,10 +4159,10 @@ count_sub_rtxs (x, max)
      rtx x;
      int max;
 {
-  register int i;
-  register int j;
-  register enum rtx_code code;
-  register const char *fmt;
+  int i;
+  int j;
+  enum rtx_code code;
+  const char *fmt;
   int total = 0;
 
   code = GET_CODE (x);
@@ -4161,6 +4173,7 @@ count_sub_rtxs (x, max)
     case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
     case PC:
@@ -4739,7 +4752,7 @@ write_test_expr (exp, flags)
       if (XSTR (exp, 1) == NULL || *XSTR (exp, 1) == '\0')
 	{
 	  if (GET_MODE (exp) == VOIDmode)
-	    fatal ("Null MATCH_OPERAND specified as test");
+	    fatal ("null MATCH_OPERAND specified as test");
 	  else
 	    printf ("GET_MODE (operands[%d]) == %smode",
 		    XINT (exp, 0), GET_MODE_NAME (GET_MODE (exp)));
@@ -4893,8 +4906,8 @@ static void
 walk_attr_value (exp)
      rtx exp;
 {
-  register int i, j;
-  register const char *fmt;
+  int i, j;
+  const char *fmt;
   RTX_CODE code;
 
   if (exp == NULL)
@@ -4904,7 +4917,7 @@ walk_attr_value (exp)
   switch (code)
     {
     case SYMBOL_REF:
-      if (! RTX_UNCHANGING_P (exp))
+      if (! ATTR_IND_SIMPLIFIED_P (exp))
 	/* Since this is an arbitrary expression, it can look at anything.
 	   However, constant expressions do not depend on any particular
 	   insn.  */
@@ -5262,11 +5275,11 @@ write_expr_attr_cache (p, attr)
 	return 0;
 
       if (!attr->is_numeric)
-	printf ("  register enum attr_%s ", attr->name);
+	printf ("  enum attr_%s ", attr->name);
       else if (attr->unsigned_p)
-	printf ("  register unsigned int ");
+	printf ("  unsigned int ");
       else
-	printf ("  register int ");
+	printf ("  int ");
 
       printf ("attr_%s = get_attr_%s (insn);\n", attr->name, attr->name);
       return 1;
@@ -5311,7 +5324,7 @@ write_toplevel_expr (p)
       if (!attr->is_const)
 	write_expr_attr_cache (p, attr);
 
-  printf ("  register unsigned long accum = 0;\n\n");
+  printf ("  unsigned long accum = 0;\n\n");
 
   while (GET_CODE (p) == IOR)
     {
@@ -5514,7 +5527,7 @@ write_eligible_delay (kind)
   printf ("int\n");
   printf ("eligible_for_%s (delay_insn, slot, candidate_insn, flags)\n",
 	  kind);
-  printf ("     rtx delay_insn;\n");
+  printf ("     rtx delay_insn ATTRIBUTE_UNUSED;\n");
   printf ("     int slot;\n");
   printf ("     rtx candidate_insn;\n");
   printf ("     int flags ATTRIBUTE_UNUSED;\n");
@@ -5643,7 +5656,7 @@ write_function_unit_info ()
      the function units.   The name is included for documentation purposes
      only.  */
 
-  printf ("struct function_unit_desc function_units[] = {\n");
+  printf ("const struct function_unit_desc function_units[] = {\n");
 
   /* Write out the descriptions in numeric order, but don't force that order
      on the list.  Doing so increases the runtime of genattrtab.c.  */
@@ -5678,6 +5691,8 @@ write_function_unit_info ()
       printf ("}, \n");
     }
 
+  if (num_units == 0)
+    printf ("{\"dummy\", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} /* a dummy element */");
   printf ("};\n\n");
 }
 
@@ -5777,25 +5792,6 @@ write_complex_function (unit, name, connection)
 
 /* This page contains miscellaneous utility routines.  */
 
-/* Given a string, return the number of comma-separated elements in it.
-   Return 0 for the null string.  */
-
-static int
-n_comma_elts (s)
-     const char *s;
-{
-  int n;
-
-  if (*s == '\0')
-    return 0;
-
-  for (n = 1; *s; s++)
-    if (*s == ',')
-      n++;
-
-  return n;
-}
-
 /* Given a pointer to a (char *), return a malloc'ed string containing the
    next comma-separated element.  Advance the pointer to after the string
    scanned, or the end-of-string.  Return NULL if at end of string.  */
@@ -5804,23 +5800,14 @@ static char *
 next_comma_elt (pstr)
      const char **pstr;
 {
-  char *out_str;
-  const char *p;
+  const char *start;
 
-  if (**pstr == '\0')
+  start = scan_comma_elt (pstr);
+
+  if (start == NULL)
     return NULL;
 
-  /* Find end of string to compute length.  */
-  for (p = *pstr; *p != ',' && *p != '\0'; p++)
-    ;
-
-  out_str = attr_string (*pstr, p - *pstr);
-  *pstr = p;
-
-  if (**pstr == ',')
-    (*pstr)++;
-
-  return out_str;
+  return attr_string (start, *pstr - start);
 }
 
 /* Return a `struct attr_desc' pointer for a given named attribute.  If CREATE
@@ -5865,7 +5852,7 @@ find_attr (name, create)
 
 /* Create internal attribute with the given default value.  */
 
-static void
+void
 make_internal_attr (name, value, special)
      const char *name;
      rtx value;
@@ -5932,7 +5919,7 @@ find_single_value (attr)
 
 /* Return (attr_value "n") */
 
-static rtx
+rtx
 make_numeric_value (n)
      int n;
 {
@@ -5969,17 +5956,17 @@ extend_range (range, min, max)
 
 static rtx
 copy_rtx_unchanging (orig)
-     register rtx orig;
+     rtx orig;
 {
 #if 0
-  register rtx copy;
-  register RTX_CODE code;
+  rtx copy;
+  RTX_CODE code;
 #endif
 
-  if (RTX_UNCHANGING_P (orig) || MEM_IN_STRUCT_P (orig))
+  if (ATTR_IND_SIMPLIFIED_P (orig) || ATTR_CURR_SIMPLIFIED_P (orig))
     return orig;
 
-  MEM_IN_STRUCT_P (orig) = 1;
+  ATTR_CURR_SIMPLIFIED_P (orig) = 1;
   return orig;
 
 #if 0
@@ -5998,7 +5985,7 @@ copy_rtx_unchanging (orig)
 
   copy = rtx_alloc (code);
   PUT_MODE (copy, GET_MODE (orig));
-  RTX_UNCHANGING_P (copy) = 1;
+  ATTR_IND_SIMPLIFIED_P (copy) = 1;
 
   memcpy (&XEXP (copy, 0), &XEXP (orig, 0),
 	  GET_RTX_LENGTH (GET_CODE (copy)) * sizeof (rtx));
@@ -6059,9 +6046,9 @@ main (argc, argv)
   progname = "genattrtab";
 
   if (argc <= 1)
-    fatal ("No input file name.");
+    fatal ("no input file name");
 
-  if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
+  if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
 
   obstack_init (hash_obstack);
@@ -6072,8 +6059,8 @@ main (argc, argv)
   XWINT (true_rtx, 0) = 1;
   false_rtx = rtx_alloc (CONST_INT);
   XWINT (false_rtx, 0) = 0;
-  RTX_UNCHANGING_P (true_rtx) = RTX_UNCHANGING_P (false_rtx) = 1;
-  RTX_INTEGRATED_P (true_rtx) = RTX_INTEGRATED_P (false_rtx) = 1;
+  ATTR_IND_SIMPLIFIED_P (true_rtx) = ATTR_IND_SIMPLIFIED_P (false_rtx) = 1;
+  ATTR_PERMANENT_P (true_rtx) = ATTR_PERMANENT_P (false_rtx) = 1;
 
   alternative_name = attr_string ("alternative", strlen ("alternative"));
 
@@ -6082,6 +6069,7 @@ from the machine description file `md'.  */\n\n");
 
   /* Read the machine description.  */
 
+  initiate_automaton_gen (argc, argv);
   while (1)
     {
       int lineno;
@@ -6110,6 +6098,46 @@ from the machine description file `md'.  */\n\n");
 	  gen_unit (desc, lineno);
 	  break;
 
+	case DEFINE_CPU_UNIT:
+	  gen_cpu_unit (desc);
+	  break;
+	  
+	case DEFINE_QUERY_CPU_UNIT:
+	  gen_query_cpu_unit (desc);
+	  break;
+	  
+	case DEFINE_BYPASS:
+	  gen_bypass (desc);
+	  break;
+	  
+	case EXCLUSION_SET:
+	  gen_excl_set (desc);
+	  break;
+	  
+	case PRESENCE_SET:
+	  gen_presence_set (desc);
+	  break;
+	  
+	case ABSENCE_SET:
+	  gen_absence_set (desc);
+	  break;
+	  
+	case DEFINE_AUTOMATON:
+	  gen_automaton (desc);
+	  break;
+	  
+	case AUTOMATA_OPTION:
+	  gen_automata_option (desc);
+	  break;
+	  
+	case DEFINE_RESERVATION:
+	  gen_reserv (desc);
+	  break;
+	  
+	case DEFINE_INSN_RESERVATION:
+	  gen_insn_reserv (desc);
+	  break;
+
 	default:
 	  break;
 	}
@@ -6134,9 +6162,14 @@ from the machine description file `md'.  */\n\n");
   if (num_delays)
     expand_delays ();
 
-  /* Expand DEFINE_FUNCTION_UNIT information into new attributes.  */
-  if (num_units)
-    expand_units ();
+  if (num_units || num_dfa_decls)
+    {
+      /* Expand DEFINE_FUNCTION_UNIT information into new attributes.  */
+      expand_units ();
+      /* Build DFA, output some functions and expand DFA information
+	 into new attributes.  */
+      expand_automata ();
+    }
 
   printf ("#include \"config.h\"\n");
   printf ("#include \"system.h\"\n");
@@ -6150,6 +6183,7 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"insn-attr.h\"\n");
   printf ("#include \"toplev.h\"\n");
   printf ("#include \"flags.h\"\n");
+  printf ("#include \"function.h\"\n");
   printf ("\n");
   printf ("#define operands recog_data.operand\n\n");
 
@@ -6211,9 +6245,14 @@ from the machine description file `md'.  */\n\n");
 	write_eligible_delay ("annul_false");
     }
 
-  /* Write out information about function units.  */
-  if (num_units)
-    write_function_unit_info ();
+  if (num_units || num_dfa_decls)
+    {
+      /* Write out information about function units.  */
+      write_function_unit_info ();
+      /* Output code for pipeline hazards recognition based on DFA
+	 (deterministic finite state automata. */
+      write_automata ();
+    }
 
   /* Write out constant delay slot info */
   write_const_num_delay_slots ();

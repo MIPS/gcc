@@ -2,27 +2,32 @@
    Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999, 2000
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "config.h"
 #include "system.h"
 #include "rtl.h"
+
+/* We don't want the tree code checking code for the access to the
+   DECL_NAME to be included in the gen* programs.  */
+#undef ENABLE_TREE_CHECKING
+#include "tree.h"
 #include "real.h"
 #include "flags.h"
 #include "hard-reg-set.h"
@@ -72,16 +77,39 @@ int dump_for_graph;
 /* Nonzero to dump all call_placeholder alternatives.  */
 static int debug_call_placeholder_verbose;
 
+void
+print_mem_expr (outfile, expr)
+     FILE *outfile;
+     tree expr;
+{
+  if (TREE_CODE (expr) == COMPONENT_REF)
+    {
+      if (TREE_OPERAND (expr, 0))
+	print_mem_expr (outfile, TREE_OPERAND (expr, 0));
+      else
+	fputs (" <variable>", outfile);
+      if (DECL_NAME (TREE_OPERAND (expr, 1)))
+	fprintf (outfile, ".%s",
+		 IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (expr, 1))));
+    }
+  else if (DECL_NAME (expr))
+    fprintf (outfile, " %s", IDENTIFIER_POINTER (DECL_NAME (expr)));
+  else if (TREE_CODE (expr) == RESULT_DECL)
+    fputs (" <result>", outfile);
+  else
+    fputs (" <anonymous>", outfile);
+}
+
 /* Print IN_RTX onto OUTFILE.  This is the recursive part of printing.  */
 
 static void
 print_rtx (in_rtx)
-     register rtx in_rtx;
+     rtx in_rtx;
 {
-  register int i = 0;
-  register int j;
-  register const char *format_ptr;
-  register int is_insn;
+  int i = 0;
+  int j;
+  const char *format_ptr;
+  int is_insn;
   rtx tem;
 
   if (sawclose)
@@ -89,8 +117,7 @@ print_rtx (in_rtx)
       if (flag_simple)
 	fputc (' ', outfile);
       else
-	fprintf (outfile, "\n%s%*s",
-		 print_rtx_head, indent * 2, "");
+	fprintf (outfile, "\n%s%*s", print_rtx_head, indent * 2, "");
       sawclose = 0;
     }
 
@@ -100,53 +127,59 @@ print_rtx (in_rtx)
       sawclose = 1;
       return;
     }
+  else if (GET_CODE (in_rtx) > NUM_RTX_CODE)
+    {
+       fprintf (outfile, "(??? bad code %d\n)", GET_CODE (in_rtx));
+       sawclose = 1;
+       return;
+    }
 
-  is_insn = (INSN_P (in_rtx));
+  is_insn = INSN_P (in_rtx);
 
   /* When printing in VCG format we write INSNs, NOTE, LABEL, and BARRIER
      in separate nodes and therefore have to handle them special here.  */
-  if (dump_for_graph &&
-      (is_insn || GET_CODE (in_rtx) == NOTE || GET_CODE (in_rtx) == CODE_LABEL
-       || GET_CODE (in_rtx) == BARRIER))
+  if (dump_for_graph
+      && (is_insn || GET_CODE (in_rtx) == NOTE
+	  || GET_CODE (in_rtx) == CODE_LABEL || GET_CODE (in_rtx) == BARRIER))
     {
       i = 3;
       indent = 0;
     }
   else
     {
-      /* print name of expression code */
+      /* Print name of expression code.  */
       if (flag_simple && GET_CODE (in_rtx) == CONST_INT)
 	fputc ('(', outfile);
       else
 	fprintf (outfile, "(%s", GET_RTX_NAME (GET_CODE (in_rtx)));
-      
+
       if (! flag_simple)
 	{
-	  if (in_rtx->in_struct)
+	  if (RTX_FLAG (in_rtx, in_struct))
 	    fputs ("/s", outfile);
 
-	  if (in_rtx->volatil)
+	  if (RTX_FLAG (in_rtx, volatil))
 	    fputs ("/v", outfile);
-	  
-	  if (in_rtx->unchanging)
+
+	  if (RTX_FLAG (in_rtx, unchanging))
 	    fputs ("/u", outfile);
-	  
-	  if (in_rtx->integrated)
+
+	  if (RTX_FLAG (in_rtx, integrated))
 	    fputs ("/i", outfile);
-	  
-	  if (in_rtx->frame_related)
+
+	  if (RTX_FLAG (in_rtx, frame_related))
 	    fputs ("/f", outfile);
-	  
-	  if (in_rtx->jump)
+
+	  if (RTX_FLAG (in_rtx, jump))
 	    fputs ("/j", outfile);
-	  
-	  if (in_rtx->call)
+
+	  if (RTX_FLAG (in_rtx, call))
 	    fputs ("/c", outfile);
 
 	  if (GET_MODE (in_rtx) != VOIDmode)
 	    {
 	      /* Print REG_NOTE names for EXPR_LIST and INSN_LIST.  */
-	      if (GET_CODE (in_rtx) == EXPR_LIST 
+	      if (GET_CODE (in_rtx) == EXPR_LIST
 		  || GET_CODE (in_rtx) == INSN_LIST)
 		fprintf (outfile, ":%s",
 			 GET_REG_NOTE_NAME (GET_MODE (in_rtx)));
@@ -159,7 +192,6 @@ print_rtx (in_rtx)
   /* Get the format string and skip the first elements if we have handled
      them already.  */
   format_ptr = GET_RTX_FORMAT (GET_CODE (in_rtx)) + i;
-
   for (; i < GET_RTX_LENGTH (GET_CODE (in_rtx)); i++)
     switch (*format_ptr++)
       {
@@ -215,19 +247,9 @@ print_rtx (in_rtx)
 		if (flag_dump_unnumbered)
 		  fprintf (outfile, "#");
 		else
-		  fprintf (outfile, HOST_PTR_PRINTF, 
+		  fprintf (outfile, HOST_PTR_PRINTF,
 			   (char *) NOTE_BLOCK (in_rtx));
 		sawclose = 1;
-		break;
-
-	      case NOTE_INSN_RANGE_BEG:
-	      case NOTE_INSN_RANGE_END:
-	      case NOTE_INSN_LIVE:
-		indent += 2;
-		if (!sawclose)
-		  fprintf (outfile, " ");
-		print_rtx (NOTE_RANGE_INFO (in_rtx));
-		indent -= 2;
 		break;
 
 	      case NOTE_INSN_BASIC_BLOCK:
@@ -251,6 +273,15 @@ print_rtx (in_rtx)
 		  fprintf (outfile, " (\"%s\")", NOTE_SOURCE_FILE (in_rtx));
 		else
 		  fprintf (outfile, " \"\"");
+		break;
+
+	      case NOTE_INSN_PREDICTION:
+		if (NOTE_PREDICTION (in_rtx))
+		  fprintf (outfile, " [ %d %d ] ",
+			   (int)NOTE_PREDICTION_ALG (in_rtx),
+			   (int) NOTE_PREDICTION_FLAGS (in_rtx));
+		else
+		  fprintf (outfile, " [ ERROR ]");
 		break;
 
 	      default:
@@ -289,10 +320,10 @@ print_rtx (in_rtx)
 	if (sawclose)
 	  {
 	    fprintf (outfile, "\n%s%*s",
-                     print_rtx_head, indent * 2, "");
+		     print_rtx_head, indent * 2, "");
 	    sawclose = 0;
 	  }
-	fputs ("[ ", outfile);
+	fputs (" [", outfile);
 	if (NULL != XVEC (in_rtx, i))
 	  {
 	    indent += 2;
@@ -305,10 +336,9 @@ print_rtx (in_rtx)
 	    indent -= 2;
 	  }
 	if (sawclose)
-	  fprintf (outfile, "\n%s%*s",
-                   print_rtx_head, indent * 2, "");
+	  fprintf (outfile, "\n%s%*s", print_rtx_head, indent * 2, "");
 
-	fputs ("] ", outfile);
+	fputs ("]", outfile);
 	sawclose = 1;
 	indent -= 2;
 	break;
@@ -335,7 +365,7 @@ print_rtx (in_rtx)
 	  }
 	else
 	  {
-	    register int value = XINT (in_rtx, i);
+	    int value = XINT (in_rtx, i);
 	    const char *name;
 
 	    if (GET_CODE (in_rtx) == REG && value < FIRST_PSEUDO_REGISTER)
@@ -436,6 +466,11 @@ print_rtx (in_rtx)
 	sawclose = 0;
 	break;
 
+      case 'B':
+	if (XBBDEF (in_rtx, i))
+	  fprintf (outfile, " %i", XBBDEF (in_rtx, i)->index);
+	break;
+
       default:
 	fprintf (stderr,
 		 "switch format wrong in rtl.print_rtx(). format was: %c.\n",
@@ -446,17 +481,45 @@ print_rtx (in_rtx)
   switch (GET_CODE (in_rtx))
     {
     case MEM:
-      fputc (' ', outfile);
+      fputs (" [", outfile);
       fprintf (outfile, HOST_WIDE_INT_PRINT_DEC, MEM_ALIAS_SET (in_rtx));
+
+      if (MEM_EXPR (in_rtx))
+	print_mem_expr (outfile, MEM_EXPR (in_rtx));
+
+      if (MEM_OFFSET (in_rtx))
+	{
+	  fputc ('+', outfile);
+	  fprintf (outfile, HOST_WIDE_INT_PRINT_DEC,
+		   INTVAL (MEM_OFFSET (in_rtx)));
+	}
+
+      if (MEM_SIZE (in_rtx))
+	{
+	  fputs (" S", outfile);
+	  fprintf (outfile, HOST_WIDE_INT_PRINT_DEC,
+		   INTVAL (MEM_SIZE (in_rtx)));
+	}
+
+      if (MEM_ALIGN (in_rtx) != 1)
+	fprintf (outfile, " A%u", MEM_ALIGN (in_rtx));
+
+      fputc (']', outfile);
       break;
 
-#if HOST_FLOAT_FORMAT == TARGET_FLOAT_FORMAT && MAX_LONG_DOUBLE_TYPE_SIZE == 64
+#if 0
+    /* It would be nice to do this, but it would require real.o to
+       be linked into the MD-generator programs.  Maybe we should
+       do that.  -zw 2002-03-03  */
     case CONST_DOUBLE:
       if (FLOAT_MODE_P (GET_MODE (in_rtx)))
 	{
-	  double val;
+	  REAL_VALUE_TYPE val;
+	  char s[30];
+
 	  REAL_VALUE_FROM_CONST_DOUBLE (val, in_rtx);
-	  fprintf (outfile, " [%.16g]", val);
+	  REAL_VALUE_TO_DECIMAL (val, "%.16g", s);
+	  fprintf (outfile, " [%s]", s);
 	}
       break;
 #endif
@@ -464,7 +527,7 @@ print_rtx (in_rtx)
     case CODE_LABEL:
       fprintf (outfile, " [%d uses]", LABEL_NUSES (in_rtx));
       if (LABEL_ALTERNATE_NAME (in_rtx))
-        fprintf (outfile, " [alternate name: %s]",
+	fprintf (outfile, " [alternate name: %s]",
 		 LABEL_ALTERNATE_NAME (in_rtx));
       break;
 
@@ -480,7 +543,8 @@ print_rtx (in_rtx)
 
 	  tem = XEXP (in_rtx, 1);
 	  if (tem)
-	    fputs ("\n    ])\n  (const_string \"tail_call\") (sequence [", outfile);
+	    fputs ("\n    ])\n  (const_string \"tail_call\") (sequence [",
+		   outfile);
 	  for (; tem != 0; tem = NEXT_INSN (tem))
 	    {
 	      fputs ("\n    ", outfile);
@@ -489,7 +553,8 @@ print_rtx (in_rtx)
 
 	  tem = XEXP (in_rtx, 2);
 	  if (tem)
-	    fputs ("\n    ])\n  (const_string \"tail_recursion\") (sequence [", outfile);
+	    fputs ("\n    ])\n  (const_string \"tail_recursion\") (sequence [",
+		   outfile);
 	  for (; tem != 0; tem = NEXT_INSN (tem))
 	    {
 	      fputs ("\n    ", outfile);
@@ -551,6 +616,7 @@ debug_rtx (x)
      rtx x;
 {
   outfile = stderr;
+  sawclose = 0;
   print_rtx (x);
   fprintf (stderr, "\n");
 }
@@ -587,7 +653,10 @@ debug_rtx_list (x, n)
       }
 
   for (i = count, insn = x; i > 0 && insn != 0; i--, insn = NEXT_INSN (insn))
-    debug_rtx (insn);
+    {
+      debug_rtx (insn);
+      fprintf (stderr, "\n");
+    }
 }
 
 /* Call this function to print an rtx list from START to END inclusive.  */
@@ -599,6 +668,7 @@ debug_rtx_range (start, end)
   while (1)
     {
       debug_rtx (start);
+      fprintf (stderr, "\n");
       if (!start || start == end)
 	break;
       start = NEXT_INSN (start);
@@ -639,7 +709,7 @@ print_rtl (outf, rtx_first)
      FILE *outf;
      rtx rtx_first;
 {
-  register rtx tmp_rtx;
+  rtx tmp_rtx;
 
   outfile = outf;
   sawclose = 0;
@@ -662,14 +732,14 @@ print_rtl (outf, rtx_first)
 	  if (! flag_dump_unnumbered
 	      || GET_CODE (tmp_rtx) != NOTE || NOTE_LINE_NUMBER (tmp_rtx) < 0)
 	    {
-              fputs (print_rtx_head, outfile);
+	      fputs (print_rtx_head, outfile);
 	      print_rtx (tmp_rtx);
 	      fprintf (outfile, "\n");
 	    }
 	break;
 
       default:
-        fputs (print_rtx_head, outfile);
+	fputs (print_rtx_head, outfile);
 	print_rtx (rtx_first);
       }
 }

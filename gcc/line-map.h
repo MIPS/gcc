@@ -59,6 +59,12 @@ struct line_maps
      LAST_LISTED as the topmost including file.  -1 indicates nothing
      has been listed yet.  */
   int last_listed;
+
+  /* Depth of the include stack, including the current file.  */
+  unsigned int depth;
+
+  /* If true, prints an include trace a la -H.  */
+  bool trace_includes;
 };
 
 /* Initialize a line map set.  */

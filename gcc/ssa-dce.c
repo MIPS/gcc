@@ -1,21 +1,21 @@
 /* Dead-code elimination pass for the GNU compiler.
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
    Written by Jeffrey D. Oldham <oldham@codesourcery.com>.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to the Free
+along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
@@ -247,7 +247,7 @@ find_control_dependence (el, edge_index, pdom, cdbte)
     abort ();
   ending_block =
     (INDEX_EDGE_PRED_BB (el, edge_index) == ENTRY_BLOCK_PTR)
-    ? BASIC_BLOCK (0)
+    ? ENTRY_BLOCK_PTR->next_bb
     : find_pdom (pdom, INDEX_EDGE_PRED_BB (el, edge_index));
 
   for (current_block = INDEX_EDGE_SUCC_BB (el, edge_index);
@@ -275,7 +275,7 @@ find_pdom (pdom, block)
     abort ();
 
   if (block == ENTRY_BLOCK_PTR)
-    return BASIC_BLOCK (0);
+    return ENTRY_BLOCK_PTR->next_bb;
   else if (block == EXIT_BLOCK_PTR || pdom[block->index] == EXIT_BLOCK)
     return EXIT_BLOCK_PTR;
   else
@@ -341,7 +341,7 @@ note_inherently_necessary_set (dest, set, data)
      rtx dest;
      void *data;
 {
-  int *inherently_necessary_set_p = (int *)data;
+  int *inherently_necessary_set_p = (int *) data;
 
   while (GET_CODE (dest) == SUBREG
 	 || GET_CODE (dest) == STRICT_LOW_PART
@@ -370,9 +370,10 @@ find_inherently_necessary (x)
     return !0;
   else
     switch (GET_CODE (x))
-      {  
+      {
       case CALL_INSN:
       case BARRIER:
+      case PREFETCH:
 	return !0;
       case CODE_LABEL:
       case NOTE:
@@ -395,7 +396,7 @@ find_inherently_necessary (x)
 	}
       default:
 	/* Found an impossible insn type.  */
-	abort();
+	abort ();
 	break;
       }
 }
@@ -468,7 +469,6 @@ static void
 delete_insn_bb (insn)
      rtx insn;
 {
-  basic_block bb;
   if (!insn)
     abort ();
 
@@ -480,20 +480,6 @@ delete_insn_bb (insn)
   if (! INSN_P (insn))
     return;
 
-  bb = BLOCK_FOR_INSN (insn);
-  if (!bb)
-    abort ();
-  if (bb->head == bb->end)
-    {
-      /* Delete the insn by converting it to a note.  */
-      PUT_CODE (insn, NOTE);
-      NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-      return;
-    }
-  else if (insn == bb->head)
-    bb->head = NEXT_INSN (insn);
-  else if (insn == bb->end)
-    bb->end = PREV_INSN (insn);
   delete_insn (insn);
 }
 
@@ -504,6 +490,7 @@ ssa_eliminate_dead_code ()
 {
   int i;
   rtx insn;
+  basic_block bb;
   /* Necessary instructions with operands to explore.  */
   varray_type unprocessed_instructions;
   /* Map element (b,e) is nonzero if the block is control dependent on
@@ -513,29 +500,25 @@ ssa_eliminate_dead_code ()
   int *pdom;
   struct edge_list *el;
 
-  int max_insn_uid = get_max_uid ();
-
   /* Initialize the data structures.  */
   mark_all_insn_unnecessary ();
   VARRAY_RTX_INIT (unprocessed_instructions, 64,
 		   "unprocessed instructions");
-  cdbte = control_dependent_block_to_edge_map_create (n_basic_blocks);
+  cdbte = control_dependent_block_to_edge_map_create (last_basic_block);
 
   /* Prepare for use of BLOCK_NUM ().  */
   connect_infinite_loops_to_exit ();
-   /* Be careful not to clear the added edges.  */
-  compute_bb_for_insn (max_insn_uid);
 
   /* Compute control dependence.  */
-  pdom = (int *) xmalloc (n_basic_blocks * sizeof (int));
-  for (i = 0; i < n_basic_blocks; ++i)
+  pdom = (int *) xmalloc (last_basic_block * sizeof (int));
+  for (i = 0; i < last_basic_block; ++i)
     pdom[i] = INVALID_BLOCK;
   calculate_dominance_info (pdom, NULL, CDI_POST_DOMINATORS);
   /* Assume there is a path from each node to the exit block.  */
-  for (i = 0; i < n_basic_blocks; ++i)
+  for (i = 0; i < last_basic_block; ++i)
     if (pdom[i] == INVALID_BLOCK)
       pdom[i] = EXIT_BLOCK;
-  el = create_edge_list();
+  el = create_edge_list ();
   find_all_control_dependences (el, pdom, cdbte);
 
   /* Find inherently necessary instructions.  */
@@ -705,9 +688,9 @@ ssa_eliminate_dead_code ()
 	    remove_edge (temp);
 	  }
 
-	/* Create an edge from this block to the post dominator.  
+	/* Create an edge from this block to the post dominator.
 	   What about the PHI nodes at the target?  */
-	make_edge (NULL, bb, pdom_bb, 0);
+	make_edge (bb, pdom_bb, 0);
 
 	/* Third, transform this insn into an unconditional
 	   jump to the label for the immediate postdominator.  */
@@ -725,17 +708,15 @@ ssa_eliminate_dead_code ()
     else if (!JUMP_P (insn))
       delete_insn_bb (insn);
   });
-  
+
   /* Remove fake edges from the CFG.  */
   remove_fake_edges ();
 
   /* Find any blocks with no successors and ensure they are followed
      by a BARRIER.  delete_insn has the nasty habit of deleting barriers
      when deleting insns.  */
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
-
       if (bb->succ == NULL)
 	{
 	  rtx next = NEXT_INSN (bb->end);
@@ -749,7 +730,6 @@ ssa_eliminate_dead_code ()
     RESURRECT_INSN (insn);
   if (VARRAY_ACTIVE_SIZE (unprocessed_instructions) != 0)
     abort ();
-  VARRAY_FREE (unprocessed_instructions);
   control_dependent_block_to_edge_map_free (cdbte);
   free ((PTR) pdom);
   free_edge_list (el);
