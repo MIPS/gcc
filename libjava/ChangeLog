@@ -1,3 +1,232 @@
+2003-08-26  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/StrictMath.java: Typo fix.
+	* java/lang/Math.java: Typo fix.
+
+2003-08-26  Stephen Crawley  <crawley@dstc.edu.au>
+
+	* java/lang/ThreadGroup.java (removeThread): null the 'group' field
+	of the removed Thread.
+
+2003-08-26  Mark Wielaard  <mark@klomp.org>
+
+	Reported by David Holmes <dholmes@dltech.com.au>.
+	* java/lang/InheritableThreadLocal.java (threadMap): Wrap inside
+	Collections.synchronizedMap.
+	* java/lang/ThreadLocal.java (valueMap): Likewise.
+
+2003-08-26  Mark Wielaard  <mark@klomp.org>
+
+	* java/security/acl/Acl.java: Fix broken p tag.
+	* java/text/DateFormatSymbols.java: Correctly open and close li tags.
+	* javax/swing/border/LineBorder.java: Close img tag alt attributes.
+	* javax/swing/plaf/TreeUI.java: Likewise.
+	* javax/swing/plaf/basic/BasicTreeUI.java: Likewise.
+	* java/util/Properties.java: Use the word umlaut, not &auml; in api
+	documentation.
+	* java/util/PropertyResourceBundle.java: Likewise and add closing code
+	tag.
+
+2003-08-26  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am: Removed all GNU-make-specific FIXME comments.
+
+	* java/lang/ref/Reference.java (get): Indentation fix.
+	(clear): Comment fix.
+	(enqueue): Likewise.
+	(lock): Likewise.
+	(referent): Likewise.
+
+2003-08-26  Tom Tromey  <tromey@redhat.com>
+
+	PR java/12058:
+	* java/lang/reflect/natArray.cc (set): Allow null as argument.
+
+	* java/lang/reflect/Proxy.java (ProxyData): `pack' now a String.
+	(ProxyData.getPackage): New method.
+	(ProxyData.getProxyData): Use package name, not Package.
+	(ClassFactory.ClassFactory): Updated.
+
+2003-08-25  Scott Gilbertson  <scottg@mantatest.com>
+	* Makefile.am: added gnu/awt/xlib/XOffScreenImage.java.
+	* Makefile.in: re-generated.
+	* gnu/awt/j2d/IntegerGraphicsState.java
+	(ScreenCoupledImage): new interface.
+	(drawImage): detect ScreenCoupledImage instances.
+	* gnu/awt/xlib/XCanvasPeer.java (createImage) implemented.
+	* gnu/awt/xlib/XEventLoop.java
+	(createEvent): re-formatted, and rearranged to avoid null pointer.
+	* gnu/awt/xlib/XGraphics.java
+	(drawImage): added XOffScreenImage handling.
+	* gnu/awt/xlib/XOffScreenImage.java: new file.
+	* gnu/gcj/xlib/Drawable.java (getDepth): new native method.
+	* gnu/gcj/xlib/GC.java (copyArea): new native method.
+	* gnu/gcj/xlib/XAnyEvent.java
+	(TYPE_KEY_PRESS): new constant.
+	(TYPE_KEY_RELEASE): new constant.
+	(TYPE_MOTION_NOTIFY): new constant.
+	(TYPE_ENTER_NOTIFY): new constant.
+	(TYPE_LEAVE_NOTIFY): new constant.
+	(TYPE_FOCUS_IN): new constant.
+	(TYPE_FOCUS_OUT): new constant.
+	(TYPE_KEYMAP_NOTIFY): new constant.
+	(TYPE_GRAPHICS_EXPOSE): new constant.
+	(TYPE_NO_EXPOSE): new constant.
+	(TYPE_VISIBILITY_NOTIFY): new constant.
+	(TYPE_CREATE_NOTIFY): new constant.
+	(TYPE_DESTROY_NOTIFY): new constant.
+	(TYPE_MAP_REQUEST): new constant.
+	(TYPE_CONFIGURE_REQUEST): new constant.
+	(TYPE_GRAVITY_NOTIFY): new constant.
+	(TYPE_RESIZE_REQUEST): new constant.
+	(TYPE_CIRCULATE_NOTIFY): new constant.
+	(TYPE_CIRCULATE_REQUEST): new constant.
+	(TYPE_PROPERTY_NOTIFY): new constant.
+	(TYPE_SELECTION_CLEAR): new constant.
+	(TYPE_SELECTION_REQUEST): new constant.
+	(TYPE_SELECTION_NOTIFY): new constant.
+	(TYPE_COLORMAP_NOTIFY): new constant.
+	(TYPE_MAPPING_NOTIFY): new constant.
+	* gnu/gcj/xlib/natDrawable.cc (getDepth): new method.
+	* gnu/gcj/xlib/natGC.cc (copyArea): new method
+	* java/awt/Component.java (createImage): changed to use peer method.
+
+2003-08-22  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkGraphics.java (drawString): Pass font
+	name, not XLFD, to native drawString.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c (drawString):
+	Replace XLFD-based implementation with Pango-based
+	implementation.
+
+2003-08-22  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkWindowPeer.java: Remove
+	GTK_WINDOW_DIALOG.  Set GTK_WINDOW_POPUP to 1.
+
+2003-08-21  David Daney  <ddaney@avtrex.com>
+
+	Fix for PR libgcj/12013:
+	* java/lang/ref/natReference.cc (finalize_referred_to_object):
+	Check `cleared' field.
+	* java/lang/ref/Reference.java (copy): Updated comments.
+	(cleared): New field.
+	(clear): Rewrote.
+
+2003-08-21  Scott Gilbertson  <scottg@mantatest.com>
+            Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* Makefile.am (gtk_awt_peer_sources): Add
+	gnu/java/awt/peer/GLightweightPeer.java.  Remove
+	gnu/java/awt/GLightweightPeer.java.
+	* gnu/java/awt/GLightweightPeer.java: Remove file.
+	* gnu/java/awt/peer/GLightweightPeer.java: New file.
+	* java/awt/Component.java (getToolkit): Add comment about
+	lightweight components.
+	* java/awt/Toolkit.java (createComponent): Return
+	gnu.java.awt.peer.GLightweightPeer.
+
+2003-08-21  Richard Earnshaw  <rearnsha@arm.com>
+
+	* configure.in: Fix detection of gcj when building with newlib.
+	* configure: Regenerated.
+
+2003-08-20  Graydon Hoare  <graydon@redhat.com>
+
+	* jni.cc: Replace "cheating" pointer-casting code with
+	extract_from_jvalue<> template.
+
+2003-08-20  Andrew Haley  <aph@redhat.com>
+
+	* gnu/gcj/runtime/StackTrace.java (getClass): New method.
+	* gnu/gcj/runtime/natStackTrace.cc (getClass): New method.
+	(classAt): Break out class lookup function into getClass().
+	* exception.cc (PERSONALITY_FUNCTION): Use new encoding for exception
+	handlers when using -fno-assume-compiled.
+
+2003-08-20  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR libgcj/9125:
+	* gnu/gcj/runtime/natVMClassLoader.cc (findClass): Find Runtime
+	object outside of loop.  Respect lib_control setting.
+	* gnu/gcj/runtime/VMClassLoader.java (tried_libraries): New
+	field.
+	(lib_control): New field.
+	(LIB_FULL, LIB_CACHE, LIB_NEVER): New constants.
+	(VMClassLoader): Initialize new field.
+
+	* java/lang/ref/natReference.cc (finalize_referred_to_object):
+	Set `list->reference' to DELETED_REFERENCE when removing dead
+	object.
+	(find_slot): Added an assert.
+	(DELETED_REFERENCE): New define.
+	(add_to_hash): Check for DELETED_REFERENCE.
+	(remove_from_hash): Just return if found slot isn't ours.
+
+2003-08-19  Andrew Haley  <aph@redhat.com>
+
+	* prims.cc (unblock_signal): New function.
+	(catch_segv): Use it.
+	(catch_fpe): Likewise.
+
+2003-08-19  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR libgcj/11575
+	* java/io/natFileDescriptorWin32.cc (open): Set create
+	flag to OPEN_AWAYS when READ & WRITE regardless of APPEND flag.
+	Honor EXCL when openning with WRITE flag. 
+
+2003-08-19  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* include/jvm.h: New class _Jv_TempUTFString (helper class for
+	getting a temporary C string from a jstring)
+	New macro JV_TEMP_UTF_STRING, which leverages _Jv_TempUTFString
+	but uses a stack buffer if the string length is less than 256
+	bytes.
+
+2003-08-18  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/11951:
+	* java/lang/reflect/natMethod.cc (_Jv_CallAnyMethodA): Returns
+	void.  Throw VirtualMachineError if ffi fails.  Initialize return
+	value.  Added is_jni_call argument; only wrap exception if not a
+	JNI call.  Use descriptive message if operation not supported.
+	(_Jv_GetTypesFromSignature): Use declaring class' loader to find
+	array class.
+	* include/jvm.h (_Jv_CallAnyMethodA): Updated declaration.
+	* jni.cc (_Jv_JNI_CallAnyMethodV): Updated for new form of
+	_Jv_CallAnyMethodA.
+	(_Jv_JNI_CallAnyMethodA): Likewise.
+	(_Jv_JNI_CallAnyVoidMethodV): Likewise.
+	(_Jv_JNI_CallAnyVoidMethodA): Likewise.
+
+2003-08-13  Tom Tromey  <tromey@redhat.com>
+
+	* gij.cc (help): Document -? and -X.
+
+2003-08-12  Graydon Hoare  <graydon@redhat.com>
+
+	* java/awt/Font.java: 
+	Stub out more recent API. 
+
+2003-08-12  Graydon Hoare  <graydon@redhat.com>
+
+	* java/awt/Color.java (getAlpha): 
+	Prevent sign-extended alpha values.
+
+2003-08-12  Tom Tromey  <tromey@redhat.com>
+
+	* gij.cc (main): Handle -? and -X.
+
+2003-08-10  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/awt/Container.java
+	(getPreferredSize): Call preferredSize.
+	(preferredSize): Moved body of getPreferredSize here.
+	(getMinimumSize): Call minimumSize.
+	(minimumSize): Moved body of getMinimumSize here.
+
 2003-08-11  Tom Tromey  <tromey@redhat.com>
 
 	* java/awt/EventQueue.java (currentEvent, lastWhen): New fields.

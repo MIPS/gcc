@@ -3636,9 +3636,11 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int last,
 	    return x;
 
 	  /* Simplify the alternative arms; this may collapse the true and
-	     false arms to store-flag values.  */
-	  true_rtx = subst (true_rtx, pc_rtx, pc_rtx, 0, 0);
-	  false_rtx = subst (false_rtx, pc_rtx, pc_rtx, 0, 0);
+	     false arms to store-flag values.  Be careful to use copy_rtx
+	     here since true_rtx or false_rtx might share RTL with x as a
+	     result of the if_then_else_cond call above.  */
+	  true_rtx = subst (copy_rtx (true_rtx), pc_rtx, pc_rtx, 0, 0);
+	  false_rtx = subst (copy_rtx (false_rtx), pc_rtx, pc_rtx, 0, 0);
 
 	  /* If true_rtx and false_rtx are not general_operands, an if_then_else
 	     is unlikely to be simpler.  */
@@ -7955,7 +7957,7 @@ apply_distributive_law (rtx x)
   tem = gen_binary (code, GET_MODE (x), lhs, rhs);
 
   /* There is one exception to the general way of distributing:
-     (a ^ b) | (a ^ c) -> (~a) & (b ^ c)  */
+     (a | c) ^ (b | c) -> (a ^ b) & ~c  */
   if (code == XOR && inner_code == IOR)
     {
       inner_code = AND;
@@ -9686,7 +9688,7 @@ simplify_shift_const (rtx x, enum rtx_code code,
 	  break;
 
 	case EQ:
-	  /* convert (lshiftrt (eq FOO 0) C) to (xor FOO 1) if STORE_FLAG_VALUE
+	  /* Convert (lshiftrt (eq FOO 0) C) to (xor FOO 1) if STORE_FLAG_VALUE
 	     says that the sign bit can be tested, FOO has mode MODE, C is
 	     GET_MODE_BITSIZE (MODE) - 1, and FOO has only its low-order bit
 	     that may be nonzero.  */
@@ -11275,9 +11277,6 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
   op1 = make_compound_operation (op1, SET);
 
   if (GET_CODE (op0) == SUBREG && subreg_lowpart_p (op0)
-      /* Case 3 above, to sometimes allow (subreg (mem x)), isn't
-	 implemented.  */
-      && GET_CODE (SUBREG_REG (op0)) == REG
       && GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT
       && GET_MODE_CLASS (GET_MODE (SUBREG_REG (op0))) == MODE_INT
       && (code == NE || code == EQ))
@@ -11285,8 +11284,13 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
       if (GET_MODE_SIZE (GET_MODE (op0))
 	  > GET_MODE_SIZE (GET_MODE (SUBREG_REG (op0))))
 	{
-	  op0 = SUBREG_REG (op0);
-	  op1 = gen_lowpart_for_combine (GET_MODE (op0), op1);
+	  /* For paradoxical subregs, allow case 1 as above.  Case 3 isn't
+	     implemented.  */
+          if (GET_CODE (SUBREG_REG (op0)) == REG)
+	    {
+	      op0 = SUBREG_REG (op0);
+	      op1 = gen_lowpart_for_combine (GET_MODE (op0), op1);
+	    }
 	}
       else if ((GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (op0)))
 		<= HOST_BITS_PER_WIDE_INT)
@@ -12496,6 +12500,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 	    abort ();
 	  break;
 
+	case REG_ALWAYS_RETURN:
 	case REG_NORETURN:
 	case REG_SETJMP:
 	  /* These notes must remain with the call.  It should not be

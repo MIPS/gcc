@@ -421,6 +421,8 @@ finish_expr_stmt (tree expr)
     {
       if (!processing_template_decl)
 	expr = convert_to_void (expr, "statement");
+      else if (!type_dependent_expression_p (expr))
+	convert_to_void (build_non_dependent_expr (expr), "statement");
       
       r = add_stmt (build_stmt (EXPR_STMT, expr));
     }
@@ -956,6 +958,8 @@ finish_handler_parms (tree decl, tree handler)
     type = expand_start_catch_block (decl);
 
   HANDLER_TYPE (handler) = type;
+  if (type)
+    mark_used (eh_type_info (type));
 }
 
 /* Finish a handler, which may be given by HANDLER.  The BLOCKs are
@@ -1403,7 +1407,7 @@ begin_stmt_expr (void)
   last_expr_type = NULL_TREE;
   
   keep_next_level (1);
-  
+
   return last_tree; 
 }
 
@@ -1467,13 +1471,12 @@ finish_stmt_expr_expr (tree expr)
   return result;
 }
 
-/* Finish a statement-expression.  RTL_EXPR should be the value
-   returned by the previous begin_stmt_expr; EXPR is the
-   statement-expression.  Returns an expression representing the
-   statement-expression.  */
+/* Finish a statement-expression.  EXPR should be the value returned
+   by the previous begin_stmt_expr.  Returns an expression
+   representing the statement-expression.  */
 
 tree 
-finish_stmt_expr (tree rtl_expr)
+finish_stmt_expr (tree rtl_expr, bool has_no_scope)
 {
   tree result;
   tree result_stmt = last_expr_type;
@@ -1494,6 +1497,7 @@ finish_stmt_expr (tree rtl_expr)
   
   result = build_min (STMT_EXPR, type, last_tree);
   TREE_SIDE_EFFECTS (result) = 1;
+  STMT_EXPR_NO_SCOPE (result) = has_no_scope;
   
   last_expr_type = NULL_TREE;
   
@@ -2133,41 +2137,6 @@ finish_member_declaration (tree decl)
     }
 }
 
-/* Finish a class definition T with the indicate ATTRIBUTES.  If SEMI,
-   the definition is immediately followed by a semicolon.  Returns the
-   type.  */
-
-tree
-finish_class_definition (tree t, tree attributes, int semi, int pop_scope_p)
-{
-  if (t == error_mark_node)
-    return error_mark_node;
-
-  /* finish_struct nukes this anyway; if finish_exception does too,
-     then it can go.  */
-  if (semi)
-    note_got_semicolon (t);
-
-  /* If we got any attributes in class_head, xref_tag will stick them in
-     TREE_TYPE of the type.  Grab them now.  */
-  attributes = chainon (TYPE_ATTRIBUTES (t), attributes);
-  TYPE_ATTRIBUTES (t) = NULL_TREE;
-
-  if (TREE_CODE (t) == ENUMERAL_TYPE)
-    ;
-  else
-    {
-      t = finish_struct (t, attributes);
-      if (semi) 
-	note_got_semicolon (t);
-    }
-
-  if (pop_scope_p)
-    pop_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (t)));
-
-  return t;
-}
-
 /* Finish processing the declaration of a member class template
    TYPES whose template parameters are given by PARMS.  */
 
@@ -2183,7 +2152,6 @@ finish_member_class_template (tree types)
     if (IS_AGGR_TYPE_CODE (TREE_CODE (TREE_VALUE (t))))
       maybe_process_partial_specialization (TREE_VALUE (t));
 
-  note_list_got_semicolon (types);
   grok_x_components (types);
   if (TYPE_CONTEXT (TREE_VALUE (types)) != current_class_type)
     /* The component was in fact a friend declaration.  We avoid
@@ -2587,6 +2555,10 @@ finish_id_expression (tree id_expression,
 	{
 	  decl = (adjust_result_of_qualified_name_lookup 
 		  (decl, scope, current_class_type));
+
+	  if (TREE_CODE (decl) == FUNCTION_DECL)
+	    mark_used (decl);
+
 	  if (TREE_CODE (decl) == FIELD_DECL || BASELINK_P (decl))
 	    *qualifying_class = scope;
 	  else if (!processing_template_decl)
@@ -2741,37 +2713,46 @@ cp_expand_stmt (tree t)
 
 static tree
 simplify_aggr_init_exprs_r (tree* tp, 
-                            int* walk_subtrees ATTRIBUTE_UNUSED , 
-                            void* data ATTRIBUTE_UNUSED )
+                            int* walk_subtrees,
+                            void* data ATTRIBUTE_UNUSED)
 {
-  tree aggr_init_expr;
-  tree call_expr;
-  tree fn;
-  tree args;
-  tree slot;
-  tree type;
-  enum style_t { ctor, arg, pcc } style;
-
-  aggr_init_expr = *tp;
   /* We don't need to walk into types; there's nothing in a type that
      needs simplification.  (And, furthermore, there are places we
      actively don't want to go.  For example, we don't want to wander
      into the default arguments for a FUNCTION_DECL that appears in a
      CALL_EXPR.)  */
-  if (TYPE_P (aggr_init_expr))
+  if (TYPE_P (*tp))
     {
       *walk_subtrees = 0;
       return NULL_TREE;
     }
   /* Only AGGR_INIT_EXPRs are interesting.  */
-  else if (TREE_CODE (aggr_init_expr) != AGGR_INIT_EXPR)
+  else if (TREE_CODE (*tp) != AGGR_INIT_EXPR)
     return NULL_TREE;
 
+  simplify_aggr_init_expr (tp);
+
+  /* Keep iterating.  */
+  return NULL_TREE;
+}
+
+/* Replace the AGGR_INIT_EXPR at *TP with an equivalent CALL_EXPR.  This
+   function is broken out from the above for the benefit of the tree-ssa
+   project.  */
+
+void
+simplify_aggr_init_expr (tree *tp)
+{
+  tree aggr_init_expr = *tp;
+
   /* Form an appropriate CALL_EXPR.  */
-  fn = TREE_OPERAND (aggr_init_expr, 0);
-  args = TREE_OPERAND (aggr_init_expr, 1);
-  slot = TREE_OPERAND (aggr_init_expr, 2);
-  type = TREE_TYPE (aggr_init_expr);
+  tree fn = TREE_OPERAND (aggr_init_expr, 0);
+  tree args = TREE_OPERAND (aggr_init_expr, 1);
+  tree slot = TREE_OPERAND (aggr_init_expr, 2);
+  tree type = TREE_TYPE (aggr_init_expr);
+
+  tree call_expr;
+  enum style_t { ctor, arg, pcc } style;
 
   if (AGGR_INIT_VIA_CTOR_P (aggr_init_expr))
     style = ctor;
@@ -2790,21 +2771,31 @@ simplify_aggr_init_exprs_r (tree* tp,
     {
       /* Pass the address of the slot.  If this is a constructor, we
 	 replace the first argument; otherwise, we tack on a new one.  */
+      tree addr;
+
       if (style == ctor)
 	args = TREE_CHAIN (args);
 
       cxx_mark_addressable (slot);
-      args = tree_cons (NULL_TREE, 
-			build1 (ADDR_EXPR, 
-				build_pointer_type (TREE_TYPE (slot)),
-				slot),
-			args);
+      addr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (slot)), slot);
+      if (style == arg)
+	{
+	  /* The return type might have different cv-quals from the slot.  */
+	  tree fntype = TREE_TYPE (TREE_TYPE (fn));
+#ifdef ENABLE_CHECKING
+	  if (TREE_CODE (fntype) != FUNCTION_TYPE
+	      && TREE_CODE (fntype) != METHOD_TYPE)
+	    abort ();
+#endif
+	  addr = convert (build_pointer_type (TREE_TYPE (fntype)), addr);
+	}
+
+      args = tree_cons (NULL_TREE, addr, args);
     }
 
   call_expr = build (CALL_EXPR, 
 		     TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
 		     fn, args, NULL_TREE);
-  TREE_SIDE_EFFECTS (call_expr) = 1;
 
   if (style == arg)
     /* Tell the backend that we've added our return slot to the argument
@@ -2829,9 +2820,6 @@ simplify_aggr_init_exprs_r (tree* tp,
   /* Replace the AGGR_INIT_EXPR with the CALL_EXPR.  */
   TREE_CHAIN (call_expr) = TREE_CHAIN (aggr_init_expr);
   *tp = call_expr;
-
-  /* Keep iterating.  */
-  return NULL_TREE;
 }
 
 /* Emit all thunks to FN that should be emitted when FN is emitted.  */

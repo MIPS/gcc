@@ -492,7 +492,7 @@ pushlevel (int dummy ATTRIBUTE_UNUSED)
 
 	 The outermost block of a function always gets a BLOCK node,
 	 because the debugging output routines expect that each
-	 function has at least one BLOCK. */
+	 function has at least one BLOCK.  */
       current_scope->parm_flag         = false;
       current_scope->function_body     = true;
       current_scope->keep              = true;
@@ -603,7 +603,7 @@ poplevel (int keep, int dummy ATTRIBUTE_UNUSED, int functionbody)
 	  goto normal;
 
 	case VAR_DECL:
-	  /* keep this in sync with stmt.c:warn_about_unused_variables.
+	  /* Keep this in sync with stmt.c:warn_about_unused_variables.
 	     No warnings when the global scope is popped because the
 	     global scope isn't popped for the last translation unit,
 	     so the warnings are done in c_write_global_declaration.  */
@@ -1791,8 +1791,10 @@ pushdecl (tree x)
 
 	  while (TREE_CODE (element) == ARRAY_TYPE)
 	    element = TREE_TYPE (element);
-	  if (TREE_CODE (element) == RECORD_TYPE
-	      || TREE_CODE (element) == UNION_TYPE)
+	  if ((TREE_CODE (element) == RECORD_TYPE
+	       || TREE_CODE (element) == UNION_TYPE)
+	      && (TREE_CODE (x) != TYPE_DECL
+		  || TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE))
 	    scope->incomplete = tree_cons (NULL_TREE, x, scope->incomplete);
 	}
     }
@@ -2960,7 +2962,6 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
     mark_referenced (DECL_ASSEMBLER_NAME (decl));
 
   if (TREE_CODE (decl) == TYPE_DECL)
-    /* No need to call objc_check_decl() here -- it's a type.  */
     rest_of_decl_compilation (decl, NULL, C_DECL_FILE_SCOPE (decl), 0);
 
   /* At the end of a declaration, throw away any variable type sizes
@@ -5215,7 +5216,11 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 		  else
 		    current_scope->incomplete = TREE_CHAIN (x);
 		}
+	      else
+		prev = x;
 	    }
+	  else
+	    prev = x;
 	}
     }
 
@@ -6715,7 +6720,7 @@ make_pointer_declarator (tree type_quals_attrs, tree target)
 /* A wrapper around lhd_set_decl_assembler_name that gives static
    variables their C names if they are at file scope and only one
    translation unit is being compiled, for backwards compatibility
-   with certain bizzare assembler hacks (like crtstuff.c).  */
+   with certain bizarre assembler hacks (like crtstuff.c).  */
 
 void
 c_static_assembler_name (tree decl)
@@ -6789,7 +6794,7 @@ merge_translation_unit_decls (void)
 	      tree old_decl = (tree) *slot;
 
 	      /* If this is weak or common or whatever, suppress it
-		 in favour of the other definition.  */
+		 in favor of the other definition.  */
 	      if (DECL_WEAK (decl))
 		DECL_EXTERNAL (decl) = 1;
 	      else if (DECL_WEAK (old_decl) && ! DECL_WEAK (decl))

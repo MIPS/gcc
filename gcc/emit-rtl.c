@@ -858,7 +858,7 @@ gen_reg_rtx (enum machine_mode mode)
   return val;
 }
 
-/* Generate an register with same attributes as REG,
+/* Generate a register with same attributes as REG,
    but offsetted by OFFSET.  */
 
 rtx
@@ -5316,6 +5316,9 @@ init_emit_once (int line_numbers)
   int i;
   enum machine_mode mode;
   enum machine_mode double_mode;
+
+  /* We need reg_raw_mode, so initialize the modes now.  */
+  init_reg_modes_once ();
 
   /* Initialize the CONST_INT, CONST_DOUBLE, and memory attribute hash
      tables.  */

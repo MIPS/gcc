@@ -595,6 +595,12 @@ extern int warn_main;
 
 extern int warn_sequence_point;
 
+/* Nonzero means warn about uninitialized variable when it is initialized with itself. 
+   For example: int i = i;, GCC will not warn about this when warn_init_self is nonzero.  */
+
+extern int warn_init_self;
+
+
 /* Nonzero means to warn about compile-time division by zero.  */
 extern int warn_div_by_zero;
 
@@ -967,6 +973,7 @@ extern HOST_WIDE_INT c_common_get_alias_set (tree);
 extern bool c_promoting_integer_type_p (tree);
 extern int self_promoting_args_p (tree);
 extern tree strip_array_types (tree);
+extern tree strip_pointer_operator (tree);
 
 /* This function resets the parsers' state in preparation for parsing
    a new file.  */
@@ -1311,6 +1318,7 @@ extern void builtin_define_with_value (const char *, const char *, int);
 extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
 extern int c_estimate_num_insns (tree decl);
+extern bool c_decl_uninit (tree t);
 
 /* The following have been moved here from c-tree.h, since they're needed
    in the ObjC++ world, too.  What is more, stub-objc.c could use a few

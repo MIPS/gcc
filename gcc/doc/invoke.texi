@@ -220,7 +220,7 @@ in the following sections.
 -Wimplicit  -Wimplicit-int  @gol
 -Wimplicit-function-declaration @gol
 -Werror-implicit-function-declaration @gol
--Wimport  -Winline  -Winvalid-pch  -Wno-endif-labels @gol
+-Winit-self Wimport  -Winline  -Winvalid-pch  -Wno-endif-labels @gol
 -Wno-invalid-offsetof @gol
 -Wlarger-than-@var{len}  -Wlong-long @gol
 -Wmain  -Wmissing-braces @gol
@@ -485,7 +485,8 @@ in the following sections.
 -m4650  -msingle-float  -mmad @gol
 -EL  -EB  -G @var{num}  -nocpp @gol
 -mabi=32  -mabi=n32  -mabi=64  -mabi=eabi  -mabi-fake-default @gol
--mfix7000  -mno-crt0 -mflush-func=@var{func} -mno-flush-func @gol
+-mfix7000  -mfix-sb1  -mno-fix-sb1 @gol
+-mno-crt0 -mflush-func=@var{func} -mno-flush-func @gol
 -mbranch-likely -mno-branch-likely}
 
 @emph{i386 and x86-64 Options}
@@ -2166,6 +2167,24 @@ requiring a non-null value by the @code{nonnull} function attribute.
 @option{-Wnonnull} is included in @option{-Wall} and @option{-Wformat}.  It
 can be disabled with the @option{-Wno-nonnull} option.
 
+@item -Winit-self @r{(C, C++, and Objective-C only)} 
+@opindex Winit-self
+Enable warning about uninitialized variables which are initalized with themselves.
+Note this option can only be used with the @option{-Wuninitialized} option and 
+that only works with @option{-O}.
+
+For an example, the following code will not warn about i being uninitialized 
+without this option:
+@smallexample
+@group
+int f()
+@{
+  int i = i;
+  return i;
+@}
+@end group
+@end smallexample
+
 @item -Wimplicit-int
 @opindex Wimplicit-int
 Warn when a declaration does not specify a type.
@@ -2375,6 +2394,9 @@ These warnings are possible only in optimizing compilation,
 because they require data flow information that is computed only
 when optimizing.  If you don't specify @option{-O}, you simply won't
 get these warnings.
+
+If you want to warn about code which uses the uninitialized value of the
+variable in its own initializer, use the @option{-Winit-self} option.
 
 These warnings occur only for variables that are candidates for
 register allocation.  Therefore, they do not occur for a variable that
@@ -8257,6 +8279,13 @@ assembler files (with a @samp{.s} suffix) when assembling them.
 Pass an option to gas which will cause nops to be inserted if
 the read of the destination register of an mfhi or mflo instruction
 occurs in the following two instructions.
+
+@item -mfix-sb1
+@itemx -mno-fix-sb1
+@opindex mfix-sb1
+Work around certain SB-1 CPU core errata.
+(This flag currently works around the SB-1 revision 2
+``F1'' and ``F2'' floating point errata.)
 
 @item -no-crt0
 @opindex no-crt0

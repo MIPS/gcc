@@ -100,7 +100,6 @@ static void reopen_tinst_level (tree);
 static tree classtype_mangled_name (tree);
 static char* mangle_class_name_for_template (const char *, tree, tree);
 static tree tsubst_initializer_list (tree, tree);
-static int list_eq (tree, tree);
 static tree get_class_bindings (tree, tree, tree);
 static tree coerce_template_parms (tree, tree, tree, tsubst_flags_t, int);
 static void tsubst_enum	(tree, tree, tree);
@@ -1383,9 +1382,9 @@ copy_default_args_to_explicit_spec (tree decl)
 			  	         TREE_VALUE (in_charge),
 				         new_spec_types);
 
-      new_type = build_cplus_method_type (object_type,
-					  TREE_TYPE (old_type),
-					  new_spec_types);
+      new_type = build_method_type_directly (object_type,
+					     TREE_TYPE (old_type),
+					     new_spec_types);
     }
   else
     new_type = build_function_type (TREE_TYPE (old_type),
@@ -2675,6 +2674,15 @@ push_template_decl_real (tree decl, int is_friend)
       else if (TREE_CODE (decl) == TYPE_DECL 
 	       && ANON_AGGRNAME_P (DECL_NAME (decl))) 
 	error ("template class without a name");
+      else if (TREE_CODE (decl) == FUNCTION_DECL
+	       && DECL_DESTRUCTOR_P (decl))
+	{
+	  /* [temp.mem]
+	     
+	      A destructor shall not be a member template.  */
+	  error ("destructor `%D' declared as member template", decl);
+	  return error_mark_node;
+	}
       else if ((DECL_IMPLICIT_TYPEDEF_P (decl)
 		&& CLASS_TYPE_P (TREE_TYPE (decl)))
 	       || (TREE_CODE (decl) == VAR_DECL && ctx && CLASS_TYPE_P (ctx))
@@ -4227,7 +4235,6 @@ lookup_template_class (tree d1,
 	  t = make_aggr_type (TREE_CODE (template_type));
 	  CLASSTYPE_DECLARED_CLASS (t) 
 	    = CLASSTYPE_DECLARED_CLASS (template_type);
-	  CLASSTYPE_GOT_SEMICOLON (t) = 1;
 	  SET_CLASSTYPE_IMPLICIT_INSTANTIATION (t);
 	  TYPE_FOR_JAVA (t) = TYPE_FOR_JAVA (template_type);
 
@@ -5139,11 +5146,12 @@ instantiate_class_template (tree type)
       SET_CLASSTYPE_INTERFACE_UNKNOWN (type);
     }
 
+  /* Set the input location to the template definition. This is needed
+     if tsubsting causes an error.  */
+  input_location = DECL_SOURCE_LOCATION (TYPE_NAME (pattern));
+
   TYPE_HAS_CONSTRUCTOR (type) = TYPE_HAS_CONSTRUCTOR (pattern);
   TYPE_HAS_DESTRUCTOR (type) = TYPE_HAS_DESTRUCTOR (pattern);
-  TYPE_OVERLOADS_CALL_EXPR (type) = TYPE_OVERLOADS_CALL_EXPR (pattern);
-  TYPE_OVERLOADS_ARRAY_REF (type) = TYPE_OVERLOADS_ARRAY_REF (pattern);
-  TYPE_OVERLOADS_ARROW (type) = TYPE_OVERLOADS_ARROW (pattern);
   TYPE_HAS_NEW_OPERATOR (type) = TYPE_HAS_NEW_OPERATOR (pattern);
   TYPE_HAS_ARRAY_NEW_OPERATOR (type) = TYPE_HAS_ARRAY_NEW_OPERATOR (pattern);
   TYPE_GETS_DELETE (type) = TYPE_GETS_DELETE (pattern);
@@ -5174,8 +5182,14 @@ instantiate_class_template (tree type)
       tree base_list = NULL_TREE;
       tree pbases = BINFO_BASETYPES (pbinfo);
       tree paccesses = BINFO_BASEACCESSES (pbinfo);
+      tree context = TYPE_CONTEXT (type);
       int i;
 
+      /* We must enter the scope containing the type, as that is where
+	 the accessibility of types named in dependent bases are
+	 looked up from.  */
+      push_scope (context ? context : global_namespace);
+  
       /* Substitute into each of the bases to determine the actual
 	 basetypes.  */
       for (i = 0; i < TREE_VEC_LENGTH (pbases); ++i)
@@ -5202,6 +5216,8 @@ instantiate_class_template (tree type)
       /* Now call xref_basetypes to set up all the base-class
 	 information.  */
       xref_basetypes (type, base_list);
+
+      pop_scope (context ? context : global_namespace);
     }
 
   /* Now that our base classes are set up, enter the scope of the
@@ -5365,14 +5381,16 @@ instantiate_class_template (tree type)
 		++processing_template_decl;
 
 	      if (new_friend_type != error_mark_node)
-	        make_friend_class (type, new_friend_type);
+	        make_friend_class (type, new_friend_type,
+				   /*complain=*/false);
 
 	      if (TREE_CODE (friend_type) == TEMPLATE_DECL)
 		--processing_template_decl;
 	    }
 	  else
 	    /* Build new DECL_FRIENDLIST.  */
-	    add_friend (type, tsubst_friend_function (t, args));
+	    add_friend (type, tsubst_friend_function (t, args),
+			/*complain=*/false);
 	}
     }
 
@@ -5385,7 +5403,6 @@ instantiate_class_template (tree type)
   
   unreverse_member_declarations (type);
   finish_struct_1 (type);
-  CLASSTYPE_GOT_SEMICOLON (type) = 1;
 
   /* Clear this now so repo_template_used is happy.  */
   TYPE_BEING_DEFINED (type) = 0;
@@ -5412,21 +5429,6 @@ instantiate_class_template (tree type)
     keyed_classes = tree_cons (NULL_TREE, type, keyed_classes);
 
   return type;
-}
-
-static int
-list_eq (tree t1, tree t2)
-{
-  if (t1 == NULL_TREE)
-    return t2 == NULL_TREE;
-  if (t2 == NULL_TREE)
-    return 0;
-  /* Don't care if one declares its arg const and the other doesn't -- the
-     main variant of the arg type is all that matters.  */
-  if (TYPE_MAIN_VARIANT (TREE_VALUE (t1))
-      != TYPE_MAIN_VARIANT (TREE_VALUE (t2)))
-    return 0;
-  return list_eq (TREE_CHAIN (t1), TREE_CHAIN (t2));
 }
 
 static tree
@@ -5586,12 +5588,10 @@ tsubst_aggr_type (tree t,
 
 	  /* First, determine the context for the type we are looking
 	     up.  */
-	  if (TYPE_CONTEXT (t) != NULL_TREE)
-	    context = tsubst_aggr_type (TYPE_CONTEXT (t), args,
-					complain,
+	  context = TYPE_CONTEXT (t);
+	  if (context)
+	    context = tsubst_aggr_type (context, args, complain,
 					in_decl, /*entering_scope=*/1);
-	  else
-	    context = NULL_TREE;
 
 	  /* Then, figure out what arguments are appropriate for the
 	     type we are trying to find.  For example, given:
@@ -6007,7 +6007,8 @@ tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
 	      clone_function_decl (r, /*update_method_vec_p=*/0);
 	  }
 	else if (IDENTIFIER_OPNAME_P (DECL_NAME (r)))
-	  grok_op_properties (r, DECL_FRIEND_P (r));
+	  grok_op_properties (r, DECL_FRIEND_P (r),
+			      (complain & tf_error) != 0);
       }
       break;
 
@@ -6020,11 +6021,14 @@ tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
 	TREE_TYPE (r) = type;
 	c_apply_type_quals_to_decl (cp_type_quals (type), r);
 
-	if (TREE_CODE (DECL_INITIAL (r)) != TEMPLATE_PARM_INDEX)
-	  DECL_INITIAL (r) = TREE_TYPE (r);
-	else
-	  DECL_INITIAL (r) = tsubst (DECL_INITIAL (r), args,
-				     complain, in_decl);
+	if (DECL_INITIAL (r))
+	  {
+	    if (TREE_CODE (DECL_INITIAL (r)) != TEMPLATE_PARM_INDEX)
+	      DECL_INITIAL (r) = TREE_TYPE (r);
+	    else
+	      DECL_INITIAL (r) = tsubst (DECL_INITIAL (r), args,
+					 complain, in_decl);
+	  }
 
 	DECL_CONTEXT (r) = NULL_TREE;
 
@@ -6289,8 +6293,8 @@ tsubst_function_type (tree t,
 	  return error_mark_node;
 	}
       
-      fntype = build_cplus_method_type (r, return_type, TREE_CHAIN
-					(arg_types));
+      fntype = build_method_type_directly (r, return_type, 
+					   TREE_CHAIN (arg_types));
     }
   fntype = cp_build_qualified_type_real (fntype, TYPE_QUALS (t), complain);
   fntype = build_type_attribute_variant (fntype, TYPE_ATTRIBUTES (t));
@@ -6757,9 +6761,9 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		*/
 	    tree method_type;
 
-	    method_type = build_cplus_method_type (TYPE_MAIN_VARIANT (r),
-						   TREE_TYPE (type),
-						   TYPE_ARG_TYPES (type));
+	    method_type = build_method_type_directly (TYPE_MAIN_VARIANT (r),
+						      TREE_TYPE (type),
+						      TYPE_ARG_TYPES (type));
 	    return build_ptrmemfunc_type (build_pointer_type (method_type));
 	  }
 	else
@@ -7351,7 +7355,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  
 	  tsubst_expr (STMT_EXPR_STMT (t), args,
 		       complain | tf_stmt_expr_cmpd, in_decl);
-	  return finish_stmt_expr (stmt_expr);
+	  return finish_stmt_expr (stmt_expr, false);
 	}
       
       return t;
@@ -9878,6 +9882,10 @@ more_specialized (tree pat1, tree pat2, int deduce, int len)
   tree targs;
   int winner = 0;
 
+  /* If template argument deduction succeeds, we substitute the
+     resulting arguments into non-deduced contexts.  While doing that,
+     we must be aware that we may encounter dependent types.  */
+  ++processing_template_decl;
   targs = get_bindings_real (pat1, DECL_TEMPLATE_RESULT (pat2),
                              NULL_TREE, 0, deduce, len);
   if (targs)
@@ -9887,6 +9895,7 @@ more_specialized (tree pat1, tree pat2, int deduce, int len)
                              NULL_TREE, 0, deduce, len);
   if (targs)
     ++winner;
+  --processing_template_decl;
 
   return winner;
 }
@@ -11795,6 +11804,19 @@ build_non_dependent_expr (tree expr)
      types.  */
   if (TREE_CODE (expr) == OVERLOAD)
     return expr;
+
+  if (TREE_CODE (expr) == COND_EXPR)
+    return build (COND_EXPR,
+		  TREE_TYPE (expr),
+		  TREE_OPERAND (expr, 0),
+		  build_non_dependent_expr (TREE_OPERAND (expr, 1)),
+		  build_non_dependent_expr (TREE_OPERAND (expr, 2)));
+  if (TREE_CODE (expr) == COMPOUND_EXPR)
+    return build (COMPOUND_EXPR,
+		  TREE_TYPE (expr),
+		  TREE_OPERAND (expr, 0),
+		  build_non_dependent_expr (TREE_OPERAND (expr, 1)));
+      
   /* Otherwise, build a NON_DEPENDENT_EXPR.  
 
      REFERENCE_TYPEs are not stripped for expressions in templates
@@ -11809,7 +11831,7 @@ build_non_dependent_expr (tree expr)
      the expression so that mangling (say) "f<g>" inside the body of
      "f" works out correctly.  Therefore, the REFERENCE_TYPE is
      stripped here.  */
-  return build (NON_DEPENDENT_EXPR, non_reference (TREE_TYPE (expr)));
+  return build1 (NON_DEPENDENT_EXPR, non_reference (TREE_TYPE (expr)), expr);
 }
 
 /* ARGS is a TREE_LIST of expressions as arguments to a function call.

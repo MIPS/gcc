@@ -1,3 +1,35 @@
+2003-08-23  Andreas Tobler <a.tobler@schweiz.ch> 
+
+	PR libgcj/8823
+        * libjava.lang/pr8823.xfail: Removed.
+
+2003-08-19  Jeff Sturm  <jsturm@one-point.com>
+
+	* lib/libjava.exp (libjava_arguments): Add $libjava to the list of
+	libraries.
+
+2003-08-18  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/11951:
+	* libjava.jni/pr11951.c: New file.
+	* libjava.jni/pr11951.out: New file.
+	* libjava.jni/pr11951.java: New file.
+
+2003-08-12  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.xfail: Updated to account for new passes.
+	* libjava.compile/abstr.xfail: Now can compile from bytecode.
+	* libjava.compile/PR5641.xfail: Now can compile from bytecode.
+
+	* libjava.mauve/mauve.exp (test_mauve_sim): Don't find
+	DejaGNUTestHarness in gnu/testlet.
+	(test_mauve): Use correct object extension.
+
+2003-08-12  Tom Tromey  <tromey@redhat.com>
+
+	* lib/libjava.exp (libjava_find_lib): Search for .so file first.
+	(libjava_arguments): Don't add libraries to link line explictly.
+
 2003-08-05  Tom Tromey  <tromey@redhat.com>
 
 	For PR java/11600:

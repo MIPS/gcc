@@ -240,17 +240,25 @@ void
 cgraph_mark_needed_node (struct cgraph_node *node, int needed)
 {
   if (needed)
-    {
-      node->needed = 1;
-    }
-  if (!node->reachable)
+    node->needed = 1;
+
+  if (!node->reachable && DECL_SAVED_TREE (node->decl))
     {
       node->reachable = 1;
-      if (DECL_SAVED_TREE (node->decl))
+
+      node->next_needed = cgraph_nodes_queue;
+      cgraph_nodes_queue = node;
+      notice_global_symbol (node->decl);
+
+      /* At the moment frontend automatically emits all nested functions.  */
+      if (node->nested)
 	{
-	  node->next_needed = cgraph_nodes_queue;
-	  cgraph_nodes_queue = node;
-        }
+	  struct cgraph_node *node2;
+
+	  for (node2 = node->nested; node2; node2 = node2->next_nested)
+	    if (!node2->reachable)
+	      cgraph_mark_needed_node (node2, 0);
+	}
     }
 }
 
@@ -361,8 +369,6 @@ dump_cgraph (FILE *f)
 	fprintf (f, " %i insns after inlining", node->global.insns);
       if (node->global.cloned_times > 1)
 	fprintf (f, " cloned %ix", node->global.cloned_times);
-      if (node->global.calls)
-	fprintf (f, " %i calls", node->global.calls);
 
       fprintf (f, "\n  called by :");
       for (edge = node->callers; edge; edge = edge->next_caller)
@@ -460,6 +466,7 @@ cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *node)
     {
       node->next_needed = cgraph_varpool_nodes_queue;
       cgraph_varpool_nodes_queue = node;
+      notice_global_symbol (node->decl);
     }
   node->needed = 1;
 }

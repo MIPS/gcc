@@ -262,8 +262,8 @@ calls_function_1 (tree exp, int which)
       break;
     }
 
-  /* Only expressions, references, and blocks can contain calls.  */
-  if (! IS_EXPR_CODE_CLASS (class) && class != 'r' && class != 'b')
+  /* Only expressions and blocks can contain calls.  */
+  if (! IS_EXPR_CODE_CLASS (class) && class != 'b')
     return 0;
 
   for (i = 0; i < length; i++)
@@ -3733,13 +3733,6 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	  || (GET_MODE (val) != mode && GET_MODE (val) != VOIDmode))
 	abort ();
 
-      /* On some machines, there's no way to pass a float to a library fcn.
-	 Pass it as a double instead.  */
-#ifdef LIBGCC_NEEDS_DOUBLE
-      if (LIBGCC_NEEDS_DOUBLE && mode == SFmode)
-	val = convert_modes (DFmode, SFmode, val, 0), mode = DFmode;
-#endif
-
       /* There's no need to call protect_from_queue, because
 	 either emit_move_insn or emit_push_insn will do that.  */
 
@@ -4153,7 +4146,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	  if (GET_CODE (valreg) == PARALLEL)
 	    {
 	      temp = gen_reg_rtx (outmode);
-	      emit_group_store (temp, valreg, NULL_TREE, outmode);
+	      emit_group_store (temp, valreg, NULL_TREE, 
+				GET_MODE_SIZE (outmode));
 	      valreg = temp;
 	    }
 
@@ -4196,7 +4190,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	{
 	  if (value == 0)
 	    value = gen_reg_rtx (outmode);
-	  emit_group_store (value, valreg, NULL_TREE, outmode);
+	  emit_group_store (value, valreg, NULL_TREE, GET_MODE_SIZE (outmode));
 	}
       else if (value != 0)
 	emit_move_insn (value, valreg);

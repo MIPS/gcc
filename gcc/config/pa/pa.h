@@ -5,20 +5,20 @@
    and Tim Moore (moore@defmacro.cs.utah.edu) of the Center for
    Software Science at the University of Utah.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -325,9 +325,7 @@ extern int target_flags;
 
 #define OVERRIDE_OPTIONS override_options ()
 
-/* stabs-in-som is nearly identical to stabs-in-elf.  To avoid useless
-   code duplication we simply include this file and override as needed.  */
-#include "dbxelf.h"
+/* Override some settings from dbxelf.h.  */
 
 /* We do not have to be compatible with dbx, so we enable gdb extensions
    by default.  */
@@ -552,7 +550,7 @@ do {								\
 
 /* Function to return the rtx used to save the pic offset table register
    across function calls.  */
-extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
+extern struct rtx_def *hppa_pic_save_rtx (void);
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
@@ -654,10 +652,14 @@ extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
     && REGNO (IN) < FIRST_PSEUDO_REGISTER)			\
    ? NO_REGS : secondary_reload_class (CLASS, MODE, IN))
 
+#define MAYBE_FP_REG_CLASS_P(CLASS) \
+  reg_classes_intersect_p ((CLASS), FP_REGS)
+
 /* On the PA it is not possible to directly move data between
    GENERAL_REGS and FP_REGS.  */
-#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)  \
-  (FP_REG_CLASS_P (CLASS1) != FP_REG_CLASS_P (CLASS2))
+#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)		\
+  (MAYBE_FP_REG_CLASS_P (CLASS1) != FP_REG_CLASS_P (CLASS2)	\
+   || MAYBE_FP_REG_CLASS_P (CLASS2) != FP_REG_CLASS_P (CLASS1))
 
 /* Return the stack location to use for secondary memory needed reloads.  */
 #define SECONDARY_MEMORY_NEEDED_RTX(MODE) \
@@ -960,7 +962,7 @@ extern enum cmp_type hppa_branch_type;
   (*targetm.asm_out.internal_label) (FILE, FUNC_BEGIN_PROLOG_LABEL, LABEL)
 
 #define PROFILE_HOOK(label_no) hppa_profile_hook (label_no)
-void hppa_profile_hook PARAMS ((int label_no));
+void hppa_profile_hook (int label_no);
 
 /* The profile counter if emitted must come before the prologue.  */
 #define PROFILE_BEFORE_PROLOGUE 1

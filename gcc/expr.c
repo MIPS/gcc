@@ -1419,6 +1419,15 @@ convert_modes (enum machine_mode mode, enum machine_mode oldmode, rtx x, int uns
       return gen_lowpart (mode, x);
     }
 
+  /* Converting from integer constant into mode is always equivalent to an
+     subreg operation.  */
+  if (VECTOR_MODE_P (mode) && GET_MODE (x) == VOIDmode)
+    {
+      if (GET_MODE_BITSIZE (mode) != GET_MODE_BITSIZE (oldmode))
+	abort ();
+      return simplify_gen_subreg (mode, x, oldmode, 0);
+    }
+
   temp = gen_reg_rtx (mode);
   convert_move (temp, x, unsignedp);
   return temp;
@@ -1997,7 +2006,6 @@ emit_block_move_via_libcall (rtx dst, rtx src, rtx size)
   call_expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
   call_expr = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)),
 		     call_expr, arg_list, NULL_TREE);
-  TREE_SIDE_EFFECTS (call_expr) = 1;
 
   retval = expand_expr (call_expr, NULL_RTX, VOIDmode, 0);
 
@@ -3111,7 +3119,6 @@ clear_storage_via_libcall (rtx object, rtx size)
   call_expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
   call_expr = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)),
 		     call_expr, arg_list, NULL_TREE);
-  TREE_SIDE_EFFECTS (call_expr) = 1;
 
   retval = expand_expr (call_expr, NULL_RTX, VOIDmode, 0);
 
@@ -6393,7 +6400,7 @@ highest_pow2_factor (tree exp)
       /* We can find the lowest bit that's a one.  If the low
 	 HOST_BITS_PER_WIDE_INT bits are zero, return BIGGEST_ALIGNMENT.
 	 We need to handle this case since we can find it in a COND_EXPR,
-	 a MIN_EXPR, or a MAX_EXPR.  If the constant overlows, we have an
+	 a MIN_EXPR, or a MAX_EXPR.  If the constant overflows, we have an
 	 erroneous program, so return BIGGEST_ALIGNMENT to avoid any
 	 later ICE.  */
       if (TREE_CONSTANT_OVERFLOW (exp))
@@ -8475,10 +8482,10 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
       if (modifier == EXPAND_STACK_PARM)
 	target = 0;
 
-      /* Handle complex values specially.  */
+      /* ABS_EXPR is not valid for complex arguments.  */
       if (GET_MODE_CLASS (mode) == MODE_COMPLEX_INT
 	  || GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
-	return expand_complex_abs (mode, op0, target, unsignedp);
+	abort ();
 
       /* Unsigned abs is simply the operand.  Testing here means we don't
 	 risk generating incorrect code below.  */

@@ -341,18 +341,19 @@ tmake_file=@dep_tmake_file@
 out_file=$(srcdir)/config/@out_file@
 out_object_file=@out_object_file@
 md_file=$(srcdir)/config/@md_file@
-tm_file=@tm_file@
 tm_file_list=@tm_file_list@
+tm_include_list=@tm_include_list@
 tm_defines=@tm_defines@
 tm_p_file_list=@tm_p_file_list@
-tm_p_file=@tm_p_file@
+tm_p_include_list=@tm_p_include_list@
 build_xm_file_list=@build_xm_file_list@
-build_xm_file=@build_xm_file@
+build_xm_include_list=@build_xm_include_list@
 build_xm_defines=@build_xm_defines@
 host_xm_file_list=@host_xm_file_list@
-host_xm_file=@host_xm_file@
+host_xm_include_list=@host_xm_include_list@
 host_xm_defines=@host_xm_defines@
-xm_file=@xm_file@
+xm_file_list=@xm_file_list@
+xm_include_list=@xm_include_list@
 xm_defines=@xm_defines@
 lang_opt_files=@lang_opt_files@ $(srcdir)/c.opt $(srcdir)/common.opt
 lang_specs_files=@lang_specs_files@
@@ -725,9 +726,8 @@ BUILD_VARRAY = $(BUILD_PREFIX)varray.o
 # currently being compiled, in both source trees, to be examined as well.
 # libintl.h will be found in ../intl if we are using the included libintl.
 INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
-	   -I$(srcdir)/config -I$(srcdir)/../include @INCINTL@
+	   -I$(srcdir)/../include @INCINTL@
 
-# Always use -I$(srcdir)/config when compiling.
 .c.o:
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
@@ -743,16 +743,30 @@ LANG_STAGESTUFF = @all_stagestuff@
 # because we need CC="stage1/xgcc -Bstage1/" to work in the language
 # subdirectories.
 # ??? The choices here will need some experimenting with.
+
+export AR_FOR_TARGET
+export AR_CREATE_FOR_TARGET
+export AR_FLAGS_FOR_TARGET
+export AR_EXTRACT_FOR_TARGET
+export AWK
+export BUILD_PREFIX
+export BUILD_PREFIX_1
+export DESTDIR
+export GCC_FOR_TARGET
+export INCLUDES
+export INSTALL_DATA
+export LIB1ASMSRC
+export LIBGCC2_CFLAGS
+export MACHMODE_H
+export NM_FOR_TARGET
+export RANLIB_FOR_TARGET
+export libsubdir
+export slibdir
+
 ORDINARY_FLAGS_TO_PASS = \
-	"AR_FLAGS_FOR_TARGET=$(AR_FLAGS_FOR_TARGET)" \
-	"AR_CREATE_FOR_TARGET=$(AR_CREATE_FOR_TARGET)" \
-	"AR_EXTRACT_FOR_TARGET=$(AR_EXTRACT_FOR_TARGET)" \
-	"AR_FOR_TARGET=$(AR_FOR_TARGET)" \
 	"BISON=$(BISON)" \
 	"BISONFLAGS=$(BISONFLAGS)" \
 	"CFLAGS=$(CFLAGS) $(WARN_CFLAGS)" \
-	"DESTDIR=$(DESTDIR)" \
-	"GCC_FOR_TARGET=$(GCC_FOR_TARGET)" \
 	"LDFLAGS=$(LDFLAGS)" \
 	"FLEX=$(FLEX)" \
 	"FLEXFLAGS=$(FLEXFLAGS)" \
@@ -761,7 +775,6 @@ ORDINARY_FLAGS_TO_PASS = \
 	"MAKEINFO=$(MAKEINFO)" \
 	"MAKEINFOFLAGS=$(MAKEINFOFLAGS)" \
 	"MAKEOVERRIDES=" \
-	"RANLIB_FOR_TARGET=$(RANLIB_FOR_TARGET)" \
 	"SHELL=$(SHELL)" \
 	"exeext=$(exeext)" \
 	"build_exeext=$(build_exeext)" \
@@ -773,7 +786,6 @@ ORDINARY_FLAGS_TO_PASS = \
 	"build_tooldir=$(build_tooldir)" \
 	"gcc_tooldir=$(gcc_tooldir)" \
 	"bindir=$(bindir)" \
-	"libsubdir=$(libsubdir)" \
 	"libexecsubdir=$(libsubdir)" \
 	"datadir=$(datadir)" \
 	"localedir=$(localedir)"
@@ -857,7 +869,7 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  gengtype$(build_exeext) genconditions$(build_exeext) \
  genrtl.c genrtl.h gt-*.h gtype-*.h gtype-desc.c \
  xgcc$(exeext) cpp$(exeext) cc1$(exeext) $(EXTRA_PASSES) \
- $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) cc1obj$(exeext) \
+ $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) \
  protoize$(exeext) unprotoize$(exeext) \
  $(SPECS) collect2$(exeext) $(USE_COLLECT2) \
  gcov-iov$(build_exeext) gcov$(exeext) gcov-dump$(exeext) \
@@ -935,27 +947,27 @@ tm_p.h: cs-tm_p.h ; @true
 
 cs-config.h: Makefile
 	TARGET_CPU_DEFAULT="" \
-	HEADERS="$(host_xm_file)" DEFINES="$(host_xm_defines)" \
+	HEADERS="$(host_xm_include_list)" DEFINES="$(host_xm_defines)" \
 	$(SHELL) $(srcdir)/mkconfig.sh config.h
 
 cs-bconfig.h: Makefile
 	TARGET_CPU_DEFAULT="" \
-	HEADERS="$(build_xm_file)" DEFINES="$(build_xm_defines)" \
+	HEADERS="$(build_xm_include_list)" DEFINES="$(build_xm_defines)" \
 	$(SHELL) $(srcdir)/mkconfig.sh bconfig.h
 
 cs-tconfig.h: Makefile
 	TARGET_CPU_DEFAULT="" \
-	HEADERS="$(xm_file)" DEFINES="$(xm_defines)" \
+	HEADERS="$(xm_include_list)" DEFINES="$(xm_defines)" \
 	$(SHELL) $(srcdir)/mkconfig.sh tconfig.h
 
 cs-tm.h: Makefile
 	TARGET_CPU_DEFAULT="$(target_cpu_default)" \
-	HEADERS="$(tm_file)" DEFINES="$(tm_defines)" \
+	HEADERS="$(tm_include_list)" DEFINES="$(tm_defines)" \
 	$(SHELL) $(srcdir)/mkconfig.sh tm.h
 
 cs-tm_p.h: Makefile
 	TARGET_CPU_DEFAULT="" \
-	HEADERS="$(tm_p_file)" DEFINES="" \
+	HEADERS="$(tm_p_include_list)" DEFINES="" \
 	$(SHELL) $(srcdir)/mkconfig.sh tm_p.h
 
 # Don't automatically run autoconf, since configure.in might be accidentally
@@ -1134,18 +1146,9 @@ LIBGCC_DEPS = $(GCC_PASSES) $(LANGUAGES) stmp-int-hdrs $(STMP_FIXPROTO) \
 libgcov.a: libgcc.a; @true
 
 libgcc.a: $(LIBGCC_DEPS)
-	$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
-	  BUILD_PREFIX="$(BUILD_PREFIX)" BUILD_PREFIX_1="$(BUILD_PREFIX_1)" \
-	  AR_FOR_TARGET="$(AR_FOR_TARGET)" \
-	  AR_CREATE_FOR_TARGET="$(AR_CREATE_FOR_TARGET)" \
-	  AR_FLAGS_FOR_TARGET="$(AR_FLAGS_FOR_TARGET)" \
+	$(MAKE) \
 	  CFLAGS="$(CFLAGS) $(WARN_CFLAGS)" \
-	  RANLIB_FOR_TARGET="$(RANLIB_FOR_TARGET)" \
-	  NM_FOR_TARGET="$(NM_FOR_TARGET)" AWK="$(AWK)" \
-	  LIBGCC2_CFLAGS="$(LIBGCC2_CFLAGS)" \
-	  INCLUDES="$(INCLUDES)" \
-	  CONFIG_H="$(TCONFIG_H)" MACHMODE_H="$(MACHMODE_H)" TM_H="$(TM_H)" \
-	  LIB1ASMSRC='$(LIB1ASMSRC)' \
+	  CONFIG_H="$(TCONFIG_H)" TM_H="$(TM_H)" \
 	  MAKEOVERRIDES= \
 	  -f libgcc.mk all
 
@@ -1175,18 +1178,9 @@ s-mlib: $(srcdir)/genmultilib Makefile
 
 # Build multiple copies of libgcc.a, one for each target switch.
 stmp-multilib: $(LIBGCC_DEPS)
-	$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
-	  BUILD_PREFIX="$(BUILD_PREFIX)" BUILD_PREFIX_1="$(BUILD_PREFIX_1)" \
-	  AR_FOR_TARGET="$(AR_FOR_TARGET)" \
-	  AR_CREATE_FOR_TARGET="$(AR_CREATE_FOR_TARGET)" \
-	  AR_FLAGS_FOR_TARGET="$(AR_FLAGS_FOR_TARGET)" \
+	$(MAKE) \
 	  CFLAGS="$(CFLAGS) $(WARN_CFLAGS)" \
-	  RANLIB_FOR_TARGET="$(RANLIB_FOR_TARGET)" \
-	  NM_FOR_TARGET="$(NM_FOR_TARGET)" AWK="$(AWK)" \
-	  LIBGCC2_CFLAGS="$(LIBGCC2_CFLAGS)" \
-	  INCLUDES="$(INCLUDES)" \
-	  CONFIG_H="$(CONFIG_H)" MACHMODE_H="$(MACHMODE_H)" \
-	  LIB1ASMSRC='$(LIB1ASMSRC)' \
+	  CONFIG_H="$(CONFIG_H)" \
 	  MAKEOVERRIDES= \
 	  -f libgcc.mk all
 	$(STAMP) stmp-multilib
@@ -1740,7 +1734,7 @@ postreload.o : postreload.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H)
 caller-save.o : caller-save.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    flags.h $(REGS_H) hard-reg-set.h insn-config.h $(BASIC_BLOCK_H) function.h \
    $(RECOG_H) reload.h $(EXPR_H) toplev.h $(TM_P_H)
-bt-load.o : bt-load.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+bt-load.o : bt-load.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(BASIC_BLOCK_H) $(RTL_H) hard-reg-set.h $(REGS_H) $(OBSTACK_H) $(TM_P_H) \
    $(FIBHEAP_H) output.h $(TARGET_H) $(EXPR_H) flags.h $(INSN_ATTR_H)
 reorg.o : reorg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) conditions.h \
@@ -3090,44 +3084,18 @@ install-man: installdirs $(GENERATED_MANPAGES) lang.install-man
 
 # Install the library.
 install-libgcc: libgcc.mk libgcc.a libgcov.a installdirs
-	$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
-	  BUILD_PREFIX="$(BUILD_PREFIX)" BUILD_PREFIX_1="$(BUILD_PREFIX_1)" \
-	  AR_FOR_TARGET="$(AR_FOR_TARGET)" \
-	  AR_CREATE_FOR_TARGET="$(AR_CREATE_FOR_TARGET)" \
-	  AR_FLAGS_FOR_TARGET="$(AR_FLAGS_FOR_TARGET)" \
+	$(MAKE) \
 	  CFLAGS="$(CFLAGS) $(WARN_CFLAGS)" \
-	  NM_FOR_TARGET="$(NM_FOR_TARGET)" AWK="$(AWK)" \
-	  LIBGCC2_CFLAGS="$(LIBGCC2_CFLAGS)" \
-	  INCLUDES="$(INCLUDES)" \
-	  CONFIG_H="$(TCONFIG_H)" MACHMODE_H="$(MACHMODE_H)" \
-	  LIB1ASMSRC='$(LIB1ASMSRC)' \
+	  CONFIG_H="$(TCONFIG_H)" \
 	  MAKEOVERRIDES= \
-	  INSTALL_DATA="$(INSTALL_DATA)" \
-	  RANLIB_FOR_TARGET="$(RANLIB_FOR_TARGET)" \
-	  DESTDIR="$(DESTDIR)" \
-	  libsubdir="$(libsubdir)" \
-	  slibdir="$(slibdir)" \
 	  -f libgcc.mk install
 
 # Install multiple versions of libgcc.a, libgcov.a.
 install-multilib: stmp-multilib installdirs
-	$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
-	  BUILD_PREFIX="$(BUILD_PREFIX)" BUILD_PREFIX_1="$(BUILD_PREFIX_1)" \
-	  AR_FOR_TARGET="$(AR_FOR_TARGET)" \
-	  AR_CREATE_FOR_TARGET="$(AR_CREATE_FOR_TARGET)" \
-	  AR_FLAGS_FOR_TARGET="$(AR_FLAGS_FOR_TARGET)" \
+	$(MAKE) \
 	  CFLAGS="$(CFLAGS) $(WARN_CFLAGS)" \
-	  NM_FOR_TARGET="$(NM_FOR_TARGET)" AWK="$(AWK)" \
-	  LIBGCC2_CFLAGS="$(LIBGCC2_CFLAGS)" \
-	  INCLUDES="$(INCLUDES)" \
-	  CONFIG_H="$(CONFIG_H)" MACHMODE_H="$(MACHMODE_H)" \
-	  LIB1ASMSRC='$(LIB1ASMSRC)' \
+	  CONFIG_H="$(CONFIG_H)" \
 	  MAKEOVERRIDES= \
-	  INSTALL_DATA="$(INSTALL_DATA)" \
-	  RANLIB_FOR_TARGET="$(RANLIB_FOR_TARGET)" \
-	  DESTDIR="$(DESTDIR)" \
-	  libsubdir="$(libsubdir)" \
-	  slibdir="$(slibdir)" \
 	  -f libgcc.mk install
 
 # Install all the header files built in the include subdirectory.
@@ -3480,7 +3448,6 @@ VOL_FILES=`echo $(BACKEND) $(OBJS) $(C_OBJS) $(LIBCPP_OBJS) *.c *.h gen*`
 
 POSTSTAGE1_FLAGS_TO_PASS = \
 	ADAC="\$$(CC)" \
-	GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 	CFLAGS="$(BOOT_CFLAGS)" \
 	LDFLAGS="$(BOOT_LDFLAGS)" \
 	WARN_CFLAGS="\$$(GCC_WARN_CFLAGS)" \
@@ -3510,7 +3477,6 @@ STAGEFEEDBACK_FLAGS_TO_PASS = \
 stage1_build:
 	$(MAKE) CC="$(CC)" libdir=$(libdir) LANGUAGES="$(BOOT_LANGUAGES)" \
 		CFLAGS="$(STAGE1_CFLAGS)" MAKEINFO="$(MAKEINFO)" \
-		GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 		MAKEINFOFLAGS="$(MAKEINFOFLAGS)" COVERAGE_FLAGS= \
 		OBJS-onestep="$(OBJS)"
 	$(STAMP) stage1_build
@@ -3680,7 +3646,7 @@ quickstrap:
 
 cleanstrap:
 	-$(MAKE) clean
-	$(MAKE) LANGUAGES="$(LANGUAGES)" bootstrap
+	$(MAKE) LANGUAGES="$(LANGUAGES)" BOOT_CFLAGS="$(BOOT_CFLAGS)" bootstrap
 
 unstrap:
 	-rm -rf stage[234]*
@@ -3691,7 +3657,7 @@ unstrap:
 # not from scratch.
 restrap:
 	$(MAKE) unstrap
-	$(MAKE) LANGUAGES="$(LANGUAGES)" bootstrap
+	$(MAKE) LANGUAGES="$(LANGUAGES)" BOOT_CFLAGS="$(BOOT_CFLAGS)" bootstrap
 
 # Compare the object files in the current directory with those in the
 # stage2 directory.

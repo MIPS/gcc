@@ -750,7 +750,10 @@ add_method (tree type, tree method, int error_p)
   if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (method))
     slot = CLASSTYPE_CONSTRUCTOR_SLOT;
   else if (DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (method))
-    slot = CLASSTYPE_DESTRUCTOR_SLOT;
+    {
+      slot = CLASSTYPE_DESTRUCTOR_SLOT;
+      TYPE_HAS_DESTRUCTOR (type) = 1;
+    }
   else
     {
       int have_template_convs_p = 0;
@@ -1284,9 +1287,6 @@ check_bases (tree t,
       TYPE_HAS_COMPLEX_ASSIGN_REF (t) 
 	|= TYPE_HAS_COMPLEX_ASSIGN_REF (basetype);
       TYPE_HAS_COMPLEX_INIT_REF (t) |= TYPE_HAS_COMPLEX_INIT_REF (basetype);
-      TYPE_OVERLOADS_CALL_EXPR (t) |= TYPE_OVERLOADS_CALL_EXPR (basetype);
-      TYPE_OVERLOADS_ARRAY_REF (t) |= TYPE_OVERLOADS_ARRAY_REF (basetype);
-      TYPE_OVERLOADS_ARROW (t) |= TYPE_OVERLOADS_ARROW (basetype);
       TYPE_POLYMORPHIC_P (t) |= TYPE_POLYMORPHIC_P (basetype);
       CLASSTYPE_CONTAINS_EMPTY_CLASS_P (t) 
 	|= CLASSTYPE_CONTAINS_EMPTY_CLASS_P (basetype);
@@ -1649,16 +1649,12 @@ maybe_warn_about_overly_private_class (tree t)
   /* Even if some of the member functions are non-private, the class
      won't be useful for much if all the constructors or destructors
      are private: such an object can never be created or destroyed.  */
-  if (TYPE_HAS_DESTRUCTOR (t))
+  if (TYPE_HAS_DESTRUCTOR (t)
+      && TREE_PRIVATE (CLASSTYPE_DESTRUCTORS (t)))
     {
-      tree dtor = TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (t), 1);
-
-      if (TREE_PRIVATE (dtor))
-	{
-	  warning ("`%#T' only defines a private destructor and has no friends",
-		      t);
-	  return;
-	}
+      warning ("`%#T' only defines a private destructor and has no friends",
+	       t);
+      return;
     }
 
   if (TYPE_HAS_CONSTRUCTOR (t))
@@ -3837,9 +3833,9 @@ build_clone (tree fn, tree name)
        /* If this is subobject constructor or destructor, add the vtt
 	 parameter.  */
       TREE_TYPE (clone) 
-	= build_cplus_method_type (basetype,
-				   TREE_TYPE (TREE_TYPE (clone)),
-				   parmtypes);
+	= build_method_type_directly (basetype,
+				      TREE_TYPE (TREE_TYPE (clone)),
+				      parmtypes);
       if (exceptions)
 	TREE_TYPE (clone) = build_exception_variant (TREE_TYPE (clone),
 						     exceptions);
@@ -4016,9 +4012,9 @@ adjust_clone_args (tree decl)
 					   clone_parms);
 		  TREE_TYPE (clone_parms) = TREE_TYPE (orig_clone_parms);
 		}
-	      type = build_cplus_method_type (basetype,
-					      TREE_TYPE (TREE_TYPE (clone)),
-					      clone_parms);
+	      type = build_method_type_directly (basetype,
+						 TREE_TYPE (TREE_TYPE (clone)),
+						 clone_parms);
 	      if (exceptions)
 		type = build_exception_variant (type, exceptions);
 	      TREE_TYPE (clone) = type;
@@ -4977,7 +4973,6 @@ finish_struct_1 (tree t)
   /* If this type was previously laid out as a forward reference,
      make sure we lay it out again.  */
   TYPE_SIZE (t) = NULL_TREE;
-  CLASSTYPE_GOT_SEMICOLON (t) = 0;
   CLASSTYPE_PRIMARY_BINFO (t) = NULL_TREE;
 
   fixup_inline_methods (t);
@@ -5489,7 +5484,7 @@ pushclass (tree type)
 	  
 	  push_class_binding (id, decl);
 	  if (TREE_CODE (decl) == TYPE_DECL)
-	    set_identifier_type_value (id, TREE_TYPE (decl));
+	    set_identifier_type_value (id, decl);
 	}
       unuse_fields (type);
     }

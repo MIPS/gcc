@@ -40,7 +40,7 @@ alpha port		Richard Henderson	rth@redhat.com
 arm port		Nick Clifton		nickc@redhat.com
 arm port		Richard Earnshaw	rearnsha@arm.com
 avr port		Denis Chertykov		denisc@overta.ru
-avr port		Marek Michalkiewicz	marekm@linux.org.pl
+avr port		Marek Michalkiewicz	marekm@amelek.gda.pl
 c4x port		Michael Hayes		m.hayes@elec.canterbury.ac.nz
 cris port		Hans-Peter Nilsson	hp@axis.com
 fr30 port		Nick Clifton		nickc@redhat.com
@@ -49,6 +49,7 @@ h8 port			Kazu Hirata		kazu@cs.umass.edu
 hppa port		Jeff Law		law@redhat.com
 hppa port		Dave Anglin		dave.anglin@nrc.ca
 i386 port		Richard Henderson	rth@redhat.com
+i860 port		Jason Eckhardt		jle@rice.edu
 i960 port		Jim Wilson		wilson@tuliptree.org
 ia64 port		Jim Wilson		wilson@tuliptree.org
 ip2k port		Denis Chertykov		denisc@overta.ru
@@ -62,6 +63,7 @@ mmix port		Hans-Peter Nilsson	hp@bitrange.com
 mn10200 port		Jeff Law		law@redhat.com
 mn10300 port		Jeff Law		law@redhat.com
 mn10300 port		Alexandre Oliva		aoliva@redhat.com
+ns32k port		Ian Dall		ian@beware.dropbear.id.au
 rs6000 port		Geoff Keating		geoffk@geoffk.org
 rs6000 port		David Edelsohn		dje@watson.ibm.com
 rs6000 vector extns	Aldy Hernandez		aldyh@redhat.com
@@ -194,6 +196,7 @@ Olivier Hainque					hainque@act-europe.fr
 Stuart Hastings					stuart@apple.com
 Matthew Hiller					hiller@redhat.com
 Manfred Hollstein				mh@suse.com
+Bernardo Innocenti				bernie@develer.com
 Andreas Jaeger					aj@suse.de
 Fariborz Jahanian				fjahanian@apple.com
 Dale Johannesen 				dalej@apple.com

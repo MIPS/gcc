@@ -221,8 +221,9 @@ fix = {
 
 
 /*
- *  Completely replace <sys/byteorder.h>; with a file that implements gcc's
- *  optimized byteswapping.
+ *  Completely replace <sys/byteorder.h> with a file that implements gcc's
+ *  optimized byteswapping.  (The original probably implemented some
+ *  incompatible optimized byteswapping.)
  */
 fix = {
     hackname = AAB_svr4_replace_byteorder;
@@ -233,6 +234,8 @@ fix = {
     mach     = "i[34567]86-*-solaris2.[0-4]";
     mach     = "powerpcle-*-solaris2.[0-4]";
     mach     = "sparc-*-solaris2.[0-4]";
+    mach     = "i[34567]86-sequent-ptx*";
+    mach     = "i[34567]86-sequent-sysv3*";
     files    = sys/byteorder.h;
     replace  = <<-  _EndOfHeader_
 	#ifndef _SYS_BYTEORDER_H
@@ -1999,6 +2002,54 @@ fix = {
 
 
 /*
+ * In pwd.h, PTX 1.x needs stdio.h included since FILE * was added in a
+ * prototype later on in the file.  (It's not clear that this is
+ * still true, and even if it is, FILE * may be added after this fix runs by
+ * fixproto.)
+ */
+#ifdef PTX
+fix = {
+    hackname  = ptx_pwd_h;
+    files     = pwd.h;
+    select    = 'FILE \*';
+    bypass    = 'stdio.h';
+    sed       = "/#include <sys\\/types\\.h/a\\\n"
+                "\\\n"
+                "#if defined(__STDC__) || defined(__cplusplus)\\\n"
+                "#include <stdio.h>\\\n"
+                "#endif  /*  __STDC__ */\\\n"
+                "\n";
+    test_text = "#include <sys/types.h>\n"
+                "void foo (FILE *)";
+};
+#endif
+
+
+/*
+ * On DYNIX/ptx, sys/mc_param.h has an embedded asm for the cpuid instruction
+ * on the P5. This is not used by anything else so we ifdef it out.
+ * Current GCC doesn't seem to complain about the asm, though.
+ */
+#ifdef PTX
+fix = {
+    hackname  = ptx_sys_mc_param_h;
+    files     = sys/mc_param.h;
+    sed       = "/__asm/,/}/{"
+                  "/__asm/i\\\n"
+                  "#if !defined (__GNUC__) && !defined (__GNUG__)\n"
+                  "/}/a\\\n"
+                  "#endif\n"
+                "}";
+    test_text = "__asm\n"
+                "int _CPUID()\n"
+                "{\n"
+                "   non-GNU assembly here\n"
+                "}";
+};
+#endif
+
+
+/*
  *  Fix return type of fread and fwrite on sysV68
  */
 fix = {
@@ -2788,11 +2839,22 @@ fix = {
 
 
 /*
- *  set ifdef _KERNEL
+ *  Wrap some files on System V r4 and DYNIX/ptx systems with
+ *  #ifdef _KERNEL, presumably to prevent kernel headers from
+ *  leaking into userspace.  This may not be necessary at all,
+ *  but it was in the old scripts, so it seems safest to keep it for now.
  */
-#ifdef SVR4
 fix = {
-    hackname = svr4_kernel;
+    /* Can't name this with _kernel, or the test case will hit the bypass! */
+    hackname = svr4_krnl;
+    /* Since I'm rather unsure about the validity of this, limit it
+     * to the specific systems it was operating on before.  It should
+     * also be bypassed for i?86-*-sysv4.3uw2, by that rule, but I didn't
+     * see an easy way to do that.  Hopefully it will be harmless
+     * in any case. -- Nathanael */
+    mach     = '*-*-sysv4*';
+    mach     = 'i?86-sequent-ptx*';
+    mach     = 'i?86-sequent-sysv3*';
     files    = fs/rfs/rf_cache.h;
     files    = sys/erec.h;
     files    = sys/err.h;
@@ -2801,14 +2863,21 @@ fix = {
     files    = sys/map.h;
     files    = sys/cmn_err.h;
     files    = sys/kdebugger.h;
-    bypass   = '_KERNEL';
-    c_fix     = wrap;
 
+    /* This bypass will match _KERNEL, __KERNEL, __KERNEL__, etc.
+     * It will also match SVR4_KERNEL_CHECK, which means that the
+     * testsuite case will always be bypassed.  Which is fine with me. */
+    bypass   = '_KERNEL';
+
+    c_fix     = wrap;
     c_fix_arg = "#ifdef _KERNEL\n";
     c_fix_arg = "#endif /* _KERNEL */\n";
+
+    /* There's no reasonable test for this given that we don't know exactly
+     * what problem inspired it in the first place. */
     test_text = "";
 };
-#endif
+
 
 /*
  *  Delete any #defines of `__i386' which may be present in <ieeefp.h>.  They
@@ -2867,6 +2936,34 @@ fix = {
     files    = sys/adv.h;
     select   = '\[NMSZ\]';
     sed      = 's/\[NMSZ\]/\[RFS_NMSZ\]/g';
+};
+#endif
+
+
+/*
+ * Some SVR4 systems supposedly use these non-ANSI preprocessor directives.
+ */
+#ifdef SVR4
+fix = {
+    hackname  = svr4_preproc_lint_on;
+    select    = '#lint\(on\)';
+    c_fix     = format;
+    c_fix_arg = 'defined(lint)';
+    test_text = "#if #lint(on)";
+};
+fix = {
+    hackname  = svr4_preproc_lint_off;
+    select    = '#lint\(off\)';
+    c_fix     = format;
+    c_fix_arg = '!defined(lint)';
+    test_text = "#if #lint(off)";
+};
+fix = {
+    hackname  = svr4_preproc_machine;
+    select    = '#(machine|system|cpu)\(([^)]*)\)';
+    c_fix     = format;
+    c_fix_arg = 'defined(__%1__)';
+    test_text = "#if #machine(i386) || #system(vax) || #cpu(sparc)";
 };
 #endif
 
@@ -2956,6 +3053,22 @@ fix = {
     sed      = 's/(void *(\*)())/(void (*)(int))/';
 };
 #endif
+
+
+/*
+ * Correct types for signal handler constants like SIG_DFL; they might be
+ * void (*) (), and should be void (*) (int).  C++ doesn't like the
+ * old style.
+ */
+fix = {
+    hackname = svr4_sighandler_type;
+    files = sys/signal.h;
+    select = 'void *\(\*\)\(\)';
+    c_fix = format;
+    c_fix_arg = "void (*)(int)";
+    test_text = "#define SIG_DFL (void(*)())0\n"
+                "#define SIG_IGN (void (*)())0\n";
+};
 
 /*
  *  Put storage class at start of decl, to avoid warning.

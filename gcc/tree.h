@@ -57,7 +57,8 @@ extern const char tree_code_type[];
    expression.  */
 
 #define IS_EXPR_CODE_CLASS(CLASS) \
-  ((CLASS) == '<' || (CLASS) == '1' || (CLASS) == '2' || (CLASS) == 'e')
+  ((CLASS) == '<' || (CLASS) == '1' || (CLASS) == '2' || (CLASS) == 'e' \
+   || (CLASS) == 'r' || (CLASS) == 's')
 
 /* Number of argument-words in each kind of tree-node.  */
 
@@ -291,7 +292,7 @@ struct tree_common GTY(())
 #define EXPR_CHECK(T) __extension__					\
 ({  const tree __t = (T);						\
     char const __c = TREE_CODE_CLASS (TREE_CODE (__t));			\
-    if (!IS_EXPR_CODE_CLASS (__c) && __c != 'r' && __c != 's')		\
+    if (!IS_EXPR_CODE_CLASS (__c))					\
       tree_class_check_failed (__t, 'e', __FILE__, __LINE__,		\
 			       __FUNCTION__);				\
     __t; })
@@ -445,13 +446,21 @@ extern void tree_operand_check_failed (int, enum tree_code,
   (TREE_CODE (TYPE) == INTEGER_TYPE || TREE_CODE (TYPE) == ENUMERAL_TYPE  \
    || TREE_CODE (TYPE) == BOOLEAN_TYPE || TREE_CODE (TYPE) == CHAR_TYPE)
 
+/* Nonzero if TYPE represents a scalar floating-point type.  */
+
+#define SCALAR_FLOAT_TYPE_P(TYPE) (TREE_CODE (TYPE) == REAL_TYPE)
+
+/* Nonzero if TYPE represents a complex floating-point type.  */
+
+#define COMPLEX_FLOAT_TYPE_P(TYPE)	\
+  (TREE_CODE (TYPE) == COMPLEX_TYPE	\
+   && TREE_CODE (TREE_TYPE (TYPE)) == REAL_TYPE)
+
 /* Nonzero if TYPE represents a floating-point type, including complex
    floating-point types.  */
 
 #define FLOAT_TYPE_P(TYPE)		\
-  (TREE_CODE (TYPE) == REAL_TYPE	\
-   || (TREE_CODE (TYPE) == COMPLEX_TYPE \
-       && TREE_CODE (TREE_TYPE (TYPE)) == REAL_TYPE))
+  (SCALAR_FLOAT_TYPE_P (TYPE) || COMPLEX_FLOAT_TYPE_P (TYPE))
 
 /* Nonzero if TYPE represents an aggregate (multi-component) type.  */
 
@@ -2106,6 +2115,7 @@ extern tree build_index_2_type (tree, tree);
 extern tree build_array_type (tree, tree);
 extern tree build_function_type (tree, tree);
 extern tree build_function_type_list (tree, ...);
+extern tree build_method_type_directly (tree, tree, tree);
 extern tree build_method_type (tree, tree);
 extern tree build_offset_type (tree, tree);
 extern tree build_complex_type (tree);
@@ -2387,7 +2397,7 @@ enum size_type_kind
   USIZETYPE,		/* Unsigned representation of sizes in bytes.  */
   BITSIZETYPE,		/* Normal representation of sizes in bits.  */
   SBITSIZETYPE,		/* Signed representation of sizes in bits.  */
-  UBITSIZETYPE,	        /* Unsifgned representation of sizes in bits.  */
+  UBITSIZETYPE,	        /* Unsigned representation of sizes in bits.  */
   TYPE_KIND_LAST};
 
 extern GTY(()) tree sizetype_tab[(int) TYPE_KIND_LAST];
@@ -2581,7 +2591,7 @@ extern tree substitute_in_expr (tree, tree, tree);
 
 extern tree variable_size (tree);
 
-/* stabilize_reference (EXP) returns an reference equivalent to EXP
+/* stabilize_reference (EXP) returns a reference equivalent to EXP
    but it can be used multiple times
    and only evaluate the subexpressions once.  */
 
@@ -2944,6 +2954,7 @@ enum tls_model decl_tls_model (tree);
 enum symbol_visibility decl_visibility (tree);
 extern void resolve_unique_section (tree, int, int);
 extern void mark_referenced (tree);
+extern void notice_global_symbol (tree);
 
 /* In stmt.c */
 extern void emit_nop (void);

@@ -1,3 +1,42 @@
+2003-08-23  Marek Michalkiewicz  <marekm@amelek.gda.pl>
+
+	* MAINTAINERS: Update my email address.
+
+2003-08-23  Phil Edwards  <pme@gcc.gnu.org>
+
+	* configure.in:  Use newline instead of semicolon when assuming
+	shell arguments in a for loop.
+	* configure:  Regenerated.
+
+2003-08-22  Jason Eckhardt  <jle@rice.edu>
+
+	* MAINTAINERS: Resurrect the i860 maintainer.
+
+2003-08-20  Geoffrey Keating  <geoffk@apple.com>
+
+	PR 8180
+	* configure.in: When testing with_libs and with_headers, treat
+	'no' as unset.  Based on a patch by Dan Kegel <dank@kegel.com>.
+	* configure: Regenerate.
+	
+	* configure.in (TOPLEVEL_CONFIGURE_ARGUMENTS): Quote properly for
+	make, shell, etc.
+	(baseargs): Likewise.
+	* configure: Regenerate.
+
+2003-08-20  Bernardo Innocenti  <bernie@develer.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2003-08-19  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.in: Disable libgcj for darwin not on powerpc.
+	* configure: Rebuild.
+
+2003-08-14  Alexandre Duret-Lutz  <adl@gnu.org>
+
+	* config-ml.in, symlink-tree: Add license.
+
 2003-08-03  Richard Stallman  <rms@gnu.org> 
             Eben Moglen  <moglen@columbia.edu>
 

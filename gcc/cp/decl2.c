@@ -154,10 +154,10 @@ grok_method_quals (tree ctype, tree function, tree quals)
 	      ? "member function" : "type");
 
   ctype = cp_build_qualified_type (ctype, type_quals);
-  fntype = build_cplus_method_type (ctype, TREE_TYPE (fntype),
-				    (TREE_CODE (fntype) == METHOD_TYPE
-				     ? TREE_CHAIN (TYPE_ARG_TYPES (fntype))
-				     : TYPE_ARG_TYPES (fntype)));
+  fntype = build_method_type_directly (ctype, TREE_TYPE (fntype),
+				       (TREE_CODE (fntype) == METHOD_TYPE
+					? TREE_CHAIN (TYPE_ARG_TYPES (fntype))
+					: TYPE_ARG_TYPES (fntype)));
   if (raises)
     fntype = build_exception_variant (fntype, raises);
 
@@ -223,7 +223,10 @@ tree
 cp_build_parm_decl (tree name, tree type)
 {
   tree parm = build_decl (PARM_DECL, name, type);
-  DECL_ARG_TYPE (parm) = type_passed_as (type);
+  /* DECL_ARG_TYPE is only used by the back end and the back end never
+     sees templates.  */
+  if (!processing_template_decl)
+    DECL_ARG_TYPE (parm) = type_passed_as (type);
   return parm;
 }
 
@@ -306,8 +309,8 @@ maybe_retrofit_in_chrg (tree fn)
   TREE_CHAIN (DECL_ARGUMENTS (fn)) = parms;
 
   /* And rebuild the function type.  */
-  fntype = build_cplus_method_type (basetype, TREE_TYPE (TREE_TYPE (fn)),
-				    arg_types);
+  fntype = build_method_type_directly (basetype, TREE_TYPE (TREE_TYPE (fn)),
+				       arg_types);
   if (TYPE_RAISES_EXCEPTIONS (TREE_TYPE (fn)))
     fntype = build_exception_variant (fntype,
 				      TYPE_RAISES_EXCEPTIONS (TREE_TYPE (fn)));
@@ -384,12 +387,6 @@ grokclassfn (tree ctype, tree function, enum overload_flags flags, tree quals)
 
   if (flags == DTOR_FLAG || DECL_CONSTRUCTOR_P (function))
     maybe_retrofit_in_chrg (function);
-
-  if (flags == DTOR_FLAG)
-    {
-      DECL_DESTRUCTOR_P (function) = 1;
-      TYPE_HAS_DESTRUCTOR (ctype) = 1;
-    }
 }
 
 /* Create an ARRAY_REF, checking for the user doing things backwards
@@ -918,9 +915,6 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
       DECL_NONLOCAL (value) = 1;
       DECL_CONTEXT (value) = current_class_type;
 
-      if (CLASS_TYPE_P (TREE_TYPE (value)))
-        CLASSTYPE_GOT_SEMICOLON (TREE_TYPE (value)) = 1;
-      
       if (processing_template_decl)
 	value = push_template_decl (value);
 
@@ -2562,12 +2556,49 @@ generate_ctor_and_dtor_functions_for_priority (splay_tree_node n, void * data)
 /* Callgraph code does not understand the member pointers.  Mark the methods
    referenced as used.  */
 static tree
-mark_member_pointers (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-		      void *data ATTRIBUTE_UNUSED)
+mark_member_pointers_and_eh_handlers (tree *tp,
+				      int *walk_subtrees,
+		      		      void *data ATTRIBUTE_UNUSED)
 {
-  if (TREE_CODE (*tp) == PTRMEM_CST
-      && TYPE_PTRMEMFUNC_P (TREE_TYPE (*tp)))
-    cgraph_mark_needed_node (cgraph_node (PTRMEM_CST_MEMBER (*tp)), 1);
+  /* Avoid useless walking of complex type and declaration nodes.  */
+  if (TYPE_P (*tp) || DECL_P (*tp))
+    {
+      *walk_subtrees = 0;
+      return 0;
+    }
+  switch (TREE_CODE (*tp))
+    {
+    case PTRMEM_CST:
+      if (TYPE_PTRMEMFUNC_P (TREE_TYPE (*tp)))
+	cgraph_mark_needed_node (cgraph_node (PTRMEM_CST_MEMBER (*tp)), 1);
+      break;
+
+    /* EH handlers will emit EH tables referencing typeinfo.  */
+    case HANDLER:
+      if (HANDLER_TYPE (*tp))
+	{
+	  tree tinfo = eh_type_info (HANDLER_TYPE (*tp));
+
+	  cgraph_varpool_mark_needed_node (cgraph_varpool_node (tinfo));
+	}
+      break;
+
+    case EH_SPEC_BLOCK:
+	{
+	  tree type;
+
+	  for (type = EH_SPEC_RAISES ((*tp)); type;
+	       type = TREE_CHAIN (type))
+	    {
+	       tree tinfo = eh_type_info (TREE_VALUE (type));
+
+	       cgraph_varpool_mark_needed_node (cgraph_varpool_node (tinfo));
+	    }
+	}
+      break;
+    default:
+      break;
+    }
   return 0;
 }
 
@@ -2576,7 +2607,8 @@ mark_member_pointers (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 void
 lower_function (tree fn)
 {
-  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn), mark_member_pointers,
+  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
+		  		mark_member_pointers_and_eh_handlers,
 				NULL);
 }
 
@@ -2943,27 +2975,25 @@ finish_file ()
   input_location = locus;
 }
 
-/* FN is an OFFSET_REF indicating the function to call in parse-tree
-   form; it has not yet been semantically analyzed.  ARGS are the
-   arguments to the function.  They have already been semantically
-   analzyed.  */
+/* FN is an OFFSET_REF, DOTSTAR_EXPR or MEMBER_REF indicating the
+   function to call in parse-tree form; it has not yet been
+   semantically analyzed.  ARGS are the arguments to the function.
+   They have already been semantically analyzed.  */
 
 tree
 build_offset_ref_call_from_tree (tree fn, tree args)
 {
-  tree object_addr;
   tree orig_fn;
   tree orig_args;
   tree expr;
+  tree object;
 
   orig_fn = fn;
   orig_args = args;
+  object = TREE_OPERAND (fn, 0);
 
   if (processing_template_decl)
     {
-      tree object;
-      tree object_type;
-
       my_friendly_assert (TREE_CODE (fn) == DOTSTAR_EXPR
 			  || TREE_CODE (fn) == MEMBER_REF,
 			  20030708);
@@ -2975,10 +3005,9 @@ build_offset_ref_call_from_tree (tree fn, tree args)
 	 parameter.  That must be done before the FN is transformed
 	 because we depend on the form of FN.  */
       args = build_non_dependent_args (args);
-      object_type = TREE_TYPE (TREE_OPERAND (fn, 0));
       if (TREE_CODE (fn) == DOTSTAR_EXPR)
-	object_type = build_pointer_type (non_reference (object_type));
-      object = build (NON_DEPENDENT_EXPR, object_type);
+	object = build_unary_op (ADDR_EXPR, object, 0);
+      object = build_non_dependent_expr (object);
       args = tree_cons (NULL_TREE, object, args);
       /* Now that the arguments are done, transform FN.  */
       fn = build_non_dependent_expr (fn);
@@ -2992,7 +3021,7 @@ build_offset_ref_call_from_tree (tree fn, tree args)
 	void B::g() { (this->*p)(); }  */
   if (TREE_CODE (fn) == OFFSET_REF)
     {
-      object_addr = build_unary_op (ADDR_EXPR, TREE_OPERAND (fn, 0), 0);
+      tree object_addr = build_unary_op (ADDR_EXPR, object, 0);
       fn = TREE_OPERAND (fn, 1);
       fn = get_member_function_from_ptrfunc (&object_addr, fn);
       args = tree_cons (NULL_TREE, object_addr, args);
@@ -4062,27 +4091,13 @@ do_class_using_decl (tree decl)
       error ("using-declaration cannot name destructor");
       return NULL_TREE;
     }
-  else if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
-    {
-    template_id_error:;
-      
-      error ("a using-declaration cannot specify a template-id");
-      return NULL_TREE;
-    }
   if (TREE_CODE (name) == TYPE_DECL)
-    {
-      if (CLASSTYPE_USE_TEMPLATE (TREE_TYPE (name)))
-	goto template_id_error;
-      name = DECL_NAME (name);
-    }
+    name = DECL_NAME (name);
   else if (TREE_CODE (name) == TEMPLATE_DECL)
      name = DECL_NAME (name);
   else if (BASELINK_P (name))
     {
       tree fns = BASELINK_FUNCTIONS (name);
-      
-      if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
-	goto template_id_error;
       name = DECL_NAME (get_first_fn (fns));
     }
 
@@ -4213,96 +4228,6 @@ mark_used (tree decl)
 
       instantiate_decl (decl, defer);
     }
-}
-
-/* Called when a class-head is encountered.  TAG_KIND is the class-key
-   for the class.  SCOPE, if non-NULL, is the type or namespace
-   indicated in the nested-name-specifier for the declaration of the
-   class.  ID is the name of the class, if any; it may be a TYPE_DECL,
-   or an IDENTIFIER_NODE.  ATTRIBUTES are attributes that apply to the
-   class.
-
-   Return a TYPE_DECL for the class being defined.  */
-
-tree
-handle_class_head (enum tag_types tag_kind, tree scope, tree id,
-                   tree attributes)
-{
-  tree decl = NULL_TREE;
-  tree current = current_scope ();
-  bool xrefd_p = false;
-  bool new_type_p;
-  tree context;
-
-  if (current == NULL_TREE)
-    current = current_namespace;
-
-  if (scope)
-    {
-      if (TREE_CODE (id) == TYPE_DECL)
-	/* We must bash typedefs back to the main decl of the
-       	   type. Otherwise we become confused about scopes.  */
-	decl = TYPE_MAIN_DECL (TREE_TYPE (id));
-      else if (DECL_CLASS_TEMPLATE_P (id))
-	decl = DECL_TEMPLATE_RESULT (id);
-      else
-	{
-	  if (TYPE_P (scope))
-	    {
-	      /* According to the suggested resolution of core issue
-	     	 180, 'typename' is assumed after a class-key.  */
-	      decl = make_typename_type (scope, id, tf_error);
-	      if (decl != error_mark_node)
-		decl = TYPE_MAIN_DECL (decl);
-	      else
-		decl = NULL_TREE;
-	    }
-	  else if (scope == current)
-	    {
-	      /* We've been given AGGR SCOPE::ID, when we're already
-             	 inside SCOPE.  Be nice about it.  */
-	      if (pedantic)
-		pedwarn ("extra qualification `%T::' on member `%D' ignored",
-			 scope, id);
-	    }
-	  else
-	    error ("`%T' does not have a class or union named `%D'",
-		   scope, id);
-	}
-    }
-  
-  if (!decl)
-    {
-      decl = xref_tag (tag_kind, id, attributes, false, false);
-      if (decl == error_mark_node)
-	return error_mark_node;
-      decl = TYPE_MAIN_DECL (decl);
-      xrefd_p = true;
-    }
-
-  if (!TYPE_BINFO (TREE_TYPE (decl)))
-    {
-      error ("`%T' is not a class or union type", decl);
-      return error_mark_node;
-    }
-  
-  /* For a definition, we want to enter the containing scope before
-     looking up any base classes etc. Only do so, if this is different
-     to the current scope.  */
-  context = CP_DECL_CONTEXT (decl);
-  
-  new_type_p = (current != context
-		&& TREE_CODE (context) != TEMPLATE_TYPE_PARM
-		&& TREE_CODE (context) != BOUND_TEMPLATE_TEMPLATE_PARM);
-  if (new_type_p)
-    push_scope (context);
-  
-  if (!xrefd_p 
-      && PROCESSING_REAL_TEMPLATE_DECL_P ()
-      && !CLASSTYPE_TEMPLATE_SPECIALIZATION (TREE_TYPE (decl)))
-    decl = push_template_decl (decl);
-
-  return decl;
 }
 
 #include "gt-cp-decl2.h"

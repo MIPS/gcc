@@ -630,9 +630,14 @@ merge_types (tree t1, tree t2)
 
     case OFFSET_TYPE:
       {
-	tree base = TYPE_OFFSET_BASETYPE (t1);
-	tree target = merge_types (TREE_TYPE (t1), TREE_TYPE (t2));
-	t1 = build_offset_type (base, target);
+	int quals;
+	tree pointee;
+	quals = cp_type_quals (t1);
+	pointee = merge_types (TYPE_PTRMEM_POINTED_TO_TYPE (t1),
+			       TYPE_PTRMEM_POINTED_TO_TYPE (t2));
+	t1 = build_ptrmem_type (TYPE_PTRMEM_CLASS_TYPE (t1),
+				pointee);
+	t1 = cp_build_qualified_type (t1, quals);
 	break;
       }
 
@@ -703,8 +708,8 @@ merge_types (tree t1, tree t2)
 	t2 = build_function_type (TREE_TYPE (t2),
 				  TREE_CHAIN (TYPE_ARG_TYPES (t2)));
 	t3 = merge_types (t1, t2);
-	t3 = build_cplus_method_type (basetype, TREE_TYPE (t3),
-				      TYPE_ARG_TYPES (t3));
+	t3 = build_method_type_directly (basetype, TREE_TYPE (t3),
+					 TYPE_ARG_TYPES (t3));
 	t1 = build_exception_variant (t3, raises);
 	break;
       }
@@ -4291,21 +4296,7 @@ build_x_compound_expr (tree op1, tree op2)
 
   result = build_new_op (COMPOUND_EXPR, LOOKUP_NORMAL, op1, op2, NULL_TREE);
   if (!result)
-    {
-      if (! TREE_SIDE_EFFECTS (op1))
-	{
-	  /* FIXME: This test should be in the implicit cast to void
-	     of the LHS.  */
-	  /* the left-hand operand of a comma expression is like an expression
-	     statement: we should warn if it doesn't have any side-effects,
-	     unless it was explicitly cast to (void).  */
-	  if (warn_unused_value
-	      && !(TREE_CODE (op1) == CONVERT_EXPR
-		   && VOID_TYPE_P (TREE_TYPE (op1))))
-	    warning("left-hand operand of comma expression has no effect");
-	}
-      result = build_compound_expr (op1, op2);
-    }
+    result = build_compound_expr (op1, op2);
 
   if (processing_template_decl && result != error_mark_node)
     return build_min (COMPOUND_EXPR, TREE_TYPE (result), 
@@ -4320,16 +4311,17 @@ build_compound_expr (tree lhs, tree rhs)
 {
   lhs = decl_constant_value (lhs);
   lhs = convert_to_void (lhs, "left-hand operand of comma");
+  
   if (lhs == error_mark_node || rhs == error_mark_node)
     return error_mark_node;
-
+  
   if (TREE_CODE (rhs) == TARGET_EXPR)
     {
       /* If the rhs is a TARGET_EXPR, then build the compound
          expression inside the target_expr's initializer. This
 	 helps the compiler to eliminate unncessary temporaries.  */
       tree init = TREE_OPERAND (rhs, 1);
-
+      
       init = build (COMPOUND_EXPR, TREE_TYPE (init), lhs, init);
       TREE_OPERAND (rhs, 1) = init;
       

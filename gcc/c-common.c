@@ -430,6 +430,11 @@ int warn_main;
 
 int warn_sequence_point;
 
+/* Nonzero means warn about uninitialized variable when it is initialized with itself.
+   For example: int i = i;, GCC will not warn about this when warn_init_self is nonzero.  */
+
+int warn_init_self;
+
 /* Nonzero means to warn about compile-time division by zero.  */
 int warn_div_by_zero = 1;
 
@@ -3560,6 +3565,15 @@ strip_array_types (tree type)
   return type;
 }
 
+/* Recursively remove any '*' or '&' operator from TYPE.  */
+tree
+strip_pointer_operator (tree t)
+{
+  while (POINTER_TYPE_P (t))
+    t = TREE_TYPE (t);
+  return t;
+}
+
 static tree expand_unordered_cmp (tree, tree, enum tree_code, enum tree_code);
 
 /* Expand a call to an unordered comparison function such as
@@ -5099,6 +5113,7 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
 
   while (POINTER_TYPE_P (type)
 	 || TREE_CODE (type) == FUNCTION_TYPE
+	 || TREE_CODE (type) == METHOD_TYPE
 	 || TREE_CODE (type) == ARRAY_TYPE)
     type = TREE_TYPE (type);
 
@@ -5229,12 +5244,19 @@ vector_size_helper (tree type, tree bottom)
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {
       inner = vector_size_helper (TREE_TYPE (type), bottom);
-      outer = build_array_type (inner, TYPE_VALUES (type));
+      outer = build_array_type (inner, TYPE_DOMAIN (type));
     }
   else if (TREE_CODE (type) == FUNCTION_TYPE)
     {
       inner = vector_size_helper (TREE_TYPE (type), bottom);
-      outer = build_function_type (inner, TYPE_VALUES (type));
+      outer = build_function_type (inner, TYPE_ARG_TYPES (type));
+    }
+  else if (TREE_CODE (type) == METHOD_TYPE)
+    {
+      inner = vector_size_helper (TREE_TYPE (type), bottom);
+      outer = build_method_type_directly (TYPE_METHOD_BASETYPE (type),
+					  inner, 
+					  TYPE_ARG_TYPES (type));
     }
   else
     return bottom;
@@ -5652,7 +5674,7 @@ c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       return NULL;
     }
   /* Assume that constants and references counts nothing.  These should
-     be majorized by amount of operations amoung them we count later
+     be majorized by amount of operations among them we count later
      and are common target of CSE and similar optimizations.  */
   if (TREE_CODE_CLASS (TREE_CODE (x)) == 'c'
       || TREE_CODE_CLASS (TREE_CODE (x)) == 'r')
@@ -5745,6 +5767,37 @@ c_estimate_num_insns (tree decl)
   int num = 0;
   walk_tree_without_duplicates (&DECL_SAVED_TREE (decl), c_estimate_num_insns_1, &num);
   return num;
+}
+
+/* Used by c_decl_uninit to find where expressions like x = x + 1; */
+
+static tree
+c_decl_uninit_1 (tree *t, int *walk_sub_trees, void *x)
+{
+  /* If x = EXP(&x)EXP, then do not warn about the use of x.  */
+  if (TREE_CODE (*t) == ADDR_EXPR && TREE_OPERAND (*t, 0) == x)
+    {
+      *walk_sub_trees = 0;
+      return NULL_TREE;
+    }
+  if (*t == x)
+    return *t;
+  return NULL_TREE;
+}
+
+/* Find out if a variable is uninitialized based on DECL_INITIAL.  */
+
+bool
+c_decl_uninit (tree t)
+{
+  /* int x = x; is GCC extension to turn off this warning, only if warn_init_self is zero.  */
+  if (DECL_INITIAL (t) == t)
+    return warn_init_self ? true : false;
+
+  /* Walk the trees looking for the variable itself.  */
+  if (walk_tree_without_duplicates (&DECL_INITIAL (t), c_decl_uninit_1, t))
+    return true;
+  return false;
 }
 
 #include "gt-c-common.h"

@@ -63,6 +63,7 @@ extern void lhd_incomplete_type_error (tree, tree);
 extern tree lhd_type_promotes_to (tree);
 extern bool lhd_decl_ok_for_sibcall (tree);
 extern tree lhd_expr_size (tree);
+extern bool lhd_decl_uninit (tree);
 extern size_t lhd_tree_size (enum tree_code);
 
 /* Declarations of default tree inlining hooks.  */
@@ -88,7 +89,7 @@ extern void lhd_initialize_diagnostics (struct diagnostic_context *);
 #define LANG_HOOKS_PARSE_FILE		lhd_do_nothing_i
 #define LANG_HOOKS_CLEAR_BINDING_STACK	lhd_clear_binding_stack
 #define LANG_HOOKS_INIT_OPTIONS		hook_uint_uint_constcharptrptr_0
-#define LANG_HOOKS_INITIALIZE_DIAGNOSTITCS lhd_initialize_diagnostics
+#define LANG_HOOKS_INITIALIZE_DIAGNOSTICS lhd_initialize_diagnostics
 #define LANG_HOOKS_HANDLE_OPTION	hook_int_size_t_constcharptr_int_0
 #define LANG_HOOKS_MISSING_ARGUMENT	hook_bool_constcharptr_size_t_false
 #define LANG_HOOKS_POST_OPTIONS		lhd_post_options
@@ -114,6 +115,7 @@ extern void lhd_initialize_diagnostics (struct diagnostic_context *);
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION lhd_print_error_function
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	lhd_decl_printable_name
 #define LANG_HOOKS_EXPR_SIZE		lhd_expr_size
+#define LANG_HOOKS_DECL_UNINIT		lhd_decl_uninit
 #define LANG_HOOKS_TREE_SIZE		lhd_tree_size
 
 #define LANG_HOOKS_FUNCTION_INIT	lhd_do_nothing_f
@@ -246,7 +248,7 @@ extern int lhd_tree_dump_type_quals (tree);
   LANG_HOOKS_IDENTIFIER_SIZE, \
   LANG_HOOKS_TREE_SIZE, \
   LANG_HOOKS_INIT_OPTIONS, \
-  LANG_HOOKS_INITIALIZE_DIAGNOSTITCS, \
+  LANG_HOOKS_INITIALIZE_DIAGNOSTICS, \
   LANG_HOOKS_HANDLE_OPTION, \
   LANG_HOOKS_MISSING_ARGUMENT, \
   LANG_HOOKS_POST_OPTIONS, \
@@ -278,6 +280,7 @@ extern int lhd_tree_dump_type_quals (tree);
   LANG_HOOKS_DECL_PRINTABLE_NAME, \
   LANG_HOOKS_PRINT_ERROR_FUNCTION, \
   LANG_HOOKS_EXPR_SIZE, \
+  LANG_HOOKS_DECL_UNINIT, \
   LANG_HOOKS_ATTRIBUTE_TABLE, \
   LANG_HOOKS_COMMON_ATTRIBUTE_TABLE, \
   LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE, \

@@ -303,10 +303,8 @@ build_call (tree function, tree parms)
 				    TREE_VALUE (tmp), t);
 	}
 
-  function = build_nt (CALL_EXPR, function, parms, NULL_TREE);
+  function = build (CALL_EXPR, result_type, function, parms);
   TREE_HAS_CONSTRUCTOR (function) = is_constructor;
-  TREE_TYPE (function) = result_type;
-  TREE_SIDE_EFFECTS (function) = 1;
   TREE_NOTHROW (function) = nothrow;
   
   return function;
@@ -647,6 +645,12 @@ standard_conversion (tree to, tree from, tree expr)
   if ((tcode == POINTER_TYPE || TYPE_PTR_TO_MEMBER_P (to))
       && expr && null_ptr_cst_p (expr))
     conv = build_conv (STD_CONV, to, conv);
+  else if (tcode == POINTER_TYPE && fcode == POINTER_TYPE
+	   && TREE_CODE (TREE_TYPE (to)) == VECTOR_TYPE
+	   && TREE_CODE (TREE_TYPE (from)) == VECTOR_TYPE
+	   && ((*targetm.vector_opaque_p) (TREE_TYPE (to))
+	       || (*targetm.vector_opaque_p) (TREE_TYPE (from))))
+    conv = build_conv (STD_CONV, to, conv);
   else if ((tcode == INTEGER_TYPE && fcode == POINTER_TYPE)
 	   || (tcode == POINTER_TYPE && fcode == INTEGER_TYPE))
     {
@@ -752,8 +756,9 @@ standard_conversion (tree to, tree from, tree expr)
 	return 0;
 
       from = cp_build_qualified_type (tbase, cp_type_quals (fbase));
-      from = build_cplus_method_type (from, TREE_TYPE (fromfn),
-				      TREE_CHAIN (TYPE_ARG_TYPES (fromfn)));
+      from = build_method_type_directly (from, 
+					 TREE_TYPE (fromfn),
+					 TREE_CHAIN (TYPE_ARG_TYPES (fromfn)));
       from = build_ptrmemfunc_type (build_pointer_type (from));
       conv = build_conv (PMEM_CONV, from, conv);
     }
@@ -789,7 +794,7 @@ standard_conversion (tree to, tree from, tree expr)
       conv = build_conv (STD_CONV, to, conv);
 
       /* Give this a better rank if it's a promotion.  */
-      if (to == type_promotes_to (from)
+      if (same_type_p (to, type_promotes_to (from))
 	  && ICS_STD_RANK (TREE_OPERAND (conv, 0)) <= PROMO_RANK)
 	ICS_STD_RANK (conv) = PROMO_RANK;
     }
@@ -3165,7 +3170,11 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 	{
 	  arg2 = convert_like (conv2, arg2);
 	  arg2 = convert_from_reference (arg2);
-	  if (!same_type_p (TREE_TYPE (arg2), arg3_type))
+	  if (!same_type_p (TREE_TYPE (arg2), arg3_type)
+	      && CLASS_TYPE_P (arg3_type))
+	    /* The types need to match if we're converting to a class type.
+	       If not, we don't care about cv-qual mismatches, since
+	       non-class rvalues are not cv-qualified.  */
 	    abort ();
 	  arg2_type = TREE_TYPE (arg2);
 	}
@@ -3173,7 +3182,8 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 	{
 	  arg3 = convert_like (conv3, arg3);
 	  arg3 = convert_from_reference (arg3);
-	  if (!same_type_p (TREE_TYPE (arg3), arg2_type))
+	  if (!same_type_p (TREE_TYPE (arg3), arg2_type)
+	      && CLASS_TYPE_P (arg2_type))
 	    abort ();
 	  arg3_type = TREE_TYPE (arg3);
 	}
@@ -4324,7 +4334,8 @@ type_passed_as (tree type)
     type = build_reference_type (type);
   else if (PROMOTE_PROTOTYPES
 	   && INTEGRAL_TYPE_P (type)
-	   && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
+	   && INT_CST_LT_UNSIGNED (TYPE_SIZE (type),
+				   TYPE_SIZE (integer_type_node)))
     type = integer_type_node;
 
   return type;
@@ -4342,7 +4353,8 @@ convert_for_arg_passing (tree type, tree val)
     val = build1 (ADDR_EXPR, build_reference_type (type), val);
   else if (PROMOTE_PROTOTYPES
 	   && INTEGRAL_TYPE_P (type)
-	   && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
+	   && INT_CST_LT_UNSIGNED (TYPE_SIZE (type),
+				   TYPE_SIZE (integer_type_node)))
     val = perform_integral_promotions (val);
   return val;
 }
@@ -4904,7 +4916,7 @@ build_new_method_call (tree instance, tree fns, tree args,
     {
       call = build_field_call (instance_ptr, fns, args);
       if (call)
-	return call;
+	goto finish;
       error ("call to non-function `%D'", fns);
       return error_mark_node;
     }
@@ -5065,13 +5077,11 @@ build_new_method_call (tree instance, tree fns, tree args,
       if (!is_dummy_object (instance_ptr) && TREE_SIDE_EFFECTS (instance))
 	call = build (COMPOUND_EXPR, TREE_TYPE (call), instance, call);
     }
-
+ finish:;
+  
   if (processing_template_decl && call != error_mark_node)
-    return build_min (CALL_EXPR,
-		      TREE_TYPE (call),
-		      build_min_nt (COMPONENT_REF,
-				    orig_instance, 
-				    orig_fns),
+    return build_min (CALL_EXPR, TREE_TYPE (call),
+		      build_min_nt (COMPONENT_REF, orig_instance, orig_fns),
 		      orig_args);
   return call;
 }

@@ -866,7 +866,7 @@ static unsigned int ix86_select_alt_pic_regnum (void);
 static int ix86_save_reg (unsigned int, int);
 static void ix86_compute_frame_layout (struct ix86_frame *);
 static int ix86_comp_type_attributes (tree, tree);
-static int ix86_fntype_regparm (tree);
+static int ix86_function_regparm (tree, tree);
 const struct attribute_spec ix86_attribute_table[];
 static bool ix86_function_ok_for_sibcall (tree, tree);
 static tree ix86_handle_cdecl_attribute (tree *, tree, tree, int, bool *);
@@ -1532,19 +1532,14 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
      such registers are not used for passing parameters.  */
   if (!decl && !TARGET_64BIT)
     {
-      int regparm = ix86_regparm;
-      tree attr, type;
+      tree type;
 
       /* We're looking at the CALL_EXPR, we need the type of the function.  */
       type = TREE_OPERAND (exp, 0);		/* pointer expression */
       type = TREE_TYPE (type);			/* pointer type */
       type = TREE_TYPE (type);			/* function type */
 
-      attr = lookup_attribute ("regparm", TYPE_ATTRIBUTES (type));
-      if (attr)
-        regparm = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
-
-      if (regparm >= 3)
+      if (ix86_function_regparm (type, NULL) >= 3)
 	{
 	  /* ??? Need to count the actual number of registers to be used,
 	     not the possible number of registers.  Fix later.  */
@@ -1637,9 +1632,9 @@ ix86_handle_regparm_attribute (tree *node, tree name, tree args,
 	}
 
       if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (*node)))
-    {
-      error ("fastcall and regparm attributes are not compatible");
-    }
+	{
+	  error ("fastcall and regparm attributes are not compatible");
+	}
     }
 
   return NULL_TREE;
@@ -1670,18 +1665,49 @@ ix86_comp_type_attributes (tree type1, tree type2)
   return 1;
 }
 
-/* Return the regparm value for a fuctio with the indicated TYPE.  */
+/* Return the regparm value for a fuctio with the indicated TYPE and DECL.
+   DECL may be NULL when calling function indirectly
+   or considerling a libcall.  */
 
 static int
-ix86_fntype_regparm (tree type)
+ix86_function_regparm (tree type, tree decl)
 {
   tree attr;
+  int regparm = ix86_regparm;
+  bool user_convention = false;
 
-  attr = lookup_attribute ("regparm", TYPE_ATTRIBUTES (type));
-  if (attr)
-    return TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
-  else
-    return ix86_regparm;
+  if (!TARGET_64BIT)
+    {
+      attr = lookup_attribute ("regparm", TYPE_ATTRIBUTES (type));
+      if (attr)
+	{
+	  regparm = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
+	  user_convention = true;
+	}
+
+      if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type)))
+	{
+	  regparm = 2;
+	  user_convention = true;
+	}
+
+      /* Use register calling convention for local functions when possible.  */
+      if (!TARGET_64BIT && !user_convention && decl
+	  && flag_unit_at_a_time)
+	{
+	  struct cgraph_local_info *i = cgraph_local_info (decl);
+	  if (i && i->local)
+	    {
+	      /* We can't use regparm(3) for nested functions as these use
+		 static chain pointer in third argument.  */
+	      if (DECL_CONTEXT (decl) && !DECL_NO_STATIC_CHAIN (decl))
+		regparm = 2;
+	      else
+		regparm = 3;
+	    }
+	}
+    }
+  return regparm;
 }
 
 /* Value is the number of bytes of arguments automatically
@@ -1725,7 +1751,7 @@ ix86_return_pops_args (tree fundecl, tree funtype, int size)
   if (aggregate_value_p (TREE_TYPE (funtype))
       && !TARGET_64BIT)
     {
-      int nregs = ix86_fntype_regparm (funtype);
+      int nregs = ix86_function_regparm (funtype, fundecl);
 
       if (!nregs)
 	return GET_MODE_SIZE (Pmode);
@@ -1767,7 +1793,6 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 {
   static CUMULATIVE_ARGS zero_cum;
   tree param, next_param;
-  bool user_convention = false;
 
   if (TARGET_DEBUG_ARG)
     {
@@ -1786,18 +1811,11 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
   *cum = zero_cum;
 
   /* Set up the number of registers to use for passing arguments.  */
-  cum->nregs = ix86_regparm;
+  if (fntype)
+    cum->nregs = ix86_function_regparm (fntype, fndecl);
+  else
+    cum->nregs = ix86_regparm;
   cum->sse_nregs = SSE_REGPARM_MAX;
-  if (fntype && !TARGET_64BIT)
-    {
-      tree attr = lookup_attribute ("regparm", TYPE_ATTRIBUTES (fntype));
-
-      if (attr)
-	{
-	  cum->nregs = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
-	  user_convention = true;
-	}
-    }
   cum->maybe_vaarg = false;
 
   /* Use ecx and edx registers if function has fastcall attribute */
@@ -1807,23 +1825,6 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	{
 	  cum->nregs = 2;
 	  cum->fastcall = 1;
-	  user_convention = true;
-	}
-    }
-
-  /* Use register calling convention for local functions when possible.  */
-  if (!TARGET_64BIT && !user_convention && fndecl
-      && flag_unit_at_a_time)
-    {
-      struct cgraph_local_info *i = cgraph_local_info (fndecl);
-      if (i && i->local)
-	{
-	  /* We can't use regparm(3) for nested functions as these use
-	     static chain pointer in third argument.  */
-	  if (DECL_CONTEXT (fndecl) && !DECL_NO_STATIC_CHAIN (fndecl))
-	    cum->nregs = 2;
-	  else
-	    cum->nregs = 3;
 	}
     }
 
@@ -2501,7 +2502,7 @@ function_arg (CUMULATIVE_ARGS *cum,	/* current arg information */
 
 	        /* ECX not EAX is the first allocated register.  */
 	        if (regno == 0)
-		      regno = 2;
+		  regno = 2;
 	      }
 	    ret = gen_rtx_REG (mode, regno);
 	  }
@@ -2690,29 +2691,59 @@ ix86_function_value (tree valtype)
 int
 ix86_return_in_memory (tree type)
 {
-  int needed_intregs, needed_sseregs;
+  int needed_intregs, needed_sseregs, size;
+  enum machine_mode mode = TYPE_MODE (type);
+
   if (TARGET_64BIT)
+    return !examine_argument (mode, type, 1, &needed_intregs, &needed_sseregs);
+
+  if (mode == BLKmode)
+    return 1;
+
+  size = int_size_in_bytes (type);
+
+  if (MS_AGGREGATE_RETURN && AGGREGATE_TYPE_P (type) && size <= 8)
+    return 0;
+
+  if (VECTOR_MODE_P (mode) || mode == TImode)
     {
-      return !examine_argument (TYPE_MODE (type), type, 1,
-				&needed_intregs, &needed_sseregs);
-    }
-  else
-    {
-      if (TYPE_MODE (type) == BLKmode)
-	return 1;
-      else if (MS_AGGREGATE_RETURN
-	       && AGGREGATE_TYPE_P (type)
-	       && int_size_in_bytes(type) <= 8)
+      /* User-created vectors small enough to fit in EAX.  */
+      if (size < 8)
 	return 0;
-      else if ((VECTOR_MODE_P (TYPE_MODE (type))
-	        && int_size_in_bytes (type) == 8)
-	       || (int_size_in_bytes (type) > 12
-		   && TYPE_MODE (type) != TImode
-		   && TYPE_MODE (type) != TFmode
-		   && !VECTOR_MODE_P (TYPE_MODE (type))))
+
+      /* MMX/3dNow values are returned on the stack, since we've
+	 got to EMMS/FEMMS before returning.  */
+      if (size == 8)
 	return 1;
-      return 0;
+
+      /* SSE values are returned in XMM0.  */
+      /* ??? Except when it doesn't exist?  We have a choice of
+	 either (1) being abi incompatible with a -march switch,
+	 or (2) generating an error here.  Given no good solution,
+	 I think the safest thing is one warning.  The user won't
+	 be able to use -Werror, but...  */
+      if (size == 16)
+	{
+	  static bool warned;
+
+	  if (TARGET_SSE)
+	    return 0;
+
+	  if (!warned)
+	    {
+	      warned = true;
+	      warning ("SSE vector return without SSE enabled "
+		       "changes the ABI");
+	    }
+	  return 1;
+	}
     }
+
+  if (mode == TFmode)
+    return 0;
+  if (size > 12)
+    return 1;
+  return 0;
 }
 
 /* Define how to find the value returned by a library function
@@ -2745,10 +2776,14 @@ ix86_libcall_value (enum machine_mode mode)
 static int
 ix86_value_regno (enum machine_mode mode)
 {
+  /* Floating point return values in %st(0).  */
   if (GET_MODE_CLASS (mode) == MODE_FLOAT && TARGET_FLOAT_RETURNS_IN_80387)
     return FIRST_FLOAT_REG;
-  if (mode == TImode || VECTOR_MODE_P (mode))
+  /* 16-byte vector modes in %xmm0.  See ix86_return_in_memory for where
+     we prevent this case when sse is not available.  */
+  if (mode == TImode || (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 16))
     return FIRST_SSE_REG;
+  /* Everything else in %eax.  */
   return 0;
 }
 
@@ -3342,7 +3377,7 @@ x86_64_zext_immediate_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 int
 const_int_1_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
-  return (GET_CODE (op) == CONST_INT && INTVAL (op) == 1);
+  return op == const1_rtx;
 }
 
 /* Return nonzero if OP is CONST_INT >= 1 and <= 31 (a valid operand
@@ -3594,6 +3629,32 @@ const248_operand (register rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
   return (GET_CODE (op) == CONST_INT
 	  && (INTVAL (op) == 2 || INTVAL (op) == 4 || INTVAL (op) == 8));
 }
+
+int
+const_0_to_3_operand (register rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return (GET_CODE (op) == CONST_INT && INTVAL (op) >= 0 && INTVAL (op) < 4);
+}
+
+int
+const_0_to_7_operand (register rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return (GET_CODE (op) == CONST_INT && INTVAL (op) >= 0 && INTVAL (op) < 8);
+}
+
+int
+const_0_to_15_operand (register rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return (GET_CODE (op) == CONST_INT && INTVAL (op) >= 0 && INTVAL (op) < 16);
+}
+
+int
+const_0_to_255_operand (register rtx op,
+			enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return (GET_CODE (op) == CONST_INT && INTVAL (op) >= 0 && INTVAL (op) < 256);
+}
+
 
 /* True if this is a constant appropriate for an increment or decrement.  */
 
@@ -5714,7 +5775,7 @@ legitimate_pic_address_disp_p (register rtx disp)
         if (GET_CODE (XEXP (disp, 1)) == SYMBOL_REF)
           {
             const char *sym_name = XSTR (XEXP (disp, 1), 0);
-            if (strstr (sym_name, "$pb") != 0)
+            if (! strcmp (sym_name, "<pic base>"))
               return 1;
           }
     }
@@ -8026,8 +8087,11 @@ ix86_output_addr_diff_elt (FILE *file, int value, int rel)
     fprintf (file, "%s%s%d@GOTOFF\n", ASM_LONG, LPREFIX, value);
 #if TARGET_MACHO
   else if (TARGET_MACHO)
-    fprintf (file, "%s%s%d-%s\n", ASM_LONG, LPREFIX, value,
-	     machopic_function_base_name () + 1);
+    {
+      fprintf (file, "%s%s%d-", ASM_LONG, LPREFIX, value);
+      machopic_output_function_base_name (file);
+      fprintf(file, "\n");
+    }
 #endif
   else
     asm_fprintf (file, "%s%U%s+[.-%s%d]\n",
@@ -9396,11 +9460,6 @@ ix86_expand_carry_flag_compare (enum rtx_code code, rtx op0, rtx op1, rtx *pop)
 	    return false;
 	  code = (code == GTU ? GEU : LTU);
 	}
-      else if (!nonimmediate_operand (op1, mode)
-	       || !general_operand (op0, mode))
-	/* Swapping operands in this case would generate an
-	   unrecognizable insn.  */
-	return false;
       else
 	{
 	  rtx tmp = op1;
@@ -9428,6 +9487,13 @@ ix86_expand_carry_flag_compare (enum rtx_code code, rtx op0, rtx op1, rtx *pop)
 
     default:
       return false;
+    }
+  /* Swapping operands may cause constant to appear as first operand.  */
+  if (!nonimmediate_operand (op0, VOIDmode))
+    {
+      if (no_new_pseudos)
+	return false;
+      op0 = force_reg (mode, op0);
     }
   ix86_compare_op0 = op0;
   ix86_compare_op1 = op1;
@@ -13504,7 +13570,8 @@ ix86_expand_binop_builtin (enum insn_code icode, tree arglist, rtx target)
 
   /* In case the insn wants input operands in modes different from
      the result, abort.  */
-  if (GET_MODE (op0) != mode0 || GET_MODE (op1) != mode1)
+  if ((GET_MODE (op0) != mode0 && GET_MODE (op0) != VOIDmode)
+      || (GET_MODE (op1) != mode1 && GET_MODE (op1) != VOIDmode))
     abort ();
 
   if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
@@ -13769,8 +13836,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	op0 = copy_to_mode_reg (mode0, op0);
       if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
 	{
-	  /* @@@ better error message */
-	  error ("selector must be an immediate");
+	  error ("selector must be an integer constant in the range 0..%i",
+		  fcode == IX86_BUILTIN_PEXTRW ? 3:7);
 	  return gen_reg_rtx (tmode);
 	}
       if (target == 0
@@ -13805,8 +13872,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	op1 = copy_to_mode_reg (mode1, op1);
       if (! (*insn_data[icode].operand[3].predicate) (op2, mode2))
 	{
-	  /* @@@ better error message */
-	  error ("selector must be an immediate");
+	  error ("selector must be an integer constant in the range 0..%i",
+		  fcode == IX86_BUILTIN_PINSRW ? 15:255);
 	  return const0_rtx;
 	}
       if (target == 0
@@ -15087,7 +15154,7 @@ x86_this_parameter (tree function)
       return gen_rtx_REG (DImode, x86_64_int_parameter_registers[n]);
     }
 
-  if (ix86_fntype_regparm (type) > 0)
+  if (ix86_function_regparm (type, function) > 0)
     {
       tree parm;
 
@@ -15097,9 +15164,14 @@ x86_this_parameter (tree function)
       for (; parm; parm = TREE_CHAIN (parm))
 	if (TREE_VALUE (parm) == void_type_node)
 	  break;
-      /* If not, the this parameter is in %eax.  */
+      /* If not, the this parameter is in the first argument.  */
       if (parm)
-	return gen_rtx_REG (SImode, 0);
+	{
+	  int regno = 0;
+	  if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type)))
+	    regno = 2;
+	  return gen_rtx_REG (SImode, 0);
+	}
     }
 
   if (aggregate_value_p (TREE_TYPE (type)))
@@ -15120,7 +15192,7 @@ x86_can_output_mi_thunk (tree thunk ATTRIBUTE_UNUSED,
     return true;
 
   /* For 32-bit, everything's fine if we have one free register.  */
-  if (ix86_fntype_regparm (TREE_TYPE (function)) < 3)
+  if (ix86_function_regparm (TREE_TYPE (function), function) < 3)
     return true;
 
   /* Need a free register for vcall_offset.  */
@@ -15191,7 +15263,13 @@ x86_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
       if (TARGET_64BIT)
 	tmp = gen_rtx_REG (DImode, FIRST_REX_INT_REG + 2 /* R10 */);
       else
-	tmp = gen_rtx_REG (SImode, 2 /* ECX */);
+	{
+	  int tmp_regno = 2 /* ECX */;
+	  if (lookup_attribute ("fastcall",
+	      TYPE_ATTRIBUTES (TREE_TYPE (function))))
+	    tmp_regno = 0 /* EAX */;
+	  tmp = gen_rtx_REG (SImode, tmp_regno);
+	}
 
       xops[0] = gen_rtx_MEM (Pmode, this_reg);
       xops[1] = tmp;

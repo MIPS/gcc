@@ -119,7 +119,7 @@ struct _cpp_file
 /* A singly-linked list for all searches for a given file name, with
    its head pointed to by a slot in FILE_HASH.  The file name is what
    appeared between the quotes in a #include directive; it can be
-   determined implicity from the hash table location or explicitly
+   determined implicitly from the hash table location or explicitly
    from FILE->name.
 
    FILE is a structure containing details about the file that was
@@ -334,7 +334,7 @@ find_file_in_dir (cpp_reader *pfile, _cpp_file *file)
    add the result to our cache.
 
    If the file was not found in the filesystem, or there was an error
-   opening it, then ERR_NO is non-zero and FD is -1.  If the file was
+   opening it, then ERR_NO is nonzero and FD is -1.  If the file was
    found, then ERR_NO is zero and FD could be -1 or an open file
    descriptor.  FD can be -1 if the file was found in the cache and
    had previously been closed.  To open it again pass the return value
@@ -494,7 +494,7 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
 }
 
 /* Convenience wrapper around read_file_guts that opens the file if
-   necessary and closes the file desciptor after reading.  FILE must
+   necessary and closes the file descriptor after reading.  FILE must
    have been passed through find_file() at some stage.  */
 static bool
 read_file (cpp_reader *pfile, _cpp_file *file)
@@ -615,7 +615,8 @@ stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
 
   /* Stack the buffer.  */
   buffer = cpp_push_buffer (pfile, file->buffer, file->st.st_size,
-			    CPP_OPTION (pfile, preprocessed), 0);
+			    CPP_OPTION (pfile, preprocessed),
+			    ! pfile->buffer);
   buffer->file = file;
 
   /* Initialize controlling macro state.  */
@@ -675,7 +676,7 @@ search_path_head (cpp_reader *pfile, const char *fname, int angle_brackets,
 }
 
 /* Strip the basename from the file's path.  It ends with a slash if
-   of non-zero length.  Note that this procedure also works for
+   of nonzero length.  Note that this procedure also works for
    <stdin>, which is represented by the empty string.  */
 static const char *
 dir_name_of_file (_cpp_file *file)
