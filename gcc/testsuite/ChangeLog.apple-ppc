@@ -1,3 +1,8 @@
+2004-11-08  Devang Patel  <dpatel@apple.com>
+
+	Radar 3869007
+	* gcc.dg/tree-ssa/ivcanon-1.c: Do not use -fscalar-evolutions.
+
 2004-11-05  Devang Patel  <dpatel@apple.com>
 
 	Radar 3853509.
