@@ -98,7 +98,7 @@ enum built_in_function
 extern const char *const built_in_names[(int) END_BUILTINS];
 
 /* An array of _DECL trees for the above.  */
-extern tree built_in_decls[(int) END_BUILTINS];
+extern GTY(()) tree built_in_decls[(int) END_BUILTINS];
 
 /* The definition of tree nodes fills the next several pages.  */
 

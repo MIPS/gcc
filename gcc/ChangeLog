@@ -1,5 +1,7 @@
 2002-12-24  Geoffrey Keating  <geoffk@apple.com>
 
+	* tree.h (built_in_decls): Mark for PCH.
+
 	* dbxout.c (lastfile): Don't mark for PCH.
 
 	* ggc.h: Document PCH calls into memory managers.
