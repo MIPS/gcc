@@ -450,7 +450,11 @@ create_preheader (loop, dom, flags)
 	return NULL;
     }
 
-  insn = PREV_INSN (first_insn_after_basic_block_note (loop->header));
+  insn = first_insn_after_basic_block_note (loop->header);
+  if (insn)
+    insn = PREV_INSN (insn);
+  else
+    insn = get_last_insn ();
   fallthru = split_block (loop->header, insn);
   dummy = fallthru->src;
   if (loop->latch == loop->header)
