@@ -1432,7 +1432,7 @@ gfc_match_pause (void)
 	  return MATCH_ERROR;
 	}
       else
-	gfc_warning ("Use of the PAUSE statement at %C is depreciated");
+	gfc_warning ("Use of the PAUSE statement at %C is deprecated");
     }
   return m;
 }

@@ -1,3 +1,7 @@
+2004-01-01  Steve Kargl  <sgk@troutmask.apl.washington.edu>
+
+	* match.c (gfc_match_pause): Fix spelling.
+
 2004-01-01  Steven Bosscher  <stevenb@suse.de>
 
 	PR fortran/13251
