@@ -32,7 +32,6 @@ Boston, MA 02111-1307, USA.  */
 #include "basic-block.h"
 #include "flags.h"
 #include "tree-flow.h"
-#include "tree-alias-common.h"
 #include "tree-dchain.h"
 
 /* Shared functions with tree-cfg.c and tree-ssa.c.  */
@@ -77,9 +76,6 @@ optimize_function_tree (fndecl)
   if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
     {
       build_tree_ssa (fndecl);
-
-      if (flag_tree_points_to)
-	create_alias_vars ();
 
       if (flag_tree_pre)
 	tree_perform_ssapre ();

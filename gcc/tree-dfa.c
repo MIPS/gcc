@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-flow.h"
 #include "tree-inline.h"
 
+#include "tree-alias-common.h"
 
 /* Local declarations.  */
 struct clobber_data_d
@@ -1711,6 +1712,9 @@ compute_may_aliases ()
 {
   unsigned long i;
 
+  if (flag_tree_points_to)
+    create_alias_vars ();
+
   for (i = 0; i < num_referenced_vars; i++)
     {
       tree var = referenced_var (i);
@@ -1720,6 +1724,8 @@ compute_may_aliases ()
       if (POINTER_TYPE_P (TREE_TYPE (sym)))
 	find_may_aliases_for (var);
     }
+  if (flag_tree_points_to)
+    delete_alias_vars ();
 }
 
 
@@ -1759,8 +1765,12 @@ may_alias_p (ptr, var_sym)
   tree ptr_sym = get_base_symbol (ptr);
 
   /* GLOBAL_VAR aliases every global variable and locals that have had
-     their addresses taken.  */
-  if (ptr == global_var
+     their address taken, unless points-to analysis is done. This is because
+     points-to is supposed to handle this case, and thus, can give a more
+     accurate answer.   */
+
+  if (!flag_tree_points_to && 
+      ptr == global_var
       && var_sym != global_var
       && (TREE_ADDRESSABLE (var_sym)
 	  || decl_function_context (var_sym) == NULL))
@@ -1778,7 +1788,14 @@ may_alias_p (ptr, var_sym)
   ptr_alias_set = get_alias_set (TREE_TYPE (ptr));
   var_alias_set = get_alias_set (TREE_TYPE (var_sym));
 
-  return alias_sets_conflict_p (ptr_alias_set, var_alias_set);
+  if (!alias_sets_conflict_p (ptr_alias_set, var_alias_set))
+    return false;
+
+  if (!flag_tree_points_to)
+    return true;
+
+  return ptr_may_alias_var (ptr_sym, var_sym);
+
 }
 
 

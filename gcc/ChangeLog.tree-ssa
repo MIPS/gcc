@@ -1,3 +1,12 @@
+2002-10-16  Daniel Berlin  <dberlin@dberlin.org>
+	 
+	* tree-dfa.c (compute_may_aliases): Call create/delete_alias_vars
+	if flag_tree_points_to is on.
+	(may_alias_p): Use points-to info if user asked us to generate it.
+
+	* tree-optimize.c (optimize_function_tree): Don't call
+	create_alias_vars here.
+	
 2002-10-16  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (make_cond_expr_edges): If the conditional has known
