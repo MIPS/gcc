@@ -1,3 +1,25 @@
+2002-12-02  Daniel Berlin <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (okay_injuring_def): inj could be null.
+	(get_operand):  Use instead of special casing INDIRECT_REF and
+	COMPONENT_REF everywhere. 
+	(names_match_p): Fix.
+	(defs_match_p): Ignore partial uses.
+	(rename_2): Fix non-matching condition.
+	(update_old_new): Update the kills and lefts arrays.
+	(finalize_1): Set the bb for the new statement.
+	(update_ssa_for_new_use): Ditto.
+	(code_motion): Ditto.
+	(call_modifies_slot): Handle function pointers (where we end up
+	with a _DECL as our argument).
+	(pre_part_1_trav): Update the kills and lefts arrays.
+	Just use TREE_TYPE (ei->expr) for type of expression.
+	(add_left_occ): New helper function.
+	(process_left_occs_and_kills): Add other cases we need to handle.
+	(tree_perform_ssapre): Add new processed array, since for left
+	occurrences and kills, we need to process *all* statements, not
+	just ones we might consider candiates for PRE.
+	
 2002-12-02  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (find_refs_in_expr): Look for references in
