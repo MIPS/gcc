@@ -1,3 +1,42 @@
+2002-12-12  Devang Patel <dpatel@apple.com>
+	* gcc.dg/darwin-ld-1.c: New test.
+	* gcc.dg/darwin-ld-2.c: New test.
+	* gcc.dg/darwin-ld-3.c: New test.
+	* gcc.dg/darwin-ld-4.c: New test.
+	* gcc.dg/darwin-ld-5.c: New test.
+	
+2002-12-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20021212-1.c: New test.
+
+2002-12-11  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/fshort-wchar: New test.
+
+2002-12-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8372
+	* g++.dg/template/dtor1.C: New test.
+
+	* g++.old-deja/g++.ext/memconst.C: Use old-deja, not dg, error
+	markers.
+
+2002-12-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/parse/parameter-declaration-1.C: Expect error on last line.
+
+2002-12-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/template/static1.C: New test.
+	* g++.dg/template/static2.C: New test.
+	* g++.old-deja/g++.ext/memconst.C: New test.
+
+2002-12-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.dg/special/conpr-2.C: Expect failure on solaris2.
+	* g++.dg/special/ecos.exp (conpr-3.C): Likewise.
+	* g++.dg/special/initp1.C: Likewise.
+
 2002-12-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.c-torture/execute/20021204-1.c: New test.

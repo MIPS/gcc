@@ -1,3 +1,7 @@
+Sat Dec 14 23:00:47 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from 3.3 branch (hammer-3_3-20021412 tag)
+
 Tue Dec 10 20:34:42 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* cfg.c (dump_flow_info): Move regalloc and reg-scan data dump to ...

@@ -1,3 +1,289 @@
+2002-12-13  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa.c (output_millicode_call): Correct typo.
+	(output_call): Likewise.
+
+Fri Dec 13 21:07:18 2002  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/mn10300/mn10300.c (print_operand) <case N>: Check
+	operand's range.  Print value directly, without aid from
+	output_address.
+	<case U>: New.
+	<case S>: Make sure argument to fprintf has the right type.
+	* config/mn10300/mn10300.h (OK_FOR_T): New macro.
+	(EXTRA_CONSTRAINT): Adjust.
+	* config/mn10300/mn10300.md: Add new all-QImode pattern for
+	bclr.  Use %U for immediate operands of bset and bclr.
+	(iorqi3): New expand, with insns for AM33 and mn10300.
+
+Fri Dec 13 16:02:27 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.c (sh_register_operand): New function.
+	(prepare_move_operands): Use it.
+	* sh.h (PREDICATE_CODES): Add entry for sh_register_operand.
+	* sh.md (movsi_media, movsi_media_nofpu): Allow stores of 0.
+	(movqi_media, movhi_media, movdi_media, movdi_media_nofpu): Likewise.
+	(movdf_media, movdf_media_nofpu, movv4sf_i, movsf_media): Likewise.
+	(movsf_media_nofpu, movv2hi_i, movv4hi_i, movv8qi_i): Likewise.
+	(movv2si_i): Likewise.
+
+2002-12-13  Jim Wilson  <wilson@redhat.com>
+
+	* doc/extend.texi (Complex Numbers): Update info on debug info.
+
+2002-12-13  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (addhi3_h8300): Remove the last
+	alternative.
+
+2002-12-12  Devang Patel  <dpatel@apple.com>
+
+	* doc/invoke.texi: Document Darwin linker options, -bundle
+	-bind_at_load, -all_load and -arch_errors_fatal
+
+2002-12-12  Jim Wilson  <wilson@redhat.com>
+
+	* dbxout.c (dbxout_fptype_value): New.
+	(dbxout_type, case COMPLEX_TYPE): Call it.  Use 'R' instead of 'r'.
+
+2002-12-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* c-decl.c: Fix a comment typo.
+	* cfg.c: Likewise.
+	* cfgcleanup.c: Likewise.
+	* cfglayout.c: Likewise.
+	* cfgrtl.c: Likewise.
+	* c-typeck.c: Likewise.
+	* dominance.c: Likewise.
+	* dwarf2asm.c: Likewise.
+	* dwarfout.c: Likewise.
+	* expmed.c: Likewise.
+	* expr.c: Likewise.
+	* final.c: Likewise.
+	* flow.c: Likewise.
+	* function.c: Likewise.
+	* gcc.c: Likewise.
+	* genautomata.c: Likewise.
+	* integrate.c: Likewise.
+	* loop.c: Likewise.
+	* loop.h: Likewise.
+	* output.h: Likewise.
+	* profile.c: Likewise.
+	* ra.h: Likewise.
+	* reload1.c: Likewise.
+	* reload.c: Likewise.
+	* sched-rgn.c: Likewise.
+	* stmt.c: Likewise.
+	* tree.h: Likewise.
+	* vmsdbgout.c: Likewise.
+
+2002-12-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md: Add a new peephole2.
+
+2002-12-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (a peephole2): Accept a constant
+	that's accepted by CONST_OK_FOR_J.
+
+2002-12-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h (CONST_OK_FOR_J): New.
+	(CONST_OK_FOR_LETTER_P): Use CONST_OK_FOR_J.
+	* config/h8300/h8300.md (*addhi_h8300): Add a new alternative.
+	(*addhi_h8300hs): Likewise.
+
+Thu Dec 12 16:24:59 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.c (reg_class_from_letter): No longer const.  Add 'e' entry.
+	(sh_register_move_cost): Add clause for SImode fp-fp moves.
+	Increase cost for moves involving multiple general purpose registers.
+	* sh.h (OVERRIDE_OPTIONS): Set reg_class_from_letter['e'] according to
+	TARGET_FMOVD.
+	(HARD_REGNO_MODE_OK): Allow V2SFmode and V4SFmode in general purpose
+	registers, and SImode in fp registers, for ! TARGET_SHMEDIA.
+	(enum reg_class reg_class_from_letter): No longer const.
+	(SECONDARY_OUTPUT_RELOAD_CLASS): Use REGCLASS_HAS_FP_REG /
+	REGCLASS_HAS_GENERAL_REG.
+	Handle SImode moves from/to fp registers.
+	! TARGET_SHMEDIA && TARGET_FMOVD.
+	(SECONDARY_INPUT_RELOAD_CLASS): Use REGCLASS_HAS_FP_REG.
+	* sh.md (movsi_ie): Add alternatives to move from / to fp regisyters.
+
+2002-12-12  Andreas Schwab  <schwab@suse.de>
+
+	* config/ia64/ia64.c (ia64_hpux_asm_file_end): Fix typo in last
+	change and some warnings.
+
+2002-12-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/md.texi (pushm): Fix a typo.
+
+2002-12-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/mips/mips.c (mips_output_conditional_branch): Support
+	PIC-safe out-of-range branch and branch-likely.
+	* config/mips/mips.md (attr length): PIC-safe out-of-range
+	branches are longer.
+	("jump"): Support PIC-safe out-of-range-for-branch jumps.  Remove
+	unused code to support indirect jumps.
+
+2002-12-11  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa.h (BIGGEST_ALIGNMENT): Change 32-bit value to 64 bits.
+	(MAX_PARM_BOUNDARY, STACK_BOUNDARY): Express in terms of
+	BIGGEST_ALIGNMENT.
+	(PREFERRED_STACK_BOUNDARY): Express in terms of STACK_BOUNDARY.
+	(FUNCTION_BOUNDARY): Express in terms of BITS_PER_WORD.
+
+2002-12-11  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/invoke.texi: Correct dump file names.
+
+2002-12-09  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/ia64.c (ia64_hpux_asm_file_end): Don't send stripped
+	name to globalize_label or assemble_name.
+
+Wed Dec 11 20:15:19 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.h (REG_CLASS_HAS_GENERAL_REG): Only true for SIBCALL_REGS
+	if not TARGET_SHMEDIA.
+
+Wed Dec 11 19:05:05 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.h (REG_CLASS_HAS_FP_REG): New.
+	(REGISTER_MOVE_COST) Use it.  Put body into a function and
+	move it into:
+	* sh.c (sh_register_move_cost).
+	* sh-protos.h (sh_register_move_cost): Declare.
+
+	* sh.c (sh_expand_builtin): Abort for unexpected nop values.
+	(sh_adjust_cost): Always return a value.
+
+Wed Dec 11 18:39:52 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.h (REG_CLASS_HAS_GENERAL_REG): New.
+	(REGISTER_MOVE_COST): Use it.
+
+2002-12-11  Richard Henderson  <rth@redhat.com>
+
+	* tree.h (MODULE_LOCAL_P): Kill.
+	* varasm.c (default_binds_local_p_1): Use decl_visibility instead.
+
+2002-12-11  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (two define_peephole2): New.
+
+2002-12-11  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h (CONST_OK_FOR_J): Remove.
+	(CONST_OK_FOR_K): Likewise.
+	(CONST_OK_FOR_M): Likewise.
+	(CONST_OK_FOR_LETTER_P): Do not use the above macros.
+
+2002-12-11  Neil Booth  <neil@daikokuya.co.uk>
+
+	* c-common.c (builtin_define_type_max): Handle unsigned
+	types too.
+
+2002-12-10  Janis Johnson  <janis187@us.ibm.com>
+
+	PR other/8882
+	* doc/tm.texi (PUSH_ARGS): Remove misplaced line.
+
+2002-12-10  Devang Patel  <dpatel@appple.com>
+
+	* config/darwin.h(LINK_SPEC): Add darwin specific linker options.
+	* doc/invoke.texi: Add new "Darwin Options" section.
+	
+2002-12-10  Jim Wilson  <wilson@redhat.com>
+
+	* rs6000.h (RETURN_IN_MEMORY): If ABI_V4, then TFmode is returned in
+	memory.
+
+2002-12-10  Andrew Haley  <aph@redhat.com>
+
+	* cse.c (cse_insn): Don't cse past a basic block boundary.
+
+2002-12-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/linux.h (LIB_SPEC): If -pthread, add -lpthread even if
+	-shared.
+	* config/alpha/linux-elf.h (LIB_SPEC): Likewise.
+	* config/alpha/linux.h (LIB_SPEC): Likewise.
+	* config/arm/linux-elf.h (LIB_SPEC): Likewise.
+	* config/pa/pa-linux.h (LIB_SPEC): Likewise.
+	* config/sparc/linux.h (LIB_SPEC): Likewise.
+	* config/sparc/linux64.h (LIB_SPEC): Likewise.
+
+2002-12-09  Larin Hennessy  <larin@science.oregonstate.edu>
+
+	* doc/invoke.texi: Document UltraSparc III option.
+
+2002-12-09  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.h (TARGET_CPU_CPP_BUILTINS): Define
+	__tune_pentium2__ and __tune_pentium3__ as necessary.
+
+2002-12-09  Richard Henderson  <rth@redhat.com>
+
+	* target.h (gcc_target): Add cannot_force_const_mem.
+	* target-def.h (TARGET_CANNOT_FORCE_CONST_MEM): New.
+	(TARGET_INITIALIZER): Add it.
+	* varasm.c (force_const_mem): Fail if cannot_force_const_mem.
+	* expr.c (emit_move_insn): Be prepared for force_const_mem to fail.
+	* reload1.c (reload): Likewise.
+	* hooks.c (hook_bool_rtx_false): New.
+	* hooks.h: Declare it.
+
+	* config/i386/i386.c (ix86_cannot_force_const_mem): New.
+	(TARGET_CANNOT_FORCE_CONST_MEM): New.
+	(ix86_expand_move): Remove de-const-pooling hack.
+
+Mon Dec  9 21:33:38 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* toplev.c (dump_file): Fix order to match reality.
+
+2002-12-08  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/rs6000/rs6000.md (load_multiple): Use adjust_address_nv.
+	(store_multiple): Likewise.
+
+2002-12-09  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa/fptr.c (__canonicalize_funcptr_for_compare): Don't canonicalize
+	function pointers in page 0.
+
+2002-12-09  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/hpux.h (TARGET_STRUCT_ARG_REG_LITTLE_ENDIAN): Remove
+	definition
+	(MEMBER_TYPE_FORCES_BLK): Move.
+	* config/ia64/ia64.c (ia64_function_arg): Use PARALLEL to pass
+	aggregate arguments.
+	(ia64_function_value): Use PARALLEL to return aggregate values.
+
+2002-12-09  Steve Ellcey  <sje@cup.hp.com>
+
+	* doc/tm.texi (FUNCTION_ARG_REG_LITTLE_ENDIAN): Remove definition.
+	* defaults.h (FUNCTION_ARG_REG_LITTLE_ENDIAN): Remove definition.
+	* calls.c (store_unaligned_arguments_into_pseudos) Remove
+	FUNCTION_ARG_REG_LITTLE_ENDIAN.
+	* stmt.c (expand_return): Ditto.
+	* expr.c (move_block_from_reg): Ditto.
+	(copy_blkmode_from_reg): Ditto.
+	* expmed.c (store_bit_field): Ditto. 
+
+2002-12-09  Svein E. Seldal  <Svein.Seldal@solidas.com>
+
+	* config.gcc: Added tic4x-* target as an alias to c4x-*
+
+Sun Dec  8 14:57:39 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_int_movcc): Use force_operand instead of
+	constructing insn directly.
+
 2002-12-07  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* config/h8300/h8300.md (*iorhi_shift_8): New.
@@ -1900,6 +2186,7 @@ Tue Oct 29 15:37:39 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 2002-10-29  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
+	PR optimization/8334
 	* expr.c (expand_expr) [PLUS]: Don't use simplify_binary_operation;
 	check for zero operands explicitly.
 

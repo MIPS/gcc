@@ -20,13 +20,13 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifndef GCC_CP_TREE_H
+#define GCC_CP_TREE_H
+
 #include "function.h"
 #include "hashtab.h"
 #include "splay-tree.h"
 #include "varray.h"
-
-#ifndef GCC_CP_TREE_H
-#define GCC_CP_TREE_H
 
 #ifndef __GNUC__
 #error "You should be using 'make bootstrap' -- see installation instructions"
@@ -1117,7 +1117,6 @@ struct lang_type_class GTY(())
   unsigned has_arrow_overloaded : 1;
   unsigned interface_only : 1;
   unsigned interface_unknown : 1;
-  unsigned needs_virtual_reinit : 1;
 
   unsigned marks: 6;
   unsigned vec_new_uses_cookie : 1;
@@ -1152,7 +1151,7 @@ struct lang_type_class GTY(())
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 4;
+  unsigned dummy : 5;
 
   tree primary_base;
   tree vfields;

@@ -3209,6 +3209,10 @@ force_const_mem (mode, x)
   struct pool_constant *pool;
   unsigned int align;
 
+  /* If we're not allowed to drop X into the constant pool, don't.  */
+  if ((*targetm.cannot_force_const_mem) (x))
+    return NULL_RTX;
+
   /* Compute hash code of X.  Search the descriptors for that hash code
      to see if any of them describes X.  If yes, we have an rtx to use.  */
   hash = const_hash_rtx (mode, x);
@@ -5413,7 +5417,7 @@ default_binds_local_p_1 (exp, shlib)
   else if (! TREE_PUBLIC (exp))
     local_p = true;
   /* A variable is local if the user tells us so.  */
-  else if (MODULE_LOCAL_P (exp))
+  else if (decl_visibility (exp) != VISIBILITY_DEFAULT)
     local_p = true;
   /* Otherwise, variables defined outside this object may not be local.  */
   else if (DECL_EXTERNAL (exp))

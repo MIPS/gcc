@@ -1,3 +1,96 @@
+2002-12-13  Casey Marshall  <rsdio@metastatic.org>
+	    Mark Wielaard  <mark@klomp.org>
+
+	* java/security/SecurityRandom (digest): Removed field.
+	(SecureRandom): Check all providers for case-insensitive SecureRandom
+	implementation. Don't ignore classname == null. Fallback to SHA1PRNG
+	if necessary.
+	(getInstance(String,Provider,boolean): New method.
+	(getInstance(String)): Use new method.
+	(getInstance(String,String)): Likewise.
+	(getInstance(String,Provider)): Likewise.
+
+2002-12-13  Casey Marshall  <rsdio@metastatic.org>
+
+	* java/security/Security.java (loadProviders): Increment i only once.
+
+2002-12-12  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/ClassLoader.java (resolveClass0): Transform
+	ClassNotFoundException to NoClassDefFoundError. Transform all other
+	throwables to LinkageError.
+
+2002-12-11  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/ClassLoader.java (findLoadedClass): Now synchronized.
+
+	* java/lang/ClassLoader.java (loadedClasses): New field.
+	(defineClass): Fixed indentation.  Put new class in
+	loadedClasses.
+	(findLoadedClass): Implement here.
+	* java/lang/natClassLoader.cc (findLoadedClass): Removed.
+
+2002-12-10  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (nat_source_files): Added natVMClassLoader.cc.
+	* gnu/gcj/runtime/natVMClassLoader.cc: New file.
+	(gnu::gcj::runtime::VMClassLoader::findClass): Moved here.
+	* java/lang/natClassLoader.cc
+	(gnu::gcj::runtime::VMClassLoader::findClass): Removed.
+
+2002-12-10  Mark Wielaard  <mark@klomp.org>
+            Tom Tromey  <tromey@redhat.com>
+
+	* java/net/URLClassLoader.java (getCanonicalFileURL): New method.
+	(JarURLLoader): Use it.
+	(FileURLLoader): Likewise.
+	(JarURLResource.getURL): Use chained exception.
+	(FileResource.getURL): Likewise.
+	(FileURLLoader.getResource): Use canonical file name.
+	(addURL): Indentation fix.
+
+2002-12-10  Tom Tromey  <tromey@redhat.com>
+
+	* include/win32.h: Fixed typo in "DISABLE_JAVA_NET".
+	From Laurent Bardet <l.bardet@magic.fr>.
+
+2002-12-09  Tom Tromey  <tromey@redhat.com>
+
+	* include/win32.h (_Jv_platform_solib_prefix): New define.
+	(_Jv_platform_solib_suffix): Likewise.
+	* include/posix.h (_Jv_platform_solib_prefix): New define.
+	(_Jv_platform_solib_suffix): Likewise.
+	* java/lang/natRuntime.cc: Include StackTrace.h.
+	(_load): Use findLibrary and new platform defines.
+	(nativeGetLibname): Use new platform defines.
+
+	* java/util/natResourceBundle.cc (getCallingClassLoader): Assume
+	`t' won't be null.
+
+2002-12-08  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/gcj/protocol/jar/Connection.java (getJarFile): download and
+	cache remote jar files.
+	* gnu/gcj/runtime/VMClassLoader.java: Don't construct jar URL, only
+	add File.separator to URL when it is a directory.
+	* java/lang/ClassLoader.java: Add Classpath javadoc.
+	(parent): final.
+	(getParent): Add (disabled) security check.
+	(findLibrary): New default method.
+	* java/net/JarURLConnection.java (getManifest): Implement.
+	(getInputStream): Only create InputStream when entry exists.
+	(getHeaders): Only use jarFileURLConnection or JarEntry to set length
+	when they exist.
+	* java/net/URLClassLoader.java: New/Rewritten version from Classpath.
+
+2002-12-08  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/ResourceBundle.java (resourceBundleCache): Not final.
+	(lastDefaultLocale): New field.
+	(getBundle): When Locale.getDefault != lastDefaultLocale reset
+	resourceBundleCache.
+
 2002-12-06  Mark Wielaard  <mark@klomp.org>
 
 	* java/net/InetAddress.java (toString): Use hostname when not null,
@@ -1241,7 +1334,8 @@
 	heavy_lock_obj_finalization_proc, wait, notify, notifyAll):
 	removed some posix-isms, use Thread::sleep() instead of usleep,
 	added code to clear bottom three bits if platform has a broken
-	linker.  * include/win32-threads.h (_Jv_ThreadId_t): added.
+	linker.
+	* include/win32-threads.h (_Jv_ThreadId_t): added.
 
 2002-10-19  Ranjit Mathew <rmathew@hotmail.com>
 
