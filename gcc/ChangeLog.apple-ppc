@@ -1,3 +1,9 @@
+2004-11-30  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3893125
+	* loop.c (loop_giv_reduce_benefit): Remove APPLE LOCAL
+	patch which caused regression in galaxy(VMX) of skidmarks.
+
 2004-11-24  Devang Patel  <dpatel@apple.com>
 
 	* gcc.h: APPLE LOCAL marker cleanup.

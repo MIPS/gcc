@@ -5563,24 +5563,6 @@ loop_giv_reduce_benefit (struct loop *loop ATTRIBUTE_UNUSED,
      determining code size than run-time benefits.  */
   benefit -= add_cost * bl->biv_count;
 
-  /* APPLE LOCAL begin better induction variable selection */
-#ifdef TARGET_POWERPC
-  /* Adjust this computation to allow for the likelihood that the
-     original increment of the biv will be deleted.  This permits
-     induction variables to be selected correctly in simple
-     cases like for(i){a[i]=42;}  Without this, choice of induction
-     variables is sensitive to whether the relative stack offset of
-     a is 0 or not(!)  On x86 it is probably superior to be more
-     conservative, as there aren't enough registers.  */
-  if ( v->replaceable && bl->eliminable )
-    {
-      int orig_add_cost = iv_add_mult_cost (bl->biv->add_val, 
-				bl->biv->mult_val, test_reg, test_reg);
-      benefit += orig_add_cost * bl->biv_count;
-    }
-#endif
-  /* APPLE LOCAL end better induction variable selection */
-
   /* Decide whether to strength-reduce this giv or to leave the code
      unchanged (recompute it from the biv each time it is used).  This
      decision can be made independently for each giv.  */
