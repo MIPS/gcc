@@ -1,3 +1,9 @@
+2002-09-21  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (struct expr_info): Add repaired member.
+	(repair_injury): Track which injuries we repaired, so we don't
+	repair them > 1 time.
+
 2002-09-20  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-pretty-print.c (dump_c_node): Fix call to REAL_VALUE_TO_DECIMAL.
@@ -79,6 +85,15 @@
 
 	* tree-ssa-dce.c (tree_ssa_eliminate_dead_code): Fix dump handling.
 
+2002-09-18  Daniel Berlin <dberlin@dberlin.org>
+
+	* tree-dump.c (dump_files): Use dump-tree-ssa-??? for the option names
+	and "ssa-???" for the dump files.
+
+	* tree.h: TDI_ccp and TDI_dce -> TDI_ssa_ccp and TDI_ssa_dce.
+
+	* tree-ssa-ccp.c: TDI_ccp->TDI_ssa_ccp.
+	
 2002-09-18  Daniel Berlin <dberlin@dberlin.org>
 	
 	* tree-dump.c: Fix order of dump files

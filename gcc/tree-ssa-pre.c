@@ -152,6 +152,8 @@ struct expr_info
   varray_type refs;
   /* True if it's a strength reduction candidate. */
   bool strred_cand;
+  /* Map of repairs we've already completed. */
+  htab_t repaired;
 };
 
 /* Returns true if a dominates b */
@@ -337,6 +339,7 @@ free_expr_info (v1)
   VARRAY_CLEAR (e1->phis);
   VARRAY_CLEAR (e1->erefs);
   VARRAY_CLEAR (e1->refs);
+  htab_delete (e1->repaired);
   /*free (e1);*/
 }
 
@@ -548,10 +551,12 @@ defs_match_p (ei, t1, t2)
 	while (is_injuring_def (ei, ref_expr (imm_reaching_def (use1))))
 	  {
 	    /* First, we get the use in the *injuring definition*. */
-	    use1 = find_rhs_use_for_var (imm_reaching_def (use1), ref_var (use1));
+	    use1 = find_rhs_use_for_var (imm_reaching_def (use1), 
+					 ref_var (use1));
 	    /* Now, use the use we just got to get the use from before it was
 	       injured. */
-	    use1 = find_rhs_use_for_var (imm_reaching_def (use1), ref_var (use1));
+	    use1 = find_rhs_use_for_var (imm_reaching_def (use1), 
+					 ref_var (use1));
 	  }
       if (imm_reaching_def (use2) != imm_reaching_def (use1))
         return false;
@@ -590,9 +595,7 @@ insert_euse_in_preorder_dt_order_1 (ei, fh, block)
       if (ref_bb (ref) != block)
 	continue;
       if ((ref_type (ref) & E_USE) || ref_type (ref) == E_PHI)
-        {
-          fibheap_insert (fh, preorder_count++, ref);
-        }
+	fibheap_insert (fh, preorder_count++, ref);
     }
   EXECUTE_IF_SET_IN_SBITMAP (domchildren[block->index], 0, i, 
   {
@@ -620,9 +623,8 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
   size_t i;
   edge succ; 
   if (phi_at_block (ei, block) != NULL)
-    {
-      fibheap_insert (fh, preorder_count++, phi_at_block (ei, block));
-    }
+    fibheap_insert (fh, preorder_count++, phi_at_block (ei, block));
+
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->occurs); i++)
     {
       tree_ref newref;
@@ -673,8 +675,7 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
               phi_operand (phi, block) = newref;
               fibheap_insert (fh, preorder_count++, newref);
             }
-        }
-      
+        }      
       else
         {
 	  /* No point in inserting exit blocks into heap first, since
@@ -710,10 +711,8 @@ opnum_of_phi (phi, j)
      when it sees a phi in the successor during it's traversal.  So the
      order is dependent on the traversal order.  */
   for (i = 0 ; i < num_phi_args (phi); i++)
-    {
-      if (phi_arg_edge (phi_arg (phi, i))->src->index == j)
-	return i;
-    }
+    if (phi_arg_edge (phi_arg (phi, i))->src->index == j)
+      return i;
   
   abort();
 }
@@ -1180,9 +1179,8 @@ catch it in rename_2 or during downsafety propagation. */
 	continue;
 
       if (def && (ref_type (def) & E_PHI))
-	{
-	  set_exprphi_downsafe (def, false);
-	}
+	set_exprphi_downsafe (def, false);
+
       set_expruse_def (ref, NULL);
     }
   fibheap_delete (fh);
@@ -1335,8 +1333,9 @@ finalize_2 (ei)
     {
       tree_ref ref = VARRAY_GENERIC_PTR (ei->erefs, i);
       if (ref_type (ref) & E_USE 
-	  && expruse_phiop (ref) == false && !exprref_inserted (ref))
-	{	 
+	  && expruse_phiop (ref) == false 
+	  && !exprref_inserted (ref))
+	{
 	  if (exprref_reload (ref))
 	    set_save (ei, expruse_def (ref));
 	}
@@ -1511,7 +1510,8 @@ expr_phi_insertion (dfs, ei)
 		  ref = find_rhs_use_for_var (imm_reaching_def (ref), 
 					      ref_var (ref));
 		}
-	      /* ??? If the trees aren't shared, will the last part of this || work right? */
+	      /* ??? If the trees aren't shared, will the last part of this ||
+		 work right? */ 
               if (!(ref_type (ref) & V_USE )
                   || !is_simple_modify_expr (ref_expr (ref))
                   || TREE_OPERAND (ref_expr (ref), 1) != real)
@@ -1809,11 +1809,14 @@ calculate_increment (ei, expr)
      tree expr;
 {
   tree incr;
-  /*XXX: Currently assume it's like a = a + 5, thus, this will give us the 5. */
+  
+  /*XXX: Currently assume it's like a = a + 5, thus, this will give us the 5. 
+   */
   incr = TREE_OPERAND (TREE_OPERAND (expr, 1), 1);
   if (TREE_CODE (incr) != INTEGER_CST)
     abort();
-  /*XXX: Currently assume it's a * <constant>, thus this will give us constant. */
+  /*XXX: Currently assume it's a * <constant>, thus this will give us
+    constant. */ 
   incr = build_binary_op (MULT_EXPR, incr, TREE_OPERAND (ei->expr, 1), 1);
 #if DEBUGGING_STRRED
   fprintf (stderr, "Increment calculated to be: ");
@@ -1825,8 +1828,6 @@ calculate_increment (ei, expr)
 /* Repair the injury for USE. Currently ugly as hell, i'm just making it do
  *something* so i can make sure we are choosing candidates and renaming
  properly. */
- /*FIXME: This will brokenly repair the same injury multiple times, if
-   called on the same use > 1 time. */
 static void
 repair_injury (ei, use, temp)
      struct expr_info *ei;
@@ -1850,23 +1851,28 @@ repair_injury (ei, use, temp)
 	{
 	  while (is_injuring_def (ei, ref_expr (v)))
 	    {
+	      if (htab_find (ei->repaired, ref_expr (v)) == NULL)
+		{
 #if DEBUGGING_STRRED
-	      fprintf (stderr, "Injuring def to repair is: ");
-	      debug_c_tree (ref_expr (v));
+		  fprintf (stderr, "Injuring def to repair is: ");
+		  debug_c_tree (ref_expr (v));
 #endif
-	      incr = calculate_increment (ei, ref_expr (v));
-	      expr = build_modify_expr (temp, NOP_EXPR, build_binary_op
-					(PLUS_EXPR, temp, incr, 0));
-	      stmt = build_stmt (EXPR_STMT, expr);
-	      TREE_TYPE (stmt) = TREE_TYPE (expr);
-	      bb = ref_bb (use);
-	      if (is_ctrl_altering_stmt (BLOCK_END_TREE (bb->index)))
-		insert_stmt_tree_before (stmt, BLOCK_END_TREE (bb->index),
-					 bb);
-	      else
-		insert_stmt_tree_after (stmt, BLOCK_END_TREE (bb->index),
-					bb);
-	      
+		  incr = calculate_increment (ei, ref_expr (v));
+		  expr = build_modify_expr (temp, NOP_EXPR, build_binary_op
+					    (PLUS_EXPR, temp, incr, 0));
+		  stmt = build_stmt (EXPR_STMT, expr);
+		  TREE_TYPE (stmt) = TREE_TYPE (expr);
+		  bb = ref_bb (use);
+		  if (is_ctrl_altering_stmt (BLOCK_END_TREE (bb->index)))
+		    insert_stmt_tree_before (stmt, BLOCK_END_TREE (bb->index),
+					     bb);
+		  else
+		    insert_stmt_tree_after (stmt, BLOCK_END_TREE (bb->index),
+					    bb);
+		  *(htab_find_slot (ei->repaired, ref_expr (v), INSERT)) = ref_expr (v);
+		  
+		  
+		}  
 	      v = find_rhs_use_for_var (v, TREE_OPERAND (ei->expr, i));
 	      if (ref_type (imm_reaching_def (v)) & M_DEFAULT)
 		break;
@@ -1890,22 +1896,32 @@ repair_injury (ei, use, temp)
 	{
 	  while (is_injuring_def (ei, ref_expr (imm_reaching_def (v))))
 	    {
+	      if (htab_find (ei->repaired, 
+			     ref_expr (imm_reaching_def (v))) == NULL)
+		{
+		  
 #if DEBUGGING_STRRED
-	      fprintf (stderr, "Injuring def to repair is: ");
-	      debug_c_node (ref_expr (imm_reaching_def (v)));
+		  fprintf (stderr, "Injuring def to repair is: ");
+		  debug_c_node (ref_expr (imm_reaching_def (v)));
 #endif
-	      incr = calculate_increment (ei, ref_expr (imm_reaching_def (v)));
-	      expr = build_modify_expr (temp, NOP_EXPR, build_binary_op
-					(PLUS_EXPR, temp, incr, 0));
-	      stmt = build_stmt (EXPR_STMT, expr);
-	      TREE_TYPE (stmt) = TREE_TYPE (expr);
-	      bb = ref_bb (use);
-	      if (is_ctrl_altering_stmt (BLOCK_END_TREE (bb->index)))
-		insert_stmt_tree_before (stmt, BLOCK_END_TREE (bb->index),
-					 bb);
-	      else
-		insert_stmt_tree_after (stmt, BLOCK_END_TREE (bb->index),
-					bb);
+		  incr = calculate_increment (ei,
+					      ref_expr (imm_reaching_def (v)));
+		  expr = build_modify_expr (temp, NOP_EXPR, build_binary_op
+					    (PLUS_EXPR, temp, incr, 0));
+		  stmt = build_stmt (EXPR_STMT, expr);
+		  TREE_TYPE (stmt) = TREE_TYPE (expr);
+		  bb = ref_bb (use);
+		  if (is_ctrl_altering_stmt (BLOCK_END_TREE (bb->index)))
+		    insert_stmt_tree_before (stmt, BLOCK_END_TREE (bb->index),
+					     bb);
+		  else
+		    insert_stmt_tree_after (stmt, BLOCK_END_TREE (bb->index),
+					    bb);
+		  *(htab_find_slot (ei->repaired,
+				    ref_expr (imm_reaching_def (v)), INSERT)) = imm_reaching_def (v);
+		  
+		}
+	      
 	      v = find_rhs_use_for_var (imm_reaching_def (v), 
 					TREE_OPERAND (ei->expr, i));
 	      if (ref_type (imm_reaching_def (v)) & M_DEFAULT)
@@ -1951,7 +1967,8 @@ code_motion (ei, temp)
       if (ref_type (use) & E_USE /*&& !EXPRUSE_PHIOP (use) */
 	  && !exprref_inserted (use))
 	{
-	  if (expruse_phiop (use) && (exprref_reload (use) || exprref_save (use)))
+	  if (expruse_phiop (use) 
+	      && (exprref_reload (use) || exprref_save (use)))
 	    abort();
 	  if (exprref_save (use))
 	    {
@@ -2230,6 +2247,8 @@ tree_perform_ssapre ()
 
 		  VARRAY_PUSH_GENERIC_PTR (bexprs, slot);
 		  slot->strred_cand = is_strred_cand (orig_expr);
+		  slot->repaired = htab_create (7, htab_hash_pointer, 
+						htab_eq_pointer, NULL);
 		}
 	    }
 	  else if (TREE_CODE (expr) == CALL_EXPR 
