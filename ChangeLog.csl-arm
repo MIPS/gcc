@@ -1,3 +1,13 @@
+2004-12-17  Paul Brook  <paul@codesourcery.com>
+
+	* libstdc++/libsupc++/eh_arm.cc (__cxa_begin_cleanup): Add exception
+	to list.
+	(cxa_end_cleanup): Call __gnu_end_cleanup.
+	(__gnu_end_cleanup): New function.
+	* libstdc++/libsupc++/unwind-cxx.h (struct __cxa_exception): Add
+	field for propagating exception stack.
+	(struct __cxa_exception): Add propagatingExceptions.
+
 2004-11-16  Paul Brook  <paul@codesourcery.com>
 
 	* libstdc++/libsupc++/eh_arm.cc: Include cxxabi.h.

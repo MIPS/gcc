@@ -67,6 +67,14 @@ struct __cxa_exception
   // value is a signal that this object has been rethrown.
   int handlerCount;
 
+#ifdef __ARM_EABI_UNWINDER__
+  // Stack of exceptions in cleanups.
+  __cxa_exception *nextPropagatingException;
+
+  // The nuber of active cleanup handlers for this exception.
+  int propagationCount;
+#endif
+
   // Cache parsed handler data from the personality routine Phase 1
   // for Phase 2 and __cxa_call_unexpected.
   int handlerSwitchValue;
@@ -84,6 +92,9 @@ struct __cxa_eh_globals
 {
   __cxa_exception *caughtExceptions;
   unsigned int uncaughtExceptions;
+#ifdef __ARM_EABI_UNWINDER__
+  __cxa_exception *propagatingExceptions;
+#endif
 };
 
 
@@ -133,7 +144,7 @@ typedef enum {
 extern "C" bool __cxa_type_match(_Unwind_Exception*, const std::type_info*,
 				 bool, void**);
 extern "C" void __cxa_begin_cleanup (_Unwind_Exception*);
-extern "C" void __cxa_end_cleanup (_Unwind_Exception*);
+extern "C" void __cxa_end_cleanup (void);
 #endif
 
 // Invokes given handler, dying appropriately if the user handler was
