@@ -95,6 +95,7 @@ Boston, MA 02111-1307, USA.  */
 #include "gfortran.h"
 #include "trans.h"
 #include "trans-types.h"
+#include "trans-const.h"
 
 
 typedef struct segment_info
@@ -312,8 +313,6 @@ create_common (gfc_symbol *sym)
     {
       h->sym->backend_decl = build (COMPONENT_REF, TREE_TYPE (h->field),
                                     decl, h->field);
-      if (h->sym->ts.type == BT_CHARACTER)
-        gfc_todo_error ("CHARACTER inside COMMON block or EQUIVALENCE list");
 
       next_s = h->next;
       gfc_free (h);
@@ -345,6 +344,8 @@ calculate_length (gfc_symbol *symbol)
   int j, element_size;        
   mpz_t elements;  
 
+  if (symbol->ts.type == BT_CHARACTER)
+    gfc_conv_const_charlen (symbol->ts.cl);
   element_size = int_size_in_bytes (gfc_typenode_for_spec (&symbol->ts));
   if (symbol->as == NULL) 
     return element_size;        
@@ -448,6 +449,8 @@ calculate_offset (gfc_expr *s)
 
           case AR_ELEMENT:
 	    a = element_number (&reference->u.ar);
+	    if (element_type->type == BT_CHARACTER)
+	      gfc_conv_const_charlen (element_type->cl);
 	    element_size =
               int_size_in_bytes (gfc_typenode_for_spec (element_type));
 	    offset += a * element_size;

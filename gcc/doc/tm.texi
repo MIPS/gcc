@@ -1071,26 +1071,28 @@ sign-extend the result to 64 bits.  On such machines, set
 Do not define this macro if it would never modify @var{m}.
 @end defmac
 
+@defmac PROMOTE_FUNCTION_MODE
+Like @code{PROMOTE_MODE}, but is applied to outgoing function arguments or
+function return values, as specified by @code{TARGET_PROMOTE_FUNCTION_ARGS}
+and @code{TARGET_PROMOTE_FUNCTION_RETURN}, respectively.
+
+The default is @code{PROMOTE_MODE}.
+@end defmac
+
 @deftypefn {Target Hook} bool TARGET_PROMOTE_FUNCTION_ARGS (tree @var{fntype})
 This target hook should return @code{true} if the promotion described by
-@code{PROMOTE_MODE} should also be done for outgoing function arguments.
+@code{PROMOTE_FUNCTION_MODE} should be done for outgoing function
+arguments.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_PROMOTE_FUNCTION_RETURN (tree @var{fntype})
 This target hook should return @code{true} if the promotion described by
-@code{PROMOTE_MODE} should also be done for the return value of
+@code{PROMOTE_FUNCTION_MODE} should be done for the return value of
 functions.
 
 If this target hook returns @code{true}, @code{FUNCTION_VALUE} must
-perform the same promotions done by @code{PROMOTE_MODE}.
+perform the same promotions done by @code{PROMOTE_FUNCTON_MODE}.
 @end deftypefn
-
-@defmac PROMOTE_FOR_CALL_ONLY
-Define this macro if the promotion described by @code{PROMOTE_MODE}
-should @emph{only} be performed for outgoing function arguments or
-function return values, as specified by @code{TARGET_PROMOTE_FUNCTION_ARGS}
-and @code{TARGET_PROMOTE_FUNCTION_RETURN}, respectively.
-@end defmac
 
 @defmac PARM_BOUNDARY
 Normal alignment required for function parameters on the stack, in
@@ -1785,13 +1787,16 @@ of words in each data entry.
 @section Target Character Escape Sequences
 @cindex escape sequences
 
-By default, GCC assumes that the C character escape sequences take on
-their ASCII values for the target.  If this is not correct, you must
-explicitly define all of the macros below.  All of them must evaluate
-to constants; they are used in @code{case} statements.
+By default, GCC assumes that the C character escape sequences and other
+characters take on their ASCII values for the target.  If this is not
+correct, you must explicitly define all of the macros below.  All of
+them must evaluate to constants; they are used in @code{case}
+statements.
 
 @findex TARGET_BELL
+@findex TARGET_BS
 @findex TARGET_CR
+@findex TARGET_DIGIT0
 @findex TARGET_ESC
 @findex TARGET_FF
 @findex TARGET_NEWLINE
@@ -1800,7 +1805,9 @@ to constants; they are used in @code{case} statements.
 @multitable {@code{TARGET_NEWLINE}} {Escape} {ASCII character}
 @item Macro                 @tab Escape             @tab ASCII character
 @item @code{TARGET_BELL}    @tab @kbd{\a}           @tab @code{07}, @code{BEL}
+@item @code{TARGET_BS}      @tab @kbd{\b}           @tab @code{08}, @code{BS}
 @item @code{TARGET_CR}      @tab @kbd{\r}           @tab @code{0D}, @code{CR}
+@item @code{TARGET_DIGIT0}  @tab @kbd{0}            @tab @code{30}, @code{ZERO}
 @item @code{TARGET_ESC}     @tab @kbd{\e}, @kbd{\E} @tab @code{1B}, @code{ESC}
 @item @code{TARGET_FF}      @tab @kbd{\f}           @tab @code{0C}, @code{FF}
 @item @code{TARGET_NEWLINE} @tab @kbd{\n}           @tab @code{0A}, @code{LF}
@@ -8452,6 +8459,24 @@ For each predicate function named in @code{PREDICATE_CODES}, a
 declaration will be generated in @file{insn-codes.h}.
 @end defmac
 
+@defmac HAS_LONG_COND_BRANCH
+Define this boolean macro to indicate whether or not your architecture
+has conditional branches that can span all of memory.  It is used in
+conjunction with an optimization that partitions hot and cold basic
+blocks into separate sections of the executable.  If this macro is
+set to false, gcc will convert any conditional branches that attempt
+to cross between sections into unconditional branches or indirect jumps.
+@end defmac
+
+@defmac HAS_LONG_UNCOND_BRANCH
+Define this boolean macro to indicate whether or not your architecture
+has unconditional branches that can span all of memory.  It is used in
+conjunction with an optimization that partitions hot and cold basic
+blocks into separate sections of the executable.  If this macro is
+set to false, gcc will convert any unconditional branches that attempt
+to cross between sections into indirect jumps.
+@end defmac
+
 @defmac SPECIAL_MODE_PREDICATES
 Define this if you have special predicates that know special things
 about modes.  Genrecog will warn about certain forms of
@@ -9196,4 +9221,12 @@ This target hook should register special include paths for the target.
 The parameter @var{path} is the include to register.  On Darwin
 systems, this is used for Framework includes, which have semantics
 that are different from @option{-I}.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_USE_LOCAL_THUNK_ALIAS_P (tree @var{fndecl})
+This target hook returns @code{true} if it is safe to use a local alias
+for a virtual function @var{fndecl} when constructing thunks,
+@code{false} otherwise. By default, the hook returns @code{true} for all
+functions, if a target supports aliases (ie. defines
+@code{ASM_OUTPUT_DEF}), @code{false} otherwise,
 @end deftypefn

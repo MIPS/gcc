@@ -39,12 +39,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef TARGET_BELL
 #  define TARGET_BELL 007
 #  define TARGET_BS 010
-#  define TARGET_TAB 011
-#  define TARGET_NEWLINE 012
-#  define TARGET_VT 013
-#  define TARGET_FF 014
 #  define TARGET_CR 015
+#  define TARGET_DIGIT0 060
 #  define TARGET_ESC 033
+#  define TARGET_FF 014
+#  define TARGET_NEWLINE 012
+#  define TARGET_TAB 011
+#  define TARGET_VT 013
 #endif
 
 /* Store in OUTPUT a string (made with alloca) containing an
@@ -484,6 +485,16 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define TARGET_VTABLE_DATA_ENTRY_DISTANCE 1
 #endif
 
+/* Decide whether it is safe to use a local alias for a virtual function
+   when constructing thunks.  */
+#ifndef TARGET_USE_LOCAL_THUNK_ALIAS_P
+#ifdef ASM_OUTPUT_DEF
+#define TARGET_USE_LOCAL_THUNK_ALIAS_P(DECL) 1
+#else
+#define TARGET_USE_LOCAL_THUNK_ALIAS_P(DECL) 0
+#endif
+#endif
+
 /* Select a format to encode pointers in exception handling data.  We
    prefer those that result in fewer dynamic relocations.  Assume no
    special support here and encode direct references.  */
@@ -610,11 +621,23 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #endif
 
 #ifndef HOT_TEXT_SECTION_NAME
-#define HOT_TEXT_SECTION_NAME "text.hot"
+#define HOT_TEXT_SECTION_NAME ".text.hot"
+#endif
+
+#ifndef NORMAL_TEXT_SECTION_NAME
+#define NORMAL_TEXT_SECTION_NAME ".text"
 #endif
 
 #ifndef UNLIKELY_EXECUTED_TEXT_SECTION_NAME
-#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME "text.unlikely"
+#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME ".text.unlikely"
+#endif
+
+#ifndef HAS_LONG_COND_BRANCH
+#define HAS_LONG_COND_BRANCH 0
+#endif
+
+#ifndef HAS_LONG_UNCOND_BRANCH
+#define HAS_LONG_UNCOND_BRANCH 0
 #endif
 
 #ifndef VECTOR_MODE_SUPPORTED_P

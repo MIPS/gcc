@@ -448,6 +448,9 @@ static void
 dbxout_function_end (void)
 {
   char lscope_label_name[100];
+
+  function_section (current_function_decl);
+  
   /* Convert Ltext into the appropriate format for local labels in case
      the system doesn't insert underscores in front of user generated
      labels.  */
@@ -728,7 +731,10 @@ dbxout_source_file (FILE *file, const char *filename)
 	  && DECL_SECTION_NAME (current_function_decl) != NULL_TREE)
 	; /* Don't change section amid function.  */
       else
-	text_section ();
+	{
+	  if (!in_text_section () && !in_unlikely_text_section ())
+	    text_section ();
+	}
       targetm.asm_out.internal_label (file, "Ltext", source_label_number);
       source_label_number++;
       lastfile = filename;
@@ -884,8 +890,8 @@ dbxout_type_fields (tree type)
      field that we can support.  */
   for (tem = TYPE_FIELDS (type); tem; tem = TREE_CHAIN (tem))
     {
-
-      /* If on of the nodes is an error_mark or its type is then return early.  */
+      /* If one of the nodes is an error_mark or its type is then
+	 return early.  */
       if (tem == error_mark_node || TREE_TYPE (tem) == error_mark_node)
 	return;
 
@@ -1384,7 +1390,7 @@ dbxout_type (tree type, int full)
       break;
 
     case INTEGER_TYPE:
-      if (type == char_type_node && ! TREE_UNSIGNED (type))
+      if (type == char_type_node && ! TYPE_UNSIGNED (type))
 	{
 	  /* Output the type `char' as a subrange of itself!
 	     I don't understand this definition, just copied it
@@ -1492,7 +1498,7 @@ dbxout_type (tree type, int full)
 	  fprintf (asmfile, "r");
 	  CHARS (1);
 	  dbxout_type_index (char_type_node);
-	  fprintf (asmfile, ";0;%d;", TREE_UNSIGNED (type) ? 255 : 127);
+	  fprintf (asmfile, ";0;%d;", TYPE_UNSIGNED (type) ? 255 : 127);
 	  CHARS (7);
 	}
       break;
@@ -1914,10 +1920,10 @@ print_int_cst_bounds_in_octal_p (tree type)
       && TREE_CODE (TYPE_MAX_VALUE (type)) == INTEGER_CST
       && (TYPE_PRECISION (type) > TYPE_PRECISION (integer_type_node)
 	  || ((TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node))
-	      && TREE_UNSIGNED (type))
+	      && TYPE_UNSIGNED (type))
 	  || TYPE_PRECISION (type) > HOST_BITS_PER_WIDE_INT
 	  || (TYPE_PRECISION (type) == HOST_BITS_PER_WIDE_INT
-	      && TREE_UNSIGNED (type))))
+	      && TYPE_UNSIGNED (type))))
     return TRUE;
   else
     return FALSE;

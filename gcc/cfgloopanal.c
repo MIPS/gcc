@@ -417,7 +417,7 @@ expected_loop_iterations (const struct loop *loop)
 {
   edge e;
 
-  if (loop->header->count)
+  if (loop->latch->count || loop->header->count)
     {
       gcov_type count_in, count_latch, expected;
 
@@ -431,7 +431,7 @@ expected_loop_iterations (const struct loop *loop)
 	  count_in += e->count;
 
       if (count_in == 0)
-	return 0;
+	return count_latch;
 
       expected = (count_latch + count_in - 1) / count_in;
 
@@ -452,7 +452,7 @@ expected_loop_iterations (const struct loop *loop)
 	  freq_in += EDGE_FREQUENCY (e);
 
       if (freq_in == 0)
-	return 0;
+	return freq_latch;
 
       return (freq_latch + freq_in - 1) / freq_in;
     }

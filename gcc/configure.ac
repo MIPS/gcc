@@ -544,6 +544,14 @@ if test x$enable_gather_detailed_mem_stats = xyes ; then
         [Define to enable detailed memory allocation stats gathering.])
 fi
 
+AC_ARG_ENABLE(tree-browser,
+[  --enable-tree-browser   enable the tree browsing routines for debugging], [],
+[enable_tree_browser=no])
+if test x$enable_tree_browser = xyes ; then
+  TREEBROWSER=tree-browser.o
+fi
+AC_SUBST(TREEBROWSER)
+
 # -------------------------------
 # Miscenalleous configure options
 # -------------------------------
@@ -571,9 +579,7 @@ AC_ARG_ENABLE(__cxa_atexit,
 AC_ARG_ENABLE(threads,
 [  --enable-threads        enable thread usage for target GCC
   --enable-threads=LIB    use LIB thread package for target GCC],,
-enable_threads='')
-# Save in case it gets overwritten in config.gcc
-enable_threads_flag=$enable_threads
+[enable_threads=''])
 
 AC_ARG_ENABLE(objc-gc,
 [  --enable-objc-gc	  enable the use of Boehm's garbage collector with
@@ -1212,7 +1218,7 @@ fi
 # ---------
 
 # Check if a valid thread package
-case ${enable_threads_flag} in
+case ${enable_threads} in
   "" | no)
     # No threads
     target_thread_file='single'
@@ -1223,10 +1229,10 @@ case ${enable_threads_flag} in
     ;;
   aix | dce | gnat | irix | posix | rtems | \
   single | solaris | vxworks | win32 )
-    target_thread_file=${enable_threads_flag}
+    target_thread_file=${enable_threads}
     ;;
   *)
-    echo "${enable_threads_flag} is an unknown thread package" 1>&2
+    echo "${enable_threads} is an unknown thread package" 1>&2
     exit 1
     ;;
 esac
@@ -1656,6 +1662,13 @@ for file in ${extra_headers} ; do
   extra_headers_list="${extra_headers_list} \$(srcdir)/config/${cpu_type}/${file}"
 done
 
+# Define collect2 in Makefile.
+case $host_can_use_collect2 in
+  no) collect2= ;;
+  *) collect2='collect2$(exeext)' ;;
+esac
+AC_SUBST([collect2])
+
 # Add a definition of USE_COLLECT2 if system wants one.
 case $use_collect2 in
   no) use_collect2= ;;
@@ -1663,6 +1676,11 @@ case $use_collect2 in
   *) 
     host_xm_defines="${host_xm_defines} USE_COLLECT2"
     xm_defines="${xm_defines} USE_COLLECT2"
+    case $host_can_use_collect2 in
+      no)
+        AC_MSG_ERROR([collect2 is required but cannot be built on this system])
+        ;;
+    esac
     ;;
 esac
 
@@ -2744,6 +2762,25 @@ AC_MSG_RESULT($gcc_cv_ld_pie)
 # UNSORTED
 # --------
 
+AC_MSG_CHECKING(linker --as-needed support)
+gcc_cv_ld_as_needed=no
+if test $in_tree_ld = yes ; then
+  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2 \
+     && test $in_tree_ld_is_elf = yes; then
+    gcc_cv_ld_as_needed=yes
+  fi
+elif test x$gcc_cv_ld != x; then
+	# Check if linker supports --as-needed and --no-as-needed options
+	if $gcc_cv_ld --help 2>/dev/null | grep as-needed > /dev/null; then
+		gcc_cv_ld_as_needed=yes
+	fi
+fi
+if test x"$gcc_cv_ld_as_needed" = xyes; then
+	AC_DEFINE(HAVE_LD_AS_NEEDED, 1,
+[Define if your linker supports --as-needed and --no-as-needed options.])
+fi
+AC_MSG_RESULT($gcc_cv_ld_as_needed)
+
 if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
   AC_DEFINE_UNQUOTED(PREFIX_INCLUDE_DIR, "$prefix/include",
@@ -2807,16 +2844,10 @@ if test x"$libbanshee" = xyes; then
 	BANSHEELIB="../libbanshee/points-to/libandersen.a ../libbanshee/engine/libbansheeengine.a ../libbanshee/libcompat/libbansheecompat.a "
 	BANSHEEINC="-I\$(srcdir)/../libbanshee/libcompat -I\$(srcdir)/../libbanshee -I\$(srcdir)/../libbanshee/points-to"
 	ANDER="tree-alias-ander.o"
-	if test x$rebuild_banshee = xyes; then
-		BANSHEEREBUILD="s=\${PWD}; export s && cd ../libbanshee && echo \${PWD} && \$(MAKE) clean && \$(MAKE) CC=\"\$(STAGE_CC_WRAPPER) \$\$s/stage1/xgcc\$(exeext) -B\$\$s/stage1/ -B\$(build_tooldir)/bin/\" \$(STAGE2_FLAGS_TO_PASS) && cd ../gcc"
-	else
-		BANSHEEREBUILD=""
-	fi
 	AC_DEFINE(HAVE_BANSHEE, 1, [Define if BANSHEE is available])
 else
 	BANSHEELIB=""
 	BANSHEEINC=""
-	BANSHEEREBUILD=""
 	ANDER=""
 fi
 AC_MSG_RESULT($with_libbanshee)
@@ -2824,7 +2855,6 @@ AC_MSG_RESULT($with_libbanshee)
 AC_SUBST(ANDER)
 AC_SUBST(BANSHEEINC)
 AC_SUBST(BANSHEELIB)
-AC_SUBST(BANSHEEREBUILD)
 
 # --------------
 # Language hooks
@@ -2865,7 +2895,6 @@ all_gtfiles="$target_gtfiles"
 # Files for gengtype with language
 all_gtfiles_files_langs=
 all_gtfiles_files_files=
-all_need_gmp="no"
 
 # Add the language fragments.
 # Languages are added via two mechanisms.  Some information must be
@@ -2884,7 +2913,6 @@ do
 		stagestuff=
 		outputs=
 		gtfiles=
-		need_gmp=
 		. ${srcdir}/$s/config-lang.in
 		if test "x$language" = x
 		then
@@ -2909,10 +2937,6 @@ do
                          all_gtfiles_files_langs="$all_gtfiles_files_langs ${s} "
                          all_gtfiles_files_files="$all_gtfiles_files_files ${f} "
                 done
-		if test "x$need_gmp" = xyes
-		then
-			all_need_gmp="yes"
-		fi
 done
 
 # Pick up gtfiles for c
@@ -3010,59 +3034,6 @@ changequote([, ])dnl
 fi
 AC_SUBST(gcc_tooldir)
 AC_SUBST(dollar)
-
-gmplibs=
-gmpinc=
-# Only check for GMP if one of the frontends needs it.
-if test "x$all_need_gmp" = xyes; then
-  # Specify a location for gmp
-  AC_ARG_WITH(gmp-dir, [  --with-gmp-dir=PATH     Specify source directory for GMP library])
-
-  if test "x$with_gmp_dir" != x && test -f "$with_gmp_dir/gmp.h"; then
-    gmpinc="-I$with_gmp_dir"
-    if test -f "$with_gmp_dir/.libs/libgmp.a"; then
-      gmplibs="$with_gmp_dir/.libs/libgmp.a"
-    elif test -f "$with_gmp_dir/_libs/libgmp.a"; then
-      gmplibs="$with_gmp_dir/_libs/libgmp.a"
-    fi
-    # One of the later tests will catch the error if neither library is present.
-  fi
-
-  AC_ARG_WITH(gmp, [  --with-gmp=PATH         Specify directory for installed GMP library])
-
-  if test "x$with_gmp" != x && test -d "$with_gmp"; then
-    gmplibs="-L$with_gmp/lib -lgmp"
-    gmpinc="-I$with_gmp/include"
-  fi
-
-  # Use system gmp if nothing else specified
-  if test "x$gmplibs" = x; then
-    gmplibs="-lgmp"
-  fi
-
-  save_CFLAGS="$CFLAGS"
-  CFLAGS="$CFLAGS $gmpinc"
-  # Check GMP actually works
-  AC_MSG_CHECKING([for correct version of gmp.h])
-  AC_TRY_COMPILE([#include "gmp.h"],[
-#if __GNU_MP_VERSION < 3
-  choke me
-#endif
-], [AC_MSG_RESULT([yes])],
-    [AC_MSG_ERROR([gmp version 3.0 or later is required])])
-
-  AC_MSG_CHECKING([for mpf_init in -lgmp])
-
-  saved_LIBS="$LIBS"
-  LIBS="$LIBS $gmplibs"
-  AC_TRY_LINK([#include <gmp.h>], [mpf_t n; mpf_init(n);],
-    [AC_MSG_RESULT([yes])],  [AC_MSG_ERROR([could not link with libgmp])])
-  LIBS="$saved_LIBS"
-  CFLAGS="$saved_CFLAGS"
-fi
-
-AC_SUBST(gmplibs)
-AC_SUBST(gmpinc)
 
 # Find a directory in which to install a shared libgcc.
 
@@ -3180,6 +3151,9 @@ else
     echo " from ${host} to ${target}." 1>&2
   fi
 fi
+
+AC_ARG_VAR(GMPLIBS,[How to link GMP])
+AC_ARG_VAR(GMPINC,[How to find GMP include files])
 
 # Configure the subdirectories
 # AC_CONFIG_SUBDIRS($subdirs)

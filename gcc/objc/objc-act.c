@@ -3304,7 +3304,7 @@ build_objc_exception_stuff (void)
   finish_struct (objc_exception_data_template, field_decl_chain, NULL_TREE);
 
   /* int _setjmp(...); */
-  /* If the user includes <setjmp.h>, this shall be superceded by
+  /* If the user includes <setjmp.h>, this shall be superseded by
      'int _setjmp(jmp_buf);' */
   temp_type = build_function_type (integer_type_node, NULL_TREE);
   objc_setjmp_decl
@@ -5536,7 +5536,7 @@ receiver_is_class_object (tree receiver, int self, int super)
       && (exp = TREE_OPERAND (exp, 0))
       && TREE_CODE (exp) == FUNCTION_DECL
       /* For some reason, we sometimes wind up with multiple FUNCTION_DECL
-	 prototypes for objc_get_class().  Thankfuly, they seem to share the
+	 prototypes for objc_get_class().  Thankfully, they seem to share the
 	 same function type.  */
       && TREE_TYPE (exp) == TREE_TYPE (objc_get_class_decl)
       && !strcmp (IDENTIFIER_POINTER (DECL_NAME (exp)), TAG_GETCLASS)
@@ -7344,16 +7344,16 @@ encode_type (tree type, int curtype, int format)
     {
       switch (GET_MODE_BITSIZE (TYPE_MODE (type)))
 	{
-	case 8:  c = TREE_UNSIGNED (type) ? 'C' : 'c'; break;
-	case 16: c = TREE_UNSIGNED (type) ? 'S' : 's'; break;
+	case 8:  c = TYPE_UNSIGNED (type) ? 'C' : 'c'; break;
+	case 16: c = TYPE_UNSIGNED (type) ? 'S' : 's'; break;
 	case 32: 
 	  if (type == long_unsigned_type_node
 	      || type == long_integer_type_node)
-	         c = TREE_UNSIGNED (type) ? 'L' : 'l';
+	         c = TYPE_UNSIGNED (type) ? 'L' : 'l';
 	  else
-	         c = TREE_UNSIGNED (type) ? 'I' : 'i';
+	         c = TYPE_UNSIGNED (type) ? 'I' : 'i';
 	  break;
-	case 64: c = TREE_UNSIGNED (type) ? 'Q' : 'q'; break;
+	case 64: c = TYPE_UNSIGNED (type) ? 'Q' : 'q'; break;
 	default: abort ();
 	}
       obstack_1grow (&util_obstack, c);
@@ -8101,9 +8101,9 @@ adorn_decl (tree decl, char *str)
   else if (code == POINTER_TYPE)
     {
       strcpy (tmpbuf, "*");
-      if (TREE_READONLY (decl) || TYPE_VOLATILE (decl))
+      if (TYPE_READONLY (decl) || TYPE_VOLATILE (decl))
 	{
-	  if (TREE_READONLY (decl))
+	  if (TYPE_READONLY (decl))
 	    strcat (tmpbuf, " const");
 	  if (TYPE_VOLATILE (decl))
 	    strcat (tmpbuf, " volatile");
@@ -8307,7 +8307,7 @@ gen_declspecs (tree declspecs, char *buf, int raw)
   else
     {
       /* Type qualifiers.  */
-      if (TREE_READONLY (declspecs))
+      if (TYPE_READONLY (declspecs))
 	strcat (buf, "const ");
       if (TYPE_VOLATILE (declspecs))
 	strcat (buf, "volatile ");
@@ -9017,7 +9017,7 @@ handle_impent (struct imp_entry *impent)
     }
 }
 
-/* The Fix-and-Countinue functionality available in Mac OS X 10.3 and
+/* The Fix-and-Continue functionality available in Mac OS X 10.3 and
    later requires that ObjC translation units participating in F&C be
    specially marked.  The following routine accomplishes this.  */
 

@@ -647,7 +647,7 @@ case "${target}" in
     ;;
   powerpc-*-aix*)
     # copied from rs6000-*-* entry
-    noconfigdirs="$noconfigdirs gprof target-libada target-libgloss ${libgcj}"
+    noconfigdirs="$noconfigdirs gprof target-libgloss ${libgcj}"
     ;;
   powerpc*-*-winnt* | powerpc*-*-pe* | ppc*-*-pe)
     target_configdirs="$target_configdirs target-winsup"
@@ -669,7 +669,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs target-newlib gprof ${libgcj}"
     ;;
   rs6000-*-aix*)
-    noconfigdirs="$noconfigdirs gprof target-libada target-libgloss ${libgcj}"
+    noconfigdirs="$noconfigdirs gprof target-libgloss ${libgcj}"
     ;;
   rs6000-*-*)
     noconfigdirs="$noconfigdirs gprof ${libgcj}"
@@ -1105,6 +1105,60 @@ fi
 
 ACX_PROG_GNAT
 
+# Check for GMP
+gmplibs=
+gmpinc=
+have_gmp=yes
+# Specify a location for gmp
+AC_ARG_WITH(gmp-dir, [  --with-gmp-dir=PATH     Specify source directory for GMP library])
+
+if test "x$with_gmp_dir" != x && test -f "$with_gmp_dir/gmp.h"; then
+  gmpinc="-I$with_gmp_dir"
+  if test -f "$with_gmp_dir/.libs/libgmp.a"; then
+    gmplibs="$with_gmp_dir/.libs/libgmp.a"
+  elif test -f "$with_gmp_dir/_libs/libgmp.a"; then
+    gmplibs="$with_gmp_dir/_libs/libgmp.a"
+  fi
+  # One of the later tests will catch the error if neither library is present.
+fi
+
+AC_ARG_WITH(gmp, [  --with-gmp=PATH         Specify directory for installed GMP library])
+
+if test "x$with_gmp" != x && test -d "$with_gmp"; then
+  gmplibs="-L$with_gmp/lib -lgmp"
+  gmpinc="-I$with_gmp/include"
+fi
+
+# Use system gmp if nothing else specified
+if test "x$gmplibs" = x; then
+  gmplibs="-lgmp"
+fi
+
+save_CFLAGS="$CFLAGS"
+CFLAGS="$CFLAGS $gmpinc"
+# Check GMP actually works
+AC_MSG_CHECKING([for correct version of gmp.h])
+AC_TRY_COMPILE([#include "gmp.h"],[
+#if __GNU_MP_VERSION < 3
+choke me
+#endif
+], [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no]); have_gmp=no])
+
+if test x"$have_gmp" = xyes; then
+  AC_MSG_CHECKING([for mpf_init in -lgmp])
+
+  saved_LIBS="$LIBS"
+  LIBS="$LIBS $gmplibs"
+  AC_TRY_LINK([#include <gmp.h>], [mpf_t n; mpf_init(n);],
+    [AC_MSG_RESULT([yes])],  [AC_MSG_RESULT([no]); have_gmp=no])
+  LIBS="$saved_LIBS"
+  CFLAGS="$saved_CFLAGS"
+fi
+
+AC_SUBST(gmplibs)
+AC_SUBST(gmpinc)
+
 # By default, C is the only stage 1 language.
 stage1_languages=c
 AC_SUBST(stage1_languages)
@@ -1177,6 +1231,7 @@ if test -d ${srcdir}/gcc; then
         lang_dirs=
         boot_language=
         build_by_default=
+	need_gmp=
         . ${lang_frag}
         # This is quite sensitive to the ordering of the case statement arms.
         case ,${enable_languages},:${language}:${have_gnat}:${build_by_default} in
@@ -1205,7 +1260,13 @@ if test -d ${srcdir}/gcc; then
             add_this_lang=no
             ;;
         esac
-        case $add_this_lang in
+
+	# Disable language that need GMP if it isn't available.
+	if test  x"$need_gmp" = xyes && test x"$have_gmp" = xno; then
+	  add_this_lang=no
+	fi
+        
+	case $add_this_lang in
 	  no)
             # Remove language-dependent dirs.
             eval noconfigdirs='"$noconfigdirs "'\"$target_libs $lang_dirs\"
@@ -1771,21 +1832,21 @@ AC_SUBST_FILE(serialization_dependencies)
 # at the end of the argument list.
 # These will be expanded by make, so quote '$'.
 cat <<\EOF_SED > conftestsed
-s/ --no[[^ ]]* / /
-s/ --c[[a-z-]]*[[= ]][[^ ]]* / /
-s/ --sr[[a-z-]]*[[= ]][[^ ]]* / /
-s/ --ho[[a-z-]]*[[= ]][[^ ]]* / /
-s/ --bu[[a-z-]]*[[= ]][[^ ]]* / /
-s/ --t[[a-z-]]*[[= ]][[^ ]]* / /
-s/ --program-[[pst]][[a-z-]]*[[= ]][[^ ]]* / /
-s/ -cache-file[[= ]][[^ ]]* / /
-s/ -srcdir[[= ]][[^ ]]* / /
-s/ -host[[= ]][[^ ]]* / /
-s/ -build[[= ]][[^ ]]* / /
-s/ -target[[= ]][[^ ]]* / /
-s/ -program-prefix[[= ]][[^ ]]* / /
-s/ -program-suffix[[= ]][[^ ]]* / /
-s/ -program-transform-name[[= ]][[^ ]]* / /
+s/ --no[[^ ]]*/ /g
+s/ --c[[a-z-]]*[[= ]][[^ ]]*//g
+s/ --sr[[a-z-]]*[[= ]][[^ ]]*//g
+s/ --ho[[a-z-]]*[[= ]][[^ ]]*//g
+s/ --bu[[a-z-]]*[[= ]][[^ ]]*//g
+s/ --t[[a-z-]]*[[= ]][[^ ]]*//g
+s/ --program-[[pst]][[a-z-]]*[[= ]][[^ ]]*//g
+s/ -cache-file[[= ]][[^ ]]*//g
+s/ -srcdir[[= ]][[^ ]]*//g
+s/ -host[[= ]][[^ ]]*//g
+s/ -build[[= ]][[^ ]]*//g
+s/ -target[[= ]][[^ ]]*//g
+s/ -program-prefix[[= ]][[^ ]]*//g
+s/ -program-suffix[[= ]][[^ ]]*//g
+s/ -program-transform-name[[= ]][[^ ]]*//g
 s/ [[^' -][^ ]*] / /
 s/^ *//;s/ *$//
 s,\$,$$,g
@@ -2098,13 +2159,13 @@ AC_SUBST(DEFAULT_LEX)
 AC_SUBST(DEFAULT_M4)
 
 # Target tools.
-NCN_STRICT_CHECK_TARGET_TOOL(AR_FOR_TARGET, ar)
-NCN_STRICT_CHECK_TARGET_TOOL(AS_FOR_TARGET, as)
-NCN_STRICT_CHECK_TARGET_TOOL(DLLTOOL_FOR_TARGET, dlltool)
-NCN_STRICT_CHECK_TARGET_TOOL(LD_FOR_TARGET, ld)
-NCN_STRICT_CHECK_TARGET_TOOL(NM_FOR_TARGET, nm)
-NCN_STRICT_CHECK_TARGET_TOOL(RANLIB_FOR_TARGET, ranlib, :)
-NCN_STRICT_CHECK_TARGET_TOOL(WINDRES_FOR_TARGET, windres)
+NCN_STRICT_CHECK_TARGET_TOOL(CONFIGURED_AR_FOR_TARGET, ar)
+NCN_STRICT_CHECK_TARGET_TOOL(CONFIGURED_AS_FOR_TARGET, as)
+NCN_STRICT_CHECK_TARGET_TOOL(CONFIGURED_DLLTOOL_FOR_TARGET, dlltool)
+NCN_STRICT_CHECK_TARGET_TOOL(CONFIGURED_LD_FOR_TARGET, ld)
+NCN_STRICT_CHECK_TARGET_TOOL(CONFIGURED_NM_FOR_TARGET, nm)
+NCN_STRICT_CHECK_TARGET_TOOL(CONFIGURED_RANLIB_FOR_TARGET, ranlib, :)
+NCN_STRICT_CHECK_TARGET_TOOL(CONFIGURED_WINDRES_FOR_TARGET, windres)
 
 AC_SUBST(GCC_FOR_TARGET)
 AC_SUBST(FLAGS_FOR_TARGET)
@@ -2131,7 +2192,24 @@ if test "x${build}" = "x${host}" ; then
   NM_FOR_TARGET="\$(USUAL_NM_FOR_TARGET)"
   RANLIB_FOR_TARGET="\$(USUAL_RANLIB_FOR_TARGET)"
   WINDRES_FOR_TARGET="\$(USUAL_WINDRES_FOR_TARGET)"
+else
+  # Just use the ones we found.
+  AR_FOR_TARGET="\$(CONFIGURED_AR_FOR_TARGET)"
+  AS_FOR_TARGET="\$(CONFIGURED_AS_FOR_TARGET)"
+  DLLTOOL_FOR_TARGET="\$(CONFIGURED_DLLTOOL_FOR_TARGET)"
+  LD_FOR_TARGET="\$(CONFIGURED_LD_FOR_TARGET)"
+  NM_FOR_TARGET="\$(CONFIGURED_NM_FOR_TARGET)"
+  RANLIB_FOR_TARGET="\$(CONFIGURED_RANLIB_FOR_TARGET)"
+  WINDRES_FOR_TARGET="\$(CONFIGURED_WINDRES_FOR_TARGET)"  
 fi
+AC_SUBST(AR_FOR_TARGET)
+AC_SUBST(AS_FOR_TARGET)
+AC_SUBST(DLLTOOL_FOR_TARGET)
+AC_SUBST(LD_FOR_TARGET)
+AC_SUBST(NM_FOR_TARGET)
+AC_SUBST(RANLIB_FOR_TARGET)
+AC_SUBST(WINDRES_FOR_TARGET)
+
 # Certain tools may need extra flags.
 AR_FOR_TARGET=${AR_FOR_TARGET}${extra_arflags_for_target}
 RANLIB_FOR_TARGET=${RANLIB_FOR_TARGET}${extra_ranlibflags_for_target}

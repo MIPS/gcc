@@ -1,3 +1,19 @@
+2004-04-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc_release (build_sources): Do not use "-r" and "-D" at the
+	same time with "cvs export".
+
+2004-03-27  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gcc_release: Fix sanity check for argument of -p command-line
+	options.  In snapshot mode, only generate diffs against the previous
+	snapshot if the user did not specify any old tarball explictly.
+
+2004-03-25  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gcc_release (FTP_PATH): Use /var/ftp instead of ~ftp, and
+	only set at a single place.
+
 2004-03-14  Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* gcc_release (SNAPSHOTS_DIR): New variable.  Use it.

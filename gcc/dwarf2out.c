@@ -2419,7 +2419,7 @@ typedef struct dw_val_struct GTY(())
       unsigned HOST_WIDE_INT GTY ((tag ("dw_val_class_offset"))) val_offset;
       dw_loc_list_ref GTY ((tag ("dw_val_class_loc_list"))) val_loc_list;
       dw_loc_descr_ref GTY ((tag ("dw_val_class_loc"))) val_loc;
-      HOST_WIDE_INT GTY ((default (""))) val_int;
+      HOST_WIDE_INT GTY ((default)) val_int;
       unsigned HOST_WIDE_INT GTY ((tag ("dw_val_class_unsigned_const"))) val_unsigned;
       dw_long_long_const GTY ((tag ("dw_val_class_long_long"))) val_long_long;
       dw_vec_const GTY ((tag ("dw_val_class_vec"))) val_vec;
@@ -7855,7 +7855,7 @@ base_type_die (tree type)
 		 || ! strcmp (type_name, "signed char")
 		 || ! strcmp (type_name, "unsigned char"))))
 	{
-	  if (TREE_UNSIGNED (type))
+	  if (TYPE_UNSIGNED (type))
 	    encoding = DW_ATE_unsigned;
 	  else
 	    encoding = DW_ATE_signed;
@@ -7865,7 +7865,7 @@ base_type_die (tree type)
 
     case CHAR_TYPE:
       /* GNU Pascal/Ada CHAR type.  Not used in C.  */
-      if (TREE_UNSIGNED (type))
+      if (TYPE_UNSIGNED (type))
 	encoding = DW_ATE_unsigned_char;
       else
 	encoding = DW_ATE_signed_char;
@@ -8731,7 +8731,7 @@ loc_descriptor_from_tree (tree loc, int addressp)
 {
   dw_loc_descr_ref ret, ret1;
   int indirect_p = 0;
-  int unsignedp = TREE_UNSIGNED (TREE_TYPE (loc));
+  int unsignedp = TYPE_UNSIGNED (TREE_TYPE (loc));
   enum dwarf_location_atom op;
 
   /* ??? Most of the time we do not take proper care for sign/zero
@@ -8991,28 +8991,28 @@ loc_descriptor_from_tree (tree loc, int addressp)
       goto do_binop;
 
     case LE_EXPR:
-      if (TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (loc, 0))))
+      if (TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (loc, 0))))
 	return 0;
 
       op = DW_OP_le;
       goto do_binop;
 
     case GE_EXPR:
-      if (TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (loc, 0))))
+      if (TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (loc, 0))))
 	return 0;
 
       op = DW_OP_ge;
       goto do_binop;
 
     case LT_EXPR:
-      if (TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (loc, 0))))
+      if (TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (loc, 0))))
 	return 0;
 
       op = DW_OP_lt;
       goto do_binop;
 
     case GT_EXPR:
-      if (TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (loc, 0))))
+      if (TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (loc, 0))))
 	return 0;
 
       op = DW_OP_gt;
@@ -10903,7 +10903,7 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
 	  add_name_attribute (enum_die,
 			      IDENTIFIER_POINTER (TREE_PURPOSE (link)));
 
-	  if (host_integerp (value, TREE_UNSIGNED (TREE_TYPE (value))))
+	  if (host_integerp (value, TYPE_UNSIGNED (TREE_TYPE (value))))
 	    /* DWARF2 does not provide a way of indicating whether or
 	       not enumeration constants are signed or unsigned.  GDB
 	       always assumes the values are signed, so we output all

@@ -1260,7 +1260,7 @@ unsigned_conversion_warning (tree result, tree operand)
 
   if (TREE_CODE (operand) == INTEGER_CST
       && TREE_CODE (type) == INTEGER_TYPE
-      && TREE_UNSIGNED (type)
+      && TYPE_UNSIGNED (type)
       && skip_evaluation == 0
       && !int_fits_type_p (operand, type))
     {
@@ -1304,13 +1304,13 @@ convert_and_check (tree type, tree expr)
 	  TREE_CONSTANT_OVERFLOW (t) = TREE_CONSTANT_OVERFLOW (expr);
 
 	  /* No warning for converting 0x80000000 to int.  */
-	  if (!(TREE_UNSIGNED (type) < TREE_UNSIGNED (TREE_TYPE (expr))
+	  if (!(TYPE_UNSIGNED (type) < TYPE_UNSIGNED (TREE_TYPE (expr))
 		&& TREE_CODE (TREE_TYPE (expr)) == INTEGER_TYPE
 		&& TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (expr))))
 	    /* If EXPR fits in the unsigned version of TYPE,
 	       don't warn unless pedantic.  */
 	    if ((pedantic
-		 || TREE_UNSIGNED (type)
+		 || TYPE_UNSIGNED (type)
 		 || ! constant_fits_type_p (expr,
 					    c_common_unsigned_type (type)))
 		&& skip_evaluation == 0)
@@ -1975,7 +1975,7 @@ tree
 c_common_signed_or_unsigned_type (int unsignedp, tree type)
 {
   if (! INTEGRAL_TYPE_P (type)
-      || TREE_UNSIGNED (type) == unsignedp)
+      || TYPE_UNSIGNED (type) == unsignedp)
     return type;
 
   /* Must check the mode of the types, not the precision.  Enumeral types
@@ -2160,9 +2160,9 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
      but it *requires* conversion to FINAL_TYPE.  */
 
   if (op0 == primop0 && TREE_TYPE (op0) != *restype_ptr)
-    unsignedp0 = TREE_UNSIGNED (TREE_TYPE (op0));
+    unsignedp0 = TYPE_UNSIGNED (TREE_TYPE (op0));
   if (op1 == primop1 && TREE_TYPE (op1) != *restype_ptr)
-    unsignedp1 = TREE_UNSIGNED (TREE_TYPE (op1));
+    unsignedp1 = TYPE_UNSIGNED (TREE_TYPE (op1));
 
   /* If one of the operands must be floated, we cannot optimize.  */
   real1 = TREE_CODE (TREE_TYPE (primop0)) == REAL_TYPE;
@@ -2234,7 +2234,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
       int min_gt, max_gt, min_lt, max_lt;
       tree maxval, minval;
       /* 1 if comparison is nominally unsigned.  */
-      int unsignedp = TREE_UNSIGNED (*restype_ptr);
+      int unsignedp = TYPE_UNSIGNED (*restype_ptr);
       tree val;
 
       type = c_common_signed_or_unsigned_type (unsignedp0,
@@ -2391,7 +2391,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
     {
       type = common_type (TREE_TYPE (primop0), TREE_TYPE (primop1));
       type = c_common_signed_or_unsigned_type (unsignedp0
-					       || TREE_UNSIGNED (*restype_ptr),
+					       || TYPE_UNSIGNED (*restype_ptr),
 					       type);
       /* Make sure shorter operand is extended the right way
 	 to match the longer operand.  */
@@ -2413,7 +2413,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
       primop1 = op1;
 
       if (!real1 && !real2 && integer_zerop (primop1)
-	  && TREE_UNSIGNED (*restype_ptr))
+	  && TYPE_UNSIGNED (*restype_ptr))
 	{
 	  tree value = 0;
 	  switch (code)
@@ -2511,7 +2511,7 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
       /* If the constant is unsigned, and smaller than the pointer size,
 	 then we must skip this optimization.  This is because it could cause
 	 an overflow error if the constant is negative but INTOP is not.  */
-      && (! TREE_UNSIGNED (TREE_TYPE (intop))
+      && (! TYPE_UNSIGNED (TREE_TYPE (intop))
 	  || (TYPE_PRECISION (TREE_TYPE (intop))
 	      == TYPE_PRECISION (TREE_TYPE (ptrop)))))
     {
@@ -2531,9 +2531,9 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
      so the multiply won't overflow spuriously.  */
 
   if (TYPE_PRECISION (TREE_TYPE (intop)) != TYPE_PRECISION (sizetype)
-      || TREE_UNSIGNED (TREE_TYPE (intop)) != TREE_UNSIGNED (sizetype))
+      || TYPE_UNSIGNED (TREE_TYPE (intop)) != TYPE_UNSIGNED (sizetype))
     intop = convert (c_common_type_for_size (TYPE_PRECISION (sizetype),
-					     TREE_UNSIGNED (sizetype)), intop);
+					     TYPE_UNSIGNED (sizetype)), intop);
 
   /* Replace the integer argument with a suitable product by the object size.
      Do this multiplication as signed, then convert to the appropriate
@@ -2869,7 +2869,7 @@ c_common_get_alias_set (tree t)
   /* The C standard specifically allows aliasing between signed and
      unsigned variants of the same type.  We treat the signed
      variant as canonical.  */
-  if (TREE_CODE (t) == INTEGER_TYPE && TREE_UNSIGNED (t))
+  if (TREE_CODE (t) == INTEGER_TYPE && TYPE_UNSIGNED (t))
     {
       tree t1 = c_common_signed_type (t);
 
@@ -3325,7 +3325,7 @@ c_common_nodes_and_builtins (void)
   wchar_type_size = TYPE_PRECISION (wchar_type_node);
   if (c_dialect_cxx ())
     {
-      if (TREE_UNSIGNED (wchar_type_node))
+      if (TYPE_UNSIGNED (wchar_type_node))
 	wchar_type_node = make_unsigned_type (wchar_type_size);
       else
 	wchar_type_node = make_signed_type (wchar_type_size);
@@ -4072,7 +4072,7 @@ match_case_to_enum_1 (tree key, tree type, tree label)
   if (TREE_INT_CST_HIGH (key) == 0)
     snprintf (buf, sizeof (buf), HOST_WIDE_INT_PRINT_UNSIGNED,
 	      TREE_INT_CST_LOW (key));
-  else if (!TREE_UNSIGNED (type)
+  else if (!TYPE_UNSIGNED (type)
 	   && TREE_INT_CST_HIGH (key) == -1
 	   && TREE_INT_CST_LOW (key) != 0)
     snprintf (buf, sizeof (buf), "-" HOST_WIDE_INT_PRINT_UNSIGNED,
@@ -4137,19 +4137,20 @@ void
 c_do_switch_warnings (splay_tree cases, tree switch_stmt)
 {
   splay_tree_node default_node;  
-  location_t switch_locus;
+  location_t *switch_locus;
   tree type;
 
   if (!warn_switch && !warn_switch_enum && !warn_switch_default)
     return;
 
-  switch_locus.file = input_filename;
-  switch_locus.line = STMT_LINENO (switch_stmt);
+  switch_locus = EXPR_LOCUS (switch_stmt);
+  if (!switch_locus)
+    switch_locus = &input_location;
   type = SWITCH_TYPE (switch_stmt);
 
   default_node = splay_tree_lookup (cases, (splay_tree_key) NULL);
   if (warn_switch_default && !default_node)
-    warning ("%Hswitch missing default case", &switch_locus);
+    warning ("%Hswitch missing default case", switch_locus);
 
   /* If the switch expression was an enumerated type, check that
      exactly all enumeration literals are covered by the cases.
@@ -4184,7 +4185,7 @@ c_do_switch_warnings (splay_tree cases, tree switch_stmt)
 	      /* Warn if there are enumerators that don't correspond to
 		 case expressions.  */
 	      warning ("%Henumeration value `%E' not handled in switch",
-		       &switch_locus, TREE_PURPOSE (chain));
+		       switch_locus, TREE_PURPOSE (chain));
 	    }
 	}
 
@@ -4478,7 +4479,7 @@ handle_noreturn_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
     TREE_TYPE (*node)
       = build_pointer_type
 	(build_type_variant (TREE_TYPE (type),
-			     TREE_READONLY (TREE_TYPE (type)), 1));
+			     TYPE_READONLY (TREE_TYPE (type)), 1));
   else
     {
       warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
@@ -4771,7 +4772,7 @@ handle_mode_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 	  warning ("use __attribute__ ((vector_size)) instead");
 	}
 
-      typefm = lang_hooks.types.type_for_mode (mode, TREE_UNSIGNED (type));
+      typefm = lang_hooks.types.type_for_mode (mode, TYPE_UNSIGNED (type));
       if (typefm == NULL_TREE)
 	error ("no data type for mode `%s'", p);
 
@@ -5668,45 +5669,48 @@ check_function_arguments_recurse (void (*callback)
 }
 
 /* C implementation of lang_hooks.tree_inlining.walk_subtrees.  Tracks the
-   line number from STMT_LINENO and handles DECL_STMT specially.  */
+   locus from EXPR_LOCUS and handles DECL_STMT specially.  */
 
 tree 
 c_walk_subtrees (tree *tp, int *walk_subtrees_p ATTRIBUTE_UNUSED,
 		 walk_tree_fn func, void *data, void *htab)
 {
   enum tree_code code = TREE_CODE (*tp);
+  location_t save_locus;
   tree result;
 
 #define WALK_SUBTREE(NODE)				\
   do							\
     {							\
       result = walk_tree (&(NODE), func, data, htab);	\
-      if (result)					\
-	return result;					\
+      if (result) goto out;				\
     }							\
   while (0)
 
-  /* Set input_line here so we get the right instantiation context
-     if we call instantiate_decl from inlinable_function_p.  */
-  if (STATEMENT_CODE_P (code) && !STMT_LINENO_FOR_FN_P (*tp))
-    input_line = STMT_LINENO (*tp);
+  if (code != DECL_STMT)
+    return NULL_TREE;
 
-  if (code == DECL_STMT)
-    {
-      /* Walk the DECL_INITIAL and DECL_SIZE.  We don't want to walk
-	 into declarations that are just mentioned, rather than
-	 declared; they don't really belong to this part of the tree.
-	 And, we can see cycles: the initializer for a declaration can
-	 refer to the declaration itself.  */
-      WALK_SUBTREE (DECL_INITIAL (DECL_STMT_DECL (*tp)));
-      WALK_SUBTREE (DECL_SIZE (DECL_STMT_DECL (*tp)));
-      WALK_SUBTREE (DECL_SIZE_UNIT (DECL_STMT_DECL (*tp)));
-      WALK_SUBTREE (TREE_CHAIN (*tp));
-      *walk_subtrees_p = 0;
-    }
+  /* Set input_location here so we get the right instantiation context
+     if we call instantiate_decl from inlinable_function_p.  */
+  save_locus = input_location;
+  if (EXPR_LOCUS (*tp))
+    input_location = *EXPR_LOCUS (*tp);
+
+  /* Walk the DECL_INITIAL and DECL_SIZE.  We don't want to walk
+     into declarations that are just mentioned, rather than
+     declared; they don't really belong to this part of the tree.
+     And, we can see cycles: the initializer for a declaration can
+     refer to the declaration itself.  */
+  WALK_SUBTREE (DECL_INITIAL (DECL_STMT_DECL (*tp)));
+  WALK_SUBTREE (DECL_SIZE (DECL_STMT_DECL (*tp)));
+  WALK_SUBTREE (DECL_SIZE_UNIT (DECL_STMT_DECL (*tp)));
+  WALK_SUBTREE (TREE_CHAIN (*tp));
+  *walk_subtrees_p = 0;
 
   /* We didn't find what we were looking for.  */
-  return NULL_TREE;
+ out:
+  input_location = save_locus;
+  return result;
 
 #undef WALK_SUBTREE
 }
@@ -5886,7 +5890,6 @@ c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case RETURN_STMT:
     case LABEL_STMT:
     case SCOPE_STMT:
-    case FILE_STMT:
     case CASE_LABEL:
     case STMT_EXPR:
     case CLEANUP_STMT:

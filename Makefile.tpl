@@ -127,6 +127,10 @@ TARGET_SUBDIR = @target_subdir@
 # directories built for the target.
 TARGET_CONFIGARGS = @target_configargs@
 
+# Where to find GMP
+HOST_GMPLIBS = @gmplibs@
+HOST_GMPINC = @gmpinc@
+
 # ----------------------------------------------
 # Programs producing files for the BUILD machine
 # ----------------------------------------------
@@ -249,6 +253,7 @@ TARGET_LIB_PATH = $$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs:$$r/$(TARGET_SUBDI
 FLAGS_FOR_TARGET = @FLAGS_FOR_TARGET@
 
 AR_FOR_TARGET=@AR_FOR_TARGET@
+CONFIGURED_AR_FOR_TARGET=@CONFIGURED_AR_FOR_TARGET@
 USUAL_AR_FOR_TARGET = ` \
   if [ -f $$r/binutils/ar ] ; then \
     echo $$r/binutils/ar ; \
@@ -256,11 +261,12 @@ USUAL_AR_FOR_TARGET = ` \
     if [ '$(host)' = '$(target)' ] ; then \
       echo $(AR); \
     else \
-       echo ar | sed '$(program_transform_name)' ; \
+      echo $(CONFIGURED_AR_FOR_TARGET) ; \
     fi; \
   fi`
 
 AS_FOR_TARGET=@AS_FOR_TARGET@
+CONFIGURED_AS_FOR_TARGET=@CONFIGURED_AS_FOR_TARGET@
 USUAL_AS_FOR_TARGET = ` \
   if [ -f $$r/gas/as-new ] ; then \
     echo $$r/gas/as-new ; \
@@ -270,7 +276,7 @@ USUAL_AS_FOR_TARGET = ` \
     if [ '$(host)' = '$(target)' ] ; then \
       echo $(AS); \
     else \
-       echo as | sed '$(program_transform_name)' ; \
+      echo $(CONFIGURED_AS_FOR_TARGET) ; \
     fi; \
   fi`
 
@@ -296,6 +302,7 @@ CXXFLAGS_FOR_TARGET = $(CXXFLAGS)
 LIBCXXFLAGS_FOR_TARGET = $(CXXFLAGS_FOR_TARGET) -fno-implicit-templates
 
 DLLTOOL_FOR_TARGET=@DLLTOOL_FOR_TARGET@
+CONFIGURED_DLLTOOL_FOR_TARGET=@CONFIGURED_DLLTOOL_FOR_TARGET@
 USUAL_DLLTOOL_FOR_TARGET = ` \
   if [ -f $$r/binutils/dlltool ] ; then \
     echo $$r/binutils/dlltool ; \
@@ -303,7 +310,7 @@ USUAL_DLLTOOL_FOR_TARGET = ` \
     if [ '$(host)' = '$(target)' ] ; then \
       echo $(DLLTOOL); \
     else \
-       echo dlltool | sed '$(program_transform_name)' ; \
+      echo $(CONFIGURED_DLLTOOL_FOR_TARGET) ; \
     fi; \
   fi`
 
@@ -311,6 +318,7 @@ GCJ_FOR_TARGET = @GCJ_FOR_TARGET@
 GFORTRAN_FOR_TARGET = @GFORTRAN_FOR_TARGET@
 
 LD_FOR_TARGET=@LD_FOR_TARGET@
+CONFIGURED_LD_FOR_TARGET=@CONFIGURED_LD_FOR_TARGET@
 USUAL_LD_FOR_TARGET = ` \
   if [ -f $$r/ld/ld-new ] ; then \
     echo $$r/ld/ld-new ; \
@@ -320,13 +328,14 @@ USUAL_LD_FOR_TARGET = ` \
     if [ '$(host)' = '$(target)' ] ; then \
       echo $(LD); \
     else \
-       echo ld | sed '$(program_transform_name)' ; \
+      echo $(CONFIGURED_LD_FOR_TARGET) ; \
     fi; \
   fi`
 
 LDFLAGS_FOR_TARGET = 
 
 NM_FOR_TARGET=@NM_FOR_TARGET@
+CONFIGURED_NM_FOR_TARGET=@CONFIGURED_NM_FOR_TARGET@
 USUAL_NM_FOR_TARGET = ` \
   if [ -f $$r/binutils/nm-new ] ; then \
     echo $$r/binutils/nm-new ; \
@@ -336,11 +345,12 @@ USUAL_NM_FOR_TARGET = ` \
     if [ '$(host)' = '$(target)' ] ; then \
       echo $(NM); \
     else \
-       echo nm | sed '$(program_transform_name)' ; \
+      echo $(CONFIGURED_NM_FOR_TARGET) ; \
     fi; \
   fi`
 
 RANLIB_FOR_TARGET=@RANLIB_FOR_TARGET@
+CONFIGURED_RANLIB_FOR_TARGET=@CONFIGURED_RANLIB_FOR_TARGET@
 USUAL_RANLIB_FOR_TARGET = ` \
   if [ -f $$r/binutils/ranlib ] ; then \
     echo $$r/binutils/ranlib ; \
@@ -352,11 +362,12 @@ USUAL_RANLIB_FOR_TARGET = ` \
          echo ranlib; \
       fi; \
     else \
-       echo ranlib | sed '$(program_transform_name)' ; \
+      echo $(CONFIGURED_RANLIB_FOR_TARGET) ; \
     fi; \
   fi`
 
 WINDRES_FOR_TARGET=@WINDRES_FOR_TARGET@
+CONFIGURED_WINDRES_FOR_TARGET=@CONFIGURED_WINDRES_FOR_TARGET@
 USUAL_WINDRES_FOR_TARGET = ` \
   if [ -f $$r/binutils/windres ] ; then \
     echo $$r/binutils/windres ; \
@@ -364,7 +375,7 @@ USUAL_WINDRES_FOR_TARGET = ` \
     if [ '$(host)' = '$(target)' ] ; then \
       echo $(WINDRES); \
     else \
-       echo windres | sed '$(program_transform_name)' ; \
+      echo $(CONFIGURED_WINDRES_FOR_TARGET) ; \
     fi; \
   fi`
 
@@ -1077,6 +1088,8 @@ configure-gcc:
 	WINDRES="$(WINDRES)"; export WINDRES; \
 	OBJCOPY="$(OBJCOPY)"; export OBJCOPY; \
 	OBJDUMP="$(OBJDUMP)"; export OBJDUMP; \
+	GMPLIBS="$(HOST_GMPLIBS)"; export GMPLIBS; \
+	GMPINC="$(HOST_GMPINC)"; export GMPINC; \
 	echo Configuring in gcc; \
 	cd gcc || exit 1; \
 	case $(srcdir) in \
@@ -1432,9 +1445,7 @@ configure-stage2-gcc: all-stage1-gcc
 BOOT_CFLAGS= -g -O2
 POSTSTAGE1_FLAGS_TO_PASS = \
 	CFLAGS="$(BOOT_CFLAGS)" \
-	ADAC="\$$(CC)" \
-	WARN_CFLAGS="\$$(GCC_WARN_CFLAGS)" \
-	STRICT_WARN="\$$(STRICT2_WARN)"
+	ADAC="\$$(CC)"
 
 all-stage2-gcc: all-stage1-gcc configure-stage2-gcc
 	echo all-stage2-gcc > stage_last ; \

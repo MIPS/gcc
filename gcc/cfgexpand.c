@@ -101,7 +101,7 @@ expand_block (basic_block bb, FILE * dump_file)
     {
       last = get_last_insn ();
 
-      (*lang_hooks.rtl_expand.stmt) (stmt);
+      expand_expr_stmt_value (stmt, 0, 0);
 
       /* Java emits line number notes in the top of labels. 
          ??? Make this go away once line number notes are obsoleted.  */
@@ -220,7 +220,7 @@ expand_block (basic_block bb, FILE * dump_file)
 	case CALL_EXPR:
 	case MODIFY_EXPR:
 	case RETURN_EXPR:
-          (*lang_hooks.rtl_expand.stmt) (stmt);
+          expand_expr_stmt_value (stmt, 0, 0);
 	  for (last = NEXT_INSN (last); last; last = NEXT_INSN (last))
 	    {
 	      if (GET_CODE (last) == CALL_INSN && SIBLING_CALL_P (last))
@@ -276,7 +276,7 @@ expand_block (basic_block bb, FILE * dump_file)
 	  break;
 
 	default:
-          (*lang_hooks.rtl_expand.stmt) (stmt);
+          expand_expr_stmt_value (stmt, 0, 0);
 	  break;
 	}
     }
@@ -366,9 +366,6 @@ construct_exit_block (void)
   record_block_change (DECL_INITIAL (current_function_decl));
 
   expand_end_bindings (BIND_EXPR_VARS (bind_expr), 1, 0);
-  
-  /* Allow language dialects to perform special processing.  */
-  lang_hooks.rtl_expand.end ();
 
   /* Generate rtl for function exit.  */
   expand_function_end ();

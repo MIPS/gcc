@@ -2151,7 +2151,7 @@ copy_blkmode_from_reg (rtx tgtblk, rtx srcreg, tree type)
 
   if (GET_MODE (srcreg) != BLKmode
       && GET_MODE_SIZE (GET_MODE (srcreg)) < UNITS_PER_WORD)
-    srcreg = convert_to_mode (word_mode, srcreg, TREE_UNSIGNED (type));
+    srcreg = convert_to_mode (word_mode, srcreg, TYPE_UNSIGNED (type));
 
   /* If the structure doesn't take up a whole number of words, see whether
      SRCREG is padded on the left or on the right.  If it's on the left,
@@ -3875,7 +3875,7 @@ expand_assignment (tree to, tree from, int want_value)
       return (want_value ? convert_modes (TYPE_MODE (TREE_TYPE (to)),
 					  TYPE_MODE (TREE_TYPE (from)),
 					  result,
-					  TREE_UNSIGNED (TREE_TYPE (to)))
+					  TYPE_UNSIGNED (TREE_TYPE (to)))
 	      : NULL_RTX);
     }
 
@@ -3965,7 +3965,7 @@ expand_assignment (tree to, tree from, int want_value)
 			   VOIDmode, 3, XEXP (to_rtx, 0), Pmode,
 			   XEXP (from_rtx, 0), Pmode,
 			   convert_to_mode (TYPE_MODE (sizetype),
-					    size, TREE_UNSIGNED (sizetype)),
+					    size, TYPE_UNSIGNED (sizetype)),
 			   TYPE_MODE (sizetype));
       else
         emit_library_call (bcopy_libfunc, LCT_NORMAL,
@@ -3973,7 +3973,7 @@ expand_assignment (tree to, tree from, int want_value)
 			   XEXP (to_rtx, 0), Pmode,
 			   convert_to_mode (TYPE_MODE (integer_type_node),
 					    size,
-					    TREE_UNSIGNED (integer_type_node)),
+					    TYPE_UNSIGNED (integer_type_node)),
 			   TYPE_MODE (integer_type_node));
 
       preserve_temp_slots (to_rtx);
@@ -4143,7 +4143,7 @@ store_expr (tree exp, rtx target, int want_value)
 	  && INTEGRAL_TYPE_P (TREE_TYPE (exp))
 	  && TREE_TYPE (TREE_TYPE (exp)) == 0)
 	{
-	  if (TREE_UNSIGNED (TREE_TYPE (exp))
+	  if (TYPE_UNSIGNED (TREE_TYPE (exp))
 	      != SUBREG_PROMOTED_UNSIGNED_P (target))
 	    exp = convert
 	      (lang_hooks.types.signed_or_unsigned_type
@@ -4232,7 +4232,7 @@ store_expr (tree exp, rtx target, int want_value)
       && TREE_CODE (exp) != ERROR_MARK
       && GET_MODE (target) != TYPE_MODE (TREE_TYPE (exp)))
     temp = convert_modes (GET_MODE (target), TYPE_MODE (TREE_TYPE (exp)),
-			  temp, TREE_UNSIGNED (TREE_TYPE (exp)));
+			  temp, TYPE_UNSIGNED (TREE_TYPE (exp)));
 
   /* If value was not generated in the target, store it there.
      Convert the value to TARGET's type first if necessary and emit the
@@ -4273,7 +4273,7 @@ store_expr (tree exp, rtx target, int want_value)
       if (GET_MODE (temp) != GET_MODE (target)
 	  && GET_MODE (temp) != VOIDmode)
 	{
-	  int unsignedp = TREE_UNSIGNED (TREE_TYPE (exp));
+	  int unsignedp = TYPE_UNSIGNED (TREE_TYPE (exp));
 	  if (dont_return_target)
 	    {
 	      /* In this case, we will return TEMP,
@@ -4314,7 +4314,7 @@ store_expr (tree exp, rtx target, int want_value)
 
 	      /* Copy that much.  */
 	      copy_size_rtx = convert_to_mode (ptr_mode, copy_size_rtx,
-					       TREE_UNSIGNED (sizetype));
+					       TYPE_UNSIGNED (sizetype));
 	      emit_block_move (target, temp, copy_size_rtx,
 			       (want_value & 2
 				? BLOCK_OP_CALL_PARM : BLOCK_OP_NORMAL));
@@ -4336,7 +4336,7 @@ store_expr (tree exp, rtx target, int want_value)
 #ifdef POINTERS_EXTEND_UNSIGNED
 		  if (GET_MODE (copy_size_rtx) != Pmode)
 		    copy_size_rtx = convert_to_mode (Pmode, copy_size_rtx,
-						     TREE_UNSIGNED (sizetype));
+						     TYPE_UNSIGNED (sizetype));
 #endif
 
 		  target = offset_address (target, copy_size_rtx,
@@ -4786,7 +4786,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	      if (TYPE_PRECISION (type) < BITS_PER_WORD)
 		{
 		  type = lang_hooks.types.type_for_size
-		    (BITS_PER_WORD, TREE_UNSIGNED (type));
+		    (BITS_PER_WORD, TYPE_UNSIGNED (type));
 		  value = convert (type, value);
 		}
 
@@ -4949,7 +4949,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	  if (cleared && initializer_zerop (value))
 	    continue;
 
-	  unsignedp = TREE_UNSIGNED (elttype);
+	  unsignedp = TYPE_UNSIGNED (elttype);
 	  mode = TYPE_MODE (elttype);
 	  if (mode == BLKmode)
 	    bitsize = (host_integerp (TYPE_SIZE (elttype), 1)
@@ -5007,7 +5007,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		  expand_expr (hi_index, NULL_RTX, VOIDmode, 0);
 		  loop_end = gen_label_rtx ();
 
-		  unsignedp = TREE_UNSIGNED (domain);
+		  unsignedp = TYPE_UNSIGNED (domain);
 
 		  index = build_decl (VAR_DECL, NULL_TREE, domain);
 
@@ -5182,7 +5182,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		{
 		  if (word != 0 || ! cleared)
 		    {
-		      rtx datum = GEN_INT (word);
+		      rtx datum = gen_int_mode (word, mode);
 		      rtx to_rtx;
 
 		      /* The assumption here is that it is safe to use
@@ -5541,17 +5541,17 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
       if (! DECL_BIT_FIELD (TREE_OPERAND (exp, 1)))
 	mode = DECL_MODE (TREE_OPERAND (exp, 1));
 
-      *punsignedp = TREE_UNSIGNED (TREE_OPERAND (exp, 1));
+      *punsignedp = DECL_UNSIGNED (TREE_OPERAND (exp, 1));
     }
   else if (TREE_CODE (exp) == BIT_FIELD_REF)
     {
       size_tree = TREE_OPERAND (exp, 1);
-      *punsignedp = TREE_UNSIGNED (exp);
+      *punsignedp = BIT_FIELD_REF_UNSIGNED (exp);
     }
   else
     {
       mode = TYPE_MODE (TREE_TYPE (exp));
-      *punsignedp = TREE_UNSIGNED (TREE_TYPE (exp));
+      *punsignedp = TYPE_UNSIGNED (TREE_TYPE (exp));
 
       if (mode == BLKmode)
 	size_tree = TYPE_SIZE (TREE_TYPE (exp));
@@ -6403,7 +6403,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 {
   rtx op0, op1, temp;
   tree type = TREE_TYPE (exp);
-  int unsignedp = TREE_UNSIGNED (type);
+  int unsignedp;
   enum machine_mode mode;
   enum tree_code code = TREE_CODE (exp);
   optab this_optab;
@@ -6412,6 +6412,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
   tree context;
 
   mode = TYPE_MODE (type);
+  unsignedp = TYPE_UNSIGNED (type);
+
   /* Use subtarget as the target for operand 0 of a binary operation.  */
   subtarget = get_subtarget (target);
   original_target = target;
@@ -7128,7 +7130,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 		    enum machine_mode imode
 		      = TYPE_MODE (TREE_TYPE (TREE_PURPOSE (elt)));
 
-		    if (TREE_UNSIGNED (TREE_TYPE (TREE_PURPOSE (elt))))
+		    if (TYPE_UNSIGNED (TREE_TYPE (TREE_PURPOSE (elt))))
 		      {
 			op1 = GEN_INT (((HOST_WIDE_INT) 1 << bitsize) - 1);
 			op0 = expand_and (imode, op0, op1, target);
@@ -7487,7 +7489,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 	tree set = TREE_OPERAND (exp, 0);
 	tree index = TREE_OPERAND (exp, 1);
-	int iunsignedp = TREE_UNSIGNED (TREE_TYPE (index));
+	int iunsignedp = TYPE_UNSIGNED (TREE_TYPE (index));
 	tree set_type = TREE_TYPE (set);
 	tree set_low_bound = TYPE_MIN_VALUE (TYPE_DOMAIN (set_type));
 	tree set_high_bound = TYPE_MAX_VALUE (TYPE_DOMAIN (set_type));
@@ -7685,7 +7687,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  /* If the signedness of the conversion differs and OP0 is
 	     a promoted SUBREG, clear that indication since we now
 	     have to do the proper extension.  */
-	  if (TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))) != unsignedp
+	  if (TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))) != unsignedp
 	      && GET_CODE (op0) == SUBREG)
 	    SUBREG_PROMOTED_VAR_P (op0) = 0;
 
@@ -7708,7 +7710,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 							       inner_mode));
 	  else
 	    return convert_modes (mode, inner_mode, op0,
-				  TREE_UNSIGNED (inner_type));
+				  TYPE_UNSIGNED (inner_type));
 	}
 
       if (modifier == EXPAND_INITIALIZER)
@@ -7717,10 +7719,10 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       if (target == 0)
 	return
 	  convert_to_mode (mode, op0,
-			   TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))));
+			   TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))));
       else
 	convert_move (target, op0,
-		      TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))));
+		      TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))));
       return target;
 
     case VIEW_CONVERT_EXPR:
@@ -8014,18 +8016,22 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 		   || exact_log2 (TREE_INT_CST_LOW (TREE_OPERAND (exp, 1))) < 0))
 	      ||
 	      (TREE_CODE (TREE_OPERAND (exp, 1)) == NOP_EXPR
-	       && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (exp, 1), 0)))
-		   ==
-		   TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0))))
+	       && (TYPE_PRECISION (TREE_TYPE
+				   (TREE_OPERAND (TREE_OPERAND (exp, 1), 0)))
+		   == TYPE_PRECISION (TREE_TYPE
+				      (TREE_OPERAND
+				       (TREE_OPERAND (exp, 0), 0))))
 	       /* If both operands are extended, they must either both
 		  be zero-extended or both be sign-extended.  */
-	       && (TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (exp, 1), 0)))
-		   ==
-		   TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0)))))))
+	       && (TYPE_UNSIGNED (TREE_TYPE
+				  (TREE_OPERAND (TREE_OPERAND (exp, 1), 0)))
+		   == TYPE_UNSIGNED (TREE_TYPE
+				     (TREE_OPERAND
+				      (TREE_OPERAND (exp, 0), 0)))))))
 	{
 	  tree op0type = TREE_TYPE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0));
 	  enum machine_mode innermode = TYPE_MODE (op0type);
-	  bool zextend_p = TREE_UNSIGNED (op0type);
+	  bool zextend_p = TYPE_UNSIGNED (op0type);
 	  optab other_optab = zextend_p ? smul_widen_optab : umul_widen_optab;
 	  this_optab = zextend_p ? umul_widen_optab : smul_widen_optab;
 
@@ -8134,7 +8140,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	op0 = copy_to_mode_reg (TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0))),
 				op0);
       expand_float (target, op0,
-		    TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))));
+		    TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))));
       return target;
 
     case NEGATE_EXPR:
@@ -8161,7 +8167,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
       /* Unsigned abs is simply the operand.  Testing here means we don't
 	 risk generating incorrect code below.  */
-      if (TREE_UNSIGNED (type))
+      if (TYPE_UNSIGNED (type))
 	return op0;
 
       return expand_abs (mode, op0, target, unsignedp,
@@ -9288,8 +9294,52 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  for (i = 0; i < n; ++i)
 	    {
 	      tree elt = TREE_VEC_ELT (vec, i);
-	      add_case_node (CASE_LOW (elt), CASE_HIGH (elt),
-			     CASE_LABEL (elt), &duplicate, true);
+	      tree controlling_expr_type = TREE_TYPE (SWITCH_COND (exp));
+	      tree min_value = TYPE_MIN_VALUE (controlling_expr_type);
+	      tree max_value = TYPE_MAX_VALUE (controlling_expr_type);
+	      
+	      tree case_low = CASE_LOW (elt);
+	      tree case_high = CASE_HIGH (elt) ? CASE_HIGH (elt) : case_low;
+	      if (case_low && case_high)
+		{
+		  /* Case label is less than minimum for type.  */
+		  if ((tree_int_cst_compare (case_low, min_value) < 0)
+		      && (tree_int_cst_compare (case_high, min_value) < 0))
+		    {
+		      warning ("case label value %d is less than minimum value for type",
+			       TREE_INT_CST (case_low));
+		      continue;
+		    }
+		  
+		  /* Case value is greater than maximum for type.  */
+		  if ((tree_int_cst_compare (case_low, max_value) > 0)
+		      && (tree_int_cst_compare (case_high, max_value) > 0))
+		    {
+		      warning ("case label value %d exceeds maximum value for type",
+			       TREE_INT_CST (case_high));
+		      continue;
+		    }
+		  
+		  /* Saturate lower case label value to minimum.  */
+		  if ((tree_int_cst_compare (case_high, min_value) >= 0)
+		      && (tree_int_cst_compare (case_low, min_value) < 0))
+		    {
+		      warning ("lower value %d in case label range less than minimum value for type",
+			       TREE_INT_CST (case_low));
+		      case_low = min_value;
+		    }
+		  
+		  /* Saturate upper case label value to maximum.  */
+		  if ((tree_int_cst_compare (case_low, max_value) <= 0)
+		      && (tree_int_cst_compare (case_high, max_value) > 0))
+		    {
+		      warning ("upper value %d in case label range exceeds maximum value for type",
+			       TREE_INT_CST (case_high));
+		      case_high = max_value;
+		    }
+		}
+	      
+	      add_case_node (case_low, case_high, CASE_LABEL (elt), &duplicate, true);
 	      if (duplicate)
 		abort ();
 	    }
@@ -9621,7 +9671,7 @@ expand_increment (tree exp, int post, int ignore)
 
   /* Increment however we can.  */
   op1 = expand_binop (mode, this_optab, value, op1, op0,
-		      TREE_UNSIGNED (TREE_TYPE (exp)), OPTAB_LIB_WIDEN);
+		      TYPE_UNSIGNED (TREE_TYPE (exp)), OPTAB_LIB_WIDEN);
 
   /* Make sure the value is stored into OP0.  */
   if (op1 != op0)
@@ -9681,7 +9731,7 @@ do_store_flag (tree exp, rtx target, enum machine_mode mode, int only_cheap)
 
   type = TREE_TYPE (arg0);
   operand_mode = TYPE_MODE (type);
-  unsignedp = TREE_UNSIGNED (type);
+  unsignedp = TYPE_UNSIGNED (type);
 
   /* We won't bother with BLKmode store-flag operations because it would mean
      passing a lot of information to emit_store_flag.  */
@@ -9954,7 +10004,7 @@ try_casesi (tree index_type, tree index_expr, tree minval, tree range,
 
   op_mode = insn_data[(int) CODE_FOR_casesi].operand[1].mode;
   op1 = convert_modes (op_mode, TYPE_MODE (TREE_TYPE (minval)),
-		       op1, TREE_UNSIGNED (TREE_TYPE (minval)));
+		       op1, TYPE_UNSIGNED (TREE_TYPE (minval)));
   if (! (*insn_data[(int) CODE_FOR_casesi].operand[1].predicate)
       (op1, op_mode))
     op1 = copy_to_mode_reg (op_mode, op1);
@@ -9963,7 +10013,7 @@ try_casesi (tree index_type, tree index_expr, tree minval, tree range,
 
   op_mode = insn_data[(int) CODE_FOR_casesi].operand[2].mode;
   op2 = convert_modes (op_mode, TYPE_MODE (TREE_TYPE (range)),
-		       op2, TREE_UNSIGNED (TREE_TYPE (range)));
+		       op2, TYPE_UNSIGNED (TREE_TYPE (range)));
   if (! (*insn_data[(int) CODE_FOR_casesi].operand[2].predicate)
       (op2, op_mode))
     op2 = copy_to_mode_reg (op_mode, op2);
@@ -10077,7 +10127,7 @@ try_tablejump (tree index_type, tree index_expr, tree minval, tree range,
 			       TYPE_MODE (TREE_TYPE (range)),
 			       expand_expr (range, NULL_RTX,
 					    VOIDmode, 0),
-			       TREE_UNSIGNED (TREE_TYPE (range))),
+			       TYPE_UNSIGNED (TREE_TYPE (range))),
 		table_label, default_label);
   return 1;
 }

@@ -61,8 +61,8 @@ const struct attribute_spec arm_attribute_table[];
 /* Forward function declarations.  */
 static arm_stack_offsets *arm_get_frame_offsets (void);
 static void arm_add_gc_roots (void);
-static int arm_gen_constant (enum rtx_code, enum machine_mode, HOST_WIDE_INT,
-			     rtx, rtx, int, int);
+static int arm_gen_constant (enum rtx_code, enum machine_mode, rtx,
+			     HOST_WIDE_INT, rtx, rtx, int, int);
 static unsigned bit_count (unsigned long);
 static int arm_address_register_rtx_p (rtx, int);
 static int arm_legitimate_index_p (enum machine_mode, rtx, RTX_CODE, int);
@@ -140,6 +140,7 @@ static rtx safe_vector_operand (rtx, enum machine_mode);
 static rtx arm_expand_binop_builtin (enum insn_code, tree, rtx);
 static rtx arm_expand_unop_builtin (enum insn_code, tree, rtx, int);
 static rtx arm_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
+static void emit_constant_insn (rtx cond, rtx pattern);
 
 #ifdef OBJECT_FORMAT_ELF
 static void arm_elf_asm_named_section (const char *, unsigned int);
@@ -243,8 +244,10 @@ static void arm_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 
 #undef TARGET_PROMOTE_FUNCTION_ARGS
 #define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#undef TARGET_PROMOTE_FUNCTION_RETURN
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_false
 
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX arm_struct_value_rtx
@@ -853,7 +856,12 @@ arm_override_options (void)
 	error ("invalid ABI option: -mabi=%s", target_abi_name);
     }
   else
-    arm_abi = ARM_DEFAULT_ABI;
+    {
+      if (TARGET_IWMMXT)
+	arm_abi = ARM_ABI_AAPCS;
+      else
+	arm_abi = ARM_DEFAULT_ABI;
+    }
 
   if (TARGET_IWMMXT && !ARM_DOUBLEWORD_ALIGN)
     error ("iwmmxt requires an AAPCS compatible ABI for proper operation");
@@ -1343,9 +1351,16 @@ const_ok_for_op (HOST_WIDE_INT i, enum rtx_code code)
    Return value is the number of insns emitted.  */
 
 int
-arm_split_constant (enum rtx_code code, enum machine_mode mode,
+arm_split_constant (enum rtx_code code, enum machine_mode mode, rtx insn,
 		    HOST_WIDE_INT val, rtx target, rtx source, int subtargets)
 {
+  rtx cond;
+
+  if (insn && GET_CODE (PATTERN (insn)) == COND_EXEC)
+    cond = COND_EXEC_TEST (PATTERN (insn));
+  else
+    cond = NULL_RTX;
+
   if (subtargets || code == SET
       || (GET_CODE (target) == REG && GET_CODE (source) == REG
 	  && REGNO (target) != REGNO (source)))
@@ -1360,7 +1375,9 @@ arm_split_constant (enum rtx_code code, enum machine_mode mode,
 	 Ref: gcc -O1 -mcpu=strongarm gcc.c-torture/compile/980506-2.c
       */
       if (!after_arm_reorg
-	  && (arm_gen_constant (code, mode, val, target, source, 1, 0)
+	  && !cond
+	  && (arm_gen_constant (code, mode, NULL_RTX, val, target, source, 
+				1, 0)
 	      > arm_constant_limit + (code != SET)))
 	{
 	  if (code == SET)
@@ -1388,7 +1405,8 @@ arm_split_constant (enum rtx_code code, enum machine_mode mode,
 	}
     }
 
-  return arm_gen_constant (code, mode, val, target, source, subtargets, 1);
+  return arm_gen_constant (code, mode, cond, val, target, source, subtargets, 
+			   1);
 }
 
 static int
@@ -1418,11 +1436,23 @@ count_insns_for_constant (HOST_WIDE_INT remainder, int i)
   return num_insns;
 }
 
+/* Emit an instruction with the indicated PATTERN.  If COND is
+   non-NULL, conditionalize the execution of the instruction on COND
+   being true.  */
+
+static void
+emit_constant_insn (rtx cond, rtx pattern)
+{
+  if (cond)
+    pattern = gen_rtx_COND_EXEC (VOIDmode, copy_rtx (cond), pattern);
+  emit_insn (pattern);
+}
+
 /* As above, but extra parameter GENERATE which, if clear, suppresses
    RTL generation.  */
 
 static int
-arm_gen_constant (enum rtx_code code, enum machine_mode mode,
+arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
 		  HOST_WIDE_INT val, rtx target, rtx source, int subtargets,
 		  int generate)
 {
@@ -1460,8 +1490,9 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
       if (remainder == 0xffffffff)
 	{
 	  if (generate)
-	    emit_insn (gen_rtx_SET (VOIDmode, target,
-				    GEN_INT (ARM_SIGN_EXTEND (val))));
+	    emit_constant_insn (cond,
+				gen_rtx_SET (VOIDmode, target,
+					     GEN_INT (ARM_SIGN_EXTEND (val))));
 	  return 1;
 	}
       if (remainder == 0)
@@ -1469,7 +1500,8 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
 	  if (reload_completed && rtx_equal_p (target, source))
 	    return 0;
 	  if (generate)
-	    emit_insn (gen_rtx_SET (VOIDmode, target, source));
+	    emit_constant_insn (cond,
+				gen_rtx_SET (VOIDmode, target, source));
 	  return 1;
 	}
       break;
@@ -1478,7 +1510,8 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
       if (remainder == 0)
 	{
 	  if (generate)
-	    emit_insn (gen_rtx_SET (VOIDmode, target, const0_rtx));
+	    emit_constant_insn (cond,
+				gen_rtx_SET (VOIDmode, target, const0_rtx));
 	  return 1;
 	}
       if (remainder == 0xffffffff)
@@ -1486,7 +1519,8 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
 	  if (reload_completed && rtx_equal_p (target, source))
 	    return 0;
 	  if (generate)
-	    emit_insn (gen_rtx_SET (VOIDmode, target, source));
+	    emit_constant_insn (cond,
+				gen_rtx_SET (VOIDmode, target, source));
 	  return 1;
 	}
       can_invert = 1;
@@ -1498,14 +1532,16 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
 	  if (reload_completed && rtx_equal_p (target, source))
 	    return 0;
 	  if (generate)
-	    emit_insn (gen_rtx_SET (VOIDmode, target, source));
+	    emit_constant_insn (cond,
+				gen_rtx_SET (VOIDmode, target, source));
 	  return 1;
 	}
       if (remainder == 0xffffffff)
 	{
 	  if (generate)
-	    emit_insn (gen_rtx_SET (VOIDmode, target,
-				    gen_rtx_NOT (mode, source)));
+	    emit_constant_insn (cond,
+				gen_rtx_SET (VOIDmode, target,
+					     gen_rtx_NOT (mode, source)));
 	  return 1;
 	}
 
@@ -1518,16 +1554,18 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
       if (remainder == 0)
 	{
 	  if (generate)
-	    emit_insn (gen_rtx_SET (VOIDmode, target,
-				    gen_rtx_NEG (mode, source)));
+	    emit_constant_insn (cond,
+				gen_rtx_SET (VOIDmode, target,
+					     gen_rtx_NEG (mode, source)));
 	  return 1;
 	}
       if (const_ok_for_arm (val))
 	{
 	  if (generate)
-	    emit_insn (gen_rtx_SET (VOIDmode, target, 
-				    gen_rtx_MINUS (mode, GEN_INT (val),
-						   source)));
+	    emit_constant_insn (cond,
+				gen_rtx_SET (VOIDmode, target, 
+					     gen_rtx_MINUS (mode, GEN_INT (val),
+							    source)));
 	  return 1;
 	}
       can_negate = 1;
@@ -1544,10 +1582,12 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
       || (can_invert && const_ok_for_arm (~val)))
     {
       if (generate)
-	emit_insn (gen_rtx_SET (VOIDmode, target,
-				(source ? gen_rtx_fmt_ee (code, mode, source,
-						   GEN_INT (val))
-				 : GEN_INT (val))));
+	emit_constant_insn (cond,
+			    gen_rtx_SET (VOIDmode, target,
+					 (source 
+					  ? gen_rtx_fmt_ee (code, mode, source,
+							    GEN_INT (val))
+					  : GEN_INT (val))));
       return 1;
     }
 
@@ -1600,10 +1640,12 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
 	      if (generate)
 		{
 		  rtx new_src = subtargets ? gen_reg_rtx (mode) : target;
-		  emit_insn (gen_rtx_SET (VOIDmode, new_src, 
-					  GEN_INT (temp1)));
-		  emit_insn (gen_ashrsi3 (target, new_src, 
-					  GEN_INT (set_sign_bit_copies - 1)));
+		  emit_constant_insn (cond,
+				      gen_rtx_SET (VOIDmode, new_src, 
+						   GEN_INT (temp1)));
+		  emit_constant_insn (cond,
+				      gen_ashrsi3 (target, new_src, 
+						   GEN_INT (set_sign_bit_copies - 1)));
 		}
 	      return 2;
 	    }
@@ -1615,10 +1657,12 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
 	      if (generate)
 		{
 		  rtx new_src = subtargets ? gen_reg_rtx (mode) : target;
-		  emit_insn (gen_rtx_SET (VOIDmode, new_src,
-					  GEN_INT (temp1)));
-		  emit_insn (gen_ashrsi3 (target, new_src, 
-					  GEN_INT (set_sign_bit_copies - 1)));
+		  emit_constant_insn (cond,
+				      gen_rtx_SET (VOIDmode, new_src,
+						   GEN_INT (temp1)));
+		  emit_constant_insn (cond,
+				      gen_ashrsi3 (target, new_src, 
+						   GEN_INT (set_sign_bit_copies - 1)));
 		}
 	      return 2;
 	    }
@@ -1643,16 +1687,18 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
 		  rtx new_src = (subtargets
 				 ? (generate ? gen_reg_rtx (mode) : NULL_RTX)
 				 : target);
-		  insns = arm_gen_constant (code, mode, temp2, new_src,
+		  insns = arm_gen_constant (code, mode, cond, temp2, new_src,
 					    source, subtargets, generate);
 		  source = new_src;
 		  if (generate)
-		    emit_insn (gen_rtx_SET
-			       (VOIDmode, target,
-				gen_rtx_IOR (mode,
-					     gen_rtx_ASHIFT (mode, source,
-							     GEN_INT (i)),
-					     source)));
+		    emit_constant_insn 
+		      (cond,
+		       gen_rtx_SET
+		       (VOIDmode, target,
+			gen_rtx_IOR (mode,
+				     gen_rtx_ASHIFT (mode, source,
+						     GEN_INT (i)),
+				     source)));
 		  return insns + 1;
 		}
 	    }
@@ -1666,12 +1712,13 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
 		  rtx new_src = (subtargets
 				 ? (generate ? gen_reg_rtx (mode) : NULL_RTX)
 				 : target);
-		  insns = arm_gen_constant (code, mode, temp1, new_src,
+		  insns = arm_gen_constant (code, mode, cond, temp1, new_src,
 					    source, subtargets, generate);
 		  source = new_src;
 		  if (generate)
-		    emit_insn
-		      (gen_rtx_SET (VOIDmode, target,
+		    emit_constant_insn
+		      (cond,
+		       gen_rtx_SET (VOIDmode, target,
 				    gen_rtx_IOR
 				    (mode,
 				     gen_rtx_LSHIFTRT (mode, source,
@@ -1698,9 +1745,13 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
 		{
 		  rtx sub = subtargets ? gen_reg_rtx (mode) : target;
 
-		  emit_insn (gen_rtx_SET (VOIDmode, sub, GEN_INT (val)));
-		  emit_insn (gen_rtx_SET (VOIDmode, target, 
-					  gen_rtx_fmt_ee (code, mode, source, sub)));
+		  emit_constant_insn (cond,
+				      gen_rtx_SET (VOIDmode, sub, 
+						   GEN_INT (val)));
+		  emit_constant_insn (cond,
+				      gen_rtx_SET (VOIDmode, target, 
+						   gen_rtx_fmt_ee (code, mode,
+								   source, sub)));
 		}
 	      return 2;
 	    }
@@ -1717,15 +1768,19 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
 	      rtx sub = subtargets ? gen_reg_rtx (mode) : target;
 	      rtx shift = GEN_INT (set_sign_bit_copies);
 
-	      emit_insn (gen_rtx_SET (VOIDmode, sub,
-				      gen_rtx_NOT (mode, 
-						   gen_rtx_ASHIFT (mode,
-								   source, 
-								   shift))));
-	      emit_insn (gen_rtx_SET (VOIDmode, target,
-				      gen_rtx_NOT (mode,
-						   gen_rtx_LSHIFTRT (mode, sub,
-								     shift))));
+	      emit_constant_insn 
+		(cond,
+		 gen_rtx_SET (VOIDmode, sub,
+			      gen_rtx_NOT (mode, 
+					   gen_rtx_ASHIFT (mode,
+							   source, 
+							   shift))));
+	      emit_constant_insn 
+		(cond,
+		 gen_rtx_SET (VOIDmode, target,
+			      gen_rtx_NOT (mode,
+					   gen_rtx_LSHIFTRT (mode, sub,
+							     shift))));
 	    }
 	  return 2;
 	}
@@ -1738,15 +1793,19 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
 	      rtx sub = subtargets ? gen_reg_rtx (mode) : target;
 	      rtx shift = GEN_INT (set_zero_bit_copies);
 
-	      emit_insn (gen_rtx_SET (VOIDmode, sub,
-				      gen_rtx_NOT (mode,
-						   gen_rtx_LSHIFTRT (mode,
-								     source,
-								     shift))));
-	      emit_insn (gen_rtx_SET (VOIDmode, target,
-				      gen_rtx_NOT (mode,
-						   gen_rtx_ASHIFT (mode, sub,
-								   shift))));
+	      emit_constant_insn
+		(cond,
+		 gen_rtx_SET (VOIDmode, sub,
+			      gen_rtx_NOT (mode,
+					   gen_rtx_LSHIFTRT (mode,
+							     source,
+							     shift))));
+	      emit_constant_insn 
+		(cond,
+		 gen_rtx_SET (VOIDmode, target,
+			      gen_rtx_NOT (mode,
+					   gen_rtx_ASHIFT (mode, sub,
+							   shift))));
 	    }
 	  return 2;
 	}
@@ -1756,16 +1815,19 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
 	  if (generate)
 	    {
 	      rtx sub = subtargets ? gen_reg_rtx (mode) : target;
-	      emit_insn (gen_rtx_SET (VOIDmode, sub,
-				      gen_rtx_NOT (mode, source)));
+	      emit_constant_insn (cond,
+				  gen_rtx_SET (VOIDmode, sub,
+					       gen_rtx_NOT (mode, source)));
 	      source = sub;
 	      if (subtargets)
 		sub = gen_reg_rtx (mode);
-	      emit_insn (gen_rtx_SET (VOIDmode, sub,
-				      gen_rtx_AND (mode, source, 
-						   GEN_INT (temp1))));
-	      emit_insn (gen_rtx_SET (VOIDmode, target,
-				      gen_rtx_NOT (mode, sub)));
+	      emit_constant_insn (cond,
+				  gen_rtx_SET (VOIDmode, sub,
+					       gen_rtx_AND (mode, source, 
+							    GEN_INT (temp1))));
+	      emit_constant_insn (cond,
+				  gen_rtx_SET (VOIDmode, target,
+					       gen_rtx_NOT (mode, sub)));
 	    }
 	  return 3;
 	}
@@ -1784,14 +1846,16 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
 	      if (generate)
 		{
 		  rtx new_src = subtargets ? gen_reg_rtx (mode) : target;
-		  insns = arm_gen_constant (AND, mode, remainder | shift_mask,
+		  insns = arm_gen_constant (AND, mode, cond, 
+					    remainder | shift_mask,
 					    new_src, source, subtargets, 1);
 		  source = new_src;
 		}
 	      else
 		{
 		  rtx targ = subtargets ? NULL_RTX : target;
-		  insns = arm_gen_constant (AND, mode, remainder | shift_mask,
+		  insns = arm_gen_constant (AND, mode, cond,
+					    remainder | shift_mask,
 					    targ, source, subtargets, 0);
 		}
 	    }
@@ -1818,7 +1882,8 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
 		{
 		  rtx new_src = subtargets ? gen_reg_rtx (mode) : target;
 
-		  insns = arm_gen_constant (AND, mode, remainder | shift_mask,
+		  insns = arm_gen_constant (AND, mode, cond,
+					    remainder | shift_mask,
 					    new_src, source, subtargets, 1);
 		  source = new_src;
 		}
@@ -1826,7 +1891,8 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
 		{
 		  rtx targ = subtargets ? NULL_RTX : target;
 
-		  insns = arm_gen_constant (AND, mode, remainder | shift_mask,
+		  insns = arm_gen_constant (AND, mode, cond,
+					    remainder | shift_mask,
 					    targ, source, subtargets, 0);
 		}
 	    }
@@ -1971,7 +2037,9 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode,
 		else
 		  temp1_rtx = gen_rtx_fmt_ee (code, mode, source, temp1_rtx);
 
-		emit_insn (gen_rtx_SET (VOIDmode, new_src, temp1_rtx));
+		emit_constant_insn (cond,
+				    gen_rtx_SET (VOIDmode, new_src, 
+						 temp1_rtx));
 		source = new_src;
 	      }
 
@@ -2055,6 +2123,24 @@ arm_canonicalize_comparison (enum rtx_code code, rtx * op1)
 
   return code;
 }
+
+
+/* Define how to find the value returned by a function.  */
+
+rtx arm_function_value(tree type, tree func ATTRIBUTE_UNUSED)
+{
+  enum machine_mode mode;
+  int unsignedp ATTRIBUTE_UNUSED;
+  rtx r ATTRIBUTE_UNUSED;
+
+  
+  mode = TYPE_MODE (type);
+  /* Promote integer types.  */
+  if (INTEGRAL_TYPE_P (type))
+    PROMOTE_FUNCTION_MODE (mode, unsignedp, type);
+  return LIBCALL_VALUE(mode);
+}
+
 
 /* Decide whether a type should be returned in memory (true)
    or in a register (false).  This is called by the macro
@@ -2288,7 +2374,7 @@ arm_function_arg (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
     /* Compute operand 2 of the call insn.  */
     return GEN_INT (pcum->call_cookie);
 
-  /* Only allow splitting an arg between regs and memory if all preceeding
+  /* Only allow splitting an arg between regs and memory if all preceding
      args were allocated to regs.  For args passed by reference we only count
      the reference pointer.  */
   if (pcum->can_split)
@@ -7809,29 +7895,35 @@ print_multi_reg (FILE *stream, const char *instr, int reg, int mask)
 }
 
 
-/* Output the operands of a FLDM/FSTM instruction to STREAM.
-   REG is the base register,
-   INSTR is the possibly suffixed load or store instruction.
-   FMT specifies now to print the register name.
-   START and COUNT specify the register range.  */
+/* Output a FLDMX instruction to STREAM.
+   BASE if the register containing the address.
+   REG and COUNT specify the register range.
+   Extra registers may be added to avoid hardware bugs.  */
 
 static void
-vfp_print_multi (FILE *stream, const char *instr, int reg,
-		 const char * fmt, int start, int count)
+arm_output_fldmx (FILE * stream, unsigned int base, int reg, int count)
 {
   int i;
 
-  fputc ('\t', stream);
-  asm_fprintf (stream, instr, reg);
-  fputs (", {", stream);
-
-  for (i = start; i < start + count; i++)
+  /* Workaround ARM10 VFPr1 bug.  */
+  if (count == 2 && !arm_arch6)
     {
-      if (i > start)
+      if (reg == 15)
+	reg--;
+      count++;
+    }
+
+  fputc ('\t', stream);
+  asm_fprintf (stream, "fldmfdx\t%r!, {", base);
+
+  for (i = reg; i < reg + count; i++)
+    {
+      if (i > reg)
 	fputs (", ", stream);
-      asm_fprintf (stream, fmt, i);
+      asm_fprintf (stream, "d%d", i);
     }
   fputs ("}\n", stream);
+
 }
 
 
@@ -7863,15 +7955,26 @@ vfp_output_fstmx (rtx * operands)
 }
 
 
-/* Emit RTL to save block of VFP register pairs to the stack.  */
+/* Emit RTL to save block of VFP register pairs to the stack.  Returns the
+   number of bytes pushed.  */
 
-static rtx
+static int
 vfp_emit_fstmx (int base_reg, int count)
 {
   rtx par;
   rtx dwarf;
   rtx tmp, reg;
   int i;
+
+  /* Workaround ARM10 VFPr1 bug.  Data corruption can occur when exactly two
+     register pairs are stored by a store multiple insn.  We avoid this
+     by pushing an extra pair.  */
+  if (count == 2 && !arm_arch6)
+    {
+      if (base_reg == LAST_VFP_REGNUM - 3)
+	base_reg -= 2;
+      count++;
+    }
 
   /* ??? The frame layout is implementation defined.  We describe
      standard format 1 (equivalent to a FSTMD insn and unused pad word).
@@ -7922,7 +8025,9 @@ vfp_emit_fstmx (int base_reg, int count)
   par = emit_insn (par);
   REG_NOTES (par) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
 				       REG_NOTES (par));
-  return par;
+  RTX_FRAME_RELATED_P (par) = 1;
+
+  return count * 8 + 4;
 }
 
 
@@ -8864,6 +8969,50 @@ arm_compute_save_reg_mask (void)
   return save_reg_mask;
 }
 
+
+/* Return the number of bytes required to save VFP registers.  */
+static int
+arm_get_vfp_saved_size (void)
+{
+  unsigned int regno;
+  int count;
+  int saved;
+
+  saved = 0;
+  /* Space for saved VFP registers.  */
+  if (TARGET_HARD_FLOAT && TARGET_VFP)
+    {
+      count = 0;
+      for (regno = FIRST_VFP_REGNUM;
+	   regno < LAST_VFP_REGNUM;
+	   regno += 2)
+	{
+	  if ((!regs_ever_live[regno] || call_used_regs[regno])
+	      && (!regs_ever_live[regno + 1] || call_used_regs[regno + 1]))
+	    {
+	      if (count > 0)
+		{
+		  /* Workaround ARM10 VFPr1 bug.  */
+		  if (count == 2 && !arm_arch6)
+		    count++;
+		  saved += count * 8 + 4;
+		}
+	      count = 0;
+	    }
+	  else
+	    count++;
+	}
+      if (count > 0)
+	{
+	  if (count == 2 && !arm_arch6)
+	    count++;
+	  saved += count * 8 + 4;
+	}
+    }
+  return saved;
+}
+
+
 /* Generate a function exit sequence.  If REALLY_RETURN is false, then do
    everything bar the final return instruction.  */
 const char *
@@ -9306,34 +9455,15 @@ arm_output_epilogue (rtx sibling)
 
       if (TARGET_HARD_FLOAT && TARGET_VFP)
 	{
-	  int nregs = 0;
+	  int saved_size;
 
-	  /* We save regs in pairs.  */
-	  /* A special insn for saving/restoring VFP registers.  This does
-	     not have base+offset addressing modes, so we use IP to
-	     hold the address.  Each block requires nregs*2+1 words.  */
-	  start_reg = FIRST_VFP_REGNUM;
-	  /* Count how many blocks of registers need saving.  */
-	  for (reg = FIRST_VFP_REGNUM; reg < LAST_VFP_REGNUM; reg += 2)
-	    {
-	      if ((!regs_ever_live[reg] || call_used_regs[reg])
-		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
-		{
-		  if (start_reg != reg)
-		    floats_offset += 4;
-		  start_reg = reg + 2;
-		}
-	      else
-		{
-		  floats_offset += 8;
-		  nregs++;
-		}
-	    }
-	  if (start_reg != reg)
-	    floats_offset += 4;
+	  /* The fldmx insn does not have base+offset addressing modes,
+	     so we use IP to hold the address.  */
+	  saved_size = arm_get_vfp_saved_size ();
 
-	  if (nregs > 0)
+	  if (saved_size > 0)
 	    {
+	      floats_offset += saved_size;
 	      asm_fprintf (f, "\tsub\t%r, %r, #%d\n", IP_REGNUM,
 			   FP_REGNUM, floats_offset - vfp_offset);
 	    }
@@ -9344,20 +9474,16 @@ arm_output_epilogue (rtx sibling)
 		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
 		{
 		  if (start_reg != reg)
-		    {
-		      vfp_print_multi (f, "fldmfdx\t%r!", IP_REGNUM, "d%d",
-				       (start_reg - FIRST_VFP_REGNUM) / 2,
-				       (reg - start_reg) / 2);
-		    }
+		    arm_output_fldmx (f, IP_REGNUM,
+				      (start_reg - FIRST_VFP_REGNUM) / 2,
+				      (reg - start_reg) / 2);
 		  start_reg = reg + 2;
 		}
 	    }
 	  if (start_reg != reg)
-	    {
-	      vfp_print_multi (f, "fldmfdx\t%r!", IP_REGNUM, "d%d",
-			       (start_reg - FIRST_VFP_REGNUM) / 2,
-			       (reg - start_reg) / 2);
-	    }
+	    arm_output_fldmx (f, IP_REGNUM,
+			      (start_reg - FIRST_VFP_REGNUM) / 2,
+			      (reg - start_reg) / 2);
 	}
 
       if (TARGET_IWMMXT)
@@ -9478,20 +9604,16 @@ arm_output_epilogue (rtx sibling)
 		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
 		{
 		  if (start_reg != reg)
-		    {
-		      vfp_print_multi (f, "fldmfdx\t%r!", SP_REGNUM, "d%d",
-				       (start_reg - FIRST_VFP_REGNUM) / 2,
-				       (reg - start_reg) / 2);
-		    }
+		    arm_output_fldmx (f, SP_REGNUM,
+				      (start_reg - FIRST_VFP_REGNUM) / 2,
+				      (reg - start_reg) / 2);
 		  start_reg = reg + 2;
 		}
 	    }
 	  if (start_reg != reg)
-	    {
-	      vfp_print_multi (f, "fldmfdx\t%r!", SP_REGNUM, "d%d",
-			       (start_reg - FIRST_VFP_REGNUM) / 2,
-			       (reg - start_reg) / 2);
-	    }
+	    arm_output_fldmx (f, SP_REGNUM,
+			      (start_reg - FIRST_VFP_REGNUM) / 2,
+			      (reg - start_reg) / 2);
 	}
       if (TARGET_IWMMXT)
 	for (reg = FIRST_IWMMXT_REGNUM; reg <= LAST_IWMMXT_REGNUM; reg++)
@@ -9855,7 +9977,6 @@ arm_get_frame_offsets (void)
   struct arm_stack_offsets *offsets;
   unsigned long func_type;
   int leaf;
-  bool new_block;
   int saved;
   HOST_WIDE_INT frame_size;
 
@@ -9874,8 +9995,8 @@ arm_get_frame_offsets (void)
   if (reload_completed)
     return offsets;
 
-  /* Initialy this is the size of the local variables.  It will translated
-     into an offset once we have determined the size of preceeding data.  */
+  /* Initially this is the size of the local variables.  It will translated
+     into an offset once we have determined the size of preceding data.  */
   frame_size = ROUND_UP_WORD (get_frame_size ());
 
   leaf = leaf_function_p ();
@@ -9915,27 +10036,7 @@ arm_get_frame_offsets (void)
 
 	  /* Space for saved VFP registers.  */
 	  if (TARGET_HARD_FLOAT && TARGET_VFP)
-	    {
-	      new_block = TRUE;
-	      for (regno = FIRST_VFP_REGNUM;
-		   regno < LAST_VFP_REGNUM;
-		   regno += 2)
-		{
-		  if ((regs_ever_live[regno] && !call_used_regs[regno])
-		      || (regs_ever_live[regno + 1]
-			  && !call_used_regs[regno + 1]))
-		    {
-		      if (new_block)
-			{
-			  saved += 4;
-			  new_block = FALSE;
-			}
-		      saved += 8;
-		    }
-		  else
-		    new_block = TRUE;
-		}
-	    }
+	    saved += arm_get_vfp_saved_size ();
 	}
     }
   else /* TARGET_THUMB */
@@ -9998,7 +10099,7 @@ arm_get_frame_offsets (void)
 }
 
 
-/* Calculate the realative offsets for the different stack pointers.  Positive
+/* Calculate the relative offsets for the different stack pointers.  Positive
    offsets are in the direction of stack growth.  */
 
 unsigned int
@@ -10317,22 +10418,14 @@ arm_expand_prologue (void)
 		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
 		{
 		  if (start_reg != reg)
-		    {
-		      insn = vfp_emit_fstmx (start_reg,
-					    (reg - start_reg) / 2);
-		      RTX_FRAME_RELATED_P (insn) = 1;
-		      saved_regs += (start_reg - reg) * 4 + 4;
-		    }
+		    saved_regs += vfp_emit_fstmx (start_reg,
+						  (reg - start_reg) / 2);
 		  start_reg = reg + 2;
 		}
 	    }
 	  if (start_reg != reg)
-	    {
-	      insn = vfp_emit_fstmx (start_reg,
-				    (reg - start_reg) / 2);
-	      RTX_FRAME_RELATED_P (insn) = 1;
-	      saved_regs += (start_reg - reg) * 4 + 4;
-	    }
+	    saved_regs += vfp_emit_fstmx (start_reg,
+					  (reg - start_reg) / 2);
 	}
     }
 

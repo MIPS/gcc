@@ -119,7 +119,7 @@ static void insert_phi_nodes (bitmap *);
 static void rewrite_stmt (struct dom_walk_data *, basic_block,
 			  block_stmt_iterator);
 static inline void rewrite_operand (tree *);
-static void insert_phi_nodes_for (tree, bitmap *);
+static void insert_phi_nodes_for (tree, bitmap *, varray_type *);
 static tree get_reaching_def (tree);
 static tree get_value_for (tree, varray_type);
 static void set_value_for (tree, tree, varray_type);
@@ -408,11 +408,11 @@ prepare_operand_for_rename (tree *op_p, size_t *uid_p)
    at the dominance frontier (DFS) of blocks defining VAR.  */
 
 static inline
-void insert_phi_nodes_1 (tree var, bitmap *dfs)
+void insert_phi_nodes_1 (tree var, bitmap *dfs, varray_type *work_stack)
 {
   var_ann_t ann = var_ann (var);
   if (ann->need_phi_state != NEED_PHI_STATE_NO)
-    insert_phi_nodes_for (var, dfs);
+    insert_phi_nodes_for (var, dfs, work_stack);
 }
 
 
@@ -427,8 +427,13 @@ static void
 insert_phi_nodes (bitmap *dfs)
 {
   size_t i;
+  varray_type work_stack;
 
   timevar_push (TV_TREE_INSERT_PHI_NODES);
+
+  /* Array WORK_STACK is a stack of CFG blocks.  Each block that contains
+     an assignment or PHI node will be pushed to this stack.  */
+  VARRAY_BB_INIT (work_stack, last_basic_block, "work_stack");
 
   /* Iterate over all variables in VARS_TO_RENAME.  For each variable, add
      to the work list all the blocks that have a definition for the
@@ -436,10 +441,10 @@ insert_phi_nodes (bitmap *dfs)
      each definition block.  */
   if (vars_to_rename)
     EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i,
-	insert_phi_nodes_1 (referenced_var (i), dfs));
+	insert_phi_nodes_1 (referenced_var (i), dfs, &work_stack));
   else
     for (i = 0; i < num_referenced_vars; i++)
-      insert_phi_nodes_1 (referenced_var (i), dfs);
+      insert_phi_nodes_1 (referenced_var (i), dfs, &work_stack);
 
   timevar_pop (TV_TREE_INSERT_PHI_NODES);
 }
@@ -564,19 +569,20 @@ rewrite_finalize_block (struct dom_walk_data *walk_data,
      referenced in the block (in reverse order).  */
   while (bd->block_defs && VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
     {
-      tree var;
-      tree saved_def = VARRAY_TOP_TREE (bd->block_defs);
+      tree tmp = VARRAY_TOP_TREE (bd->block_defs);
+      tree saved_def, var;
+
       VARRAY_POP (bd->block_defs);
-      
-      /* If SAVED_DEF is NULL, then the next slot in the stack contains the
-	 variable associated with SAVED_DEF.  */
-      if (saved_def == NULL_TREE)
+      if (TREE_CODE (tmp) == SSA_NAME)
 	{
-	  var = VARRAY_TOP_TREE (bd->block_defs);
-	  VARRAY_POP (bd->block_defs);
+	  saved_def = tmp;
+	  var = SSA_NAME_VAR (saved_def);
 	}
       else
-	var = SSA_NAME_VAR (saved_def);
+	{
+	  saved_def = NULL;
+	  var = tmp;
+	}
 
       set_value_for (var, saved_def, currdefs);
     }
@@ -652,26 +658,21 @@ htab_statistics (FILE *file, htab_t htab)
    information given in DFS.  */
 
 static void
-insert_phi_nodes_for (tree var, bitmap *dfs)
+insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
 {
   struct def_blocks_d *def_map;
   bitmap phi_insertion_points;
   int bb_index;
-  varray_type work_stack;
 
   def_map = find_def_blocks_for (var);
   if (def_map == NULL)
     return;
 
-  /* Array WORK_STACK is a stack of CFG blocks.  Each block that contains
-     an assignment or PHI node will be pushed to this stack.  */
-  VARRAY_BB_INIT (work_stack, last_basic_block, "work_stack");
-
   phi_insertion_points = BITMAP_XMALLOC ();
 
   EXECUTE_IF_SET_IN_BITMAP (def_map->def_blocks, 0, bb_index,
     {
-      VARRAY_PUSH_BB (work_stack, BASIC_BLOCK (bb_index));
+      VARRAY_PUSH_BB (*work_stack, BASIC_BLOCK (bb_index));
     });
 
   /* Pop a block off the worklist, add every block that appears in
@@ -686,13 +687,13 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
      determine if fully pruned or semi pruned SSA form was appropriate.
 
      We now always use fully pruned SSA form.  */
-  while (VARRAY_ACTIVE_SIZE (work_stack) > 0)
+  while (VARRAY_ACTIVE_SIZE (*work_stack) > 0)
     {
-      basic_block bb = VARRAY_TOP_BB (work_stack);
+      basic_block bb = VARRAY_TOP_BB (*work_stack);
       int bb_index = bb->index;
       int dfs_index;
 
-      VARRAY_POP (work_stack);
+      VARRAY_POP (*work_stack);
       
       EXECUTE_IF_AND_COMPL_IN_BITMAP (dfs[bb_index],
 				      phi_insertion_points,
@@ -700,7 +701,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
 	{
 	  basic_block bb = BASIC_BLOCK (dfs_index);
 
-	  VARRAY_PUSH_BB (work_stack, bb);
+	  VARRAY_PUSH_BB (*work_stack, bb);
 	  bitmap_set_bit (phi_insertion_points, dfs_index);
 	});
     }
@@ -817,22 +818,32 @@ void
 register_new_def (tree def, varray_type *block_defs_p, varray_type table)
 {
   tree var = SSA_NAME_VAR (def);
-  tree currdef = get_value_for (var, table);
+  tree currdef;
+   
+  /* If this variable is set in a single basic block and all uses are
+     dominated by the set(s) in that single basic block, then there is
+     no reason to record anything for this variable in the block local
+     definition stacks.  Doing so just wastes time and memory.
 
+     This is the same test to prune the set of variables which may
+     need PHI nodes.  So we just use that information since it's already
+     computed and available for us to use.  */
+  if (var_ann (var)->need_phi_state == NEED_PHI_STATE_NO)
+    {
+      set_value_for (var, def, table);
+      return;
+    }
+
+  currdef = get_value_for (var, table);
   if (! *block_defs_p)
     VARRAY_TREE_INIT (*block_defs_p, 20, "block_defs");
-
-  /* If the current reaching definition is NULL, push the variable itself
-     so that the dominator tree callbacks know what variable is associated
-     with this NULL reaching def when unwinding the *BLOCK_DEFS_P stack.  */
-  if (currdef == NULL_TREE)
-    VARRAY_PUSH_TREE (*block_defs_p, var);
 
   /* Push the current reaching definition into *BLOCK_DEFS_P.  This stack is
      later used by the dominator tree callbacks to restore the reaching
      definitions for all the variables defined in the block after a recursive
-     visit to all its immediately dominated blocks.  */
-  VARRAY_PUSH_TREE (*block_defs_p, currdef);
+     visit to all its immediately dominated blocks.  If there is no current
+     reaching definition, then just record the underlying _DECL node.  */
+  VARRAY_PUSH_TREE (*block_defs_p, currdef ? currdef : var);
 
   /* Set the current reaching definition for VAR to be DEF.  */
   set_value_for (var, def, table);
@@ -971,6 +982,54 @@ get_def_blocks_for (tree var)
   return db_p;
 }
 
+/* If a variable V in VARS_TO_RENAME is a pointer, the renaming
+   process will cause us to lose the name memory tags that may have
+   been associated with the various SSA_NAMEs of V.  This means that
+   the variables aliased to those name tags also need to be renamed
+   again.
+
+   FIXME 1- We should either have a better scheme for renaming
+	    pointers that doesn't lose name tags or re-run alias
+	    analysis to recover points-to information.
+
+	 2- Currently we just invalidate *all* the name tags.  This
+	    should be more selective.  */
+
+static void
+invalidate_name_tags (bitmap vars_to_rename)
+{
+  size_t i;
+  bool rename_name_tags_p;
+
+  rename_name_tags_p = false;
+  EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i,
+      if (POINTER_TYPE_P (TREE_TYPE (referenced_var (i))))
+	{
+	  rename_name_tags_p = true;
+	  break;
+	});
+
+  if (rename_name_tags_p)
+    for (i = 0; i < num_referenced_vars; i++)
+      {
+	var_ann_t ann = var_ann (referenced_var (i));
+
+	if (ann->mem_tag_kind == NAME_TAG)
+	  {
+	    size_t j;
+	    varray_type may_aliases = ann->may_aliases;
+
+	    bitmap_set_bit (vars_to_rename, ann->uid);
+	    if (ann->may_aliases)
+	      for (j = 0; j < VARRAY_ACTIVE_SIZE (may_aliases); j++)
+		{
+		  tree var = VARRAY_TREE (may_aliases, j);
+		  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+		}
+	  }
+      }
+}
+
 
 /* Main entry point into the SSA builder.  The renaming process
    proceeds in five main phases:
@@ -1008,29 +1067,7 @@ rewrite_into_ssa (void)
   /* Initialize the array of variables to rename.  */
   if (vars_to_rename != NULL)
     {
-      size_t i;
-      bool rename_name_tags_p;
-
-      /* If any of the variables in VARS_TO_RENAME is a pointer, we need to
-	 invalidate all the name memory tags associated with the variables
-	 that we are about to rename.  FIXME: Currently we just invalidate
-	 *all* the NMTs.  Make this more selective.  */
-      rename_name_tags_p = false;
-      EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i,
-	  if (POINTER_TYPE_P (TREE_TYPE (referenced_var (i))))
-	    {
-	      rename_name_tags_p = true;
-	      break;
-	    });
-
-      if (rename_name_tags_p)
-	for (i = 0; i < num_referenced_vars; i++)
-	  {
-	    var_ann_t ann = var_ann (referenced_var (i));
-
-	    if (ann->mem_tag_kind == NAME_TAG)
-	      bitmap_set_bit (vars_to_rename, ann->uid);
-	  }
+      invalidate_name_tags (vars_to_rename);
 
       /* Now remove all the existing PHI nodes (if any) for the variables
 	 that we are about to rename into SSA.  */

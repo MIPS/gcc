@@ -1,3 +1,7 @@
+2004-04-29  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from tree-ssa.
+
 2004-04-21  Jan Hubicka  <jh@suse.cz>
 
 	* cfgexpand.c (add_reg_br_prob_note): Deal with condjump around jump case.

@@ -247,7 +247,7 @@ edit_modes (unit_t * u, unit_flags * flags)
 
 /* new_unit()-- Open an unused unit */
 
-static void
+void
 new_unit (unit_flags * flags)
 {
   unit_t *u;

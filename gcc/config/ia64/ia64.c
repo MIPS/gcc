@@ -1106,7 +1106,10 @@ ia64_encode_section_info (tree decl, rtx rtl, int first)
 {
   default_encode_section_info (decl, rtl, first);
 
+  /* Careful not to prod global register variables.  */
   if (TREE_CODE (decl) == VAR_DECL
+      && GET_CODE (DECL_RTL (decl)) == MEM
+      && GET_CODE (XEXP (DECL_RTL (decl), 0)) == SYMBOL_REF
       && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
     ia64_encode_addr_area (decl, XEXP (rtl, 0));
 }
@@ -8719,7 +8722,7 @@ ia64_hpux_file_end (void)
   for (p = extern_func_head; p; p = p->next)
     {
       tree decl = p->decl;
-      tree id = DECL_NAME (decl);
+      tree id = DECL_ASSEMBLER_NAME (decl);
 
       if (!id)
 	abort ();

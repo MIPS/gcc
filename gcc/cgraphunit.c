@@ -788,7 +788,7 @@ cgraph_expand_function (struct cgraph_node *node)
      via lang_expand_decl_stmt.  */
   lang_hooks.callgraph.expand_function (decl);
 
-  /* Make sure that BE didn't gave up on compiling.  */
+  /* Make sure that BE didn't give up on compiling.  */
   /* ??? Can happen with nested function of extern inline.  */
   if (!TREE_ASM_WRITTEN (node->decl))
     abort ();
@@ -919,7 +919,7 @@ cgraph_remove_unreachable_nodes (void)
   /* Remove unreachable nodes.  Extern inline functions need special care;
      Unreachable extern inline functions shall be removed.
      Reachable extern inline functions we never inlined shall get their bodies
-     elliminated
+     eliminated.
      Reachable extern inline functions we sometimes inlined will be turned into
      unanalyzed nodes so they look like for true extern functions to the rest
      of code.  Body of such functions is relased via remove_node once the

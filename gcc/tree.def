@@ -365,7 +365,7 @@ DEFTREECODE (COMPONENT_REF, "component_ref", 'r', 2)
    operand 1 is a tree giving the number of bits being referenced;
    operand 2 is a tree giving the position of the first referenced bit.
    The field can be either a signed or unsigned field;
-   TREE_UNSIGNED says which.  */
+   BIT_FIELD_REF_UNSIGNED says which.  */
 DEFTREECODE (BIT_FIELD_REF, "bit_field_ref", 'r', 3)
    
 /* C unary `*' or Pascal `^'.  One operand, an expression for a pointer.  */
@@ -565,7 +565,7 @@ DEFTREECODE (CLEANUP_POINT_EXPR, "cleanup_point_expr", 'e', 1)
    fact that the expression for the array contains the dereference of
    the fat pointer that obtained the array pointer.  */
 
-/* Denotes a record to later be substitued before evaluating this expression.
+/* Denotes a record to later be substituted before evaluating this expression.
    The type of this expression is used to find the record to replace it.  */
 DEFTREECODE (PLACEHOLDER_EXPR, "placeholder_expr", 'x', 0)
 

@@ -52,6 +52,7 @@ Boston, MA 02111-1307, USA.  */
 /* Global variables used to communicate with passes.  */
 int dump_flags;
 bitmap vars_to_rename;
+bool in_gimple_form;
 
 /* The root of the compilation pass tree, once constructed.  */
 static struct tree_opt_pass *all_passes;
@@ -357,7 +358,6 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_dse);
   NEXT_PASS (DUP_PASS (pass_forwprop));
   NEXT_PASS (DUP_PASS (pass_phiopt));
-  NEXT_PASS (pass_loop);
   NEXT_PASS (pass_ccp);
   NEXT_PASS (DUP_PASS (pass_redundant_phi));
   NEXT_PASS (pass_fold_builtins);
@@ -562,8 +562,15 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
       cfun->saved_tree = save_body (current_function_decl, &cfun->saved_args);
     }
 
+  /* Note that the folders should only create gimple expressions.
+     This is a hack until the new folder is ready.  */
+  in_gimple_form = true;
+
   /* Perform all tree transforms and optimizations.  */
   execute_pass_list (all_passes);
+
+  /* Note that the folders can create non-gimple expressions again.  */
+  in_gimple_form = false;
 
   /* If the function has a variably modified type, there may be
      SAVE_EXPRs in the parameter types.  Their context must be set to
@@ -582,9 +589,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);
-
-  /* Allow language dialects to perform special processing.  */
-  lang_hooks.rtl_expand.start ();
 
   /* If this function is `main', emit a call to `__main'
      to run global initializers, etc.  */

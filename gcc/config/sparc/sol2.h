@@ -130,8 +130,6 @@ Boston, MA 02111-1307, USA.  */
 #undef SUPPORTS_INIT_PRIORITY
 #define SUPPORTS_INIT_PRIORITY 0
 
-/* ??? This does not work in SunOS 4.x, so it is not enabled in sparc.h.
-   Instead, it is enabled here, because it does work under Solaris.  */
 /* Define for support of TFmode long double.
    SPARC ABI says that long double is 4 words.  */
 #define LONG_DOUBLE_TYPE_SIZE 128
@@ -145,8 +143,11 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_BUGGY_QP_LIB
 #define TARGET_BUGGY_QP_LIB	1
 
-#undef SOLARIS_CONVERSION_LIBFUNCS
-#define SOLARIS_CONVERSION_LIBFUNCS 1
+#undef SUN_CONVERSION_LIBFUNCS
+#define SUN_CONVERSION_LIBFUNCS 1
+
+#undef DITF_CONVERSION_LIBFUNCS
+#define DITF_CONVERSION_LIBFUNCS 1
 
 #undef SUN_INTEGER_MULTIPLY_64
 #define SUN_INTEGER_MULTIPLY_64 1

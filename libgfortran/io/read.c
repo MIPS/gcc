@@ -628,9 +628,9 @@ read_f (fnode * f, char *dest, int length)
 
   exponent_sign = 1;
 
-  /* A digit is required at this point */
+  /* A digit (or a '.') is required at this point */
 
-  if (!isdigit (*p))
+  if (!isdigit (*p) && *p != '.')
     goto bad_float;
 
   while (w > 0)

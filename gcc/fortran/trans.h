@@ -303,10 +303,8 @@ tree gfc_conv_expr_present (gfc_symbol *);
 
 /* Generate code to allocate a string temporary.  */
 tree gfc_conv_string_tmp (gfc_se *, tree, tree);
-/* Get the length of a string.  */
-tree gfc_conv_string_length (tree);
 /* Initialize a string length variable.  */
-tree gfc_conv_init_string_length (gfc_symbol *, stmtblock_t *);
+void gfc_trans_init_string_length (gfc_charlen *, stmtblock_t *);
 
 /* Add an expression to the end of a block.  */
 void gfc_add_expr_to_block (stmtblock_t *, tree);
@@ -485,27 +483,25 @@ struct lang_type		GTY(())
 
 struct lang_decl		GTY(())
 {
-  /* String nodes.  */
-  tree stringlength;
+  /* Dummy variables.  */
   tree saved_descriptor;
   /* Assigned integer nodes.  Stringlength is the IO format string's length.
      Addr is the address of the string or the target label. Stringlength is
      initialized to -2 and assiged to -1 when addr is assigned to the
      address of target label.  */
+  tree stringlen;
   tree addr;
 };
 
 
 #define GFC_DECL_ASSIGN_ADDR(node) DECL_LANG_SPECIFIC(node)->addr
-#define GFC_DECL_STRING_LENGTH(node) (DECL_LANG_SPECIFIC(node)->stringlength)
+#define GFC_DECL_STRING_LEN(node) DECL_LANG_SPECIFIC(node)->stringlen
 #define GFC_DECL_SAVED_DESCRIPTOR(node) \
   (DECL_LANG_SPECIFIC(node)->saved_descriptor)
-#define GFC_DECL_STRING(node) DECL_LANG_FLAG_0(node)
-#define GFC_DECL_PACKED_ARRAY(node) DECL_LANG_FLAG_1(node)
-#define GFC_DECL_PARTIAL_PACKED_ARRAY(node) DECL_LANG_FLAG_2(node)
-#define GFC_DECL_ASSIGN(node) DECL_LANG_FLAG_3(node)
+#define GFC_DECL_PACKED_ARRAY(node) DECL_LANG_FLAG_0(node)
+#define GFC_DECL_PARTIAL_PACKED_ARRAY(node) DECL_LANG_FLAG_1(node)
+#define GFC_DECL_ASSIGN(node) DECL_LANG_FLAG_2(node)
 
-#define GFC_KNOWN_SIZE_STRING_TYPE(node) TYPE_LANG_FLAG_0(node)
 /* An array descriptor.  */
 #define GFC_DESCRIPTOR_TYPE_P(node) TYPE_LANG_FLAG_1(node)
 /* An array without a descriptor.  */

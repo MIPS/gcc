@@ -1168,8 +1168,9 @@ static cpp_num
 num_rshift (cpp_num num, size_t precision, size_t n)
 {
   cpp_num_part sign_mask;
+  bool x = num_positive (num, precision);
 
-  if (num.unsignedp || num_positive (num, precision))
+  if (num.unsignedp || x)
     sign_mask = 0;
   else
     sign_mask = ~(cpp_num_part) 0;

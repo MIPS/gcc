@@ -1382,7 +1382,7 @@ package body Exp_Ch6 is
 
                --  When passing an access parameter as the actual to another
                --  access parameter we need to pass along the actual's own
-               --  associated access level parameter. This is done is we are
+               --  associated access level parameter. This is done if we are
                --  in the scope of the formal access parameter (if this is an
                --  inlined body the extra formal is irrelevant).
 
@@ -1516,7 +1516,12 @@ package body Exp_Ch6 is
          elsif Convention (Subp) = Convention_Java then
             null;
 
-         else
+         --  Ada 0Y (AI-231): do not force the check in case of Ada 0Y unless
+         --  it is a null-excluding type
+
+         elsif not Extensions_Allowed
+           or else Can_Never_Be_Null (Etype (Prev))
+         then
             Cond :=
               Make_Op_Eq (Loc,
                 Left_Opnd => Duplicate_Subexpr_No_Checks (Prev),
@@ -1999,10 +2004,16 @@ package body Exp_Ch6 is
                   --  temporaries are generated when compiling the body by
                   --  itself. Otherwise link errors can occur.
 
+                  --  If the function being called is itself in the main unit,
+                  --  we cannot inline, because there is a risk of double
+                  --  elaboration and/or circularity: the inlining can make
+                  --  visible a private entity in the body of the main unit,
+                  --  that gigi will see before its sees its proper definition.
+
                   elsif not (In_Extended_Main_Code_Unit (N))
                     and then In_Package_Body
                   then
-                     Must_Inline := True;
+                     Must_Inline := not In_Extended_Main_Source_Unit (Subp);
                   end if;
                end if;
 
@@ -2446,7 +2457,22 @@ package body Exp_Ch6 is
 
             --  Replace assignment with the block
 
-            Rewrite (Parent (N), Blk);
+            declare
+               Original_Assignment : constant Node_Id := Parent (N);
+               Saved_Assignment    : constant Node_Id :=
+                                       Relocate_Node (Original_Assignment);
+               pragma Warnings (Off, Saved_Assignment);
+               --  Preserve the original assignment node to keep the
+               --  complete assignment subtree consistent enough for
+               --  Analyze_Assignment to proceed. We do not use the
+               --  saved value, the point was just to do the relocation.
+               --  We cannot rely on Original_Node to go back from the
+               --  block node to the assignment node, because the
+               --  assignment might already be a rewrite substitution.
+
+            begin
+               Rewrite (Original_Assignment, Blk);
+            end;
 
          elsif Nkind (Parent (N)) = N_Object_Declaration then
             Set_Expression (Parent (N), Empty);
@@ -2460,7 +2486,6 @@ package body Exp_Ch6 is
 
       procedure Rewrite_Procedure_Call (N : Node_Id; Blk : Node_Id) is
          HSS  : constant Node_Id := Handled_Statement_Sequence (Blk);
-
       begin
          if Is_Empty_List (Declarations (Blk)) then
             Insert_List_After (N, Statements (HSS));

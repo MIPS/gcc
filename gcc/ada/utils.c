@@ -37,6 +37,7 @@
 #include "debug.h"
 #include "convert.h"
 #include "target.h"
+#include "function.h"
 
 #include "ada.h"
 #include "types.h"
@@ -1402,7 +1403,7 @@ create_field_decl (tree field_name,
   tree field_decl = build_decl (FIELD_DECL, field_name, field_type);
 
   DECL_CONTEXT (field_decl) = record_type;
-  TREE_READONLY (field_decl) = TREE_READONLY (field_type);
+  TREE_READONLY (field_decl) = TYPE_READONLY (field_type);
 
   /* If FIELD_TYPE is BLKmode, we must ensure this is aligned to at least a
      byte boundary since GCC cannot handle less-aligned BLKmode bitfields.  */
@@ -1920,7 +1921,15 @@ end_subprog_body (void)
   /* If we're only annotating types, don't actually compile this
      function.  */
   if (!type_annotate_only)
-    rest_of_compilation (current_function_decl);
+    {
+      rest_of_compilation (current_function_decl);
+      if (! DECL_DEFER_OUTPUT (current_function_decl))
+	{
+	  free_after_compilation (cfun);
+	  DECL_STRUCT_FUNCTION (current_function_decl) = 0;
+	}
+      cfun = 0;
+    }
 
   if (function_nesting_depth > 1)
     ggc_pop_context ();
@@ -2060,7 +2069,11 @@ float_type_for_precision (int precision, enum machine_mode mode)
 tree
 gnat_type_for_mode (enum machine_mode mode, int unsignedp)
 {
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+  if (mode == BLKmode)
+    return NULL_TREE;
+  else if (mode == VOIDmode)
+    return void_type_node;
+  else if (GET_MODE_CLASS (mode) == MODE_FLOAT)
     return float_type_for_precision (GET_MODE_PRECISION (mode), mode);
   else
     return gnat_type_for_size (GET_MODE_BITSIZE (mode), unsignedp);
@@ -2118,7 +2131,7 @@ gnat_signed_type (tree type_node)
 tree
 gnat_signed_or_unsigned_type (int unsignedp, tree type)
 {
-  if (! INTEGRAL_TYPE_P (type) || TREE_UNSIGNED (type) == unsignedp)
+  if (! INTEGRAL_TYPE_P (type) || TYPE_UNSIGNED (type) == unsignedp)
     return type;
   else
     return gnat_type_for_size (TYPE_PRECISION (type), unsignedp);
@@ -2355,19 +2368,19 @@ build_vms_descriptor (tree type, Mechanism_Type mech, Entity_Id gnat_entity)
 	switch (GET_MODE_BITSIZE (TYPE_MODE (type)))
 	  {
 	  case 8:
-	    dtype = TREE_UNSIGNED (type) ? 2 : 6;
+	    dtype = TYPE_UNSIGNED (type) ? 2 : 6;
 	    break;
 	  case 16:
-	    dtype = TREE_UNSIGNED (type) ? 3 : 7;
+	    dtype = TYPE_UNSIGNED (type) ? 3 : 7;
 	    break;
 	  case 32:
-	    dtype = TREE_UNSIGNED (type) ? 4 : 8;
+	    dtype = TYPE_UNSIGNED (type) ? 4 : 8;
 	    break;
 	  case 64:
-	    dtype = TREE_UNSIGNED (type) ? 5 : 9;
+	    dtype = TYPE_UNSIGNED (type) ? 5 : 9;
 	    break;
 	  case 128:
-	    dtype = TREE_UNSIGNED (type) ? 25 : 26;
+	    dtype = TYPE_UNSIGNED (type) ? 25 : 26;
 	    break;
 	  }
       break;
@@ -3388,15 +3401,15 @@ unchecked_convert (tree type, tree expr, int notrunc_p)
       && 0 != compare_tree_int (TYPE_RM_SIZE (type),
 				GET_MODE_BITSIZE (TYPE_MODE (type)))
       && ! (INTEGRAL_TYPE_P (etype)
-	    && TREE_UNSIGNED (type) == TREE_UNSIGNED (etype)
+	    && TYPE_UNSIGNED (type) == TYPE_UNSIGNED (etype)
 	    && operand_equal_p (TYPE_RM_SIZE (type),
 				(TYPE_RM_SIZE (etype) != 0
 				 ? TYPE_RM_SIZE (etype) : TYPE_SIZE (etype)),
 				0))
-      && ! (TREE_UNSIGNED (type) && TREE_UNSIGNED (etype)))
+      && ! (TYPE_UNSIGNED (type) && TYPE_UNSIGNED (etype)))
     {
       tree base_type = gnat_type_for_mode (TYPE_MODE (type),
-					   TREE_UNSIGNED (type));
+					   TYPE_UNSIGNED (type));
       tree shift_expr
 	= convert (base_type,
 		   size_binop (MINUS_EXPR,

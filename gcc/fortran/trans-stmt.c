@@ -99,7 +99,7 @@ gfc_trans_label_assign (gfc_code * code)
   gfc_init_se (&se, NULL);
   gfc_start_block (&se.pre);
   gfc_conv_expr (&se, code->expr);
-  len = GFC_DECL_STRING_LENGTH (se.expr);
+  len = GFC_DECL_STRING_LEN (se.expr);
   addr = GFC_DECL_ASSIGN_ADDR (se.expr);
 
   label_tree = gfc_get_label_decl (code->label);
@@ -146,7 +146,7 @@ gfc_trans_goto (gfc_code * code)
   gfc_conv_expr (&se, code->expr);
   assign_error =
     gfc_build_string_const (37, "Assigned label is not a target label");
-  tmp = GFC_DECL_STRING_LENGTH (se.expr);
+  tmp = GFC_DECL_STRING_LEN (se.expr);
   tmp = build (NE_EXPR, boolean_type_node, tmp, integer_minus_one_node);
   gfc_trans_runtime_check (tmp, assign_error, &se.pre);
 

@@ -750,13 +750,11 @@ package body Osint is
       return Name_Enter;
    end Executable_Name;
 
-   -------------------------
+   -----------------------
    -- Executable_Prefix --
-   -------------------------
+   -----------------------
 
    function Executable_Prefix return String_Ptr is
-      Exec_Name : String (1 .. Len_Arg (0));
-
       function Get_Install_Dir (Exec : String) return String_Ptr;
       --  S is the executable name preceeded by the absolute or relative
       --  path, e.g. "c:\usr\bin\gcc.exe" or "..\bin\gcc".
@@ -790,21 +788,25 @@ package body Osint is
    --  Start of processing for Executable_Prefix
 
    begin
-      Osint.Fill_Arg (Exec_Name'Address, 0);
+      if Exec_Name = null then
+         Exec_Name := new String (1 .. Len_Arg (0));
+         Osint.Fill_Arg (Exec_Name (1)'Address, 0);
+      end if;
 
       --  First determine if a path prefix was placed in front of the
       --  executable name.
 
       for J in reverse Exec_Name'Range loop
          if Is_Directory_Separator (Exec_Name (J)) then
-            return Get_Install_Dir (Exec_Name);
+            return Get_Install_Dir (Exec_Name.all);
          end if;
       end loop;
 
       --  If we come here, the user has typed the executable name with no
       --  directory prefix.
 
-      return Get_Install_Dir (GNAT.OS_Lib.Locate_Exec_On_Path (Exec_Name).all);
+      return Get_Install_Dir
+        (GNAT.OS_Lib.Locate_Exec_On_Path (Exec_Name.all).all);
    end Executable_Prefix;
 
    ------------------
@@ -1006,12 +1008,37 @@ package body Osint is
          end if;
       end loop;
 
-      for J in reverse Cindex1 .. Cindex2 loop
-         if Command_Name (J) = '.' then
-            Cindex2 := J - 1;
-            exit;
+      --  Command_Name(Cindex1 .. Cindex2) is now the equivalent of the
+      --  POSIX command "basename argv[0]"
+
+      --  Strip off any versioning information such as found on VMS.
+      --  This would take the form of TOOL.exe followed by a ";" or "."
+      --  and a sequence of one or more numbers.
+
+      if Command_Name (Cindex2) in '0' .. '9' then
+         for J in reverse Cindex1 .. Cindex2 loop
+
+            exit when Command_Name (J) not in '0' .. '9';
+
+            if Command_Name (J) = '.' or Command_Name (J) = ';' then
+               Cindex2 := J - 1;
+               exit;
+            end if;
+         end loop;
+      end if;
+
+      --  Strip off any executable extension (usually nothing or .exe)
+      --  but formally reported by autoconf in the variable EXEEXT
+
+      if Cindex2 - Cindex1 >= 4 then
+         if To_Lower (Command_Name (Cindex2 - 3)) = '.'
+            and then To_Lower (Command_Name (Cindex2 - 2)) = 'e'
+            and then To_Lower (Command_Name (Cindex2 - 1)) = 'x'
+            and then To_Lower (Command_Name (Cindex2)) = 'e'
+         then
+            Cindex2 := Cindex2 - 4;
          end if;
-      end loop;
+      end if;
 
       Name_Len := Cindex2 - Cindex1 + 1;
       Name_Buffer (1 .. Name_Len) := Command_Name (Cindex1 .. Cindex2);
@@ -1390,27 +1417,26 @@ package body Osint is
    -------------------
 
    function Lib_File_Name
-     (Source_File : File_Name_Type)
-      return        File_Name_Type
+     (Source_File : File_Name_Type;
+      Munit_Index : Nat := 0) return File_Name_Type
    is
-      Fptr : Natural;
-      --  Pointer to location to set extension in place
-
    begin
       Get_Name_String (Source_File);
-      Fptr := Name_Len + 1;
 
       for J in reverse 2 .. Name_Len loop
          if Name_Buffer (J) = '.' then
-            Fptr := J;
+            Name_Len := J - 1;
             exit;
          end if;
       end loop;
 
-      Name_Buffer (Fptr) := '.';
-      Name_Buffer (Fptr + 1 .. Fptr + ALI_Suffix'Length) := ALI_Suffix.all;
-      Name_Buffer (Fptr + ALI_Suffix'Length + 1) := ASCII.NUL;
-      Name_Len := Fptr + ALI_Suffix'Length;
+      if Munit_Index /= 0 then
+         Add_Char_To_Name_Buffer (Multi_Unit_Index_Character);
+         Add_Nat_To_Name_Buffer (Munit_Index);
+      end if;
+
+      Add_Char_To_Name_Buffer ('.');
+      Add_Str_To_Name_Buffer (ALI_Suffix.all);
       return Name_Find;
    end Lib_File_Name;
 
@@ -1793,7 +1819,17 @@ package body Osint is
       --  "alpha-dec-vxworks-"
 
       while Name_Len > 0  loop
+
+         --  All done if we find the last hyphen
+
          if Name_Buffer (Name_Len) = '-' then
+            exit;
+
+         --  If directory separator found, we don't want to look further
+         --  since in this case, no prefix has been found.
+
+         elsif Is_Directory_Separator (Name_Buffer (Name_Len)) then
+            Name_Len := 0;
             exit;
          end if;
 
@@ -2131,7 +2167,7 @@ package body Osint is
          type Actual_Source_Ptr is access Actual_Source_Buffer;
          --  This is the pointer type for the physical buffer allocated
 
-         Actual_Ptr : Actual_Source_Ptr := new Actual_Source_Buffer;
+         Actual_Ptr : constant Actual_Source_Ptr := new Actual_Source_Buffer;
          --  And this is the actual physical buffer
 
       begin
@@ -2752,6 +2788,13 @@ begin
    begin
       Identifier_Character_Set := Get_Default_Identifier_Character_Set;
       Maximum_File_Name_Length := Get_Maximum_File_Name_Length;
+
+      --  On VMS, '~' is not allowed in file names. Change the multi unit
+      --  index character to '$'.
+
+      if Hostparm.OpenVMS then
+         Multi_Unit_Index_Character := '$';
+      end if;
 
       --  Following should be removed by having above function return
       --  Integer'Last as indication of no maximum instead of -1 ???

@@ -728,12 +728,11 @@ flags_from_decl_or_type (tree exp)
 	flags |= ECF_NOTHROW;
 
       if (TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
-	flags |= ECF_LIBCALL_BLOCK;
+	flags |= ECF_LIBCALL_BLOCK | ECF_CONST;
 
       flags = special_function_p (exp, flags);
     }
-
-  if (TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
+  else if (TYPE_P (exp) && TYPE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
     flags |= ECF_CONST;
 
   if (TREE_THIS_VOLATILE (exp))
@@ -1204,7 +1203,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	}
 
       mode = TYPE_MODE (type);
-      unsignedp = TREE_UNSIGNED (type);
+      unsignedp = TYPE_UNSIGNED (type);
 
       if (targetm.calls.promote_function_args (fndecl ? TREE_TYPE (fndecl) : 0))
 	mode = promote_mode (type, mode, &unsignedp, 1);
@@ -3188,7 +3187,7 @@ expand_call (tree exp, rtx target, int ignore)
 	  && GET_MODE (target) != TYPE_MODE (TREE_TYPE (exp)))
 	{
 	  tree type = TREE_TYPE (exp);
-	  int unsignedp = TREE_UNSIGNED (type);
+	  int unsignedp = TYPE_UNSIGNED (type);
 	  int offset = 0;
 
 	  /* If we don't promote as expected, something is wrong.  */

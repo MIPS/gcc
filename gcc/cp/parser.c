@@ -167,19 +167,19 @@ typedef struct cp_lexer GTY (())
   /* The memory allocated for the buffer.  Never NULL.  */
   cp_token * GTY ((length ("(%h.buffer_end - %h.buffer)"))) buffer;
   /* A pointer just past the end of the memory allocated for the buffer.  */
-  cp_token * GTY ((skip (""))) buffer_end;
+  cp_token * GTY ((skip)) buffer_end;
   /* The first valid token in the buffer, or NULL if none.  */
-  cp_token * GTY ((skip (""))) first_token;
+  cp_token * GTY ((skip)) first_token;
   /* The next available token.  If NEXT_TOKEN is NULL, then there are
      no more available tokens.  */
-  cp_token * GTY ((skip (""))) next_token;
+  cp_token * GTY ((skip)) next_token;
   /* A pointer just past the last available token.  If FIRST_TOKEN is
      NULL, however, there are no available tokens, and then this
      location is simply the place in which the next token read will be
      placed.  If LAST_TOKEN == FIRST_TOKEN, then the buffer is full.
      When the LAST_TOKEN == BUFFER, then the last token is at the
      highest memory address in the BUFFER.  */
-  cp_token * GTY ((skip (""))) last_token;
+  cp_token * GTY ((skip)) last_token;
 
   /* A stack indicating positions at which cp_lexer_save_tokens was
      called.  The top entry is the most recent position at which we
@@ -1126,7 +1126,7 @@ static cp_parser_context *cp_parser_context_new
 
 /* Class variables.  */
 
-static GTY((deletable (""))) cp_parser_context* cp_parser_context_free_list;
+static GTY((deletable)) cp_parser_context* cp_parser_context_free_list;
 
 /* Constructors and destructors.  */
 
@@ -5471,14 +5471,14 @@ cp_parser_statement (cp_parser* parser, bool in_statement_expr_p)
 {
   tree statement;
   cp_token *token;
-  int statement_line_number;
+  location_t statement_locus;
 
   /* There is no statement yet.  */
   statement = NULL_TREE;
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
-  /* Remember the line number of the first token in the statement.  */
-  statement_line_number = token->location.line;
+  /* Remember the location of the first token in the statement.  */
+  statement_locus = token->location;
   /* If this is a keyword, then that will often determine what kind of
      statement we have.  */
   if (token->type == CPP_KEYWORD)
@@ -5554,7 +5554,10 @@ cp_parser_statement (cp_parser* parser, bool in_statement_expr_p)
 
   /* Set the line number for the statement.  */
   if (statement && STATEMENT_CODE_P (TREE_CODE (statement)))
-    STMT_LINENO (statement) = statement_line_number;
+    {
+      SET_EXPR_LOCUS (statement, NULL);
+      annotate_with_locus (statement, statement_locus);
+    }
 }
 
 /* Parse a labeled-statement.

@@ -255,6 +255,11 @@ int flag_branch_probabilities = 0;
 
 int flag_reorder_blocks = 0;
 
+/* Nonzero if blocks should be partitioned into hot and cold sections in
+   addition to being reordered. */
+
+int flag_reorder_blocks_and_partition = 0;
+
 /* Nonzero if functions should be reordered.  */
 
 int flag_reorder_functions = 0;
@@ -816,9 +821,6 @@ int flag_tree_dce = 0;
 /* Enable loop header copying on tree-ssa.  */
 int flag_tree_ch = 0;
 
-/* Enable loop optimization on tree-ssa.  */
-int flag_tree_loop = 0;
-
 /* Enable scalar replacement of aggregates.  */
 int flag_tree_sra = 0;
 
@@ -827,6 +829,9 @@ int flag_tree_combine_temps = 0;
 
 /* Enable SSA->normal pass expression replacement.  */
 int flag_tree_ter = 0;
+
+/* Enable SSA->normal live range splitting.  */
+int flag_tree_live_range_split = 0;
 
 /* Enable dominator optimizations.  */
 int flag_tree_dom = 0;
@@ -1008,6 +1013,7 @@ static const lang_independent_options f_options[] =
   {"profile", &profile_flag, 1 },
   {"tree-based-profiling", &flag_tree_based_profiling, 1 },
   {"reorder-blocks", &flag_reorder_blocks, 1 },
+  {"reorder-blocks-and-partition", &flag_reorder_blocks_and_partition, 1},
   {"reorder-functions", &flag_reorder_functions, 1 },
   {"rename-registers", &flag_rename_registers, 1 },
   {"cprop-registers", &flag_cprop_registers, 1 },
@@ -1060,8 +1066,8 @@ static const lang_independent_options f_options[] =
   { "tree-dse", &flag_tree_dse, 1 },
   { "tree-combine-temps", &flag_tree_combine_temps, 1 },
   { "tree-ter", &flag_tree_ter, 1 },
-  { "tree-ch", &flag_tree_ch, 1 },
-  { "tree-loop-optimize", &flag_tree_loop, 1 }
+  { "tree-lrs", &flag_tree_live_range_split, 1 },
+  { "tree-ch", &flag_tree_ch, 1 }
 };
 
 /* Here is a table, controlled by the tm.h file, listing each -m switch
@@ -1120,7 +1126,12 @@ bool
 set_src_pwd (const char *pwd)
 {
   if (src_pwd)
-    return false;
+    {
+      if (strcmp (src_pwd, pwd) == 0)
+	return true;
+      else
+	return false;
+    }
 
   src_pwd = xstrdup (pwd);
   return true;
@@ -2527,6 +2538,7 @@ lang_dependent_init (const char *name)
      front end is initialized.  */
   init_eh ();
   init_optabs ();
+  init_optimization_passes ();
 
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */

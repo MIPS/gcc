@@ -174,7 +174,8 @@ typedef struct
 
   int *iostat, *exist, *opened, *number, *named, rec, *nextrec, *size;
 
-  offset_t recl_in, *recl_out;
+  int recl_in; 
+  int *recl_out;
 
   char *file;
   int file_len;
@@ -477,6 +478,9 @@ unit_t *get_unit (int);
 
 #define test_endfile prefix(test_endfile)
 void test_endfile (unit_t *);
+
+#define new_unit prefix(new_unit)
+void new_unit (unit_flags *);
 
 /* format.c */
 

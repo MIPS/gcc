@@ -543,9 +543,9 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_dce = 1;
       flag_tree_dom = 1;
       flag_tree_dse = 1;
-      flag_tree_loop = 0;
       flag_tree_pre = 1;
       flag_tree_ter = 1;
+      flag_tree_live_range_split = 1;
       flag_tree_sra = 1;
       flag_tree_copyrename = 1;
 
@@ -609,6 +609,16 @@ decode_options (unsigned int argc, const char **argv)
 	 or less automatically remove extra jumps, but would also try to
 	 use more short jumps instead of long jumps.  */
       flag_reorder_blocks = 0;
+      flag_reorder_blocks_and_partition = 0;
+    }
+
+  if (optimize_size)
+    {
+      /* Inlining of very small functions usually reduces total size.  */
+      set_param_value ("max-inline-insns-single", 5);
+      set_param_value ("max-inline-insns-auto", 5);
+      set_param_value ("max-inline-insns-rtl", 10);
+      flag_inline_functions = 1;
     }
 
   /* Initialize whether `char' is signed.  */
@@ -665,6 +675,19 @@ decode_options (unsigned int argc, const char **argv)
 
   if (flag_really_no_inline == 2)
     flag_really_no_inline = flag_no_inline;
+
+  /* The optimization to partition hot and cold basic blocks into separate
+     sections of the .o and executable files does not work (currently)
+     with exception handling.  If flag_exceptions is turned on we need to
+     turn off the partitioning optimization.  */
+
+  if (flag_exceptions && flag_reorder_blocks_and_partition)
+    {
+      warning 
+	    ("-freorder-blocks-and-partition does not work with exceptions");
+      flag_reorder_blocks_and_partition = 0;
+      flag_reorder_blocks = 1;
+    }
 }
 
 /* Handle target- and language-independent options.  Return zero to
@@ -1294,6 +1317,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_reorder_blocks = value;
       break;
 
+    case OPT_freorder_blocks_and_partition:
+      flag_reorder_blocks_and_partition = value;
+      break;
+  
     case OPT_freorder_functions:
       flag_reorder_functions = value;
       break;
@@ -1475,6 +1502,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_tree_ter = value;
       break;
 
+    case OPT_ftree_lrs:
+      flag_tree_live_range_split = value;
+      break;
+
     case OPT_ftree_dominator_opts:
       flag_tree_dom = value;
       break;
@@ -1489,10 +1520,6 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_ftree_dse:
       flag_tree_dse = value;
-      break;
-
-    case OPT_ftree_loop_optimize:
-      flag_tree_loop = value;
       break;
 
     case OPT_ftree_sra:

@@ -54,6 +54,10 @@ enum tree_code {
 extern const char tree_code_type[];
 #define TREE_CODE_CLASS(CODE)	tree_code_type[(int) (CODE)]
 
+/* Returns nonzero iff CLASS is not the tree code of a type. */
+
+#define IS_NON_TYPE_CODE_CLASS(CLASS) (strchr ("xbcdr<12se", (CLASS)) != 0)
+
 /* Returns nonzero iff CLASS is the tree-code class of an
    expression.  */
 
@@ -245,6 +249,9 @@ struct tree_common GTY(())
 
        TREE_SIDE_EFFECTS in
            all expressions
+	   all decls
+	   all constants
+
        FORCED_LABEL in
 	   LABEL_DECL
 
@@ -266,11 +273,17 @@ struct tree_common GTY(())
 
        TREE_CONSTANT in
            all expressions
+	   all decls
+	   all constants
 
    unsigned_flag:
 
-       TREE_UNSIGNED in
-           INTEGER_TYPE, ENUMERAL_TYPE, FIELD_DECL
+       TYPE_UNSIGNED in
+           all types
+       DECL_UNSIGNED in
+           all decls
+       BIT_FIELD_REF_UNSIGNED in
+           BIT_FIELD_REF
        SAVE_EXPR_NOPLACEHOLDER in
 	   SAVE_EXPR
 
@@ -381,7 +394,16 @@ struct tree_common GTY(())
 ({  const tree __t = (T);						\
     char const __c = TREE_CODE_CLASS (TREE_CODE (__t));			\
     if (!IS_EXPR_CODE_CLASS (__c))					\
-      tree_class_check_failed (__t, 'e', __FILE__, __LINE__,		\
+      tree_class_check_failed (__t, 'E', __FILE__, __LINE__,		\
+			       __FUNCTION__);				\
+    __t; })
+
+/* These checks have to be special cased.  */
+#define NON_TYPE_CHECK(T) __extension__					\
+({  const tree __t = (T);						\
+    char const __c = TREE_CODE_CLASS (TREE_CODE (__t));			\
+    if (!IS_NON_TYPE_CODE_CLASS (__c))					\
+      tree_class_check_failed (__t, 'T', __FILE__, __LINE__,		\
 			       __FUNCTION__);				\
     __t; })
 
@@ -502,6 +524,7 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define TREE_CHECK5(T, CODE1, CODE2, CODE3, CODE4, CODE5) (T)
 #define TREE_CLASS_CHECK(T, CODE)		(T)
 #define EXPR_CHECK(T)				(T)
+#define NON_TYPE_CHECK(T)			(T)
 #define TREE_VEC_ELT_CHECK(T, I)		((T)->vec.a[I])
 #define TREE_OPERAND_CHECK(T, I)		((T)->exp.operands[I])
 #define TREE_OPERAND_CHECK_CODE(T, CODE, I)	((T)->exp.operands[I])
@@ -579,8 +602,8 @@ extern void tree_operand_check_failed (int, enum tree_code,
 	 && TREE_OPERAND (EXP, 0) != error_mark_node		\
 	 && (TYPE_MODE (TREE_TYPE (EXP))			\
 	     == TYPE_MODE (TREE_TYPE (TREE_OPERAND (EXP, 0))))	\
-	 && (TREE_UNSIGNED (TREE_TYPE (EXP))			\
-	     == TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (EXP, 0))))) \
+	 && (TYPE_UNSIGNED (TREE_TYPE (EXP))			\
+	     == TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (EXP, 0))))) \
     (EXP) = TREE_OPERAND (EXP, 0)
 
 /* Like STRIP_NOPS, but don't alter the TREE_TYPE main variant either.  */
@@ -741,12 +764,13 @@ extern void tree_operand_check_failed (int, enum tree_code,
    for this name in an inner scope.  */
 #define TREE_PUBLIC(NODE) ((NODE)->common.public_flag)
 
-/* In any expression, nonzero means it has side effects or reevaluation
-   of the whole expression could produce a different value.
-   This is set if any subexpression is a function call, a side effect
-   or a reference to a volatile variable.
-   In a ..._DECL, this is set only if the declaration said `volatile'.  */
-#define TREE_SIDE_EFFECTS(NODE) ((NODE)->common.side_effects_flag)
+/* In any expression, decl, or constant, nonzero means it has side effects or
+   reevaluation of the whole expression could produce a different value.
+   This is set if any subexpression is a function call, a side effect or a
+   reference to a volatile variable.  In a ..._DECL, this is set only if the
+   declaration said `volatile'.  This will never be set for a constant.  */
+#define TREE_SIDE_EFFECTS(NODE) \
+  (NON_TYPE_CHECK (NODE)->common.side_effects_flag)
 
 /* In a LABEL_DECL, nonzero means this label had its address taken
    and therefore can never be deleted and is a jump target for
@@ -766,27 +790,28 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define TREE_THIS_VOLATILE(NODE) ((NODE)->common.volatile_flag)
 
 /* In a VAR_DECL, PARM_DECL or FIELD_DECL, or any kind of ..._REF node,
-   nonzero means it may not be the lhs of an assignment.
-   In a ..._TYPE node, means this type is const-qualified
-   (but the macro TYPE_READONLY should be used instead of this macro
-   when the node is a type).  */
-#define TREE_READONLY(NODE) ((NODE)->common.readonly_flag)
+   nonzero means it may not be the lhs of an assignment.  */
+#define TREE_READONLY(NODE) (NON_TYPE_CHECK (NODE)->common.readonly_flag)
 
 /* Nonzero if NODE is a _DECL with TREE_READONLY set.  */
-#define TREE_READONLY_DECL_P(NODE) (TREE_READONLY (NODE) && DECL_P (NODE))
+#define TREE_READONLY_DECL_P(NODE) (DECL_P (NODE) && TREE_READONLY (NODE))
 
-/* Value of expression is constant.
-   Always appears in all ..._CST nodes.
-   May also appear in an arithmetic expression, an ADDR_EXPR or a CONSTRUCTOR
-   if the value is constant.  */
-#define TREE_CONSTANT(NODE) ((NODE)->common.constant_flag)
+/* Value of expression is constant.  Always on in all ..._CST nodes.  May
+   also appear in an expression or decl where the value is constant.  */
+#define TREE_CONSTANT(NODE) (NON_TYPE_CHECK (NODE)->common.constant_flag)
 
-/* In INTEGER_TYPE or ENUMERAL_TYPE nodes, means an unsigned type.
-   In FIELD_DECL nodes, means an unsigned bit field.  */
-#define TREE_UNSIGNED(NODE) ((NODE)->common.unsigned_flag)
+/* In a decl (most significantly a FIELD_DECL), means an unsigned field.  */
+#define DECL_UNSIGNED(NODE) (DECL_CHECK (NODE)->common.unsigned_flag)
+
+/* In a BIT_FIELD_REF, means the bitfield is to be interpreted as unsigned.  */
+#define BIT_FIELD_REF_UNSIGNED(NODE) \
+  (BIT_FIELD_REF_CHECK (NODE)->common.unsigned_flag)
+
+/* In integral and pointer types, means an unsigned type.  */
+#define TYPE_UNSIGNED(NODE) (TYPE_CHECK (NODE)->common.unsigned_flag)
 
 #define TYPE_TRAP_SIGNED(NODE) \
-  (flag_trapv && ! TREE_UNSIGNED (TYPE_CHECK (NODE)))
+  (flag_trapv && ! TYPE_UNSIGNED (NODE))
 
 /* Nonzero in a VAR_DECL means assembler code has been written.
    Nonzero in a FUNCTION_DECL means that the function has been compiled.
@@ -992,7 +1017,9 @@ struct tree_vec GTY(())
 #define SAVE_EXPR_CONTEXT(NODE) TREE_OPERAND_CHECK_CODE (NODE, SAVE_EXPR, 1)
 #define SAVE_EXPR_RTL(NODE) TREE_RTL_OPERAND_CHECK (NODE, SAVE_EXPR, 2)
 
-#define SAVE_EXPR_NOPLACEHOLDER(NODE) TREE_UNSIGNED (SAVE_EXPR_CHECK (NODE))
+#define SAVE_EXPR_NOPLACEHOLDER(NODE) \
+  (SAVE_EXPR_CHECK (NODE)->common.unsigned_flag)
+
 /* Nonzero if the SAVE_EXPRs value should be kept, even if it occurs
    both in normal code and in a handler.  (Normally, in a handler, all
    SAVE_EXPRs are unsaved, meaning that their values are
@@ -1822,7 +1849,9 @@ struct tree_type GTY(())
    For a VAR_DECL, holds the initial value.
    For a PARM_DECL, not used--default
    values for parameters are encoded in the type of the function,
-   not in the PARM_DECL slot.  */
+   not in the PARM_DECL slot.
+
+   ??? Need to figure out some way to check this isn't a PARM_DECL.  */
 #define DECL_INITIAL(NODE) (DECL_CHECK (NODE)->decl.initial)
 /* For a PARM_DECL, records the data type used to pass the argument,
    which may be different from the type seen in the program.  */
@@ -2250,7 +2279,7 @@ struct tree_decl GTY(())
       unsigned int align : 24;
       unsigned int off_align : 8;
     } a;
-  } GTY ((skip (""))) u1;
+  } GTY ((skip)) u1;
 
   tree size_unit;
   tree name;
@@ -3222,6 +3251,11 @@ extern tree substitute_placeholder_in_expr (tree, tree);
 
 extern tree variable_size (tree);
 
+/* Given a type T, force elaboration of any SAVE_EXPRs used in the definition
+   of that type.  */
+
+extern void force_type_save_exprs (tree);
+
 /* stabilize_reference (EXP) returns a reference equivalent to EXP
    but it can be used multiple times
    and only evaluate the subexpressions once.  */
@@ -3758,5 +3792,10 @@ typedef enum
 
 extern int tree_node_counts[];
 extern int tree_node_sizes[];
+
+/* True if we are in gimple form and the actions of the folders need to
+   be restricted.  False if we are not in gimple form and folding is not
+   restricted to creating gimple expressions.  */
+extern bool in_gimple_form;
     
 #endif  /* GCC_TREE_H  */

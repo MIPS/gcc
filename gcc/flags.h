@@ -210,6 +210,11 @@ extern int flag_branch_probabilities;
 
 extern int flag_reorder_blocks;
 
+/* Nonzero if basic blocks should be partitioned into hot and cold
+   sections of the .o file, in addition to being reordered.  */
+
+extern int flag_reorder_blocks_and_partition;
+
 /* Nonzero if functions should be reordered.  */
 
 extern int flag_reorder_functions;
@@ -731,6 +736,9 @@ extern int flag_tree_combine_temps;
 /* Enable SSA->normal pass expression replacement.  */
 extern int flag_tree_ter;
 
+/* Enable SSA_>normal live range splitting.  */
+extern int flag_tree_live_range_split;
+
 /* Enable dominator optimizations.  */
 extern int flag_tree_dom;
 
@@ -739,9 +747,6 @@ extern int flag_tree_ch;
 
 /* Enable dead store and redundant load elimination */
 extern int flag_tree_dse;
-
-/* Enable loop optimization on tree-ssa.  */
-extern int flag_tree_loop;
 
 /* Enable scalar replacement of aggregates.  */
 extern int flag_tree_sra;

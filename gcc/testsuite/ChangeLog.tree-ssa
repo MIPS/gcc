@@ -1,3 +1,119 @@
+2004-04-21  Ben Elliston  <bje@au.ibm.com>
+
+	PR middle-end/14730
+	* gcc.c-torture/compile/pr14730.c: New test.
+
+2004-04-18  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/14921
+	PR fortran/14540
+	* gfortran.fortran-torture/execute/math.f90: Add atan2 and clog
+	simplify test.
+
+2004-04-15  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.c-torture/compile/20040415-1.c: New test.
+	* gcc.c-torture/compile/20040415-2.c: New test.
+
+2004-04-11  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14904
+	* gfortran.fortran-torture/execute/inquire_4.f90: New test.
+
+2004-04-11  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14901
+	* gfortran.fortran-torture/execute/internal_write.f90: New test.
+
+2004-04-11  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14872
+	* gfortran.fortran-torture/execute/direct_io.f90: Add new test.
+
+2004-04-11  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/14377
+	* gfortran.fortran-torture/execute/intrinsic_minmax.f90: Add new test.
+
+2004-04-08  Brian Booth  <bbooth@redhat.com>
+
+	* gcc.dg/tree-ssa/20040408-1.c: New test.
+
+2004-04-08  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20040326-2.c (boz): Add call to abort.
+
+2004-04-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20040326-2.c: Update to test for correct
+	gimplification of function call expressions.
+
+2004-04-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20040326-2.c: New test.
+
+2003-04-04  Paul Brook  <paul@codesourcery.com>
+
+	PR 13252
+	PR 14081
+	* gfortran.fortran-torture/execute/strarray_1.f90: New test.
+	* gfortran.fortran-torture/execute/strarray_2.f90: New test.
+	* gfortran.fortran-torture/execute/strarray_3.f90: New test.
+	* gfortran.fortran-torture/execute/strarray_4.f90: New test.
+	* gfortran.fortran-torture/execute/strcommon_1.f90: New test.
+
+2004-04-04  Paul Brook  <paul@codesourcery.com>
+
+	* lib/fortran-torture.exp (TORTURE_OPTIONS): Remove -fg77-calls.
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14762
+	* gfortran.fortran-torture/execute/slash_edit.f90: New test.
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14386
+	* gfortran.fortran-torture/execute/inquire_3.f90: New test.
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+                                                                                
+	PR gfortran/14837
+	* gfortran.fortran-torture/execute/inquire_2.f90: New test.
+
+2004-04-03  Andrew Pinski <pinskia@physics.uc.edu>
+
+	* lib/gfortran.exp: Sync LD_LIBRARY_PATH part from
+	lib/g++.exp.
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 14831
+	* gfortran.fortran-torture/execute/inquire_1.f90: New test.
+
+2004-04-03  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc.dg/tree-ssa/20040324-1.c: New test.
+
+2004-04-01  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/20040401-1.c: New test.
+
+2004-04-01  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 14746
+	* gfortran.fortran-torture/execute/f2_edit_1.f90: New test.
+
+2004-04-01  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14565
+	* gfortran.fortran-torture/execute/unopened_unit_1.f90: New test.
+
+2004-03-30  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/uninit-1.c, gcc.dg/uninit-3.c, gcc.dg/uninit-8.c, 
+	gcc.dg/uninit-9.c: Remove XFAIL.
+
 2004-03-26  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/20040326-1.c: New test.

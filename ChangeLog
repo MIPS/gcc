@@ -1,4 +1,46 @@
+2004-04-12  Michael Chastain  <mec.gnu@mindspring.com>
+
+        * MAINTAINERS: Add myself to write-after-approval.
+
+2004-04-09  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR bootstrap/14871
+	* Makefile.tpl: If we don't have built-in-tree target tools,
+	use the ones found by configure rather than hacking around with
+	program_transform_name.
+	* configure.in: Give Makefile.tpl the information necessary
+	to do that.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+2004-04-06  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR bootstrap/14760
+	* configure.in: When computing baseargs, strip *all* copies of
+	offending options.  Also, don't match/substitute the trailing space,
+	so that this actually works when two similar options are separated by
+	only one space.
+	* configure: Regenerate.
+
+2004-04-06  David Edelsohn  <edelsohn@gnu.org>
+
+        * configure.in (powerpc-*-aix*): Remove target-libada from noconfigdirs.
+        (rs6000-*-aix*): Same.
+        * configure: Regenerate.
+
+2004-04-05  Ranjit Mathew  <rmathew@hotmail.com>
+                                                                                
+        * MAINTAINERS: Add myself to write-after-approval.
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+                                                                                
+        * MAINTAINERS: Add myself to write-after-approval.
+
 2004-03-24  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl (top level bootstrap support): Remove now-unneeded
+	STRICT_WARN, WARN_CFLAGS flags passed down to make.
+	* Makefile.in: Regenerate.
 
 	* configure.in (top level bootstrap support): Rework --enable-werror
 	to set @stage2_werror_flag@.

@@ -988,7 +988,13 @@ procedure Gnatlink is
             --  Add binder options only if not already set on the command
             --  line. This rule is a way to control the linker options order.
 
-            elsif not Is_Option_Present (Next_Line (Nfirst .. Nlast)) then
+            --  The following test needs comments, why is it VMS specific.
+            --  The above comment looks out of date ???
+
+            elsif not (Hostparm.OpenVMS
+                         and then
+                       Is_Option_Present (Next_Line (Nfirst .. Nlast)))
+            then
                if Nlast > Nfirst + 2 and then
                  Next_Line (Nfirst .. Nfirst + 1) = "-L"
                then

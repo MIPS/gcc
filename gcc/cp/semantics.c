@@ -765,8 +765,8 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	     because if we did, int_fits_type_p would do the wrong thing
 	     when checking case values for being in range,
 	     and it's too hard to do the right thing.  */
-	  if (TREE_UNSIGNED (TREE_TYPE (cond))
-	      == TREE_UNSIGNED (TREE_TYPE (index)))
+	  if (TYPE_UNSIGNED (TREE_TYPE (cond))
+	      == TYPE_UNSIGNED (TREE_TYPE (index)))
 	    cond = index;
 	}
     }
@@ -1765,7 +1765,7 @@ finish_unary_op_expr (enum tree_code code, tree expr)
      setting TREE_NEGATED_INT.  */
   if (code == NEGATE_EXPR && TREE_CODE (expr) == INTEGER_CST
       && TREE_CODE (result) == INTEGER_CST
-      && !TREE_UNSIGNED (TREE_TYPE (result))
+      && !TYPE_UNSIGNED (TREE_TYPE (result))
       && INT_CST_LT (result, integer_zero_node))
     TREE_NEGATED_INT (result) = 1;
   overflow_warning (result);
@@ -2956,7 +2956,7 @@ finalize_nrv_r (tree* tp, int* walk_subtrees, void* data)
       else
 	init = NULL_TREE;
       init = build_stmt (EXPR_STMT, init);
-      STMT_LINENO (init) = STMT_LINENO (*tp);
+      SET_EXPR_LOCUS (init, EXPR_LOCUS (*tp));
       TREE_CHAIN (init) = TREE_CHAIN (*tp);
       *tp = init;
     }
@@ -2999,13 +2999,6 @@ finalize_nrv (tree *tp, tree var, tree result)
   data.visited = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
   walk_tree (tp, finalize_nrv_r, &data, 0);
   htab_delete (data.visited);
-}
-
-/* Start generating the RTL for FN.  */
-
-void
-cxx_expand_function_start (void)
-{
 }
 
 /* Perform initialization related to this module.  */

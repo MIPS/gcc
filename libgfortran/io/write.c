@@ -404,7 +404,7 @@ output_float (fnode *f, double value, int len)
   intstr = itoa (intval);
   intlen = strlen (intstr);
 
-  q = rtoa (n, len, d-1);
+  q = rtoa (n, len, d);
   digits = strlen (q);
 
   /* Select a width if none was specified.  */
@@ -423,6 +423,12 @@ output_float (fnode *f, double value, int len)
        with_exp = 0;
        nesign -= 1;
        nblank = w - (nsign + intlen + d + nesign);
+     }
+  /* don't let a leading '0' cause field overflow */
+  if (nblank == -1 && ft == FMT_F && q[0] == '0')
+     {
+        q++;
+        nblank = 0;
      }
 
   if (nblank < 0)

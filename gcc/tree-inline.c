@@ -284,6 +284,7 @@ remap_type (tree type, inline_data *id)
       t = TYPE_MIN_VALUE (new);
       if (t && TREE_CODE (t) != INTEGER_CST)
         walk_tree (&TYPE_MIN_VALUE (new), copy_body_r, id, NULL);
+
       t = TYPE_MAX_VALUE (new);
       if (t && TREE_CODE (t) != INTEGER_CST)
         walk_tree (&TYPE_MAX_VALUE (new), copy_body_r, id, NULL);
@@ -291,14 +292,14 @@ remap_type (tree type, inline_data *id)
     
     case POINTER_TYPE:
       TREE_TYPE (new) = t = remap_type (TREE_TYPE (new), id);
-      if (TYPE_MODE (new) == ptr_mode)
-        TYPE_POINTER_TO (t) = new;
+      TYPE_NEXT_PTR_TO (new) = TYPE_POINTER_TO (t);
+      TYPE_POINTER_TO (t) = new;
       return new;
 
     case REFERENCE_TYPE:
       TREE_TYPE (new) = t = remap_type (TREE_TYPE (new), id);
-      if (TYPE_MODE (new) == ptr_mode)
-        TYPE_REFERENCE_TO (t) = new;
+      TYPE_NEXT_REF_TO (new) = TYPE_REFERENCE_TO (t);
+      TYPE_REFERENCE_TO (t) = new;
       return new;
 
     case METHOD_TYPE:
@@ -1353,9 +1354,26 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
     case RDIV_EXPR:
-    case CALL_EXPR:
       *count += 10;
       break;
+    case CALL_EXPR:
+      {
+	tree decl = get_callee_fndecl (x);
+
+	if (decl && DECL_BUILT_IN (decl))
+	  switch (DECL_FUNCTION_CODE (decl))
+	    {
+	    case BUILT_IN_CONSTANT_P:
+	      *walk_subtrees = 0;
+	      return NULL_TREE;
+	    case BUILT_IN_EXPECT:
+	      return NULL_TREE;
+	    default:
+	      break;
+	    }
+	*count += 10;
+	break;
+      }
     default:
       /* Abort here se we know we don't miss any nodes.  */
       abort ();
@@ -2211,6 +2229,7 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       || TREE_CODE_CLASS (code) == 'c'
       || code == TREE_LIST
       || code == TREE_VEC
+      || code == TYPE_DECL
       || lang_hooks.tree_inlining.tree_chain_matters_p (*tp))
     {
       /* Because the chain gets clobbered when we make a copy, we save it
