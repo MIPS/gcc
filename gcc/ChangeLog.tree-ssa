@@ -1,3 +1,11 @@
+2003-11-03  Jeff Law  <law@redhat.com>
+
+        * tree-ssa-dom.c (dom_opt_finalize_block): Try to thread across the
+        edges leaving COND_EXPR nodes which are leafs in the dominator
+        tree.
+        (record_equivalences_from_incoming_edge): Do not set EQ_EXPR_VALUE
+        unless the block's single predecessor contains parent_block_last_stmt.
+
 2003-11-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-dump.c (dump_options): Add TDF_LINENO.

@@ -628,6 +628,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
   varray_type block_const_and_copies = bd->const_and_copies;
   varray_type vrp_variables = bd->vrp_variables;
   varray_type stmts_to_rescan = bd->stmts_to_rescan;
+  tree last;
 
   /* If we are at a leaf node in the dominator graph, see if we can thread
      the edge from BB through its successor.
@@ -640,6 +641,58 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
 	  || ! bitmap_bit_p (dom_children (bb), bb->succ->dest->index)))
     {
       thread_across_edge (bb->succ, NULL);
+    }
+  else if ((last = last_stmt (bb))
+	   && TREE_CODE (last) == COND_EXPR
+	   && TREE_CODE_CLASS (TREE_CODE (COND_EXPR_COND (last))) == '<'
+	   && bb->succ
+	   && (bb->succ->flags & EDGE_ABNORMAL) == 0
+	   && bb->succ->succ_next
+	   && (bb->succ->succ_next->flags & EDGE_ABNORMAL) == 0
+	   && ! bb->succ->succ_next->succ_next)
+    {
+      edge e = bb->succ;
+      edge true_edge, false_edge;
+
+      if (e->flags & EDGE_TRUE_VALUE)
+	{
+	  true_edge = e;
+	  false_edge = e->succ_next;
+	}
+      else
+	{
+	  false_edge = e;
+	  true_edge = e->succ_next;
+	}
+
+      /* If the THEN arm is the end of a dominator tree, then try to thread
+	 through its edge.  */
+      if (! dom_children (bb)
+	  || ! bitmap_bit_p (dom_children (bb), true_edge->dest->index))
+	{
+	  unsigned limit = VARRAY_ACTIVE_SIZE (bd->avail_exprs);
+	  record_cond_is_true (COND_EXPR_COND (last), &bd->avail_exprs);
+	  thread_across_edge (true_edge, NULL);
+	  if (limit != VARRAY_ACTIVE_SIZE (bd->avail_exprs))
+	    {
+	      htab_remove_elt (avail_exprs, VARRAY_TOP_TREE (bd->avail_exprs));
+	      VARRAY_POP (bd->avail_exprs);
+	    }
+	}
+
+      /* Similarly for the ELSE arm.  */
+      if (! dom_children (bb)
+	  || ! bitmap_bit_p (dom_children (bb), false_edge->dest->index))
+	{
+	  unsigned limit = VARRAY_ACTIVE_SIZE (bd->avail_exprs);
+	  record_cond_is_false (COND_EXPR_COND (last), &bd->avail_exprs);
+	  thread_across_edge (false_edge, NULL);
+	  if (limit != VARRAY_ACTIVE_SIZE (bd->avail_exprs))
+	    {
+	      htab_remove_elt (avail_exprs, VARRAY_TOP_TREE (bd->avail_exprs));
+	      VARRAY_POP (bd->avail_exprs);
+	    }
+	}
     }
 
   /* Remove all the expressions made available in this block.  */
@@ -778,7 +831,10 @@ record_equivalences_from_incoming_edge (basic_block bb,
   /* If we have a single predecessor, then extract EDGE_FLAGS from
      our single incoming edge.  Otherwise clear EDGE_FLAGS and
      PARENT_BLOCK_LAST_STMT since they're not needed.  */
-  if (bb->pred && !bb->pred->pred_next)
+  if (bb->pred
+      && ! bb->pred->pred_next
+      && parent_block_last_stmt
+      && bb_for_stmt (parent_block_last_stmt) == bb->pred->src)
     {
       edge_flags = bb->pred->flags;
     }
