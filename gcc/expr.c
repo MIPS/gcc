@@ -3100,6 +3100,7 @@ emit_move_insn (x, y)
     {
       if (optimize
 	  && FLOAT_MODE_P (GET_MODE (x))
+	  && !VECTOR_MODE_P (GET_MODE (x))
 	  && (last_insn = compress_float_constant (x, y)))
 	return last_insn;
 
