@@ -6589,7 +6589,7 @@ ix86_expand_clear (dest)
 
   /* Avoid HImode and its attendant prefix byte.  */
   if (GET_MODE_SIZE (GET_MODE (dest)) < 4)
-    dest = gen_rtx_REG (SImode, REGNO (dest));
+    dest = gen_lowpart (SImode, dest);
 
   tmp = gen_rtx_SET (VOIDmode, dest, const0_rtx);
 
@@ -8668,7 +8668,7 @@ ix86_split_long_move (operands)
 	      if (GET_CODE (part[1][1]) == MEM)
 		part[1][1] = adjust_address (part[1][1], DImode, 0);
 	      else if (REG_P (part[1][1]))
-		part[1][1] = gen_rtx_REG (DImode, REGNO (part[1][1]));
+		part[1][1] = gen_lowpart (DImode, part[1][1]);
 	      else
 		abort ();
 	      if (GET_MODE (part[1][0]) == SImode)
