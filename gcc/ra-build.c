@@ -728,9 +728,23 @@ live_out_1 (struct df *df ATTRIBUTE_UNUSED, struct curr_use *use, rtx insn)
   int uid = INSN_UID (insn);
   struct web_part *wp = use->wp;
 
-  /* Mark, that this insn needs this webpart live.  */
-  visit_trace[uid].wp = wp;
-  visit_trace[uid].undefined = use->undefined;
+  /* Mark, that this insn needs this webpart live.  Carefull that we
+     don't delete some trace from other parts of the current web, because
+     then the visiting order of insns depends on the order of the uses,
+     which could change in later passes.  This can lead to different
+     numbers in for instance the num_call member.  */
+  if (visit_trace[uid].wp
+      && DF_REF_REGNO (visit_trace[uid].wp->ref) == use->regno)
+    {
+      union_web_parts (visit_trace[uid].wp, use->wp);
+      visit_trace[uid].wp = wp;
+      visit_trace[uid].undefined |= use->undefined;
+    }
+  else
+    {
+      visit_trace[uid].wp = wp;
+      visit_trace[uid].undefined = use->undefined;
+    }
 
   if (INSN_P (insn))
     {
@@ -1147,7 +1161,8 @@ livethrough_conflicts_bb (basic_block bb)
 
   /* And now, if we have found anything, make all live_through
      uses conflict with all defs, and update their other members.  */
-  if (deaths > 0 || contains_call || bitmap_first_set_bit (all_defs) >= 0)
+  if (deaths > 0 || contains_call || has_memset
+      || bitmap_first_set_bit (all_defs) >= 0)
     EXECUTE_IF_SET_IN_BITMAP (info->live_throughout, first, use_id,
       {
         struct web_part *wp = &web_parts[df->def_id + use_id];

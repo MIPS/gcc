@@ -1,3 +1,8 @@
+2003-10-27  Michael Matz  <matz@suse.de>
+
+	* ra-build.c (live_out_1): Join the undefinedness in the trace.
+	(livethrough_conflicts_bb): Check also for has_memset.
+
 2003-10-25  Denis Chertykov  <denisc@overta.ru>
 
 	* ra-rewrite.c (insert_stores): Skip clobbered REGs.
