@@ -1,6 +1,9 @@
 2004-02-06  Alan Modra  <amodra@bigpond.net.au>
 
 	Backport from mainline.
+	2004-01-09  Geoffrey Keating  <geoffk@apple.com>
+	* real.c (encode_ibm_extended): Make consistent with darwin-ldouble.c.
+
 	2003-05-03  Geoffrey Keating  <geoffk@apple.com>
 	* simplify-rtx.c (simplify_relational_operation): Add case for
 	! (fabs(x) < 0.0).
