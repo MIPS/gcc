@@ -576,7 +576,10 @@ class_reader::parse_signature ()
       ref_forwarding_type super;
       std::list<ref_forwarding_type> ifaces;
       parser.parse_class_signature (type_parameters, super, ifaces);
-      result->set_superclass (super);
+      // Internally we represent interfaces as not having a
+      // superclass.
+      if (! result->interface_p ())
+	result->set_superclass (super);
       result->set_type_parameters (type_parameters);
       result->set_implements (ifaces);
     }
@@ -896,7 +899,7 @@ class_reader::parse_self ()
     {
       result->set_interface ();
 
-      // We check that the superclass name is set correct, but
+      // We check that the superclass name is set correctly, but
       // internally we represent interfaces as not having a
       // superclass.
       if (super_class == 0

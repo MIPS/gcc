@@ -1,5 +1,8 @@
 2005-01-18  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/classreader.cc (parse_signature): Don't set superclass
+	for interface.
+
 	* bytecode/attribute.cc (emit_annotation_value): Put annotation
 	class as utf8.
 	(emit_annotation): Likewise.  Number of pairs takes two bytes.
