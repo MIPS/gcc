@@ -1,3 +1,8 @@
+2000-11-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* emit-rtl.c (operand_subword): Return const0_rtx if looking for a
+	word outside of OP.
+
 2000-10-01  Andrew MacLeod  <amacleod@redhat.com>
 
 	* dwarf2out.c (loc_descriptor): use SUBREG_REG to get the register.
