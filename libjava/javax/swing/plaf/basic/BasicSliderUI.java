@@ -390,9 +390,6 @@ public class BasicSliderUI extends SliderUI
       if (slider.getSnapToTicks())
 	value = findClosestTick(value);
 
-      if (value == slider.getValue())
-	return;
-
       // If the thumb is hit, then we don't need to set the timers to move it. 
       if (!thumbRect.contains(e.getPoint()))
         {
@@ -1662,8 +1659,11 @@ public class BasicSliderUI extends SliderUI
                                               Rectangle tickBounds, int x)
   {
     int y = tickRect.y + tickRect.height / 4;
+    Color saved = g.getColor();
+    g.setColor(Color.BLACK);
 
     g.drawLine(x, y, x, y + tickRect.height / 4);
+    g.setColor(saved);
   }
 
   /**
@@ -1678,8 +1678,11 @@ public class BasicSliderUI extends SliderUI
                                               Rectangle tickBounds, int x)
   {
     int y = tickRect.y + tickRect.height / 4;
+    Color saved = g.getColor();
+    g.setColor(Color.BLACK);
 
     g.drawLine(x, y, x, y + tickRect.height / 2);
+    g.setColor(saved);
   }
 
   /**
@@ -1694,8 +1697,11 @@ public class BasicSliderUI extends SliderUI
                                              int y)
   {
     int x = tickRect.x + tickRect.width / 4;
+    Color saved = g.getColor();
+    g.setColor(Color.BLACK);
 
     g.drawLine(x, y, x + tickRect.width / 4, y);
+    g.setColor(saved);
   }
 
   /**
@@ -1710,8 +1716,11 @@ public class BasicSliderUI extends SliderUI
                                              int y)
   {
     int x = tickRect.x + tickRect.width / 4;
+    Color saved = g.getColor();
+    g.setColor(Color.BLACK);
 
     g.drawLine(x, y, x + tickRect.width / 2, y);
+    g.setColor(saved);
   }
 
   /**

@@ -111,7 +111,7 @@ public class BasicOptionPaneUI extends OptionPaneUI
       Object value = new Integer(JOptionPane.CLOSED_OPTION);
       Object[] options = optionPane.getOptions();
       if (options != null)
-	value = options[buttonIndex];
+	value = new Integer(buttonIndex);
       else
         {
 	  String text = ((JButton) e.getSource()).getText();
@@ -642,10 +642,10 @@ public class BasicOptionPaneUI extends OptionPaneUI
 		  toAdd = new JButton((Icon) buttons[i]);
 		else
 		  toAdd = new JButton(buttons[i].toString());
-		((JButton) toAdd).addActionListener(createButtonActionListener(i));
 		hasCustomComponents = true;
 	      }
-
+            if (toAdd instanceof JButton)
+		((JButton) toAdd).addActionListener(createButtonActionListener(i));	    
 	    if (i == initialIndex)
 	      initialFocusComponent = toAdd;
 	    container.add(toAdd);
@@ -808,7 +808,7 @@ public class BasicOptionPaneUI extends OptionPaneUI
 
     buttonPanel.setLayout(createLayoutManager());
     addButtonComponents(buttonPanel, getButtons(), getInitialValueIndex());
-
+    
     return buttonPanel;
   }
 
@@ -856,10 +856,13 @@ public class BasicOptionPaneUI extends OptionPaneUI
       {
 	Object[] selection = optionPane.getSelectionValues();
 
-	if (selection == null)
-	  inputComponent = new JTextField();
-	else if (selection.length < 20)
-	  inputComponent = new JComboBox(selection);
+//	if (selection == null)
+//	  inputComponent = new JTextField();
+//	else if (selection.length < 20)
+//	  inputComponent = new JComboBox(selection);
+        // FIXME: Uncomment when the widgets are done.
+        if (selection == null)
+	  inputComponent = null;
 	else
 	  inputComponent = new JList(selection);
 	if (inputComponent != null)
@@ -972,7 +975,9 @@ public class BasicOptionPaneUI extends OptionPaneUI
 	tmp = questionIcon;
 	break;
       }
-    return new IconUIResource(tmp);
+      return tmp;
+      // FIXME: Don't cast till the default icons are in.
+      // return new IconUIResource(tmp);
   }
 
   /**

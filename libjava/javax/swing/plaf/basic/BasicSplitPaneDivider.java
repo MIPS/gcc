@@ -156,6 +156,29 @@ public class BasicSplitPaneDivider extends Container
   /** Keeps track of where the divider should be placed when using one touch expand
    * buttons. */
   private transient int currentDividerLocation = 1;
+  
+  private transient Border tmpBorder = new Border()
+  {
+    public Insets getBorderInsets(Component c)
+    {
+      return new Insets(2, 2, 2, 2);
+    }
+    
+    public boolean isBorderOpaque()
+    {
+      return false;
+    }
+    
+    public void paintBorder(Component c, Graphics g, int x, int y, int width, int height)
+    {
+      Color saved = g.getColor();
+      g.setColor(Color.BLACK);
+      
+      g.drawRect(x + 2, y + 2, width - 4, height - 4);
+      
+      g.setColor(saved);
+    }
+  };
 
   /**
    * Constructs a new divider.
@@ -167,6 +190,7 @@ public class BasicSplitPaneDivider extends Container
     setLayout(new DividerLayout());
     setBasicSplitPaneUI(ui);
     setDividerSize(splitPane.getDividerSize());
+    setBorder(tmpBorder);
   }
 
   /**

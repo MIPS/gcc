@@ -1,3 +1,43 @@
+2004-07-12  Kim Ho  <kho@redhat.com>
+
+	* Makefile.am: Added new file.
+	* Makefile.in: Regenerated.
+	* gcj/Makefile.in: Regenerated.
+	* include/Makefile.in: Regenerated.
+	* javax/swing/AbstractButton.java:
+	Add rollOverEnabled property.
+	(setRolloverEnabled): Use new property.
+	(isRolloverEnabled): Use new property.
+	* javax/swing/JTabbedPane.java:
+	(setComponent): Remove useless JTabbedPane.this.
+	* javax/swing/JToolBar.java: Finish implementation.
+	* javax/swing/plaf/basic/BasicArrowButton.java:
+	(paint): Moved border painting to a border.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java:
+	Change JToolBar look and feel defaults.
+	* javax/swing/plaf/basic/BasicOptionPaneUI.java
+	(actionPerformed): Return Integer index instead of name.
+	(addButtonComponents): Check to see if component is
+	JButton last.
+	(createMessageArea): Don't use components that are not
+	completed yet.
+	(getIconForType): Use temporary icons.
+	* javax/swing/plaf/basic/BasicSliderUI.java:
+	(mousePressed): Do not return if it's on thumb.
+	(paintMinorTickForHorizSlider): Use BLACK to paint ticks.
+	(paintMinorTickForVertSlider): ditto.
+	(paintMajorTickForHorizSlider): ditto.
+	(paintMajorTickForVertSlider): ditto.
+	* javax/swing/plaf/basic/BasicSplitPaneDivider.java:
+	Add a border around the SplitPaneDivider.
+	* javax/swing/plaf/basic/BasicSplitPaneUI.java:
+	Remove comments.
+	* javax/swing/plaf/basic/BasicToolBarSeparatorUI.java:
+	New file. Implemented.
+	* javax/swing/plaf/basic/BasicToolBarUI.java:
+	Implemented.
+	* testsuite/Makefile.in: Regenerated.
+
 2004-07-12  David Jee  <djee@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkImagePainter.java

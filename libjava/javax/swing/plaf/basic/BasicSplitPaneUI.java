@@ -1267,10 +1267,6 @@ public class BasicSplitPaneUI extends SplitPaneUI
                   - tmpSizes[0] - tmpSizes[1];
     Point p = divider.getLocation();
 
-//    if (getOrientation() == JSplitPane.HORIZONTAL_SPLIT)
-    //    setLastDragLocation(p.x);
-//    else
-//      setLastDragLocation(p.y);
     layoutManager.setSizes(tmpSizes);
     layoutManager.layoutContainer(splitPane);
 

@@ -206,6 +206,9 @@ public abstract class AbstractButton extends JComponent
 
   /** Whether or not the button fills its content area. */
   boolean contentAreaFilled;
+  
+  /** Whether rollover is enabled. */
+  boolean rollOverEnabled;
 
   /** The action taken when the button is clicked. */
   Action action;
@@ -793,11 +796,10 @@ public abstract class AbstractButton extends JComponent
    */
   public void setRolloverEnabled(boolean r)
   {
-    boolean old = getModel().isRollover();
-    getModel().setRollover(r);
-    if (old != getModel().isRollover())
+    if (rollOverEnabled != r)
   {
-        firePropertyChange(ROLLOVER_ENABLED_CHANGED_PROPERTY, old, r);
+        rollOverEnabled = r;
+        firePropertyChange(ROLLOVER_ENABLED_CHANGED_PROPERTY, !r, r);
         revalidate();
         repaint();
       }
@@ -811,7 +813,7 @@ public abstract class AbstractButton extends JComponent
    */
   public boolean isRolloverEnabled()
   {
-    return getModel().isRollover();
+    return rollOverEnabled;
   }
 
   /**
