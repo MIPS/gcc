@@ -1,3 +1,12 @@
+2004-02-15  Andreas Jaeger  <aj@suse.de>
+
+	Backport from mainline:
+	2003-01-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genattr.c (main): Add output of prototype of new interface
+	function `dfa_clean_insn_cache'.
+
+
 2004-02-14  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (x86_four_jump_limit): New variable.
