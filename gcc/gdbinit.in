@@ -1,12 +1,3 @@
-define psucc
-set $ev=$
-set $num=VEC_edge_length ($ev)
-while $num > 0
-  p *VEC_edge_index ($ev, $num)
-  set $num=$num - 1
-end
-end
-
 define pr
 set debug_rtx ($)
 end
@@ -128,6 +119,10 @@ b fancy_abort
 
 # Put a breakpoint on internal_error to help with debugging ICEs.
 b internal_error
+
+# Make gdb complain about symbol reading errors.  This is so that gcc
+# developers can see and fix bugs in gcc debug output.
+set complaints 20
 
 # Don't let abort actually run, as it will make
 # stdio stop working and therefore the `pr' command above as well.
