@@ -2546,6 +2546,17 @@ extern int flag_new_for_scope;
 #define ARITHMETIC_TYPE_P(TYPE) \
   (CP_INTEGRAL_TYPE_P (TYPE) || TREE_CODE (TYPE) == REAL_TYPE)
 
+/* [basic.types]
+
+   Arithmetic types, enumeration types, pointer types, and
+   pointer-to-member types, are collectively called scalar types.  */
+#define SCALAR_TYPE_P(TYPE)			\
+  (ARITHMETIC_TYPE_P (TYPE)			\
+   || TREE_CODE (TYPE) == ENUMERAL_TYPE		\
+   || TYPE_PTR_P (TYPE)				\
+   || TYPE_PTRMEM_P (TYPE)			\
+   || TYPE_PTRMEMFUNC_P (TYPE))
+
 /* Nonzero for _TYPE means that the _TYPE defines
    at least one constructor.  */
 #define TYPE_HAS_CONSTRUCTOR(NODE) (TYPE_LANG_FLAG_1 (NODE))
@@ -3074,7 +3085,14 @@ enum ptrmemfunc_vbit_where_t
   (TREE_TYPE (NODE))
 
 /* An enumeration of the kind of tags that C++ accepts.  */
-enum tag_types { record_type, class_type, union_type, enum_type };
+enum tag_types { 
+  none_type = 0, /* Not a tag type.  */
+  record_type,   /* "struct" types.  */
+  class_type,    /* "class" types.  */
+  union_type,    /* "union" types.  */
+  enum_type,     /* "enum" types.  */
+  typename_type  /* "typename" types.  */
+};
 
 /* The various kinds of lvalues we distinguish.  */
 typedef enum cp_lvalue_kind {
@@ -3812,6 +3830,7 @@ extern void begin_only_namespace_names          PARAMS ((void));
 extern void end_only_namespace_names            PARAMS ((void));
 extern tree namespace_ancestor			PARAMS ((tree, tree));
 extern tree unqualified_namespace_lookup	PARAMS ((tree, int, tree *));
+extern tree check_for_out_of_scope_variable     (tree);
 extern int  lookup_using_namespace              PARAMS ((tree, tree, tree, tree, int, tree *));
 extern int  qualified_lookup_using_namespace    PARAMS ((tree, tree, tree, int));
 extern tree build_library_fn			PARAMS ((tree, tree));
@@ -4173,6 +4192,7 @@ extern void init_search_processing		PARAMS ((void));
 extern void reinit_search_statistics		PARAMS ((void));
 extern tree current_scope			PARAMS ((void));
 extern int at_function_scope_p                  PARAMS ((void));
+extern bool at_class_scope_p                    (void);
 extern tree context_for_name_lookup		PARAMS ((tree));
 extern tree lookup_conversions			PARAMS ((tree));
 extern tree binfo_for_vtable			PARAMS ((tree));
@@ -4260,6 +4280,7 @@ extern tree finish_pseudo_destructor_call_expr  PARAMS ((tree, tree, tree));
 extern tree finish_qualified_call_expr          PARAMS ((tree, tree));
 extern tree finish_unary_op_expr                PARAMS ((enum tree_code, tree));
 extern tree finish_id_expr                      PARAMS ((tree));
+extern tree finish_fname                        (tree);
 extern void save_type_access_control		PARAMS ((tree));
 extern void reset_type_access_control           PARAMS ((void));
 extern void decl_type_access_control		PARAMS ((tree));
