@@ -813,6 +813,10 @@ CUMULATIVE_ARGS;
    return the mode to be used for the comparison.  */
 #define SELECT_CC_MODE(OP, X, Y) s390_select_ccmode ((OP), (X), (Y))
 
+/* Canonicalize a comparison from one we don't have to one we do have.  */
+#define CANONICALIZE_COMPARISON(CODE, OP0, OP1) \
+  s390_canonicalize_comparison (&(CODE), &(OP0), &(OP1))
+
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  Note that we can't use "rtx" here
    since it hasn't been defined!  */
@@ -854,6 +858,11 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1;
 #define CLEAR_BY_PIECES_P(SIZE, ALIGN)		\
   ( (SIZE) == 1 || (SIZE) == 2 || (SIZE) == 4	\
     || (TARGET_64BIT && (SIZE) == 8) )
+
+/* This macro is used to determine whether store_by_pieces should be
+   called to "memset" storage with byte values other than zero, or
+   to "memcpy" storage when the source is a constant string.  */
+#define STORE_BY_PIECES_P(SIZE, ALIGN) MOVE_BY_PIECES_P (SIZE, ALIGN)
 
 /* Don't perform CSE on function addresses.  */
 #define NO_FUNCTION_CSE

@@ -4765,6 +4765,24 @@ comparison operators, so the default returns false always.  Most ports
 don't need to define this macro.
 @end defmac
 
+@defmac TARGET_LIBGCC_FUNCS
+This macro should evaluate to @code{true} if the standard GCC library
+names (like @code{__modsi3}) should be used for functions provided in
+@file{libgcc.a}.  If this macro evaluates to @code{false}, then the
+target must explictily set the names of all desired library functions
+itself using the @code{TARGET_INIT_LIBFUNCS} hook.
+@end defmac
+
+@defmac TARGET_LIB_INT_CMP_BIASED
+This macro should evaluate to @code{true} if the integer comparison
+functions (like @code{__cmpdi2}) return 0 to indicate that the first
+operand is smaller than the second, 1 to indicate that they are equal,
+and 2 to indicate that the first operand is greater than the second.
+If this macro evalutes to @code{false} the comparison functions return
+-1, 0, and 1 instead of 0, 1, and 2.  If the target uses the routines
+in @file{libgcc.a}, you do not need to define this macro.
+@end defmac
+
 @cindex US Software GOFAST, floating point emulation library
 @cindex floating point emulation library, US Software GOFAST
 @cindex GOFAST, floating point emulation library
@@ -5399,7 +5417,8 @@ used to set a chunk of memory to a constant value, or whether some other
 mechanism will be used.  Used by @code{__builtin_memset} when storing
 values other than constant zero and by @code{__builtin_strcpy} when
 when called with a constant source string.
-Defaults to @code{MOVE_BY_PIECES_P}.
+Defaults to to 1 if @code{move_by_pieces_ninsns} returns less
+than @code{MOVE_RATIO}.
 @end defmac
 
 @defmac USE_LOAD_POST_INCREMENT (@var{mode})
