@@ -1,5 +1,10 @@
 2005-02-28  Tom Tromey  <tromey@redhat.com>
 
+	* decl.cc (pushdecl_primitive): New function.
+	(initialize_gcc_primitive_types): Use it.
+
+2005-02-28  Tom Tromey  <tromey@redhat.com>
+
 	* decl.cc (initialize_gcc_primitive_types): Make jchar an ordinary
 	unsigned integer, not a CHAR_TYPE.
 

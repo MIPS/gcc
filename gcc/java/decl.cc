@@ -406,53 +406,69 @@ initialize_gcc_decls ()
   }
 }
 
+// Helper for initialize_gcc_primitive_types that sets the name of the
+// type we're registering.
+static void
+pushdecl_primitive (tree x)
+{
+  assert (TREE_CODE (x) == TYPE_DECL);
+  assert (TYPE_NAME (TREE_TYPE (x)) == NULL_TREE);
+  TYPE_NAME (TREE_TYPE (x)) = DECL_NAME (x);
+  pushdecl (x);
+}
+
 static void
 initialize_gcc_primitive_types ()
 {
   // We can just use the generic boolean.
   type_jboolean = boolean_type_node;
 
-  // FIXME: pushdecl seems bogus, do we need it?;
-
   type_jbyte = make_signed_type (8);
-  pushdecl (build_decl (TYPE_DECL, get_identifier ("byte"), type_jbyte));
+  pushdecl_primitive (build_decl (TYPE_DECL, get_identifier ("byte"),
+				  type_jbyte));
 
   type_jubyte = make_unsigned_type (8);
-  pushdecl (build_decl (TYPE_DECL, get_identifier ("unsigned byte"),
-			type_jubyte));
+  pushdecl_primitive (build_decl (TYPE_DECL, get_identifier ("unsigned byte"),
+				  type_jubyte));
 
   type_jchar = make_unsigned_type (16);
-  pushdecl (build_decl (TYPE_DECL, get_identifier ("char"), type_jchar));
+  pushdecl_primitive (build_decl (TYPE_DECL, get_identifier ("char"),
+				  type_jchar));
 
   type_jshort = make_signed_type (16);
-  pushdecl (build_decl (TYPE_DECL, get_identifier ("short"), type_jshort));
+  pushdecl_primitive (build_decl (TYPE_DECL, get_identifier ("short"),
+				  type_jshort));
 
   type_jushort = make_unsigned_type (16);
-  pushdecl (build_decl (TYPE_DECL, get_identifier ("unsigned short"),
-			type_jushort));
+  pushdecl_primitive (build_decl (TYPE_DECL, get_identifier ("unsigned short"),
+				  type_jushort));
 
   type_jint = make_signed_type (32);
-  pushdecl (build_decl (TYPE_DECL, get_identifier ("int"), type_jint));
+  pushdecl_primitive (build_decl (TYPE_DECL, get_identifier ("int"),
+				  type_jint));
 
   type_juint = make_unsigned_type (32);
-  pushdecl (build_decl (TYPE_DECL, get_identifier ("unsigned int"),
-			type_juint));
+  pushdecl_primitive (build_decl (TYPE_DECL, get_identifier ("unsigned int"),
+				  type_juint));
 
   type_jlong = make_signed_type (64);
-  pushdecl (build_decl (TYPE_DECL, get_identifier ("long"), type_jlong));
+  pushdecl_primitive (build_decl (TYPE_DECL, get_identifier ("long"),
+				  type_jlong));
 
   type_julong = make_unsigned_type (64);
-  pushdecl (build_decl (TYPE_DECL, get_identifier ("unsigned long"),
-			type_julong));
+  pushdecl_primitive (build_decl (TYPE_DECL, get_identifier ("unsigned long"),
+				  type_julong));
 
   type_jfloat = make_node (REAL_TYPE);
   TYPE_PRECISION (type_jfloat) = 32;
-  pushdecl (build_decl (TYPE_DECL, get_identifier ("float"), type_jfloat));
+  pushdecl_primitive (build_decl (TYPE_DECL, get_identifier ("float"),
+				  type_jfloat));
   layout_type (type_jfloat);
 
   type_jdouble = make_node (REAL_TYPE);
   TYPE_PRECISION (type_jdouble) = 64;
-  pushdecl (build_decl (TYPE_DECL, get_identifier ("double"), type_jdouble));
+  pushdecl_primitive (build_decl (TYPE_DECL, get_identifier ("double"),
+				  type_jdouble));
   layout_type (type_jdouble);
 }
 
