@@ -2386,7 +2386,8 @@ do { long l;						\
   {"arith_or_logical_operator", {PLUS, MULT, AND, IOR, XOR, SMIN, SMAX, \
 				 UMIN, UMAX, COMPARE, MINUS, DIV, MOD,	\
 				 UDIV, UMOD, ASHIFT, ROTATE, ASHIFTRT,	\
-				 LSHIFTRT, ROTATERT}},
+				 LSHIFTRT, ROTATERT}},			\
+  {"memory_displacement_operand", {MEM}},
 
 /* Functions in i386.c */
 
@@ -2432,6 +2433,7 @@ extern int binary_fp_operator XPARAMS((xrtx, xmode));
 extern int mult_operator XPARAMS((xrtx, xmode));
 extern int div_operator XPARAMS((xrtx, xmode));
 extern int arith_or_logical_operator XPARAMS((xrtx, xmode));
+extern int memory_displacement_operand XPARAMS((xrtx, xmode));
 
 extern int standard_80387_constant_p XPARAMS((xrtx));
 extern int symbolic_reference_mentioned_p XPARAMS((xrtx));

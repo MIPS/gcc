@@ -208,6 +208,7 @@ int ix86_align_jumps;
 static rtx gen_push PROTO ((rtx));
 static void put_condition_code PROTO ((enum rtx_code, enum machine_mode,
 				       int, int, FILE *));
+static int memory_address_length PROTO ((rtx addr));
 
 /* Sometimes certain combinations of command options do not make
    sense on a particular target machine.  You can define a macro
@@ -1136,6 +1137,18 @@ arith_or_logical_operator (op, mode)
   return ((mode == VOIDmode || GET_MODE (op) == mode)
           && (GET_RTX_CLASS (GET_CODE (op)) == 'c'
               || GET_RTX_CLASS (GET_CODE (op)) == '2'));
+}
+
+/* Returns 1 if OP is memory operand with a displacement.  */
+
+int
+memory_displacement_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  return (memory_operand (op, mode)
+	  /* ??? Not right for indexed.  Fix in a minute.  */
+	  && memory_address_length (XEXP (op, 0)) > 0);
 }
 
 /* Return true if the constant is something that can be loaded with

@@ -1,3 +1,15 @@
+1999-07-01  Jan Hubicka  <hubicka@freesoft.cz>
+
+	* i386.md (fixtruncxfdf_2): New pattern.
+	(divmodsi4+2): On Pentium, avoid cltd with an extra mov.
+	(double division pattern): Disable.
+	(ashiftrt_31): Fix type.
+	(one_cmpl?i): New peepholes for Pentium -- convert to xor.
+	(arith_or_logical_operator peepholers): Fix predicates.
+	* i386.h (memory_displacement_operand): Declare.
+	(PREDICATE_CODES): Update.
+	* i386.c (memory_displacement_operand): New predicate.
+
 1999-07-01  Richard Henderson  <rth@cygnus.com>
 
 	* i386.c (ix86_expand_fp_compare): Force XFmode compare operands
