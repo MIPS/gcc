@@ -1,3 +1,8 @@
+2005-03-27  Dale Johannesen  <dalej@apple.com>
+
+	* Makefile.in (print-tree.o):  Depend on tree-iterator.h.
+	* print-tree.c (print_node):  Add case STATEMENT_LIST.
+
 2005-03-11  Tom Tromey  <tromey@redhat.com>
 
 	* tree-pretty-print.c (dump_type_name): New function.
