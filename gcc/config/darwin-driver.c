@@ -670,8 +670,6 @@ add_arch_options (int index, const char **current_argv, int arch_index)
     current_argv[arch_index] = "-mcpu=970";
   else if (!strcmp (arches[index], "ppc64"))
     current_argv[arch_index] = "-m64";
-  else if (!strcmp (arches[index], "i386"))
-    current_argv[arch_index] = "-march=i386";
   else if (!strcmp (arches[index], "i486"))
     current_argv[arch_index] = "-march=i486";
   else if (!strcmp (arches[index], "i586"))
@@ -680,10 +678,12 @@ add_arch_options (int index, const char **current_argv, int arch_index)
     current_argv[arch_index] = "-march=i686";
   else if (!strcmp (arches[index], "pentium"))
     current_argv[arch_index] = "-march=pentium";
+  else if (!strcmp (arches[index], "pentium2"))
+    current_argv[arch_index] = "-march=pentium2";
   else if (!strcmp (arches[index], "pentpro"))
     current_argv[arch_index] = "-march=pentiumpro";
   else if (!strcmp (arches[index], "pentIIm3"))
-    current_argv[arch_index] = "-march=pentium3";
+    current_argv[arch_index] = "-march=pentium2";
   else
     count = 0;
 

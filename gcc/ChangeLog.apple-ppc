@@ -1,3 +1,9 @@
+2005-02-23  Devang Patel  <dpatel@apple.com>
+
+        Radar 3841402 3841397 3841275
+        * config/darwin-driver.c (add_arch_options): Do not supply
+	-march=i386. Interpret -arch pentIIm3 appropriately.
+
 2005-02-22  Devang Patel  <dpatel@apple.com>
 
 	Radar 3844827
