@@ -841,18 +841,6 @@ main (int argc, const char **argv)
 	  new_argv[new_argc++] = argv[i];
 
 	  /* Now copy this flag's arguments, if any, appropriately.  */
-	  if (c == 'x')
-	    {
-	      if (p[1] == 0 && i + 1 == argc)
-		fatal ("argument to `-x` is missing");
-
-	      if (p[1] == 0)
-		{
-		  i++;
-		  new_argv[new_argc++] = argv[i];
-		}
-	    }
-
 	  if ((SWITCH_TAKES_ARG (c) > (p[1] != 0)) 
 	      || WORD_SWITCH_TAKES_ARG (p))
 	    {
