@@ -1,3 +1,8 @@
+2004-11-19  Aldy Hernandez  <aldyh@redhat.com>
+
+        * simplify-rtx.c (simplify_ternary_operation): Use
+        gen_int_mode.
+
 2004-11-18  Aldy Hernandez  <aldyh@redhat.com>
 
 	* config/rs6000/rs6000.c (rs6000_complex_function_value): Revert
