@@ -1,3 +1,8 @@
+2003-11-25  Canqun Yang  <canqun@nudt.edu.cn>
+
+	* gfortran.fortran-torture/execute/common_size.f90: New test for
+	size of COMMON block containing EQUIVALENCE objects.
+
 2003-11-24  Richard Henderson  <rth@redhat.com>
 
 	* gcc.c-torture/compile/20031124-1.c: New.
