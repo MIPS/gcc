@@ -1,3 +1,7 @@
+2004-04-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* config/rs6000/altivec.md: Fix merge problem.
+
 2004-04-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	Merge from tree-ssa branch (lno-merge-20040425).
