@@ -369,7 +369,8 @@ DEF_RTL_EXPR(DEFINE_QUERY_CPU_UNIT, "define_query_cpu_unit", "sS", 'x')
    in the string are separated by commas.  For example, it is useful
    for description CPU with fully pipelined floating point functional
    unit which can execute simultaneously only single floating point
-   insns or only double floating point insns.  */
+   insns or only double floating point insns.  All CPU functional
+   units in a set should belong the same automaton.  */
 DEF_RTL_EXPR(EXCLUSION_SET, "exclusion_set", "ss", 'x')
 
 /* (presence_set string string) means that each CPU functional unit in
@@ -377,7 +378,8 @@ DEF_RTL_EXPR(EXCLUSION_SET, "exclusion_set", "ss", 'x')
    whose names are in the second string is reserved.  This is an
    asymmetric relation.  CPU units in the string are separated by
    commas.  For example, it is useful for description that slot1 is
-   reserved after slot0 reservation for VLIW processor.  */
+   reserved after slot0 reservation for VLIW processor.  All CPU
+   functional units in a set should belong the same automaton.  */
 DEF_RTL_EXPR(PRESENCE_SET, "presence_set", "ss", 'x')
 
 /* (absence_set string string) means that each CPU functional unit in
@@ -386,7 +388,8 @@ DEF_RTL_EXPR(PRESENCE_SET, "presence_set", "ss", 'x')
    relation (actually exclusion set is analogous to this one but it is
    symmetric).  CPU units in the string are separated by commas.  For
    example, it is useful for description that slot0 can not be
-   reserved after slot1 or slot2 reservation for VLIW processor.  */
+   reserved after slot1 or slot2 reservation for VLIW processor.  All
+   CPU functional units in a set should belong the same automaton.  */
 DEF_RTL_EXPR(ABSENCE_SET, "absence_set", "ss", 'x')
 
 /* (define_bypass number out_insn_names in_insn_names) names bypass

@@ -2191,6 +2191,15 @@ add_excls (dest_list, source_list, excl_pos)
 	    error ("unit `%s' excludes itself", src->unit_decl->name);
 	    continue;
 	  }
+	if (dst->unit_decl->automaton_name != NULL
+	    && src->unit_decl->automaton_name != NULL
+	    && strcmp (dst->unit_decl->automaton_name,
+		       src->unit_decl->automaton_name) != 0)
+	  {
+	    error ("units `%s' and `%s' in exclusion set belong to different automata",
+		   src->unit_decl->name, dst->unit_decl->name);
+	    continue;
+	  }
 	for (curr_el = dst->unit_decl->excl_list, prev_el = NULL;
 	     curr_el != NULL;
 	     prev_el = curr_el, curr_el = curr_el->next_unit_set_el)
@@ -2282,6 +2291,17 @@ add_presence_absence (dest_list, source_list, req_pos, presence_p)
 	    error ((presence_p
 		    ? "unit `%s' requires own presence"
 		    : "unit `%s' requires own absence"), src->unit_decl->name);
+	    continue;
+	  }
+	if (dst->unit_decl->automaton_name != NULL
+	    && src->unit_decl->automaton_name != NULL
+	    && strcmp (dst->unit_decl->automaton_name,
+		       src->unit_decl->automaton_name) != 0)
+	  {
+	    error ((presence_p
+		    ? "units `%s' and `%s' in presence set belong to different automata"
+		    : "units `%s' and `%s' in absence set belong to different automata"),
+		   src->unit_decl->name, dst->unit_decl->name);
 	    continue;
 	  }
 	for (curr_el = (presence_p

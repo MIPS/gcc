@@ -1,3 +1,13 @@
+2002-02-21  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (add_excls): Check that cpu units in the sets
+	belong the same automaton.
+
+	* rtl.def (EXCLUSION_SET, PRESENCE_SET, ABSENCE_SET): Add comment
+	about that cpu units in the sets belong the same automaton.
+
+	* doc/md.texi: Ditto.
+	
 2001-12-20  Naveen Sharma,Nitin Gupta     <naveens@noida.hcltech.com,niting@noida.hcltech.com>
 
 	* config/sh/sh.c (sh_use_dfa_interface): New function.

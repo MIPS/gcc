@@ -5483,6 +5483,9 @@ it is symmetric).  For example, it is useful for description that
 @acronym{VLIW} @samp{slot0} can not be reserved after @samp{slot1} or
 @samp{slot2} reservation.
 
+All functional units mentioned in a set should belong the same
+automaton.
+
 @findex automata_option
 @cindex deterministic finite state automaton
 @cindex nondeterministic finite state automaton
