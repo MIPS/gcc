@@ -337,6 +337,7 @@
 
 2005-01-06  Mike Stump  <mrs@apple.com>
 
+	Radar 3929334
 	* c-pch.c (c_common_pch_pragma): Add indirection for pch files for distcc.
 
 2005-01-04  Devang Patel  <dpatel@apple.com>
