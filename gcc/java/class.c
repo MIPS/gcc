@@ -1054,7 +1054,8 @@ build_static_field_ref (tree fdecl)
      However, currently sometimes gcj is too eager and will end up
      returning the field itself, leading to an incorrect external
      reference being generated.  */
-  if ((is_compiled && ! flag_indirect_dispatch)
+  if ((is_compiled 
+       && (! flag_indirect_dispatch || current_class == fclass))
       || (FIELD_FINAL (fdecl) && DECL_INITIAL (fdecl) != NULL_TREE
 	  && (JSTRING_TYPE_P (TREE_TYPE (fdecl))
 	      || JNUMERIC_TYPE_P (TREE_TYPE (fdecl)))
