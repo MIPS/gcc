@@ -5474,123 +5474,17 @@ ia64_adjust_cost (insn, link, dep_insn, cost)
      rtx insn, link, dep_insn;
      int cost;
 {
-  enum attr_type dep_type;
   enum attr_itanium_class dep_class;
   enum attr_itanium_class insn_class;
-  rtx dep_set, set, src, addr;
 
-  if (GET_CODE (PATTERN (insn)) == CLOBBER
-      || GET_CODE (PATTERN (insn)) == USE
-      || GET_CODE (PATTERN (dep_insn)) == CLOBBER
-      || GET_CODE (PATTERN (dep_insn)) == USE
-      /* @@@ Not accurate for indirect calls.  */
-      || GET_CODE (insn) == CALL_INSN
-      || ia64_safe_type (insn) == TYPE_S)
-    return 0;
+  if (REG_NOTE_KIND (link) != REG_DEP_OUTPUT)
+    return cost;
 
-  if (REG_NOTE_KIND (link) == REG_DEP_OUTPUT
-      || REG_NOTE_KIND (link) == REG_DEP_ANTI)
-    return 0;
-
-  dep_type = ia64_safe_type (dep_insn);
-  dep_class = ia64_safe_itanium_class (dep_insn);
   insn_class = ia64_safe_itanium_class (insn);
-
-  /* Compares that feed a conditional branch can execute in the same
-     cycle.  */
-  dep_set = ia64_single_set (dep_insn);
-  set = ia64_single_set (insn);
-
-  if (dep_type != TYPE_F
-      && dep_set
-      && GET_CODE (SET_DEST (dep_set)) == REG
-      && PR_REG (REGNO (SET_DEST (dep_set)))
-      && GET_CODE (insn) == JUMP_INSN)
+  dep_class = ia64_safe_itanium_class (dep_insn);
+  if (dep_class == ITANIUM_CLASS_ST || dep_class == ITANIUM_CLASS_STF
+      || insn_class == ITANIUM_CLASS_ST || insn_class == ITANIUM_CLASS_STF)
     return 0;
-
-  if (dep_set && GET_CODE (SET_DEST (dep_set)) == MEM)
-    {
-      /* ??? Can't find any information in the documenation about whether
-	 a sequence
-	   st [rx] = ra
-	   ld rb = [ry]
-	 splits issue.  Assume it doesn't.  */
-      return 0;
-    }
-
-  src = set ? SET_SRC (set) : 0;
-  addr = 0;
-  if (set)
-    {
-      if (GET_CODE (SET_DEST (set)) == MEM)
-	addr = XEXP (SET_DEST (set), 0);
-      else if (GET_CODE (SET_DEST (set)) == SUBREG
-	       && GET_CODE (SUBREG_REG (SET_DEST (set))) == MEM)
-	addr = XEXP (SUBREG_REG (SET_DEST (set)), 0);
-      else
-	{
-	  addr = src;
-	  if (GET_CODE (addr) == UNSPEC && XVECLEN (addr, 0) > 0)
-	    addr = XVECEXP (addr, 0, 0);
-	  while (GET_CODE (addr) == SUBREG || GET_CODE (addr) == ZERO_EXTEND)
-	    addr = XEXP (addr, 0);
-	  if (GET_CODE (addr) == MEM)
-	    addr = XEXP (addr, 0);
-	  else
-	    addr = 0;
-	}
-    }
-
-  if (addr && GET_CODE (addr) == POST_MODIFY)
-    addr = XEXP (addr, 0);
-
-  set = ia64_single_set (dep_insn);
-
-  if ((dep_class == ITANIUM_CLASS_IALU
-       || dep_class == ITANIUM_CLASS_ILOG
-       || dep_class == ITANIUM_CLASS_LD)
-      && (insn_class == ITANIUM_CLASS_LD
-	  || insn_class == ITANIUM_CLASS_ST))
-    {
-      if (! addr || ! set)
-	abort ();
-      /* This isn't completely correct - an IALU that feeds an address has
-	 a latency of 1 cycle if it's issued in an M slot, but 2 cycles
-	 otherwise.  Unfortunately there's no good way to describe this.  */
-      if (reg_overlap_mentioned_p (SET_DEST (set), addr))
-	return cost + 1;
-    }
-
-  if ((dep_class == ITANIUM_CLASS_IALU
-       || dep_class == ITANIUM_CLASS_ILOG
-       || dep_class == ITANIUM_CLASS_LD)
-      && (insn_class == ITANIUM_CLASS_MMMUL
-	  || insn_class == ITANIUM_CLASS_MMSHF
-	  || insn_class == ITANIUM_CLASS_MMSHFI))
-    return 3;
-
-  if (dep_class == ITANIUM_CLASS_FMAC
-      && (insn_class == ITANIUM_CLASS_FMISC
-	  || insn_class == ITANIUM_CLASS_FCVTFX
-	  || insn_class == ITANIUM_CLASS_XMPY))
-    return 7;
-
-  if ((dep_class == ITANIUM_CLASS_FMAC
-       || dep_class == ITANIUM_CLASS_FMISC
-       || dep_class == ITANIUM_CLASS_FCVTFX
-       || dep_class == ITANIUM_CLASS_XMPY)
-      && insn_class == ITANIUM_CLASS_STF)
-    return 8;
-
-  /* Intel docs say only LD, ST, IALU, ILOG, ISHF consumers have latency 4,
-     but HP engineers say any non-MM operation.  */
-  if ((dep_class == ITANIUM_CLASS_MMMUL
-       || dep_class == ITANIUM_CLASS_MMSHF
-       || dep_class == ITANIUM_CLASS_MMSHFI)
-      && insn_class != ITANIUM_CLASS_MMMUL
-      && insn_class != ITANIUM_CLASS_MMSHF
-      && insn_class != ITANIUM_CLASS_MMSHFI)
-    return 4;
 
   return cost;
 }
@@ -5649,6 +5543,16 @@ ia64_sched_init (dump, sched_verbose, max_ready)
      int sched_verbose ATTRIBUTE_UNUSED;
      int max_ready ATTRIBUTE_UNUSED;
 {
+#ifdef ENABLE_CHECKING
+  rtx insn;
+  
+  if (reload_completed)
+    for (insn = NEXT_INSN (current_sched_info->prev_head);
+	 insn != current_sched_info->next_tail;
+	 insn = NEXT_INSN (insn))
+      if (SCHED_GROUP_P (insn))
+	abort ();
+#endif
   last_scheduled_insn = NULL_RTX;
   init_insn_group_barriers ();
 }

@@ -1,3 +1,26 @@
+2002-09-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* sched-deps.c (remove_dependence, group_leader): Remove it.
+	(add_dependence): Add dependence to group leader to.
+	(set_sched_group_p): Add dependence to the first insn of the
+	schedule group too.
+	(sched_analyze_insn): Make dependence to jump as anti-dependence.
+	Change true dependence by anti-dependence when
+	`reg_pending_barrier'.
+
+	* sched-rgn.c (init_ready_list, can_schedule_ready_p,
+	add_branch_dependences): Ignore schedule groups.
+
+	* sched-ebb.c (init_ready_list): Ditto.
+
+	* (move_insn, set_priorities): Ditto.
+
+	* config/ia64/ia64.c (ia64_sched_init): Check that schedule group
+	flag is clear after reload.
+	(adjust_cost): Change cost only for output dependencies.
+	
+	* config/ia64/ia64.md: Add more insns into bypass for MM-insns.
+	
 2002-09-26  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* Makefile.in (sched-ebb.o): Add `$(TARGET_H)' to the entry.
