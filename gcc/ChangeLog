@@ -1,11 +1,263 @@
+2004-12-25  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/19147
+	* config/rs6000/rs6000.md (andsi3_internal7, andsi3_internal8): Delete.
+
+2004-12-23  Richard Henderson  <rth@redhat.com>
+
+        PR c/18282
+	* c-decl.c (finish_enum): Retain precision acquired from an attribute.
+
+2004-12-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR target/16819
+	* calls.c (load_register_parameters): Don't call use_regs when
+	nregs is zero.
+
+2004-12-22  Richard Henderson  <rth@redhat.com>
+
+	PR target/19102
+	* config/i386/i386.c (x86_inter_unit_moves): Disable.
+	(ix86_hard_regno_mode_ok): Disallow SSE2 and MMX scalar modes
+	in SSE registers when only SSE1 enabled.
+
+2004-12-21  David O'Brien  <obrien@FreeBSD.org>
+
+	Backport from mainline:
+	* config/freebsd-spec.h:  Use KSE pthread lib for -pthread.
+
+2004-12-19  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_hard_regno_mode_ok): Always accept all SSE,
+	MMX, 3DNOW modes in SSE registers; always accept all MMX, 3DNOW modes
+	in MMX registers.
+	* config/i386/i386.h (VALID_SSE2_REG_MODE): Don't include
+	VALID_MMX_REG_MODE.
+	* config/i386/i386.md (movv4sf_internal, movv4si_internal, 
+	movv2di_internal, movv2si_internal, movv4hi_internal,
+	movv2sf_internal, movv2df_internal, movv8hi_internal,
+	movv16qi_internal, movti_internal): Add leading '*' to name.
+	(movv2di_internal, movv2df_internal, movv8hi_internal,
+	movv16qi_internal, movv2df, movv8hi, movv16qi, movv2di,
+	pushv2di, pushv8hi, pushv16qi): Enable for SSE1.
+	(movv2si_internal, movv4hi_internal): Add SSE alternatives.
+	(movv8qi_internal, movv2sf_internal): Likewise.
+	(movtf): Simplify conditional.
+	(movv2sf, pushv2sf): Enable for MMX.
+
+2004-12-19  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/19068
+	* expr.c (expand_expr_real_1) <MAX_EXPR>: Ensure that target, op0
+	and op1 are all registers (or constants) before expanding the RTL
+	comparison sequence [to avoid reg_overlap_mentioned (target, op1)].
+
+2004-12-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/16968
+	* loop.c (scan_loop): Stop scanning the loop for movable
+	insns as soon as an optimization barrier is encountered.
+
+2004-12-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR other/18508
+	* config/alpha/t-osf4 (SHLIB_LINK): Use `.backup' as the suffix
+	to back up the existing shared library.
+	* config/arm/t-netbsd (SHLIB_LINK): Likewise.
+	* config/mips/t-iris5-6 (SHLIB_LINK): Likewise.
+	* config/pa/t-hpux-shlib (SHLIB_LINK): Likewise.
+	* config/sh/t-linux (SHLIB_LINK): Likewise.
+	* config/t-libunwind-elf (SHLIBUNWIND_LINK): Likewise.
+	* config/t-slibgcc-darwin (SHLIB_LINK): Likewise.
+	* config/t-slibgcc-elf-ver (SHLIB_LINK): Likewise.
+	* config/t-slibgcc-sld (SHLIB_LINK): Likewise.
+
+2004-12-16  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/18493
+	* c-typeck.c (c_finish_case): Rechain statements if we didn't
+	encounter any case labels or a default.
+
+2004-12-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/18882
+	* function.c (assign_stack_local_1): Use BITS_PER_UNIT alignment
+	when passed -2 as 'align'.
+	(put_var_into_stack): Use 'bool' as the type for the three local
+	predicates.  Adjust calls to put_reg_into_stack.
+	When passed a CONCAT, instruct put_reg_into_stack to use
+	a consecutive stack slot for the second part.
+	(put_reg_into_stack): Remove 'promoted_mode' parameter, add
+	'consecutive_p' parameter.  Turn the three predicates into 'bool'
+	parameters.  Retrieve the register mode from 'reg'.
+	When consecutive_p is true, instruct assign_stack_local_1 to use
+	BITS_PER_UNIT alignment.
+	(put_addressof_into_stack): Use 'bool' as the type for the two
+	local predicates. Adjust call to put_reg_into_stack.
+
+2004-12-16  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR middle-end/18590
+	* function.c (fixup_var_refs_insns_with_hash): Do not invoke
+	fixup_var_refs_insn on insns marked as deleted.
+
+2004-12-15  Richard Henderson  <rth@redhat.com>
+
+	PR target/19028
+	* config/i386/i386.md (sse compare splitter): Test for SF and DFmode
+	explicitly instead of using VALID_SSE_REG_MODE.
+
+2004-12-15  Richard Henderson  <rth@redhat.com>
+
+	PR target/19005
+	* config/i386/i386.md (swaphi_1): Swap with swaphi_2, allow with
+	optimize_size.
+	(swapqi_1): Rename from swapqi.  Enable only for no partial reg
+	stall and optimize_size.
+	(swapqi_2): New.
+	(swaphi_1, swaphi_2, swapqi_1): Add athlon_decode.
+	(swapsi, swaphi_1, swaphi_2, swapqi_1, swapdi): Remove modrm override.
+
+2004-12-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/18153
+	* configure.ac: Define HAVE_LD_STATIC_DYNAMIC if linker supports
+	-Bstatic/-Bdynamic option.
+	* config.in: Regenerated.
+	* configure: Likewise.
+
+	* gcc.c (init_spec): Pass -Bstatic/-Bdynamic to ld for static
+	-lunwind if possible.
+
+2004-12-15  Richard Henderson  <rth@redhat.com>
+
+	PR target/19010
+	* config/i386/i386.c (gen_reg_or_parallel): New.
+	(function_arg): Use it.
+	(ix86_hard_regno_mode_ok): Test SSE1 and SSE2 separately,
+	MMX and 3DNOW separately.
+	(ix86_rtx_costs): Simplify FLOAT_EXTEND case.
+	* config/i386/i386.h (VALID_SSE2_REG_MODE): Move SSE2 cases from ...
+	(VALID_SSE_REG_MODE): ... here.
+	* config/i386/i386.md (movv4sf_internal): Validate one MEM.
+	(movv4si_internal): Likewise.
+	(movv2di_internal): Likewise.  Enable for SSE2 only.
+	(movv2di): Enable for SSE2 only.
+	(pushv4si): Enable for SSE1.
+
+2004-12-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c++/17972
+	* tree-inline.c (expand_call_inline): Set TREE_SIDE_EFFECTS
+	on the STMT_EXPR wrapping up the inlined body.
+
+2004-12-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR preprocessor/15167
+	* cppfiles.c (destroy_cpp_file): New function.
+	(should_stack_file): Make a new file if the
+	compared file is still stacked.
+
+2004-12-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR other/18665
+	* libgcc-std.ver (GCC_3.4.4): Inherit from GCC_3.4.2.
+	Export __absvti2, __addvti3, __mulvti3, __negvti2 and __subvti3.
+	* libgcc-darwin.ver (GCC_3.4.4): Inherit from GCC_3.4.
+	Export __absvti2, __addvti3, __mulvti3, __negvti2 and __subvti3.
+	* libgcc2.c (__addvsi3): Rename to __addvSI3.
+	New version if COMPAT_SIMODE_TRAPPING_ARITHMETIC.
+	(__addvdi3): Rename to __addvDI3.
+	(__subvsi3): Rename to __subvSI3.  Use word type for the result.
+	New version if COMPAT_SIMODE_TRAPPING_ARITHMETIC.
+	(__subvdi3): Rename to __subvDI3.
+	(_mulvsi3): Rename to _mulvSI3.
+	New version if COMPAT_SIMODE_TRAPPING_ARITHMETIC.
+	(_mulvdi3): Rename to _mulvDI3.
+	(__negvsi2): Rename to __negvSI2.
+	New version if COMPAT_SIMODE_TRAPPING_ARITHMETIC.
+	(__negvdi2): Rename to __negvDI2.
+	(__absvsi2): Rename to __absvSI2.
+	New version if COMPAT_SIMODE_TRAPPING_ARITHMETIC.
+	(__absvdi2): Rename to __absvDI2.
+	* libgcc2.h (64-bit targets): Define COMPAT_SIMODE_TRAPPING_ARITHMETIC.
+	(__absvSI2, __addvSI3, __subvSI3, __mulvSI3, __negvSI2, __absvDI2,
+	__addvDI3, __subvDI3, __mulvDI3, __negvDI2): Define to the appropriate
+	symbol and declare.
+	(__absvsi2, __addvsi3, __subvsi3, __mulvsi3, __negvsi2): Declare if
+	COMPAT_SIMODE_TRAPPING_ARITHMETIC.
+
+2004-12-14  Steve Ellcey  <sje@cup.hp.com>
+
+	* doc/invoke.texi (IA-64 options): Add existing options that
+	weren't already listed.
+
+2004-12-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/18951
+	* builtins.c (expand_builtin_mathfn, expand_builtin_mathfn_2): Avoid
+	using arguments passed to save_expr after that call.
+
+2004-12-13  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/18730
+	* emit-rtl.c (get_first_nonnote_insn, get_last_nonnote_insn): When
+	the first/last insn is a sequence, return the first/last insn of the
+	sequence.
+
+2004-12-13  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/18002
+	PR middle-end/18424
+	Backport from mainline
+
+	2004-03-20  Richard Sandiford  <rsandifo@redhat.com>
+	* Makefile.in (dojump.o): Depend on $(GGC_H) and dojump.h.
+	(GTFILES): Add $(srcdir)/dojump.h.
+	(gt-dojump.h): New dependency.
+	* dojump.c (and_reg, and_test, shift_test): New static variables.
+	(prefer_and_bit_test): New function.
+	(do_jump): Use it to choose between (X & (1 << C)) and (X >> C) & 1.
+
+	2004-03-21  Andrew Pinski  <pinskia@gcc.gnu.org>
+	* dojump.c (prefer_and_bit_test): Fix which part of
+	the and_test is replaced.
+
+	2004-12-10  Roger Sayle  <roger@eyesopen.com>
+	* dojump.c (do_jump): When attempting to reverse the effects of
+	fold_single_bit_test, we need to STRIP_NOPS and narrowing type
+	conversions, and handle BIT_XOR_EXPR that's used to invert the
+	sense of the single bit test.
+
+2004-12-13  Richard Henderson  <rth@redhat.com>
+
+	PR target/17990
+	* config/i386/i386.md (negsf2): Fix condition for using sse.
+	(negdf2, abssf2, absdf2): Likewise.
+	(negsf2_if, abssf2_if): Don't disable if sse enabled.
+	(movv4sf_internal splitter): Postpone til after reload.
+	(movv2di_internal splitter): Likewise.
+
+2004-12-13  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/17930
+	* toplev.c (rest_of_compilation): Fix computation of
+	preferred_incoming_stack_boundary.
+
 2004-12-12  Richard Henderson  <rth@redhat.com>
 
-        PR target/18932
-        * config/i386/i386.md (all splits and peepholes): Use flags_reg_operand
-        and compare_operator to propagate the input CC mode to the output.
+	PR rtl-opt/17186
+	* reg-stack.c (move_for_stack_reg): Handle source register not
+	live with a nan.
+
+2004-12-12  Richard Henderson  <rth@redhat.com>
+
+	PR target/18932
+	* config/i386/i386.md (all splits and peepholes): Use flags_reg_operand
+	and compare_operator to propagate the input CC mode to the output.
 	* config/i386/i386.c (compare_operator): New.
 	* config/i386/i386.h (PREDICATE_CODES): Add it.
-        * config/i386/i386-protos.h: Update.
+	* config/i386/i386-protos.h: Update.
 
 2004-12-09  Richard Henderson  <rth@redhat.com>
 

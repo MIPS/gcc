@@ -1722,6 +1722,7 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
       narg = save_expr (arg);
       if (narg != arg)
 	{
+	  arg = narg;
 	  arglist = build_tree_list (NULL_TREE, arg);
 	  exp = build_function_call_expr (fndecl, arglist);
 	}
@@ -1854,6 +1855,7 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
   narg = save_expr (arg1);
   if (narg != arg1)
     {
+      arg1 = narg;
       temp = build_tree_list (NULL_TREE, narg);
       stable = false;
     }
@@ -1863,6 +1865,7 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
   narg = save_expr (arg0);
   if (narg != arg0)
     {
+      arg0 = narg;
       arglist = tree_cons (NULL_TREE, narg, temp);
       stable = false;
     }
