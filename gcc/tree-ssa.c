@@ -258,7 +258,7 @@ verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
     {
       fprintf (stderr, "for SSA_NAME: ");
       print_generic_expr (stderr, ssa_name, TDF_VOPS);
-      fprintf (stderr, "in statement:\n");
+      fprintf (stderr, " in statement:\n");
       print_generic_stmt (stderr, stmt, TDF_VOPS);
     }
 

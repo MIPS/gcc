@@ -197,10 +197,8 @@ ideal_phi_node_len (int len)
   return new_len;
 }
 
-/* Return a PHI node for variable VAR defined in statement STMT.
-   STMT may be an empty statement for artificial references (e.g., default
-   definitions created when a variable is used without a preceding
-   definition).  */
+
+/* Return a PHI node with LEN argument slots for variable VAR.  */
 
 static tree
 make_phi_node (tree var, int len)

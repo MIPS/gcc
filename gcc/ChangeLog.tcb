@@ -1,3 +1,12 @@
+2005-02-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-into-ssa.c: Reorganize internal functions.
+	(find_idf): Extract from ...
+	(insert_phi_nodes): ... here.
+	(insert_phi_nodes_1): Call find_idf.
+	* tree-phinodes.c (ideal_phi_node_len): Fix comment.
+	* tree-ssa.c (verify_use): Fix error message.
+
 2005-02-01  Diego Novillo  <dnovillo@redhat.com>
 
 	Merge from mainline (tree-cleanup-merge-20050201).
