@@ -1043,6 +1043,7 @@ javax/swing/plaf/basic/BasicTableUI.java \
 javax/swing/plaf/basic/BasicTableHeaderUI.java \
 javax/swing/plaf/basic/BasicTextAreaUI.java \
 javax/swing/plaf/basic/BasicTextFieldUI.java \
+javax/swing/plaf/basic/BasicTextPaneUI.java \
 javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
 javax/swing/plaf/basic/BasicToolBarUI.java \
@@ -3224,6 +3225,7 @@ javax/swing/plaf/basic/BasicTableUI.lo \
 javax/swing/plaf/basic/BasicTableHeaderUI.lo \
 javax/swing/plaf/basic/BasicTextAreaUI.lo \
 javax/swing/plaf/basic/BasicTextFieldUI.lo \
+javax/swing/plaf/basic/BasicTextPaneUI.lo \
 javax/swing/plaf/basic/BasicTextUI.lo \
 javax/swing/plaf/basic/BasicToggleButtonUI.lo \
 javax/swing/plaf/basic/BasicToolBarUI.lo \
@@ -5456,6 +5458,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/basic/BasicTableUI.P \
 .deps/javax/swing/plaf/basic/BasicTextAreaUI.P \
 .deps/javax/swing/plaf/basic/BasicTextFieldUI.P \
+.deps/javax/swing/plaf/basic/BasicTextPaneUI.P \
 .deps/javax/swing/plaf/basic/BasicTextUI.P \
 .deps/javax/swing/plaf/basic/BasicToggleButtonUI.P \
 .deps/javax/swing/plaf/basic/BasicToolBarSeparatorUI.P \

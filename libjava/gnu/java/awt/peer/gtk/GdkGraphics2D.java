@@ -187,8 +187,8 @@ public class GdkGraphics2D extends Graphics2D
     setBackground (bg);
     setPaint (paint);
     setStroke (stroke);
-    setClip (clip);
     setTransform (transform);
+    setClip (clip);
     stateStack = new Stack();
   }
 
@@ -502,6 +502,10 @@ public class GdkGraphics2D extends Graphics2D
                                   Color bgcolor,			    
                                   ImageObserver obs)
   {
+
+    if (img == null)
+      return false;
+
     if (img instanceof GtkOffScreenImage &&
         img.getGraphics () instanceof GdkGraphics2D &&            
         (xform == null 
@@ -519,8 +523,8 @@ public class GdkGraphics2D extends Graphics2D
         return true;
       }
     else
-      {
-      
+      {      
+
         // In this case, xform is an AffineTransform that transforms bounding
         // box of the specified image from image space to user space. However
         // when we pass this transform to cairo, cairo will use this transform
@@ -1286,6 +1290,9 @@ public class GdkGraphics2D extends Graphics2D
                             Color bgcolor, ImageObserver observer)
   {
   
+    if (img == null)
+      return false;
+
     Image subImage;	
     
     int sourceWidth = sx2 - sx1;
