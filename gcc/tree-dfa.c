@@ -83,7 +83,7 @@ static void get_expr_operands		PARAMS ((tree, tree *, int,
 static void collect_dfa_stats		PARAMS ((struct dfa_stats_d *));
 static tree collect_dfa_stats_r		PARAMS ((tree *, int *, void *));
 static tree clobber_vars_r		PARAMS ((tree *, int *, void *));
-static void find_may_aliases_for	PARAMS ((tree));
+static void find_may_aliases_for	PARAMS ((int));
 static tree find_alias_tag		PARAMS ((tree, tree));
 static bool may_access_global_mem 	PARAMS ((tree));
 static void set_def			PARAMS ((tree *, tree));
@@ -106,13 +106,24 @@ unsigned long num_referenced_vars;
 /* Array of all variables referenced in the function.  */
 varray_type referenced_vars;
 
+/* The total number of unique INDIRECT_REFs in the function.  */
+static unsigned long num_indirect_refs;
+
+/* Array of all the unique INDIRECT_REFs in the function.  */
+static varray_type indirect_refs;
+
+/* The total number of unique addressable vars in the function.  */
+static unsigned long num_addressable_vars;
+
+/* Array of all the unique addressable vars in the function.  */
+static varray_type addressable_vars;
+
 /* Artificial variable used to model the effects of function calls on every
    variable that they may use and define.  Calls to non-const and non-pure
    functions are assumed to use and clobber this variable.  The SSA builder
    will then consider this variable to be an alias for every global
    variable and every local that has had its address taken.  */
 tree global_var;
-
 
 /* Get the operands of statement STMT.  Note that repeated calls to
    get_stmt_operands for the same statement will do nothing until the
@@ -1148,6 +1159,16 @@ dump_dfa_stats (file)
   fprintf (file, fmt_str_1, "Referenced variables", num_referenced_vars, 
 	   SCALE (size), LABEL (size));
 
+  size = num_indirect_refs * sizeof (tree);
+  total += size;
+  fprintf (file, fmt_str_1, "INDIRECT_REFs", num_indirect_refs, 
+	   SCALE (size), LABEL (size));
+
+  size = num_addressable_vars * sizeof (tree);
+  total += size;
+  fprintf (file, fmt_str_1, "Addressable variables", num_addressable_vars, 
+	   SCALE (size), LABEL (size));
+
   size = dfa_stats.num_stmt_anns * sizeof (struct stmt_ann_d);
   total += size;
   fprintf (file, fmt_str_1, "Statements annotated", dfa_stats.num_stmt_anns,
@@ -1337,23 +1358,42 @@ compute_may_aliases ()
 {
   unsigned long i;
   static htab_t vars_found;
+  static htab_t indirect_refs_found;
+  static htab_t addressable_vars_found;
   basic_block bb;
   gimple_stmt_iterator si;
+  htab_t walk_state[3];
 
   timevar_push (TV_TREE_MAY_ALIAS);
 
-  /* Before computing aliases, we need to know which variables are referenced
-     in the function.  So, we first scan all the statements in the function
-     looking for VAR_DECLs.  */
+  num_indirect_refs = 0;
+  VARRAY_TREE_INIT (indirect_refs, 20, "indirect_refs");
+
+  num_addressable_vars = 0;
+  VARRAY_TREE_INIT (addressable_vars, 20, "addressable_vars");
+
+  /* Hash table of all the objects the SSA builder needs to be aware of.  */
   vars_found = htab_create (50, htab_hash_var, htab_var_eq, NULL);
+
+  /* Hash table of all the unique INDIRECT_REFs found.  */
+  indirect_refs_found = htab_create (50, htab_hash_var, htab_var_eq, NULL);
+
+  /* Hash table of all the unique addressable variables found.  */
+  addressable_vars_found = htab_create (50, htab_hash_var, htab_var_eq, NULL);
+
+  walk_state[0] = vars_found;
+  walk_state[1] = indirect_refs_found;
+  walk_state[2] = addressable_vars_found;
 
   FOR_EACH_BB (bb)
     for (si = gsi_start_bb (bb); !gsi_end_bb_p (si); gsi_step_bb (&si))
-      walk_tree (gsi_stmt_ptr (si), find_vars_r, vars_found, NULL);
+      walk_tree (gsi_stmt_ptr (si), find_vars_r, &walk_state, NULL);
 
   htab_delete (vars_found);
+  htab_delete (indirect_refs_found);
+  htab_delete (addressable_vars_found);
 
-  if (flag_tree_points_to != PTA_NONE && num_referenced_vars)
+  if (flag_tree_points_to != PTA_NONE && indirect_refs_found)
     {
       timevar_push (TV_TREE_PTA);
       create_alias_vars (current_function_decl);
@@ -1363,20 +1403,14 @@ compute_may_aliases ()
   if (flag_tree_points_to == PTA_NONE)
     {
       num_alias_tags = 0;
-      alias_tags = (tree *) xmalloc (num_referenced_vars * sizeof (tree));
-      memset ((void *) alias_tags, 0, num_referenced_vars * sizeof (tree));
+      alias_tags = (tree *) xmalloc ((num_indirect_refs + num_addressable_vars)
+		     		      * sizeof (tree));
+      memset ((void *) alias_tags, 0,
+	      ((num_indirect_refs + num_addressable_vars) * sizeof (tree)));
     }
   
-  for (i = 0; i < num_referenced_vars; i++)
-    {
-      tree var = referenced_var (i);
-
-      /* Find aliases for pointer variables.  */
-      if (TREE_CODE (var) == INDIRECT_REF)
-	find_may_aliases_for (var);
-    }
-
-  timevar_pop (TV_TREE_MAY_ALIAS);
+  for (i = 0; i < num_indirect_refs; i++)
+    find_may_aliases_for (i);
 
   if (flag_tree_points_to == PTA_NONE)
     {
@@ -1387,6 +1421,12 @@ compute_may_aliases ()
       alias_tags = NULL;
       num_alias_tags = 0;
     }
+
+  num_indirect_refs = 0;
+  indirect_refs = 0;
+  num_addressable_vars = 0;
+  addressable_vars = 0;
+  timevar_pop (TV_TREE_MAY_ALIAS);
 }
 
 
@@ -1469,7 +1509,8 @@ may_alias_p (v1, v2)
 }
 
 
-/* Find variables that may be aliased by V1.
+/* Find variables that may be aliased by the variable (V1) at
+   index VAR_INDEX in the alias_vars varray. 
 
    For every variable V2 that V1 may alias, add V2 to one of the alias sets
    in the array ALIAS_TAGS.
@@ -1484,17 +1525,68 @@ may_alias_p (v1, v2)
    documentation in tree-ssa.c.  */
 
 static void
-find_may_aliases_for (v1)
-     tree v1;
+find_may_aliases_for (indirect_ref_index)
+     int indirect_ref_index;
 {
   unsigned long i;
+  tree v1 = VARRAY_TREE (indirect_refs, indirect_ref_index);
+
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (v1) != INDIRECT_REF)
+    abort ();
+#endif
 
   if (may_access_global_mem (v1))
     set_may_alias_global_mem (v1);
 
-  for (i = 0; i < num_referenced_vars; i++)
+  /* Note that our aliasing properties are symmetric, so we can
+     start this loop at INDIRECT_REF_INDEX + 1 to cut down on the
+     runtime for this routine.  */
+  for (i = indirect_ref_index; i < num_indirect_refs; i++)
     {
-      tree v2 = referenced_var (i);
+      tree v2 = VARRAY_TREE (indirect_refs, i);
+
+      if (v1 == v2)
+	continue;
+
+      if (may_alias_p (v1, v2))
+	{
+	  tree at;
+
+	  if (flag_tree_points_to == PTA_NONE)
+	    {
+	      /* Since we are not doing points-to analysis, we aggregate
+		 all the aliases into a single representative alias that
+		 represents a group of variables with similar aliasing
+		 characteristics.  */
+	      at = find_alias_tag (v1, v2);
+	      if (at == NULL_TREE)
+		at = alias_tags [num_alias_tags++] = v1;
+	      add_may_alias (v2, at);
+	    }
+	  else
+	    {
+	      /* With points-to analysis, we can add all the aliases we find
+		 for a variable because the alias sets are much smaller
+		 than what we get when doing type-based aliasing.  */
+	      at = v1;
+	      add_may_alias (v2, at);
+	      add_may_alias (at, v2);
+	    }
+
+	  /* If V2 may access global memory, mark both AT and V1 as aliases
+	     for global memory.  */
+	  if (may_access_global_mem (v2))
+	    {
+	      set_may_alias_global_mem (at);
+	      set_may_alias_global_mem (v1);
+	    }
+	}
+    }
+
+  for (i = 0; i < num_addressable_vars; i++)
+    {
+      tree v2 = VARRAY_TREE (addressable_vars, i);
 
       if (v1 == v2)
 	continue;
@@ -1598,9 +1690,21 @@ dump_alias_info (file)
       fprintf (file, "  Tag: ");
       dump_variable (file, alias_tags[i]);
       fprintf (file, "  Aliases: { ");
-      for (j = 0; j < num_referenced_vars; j++)
+
+      for (j = 0; j < num_addressable_vars; j++)
 	{
-	  tree var = referenced_var (j);
+	  tree var = VARRAY_TREE (addressable_vars, j);
+	  varray_type aliases = may_aliases (var);
+	  if (aliases && VARRAY_TREE (aliases, 0) == alias_tags[i])
+	    {
+	      print_generic_expr (file, var, 0);
+	      fprintf (file, " ");
+	    }
+	}
+
+      for (j = 0; j < num_indirect_refs; j++)
+	{
+	  tree var = VARRAY_TREE (indirect_refs, j);
 	  varray_type aliases = may_aliases (var);
 	  if (aliases && VARRAY_TREE (aliases, 0) == alias_tags[i])
 	    {
@@ -1725,7 +1829,9 @@ find_vars_r (tp, walk_subtrees, data)
     int *walk_subtrees ATTRIBUTE_UNUSED;
     void *data ATTRIBUTE_UNUSED;
 {
-  htab_t vars_found = (htab_t) data;
+  htab_t vars_found = ((htab_t *) data)[0];
+  htab_t indirect_refs_found = ((htab_t *) data)[1];
+  htab_t addressable_vars_found = ((htab_t *) data)[2];
   tree var = *tp;
 
   /* Function calls.  If the callee is neither pure nor const, consider
@@ -1759,18 +1865,54 @@ find_vars_r (tp, walk_subtrees, data)
   if (SSA_VAR_P (var))
     {
       void **slot;
+      tree sym;
+      tree ind;
 
-      /* If VAR is an INDIRECT_REF node, mark its base pointer 
-	 dereferenced.  */
+      /* Get the underlying symbol.  We will need it shortly.  */
       if (TREE_CODE (var) == INDIRECT_REF)
 	{
-	  tree ptr = get_base_symbol (var);
-	  if (!is_dereferenced (ptr))
-	    set_indirect_ref (ptr, var);
+	  sym = get_base_symbol (var);
+	  ind = var;
+
+	  if (!is_dereferenced (sym))
+	    set_indirect_ref (sym, ind);
 	  else
-	    var = indirect_ref (ptr);
+	    ind = indirect_ref (sym);
+	}
+      else
+	{
+	  ind = NULL_TREE;
+	  sym = var;
 	}
 
+      /* Make VAR either the canonical INDIRECT_REF or the real symbol.  */
+      var = (ind ? ind : sym);
+
+      /* First handle an INDIRECT_REF.  */
+      if (ind)
+	{
+	  slot = htab_find_slot (indirect_refs_found, (void *)var, INSERT);
+	  if (*slot == NULL)
+	    {
+	      *slot = (void *)var;
+	      VARRAY_PUSH_TREE (indirect_refs, var);
+	      num_indirect_refs++;
+	    }
+
+	}
+      else if (TREE_ADDRESSABLE (sym)
+	       || decl_function_context (sym) == NULL)
+	{
+	  slot = htab_find_slot (addressable_vars_found, (void *)var, INSERT);
+
+	  if (*slot == NULL)
+	    {
+	      *slot = (void *)var;
+	      VARRAY_PUSH_TREE (addressable_vars, var);
+	      num_addressable_vars++;
+	    }
+	}
+	  
       slot = htab_find_slot (vars_found, (void *) var, INSERT);
       if (*slot == NULL)
 	{

@@ -1,3 +1,22 @@
+2003-01-29  Jeff Law <law@redhat.com>
+
+	* tree-dfa.c (find_may_aliases_for): Just accept the index of
+	the current indirect_ref.  Caller updated.
+	(num_indirect_refs, num_addressable_vars): New variables.
+	(indirect_refs, addressable_vars): New varrays.
+	(dump_dfa_status): Dump info on the indirect refs and 
+	addressable vars.
+	(dump_alias_info): Similarly.
+	(compute_may_aliases): Initialize and finalize the new virtual
+	arrays and hash tables for indirect refs and addressable vars.
+	Include setup/teardown in the cost for alias analysis.
+	(find_may_aliases_for):  Split main loop into two.  The first
+	walks over the indirect refs and takes advantage of the
+	symmetric properties of the aliasing relationship to avoid
+	useless work.  The second loop iterates over the addressable
+	variables.
+	(find_vars_r): Rework to build all three arrays we need.
+
 2003-01-29  Andreas Jaeger  <aj@suse.de>
 
 	* tree-alias-common.c (find_func_aliases): Remove unused variable.
