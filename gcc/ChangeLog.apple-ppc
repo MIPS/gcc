@@ -1,3 +1,13 @@
+2004-12-23  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3926600
+	Following patches brought in from mainline
+        * tree.c (iterative_hash_expr):  Canonicalize builtins.
+        PR tree-opt/16951
+        * tree-inline.c (setup_one_parameter): Don't directly map a
+        parameter to the address of another variable of the same
+        function.
+
 2004-12-22  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 3765572
