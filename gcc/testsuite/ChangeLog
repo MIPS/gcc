@@ -289,7 +289,6 @@
 
 	Revert this patch:
 	* g++.dg/abi/layout4.C: New test.
-<<<<<<< ChangeLog
 	
 2003-09-08  Jakub Jelinek  <jakub@redhat.com>
 
@@ -299,9 +298,6 @@
 
 	* gcc.dg/20030826-2.c: New test.
 
-=======
-
->>>>>>> 1.2261.2.321
 2003-09-03  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/12053
