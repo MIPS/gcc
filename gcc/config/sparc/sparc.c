@@ -163,7 +163,8 @@ static void sparc_flat_save_restore (FILE *, const char *, int,
 static void sparc_nonflat_function_epilogue (FILE *, HOST_WIDE_INT, int);
 static void sparc_nonflat_function_prologue (FILE *, HOST_WIDE_INT, int);
 #ifdef OBJECT_FORMAT_ELF
-static void sparc_elf_asm_named_section (const char *, unsigned int);
+static void sparc_elf_asm_named_section (const char *, unsigned int,
+					 tree decl);
 #endif
 static void sparc_aout_select_section (tree, int, unsigned HOST_WIDE_INT)
      ATTRIBUTE_UNUSED;
@@ -8687,13 +8688,14 @@ sparc_profile_hook (int labelno)
 
 #ifdef OBJECT_FORMAT_ELF
 static void
-sparc_elf_asm_named_section (const char *name, unsigned int flags)
+sparc_elf_asm_named_section (const char *name, unsigned int flags,
+			     tree decl)
 {
   if (flags & SECTION_MERGE)
     {
       /* entsize cannot be expressed in this section attributes
 	 encoding style.  */
-      default_elf_asm_named_section (name, flags);
+      default_elf_asm_named_section (name, flags, decl);
       return;
     }
 

@@ -289,7 +289,7 @@ static tree mips_build_builtin_va_list (void);
 #if TARGET_IRIX
 static void irix_asm_named_section_1 (const char *, unsigned int,
 				      unsigned int);
-static void irix_asm_named_section (const char *, unsigned int);
+static void irix_asm_named_section (const char *, unsigned int, tree);
 static int irix_section_align_entry_eq (const void *, const void *);
 static hashval_t irix_section_align_entry_hash (const void *);
 static void irix_file_start (void);
@@ -9514,12 +9514,12 @@ irix_asm_named_section_1 (const char *name, unsigned int flags,
 }
 
 static void
-irix_asm_named_section (const char *name, unsigned int flags)
+irix_asm_named_section (const char *name, unsigned int flags, tree decl)
 {
   if (TARGET_SGI_O32_AS)
-    default_no_named_section (name, flags);
+    default_no_named_section (name, flags, decl);
   else if (mips_abi == ABI_32 && TARGET_GAS)
-    default_elf_asm_named_section (name, flags);
+    default_elf_asm_named_section (name, flags, decl);
   else
     irix_asm_named_section_1 (name, flags, 0);
 }

@@ -43,7 +43,7 @@ extern int cris_got_symbol (rtx);
 extern int cris_symbol (rtx);
 extern void cris_output_addr_const (FILE *, rtx);
 extern int cris_cfun_uses_pic_table (void);
-extern void cris_target_asm_named_section (const char *, unsigned int);
+extern void cris_target_asm_named_section (const char *, unsigned int, tree);
 
 # ifdef TREE_CODE
 extern rtx cris_expand_builtin_va_arg (tree, tree);

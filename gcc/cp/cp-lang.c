@@ -114,7 +114,8 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_WRITE_GLOBALS lhd_do_nothing
 #undef LANG_HOOKS_DECL_UNINIT
 #define LANG_HOOKS_DECL_UNINIT c_decl_uninit
-
+#undef LANG_HOOKS_COMDAT_GROUP
+#define LANG_HOOKS_COMDAT_GROUP cxx_comdat_group
 
 #undef LANG_HOOKS_FUNCTION_INIT
 #define LANG_HOOKS_FUNCTION_INIT cxx_push_function_context
