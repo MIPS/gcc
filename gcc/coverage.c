@@ -940,13 +940,6 @@ create_coverage (void)
 
   /* Generate a constructor to run it.  */
   cgraph_build_static_cdtor ('I', body, DEFAULT_INIT_PRIORITY);
-
-  /*
-  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (*ENTRY_BLOCK_PTR));
-  ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
-  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (*EXIT_BLOCK_PTR));
-  EXIT_BLOCK_PTR->index = EXIT_BLOCK;
-  */
 }
 
 /* Perform file-level initialization. Read in data file, generate name

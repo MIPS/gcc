@@ -92,7 +92,6 @@ The varpool data structure:
 #include "debug.h"
 #include "target.h"
 #include "basic-block.h"
-#include "tree-iterator.h"
 #include "cgraph.h"
 #include "varray.h"
 #include "output.h"

@@ -42,7 +42,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "timevar.h"
 #include "target.h"
-#include "tree-iterator.h"
 #include "cgraph.h"
 #include "varray.h"
 

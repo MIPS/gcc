@@ -65,7 +65,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 #include "hashtab.h"
-#include "tree-iterator.h"
 #include "cgraph.h"
 #include "input.h"
 

@@ -38,7 +38,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "sbitmap.h"
 #include "langhooks.h"
 #include "target.h"
-#include "tree-iterator.h"
 #include "cgraph.h"
 #include "except.h"
 

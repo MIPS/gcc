@@ -192,7 +192,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coverage.h"
 #include "except.h"
 
-#define max(A,B)      ((A) > (B) ? (A) : (B))
 #define INSNS_PER_CALL 10
 
 static void cgraph_expand_all_functions (void);
@@ -283,7 +282,9 @@ decide_is_function_needed (struct cgraph_node *node, tree decl)
 }
 
 /* If we've progressed far enough to have a DECL_STRUCT_FUNCTION allocated,
-   but  haven't yet built the CFG for this function, build it now.  */
+   but  haven't yet built the CFG for this function, build it now.  
+   FIXME this function causes a lot of includes to be needed.  Is there
+   a better place for it?  */
 
 void 
 cgraph_build_cfg (tree decl)
@@ -346,9 +347,6 @@ void
 cgraph_finalize_function (tree decl, bool nested)
 {
   struct cgraph_node *node = cgraph_node (decl);
-#if 0
-  tree saved_current_function_decl;
-#endif
   if (node->local.finalized)
     {
       /* As an GCC extension we allow redefinition of the function.  The
@@ -1108,7 +1106,7 @@ cgraph_estimate_size_after_inlining (int times, struct cgraph_node *to,
 				     struct cgraph_node *what)
 {
   /* Avoid negative size estimates when (what->global_insns < INSNS_PER_CALL).  */
-  return max (what->global.insns - INSNS_PER_CALL, 0) * times + to->global.insns;
+  return MAX (what->global.insns - INSNS_PER_CALL, 0) * times + to->global.insns;
 }
 
 /* Estimate the growth caused by inlining NODE into all callees.  */
@@ -2193,7 +2191,8 @@ void cgraph_change_to_nothrow (tree funcdecl)
       call = cge->call_expr;
       caller_decl = cge->caller->decl;
       ifun = DECL_STRUCT_FUNCTION (caller_decl);
-      if (ifun && (ifun->cfg || ifun->eh))
+      if (!TREE_ASM_WRITTEN (caller_decl)
+	  && ifun && (ifun->cfg || ifun->eh))
         {
 	  push_cfun (ifun);
 	  /* This part is currently s l o w, as there is no

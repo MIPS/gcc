@@ -44,8 +44,6 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "cfgloop.h"
 
-#define max(A,B)      ((A) > (B) ? (A) : (B))
-
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
 
@@ -2830,7 +2828,7 @@ set_bb_for_stmt (tree t, basic_block bb)
 	      LABEL_DECL_UID (t) = uid = cfun->last_label_uid++;
 	      if (VARRAY_SIZE (label_to_block_map) <= (unsigned) uid)
 		{
-		  unsigned tmp_u = 3 * max (uid, 2);
+		  unsigned tmp_u = 3 * MAX (uid, 2);
 		  /* Force the multiply to happen before the divide.  */
 		  VARRAY_GROW (label_to_block_map, tmp_u / 2);
 		}

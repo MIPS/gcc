@@ -54,13 +54,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-gimple.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
-#include "basic-block.h"
 #include "cgraph.h"
 #include "hashtab.h"
 #include "libfuncs.h"
 #include "except.h"
 #include "langhooks-def.h"
-#include "tree-flow.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context

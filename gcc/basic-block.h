@@ -729,9 +729,7 @@ extern void reorder_basic_blocks (unsigned int);
 extern void partition_hot_cold_basic_blocks (void);
 
 /* In cfg.c */
-extern void alloc_rbi_pool (void);
 extern void initialize_bb_rbi (basic_block bb);
-extern void free_rbi_pool (void);
 
 /* In dominance.c */
 

@@ -49,7 +49,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "debug.h"
 #include "target.h"
 #include "tree-mudflap.h"
-#include "tree-iterator.h"
 #include "cgraph.h"
 #include "cfglayout.h"
 
