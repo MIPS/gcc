@@ -1741,6 +1741,12 @@ gimple_expand_calls_inline (tree *stmt_p, inline_data *id)
       /* We're gimple.  We should have gotten rid of all these.  */
       abort ();
 
+    case RETURN_EXPR:
+      stmt_p = &TREE_OPERAND (stmt, 0);
+      stmt = *stmt_p;
+      if (!stmt || TREE_CODE (stmt) != MODIFY_EXPR)
+	break;
+      /* FALLTHRU */
     case MODIFY_EXPR:
       stmt_p = &TREE_OPERAND (stmt, 1);
       stmt = *stmt_p;

@@ -1,5 +1,8 @@
 2004-01-29  Richard Henderson  <rth@redhat.com>
 
+	* tree-inline.c (gimple_expand_calls_inline): Look inside
+	RETURN_EXPR.
+
 	* tree-pretty-print.c (dump_generic_node): If TDF_DETAILS, dump
 	both name and uid.
 
