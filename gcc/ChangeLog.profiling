@@ -1,3 +1,9 @@
+2004-04-04  Jan Hubicka  <jh@suse.cz>
+
+	* cfgbuild.c (control_flow_insn_p): Sibling call is control flow.
+	* cfgexpand.c (expand_block): Reprganize call_stmt expansion to handle
+	sqrt builtin.
+
 2004-04-03  Jan Hubicka  <jh@suse.cz>
 
 	* tree-cfg.c (tree_block_ends_with_call_p,

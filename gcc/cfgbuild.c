@@ -108,9 +108,10 @@ control_flow_insn_p (rtx insn)
 	      && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC);
 
     case CALL_INSN:
-      /* Noreturn instructions terminate the basic blocks only if they happen
- 	 unconditionally.  */
-      if (find_reg_note (insn, REG_NORETURN, 0)
+      /* Noreturn and sibling call instructions terminate the basic blocks
+	 (but only if they happen unconditionally).  */
+      if ((SIBLING_CALL_P (insn)
+	   || find_reg_note (insn, REG_NORETURN, 0))
 	  && GET_CODE (PATTERN (insn)) != COND_EXEC)
 	return true;
       /* Call insn may return to the nonlocal goto handler.  */

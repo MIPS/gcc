@@ -217,21 +217,31 @@ expand_block (basic_block bb, FILE * dump_file)
 			remove_edge (e);
 		      }
 
+
+		  /* This is somewhat ugly:  the call_expr expander often emits instructions
+		     after the sibcall (to perform the function return).  These confuse the 
+		     find_sub_basic_blocks code, so we need to get rid of these.  */
+		  last = NEXT_INSN (last);
+		  if (GET_CODE (last) != BARRIER)
+		    abort ();
+		  while (NEXT_INSN (last))
+		    {
+		      /* For instance an sqrt builtin expander expands if with
+			 sibcall in the then and label for `else`.  */
+		      if (GET_CODE (NEXT_INSN (last)) == CODE_LABEL)
+			break;
+		      delete_insn (NEXT_INSN (last));
+		    }
 		  e = make_edge (bb, EXIT_BLOCK_PTR,
 				     EDGE_ABNORMAL | EDGE_SIBCALL);
 		  e->probability += probability;
 		  e->count += count;
 		  BB_END (bb) = last;
-
-		  last = NEXT_INSN (last);
-		  if (GET_CODE (last) != BARRIER)
-		    abort ();
-		  while (NEXT_INSN (last))
-		    delete_insn (NEXT_INSN (last));
 		  update_bb_for_insn (bb);
-		  if (dump_file)
-		    dump_bb (bb, dump_file, 0);
-		  return bb;
+		  if (NEXT_INSN (last))
+		    bb = create_basic_block (NEXT_INSN (last), get_last_insn (), bb);
+		  else
+		    return bb;
 		}
 	    }
 	  break;
