@@ -1097,124 +1097,180 @@ gimplify_exit_expr (tree *expr_p)
   return GS_OK;
 }
 
-/* Gimplifies a CONSTRUCTOR node at *EXPR_P.
-
-     aggr_init: '{' vals '}'
-     vals: aggr_init_elt | vals ',' aggr_init_elt
-     aggr_init_elt: val | aggr_init  */
-
-static enum gimplify_status
-gimplify_constructor (tree t, tree *pre_p, tree *post_p)
-{
-  enum gimplify_status ret, tret;
-  tree elt_list;
-
-  ret = GS_ALL_DONE;
-  for (elt_list = CONSTRUCTOR_ELTS (t); elt_list;
-       elt_list = TREE_CHAIN (elt_list))
-    {
-      tret = gimplify_expr (&TREE_VALUE (elt_list), pre_p, post_p,
-			    is_gimple_constructor_elt, fb_rvalue);
-      if (tret == GS_ERROR)
-	ret = GS_ERROR;
-    }
-
-  return ret;
-}
-
 /* Break out elements of a constructor used as an initializer into separate
    MODIFY_EXPRs.
 
    Note that we still need to clear any elements that don't have explicit
    initializers, so if not all elements are initialized we keep the
-   original MODIFY_EXPR, we just remove all of the constructor
-   elements.  */
-/* FIXME should also handle vectors.  */
+   original MODIFY_EXPR, we just remove all of the constructor elements.  */
 
 static enum gimplify_status
-gimplify_init_constructor (tree *expr_p, tree *pre_p, int want_value)
+gimplify_init_constructor (tree *expr_p, tree *pre_p,
+			   tree *post_p, int want_value)
 {
   tree object = TREE_OPERAND (*expr_p, 0);
   tree ctor = TREE_OPERAND (*expr_p, 1);
   tree type = TREE_TYPE (ctor);
+  enum gimplify_status ret;
+  tree elt_list;
+  bool cleared;
+  int len, i;
 
   if (TREE_CODE (ctor) != CONSTRUCTOR)
     return GS_UNHANDLED;
 
-  if (TREE_CODE (type) == RECORD_TYPE
-      || TREE_CODE (type) == UNION_TYPE
-      || TREE_CODE (type) == QUAL_UNION_TYPE
-      || TREE_CODE (type) == ARRAY_TYPE)
+  elt_list = CONSTRUCTOR_ELTS (ctor);
+
+  ret = GS_ALL_DONE;
+  switch (TREE_CODE (type))
     {
-      tree elt_list = CONSTRUCTOR_ELTS (ctor);
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+    case ARRAY_TYPE:
+      /* Aggregate types must lower constructors to initialization of
+	 individual elements.  The exception is that a CONSTRUCTOR node
+	 with no elements indicates zero-initialization of the whole.  */
 
-      if (elt_list)
+      if (elt_list == NULL)
 	{
-	  int cleared = 0;
-	  int len = list_length (elt_list);
-	  int i;
-
-	  if (mostly_zeros_p (ctor))
-	    cleared = 1;
-	  else if (TREE_CODE (type) == ARRAY_TYPE)
-	    {
-	      tree nelts = array_type_nelts (type);
-	      if (TREE_CODE (nelts) != INTEGER_CST
-		  || (unsigned)len != TREE_INT_CST_LOW (nelts)+1)
-		cleared = 1;
-	    }
-	  else if (len != fields_length (type))
-	    cleared = 1;
-
-	  if (cleared)
-	    {
-	      CONSTRUCTOR_ELTS (ctor) = NULL_TREE;
-	      append_to_statement_list (*expr_p, pre_p);
-	    }
-
-	  for (i = 0; elt_list; i++, elt_list = TREE_CHAIN (elt_list))
-	    {
-	      tree purpose, value, cref, init;
-
-	      purpose = TREE_PURPOSE (elt_list);
-	      value = TREE_VALUE (elt_list);
-
-	      if (cleared && initializer_zerop (value))
-		continue;
-
-	      if (TREE_CODE (type) == ARRAY_TYPE)
-		{
-		  tree t = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (object)));
-		  cref = build (ARRAY_REF, t, object, build_int_2 (i, 0));
-		}
-	      else
-		{
-		  cref = build (COMPONENT_REF, TREE_TYPE (purpose),
-				object, purpose);
-		}
-
-	      init = build (MODIFY_EXPR, TREE_TYPE (purpose), cref, value);
-	      /* Each member initialization is a full-expression.  */
-	      gimplify_stmt (&init);
-	      append_to_statement_list (init, pre_p);
-	    }
-
 	  if (want_value)
 	    {
 	      *expr_p = object;
 	      return GS_OK;
 	    }
 	  else
+	    return GS_ALL_DONE;
+	}
+
+      cleared = false;
+      len = list_length (elt_list);
+
+      if (mostly_zeros_p (ctor))
+	cleared = true;
+      else if (TREE_CODE (type) == ARRAY_TYPE)
+	{
+	  tree nelts = array_type_nelts (type);
+	  if (TREE_CODE (nelts) != INTEGER_CST
+	      || (unsigned)len != TREE_INT_CST_LOW (nelts)+1)
+	    cleared = 1;
+	}
+      else if (len != fields_length (type))
+	cleared = 1;
+
+      if (cleared)
+	{
+	  CONSTRUCTOR_ELTS (ctor) = NULL_TREE;
+	  append_to_statement_list (*expr_p, pre_p);
+	}
+
+      for (i = 0; elt_list; i++, elt_list = TREE_CHAIN (elt_list))
+	{
+	  tree purpose, value, cref, init;
+
+	  purpose = TREE_PURPOSE (elt_list);
+	  value = TREE_VALUE (elt_list);
+
+	  if (cleared && initializer_zerop (value))
+	    continue;
+
+	  if (TREE_CODE (type) == ARRAY_TYPE)
 	    {
-	      *expr_p = build_empty_stmt ();
-	      return GS_ALL_DONE;
+	      tree t = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (object)));
+	      cref = build (ARRAY_REF, t, object, build_int_2 (i, 0));
+	    }
+	  else
+	    {
+	      cref = build (COMPONENT_REF, TREE_TYPE (purpose),
+			    object, purpose);
+	    }
+
+	  init = build (MODIFY_EXPR, TREE_TYPE (purpose), cref, value);
+	  /* Each member initialization is a full-expression.  */
+	  gimplify_stmt (&init);
+	  append_to_statement_list (init, pre_p);
+	}
+
+      *expr_p = build_empty_stmt ();
+      break;
+
+    case COMPLEX_TYPE:
+      {
+	tree r, i;
+
+	/* Extract the real and imaginary parts out of the ctor.  */
+	r = i = NULL_TREE;
+	if (elt_list)
+	  {
+	    r = TREE_VALUE (elt_list);
+	    elt_list = TREE_CHAIN (elt_list);
+	    if (elt_list)
+	      {
+	        i = TREE_VALUE (elt_list);
+		if (TREE_CHAIN (elt_list))
+		  abort ();
+	      }
+	  }
+	if (r == NULL || i == NULL)
+	  {
+	    tree zero = convert (TREE_TYPE (type), integer_zero_node);
+	    if (r == NULL)
+	      r = zero;
+	    if (i == NULL)
+	      i = zero;
+	  }
+
+	/* Complex types have either COMPLEX_CST or COMPLEX_EXPR to
+	   represent creation of a complex value.  */
+	if (TREE_CONSTANT (r) && TREE_CONSTANT (i))
+	  {
+	    ctor = build_complex (type, r, i);
+	    TREE_OPERAND (*expr_p, 1) = ctor;
+	  }
+	else
+	  {
+	    ctor = build (COMPLEX_EXPR, type, r, i);
+	    TREE_OPERAND (*expr_p, 1) = ctor;
+	    ret = gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
+				 is_gimple_rhs, fb_rvalue);
+	  }
+      }
+      break;
+
+    case VECTOR_TYPE:
+      /* Go ahead and simplify constant constructors to VECTOR_CST.  */
+      if (TREE_CONSTANT (ctor))
+	TREE_OPERAND (*expr_p, 1) = build_vector (type, elt_list);
+      else
+	{
+	  /* Vector types use CONSTRUCTOR all the way through gimple
+	     compilation as a general initializer.  */
+	  for (; elt_list; elt_list = TREE_CHAIN (elt_list))
+	    {
+	      enum gimplify_status tret;
+	      tret = gimplify_expr (&TREE_VALUE (elt_list), pre_p, post_p,
+				    is_gimple_constructor_elt, fb_rvalue);
+	      if (tret == GS_ERROR)
+		ret = GS_ERROR;
 	    }
 	}
+      break;
+
+    default:
+      /* So how did we get a CONSTRUCTOR for a scalar type?  */
+      abort ();
+    }
+
+  if (ret == GS_ERROR)
+    return GS_ERROR;
+  else if (want_value)
+    {
+      append_to_statement_list (*expr_p, pre_p);
+      *expr_p = object;
+      return GS_OK;
     }
   else
-    return gimplify_constructor (ctor, pre_p, NULL);
-
-  return GS_UNHANDLED;
+    return GS_ALL_DONE;
 }
 
 /* *EXPR_P is a COMPONENT_REF being used as an rvalue.  If its type is
@@ -2160,6 +2216,70 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, tree target)
   return ret;
 }
 
+/* Gimplify lhs component access to complex types, REALPART_EXPR and
+   IMAGPART_EXPR.
+
+   For SSA renaming we require that all modifications to complex variables
+   be killing assignments.  That is, we cannot allow only a piece of a value
+   to be modified, we must create an entire new value.  Thus we rewrite
+
+	<realpart_expr x> = y
+   to
+	x = <complex_expr y <imagpart_expr x>>
+
+   and similarly for imagpart_expr.  */
+
+static enum gimplify_status gimplify_modify_expr (tree*, tree*, tree*, bool);
+
+static enum gimplify_status
+gimplify_lhs_complex_part_expr (tree *expr_p, tree *pre_p,
+				tree *post_p, bool want_value)
+{
+  tree to = TREE_OPERAND (*expr_p, 0);
+  enum gimplify_status ret1, ret2;
+  tree ctor, ctor_r, ctor_i, obj, val;
+
+  /* First, stabilize the values.  */
+  ret2 = gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
+			is_gimple_val, fb_rvalue);
+  ret1 = gimplify_expr (&TREE_OPERAND (to, 0), pre_p, post_p,
+			is_gimple_lvalue, fb_lvalue);
+  if (ret1 == GS_ERROR || ret2 == GS_ERROR)
+    return GS_ERROR;
+
+  obj = TREE_OPERAND (to, 0);
+  val = TREE_OPERAND (*expr_p, 1);
+
+  /* Build the complex_expr node.  */
+  ctor_r = val;
+  ctor_i = to;
+  if (TREE_CODE (to) == REALPART_EXPR)
+    TREE_SET_CODE (to, IMAGPART_EXPR);
+  else
+    {
+      TREE_SET_CODE (to, REALPART_EXPR);
+      ctor = ctor_r, ctor_r = ctor_i, ctor_i = ctor;
+    }
+  ctor = build (COMPLEX_EXPR, TREE_TYPE (obj), ctor_r, ctor_i);
+
+  /* Build a new assignment statement and re-gimplify.  */
+  *expr_p = build (MODIFY_EXPR, TREE_TYPE (obj), obj, ctor);
+  ret1 = gimplify_modify_expr (expr_p, pre_p, post_p, false);
+  if (ret1 == GS_ERROR)
+    return GS_ERROR;
+
+  /* If we did in fact want the value, the return just that.  */
+  if (want_value)
+    {
+      append_to_statement_list (*expr_p, pre_p);
+      *expr_p = val;
+      return GS_OK;
+    }
+  else
+    return GS_ALL_DONE;
+}
+
+
 /*  Gimplify the MODIFY_EXPR node pointed by EXPR_P.
 
       modify_expr
@@ -2183,10 +2303,17 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
   enum gimplify_status ret;
 
 #if defined ENABLE_CHECKING
-  if (TREE_CODE (*expr_p) != MODIFY_EXPR
-      && TREE_CODE (*expr_p) != INIT_EXPR)
+  if (TREE_CODE (*expr_p) != MODIFY_EXPR && TREE_CODE (*expr_p) != INIT_EXPR)
     abort ();
 #endif
+
+  /* The distinction between MODIFY_EXPR and INIT_EXPR is no longer useful.  */
+  if (TREE_CODE (*expr_p) == INIT_EXPR)
+    TREE_SET_CODE (*expr_p, MODIFY_EXPR);
+
+  /* Need to handle lhs component access to complex values specially.  */
+  if (TREE_CODE (*to_p) == REALPART_EXPR || TREE_CODE (*to_p) == IMAGPART_EXPR)
+    return gimplify_lhs_complex_part_expr (expr_p, pre_p, post_p, want_value);
 
   ret = gimplify_expr (to_p, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
   if (ret == GS_ERROR)
@@ -2211,32 +2338,28 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
       return gimplify_cond_expr (expr_p, pre_p, *to_p);
     }
 
-  /* The distinction between MODIFY_EXPR and INIT_EXPR is no longer
-     useful.  */
-  if (TREE_CODE (*expr_p) == INIT_EXPR)
-    TREE_SET_CODE (*expr_p, MODIFY_EXPR);
-
   ret = gimplify_expr (from_p, pre_p, post_p, is_gimple_rhs, fb_rvalue);
   if (ret == GS_ERROR)
     return ret;
 
-  ret = gimplify_init_constructor (expr_p, pre_p, want_value);
+  ret = gimplify_init_constructor (expr_p, pre_p, post_p, want_value);
   if (ret != GS_UNHANDLED)
     return ret;
 
-  /* If the RHS of the MODIFY_EXPR may throw or make a nonlocal goto and
-     the LHS is a user variable, then we need to introduce a temporary.
-     ie temp = RHS; LHS = temp.
-
-     This way the optimizers can determine that the user variable is
-     only modified if evaluation of the RHS does not throw.
-
-     FIXME this should be handled by the is_gimple_rhs predicate.  */
-
+  /* If the destination is already simple, nothing else needed.  */
   if (is_gimple_tmp_var (*to_p))
     ret = GS_ALL_DONE;
   else
     {
+      /* If the RHS of the MODIFY_EXPR may throw or make a nonlocal goto and
+	 the LHS is a user variable, then we need to introduce a temporary.
+	 ie temp = RHS; LHS = temp.
+
+	 This way the optimizers can determine that the user variable is
+	 only modified if evaluation of the RHS does not throw.
+
+	 FIXME this should be handled by the is_gimple_rhs predicate.  */
+
       if (TREE_CODE (*from_p) == CALL_EXPR
 	  || (flag_non_call_exceptions && tree_could_trap_p (*from_p))
 	  /* If we're dealing with a renamable type, either source or dest

@@ -1,3 +1,15 @@
+2004-01-09  Richard Henderson  <rth@redhat.com>
+
+	* gimplify.c (gimplify_constructor): Merge into ...
+	(gimplify_init_constructor): ... here.  Handle COMPLEX_TYPE and
+	VECTOR_TYPE.
+	(gimplify_lhs_complex_part_expr): New.
+	(gimplify_modify_expr): Call it.
+	* tree-simple.c (is_gimple_rhs): Accept COMPLEX_EXPR.
+	* c-pretty-print.c (pp_c_initializer): Accept any type CONSTRUCTOR.
+	(pp_c_initializer_list): Fix code expectations for VECTOR_TYPE and
+	COMPLEX_TYPE.
+
 2004-01-09  Steven Bosscher  <stevenb@suse.de>
 
 	PR optimization/13599

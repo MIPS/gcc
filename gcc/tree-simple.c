@@ -169,7 +169,7 @@ static inline bool is_gimple_id (tree);
 
 /* Validation of GIMPLE expressions.  */
 
-/*  Return nonzero if T is a GIMPLE RHS:
+/* Return nonzero if T is a GIMPLE RHS:
 
       rhs     : varname | CONST
 	      | '*' ID
@@ -177,7 +177,11 @@ static inline bool is_gimple_id (tree);
 	      | call_expr
 	      | unop val
 	      | val binop val
-	      | '(' cast ')' val  */
+	      | '(' cast ')' val
+	      | <CONSTRUCTOR <gimple_val ...>>
+
+   The last option is only valid GIMPLE for vector and complex types;
+   aggregate types should have their constructors decomposed.  */
 
 bool
 is_gimple_rhs (tree t)
@@ -204,6 +208,7 @@ is_gimple_rhs (tree t)
     case ADDR_EXPR:
     case CALL_EXPR:
     case CONSTRUCTOR:
+    case COMPLEX_EXPR:
       /* FIXME lower VA_ARG_EXPR.  */
     case VA_ARG_EXPR:
     case INTEGER_CST:
