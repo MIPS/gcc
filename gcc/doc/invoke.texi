@@ -9211,12 +9211,13 @@ useful when compiling kernel code.  A register range is specified as
 two registers separated by a dash.  Multiple register ranges can be
 specified separated by a comma.
 
-@item -mtune-stop-bits
-@itemx -mno-tune-stop-bits
-@opindex mtune-stop-bits
-@opindex mno-tune-stop-bits
-Permit to place stop bits not right before insn requiring it.  It might
-improve insn scheduling.
+@item -mearly-stop-bits
+@itemx -mno-early-stop-bits
+@opindex mearly-stop-bits
+@opindex mno-early-stop-bits
+Allow stop bits to be placed earlier than immediately preceding the
+instruction that triggered the stop bit.  This can improve instruction
+scheduling, but does not always do so.
 @end table
 
 @node D30V Options

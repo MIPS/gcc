@@ -91,7 +91,7 @@ extern int target_flags;
 
 #define MASK_DWARF2_ASM 0x40000000	/* test dwarf2 line info via gas.  */
 
-#define MASK_TUNE_STOP_BITS  0x00002000	/* tune stop bits for the model.  */
+#define MASK_EARLY_STOP_BITS 0x00002000 /* tune stop bits for the model.  */
 
 #define TARGET_BIG_ENDIAN	(target_flags & MASK_BIG_ENDIAN)
 
@@ -128,7 +128,7 @@ extern int ia64_tls_size;
 #define TARGET_TLS14		(ia64_tls_size == 14)
 #define TARGET_TLS22		(ia64_tls_size == 22)
 #define TARGET_TLS64		(ia64_tls_size == 64)
-#define TARGET_TUNE_STOP_BITS	(target_flags & MASK_TUNE_STOP_BITS)
+#define TARGET_EARLY_STOP_BITS	(target_flags & MASK_EARLY_STOP_BITS)
 
 #define TARGET_HPUX_LD		0
 
@@ -176,10 +176,10 @@ extern int ia64_tls_size;
       N_("Enable Dwarf 2 line debug info via GNU as")},			\
   { "no-dwarf2-asm", 	-MASK_DWARF2_ASM,				\
       N_("Disable Dwarf 2 line debug info via GNU as")},		\
-  { "tune-stop-bits", 	MASK_TUNE_STOP_BITS,				\
-      N_("Enable tuning stop bits for better scheduling")},		\
-  { "no-tune-stop-bits", 	-MASK_TUNE_STOP_BITS,			\
-      N_("Disable tuning stop bits for better scheduling")},		\
+  { "early-stop-bits", MASK_EARLY_STOP_BITS,				\
+      N_("Enable earlier placing stop bits for better scheduling")},	\
+  { "no-early-stop-bits", -MASK_EARLY_STOP_BITS,			\
+      N_("Disable earlier placing stop bits")},				\
   SUBTARGET_SWITCHES							\
   { "",			TARGET_DEFAULT | TARGET_CPU_DEFAULT,		\
       NULL }								\

@@ -1,3 +1,21 @@
+2002-10-08  Vladimir Makarov  <vmakarov@redhat.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	* config/ia64/ia64.h (MASK_TUNE_STOP_BITS): Rename it to
+	MASK_EARLY_STOP_BITS.
+	(TARGET_TUNE_STOP_BITS): Rename it to TARGET_EARLY_STOP_BITS.
+	(TARGET_SWITCHES): Rename option `tune-stop-bits' to
+	`early-stop-bits'.
+	
+	* config/ia64/ia64.c (ia64_dfa_new_cycle,
+	final_emit_insn_group_barriers): Use TARGET_EARLY_STOP_BITS
+	instead of TARGET_TUNE_STOP_BITS.
+	
+	* doc/invoke.texi: Rename option `-mtune-stop-bits' to
+	`-mearly-stop-bits'.
+
+	* config/ia64/ia64.c (automata_option "v"): Comment it.
+	
 2002-10-07  Vladimir Makarov  <vmakarov@redhat.com>
 
         * config/ia64/ia64.h (MASK_TUNE_STOP_BITS, TARGET_TUNE_STOP_BITS):

@@ -5779,7 +5779,7 @@ ia64_dfa_new_cycle (dump, verbose, insn, last_clock, clock, sort_p)
       if (last_clock == clock)
 	{
 	  state_transition (curr_state, dfa_stop_insn);
-	  if (TARGET_TUNE_STOP_BITS)
+	  if (TARGET_EARLY_STOP_BITS)
 	    *sort_p = (last_scheduled_insn == NULL_RTX
 		       || GET_CODE (last_scheduled_insn) != CALL_INSN);
 	  else
@@ -6667,7 +6667,7 @@ final_emit_insn_group_barriers (dump)
 	    }
 	  else if (need_barrier_p || group_barrier_needed_p (insn))
 	    {
-	      if (TARGET_TUNE_STOP_BITS)
+	      if (TARGET_EARLY_STOP_BITS)
 		{
 		  rtx last;
 		  
