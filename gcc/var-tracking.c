@@ -762,6 +762,12 @@ track_expr_p (expr)
      or struct).  */
   if (GET_CODE (decl_rtl) == MEM)
     {
+      /* Do not track global variables.  */
+      if (GET_CODE (XEXP (decl_rtl, 0)) == SYMBOL_REF
+	  || GET_CODE (XEXP (decl_rtl, 0)) == CONST)
+	return 0;
+
+      /* Do not track structures and arrays.  */
       if (GET_MODE (decl_rtl) == BLKmode)
 	return 0;
       if (MEM_SIZE (decl_rtl) && INTVAL (MEM_SIZE (decl_rtl)) > MAX_LOC_PARTS)

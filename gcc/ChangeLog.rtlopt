@@ -1,3 +1,7 @@
+2003-03-10  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (track_expr_p): Do not track global variables.
+
 Mon Mar 10 15:40:33 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (min_insn_size, k8_avoid_jump_misspredicts): New function
