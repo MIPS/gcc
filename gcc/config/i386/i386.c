@@ -1379,23 +1379,18 @@ ix86_function_ok_for_sibcall (decl, exp)
      tree decl;
      tree exp;
 {
-  /* We don't have 64-bit patterns in place.  */
-  if (TARGET_64BIT)
-    return false;
-
   /* If we are generating position-independent code, we cannot sibcall
      optimize any indirect call, or a direct call to a global function,
      as the PLT requires %ebx be live.  */
-  if (flag_pic && (!decl || TREE_PUBLIC (decl)))
+  if (!TARGET_64BIT && flag_pic && (!decl || TREE_PUBLIC (decl)))
     return false;
 
   /* If we are returning floats on the 80387 register stack, we cannot
      make a sibcall from a function that doesn't return a float to a
      function that does; the necessary stack adjustment will not be
      executed.  */
-  if (TARGET_FLOAT_RETURNS_IN_80387
-      && FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (exp)))
-      && !FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (TREE_TYPE (cfun->decl)))))
+  if (STACK_REG_P (ix86_function_value (TREE_TYPE (exp)))
+      && ! STACK_REG_P (ix86_function_value (TREE_TYPE (DECL_RESULT (cfun->decl)))))
     return false;
 
   /* If this call is indirect, we'll need to be able to use a call-clobbered
@@ -3482,6 +3477,31 @@ non_q_regs_operand (op, mode)
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
   return NON_QI_REG_P (op);
+}
+
+int
+zero_extended_scalar_load_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  unsigned n_elts;
+  if (GET_CODE (op) != MEM)
+    return 0;
+  op = maybe_get_pool_constant (op);
+  if (!op)
+    return 0;
+  if (GET_CODE (op) != CONST_VECTOR)
+    return 0;
+  n_elts =
+    (GET_MODE_SIZE (GET_MODE (op)) /
+     GET_MODE_SIZE (GET_MODE_INNER (GET_MODE (op))));
+  for (n_elts--; n_elts > 0; n_elts--)
+    {
+      rtx elt = CONST_VECTOR_ELT (op, n_elts);
+      if (elt != CONST0_RTX (GET_MODE_INNER (GET_MODE (op))))
+	return 0;
+    }
+  return 1;
 }
 
 /* Return 1 if OP is a comparison that can be used in the CMPSS/CMPPS
@@ -10940,8 +10960,9 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx)
 }
 
 void
-ix86_expand_call (retval, fnaddr, callarg1, callarg2, pop)
+ix86_expand_call (retval, fnaddr, callarg1, callarg2, pop, sibcall)
      rtx retval, fnaddr, callarg1, callarg2, pop;
+     int sibcall;
 {
   rtx use = NULL, call;
 
@@ -10971,6 +10992,15 @@ ix86_expand_call (retval, fnaddr, callarg1, callarg2, pop)
   if (! call_insn_operand (XEXP (fnaddr, 0), Pmode))
     {
       fnaddr = copy_to_mode_reg (Pmode, XEXP (fnaddr, 0));
+      fnaddr = gen_rtx_MEM (QImode, fnaddr);
+    }
+  if (sibcall && TARGET_64BIT
+      && !constant_call_address_operand (XEXP (fnaddr, 0), Pmode))
+    {
+      rtx addr;
+      addr = copy_to_mode_reg (Pmode, XEXP (fnaddr, 0));
+      fnaddr = gen_rtx_REG (Pmode, 40);
+      emit_move_insn (fnaddr, addr);
       fnaddr = gen_rtx_MEM (QImode, fnaddr);
     }
 

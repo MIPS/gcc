@@ -1,3 +1,22 @@
+Tue Oct 29 20:47:06 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (negsf, negdf): Reorganize to use vector modes
+	for SSE variants.
+	(abssf, absdf): Use force_reg.
+	(movv4sf, movv2df): New splitters.
+	* i386.h (PREDICATE_CODES): add zero_extended_scalar_load_operand
+	* i386.c (zero_extended_scalar_load_operand
+
+	* i386-protos.h (ix86_expand_call): Update prototype.
+	* i386.c (ix86_function_ok_for_sibcall): Handle 64bit
+	(ix86_expand_call): Use r11 for indirect sibcalls.
+	* i386.md (call, call_value, untyped_call, call_value_pop):
+	update x86_expand_call call.
+	(sibcall, sibcall_value): new patterns
+	(call_rex64, call_value_rex64): Do not accept sibcalls.
+	(sibcall_rex64, sibcall_value_rex64,
+	sibcall_rex64_v, sibcall_value_rex64_v): New.
+
 Tue Oct 29 15:37:39 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* toplev.c (rest_of_compilation): Reorganize way reg_scan is called
