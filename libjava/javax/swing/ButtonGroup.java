@@ -1,4 +1,4 @@
-/* ButtonGroup.java -- 
+/* ButtonGroup.java --
    Copyright (C) 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -35,97 +35,92 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-
 package javax.swing;
 
 import java.io.Serializable;
 import java.util.Enumeration;
 import java.util.Vector;
 
-public class ButtonGroup implements Serializable 
+
+public class ButtonGroup
+  implements Serializable
 {
   static final long serialVersionUID = 4259076101881721375L;
+  Vector v = new Vector();
+  ButtonModel sel;
 
-    Vector v = new Vector();
-    ButtonModel sel;
-    
-    public ButtonGroup() {}
-    
-    public void add(AbstractButton b) 
-    {
-	b.getModel().setGroup(this);
-	v.addElement(b);
-    }
-    
-    public void remove(AbstractButton b)
-    {
-	b.getModel().setGroup(null);
-	v.removeElement(b);
-    }
+  public ButtonGroup()
+  {
+  }
 
+  public void add(AbstractButton b)
+  {
+    b.getModel().setGroup(this);
+    v.addElement(b);
+  }
 
-    public Enumeration getElements() {
-        return v.elements();
-    }
+  public void remove(AbstractButton b)
+  {
+    b.getModel().setGroup(null);
+    v.removeElement(b);
+  }
 
-    public ButtonModel getSelection() {
-        return sel;
-    }
+  public Enumeration getElements()
+  {
+    return v.elements();
+  }
 
-    AbstractButton FindButton(ButtonModel m)
-    {
-	for (int i=0;i<v.size();i++)
-	    {
-	    AbstractButton a = (AbstractButton) v.get(i);
-	    if (a.getModel()== m)
-	    {
-		return a;
-	    }
-	}
-	return null;
-    }
+  public ButtonModel getSelection()
+  {
+    return sel;
+  }
 
-    public void setSelected(ButtonModel m, boolean b)
-    {
-	if ((m == sel) &&
-	    (b == true))
-	    {
-		// clicked on sam item twice.
-		System.out.println("PRESSED TWICE:" + m + ", sel="+sel);
-		return;
-	    }	
-	
-	if (sel != null)
-	    {
+  AbstractButton FindButton(ButtonModel m)
+  {
+    for (int i = 0; i < v.size(); i++)
+      {
+	AbstractButton a = (AbstractButton) v.get(i);
+	if (a.getModel() == m)
+	  return a;
+      }
+    return null;
+  }
 
-		System.out.println("DESELECTING: " + sel);
-		sel.setSelected(!b);
+  public void setSelected(ButtonModel m, boolean b)
+  {
+    if ((m == sel) && (b == true))
+      {
+	// clicked on sam item twice.
+	System.out.println("PRESSED TWICE:" + m + ", sel=" + sel);
+	return;
+      }
 
-		AbstractButton but = FindButton(sel);
-		if (but != null)
-		    {
-			System.out.println("REPAINT-REQUIST: " + but.text);
-			//but.revalidate();
-			but.repaint();
-		    }
-	    }
-	else
-	    {
-		System.out.println("NO SELECTION YET");
-	    }
-	
-	sel = m;
-    }
-    
-    public boolean isSelected(ButtonModel m) 
-    {
-        return (m == sel);
-    }
+    if (sel != null)
+      {
+	System.out.println("DESELECTING: " + sel);
+	sel.setSelected(! b);
 
-    public int getButtonCount() 
-    {
-	return v.size();
-    }
+	AbstractButton but = FindButton(sel);
+	if (but != null)
+	  {
+	    System.out.println("REPAINT-REQUIST: " + but.text);
+	    //but.revalidate();
+	    but.repaint();
+	  }
+      }
+    else
+      System.out.println("NO SELECTION YET");
 
+    sel = m;
+  }
+
+  public boolean isSelected(ButtonModel m)
+  {
+    return (m == sel);
+  }
+
+  public int getButtonCount()
+  {
+    return v.size();
+  }
 }
-

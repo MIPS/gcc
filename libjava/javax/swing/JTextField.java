@@ -1,4 +1,4 @@
-/* JTextField.java -- 
+/* JTextField.java --
    Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -35,14 +35,13 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-
 package javax.swing;
 
 import java.awt.event.ActionListener;
 import java.util.Vector;
-
 import javax.accessibility.AccessibleStateSet;
 import javax.swing.text.Document;
+
 
 public class JTextField extends JEditorPane
   implements SwingConstants
@@ -72,28 +71,27 @@ public class JTextField extends JEditorPane
   }
 
   private static final long serialVersionUID = 353853209832607592L;
-  
-    Vector actions = new Vector();
+  Vector actions = new Vector();
 
   public JTextField()
   {
   }
 
-    public JTextField(int a)
-    {
-    }
+  public JTextField(int a)
+  {
+  }
 
-    public void addActionListener(ActionListener l)
-    {
-	actions.addElement(l);
-    }
+  public void addActionListener(ActionListener l)
+  {
+    actions.addElement(l);
+  }
 
-    public void removeActionListener(ActionListener l)
-    {
-	actions.removeElement(l);
-    }
+  public void removeActionListener(ActionListener l)
+  {
+    actions.removeElement(l);
+  }
 
-    public void selectAll()
-    {
-    }
+  public void selectAll()
+  {
+  }
 }

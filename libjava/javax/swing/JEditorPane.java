@@ -1,4 +1,4 @@
-/* JEditorPane.java -- 
+/* JEditorPane.java --
    Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -35,199 +35,228 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-
 package javax.swing;
 
 import java.awt.Dimension;
 import java.awt.event.KeyEvent;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import javax.accessibility.AccessibleContext;
+import javax.swing.event.HyperlinkEvent;
+import javax.swing.event.HyperlinkListener;
 import javax.swing.text.EditorKit;
 import javax.swing.text.JTextComponent;
 import javax.swing.text.PlainEditorKit;
-import javax.swing.event.HyperlinkEvent;
-import javax.swing.event.HyperlinkListener;
+
 
 public class JEditorPane extends JTextComponent
 {
   private static final long serialVersionUID = 3140472492599046285L;
+  URL page_url;
+  EditorKit kit;
+  String ctype = "text/plain";
+  boolean focus_root;
+  boolean manages_focus;
 
-    URL page_url;
-    EditorKit kit;
-    String ctype = "text/plain";
-    boolean focus_root;
-    boolean manages_focus;
+  public JEditorPane()
+  {
+  }
 
+  public JEditorPane(String url) throws IOException
+  {
+    this();
+    setPage(url);
+  }
 
-    public JEditorPane()
-    {
-    }
+  public JEditorPane(String type, String text)
+  {
+    ctype = text;
+    setText(text);
+  }
 
-    public JEditorPane(String url)
-      throws IOException
-    {
-	this();
-	setPage(url);
-    }
-    
-    public JEditorPane(String type, String text)
-    {
-	ctype = text;
-	setText(text);
-    }
-    
-    public JEditorPane(URL url)
-      throws IOException
-    {
-	setPage(url);
-    }
+  public JEditorPane(URL url) throws IOException
+  {
+    setPage(url);
+  }
 
-    protected  EditorKit createDefaultEditorKit()
-    {	return new PlainEditorKit();    }
-    
-    static EditorKit createEditorKitForContentType(String type)
-    {	return new PlainEditorKit();     }
-    
+  protected EditorKit createDefaultEditorKit()
+  {
+    return new PlainEditorKit();
+  }
+
+  static EditorKit createEditorKitForContentType(String type)
+  {
+    return new PlainEditorKit();
+  }
+
   void fireHyperlinkUpdate(HyperlinkEvent e)
   {
   }
 
   public AccessibleContext getAccessibleContext()
-  {      return null;  }
+  {
+    return null;
+  }
 
   String getContentType()
-    {  return ctype;   }
+  {
+    return ctype;
+  }
 
   EditorKit getEditorKit()
-    {  return kit;    }
-    
+  {
+    return kit;
+  }
+
   static String getEditorKitClassNameForContentType(String type)
-    { return "text/plain";  }
-  
+  {
+    return "text/plain";
+  }
+
   EditorKit getEditorKitForContentType(String type)
-    { return kit;  }
-    
-    public Dimension getPreferredSize()
-    {
-	//Returns the preferred size for the JEditorPane.  
-	return super.getPreferredSize();
-    }
+  {
+    return kit;
+  }
+
+  public Dimension getPreferredSize()
+  {
+    //Returns the preferred size for the JEditorPane.  
+    return super.getPreferredSize();
+  }
 
   public boolean getScrollableTracksViewportHeight()
-    {  return false;  }
+  {
+    return false;
+  }
+
   public boolean getScrollableTracksViewportWidth()
-    {  return false;  }
+  {
+    return false;
+  }
 
   URL getPage()
-    { return page_url;  }
+  {
+    return page_url;
+  }
 
-  protected  InputStream getStream(URL page)
-    {	
-	try {
-	    return page.openStream();    
-	} catch (Exception e) {
-	    System.out.println("Hhmmm, failed to open stream: " + e);
-	}	
-	return null;
-    }
+  protected InputStream getStream(URL page)
+  {
+    try
+      {
+	return page.openStream();
+      }
+    catch (Exception e)
+      {
+	System.out.println("Hhmmm, failed to open stream: " + e);
+      }
+    return null;
+  }
 
-    public String getText()
-    { return super.getText();    }
-    
-    public String getUIClassID()
-    {    return "EditorPaneUI";  }
+  public String getText()
+  {
+    return super.getText();
+  }
 
-    public boolean isFocusCycleRoot()
-    { return focus_root;    }
+  public String getUIClassID()
+  {
+    return "EditorPaneUI";
+  }
 
-    public boolean isManagingFocus()
-    { return manages_focus;  }
+  public boolean isFocusCycleRoot()
+  {
+    return focus_root;
+  }
 
-  protected  String paramString()
-    { return "JEditorPane";  }
-    
-  protected  void processComponentKeyEvent(KeyEvent e)
-    {
-	//Overridden to handle processing of tab/shift tab. 
-    }
-    
+  public boolean isManagingFocus()
+  {
+    return manages_focus;
+  }
+
+  protected String paramString()
+  {
+    return "JEditorPane";
+  }
+
+  protected void processComponentKeyEvent(KeyEvent e)
+  {
+    //Overridden to handle processing of tab/shift tab. 
+  }
+
   protected void processKeyEvent(KeyEvent e)
-    {
-	//Make sure that TAB and Shift-TAB events get consumed, so that awt doesn't attempt focus traversal.  
-    }
-    
-    void read(InputStream in, Object desc)
-    {
-	//This method initializes from a stream. 
-    }
-    
-    static void registerEditorKitForContentType(String type, String classname)
-    {
-	//Establishes the default bindings of type to classname. 
-    }
-    
-    static void registerEditorKitForContentType(String type, String classname, ClassLoader loader)
-    {
-	//Establishes the default bindings of type to classname.  
-    }
-    
-    void replaceSelection(String content)
-    {
-	//Replaces the currently selected content with new content represented by the given string. 
-    }
-    
-    protected  void scrollToReference(String reference)
-    {
-	//Scrolls the view to the given reference location (that is, the value returned by the UL.getRef method for the URL being displayed).  
-    }
-    
-    void setContentType(String type)
-    {
-	ctype = type;
-	invalidate();
-	repaint();
-    }
-    
-    void setEditorKit(EditorKit kit)
-    {
-	this.kit = kit;
-	invalidate();
-	repaint();
-    }
-    
-    void setEditorKitForContentType(String type, EditorKit k)
-    {
-	ctype = type;
-	setEditorKit(k);
-    }
-  
-  void setPage(String url)
-    throws IOException
-    {
-	//  Sets the current URL being displayed.  
-    }
-    
-    void setPage(URL page)
-    throws IOException
-    {
-	//    Sets the current URL being displayed.  
-    }
-    
-    public void setText(String t)
-    {	
-	super.setText(t);
-    }
+  {
+    //Make sure that TAB and Shift-TAB events get consumed, so that awt doesn't attempt focus traversal.  
+  }
+
+  void read(InputStream in, Object desc)
+  {
+    //This method initializes from a stream. 
+  }
+
+  static void registerEditorKitForContentType(String type, String classname)
+  {
+    //Establishes the default bindings of type to classname. 
+  }
+
+  static void registerEditorKitForContentType(String type, String classname,
+                                              ClassLoader loader)
+  {
+    //Establishes the default bindings of type to classname.  
+  }
+
+  void replaceSelection(String content)
+  {
+    //Replaces the currently selected content with new content represented by the given string. 
+  }
+
+  protected void scrollToReference(String reference)
+  {
+    //Scrolls the view to the given reference location (that is, the value returned by the UL.getRef method for the URL being displayed).  
+  }
+
+  void setContentType(String type)
+  {
+    ctype = type;
+    invalidate();
+    repaint();
+  }
+
+  void setEditorKit(EditorKit kit)
+  {
+    this.kit = kit;
+    invalidate();
+    repaint();
+  }
+
+  void setEditorKitForContentType(String type, EditorKit k)
+  {
+    ctype = type;
+    setEditorKit(k);
+  }
+
+  void setPage(String url) throws IOException
+  {
+    //  Sets the current URL being displayed.  
+  }
+
+  void setPage(URL page) throws IOException
+  {
+    //    Sets the current URL being displayed.  
+  }
+
+  public void setText(String t)
+  {
+    super.setText(t);
+  }
 
   public void addHyperlinkListener(HyperlinkListener listener)
   {
-    listenerList.add (HyperlinkListener.class, listener);
+    listenerList.add(HyperlinkListener.class, listener);
   }
-    
-  public void removeHyperlinkListener (HyperlinkListener listener)
+
+  public void removeHyperlinkListener(HyperlinkListener listener)
   {
-    listenerList.remove (HyperlinkListener.class, listener);
+    listenerList.remove(HyperlinkListener.class, listener);
   }
 
   /**
@@ -235,7 +264,6 @@ public class JEditorPane extends JTextComponent
    */
   public HyperlinkListener[] getHyperlinkListeners()
   {
-    return (HyperlinkListener[]) getListeners (HyperlinkListener.class);
+    return (HyperlinkListener[]) getListeners(HyperlinkListener.class);
   }
-    
-} // class JEditorPane
+}

@@ -1,5 +1,16 @@
 2004-06-10  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/ButtonGroup.java,
+	javax/swing/ImageIcon.java,
+	javax/swing/JEditorPane.java,
+	javax/swing/JRootPane.java,
+	javax/swing/JTextField.java,
+	javax/swing/LookAndFeel.java,
+	javax/swing/plaf/basic/BasicTextUI.java:
+	Reindented.
+
+2004-06-10  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/text/Style.java: Added javadocs.
 
 2004-06-10  Michael Koch  <konqueror@gmx.de>

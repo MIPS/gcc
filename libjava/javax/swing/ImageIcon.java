@@ -1,4 +1,4 @@
-/* ImageIcon.java -- 
+/* ImageIcon.java --
    Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -35,7 +35,6 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-
 package javax.swing;
 
 import java.awt.Component;
@@ -46,63 +45,72 @@ import java.awt.Toolkit;
 import java.io.Serializable;
 import java.net.URL;
 
-public class ImageIcon implements Icon, Serializable
+
+public class ImageIcon
+  implements Icon, Serializable
 {
   private static final long serialVersionUID = 532615968316031794L;
-
-    Image image;
-    String file, descr;
-    Component observer;
+  Image image;
+  String file;
+  String descr;
+  Component observer;
 
   public ImageIcon(String s)
-    {
-    	// if description is not specified, then file name becomes
-	// desciption for this icon
-	
-	this(s, s);
-    }
+  {
+    // if description is not specified, then file name becomes
+    // desciption for this icon
+    this(s, s);
+  }
 
   public ImageIcon(Image image)
   {
   }
 
-  public ImageIcon(String file,
-	      String descr)
-    {
-        this.file = file;
-        this.descr = descr;
+  public ImageIcon(String file, String descr)
+  {
+    this.file = file;
+    this.descr = descr;
 
-        image = Toolkit.getDefaultToolkit().getImage(file);
-        if (image == null) {
-            return;
-        }
-        //loadImage(image);
-    }
+    image = Toolkit.getDefaultToolkit().getImage(file);
+    if (image == null)
+      return;
 
-    // not in SUN's spec !!!
-    public void setParent(Component p)
-    {
-	observer = p;
-    }
+    //loadImage(image);
+  }
 
-    public Image getImage() 
-    {  return image;    }
+  // not in SUN's spec !!!
+  public void setParent(Component p)
+  {
+    observer = p;
+  }
 
-    public String getDescription() 
-    {  return descr;    }
-    public void setDescription(String description) 
-    {  this.descr = description;    }
+  public Image getImage()
+  {
+    return image;
+  }
 
-    public int getIconHeight()
-    {	return image.getHeight(observer);    }
-    public int getIconWidth()
-    {	return image.getWidth(observer);    }
+  public String getDescription()
+  {
+    return descr;
+  }
 
-    public void paintIcon(Component c, 
-			  Graphics g,
-			  int x, 
-			  int y)
-    {
-	g.drawImage(image, x, y, observer);
-    }
+  public void setDescription(String description)
+  {
+    this.descr = description;
+  }
+
+  public int getIconHeight()
+  {
+    return image.getHeight(observer);
+  }
+
+  public int getIconWidth()
+  {
+    return image.getWidth(observer);
+  }
+
+  public void paintIcon(Component c, Graphics g, int x, int y)
+  {
+    g.drawImage(image, x, y, observer);
+  }
 }
