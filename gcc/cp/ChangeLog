@@ -1,3 +1,82 @@
+1998-11-16  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* typeck2.c (my_friendly_abort): Don't fatal twice in a row.
+
+	* typeck.c (c_expand_start_case): Use build_expr_type_conversion.
+	Simplify.
+
+	* parse.y (structsp): Fix cut-and-paste error.
+
+	* init.c (build_new): Complain about non-integral size.
+
+	* parse.y (unary_expr): Complain about defining types in sizeof.
+
+	* typeck.c (expr_sizeof): Complain about sizeof an overloaded fn.
+
+	* rtti.c (build_x_typeid): Complain about typeid without 
+	including <typeinfo>.
+	(get_typeid): Likewise.  Complain about typeid of incomplete type.
+	(get_tinfo_fn_dynamic): Likewise.
+	(get_typeid_1): Not static anymore.
+	* except.c (build_eh_type_type): Use get_typeid_1.
+
+	* rtti.c (build_dynamic_cast_1): Give errors for dynamic_cast to
+	ambiguous or private bases.  Fix warning for reference cast.
+
+1998-11-16  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.h (DECL_TEMPLATE_INSTANTIATED): New macro.
+	* decl.c (duplicate_decls): Remove special-case code to deal with
+	template friends, and just do the obvious thing.
+	* pt.c (register_specialization): Tweak for clarity, and also to
+	clear DECL_INITIAL for an instantiation before it is merged with a
+	specialization.
+	(check_explicit_specialization): Fix indentation.
+	(tsubst_friend_function): Handle both definitions in friend
+	declaration and outside friend declarations.
+	(tsubst_decl): Don't clear DECL_INITIAL for an instantiation.
+	(regenerate_decl_from_template): Tweak accordingly.
+	(instantiate_decl): Likewise.
+	
+1998-11-16  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (cplus_expand_expr_stmt): Promote warning about naked
+	member function reference to error.
+	* cvt.c (ocp_convert): Complain about converting an overloaded 
+	function to void.
+
+	* init.c (build_offset_ref): Just return a lone static member
+	function.
+
+	* decl.c (cp_finish_decl): Only complain about real CONSTRUCTORs,
+	not internal ones.
+
+	* typeck.c (build_binary_op_nodefault): Improve error handling.
+
+	* decl.c (grokfndecl): Complain about making 'main' a template.
+
+	* typeck.c (string_conv_p): Don't convert from wchar_t[] to char*.
+
+	* call.c (build_method_call): Handle a BIT_NOT_EXPR around a 
+	TYPE_DECL in a template.
+
+1998-11-15  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* typeck2.c (my_friendly_abort): Add URL in the other case, too.
+
+	* decl.c (struct cp_function): Add named_label_uses.
+	(push_cp_function_context): Save it.
+	(pop_cp_function_context): Restore it.
+	(define_label): Also complain about jumping into the scope of 
+	non-POD objects that don't have constructors.
+	* tree.c (pod_type_p): New fn.
+
+	* pt.c (instantiate_class_template): Clear TYPE_BEING_DEFINED sooner.
+	* rtti.c (synthesize_tinfo_fn): Call import_export_decl here.
+	(get_tinfo_fn): Not here.
+	* repo.c (repo_get_id): Abort if we get called for an incomplete
+	type.
+
 1998-11-13  Mark Mitchell  <mark@markmitchell.com>
 
 	* except.c (expand_throw): Make sure first argument to

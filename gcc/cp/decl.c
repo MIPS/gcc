@@ -2989,9 +2989,6 @@ duplicate_decls (newdecl, olddecl)
 			     DECL_TEMPLATE_RESULT (olddecl)))
 	cp_error ("invalid redeclaration of %D", newdecl);
       TREE_TYPE (olddecl) = TREE_TYPE (DECL_TEMPLATE_RESULT (olddecl));
-      DECL_TEMPLATE_PARMS (olddecl) = DECL_TEMPLATE_PARMS (newdecl);
-      if (DECL_TEMPLATE_INFO (newdecl))
-	DECL_TEMPLATE_INFO (olddecl) = DECL_TEMPLATE_INFO (newdecl);
       DECL_TEMPLATE_SPECIALIZATIONS (olddecl) 
 	= chainon (DECL_TEMPLATE_SPECIALIZATIONS (olddecl),
 		   DECL_TEMPLATE_SPECIALIZATIONS (newdecl));
@@ -3123,11 +3120,7 @@ duplicate_decls (newdecl, olddecl)
       DECL_IN_AGGR_P (newdecl) = DECL_IN_AGGR_P (olddecl);
       DECL_ACCESS (newdecl) = DECL_ACCESS (olddecl);
       DECL_NONCONVERTING_P (newdecl) = DECL_NONCONVERTING_P (olddecl);
-      if (DECL_TEMPLATE_INFO (newdecl) == NULL_TREE)
-	{
-	  DECL_TEMPLATE_INFO (newdecl) = DECL_TEMPLATE_INFO (olddecl);
-	  DECL_USE_TEMPLATE (newdecl) = DECL_USE_TEMPLATE (olddecl);
-	}
+      DECL_TEMPLATE_INFO (newdecl) = DECL_TEMPLATE_INFO (olddecl);
       olddecl_friend = DECL_FRIEND_P (olddecl);
     }
 
@@ -4346,9 +4339,8 @@ define_label (filename, line, name)
 			   and they should be cleaned up
 			   by the time we get to the label.  */
 			&& ! DECL_ARTIFICIAL (new_decls)
-			&& ((DECL_INITIAL (new_decls) != NULL_TREE
-			     && DECL_INITIAL (new_decls) != error_mark_node)
-			    || TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (new_decls))))
+			&& !(DECL_INITIAL (new_decls) == NULL_TREE
+			     && pod_type_p (TREE_TYPE (new_decls))))
 		      {
 			if (! identified) 
 			  {
@@ -4358,8 +4350,13 @@ define_label (filename, line, name)
 						      "  from here");
 			    identified = 1;
 			}
-			cp_error_at ("  crosses initialization of `%#D'",
-				     new_decls);
+			if (DECL_INITIAL (new_decls)
+			    || TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (new_decls)))
+			  cp_error_at ("  crosses initialization of `%#D'",
+				       new_decls);
+			else
+			  cp_error_at ("  enters scope of non-POD `%#D'",
+					 new_decls);
 		      }
 		    new_decls = TREE_CHAIN (new_decls);
 		  }
@@ -7213,7 +7210,8 @@ cp_finish_decl (decl, init, asmspec_tree, need_pop, flags)
 	{
 	  if (TREE_CODE (type) == ARRAY_TYPE)
 	    init = digest_init (type, init, (tree *) 0);
-	  else if (TREE_CODE (init) == CONSTRUCTOR)
+	  else if (TREE_CODE (init) == CONSTRUCTOR
+		   && TREE_HAS_CONSTRUCTOR (init))
 	    {
 	      if (TYPE_NON_AGGREGATE_CLASS (type))
 		{
@@ -8069,6 +8067,8 @@ grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
 
   if (ctype == NULL_TREE && DECL_MAIN_P (decl))
     {
+      if (processing_template_decl)
+	error ("cannot declare `main' to be a template");
       if (inlinep)
 	error ("cannot declare `main' to be inline");
       else if (! publicp)
@@ -13887,7 +13887,7 @@ cplus_expand_expr_stmt (exp)
       if (TREE_CODE (exp) == ADDR_EXPR || TREE_CODE (exp) == TREE_LIST)
 	error ("address of overloaded function with no contextual type information");
       else if (TREE_CODE (exp) == COMPONENT_REF)
-	warning ("useless reference to a member function name, did you forget the ()?");
+	error ("invalid reference to a member function name, did you forget the ()?");
     }
   else
     {
@@ -13999,6 +13999,7 @@ struct cp_function
   int parms_stored;
   int temp_name_counter;
   tree named_labels;
+  struct named_label_list *named_label_uses;
   tree shadowed_labels;
   tree ctor_label;
   tree dtor_label;
@@ -14035,6 +14036,7 @@ push_cp_function_context (context)
   cp_function_chain = p;
 
   p->named_labels = named_labels;
+  p->named_label_uses = named_label_uses;
   p->shadowed_labels = shadowed_labels;
   p->returns_value = current_function_returns_value;
   p->returns_null = current_function_returns_null;
@@ -14077,6 +14079,7 @@ pop_cp_function_context (context)
   cp_function_chain = p->next;
 
   named_labels = p->named_labels;
+  named_label_uses = p->named_label_uses;
   shadowed_labels = p->shadowed_labels;
   current_function_returns_value = p->returns_value;
   current_function_returns_null = p->returns_null;

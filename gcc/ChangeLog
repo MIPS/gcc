@@ -1,3 +1,59 @@
+Tue Nov 17 17:13:53 1998  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* flow.c (insn_dead_p): New argument NOTES.  Changed all callers.
+
+Mon Nov 16 17:56:07 1998  David Edelsohn  <edelsohn@mhpcc.edu>
+
+	* rs6000.c (output_mi_thunk): Improve test for local branch.
+
+Mon Nov 16 17:56:07 1998  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* rs6000.c (output_mi_thunk): Correct test for aggregate values.
+
+Mon Nov 16 21:02:52 1998  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* reload1.c (reload_reg_free_before_p): Delete.
+	Changed all callers to use reload_reg_free_for_value_p instead.
+	(reload_reg_free_for_value_p): Handle more reload types.
+	A RELOAD_FOR_INPUT doesn't conflict with its
+	RELOAD_FOR_INPUT_ADDRESS / RELOAD_FOR_INPADDR_ADDRESS.
+	Add special case for OUT == const0_rtx.
+	Added ignore_address_reloads argument.  Changed all callers.
+
+Mon Nov 16 02:22:29 1998  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* toplev.c (compile_file): Don't pedwarn about undefined static
+	functions just because we passed -Wunused.
+
+Mon Nov 16 04:41:41 1998  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* function.c (purge_addressof_1): Unshare rtl created by
+	store_bit_field.
+
+Mon Nov 16 04:23:06 1998  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* regmove.c (regmove_optimize): Don't do anything but
+	optimize_reg_copy[123] when flag_regmove is not set.
+
+Sat Nov 14 15:05:07 1998  Richard Henderson  <rth@cygnus.com>
+
+	* alpha.md (addsi3, subsi3): Revise 5 Nov change to store DImode
+	value in paradoxical SImode result, rather than truncating midpoint.
+
+Fri Nov 13 22:19:23 1998  Richard Henderson  <rth@cygnus.com>
+
+	* alpha.c (reg_not_elim_operand): New.
+	* alpha.h (PREDICATE_CODES): Add it.
+	* alpha.md (s48addq, s48subq patterns): Use it as the predicate
+	for the multiplicand.
+
+Fri Nov 13 22:50:37 1998  David Edelsohn  <edelsohn@mhpcc.edu>
+
+	* rs6000.md (movsf): Remove explicit secondary-reload-like
+	functionality.  Only truncate SFmode store if in FPR.
+	(movsf splitters): Combine const_double splitters.
+	(movsf_hardfloat): Add GPR support.
+
 Fri Nov 13 11:02:11 1998  Stan Cox  <scox@cygnus.com>
 
 	* splet.h (SUBTARGET_OVERRIDE_OPTIONS): New to
@@ -1241,7 +1297,6 @@ Thu Oct 22 15:46:23 1998  Per Bothner (bothner@cygnus.com)
 	* Makefile.in (distdir-cvs, distdir-start):  Clean up so it
 	works if "$(srcdir)" != ".".
 
->>>>>>> 1.2469
 Wed Oct 21 19:23:59 1998  Jim Wilson  <wilson@cygnus.com>
 
 	* expmed.c (store_bit_field): If need to add a SUBREG, then remove
@@ -5307,7 +5362,7 @@ Sun Aug 16 01:53:21 1998  Richard Henderson  <rth@cygnus.com>
 	* reload.c (find_equiv_reg): Reject equivalences separated
 	by a volatile instruction.
 
-Sun Aug 16 00:21:44 1998 Franz Sirl <Franz.Sirl-kernel@lauterbach.com> 
+Sun Aug 16 00:21:44 1998 Franz Sirl <Franz.Sirl-kernel@lauterbach.com>
 
         * rs6000/linux.h (CPP_OS_DEFAULT_SPEC): Define.
 

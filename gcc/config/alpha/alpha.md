@@ -427,19 +427,22 @@
   ""
   "
 {
-  rtx op1 = gen_lowpart (DImode, operands[1]);
-  rtx op2 = gen_lowpart (DImode, operands[2]);
-
-  if (! cse_not_expected)
+  if (optimize)
     {
-      rtx tmp = gen_reg_rtx (DImode);
-      emit_insn (gen_adddi3 (tmp, op1, op2));
-      emit_move_insn (operands[0], gen_lowpart (SImode, tmp));
+      rtx op1 = gen_lowpart (DImode, operands[1]);
+      rtx op2 = gen_lowpart (DImode, operands[2]);
+
+      if (! cse_not_expected)
+        {
+          rtx tmp = gen_reg_rtx (DImode);
+          emit_insn (gen_adddi3 (tmp, op1, op2));
+          emit_move_insn (gen_lowpart (DImode, operands[0]), tmp);
+        }
+      else
+        emit_insn (gen_adddi3 (gen_lowpart (DImode, operands[0]), op1, op2));
+      DONE;
     }
-  else
-    emit_insn (gen_adddi3 (gen_lowpart (DImode, operands[0]), op1, op2));
-  DONE;
-} ")
+}")
 
 (define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=r,r,r,r")
@@ -484,7 +487,7 @@
 	(sign_extend:DI
 	 (plus:SI (match_operand:SI 1 "register_operand" "")
 		  (match_operand:SI 2 "const_int_operand" ""))))
-   (clobber (match_operand:SI 3 "register_operand" ""))]
+   (clobber (match_operand:SI 3 "reg_not_elim_operand" ""))]
   "! sext_add_operand (operands[2], SImode) && INTVAL (operands[2]) > 0
    && INTVAL (operands[2]) % 4 == 0"
   [(set (match_dup 3) (match_dup 4))
@@ -554,24 +557,24 @@
 
 (define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=r,r")
-	(plus:SI (mult:SI (match_operand:SI 1 "reg_or_0_operand" "rJ,rJ")
+	(plus:SI (mult:SI (match_operand:SI 1 "reg_not_elim_operand" "r,r")
 			  (match_operand:SI 2 "const48_operand" "I,I"))
 		 (match_operand:SI 3 "sext_add_operand" "rI,O")))]
   ""
   "@
-   s%2addl %r1,%3,%0
-   s%2subl %r1,%n3,%0")
+   s%2addl %1,%3,%0
+   s%2subl %1,%n3,%0")
 
 (define_insn ""
   [(set (match_operand:DI 0 "register_operand" "=r,r")
 	(sign_extend:DI
-	 (plus:SI (mult:SI (match_operand:SI 1 "reg_or_0_operand" "rJ,rJ")
+	 (plus:SI (mult:SI (match_operand:SI 1 "reg_not_elim_operand" "r,r")
 			   (match_operand:SI 2 "const48_operand" "I,I"))
 		  (match_operand:SI 3 "sext_add_operand" "rI,O"))))]
   ""
   "@
-   s%2addl %r1,%3,%0
-   s%2subl %r1,%n3,%0")
+   s%2addl %1,%3,%0
+   s%2subl %1,%n3,%0")
 
 (define_split
   [(set (match_operand:DI 0 "register_operand" "")
@@ -581,7 +584,7 @@
 					       (match_operand 3 "" "")])
 			   (match_operand:SI 4 "const48_operand" ""))
 		  (match_operand:SI 5 "add_operand" ""))))
-   (clobber (match_operand:DI 6 "register_operand" ""))]
+   (clobber (match_operand:DI 6 "reg_not_elim_operand" ""))]
   ""
   [(set (match_dup 6) (match_dup 7))
    (set (match_dup 0)
@@ -596,12 +599,12 @@
 
 (define_insn ""
   [(set (match_operand:DI 0 "register_operand" "=r,r")
-	(plus:DI (mult:DI (match_operand:DI 1 "reg_or_0_operand" "rJ,rJ")
+	(plus:DI (mult:DI (match_operand:DI 1 "reg_not_elim_operand" "r,r")
 			  (match_operand:DI 2 "const48_operand" "I,I"))
 		 (match_operand:DI 3 "sext_add_operand" "rI,O")))]
   ""
   "@
-   s%2addq %r1,%3,%0
+   s%2addq %1,%3,%0
    s%2subq %1,%n3,%0")
 
 ;; These variants of the above insns can occur if the third operand
@@ -670,9 +673,7 @@
   [(set (match_dup 5)
 	(plus:SI (mult:SI (match_dup 1) (match_dup 2)) (match_dup 3)))
    (set (match_dup 0) (sign_extend:DI (plus:SI (match_dup 5) (match_dup 4))))]
-  "
-{ operands[5] = gen_lowpart (SImode, operands[0]);
-}")
+  "operands[5] = gen_lowpart (SImode, operands[0]);")
 
 (define_insn ""
   [(set (match_operand:DI 0 "some_operand" "=&r")
@@ -721,18 +722,21 @@
   ""
   "
 {
-  rtx op1 = gen_lowpart (DImode, operands[1]);
-  rtx op2 = gen_lowpart (DImode, operands[2]);
-
-  if (! cse_not_expected)
+  if (optimize)
     {
-      rtx tmp = gen_reg_rtx (DImode);
-      emit_insn (gen_subdi3 (tmp, op1, op2));
-      emit_move_insn (operands[0], gen_lowpart (SImode, tmp));
+      rtx op1 = gen_lowpart (DImode, operands[1]);
+      rtx op2 = gen_lowpart (DImode, operands[2]);
+
+      if (! cse_not_expected)
+        {
+          rtx tmp = gen_reg_rtx (DImode);
+          emit_insn (gen_subdi3 (tmp, op1, op2));
+          emit_move_insn (gen_lowpart (DImode, operands[0]), tmp);
+        }
+      else
+        emit_insn (gen_subdi3 (gen_lowpart (DImode, operands[0]), op1, op2));
+      DONE;
     }
-  else
-    emit_insn (gen_subdi3 (gen_lowpart (DImode, operands[0]), op1, op2));
-  DONE;
 } ")
 
 (define_insn ""
@@ -758,28 +762,28 @@
 
 (define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=r")
-	(minus:SI (mult:SI (match_operand:SI 1 "reg_or_0_operand" "rJ")
+	(minus:SI (mult:SI (match_operand:SI 1 "reg_not_elim_operand" "r")
 			   (match_operand:SI 2 "const48_operand" "I"))
 		  (match_operand:SI 3 "reg_or_8bit_operand" "rI")))]
   ""
-  "s%2subl %r1,%3,%0")
+  "s%2subl %1,%3,%0")
 
 (define_insn ""
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(sign_extend:DI
-	 (minus:SI (mult:SI (match_operand:SI 1 "reg_or_0_operand" "rJ")
+	 (minus:SI (mult:SI (match_operand:SI 1 "reg_not_elim_operand" "r")
 			    (match_operand:SI 2 "const48_operand" "I"))
 		   (match_operand:SI 3 "reg_or_8bit_operand" "rI"))))]
   ""
-  "s%2subl %r1,%3,%0")
+  "s%2subl %1,%3,%0")
 
 (define_insn ""
   [(set (match_operand:DI 0 "register_operand" "=r")
-	(minus:DI (mult:DI (match_operand:DI 1 "reg_or_0_operand" "rJ")
+	(minus:DI (mult:DI (match_operand:DI 1 "reg_not_elim_operand" "r")
 			   (match_operand:DI 2 "const48_operand" "I"))
 		  (match_operand:DI 3 "reg_or_8bit_operand" "rI")))]
   ""
-  "s%2subq %r1,%3,%0")
+  "s%2subq %1,%3,%0")
 
 (define_insn "mulsi3"
   [(set (match_operand:SI 0 "register_operand" "=r")

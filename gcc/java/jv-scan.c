@@ -34,6 +34,7 @@ void fatal VPROTO((char *s, ...));
 void warning VPROTO((char *s, ...));
 void gcc_obstack_init PROTO ((struct obstack *obstack));
 extern void reset_report PROTO ((void));
+extern char *xmalloc PROTO((size_t));
 
 #define JC1_LITE
 #include "parse.h"
@@ -167,31 +168,6 @@ fatal VPROTO((char *s, ...))
   fputc ('\n', stderr);
   va_end (ap);
   exit (1);
-}
-
-char *
-xmalloc (size)
-     unsigned size;
-{
-  register char *value;
-
-  if (size == 0)
-    size = 1;
-
-  value = (char *) malloc (size);
-  if (value == 0)
-    fatal ("virtual memory exhausted");
-  return value;
-}
-
-char *
-xstrdup (string)
-     char *string;
-{
-  int length = strlen (string)+1;
-  char *to_return = xmalloc (length);
-  strcpy (to_return, string);
-  return to_return;
 }
 
 void

@@ -1618,6 +1618,8 @@ build_offset_ref (type, name)
 	      return error_mark_node;
 	    }
 	  mark_used (t);
+	  if (DECL_STATIC_FUNCTION_P (t))
+	    return t;
 	  return build (OFFSET_REF, TREE_TYPE (t), decl, t);
 	}
 
@@ -1958,6 +1960,11 @@ build_new (placement, decl, init, use_global_new)
 		}
 	      else
 		{
+		  int flags = pedantic ? WANT_INT : (WANT_INT | WANT_ENUM);
+		  if (build_expr_type_conversion (flags, this_nelts, 0)
+		      == NULL_TREE)
+		    pedwarn ("size in array new must have integral type");
+
 		  this_nelts = save_expr (cp_convert (sizetype, this_nelts));
 		  absdcl = TREE_OPERAND (absdcl, 0);
 	          if (this_nelts == integer_zero_node)

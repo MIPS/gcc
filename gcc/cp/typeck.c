@@ -1520,15 +1520,12 @@ expr_sizeof (e)
       && (TREE_CODE (TREE_TYPE (e)) == ARRAY_TYPE
 	  || TREE_CODE (TREE_TYPE (e)) == FUNCTION_TYPE))
     e = default_conversion (e);
-  else if (TREE_CODE (e) == TREE_LIST)
+  else if (is_overloaded_fn (e))
     {
-      tree t = TREE_VALUE (e);
-      if (t != NULL_TREE
-	  && ((TREE_TYPE (t)
-	       && TREE_CODE (TREE_TYPE (t)) == FUNCTION_TYPE)
-	      || is_overloaded_fn (t)))
-	pedwarn ("ANSI C++ forbids taking the sizeof a function type");
+      pedwarn ("ANSI C++ forbids taking the sizeof a function type");
+      return size_int (1);
     }
+
   return c_sizeof (TREE_TYPE (e));
 }
   
@@ -1769,8 +1766,15 @@ string_conv_p (totype, exp, warn)
       && !same_type_p (t, wchar_type_node))
     return 0;
 
-  if (TREE_CODE (exp) != STRING_CST)
+  if (TREE_CODE (exp) == STRING_CST)
     {
+      /* Make sure that we don't try to convert between char and wchar_t.  */
+      if (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (exp))) != t)
+	return 0;
+    }
+  else
+    {
+      /* Is this a string constant which has decayed to 'const char *'?  */
       t = build_pointer_type (build_qualified_type (t, TYPE_QUAL_CONST));
       if (!same_type_p (TREE_TYPE (exp), t))
 	return 0;
@@ -1782,7 +1786,7 @@ string_conv_p (totype, exp, warn)
 
   /* This warning is not very useful, as it complains about printf.  */
   if (warn && warn_write_strings)
-    cp_warning ("deprecated conversion from string constant to `char *'");
+    cp_warning ("deprecated conversion from string constant to `%T'", totype);
 
   return 1;
 }
@@ -3938,6 +3942,9 @@ build_binary_op_nodefault (code, orig_op0, orig_op1, error_code)
 	op0 = cp_convert (result_type, op0); 
       if (TREE_TYPE (op1) != result_type)
 	op1 = cp_convert (result_type, op1); 
+
+      if (op0 == error_mark_node || op1 == error_mark_node)
+	return error_mark_node;
     }
 
   if (build_type == NULL_TREE)
@@ -7280,45 +7287,26 @@ tree
 c_expand_start_case (exp)
      tree exp;
 {
-  tree type;
-  register enum tree_code code;
+  tree type, idx;
 
-  /* Convert from references, etc.  */
-  exp = default_conversion (exp);
-  type = TREE_TYPE (exp);
-  code = TREE_CODE (type);
-
-  if (IS_AGGR_TYPE_CODE (code))
-    exp = build_type_conversion (CONVERT_EXPR, integer_type_node, exp, 1);
-
+  exp = build_expr_type_conversion (WANT_INT | WANT_ENUM, exp, 1);
   if (exp == NULL_TREE)
     {
       error ("switch quantity not an integer");
       exp = error_mark_node;
     }
+  if (exp == error_mark_node)
+    return error_mark_node;
+
+  exp = default_conversion (exp);
   type = TREE_TYPE (exp);
-  code = TREE_CODE (type);
-
-  if (code != INTEGER_TYPE && code != ENUMERAL_TYPE && code != ERROR_MARK)
-    {
-      error ("switch quantity not an integer");
-      exp = error_mark_node;
-    }
-  else
-    {
-      tree idx;
-
-      exp = default_conversion (exp);
-      type = TREE_TYPE (exp);
-      idx = get_unwidened (exp, 0);
-      /* We can't strip a conversion from a signed type to an unsigned,
-	 because if we did, int_fits_type_p would do the wrong thing
-	 when checking case values for being in range,
-	 and it's too hard to do the right thing.  */
-      if (TREE_UNSIGNED (TREE_TYPE (exp))
-	  == TREE_UNSIGNED (TREE_TYPE (idx)))
-	exp = idx;
-    }
+  idx = get_unwidened (exp, 0);
+  /* We can't strip a conversion from a signed type to an unsigned,
+     because if we did, int_fits_type_p would do the wrong thing
+     when checking case values for being in range,
+     and it's too hard to do the right thing.  */
+  if (TREE_UNSIGNED (TREE_TYPE (exp)) == TREE_UNSIGNED (TREE_TYPE (idx)))
+    exp = idx;
 
   expand_start_case
     (1, fold (build1 (CLEANUP_POINT_EXPR, TREE_TYPE (exp), exp)),

@@ -27,6 +27,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "config.h"
 #include "system.h"
 #include "obstack.h"
+#include "gansidecl.h"
 
 const char main_method_prefix[] = "main__";
 const char main_method_suffix[] = "Pt6JArray1ZPQ34java4lang6String";
@@ -34,24 +35,13 @@ const char class_mangling_prefix[] = "_CL_";
 
 struct obstack name_obstack;
 
+extern char *xmalloc PROTO((size_t));
+
 void
 error (const char *str)
 {
   fprintf (stderr, "%s\n", str);
   exit (-1);
-}
-
-void *
-xmalloc (size)
-     size_t size;
-{
-  void *ptr = malloc (size);
-  if (ptr == NULL)
-    {
-      fprintf (stderr, "Not enough memory!\n");
-      exit (-1);
-    }
-  return ptr;
 }
 
 void

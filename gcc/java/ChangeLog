@@ -1,3 +1,62 @@
+Sun Nov 15 17:14:17 1998  Per Bothner  <bothner@cygnus.com>
+
+	* jvgenmain.c:  Need to #include "gansidecl.h" (to get PROTO).
+
+	* jcf-write.c (perform_relocations):  Move check out one loop.
+
+Sun Nov 15 15:09:56 1998  Anthony Green  <green@hoser.cygnus.com>
+
+	* Make-lang.in: Fix reference to srcdir.
+	* jv-scan.c: Add missing xmalloc prototype.
+	* jvgenmain.c: Ditto.
+
+Sun Nov 15 14:36:29 1998  Per Bothner  <bothner@cygnus.com>
+
+	* decl.c (error_mark_node), java-tree.h:  New global.
+	* parse.y:  Use empty_stmt_node instead of size_zero_node.
+	(build_if_else_statement):  If missing else, use empty_stmt_node.
+
+	* parse.y (not_initialized_as_it_should_p):  Removed, with its callers.
+	(java_complete_expand_method):  Complain if return is missing.
+	(java_check_regular_methods):  Comment out incorrect error check.
+	(not_accessible_p):  Fix incorrect handling of protected methods.
+	(patch_method_invocation):  Pass correct context to not_accessible_p.
+	(find_applicable_accessible_methods_list):  Likewise.
+	(qualify_ambiguous_name):  If ARRAY_REF, it's an expression name.
+	(java_complete_tree):  For CASE_EXPR and DEFAULT_EXPR, set
+	TREE_TYPE (to void_type_node);  otherwise expand_expr crashes.
+	(patch_if_else_statement):  Fix setting of CAN_COMPLETE_NORMALLY.
+
+	* jcf-write.c (CHECK_OP, CHECK_PUT):  Add some error checking.
+	(push_int_const):  Remove reundant NOTE_PUSH.
+	(generate_bytecode_insns - case STRING_CST):  Do NOTE_PUSH.
+	(- case SWITCH_EXPR):  Fix code generation bug.
+	(- case PREDECREMENT_EXPR etc):  Remove redundant NOTE_PUSH.
+	(generate_classfile):  More robust for abstract methods.
+
+Sun Nov 15 13:52:39 1998  Anthony Green  <green@cygnus.com>
+
+	* Makefile.in: jv-scan and jvgenmain all require libiberty.
+	* Make-lang.in: Ditto.
+
+	* jv-scan.c: Remove xmalloc and xstrdup definitions.
+	* jvgenmain: Ditto.
+
+Sun Nov 15 14:10:56 1998  Per Bothner  <bothner@cygnus.com>
+
+	* jcf-parse.c (HANDLE_EXCEPTIONS_ATTRIBUTE):  New macro.
+
+	* jcf-io.c (find_class):  Simpler/cleaner structure fixes a bug.
+
+Sat Nov 14 17:19:18 1998  Per Bothner  <bothner@cygnus.com>
+
+	Allow uses of interface types to verify.  This is not really
+	type-safe, but it matches what Sun does, and is OK as long as
+	there are appropriate run-time checks.
+	* verify.c (merge_types):  If merging two interface types,
+	just set the result to java.lang.Object.
+	* expr.c (pop_type):  Any interface is matches by java.lang.Object.
+
 1998-11-13  Tom Tromey  <tromey@cygnus.com>
 
 	* gjavah.c (main): Handle --output-class-directory argument.
