@@ -282,9 +282,9 @@ struct propagate_block_info
 #ifdef HAVE_conditional_execution
   /* Indexed by register number, holds a reg_cond_life_info for each
      register that is not unconditionally live or dead.  */
-  splay_tree reg_cond_live;
+  splay_tree reg_cond_dead;
 
-  /* Bit N is set if register N is in an expression in reg_cond_live.  */
+  /* Bit N is set if register N is in an expression in reg_cond_dead.  */
   regset reg_cond_reg;
 #endif
 
@@ -3323,7 +3323,7 @@ propagate_block (bb, live, local_set, flags)
   pbi.flags = flags;
 
 #ifdef HAVE_conditional_execution
-  pbi.reg_cond_live = splay_tree_new (splay_tree_compare_ints, NULL,
+  pbi.reg_cond_dead = splay_tree_new (splay_tree_compare_ints, NULL,
 				      free_reg_cond_life_info);
   pbi.reg_cond_reg = INITIALIZE_REG_SET (reg_cond_reg_head);
 #endif
@@ -3583,7 +3583,7 @@ propagate_block (bb, live, local_set, flags)
   free_EXPR_LIST_list (&pbi.mem_set_list);
 
 #ifdef HAVE_conditional_execution
-  splay_tree_delete (pbi.reg_cond_live);
+  splay_tree_delete (pbi.reg_cond_dead);
   FREE_REG_SET (pbi.reg_cond_reg);
 #endif
 
@@ -4256,15 +4256,15 @@ mark_set_reg (pbi, new_dead, reg, cond, p_some_was_live, p_some_was_dead)
       /* If this is a store to a predicate register, the value of the
 	 predicate is changing, we don't know that the predicate as seen
 	 before is the same as that seen after.  Flush all dependant
-	 conditions from reg_cond_live.  This will make all such
+	 conditions from reg_cond_dead.  This will make all such
 	 conditionally live registers unconditionally live.  */
       if (REGNO_REG_SET_P (pbi->reg_cond_reg, regno))
 	flush_reg_cond_reg (pbi, regno);
 
       /* If this is an unconditional store, remove any conditional
-	 live that may have existed.  */
+	 life that may have existed.  */
       if (cond == NULL_RTX)
-	splay_tree_remove (pbi->reg_cond_live, regno);
+	splay_tree_remove (pbi->reg_cond_dead, regno);
       else
 	{
 	  splay_tree_node node;
@@ -4275,14 +4275,15 @@ mark_set_reg (pbi, new_dead, reg, cond, p_some_was_live, p_some_was_dead)
 	     It may have been conditionally used, or there may be a
 	     subsequent set with a complimentary condition.  */
 
-	  node = splay_tree_lookup (pbi->reg_cond_live, regno);
+	  node = splay_tree_lookup (pbi->reg_cond_dead, regno);
 	  if (node == NULL)
 	    {
 	      /* The register was unconditionally live previously.
-		 Invert the set condition and record that.  */
+		 Record the current condition as the condition under
+		 which it is dead.  */
 	      rcli = (struct reg_cond_life_info *) xmalloc (sizeof (*rcli));
-	      rcli->condition = not_reg_cond (cond);
-	      splay_tree_insert (pbi->reg_cond_live, regno,
+	      rcli->condition = alloc_EXPR_LIST (0, cond, NULL_RTX);
+	      splay_tree_insert (pbi->reg_cond_dead, regno,
 				 (splay_tree_value) rcli);
 
 	      SET_REGNO_REG_SET (pbi->reg_cond_reg, REGNO (XEXP (cond, 0)));
@@ -4293,17 +4294,15 @@ mark_set_reg (pbi, new_dead, reg, cond, p_some_was_live, p_some_was_dead)
 	  else
 	    {
 	      /* The register was conditionally live previously. 
-		 Subtract the new condition from the old.  */
+		 Add the new condition to the old.  */
 	      rcli = (struct reg_cond_life_info *) node->value;
 	      ncond = rcli->condition;
-	      ncond = nand_reg_cond (ncond, cond);
+	      ncond = ior_reg_cond (ncond, cond);
 
-	      if (ncond == const0_rtx)
-		{
-		  /* nand_reg_cond freed the (single) EXPR_LIST node.  */
-		  rcli->condition = NULL_TREE;
-		  splay_tree_remove (pbi->reg_cond_live, regno);
-		}
+	      /* If the register is now unconditionally dead, remove the
+		 entry in the splay_tree.  */
+	      if (ncond == const1_rtx)
+		splay_tree_remove (pbi->reg_cond_dead, regno);
 	      else
 		{
 		  rcli->condition = ncond;
@@ -4397,9 +4396,9 @@ flush_reg_cond_reg (pbi, regno)
 
   pair[0] = regno;
   pair[1] = -1;
-  while (splay_tree_foreach (pbi->reg_cond_live,
+  while (splay_tree_foreach (pbi->reg_cond_dead,
 			     flush_reg_cond_reg_1, pair) == -1)
-    splay_tree_remove (pbi->reg_cond_live, pair[1]);
+    splay_tree_remove (pbi->reg_cond_dead, pair[1]);
 }
 
 /* Logical arithmetic on predicate conditions.  IOR, NOT and NAND.
@@ -4730,7 +4729,7 @@ mark_used_reg (pbi, new_live, reg, cond, insn)
 
       if (some_was_live)
 	{
-	  node = splay_tree_lookup (pbi->reg_cond_live, regno);
+	  node = splay_tree_lookup (pbi->reg_cond_dead, regno);
 	  if (node == NULL)
 	    {
 	      /* The register was unconditionally live previously.
@@ -4739,15 +4738,18 @@ mark_used_reg (pbi, new_live, reg, cond, insn)
 	  else
 	    {
 	      /* The register was conditionally live previously. 
-		 Add the new condition to the old.  */
+		 Subtract the new life cond from the old death cond.  */
 	      rcli = (struct reg_cond_life_info *) node->value;
 	      ncond = rcli->condition;
-	      ncond = ior_reg_cond (ncond, cond);
+	      ncond = nand_reg_cond (ncond, cond);
 
 	      /* If the register is now unconditionally live, remove the
 		 entry in the splay_tree.  */
-	      if (ncond == const1_rtx)
-		splay_tree_remove (pbi->reg_cond_live, regno);
+	      if (ncond == const0_rtx)
+		{
+		  rcli->condition = NULL_RTX;
+		  splay_tree_remove (pbi->reg_cond_dead, regno);
+		}
 	      else
 		rcli->condition = ncond;
 	    }
@@ -4755,10 +4757,10 @@ mark_used_reg (pbi, new_live, reg, cond, insn)
       else
 	{
 	  /* The register was not previously live at all.  Record
-	     the condition under which it is now live.  */
+	     the condition under which it is still dead.  */
 	  rcli = (struct reg_cond_life_info *) xmalloc (sizeof (*rcli));
-	  rcli->condition = alloc_EXPR_LIST (0, cond, NULL_RTX);
-	  splay_tree_insert (pbi->reg_cond_live, regno,
+	  rcli->condition = not_reg_cond (cond);
+	  splay_tree_insert (pbi->reg_cond_dead, regno,
 			     (splay_tree_value) rcli);
 	}
     }
