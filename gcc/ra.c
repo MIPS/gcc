@@ -3750,30 +3750,30 @@ detect_remat_webs (void)
 	  if (pat)
 	    continue;
 	  /* For now we allow only constant sources.  */
-	  if (CONSTANT_P (src)
-	      /* If the whole thing is stable already, it is a source for
-		 remat, no matter how complicated (probably all needed
-		 resources for it are live everywhere, and don't take
-		 additional register resources).  */
-	      /* XXX Currently we can't use patterns which contain
-		 pseudos, _even_ if they are stable.
-		 The code simply isn't prepared for that.  All those
-		 operands can't be spilled (or the dependent remat webs are
-		 not remat anymore), so they would be oldwebs in the next
-		 iteration.  But currently oldwebs can't have their references
-		 changed.  The incremental machinery barfs on that.  */
-	      || (!rtx_unstable_p (src) && !contains_pseudo (src))
-	      /* Additionally also memrefs to stack-slots are usefull, when
-		 we created them ourself.  They might not have set their
-		 unchanging flag set, but nevertheless they are stable
-		 across the livetime in question.  */
-	      || (GET_CODE (src) == MEM
-		  && INSN_UID (insn) >= orig_max_uid
-		  && memref_is_stack_slot (src)))
-	    {
-	      if (want_to_remat (src))
-		pat = src;
-	    }
+	  if ((CONSTANT_P (src)
+	       /* If the whole thing is stable already, it is a source for
+		  remat, no matter how complicated (probably all needed
+		  resources for it are live everywhere, and don't take
+		  additional register resources).  */
+	       /* XXX Currently we can't use patterns which contain
+		  pseudos, _even_ if they are stable.  The code simply isn't
+		  prepared for that.  All those operands can't be spilled (or
+		  the dependent remat webs are not remat anymore), so they
+		  would be oldwebs in the next iteration.  But currently
+		  oldwebs can't have their references changed.  The
+		  incremental machinery barfs on that.  */
+	       || (!rtx_unstable_p (src) && !contains_pseudo (src))
+	       /* Additionally also memrefs to stack-slots are usefull, when
+		  we created them ourself.  They might not have set their
+		  unchanging flag set, but nevertheless they are stable across
+		  the livetime in question.  */
+	       || (GET_CODE (src) == MEM
+		   && INSN_UID (insn) >= orig_max_uid
+		   && memref_is_stack_slot (src)))
+	      /* And we must be able to construct an insn without
+		 side-effects to actually load that value into a reg.  */
+	      && want_to_remat (src))
+	    pat = src;
 	  else
 	    break;
 	}

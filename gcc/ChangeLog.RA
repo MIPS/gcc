@@ -1,3 +1,8 @@
+2002-06-17  Michael Matz  <matz@suse.de>
+
+	* ra.c (detect_remat_webs): Fail if the first found pattern
+	is not rematerializable.
+
 2002-06-13  Michael Matz  <matz@suse.de>
 
 	* df.h (DF_REF_MODE_CHANGE): New flag.
