@@ -180,9 +180,31 @@ inline vfy_string vfy_get_pool_string (vfy_constants *pool, int index)
 inline vfy_jclass vfy_find_class (vfy_method *method, vfy_jclass,
 				  vfy_string name)
 {
-  return method->unit->find_class_from_descriptor (method->scope,
-						   method->method,
-						   name);
+  int array_count = 0;
+  int offset = 0;
+  int len = strlen (name);
+
+  for (; offset < len && name[offset] == '['; ++offset)
+    ++array_count;
+
+  // FIXME: throw error...
+  if (offset == len)
+    return NULL;
+
+  int nlen = len - offset;
+  if (name[offset] == 'L' && name[len - 1] == ';')
+    {
+      ++offset;
+      nlen -= 2;
+    }
+  std::string name_str (name, offset, nlen);
+  vfy_jclass result = method->unit->find_class_from_descriptor (method->scope,
+								method->method,
+								name_str);
+  while (array_count-- > 0)
+    result = result->array ();
+
+  return result;
 }
 
 /**
@@ -195,6 +217,7 @@ inline bool vfy_has_method (vfy_jclass k, vfy_string method_name,
                             vfy_string method_descriptor)
 {
   model_class *klass = assert_cast<model_class *> (k);
+  klass->resolve_members ();
   return klass->has_method_with_descriptor_p (method_name, method_descriptor);
 }
 

@@ -1,5 +1,10 @@
 2005-03-27  Tom Tromey  <tromey@redhat.com>
 
+	* verify.h (vfy_find_class): Handle both forms of signature.
+	(vfy_has_method): Ensure class members resolved.
+
+2005-03-27  Tom Tromey  <tromey@redhat.com>
+
 	* aot/aotclass.cc (register_something): Start at 1.
 
 2005-03-27  Tom Tromey  <tromey@redhat.com>

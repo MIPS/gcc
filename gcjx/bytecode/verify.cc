@@ -2960,7 +2960,8 @@ private:
 	    {
 	      type t = check_class_constant (get_ushort ());
 	      if (t.isarray () || t.isinterface (this) || t.isabstract (this))
-		verify_fail ("type for 'new' is array, interface, or abstract");
+		verify_fail ("type for 'new' is array, interface, "
+			     "or abstract");
 	      t.set_uninitialized (start_PC, this);
 	      push_type (t);
 	    }
