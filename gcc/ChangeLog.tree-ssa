@@ -1,3 +1,8 @@
+2003-12-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-dfa.c (get_expr_operands): Don't record VUSEs for invariant
+	adresses.
+
 2003-12-03  Brian Booth  <bbooth@redhat.com>
 
 	* tree-pretty-print.c (dump_phi_nodes): Removed superfluous ampersand.

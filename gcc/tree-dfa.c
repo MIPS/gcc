@@ -357,6 +357,11 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	  && subcode != ARRAY_REF)
 	return;
 
+      /* If the address is invariant, there may be no interesting variable
+	 references inside.  */
+      if (is_gimple_min_invariant (expr))
+	return;
+
       /* Avoid recursion.  */
       code = subcode;
       class = TREE_CODE_CLASS (code);
