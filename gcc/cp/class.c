@@ -4905,19 +4905,7 @@ include_empty_classes (record_layout_info rli)
   if (TREE_CODE (rli_size) == INTEGER_CST
       && INT_CST_LT_UNSIGNED (rli_size, eoc))
     {
-      if (!abi_version_at_least (2))
-	/* In version 1 of the ABI, the size of a class that ends with
-	   a bitfield was not rounded up to a whole multiple of a
-	   byte.  Because rli_size_unit_so_far returns only the number
-	   of fully allocated bytes, any extra bits were not included
-	   in the size.  */
-	rli->bitpos = round_down (rli->bitpos, BITS_PER_UNIT);
-      else
-	/* The size should have been rounded to a whole byte.  */
-	my_friendly_assert (tree_int_cst_equal (rli->bitpos,
-						round_down (rli->bitpos,
-							    BITS_PER_UNIT)),
-			    20030903);
+      rli->bitpos = round_up (rli->bitpos, BITS_PER_UNIT);
       rli->bitpos 
 	= size_binop (PLUS_EXPR, 
 		      rli->bitpos,
@@ -5054,6 +5042,15 @@ layout_class_type (tree t, tree *virtuals_p)
 	     field to the size of its declared type; the rest of the
 	     field is effectively invisible.  */
 	  DECL_SIZE (field) = TYPE_SIZE (type);
+	  /* We must also reset the DECL_MODE of the field.  */
+	  if (abi_version_at_least (2))
+	    DECL_MODE (field) = TYPE_MODE (type);
+	  else if (warn_abi
+		   && DECL_MODE (field) != TYPE_MODE (type))
+	    /* Versions of G++ before G++ 3.4 did not reset the
+	       DECL_MODE.  */
+	    warning ("the offset of `%D' may not be ABI-compliant and may "
+		     "change in a future version of GCC", field);
 	}
       else
 	{
@@ -6690,7 +6687,7 @@ maybe_note_name_used_in_class (name, decl)
   splay_tree names_used;
 
   /* If we're not defining a class, there's nothing to do.  */
-  if (!current_class_type || !TYPE_BEING_DEFINED (current_class_type))
+  if (!innermost_scope_is_class_p ())
     return;
   
   /* If there's already a binding for this NAME, then we don't have

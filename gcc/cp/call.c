@@ -857,16 +857,25 @@ standard_conversion (to, from, expr)
 	    }
 	}
       else if (IS_AGGR_TYPE (TREE_TYPE (from))
-	       && IS_AGGR_TYPE (TREE_TYPE (to)))
+	       && IS_AGGR_TYPE (TREE_TYPE (to))
+	       /* [conv.ptr]
+		  
+	          An rvalue of type "pointer to cv D," where D is a
+		  class type, can be converted to an rvalue of type
+		  "pointer to cv B," where B is a base class (clause
+		  _class.derived_) of D.  If B is an inaccessible
+		  (clause _class.access_) or ambiguous
+		  (_class.member.lookup_) base class of D, a program
+		  that necessitates this conversion is ill-formed.  */
+	       /* Therefore, we use DERIVED_FROM_P, and not
+		  ACESSIBLY_UNIQUELY_DERIVED_FROM_P, in this test.  */
+	       && DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from)))
 	{
-	  if (DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from)))
-	    {
-	      from = 
-		cp_build_qualified_type (TREE_TYPE (to),
-					 cp_type_quals (TREE_TYPE (from)));
-	      from = build_pointer_type (from);
-	      conv = build_conv (PTR_CONV, from, conv);
-	    }
+	  from = 
+	    cp_build_qualified_type (TREE_TYPE (to),
+				     cp_type_quals (TREE_TYPE (from)));
+	  from = build_pointer_type (from);
+	  conv = build_conv (PTR_CONV, from, conv);
 	}
 
       if (same_type_p (from, to))
@@ -5993,7 +6002,8 @@ perform_implicit_conversion (type, expr)
 
 /* Convert EXPR to TYPE (as a direct-initialization) if that is
    permitted.  If the conversion is valid, the converted expression is
-   returned.  Otherwise, NULL_TREE is returned.  */
+   returned.  Otherwise, NULL_TREE is returned, except in the case
+   that TYPE is a class type; in that case, an error is issued.  */
 
 tree
 perform_direct_initialization_if_possible (tree type, tree expr)
@@ -6002,6 +6012,22 @@ perform_direct_initialization_if_possible (tree type, tree expr)
   
   if (type == error_mark_node || error_operand_p (expr))
     return error_mark_node;
+  /* [dcl.init]
+
+     If the destination type is a (possibly cv-qualified) class type:
+
+     -- If the initialization is direct-initialization ...,
+     constructors are considered. ... If no constructor applies, or
+     the overload resolution is ambiguous, the initialization is
+     ill-formed.  */
+  if (CLASS_TYPE_P (type))
+    {
+      expr = build_special_member_call (NULL_TREE, complete_ctor_identifier,
+					build_tree_list (NULL_TREE, expr),
+					TYPE_BINFO (type),
+					LOOKUP_NORMAL);
+      return build_cplus_new (type, expr);
+    }
   conv = implicit_conversion (type, TREE_TYPE (expr), expr,
 			      LOOKUP_NORMAL);
   if (!conv || ICS_BAD_FLAG (conv))

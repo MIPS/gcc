@@ -4739,12 +4739,13 @@ build_static_cast (type, expr)
 					  (TREE_TYPE (type))))
       && at_least_as_qualified_p (TREE_TYPE (type), intype))
     {
-      /* At this point we have checked all of the conditions except
-	 that B is not a virtual base class of D.  That will be
-	 checked by build_base_path.  */
-      tree base = lookup_base (TREE_TYPE (type), intype, ba_any, NULL);
+      /* There is a standard conversion from "D*" to "B*" even if "B"
+	 is ambiguous or inaccessible.  Therefore, we ask lookup_base
+	 to check these conditions.  */
+      tree base = lookup_base (TREE_TYPE (type), intype, ba_check, NULL);
 
-      /* Convert from B* to D*.  */
+      /* Convert from "B*" to "D*".  This function will check that "B"
+	 is not a virtual base of "D".  */
       expr = build_base_path (MINUS_EXPR, build_address (expr), 
 			      base, /*nonnull=*/false);
       /* Convert the pointer to a reference -- but then remember that
@@ -4803,7 +4804,7 @@ build_static_cast (type, expr)
 
       check_for_casting_away_constness (intype, type);
       base = lookup_base (TREE_TYPE (type), TREE_TYPE (intype), 
-			  ba_check | ba_quiet, NULL);
+			  ba_check, NULL);
       return build_base_path (MINUS_EXPR, expr, base, /*nonnull=*/false);
     }
   if ((TYPE_PTRMEM_P (type) && TYPE_PTRMEM_P (intype))
@@ -5237,6 +5238,10 @@ build_modify_expr (lhs, modifycode, rhs)
 		    TREE_OPERAND (lhs, 0), newrhs);
 
     case MODIFY_EXPR:
+      if (TREE_SIDE_EFFECTS (TREE_OPERAND (lhs, 0)))
+	lhs = build (TREE_CODE (lhs), TREE_TYPE (lhs),
+		     stabilize_reference (TREE_OPERAND (lhs, 0)),
+		     TREE_OPERAND (lhs, 1));
       newrhs = build_modify_expr (TREE_OPERAND (lhs, 0), modifycode, rhs);
       if (newrhs == error_mark_node)
 	return error_mark_node;
@@ -5440,14 +5445,6 @@ build_modify_expr (lhs, modifycode, rhs)
 	  lhs = copy_node (lhs);
 	  TREE_TYPE (lhs) = lhstype;
 	}
-    }
-
-  if (TREE_CODE (lhstype) != REFERENCE_TYPE)
-    {
-      if (TREE_SIDE_EFFECTS (lhs))
-	lhs = stabilize_reference (lhs);
-      if (TREE_SIDE_EFFECTS (newrhs))
-	newrhs = stabilize_reference (newrhs);
     }
 
   /* Convert new value to destination type.  */

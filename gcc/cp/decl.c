@@ -922,6 +922,14 @@ kept_level_p ()
 	      && !current_binding_level->tag_transparent));
 }
 
+/* Returns the kind of the innermost scope.  */
+
+bool
+innermost_scope_is_class_p ()
+{
+  return current_binding_level->parm_flag == 2;
+}
+
 static void
 declare_namespace_level ()
 {
@@ -5402,8 +5410,7 @@ check_goto (decl)
 }
 
 /* Define a label, specifying the location in the source file.
-   Return the LABEL_DECL node for the label, if the definition is valid.
-   Otherwise return 0.  */
+   Return the LABEL_DECL node for the label.  */
 
 tree
 define_label (filename, line, name)
@@ -5430,10 +5437,7 @@ define_label (filename, line, name)
     pedwarn ("label named wchar_t");
 
   if (DECL_INITIAL (decl) != NULL_TREE)
-    {
-      error ("duplicate label `%D'", decl);
-      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, NULL_TREE);
-    }
+    error ("duplicate label `%D'", decl);
   else
     {
       /* Mark label as having been defined.  */
@@ -5447,9 +5451,10 @@ define_label (filename, line, name)
 	  ent->binding_level = current_binding_level;
 	}
       check_previous_gotos (decl);
-      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, decl);
     }
+
   timevar_pop (TV_NAME_LOOKUP);
+  return decl;
 }
 
 struct cp_switch

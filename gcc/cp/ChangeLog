@@ -1,3 +1,63 @@
+2003-09-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/3907
+	* cp-tree.h (innermost_scope_is_class_p): New function.
+	* class.c (maybe_note_name_used_in_class): Refine test for whether
+	or not we are in a class scope.
+	* decl.c (innermost_scope_is_class_p): Define.
+
+2003-09-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (layout_class_type): Make DECL_MODE match TYPE_MODE for
+	an bit-field whose width exceeds that of its type.
+
+2003-09-09  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR c++/11595
+	* decl.c (define_label): Remove unreachable timevar pop.
+	Always return the decl, even if the definition is invalid.
+
+2003-09-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11786
+	* decl2.c (add_function): Do not complain about seeing the same
+	non-function twice.
+
+2003-09-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5296
+	* pt.c (try_one_overload): Add addr_p parameter.
+	(resolve_overloaded_unification): Pass it.
+
+2003-09-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/12181
+	* typeck.c (build_modify_expr): Don't always stabilize the lhs and
+	rhs.  Do stabilize the lhs of a MODIFY_EXPR used on the lhs.
+
+2003-09-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11867
+	* call.c (standard_conversion): Improve comments.
+	(perform_direct_initialization): Make sure we return an expression
+	of the correct type.
+	* typeck.c (build_static_cast): Check for ambiguity and
+	accessibility when performing conversions.
+
+2003-09-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/12163
+	* call.c (perform_direct_initialization): Correct logic for
+	direct-initialization of a class type.
+
+	PR c++/12146
+	* pt.c (lookup_template_function): Robustify.
+
+2003-09-04  Mark Mitchell  <mark@codesourcery.com>
+
+	Revert this patch:
+	* class.c (include_empty_classes): Correct logic for ABI version 1.
+
 2003-09-03  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/12053
