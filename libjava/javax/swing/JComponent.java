@@ -744,7 +744,7 @@ public abstract class JComponent extends Container implements Serializable
     PropertyChangeEvent evt = new PropertyChangeEvent(this, propertyName, oldValue, newValue);
     
     for (int i = 0; i < listeners.length; i++)
-      ((VetoableChangeListener) listeners[i]).vetoableChange(evt);
+      listeners[i].vetoableChange(evt);
   }
 
   /**

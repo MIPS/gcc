@@ -1,5 +1,12 @@
 2004-06-10  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JComponent.java
+	(fireVetoableChange): Removed redundant cast.
+	* javax/swing/JLabel.java
+	(getDisabledIcon): Save icon for next call.
+
+2004-06-10  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/KeyStroke.java
 	(getKeyStroke(char,boolean)): Marked deprecated.
 
